@@ -300,6 +300,27 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       check(assigns.every(({ a }) => a.length === 1 && Number(a[0].AdSectionId) > 0), "كل حساب مقيَّد بقسمه وكليته وحدهما");
       check((madeFrench.json.createdSections as any[]).every(row => row.accounts?.length === 3 && row.accounts.every((acc: any) => acc.status === "created")) && againFrench.json.createdSections.length === 0 && users.length === ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted).length, "الإعادة لا تكرر الحسابات");
     }
+    /* حسابات الأقسام الموجودة: معاينةٌ ثم إنشاءُ الناقص لما يُختار، بلا مساسٍ بحسابٍ موجود */
+    {
+      const frenchAllIds = (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40").map(row => Number(row.AdSectionId));
+      const call = async (who: string, method: string, url: string, body?: unknown) => { const res = await fetch(`${base}${url}`, { method, headers: { "content-type": "application/json", "x-who": who }, body: body ? JSON.stringify(body) : undefined }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+      const dept = await Repository.createSection(3, "92", "قسم الموسيقى");
+      await Repository.createCurriculumPlan({ collegeId: 3, sectionId: Number(dept.AdSectionId), name: "صحيفة اختبار الحسابات", code: "ACC-1", by: "t" } as any);
+      const did = Number(dept.AdSectionId);
+      const head = await Repository.createUser({ Name: "رئيس قائم", SystemUserLogin: "Musicexisting", SystemUserPass: Repository.hashPassword("x"), IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: "departmentHead" } as any);
+      await Repository.saveUserAssigns(head.SystemUserId, [{ AdCollegeId: 3, AdSectionId: did }]);
+      check((await call("other", "GET", "/api/plan-review/section-accounts")).status === 403 && (await call("other", "POST", "/api/plan-review/section-accounts", { sectionIds: [did] })).status === 403, "حسابات الأقسام للحساب الرئيسي وحده");
+      const usersBefore = ((await Repository.getUsers()) as any[]).length;
+      const preview = await call("root", "GET", "/api/plan-review/section-accounts");
+      const row = (preview.json.rows || []).find((item: any) => item.sectionId === did);
+      check(row && row.missing.length === 2 && row.existing.length === 1 && row.missing.every((item: any) => /^Music/.test(item.login)) && ((await Repository.getUsers()) as any[]).length === usersBefore, "المعاينة: الناقص وحده (رئيس القسم موجود) وبأسماء إنجليزية، ولا تكتب شيئاً", row);
+      check(!(preview.json.rows || []).some((item: any) => frenchAllIds.includes(item.sectionId)), "قسمٌ له حساباته (الفرنسي) لا يظهر");
+      const made = await call("root", "POST", "/api/plan-review/section-accounts", { sectionIds: [did] });
+      const after = (await call("root", "GET", "/api/plan-review/section-accounts")).json.rows.find((item: any) => item.sectionId === did);
+      const created = ((await Repository.getUsers()) as any[]).filter(user => /^Music(dept|advisor)/.test(user.SystemUserLogin));
+      check(made.json.created === 2 && !after && created.length === 2 && created.every(user => user.IsActive === true && Repository.verifyPassword("12345678", user.SystemUserPass)), "الإنشاء للناقص وحده: حسابان فعّالان بكلمة السر الافتراضية، ولا يتكرر", made.json);
+    }
+
     {
       /* المقررات الدخيلة: نسخةٌ (رقمٌ واسمٌ) من مقررٍ داخل صحيفة قسمٍ آخر، بلا جدول ولا صحيفة في قسمها */
       const home = (await Repository.getSections()).find(row => String(row.AdSectionCode) === "40" && Number(row.AdCollegeId) === 2)!;

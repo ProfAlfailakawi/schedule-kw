@@ -6,7 +6,7 @@
  */
 import React, { useRef, useState } from "react";
 import { AR, countOf } from "../utils/arabicCount";
-import { AlertTriangle, CheckCircle2, Download, GraduationCap, FileUp, FileX2, History, Link2, PencilLine, Plus, SearchX, ShieldAlert, Trash2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, GraduationCap, FileUp, FileX2, History, Link2, PencilLine, Plus, SearchX, ShieldAlert, Trash2, UserPlus, X } from "lucide-react";
 
 interface SectionOption { sectionId: number; label: string; sites: number }
 interface Rejection {
@@ -94,6 +94,33 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
       setForeignMsg(`حُذف ${countOf(Number(data.deleted || 0), AR.course)}`);
       await scanForeign();
     } catch (e: any) { setForeignMsg(String(e?.message || "تعذّر الحذف")); }
+  };
+  /* حسابات الأقسام الموجودة الناقصة: معاينةٌ ثم إنشاءُ ما يختاره المسؤول. */
+  type AccountsRow = { sectionId: number; college: string; section: string; existing: Array<{ label: string; login: string }>; missing: Array<{ role: string; label: string; login: string }> };
+  const [accounts, setAccounts] = useState<{ rows: AccountsRow[]; total: number } | null>(null);
+  const [accountsOn, setAccountsOn] = useState<Set<number>>(new Set());
+  const [accountsMsg, setAccountsMsg] = useState("");
+  const previewAccounts = async () => {
+    setAccountsMsg(""); setAccountsOn(new Set());
+    try {
+      const response = await fetch("/api/plan-review/section-accounts", { credentials: "include" });
+      const data = await response.json().catch(() => ({} as any));
+      if (!response.ok) throw new Error(data.error || "تعذّرت المعاينة");
+      setAccounts({ rows: data.rows || [], total: Number(data.total || 0) });
+    } catch (e: any) { setAccountsMsg(String(e?.message || "تعذّرت المعاينة")); }
+  };
+  const createAccounts = async () => {
+    const ids = [...accountsOn];
+    if (!ids.length) return;
+    const count = (accounts?.rows || []).filter(row => accountsOn.has(row.sectionId)).reduce((sum, row) => sum + row.missing.length, 0);
+    if (!window.confirm(`إنشاء ${countOf(count, AR.account)} فعّالة بكلمة السر الافتراضية؟`)) return;
+    try {
+      const response = await fetch("/api/plan-review/section-accounts", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ sectionIds: ids }) });
+      const data = await response.json().catch(() => ({} as any));
+      if (!response.ok) throw new Error(data.error || "تعذّر الإنشاء");
+      setAccountsMsg(`أُنشئ ${countOf(Number(data.created || 0), AR.account)}${data.failed?.length ? ` · تعثّر ${data.failed.length}` : ""}`);
+      await previewAccounts();
+    } catch (e: any) { setAccountsMsg(String(e?.message || "تعذّر الإنشاء")); }
   };
   const [pending, setPending] = useState<Array<{ file: File; dept: MissingDept }>>([]);
   const lastFile = useRef<File | null>(null);
@@ -353,6 +380,24 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
             <button type="button" className="btn btn-primary" onClick={() => void deleteForeign()} data-guide-ignore="حذف المقررات الدخيلة المختارة نهائياً داخل شاشة مراجعة الصحيفة"><Trash2 aria-hidden="true" size={16} /> احذف المختار</button>
           </>
         ) : <small role="status">لا مقررات دخيلة</small>) : null}
+      </div>
+      <div className="pr-sheet-result pr-sheet-accounts" role="group" aria-label="حسابات الأقسام">
+        <button type="button" className="btn btn-secondary" onClick={() => void previewAccounts()} data-guide-ignore="معاينة الأقسام التي ينقصها حساب رئيس قسم أو رئيس جدول أو مرشد داخل شاشة مراجعة الصحيفة"><UserPlus aria-hidden="true" size={16} /> معاينة حسابات الأقسام الناقصة</button>
+        {accountsMsg ? <small role="status">{accountsMsg}</small> : null}
+        {accounts ? (accounts.rows.length ? (
+          <>
+            <ul>
+              {accounts.rows.map(row => (
+                <li key={row.sectionId}>
+                  <label><input type="checkbox" checked={accountsOn.has(row.sectionId)} onChange={() => setAccountsOn(current => { const next = new Set(current); if (next.has(row.sectionId)) next.delete(row.sectionId); else next.add(row.sectionId); return next; })} data-guide-ignore="اختيار قسمٍ لإنشاء حساباته الناقصة داخل شاشة مراجعة الصحيفة" /> <b>{row.section}</b> <small>{row.college}</small></label>
+                  <small>ناقص: {row.missing.map(item => `${item.label} ← ${item.login}`).join(" · ")}{row.existing.length ? ` — موجود: ${row.existing.map(item => item.label).join("، ")}` : ""}</small>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="btn btn-secondary" onClick={() => setAccountsOn(current => current.size === accounts.rows.length ? new Set() : new Set(accounts.rows.map(row => row.sectionId)))} data-guide-ignore="تحديد كل الأقسام أو إلغاء التحديد داخل شاشة مراجعة الصحيفة">حدّد الكل / ألغِ</button>
+            <button type="button" className="btn btn-primary" disabled={!accountsOn.size} onClick={() => void createAccounts()} data-guide-ignore="إنشاء الحسابات الناقصة للأقسام المحدّدة بكلمة السر الافتراضية داخل شاشة مراجعة الصحيفة"><Plus aria-hidden="true" size={16} /> أنشئ المحدّد</button>
+          </>
+        ) : <small role="status">كل الأقسام لها حساباتها</small>) : null}
       </div>
       {outcome ? (
         <div className="pr-sheet-result" role="status">
