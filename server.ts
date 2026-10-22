@@ -518,7 +518,7 @@ app.use((req, res, next) => {
    * What is set here is the subset that restricts nothing the application does
    * and still closes real classes of attack: no plugins, no injected <base> to
    * re-point every relative URL, no form posting to a foreign origin, and no
-   * framing outside AI Studio preview iframe.
+   * framing outside the hosted preview iframe.
    */
   const cspFrameAncestors = process.env.APPLET_ID ? "" : "; frame-ancestors 'none'";
   res.setHeader("Content-Security-Policy", `object-src 'none'; base-uri 'self'; form-action 'self'${cspFrameAncestors}`);

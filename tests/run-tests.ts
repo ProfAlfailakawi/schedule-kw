@@ -1837,7 +1837,7 @@ async function runTests() {
   } else {
     originalLog("[SKIP] LEGACY_ADMIN_PASSWORD not set — legacy admin scrypt/vault round-trip not verified in this run.");
   }
-  assert(!!admin && !Repository.verifyPassword("password123", admin.SystemUserPass), "obsolete AI Studio demo password is rejected");
+  assert(!!admin && !Repository.verifyPassword("password123", admin.SystemUserPass), "obsolete demo password is rejected");
   const secureHash = Repository.hashPassword("new-password");
   assert(secureHash.startsWith("scrypt$") && Repository.verifyPassword("new-password", secureHash), "new passwords use scrypt");
   await Repository.createSession("test_session", 1, 60_000);
