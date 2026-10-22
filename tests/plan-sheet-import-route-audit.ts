@@ -277,6 +277,11 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       check(made.json.created === 6 && created.length === 6 && new Set(created.map(row => row.AdCollegeId)).size === 3 && created.every(row => Number(row.MaxStudent) === 0), "الإنشاء: برمزٍ كامل في كل كلية وبسعة صفر", made.json);
       const again = await call2("root", "/api/plan-review/service-courses/apply", { courses: list, assignments: [{ deptKey: "0150", sectionId: 21 }], dryRun: false });
       check(again.json.created === 0 && again.json.report?.[0]?.existing === 6, "التكرار لا يضاعف شيئاً", again.json);
+      /* مقررٌ بعينه يتبع قسماً غير قسم رمزه (رمزٌ يجمع أصولاً ومناهج) */
+      const mixed = [{ key: "0151101", name: "مقرر تابع للرمز", units: 3, hours: 3 }, { key: "0151102", name: "مقرر تابع لقسمٍ آخر", units: 3, hours: 3 }];
+      const split = await call2("root", "/api/plan-review/service-courses/apply", { courses: mixed, assignments: [{ deptKey: "0151", sectionId: 21 }], overrides: { "0151102": 11 }, dryRun: false });
+      const placed = (await Repository.getCourses()).filter(row => /^015110[12]$/.test(String(row.CourseCode)));
+      check(split.json.created === 4 && placed.filter(row => row.CourseCode === "0151101").length === 3 && placed.filter(row => row.CourseCode === "0151102").length === 1 && placed.find(row => row.CourseCode === "0151102")!.AdSectionId === 11, "مقررٌ بعينه يتبع قسمه المختار لا قسم رمزه", split.json);
     }
 
     /* تصحيح مقررات الأقسام الأخرى معطَّل حتى تُؤكَّد رموز الأقسام: المسار يرفض ولا يكتب */

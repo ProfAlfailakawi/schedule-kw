@@ -696,11 +696,26 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     for (const item of Array.isArray(req.body?.assignments) ? req.body.assignments : []) {
       const deptKey = String(item?.deptKey || "").replace(/\D/g, ""), sectionId = Number(item?.sectionId);
       if (deptKey.length !== 4 || !sectionId) continue;
-      if (has.has(deptKey)) { fail(res, 422, `القسم ${deptKey} له صحيفة: مقرراته من صحيفته لا من هنا.`); return; }
-      if (!(sections as any[]).some(row => Number(row.AdSectionId) === sectionId)) { fail(res, 404, "اختر قسماً موجوداً."); return; }
       assignments.set(deptKey, sectionId);
     }
-    if (!assignments.size) { fail(res, 400, "اختر القسم لرمزٍ واحد على الأقل."); return; }
+    /* مقررٌ بعينه قد يتبع قسماً غير قسم رمزه (رمزٌ يجمع مقررات أصول ومناهج مثلاً): يغلب على اختيار الرمز. */
+    const overrides = new Map<string, number>();
+    for (const [rawKey, rawId] of Object.entries((req.body?.overrides && typeof req.body.overrides === "object") ? req.body.overrides : {})) {
+      const key = String(rawKey).replace(/\D/g, ""), sectionId = Number(rawId);
+      if (key.length === 7 && sectionId) overrides.set(key, sectionId);
+    }
+    const sectionExists = (id: number) => (sections as any[]).some(row => Number(row.AdSectionId) === id);
+    for (const [deptKey, sectionId] of [...assignments, ...[...overrides].map(([key, id]) => [key.slice(0, 4), id] as [string, number])]) {
+      if (has.has(deptKey)) { fail(res, 422, `القسم ${deptKey} له صحيفة: مقرراته من صحيفته لا من هنا.`); return; }
+      if (!sectionExists(sectionId)) { fail(res, 404, "اختر قسماً موجوداً."); return; }
+    }
+    /* لكل قسمٍ مختار مقرراته. */
+    const bySection = new Map<number, typeof wanted>();
+    for (const course of wanted) {
+      const target = overrides.get(course.key) || assignments.get(course.key.slice(0, 4));
+      if (target) bySection.set(target, [...(bySection.get(target) || []), course]);
+    }
+    if (!bySection.size) { fail(res, 400, "اختر القسم لرمزٍ أو مقررٍ واحد على الأقل."); return; }
     const courses = await Repository.getCourses() as AdCourse[];
     const sectionCodes = new Map((sections as any[]).map(row => [Number(row.AdSectionId), authorityDepartmentCode((colleges as any[]).find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeCode, row.AdSectionCode)] as const));
     /* هوية المقرر في الكتالوج: رمزٌ قصير يُوسَّع برمز قسمه، وإلا كما هو. */
@@ -708,7 +723,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     const have = new Set(courses.map(row => `${Number(row.AdCollegeId)}|${keyOf(row)}`));
     const report: Array<{ deptKey: string; section: string; sites: number; created: number; existing: number; names: string[] }> = [];
     let total = 0;
-    for (const [deptKey, sectionId] of assignments) {
+    for (const [sectionId, list] of bySection) {
       /* القسم نفسه في كل الكليات (بنات وبنين والجهراء والفحيحيل): لكل كليةٍ نسختُها من مقرراته، فالصحائفُ تقرأ كتالوج كليتها. */
       const chosenRow = (sections as any[]).find(row => Number(row.AdSectionId) === sectionId);
       const family = departmentFamilyKey(String(chosenRow?.AdSectionName || ""));
@@ -717,8 +732,8 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         if (!row || sites.some(site => Number(site.AdCollegeId) === Number(row.AdCollegeId))) continue;
         if (Number(row.AdSectionId) === sectionId || departmentFamilyKey(String(row.AdSectionName || "")) === family) sites.push(row);
       }
-      const row = { deptKey, section: String(sites[0]?.AdSectionName || ""), sites: sites.length, created: 0, existing: 0, names: [] as string[] };
-      for (const site of sites) for (const course of wanted.filter(item => item.key.startsWith(deptKey))) {
+      const row = { deptKey: [...new Set(list.map(course => course.key.slice(0, 4)))].join("، "), section: String(sites[0]?.AdSectionName || ""), sites: sites.length, created: 0, existing: 0, names: [] as string[] };
+      for (const site of sites) for (const course of list) {
         if (have.has(`${Number(site.AdCollegeId)}|${course.key}`)) { row.existing += 1; continue; }
         if (!dryRun) {
           try { await Repository.createCourse(Number(site.AdCollegeId), Number(site.AdSectionId), course.key, course.name, course.units, course.hours, 0, false); have.add(`${Number(site.AdCollegeId)}|${course.key}`); }
@@ -729,7 +744,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       }
       report.push(row);
     }
-    if (!dryRun) res.locals.auditChanges = `مقررات أقسامٍ خدمية: ${countOf(total, AR.course)} في ${countOf(assignments.size, AR.department)}`;
+    if (!dryRun) res.locals.auditChanges = `مقررات أقسامٍ خدمية: ${countOf(total, AR.course)} في ${countOf(bySection.size, AR.department)}`;
     res.json({ ok: true, dryRun, created: total, report });
   });
 

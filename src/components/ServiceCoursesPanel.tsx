@@ -36,6 +36,8 @@ const post = async (url: string, body: unknown) => {
 export default function ServiceCoursesPanel({ targets, winners, onWinners }: { targets: Array<{ sectionId: number; label: string }>; winners: ServiceCourse[]; onWinners: (winners: ServiceCourse[]) => void }) {
   const [groups, setGroups] = useState<Group[] | null>(null);
   const [assign, setAssign] = useState<Record<string, number>>({});
+  /* مقررٌ بعينه يتبع قسماً غير قسم رمزه. */
+  const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [rows, setRows] = useState<Row[] | null>(null);
   const [msg, setMsg] = useState("");
   const [working, setWorking] = useState("");
@@ -55,7 +57,7 @@ export default function ServiceCoursesPanel({ targets, winners, onWinners }: { t
     const { winners: voted } = voteServiceCourses(lists);
     onWinners(voted); await load(voted);
   };
-  const payload = () => ({ courses: winners, assignments: Object.entries(assign).filter(([, id]) => id).map(([deptKey, sectionId]) => ({ deptKey, sectionId })) });
+  const payload = () => ({ courses: winners, assignments: Object.entries(assign).filter(([, id]) => id).map(([deptKey, sectionId]) => ({ deptKey, sectionId })), overrides: Object.fromEntries(Object.entries(overrides).filter(([, id]) => id)) });
   const preview = async () => { const data = await post("/api/plan-review/service-courses/apply", { ...payload(), dryRun: true }); setRows(data.report || []); };
   const create = async () => {
     const data = await post("/api/plan-review/service-courses/apply", { ...payload(), dryRun: false });
@@ -80,16 +82,30 @@ export default function ServiceCoursesPanel({ targets, winners, onWinners }: { t
           <ul>
             {groups.map(group => (
               <li key={group.deptKey}>
-                <b>رمز {group.deptKey}</b> <small>{countOf(group.courses.length, AR.course)}: {group.courses.slice(0, 4).map(course => course.name).join("، ")}{group.courses.length > 4 ? "…" : ""}</small>
+                <b>رمز {group.deptKey}</b> <small>{countOf(group.courses.length, AR.course)}</small>
                 <select aria-label={`قسم الرمز ${group.deptKey}`} value={assign[group.deptKey] || 0} onChange={e => { setAssign(current => ({ ...current, [group.deptKey]: Number(e.target.value) })); setRows(null); }}>
                   <option value={0}>— اختر القسم —</option>
                   {targets.map(target => <option key={target.sectionId} value={target.sectionId}>{target.label}</option>)}
                 </select>
+                <details>
+                  <summary><small>مقرراته؛ ولكل مقررٍ قسمٌ آخر إن كان يتبع غير قسم الرمز</small></summary>
+                  <ul>
+                    {group.courses.map(course => (
+                      <li key={course.key}>
+                        <small>{course.name} <bdi>({course.key})</bdi></small>
+                        <select aria-label={`قسم المقرر ${course.name}`} value={overrides[course.key] || 0} onChange={e => { setOverrides(current => ({ ...current, [course.key]: Number(e.target.value) })); setRows(null); }}>
+                          <option value={0}>كقسم الرمز</option>
+                          {targets.map(target => <option key={target.sectionId} value={target.sectionId}>{target.label}</option>)}
+                        </select>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               </li>
             ))}
           </ul>
           <div>
-            <button type="button" className="btn btn-secondary" disabled={Boolean(working) || !Object.values(assign).some(Boolean)} onClick={() => void run("جارٍ المعاينة", preview)} data-guide-ignore="معاينة ما سيُنشأ من مقررات الأقسام الخدمية؛ لا تكتب شيئاً">عاين</button>
+            <button type="button" className="btn btn-secondary" disabled={Boolean(working) || !(Object.values(assign).some(Boolean) || Object.values(overrides).some(Boolean))} onClick={() => void run("جارٍ المعاينة", preview)} data-guide-ignore="معاينة ما سيُنشأ من مقررات الأقسام الخدمية؛ لا تكتب شيئاً">عاين</button>
             <button type="button" className="btn btn-primary" disabled={Boolean(working) || !rows} onClick={() => { if (window.confirm("إنشاء هذه المقررات في أقسامها؟")) void run("جارٍ الإنشاء", create); }} data-guide-ignore="إنشاء مقررات الأقسام الخدمية في الأقسام المختارة بعد المعاينة">أنشئ</button>
           </div>
           {rows ? <ul>{rows.map(row => <li key={row.deptKey}><b>{row.deptKey}</b> ← {row.section} <small>({countOf(row.sites, AR.site)}) · ستُنشأ {row.created} · موجودة {row.existing}{row.names.length ? ` · مثل: ${row.names.slice(0, 3).join("، ")}` : ""}</small></li>)}</ul> : null}
