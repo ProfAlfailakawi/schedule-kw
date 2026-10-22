@@ -4558,14 +4558,14 @@ html.schedule-physics-active .rooms-slot.physics-origin::before{
 .hall-barter-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;min-width:178px}
 .hall-barter-actions .btn{min-height:38px}
 
-.hall-barter-active-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+.hall-barter-active-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:10px}
 .hall-barter-active-grid>article{
   position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--s3);
   padding:var(--s4);border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));border-radius:var(--r-lg);
   background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 6%,var(--surface)),var(--surface));
 }
 .hall-barter-status-dot{position:absolute;inset-block-start:13px;inset-inline-end:13px;width:7px;height:7px;border-radius:999px;background:var(--accent);box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 12%,transparent)}
-.hall-barter-active-grid>article>div{min-width:0;display:grid;gap:1px;padding-inline-end:14px}
+.hall-barter-active-grid>article>div{min-width:0;display:grid;gap:1px;padding-inline-end:14px;overflow-wrap:anywhere}
 .hall-barter-active-grid>article>div small{font-size:12px;color:var(--ink-3)}
 .hall-barter-active-grid>article>div strong{font-size:12.5px;font-weight:700}
 .hall-barter-active-grid>article>div em{font-size:12px;font-style:normal;color:var(--ink-3)}
@@ -4619,7 +4619,7 @@ html.schedule-physics-active .rooms-slot.physics-origin::before{
   .hall-barter-summary-stats{grid-column:2;justify-content:flex-start}
   .hall-barter-chevron{grid-column:3;grid-row:1 / span 2}
   .hall-barter-opportunity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .hall-barter-active-grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  .hall-barter-active-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}
 }
 @media(max-width:680px){
   .hall-barter-board{border-radius:18px}

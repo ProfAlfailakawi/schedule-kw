@@ -1949,7 +1949,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 @media (max-width:760px){
   .section-plan-row.head{display:none}
   .section-plan-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 8px;padding:12px}
-  .section-plan-course{grid-column:1/-1;order:0;font-size:var(--t-md,16px)}
+  .section-plan-course{grid-column:1/-1;order:0;font-size:var(--t-md,16px);min-inline-size:0;overflow-wrap:anywhere}
   .section-plan-left{order:1}.section-plan-count{order:2}.section-plan-pick{order:3}
   .section-plan-why-cell{grid-column:1/-1;order:4}
   .section-plan-row>[data-label]{display:grid;align-content:start;gap:4px;font-size:var(--t-md,16px)}
@@ -2032,6 +2032,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .section-plan-import-preview .import-summary-cards .ready svg{color:var(--success,#3f7f67)}
 .section-plan-import-preview .import-summary-cards .warn svg{color:var(--warning,#a8792a)}
 .section-plan-import-preview .import-summary-cards>span:has(svg){grid-template-columns:auto auto 1fr}
+@media(max-width:720px){.section-plan-import-preview .import-summary-cards>span:has(svg){grid-template-columns:auto auto minmax(0,1fr)}}
 .section-plan-import-table{min-width:0!important}
 .section-plan-import-table td.import-cell-course{min-width:140px}
 .section-plan-import-table td input[type="number"]{width:84px;max-width:100%;font-weight:700;text-align:center}

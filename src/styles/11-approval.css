@@ -453,11 +453,12 @@
    الموعد حقلٌ واحد في الشاشة التي يفتحها رئيس التسجيل كل يوم، لا إعدادٌ
    يُبحث عنه. والزرّ لا يظهر إلا إذا تغيّرت القيمة — فلا يُدعى أحدٌ إلى
    حفظ ما لم يُعدَّل.                                                      */
-.changes-term-picker{display:inline-flex;align-items:center;gap:8px}
+.changes-term-picker{display:inline-flex;align-items:center;gap:8px;max-inline-size:100%;min-inline-size:0}
 .changes-term-picker>span{color:var(--muted);font-size:.84rem;font-weight:600}
 /* The title actions were a plain block: the term label touched the department-schedule button and sat on a different line-box. */
-.changes-title-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.changes-title-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px;min-inline-size:0;max-inline-size:100%}
 .changes-term-picker select{
+  min-inline-size:0;max-inline-size:100%;text-overflow:ellipsis;
   min-block-size:38px;padding:6px 11px;font:inherit;
   border:1px solid var(--line-strong);border-radius:var(--r-sm);
   background:var(--surface);color:var(--ink);

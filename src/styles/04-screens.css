@@ -2670,8 +2670,8 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .location-quick-shared strong{color:var(--lqs-ink)}
 .location-quick-directory{padding:18px}
 .location-quick-directory>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
-.location-quick-room-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:9px}
-.location-quick-room-list article{display:grid;grid-template-columns:20px auto auto;align-items:center;gap:8px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.location-quick-room-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:9px}
+.location-quick-room-list article{min-inline-size:0;overflow-wrap:anywhere;display:grid;grid-template-columns:20px minmax(0,auto) auto;align-items:center;gap:8px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
 .location-quick-room-list article>svg{inline-size:18px;color:var(--lqs-accent)}
 .location-quick-room-list article>strong{font-size:1rem;color:var(--lqs-ink)}
 .location-quick-room-list article>small{grid-column:2/-1;color:var(--muted);line-height:1.4}

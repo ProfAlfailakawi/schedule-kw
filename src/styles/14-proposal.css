@@ -470,8 +470,8 @@
 .sp-copy-field>span{display:flex;gap:6px;align-items:center;font-size:var(--t-sm);font-weight:700;color:var(--ink-2)}
 .sp-commit header{padding-inline-end:44px}
 .sp-commit-lead{display:flex;gap:10px;align-items:flex-start;margin:12px 0;padding:10px 12px;border-radius:var(--r-md);background:var(--success-soft);color:var(--success);font-weight:600;font-size:13.5px}
-.sp-commit-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-block-end:14px}
-.sp-commit-cols section{padding:12px;border-radius:var(--r-md);background:var(--surface-2);border:1px solid var(--line)}
+.sp-commit-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px;margin-block-end:14px}
+.sp-commit-cols section{min-inline-size:0;overflow-wrap:anywhere;padding:12px;border-radius:var(--r-md);background:var(--surface-2);border:1px solid var(--line)}
 .sp-commit-cols section[data-tone="warn"]{background:var(--warning-soft)}
 .sp-commit-cols h3{margin:0 0 6px;font-size:13.5px}
 .sp-commit-cols ul{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:12.5px}
