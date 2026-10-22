@@ -699,7 +699,8 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       const sid = Number(section.AdSectionId);
       const byIdentity = new Map<string, AdCourse[]>();
       for (const row of (courses as AdCourse[]).filter(item => Number(item.AdSectionId) === sid)) { const key = identityOf(row); if (key) byIdentity.set(key, [...(byIdentity.get(key) || []), row]); }
-      const candidates = [...byIdentity].filter(([, rows]) => rows.length > 1);
+      /* رمزٌ واحد لمقرراتٍ بأسماءٍ مختلفة (آلاتٌ موسيقية بالرمز نفسه مثلاً) تنويعاتٌ مقصودة لا تكرار؛ المكرَّر: رمزان مكتوبان بصيغتين (105 و0109105)، أو رمزٌ واسمٌ متطابقان. */
+      const candidates = [...byIdentity].filter(([, rows]) => rows.length > 1 && (new Set(rows.map(row => referenceCodeKey(row.CourseCode))).size > 1 || rows.every(row => nameKey(row.CourseName) === nameKey(rows[0].CourseName))));
       if (!candidates.length) continue;
       const linked = new Set<number>((await Repository.getCurriculumPlanCourses(sid) as any[]).map(link => Number(link.AdCourseId)));
       const groups: Array<{ number: number; keeper: any; dups: any[] }> = [];
