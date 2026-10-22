@@ -1678,6 +1678,8 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overscroll-behavior:non
     content:"";position:absolute;inset-block:-6px;inset-inline:0;
   }
   .course-load-person-toggle::after,.sm-how>summary::after,.sm-provenance>summary::after{inset-block:-9px}
+  /* Chips wrap 5px apart: growth stays under half the gap so neighbouring hit areas never overlap. */
+  .changes-chip::after{inset-block:-2px}
   .changes-term-picker.changes-term-picker select{min-block-size:40px}
   /* Plan-review note chips sit 6px apart, so they grow in height instead of with an overlay. */
   .pr-ib-group>ul>li>button{min-block-size:40px}
