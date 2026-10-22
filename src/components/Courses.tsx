@@ -345,20 +345,15 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
         await load();
       }
       if (mode === "edit" && d?.roomTypeEvaluated) {
+        /* سطرٌ واحد: النوعُ وعددُ مواقع المقرر التي صار عليها (مع هذا الموقع). لا شيء إن لم يكن له نسخٌ أخرى. */
         const synced = Number(d.roomTypeSynced) || 0;
-        const aligned = Number(d.roomTypeAligned) || 0;
-        const skipped: Array<{ college: string; section: string; reason: string }> = Array.isArray(d.roomTypeSkipped) ? d.roomTypeSkipped : [];
-        if (synced > 0 || skipped.length || aligned > 0 || d.roomTypeChanged) {
+        const copies = synced + (Number(d.roomTypeAligned) || 0);
+        const skipped = Array.isArray(d.roomTypeSkipped) ? d.roomTypeSkipped.length : 0;
+        if (copies > 0 || skipped > 0) {
           if (synced > 0) await load();
-          const head = synced > 0
-            ? `طُبّق نوع القاعة «${courseRoomType || "بدون نوع"}» على ${countOf(synced, AR.course)} في بقية أحرام القسم (${savedCode}).`
-            : aligned > 0
-              ? `نوع القاعة «${courseRoomType || "بدون نوع"}» موحَّد أصلاً في بقية أحرام القسم (${savedCode}: ${countOf(aligned, AR.course)}).`
-              : `لم يُطبَّق نوع القاعة على نسخ أخرى من ${savedCode}.`;
-          const why = skipped.length
-            ? ` لم تتغير: ${skipped.map(item => `${item.college}${item.section ? ` — ${item.section}` : ""} (${item.reason})`).join("، ")}.`
-            : synced > 0 || aligned > 0 ? "" : " لا توجد نسخة بالرمز نفسه في كلية أخرى.";
-          setReceipt(head + why);
+          const sites = countOf(copies + 1, AR.site);
+          setReceipt((courseRoomType ? `نوع القاعة «${courseRoomType}» · ${sites}` : `أُزيل نوع القاعة · ${sites}`)
+            + (skipped ? ` · تعذّر ${countOf(skipped, AR.site)}` : ""));
         }
       }
       if (mode === "create" && targetPlan) {
