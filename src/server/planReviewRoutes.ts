@@ -688,7 +688,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   });
   app.post("/api/plan-review/service-courses/apply", sheetLimit, deps.requireAuth, express.json({ limit: "2mb" }), async (req: Request, res: Response) => {
     if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
-    const dryRun = req.body?.dryRun !== false;
+    const dryRun = req.body?.dryRun !== false, relocate = req.body?.relocate === true;
     const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
     const has = authorityKeys(sections as any[], colleges as any[]);
     const wanted = serviceCoursesOf(req.body?.courses);
@@ -721,7 +721,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     /* هوية المقرر في الكتالوج: رمزٌ قصير يُوسَّع برمز قسمه، وإلا كما هو. */
     const keyOf = (row: AdCourse) => { const code = referenceCodeKey(row.CourseCode), dept = sectionCodes.get(Number(row.AdSectionId)) || ""; return /^\d{1,3}$/.test(code) && /^\d{4}$/.test(dept) ? `${dept}${code.padStart(3, "0")}` : code; };
     const have = new Set(courses.map(row => `${Number(row.AdCollegeId)}|${keyOf(row)}`));
-    const report: Array<{ deptKey: string; section: string; sites: number; created: number; existing: number; names: string[] }> = [];
+    const report: Array<{ deptKey: string; section: string; sites: number; created: number; existing: number; moved: number; names: string[] }> = [];
     let total = 0;
     for (const [sectionId, list] of bySection) {
       /* القسم نفسه في كل الكليات (بنات وبنين والجهراء والفحيحيل): لكل كليةٍ نسختُها من مقرراته، فالصحائفُ تقرأ كتالوج كليتها. */
@@ -732,9 +732,26 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         if (!row || sites.some(site => Number(site.AdCollegeId) === Number(row.AdCollegeId))) continue;
         if (Number(row.AdSectionId) === sectionId || departmentFamilyKey(String(row.AdSectionName || "")) === family) sites.push(row);
       }
-      const row = { deptKey: [...new Set(list.map(course => course.key.slice(0, 4)))].join("، "), section: String(sites[0]?.AdSectionName || ""), sites: sites.length, created: 0, existing: 0, names: [] as string[] };
+      const row = { deptKey: [...new Set(list.map(course => course.key.slice(0, 4)))].join("، "), section: String(sites[0]?.AdSectionName || ""), sites: sites.length, created: 0, existing: 0, moved: 0, names: [] as string[] };
       for (const site of sites) for (const course of list) {
-        if (have.has(`${Number(site.AdCollegeId)}|${course.key}`)) { row.existing += 1; continue; }
+        if (have.has(`${Number(site.AdCollegeId)}|${course.key}`)) {
+          /* أُنشئ سابقاً في قسمٍ غير المختار: يُنقل (حذفٌ مؤرشف وإنشاءٌ في قسمه) إن كان من هذه اللوحة (رمزه الكامل) ولم يُستعمل: لا سعة ولا ربط بصحيفة ولا جدول. */
+          const misplaced = relocate ? courses.filter(item => Number(item.AdCollegeId) === Number(site.AdCollegeId) && keyOf(item) === course.key && Number(item.AdSectionId) !== Number(site.AdSectionId)) : [];
+          const inPlace = courses.some(item => Number(item.AdCollegeId) === Number(site.AdCollegeId) && keyOf(item) === course.key && Number(item.AdSectionId) === Number(site.AdSectionId));
+          let movable = misplaced.length > 0 && !inPlace;
+          for (const item of movable ? misplaced : []) {
+            if (referenceCodeKey(item.CourseCode) !== course.key || Number(item.MaxStudent) > 0 || await Repository.hasSchedulesForCourse(Number(item.AdCourseId))) { movable = false; break; }
+            const links = await Repository.getCurriculumPlanCourses(Number(item.AdSectionId));
+            if (links.some(link => Number(link.AdCourseId) === Number(item.AdCourseId))) { movable = false; break; }
+          }
+          if (!movable) { row.existing += 1; continue; }
+          if (!dryRun) {
+            for (const item of misplaced) await Repository.deleteCourse(Number(item.AdCourseId));
+            await Repository.createCourse(Number(site.AdCollegeId), Number(site.AdSectionId), course.key, course.name, course.units, course.hours, 0, false);
+          }
+          row.moved += 1; total += 1;
+          continue;
+        }
         if (!dryRun) {
           try { await Repository.createCourse(Number(site.AdCollegeId), Number(site.AdSectionId), course.key, course.name, course.units, course.hours, 0, false); have.add(`${Number(site.AdCollegeId)}|${course.key}`); }
           catch (error) { if (error instanceof DuplicateResourceError) { row.existing += 1; continue; } throw error; }
