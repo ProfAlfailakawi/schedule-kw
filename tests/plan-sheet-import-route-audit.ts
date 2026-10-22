@@ -274,6 +274,16 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       check(assigns.every(({ a }) => a.length === 1 && Number(a[0].AdSectionId) > 0), "كل حساب مقيَّد بقسمه وكليته وحدهما");
       check((madeFrench.json.createdSections as any[]).every(row => row.accounts?.length === 3 && row.accounts.every((acc: any) => acc.status === "created")) && againFrench.json.createdSections.length === 0 && users.length === ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted).length, "الإعادة لا تكرر الحسابات");
     }
+    {
+      const { provisionCollegeUsers } = await import("../src/server/sectionUsers");
+      const college = await Repository.createCollege("77", "كلية تجريبية جديدة");
+      const made = await provisionCollegeUsers(Repository, college);
+      const again = await provisionCollegeUsers(Repository, college);
+      const deanUser = ((await Repository.getUsers()) as any[]).find(row => row.SystemUserLogin === "77dean");
+      const deanAssigns = deanUser ? await Repository.getUserAssigns(deanUser.SystemUserId) : [];
+      check(made.length === 2 && made.every(row => row.status === "created") && again.every(row => row.status === "exists"), "الكلية الجديدة: عميد وعميد مساعد بلا تكرار عند الإعادة", [made, again]);
+      check(deanUser?.IsActive === true && deanUser.Role === "dean" && deanAssigns.length === 1 && Number(deanAssigns[0].AdCollegeId) === Number(college.AdCollegeId) && Number(deanAssigns[0].AdSectionId) === 0, "العميد فعّال ونطاقه كليته كلها");
+    }
 
     /* قراءة الترويسة بلا كتابة (لتصفية الدفعة) */
     const scanOf = async (who: string, body: Buffer) => { const res = await fetch(`${base}/api/plan-review/sheet/scan`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": who }, body }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };

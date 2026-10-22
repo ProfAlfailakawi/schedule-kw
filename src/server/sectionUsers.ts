@@ -60,3 +60,39 @@ export async function provisionSectionUsers(Repository: any, college: { AdColleg
   }
   return out;
 }
+
+/** صفات الكلية: العميد والعميد المساعد نطاقهما الكلية. عميد التسجيل ورئيسه نطاقهما كل الكليات بما يُضاف لاحقاً فيشملان الجديدة بلا ربط. */
+export const COLLEGE_ACCOUNT_ROLES: Array<{ id: string; suffix: string }> = [
+  { id: "dean", suffix: "dean" },
+  { id: "viceDean", suffix: "vicedean" },
+];
+
+export async function provisionCollegeUsers(Repository: any, college: { AdCollegeId: number; AdCollegeCode: string; AdCollegeName: string }, password = DEFAULT_SECTION_PASSWORD): Promise<SectionAccountResult[]> {
+  const collegeId = Number(college.AdCollegeId);
+  const users = ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted);
+  const byLogin = new Map(users.map(row => [String(row.SystemUserLogin).toLowerCase(), row]));
+  const tag = String(college.AdCollegeCode || "").replace(/[^A-Za-z0-9]/g, "").toLowerCase() || `c${collegeId}`;
+  const out: SectionAccountResult[] = [];
+  for (const { id, suffix } of COLLEGE_ACCOUNT_ROLES) {
+    const role = ACADEMIC_ROLES.find(item => item.id === id) || roleDefinition(id);
+    let login = `${tag}${suffix}`;
+    let found = byLogin.get(login.toLowerCase());
+    if (found) {
+      const owns = (await Repository.getUserAssigns(Number(found.SystemUserId))) as any[];
+      if (owns.length && !owns.some(row => Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === 0)) {
+        login = `${tag}c${collegeId}${suffix}`;
+        found = byLogin.get(login.toLowerCase());
+      }
+    }
+    if (found) { out.push({ login, role: id, label: role.label, status: "exists" }); continue; }
+    const user = await Repository.createUser({
+      Name: `${role.label} — ${college.AdCollegeName}`, SystemUserLogin: login,
+      SystemUserPass: Repository.hashPassword(password), SystemUserPassVault: Repository.encryptPasswordForVault(password),
+      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: id,
+    });
+    await Repository.saveSecurityByUser(user.SystemUserId, role.formIds);
+    await Repository.saveUserAssigns(user.SystemUserId, [{ AdCollegeId: collegeId, AdSectionId: 0 }]);
+    out.push({ login, role: id, label: role.label, status: "created" });
+  }
+  return out;
+}
