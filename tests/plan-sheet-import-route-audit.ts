@@ -297,7 +297,7 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const listed = (preview.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id));
       check(preview.status === 200 && listed.includes(copy.AdCourseId) && !listed.includes(sameNumberOtherName.AdCourseId) && !listed.includes(owned.AdCourseId), "المعاينة: النسخة الدخيلة وحدها (لا الأصل ولا ما اختلف رقمه)", listed);
       /* نسخةٌ في موقعٍ آخر للقسم نفسه (اسمه نفسه في كليةٍ أخرى): ليست دخيلة */
-      const sibling = await Repository.createSection(3, "98", home.AdSectionName);
+      const sibling = await Repository.createSection(3, "98", String(home.AdSectionName).replace(/^قسم\s+/, ""));
       const siblingCopy = await Repository.createCourse(3, Number(sibling.AdSectionId), owned.CourseCode, owned.CourseName, 3, 3, 0, false);
       const afterMirror = await callF("root", "GET", "/api/plan-review/sheet/foreign");
       const listedAfter = (afterMirror.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id));

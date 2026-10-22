@@ -23,7 +23,7 @@ import type { Express, Request, RequestHandler, Response } from "express";
 import { DuplicateResourceError, RuleDraftConflict, Repository } from "../db/repository";
 import type { AdCourse, CurriculumRuleSet, ElectiveGroup } from "../types";
 import { roleDefinition } from "../utils/academicRoles";
-import { sectionLabels } from "../utils/sectionLabel";
+import { departmentFamilyKey, sectionLabels } from "../utils/sectionLabel";
 import {
   checkRuleSet, normalizeGroup, normalizeRule, normalizeRules, withDerivedGroups, type RuleIssue,
 } from "../utils/curriculumRules";
@@ -554,7 +554,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       const owner = owners.get(`${String(course.CourseCode).trim()}|${nameKey(course.CourseName)}`);
       if (!owner || Number(owner.AdSectionId) === Number(course.AdSectionId)) continue;
       /* القسم نفسه في كليةٍ أخرى (بنات والجهراء والفحيحيل): لكل موقعٍ نسخته من مقرراته، وليست دخيلة؛ أما قسمان بالاسم نفسه في كليةٍ واحدة فلا. */
-      if (nameKey(sectionNames.get(Number(owner.AdSectionId))) === nameKey(sectionNames.get(Number(course.AdSectionId))) && sectionCollege.get(Number(owner.AdSectionId)) !== sectionCollege.get(Number(course.AdSectionId))) continue;
+      if (departmentFamilyKey(sectionNames.get(Number(owner.AdSectionId))) === departmentFamilyKey(sectionNames.get(Number(course.AdSectionId))) && sectionCollege.get(Number(owner.AdSectionId)) !== sectionCollege.get(Number(course.AdSectionId))) continue;
       if (await Repository.hasSchedulesForCourse(Number(course.AdCourseId))) continue;
       const sid = Number(course.AdSectionId);
       const row = out.get(sid) || { sectionId: sid, section: sectionName.get(sid) || String(sid), courses: [] };
