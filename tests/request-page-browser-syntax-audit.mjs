@@ -22,3 +22,11 @@ const scripts = [...String(sandbox.html).matchAll(/<script[^>]*>([\s\S]*?)<\/scr
 if (scripts.length !== 1) throw new Error(`توقعت سكربت متصفح واحداً في صفحة الأستاذ، ووجدت ${scripts.length}`);
 new vm.Script(scripts[0], { filename: 'instructor-request-inline.js' });
 console.log('✓ صفحة طلب الأستاذ المولدة تحمل JavaScript صالحاً للمتصفح');
+
+/* اللغةُ لا تكشف اسماً غير معرَّف حتى يُستدعى: دالةٌ نُقلت إلى صفحة الطالب بالخطأ فصار
+   «أرسل الطلب» في صفحة الأستاذ يرمي ReferenceError بصمت. فكلُّ مساعدٍ يستدعيه مسارُ
+   الإرسال يجب أن يكون معرَّفاً داخل سكربت الصفحة نفسها. */
+for (const name of ['replacedWarn', 'requestedHtml', 'courseOf', 'actionName', 'postSubmit', 'focusItem', 'pathHtml', 'payloadItems', 'pendingList']) {
+  if (!new RegExp(`function\\s+${name}\\s*\\(`).test(scripts[0])) throw new Error(`صفحة الأستاذ تستدعي ${name} ولا تعرّفها`);
+}
+console.log('✓ مساعدات مسار الإرسال معرَّفة داخل صفحة الأستاذ');
