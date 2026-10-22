@@ -2673,8 +2673,8 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
 @media screen and (max-width:760px){
   .query-page{gap:var(--s3)}
   .lens-strip{
-    margin-inline:calc(var(--page-pad,16px) * -1);
-    padding-inline:var(--page-pad,16px);
+    margin-inline:calc(var(--page-pad,var(--gutter,16px)) * -1);
+    padding-inline:var(--page-pad,var(--gutter,16px));
     padding-inline-end:68px; /* the last lens scrolls clear of the fixed guide launcher */
     border-inline:0;border-radius:0;
     scrollbar-width:none;scroll-snap-type:x proximity;
