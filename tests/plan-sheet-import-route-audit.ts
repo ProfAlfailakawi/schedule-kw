@@ -235,6 +235,18 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       check(ok.json.changed === 1 && !(await Repository.getCurriculumPlans(gid)).some(plan => plan.status === "transition"), "جديدةٌ فيها مقررات: تُنهى السابقة");
     }
 
+    /* اعتماد كل الصحائف: معاينةٌ بالجاهز والمحجوب، والتنفيذ للجاهز وحده وللرئيسي وحده */
+    {
+      const callA = async (who: string, method: string, url: string) => { const res = await fetch(`${base}${url}`, { method, headers: { "content-type": "application/json", "x-who": who } }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+      check((await callA("other", "GET", "/api/plan-review/approve-all")).status === 403 && (await callA("other", "POST", "/api/plan-review/approve-all")).status === 403, "اعتماد الكل للحساب الرئيسي وحده");
+      const draftsBefore = ((await Repository.listRuleDrafts()) as any[]).filter(draft => draft.status === "review").length;
+      const preview = await callA("root", "GET", "/api/plan-review/approve-all");
+      check(preview.status === 200 && preview.json.ready.length + preview.json.blocked.length === draftsBefore && ((await Repository.listRuleDrafts()) as any[]).filter(draft => draft.status === "review").length === draftsBefore, "المعاينة: الجاهز والمحجوب يساويان المسوّدات، ولا تكتب شيئاً", { ready: preview.json.ready?.length, blocked: preview.json.blocked?.length, draftsBefore });
+      const done = await callA("root", "POST", "/api/plan-review/approve-all");
+      const left = ((await Repository.listRuleDrafts()) as any[]).filter(draft => draft.status === "review").length;
+      check(done.status === 200 && preview.json.ready.length > 0 && done.json.approved === preview.json.ready.length && left === preview.json.blocked.length, "التنفيذ يعتمد الجاهز وحده ويُبقي المحجوب", { approved: done.json.approved, ready: preview.json.ready.length, left, blocked: preview.json.blocked.length });
+    }
+
     /* تصحيح مقررات الأقسام الأخرى معطَّل حتى تُؤكَّد رموز الأقسام: المسار يرفض ولا يكتب */
     const reconcileCall = (who: string, courses: unknown[]) => call(who, "POST", "/api/plan-review/sheet/reconcile", { courses });
     const coursesBeforeReconcile = JSON.stringify(await Repository.getCourses());

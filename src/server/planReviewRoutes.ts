@@ -396,6 +396,50 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     }
   });
 
+  /* ── اعتماد كل الصحائف: معاينةٌ ثم تنفيذ ──────────────────────────────────────────────────────────────
+     لكل مسوّدةٍ قيد المراجعة (جديدةً أو سابقة) ما يصحّ اعتماده: لا حاجز في قواعدها (الشرط نفسه في اعتماد صحيفةٍ واحدة).
+     ما فيه حاجزٌ يُعرض بسببه ولا يُعتمد. للحساب الرئيسي وحده. */
+  const approvalPlan = async () => {
+    const drafts = (await Repository.listRuleDrafts()).filter(draft => draft.status === "review");
+    const [sectionRows, collegeRows] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
+    const labels = sectionLabels(sectionRows as any[], collegeRows as any[]);
+    const ready: Array<{ planId: string; sectionId: number; plan: string; section: string; updatedAt: string }> = [];
+    const blocked: Array<{ planId: string; sectionId: number; plan: string; section: string; reason: string }> = [];
+    for (const draft of drafts) {
+      const ctx = await context(draft.planId, draft.AdSectionId);
+      const section = labels.get(draft.AdSectionId) || "";
+      if (!ctx) { blocked.push({ planId: draft.planId, sectionId: draft.AdSectionId, plan: "", section, reason: "الصحيفة غير موجودة" }); continue; }
+      const issues = issuesOf(ctx, draft).filter(issue => issue.severity === "block");
+      if (issues.length) { blocked.push({ planId: draft.planId, sectionId: draft.AdSectionId, plan: ctx.plan.name, section, reason: `${countOf(issues.length, AR.blocker)}: ${issues[0].text}` }); continue; }
+      ready.push({ planId: draft.planId, sectionId: draft.AdSectionId, plan: ctx.plan.name, section, updatedAt: String(draft.updatedAt || "") });
+    }
+    return { ready, blocked };
+  };
+  app.get("/api/plan-review/approve-all", deps.requireAuth, async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, ...(await approvalPlan()) });
+  });
+  app.post("/api/plan-review/approve-all", sheetLimit, deps.requireAuth, async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    const by = deps.actorName(req);
+    const { ready, blocked } = await approvalPlan();
+    let approved = 0, stale = 0;
+    const republish = (await import("./planSheetRoutes")).republishIfPublished;
+    for (const item of ready) {
+      try {
+        await Repository.approveRuleDraft(item.planId, item.updatedAt, by);
+        await republish(item.planId, by).catch(() => false);
+        approved += 1;
+      } catch (error) {
+        if (error instanceof RuleDraftConflict) { stale += 1; continue; }
+        throw error;
+      }
+    }
+    res.locals.auditChanges = `اعتماد كل الصحائف: ${approved} اعتُمدت${stale ? `، ${stale} تغيّرت أثناء الاعتماد` : ""}${blocked.length ? `، ${blocked.length} فيها حواجز` : ""}`;
+    res.json({ ok: true, approved, stale, blocked });
+  });
+
   /* ── تطبيق صحيفة تكنولوجيا التعليم المرجعية على كتالوج الموقع ──────────────────────
      المعاينة والتطبيق من الدالة نفسها (planReferenceApplication): ما يُعرض هو ما يُكتب.
      الحساب الرئيسي وحده؛ يصحّح الاسم والوحدات والساعات إلى الصحيفة، ويضيف الناقص في قسمه المالك،
