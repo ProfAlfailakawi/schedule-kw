@@ -36,7 +36,7 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       { AdSectionId: 15, AdCollegeId: 2, AdSectionCode: "09", AdSectionName: "قسم تكنولوجيا التعليم" },
     ],
     instructors: [], schedules: [], rooms: [], courseTransitions: [],
-    courses: [{ AdCourseId: 301, AdCollegeId: 1, AdSectionId: 21, CourseCode: "105", CourseName: "أسس تكنولوجيا التعلم", CourseCredit: 3, CourseHours: 3, MaxStudent: 60 }],
+    courses: [{ AdCourseId: 301, AdCollegeId: 1, AdSectionId: 21, CourseCode: "105", CourseName: "أسس تكنولوجيا التعلم", CourseCredit: 3, CourseHours: 3, MaxStudent: 60 }, { AdCourseId: 302, AdCollegeId: 1, AdSectionId: 11, CourseCode: "120", CourseName: "الإعجاز العلمي في القرآن والسنة", CourseCredit: 3, CourseHours: 3, MaxStudent: 0 }],
     curriculumPlans: [{ id: "p15", AdCollegeId: 2, AdSectionId: 15, name: "فعّالة", status: "active", createdAt: "2026-01-01" }], curriculumPlanCourses: [],
   }), { mode: 0o600 });
   process.env.NODE_ENV = "test"; process.env.DATA_MODE = "demo"; process.env.SCHEDULE_PRIVATE_DIR = dir;
@@ -103,8 +103,13 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const draft = await Repository.getRuleSet(first.json.planId).catch(() => undefined);
     const drafts = await Repository.listRuleDrafts();
     const mine = drafts.find(row => row.planId === first.json.planId);
-    check(!!mine && mine.status === "review" && mine.rules.length === 27, `مسوّدة قواعد بـ٢٧ قاعدة للمراجعة (${mine?.rules.length})`);
+    check(!!mine && mine.status === "review" && mine.rules.length === 28, `مسوّدة قواعد بـ٢٧ قاعدة وقاعدة المقرر الخارجي للمراجعة (${mine?.rules.length})`);
     void draft;
+    /* مقررات الأقسام الأخرى في المجموعة الاختيارية: الموجود في الكتالوج يدخلها خارجياً بلا أي كتابة في قسمه، وغير الموجود وحداتٌ معلّقة. */
+    const foreignGroup = mine?.groups.find(group => group.id === "y2026-s1g3");
+    check(!!foreignGroup && foreignGroup.courseIds.includes(302) && foreignGroup.pendingUnits === 30, "المجموعة الاختيارية تضمّ مقرر القسم الآخر الموجود وتحصي الباقي وحداتٍ معلّقة", foreignGroup);
+    check(!!mine?.externals?.includes(302) && (await Repository.getCourses()).filter(row => Number(row.AdSectionId) === 11).length === 1, "المقرر الخارجي مقفولٌ للقراءة وقسمه لم يُكتب فيه");
+    check(!(await Repository.listRuleDrafts()).find(row => row.planId === first.json.planId)!.groups.some(group => group.courseIds.some(id => (mine!.groups.filter(other => other.id !== group.id).some(other => other.courseIds.includes(id))))), "لا مقرر في مجموعتين");
 
     const second = await upload("root", 21);
     check(second.status === 200 && second.json.created === 0 && second.json.updated === 0 && second.json.linked === 0 && second.json.planCreated === false && second.json.renamed === null, "الرفع المتكرر لا يغيّر شيئاً", second.json);
@@ -237,14 +242,21 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
 
     /* اعتماد كل الصحائف: معاينةٌ بالجاهز والمحجوب، والتنفيذ للجاهز وحده وللرئيسي وحده */
     {
-      const callA = async (who: string, method: string, url: string) => { const res = await fetch(`${base}${url}`, { method, headers: { "content-type": "application/json", "x-who": who } }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+      const callA = async (who: string, method: string, url: string, body?: unknown) => { const res = await fetch(`${base}${url}`, { method, headers: { "content-type": "application/json", "x-who": who }, ...(body ? { body: JSON.stringify(body) } : {}) }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
       check((await callA("other", "GET", "/api/plan-review/approve-all")).status === 403 && (await callA("other", "POST", "/api/plan-review/approve-all")).status === 403, "اعتماد الكل للحساب الرئيسي وحده");
       const draftsBefore = ((await Repository.listRuleDrafts()) as any[]).filter(draft => draft.status === "review").length;
+      /* مجموعةٌ قديمة تكرّر مقرراً في مجموعتين (تراكمُ رفعٍ سابق): يُصلحها الاعتماد بإبقاء المقرر في الأولى ولا تمنع */
+      const dupPlan = first.json.planId as string;
+      await Repository.updateRuleDraft(dupPlan, current => { const kept = current!.groups.find(group => group.id === "y2026-s2g2")!; return { ...current!, status: "review", groups: [...current!.groups, { id: "stale-1", name: "قديمة", minCourses: 0, minUnits: 0, courseIds: kept.courseIds.slice(0, 2) }], updatedAt: new Date().toISOString() }; });
       const preview = await callA("root", "GET", "/api/plan-review/approve-all");
       check(preview.status === 200 && preview.json.ready.length + preview.json.blocked.length === draftsBefore && ((await Repository.listRuleDrafts()) as any[]).filter(draft => draft.status === "review").length === draftsBefore, "المعاينة: الجاهز والمحجوب يساويان المسوّدات، ولا تكتب شيئاً", { ready: preview.json.ready?.length, blocked: preview.json.blocked?.length, draftsBefore });
-      const done = await callA("root", "POST", "/api/plan-review/approve-all");
+      check((await callA("root", "POST", "/api/plan-review/approve-all")).status === 400, "التنفيذ بلا معاينة يُرفض");
+      const done = await callA("root", "POST", "/api/plan-review/approve-all", { items: preview.json.ready.map((item: any) => ({ planId: item.planId, updatedAt: item.updatedAt })) });
       const left = ((await Repository.listRuleDrafts()) as any[]).filter(draft => draft.status === "review").length;
       check(done.status === 200 && preview.json.ready.length > 0 && done.json.approved === preview.json.ready.length && left === preview.json.blocked.length, "التنفيذ يعتمد الجاهز وحده ويُبقي المحجوب", { approved: done.json.approved, ready: preview.json.ready.length, left, blocked: preview.json.blocked.length });
+      check(preview.json.ready.some((item: any) => item.planId === dupPlan && item.repaired === true), "المكرَّر بين مجموعتين جاهزٌ للاعتماد بعد إصلاحٍ آلي", preview.json.blocked?.find((item: any) => item.planId === dupPlan));
+      const approvedSet = await Repository.getRuleSet(dupPlan);
+      check(!!approvedSet && !approvedSet.groups.some(group => group.id === "stale-1") && approvedSet.groups.some(group => group.id === "y2026-s2g2"), "اعتُمدت بلا المجموعة المكرِّرة وبقيت مجموعة الصحيفة", approvedSet?.groups);
     }
 
     /* تصحيح مقررات الأقسام الأخرى معطَّل حتى تُؤكَّد رموز الأقسام: المسار يرفض ولا يكتب */

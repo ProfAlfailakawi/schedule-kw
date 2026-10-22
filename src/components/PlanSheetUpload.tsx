@@ -127,7 +127,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
     } catch (e: any) { setAccountsMsg(String(e?.message || "تعذّر الإنشاء")); }
   };
   /* اعتماد كل الصحائف: معاينةٌ بالجاهز وما فيه حاجز، ثم اعتماد الجاهز. */
-  type ApprovalItem = { planId: string; plan: string; section: string; reason?: string };
+  type ApprovalItem = { planId: string; plan: string; section: string; updatedAt?: string; reason?: string };
   const [approval, setApproval] = useState<{ ready: ApprovalItem[]; blocked: ApprovalItem[] } | null>(null);
   const [approvalMsg, setApprovalMsg] = useState("");
   const previewApproval = async () => {
@@ -142,7 +142,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
   const approveAll = async () => {
     if (!approval?.ready.length || !window.confirm(`اعتماد ${countOf(approval.ready.length, AR.sheet)} جاهزة؟`)) return;
     try {
-      const response = await fetch("/api/plan-review/approve-all", { method: "POST", credentials: "include" });
+      const response = await fetch("/api/plan-review/approve-all", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ items: approval.ready.map(item => ({ planId: item.planId, updatedAt: item.updatedAt })) }) });
       const data = await response.json().catch(() => ({} as any));
       if (!response.ok) throw new Error(data.error || "تعذّر الاعتماد");
       setApprovalMsg(`اعتُمدت ${countOf(Number(data.approved || 0), AR.sheet)}${data.stale ? ` · تغيّرت ${data.stale} أثناء الاعتماد (أعد المعاينة)` : ""}`);

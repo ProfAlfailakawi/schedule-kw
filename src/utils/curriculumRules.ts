@@ -79,10 +79,24 @@ export function normalizeGroup(raw: any): ElectiveGroup | null {
   if (!id) return null;
   const minCourses = Math.max(0, Math.min(20, Math.round(Number(raw?.minCourses)) || 0));
   const minUnits = Math.max(0, Math.min(60, Math.round(Number(raw?.minUnits)) || 0));
+  const pendingUnits = Math.max(0, Math.min(200, Math.round(Number(raw?.pendingUnits)) || 0));
   return {
     id, name: String(raw?.name ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().slice(0, 60) || "مجموعة اختيارية",
-    minCourses, minUnits, courseIds: uniqueIds(raw?.courseIds).sort((a, b) => a - b),
+    minCourses, minUnits, courseIds: uniqueIds(raw?.courseIds).sort((a, b) => a - b), ...(pendingUnits ? { pendingUnits } : {}),
   };
+}
+
+/** مقررٌ في مجموعتين: يبقى في الأولى (ترتيبَ ورودها) وتُترك الثانية بدونه؛ ومجموعةٌ فرغت بهذا تُحذف إن لم يكن لها حدٌّ أدنى، وإلا تبقى فارغةً فيمنعها الفحص ولا يضيع شرطٌ أكاديمي. */
+export function dedupeGroups(groups: readonly ElectiveGroup[]): ElectiveGroup[] {
+  const seen = new Set<number>();
+  const out: ElectiveGroup[] = [];
+  for (const group of groups) {
+    const courseIds = group.courseIds.filter(id => !seen.has(id));
+    for (const id of courseIds) seen.add(id);
+    if (!courseIds.length && group.courseIds.length && !group.minCourses && !group.minUnits) continue;
+    out.push(courseIds.length === group.courseIds.length ? group : { ...group, courseIds });
+  }
+  return out;
 }
 
 /** «واحدةٌ» لكل مقرر: آخرُ ما كُتب له يحلّ محلّ ما قبله. */
@@ -199,7 +213,12 @@ export function checkRuleSet(set: { rules: readonly CurriculumCourseRule[]; grou
     if (!members.length) add({ severity: "warn", code: "group-empty", groupId: group.id, text: `«${group.name}» بلا مقررات.` });
     if (group.minCourses > members.length) add({ severity: "block", code: "group-min-courses", groupId: group.id, text: `«${group.name}»: المطلوب ${countOf(group.minCourses, AR.course)} والمتاح ${countOf(members.length, AR.course)}.` });
     const sum = members.reduce((total, id) => total + (ctx.credit.get(id) || 0), 0);
-    if (group.minUnits > sum) add({ severity: "block", code: "group-min-units", groupId: group.id, text: `«${group.name}»: المطلوب ${countOf(group.minUnits, AR.unit)} والمتاح ${countOf(sum, AR.unit)}.` });
+    if (group.minUnits > sum) {
+      const pending = group.pendingUnits || 0;
+      /* النقصُ كلُّه من مقرراتٍ عدّتها الصحيفة وليست في الكتالوج بعد: تنبيهٌ يزول بإضافتها، لا مانعٌ. */
+      if (pending && group.minUnits <= sum + pending) add({ severity: "warn", code: "group-pending", groupId: group.id, text: `«${group.name}»: المطلوب ${countOf(group.minUnits, AR.unit)} والمتاح ${countOf(sum, AR.unit)}؛ ${countOf(group.minUnits - sum, AR.unit)} من مقررات أقسامٍ لم تُضف للنظام بعد.` });
+      else add({ severity: "block", code: "group-min-units", groupId: group.id, text: `«${group.name}»: المطلوب ${countOf(group.minUnits, AR.unit)} والمتاح ${countOf(sum, AR.unit)}.` });
+    }
     if (group.minCourses === 0 && group.minUnits === 0 && members.length) add({ severity: "warn", code: "group-no-minimum", groupId: group.id, text: `«${group.name}» بلا حدٍّ أدنى.` });
   }
   return issues;

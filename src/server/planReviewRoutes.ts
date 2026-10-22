@@ -25,7 +25,7 @@ import type { AdCourse, CurriculumRuleSet, ElectiveGroup } from "../types";
 import { roleDefinition } from "../utils/academicRoles";
 import { departmentFamilyKey, sectionLabels } from "../utils/sectionLabel";
 import {
-  checkRuleSet, normalizeGroup, normalizeRule, normalizeRules, withDerivedGroups, type RuleIssue,
+  checkRuleSet, dedupeGroups, normalizeGroup, normalizeRule, normalizeRules, withDerivedGroups, type RuleIssue,
 } from "../utils/curriculumRules";
 import { buildReferenceRules, planReferenceApplication, splitFrozenUpdates } from "../utils/referenceApply";
 import { collegeBranchRoot } from "../utils/branchScope";
@@ -403,15 +403,17 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     const drafts = (await Repository.listRuleDrafts()).filter(draft => draft.status === "review");
     const [sectionRows, collegeRows] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
     const labels = sectionLabels(sectionRows as any[], collegeRows as any[]);
-    const ready: Array<{ planId: string; sectionId: number; plan: string; section: string; updatedAt: string }> = [];
+    const ready: Array<{ planId: string; sectionId: number; plan: string; section: string; updatedAt: string; repaired: boolean }> = [];
     const blocked: Array<{ planId: string; sectionId: number; plan: string; section: string; reason: string }> = [];
     for (const draft of drafts) {
       const ctx = await context(draft.planId, draft.AdSectionId);
       const section = labels.get(draft.AdSectionId) || "";
       if (!ctx) { blocked.push({ planId: draft.planId, sectionId: draft.AdSectionId, plan: "", section, reason: "الصحيفة غير موجودة" }); continue; }
-      const issues = issuesOf(ctx, draft).filter(issue => issue.severity === "block");
+      /* مقررٌ في مجموعتين يبقى في الأولى: إصلاحٌ آلي لا يخسر شيئاً، يُكتب عند الاعتماد لا عند المعاينة. */
+      const groups = dedupeGroups(draft.groups), repaired = groups.length !== draft.groups.length || groups.some((group, at) => group.courseIds.length !== draft.groups[at]?.courseIds.length);
+      const issues = issuesOf(ctx, { rules: draft.rules, groups }).filter(issue => issue.severity === "block");
       if (issues.length) { blocked.push({ planId: draft.planId, sectionId: draft.AdSectionId, plan: ctx.plan.name, section, reason: `${countOf(issues.length, AR.blocker)}: ${issues[0].text}` }); continue; }
-      ready.push({ planId: draft.planId, sectionId: draft.AdSectionId, plan: ctx.plan.name, section, updatedAt: String(draft.updatedAt || "") });
+      ready.push({ planId: draft.planId, sectionId: draft.AdSectionId, plan: ctx.plan.name, section, updatedAt: String(draft.updatedAt || ""), repaired });
     }
     return { ready, blocked };
   };
@@ -420,15 +422,29 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     res.setHeader("Cache-Control", "no-store");
     res.json({ ok: true, ...(await approvalPlan()) });
   });
-  app.post("/api/plan-review/approve-all", sheetLimit, deps.requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/plan-review/approve-all", sheetLimit, deps.requireAuth, express.json({ limit: "1mb" }), async (req: Request, res: Response) => {
     if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
     const by = deps.actorName(req);
-    const { ready, blocked } = await approvalPlan();
+    /* يُنفَّذ ما رآه المسؤول في المعاينة وحده بإصداراته: مسوّدةٌ صارت جاهزةً بعدها لا تُعتمد دون أن تُعرض عليه. */
+    const previewed = new Map<string, string>((Array.isArray(req.body?.items) ? req.body.items : []).map((item: any) => [String(item?.planId || ""), String(item?.updatedAt || "")] as [string, string]));
+    if (!previewed.size) { fail(res, 400, "عاين الصحائف أولاً."); return; }
+    const plan = await approvalPlan();
+    const { blocked } = plan;
+    const ready = plan.ready.filter(item => previewed.get(item.planId) === item.updatedAt);
     let approved = 0, stale = 0;
     const republish = (await import("./planSheetRoutes")).republishIfPublished;
     for (const item of ready) {
       try {
-        await Repository.approveRuleDraft(item.planId, item.updatedAt, by);
+        let expected = item.updatedAt;
+        if (item.repaired) {
+          const fixed = await Repository.updateRuleDraft(item.planId, current => {
+            if (!current || current.status !== "review" || current.updatedAt !== item.updatedAt) throw new RuleDraftConflict("تغيّرت المسوّدةُ قبل إصلاحها.");
+            const groups = dedupeGroups(current.groups);
+            return { ...current, groups, rules: withDerivedGroups(current.rules, groups), updatedAt: new Date().toISOString() };
+          });
+          expected = String(fixed?.updatedAt || "");
+        }
+        await Repository.approveRuleDraft(item.planId, expected, by);
         await republish(item.planId, by).catch(() => false);
         approved += 1;
       } catch (error) {
@@ -844,7 +860,12 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         const branch = collegeBranchRoot(colleges as any[], cid);
         const inBranch = ownCourses(sheet, ownKey).filter(course => !(course.girlsOnly && branch && branchAudience(branch) !== "girls"));
         const { names, fixes } = correctedNames(inBranch);
-        const { reference, notes } = sheetToReference(sheet, inBranch, names);
+        /* مقرراتُ الأقسام الأخرى في المجموعات الاختيارية (الثقافة العامة وغيرها): الموجودُ منها في كتالوج الموقع يدخل المجموعة مقرراً خارجياً مقفولاً للقراءة،
+           وغير الموجود (قسمٌ خدمي بلا صحيفة) لا يُنشأ هنا ويُحصى وحداتٍ معلّقةً تُنبَّه ولا تمنع. الكتابة في قسمٍ آخر لا تحدث. */
+        const electiveIds = new Set(sheet.groups.filter(group => group.kind === "elective").map(group => group.id));
+        const ownKeysAll = new Set(ownCourses(sheet, ownKey).map(course => course.codeKey));
+        const foreignElectives = sheet.courses.filter(course => electiveIds.has(course.groupId) && !ownKeysAll.has(course.codeKey) && !(course.girlsOnly && branch && branchAudience(branch) !== "girls"));
+        const { reference, notes } = sheetToReference(sheet, inBranch, names, foreignElectives);
         const report = { updated: 0, created: 0, linked: 0, unchanged: 0, rules: 0, groups: 0, unlinked: 0, prereqPrinted: 0, prereqLinked: 0 };
         let unresolved: string[] = [];
 
@@ -918,15 +939,28 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
           const id = knownIdByCode.get(referenceCodeKey(need));
           if (id && !memberIdByCode.has(need)) externalIdByCode.set(need, id);
         }
+        /* أعضاءُ المجموعات الاختيارية من أقسامٍ أخرى: الموجود في الكتالوج خارجي، وغيره وحداتٌ معلّقة للمجموعة. */
+        const foreignMemberIdByCode = new Map<string, number>(), pendingByGroup = new Map<string, number>();
+        for (const course of foreignElectives) {
+          const id = knownIdByCode.get(course.codeKey);
+          if (id) { foreignMemberIdByCode.set(course.codeKey, id); externalIdByCode.set(course.codeKey, id); }
+          else pendingByGroup.set(`${reference.id}-${course.groupId}`, (pendingByGroup.get(`${reference.id}-${course.groupId}`) || 0) + course.units);
+        }
         const ruleScope = new Map<string, number>([...memberIdByCode, ...externalIdByCode]);
-        const built = buildReferenceRules(reference, memberIdByCode, ruleScope.size ? new Map([...knownIdByCode, ...ruleScope]) : knownIdByCode, new Set());
+        const built = buildReferenceRules(reference, new Map([...memberIdByCode, ...foreignMemberIdByCode]), ruleScope.size ? new Map([...knownIdByCode, ...ruleScope]) : knownIdByCode, new Set());
+        /* مجموعاتُ هذه الصحيفة تحمل سنتها في معرّفها (y2026-s1g2) فلا تلتبس بمجموعات صحيفةٍ أخرى للقسم نفسه. */
+        const stamp = (id: string) => `y${sheet.startYear || 0}-${id.replace(/^new-/, "")}`;
+        for (const group of built.groups) {
+          const pending = pendingByGroup.get(group.id) || 0;
+          group.id = stamp(group.id);
+          if (pending) group.pendingUnits = pending;
+        }
         const live = await Repository.getRuleSet(plan.id);
         const allIds = new Set<number>(ruleScope.values());
         const externalIds = [...externalIdByCode.values()];
         await Repository.updateRuleDraft(plan.id, current => {
           const base: CurriculumRuleSet = current ? { ...current } : { id: plan!.id, planId: plan!.id, AdCollegeId: cid, AdSectionId: sid, rules: live?.rules || [], groups: live?.groups || [], externals: live?.externals, version: live?.version || 0, status: "review", basedOnVersion: live?.version || 0, updatedAt: "", updatedBy: by };
           const hasRule = new Set(base.rules.map(rule => rule.courseId));
-          const hasGroup = new Set(base.groups.map(group => group.id));
           /* ما كتبه الرفع وحده (لم يعدّله القسم بعد) يُكمَّل بما صار ممكناً ربطه من مسبقات (مقرر قسمٍ آخر وُجد بعد الرفع الأول)؛
              وما عدّله القسم يُملأ فيه الفارغ فقط، فلا يُعاد مسبقٌ حذفه القسم. */
           const fresh = new Map(built.rules.map(rule => [rule.courseId, rule] as const));
@@ -940,7 +974,14 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
             return untouched && missing.length ? { ...rule, prereq: { all: [...has, ...missing], anyOf: rule.prereq?.anyOf || [] } } : rule;
           });
           const rules = normalizeRules([...filled, ...built.rules.filter(rule => !hasRule.has(rule.courseId))]);
-          const groups = [...base.groups, ...built.groups.filter(group => !hasGroup.has(group.id)).map(group => normalizeGroup({ ...group, courseIds: group.courseIds.filter(id => allIds.has(id)) })).filter(Boolean) as ElectiveGroup[]];
+          const fromSheet = built.groups.map(group => normalizeGroup({ ...group, courseIds: group.courseIds.filter(id => allIds.has(id)) })).filter(Boolean) as ElectiveGroup[];
+          const yearOf = (group: ElectiveGroup) => Number(/^y(\d+)-/.exec(group.id)?.[1]) || 0;
+          const newestHeld = Math.max(0, ...base.groups.map(yearOf));
+          /* ما كتبه الرفع وحده: مجموعاتُ أحدث صحيفةٍ تحلّ محلّ ما قبلها (صحائفُ القسم المتعددة لا تتراكم مجموعاتُها فيقع المقرر في اثنتين)؛
+             وصحيفةٌ أقدم من المحفوظ لا تمسّ المجموعات. ما عدّله القسم يبقى وتُضاف إليه المجموعات الجديدة دون تكرار مقرر. */
+          const groups = dedupeGroups(untouched
+            ? (Number(sheet.startYear) || 0) >= newestHeld ? fromSheet : base.groups
+            : [...base.groups, ...fromSheet.filter(group => !base.groups.some(held => held.id === group.id))]);
           const externals = [...new Set([...(base.externals || []), ...externalIds])].sort((a, b) => a - b);
           return { ...base, rules: withDerivedGroups(rules, groups), groups, externals, status: "review", updatedAt: new Date().toISOString(), updatedBy: `رفع الصحيفة · ${by}` };
         });
