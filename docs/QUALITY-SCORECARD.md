@@ -1,6 +1,6 @@
 # Quality scorecard — round 3 (presentation only)
 
-Base: schedule-kw `main` at `b3bddf7` (includes the registrar's ruled-sheet identity layer and the round 1–2 motion layer). Branch: `claude/comprehensive-site-review-ak1w4y`. Scope: CSS and static-page CSS only. No markup, logic, data, server, tests or dependencies changed.
+Base: schedule-kw `main` at `b3bddf7` (includes the registrar's ruled-sheet identity layer and the round 1–2 motion layer). Scope: CSS and static-page CSS only. No markup, logic, data, server, tests or dependencies changed.
 
 ## Method
 
