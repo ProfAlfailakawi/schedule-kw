@@ -193,11 +193,13 @@ export function correctedNames(courses: readonly PlanCourse[]): { names: Map<str
  * لا تدعمه القواعد: يُقال في الملاحظات ولا يُقيَّد به شيء. المتطلبات من خارج القسم تبقى بمفتاحها
  * ليُحسم أمرها في الكتالوج (قراءةً فحسب).
  */
-export function sheetToReference(plan: ParsedPlan, own: readonly PlanCourse[], names: ReadonlyMap<string, string>): { reference: CurriculumReference; notes: string[] } {
+export function sheetToReference(plan: ParsedPlan, own: readonly PlanCourse[], names: ReadonlyMap<string, string>, extra: readonly PlanCourse[] = []): { reference: CurriculumReference; notes: string[] } {
   const notes: string[] = [];
   const groups: CurriculumReferenceGroup[] = [];
   for (const group of plan.groups) {
-    const courses = own.filter(course => course.groupId === group.id).map(course => {
+    const courses = [...own, ...extra].filter(course => course.groupId === group.id).map(course => {
+      /* مقرر قسمٍ آخر في المجموعة: عضويةٌ فقط؛ مسبقاته من قواعد قسمه لا من صحيفة هذا القسم. */
+      if (extra.includes(course)) return { code: course.codeKey, name: course.name, credit: course.units, hours: course.hours, prerequisites: [] as string[] };
       const prerequisites = [...course.prereqAll];
       let externalAlternative: string | undefined;
       const anyOf: string[][] = [];

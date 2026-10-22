@@ -826,6 +826,8 @@ export interface ElectiveGroup {
   /** «بحدٍّ أدنى ٩ وحدات». الشرطان معاً. */
   minUnits: number;
   courseIds: number[];
+  /** وحداتُ مقرراتٍ عدّتها الصحيفة في المجموعة ولا وجود لها في الكتالوج بعد (أقسامٌ خدمية بلا صحائف): النقصُ بقدرها تنبيهٌ لا مانع. */
+  pendingUnits?: number;
 }
 
 export interface CurriculumRuleSet {
