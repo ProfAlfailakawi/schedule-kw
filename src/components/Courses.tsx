@@ -4,6 +4,7 @@ import { resolveScopeSelection, singleDepartmentOf, type ScopeAssignmentLike } f
 import { BookOpen, Building2, GraduationCap, Trash2 } from "lucide-react";
 import { sortByName, byArabic } from "../utils/sorting";
 import CurriculumPlans from "./CurriculumPlans";
+import { AR, countOf } from "../utils/arabicCount";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import { sectionLabels } from "../utils/sectionLabel";
 import { decimalText, numericText } from "../utils/digits";
@@ -345,7 +346,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       }
       if (mode === "edit" && Number(d?.roomTypeSynced) > 0) {
         await load();
-        setReceipt(`طُبّق نوع القاعة «${courseRoomType || "بدون نوع"}» على ${Number(d.roomTypeSynced)} نسخة أخرى من ${savedCode} في بقية أحرام القسم.`);
+        setReceipt(`طُبّق نوع القاعة «${courseRoomType || "بدون نوع"}» على ${countOf(Number(d.roomTypeSynced), AR.course)} في بقية أحرام القسم (${savedCode}).`);
       }
       if (mode === "create" && targetPlan) {
         setReceipt(`تمت إضافة ${savedCode} — ${savedName} إلى ${targetPlan.name} بنجاح.`);
