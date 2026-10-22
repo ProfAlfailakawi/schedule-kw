@@ -288,7 +288,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
                 {choices[dept.name] && choices[dept.name] !== "new" ? <button type="button" className="btn btn-secondary" onClick={() => void compareWith(dept.name, Number(choices[dept.name]))} data-guide-ignore="مقارنة مقررات القسم المختار بصحيفة القسم الناقص داخل شاشة مراجعة الصحيفة">قارن مقرراته</button> : null}
                 {compared[dept.name] ? ("error" in compared[dept.name] ? <small role="alert">{(compared[dept.name] as { error: string }).error}</small> : (() => { const c = compared[dept.name] as Exclude<Compare, { error: string }>; return (
                   <small className="pr-compare" role="status">
-                    <b>{c.similar ? "يتشابهان" : "مختلفان"}</b> · الصحيفة {c.sheetCourses} مقرراً، والقسم {c.systemCourses} · نفس الرقم {c.sameNumber} (منها نفس الاسم {c.sameNumberAndName}) · نفس الاسم برقمٍ آخر {c.sameNameOtherNumber} · ناقص في القسم {c.sheetOnly}
+                    <b>{c.similar ? "يتشابهان" : "مختلفان"}</b> · الصحيفة {countOf(c.sheetCourses, AR.course)}، والقسم {countOf(c.systemCourses, AR.course)} · نفس الرقم {c.sameNumber} (منها نفس الاسم {c.sameNumberAndName}) · نفس الاسم برقمٍ آخر {c.sameNameOtherNumber} · ناقص في القسم {c.sheetOnly}
                     {c.differ.length ? <ul>{c.differ.map(row => <li key={row.number}>{row.number}: «{row.sheet}» ↔ «{row.system}»</li>)}</ul> : null}
                   </small>); })()) : null}
               </li>
