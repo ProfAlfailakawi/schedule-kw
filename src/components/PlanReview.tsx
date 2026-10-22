@@ -82,7 +82,7 @@ function IssueBoard({ issues, courses, rules, onPick }: { issues: View["issues"]
             <ul>
               {list.map((i, k) => (
                 <li key={k} className={i.severity}>
-                  <button type="button" title={i.text} onClick={() => { if (i.courseId) onPick(i.courseId); }} disabled={!i.courseId}>
+                  <button type="button" title={i.text} onClick={() => { if (i.courseId) onPick(i.courseId); }} disabled={!i.courseId} data-guide-ignore="اختيارُ المقرر من ملاحظة الصحيفة داخل شاشةٍ مسجّلة في المرشد باسم page.planReview">
                     {chip(i.courseId) || <b className="pr-ib-text">{i.text}</b>}
                     {i.refId && chip(i.refId) ? <><ArrowLeft className="pr-ib-arrow" size={14} aria-hidden="true" />{chip(i.refId)}</> : null}
                     <span className="sr-only">{i.text}</span>
