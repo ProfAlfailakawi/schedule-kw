@@ -36,7 +36,7 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       { AdSectionId: 15, AdCollegeId: 2, AdSectionCode: "09", AdSectionName: "قسم تكنولوجيا التعليم" },
     ],
     instructors: [], schedules: [], rooms: [], courseTransitions: [],
-    courses: [{ AdCourseId: 301, AdCollegeId: 1, AdSectionId: 21, CourseCode: "105", CourseName: "أسس تكنولوجيا التعلم", CourseCredit: 3, CourseHours: 3, MaxStudent: 60 }, { AdCourseId: 302, AdCollegeId: 1, AdSectionId: 11, CourseCode: "120", CourseName: "الإعجاز العلمي في القرآن والسنة", CourseCredit: 3, CourseHours: 3, MaxStudent: 0 }],
+    courses: [{ AdCourseId: 301, AdCollegeId: 1, AdSectionId: 21, CourseCode: "105", CourseName: "أسس تكنولوجيا التعلم", CourseCredit: 3, CourseHours: 3, MaxStudent: 60 }, { AdCourseId: 302, AdCollegeId: 1, AdSectionId: 11, CourseCode: "120", CourseName: "الإعجاز العلمي في القرآن والسنة", CourseCredit: 3, CourseHours: 3, MaxStudent: 0 }, { AdCourseId: 801, AdCollegeId: 1, AdSectionId: 61, CourseCode: "0124777", CourseName: "منوع كمان1", CourseCredit: 1, CourseHours: 1, MaxStudent: 0 }, { AdCourseId: 802, AdCollegeId: 1, AdSectionId: 61, CourseCode: "0124777", CourseName: "منوع عود1", CourseCredit: 1, CourseHours: 1, MaxStudent: 0 }],
     curriculumPlans: [{ id: "p15", AdCollegeId: 2, AdSectionId: 15, name: "فعّالة", status: "active", createdAt: "2026-01-01" }], curriculumPlanCourses: [],
   }), { mode: 0o600 });
   process.env.NODE_ENV = "test"; process.env.DATA_MODE = "demo"; process.env.SCHEDULE_PRIVATE_DIR = dir;
@@ -284,6 +284,12 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const del = await getJson("root", "/api/plan-review/sheet/duplicates/delete", { ids: [dupFree.AdCourseId, dupUsed.AdCourseId] });
       const left = (await Repository.getCourses()).filter(row => Number(row.AdSectionId) === 21);
       check(del.json.deleted === 1 && !left.some(row => row.AdCourseId === dupFree.AdCourseId) && left.some(row => row.AdCourseId === keeperRow.AdCourseId) && left.some(row => row.AdCourseId === dupUsed.AdCourseId) && left.some(row => row.AdCourseId === original108!.AdCourseId), "الحذف يزيل غير المستعمل وحده ويُبقي المستعمل والأصل", del.json);
+      /* تنويعاتٌ بالرمز نفسه (آلاتٌ موسيقية) ونسخةٌ مكتوبةٌ بصيغةٍ أخرى لإحداها: يُعرض التطابق الفعلي وحده ولا يُمسّ الباقي */
+      const violinShort = await Repository.createCourse(1, 61, "777", "منوع كمان1", 1, 1, 0, false);
+      const mixedScan = (await getJson("root", "/api/plan-review/sheet/duplicates")).json.sections?.find((row: any) => row.sectionId === 61);
+      const touched = (mixedScan?.groups.flatMap((group: any) => [group.keeper, ...group.dups])) || [];
+      check(touched.length === 2 && touched.every((row: any) => row.name === "منوع كمان1") && !touched.some((row: any) => row.id === 802), "في هوية فيها تنويعات (رمزٌ واحد بأسماءٍ مختلفة): يُعرض التطابق الفعلي وحده", touched);
+      await Repository.deleteCourse(violinShort.AdCourseId);
       /* رمزان كاملان لقسمين مختلفين برقمٍ واحد واسمٍ واحد: مقرران مختلفان لا مكرَّران */
       const otherA = await Repository.createCourse(1, 21, "0152101", "مقرر خدمي متشابه الاسم", 3, 3, 0, false);
       const otherB = await Repository.createCourse(1, 21, "0153101", "مقرر خدمي متشابه الاسم", 3, 3, 0, false);
