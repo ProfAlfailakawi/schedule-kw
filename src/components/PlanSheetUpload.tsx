@@ -6,7 +6,7 @@
  */
 import React, { useRef, useState } from "react";
 import { AR, countOf } from "../utils/arabicCount";
-import { AlertTriangle, CheckCircle2, Download, GraduationCap, FileUp, FileX2, History, Link2, PencilLine, Plus, SearchX, ShieldAlert, Trash2, UserPlus, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, GraduationCap, FileUp, FileX2, History, Link2, Loader2, PencilLine, Plus, SearchX, ShieldAlert, Trash2, UserPlus, X } from "lucide-react";
 
 interface SectionOption { sectionId: number; label: string; sites: number }
 interface Rejection {
@@ -68,6 +68,10 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
   const [batch, setBatch] = useState<{ phase: BatchPhase; done: number; total: number; ok: number; skipped: number; failed: number; prereqLinked: number; prereqPrinted: number; rows: ReportRow[] } | null>(null);
 
   const [reconcile, setReconcile] = useState<{ updated: number; ambiguous: string[] } | null>(null);
+  /* عملٌ طويل (فحص/حذف/إنشاء/اعتماد): يُرى أنه شغّال لا عالق، ولا يُضغط زرٌّ ثانٍ أثناءه. */
+  const [working, setWorking] = useState("");
+  const run = async (label: string, job: () => Promise<void>) => { if (working) return; setWorking(label); try { await job(); } finally { setWorking(""); } };
+  const workingNote = working ? <small className="pr-working" role="status" aria-live="polite"><Loader2 aria-hidden="true" className="spin" size={14} /> {working}… قد يطول، لا تغلق الصفحة</small> : null;
   /* المقررات الدخيلة (بقايا الإضافة القديمة): معاينة ثم حذفُ ما يختاره المسؤول. */
   type ForeignCourse = { id: number; code: string; name: string; ownerSection: string; kind?: "copy" | "name" | "orphan" };
   const [foreign, setForeign] = useState<{ sections: Array<{ sectionId: number; section: string; courses: ForeignCourse[] }>; total: number } | null>(null);
@@ -121,6 +125,29 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
       setAccountsMsg(`أُنشئ ${countOf(Number(data.created || 0), AR.account)}${data.failed?.length ? ` · تعثّر ${data.failed.length}` : ""}`);
       await previewAccounts();
     } catch (e: any) { setAccountsMsg(String(e?.message || "تعذّر الإنشاء")); }
+  };
+  /* اعتماد كل الصحائف: معاينةٌ بالجاهز وما فيه حاجز، ثم اعتماد الجاهز. */
+  type ApprovalItem = { planId: string; plan: string; section: string; reason?: string };
+  const [approval, setApproval] = useState<{ ready: ApprovalItem[]; blocked: ApprovalItem[] } | null>(null);
+  const [approvalMsg, setApprovalMsg] = useState("");
+  const previewApproval = async () => {
+    setApprovalMsg("");
+    try {
+      const response = await fetch("/api/plan-review/approve-all", { credentials: "include" });
+      const data = await response.json().catch(() => ({} as any));
+      if (!response.ok) throw new Error(data.error || "تعذّرت المعاينة");
+      setApproval({ ready: data.ready || [], blocked: data.blocked || [] });
+    } catch (e: any) { setApprovalMsg(String(e?.message || "تعذّرت المعاينة")); }
+  };
+  const approveAll = async () => {
+    if (!approval?.ready.length || !window.confirm(`اعتماد ${countOf(approval.ready.length, AR.sheet)} جاهزة؟`)) return;
+    try {
+      const response = await fetch("/api/plan-review/approve-all", { method: "POST", credentials: "include" });
+      const data = await response.json().catch(() => ({} as any));
+      if (!response.ok) throw new Error(data.error || "تعذّر الاعتماد");
+      setApprovalMsg(`اعتُمدت ${countOf(Number(data.approved || 0), AR.sheet)}${data.stale ? ` · تغيّرت ${data.stale} أثناء الاعتماد (أعد المعاينة)` : ""}`);
+      await previewApproval();
+    } catch (e: any) { setApprovalMsg(String(e?.message || "تعذّر الاعتماد")); }
   };
   const [pending, setPending] = useState<Array<{ file: File; dept: MissingDept }>>([]);
   const lastFile = useRef<File | null>(null);
@@ -362,8 +389,9 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
           </ul>
         </div>
       ) : null}
+      {workingNote}
       <div className="pr-sheet-result pr-sheet-foreign" role="group" aria-label="المقررات الدخيلة">
-        <button type="button" className="btn btn-secondary" onClick={() => void scanForeign()} data-guide-ignore="فحص المقررات الدخيلة (نسخٌ لمقررات أقسامٍ أخرى بلا صحيفةٍ ولا جدول) داخل شاشة مراجعة الصحيفة"><SearchX aria-hidden="true" size={16} /> افحص المقررات الدخيلة</button>
+        <button type="button" className="btn btn-secondary" disabled={Boolean(working)} onClick={() => void run("جارٍ فحص المقررات الدخيلة", scanForeign)} data-guide-ignore="فحص المقررات الدخيلة (نسخٌ لمقررات أقسامٍ أخرى بلا صحيفةٍ ولا جدول) داخل شاشة مراجعة الصحيفة"><SearchX aria-hidden="true" size={16} /> افحص المقررات الدخيلة</button>
         {foreignMsg ? <small role="status">{foreignMsg}</small> : null}
         {foreign ? (foreign.total ? (
           <>
@@ -377,12 +405,12 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
                 </li>
               ))}
             </ul>
-            <button type="button" className="btn btn-primary" onClick={() => void deleteForeign()} data-guide-ignore="حذف المقررات الدخيلة المختارة نهائياً داخل شاشة مراجعة الصحيفة"><Trash2 aria-hidden="true" size={16} /> احذف المختار</button>
+            <button type="button" className="btn btn-primary" disabled={Boolean(working)} onClick={() => void run("جارٍ حذف المقررات المختارة", deleteForeign)} data-guide-ignore="حذف المقررات الدخيلة المختارة نهائياً داخل شاشة مراجعة الصحيفة"><Trash2 aria-hidden="true" size={16} /> احذف المختار</button>
           </>
         ) : <small role="status">لا مقررات دخيلة</small>) : null}
       </div>
       <div className="pr-sheet-result pr-sheet-accounts" role="group" aria-label="حسابات الأقسام">
-        <button type="button" className="btn btn-secondary" onClick={() => void previewAccounts()} data-guide-ignore="معاينة الأقسام التي ينقصها حساب رئيس قسم أو رئيس جدول أو مرشد داخل شاشة مراجعة الصحيفة"><UserPlus aria-hidden="true" size={16} /> معاينة حسابات الأقسام الناقصة</button>
+        <button type="button" className="btn btn-secondary" disabled={Boolean(working)} onClick={() => void run("جارٍ معاينة الحسابات", previewAccounts)} data-guide-ignore="معاينة الأقسام التي ينقصها حساب رئيس قسم أو رئيس جدول أو مرشد داخل شاشة مراجعة الصحيفة"><UserPlus aria-hidden="true" size={16} /> معاينة حسابات الأقسام الناقصة</button>
         {accountsMsg ? <small role="status">{accountsMsg}</small> : null}
         {accounts ? (accounts.rows.length ? (
           <>
@@ -395,9 +423,20 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
               ))}
             </ul>
             <button type="button" className="btn btn-secondary" onClick={() => setAccountsOn(current => current.size === accounts.rows.length ? new Set() : new Set(accounts.rows.map(row => row.sectionId)))} data-guide-ignore="تحديد كل الأقسام أو إلغاء التحديد داخل شاشة مراجعة الصحيفة">حدّد الكل / ألغِ</button>
-            <button type="button" className="btn btn-primary" disabled={!accountsOn.size} onClick={() => void createAccounts()} data-guide-ignore="إنشاء الحسابات الناقصة للأقسام المحدّدة بكلمة السر الافتراضية داخل شاشة مراجعة الصحيفة"><Plus aria-hidden="true" size={16} /> أنشئ المحدّد</button>
+            <button type="button" className="btn btn-primary" disabled={!accountsOn.size || Boolean(working)} onClick={() => void run("جارٍ إنشاء الحسابات", createAccounts)} data-guide-ignore="إنشاء الحسابات الناقصة للأقسام المحدّدة بكلمة السر الافتراضية داخل شاشة مراجعة الصحيفة"><Plus aria-hidden="true" size={16} /> أنشئ المحدّد</button>
           </>
         ) : <small role="status">كل الأقسام لها حساباتها</small>) : null}
+      </div>
+      <div className="pr-sheet-result pr-sheet-approval" role="group" aria-label="اعتماد الصحائف">
+        <button type="button" className="btn btn-secondary" disabled={Boolean(working)} onClick={() => void run("جارٍ معاينة الاعتماد", previewApproval)} data-guide-ignore="معاينة الصحائف الجاهزة للاعتماد وما فيه حاجز داخل شاشة مراجعة الصحيفة"><CheckCircle2 aria-hidden="true" size={16} /> معاينة اعتماد كل الصحف</button>
+        {approvalMsg ? <small role="status">{approvalMsg}</small> : null}
+        {approval ? (
+          <>
+            <small role="status">جاهزة: {approval.ready.length} · فيها حاجز: {approval.blocked.length}</small>
+            {approval.blocked.length ? <ul>{approval.blocked.map(item => <li key={item.planId}><b>{item.section}</b> <small>{item.plan} — {item.reason}</small></li>)}</ul> : null}
+            <button type="button" className="btn btn-primary" disabled={!approval.ready.length || Boolean(working)} onClick={() => void run("جارٍ اعتماد الصحائف", approveAll)} data-guide-ignore="اعتماد كل الصحائف الجاهزة التي لا حاجز فيها داخل شاشة مراجعة الصحيفة"><CheckCircle2 aria-hidden="true" size={16} /> اعتمد الجاهزة ({approval.ready.length})</button>
+          </>
+        ) : null}
       </div>
       {outcome ? (
         <div className="pr-sheet-result" role="status">
