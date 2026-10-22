@@ -42,6 +42,8 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
   process.env.NODE_ENV = "test"; process.env.DATA_MODE = "demo"; process.env.SCHEDULE_PRIVATE_DIR = dir;
   const quiet = console.warn; console.warn = () => {};
   const { Repository, initDatabase } = await import("../src/db/repository");
+  /* Firestore يُرجع نسخاً لا المصفوفة الحيّة: ما قُرئ في أول الطلب لا يرى ما أُنشئ بعده. نحاكيه ليُكشف أي اعتمادٍ على مصفوفةٍ قديمة. */
+  for (const key of ["getSections", "getColleges"] as const) { const real = (Repository as any)[key]; (Repository as any)[key] = async (...args: unknown[]) => [...(await real(...args))]; }
   const { registerPlanReviewRoutes } = await import("../src/server/planReviewRoutes");
   await initDatabase();
   console.warn = quiet;
@@ -257,23 +259,44 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const importAuto = async (who: string, qs = "") => { const res = await fetch(`${base}/api/plan-review/sheet/import${qs}`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": who }, body: french }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
     const sectionsBefore = (await Repository.getSections()).length;
     const noFrench = await importAuto("root");
-    check(noFrench.status === 422 && noFrench.json.rejection?.kind === "department" && noFrench.json.rejection?.missing === true && noFrench.json.rejection?.code === "40" && (await Repository.getSections()).length === sectionsBefore, "قسمٌ غير موجود: يُرفض ويُعرض إنشاؤه، ولا يُكتب شيء", noFrench.json.rejection);
-    check((await importAuto("other", "?createMissing=1")).status === 403, "الإنشاء للحساب الرئيسي وحده");
-    const madeFrench = await importAuto("root", "?createMissing=1");
+    check(noFrench.status === 422 && noFrench.json.rejection?.kind === "department" && noFrench.json.rejection?.missing === true && noFrench.json.rejection?.code === "40" && (await Repository.getSections()).length === sectionsBefore && Array.isArray(noFrench.json.rejection?.colleges) && noFrench.json.rejection.colleges.length >= 2, "قسمٌ غير موجود: يُرفض ويُعرض إنشاؤه (مع كلياته المطابقة)، ولا يُكتب شيء", noFrench.json.rejection);
+    check((await importAuto("other", "?createMissing=1&collegeId=1")).status === 403, "الإنشاء للحساب الرئيسي وحده");
+    check((await importAuto("root", "?createMissing=1")).status === 422 && (await Repository.getSections()).length === sectionsBefore, "لا إنشاء «للجميع»: لا بد من اختيار الكلية");
+    const madeFrench = await importAuto("root", "?createMissing=1&collegeId=2");
     const frenchSections = (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40");
-    check(madeFrench.status === 200 && madeFrench.json.createdSections.length === frenchSections.length && frenchSections.length >= 1 && frenchSections.every(row => /الفرنسية/.test(String(row.AdSectionName))) && (await Repository.getCourses()).some(row => frenchSections.some(sec => sec.AdSectionId === row.AdSectionId)), "بموافقة المسؤول: يُنشأ القسم باسمه ورمزه من الصحيفة وتدخل مقرراته", madeFrench.json.createdSections);
-    const againFrench = await importAuto("root", "?createMissing=1");
-    check(againFrench.status === 200 && againFrench.json.createdSections.length === 0 && (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40").length === frenchSections.length, "الرفع المتكرر لا ينشئ قسماً ثانياً");
+    check(madeFrench.status === 200 && madeFrench.json.createdSections.length === 1 && frenchSections.length === 1 && Number(frenchSections[0].AdCollegeId) === 2 && /الفرنسية/.test(String(frenchSections[0].AdSectionName)) && (await Repository.getCourses()).some(row => row.AdSectionId === frenchSections[0].AdSectionId), "بموافقة المسؤول وفي الكلية المختارة وحدها: يُنشأ القسم ويُرفع");
+    const againFrench = await importAuto("root", "?createMissing=1&collegeId=2");
+    check(againFrench.status === 200 && againFrench.json.createdSections.length === 0 && (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40").length === 1, "الرفع المتكرر لا ينشئ قسماً ثانياً");
+    {
+      const second = await importAuto("root", "?createMissing=1&collegeId=1");
+      const both = (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40");
+      check(second.status === 200 && second.json.createdSections.length === 1 && both.length === 2, "كليةٌ ثانية للقسم نفسه تُنشأ باختيارها هي", second.json.createdSections);
+    }
     {
       const users = ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted);
-      const owned = users.filter(row => frenchSections.some(sec => (row.Name || "").endsWith(String(sec.AdSectionName))));
+      const frenchAll = (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40");
+      const owned = users.filter(row => frenchAll.some(sec => (row.Name || "").endsWith(String(sec.AdSectionName))));
       const roles = new Set(owned.map(row => row.Role));
-      check(owned.length === frenchSections.length * 3 && ["departmentHead", "committeeChair", "advisor"].every(role => roles.has(role)), "القسم الجديد يولد بثلاثة حسابات: رئيس قسم ورئيس جدول ومرشد", owned.map(row => row.SystemUserLogin));
+      check(owned.length === frenchAll.length * 3 && ["departmentHead", "committeeChair", "advisor"].every(role => roles.has(role)), "القسم الجديد يولد بثلاثة حسابات: رئيس قسم ورئيس جدول ومرشد", owned.map(row => row.SystemUserLogin));
       check(new Set(owned.map(row => String(row.SystemUserLogin).toLowerCase())).size === owned.length && owned.some(row => row.SystemUserLogin === "Frenchdept") && owned.every(row => /^French/.test(row.SystemUserLogin)), "أسماء الدخول من اسم القسم بالإنجليزية وبلا تصادم", owned.map(row => row.SystemUserLogin));
       check(owned.every(row => row.IsActive === true && Repository.verifyPassword("12345678", row.SystemUserPass) === true), "الحسابات فعّالة");
       const assigns = await Promise.all(owned.map(async row => ({ row, a: await Repository.getUserAssigns(row.SystemUserId) })));
       check(assigns.every(({ a }) => a.length === 1 && Number(a[0].AdSectionId) > 0), "كل حساب مقيَّد بقسمه وكليته وحدهما");
       check((madeFrench.json.createdSections as any[]).every(row => row.accounts?.length === 3 && row.accounts.every((acc: any) => acc.status === "created")) && againFrench.json.createdSections.length === 0 && users.length === ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted).length, "الإعادة لا تكرر الحسابات");
+    }
+    {
+      /* كليةٌ للصحيفة غير موجودة أصلاً: تُنشأ بموافقةٍ صريحة (createCollege=1) باسمها من الصحيفة، مع عميدها، ثم القسم فيها */
+      const originals = (await Repository.getColleges()).map(row => ({ ...row }));
+      for (const row of originals) await Repository.updateCollege(row.AdCollegeId, `9${row.AdCollegeId}`, row.AdCollegeName);
+      const sheet = fs.readFileSync("tests/fixtures/plans/graduation-2026/ba-0113.pdf");
+      const go = async (qs: string) => { const res = await fetch(`${base}/api/plan-review/sheet/import${qs}`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": "root" }, body: sheet }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+      const collegesBefore = (await Repository.getColleges()).length;
+      const refused = await go("?createMissing=1&collegeId=1");
+      check(refused.status === 422 && refused.json.rejection?.colleges?.length === 0 && Boolean(refused.json.rejection?.sheetCollege) && (await Repository.getColleges()).length === collegesBefore, "كليةٌ غير موجودة: يُعرض إنشاؤها ولا يُكتب شيء", refused.json.rejection);
+      const made = await go("?createCollege=1");
+      const added = (await Repository.getColleges()).filter(row => !originals.some(old => old.AdCollegeId === row.AdCollegeId));
+      check(made.status === 200 && added.length === 1 && made.json.createdColleges?.length === 1 && made.json.createdColleges[0].accounts.length === 2 && made.json.createdSections.length === 1, "createCollege=1: تُنشأ الكلية بعميدها وعميدها المساعد ثم القسم فيها", made.json);
+      for (const row of originals) await Repository.updateCollege(row.AdCollegeId, row.AdCollegeCode, row.AdCollegeName);
     }
     {
       const { provisionCollegeUsers } = await import("../src/server/sectionUsers");
