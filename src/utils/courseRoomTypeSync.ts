@@ -40,37 +40,3 @@ export function roomTypeSiblingIds(
       && collegeFamily.get(Number(other.AdCollegeId)) === myFamily;
   }).map(other => Number(other.AdCourseId));
 }
-
-/** سببُ ألّا تُطابَق نسخةٌ بالرمز نفسه — يُقال للمستخدم ليعرف أيَّ سجلٍّ يُصلح. */
-export type NearMissReason = "department-name" | "college-family";
-export interface NearMiss { courseId: number; collegeName: string; sectionName: string; reason: NearMissReason }
-
-/**
- * مقرراتٌ بالرمز نفسه لم تدخل «النسخ الشقيقة»: اسمُ قسمها يختلف، أو كليتُها من عائلةٍ أخرى.
- * لا تُمسّ بيانات، وإنما تُعرض ليعرف المسؤولُ لماذا بقيت نسخةٌ على نوعها القديم.
- */
-export function roomTypeNearMisses(
-  source: SyncCourse,
-  courses: readonly SyncCourse[],
-  sections: readonly SyncSection[],
-  colleges: readonly SyncCollege[],
-): NearMiss[] {
-  const sectionById = new Map(sections.map(section => [Number(section.AdSectionId), section]));
-  const collegeById = new Map(colleges.map(college => [Number(college.AdCollegeId), college]));
-  const mine = sectionById.get(Number(source.AdSectionId));
-  const departmentKey = departmentFamilyKey(mine?.AdSectionName);
-  const myFamily = familyOf(collegeById.get(Number(source.AdCollegeId))?.AdCollegeName || "");
-  if (!mine || !departmentKey || !codeKey(source.CourseCode)) return [];
-  const out: NearMiss[] = [];
-  for (const other of courses) {
-    if (Number(other.AdCourseId) === Number(source.AdCourseId)) continue;
-    if (Number(other.AdSectionId) === Number(source.AdSectionId)) continue;
-    if (codeKey(other.CourseCode) !== codeKey(source.CourseCode)) continue;
-    const theirs = sectionById.get(Number(other.AdSectionId));
-    const college = collegeById.get(Number(other.AdCollegeId));
-    const row = { courseId: Number(other.AdCourseId), collegeName: college?.AdCollegeName || "", sectionName: theirs?.AdSectionName || "" };
-    if (!theirs || departmentFamilyKey(theirs.AdSectionName) !== departmentKey) out.push({ ...row, reason: "department-name" });
-    else if (familyOf(college?.AdCollegeName || "") !== myFamily) out.push({ ...row, reason: "college-family" });
-  }
-  return out;
-}

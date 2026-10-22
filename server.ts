@@ -9,7 +9,7 @@ import { BUILD_STAMP } from "./src/generated/buildStamp";
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import { createGunzip } from "zlib";
 import { activeDataMode, ApprovalRevisionConflict, DuplicateResourceError, initDatabase, Repository, ScheduleRevisionConflict, StudentCourseStateConflict, withSerialLock , caseRefFor } from "./src/db/repository";
-import { roomTypeNearMisses, roomTypeSiblingIds } from "./src/utils/courseRoomTypeSync";
+import { roomTypeSiblingIds } from "./src/utils/courseRoomTypeSync";
 import { DEMO_SWITCH_ACCOUNTS, demoActiveRoleKey } from "./src/db/demoSandbox";
 import { clearScheduleCacheQuietly, onSchedulesInvalidated } from "./src/db/referenceCache";
 import { isCloudRunRuntime } from "./src/db/snapshot";
@@ -4120,7 +4120,9 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
      * لصار «لم يتغيّر» ولما أعادت المحاولةُ ما فات من النسخ. والكتابةُ
      * متساويةُ الأثر عند التكرار. */
     let roomTypeSynced = 0;
-    /* ما لم يُطابَق يُقال للمسؤول بسببه: نسخةٌ بالرمز نفسه بقيت على نوعها القديم لا تُترك لغزاً. */
+    /* ما لم يُطابَق يُقال للمسؤول بسببه — من نسخ المقرر نفسه وحدها (القسمُ نفسُه في أحرامه).
+       رقمُ المقرر يتكرر بين الأقسام العلمية لمقرراتٍ مختلفة، فمقررُ قسمٍ آخر بالرقم نفسه ليس نسخةً
+       ولا يُذكر أصلاً: ذكرُه كان يوحي بأنه كان يجب أن يتغيّر. */
     let roomTypeSkipped: Array<{ college: string; section: string; reason: string }> = [];
     const roomTypeChanged = String(currentCourse.CourseRoomType || "").normalize("NFKC").trim() !== CourseRoomType;
     /* النوعُ الجديد يسري عند كل حفظٍ بنوعٍ غير فارغ، لا عند تغييره وحده: نسخةٌ كان نوعُها محفوظاً من قبل
@@ -4144,12 +4146,6 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
           continue;
         }
         siblings.push(siblingId);
-      }
-      for (const miss of roomTypeNearMisses({ ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId, CourseCode }, allCourses as any, allSections as any, allColleges as any)) {
-        roomTypeSkipped.push({
-          college: miss.collegeName, section: miss.sectionName,
-          reason: miss.reason === "department-name" ? "اسم القسم يختلف عن اسم قسمك" : "الكلية من عائلةٍ أخرى",
-        });
       }
       const typeOf = (courseId: number) => String(allCourses.find(course => Number(course.AdCourseId) === courseId)?.CourseRoomType || "").normalize("NFKC").trim();
       const differing = siblings.filter(siblingId => typeOf(siblingId) !== CourseRoomType);
