@@ -89,11 +89,11 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     check(jahra.length === 27 && (await Repository.getCurriculumPlans(31)).some(plan => plan.status === "active") && (await Repository.getSections()).find(row => Number(row.AdSectionId) === 31)?.AdSectionName === "قسم تكنولوجيا التعليم", "موقع الجهراء نال المقررات والصحيفة والتسمية نفسها");
     /* اسمٌ واحد للصحيفة الفعّالة في كل المواقع، ويُصحَّح اسمٌ قديم عند إعادة الرفع */
     const activeName = async (sid: number) => (await Repository.getCurriculumPlans(sid)).find(plan => plan.status === "active" && !plan.track)?.name;
-    check(await activeName(21) === "صحيفة 2026/2027" && await activeName(31) === "صحيفة 2026/2027", "اسم الصحيفة الفعّالة «صحيفة 2026/2027» في كل المواقع", [await activeName(21), await activeName(31)]);
+    check(await activeName(21) === "صحيفة 2026" && await activeName(31) === "صحيفة 2026", "اسم الصحيفة الفعّالة «صحيفة 2026» في كل المواقع", [await activeName(21), await activeName(31)]);
     const jahraPlan = (await Repository.getCurriculumPlans(31)).find(plan => plan.status === "active")!;
     await Repository.patchCurriculumPlan(jahraPlan.id, 31, { name: "صحيفة BA-0115 2026/2027" });
     await upload("root", 21);
-    check(await activeName(31) === "صحيفة 2026/2027", "إعادة الرفع توحّد اسماً قديماً");
+    check(await activeName(31) === "صحيفة 2026", "إعادة الرفع توحّد اسماً قديماً");
     const courses = (await Repository.getCourses()).filter(row => Number(row.AdSectionId) === 21);
     check(courses.length === 27, `٢٧ مقرراً للقسم (${courses.length})`);
     check(courses.every(row => /^\d{2,3}$/.test(String(row.CourseCode))), "الرموز المحفوظة رقم المقرر وحده");
