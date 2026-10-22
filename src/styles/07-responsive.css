@@ -24,11 +24,13 @@
     width:min(320px,86vw);
     transform:translateX(calc(100% + 32px));
     border-inline-end:0;
-    transition:transform .28s var(--ease-out);
+    transition:transform .28s var(--ease-out),visibility 0s linear .28s;
     box-shadow:var(--shadow-nav);
     border-inline-start:0;
+    /* Closed drawer is off-screen: keep it out of the tab order and the reading order. */
+    visibility:hidden;
   }
-  .sidebar.open{transform:none}
+  .sidebar.open{transform:none;visibility:visible;transition:transform .28s var(--ease-out),visibility 0s}
   .sidebar-close{display:grid}
   .sidebar-backdrop{
     display:block;position:fixed;inset:0;z-index:55;

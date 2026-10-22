@@ -1162,7 +1162,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
         <header>
           <div>
             <span className="surface-kicker">الجدول كوحدة واحدة</span>
-            <h2>{termEnded ? "تصدير · نشر" : "تصدير · استيراد · نشر · استبدال · منتدبون · تخطيط"}</h2>
+            <h2>{termEnded ? "تصدير · نشر" : "أدوات الجدول"}</h2>
           </div>
           <button type="button" className="drawer-close" onClick={onClose} aria-label="إغلاق"><X /></button>
         </header>
@@ -1310,7 +1310,15 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               {fromPlanning ? null : (<>
               <div className="transfer-import-hero">
                 <span><Sparkles aria-hidden="true" /></span>
-                <div><strong>المسار الافتراضي والأسهل</strong><p>نزّل النموذج، املؤه ، ثم ارفعه؛ يطابق النظام البيانات ويجهزها للنشر تلقائياً. ويمكنك أيضاً نسخ جدول الجهة المعتمد من PDF إلى فصل فارغ.</p></div>
+                <div>
+                  <strong>المسار الأسهل</strong>
+                  <ol className="transfer-import-steps" aria-label="نزّل النموذج، املؤه، ثم ارفعه؛ يطابق النظام البيانات ويجهزها للنشر تلقائياً. ويمكنك أيضاً نسخ جدول الجهة المعتمد من PDF إلى فصل فارغ.">
+                    <li><i><Download aria-hidden="true" /></i><b>نزّل</b></li>
+                    <li><i><Pencil aria-hidden="true" /></i><b>املأ</b></li>
+                    <li><i><Upload aria-hidden="true" /></i><b>ارفع</b></li>
+                    <li><i><CheckCircle2 aria-hidden="true" /></i><b>جاهز</b></li>
+                  </ol>
+                </div>
               </div>
               <input
                 ref={fileRef}

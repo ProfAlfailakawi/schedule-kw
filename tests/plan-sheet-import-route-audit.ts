@@ -42,6 +42,8 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
   process.env.NODE_ENV = "test"; process.env.DATA_MODE = "demo"; process.env.SCHEDULE_PRIVATE_DIR = dir;
   const quiet = console.warn; console.warn = () => {};
   const { Repository, initDatabase } = await import("../src/db/repository");
+  /* Firestore يُرجع نسخاً لا المصفوفة الحيّة: ما قُرئ في أول الطلب لا يرى ما أُنشئ بعده. نحاكيه ليُكشف أي اعتمادٍ على مصفوفةٍ قديمة. */
+  for (const key of ["getSections", "getColleges"] as const) { const real = (Repository as any)[key]; (Repository as any)[key] = async (...args: unknown[]) => [...(await real(...args))]; }
   const { registerPlanReviewRoutes } = await import("../src/server/planReviewRoutes");
   await initDatabase();
   console.warn = quiet;
@@ -170,17 +172,20 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
 
     /* المسبقات: مسبقٌ لمقررِ قسمٍ آخر لم يُرفع بعد يُعدّ ولا يضيع، ثم يُربط حين يوجد المقرر بإعادة الرفع */
     const english = fs.readFileSync("tests/fixtures/plans/graduation-2026/ba-0116.pdf");
+    const beforeEnglish = (() => { const map = new Map<number, number>(); return map; })();
+    for (const row of await Repository.getCourses()) beforeEnglish.set(Number(row.AdSectionId), (beforeEnglish.get(Number(row.AdSectionId)) || 0) + 1);
     const firstEnglish = await upload("root", 51, english);
-    check(firstEnglish.status === 200 && firstEnglish.json.unlinked === 0 && firstEnglish.json.unresolved.length === 0 && firstEnglish.json.prereqLinked === firstEnglish.json.prereqPrinted, "مقررات الأقسام الأخرى المطبوعة تُضاف فتُربط مسبقاتها", firstEnglish.json);
+    const perSection = (rows: Array<{ AdSectionId: number }>) => { const map = new Map<number, number>(); for (const row of rows) map.set(Number(row.AdSectionId), (map.get(Number(row.AdSectionId)) || 0) + 1); return map; };
+    check(firstEnglish.status === 200 && firstEnglish.json.addedOther === 0 && firstEnglish.json.unlinked === 2 && firstEnglish.json.unresolved.length === 2, "مقررات الأقسام الأخرى لا تُضاف تلقائياً: مسبقاتها تُعدّ ولا تُربط", firstEnglish.json);
+    check(Array.isArray(firstEnglish.json.foreignNotAdded) && firstEnglish.json.foreignNotAdded.length > 0, "رموز الأقسام الأخرى المطبوعة تُذكر في التقرير ولا يُكتب فيها شيء", firstEnglish.json.foreignNotAdded);
+    const afterEnglish = perSection(await Repository.getCourses() as any);
+    check([...afterEnglish].every(([sectionId, count]) => [51].includes(sectionId) || count === (beforeEnglish.get(sectionId) || 0)), "لم يُكتب مقررٌ في قسمٍ غير قسم الصحيفة (وحدة الكهرباء لم تتلقَّ مقررات أصول التربية)", [...afterEnglish]);
+    await Repository.createCourse(1, 52, "322", "مقرر المناهج", 3, 3, 0, false);
+    await Repository.createCourse(1, 53, "425", "مقرر آخر", 3, 3, 0, false);
     const depA = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 52 && String(row.CourseCode) === "322");
     const depB = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 53 && String(row.CourseCode) === "425");
-    check(Boolean(depA && depB) && firstEnglish.json.addedOther > 0, "مقرر القسم الخدمي الناقص أُضيف إلى قسمه من الصحيفة", [depA, depB, firstEnglish.json.addedOther]);
     const secondEnglish = await upload("root", 51, english);
-    check(secondEnglish.status === 200 && secondEnglish.json.addedOther === 0 && secondEnglish.json.unlinked === 0 && secondEnglish.json.prereqLinked === secondEnglish.json.prereqPrinted, "الرفع المتكرر لا يُكرّر المضاف", secondEnglish.json);
-    await Repository.updateCourse(depA!.AdCourseId, depA!.AdCollegeId, depA!.AdSectionId, depA!.CourseCode, "اسم خطأ", 1, 1, 40);
-    const fixedElsewhere = await upload("root", 51, english);
-    const depAfter = (await Repository.getCourses()).find(row => Number(row.AdCourseId) === Number(depA!.AdCourseId))!;
-    check(fixedElsewhere.json.differsOther.length === 1 && depAfter.CourseName === "اسم خطأ" && depAfter.MaxStudent === 40, "مقرر قسمٍ آخر قائم يخالف الصحيفة: لا يصحّحه غير صحيفة قسمه، ويُذكر الفرق في التقرير", [fixedElsewhere.json.differsOther, depAfter]);
+    check(secondEnglish.status === 200 && secondEnglish.json.unlinked === 0 && secondEnglish.json.prereqLinked === secondEnglish.json.prereqPrinted, "بعد وجود المقررين (أضافهما المسؤول): كل المسبقات تُربط", secondEnglish.json);
     const englishDraft = (await Repository.listRuleDrafts()).find(row => row.planId === secondEnglish.json.planId);
     const needy = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 51 && String(row.CourseCode) === "454");
     const rule = englishDraft?.rules.find(item => item.courseId === Number(needy?.AdCourseId));
@@ -214,14 +219,10 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const restored = await call("root", "POST", "/api/plan-review/previous-plans", { action: "restore", sectionIds: [21] });
     check(restored.json.changed === 1 && (await Repository.getCurriculumPlans(21)).some(plan => plan.status === "transition") && (await Repository.getOperationalCourseIds(21)).size === operationalBefore.size && (await call("root", "GET", "/api/plan-review/previous-ended?sectionId=21")).json.ended === false, "«أعد السابقة» تتراجع كلياً", restored.json);
 
-    /* أقسامٌ بلا صحائف: الأشيع من الصحائف الأخرى يصحّح مقرراتها، وما في صحيفةٍ فعّالة لا يُمسّ */
+    /* تصحيح مقررات الأقسام الأخرى معطَّل حتى تُؤكَّد رموز الأقسام: المسار يرفض ولا يكتب */
     const reconcileCall = (who: string, courses: unknown[]) => call(who, "POST", "/api/plan-review/sheet/reconcile", { courses });
-    const c105Before = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 21 && row.CourseCode === "105")!;
-    const reconciled = await reconcileCall("root", [{ key: "0121322", name: depA!.CourseName, units: depA!.CourseCredit, hours: depA!.CourseHours }, { key: "0109105", name: "اسم آخر", units: 9, hours: 9 }]);
-    const depBack = (await Repository.getCourses()).find(row => Number(row.AdCourseId) === Number(depA!.AdCourseId))!, c105After = (await Repository.getCourses()).find(row => row.AdCourseId === c105Before.AdCourseId)!;
-    check(reconciled.json.updated === 1 && depBack.CourseName === depA!.CourseName && depBack.CourseCredit === depA!.CourseCredit && depBack.CourseHours === depA!.CourseHours && depBack.MaxStudent === 40, "قسمٌ بلا صحيفة: مقرره يُصحَّح بالأشيع والسعة كما هي", [reconciled.json, depBack]);
-    check(c105After.CourseName === c105Before.CourseName && c105After.CourseCredit === c105Before.CourseCredit, "مقررٌ في صحيفة فعّالة (قسمٌ له صحيفة) لا يُمسّه التجميع");
-    check((await reconcileCall("other", [])).status === 403, "التجميع للحساب الرئيسي وحده");
+    const coursesBeforeReconcile = JSON.stringify(await Repository.getCourses());
+    check((await reconcileCall("root", [{ key: "0121322", name: "اسم", units: 1, hours: 1 }])).status === 409 && (await reconcileCall("other", [])).status === 403 && JSON.stringify(await Repository.getCourses()) === coursesBeforeReconcile, "تصحيح مقررات الأقسام الأخرى معطَّل: لا يكتب");
     const scanEnglish = await fetch(`${base}/api/plan-review/sheet/scan`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": "root" }, body: english }).then(res => res.json()) as any;
     check(Array.isArray(scanEnglish.others) && scanEnglish.others.length > 5 && scanEnglish.others.every((item: any[]) => item.length === 4 && /^\d{7}$/.test(String(item[0]))), "قراءة الترويسة تعيد مقررات الأقسام الأخرى للتجميع", scanEnglish.others?.slice(0, 2));
 
@@ -246,6 +247,114 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const audit = await call("root", "GET", "/api/plan-review/sheet/audit");
     const row21 = audit.json.sections?.find((row: any) => row.sectionId === 21);
     check(audit.status === 200 && audit.json.totals.sections === audit.json.sections.length && row21?.courses >= 27 && row21.plans.some((plan: any) => plan.status === "active" && plan.sheetYear === 2026 && plan.courses === 27) && (await call("other", "GET", "/api/plan-review/sheet/audit")).status === 403, "لقطة حال النظام: الأقسام والصحائف وعدد المقررات، للرئيسي وحده", row21);
+
+    /* مقارنة صحيفة بمقررات قسمٍ موجود قبل مطابقته: قراءةٌ فحسب */
+    const compareWith = async (who: string, sectionId: number) => { const res = await fetch(`${base}/api/plan-review/sheet/compare?sectionId=${sectionId}`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": who }, body: pdf }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+    const coursesBeforeCompare = JSON.stringify(await Repository.getCourses());
+    const sameDept = await compareWith("root", 21), otherDept = await compareWith("root", 11);
+    check(sameDept.json.similar === true && sameDept.json.sameNumberAndName >= 20 && otherDept.json.similar === false && (await compareWith("other", 21)).status === 403 && JSON.stringify(await Repository.getCourses()) === coursesBeforeCompare, "مقارنة الصحيفة بقسمها تُظهر التشابه وبقسمٍ آخر الاختلاف، بلا كتابة", [sameDept.json, otherDept.json]);
+
+    /* قسمٌ للصحيفة لا وجود له: يُرفض بلا كتابة ويُعرض إنشاؤه، ثم يُنشأ بموافقة المسؤول فقط */
+    const french = fs.readFileSync("tests/fixtures/plans/graduation-2026/ba-0140.pdf");
+    const importAuto = async (who: string, qs = "") => { const res = await fetch(`${base}/api/plan-review/sheet/import${qs}`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": who }, body: french }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+    const sectionsBefore = (await Repository.getSections()).length;
+    const noFrench = await importAuto("root");
+    check(noFrench.status === 422 && noFrench.json.rejection?.kind === "department" && noFrench.json.rejection?.missing === true && noFrench.json.rejection?.code === "40" && (await Repository.getSections()).length === sectionsBefore && Array.isArray(noFrench.json.rejection?.colleges) && noFrench.json.rejection.colleges.length >= 2, "قسمٌ غير موجود: يُرفض ويُعرض إنشاؤه (مع كلياته المطابقة)، ولا يُكتب شيء", noFrench.json.rejection);
+    check((await importAuto("other", "?createMissing=1&collegeId=1")).status === 403, "الإنشاء للحساب الرئيسي وحده");
+    check((await importAuto("root", "?createMissing=1")).status === 422 && (await Repository.getSections()).length === sectionsBefore, "لا إنشاء «للجميع»: لا بد من اختيار الكلية");
+    const madeFrench = await importAuto("root", "?createMissing=1&collegeId=2");
+    const frenchSections = (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40");
+    check(madeFrench.status === 200 && madeFrench.json.createdSections.length === 1 && frenchSections.length === 1 && Number(frenchSections[0].AdCollegeId) === 2 && /الفرنسية/.test(String(frenchSections[0].AdSectionName)) && (await Repository.getCourses()).some(row => row.AdSectionId === frenchSections[0].AdSectionId), "بموافقة المسؤول وفي الكلية المختارة وحدها: يُنشأ القسم ويُرفع");
+    const againFrench = await importAuto("root", "?createMissing=1&collegeId=2");
+    check(againFrench.status === 200 && againFrench.json.createdSections.length === 0 && (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40").length === 1, "الرفع المتكرر لا ينشئ قسماً ثانياً");
+    {
+      const second = await importAuto("root", "?createMissing=1&collegeId=1");
+      const both = (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40");
+      check(second.status === 200 && second.json.createdSections.length === 1 && both.length === 2, "كليةٌ ثانية للقسم نفسه تُنشأ باختيارها هي", second.json.createdSections);
+    }
+    {
+      const users = ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted);
+      const frenchAll = (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40");
+      const owned = users.filter(row => frenchAll.some(sec => (row.Name || "").endsWith(String(sec.AdSectionName))));
+      const roles = new Set(owned.map(row => row.Role));
+      check(owned.length === frenchAll.length * 3 && ["departmentHead", "committeeChair", "advisor"].every(role => roles.has(role)), "القسم الجديد يولد بثلاثة حسابات: رئيس قسم ورئيس جدول ومرشد", owned.map(row => row.SystemUserLogin));
+      check(new Set(owned.map(row => String(row.SystemUserLogin).toLowerCase())).size === owned.length && owned.some(row => row.SystemUserLogin === "Frenchdept") && owned.every(row => /^French/.test(row.SystemUserLogin)), "أسماء الدخول من اسم القسم بالإنجليزية وبلا تصادم", owned.map(row => row.SystemUserLogin));
+      check(owned.every(row => row.IsActive === true && Repository.verifyPassword("12345678", row.SystemUserPass) === true), "الحسابات فعّالة");
+      const assigns = await Promise.all(owned.map(async row => ({ row, a: await Repository.getUserAssigns(row.SystemUserId) })));
+      check(assigns.every(({ a }) => a.length === 1 && Number(a[0].AdSectionId) > 0), "كل حساب مقيَّد بقسمه وكليته وحدهما");
+      check((madeFrench.json.createdSections as any[]).every(row => row.accounts?.length === 3 && row.accounts.every((acc: any) => acc.status === "created")) && againFrench.json.createdSections.length === 0 && users.length === ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted).length, "الإعادة لا تكرر الحسابات");
+    }
+    {
+      /* المقررات الدخيلة: نسخةٌ (رقمٌ واسمٌ) من مقررٍ داخل صحيفة قسمٍ آخر، بلا جدول ولا صحيفة في قسمها */
+      const home = (await Repository.getSections()).find(row => String(row.AdSectionCode) === "40" && Number(row.AdCollegeId) === 2)!;
+      const allCourses = await Repository.getCourses(), allSections = await Repository.getSections();
+      /* أصلٌ رقمه واسمه لا يتكرران إلا في موقعٍ للقسم نفسه (الرقم قد يتكرر بين الأقسام فيُحكم بالاسم معه) */
+      const owned = (await Repository.getCoursesBySection(home.AdSectionId)).find(row => allCourses.filter(other => other.CourseCode === row.CourseCode && other.CourseName === row.CourseName).every(other => allSections.find(sec => sec.AdSectionId === other.AdSectionId)?.AdSectionName === home.AdSectionName))!;
+      const strangerSection = 21;
+      const copy = await Repository.createCourse(1, strangerSection, owned.CourseCode, owned.CourseName, 3, 3, 0, false);
+      const sameNumberOtherName = await Repository.createCourse(1, strangerSection, "999", owned.CourseName, 3, 3, 0, false);
+      const callF = async (who: string, method: string, url: string, body?: unknown) => { const res = await fetch(`${base}${url}`, { method, headers: { "content-type": "application/json", "x-who": who }, body: body ? JSON.stringify(body) : undefined }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+      check((await callF("other", "GET", "/api/plan-review/sheet/foreign")).status === 403, "معاينة الدخيل للحساب الرئيسي وحده");
+      const preview = await callF("root", "GET", "/api/plan-review/sheet/foreign");
+      const listed = (preview.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id));
+      check(preview.status === 200 && listed.includes(copy.AdCourseId) && !listed.includes(sameNumberOtherName.AdCourseId) && !listed.includes(owned.AdCourseId), "المعاينة: النسخة الدخيلة وحدها (لا الأصل ولا ما اختلف رقمه)", listed);
+      /* نسخةٌ في موقعٍ آخر للقسم نفسه (اسمه نفسه في كليةٍ أخرى): ليست دخيلة */
+      const sibling = await Repository.createSection(3, "98", String(home.AdSectionName).replace(/^قسم\s+/, ""));
+      const siblingCopy = await Repository.createCourse(3, Number(sibling.AdSectionId), owned.CourseCode, owned.CourseName, 3, 3, 0, false);
+      const afterMirror = await callF("root", "GET", "/api/plan-review/sheet/foreign");
+      const listedAfter = (afterMirror.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id));
+      check(listedAfter.includes(copy.AdCourseId) && !listedAfter.includes(siblingCopy.AdCourseId), "نسخةُ القسم نفسه في كليةٍ أخرى لا تُعدّ دخيلة، ونسخةُ قسمٍ آخر تُعدّ", [listedAfter, copy.AdCourseId, siblingCopy.AdCourseId, owned.AdCourseId]);
+      /* قسمان بالاسم نفسه في كليةٍ واحدة: لا إعفاء، فالنسخةُ دخيلة */
+      const twin = await Repository.createSection(Number(home.AdCollegeId), "95", home.AdSectionName);
+      const twinCopy = await Repository.createCourse(Number(home.AdCollegeId), Number(twin.AdSectionId), owned.CourseCode, owned.CourseName, 3, 3, 0, false);
+      const twinScan = await callF("root", "GET", "/api/plan-review/sheet/foreign");
+      check((twinScan.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id)).includes(twinCopy.AdCourseId), "قسمان بالاسم نفسه في كليةٍ واحدة: النسخة دخيلة (لا إعفاء)");
+      await Repository.deleteCourse(twinCopy.AdCourseId); await Repository.deleteSection(Number(twin.AdSectionId));
+      await Repository.deleteCourse(siblingCopy.AdCourseId); await Repository.deleteSection(Number(sibling.AdSectionId));
+      /* وحدةٌ قديمة بلا صحيفة: مقررها المنسوخ من قسمٍ عاديٍّ (ولو بلا صحيفة) دخيل، وأصله لا يُعدّ كذلك */
+      const planless = await Repository.createSection(3, "97", "قسم أصلٌ بلا صحيفة");
+      const unitSec = await Repository.createSection(3, "96", "وحدة قديمة");
+      const origin = await Repository.createCourse(3, Number(planless.AdSectionId), "777", "مقررٌ أصيل في قسمٍ بلا صحيفة", 3, 3, 0, false);
+      const unitCopy = await Repository.createCourse(3, Number(unitSec.AdSectionId), "777", "مقررٌ أصيل في قسمٍ بلا صحيفة", 3, 3, 0, false);
+      const unitScan = await callF("root", "GET", "/api/plan-review/sheet/foreign");
+      const unitListed = (unitScan.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id));
+      check(unitListed.includes(unitCopy.AdCourseId) && !unitListed.includes(origin.AdCourseId), "نسخةُ وحدةٍ قديمة من مقررِ قسمٍ عاديّ دخيلة، والأصلُ لا", unitListed);
+      /* وحدةٌ لها صحيفة: ليست قديمة، فلا يُعدّ منسوخها غير المربوط دخيلاً بمجرد وجوده في قسمٍ بلا صحيفة */
+      await Repository.createCurriculumPlan({ collegeId: 3, sectionId: Number(unitSec.AdSectionId), name: "صحيفة وحدة حيّة", code: "LIVE-1", by: "test" } as any);
+      const liveScan = await callF("root", "GET", "/api/plan-review/sheet/foreign");
+      check(!(liveScan.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id)).includes(unitCopy.AdCourseId), "وحدةٌ لها صحيفة لا تُعامَل كوحدةٍ قديمة");
+      await Repository.deleteCourse(origin.AdCourseId); await Repository.deleteCourse(unitCopy.AdCourseId); await Repository.deleteSection(Number(planless.AdSectionId)); await Repository.deleteSection(Number(unitSec.AdSectionId));
+      const refuse = await callF("root", "POST", "/api/plan-review/sheet/foreign/delete", { ids: [owned.AdCourseId, sameNumberOtherName.AdCourseId] });
+      check(refuse.status === 200 && refuse.json.deleted === 0, "ما ليس دخيلاً لا يُحذف ولو طُلب");
+      const done = await callF("root", "POST", "/api/plan-review/sheet/foreign/delete", { ids: [copy.AdCourseId] });
+      const left = await Repository.getCoursesBySection(strangerSection);
+      check(done.status === 200 && done.json.deleted === 1 && !left.some(row => row.AdCourseId === copy.AdCourseId) && left.some(row => row.AdCourseId === sameNumberOtherName.AdCourseId), "الحذف للنسخة المختارة وحدها");
+      await Repository.deleteCourse(sameNumberOtherName.AdCourseId);
+    }
+    {
+      /* كليةٌ للصحيفة غير موجودة أصلاً: تُنشأ بموافقةٍ صريحة (createCollege=1) باسمها من الصحيفة، مع عميدها، ثم القسم فيها */
+      const originals = (await Repository.getColleges()).map(row => ({ ...row }));
+      for (const row of originals) await Repository.updateCollege(row.AdCollegeId, `9${row.AdCollegeId}`, row.AdCollegeName);
+      const sheet = fs.readFileSync("tests/fixtures/plans/graduation-2026/ba-0113.pdf");
+      const go = async (qs: string) => { const res = await fetch(`${base}/api/plan-review/sheet/import${qs}`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": "root" }, body: sheet }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+      const collegesBefore = (await Repository.getColleges()).length;
+      const refused = await go("?createMissing=1&collegeId=1");
+      check(refused.status === 422 && refused.json.rejection?.colleges?.length === 0 && Boolean(refused.json.rejection?.sheetCollege) && (await Repository.getColleges()).length === collegesBefore, "كليةٌ غير موجودة: يُعرض إنشاؤها ولا يُكتب شيء", refused.json.rejection);
+      const made = await go("?createCollege=1");
+      const added = (await Repository.getColleges()).filter(row => !originals.some(old => old.AdCollegeId === row.AdCollegeId));
+      check(made.status === 200 && added.length === 1 && made.json.createdColleges?.length === 1 && made.json.createdColleges[0].accounts.length === 2 && made.json.createdSections.length === 1, "createCollege=1: تُنشأ الكلية بعميدها وعميدها المساعد ثم القسم فيها", made.json);
+      for (const row of originals) await Repository.updateCollege(row.AdCollegeId, row.AdCollegeCode, row.AdCollegeName);
+    }
+    {
+      const { provisionCollegeUsers } = await import("../src/server/sectionUsers");
+      const college = await Repository.createCollege("77", "كلية تجريبية جديدة");
+      const made = await provisionCollegeUsers(Repository, college);
+      const again = await provisionCollegeUsers(Repository, college);
+      const deanUser = ((await Repository.getUsers()) as any[]).find(row => row.SystemUserLogin === "77dean");
+      const deanAssigns = deanUser ? await Repository.getUserAssigns(deanUser.SystemUserId) : [];
+      check(made.length === 2 && made.every(row => row.status === "created") && again.every(row => row.status === "exists"), "الكلية الجديدة: عميد وعميد مساعد بلا تكرار عند الإعادة", [made, again]);
+      check(deanUser?.IsActive === true && deanUser.Role === "dean" && deanAssigns.length === 1 && Number(deanAssigns[0].AdCollegeId) === Number(college.AdCollegeId) && Number(deanAssigns[0].AdSectionId) === 0, "العميد فعّال ونطاقه كليته كلها");
+    }
 
     /* قراءة الترويسة بلا كتابة (لتصفية الدفعة) */
     const scanOf = async (who: string, body: Buffer) => { const res = await fetch(`${base}/api/plan-review/sheet/scan`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": who }, body }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };

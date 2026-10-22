@@ -23,7 +23,7 @@ import type { Express, Request, RequestHandler, Response } from "express";
 import { DuplicateResourceError, RuleDraftConflict, Repository } from "../db/repository";
 import type { AdCourse, CurriculumRuleSet, ElectiveGroup } from "../types";
 import { roleDefinition } from "../utils/academicRoles";
-import { sectionLabels } from "../utils/sectionLabel";
+import { departmentFamilyKey, sectionLabels } from "../utils/sectionLabel";
 import {
   checkRuleSet, normalizeGroup, normalizeRule, normalizeRules, withDerivedGroups, type RuleIssue,
 } from "../utils/curriculumRules";
@@ -36,6 +36,7 @@ import { correctCourseName } from "../utils/courseNameCorrection";
 import { blockingWarnings, checkSheetScope, correctedNames, isNewSheet, sheetKey, sheetNameMatches, sheetOwnKey, sheetSectionCode, sheetSectionName, ownCourses, sheetToReference, storedCode } from "../utils/planSheetImport";
 import { parsePlanItems } from "../utils/planPdfParser";
 import { extractPlanItems, PLAN_PDF_MAX_BYTES } from "./planPdfExtract";
+import { provisionCollegeUsers, provisionSectionUsers, type SectionAccountResult } from "./sectionUsers";
 
 export interface PlanReviewDeps {
   requireAuth: RequestHandler;
@@ -533,8 +534,70 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   /* ── أقسامٌ لا صحيفة لها: مقرراتها ووحداتها وساعاتها من الصحائف الأخرى ─────────────────────────────
      بعد دفعة الرفع تُرسل الواجهةُ الأشيعَ بين الصحائف الجديدة لكل مقرر قسمٍ آخر؛ فيُصحَّح به مقرر قسمٍ لم تدخل مقرراتُه صحيفةً فعّالة
      (صاحب الصحيفة يصحّح مقرراته من صحيفته)، ومن لا أغلبية له يُذكر ولا يُمسّ. السعة لا تُلمس. */
+  /* ── المقررات الدخيلة (بقايا الإضافة القديمة): مقررٌ في قسمٍ ليس في أيّ صحيفةٍ له، ولا جدولَ يستعمله،
+     وله نسخةٌ في قسمٍ آخر داخل صحيفته: الرقم والاسم نفساهما. الرقم لا يتكرر بين الأقسام، فالنسخة دخيلة.
+     المعاينة قراءةٌ فحسب؛ والحذف يُعيد الفحص ويحذف ما اختاره المسؤول من المعاينة وحده. ما لا نسخة له يبقى. */
+  const nameKey = (value: unknown) => String(value || "").normalize("NFKD").replace(/[\u064B-\u065F\u0670\u0640]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/\s+/g, " ").trim();
+  const foreignScan = async () => {
+    const [sections, colleges, courses] = await Promise.all([Repository.getSections(), Repository.getColleges(), Repository.getCourses()]);
+    const collegeName = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
+    const sectionName = new Map((sections as any[]).map(row => [Number(row.AdSectionId), `${collegeName.get(Number(row.AdCollegeId)) || ""} · ${row.AdSectionName}`]));
+    const sectionCollege = new Map((sections as any[]).map(row => [Number(row.AdSectionId), Number(row.AdCollegeId)]));
+    const sectionNames = new Map((sections as any[]).map(row => [Number(row.AdSectionId), String(row.AdSectionName || "")]));
+    const linked = new Set<number>();
+    const planned = new Set<number>();
+    for (const section of sections as any[]) {
+      for (const link of await Repository.getCurriculumPlanCourses(Number(section.AdSectionId)) as any[]) linked.add(Number(link.AdCourseId));
+      if ((await Repository.getCurriculumPlans(Number(section.AdSectionId)) as any[]).some(plan => !plan.virtual)) planned.add(Number(section.AdSectionId));
+    }
+    /* الأصل: نسخةٌ برقم المقرر واسمه في قسمٍ باسمٍ مختلف (القسم نفسه في كليةٍ أخرى ليس دخيلاً: لكل موقعٍ نسخته)،
+       وهو إما داخل صحيفة، أو في قسمٍ عاديٍّ حين يكون الدخيلُ في «وحدةٍ» قديمة (بلا صحيفة) كوحدة الكهرباء. */
+    const keyOf = (course: any) => `${String(course.CourseCode).trim()}|${nameKey(course.CourseName)}`;
+    /* «وحدة» قديمة: اسمها «وحدة …» وليست لها أي صحيفة (وحدةٌ لها صحائف قسمٌ حيّ لا يُعامَل هكذا). */
+    const isUnit = (sid: number) => /^\s*وحدة/.test(String(sectionNames.get(sid) || "")) && !planned.has(sid);
+    const byKey = new Map<string, any[]>();
+    for (const course of courses as any[]) byKey.set(keyOf(course), [...(byKey.get(keyOf(course)) || []), course]);
+    const out = new Map<number, { sectionId: number; section: string; courses: any[] }>();
+    for (const course of courses as any[]) {
+      if (linked.has(Number(course.AdCourseId))) continue;
+      const sid0 = Number(course.AdSectionId), unit = isUnit(sid0);
+      const owners = (byKey.get(keyOf(course)) || []).filter(other => Number(other.AdSectionId) !== sid0
+        && !(departmentFamilyKey(sectionNames.get(Number(other.AdSectionId))) === departmentFamilyKey(sectionNames.get(sid0)) && sectionCollege.get(Number(other.AdSectionId)) !== sectionCollege.get(sid0))
+        && (linked.has(Number(other.AdCourseId)) || (unit && !isUnit(Number(other.AdSectionId)))));
+      const owner = owners.find(other => linked.has(Number(other.AdCourseId))) || owners[0];
+      if (!owner) continue;
+      if (await Repository.hasSchedulesForCourse(Number(course.AdCourseId))) continue;
+      const sid = Number(course.AdSectionId);
+      const row = out.get(sid) || { sectionId: sid, section: sectionName.get(sid) || String(sid), courses: [] };
+      row.courses.push({ id: Number(course.AdCourseId), code: course.CourseCode, name: course.CourseName, ownerSection: sectionName.get(Number(owner.AdSectionId)) || "" });
+      out.set(sid, row);
+    }
+    return [...out.values()].sort((a, b) => b.courses.length - a.courses.length);
+  };
+  app.get("/api/plan-review/sheet/foreign", deps.requireAuth, async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    res.setHeader("Cache-Control", "no-store");
+    const sections = await foreignScan();
+    res.json({ ok: true, sections, total: sections.reduce((sum, row) => sum + row.courses.length, 0) });
+  });
+  app.post("/api/plan-review/sheet/foreign/delete", sheetLimit, deps.requireAuth, express.json({ limit: "1mb" }), async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    const ids = new Set(((req.body?.ids as unknown[]) || []).map(Number).filter(Number.isFinite));
+    if (!ids.size) { fail(res, 400, "لا مقررات للحذف."); return; }
+    const names: string[] = [];
+    for (const section of await foreignScan()) for (const course of section.courses) {
+      if (!ids.has(course.id)) continue;
+      await Repository.deleteCourse(course.id);
+      names.push(`${course.code} ${course.name} (من ${section.section})`);
+    }
+    res.locals.auditChanges = `حذف دخيل (${names.length}): ${names.slice(0, 40).join(" | ")}`;
+    res.json({ ok: true, deleted: names.length });
+  });
+
   app.post("/api/plan-review/sheet/reconcile", sheetLimit, deps.requireAuth, express.json({ limit: "2mb" }), async (req: Request, res: Response) => {
     if (!deps.isRootAdmin(req)) { fail(res, 403, "رفع الصحيفة للحساب الرئيسي وحده."); return; }
+    /* معطَّل مؤقتاً (انظر addOtherDepartments): يربط المقررات بالقسم من رمزه، ورموز بعض الأقسام في النظام لا تطابق الصحائف. */
+    res.status(409).json({ ok: false, updated: 0, error: "تصحيح مقررات الأقسام الأخرى معطَّل حتى تُؤكَّد رموز الأقسام." }); return;
     const entries = (Array.isArray(req.body?.courses) ? req.body.courses : []).slice(0, 5000) as Array<{ key: string; name: string; units: number; hours: number }>;
     const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
     const authorityOf = (row: any) => authorityDepartmentCode((colleges as any[]).find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeCode, row.AdSectionCode);
@@ -565,6 +628,34 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     }
     res.locals.auditChanges = `مقررات أقسام بلا صحائف من الصحائف الأخرى: ${countOf(updated, AR.course)}`;
     res.json({ ok: true, updated });
+  });
+
+  /* ── مقارنةُ صحيفةٍ بمقررات قسمٍ موجود (قبل مطابقته): هل هما القسم نفسه؟ قراءةٌ فحسب ── */
+  app.post("/api/plan-review/sheet/compare", sheetLimit, deps.requireAuth, express.raw({ type: "application/octet-stream", limit: PLAN_PDF_MAX_BYTES + 4096 }), async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "رفع الصحيفة للحساب الرئيسي وحده."); return; }
+    const sectionId = Number(req.query.sectionId) || 0;
+    const body = Buffer.isBuffer(req.body) ? req.body : null;
+    if (!sectionId || !body?.length || body.subarray(0, 5).toString("latin1") !== "%PDF-") { res.status(422).json({ error: "اختر قسماً وارفع PDF." }); return; }
+    let sheet;
+    try { sheet = parsePlanItems(await extractPlanItems(body)); } catch { res.status(422).json({ error: "تعذّرت قراءة الملف." }); return; }
+    const norm = (text: string) => String(text || "").normalize("NFKC").replace(/[\s\-()\u064B-\u0652]/g, "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ه/g, "ة").replace(/ئ/g, "ي").replace(/ؤ/g, "و");
+    const mine = ownCourses(sheet, sheetKey(sheet));
+    const rows = await Repository.getCoursesBySection(sectionId) as AdCourse[];
+    const numberOf = (code: unknown) => Number(referenceCodeKey(code).slice(-3));
+    const byNumber = new Map(rows.map(row => [numberOf(row.CourseCode), row] as const));
+    const byName = new Map(rows.map(row => [norm(row.CourseName), row] as const));
+    const sameNumber = mine.filter(course => byNumber.has(Number(course.number)));
+    const sameBoth = sameNumber.filter(course => norm(byNumber.get(Number(course.number))!.CourseName) === norm(course.name));
+    const nameElsewhere = mine.filter(course => !byNumber.has(Number(course.number)) && byName.has(norm(course.name)));
+    const sheetNumbers = new Set(mine.map(course => Number(course.number)));
+    const similar = mine.length ? (sameBoth.length + nameElsewhere.length) / mine.length : 0;
+    res.json({
+      sheetCourses: mine.length, systemCourses: rows.length, sameNumber: sameNumber.length, sameNumberAndName: sameBoth.length, sameNameOtherNumber: nameElsewhere.length,
+      similar: similar >= 0.4,
+      differ: sameNumber.filter(course => !sameBoth.includes(course)).slice(0, 8).map(course => ({ number: course.number, sheet: course.name, system: byNumber.get(Number(course.number))!.CourseName })),
+      sheetOnly: mine.filter(course => !byNumber.has(Number(course.number)) && !byName.has(norm(course.name))).length,
+      systemOnly: rows.filter(row => !sheetNumbers.has(numberOf(row.CourseCode))).slice(0, 8).map(row => ({ number: String(row.CourseCode), name: row.CourseName })),
+    });
   });
 
   /* ── لقطةٌ لحال النظام بعد الرفع (للتقرير الذي يُنزَّل): لكل قسمٍ مقرراته وصحائفه وعدد مقررات كل صحيفة ── */
@@ -599,9 +690,9 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
      وتؤخذ مقررات القسم وحدها برقمها (105)، وتُصحَّح أسماؤها، ولا تُمسّ السعة أبداً. */
   app.post("/api/plan-review/sheet/import", sheetLimit, deps.requireAuth, express.raw({ type: "application/octet-stream", limit: PLAN_PDF_MAX_BYTES + 4096 }), async (req: Request, res: Response) => {
     if (!deps.isRootAdmin(req)) { fail(res, 403, "رفع الصحيفة للحساب الرئيسي وحده."); return; }
-    const reject = (kind: string, message: string) => { res.status(422).json({ error: message, rejection: { kind, message } }); };
+    const reject = (kind: string, message: string, extra: Record<string, unknown> = {}) => { res.status(422).json({ error: message, rejection: { kind, message, ...extra } }); };
     const sectionId = Number(req.query.sectionId) || 0;
-    const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
+    let [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
     const body = Buffer.isBuffer(req.body) ? req.body : null;
     if (!body?.length) { fail(res, 400, "لا ملف."); return; }
     if (body.subarray(0, 5).toString("latin1") !== "%PDF-") { reject("unreadable", "الملف ليس PDF. ارفع «الخطة الدراسية» كما تطبعها SWRCAPP (نصاً لا صورة)."); return; }
@@ -789,49 +880,29 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       /* ما في الصحيفة من مقررات أقسامٍ أخرى (خدمية وغيرها): الناقص منها يُضاف إلى قسمه برقمه واسمه من الصحيفة
          (كل مواقعه: رئيسي وجهراء وفحيحيل وبنين)، والقائم لا يُمسّ. قسمٌ لا وجود له في النظام يُذكر برمزه في التقرير. */
       const addOtherDepartments = async () => {
+        /* معطَّل مؤقتاً: كان يُضيف مقررات الأقسام الأخرى إلى كل قسمٍ يطابق رمزُه رمزَ القسم المطبوع، فوقعت مقرراتُ «أصول التربية»
+           (رمز 20) في وحدة الكهرباء لأن رمزها في النظام كان 20. لا كتابة هنا حتى تُؤكَّد رموز الأقسام الخدمية من المسؤول. */
         const ownKeys = new Set(ownCourses(sheet, ownKey).map(course => course.codeKey));
         const others = sheet.courses.filter(course => !ownKeys.has(course.codeKey));
-        const { names } = correctedNames(others);
         const authorityOf = (row: any) => authorityDepartmentCode((colleges as any[]).find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeCode, row.AdSectionCode);
-        const existing = await Repository.getCourses() as AdCourse[];
-        const added: string[] = [], noDepartment = new Map<string, number>();
-        const differs: string[] = [];
+        const noDepartment = new Map<string, number>(), notAdded = new Map<string, number>();
         for (const course of others) {
           const key = `${course.college}${course.dept}`;
-          const homes = (sections as any[]).filter(row => authorityOf(row) === key);
-          if (!homes.length) { noDepartment.set(key, (noDepartment.get(key) || 0) + 1); continue; }
-          for (const home of homes) {
-            const branch = collegeBranchRoot(colleges as any[], Number(home.AdCollegeId));
-            if (course.girlsOnly && branch && branchAudience(branch) !== "girls") continue;
-            const name = names.get(course.codeKey) || course.name;
-            const same = existing.filter(row => Number(row.AdSectionId) === Number(home.AdSectionId) && numberOf(row.CourseCode) === Number(course.number));
-            if (same.length > 1) continue;
-            if (same.length) {
-              /* مقرر قسمٍ آخر قائم: صحيفةُ قسمه هي المعتمدة له (تصحّحه إذا رُفعت)، وصحائف الأقسام الأخرى قد تخالف بعضها
-                 في الرقم نفسه (وحداتٌ مطبوعةٌ خطأً في صحيفةٍ واحدة)، فلا يصحّحه غيرُ صاحبه؛ يُذكر الفرق في التقرير. */
-              const row = same[0];
-              if (String(row.CourseName).normalize("NFKC").trim() !== name || Number(row.CourseCredit) !== course.units || Number(row.CourseHours) !== course.hours) {
-                differs.push(`${course.codeKey}: النظام ${String(row.CourseName).trim()}|${row.CourseCredit}|${row.CourseHours} ← الصحيفة ${name}|${course.units}|${course.hours}`);
-              }
-              continue;
-            }
-            try {
-              await Repository.createCourse(Number(home.AdCollegeId), Number(home.AdSectionId), storedCode(course), name, course.units, course.hours, 0, false);
-              added.push(`${course.codeKey}@${home.AdSectionId}`);
-            } catch (error) { if (!(error instanceof DuplicateResourceError)) throw error; }
-          }
+          const bucket = (sections as any[]).some(row => authorityOf(row) === key) ? notAdded : noDepartment;
+          bucket.set(key, (bucket.get(key) || 0) + 1);
         }
-        return { added: added.length, differs, noDepartment: [...noDepartment].map(([code, count]) => `${code}×${count}`).sort() };
+        const list = (map: Map<string, number>) => [...map].map(([code, count]) => `${code}×${count}`).sort();
+        return { added: 0, differs: [] as string[], noDepartment: list(noDepartment), notAdded: list(notAdded) };
       };
 
       const results = [];
-      let others = { added: 0, differs: [] as string[], noDepartment: [] as string[] };
+      let others = { added: 0, differs: [] as string[], noDepartment: [] as string[], notAdded: [] as string[] };
       try { others = await addOtherDepartments(); for (const site of targets) results.push(await applyTo(site)); }
       catch (error) { return { status: 500, json: { error: error instanceof Error ? error.message : "تعذّر تطبيق الصحيفة." } }; }
       const first = results[0], total = (key: keyof typeof first.report) => results.reduce((sum, item) => sum + item.report[key], 0);
       const report = { updated: total("updated"), created: total("created"), linked: total("linked"), unchanged: total("unchanged"), rules: total("rules"), groups: total("groups"), unlinked: total("unlinked"), prereqPrinted: total("prereqPrinted"), prereqLinked: total("prereqLinked") };
       const fixes = first.fixes;
-      return { status: 200, audit:  `رفع الخطة الدراسية ${sheet.program} لقسم ${String(target.AdSectionName || "").trim()} (${countOf(results.length, AR.site)}): ${countOf(report.created, AR.course)} جديدة، ${countOf(report.updated, AR.course)} مصحَّحة، ${countOf(others.added, AR.course)} مضافة من أقسام أخرى، تصحيح ${fixes.length} من الأسماء${first.renamed ? `، تسمية القسم «${first.renamed.before}» ← «${first.renamed.after}»` : ""}${first.recoded ? `، رمز القسم ${first.recoded.before || "—"} ← ${first.recoded.after}` : ""}`, json: { ok: true, era: isNew ? "new" : "old", sites: results.length, sectionId: first.sectionId, sectionName: first.renamed?.after || String(target.AdSectionName || ""), unresolved: [...new Set(results.flatMap(item => item.unresolved))].sort(), renames: results.filter(item => item.renamed || item.recoded).map(item => ({ sectionId: item.sectionId, renamed: item.renamed, recoded: item.recoded })), renamed: first.renamed, recoded: first.recoded, program: sheet.program, planId: first.plan.id, planName: first.plan.name, planCreated: first.planCreated, rollover: results.some(item => item.rollover), ...report, otherDepartments: sheet.courses.length - ownCourses(sheet, ownKey).length, addedOther: others.added, differsOther: others.differs, noDepartment: others.noDepartment, nameFixes: fixes, notes: first.notes.slice(0, 30) } };
+      return { status: 200, audit:  `رفع الخطة الدراسية ${sheet.program} لقسم ${String(target.AdSectionName || "").trim()} (${countOf(results.length, AR.site)}): ${countOf(report.created, AR.course)} جديدة، ${countOf(report.updated, AR.course)} مصحَّحة، ${countOf(others.added, AR.course)} مضافة من أقسام أخرى، تصحيح ${fixes.length} من الأسماء${first.renamed ? `، تسمية القسم «${first.renamed.before}» ← «${first.renamed.after}»` : ""}${first.recoded ? `، رمز القسم ${first.recoded.before || "—"} ← ${first.recoded.after}` : ""}`, json: { ok: true, era: isNew ? "new" : "old", sites: results.length, sectionId: first.sectionId, sectionName: first.renamed?.after || String(target.AdSectionName || ""), unresolved: [...new Set(results.flatMap(item => item.unresolved))].sort(), renames: results.filter(item => item.renamed || item.recoded).map(item => ({ sectionId: item.sectionId, renamed: item.renamed, recoded: item.recoded })), renamed: first.renamed, recoded: first.recoded, program: sheet.program, planId: first.plan.id, planName: first.plan.name, planCreated: first.planCreated, rollover: results.some(item => item.rollover), ...report, otherDepartments: sheet.courses.length - ownCourses(sheet, ownKey).length, addedOther: others.added, differsOther: others.differs, noDepartment: others.noDepartment, foreignNotAdded: others.notAdded, nameFixes: fixes, notes: first.notes.slice(0, 30) } };
     };
 
     if (sectionId) {
@@ -844,19 +915,52 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     }
 
     /* بلا قسمٍ مختار: تُوجَّه الصحيفة إلى الأقسام التي يطابق اسمُها قسمَ الصحيفة (أو يخصّها رمزها في صحائف القسم الإداري). */
-    const matched = groupDeptTracks(sections as any[], colleges as any[]).map(item => item.canonical as any).filter(section => {
+    const matchIn = (list: any[]) => groupDeptTracks(list, colleges as any[]).map(item => item.canonical as any).filter(section => {
       const scope = scopeOf(section);
       /* الاسم، أو رمز الهيئة الكامل (كلية+قسم) المطابق لرمز الصحيفة: «معلم الحاسب» و«حاسوب» برمزٍ واحد هو القسم نفسه. */
       const sameAuthorityCode = /^\d{4}$/.test(scope.departmentKey) && scope.departmentKey === sheetKey(sheet);
       return checkSheetScope(sheet, scope) === null && (sheetNameMatches(sheet, scope.sectionName) || sameAuthorityCode || sheetOwnKey(sheet, scope).umbrella);
     });
-    if (!matched.length) { reject("department", `لم أجد في النظام قسماً باسم «${String(sheet.department || "").replace(/^قسم\s+/, "")}». اختر القسم يدوياً.`); return; }
+    let matched = matchIn(sections as any[]);
+    /* قسمٌ للصحيفة لا وجود له: يُنشأ بموافقة المسؤول وفي كلية يختارها (createMissing=1&collegeId=N)، باسمه ورمزه من الصحيفة.
+       وإن لم توجد كليتها أصلاً: createCollege=1 تُنشئها (اسمها من الصحيفة ورمزها من رقم مقرراتها) ثم القسم فيها.
+       لا يُنشأ لقسمٍ إداري (علم النفس/علم التربية) ولا حيث للقسم نفسه صحيفةٌ برمزٍ مطابق. */
+    const createdSections: Array<{ name: string; college: string; accounts: SectionAccountResult[]; accountsError?: string }> = [];
+    const createdColleges: Array<{ name: string; code: string; accounts: SectionAccountResult[]; accountsError?: string }> = [];
+    const missingKey = sheetKey(sheet), missingName = sheetSectionName(sheet, "قسم م");
+    const collegeDigits = missingKey.slice(0, 2);
+    const matchingColleges = () => (colleges as any[]).filter(college => academicDigits(college.AdCollegeCode).slice(0, 2) === collegeDigits);
+    const wantsCreate = req.query.createMissing === "1" || req.query.createCollege === "1";
+    if (wantsCreate && (!matched.length || Number(req.query.collegeId || 0)) && /^\d{4}$/.test(missingKey) && missingName && ownCourses(sheet, missingKey).length) {
+      let targets = matchingColleges();
+      const onlyCollege = Number(req.query.collegeId || 0);
+      /* لا إنشاء «للجميع»: الكلية تُختار صراحةً لكل قسم. */
+      targets = onlyCollege ? targets.filter(college => Number(college.AdCollegeId) === onlyCollege) : [];
+      if (!targets.length && req.query.createCollege === "1" && !matchingColleges().length && String(sheet.college || "").trim()) {
+        const college = await Repository.createCollege(collegeDigits, String(sheet.college).trim());
+        let accounts: SectionAccountResult[] = [], accountsError: string | undefined;
+        try { accounts = await provisionCollegeUsers(Repository, college); } catch (error: any) { accountsError = String(error?.message || error); console.error("[sheet-import] college accounts:", error?.stack || error); }
+        createdColleges.push({ name: String(college.AdCollegeName), code: collegeDigits, accounts, accountsError });
+        targets = [college];
+      }
+      for (const college of targets) {
+        if ((sections as any[]).some(row => Number(row.AdCollegeId) === Number(college.AdCollegeId) && authorityDepartmentCode(college.AdCollegeCode, row.AdSectionCode) === missingKey)) continue;
+        const created = await Repository.createSection(Number(college.AdCollegeId), missingKey.slice(2), missingName);
+        /* القسم الجديد يولد بحساباته (رئيس قسم · رئيس جدول · مرشد)؛ وتعثّر الحسابات لا يُسقط القسم ولا الرفع، بل يُسجَّل سببُه في التقرير. */
+        let accounts: SectionAccountResult[] = [], accountsError: string | undefined;
+        try { accounts = await provisionSectionUsers(Repository, college, created); } catch (error: any) { accountsError = String(error?.message || error); console.error("[sheet-import] section accounts:", error?.stack || error); }
+        createdSections.push({ name: missingName, college: String(college.AdCollegeName || ""), accounts, accountsError });
+      }
+      /* ما أُنشئ لا يظهر في ما قُرئ أول الطلب (Firestore يُرجع نسخاً): تُعاد قراءة الكليات والأقسام فيراها كل ما بعدها. */
+      if (createdSections.length || createdColleges.length) { [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]); matched = matchIn(sections as any[]); }
+    }
+    if (!matched.length) { reject("department", `لم أجد في النظام قسماً باسم «${String(sheet.department || "").replace(/^قسم\s+/, "")}». اختر القسم يدوياً.`, { missing: !createdSections.length && /^\d{4}$/.test(missingKey) && Boolean(missingName), departmentName: String(sheet.department || ""), code: missingKey.slice(2), sheetCollege: String(sheet.college || ""), collegeCode: collegeDigits, colleges: matchingColleges().map(college => ({ id: Number(college.AdCollegeId), name: String(college.AdCollegeName || "") })) }); return; }
     const outs: Array<{ status: number; json: any; audit?: string }> = [];
     for (const section of matched) outs.push(await process(section));
     const done = outs.filter(item => item.status === 200);
     if (!done.length) { res.status(outs[0].status).json(outs[0].json); return; }
-    res.locals.auditChanges = done.map(item => item.audit).filter(Boolean).join(" | ");
-    res.json({ ok: true, auto: true, tracks: done.length, sites: done.reduce((sum, item) => sum + Number(item.json.sites || 0), 0), era: done[0].json.era, program: sheet.program, planName: done[0].json.planName, sectionId: done[0].json.sectionId, planId: done[0].json.planId, created: done.reduce((sum, item) => sum + Number(item.json.created || 0), 0), updated: done.reduce((sum, item) => sum + Number(item.json.updated || 0), 0), linked: done.reduce((sum, item) => sum + Number(item.json.linked || 0), 0), prereqPrinted: done.reduce((sum, item) => sum + Number(item.json.prereqPrinted || 0), 0), prereqLinked: done.reduce((sum, item) => sum + Number(item.json.prereqLinked || 0), 0), skipped: outs.length - done.length, sections: done.map(item => item.json.sectionName), renames: done.flatMap(item => item.json.renames || []), nameFixes: done.reduce((sum, item) => sum + (item.json.nameFixes?.length || 0), 0), otherDepartments: done[0].json.otherDepartments, addedOther: done.reduce((sum, item) => sum + Number(item.json.addedOther || 0), 0), differsOther: [...new Set(done.flatMap(item => item.json.differsOther || []))].sort(), noDepartment: [...new Set(done.flatMap(item => item.json.noDepartment || []))].sort(), programName: sheet.programName, unresolved: [...new Set(done.flatMap(item => item.json.unresolved || []))].sort() });
+    res.locals.auditChanges = [...createdColleges.map(row => `إنشاء كلية «${row.name}» برمز ${row.code}`), ...createdSections.map(row => `إنشاء قسم «${row.name}» في ${row.college}`), ...done.map(item => item.audit)].filter(Boolean).join(" | ");
+    res.json({ ok: true, auto: true, createdSections, createdColleges, tracks: done.length, sites: done.reduce((sum, item) => sum + Number(item.json.sites || 0), 0), era: done[0].json.era, program: sheet.program, planName: done[0].json.planName, sectionId: done[0].json.sectionId, planId: done[0].json.planId, created: done.reduce((sum, item) => sum + Number(item.json.created || 0), 0), updated: done.reduce((sum, item) => sum + Number(item.json.updated || 0), 0), linked: done.reduce((sum, item) => sum + Number(item.json.linked || 0), 0), prereqPrinted: done.reduce((sum, item) => sum + Number(item.json.prereqPrinted || 0), 0), prereqLinked: done.reduce((sum, item) => sum + Number(item.json.prereqLinked || 0), 0), skipped: outs.length - done.length, sections: done.map(item => item.json.sectionName), renames: done.flatMap(item => item.json.renames || []), nameFixes: done.reduce((sum, item) => sum + (item.json.nameFixes?.length || 0), 0), otherDepartments: done[0].json.otherDepartments, addedOther: done.reduce((sum, item) => sum + Number(item.json.addedOther || 0), 0), foreignNotAdded: [...new Set(done.flatMap(item => item.json.foreignNotAdded || []))].sort(), differsOther: [...new Set(done.flatMap(item => item.json.differsOther || []))].sort(), noDepartment: [...new Set(done.flatMap(item => item.json.noDepartment || []))].sort(), programName: sheet.programName, unresolved: [...new Set(done.flatMap(item => item.json.unresolved || []))].sort() });
   });
 
   /* ── إنهاء الصحيفة السابقة لأقسامٍ يختارها المسؤول ─────────────────────────────────────────────

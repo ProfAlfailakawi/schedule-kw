@@ -2188,3 +2188,13 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 
 /* Status badges beside each other (role, read-only, active) breathe: they used to touch. */
 .inspector-status{display:flex;flex-wrap:wrap;gap:6px}
+
+/* المسار الأسهل: أربع خطواتٍ بأيقونات بدل فقرة؛ الجملة الكاملة في aria-label. */
+.transfer-import-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;align-items:start}
+.transfer-import-steps>li{position:relative;display:grid;justify-items:center;gap:4px;min-inline-size:0;text-align:center}
+.transfer-import-steps>li:not(:last-child)::after{content:"";position:absolute;inset-block-start:17px;inset-inline-end:-50%;inline-size:100%;block-size:2px;background:color-mix(in srgb,var(--accent) 28%,var(--line));z-index:0}
+.transfer-import-steps>li>i{position:relative;z-index:1;display:grid;place-items:center;inline-size:34px;block-size:34px;border-radius:50%;background:var(--surface);border:1.5px solid var(--accent);color:var(--accent)}
+.transfer-import-steps>li:last-child>i{background:var(--accent);color:#fff}
+.transfer-import-steps svg{inline-size:16px;block-size:16px}
+.transfer-import-steps>li>b{font-size:.78rem;font-weight:600;color:var(--ink)}
+.transfer-import-hero>div{flex:1;min-inline-size:0}

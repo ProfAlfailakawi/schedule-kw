@@ -104,3 +104,9 @@ Left alone, and why: these already read as infographic + icon + short label (sta
 - `npm run lint` (tsc --noEmit): pass. `verify:pwa`, `audit:brand`, `audit:guide`, `test:guide`, `test:guide:perf`: pass. `vite build` (to a scratch outDir; the layer is present in the emitted CSS): pass.
 - `npm test`: every script before `test:behavior` passed; the chain then stops at `test:behavior`. Three scripts fail identically with this round's change stashed: `test:behavior` (`TypeError ... reading 'AdCollegeId'` at `tests/run-tests.ts:1878`), `test:data` and `test:parity` (the 15 `FAIL` lines are all legacy-dataset counts and preserved identities: the checkout has no legacy data). These are environmental, not caused by CSS. The remaining ~72 scripts after `test:behavior` were then run one by one (not chained) and all pass.
 - Browser: per-route `getAnimations()` sampling in normal and `reducedMotion: 'reduce'`, rectangle comparison for the dossier dialog and notification panel, `scrollWidth == clientWidth` at 390px on 16 views and at 1280px on 31 views.
+
+---
+
+# Round 3
+
+See `docs/QUALITY-SCORECARD.md` for the measured before/after and the list of what was left. Summary: closed mobile drawer removed from the tab order (`07-responsive.css`), muted text on two static pages lifted to 4.5:1, three small colour lifts at the end of `30-motion.css`. No motion added; identity layer untouched.

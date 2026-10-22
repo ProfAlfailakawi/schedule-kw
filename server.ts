@@ -34,6 +34,7 @@ import { readVisitingTeaching } from "./src/server/visitingTeachingRead";
 import { aggregateVisitingHistory } from "./src/utils/visitingHistory";
 import { coerceScopeValues } from "./src/utils/scopeContext";
 import { readOnlyRefusal, roleWriteDecision } from "./src/server/roleGuard";
+import { provisionCollegeUsers } from "./src/server/sectionUsers";
 import { registerStudyProposalRoutes, seedDemoStudyProposals } from "./src/server/studyProposalRoutes";
 import { effectiveStatus as studyProposalStatus, decisionStateOf as studyProposalDecision } from "./src/utils/studyProposal";
 import { studyProposalPage } from "./src/server/studyProposalPage";
@@ -3085,7 +3086,10 @@ app.post("/api/colleges", requirePermission(2), async (req: Request, res: Respon
     return;
   }
   const newC = await Repository.createCollege(code, name);
-  res.status(201).json(newC); // using created code helper
+  /* الكلية الجديدة تولد بعميدها وعميدها المساعد (فعّالين بكلمة السر الافتراضية)؛ وعميد التسجيل ورئيسه نطاقهما كل الكليات فيشملانها. */
+  const accounts = (req as AuthenticatedRequest).user?.IsAdminUser ? await provisionCollegeUsers(Repository, newC) : [];
+  res.locals.auditChanges = `إنشاء كلية «${name}»${accounts.length ? ` وحسابات ${accounts.filter(row => row.status === "created").map(row => row.login).join("، ")}` : ""}`;
+  res.status(201).json({ ...newC, accounts });
 });
 
 app.put("/api/colleges/:id", requirePermission(2), async (req: AuthenticatedRequest, res: Response) => {
