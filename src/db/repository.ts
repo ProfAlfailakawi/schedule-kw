@@ -3639,10 +3639,10 @@ export const Repository = {
   },
 
   /** تعديل حالة الخطة أو سنة صحيفتها (تدوير الصحيفة عند رفع أحدث منها). */
-  patchCurriculumPlan: async (planId:string, sectionId:number, patch:{status?:"active"|"transition"|"archived";sheetYear?:number}): Promise<CurriculumPlan> => {
+  patchCurriculumPlan: async (planId:string, sectionId:number, patch:{status?:"active"|"transition"|"archived";sheetYear?:number;name?:string}): Promise<CurriculumPlan> => {
     const plans=await Repository.getCurriculumPlans(sectionId),plan=plans.find(row=>row.id===planId);
     if(!plan)throw new Error("الصحيفة غير موجودة");
-    const updated:CurriculumPlan={...plan,...(patch.status?{status:patch.status}:{}),...(patch.sheetYear?{sheetYear:patch.sheetYear}:{})};
+    const updated:CurriculumPlan={...plan,...(patch.status?{status:patch.status}:{}),...(patch.sheetYear?{sheetYear:patch.sheetYear}:{}),...(patch.name?{name:String(patch.name).trim().slice(0,80)}:{})};
     if(firestoreDb&&!demoSandboxContext.getStore()){await firestoreDb.collection("curriculumPlans").doc(planId).set(updated);if(patch.status)await markRegistrationRunsStale();return updated;}
     if(!Array.isArray(db.curriculumPlans))db.curriculumPlans=[];const at=db.curriculumPlans.findIndex(row=>row.id===planId);if(at<0)throw new Error("الصحيفة غير موجودة");db.curriculumPlans[at]=updated;saveDatabase();if(patch.status)await markRegistrationRunsStale();return updated;
   },

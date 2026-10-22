@@ -913,6 +913,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       if (rejection) return { status: 422, json: { error: rejection.message, rejection } };
       /* القديمة تدخل «الصحيفة السابقة» وحدها: لا تسمّي القسم ولا تغيّر رمزه، وتصحّح اسم المقرر ووحداته وساعاته إلا مقرراً في صحيفة فعّالة (الكتالوج مشترك مع الجديدة). */
       const isNew = isNewSheet(sheet);
+      const newPlanName = sheet.startYear ? `صحيفة ${sheet.startYear}/${sheet.startYear + 1}` : "الصحيفة الجديدة";
       const { key: ownKey, umbrella } = sheetOwnKey(sheet, scope);
 
       /* الصحيفةُ لمسارٍ كامل: بناتُ القسم (الرئيسي والجهراء والفحيحيل) صحيفةٌ واحدة، وللبنين مسارُهم. */
@@ -995,11 +996,13 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         } else {
           plan = era.rollover ? undefined : wanted(await mainPlansOf(sid));
           if (!plan) {
-            await Repository.createCurriculumPlan({ collegeId: cid, sectionId: sid, name: `الصحيفة الجديدة ${sheet.semesterLabel || sheet.startYear || ""}`.trim(), by });
+            await Repository.createCurriculumPlan({ collegeId: cid, sectionId: sid, name: isNew ? newPlanName : `الصحيفة الجديدة ${sheet.semesterLabel || sheet.startYear || ""}`.trim(), by });
             plan = wanted(await mainPlansOf(sid)); planCreated = true;
           }
         }
         if (!plan) throw new Error("تعذّر إنشاء صحيفة للقسم.");
+        /* اسمٌ واحد لصحيفة السنة في كل المواقع («صحيفة 2026/2027») بدل أسماءٍ تختلف باختلاف مرحلة الرفع. */
+        if (isNew && !trackProgram && sheet.startYear && plan.status === "active" && plan.name !== newPlanName) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { name: newPlanName })) };
         if (sheet.startYear && (era.rollover || !plan.sheetYear)) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { sheetYear: sheet.startYear })) };
 
         /* 1) المقررات: تصحيح الاسم/الوحدات/الساعات وإضافة الناقص؛ السعة كما هي. */
