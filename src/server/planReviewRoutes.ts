@@ -13,6 +13,7 @@
  *     في القواعد (دورة، مجموعةٌ لا تتّسع لحدّها…)، أو تغيّرت المسوّدةُ بعد أن رآها.
  *   · كلُّ تعديلٍ في سجلّ التدقيق.
  */
+import { setPlanBadgeSource } from "./planBadgeShared";
 import { groupDeptTracks, planMatchKey, trackLabels, type DeptTrack } from "../utils/collegeTrack";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
 import { compareCurriculumReference, isTechnologyEducation, referenceCodeKey } from "../utils/curriculumReference";
@@ -274,6 +275,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     badgeCache = { at: Date.now(), rows };
     return rows;
   };
+  setPlanBadgeSource(planBadgeRows);
   app.get("/api/plan-badges", deps.requireAuth, async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     if (req.query.fresh === "1") badgeCache = null;
