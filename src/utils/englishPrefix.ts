@@ -20,7 +20,7 @@ const WORDS: Record<string, string> = {
   كهرباء: "Electric", كهربائيه: "Electric", ميكانيكيه: "Mechanical", ميكانيكا: "Mechanical", هندسه: "Eng", مدنيه: "Civil",
   كيميائيه: "Chemical", بحريه: "Marine", بصريات: "Optics", تقنيه: "Tech", تقنيات: "Tech", تكنولوجيا: "Tech", تكنولوجي: "Tech",
   صناعيه: "Industrial", صناعي: "Industrial", ميكاترونكس: "Mechatronics", عمارة: "Architecture", عماره: "Architecture",
-  فنون: "Arts", فنيه: "Art", موسيقيه: "Music", موسيقى: "Music", مسرح: "Theatre", اعلام: "Media", اتصال: "Communication",
+  فنون: "Arts", فنيه: "Art", موسيقيه: "Music", موسيقي: "Music", مسرح: "Theatre", اعلام: "Media", اتصال: "Communication",
   خاصه: "Special", خاصة: "Special", طفوله: "Childhood", مبكره: "Early", مبكرة: "Early", صحيه: "Health", صحه: "Health",
   تمريض: "Nursing", طب: "Medicine", صيدله: "Pharmacy", قانون: "Law", سياسه: "Politics", سياسيه: "Politics",
   اداب: "Arts", آداب: "Arts", لغه: "Language", لغات: "Languages", ترجمه: "Translation", مناهجها: "Curricula",

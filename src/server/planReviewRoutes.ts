@@ -36,7 +36,7 @@ import { correctCourseName } from "../utils/courseNameCorrection";
 import { blockingWarnings, checkSheetScope, correctedNames, isNewSheet, sheetKey, sheetNameMatches, sheetOwnKey, sheetSectionCode, sheetSectionName, ownCourses, sheetToReference, storedCode } from "../utils/planSheetImport";
 import { parsePlanItems } from "../utils/planPdfParser";
 import { extractPlanItems, PLAN_PDF_MAX_BYTES } from "./planPdfExtract";
-import { provisionCollegeUsers, provisionSectionUsers, type SectionAccountResult } from "./sectionUsers";
+import { planSectionAccounts, provisionCollegeUsers, provisionSectionUsers, type SectionAccountResult } from "./sectionUsers";
 
 export interface PlanReviewDeps {
   requireAuth: RequestHandler;
@@ -600,6 +600,34 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     }
     res.locals.auditChanges = `حذف دخيل (${names.length}): ${names.slice(0, 40).join(" | ")}`;
     res.json({ ok: true, deleted: names.length });
+  });
+
+  /* ── حسابات الأقسام الموجودة: معاينةٌ ثم إنشاءُ الناقص لما يختاره المسؤول (رئيس القسم · رئيس الجدول · المرشد) ── */
+  app.get("/api/plan-review/section-accounts", deps.requireAuth, async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    res.setHeader("Cache-Control", "no-store");
+    const rows = await planSectionAccounts(Repository);
+    res.json({ ok: true, rows, total: rows.reduce((sum, row) => sum + row.missing.length, 0) });
+  });
+  app.post("/api/plan-review/section-accounts", sheetLimit, deps.requireAuth, express.json({ limit: "1mb" }), async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    const ids = new Set(((req.body?.sectionIds as unknown[]) || []).map(Number).filter(id => Number.isFinite(id) && id > 0));
+    if (!ids.size) { fail(res, 400, "اختر قسماً."); return; }
+    const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
+    const made: string[] = [];
+    const failed: string[] = [];
+    for (const row of await planSectionAccounts(Repository)) {
+      if (!ids.has(row.sectionId)) continue;
+      const section = (sections as any[]).find(item => Number(item.AdSectionId) === row.sectionId);
+      const college = (colleges as any[]).find(item => Number(item.AdCollegeId) === row.collegeId);
+      if (!section || !college) continue;
+      try {
+        const accounts = await provisionSectionUsers(Repository, college, section, undefined, row.missing.map(item => item.role));
+        made.push(...accounts.filter(item => item.status === "created").map(item => item.login));
+      } catch (error: any) { failed.push(`${row.section}: ${String(error?.message || error)}`); console.error("[section-accounts]", error?.stack || error); }
+    }
+    res.locals.auditChanges = `إنشاء حسابات أقسام: ${made.join("، ")}${failed.length ? ` | تعثّر: ${failed.join("، ")}` : ""}`;
+    res.json({ ok: true, created: made.length, logins: made, failed });
   });
 
   app.post("/api/plan-review/sheet/reconcile", sheetLimit, deps.requireAuth, express.json({ limit: "2mb" }), async (req: Request, res: Response) => {
