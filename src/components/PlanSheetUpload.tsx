@@ -200,6 +200,18 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
     for (const item of missingFiles()) if (!seen.has(item.dept.name)) seen.set(item.dept.name, { name: String(item.dept.name), code: String(item.dept.code) });
     return [...seen.values()];
   };
+  type Compare = { sheetCourses: number; systemCourses: number; sameNumber: number; sameNumberAndName: number; sameNameOtherNumber: number; similar: boolean; differ: Array<{ number: string; sheet: string; system: string }>; sheetOnly: number; systemOnly: Array<{ number: string; name: string }> } | { error: string };
+  const [compared, setCompared] = useState<Record<string, Compare>>({});
+  /* هل مقررات القسم المختار تشبه صحيفة القسم الناقص؟ قراءةٌ فحسب قبل المطابقة. */
+  const compareWith = async (deptName: string, sectionId: number) => {
+    const item = missingFiles().find(entry => entry.dept.name === deptName);
+    if (!item) return;
+    try {
+      const response = await fetch(`/api/plan-review/sheet/compare?sectionId=${sectionId}`, { method: "POST", credentials: "include", headers: { "content-type": "application/octet-stream" }, body: await item.file.arrayBuffer() });
+      const data = await response.json().catch(() => ({}));
+      setCompared(current => ({ ...current, [deptName]: response.ok ? data : { error: String(data.error || "تعذّرت المقارنة") } }));
+    } catch (e: any) { setCompared(current => ({ ...current, [deptName]: { error: String(e?.message || "تعذّرت المقارنة") } })); }
+  };
   const [choices, setChoices] = useState<Record<string, string>>({});
   /* لكل قسمٍ ناقص اختيار: إنشاؤه، أو مطابقته بقسمٍ موجود (يُصحَّح اسمه ورمزه من الصحيفة) ثم تُعاد صحائفه وحدها. */
   const applyMissing = () => {
@@ -273,6 +285,12 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
                   <option value="new">إنشاء قسم جديد</option>
                   {targets.map(item => <option key={item.sectionId} value={item.sectionId}>هو {item.label}</option>)}
                 </select>
+                {choices[dept.name] && choices[dept.name] !== "new" ? <button type="button" className="btn btn-secondary" onClick={() => void compareWith(dept.name, Number(choices[dept.name]))} data-guide-ignore="مقارنة مقررات القسم المختار بصحيفة القسم الناقص داخل شاشة مراجعة الصحيفة">قارن مقرراته</button> : null}
+                {compared[dept.name] ? ("error" in compared[dept.name] ? <small role="alert">{(compared[dept.name] as { error: string }).error}</small> : (() => { const c = compared[dept.name] as Exclude<Compare, { error: string }>; return (
+                  <small className="pr-compare" role="status">
+                    <b>{c.similar ? "يتشابهان" : "مختلفان"}</b> · الصحيفة {c.sheetCourses} مقرراً، والقسم {c.systemCourses} · نفس الرقم {c.sameNumber} (منها نفس الاسم {c.sameNumberAndName}) · نفس الاسم برقمٍ آخر {c.sameNameOtherNumber} · ناقص في القسم {c.sheetOnly}
+                    {c.differ.length ? <ul>{c.differ.map(row => <li key={row.number}>{row.number}: «{row.sheet}» ↔ «{row.system}»</li>)}</ul> : null}
+                  </small>); })()) : null}
               </li>
             ))}
           </ul>

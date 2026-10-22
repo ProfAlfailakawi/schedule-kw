@@ -247,6 +247,12 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const row21 = audit.json.sections?.find((row: any) => row.sectionId === 21);
     check(audit.status === 200 && audit.json.totals.sections === audit.json.sections.length && row21?.courses >= 27 && row21.plans.some((plan: any) => plan.status === "active" && plan.sheetYear === 2026 && plan.courses === 27) && (await call("other", "GET", "/api/plan-review/sheet/audit")).status === 403, "لقطة حال النظام: الأقسام والصحائف وعدد المقررات، للرئيسي وحده", row21);
 
+    /* مقارنة صحيفة بمقررات قسمٍ موجود قبل مطابقته: قراءةٌ فحسب */
+    const compareWith = async (who: string, sectionId: number) => { const res = await fetch(`${base}/api/plan-review/sheet/compare?sectionId=${sectionId}`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": who }, body: pdf }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+    const coursesBeforeCompare = JSON.stringify(await Repository.getCourses());
+    const sameDept = await compareWith("root", 21), otherDept = await compareWith("root", 11);
+    check(sameDept.json.similar === true && sameDept.json.sameNumberAndName >= 20 && otherDept.json.similar === false && (await compareWith("other", 21)).status === 403 && JSON.stringify(await Repository.getCourses()) === coursesBeforeCompare, "مقارنة الصحيفة بقسمها تُظهر التشابه وبقسمٍ آخر الاختلاف، بلا كتابة", [sameDept.json, otherDept.json]);
+
     /* قسمٌ للصحيفة لا وجود له: يُرفض بلا كتابة ويُعرض إنشاؤه، ثم يُنشأ بموافقة المسؤول فقط */
     const french = fs.readFileSync("tests/fixtures/plans/graduation-2026/ba-0140.pdf");
     const importAuto = async (who: string, qs = "") => { const res = await fetch(`${base}/api/plan-review/sheet/import${qs}`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": who }, body: french }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };

@@ -567,6 +567,34 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     res.json({ ok: true, updated });
   });
 
+  /* ── مقارنةُ صحيفةٍ بمقررات قسمٍ موجود (قبل مطابقته): هل هما القسم نفسه؟ قراءةٌ فحسب ── */
+  app.post("/api/plan-review/sheet/compare", sheetLimit, deps.requireAuth, express.raw({ type: "application/octet-stream", limit: PLAN_PDF_MAX_BYTES + 4096 }), async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "رفع الصحيفة للحساب الرئيسي وحده."); return; }
+    const sectionId = Number(req.query.sectionId) || 0;
+    const body = Buffer.isBuffer(req.body) ? req.body : null;
+    if (!sectionId || !body?.length || body.subarray(0, 5).toString("latin1") !== "%PDF-") { res.status(422).json({ error: "اختر قسماً وارفع PDF." }); return; }
+    let sheet;
+    try { sheet = parsePlanItems(await extractPlanItems(body)); } catch { res.status(422).json({ error: "تعذّرت قراءة الملف." }); return; }
+    const norm = (text: string) => String(text || "").normalize("NFKC").replace(/[\s\-()\u064B-\u0652]/g, "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ه/g, "ة").replace(/ئ/g, "ي").replace(/ؤ/g, "و");
+    const mine = ownCourses(sheet, sheetKey(sheet));
+    const rows = await Repository.getCoursesBySection(sectionId) as AdCourse[];
+    const numberOf = (code: unknown) => Number(referenceCodeKey(code).slice(-3));
+    const byNumber = new Map(rows.map(row => [numberOf(row.CourseCode), row] as const));
+    const byName = new Map(rows.map(row => [norm(row.CourseName), row] as const));
+    const sameNumber = mine.filter(course => byNumber.has(Number(course.number)));
+    const sameBoth = sameNumber.filter(course => norm(byNumber.get(Number(course.number))!.CourseName) === norm(course.name));
+    const nameElsewhere = mine.filter(course => !byNumber.has(Number(course.number)) && byName.has(norm(course.name)));
+    const sheetNumbers = new Set(mine.map(course => Number(course.number)));
+    const similar = mine.length ? (sameBoth.length + nameElsewhere.length) / mine.length : 0;
+    res.json({
+      sheetCourses: mine.length, systemCourses: rows.length, sameNumber: sameNumber.length, sameNumberAndName: sameBoth.length, sameNameOtherNumber: nameElsewhere.length,
+      similar: similar >= 0.4,
+      differ: sameNumber.filter(course => !sameBoth.includes(course)).slice(0, 8).map(course => ({ number: course.number, sheet: course.name, system: byNumber.get(Number(course.number))!.CourseName })),
+      sheetOnly: mine.filter(course => !byNumber.has(Number(course.number)) && !byName.has(norm(course.name))).length,
+      systemOnly: rows.filter(row => !sheetNumbers.has(numberOf(row.CourseCode))).slice(0, 8).map(row => ({ number: String(row.CourseCode), name: row.CourseName })),
+    });
+  });
+
   /* ── لقطةٌ لحال النظام بعد الرفع (للتقرير الذي يُنزَّل): لكل قسمٍ مقرراته وصحائفه وعدد مقررات كل صحيفة ── */
   app.get("/api/plan-review/sheet/audit", deps.requireAuth, async (req: Request, res: Response) => {
     if (!deps.isRootAdmin(req)) { fail(res, 403, "رفع الصحيفة للحساب الرئيسي وحده."); return; }
