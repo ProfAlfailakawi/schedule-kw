@@ -555,10 +555,12 @@
 .time-slot-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3);padding:var(--s3) 0}
 .time-slot-panel-head strong{display:block;font-size:var(--t-sm);font-weight:700}
 .time-slot-panel-head small,.time-slot-panel-head span{color:var(--muted);font-size:var(--t-xs)}
-.time-slot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s3)}
+.time-slot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:var(--s3)}
 .time-slot-card{
   display:grid;gap:var(--s2);padding:var(--s4);border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface-2);
   text-align:start;color:inherit;
+  /* a <button> keeps its text on one line by default: let a long course or instructor name wrap */
+  min-inline-size:0;white-space:normal;overflow-wrap:anywhere;
 }
 .time-slot-card strong{font-size:var(--t-sm);font-weight:600;line-height:1.55}
 .time-slot-card>div{display:flex;flex-wrap:wrap;gap:var(--s2)}
@@ -728,7 +730,7 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
 .visiting-history-meter>i{display:block;height:5px;border-radius:var(--r-full);background:var(--surface-3);overflow:hidden}
 .visiting-history-meter>i>b{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 58%,var(--brass)));transition:width .45s var(--ease-out)}
 
-.visiting-history-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--s3);padding:var(--s4);text-align:start;animation:rise .2s var(--ease-out) both}
+.visiting-history-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:var(--s3);padding:var(--s4);text-align:start;animation:rise .2s var(--ease-out) both}
 .visiting-history-term{min-width:0;padding:var(--s4);border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2)}
 .visiting-history-term>header{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding-bottom:var(--s3);border-bottom:1px solid var(--line)}
 .visiting-history-term>header>span{min-width:0;display:flex;align-items:center;gap:var(--s2)}
@@ -753,7 +755,7 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
   .visiting-history-matrix th.is-person{min-width:170px}
   .visiting-history-matrix th,.visiting-history-matrix td{padding:var(--s2)}
   .visiting-history-matrix th.is-year,.visiting-history-matrix td.is-year{min-width:80px}
-  .visiting-history-details{grid-template-columns:1fr;padding:var(--s3)}
+  .visiting-history-details{grid-template-columns:minmax(0,1fr);padding:var(--s3)}
 }
 
 /* ==========================================================================
@@ -2331,7 +2333,7 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
 .spatial-metrics b,.twin-score-row strong{direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums}
 /* A number and the words describing it are two things, and need a gap. */
 .spatial-metrics article{display:flex;align-items:baseline;gap:var(--s2)}
-.spatial-metrics article span{min-width:0}
+.spatial-metrics article span{min-width:0;overflow-wrap:anywhere}
 
 /* ── الإجابة المرسومة ──────────────────────────────────────────────────────
  *
@@ -2794,7 +2796,7 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
 
 @media screen and (max-width:900px){
   .room-intelligence .intel-rank-list,.professor-intelligence .professor-load-list,.spatial-risk-list{grid-template-columns:1fr}
-  .spatial-score-row,.schedule-genome .genome-core{grid-template-columns:1fr}.spatial-metrics{grid-template-columns:repeat(3,1fr)}.genome-rooms{grid-column:auto}.scenario-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .spatial-score-row,.schedule-genome .genome-core{grid-template-columns:1fr}.spatial-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.genome-rooms{grid-column:auto}.scenario-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
   .term-compare .compare-result,.compare-diff{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media screen and (max-width:640px){
@@ -3647,7 +3649,7 @@ button.twin-delta{width:100%}
 .living-help-trigger,.living-panel-help{width:40px;height:40px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);display:grid;place-items:center;cursor:pointer}.living-help-trigger:hover,.living-panel-help:hover{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}.living-help-trigger svg,.living-panel-help svg{width:17px;height:17px}
 
 @media (max-width:1050px){.policy-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.policy-result{grid-template-columns:1fr}.policy-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media (max-width:720px){.health-advanced-row,.unwritten-rules-list{grid-template-columns:repeat(2,minmax(0,1fr))}.policy-controls{grid-template-columns:1fr}.policy-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.accuracy-strip{grid-template-columns:1fr 1fr}.accuracy-strip article:first-child{grid-column:1/-1}.version-scrubber{grid-template-columns:1fr}.postmortem-card{grid-template-columns:1fr}.edit-heatmap-grid{grid-template-columns:58px repeat(16,24px)}}
+@media (max-width:720px){.health-advanced-row,.unwritten-rules-list{grid-template-columns:repeat(2,minmax(0,1fr))}.policy-controls{grid-template-columns:minmax(0,1fr)}.policy-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.accuracy-strip{grid-template-columns:1fr 1fr}.accuracy-strip article:first-child{grid-column:1/-1}.version-scrubber{grid-template-columns:1fr}.postmortem-card{grid-template-columns:1fr}.edit-heatmap-grid{grid-template-columns:58px repeat(16,24px)}}
 .unwritten-rules-list article{grid-template-columns:auto minmax(0,1fr) auto}.unwritten-rules-list article>button{width:30px;height:30px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--accent);display:grid;place-items:center;cursor:pointer}.unwritten-rules-list article>button svg{width:14px;height:14px}
 .living-panel-head{grid-template-columns:44px minmax(0,1fr) 34px 34px}
 
@@ -4585,7 +4587,7 @@ button.twin-delta{width:100%}
 .smart-proposal-toggle button:hover:not(:disabled){color:var(--ink);border-color:color-mix(in srgb,var(--ink) 24%,var(--line))}
 .smart-proposal-toggle button:disabled{opacity:.4;cursor:not-allowed}
 /* Pages read as columns, not one long scroll. */
-.smart-proposal-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start}
+.smart-proposal-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));align-items:start}
 .smart-proposal-page{min-width:0}
 .smart-proposal-page-title{display:flex;align-items:baseline;gap:6px;margin-bottom:6px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.02em}
 .smart-proposal-page-title small{font-weight:600;opacity:.8}
@@ -4599,7 +4601,7 @@ button.twin-delta{width:100%}
 .smart-proposal li.is-off .smart-proposal-value{background:transparent;text-decoration:line-through}
 .smart-proposal-where{display:flex;align-items:baseline;gap:6px;min-width:0;flex:1 1 auto}
 .smart-proposal-where b{font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.smart-proposal-where small{font-size:12px;color:var(--muted);white-space:nowrap}
+.smart-proposal-where small{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--muted);white-space:nowrap}
 /* The question and its answer travel together: «القاعة ← F31» never splits
    across two lines, which is what made the list read as noise. */
 .smart-proposal-change{display:inline-flex;align-items:center;gap:6px;flex:none;white-space:nowrap}
@@ -4616,18 +4618,19 @@ button.twin-delta{width:100%}
 .smart-proposal-cancel:hover:not(:disabled){border-color:color-mix(in srgb,var(--ink) 26%,var(--line));color:var(--ink)}
 .smart-proposal-apply:disabled,.smart-proposal-cancel:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:720px){
-  .smart-proposal-grid{grid-template-columns:1fr}
+  .smart-proposal-grid{grid-template-columns:minmax(0,1fr)}
   /* Too narrow for one line: the answer moves under its question, still
      attached to it, rather than being pushed away by the course name. */
   .smart-proposal li label{gap:6px;flex-wrap:wrap}
   .smart-proposal-where{flex:1 1 100%}
-  .smart-proposal-change{margin-inline-start:22px}
+  .smart-proposal-change{margin-inline-start:22px;flex-wrap:wrap;min-inline-size:0;max-inline-size:calc(100% - 22px);white-space:normal}
+  .smart-proposal-value{min-inline-size:0;overflow-wrap:anywhere}
   .smart-proposal-toggle{flex:1 1 100%;margin-inline-start:0;margin-top:2px}
 }
 @media(prefers-reduced-motion:reduce){.smart-proposal-apply,.smart-proposal-cancel,.smart-proposal li{transition:none}}
 @media(prefers-reduced-motion:reduce){.import-smart-chip{transition:none}}
 .import-visiting-badge{padding-inline:7px!important;background:color-mix(in srgb,var(--brass,#a8792a) 10%,var(--surface))!important;border-color:color-mix(in srgb,var(--brass,#a8792a) 32%,var(--line))!important;letter-spacing:0!important}
-@media(max-width:720px){.import-summary-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.import-summary-cards>span{min-height:56px}.import-summary-cards>span b{font-size:24px!important}}
+@media(max-width:720px){.import-summary-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.import-summary-cards>span{min-height:56px;min-inline-size:0;grid-template-columns:auto minmax(0,1fr)}.import-summary-cards>span small{white-space:normal;overflow-wrap:anywhere;line-height:1.3}.import-summary-cards>span b{font-size:24px!important}}
 
 /* V49 — import safety is readable at a glance.
    These four states intentionally do NOT share one pale ramp: the operator must
