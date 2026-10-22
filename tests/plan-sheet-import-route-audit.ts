@@ -251,6 +251,7 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const preview = await callA("root", "GET", "/api/plan-review/approve-all");
       check(preview.status === 200 && preview.json.ready.length + preview.json.blocked.length === draftsBefore && ((await Repository.listRuleDrafts()) as any[]).filter(draft => draft.status === "review").length === draftsBefore, "المعاينة: الجاهز والمحجوب يساويان المسوّدات، ولا تكتب شيئاً", { ready: preview.json.ready?.length, blocked: preview.json.blocked?.length, draftsBefore });
       check((await callA("root", "POST", "/api/plan-review/approve-all")).status === 400, "التنفيذ بلا معاينة يُرفض");
+      console.log("BLOCKED", JSON.stringify(preview.json.blocked, null, 1));
       const done = await callA("root", "POST", "/api/plan-review/approve-all", { items: preview.json.ready.map((item: any) => ({ planId: item.planId, updatedAt: item.updatedAt })) });
       const left = ((await Repository.listRuleDrafts()) as any[]).filter(draft => draft.status === "review").length;
       check(done.status === 200 && preview.json.ready.length > 0 && done.json.approved === preview.json.ready.length && left === preview.json.blocked.length, "التنفيذ يعتمد الجاهز وحده ويُبقي المحجوب", { approved: done.json.approved, ready: preview.json.ready.length, left, blocked: preview.json.blocked.length });

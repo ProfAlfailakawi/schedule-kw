@@ -939,24 +939,27 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
           const id = knownIdByCode.get(referenceCodeKey(need));
           if (id && !memberIdByCode.has(need)) externalIdByCode.set(need, id);
         }
-        /* أعضاءُ المجموعات الاختيارية من أقسامٍ أخرى: الموجود في الكتالوج خارجي، وغيره وحداتٌ معلّقة للمجموعة. */
-        const foreignMemberIdByCode = new Map<string, number>(), pendingByGroup = new Map<string, number>();
+        /* أعضاءُ المجموعات الاختيارية من أقسامٍ أخرى: الموجود في الكتالوج يدخل المجموعة مقرراً خارجياً. */
+        const foreignMemberIdByCode = new Map<string, number>();
         for (const course of foreignElectives) {
           const id = knownIdByCode.get(course.codeKey);
           if (id) { foreignMemberIdByCode.set(course.codeKey, id); externalIdByCode.set(course.codeKey, id); }
-          else pendingByGroup.set(`${reference.id}-${course.groupId}`, (pendingByGroup.get(`${reference.id}-${course.groupId}`) || 0) + course.units);
         }
         const ruleScope = new Map<string, number>([...memberIdByCode, ...externalIdByCode]);
+        const allIds = new Set<number>(ruleScope.values());
         const built = buildReferenceRules(reference, new Map([...memberIdByCode, ...foreignMemberIdByCode]), ruleScope.size ? new Map([...knownIdByCode, ...ruleScope]) : knownIdByCode, new Set());
         /* مجموعاتُ هذه الصحيفة تحمل سنتها في معرّفها (y2026-s1g2) فلا تلتبس بمجموعات صحيفةٍ أخرى للقسم نفسه. */
         const stamp = (id: string) => `y${sheet.startYear || 0}-${id.replace(/^new-/, "")}`;
+        /* وحداتٌ عدّتها الصحيفة للمجموعة ولا يقابلها في النظام شيء (مقررٌ غير موجود، أو وحداتُه في الكتالوج أقل مما طُبع): النقص بقدرها تنبيهٌ لا مانع. */
+        const creditOf = new Map(courses.map(row => [Number(row.AdCourseId), Number(row.CourseCredit) || 0] as const));
+        const offeredBy = new Map<string, number>(reference.groups.map(group => [`${reference.id}-${group.id}`, group.courses.reduce((sum, course) => sum + (Number(course.credit) || 0), 0)] as [string, number]));
         for (const group of built.groups) {
-          const pending = pendingByGroup.get(group.id) || 0;
+          const present = group.courseIds.filter(id => allIds.has(id)).reduce((sum, id) => sum + (creditOf.get(id) || 0), 0);
+          const pending = Math.max(0, (offeredBy.get(group.id) || 0) - present);
           group.id = stamp(group.id);
           if (pending) group.pendingUnits = pending;
         }
         const live = await Repository.getRuleSet(plan.id);
-        const allIds = new Set<number>(ruleScope.values());
         const externalIds = [...externalIdByCode.values()];
         await Repository.updateRuleDraft(plan.id, current => {
           const base: CurriculumRuleSet = current ? { ...current } : { id: plan!.id, planId: plan!.id, AdCollegeId: cid, AdSectionId: sid, rules: live?.rules || [], groups: live?.groups || [], externals: live?.externals, version: live?.version || 0, status: "review", basedOnVersion: live?.version || 0, updatedAt: "", updatedBy: by };
