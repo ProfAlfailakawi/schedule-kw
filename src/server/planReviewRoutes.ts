@@ -545,16 +545,27 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     const sectionCollege = new Map((sections as any[]).map(row => [Number(row.AdSectionId), Number(row.AdCollegeId)]));
     const sectionNames = new Map((sections as any[]).map(row => [Number(row.AdSectionId), String(row.AdSectionName || "")]));
     const linked = new Set<number>();
-    for (const section of sections as any[]) for (const link of await Repository.getCurriculumPlanCourses(Number(section.AdSectionId)) as any[]) linked.add(Number(link.AdCourseId));
-    const owners = new Map<string, any>();
-    for (const course of courses as any[]) if (linked.has(Number(course.AdCourseId))) owners.set(`${String(course.CourseCode).trim()}|${nameKey(course.CourseName)}`, course);
+    const planned = new Set<number>();
+    for (const section of sections as any[]) {
+      for (const link of await Repository.getCurriculumPlanCourses(Number(section.AdSectionId)) as any[]) linked.add(Number(link.AdCourseId));
+      if ((await Repository.getCurriculumPlans(Number(section.AdSectionId)) as any[]).some(plan => !plan.virtual)) planned.add(Number(section.AdSectionId));
+    }
+    /* الأصل: نسخةٌ برقم المقرر واسمه في قسمٍ باسمٍ مختلف (القسم نفسه في كليةٍ أخرى ليس دخيلاً: لكل موقعٍ نسخته)،
+       وهو إما داخل صحيفة، أو في قسمٍ عاديٍّ حين يكون الدخيلُ في «وحدةٍ» قديمة (بلا صحيفة) كوحدة الكهرباء. */
+    const keyOf = (course: any) => `${String(course.CourseCode).trim()}|${nameKey(course.CourseName)}`;
+    /* «وحدة» قديمة: اسمها «وحدة …» وليست لها أي صحيفة (وحدةٌ لها صحائف قسمٌ حيّ لا يُعامَل هكذا). */
+    const isUnit = (sid: number) => /^\s*وحدة/.test(String(sectionNames.get(sid) || "")) && !planned.has(sid);
+    const byKey = new Map<string, any[]>();
+    for (const course of courses as any[]) byKey.set(keyOf(course), [...(byKey.get(keyOf(course)) || []), course]);
     const out = new Map<number, { sectionId: number; section: string; courses: any[] }>();
     for (const course of courses as any[]) {
       if (linked.has(Number(course.AdCourseId))) continue;
-      const owner = owners.get(`${String(course.CourseCode).trim()}|${nameKey(course.CourseName)}`);
-      if (!owner || Number(owner.AdSectionId) === Number(course.AdSectionId)) continue;
-      /* القسم نفسه في كليةٍ أخرى (بنات والجهراء والفحيحيل): لكل موقعٍ نسخته من مقرراته، وليست دخيلة؛ أما قسمان بالاسم نفسه في كليةٍ واحدة فلا. */
-      if (departmentFamilyKey(sectionNames.get(Number(owner.AdSectionId))) === departmentFamilyKey(sectionNames.get(Number(course.AdSectionId))) && sectionCollege.get(Number(owner.AdSectionId)) !== sectionCollege.get(Number(course.AdSectionId))) continue;
+      const sid0 = Number(course.AdSectionId), unit = isUnit(sid0);
+      const owners = (byKey.get(keyOf(course)) || []).filter(other => Number(other.AdSectionId) !== sid0
+        && !(departmentFamilyKey(sectionNames.get(Number(other.AdSectionId))) === departmentFamilyKey(sectionNames.get(sid0)) && sectionCollege.get(Number(other.AdSectionId)) !== sectionCollege.get(sid0))
+        && (linked.has(Number(other.AdCourseId)) || (unit && !isUnit(Number(other.AdSectionId)))));
+      const owner = owners.find(other => linked.has(Number(other.AdCourseId))) || owners[0];
+      if (!owner) continue;
       if (await Repository.hasSchedulesForCourse(Number(course.AdCourseId))) continue;
       const sid = Number(course.AdSectionId);
       const row = out.get(sid) || { sectionId: sid, section: sectionName.get(sid) || String(sid), courses: [] };

@@ -287,7 +287,9 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     {
       /* المقررات الدخيلة: نسخةٌ (رقمٌ واسمٌ) من مقررٍ داخل صحيفة قسمٍ آخر، بلا جدول ولا صحيفة في قسمها */
       const home = (await Repository.getSections()).find(row => String(row.AdSectionCode) === "40" && Number(row.AdCollegeId) === 2)!;
-      const owned = (await Repository.getCoursesBySection(home.AdSectionId))[0];
+      const allCourses = await Repository.getCourses(), allSections = await Repository.getSections();
+      /* أصلٌ رقمه واسمه لا يتكرران إلا في موقعٍ للقسم نفسه (الرقم قد يتكرر بين الأقسام فيُحكم بالاسم معه) */
+      const owned = (await Repository.getCoursesBySection(home.AdSectionId)).find(row => allCourses.filter(other => other.CourseCode === row.CourseCode && other.CourseName === row.CourseName).every(other => allSections.find(sec => sec.AdSectionId === other.AdSectionId)?.AdSectionName === home.AdSectionName))!;
       const strangerSection = 21;
       const copy = await Repository.createCourse(1, strangerSection, owned.CourseCode, owned.CourseName, 3, 3, 0, false);
       const sameNumberOtherName = await Repository.createCourse(1, strangerSection, "999", owned.CourseName, 3, 3, 0, false);
@@ -301,8 +303,27 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const siblingCopy = await Repository.createCourse(3, Number(sibling.AdSectionId), owned.CourseCode, owned.CourseName, 3, 3, 0, false);
       const afterMirror = await callF("root", "GET", "/api/plan-review/sheet/foreign");
       const listedAfter = (afterMirror.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id));
-      check(listedAfter.includes(copy.AdCourseId) && !listedAfter.includes(siblingCopy.AdCourseId), "نسخةُ القسم نفسه في كليةٍ أخرى لا تُعدّ دخيلة، ونسخةُ قسمٍ آخر تُعدّ", listedAfter);
+      check(listedAfter.includes(copy.AdCourseId) && !listedAfter.includes(siblingCopy.AdCourseId), "نسخةُ القسم نفسه في كليةٍ أخرى لا تُعدّ دخيلة، ونسخةُ قسمٍ آخر تُعدّ", [listedAfter, copy.AdCourseId, siblingCopy.AdCourseId, owned.AdCourseId]);
+      /* قسمان بالاسم نفسه في كليةٍ واحدة: لا إعفاء، فالنسخةُ دخيلة */
+      const twin = await Repository.createSection(Number(home.AdCollegeId), "95", home.AdSectionName);
+      const twinCopy = await Repository.createCourse(Number(home.AdCollegeId), Number(twin.AdSectionId), owned.CourseCode, owned.CourseName, 3, 3, 0, false);
+      const twinScan = await callF("root", "GET", "/api/plan-review/sheet/foreign");
+      check((twinScan.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id)).includes(twinCopy.AdCourseId), "قسمان بالاسم نفسه في كليةٍ واحدة: النسخة دخيلة (لا إعفاء)");
+      await Repository.deleteCourse(twinCopy.AdCourseId); await Repository.deleteSection(Number(twin.AdSectionId));
       await Repository.deleteCourse(siblingCopy.AdCourseId); await Repository.deleteSection(Number(sibling.AdSectionId));
+      /* وحدةٌ قديمة بلا صحيفة: مقررها المنسوخ من قسمٍ عاديٍّ (ولو بلا صحيفة) دخيل، وأصله لا يُعدّ كذلك */
+      const planless = await Repository.createSection(3, "97", "قسم أصلٌ بلا صحيفة");
+      const unitSec = await Repository.createSection(3, "96", "وحدة قديمة");
+      const origin = await Repository.createCourse(3, Number(planless.AdSectionId), "777", "مقررٌ أصيل في قسمٍ بلا صحيفة", 3, 3, 0, false);
+      const unitCopy = await Repository.createCourse(3, Number(unitSec.AdSectionId), "777", "مقررٌ أصيل في قسمٍ بلا صحيفة", 3, 3, 0, false);
+      const unitScan = await callF("root", "GET", "/api/plan-review/sheet/foreign");
+      const unitListed = (unitScan.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id));
+      check(unitListed.includes(unitCopy.AdCourseId) && !unitListed.includes(origin.AdCourseId), "نسخةُ وحدةٍ قديمة من مقررِ قسمٍ عاديّ دخيلة، والأصلُ لا", unitListed);
+      /* وحدةٌ لها صحيفة: ليست قديمة، فلا يُعدّ منسوخها غير المربوط دخيلاً بمجرد وجوده في قسمٍ بلا صحيفة */
+      await Repository.createCurriculumPlan({ collegeId: 3, sectionId: Number(unitSec.AdSectionId), name: "صحيفة وحدة حيّة", code: "LIVE-1", by: "test" } as any);
+      const liveScan = await callF("root", "GET", "/api/plan-review/sheet/foreign");
+      check(!(liveScan.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id)).includes(unitCopy.AdCourseId), "وحدةٌ لها صحيفة لا تُعامَل كوحدةٍ قديمة");
+      await Repository.deleteCourse(origin.AdCourseId); await Repository.deleteCourse(unitCopy.AdCourseId); await Repository.deleteSection(Number(planless.AdSectionId)); await Repository.deleteSection(Number(unitSec.AdSectionId));
       const refuse = await callF("root", "POST", "/api/plan-review/sheet/foreign/delete", { ids: [owned.AdCourseId, sameNumberOtherName.AdCourseId] });
       check(refuse.status === 200 && refuse.json.deleted === 0, "ما ليس دخيلاً لا يُحذف ولو طُلب");
       const done = await callF("root", "POST", "/api/plan-review/sheet/foreign/delete", { ids: [copy.AdCourseId] });
