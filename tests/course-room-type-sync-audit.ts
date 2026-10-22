@@ -1,5 +1,5 @@
 import fs from "fs";
-import { roomTypeSiblingIds } from "../src/utils/courseRoomTypeSync";
+import { roomTypeNearMisses, roomTypeSiblingIds } from "../src/utils/courseRoomTypeSync";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -45,6 +45,14 @@ check(!ids.includes(17), "اسمٌ يحتوي اسمَ القسم («… الط�
 check(roomTypeSiblingIds({ ...courses[0], CourseCode: "" }, courses, sections, colleges).length === 0, "رمزٌ فارغ لا يطابق شيئاً");
 check(roomTypeSiblingIds({ ...courses[0], AdSectionId: 99 }, courses, sections, colleges).length === 0, "قسمٌ مجهول لا يطابق شيئاً");
 check(roomTypeSiblingIds({ ...courses[0], AdCollegeId: 99 }, courses, sections, colleges).length === 0, "كليةٌ مجهولة لا تطابق شيئاً");
+
+/* التشخيص: نسخٌ بالرمز نفسه لم تُطابَق، وسببُ كلٍّ منها يُقال للمسؤول. */
+const misses = roomTypeNearMisses(courses[0], courses, sections, colleges);
+const reasonOf = (id: number) => misses.find(item => item.courseId === id)?.reason;
+check(reasonOf(15) === "department-name", "قسمٌ باسمٍ مختلف بالرمز نفسه يُعرض بسببه (اسم القسم)");
+check(reasonOf(17) === "department-name", "اسمٌ يحتوي اسمَ القسم يُعرض بسبب اسم القسم لا يُدمَج");
+check(reasonOf(16) === "college-family", "قسمٌ بالاسم نفسه في كلية عائلةٍ أخرى يُعرض بسببه (عائلة الكلية)");
+check(!misses.some(item => [10, 11, 12, 13, 14].includes(item.courseId)), "النسخ المطابَقة والمقررات برموزٍ أخرى لا تظهر في التشخيص");
 
 /* ترتيبُ الكتابة في المسار: النسخُ قبل المقرر المعدَّل، فتعيد المحاولةُ ما فات. */
 const server = fs.readFileSync("server.ts", "utf8");

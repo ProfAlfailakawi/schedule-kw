@@ -344,9 +344,17 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       } else {
         await load();
       }
-      if (mode === "edit" && Number(d?.roomTypeSynced) > 0) {
-        await load();
-        setReceipt(`طُبّق نوع القاعة «${courseRoomType || "بدون نوع"}» على ${countOf(Number(d.roomTypeSynced), AR.course)} في بقية أحرام القسم (${savedCode}).`);
+      if (mode === "edit" && d?.roomTypeChanged) {
+        const synced = Number(d.roomTypeSynced) || 0;
+        const skipped: Array<{ college: string; section: string; reason: string }> = Array.isArray(d.roomTypeSkipped) ? d.roomTypeSkipped : [];
+        if (synced > 0) await load();
+        const head = synced > 0
+          ? `طُبّق نوع القاعة «${courseRoomType || "بدون نوع"}» على ${countOf(synced, AR.course)} في بقية أحرام القسم (${savedCode}).`
+          : `لم يُطبَّق نوع القاعة على نسخ أخرى من ${savedCode}.`;
+        const why = skipped.length
+          ? ` لم تتغير: ${skipped.map(item => `${item.college}${item.section ? ` — ${item.section}` : ""} (${item.reason})`).join("، ")}.`
+          : synced > 0 ? "" : " لا توجد نسخة بالرمز نفسه في كلية أخرى.";
+        setReceipt(head + why);
       }
       if (mode === "create" && targetPlan) {
         setReceipt(`تمت إضافة ${savedCode} — ${savedName} إلى ${targetPlan.name} بنجاح.`);
