@@ -1,5 +1,5 @@
 import fs from "fs";
-import { roomTypeNearMisses, roomTypeSiblingIds } from "../src/utils/courseRoomTypeSync";
+import { roomTypeSiblingIds } from "../src/utils/courseRoomTypeSync";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -46,14 +46,6 @@ check(roomTypeSiblingIds({ ...courses[0], CourseCode: "" }, courses, sections, c
 check(roomTypeSiblingIds({ ...courses[0], AdSectionId: 99 }, courses, sections, colleges).length === 0, "قسمٌ مجهول لا يطابق شيئاً");
 check(roomTypeSiblingIds({ ...courses[0], AdCollegeId: 99 }, courses, sections, colleges).length === 0, "كليةٌ مجهولة لا تطابق شيئاً");
 
-/* التشخيص: نسخٌ بالرمز نفسه لم تُطابَق، وسببُ كلٍّ منها يُقال للمسؤول. */
-const misses = roomTypeNearMisses(courses[0], courses, sections, colleges);
-const reasonOf = (id: number) => misses.find(item => item.courseId === id)?.reason;
-check(reasonOf(15) === "department-name", "قسمٌ باسمٍ مختلف بالرمز نفسه يُعرض بسببه (اسم القسم)");
-check(reasonOf(17) === "department-name", "اسمٌ يحتوي اسمَ القسم يُعرض بسبب اسم القسم لا يُدمَج");
-check(reasonOf(16) === "college-family", "قسمٌ بالاسم نفسه في كلية عائلةٍ أخرى يُعرض بسببه (عائلة الكلية)");
-check(!misses.some(item => [10, 11, 12, 13, 14].includes(item.courseId)), "النسخ المطابَقة والمقررات برموزٍ أخرى لا تظهر في التشخيص");
-
 /* ترتيبُ الكتابة في المسار: النسخُ قبل المقرر المعدَّل، فتعيد المحاولةُ ما فات. */
 const server = fs.readFileSync("server.ts", "utf8");
 const route = server.slice(server.indexOf('app.put("/api/courses/:id"'), server.indexOf('app.delete("/api/courses/:id"'));
@@ -63,6 +55,9 @@ check(syncAt > 0 && updateAt > syncAt, "مزامنة النسخ تُكتب قب�
 /* النوع الجديد يسري عند كل حفظٍ بنوعٍ غير فارغ لا عند تغييره وحده؛ ولا يُكتب إلا في نسخةٍ نوعُها يختلف. */
 check(/roomTypeEvaluated\s*=\s*roomTypeChanged\s*\|\|\s*CourseRoomType\s*!==\s*""/.test(route), "المزامنة تعمل عند كل حفظٍ بنوعٍ غير فارغ ولو لم يتغيّر نوعُ النسخة المحفوظة");
 check(route.includes("differing") && route.includes("setCourseRoomTypeForIds(differing"), "تُكتب النسخُ المختلفةُ النوع وحدها");
+
+/* رقم المقرر يتكرر بين الأقسام العلمية لمقررات مختلفة: مقررُ قسمٍ آخر بالرقم نفسه لا يُمسّ ولا يُذكر في الإفادة. */
+check(!route.includes("NearMiss") && !route.includes("اسم القسم يختلف"), "إفادة المزامنة لا تذكر مقررات الأقسام الأخرى ذات الرقم نفسه");
 
 /* بوابة لجنة الجدول: مدير النظام يتجاوزها (حسابه بلا دورٍ يقع افتراضياً على رئيس اللجنة)، ورئيس اللجنة يبقى مقيَّداً. */
 const gate = server.slice(server.indexOf("async function committeeCatalogEditAllowed"), server.indexOf("function refuseCommitteeCatalogEdit"));
