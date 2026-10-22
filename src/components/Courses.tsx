@@ -343,6 +343,10 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       } else {
         await load();
       }
+      if (mode === "edit" && Number(d?.roomTypeSynced) > 0) {
+        await load();
+        setReceipt(`طُبّق نوع القاعة «${courseRoomType || "بدون نوع"}» على ${Number(d.roomTypeSynced)} نسخة أخرى من ${savedCode} في بقية أحرام القسم.`);
+      }
       if (mode === "create" && targetPlan) {
         setReceipt(`تمت إضافة ${savedCode} — ${savedName} إلى ${targetPlan.name} بنجاح.`);
       }

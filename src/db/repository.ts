@@ -6693,6 +6693,30 @@ export const Repository = {
     }
     db.locationRoomTypes=normalized;saveDatabase();
   },
+  /* نوعُ القاعة لنسخٍ محدّدة من المقرر دفعةً واحدة (مزامنةُ نسخ القسم الواحد بين الأحرام). */
+  setCourseRoomTypeForIds: async (ids:number[],type:string): Promise<number> => {
+    const wanted=new Set(ids.map(Number).filter(Boolean));
+    if(!wanted.size)return 0;
+    invalidateReference(REFERENCE_KEYS.courses);
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      const list=[...wanted];let count=0;
+      for(let i=0;i<list.length;i+=400){
+        const batch=firestoreDb.batch();
+        for(const id of list.slice(i,i+400)){batch.set(firestoreDb.collection("courses").doc(`course_${id}`),{CourseRoomType:type},{merge:true});count++;}
+        await batch.commit();
+      }
+      await markRegistrationRunsStale();
+      return count;
+    }
+    let count=0;
+    db.courses=(db.courses||[]).map(course=>{
+      if(!wanted.has(Number(course.AdCourseId))||String(course.CourseRoomType||"").normalize("NFKC").trim()===type)return course;
+      count++;return {...course,CourseRoomType:type};
+    });
+    if(count){saveDatabase();await markRegistrationRunsStale();}
+    return count;
+  },
+
   renameCourseRoomType: async (oldName:string,newName:string): Promise<number> => {
     invalidateReference(REFERENCE_KEYS.courses);
     if(firestoreDb&&!demoSandboxContext.getStore()){
