@@ -319,6 +319,10 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const unitScan = await callF("root", "GET", "/api/plan-review/sheet/foreign");
       const unitListed = (unitScan.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id));
       check(unitListed.includes(unitCopy.AdCourseId) && !unitListed.includes(origin.AdCourseId), "نسخةُ وحدةٍ قديمة من مقررِ قسمٍ عاديّ دخيلة، والأصلُ لا", unitListed);
+      /* وحدةٌ لها صحيفة: ليست قديمة، فلا يُعدّ منسوخها غير المربوط دخيلاً بمجرد وجوده في قسمٍ بلا صحيفة */
+      await Repository.createCurriculumPlan({ collegeId: 3, sectionId: Number(unitSec.AdSectionId), name: "صحيفة وحدة حيّة", code: "LIVE-1", by: "test" } as any);
+      const liveScan = await callF("root", "GET", "/api/plan-review/sheet/foreign");
+      check(!(liveScan.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id)).includes(unitCopy.AdCourseId), "وحدةٌ لها صحيفة لا تُعامَل كوحدةٍ قديمة");
       await Repository.deleteCourse(origin.AdCourseId); await Repository.deleteCourse(unitCopy.AdCourseId); await Repository.deleteSection(Number(planless.AdSectionId)); await Repository.deleteSection(Number(unitSec.AdSectionId));
       const refuse = await callF("root", "POST", "/api/plan-review/sheet/foreign/delete", { ids: [owned.AdCourseId, sameNumberOtherName.AdCourseId] });
       check(refuse.status === 200 && refuse.json.deleted === 0, "ما ليس دخيلاً لا يُحذف ولو طُلب");

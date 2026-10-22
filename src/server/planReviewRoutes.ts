@@ -545,11 +545,16 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     const sectionCollege = new Map((sections as any[]).map(row => [Number(row.AdSectionId), Number(row.AdCollegeId)]));
     const sectionNames = new Map((sections as any[]).map(row => [Number(row.AdSectionId), String(row.AdSectionName || "")]));
     const linked = new Set<number>();
-    for (const section of sections as any[]) for (const link of await Repository.getCurriculumPlanCourses(Number(section.AdSectionId)) as any[]) linked.add(Number(link.AdCourseId));
+    const planned = new Set<number>();
+    for (const section of sections as any[]) {
+      for (const link of await Repository.getCurriculumPlanCourses(Number(section.AdSectionId)) as any[]) linked.add(Number(link.AdCourseId));
+      if ((await Repository.getCurriculumPlans(Number(section.AdSectionId)) as any[]).some(plan => !plan.virtual)) planned.add(Number(section.AdSectionId));
+    }
     /* الأصل: نسخةٌ برقم المقرر واسمه في قسمٍ باسمٍ مختلف (القسم نفسه في كليةٍ أخرى ليس دخيلاً: لكل موقعٍ نسخته)،
        وهو إما داخل صحيفة، أو في قسمٍ عاديٍّ حين يكون الدخيلُ في «وحدةٍ» قديمة (بلا صحيفة) كوحدة الكهرباء. */
     const keyOf = (course: any) => `${String(course.CourseCode).trim()}|${nameKey(course.CourseName)}`;
-    const isUnit = (sid: number) => /^\s*وحدة/.test(String(sectionNames.get(sid) || ""));
+    /* «وحدة» قديمة: اسمها «وحدة …» وليست لها أي صحيفة (وحدةٌ لها صحائف قسمٌ حيّ لا يُعامَل هكذا). */
+    const isUnit = (sid: number) => /^\s*وحدة/.test(String(sectionNames.get(sid) || "")) && !planned.has(sid);
     const byKey = new Map<string, any[]>();
     for (const course of courses as any[]) byKey.set(keyOf(course), [...(byKey.get(keyOf(course)) || []), course]);
     const out = new Map<number, { sectionId: number; section: string; courses: any[] }>();
