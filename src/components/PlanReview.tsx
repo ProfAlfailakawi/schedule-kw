@@ -335,7 +335,6 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
       {error ? <Notice type="error" onDismiss={() => setError("")}>{error}</Notice> : null}
       {status?.canImport ? <PlanSheetUpload targets={status.uploadTargets || []} sectionId={sectionId} onDone={(id, plan) => { void loadStatus().then(() => { setSectionId(id); setPlanId(plan); setSelected(0); window.dispatchEvent(new Event("schedule:plan-review-updated")); }); }} /> : null}
       {status?.canImport ? <PreviousPlansPanel /> : null}
-      {status?.canImport ? <ImportPanel onDone={() => { void loadStatus().then(() => window.dispatchEvent(new Event("schedule:plan-review-updated"))); }} /> : null}
       {!status?.sections.length ? <EmptyState title="لا صحائف في نطاقك" detail="تظهر هنا صحائف الأقسام التي تملك نطاقها." /> : (
         <>
           {!isTechSection ? (
@@ -353,10 +352,6 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
             </div>
           ) : null}
 
-          <CurriculumReferenceReview sectionId={sectionId} canApply={Boolean(status?.canImport)}
-            onPick={(id, _ref, plan) => { setSectionId(id); const own = status.sections.find(x => x.sectionId === id); setPlanId(plan || own?.plans[0]?.id || ""); setSelected(0); }}
-            others={status.sections.filter(x => !isTechnologyEducation(x.sectionName)).map(x => ({ sectionId: x.sectionId, label: x.sectionName }))}
-            onPickOther={id => { const own = status.sections.find(x => x.sectionId === id); setSectionId(id); setPlanId(own?.plans[0]?.id || ""); setSelected(0); }} onCatalogAction={onNavigate ? openCatalogCorrection : undefined} />
           {!planId ? <EmptyState title="لم تُجهّز صحيفة تشغيلية بعد" detail="المرجع المرفق متاح للمطابقة. إنشاء الصحيفة وربط مقرراتها يسبق اعتماد قواعدها." /> : !view ? <MicroLoader /> : (
             <>
               <div className={`pr-state ${view.state.status}`}>
