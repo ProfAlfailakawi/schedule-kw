@@ -42,6 +42,8 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
   process.env.NODE_ENV = "test"; process.env.DATA_MODE = "demo"; process.env.SCHEDULE_PRIVATE_DIR = dir;
   const quiet = console.warn; console.warn = () => {};
   const { Repository, initDatabase } = await import("../src/db/repository");
+  /* Firestore يُرجع نسخاً لا المصفوفة الحيّة: ما قُرئ في أول الطلب لا يرى ما أُنشئ بعده. نحاكيه ليُكشف أي اعتمادٍ على مصفوفةٍ قديمة. */
+  for (const key of ["getSections", "getColleges"] as const) { const real = (Repository as any)[key]; (Repository as any)[key] = async (...args: unknown[]) => [...(await real(...args))]; }
   const { registerPlanReviewRoutes } = await import("../src/server/planReviewRoutes");
   await initDatabase();
   console.warn = quiet;
