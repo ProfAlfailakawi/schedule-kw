@@ -663,6 +663,76 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   });
 
   /* ── حسابات الأقسام الموجودة: معاينةٌ ثم إنشاءُ الناقص لما يختاره المسؤول (رئيس القسم · رئيس الجدول · المرشد) ── */
+  /* ── مقررات الأقسام الخدمية (بلا صحائف): تُضاف بتأكيد المسؤول لكل رمز قسم ─────────────────────────────
+     الأشيعُ من الصحائف الجديدة لكل مقرر قسمٍ لا قسم له بالنظام (رمز كلية+قسم). يختار المسؤول لكل رمزٍ القسمَ الذي تُحفظ فيه،
+     فتُنشأ مقرراتُه برمزها الكامل (7 خانات: كلية+قسم+رقم) في كل مواقع مسار ذلك القسم، فلا يلتبس رقمٌ بقسمٍ آخر ولا يتكرر ما له نسخة.
+     ما له قسمٌ بصحيفة يُرفض (مقرراته من صحيفته). السعة صفر، والموجود لا يُمسّ ولا يُعدَّل. */
+  const serviceCoursesOf = (raw: unknown) => {
+    const seen = new Map<string, { key: string; name: string; units: number; hours: number }>();
+    for (const item of Array.isArray(raw) ? raw : []) {
+      const key = String(item?.key || "").replace(/\D/g, ""), name = correctCourseName(String(item?.name || "")).name.trim();
+      const units = Number(item?.units), hours = Number(item?.hours);
+      if (key.length !== 7 || !name || !Number.isFinite(units) || !Number.isFinite(hours) || units < 0 || units > 20 || hours < 0 || hours > 40) continue;
+      if (!seen.has(key)) seen.set(key, { key, name, units, hours });
+    }
+    return [...seen.values()];
+  };
+  const authorityKeys = (sections: any[], colleges: any[]) => new Set(sections.map(row => authorityDepartmentCode(colleges.find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeCode, row.AdSectionCode)));
+  app.post("/api/plan-review/service-courses/groups", sheetLimit, deps.requireAuth, express.json({ limit: "2mb" }), async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
+    const has = authorityKeys(sections as any[], colleges as any[]);
+    const groups = new Map<string, Array<{ key: string; name: string; units: number; hours: number }>>();
+    for (const course of serviceCoursesOf(req.body?.courses)) if (!has.has(course.key.slice(0, 4))) groups.set(course.key.slice(0, 4), [...(groups.get(course.key.slice(0, 4)) || []), course]);
+    res.json({ ok: true, groups: [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([deptKey, courses]) => ({ deptKey, courses: courses.sort((a, b) => a.key.localeCompare(b.key)) })) });
+  });
+  app.post("/api/plan-review/service-courses/apply", sheetLimit, deps.requireAuth, express.json({ limit: "2mb" }), async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    const dryRun = req.body?.dryRun !== false;
+    const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
+    const has = authorityKeys(sections as any[], colleges as any[]);
+    const wanted = serviceCoursesOf(req.body?.courses);
+    const assignments = new Map<string, number>();
+    for (const item of Array.isArray(req.body?.assignments) ? req.body.assignments : []) {
+      const deptKey = String(item?.deptKey || "").replace(/\D/g, ""), sectionId = Number(item?.sectionId);
+      if (deptKey.length !== 4 || !sectionId) continue;
+      if (has.has(deptKey)) { fail(res, 422, `القسم ${deptKey} له صحيفة: مقرراته من صحيفته لا من هنا.`); return; }
+      if (!(sections as any[]).some(row => Number(row.AdSectionId) === sectionId)) { fail(res, 404, "اختر قسماً موجوداً."); return; }
+      assignments.set(deptKey, sectionId);
+    }
+    if (!assignments.size) { fail(res, 400, "اختر القسم لرمزٍ واحد على الأقل."); return; }
+    const courses = await Repository.getCourses() as AdCourse[];
+    const sectionCodes = new Map((sections as any[]).map(row => [Number(row.AdSectionId), authorityDepartmentCode((colleges as any[]).find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeCode, row.AdSectionCode)] as const));
+    /* هوية المقرر في الكتالوج: رمزٌ قصير يُوسَّع برمز قسمه، وإلا كما هو. */
+    const keyOf = (row: AdCourse) => { const code = referenceCodeKey(row.CourseCode), dept = sectionCodes.get(Number(row.AdSectionId)) || ""; return /^\d{1,3}$/.test(code) && /^\d{4}$/.test(dept) ? `${dept}${code.padStart(3, "0")}` : code; };
+    const have = new Set(courses.map(row => `${Number(row.AdCollegeId)}|${keyOf(row)}`));
+    const report: Array<{ deptKey: string; section: string; sites: number; created: number; existing: number; names: string[] }> = [];
+    let total = 0;
+    for (const [deptKey, sectionId] of assignments) {
+      /* القسم نفسه في كل الكليات (بنات وبنين والجهراء والفحيحيل): لكل كليةٍ نسختُها من مقرراته، فالصحائفُ تقرأ كتالوج كليتها. */
+      const chosenRow = (sections as any[]).find(row => Number(row.AdSectionId) === sectionId);
+      const family = departmentFamilyKey(String(chosenRow?.AdSectionName || ""));
+      const sites: any[] = [];
+      for (const row of [chosenRow, ...(sections as any[])]) {
+        if (!row || sites.some(site => Number(site.AdCollegeId) === Number(row.AdCollegeId))) continue;
+        if (Number(row.AdSectionId) === sectionId || departmentFamilyKey(String(row.AdSectionName || "")) === family) sites.push(row);
+      }
+      const row = { deptKey, section: String(sites[0]?.AdSectionName || ""), sites: sites.length, created: 0, existing: 0, names: [] as string[] };
+      for (const site of sites) for (const course of wanted.filter(item => item.key.startsWith(deptKey))) {
+        if (have.has(`${Number(site.AdCollegeId)}|${course.key}`)) { row.existing += 1; continue; }
+        if (!dryRun) {
+          try { await Repository.createCourse(Number(site.AdCollegeId), Number(site.AdSectionId), course.key, course.name, course.units, course.hours, 0, false); have.add(`${Number(site.AdCollegeId)}|${course.key}`); }
+          catch (error) { if (error instanceof DuplicateResourceError) { row.existing += 1; continue; } throw error; }
+        }
+        row.created += 1; total += 1;
+        if (row.names.length < 12) row.names.push(course.name);
+      }
+      report.push(row);
+    }
+    if (!dryRun) res.locals.auditChanges = `مقررات أقسامٍ خدمية: ${countOf(total, AR.course)} في ${countOf(assignments.size, AR.department)}`;
+    res.json({ ok: true, dryRun, created: total, report });
+  });
+
   app.get("/api/plan-review/section-accounts", deps.requireAuth, async (req: Request, res: Response) => {
     if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
     res.setHeader("Cache-Control", "no-store");
