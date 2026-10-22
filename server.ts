@@ -3538,6 +3538,18 @@ app.get("/api/instructors", requireAnyPermission([3, 7, 8, 9, 10, 14, 16, 17]), 
       ? (await Repository.getInstructors()).filter(person => manualIds.includes(Number(person.AdInstructorId)))
       : [];
     const merged = [...new Map([...allDeptHistorical, ...termScoped, ...manualPeople].map(person => [Number(person.AdInstructorId), person])).values()];
+    /* «هيئة تدريسية» ليست شخصاً، ولا قسمَ يُحرَم منها: القسم الذي لا سجلَّ له بهذا المعنى بعد
+       (قسمٌ جديد لا تاريخ له) تُعرض له سجلات الأقسام الأخرى لتُختار من القائمة، كما تقول
+       المطابقة نفسها («لقسم آخر ولا سجلّ لهذا القسم بعد؛ اخترها من القائمة»). والقسم الذي
+       له سجلُّه لا تتغير قائمته. سجلات الكلية نفسها أولاً، وإلا فسجلات الجامعة. */
+    const allPeople = await Repository.getInstructors();
+    const placeholderIds = placeholderInstructorIds(allPeople as any);
+    if (placeholderIds.size && !merged.some(person => placeholderIds.has(Number(person.AdInstructorId)))) {
+      const placeholders = (allPeople as any[]).filter(person => placeholderIds.has(Number(person.AdInstructorId)));
+      const collegeIds = new Set(await collegeFallbackInstructorIds(Number(sectionRow?.AdCollegeId || 0)));
+      const sameCollege = placeholders.filter(person => collegeIds.has(Number(person.AdInstructorId)));
+      for (const person of sameCollege.length ? sameCollege : placeholders) merged.push(person as any);
+    }
     await send(sortArabicNamed(merged, row => row.AdInstructorName));
     return;
   }
