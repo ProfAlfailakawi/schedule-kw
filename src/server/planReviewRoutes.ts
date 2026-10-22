@@ -534,6 +534,51 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   /* ── أقسامٌ لا صحيفة لها: مقرراتها ووحداتها وساعاتها من الصحائف الأخرى ─────────────────────────────
      بعد دفعة الرفع تُرسل الواجهةُ الأشيعَ بين الصحائف الجديدة لكل مقرر قسمٍ آخر؛ فيُصحَّح به مقرر قسمٍ لم تدخل مقرراتُه صحيفةً فعّالة
      (صاحب الصحيفة يصحّح مقرراته من صحيفته)، ومن لا أغلبية له يُذكر ولا يُمسّ. السعة لا تُلمس. */
+  /* ── المقررات الدخيلة (بقايا الإضافة القديمة): مقررٌ في قسمٍ ليس في أيّ صحيفةٍ له، ولا جدولَ يستعمله،
+     وله نسخةٌ في قسمٍ آخر داخل صحيفته: الرقم والاسم نفساهما. الرقم لا يتكرر بين الأقسام، فالنسخة دخيلة.
+     المعاينة قراءةٌ فحسب؛ والحذف يُعيد الفحص ويحذف ما اختاره المسؤول من المعاينة وحده. ما لا نسخة له يبقى. */
+  const nameKey = (value: unknown) => String(value || "").normalize("NFKD").replace(/[\u064B-\u065F\u0670\u0640]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/\s+/g, " ").trim();
+  const foreignScan = async () => {
+    const [sections, colleges, courses] = await Promise.all([Repository.getSections(), Repository.getColleges(), Repository.getCourses()]);
+    const collegeName = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
+    const sectionName = new Map((sections as any[]).map(row => [Number(row.AdSectionId), `${collegeName.get(Number(row.AdCollegeId)) || ""} · ${row.AdSectionName}`]));
+    const linked = new Set<number>();
+    for (const section of sections as any[]) for (const link of await Repository.getCurriculumPlanCourses(Number(section.AdSectionId)) as any[]) linked.add(Number(link.AdCourseId));
+    const owners = new Map<string, any>();
+    for (const course of courses as any[]) if (linked.has(Number(course.AdCourseId))) owners.set(`${String(course.CourseCode).trim()}|${nameKey(course.CourseName)}`, course);
+    const out = new Map<number, { sectionId: number; section: string; courses: any[] }>();
+    for (const course of courses as any[]) {
+      if (linked.has(Number(course.AdCourseId))) continue;
+      const owner = owners.get(`${String(course.CourseCode).trim()}|${nameKey(course.CourseName)}`);
+      if (!owner || Number(owner.AdSectionId) === Number(course.AdSectionId)) continue;
+      if (await Repository.hasSchedulesForCourse(Number(course.AdCourseId))) continue;
+      const sid = Number(course.AdSectionId);
+      const row = out.get(sid) || { sectionId: sid, section: sectionName.get(sid) || String(sid), courses: [] };
+      row.courses.push({ id: Number(course.AdCourseId), code: course.CourseCode, name: course.CourseName, ownerSection: sectionName.get(Number(owner.AdSectionId)) || "" });
+      out.set(sid, row);
+    }
+    return [...out.values()].sort((a, b) => b.courses.length - a.courses.length);
+  };
+  app.get("/api/plan-review/sheet/foreign", deps.requireAuth, async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    res.setHeader("Cache-Control", "no-store");
+    const sections = await foreignScan();
+    res.json({ ok: true, sections, total: sections.reduce((sum, row) => sum + row.courses.length, 0) });
+  });
+  app.post("/api/plan-review/sheet/foreign/delete", sheetLimit, deps.requireAuth, express.json({ limit: "1mb" }), async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    const ids = new Set(((req.body?.ids as unknown[]) || []).map(Number).filter(Number.isFinite));
+    if (!ids.size) { fail(res, 400, "لا مقررات للحذف."); return; }
+    const names: string[] = [];
+    for (const section of await foreignScan()) for (const course of section.courses) {
+      if (!ids.has(course.id)) continue;
+      await Repository.deleteCourse(course.id);
+      names.push(`${course.code} ${course.name} (من ${section.section})`);
+    }
+    res.locals.auditChanges = `حذف دخيل (${names.length}): ${names.slice(0, 40).join(" | ")}`;
+    res.json({ ok: true, deleted: names.length });
+  });
+
   app.post("/api/plan-review/sheet/reconcile", sheetLimit, deps.requireAuth, express.json({ limit: "2mb" }), async (req: Request, res: Response) => {
     if (!deps.isRootAdmin(req)) { fail(res, 403, "رفع الصحيفة للحساب الرئيسي وحده."); return; }
     /* معطَّل مؤقتاً (انظر addOtherDepartments): يربط المقررات بالقسم من رمزه، ورموز بعض الأقسام في النظام لا تطابق الصحائف. */

@@ -6,7 +6,7 @@
  */
 import React, { useRef, useState } from "react";
 import { AR, countOf } from "../utils/arabicCount";
-import { AlertTriangle, CheckCircle2, Download, GraduationCap, FileUp, FileX2, History, Link2, PencilLine, Plus, SearchX, ShieldAlert, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, GraduationCap, FileUp, FileX2, History, Link2, PencilLine, Plus, SearchX, ShieldAlert, Trash2, X } from "lucide-react";
 
 interface SectionOption { sectionId: number; label: string; sites: number }
 interface Rejection {
@@ -68,6 +68,31 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
   const [batch, setBatch] = useState<{ phase: BatchPhase; done: number; total: number; ok: number; skipped: number; failed: number; prereqLinked: number; prereqPrinted: number; rows: ReportRow[] } | null>(null);
 
   const [reconcile, setReconcile] = useState<{ updated: number; ambiguous: string[] } | null>(null);
+  /* المقررات الدخيلة (بقايا الإضافة القديمة): معاينة ثم حذفُ ما يختاره المسؤول. */
+  type ForeignCourse = { id: number; code: string; name: string; ownerSection: string };
+  const [foreign, setForeign] = useState<{ sections: Array<{ sectionId: number; section: string; courses: ForeignCourse[] }>; total: number } | null>(null);
+  const [foreignOff, setForeignOff] = useState<Set<number>>(new Set());
+  const [foreignMsg, setForeignMsg] = useState("");
+  const scanForeign = async () => {
+    setForeignMsg(""); setForeignOff(new Set());
+    try {
+      const response = await fetch("/api/plan-review/sheet/foreign", { credentials: "include" });
+      const data = await response.json().catch(() => ({} as any));
+      if (!response.ok) throw new Error(data.error || "تعذّر الفحص");
+      setForeign({ sections: data.sections || [], total: Number(data.total || 0) });
+    } catch (e: any) { setForeignMsg(String(e?.message || "تعذّر الفحص")); }
+  };
+  const deleteForeign = async () => {
+    const ids = (foreign?.sections || []).flatMap(row => row.courses.map(course => course.id)).filter(id => !foreignOff.has(id));
+    if (!ids.length || !window.confirm(`حذف ${countOf(ids.length, AR.course)} دخيلاً نهائياً؟`)) return;
+    try {
+      const response = await fetch("/api/plan-review/sheet/foreign/delete", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids }) });
+      const data = await response.json().catch(() => ({} as any));
+      if (!response.ok) throw new Error(data.error || "تعذّر الحذف");
+      setForeignMsg(`حُذف ${countOf(Number(data.deleted || 0), AR.course)}`);
+      await scanForeign();
+    } catch (e: any) { setForeignMsg(String(e?.message || "تعذّر الحذف")); }
+  };
   const [pending, setPending] = useState<Array<{ file: File; dept: MissingDept }>>([]);
   const lastFile = useRef<File | null>(null);
   const batchFiles = useRef<File[]>([]);
@@ -308,6 +333,24 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
           </ul>
         </div>
       ) : null}
+      <div className="pr-sheet-result pr-sheet-foreign" role="group" aria-label="المقررات الدخيلة">
+        <button type="button" className="btn btn-secondary" onClick={() => void scanForeign()} data-guide-ignore="فحص المقررات الدخيلة (نسخٌ لمقررات أقسامٍ أخرى بلا صحيفةٍ ولا جدول) داخل شاشة مراجعة الصحيفة"><SearchX aria-hidden="true" size={16} /> افحص المقررات الدخيلة</button>
+        {foreignMsg ? <small role="status">{foreignMsg}</small> : null}
+        {foreign ? (foreign.total ? (
+          <>
+            <ul>
+              {foreign.sections.map(row => (
+                <li key={row.sectionId}><b>{row.section}</b> <small>{countOf(row.courses.length, AR.course)}</small>
+                  <ul>{row.courses.map(course => (
+                    <li key={course.id}><label><input type="checkbox" checked={!foreignOff.has(course.id)} onChange={() => setForeignOff(current => { const next = new Set(current); if (next.has(course.id)) next.delete(course.id); else next.add(course.id); return next; })} data-guide-ignore="اختيار مقررٍ دخيلٍ للحذف داخل شاشة مراجعة الصحيفة" /> {course.code} {course.name} <small>← أصله في {course.ownerSection}</small></label></li>
+                  ))}</ul>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="btn btn-primary" onClick={() => void deleteForeign()} data-guide-ignore="حذف المقررات الدخيلة المختارة نهائياً داخل شاشة مراجعة الصحيفة"><Trash2 aria-hidden="true" size={16} /> احذف المختار</button>
+          </>
+        ) : <small role="status">لا مقررات دخيلة</small>) : null}
+      </div>
       {outcome ? (
         <div className="pr-sheet-result" role="status">
           <CheckCircle2 aria-hidden="true" />

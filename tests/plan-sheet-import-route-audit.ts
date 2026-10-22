@@ -285,6 +285,25 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       check((madeFrench.json.createdSections as any[]).every(row => row.accounts?.length === 3 && row.accounts.every((acc: any) => acc.status === "created")) && againFrench.json.createdSections.length === 0 && users.length === ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted).length, "الإعادة لا تكرر الحسابات");
     }
     {
+      /* المقررات الدخيلة: نسخةٌ (رقمٌ واسمٌ) من مقررٍ داخل صحيفة قسمٍ آخر، بلا جدول ولا صحيفة في قسمها */
+      const home = (await Repository.getSections()).find(row => String(row.AdSectionCode) === "40" && Number(row.AdCollegeId) === 2)!;
+      const owned = (await Repository.getCoursesBySection(home.AdSectionId))[0];
+      const strangerSection = 21;
+      const copy = await Repository.createCourse(1, strangerSection, owned.CourseCode, owned.CourseName, 3, 3, 0, false);
+      const sameNumberOtherName = await Repository.createCourse(1, strangerSection, "999", owned.CourseName, 3, 3, 0, false);
+      const callF = async (who: string, method: string, url: string, body?: unknown) => { const res = await fetch(`${base}${url}`, { method, headers: { "content-type": "application/json", "x-who": who }, body: body ? JSON.stringify(body) : undefined }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+      check((await callF("other", "GET", "/api/plan-review/sheet/foreign")).status === 403, "معاينة الدخيل للحساب الرئيسي وحده");
+      const preview = await callF("root", "GET", "/api/plan-review/sheet/foreign");
+      const listed = (preview.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id));
+      check(preview.status === 200 && listed.includes(copy.AdCourseId) && !listed.includes(sameNumberOtherName.AdCourseId) && !listed.includes(owned.AdCourseId), "المعاينة: النسخة الدخيلة وحدها (لا الأصل ولا ما اختلف رقمه)", listed);
+      const refuse = await callF("root", "POST", "/api/plan-review/sheet/foreign/delete", { ids: [owned.AdCourseId, sameNumberOtherName.AdCourseId] });
+      check(refuse.status === 200 && refuse.json.deleted === 0, "ما ليس دخيلاً لا يُحذف ولو طُلب");
+      const done = await callF("root", "POST", "/api/plan-review/sheet/foreign/delete", { ids: [copy.AdCourseId] });
+      const left = await Repository.getCoursesBySection(strangerSection);
+      check(done.status === 200 && done.json.deleted === 1 && !left.some(row => row.AdCourseId === copy.AdCourseId) && left.some(row => row.AdCourseId === sameNumberOtherName.AdCourseId), "الحذف للنسخة المختارة وحدها");
+      await Repository.deleteCourse(sameNumberOtherName.AdCourseId);
+    }
+    {
       /* كليةٌ للصحيفة غير موجودة أصلاً: تُنشأ بموافقةٍ صريحة (createCollege=1) باسمها من الصحيفة، مع عميدها، ثم القسم فيها */
       const originals = (await Repository.getColleges()).map(row => ({ ...row }));
       for (const row of originals) await Repository.updateCollege(row.AdCollegeId, `9${row.AdCollegeId}`, row.AdCollegeName);
