@@ -6,6 +6,7 @@
  */
 import React, { useRef, useState } from "react";
 import { AR, countOf } from "../utils/arabicCount";
+import ServiceCoursesPanel, { voteServiceCourses, type ServiceCourse } from "./ServiceCoursesPanel";
 import { AlertTriangle, CheckCircle2, Download, GraduationCap, FileUp, FileX2, History, Link2, Loader2, PencilLine, Plus, SearchX, ShieldAlert, Trash2, UserPlus, X } from "lucide-react";
 
 interface SectionOption { sectionId: number; label: string; sites: number }
@@ -67,6 +68,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [batch, setBatch] = useState<{ phase: BatchPhase; done: number; total: number; ok: number; skipped: number; failed: number; prereqLinked: number; prereqPrinted: number; rows: ReportRow[] } | null>(null);
 
+  const [serviceWinners, setServiceWinners] = useState<ServiceCourse[]>([]);
   const [reconcile, setReconcile] = useState<{ updated: number; ambiguous: string[] } | null>(null);
   /* عملٌ طويل (فحص/حذف/إنشاء/اعتماد): يُرى أنه شغّال لا عالق، ولا يُضغط زرٌّ ثانٍ أثناءه. */
   const [working, setWorking] = useState("");
@@ -241,16 +243,8 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
       state.done += 1; publish();
     }
     /* مقررات الأقسام التي لا صحيفة لها (الخدمية): الأشيع بين الصحائف الجديدة، ولا أغلبية = تُذكر ولا تُمسّ */
-    const votes = new Map<string, Map<string, { count: number; name: string; units: number; hours: number }>>();
-    for (const list of othersOf) for (const [key, name, units, hours] of list) {
-      const sig = `${name}|${units}|${hours}`, bucket = votes.get(key) || new Map();
-      bucket.set(sig, { count: (bucket.get(sig)?.count || 0) + 1, name, units, hours }); votes.set(key, bucket);
-    }
-    const winners: Array<{ key: string; name: string; units: number; hours: number }> = [], ambiguous: string[] = [];
-    for (const [key, bucket] of votes) {
-      const ranked = [...bucket.values()].sort((a, b) => b.count - a.count);
-      if (ranked.length > 1 && ranked[0].count === ranked[1].count) ambiguous.push(key); else winners.push({ key, name: ranked[0].name, units: ranked[0].units, hours: ranked[0].hours });
-    }
+    const { winners, ambiguous } = voteServiceCourses(othersOf);
+    setServiceWinners(winners);
     /* تصحيح مقررات الأقسام الخدمية معطَّل مؤقتاً: يربطها بالقسم من رمزه، ورموز بعض الأقسام لا تطابق الصحائف. */
     const reconciled = 0;
     setReconcile({ updated: reconciled, ambiguous: ambiguous.sort() });
@@ -427,6 +421,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
           </>
         ) : <small role="status">كل الأقسام لها حساباتها</small>) : null}
       </div>
+      <ServiceCoursesPanel targets={targets} winners={serviceWinners} onWinners={setServiceWinners} />
       <div className="pr-sheet-result pr-sheet-approval" role="group" aria-label="اعتماد الصحائف">
         <button type="button" className="btn btn-secondary" disabled={Boolean(working)} onClick={() => void run("جارٍ معاينة الاعتماد", previewApproval)} data-guide-ignore="معاينة الصحائف الجاهزة للاعتماد وما فيه حاجز داخل شاشة مراجعة الصحيفة"><CheckCircle2 aria-hidden="true" size={16} /> معاينة اعتماد كل الصحف</button>
         {approvalMsg ? <small role="status">{approvalMsg}</small> : null}

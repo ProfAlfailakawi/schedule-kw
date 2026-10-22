@@ -260,6 +260,25 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       check(!!approvedSet && !approvedSet.groups.some(group => group.id === "stale-1") && approvedSet.groups.some(group => group.id === "y2026-s2g2"), "اعتُمدت بلا المجموعة المكرِّرة وبقيت مجموعة الصحيفة", approvedSet?.groups);
     }
 
+    /* مقررات الأقسام الخدمية: تجميعٌ بالرمز، معاينةٌ بلا كتابة، ثم إنشاءٌ برمزٍ كامل في كل كليات القسم المختار؛ والموجود لا يتكرر */
+    {
+      const call2 = async (who: string, url: string, body: unknown) => { const res = await fetch(`${base}${url}`, { method: "POST", headers: { "content-type": "application/json", "x-who": who }, body: JSON.stringify(body) }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+      const list = [{ key: "0150101", name: "مقرر خدمي أول", units: 3, hours: 3 }, { key: "0150102", name: "مقرر خدمي ثان", units: 1, hours: 1 }, { key: "0109999", name: "مقرر قسمٍ له صحيفة", units: 3, hours: 3 }];
+      check((await call2("other", "/api/plan-review/service-courses/groups", { courses: list })).status === 403, "المقررات الخدمية للحساب الرئيسي وحده");
+      const groups = await call2("root", "/api/plan-review/service-courses/groups", { courses: list });
+      check(groups.json.groups?.length === 1 && groups.json.groups[0].deptKey === "0150" && groups.json.groups[0].courses.length === 2, "التجميع: رمز القسم بلا صحيفة وحده", groups.json);
+      const refused = await call2("root", "/api/plan-review/service-courses/apply", { courses: list, assignments: [{ deptKey: "0109", sectionId: 21 }], dryRun: false });
+      check(refused.status === 422, "قسمٌ له صحيفة يُرفض");
+      const countBefore = (await Repository.getCourses()).length;
+      const dry = await call2("root", "/api/plan-review/service-courses/apply", { courses: list, assignments: [{ deptKey: "0150", sectionId: 21 }] });
+      check(dry.json.dryRun === true && dry.json.created === 6 && (await Repository.getCourses()).length === countBefore, "المعاينة: ٢ مقرر × ٣ كليات ولا تكتب", dry.json);
+      const made = await call2("root", "/api/plan-review/service-courses/apply", { courses: list, assignments: [{ deptKey: "0150", sectionId: 21 }], dryRun: false });
+      const created = (await Repository.getCourses()).filter(row => /^015010[12]$/.test(String(row.CourseCode)));
+      check(made.json.created === 6 && created.length === 6 && new Set(created.map(row => row.AdCollegeId)).size === 3 && created.every(row => Number(row.MaxStudent) === 0), "الإنشاء: برمزٍ كامل في كل كلية وبسعة صفر", made.json);
+      const again = await call2("root", "/api/plan-review/service-courses/apply", { courses: list, assignments: [{ deptKey: "0150", sectionId: 21 }], dryRun: false });
+      check(again.json.created === 0 && again.json.report?.[0]?.existing === 6, "التكرار لا يضاعف شيئاً", again.json);
+    }
+
     /* تصحيح مقررات الأقسام الأخرى معطَّل حتى تُؤكَّد رموز الأقسام: المسار يرفض ولا يكتب */
     const reconcileCall = (who: string, courses: unknown[]) => call(who, "POST", "/api/plan-review/sheet/reconcile", { courses });
     const coursesBeforeReconcile = JSON.stringify(await Repository.getCourses());
