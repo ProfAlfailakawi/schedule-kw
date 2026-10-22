@@ -1192,7 +1192,7 @@ export default function LivingScheduleLayer({
                                   return <React.Fragment key={`${row.id}-${row.index}`}>
                                     <tr className={flagged ? "genesis-row-issue" : ""}>
                                       <td>{row.index}</td>
-                                      <td data-choreo-target="course"><strong>{row.courseName}<PlanBadge courseId={(row as any).courseId ?? (row as any).AdCourseId} /></strong><small dir="ltr">{row.courseCode || "—"}</small></td>
+                                      <td data-choreo-target="course"><strong>{row.courseName}<PlanBadge courseId={row.courseId} /></strong><small dir="ltr">{row.courseCode || "—"}</small></td>
                                       <td dir="ltr">{row.section || "—"}</td>
                                       <td data-choreo-target="day">{row.days || "—"}</td>
                                       <td dir="ltr" data-choreo-target="time">{formatScheduleTimeRange(row.start, row.end)}</td>
