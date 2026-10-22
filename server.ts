@@ -3975,6 +3975,9 @@ app.post("/api/curriculum/plans/:planId/archive", requirePermission(6), async (r
 
 /** Committee corrections are available only while its own curriculum is a draft awaiting review. */
 async function committeeCatalogEditAllowed(req: AuthenticatedRequest, sectionId: number): Promise<boolean> {
+  /* مدير النظام لا يُقيَّد بنافذة المراجعة: قيدُها لرؤساء اللجان. وحسابُه بلا دورٍ محدّد يقع افتراضياً
+     على «رئيس لجنة الجدول»، فكان يُمنع من تعديل المقررات خارج المراجعة كأنه رئيس لجنة. */
+  if (req.user?.IsAdminUser) return true;
   if (roleDefinition(req.user?.Role).id !== "committeeChair") return true;
   const section = await Repository.getSectionById(sectionId);
   if (!section || !isScopeAllowed(req, Number(section.AdCollegeId), sectionId)) return false;

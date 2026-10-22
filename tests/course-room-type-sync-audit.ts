@@ -60,5 +60,11 @@ const route = server.slice(server.indexOf('app.put("/api/courses/:id"'), server.
 const syncAt = route.indexOf("setCourseRoomTypeForIds"), updateAt = route.indexOf("Repository.updateCourse(");
 check(syncAt > 0 && updateAt > syncAt, "مزامنة النسخ تُكتب قبل المقرر المعدَّل ليبقى إعادةُ المحاولة ممكنةً");
 
+/* بوابة لجنة الجدول: مدير النظام يتجاوزها (حسابه بلا دورٍ يقع افتراضياً على رئيس اللجنة)، ورئيس اللجنة يبقى مقيَّداً. */
+const gate = server.slice(server.indexOf("async function committeeCatalogEditAllowed"), server.indexOf("function refuseCommitteeCatalogEdit"));
+const adminAt = gate.indexOf("req.user?.IsAdminUser"), chairAt = gate.indexOf('"committeeChair"'), reviewAt = gate.indexOf('"review"');
+check(adminAt > 0 && adminAt < chairAt, "مدير النظام يتجاوز بوابة تعديل الكتالوج قبل فحص دور رئيس اللجنة");
+check(chairAt > 0 && reviewAt > chairAt, "رئيس اللجنة يبقى مقيَّداً بنافذة مراجعة المسوّدة");
+
 console.log(`\nCourse room-type sync audit: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
