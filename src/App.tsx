@@ -2780,7 +2780,7 @@ export default function App() {
             <strong>كيف؟</strong>
           </span>
         ) : null}
-        {guideHint ? <i className="smart-guide-fab-pulse" aria-hidden="true" /> : !guideOpen && guideNewCount ? <i className="smart-guide-fab-new" aria-hidden="true">{`${guideNewCount.toLocaleString("ar-KW-u-nu-latn")} جديد`}</i> : null}
+        {guideHint ? <i className="smart-guide-fab-pulse" aria-hidden="true" /> : !guideOpen && guideNewCount ? <i className="smart-guide-fab-new" aria-hidden="true">{guideNewCount.toLocaleString("ar-KW-u-nu-latn")}<span className="smart-guide-fab-new-word"> جديد</span></i> : null}
       </button>
 
       {searchOpen ? (
