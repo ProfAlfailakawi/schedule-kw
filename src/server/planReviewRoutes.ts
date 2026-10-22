@@ -564,12 +564,20 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       const owners = (byKey.get(keyOf(course)) || []).filter(other => Number(other.AdSectionId) !== sid0
         && !(departmentFamilyKey(sectionNames.get(Number(other.AdSectionId))) === departmentFamilyKey(sectionNames.get(sid0)) && sectionCollege.get(Number(other.AdSectionId)) !== sectionCollege.get(sid0))
         && (linked.has(Number(other.AdCourseId)) || (unit && !isUnit(Number(other.AdSectionId)))));
-      const owner = owners.find(other => linked.has(Number(other.AdCourseId))) || owners[0];
-      if (!owner) continue;
+      let owner = owners.find(other => linked.has(Number(other.AdCourseId))) || owners[0];
+      /* بقايا وحدةٍ قديمة لا نسخة بنفس رقمها (رمزٌ مكتوبٌ بصيغةٍ أخرى): يُبحث بالاسم وحده في قسمٍ باسمٍ مختلف؛
+         وما لا نظير له يُعرض «بلا نسخة» لتقرّر أنت، فالوحدة كلها قديمة. */
+      let kind = "copy";
+      if (!owner && unit) {
+        const sameName = (courses as any[]).find(other => Number(other.AdSectionId) !== sid0 && nameKey(other.CourseName) === nameKey(course.CourseName)
+          && departmentFamilyKey(sectionNames.get(Number(other.AdSectionId))) !== departmentFamilyKey(sectionNames.get(sid0)) && !isUnit(Number(other.AdSectionId)));
+        owner = sameName; kind = sameName ? "name" : "orphan";
+      }
+      if (!owner && !(unit && kind === "orphan")) continue;
       if (await Repository.hasSchedulesForCourse(Number(course.AdCourseId))) continue;
       const sid = Number(course.AdSectionId);
       const row = out.get(sid) || { sectionId: sid, section: sectionName.get(sid) || String(sid), courses: [] };
-      row.courses.push({ id: Number(course.AdCourseId), code: course.CourseCode, name: course.CourseName, ownerSection: sectionName.get(Number(owner.AdSectionId)) || "" });
+      row.courses.push({ id: Number(course.AdCourseId), code: course.CourseCode, name: course.CourseName, kind, ownerSection: owner ? (sectionName.get(Number(owner.AdSectionId)) || "") : "" });
       out.set(sid, row);
     }
     return [...out.values()].sort((a, b) => b.courses.length - a.courses.length);

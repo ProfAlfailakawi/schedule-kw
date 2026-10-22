@@ -319,6 +319,13 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const unitScan = await callF("root", "GET", "/api/plan-review/sheet/foreign");
       const unitListed = (unitScan.json.sections || []).flatMap((row: any) => row.courses.map((course: any) => course.id));
       check(unitListed.includes(unitCopy.AdCourseId) && !unitListed.includes(origin.AdCourseId), "نسخةُ وحدةٍ قديمة من مقررِ قسمٍ عاديّ دخيلة، والأصلُ لا", unitListed);
+      /* بقايا الوحدة القديمة: بالاسم وحده (رقمٌ مختلف) أو بلا نسخة، وتُعرض بنوعها؛ والمجدول لا يُعرض */
+      const byName = await Repository.createCourse(3, Number(unitSec.AdSectionId), "778", "مقررٌ أصيل في قسمٍ بلا صحيفة", 3, 3, 0, false);
+      const lone = await Repository.createCourse(3, Number(unitSec.AdSectionId), "779", "مقررٌ لا نظير له", 3, 3, 0, false);
+      const kinds = await callF("root", "GET", "/api/plan-review/sheet/foreign");
+      const rows = (kinds.json.sections || []).flatMap((row: any) => row.courses) as any[];
+      check(rows.find(item => item.id === unitCopy.AdCourseId)?.kind === "copy" && rows.find(item => item.id === byName.AdCourseId)?.kind === "name" && rows.find(item => item.id === lone.AdCourseId)?.kind === "orphan" && !rows.some(item => item.id === origin.AdCourseId), "بقايا الوحدة القديمة بأنواعها: نسخة/بالاسم فقط/بلا نسخة", rows.map(item => [item.code, item.kind]));
+      await Repository.deleteCourse(byName.AdCourseId); await Repository.deleteCourse(lone.AdCourseId);
       /* وحدةٌ لها صحيفة: ليست قديمة، فلا يُعدّ منسوخها غير المربوط دخيلاً بمجرد وجوده في قسمٍ بلا صحيفة */
       await Repository.createCurriculumPlan({ collegeId: 3, sectionId: Number(unitSec.AdSectionId), name: "صحيفة وحدة حيّة", code: "LIVE-1", by: "test" } as any);
       const liveScan = await callF("root", "GET", "/api/plan-review/sheet/foreign");

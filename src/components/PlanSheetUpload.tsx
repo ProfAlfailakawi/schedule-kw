@@ -69,17 +69,19 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
 
   const [reconcile, setReconcile] = useState<{ updated: number; ambiguous: string[] } | null>(null);
   /* المقررات الدخيلة (بقايا الإضافة القديمة): معاينة ثم حذفُ ما يختاره المسؤول. */
-  type ForeignCourse = { id: number; code: string; name: string; ownerSection: string };
+  type ForeignCourse = { id: number; code: string; name: string; ownerSection: string; kind?: "copy" | "name" | "orphan" };
   const [foreign, setForeign] = useState<{ sections: Array<{ sectionId: number; section: string; courses: ForeignCourse[] }>; total: number } | null>(null);
   const [foreignOff, setForeignOff] = useState<Set<number>>(new Set());
   const [foreignMsg, setForeignMsg] = useState("");
   const scanForeign = async () => {
-    setForeignMsg(""); setForeignOff(new Set());
+    setForeignMsg("");
     try {
       const response = await fetch("/api/plan-review/sheet/foreign", { credentials: "include" });
       const data = await response.json().catch(() => ({} as any));
       if (!response.ok) throw new Error(data.error || "تعذّر الفحص");
       setForeign({ sections: data.sections || [], total: Number(data.total || 0) });
+      /* النسخةُ برقمها واسمها والمطابَقة بالاسم تُختار سلفاً؛ «بلا نسخة» تُترك لك (أو «حدّد الكل» للوحدة القديمة). */
+      setForeignOff(new Set<number>((data.sections || []).flatMap((row: { courses: ForeignCourse[] }) => row.courses.filter(course => course.kind === "orphan").map(course => course.id))));
     } catch (e: any) { setForeignMsg(String(e?.message || "تعذّر الفحص")); }
   };
   const deleteForeign = async () => {
@@ -341,8 +343,9 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
             <ul>
               {foreign.sections.map(row => (
                 <li key={row.sectionId}><b>{row.section}</b> <small>{countOf(row.courses.length, AR.course)}</small>
+                  <button type="button" className="btn btn-secondary" onClick={() => setForeignOff(current => { const next = new Set(current); const all = row.courses.every(course => !next.has(course.id)); for (const course of row.courses) { if (all) next.add(course.id); else next.delete(course.id); } return next; })} data-guide-ignore="تحديد كل مقررات هذا القسم أو إلغاء تحديدها داخل شاشة مراجعة الصحيفة">حدّد الكل / ألغِ</button>
                   <ul>{row.courses.map(course => (
-                    <li key={course.id}><label><input type="checkbox" checked={!foreignOff.has(course.id)} onChange={() => setForeignOff(current => { const next = new Set(current); if (next.has(course.id)) next.delete(course.id); else next.add(course.id); return next; })} data-guide-ignore="اختيار مقررٍ دخيلٍ للحذف داخل شاشة مراجعة الصحيفة" /> {course.code} {course.name} <small>← أصله في {course.ownerSection}</small></label></li>
+                    <li key={course.id}><label><input type="checkbox" checked={!foreignOff.has(course.id)} onChange={() => setForeignOff(current => { const next = new Set(current); if (next.has(course.id)) next.delete(course.id); else next.add(course.id); return next; })} data-guide-ignore="اختيار مقررٍ دخيلٍ للحذف داخل شاشة مراجعة الصحيفة" /> {course.code} {course.name} <small>{course.kind === "orphan" ? "← بلا نسخة في قسمٍ آخر (من وحدةٍ قديمة)" : course.kind === "name" ? `← بالاسم فقط في ${course.ownerSection}` : `← أصله في ${course.ownerSection}`}</small></label></li>
                   ))}</ul>
                 </li>
               ))}
