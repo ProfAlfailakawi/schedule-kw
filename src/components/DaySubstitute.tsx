@@ -1,3 +1,4 @@
+import PlanBadge from "./PlanBadge";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlarmClockOff, CalendarClock, Check, MessageCircle, ShieldCheck, Trash2, UserCheck, X } from "lucide-react";
 import { GhostButton, SecondaryButton } from "./ui";
@@ -22,6 +23,7 @@ import { formatScheduleTimeRange } from "../utils/scheduleTime";
 type LectureRow = {
   id: number;
   AdCourseName: string;
+  AdCourseId?: number;
   SCode: string;
   AdInstructorId: number;
   fstarttime: string;
@@ -165,7 +167,7 @@ export default function DaySubstitute({ row, instructorName, onClose, onRecorded
           <div>
             <small>ليوم واحد فقط — الموعد الأسبوعي لا يُمس</small>
             <h2>بديل اليوم</h2>
-            <p>{row.AdCourseName} · شعبة {row.SCode} · <bdi dir="ltr">{timeRange}</bdi>{room ? ` · ${room}` : ""}{instructorName ? ` · ${instructorName}` : ""}</p>
+            <p>{row.AdCourseName}<PlanBadge courseId={row.AdCourseId} /> · شعبة {row.SCode} · <bdi dir="ltr">{timeRange}</bdi>{room ? ` · ${room}` : ""}{instructorName ? ` · ${instructorName}` : ""}</p>
           </div>
           <button type="button" className="drawer-close" data-guide-ignore="إغلاق نافذة بديل اليوم فقط" onClick={onClose} aria-label="إغلاق بديل اليوم" title="إغلاق"><X /></button>
         </header>

@@ -1,3 +1,4 @@
+import PlanBadge from "../PlanBadge";
 /**
  * ── نموذج إعداد المادة ─────────────────────────────────────────────────────
  *
@@ -105,7 +106,7 @@ function FacultyPicker({ ws }: { ws: Workspace }) {
             <li key={s.id}>
               <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" role="radio" aria-checked={selected} className="sp-opt" data-selected={selected || undefined} disabled={used}
                 onClick={() => ws.pickFaculty(s.id)}>
-                <span className="sp-opt-title"><b>{s.courseName}</b><small>{s.courseCode} · شعبة {s.SCode}</small></span>
+                <span className="sp-opt-title"><b>{s.courseName}<PlanBadge courseId={s.AdCourseId} /></b><small>{s.courseCode} · شعبة {s.SCode}</small></span>
                 <span className="sp-opt-when"><bdi>{daysLabel(s.days)}</bdi><bdi className="sp-time">{timeRange(s.fstarttime, s.fendtime)}</bdi></span>
                 <span className="sp-opt-where"><Building2 aria-hidden="true" />{entry.item.place || "القاعة لم تُحدد"}{multiScope ? ` · ${entry.item.sectionName || ""}` : ""}</span>
                 <span className="sp-fit" data-fit={used ? "used" : clash ? "clash" : "clear"}>
@@ -144,7 +145,7 @@ function RowPicker({ ws, label }: { ws: Workspace; label: string }) {
             <li key={item.key}>
               <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" role="radio" aria-checked={selected} className="sp-opt" data-selected={selected || undefined} disabled={taken}
                 onClick={() => ws.pickRow(item.rowId)}>
-                <span className="sp-opt-title"><b>{item.courseName}</b><small>{item.courseCode} · شعبة {item.SCode}</small></span>
+                <span className="sp-opt-title"><b>{item.courseName}<PlanBadge courseId={(item as any).src?.courseId} /></b><small>{item.courseCode} · شعبة {item.SCode}</small></span>
                 <span className="sp-opt-when"><bdi>{daysLabel(item.days)}</bdi><bdi className="sp-time">{timeRange(item.start, item.end)}</bdi></span>
                 <span className="sp-opt-where"><Building2 aria-hidden="true" />{item.place || "القاعة لم تُحدد"}</span>
                 {taken ? <span className="sp-fit" data-fit="used"><Check aria-hidden="true" />مستعمل في مادةٍ أخرى</span> : null}

@@ -1,3 +1,4 @@
+import PlanBadge from "../PlanBadge";
 /**
  * ── معاينةُ الإرسال، ومراجعةُ التثبيت، وردودُ الأستاذ ───────────────────────
  *
@@ -180,7 +181,7 @@ export function SendDialog({ ws, onClose, onSent }: { ws: Workspace; onClose: ()
             <section className="sp-send-ops" aria-label="مواد المقترح">
               <h3>المواد ({num(ws.ops.length)})</h3>
               <ul>{ws.ops.map(op => (
-                <li key={op.id}><b>{OP_KIND_LABEL[op.kind]}</b><span>{op.target.courseName} · شعبة {op.target.SCode}</span>
+                <li key={op.id}><b>{OP_KIND_LABEL[op.kind]}</b><span>{op.target.courseName}<PlanBadge courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</span>
                   <span>{daysLabel(daysOf(op.target))} · <bdi className="sp-time">{timeRange(op.target.fstarttime, op.target.fendtime)}</bdi></span>
                   {op.out ? <em>يخرج: {op.out.snapshot.courseName} ({op.out.action === "delete" ? "حذف" : "فك إسناد"})</em> : null}</li>
               ))}</ul>
@@ -292,12 +293,12 @@ export function CommitDialog({ ws, onClose, onDone }: { ws: Workspace; onClose: 
             <p className="sp-commit-lead"><ShieldCheck aria-hidden="true" />اكتملت الفحوص: لا موانع، وبيانات الجدول ما زالت كما وافق عليها الأستاذ، والموافقة تخص النسخة {num(proposal.sentVersion)} الحالية.</p>
             <div className="sp-commit-cols">
               <section><h3>سيُنفَّذ ({num(applied.length)})</h3>
-                <ul>{applied.map(op => <li key={op.id}><b>{OP_KIND_LABEL[op.kind]}</b> {op.target.courseName} · شعبة {op.target.SCode} — {daysLabel(daysOf(op.target))} <bdi className="sp-time">{timeRange(op.target.fstarttime, op.target.fendtime)}</bdi>
+                <ul>{applied.map(op => <li key={op.id}><b>{OP_KIND_LABEL[op.kind]}</b> {op.target.courseName}<PlanBadge courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode} — {daysLabel(daysOf(op.target))} <bdi className="sp-time">{timeRange(op.target.fstarttime, op.target.fendtime)}</bdi>
                   {op.kind === "create" || (op.kind === "replace" && op.incoming === "create") ? <small>تُنشأ الآن في الجدول الفعلي</small> : <small>تُسند وتُحدَّث في الجدول الفعلي</small>}</li>)}</ul>
               </section>
               {skipped.length ? <section data-tone="warn"><h3>لن يُنفَّذ ({num(skipped.length)})</h3>
                 <p className="sp-hint">لم يوافق عليها الأستاذ بعد؛ تبقى خارج التثبيت.</p>
-                <ul>{skipped.map(op => <li key={op.id}>{op.target.courseName} · شعبة {op.target.SCode}</li>)}</ul></section> : null}
+                <ul>{skipped.map(op => <li key={op.id}>{op.target.courseName}<PlanBadge courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</li>)}</ul></section> : null}
             </div>
             {ev ? (
               <ProposalWeekGrid mode={mode} onMode={setMode} showGhosts onShowGhosts={() => undefined}
@@ -319,7 +320,7 @@ export function CommitDialog({ ws, onClose, onDone }: { ws: Workspace; onClose: 
                   if (!op) return null;
                   const what = result.state === "skipped" ? "لم يُنفَّذ (لم يوافق عليه الأستاذ بعد)"
                     : [result.createdRowIds?.length ? "أُنشئت شعبةٌ جديدة في الجدول" : "", result.updatedRowIds?.length ? (op.out && op.out.action === "unassign" ? "أُسندت الشعبة وفُكّ إسناد الموعد القديم" : "أُسندت الشعبة / عُدّل الموعد") : "", result.deletedRowIds?.length ? "حُذف الموعد القديم من جدول القسم" : ""].filter(Boolean).join(" · ");
-                  return <li key={result.opId} data-state={result.state}><b>{op.target.courseName} · شعبة {op.target.SCode}</b><span>{what}</span></li>;
+                  return <li key={result.opId} data-state={result.state}><b>{op.target.courseName}<PlanBadge courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</b><span>{what}</span></li>;
                 })}
               </ul>
             ) : null}</div>

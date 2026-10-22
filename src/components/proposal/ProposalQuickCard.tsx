@@ -1,3 +1,4 @@
+import PlanBadge from "../PlanBadge";
 /**
  * ── بطاقةُ الإضافة السريعة للمقترح ──────────────────────────────────────────
  *
@@ -112,7 +113,7 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
                 <li key={s.id}>
                   <button type="button" role="radio" aria-checked={on} data-on={on || undefined} disabled={used}
                     onClick={() => ws.pickFaculty(s.id)} data-guide-ignore="يختار شعبة للإسناد — لا يكتب في الجدول">
-                    <b>{s.courseName}</b>
+                    <b>{s.courseName}<PlanBadge courseId={s.AdCourseId} /></b>
                     <small>شعبة {s.SCode} · {daysLabel(s.days)} · <bdi className="sp-time">{timeRange(s.fstarttime, s.fendtime)}</bdi></small>
                     <em data-fit={used ? "used" : overlap ? "clash" : "clear"}>{used ? "مضافة" : overlap ? `يتداخل مع ${overlap.courseName || "محاضرة"}` : "لا تعارض"}</em>
                   </button>
