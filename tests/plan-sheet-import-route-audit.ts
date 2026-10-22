@@ -268,11 +268,22 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const users = ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted);
       const owned = users.filter(row => frenchSections.some(sec => (row.Name || "").endsWith(String(sec.AdSectionName))));
       const roles = new Set(owned.map(row => row.Role));
-      check(owned.length === frenchSections.length * 3 && ["departmentHead", "committeeChair", "advisor"].every(role => roles.has(role)), "القسم الجديد يولد بثلاثة حسابات: رئيس قسم ورئيس جدول ومرشد", owned.map(row => [row.SystemUserLogin, row.Role, frenchSections.length]));
+      check(owned.length === frenchSections.length * 3 && ["departmentHead", "committeeChair", "advisor"].every(role => roles.has(role)), "القسم الجديد يولد بثلاثة حسابات: رئيس قسم ورئيس جدول ومرشد", owned.map(row => row.SystemUserLogin));
+      check(new Set(owned.map(row => String(row.SystemUserLogin).toLowerCase())).size === owned.length && owned.some(row => row.SystemUserLogin === "Frenchdept") && owned.every(row => /^French/.test(row.SystemUserLogin)), "أسماء الدخول من اسم القسم بالإنجليزية وبلا تصادم", owned.map(row => row.SystemUserLogin));
       check(owned.every(row => row.IsActive === true && Repository.verifyPassword("12345678", row.SystemUserPass) === true), "الحسابات فعّالة");
       const assigns = await Promise.all(owned.map(async row => ({ row, a: await Repository.getUserAssigns(row.SystemUserId) })));
       check(assigns.every(({ a }) => a.length === 1 && Number(a[0].AdSectionId) > 0), "كل حساب مقيَّد بقسمه وكليته وحدهما");
       check((madeFrench.json.createdSections as any[]).every(row => row.accounts?.length === 3 && row.accounts.every((acc: any) => acc.status === "created")) && againFrench.json.createdSections.length === 0 && users.length === ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted).length, "الإعادة لا تكرر الحسابات");
+    }
+    {
+      const { provisionCollegeUsers } = await import("../src/server/sectionUsers");
+      const college = await Repository.createCollege("77", "كلية تجريبية جديدة");
+      const made = await provisionCollegeUsers(Repository, college);
+      const again = await provisionCollegeUsers(Repository, college);
+      const deanUser = ((await Repository.getUsers()) as any[]).find(row => row.SystemUserLogin === "77dean");
+      const deanAssigns = deanUser ? await Repository.getUserAssigns(deanUser.SystemUserId) : [];
+      check(made.length === 2 && made.every(row => row.status === "created") && again.every(row => row.status === "exists"), "الكلية الجديدة: عميد وعميد مساعد بلا تكرار عند الإعادة", [made, again]);
+      check(deanUser?.IsActive === true && deanUser.Role === "dean" && deanAssigns.length === 1 && Number(deanAssigns[0].AdCollegeId) === Number(college.AdCollegeId) && Number(deanAssigns[0].AdSectionId) === 0, "العميد فعّال ونطاقه كليته كلها");
     }
 
     /* قراءة الترويسة بلا كتابة (لتصفية الدفعة) */
