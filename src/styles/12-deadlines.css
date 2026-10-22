@@ -784,4 +784,4 @@
 .pr-sheet-missing li{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 
 /* شارة الصحيفة على المقررات: صغيرةٌ جداً ونحيفة، لا تزاحم الاسم */
-.plan-badge{display:inline-block;margin-inline-start:6px;padding:0 5px;border:1px solid color-mix(in srgb,var(--accent, #1f6e5a) 45%,transparent);border-radius:999px;color:color-mix(in srgb,var(--accent, #1f6e5a) 85%,var(--muted));background:transparent;font-size:9px;font-weight:500;line-height:14px;letter-spacing:0;white-space:nowrap;vertical-align:middle}
+.plan-badge{display:inline-block;margin-inline-start:6px;padding:0 5px;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:999px;color:color-mix(in srgb,var(--accent) 85%,var(--muted));background:transparent;font-size:9px;font-weight:500;line-height:14px;letter-spacing:0;white-space:nowrap;vertical-align:middle}
