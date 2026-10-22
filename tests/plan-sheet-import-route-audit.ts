@@ -260,6 +260,26 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       check(!!approvedSet && !approvedSet.groups.some(group => group.id === "stale-1") && approvedSet.groups.some(group => group.id === "y2026-s2g2"), "اعتُمدت بلا المجموعة المكرِّرة وبقيت مجموعة الصحيفة", approvedSet?.groups);
     }
 
+    /* المقررات المكررة: رفعٌ قديم برمزٍ كامل ثم رفعٌ جديد برمزٍ قصير؛ يبقى المربوط بالصحيفة ويُحذف غير المستعمل، والمستعمل يُترك */
+    {
+      const getJson = async (who: string, url: string, body?: unknown) => { const res = await fetch(`${base}${url}`, { method: body ? "POST" : "GET", headers: { "content-type": "application/json", "x-who": who }, ...(body ? { body: JSON.stringify(body) } : {}) }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+      const keeperRow = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 21 && row.CourseCode === "105")!;
+      const dupFree = await Repository.createCourse(1, 21, "0109105", keeperRow.CourseName, 3, 3, 0, false);
+      const dupUsed = await Repository.createCourse(1, 21, "0109108", "أخلاقيات استخدام التكنولوجيا", 3, 3, 40, false);
+      const original108 = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 21 && row.CourseCode === "108");
+      check((await getJson("other", "/api/plan-review/sheet/duplicates")).status === 403, "فحص المكرر للحساب الرئيسي وحده");
+      const found = await getJson("root", "/api/plan-review/sheet/duplicates");
+      const sec = found.json.sections?.find((row: any) => row.sectionId === 21);
+      const g105 = sec?.groups.find((group: any) => group.number === 105);
+      check(!!g105 && g105.keeper.id === keeperRow.AdCourseId && g105.dups.length === 1 && g105.dups[0].id === dupFree.AdCourseId && g105.dups[0].removable === true, "يُعرض المكرر غير المستعمل للحذف ويبقى المربوط بالصحيفة", g105);
+      const g108 = sec?.groups.find((group: any) => group.number === 108);
+      check(!!g108 && g108.keeper.id === original108!.AdCourseId && g108.dups.length === 1 && g108.dups[0].id === dupUsed.AdCourseId && g108.dups[0].removable === false, "كلاهما مستعمل (سعةٌ وربطٌ بصحيفة): لا يُعرض شيءٌ للحذف", g108);
+      const del = await getJson("root", "/api/plan-review/sheet/duplicates/delete", { ids: [dupFree.AdCourseId, dupUsed.AdCourseId] });
+      const left = (await Repository.getCourses()).filter(row => Number(row.AdSectionId) === 21);
+      check(del.json.deleted === 1 && !left.some(row => row.AdCourseId === dupFree.AdCourseId) && left.some(row => row.AdCourseId === keeperRow.AdCourseId) && left.some(row => row.AdCourseId === dupUsed.AdCourseId) && left.some(row => row.AdCourseId === original108!.AdCourseId), "الحذف يزيل غير المستعمل وحده ويُبقي المستعمل والأصل", del.json);
+      for (const row of (await Repository.getCourses()).filter(item => Number(item.AdSectionId) === 21 && item.CourseCode === "0109108")) await Repository.deleteCourse(row.AdCourseId);
+    }
+
     /* مقررات الأقسام الخدمية: تجميعٌ بالرمز، معاينةٌ بلا كتابة، ثم إنشاءٌ برمزٍ كامل في كل كليات القسم المختار؛ والموجود لا يتكرر */
     {
       const call2 = async (who: string, url: string, body: unknown) => { const res = await fetch(`${base}${url}`, { method: "POST", headers: { "content-type": "application/json", "x-who": who }, body: JSON.stringify(body) }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };

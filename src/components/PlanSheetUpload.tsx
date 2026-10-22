@@ -6,6 +6,7 @@
  */
 import React, { useRef, useState } from "react";
 import { AR, countOf } from "../utils/arabicCount";
+import DuplicateCoursesPanel from "./DuplicateCoursesPanel";
 import ServiceCoursesPanel, { voteServiceCourses, type ServiceCourse } from "./ServiceCoursesPanel";
 import { AlertTriangle, CheckCircle2, Download, GraduationCap, FileUp, FileX2, History, Link2, Loader2, PencilLine, Plus, SearchX, ShieldAlert, Trash2, UserPlus, X } from "lucide-react";
 
@@ -421,6 +422,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
           </>
         ) : <small role="status">كل الأقسام لها حساباتها</small>) : null}
       </div>
+      <DuplicateCoursesPanel />
       <ServiceCoursesPanel targets={targets} winners={serviceWinners} onWinners={setServiceWinners} />
       <div className="pr-sheet-result pr-sheet-approval" role="group" aria-label="اعتماد الصحائف">
         <button type="button" className="btn btn-secondary" disabled={Boolean(working)} onClick={() => void run("جارٍ معاينة الاعتماد", previewApproval)} data-guide-ignore="معاينة الصحائف الجاهزة للاعتماد وما فيه حاجز داخل شاشة مراجعة الصحيفة"><CheckCircle2 aria-hidden="true" size={16} /> معاينة اعتماد كل الصحف</button>
