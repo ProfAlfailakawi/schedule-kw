@@ -67,5 +67,9 @@ check(radar.includes("/api/schedules/openings-preview") && radar.includes("forec
 const panel = fs.readFileSync("src/components/PredictiveInsightPanel.tsx", "utf8");
 check(panel.includes('forecastCount: action.kind === "open-sections" ? action.count : undefined'), "لوحة التنبّؤ تمرّر عددَ الشعب المتوقَّع");
 
+/* قسمٌ بلا سجلّ «هيئة تدريسية» (جديد) تُعرض له سجلات الأقسام الأخرى؛ والقسم الذي له سجلّه لا تتغير قائمته. */
+const rosterRoute = server.slice(server.indexOf('app.get("/api/instructors"'), server.indexOf("/* ── الإضافة السريعة أثناء بناء الجدول"));
+check(rosterRoute.includes("placeholderInstructorIds(allPeople") && rosterRoute.includes("!merged.some(person => placeholderIds.has("), "القسم بلا «هيئة تدريسية» خاصة به يُعرض له سجلّها من الأقسام الأخرى، ومن له سجلّه لا يتغير");
+
 console.log(`\nDemo fill audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
