@@ -1654,6 +1654,17 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overscroll-behavior:non
   .intelligence-scenes .intelligence-steps button.dna-node::after{content:"";position:absolute;inset:-10px}
 }
 
+/* Four more small controls on phones get the same transparent hit growth (drawing unchanged):
+   the readiness panel's close, the "all" link and the data chip in the approval bar, and the
+   guide's pointer button. The guide launcher is an edge tab 34px wide: it grows toward the page. */
+@media (pointer:coarse) and (max-width:760px){
+  .apb-dr-close,.apb-gap-link,.apb-data-btn,.smart-guide-hero-action{position:relative}
+  .apb-dr-close::after{content:"";position:absolute;inset:-8px}
+  .apb-gap-link::after,.apb-data-btn::after{content:"";position:absolute;inset:-6px 0}
+  .smart-guide-hero-action::after{content:"";position:absolute;inset:-5px}
+  .smart-guide-fab:not(.icon-only)::after{content:"";position:absolute;inset:-4px -8px -4px 0} /* physical: the tab sits on the screen's left edge in this RTL page */
+}
+
 /* ── Guide panel on phones: legibility floor (visual only) ───────────────────
    The phone layout of the guide set its captions and buttons at 8–9.5px. Nothing
    here moves, hides or reorders anything: it only lifts the type to a readable
