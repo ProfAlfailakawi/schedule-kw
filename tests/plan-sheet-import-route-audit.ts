@@ -242,7 +242,7 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
 
     /* اعتماد كل الصحائف: معاينةٌ بالجاهز والمحجوب، والتنفيذ للجاهز وحده وللرئيسي وحده */
     {
-      const callA = async (who: string, method: string, url: string) => { const res = await fetch(`${base}${url}`, { method, headers: { "content-type": "application/json", "x-who": who } }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+      const callA = async (who: string, method: string, url: string, body?: unknown) => { const res = await fetch(`${base}${url}`, { method, headers: { "content-type": "application/json", "x-who": who }, ...(body ? { body: JSON.stringify(body) } : {}) }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
       check((await callA("other", "GET", "/api/plan-review/approve-all")).status === 403 && (await callA("other", "POST", "/api/plan-review/approve-all")).status === 403, "اعتماد الكل للحساب الرئيسي وحده");
       const draftsBefore = ((await Repository.listRuleDrafts()) as any[]).filter(draft => draft.status === "review").length;
       /* مجموعةٌ قديمة تكرّر مقرراً في مجموعتين (تراكمُ رفعٍ سابق): يُصلحها الاعتماد بإبقاء المقرر في الأولى ولا تمنع */
@@ -250,7 +250,8 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       await Repository.updateRuleDraft(dupPlan, current => { const kept = current!.groups.find(group => group.id === "y2026-s2g2")!; return { ...current!, status: "review", groups: [...current!.groups, { id: "stale-1", name: "قديمة", minCourses: 0, minUnits: 0, courseIds: kept.courseIds.slice(0, 2) }], updatedAt: new Date().toISOString() }; });
       const preview = await callA("root", "GET", "/api/plan-review/approve-all");
       check(preview.status === 200 && preview.json.ready.length + preview.json.blocked.length === draftsBefore && ((await Repository.listRuleDrafts()) as any[]).filter(draft => draft.status === "review").length === draftsBefore, "المعاينة: الجاهز والمحجوب يساويان المسوّدات، ولا تكتب شيئاً", { ready: preview.json.ready?.length, blocked: preview.json.blocked?.length, draftsBefore });
-      const done = await callA("root", "POST", "/api/plan-review/approve-all");
+      check((await callA("root", "POST", "/api/plan-review/approve-all")).status === 400, "التنفيذ بلا معاينة يُرفض");
+      const done = await callA("root", "POST", "/api/plan-review/approve-all", { items: preview.json.ready.map((item: any) => ({ planId: item.planId, updatedAt: item.updatedAt })) });
       const left = ((await Repository.listRuleDrafts()) as any[]).filter(draft => draft.status === "review").length;
       check(done.status === 200 && preview.json.ready.length > 0 && done.json.approved === preview.json.ready.length && left === preview.json.blocked.length, "التنفيذ يعتمد الجاهز وحده ويُبقي المحجوب", { approved: done.json.approved, ready: preview.json.ready.length, left, blocked: preview.json.blocked.length });
       check(preview.json.ready.some((item: any) => item.planId === dupPlan && item.repaired === true), "المكرَّر بين مجموعتين جاهزٌ للاعتماد بعد إصلاحٍ آلي", preview.json.blocked?.find((item: any) => item.planId === dupPlan));

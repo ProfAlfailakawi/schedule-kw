@@ -86,14 +86,14 @@ export function normalizeGroup(raw: any): ElectiveGroup | null {
   };
 }
 
-/** مقررٌ في مجموعتين: يبقى في الأولى (ترتيبَ ورودها) وتُترك الثانية بدونه؛ ومجموعةٌ فرغت تماماً بهذا تُحذف. */
+/** مقررٌ في مجموعتين: يبقى في الأولى (ترتيبَ ورودها) وتُترك الثانية بدونه؛ ومجموعةٌ فرغت بهذا تُحذف إن لم يكن لها حدٌّ أدنى، وإلا تبقى فارغةً فيمنعها الفحص ولا يضيع شرطٌ أكاديمي. */
 export function dedupeGroups(groups: readonly ElectiveGroup[]): ElectiveGroup[] {
   const seen = new Set<number>();
   const out: ElectiveGroup[] = [];
   for (const group of groups) {
     const courseIds = group.courseIds.filter(id => !seen.has(id));
     for (const id of courseIds) seen.add(id);
-    if (!courseIds.length && group.courseIds.length) continue;
+    if (!courseIds.length && group.courseIds.length && !group.minCourses && !group.minUnits) continue;
     out.push(courseIds.length === group.courseIds.length ? group : { ...group, courseIds });
   }
   return out;

@@ -422,10 +422,15 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     res.setHeader("Cache-Control", "no-store");
     res.json({ ok: true, ...(await approvalPlan()) });
   });
-  app.post("/api/plan-review/approve-all", sheetLimit, deps.requireAuth, async (req: Request, res: Response) => {
+  app.post("/api/plan-review/approve-all", sheetLimit, deps.requireAuth, express.json({ limit: "1mb" }), async (req: Request, res: Response) => {
     if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
     const by = deps.actorName(req);
-    const { ready, blocked } = await approvalPlan();
+    /* يُنفَّذ ما رآه المسؤول في المعاينة وحده بإصداراته: مسوّدةٌ صارت جاهزةً بعدها لا تُعتمد دون أن تُعرض عليه. */
+    const previewed = new Map<string, string>((Array.isArray(req.body?.items) ? req.body.items : []).map((item: any) => [String(item?.planId || ""), String(item?.updatedAt || "")] as [string, string]));
+    if (!previewed.size) { fail(res, 400, "عاين الصحائف أولاً."); return; }
+    const plan = await approvalPlan();
+    const { blocked } = plan;
+    const ready = plan.ready.filter(item => previewed.get(item.planId) === item.updatedAt);
     let approved = 0, stale = 0;
     const republish = (await import("./planSheetRoutes")).republishIfPublished;
     for (const item of ready) {

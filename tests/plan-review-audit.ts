@@ -73,6 +73,7 @@ const ctx = (plan: number[]) => ({
   const dupGroups: ElectiveGroup[] = [{ id: "a", name: "م", minCourses: 0, minUnits: 3, courseIds: [1, 2] }, { id: "b", name: "ن", minCourses: 0, minUnits: 0, courseIds: [2] }, { id: "c", name: "س", minCourses: 0, minUnits: 3, courseIds: [2, 3] }];
   const deduped = dedupeGroups(dupGroups);
   check(deduped.length === 2 && deduped[0].courseIds.join() === "1,2" && deduped[1].courseIds.join() === "3", "R2 المقرر المكرر يبقى في الأولى والمجموعة التي فرغت تُحذف");
+  check(dedupeGroups([{ id: "a", name: "م", minCourses: 0, minUnits: 3, courseIds: [1] }, { id: "b", name: "ن", minCourses: 1, minUnits: 0, courseIds: [1] }]).length === 2, "R2 مجموعةٌ لها حدٌّ أدنى لا تُحذف بالتكرار (تبقى فتمنع)");
   const pendingIssues = checkRuleSet({ rules: [], groups: [{ id: "a", name: "ثقافية", minCourses: 0, minUnits: 6, courseIds: [1], pendingUnits: 9 }] }, ctx([1]));
   check(pendingIssues.some(i => i.code === "group-pending" && i.severity === "warn") && !pendingIssues.some(i => i.severity === "block"), "R2 نقصٌ من مقرراتٍ لم تُضف للنظام بعد: تنبيهٌ لا مانع");
   check(checkRuleSet({ rules: [], groups: [{ id: "a", name: "ثقافية", minCourses: 0, minUnits: 6, courseIds: [1], pendingUnits: 1 }] }, ctx([1])).some(i => i.code === "group-min-units" && i.severity === "block"), "R2 المعلّق لا يكفي لسدّ النقص: يمنع");
