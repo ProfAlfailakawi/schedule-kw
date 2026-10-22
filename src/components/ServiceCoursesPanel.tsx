@@ -9,7 +9,7 @@ import { FileUp, Loader2 } from "lucide-react";
 
 export interface ServiceCourse { key: string; name: string; units: number; hours: number }
 interface Group { deptKey: string; courses: ServiceCourse[] }
-interface Row { deptKey: string; section: string; sites: number; created: number; existing: number; names: string[] }
+interface Row { deptKey: string; section: string; sites: number; created: number; existing: number; moved?: number; names: string[] }
 
 /** الأشيعُ بين الصحائف لكل مقرر؛ ولا أغلبية له يُترك. */
 export function voteServiceCourses(lists: Array<Array<[string, string, number, number]>>): { winners: ServiceCourse[]; ambiguous: string[] } {
@@ -37,6 +37,7 @@ export default function ServiceCoursesPanel({ targets, winners, onWinners }: { t
   const [groups, setGroups] = useState<Group[] | null>(null);
   const [assign, setAssign] = useState<Record<string, number>>({});
   /* مقررٌ بعينه يتبع قسماً غير قسم رمزه. */
+  const [relocate, setRelocate] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [rows, setRows] = useState<Row[] | null>(null);
   const [msg, setMsg] = useState("");
@@ -57,7 +58,7 @@ export default function ServiceCoursesPanel({ targets, winners, onWinners }: { t
     const { winners: voted } = voteServiceCourses(lists);
     onWinners(voted); await load(voted);
   };
-  const payload = () => ({ courses: winners, assignments: Object.entries(assign).filter(([, id]) => id).map(([deptKey, sectionId]) => ({ deptKey, sectionId })), overrides: Object.fromEntries(Object.entries(overrides).filter(([, id]) => id)) });
+  const payload = () => ({ courses: winners, assignments: Object.entries(assign).filter(([, id]) => id).map(([deptKey, sectionId]) => ({ deptKey, sectionId })), overrides: Object.fromEntries(Object.entries(overrides).filter(([, id]) => id)), relocate });
   const preview = async () => { const data = await post("/api/plan-review/service-courses/apply", { ...payload(), dryRun: true }); setRows(data.report || []); };
   const create = async () => {
     const data = await post("/api/plan-review/service-courses/apply", { ...payload(), dryRun: false });
@@ -104,11 +105,12 @@ export default function ServiceCoursesPanel({ targets, winners, onWinners }: { t
               </li>
             ))}
           </ul>
+          <label><input type="checkbox" checked={relocate} onChange={e => { setRelocate(e.target.checked); setRows(null); }} data-guide-ignore="نقل ما أُنشئ سابقاً من هذه اللوحة في قسمٍ غير المختار إن لم يُستعمل" /> انقل ما أُنشئ سابقاً في قسمٍ آخر (إن لم يُستعمل بعد)</label>
           <div>
             <button type="button" className="btn btn-secondary" disabled={Boolean(working) || !(Object.values(assign).some(Boolean) || Object.values(overrides).some(Boolean))} onClick={() => void run("جارٍ المعاينة", preview)} data-guide-ignore="معاينة ما سيُنشأ من مقررات الأقسام الخدمية؛ لا تكتب شيئاً">عاين</button>
             <button type="button" className="btn btn-primary" disabled={Boolean(working) || !rows} onClick={() => { if (window.confirm("إنشاء هذه المقررات في أقسامها؟")) void run("جارٍ الإنشاء", create); }} data-guide-ignore="إنشاء مقررات الأقسام الخدمية في الأقسام المختارة بعد المعاينة">أنشئ</button>
           </div>
-          {rows ? <ul>{rows.map(row => <li key={row.deptKey}><b>{row.deptKey}</b> ← {row.section} <small>({countOf(row.sites, AR.site)}) · ستُنشأ {row.created} · موجودة {row.existing}{row.names.length ? ` · مثل: ${row.names.slice(0, 3).join("، ")}` : ""}</small></li>)}</ul> : null}
+          {rows ? <ul>{rows.map(row => <li key={row.deptKey}><b>{row.deptKey}</b> ← {row.section} <small>({countOf(row.sites, AR.site)}) · ستُنشأ {row.created}{row.moved ? ` · ستُنقل ${row.moved}` : ""} · موجودة {row.existing}{row.names.length ? ` · مثل: ${row.names.slice(0, 3).join("، ")}` : ""}</small></li>)}</ul> : null}
         </>
       ) : <small role="status">لا مقررات خدمية ناقصة</small>) : null}
     </div>

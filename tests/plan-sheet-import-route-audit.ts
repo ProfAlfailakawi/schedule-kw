@@ -282,6 +282,12 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const split = await call2("root", "/api/plan-review/service-courses/apply", { courses: mixed, assignments: [{ deptKey: "0151", sectionId: 21 }], overrides: { "0151102": 11 }, dryRun: false });
       const placed = (await Repository.getCourses()).filter(row => /^015110[12]$/.test(String(row.CourseCode)));
       check(split.json.created === 4 && placed.filter(row => row.CourseCode === "0151101").length === 3 && placed.filter(row => row.CourseCode === "0151102").length === 1 && placed.find(row => row.CourseCode === "0151102")!.AdSectionId === 11, "مقررٌ بعينه يتبع قسمه المختار لا قسم رمزه", split.json);
+      /* وُضع في قسمٍ خطأ: لا يُنقل بلا طلب، ويُنقل بالطلب لأنه لم يُستعمل */
+      const stay = await call2("root", "/api/plan-review/service-courses/apply", { courses: mixed, assignments: [], overrides: { "0151102": 21 }, dryRun: false });
+      check(stay.json.created === 2 && (await Repository.getCourses()).some(row => row.CourseCode === "0151102" && row.AdSectionId === 11), "بلا «انقل» يبقى حيث هو ولا يتكرر", stay.json);
+      const moved = await call2("root", "/api/plan-review/service-courses/apply", { courses: mixed, assignments: [], overrides: { "0151102": 21 }, relocate: true, dryRun: false });
+      const afterMove = (await Repository.getCourses()).filter(row => row.CourseCode === "0151102");
+      check(moved.json.created === 1 && afterMove.length === 3 && !afterMove.some(row => row.AdSectionId === 11), "«انقل»: يُنقل من القسم الخطأ إلى المختار ولا يتكرر", moved.json);
     }
 
     /* تصحيح مقررات الأقسام الأخرى معطَّل حتى تُؤكَّد رموز الأقسام: المسار يرفض ولا يكتب */
