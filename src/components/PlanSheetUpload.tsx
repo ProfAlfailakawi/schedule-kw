@@ -91,12 +91,20 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
      ما عُرف قسمه وما رُفض وما تُرك (قديمةٌ أقدمُ من أحدث لبرنامجها) كلُّه في تقريرٍ يُنزَّل للمراجعة. */
   const uploadAll = async (files: File[], qsOf?: (file: File) => string, merge?: ReportRow[]) => {
     if (!files.length) return;
-    batchFiles.current = files; snapshot.current = null;
+    /* إعادةُ قسمٍ واحد: تبقى الملفات مرتَّبةً كصفوف الدفعة الأصلية فلا يُعاد ملفٌ غير ملفِّه. */
+    const previousFiles = batchFiles.current;
+    batchFiles.current = merge ? merge.map((old, index) => files.find(file => file.name === old.file) || previousFiles[index]) : files;
+    snapshot.current = null;
     setBusy(true); setRejection(null); setError(""); setOutcome(null); setReconcile(null);
     const state = { phase: "read" as BatchPhase, done: 0, total: files.length, ok: 0, skipped: 0, failed: 0, prereqLinked: 0, prereqPrinted: 0 };
     const rows: ReportRow[] = files.map(file => ({ file: file.name, status: "rejected" }));
     /* إعادةُ قسمٍ واحد: تُدمج نتيجتُه في تقرير الدفعة الأصلية فلا يضيع ما قبله. */
-    const publish = () => setBatch({ ...state, rows: (merge ? merge.map(old => rows.find(row => row.file === old.file) || old) : rows).map(row => ({ ...row })) });
+    const publish = () => {
+      const shown = (merge ? merge.map(old => rows.find(row => row.file === old.file) || old) : rows).map(row => ({ ...row }));
+      /* عدّادات الدفعة المدموجة تُحسب من صفوفها لا من الجزء المُعاد وحده. */
+      const totals = merge ? { ok: shown.filter(row => row.status === "ok").length, skipped: shown.filter(row => row.status === "skipped").length, failed: shown.filter(row => row.status === "rejected" || row.status === "unreadable").length, prereqLinked: shown.reduce((sum, row) => sum + (row.status === "ok" ? row.prereqLinked || 0 : 0), 0), prereqPrinted: shown.reduce((sum, row) => sum + (row.status === "ok" ? row.prereqPrinted || 0 : 0), 0) } : {};
+      setBatch({ ...state, ...totals, rows: shown });
+    };
     publish();
     /* انقطاعٌ عابر (شبكة، 5xx، 429) لا يُسقط الملف: ثلاث محاولات بانتظارٍ متزايد، وآخر خطأٍ يُسجَّل في التقرير. */
     const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));

@@ -632,7 +632,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     if (!deps.isRootAdmin(req)) { fail(res, 403, "رفع الصحيفة للحساب الرئيسي وحده."); return; }
     const reject = (kind: string, message: string, extra: Record<string, unknown> = {}) => { res.status(422).json({ error: message, rejection: { kind, message, ...extra } }); };
     const sectionId = Number(req.query.sectionId) || 0;
-    const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
+    let [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
     const body = Buffer.isBuffer(req.body) ? req.body : null;
     if (!body?.length) { fail(res, 400, "لا ملف."); return; }
     if (body.subarray(0, 5).toString("latin1") !== "%PDF-") { reject("unreadable", "الملف ليس PDF. ارفع «الخطة الدراسية» كما تطبعها SWRCAPP (نصاً لا صورة)."); return; }
@@ -891,7 +891,8 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         try { accounts = await provisionSectionUsers(Repository, college, created); } catch (error: any) { accountsError = String(error?.message || error); console.error("[sheet-import] section accounts:", error?.stack || error); }
         createdSections.push({ name: missingName, college: String(college.AdCollegeName || ""), accounts, accountsError });
       }
-      if (createdSections.length) matched = matchIn(await Repository.getSections() as any[]);
+      /* ما أُنشئ لا يظهر في ما قُرئ أول الطلب (Firestore يُرجع نسخاً): تُعاد قراءة الكليات والأقسام فيراها كل ما بعدها. */
+      if (createdSections.length || createdColleges.length) { [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]); matched = matchIn(sections as any[]); }
     }
     if (!matched.length) { reject("department", `لم أجد في النظام قسماً باسم «${String(sheet.department || "").replace(/^قسم\s+/, "")}». اختر القسم يدوياً.`, { missing: !createdSections.length && /^\d{4}$/.test(missingKey) && Boolean(missingName), departmentName: String(sheet.department || ""), code: missingKey.slice(2), sheetCollege: String(sheet.college || ""), collegeCode: collegeDigits, colleges: matchingColleges().map(college => ({ id: Number(college.AdCollegeId), name: String(college.AdCollegeName || "") })) }); return; }
     const outs: Array<{ status: number; json: any; audit?: string }> = [];
