@@ -209,3 +209,15 @@
     animation:none !important;
   }
 }
+
+/* ==========================================================================
+   Round 3 — contrast refinements (colour only; no layout, no motion).
+   Each rule lifts a measured text/background pair to >= 4.5:1 without
+   changing the hue the owner's identity layer assigns to it.
+   ========================================================================== */
+/* Count bubble inside the white-on-jade "open" pill: darken the bubble, not the label. */
+.qd-open b{background:rgb(0 0 0 / .24)}
+/* Student-case type chip: text mixes toward ink so a light category hue stays legible on its own tint. */
+.sc-type{color:color-mix(in srgb,var(--c) 80%,var(--ink))}
+/* Level-head sub-label sat at 0.88 opacity on a coloured band. */
+.pr-level-head small{opacity:1}
