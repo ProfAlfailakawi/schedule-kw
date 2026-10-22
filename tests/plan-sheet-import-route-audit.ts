@@ -247,6 +247,19 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const row21 = audit.json.sections?.find((row: any) => row.sectionId === 21);
     check(audit.status === 200 && audit.json.totals.sections === audit.json.sections.length && row21?.courses >= 27 && row21.plans.some((plan: any) => plan.status === "active" && plan.sheetYear === 2026 && plan.courses === 27) && (await call("other", "GET", "/api/plan-review/sheet/audit")).status === 403, "لقطة حال النظام: الأقسام والصحائف وعدد المقررات، للرئيسي وحده", row21);
 
+    /* قسمٌ للصحيفة لا وجود له: يُرفض بلا كتابة ويُعرض إنشاؤه، ثم يُنشأ بموافقة المسؤول فقط */
+    const french = fs.readFileSync("tests/fixtures/plans/graduation-2026/ba-0140.pdf");
+    const importAuto = async (who: string, qs = "") => { const res = await fetch(`${base}/api/plan-review/sheet/import${qs}`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": who }, body: french }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
+    const sectionsBefore = (await Repository.getSections()).length;
+    const noFrench = await importAuto("root");
+    check(noFrench.status === 422 && noFrench.json.rejection?.kind === "department" && noFrench.json.rejection?.missing === true && noFrench.json.rejection?.code === "40" && (await Repository.getSections()).length === sectionsBefore, "قسمٌ غير موجود: يُرفض ويُعرض إنشاؤه، ولا يُكتب شيء", noFrench.json.rejection);
+    check((await importAuto("other", "?createMissing=1")).status === 403, "الإنشاء للحساب الرئيسي وحده");
+    const madeFrench = await importAuto("root", "?createMissing=1");
+    const frenchSections = (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40");
+    check(madeFrench.status === 200 && madeFrench.json.createdSections.length === frenchSections.length && frenchSections.length >= 1 && frenchSections.every(row => /الفرنسية/.test(String(row.AdSectionName))) && (await Repository.getCourses()).some(row => frenchSections.some(sec => sec.AdSectionId === row.AdSectionId)), "بموافقة المسؤول: يُنشأ القسم باسمه ورمزه من الصحيفة وتدخل مقرراته", madeFrench.json.createdSections);
+    const againFrench = await importAuto("root", "?createMissing=1");
+    check(againFrench.status === 200 && againFrench.json.createdSections.length === 0 && (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40").length === frenchSections.length, "الرفع المتكرر لا ينشئ قسماً ثانياً");
+
     /* قراءة الترويسة بلا كتابة (لتصفية الدفعة) */
     const scanOf = async (who: string, body: Buffer) => { const res = await fetch(`${base}/api/plan-review/sheet/scan`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": who }, body }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
     const scanned = await scanOf("root", oldPdf);

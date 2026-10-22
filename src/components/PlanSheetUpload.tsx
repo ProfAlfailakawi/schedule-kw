@@ -29,6 +29,8 @@ interface ReportRow {
   nameFixes?: number; otherDepartments?: number; prereqLinked?: number; prereqPrinted?: number; renames?: unknown[]; unresolved?: string[]; addedOther?: number; differsOther?: string[]; noDepartment?: string[]; rollover?: boolean;
   /** ردّ الخادم كاملاً للمرور الأول (للمراجعة)، ومدة الطلب بالمللي ثانية، ورمز HTTP، وعدد المحاولات. */
   server?: unknown; ms?: number; http?: number; attempts?: number;
+  /** قسمٌ للصحيفة لا وجود له بالنظام (يُعرض إنشاؤه بموافقة المسؤول)، وأقسامٌ أُنشئت لها. */
+  missingDept?: { name: string; code: string }; createdSections?: Array<{ name: string; college: string }>;
 }
 /** ما يُحفظ في التقرير من ردّ الخادم لصحيفةٍ مقبولة. */
 const pick = (data: any): Partial<ReportRow> => ({
@@ -37,7 +39,7 @@ const pick = (data: any): Partial<ReportRow> => ({
   nameFixes: typeof data.nameFixes === "number" ? data.nameFixes : Array.isArray(data.nameFixes) ? data.nameFixes.length : 0,
   otherDepartments: Number(data.otherDepartments || 0), prereqLinked: Number(data.prereqLinked || 0), prereqPrinted: Number(data.prereqPrinted || 0),
   renames: Array.isArray(data.renames) ? data.renames : [], unresolved: Array.isArray(data.unresolved) ? data.unresolved : [],
-  addedOther: Number(data.addedOther || 0), rollover: Boolean(data.rollover), differsOther: Array.isArray(data.differsOther) ? data.differsOther : [], noDepartment: Array.isArray(data.noDepartment) ? data.noDepartment : [],
+  addedOther: Number(data.addedOther || 0), rollover: Boolean(data.rollover), createdSections: Array.isArray(data.createdSections) ? data.createdSections : [], differsOther: Array.isArray(data.differsOther) ? data.differsOther : [], noDepartment: Array.isArray(data.noDepartment) ? data.noDepartment : [],
 });
 
 /** رموز الأقسام المطبوعة في الصحف وغير الموجودة بالنظام، بعدد مقرراتها (للتقرير النهائي). */
@@ -84,7 +86,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
 
   /* رفعُ كل الملفات (جديدة وقديمة) دفعةً واحدة: تُقرأ ترويستُها أولاً، وتُوجَّه كل صحيفة إلى قسمها، ثم يُراجَع ما رُبط.
      ما عُرف قسمه وما رُفض وما تُرك (قديمةٌ أقدمُ من أحدث لبرنامجها) كلُّه في تقريرٍ يُنزَّل للمراجعة. */
-  const uploadAll = async (files: File[]) => {
+  const uploadAll = async (files: File[], createMissing = false) => {
     if (!files.length) return;
     batchFiles.current = files; snapshot.current = null;
     setBusy(true); setRejection(null); setError(""); setOutcome(null); setReconcile(null);
@@ -138,10 +140,10 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
     for (const item of queue) {
       try {
         const began = performance.now();
-        const { response, data, attempts } = await post("/api/plan-review/sheet/import", files[item.index]);
+        const { response, data, attempts } = await post(`/api/plan-review/sheet/import${createMissing ? "?createMissing=1" : ""}`, files[item.index]);
         const timing = { ms: Math.round(performance.now() - began), http: response.status, attempts };
         if (response.ok) { accepted.push(item.index); state.ok += 1; last = { sectionId: Number(data.sectionId || 0), planId: String(data.planId || "") }; rows[item.index] = { ...rows[item.index], status: "ok", ...pick(data), ...timing, server: data }; }
-        else { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: data.rejection?.kind === "department" ? "لا قسم بهذا الاسم أو الرمز" : (SHORT[data.rejection?.kind]?.title || data.error || "تعذّر"), detail: data.rejection?.message || `HTTP ${response.status}`, ...timing, server: data }; }
+        else { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: data.rejection?.kind === "department" ? "لا قسم بهذا الاسم أو الرمز" : (SHORT[data.rejection?.kind]?.title || data.error || "تعذّر"), detail: data.rejection?.message || `HTTP ${response.status}`, ...(data.rejection?.missing ? { missingDept: { name: String(data.rejection.departmentName || "").replace(/^قسم\s+/, ""), code: String(data.rejection.code || "") } } : {}), ...timing, server: data }; }
       } catch (e: any) { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: "تعذّر الرفع", detail: String(e?.message || e) }; }
       state.done += 1; publish();
     }
@@ -191,6 +193,18 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
   /* ملفاتٌ سقطت بانقطاعٍ عابر (لا برفضٍ من النظام): تُعاد وحدها. */
   const transientFailed = () => (batch?.rows || []).map((row, index) => (row.status === "unreadable" || (row.status === "rejected" && row.reason === "تعذّر الرفع") ? batchFiles.current[index] : null)).filter((file): file is File => Boolean(file));
 
+  /* صحائفُ قسمٍ لا وجود له: لكل قسمٍ موافقةٌ منفصلة، ثم تُعاد صحائفه وحدها بإنشائه. */
+  const missingFiles = () => (batch?.rows || []).map((row, index) => (row.missingDept ? { file: batchFiles.current[index], dept: row.missingDept } : null)).filter((item): item is { file: File; dept: { name: string; code: string } } => Boolean(item?.file));
+  const createMissing = () => {
+    const items = missingFiles(), agreed = new Set<string>();
+    for (const name of [...new Set<string>(items.map(item => String(item.dept.name)))]) {
+      const item = items.find(entry => entry.dept.name === name)!;
+      if (window.confirm(`إنشاء قسم «${name}» (رمز ${item.dept.code}) في كلياته ثم رفع صحائفه؟\nاضغط «إلغاء» إن كان موجوداً عندك باسمٍ أو رمزٍ آخر (ارفعه بزر «رغم الاختلاف»).`)) agreed.add(name);
+    }
+    const files = items.filter(item => agreed.has(item.dept.name)).map(item => item.file);
+    if (files.length) void uploadAll(files, true);
+  };
+
   const short = rejection ? SHORT[rejection.kind] : undefined;
   return (
     <section className="pr-import pr-sheet">
@@ -238,6 +252,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
           {batch.skipped ? <span title="قديمةٌ أقدمُ من أحدث لبرنامجها: تُركت"><History aria-hidden="true" /> {batch.skipped}</span> : null}
           {batch.phase === "done" && batch.prereqPrinted ? <span title="مسبقات مربوطة من المطبوعة؛ الباقي نصيحةُ PEN أو مقرراتُ أقسامٍ لم تُرفع صحائفها"><Link2 aria-hidden="true" /> {batch.prereqLinked}/{batch.prereqPrinted}</span> : null}
           <small>{batch.phase === "done" ? "تم" : `${batch.phase === "read" ? "قراءة" : batch.phase === "upload" ? "رفع" : "المسبقات"} · ${batch.done} / ${batch.total}`}</small>
+          {batch.phase === "done" && !busy && missingFiles().length ? <button type="button" className="btn btn-secondary" onClick={createMissing} data-guide-ignore="إنشاء قسمٍ ناقص ورفع صحائفه بموافقة المسؤول داخل شاشة مراجعة الصحيفة"><Plus aria-hidden="true" size={16} /> أنشئ الأقسام الناقصة</button> : null}
           {batch.phase === "done" && !busy && transientFailed().length ? <button type="button" className="btn btn-secondary" onClick={() => { const again = transientFailed(); void uploadAll(again); }} data-guide-ignore="إعادة رفع الملفات التي انقطع رفعها داخل شاشة مراجعة الصحيفة"><History aria-hidden="true" size={16} /> أعد {transientFailed().length} فاشلة</button> : null}
           {batch.phase === "done" ? <button type="button" className="btn btn-secondary" onClick={downloadReport} data-guide-ignore="تنزيل تقرير رفع الصحائف للمراجعة داخل شاشة مراجعة الصحيفة"><Download aria-hidden="true" size={16} /> تقرير المراجعة</button> : null}
           {batch.rows.some(row => row.status !== "ok" && row.status !== "skipped") ? <ul>{batch.rows.filter(row => row.status !== "ok" && row.status !== "skipped").map((row, index) => <li key={index}><b>{row.file.replace(/\.pdf$/i, "")}</b> · {row.reason}</li>)}</ul> : null}
