@@ -216,7 +216,7 @@ export function checkRuleSet(set: { rules: readonly CurriculumCourseRule[]; grou
     if (group.minUnits > sum) {
       const pending = group.pendingUnits || 0;
       /* النقصُ كلُّه من مقرراتٍ عدّتها الصحيفة وليست في الكتالوج بعد: تنبيهٌ يزول بإضافتها، لا مانعٌ. */
-      if (pending && group.minUnits <= sum + pending) add({ severity: "warn", code: "group-pending", groupId: group.id, text: `«${group.name}»: المطلوب ${countOf(group.minUnits, AR.unit)} والمتاح ${countOf(sum, AR.unit)}؛ ${countOf(group.minUnits - sum, AR.unit)} من مقررات أقسامٍ لم تُضف للنظام بعد.` });
+      if (pending && group.minUnits <= sum + pending) add({ severity: "warn", code: "group-pending", groupId: group.id, text: `«${group.name}»: المطلوب ${countOf(group.minUnits, AR.unit)} والمتاح ${countOf(sum, AR.unit)}؛ ${countOf(group.minUnits - sum, AR.unit)} من مقرراتٍ لم تُضف للنظام بعد أو وحداتُها فيه أقل مما طُبع.` });
       else add({ severity: "block", code: "group-min-units", groupId: group.id, text: `«${group.name}»: المطلوب ${countOf(group.minUnits, AR.unit)} والمتاح ${countOf(sum, AR.unit)}.` });
     }
     if (group.minCourses === 0 && group.minUnits === 0 && members.length) add({ severity: "warn", code: "group-no-minimum", groupId: group.id, text: `«${group.name}» بلا حدٍّ أدنى.` });
