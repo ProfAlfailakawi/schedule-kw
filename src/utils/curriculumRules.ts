@@ -129,6 +129,8 @@ export interface RuleIssue {
   text: string;
   courseId?: number;
   groupId?: string;
+  /** المقررُ الثاني في الملاحظة (المسبق أو المرجع) لمن يرسمها بالأيقونات بدل الجملة. */
+  refId?: number;
 }
 
 export interface CheckContext {
@@ -174,11 +176,11 @@ export function checkRuleSet(set: { rules: readonly CurriculumCourseRule[]; grou
     if (!plan.has(rule.courseId)) { add({ severity: "block", code: "not-in-plan", courseId: rule.courseId, text: `«${label}» ليس في هذه الصحيفة.` }); continue; }
     for (const id of [...prereqIds(rule.prereq), ...(rule.coreq || [])]) {
       if (!ctx.knownCourseIds.has(id)) add({ severity: "block", code: "unknown-ref", courseId: rule.courseId, text: `«${label}» يشير إلى مقررٍ غير معروف (${id}).` });
-      else if (!plan.has(id)) add({ severity: "warn", code: "ref-outside-plan", courseId: rule.courseId, text: `«${label}»: «${ctx.name(id)}» ليس في هذه الصحيفة.` });
+      else if (!plan.has(id)) add({ severity: "warn", code: "ref-outside-plan", courseId: rule.courseId, refId: id, text: `«${label}»: «${ctx.name(id)}» ليس في هذه الصحيفة.` });
     }
     if (rule.prereq && rule.level) {
       const later = [...rule.prereq.all.filter(id => (levelOf.get(id) || 0) >= rule.level!), ...rule.prereq.anyOf.filter(group => group.every(id => (levelOf.get(id) || 0) >= rule.level!)).flat()];
-      if (later.length) add({ severity: "warn", code: "prereq-level", courseId: rule.courseId, text: `«${label}» (المستوى ${rule.level}): مسبقُه «${ctx.name(later[0])}» ليس في مستوىً أسبق.` });
+      if (later.length) add({ severity: "warn", code: "prereq-level", courseId: rule.courseId, refId: later[0], text: `«${label}» (المستوى ${rule.level}): مسبقُه «${ctx.name(later[0])}» ليس في مستوىً أسبق.` });
     }
     if (rule.kind === "elective" && !rule.groupId) add({ severity: "warn", code: "elective-no-group", courseId: rule.courseId, text: `«${label}» اختياري بلا مجموعة — لا يُحتسب في الخريج.` });
   }

@@ -18,7 +18,7 @@ import { arabicMatchKey } from "../utils/arabicText";
 const isTechnologyEducation = (label: string) => arabicMatchKey(label).includes(arabicMatchKey("تكنولوجيا التعليم"));
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, ArrowUp, BookOpenCheck, CheckCircle2, FileSpreadsheet, GraduationCap, Layers, Lock, Plus, ShieldCheck, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowUp, BookOpenCheck, CheckCircle2, FileSpreadsheet, GraduationCap, Layers, Lock, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { EmptyState, MicroLoader, Notice, PageTitle, PrimaryButton, SecondaryButton } from "./ui";
 import { AR, countOf } from "../utils/arabicCount";
 import { CURRICULUM_LEVELS, KIND_LABEL, KINDS, byLevel, courseLevelFromCode, dependentsOf, describePrereq } from "../utils/curriculumRules";
@@ -42,9 +42,59 @@ interface View {
   rules: CurriculumCourseRule[];
   groups: ElectiveGroup[];
   state: { status: "review" | "approved"; version: number; updatedAt: string; updatedBy: string; approvedAt: string; approvedBy: string };
-  issues: Array<{ severity: "block" | "warn"; code: string; text: string; courseId?: number; groupId?: string }>;
+  issues: Array<{ severity: "block" | "warn"; code: string; text: string; courseId?: number; groupId?: string; refId?: number }>;
   blockers: number;
   can: { edit: boolean; approve: boolean };
+}
+
+/** رمزُ كل نوع ملاحظة وعنوانُه القصير — الجملةُ الكاملة تبقى في العنصر لقارئ الشاشة. */
+const ISSUE_KIND: Record<string, { label: string; Icon: typeof AlertTriangle }> = {
+  "prereq-level": { label: "المسبق في مستوىً لاحق", Icon: ArrowUp },
+  "ref-outside-plan": { label: "خارج الصحيفة", Icon: Lock },
+  "elective-no-group": { label: "اختياري بلا مجموعة", Icon: Layers },
+  "cycle": { label: "دورة متطلبات", Icon: AlertTriangle },
+  "not-in-plan": { label: "ليس في الصحيفة", Icon: Lock },
+  "unknown-ref": { label: "مقرر غير معروف", Icon: AlertTriangle },
+};
+
+/** ملاحظاتُ المراجعة كلوحةٍ مرئية: مجموعةٌ بأيقونتها وعددها، وفي كلٍّ منها بطاقاتٌ قصيرة (مقرر ← مسبقه) بلا جمل طويلة. */
+function IssueBoard({ issues, courses, rules, onPick }: { issues: View["issues"]; courses: CourseRow[]; rules: CurriculumCourseRule[]; onPick: (id: number) => void }) {
+  const byId = useMemo(() => new Map(courses.map(c => [c.id, c])), [courses]);
+  const levelOf = useMemo(() => new Map(rules.map(r => [r.courseId, r.level] as const)), [rules]);
+  const groups = useMemo(() => {
+    const map = new Map<string, View["issues"]>();
+    for (const issue of issues) map.set(issue.code, [...(map.get(issue.code) || []), issue]);
+    return [...map.entries()].sort((a, b) => Number(b[1].some(i => i.severity === "block")) - Number(a[1].some(i => i.severity === "block")));
+  }, [issues]);
+  const chip = (id?: number) => {
+    const c = id ? byId.get(id) : undefined;
+    const level = id ? levelOf.get(id) : undefined;
+    return c ? <span className="pr-ib-course" data-lvl={levelHue(level || 0)}>{level ? <i>{level}</i> : null}<b>{c.name}</b></span> : null;
+  };
+  return (
+    <section className="pr-issueboard" aria-label="ملاحظات المراجعة">
+      {groups.map(([code, list]) => {
+        const kind = ISSUE_KIND[code] || { label: "ملاحظة", Icon: AlertTriangle };
+        const block = list.some(i => i.severity === "block");
+        return (
+          <div key={code} className={`pr-ib-group ${block ? "block" : "warn"}`}>
+            <header><span className="pr-ib-icon"><kind.Icon size={16} aria-hidden="true" /></span><b>{kind.label}</b><em>{list.length.toLocaleString("ar-KW-u-nu-latn")}</em></header>
+            <ul>
+              {list.map((i, k) => (
+                <li key={k} className={i.severity}>
+                  <button type="button" title={i.text} onClick={() => { if (i.courseId) onPick(i.courseId); }} disabled={!i.courseId}>
+                    {chip(i.courseId) || <b className="pr-ib-text">{i.text}</b>}
+                    {i.refId && chip(i.refId) ? <><ArrowLeft className="pr-ib-arrow" size={14} aria-hidden="true" />{chip(i.refId)}</> : null}
+                    <span className="sr-only">{i.text}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </section>
+  );
 }
 
 const request = async (url: string, init?: RequestInit) => {
@@ -343,15 +393,7 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
                 </div>
               ) : null}
 
-              {view.issues.length ? (
-                <ul className="pr-issues">
-                  {view.issues.map((i, k) => (
-                    <li key={k} className={i.severity} onClick={() => { if (i.courseId) { setFocus(i.courseId); setSelected(i.courseId); } }}>
-                      <AlertTriangle size={14} /> {i.text}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+              {view.issues.length ? <IssueBoard issues={view.issues} courses={view.courses} rules={view.rules} onPick={id => { setFocus(id); setSelected(id); }} /> : null}
               {view.blockers ? <Notice type="block" inline>{countOf(view.blockers, AR.blocker)} يمنع الاعتماد حتى يُصلَح.</Notice> : null}
 
               <section className="pr-infographic" aria-label="ملخص الصحيفة">
