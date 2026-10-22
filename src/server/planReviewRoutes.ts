@@ -675,34 +675,48 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       for (const group of set.groups || []) for (const id of group.courseIds || []) referenced.add(Number(id));
       for (const id of set.externals || []) referenced.add(Number(id));
     }
-    const numberOf = (code: unknown) => { const key = referenceCodeKey(code); return /^\d{1,10}$/.test(key) ? Number(key.slice(-3)) : -1; };
+    /* هويةُ المقرر: رمزٌ قصير يُوسَّع برمز قسمه (105 ← 0109105)، والكامل كما هو؛ مقرران بالهوية نفسها مكرَّران، وغير ذلك مقرران مختلفان ولو تشابه الاسم. */
+    const authority = new Map((sections as any[]).map(row => [Number(row.AdSectionId), authorityDepartmentCode((colleges as any[]).find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeCode, row.AdSectionCode)] as const));
+    const identityOf = (row: AdCourse) => {
+      const key = referenceCodeKey(row.CourseCode), dept = authority.get(Number(row.AdSectionId)) || "";
+      if (!/^\d+$/.test(key)) return "";
+      if (key.length <= 3 && /^\d{4}$/.test(dept)) return `${dept}${key.padStart(3, "0")}`;
+      return key.length === 6 ? `${key.slice(0, 4)}0${key.slice(4)}` : key;
+    };
+    /* ما تشير إليه بياناتُ الطلبة (منجَز ورغبات ومعادَل وطلبات): يُحمَّل مرةً واحدة وعند وجود مكرَّرٍ فقط. */
+    let studentUsed: Set<number> | null = null;
+    const studentsUse = async () => {
+      if (studentUsed) return studentUsed;
+      studentUsed = new Set<number>();
+      for (const profile of await Repository.listStudentProfiles() as any[]) {
+        for (const id of [...(profile.passedCourseIds || []), ...(profile.equivalentCourseIds || []), ...(profile.wishes?.courseIds || []), ...(profile.visitSnapshot?.passedIds || [])]) studentUsed.add(Number(id));
+      }
+      for (const term of await Repository.getTerms() as any[]) for (const need of await Repository.getStudentNeedsForTerm(Number(term.AdTermId)) as any[]) for (const id of need.courseIds || []) studentUsed.add(Number(id));
+      return studentUsed;
+    };
     const out: Array<{ sectionId: number; section: string; groups: Array<{ number: number; keeper: any; dups: any[] }> }> = [];
     for (const section of sections as any[]) {
       const sid = Number(section.AdSectionId);
-      const mine = (courses as AdCourse[]).filter(row => Number(row.AdSectionId) === sid && numberOf(row.CourseCode) >= 0);
-      const byNumber = new Map<number, AdCourse[]>();
-      for (const row of mine) byNumber.set(numberOf(row.CourseCode), [...(byNumber.get(numberOf(row.CourseCode)) || []), row]);
-      const candidates = [...byNumber].filter(([, rows]) => rows.length > 1);
+      const byIdentity = new Map<string, AdCourse[]>();
+      for (const row of (courses as AdCourse[]).filter(item => Number(item.AdSectionId) === sid)) { const key = identityOf(row); if (key) byIdentity.set(key, [...(byIdentity.get(key) || []), row]); }
+      const candidates = [...byIdentity].filter(([, rows]) => rows.length > 1);
       if (!candidates.length) continue;
       const linked = new Set<number>((await Repository.getCurriculumPlanCourses(sid) as any[]).map(link => Number(link.AdCourseId)));
       const groups: Array<{ number: number; keeper: any; dups: any[] }> = [];
-      for (const [number, rows] of candidates) {
-        /* اسمٌ متقارب (بعد توحيد الحروف) أو أحدهما برمزٍ كامل: وإلا فهما مقرران مختلفان برقمٍ يقع في آخر الخانات فقط. */
-        const sameName = rows.every(row => nameKey(row.CourseName) === nameKey(rows[0].CourseName));
-        const fullCode = rows.some(row => referenceCodeKey(row.CourseCode).length >= 7);
-        if (!sameName && !fullCode) continue;
+      for (const [identity, rows] of candidates) {
+        const students = await studentsUse();
         const info = await Promise.all(rows.map(async row => {
           const id = Number(row.AdCourseId);
           const scheduled = await Repository.hasSchedulesForCourse(id);
-          const score = (scheduled ? 8 : 0) + (referenced.has(id) ? 4 : 0) + (Number(row.MaxStudent) > 0 ? 2 : 0) + (linked.has(id) ? 1 : 0);
-          return { row, id, scheduled, score, used: score > 0 };
+          const score = (scheduled ? 16 : 0) + (students.has(id) ? 8 : 0) + (referenced.has(id) ? 4 : 0) + (Number(row.MaxStudent) > 0 ? 2 : 0) + (linked.has(id) ? 1 : 0);
+          return { row, id, scheduled, score, used: score > 0, byStudents: students.has(id) };
         }));
         info.sort((a, b) => b.score - a.score || referenceCodeKey(a.row.CourseCode).length - referenceCodeKey(b.row.CourseCode).length || a.id - b.id);
         const [keep, ...rest] = info;
         groups.push({
-          number,
+          number: Number(identity.slice(-3)),
           keeper: { id: keep.id, code: String(keep.row.CourseCode), name: String(keep.row.CourseName), used: keep.used },
-          dups: rest.map(item => ({ id: item.id, code: String(item.row.CourseCode), name: String(item.row.CourseName), removable: !item.used, reason: item.used ? (item.scheduled ? "له جدول" : referenced.has(item.id) ? "تشير إليه قواعد" : Number(item.row.MaxStudent) > 0 ? "له سعة" : "مربوط بصحيفة") : "" })),
+          dups: rest.map(item => ({ id: item.id, code: String(item.row.CourseCode), name: String(item.row.CourseName), removable: !item.used, reason: item.used ? (item.scheduled ? "له جدول" : item.byStudents ? "يشير إليه طلبة" : referenced.has(item.id) ? "تشير إليه قواعد" : Number(item.row.MaxStudent) > 0 ? "له سعة" : "مربوط بصحيفة") : "" })),
         });
       }
       if (groups.length) out.push({ sectionId: sid, section: `${collegeName.get(Number(section.AdCollegeId)) || ""} · ${section.AdSectionName}`, groups });

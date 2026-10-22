@@ -284,6 +284,12 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const del = await getJson("root", "/api/plan-review/sheet/duplicates/delete", { ids: [dupFree.AdCourseId, dupUsed.AdCourseId] });
       const left = (await Repository.getCourses()).filter(row => Number(row.AdSectionId) === 21);
       check(del.json.deleted === 1 && !left.some(row => row.AdCourseId === dupFree.AdCourseId) && left.some(row => row.AdCourseId === keeperRow.AdCourseId) && left.some(row => row.AdCourseId === dupUsed.AdCourseId) && left.some(row => row.AdCourseId === original108!.AdCourseId), "الحذف يزيل غير المستعمل وحده ويُبقي المستعمل والأصل", del.json);
+      /* رمزان كاملان لقسمين مختلفين برقمٍ واحد واسمٍ واحد: مقرران مختلفان لا مكرَّران */
+      const otherA = await Repository.createCourse(1, 21, "0152101", "مقرر خدمي متشابه الاسم", 3, 3, 0, false);
+      const otherB = await Repository.createCourse(1, 21, "0153101", "مقرر خدمي متشابه الاسم", 3, 3, 0, false);
+      const again = (await getJson("root", "/api/plan-review/sheet/duplicates")).json.sections?.find((row: any) => row.sectionId === 21);
+      check(!again?.groups.some((group: any) => [group.keeper.id, ...group.dups.map((dup: any) => dup.id)].some((id: number) => id === otherA.AdCourseId || id === otherB.AdCourseId)), "رمزان كاملان لقسمين مختلفين لا يُعدّان مكرّرين");
+      await Repository.deleteCourse(otherA.AdCourseId); await Repository.deleteCourse(otherB.AdCourseId);
       for (const row of (await Repository.getCourses()).filter(item => Number(item.AdSectionId) === 21 && item.CourseCode === "0109108")) await Repository.deleteCourse(row.AdCourseId);
     }
 
