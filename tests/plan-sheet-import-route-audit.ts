@@ -219,6 +219,22 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const restored = await call("root", "POST", "/api/plan-review/previous-plans", { action: "restore", sectionIds: [21] });
     check(restored.json.changed === 1 && (await Repository.getCurriculumPlans(21)).some(plan => plan.status === "transition") && (await Repository.getOperationalCourseIds(21)).size === operationalBefore.size && (await call("root", "GET", "/api/plan-review/previous-ended?sectionId=21")).json.ended === false, "«أعد السابقة» تتراجع كلياً", restored.json);
 
+    /* «الجديدة» الفارغة (لم تُرفع صحيفتها) لا تُنهي السابقة: وإلا اختفت مقررات القسم كلها */
+    {
+      const guarded = await Repository.createSection(3, "94", "قسم اختبار الإنهاء");
+      await Repository.createCurriculumPlan({ collegeId: 3, sectionId: Number(guarded.AdSectionId), name: "قديمة", code: "OLD-G", by: "t" } as any);
+      await Repository.createCourse(3, Number(guarded.AdSectionId), "801", "مقررٌ قديم", 3, 3, 0);
+      await Repository.createCurriculumPlan({ collegeId: 3, sectionId: Number(guarded.AdSectionId), name: "جديدة فارغة", code: "NEW-G", by: "t" } as any);
+      const gid = Number(guarded.AdSectionId);
+      const row = (await call("root", "GET", "/api/plan-review/previous-plans")).json.rows.find((item: any) => item.sectionId === gid);
+      const refused = await call("root", "POST", "/api/plan-review/previous-plans", { action: "end", sectionIds: [gid] });
+      const stillThere = (await Repository.getCurriculumPlans(gid)).some(plan => plan.status === "transition");
+      check(row?.hasNew === false && refused.json.changed === 0 && stillThere, "جديدةٌ فارغة: لا تُنهى السابقة ولا يُعرض القسم قابلاً للإنهاء", { row, refused: refused.json });
+      await Repository.createCourse(3, gid, "802", "مقررٌ جديد", 3, 3, 0);
+      const ok = await call("root", "POST", "/api/plan-review/previous-plans", { action: "end", sectionIds: [gid] });
+      check(ok.json.changed === 1 && !(await Repository.getCurriculumPlans(gid)).some(plan => plan.status === "transition"), "جديدةٌ فيها مقررات: تُنهى السابقة");
+    }
+
     /* تصحيح مقررات الأقسام الأخرى معطَّل حتى تُؤكَّد رموز الأقسام: المسار يرفض ولا يكتب */
     const reconcileCall = (who: string, courses: unknown[]) => call(who, "POST", "/api/plan-review/sheet/reconcile", { courses });
     const coursesBeforeReconcile = JSON.stringify(await Repository.getCourses());

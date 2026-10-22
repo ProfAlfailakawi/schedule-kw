@@ -976,7 +976,9 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     let running = false, ended = false, hasNew = false;
     for (const sid of sites) {
       const plans = (await Repository.getCurriculumPlans(sid)).filter(item => !item.virtual);
-      if (plans.some(item => item.status === "active")) hasNew = true;
+      const filled = new Set(((await Repository.getCurriculumPlanCourses(sid)) as any[]).map(link => String(link.planId)));
+      /* «الجديدة» التي لا مقرر فيها (لم تُرفع صحيفتها بعد) لا تحلّ محلّ السابقة: إنهاؤها يُخفي مقررات القسم كلها. */
+      if (plans.some(item => item.status === "active" && filled.has(String(item.id)))) hasNew = true;
       if (plans.some(item => item.status === "transition")) running = true;
       else if (plans.some(item => item.status === "archived" && String(item.archivedBy || "").startsWith(ENDED_BY))) ended = true;
     }
@@ -1009,9 +1011,11 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       let touched = 0;
       for (const sid of await sitesOfTrack(id)) {
         const plans = (await Repository.getCurriculumPlans(sid)).filter(item => !item.virtual);
+        const filled = new Set(((await Repository.getCurriculumPlanCourses(sid)) as any[]).map(link => String(link.planId)));
         if (action === "end") {
           for (const plan of plans.filter(item => item.status === "transition")) {
-            if (!plans.some(item => item.status === "active" && (item.track || "") === (plan.track || ""))) continue;
+            /* لا تُنهى السابقة إلا إن كانت لمسارها «جديدة» فعّالة فيها مقررات. */
+            if (!plans.some(item => item.status === "active" && (item.track || "") === (plan.track || "") && filled.has(String(item.id)))) continue;
             await Repository.archiveCurriculumPlan(plan.id, sid, `${ENDED_BY} · ${by}`); touched += 1;
           }
         } else {
