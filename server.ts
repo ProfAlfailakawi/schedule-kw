@@ -14991,13 +14991,10 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
    * أستاذٌ لا يدرّس إلا في فصلٍ واحد كانت قائمتُه تعرض كلَّ فصول النظام، وأغلبُها
    * بطاقةٌ فارغة. فالفصلُ يظهر إن كان له فيه جدول، ويبقى المعروضُ حالياً دائماً
    * ليجد المنتقي خيارَه المحدَّد. */
-  const termsWithOwnRows = (await Promise.all(terms.map(async term => {
-    const id = Number(term.AdTermId);
-    if (id === Number(displayTermId)) return rows.length ? term : null;
-    const own = (await Repository.getSchedulesByScope({ termId: id }))
-      .some(row => Number(row.AdInstructorId) === Number(person.AdInstructorId));
-    return own ? term : null;
-  }))).filter(Boolean) as typeof terms;
+  /* استعلامٌ واحد مفهرس على معرّف الأستاذ، لا مسحُ جداول كل فصلٍ في الجامعة. */
+  const ownTermIds = new Set((await Repository.getInstructorTeachingScopes(Number(person.AdInstructorId)))
+    .flatMap(scope => scope.termIds.map(Number)));
+  const termsWithOwnRows = terms.filter(term => ownTermIds.has(Number(term.AdTermId)));
   if (!termsWithOwnRows.some(term => Number(term.AdTermId) === Number(displayTermId))) {
     const shown = terms.find(term => Number(term.AdTermId) === Number(displayTermId));
     if (shown) termsWithOwnRows.push(shown);
