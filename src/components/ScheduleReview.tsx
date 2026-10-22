@@ -18,6 +18,7 @@ import { roomIdentityKey, roomDisplay } from "../utils/locationRegistry";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { rowsInApprovalScope } from "../utils/approvalScope";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
+import PlanBadge from "./PlanBadge";
 
 /**
  * The last read before a schedule is adopted.
@@ -150,7 +151,7 @@ function HistoryInfographic({rows,courses}:{rows:FSchedule[];courses:Map<number,
       searchText={row=>{const course=courses.get(row.AdCourseId);return `${course?.CourseName||row.AdCourseName||""} ${course?.CourseCode||""} ${row.SCode}`;}}
       renderItem={row=>{
       const course=courses.get(row.AdCourseId),dayText=DAY_KEYS.filter(key=>(row as any)[key]).map(key=>DAY_NAMES[DAY_KEYS.indexOf(key)]).join(" · ");
-      return <article><span className="history-review-icon"><Clock3/></span><div><strong>{course?.CourseName||row.AdCourseName||"مقرر"}</strong><small><b dir="ltr">{course?.CourseCode||"—"}</b> · شعبة {row.SCode}</small></div><time dir="ltr">{formatScheduleTimeRange(row.fstarttime,row.fendtime)}</time><p><CalendarDays/>{dayText||"بلا أيام"}<Building2/>{row.AdRoomCode}/{row.AdRoomHall}</p></article>;
+      return <article><span className="history-review-icon"><Clock3/></span><div><strong>{course?.CourseName||row.AdCourseName||"مقرر"}<PlanBadge courseId={row.AdCourseId} /></strong><small><b dir="ltr">{course?.CourseCode||"—"}</b> · شعبة {row.SCode}</small></div><time dir="ltr">{formatScheduleTimeRange(row.fstarttime,row.fendtime)}</time><p><CalendarDays/>{dayText||"بلا أيام"}<Building2/>{row.AdRoomCode}/{row.AdRoomHall}</p></article>;
     }} />
   </div>;
 }

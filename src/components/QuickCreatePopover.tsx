@@ -12,6 +12,7 @@ import {
 import { sortByName } from "../utils/sorting";
 import { toEnglishDigits } from "../utils/digits";
 import { isAssignableInstructor } from "../utils/instructorStatus";
+import { usePlanBadges } from "../utils/planBadges";
 
 /**
  * The appointment written where it was drawn.
@@ -103,6 +104,7 @@ export default function QuickCreatePopover({
   onExpand: (draft: QuickDraft) => void;
   onCreate: (draft: QuickDraft) => void;
 }) {
+  const planBadges = usePlanBadges();
   const ref = useRef<HTMLDivElement | null>(null);
   const firstField = useRef<HTMLButtonElement | null>(null);
   const [box, setBox] = useState<{ left: number; top: number } | null>(null);
@@ -223,7 +225,7 @@ export default function QuickCreatePopover({
             triggerRef={firstField}
             value={draft.courseId || ""}
             onChange={(picked) => chooseCourse(Number(picked) || 0)}
-            options={orderedCourses.map((c) => ({ value: c.AdCourseId, label: c.CourseName, hint: c.CourseCode || undefined, keywords: String(c.CourseCode || "") }))}
+            options={orderedCourses.map((c) => ({ value: c.AdCourseId, label: c.CourseName, badge: planBadges[Number(c.AdCourseId)] || undefined, hint: c.CourseCode || undefined, keywords: String(c.CourseCode || "") }))}
             placeholder="اختر المقرر…"
             ariaLabel="المقرر"
             searchPlaceholder="اكتب اسم المقرر أو رمزه"

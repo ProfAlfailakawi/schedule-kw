@@ -29,6 +29,8 @@ import {
 import { sortByName } from "../utils/sorting";
 import { sectionLabels } from "../utils/sectionLabel";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
+import PlanBadge from "./PlanBadge";
+import { usePlanBadges } from "../utils/planBadges";
 
 type Rule = { degreeUnits: number; fieldTrainingRequired: number; graduateRegularPassed: number; graduateSummerPassed: number };
 type Overview = {
@@ -93,6 +95,7 @@ export default function CurriculumPlans({
   /** Opens the course editor for this department; the new course joins the current plan. */
   onCreateCourse?: (sectionId: number) => void;
 }) {
+  const planBadges = usePlanBadges();
   const [sectionId, setSectionId] = useState(Number(initialSectionId || sections[0]?.AdSectionId || 0));
   /* الكلية أولاً ثم القسم: اسم القسم يتكرّر في كل كلية، فيُختار من أقسام كليةٍ واحدة. */
   const [pickedCollege, setPickedCollege] = useState(() =>
@@ -397,7 +400,7 @@ export default function CurriculumPlans({
               return (
                 <label key={id} className={on ? "is-on" : ""}>
                   <input type="checkbox" checked={on} onChange={() => { const next = new Set(picked); if (on) next.delete(id); else next.add(id); setPicked(next); }} />
-                  <span className="course-code">{course.CourseCode}</span><span>{course.CourseName}</span>
+                  <span className="course-code">{course.CourseCode}</span><span>{course.CourseName}<PlanBadge courseId={course.AdCourseId} /></span>
                 </label>
               );
             })}
@@ -413,7 +416,7 @@ export default function CurriculumPlans({
         {filterList(activeCourses).length ? filterList(activeCourses).map(course => (
           <article key={course.AdCourseId}>
             <span className="course-code">{course.CourseCode}</span>
-            <div><strong>{course.CourseName}</strong><small>{countOf(course.CourseCredit, AR.unit)} · {countOf(course.CourseHours, AR.hour)}{previousIds.has(Number(course.AdCourseId)) ? " · مشترك مع السابقة" : ""}</small></div>
+            <div><strong>{course.CourseName}<PlanBadge courseId={course.AdCourseId} /></strong><small>{countOf(course.CourseCredit, AR.unit)} · {countOf(course.CourseHours, AR.hour)}{previousIds.has(Number(course.AdCourseId)) ? " · مشترك مع السابقة" : ""}</small></div>
             <button type="button" data-guide-ignore="إخراج مقرر من الصحيفة الجديدة مع حماية الاستخدام الجاري" onClick={() => removeFromActive(course)} aria-label={`إخراج ${course.CourseName} من الصحيفة`} title="إخراج من الصحيفة"><Trash2 /></button>
           </article>
         )) : query ? <p className="plan-muted">لا نتائج لهذا البحث.</p> : (
@@ -433,7 +436,7 @@ export default function CurriculumPlans({
         {filterList(previousCourses).map(course => (
           <article key={course.AdCourseId}>
             <span className="course-code">{course.CourseCode}</span>
-            <div><strong>{course.CourseName}</strong><small>{countOf(course.CourseCredit, AR.unit)} · {countOf(course.CourseHours, AR.hour)}</small></div>
+            <div><strong>{course.CourseName}<PlanBadge courseId={course.AdCourseId} /></strong><small>{countOf(course.CourseCredit, AR.unit)} · {countOf(course.CourseHours, AR.hour)}</small></div>
             {activeIds.has(Number(course.AdCourseId)) ? <span className="plan-chip is-shared">مشترك</span> : <span />}
           </article>
         ))}
@@ -459,7 +462,7 @@ export default function CurriculumPlans({
           value={toCourseId || ""}
           onChange={picked => setToCourseId(Number(picked) || 0)}
           ariaLabel="مقابله في الصحيفة الجديدة"
-          options={activeCourses.map(course => ({ value: course.AdCourseId, label: course.CourseName, hint: course.CourseCode, keywords: String(course.CourseCode || "") }))}
+          options={activeCourses.map(course => ({ value: course.AdCourseId, label: course.CourseName, badge: planBadges[Number(course.AdCourseId)] || undefined, hint: course.CourseCode, keywords: String(course.CourseCode || "") }))}
           placeholder="مقابله في الجديدة…"
           searchPlaceholder="اكتب اسم المقرر أو رمزه"
         />

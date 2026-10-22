@@ -240,6 +240,41 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   };
 
   /* ── ما ينتظر المراجعة: يُظهر الأيقونةَ المؤقتة أو يُخفيها ──────────────────── */
+  /* ── شارة «صحيفة XXXX» على المقررات في كل البرنامج ──────────────────────────────────────────────────
+     القاعدة: في القسم الذي له صحيفتان معاً (فعّالة جديدة + سابقة جارية) يحمل المقررُ الذي في الجديدة وحدها شارتها؛
+     ما في السابقة أو في الصحيفتين معاً بلا شارة. عند «انتهوا» (لا سابقة) تختفي الشارات كلها، وتعود إن جاءت صحيفةٌ أحدث (تدوير).
+     مسارات التخصص المزدوج لكلٍّ ثنائيتُها. تُحسب مرةً كل بضع ثوانٍ لا لكل طلب. */
+  let badgeCache: { at: number; badges: Record<number, string> } | null = null;
+  const planBadges = async (): Promise<Record<number, string>> => {
+    if (badgeCache && Date.now() - badgeCache.at < 15_000) return badgeCache.badges;
+    const sections = await Repository.getSections() as any[];
+    const badges: Record<number, string> = {};
+    for (let at = 0; at < sections.length; at += 10) {
+      await Promise.all(sections.slice(at, at + 10).map(async section => {
+        const sid = Number(section.AdSectionId);
+        const plans = (await Repository.getCurriculumPlans(sid) as any[]).filter(plan => !plan.virtual && plan.status !== "archived");
+        if (plans.length < 2) return;
+        const links = await Repository.getCurriculumPlanCourses(sid) as any[];
+        const byTrack = new Map<string, any[]>();
+        for (const plan of plans) byTrack.set(String(plan.track || ""), [...(byTrack.get(String(plan.track || "")) || []), plan]);
+        for (const group of byTrack.values()) {
+          const fresh = group.find(plan => plan.status === "active"), previous = group.filter(plan => plan.status === "transition");
+          if (!fresh || !previous.length) continue;
+          const inPrevious = new Set(links.filter(link => previous.some(plan => plan.id === link.planId)).map(link => Number(link.AdCourseId)));
+          const label = fresh.sheetYear ? `صحيفة ${fresh.sheetYear}` : "الصحيفة الجديدة";
+          for (const link of links) if (link.planId === fresh.id && !inPrevious.has(Number(link.AdCourseId))) badges[Number(link.AdCourseId)] = label;
+        }
+      }));
+    }
+    badgeCache = { at: Date.now(), badges };
+    return badges;
+  };
+  app.get("/api/plan-badges", deps.requireAuth, async (req: Request, res: Response) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (req.query.fresh === "1") badgeCache = null;
+    res.json({ ok: true, badges: await planBadges() });
+  });
+
   app.get("/api/plan-review/status", deps.requireAuth, async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     const drafts = await Repository.listRuleDrafts();

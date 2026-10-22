@@ -21,6 +21,8 @@ export interface SelectOption {
   hint?: string;
   /** نصٌّ إضافيٌّ للبحث وحده (لا يُعرض). */
   keywords?: string;
+  /** شارةٌ صغيرة بجانب الاسم («صحيفة 2026»). */
+  badge?: string;
 }
 
 interface Props {
@@ -150,7 +152,7 @@ export default function SearchableSelect({
   if (single) {
     return (
       <div className={`ss-select ss-single ${className}`} title={title}>
-        <span className="ss-static" dir="auto" data-guide-editor-field={guideField}>{single.label}</span>
+        <span className="ss-static" dir="auto" data-guide-editor-field={guideField}>{single.label}{single.badge ? <span className="plan-badge">{single.badge}</span> : null}</span>
         {required ? <input className="ss-required" tabIndex={-1} aria-hidden="true" required value={String(single.value)} readOnly /> : null}
       </div>
     );
@@ -172,7 +174,7 @@ export default function SearchableSelect({
         data-guide-ignore="فتح قائمة اختيار قابلة للبحث؛ الاختيار نفسه داخل خيارات القائمة"
         {...(guideIgnore ? { "data-guide-ignore": guideIgnore } : {})}
       >
-        <span className={selected ? "" : "ss-placeholder"}>{selected ? selected.label : placeholder}</span>
+        <span className={selected ? "" : "ss-placeholder"}>{selected ? selected.label : placeholder}{selected?.badge ? <span className="plan-badge">{selected.badge}</span> : null}</span>
         <ChevronDown aria-hidden="true" />
       </button>
       {required ? <input className="ss-required" tabIndex={-1} aria-hidden="true" required value={selected ? String(selected.value) : ""} readOnly /> : null}
@@ -207,7 +209,7 @@ export default function SearchableSelect({
                 onClick={() => choose(option)}
                 data-guide-ignore="خيار داخل قائمة اختيار قابلة للبحث"
               >
-                <span><b>{option.label}</b>{option.hint ? <small dir="auto">{option.hint}</small> : null}</span>
+                <span><b>{option.label}</b>{option.badge ? <span className="plan-badge">{option.badge}</span> : null}{option.hint ? <small dir="auto">{option.hint}</small> : null}</span>
                 {String(option.value) === String(value) ? <Check aria-hidden="true" /> : null}
               </button>
             )) : <p className="ss-empty">{emptyText}</p>}

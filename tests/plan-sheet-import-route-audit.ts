@@ -220,6 +220,11 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const call = async (who: string, method: string, url: string, body?: unknown) => { const res = await fetch(`${base}${url}`, { method, headers: { "content-type": "application/json", "x-who": who }, body: body ? JSON.stringify(body) : undefined }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };
     const listedBefore = await call("root", "GET", "/api/plan-review/previous-plans");
     check(listedBefore.json.rows.find((row: any) => row.sectionId === 21)?.state === "running" && (await call("other", "GET", "/api/plan-review/previous-plans")).status === 403, "قائمة الأقسام: السابقة جارية، وللحساب الرئيسي وحده", listedBefore.json.rows);
+    /* شارة «صحيفة 2026»: لمقررات الجديدة وحدها ما دامت السابقة جارية، وتختفي بـ«انتهوا» وتعود مع «تراجع» */
+    const badgesBefore = (await call("root", "GET", "/api/plan-badges?fresh=1")).json.badges || {};
+    const freshIds = new Set((await Repository.getCurriculumPlanCourses(21)).filter(link => link.planId === first.json.planId).map(link => Number(link.AdCourseId)));
+    const previousOnly = (await Repository.getCurriculumPlanCourses(21)).filter(link => link.planId !== first.json.planId).map(link => Number(link.AdCourseId)).filter(id => !freshIds.has(id));
+    check(Object.keys(badgesBefore).length > 0 && [...freshIds].some(id => badgesBefore[id] === "صحيفة 2026") && previousOnly.every(id => !badgesBefore[id]), "الشارة «صحيفة 2026» على مقررات الجديدة وحدها (لا على السابقة)", Object.keys(badgesBefore).length);
     const operationalBefore = await Repository.getOperationalCourseIds(21);
     const ended = await call("root", "POST", "/api/plan-review/previous-plans", { action: "end", sectionIds: [21] });
     const plans21 = await Repository.getCurriculumPlans(21), plans31 = await Repository.getCurriculumPlans(31);
@@ -227,9 +232,13 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const pickerEnded = await call("root", "GET", "/api/plan-review/previous-ended?sectionId=21");
     const operationalAfter = await Repository.getOperationalCourseIds(21);
     check(pickerEnded.json.ended === true && operationalAfter.size < operationalBefore.size && pickerEnded.json.courseIds.length === operationalAfter.size && (await call("root", "GET", "/api/plan-review/previous-ended?sectionId=11")).json.ended === false, "منتقي الجدول: مقررات الجديدة وحدها لقسمٍ أُنهي، وغيره كما هو", [operationalBefore.size, operationalAfter.size]);
+    const badgesEnded = (await call("root", "GET", "/api/plan-badges?fresh=1")).json.badges || {};
+    check([...freshIds].every(id => !badgesEnded[id]), "بعد «انتهوا» تختفي الشارة نهائياً", [...freshIds].filter(id => badgesEnded[id]).length);
     check((await call("other", "POST", "/api/plan-review/previous-plans", { action: "end", sectionIds: [21] })).status === 403, "الإنهاء للحساب الرئيسي وحده");
     const restored = await call("root", "POST", "/api/plan-review/previous-plans", { action: "restore", sectionIds: [21] });
     check(restored.json.changed === 1 && (await Repository.getCurriculumPlans(21)).some(plan => plan.status === "transition") && (await Repository.getOperationalCourseIds(21)).size === operationalBefore.size && (await call("root", "GET", "/api/plan-review/previous-ended?sectionId=21")).json.ended === false, "«أعد السابقة» تتراجع كلياً", restored.json);
+    const badgesRestored = (await call("root", "GET", "/api/plan-badges?fresh=1")).json.badges || {};
+    check([...freshIds].some(id => badgesRestored[id] === "صحيفة 2026"), "وتعود الشارة إن عادت السابقة (صحيفتان)");
 
     /* «الجديدة» الفارغة (لم تُرفع صحيفتها) لا تُنهي السابقة: وإلا اختفت مقررات القسم كلها */
     {
