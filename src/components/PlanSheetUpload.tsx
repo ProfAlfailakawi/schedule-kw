@@ -86,7 +86,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
 
   /* رفعُ كل الملفات (جديدة وقديمة) دفعةً واحدة: تُقرأ ترويستُها أولاً، وتُوجَّه كل صحيفة إلى قسمها، ثم يُراجَع ما رُبط.
      ما عُرف قسمه وما رُفض وما تُرك (قديمةٌ أقدمُ من أحدث لبرنامجها) كلُّه في تقريرٍ يُنزَّل للمراجعة. */
-  const uploadAll = async (files: File[], createMissing = false) => {
+  const uploadAll = async (files: File[], qsOf?: (file: File) => string) => {
     if (!files.length) return;
     batchFiles.current = files; snapshot.current = null;
     setBusy(true); setRejection(null); setError(""); setOutcome(null); setReconcile(null);
@@ -140,7 +140,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
     for (const item of queue) {
       try {
         const began = performance.now();
-        const { response, data, attempts } = await post(`/api/plan-review/sheet/import${createMissing ? "?createMissing=1" : ""}`, files[item.index]);
+        const { response, data, attempts } = await post(`/api/plan-review/sheet/import${qsOf?.(files[item.index]) || ""}`, files[item.index]);
         const timing = { ms: Math.round(performance.now() - began), http: response.status, attempts };
         if (response.ok) { accepted.push(item.index); state.ok += 1; last = { sectionId: Number(data.sectionId || 0), planId: String(data.planId || "") }; rows[item.index] = { ...rows[item.index], status: "ok", ...pick(data), ...timing, server: data }; }
         else { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: data.rejection?.kind === "department" ? "لا قسم بهذا الاسم أو الرمز" : (SHORT[data.rejection?.kind]?.title || data.error || "تعذّر"), detail: data.rejection?.message || `HTTP ${response.status}`, ...(data.rejection?.missing ? { missingDept: { name: String(data.rejection.departmentName || "").replace(/^قسم\s+/, ""), code: String(data.rejection.code || "") } } : {}), ...timing, server: data }; }
@@ -169,7 +169,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
     /* 4) مرورٌ ثانٍ على ما قُبل: مسبقٌ لمقرر قسمٍ رُفع بعده يُربط الآن */
     state.phase = "prereq"; state.done = 0; state.total = accepted.length; publish();
     for (const index of accepted) {
-      try { const { response, data } = await post("/api/plan-review/sheet/import", files[index]); if (response.ok) { const again = pick(data); rows[index] = { ...rows[index], prereqLinked: again.prereqLinked, prereqPrinted: again.prereqPrinted, unresolved: again.unresolved, differsOther: again.differsOther, noDepartment: again.noDepartment }; } } catch { /* المرور الأول كفى */ }
+      try { const { response, data } = await post(`/api/plan-review/sheet/import${qsOf?.(files[index]) || ""}`, files[index]); if (response.ok) { const again = pick(data); rows[index] = { ...rows[index], prereqLinked: again.prereqLinked, prereqPrinted: again.prereqPrinted, unresolved: again.unresolved, differsOther: again.differsOther, noDepartment: again.noDepartment }; } } catch { /* المرور الأول كفى */ }
       state.done += 1; publish();
     }
     for (const index of accepted) { state.prereqLinked += rows[index].prereqLinked || 0; state.prereqPrinted += rows[index].prereqPrinted || 0; }
@@ -195,14 +195,20 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
 
   /* صحائفُ قسمٍ لا وجود له: لكل قسمٍ موافقةٌ منفصلة، ثم تُعاد صحائفه وحدها بإنشائه. */
   const missingFiles = () => (batch?.rows || []).map((row, index) => (row.missingDept ? { file: batchFiles.current[index], dept: row.missingDept } : null)).filter((item): item is { file: File; dept: { name: string; code: string } } => Boolean(item?.file));
-  const createMissing = () => {
-    const items = missingFiles(), agreed = new Set<string>();
-    for (const name of [...new Set<string>(items.map(item => String(item.dept.name)))]) {
-      const item = items.find(entry => entry.dept.name === name)!;
-      if (window.confirm(`إنشاء قسم «${name}» (رمز ${item.dept.code}) في كلياته ثم رفع صحائفه؟\nاضغط «إلغاء» إن كان موجوداً عندك باسمٍ أو رمزٍ آخر (ارفعه بزر «رغم الاختلاف»).`)) agreed.add(name);
+  const missingDepts = (): Array<{ name: string; code: string }> => {
+    const seen = new Map<string, { name: string; code: string }>();
+    for (const item of missingFiles()) if (!seen.has(item.dept.name)) seen.set(item.dept.name, { name: String(item.dept.name), code: String(item.dept.code) });
+    return [...seen.values()];
+  };
+  const [choices, setChoices] = useState<Record<string, string>>({});
+  /* لكل قسمٍ ناقص اختيار: إنشاؤه، أو مطابقته بقسمٍ موجود (يُصحَّح اسمه ورمزه من الصحيفة) ثم تُعاد صحائفه وحدها. */
+  const applyMissing = () => {
+    const items = missingFiles(), qs = new Map<File, string>();
+    for (const item of items) {
+      const choice = choices[item.dept.name] || "new";
+      qs.set(item.file, choice === "new" ? "?createMissing=1" : `?sectionId=${Number(choice)}&force=1`);
     }
-    const files = items.filter(item => agreed.has(item.dept.name)).map(item => item.file);
-    if (files.length) void uploadAll(files, true);
+    if (items.length) void uploadAll(items.map(item => item.file), file => qs.get(file) || "");
   };
 
   const short = rejection ? SHORT[rejection.kind] : undefined;
@@ -252,10 +258,25 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
           {batch.skipped ? <span title="قديمةٌ أقدمُ من أحدث لبرنامجها: تُركت"><History aria-hidden="true" /> {batch.skipped}</span> : null}
           {batch.phase === "done" && batch.prereqPrinted ? <span title="مسبقات مربوطة من المطبوعة؛ الباقي نصيحةُ PEN أو مقرراتُ أقسامٍ لم تُرفع صحائفها"><Link2 aria-hidden="true" /> {batch.prereqLinked}/{batch.prereqPrinted}</span> : null}
           <small>{batch.phase === "done" ? "تم" : `${batch.phase === "read" ? "قراءة" : batch.phase === "upload" ? "رفع" : "المسبقات"} · ${batch.done} / ${batch.total}`}</small>
-          {batch.phase === "done" && !busy && missingFiles().length ? <button type="button" className="btn btn-secondary" onClick={createMissing} data-guide-ignore="إنشاء قسمٍ ناقص ورفع صحائفه بموافقة المسؤول داخل شاشة مراجعة الصحيفة"><Plus aria-hidden="true" size={16} /> أنشئ الأقسام الناقصة</button> : null}
           {batch.phase === "done" && !busy && transientFailed().length ? <button type="button" className="btn btn-secondary" onClick={() => { const again = transientFailed(); void uploadAll(again); }} data-guide-ignore="إعادة رفع الملفات التي انقطع رفعها داخل شاشة مراجعة الصحيفة"><History aria-hidden="true" size={16} /> أعد {transientFailed().length} فاشلة</button> : null}
           {batch.phase === "done" ? <button type="button" className="btn btn-secondary" onClick={downloadReport} data-guide-ignore="تنزيل تقرير رفع الصحائف للمراجعة داخل شاشة مراجعة الصحيفة"><Download aria-hidden="true" size={16} /> تقرير المراجعة</button> : null}
           {batch.rows.some(row => row.status !== "ok" && row.status !== "skipped") ? <ul>{batch.rows.filter(row => row.status !== "ok" && row.status !== "skipped").map((row, index) => <li key={index}><b>{row.file.replace(/\.pdf$/i, "")}</b> · {row.reason}</li>)}</ul> : null}
+        </div>
+      ) : null}
+      {batch?.phase === "done" && !busy && missingFiles().length ? (
+        <div className="pr-sheet-result pr-sheet-missing" role="group" aria-label="أقسامٌ ناقصة">
+          <ul>
+            {missingDepts().map(dept => (
+              <li key={dept.name}>
+                <b>{dept.name}</b> <small>رمز {dept.code}</small>
+                <select aria-label={`قسم صحيفة ${dept.name}`} value={choices[dept.name] || "new"} onChange={e => setChoices(current => ({ ...current, [dept.name]: e.target.value }))}>
+                  <option value="new">إنشاء قسم جديد</option>
+                  {targets.map(item => <option key={item.sectionId} value={item.sectionId}>هو {item.label}</option>)}
+                </select>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="btn btn-primary" onClick={applyMissing} data-guide-ignore="إنشاء الأقسام الناقصة أو مطابقتها بقسمٍ موجود ثم رفع صحائفها داخل شاشة مراجعة الصحيفة"><Plus aria-hidden="true" size={16} /> طبّق</button>
         </div>
       ) : null}
       {outcome ? (
