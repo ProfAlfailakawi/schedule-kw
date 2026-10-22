@@ -23,7 +23,7 @@ import type { Express, Request, RequestHandler, Response } from "express";
 import { DuplicateResourceError, RuleDraftConflict, Repository } from "../db/repository";
 import type { AdCourse, CurriculumRuleSet, ElectiveGroup } from "../types";
 import { roleDefinition } from "../utils/academicRoles";
-import { sectionLabels } from "../utils/sectionLabel";
+import { departmentFamilyKey, sectionLabels } from "../utils/sectionLabel";
 import {
   checkRuleSet, normalizeGroup, normalizeRule, normalizeRules, withDerivedGroups, type RuleIssue,
 } from "../utils/curriculumRules";
@@ -557,7 +557,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       if (linked.has(Number(course.AdCourseId))) continue;
       const sid0 = Number(course.AdSectionId), unit = isUnit(sid0);
       const owners = (byKey.get(keyOf(course)) || []).filter(other => Number(other.AdSectionId) !== sid0
-        && !(nameKey(sectionNames.get(Number(other.AdSectionId))) === nameKey(sectionNames.get(sid0)) && sectionCollege.get(Number(other.AdSectionId)) !== sectionCollege.get(sid0))
+        && !(departmentFamilyKey(sectionNames.get(Number(other.AdSectionId))) === departmentFamilyKey(sectionNames.get(sid0)) && sectionCollege.get(Number(other.AdSectionId)) !== sectionCollege.get(sid0))
         && (linked.has(Number(other.AdCourseId)) || (unit && !isUnit(Number(other.AdSectionId)))));
       const owner = owners.find(other => linked.has(Number(other.AdCourseId))) || owners[0];
       if (!owner) continue;
