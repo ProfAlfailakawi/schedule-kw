@@ -16406,6 +16406,10 @@ const curriculumLabelsFor=async(needs:any[])=>{
 /** What the students said, for the department: the counts that plan sections,
  * and the named case list (name + civil ID decrypted) for the authorised,
  * scope-checked department only. Never cached by the service worker. */
+/* ── اقتراحُ شعبٍ من التوقّع لا من رغبات هذا الفصل ───────────────────────────────
+   «تنبّؤ الفصل القادم» يقول «افتح شعبةً لهذا المقرر» من تاريخ القسم، وقد لا يكون في رغبات الطلبة الحاليين ما يُنقص مقاعده — فكان زرُّ
+   «ماذا لو فتحنا» يردّ «لا مقاعد ناقصة» ولا يدلّ على شيء. هنا يُبنى الطلبُ من عدد الشعب المتوقَّع نفسِه (مقاعدُ الشعب القائمة + شعبةٌ لكل
+   `count`)، ويمرّ بمحرّك الفتح نفسِه: قاعةٌ وأستاذٌ بنصابه ووقتٌ بلا تعارض. قراءةٌ فقط؛ والاعتماد بمعاينةٍ وتأكيد كأي اقتراح. */
 app.get("/api/schedules/openings-preview", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const { collegeId, sectionId, termId } = smartContextFrom(req);
   const courseId = Number(req.query.courseId || 0);
