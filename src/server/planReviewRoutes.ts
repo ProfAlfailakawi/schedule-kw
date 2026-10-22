@@ -36,7 +36,7 @@ import { correctCourseName } from "../utils/courseNameCorrection";
 import { blockingWarnings, checkSheetScope, correctedNames, isNewSheet, sheetKey, sheetNameMatches, sheetOwnKey, sheetSectionCode, sheetSectionName, ownCourses, sheetToReference, storedCode } from "../utils/planSheetImport";
 import { parsePlanItems } from "../utils/planPdfParser";
 import { extractPlanItems, PLAN_PDF_MAX_BYTES } from "./planPdfExtract";
-import { provisionSectionUsers, type SectionAccountResult } from "./sectionUsers";
+import { provisionCollegeUsers, provisionSectionUsers, type SectionAccountResult } from "./sectionUsers";
 
 export interface PlanReviewDeps {
   requireAuth: RequestHandler;
@@ -862,28 +862,44 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       return checkSheetScope(sheet, scope) === null && (sheetNameMatches(sheet, scope.sectionName) || sameAuthorityCode || sheetOwnKey(sheet, scope).umbrella);
     });
     let matched = matchIn(sections as any[]);
-    /* قسمٌ للصحيفة لا وجود له: يُنشأ (بموافقة المسؤول، createMissing=1) في كل كلية من كلية الصحيفة، باسمه ورمزه منها.
+    /* قسمٌ للصحيفة لا وجود له: يُنشأ بموافقة المسؤول وفي كلية يختارها (createMissing=1&collegeId=N)، باسمه ورمزه من الصحيفة.
+       وإن لم توجد كليتها أصلاً: createCollege=1 تُنشئها (اسمها من الصحيفة ورمزها من رقم مقرراتها) ثم القسم فيها.
        لا يُنشأ لقسمٍ إداري (علم النفس/علم التربية) ولا حيث للقسم نفسه صحيفةٌ برمزٍ مطابق. */
-    const createdSections: Array<{ name: string; college: string; accounts: SectionAccountResult[] }> = [];
+    const createdSections: Array<{ name: string; college: string; accounts: SectionAccountResult[]; accountsError?: string }> = [];
+    const createdColleges: Array<{ name: string; code: string; accounts: SectionAccountResult[]; accountsError?: string }> = [];
     const missingKey = sheetKey(sheet), missingName = sheetSectionName(sheet, "قسم م");
-    if (!matched.length && req.query.createMissing === "1" && /^\d{4}$/.test(missingKey) && missingName && ownCourses(sheet, missingKey).length) {
-      for (const college of colleges as any[]) {
-        if (academicDigits(college.AdCollegeCode).slice(0, 2) !== missingKey.slice(0, 2)) continue;
+    const collegeDigits = missingKey.slice(0, 2);
+    const matchingColleges = () => (colleges as any[]).filter(college => academicDigits(college.AdCollegeCode).slice(0, 2) === collegeDigits);
+    const wantsCreate = req.query.createMissing === "1" || req.query.createCollege === "1";
+    if (wantsCreate && (!matched.length || Number(req.query.collegeId || 0)) && /^\d{4}$/.test(missingKey) && missingName && ownCourses(sheet, missingKey).length) {
+      let targets = matchingColleges();
+      const onlyCollege = Number(req.query.collegeId || 0);
+      /* لا إنشاء «للجميع»: الكلية تُختار صراحةً لكل قسم. */
+      targets = onlyCollege ? targets.filter(college => Number(college.AdCollegeId) === onlyCollege) : [];
+      if (!targets.length && req.query.createCollege === "1" && !matchingColleges().length && String(sheet.college || "").trim()) {
+        const college = await Repository.createCollege(collegeDigits, String(sheet.college).trim());
+        let accounts: SectionAccountResult[] = [], accountsError: string | undefined;
+        try { accounts = await provisionCollegeUsers(Repository, college); } catch (error: any) { accountsError = String(error?.message || error); console.error("[sheet-import] college accounts:", error?.stack || error); }
+        createdColleges.push({ name: String(college.AdCollegeName), code: collegeDigits, accounts, accountsError });
+        targets = [college];
+      }
+      for (const college of targets) {
         if ((sections as any[]).some(row => Number(row.AdCollegeId) === Number(college.AdCollegeId) && authorityDepartmentCode(college.AdCollegeCode, row.AdSectionCode) === missingKey)) continue;
         const created = await Repository.createSection(Number(college.AdCollegeId), missingKey.slice(2), missingName);
-        /* القسم الجديد يولد بحساباته (رئيس قسم · رئيس جدول · مرشد) فعّالةً بكلمة السر الافتراضية؛ والعميد والمدير نطاقهم الكلية فيشمله. */
-        const accounts = await provisionSectionUsers(Repository, college, created);
-        createdSections.push({ name: missingName, college: String(college.AdCollegeName || ""), accounts });
+        /* القسم الجديد يولد بحساباته (رئيس قسم · رئيس جدول · مرشد)؛ وتعثّر الحسابات لا يُسقط القسم ولا الرفع، بل يُسجَّل سببُه في التقرير. */
+        let accounts: SectionAccountResult[] = [], accountsError: string | undefined;
+        try { accounts = await provisionSectionUsers(Repository, college, created); } catch (error: any) { accountsError = String(error?.message || error); console.error("[sheet-import] section accounts:", error?.stack || error); }
+        createdSections.push({ name: missingName, college: String(college.AdCollegeName || ""), accounts, accountsError });
       }
       if (createdSections.length) matched = matchIn(await Repository.getSections() as any[]);
     }
-    if (!matched.length) { reject("department", `لم أجد في النظام قسماً باسم «${String(sheet.department || "").replace(/^قسم\s+/, "")}». اختر القسم يدوياً.`, { missing: !createdSections.length && /^\d{4}$/.test(missingKey) && Boolean(missingName), departmentName: String(sheet.department || ""), code: missingKey.slice(2) }); return; }
+    if (!matched.length) { reject("department", `لم أجد في النظام قسماً باسم «${String(sheet.department || "").replace(/^قسم\s+/, "")}». اختر القسم يدوياً.`, { missing: !createdSections.length && /^\d{4}$/.test(missingKey) && Boolean(missingName), departmentName: String(sheet.department || ""), code: missingKey.slice(2), sheetCollege: String(sheet.college || ""), collegeCode: collegeDigits, colleges: matchingColleges().map(college => ({ id: Number(college.AdCollegeId), name: String(college.AdCollegeName || "") })) }); return; }
     const outs: Array<{ status: number; json: any; audit?: string }> = [];
     for (const section of matched) outs.push(await process(section));
     const done = outs.filter(item => item.status === 200);
     if (!done.length) { res.status(outs[0].status).json(outs[0].json); return; }
-    res.locals.auditChanges = [...createdSections.map(row => `إنشاء قسم «${row.name}» في ${row.college}`), ...done.map(item => item.audit)].filter(Boolean).join(" | ");
-    res.json({ ok: true, auto: true, createdSections, tracks: done.length, sites: done.reduce((sum, item) => sum + Number(item.json.sites || 0), 0), era: done[0].json.era, program: sheet.program, planName: done[0].json.planName, sectionId: done[0].json.sectionId, planId: done[0].json.planId, created: done.reduce((sum, item) => sum + Number(item.json.created || 0), 0), updated: done.reduce((sum, item) => sum + Number(item.json.updated || 0), 0), linked: done.reduce((sum, item) => sum + Number(item.json.linked || 0), 0), prereqPrinted: done.reduce((sum, item) => sum + Number(item.json.prereqPrinted || 0), 0), prereqLinked: done.reduce((sum, item) => sum + Number(item.json.prereqLinked || 0), 0), skipped: outs.length - done.length, sections: done.map(item => item.json.sectionName), renames: done.flatMap(item => item.json.renames || []), nameFixes: done.reduce((sum, item) => sum + (item.json.nameFixes?.length || 0), 0), otherDepartments: done[0].json.otherDepartments, addedOther: done.reduce((sum, item) => sum + Number(item.json.addedOther || 0), 0), foreignNotAdded: [...new Set(done.flatMap(item => item.json.foreignNotAdded || []))].sort(), differsOther: [...new Set(done.flatMap(item => item.json.differsOther || []))].sort(), noDepartment: [...new Set(done.flatMap(item => item.json.noDepartment || []))].sort(), programName: sheet.programName, unresolved: [...new Set(done.flatMap(item => item.json.unresolved || []))].sort() });
+    res.locals.auditChanges = [...createdColleges.map(row => `إنشاء كلية «${row.name}» برمز ${row.code}`), ...createdSections.map(row => `إنشاء قسم «${row.name}» في ${row.college}`), ...done.map(item => item.audit)].filter(Boolean).join(" | ");
+    res.json({ ok: true, auto: true, createdSections, createdColleges, tracks: done.length, sites: done.reduce((sum, item) => sum + Number(item.json.sites || 0), 0), era: done[0].json.era, program: sheet.program, planName: done[0].json.planName, sectionId: done[0].json.sectionId, planId: done[0].json.planId, created: done.reduce((sum, item) => sum + Number(item.json.created || 0), 0), updated: done.reduce((sum, item) => sum + Number(item.json.updated || 0), 0), linked: done.reduce((sum, item) => sum + Number(item.json.linked || 0), 0), prereqPrinted: done.reduce((sum, item) => sum + Number(item.json.prereqPrinted || 0), 0), prereqLinked: done.reduce((sum, item) => sum + Number(item.json.prereqLinked || 0), 0), skipped: outs.length - done.length, sections: done.map(item => item.json.sectionName), renames: done.flatMap(item => item.json.renames || []), nameFixes: done.reduce((sum, item) => sum + (item.json.nameFixes?.length || 0), 0), otherDepartments: done[0].json.otherDepartments, addedOther: done.reduce((sum, item) => sum + Number(item.json.addedOther || 0), 0), foreignNotAdded: [...new Set(done.flatMap(item => item.json.foreignNotAdded || []))].sort(), differsOther: [...new Set(done.flatMap(item => item.json.differsOther || []))].sort(), noDepartment: [...new Set(done.flatMap(item => item.json.noDepartment || []))].sort(), programName: sheet.programName, unresolved: [...new Set(done.flatMap(item => item.json.unresolved || []))].sort() });
   });
 
   /* ── إنهاء الصحيفة السابقة لأقسامٍ يختارها المسؤول ─────────────────────────────────────────────

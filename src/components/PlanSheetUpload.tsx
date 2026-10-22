@@ -21,6 +21,8 @@ interface Outcome {
   planId: string; planName: string; planCreated: boolean; created: number; updated: number; linked: number; unchanged: number; rules: number;
 }
 
+/** قسمٌ لصحيفته لا وجود له، مع كليات النظام المطابقة لرقم كليته واسم كلية الصحيفة (إن لم توجد كليةٌ مطابقة). */
+interface MissingDept { name: string; code: string; sheetCollege?: string; collegeCode?: string; colleges?: Array<{ id: number; name: string }> }
 type BatchPhase = "read" | "upload" | "prereq" | "done";
 interface ReportRow {
   file: string; status: "ok" | "skipped" | "rejected" | "unreadable"; reason?: string; detail?: string;
@@ -30,7 +32,7 @@ interface ReportRow {
   /** ردّ الخادم كاملاً للمرور الأول (للمراجعة)، ومدة الطلب بالمللي ثانية، ورمز HTTP، وعدد المحاولات. */
   server?: unknown; ms?: number; http?: number; attempts?: number;
   /** قسمٌ للصحيفة لا وجود له بالنظام (يُعرض إنشاؤه بموافقة المسؤول)، وأقسامٌ أُنشئت لها. */
-  missingDept?: { name: string; code: string }; createdSections?: Array<{ name: string; college: string; accounts?: Array<{ login: string; label: string; status: string }> }>;
+  missingDept?: MissingDept; createdSections?: Array<{ name: string; college: string; accounts?: Array<{ login: string; label: string; status: string }> }>;
 }
 /** ما يُحفظ في التقرير من ردّ الخادم لصحيفةٍ مقبولة. */
 const pick = (data: any): Partial<ReportRow> => ({
@@ -66,6 +68,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
   const [batch, setBatch] = useState<{ phase: BatchPhase; done: number; total: number; ok: number; skipped: number; failed: number; prereqLinked: number; prereqPrinted: number; rows: ReportRow[] } | null>(null);
 
   const [reconcile, setReconcile] = useState<{ updated: number; ambiguous: string[] } | null>(null);
+  const [pending, setPending] = useState<Array<{ file: File; dept: MissingDept }>>([]);
   const lastFile = useRef<File | null>(null);
   const batchFiles = useRef<File[]>([]);
   const snapshot = useRef<unknown>(null);
@@ -86,13 +89,14 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
 
   /* رفعُ كل الملفات (جديدة وقديمة) دفعةً واحدة: تُقرأ ترويستُها أولاً، وتُوجَّه كل صحيفة إلى قسمها، ثم يُراجَع ما رُبط.
      ما عُرف قسمه وما رُفض وما تُرك (قديمةٌ أقدمُ من أحدث لبرنامجها) كلُّه في تقريرٍ يُنزَّل للمراجعة. */
-  const uploadAll = async (files: File[], qsOf?: (file: File) => string) => {
+  const uploadAll = async (files: File[], qsOf?: (file: File) => string, merge?: ReportRow[]) => {
     if (!files.length) return;
     batchFiles.current = files; snapshot.current = null;
     setBusy(true); setRejection(null); setError(""); setOutcome(null); setReconcile(null);
     const state = { phase: "read" as BatchPhase, done: 0, total: files.length, ok: 0, skipped: 0, failed: 0, prereqLinked: 0, prereqPrinted: 0 };
     const rows: ReportRow[] = files.map(file => ({ file: file.name, status: "rejected" }));
-    const publish = () => setBatch({ ...state, rows: rows.map(row => ({ ...row })) });
+    /* إعادةُ قسمٍ واحد: تُدمج نتيجتُه في تقرير الدفعة الأصلية فلا يضيع ما قبله. */
+    const publish = () => setBatch({ ...state, rows: (merge ? merge.map(old => rows.find(row => row.file === old.file) || old) : rows).map(row => ({ ...row })) });
     publish();
     /* انقطاعٌ عابر (شبكة، 5xx، 429) لا يُسقط الملف: ثلاث محاولات بانتظارٍ متزايد، وآخر خطأٍ يُسجَّل في التقرير. */
     const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -143,7 +147,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
         const { response, data, attempts } = await post(`/api/plan-review/sheet/import${qsOf?.(files[item.index]) || ""}`, files[item.index]);
         const timing = { ms: Math.round(performance.now() - began), http: response.status, attempts };
         if (response.ok) { accepted.push(item.index); state.ok += 1; last = { sectionId: Number(data.sectionId || 0), planId: String(data.planId || "") }; rows[item.index] = { ...rows[item.index], status: "ok", ...pick(data), ...timing, server: data }; }
-        else { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: data.rejection?.kind === "department" ? "لا قسم بهذا الاسم أو الرمز" : (SHORT[data.rejection?.kind]?.title || data.error || "تعذّر"), detail: data.rejection?.message || `HTTP ${response.status}`, ...(data.rejection?.missing ? { missingDept: { name: String(data.rejection.departmentName || "").replace(/^قسم\s+/, ""), code: String(data.rejection.code || "") } } : {}), ...timing, server: data }; }
+        else { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: data.rejection?.kind === "department" ? "لا قسم بهذا الاسم أو الرمز" : (SHORT[data.rejection?.kind]?.title || data.error || "تعذّر"), detail: data.rejection?.message || `HTTP ${response.status}`, ...(data.rejection?.missing ? { missingDept: { name: String(data.rejection.departmentName || "").replace(/^قسم\s+/, ""), code: String(data.rejection.code || ""), sheetCollege: String(data.rejection.sheetCollege || ""), collegeCode: String(data.rejection.collegeCode || ""), colleges: Array.isArray(data.rejection.colleges) ? data.rejection.colleges : [] } } : {}), ...timing, server: data }; }
       } catch (e: any) { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: "تعذّر الرفع", detail: String(e?.message || e) }; }
       state.done += 1; publish();
     }
@@ -171,6 +175,8 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
     /* لقطةُ حال النظام بعد الرفع تُرفق بالتقرير: ما في كل قسمٍ من مقرراتٍ وصحائف. */
     try { const response = await fetch("/api/plan-review/sheet/audit", { credentials: "include" }); snapshot.current = response.ok ? await response.json() : { error: `HTTP ${response.status}` }; } catch (e: any) { snapshot.current = { error: String(e?.message || e) }; }
     state.phase = "done"; publish();
+    const stillMissing = rows.map((row, index) => (row.missingDept && files[index] ? { file: files[index], dept: row.missingDept } : null)).filter((item): item is { file: File; dept: MissingDept } => Boolean(item));
+    setPending(current => (merge ? [...current.filter(item => !files.includes(item.file)), ...stillMissing] : stillMissing));
     setBusy(false);
     if (state.ok && last.sectionId) onDone(last.sectionId, last.planId);
   };
@@ -189,10 +195,10 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
   const transientFailed = () => (batch?.rows || []).map((row, index) => (row.status === "unreadable" || (row.status === "rejected" && row.reason === "تعذّر الرفع") ? batchFiles.current[index] : null)).filter((file): file is File => Boolean(file));
 
   /* صحائفُ قسمٍ لا وجود له: لكل قسمٍ موافقةٌ منفصلة، ثم تُعاد صحائفه وحدها بإنشائه. */
-  const missingFiles = () => (batch?.rows || []).map((row, index) => (row.missingDept ? { file: batchFiles.current[index], dept: row.missingDept } : null)).filter((item): item is { file: File; dept: { name: string; code: string } } => Boolean(item?.file));
-  const missingDepts = (): Array<{ name: string; code: string }> => {
-    const seen = new Map<string, { name: string; code: string }>();
-    for (const item of missingFiles()) if (!seen.has(item.dept.name)) seen.set(item.dept.name, { name: String(item.dept.name), code: String(item.dept.code) });
+  const missingFiles = () => pending;
+  const missingDepts = (): MissingDept[] => {
+    const seen = new Map<string, MissingDept>();
+    for (const item of pending) if (!seen.has(item.dept.name)) seen.set(item.dept.name, item.dept);
     return [...seen.values()];
   };
   type Compare = { sheetCourses: number; systemCourses: number; sameNumber: number; sameNumberAndName: number; sameNameOtherNumber: number; similar: boolean; differ: Array<{ number: string; sheet: string; system: string }>; sheetOnly: number; systemOnly: Array<{ number: string; name: string }> } | { error: string };
@@ -209,13 +215,13 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
   };
   const [choices, setChoices] = useState<Record<string, string>>({});
   /* لكل قسمٍ ناقص اختيار: إنشاؤه، أو مطابقته بقسمٍ موجود (يُصحَّح اسمه ورمزه من الصحيفة) ثم تُعاد صحائفه وحدها. */
-  const applyMissing = () => {
-    const items = missingFiles(), qs = new Map<File, string>();
-    for (const item of items) {
-      const choice = choices[item.dept.name] || "new";
-      qs.set(item.file, choice === "new" ? "?createMissing=1" : `?sectionId=${Number(choice)}&force=1`);
-    }
-    if (items.length) void uploadAll(items.map(item => item.file), file => qs.get(file) || "");
+  /* لكل قسمٍ ناقص قرارُه وزرُّه: إنشاؤه في كليةٍ يختارها، أو إنشاء كليته إن لم توجد، أو مطابقته بقسمٍ موجود. لا شيء «للجميع». */
+  const choiceOf = (dept: MissingDept) => choices[dept.name] ?? ((dept.colleges?.length || 0) === 1 ? `c:${dept.colleges?.[0].id}` : (dept.colleges?.length || 0) === 0 ? "college" : "");
+  const applyOne = (dept: MissingDept) => {
+    const choice = choiceOf(dept), items = pending.filter(item => item.dept.name === dept.name);
+    if (!choice || !items.length || busy) return;
+    const qs = choice === "college" ? "?createCollege=1" : choice.startsWith("c:") ? `?createMissing=1&collegeId=${Number(choice.slice(2))}` : `?sectionId=${Number(choice)}&force=1`;
+    void uploadAll(items.map(item => item.file), () => qs, batch?.rows);
   };
 
   const short = rejection ? SHORT[rejection.kind] : undefined;
@@ -275,12 +281,15 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
           <ul>
             {missingDepts().map(dept => (
               <li key={dept.name}>
-                <b>{dept.name}</b> <small>رمز {dept.code}</small>
-                <select aria-label={`قسم صحيفة ${dept.name}`} value={choices[dept.name] || "new"} onChange={e => setChoices(current => ({ ...current, [dept.name]: e.target.value }))}>
-                  <option value="new">إنشاء قسم جديد</option>
+                <b>{dept.name}</b> <small>رمز {dept.code}{dept.sheetCollege ? ` · ${dept.sheetCollege}` : ""}</small>
+                <select aria-label={`قرار قسم ${dept.name}`} value={choiceOf(dept)} onChange={e => setChoices(current => ({ ...current, [dept.name]: e.target.value }))}>
+                  {(dept.colleges?.length || 0) > 1 ? <option value="">اختر…</option> : null}
+                  {(dept.colleges || []).map(college => <option key={college.id} value={`c:${college.id}`}>إنشاء القسم في {college.name}</option>)}
+                  {!(dept.colleges?.length) ? <option value="college">إنشاء كلية «{dept.sheetCollege || dept.collegeCode}» ثم القسم</option> : null}
                   {targets.map(item => <option key={item.sectionId} value={item.sectionId}>هو {item.label}</option>)}
                 </select>
-                {choices[dept.name] && choices[dept.name] !== "new" ? <button type="button" className="btn btn-secondary" onClick={() => void compareWith(dept.name, Number(choices[dept.name]))} data-guide-ignore="مقارنة مقررات القسم المختار بصحيفة القسم الناقص داخل شاشة مراجعة الصحيفة">قارن مقرراته</button> : null}
+                {choiceOf(dept) && /^\d+$/.test(choiceOf(dept)) ? <button type="button" className="btn btn-secondary" onClick={() => void compareWith(dept.name, Number(choiceOf(dept)))} data-guide-ignore="مقارنة مقررات القسم المختار بصحيفة القسم الناقص قبل المطابقة داخل شاشة مراجعة الصحيفة"><SearchX aria-hidden="true" size={16} /> قارن مقرراته</button> : null}
+                <button type="button" className="btn btn-primary" disabled={!choiceOf(dept)} onClick={() => applyOne(dept)} data-guide-ignore="تنفيذ قرار هذا القسم وحده (إنشاؤه أو إنشاء كليته أو مطابقته) ثم رفع صحائفه داخل شاشة مراجعة الصحيفة"><Plus aria-hidden="true" size={16} /> نفّذ</button>
                 {compared[dept.name] ? ("error" in compared[dept.name] ? <small role="alert">{(compared[dept.name] as { error: string }).error}</small> : (() => { const c = compared[dept.name] as Exclude<Compare, { error: string }>; return (
                   <small className="pr-compare" role="status">
                     <b>{c.similar ? "يتشابهان" : "مختلفان"}</b> · الصحيفة {countOf(c.sheetCourses, AR.course)}، والقسم {countOf(c.systemCourses, AR.course)} · نفس الرقم {c.sameNumber} (منها نفس الاسم {c.sameNumberAndName}) · نفس الاسم برقمٍ آخر {c.sameNameOtherNumber} · ناقص في القسم {c.sheetOnly}
@@ -289,7 +298,6 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
               </li>
             ))}
           </ul>
-          <button type="button" className="btn btn-primary" onClick={applyMissing} data-guide-ignore="إنشاء الأقسام الناقصة أو مطابقتها بقسمٍ موجود ثم رفع صحائفها داخل شاشة مراجعة الصحيفة"><Plus aria-hidden="true" size={16} /> طبّق</button>
         </div>
       ) : null}
       {outcome ? (
