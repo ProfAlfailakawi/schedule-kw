@@ -1,8 +1,13 @@
+import TermSelect from "./TermSelect";
+import SearchableSelect from "./SearchableSelect";
 import IntelligenceScopeSwitch from "./IntelligenceScopeSwitch";
+import { departmentFamily } from "../utils/sectionLabel";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
+import PlanSheetPublisher from "./PlanSheetPublisher";
+import { roleDefinition } from "../utils/academicRoles";
 import { mergeDemandReadings, mergeOperationsReadings, mergeDecisionReadings, scopedReadingList, sameIntelligenceScope, type IntelligenceScope, type ScopedReading } from "../utils/intelligenceReadingScope";
 import { DEMO_STAGE_SECTION_ID, isDemoSession } from "../utils/demoSession";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TimeField } from "./TimeField";
 import { DnaStepper } from "./dna";
 import { CampusTravelMap, EquationChips } from "./VisualBits";
@@ -48,6 +53,7 @@ import {
   Upload,
   UsersRound,
   WandSparkles,
+  Workflow,
   Link2,
   QrCode,
   Printer,
@@ -82,14 +88,17 @@ import type {
   FSchedule,
 } from "../types";
 import IntelligenceContextBar from "./IntelligenceContextBar";
+import { useScopedTerms } from "./useScopedTerms";
 import { AR, countOf, nounFor, oblique, studentNounsFor } from "../utils/arabicCount";
 import { proposeSmartFills, applySmartFills } from "../utils/geminiScheduleLayer";
 import { resolveScopeSelection, singleDepartmentOf } from "../utils/scopeContext";
+import { hidesCollege, hidesSection, scopeShape } from "../utils/scopeShape";
 import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
 import { sortByName, byRoom, byArabic } from "../utils/sorting";
 import { sortTermsNewest, termIsArchive } from "../utils/termSequence";
 import { importRowKey, type ImportRow } from "./ImportPreviewTable";
 import { blockingConflicts, placeholderInstructorIds } from "../utils/scheduleBlockers";
+import { isAssignableInstructor } from "../utils/instructorStatus";
 import StudentCasesTable from "./StudentCasesTable";
 import { RegistrationJourney, journeyFromViews, viewStatuses, type StatusFilter as CaseStatusFilter } from "./StudentCaseStatus";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
@@ -219,7 +228,9 @@ type InsightScene =
      exactly the thing this strip exists to end. */
   | "approval"
   /* ما قاله الطلاب: الطلب، والتقاطع، والنقلة التي تُزيله. */
-  | "students";
+  | "students"
+  /* الصحيفة: نشرُ الصحائف المعتمدة للجميع (رابط وQR وPDF) لرئيس لجنة الجدول. */
+  | "sheet";
 /* «جرّب» — every card it holds, including the three that used to appear on
    their own the moment a scenario existed. */
 type TwinCard = "hero" | "lab" | "board" | "editor" | "ledger";
@@ -363,7 +374,7 @@ const CardDeck = ({ cards, value, onChange, backLabel, title, hint }: {
               <strong>{card.label}</strong>
               <small>{card.detail}</small>
             </span>
-            {card.metric ? (ringFromScoreText(card.metric) ? <b className="insight-preview-ring">{ringFromScoreText(card.metric)}</b> : <b data-long={card.metric.length > 7 || undefined}>{card.metric}</b>) : null}
+            {card.metric ? (ringFromScoreText(card.metric) ? <b className="insight-preview-ring">{ringFromScoreText(card.metric)}</b> : <b data-long={card.metric.length > 7 || undefined} data-word={/[\u0600-\u06FF]/.test(card.metric) || undefined}>{card.metric}</b>) : null}
           </button>
         ))}
       </div>
@@ -426,11 +437,23 @@ function metricBadge(metric: unknown) {
   const ring = ringFromScoreText(pct ? `${pct[1]}/100` : text);
   if (ring) return <b className="insight-preview-ring">{ring}</b>;
   /* قيمةٌ نصيةٌ طويلة («لا موانع»، «تاريخ غير كافٍ») تُصغَّر فلا تنكسر بخطّ الرقم الكبير. */
-  return text && !/^[0٠]$/.test(text) ? <b data-long={text.length > 7 || undefined}>{text}</b> : null;
+  return text && !/^[0٠]$/.test(text) ? <b data-long={text.length > 7 || undefined} data-word={/[\u0600-\u06FF]/.test(text) || undefined}>{text}</b> : null;
 }
 
 export default function IntelligenceWorkspace({ user, scopes }: Props) {
   const isPowerAdmin = Boolean(user?.IsAdminUser || user?.SystemUserId === 1);
+  /* نشرُ الصحائف للعامة: رئيس لجنة الجدول وإدارة النظام وحدهما (والخادمُ يتحقق ثانيةً). */
+  const canPublishSheets = isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair";
+  const [sheetSummary, setSheetSummary] = useState<{ published: number; total: number } | null>(null);
+  const loadSheetSummary = useCallback(() => {
+    if (!canPublishSheets) return;
+    fetch("/api/plan-sheets").then(res => (res.ok ? res.json() : null)).then(body => {
+      if (!body?.sections) return;
+      const sheets = body.sections.flatMap((section: any) => section.sheets);
+      setSheetSummary({ published: sheets.filter((sheet: any) => sheet.published).length, total: sheets.length });
+    }).catch(() => undefined);
+  }, [canPublishSheets]);
+  useEffect(() => { loadSheetSummary(); }, [loadSheetSummary]);
   const [colleges, setColleges] = useState<AdCollege[]>([]),
     [sections, setSections] = useState<AdSection[]>([]),
     [terms, setTerms] = useState<AdTerm[]>([]),
@@ -453,7 +476,19 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     });
   const scopeOwner = Number(user?.SystemUserId || 0);
   const [analysisScope, setAnalysisScope] = useState<"college" | "department">("college");
-  const readingMode = tab === "twin" ? "college" : analysisScope;
+  const hasMultipleDepartmentColleges = useMemo(() => {
+    if (!collegeId || !sectionId) return false;
+    const scopeMode = roleDefinition((user as any)?.Role).scopeMode;
+    const family = departmentFamily(sections, collegeId, sectionId).filter(member =>
+      isPowerAdmin || scopeMode === "allColleges" || scopes.some(scope =>
+        Number(scope.AdCollegeId) === member.collegeId &&
+        (Number(scope.AdSectionId) === member.sectionId ||
+          (scopeMode === "college" && Number(scope.AdSectionId) === 0)),
+      ),
+    );
+    return new Set(family.map(member => member.collegeId)).size > 1;
+  }, [sections, collegeId, sectionId, scopes, isPowerAdmin, user?.Role]);
+  const readingMode = tab === "twin" || !hasMultipleDepartmentColleges ? "college" : analysisScope;
   const pendingReadingAction = useRef<any>(null);
   const [scopeReady, setScopeReady] = useState("");
   const [overview, setOverview] = useState<any>(null),
@@ -524,7 +559,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       try {
         const requested = sessionStorage.getItem("schedule-intelligence-insight") as InsightScene | null;
         sessionStorage.removeItem("schedule-intelligence-insight");
-        return requested && ["quality", "approval", "attention", "density", "spatial", "rooms", "professors", "health", "students", "genome"].includes(requested)
+        return requested && ["quality", "approval", "attention", "density", "spatial", "rooms", "professors", "health", "students", "genome", "sheet"].includes(requested)
           ? requested
           : null;
       } catch { return null; }
@@ -599,6 +634,11 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
   const [policyDraft, setPolicyDraft] = useState<any>({ type: "day_off", day: "fwednesday", time: "17:00", building: "", growth: 10, scope: "department" });
   const [policyResult, setPolicyResult] = useState<any>(null);
   const [policyBusy, setPolicyBusy] = useState(false);
+  useEffect(() => {
+    if (hasMultipleDepartmentColleges) return;
+    setAnalysisScope("college");
+    setPolicyDraft((current: any) => current.scope === "family" ? { ...current, scope: "department" } : current);
+  }, [hasMultipleDepartmentColleges]);
   const [constraintDraft, setConstraintDraft] = useState<any>({
     type: "instructor_latest_end",
     AdInstructorId: 0,
@@ -1576,8 +1616,22 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       setPolicyResult(await fetchJson("/api/intelligence/policy-simulate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId,sectionId,termId,...policyDraft,analysisScope:policyDraft.scope === "family" ? "department" : "college",scope:policyDraft.scope === "university" && isPowerAdmin ? "university" : "department"})}));
     }catch(e:any){setError(smartMessage(e));}finally{setPolicyBusy(false);}
   };
+  /* قائمتا المقارنة: فصولٌ فيها بيانات في النطاق الذي تقرؤه المقارنة نفسه — وفي قراءة «القسم كله» تقرأ كل مواقعه، فيُسأل عن نطاق القارئ كله. */
+  const compareFamily = readingMode === "department";
+  const compareTermOptions = useScopedTerms<AdTerm>(terms, collegeId, sectionId, 0, undefined, compareFamily ? "department" : "college");
+  useEffect(() => {
+    if (compareTermOptions.length < 2) setApproveCard(current => current === "compare" ? null : current);
+  }, [compareTermOptions.length]);
+  /* اختيارٌ خارج المرشَّح (افتراضيٌّ فارغ أو قديمٌ من نطاق سابق) يُستبدل حين يصل الجواب بدل أن يبقى في القائمة. */
+  useEffect(() => {
+    if (compareTermOptions.length < 1) return;
+    const ids = compareTermOptions.map(t => Number(t.AdTermId));
+    const ordered = sortTermsNewest(compareTermOptions).map(t => Number(t.AdTermId));
+    if (compareTo && !ids.includes(Number(compareTo))) setCompareTo(ordered[0] || 0);
+    if (compareFrom && !ids.includes(Number(compareFrom))) setCompareFrom(ordered[1] || ordered[0] || 0);
+  }, [compareTermOptions, compareFrom, compareTo]);
   const compareTerms = async () => {
-    if (!compareFrom || !compareTo) return;
+    if (!compareFrom || !compareTo || compareFrom === compareTo) return; // مقارنةُ فصلٍ بنفسه بلا معنى
     setBusy(true);
     try {
       const p = new URLSearchParams({
@@ -2078,7 +2132,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
 
   const scopedContext = resolveScopeSelection(scopes, collegeId, isPowerAdmin);
   const contextColleges = isPowerAdmin ? colleges : colleges.filter((college) => resolveScopeSelection(scopes, 0, false).collegeIds.includes(Number(college.AdCollegeId)));
-  const ContextBar = () => (
+  const contextBar = (
     <IntelligenceContextBar
       collegeId={collegeId}
       sectionId={sectionId}
@@ -2088,9 +2142,9 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       availableSections={availableSections}
       terms={terms}
       online={online}
-      lockCollege={scopedContext.lockCollege}
+      hideCollege={hidesCollege(scopeShape(scopes, isPowerAdmin))}
       lockSection={singleDepartmentOf(scopes, collegeId, isPowerAdmin) !== null}
-      hideSection={!isPowerAdmin}
+      hideSection={hidesSection(scopeShape(scopes, isPowerAdmin))}
       onCollegeChange={(nextCollegeId, firstSectionId) => {
         pendingReadingAction.current = null;
         const nextSectionId = nextCollegeId ? (isPowerAdmin ? firstSectionId : (resolveScopeSelection(scopes, nextCollegeId, false).defaultSectionId || firstSectionId)) : 0;
@@ -2382,6 +2436,17 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
               },
             ]
           : []),
+        /* البطاقةُ تظهر لمن ينشر دائماً، لا بعد أن توجد صحيفةٌ معتمدة فقط: وإلا بحث رئيسُ اللجنة عنها فلم يجدها
+           ولم يعرف أنها تنتظر اعتماد الصحيفة. */
+        ...(canPublishSheets
+          ? [{
+              value: "sheet" as const,
+              label: "الصحيفة",
+              detail: sheetSummary?.total ? "رابطٌ تفاعلي وQR وPDF للجميع" : "تظهر بعد اعتماد الصحيفة",
+              metric: sheetSummary?.total ? `${sheetSummary.published}/${sheetSummary.total}` : "—",
+              icon: <Workflow />,
+            }]
+          : []),
         {
           value: "predict" as const,
           label: "تنبّؤ الفصل القادم",
@@ -2405,6 +2470,19 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
   }, [insightScene, insightReason]);
 
   const activeInsight = insightScenes.find((item) => item.value === insightScene) || null;
+  /* One heading per reading: an eyebrow inside the open reading that merely
+     repeats the page heading's title is marked, and the stylesheet quiets it.
+     Attribute only; no text or structure changes. */
+  useEffect(() => {
+    const label = activeInsight?.label?.trim();
+    const root = document.querySelector(".insight-canvas.open");
+    if (!label || !root) return;
+    root.querySelectorAll<HTMLElement>(".insight-scene-panel:not([hidden]) .surface-kicker").forEach(el => {
+      const text = (el.textContent || "").trim();
+      if (text && (text === label || text.includes(label) || label.includes(text))) el.setAttribute("data-dup", "");
+      else el.removeAttribute("data-dup");
+    });
+  });
   const activeInsightKey = activeInsight?.value || "";
   const reasonCourseById = useMemo(() => new Map(courses.map(course => [Number(course.AdCourseId), course])), [courses]);
   const reasonInstructorById = useMemo(() => new Map(instructors.map(instructor => [Number(instructor.AdInstructorId), instructor])), [instructors]);
@@ -2562,8 +2640,8 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       >
         مركز الذكاء
       </PageTitle>
-      <ContextBar />
-      {collegeId && sectionId && termId ? <div className="intelligence-reading-toolbar no-print">
+      {contextBar}
+      {collegeId && sectionId && termId && (tab === "twin" || hasMultipleDepartmentColleges) ? <div className="intelligence-reading-toolbar no-print">
         {tab === "twin" ? <span className="intelligence-working-scope">{ownScope.collegeName}</span>
           : <IntelligenceScopeSwitch value={analysisScope} onChange={value => {pendingReadingAction.current = null; setAnalysisScope(value);}} />}
       </div> : null}
@@ -2671,7 +2749,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         </nav>
       ) : null}
       {error && collegeId && sectionId && termId ? (
-        <Notice>
+        <Notice onDismiss={() => setError(null)}>
           {error}
           {smartRetry ? (
             <div style={{ marginTop: 8 }}>
@@ -3806,6 +3884,11 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
             </Surface>
             </div>
           ) : null}
+          {canPublishSheets && activeInsightKey === "sheet" ? (
+            <div className="content-stack insight-scene-panel" id="insight-panel-sheet" role="tabpanel" aria-labelledby="insight-tab-sheet" tabIndex={0}>
+              <PlanSheetPublisher onChanged={loadSheetSummary} focusSectionId={Number(sectionId) || 0} isAdmin={isPowerAdmin} />
+            </div>
+          ) : null}
           {activeInsightKey === "predict" ? (
             <div
               className="content-stack insight-scene-panel"
@@ -4162,44 +4245,54 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                 <span className="surface-kicker">مختبر القرار</span>
                 <h2>مختبر القرار المتقدم</h2>
                 <p>
-                  القواعد، غرفة الاجتماع، والتحسين الآلي كلها تعمل داخل النسخة التجريبية
-                  فقط. لا توجد هنا أي قناة نشر تلقائي.
+                  اختبر القواعد والبدائل قبل تطبيقها على الجدول.
                 </p>
               </div>
-              <LockKeyhole />
+              <span className="innovation-suite-status">تجربة آمنة</span>
             </div>
-            <div className="innovation-tabs">
+            <div className="innovation-tabs" role="group" aria-label="أدوات مختبر القرار">
               <button
+                type="button"
+                data-guide-ignore="اختيار لوحة القيود داخل مختبر القرار"
+                aria-pressed={innovationMode === "constraints"}
                 className={innovationMode === "constraints" ? "active" : ""}
                 onClick={() => setInnovationMode("constraints")}
               >
-                <SlidersHorizontal /> لوحة القيود{" "}
-                <b>{constraints.length}</b>
+                <span>لوحة القيود</span>
+                <b aria-label={`${constraints.length} قاعدة`}>{constraints.length}</b>
               </button>
               <button
+                type="button"
+                data-guide-ignore="اختيار غرفة القرار داخل مختبر القرار"
+                aria-pressed={innovationMode === "war"}
                 className={innovationMode === "war" ? "active" : ""}
                 onClick={() => setInnovationMode("war")}
               >
-                <UsersRound /> غرفة القرار
+                <span>غرفة القرار</span>
               </button>
               <button
+                type="button"
+                data-guide-ignore="اختيار التحسين الآلي داخل مختبر القرار"
+                aria-pressed={innovationMode === "autopilot"}
                 className={innovationMode === "autopilot" ? "active" : ""}
                 onClick={() => setInnovationMode("autopilot")}
               >
-                <WandSparkles /> التحسين الآلي
+                <span>التحسين الآلي</span>
               </button>
               <button
+                type="button"
+                data-guide-ignore="اختيار مختبر السياسات داخل مختبر القرار"
+                aria-pressed={innovationMode === "policy"}
                 className={innovationMode === "policy" ? "active" : ""}
                 onClick={() => setInnovationMode("policy")}
               >
-                <BarChart3 /> مختبر السياسات
+                <span>مختبر السياسات</span>
               </button>
             </div>
             {innovationMode === "constraints" ? (
               <div className="constraint-canvas">
                 <div className="constraint-builder">
                   <div className="constraint-builder-copy">
-                    <Dna />
                     <div>
                       <strong>حوّل قواعد القسم البشرية إلى قيود مفهومة</strong>
                       <span>
@@ -4236,26 +4329,22 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                     </Field>
                     {constraintDraft.type === "course_room" ? (
                       <Field label="المقرر">
-                        <select
+                        <SearchableSelect
                           value={constraintDraft.AdCourseId || ""}
-                          onChange={(e) =>
+                          onChange={(picked) =>
                             setConstraintDraft((p: any) => ({
                               ...p,
-                              AdCourseId: Number(e.target.value) || 0,
+                              AdCourseId: Number(picked) || 0,
                             }))
                           }
-                        >
-                          <option value="">اختر المقرر...</option>
-                          {scopedCourses.map((c) => (
-                            <option key={c.AdCourseId} value={c.AdCourseId}>
-                              {c.CourseCode} — {c.CourseName}
-                            </option>
-                          ))}
-                        </select>
+                          options={scopedCourses.map((c) => ({ value: c.AdCourseId, label: c.CourseName, hint: c.CourseCode, keywords: String(c.CourseCode || "") }))}
+                          placeholder="اختر المقرر..."
+                          ariaLabel="المقرر"
+                          searchPlaceholder="اكتب اسم المقرر أو رمزه"
+                        />
                       </Field>
                     ) : constraintDraft.type === "department_day_off" ? (
                       <div className="constraint-rule-note">
-                        <CalendarClock />
                         <span>
                           <strong>قاعدة على القسم كله</strong>
                           <small>
@@ -4279,7 +4368,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                           ) : (
                             <option value="">اختر الأستاذ...</option>
                           )}
-                          {instructors.map((i) => (
+                          {instructors.filter(isAssignableInstructor).map((i) => (
                             <option
                               key={i.AdInstructorId}
                               value={i.AdInstructorId}
@@ -4366,7 +4455,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                       </Field>
                     ) : null}
                     <PrimaryButton onClick={createConstraint} disabled={busy}>
-                      <Save /> أضف القاعدة
+                      أضف القاعدة
                     </PrimaryButton>
                   </div>
                 </div>
@@ -4413,7 +4502,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                           onClick={() => deleteConstraint(c)}
                           title="حذف القاعدة"
                         >
-                          <Trash2 />
+                          حذف
                         </button>
                       </article>
                     ))
@@ -4430,9 +4519,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
               <div className="war-room">
                 <div className="war-control">
                   <div>
-                    <span className="war-mark">
-                      <UsersRound />
-                    </span>
                     <strong>غرفة قرار اللجنة</strong>
                     <p>
                       اختر المشكلة، ثم اعرض ثلاثة حلول على اللجنة جنباً إلى جنب.
@@ -4465,7 +4551,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                       </select>
                     </Field>
                     <PrimaryButton onClick={runWarRoom} disabled={warBusy}>
-                      {warBusy ? <RefreshCw /> : <Play />}
                       {warBusy ? "أبني السيناريوهات…" : "افتح غرفة القرار"}
                     </PrimaryButton>
                   </div>
@@ -4549,7 +4634,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                                 saveOptionAsDraft(o, `خيار اللجنة ${o.rank}`)
                               }
                             >
-                              <Save /> اختيار اللجنة <ChevronLeft className="visual-inline-arrow" aria-hidden="true" /> مسودة
+                              اختيار اللجنة · مسودة
                             </PrimaryButton>
                           </div>
                         </article>
@@ -4567,7 +4652,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
             {innovationMode === "policy" ? (
               <div className="policy-lab">
                 <div className="policy-lab-head">
-                  <span className="policy-orb"><BarChart3 /></span>
                   <div><strong>اختبر السياسة قبل إصدارها</strong><p>{isPowerAdmin ? "الجامعة أو القسم · آخر 10 سنوات كمرجع" : "قسمك · آخر 10 سنوات كمرجع"}</p></div>
                   <Badge tone="success">محاكاة فقط</Badge>
                 </div>
@@ -4584,13 +4668,13 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                   {policyDraft.type==="close_building"?<Field label="المبنى"><BuildingPicker collegeId={collegeId} sectionId={sectionId} termId={termId} value={policyDraft.buildingId||""} onChange={building=>setPolicyDraft((p:any)=>({...p,buildingId:building?.id||"",building:building?.officialCode||""}))} /></Field>:null}
                   {policyDraft.type==="no_classes_after"?<Field label="آخر وقت"><TimeField value={policyDraft.time} onChange={e=>setPolicyDraft((p:any)=>({...p,time:e.target.value}))} /></Field>:null}
                   {policyDraft.type==="growth"?<Field label="النمو %"><input type="number" min="1" max="100" value={policyDraft.growth} onChange={e=>setPolicyDraft((p:any)=>({...p,growth:Number(e.target.value)||1}))} /></Field>:null}
-                  <Field label="النطاق"><select value={policyDraft.scope} onChange={e=>{setPolicyResult(null);setPolicyDraft((p:any)=>({...p,scope:e.target.value}));}}><option value="department">هذه الكلية</option><option value="family">كل كليات القسم</option>{isPowerAdmin?<option value="university">الجامعة</option>:null}</select></Field>
-                  <PrimaryButton onClick={runPolicy} disabled={policyBusy||(policyDraft.type==="close_building"&&!policyDraft.building.trim())}>{policyBusy?<RefreshCw/>:<Play/>}{policyBusy?"أحاكي…":"اختبر"}</PrimaryButton>
+                  <Field label="النطاق"><select value={policyDraft.scope} onChange={e=>{setPolicyResult(null);setPolicyDraft((p:any)=>({...p,scope:e.target.value}));}}><option value="department">هذه الكلية</option>{hasMultipleDepartmentColleges ? <option value="family">كل كليات القسم</option> : null}{isPowerAdmin?<option value="university">الجامعة</option>:null}</select></Field>
+                  <PrimaryButton onClick={runPolicy} disabled={policyBusy||(policyDraft.type==="close_building"&&!policyDraft.building.trim())}>{policyBusy?"أحاكي…":"اختبر"}</PrimaryButton>
                 </div>
                 {policyResult?<div className="policy-result">
                   <div className="policy-result-hero"><strong>{Number(policyResult.affected||0).toLocaleString("ar-KW-u-nu-latn")}</strong><span>{policyDraft.type==="growth"?"موعد/شعبة إضافية تقديرياً":"موعداً سيتأثر"}</span><i style={{["--policy-share" as any]:`${Math.min(100,Number(policyResult.share||0))}%`}} /></div>
                   <div className="policy-metrics"><article><b>{policyResult.share}%</b><span>الحالي</span></article><article><b>{policyResult.historicalShare}%</b><span>تاريخياً</span></article><article><b>{policyResult.impact?.sections||0}</b><span>{nounFor(policyResult.impact?.sections||0, AR.department)}</span></article><article><b>{policyResult.impact?.instructors||0}</b><span>{nounFor(policyResult.impact?.instructors||0, AR.instructor)}</span></article></div>
-                  <p>{policyResult.summary}</p><small><ShieldCheck /> {policyResult.guardrail}</small>
+                  <p>{policyResult.summary}</p><small>{policyResult.guardrail}</small>
                 </div>:<div className="innovation-empty">اختر سياسة واحدة. سترى أثرها على الواقع الحالي وعلى التاريخ قبل أن تتحول إلى قاعدة.</div>}
               </div>
             ) : null}
@@ -4598,9 +4682,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
               <div className="autopilot-lab">
                 <div className="autopilot-command">
                   <div>
-                    <span className="autopilot-orb">
-                      <WandSparkles />
-                    </span>
                     <div>
                       <strong>تحسين آلي ببوابة بشرية</strong>
                       <p>
@@ -4615,7 +4696,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                     placeholder="مثال: قلل الفراغات، لا تغيّر الأيام…"
                   />
                   <div className="autopilot-guard">
-                    <ShieldCheck />
                     <span>
                       لا يغيّر الأيام ولا القاعات في هذا الإصدار الآمن، ولا يملك
                       endpoint للنشر.
@@ -4624,7 +4704,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                       onClick={runAutopilot}
                       disabled={autopilotBusy || !autopilotGoal.trim()}
                     >
-                      {autopilotBusy ? <RefreshCw /> : <Sparkles />}
                       {autopilotBusy ? "أجرب السيناريوهات…" : "شغّل التحسين الآلي"}
                     </PrimaryButton>
                   </div>
@@ -4677,7 +4756,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                                 openScheduleWorkspace("حُفظت الخطة التلقائية كمسودة فقط. أنت الآن في الجدول الحقيقي للمراجعة.");
                               }}
                             >
-                              <Save /> احفظ كمسودة
+                              احفظ كمسودة
                             </PrimaryButton>
                           </div>
                         </article>
@@ -4951,7 +5030,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
             title="بطاقات الاعتماد"
             hint="كل بطاقة تفتح صفحتها وحدها — لا شيء تحت شيء."
             cards={[
-              { value: "compare", label: "مقارنة الفصول", detail: "ما تغيّر بين فصل وفصل", icon: <ArrowLeftRight /> },
+              ...(compareTermOptions.length > 1 ? [{ value: "compare", label: "مقارنة الفصول", detail: "ما تغيّر بين فصل وفصل", icon: <ArrowLeftRight /> }] : []),
               { value: "drafts", label: "المسودات", detail: "ما لم يُنشر بعد", icon: <FileClock />,
                 metric: String(drafts.length || 0) },
               { value: "versions", label: "سجل النسخ", detail: "كل نشرة سابقة ومن نشرها", icon: <History /> },
@@ -4967,27 +5046,27 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
               <ArrowLeftRight />
             </div>
             <div className="compare-controls">
-              <select
+              <TermSelect
                 value={compareFrom || ""}
-                onChange={(e) => setCompareFrom(Number(e.target.value) || 0)}
+                onValueChange={(id) => setCompareFrom(id)}
               >
-                {terms.map((t) => (
+                {compareTermOptions.map((t) => (
                   <option key={t.AdTermId} value={t.AdTermId}>
                     {t.AdTermName}
                   </option>
                 ))}
-              </select>
+              </TermSelect>
               <ArrowLeftRight />
-              <select
+              <TermSelect
                 value={compareTo || ""}
-                onChange={(e) => setCompareTo(Number(e.target.value) || 0)}
+                onValueChange={(id) => setCompareTo(id)}
               >
-                {terms.map((t) => (
+                {compareTermOptions.map((t) => (
                   <option key={t.AdTermId} value={t.AdTermId}>
                     {t.AdTermName}
                   </option>
                 ))}
-              </select>
+              </TermSelect>
               <SecondaryButton onClick={compareTerms}>قارن</SecondaryButton>
             </div>
             {termCompare ? (

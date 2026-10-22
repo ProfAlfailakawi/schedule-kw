@@ -83,6 +83,42 @@ async function main() {
     check(endedMail.text.includes("انتهت حملة «ش» قبل") && !endedMail.text.includes("اليوم") && todayMail.text.includes("اليوم") && soonMail.text.includes("بعد"), "A14 تذكير التجديد: صياغةٌ صادقة للمنتهية واليوم والقادمة", endedMail.text);
     const { AD_CLIENT_SCRIPT: adScript } = await import("../src/server/adClientScript");
     check(adScript.includes('var sponsor=slot==="break"?null:'), "A14 محطة الاستراحة لا تكرر شريط الراعي (يظهر مرةً مع إعلان «مساري»)");
+    /* A15: الرابط المتتبَّع، والتحويل المُبلَّغ، والشارة، وسقف الظهور اليومي */
+    const tl = (url: string) => E.trackedLink(url, { id: "ABCD-1234-xyz", slot: "me" } as any);
+    check(tl("https://a.example.com/x?y=1") === "https://a.example.com/x?y=1&utm_source=schedule&utm_medium=banner&utm_campaign=ad-abcd1234&utm_content=me", "A15 رابط متتبَّع: يُضاف utm مع بقاء بارامترات الشركة");
+    check(tl("https://a.example.com/x?UTM_source=mine") === "https://a.example.com/x?UTM_source=mine" && tl("not a url") === "not a url", "A15 رابط متتبَّع: وسوم الشركة تُحترم، والفاسد يُترك");
+    check(tl("https://a.example.com/p#frag").endsWith("#frag") && tl("https://a.example.com/p#frag").includes("utm_source=schedule"), "A15 رابط متتبَّع: الجزء # محفوظ");
+    const cv0 = INS.conversionOf(undefined, 100), cv1 = INS.conversionOf([{ day: "2026-11-01", count: 10, at: "" }, { day: "2026-11-02", count: 5, at: "" }], 100), cv2 = INS.conversionOf([{ day: "2026-11-01", count: 300, at: "" }], 100), cv3 = INS.conversionOf([{ day: "2026-11-01", count: 4, at: "" }], 0);
+    check(cv0.note === "none" && cv0.total === 0 && cv0.perClick === null, "A15 التحويل: بلا تبليغ لا ادّعاء");
+    check(cv1.total === 15 && cv1.perClick === 15 && cv1.note === "ok" && cv1.days === 2, "A15 التحويل: مجموعٌ ونسبةٌ من النقرات", cv1);
+    check(cv2.note === "above-clicks" && cv3.perClick === null && cv3.note === "ok", "A15 التحويل: ملاحظةٌ محايدة إن فاق النقرات، ولا نسبة بلا نقرات");
+    const BG = await import("../src/utils/adBadge");
+    const badge = BG.partnerBadgeSvg({ company: `<script>alert(1)</script>"&'شركة`, startDay: "2026-11-01", endDay: "2026-12-01" });
+    check(badge.startsWith("<?xml") && badge.includes("<svg") && !badge.includes("<script") && !/href=|xlink|onload|javascript:/i.test(badge) && badge.includes("&lt;script&gt;") && badge.includes("1 نوفمبر 2026") && badge.includes("\u2067"), "A15 الشارة: SVG بلا سكربت ولا مراجع، والنص مُهرَّب، والتاريخ بالعربية");
+    check(BG.partnerBadgeSvg({ company: "ش".repeat(80), startDay: "2026-11-01", endDay: "2026-12-01" }).includes("…"), "A15 الشارة: الاسم الطويل يُقتطع");
+    /* سقف الظهور اليومي: السكربت الحقيقي في بيئة وهمية؛ عند ٦٠ لا طلبَ خدمة، وتحته يُطلب */
+    {
+      const elStub = (): any => new Proxy({ style: {}, classList: { add() {}, remove() {}, toggle() {} } } as any, { get: (t: any, p: string) => (p in t ? t[p] : typeof p === "string" ? () => elStub() : undefined), set: () => true });
+      const run = (stored: string | null) => {
+        const store: Record<string, string> = {}; const todayK = new Date(Date.now() + 10800000).toISOString().slice(0, 10);
+        if (stored !== null) store["adx:t:" + todayK] = stored;
+        let fetched = 0;
+        const box: any = { classList: { add() {} } };
+        const ctx: any = {
+          document: new Proxy({ currentScript: { getAttribute: () => "" }, hidden: false, readyState: "complete", head: elStub(), body: elStub(), documentElement: Object.assign(elStub(), { contains: () => true }), createElement: () => elStub() } as any, { get: (target: any, prop: string) => (prop in target ? target[prop] : () => null) }),
+          localStorage: { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = String(v); }, removeItem: (k: string) => { delete store[k]; } },
+          fetch: () => { fetched++; return new Promise(() => undefined); },
+          navigator: {}, location: { pathname: "/me", search: "" }, setTimeout, clearTimeout, Date, parseInt, JSON, Blob: function () {}, Promise,
+          matchMedia: () => ({ matches: false }), addEventListener() {}, IntersectionObserver: undefined,
+        };
+        ctx.window = ctx; vm.createContext(ctx);
+        try { vm.runInContext(adScript, ctx); ctx.window.AdxMount(box, "me"); } catch (e: any) { return { fetched: -1, err: String(e?.message || e) } as any; }
+        return { fetched };
+      };
+      const capped = run("60"), under = run("59"), fresh = run(null);
+      check(capped.fetched === 0, "A15 سقف الظهور: بعد ٦٠ ظهوراً في اليوم لا يُطلب إعلان", capped);
+      check(under.fetched === 1 && fresh.fetched === 1, "A15 سقف الظهور: تحت السقف يُطلب الإعلان", { under, fresh });
+    }
     const heat = Array.from({ length: 7 }, (_, d) => Array.from({ length: 24 }, (_, h) => (d === 0 || d === 1 ? 10 : 2) * (h >= 10 && h <= 12 ? 5 : 1)));
     const pk = INS.peakSummary(heat)!;
     check(pk.topDays[0].name === "الأحد" && pk.window?.from === 10 && pk.window.to === 13 && pk.hourTotals.length === 24, "A14 الذروة: أيامٌ ونافذةٌ ١٠–١٣", pk);
@@ -426,7 +462,7 @@ async function main() {
 
     // النقر: الأول صحيح، والمتكرر خلال ثوانٍ يُرشَّح، والروبوت يُرشَّح.
     r = await call("GET", item.href);
-    check(r.status === 302 && r.headers.get("location") === "https://oasis.example.com/offer", "A6 النقر يحوّل إلى رابط الشركة", r.headers.get("location"));
+    check(r.status === 302 && String(r.headers.get("location")).startsWith("https://oasis.example.com/offer?utm_source=schedule&utm_medium=banner&utm_campaign=ad-") && String(r.headers.get("location")).includes("utm_content=me"), "A6 النقر يحوّل إلى رابط الشركة موسوماً بـutm لتتحقق من أرقامنا", r.headers.get("location"));
     r = await call("GET", item.href);
     r = await call("GET", item.href, undefined, { "User-Agent": "curl/8.0" });
     // مستخدمٌ آخر خلف العنوان نفسه (وكيل متصفحٍ مختلف) ينقر فوراً: نقرةٌ صحيحة لا مكرَّرة (شبكة الجامعة عنوانٌ واحد).
@@ -444,7 +480,7 @@ async function main() {
     // تقرير الشركة
     const report = await call("GET", mine.reportUrl);
     check(report.status === 200 && report.text.includes("مطعم الواحة") && report.text.includes("النقرات الصحيحة") && report.text.includes('nonce="TESTNONCE"'), "A6 صفحة تقرير الشركة تعمل بنونس");
-    check(!report.text.includes("curl") && !report.text.replace(/webcal:\/\/127\.0\.0\.1:\d+/g, "").includes("127.0.0.1"), "A6 التقرير لا يكشف عناوين ولا وكلاء مستخدمين");
+    check(!report.text.includes("curl") && !report.text.replace(/(?:webcal|https?):\/\/127\.0\.0\.1:\d+/g, "").includes("127.0.0.1"), "A6 التقرير لا يكشف عناوين ولا وكلاء مستخدمين");
     // تنبيهات الشركة بلا حساب: اشتراك تقويم برمز التقرير نفسه
     const repToken = String(mine.reportUrl).split("/").pop();
     const ics = await call("GET", `/ad-report/${repToken}/calendar.ics`);
@@ -452,6 +488,35 @@ async function main() {
     check(ics.text.includes(`DTSTART;VALUE=DATE:${mine.endDay.replace(/-/g, "")}`) && ics.text.includes("RRULE:FREQ=WEEKLY;BYDAY=SU") && ics.text.includes("TRIGGER;RELATED=START:PT9H"), "A6 اشتراك التقويم: يوم الانتهاء وتذكيرٌ أسبوعي وتنبيه");
     check(ics.text.split("\r\n").every(l => Buffer.byteLength(l) <= 75), "A6 اشتراك التقويم: الأسطر ≤٧٥ بايتاً");
     check(report.text.includes("calendar.ics") && report.text.includes("webcal://"), "A6 صفحة التقرير تعرض زر الاشتراك");
+    /* A15: شارة الشراكة والتحويل المُبلَّغ (غير موثَّق) عبر مسارات الخادم */
+    check(report.text.includes("استعمال كود الخصم عندكم") && report.text.includes("مُبلَّغاً منكم") && report.text.includes("/partner-badge/") && !report.text.includes(`${repToken}/badge`) && report.text.includes("utm_source=schedule"), "A15 صفحة التقرير: نموذج التحويل والشارة ووسم utm");
+    const badgePath = String(report.text.match(/\/partner-badge\/[0-9a-f]{32}\.svg/)?.[0]);
+    const bd = await call("GET", badgePath);
+    const bdText = await (await fetch(base + badgePath, { headers: { "User-Agent": UA } })).text();
+    check(bd.status === 200 && String(bd.headers.get("content-type")).startsWith("image/svg+xml") && String(bd.headers.get("content-security-policy")).includes("default-src 'none'") && bd.headers.get("x-content-type-options") === "nosniff" && bdText.includes("<svg") && bdText.includes("مطعم الواحة"), "A15 الشارة: SVG بترويسات أمان واسم الشركة");
+    check(String((await call("GET", badgePath + "?dl=1")).headers.get("content-disposition")).includes("attachment"), "A15 الشارة: تنزيل");
+    check((await call("GET", "/partner-badge/" + "a".repeat(32) + ".svg")).status === 404, "A15 الشارة برمزٍ خاطئ: ٤٠٤");
+    const draftC = await call("POST", "/api/admin/ads/campaigns", { company: "مسودة الشارة", category: "ترفيه", slot: "dashboard", startDay: today, endDay: dayPlus(3), linkUrl: "https://draft-badge.example.com" });
+    const draftBadgeId = (await import("../src/server/adsPages")).badgeId(String((await call("GET", "/api/admin/ads")).json.campaigns.find((x: any) => x.id === draftC.json.id)?.reportUrl).split("/").pop());
+    check((await call("GET", "/partner-badge/" + draftBadgeId + ".svg")).status === 404, "A15 الشارة: لا تُصدَر لمسودة");
+    const form = (tok: string, body: Record<string, string>) => fetch(base + `/ad-report/${tok}/redemptions`, { method: "POST", redirect: "manual", headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(body).toString() });
+    const conv = async () => (await call("GET", "/api/admin/ads")).json.campaigns.find((x: any) => x.id === id).conversion;
+    check((await conv()).total === 0 && (await conv()).note === "none", "A15 التحويل: يبدأ بلا تبليغ");
+    const r1 = await form(String(repToken), { day: today, count: "7" });
+    check(r1.status === 303 && String(r1.headers.get("location")).includes("red=ok"), "A15 التبليغ: يُسجَّل ويعود لصفحة التقرير", r1.headers.get("location"));
+    check((await conv()).total === 7 && (await conv()).days === 1, "A15 التبليغ: ظهر للإدارة مجموعاً", await conv());
+    await form(String(repToken), { day: today, count: "9" });
+    check((await conv()).total === 9 && (await conv()).days === 1, "A15 التبليغ: إدخالٌ واحدٌ لكل يوم يُستبدل", await conv());
+    const badInputs: Array<Record<string, string>> = [{ day: dayPlus(2), count: "5" }, { day: E.addDays(today, -400), count: "5" }, { day: today, count: "-1" }, { day: today, count: "1.5" }, { day: today, count: "abc" }, { day: today, count: "100001" }, { day: "nope", count: "3" }];
+    const badResults = await Promise.all(badInputs.map(async b => { const r = await form(String(repToken), b); return r.status === 303 && String(r.headers.get("location")).includes("red=bad"); }));
+    check(badResults.every(Boolean) && (await conv()).total === 9, "A15 التبليغ: المستقبل وخارج الحملة والسالب والكسر والنص والفلكي كلها تُرفض ولا تغيّر شيئاً", badResults);
+    check((await form("z".repeat(32), { day: today, count: "1" })).status === 404, "A15 التبليغ برمزٍ خاطئ: ٤٠٤");
+    const afterReport = await call("GET", `${mine.reportUrl}?red=ok`);
+    check(afterReport.text.includes("سُجِّل رقمكم") && afterReport.text.includes("المُبلَّغة") && afterReport.text.includes("(9)") === false && afterReport.text.includes(">9<"), "A15 صفحة التقرير تعرض ما بلّغته الشركة بوسم «مُبلَّغ»", afterReport.status);
+    const kitTok = (await call("POST", "/api/admin/ads/partner-kit")).json.url;
+    const kitHtml = (await call("GET", kitTok)).text;
+    const serveJson = JSON.stringify((await call("GET", "/_ads/serve?slot=me")).json);
+    check(!kitHtml.includes("مُبلَّغ") && !kitHtml.includes("استعمالات الكود") && !serveJson.includes("redemptions") && !serveJson.includes("conversion"), "A15 التحويل المُبلَّغ لا يدخل ملف الشراكة ولا خدمة الإعلانات");
     check((await call("GET", "/ad-report/" + "z".repeat(32) + "/calendar.ics")).status === 404 && (await call("GET", "/ad-report/short/calendar.ics")).status === 404, "A6 اشتراك التقويم برمزٍ خاطئ: ٤٠٤");
     check((await call("GET", "/ad-report/short")).status === 404 && (await call("GET", "/ad-report/" + "z".repeat(32))).status === 404, "A6 رمزٌ خاطئ: ٤٠٤");
 
@@ -555,7 +620,8 @@ async function main() {
     /* A14: بريد الشركة (إداريٌّ فقط) والإرسال */
     const bad = await call("POST", "/api/admin/ads/campaigns", { company: "بريدٌ فاسد", category: "ترفيه", slot: "dashboard", startDay: today, endDay: dayPlus(5), linkUrl: "https://bad-mail.example.com", contactEmail: "not-an-email" });
     check(bad.status === 400 && String(bad.json?.error).includes("بريد"), "A14 بريدٌ غير صالح يُرفض ٤٠٠", bad.json);
-    const mailed = await mkTargeted("شركة البريد", "ترفيه", { contactEmail: "Owner@Company.co" }, "dashboard", 480, 160);
+    /* نهايتها بعيدة: الأحد التالي لا يقع في «آخر أسبوع» فيُرسل تذكير تجديد بدل التقرير الأسبوعي، أياً كان يوم التشغيل. */
+    const mailed = await mkTargeted("شركة البريد", "ترفيه", { contactEmail: "Owner@Company.co", endDay: dayPlus(40) }, "dashboard", 480, 160);
     check(mailed.ap.status === 200, "A14 اعتماد حملةٍ لها بريد", mailed.ap.json);
     const adminNow2 = (await call("GET", "/api/admin/ads")).json;
     const mc = adminNow2.campaigns.find((x: any) => x.id === mailed.id);
@@ -582,7 +648,8 @@ async function main() {
       const got = stubState.seen[stubState.seen.length - 1];
       check(sent.status === 200 && stubState.seen.length === before + 1 && got.body.to[0] === "owner@company.co" && got.body.text.includes(`/ad-report/${mc.reportUrl.split("/").pop()}`), "A14 الإرسال اليدوي يصل برابط التقرير", sent.json);
       /* التلقائي: أحد صباحاً مرةً واحدة في الأسبوع، وتذكير تجديد لا يتكرر */
-      let sunday = today; while (new Date(`${sunday}T00:00:00Z`).getUTCDay() !== 0) sunday = E.addDays(sunday, 1);
+      /* الأحد التالي لليوم لا اليوم نفسه: الإرسال اليدوي أعلاه سجّل «أسبوع اليوم»، فلو كان اليوم أحداً لتُخطّي التلقائي. */
+      let sunday = E.addDays(today, 1); while (new Date(`${sunday}T00:00:00Z`).getUTCDay() !== 0) sunday = E.addDays(sunday, 1);
       const sundayMorning = new Date(`${sunday}T07:00:00Z`);
       const prior = stubState.seen.length;
       await R.autoMailTick("https://x.test", sundayMorning);
@@ -699,6 +766,103 @@ async function main() {
     check(countOf(3, AR.campaign) === "٣ حملات" || countOf(3, AR.campaign).includes("حملات"), "A7 عدّاد الحملات بالعربية الصحيحة");
   } finally {
     await new Promise<void>(r => server.close(() => r()));
+  }
+
+  /* الرصيد الافتتاحي: كل رقمٍ يزيد بما يأتي بعد تاريخه، ولا يعدّ القديم مرتين. */
+  {
+    const { AUDIENCE_BASELINE: B } = await import("../src/utils/audienceBaseline");
+    const nd = (fp: string, day: string) => ({ fingerprint: fp, createdAt: `${day}T08:00:00Z`, courseIds: [], requestType: "new-course", AdCollegeId: 1 });
+    const stats = buildAudienceStats({
+      now: new Date("2026-11-05T09:00:00Z"), terms: [{ AdTermId: 9, AdTermName: "ف" }] as any[], currentTermId: 9,
+      needsByTerm: new Map([[9, [nd("old", "2026-09-01"), nd("old", "2026-10-25"), nd("new1", "2026-10-20"), nd("new1", "2026-10-21")] as any[]]]),
+      profiles: [{ fingerprint: "new2", createdAt: "2026-11-01T00:00:00Z", lastSeenAt: "2026-11-02T00:00:00Z", AdCollegeId: 1 }, { fingerprint: "old", createdAt: "2026-08-01T00:00:00Z", lastSeenAt: "2026-11-02T00:00:00Z", AdCollegeId: 1 }] as any[],
+      instructorRequests: [{ AdCollegeId: 1, status: "sent", createdAt: "2026-09-01T00:00:00Z", linkOpenedAt: "2026-09-05T00:00:00Z" }, { AdCollegeId: 1, status: "sent", createdAt: "2026-10-01T00:00:00Z", linkOpenedAt: "2026-10-30T00:00:00Z" }, { AdCollegeId: 1, status: "sent", createdAt: "2026-10-01T00:00:00Z" }] as any[],
+      days: [{ day: B.asOf, visits: { me: 100 } }, { day: "2026-10-18", visits: { me: 40, schedule: 10 } }, { day: "2026-10-19", visits: { me: 5 } }] as any[],
+    });
+    check(stats.reach.newSinceBaseline === 2, "الرصيد: طالبان جديدان فقط بعد التاريخ (القديم لا يُعدّ مرتين)", stats.reach.newSinceBaseline);
+    check(B.students + stats.reach.newSinceBaseline === B.students + 2, "الرصيد: الطلبة = الرصيد + الجدد");
+    check(stats.visits.afterBaseline === 55, "الرصيد: الزيارات بعد التاريخ فقط (يوم الرصيد نفسه لا يُعاد)", stats.visits.afterBaseline);
+    check(stats.instructors.openedAfterBaseline === 1, "الرصيد: بطاقة واحدة فُتحت بعد التاريخ", stats.instructors.openedAfterBaseline);
+    const crossTerm = buildAudienceStats({ now: new Date("2026-11-05T09:00:00Z"), terms: [{ AdTermId: 9, AdTermName: "ف" }] as any[], currentTermId: 9, needsByTerm: new Map(), profiles: [], instructorRequests: [],
+      openRequests: [{ AdCollegeId: 1, status: "sent", createdAt: "2026-10-01T00:00:00Z", linkOpenedAt: "2026-10-19T00:00:00Z" }, { AdCollegeId: 1, status: "sent", createdAt: "2026-10-01T00:00:00Z", linkOpenedAt: "2026-11-02T00:00:00Z" }] as any[] });
+    check(crossTerm.instructors.openedAfterBaseline === 2, "الرصيد: مرّات الفتح تُعدّ من كل فصلٍ بعد التاريخ لا من الفصل المعروض وحده", crossTerm.instructors.openedAfterBaseline);
+    /* مرّات الفتح من سجلّ الأيام: يومٌ قبل التاريخ لا يُعدّ، وبعده يُعدّ بعدد مرّاته. */
+    const withMap = buildAudienceStats({ now: new Date("2026-11-05T09:00:00Z"), terms: [{ AdTermId: 9, AdTermName: "ف" }] as any[], currentTermId: 9, needsByTerm: new Map(), profiles: [], instructorRequests: [],
+      openRequests: [{ AdCollegeId: 1, status: "sent", createdAt: "2026-09-01T00:00:00Z", linkOpenedAt: "2026-09-02T00:00:00Z", linkOpenDays: { "2026-09-02": 4, [B.asOf]: 9, "2026-10-18": 3, "2026-11-01": 2 } }] as any[] });
+    check(withMap.instructors.openedAfterBaseline === 5, "الرصيد: مرّات الفتح من سجلّ الأيام بعد التاريخ فقط", withMap.instructors.openedAfterBaseline);
+    const { headlineTotals } = await import("../src/utils/audienceStats");
+    const head = headlineTotals(stats);
+    check(head.students === B.students + 2 && head.visits === B.visits + 55 && head.instructorOpens === B.instructorOpens + 1 && head.instructorOpenRate === 90, "الرصيد: headlineTotals = الرصيد + ما بعده، والنسبة حدٌّ أدنى 90", head);
+    const fmtN = (n: number) => new Intl.NumberFormat("ar-KW-u-nu-latn").format(n);
+    const kitPage = (await import("../src/server/adsPages")).partnerKitPage({ stats: stats as any, liveBySlot: {}, today: "2026-11-20", nonce: "N" });
+    check(kitPage.includes(fmtN(B.students + 2)) && kitPage.includes(fmtN(B.visits + 55)) && kitPage.includes(fmtN(B.instructors)) && kitPage.includes(fmtN(B.instructorOpens + 1)) && kitPage.includes("90%") && kitPage.includes("إجمالي الطلبة المستفيدين") && kitPage.includes("إجمالي دخول أعضاء هيئة التدريس"), "ملف الشراكة يأخذ أرقام لوحة الجمهور وعناوينها نفسها");
+    check(!kitPage.includes("<footer") && !kitPage.includes("بحسب إدارة النظام") && !kitPage.includes("تقديراتٌ تقريبية") && !kitPage.includes("الأرقام تقريبية"), "ملف الشراكة بلا ذيلٍ يصف الأرقام");
+    check(!kitPage.includes('id="print"') && !kitPage.includes("طباعة / PDF"), "ملف الشراكة بلا زر طباعة");
+    check(kitPage.includes('content="light"') && !kitPage.includes("prefers-color-scheme"), "ملف الشراكة يبقى فاتحاً مهما كان تفضيل الجهاز");
+    const fp = (n: number, pre: string) => Array.from({ length: n }, (_, i) => nd(`${pre}${i}`, "2026-05-01"));
+    const t1 = [...fp(20, "a"), ...fp(20, "b")], t2 = [...fp(20, "a"), ...fp(5, "c")].map(r => ({ ...r, createdAt: "2026-10-01T08:00:00Z" }));
+    const cont = buildAudienceStats({ now: new Date("2026-11-05T09:00:00Z"), terms: [{ AdTermId: 1, AdTermName: "خريف" }, { AdTermId: 2, AdTermName: "ربيع" }] as any[], currentTermId: 2, profiles: [], instructorRequests: [],
+      needsByTerm: new Map([[1, t1 as any[]], [2, t2 as any[]]]) });
+    check(cont.continuity.length === 1 && cont.continuity[0].before === 40 && cont.continuity[0].stayed === 20 && cont.continuity[0].rate === 50, "الاستمرارية: 20 من 40 = 50% بين فصلين متتاليين", cont.continuity);
+    const tiny = buildAudienceStats({ now: new Date("2026-11-05T09:00:00Z"), terms: [{ AdTermId: 1, AdTermName: "خريف" }, { AdTermId: 2, AdTermName: "ربيع" }] as any[], currentTermId: 2, profiles: [], instructorRequests: [],
+      needsByTerm: new Map([[1, fp(10, "a") as any[]], [2, fp(10, "a").map(r => ({ ...r, createdAt: "2026-10-01T08:00:00Z" })) as any[]]]) });
+    check(tiny.continuity.length === 0, "الاستمرارية: عيّنة أقل من 30 طالباً لا تُنتج نسبة (لا 0% من طالبٍ واحد)", tiny.continuity);
+    const gap = buildAudienceStats({ now: new Date("2026-11-05T09:00:00Z"), terms: [{ AdTermId: 1, AdTermName: "خريف" }, { AdTermId: 2, AdTermName: "ربيع" }, { AdTermId: 3, AdTermName: "صيف" }] as any[], currentTermId: 3, profiles: [], instructorRequests: [],
+      needsByTerm: new Map([[1, fp(40, "a") as any[]], [3, fp(40, "a").map(r => ({ ...r, createdAt: "2026-10-01T08:00:00Z" })) as any[]]]) });
+    check(gap.continuity.length === 0, "الاستمرارية: فصلٌ بلا إجابات بينهما يقطع التتالي فلا تُقارَن فصلان غير متتاليين", gap.continuity);
+    /* ترتيب الفصول أكاديمي لا برقم المعرّف: A(1) ثم B(3) ثم C(2) — لا يقطع C الفارغ التتالي بين A وB */
+    const termsOutOfOrder = [{ AdTermId: 1, AdTermName: "الفصل الأول 2020/2021" }, { AdTermId: 3, AdTermName: "الفصل الثاني 2020/2021" }, { AdTermId: 2, AdTermName: "الفصل الأول 2021/2022" }];
+    const chrono = buildAudienceStats({ now: new Date("2026-11-05T09:00:00Z"), terms: termsOutOfOrder as any[], currentTermId: 2, profiles: [], instructorRequests: [],
+      needsByTerm: new Map([[1, fp(40, "a") as any[]], [3, fp(40, "a").map(r => ({ ...r, createdAt: "2021-02-01T08:00:00Z" })) as any[]]]) });
+    check(chrono.continuity.length === 1 && chrono.continuity[0].fromTerm === "الفصل الأول 2020/2021" && chrono.continuity[0].toTerm === "الفصل الثاني 2020/2021" && chrono.continuity[0].rate === 100, "الاستمرارية: الترتيب بالتسلسل الأكاديمي لا برقم المعرّف", chrono.continuity);
+    const { pickDashboardTerm } = await import("../src/utils/audienceStats");
+    const dashTerms = [{ AdTermId: 1, AdTermName: "الفصل الأول 2025/2026", AdTermClosed: true }, { AdTermId: 2, AdTermName: "الفصل الثاني 2025/2026", AdTermClosed: true }, { AdTermId: 3, AdTermName: "الفصل الأول 2026/2027", AdTermClosed: false }, { AdTermId: 4, AdTermName: "الفصل الثاني 2026/2027" }] as any[];
+    const newestFirst = [...dashTerms].reverse();
+    check(pickDashboardTerm(newestFirst, dashTerms, 0, Date.parse("2026-10-17T00:00:00Z"))?.AdTermId === 3, "اللوحة: الافتراضي هو الفصل الجاري تشغيلياً (غير المنتهي) لا الأحدث ولا آخر فصلٍ فيه إجابات");
+    check(pickDashboardTerm(newestFirst, dashTerms, 2)?.AdTermId === 2, "اللوحة: الفصل المطلوب صراحةً يُقدَّم على الافتراضي");
+    const adSlotStats = buildAudienceStats({ now: new Date("2026-11-05T09:00:00Z"), terms: [], currentTermId: 0, needsByTerm: new Map(), profiles: [], instructorRequests: [],
+      campaigns: [{ id: "c1", slot: "me", status: "approved", startDay: "2026-10-01", endDay: "2026-12-01" }, { id: "c2", slot: "schedule", status: "approved", startDay: "2026-10-01", endDay: "2026-12-01" }] as any[],
+      adStats: [{ id: "1", campaignId: "c1", creativeId: "x", day: "2026-10-05", impressions: 1000, uniques: 500, clicks: 30, filteredClicks: 0 }, { id: "2", campaignId: "c2", creativeId: "x", day: "2026-10-05", impressions: 400, uniques: 300, clicks: 4, filteredClicks: 0 }, { id: "3", campaignId: "gone", creativeId: "x", day: "2026-10-05", impressions: 99, uniques: 9, clicks: 9, filteredClicks: 0 }] as any[] });
+    check(adSlotStats.adsBySlot.length === 2 && adSlotStats.adsBySlot[0].slot === "me" && adSlotStats.adsBySlot[0].ctr === 3 && adSlotStats.adsBySlot[1].ctr === 1, "أداء المواقع: نسبة النقر لكل موقع، وحملةٌ محذوفة لا تُنسب لأحد", adSlotStats.adsBySlot);
+    const { recordLinkOpen } = await import("../src/utils/linkOpens");
+    const o1 = recordLinkOpen({}, "2026-10-20T21:30:00Z");
+    check(!!o1 && o1.linkOpenedAt === "2026-10-20T21:30:00Z" && o1.linkOpenDays?.["2026-10-21"] === 1, "عدّ الفتح: الفتح الأول يضع linkOpenedAt ويحسب اليوم بتوقيت الكويت (21:30 UTC = اليوم التالي)", o1);
+    check(recordLinkOpen({ ...o1! }, "2026-10-20T21:50:00Z") === null, "عدّ الفتح: إعادة التحميل خلال نصف ساعة لا تُعدّ");
+    const o2 = recordLinkOpen({ ...o1! }, "2026-10-20T22:05:00Z");
+    check(o2?.linkOpenDays?.["2026-10-21"] === 2 && o2?.linkOpenedAt === "2026-10-20T21:30:00Z", "عدّ الفتح: العودة بعد نصف ساعة تُعدّ، والفتح الأول يبقى", o2);
+    const legacy = recordLinkOpen({ linkOpenedAt: "2026-09-01T00:00:00Z" }, "2026-10-20T10:00:00Z");
+    check(legacy?.linkOpenedAt === "2026-09-01T00:00:00Z" && legacy?.linkOpenDays?.["2026-10-20"] === 1, "عدّ الفتح: بطاقةٌ قديمة بلا سجلّ تبدأ سجلّها دون المساس بفتحها الأول", legacy);
+    const { Repository: Repo } = await import("../src/db/repository");
+    const req: any = await Repo.createInstructorRequest({ AdCollegeId: 1, AdSectionId: 1, AdTermId: 9, AdInstructorId: 1, linkId: "l1", window: { opensAt: "2026-10-01T00:00:00Z", closesAt: "2026-12-01T00:00:00Z" }, source: "draft", status: "sent", items: [], timeline: [] } as any);
+    const r1 = await Repo.recordInstructorRequestOpen(req.id, "2026-10-20T10:00:00Z");
+    const r2 = await Repo.recordInstructorRequestOpen(req.id, "2026-10-20T10:10:00Z");
+    const r3 = await Repo.recordInstructorRequestOpen(req.id, "2026-10-20T11:00:00Z");
+    const saved: any = await Repo.getInstructorRequest(req.id);
+    check(!!r1?.first && r2 === null && !!r3 && !r3.first, "عدّ الفتح في المخزن: الأول first، وإعادة التحميل null، والعودة بعد نصف ساعة تُعدّ", { r1, r2, r3 });
+    check(saved.linkOpenDays["2026-10-20"] === 2 && saved.timeline.filter((e: any) => e.kind === "link-opened").length === 1 && saved.status === "sent", "عدّ الفتح في المخزن: عدّان في اليوم، وحدثٌ واحد في الخط الزمني، وحالة الطلب لم تُمسّ", saved);
+    check(await Repo.recordInstructorRequestOpen("missing", "2026-10-20T11:00:00Z") === null, "عدّ الفتح في المخزن: طلبٌ غير موجود لا يُنشأ");
+    const { cleanLead, cleanPhone, whatsappPhone } = await import("../src/utils/adLeads");
+    const lead1 = cleanLead({ company: "  شركة  النور ", name: "سالم", phone: "٩٩٨٨ 7766", email: "A@B.com", slots: ["me", "me", "bogus"], season: "nope", note: "x\n\ny" });
+    check(!lead1.error && lead1.lead!.company === "شركة النور" && lead1.lead!.phone === "99887766" && lead1.lead!.email === "a@b.com" && lead1.lead!.slots.length === 1 && lead1.lead!.season === "" && lead1.lead!.note === "x y", "طلب حملة: تنظيف الحقول (مسافات، أرقام هندية، موقعٌ مكرر/مجهول يسقط)", lead1);
+    check(cleanLead({ company: "", name: "س", phone: "99887766" }).error === "اكتب اسم الشركة." && cleanLead({ company: "شركة", name: "سالم", phone: "12" }).error === "اكتب رقم جوّالٍ صحيحاً." && cleanLead({ company: "شركة", name: "سالم", phone: "99887766", email: "bad" }).error === "البريد غير صحيح.", "طلب حملة: الاسم والجوّال مطلوبان، والبريد اختياري لكن يُتحقَّق منه");
+    check(cleanPhone("+965 9988-7766") === "96599887766" && whatsappPhone("99887766") === "96599887766" && whatsappPhone("0096599887766") === "96599887766", "طلب حملة: أرقام الجوّال وواتساب");
+    const lead = await Repo.createAdLead({ ...lead1.lead!, email: lead1.lead!.email || undefined } as any);
+    check((await Repo.listAdLeads()).some((l: any) => l.id === lead.id && l.status === "new"), "طلب حملة: يُحفظ جديداً");
+    check(await Repo.markAdLeadContacted(lead.id, "2026-10-20T10:00:00Z") === true && await Repo.markAdLeadContacted("missing", "2026-10-20T10:00:00Z") === false, "طلب حملة: تسجيل التواصل ينجح، وطلبٌ غير موجود false");
+    const after: any = (await Repo.listAdLeads()).find((l: any) => l.id === lead.id);
+    check(after.status === "contacted" && !!after.contactedAt && after.phone === "99887766", "طلب حملة: تم التواصل يغيّر الحالة وحدها");
+    const { leadMail, leadNotifyTo } = await import("../src/server/adMailer");
+    const lm = leadMail({ company: "شركة النور", name: "سالم", phone: "99887766", email: "a@b.com", slotLabels: ["الجدول العام"], seasonLabel: "بدء الفصل", note: "نبي نبدأ" });
+    check(lm.subject.includes("شركة النور") && lm.text.includes("الجوّال: 99887766") && lm.text.includes("المواقع: الجدول العام") && lm.text.includes("إدارة الإعلانات"), "بريد المالك: الموضوع والمحتوى", lm);
+    check(leadNotifyTo({ AD_LEAD_NOTIFY_TO: " Me@Mail.com " } as any) === "me@mail.com" && leadNotifyTo({} as any) === "" && leadNotifyTo({ AD_LEAD_NOTIFY_TO: "bad" } as any) === "", "بريد المالك: المستلم من البيئة، وفارغٌ أو غير صالح = لا بريد");
+    const leadForm = (await import("../src/server/adsPages")).partnerKitPage({ stats: stats as any, liveBySlot: {}, today: "2026-11-20", nonce: "N", token: "tok/1", leadResult: "ok" });
+    check(leadForm.includes("الصفحة الرئيسية للطالب") && leadForm.includes("وقت الفراغ") && leadForm.includes("أعضاء هيئة التدريس والإداريين") && !leadForm.includes("محطة الاستراحة") && !leadForm.includes("الكادر"), "ملف الشراكة: تظهر للشركة الأسماء الجديدة وسطر الشرح تحت كل موقع");
+    check(fs.readFileSync("src/components/AudienceDashboard.tsx", "utf8").includes('app: "نظام SCHEDULE"'), "لوحة الشركاء: تسمية زيارات النظام بالاسم المعتمد");
+    check(leadForm.includes("background:rgba(255,255,255,.07);pointer-events:none}") && leadForm.includes(".k-cta{position:relative;z-index:1;"), "ملف الشراكة: دائرة زينة الغلاف لا تعترض النقر على زر «حملة جديدة»");
+    check((leadForm.match(/<span class="k-opt"><b>/g) || []).length === 5 && leadForm.includes("<small>للطالب حين يكون بين محاضراته فراغ ساعة فأكثر</small>"), "نموذج الطلب: كل موقعٍ بطاقةُ اختيار باسمه وسطر شرحه ظاهرٌ تحته (لا تلميح فقط)");
+    check(leadForm.includes(".k-new:target{display:flex}") && leadForm.includes('role="dialog"') && (leadForm.match(/href="#"/g) || []).length >= 2, "ملف الشراكة: «حملة جديدة» نافذةٌ فوق الصفحة تفتح بالرابط وتُغلق بلا JavaScript");
+    check(leadForm.includes('action="/partners/tok%2F1/lead"') && leadForm.includes('name="website"') && leadForm.includes('href="#new"') && leadForm.includes("وصلنا طلبك"), "ملف الشراكة: زر «حملة جديدة» ونموذجٌ يُرسل إلى مسار الطلب مع حقل الفخ ورسالة النجاح");
+    check(B.instructorOpens === 75_000 && B.instructors === 786 && B.students === 80_000 && B.visits === 5_300_000 && B.instructorOpenRate === 90, "الرصيد: الأرقام المُقرَّة كما أُعطيت");
   }
 
   console.log(`\n${failed ? "\x1b[31m" : "\x1b[32m"}${passed} نجح، ${failed} فشل\x1b[0m`);

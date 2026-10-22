@@ -122,6 +122,9 @@ export interface AdSection {
   AdCollegeId: number;
   AdSectionCode: string;
   AdSectionName: string;
+  /** Per-section teaching-day window; omitted means the institutional default (08:00–20:00). */
+  scheduleDayStartTime?: string;
+  scheduleDayEndTime?: string;
 }
 
 export interface AdInstructor {
@@ -150,6 +153,39 @@ export interface AdInstructor {
   AdInstructorLoad?: number;
 }
 
+/**
+ * ── إدارة النصاب التدريسي (ميزةٌ اختيارية) ───────────────────────────────────
+ *
+ * درجاتٌ علمية بنصابٍ أدنى وأعلى بالساعات، وإسنادٌ لكل عضو (الدرجة، ونصابٌ خاصٌّ إن لزم، وساعاتٌ
+ * إضافيةٌ مسموحة). وثيقةٌ واحدة (`main`): والميزةُ معطَّلةٌ حتى يفعّلها المسؤول، فلا أثرَ لها قبل ذلك.
+ * مستقلّةٌ عن `AdInstructorLoad` القائم (سقفُ المقترحات الدراسية)؛ لا تقرؤه ولا تكتب فيه.
+ */
+export interface AcademicRank {
+  id: string;
+  name: string;
+  minHours: number;
+  maxHours: number;
+}
+
+export interface TeachingLoadAssignment {
+  rankId?: string;
+  /** نصابٌ خاصّ بالعضو يتقدّم على نصاب درجته؛ غيابه = نصابُ الدرجة. */
+  minHours?: number;
+  maxHours?: number;
+  /** ساعاتٌ إضافيةٌ مسموحة فوق الحدّ الأعلى (انتدابٌ أو إشرافٌ أو ما يقرّه المسؤول). */
+  extraHours?: number;
+}
+
+export interface TeachingLoadConfig {
+  id: "main";
+  enabled: boolean;
+  ranks: AcademicRank[];
+  /** مفتاحُه رقمُ عضو هيئة التدريس. */
+  assignments: Record<string, TeachingLoadAssignment>;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
 export interface AdCourse {
   AdCourseId: number;
   AdCollegeId: number;
@@ -159,6 +195,8 @@ export interface AdCourse {
   CourseCredit: number;
   CourseHours: number;
   MaxStudent: number;
+  /** Optional room category that best fits this course (planner guidance only). */
+  CourseRoomType?: string;
 }
 
 /** Academic curriculum version for one scientific section. */
@@ -173,6 +211,13 @@ export interface CurriculumPlan {
   status: CurriculumPlanStatus;
   /** True only for the virtual compatibility plan synthesized before first setup. */
   virtual?: boolean;
+  /**
+   * صحيفةُ مسارٍ داخل القسم (برنامج بتخصصٍ مزدوج، كمسارات التربية الخاصة): رمز برنامجها («BA-012402»).
+   * للمسار جديدتُه وسابقتُه، ولا تدخل في ثنائية «الجديدة/السابقة» الرئيسية للقسم ولا تُزيحها.
+   */
+  track?: string;
+  /** سنة بدء الصحيفة المرفوعة التي غذّت هذه الخطة: بها يُعرف أن صحيفة أحدث تأتي «تدويراً» لا تحديثاً. */
+  sheetYear?: number;
   createdAt: string;
   createdBy?: string;
   activatedAt?: string;
@@ -372,7 +417,9 @@ export interface MasterRoom {
   buildingCode: string;
   canonicalCode: string;
   /** Verified seat count used by the registration schedule rehearsal. Missing means unknown. */
-  capacity?: number;
+  capacity?: number | null;
+  /** Optional private planning category, such as classroom, lab, or computer lab. */
+  roomType?: string;
   active: boolean;
   aliases: LocationRegistryAlias[];
   collegeIds: number[];
@@ -805,6 +852,52 @@ export interface CurriculumRuleSet {
   approvedBy?: string;
 }
 
+/** ── الصحيفة العامة المنشورة ───────────────────────────────────────────────
+ * لقطةٌ نهائية من الصحيفة المعتمدة يرسمها الخادم صفحةً عامةً بلا حساب (/plans/…). تبقى بعد مسح الخطة
+ * لأنها نسخةٌ مستقلة لا قراءةٌ حيّة؛ وكلُّ إعادة نشرٍ تستبدلها.
+ */
+export interface SheetCourse { code: string; name: string; credit: number; level: number; category?: string }
+export interface SheetElective { code: string; name: string; credit: number }
+export interface SheetGroup { title: string; pick: number; /** «بحدٍّ أدنى ٩ وحدات» كما اعتُمدت. */ minUnits?: number; courses: SheetElective[] }
+export interface SheetModel {
+  /** «قسم تكنولوجيا التعليم». */
+  title: string;
+  /** اسمُ الصحيفة كما يُكتب في الزاوية: «2026/2027». */
+  planLabel: string;
+  courses: SheetCourse[];
+  groups: SheetGroup[];
+  /** [مقرر سابق، المقرر الذي يفتحه] برمزَي المقررين الكاملين. */
+  edges: Array<[string, string]>;
+  /** «أحدها يكفي»: [المقرر، بدائله داخل الخريطة]؛ أسهمُها متقطعة ولا تُقرأ «كلّها مطلوبة». */
+  anyOf?: Array<[string, string[]]>;
+  /** مسبقٌ بعدد الوحدات المجتازة: رمزُ المقرر ← الحدّ. */
+  minUnits?: Record<string, number>;
+  /** وحداتُ مقرراتٍ لا تُرسم (أقسامٌ أخرى ومتطلباتٌ عامة) وتبقى في مجموع التخرج. */
+  otherUnits?: number;
+  /** متطلباتٌ من أقسامٍ أخرى: سطرٌ لكل ملاحظة، تُعرض أسفل الخريطة لا بطاقةً ولا سهماً. */
+  notes: string[];
+  /** الرابط الرسمي الذي يحمله رمز QR. */
+  url: string;
+  /** «levels» (الافتراضي)، أو «wide» لقسمٍ مساندٍ بلا تخصص: بطاقاتٌ بالعرض بحسب التصنيف. */
+  layout?: "levels" | "wide";
+  pills?: Array<{ n: number; label: string }>;
+}
+export interface PublishedPlanSheet {
+  /** = planId. */
+  id: string;
+  planId: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  sectionName: string;
+  planName: string;
+  model: SheetModel;
+  ruleVersion: number;
+  publishedAt: string;
+  publishedBy: string;
+  /** لقطةٌ منسوخة من صحيفة البنات الأصل إلى موقعٍ فرعي (الجهراء/الفحيحيل): معرّفُ الأصل. */
+  mirrorOf?: string;
+}
+
 /**
  * ── ملفُّ الطالب: ما يحتاجه الباب ليبني له جدولاً ────────────────────────────
  *
@@ -838,6 +931,8 @@ export interface StudentProfile {
   updatedAt: string;
   /** آخرُ دخول (يُحدَّث مرةً في اليوم على الأكثر). */
   lastSeenAt: string;
+  /** لقطةُ خفيفة للتغيير بين الزيارات: معرّفات مقررات فقط، وتُحدَّث مرةً في اليوم. */
+  visitSnapshot?: { termId: number; day: string; passedIds: number[]; offeredIds: number[]; availableIds: number[] };
   /** متى يُحذف هذا الملف، وسببه. */
   deleteAt: string;
   deleteReason: "initial" | "graduation" | "inactive" | "reset";
@@ -853,6 +948,10 @@ export interface StudentProfile {
    * مرحلة الرغبات وتُبنى منها تذكرتُه.
    */
   wishes?: StudentWishes;
+  /** طالبٌ محوَّل أُعادِلت له مقررات: يقول ذلك بنفسه، فيُسمح له بتعليم مقررٍ معادَلٍ بلا مسبقاته. */
+  transfer?: boolean;
+  /** المقررات المعادَلة (جزءٌ من المنجَز): لا تُسقَط بغياب مسبقاتها، وتُحتسب مسبقاً لما بعدها. */
+  equivalentCourseIds?: number[];
   /** جوابُه على «هل سجلت؟» في فصلٍ بعينه. */
   registration?: StudentRegistrationReport;
   /**
@@ -1368,6 +1467,10 @@ export interface InstructorRequest {
   linkId: string;
   /** أولُ فتحٍ للرابط. غيابُه يعني أنه لم يُفتح، لا أنه لم يصل. */
   linkOpenedAt?: string;
+  /** مرّات فتح الرابط لكل يومٍ (توقيت الكويت). تُسجَّل مرةً كل نصف ساعة على الأكثر فلا تُضخّمها إعادة التحميل. */
+  linkOpenDays?: Record<string, number>;
+  /** آخر فتحٍ سُجّل في `linkOpenDays`. */
+  linkLastOpenAt?: string;
   window: { opensAt: string; closesAt: string };
   /**
    * من أين جاءت المسوّدة: من جدولٍ منسوخٍ لهذا الفصل، أو من الفصل السابق حين
@@ -1826,6 +1929,22 @@ export interface StudyProposal {
  * لا أسعار هنا عمداً: الشاشة للتتبع. التواريخ أيامٌ بتوقيت الكويت (YYYY-MM-DD) والنهاية شاملة.
  */
 export type AdStatus = "draft" | "approved" | "paused";
+/** طلبُ حملةٍ جديدة تُرسله الشركة من ملف الشراكة: بياناتُ تواصلٍ للإدارة وحدها، لا تظهر في أي صفحةٍ عامة ولا في سجل التدقيق. */
+export interface AdLead {
+  id: string;
+  createdAt: string;
+  company: string;
+  name: string;
+  phone: string;
+  email?: string;
+  /** معرّفات المواقع التي تهمّها. */
+  slots: string[];
+  /** معرّف الموسم الذي تريده، أو فارغ. */
+  season?: string;
+  note?: string;
+  status: "new" | "contacted";
+  contactedAt?: string;
+}
 export interface AdCampaign {
   id: string;
   company: string;
@@ -1852,6 +1971,8 @@ export interface AdCampaign {
   contactEmail?: string;
   /** آخر ما أُرسل بالبريد: أحدُ الأسبوع الأخير، وآخر تذكيرِ تجديدٍ لتاريخ نهايةٍ معيّن. يمنع التكرار. */
   mailLog?: { weekly?: string; renewal?: string };
+  /** تحويلٌ تُبلِّغ عنه الشركةُ بنفسها (عدد من استعملوا الكود في يوم): غير موثَّق، لا يدخل ملف الشراكة ولا أي مجموعٍ تسويقي. يومٌ واحد = إدخالٌ واحد. */
+  redemptions?: Array<{ day: string; count: number; at: string }>;
   createdAt: string;
   updatedAt: string;
   approvedAt?: string;

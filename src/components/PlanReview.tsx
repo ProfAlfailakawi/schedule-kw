@@ -8,7 +8,10 @@
  * القسمُ يعدّل مقرراته وحدها — بطاقةُ مقررٍ من قسمٍ آخر مقفلةٌ تُرى ولا تُمَسّ،
  * والحارسُ الحقيقي في الخادم. والاعتمادُ لرئيس لجنة الجدول، على النسخة التي رآها.
  */
+import SearchableSelect from "./SearchableSelect";
 import CurriculumReferenceReview from "./CurriculumReferenceReview";
+import PlanSheetUpload from "./PlanSheetUpload";
+import PreviousPlansPanel from "./PreviousPlansPanel";
 import PlanMapLines, { levelHue, planEdges } from "./PlanMapLines";
 import { arabicMatchKey } from "../utils/arabicText";
 /* اسمُ القسم في القائمة يحمل كليته («قسم تكنولوجيا التعليم · التربية الأساسية - بنات»): يُطابَق بالاحتواء. */
@@ -27,6 +30,7 @@ interface Status {
   sections: Array<{ sectionId: number; sectionName: string; plans: Array<{ id: string; name: string; status?: string; pending?: boolean }> }>;
   canApprove: boolean;
   canImport?: boolean;
+  uploadTargets?: Array<{ sectionId: number; label: string; sites: number }>;
 }
 interface CourseRow { id: number; code: string; name: string; credit: number; hours: number; capacity: number; collegeId: number; sectionId: number; ownerSectionName: string; owned: boolean; external?: boolean; category?: string }
 interface View {
@@ -279,6 +283,8 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
     <div className="pr-page" dir="rtl">
       <PageTitle eyebrow="مراجعة الصحيفة" subtitle="مستوى كل مقرر ونوعه وما يسبقه، ثم يعتمدها رئيس لجنة الجدول.">قواعد المقررات</PageTitle>
       {error ? <Notice type="error" onDismiss={() => setError("")}>{error}</Notice> : null}
+      {status?.canImport ? <PlanSheetUpload targets={status.uploadTargets || []} sectionId={sectionId} onDone={(id, plan) => { void loadStatus().then(() => { setSectionId(id); setPlanId(plan); setSelected(0); window.dispatchEvent(new Event("schedule:plan-review-updated")); }); }} /> : null}
+      {status?.canImport ? <PreviousPlansPanel /> : null}
       {status?.canImport ? <ImportPanel onDone={() => { void loadStatus().then(() => window.dispatchEvent(new Event("schedule:plan-review-updated"))); }} /> : null}
       {!status?.sections.length ? <EmptyState title="لا صحائف في نطاقك" detail="تظهر هنا صحائف الأقسام التي تملك نطاقها." /> : (
         <>
@@ -462,10 +468,16 @@ function CourseEditor({ course, rule, view, nameOf, busy, onClose, onSave, onSav
     return () => { document.body.style.overflow = previousOverflow; window.removeEventListener("keydown", onKeyDown); if (previousFocus?.isConnected) previousFocus.focus(); };
   }, []);
   const pick = (current: number[], set: (v: number[]) => void) => (
-    <select aria-label="إضافة مقرر" value="" disabled={!editable} onChange={e => { const id = Number(e.target.value); if (id && !current.includes(id)) set([...current, id]); }}>
-      <option value="">＋ إضافة</option>
-      {options.map(c => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}
-    </select>
+    <SearchableSelect
+      ariaLabel="إضافة مقرر"
+      value=""
+      disabled={!editable}
+      onChange={picked => { const id = Number(picked); if (id && !current.includes(id)) set([...current, id]); }}
+      options={options.map(c => ({ value: c.id, label: c.name, hint: c.code, keywords: String(c.code) }))}
+      placeholder="＋ إضافة"
+      searchPlaceholder="اكتب اسم المقرر أو رمزه"
+      className="ss-compact"
+    />
   );
   const chips = (list: number[], set: (v: number[]) => void) => list.map(id => (
     <span key={id} className="pr-chip">{nameOf(id)}{editable ? <button type="button" aria-label="إزالة" onClick={() => set(list.filter(x => x !== id))} data-guide-ignore="إزالةُ مقررٍ من شرطٍ داخل محرّر شاشةٍ مسجّلة في المرشد باسم page.planReview"><X size={12} /></button> : null}</span>

@@ -3,7 +3,7 @@
  */
 import React from "react";
 
-export interface Slot { id: string; label: string; where: string; audience: string; width: number; height: number; capacity: number; exclusive?: boolean; wholeUniversity?: boolean; live: number; nextFree: string }
+export interface Slot { id: string; label: string; where: string; hint: string; audience: string; width: number; height: number; capacity: number; exclusive?: boolean; wholeUniversity?: boolean; live: number; nextFree: string }
 export interface Totals { impressions: number; uniques: number; clicks: number; filteredClicks: number; ctr: number }
 export interface Creative { id: string; label: string; width: number; height: number; bytes: number; qualityOverride?: boolean }
 export interface WeekTotals { impressions: number; uniques: number; clicks: number; ctr: number }
@@ -19,13 +19,15 @@ export interface Campaign {
   creatives: Creative[]; totals: Totals; breakdown: Array<{ creativeId: string } & Totals>; sharePct: number; reportUrl: string;
   seasons?: string[]; colleges?: number[]; series: Array<{ day: string; impressions: number; clicks: number }>;
   weekly?: { thisWeek: WeekTotals; lastWeek: WeekTotals; impressionsChange: number | null; clicksChange: number | null; hasLastWeek: boolean };
-  ab?: AbVerdict; contactEmail?: string; mailLog?: { weekly?: string; renewal?: string };
+  ab?: AbVerdict; conversion?: { total: number; days: number; perClick: number | null; note: "none" | "ok" | "above-clicks" }; contactEmail?: string; mailLog?: { weekly?: string; renewal?: string };
   createdAt: string;
 }
 export interface Season { id: string; label: string; hint: string }
 export interface CalendarItem { season: string; label: string; term: string; from: string; to: string; now: boolean }
+export interface Lead { id: string; createdAt: string; company: string; name: string; phone: string; email?: string; slots: string[]; season?: string; note?: string; status: "new" | "contacted"; contactedAt?: string }
 export interface Payload {
   today: string; mailEnabled?: boolean; slots: Slot[]; categories: string[]; rules: string[]; maxBytes: number; campaigns: Campaign[]; partnerKit: string;
+  leads: Lead[];
   seasons: Season[]; activeSeasons: string[]; calendar: CalendarItem[]; colleges: Array<{ id: number; name: string }>;
 }
 

@@ -15,6 +15,8 @@ export interface AdSlotSpec {
   label: string;
   /** أين يظهر وأمام من. */
   where: string;
+  /** سطرٌ قصير يشرح الموقع لمن لا يعرف اسمه (يظهر تحت الاسم في بطاقة الاختيار). */
+  hint: string;
   audience: "students" | "staff" | "all";
   width: number;
   height: number;
@@ -29,13 +31,13 @@ export interface AdSlotSpec {
 }
 
 export const AD_SLOTS: readonly AdSlotSpec[] = [
-  { id: "sponsor", label: "شريك الفصل", where: "شريط «برعاية» أعلى كل موقعٍ إعلاني", audience: "all", width: 640, height: 80, capacity: 1, exclusive: true },
-  { id: "me", label: "«مساري»", where: "أسفل البطاقة الرئيسية في «مساري» (/me)", audience: "students", width: 640, height: 200, capacity: 5, wholeUniversity: true },
-  { id: "schedule", label: "الجدول العام", where: "أسفل جدول القسم وجدول الطلبة (QR)", audience: "students", width: 640, height: 160, capacity: 3 },
+  { id: "sponsor", label: "شريك الفصل", hint: "شريط «برعاية» فوق كل إعلان", where: "شريط «برعاية» أعلى كل موقعٍ إعلاني", audience: "all", width: 640, height: 80, capacity: 1, exclusive: true },
+  { id: "me", label: "«مساري»", hint: "الصفحة الرئيسية للطالب", where: "أسفل البطاقة الرئيسية في «مساري» (/me)", audience: "students", width: 640, height: 200, capacity: 5, wholeUniversity: true },
+  { id: "schedule", label: "الجدول العام", hint: "تحت جدول القسم وجدول الطلبة", where: "أسفل جدول القسم وجدول الطلبة (QR)", audience: "students", width: 640, height: 160, capacity: 3 },
   /* متوقف: صفحة «حالة طلبي» تطلب رقماً مدنياً ورقم الحالة، وشرطُنا ألا إعلان في صفحات الهوية. */
-  { id: "status", label: "حالة الطلب (متوقف)", where: "متوقف: الصفحة تطلب الهوية", audience: "students", width: 600, height: 250, capacity: 3, retired: true },
-  { id: "break", label: "محطة الاستراحة", where: "داخل «تذكرتي» في «مساري» حين يكون للطالب فراغ ساعةٍ فأكثر بين محاضراته", audience: "students", width: 480, height: 160, capacity: 3, wholeUniversity: true },
-  { id: "dashboard", label: "لوحة الكادر", where: "بطاقة في لوحة الأساتذة والإداريين", audience: "staff", width: 480, height: 160, capacity: 3 },
+  { id: "status", label: "حالة الطلب (متوقف)", hint: "متوقف", where: "متوقف: الصفحة تطلب الهوية", audience: "students", width: 600, height: 250, capacity: 3, retired: true },
+  { id: "break", label: "وقت الفراغ", hint: "للطالب حين يكون بين محاضراته فراغ ساعة فأكثر", where: "داخل «تذكرتي» في «مساري» حين يكون للطالب فراغ ساعةٍ فأكثر بين محاضراته", audience: "students", width: 480, height: 160, capacity: 3, wholeUniversity: true },
+  { id: "dashboard", label: "أعضاء هيئة التدريس والإداريين", hint: "بطاقة تظهر لهم بعد تسجيل الدخول", where: "بطاقة في لوحة الأساتذة والإداريين", audience: "staff", width: 480, height: 160, capacity: 3 },
 ] as const;
 
 export const slotById = (id: string): AdSlotSpec | undefined => AD_SLOTS.find(slot => slot.id === id);
@@ -289,6 +291,20 @@ export function dailySeries(rows: readonly AdStatsDay[], startDay: string, endDa
 export function creativeBreakdown(rows: readonly AdStatsDay[]): Array<{ creativeId: string } & CampaignTotals> {
   const ids = [...new Set(rows.map(r => r.creativeId))];
   return ids.map(creativeId => ({ creativeId, ...totalsOf(rows.filter(r => r.creativeId === creativeId)) }));
+}
+
+/* ── الرابط المتتبَّع: تستطيع الشركة التحقق من أرقامنا في تحليلاتها هي ──
+   يُضاف إلى وجهة النقر وسمُ utm (المصدر والوسيط والحملة) ما لم يكن في الرابط أصلاً أيُّ utm_*، فلا نعبث بوسوم الشركة. */
+export function trackedLink(url: string, campaign: Pick<AdCampaign, "id" | "slot">): string {
+  try {
+    const u = new URL(url);
+    if ([...u.searchParams.keys()].some(k => k.toLowerCase().startsWith("utm_"))) return url;
+    u.searchParams.set("utm_source", "schedule");
+    u.searchParams.set("utm_medium", "banner");
+    u.searchParams.set("utm_campaign", `ad-${campaign.id.replace(/[^a-z0-9]/gi, "").slice(0, 8).toLowerCase()}`);
+    u.searchParams.set("utm_content", campaign.slot);
+    return u.toString();
+  } catch { return url; }
 }
 
 /* ── كودُ الخصم ── */

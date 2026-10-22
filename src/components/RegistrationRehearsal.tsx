@@ -1,3 +1,4 @@
+import TermSelect from "./TermSelect";
 /**
  * ── رادارُ التسجيل ──────────────────────────────────────────────────────────
  *
@@ -7,6 +8,7 @@
  * وهي **تقديرٌ** من ملفّات الطلبة وجداولِ الأقسام (مسوّدةً أو معتمدة)، لا بياناتُ
  * التسجيل الرسمي ولا حجزُ مقعد. التشغيلُ لإدارة النظام؛ والقسمُ يرى مقرراتِه فحسب.
  */
+import { useScopedTerms } from "./useScopedTerms";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CalendarPlus, Check, CircleAlert, CircleHelp, Download, GraduationCap, History, Info, Layers, Sparkles, Ticket, TrendingUp, Users } from "lucide-react";
 import { EmptyState, Field, MicroLoader, Notice, PageTitle, SecondaryButton } from "./ui";
@@ -14,6 +16,7 @@ import TermFrozenRibbon, { TermFrozenContext } from "./TermFrozenRibbon";
 import { termIsFrozen } from "../utils/termSequence";
 import { AR, countOf } from "../utils/arabicCount";
 import MasariQrButton from "./MasariQrButton";
+import { compareArabic } from "../utils/arabicText";
 import ApplyProposal, { postScheduleProposal, postWhatIf } from "./ApplyProposal";
 import SemesterReadiness, { type Insight, type QualityCell } from "./SemesterReadiness";
 import { writeSharedScope } from "../utils/sharedScope";
@@ -145,6 +148,8 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
   const calm = rows.filter(c => !needsDecision(c));
   const shown = (all ? rows : decide).filter(c => !q.trim() || `${c.code} ${c.name}`.includes(q.trim()));
 
+  // Keep scoped-term hooks active during loading as well as after the summary arrives.
+  const scopedTerms = useScopedTerms<{ AdTermId: number; AdTermName: string }>(terms, 0, 0, termPick, pickTerm);
   if (!data && !error && !termPick) return <MicroLoader />;
   const r = data?.run;
   const wantedTotal = rows.reduce((s, c) => s + c.wanted, 0), seatedTotal = rows.reduce((s, c) => s + c.seated, 0);
@@ -157,7 +162,10 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
   /* يفتح الرادار على ما يحتاج فعلاً: بعد بدء التسجيل أجوبةُ الطلبة، وقبله ما يحتاج قراراً. */
   const frozen = Boolean(data?.frozen);
   /* لا يُعرض في المحدِّد إلا ما يقبله الخادم: فصلُ الباب والفصولُ السابقة المجمَّدة. */
-  const termOptions = (terms || []).filter(t => Number(t.AdTermId) === (doorId || data?.term?.id) || termIsFrozen(Number(t.AdTermId), terms as any));
+  /* فصولٌ فيها بيانات لنطاق القارئ، والحالي دائماً (useScopedTerms)؛ الباقي كما كان: فصلُ الباب والفصول المجمّدة. */
+  /* فصلُ الباب يبقى دائماً (قد يكون قادماً بلا صفوفٍ بعد)، والمجمَّدةُ تُرشَّح بما فيه بيانات. */
+  const termOptions = (terms || []).filter(t => Number(t.AdTermId) === (doorId || data?.term?.id)
+    || (termIsFrozen(Number(t.AdTermId), terms as any) && scopedTerms.some(row => Number(row.AdTermId) === Number(t.AdTermId))));
   const shownView = view || (data?.phase?.namesVisible && outcome && outcome.answers > 0 ? "outcome" : decide.length ? "decide" : "capacity");
 
   return (
@@ -170,12 +178,12 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
             <MasariQrButton data-guide-ignore="زرُّ رمز «مساري» داخل شاشةٍ مسجّلة في المرشد باسم page.simulation" />
           </div>
         )}>رادار يوم التسجيل</PageTitle>
-      {termOptions.length > 1 ? (
+      {termOptions.length > 0 ? (
         <div className="sm-termbar no-print">
           <Field label={<><History aria-hidden="true" /> الفصل</>}>
-            <select value={termPick || doorId || data?.term?.id || ""} onChange={event => pickTerm(Number(event.target.value) || 0)} aria-label="الفصل المعروض في الرادار">
+            <TermSelect value={termPick || doorId || data?.term?.id || ""} onValueChange={id => pickTerm(id)} aria-label="الفصل المعروض في الرادار">
               {termOptions.map(t => <option key={t.AdTermId} value={t.AdTermId}>{t.AdTermName}</option>)}
-            </select>
+            </TermSelect>
           </Field>
         </div>
       ) : null}
@@ -276,7 +284,8 @@ function OutcomeBlock({ outcome, predictedStudents }: { outcome: Outcome; predic
   const registered = outcome.courses.reduce((s, c) => s + c.registered, 0), stuck = outcome.courses.reduce((s, c) => s + c.stuck, 0);
   const total = registered + stuck;
   const okPct = total ? Math.round((registered / total) * 100) : 0;
-  const worst = outcome.courses.filter(c => c.stuck > 0).slice(0, 8);
+  /* كلُّ مقررٍ فيه متعثّرون، مرتّباً أبجدياً (اسمُه ثم رمزُه) كبقية قوائم المقررات: القارئ يبحث عن مقررٍ بعينه لا عن «الأسوأ». */
+  const worst = outcome.courses.filter(c => c.stuck > 0).sort((a, b) => compareArabic(a.name, b.name) || a.code.localeCompare(b.code, "en", { numeric: true }));
   const share = outcome.answered !== null && predictedStudents ? Math.round((outcome.answered / predictedStudents) * 100) : 0;
   return (
     <section className="sm-list sm-out">

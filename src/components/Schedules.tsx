@@ -1,3 +1,4 @@
+import TermSelect from "./TermSelect";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import RowHistory from "./RowHistory";
 import { TimeField } from "./TimeField";
@@ -57,6 +58,7 @@ import {
   X,
 } from "lucide-react";
 import { DnaCount, DnaStatusHeader } from "./dna";
+import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import {
   Badge,
   EmptyState,
@@ -87,6 +89,7 @@ import {
 } from "../types";
 import LivingScheduleLayer from "./LivingScheduleLayer";
 import HallBarterBoard, { type HallBarterReservationView } from "./HallBarterBoard";
+import TeachingLoadNotice from "./TeachingLoadNotice";
 import ApprovalBar from "./ApprovalBar";
 import LocationPicker from "./LocationPicker";
 import DaySubstitute from "./DaySubstitute";
@@ -117,6 +120,8 @@ import {
   type DayKey,
 } from "./scheduleWorkspace";
 import { coerceScopeValues, describeScopeSelection, resolveScopeSelection, singleDepartmentOf } from "../utils/scopeContext";
+import { hidesCollege, hidesSection, scopeShape } from "../utils/scopeShape";
+import { useScopedTerms } from "./useScopedTerms";
 import { readSharedScope, resolveSharedScope, useSharedScope, type SharedScope } from "../utils/sharedScope";
 import { runVisualTransition } from "../utils/visualTransition";
 import { byArabic, byRoom, byRoomLabel, byRoomPart, sortByName } from "../utils/sorting";
@@ -137,6 +142,8 @@ import {
   type ScheduleViewDraft,
 } from "../utils/scheduleViews";
 import ScheduleTransfer from "./ScheduleTransfer";
+import SearchableSelect from "./SearchableSelect";
+import type { GapItem as SectionGapItem } from "../utils/sectionGap";
 import VisitingBadge from "./VisitingBadge";
 import { usePageAwake } from "../utils/pageAwake";
 import { adviseDayPattern, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding, patternsForHours, patternsForHoursOnDay, reviewSchedule, type DayKey as RegDayKey, type WeeklyPattern } from "../utils/scheduleRegulations";
@@ -174,6 +181,7 @@ import {
   SCHEDULE_DAY_START,
   SCHEDULE_DAY_START_TIME,
   SCHEDULE_SLOT_MINUTES,
+  scheduleDayWindowMinutes,
   withinScheduleDay,
 } from "../utils/scheduleTime";
 export type ScheduleMode = "schedule" | "copy";
@@ -843,6 +851,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     [instructors, setInstructors] = useState<AdInstructor[]>([]),
     [rows, setRows] = useState<FSchedule[]>([]);
   const [workspaceReady, setWorkspaceReady] = useState(false);
+  /* ما يطلبه طلبة «مساري» ولا تكفيه شعبه، بحسب رمز المقرر: علامةٌ صغيرة على شارة المقرر في مفتاح الألوان. */
+  const [studentGaps, setStudentGaps] = useState<SectionGapItem[]>([]);
+  const gapByCode = useMemo(() => new Map(studentGaps.map(item => [item.code, item])), [studentGaps]);
+  /* علامةُ «+N» لشارة المقرر في مفتاح الألوان (القائمة والأسبوع والقاعات): للمقررات وحدها، ولا شيء إن لم يكن نقص. */
+  const needMark = (key: string) => {
+    const need = key.startsWith("c:") ? gapByCode.get(key.slice(2).split("·")[0]) : undefined;
+    return need ? <b className="week-legend-need" title={`يطلبها طلبة «مساري»: الموجود ${need.existing.toLocaleString("ar-KW-u-nu-latn")} والمطلوب ${need.required.toLocaleString("ar-KW-u-nu-latn")}`}>+{need.extra.toLocaleString("ar-KW-u-nu-latn")}</b> : null;
+  };
   const [editor, setEditor] = useState<EditorMode>("index"),
     [editId, setEditId] = useState<number | null>(null),
     [form, setForm] = useState(blank()),
@@ -1100,6 +1116,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      */
     [rowsScope, setRowsScope] = useState(""),
     [visibleLimit, setVisibleLimit] = useState(AGENDA_PAGE_SIZE);
+  const activeScheduleWindow = useMemo(() => {
+    const sectionId=Number(form.AdSectionId||filterSection||0);
+    return scheduleDayWindowMinutes(sections.find(section=>Number(section.AdSectionId)===sectionId));
+  },[sections,form.AdSectionId,filterSection]);
+  useEffect(() => {
+    setStartTimeLimitNotice("");
+    setEndTimeLimitNotice("");
+  }, [activeScheduleWindow.startTime, activeScheduleWindow.endTime]);
+  const scopedTerms = useScopedTerms<AdTerm>(terms, filterCollege, filterSection, filterTerm, setFilterTerm);
   const [agendaNarrow, setAgendaNarrow] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 760px)").matches);
   useEffect(() => {
     const mq = window.matchMedia?.("(max-width: 760px)");
@@ -1126,6 +1151,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     [copyPreview, setCopyPreview] = useState<any | null>(null),
     [copyUndoPoint, setCopyUndoPoint] = useState<any | null>(null),
     [previewing, setPreviewing] = useState(false);
+  /* قوائمُ الفصل في نماذج الإضافة والنسخ: القاعدةُ نفسها (فصولٌ فيها بيانات للنطاق + أحدثُ فصل). */
+  const copyScopedTerms = useScopedTerms<AdTerm>(terms, copyCollege, copySection, 0);
+  const formScopedTerms = useScopedTerms<AdTerm>(terms, form.AdCollegeId, form.AdSectionId, 0);
   const [physicsNotice, setPhysicsNotice] = useState(""),
     [undoPoint, setUndoPoint] = useState<any>(null),
     [pendingWriteIds, setPendingWriteIds] = useState<Set<number>>(() => new Set()),
@@ -2391,6 +2419,26 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     else root.removeAttribute("data-colorblind");
     return () => root.removeAttribute("data-colorblind");
   }, [colorBlind]);
+  /* قسمٌ أُنهيت صحيفته السابقة: منتقي المقررات للفصل الجاري والقادم يعرض مقررات الجديدة وحدها،
+     وفي الفصول السابقة يعرض القديمة والجديدة معاً. */
+  const [endedPrevious, setEndedPrevious] = useState<{ sectionId: number; ids: Set<number> } | null>(null);
+  useEffect(() => {
+    const sid = Number(form.AdSectionId) || 0;
+    if (!sid) { setEndedPrevious(null); return; }
+    let alive = true;
+    void fetch(`/api/plan-review/previous-ended?sectionId=${sid}`, { credentials: "include" })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (alive) setEndedPrevious(data?.ended ? { sectionId: sid, ids: new Set<number>((data.courseIds || []).map(Number)) } : null); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, [form.AdSectionId]);
+  const formTermIsPast = useMemo(() => {
+    const ordered = sortTermsNewest(terms);
+    const current = currentTermId(terms as any[]) || Number(ordered[0]?.AdTermId || 0);
+    const at = ordered.findIndex(term => Number(term.AdTermId) === Number(current));
+    const mine = ordered.findIndex(term => Number(term.AdTermId) === Number(form.AdTermId));
+    return at >= 0 && mine > at;
+  }, [terms, form.AdTermId]);
   const formSections = useMemo(
       () =>
         sortByName(sections.filter(
@@ -2399,8 +2447,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       [sections, form.AdCollegeId],
     ),
     formCourses = useMemo(
-      () => sortByName(courses.filter((c) => c.AdSectionId === form.AdSectionId), (c: AdCourse) => c.CourseName),
-      [courses, form.AdSectionId],
+      () => sortByName(courses.filter((c) => c.AdSectionId === form.AdSectionId
+        && (!endedPrevious || endedPrevious.sectionId !== Number(form.AdSectionId) || formTermIsPast || endedPrevious.ids.has(Number(c.AdCourseId)) || Number(c.AdCourseId) === Number(form.AdCourseId))), (c: AdCourse) => c.CourseName),
+      [courses, form.AdSectionId, form.AdCourseId, endedPrevious, formTermIsPast],
     ),
     courseNames = useMemo(
       () => Array.from(new Set<string>(formCourses.map((c) => c.CourseName))),
@@ -3105,7 +3154,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const quickConflict = (draft: QuickDraft, day: DayKey): string | null => {
     const from = mins(draft.start), to = mins(draft.end);
     if (to <= from) return "وقت النهاية يجب أن يكون بعد وقت البداية.";
-    if (!withinScheduleDay(from, to)) return `الوقت خارج اليوم الدراسي (${formatScheduleTimeRange(SCHEDULE_DAY_START_TIME, SCHEDULE_DAY_END_TIME)}).`;
+    const window=scheduleDayWindowMinutes(sections.find(section=>Number(section.AdSectionId)===Number(filterSection)));
+    if (!withinScheduleDay(from, to, window)) return `الوقت خارج اليوم الدراسي (${formatScheduleTimeRange(window.startTime, window.endTime)}).`;
     const busy = rows.find(r =>
       Boolean((r as any)[day]) &&
       mins(r.fstarttime) < to && mins(r.fendtime) > from &&
@@ -3168,6 +3218,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      same one the quick-add card opens on, instead of leaving the editor with a
      bare native time input. */
   const [timeCounterOpen, setTimeCounterOpen] = useState(false);
+  const [startTimeLimitNotice, setStartTimeLimitNotice] = useState("");
+  const [endTimeLimitNotice, setEndTimeLimitNotice] = useState("");
   const timeCounterAnchor = useRef<HTMLDivElement | null>(null);
   /**
    * Three proposed placements, ranked.
@@ -3306,11 +3358,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const editorSupplementalReview = useMemo(() => editorReviewFindings.filter(finding => !isDecision1912Finding(finding)), [editorReviewFindings]);
   const timeRangeInvalid = Boolean(form.fstarttime&&form.fendtime)&&mins(form.fendtime)<=mins(form.fstarttime);
   const outsideTeachingDay = Boolean(form.fstarttime && form.fendtime) && !timeRangeInvalid &&
-    !withinScheduleDay(mins(form.fstarttime), mins(form.fendtime));
+    !withinScheduleDay(mins(form.fstarttime), mins(form.fendtime),activeScheduleWindow);
   const validationIssues=[
     !selectedFormDays.length?"يجب اختيار يوم واحد على الأقل للمحاضرة.":"",
     timeRangeInvalid?"وقت النهاية يجب أن يكون بعد وقت البداية.":"",
-    outsideTeachingDay?`وقت المحاضرة يجب أن يكون بين ${scheduleClockForDisplay(SCHEDULE_DAY_START_TIME)} و${scheduleClockForDisplay(SCHEDULE_DAY_END_TIME)}.`:"",
+    outsideTeachingDay?`وقت المحاضرة يجب أن يكون بين ${scheduleClockForDisplay(activeScheduleWindow.startTime)} و${scheduleClockForDisplay(activeScheduleWindow.endTime)}.`:"",
   ].filter(Boolean);
   const blockingConflicts=conflicts.filter(isBlockingConflict);
   const editorTimingNote = historicalTimingNote(form);
@@ -5696,7 +5748,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * the missing cards appear.
    */
   const gridWindow = useMemo(() => {
-    let start = SCHEDULE_DAY_START, end = SCHEDULE_DAY_END;
+    const bounds=scheduleDayWindowMinutes(sections.find(section=>Number(section.AdSectionId)===Number(filterSection)));
+    let start = bounds.start, end = bounds.end;
     for (const row of weekRows as FSchedule[]) {
       const from = mins(row.fstarttime), to = mins(row.fendtime);
       if (Number.isFinite(from) && from < start) start = from;
@@ -5705,7 +5758,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const snapDown = (value: number) => Math.floor(value / SCHEDULE_SLOT_MINUTES) * SCHEDULE_SLOT_MINUTES;
     const snapUp = (value: number) => Math.ceil(value / SCHEDULE_SLOT_MINUTES) * SCHEDULE_SLOT_MINUTES;
     return { start: Math.max(0, snapDown(start)), end: Math.min(24 * 60, snapUp(end)) };
-  }, [weekRows]);
+  }, [weekRows,sections,filterSection]);
   /** Where the line sits inside a day column, in pixels from its top. */
   const nowOffset = useMemo(() => {
     if (!todayKey || !termIsRunning) return null;
@@ -6204,10 +6257,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       .filter(duration => Number.isFinite(duration) && duration > 0);
     const minDuration = durations.length ? Math.min(...durations) : 50;
     const hourWidth = readableWeekStripHourWidth(minDuration);
-    // 20:00 is a hard visual boundary. Readability is solved vertically by the
-    // adaptive identity card, never by borrowing pixels beyond the lecture's
-    // actual end time.
-    const visualEnd = SCHEDULE_DAY_END;
+    // The configured section end is the default ruler boundary; legacy rows
+    // outside it still expand the scale so they remain visible for review.
+    const visualEnd = gridWindow.end;
     const terminalPad = 0;
     // Only the final academic hour gets a little more paper. 19:00–20:00 is
     // 14px wider than the other hours, but 20:00 stays a hard boundary.
@@ -6434,6 +6486,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const i = instructorById.get(r.AdInstructorId);
     const code = c?.CourseCode || r.AdCourseName || "—";
     const title = r.AdCourseName || c?.CourseName || code;
+    const roomType = String(c?.CourseRoomType || "").trim();
     const label = { text: title, shortened: false };
     const who = i?.AdInstructorName || "بدون أستاذ";
     const place = cleanWeekPlaceLabel(placeOf(r));
@@ -6512,13 +6565,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             data-code-row={denseCodeRow}
             data-terminal-stack={denseIdentityMode === "double" && mins(r.fstarttime) >= 19 * 60 ? "true" : undefined}
           >
-            <strong className="week-title" data-short={label.shortened ? "true" : undefined}>{label.text}</strong>
+            <span className="week-course-title-wrap"><strong className="week-title" data-short={label.shortened ? "true" : undefined}>{label.text}</strong><CourseRoomTypeBadge type={roomType} compact/></span>
             <span className="week-who" title={who}>{who}{visitingIds.has(r.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
             <em className="week-code" dir="ltr">{code}</em>
           </div>
         ) : (
           <>
-            <strong className="week-title" data-short={label.shortened ? "true" : undefined}>{label.text}</strong>
+            <span className="week-course-title-wrap"><strong className="week-title" data-short={label.shortened ? "true" : undefined}>{label.text}</strong><CourseRoomTypeBadge type={roomType} compact/></span>
             <span className="week-who" title={who}>{who}{visitingIds.has(r.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
             <small className="week-when"><time dir="ltr">{formatScheduleTimeRange(r.fstarttime, r.fendtime)}</time>{place ? <i>{place}</i> : null}</small>
             <em className="week-code" dir="ltr">{code}</em>
@@ -6586,7 +6639,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       r.fstarttime, r.fendtime, r.AdRoomCode, r.AdRoomHall, r.AdCourseName,
       r.fsunday, r.fmonday, r.ftuesday, r.fwednesday, r.fthursday,
       // what the row resolves to
-      code, title, who, placeOf(r), hueFor(code, title, i?.AdInstructorName, placeOf(r)),
+      code, title, String(c?.CourseRoomType||""), who, placeOf(r), hueFor(code, title, i?.AdInstructorName, placeOf(r)),
       // geometry and layout mode
       d.key, widthShare, denseIdentityMode,
       denseWeekStrips ? weekStripCodeRow(r, title, String(code), denseIdentityMode) : "headline",
@@ -8357,24 +8410,24 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </select>
               </Field> : null}
               <Field label="الفصل المصدر" required>
-                <select
+                <TermSelect
                   value={copyFromTerm || ""}
-                  onChange={(e) => setCopyFromTerm(Number(e.target.value) || 0)}
+                  onValueChange={(id) => setCopyFromTerm(id)}
                   required
                 >
                   <option value="">اختر ...</option>
-                  {terms.map((t) => (
+                  {copyScopedTerms.map((t) => (
                     <option key={t.AdTermId} value={t.AdTermId}>
                       {t.AdTermName}
                     </option>
                   ))}
-                </select>
+                </TermSelect>
               </Field>
               <Field label="الفصل الوجهة" required>
-                <select
+                <TermSelect
                   value={copyToTerm || ""}
-                  onChange={(e) => {
-                    const to = Number(e.target.value) || 0;
+                  onValueChange={(id) => {
+                    const to = id;
                     setCopyToTerm(to);
                     /* A new term is usually last year's same semester with light
                        edits, so an EMPTY source is worth filling in for the
@@ -8393,12 +8446,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   required
                 >
                   <option value="">اختر ...</option>
-                  {terms.map((t) => (
+                  {copyScopedTerms.map((t) => (
                     <option key={t.AdTermId} value={t.AdTermId}>
                       {t.AdTermName}
                     </option>
                   ))}
-                </select>
+                </TermSelect>
               </Field>
             </div>
             <div className="copy-preview">
@@ -8551,18 +8604,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </select>
                 </Field> : null}
                 <Field label="الفصل الدراسي" required>
-                  <select
+                  <TermSelect
                     value={form.AdTermId || ""}
-                    onChange={(e) => setNumber("AdTermId", e.target.value)}
+                    onValueChange={(id) => setNumber("AdTermId", String(id))}
                     required
                   >
                     <option value="">اختر ...</option>
-                    {terms.map((t) => (
+                    {formScopedTerms.concat(terms.filter((t) => Number(t.AdTermId) === Number(form.AdTermId) && !formScopedTerms.some((x) => Number(x.AdTermId) === Number(t.AdTermId)))).map((t) => (
                       <option key={t.AdTermId} value={t.AdTermId}>
                         {t.AdTermName}
                       </option>
                     ))}
-                  </select>
+                  </TermSelect>
                 </Field>
                   </div>
                 </section>
@@ -8570,31 +8623,29 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <header><span>2</span><div><strong>بيانات المقرر</strong><small>المقرر والرمز والشعبة</small></div></header>
                   <div className="form-grid">
                 <Field label="المقرر الدراسي" required>
-                  <select
-                    data-guide-editor-field="course-name"
+                  <SearchableSelect
+                    guideField="course-name"
+                    ariaLabel="المقرر الدراسي"
                     value={courseName}
                     disabled={!form.AdSectionId}
-                    onChange={(e) => {
-                      setCourseName(e.target.value);
+                    onChange={(name) => {
+                      setCourseName(String(name));
                       setForm((p) => ({ ...p, AdCourseId: 0 }));
                     }}
+                    options={courseNames.map((name) => ({ value: name, label: name }))}
+                    searchPlaceholder="اكتب اسم المقرر"
                     required
-                  >
-                    <option value="">اختر ...</option>
-                    {courseNames.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   {!courseNames.length && form.AdSectionId ? <small className="field-inline-hint">لا تظهر مقررات لهذا القسم بعد. جرّبتُ الآن الجلب المباشر للقسم الحالي؛ إن استمرت القائمة فارغة فراجع بيانات المقررات في القسم نفسه.</small> : null}
                 </Field>
                 <Field label="رمز المقرر الدراسي" required>
-                  <select
+                  <SearchableSelect
                     value={form.AdCourseId || ""}
                     disabled={!courseName}
-                    onChange={(e) => {
-                      const courseId = Number(e.target.value) || 0;
+                    autoSingle
+                    ariaLabel="رمز المقرر الدراسي"
+                    onChange={(picked) => {
+                      const courseId = Number(picked) || 0;
                       setForm((p) => {
                         const previousCourseId = Number(p.AdCourseId) || 0;
                         const next = { ...p, AdCourseId: courseId };
@@ -8610,15 +8661,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         return next;
                       });
                     }}
+                    options={courseCodes.map((c) => ({ value: c.AdCourseId, label: String(c.CourseCode) }))}
+                    searchPlaceholder="اكتب الرمز"
                     required
-                  >
-                    <option value="">اختر ...</option>
-                    {courseCodes.map((c) => (
-                      <option key={c.AdCourseId} value={c.AdCourseId}>
-                        {c.CourseCode}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </Field>
                 <Field
                   label={<span className="field-label-line"><span className="field-label-required-inline">الشعبة <span className="required" aria-hidden="true">*</span></span>{sectionHint ? <small className="field-inline-hint">{sectionHint}</small> : null}</span>}
@@ -8760,10 +8806,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <TimeField
                       data-guide-editor-field="time"
                      
-                      min={SCHEDULE_DAY_START_TIME}
-                      max={SCHEDULE_DAY_END_TIME}
+          min={activeScheduleWindow.startTime}
+          max={activeScheduleWindow.endTime}
                       value={form.fstarttime}
+                      onOutOfRange={(limit) => {
+                        const boundary = limit === "max" ? activeScheduleWindow.endTime : activeScheduleWindow.startTime;
+                        setStartTimeLimitNotice(`${limit === "max" ? "ينتهي الدوام" : "يبدأ الدوام"} عند ${scheduleClockForDisplay(boundary)}.`);
+                      }}
                       onChange={(e) => {
+                        setStartTimeLimitNotice("");
                         setScheduleTouched(true);
                         const start = e.target.value;
                         setForm((p) => ({ ...p, fstarttime: start, fendtime: autoEndFor(p, start) }));
@@ -8781,12 +8832,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       <Clock3 aria-hidden="true" />
                     </button>
                   </div>
+                  {startTimeLimitNotice ? <small className="schedule-time-limit-note" role="status">{startTimeLimitNotice}</small> : null}
                   {timeCounterOpen ? (
                     <TimeCounterPopover
                       anchor={timeCounterAnchor.current}
                       start={form.fstarttime || SCHEDULE_DAY_START_TIME}
                       end={form.fendtime || form.fstarttime || SCHEDULE_DAY_START_TIME}
                       preferredDuration={expectedDurationForSelection(form)}
+                      minTime={activeScheduleWindow.startTime}
+                      maxTime={activeScheduleWindow.endTime}
                       onChange={(next) => {
                         setScheduleTouched(true);
                         setForm((p) => ({ ...p, fstarttime: next.start, fendtime: next.end }));
@@ -8799,22 +8853,30 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <div className="schedule-time-control" dir="ltr">
                     <TimeField
                      
-                      min={SCHEDULE_DAY_START_TIME}
-                      max={SCHEDULE_DAY_END_TIME}
+          min={activeScheduleWindow.startTime}
+          max={activeScheduleWindow.endTime}
                       value={form.fendtime}
+                      onOutOfRange={(limit) => {
+                        const boundary = limit === "max" ? activeScheduleWindow.endTime : activeScheduleWindow.startTime;
+                        setEndTimeLimitNotice(`${limit === "max" ? "ينتهي الدوام" : "يبدأ الدوام"} عند ${scheduleClockForDisplay(boundary)}.`);
+                      }}
                       onChange={(e) => {
+                        setEndTimeLimitNotice("");
                         setScheduleTouched(true);
                         setForm((p) => ({ ...p, fendtime: e.target.value }));
                       }}
                       required
                     />
                   </div>
+                  {endTimeLimitNotice ? <small className="schedule-time-limit-note" role="status">{endTimeLimitNotice}</small> : null}
                 </Field>
                 <LocationPicker
                   collegeId={Number(form.AdCollegeId||0)}
                   sectionId={Number(form.AdSectionId||0)}
                   termId={Number(form.AdTermId||0)}
                   value={form}
+                  courseRoomType={String(courseById.get(Number(form.AdCourseId||0))?.CourseRoomType||"")}
+                  seatsNeeded={Number(courseById.get(Number(form.AdCourseId||0))?.MaxStudent||0)}
                   onChange={(patch)=>{setScheduleTouched(true);setForm(current=>({...current,...patch}));}}
                   showRaw={editor==="edit"}
                   hallAction={hallAvailabilityReady && Number(form.AdSectionId||0) ? (
@@ -9979,21 +10041,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         </div>
         ) : null}
         <div className="filter-strip">
-          <Field label="الكلية"><select data-guide-target="schedule.filter.college" value={filterCollege || ""} onChange={(e)=>{const id=Number(e.target.value)||0;setFilterCollege(id);setFilterSection(id && !isPowerAdmin ? (resolveScopeSelection(scopes,id,false).defaultSectionId||0) : 0)}}><option value="">اختر الكلية</option>{filterColleges.map(c=><option key={c.AdCollegeId} value={c.AdCollegeId}>{c.AdCollegeName}</option>)}</select></Field>
-          {singleDepartmentOf(scopes, filterCollege, isPowerAdmin) === null ? <Field label="القسم العلمي"><select data-guide-target="schedule.filter.section" value={filterSection || ""} disabled={!filterCollege} onChange={(e)=>setFilterSection(Number(e.target.value)||0)}><option value="">كل الأقسام</option>{filterSections.map(s=><option key={s.AdSectionId} value={s.AdSectionId}>{s.AdSectionName}</option>)}</select></Field> : null}
+          {hidesCollege(scopeShape(scopes, isPowerAdmin)) ? null : <Field label="الكلية"><select data-guide-target="schedule.filter.college" value={filterCollege || ""} onChange={(e)=>{const id=Number(e.target.value)||0;setFilterCollege(id);setFilterSection(id && !isPowerAdmin ? (resolveScopeSelection(scopes,id,false).defaultSectionId||0) : 0)}}><option value="">اختر الكلية</option>{filterColleges.map(c=><option key={c.AdCollegeId} value={c.AdCollegeId}>{c.AdCollegeName}</option>)}</select></Field>}
+          {!hidesSection(scopeShape(scopes, isPowerAdmin)) && singleDepartmentOf(scopes, filterCollege, isPowerAdmin) === null ? <Field label="القسم العلمي"><select data-guide-target="schedule.filter.section" value={filterSection || ""} disabled={!filterCollege} onChange={(e)=>setFilterSection(Number(e.target.value)||0)}><option value="">كل الأقسام</option>{filterSections.map(s=><option key={s.AdSectionId} value={s.AdSectionId}>{s.AdSectionName}</option>)}</select></Field> : null}
           <Field label="الفصل الدراسي">
-            <select
+            <TermSelect
               data-guide-target="schedule.filter.term"
               value={filterTerm || ""}
-              onChange={(e) => setFilterTerm(Number(e.target.value) || 0)}
+              onValueChange={(id) => setFilterTerm(id)}
             >
               <option value="">اختر الفصل</option>
-              {terms.map((t) => (
+              {scopedTerms.map((t) => (
                 <option key={t.AdTermId} value={t.AdTermId}>
                   {t.AdTermName}
                 </option>
               ))}
-            </select>
+            </TermSelect>
           </Field>
           {rowsLoading ? <span className="filter-strip-busy" role="status"><MicroLoader size={16} label="يقرأ الجدول…" />يقرأ الجدول…</span> : null}
         </div>
@@ -10200,6 +10262,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           termId={filterTerm}
           signatureStage={approvalStage}
           powerAdmin={Boolean(user?.IsAdminUser || user?.IsRootAdmin)}
+          demoMode={Boolean(user?.IsDemo)}
           /* ── الشريط يسمع ما يقع في الجدول تحته ──────────────────────────
              تعديلُ موعدٍ يغيّر سجلَّ الاعتماد على الخادم: جدولٌ مقبول يعود
              جولةً جديدة، وشعبةٌ تُضاف بعد التوقيع تنتظر إقراراً. وكان الشريط
@@ -10212,7 +10275,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           onLockChange={setApprovalLock}
           onOpenNotes={onNavigate ? () => onNavigate("scheduleChanges") : undefined}
           onOpenCourses={onNavigate ? () => onNavigate("courses") : undefined}
+          onStudentGaps={setStudentGaps}
         />
+      ) : null}
+      {/* تنبيه النصاب: شارةٌ صغيرة تظهر فقط إن فعّل المسؤول الميزة وتجاوز عضوٌ نصابه؛ قراءةٌ فقط ولا تمنع تعديلاً. */}
+      {mode === "schedule" && filterCollege && filterSection && filterTerm ? (
+        <TeachingLoadNotice collegeId={filterCollege} sectionId={filterSection} termId={filterTerm} refreshSignal={liveFeedSerial + rows.length} />
       ) : null}
       <ScheduleExperienceLayer
         experience={experience}
@@ -10297,6 +10365,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         onClick={() => toggleHueFocus(item.key)}
                       >
                         <i aria-hidden="true" /><span>{item.label}</span><em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
+                        {needMark(item.key)}
                       </button>
                       <button
                         type="button"
@@ -10361,6 +10430,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           {c?.CourseCode || "—"}
                         </span>
                         <strong>{s.AdCourseName || c?.CourseName || ""}</strong>
+                        <CourseRoomTypeBadge type={c?.CourseRoomType} compact />
                         {liveNow.running.has(s.id) ? (
                           <span className="agenda-live-tag">جارية الآن</span>
                         ) : liveNow.next === s.id ? (
@@ -10870,6 +10940,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                               onClick={() => toggleHueFocus(item.key)}
                             >
                               <i aria-hidden="true" /><span>{item.label}</span><em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
+                              {needMark(item.key)}
                             </button>
                             <button
                               type="button"
@@ -11266,6 +11337,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           <i aria-hidden="true" />
                           <span>{item.label}</span>
                           <em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
+                          {needMark(item.key)}
                         </button>
                         {/* Folding, kept a separate press from hushing: one asks
                             «where are these?», the other «what is left without

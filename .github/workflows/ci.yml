@@ -26,19 +26,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
-      - name: Repository hygiene (names, temporary instruction files, references)
-        env:
-          HYGIENE_BRANCH: ${{ github.head_ref }}
-          HYGIENE_PR_TITLE: ${{ github.event.pull_request.title }}
-          HYGIENE_PR_BODY: ${{ github.event.pull_request.body }}
-          HYGIENE_COMMIT_RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || '' }}
-        run: node tests/repo-hygiene-check.mjs
-
-      - name: Deploy target guard (AGENTS.md)
+      - name: Deploy target guard
         run: node tests/deploy-target-guard.mjs
+
+      - name: Repository hygiene guard
+        run: node tests/repo-hygiene-guard.mjs
 
       - name: Set up Node.js
         uses: actions/setup-node@v6

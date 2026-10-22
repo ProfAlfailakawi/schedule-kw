@@ -1,3 +1,4 @@
+import SearchableSelect from "./SearchableSelect";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
@@ -45,7 +46,7 @@ type Tab = "new" | "old" | "map";
 
 const RULE_FIELDS: Array<[keyof Rule, string, string]> = [
   ["degreeUnits", "مجموع وحدات الدرجة", "كما في «الوحدات المطلوبة» بصحيفة التخرج"],
-  ["fieldTrainingRequired", "لفتح التدريب الميداني", "الوحدات المجتازة قبل الميداني"],
+  ["fieldTrainingRequired", "لفتح التدريب الميداني (اختياري)", "اتركه فارغًا إذا لم تتضمن هذه الصحيفة تدريبًا ميدانيًا"],
   ["graduateRegularPassed", "خريج / متوقع · فصل عادي", "حدّ طلب الخريج في الفصل العادي"],
   ["graduateSummerPassed", "خريج / متوقع · فصل صيفي", "حدّ طلب الخريج في الفصل الصيفي"],
 ];
@@ -153,7 +154,7 @@ export default function CurriculumPlans({
 
   const courses = useMemo<AdCourse[]>(() => sortByName<AdCourse>(data?.courses ?? [], row => row.CourseName), [data?.courses]);
   const byId = useMemo(() => new Map(courses.map(course => [Number(course.AdCourseId), course])), [courses]);
-  const livePlans = (data?.plans || []).filter(plan => plan.status !== "archived");
+  const livePlans = (data?.plans || []).filter(plan => plan.status !== "archived" && !plan.track);
   const active = data?.bootstrap ? null : livePlans.find(plan => plan.status === "active") || null;
   const previous = data?.bootstrap ? null : livePlans.find(plan => plan.status === "transition") || null;
   const archivedPlans = (data?.plans || []).filter(plan => plan.status === "archived");
@@ -213,11 +214,13 @@ export default function CurriculumPlans({
   const startRule = (plan: CurriculumPlan) => {
     const current = ruleOf(plan.id).rule;
     const seed = current || ruleOf(livePlans.find(row => row.id !== plan.id)?.id).rule;
-    setRuleDraft({ planId: plan.id, values: Object.fromEntries(RULE_FIELDS.map(([key]) => [key, seed ? String(seed[key]) : ""])) });
+    setRuleDraft({ planId: plan.id, values: Object.fromEntries(RULE_FIELDS.map(([key]) => [key, key === "fieldTrainingRequired" ? (current?.fieldTrainingRequired ? String(current.fieldTrainingRequired) : "") : (seed ? String(seed[key]) : "")])) });
   };
   const saveRule = async () => {
     if (!ruleDraft) return;
-    const values = Object.fromEntries(RULE_FIELDS.map(([key]) => [key, Number(ruleDraft.values[key])]));
+    // An empty field-training threshold means this plan has no field training. Persist 0 explicitly,
+    // rather than omitting the key and inheriting a guessed threshold from another plan.
+    const values = Object.fromEntries(RULE_FIELDS.map(([key]) => [key, Number(ruleDraft.values[key] || 0)]));
     const body = await mutate(`/api/curriculum/plans/${encodeURIComponent(ruleDraft.planId)}`, json("PUT", { AdSectionId: sectionId, degreeRule: values }),
       "حُفظت شروط التخرج. يقيس الاستبيان عليها طلبة هذه الصحيفة من الآن.");
     if (body) setRuleDraft(null);
@@ -303,7 +306,7 @@ export default function CurriculumPlans({
             {RULE_FIELDS.map(([key, label, hint]) => (
               <label key={key}>
                 <span>{label}</span>
-                <input type="number" min={30} max={300} inputMode="numeric" dir="ltr" value={editing.values[key]}
+                <input type="number" min={0} max={999} inputMode="numeric" dir="ltr" value={editing.values[key]}
                   onChange={e => setRuleDraft({ planId: plan.id, values: { ...editing.values, [key]: e.target.value } })}
                   aria-label={`${label} — ${plan.name}`} />
                 <small>{hint}</small>
@@ -311,7 +314,7 @@ export default function CurriculumPlans({
             ))}
           </div>
           <div className="plan-rule-actions">
-            <PrimaryButton data-guide-ignore="حفظ شروط التخرج لهذه الصحيفة" onClick={saveRule} disabled={busy || RULE_FIELDS.some(([key]) => !editing.values[key])}><Check /> حفظ الشروط</PrimaryButton>
+            <PrimaryButton data-guide-ignore="حفظ شروط التخرج لهذه الصحيفة" onClick={saveRule} disabled={busy || RULE_FIELDS.some(([key]) => key !== "fieldTrainingRequired" && !editing.values[key]?.trim())}><Check /> حفظ الشروط</PrimaryButton>
             <SecondaryButton data-guide-ignore="إلغاء تعديل شروط التخرج" onClick={() => setRuleDraft(null)} disabled={busy}>إلغاء</SecondaryButton>
           </div>
         </div>
@@ -328,7 +331,7 @@ export default function CurriculumPlans({
     return (
       <div className="plan-rule">
         <dl className="plan-rule-grid">
-          {RULE_FIELDS.map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{num(rule[key])}</dd></div>)}
+          {RULE_FIELDS.map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{key === "fieldTrainingRequired" && rule[key] === 0 ? "لا ينطبق" : num(rule[key])}</dd></div>)}
         </dl>
         <div className="plan-rule-foot">
           <small>{inherited ? "منقولة من قواعد القسم السابقة" : "شروط تخرج معتمدة لهذه الصحيفة"}</small>
@@ -443,15 +446,23 @@ export default function CurriculumPlans({
     <>
       <p className="plan-muted">اختياري. اربط مقرراً قديماً بمقابله في الصحيفة الجديدة إن كان له مقابل، ليعرف من يقرأ السجل أنهما متقابلان. المقرر الجديد كلياً لا يحتاج ربطاً.</p>
       <div className="plan-map-form">
-        <select value={fromCourseId} onChange={e => setFromCourseId(Number(e.target.value))} aria-label="المقرر في الصحيفة السابقة">
-          <option value={0}>من الصحيفة السابقة…</option>
-          {previousCourses.filter(course => !activeIds.has(Number(course.AdCourseId))).map(course => <option key={course.AdCourseId} value={course.AdCourseId}>{courseLine(course)}</option>)}
-        </select>
+        <SearchableSelect
+          value={fromCourseId || ""}
+          onChange={picked => setFromCourseId(Number(picked) || 0)}
+          ariaLabel="المقرر في الصحيفة السابقة"
+          options={previousCourses.filter(course => !activeIds.has(Number(course.AdCourseId))).map(course => ({ value: course.AdCourseId, label: course.CourseName, hint: course.CourseCode, keywords: String(course.CourseCode || "") }))}
+          placeholder="من الصحيفة السابقة…"
+          searchPlaceholder="اكتب اسم المقرر أو رمزه"
+        />
         <ArrowLeftRight aria-hidden="true" />
-        <select value={toCourseId} onChange={e => setToCourseId(Number(e.target.value))} aria-label="مقابله في الصحيفة الجديدة">
-          <option value={0}>مقابله في الجديدة…</option>
-          {activeCourses.map(course => <option key={course.AdCourseId} value={course.AdCourseId}>{courseLine(course)}</option>)}
-        </select>
+        <SearchableSelect
+          value={toCourseId || ""}
+          onChange={picked => setToCourseId(Number(picked) || 0)}
+          ariaLabel="مقابله في الصحيفة الجديدة"
+          options={activeCourses.map(course => ({ value: course.AdCourseId, label: course.CourseName, hint: course.CourseCode, keywords: String(course.CourseCode || "") }))}
+          placeholder="مقابله في الجديدة…"
+          searchPlaceholder="اكتب اسم المقرر أو رمزه"
+        />
         <PrimaryButton data-guide-ignore="حفظ ربط مقرر قديم بمقابله الجديد" onClick={saveTransition} disabled={busy || !fromCourseId || !toCourseId}><Link2 /> ربط</PrimaryButton>
       </div>
       <div className="plan-course-list">
@@ -486,9 +497,9 @@ export default function CurriculumPlans({
               {pickerColleges.map(college => <option key={college.AdCollegeId} value={college.AdCollegeId}>{college.AdCollegeName}</option>)}
             </select>
           ) : null}
-          <select value={sectionId} onChange={e => setSectionId(Number(e.target.value))} aria-label="القسم العلمي">
+          {pickerSections.length === 1 ? null : <select value={sectionId} onChange={e => setSectionId(Number(e.target.value))} aria-label="القسم العلمي">
             {sortByName<AdSection>(pickerSections, row => labelOf.get(row.AdSectionId) || row.AdSectionName).map(section => <option key={section.AdSectionId} value={section.AdSectionId}>{labelOf.get(section.AdSectionId) || section.AdSectionName}</option>)}
-          </select>
+          </select>}
         </Surface>
 
         {loading && !data ? <Surface className="curriculum-loading">يجري تحميل صحائف القسم…</Surface> : data ? <>

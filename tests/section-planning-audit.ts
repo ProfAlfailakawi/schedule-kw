@@ -145,7 +145,7 @@ values = remainingValues(r, r.column!);
 check(values["1"] === 1390 && values["3"] === 370 && values["4"] === 48, "القيم من «اعداد الذين لم يسجلوا» نفسه (1390، 370 بثقة 55 على الحدّ، 48) — لا من «المقاعد المتبقية» (1336، 256، 210)");
 check(!("2" in values) && !("5" in values) && remainingOf(r.rows.find(row => row.courseId === 2)!, r.column!).state === "noSections",
   "مقررٌ بلا شعب في الكشف (120، 255): لا قيمة — لا يؤخذ «لم يجتازوا» بدلها");
-/* مراجعة الكود على #184 — بمعنى «اعداد الذين لم يسجلوا» */
+/* Regression case #184 — «اعداد الذين لم يسجلوا» */
 const missedCell = [swrsPage(0, [["102", [1390, 1336, 0, 1336, 19, null]], ["201", [570, 256, 0, 256, 9, 570]]])];
 r = readRemainingReport(missedCell, islCatalogue, "0101");
 values = remainingValues(r, r.column!);
@@ -180,7 +180,7 @@ r = readRemainingReport(noNotPassed, islCatalogue, "0101");
 check(r.column != null && !r.rows.some(row => row.doubt) && remainingValues(r, r.column)["3"] === 370,
   "ولا بلا «لم يجتازوا» مقروءاً — ولا تُستبدل به السعة");
 
-/* مراجعة الكود على #185 */
+/* Regression case #185 */
 const wholeColumnMissed = [
   swrsPage(0, [["102", [1390, 1336, 0, 1336, 19, 1390]], ["201", [570, 256, 0, 256, 9, 570]]]),
   swrsPage(0.035, [["254", [48, 210, 0, 210, 3, null]], ["255", [35, 70, 0, 70, 1, null]]]),
@@ -230,7 +230,7 @@ check(repo.includes("getRegistrationStats: async") && repo.includes("saveRegistr
 check(repo.includes("input.counts ?? previous?.counts") && repo.includes("remaining: Object.fromEntries(Object.entries(clean(input.remaining, 100000, -100000)).map(([key, value]) => [key, Math.max(0, value)]))")
   && (server.match(/Math\.max\(0, Number\(value\) \|\| 0\)/g) || []).length === 2, "لا متبقٍّ سالب: يُحفظ صفراً، وما حُفظ سالباً قبلُ يُعرض صفراً في الفصل وفي تاريخ الفصول السابقة؛ و«المسجّلين» القديم يبقى كما هو");
 check(repo.includes('input.remainingSource.column === "unregistered" || input.remainingSource.column === "seats"'), "وسم العمود يُحفظ كما أُرسل («unregistered»، و«seats» القديم يبقى قديماً)");
-check((server.match(/remainingSource\?\.column === "unregistered"/g) || []).length === 6 && !server.includes('remainingSource?.column === "seats"')
+check((server.match(/remainingSource\?\.column === "unregistered"/g) || []).length === 8 && !server.includes('remainingSource?.column === "seats"')
   && server.includes('legacyRemaining: stats?.remainingSource?.column !== "unregistered"'),
   "الخادم: «unregistered» وحده مدخل الاقتراح والمقارنة والتوقّع (والشاغر معه)، وما سواه (seats أو بلا وسم) «قديم» لا يُحسب");
 check(server.includes("vacant: req.body?.vacant || {}") && repo.includes("vacant: clean(input.vacant, 100000, -100000)"),
@@ -239,15 +239,15 @@ check(server.includes('app.get("/api/registration-stats", requirePermission(7)')
   && server.includes('app.post("/api/registration-stats/remaining-pdf", rateLimitDocumentRead, requirePermission(7), express.raw(') && server.includes("documentReadingGate, async (req: AuthenticatedRequest, res: Response) => {\n  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);\n  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: \"حدد الكلية والقسم والفصل\" }); return; }\n  if (!isScopeAllowed(req, collegeId, sectionId))"),
   "أبواب الإحصاء والكشف محميّة بالصلاحية والنطاق، والكشف محدودُ المعدّل وفي طابور قراءة المستندات");
 check(server.includes('app.post("/api/registration-stats/remaining-cells", rateLimitDocumentRead, requirePermission(7)') && server.includes("if (!isScopeAllowed(req, collegeId, sectionId))")
-  && server.includes('"image/*"], limit: "24mb" })') && server.includes("remainingWarnings(cells.headerText, departmentCode, termName)") && server.includes("imageOrientationRefusal(") && server.includes("assessment.reject"),
+  && server.includes('"image/*"], limit: "24mb" })') && server.includes("remainingTermRefusal(cells.headerText, termName)") && server.includes("imageOrientationRefusal(") && server.includes("assessment.reject"),
   "صفحات الصور تُقرأ معاً بالباب نفسه وحدوده، والصور مقبولة، وترويسة الكشف تُفحص");
 check((server.match(/remainingAssessment\(reading, departmentCode, departmentName, (cells\.)?headerText, branch\)/g) || []).length === 2
   && server.includes("const branch = { code: site.length >= 3 ? site.slice(0, 3) : \"\", collegeName: String(college?.AdCollegeName || \"\") };"),
   "بابا الكشف (الملف والصفحات معاً) يمرّران الفرع المختار، فكشف فرعٍ آخر يُرفض قبل المعاينة");
 {
   const ui = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
-  check(ui.includes("const clearImport = () =>") && ui.includes("setRemaining({}); setVacant({}); setSource(null);") && ui.includes("window.confirm(") && !ui.includes("setDeptConfirmed")
-    && ui.includes("const hasSaved = Boolean(source || legacy || Object.values(remaining).some(value => value !== \"\"));") && ui.includes("disabled={!hasSaved || reading}") && ui.includes("لا كشف مستورد لإزالته"),
+  check(ui.includes("const clearImport = async () =>") && ui.includes("setRemaining({}); setChosen({}); setVacant({}); setSource(null);") && ui.includes("await visualConfirm(") && !ui.includes("window.confirm(") && !ui.includes("setDeptConfirmed")
+    && ui.includes("Object.values(chosen).some(value => value !== \"\")") && ui.includes("disabled={!hasSaved || reading}") && ui.includes("لا كشف مستورد لإزالته"),
     "كشفٌ استُورد خطأً يُزال كله بعد تأكيد (المتبقي وشاغره ومصدره)، والزر ظاهرٌ دائماً: يعمل لأي متبقٍّ محفوظ (كشفٌ موسوم أو «بيانات قديمة» أو أرقامٌ بلا مصدر)، ومعطّلٌ حين لا شيء يُزال؛ ولا خانة «أؤكد…»");
 }
 {
@@ -284,8 +284,7 @@ check(publicSchedule.includes('resolved.link.kind === "students"'), "رابط ا
 check(server.includes('resolved.link.kind === "survey" || resolved.link.kind === "students"'), "ولا تقويم ICS منه");
 check(server.includes('if (resolved.link.kind === "students") {\n    res.redirect(302, `/t/'), "/s/ يحوّل رابط الطلبة إلى /t/");
 check(fs.readFileSync("tests/public-pages-syntax-audit.ts", "utf8").includes('"studentSchedulePage"'), "صفحة الطلبة في تدقيق صياغة الصفحات العامة");
-const qr = fs.readFileSync("src/components/StudentQrButton.tsx", "utf8");
-check(qr.includes('import("../utils/qrcodeGenerator")') && qr.includes('kind: "students"') && qr.includes("print") && qr.includes("toDataURL"), "زرّ QR: توليدٌ في المتصفح، طباعة وتنزيل");
+check(!fs.existsSync("src/components/StudentQrButton.tsx") && !transfer.includes("StudentQrButton"), "بطاقة النشر بلا زرّ «رمز QR للطلبة» المكرّر: الرمز يخرج من نافذة النشر ومن «مساري»");
 
 console.log(`\nSection planning & student QR audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

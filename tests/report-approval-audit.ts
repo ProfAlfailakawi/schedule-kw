@@ -115,7 +115,7 @@ check(balanceBody.includes("if (!isScopeAllowed(req, Number(row.AdCollegeId), Nu
 /* ── العدسات بحسب الصفة ────────────────────────────────────────────────── */
 
 check(reports.includes("const ROLE_LENSES"), "قائمة العدسات بحسب الصفة معرَّفة");
-const roleLensBlock = reports.slice(reports.indexOf("const ROLE_LENSES"), reports.indexOf("const ROLE_LENSES") + 700);
+const roleLensBlock = reports.slice(reports.indexOf("const ROLE_LENSES"), reports.indexOf("};", reports.indexOf("const ROLE_LENSES")) + 2);
 check(/dean:\s*\["balance", "list", "week"/.test(roleLensBlock), "العميد يفتح على ميزان الأقسام، ثم الجداول المعتمدة نفسها (N2: قائمةٌ فارغة قبل أول اعتماد لا تجيب)");
 check(/registrarHead:\s*\["balance"/.test(roleLensBlock), "رئيس التسجيل يفتح على الميزان أيضاً");
 check(!roleLensBlock.includes("committeeChair"), "لجنة الجدول ترى القائمة كاملةً كما كانت قبل هذه الإضافة");
@@ -125,17 +125,15 @@ check(reports.includes("setLens(shownLenses[0].id)"),
 check(reports.includes("roleId?: string;"), "الصفة تصل الشاشة");
 check(app.includes("roleId={sessionRole.id}"), "والتطبيق يمرّرها");
 
-/* ── كل صفةٍ تفتح على شاشتها ───────────────────────────────────────────── */
+/* ── كل مستخدم يبدأ من لوحة التحكم بعد الدخول ───────────────────────────── */
 
-check(app.includes('if (role.landing === "changes") return "scheduleChanges";'), "التسجيل يفتح على الوارد");
-check(app.includes('if (role.landing === "balance") return "reportDepartment";'), "العميد يفتح على ميزان الأقسام");
-check(app.includes('if (role.landing === "schedules") return "schedules";'), "القسم يفتح على جدوله");
+check(app.includes('function landingViewFor(): View {\n  return "dashboard";\n}'), "كل الصفات تبدأ من لوحة التحكم عند تسجيل الدخول");
 /* والشاشة الافتتاحية تصمد أمام إعادة التحميل: أكثرُ ما يفعله الناس ليس تسجيلَ
    دخول، هو فتحُ صفحةٍ محفوظة أو ضغطُ زرّ التحديث. */
 check(app.includes("if (!viewByPath.has(window.location.pathname.toLowerCase())) {"),
   "وتُطبَّق عند استعادة الجلسة لا عند الدخول وحده");
-check(app.includes("const landing = landingViewFor(restoredRole);"),
-  "ومن فتح عنواناً بعينه أراده، فلا يُنقل عنه");
+check(app.includes('window.history.replaceState({}, "", pathByView.dashboard);'),
+  "استعادة الجلسة على الجذر تبدأ من لوحة التحكم، مع احترام الرابط المباشر");
 /* الشاشة تُفتح لمن يقرّر فيها أو يعلّق أو يطّلع عليها — لا لمن يقرّر وحده.
    فعميدُ التسجيل سؤالُه هو الوارد نفسه، ورئيسُ القسم يعلّق فيه. */
 check(app.includes("const opensChangesScreen ="),

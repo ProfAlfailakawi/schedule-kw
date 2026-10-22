@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CalendarCheck, CircleAlert, CheckCircle2, ClipboardPenLine, DoorClosed, Layers, Undo2, UserRoundX } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { Notice, PrimaryButton, SecondaryButton } from "./ui";
@@ -14,7 +14,7 @@ import { ImpactCard, postWhatIf, type ChangeImpact } from "./ApplyProposal";
 
 interface Placement { pending?: boolean; days?: string[]; index: number; day: string; dayLabel: string; start: string; end: string; roomCode: string; roomHall: string; instructorName: string; sectionCode: string; buildingId: string; roomId: string; instructorId: number }
 interface BuildRow { courseId: number; name: string; code: string; target: number | null; existing: number; remaining: number; state: "done" | "missing" | "over" | "unset"; placements: Placement[]; unplaced: number; reason: string }
-interface Built { rows: BuildRow[]; started: boolean; fingerprint: string; totals: { target: number; existing: number; remaining: number; placeable: number; pending: number } }
+interface Built { rows: BuildRow[]; started: boolean; fingerprint: string; totals: { target: number; existing: number; remaining: number; placeable: number; pending: number; roomless: number } }
 
 /** ما يفعله القسم لكل سببٍ يمنع البناء: يُستخرج من نصّ السبب القادم من الخادم. */
 const FIX_FOR = (reason: string) => /قاعة/.test(reason) ? "أضِف سعة القاعات في سجلّ القاعات"
@@ -44,7 +44,7 @@ function Dots({ row, picked }: { row: BuildRow; picked: Set<string> }) {
 export default function SectionBuild({ collegeId, sectionId, termId, targets, onBuilt, onReview }: {
   key?: React.Key; collegeId: number; sectionId: number; termId: number; targets: Record<string, number>; onBuilt?: () => void;
   /** صفوفٌ بشكل نموذج الاستيراد تُفتح في شاشة المراجعة نفسها. */
-  onReview?: (rows: any[]) => void;
+  onReview?: (rows: any[], meta?: { existing: number; added: number; pending: number; existingKeys?: string[] }) => void;
 }) {
   const [built, setBuilt] = useState<Built | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -56,19 +56,32 @@ export default function SectionBuild({ collegeId, sectionId, termId, targets, on
   const [undone, setUndone] = useState(0);
 
   const base = { collegeId, sectionId, termId, targets };
+  /* من غادر التخطيط والطلب معلّق لا تُسحَب شاشته إلى المراجعة. */
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const openReview = async (data: Built, keep: Set<string>) => {
+    const pending = data.rows.flatMap(row => row.placements.filter(p => p.pending).map(p => `${row.courseId}:${p.sectionCode}`));
+    const rows = await call("/api/section-build/review-rows", { ...base, pick: [...keep, ...pending] });
+    if (!alive.current) return;
+    setBuilt(null);
+    onReview?.(rows.rows || [], { existing: Number(rows.existing) || 0, added: Number(rows.added) || 0, pending: Number(rows.pending) || 0, existingKeys: Array.isArray(rows.existingKeys) ? rows.existingKeys.map(String) : undefined });
+  };
+  /* لا شاشة معاينة وسيطة: من اختار وجهّز في الشاشة الأولى يفتح مراجعة الشعب مباشرة؛ وتبقى المعاينة لمن لا شيء يُبنى عنده أو بعضه لم يُبنَ (تشرح السبب قبل المراجعة). */
   const look = async () => {
     setBusy(true); setError(""); setAsking(false); setDone(null); setUndone(0); setImpact(null);
     try {
       const data: Built = await call("/api/section-build/preview", base);
-      setBuilt(data);
-      setPicked(new Set(data.rows.flatMap(row => row.placements.filter(p => !p.pending).map(p => `${row.courseId}:${p.sectionCode}`))));
+      const keep = new Set(data.rows.flatMap(row => row.placements.filter(p => !p.pending).map(p => `${row.courseId}:${p.sectionCode}`)));
+      if (onReview && data.totals.placeable > 0 && !data.rows.some(row => row.unplaced > 0)) { await openReview(data, keep); return; }
+      setBuilt(data); setPicked(keep);
       const items = data.rows.flatMap(row => row.placements.filter(p => !p.pending).map(p => ({ collegeId, sectionId, courseId: row.courseId, placement: p })));
       if (items.length) postWhatIf({ kind: "openings", termId, items }).then(setImpact).catch(() => setImpact(null));
     } catch (e: any) { setError(e.message); } finally { setBusy(false); }
   };
   const review = async () => {
+    if (!built) return;
     setBusy(true); setError("");
-    try { const data = await call("/api/section-build/review-rows", base); setBuilt(null); onReview?.(data.rows || []); }
+    try { await openReview(built, picked); }
     catch (e: any) { setError(e.message); } finally { setBusy(false); }
   };
   const toggle = (key: string) => setPicked(current => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next; });
@@ -97,7 +110,7 @@ export default function SectionBuild({ collegeId, sectionId, termId, targets, on
       <header className="sb-head">
         <span className="sb-ic" aria-hidden="true"><Layers /></span>
         <div><b>نزّل الشعب</b><small>يقارن اختيارك بالجدول، ويبني الباقي بلا تعارض، ثم يعرضه قبل أن يكتب.</small></div>
-        {!built && !done ? <PrimaryButton type="button" disabled={busy} onClick={look} data-guide-ignore="معاينة الشعب الباقية؛ لا يكتب شيئاً في الجدول">{busy ? "جارٍ البناء…" : "عاين ما سيُنزَّل"}</PrimaryButton> : null}
+        {!built && !done ? <PrimaryButton type="button" disabled={busy} onClick={look} data-guide-ignore="فتح الشعب الباقية في شاشة المراجعة؛ لا يكتب شيئاً في الجدول قبل النزول">{busy ? "جارٍ البناء…" : "راجع وعدّل"}</PrimaryButton> : null}
       </header>
       {error ? <Notice type="error" onDismiss={() => setError("")}>{error}</Notice> : null}
       {undone ? <Notice type="success" inline>تم التراجع: حُذفت {countOf(undone, AR.section)} من الجدول.</Notice> : null}
@@ -136,7 +149,7 @@ export default function SectionBuild({ collegeId, sectionId, termId, targets, on
                   return p.pending ? (
                     <div key={key} className="sb-slot is-pending">
                       <span><b>شعبة {p.sectionCode}</b> · {p.dayLabel} {p.start}–{p.end}</span>
-                      <small><DoorClosed aria-hidden="true" /> قاعة؟ · {p.instructorName || "أستاذ؟"}</small>
+                      <small>{p.roomId ? `${p.roomCode}/${p.roomHall}` : <><DoorClosed aria-hidden="true" /> قاعة؟</>} · {p.instructorName || "أستاذ؟"}</small>
                     </div>
                   ) : (
                     <label key={key} className="sb-slot">
@@ -154,11 +167,14 @@ export default function SectionBuild({ collegeId, sectionId, termId, targets, on
           {impact ? <ImpactCard impact={impact} /> : null}
           {!totals.placeable && totals.remaining ? <Notice type="warning" inline><CircleAlert aria-hidden="true" /> لا شعبة قابلة للبناء الآن؛ أسباب كل مقرر أعلاه.</Notice> : null}
           {!totals.remaining ? <Notice type="success" inline>كل ما اخترته موجودٌ في الجدول.</Notice> : null}
-          {totals.pending > 0 && onReview ? (
+          {totals.placeable > 0 && onReview ? (
             <div className="sb-review">
               <ClipboardPenLine aria-hidden="true" />
-              <p><b>{countOf(totals.pending, AR.section)}</b> بأوقات الفصل المماثل، بانتظار القاعة والأستاذ. تُثبَّت في شاشة المراجعة نفسها التي بعد الاستيراد.</p>
-              <PrimaryButton type="button" disabled={busy} onClick={review} data-guide-ignore="فتح الشعب الباقية في شاشة مراجعة الاستيراد لتثبيت القاعة والأستاذ قبل النشر">راجع وعدّل</PrimaryButton>
+              <p>
+                افتح الشعب المقترحة (<b>{countOf(chosenCount + totals.pending, AR.section)}</b>) في المراجعة لتعدّلها ثم تنزّلها.
+                {totals.roomless > 0 ? <> <b>{countOf(totals.roomless, AR.section)}</b> منها بلا قاعة، تختارها هناك.</> : null}
+              </p>
+              <PrimaryButton type="button" disabled={busy} onClick={review} data-guide-ignore="فتح الشعب المقترحة مع مواعيد القسم الحالية في شاشة مراجعة الاستيراد للتعديل قبل النشر">راجع وعدّل</PrimaryButton>
             </div>
           ) : null}
           {chosenCount ? (

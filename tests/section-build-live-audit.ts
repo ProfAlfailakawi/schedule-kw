@@ -7,6 +7,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { spawn } from "child_process";
+import { waitForDemoSeed } from "./helpers/demoSeed";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -21,6 +22,11 @@ check(srv.includes('applyProposalCore(req, {\n        kind: "opening"') && !/sec
 check(srv.includes("section-build:${collegeId}:${sectionId}:${termId}") && srv.includes("String(req.body?.fingerprint"), "قفلٌ متسلسل وبصمة أسبوع قبل الكتابة");
 check(plan.includes("<SectionBuild") && plan.includes("buildReady") && fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8").includes("xlsxPreview.editable") && ui.includes("/api/section-build/review-rows") && ui.includes("/api/section-build/apply") && ui.includes('role="alertdialog"'), "الواجهة موصولة في تخطيط الشعب وفيها تأكيدٌ قبل الكتابة");
 
+const transferSrc = fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8");
+check(transferSrc.includes('className="tp-banner"') && transferSrc.includes("const goTab = ") && transferSrc.includes("fromPlanning ? null : (<>") && transferSrc.includes('transfer-import-commit-wrap${fromPlanning') && transferSrc.includes("نزّل ${countOf(planningMeta.added, AR.section)} في الجدول") && transferSrc.includes("نزّل الشعب (من تخطيط الشعب)"), "مراجعة التخطيط لها هويتها المستقلة عن استيراد الملف/PDF: شارة، بلا رفع ملف، زر «نزّل» ثابت، ومغادرتها تُفرغها");
+
+check(transferSrc.includes("const keepPending = ") && transferSrc.includes('origin === "existing" && !row.roomId') && !/locationStatus: "PENDING_ROOM" \} : row\)/.test(transferSrc), "القاعة إلزامية في مراجعة التخطيط: الشعبة المقترحة لا تُجعل «بانتظار التثبيت» تلقائياً (قرارٌ صريح من المستخدم وحده)");
+
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "schedule-section-build-"));
 let child: ReturnType<typeof spawn> | null = null;
 try {
@@ -32,12 +38,12 @@ try {
     if (!ready) throw new Error("الخادم لم يبدأ");
     const login = await fetch(BASE + "/api/auth/demo", { method: "POST" });
     const cookie = ((login.headers as any).getSetCookie?.() as string[] || []).map(c => c.split(";")[0]).join("; ");
+    await waitForDemoSeed(BASE, cookie);
     const call = async (method: string, url: string, body?: unknown) => {
       const response = await fetch(BASE + url, { method, headers: { cookie, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
       return { status: response.status, body: await response.json().catch(() => null) as any };
     };
-    /* قاعات التجربة بلا سعة وأساتذتها بلا نصاب؛ بدونهما يقول المحرّك السبب ولا يخترع. */
-    for (const room of (await call("GET", "/api/location-registry")).body.rooms) await call("PUT", `/api/admin/location-registry/rooms/${room.id}`, { capacity: 60 });
+    /* القاعة بلا سعة مسجّلة تبقى صالحةً للبناء. أساتذة التجربة بلا نصاب؛ بدونه يقول المحرّك السبب ولا يخترع. */
     for (const person of (await call("GET", "/api/instructors")).body as any[]) await call("PUT", `/api/instructors/${person.AdInstructorId}`, { ...person, AdInstructorLoad: 40 });
 
     const scope = { collegeId: 1, sectionId: 1, termId: 1 };
@@ -47,6 +53,7 @@ try {
     const row3 = preview.body.rows.find((r: any) => r.courseId === 3);
     check(preview.status === 200 && row3.target === 6 && row3.existing === 4 && row3.remaining === 2, "المطلوب ٦ والموجود ٤ ⇒ باقٍ ٢", row3);
     check(row3.placements.length === 2 && preview.body.totals.placeable === 4, "الباقي يُبنى له موعدٌ وقاعةٌ وأستاذ", preview.body.totals);
+    check(preview.body.rows.flatMap((r: any) => r.placements).every((p: any) => /^[5-9]\d\d$/.test(String(p.sectionCode))), "أرقام الشعب المقترحة صالحةٌ للاستيراد (٣ خانات من 501) فلا تُحجب المراجعة بها", preview.body.rows.flatMap((r: any) => r.placements.map((p: any) => p.sectionCode)));
     check(((await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body as any[]).length === before.length, "المعاينة لا تكتب شيئاً");
     const unset = await call("POST", "/api/section-build/preview", { ...scope, targets: {} });
     check(unset.body.rows.every((r: any) => r.state === "unset" && r.placements.length === 0), "بلا اختيار لا يُبنى شيء");
@@ -68,8 +75,38 @@ try {
     check(((await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body as any[]).length === before.length, "الجدول عاد كما كان");
 
     /* ── فصلٌ فارغ: وقتٌ من الفصل المماثل وقاعةٌ بانتظار التثبيت، ومراجعةٌ في شاشة الاستيراد نفسها ── */
-    check((await call("POST", "/api/section-build/review-rows", { collegeId: 1, sectionId: 2, termId: 1, targets: { "1": 1 } })).status === 409, "قسمٌ فيه مواعيد: المراجعة (التي تستبدل الجدول) مرفوضة");
+    /* قسمٌ فيه مواعيد: تُفتح المراجعة وتحمل مواعيده الحالية كلها ثم المبنيّة، فلا يمحو النشر هناك شيئاً بلا علم القسم. */
+    const occupiedReview = await call("POST", "/api/section-build/review-rows", base);
+    check(occupiedReview.status === 200 && occupiedReview.body.existing === before.length && occupiedReview.body.added === preview.body.totals.placeable && occupiedReview.body.count === before.length + preview.body.totals.placeable, "قسمٌ فيه مواعيد: المراجعة تحمل مواعيده الحالية والمبنيّة معاً", { status: occupiedReview.status, existing: occupiedReview.body?.existing, added: occupiedReview.body?.added, before: before.length });
+    check(Array.isArray(occupiedReview.body.existingKeys) && occupiedReview.body.existingKeys.length === before.length && occupiedReview.body.existingKeys.every((k: string) => /^\d+\|/.test(k)), "والمراجعة تُرجع مفتاح كل موعدٍ حالي ليُحسب أصل كل صف بعد حذف المراجع", occupiedReview.body?.existingKeys);
+    const occupiedImp = await call("POST", "/api/intelligence/import-preview", { ...scope, rows: occupiedReview.body.rows });
+    check(occupiedImp.status === 200 && occupiedImp.body.count === occupiedReview.body.count, "وشاشة الاستيراد تقرأها كلها", { status: occupiedImp.status, error: occupiedImp.body?.error, count: occupiedImp.body?.count, expected: occupiedReview.body?.count });
+    /* فصلٌ فيه مواعيد ومقررٌ لا أستاذ سابق له (CS490): يُعرض معلّقاً (قاعة وأستاذ بانتظار التثبيت) في المراجعة ولا يُهمَل. */
+    const wide = { ...scope, targets: { "27": 3 } };
+    const widePreview = await call("POST", "/api/section-build/preview", wide);
+    const wideReview = await call("POST", "/api/section-build/review-rows", wide);
+    check(widePreview.body.totals.pending === 3 && widePreview.body.totals.placeable === 3 && wideReview.status === 200 && wideReview.body.existing === before.length && wideReview.body.count === before.length + 3 && wideReview.body.pending === 3, "فصلٌ فيه مواعيد: ما لا أستاذ سابق له يُعرض معلّقاً في المراجعة ولا يُهمَل", { totals: widePreview.body.totals, count: wideReview.body?.count, pending: wideReview.body?.pending, before: before.length });
+    check(widePreview.body.totals.roomless === 0 && widePreview.body.rows.flatMap((r: any) => r.placements).every((p: any) => p.roomId && p.roomCode && p.roomHall) && wideReview.body.roomless === 0 && wideReview.body.rows.slice(before.length).every((r: any) => r["القاعة"] && r["المبنى"]), "والنظام يختار لها قاعةً من تاريخ القسم فلا تبقى بانتظار التثبيت", widePreview.body.totals);
+    const widePick = widePreview.body.rows.flatMap((r: any) => r.placements.map((p: any) => `${r.courseId}:${p.sectionCode}`));
+    const wideApply = await call("POST", "/api/section-build/apply", { ...wide, fingerprint: widePreview.body.fingerprint, pick: widePick });
+    check(wideApply.status === 409 && wideApply.body?.code === "needs-review" && ((await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body as any[]).length === before.length, "والمعلّق لا يُكتب مباشرةً ولو في فصلٍ فيه مواعيد", wideApply.body);
+    /* قاعاتُ القسم «الحالية»: قاعةٌ من تاريخه صارت في السجلّ لقسمٍ آخر لا تُختار، فلا يبقى إلا المشترك بين تاريخه وما هو له الآن. */
+    const registryRooms = ((await call("GET", "/api/location-registry")).body.rooms || []) as any[];
+    const keepRoom = "room_901A01_101";
+    const movedOut = [] as string[];
+    for (const room of registryRooms) if (room.id !== keepRoom && (room.sectionIds || []).includes(1)) { const moved = await call("PUT", `/api/admin/location-registry/rooms/${room.id}`, { sectionIds: [2], primarySectionIds: [] }); if (moved.status === 200) movedOut.push(room.id); }
+    const currentOnly = await call("POST", "/api/section-build/preview", wide);
+    const usedRooms = currentOnly.body.rows.flatMap((r: any) => r.placements.map((p: any) => p.roomId)).filter(Boolean);
+    check(movedOut.length > 0 && usedRooms.length > 0 && usedRooms.every((id: string) => id === keepRoom), "الاختيار من قاعات القسم الحالية فقط: قاعةٌ من تاريخه صارت لقسمٍ آخر لا تُختار", { movedOut: movedOut.length, usedRooms });
+    check(currentOnly.body.totals.roomless + usedRooms.length === currentOnly.body.totals.pending, "وما لم تُوجد له قاعةٌ حالية يبقى بلا قاعة (لا تخمين) ويُعدّ", currentOnly.body.totals);
+    await call("PUT", `/api/admin/location-registry/rooms/${keepRoom}`, { sectionIds: [2], primarySectionIds: [] });
+    const noCurrent = await call("POST", "/api/section-build/preview", wide);
+    check(noCurrent.body.rows.flatMap((r: any) => r.placements).filter((p: any) => p.pending).every((p: any) => !p.roomId), "وإن لم تكن أيُّ قاعةٍ من تاريخه مسجّلةً له الآن لا تُؤخذ قاعةٌ من التاريخ وحده: يظهر التثبيت", noCurrent.body.totals);
+    const onlyPicked = await call("POST", "/api/section-build/review-rows", { ...base, pick: [pick[0]] });
+    check(onlyPicked.status === 200 && onlyPicked.body.added === 1, "المحدَّد في المعاينة وحده يُضاف", onlyPicked.body?.added);
     for (const row of before) await call("DELETE", `/api/schedules/${row.id}`);
+    /* «لا قاعة موثّقة»: القاعات موقوفة، فيُبنى الوقت من الفصل المماثل وتنتظر القاعة تثبيتها. */
+    for (const room of (await call("GET", "/api/location-registry")).body.rooms) await call("PUT", `/api/admin/location-registry/rooms/${room.id}`, { active: false });
     const empty = await call("POST", "/api/section-build/preview", base);
     const all = empty.body.rows.flatMap((r: any) => r.placements);
     const pendingOnly = all.filter((p: any) => p.pending);
@@ -78,6 +115,7 @@ try {
     check(all.some((p: any) => p.note === "كالفصل المماثل"), "الأوقات من الفصل المماثل حين تتوفّر");
     const pendPick = empty.body.rows.flatMap((r: any) => r.placements.map((p: any) => `${r.courseId}:${p.sectionCode}`));
     check((await call("POST", "/api/section-build/apply", { ...base, fingerprint: empty.body.fingerprint, pick: pendPick })).status === 409, "المعلّقة لا تُكتب مباشرةً: تُراجَع أولاً");
+    check(empty.body.totals.roomless === empty.body.totals.pending && empty.body.totals.pending > 0, "وبلا قاعات موثّقة تبقى كلها بانتظار التثبيت ويُعدّ ذلك", empty.body.totals);
     const review = await call("POST", "/api/section-build/review-rows", base);
     check(review.status === 200 && review.body.count === empty.body.totals.placeable && review.body.pending === empty.body.totals.pending && review.body.rows[0]["الوقت"] && review.body.rows[0]["رمز المقرر"], "صفوف المراجعة بشكل نموذج الاستيراد", { status: review.status, count: review.body?.count, pending: review.body?.pending });
     const imp = await call("POST", "/api/intelligence/import-preview", { collegeId: 1, sectionId: 1, termId: 1, rows: review.body.rows });

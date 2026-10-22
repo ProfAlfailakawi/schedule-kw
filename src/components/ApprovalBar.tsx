@@ -18,11 +18,14 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, BadgeCheck, CalendarClock, CalendarPlus, CalendarX, Check, ChevronDown, CornerUpLeft, DoorOpen, FilePenLine, Flag, History,
   Hourglass, Users, Landmark, ListChecks, ListPlus, Lock, MessageSquareText, PenLine, Quote, Send, ShieldCheck, Undo2, X,
-  Clock, Layers, Pencil,
+  Clock, Layers, Pencil, FileUp,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { safeStorage } from "../utils/safeStorage";
 import { Notice, PrimaryButton, SecondaryButton } from "./ui";
+import { SectionGapBadge, SectionGapPanel, showQuickCompareBadge, useSectionGap, type GapKind } from "./SectionGapNote";
+import type { GapItem } from "../utils/sectionGap";
+import QuickPlanSheet from "./QuickPlanSheet";
 import {
   APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, additionsAwaitingHead, awaitsHeadSignature, blockingSummaryPhrase, deadlinePassed,
 } from "../utils/approvalWorkflow";
@@ -62,7 +65,7 @@ interface Payload {
   escalatedNotes?: number;
   /** أيُعرض «طلب تمديد» الآن: قرب الموعد أو بعده، ولا طلبَ قائم. */
   canRequestExtension?: boolean;
-  dataReadiness?: { ready: boolean; count: number; items: Array<{ kind: string; id: string; label: string; fields: string[] }> };
+  dataReadiness?: { ready: boolean; count: number; items: Array<{ kind: string; id: string; label: string; fields: string[] }>; roomFit?: { count:number; unknownRoomCapacity:number; items:Array<{kind:string;label:string;room:string;detail:string}> } };
 }
 
 interface Props {
@@ -73,6 +76,7 @@ interface Props {
   signatureStage: "committee" | "head" | null;
   /** حسابُ الإدارة الرئيسي يُرسل ويوقّع نيابةً حيث يسمح الخادم. */
   powerAdmin?: boolean;
+  demoMode?: boolean;
   /** يتغيّر كلّما تغيّر الجدول تحته، فيُعاد قراءةُ الحال. */
   refreshSignal?: number;
   /** أيملك صاحب الحساب صلاحية تعديل المقررات؟ وإلا عُطّلت خاناتها وظهر القفل. */
@@ -88,6 +92,8 @@ interface Props {
   /** يفتح شاشة التغييرات حيث تُقرأ الملاحظات على مواعيدها. غيابه يعني أنها معروضةٌ هنا. */
   onOpenNotes?: () => void;
   onOpenCourses?: () => void;
+  /** مقرراتُ القسم التي يطلبها الطلبة وشعبها أقل: يقرؤها مفتاحُ الألوان في الجدول فيضع علامةً صغيرة. */
+  onStudentGaps?: (items: GapItem[]) => void;
 }
 
 /** مثل request، لكن يُبقي رمز الحالة ليميّز الصلاحية من الخطأ. */
@@ -114,7 +120,7 @@ const arabicDate = (iso?: string) => {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString("ar-KW-u-nu-latn", { year: "numeric", month: "long", day: "numeric" });
 };
 
-export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, powerAdmin = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onLockChange, onOpenNotes, onOpenCourses }: Props) {
+export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, powerAdmin = false, demoMode = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onLockChange, onOpenNotes, onOpenCourses, onStudentGaps }: Props) {
   const [state, setState] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -148,6 +154,12 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   const [revealSteps, setRevealSteps] = useState(false);
   /* قائمة البيانات الناقصة تُفتح من عنصرها هي، لا من طيّ تفاصيل الاعتماد. */
   const [readinessOpen, setReadinessOpen] = useState(false);
+  const [gapOpen, setGapOpen] = useState<GapKind | null>(null);
+  const [planSheet, setPlanSheet] = useState(false);
+  const gap = useSectionGap(collegeId, sectionId, termId, refreshSignal);
+  useEffect(() => { onStudentGaps?.(gap.studentItems); }, [gap.studentItems, onStudentGaps]);
+  /* الشريط يزول (كل الأقسام، أو فصلٌ مؤرشف): تزول علاماتُه من مفتاح الألوان معه. */
+  useEffect(() => () => onStudentGaps?.([]), [onStudentGaps]);
   const [readinessAll, setReadinessAll] = useState(false);
   const revealTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(revealTimer.current), []);
@@ -514,12 +526,9 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   const showDetails = expanded && presence.details;
 
   /* ── قائمة البيانات الناقصة: كلُّ بندٍ وفعلُه ─────────────────────────────
-     المقرر ← محرر المقررات، الموعد ← بطاقته في الشاشة، القاعة ← خانة سعتها هنا. */
+     المقرر ← محرر المقررات، الموعد والقاعة ← بطاقة الموعد في الشاشة. */
   const jumpToItem = (item: { kind: string; id: string }) => {
-    if (item.kind === "room") {
-      const input = document.querySelector<HTMLInputElement>(`[data-room-input="${CSS.escape(item.id)}"]`);
-      input?.scrollIntoView({ behavior: "smooth", block: "center" }); input?.focus();
-    } else if (item.kind === "course") {
+    if (item.kind === "course") {
       onOpenCourses?.();
     } else {
       const card = document.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(item.id)}"], #schedule-row-${CSS.escape(item.id)}`);
@@ -527,12 +536,14 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
     }
   };
   const ITEM_ICON: Record<string, LucideIcon> = { course: Landmark, schedule: CalendarClock, location: DoorOpen, room: DoorOpen };
-  const ITEM_ACTION: Record<string, string> = { course: "افتح المقررات", schedule: "اذهب للموعد", location: "اذهب للموعد", room: "أدخل السعة" };
+  const ITEM_ACTION: Record<string, string> = { course: "افتح المقررات", schedule: "اذهب للموعد", location: "اذهب للموعد", room: "اذهب للموعد" };
+  const gapList = gapOpen === "plan" ? gap.planItems : gapOpen === "students" ? gap.studentItems : [];
+  const gapPanel = gapOpen && gapList.length ? <SectionGapPanel items={gapList} kind={gapOpen} onClose={() => setGapOpen(null)} /> : null;
   const readinessPanel = state.dataReadiness ? (
     <section className="apb-data-readiness" data-ready={state.dataReadiness.ready || undefined} aria-label="بيانات تحتاج استكمالاً">
       <header>
         <span className="apb-dr-ic">{state.dataReadiness.ready ? <Check aria-hidden="true" /> : <ListChecks aria-hidden="true" />}</span>
-        <strong>{state.dataReadiness.ready ? "البيانات مكتملة" : `${countOf(state.dataReadiness.count, AR.item)} ناقصة · لا تمنع التوقيع`}</strong>
+        <strong>{state.dataReadiness.ready ? (state.dataReadiness.roomFit?.count ? "ملاحظات تخطيطية · لا تمنع التوقيع" : "البيانات مكتملة") : `${countOf(state.dataReadiness.count, AR.item)} ناقصة · لا تمنع التوقيع`}</strong>
         <button type="button" className="apb-dr-close" aria-label="إغلاق القائمة" onClick={() => setReadinessOpen(false)} data-guide-ignore="إغلاق قائمة البيانات الناقصة"><X aria-hidden="true" /></button>
       </header>
       {!state.dataReadiness.ready ? (() => {
@@ -596,6 +607,11 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
           </>
         );
       })() : null}
+      {state.dataReadiness.roomFit?.count ? <div className="apb-room-fit-review" aria-label="مراجعة ملاءمة القاعات للمخطط">
+        <header><AlertTriangle aria-hidden="true"/><b>{countOf(state.dataReadiness.roomFit.count, AR.appointment)} تحتاج مراجعة ملاءمة</b><small>للمخطط فقط · لا تمنع الاعتماد</small></header>
+        <ul>{state.dataReadiness.roomFit.items.map((item,index)=><li key={`${item.kind}:${item.label}:${index}`}><span><b>{item.label}</b><small>{item.room} · {item.detail}</small></span></li>)}</ul>
+        {state.dataReadiness.roomFit.unknownRoomCapacity ? <small className="apb-room-fit-unknown">سعة {countOf(state.dataReadiness.roomFit.unknownRoomCapacity, AR.room)} غير مسجلة؛ تُركت بلا حكم.</small> : null}
+      </div> : null}
     </section>
   ) : null;
 
@@ -648,17 +664,27 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
             وهي إشعارٌ لا يمنع التوقيع (قاعدة 2026-09-27: لا يمنعه إلا تعارضٌ ماديّ):
             لونها كهرماني لا أحمر، واسمها «بيانات ناقصة» لا «مانع».
             الضغط يفتح قائمتها وفي كل بندٍ فعلٌ يقفز إلى مكان إصلاحه. */}
-        {state.dataReadiness && !state.dataReadiness.ready ? (
+        {state.dataReadiness && (!state.dataReadiness.ready || Boolean(state.dataReadiness.roomFit?.count)) ? (
           <button type="button" className="apb-badge apb-data-btn" data-tone="warning" aria-expanded={readinessOpen}
-            title={`${countOf(state.dataReadiness.count, AR.item)} ناقصة · لا تمنع التوقيع. اضغط للقائمة.`}
+            title={`${state.dataReadiness.roomFit?.count ? `${countOf(state.dataReadiness.roomFit.count, AR.appointment)} ملاحظات ملاءمة` : `${countOf(state.dataReadiness.count, AR.item)} بيانات ناقصة`} · لا تمنع التوقيع. اضغط للتفاصيل.`}
             onClick={() => setReadinessOpen(open => !open)}
             data-guide-ignore="قائمة البيانات الناقصة قبل التوقيع — تفتح قائمةً بكل بندٍ وفعلُه">
             <ListChecks aria-hidden="true" />
-            <b>{state.dataReadiness.count.toLocaleString("ar-KW-u-nu-latn")}</b>
-            <span>بيانات ناقصة</span>
+            <b>{(state.dataReadiness.roomFit?.count || state.dataReadiness.count).toLocaleString("ar-KW-u-nu-latn")}</b>
+            <span>{state.dataReadiness.roomFit?.count ? "ملاءمة القاعات" : "بيانات ناقصة"}</span>
             <ChevronDown aria-hidden="true" className="apb-data-chev" />
           </button>
         ) : null}
+        <SectionGapBadge items={gap.planItems} kind="plan" open={gapOpen === "plan"} onToggle={() => setGapOpen(open => open === "plan" ? null : "plan")} />
+        <SectionGapBadge items={gap.studentItems} kind="students" open={gapOpen === "students"} onToggle={() => setGapOpen(open => open === "students" ? null : "students")} />
+        {showQuickCompareBadge(gap) ? (
+          <button type="button" className="apb-badge apb-gap-ghost" onClick={() => setPlanSheet(true)} aria-haspopup="dialog"
+            title="قارن شعبك بكشف المتبقي" aria-label="ارفع كشف المتبقي لتظهر لك الشعب المقترحة"
+            data-guide-ignore="أيقونة اختيارية: تفتح شاشةً مختصرة لرفع كشف المتبقي">
+            <FileUp aria-hidden="true" />
+          </button>
+        ) : null}
+        {planSheet ? <QuickPlanSheet collegeId={collegeId} sectionId={sectionId} termId={termId} gap={gap} demoMode={demoMode} onClose={() => setPlanSheet(false)} /> : null}
         {canSignNow && blockingConflicts === 0 ? (
           <span className="apb-badge apb-ready" data-tone="success" data-guide-ignore="شارة جاهزية التوقيع — عرضٌ لا فعل">
             <ShieldCheck aria-hidden="true" /><span>جاهز للتوقيع</span>
@@ -807,9 +833,11 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
       </div>
 
       {!showDetails && readinessOpen && readinessPanel ? <div className="apb-expanded apb-expanded-solo">{readinessPanel}</div> : null}
+      {!showDetails && gapPanel ? <div className="apb-expanded apb-expanded-solo">{gapPanel}</div> : null}
       {showDetails ? (
         <div className="apb-expanded" data-reveal={revealSteps || undefined}>
           {readinessPanel}
+          {gapPanel}
           <div className="apb-expanded-row">
             <Stepper steps={steps} size="lg" returnFrom={returnFrom}
               stamp={(step) => step.sig?.length ? (

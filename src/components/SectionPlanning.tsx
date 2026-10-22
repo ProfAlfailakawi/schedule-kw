@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Building2, CheckCircle2, ChevronDown, FileQuestion, FileText, FileUp, Hash, History, Layers, Lightbulb, MinusCircle, MousePointerClick, PencilLine, Printer, RotateCcw, ScanLine, Trash2, Users, X } from "lucide-react";
-import { PrimaryButton, PrintPortal, SecondaryButton, useDialogDismiss } from "./ui";
+import { PrimaryButton, PrintPortal, SecondaryButton, useDialogDismiss, visualConfirm } from "./ui";
 import { AR, countOf, oblique } from "../utils/arabicCount";
 import {
   departmentLoadWarning, departmentTypicalTotal, suggestSectionCount,
@@ -10,6 +10,7 @@ import {
 import { manualRemainingValue, planRemainingApply, remainingOf, vacantValues, type RejectKind, type RejectMismatch, type CellState, type ImportAssessment, type RemainingReading, type ReportRow, type ReportSuspect } from "../utils/remainingReport";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import SectionBuild from "./SectionBuild";
+import { PLAN_SAVED_EVENT } from "./SectionGapNote";
 
 /**
  * ── تخطيط الشعب: كشفُ المتبقي ← مدىً يرسيه التاريخ ← تقرير ─────────────────
@@ -45,11 +46,11 @@ type ImportReading = RemainingReading & {
 };
 type SaveState = "idle" | "saving" | "saved" | "error";
 /** رفضُ الكشف كما يردّه الخادم: النص الكامل، ونوعه، ومقارنة «في الكشف / المختار» إن كان لقسمٍ أو فرعٍ آخر. */
-type ImportRejection = { message: string; kind?: RejectKind | null; mismatch?: RejectMismatch | null };
+type ImportRejection = { message: string; kind?: RejectKind | null; mismatch?: RejectMismatch | null; termMismatch?: { sheet: string; chosen: string } | null };
 const rejection = (body: any, fallback: string, prefix = "") =>
-  Object.assign(new Error(`${prefix}${body?.error || fallback}`), { rejection: { message: `${prefix}${body?.error || fallback}`, kind: body?.rejectKind || null, mismatch: body?.mismatch || null } as ImportRejection });
+  Object.assign(new Error(`${prefix}${body?.error || fallback}`), { rejection: { message: `${prefix}${body?.error || fallback}`, kind: body?.rejectKind || null, mismatch: body?.mismatch || null, termMismatch: body?.termMismatch || null } as ImportRejection });
 /* كل رفضٍ أيقونةٌ وكلمتان وإرشادٌ قصير؛ والنص الكامل يبقى لقارئ الشاشة. */
-const REJECT_SHORT: Record<Exclude<RejectKind, "mismatch">, { icon: React.ComponentType<any>; title: string; hint: string }> = {
+const REJECT_SHORT: Record<Exclude<RejectKind, "mismatch" | "wrongTerm">, { icon: React.ComponentType<any>; title: string; hint: string }> = {
   noCode: { icon: Hash, title: "القسم بلا رمز في النظام", hint: "أضِف رمزه في «الأقسام»" },
   branchUnread: { icon: ScanLine, title: "الفرع غير مقروء في الترويسة", hint: "ارفع PDF من نظام العمادة" },
   departmentUnread: { icon: ScanLine, title: "رمز القسم غير مقروء في الترويسة", hint: "ارفع PDF من نظام العمادة" },
@@ -70,7 +71,14 @@ const fold = (value: string) => String(value || "").normalize("NFKC")
 const asText = (map: Record<string, number> | undefined) => Object.fromEntries(Object.entries(map || {}).map(([k, v]) => [k, String(v)]));
 const asNumbers = (map: Record<string, string>, min = 0) => Object.fromEntries(Object.entries(map).filter(([, v]) => v !== "" && Number.isFinite(Number(v))).map(([k, v]) => [k, Math.max(min, Math.floor(Number(v)))]));
 
-export default function SectionPlanning({ collegeId, sectionId, termId, onReviewRows }: { collegeId: number; sectionId: number; termId: number; /** يفتح صفوف «نزّل الشعب» في شاشة مراجعة الاستيراد نفسها. */ onReviewRows?: (rows: any[]) => void }) {
+/** يُنفّذ التعبئة مرةً عند تركيبه (وضع الرفع المختصر حين لا شيء يحتاج مراجعة). */
+function AutoApply({ run }: { run: () => void }) {
+  const done = useRef(false);
+  useEffect(() => { if (!done.current) { done.current = true; run(); } }, [run]);
+  return null;
+}
+
+export default function SectionPlanning({ collegeId, sectionId, termId, onReviewRows, importOnly = false, onSaved, onPreviewChange }: { collegeId: number; sectionId: number; termId: number; /** شاشةُ «ارفع الكشف» المختصرة: زرُّ الرفع والمراجعة وحدهما بلا جدول التخطيط. */ importOnly?: boolean; /** يُستدعى بعد أن يُحفظ كشفٌ مستورد (في وضع importOnly)، بعدد مقررات القسم التي لم تتّضح فلم تُحسب. */ onSaved?: (skipped: number) => void; /** يُبلَّغ به متى تُفتح مراجعة الكشف ومتى تُغلق، فلا تأخذ الشاشةُ الأم الـEscape من نافذتها الداخلية. */ onPreviewChange?: (open: boolean) => void; /** يفتح صفوف «نزّل الشعب» في شاشة مراجعة الاستيراد نفسها. */ onReviewRows?: (rows: any[], meta?: { existing: number; added: number; pending: number; existingKeys?: string[] }) => void }) {
   const [data, setData] = useState<Payload | null>(null);
   const [remaining, setRemaining] = useState<Record<string, string>>({});
   const [chosen, setChosen] = useState<Record<string, string>>({});
@@ -105,6 +113,13 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
   const loadedScope = useRef("");
   useDialogDismiss(report, () => setReport(false));
   useDialogDismiss(Boolean(preview), () => setPreview(null));
+  /* شاشة الرفع المختصرة: ما إن يُحفظ الكشف المستورد حتى يُبلَّغ من فتحها لتعرض المقترح. */
+  useEffect(() => { onPreviewChange?.(Boolean(preview)); }, [preview, onPreviewChange]);
+  const notifiedEdits = useRef(0);
+  const skipped = useRef(0);
+  useEffect(() => {
+    if (importOnly && saveState === "saved" && edits > 0 && notifiedEdits.current !== edits) { notifiedEdits.current = edits; onSaved?.(skipped.current); }
+  }, [importOnly, saveState, edits, onSaved]);
 
   useEffect(() => {
     if (!collegeId || !sectionId || !termId) return;
@@ -150,6 +165,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
       if (!response.ok) throw new Error(saved?.error || "تعذّر الحفظ");
       setSavedAt(saved?.updatedAt || new Date().toISOString()); setSavedBy(saved?.updatedBy || "");
       setSaveState("saved");
+      window.dispatchEvent(new CustomEvent(PLAN_SAVED_EVENT, { detail: { scope: `${collegeId}:${sectionId}:${termId}` } }));
     } catch { setSaveState("error"); }
   }, [body, collegeId, sectionId, termId]);
   const persistRef = useRef(persist);
@@ -164,7 +180,11 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
       if (!timer.current) return;
       window.clearTimeout(timer.current); timer.current = null;
       if (loadedScope.current !== `${collegeId}:${sectionId}:${termId}`) return;
-      try { void fetch("/api/registration-stats", { method: "PUT", keepalive: true, headers: { "Content-Type": "application/json" }, body: body() }); } catch { /* the page is going away */ }
+      const scope = `${collegeId}:${sectionId}:${termId}`;
+      try {
+        void fetch("/api/registration-stats", { method: "PUT", keepalive: true, headers: { "Content-Type": "application/json" }, body: body() })
+          .then(response => { if (response.ok) window.dispatchEvent(new CustomEvent(PLAN_SAVED_EVENT, { detail: { scope } })); }, () => {});
+      } catch { /* the page is going away */ }
     };
     window.addEventListener("pagehide", flush);
     return () => { window.removeEventListener("pagehide", flush); flush(); };
@@ -258,17 +278,25 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
     /* الشاغر من الكشف نفسه؛ والمصوَّر منه لما أكّده المستخدم وحده. */
     setVacant(vacantValues(preview, preview.source === "scan" ? confirmedScan : undefined));
     setSource({ fileName: preview.fileName, importedAt: new Date().toISOString(), column: "unregistered" });
+    skipped.current = nReview;
     setPreview(null);
     setEdits(n => n + 1);
   };
 
   /* كشفٌ استُورد خطأً (قسمٌ أو فرعٌ آخر قبل التحقق): يُزال كله — المتبقي وشاغره ومصدره — ويُحفظ،
-     فيعود الاقتراح إلى التاريخ وحده حتى يُستورد الكشف الصحيح. «المختار» بيد القسم لا يُمسّ. */
+     فيعود الاقتراح إلى التاريخ وحده حتى يُستورد الكشف الصحيح. «المختار» يُمسح معه: مسحُ التخطيط يمسح كل ما بُني عليه،
+     وإلا بقيت شارة «شعبٌ يُفضَّل زيادتها» في شريط الاعتماد بأرقامٍ لا كشف وراءها. */
   /* يظهر الزر ما دام للفصل أيُّ «متبقٍّ» محفوظ: كشفٌ موسوم، أو «بيانات قديمة» بعمودٍ آخر، أو أرقامٌ بلا مصدر. */
-  const clearImport = () => {
+  /* التأكيد داخل التطبيق لا window.confirm: المتصفحات وتطبيق الهاتف تحجبه فيرجع «لا» بصمتٍ ولا يُزال شيء. */
+  const clearImport = async () => {
     const name = source?.fileName || data?.legacyRemaining?.fileName || "";
-    if (!window.confirm(`إزالة ${name ? `الكشف المستورد «${name}»` : "أرقام «المتبقي» المحفوظة"} وأرقام «المتبقي» كلها لهذا الفصل؟ يبقى «المختار» كما هو.`)) return;
-    setRemaining({}); setVacant({}); setSource(null); setPreview(null); setLegacyCleared(true);
+    const sure = await visualConfirm({
+      title: "إزالة الكشف المستورد؟",
+      message: `ستُزال ${name ? `بيانات الكشف «${name}»` : "أرقام «المتبقي» المحفوظة"} وأرقام «المتبقي» و«المختار» كلها لهذا الفصل.`,
+      confirmLabel: "نعم، أزِل", cancelLabel: "لا", tone: "danger",
+    });
+    if (!sure) return;
+    setRemaining({}); setChosen({}); setVacant({}); setSource(null); setPreview(null); setLegacyCleared(true);
     setEdits(n => n + 1);
   };
 
@@ -334,7 +362,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
   );
 
   const legacy = !legacyCleared && data.legacyRemaining && Object.keys(data.legacyRemaining.values || {}).length ? data.legacyRemaining : null;
-  const hasSaved = Boolean(source || legacy || Object.values(remaining).some(value => value !== ""));
+  const hasSaved = Boolean(source || legacy || Object.values(remaining).some(value => value !== "") || Object.values(chosen).some(value => value !== ""));
   const STATE_NOTE: Record<Exclude<CellState, "read">, string> = {
     unread: "لم تُقرأ الخانة", lowConfidence: "قراءة غير واضحة", mismatch: "تخالف حساب الكشف (لم يجتازوا − المسجلين)", noSections: "لا شعب له في الكشف — لا قيمة",
   };
@@ -357,6 +385,9 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
   const nScan = previewRead.filter(item => item.scanAsk && !item.confirmed).length;
   const nNoSections = previewRead.filter(item => item.state === "noSections").length;
   const nMissing = preview?.missing.length || 0;
+  /* شاشة الرفع المختصرة مقارنةٌ لا استيراد: كشفٌ نصّيّ بلا تحذير فصلٍ مخالف يُعبَّأ مباشرةً بما قُرئ بوضوح (planRemainingApply)،
+     وما لم يتّضح أو ليس من مقررات القسم يُترك بصمت ولا يُخمَّن. وكشفُ فصلٍ آخر يرفضه الخادم قبل هذه النقطة؛ أما الممسوح والمصوَّر فتُعرض له المراجعة كي لا يُعبَّأ ما لم يُرَ. */
+  const autoApply = importOnly && Boolean(preview) && preview!.column != null && canApply && preview!.source !== "scan";
   /* أسطرُ الكشف التي ليست من مقررات القسم في النظام: تظهر في مكانها من الجدول
      بلونٍ خافت — موجودةٌ في الكشف فتُرى — ولا يُعبَّأ منها شيء. */
   const foreignRows = preview ? [...new Set<string>(preview.foreign.map(String))].map(printed => ({ printed })) : [];
@@ -374,7 +405,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
 
   return (
     <div className="section-plan">
-      {buildReady
+      {importOnly ? null : buildReady
         ? <SectionBuild collegeId={collegeId} sectionId={sectionId} termId={termId} targets={buildTargets} onReview={onReviewRows} />
         : <p className="sb-hint"><Layers aria-hidden="true" /> {importError ? "عالج رفض الكشف أولاً، فتظهر «نزّل الشعب»." : saveState === "error" ? "تعذّر حفظ الخطة؛ أعد المحاولة لتظهر «نزّل الشعب»." : "تظهر «نزّل الشعب» بعد استيراد كشف المتبقي وحفظ خطةٍ فيها شعب."}</p>}
       <div className="section-plan-import">
@@ -383,9 +414,9 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
         </PrimaryButton>
         {/* الزر ظاهرٌ دائماً في مكانه: معطّلٌ حين لا متبقٍّ محفوظ لهذا الفصل، فيُعرف أن لا شيء دخل لا أن الزر غائب. */}
         {/* لا تلميحٌ على الزر المعطّل (لا يُبلغ بالفأرة ولا بلوحة المفاتيح): عبارته المرئية هي الشرح. */}
-        <SecondaryButton data-guide-feature-id="schedule.tool.data" type="button" onClick={clearImport} disabled={!hasSaved || reading}>
-          <Trash2 aria-hidden="true" /> {source || legacy ? "إزالة الكشف المستورد" : hasSaved ? "إزالة أرقام المتبقي" : "لا كشف مستورد لإزالته"}
-        </SecondaryButton>
+        {importOnly ? null : <SecondaryButton data-guide-feature-id="schedule.tool.data" type="button" onClick={clearImport} disabled={!hasSaved || reading}>
+          <Trash2 aria-hidden="true" /> {source || legacy ? "إزالة الكشف المستورد" : hasSaved ? "إزالة أرقام التخطيط" : "لا كشف مستورد لإزالته"}
+        </SecondaryButton>}
         {importError ? (
           <div ref={importErrorRef} className="section-plan-reject" role="alert" aria-label={importError.message}>
             <div className="section-plan-reject-head">
@@ -408,7 +439,13 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
                   {importError.mismatch.fields.includes("branch") ? <b><Users /> {importError.mismatch.chosen.branch}</b> : null}
                 </div>
               </div>
-            ) : importError.kind && importError.kind !== "mismatch" ? (() => {
+            ) : importError.kind === "wrongTerm" && importError.termMismatch ? (
+              <div className="section-plan-reject-compare" aria-hidden="true">
+                <div className="is-sheet"><span className="section-plan-reject-side"><FileText /> في الكشف</span><b><History /> {importError.termMismatch.sheet}</b></div>
+                <span className="section-plan-reject-vs">≠</span>
+                <div className="is-chosen"><span className="section-plan-reject-side"><MousePointerClick /> المختار</span><b><History /> {importError.termMismatch.chosen}</b></div>
+              </div>
+            ) : importError.kind && importError.kind !== "mismatch" && importError.kind !== "wrongTerm" ? (() => {
               const short = REJECT_SHORT[importError.kind];
               const Icon = short.icon;
               return <p className="section-plan-reject-short" aria-hidden="true"><Icon /> <b>{short.title}</b> <span>· {short.hint}</span></p>;
@@ -417,14 +454,17 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
         ) : null}
         <input ref={fileInput} type="file" accept="application/pdf,.pdf,image/*,.heic,.heif" multiple hidden aria-label="كشف المتبقي (لم يسجلوا) من عمادة التسجيل: PDF أو صور صفحاته (أفقية)"
           onChange={e => { const files = [...(e.target.files || [])].slice(0, 12); if (files.length) void readFiles(files); }} />
-        <div className="section-plan-import-text">
+        {importOnly && saveState === "error" ? (
+          <p className="section-plan-warning" role="alert"><AlertTriangle aria-hidden="true" /> تعذّر حفظ الكشف. <button data-guide-ignore="إعادة محاولة حفظ الكشف داخل الشاشة المختصرة فقط عند تعذّر الحفظ" type="button" className="section-plan-retry" onClick={() => void persist()}><RotateCcw aria-hidden="true" /> أعد المحاولة</button></p>
+        ) : null}
+        {importOnly ? null : <div className="section-plan-import-text">
           <strong>الخطة تُبنى على عمود «اعداد الذين لم يسجلوا» من كشف العمادة — المتبقي الإجمالي</strong>
           <span className="section-plan-source">
             {reading ? "الكشف PDF من النظام يُقرأ في ثوانٍ؛ والممسوح أو صور الهاتف (أفقية) قرابة نصف دقيقة للصفحة." : <>{sourceLine}{source ? ` · في ${countOf(imported, oblique(AR.course))}` : ""}</>}
           </span>
-        </div>
+        </div>}
       </div>
-      {legacy ? (
+      {!importOnly && legacy ? (
         <div className="section-plan-warning section-plan-legacy" role="status">
           <AlertTriangle aria-hidden="true" />
           <div>
@@ -434,6 +474,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
           </div>
         </div>
       ) : null}
+      {importOnly ? null : (<>
       <div className="section-plan-summary" aria-label="ملخص الخطة">
         <div className="is-main"><Layers aria-hidden="true" /><span>مجموع الشعب المختارة</span><b>{total}</b></div>
         <div><CheckCircle2 aria-hidden="true" /><span>المقررات المخطّطة</span><b>{planned.length}<small> / {rows.length}</small></b></div>
@@ -515,8 +556,10 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
       <p className="section-plan-note">
         المدى المقترح يرسيه ما فتحه القسم فعلاً{data.similarTerms.length ? <> في الفصول المماثلة ({data.similarTerms.join("، ")})</> : null}، و«المتبقي» يميل به ويُذكر حين لا يوافقه. خانة «المختار» الفارغة تعني المقترح.
       </p>
+      </>)}
 
-      {preview ? createPortal(
+      {autoApply ? <AutoApply run={applyImport} /> : null}
+      {preview && !autoApply ? createPortal(
         <div className="student-qr-backdrop no-print" onClick={() => setPreview(null)}>
           <div className="section-plan-report section-plan-import-preview" role="dialog" aria-modal="true" aria-label="مراجعة كشف المتبقي (لم يسجلوا)" onClick={e => e.stopPropagation()}>
             <header>
@@ -641,6 +684,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
         document.body,
       ) : null}
 
+      {importOnly ? null : (<>
       {report ? createPortal(
         <div className="student-qr-backdrop no-print" onClick={() => setReport(false)}>
           <div className="section-plan-report" role="dialog" aria-modal="true" aria-label="تقرير تخطيط الشعب" onClick={e => e.stopPropagation()}>
@@ -665,6 +709,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
           {reportBody}
         </div>
       </PrintPortal>
+      </>)}
     </div>
   );
 }

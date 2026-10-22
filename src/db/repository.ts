@@ -1,4 +1,5 @@
 import { departmentFamily } from "../utils/sectionLabel";
+import { TEACHING_LOAD_DOC_ID, normalizeTeachingLoadConfig } from "../utils/teachingLoad";
 import { normalizeArabicText } from "../utils/arabicText";
 import fs from "fs";
 import { chooseStudentCaseSecret, STUDENT_CASE_SECRET_CONFLICT_MESSAGE, type StudentCaseSecretChoice } from "../server/studentCaseSecret";
@@ -10,6 +11,7 @@ import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore, FieldPath, FieldValue, Timestamp } from "firebase-admin/firestore";
 import type { Firestore, WriteBatch } from "firebase-admin/firestore";
 import { gzipSync, gunzipSync } from "zlib";
+import { assertExplicitProductionTarget } from "../server/firestoreTarget";
 import { defaultPrivateDirectory, isCloudRunRuntime, materializePackagedSnapshotOnce, packagedSnapshotPath, readJsonSnapshot } from "./snapshot";
 import {
   ScheduleApproval,
@@ -21,6 +23,7 @@ import {
   TermStudentPhases,
   StudentProfile,
   CurriculumRuleSet,
+  PublishedPlanSheet,
   RegistrationOutcomeShard,
   RegistrationRun,
   StudentRegistrationReport,
@@ -37,6 +40,7 @@ import {
   AdRoom,
   AuditLogEntry,
   AdCampaign,
+  AdLead,
   AdCreative,
   AdStatsDay,
   AudienceDay,
@@ -55,6 +59,7 @@ import {
   StudyProposal,
   VisitingRoster,
   DepartmentDelegateDirectory,
+  TeachingLoadConfig,
   DepartmentRoomDirectory,
   RegistrationStats,
   StudentNeed,
@@ -76,6 +81,7 @@ import { applyStudentCaseDecision, studentCaseRefusal, type StudentCaseSide } fr
 import { caseRefFromId, mergeStudentResubmission } from "../utils/studentNeedMerge";
 import { cleanSeenIds, mergeSeenIds, seenUnchanged } from "../utils/notificationSeen";
 import { termChronology } from "../utils/termSequence";
+import { kuwaitDayOfIso, recordLinkOpen } from "../utils/linkOpens";
 
 // Runtime state must not live inside the replaceable application release. A number of
 // deployment/upload tools synchronize an archive by deleting destination files that are
@@ -159,7 +165,7 @@ function decryptPasswordFromVault(stored?: string): string {
   } catch { return ""; }
 }
 
-// Compatibility hash used only to read the synthetic database created by the first AI Studio build.
+// Compatibility hash used only to read the legacy synthetic database created by the first build; see the scrypt note below.
 // New and migrated passwords use scrypt; production never stores plaintext passwords.
 function simpleHash(password: string): string {
   let hash = 0;
@@ -230,6 +236,7 @@ interface DBState {
   scheduleOpenDecisions?: ScheduleOpenDecision[];
   clientTelemetry?: ClientTelemetryEntry[];
   adCampaigns?: AdCampaign[];
+  adLeads?: AdLead[];
   adCreatives?: AdCreative[];
   adStats?: AdStatsDay[];
   audienceDaily?: AudienceDay[];
@@ -244,6 +251,7 @@ interface DBState {
   studentProfiles?: StudentProfile[];
   curriculumRuleSets?: CurriculumRuleSet[];
   curriculumRuleDrafts?: CurriculumRuleSet[];
+  publishedPlanSheets?: PublishedPlanSheet[];
   registrationTickets?: RegistrationTicket[];
   registrationRuns?: RegistrationRun[];
   registrationOutcomes?: RegistrationOutcomeShard[];
@@ -252,6 +260,7 @@ interface DBState {
   degreeRules?: AdDegreeRule[];
   visitingRosters?: VisitingRoster[];
   departmentDelegates?: DepartmentDelegateDirectory[];
+  teachingLoadConfig?: TeachingLoadConfig[];
   departmentRooms?: DepartmentRoomDirectory[];
   registrationStats?: RegistrationStats[];
   scheduleDecisionMemories?: ScheduleDecisionMemory[];
@@ -264,6 +273,7 @@ interface DBState {
   notificationSeen?: Array<{ userId: number; ids: string[]; updatedAt: string }>;
   locationBuildings?: MasterBuilding[];
   locationRooms?: MasterRoom[];
+  locationRoomTypes?: string[];
   locationReviewCases?: LocationReviewCase[];
   locationMigrationLogs?: LocationMigrationLog[];
   locationMigrationRuns?: LocationMigrationRun[];
@@ -288,8 +298,8 @@ let baseDb: DBState = {
   users: [], formNames: [], formSecurity: [], collegeUserAssign: [], terms: [], colleges: [], sections: [], instructors: [],
   courses: [], curriculumPlans: [], curriculumPlanCourses: [], courseTransitions: [], schedules: [], rooms: [], auditLogs: [], scheduleVersions: [], scheduleDrafts: [], scheduleOpenDecisions: [],
   clientTelemetry: [], scheduleComments: [], instructorRequests: [], studyProposals: [], studentNeeds: [], schedulePublications: [], scheduleConstraints: [], degreeRules: [], visitingRosters: [], departmentDelegates: [], departmentRooms: [],
-  scheduleDecisionMemories: [], campusMobilityProfiles: [], scheduleShareLinks: [], scheduleApprovals: [], hallBarterRequests: [], scheduleWeekExceptions: [], studentProfiles: [], curriculumRuleSets: [], curriculumRuleDrafts: [], registrationTickets: [], registrationRuns: [], registrationOutcomes: [],
-  locationBuildings: [], locationRooms: [], locationReviewCases: [], locationMigrationLogs: [], locationMigrationRuns: []
+  scheduleDecisionMemories: [], campusMobilityProfiles: [], scheduleShareLinks: [], scheduleApprovals: [], hallBarterRequests: [], scheduleWeekExceptions: [], studentProfiles: [], curriculumRuleSets: [], curriculumRuleDrafts: [], publishedPlanSheets: [], registrationTickets: [], registrationRuns: [], registrationOutcomes: [],
+  locationBuildings: [], locationRooms: [], locationRoomTypes: [], locationReviewCases: [], locationMigrationLogs: [], locationMigrationRuns: []
 };
 
 type DemoSandboxRecord = { state: DBState; expiresAt: number };
@@ -769,6 +779,9 @@ export async function initDatabase() {
 
   if (mode === "firestore") {
     try {
+      if (isCloudRunRuntime()) {
+        assertExplicitProductionTarget({ projectId: process.env.FIREBASE_PROJECT_ID, databaseId: process.env.FIREBASE_DATABASE_ID });
+      }
       if (getApps().length === 0) {
         if (process.env.FIRESTORE_EMULATOR_HOST) {
           console.log(`Connecting to Firestore Emulator at ${process.env.FIRESTORE_EMULATOR_HOST}`);
@@ -866,6 +879,7 @@ export async function initDatabase() {
       if (!Array.isArray(db.degreeRules)) db.degreeRules = [];
       if (!Array.isArray(db.visitingRosters)) db.visitingRosters = [];
       if (!Array.isArray(db.departmentDelegates)) db.departmentDelegates = [];
+      if (!Array.isArray(db.teachingLoadConfig)) db.teachingLoadConfig = [];
       if (!Array.isArray(db.departmentRooms)) db.departmentRooms = [];
       if (!Array.isArray(db.scheduleDecisionMemories)) db.scheduleDecisionMemories = [];
       if (!Array.isArray(db.campusMobilityProfiles)) db.campusMobilityProfiles = [];
@@ -2446,6 +2460,12 @@ export const Repository = {
   createDemoSandbox: (sessionId: string, ttlMs: number): void => {
     demoSandboxes.set(sessionId, { state: createDemoSandboxState() as DBState, expiresAt: Date.now() + ttlMs });
   },
+  /** صندوقُ «مساري» التجريبي: حالةٌ فارغةٌ تُملأ بما يمرَّر، لا نسخةٌ من بيانات حقيقية ولا من صندوق الصفات. */
+  createShowcaseSandbox: (sessionId: string, ttlMs: number, seed: Partial<DBState>): void => {
+    const empty = Object.fromEntries(Object.entries(baseDb).filter(([, value]) => Array.isArray(value)).map(([key]) => [key, []]));
+    demoSandboxes.set(sessionId, { state: { ...empty, ...structuredClone(seed) } as DBState, expiresAt: Date.now() + ttlMs });
+  },
+  dropDemoSandbox: (sessionId: string): void => { demoSandboxes.delete(sessionId); },
   resetDemoSandbox: (sessionId: string, ttlMs: number): boolean => {
     if (!sessionId.startsWith("demo_")) return false;
     demoSandboxes.set(sessionId, { state: createDemoSandboxState() as DBState, expiresAt: Date.now() + ttlMs });
@@ -3085,7 +3105,7 @@ export const Repository = {
       const docRef = firestoreDb.collection("sections").doc(`section_${id}`);
       const doc = await docRef.get();
       if (!doc.exists) throw new Error("القسم غير موجود");
-      const updated = { AdSectionId: id, AdCollegeId: collegeId, AdSectionCode: code, AdSectionName: name };
+      const updated = { ...doc.data(), AdSectionId: id, AdCollegeId: collegeId, AdSectionCode: code, AdSectionName: name } as AdSection;
       await docRef.set(updated);
       invalidateScheduleRelationCache();
       await markRegistrationRunsStale();
@@ -3093,9 +3113,28 @@ export const Repository = {
     }
     const idx = db.sections.findIndex(s => s.AdSectionId === id);
     if (idx === -1) throw new Error("القسم غير موجود");
-    db.sections[idx] = { AdSectionId: id, AdCollegeId: collegeId, AdSectionCode: code, AdSectionName: name };
+    db.sections[idx] = { ...db.sections[idx], AdSectionId: id, AdCollegeId: collegeId, AdSectionCode: code, AdSectionName: name };
     saveDatabase();
     return db.sections[idx];
+  },
+
+  setSectionScheduleDayWindow: async (id: number, startTime: string, endTime: string): Promise<AdSection> => {
+    invalidateReference(REFERENCE_KEYS.sections);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docRef = firestoreDb.collection("sections").doc(`section_${id}`);
+      const doc = await docRef.get();
+      if (!doc.exists) throw new Error("القسم غير موجود");
+      const updated = { ...doc.data(), scheduleDayStartTime: startTime, scheduleDayEndTime: endTime } as AdSection;
+      await docRef.set(updated);
+      invalidateScheduleRelationCache();
+      return updated;
+    }
+    const section = db.sections.find(row => Number(row.AdSectionId) === Number(id));
+    if (!section) throw new Error("القسم غير موجود");
+    section.scheduleDayStartTime = startTime;
+    section.scheduleDayEndTime = endTime;
+    saveDatabase();
+    return section;
   },
 
   deleteSection: async (id: number): Promise<void> => {
@@ -3271,7 +3310,8 @@ export const Repository = {
     hours: number,
     maxStudent: number,
     /** false: كتالوجٌ فحسب — لا يُربط بالصحيفة الفعالة (التطبيق المرجعي يربط ما يشاء صراحةً). */
-    attachToActive = true
+    attachToActive = true,
+    courseRoomType = ""
   ): Promise<AdCourse> => {
     /* اسمٌ منسوخٌ من PDF يُحفظ حروفاً عادية لا «أشكال عرض» — لكل طريق كتابة. */
     name = normalizeArabicText(name);
@@ -3286,7 +3326,8 @@ export const Repository = {
         CourseName: name,
         CourseCredit: credit,
         CourseHours: hours,
-        MaxStudent: maxStudent
+        MaxStudent: maxStudent,
+        ...(courseRoomType.trim() ? { CourseRoomType: courseRoomType.trim() } : {})
       };
       /* The course code is unique within its department, and that uniqueness is
          claimed in the same transaction that writes the record. Two identical
@@ -3330,7 +3371,8 @@ export const Repository = {
       CourseName: name,
       CourseCredit: credit,
       CourseHours: hours,
-      MaxStudent: maxStudent
+      MaxStudent: maxStudent,
+      ...(courseRoomType.trim() ? { CourseRoomType: courseRoomType.trim() } : {})
     };
     db.courses.push(newCourse);
     saveDatabase();
@@ -3347,7 +3389,8 @@ export const Repository = {
     name: string,
     credit: number,
     hours: number,
-    maxStudent: number
+    maxStudent: number,
+    courseRoomType?: string
   ): Promise<AdCourse> => {
     /* اسمٌ منسوخٌ من PDF يُحفظ حروفاً عادية لا «أشكال عرض» — لكل طريق كتابة. */
     name = normalizeArabicText(name);
@@ -3364,7 +3407,8 @@ export const Repository = {
         CourseName: name,
         CourseCredit: credit,
         CourseHours: hours,
-        MaxStudent: maxStudent
+        MaxStudent: maxStudent,
+        ...((courseRoomType===undefined?String(doc.data()?.CourseRoomType||""):courseRoomType).trim() ? { CourseRoomType: (courseRoomType===undefined?String(doc.data()?.CourseRoomType||""):courseRoomType).trim() } : {})
       };
       await docRef.set(updated);
       invalidateScheduleRelationCache();
@@ -3373,6 +3417,7 @@ export const Repository = {
     }
     const idx = db.courses.findIndex(c => c.AdCourseId === id);
     if (idx === -1) throw new Error("المقرر غير موجود");
+    const previousRoomType=String(db.courses[idx].CourseRoomType||"");
     db.courses[idx] = {
       AdCourseId: id,
       AdCollegeId: collegeId,
@@ -3381,7 +3426,8 @@ export const Repository = {
       CourseName: name,
       CourseCredit: credit,
       CourseHours: hours,
-      MaxStudent: maxStudent
+      MaxStudent: maxStudent,
+      ...((courseRoomType===undefined?previousRoomType:courseRoomType).trim() ? { CourseRoomType: (courseRoomType===undefined?previousRoomType:courseRoomType).trim() } : {})
     };
     saveDatabase();
     await markRegistrationRunsStale();
@@ -3457,7 +3503,8 @@ export const Repository = {
   createCurriculumPlan: async (input: { collegeId:number; sectionId:number; name:string; code?:string; by?:string }): Promise<CurriculumPlan> => {
     const collegeId=Number(input.collegeId), sectionId=Number(input.sectionId);
     const now=new Date().toISOString();
-    const existing=await Repository.getCurriculumPlans(sectionId);
+    /* صحائفُ المسارات لا تُحسب في الثنائية الرئيسية: لا تُزاح ولا تمنع إنشاء «السابقة». */
+    const existing=(await Repository.getCurriculumPlans(sectionId)).filter(row=>!row.track);
     const courses=await Repository.getCoursesBySection(sectionId);
     /* The department's saved graduation rule is, by definition, the rule its
        current students were admitted under. It travels with them into «الصحيفة
@@ -3501,12 +3548,26 @@ export const Repository = {
       db.curriculumPlans.push(legacy);
       db.curriculumPlanCourses.push(...courses.map(course=>({id:`${legacy.id}_${course.AdCourseId}`,planId:legacy.id,AdCollegeId:collegeId,AdSectionId:sectionId,AdCourseId:course.AdCourseId,createdAt:now,createdBy:String(input.by||"")||undefined})));
     } else {
-      db.curriculumPlans=db.curriculumPlans.map(plan=>Number(plan.AdSectionId)===sectionId&&plan.status==="active"?{...plan,status:"transition"}:plan);
+      db.curriculumPlans=db.curriculumPlans.map(plan=>Number(plan.AdSectionId)===sectionId&&plan.status==="active"&&!plan.track?{...plan,status:"transition"}:plan);
     }
     db.curriculumPlans.push(newPlan); saveDatabase(); await markRegistrationRunsStale(); return newPlan;
   },
 
   /** Rename a plan or set its graduation rule. Status never changes here. */
+  /** صحيفةُ مسار (برنامج بتخصصٍ مزدوج) جديدةً أو سابقة: لا تُزيح شيئاً ولا تلتقط الكتالوج. */
+  createTrackPlan: async (input: { collegeId:number; sectionId:number; name:string; track:string; status:"active"|"transition"; by?:string }): Promise<CurriculumPlan> => {
+    const now=new Date().toISOString();
+    const plan:CurriculumPlan={
+      id: randomUUID(), AdCollegeId:Number(input.collegeId), AdSectionId:Number(input.sectionId),
+      name:String(input.name||"").trim(), track:String(input.track||"").trim(), status:input.status,
+      createdAt:now, createdBy:String(input.by||"")||undefined, ...(input.status==="active"?{activatedAt:now}:{}),
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("curriculumPlans").doc(plan.id).set(plan); await markRegistrationRunsStale(); return plan; }
+    if (!Array.isArray(db.curriculumPlans)) db.curriculumPlans=[];
+    db.curriculumPlans.push(plan); saveDatabase(); await markRegistrationRunsStale();
+    return plan;
+  },
+
   updateCurriculumPlan: async (planId:string, sectionId:number, patch:{ name?:string; degreeRule?:CurriculumDegreeRule }): Promise<CurriculumPlan> => {
     const plans=await Repository.getCurriculumPlans(sectionId),plan=plans.find(row=>row.id===planId);
     if(!plan)throw new Error("الصحيفة غير موجودة");
@@ -3540,7 +3601,7 @@ export const Repository = {
 
   attachCourseToActiveCurriculum: async (course:AdCourse, by=""): Promise<void> => {
     const plans=await Repository.getCurriculumPlans(Number(course.AdSectionId));
-    const active=plans.find(row=>row.status==="active");
+    const active=plans.find(row=>row.status==="active"&&!row.track);
     if(active) await Repository.addCourseToCurriculumPlan(active.id,course,by);
   },
 
@@ -3571,6 +3632,26 @@ export const Repository = {
     if(!plan)throw new Error("الصحيفة غير موجودة");
     if(plan.status==="active")throw new Error("لا يمكن أرشفة الصحيفة الحالية. أنشئ صحيفة أحدث أولاً.");
     const updated={...plan,status:"archived" as const,archivedAt:new Date().toISOString(),archivedBy:by||undefined};
+    if(firestoreDb&&!demoSandboxContext.getStore()){await firestoreDb.collection("curriculumPlans").doc(planId).set(updated);await markRegistrationRunsStale();return updated;}
+    if(!Array.isArray(db.curriculumPlans))db.curriculumPlans=[];const at=db.curriculumPlans.findIndex(row=>row.id===planId);if(at<0)throw new Error("الصحيفة غير موجودة");db.curriculumPlans[at]=updated;saveDatabase();await markRegistrationRunsStale();return updated;
+  },
+
+  /** تعديل حالة الخطة أو سنة صحيفتها (تدوير الصحيفة عند رفع أحدث منها). */
+  patchCurriculumPlan: async (planId:string, sectionId:number, patch:{status?:"active"|"transition"|"archived";sheetYear?:number}): Promise<CurriculumPlan> => {
+    const plans=await Repository.getCurriculumPlans(sectionId),plan=plans.find(row=>row.id===planId);
+    if(!plan)throw new Error("الصحيفة غير موجودة");
+    const updated:CurriculumPlan={...plan,...(patch.status?{status:patch.status}:{}),...(patch.sheetYear?{sheetYear:patch.sheetYear}:{})};
+    if(firestoreDb&&!demoSandboxContext.getStore()){await firestoreDb.collection("curriculumPlans").doc(planId).set(updated);if(patch.status)await markRegistrationRunsStale();return updated;}
+    if(!Array.isArray(db.curriculumPlans))db.curriculumPlans=[];const at=db.curriculumPlans.findIndex(row=>row.id===planId);if(at<0)throw new Error("الصحيفة غير موجودة");db.curriculumPlans[at]=updated;saveDatabase();if(patch.status)await markRegistrationRunsStale();return updated;
+  },
+
+  /** يعيد صحيفةً مؤرشفة إلى «السابقة» (التراجع عن إنهائها). */
+  restoreCurriculumPlan: async (planId:string, sectionId:number): Promise<CurriculumPlan> => {
+    const plans=await Repository.getCurriculumPlans(sectionId),plan=plans.find(row=>row.id===planId);
+    if(!plan)throw new Error("الصحيفة غير موجودة");
+    if(plan.status!=="archived")return plan;
+    const {archivedAt:_archivedAt,archivedBy:_archivedBy,...rest}=plan;
+    const updated:CurriculumPlan={...rest,status:"transition"};
     if(firestoreDb&&!demoSandboxContext.getStore()){await firestoreDb.collection("curriculumPlans").doc(planId).set(updated);await markRegistrationRunsStale();return updated;}
     if(!Array.isArray(db.curriculumPlans))db.curriculumPlans=[];const at=db.curriculumPlans.findIndex(row=>row.id===planId);if(at<0)throw new Error("الصحيفة غير موجودة");db.curriculumPlans[at]=updated;saveDatabase();await markRegistrationRunsStale();return updated;
   },
@@ -4175,6 +4256,35 @@ export const Repository = {
     }
     return [...(db.adCampaigns || [])];
   },
+  /** طلباتُ الحملات من ملف الشراكة (بيانات تواصلٍ للإدارة وحدها). الأحدث أولاً. */
+  listAdLeads: async (): Promise<AdLead[]> => {
+    const rows = firestoreDb && !demoSandboxContext.getStore()
+      ? (await firestoreDb.collection("adLeads").orderBy("createdAt", "desc").limit(300).get()).docs.map(doc => doc.data() as AdLead)
+      : [...(db.adLeads || [])];
+    return rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  },
+  createAdLead: async (entry: Omit<AdLead, "id" | "createdAt" | "status">): Promise<AdLead> => {
+    const row: AdLead = { ...entry, id: randomUUID(), createdAt: new Date().toISOString(), status: "new" };
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("adLeads").doc(row.id).set(row); return row; }
+    db.adLeads = [row, ...(db.adLeads || [])];
+    saveDatabase();
+    return row;
+  },
+  /** يضع الطلب «تم التواصل» بتحديث حقلين وحدهما. false إن لم يوجد. */
+  markAdLeadContacted: async (id: string, at: string): Promise<boolean> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("adLeads").doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return false;
+      await ref.update({ status: "contacted", contactedAt: at });
+      return true;
+    }
+    const row = (db.adLeads || []).find(item => item.id === id);
+    if (!row) return false;
+    row.status = "contacted"; row.contactedAt = at;
+    saveDatabase();
+    return true;
+  },
   saveAdCampaign: async (row: AdCampaign): Promise<void> => {
     if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("adCampaigns").doc(row.id).set(row); return; }
     db.adCampaigns = [...(db.adCampaigns || []).filter(item => item.id !== row.id), row];
@@ -4197,6 +4307,24 @@ export const Repository = {
     if (!row) return false;
     if (!force && row.mailLog?.[kind] === key) return false;
     row.mailLog = { ...(row.mailLog || {}), ...patch };
+    saveDatabase();
+    return true;
+  },
+  /** يسجّل تبليغَ الشركة عن استعمال الكود في يوم (إدخالٌ لكل يوم، حدٌّ ٢٠٠)، بمعاملةٍ تكتب redemptions وحده. */
+  reportAdRedemption: async (id: string, day: string, count: number): Promise<boolean> => {
+    const apply = (list: AdCampaign["redemptions"]) => [...(list || []).filter(r => r.day !== day), { day, count, at: new Date().toISOString() }].sort((a, b) => a.day.localeCompare(b.day)).slice(-400);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("adCampaigns").doc(id);
+      return firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return false;
+        tx.update(ref, { redemptions: apply((snap.data() as AdCampaign).redemptions) });
+        return true;
+      });
+    }
+    const row = (db.adCampaigns || []).find(item => item.id === id);
+    if (!row) return false;
+    row.redemptions = apply(row.redemptions);
     saveDatabase();
     return true;
   },
@@ -4603,6 +4731,40 @@ export const Repository = {
     if (at >= 0) db.instructorRequests[at] = next; else db.instructorRequests.unshift(next);
     saveDatabase();
     return next;
+  },
+
+  /**
+   * يسجّل فتحاً جديداً لبطاقة الأستاذ بتحديث حقول العدّ وحدها، لا بإعادة حفظ الطلب كله:
+   * ردٌّ من القسم أو إرسالٌ من الأستاذ يصل بين القراءة والكتابة لا يجوز أن يُمحى بفتحٍ عابر.
+   * في Firestore داخل معاملة (القراءة والقرار والتحديث معاً) فلا يضيع عدٌّ عند فتحين متزامنين.
+   */
+  recordInstructorRequestOpen: async (id: string, nowIso: string): Promise<{ fields: NonNullable<ReturnType<typeof recordLinkOpen>>; first: boolean } | null> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequests").doc(id);
+      return firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        const row = snap.data() as InstructorRequest;
+        const rec = recordLinkOpen(row, nowIso);
+        if (!rec) return null;
+        const first = !row.linkOpenedAt;
+        tx.update(ref, {
+          ...(first ? { linkOpenedAt: rec.linkOpenedAt, timeline: FieldValue.arrayUnion({ kind: "link-opened", at: nowIso }) } : {}),
+          [`linkOpenDays.${kuwaitDayOfIso(nowIso)}`]: FieldValue.increment(1),
+          linkLastOpenAt: nowIso,
+        });
+        return { fields: rec, first };
+      });
+    }
+    const row = (db.instructorRequests || []).find(item => item.id === id);
+    if (!row) return null;
+    const rec = recordLinkOpen(row, nowIso);
+    if (!rec) return null;
+    const first = !row.linkOpenedAt;
+    Object.assign(row, rec);
+    if (first) row.timeline = [...(row.timeline || []), { kind: "link-opened", at: nowIso }];
+    saveDatabase();
+    return { fields: rec, first };
   },
 
   getInstructorRequest: async (id: string): Promise<InstructorRequest | undefined> => {
@@ -5628,6 +5790,49 @@ export const Repository = {
     }
     return [...(db.curriculumRuleDrafts || [])];
   },
+  /**
+   * ── الصحائف المنشورة للعامة ─────────────────────────────────────────────
+   * وثيقةٌ لكل صحيفة بمفتاح planId: لقطةٌ نهائية يرسمها الخادم بلا حساب. لا يكتبها إلا رئيس لجنة الجدول
+   * (أو إدارة النظام) بالنشر، ولا يمسحها مسحُ الخطة بعد الاعتماد.
+   */
+  getPublishedSheet: async (planId: string): Promise<PublishedPlanSheet | undefined> => {
+    if (!planId) return undefined;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("publishedPlanSheets").doc(planId).get();
+      return doc.exists ? (doc.data() as PublishedPlanSheet) : undefined;
+    }
+    return (db.publishedPlanSheets || []).find(row => row.id === planId);
+  },
+  listPublishedSheets: async (): Promise<PublishedPlanSheet[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      return (await firestoreDb.collection("publishedPlanSheets").get()).docs.map(doc => doc.data() as PublishedPlanSheet);
+    }
+    return [...(db.publishedPlanSheets || [])];
+  },
+  savePublishedSheet: async (sheet: PublishedPlanSheet): Promise<void> => {
+    if (!sheet.id) throw new Error("معرّف الصحيفة مطلوب");
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("publishedPlanSheets").doc(sheet.id).set(sheet);
+      return;
+    }
+    if (!Array.isArray(db.publishedPlanSheets)) db.publishedPlanSheets = [];
+    const index = db.publishedPlanSheets.findIndex(row => row.id === sheet.id);
+    if (index >= 0) db.publishedPlanSheets[index] = sheet; else db.publishedPlanSheets.push(sheet);
+    saveDatabase();
+  },
+  deletePublishedSheet: async (planId: string): Promise<boolean> => {
+    if (!planId) return false;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("publishedPlanSheets").doc(planId);
+      const existed = (await ref.get()).exists;
+      if (existed) await ref.delete();
+      return existed;
+    }
+    const before = (db.publishedPlanSheets || []).length;
+    db.publishedPlanSheets = (db.publishedPlanSheets || []).filter(row => row.id !== planId);
+    if (db.publishedPlanSheets.length !== before) saveDatabase();
+    return db.publishedPlanSheets.length !== before;
+  },
   listRuleSets: async (): Promise<CurriculumRuleSet[]> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       return (await firestoreDb.collection("curriculumRuleSets").get()).docs.map(doc => doc.data() as CurriculumRuleSet);
@@ -5959,6 +6164,27 @@ export const Repository = {
     db.departmentDelegates = [...(db.departmentDelegates || []).filter(item => item.scopeKey !== scopeKey), row];
     saveDatabase();
     return unique;
+  },
+
+  /* ── النصاب التدريسي: وثيقةٌ واحدة (`main`) ─────────────────────────────────
+   * معطَّلةٌ حتى يفعّلها المسؤول؛ وقراءةُ ما لم يُكتب بعدُ ترجع إعداداً فارغاً معطَّلاً، لا خطأً. */
+  getTeachingLoadConfig: async (): Promise<TeachingLoadConfig> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("teachingLoadConfig").doc(TEACHING_LOAD_DOC_ID).get();
+      return normalizeTeachingLoadConfig(doc.exists ? doc.data() : null);
+    }
+    return normalizeTeachingLoadConfig((db.teachingLoadConfig || [])[0]);
+  },
+
+  saveTeachingLoadConfig: async (config: unknown, updatedBy?: string): Promise<TeachingLoadConfig> => {
+    const row = { ...normalizeTeachingLoadConfig(config), updatedAt: new Date().toISOString(), ...(updatedBy ? { updatedBy } : {}) };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("teachingLoadConfig").doc(TEACHING_LOAD_DOC_ID).set(row, { merge: false });
+      return row;
+    }
+    db.teachingLoadConfig = [row];
+    saveDatabase();
+    return row;
   },
 
   /* ── منتدبو القسم للعائلة كلها (departmentFamily في sectionLabel) ─────────
@@ -6411,6 +6637,37 @@ export const Repository = {
   },
 
   // Canonical building/room registry -------------------------------------------------
+  getLocationRoomTypes: async (): Promise<string[]> => {
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      const doc=await firestoreDb.collection("adSettings").doc("locationRoomTypes").get();
+      return Array.isArray(doc.data()?.types)?doc.data()!.types.map((value:unknown)=>String(value||"").normalize("NFKC").trim()).filter(Boolean):[];
+    }
+    return [...(db.locationRoomTypes||[])];
+  },
+  setLocationRoomTypes: async (types:string[]): Promise<void> => {
+    const normalized=[...new Set(types.map(value=>String(value||"").normalize("NFKC").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      await firestoreDb.collection("adSettings").doc("locationRoomTypes").set({types:normalized,updatedAt:new Date().toISOString()});
+      return;
+    }
+    db.locationRoomTypes=normalized;saveDatabase();
+  },
+  renameCourseRoomType: async (oldName:string,newName:string): Promise<number> => {
+    invalidateReference(REFERENCE_KEYS.courses);
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      const snap=await firestoreDb.collection("courses").where("CourseRoomType","==",oldName).get();
+      for(let i=0;i<snap.docs.length;i+=400){const batch=firestoreDb.batch();snap.docs.slice(i,i+400).forEach(doc=>batch.set(doc.ref,{CourseRoomType:newName},{merge:true}));await batch.commit();}
+      if(snap.size)await markRegistrationRunsStale();
+      return snap.size;
+    }
+    let count=0;
+    db.courses=(db.courses||[]).map(course=>{
+      if(String(course.CourseRoomType||"").normalize("NFKC").trim()!==oldName)return course;
+      count++;return {...course,CourseRoomType:newName};
+    });
+    if(count){saveDatabase();await markRegistrationRunsStale();}
+    return count;
+  },
   getLocationBuildings: async (): Promise<MasterBuilding[]> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const snap=await firestoreDb.collection("locationBuildings").get();
@@ -6441,6 +6698,21 @@ export const Repository = {
       return;
     }
     const map=new Map((db.locationRooms||[]).map(x=>[x.id,x]));rows.forEach(x=>map.set(x.id,{...map.get(x.id),...x}));db.locationRooms=[...map.values()];saveDatabase();await markRegistrationRunsStale();
+  },
+  archiveLocationBuilding: async (building: MasterBuilding, rooms: MasterRoom[]): Promise<void> => {
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      if(rooms.length>499)throw new Error("المبنى يحتوي على عدد قاعات يتجاوز حد الحذف الآمن.");
+      const batch=firestoreDb.batch();
+      batch.set(firestoreDb.collection("locationBuildings").doc(building.id),building,{merge:true});
+      rooms.forEach(room=>batch.set(firestoreDb!.collection("locationRooms").doc(room.id),room,{merge:true}));
+      await batch.commit();
+      await markRegistrationRunsStale();
+      return;
+    }
+    const buildingMap=new Map((db.locationBuildings||[]).map(row=>[row.id,row]));
+    buildingMap.set(building.id,{...buildingMap.get(building.id),...building});db.locationBuildings=[...buildingMap.values()];
+    const roomMap=new Map((db.locationRooms||[]).map(row=>[row.id,row]));rooms.forEach(room=>roomMap.set(room.id,{...roomMap.get(room.id),...room}));db.locationRooms=[...roomMap.values()];
+    saveDatabase();await markRegistrationRunsStale();
   },
   getLocationReviewCases: async (): Promise<LocationReviewCase[]> => {
     if(firestoreDb&&!demoSandboxContext.getStore()){const snap=await firestoreDb.collection("locationReviewCases").get();return snap.docs.map(d=>d.data() as LocationReviewCase);}

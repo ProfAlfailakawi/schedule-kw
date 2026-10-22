@@ -1175,6 +1175,13 @@ html[data-schedule-workspace="presentation"] .cinema-day-track time b{font-size:
   background:var(--surface-2);
   transition:border-color .16s var(--ease),box-shadow .16s var(--ease),background .16s var(--ease);
 }
+.schedule-editor .schedule-time-limit-note{
+  display:block;
+  margin-top:6px;
+  color:var(--muted);
+  font-size:var(--t-xs);
+  line-height:1.4;
+}
 /* The clock button that summons the wheel counter sits at the inline-end of the
    field, small and quiet, so the value still owns the centre of the box. */
 .schedule-time-counter-toggle{
@@ -2818,6 +2825,11 @@ html[data-schedule-workspace="presentation"] .cinema-day-track time b{font-size:
 .week-legend-chip>.num{
   flex:none;font:600 var(--t-micro) var(--font-mono);font-style:normal;color:var(--muted);
   font-variant-numeric:tabular-nums;
+}
+.week-legend-chip>.week-legend-need{
+  flex:none;padding:0 6px;border-radius:var(--r-full);
+  background:var(--warning-soft);color:var(--warning);
+  font:700 var(--t-micro) var(--font-mono);font-variant-numeric:tabular-nums;
 }
 .week-legend-chip:hover{
   border-color:hsl(var(--hue,158) 56% 52%);
@@ -5345,7 +5357,8 @@ html.schedule-physics-active .rooms-slot:hover::after{content:none}
 .review-sheet.visual-minimal .review-head{border-radius:var(--radius-sheet) var(--radius-sheet) 0 0}
 .review-sheet.visual-minimal .review-spread{padding-block:14px}
 .review-sheet.visual-minimal .spread-bar{block-size:10px;border-radius:999px;overflow:hidden}
-.review-sheet.visual-minimal .spread-keys{justify-content:center}
+.review-sheet.visual-minimal .spread-keys{grid-template-columns:repeat(4,minmax(0,1fr));justify-content:center}
+.review-sheet.visual-minimal .spread-keys span{align-items:center;white-space:nowrap}
 .review-sheet.visual-minimal .review-finding{border-radius:20px;overflow:hidden}
 .review-sheet.visual-minimal .review-mark{inline-size:42px;block-size:42px;border-radius:14px}
 .review-sheet.visual-minimal .review-person,.review-sheet.visual-minimal .review-row-card{border-radius:16px}
@@ -8662,3 +8675,4 @@ html[data-schedule-workspace="presentation"] .schedule-status{padding:0;border:0
   .qc-wheel-track{height:150px;padding-block:52px}
   .qc-wheel-cell{min-height:44px}
 }
+.room-fit-note{display:flex;align-items:flex-start;gap:.45rem;margin:.45rem 0 0;padding:.55rem .7rem;border:1px solid #e8d6a9;border-radius:12px;background:#fbf6e9;color:#70551a;font-size:.82rem;line-height:1.55}.room-fit-note svg{width:1rem;height:1rem;flex:none;margin-top:.15rem}

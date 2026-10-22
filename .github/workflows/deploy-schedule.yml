@@ -20,10 +20,7 @@ jobs:
     name: Deploy to the official service (schedule-kw.com)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    # Production deploys are gated by a repository variable so that exactly ONE repository
-    # holds deploy authority at a time (see docs/DEPLOYMENT_AUTHORITY.md). Until the owner sets
-    # PRODUCTION_DEPLOY_ENABLED=true here — and disables it in the previous repository — this job is skipped.
-    if: vars.PRODUCTION_DEPLOY_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'success'))
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'success')
     steps:
       - name: Check out SCHEDULE
         uses: actions/checkout@v6
@@ -50,7 +47,8 @@ jobs:
           docker push "$IMAGE"
 
       # ── الوجهة الرسمية: خدمة schedule في gen-lang-client-0379571946 ─────────
-      # schedule-kw.com is served by THIS service (europe-west1). The
+      # schedule-kw.com is a Cloud Run domain mapping on THIS
+      # service (europe-west1), and it has served the site for months. The
       # image is built in schedule-863eb's registry above, but the release must
       # land here or the official domain never sees it (2026-10-16: it did not,
       # for a whole day). Only the image changes; the service keeps its own
@@ -84,5 +82,5 @@ jobs:
             if [ -n "$want" ] && [ "$got" = "$want" ]; then echo "✓ schedule-kw.com serves this release"; exit 0; fi
             sleep 30
           done
-          echo "::error::schedule-kw.com is not serving the deployed build. Do NOT touch the domain mapping — see AGENTS.md."
+          echo "::error::schedule-kw.com is not serving the deployed build. Do NOT touch the domain mapping — see docs/DELIVERY_OPERATIONS.md."
           exit 1

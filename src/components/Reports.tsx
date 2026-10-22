@@ -1,10 +1,12 @@
+import TermSelect from "./TermSelect";
+import SearchableSelect from "./SearchableSelect";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildingNumberLabel } from "../utils/locationCollegePrefixes";
 import { flushSync } from "react-dom";
 import {
-  Building2, CalendarDays, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
+  BookOpen, Building2, CalendarDays, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
-  ShieldCheck, FileSpreadsheet,
+  ShieldCheck, FileSpreadsheet, UsersRound,
 } from "lucide-react";
 import { parseNaturalQuery } from "../utils/naturalQuery";
 import { EmptyState, Field, GhostButton, Notice, PageTitle, PrintLetterhead, PrintPortal, SecondaryButton } from "./ui";
@@ -13,6 +15,8 @@ import type { ScheduleApprovalStatus } from "../types";
 import { AdCollege, AdCourse, AdInstructor, AdSection, AdTerm, FSchedule, MasterBuilding, MasterRoom } from "../types";
 import { runVisualTransition } from "../utils/visualTransition";
 import { coerceScopeValues, resolveScopeSelection, singleDepartmentOf } from "../utils/scopeContext";
+import { hidesCollege, hidesSection, scopeShape } from "../utils/scopeShape";
+import { useScopedTerms } from "./useScopedTerms";
 import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
 import { safeStorage } from "../utils/safeStorage";
 import { siblingBranchScopes, type BranchScope } from "../utils/branchScope";
@@ -34,13 +38,17 @@ import { buildFairnessEngine } from "../utils/livingSchedule";
 import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
 import { byRoom, byRoomLabel, byRoomPart } from "../utils/sorting";
 import InstructorPicker from "./InstructorPicker";
+import { departmentSiteScopes } from "../utils/instructorCourseLoad";
 import AuthorityPdfReport, { AuthorityReport } from "./AuthorityPdfReport";
 import VisitingBadge from "./VisitingBadge";
+import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import SubmissionDeadlines, { type DeadlineRow } from "./SubmissionDeadlines";
 import { inboxAudience } from "../utils/inboxAudience";
 import { usePageAwake } from "../utils/pageAwake";
 import { roomIdentityKey, roomDisplay, resolveBuilding, resolveRoom } from "../utils/locationRegistry";
 import { DnaRing } from "./dna";
+import MeetingSlots from "./MeetingSlots";
+import { instructorCourseLoad } from "../utils/instructorCourseLoad";
 import { ApprovalDnaStepper, DeadlineDnaRing } from "./dna/scheduleDna";
 
 /**
@@ -65,7 +73,7 @@ type VisitingTeachingData = {
   instructors: AdInstructor[];
   rows: FSchedule[];
 };
-type Lens = "list" | "week" | "instructor" | "room" | "matrix" | "time" | "visiting" | "visitingHistory" | "fairness" | "balance";
+type Lens = "list" | "week" | "instructor" | "courseLoad" | "room" | "roomInstructor" | "matrix" | "time" | "visiting" | "visitingHistory" | "fairness" | "balance";
 type PrintKind = Lens | "comprehensive" | "comprehensive-branch" | null;
 
 /* Safari is the one printing engine here that ignores `@page size` (so wide
@@ -143,7 +151,9 @@ const LENSES: Array<{ id: Lens; label: string; hint: string; icon: React.ReactNo
   { id: "list", label: "الكل", hint: "كل مواعيد النطاق في قائمة واحدة", icon: <LayoutList /> },
   { id: "week", label: "الأسبوع", hint: "الأسبوع كشبكة أيام وأوقات", icon: <CalendarDays /> },
   { id: "instructor", label: "الأساتذة", hint: "مواعيد كل أستاذ وحمله الأسبوعي", icon: <UserRound /> },
+  { id: "courseLoad", label: "المواد × المواقع", hint: "مواد كل أستاذ في البنين والبنات والجهراء وبقية المواقع", icon: <BookOpen /> },
   { id: "room", label: "القاعات", hint: "ما تشغله كل قاعة ومتى تفرغ", icon: <Building2 /> },
+  { id: "roomInstructor", label: "القاعات والأساتذة", hint: "كل قاعة ومبناها وأساتذتها، وكل أستاذ والقاعات التي يدرّس فيها", icon: <Landmark /> },
   { id: "matrix", label: "القاعات × الأوقات", hint: "شبكة تقاطع كل قاعة مع كل وقت", icon: <Table2 /> },
   { id: "time", label: "الأوقات", hint: "توزّع المواعيد على ساعات اليوم", icon: <Clock3 /> },
   { id: "visiting", label: "المنتدبون", hint: "منتدبو الفصل الحالي أو المقارنة عبر كل الفصول", icon: <UserPlus /> },
@@ -173,11 +183,11 @@ const ROLE_LENSES: Record<string, Lens[]> = {
   /* العميدان يفتحان على ميزان الأقسام: «أين وصلت الأقسام؟» سؤالُهما الأول،
      والقائمةُ — المعتمدة وحدها — تكون فارغةً قبل أن يعتمد التسجيل شيئاً، فشاشةٌ
      أولى فارغة لا تجيب أحداً. ثم الجداول نفسها وما يُكمل الصورة. */
-  dean:           ["balance", "list", "week", "fairness", "visiting"],
-  viceDean:       ["balance", "list", "week", "fairness", "visiting", "instructor", "room", "matrix"],
-  registrarDean:  ["balance", "fairness"],
-  registrarHead:  ["balance", "list", "room", "matrix"],
-  registrarStaff: ["balance", "list", "room"],
+  dean:           ["balance", "list", "week", "fairness", "courseLoad", "visiting"],
+  viceDean:       ["balance", "list", "week", "fairness", "courseLoad", "visiting", "instructor", "room", "roomInstructor", "matrix"],
+  registrarDean:  ["balance", "list", "room", "roomInstructor", "matrix"],
+  registrarHead:  ["balance", "list", "room", "roomInstructor", "matrix"],
+  registrarStaff: ["balance", "list", "room", "roomInstructor"],
 };
 
 /**
@@ -483,6 +493,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const [printCollegeOverride, setPrintCollegeOverride] = useState("");
   const [courses, setCourses] = useState<AdCourse[]>([]);
   const [all, setAll] = useState<FSchedule[]>([]);
+  const [siteLoadRead, setSiteLoadRead] = useState<{ termId: number; rows: FSchedule[]; denied: string[]; loading: boolean } | null>(null);
+  const [expandedCourseLoadIds, setExpandedCourseLoadIds] = useState<Set<number>>(() => new Set());
   /* صفةُ كل قسمٍ لمن يرى النهائيَّ وحده («accepted» | «historical»)، من ترويسة
      الخادم. فارغةٌ لغير العميدين. */
   const [finality, setFinality] = useState<Record<string, "accepted" | "historical">>({});
@@ -514,6 +526,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     return query.toString();
   }, [filters]);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [meetingOpen, setMeetingOpen] = useState(false);
   const [printKind, setPrintKind] = useState<Exclude<PrintKind, null>>(() => (LENSES.some(x => x.id === saved.lens) ? saved.lens : LENS_FOR_MODE[mode] || "list"));
   /**
    * ── حال الاعتماد، للوثيقة الرسمية ──────────────────────────────────────
@@ -551,6 +564,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     return () => query.removeEventListener?.("change", sync);
   }, []);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [directorySide, setDirectorySide] = useState<"rooms" | "teachers">("rooms");
   const [selectedResultId, setSelectedResultId] = useState<number | null>(null);
   const [occupancy, setOccupancy] = useState<any>(null);
   const [occupancyLoading, setOccupancyLoading] = useState(false);
@@ -935,6 +949,35 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     sortByName(isPowerAdmin ? colleges : colleges.filter(c => baseScope.collegeIds.includes(Number(c.AdCollegeId))), (c: AdCollege) => c.AdCollegeName),
     row => optionKey(row.AdCollegeName), filters.collegeId, row => Number(row.AdCollegeId),
   ), [colleges, isPowerAdmin, baseScope.collegeIds.join("|"), filters.collegeId]);
+  /* تقرير العدالة مقيد بالقسم المختار: نظير القسم نفسه (رمز القسم) في كل
+     موقع رسمي، ويشمل البنين والبنات عند وجود القسم فيهما. لا نجلب بقية
+     أقسام الكلية حتى لو كان القارئ مشرفاً عاماً. */
+  const siteLoadScopes = useMemo(() => {
+    return departmentSiteScopes(sections, filters.sectionId);
+  }, [sections, filters.sectionId]);
+  const siteLoadScopeKey = siteLoadScopes.map(scope => `${scope.collegeId}:${scope.sectionId}`).join("|");
+  useEffect(() => {
+    if (lens !== "courseLoad" || !filters.termId || !siteLoadScopes.length) {
+      if (lens === "courseLoad") setSiteLoadRead({ termId: filters.termId, rows: [], denied: [], loading: false });
+      return;
+    }
+    const controller = new AbortController();
+    const termId = filters.termId;
+    setSiteLoadRead({ termId, rows: [], denied: [], loading: true });
+    void Promise.all(siteLoadScopes.map(async ({ collegeId, sectionId }) => {
+      try {
+        const response = await fetch(`/api/schedules?termId=${termId}&collegeId=${collegeId}&sectionId=${sectionId}`, { signal: controller.signal });
+        if (!response.ok) return { collegeId, rows: [] as FSchedule[], denied: true };
+        const rows = await response.json() as FSchedule[];
+        return { collegeId, rows: rows.filter(row => Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId), denied: false };
+      } catch { return { collegeId, rows: [] as FSchedule[], denied: true }; }
+    })).then(parts => {
+      if (controller.signal.aborted) return;
+      setSiteLoadRead({ termId, rows: parts.flatMap(part => part.rows),
+        denied: parts.filter(part => part.denied).map(part => collegeById.get(part.collegeId)?.AdCollegeName || String(part.collegeId)), loading: false });
+    }).catch(() => { if (!controller.signal.aborted) setSiteLoadRead({ termId, rows: [], denied: [], loading: false }); });
+    return () => controller.abort();
+  }, [lens, filters.termId, siteLoadScopeKey, filters.sectionId]);
   const sectionOptions = useMemo(() => dedupeVisibleOptions(
     sortByName(sections.filter(s => (!filters.collegeId || s.AdCollegeId === filters.collegeId) && (isPowerAdmin || scopeState.sectionIds.includes(Number(s.AdSectionId)))), (s: AdSection) => s.AdSectionName),
     row => `${Number(row.AdCollegeId) || 0}|${optionKey(row.AdSectionName)}`, filters.sectionId, row => Number(row.AdSectionId),
@@ -1011,10 +1054,12 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       row => courseIdentityKey(row), filters.courseId, row => Number(row.AdCourseId),
     );
   }, [courses, filters.sectionId, filters.building, filters.hall, filters.courseId, courseIdentityKey, rowsForFacet]);
+  /* الفصول التي فيها بيانات للنطاق المختار، والحالي دائماً (useScopedTerms). */
+  const scopedTerms = useScopedTerms<AdTerm>(terms, filters.collegeId, filters.sectionId, filters.termId, id => pickScope({ termId: id }));
   const termOptions = useMemo(() => dedupeVisibleOptions<AdTerm>(
-    terms,
+    scopedTerms,
     row => optionKey(row.AdTermName), filters.termId, row => Number(row.AdTermId),
-  ), [terms, filters.termId]);
+  ), [scopedTerms, filters.termId]);
   const instructorOptions = useMemo(() => {
     const allowed=new Set(rowsForFacet("instructor").map(row=>Number(row.AdInstructorId)).filter(Boolean));
     const source=instructors.filter(person=>allowed.has(Number(person.AdInstructorId))||Number(person.AdInstructorId)===Number(filters.instructorId));
@@ -1595,7 +1640,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const root = document.documentElement;
     const originalTitle = document.title;
     const reportTitles: Record<Exclude<PrintKind, null>, string> = {
-      list: "نتائج الاستعلام", week: "الأسبوع", instructor: "تقرير الأستاذ", room: "إشغال القاعات والفراغات",
+      list: "نتائج الاستعلام", week: "الأسبوع", instructor: "تقرير الأستاذ", courseLoad: "توزيع المواد بين المواقع", room: "إشغال القاعات والفراغات", roomInstructor: "القاعات والأساتذة",
       matrix: "القاعات والأوقات", time: "الأوقات", visiting: "المنتدبون — الفصل الحالي",
       visitingHistory: "المنتدبون — كل الفصول", fairness: "عدالة توزيع العبء", balance: "ميزان الأقسام",
       comprehensive: "تقرير الجدول الشامل", "comprehensive-branch": "تقرير الجدول الشامل — كل الفروع",
@@ -1869,6 +1914,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   };
 
   const groups = lens === "instructor" ? byInstructor : [];
+  const courseLoadRows = siteLoadRead?.termId === filters.termId && !siteLoadRead.loading ? siteLoadRead.rows : [];
+  const courseLoads = useMemo(() => instructorCourseLoad(courseLoadRows, instructorById, courseById, collegeById)
+    .filter(person => (!filters.instructorId || person.instructorId === filters.instructorId)
+      && (!filters.instructorQuery.trim() || sortKey(person.instructorName).toLowerCase().includes(sortKey(filters.instructorQuery.trim()).toLowerCase()))
+      && (!filters.civil.trim() || String(instructorById.get(person.instructorId)?.AdInstructorCivil || "").includes(filters.civil.trim()))),
+  [courseLoadRows, instructorById, courseById, collegeById, filters.instructorId, filters.instructorQuery, filters.civil]);
+  const courseLoadMax = Math.max(1, ...courseLoads.map(person => person.courseCount));
+  const roomTeacherIndex = useMemo(() => roomInstructorDirectory(results, instructorById), [results, instructorById]);
   const maxLoad = Math.max(1, ...byInstructor.map(group => group.load));
   const maxSlot = Math.max(1, ...byTime.map(slot => slot.count));
   const selectedResult = selectedResultId === null ? null : results.find(row => row.id === selectedResultId) || null;
@@ -1885,13 +1938,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         aria-label={`تفاصيل ${pickedCourse?.CourseName || selectedResult.AdCourseName || "الموعد"}`}
       >
         <header>
-          <div><small>تفاصيل الموعد</small><strong>{pickedCourse?.CourseName || selectedResult.AdCourseName || "—"}</strong></div>
+          <div><small>تفاصيل الموعد</small><div className="course-room-type-line"><strong>{pickedCourse?.CourseName || selectedResult.AdCourseName || "—"}</strong><CourseRoomTypeBadge type={pickedCourse?.CourseRoomType} compact/></div></div>
           <span className="occupancy-pick-count">الشعبة {selectedResult.SCode || "—"}</span>
           <button type="button" onClick={() => setSelectedResultId(null)} aria-label="إغلاق التفاصيل" title="إغلاق"><X aria-hidden="true" /></button>
         </header>
         <div className="occupancy-pick-rows">
           <article>
-            <strong className="report-instructor-with-badge">{pickedInstructor?.AdInstructorName || "بدون أستاذ"}{isVisitingInstructor(selectedResult.AdInstructorId) ? <VisitingBadge compact /> : null}</strong>
+            <strong className="report-instructor-with-badge"><span className="rib-name">{pickedInstructor?.AdInstructorName || "بدون أستاذ"}</span>{isVisitingInstructor(selectedResult.AdInstructorId) ? <VisitingBadge compact /> : null}</strong>
             <span>{sectionById.get(selectedResult.AdSectionId)?.AdSectionName || "بدون قسم"}</span>
             <em>{dayText(selectedResult) || "بلا أيام"}</em>
             <time dir="ltr">{formatScheduleTimeRange(selectedResult.fstarttime, selectedResult.fendtime)}</time>
@@ -2019,8 +2072,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         </form>
         {askNote ? <p className="query-ask-note" id="query-ask-note" role="status">{askNote}</p> : null}
 
-        <div className="query-scope query-primary-filters" data-count={soleDepartment === null ? 3 : 2} aria-label="المرشحات الأساسية">
-          <Field label="الكلية">
+        <div className="query-scope query-primary-filters" data-count={3 - (hidesCollege(scopeShape(scopes, isPowerAdmin)) ? 1 : 0) - (soleDepartment !== null || hidesSection(scopeShape(scopes, isPowerAdmin)) ? 1 : 0) + (roleId === "departmentHead" && filters.termId && (filters.sectionId || soleDepartment) ? 1 : 0)} aria-label="المرشحات الأساسية">
+          {hidesCollege(scopeShape(scopes, isPowerAdmin)) ? null : <Field label="الكلية">
             <select
               value={filters.collegeId || ""}
               onChange={event => {
@@ -2031,8 +2084,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               <option value="">اختر الكلية</option>
               {collegeOptions.map(row => <option key={row.AdCollegeId} value={row.AdCollegeId}>{cleanOptionText(row.AdCollegeName)}</option>)}
             </select>
-          </Field>
-          {soleDepartment === null ? (
+          </Field>}
+          {soleDepartment === null && !hidesSection(scopeShape(scopes, isPowerAdmin)) ? (
             <Field label="القسم">
               <select value={filters.sectionId || ""} disabled={!filters.collegeId} onChange={event => pickScope({ sectionId: Number(event.target.value) || 0 })}>
                 <option value="">كل الأقسام</option>
@@ -2041,11 +2094,17 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             </Field>
           ) : null}
           <Field label="الفصل">
-            <select value={filters.termId || ""} onChange={event => pickScope({ termId: Number(event.target.value) || 0 })}>
+            <TermSelect value={filters.termId || ""} onValueChange={id => pickScope({ termId: id })}>
               <option value="">اختر الفصل</option>
               {termOptions.map(row => <option key={row.AdTermId} value={row.AdTermId}>{cleanOptionText(row.AdTermName)}</option>)}
-            </select>
+            </TermSelect>
           </Field>
+          {roleId === "departmentHead" && filters.termId && (filters.sectionId || soleDepartment) ? <GhostButton
+            type="button"
+            data-guide-ignore="أداة قراءة فقط لرئيس القسم: تحسب مواعيد اجتماع الأساتذة ولا تغيّر الجدول"
+            onClick={() => setMeetingOpen(true)}
+            title="اعرف النوافذ الأسبوعية المشتركة لأساتذة القسم"
+          ><UsersRound aria-hidden="true" /> متى نلتقي؟</GhostButton> : null}
           <GhostButton
             type="button"
             onClick={() => setMoreOpen(v => !v)}
@@ -2095,14 +2154,15 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 still, so nothing is ever unreadable. */}
             <div className="field query-course-field">
               <label>المقرر</label>
-              <select
+              <SearchableSelect
                 value={filters.courseId || ""}
-                onChange={event => set("courseId", Number(event.target.value) || 0)}
+                onChange={picked => set("courseId", Number(picked) || 0)}
                 title={selectedCourse ? cleanOptionText(selectedCourse.CourseName) : "كل المقررات"}
-              >
-                <option value="">الكل</option>
-                {courseOptions.map(row => <option key={row.AdCourseId} value={row.AdCourseId}>{cleanOptionText(row.CourseName)}</option>)}
-              </select>
+                options={[{ value: "", label: "الكل" }, ...courseOptions.map(row => ({ value: row.AdCourseId, label: cleanOptionText(row.CourseName), hint: row.CourseCode || undefined, keywords: String(row.CourseCode || "") }))]}
+                placeholder="الكل"
+                ariaLabel="المقرر"
+                searchPlaceholder="اكتب اسم المقرر أو رمزه"
+              />
             </div>
             <div className="field query-period-field">
               <label>الفترة</label>
@@ -2233,9 +2293,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             <b>{num(lens === "balance" ? Number(balance?.departments?.length || 0) : lens === "visitingHistory" ? visitingHistoryRows.length : lens === "visiting" ? visitingTermGroups.length : results.length)}</b>
             <span>{lens === "balance" ? nounFor(Number(balance?.departments?.length || 0), AR.department) : lens === "visitingHistory" ? "منتدب تاريخي" : lens === "visiting" ? "منتدب" : "موعد"}</span>
             </> : null}
-            {scopeLine ? <small>{scopeLine}</small> : null}
+            {lens === "courseLoad" ? <small>{termName} · {sectionName || "اختر القسم"} · المواقع التي يوجد فيها القسم</small> : scopeLine ? <small>{scopeLine}</small> : null}
           </div>
-          {!pending && (results.length || (lens === "balance" && balance) || (authorityReportAvailable && all.length > 0)) ? <div className="query-canvas-actions">
+          {!pending && (results.length || (lens === "courseLoad" && courseLoads.length) || (lens === "balance" && balance) || (authorityReportAvailable && all.length > 0)) ? <div className="query-canvas-actions">
             {/* نشرة الميزان تُطبع قبل أول موعدٍ معتمد أيضاً (N14). */}
             {!results.length && lens === "balance" && balance ? (
               <button
@@ -2249,8 +2309,11 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 <Printer aria-hidden="true" />
               </button>
             ) : null}
+            {!results.length && lens === "courseLoad" && filters.sectionId && courseLoads.length ? <button type="button" className="query-print-icon" data-guide-ignore="طباعة توزيع المواد بين المواقع" onClick={() => printReport("courseLoad")} aria-label="طباعة توزيع المواد بين المواقع" title="طباعة التقرير"><Printer aria-hidden="true" /></button> : null}
             {results.length ? <>
-              {lens === "instructor" ? (
+              {lens === "courseLoad" ? (
+                <button type="button" className="query-print-icon" data-guide-ignore="طباعة توزيع المواد بين المواقع" onClick={() => printReport("courseLoad")} disabled={!filters.sectionId || siteLoadRead?.loading || !courseLoads.length} aria-label="طباعة توزيع المواد بين المواقع" title="طباعة التقرير"><Printer aria-hidden="true" /></button>
+              ) : lens === "instructor" ? (
                 <div className="query-report-action">
                   <SecondaryButton type="button" className="query-print-icon" data-guide-ignore="اختيار نطاق طباعة تقرير الأستاذ؛ قراءة فقط" aria-label="طباعة تقرير الأستاذ" aria-haspopup="menu" aria-expanded={scopeMenu === "instructor" || undefined} onClick={() => setScopeMenu(scopeMenu === "instructor" ? null : "instructor")} disabled={branchBusy} title="اختر نطاق تقرير الأستاذ للطباعة">
                     <Printer aria-hidden="true" />
@@ -2321,7 +2384,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
 
         {loading || pending || (lens === "visitingHistory" && visitingHistoryLoading) ? (
           <QuerySkeleton />
-        ) : !results.length && lens !== "room" && lens !== "balance" && lens !== "visitingHistory" ? (
+        ) : !results.length && lens !== "room" && lens !== "balance" && lens !== "visitingHistory" && lens !== "courseLoad" ? (
           <div className="query-empty">
             <EmptyState
               title={error ? "تعذّرت القراءة" : isDeanReader && !filters.collegeId ? "اختر الكلية" : isDeanReader ? "لا جدول معتمد بعد" : "لا نتائج"}
@@ -2357,7 +2420,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 >
                   <span className="lens-index">{String(index + 1).padStart(2, "0")}</span>
                   <div className="lens-main">
-                    <strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName}</strong>
+                    <div className="course-room-type-line"><strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName}</strong><CourseRoomTypeBadge type={course?.CourseRoomType} compact/></div>
                     <div className="lens-tags">
                       <span className="code-chip">{row.CourseCodeSnapshot || course?.CourseCode || "—"}</span>
                       <span>{row.SCode}</span>
@@ -2414,7 +2477,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                     <article key={`${day.key}-${row.id}`}>
                       <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                       <div>
-                        <strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}</strong>
+                        <div className="course-room-type-line"><strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}</strong><CourseRoomTypeBadge type={courseById.get(row.AdCourseId)?.CourseRoomType} compact/></div>
                         <span className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
                       </div>
                       <small>
@@ -2591,7 +2654,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                       {picked.map(row => (
                         <article key={row.id}>
                           <strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}</strong>
-                          <span className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
+                          <span className="report-instructor-with-badge"><span className="rib-name">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}</span>{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
                           <em>{dayText(row)}</em>
                           <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                         </article>
@@ -2871,6 +2934,48 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           ) : (
             <div className="query-empty"><EmptyState title="لا يوجد تاريخ منتدبين" detail="بعد حفظ منتدبي الفصول سيظهر هنا سجل المقارنة بين السنوات." /></div>
           )
+        ) : lens === "courseLoad" ? (
+          <div className="course-load-report">
+            <div className="course-load-intro"><span><BookOpen aria-hidden="true" /></span><div><strong>توزيع المواد بين المواقع</strong>{sectionName ? <small>{sectionName}</small> : null}</div></div>
+            {!filters.sectionId ? <div className="query-empty"><EmptyState title="اختر القسم أولاً" detail="يعرض التقرير أساتذة هذا القسم عبر المواقع الأخرى التي يوجد فيها القسم نفسه." /></div> : null}
+            {siteLoadRead?.loading || siteLoadRead?.termId !== filters.termId ? <p role="status">يُجهّز توزيع المواقع…</p> : null}
+            {siteLoadRead?.denied.length ? <p className="course-load-partial" role="status">البيانات جزئية: تعذرت قراءة {siteLoadRead.denied.join("، ")}</p> : null}
+            {courseLoads.length ? <section className="course-load-college">
+              <header><div><Landmark aria-hidden="true" /><h3>{countOf(courseLoads.length, AR.instructor)}</h3></div></header>
+              <div className="course-load-list">{courseLoads.map(person => (
+                <article key={person.instructorId} className={`course-load-row${expandedCourseLoadIds.has(person.instructorId) ? " is-expanded" : ""}`}>
+                  <div className="course-load-person"><span className="course-load-avatar"><UserRound aria-hidden="true" /></span><div className="course-load-person-content"><button type="button" data-guide-ignore="إظهار توزيع مواد الأستاذ حسب الحرم" className="course-load-person-toggle report-instructor-with-badge" aria-expanded={expandedCourseLoadIds.has(person.instructorId)} aria-controls={`course-load-details-${person.instructorId}`} onClick={() => setExpandedCourseLoadIds(previous => { const next = new Set(previous); if (next.has(person.instructorId)) next.delete(person.instructorId); else next.add(person.instructorId); return next; })}>{person.instructorName}{isVisitingInstructor(person.instructorId) ? <VisitingBadge compact /> : null}<ChevronDown aria-hidden="true" className="course-load-person-chevron" /></button>{expandedCourseLoadIds.has(person.instructorId) ? <div id={`course-load-details-${person.instructorId}`} className="course-load-detail-list" role="list">{person.courseLocations.flatMap(course => course.sites.map(site => <div key={`${course.courseName}-${site.collegeId}`} className="course-load-detail-item" role="listitem"><span className="course-load-detail-course"><BookOpen aria-hidden="true" />{course.courseName}</span><span className="course-load-detail-sections"><ClipboardList aria-hidden="true" /><b>{num(site.sectionCount)}</b><small>{nounFor(site.sectionCount, AR.section)}</small></span><span className="course-load-detail-site"><Building2 aria-hidden="true" />{site.siteName}</span></div>))}</div> : null}</div></div>
+                  {!expandedCourseLoadIds.has(person.instructorId) ? <><div className="course-load-sites">{person.sites.map(site => <span key={site.collegeId} title={`${site.courses.join(" · ")} · ${countOf(site.sectionCount, AR.section)}`}><Building2 aria-hidden="true" />{site.siteName}<b>{num(site.courseCount)}</b></span>)}</div><div className="course-load-meter" aria-label={countOf(person.courseCount, AR.course)}><i style={{ width: share(person.courseCount, courseLoadMax) }} /></div><div className="course-load-facts"><b>{countOf(person.courseCount, AR.course)}</b><small>{countOf(person.sectionCount, AR.section)}</small></div></> : null}
+                </article>
+            ))}</div>
+            </section> : filters.sectionId && !siteLoadRead?.loading ? <div className="query-empty"><EmptyState title={`لا توجد مواد لقسم ${sectionName || "القسم المحدد"} في المواقع المعنية لهذا الفصل`} /></div> : null}
+          </div>
+        ) : lens === "roomInstructor" ? (
+          <div className="room-teacher-report">
+            <div className="room-teacher-switch" role="group" aria-label="اتجاه التقرير">
+              <button type="button" data-guide-ignore="تبديل اتجاه التقرير بين القاعات والأساتذة للعرض فقط" className={directorySide === "rooms" ? "active" : ""} aria-pressed={directorySide === "rooms"} onClick={() => setDirectorySide("rooms")}><Building2 aria-hidden="true" /> القاعات <b>{num(roomTeacherIndex.rooms.length)}</b></button>
+              <button type="button" data-guide-ignore="تبديل اتجاه التقرير بين الأساتذة والقاعات للعرض فقط" className={directorySide === "teachers" ? "active" : ""} aria-pressed={directorySide === "teachers"} onClick={() => setDirectorySide("teachers")}><UserRound aria-hidden="true" /> الأساتذة <b>{num(roomTeacherIndex.teachers.length)}</b></button>
+            </div>
+            <div className="room-teacher-cards">
+              {directorySide === "rooms" ? roomTeacherIndex.rooms.map(room => (
+                <article key={`${room.building}/${room.hall}`} className="room-teacher-card">
+                  <div className="room-teacher-symbol"><Building2 aria-hidden="true" /></div>
+                  <div className="room-teacher-content">
+                    <small>مبنى <bdi dir="ltr">{room.building}</bdi></small>
+                    <h3>قاعة <bdi dir="ltr">{room.hall}</bdi></h3>
+                    <div className="room-teacher-tags">{[...room.teachers.entries()].sort((a,b) => byArabic(a[1],b[1])).map(([id,name]) => <span key={id}><UserRound aria-hidden="true" />{name}{isVisitingInstructor(id) ? <VisitingBadge compact /> : null}</span>)}</div>
+                  </div>
+                  <div className="room-teacher-count"><b>{countOf(room.teachers.size, AR.instructor)}</b></div>
+                </article>
+              )) : roomTeacherIndex.teachers.map(teacher => (
+                <article key={teacher.id} className="room-teacher-card">
+                  <div className="room-teacher-symbol"><UserRound aria-hidden="true" /></div>
+                  <div className="room-teacher-content"><small>عضو هيئة التدريس</small><h3 className="report-instructor-with-badge">{teacher.name}{isVisitingInstructor(teacher.id) ? <VisitingBadge compact /> : null}</h3><div className="room-teacher-tags">{[...teacher.rooms.values()].sort((a,b) => byRoomLabel(`${a.building}/${a.hall}`,`${b.building}/${b.hall}`)).map(room => <span key={`${room.building}/${room.hall}`}><Building2 aria-hidden="true" /><bdi dir="ltr">{room.building} / {room.hall}</bdi></span>)}</div></div>
+                  <div className="room-teacher-count"><b>{countOf(teacher.rooms.size, AR.room)}</b></div>
+                </article>
+              ))}
+            </div>
+          </div>
         ) : lens === "instructor" ? (
           <div className="lens-groups">
             {groups.map(group => (
@@ -3023,15 +3128,15 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       <PrintPortal>
         <PrintSheet
           kind={printKind}
-          rows={printRowsOverride || results}
+          rows={printKind === "courseLoad" ? courseLoadRows.filter(row => courseLoads.some(person => person.instructorId === Number(row.AdInstructorId))) : printRowsOverride || results}
           fairness={fairness}
           matrix={matrix}
           roomLoad={roomLoad}
           roomDay={roomDay}
           balance={balance}
           visitingHistory={visibleVisitingHistory}
-          scopeLine={printCollegeOverride ? [termName, printCollegeOverride].filter(Boolean).join(" · ") : scopeLine}
-          collegeName={printCollegeOverride || collegeName}
+          scopeLine={printKind === "courseLoad" ? [termName, sectionName, "المواقع التي يوجد فيها القسم"].filter(Boolean).join(" · ") : printCollegeOverride ? [termName, printCollegeOverride].filter(Boolean).join(" · ") : scopeLine}
+          collegeName={printKind === "courseLoad" ? sectionName || "القسم المحدد" : printCollegeOverride || collegeName}
           termName={termName}
           sectionName={sectionName}
           sectionCode={sectionCode}
@@ -3049,6 +3154,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           balanceApprovals={termApprovals}
         />
       </PrintPortal>
+      {meetingOpen && roleId === "departmentHead" ? <MeetingSlots
+        instructors={instructorOptions.map(person => ({ AdInstructorId: person.AdInstructorId, AdInstructorName: person.AdInstructorName }))}
+        scopeNarrowed
+        termId={filters.termId}
+        sectionId={filters.sectionId || soleDepartment || 0}
+        onClose={() => setMeetingOpen(false)}
+      /> : null}
       <PrintPortal className="authority-pdf-print-host">
         {/* إما تقرير موقع واحد، أو كتاب مواقع الفرع — لا يجتمعان في المنفذ. */}
         {authorityBook?.length ? (() => {
@@ -3366,6 +3478,30 @@ function BalancePanel({ balance, sort, onSort, num, approvals, focusSectionId = 
 const placeOfRow = (row: FSchedule) =>
   [String(row.AdRoomCode || "").trim(), String(row.AdRoomHall || "").trim()].filter(Boolean).join("/") || "بلا قاعة";
 
+/** A room is identified by its building and hall together; names come from the
+ * same scoped schedule rows used by the other reports. Repeated lectures count
+ * once per instructor/room pair. */
+function roomInstructorDirectory(rows: FSchedule[], instructors: Map<number, AdInstructor>) {
+  const rooms = new Map<string, { building: string; hall: string; teachers: Map<number, string>; appointments: number }>();
+  const teachers = new Map<number, { id: number; name: string; rooms: Map<string, { building: string; hall: string }>; appointments: number }>();
+  rows.forEach(row => {
+    const building = cleanOptionText(row.AdRoomCode);
+    const hall = cleanOptionText(row.AdRoomHall);
+    const name = cleanOptionText(instructors.get(Number(row.AdInstructorId))?.AdInstructorName);
+    if (!building || !hall || !name) return;
+    const key = `${optionKey(building)}\u0000${optionKey(hall)}`;
+    const id = Number(row.AdInstructorId);
+    const room = rooms.get(key) || { building, hall, teachers: new Map<number, string>(), appointments: 0 };
+    room.teachers.set(id, name); room.appointments++; rooms.set(key, room);
+    const teacher = teachers.get(id) || { id, name, rooms: new Map<string, { building: string; hall: string }>(), appointments: 0 };
+    teacher.rooms.set(key, { building, hall }); teacher.appointments++; teachers.set(id, teacher);
+  });
+  return {
+    rooms: [...rooms.values()].sort((a, b) => byRoomLabel(`${a.building}/${a.hall}`, `${b.building}/${b.hall}`)),
+    teachers: [...teachers.values()].sort((a, b) => byArabic(a.name, b.name) || a.id - b.id),
+  };
+}
+
 function groupRows(rows: FSchedule[], keyOf: (row: FSchedule) => string) {
   const groups = new Map<string, FSchedule[]>();
   rows.forEach(row => {
@@ -3658,7 +3794,9 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
     list: "نتائج الاستعلام",
     week: "الأسبوع",
     instructor: "الأساتذة",
+    courseLoad: "توزيع المواد بين المواقع",
     room: "إشغال القاعات والفراغات",
+    roomInstructor: "القاعات والأساتذة",
     matrix: "القاعات × الأوقات",
     time: "الأوقات",
     visiting: "المنتدبون — الفصل الحالي",
@@ -3979,6 +4117,44 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
         }) : <p className="print-empty">لا توجد بيانات أساتذة ضمن النطاق المحدد.</p>}
       </div>
     );
+  }
+
+  if (kind === "courseLoad") {
+    const list = instructorCourseLoad(rows, instructorById, courseById, collegeById);
+    const pages = paginateItems(list, 9);
+    return <div className="print-report print-wide print-query-report print-course-load-report">
+      {pages.map((page, index) => <section className="print-explicit-page" key={`course-load-${index}`}>
+        <PrintLetterhead title={titles[kind]} scope={scopeLine} college={collegeName} footer={false} />
+        <div className="print-query-summaryline"><span>{countOf(list.length, AR.instructor)}</span></div>
+        <table className="print-room-teacher-table print-course-load-table"><thead><tr><th>الأستاذ</th><th>المواقع وعدد المواد</th><th>الإجمالي</th></tr></thead><tbody>{page.map(person => <tr key={person.instructorId}>
+          <th>{person.instructorName}{visitingIds.has(person.instructorId) ? " · منتدب" : ""}</th>
+          <td>{person.sites.map(site => <span className="print-course-load-site" key={site.collegeId}><strong>{site.siteName}</strong> {countOf(site.courseCount, AR.course)}<small>{site.courses.join(" · ")}</small></span>)}</td>
+          <td>{countOf(person.courseCount, AR.course)}<br />{countOf(person.sectionCount, AR.section)}</td>
+        </tr>)}</tbody></table>
+        <PrintPageMeta page={index + 1} total={pages.length} college={collegeName} date={issueDate} />
+      </section>)}
+    </div>;
+  }
+
+  if (kind === "roomInstructor") {
+    const directory = roomInstructorDirectory(rows, instructorById);
+    const roomPages = paginateItems(directory.rooms, 12);
+    const teacherPages = paginateItems(directory.teachers, 12);
+    const total = roomPages.length + teacherPages.length;
+    const printList = (entries: Array<{ title: string; subtitle: string; names: string[] }>, title: string, page: number) => (
+      <section className="print-explicit-page" key={`${title}-${page}`}>
+        <PrintLetterhead title={`القاعات والأساتذة — ${title}`} scope={scopeLine} college={collegeName} footer={false} />
+        <div className="print-query-summaryline"><span>{countOf(directory.rooms.length, AR.room)}</span><span>{countOf(directory.teachers.length, AR.instructor)}</span></div>
+        <table className="print-room-teacher-table"><thead><tr><th>{title === "حسب القاعة" ? "القاعة" : "الأستاذ"}</th><th>{title === "حسب القاعة" ? "المبنى" : "القاعات والمباني"}</th><th>{title === "حسب القاعة" ? "الأساتذة" : "العدد"}</th></tr></thead>
+          <tbody>{entries.map(entry => <tr key={`${entry.title}/${entry.subtitle}`}><th>{entry.title}</th><td>{entry.subtitle}</td><td>{entry.names.join(" · ")}</td></tr>)}</tbody>
+        </table>
+        <PrintPageMeta page={page} total={total} college={collegeName} date={issueDate} />
+      </section>
+    );
+    return <div className="print-report print-wide print-query-report print-room-teacher-report">
+      {roomPages.map((page, index) => printList(page.map(room => ({ title: `قاعة ${room.hall}`, subtitle: `مبنى ${room.building}`, names: [...room.teachers.entries()].sort((a,b) => byArabic(a[1],b[1])).map(([id,name]) => `${name}${visitingIds.has(id) ? " · منتدب" : ""}`) })), "حسب القاعة", index + 1))}
+      {teacherPages.map((page, index) => printList(page.map(teacher => ({ title: `${teacher.name}${visitingIds.has(teacher.id) ? " · منتدب" : ""}`, subtitle: [...teacher.rooms.values()].map(room => `${room.building}/${room.hall}`).join(" · "), names: [String(teacher.rooms.size)] })), "حسب الأستاذ", roomPages.length + index + 1))}
+    </div>;
   }
 
   if (kind === "room") {

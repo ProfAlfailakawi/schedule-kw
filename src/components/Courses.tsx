@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { hidesCollege, hidesSection, scopeShape } from "../utils/scopeShape";
+import { resolveScopeSelection, singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeContext";
 import { BookOpen, Building2, GraduationCap, Trash2 } from "lucide-react";
 import { sortByName, byArabic } from "../utils/sorting";
 import CurriculumPlans from "./CurriculumPlans";
+import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import { sectionLabels } from "../utils/sectionLabel";
 import { decimalText, numericText } from "../utils/digits";
 import type { AdSection } from "../types";
@@ -45,7 +48,8 @@ type CurriculumTarget = {
 };
 
 /** `embedded` means the academic console already supplies the page identity. */
-export default function Courses({ embedded = false, actionSlot = null }: { embedded?: boolean; actionSlot?: HTMLElement | null }) {
+export default function Courses({ embedded = false, actionSlot = null, scopes = [], isAdmin = true }: { embedded?: boolean; actionSlot?: HTMLElement | null; scopes?: ScopeAssignmentLike[]; isAdmin?: boolean }) {
+  const shape = scopeShape(scopes, isAdmin);
   const [items, setItems] = useState<any[]>([]),
     [colleges, setColleges] = useState<any[]>([]),
     [sections, setSections] = useState<any[]>([]),
@@ -65,6 +69,8 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
     [credit, setCredit] = useState(""),
     [hours, setHours] = useState(""),
     [capacity, setCapacity] = useState(""),
+    [courseRoomType, setCourseRoomType] = useState(""),
+    [roomTypeOptions, setRoomTypeOptions] = useState<string[]>(["تدريسية", "مختبر", "مختبر حاسوب"]),
     [query, setQuery] = useState(""),
     [error, setError] = useState<string | null>(null),
     [receipt, setReceipt] = useState<string | null>(null),
@@ -108,6 +114,16 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
 
   useEffect(() => { void load(); }, []);
 
+  useEffect(() => {
+    if (!sectionId) return;
+    let alive = true;
+    fetch(`/api/location-room-types?collegeId=${Number(collegeId || 0)}&sectionId=${Number(sectionId)}`)
+      .then(response => response.ok ? response.json() : Promise.reject())
+      .then(data => { if (alive && Array.isArray(data.types)) setRoomTypeOptions(data.types); })
+      .catch(() => { if (alive) setRoomTypeOptions(["تدريسية", "مختبر", "مختبر حاسوب"]); });
+    return () => { alive = false; };
+  }, [collegeId, sectionId]);
+
   /*
    * Reading the legacy catalogue before curriculum setup remains intentionally
    * permissive: every current course is operational. Creating is different.
@@ -129,7 +145,7 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
         if (!response.ok) throw new Error(body?.error || "تعذر التحقق من الصحيفة الحالية");
         if (!alive) return;
         const active = (Array.isArray(body?.plans) ? body.plans : [])
-          .find((plan: CurriculumPlan) => plan.status === "active" && !plan.virtual) || null;
+          .find((plan: CurriculumPlan) => plan.status === "active" && !plan.virtual && !plan.track) || null;
         setCurriculumTarget({
           loading: false,
           bootstrap: Boolean(body?.bootstrap),
@@ -168,13 +184,15 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
 
   const reset = () => {
       setEditId(null);
-      setCollegeId("");
-      setSectionId("");
+      const preset = resolveScopeSelection(scopes, 0, isAdmin);
+      setCollegeId(preset.defaultCollegeId ? String(preset.defaultCollegeId) : "");
+      setSectionId(preset.defaultSectionId ? String(preset.defaultSectionId) : "");
       setCode("");
       setName("");
       setCredit("");
       setHours("");
       setCapacity("");
+      setCourseRoomType("");
       setError(null);
       setCurriculumTarget(null);
       setBootstrapOk(false);
@@ -207,6 +225,7 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
       setCredit(String(x.CourseCredit ?? ""));
       setHours(String(x.CourseHours ?? ""));
       setCapacity(String(x.MaxStudent ?? ""));
+      setCourseRoomType(String(x.CourseRoomType || ""));
       setError(null);
       setCurriculumTarget(null);
       setMode("edit");
@@ -238,6 +257,7 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
     setCredit(String(intent.credit ?? ""));
     setHours(String(intent.hours ?? ""));
     setCapacity("");
+    setCourseRoomType("");
     setMode("create");
   }, [items, sections, colleges]);
 
@@ -301,6 +321,7 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
               CourseCredit: Number(credit),
               CourseHours: Number(hours),
               MaxStudent: Number(capacity || 0),
+              CourseRoomType: courseRoomType,
             }),
           },
         ),
@@ -413,12 +434,12 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
         </div>
         <form onSubmit={submit}>
           <div className="form-grid">
-            <Field label="الكلية" required>
+            {!hidesCollege(shape) ? <Field label="الكلية" required>
               <select
                 value={collegeId}
                 onChange={(e) => {
                   setCollegeId(e.target.value);
-                  setSectionId("");
+                  setSectionId(String(resolveScopeSelection(scopes, Number(e.target.value), isAdmin).defaultSectionId || ""));
                   setCurriculumTarget(null);
                 }}
                 aria-label="الكلية"
@@ -428,8 +449,8 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
                 <option value="">اختر ...</option>
                 {colleges.map((c) => <option key={c.AdCollegeId} value={c.AdCollegeId}>{c.AdCollegeName}</option>)}
               </select>
-            </Field>
-            <Field label="القسم العلمي" required>
+            </Field> : null}
+            {!hidesSection(shape) && singleDepartmentOf(scopes, Number(collegeId), isAdmin) === null ? <Field label="القسم العلمي" required>
               <select
                 value={sectionId}
                 onChange={(e) => {
@@ -443,7 +464,7 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
                 <option value="">اختر ...</option>
                 {sectionOptions.map((s) => <option key={s.AdSectionId} value={s.AdSectionId}>{s.AdSectionName}</option>)}
               </select>
-            </Field>
+            </Field> : null}
 
             {mode === "create" && sectionId ? (
               <div style={{ gridColumn: "1 / -1" }}>
@@ -494,7 +515,7 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
                     </label>
                   </Notice>
                 ) : (
-                  <Notice type="warning" inline>لا توجد صحيفة حالية فعّالة لهذا القسم. افتح «الصحائف الأكاديمية» لمراجعتها.</Notice>
+                  <Notice type="warning" inline>لا توجد صحيفة حالية فعّالة لهذا القسم.</Notice>
                 )}
               </div>
             ) : null}
@@ -532,6 +553,13 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
             <Field label="السعة">
               <input inputMode="numeric" value={capacity} onChange={(e) => numeric(e.target.value, setCapacity)} aria-label="السعة القصوى للطلبة" />
             </Field>
+            <Field label="نوع القاعة المناسب (اختياري)">
+              <select value={courseRoomType} onChange={event => setCourseRoomType(event.target.value)} aria-label="نوع القاعة المناسب للمقرر">
+                <option value="">بلا تفضيل</option>
+                {courseRoomType&&!roomTypeOptions.includes(courseRoomType)?<option value={courseRoomType}>{courseRoomType}</option>:null}
+                {roomTypeOptions.map(type => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </Field>
           </div>
           <FormActions
             onBack={cancelEditor}
@@ -549,7 +577,6 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
       {embedded ? (
         <EmbeddedAction slot={actionSlot}>
           <div className="course-head-actions">
-            <SecondaryButton data-guide-ignore="إدارة أكاديمية متخصصة للصحائف؛ لا تغيّر الجدول مباشرة" onClick={() => openCurriculum()}><GraduationCap /> الصحائف الأكاديمية</SecondaryButton>
             <AddButton onClick={create}>إنشاء مقرر</AddButton>
           </div>
         </EmbeddedAction>
@@ -557,7 +584,7 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
         <PageTitle
           eyebrow="المكتبة الأكاديمية"
           subtitle="المكتبة والتفاصيل في لوحة واحدة"
-          action={<div className="course-head-actions"><SecondaryButton data-guide-ignore="إدارة أكاديمية متخصصة للصحائف؛ لا تغيّر الجدول مباشرة" onClick={() => openCurriculum()}><GraduationCap /> الصحائف الأكاديمية</SecondaryButton><AddButton onClick={create}>إنشاء مقرر</AddButton></div>}
+          action={<div className="course-head-actions"><AddButton onClick={create}>إنشاء مقرر</AddButton></div>}
         >
           المقررات الدراسية
         </PageTitle>
@@ -567,7 +594,7 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
       <div className="catalog-workspace">
         <Surface className="catalog-master">
           <ListToolbar value={query} onChange={setQuery} count={filtered.length} placeholder="الرقم الأكاديمي، اسم المقرر، الكلية أو القسم">
-            <select
+            {!hidesCollege(shape) ? <select
               className="list-filter"
               value={listCollege}
               onChange={(e) => { setListCollege(Number(e.target.value)); setListSection(0); }}
@@ -575,8 +602,8 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
             >
               <option value={0}>كل الكليات</option>
               {colleges.map((c) => <option key={c.AdCollegeId} value={c.AdCollegeId}>{c.AdCollegeName}</option>)}
-            </select>
-            <select
+            </select> : null}
+            {!hidesSection(shape) ? <select
               className="list-filter"
               value={listSection}
               onChange={(e) => setListSection(Number(e.target.value))}
@@ -584,7 +611,7 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
             >
               <option value={0}>كل الأقسام</option>
               {listSections.map((s) => <option key={s.AdSectionId} value={s.AdSectionId}>{listSectionLabel.get(s.AdSectionId) || s.AdSectionName}</option>)}
-            </select>
+            </select> : null}
             {hasPlans ? (
               <select
                 className="list-filter"
@@ -608,7 +635,7 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
                   onClick={() => setSelectedId(x.AdCourseId)}
                   className={activeId === x.AdCourseId ? "selected" : ""}
                   icon={<BookOpen />}
-                  title={x.CourseName}
+                  title={<span className="course-room-type-line"><span>{x.CourseName}</span><CourseRoomTypeBadge type={x.CourseRoomType}/></span>}
                   subtitle={<span className="record-path"><Building2 />{sec(x.AdSectionId)} <i className="record-path-dot" aria-hidden="true" /> {coll(x.AdCollegeId)}</span>}
                   meta={<><MetaPill label="الرقم الأكاديمي" value={x.CourseCode} /><MetaPill label="الوحدات" value={x.CourseCredit} /><MetaPill label="الساعات" value={x.CourseHours} />{(() => { const tag = planTagOf(x); return tag ? <span className={`course-plan-tag is-${tag.key}`}>{tag.key === "shared" ? "مشترك" : tag.label}</span> : null; })()}</>}
                 />
@@ -630,7 +657,7 @@ export default function Courses({ embedded = false, actionSlot = null }: { embed
             <>
               <div className="academic-inspector-icon"><BookOpen /></div>
               <span className="surface-kicker">تفاصيل المقرر</span>
-              <h2>{selected.CourseName}</h2>
+              <h2 className="course-room-type-line"><span>{selected.CourseName}</span><CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
               <p>{sec(selected.AdSectionId)} · {coll(selected.AdCollegeId)}</p>
               <div className="inspector-facts inspector-facts-pairs">
                 <article><span>الوحدات</span><b>{selected.CourseCredit}</b></article>

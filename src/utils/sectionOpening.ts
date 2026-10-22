@@ -52,6 +52,23 @@ import { weeklyLoadOf } from "./instructorRequestVerdict";
  * a person opens it and saves it.
  */
 
+/** رمز الشعبة الذي يقبله استيراد الجدول: ثلاث خانات من 501 إلى 999. */
+export const SECTION_CODE_FIRST = 501;
+export const SECTION_CODE_LAST = 999;
+/**
+ * أرقامٌ تكمل ترقيم المقرر: بعد أكبر رمزٍ مستعمل ضمن المدى المقبول، فلا يُعاد رمزٌ استُعمل ولو سُحب.
+ * الرموز خارج المدى (01، 22، 1001) لا تُبنى عليها أرقامٌ جديدة فتخرج غير مقبولة في المراجعة. وإن امتلأ المدى
+ * أُخذ أول فراغٍ فيه.
+ */
+export function nextSectionCodes(used: readonly number[], count: number): number[] {
+  const taken = new Set(used.filter(code => Number.isInteger(code) && code >= SECTION_CODE_FIRST && code <= SECTION_CODE_LAST));
+  const out: number[] = [];
+  for (let code = Math.max(SECTION_CODE_FIRST - 1, ...taken) + 1; out.length < count && code <= SECTION_CODE_LAST; code += 1) out.push(code);
+  for (let code = SECTION_CODE_FIRST; out.length < count && code <= SECTION_CODE_LAST; code += 1) if (!taken.has(code) && !out.includes(code)) out.push(code);
+  while (out.length < count) out.push(SECTION_CODE_LAST);
+  return out;
+}
+
 export interface Placement {
   /** 1 for the first new section, 2 for the second … */
   index: number;
@@ -233,10 +250,12 @@ export function readSectionOpenings(
   for (const row of history) {
     const key=roomIdentityKey(row);
     const verifiedRoom = verifiedRoomById.get(String(row.roomId || ""));
-    if (!key || !row.buildingId || !row.roomId || row.locationStatus !== "VERIFIED" || !verifiedRoom || !(Number(verifiedRoom.capacity) > 0)) continue;
+    if (!key || !row.buildingId || !row.roomId || row.locationStatus !== "VERIFIED" || !verifiedRoom) continue;
     const current=roomUse.get(key);
-    roomUse.set(key,{count:(current?.count||0)+1,buildingId:row.buildingId,roomId:row.roomId,code:String(row.AdRoomCode||""),hall:String(row.AdRoomHall||""),capacity:Number(verifiedRoom.capacity)});
+    roomUse.set(key,{count:(current?.count||0)+1,buildingId:row.buildingId,roomId:row.roomId,code:String(row.AdRoomCode||""),hall:String(row.AdRoomHall||""),capacity:Number(verifiedRoom.capacity) || 0});
   }
+  /* السعةُ المسجلة شرطُ ملاءمةٍ عند اقتراح القاعة؛ وإذا جُهلت فلا تُقصي القاعة. */
+  const fits = (room: { capacity: number }, needed: number) => !(room.capacity > 0) || room.capacity >= needed;
   const rooms = [...roomUse.entries()]
     .sort((a, b) => b[1].count - a[1].count)
     .map(([key,item]) => ({ key, buildingId:item.buildingId, roomId:item.roomId, code:item.code, hall:item.hall, capacity:item.capacity }));
@@ -299,7 +318,8 @@ export function readSectionOpenings(
       .filter(row => Number(row.AdCourseId) === item.id)
       .map(row => Number(String(row.SCode).replace(/\D/g, "")))
       .filter(value => Number.isFinite(value) && value > 0);
-    const nextCode = (usedCodes.length ? Math.max(...usedCodes) : openSections) + 1;
+    /* رمزٌ صالحٌ للاستيراد دائماً (٣ خانات من 501، لا يتكرر)، لا «1» لمقررٍ بلا شعب ولا «22» لتاريخٍ برموزٍ صغيرة. */
+    const nextCodes = nextSectionCodes(usedCodes, needed);
 
     const placements: Placement[] = [];
     const courseHoursNow = Number(course.CourseHours || course.CourseCredit) || 0;
@@ -317,7 +337,7 @@ export function readSectionOpenings(
         for (const time of ladder) {
           if (placed) break;
           const at = timeToMinutes(time);
-          for (const room of rooms.filter(candidateRoom => candidateRoom.capacity >= capacity).slice(0, 24)) {
+          for (const room of rooms.filter(candidateRoom => fits(candidateRoom, capacity)).slice(0, 24)) {
             if (placed) break;
             /* An executable placement needs an active teacher with a recorded
                load allowance and a verified hall large enough for this section. */
@@ -342,7 +362,7 @@ export function readSectionOpenings(
                 buildingId: room.buildingId, roomId: room.roomId, roomCode: room.code, roomHall: room.hall,
                 instructorId: teacherId,
                 instructorName: person?.AdInstructorName || "",
-                sectionCode: String(nextCode + slot - 1),
+                sectionCode: String(nextCodes[slot - 1]),
                 note: "",
               };
               break;
@@ -356,7 +376,7 @@ export function readSectionOpenings(
       else break;
     }
     const unplacedReason = placements.length >= needed ? undefined
-      : !rooms.some(candidateRoom => candidateRoom.capacity >= capacity) ? "لا قاعة موثّقة بسعةٍ تكفي لهذا المقرر"
+      : !rooms.some(candidateRoom => fits(candidateRoom, capacity)) ? "لا قاعة موثّقة في تاريخ القسم تتّسع لهذا المقرر"
       : !teachers.length ? "لا أستاذ درّس هذا المقرر من قبل: اختر أستاذاً"
       : !eligibleAtStart.length ? "أحمال من درّسوه ممتلئة أو بلا نصاب مسجَّل"
       : "لا وقتَ خالياً من التعارض مع الجدول والقاعات والدفعة";
