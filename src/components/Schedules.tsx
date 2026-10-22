@@ -87,6 +87,7 @@ import {
 } from "../types";
 import LivingScheduleLayer from "./LivingScheduleLayer";
 import HallBarterBoard, { type HallBarterReservationView } from "./HallBarterBoard";
+import TeachingLoadNotice from "./TeachingLoadNotice";
 import ApprovalBar from "./ApprovalBar";
 import LocationPicker from "./LocationPicker";
 import DaySubstitute from "./DaySubstitute";
@@ -10213,6 +10214,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           onOpenNotes={onNavigate ? () => onNavigate("scheduleChanges") : undefined}
           onOpenCourses={onNavigate ? () => onNavigate("courses") : undefined}
         />
+      ) : null}
+      {/* تنبيه النصاب: شارةٌ صغيرة تظهر فقط إن فعّل المسؤول الميزة وتجاوز عضوٌ نصابه؛ قراءةٌ فقط ولا تمنع تعديلاً. */}
+      {mode === "schedule" && filterCollege && filterSection && filterTerm ? (
+        <TeachingLoadNotice collegeId={filterCollege} sectionId={filterSection} termId={filterTerm} refreshSignal={liveFeedSerial + rows.length} />
       ) : null}
       <ScheduleExperienceLayer
         experience={experience}

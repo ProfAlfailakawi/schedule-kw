@@ -21,8 +21,9 @@ import { activeDays, analyzeSchedule, autoScheduleProposal, compareTerms, confli
 import { buildScheduleGenome, buildWarRoom, evaluateScheduleConstraints, forecastScheduleMove, runScheduleAutopilot } from "./src/utils/scheduleInnovation";
 import { describeRollover, readTermRollover } from "./src/utils/termRollover";
 import { currentTermId, planningTermCandidates, termHasEnded, termIsArchive } from "./src/utils/termSequence";
+import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadProblem } from "./src/utils/teachingLoad";
 import { buildConflictTopology, buildDecisionMemoryInsight, buildFairnessEngine, buildFragilityMap, buildOneMinuteBrief, buildRoomResilience, buildScheduleHealth2, buildSchedulePulse, createEmergencyPlans, explainScheduleDecision } from "./src/utils/livingSchedule";
-import type { AdCourse, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleComment, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestSnapshot, InstructorRequestEventKind, StudentNeed, CurriculumPlan, CurriculumDegreeRule } from "./src/types";
+import type { AdCourse, AdInstructor, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleComment, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestSnapshot, InstructorRequestEventKind, StudentNeed, CurriculumPlan, CurriculumDegreeRule } from "./src/types";
 import { DAY_FLAGS, DAY_LABELS, parseNaturalQuery } from "./src/utils/naturalQuery";
 import { computeMeetingSlots, meetingParticipants } from "./src/utils/meetingSlots";
 import { directoryVisitingIds, liveVisitingIds, termVisitingIds } from "./src/utils/liveVisiting";
@@ -964,7 +965,7 @@ app.use("/api", authMiddleware as express.RequestHandler);
 
 // System administration is a showroom in demo: readable, never mutable. This is
 // server-side enforcement, so removing `disabled` in DevTools still cannot change it.
-const DEMO_READ_ONLY_PREFIXES = ["/users", "/permissions", "/user-scopes", "/system-backup"];
+const DEMO_READ_ONLY_PREFIXES = ["/users", "/permissions", "/user-scopes", "/system-backup", "/admin/teaching-load"];
 app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   if (!Repository.isDemoRequest() || req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") { next(); return; }
   if (req.path === "/auth/logout" || req.path === "/auth/heartbeat" || req.path === "/auth/presence" || req.path === "/demo/reset" || req.path === "/demo/role") { next(); return; }
@@ -2221,7 +2222,12 @@ async function seedDemoStories(): Promise<void> {
 
   /* عدّاداتُ المشاهدة: رابطٌ لم يفتحه أحدٌ يُري «0» أمام الجمهور. تُرفع بالدالة
      نفسها التي تعدّ بها الصفحاتُ العامة، داخل صندوق الزائر وحده. */
-  for (const [link, opens] of [[staffLink, 14], [survey, 9]] as const) {
+  /* رابطُ جدول القسم المنشور: ثالثُ ما يجده المنسّق في لوحة النشر (للعرض، بمشاهداتٍ تُري أن الرابط يُفتح). */
+  const departmentLink = await Repository.createShareLink({
+    ...linkBase, kind: "department", label: shareLinkLabel("department", sectionName, termName),
+    expiresAt: iso(60), showInstructors: true,
+  } as any);
+  for (const [link, opens] of [[staffLink, 14], [survey, 9], [departmentLink, 31]] as const) {
     for (let opened = 0; opened < opens; opened++) await Repository.touchShareLink(link.id);
   }
 
@@ -2288,7 +2294,7 @@ async function seedDemoStories(): Promise<void> {
   // ── طلبا أستاذين (c): واحدٌ ينتظر القسم، وآخرُ قُرّر برفضٍ وبدائل.
   const courseName = new Map(courses.map(row => [Number(row.AdCourseId), String(row.CourseName || "")]));
   const collegeNameById = new Map(colleges.map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
-  const teachers = [...new Set(scopeRows.map(row => Number(row.AdInstructorId)).filter(Boolean))].slice(0, 2);
+  const teachers = [...new Set(scopeRows.map(row => Number(row.AdInstructorId)).filter(Boolean))].slice(0, 6);
   const candidateSlots: Array<{ days: RequestDayKey[]; start: string }> = [
     { days: ["fsunday", "ftuesday"], start: "12:30" }, { days: ["fmonday", "fwednesday"], start: "14:00" },
     { days: ["fsunday", "ftuesday"], start: "15:30" }, { days: ["fmonday", "fwednesday"], start: "08:00" },
@@ -2305,15 +2311,17 @@ async function seedDemoStories(): Promise<void> {
       showInstructors: false,
     } as any);
     /* الأستاذ فتح رابطه (linkOpenedAt أدناه): العدّادُ يوافق القصة لا «0». */
-    for (let opened = 0; opened < 3 + index; opened++) await Repository.touchShareLink(link.id);
+    for (let opened = 0; opened < (index === 3 ? 0 : 3 + index); opened++) await Repository.touchShareLink(link.id);
     const opened = iso(-6);
     let request = await Repository.createInstructorRequest({
       AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId, AdInstructorId: instructorId, linkId: link.id,
       window: { opensAt: opened, closesAt: requestsCloseAtFromDate(iso(10).slice(0, 10)) }, source: "draft", status: "sent",
       items: own.map(row => requestItemFromRow(row, courseName.get(Number(row.AdCourseId)) || String(row.AdCourseName || ""), collegeNameById)),
-      timeline: [{ kind: "link-created", at: opened, by: "القسم" }, { kind: "link-opened", at: iso(-5) }],
+      timeline: [{ kind: "link-created", at: opened, by: "القسم" }, ...(index === 3 ? [] : [{ kind: "link-opened" as const, at: iso(-5) }])],
     });
-    request = { ...request, linkOpenedAt: iso(-5) };
+    request = index === 3 ? request : { ...request, linkOpenedAt: iso(-5) };
+    /* حالتان بلا إرسال: أستاذٌ فتح رابطه ولم يرسل بعد (2)، وآخرُ لم يفتحه (3) — فيرى القسمُ «ينتظر الأستاذ» لا طلبين فقط. */
+    if (index === 2 || index === 3) { await Repository.saveInstructorRequest(request); continue; }
     /* بندٌ واحدٌ يُطلب نقله إلى أوّل موعدٍ يقبله حكمُ النظام نفسُه (judgeRequestItems). */
     const target = request.items.findIndex(item => Number(item.before?.sectionId || sectionId) === sectionId);
     if (target < 0) continue;
@@ -2331,14 +2339,24 @@ async function seedDemoStories(): Promise<void> {
       if (attempt.items[target].verdict === "clear") acceptable.push({ slot, judged: attempt });
     }
     if (!acceptable.length) continue;
-    const judged = acceptable[0].judged;
+    const judged = acceptable[index >= 4 ? Math.min(index - 3, acceptable.length - 1) : 0].judged;
     const submittedAt = iso(-4 + index);
     const signed = {
       ...judged, status: "submitted" as const, submittedAt,
       signature: { at: submittedAt, fingerprint: await surveyFingerprint(normalizeCivilId(person.AdInstructorCivil)), verifyCode: verificationCode(request.id, instructorId, submittedAt) },
       timeline: [...request.timeline, { kind: "submitted" as const, at: submittedAt, detail: "1" }, { kind: "received" as const, at: submittedAt, by: "القسم" }],
     };
-    if (index === 0) { await Repository.saveInstructorRequest(signed); continue; }
+    if (index === 0 || index === 5) { await Repository.saveInstructorRequest(signed); continue; }
+    /* (4) طلبٌ أُرسل فقبله القسمُ وثبّته: يُغلق بقرارٍ مثبَّت لا بقاءَ فيه لمن ينتظر. */
+    if (index === 4) {
+      const fixedAt = iso(-2);
+      await Repository.saveInstructorRequest({
+        ...signed, status: "settled",
+        items: signed.items.map((item, at) => at !== target ? item : { ...item, decision: { state: "fixed" as const, decidedBy: committee.role, decidedAt: fixedAt } }),
+        timeline: [...signed.timeline, { kind: "item-fixed" as const, at: fixedAt, by: committee.role, itemIndex: target }, { kind: "settled" as const, at: fixedAt, by: committee.role }],
+      });
+      continue;
+    }
     const decidedAt = iso(-1);
     const offered = acceptable.slice(1, 3)
       .map(({ slot }) => ({ day: slot.days[0], days: slot.days, start: slot.start, end: endForRequest(slot.days, slot.start) }));
@@ -3114,6 +3132,59 @@ app.get("/api/sections", requireAuth, async (req: AuthenticatedRequest, res: Res
   let sections = collegeId ? await Repository.getSectionsByCollege(collegeId) : await Repository.getSections();
   sections = filterByScope(req, sections);
   res.json(sortArabicNamed(sections, row => row.AdSectionName));
+});
+
+/* ══ النصاب التدريسي (ميزةٌ اختيارية، يديرها المسؤول المخوّل) ══════════════════
+   الإعدادُ للمدير الرئيسي وحده. والتنبيهُ للمخطّط قراءةٌ فقط: لا يمنع حفظَ موعدٍ ولا يمرّ بمساره، وما في هذه
+   المسارات لا يغيّر جدولاً ولا تقريراً. مُعطَّلةٌ افتراضياً: بلا تفعيلٍ لا يُحسب شيءٌ ولا يُرسَل. */
+async function teachingLoadHoursForTerm(termId: number) {
+  const [universe, courses] = await Promise.all([Repository.getSchedulesByScope({ termId }), Repository.getCourses()]);
+  const courseHours = new Map<number, number>(courses.map((course: AdCourse) => [Number(course.AdCourseId), Number(course.CourseHours) || 0] as [number, number]));
+  return teachingHoursByInstructor(universe, courseHours);
+}
+
+app.get("/api/admin/teaching-load", requirePermission(7), requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const terms = sortTermsNewestServer(await Repository.getTerms());
+  const termId = Number(req.query.termId || 0) || Number(currentTermId(terms as any) || terms[0]?.AdTermId || 0);
+  const term = terms.find(item => Number(item.AdTermId) === termId);
+  const [config, instructors, hours] = await Promise.all([Repository.getTeachingLoadConfig(), Repository.getInstructors(), termId ? teachingLoadHoursForTerm(termId) : Promise.resolve(new Map<number, number>())]);
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    config,
+    term: term ? { id: termId, name: String(term.AdTermName || "") } : null,
+    terms: terms.map(item => ({ id: Number(item.AdTermId), name: String(item.AdTermName || "") })),
+    instructors: sortArabicNamed(instructors, row => row.AdInstructorName).map(row => {
+      const status = evaluateTeachingLoad(config, Number(row.AdInstructorId), hours.get(Number(row.AdInstructorId)) || 0);
+      return { id: Number(row.AdInstructorId), name: String(row.AdInstructorName || ""), retired: Boolean(row.AdInstructorStatus), hours: status.hours, state: status.state, allowed: status.allowed, excess: status.excess };
+    }),
+  });
+});
+
+app.put("/api/admin/teaching-load", requirePermission(7), requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const problem = teachingLoadProblem(req.body);
+  if (problem) { res.status(400).json({ error: problem }); return; }
+  const instructorIds = new Set((await Repository.getInstructors()).map((row: AdInstructor) => Number(row.AdInstructorId)));
+  const unknown = Object.keys(req.body?.assignments && typeof req.body.assignments === "object" ? req.body.assignments : {}).find(key => !instructorIds.has(Number(key)));
+  if (unknown) { res.status(400).json({ error: `العضو رقم ${unknown} غير موجود.` }); return; }
+  res.json({ success: true, config: await Repository.saveTeachingLoadConfig(req.body, String(req.user?.Name || "")) });
+});
+
+app.get("/api/teaching-load/status", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const { collegeId, sectionId, termId } = smartContextFrom(req);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  res.setHeader("Cache-Control", "no-store");
+  const config = await Repository.getTeachingLoadConfig();
+  if (!config.enabled) { res.json({ enabled: false, over: [], withinCount: 0 }); return; }
+  const [scopeRows, hours, instructors] = await Promise.all([Repository.getSchedulesByScope({ collegeId, sectionId, termId }), teachingLoadHoursForTerm(termId), Repository.getInstructors()]);
+  const nameById = new Map<number, string>(instructors.map((row: AdInstructor) => [Number(row.AdInstructorId), String(row.AdInstructorName || "")] as [number, string]));
+  const inScope = [...new Set<number>(scopeRows.map(row => Number(row.AdInstructorId || 0)).filter(Boolean))];
+  const statuses = inScope.map(id => evaluateTeachingLoad(config, id, hours.get(id) || 0));
+  res.json({
+    enabled: true,
+    over: statuses.filter(item => item.state === "over").sort((a, b) => b.excess - a.excess)
+      .map(item => ({ id: item.instructorId, name: nameById.get(item.instructorId) || `عضو ${item.instructorId}`, rank: item.rank?.name || "", hours: item.hours, allowed: item.allowed, extra: item.extra, excess: item.excess })),
+    withinCount: statuses.filter(item => item.state === "within").length,
+  });
 });
 
 app.post("/api/sections", requirePermission(4), async (req: AuthenticatedRequest, res: Response) => {
@@ -16335,6 +16406,31 @@ const curriculumLabelsFor=async(needs:any[])=>{
 /** What the students said, for the department: the counts that plan sections,
  * and the named case list (name + civil ID decrypted) for the authorised,
  * scope-checked department only. Never cached by the service worker. */
+app.get("/api/schedules/openings-preview", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const { collegeId, sectionId, termId } = smartContextFrom(req);
+  const courseId = Number(req.query.courseId || 0);
+  const count = Math.max(1, Math.min(8, Math.round(Number(req.query.count || 1))));
+  if (!collegeId || !sectionId || !termId || !courseId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  const [courses, termWeek, sectionHistory, people, registry, style] = await Promise.all([
+    Repository.getCourses(), Repository.getSchedulesByScope({ termId }), Repository.getSchedulesByScope({ collegeId, sectionId }),
+    Repository.getInstructors().catch(() => []), readLocationRegistry(), departmentStyle({ AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId }),
+  ]);
+  const course = (courses as AdCourse[]).find(row => Number(row.AdCourseId) === courseId && Number(row.AdSectionId) === sectionId);
+  if (!course) { res.status(404).json({ error: "المقرر غير موجود في هذا القسم" }); return; }
+  const week = termWeek.filter(row => Number(row.AdSectionId) === sectionId && Number(row.AdCollegeId) === collegeId);
+  const capacity = Number(course.MaxStudent) || 0;
+  const open = new Set(week.filter(row => Number(row.AdCourseId) === courseId).map(row => String(row.SCode))).size;
+  const demand = {
+    respondents: 1, pairs: [], unwanted: [], headline: "",
+    courses: [{ courseId, name: String(course.CourseName || ""), code: String(course.CourseCode || ""), students: open * capacity + (count - 1) * capacity + 1, share: 0 }],
+  };
+  const openings: OpeningReading = capacity > 0
+    ? readSectionOpenings(week, termWeek, courses as AdCourse[], people as any[], sectionHistory, demand as any, null, style?.reading || null, style?.doorway || 0, 6, registry.rooms, termId)
+    : { proposals: [], noCeiling: [{ courseId, name: String(course.CourseName || ""), demand: count }], headline: "" };
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ openings, forecast: true, count });
+});
+
 app.get("/api/schedules/demand", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0);
   const sectionId = Number(req.query.sectionId || 0);

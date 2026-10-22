@@ -80,6 +80,8 @@ export interface DemoSandboxState {
   scheduleApprovals: any[];
   /* سجلُّ المباني والقاعات: بدونه لا يُحفظ موعدٌ في الصندوق (locationPreflight). */
   locationBuildings: MasterBuilding[]; locationRooms: MasterRoom[];
+  /* النصاب التدريسي (ميزةٌ اختيارية مفعَّلةٌ في الصندوق لتُشرح): انظر DEMO_TEACHING_LOAD. */
+  teachingLoadConfig?: any[];
 }
 
 function syntheticInstructors(): AdInstructor[] {
@@ -196,6 +198,29 @@ const INSTRUCTOR_BANDS: Record<number, ReadonlyArray<number>> = {
   1: [1, 2, 3, 4],
   2: [5, 6, 7, 8],
   3: [9, 10, 11, 12],
+};
+
+/* ── النصاب التدريسي في الديمو ────────────────────────────────────────────────
+ *
+ * أربعُ درجات، وإسنادٌ لبعض الأعضاء يُري الحالتين معاً على جدول الفصل الجاري:
+ *   ضمن النصاب : (4) 15 من 13+2 إضافية · (5) 14 من 15 · (14) 12 من 15 · (13) 9 من 12
+ *   تجاوز      : (1) 20 من 13+3 ← أربع ساعات · (2) 17 من 15 ← ساعتان
+ *   دون الأدنى : (15) 9 من 12 (للإعداد وحده؛ لا يُنبَّه به المخطّط)
+ * الأرقامُ نتيجةُ جدولٍ مبنيٍّ بخوارزميةٍ حتمية، ويحرسها اختبارُ النصاب فلا تنحرف بصمت. */
+export const DEMO_TEACHING_LOAD_RANKS = [
+  { id: "rank-professor", name: "أستاذ", minHours: 9, maxHours: 12 },
+  { id: "rank-associate", name: "أستاذ مشارك", minHours: 10, maxHours: 13 },
+  { id: "rank-assistant", name: "أستاذ مساعد", minHours: 12, maxHours: 15 },
+  { id: "rank-lecturer", name: "مدرّس", minHours: 12, maxHours: 15 },
+] as const;
+export const DEMO_TEACHING_LOAD_ASSIGNMENTS: Record<string, { rankId: string; extraHours?: number }> = {
+  "1": { rankId: "rank-associate", extraHours: 3 },
+  "2": { rankId: "rank-assistant" },
+  "4": { rankId: "rank-associate", extraHours: 2 },
+  "5": { rankId: "rank-assistant" },
+  "13": { rankId: "rank-professor" },
+  "14": { rankId: "rank-assistant" },
+  "15": { rankId: "rank-assistant" },
 };
 
 /* ── جدولٌ ممكن، وتعارضٌ مقصودٌ واحدٌ مشروح ──────────────────────────────
@@ -898,5 +923,9 @@ export function createDemoSandboxState(): DemoSandboxState {
     departmentRooms: [], scheduleDecisionMemories: [],
     campusMobilityProfiles: [], scheduleShareLinks: [], hallBarterRequests: [], scheduleApprovals: [...seeded.approvals, ...archived.approvals],
     locationBuildings: registry.buildings, locationRooms: registry.rooms,
+    teachingLoadConfig: [{
+      id: "main", enabled: true, ranks: DEMO_TEACHING_LOAD_RANKS.map(rank => ({ ...rank })),
+      assignments: structuredClone(DEMO_TEACHING_LOAD_ASSIGNMENTS), updatedAt: new Date().toISOString(), updatedBy: "بيانات الديمو",
+    }],
   };
 }

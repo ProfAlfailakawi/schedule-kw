@@ -26,18 +26,20 @@ export function ConfidenceMeter({ confidence, compact = false }: { confidence: C
   return (
     <span className="pi-conf" data-level={confidence.level} title={title} role="img" aria-label={title}>
       <span className="pi-conf-bars" aria-hidden="true"><i data-on={filled >= 1} /><i data-on={filled >= 2} /><i data-on={filled >= 3} /></span>
-      {compact ? null : <b>{label}</b>}
-      <small>{confidence.termsUsed ? `${nf(confidence.termsUsed)} ف` : "—"}</small>
+      {compact ? <b className="pi-conf-word">{label}</b> : <b>{label}</b>}
+      <small>{confidence.termsUsed ? `${nf(confidence.termsUsed)} ف` : null}</small>
     </span>
   );
 }
 
 /** أعمدةٌ صغيرة: شعبُ كل فصلٍ سابق، ثم المتوقَّع (متقطّع بمداه)، وخطُّ المخطَّط الآن. */
-function SeriesBars({ row }: { row: DemandPrediction }) {
+function SeriesBars({ row, hasHistory }: { row: DemandPrediction; hasHistory: boolean }) {
   const max = Math.max(1, row.high, row.planned, ...row.series);
   const bars = row.series.length + 1;
   const w = 8, gap = 4, h = 34;
   const y = (v: number) => h - Math.round((v / max) * (h - 2));
+  /* مقرّرٌ له تاريخٌ في القسم لكن لا شعبَ له في فصول هذا الموسم: يُقال ذلك، لا «بلا تاريخ». */
+  if (!row.series.length) return <small className="pi-series-none">{hasHistory ? "لا يُطرح في هذا الموسم" : "بلا تاريخ"}</small>;
   return (
     <svg className="pi-series" viewBox={`0 0 ${bars * (w + gap)} ${h + 2}`} role="img" aria-label={`شعب الفصول السابقة ${row.series.join("، ")}؛ المتوقع ${row.expected}؛ المخطط ${row.planned}`}>
       {row.series.map((value, index) => <rect key={index} x={index * (w + gap)} y={y(value)} width={w} height={h - y(value) + 1} rx="2" className="pi-bar" />)}
@@ -89,7 +91,7 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
     const prereq = action.courseId ? byPrereq.get(action.courseId) : undefined;
     const source = demand || prereq;
     if ((action.kind === "open-sections" || action.kind === "open-prereq") && action.oneClick && canSchedule && source?.collegeId && source?.sectionId) {
-      return <RadarSchedule course={{ courseId: source.courseId, name: source.name, collegeId: source.collegeId, sectionId: source.sectionId }} termId={termId} onChanged={onChanged} />;
+      return <RadarSchedule course={{ courseId: source.courseId, name: source.name, collegeId: source.collegeId, sectionId: source.sectionId, forecastCount: action.kind === "open-sections" ? action.count : undefined }} termId={termId} onChanged={onChanged} />;
     }
     if (action.disabledReason) return <small className="pi-why-off"><Lock aria-hidden="true" />{action.disabledReason}</small>;
     if (onNavigate && canSchedule) return <SecondaryButton type="button" onClick={() => onNavigate("schedules")} data-guide-ignore="يفتح ورشة الجدول للمراجعة؛ لا يكتب شيئاً"><CalendarPlus aria-hidden="true" /> افتح الورشة</SecondaryButton>;
@@ -129,14 +131,14 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
       {/* ── الطلب: كم شعبةً لكل مقرر؟ ── */}
       <div className="pi-block">
         <h4><Layers aria-hidden="true" /> الشعب المتوقعة <small>{nf(gap.length)} تحتاج نظراً من {nf(r.demand.length)}</small></h4>
-        <p className="pi-legend"><i className="k-bar" />فصول سابقة <i className="k-exp" />المتوقع <i className="k-plan" />المخطّط الآن</p>
+        <p className="pi-legend"><i className="k-bar" />فصول سابقة <i className="k-exp" />المتوقع <i className="k-plan" />المخطّط الآن <span className="pi-legend-conf" aria-hidden="true"><i className="k-conf" />الثقة: ثلاثة أعمدة = عالية</span></p>
         {shownDemand.length ? <ul className="pi-rows">{shownDemand.map(row => (
           <li key={row.courseId} className="pi-row" data-level={row.confidence.level}>
             <div className="pi-row-name"><b>{row.name}</b><small>{row.code}</small></div>
-            <SeriesBars row={row} />
+            <SeriesBars row={row} hasHistory={r.historyTerms > 0} />
             <div className="pi-row-num" title={`المدى ${row.low}–${row.high}`}>
               <span>{nf(row.planned)}</span>{row.trend === "up" ? <TrendingUp aria-hidden="true" /> : row.trend === "down" ? <TrendingDown aria-hidden="true" /> : <span aria-hidden="true">←</span>}<b>{nf(row.expected)}</b>
-              {row.delta !== 0 ? <em data-sign={row.delta > 0 ? "plus" : "minus"}>{row.delta > 0 ? "+" : "−"}{nf(Math.abs(row.delta))}</em> : null}
+              {row.delta !== 0 ? <em data-sign={row.delta > 0 ? "plus" : "minus"}><bdi dir="ltr">{row.delta > 0 ? "+" : "−"}{nf(Math.abs(row.delta))}</bdi></em> : null}
             </div>
             <ConfidenceMeter confidence={row.confidence} compact />
           </li>
