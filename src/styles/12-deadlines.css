@@ -774,3 +774,5 @@
 .pr-col>.pr-level-head{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px;block-size:auto;min-block-size:0;overflow:hidden}
 .pr-col>.pr-level-head>span:nth-child(2){min-inline-size:0;display:grid;gap:2px}
 .pr-col>.pr-level-head b,.pr-col>.pr-level-head small{line-height:1.35;overflow-wrap:anywhere}
+.pr-sheet-missing select{margin-inline-start:8px;min-height:36px;max-width:min(260px,100%);padding:5px 8px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);color:inherit}
+.pr-sheet-missing li{display:flex;align-items:center;gap:6px;flex-wrap:wrap}

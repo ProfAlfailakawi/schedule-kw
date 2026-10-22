@@ -29,6 +29,8 @@ interface ReportRow {
   nameFixes?: number; otherDepartments?: number; prereqLinked?: number; prereqPrinted?: number; renames?: unknown[]; unresolved?: string[]; addedOther?: number; differsOther?: string[]; noDepartment?: string[]; rollover?: boolean;
   /** ردّ الخادم كاملاً للمرور الأول (للمراجعة)، ومدة الطلب بالمللي ثانية، ورمز HTTP، وعدد المحاولات. */
   server?: unknown; ms?: number; http?: number; attempts?: number;
+  /** قسمٌ للصحيفة لا وجود له بالنظام (يُعرض إنشاؤه بموافقة المسؤول)، وأقسامٌ أُنشئت لها. */
+  missingDept?: { name: string; code: string }; createdSections?: Array<{ name: string; college: string }>;
 }
 /** ما يُحفظ في التقرير من ردّ الخادم لصحيفةٍ مقبولة. */
 const pick = (data: any): Partial<ReportRow> => ({
@@ -37,7 +39,7 @@ const pick = (data: any): Partial<ReportRow> => ({
   nameFixes: typeof data.nameFixes === "number" ? data.nameFixes : Array.isArray(data.nameFixes) ? data.nameFixes.length : 0,
   otherDepartments: Number(data.otherDepartments || 0), prereqLinked: Number(data.prereqLinked || 0), prereqPrinted: Number(data.prereqPrinted || 0),
   renames: Array.isArray(data.renames) ? data.renames : [], unresolved: Array.isArray(data.unresolved) ? data.unresolved : [],
-  addedOther: Number(data.addedOther || 0), rollover: Boolean(data.rollover), differsOther: Array.isArray(data.differsOther) ? data.differsOther : [], noDepartment: Array.isArray(data.noDepartment) ? data.noDepartment : [],
+  addedOther: Number(data.addedOther || 0), rollover: Boolean(data.rollover), createdSections: Array.isArray(data.createdSections) ? data.createdSections : [], differsOther: Array.isArray(data.differsOther) ? data.differsOther : [], noDepartment: Array.isArray(data.noDepartment) ? data.noDepartment : [],
 });
 
 /** رموز الأقسام المطبوعة في الصحف وغير الموجودة بالنظام، بعدد مقرراتها (للتقرير النهائي). */
@@ -84,7 +86,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
 
   /* رفعُ كل الملفات (جديدة وقديمة) دفعةً واحدة: تُقرأ ترويستُها أولاً، وتُوجَّه كل صحيفة إلى قسمها، ثم يُراجَع ما رُبط.
      ما عُرف قسمه وما رُفض وما تُرك (قديمةٌ أقدمُ من أحدث لبرنامجها) كلُّه في تقريرٍ يُنزَّل للمراجعة. */
-  const uploadAll = async (files: File[]) => {
+  const uploadAll = async (files: File[], qsOf?: (file: File) => string) => {
     if (!files.length) return;
     batchFiles.current = files; snapshot.current = null;
     setBusy(true); setRejection(null); setError(""); setOutcome(null); setReconcile(null);
@@ -138,10 +140,10 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
     for (const item of queue) {
       try {
         const began = performance.now();
-        const { response, data, attempts } = await post("/api/plan-review/sheet/import", files[item.index]);
+        const { response, data, attempts } = await post(`/api/plan-review/sheet/import${qsOf?.(files[item.index]) || ""}`, files[item.index]);
         const timing = { ms: Math.round(performance.now() - began), http: response.status, attempts };
         if (response.ok) { accepted.push(item.index); state.ok += 1; last = { sectionId: Number(data.sectionId || 0), planId: String(data.planId || "") }; rows[item.index] = { ...rows[item.index], status: "ok", ...pick(data), ...timing, server: data }; }
-        else { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: data.rejection?.kind === "department" ? "لا قسم بهذا الاسم أو الرمز" : (SHORT[data.rejection?.kind]?.title || data.error || "تعذّر"), detail: data.rejection?.message || `HTTP ${response.status}`, ...timing, server: data }; }
+        else { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: data.rejection?.kind === "department" ? "لا قسم بهذا الاسم أو الرمز" : (SHORT[data.rejection?.kind]?.title || data.error || "تعذّر"), detail: data.rejection?.message || `HTTP ${response.status}`, ...(data.rejection?.missing ? { missingDept: { name: String(data.rejection.departmentName || "").replace(/^قسم\s+/, ""), code: String(data.rejection.code || "") } } : {}), ...timing, server: data }; }
       } catch (e: any) { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: "تعذّر الرفع", detail: String(e?.message || e) }; }
       state.done += 1; publish();
     }
@@ -167,7 +169,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
     /* 4) مرورٌ ثانٍ على ما قُبل: مسبقٌ لمقرر قسمٍ رُفع بعده يُربط الآن */
     state.phase = "prereq"; state.done = 0; state.total = accepted.length; publish();
     for (const index of accepted) {
-      try { const { response, data } = await post("/api/plan-review/sheet/import", files[index]); if (response.ok) { const again = pick(data); rows[index] = { ...rows[index], prereqLinked: again.prereqLinked, prereqPrinted: again.prereqPrinted, unresolved: again.unresolved, differsOther: again.differsOther, noDepartment: again.noDepartment }; } } catch { /* المرور الأول كفى */ }
+      try { const { response, data } = await post(`/api/plan-review/sheet/import${qsOf?.(files[index]) || ""}`, files[index]); if (response.ok) { const again = pick(data); rows[index] = { ...rows[index], prereqLinked: again.prereqLinked, prereqPrinted: again.prereqPrinted, unresolved: again.unresolved, differsOther: again.differsOther, noDepartment: again.noDepartment }; } } catch { /* المرور الأول كفى */ }
       state.done += 1; publish();
     }
     for (const index of accepted) { state.prereqLinked += rows[index].prereqLinked || 0; state.prereqPrinted += rows[index].prereqPrinted || 0; }
@@ -190,6 +192,36 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
 
   /* ملفاتٌ سقطت بانقطاعٍ عابر (لا برفضٍ من النظام): تُعاد وحدها. */
   const transientFailed = () => (batch?.rows || []).map((row, index) => (row.status === "unreadable" || (row.status === "rejected" && row.reason === "تعذّر الرفع") ? batchFiles.current[index] : null)).filter((file): file is File => Boolean(file));
+
+  /* صحائفُ قسمٍ لا وجود له: لكل قسمٍ موافقةٌ منفصلة، ثم تُعاد صحائفه وحدها بإنشائه. */
+  const missingFiles = () => (batch?.rows || []).map((row, index) => (row.missingDept ? { file: batchFiles.current[index], dept: row.missingDept } : null)).filter((item): item is { file: File; dept: { name: string; code: string } } => Boolean(item?.file));
+  const missingDepts = (): Array<{ name: string; code: string }> => {
+    const seen = new Map<string, { name: string; code: string }>();
+    for (const item of missingFiles()) if (!seen.has(item.dept.name)) seen.set(item.dept.name, { name: String(item.dept.name), code: String(item.dept.code) });
+    return [...seen.values()];
+  };
+  type Compare = { sheetCourses: number; systemCourses: number; sameNumber: number; sameNumberAndName: number; sameNameOtherNumber: number; similar: boolean; differ: Array<{ number: string; sheet: string; system: string }>; sheetOnly: number; systemOnly: Array<{ number: string; name: string }> } | { error: string };
+  const [compared, setCompared] = useState<Record<string, Compare>>({});
+  /* هل مقررات القسم المختار تشبه صحيفة القسم الناقص؟ قراءةٌ فحسب قبل المطابقة. */
+  const compareWith = async (deptName: string, sectionId: number) => {
+    const item = missingFiles().find(entry => entry.dept.name === deptName);
+    if (!item) return;
+    try {
+      const response = await fetch(`/api/plan-review/sheet/compare?sectionId=${sectionId}`, { method: "POST", credentials: "include", headers: { "content-type": "application/octet-stream" }, body: await item.file.arrayBuffer() });
+      const data = await response.json().catch(() => ({}));
+      setCompared(current => ({ ...current, [deptName]: response.ok ? data : { error: String(data.error || "تعذّرت المقارنة") } }));
+    } catch (e: any) { setCompared(current => ({ ...current, [deptName]: { error: String(e?.message || "تعذّرت المقارنة") } })); }
+  };
+  const [choices, setChoices] = useState<Record<string, string>>({});
+  /* لكل قسمٍ ناقص اختيار: إنشاؤه، أو مطابقته بقسمٍ موجود (يُصحَّح اسمه ورمزه من الصحيفة) ثم تُعاد صحائفه وحدها. */
+  const applyMissing = () => {
+    const items = missingFiles(), qs = new Map<File, string>();
+    for (const item of items) {
+      const choice = choices[item.dept.name] || "new";
+      qs.set(item.file, choice === "new" ? "?createMissing=1" : `?sectionId=${Number(choice)}&force=1`);
+    }
+    if (items.length) void uploadAll(items.map(item => item.file), file => qs.get(file) || "");
+  };
 
   const short = rejection ? SHORT[rejection.kind] : undefined;
   return (
@@ -241,6 +273,28 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
           {batch.phase === "done" && !busy && transientFailed().length ? <button type="button" className="btn btn-secondary" onClick={() => { const again = transientFailed(); void uploadAll(again); }} data-guide-ignore="إعادة رفع الملفات التي انقطع رفعها داخل شاشة مراجعة الصحيفة"><History aria-hidden="true" size={16} /> أعد {transientFailed().length} فاشلة</button> : null}
           {batch.phase === "done" ? <button type="button" className="btn btn-secondary" onClick={downloadReport} data-guide-ignore="تنزيل تقرير رفع الصحائف للمراجعة داخل شاشة مراجعة الصحيفة"><Download aria-hidden="true" size={16} /> تقرير المراجعة</button> : null}
           {batch.rows.some(row => row.status !== "ok" && row.status !== "skipped") ? <ul>{batch.rows.filter(row => row.status !== "ok" && row.status !== "skipped").map((row, index) => <li key={index}><b>{row.file.replace(/\.pdf$/i, "")}</b> · {row.reason}</li>)}</ul> : null}
+        </div>
+      ) : null}
+      {batch?.phase === "done" && !busy && missingFiles().length ? (
+        <div className="pr-sheet-result pr-sheet-missing" role="group" aria-label="أقسامٌ ناقصة">
+          <ul>
+            {missingDepts().map(dept => (
+              <li key={dept.name}>
+                <b>{dept.name}</b> <small>رمز {dept.code}</small>
+                <select aria-label={`قسم صحيفة ${dept.name}`} value={choices[dept.name] || "new"} onChange={e => setChoices(current => ({ ...current, [dept.name]: e.target.value }))}>
+                  <option value="new">إنشاء قسم جديد</option>
+                  {targets.map(item => <option key={item.sectionId} value={item.sectionId}>هو {item.label}</option>)}
+                </select>
+                {choices[dept.name] && choices[dept.name] !== "new" ? <button type="button" className="btn btn-secondary" onClick={() => void compareWith(dept.name, Number(choices[dept.name]))} data-guide-ignore="مقارنة مقررات القسم المختار بصحيفة القسم الناقص داخل شاشة مراجعة الصحيفة">قارن مقرراته</button> : null}
+                {compared[dept.name] ? ("error" in compared[dept.name] ? <small role="alert">{(compared[dept.name] as { error: string }).error}</small> : (() => { const c = compared[dept.name] as Exclude<Compare, { error: string }>; return (
+                  <small className="pr-compare" role="status">
+                    <b>{c.similar ? "يتشابهان" : "مختلفان"}</b> · الصحيفة {countOf(c.sheetCourses, AR.course)}، والقسم {countOf(c.systemCourses, AR.course)} · نفس الرقم {c.sameNumber} (منها نفس الاسم {c.sameNumberAndName}) · نفس الاسم برقمٍ آخر {c.sameNameOtherNumber} · ناقص في القسم {c.sheetOnly}
+                    {c.differ.length ? <ul>{c.differ.map(row => <li key={row.number}>{row.number}: «{row.sheet}» ↔ «{row.system}»</li>)}</ul> : null}
+                  </small>); })()) : null}
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="btn btn-primary" onClick={applyMissing} data-guide-ignore="إنشاء الأقسام الناقصة أو مطابقتها بقسمٍ موجود ثم رفع صحائفها داخل شاشة مراجعة الصحيفة"><Plus aria-hidden="true" size={16} /> طبّق</button>
         </div>
       ) : null}
       {outcome ? (

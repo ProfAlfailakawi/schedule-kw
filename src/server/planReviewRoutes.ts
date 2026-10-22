@@ -567,6 +567,34 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     res.json({ ok: true, updated });
   });
 
+  /* ── مقارنةُ صحيفةٍ بمقررات قسمٍ موجود (قبل مطابقته): هل هما القسم نفسه؟ قراءةٌ فحسب ── */
+  app.post("/api/plan-review/sheet/compare", sheetLimit, deps.requireAuth, express.raw({ type: "application/octet-stream", limit: PLAN_PDF_MAX_BYTES + 4096 }), async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "رفع الصحيفة للحساب الرئيسي وحده."); return; }
+    const sectionId = Number(req.query.sectionId) || 0;
+    const body = Buffer.isBuffer(req.body) ? req.body : null;
+    if (!sectionId || !body?.length || body.subarray(0, 5).toString("latin1") !== "%PDF-") { res.status(422).json({ error: "اختر قسماً وارفع PDF." }); return; }
+    let sheet;
+    try { sheet = parsePlanItems(await extractPlanItems(body)); } catch { res.status(422).json({ error: "تعذّرت قراءة الملف." }); return; }
+    const norm = (text: string) => String(text || "").normalize("NFKC").replace(/[\s\-()\u064B-\u0652]/g, "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ه/g, "ة").replace(/ئ/g, "ي").replace(/ؤ/g, "و");
+    const mine = ownCourses(sheet, sheetKey(sheet));
+    const rows = await Repository.getCoursesBySection(sectionId) as AdCourse[];
+    const numberOf = (code: unknown) => Number(referenceCodeKey(code).slice(-3));
+    const byNumber = new Map(rows.map(row => [numberOf(row.CourseCode), row] as const));
+    const byName = new Map(rows.map(row => [norm(row.CourseName), row] as const));
+    const sameNumber = mine.filter(course => byNumber.has(Number(course.number)));
+    const sameBoth = sameNumber.filter(course => norm(byNumber.get(Number(course.number))!.CourseName) === norm(course.name));
+    const nameElsewhere = mine.filter(course => !byNumber.has(Number(course.number)) && byName.has(norm(course.name)));
+    const sheetNumbers = new Set(mine.map(course => Number(course.number)));
+    const similar = mine.length ? (sameBoth.length + nameElsewhere.length) / mine.length : 0;
+    res.json({
+      sheetCourses: mine.length, systemCourses: rows.length, sameNumber: sameNumber.length, sameNumberAndName: sameBoth.length, sameNameOtherNumber: nameElsewhere.length,
+      similar: similar >= 0.4,
+      differ: sameNumber.filter(course => !sameBoth.includes(course)).slice(0, 8).map(course => ({ number: course.number, sheet: course.name, system: byNumber.get(Number(course.number))!.CourseName })),
+      sheetOnly: mine.filter(course => !byNumber.has(Number(course.number)) && !byName.has(norm(course.name))).length,
+      systemOnly: rows.filter(row => !sheetNumbers.has(numberOf(row.CourseCode))).slice(0, 8).map(row => ({ number: String(row.CourseCode), name: row.CourseName })),
+    });
+  });
+
   /* ── لقطةٌ لحال النظام بعد الرفع (للتقرير الذي يُنزَّل): لكل قسمٍ مقرراته وصحائفه وعدد مقررات كل صحيفة ── */
   app.get("/api/plan-review/sheet/audit", deps.requireAuth, async (req: Request, res: Response) => {
     if (!deps.isRootAdmin(req)) { fail(res, 403, "رفع الصحيفة للحساب الرئيسي وحده."); return; }
@@ -599,7 +627,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
      وتؤخذ مقررات القسم وحدها برقمها (105)، وتُصحَّح أسماؤها، ولا تُمسّ السعة أبداً. */
   app.post("/api/plan-review/sheet/import", sheetLimit, deps.requireAuth, express.raw({ type: "application/octet-stream", limit: PLAN_PDF_MAX_BYTES + 4096 }), async (req: Request, res: Response) => {
     if (!deps.isRootAdmin(req)) { fail(res, 403, "رفع الصحيفة للحساب الرئيسي وحده."); return; }
-    const reject = (kind: string, message: string) => { res.status(422).json({ error: message, rejection: { kind, message } }); };
+    const reject = (kind: string, message: string, extra: Record<string, unknown> = {}) => { res.status(422).json({ error: message, rejection: { kind, message, ...extra } }); };
     const sectionId = Number(req.query.sectionId) || 0;
     const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
     const body = Buffer.isBuffer(req.body) ? req.body : null;
@@ -844,19 +872,33 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     }
 
     /* بلا قسمٍ مختار: تُوجَّه الصحيفة إلى الأقسام التي يطابق اسمُها قسمَ الصحيفة (أو يخصّها رمزها في صحائف القسم الإداري). */
-    const matched = groupDeptTracks(sections as any[], colleges as any[]).map(item => item.canonical as any).filter(section => {
+    const matchIn = (list: any[]) => groupDeptTracks(list, colleges as any[]).map(item => item.canonical as any).filter(section => {
       const scope = scopeOf(section);
       /* الاسم، أو رمز الهيئة الكامل (كلية+قسم) المطابق لرمز الصحيفة: «معلم الحاسب» و«حاسوب» برمزٍ واحد هو القسم نفسه. */
       const sameAuthorityCode = /^\d{4}$/.test(scope.departmentKey) && scope.departmentKey === sheetKey(sheet);
       return checkSheetScope(sheet, scope) === null && (sheetNameMatches(sheet, scope.sectionName) || sameAuthorityCode || sheetOwnKey(sheet, scope).umbrella);
     });
-    if (!matched.length) { reject("department", `لم أجد في النظام قسماً باسم «${String(sheet.department || "").replace(/^قسم\s+/, "")}». اختر القسم يدوياً.`); return; }
+    let matched = matchIn(sections as any[]);
+    /* قسمٌ للصحيفة لا وجود له: يُنشأ (بموافقة المسؤول، createMissing=1) في كل كلية من كلية الصحيفة، باسمه ورمزه منها.
+       لا يُنشأ لقسمٍ إداري (علم النفس/علم التربية) ولا حيث للقسم نفسه صحيفةٌ برمزٍ مطابق. */
+    const createdSections: Array<{ name: string; college: string }> = [];
+    const missingKey = sheetKey(sheet), missingName = sheetSectionName(sheet, "قسم م");
+    if (!matched.length && req.query.createMissing === "1" && /^\d{4}$/.test(missingKey) && missingName && ownCourses(sheet, missingKey).length) {
+      for (const college of colleges as any[]) {
+        if (academicDigits(college.AdCollegeCode).slice(0, 2) !== missingKey.slice(0, 2)) continue;
+        if ((sections as any[]).some(row => Number(row.AdCollegeId) === Number(college.AdCollegeId) && authorityDepartmentCode(college.AdCollegeCode, row.AdSectionCode) === missingKey)) continue;
+        await Repository.createSection(Number(college.AdCollegeId), missingKey.slice(2), missingName);
+        createdSections.push({ name: missingName, college: String(college.AdCollegeName || "") });
+      }
+      if (createdSections.length) matched = matchIn(await Repository.getSections() as any[]);
+    }
+    if (!matched.length) { reject("department", `لم أجد في النظام قسماً باسم «${String(sheet.department || "").replace(/^قسم\s+/, "")}». اختر القسم يدوياً.`, { missing: !createdSections.length && /^\d{4}$/.test(missingKey) && Boolean(missingName), departmentName: String(sheet.department || ""), code: missingKey.slice(2) }); return; }
     const outs: Array<{ status: number; json: any; audit?: string }> = [];
     for (const section of matched) outs.push(await process(section));
     const done = outs.filter(item => item.status === 200);
     if (!done.length) { res.status(outs[0].status).json(outs[0].json); return; }
-    res.locals.auditChanges = done.map(item => item.audit).filter(Boolean).join(" | ");
-    res.json({ ok: true, auto: true, tracks: done.length, sites: done.reduce((sum, item) => sum + Number(item.json.sites || 0), 0), era: done[0].json.era, program: sheet.program, planName: done[0].json.planName, sectionId: done[0].json.sectionId, planId: done[0].json.planId, created: done.reduce((sum, item) => sum + Number(item.json.created || 0), 0), updated: done.reduce((sum, item) => sum + Number(item.json.updated || 0), 0), linked: done.reduce((sum, item) => sum + Number(item.json.linked || 0), 0), prereqPrinted: done.reduce((sum, item) => sum + Number(item.json.prereqPrinted || 0), 0), prereqLinked: done.reduce((sum, item) => sum + Number(item.json.prereqLinked || 0), 0), skipped: outs.length - done.length, sections: done.map(item => item.json.sectionName), renames: done.flatMap(item => item.json.renames || []), nameFixes: done.reduce((sum, item) => sum + (item.json.nameFixes?.length || 0), 0), otherDepartments: done[0].json.otherDepartments, addedOther: done.reduce((sum, item) => sum + Number(item.json.addedOther || 0), 0), differsOther: [...new Set(done.flatMap(item => item.json.differsOther || []))].sort(), noDepartment: [...new Set(done.flatMap(item => item.json.noDepartment || []))].sort(), programName: sheet.programName, unresolved: [...new Set(done.flatMap(item => item.json.unresolved || []))].sort() });
+    res.locals.auditChanges = [...createdSections.map(row => `إنشاء قسم «${row.name}» في ${row.college}`), ...done.map(item => item.audit)].filter(Boolean).join(" | ");
+    res.json({ ok: true, auto: true, createdSections, tracks: done.length, sites: done.reduce((sum, item) => sum + Number(item.json.sites || 0), 0), era: done[0].json.era, program: sheet.program, planName: done[0].json.planName, sectionId: done[0].json.sectionId, planId: done[0].json.planId, created: done.reduce((sum, item) => sum + Number(item.json.created || 0), 0), updated: done.reduce((sum, item) => sum + Number(item.json.updated || 0), 0), linked: done.reduce((sum, item) => sum + Number(item.json.linked || 0), 0), prereqPrinted: done.reduce((sum, item) => sum + Number(item.json.prereqPrinted || 0), 0), prereqLinked: done.reduce((sum, item) => sum + Number(item.json.prereqLinked || 0), 0), skipped: outs.length - done.length, sections: done.map(item => item.json.sectionName), renames: done.flatMap(item => item.json.renames || []), nameFixes: done.reduce((sum, item) => sum + (item.json.nameFixes?.length || 0), 0), otherDepartments: done[0].json.otherDepartments, addedOther: done.reduce((sum, item) => sum + Number(item.json.addedOther || 0), 0), differsOther: [...new Set(done.flatMap(item => item.json.differsOther || []))].sort(), noDepartment: [...new Set(done.flatMap(item => item.json.noDepartment || []))].sort(), programName: sheet.programName, unresolved: [...new Set(done.flatMap(item => item.json.unresolved || []))].sort() });
   });
 
   /* ── إنهاء الصحيفة السابقة لأقسامٍ يختارها المسؤول ─────────────────────────────────────────────
