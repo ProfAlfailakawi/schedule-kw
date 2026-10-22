@@ -1,0 +1,66 @@
+import React, { useEffect, useState } from "react";
+import { Brain, CheckCircle2, AlertTriangle, DoorOpen, UserCheck, ClipboardList, Armchair, Footprints, Gauge, Repeat, ArrowLeftRight, Building2, Layers, Radar, UserRound, History, Pencil, Plus, Trash2 } from "lucide-react";
+import type { ScheduleOrigin } from "../types";
+
+/**
+ * ── ذاكرةُ الموعد: لماذا هو هنا؟ ──────────────────────────────────────────────────
+ * شارةُ المصدر (إن وُجد باب اعتمادٍ كتبه) وزرٌّ يفتح سجلّ ما جرى عليه، من الصف نفسه ومن سجلّ التدقيق.
+ * لا يخزّن شيئاً جديداً؛ يقرأ ما كُتب أصلاً. لا يُقرأ شيءٌ حتى يُضغط.
+ */
+const ORIGIN: Record<string, { label: string; icon: React.ReactNode }> = {
+  radar: { label: "رادار التسجيل", icon: <Radar aria-hidden="true" /> },
+  "student-case": { label: "حالة طالب", icon: <UserRound aria-hidden="true" /> },
+  "instructor-request": { label: "رغبة أستاذ", icon: <ClipboardList aria-hidden="true" /> },
+  intelligence: { label: "مركز الذكاء", icon: <Brain aria-hidden="true" /> },
+  planning: { label: "تخطيط الشعب", icon: <Layers aria-hidden="true" /> },
+};
+interface EventRow { at: string; who: string; action: string; what: string }
+const stamp = (iso: string) => { const d = new Date(iso); return Number.isFinite(d.getTime()) ? d.toLocaleString("ar-KW-u-nu-latn", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""; };
+const iconOf = (action: string) => /إضافة/.test(action) ? <Plus aria-hidden="true" /> : /حذف/.test(action) ? <Trash2 aria-hidden="true" /> : <Pencil aria-hidden="true" />;
+
+/** حقائقُ محسوبة من سياق الموعد نفسه (لا تخزين جديد): تُعرض رقائقَ موجزة بدل جملةٍ طويلة. */
+export interface RowFact { tone: "good" | "warn" | "info"; kind: "room" | "instructor" | "clear" | "conflict" | "hall" | "borrow" | "seats" | "walk" | "load" | "pattern" | "request"; label: string; /** سطرٌ واحد يظهر عند التمرير */ tip?: string }
+const FACT_ICON = { room: <DoorOpen aria-hidden="true" />, instructor: <UserCheck aria-hidden="true" />, clear: <CheckCircle2 aria-hidden="true" />, conflict: <AlertTriangle aria-hidden="true" />,
+  hall: <Building2 aria-hidden="true" />, borrow: <ArrowLeftRight aria-hidden="true" />, seats: <Armchair aria-hidden="true" />, walk: <Footprints aria-hidden="true" />,
+  load: <Gauge aria-hidden="true" />, pattern: <Repeat aria-hidden="true" />, request: <ClipboardList aria-hidden="true" /> };
+
+/** «لماذا؟» تظهر فقط إن وُجد ما يُقال: سجلّ تغييرات، أو مصدر، أو حقائق محسوبة. بلا بيانات = لا شيء على الشاشة. */
+export const hasRowExplanation = (eventCount: number, origin?: ScheduleOrigin | null, facts: RowFact[] = []) => eventCount > 0 || Boolean(origin && ORIGIN[origin.kind]) || facts.length > 0;
+
+export default function RowHistory({ rowId, origin, facts = [] }: { key?: React.Key; rowId: number; origin?: ScheduleOrigin | null; facts?: RowFact[] }) {
+  const [state, setState] = useState<"idle" | "loading" | "open" | "failed">("idle");
+  const [events, setEvents] = useState<EventRow[] | null>(null);
+  const [more, setMore] = useState(false);
+  const src = origin ? ORIGIN[origin.kind] : null;
+  /* يُقرأ السجلّ بصمت عند فتح الموعد لنعرف أهناك ما يُعرض؛ فشله = لا بيانات. */
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/schedules/${rowId}/history`, { cache: "no-store" })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error("history")))
+      .then(body => { if (!alive) return; setEvents(Array.isArray(body.events) ? body.events : []); setMore(Boolean(body.truncated)); })
+      .catch(() => { if (alive) setEvents([]); });
+    return () => { alive = false; };
+  }, [rowId]);
+  const count = events?.length || 0;
+  if (!hasRowExplanation(count, origin, facts)) return null;
+  return (
+    <div className="rh-wrap">
+      <div className="rh-row">
+        {src && origin ? <span className="rh-origin" title={origin.note || undefined}>{src.icon}<b>{src.label}</b><small>{origin.by} · {stamp(origin.at)}</small></span> : null}
+        {count ? (
+          <button type="button" className="rh-btn" aria-expanded={state === "open"} onClick={() => setState(state === "open" ? "idle" : "open")} data-guide-ignore="يعرض سجلّ هذا الموعد: من أوجده ومن عدّله ولماذا؛ قراءةٌ فقط">
+            <History aria-hidden="true" /> لماذا؟ <small>{count}{more ? "+" : ""}</small>
+          </button>
+        ) : null}
+      </div>
+      {facts.length ? <div className="rh-facts">{facts.map((f, i) => <span key={i} className={`rh-chip is-${f.tone}`} title={f.tip || undefined}>{FACT_ICON[f.kind]}{f.label}</span>)}</div> : null}
+      {origin?.note ? <small className="rh-note">{origin.note}</small> : null}
+      {state === "open" && count ? (
+        <ol className="rh-list">
+          {events!.map((event, i) => <li key={i}><span className="rh-dot">{iconOf(event.action)}</span><div><b>{event.what || event.action}</b><small>{event.who} · {stamp(event.at)}</small></div></li>)}
+          {more ? <li className="rh-more">وأقدم من ذلك…</li> : null}
+        </ol>
+      ) : null}
+    </div>
+  );
+}

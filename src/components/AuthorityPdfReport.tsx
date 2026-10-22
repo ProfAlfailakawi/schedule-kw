@@ -1,0 +1,220 @@
+import React from "react";
+import { AdCourse, AdInstructor, FSchedule } from "../types";
+import VisitingBadge from "./VisitingBadge";
+import { displayInstructorText } from "../utils/instructorIdentity";
+
+export type AuthorityReportEntry = {
+  status: "added" | "deleted" | "changed" | "unchanged";
+  changedFields: string[];
+  referenceNumber: string;
+  source: FSchedule | null;
+  current: FSchedule | null;
+  /** يُملأ فقط في وثيقة تضم مواقع الفرع: اسم موقع هذا الصف. */
+  siteLabel?: string;
+};
+
+export type AuthorityReport = {
+  draftId: string;
+  name: string;
+  sourceFileName: string;
+  sourceBranchCode?: string;
+  sourceBranchName?: string;
+  counts: { added: number; deleted: number; changed: number; unchanged: number };
+  rows: AuthorityReportEntry[];
+};
+
+interface Props {
+  report: AuthorityReport;
+  termName: string;
+  collegeName: string;
+  collegeCode: string;
+  sectionName: string;
+  sectionCode: string;
+  courseById: Map<number, AdCourse>;
+  instructorById: Map<number, AdInstructor>;
+  visitingIds: Set<number>;
+  /* ── الوثيقة الواحدة عبر مواقع الفرع ──────────────────────────────────────
+   * حين يُطلب تقرير التغييرات للقسم كله، يُصيَّر هذا المكوّن مرة لكل موقع داخل
+   * وثيقة واحدة. ولأن ترقيم الصفحات يجب أن يقرأ كوثيقة واحدة لا كثلاث وثائق
+   * ملتصقة، يستقبل موضعه من الكتاب بدل أن يحسب لنفسه. وإن لم يُمرَّر شيء —
+   * وهي الحال في تقرير الموقع الواحد — فالسلوك كما كان تماماً.
+   */
+  pageOffset?: number;
+  pageTotal?: number;
+  /** يُطبع مرة واحدة في أول صفحة من الكتاب: شكل القسم كله قبل تفصيله. */
+  bookSites?: Array<{ label: string; added: number; deleted: number; changed: number }>;
+  /** حين تضم الوثيقة مواقع الفرع: عمود «الموقع» يظهر، وصفوف المواقع تتصل. */
+  showSite?: boolean;
+}
+
+const pageItems = <T,>(items: T[], size: number): T[][] => {
+  const pages: T[][] = [];
+  for (let index = 0; index < items.length; index += size) pages.push(items.slice(index, index + size));
+  return pages.length ? pages : [[]];
+};
+
+export default function AuthorityPdfReport({
+  report,
+  termName,
+  collegeName,
+  collegeCode,
+  sectionName,
+  sectionCode,
+  courseById,
+  instructorById,
+  visitingIds,
+  pageOffset = 0,
+  pageTotal,
+  bookSites,
+  showSite = false,
+}: Props) {
+  const entries = [...report.rows].sort((a, b) => {
+    const ar = Number((a.current || a.source)?.sourceOrder ?? Number.MAX_SAFE_INTEGER);
+    const br = Number((b.current || b.source)?.sourceOrder ?? Number.MAX_SAFE_INTEGER);
+    return ar - br;
+  });
+  const pages = pageItems(entries, 23);
+  const branch = [report.sourceBranchCode, report.sourceBranchName].filter(Boolean).join(" ") || "—";
+  const fieldChanged = (entry: AuthorityReportEntry, ...fields: string[]) =>
+    entry.status === "changed" && fields.some(field => entry.changedFields.includes(field));
+  /**
+   * The day numbers of a lecture, written so an Arabic reader reads them in
+   * order.
+   *
+   * The cell is `print-ltr` — the digits are a latin sequence and must stay
+   * one unbroken run. Written ascending, «1 3 5» puts Sunday on the LEFT, so a
+   * reader coming from the right meets Thursday first and the week reads
+   * backwards. The sequence is therefore emitted in reverse — «5 3 1» — which
+   * an ltr cell paints with 1 on the right: the first day of the week where
+   * the eye starts. Exactly the same convention the time cell already follows
+   * by writing `fendtime - fstarttime`.
+   */
+  const dayNumbers = (row: FSchedule) =>
+    [row.fsunday && "1", row.fmonday && "2", row.ftuesday && "3", row.fwednesday && "4", row.fthursday && "5"]
+      .filter(Boolean).reverse().join(" ") || "—";
+
+  return (
+    <div className={`print-report print-wide print-query-report print-comprehensive print-comprehensive-book authority-pdf-report${showSite ? " authority-pdf-with-site" : ""}`}>
+      <div className="print-comprehensive-pages">
+        {pages.map((pageEntries, pageIndex) => (
+          <section className="print-comprehensive-page authority-pdf-page" key={`authority-${pageIndex + 1}`}>
+            <header className="print-comprehensive-classic-head authority-pdf-head">
+              <div className="print-comprehensive-title-block authority-pdf-title">
+                <h1>تقرير تغييرات الجدول</h1>
+              </div>
+              <div className="authority-pdf-scope-grid">
+                <div><span>الفصل</span><strong>{termName || "—"}</strong></div>
+                <div><span>الكلية</span><strong>{[collegeCode, collegeName].filter(Boolean).join(" ") || "—"}</strong></div>
+                <div><span>القسم</span><strong>{[sectionCode, sectionName].filter(Boolean).join(" ") || "—"}</strong></div>
+                <div><span>الفرع</span><strong>{branch}</strong></div>
+              </div>
+              {pageOffset + pageIndex === 0 && bookSites?.length ? (
+                <div className="print-comprehensive-sites" role="note">
+                  <span>مواقع القسم في هذا الفصل:</span>
+                  {/* ── يُقرأ بلا شرح ────────────────────────────────────────
+                      كان السطر يقول «+1 −0 ±1»، وهي رموز يعرفها من كتبها. وما
+                      يحتاجه قارئ الوثيقة كلمتان: ماذا أُضيف وماذا حُذف وماذا
+                      عُدّل، وما لا تغيير فيه يُقال صراحةً لا بصفرٍ مركون. */}
+                  {bookSites.map(site => {
+                    const parts = [
+                      site.added ? `مضاف ${site.added}` : "",
+                      site.deleted ? `محذوف ${site.deleted}` : "",
+                      site.changed ? `معدّل ${site.changed}` : "",
+                    ].filter(Boolean);
+                    return <b key={site.label}>{site.label} · {parts.length ? parts.join(" · ") : "بلا تغيير"}</b>;
+                  })}
+                </div>
+              ) : null}
+            </header>
+
+            <div className="print-comprehensive-grid authority-pdf-grid" role="table" aria-label="تقرير تغييرات الجدول">
+              <div className="print-comprehensive-grid-row print-comprehensive-grid-head" role="row">
+                {["رقم المقرر", "الرقم المرجعي", "الشعبة", "مسمى المقرر", "عدد الوحدات", "عدد الساعات", "الحد الأقصى", "القاعة", "المبنى", "الوقت", "الأيام", "المدرس"].map(head => (
+                  <div role="columnheader" key={head}>{head}</div>
+                ))}
+              </div>
+              <div className="print-comprehensive-grid-body" role="rowgroup">
+                {pageEntries.map((entry, index) => {
+                  const row = (entry.current || entry.source) as FSchedule;
+                  if (!row) return null;
+                  const course = courseById.get(Number(row.AdCourseId));
+                  const instructor = instructorById.get(Number(row.AdInstructorId));
+                  const cell = (changed: boolean) => changed ? "authority-pdf-cell-changed" : "";
+                  const statusLabel = entry.status === "added" ? "مضاف" : entry.status === "deleted" ? "محذوف" : entry.status === "changed" ? "معدّل" : "";
+                  return (
+                    <div className={`print-comprehensive-grid-row authority-pdf-row authority-pdf-row-${entry.status}`} role="row" key={`${pageIndex}-${index}-${row.id || row.sourceOrder || index}-${entry.status}`}>
+                      {statusLabel ? <span className="authority-pdf-row-marker" aria-hidden="true">{statusLabel}</span> : null}
+                      <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course?.CourseCode || "—"}</div>
+                      {/* ── الرقم المرجعي لمقرر لم تُصدره الهيئة بعد ──────────────────
+                          A course added after the import has no CRN, because a
+                          CRN is the Authority's number and it has not issued one
+                          for this row yet. The column printed «—» for it, which
+                          is the same mark it prints for a row whose number is
+                          merely unknown — so the reader met a dash and had to
+                          work out which of the two it meant.
+                          «مقرر جديد» says it, and only on rows the report has already
+                          decided are added; a missing number on any other row is
+                          still an unknown, and still a dash. It is Arabic, so it
+                          drops the latin/ltr treatment the numbers carry. */}
+                      {entry.status === "added" && !String(entry.referenceNumber || row.referenceNumber || "").trim()
+                        ? <div role="cell" className="authority-pdf-reference-number authority-pdf-reference-new">مقرر جديد</div>
+                        : <div role="cell" className="print-ltr authority-pdf-reference-number">{entry.referenceNumber || row.referenceNumber || "—"}</div>}
+                      {/* Section numbering is a system-canonical import convention, not
+                          a user edit. Keep the value visible but never paint it yellow. */}
+                      <div role="cell" className="print-ltr">{String(row.SCode || "").trim() || "—"}</div>
+                      {/* الموقع بطاقة صغيرة بجانب اسم المقرر، لا عموداً جديداً:
+                          العمود يضيّق الجدول الرسمي كله لأجل كلمة، والبطاقة
+                          تقولها حيث ينظر القارئ أصلاً — كما تقولها بطاقة
+                          الموعد على الشاشة. */}
+                      <div role="cell" className={`print-wrap print-course-name ${cell(fieldChanged(entry, "AdCourseId"))}`}>
+                        {course?.CourseName || row.AdCourseName || "—"}
+                        {showSite && entry.siteLabel ? <span className="print-site-chip">{entry.siteLabel}</span> : null}
+                      </div>
+                      <div role="cell" className={`num ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course?.CourseCredit ?? "—"}</div>
+                      <div role="cell" className={`num ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course?.CourseHours ?? "—"}</div>
+                      <div role="cell" className={`num ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course?.MaxStudent ?? "—"}</div>
+                      <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "AdRoomHall"))}`}>{String(row.AdRoomHall || "").trim() || "—"}</div>
+                      <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "AdRoomCode"))}`}>{String(row.AdRoomCode || "").trim() || "—"}</div>
+                      <div role="cell" className={`print-ltr print-nowrap ${cell(fieldChanged(entry, "fstarttime", "fendtime"))}`}>{row.fstarttime && row.fendtime ? `${row.fendtime} - ${row.fstarttime}` : "—"}</div>
+                      <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"))}`}>{dayNumbers(row)}</div>
+                      {/* ── الاسم يتبدّل، والرقم المدني لا ─────────────────────
+                          حين يُغيَّر أستاذ المقرر لا يكفي اسمٌ جديد في خلية
+                          صفراء: الأسماء تتشابه في هذه الجامعة — وقد رأينا
+                          اسمين متطابقين لشخصين — ومن يوقّع الوثيقة يريد أن
+                          يعرف مَن بعينه. فيُكتب رقمه المدني بجانبه من سجل
+                          النظام لا من المستند، وفي الصفوف المعدَّلة وحدها
+                          حتى لا يمتلئ العمود بأرقام لا تخصّ التغيير. */}
+                      <div role="cell" className={`print-wrap print-instructor-name authority-pdf-instructor ${cell(fieldChanged(entry, "AdInstructorId"))}`}>
+                        <span>{instructor?.AdInstructorName || displayInstructorText(row.sourceInstructorText) || "—"}</span>
+                        {fieldChanged(entry, "AdInstructorId") && instructor?.AdInstructorCivil
+                          ? <bdi className="authority-pdf-civil print-ltr">{String(instructor.AdInstructorCivil).trim()}</bdi>
+                          : null}
+                        {visitingIds.has(Number(row.AdInstructorId)) ? <VisitingBadge compact /> : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <footer className="print-comprehensive-page-footer authority-pdf-footer">
+              <div className="print-comprehensive-signatures">
+                <div><span>توقيع رئيس لجنة الجدول</span><i /></div>
+                <div><span>توقيع رئيس القسم العلمي</span><i /></div>
+                <div><span>توقيع العميد</span><i /></div>
+              </div>
+              <div className="print-comprehensive-legend-stack">
+                <div className="print-comprehensive-legend authority-pdf-legend">
+                  <span className="authority-pdf-key authority-pdf-key-added">مضاف</span>
+                  <span className="authority-pdf-key authority-pdf-key-deleted">محذوف</span>
+                  <span className="authority-pdf-key authority-pdf-key-changed">معدّل</span>
+                </div>
+                <div className="print-comprehensive-page-number"><bdi dir="ltr">{pageOffset + pageIndex + 1} / {pageTotal ?? pages.length}</bdi></div>
+              </div>
+            </footer>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}

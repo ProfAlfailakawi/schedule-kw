@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- `maximum-scale=1` و`user-scalable=no` كانا يعطّلان القرص بالإصبعين على كل
+         هاتف. برنامجٌ عاير التباين إلى 4.5:1 من أجل من يصعب عليه القراءة لا يصحّ
+         أن يمنع عنه أبسط أداة يملكها. حذفهما لا يغيّر التخطيط في شيء. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- سمة واحدة، مصدر واحد. القيمة هنا هي الافتراضي النهاري، ويصحّحها سطر
+         التهيئة أدناه من `schedule-theme` قبل أي رسم، ويحدّثها App.tsx عند التبديل. -->
+    <meta name="theme-color" content="#f2f3ef" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- اسم واحد على الشاشة الرئيسية، هو نفسه short_name في الـmanifest. -->
+    <meta name="apple-mobile-web-app-title" content="SCHEDULE" />
+    <meta name="description" content="SCHEDULE — نظام القرار الأكاديمي: ابنِ الجدول، راجعه، اتخذ القرار، وانشره بوضوح." />
+    <link rel="canonical" href="https://schedule-34704073784.europe-west2.run.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SCHEDULE" />
+    <meta property="og:locale" content="ar_KW" />
+    <meta property="og:title" content="SCHEDULE · نظام القرار الأكاديمي" />
+    <meta property="og:description" content="ابنِ الجدول. راجعه. اتخذ القرار. مساحة أكاديمية واحدة للجدول، المراجعة والنشر." />
+    <meta property="og:url" content="https://schedule-34704073784.europe-west2.run.app/" />
+    <meta property="og:image" content="https://schedule-34704073784.europe-west2.run.app/schedule-social-card-v4.png" />
+    <meta property="og:image:secure_url" content="https://schedule-34704073784.europe-west2.run.app/schedule-social-card-v4.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="SCHEDULE — نظام القرار الأكاديمي" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SCHEDULE · نظام القرار الأكاديمي" />
+    <meta name="twitter:description" content="ابنِ الجدول. راجعه. اتخذ القرار." />
+    <meta name="twitter:image" content="https://schedule-34704073784.europe-west2.run.app/schedule-social-card-v4.png" />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/plex-arabic-arabic-400.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/plex-arabic-arabic-600.woff2" crossorigin />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/schedule-icon-192.png" sizes="192x192" type="image/png" />
+    <!-- iOS يقصّ بشكله الخاص ولا يقرأ `purpose`. النسخة المقنَّعة تحمل هامش
+         الأمان مخبوزاً فيها، فتظهر العلامة غائرةً صغيرةً على الشاشة الرئيسية.
+         الصحيح أيقونة معتمة 180×180 حافةً إلى حافة، ويتكفّل النظام بالتدوير. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <title>SCHEDULE · نظام القرار الأكاديمي</title>
+    <script>
+      /*
+       * السمة تُحسم قبل أن يُرسم أي بكسل.
+       *
+       * البرنامج يبدأ نهارياً دائماً ما لم يختر المستخدم غير ذلك (App.tsx)،
+       * بينما كانت شاشة الإقلاع تقرأ `prefers-color-scheme` من نظام التشغيل.
+       * النتيجة لكل من يستعمل الوضع الليلي في جهازه ولم يفتح مبدّل السمة:
+       * شاشة إقلاع داكنة ثم مساحة عمل نهارية — وميض أبيض مضمون في نهاية كل
+       * إقلاع. القراءة هنا تجعل الإقلاع ولون الشريط والمساحة كلها تقول الشيء
+       * نفسه من اللحظة الأولى.
+       */
+      (function () {
+        var theme = "light";
+        try { localStorage.setItem("schedule-theme", "light"); } catch (e) {}
+        document.documentElement.setAttribute("data-theme", theme);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", "#f2f3ef");
+      })();
+    </script>
+    <style>
+      /* ── شاشة الإقلاع ────────────────────────────────────────────────────
+         شاشة أولى حقيقية تُرسم قبل الحزمة، وهي أيضاً سطح الفشل الذي يستعمله
+         حارس الإقلاع أدناه.
+
+         الأساس نهاري لأن المساحة نفسها تبدأ نهارية؛ والكتلة الداكنة تتبع
+         `data-theme` الذي يثبّته سطر التهيئة أعلاه من التخزين قبل أي رسم —
+         لا `prefers-color-scheme`، وإلا ظهرت شاشة داكنة تليها مساحة نهارية.
+
+         بلا اسم مكتوب: الشاشة تُرسم قبل وصول الخطوط، فكان الاسم يُصفّ بخط
+         النظام — مختلفاً على كل جهاز. العلامة مستقلّة عن الخط بحكم تكوينها.
+
+         الحركة هي ما يفعله البرنامج: أربعة أعمدة تصعد، ثم ينزل النحاسي من
+         الساعة التي كان يتصادم فيها تاركاً أثره. */
+      /* شاشة الإقلاع تبدأ دائماً نهارية — مطابقةً لشاشة النظام التي يرسمها
+         الـmanifest قبل أن يعمل أي كود. فمن اختار الليلي لا يرى قطعاً حادّاً من
+         نهاري إلى ليلي، بل انزلاقاً: الخلفية تعتم بعد أول رسم بإطار واحد، فيبدو
+         التحوّل «استقراراً في سمتك» لا ومضة. ومن بقي على النهاري (الأغلبية) لا
+         يرى أي حركة، لأن المصدر والوجهة نهاريّان. */
+      #boot{
+        position:fixed;inset:0;z-index:99999;display:grid;place-items:center;
+        background:radial-gradient(circle at 50% 42%,rgba(47,133,116,.10),transparent 44%),#f2f3ef;
+        color:#171c1a;font-family:"Plex Arabic",-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Arabic",Tahoma,sans-serif;
+        font-synthesis:none;
+        opacity:1;transition:opacity .24s ease,background .34s ease,color .34s ease;
+      }
+      /* الليلي لا يُطبَّق إلا بعد أول رسم (‎.settled‎)، فيصير تحوّلاً لا حالةً
+         مفاجئة. */
+      :root[data-theme="dark"] #boot.settled{
+        background:radial-gradient(circle at 50% 42%,rgba(47,133,116,.16),transparent 44%),#080c0b;
+        color:#edf2ee;
+      }
+      #boot.leaving{opacity:0;pointer-events:none}
+
+      #boot-splash{display:grid;place-items:center;gap:24px}
+      #boot-mark{
+        width:100px;height:100px;display:block;
+        filter:drop-shadow(0 20px 34px rgba(12,24,20,.26));
+      }
+      :root[data-theme="dark"] #boot.settled #boot-mark{filter:drop-shadow(0 20px 40px rgba(0,0,0,.55))}
+
+      /* الأعمدة تصعد، ثم ينزل النحاسي من الساعة التي كان يتصادم فيها. */
+      #boot-mark .bm-bar,#boot-mark .bm-decided,#boot-mark .bm-trace{opacity:0}
+      #boot-mark .bm-bar{animation:bm-rise .34s cubic-bezier(.16,1,.3,1) var(--d,0ms) both}
+      #boot-mark .bm-decided{animation:bm-decide .62s cubic-bezier(.16,1,.3,1) 140ms both}
+      #boot-mark .bm-trace{animation:bm-trace .72s ease 140ms both}
+      @keyframes bm-rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+      @keyframes bm-decide{
+        0%{opacity:0;transform:translateY(-16px)}
+        32%{opacity:1;transform:translateY(-16px)}
+        100%{opacity:1;transform:translateY(0)}
+      }
+      @keyframes bm-trace{0%,52%{opacity:0}100%{opacity:1}}
+
+      #boot-line{width:118px;height:2px;border-radius:99px;background:rgb(19 24 23 / .10);overflow:hidden}
+      :root[data-theme="dark"] #boot-line{background:rgb(255 255 255 / .08)}
+      #boot-line i{display:block;width:34%;height:100%;border-radius:inherit;
+        background:linear-gradient(90deg,transparent,#2f8574,transparent);
+        animation:boot-scan 1.05s ease-in-out infinite}
+      :root[data-theme="dark"] #boot-line i{background:linear-gradient(90deg,transparent,#68b9a2,transparent)}
+      @keyframes boot-scan{0%{transform:translateX(-130%)}100%{transform:translateX(360%)}}
+
+      #boot-card{display:none;max-width:440px;padding:30px;text-align:center;line-height:1.8}
+      #boot.failed #boot-splash{display:none}
+      #boot.failed #boot-card{display:block}
+      #boot-card h1{margin:0 0 10px;font-size:19px;font-weight:600}
+      #boot-card p{margin:0 0 20px;font-size:14px;opacity:.72}
+      #boot-card button{min-height:44px;padding:0 22px;border:0;border-radius:11px;cursor:pointer;background:#1f6b5c;color:#fff;font:inherit;font-weight:600}
+      #boot-card small{display:block;margin-top:14px;font-size:11px;opacity:.45;direction:ltr}
+
+      /* بلا حركة: الحالة النهائية كاملةً، حاضرة دفعةً واحدة. */
+      @media (prefers-reduced-motion:reduce){
+        #boot,#boot-line i,
+        #boot-mark .bm-bar,#boot-mark .bm-decided,#boot-mark .bm-trace{animation:none;transition:none}
+        #boot-mark .bm-bar,#boot-mark .bm-decided{opacity:1}
+        #boot-mark .bm-trace{opacity:1}
+        /* بلا حركة: الانزلاق يصبح قطعاً، فيُطبَّق الليلي فوراً على أول رسم بدل
+           إطارٍ نهاري ثم قفزة. */
+        :root[data-theme="dark"] #boot{
+          background:radial-gradient(circle at 50% 42%,rgba(47,133,116,.16),transparent 44%),#080c0b;
+          color:#edf2ee;
+        }
+        :root[data-theme="dark"] #boot-mark{filter:drop-shadow(0 20px 40px rgba(0,0,0,.55))}
+      }
+    </style>
+  
+    <!-- iOS launch screens (generated) -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/launch/launch-1290x2796.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/launch/launch-2796x1290.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/launch/launch-1179x2556.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/launch/launch-2556x1179.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/launch/launch-1284x2778.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/launch/launch-2778x1284.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/launch/launch-1170x2532.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/launch/launch-2532x1170.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/launch/launch-1125x2436.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/launch/launch-2436x1125.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/launch/launch-1242x2688.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/launch/launch-2688x1242.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/launch/launch-828x1792.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/launch/launch-1792x828.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/launch/launch-1242x2208.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/launch/launch-2208x1242.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/launch/launch-750x1334.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/launch/launch-1334x750.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/launch/launch-640x1136.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/launch/launch-1136x640.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/launch/launch-1536x2048.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/launch/launch-2048x1536.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/launch/launch-1668x2388.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/launch/launch-2388x1668.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/launch/launch-2048x2732.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/launch/launch-2732x2048.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="boot" role="status" aria-live="polite">
+      <div id="boot-splash" aria-label="جارٍ تشغيل نظام القرار الأكاديمي">
+        <!-- الهندسة نفسها المكتوبة في src/components/BrandMark.tsx. مكرّرة هنا
+             بالضرورة: هذه الشاشة تُرسم قبل أن تُحمَّل أي حزمة، فلا تستطيع
+             استيراد شيء. الأثر المتقطّع يظهر هنا وحده، لأن الحركة هي التي
+             تجعله يُقرأ غياباً لا شكلاً. -->
+        <svg id="boot-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <rect width="64" height="64" rx="14" fill="#141917"/>
+          <rect x="1" y="1" width="62" height="62" rx="13.4" fill="none" stroke="#C79B5F" stroke-opacity=".22" stroke-width=".8"/>
+          <rect class="bm-trace" x="20.6" y="16.5" width="5.6" height="14" rx="2.8" fill="none" stroke="#C79B5F" stroke-opacity=".42" stroke-width=".9" stroke-dasharray="2 2"/>
+          <rect class="bm-bar" style="--d:0ms"   x="46.4" y="19.5" width="5.6" height="15" rx="2.8" fill="#5FBFA6"/>
+          <rect class="bm-bar" style="--d:55ms"  x="37.8" y="27.5" width="5.6" height="12" rx="2.8" fill="#5FBFA6"/>
+          <rect class="bm-bar" style="--d:110ms" x="29.2" y="16.5" width="5.6" height="19" rx="2.8" fill="#5FBFA6"/>
+          <rect class="bm-decided"               x="20.6" y="32.5" width="5.6" height="14" rx="2.8" fill="#C79B5F"/>
+          <rect class="bm-bar" style="--d:165ms" x="12"   y="23.5" width="5.6" height="16" rx="2.8" fill="#5FBFA6"/>
+        </svg>
+        <div id="boot-line" aria-hidden="true"><i></i></div>
+      </div>
+      <div id="boot-card">
+        <h1>تعذر تحميل البرنامج</h1>
+        <p>حاولنا تنظيف النسخة المحفوظة وإعادة التحميل تلقائياً ولم ينجح. اضغط الزر، وإذا تكرر الأمر أبلغ مسؤول النظام بالسطر الأخير.</p>
+        <button type="button" id="boot-retry">إعادة المحاولة</button>
+        <small id="boot-detail"></small>
+      </div>
+    </div>
+    <noscript>
+      <div style="padding:32px;text-align:center;font-family:'Plex Arabic','Segoe UI',Tahoma,sans-serif;font-synthesis:none">
+        هذا البرنامج يحتاج تفعيل JavaScript في المتصفح.
+      </div>
+    </noscript>
+    <script>
+      /*
+       * Boot guard.
+       *
+       * The screens are code-split, so a tab (or a service worker) can be
+       * holding the previous release's file names. Those files are gone the
+       * moment a new version is published, the module never executes, and the
+       * page stays blank — the bundle's own recovery code cannot help, because
+       * the bundle is exactly what failed to load. This runs from the document
+       * itself: it clears the caches, drops the worker and reloads once, and if
+       * that still does not work it says so in Arabic instead of showing white.
+       */
+      (function () {
+        var KEY = "schedule-boot-recovery";
+        var booted = false;
+        var reason = "";
+        var boot = document.getElementById("boot");
+        var bootStarted = Date.now();
+
+        function read() { try { return sessionStorage.getItem(KEY); } catch (e) { return null; } }
+        function write(v) { try { sessionStorage.setItem(KEY, v); } catch (e) {} }
+        function clear() { try { sessionStorage.removeItem(KEY); } catch (e) {} }
+
+        /* The only question that matters: is there a screen yet? */
+        function painted() {
+          var root = document.getElementById("root");
+          return !!(root && root.childElementCount > 0);
+        }
+        function stand_down() {
+          if (booted) return;
+          booted = true;
+          clear();
+          if (!boot || !boot.parentNode) return;
+          /*
+           * أرضية بقدر الإيماءة، لا أكثر.
+           *
+           * كانت `Math.max(0, 1900 - elapsed)` ثم اختفاء في 420ms — أرضية
+           * 2320ms على كل فتحة، بما فيها الفتحة الدافئة التي رُسمت في 300.
+           * وحذفها بالكامل ذهب إلى الطرف الآخر: العلامة كانت تومض قبل أن تُرى.
+           *
+           * الحركة تكتمل عند 760ms، فأرضية 820 كانت تعني أن الشاشة تبدأ
+           * بالانصراف بعد 60ms من اكتمال الإيماءة: تُرى، ولا تُقرأ. الأرضية
+           * 1700 تترك بعد اكتمال الحركة سكتةً حقيقية (~940ms) تستقرّ فيها
+           * العلامة قبل الذوبان — بلا أي تغيير في الحركة نفسها.
+           */
+          var seen = Date.now() - bootStarted;
+          setTimeout(function () {
+            boot.classList.add("leaving");
+            setTimeout(function () {
+              if (boot && boot.parentNode) boot.parentNode.removeChild(boot);
+            }, 260);
+          }, Math.max(0, 1700 - seen));
+        }
+
+        function fail(detail) {
+          if (booted) return;
+          if (painted()) { stand_down(); return; }
+          if (!boot) return;
+          boot.className = "failed";
+          var line = document.getElementById("boot-detail");
+          if (line) line.textContent = detail || reason || "";
+        }
+
+        function recover(detail) {
+          if (booted || painted()) return;
+          reason = detail || reason;
+          if (read() === "1") { fail(reason); return; }
+          write("1");
+          var jobs = [];
+          try {
+            if (window.caches && caches.keys) {
+              jobs.push(caches.keys().then(function (keys) {
+                return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+              }));
+            }
+            if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+              jobs.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+                return Promise.all(regs.map(function (r) { return r.unregister(); }));
+              }));
+            }
+          } catch (e) {}
+          var done = function () {
+            var url = new URL(location.href);
+            url.searchParams.set("_r", Date.now().toString());
+            location.replace(url.href);
+          };
+          if (jobs.length) Promise.all(jobs).then(done, done); else done();
+        }
+
+        /* بعد أول رسم بإطار واحد: تُطبَّق سمة القارئ على شاشة الإقلاع فتنزلق
+           إليها بنعومة بدل أن تُقطع. النهاري لا يتحرّك؛ الليلي يعتم. */
+        if (boot) {
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () { boot.classList.add("settled"); });
+          });
+        }
+
+        /* The application calls this the moment it has painted. */
+        window.__scheduleBooted = stand_down;
+        window.__scheduleBootFailed = function (message) { fail(message); };
+
+        /*
+         * Only the build's own code counts. An icon, a font preload or any
+         * other decoration failing must never restart the tab — that would
+         * turn a cosmetic 404 into a reload loop.
+         */
+        function isBuildAsset(target) {
+          if (!target || !target.tagName) return false;
+          var url = String(target.src || target.href || "");
+          if (target.tagName === "SCRIPT") return target.type === "module" || /\/assets\/|\/src\/|\.m?js($|\?)/.test(url);
+          if (target.tagName === "LINK") return target.rel === "stylesheet" && /\/assets\/|\.css($|\?)/.test(url);
+          return false;
+        }
+        window.addEventListener("error", function (event) {
+          var target = event && event.target;
+          if (isBuildAsset(target)) {
+            recover("asset " + String(target.src || target.href || "").slice(-56));
+            return;
+          }
+          var msg = String((event && (event.message || (event.error && event.error.message))) || "");
+          if (msg && !booted && !painted()) {
+            if (/SyntaxError|Unexpected|import|module|Loading chunk/i.test(msg)) {
+              recover("js " + msg.slice(0, 60));
+            }
+          }
+        }, true);
+        window.addEventListener("unhandledrejection", function (event) {
+          var text = String((event && event.reason && (event.reason.message || event.reason)) || "");
+          if (/dynamically imported module|Importing a module script failed|Loading chunk|SyntaxError|Unexpected/i.test(text)) {
+            recover(text.slice(0, 90));
+          }
+        });
+
+        /* Belt and braces: notice a paint even if the signal never arrives. */
+        var watch = setInterval(function () { if (!booted && painted()) stand_down(); }, 250);
+        setTimeout(function () { clearInterval(watch); }, 30000);
+
+        /* Nothing painted in 25 seconds means it is not coming on its own. */
+        setTimeout(function () { if (!booted && !painted()) recover("timeout"); }, 25000);
+
+        var retry = document.getElementById("boot-retry");
+        if (retry) {
+          retry.addEventListener("click", function () {
+            clear();
+            try { localStorage.clear(); } catch(e){}
+            try { sessionStorage.clear(); } catch(e){}
+            if (navigator.serviceWorker) {
+              navigator.serviceWorker.getRegistrations().then(function(regs){
+                regs.forEach(function(r){ r.unregister(); });
+                location.href = location.pathname + "?_reset=" + Date.now();
+              }).catch(function(){
+                location.href = location.pathname + "?_reset=" + Date.now();
+              });
+            } else {
+              location.href = location.pathname + "?_reset=" + Date.now();
+            }
+          });
+        }
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

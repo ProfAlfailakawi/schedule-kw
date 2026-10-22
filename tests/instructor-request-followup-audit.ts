@@ -1,0 +1,236 @@
+/**
+ * ── تدقيق ما بعد الدمج: طلب الأستاذ ووارد القسم وصفحاتها العامة ────────────
+ *
+ * كلُّ فحصٍ هنا يحرس خللاً وُجد فعلاً عند تشغيل الصفحات على بياناتٍ حيّة:
+ *   - بديلٌ لمحاضرة يومين كان يعرض يوماً واحداً، فتصير المحاضرةُ يوماً بضغطة.
+ *   - قرارُ «رُفض» كان يبقى على بندٍ غيّر الأستاذُ وقتَه وأعاد إرساله.
+ *   - قرارُ الإضافة كان يُمحى عند كل إعادة إرسال، فتعود مثبَّتةٌ «بانتظار».
+ *   - تعابيرُ نمطيةٌ داخل قوالب الخادم كانت تفقد شرطتَها المائلة (\s → s)
+ *     فلا تُطابق شيئاً في المتصفح، ولا يلاحظ أحد.
+ *   - الواردُ على مستوى الكلية يُصفّى بنطاق الحساب قسماً قسماً.
+ */
+
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "../src/server/publicTheme";
+import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from "../src/server/studyProposalAlert";
+import { judgeRequest, type RequestedRow, type VerdictContext } from "../src/utils/instructorRequestVerdict";
+import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
+import { NEGOTIATION_LABEL, negotiationState, parseOfferedSlots } from "../src/utils/instructorRequestThread";
+import { requestFullySettled } from "../src/utils/instructorRequestVerdict";
+import { formatScheduleTimeRange } from "../src/utils/scheduleTime";
+
+let passed = 0, failed = 0;
+function check(condition: boolean, name: string) {
+  if (condition) { passed++; console.log(`\x1b[32m✓ ${name}\x1b[0m`); }
+  else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`); }
+}
+
+const server = readFileSync("server.ts", "utf8");
+const inbox = readFileSync("src/components/InstructorInbox.tsx", "utf8");
+
+/* ── البديلُ ينقل المحاضرةَ بأيامها ──────────────────────────────────────── */
+
+const TEACHER = 7;
+const row = (over: Partial<FSchedule> = {}): FSchedule => ({
+  id: 1, AdCollegeId: 1, AdSectionId: 5, AdTermId: 20, AdCourseId: 100, SCode: "01", AdInstructorId: TEACHER,
+  fsunday: true, fmonday: false, ftuesday: true, fwednesday: false, fthursday: false,
+  fstarttime: "08:00", fendtime: "08:50", AdRoomCode: "أ", AdRoomHall: "101", ...over,
+} as FSchedule);
+const course = (id: number): AdCourse => ({ AdCourseId: id, AdCollegeId: 1, AdSectionId: 5, CourseCode: `C${id}`, CourseName: `مقرر ${id}`, CourseCredit: 3, CourseHours: 3 } as AdCourse);
+const teacher: AdInstructor = { AdInstructorId: TEACHER, AdInstructorCivil: "000000000007", AdInstructorName: "د. 7" } as AdInstructor;
+/* الأستاذ مشغولٌ الأحد والثلاثاء عند الثامنة والحادية عشرة — وهما كلُّ ما يعرفه سُلّمُ القسم. */
+const busy = [row({ id: 1 }), row({ id: 2, AdCourseId: 200, fstarttime: "11:00", fendtime: "11:50" })];
+const context: VerdictContext = {
+  instructorId: TEACHER, allRows: busy, instructorRowsAfter: busy,
+  courses: new Map([[100, course(100)], [200, course(200)], [300, course(300)]]),
+  instructors: new Map([[TEACHER, teacher]]), knownRoomKeys: [], startLadder: ["08:00", "11:00"],
+};
+const ask: RequestedRow = { rowId: null, action: "add", AdCourseId: 300, days: ["fsunday", "ftuesday"], start: "08:00" };
+const verdict = judgeRequest(ask, { ...context, instructorRowsAfter: [...busy, row({ id: -1, AdCourseId: 300 })] });
+check(verdict.kind === "conflict", "إضافةٌ فوق محاضرةٍ قائمة تُمنع");
+check(verdict.nearestTimes.length > 0, "وحين تمتلئ بداياتُ القسم المعروفة يُكمَّل البديلُ من شبكة اللائحة");
+check(verdict.nearestTimes.every(slot => slot.days.join() === "fsunday,ftuesday"),
+  "وكلُّ بديلٍ يحمل أيامَ المحاضرة كلها، لا يوماً منها");
+check(verdict.nearestTimes.every(slot => slot.start !== "08:00" && slot.start !== "11:00"),
+  "ولا يُقترح وقتٌ الأستاذُ مشغولٌ فيه");
+check(judgeRequest(ask, { ...context, startLadder: [] }).nearestTimes.length === 0,
+  "وبلا سُلّمٍ معروفٍ للقسم لا يُقترح شيء");
+
+const page = server.slice(server.indexOf("function instructorRequestPage"), server.indexOf('app.post("/api/public/request/:token/check"'));
+check(page.includes('data-alt="\'+esc(ds.join(",")+"|"+a.start)') && page.includes('p[0].split(",").filter(Boolean)'),
+  "وصفحةُ الأستاذ تطبّق البديلَ بأيامه كلها");
+check(server.includes("nearestTimes: verdict.nearestTimes.map(entry => ({ day: entry.day, days: entry.days,"),
+  "والأيامُ تصل من الحكم إلى الصفحة والوارد");
+
+/* ── قرارُ القسم يخصّ ما طُلب يومَ قُرِّر ───────────────────────────────── */
+
+const decideSrc = server.slice(server.indexOf("function decisionStillApplies"), server.indexOf("async function instructorRequestItemsFromPayload"));
+const helpers = new vm.Script(decideSrc.replace(/: [A-Za-z<>\[\]| ]+(?=[,)=])/g, "").replace(/\): boolean \{/g, ") {").replace(/\): [A-Za-z| ]+ \{/g, ") {")
+  + "\nthis.decisionStillApplies = decisionStillApplies; this.priorAddFor = priorAddFor;");
+const sandbox: any = {};
+try { helpers.runInNewContext(sandbox); } catch (error) { console.log(String(error)); }
+const { decisionStillApplies, priorAddFor } = sandbox;
+const rejected = { action: "change", slots: [{ day: "fmonday", start: "09:30" }, { day: "fwednesday", start: "09:30" }], decision: { state: "rejected" } };
+check(typeof decisionStillApplies === "function" && decisionStillApplies(rejected, "change", ["fwednesday", "fmonday"], "09:30") === true,
+  "بندٌ لم يتغيّر يبقى قرارُه");
+check(decisionStillApplies?.(rejected, "change", ["fmonday", "fwednesday"], "11:00") === false,
+  "وبندٌ غيّر الأستاذُ وقتَه يسقط عنه «رُفض» القديم");
+check(decisionStillApplies?.(rejected, "delete", [], "") === false, "وكذلك إن غيّر نوعَ الطلب");
+const adds = [
+  { action: "add", after: { courseId: 8, collegeId: 2, sectionId: 3 }, slots: [{ day: "fthursday", start: "12:00" }], decision: { state: "fixed" } },
+  { action: "add", after: { courseId: 8, collegeId: 2, sectionId: 3 }, slots: [{ day: "fthursday", start: "12:00" }], decision: { state: "rejected" } },
+];
+const used = new Set<number>();
+check(priorAddFor?.(adds, used, 8, 2, 3, ["fthursday"], "12:00")?.decision?.state === "fixed"
+  && priorAddFor?.(adds, used, 8, 2, 3, ["fthursday"], "12:00")?.decision?.state === "rejected",
+  "والإضافةُ تستعيد قرارَها بمطابقة المقرّر وموقعه وأيامه وبدايته، وكلُّ سابقةٍ مرّةً واحدة");
+check(priorAddFor?.(adds, new Set(), 8, 2, 3, ["fthursday"], "13:00") === undefined,
+  "وإضافةٌ غيّر الأستاذُ وقتَها طلبٌ جديد بلا قرار");
+check((server.match(/decisionStillApplies\(stored, action, days, start\)/g) || []).length === 2
+  && (server.match(/priorAddFor\(/g) || []).length === 3,
+  "ومسارا الفحص والإرسال كلاهما يطبّقان القاعدة نفسها");
+
+/* ── قوالبُ الخادم لا تأكل شرطاتِها ──────────────────────────────────────── */
+
+let eaten = 0;
+const lowerServer = server.toLowerCase();
+for (let at = lowerServer.indexOf("<script"); at >= 0; at = lowerServer.indexOf("<script", at + 1)) {
+  const end = lowerServer.indexOf("</script", at);
+  const body = server.slice(at, end < 0 ? undefined : end);
+  eaten += (body.match(/(?<!\\)\\[sdwbDSW]/g) || []).length;
+}
+check(eaten === 0, "لا تعبيرَ نمطيَّ في صفحةٍ عامة يفقد شرطتَه المائلة عند التوليد");
+
+const staffSrc = server.slice(server.indexOf("function staffCardPage"), server.indexOf("</html>`", server.indexOf("function staffCardPage")) + 9) + ";}";
+const staffHtml = (() => {
+  const sb: any = { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT };
+  vm.runInNewContext(staffSrc.replace("function staffCardPage(token: string, label: string, nonce: string, demoHint = \"\"): string {", "function staffCardPage(token, label, nonce, demoHint = \"\") {")
+    + "\nthis.html = staffCardPage('t','قسم','n');", sb);
+  return String(sb.html);
+})();
+/* السكربتُ يُقتطع بالبحث النصّي لا بتعبيرٍ نمطيٍّ لوسوم HTML: هذا اختبارٌ على
+   صفحةٍ نولّدها نحن، والاقتطاعُ بالموضع لا يَعِد بما لا يفعله. */
+const lowerHtml = staffHtml.toLowerCase();
+const scriptOpen = lowerHtml.indexOf(">", lowerHtml.indexOf("<script")) + 1;
+const script = staffHtml.slice(scriptOpen, lowerHtml.indexOf("</script", scriptOpen));
+const fnOf = (name: string) => {
+  const at = script.indexOf(`function ${name}(`);
+  const body = script.slice(at, script.indexOf("}", script.indexOf("return", at)) + 1);
+  const sb: any = {}; vm.runInNewContext(body + `\nthis.f=${name};`, sb); return sb.f as (value: string) => string;
+};
+check(fnOf("visibleCardCollege")("كلية التربية الأساسية - بنات") === "",
+  "التربيةُ الأساسية بنات صامتةٌ فعلاً في المتصفح، لا في المصدر وحده");
+check(fnOf("visibleCardCollege")("كلية الدراسات التجارية - بنات") === "كلية الدراسات التجارية - بنات", "وغيرُها يظهر");
+check(fnOf("shortCardCollege")("كلية الدراسات التجارية - بنات") === "الدراسات التجارية - بنات"
+  && fnOf("shortCardCollege")("101 · كلية الدراسات التجارية - بنات") === "الدراسات التجارية - بنات",
+  "والخليةُ تختصر: لا رقمَ ولا كلمةَ «كلية»");
+check(staffHtml.includes('if(pick){window.location.href="/r/"+encodeURIComponent(pick.linkId);return;}'),
+  "«طلب تعديل الجدول» يفتح النموذجَ مباشرةً");
+
+/* ── الوارد على مستوى الكلية ──────────────────────────────────────────────── */
+
+const inboxRoute = server.slice(server.indexOf('app.get("/api/instructor-requests"'), server.indexOf('app.post("/api/instructor-requests/:id/decide"'));
+check(inboxRoute.includes('if (!collegeId || !termId)') && !inboxRoute.includes("!collegeId || !sectionId || !termId"),
+  "القسمُ اختياري في الوارد");
+check(inboxRoute.includes("&& isScopeAllowed(req, scope.collegeId, Number(scope.sectionId) || -1);")
+  && inboxRoute.includes("(scopeRowsAll as any[]).filter(row => inScope("),
+  "وبلا قسمٍ يُصفّى كلُّ طلبٍ وكلُّ صفٍّ بنطاق الحساب قسماً قسماً");
+/* الطلبُ يحمل جدولَ الأستاذ بكل كلياته، فكلُّ بندٍ يُصفّى بموقعه هو: ما خارج
+   المختار يصير مكاناً فارغاً بلا تفاصيل، ويبقى ترقيمُ البنود كما هو. */
+check(inboxRoute.includes("Repository.getInstructorRequests(0, 0, termId)")
+  && /inSelection\(requestItemScope\(full, item\)\)\s*\?\s*\(awaited\.has\(index\) \? \{ \.\.\.item, awaitedElsewhere: true \} : item\)\s*:\s*hiddenItem\(item\)/.test(inboxRoute)
+  /* المخفيُّ يحمل رقمَ الصفّ ونوعَ الفعل وحالةَ القرار — ليُعرف أنّ إضافةً هنا
+     تنتظر حذفاً هناك — ولا مقرّرَ ولا وقتَ ولا قاعة. */
+  && (() => {
+    const hidden = inboxRoute.slice(inboxRoute.indexOf("const hiddenItem = "), inboxRoute.indexOf("} as any);", inboxRoute.indexOf("const hiddenItem = ")));
+    return hidden.includes("slots: []") && hidden.includes("hidden: true")
+      && !/before|after|courseName|room|start|end|excuse|note/.test(hidden.replace(/decision\?\.state|decision:/g, ""));
+  })(),
+  "وكلُّ بندٍ يصل منسّقَ كليته وحده، ولا يصل غيرَه منه شيء");
+check(inboxRoute.includes(".map(id => sectionNameOf.get(id) || \"\").filter(Boolean)"), "وكلُّ طلبٍ يحمل اسمَ قسم ما يُرى منه");
+check(inbox.includes('className="request-card-section"') && inbox.includes('item.action === "add" && item.after?.collegeName'),
+  "والبطاقةُ تعرض القسمَ، والإضافةُ تعرض كليتَها");
+
+/* ── صفحةُ الأستاذ: ما يحتاجه من لا يعرف التقنية ──────────────────────────── */
+
+check(page.includes("function startChoices(days)") && page.includes('data-quick="'), "بداياتٌ جاهزة بضغطة");
+check(page.includes("function saveDraft()") && page.includes("localStorage.setItem(DRAFT_KEY")
+  && !/saveDraft[\s\S]{0,300}signCivil/.test(page), "والمسودةُ تُحفظ في الجهاز بلا رقمٍ مدني");
+check(page.includes('window.addEventListener("beforeunload"'), "وتنبيهٌ قبل مغادرة ما لم يُرسل");
+check(page.includes("function decisionBox(") && page.includes("data-dept-alt"), "وقرارُ القسم وبدائلُه في البطاقة نفسها");
+check(page.includes("function originalOf(it)"), "و«موعدك الحالي نفسه» يُقاس على الموعد الأصلي لا على المطلوب");
+
+
+/* ── حوارُ البند: القسمُ يقترح، والأستاذُ يوافق أو يقترح غيره ─────────────── */
+
+const sunday = { day: "fsunday" as const, start: "09:00", end: "09:50" };
+const t = (minute: number) => new Date(Date.UTC(2026, 9, 1, 8, minute)).toISOString();
+check(negotiationState({ action: "change" }) === "awaiting", "طلبٌ وصل ولم يُردّ عليه: بانتظار الرد");
+check(negotiationState({ action: "change", thread: [{ from: "department", at: t(1) }] }) === "proposed",
+  "ردُّ القسم يجعل الدورَ على الأستاذ: مقترح من القسم");
+check(negotiationState({ action: "change", thread: [{ from: "department", at: t(1) }, { from: "instructor", at: t(2) }] }) === "awaiting",
+  "وردُّ الأستاذ يعيد الدورَ إلى القسم");
+check(negotiationState({ action: "change", thread: [{ from: "department", at: t(1) }, { from: "instructor", at: t(2), accepted: true }] }) === "agreed",
+  "وموافقتُه على المقترح: موافَق");
+check(negotiationState({ action: "change", decision: { state: "rejected", alternatives: [sunday], decidedAt: t(1) } }) === "proposed",
+  "والرفضُ ببدائل مقترحٌ من القسم لا بابٌ مغلق");
+check(negotiationState({ action: "change", decision: { state: "rejected", decidedAt: t(1) }, thread: [{ from: "instructor", at: t(2) }] }) === "awaiting",
+  "وردُّ الأستاذ بعد رفضٍ يعيد فتحه");
+check(NEGOTIATION_LABEL.awaiting === "بانتظار الرد" && NEGOTIATION_LABEL.proposed === "مقترح من القسم" && NEGOTIATION_LABEL.agreed === "موافَق",
+  "والحالاتُ بألفاظها الثلاثة");
+check(!requestFullySettled([{ action: "change", decision: { state: "fixed", decidedAt: t(1) }, thread: [{ from: "instructor", at: t(2) }] }]),
+  "ورسالةٌ بعد التثبيت تُبقي الطلب مفتوحاً حتى يُردّ عليها");
+check(!requestFullySettled([{ action: "change", thread: [{ from: "instructor", at: t(2), accepted: true }] }]),
+  "والموافقةُ على مقترحٍ تنتظر التثبيت، فلا تُغلق الطلب");
+check(requestFullySettled([{ action: "change", thread: [{ from: "department", at: t(1) }], decision: { state: "fixed", decidedAt: t(3) } }]),
+  "والتثبيتُ بعد الاتفاق يُغلقه");
+check(parseOfferedSlots([{ day: "fmonday", days: ["fmonday", "fwednesday", "x"], start: "10:00", end: "11:20" }, { day: "bad", start: "1", end: "2" }, 1, 2, 3]).length === 1,
+  "والأوقاتُ المقترحة تُطهَّر بقاعدةٍ واحدة لبدائل الرفض وللحوار");
+
+const deptReply = server.slice(server.indexOf('app.post("/api/instructor-requests/:id/reply"'), server.indexOf('app.get("/api/public/request/:token"'));
+check(deptReply.includes("requirePermission(7)") && deptReply.includes("isScopeAllowed(req, itemScope.collegeId, itemScope.sectionId)")
+  && deptReply.includes("scheduleLockRefusal("), "ردُّ القسم بنطاق البند وقفله كالقرار نفسه");
+check(!/Repository\.(save|update|delete)Schedule/.test(deptReply), "وردُّ القسم لا يكتب في الجدول");
+check(server.includes("const alternatives = parseOfferedSlots(req.body?.alternatives);"), "وبدائلُ الرفض تمرّ بالمطهِّر نفسه");
+const profReply = server.slice(server.indexOf('app.post("/api/public/request/:token/reply"'), server.indexOf("function instructorRequestPage"));
+check(profReply.includes("await verifyRequestSigner(resolved.request, req, res)")
+  && (server.match(/await verifyRequestSigner\(resolved\.request, req, res\)/g) || []).length === 2,
+  "ردُّ الأستاذ توقيعٌ بالرقم المدني — بالمساعد نفسه الذي يوقّع الإرسال");
+check(profReply.includes("AdTermClosed === true") && !profReply.includes("requestWindowOpen"),
+  "والحوارُ يبقى بعد إغلاق النافذة، ويُغلقه الفصلُ المجمَّد وحده");
+check(profReply.includes('kind = "proposal-accepted"') && profReply.includes("decision: undefined") && profReply.includes("endForRequest"),
+  "والموافقةُ تجعل المقترحَ هو المطلوب بنهايته من اللائحة، وتُسقط القرارَ القديم");
+check(server.includes("...(stored?.thread?.length ? { thread: stored.thread } : {})"), "وإعادةُ إرسال الطلب لا تمحو الحوار");
+check(profReply.includes("sentDays.length !== baseDays.length") && profReply.includes("req.body?.days"),
+  "و«وقتٌ آخر» يقبل أياماً بعدد أيام البند نفسه، ويردّ ما غيّر العدد");
+check((server.match(/capThread\(\[/g) || []).length === 3 && !server.includes(".slice(-THREAD_LIMIT)"),
+  "والخيطُ عند حدّه يحفظ أولَ رسالةٍ في المسارات الثلاثة (قسمٌ، موافقة، ردّ)");
+check(server.includes("negotiation: negotiationState(rest)"), "وحالةُ الحوار تصل الأستاذَ محسوبةً من الخادم");
+check(page.includes("function threadBox(") && page.includes("data-accept") && page.includes("data-reply=")
+  && page.includes("var NEG=${JSON.stringify(NEGOTIATION_LABEL)}"),
+  "وصفحةُ الأستاذ تعرض الخيطَ وحالتَه بألفاظ الموضع الواحد، وزرَّ «أوافق» وسطرَ الرد");
+check(inbox.includes("function RequestThread(") && inbox.includes("/reply`") && inbox.includes("NEGOTIATION_LABEL[state]"),
+  "والواردُ يعرض الخيطَ ويردّ ويقترح أوقاتاً");
+
+/* ── بابُ التعديل في بطاقتي لا يختفي ──────────────────────────────────────── */
+check(staffHtml.includes('id="tab-requests" role="tab" aria-selected="false" hidden>طلب تعديل الجدول</button>') && !/id="tab-requests"[^>]*display:none/.test(staffHtml)
+  && staffHtml.includes(".card-tab[hidden]{display:none}") && staffHtml.includes("tab.hidden=!links.length"),
+  "تبويبُ «طلب تعديل الجدول» يُرسم مخفياً افتراضياً (لا وميض) ويكشفه السكربتُ فقط حين توجد نافذةُ طلباتٍ مفتوحة");
+check(staffHtml.includes("tab.hidden=!links.length") && staffHtml.includes("if(!l.windowOpen||seen[l.linkId])return false")
+  && !staffHtml.includes("انتهت فترة الطلبات'"),
+  "ويُخفى التبويبُ كلُّه حين لا نافذةَ طلباتٍ مفتوحة، ولا بطاقةَ «انتهت فترة الطلبات» ولا زرَّ فتح نموذجٍ لنافذةٍ مغلقة");
+check(!staffHtml.includes('id="edit"') && staffHtml.includes("tabRequests.onclick=function"),
+  "لا زرّ «تعديل» مكرر في الأدوات: «طلب تعديل الجدول» هو البابُ الوحيد");
+check(server.includes("const requestLinks = (await Promise.all(requestRows.map(") && !server.includes("(personal ? requestRows : []).map"),
+  "وبعد الرقم المدني يفتح النموذجَ من رابط القسم كما من الرابط الشخصي");
+
+/* ── النطاقُ الزمنيّ يُقرأ من بدايته ──────────────────────────────────────── */
+check(formatScheduleTimeRange("08:00", "09:20") === "⁦08:00 – 09:20⁩",
+  "«08:00 – 09:20»: البدايةُ أولاً، معزولاً عن اتجاه السطر العربي");
+
+/* تصادمٌ مع محاضرةٍ أخرى لنفس الأستاذ: يُقال بأخصّ عبارة، ولا تُختلق «لا قاعة». */
+check(server.includes("headline: headlineReasonOf(item.reasons)?.text") && server.includes('reason.source === "room"') && !server.includes('roomAvailable: item.verdict === "conflict" ? false : true'),
+  "فحص الموعد: العنوان بأخصّ سبب مانع (محاضرتك الأخرى قبل «تتابع مرتفع») ولا قاعةَ مفقودة إلا بسبب قاعة فعلي");
+console.log(`\n${passed} passed, ${failed} failed`);
+if (failed) process.exit(1);

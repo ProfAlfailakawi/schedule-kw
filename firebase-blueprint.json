@@ -1,0 +1,24 @@
+{
+  "rules_version": "2",
+  "auth_strategy": "firebase_auth",
+  "collections": [
+    { "name": "users", "rules": { "read": "false", "write": "false" } },
+    { "name": "formNames", "rules": { "read": "false", "write": "false" } },
+    { "name": "formSecurity", "rules": { "read": "false", "write": "false" } },
+    { "name": "adCollegeUserAssign", "rules": { "read": "false", "write": "false" } },
+    { "name": "adTerms", "rules": { "read": "false", "write": "false" } },
+    { "name": "adColleges", "rules": { "read": "false", "write": "false" } },
+    { "name": "adSections", "rules": { "read": "false", "write": "false" } },
+    { "name": "adInstructors", "rules": { "read": "false", "write": "false" } },
+    { "name": "adCourses", "rules": { "read": "false", "write": "false" } },
+    { "name": "fSchedules", "rules": { "read": "false", "write": "false" } },
+    { "name": "adRooms", "rules": { "read": "false", "write": "false" } },
+    { "name": "auditLogs", "rules": { "read": "false", "write": "false" } },
+    { "name": "scheduleVersions", "rules": { "read": "false", "write": "false" } },
+    { "name": "scheduleDrafts", "rules": { "read": "false", "write": "false" } },
+    { "name": "scheduleComments", "rules": { "read": "false", "write": "false" } },
+    { "name": "scheduleConstraints", "rules": { "read": "false", "write": "false" } },
+    { "name": "scheduleDecisionMemories", "rules": { "read": "false", "write": "false" } },
+    { "name": "schedulePublications", "rules": { "read": "false", "write": "false" } }
+  ]
+}

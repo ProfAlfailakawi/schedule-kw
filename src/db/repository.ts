@@ -1,0 +1,6609 @@
+import { departmentFamily } from "../utils/sectionLabel";
+import { normalizeArabicText } from "../utils/arabicText";
+import fs from "fs";
+import { chooseStudentCaseSecret, STUDENT_CASE_SECRET_CONFLICT_MESSAGE, type StudentCaseSecretChoice } from "../server/studentCaseSecret";
+import { AsyncLocalStorage } from "async_hooks";
+import { cachedReference, cachedSchedules, invalidateReference, invalidateSchedules, REFERENCE_KEYS } from "./referenceCache";
+import path from "path";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
+import { getApps, initializeApp, cert } from "firebase-admin/app";
+import { getFirestore, FieldPath, FieldValue, Timestamp } from "firebase-admin/firestore";
+import type { Firestore, WriteBatch } from "firebase-admin/firestore";
+import { gzipSync, gunzipSync } from "zlib";
+import { defaultPrivateDirectory, isCloudRunRuntime, materializePackagedSnapshotOnce, packagedSnapshotPath, readJsonSnapshot } from "./snapshot";
+import {
+  ScheduleApproval,
+  SystemUser,
+  FormName,
+  FormSecurity,
+  AdCollegeUserAssign,
+  AdTerm,
+  TermStudentPhases,
+  StudentProfile,
+  CurriculumRuleSet,
+  RegistrationOutcomeShard,
+  RegistrationRun,
+  StudentRegistrationReport,
+  RegistrationTicket,
+  AdCollege,
+  AdSection,
+  AdInstructor,
+  AdCourse,
+  CurriculumPlan,
+  CurriculumPlanCourse,
+  CurriculumDegreeRule,
+  CourseTransition,
+  FSchedule,
+  AdRoom,
+  AuditLogEntry,
+  AdCampaign,
+  AdCreative,
+  AdStatsDay,
+  AudienceDay,
+  ScheduleVersion,
+  ScheduleDraft,
+  ScheduleOpenDecision,
+  ClientTelemetryEntry,
+  ScheduleComment,
+  SchedulePublication,
+  ScheduleConstraint,
+  AdDegreeRule,
+  ScheduleDecisionMemory,
+  CampusMobilityProfile,
+  ScheduleShareLink, ShareLinkInstructorMark,
+  InstructorRequest,
+  StudyProposal,
+  VisitingRoster,
+  DepartmentDelegateDirectory,
+  DepartmentRoomDirectory,
+  RegistrationStats,
+  StudentNeed,
+  StudentCourseState,
+  StudentCaseDecision,
+  HallBarterRequest,
+  ScheduleWeekException,
+  MasterBuilding,
+  MasterRoom,
+  LocationReviewCase,
+  LocationMigrationLog,
+  LocationMigrationRun,
+} from "../types";
+import { DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES } from "../utils/campusTravel";
+import { sortByName, byArabic } from "../utils/sorting";
+import { createDemoSandboxState } from "./demoSandbox";
+import { DEMO_LINK_TOKEN_PREFIX, isDemoLinkToken } from "../utils/demoLinkToken";
+import { applyStudentCaseDecision, studentCaseRefusal, type StudentCaseSide } from "../utils/studentCaseDecision";
+import { caseRefFromId, mergeStudentResubmission } from "../utils/studentNeedMerge";
+import { cleanSeenIds, mergeSeenIds, seenUnchanged } from "../utils/notificationSeen";
+import { termChronology } from "../utils/termSequence";
+
+// Runtime state must not live inside the replaceable application release. A number of
+// deployment/upload tools synchronize an archive by deleting destination files that are
+// absent from the upload. Keep a legacy source path only for the one-time safe migration.
+const LEGACY_DB_DIR = path.join(process.cwd(), "database");
+let DB_DIR = LEGACY_DB_DIR;
+let DB_FILE = path.join(DB_DIR, "db.json");
+let DB_BACKUP_FILE = path.join(DB_DIR, "db.json.backup");
+let PASSWORD_VAULT_KEY_FILE = path.join(DB_DIR, "legacy-password-vault.key");
+const PASSWORD_VAULT_AAD = Buffer.from("SCHEDULE-SystemUserPass-v1", "utf8");
+
+function copyPrivateFileOnce(source: string, destination: string) {
+  if (!fs.existsSync(source) || fs.existsSync(destination)) return;
+  fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
+  fs.chmodSync(destination, 0o600);
+}
+
+function configurePrivateDatabasePaths(mode: "demo" | "firestore") {
+  const configured = process.env.SCHEDULE_PRIVATE_DIR?.trim();
+  const privateDir = path.resolve(configured || defaultPrivateDirectory());
+  const relativeToRelease = path.relative(path.resolve(process.cwd()), privateDir);
+  const isInsideRelease = relativeToRelease === "" || (!relativeToRelease.startsWith(`..${path.sep}`) && relativeToRelease !== "..");
+  if (process.env.NODE_ENV === "production" && isInsideRelease) {
+    throw new Error("SCHEDULE_PRIVATE_DIR must be outside the application release directory in production");
+  }
+
+
+  fs.mkdirSync(privateDir, { recursive: true, mode: 0o700 });
+  const privateDbFile = path.join(privateDir, "db.json");
+  const privateVaultFile = path.join(privateDir, "legacy-password-vault.key");
+  if (mode === "demo") materializePackagedSnapshotOnce(privateDbFile);
+  copyPrivateFileOnce(path.join(LEGACY_DB_DIR, "legacy-password-vault.key"), privateVaultFile);
+
+  DB_DIR = privateDir;
+  DB_FILE = privateDbFile;
+  DB_BACKUP_FILE = path.join(privateDir, "db.json.backup");
+  PASSWORD_VAULT_KEY_FILE = privateVaultFile;
+  if (mode === "demo") copyPrivateFileOnce(DB_FILE, DB_BACKUP_FILE);
+}
+
+function restoreDatabaseBackupIfNeeded() {
+  if (fs.existsSync(DB_FILE) || !fs.existsSync(DB_BACKUP_FILE)) return;
+  const backup = fs.readFileSync(DB_BACKUP_FILE, "utf8");
+  JSON.parse(backup);
+  fs.copyFileSync(DB_BACKUP_FILE, DB_FILE, fs.constants.COPYFILE_EXCL);
+  fs.chmodSync(DB_FILE, 0o600);
+  console.warn("Local database was missing and has been restored from the protected backup.");
+}
+
+function passwordVaultKey(): Buffer | null {
+  const env = process.env.PASSWORD_VAULT_KEY?.trim();
+  const raw = env || (fs.existsSync(PASSWORD_VAULT_KEY_FILE) ? fs.readFileSync(PASSWORD_VAULT_KEY_FILE, "utf8").trim() : "");
+  if (!raw) return null;
+  try {
+    const key = /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
+    return key.length === 32 ? key : null;
+  } catch { return null; }
+}
+
+function encryptPasswordForVault(password: string): string {
+  const key = passwordVaultKey();
+  if (!key) return "";
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  cipher.setAAD(PASSWORD_VAULT_AAD);
+  const encrypted = Buffer.concat([cipher.update(password, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `aesgcm$${iv.toString("hex")}$${encrypted.toString("hex")}$${tag.toString("hex")}`;
+}
+
+function decryptPasswordFromVault(stored?: string): string {
+  const key = passwordVaultKey();
+  if (!key || !stored?.startsWith("aesgcm$")) return "";
+  try {
+    const [, ivHex, cipherHex, tagHex] = stored.split("$");
+    if (!ivHex || cipherHex == null || !tagHex) return "";
+    const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(ivHex, "hex"));
+    decipher.setAAD(PASSWORD_VAULT_AAD);
+    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+    return Buffer.concat([decipher.update(Buffer.from(cipherHex, "hex")), decipher.final()]).toString("utf8");
+  } catch { return ""; }
+}
+
+// Compatibility hash used only to read the synthetic database created by the first AI Studio build.
+// New and migrated passwords use scrypt; production never stores plaintext passwords.
+function simpleHash(password: string): string {
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    hash = ((hash << 5) - hash + password.charCodeAt(i)) | 0;
+  }
+  return "hash_" + Math.abs(hash).toString(16);
+}
+
+/** A term's calendar, normalised — or nothing at all, which is also an answer. */
+function termCalendarFields(dates?: { start?: string; weeks?: number; closed?: boolean }): Partial<AdTerm> {
+  const out: Partial<AdTerm> = {};
+  const start = String(dates?.start || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(start) && !Number.isNaN(Date.parse(start))) out.AdTermStart = start;
+  const weeks = Number(dates?.weeks || 0);
+  if (Number.isInteger(weeks) && weeks >= 1 && weeks <= 30) out.AdTermWeeks = weeks;
+  /* Only a real boolean is stored. "Not stated" has its own meaning — see
+     isTermClosed() — and must not collapse into false, which would silently
+     re-open every historical term. */
+  if (typeof dates?.closed === "boolean") out.AdTermClosed = dates.closed;
+  return out;
+}
+
+function hashPassword(password: string): string {
+  const salt = randomBytes(16);
+  const derived = scryptSync(password, salt, 64);
+  return `scrypt$${salt.toString("hex")}$${derived.toString("hex")}`;
+}
+
+function verifyPassword(password: string, stored: string): boolean {
+  if (typeof stored !== "string" || stored.length === 0) return false;
+  if (stored.startsWith("scrypt$")) {
+    const [, saltHex, digestHex] = stored.split("$");
+    if (!saltHex || !digestHex) return false;
+    const expected = Buffer.from(digestHex, "hex");
+    const actual = scryptSync(password, Buffer.from(saltHex, "hex"), expected.length);
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
+  }
+  /* The legacy `simpleHash` (a 32-bit non-cryptographic fold) is no longer an
+     acceptable login credential: it is offline-recoverable in milliseconds and
+     collides massively. Any record still in that form must go through a password
+     reset — it is never authenticated. Migration (import-legacy-json) already
+     rewrites these to scrypt; this only guards a database that skipped it. */
+  if (stored.startsWith("hash_")) {
+    console.warn("Login blocked: account still has a legacy non-scrypt password hash and must be reset.");
+  }
+  return false;
+}
+
+interface DBState {
+  users: SystemUser[];
+  formNames: FormName[];
+  formSecurity: FormSecurity[];
+  collegeUserAssign: AdCollegeUserAssign[];
+  terms: AdTerm[];
+  colleges: AdCollege[];
+  sections: AdSection[];
+  instructors: AdInstructor[];
+  courses: AdCourse[];
+  curriculumPlans?: CurriculumPlan[];
+  curriculumPlanCourses?: CurriculumPlanCourse[];
+  courseTransitions?: CourseTransition[];
+  schedules: FSchedule[];
+  rooms: AdRoom[];
+  auditLogs?: AuditLogEntry[];
+  scheduleVersions?: ScheduleVersion[];
+  scheduleDrafts?: ScheduleDraft[];
+  scheduleOpenDecisions?: ScheduleOpenDecision[];
+  clientTelemetry?: ClientTelemetryEntry[];
+  adCampaigns?: AdCampaign[];
+  adCreatives?: AdCreative[];
+  adStats?: AdStatsDay[];
+  audienceDaily?: AudienceDay[];
+  /** رمز رابط «ملف الشراكة» العام (يُدار من شاشة الإعلانات). */
+  partnerKitToken?: string;
+  /** الشركات التي استهلكت تجربتها المجانية (اسمٌ مُطبَّع ← رقم حملتها). سجلٌّ دائم لا يمحوه تعديلٌ ولا حذف. */
+  adTrialCompanies?: Array<{ name: string; campaignId: string }>;
+  scheduleComments?: ScheduleComment[];
+  instructorRequests?: InstructorRequest[];
+  studyProposals?: StudyProposal[];
+  studentNeeds?: StudentNeed[];
+  studentProfiles?: StudentProfile[];
+  curriculumRuleSets?: CurriculumRuleSet[];
+  curriculumRuleDrafts?: CurriculumRuleSet[];
+  registrationTickets?: RegistrationTicket[];
+  registrationRuns?: RegistrationRun[];
+  registrationOutcomes?: RegistrationOutcomeShard[];
+  schedulePublications?: SchedulePublication[];
+  scheduleConstraints?: ScheduleConstraint[];
+  degreeRules?: AdDegreeRule[];
+  visitingRosters?: VisitingRoster[];
+  departmentDelegates?: DepartmentDelegateDirectory[];
+  departmentRooms?: DepartmentRoomDirectory[];
+  registrationStats?: RegistrationStats[];
+  scheduleDecisionMemories?: ScheduleDecisionMemory[];
+  campusMobilityProfiles?: CampusMobilityProfile[];
+  scheduleShareLinks?: ScheduleShareLink[];
+  scheduleApprovals?: ScheduleApproval[];
+  hallBarterRequests?: HallBarterRequest[];
+  scheduleWeekExceptions?: ScheduleWeekException[];
+  /** «المقروء» في جرس الإشعارات لكل مستخدم (src/utils/notificationSeen.ts). */
+  notificationSeen?: Array<{ userId: number; ids: string[]; updatedAt: string }>;
+  locationBuildings?: MasterBuilding[];
+  locationRooms?: MasterRoom[];
+  locationReviewCases?: LocationReviewCase[];
+  locationMigrationLogs?: LocationMigrationLog[];
+  locationMigrationRuns?: LocationMigrationRun[];
+  /** دليلُ البيئة التجريبية وحدها: الأرقامُ الوهمية التي تُقترح على الصفحات العامة. */
+  demoGuide?: DemoGuide;
+}
+
+/** ما تقترحه الصفحاتُ العامة على زائر البيئة التجريبية ليجرّب. كلُّه وهمي. */
+export interface DemoGuide {
+  /** رقمٌ مدنيٌّ وهمي لطالبٍ جديد لم يرسل شيئاً — لتجربة الاستبيان. */
+  freshStudentCivil: string;
+  /** حالاتٌ مبذورة تُفتح في «حالة طلبي» برقمَيها. */
+  cases: Array<{ label: string; civil: string; caseRef: string }>;
+}
+
+interface LegacySnapshot extends DBState {
+  legacyArchive?: Record<string, Record<string, unknown>[]>;
+  migrationMeta?: Record<string, unknown>;
+}
+
+let baseDb: DBState = {
+  users: [], formNames: [], formSecurity: [], collegeUserAssign: [], terms: [], colleges: [], sections: [], instructors: [],
+  courses: [], curriculumPlans: [], curriculumPlanCourses: [], courseTransitions: [], schedules: [], rooms: [], auditLogs: [], scheduleVersions: [], scheduleDrafts: [], scheduleOpenDecisions: [],
+  clientTelemetry: [], scheduleComments: [], instructorRequests: [], studyProposals: [], studentNeeds: [], schedulePublications: [], scheduleConstraints: [], degreeRules: [], visitingRosters: [], departmentDelegates: [], departmentRooms: [],
+  scheduleDecisionMemories: [], campusMobilityProfiles: [], scheduleShareLinks: [], scheduleApprovals: [], hallBarterRequests: [], scheduleWeekExceptions: [], studentProfiles: [], curriculumRuleSets: [], curriculumRuleDrafts: [], registrationTickets: [], registrationRuns: [], registrationOutcomes: [],
+  locationBuildings: [], locationRooms: [], locationReviewCases: [], locationMigrationLogs: [], locationMigrationRuns: []
+};
+
+type DemoSandboxRecord = { state: DBState; expiresAt: number };
+const demoSandboxContext = new AsyncLocalStorage<{ sessionId: string; state: DBState }>();
+const demoSandboxes = new Map<string, DemoSandboxRecord>();
+function currentDb(): DBState { return demoSandboxContext.getStore()?.state || baseDb; }
+function replaceCurrentDb(next: DBState): void { const context = demoSandboxContext.getStore(); if (context) context.state = next; else baseDb = next; }
+const db = new Proxy({} as DBState, {
+  get: (_target, prop) => (currentDb() as any)[prop],
+  set: (_target, prop, value) => { (currentDb() as any)[prop] = value; return true; },
+  ownKeys: () => Reflect.ownKeys(currentDb()),
+  getOwnPropertyDescriptor: (_target, prop) => ({ configurable: true, enumerable: true, value: (currentDb() as any)[prop] }),
+});
+
+// Shared process caches are excellent for production, but a demo cache would
+// become a covert bridge between visitors. Demo requests always read their own state.
+function scopedCachedReference<T>(key: string, loader: () => Promise<T>): Promise<T> {
+  return demoSandboxContext.getStore() ? loader() : cachedReference(key, loader);
+}
+function scopedCachedSchedules<T>(key: string, loader: () => Promise<T>): Promise<T> {
+  return demoSandboxContext.getStore() ? loader() : cachedSchedules(key, loader);
+}
+
+let firestoreDb: Firestore | null = null;
+
+
+function hydrateCourses(rows: AdCourse[], sections: AdSection[]): AdCourse[] {
+  const sectionById = new Map(sections.map(section => [section.AdSectionId, section]));
+  return rows.map(course => {
+    const section = sectionById.get(course.AdSectionId);
+    return section ? { ...course, AdCollegeId: section.AdCollegeId } : { ...course };
+  });
+}
+
+function hydrateSchedules(rows: FSchedule[], courses: AdCourse[], sections: AdSection[]): FSchedule[] {
+  const hydratedCourses = hydrateCourses(courses, sections);
+  const courseById = new Map(hydratedCourses.map(course => [course.AdCourseId, course]));
+  return rows.map(schedule => {
+    const course = courseById.get(schedule.AdCourseId);
+    if (!course) return { ...schedule };
+    return {
+      ...schedule,
+      // These three fields are convenience fields in Firestore only. In SQL Server they are
+      // derived through FSchedule -> AdCourse -> AdSection. Re-hydrating them on every read
+      // preserves the relational semantics if a course moves to another section/college or is renamed.
+      AdSectionId: course.AdSectionId,
+      AdCollegeId: course.AdCollegeId,
+      // Historical schedule rows own their visible academic identity. A later
+      // catalogue rename must never rewrite an old term while it is being read.
+      AdCourseName: schedule.CourseNameSnapshot || schedule.AdCourseName || course.CourseName,
+      CourseCodeSnapshot: schedule.CourseCodeSnapshot || undefined,
+      CourseNameSnapshot: schedule.CourseNameSnapshot || schedule.AdCourseName || undefined
+    };
+  });
+}
+
+const RELATION_CACHE_MS = 5 * 60 * 1000;
+let scheduleRelationCache: { expiresAt: number; courses: AdCourse[]; sections: AdSection[] } | null = null;
+function invalidateScheduleRelationCache() { scheduleRelationCache = null; }
+async function getCachedScheduleRelations(): Promise<{ courses: AdCourse[]; sections: AdSection[] }> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return { courses: db.courses, sections: db.sections };
+  if (scheduleRelationCache && scheduleRelationCache.expiresAt > Date.now()) return scheduleRelationCache;
+  const [courseSnap, sectionSnap] = await Promise.all([
+    firestoreDb.collection("courses").get(),
+    firestoreDb.collection("sections").get(),
+  ]);
+  const value = {
+    expiresAt: Date.now() + RELATION_CACHE_MS,
+    courses: courseSnap.docs.map(doc => doc.data() as AdCourse),
+    sections: sectionSnap.docs.map(doc => doc.data() as AdSection),
+  };
+  scheduleRelationCache = value;
+  return value;
+}
+function chunks<T>(values: T[], size = 30): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < values.length; i += size) out.push(values.slice(i, i + size));
+  return out;
+}
+async function getFirestoreSchedulesForCourseIds(courseIds: number[], termId = 0): Promise<FSchedule[]> {
+  if (!firestoreDb || demoSandboxContext.getStore() || !courseIds.length) return [];
+  const uniqueIds = [...new Set(courseIds.filter(Boolean))];
+  /**
+   * ── لماذا لم يعد ثلاثون هو الحدّ ────────────────────────────────────────
+   *
+   * The branch below reads EVERY schedule row in the term — every college,
+   * every department in the university — and then keeps the handful that
+   * belong to the courses asked for. At a threshold of thirty courses that
+   * fired for essentially every real department: a department with sixty
+   * courses paid for the whole university's term to see its own sixty.
+   *
+   * The reasoning it was written on ("a current-term universe is usually
+   * smaller than a many-course historical scan") is sound only when there is
+   * no termId — an unbounded historical scan really is worse. With a term in
+   * hand the comparison inverts, and the arithmetic is not close:
+   *
+   *     chunked   ceil(N/30) queries, run in parallel, so ONE round trip of
+   *               latency, and only the matching documents are read.
+   *     whole-term one query, but every document in the term is read.
+   *
+   * For one department that is a hundred documents against many thousands.
+   * The chunked path also has the composite index it needs — AdCourseId +
+   * AdTermId, declared in firestore.indexes.json — so it is indexed, not a
+   * scan. The only thing chunking costs is concurrent queries, which is why a
+   * ceiling remains: past six hundred courses the fan-out is wide enough that
+   * one sweep of the term is the calmer read. No real department reaches it;
+   * a university-wide maintenance pass does.
+   */
+  if (termId && uniqueIds.length > 600) {
+    const snap = await firestoreDb.collection("schedules").where("AdTermId", "==", termId).get();
+    const allowed = new Set(uniqueIds);
+    return snap.docs.map(doc => doc.data() as FSchedule).filter(row => allowed.has(Number(row.AdCourseId)));
+  }
+  /**
+   * The term is asked for at the database, not sorted out afterwards.
+   *
+   * This query used to fetch every row those courses had ever had — thirty-one
+   * terms of history — and then discard all but one term in JavaScript. Opening
+   * this week's timetable paid for a decade of it. Adding the term to the query
+   * needs the composite index declared in firestore.indexes.json
+   * (AdCourseId + AdTermId); without a term the historical read is still
+   * available, deliberately, for maintenance jobs that want everything.
+   */
+  const snapshots = await Promise.all(
+    chunks(uniqueIds).map(batch => {
+      const base = firestoreDb!.collection("schedules").where("AdCourseId", "in", batch);
+      return (termId ? base.where("AdTermId", "==", termId) : base).get();
+    })
+  );
+  const rows = new Map<number, FSchedule>();
+  for (const snap of snapshots) for (const doc of snap.docs) {
+    const row = doc.data() as FSchedule;
+    if (!termId || Number(row.AdTermId) === termId) rows.set(row.id, row);
+  }
+  return [...rows.values()];
+}
+async function hydrateFirestoreScheduleRows(rows: FSchedule[], preferredCourses?: AdCourse[], preferredSections?: AdSection[]): Promise<FSchedule[]> {
+  if (!rows.length) return [];
+  if (preferredCourses?.length && preferredSections?.length) return hydrateSchedules(rows, preferredCourses, preferredSections);
+  if (!firestoreDb || demoSandboxContext.getStore()) return hydrateSchedules(rows, preferredCourses || db.courses, preferredSections || db.sections);
+
+  // Conflict/room lookups normally touch only a handful of courses. Resolve just
+  // those relations instead of loading the entire academic catalogue on the first
+  // keystroke. Large result sets fall back to the short-lived relation cache.
+  const courseIds = [...new Set(rows.map(item => Number(item.AdCourseId || 0)).filter(Boolean))];
+  if (!preferredCourses?.length && courseIds.length && courseIds.length <= 60) {
+    const courseSnaps = await Promise.all(
+      chunks(courseIds).map(batch => firestoreDb!.collection("courses").where("AdCourseId", "in", batch).get())
+    );
+    const courses = courseSnaps.flatMap(snap => snap.docs.map(doc => doc.data() as AdCourse));
+    const sectionIds = [...new Set(courses.map(course => Number(course.AdSectionId || 0)).filter(Boolean))];
+    const sectionSnaps = sectionIds.length ? await Promise.all(
+      chunks(sectionIds).map(batch => firestoreDb!.collection("sections").where("AdSectionId", "in", batch).get())
+    ) : [];
+    const sections = sectionSnaps.flatMap(snap => snap.docs.map(doc => doc.data() as AdSection));
+    return hydrateSchedules(rows, courses, sections);
+  }
+
+  const relations = await getCachedScheduleRelations();
+  return hydrateSchedules(
+    rows,
+    preferredCourses?.length ? preferredCourses : relations.courses,
+    preferredSections?.length ? preferredSections : relations.sections
+  );
+}
+
+const FIRESTORE_COUNTER_DOC = "_meta/counters";
+
+type CounterKey = "users" | "formSecurity" | "userScopes" | "terms" | "colleges" | "sections" | "instructors" | "courses" | "schedules";
+
+interface StoredSession {
+  sessionId: string;
+  userId: number;
+  createdAt: number;
+  expiresAt: number;
+}
+const demoSessions = new Map<string, StoredSession>();
+
+/**
+ * ── المعرّفات تُحجز على دفعات، لا واحداً واحداً ──────────────────────────────
+ *
+ * Every create in the system reserved its id through a transaction on one
+ * document. That document is the correct answer to the race it was written for
+ * — two instances must never mint the same id — but it is also a queue: a single
+ * Firestore document sustains roughly one write per second, and every course,
+ * instructor and schedule row in a bulk import was standing in it. Under a real
+ * import that is contention, aborts and retries, all to hand out numbers.
+ *
+ * A block is taken instead, and handed out from memory. The transaction still
+ * decides who owns which range, so the guarantee is untouched; it just runs once
+ * per thirty-two ids instead of once per id.
+ *
+ * The accepted cost is gaps: ids left in a block when a process stops are never
+ * used. Nothing reads these numbers as a sequence — they are identity, not
+ * order, and the code already tolerated waste (a create refused after its id was
+ * reserved). Counters are seeded once, at the initial migration, so a restart
+ * never re-issues a number a live instance is still holding.
+ */
+const ID_BLOCK_SIZE = 32;
+const idBlocks = new Map<CounterKey, { next: number; remaining: number }>();
+
+async function reserveFirestoreIds(key: CounterKey, count = 1): Promise<number> {
+  if (!firestoreDb || demoSandboxContext.getStore()) throw new Error("Firestore غير مهيأ");
+  if (!Number.isInteger(count) || count < 1) throw new Error("عدد المعرفات المطلوب غير صالح");
+
+  /* Taking from the block is synchronous, so it cannot interleave: whoever runs
+     first gets the range, and no two callers can read the same `next`. */
+  const takeFromBlock = (): number | null => {
+    const block = idBlocks.get(key);
+    if (!block || block.remaining < count) return null;
+    const firstReserved = block.next;
+    block.next += count;
+    block.remaining -= count;
+    return firstReserved;
+  };
+
+  const fromBlock = takeFromBlock();
+  if (fromBlock !== null) return fromBlock;
+
+  // Refilling is serialised per counter so a burst of creates fetches one new
+  // block between them rather than one each.
+  return withSerialLock(`ids:${key}`, async () => {
+    const refilled = takeFromBlock();
+    if (refilled !== null) return refilled;
+
+    const blockSize = Math.max(ID_BLOCK_SIZE, count);
+    const counterRef = firestoreDb!.doc(FIRESTORE_COUNTER_DOC);
+    const firstReserved = await firestoreDb!.runTransaction(async transaction => {
+      const snapshot = await transaction.get(counterRef);
+      const current = Number(snapshot.data()?.[key] ?? 0);
+      transaction.set(counterRef, { [key]: current + blockSize }, { merge: true });
+      return current + 1;
+    });
+    idBlocks.set(key, { next: firstReserved + count, remaining: blockSize - count });
+    return firstReserved;
+  });
+}
+
+function maxId<T>(rows: T[], pick: (row: T) => number): number {
+  return rows.length ? Math.max(...rows.map(pick)) : 0;
+}
+
+/**
+ * ── سلّة المحذوفات ──────────────────────────────────────────────────────────
+ *
+ * A deleted college, department, term, instructor or course leaves the system
+ * completely: the audit trail records that someone deleted «مقرر #418», which
+ * answers who and when and nothing about what. If the deletion was a mistake,
+ * the record has to be retyped from memory.
+ *
+ * The document is copied here first, in full, so it can be read back and
+ * restored. Deliberately *not* a soft delete: marking rows `IsDeleted` would
+ * oblige every read in the system — lists, pickers, reports, the schedule
+ * hierarchy, the location registry — to remember to filter, and one that forgot
+ * would show a deleted department as live. This changes no read path at all.
+ *
+ * Referential safety is not what this is for; that is already handled, and
+ * better, by refusing the delete while anything still points at the record.
+ * This is for the other case: a delete that was allowed, and regretted.
+ *
+ * The copy must never block the deletion the operator asked for — a failure
+ * here is logged and the delete proceeds.
+ */
+async function archiveBeforeDelete(collection: string, docId: string): Promise<void> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return;
+  try {
+    const snapshot = await firestoreDb.collection(collection).doc(docId).get();
+    if (!snapshot.exists) return;
+    await firestoreDb.collection("deletedRecords").doc(`${collection}__${docId}`).set({
+      collection,
+      docId,
+      deletedAt: new Date().toISOString(),
+      payload: snapshot.data(),
+    });
+  } catch (error) {
+    console.error(`Archive before delete failed for ${collection}/${docId}:`, error);
+  }
+}
+
+/**
+ * A course code is unique inside its department, so that pair is the claim's
+ * address. Firestore document ids may not contain "/" and are compared byte for
+ * byte, so the code is encoded rather than interpolated — historical codes carry
+ * whitespace and punctuation and must keep mapping to themselves.
+ */
+function courseCodeClaimId(sectionId: number, code: string): string {
+  return `section_${sectionId}__${encodeURIComponent(String(code).trim()).replace(/%/g, "_")}`;
+}
+
+/**
+ * ── اقرأ ثم اكتب: واحدة تلو الأخرى ──────────────────────────────────────────
+ *
+ * Some operations read a set of records, decide from what they read, and then
+ * write — and the decision is only sound if nothing changed in between. Two of
+ * them interleaving on the same subject each act on the same stale reading:
+ * `replaceScheduleScope` (a double-clicked publish, a restore racing an undo)
+ * duplicates or orphans rows, and a hall-barter approval lets two overlapping
+ * reservations both pass a "is this room free?" check that was true for each of
+ * them separately and false for the pair.
+ *
+ * The rule is one line: same key, one at a time. Different keys — another
+ * department, another term — stay fully parallel. The chain never rejects: each
+ * turn waits for the previous to settle, success or failure, before it starts.
+ */
+const serialChains = new Map<string, Promise<unknown>>();
+export async function withSerialLock<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const previous = serialChains.get(key) ?? Promise.resolve();
+  const run = previous.catch(() => undefined).then(task);
+  // Keep the map from growing without bound: drop the entry once this is the
+  // tail of the chain and it has settled.
+  serialChains.set(key, run);
+  void run.catch(() => undefined).finally(() => {
+    if (serialChains.get(key) === run) serialChains.delete(key);
+  });
+  return run;
+}
+
+async function syncFirestoreCounters(fsDb: Firestore, state: DBState) {
+  await fsDb.doc(FIRESTORE_COUNTER_DOC).set({
+    users: maxId(state.users, row => row.SystemUserId),
+    formSecurity: maxId(state.formSecurity, row => row.legacyId ?? 0),
+    userScopes: maxId(state.collegeUserAssign, row => row.legacyId ?? 0),
+    terms: maxId(state.terms, row => row.AdTermId),
+    colleges: maxId(state.colleges, row => row.AdCollegeId),
+    sections: maxId(state.sections, row => row.AdSectionId),
+    instructors: maxId(state.instructors, row => row.AdInstructorId),
+    courses: maxId(state.courses, row => row.AdCourseId),
+    schedules: maxId(state.schedules, row => row.id)
+  }, { merge: true });
+}
+
+// Seed Firestore from the exact local legacy snapshot during the fresh test phase.
+// The server awaits this function before accepting login requests.
+function loadLocalSnapshot(): LegacySnapshot {
+  const source = fs.existsSync(DB_FILE) ? DB_FILE : packagedSnapshotPath();
+  if (!source) throw new Error("ملف البيانات المحلية غير موجود (db.json أو db.json.gz)");
+  const parsed = readJsonSnapshot<Partial<DBState>>(source);
+  const required: (keyof DBState)[] = ["users", "formNames", "formSecurity", "collegeUserAssign", "terms", "colleges", "sections", "instructors", "courses", "schedules", "rooms"];
+  for (const key of required) {
+    if (!Array.isArray(parsed[key])) throw new Error(`ملف البيانات المحلية ناقص: ${String(key)}`);
+  }
+  return parsed as LegacySnapshot;
+}
+
+async function seedFirestoreFromLocalSnapshotIfNeeded(fsDb: Firestore) {
+  const usersSnapshot = await fsDb.collection("users").limit(1).get();
+  if (!usersSnapshot.empty) return;
+
+  const initial = loadLocalSnapshot();
+  console.log(`Firestore is empty. Importing exact legacy snapshot (${initial.schedules.length} schedule rows)...`);
+
+  const writeBatches = async <T>(rows: T[], writer: (batch: WriteBatch, row: T) => void) => {
+    for (let offset = 0; offset < rows.length; offset += 400) {
+      const batch = fsDb.batch();
+      rows.slice(offset, offset + 400).forEach(row => writer(batch, row));
+      await batch.commit();
+    }
+  };
+
+  await writeBatches(initial.users, (batch, u) => batch.set(fsDb.collection("users").doc(`user_${u.SystemUserId}`), u));
+  await writeBatches(initial.formNames, (batch, f) => batch.set(fsDb.collection("formNames").doc(`form_${f.FormNameId}`), f));
+  await writeBatches(initial.formSecurity, (batch, item) => {
+    if (item.legacyId == null) throw new Error("سجل الصلاحية بلا Legacy Id");
+    batch.set(fsDb.collection("formSecurity").doc(`permission_${item.legacyId}`), item);
+  });
+  await writeBatches(initial.collegeUserAssign, (batch, item) => {
+    if (item.legacyId == null) throw new Error("سجل نطاق المستخدم بلا Legacy Id");
+    batch.set(fsDb.collection("userScopes").doc(`scope_${item.legacyId}`), item);
+  });
+  await writeBatches(initial.terms, (batch, t) => batch.set(fsDb.collection("terms").doc(`term_${t.AdTermId}`), t));
+  await writeBatches(initial.colleges, (batch, c) => batch.set(fsDb.collection("colleges").doc(`college_${c.AdCollegeId}`), c));
+  await writeBatches(initial.sections, (batch, sec) => batch.set(fsDb.collection("sections").doc(`section_${sec.AdSectionId}`), sec));
+  await writeBatches(initial.instructors, (batch, i) => batch.set(fsDb.collection("instructors").doc(`instructor_${i.AdInstructorId}`), i));
+  await writeBatches(initial.courses, (batch, c) => batch.set(fsDb.collection("courses").doc(`course_${c.AdCourseId}`), c));
+  await writeBatches(initial.schedules, (batch, row) => batch.set(fsDb.collection("schedules").doc(`schedule_${row.id}`), row));
+  await writeBatches(initial.rooms, (batch, room) => batch.set(fsDb.collection("rooms").doc(`room_${room.AdRoomId}`), room));
+
+  // Preserve every historical/non-active table and raw source row set as an archive.
+  // These documents are not used by the app, but they ensure the 2015 SQL backup is not discarded.
+  for (const [tableName, rows] of Object.entries(initial.legacyArchive || {})) {
+    const safeTableId = tableName.replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 120) || "unknown_table";
+    const tableRef = fsDb.collection("legacyArchive").doc(safeTableId);
+    for (let offset = 0; offset < rows.length; offset += 400) {
+      const batch = fsDb.batch();
+      rows.slice(offset, offset + 400).forEach((row, index) => {
+        const absoluteIndex = offset + index + 1;
+        batch.set(tableRef.collection("rows").doc(`row_${String(absoluteIndex).padStart(9, "0")}`), row);
+      });
+      await batch.commit();
+    }
+    await tableRef.set({ originalTableName: tableName, rowCount: rows.length }, { merge: false });
+  }
+
+  await syncFirestoreCounters(fsDb, initial);
+
+  // Do not accept the first login until the initial Firestore copy is demonstrably complete.
+  const expectedCounts: Array<[string, number]> = [
+    ["users", initial.users.length],
+    ["formNames", initial.formNames.length],
+    ["formSecurity", initial.formSecurity.length],
+    ["userScopes", initial.collegeUserAssign.length],
+    ["terms", initial.terms.length],
+    ["colleges", initial.colleges.length],
+    ["sections", initial.sections.length],
+    ["instructors", initial.instructors.length],
+    ["courses", initial.courses.length],
+    ["schedules", initial.schedules.length],
+    ["rooms", initial.rooms.length]
+  ];
+  for (const [collectionName, expected] of expectedCounts) {
+    const actual = (await fsDb.collection(collectionName).count().get()).data().count;
+    if (actual !== expected) {
+      throw new Error(`فشل التحقق من نقل ${collectionName}: المتوقع ${expected} والموجود ${actual}`);
+    }
+  }
+  for (const [tableName, rows] of Object.entries(initial.legacyArchive || {})) {
+    const safeTableId = tableName.replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 120) || "unknown_table";
+    const actual = (await fsDb.collection("legacyArchive").doc(safeTableId).collection("rows").count().get()).data().count;
+    if (actual !== rows.length) {
+      throw new Error(`فشل التحقق من أرشيف ${tableName}: المتوقع ${rows.length} والموجود ${actual}`);
+    }
+  }
+  await fsDb.doc("_meta/legacyImport").set({
+    sourceBackupSha256: String(initial.migrationMeta?.sourceBackupSha256 || ""),
+    verifiedAt: new Date().toISOString(),
+    activeCounts: Object.fromEntries(expectedCounts),
+    archiveTableCount: Object.keys(initial.legacyArchive || {}).length
+  }, { merge: false });
+  console.log("Legacy Firestore import completed and row counts verified successfully.");
+}
+
+/**
+ * Which database is actually answering.
+ *
+ * The mode is decided at startup from environment and connection results, and
+ * it is the one fact nobody should have to take on trust: a workspace tool that
+ * syncs this project has more than once restored a "helpful" fallback to the
+ * packaged demo snapshot, which is indistinguishable from the real thing on
+ * screen. Reporting the live answer lets the interface say so out loud instead
+ * of quietly showing invented rows.
+ */
+let runningMode: "demo" | "firestore" | "unknown" = "unknown";
+export function activeDataMode() {
+  return { mode: runningMode, real: runningMode === "firestore" };
+}
+
+export async function initDatabase() {
+  /**
+   * Real data is the default, and the only silent one.
+   *
+   * The previous default was the packaged demo snapshot, which meant a missing
+   * or mistyped DATA_MODE started the application on invented rows — and, if no
+   * local file existed, minted a fresh database with a default administrator.
+   * An application that looks healthy while showing the wrong schedule is worse
+   * than one that refuses to start, so demo is now something you must ask for
+   * out loud, and asking for it is announced in the log every time.
+   */
+  const requested = (process.env.DATA_MODE || "").trim().toLowerCase();
+  if (requested && requested !== "demo" && requested !== "firestore") {
+    throw new Error(`DATA_MODE غير مدعوم: ${requested} — القيم المقبولة: firestore أو demo.`);
+  }
+  const requestedMode: "demo" | "firestore" = requested === "demo" ? "demo" : "firestore";
+  // Cloud Run instances are replaceable and their writable filesystem is ephemeral,
+  // so a local JSON database there is not storage at all.
+  const mode: "demo" | "firestore" = requestedMode;
+  if (isCloudRunRuntime() && mode === "demo") console.log("Cloud Run demo service: using isolated in-memory sandboxes; no Firestore business data is opened.");
+  if (mode === "demo") {
+    console.warn("=".repeat(72));
+    console.warn("DATA_MODE=demo — بيانات تجريبية، ليست بيانات الجامعة الحقيقية.");
+    console.warn("للتشغيل على البيانات الحقيقية: احذف DATA_MODE أو اضبطه على firestore.");
+    console.warn("=".repeat(72));
+  }
+  configurePrivateDatabasePaths(mode);
+  if (mode === "demo") restoreDatabaseBackupIfNeeded();
+  runningMode = mode;
+  console.log(`Initializing database in mode: ${mode}`);
+
+  if (mode === "firestore") {
+    try {
+      if (getApps().length === 0) {
+        if (process.env.FIRESTORE_EMULATOR_HOST) {
+          console.log(`Connecting to Firestore Emulator at ${process.env.FIRESTORE_EMULATOR_HOST}`);
+        }
+        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+          try {
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+            initializeApp({
+              credential: cert(serviceAccount),
+              projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id
+            });
+          } catch (e) {
+            console.error("Invalid FIREBASE_SERVICE_ACCOUNT_KEY JSON format.");
+            // We intentionally do not exit here so the container can start
+            // and the user can see the error in logs instead of failing the deployment loop.
+            throw new Error("Invalid FIREBASE_SERVICE_ACCOUNT_KEY JSON format.");
+          }
+        } else if (process.env.FIREBASE_PROJECT_ID) {
+          initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID });
+        } else {
+          initializeApp();
+        }
+      }
+      if (process.env.FIREBASE_DATABASE_ID) {
+        const app = getApps().length > 0 ? getApps()[0] : undefined;
+        firestoreDb = getFirestore(app, process.env.FIREBASE_DATABASE_ID);
+      } else {
+        firestoreDb = getFirestore();
+      }
+      firestoreDb.settings({ ignoreUndefinedProperties: true });
+      // getFirestore() only creates a client; force one real read now so a wrong
+      // project/database/credential cannot masquerade as a successful connection.
+      const projectId = String(getApps()[0]?.options?.projectId || process.env.FIREBASE_PROJECT_ID || "(default)");
+      const databaseId = String(process.env.FIREBASE_DATABASE_ID || "(default)");
+      const usersProbe = await firestoreDb.collection("users").limit(1).get();
+      if (usersProbe.empty) {
+        console.warn(`Firestore target ${projectId}/${databaseId} has no users data.`);
+        if (isCloudRunRuntime() && process.env.AUTO_IMPORT_LEGACY_DATA === "false") {
+          throw new Error(`Refusing to start against an empty Firestore database ${projectId}/${databaseId}; implicit production bootstrap is disabled.`);
+        }
+      } else {
+        console.log(`Firebase/Firestore verified successfully: project=${projectId}, database=${databaseId}`);
+      }
+
+      // A production deployment with imports disabled must never seed a database
+      // simply because it is empty: an incorrect project/database setting would
+      // otherwise look healthy while writing a packaged legacy snapshot there.
+      if (process.env.AUTO_IMPORT_LEGACY_DATA !== "false") {
+        await seedFirestoreFromLocalSnapshotIfNeeded(firestoreDb);
+      }
+      return;
+    } catch (e) {
+      firestoreDb = null;
+      const message = e instanceof Error ? e.message : String(e);
+      /*
+       * ── NOTE TO ANY AUTOMATED EDITOR ──────────────────────────────────────
+       * Do not add a fallback to the packaged snapshot here, in any
+       * environment. It has been added and removed from this file repeatedly.
+       * Every time, the result is an application that looks healthy while
+       * showing a schedule that is not the university's, and people make real
+       * decisions from invented rows.
+       *
+       * The server does not crash when this throws: it starts, serves the
+       * interface, and answers /api with 503 and this message. If the dev
+       * server will not start, that is a different bug — fix it there.
+       * ──────────────────────────────────────────────────────────────────────
+       */
+      throw new Error(
+        `تعذر الاتصال بقاعدة البيانات الحقيقية (Firestore): ${message}\n` +
+        `لم يتم تشغيل البرنامج على بيانات بديلة. تحقق من FIREBASE_PROJECT_ID و FIREBASE_DATABASE_ID وصلاحية الاعتماد.`
+      );
+    }
+  }
+
+  // Reaching here means no Firestore client is serving, whatever was requested.
+  runningMode = "demo";
+  // Local snapshot mode: uses persistent private state outside the replaceable release.
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+  }
+  if (fs.existsSync(DB_FILE)) {
+    try {
+      const content = fs.readFileSync(DB_FILE, "utf-8");
+      baseDb = JSON.parse(content);
+      if (!Array.isArray(db.auditLogs)) db.auditLogs = [];
+      if (!Array.isArray(db.scheduleVersions)) db.scheduleVersions = [];
+      if (!Array.isArray(db.scheduleDrafts)) db.scheduleDrafts = [];
+      if (!Array.isArray(db.scheduleOpenDecisions)) db.scheduleOpenDecisions = [];
+      if (!Array.isArray(db.clientTelemetry)) db.clientTelemetry = [];
+      if (!Array.isArray(db.scheduleComments)) db.scheduleComments = [];
+      if (!Array.isArray(db.instructorRequests)) db.instructorRequests = [];
+      if (!Array.isArray(db.studyProposals)) db.studyProposals = [];
+      if (!Array.isArray(db.schedulePublications)) db.schedulePublications = [];
+      if (!Array.isArray(db.scheduleConstraints)) db.scheduleConstraints = [];
+      if (!Array.isArray(db.degreeRules)) db.degreeRules = [];
+      if (!Array.isArray(db.visitingRosters)) db.visitingRosters = [];
+      if (!Array.isArray(db.departmentDelegates)) db.departmentDelegates = [];
+      if (!Array.isArray(db.departmentRooms)) db.departmentRooms = [];
+      if (!Array.isArray(db.scheduleDecisionMemories)) db.scheduleDecisionMemories = [];
+      if (!Array.isArray(db.campusMobilityProfiles)) db.campusMobilityProfiles = [];
+      if (!Array.isArray(db.scheduleShareLinks)) db.scheduleShareLinks = [];
+      if (!Array.isArray(db.scheduleApprovals)) db.scheduleApprovals = [];
+      if (!Array.isArray(db.curriculumPlans)) db.curriculumPlans = [];
+      if (!Array.isArray(db.curriculumPlanCourses)) db.curriculumPlanCourses = [];
+      if (!Array.isArray(db.courseTransitions)) db.courseTransitions = [];
+    } catch (e) {
+      throw new Error(`تعذر قراءة ملف البيانات المحلية؛ تم إيقاف التشغيل لحماية البيانات: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  } else {
+    /* A missing database file in production must NOT silently boot with the
+       well-known admin/admin123 credentials — that would stand up a fully
+       privileged account anyone can guess. Refuse to start instead; production
+       runs on Firestore (this local-file path is a development convenience), so
+       reaching here in production means a misconfiguration worth failing loudly.
+       An operator can seed a real admin explicitly, or set an initial password
+       via DEFAULT_ADMIN_PASSWORD. */
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "قاعدة البيانات المحلية مفقودة في بيئة الإنتاج. تم إيقاف التشغيل لمنع إنشاء حساب مدير افتراضي معروف. " +
+        "استخدم Firestore أو هيّئ حساب المدير بشكل صريح."
+      );
+    }
+    // Development only: initialize a fresh state with a default admin user.
+    const initialAdminPassword = process.env.DEFAULT_ADMIN_PASSWORD?.trim() || "admin123";
+    db.users = [{
+      SystemUserId: 1,
+      Name: "مدير النظام",
+      SystemUserLogin: "admin",
+      SystemUserPass: hashPassword(initialAdminPassword),
+      SystemUserPassVault: "",
+      IsAdminUser: true,
+      IsActive: true,
+      IsLocked: false,
+      IsDeleted: false
+    }];
+    saveDatabase();
+    console.warn(
+      process.env.DEFAULT_ADMIN_PASSWORD
+        ? "Local database was missing. Initialized a fresh development database with the admin account from DEFAULT_ADMIN_PASSWORD. Change it after first login."
+        : "Local database was missing. Initialized a fresh DEVELOPMENT database with default credentials (admin/admin123). Never use this in production; change the password after first login."
+    );
+  }
+}
+
+export function saveDatabase() {
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
+  }
+  if (demoSandboxContext.getStore()) return;
+  const serialized = JSON.stringify(currentDb(), null, 2);
+  const temporaryFile = path.join(DB_DIR, `.db-${process.pid}-${Date.now()}.tmp`);
+  const backupTemporaryFile = path.join(DB_DIR, `.db-backup-${process.pid}-${Date.now()}.tmp`);
+
+  // Preserve the last known-good snapshot and replace the live file atomically. A crash
+  // can no longer leave a partially written JSON database behind.
+  if (fs.existsSync(DB_FILE)) {
+    fs.copyFileSync(DB_FILE, backupTemporaryFile, fs.constants.COPYFILE_EXCL);
+    fs.chmodSync(backupTemporaryFile, 0o600);
+    fs.renameSync(backupTemporaryFile, DB_BACKUP_FILE);
+  }
+  const descriptor = fs.openSync(temporaryFile, "wx", 0o600);
+  try {
+    fs.writeFileSync(descriptor, serialized, "utf-8");
+    fs.fsyncSync(descriptor);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  fs.renameSync(temporaryFile, DB_FILE);
+  fs.chmodSync(DB_FILE, 0o600);
+}
+
+/** Mark saved radar results stale when an input used by the simulation changes. */
+async function markRegistrationRunsStale(termId?: number): Promise<void> {
+  const at = new Date().toISOString();
+  try {
+    if (firestoreDb) {
+      const snapshot = await firestoreDb.collection("registrationRuns").get();
+      const matches = snapshot.docs.filter(doc => {
+        const run = doc.data() as RegistrationRun;
+        return !run.stale && (!termId || Number(run.termId) === Number(termId));
+      });
+      await Promise.all(matches.map(doc => doc.ref.set({ stale: true, staleAt: at }, { merge: true })));
+      return;
+    }
+    if (!Array.isArray(db.registrationRuns)) db.registrationRuns = [];
+    let changed = false;
+    db.registrationRuns = db.registrationRuns.map(run => {
+      if (run.stale || (termId && Number(run.termId) !== Number(termId))) return run;
+      changed = true;
+      return { ...run, stale: true, staleAt: at };
+    });
+    if (changed) saveDatabase();
+  } catch (error) {
+    console.error("[simulation] could not mark saved radar stale:", error instanceof Error ? error.message : error);
+  }
+}
+
+const identityListeners = new Set<() => void>();
+/** Fired whenever an account, its permissions or its scopes change. */
+function announceIdentityChange() { for (const listener of identityListeners) listener(); }
+
+const registrationFactsChanged = (before?: StudentProfile, after?: StudentProfile | null) => JSON.stringify(before ? [before.AdCollegeId, before.AdSectionId, before.curriculumPlanId, before.passedCourseIds, before.wishes] : null)
+  !== JSON.stringify(after ? [after.AdCollegeId, after.AdSectionId, after.curriculumPlanId, after.passedCourseIds, after.wishes] : null);
+
+/**
+ * Raised when a write was based on a revision that is no longer current.
+ *
+ * It carries the row as it actually stands, so the screen above can show the
+ * reader what changed and who has to decide — rather than a bare failure.
+ */
+export class ScheduleRevisionConflict extends Error {
+  constructor(public current: FSchedule) {
+    super("تغيّر هذا الموعد أثناء عملك.");
+    this.name = "ScheduleRevisionConflict";
+  }
+}
+
+/** المقترحُ الدراسي تغيّر بين قراءته وكتابته: لا تُكتب نسخةٌ فوق أخرى لم تُرَ. */
+export class StudyProposalRevisionConflict extends Error {
+  constructor(public current: StudyProposal) {
+    super("تغيّر هذا المقترح أثناء عملك.");
+    this.name = "StudyProposalRevisionConflict";
+  }
+}
+
+/** التثبيتُ نُفّذ من قبل: الضغطةُ الثانية لا تُنشئ ولا تُسند مرةً أخرى. */
+export class StudyProposalAlreadyCommitted extends Error {
+  constructor(public current: StudyProposal) {
+    super("ثُبّت هذا المقترح من قبل.");
+    this.name = "StudyProposalAlreadyCommitted";
+  }
+}
+
+/**
+ * The same record, asked for twice.
+ *
+ * A "read the list, check for a duplicate, then write" guard is not a guard when
+ * two identical requests arrive together — a double-clicked button, or a network
+ * layer retrying a request that actually succeeded. Both pass the check and both
+ * insert. Uniqueness is claimed inside a transaction instead, so the second
+ * request is refused by the database rather than by a stale read.
+ */
+export class DuplicateResourceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DuplicateResourceError";
+  }
+}
+
+
+
+export interface SystemBackupDocument {
+  path: string;
+  data: unknown;
+}
+
+export interface SystemBackupPayload {
+  format: "schedule-system-backup/1";
+  backupId: string;
+  createdAt: string;
+  storage: "firestore" | "local-json";
+  source: { app: "SCHEDULE"; rootAdminId: number };
+  summary: { documentCount: number; collectionCounts: Record<string, number> };
+  integrity: { algorithm: "sha256"; sha256: string };
+  documents?: SystemBackupDocument[];
+  state?: Record<string, unknown>;
+}
+
+export interface SystemRestorePointSummary {
+  id: string;
+  createdAt: string;
+  action: string;
+  byUserId: number;
+  documentCount: number;
+  collectionCounts: Record<string, number>;
+  consumedAt?: string;
+  exportJobId?: string;
+}
+
+export type SystemExportJobStatus = "queued" | "running" | "finalizing" | "ready" | "failed";
+
+export interface SystemExportJobSummary {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  status: SystemExportJobStatus;
+  purpose?: "manual" | "safety";
+  totalUnits: number;
+  completedUnits: number;
+  documentCount: number;
+  collectionCounts: Record<string, number>;
+  current?: string;
+  filename?: string;
+  sha256?: string;
+  sizeBytes?: number;
+  error?: string;
+}
+
+interface SystemExportQueueUnit {
+  path: string;
+  cursor?: string;
+  retryCount?: number;
+  lastError?: string;
+}
+
+interface SystemExportJobRecord extends SystemExportJobSummary {
+  rootAdminId: number;
+  byUserId: number;
+  queue: SystemExportQueueUnit[];
+  nextIndex: number;
+  dataChunkSeq: number;
+  dataGroupSeq: number;
+  fileChunkCount: number;
+}
+
+export type SystemImportJobStatus = "running" | "ready" | "failed";
+export type SystemImportJobPhase = "safety" | "apply" | "finalizing";
+
+export interface SystemImportJobSummary {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  status: SystemImportJobStatus;
+  phase: SystemImportJobPhase;
+  totalUnits: number;
+  completedUnits: number;
+  documentCount: number;
+  collectionCounts: Record<string, number>;
+  current?: string;
+  error?: string;
+  restorePointId?: string;
+}
+
+interface SystemImportJobRecord extends SystemImportJobSummary {
+  rootAdminId: number;
+  byUserId: number;
+  queue: string[];
+  nextIndex: number;
+  safetyExportJobId: string;
+  safetyUnits: number;
+  retryCount?: number;
+}
+
+const SYSTEM_BACKUP_FORMAT = "schedule-system-backup/1" as const;
+const SYSTEM_RESTORE_COLLECTION = "_systemRestorePoints";
+const SYSTEM_EXPORT_JOB_COLLECTION = "_systemExportJobs";
+const SYSTEM_IMPORT_JOB_COLLECTION = "_systemImportJobs";
+// Sessions are deliberately not portable: the document id is a live bearer
+// credential. Everything durable is included; live login tokens stay on the
+// server and survive a restore so the root administrator cannot lock himself out.
+// Operational diagnostics are deliberately not part of a business backup: they
+// expire automatically, contain no scheduling source-of-truth, and restoring an
+// old copy of them would make the experience-health reading lie about "recent" use.
+const SYSTEM_EXPORT_EXCLUDED_COLLECTIONS = new Set([SYSTEM_RESTORE_COLLECTION, SYSTEM_EXPORT_JOB_COLLECTION, SYSTEM_IMPORT_JOB_COLLECTION, "sessions", "clientTelemetry", "systemSecrets"]);
+const LOCAL_RESTORE_DIR = () => path.join(DB_DIR, "system-restore-points");
+const LOCAL_EXPORT_DIR = () => path.join(DB_DIR, "system-export-jobs");
+const LOCAL_IMPORT_DIR = () => path.join(DB_DIR, "system-import-jobs");
+
+function backupEncode(value: any): any {
+  if (value == null || typeof value !== "object") return value;
+  if (value instanceof Timestamp) return { __scheduleType: "timestamp", millis: value.toMillis() };
+  if (value instanceof Date) return { __scheduleType: "date", value: value.toISOString() };
+  if (Buffer.isBuffer(value)) return { __scheduleType: "bytes", base64: value.toString("base64") };
+  if (Array.isArray(value)) return value.map(backupEncode);
+  // Firestore Bytes exposes toBase64(), GeoPoint exposes latitude/longitude,
+  // and DocumentReference exposes path. Preserve those uncommon values too so
+  // this really is a system backup rather than a best-effort export.
+  if (typeof value.toBase64 === "function") return { __scheduleType: "bytes", base64: value.toBase64() };
+  if (typeof value.path === "string" && value.firestore) return { __scheduleType: "reference", path: value.path };
+  if (typeof value.latitude === "number" && typeof value.longitude === "number") {
+    return { __scheduleType: "geopoint", latitude: value.latitude, longitude: value.longitude };
+  }
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, backupEncode(item)]));
+}
+
+function backupDecode(value: any): any {
+  if (value == null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(backupDecode);
+  if (value.__scheduleType === "timestamp") return Timestamp.fromMillis(Number(value.millis) || 0);
+  if (value.__scheduleType === "date") return new Date(String(value.value || ""));
+  if (value.__scheduleType === "bytes") return Buffer.from(String(value.base64 || ""), "base64");
+  if (value.__scheduleType === "reference" && firestoreDb && !demoSandboxContext.getStore()) return firestoreDb.doc(String(value.path || ""));
+  // GeoPoint is not used by the application today. Keep its semantic shape on
+  // import without adding a new runtime dependency; Firestore accepts plain
+  // objects and no current reader relies on instanceof GeoPoint.
+  if (value.__scheduleType === "geopoint") return { latitude: Number(value.latitude), longitude: Number(value.longitude) };
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, backupDecode(item)]));
+}
+
+function systemBackupCollectionCounts(documents: SystemBackupDocument[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const item of documents) {
+    const collection = String(item.path || "").split("/")[0] || "unknown";
+    counts[collection] = (counts[collection] || 0) + 1;
+  }
+  return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function localStateCounts(state: Record<string, unknown>): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const [key, value] of Object.entries(state)) {
+    if (Array.isArray(value)) counts[key] = value.length;
+    else if (value && typeof value === "object") counts[key] = Object.keys(value as object).length;
+  }
+  return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function systemBackupDigest(payload: Pick<SystemBackupPayload, "storage" | "documents" | "state">): string {
+  const body = payload.storage === "firestore" ? payload.documents || [] : payload.state || {};
+  return createHash("sha256").update(JSON.stringify(body)).digest("hex");
+}
+
+async function runWithConcurrency<T>(items: T[], limit: number, work: (item: T) => Promise<void>): Promise<void> {
+  if (!items.length) return;
+  let cursor = 0;
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (true) {
+      const index = cursor++;
+      if (index >= items.length) return;
+      await work(items[index]);
+    }
+  });
+  await Promise.all(workers);
+}
+
+async function collectFirestoreCollection(ref: FirebaseFirestore.CollectionReference, output: SystemBackupDocument[]) {
+  const snapshot = await ref.get();
+  /*
+   * A full backup used to inspect every document and every possible nested
+   * collection strictly one-after-another. On a production database that turns
+   * thousands of small Firestore round trips into minutes and makes the export
+   * button look frozen. We still walk every document/subcollection, but use a
+   * bounded pool so completeness is unchanged while network latency overlaps.
+   */
+  await runWithConcurrency(snapshot.docs, 10, async (doc) => {
+    output.push({ path: doc.ref.path, data: backupEncode(doc.data()) });
+    const nested = await doc.ref.listCollections();
+    await runWithConcurrency(nested, 4, async (child) => {
+      await collectFirestoreCollection(child, output);
+    });
+  });
+}
+
+async function collectSystemDocuments(): Promise<SystemBackupDocument[]> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return [];
+  const output: SystemBackupDocument[] = [];
+  const collections = (await firestoreDb.listCollections())
+    .filter(collection => !SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(collection.id));
+  await runWithConcurrency(collections, 4, async (collection) => {
+    await collectFirestoreCollection(collection, output);
+  });
+  return output.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+
+/* -------------------------------------------------------------------------
+ * Resumable full-system export jobs
+ * -------------------------------------------------------------------------
+ *
+ * A browser download is the wrong lifetime for a full Firestore walk. Cloud Run
+ * can end an HTTP request long before a large academic archive has been read,
+ * and a closed tab should not throw away twelve minutes of work. The vault now
+ * advances a durable job in short, bounded steps. Each successful page is
+ * checkpointed under an internal collection excluded from the backup itself.
+ * Reopening the vault sees the same job and resumes from its last cursor.
+ *
+ * Current application data is flat except the immutable legacy SQL archive
+ * (`legacyArchive/{table}/rows`). Top-level collections are discovered at run
+ * time, so future top-level data is included automatically; the one real nested
+ * durable structure is queued explicitly without asking Firestore
+ * `listCollections()` once for every document (the source of the old multi-
+ * minute export).
+ */
+const SYSTEM_EXPORT_PAGE_SIZE = 250;
+const SYSTEM_EXPORT_STEP_BUDGET_MS = 6500;
+const SYSTEM_EXPORT_RAW_GROUP_TARGET = 460 * 1024;
+const SYSTEM_EXPORT_STORED_PIECE = 580 * 1024;
+
+function exportJobSummary(row: SystemExportJobRecord): SystemExportJobSummary {
+  const { rootAdminId: _root, byUserId: _by, queue: _queue, nextIndex: _next, dataChunkSeq: _dcs, dataGroupSeq: _dgs, fileChunkCount: _fcc, ...summary } = row;
+  return summary;
+}
+
+function firestoreBytesToBuffer(value: any): Buffer {
+  if (!value) return Buffer.alloc(0);
+  if (Buffer.isBuffer(value)) return value;
+  if (value instanceof Uint8Array) return Buffer.from(value);
+  if (value && typeof value.toBuffer === "function") return Buffer.from(value.toBuffer());
+  if (value && typeof value.toUint8Array === "function") return Buffer.from(value.toUint8Array());
+  if (typeof value === "string") return Buffer.from(value, "base64");
+  if (typeof value === "object" && Array.isArray(value.data)) return Buffer.from(value.data);
+  if (typeof value === "object" && value.buffer && value.buffer instanceof ArrayBuffer) return Buffer.from(value.buffer, value.byteOffset || 0, value.byteLength || value.buffer.byteLength);
+  throw new Error("تعذر قراءة جزء النسخة المؤقت");
+}
+
+function splitBuffer(value: Buffer, maxBytes = SYSTEM_EXPORT_STORED_PIECE): Buffer[] {
+  const parts: Buffer[] = [];
+  for (let offset = 0; offset < value.length; offset += maxBytes) parts.push(value.subarray(offset, Math.min(value.length, offset + maxBytes)));
+  return parts.length ? parts : [Buffer.alloc(0)];
+}
+
+function groupBackupDocuments(documents: SystemBackupDocument[]): SystemBackupDocument[][] {
+  const groups: SystemBackupDocument[][] = [];
+  let current: SystemBackupDocument[] = [];
+  let bytes = 0;
+  for (const item of documents) {
+    const size = Buffer.byteLength(JSON.stringify(item), "utf8") + 1;
+    if (current.length && bytes + size > SYSTEM_EXPORT_RAW_GROUP_TARGET) {
+      groups.push(current);
+      current = [];
+      bytes = 0;
+    }
+    current.push(item);
+    bytes += size;
+  }
+  if (current.length) groups.push(current);
+  return groups;
+}
+
+async function persistExportDocumentGroups(
+  root: FirebaseFirestore.DocumentReference,
+  documents: SystemBackupDocument[],
+  row: SystemExportJobRecord,
+): Promise<SystemExportJobRecord> {
+  for (const group of groupBackupDocuments(documents)) {
+    const groupId = row.dataGroupSeq + 1;
+    const raw = Buffer.from(group.map(item => JSON.stringify(item)).join("\n"), "utf8");
+    const compressed = gzipSync(raw, { level: 1 });
+    const pieces = splitBuffer(compressed);
+    const batch = firestoreDb!.batch();
+    pieces.forEach((piece, index) => {
+      row.dataChunkSeq += 1;
+      batch.set(root.collection("dataChunks").doc(`c_${String(row.dataChunkSeq).padStart(9, "0")}`), {
+        group: groupId,
+        part: index,
+        parts: pieces.length,
+        payload: piece,
+      });
+    });
+    await batch.commit();
+    row.dataGroupSeq = groupId;
+  }
+  return row;
+}
+
+async function readExportDocuments(root: FirebaseFirestore.DocumentReference): Promise<SystemBackupDocument[]> {
+  const snap = await root.collection("dataChunks").get();
+  const chunks = snap.docs.sort((a, b) => a.id.localeCompare(b.id));
+  const grouped = new Map<number, Array<{ part: number; payload: Buffer }>>();
+  for (const doc of chunks) {
+    const data = doc.data() as any;
+    const group = Number(data.group || 0);
+    const list = grouped.get(group) || [];
+    list.push({ part: Number(data.part || 0), payload: firestoreBytesToBuffer(data.payload) });
+    grouped.set(group, list);
+  }
+  const unique = new Map<string, SystemBackupDocument>();
+  for (const groupId of [...grouped.keys()].sort((a, b) => a - b)) {
+    const pieces = (grouped.get(groupId) || []).sort((a, b) => a.part - b.part).map(item => item.payload);
+    const text = gunzipSync(Buffer.concat(pieces)).toString("utf8");
+    for (const line of text.split("\n")) {
+      if (!line) continue;
+      const item = JSON.parse(line) as SystemBackupDocument;
+      // A retried page can have been checkpointed twice if an instance died
+      // between writing its data chunk and updating its cursor. Path identity
+      // makes finalization idempotent and guarantees one document in the file.
+      unique.set(item.path, item);
+    }
+  }
+  return [...unique.values()].sort((a, b) => a.path.localeCompare(b.path));
+}
+
+async function writeFinalExportFile(root: FirebaseFirestore.DocumentReference, payload: SystemBackupPayload): Promise<{ chunkCount: number; sizeBytes: number }> {
+  const compressed = gzipSync(Buffer.from(JSON.stringify(payload), "utf8"), { level: 6 });
+  const pieces = splitBuffer(compressed);
+  const existing = await root.collection("fileChunks").get();
+  for (let offset = 0; offset < Math.max(existing.docs.length, pieces.length); offset += 300) {
+    const batch = firestoreDb!.batch();
+    existing.docs.slice(offset, offset + 300).forEach(doc => batch.delete(doc.ref));
+    pieces.slice(offset, offset + 300).forEach((piece, index) => {
+      const absolute = offset + index + 1;
+      batch.set(root.collection("fileChunks").doc(`f_${String(absolute).padStart(6, "0")}`), { payload: piece });
+    });
+    await batch.commit();
+  }
+  return { chunkCount: pieces.length, sizeBytes: compressed.length };
+}
+
+async function finalizeFirestoreExportJob(root: FirebaseFirestore.DocumentReference, row: SystemExportJobRecord): Promise<SystemExportJobRecord> {
+  row.status = "finalizing";
+  row.current = "أتحقق من البصمة وأبني الملف النهائي";
+  row.updatedAt = new Date().toISOString();
+  await root.set(row, { merge: true });
+
+  const documents = await readExportDocuments(root);
+  const counts = systemBackupCollectionCounts(documents);
+  const backup: SystemBackupPayload = {
+    format: SYSTEM_BACKUP_FORMAT,
+    backupId: row.id,
+    createdAt: row.createdAt,
+    storage: "firestore",
+    source: { app: "SCHEDULE", rootAdminId: row.rootAdminId },
+    summary: { documentCount: documents.length, collectionCounts: counts },
+    integrity: { algorithm: "sha256", sha256: systemBackupDigest({ storage: "firestore", documents }) },
+    documents,
+  };
+  validateSystemBackupPayload(backup, row.rootAdminId);
+  const file = await writeFinalExportFile(root, backup);
+  const stamp = row.createdAt.replace(/[:.]/g, "-").replace("T", "_").replace("Z", "");
+  row = {
+    ...row,
+    status: "ready",
+    current: undefined,
+    updatedAt: new Date().toISOString(),
+    completedUnits: row.queue.length,
+    totalUnits: row.queue.length,
+    documentCount: documents.length,
+    collectionCounts: counts,
+    filename: `schedule-full-backup_${stamp}.json.gz`,
+    sha256: backup.integrity.sha256,
+    sizeBytes: file.sizeBytes,
+    fileChunkCount: file.chunkCount,
+    error: undefined,
+  };
+  await root.set(row, { merge: false });
+  // Once the portable gzip exists, the staging chunks have no value. Removing
+  // them keeps the vault from becoming a second copy of the university DB.
+  try { await deleteFirestoreTree(root.collection("dataChunks")); } catch {}
+  return row;
+}
+
+function localExportMetaPath(id: string) { return path.join(LOCAL_EXPORT_DIR(), `${id}.json`); }
+function localExportFilePath(id: string) { return path.join(LOCAL_EXPORT_DIR(), `${id}.json.gz`); }
+
+function readLocalExportJob(id: string): SystemExportJobRecord | null {
+  try { return JSON.parse(fs.readFileSync(localExportMetaPath(id), "utf8")) as SystemExportJobRecord; } catch { return null; }
+}
+
+function writeLocalExportJob(row: SystemExportJobRecord) {
+  fs.mkdirSync(LOCAL_EXPORT_DIR(), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(localExportMetaPath(row.id), JSON.stringify(row), { mode: 0o600 });
+}
+
+async function latestSystemExportJob(rootAdminId = 1): Promise<SystemExportJobSummary | null> {
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    // Safety exports created by an import are deliberately invisible in the
+    // manual export card. Fetch a small recent window and choose the newest
+    // manual job without requiring a compound Firestore index.
+    const snap = await firestoreDb.collection(SYSTEM_EXPORT_JOB_COLLECTION).orderBy("createdAt", "desc").limit(12).get();
+    const row = snap.docs.map(doc => doc.data() as SystemExportJobRecord)
+      .find(item => Number(item.rootAdminId) === rootAdminId && (item.purpose || "manual") === "manual");
+    return row ? exportJobSummary(row) : null;
+  }
+  if (!fs.existsSync(LOCAL_EXPORT_DIR())) return null;
+  const rows = fs.readdirSync(LOCAL_EXPORT_DIR()).filter(name => name.endsWith(".json") && !name.endsWith(".json.gz"))
+    .map(name => readLocalExportJob(name.replace(/\.json$/, ""))).filter(Boolean) as SystemExportJobRecord[];
+  const row = rows.filter(item => item.rootAdminId === rootAdminId && (item.purpose || "manual") === "manual").sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  return row ? exportJobSummary(row) : null;
+}
+
+async function startSystemExportJob(byUserId: number, rootAdminId = 1, forceNew = false, purpose: "manual" | "safety" = "manual"): Promise<SystemExportJobSummary> {
+  const latest = !forceNew && purpose === "manual" ? await latestSystemExportJob(rootAdminId) : null;
+  // A failed job still contains a valid checkpoint. Returning it here lets the
+  // new code continue from 47/48 instead of discarding twelve minutes of work.
+  if (latest && ["queued", "running", "finalizing", "failed"].includes(latest.status)) return latest;
+  const id = randomUUID();
+  const createdAt = new Date().toISOString();
+
+  if (!firestoreDb || demoSandboxContext.getStore()) {
+    const backup = await makeSystemBackup(rootAdminId);
+    const compressed = gzipSync(Buffer.from(JSON.stringify(backup), "utf8"), { level: 6 });
+    fs.mkdirSync(LOCAL_EXPORT_DIR(), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(localExportFilePath(id), compressed, { mode: 0o600 });
+    const row: SystemExportJobRecord = {
+      id, createdAt, updatedAt: new Date().toISOString(), status: "ready",
+      totalUnits: 1, completedUnits: 1, documentCount: backup.summary.documentCount,
+      collectionCounts: backup.summary.collectionCounts, filename: `schedule-full-backup_${createdAt.replace(/[:.]/g, "-").replace("T", "_").replace("Z", "")}.json.gz`,
+      sha256: backup.integrity.sha256, sizeBytes: compressed.length,
+      rootAdminId, byUserId, purpose, queue: [], nextIndex: 0, dataChunkSeq: 0, dataGroupSeq: 0, fileChunkCount: 1,
+    };
+    writeLocalExportJob(row);
+    return exportJobSummary(row);
+  }
+
+  const paths = (await firestoreDb.listCollections())
+    .filter(collection => !SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(collection.id))
+    .map(collection => collection.path)
+    .sort((a, b) => a.localeCompare(b));
+  // Discover the only nested durable structure up front so the total number of
+  // stages is stable from the first progress frame instead of jumping midway.
+  if (paths.includes("legacyArchive")) {
+    const archiveTables = await firestoreDb.collection("legacyArchive").get();
+    for (const table of archiveTables.docs) paths.push(`${table.ref.path}/rows`);
+    paths.sort((a, b) => a.localeCompare(b));
+  }
+  const row: SystemExportJobRecord = {
+    id, createdAt, updatedAt: createdAt, status: "running",
+    totalUnits: paths.length, completedUnits: 0, documentCount: 0, collectionCounts: {},
+    current: paths[0] || "تهيئة النسخة",
+    rootAdminId, byUserId, purpose, queue: paths.map(path => ({ path })), nextIndex: 0,
+    dataChunkSeq: 0, dataGroupSeq: 0, fileChunkCount: 0,
+  };
+  const root = firestoreDb.collection(SYSTEM_EXPORT_JOB_COLLECTION).doc(id);
+  await root.set(row, { merge: false });
+  // Keep only a few finished export files. Running jobs are never discarded.
+  try {
+    const [older, restoreRefs] = await Promise.all([
+      firestoreDb.collection(SYSTEM_EXPORT_JOB_COLLECTION).orderBy("createdAt", "desc").get(),
+      firestoreDb.collection(SYSTEM_RESTORE_COLLECTION).orderBy("createdAt", "desc").limit(12).get(),
+    ]);
+    const protectedExportIds = new Set(restoreRefs.docs.map(doc => String((doc.data() as any).exportJobId || "")).filter(Boolean));
+    // Failed exports are checkpoints too; never garbage-collect them until the
+    // user has successfully resumed/replaced them. Only completed portable
+    // files participate in retention.
+    const finished = older.docs.filter(doc => String(doc.data().status) === "ready" && !protectedExportIds.has(doc.id));
+    for (const doc of finished.slice(4)) await deleteFirestoreTree(doc.ref);
+  } catch {}
+  return exportJobSummary(row);
+}
+
+async function getSystemExportJob(id: string, rootAdminId = 1): Promise<SystemExportJobSummary> {
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    const doc = await firestoreDb.collection(SYSTEM_EXPORT_JOB_COLLECTION).doc(id).get();
+    if (!doc.exists) throw new Error("مهمة التصدير غير موجودة");
+    const row = doc.data() as SystemExportJobRecord;
+    if (Number(row.rootAdminId) !== rootAdminId) throw new Error("مهمة التصدير لا تخص هذا الحساب");
+    return exportJobSummary(row);
+  }
+  const row = readLocalExportJob(id);
+  if (!row || row.rootAdminId !== rootAdminId) throw new Error("مهمة التصدير غير موجودة");
+  return exportJobSummary(row);
+}
+
+
+function isTransientBackupError(error: any): boolean {
+  const message = String(error?.message || error || "").toLowerCase();
+  const code = String(error?.code || "").toLowerCase();
+  return ["deadline", "unavailable", "aborted", "resource-exhausted", "internal", "econnreset", "etimedout", "socket", "network", "503", "504", "429"]
+    .some(token => message.includes(token) || code.includes(token));
+}
+
+async function sleepMs(ms: number) { await new Promise(resolve => setTimeout(resolve, ms)); }
+
+async function advanceSystemExportJob(id: string, rootAdminId = 1): Promise<SystemExportJobSummary> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return getSystemExportJob(id, rootAdminId);
+  const root = firestoreDb.collection(SYSTEM_EXPORT_JOB_COLLECTION).doc(id);
+  const doc = await root.get();
+  if (!doc.exists) throw new Error("مهمة التصدير غير موجودة");
+  let row = doc.data() as SystemExportJobRecord;
+  if (Number(row.rootAdminId) !== rootAdminId) throw new Error("مهمة التصدير لا تخص هذا الحساب");
+  if (row.status === "ready") return exportJobSummary(row);
+
+  // `failed` is a pause, not a graveyard. The 47/48 production failure proved
+  // that a single transient Firestore/Cloud Run hiccup must never throw away
+  // a fully checkpointed export. Re-enter the exact same cursor and continue.
+  if (row.status === "failed") {
+    row.status = "running";
+    row.error = undefined;
+    row.updatedAt = new Date().toISOString();
+    await root.set(row, { merge: false });
+  }
+
+  const deadline = Date.now() + SYSTEM_EXPORT_STEP_BUDGET_MS;
+  try {
+    while (row.nextIndex < row.queue.length && Date.now() < deadline) {
+      const unit = row.queue[row.nextIndex];
+      row.status = "running";
+      row.current = unit.path;
+      row.updatedAt = new Date().toISOString();
+      const collection = firestoreDb.collection(unit.path);
+      let query: FirebaseFirestore.Query = collection.orderBy(FieldPath.documentId()).limit(SYSTEM_EXPORT_PAGE_SIZE);
+      if (unit.cursor) query = query.startAfter(unit.cursor);
+
+      let snap: FirebaseFirestore.QuerySnapshot | null = null;
+      let lastError: any = null;
+      // Retry a page locally first. This catches short Firestore hiccups without
+      // even making the browser notice; the cursor is committed only on success.
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try { snap = await query.get(); lastError = null; break; }
+        catch (error: any) {
+          lastError = error;
+          if (!isTransientBackupError(error) || attempt === 3) break;
+          await sleepMs(180 * (2 ** attempt));
+        }
+      }
+      if (!snap) throw lastError || new Error("تعذر قراءة دفعة التصدير");
+
+      const encoded: SystemBackupDocument[] = [];
+      for (const item of snap.docs) {
+        try {
+          encoded.push({ path: item.ref.path, data: backupEncode(item.data()) } as SystemBackupDocument);
+        } catch (encodeError: any) {
+          console.error(`Skipping document ${item.ref.path} due to encode error:`, encodeError);
+        }
+      }
+      if (encoded.length) {
+        row = await persistExportDocumentGroups(root, encoded, row);
+        row.documentCount += encoded.length;
+        const top = unit.path.split("/")[0] || "unknown";
+        row.collectionCounts[top] = (row.collectionCounts[top] || 0) + encoded.length;
+      }
+
+      unit.retryCount = 0;
+      unit.lastError = undefined;
+      if (snap.size < SYSTEM_EXPORT_PAGE_SIZE) {
+        row.completedUnits += 1;
+        row.nextIndex += 1;
+      } else {
+        unit.cursor = snap.docs[snap.docs.length - 1].id;
+        row.queue[row.nextIndex] = unit;
+      }
+      row.current = row.queue[row.nextIndex]?.path;
+      row.updatedAt = new Date().toISOString();
+      row.error = undefined;
+      await root.set(row, { merge: false });
+    }
+    if (row.nextIndex >= row.queue.length) row = await finalizeFirestoreExportJob(root, row);
+    return exportJobSummary(row);
+  } catch (error: any) {
+    const unit = row.queue[row.nextIndex];
+    const retryCount = Number(unit?.retryCount || 0) + 1;
+    if (unit) {
+      unit.retryCount = retryCount;
+      unit.lastError = String(error?.message || error || "تعذر إكمال التصدير").slice(0, 500);
+      row.queue[row.nextIndex] = unit;
+    }
+    // Transient failures stay resumable automatically. Only repeated/permanent
+    // failures become visibly "failed", and even those can be resumed manually
+    // from the same cursor after deployment or connectivity recovery.
+    row.status = isTransientBackupError(error) && retryCount < 8 ? "running" : "failed";
+    row.error = String(error?.message || error || "تعذر إكمال التصدير").slice(0, 900);
+    row.current = unit?.path || row.current;
+    row.updatedAt = new Date().toISOString();
+    await root.set(row, { merge: false });
+    return exportJobSummary(row);
+  }
+}
+async function readSystemExportFile(id: string, rootAdminId = 1): Promise<{ summary: SystemExportJobSummary; chunks: Buffer[] }> {
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    const root = firestoreDb.collection(SYSTEM_EXPORT_JOB_COLLECTION).doc(id);
+    const doc = await root.get();
+    if (!doc.exists) throw new Error("مهمة التصدير غير موجودة");
+    const row = doc.data() as SystemExportJobRecord;
+    if (Number(row.rootAdminId) !== rootAdminId) throw new Error("مهمة التصدير لا تخص هذا الحساب");
+    if (row.status !== "ready" || !row.fileChunkCount) throw new Error("ملف النسخة لم يجهز بعد");
+    const snap = await root.collection("fileChunks").get();
+    const chunks = snap.docs.sort((a, b) => a.id.localeCompare(b.id)).slice(0, row.fileChunkCount)
+      .map(item => firestoreBytesToBuffer((item.data() as any).payload));
+    if (chunks.length !== row.fileChunkCount) throw new Error("ملف النسخة غير مكتمل؛ أعد إنشاء التصدير");
+    return { summary: exportJobSummary(row), chunks };
+  }
+  const row = readLocalExportJob(id);
+  if (!row || row.rootAdminId !== rootAdminId || row.status !== "ready") throw new Error("ملف النسخة غير جاهز");
+  return { summary: exportJobSummary(row), chunks: [fs.readFileSync(localExportFilePath(id))] };
+}
+
+
+function importJobSummary(row: SystemImportJobRecord): SystemImportJobSummary {
+  const { rootAdminId: _root, byUserId: _by, queue: _queue, nextIndex: _next, safetyExportJobId: _safety, safetyUnits: _su, retryCount: _retry, ...summary } = row;
+  return summary;
+}
+
+function localImportMetaPath(id: string) { return path.join(LOCAL_IMPORT_DIR(), `${id}.json`); }
+function localImportSourcePath(id: string) { return path.join(LOCAL_IMPORT_DIR(), `${id}.source.json.gz`); }
+function readLocalImportJob(id: string): SystemImportJobRecord | null {
+  try { return JSON.parse(fs.readFileSync(localImportMetaPath(id), "utf8")) as SystemImportJobRecord; } catch { return null; }
+}
+function writeLocalImportJob(row: SystemImportJobRecord) {
+  fs.mkdirSync(LOCAL_IMPORT_DIR(), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(localImportMetaPath(row.id), JSON.stringify(row), { mode: 0o600 });
+}
+
+async function persistImportBackup(root: FirebaseFirestore.DocumentReference, backup: SystemBackupPayload): Promise<void> {
+  const documents = backup.documents || [];
+  const byCollection = new Map<string, SystemBackupDocument[]>();
+  for (const item of documents) {
+    const top = item.path.split("/")[0] || "unknown";
+    const list = byCollection.get(top) || [];
+    list.push(item);
+    byCollection.set(top, list);
+  }
+  let seq = 0;
+  let pending: Array<{ ref: FirebaseFirestore.DocumentReference; data: any }> = [];
+  const flush = async () => {
+    if (!pending.length) return;
+    const batch = firestoreDb!.batch();
+    pending.forEach(item => batch.set(item.ref, item.data, { merge: false }));
+    await batch.commit();
+    pending = [];
+  };
+  for (const collectionName of [...byCollection.keys()].sort((a, b) => a.localeCompare(b))) {
+    let groupSeq = 0;
+    for (const group of groupBackupDocuments(byCollection.get(collectionName) || [])) {
+      groupSeq += 1;
+      const raw = Buffer.from(group.map(item => JSON.stringify(item)).join("\n"), "utf8");
+      const compressed = gzipSync(raw, { level: 1 });
+      const pieces = splitBuffer(compressed);
+      for (let part = 0; part < pieces.length; part += 1) {
+        seq += 1;
+        pending.push({
+          ref: root.collection("payloadChunks").doc(`p_${String(seq).padStart(9, "0")}`),
+          data: { collection: collectionName, group: groupSeq, part, parts: pieces.length, payload: pieces[part] },
+        });
+        if (pending.length >= 250) await flush();
+      }
+    }
+  }
+  await flush();
+}
+
+async function readImportCollection(root: FirebaseFirestore.DocumentReference, collectionName: string): Promise<SystemBackupDocument[]> {
+  const snap = await root.collection("payloadChunks").where("collection", "==", collectionName).get();
+  if (!snap.docs.length) return [];
+  const grouped = new Map<number, Array<{ part: number; payload: Buffer }>>();
+  for (const doc of snap.docs) {
+    const data = doc.data() as any;
+    const group = Number(data.group || 0);
+    const list = grouped.get(group) || [];
+    list.push({ part: Number(data.part || 0), payload: firestoreBytesToBuffer(data.payload) });
+    grouped.set(group, list);
+  }
+  const output: SystemBackupDocument[] = [];
+  for (const groupId of [...grouped.keys()].sort((a, b) => a - b)) {
+    const pieces = (grouped.get(groupId) || []).sort((a, b) => a.part - b.part).map(item => item.payload);
+    const text = gunzipSync(Buffer.concat(pieces)).toString("utf8");
+    for (const line of text.split("\n")) if (line) output.push(JSON.parse(line) as SystemBackupDocument);
+  }
+  return output.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+async function latestSystemImportJob(rootAdminId = 1): Promise<SystemImportJobSummary | null> {
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    const snap = await firestoreDb.collection(SYSTEM_IMPORT_JOB_COLLECTION).orderBy("createdAt", "desc").limit(1).get();
+    if (!snap.docs.length) return null;
+    const row = snap.docs[0].data() as SystemImportJobRecord;
+    return Number(row.rootAdminId) === rootAdminId ? importJobSummary(row) : null;
+  }
+  if (!fs.existsSync(LOCAL_IMPORT_DIR())) return null;
+  const rows = fs.readdirSync(LOCAL_IMPORT_DIR()).filter(name => name.endsWith(".json") && !name.includes("source"))
+    .map(name => readLocalImportJob(name.replace(/\.json$/, ""))).filter(Boolean) as SystemImportJobRecord[];
+  const row = rows.filter(item => item.rootAdminId === rootAdminId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  return row ? importJobSummary(row) : null;
+}
+
+async function startSystemImportJob(input: unknown, byUserId: number, rootAdminId = 1): Promise<SystemImportJobSummary> {
+  const existingJob = await latestSystemImportJob(rootAdminId);
+  if (existingJob && ["running", "failed"].includes(existingJob.status)) {
+    throw new Error(`يوجد استيراد غير مكتمل عند ${existingJob.completedUnits}/${existingJob.totalUnits}. أكمله من نفس المهمة قبل بدء ملف آخر.`);
+  }
+  const backup = validateSystemBackupPayload(input, rootAdminId);
+  const id = randomUUID();
+  const createdAt = new Date().toISOString();
+  const importedCollections = Object.keys(backup.summary.collectionCounts || {}).filter(name => !SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(name));
+
+  if (!firestoreDb || demoSandboxContext.getStore()) {
+    const safety = await startSystemExportJob(byUserId, rootAdminId, true, "safety");
+    fs.mkdirSync(LOCAL_IMPORT_DIR(), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(localImportSourcePath(id), gzipSync(Buffer.from(JSON.stringify(backup), "utf8"), { level: 1 }), { mode: 0o600 });
+    const row: SystemImportJobRecord = {
+      id, createdAt, updatedAt: createdAt, status: "running", phase: "safety",
+      totalUnits: safety.totalUnits + importedCollections.length + 1, completedUnits: 0,
+      documentCount: backup.summary.documentCount, collectionCounts: backup.summary.collectionCounts,
+      current: "أحفظ نقطة أمان قبل الاستيراد", rootAdminId, byUserId,
+      queue: importedCollections.sort((a, b) => a.localeCompare(b)), nextIndex: 0,
+      safetyExportJobId: safety.id, safetyUnits: safety.totalUnits,
+    };
+    writeLocalImportJob(row);
+    return importJobSummary(row);
+  }
+
+  const existing = (await firestoreDb.listCollections())
+    .map(collection => collection.id)
+    .filter(name => !SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(name));
+  const queue = [...new Set([...existing, ...importedCollections])].sort((a, b) => a.localeCompare(b));
+  const root = firestoreDb.collection(SYSTEM_IMPORT_JOB_COLLECTION).doc(id);
+  // Stage the validated payload before publishing a resumable parent job. Only
+  // after staging succeeds do we start the safety export, so a failed upload
+  // cannot leave either a half-source job or an orphan safety scan behind.
+  try {
+    await persistImportBackup(root, backup);
+    const safety = await startSystemExportJob(byUserId, rootAdminId, true, "safety");
+    const row: SystemImportJobRecord = {
+      id, createdAt, updatedAt: createdAt, status: "running", phase: "safety",
+      totalUnits: safety.totalUnits + queue.length + 1, completedUnits: 0,
+      documentCount: backup.summary.documentCount, collectionCounts: backup.summary.collectionCounts,
+      current: "أحفظ نقطة أمان قبل الاستيراد", rootAdminId, byUserId,
+      queue, nextIndex: 0, safetyExportJobId: safety.id, safetyUnits: safety.totalUnits,
+    };
+    await root.set(row, { merge: false });
+    return importJobSummary(row);
+  } catch (error) {
+    try { await deleteFirestoreTree(root); } catch {}
+    throw error;
+  }
+}
+
+async function getSystemImportJob(id: string, rootAdminId = 1): Promise<SystemImportJobSummary> {
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    const doc = await firestoreDb.collection(SYSTEM_IMPORT_JOB_COLLECTION).doc(id).get();
+    if (!doc.exists) throw new Error("مهمة الاستيراد غير موجودة");
+    const row = doc.data() as SystemImportJobRecord;
+    if (Number(row.rootAdminId) !== rootAdminId) throw new Error("مهمة الاستيراد لا تخص هذا الحساب");
+    return importJobSummary(row);
+  }
+  const row = readLocalImportJob(id);
+  if (!row || row.rootAdminId !== rootAdminId) throw new Error("مهمة الاستيراد غير موجودة");
+  return importJobSummary(row);
+}
+
+async function applyImportedCollection(collectionName: string, desired: SystemBackupDocument[], rootAdminId: number): Promise<void> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return;
+  if (SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(collectionName)) return;
+
+  // Identity collections stay reconciled in-place so the root administrator's
+  // account and permissions are never removed between two writes.
+  if (collectionName === "users") {
+    const rootUserPath = `users/user_${rootAdminId}`;
+    if (!desired.some(item => item.path === rootUserPath)) throw new Error("النسخة لا تحتوي مسار حساب الإدارة الرئيسي");
+    await reconcileTopLevelCollection("users", desired, new Set([rootUserPath]));
+    return;
+  }
+  if (collectionName === "formSecurity") {
+    const protectedPaths = new Set(desired.filter(item => Number((item.data as any)?.SystemUserId) === rootAdminId).map(item => item.path));
+    await reconcileTopLevelCollection("formSecurity", desired, protectedPaths);
+    return;
+  }
+  if (collectionName === "formNames") {
+    await reconcileTopLevelCollection("formNames", desired);
+    return;
+  }
+
+  /*
+   * Large academic collections are replaced as a collection, not reconciled
+   * document-by-document. The previous algorithm called listCollections() on
+   * every existing document after writing it. With 18k legacyArchive rows and
+   * 15k schedules that meant tens of thousands of sequential Firestore network
+   * calls and is the root cause of imports appearing frozen.
+   *
+   * recursiveDelete(collection) is exact (nested stale data is removed too),
+   * then the desired documents are written in 350-write batches. The import
+   * job owns a safety export before reaching this phase, and the step is
+   * idempotent: retrying simply clears the partially replaced collection and
+   * writes it again from the staged source.
+   */
+  const ref = firestoreDb.collection(collectionName);
+  const existing = await ref.limit(1).get();
+  if (!existing.empty) await deleteFirestoreTree(ref);
+  if (desired.length) await writeFirestoreDocuments(desired);
+}
+
+async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<SystemImportJobSummary> {
+  if (!firestoreDb || demoSandboxContext.getStore()) {
+    let row = readLocalImportJob(id);
+    if (!row || row.rootAdminId !== rootAdminId) throw new Error("مهمة الاستيراد غير موجودة");
+    if (row.status === "ready") return importJobSummary(row);
+    try {
+      if (!row.restorePointId) {
+        const restore = await createSystemRestorePointFromExport("قبل الاستيراد الكامل", row.byUserId, row.safetyExportJobId, rootAdminId);
+        row.restorePointId = restore.id;
+      }
+      const backup = validateSystemBackupPayload(JSON.parse(gunzipSync(fs.readFileSync(localImportSourcePath(id))).toString("utf8")), rootAdminId);
+      await replaceSystemFromBackup(backup, rootAdminId);
+      row = { ...row, status: "ready", phase: "finalizing", completedUnits: row.totalUnits, current: undefined, error: undefined, updatedAt: new Date().toISOString() };
+      writeLocalImportJob(row);
+      return importJobSummary(row);
+    } catch (error: any) {
+      row.status = "failed"; row.error = String(error?.message || error).slice(0, 900); row.updatedAt = new Date().toISOString(); writeLocalImportJob(row);
+      return importJobSummary(row);
+    }
+  }
+
+  const root = firestoreDb.collection(SYSTEM_IMPORT_JOB_COLLECTION).doc(id);
+  const snap = await root.get();
+  if (!snap.exists) throw new Error("مهمة الاستيراد غير موجودة");
+  let row = snap.data() as SystemImportJobRecord;
+  if (Number(row.rootAdminId) !== rootAdminId) throw new Error("مهمة الاستيراد لا تخص هذا الحساب");
+  if (row.status === "ready") return importJobSummary(row);
+  if (row.status === "failed") { row.status = "running"; row.error = undefined; }
+
+  try {
+    if (row.phase === "safety") {
+      let safety = await getSystemExportJob(row.safetyExportJobId, rootAdminId);
+      if (safety.status !== "ready") safety = await advanceSystemExportJob(row.safetyExportJobId, rootAdminId);
+      row.safetyUnits = Math.max(1, safety.totalUnits || row.safetyUnits || 1);
+      row.totalUnits = row.safetyUnits + row.queue.length + 1;
+      row.completedUnits = Math.min(row.safetyUnits, safety.completedUnits || 0);
+      row.current = safety.status === "ready" ? "أثبت نقطة الأمان" : `نقطة الأمان · ${safety.current || "أجمع البيانات الحالية"}`;
+      row.updatedAt = new Date().toISOString();
+      if (safety.status !== "ready") {
+        row.error = safety.status === "failed" ? safety.error : undefined;
+        await root.set(row, { merge: false });
+        return importJobSummary(row);
+      }
+      if (!row.restorePointId) {
+        const restore = await createSystemRestorePointFromExport("قبل الاستيراد الكامل", row.byUserId, row.safetyExportJobId, rootAdminId);
+        row.restorePointId = restore.id;
+      }
+      row.phase = "apply";
+      row.completedUnits = row.safetyUnits;
+      row.current = row.queue[0] ? `أستعيد ${row.queue[0]}` : "أراجع النتيجة";
+      row.error = undefined;
+      await root.set(row, { merge: false });
+    }
+
+    if (row.phase === "apply" && row.nextIndex < row.queue.length) {
+      const collectionName = row.queue[row.nextIndex];
+      row.current = `أستعيد ${collectionName}`;
+      row.updatedAt = new Date().toISOString();
+      await root.set(row, { merge: false });
+      const desired = await readImportCollection(root, collectionName);
+      await applyImportedCollection(collectionName, desired, rootAdminId);
+      row.nextIndex += 1;
+      row.retryCount = 0;
+      row.completedUnits = row.safetyUnits + row.nextIndex;
+      row.current = row.queue[row.nextIndex] ? `أستعيد ${row.queue[row.nextIndex]}` : "أراجع الفهارس وأحدث الذاكرة";
+      row.updatedAt = new Date().toISOString();
+      row.error = undefined;
+      if (row.nextIndex >= row.queue.length) row.phase = "finalizing";
+      await root.set(row, { merge: false });
+      if (row.phase !== "finalizing") return importJobSummary(row);
+    }
+
+    if (row.phase === "finalizing") {
+      refreshSystemCachesAfterMutation();
+      row.status = "ready";
+      row.completedUnits = row.totalUnits;
+      row.current = undefined;
+      row.error = undefined;
+      row.updatedAt = new Date().toISOString();
+      await root.set(row, { merge: false });
+      // Staged source chunks are no longer needed after a verified complete
+      // import. The safety export remains because the restore point references it.
+      try { await deleteFirestoreTree(root.collection("payloadChunks")); } catch {}
+      return importJobSummary(row);
+    }
+    return importJobSummary(row);
+  } catch (error: any) {
+    row.retryCount = Number(row.retryCount || 0) + 1;
+    row.error = String(error?.message || error || "تعذر متابعة الاستيراد").slice(0, 900);
+    row.status = isTransientBackupError(error) && row.retryCount < 8 ? "running" : "failed";
+    row.updatedAt = new Date().toISOString();
+    await root.set(row, { merge: false });
+    return importJobSummary(row);
+  }
+}
+
+function validateFirestoreDocumentPath(documentPath: string): boolean {
+  const parts = documentPath.split("/").filter(Boolean);
+  return parts.length >= 2 && parts.length % 2 === 0 && !SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(parts[0]);
+}
+
+function validateSystemBackupPayload(input: unknown, rootAdminId = 1): SystemBackupPayload {
+  if (!input || typeof input !== "object") throw new Error("ملف النسخة الاحتياطية غير صالح");
+  const backup = input as SystemBackupPayload;
+  if (backup.format !== SYSTEM_BACKUP_FORMAT) throw new Error("صيغة النسخة الاحتياطية غير مدعومة");
+  if (backup.source?.app !== "SCHEDULE") throw new Error("هذه النسخة لا تخص نظام SCHEDULE");
+  if (!backup.backupId || !backup.createdAt || Number.isNaN(Date.parse(backup.createdAt))) throw new Error("بيانات تعريف النسخة غير مكتملة");
+  if (backup.storage !== "firestore" && backup.storage !== "local-json") throw new Error("نوع التخزين في النسخة غير معروف");
+  const calculated = systemBackupDigest(backup);
+  if (!backup.integrity?.sha256 || calculated !== backup.integrity.sha256) throw new Error("فشل فحص سلامة النسخة الاحتياطية (SHA-256)");
+  if (backup.storage === "firestore") {
+    if (!Array.isArray(backup.documents)) throw new Error("النسخة لا تحتوي مستندات Firestore");
+    const seen = new Set<string>();
+    let rootFound = false;
+    for (const item of backup.documents) {
+      if (!item || typeof item.path !== "string" || !validateFirestoreDocumentPath(item.path)) throw new Error(`مسار غير صالح داخل النسخة: ${String((item as any)?.path || "")}`);
+      if (seen.has(item.path)) throw new Error(`المسار مكرر داخل النسخة: ${item.path}`);
+      seen.add(item.path);
+      if (item.path.split("/")[0] === "users" && Number((item.data as any)?.SystemUserId) === rootAdminId) rootFound = true;
+    }
+    if (!rootFound) throw new Error("النسخة لا تحتوي حساب الإدارة الرئيسي؛ تم إيقاف الاستيراد لحمايتك من فقدان الوصول");
+    const counts = systemBackupCollectionCounts(backup.documents);
+    if (Number(backup.summary?.documentCount) !== backup.documents.length || JSON.stringify(backup.summary?.collectionCounts || {}) !== JSON.stringify(counts)) {
+      throw new Error("فهرس النسخة لا يطابق محتواها؛ أوقف الاستيراد");
+    }
+  } else {
+    if (!backup.state || typeof backup.state !== "object") throw new Error("النسخة المحلية لا تحتوي حالة النظام");
+    const users = (backup.state as any).users;
+    if (!Array.isArray(users) || !users.some((user: any) => Number(user.SystemUserId) === rootAdminId)) throw new Error("النسخة لا تحتوي حساب الإدارة الرئيسي");
+    const counts = localStateCounts(backup.state);
+    const documentCount = Object.values(counts).reduce((a, b) => a + b, 0);
+    if (Number(backup.summary?.documentCount) !== documentCount || JSON.stringify(backup.summary?.collectionCounts || {}) !== JSON.stringify(counts)) {
+      throw new Error("فهرس النسخة لا يطابق محتواها؛ أوقف الاستيراد");
+    }
+  }
+  return backup;
+}
+
+async function deleteFirestoreTree(ref: FirebaseFirestore.CollectionReference | FirebaseFirestore.DocumentReference): Promise<void> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return;
+  const recursiveDelete = (firestoreDb as any).recursiveDelete;
+  if (typeof recursiveDelete === "function") {
+    await recursiveDelete.call(firestoreDb, ref);
+    return;
+  }
+  if (typeof (ref as any).listDocuments === "function") {
+    const collection = ref as FirebaseFirestore.CollectionReference;
+    const snap = await collection.get();
+    for (const doc of snap.docs) await deleteFirestoreTree(doc.ref);
+    return;
+  }
+  const doc = ref as FirebaseFirestore.DocumentReference;
+  const nested = await doc.listCollections();
+  for (const collection of nested) await deleteFirestoreTree(collection);
+  await doc.delete();
+}
+
+async function clearPortableFirestoreData(preserveTopCollections = new Set<string>()): Promise<void> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return;
+  const collections = await firestoreDb.listCollections();
+  for (const collection of collections) {
+    if (SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(collection.id) || preserveTopCollections.has(collection.id)) continue;
+    await deleteFirestoreTree(collection);
+  }
+}
+
+async function writeFirestoreDocuments(documents: SystemBackupDocument[]): Promise<void> {
+  if (!firestoreDb || demoSandboxContext.getStore()) throw new Error("Firestore غير مهيأ");
+  const ordered = [...documents].sort((a, b) => a.path.split("/").length - b.path.split("/").length || a.path.localeCompare(b.path));
+  for (let offset = 0; offset < ordered.length; offset += 350) {
+    const batch = firestoreDb.batch();
+    ordered.slice(offset, offset + 350).forEach(item => batch.set(firestoreDb!.doc(item.path), backupDecode(item.data), { merge: false }));
+    await batch.commit();
+  }
+}
+
+async function pruneFirestoreDocumentToDesired(
+  ref: FirebaseFirestore.DocumentReference,
+  desiredPaths: Set<string>,
+  protectedPaths: Set<string>,
+): Promise<void> {
+  // Identity collections are normally flat, but a full-system backup must stay
+  // exact even if a future feature adds a subcollection under a user/form. Walk
+  // those descendants as well so stale nested documents cannot survive import.
+  const nested = await ref.listCollections();
+  for (const collection of nested) {
+    const snap = await collection.get();
+    for (const doc of snap.docs) {
+      const wantedHere = desiredPaths.has(doc.ref.path);
+      const wantedBelow = [...desiredPaths].some(path => path.startsWith(`${doc.ref.path}/`));
+      if (wantedHere || wantedBelow || protectedPaths.has(doc.ref.path)) {
+        await pruneFirestoreDocumentToDesired(doc.ref, desiredPaths, protectedPaths);
+      } else {
+        await deleteFirestoreTree(doc.ref);
+      }
+    }
+  }
+  if (!desiredPaths.has(ref.path) && !protectedPaths.has(ref.path)) await ref.delete();
+}
+
+async function reconcileTopLevelCollection(collectionName: string, desired: SystemBackupDocument[], protectedPaths = new Set<string>()): Promise<void> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return;
+  const desiredPaths = new Set(desired.map(item => item.path));
+  // Write the protected/root records first. During a failed import the main
+  // administrator therefore always keeps a valid account and a route back to
+  // the vault, even if later collections fail halfway through.
+  const protectedRows = desired.filter(item => protectedPaths.has(item.path));
+  const normalRows = desired.filter(item => !protectedPaths.has(item.path));
+  await writeFirestoreDocuments([...protectedRows, ...normalRows]);
+  const existing = await firestoreDb.collection(collectionName).get();
+  for (const doc of existing.docs) await pruneFirestoreDocumentToDesired(doc.ref, desiredPaths, protectedPaths);
+}
+
+function refreshSystemCachesAfterMutation() {
+  invalidateReference();
+  invalidateSchedules();
+  invalidateScheduleRelationCache();
+  announceIdentityChange();
+}
+
+async function makeSystemBackup(rootAdminId: number): Promise<SystemBackupPayload> {
+  const createdAt = new Date().toISOString();
+  const backupId = randomUUID();
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    const documents = await collectSystemDocuments();
+    const collectionCounts = systemBackupCollectionCounts(documents);
+    const partial = { storage: "firestore" as const, documents };
+    return {
+      format: SYSTEM_BACKUP_FORMAT,
+      backupId,
+      createdAt,
+      storage: "firestore",
+      source: { app: "SCHEDULE", rootAdminId },
+      summary: { documentCount: documents.length, collectionCounts },
+      integrity: { algorithm: "sha256", sha256: systemBackupDigest(partial) },
+      documents,
+    };
+  }
+  const state = JSON.parse(JSON.stringify(db)) as Record<string, unknown>;
+  delete state.clientTelemetry;
+  const collectionCounts = localStateCounts(state);
+  const partial = { storage: "local-json" as const, state };
+  return {
+    format: SYSTEM_BACKUP_FORMAT,
+    backupId,
+    createdAt,
+    storage: "local-json",
+    source: { app: "SCHEDULE", rootAdminId },
+    summary: { documentCount: Object.values(collectionCounts).reduce((a, b) => a + b, 0), collectionCounts },
+    integrity: { algorithm: "sha256", sha256: systemBackupDigest(partial) },
+    state,
+  };
+}
+
+async function createSystemRestorePointFromExport(
+  action: string,
+  byUserId: number,
+  exportJobId: string,
+  rootAdminId = 1,
+): Promise<SystemRestorePointSummary> {
+  const file = await readSystemExportFile(exportJobId, rootAdminId);
+  const meta: SystemRestorePointSummary = {
+    id: randomUUID(),
+    createdAt: new Date().toISOString(),
+    action,
+    byUserId,
+    documentCount: file.summary.documentCount,
+    collectionCounts: file.summary.collectionCounts,
+    exportJobId,
+  };
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    await firestoreDb.collection(SYSTEM_RESTORE_COLLECTION).doc(meta.id).set(meta, { merge: false });
+    // Reference-based safety points obey the same retention rule as ordinary
+    // restore points. The referenced safety export is protected while the point
+    // exists; once the old point is removed a later export cleanup may reclaim
+    // the orphan file safely.
+    try {
+      const older = await firestoreDb.collection(SYSTEM_RESTORE_COLLECTION).orderBy("createdAt", "desc").get();
+      for (const doc of older.docs.slice(8)) await deleteFirestoreTree(doc.ref);
+    } catch {}
+  } else {
+    fs.mkdirSync(LOCAL_RESTORE_DIR(), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(LOCAL_RESTORE_DIR(), `${meta.id}.json`), JSON.stringify({ meta, exportJobId }), { mode: 0o600 });
+    const files = fs.readdirSync(LOCAL_RESTORE_DIR()).filter(name => name.endsWith(".json"))
+      .map(name => ({ name, mtime: fs.statSync(path.join(LOCAL_RESTORE_DIR(), name)).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime);
+    files.slice(8).forEach(item => { try { fs.unlinkSync(path.join(LOCAL_RESTORE_DIR(), item.name)); } catch {} });
+  }
+  return meta;
+}
+
+async function saveSystemRestorePoint(action: string, byUserId: number, rootAdminId = 1): Promise<SystemRestorePointSummary> {
+  const snapshot = await makeSystemBackup(rootAdminId);
+  const meta: SystemRestorePointSummary = {
+    id: randomUUID(),
+    createdAt: new Date().toISOString(),
+    action,
+    byUserId,
+    documentCount: snapshot.summary.documentCount,
+    collectionCounts: snapshot.summary.collectionCounts,
+  };
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    const root = firestoreDb.collection(SYSTEM_RESTORE_COLLECTION).doc(meta.id);
+    await root.set({ ...meta, backupFormat: snapshot.format, backupStorage: snapshot.storage, integrity: snapshot.integrity }, { merge: false });
+    const documents = snapshot.documents || [];
+    for (let offset = 0; offset < documents.length; offset += 300) {
+      const batch = firestoreDb.batch();
+      documents.slice(offset, offset + 300).forEach((item, index) => {
+        const absolute = offset + index + 1;
+        batch.set(root.collection("documents").doc(`d_${String(absolute).padStart(9, "0")}`), item);
+      });
+      await batch.commit();
+    }
+    // Keep a small, useful safety history rather than allowing safety copies to
+    // become a second database with no retention policy.
+    const older = await firestoreDb.collection(SYSTEM_RESTORE_COLLECTION).orderBy("createdAt", "desc").get();
+    for (const doc of older.docs.slice(8)) await deleteFirestoreTree(doc.ref);
+  } else {
+    fs.mkdirSync(LOCAL_RESTORE_DIR(), { recursive: true, mode: 0o700 });
+    const file = path.join(LOCAL_RESTORE_DIR(), `${meta.id}.json`);
+    fs.writeFileSync(file, JSON.stringify({ meta, snapshot }), { mode: 0o600 });
+    const files = fs.readdirSync(LOCAL_RESTORE_DIR()).filter(name => name.endsWith(".json")).map(name => ({ name, mtime: fs.statSync(path.join(LOCAL_RESTORE_DIR(), name)).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
+    files.slice(8).forEach(item => { try { fs.unlinkSync(path.join(LOCAL_RESTORE_DIR(), item.name)); } catch {} });
+  }
+  return meta;
+}
+
+async function listSystemRestorePoints(): Promise<SystemRestorePointSummary[]> {
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    const snap = await firestoreDb.collection(SYSTEM_RESTORE_COLLECTION).orderBy("createdAt", "desc").limit(8).get();
+    return snap.docs.map(doc => doc.data() as SystemRestorePointSummary);
+  }
+  if (!fs.existsSync(LOCAL_RESTORE_DIR())) return [];
+  const rows: SystemRestorePointSummary[] = [];
+  for (const name of fs.readdirSync(LOCAL_RESTORE_DIR()).filter(name => name.endsWith(".json"))) {
+    try { rows.push(JSON.parse(fs.readFileSync(path.join(LOCAL_RESTORE_DIR(), name), "utf8")).meta); } catch {}
+  }
+  return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
+}
+
+async function loadSystemRestorePoint(id: string, rootAdminId = 1): Promise<SystemBackupPayload> {
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    const root = firestoreDb.collection(SYSTEM_RESTORE_COLLECTION).doc(id);
+    const metaDoc = await root.get();
+    if (!metaDoc.exists) throw new Error("نقطة التراجع غير موجودة");
+    const meta = metaDoc.data() as any;
+    if (meta.exportJobId) {
+      const file = await readSystemExportFile(String(meta.exportJobId), rootAdminId);
+      const parsed = JSON.parse(gunzipSync(Buffer.concat(file.chunks)).toString("utf8"));
+      return validateSystemBackupPayload(parsed, rootAdminId);
+    }
+    const docs = await root.collection("documents").get();
+    const documents = docs.docs.sort((a, b) => a.id.localeCompare(b.id)).map(doc => doc.data() as SystemBackupDocument);
+    const backup: SystemBackupPayload = {
+      format: SYSTEM_BACKUP_FORMAT,
+      backupId: id,
+      createdAt: String(meta.createdAt || new Date().toISOString()),
+      storage: "firestore",
+      source: { app: "SCHEDULE", rootAdminId },
+      summary: { documentCount: documents.length, collectionCounts: systemBackupCollectionCounts(documents) },
+      integrity: meta.integrity || { algorithm: "sha256", sha256: systemBackupDigest({ storage: "firestore", documents }) },
+      documents,
+    };
+    return validateSystemBackupPayload(backup, rootAdminId);
+  }
+  const file = path.join(LOCAL_RESTORE_DIR(), `${id}.json`);
+  if (!fs.existsSync(file)) throw new Error("نقطة التراجع غير موجودة");
+  const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (parsed.exportJobId || parsed.meta?.exportJobId) {
+    const exportId = String(parsed.exportJobId || parsed.meta.exportJobId);
+    const exported = await readSystemExportFile(exportId, rootAdminId);
+    return validateSystemBackupPayload(JSON.parse(gunzipSync(Buffer.concat(exported.chunks)).toString("utf8")), rootAdminId);
+  }
+  return validateSystemBackupPayload(parsed.snapshot, rootAdminId);
+}
+
+async function markRestorePointConsumed(id: string) {
+  const consumedAt = new Date().toISOString();
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    await firestoreDb.collection(SYSTEM_RESTORE_COLLECTION).doc(id).set({ consumedAt }, { merge: true });
+    return;
+  }
+  const file = path.join(LOCAL_RESTORE_DIR(), `${id}.json`);
+  if (!fs.existsSync(file)) return;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    parsed.meta = { ...parsed.meta, consumedAt };
+    fs.writeFileSync(file, JSON.stringify(parsed), { mode: 0o600 });
+  } catch {}
+}
+
+async function replaceSystemFromBackup(input: SystemBackupPayload, rootAdminId = 1): Promise<SystemBackupPayload> {
+  const backup = validateSystemBackupPayload(input, rootAdminId);
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    if (backup.storage !== "firestore") throw new Error("لا يمكن استيراد نسخة محلية إلى بيئة Firestore");
+    const documents = backup.documents || [];
+    const identityCollections = new Set(["users", "formSecurity", "formNames"]);
+    const ordinary = documents.filter(item => !identityCollections.has(item.path.split("/")[0]));
+    await clearPortableFirestoreData(identityCollections);
+    await writeFirestoreDocuments(ordinary);
+
+    const rootUserPath = `users/user_${rootAdminId}`;
+    const importedUserPaths = new Set(documents.filter(item => item.path.startsWith("users/")).map(item => item.path));
+    if (!importedUserPaths.has(rootUserPath)) throw new Error("مسار حساب الإدارة الرئيسي غير موجود في النسخة");
+    await reconcileTopLevelCollection("users", documents.filter(item => item.path.startsWith("users/")), new Set([rootUserPath]));
+
+    const rootPermissionPaths = new Set(documents.filter(item => item.path.startsWith("formSecurity/") && Number((item.data as any)?.SystemUserId) === rootAdminId).map(item => item.path));
+    await reconcileTopLevelCollection("formSecurity", documents.filter(item => item.path.startsWith("formSecurity/")), rootPermissionPaths);
+    await reconcileTopLevelCollection("formNames", documents.filter(item => item.path.startsWith("formNames/")));
+  } else {
+    if (backup.storage !== "local-json") throw new Error("لا يمكن استيراد نسخة Firestore إلى وضع البيانات المحلي");
+    replaceCurrentDb(JSON.parse(JSON.stringify(backup.state || {})) as DBState);
+    saveDatabase();
+  }
+  refreshSystemCachesAfterMutation();
+  return backup;
+}
+
+async function resetSystemKeepingRoot(rootAdminId: number): Promise<void> {
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    const current = await collectSystemDocuments();
+    const rootUserPath = `users/user_${rootAdminId}`;
+    const rootUsers = current.filter(item => item.path === rootUserPath);
+    if (!rootUsers.length) throw new Error("حساب الإدارة الرئيسي غير موجود");
+    const formNames = current.filter(item => item.path.startsWith("formNames/"));
+    const rootPermissions = current.filter(item => item.path.startsWith("formSecurity/") && Number((item.data as any)?.SystemUserId) === rootAdminId);
+    const identityCollections = new Set(["users", "formSecurity", "formNames"]);
+    await clearPortableFirestoreData(identityCollections);
+    await reconcileTopLevelCollection("users", rootUsers, new Set([rootUserPath]));
+    await reconcileTopLevelCollection("formSecurity", rootPermissions, new Set(rootPermissions.map(item => item.path)));
+    await reconcileTopLevelCollection("formNames", formNames);
+    const maxPermission = rootPermissions.reduce((max, item) => Math.max(max, Number((item.data as any)?.legacyId || 0)), 0);
+    await firestoreDb.doc(FIRESTORE_COUNTER_DOC).set({ users: rootAdminId, formSecurity: maxPermission, userScopes: 0, terms: 0, colleges: 0, sections: 0, instructors: 0, courses: 0, schedules: 0 }, { merge: false });
+  } else {
+    const root = db.users.find(user => user.SystemUserId === rootAdminId);
+    if (!root) throw new Error("حساب الإدارة الرئيسي غير موجود");
+    const formNames = [...db.formNames];
+    const formSecurity = db.formSecurity.filter(item => item.SystemUserId === rootAdminId);
+    replaceCurrentDb({
+      users: [root], formNames, formSecurity, collegeUserAssign: [], terms: [], colleges: [], sections: [], instructors: [], courses: [], schedules: [], rooms: [],
+      auditLogs: [], scheduleVersions: [], scheduleDrafts: [], scheduleOpenDecisions: [], clientTelemetry: [], scheduleComments: [], instructorRequests: [], studyProposals: [], studentNeeds: [], schedulePublications: [], scheduleConstraints: [], degreeRules: [], visitingRosters: [], departmentDelegates: [], departmentRooms: [], scheduleDecisionMemories: [], campusMobilityProfiles: [], scheduleShareLinks: [], hallBarterRequests: [], scheduleWeekExceptions: []
+    });
+    saveDatabase();
+  }
+  refreshSystemCachesAfterMutation();
+}
+
+const STUDENT_CASE_SECRET_DOC = "systemSecrets/student-case-identity-v1";
+let studentCaseSecretCache = "";
+/* ذاكرةُ الملف المحلي منفصلةٌ عن ذاكرة السرّ المشترك: طلبٌ من صندوق العرض يقرأ
+   ملفاً محلياً، ولا يجوز أن يلتصق سرُّه بالذاكرة فتقرأه النسخة الحقيقية بعده. */
+let localStudentCaseSecretCache = "";
+/**
+ * Stable key material for student-case fingerprints and field-level identity
+ * encryption. Cloud Run can serve two consecutive requests from two different
+ * instances, so a per-process random secret makes a case written by instance A
+ * unreadable to instance B. The STORED secret (Firestore, or the 0600 local key
+ * beside the private database) always wins; STUDENT_CASE_SECRET only seeds it
+ * when nothing is stored yet, and is refused loudly if it differs. CALENDAR_SECRET
+ * is never read here (see src/server/studentCaseSecret.ts).
+ */
+async function getOrCreateStudentCaseSecret(): Promise<string> {
+  /* القاعدة في src/server/studentCaseSecret.ts: المحفوظ هو الحَكَم، و
+     CALENDAR_SECRET لا يُقرأ هنا. */
+  const configured = String(process.env.STUDENT_CASE_SECRET || "").trim();
+  const generate = () => randomBytes(32).toString("hex");
+  const warnConflict = (choice: StudentCaseSecretChoice) => {
+    if (choice.conflict) console.error(`[student-case-secret] ${STUDENT_CASE_SECRET_CONFLICT_MESSAGE}`);
+  };
+
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    if (studentCaseSecretCache) return studentCaseSecretCache;
+    const ref = firestoreDb.doc(STUDENT_CASE_SECRET_DOC);
+    const choice = await firestoreDb.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const picked = chooseStudentCaseSecret({ configured, stored: snap.data()?.secret, generate });
+      if (picked.persist) {
+        tx.set(ref, { secret: picked.secret, createdAt: new Date().toISOString(), purpose: "student-case-identity-v1", source: configured ? "env" : "generated" });
+      }
+      return picked;
+    });
+    warnConflict(choice);
+    studentCaseSecretCache = choice.secret;
+    return choice.secret;
+  }
+
+  if (localStudentCaseSecretCache) return localStudentCaseSecretCache;
+  const file = path.join(DB_DIR, "student-case-identity.key");
+  const readStored = () => (fs.existsSync(file) ? fs.readFileSync(file, "utf8").trim() : "");
+  let choice = chooseStudentCaseSecret({ configured, stored: readStored(), generate });
+  if (choice.persist) {
+    fs.mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
+    try { fs.writeFileSync(file, `${choice.secret}\n`, { mode: 0o600, flag: "wx" }); }
+    catch (error: any) {
+      if (error?.code !== "EEXIST") throw error;
+      /* سبقنا غيرُنا إلى الكتابة: ما كُتب هو الحَكَم. */
+      choice = chooseStudentCaseSecret({ configured, stored: readStored(), generate });
+    }
+  }
+  warnConflict(choice);
+  localStudentCaseSecretCache = choice.secret;
+  return localStudentCaseSecretCache;
+}
+
+/** الأحدث أولاً، ويحتمل ملاحظةً بلا تاريخ — من ترحيلٍ أو نسخةٍ احتياطية. */
+const byNewestComment = (a: ScheduleComment, b: ScheduleComment) =>
+  String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+
+/**
+ * ── الفهرس يُبنى، والعمل لا يقف ──────────────────────────────────────────
+ *
+ * الترتيب عند قاعدة البيانات يحتاج فهرساً مركّباً. وبين لحظة النشر ولحظة
+ * اكتمال بناء الفهرس نافذةٌ تردّ فيها Firestore خطأً صريحاً — وفي تلك
+ * النافذة يسقط صندوق الوارد وتسقط بوّابة الإرسال معه، أي تقف الدورة كلها،
+ * لا الترتيبُ وحده.
+ *
+ * وثمنُ الاحتياط رخيص: تُعاد القراءة بلا ترتيب ويُرتَّب في الذاكرة. أبطأ،
+ * وصحيح، ومؤقّت — يزول أثره من تلقاء نفسه ساعةَ يكتمل الفهرس.
+ */
+const readCommentsOrdered = async (
+  build: (collection: FirebaseFirestore.CollectionReference) => FirebaseFirestore.Query,
+  limit: number,
+): Promise<ScheduleComment[]> => {
+  const collection = firestoreDb!.collection("scheduleComments");
+  try {
+    const snap = await build(collection).orderBy("createdAt", "desc").limit(limit).get();
+    return snap.docs.map(doc => doc.data() as ScheduleComment);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/FAILED_PRECONDITION|requires an index/i.test(message)) throw error;
+    console.warn("[comments] الفهرس المركّب غير جاهز بعد؛ تُقرأ الملاحظات وتُرتَّب في الذاكرة.");
+    const snap = await build(collection).limit(limit).get();
+    return snap.docs.map(doc => doc.data() as ScheduleComment).sort(byNewestComment);
+  }
+};
+
+
+/**
+ * رقمُ الحالة من معرّف السجلّ.
+ *
+ * اشتقاقٌ واحدٌ يقرؤه كلُّ من يعرض الرقم — الطالبُ عند الإرسال، وصفحةُ حالته،
+ * وكشفُ التسجيل. ولو اشتقّه كلٌّ بطريقته لاختلفوا يوماً، ولوقف الطالبُ أمام
+ * الموظّف برقمٍ لا يجده في كشفه.
+ */
+export const caseRefOf = caseRefFromId;
+
+/** رقمُ الحالة كما يُعرض: الثابتُ المحفوظ، أو المشتقُّ للسجلّات التي سبقته. */
+export const caseRefFor = (need: { id: string; caseRef?: string }): string =>
+  String(need.caseRef || caseRefOf(need.id));
+
+/**
+ * Every studentNeeds document where `field == value`, read page by page.
+ *
+ * The term read used to stop silently at 5000 documents — one busy term across
+ * a college and the newest requests simply vanished from every sheet and count,
+ * with nothing on screen to say so. Paging on the document id needs only the
+ * automatic single-field index, so no composite index is involved.
+ */
+const STUDENT_NEEDS_PAGE = 1000;
+const localRunLeases = new Map<number, { until: number; holder: string }>();
+async function readStudentNeedsWhere(field: "AdTermId" | "AdCollegeId", value: number): Promise<StudentNeed[]> {
+  if (!firestoreDb) return [];
+  const out: StudentNeed[] = [];
+  let last: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+  for (;;) {
+    let query: FirebaseFirestore.Query = firestoreDb.collection("studentNeeds")
+      .where(field, "==", value).orderBy(FieldPath.documentId()).limit(STUDENT_NEEDS_PAGE);
+    if (last) query = query.startAfter(last);
+    const snap = await query.get();
+    for (const doc of snap.docs) out.push(doc.data() as StudentNeed);
+    if (snap.size < STUDENT_NEEDS_PAGE) break;
+    last = snap.docs[snap.docs.length - 1];
+  }
+  return out;
+}
+
+/** اعتمادُ مسوّدةٍ رُفض: ليست قيد المراجعة، أو تغيّرت بعد أن رآها المعتمِد. */
+export class RuleDraftConflict extends Error {
+  constructor(message: string) { super(message); this.name = "RuleDraftConflict"; }
+}
+
+/** A course-state write refused by its guard, read inside the write itself. */
+export class StudentCourseStateConflict extends Error {
+  constructor(message: string) { super(message); this.name = "StudentCourseStateConflict"; }
+}
+
+/**
+ * ── وثيقةُ الاعتماد كُتبت فوقها ─────────────────────────────────────────────
+ *
+ * كلُّ قرارٍ في الدورة يقرأ الوثيقة ثم يكتبها كاملة. والطابورُ في الذاكرة يحمي
+ * خادماً واحداً، وCloud Run يشغّل أكثر من واحد: موظّفان يقبل أحدهما ويُرجع
+ * الآخر في اللحظة نفسها على خادمين، فيكتب الثاني فوق الأول بلا أن يعرف أحد.
+ *
+ * فللوثيقة رقمُ مراجعة، والحفظُ يُرفض إن لم يكن الرقمُ المقروءُ هو الرقمَ
+ * المحفوظ. والخاسر يُعاد مرّةً واحدة على ما صار، ثم يُقال له.
+ */
+export class ApprovalRevisionConflict extends Error {
+  constructor(public current?: ScheduleApproval) {
+    super("سبق قرارٌ آخر على هذا الجدول في اللحظة نفسها.");
+    this.name = "ApprovalRevisionConflict";
+  }
+}
+
+/** نوعُ طلب الطالب لمفتاح الدمج: كلُّ نوعٍ سجلٌّ مستقلّ في الفصل والقسم نفسيهما. */
+export const studentNeedKind = (need: { requestType?: string; details?: string }): string =>
+  need.requestType === "graduate" ? "graduate"
+    : need.requestType === "course-conflict" ? "conflict"
+      : /^من «مساري» بعد التسجيل/.test(String(need.details || "")) ? "after-registration"
+        : "course";
+
+const localApplyLeases = new Map<string, { until: number; holder: string }>();
+export const Repository = {
+  getStudentCaseSecret: async (): Promise<string> => getOrCreateStudentCaseSecret(),
+  /** السرّ المشترك بين نسخ الخادم، مقروءاً خارج صندوق العرض دائماً: مفتاحُ
+   *  التقويم مادةٌ للخادم كله لا لجلسة عرضٍ بعينها. */
+  getSharedServerSecret: async (): Promise<string> => demoSandboxContext.exit(() => getOrCreateStudentCaseSecret()),
+  /** Lets the server drop any cached identity the moment accounts change. */
+  onIdentityChanged: (listener: () => void) => { identityListeners.add(listener); },
+
+  // Demo sandbox helpers. A demo request sees only its own in-memory clone.
+  isDemoMode: (): boolean => runningMode === "demo",
+  currentDemoSessionId: (): string => demoSandboxContext.getStore()?.sessionId || "",
+  isDemoRequest: (): boolean => Boolean(demoSandboxContext.getStore()),
+  createDemoSandbox: (sessionId: string, ttlMs: number): void => {
+    demoSandboxes.set(sessionId, { state: createDemoSandboxState() as DBState, expiresAt: Date.now() + ttlMs });
+  },
+  resetDemoSandbox: (sessionId: string, ttlMs: number): boolean => {
+    if (!sessionId.startsWith("demo_")) return false;
+    demoSandboxes.set(sessionId, { state: createDemoSandboxState() as DBState, expiresAt: Date.now() + ttlMs });
+    return true;
+  },
+  withDemoSandbox: async <T>(sessionId: string, fn: () => T | Promise<T>): Promise<T> => {
+    const record = demoSandboxes.get(sessionId);
+    if (!record || record.expiresAt <= Date.now()) {
+      demoSandboxes.delete(sessionId);
+      throw new Error("DEMO_SESSION_EXPIRED");
+    }
+    return await demoSandboxContext.run({ sessionId, state: record.state }, fn);
+  },
+  /** دليلُ الصندوق الحاضر — ولا شيء خارج الصندوق أبداً. */
+  getDemoGuide: (): DemoGuide | undefined => demoSandboxContext.getStore() ? db.demoGuide : undefined,
+  setDemoGuide: (guide: DemoGuide): void => { if (demoSandboxContext.getStore()) db.demoGuide = guide; },
+  /** الصندوقُ الحيّ الذي يملك هذا الرمز التجريبي، أو "". */
+  demoSandboxForLinkToken: (token: string): string => {
+    if (!isDemoLinkToken(token)) return "";
+    const now = Date.now();
+    for (const [sessionId, record] of demoSandboxes) {
+      if (record.expiresAt <= now) continue;
+      if ((record.state.scheduleShareLinks || []).some(link => link.id === token)) return sessionId;
+    }
+    return "";
+  },
+  runDemoSandbox: (sessionId: string, fn: () => void): boolean => {
+    const record = demoSandboxes.get(sessionId);
+    if (!record || record.expiresAt <= Date.now()) { demoSandboxes.delete(sessionId); return false; }
+    demoSandboxContext.run({ sessionId, state: record.state }, fn);
+    return true;
+  },
+
+  // Password helpers
+  simpleHash,
+  hashPassword,
+  verifyPassword,
+  encryptPasswordForVault,
+  decryptPasswordFromVault,
+
+  // Sessions: Firestore-backed in production so login survives multi-instance/server restarts.
+  createSession: async (sessionId: string, userId: number, ttlMs: number): Promise<void> => {
+    const now = Date.now();
+    const session: StoredSession = { sessionId, userId, createdAt: now, expiresAt: now + ttlMs };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      // `expiresAt` stays a number because the code compares it as one. The
+      // Timestamp twin exists purely so Firestore's own TTL policy can sweep
+      // abandoned sessions away — previously a closed browser left a document
+      // that lived for the life of the deployment.
+      await firestoreDb.collection("sessions").doc(sessionId).set({
+        ...session,
+        expiresAtTtl: Timestamp.fromMillis(session.expiresAt),
+      });
+      return;
+    }
+    demoSessions.set(sessionId, session);
+  },
+
+  getSession: async (sessionId: string): Promise<StoredSession | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("sessions").doc(sessionId);
+      const snapshot = await ref.get();
+      if (!snapshot.exists) return undefined;
+      const session = snapshot.data() as StoredSession;
+      if (session.expiresAt <= Date.now()) {
+        await ref.delete();
+        return undefined;
+      }
+      return session;
+    }
+    const session = demoSessions.get(sessionId);
+    if (!session) return undefined;
+    if (session.expiresAt <= Date.now()) {
+      demoSessions.delete(sessionId);
+      demoSandboxes.delete(sessionId);
+      return undefined;
+    }
+    return session;
+  },
+
+  refreshSession: async (sessionId: string, ttlMs: number): Promise<void> => {
+    const expiresAt = Date.now() + ttlMs;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("sessions").doc(sessionId);
+      await ref.set({ expiresAt, expiresAtTtl: Timestamp.fromMillis(expiresAt) }, { merge: true });
+      return;
+    }
+    const session = demoSessions.get(sessionId);
+    if (session) demoSessions.set(sessionId, { ...session, expiresAt });
+    const sandbox = demoSandboxes.get(sessionId);
+    if (sandbox) demoSandboxes.set(sessionId, { ...sandbox, expiresAt });
+  },
+
+  deleteSession: async (sessionId: string): Promise<void> => {
+    announceIdentityChange();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("sessions").doc(sessionId).delete();
+      return;
+    }
+    demoSessions.delete(sessionId);
+    demoSandboxes.delete(sessionId);
+  },
+
+  // Audit log: additive operational history. It is intentionally separate from legacy tables.
+  createAuditLog: async (entry: Omit<AuditLogEntry, "id" | "timestamp">): Promise<AuditLogEntry> => {
+    const row: AuditLogEntry = { ...entry, id: randomUUID(), timestamp: new Date().toISOString() };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("auditLogs").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.auditLogs)) db.auditLogs = [];
+    db.auditLogs.unshift(row);
+    if (db.auditLogs.length > 2000) db.auditLogs.length = 2000;
+    saveDatabase();
+    return row;
+  },
+
+  getAuditLogs: async (limit = 250): Promise<AuditLogEntry[]> => {
+    const safeLimit = Math.max(1, Math.min(1000, Number(limit) || 250));
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("auditLogs").orderBy("timestamp", "desc").limit(safeLimit).get();
+      return snap.docs.map(doc => doc.data() as AuditLogEntry);
+    }
+    return [...(db.auditLogs || [])].sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp))).slice(0, safeLimit);
+  },
+
+  // Users
+  getUsers: async (): Promise<SystemUser[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snapshot = await firestoreDb.collection("users").orderBy("SystemUserId", "asc").get();
+      return snapshot.docs.map(doc => doc.data() as SystemUser);
+    }
+    return db.users;
+  },
+
+  getUserById: async (id: number): Promise<SystemUser | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("users").doc(`user_${id}`).get();
+      return doc.exists ? (doc.data() as SystemUser) : undefined;
+    }
+    return db.users.find(u => u.SystemUserId === id);
+  },
+
+  getUserByLogin: async (login: string): Promise<SystemUser | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      // Find exact matches first
+      const snap = await firestoreDb.collection("users").where("SystemUserLogin", "==", login).get();
+      if (!snap.empty) {
+        return snap.docs[0].data() as SystemUser;
+      }
+      // Case-insensitive check fallback
+      const allSnap = await firestoreDb.collection("users").get();
+      return allSnap.docs
+        .map(d => d.data() as SystemUser)
+        .find(u => u.SystemUserLogin.toLowerCase() === login.toLowerCase());
+    }
+    return db.users.find(u => u.SystemUserLogin.toLowerCase() === login.toLowerCase());
+  },
+
+  createUser: async (user: Omit<SystemUser, "SystemUserId">): Promise<SystemUser> => {
+    announceIdentityChange();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const nextId = await reserveFirestoreIds("users");
+      const newUser = { ...user, IsDeleted: user.IsDeleted ?? false, SystemUserId: nextId };
+      await firestoreDb.collection("users").doc(`user_${nextId}`).set(newUser);
+      return newUser;
+    }
+    const nextId = db.users.length > 0 ? Math.max(...db.users.map(u => u.SystemUserId)) + 1 : 1;
+    const newUser = { ...user, IsDeleted: user.IsDeleted ?? false, SystemUserId: nextId };
+    db.users.push(newUser);
+    saveDatabase();
+    return newUser;
+  },
+
+  updateUser: async (id: number, fields: Partial<SystemUser>): Promise<SystemUser> => {
+    announceIdentityChange();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docRef = firestoreDb.collection("users").doc(`user_${id}`);
+      const doc = await docRef.get();
+      if (!doc.exists) throw new Error("المستخدم غير موجود");
+      const updated = { ...(doc.data() as SystemUser), ...fields };
+      await docRef.set(updated);
+      return updated;
+    }
+    const idx = db.users.findIndex(u => u.SystemUserId === id);
+    if (idx === -1) throw new Error("المستخدم غير موجود");
+    db.users[idx] = { ...db.users[idx], ...fields };
+    saveDatabase();
+    return db.users[idx];
+  },
+
+  /**
+   * A deleted account takes its keys with it.
+   *
+   * Legacy SQL had no cascade from FormSecurity or AdCollegeUserAssign to
+   * SystemUser, and the real database still carries the orphan rows that proves
+   * it. Reproducing that faithfully turned out to be dangerous rather than
+   * merely untidy: `createUser` numbers a new account `max(id) + 1`, so
+   * deleting the newest user and creating another hands the new person the old
+   * one's permissions and the old one's departments — silently, on their first
+   * login, with nothing on any screen to suggest it.
+   *
+   * The grants are therefore removed in the same operation as the account, and
+   * the identity caches are told once at the end so no instance keeps serving
+   * the departed session. Rows belonging to accounts deleted before today are
+   * untouched: this closes the door, it does not rewrite history.
+   */
+  deleteUser: async (id: number): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const [permissions, scopes] = await Promise.all([
+        firestoreDb.collection("formSecurity").where("SystemUserId", "==", id).get(),
+        firestoreDb.collection("userScopes").where("SystemUserId", "==", id).get(),
+      ]);
+      const batch = firestoreDb.batch();
+      permissions.docs.forEach(doc => batch.delete(doc.ref));
+      scopes.docs.forEach(doc => batch.delete(doc.ref));
+      batch.delete(firestoreDb.collection("users").doc(`user_${id}`));
+      await batch.commit();
+      announceIdentityChange();
+      return;
+    }
+    db.users = db.users.filter(u => u.SystemUserId !== id);
+    db.formSecurity = db.formSecurity.filter(row => row.SystemUserId !== id);
+    db.collegeUserAssign = db.collegeUserAssign.filter(row => row.SystemUserId !== id);
+    saveDatabase();
+    announceIdentityChange();
+  },
+
+  // FormSecurity
+  getFormSecurity: async (): Promise<FormSecurity[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("formSecurity").get();
+      return snap.docs.map(doc => doc.data() as FormSecurity).sort((a,b)=>(a.legacyId ?? 0)-(b.legacyId ?? 0));
+    }
+    return [...db.formSecurity].sort((a,b)=>(a.legacyId ?? 0)-(b.legacyId ?? 0));
+  },
+
+  getSecurityByUser: async (userId: number): Promise<FormSecurity[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("formSecurity").where("SystemUserId", "==", userId).get();
+      return snap.docs.map(doc => doc.data() as FormSecurity).sort((a,b)=>(a.legacyId ?? 0)-(b.legacyId ?? 0));
+    }
+    return db.formSecurity.filter(fs => fs.SystemUserId === userId).sort((a,b)=>(a.legacyId ?? 0)-(b.legacyId ?? 0));
+  },
+
+  createSecurity: async (userId: number, formId: number): Promise<FormSecurity> => {
+    announceIdentityChange();
+    invalidateReference(REFERENCE_KEYS.formNames);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const legacyId = await reserveFirestoreIds("formSecurity");
+      const row: FormSecurity = { legacyId, SystemUserId: userId, FormNameId: formId };
+      await firestoreDb.collection("formSecurity").doc(`permission_${legacyId}`).set(row);
+      return row;
+    }
+    const legacyId = maxId(db.formSecurity, row => row.legacyId ?? 0) + 1;
+    const row: FormSecurity = { legacyId, SystemUserId: userId, FormNameId: formId };
+    db.formSecurity.push(row); saveDatabase(); return row;
+  },
+
+  updateSecurity: async (legacyId: number, userId: number, formId: number): Promise<FormSecurity> => {
+    announceIdentityChange();
+    invalidateReference(REFERENCE_KEYS.formNames);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("formSecurity").doc(`permission_${legacyId}`);
+      const snap = await ref.get(); if (!snap.exists) throw new Error("الصلاحية غير موجودة");
+      const row: FormSecurity = { legacyId, SystemUserId: userId, FormNameId: formId };
+      await ref.set(row); return row;
+    }
+    const idx = db.formSecurity.findIndex(row => row.legacyId === legacyId);
+    if (idx < 0) throw new Error("الصلاحية غير موجودة");
+    db.formSecurity[idx] = { legacyId, SystemUserId: userId, FormNameId: formId };
+    saveDatabase(); return db.formSecurity[idx];
+  },
+
+  deleteSecurity: async (legacyId: number): Promise<void> => {
+    announceIdentityChange();
+    invalidateReference(REFERENCE_KEYS.formNames);
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("formSecurity").doc(`permission_${legacyId}`).delete(); return; }
+    db.formSecurity = db.formSecurity.filter(row => row.legacyId !== legacyId); saveDatabase();
+  },
+
+  // Compatibility helper used by tests/admin internals. It preserves rows that remain and assigns
+  // a fresh legacy ID only to newly-added permissions.
+  saveSecurityByUser: async (userId: number, formIds: number[]): Promise<void> => {
+    announceIdentityChange();
+    invalidateReference(REFERENCE_KEYS.formNames);
+    const existing = await Repository.getSecurityByUser(userId);
+    const wanted = new Set(formIds);
+    for (const row of existing) if (!wanted.has(row.FormNameId) && row.legacyId != null) await Repository.deleteSecurity(row.legacyId);
+    const existingIds = new Set(existing.map(row => row.FormNameId));
+    for (const formId of formIds) if (!existingIds.has(formId)) await Repository.createSecurity(userId, formId);
+  },
+
+  // FormNames
+  getFormNames: async (): Promise<FormName[]> => scopedCachedReference(REFERENCE_KEYS.formNames, async () => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("formNames").orderBy("FormNameId", "asc").get();
+      return snap.docs.map(doc => doc.data() as FormName);
+    }
+    return db.formNames;
+  }),
+
+  // AdCollegeUserAssign
+  getCollegeUserAssigns: async (): Promise<AdCollegeUserAssign[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("userScopes").get();
+      return snap.docs.map(doc => doc.data() as AdCollegeUserAssign).sort((a,b)=>(a.legacyId ?? 0)-(b.legacyId ?? 0));
+    }
+    return [...db.collegeUserAssign].sort((a,b)=>(a.legacyId ?? 0)-(b.legacyId ?? 0));
+  },
+
+  getUserAssigns: async (userId: number): Promise<AdCollegeUserAssign[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("userScopes").where("SystemUserId", "==", userId).get();
+      return snap.docs.map(doc => doc.data() as AdCollegeUserAssign).sort((a,b)=>(a.legacyId ?? 0)-(b.legacyId ?? 0));
+    }
+    return db.collegeUserAssign.filter(c => c.SystemUserId === userId).sort((a,b)=>(a.legacyId ?? 0)-(b.legacyId ?? 0));
+  },
+
+  createUserAssign: async (userId:number, collegeId:number, sectionId:number): Promise<AdCollegeUserAssign> => {
+    announceIdentityChange();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const legacyId = await reserveFirestoreIds("userScopes");
+      const row: AdCollegeUserAssign = { legacyId, SystemUserId:userId, AdCollegeId:collegeId, AdSectionId:sectionId };
+      await firestoreDb.collection("userScopes").doc(`scope_${legacyId}`).set(row); return row;
+    }
+    const legacyId = maxId(db.collegeUserAssign, row => row.legacyId ?? 0) + 1;
+    const row: AdCollegeUserAssign = { legacyId, SystemUserId:userId, AdCollegeId:collegeId, AdSectionId:sectionId };
+    db.collegeUserAssign.push(row); saveDatabase(); return row;
+  },
+
+  updateUserAssign: async (legacyId:number, userId:number, collegeId:number, sectionId:number): Promise<AdCollegeUserAssign> => {
+    announceIdentityChange();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref=firestoreDb.collection("userScopes").doc(`scope_${legacyId}`); const snap=await ref.get();
+      if(!snap.exists) throw new Error("صلاحية الكلية والقسم العلمي غير موجودة");
+      const row:AdCollegeUserAssign={legacyId,SystemUserId:userId,AdCollegeId:collegeId,AdSectionId:sectionId}; await ref.set(row); return row;
+    }
+    const idx=db.collegeUserAssign.findIndex(row=>row.legacyId===legacyId); if(idx<0) throw new Error("صلاحية الكلية والقسم العلمي غير موجودة");
+    db.collegeUserAssign[idx]={legacyId,SystemUserId:userId,AdCollegeId:collegeId,AdSectionId:sectionId}; saveDatabase(); return db.collegeUserAssign[idx];
+  },
+
+  deleteUserAssign: async (legacyId:number): Promise<void> => {
+    announceIdentityChange();
+    if (firestoreDb && !demoSandboxContext.getStore()){await firestoreDb.collection("userScopes").doc(`scope_${legacyId}`).delete();return;}
+    db.collegeUserAssign=db.collegeUserAssign.filter(row=>row.legacyId!==legacyId); saveDatabase();
+  },
+
+  saveUserAssigns: async (userId: number, assigns: { AdCollegeId: number; AdSectionId: number }[]): Promise<void> => {
+    announceIdentityChange();
+    const existing = await Repository.getUserAssigns(userId);
+    const targetCounts = new Map<string, number>();
+    for (const a of assigns) { const k=`${a.AdCollegeId}:${a.AdSectionId}`; targetCounts.set(k,(targetCounts.get(k)||0)+1); }
+    const used = new Map<string, number>();
+    for (const row of existing) {
+      const k=`${row.AdCollegeId}:${row.AdSectionId}`; const n=(used.get(k)||0)+1; used.set(k,n);
+      if(n>(targetCounts.get(k)||0) && row.legacyId!=null) await Repository.deleteUserAssign(row.legacyId);
+    }
+    const existingCounts = new Map<string, number>();
+    for (const row of existing) { const k=`${row.AdCollegeId}:${row.AdSectionId}`; existingCounts.set(k,(existingCounts.get(k)||0)+1); }
+    for (const a of assigns) {
+      const k=`${a.AdCollegeId}:${a.AdSectionId}`; const remaining=existingCounts.get(k)||0;
+      if(remaining>0) existingCounts.set(k,remaining-1); else await Repository.createUserAssign(userId,a.AdCollegeId,a.AdSectionId);
+    }
+  },
+
+  // Terms
+  getTerms: async (): Promise<AdTerm[]> => scopedCachedReference(REFERENCE_KEYS.terms, async () => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("terms").orderBy("AdTermId", "asc").get();
+      return snap.docs.map(doc => doc.data() as AdTerm);
+    }
+    return db.terms;
+  }),
+
+  getTermById: async (id: number): Promise<AdTerm | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("terms").doc(`term_${id}`).get();
+      return doc.exists ? (doc.data() as AdTerm) : undefined;
+    }
+    return db.terms.find(t => t.AdTermId === id);
+  },
+
+  /* `dates` is optional so every existing name-only caller stays valid, and so
+     a term created without a calendar is still a term. Undefined fields are
+     stripped rather than written: Firestore rejects an explicit undefined. */
+  createTerm: async (name: string, dates?: { start?: string; weeks?: number; closed?: boolean }): Promise<AdTerm> => {
+    invalidateReference(REFERENCE_KEYS.terms);
+    const calendar = termCalendarFields(dates);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const nextId = await reserveFirestoreIds("terms");
+      const newTerm = { AdTermId: nextId, AdTermName: name, ...calendar };
+      await firestoreDb.collection("terms").doc(`term_${nextId}`).set(newTerm);
+      return newTerm;
+    }
+    const nextId = db.terms.length > 0 ? Math.max(...db.terms.map(t => t.AdTermId)) + 1 : 1;
+    const newTerm = { AdTermId: nextId, AdTermName: name, ...calendar };
+    db.terms.push(newTerm);
+    saveDatabase();
+    return newTerm;
+  },
+
+  /**
+   * إنشاءُ فصلٍ بالاسم إن لم يوجد — للمهمة التلقائية (src/server/autoTerms.ts).
+   * في Firestore يُحجز الاسم أولاً بوثيقة ‎create()‎ (تفشل إن سبقت نسخةٌ أخرى)،
+   * فلا يولد فصلان بالاسم نفسه من نسختين تقلعان معاً. يعيد null إن وُجد.
+   */
+  createTermIfAbsent: async (name: string, dates: { start: string; weeks: number }): Promise<AdTerm | null> => {
+    const norm = (v: unknown) => String(v ?? "").replace(/\s+/g, "");
+    /* الاسمُ وحده لا يكفي: «الفصل الدراسي الثاني 2026/2027» المُدخل يدوياً هو
+       الفصلُ نفسه. فيُطابَق الموسمُ والسنتان أيضاً (termChronology). */
+    const hasYears = (v: unknown) => /\d{4}\s*\/\s*\d{4}/.test(String(v ?? ""));
+    const rank = termChronology({ AdTermName: name });
+    const exists = (await Repository.getTerms()).some(term => norm(term.AdTermName) === norm(name)
+      || (hasYears(term.AdTermName) && hasYears(name) && termChronology(term) === rank));
+    if (exists) return null;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const claim = firestoreDb.collection("autoTermClaims").doc(createHash("sha256").update(norm(name)).digest("hex").slice(0, 32));
+      try {
+        await claim.create({ name, at: new Date().toISOString() });
+      } catch {
+        return null;
+      }
+      /* إن فشل الإنشاء بعد الحجز يُفكّ الحجز، وإلا بقي الفصل محجوزاً لا يُنشأ أبداً. */
+      try { return await Repository.createTerm(name, dates); }
+      catch (error) { await claim.delete().catch(() => undefined); throw error; }
+    }
+    return Repository.createTerm(name, dates);
+  },
+
+  /**
+   * موعد تسليم الجداول للفصل.
+   *
+   * دالّةٌ مستقلّة لحقلٍ واحد، لأن من يضعه — رئيس التسجيل — لا يعدّل اسم
+   * الفصل ولا تقويمه، وإجبارُه على تمرير الاسم ليغيّر تاريخاً كان سيجعل نسيانَ
+   * تمريره إعادةَ تسميةٍ لا يقصدها أحد. وتاريخٌ فارغ يرفع الموعد بدل أن يكتب
+   * قيمةً مستحيلة: رفعُ القيد قرارٌ واردٌ كوضعه.
+   */
+  setTermSubmissionDeadline: async (id: number, deadline: string | undefined): Promise<AdTerm> => {
+    invalidateReference(REFERENCE_KEYS.terms);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docRef = firestoreDb.collection("terms").doc(`term_${id}`);
+      const doc = await docRef.get();
+      if (!doc.exists) throw new Error("الفصل الدراسي غير موجود");
+      const updated = { ...(doc.data() as AdTerm) };
+      if (deadline) updated.AdTermSubmissionDeadline = deadline;
+      else delete updated.AdTermSubmissionDeadline;
+      await docRef.set(updated);
+      return updated;
+    }
+    const index = db.terms.findIndex(row => row.AdTermId === id);
+    if (index === -1) throw new Error("الفصل الدراسي غير موجود");
+    if (deadline) db.terms[index].AdTermSubmissionDeadline = deadline;
+    else delete db.terms[index].AdTermSubmissionDeadline;
+    saveDatabase();
+    return db.terms[index];
+  },
+
+  /**
+   * تواريخ رحلة الطلبة للفصل (الرغبات، الجولات، الإغلاق).
+   *
+   * دالّةٌ مستقلّة لحقلٍ واحد لنفس سبب موعد التسليم: من يضعها رئيسُ التسجيل لا
+   * محرّرُ الفصل. وقيمةٌ فارغة ترفعها بدل أن تكتب كائناً فارغاً.
+   */
+  setTermStudentPhases: async (id: number, phases: TermStudentPhases | undefined): Promise<AdTerm> => {
+    invalidateReference(REFERENCE_KEYS.terms);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docRef = firestoreDb.collection("terms").doc(`term_${id}`);
+      const doc = await docRef.get();
+      if (!doc.exists) throw new Error("الفصل الدراسي غير موجود");
+      const updated = { ...(doc.data() as AdTerm) };
+      if (phases) updated.AdTermStudentPhases = phases;
+      else delete updated.AdTermStudentPhases;
+      await docRef.set(updated);
+      return updated;
+    }
+    const index = db.terms.findIndex(row => row.AdTermId === id);
+    if (index === -1) throw new Error("الفصل الدراسي غير موجود");
+    if (phases) db.terms[index].AdTermStudentPhases = phases;
+    else delete db.terms[index].AdTermStudentPhases;
+    saveDatabase();
+    return db.terms[index];
+  },
+
+  updateTerm: async (id: number, name: string, dates?: { start?: string; weeks?: number; closed?: boolean }): Promise<AdTerm> => {
+    invalidateReference(REFERENCE_KEYS.terms);
+    const calendar = termCalendarFields(dates);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docRef = firestoreDb.collection("terms").doc(`term_${id}`);
+      const doc = await docRef.get();
+      if (!doc.exists) throw new Error("الفصل الدراسي غير موجود");
+      /**
+       * ── ما لا تعرفه هذه الدالّة تحفظه ولا تمحوه ─────────────────────────
+       *
+       * الكتابة هنا استبدالٌ كامل للوثيقة، لا دمج. وكانت الوثيقة لا تحمل غير
+       * الاسم والتقويم، فلم يكن للاستبدال ضحية. أمّا الآن فعليها موعد تسليم
+       * الجداول — وتصحيحُ حرفٍ في اسم الفصل كان سيمحوه بصمت، فيسقط القيد عن
+       * كل الأقسام ولا يظهر ذلك في أي شاشة.
+       *
+       * فما لا يذكره هذا النداء صراحةً يُنقل كما هو.
+       */
+      const previous = doc.data() as AdTerm;
+      const updated: AdTerm = { ...previous, AdTermId: id, AdTermName: name, ...calendar };
+      if (previous.AdTermClosed === true && calendar.AdTermClosed === false) updated.AdTermReopenedAt = new Date().toISOString();
+      if (!calendar.AdTermStart) delete updated.AdTermStart;
+      if (!calendar.AdTermWeeks) delete updated.AdTermWeeks;
+      await docRef.set(updated);
+      return updated;
+    }
+    const idx = db.terms.findIndex(t => t.AdTermId === id);
+    if (idx === -1) throw new Error("الفصل الدراسي غير موجود");
+    db.terms[idx].AdTermName = name;
+    if (db.terms[idx].AdTermClosed === true && calendar.AdTermClosed === false) db.terms[idx].AdTermReopenedAt = new Date().toISOString();
+    Object.assign(db.terms[idx], calendar);
+    if (!calendar.AdTermStart) delete db.terms[idx].AdTermStart;
+    if (!calendar.AdTermWeeks) delete db.terms[idx].AdTermWeeks;
+    saveDatabase();
+    return db.terms[idx];
+  },
+
+  deleteTerm: async (id: number): Promise<void> => {
+    invalidateReference(REFERENCE_KEYS.terms);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await archiveBeforeDelete("terms", `term_${id}`);
+      await firestoreDb.collection("terms").doc(`term_${id}`).delete();
+      return;
+    }
+    db.terms = db.terms.filter(t => t.AdTermId !== id);
+    saveDatabase();
+  },
+
+  // Colleges
+  getColleges: async (): Promise<AdCollege[]> => scopedCachedReference(REFERENCE_KEYS.colleges, async () => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("colleges").orderBy("AdCollegeId", "asc").get();
+      return snap.docs.map(doc => doc.data() as AdCollege);
+    }
+    return db.colleges;
+  }),
+
+  getCollegeById: async (id: number): Promise<AdCollege | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("colleges").doc(`college_${id}`).get();
+      return doc.exists ? (doc.data() as AdCollege) : undefined;
+    }
+    return db.colleges.find(c => c.AdCollegeId === id);
+  },
+
+  createCollege: async (code: string, name: string): Promise<AdCollege> => {
+    invalidateReference(REFERENCE_KEYS.colleges);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const nextId = await reserveFirestoreIds("colleges");
+      const newColl = { AdCollegeId: nextId, AdCollegeCode: code, AdCollegeName: name };
+      await firestoreDb.collection("colleges").doc(`college_${nextId}`).set(newColl);
+      return newColl;
+    }
+    const nextId = db.colleges.length > 0 ? Math.max(...db.colleges.map(c => c.AdCollegeId)) + 1 : 1;
+    const newColl = { AdCollegeId: nextId, AdCollegeCode: code, AdCollegeName: name };
+    db.colleges.push(newColl);
+    saveDatabase();
+    return newColl;
+  },
+
+  updateCollege: async (id: number, code: string, name: string): Promise<AdCollege> => {
+    invalidateReference(REFERENCE_KEYS.colleges);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docRef = firestoreDb.collection("colleges").doc(`college_${id}`);
+      const doc = await docRef.get();
+      if (!doc.exists) throw new Error("الكلية غير موجودة");
+      const updated = { AdCollegeId: id, AdCollegeCode: code, AdCollegeName: name };
+      await docRef.set(updated);
+      return updated;
+    }
+    const idx = db.colleges.findIndex(c => c.AdCollegeId === id);
+    if (idx === -1) throw new Error("الكلية غير موجودة");
+    db.colleges[idx].AdCollegeCode = code;
+    db.colleges[idx].AdCollegeName = name;
+    saveDatabase();
+    return db.colleges[idx];
+  },
+
+  deleteCollege: async (id: number): Promise<void> => {
+    invalidateReference(REFERENCE_KEYS.colleges);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await archiveBeforeDelete("colleges", `college_${id}`);
+      await firestoreDb.collection("colleges").doc(`college_${id}`).delete();
+      return;
+    }
+    db.colleges = db.colleges.filter(c => c.AdCollegeId !== id);
+    saveDatabase();
+  },
+
+  // Sections
+  getSections: async (): Promise<AdSection[]> => scopedCachedReference(REFERENCE_KEYS.sections, async () => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("sections").orderBy("AdSectionId", "asc").get();
+      return snap.docs.map(doc => doc.data() as AdSection);
+    }
+    return db.sections;
+  }),
+
+  getSectionById: async (id: number): Promise<AdSection | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("sections").doc(`section_${id}`).get();
+      return doc.exists ? (doc.data() as AdSection) : undefined;
+    }
+    return db.sections.find(s => s.AdSectionId === id);
+  },
+
+  getSectionsByCollege: async (collegeId: number): Promise<AdSection[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("sections").where("AdCollegeId", "==", collegeId).get();
+      return snap.docs.map(doc => doc.data() as AdSection);
+    }
+    return db.sections.filter(s => s.AdCollegeId === collegeId);
+  },
+
+  createSection: async (collegeId: number, code: string, name: string): Promise<AdSection> => {
+    invalidateReference(REFERENCE_KEYS.sections);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const nextId = await reserveFirestoreIds("sections");
+      const newSec = { AdSectionId: nextId, AdCollegeId: collegeId, AdSectionCode: code, AdSectionName: name };
+      await firestoreDb.collection("sections").doc(`section_${nextId}`).set(newSec);
+      invalidateScheduleRelationCache();
+      return newSec;
+    }
+    const nextId = db.sections.length > 0 ? Math.max(...db.sections.map(s => s.AdSectionId)) + 1 : 1;
+    const newSec = { AdSectionId: nextId, AdCollegeId: collegeId, AdSectionCode: code, AdSectionName: name };
+    db.sections.push(newSec);
+    saveDatabase();
+    return newSec;
+  },
+
+  updateSection: async (id: number, collegeId: number, code: string, name: string): Promise<AdSection> => {
+    invalidateReference(REFERENCE_KEYS.sections);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docRef = firestoreDb.collection("sections").doc(`section_${id}`);
+      const doc = await docRef.get();
+      if (!doc.exists) throw new Error("القسم غير موجود");
+      const updated = { AdSectionId: id, AdCollegeId: collegeId, AdSectionCode: code, AdSectionName: name };
+      await docRef.set(updated);
+      invalidateScheduleRelationCache();
+      await markRegistrationRunsStale();
+      return updated;
+    }
+    const idx = db.sections.findIndex(s => s.AdSectionId === id);
+    if (idx === -1) throw new Error("القسم غير موجود");
+    db.sections[idx] = { AdSectionId: id, AdCollegeId: collegeId, AdSectionCode: code, AdSectionName: name };
+    saveDatabase();
+    return db.sections[idx];
+  },
+
+  deleteSection: async (id: number): Promise<void> => {
+    invalidateReference(REFERENCE_KEYS.sections);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await archiveBeforeDelete("sections", `section_${id}`);
+      await firestoreDb.collection("sections").doc(`section_${id}`).delete();
+      invalidateScheduleRelationCache();
+      return;
+    }
+    db.sections = db.sections.filter(s => s.AdSectionId !== id);
+    saveDatabase();
+  },
+
+  // Instructors
+  getInstructors: async (): Promise<AdInstructor[]> => scopedCachedReference(REFERENCE_KEYS.instructors, async () => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("instructors").orderBy("AdInstructorId", "asc").get();
+      return sortByName(snap.docs.map(doc => doc.data() as AdInstructor), person => person.AdInstructorName);
+    }
+    return sortByName(db.instructors, person => person.AdInstructorName);
+  }),
+
+  /**
+   * Resolve only the people referenced by the open department/term.
+   *
+   * In Firestore this deliberately reads the small set of instructor documents
+   * by id.  It must not hydrate the university-wide register merely to display
+   * the people teaching in one department.
+   */
+  getInstructorsByScheduleScope: async (filters: { collegeId?: number; sectionId?: number; termId?: number }): Promise<AdInstructor[]> => {
+    const rows = await Repository.getSchedulesByScope(filters);
+    const ids = [...new Set(rows.map(row => Number(row.AdInstructorId)).filter(Boolean))];
+    if (!ids.length) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docs = await Promise.all(ids.map(id => firestoreDb!.collection("instructors").doc(`instructor_${id}`).get()));
+      return docs
+        .filter(doc => doc.exists)
+        .map(doc => doc.data() as AdInstructor)
+        .sort((a, b) => byArabic(a.AdInstructorName, b.AdInstructorName));
+    }
+    const wanted = new Set(ids);
+    return sortByName(db.instructors.filter(person => wanted.has(Number(person.AdInstructorId))), person => person.AdInstructorName);
+  },
+
+  getInstructorsByScope: async (sectionId: number, termId = 0): Promise<AdInstructor[]> =>
+    Repository.getInstructorsByScheduleScope({ sectionId, termId }),
+
+  getInstructorById: async (id: number): Promise<AdInstructor | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("instructors").doc(`instructor_${id}`).get();
+      return doc.exists ? (doc.data() as AdInstructor) : undefined;
+    }
+    return db.instructors.find(i => i.AdInstructorId === id);
+  },
+
+  getInstructorByCivil: async (civil: string): Promise<AdInstructor | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("instructors").where("AdInstructorCivil", "==", civil).get();
+      return snap.empty ? undefined : (snap.docs[0].data() as AdInstructor);
+    }
+    return db.instructors.find(i => i.AdInstructorCivil === civil);
+  },
+
+  createInstructor: async (civil: string, name: string, mobile: string): Promise<AdInstructor> => {
+    invalidateReference(REFERENCE_KEYS.instructors);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const nextId = await reserveFirestoreIds("instructors");
+      const newIns = { AdInstructorId: nextId, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile };
+      await firestoreDb.collection("instructors").doc(`instructor_${nextId}`).set(newIns);
+      return newIns;
+    }
+    const nextId = db.instructors.length > 0 ? Math.max(...db.instructors.map(i => i.AdInstructorId)) + 1 : 1;
+    const newIns = { AdInstructorId: nextId, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile };
+    db.instructors.push(newIns);
+    saveDatabase();
+    return newIns;
+  },
+
+  updateInstructor: async (id: number, civil: string, name: string, mobile: string, status?: "retired" | "sabbatical" | null, load?: number | null): Promise<AdInstructor> => {
+    invalidateReference(REFERENCE_KEYS.instructors);
+    // Only a real status is stored; anything else clears the field so the record
+    // stays clean and an active teacher carries no status at all (Note 2).
+    const statusField = status === "retired" || status === "sabbatical" ? { AdInstructorStatus: status } : {};
+    /* والنصابُ كذلك: رقمٌ موجبٌ يُحفظ، وأيُّ شيءٍ آخر يمحوه — فأستاذٌ رُفع
+       نصابُه يعود بلا نصاب، لا بنصابٍ صفر. والفرقُ ليس شكلياً: الصفرُ قيدٌ
+       يمنع كلَّ شيء، والغيابُ قيدٌ صامت. */
+    const loadValue = Number(load);
+    const loadField = Number.isFinite(loadValue) && loadValue > 0 ? { AdInstructorLoad: loadValue } : {};
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docRef = firestoreDb.collection("instructors").doc(`instructor_${id}`);
+      const doc = await docRef.get();
+      if (!doc.exists) throw new Error("الأستاذ غير موجود");
+      const updated: AdInstructor = { AdInstructorId: id, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile, ...statusField, ...loadField };
+      await docRef.set(updated);
+      return updated;
+    }
+    const idx = db.instructors.findIndex(i => i.AdInstructorId === id);
+    if (idx === -1) throw new Error("الأستاذ غير موجود");
+    db.instructors[idx] = { AdInstructorId: id, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile, ...statusField, ...loadField };
+    saveDatabase();
+    return db.instructors[idx];
+  },
+
+  deleteInstructor: async (id: number): Promise<void> => {
+    invalidateReference(REFERENCE_KEYS.instructors);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await archiveBeforeDelete("instructors", `instructor_${id}`);
+      await firestoreDb.collection("instructors").doc(`instructor_${id}`).delete();
+      return;
+    }
+    db.instructors = db.instructors.filter(i => i.AdInstructorId !== id);
+    saveDatabase();
+  },
+
+  // Courses
+  getCourses: async (): Promise<AdCourse[]> => scopedCachedReference(REFERENCE_KEYS.courses, async () => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const [courseSnap, sectionSnap] = await Promise.all([
+        firestoreDb.collection("courses").orderBy("AdCourseId", "asc").get(),
+        firestoreDb.collection("sections").get()
+      ]);
+      return sortByName(hydrateCourses(
+        courseSnap.docs.map(doc => doc.data() as AdCourse),
+        sectionSnap.docs.map(doc => doc.data() as AdSection)
+      ), course => course.CourseName);
+    }
+    return sortByName(hydrateCourses(db.courses, db.sections), course => course.CourseName);
+  }),
+
+  getCourseById: async (id: number): Promise<AdCourse | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("courses").doc(`course_${id}`).get();
+      if (!doc.exists) return undefined;
+      const course = doc.data() as AdCourse;
+      const sectionDoc = await firestoreDb.collection("sections").doc(`section_${course.AdSectionId}`).get();
+      return hydrateCourses([course], sectionDoc.exists ? [sectionDoc.data() as AdSection] : [])[0];
+    }
+    const course = db.courses.find(c => c.AdCourseId === id);
+    return course ? hydrateCourses([course], db.sections)[0] : undefined;
+  },
+
+  getCoursesBySection: async (sectionId: number): Promise<AdCourse[]> => scopedCachedReference(`courses:${sectionId}`, async () => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      /* بعض السجلات القديمة خزّنت رقم القسم كنص، بينما السجلات الجديدة
+         تخزّنه كرقم. Firestore يفرّق بين 12 و"12" في الاستعلام؛ لذلك كان
+         يظهر مقرر واحد جديد وتختفي بقية مقررات القسم القديمة. نقرأ الشكلين
+         ثم نوحّدهما بالمعرّف، كي تتطابق قائمة الإضافة مع كتالوج القسم كله. */
+      const [numericSnap, textSnap, sectionDoc] = await Promise.all([
+        firestoreDb.collection("courses").where("AdSectionId", "==", sectionId).get(),
+        firestoreDb.collection("courses").where("AdSectionId", "==", String(sectionId)).get(),
+        firestoreDb.collection("sections").doc(`section_${sectionId}`).get()
+      ]);
+      const courses = new Map<number, AdCourse>();
+      [...numericSnap.docs, ...textSnap.docs].forEach(doc => {
+        const course = doc.data() as AdCourse;
+        if (Number(course.AdSectionId) === Number(sectionId)) courses.set(Number(course.AdCourseId), course);
+      });
+      return sortByName(hydrateCourses(
+        [...courses.values()],
+        sectionDoc.exists ? [sectionDoc.data() as AdSection] : []
+      ), course => course.CourseName);
+    }
+    return sortByName(hydrateCourses(db.courses.filter(c => Number(c.AdSectionId) === Number(sectionId)), db.sections), course => course.CourseName);
+  }),
+
+  createCourse: async (
+    collegeId: number,
+    sectionId: number,
+    code: string,
+    name: string,
+    credit: number,
+    hours: number,
+    maxStudent: number,
+    /** false: كتالوجٌ فحسب — لا يُربط بالصحيفة الفعالة (التطبيق المرجعي يربط ما يشاء صراحةً). */
+    attachToActive = true
+  ): Promise<AdCourse> => {
+    /* اسمٌ منسوخٌ من PDF يُحفظ حروفاً عادية لا «أشكال عرض» — لكل طريق كتابة. */
+    name = normalizeArabicText(name);
+    invalidateReference(REFERENCE_KEYS.courses);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const nextId = await reserveFirestoreIds("courses");
+      const newCourse: AdCourse = {
+        AdCourseId: nextId,
+        AdCollegeId: collegeId,
+        AdSectionId: sectionId,
+        CourseCode: code,
+        CourseName: name,
+        CourseCredit: credit,
+        CourseHours: hours,
+        MaxStudent: maxStudent
+      };
+      /* The course code is unique within its department, and that uniqueness is
+         claimed in the same transaction that writes the record. Two identical
+         submissions therefore cannot both land: the second one finds the claim
+         and is refused. (A reserved id may go unused when that happens — ids are
+         a counter, not a sequence anyone reads.) */
+      const claimRef = firestoreDb.collection("courseCodeClaims").doc(courseCodeClaimId(sectionId, code));
+      const courseRef = firestoreDb.collection("courses").doc(`course_${nextId}`);
+      await firestoreDb.runTransaction(async transaction => {
+        const claim = await transaction.get(claimRef);
+        if (claim.exists) {
+          /* A claim only blocks while the course it names still holds that code.
+             Deleting a course, or editing its code away, leaves the old claim
+             behind; re-using that code afterwards is legitimate and must not be
+             refused. So the claim is verified against the record before it is
+             believed, and a stale one is simply taken over. This keeps the
+             delete and update paths free of claim bookkeeping. */
+          const ownerId = Number(claim.data()?.AdCourseId || 0);
+          const owner = ownerId ? await transaction.get(firestoreDb!.collection("courses").doc(`course_${ownerId}`)) : null;
+          const ownerData = owner?.exists ? owner.data() as AdCourse : null;
+          const stillOwned = Boolean(ownerData && ownerData.CourseCode === code && Number(ownerData.AdSectionId) === sectionId);
+          if (stillOwned) throw new DuplicateResourceError("تم تسجيل رمز المقرر الدراسي هذا من قبل");
+        }
+        transaction.set(claimRef, { AdSectionId: sectionId, CourseCode: code, AdCourseId: nextId });
+        transaction.set(courseRef, newCourse);
+      });
+      invalidateScheduleRelationCache();
+      if (attachToActive) await Repository.attachCourseToActiveCurriculum(newCourse);
+      await markRegistrationRunsStale();
+      return newCourse;
+    }
+    if (db.courses.some(course => course.AdSectionId === sectionId && course.CourseCode === code)) {
+      throw new DuplicateResourceError("تم تسجيل رمز المقرر الدراسي هذا من قبل");
+    }
+    const nextId = db.courses.length > 0 ? Math.max(...db.courses.map(c => c.AdCourseId)) + 1 : 1;
+    const newCourse = {
+      AdCourseId: nextId,
+      AdCollegeId: collegeId,
+      AdSectionId: sectionId,
+      CourseCode: code,
+      CourseName: name,
+      CourseCredit: credit,
+      CourseHours: hours,
+      MaxStudent: maxStudent
+    };
+    db.courses.push(newCourse);
+    saveDatabase();
+    if (attachToActive) await Repository.attachCourseToActiveCurriculum(newCourse);
+    await markRegistrationRunsStale();
+    return newCourse;
+  },
+
+  updateCourse: async (
+    id: number,
+    collegeId: number,
+    sectionId: number,
+    code: string,
+    name: string,
+    credit: number,
+    hours: number,
+    maxStudent: number
+  ): Promise<AdCourse> => {
+    /* اسمٌ منسوخٌ من PDF يُحفظ حروفاً عادية لا «أشكال عرض» — لكل طريق كتابة. */
+    name = normalizeArabicText(name);
+    invalidateReference(REFERENCE_KEYS.courses);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docRef = firestoreDb.collection("courses").doc(`course_${id}`);
+      const doc = await docRef.get();
+      if (!doc.exists) throw new Error("المقرر غير موجود");
+      const updated: AdCourse = {
+        AdCourseId: id,
+        AdCollegeId: collegeId,
+        AdSectionId: sectionId,
+        CourseCode: code,
+        CourseName: name,
+        CourseCredit: credit,
+        CourseHours: hours,
+        MaxStudent: maxStudent
+      };
+      await docRef.set(updated);
+      invalidateScheduleRelationCache();
+      await markRegistrationRunsStale();
+      return updated;
+    }
+    const idx = db.courses.findIndex(c => c.AdCourseId === id);
+    if (idx === -1) throw new Error("المقرر غير موجود");
+    db.courses[idx] = {
+      AdCourseId: id,
+      AdCollegeId: collegeId,
+      AdSectionId: sectionId,
+      CourseCode: code,
+      CourseName: name,
+      CourseCredit: credit,
+      CourseHours: hours,
+      MaxStudent: maxStudent
+    };
+    saveDatabase();
+    await markRegistrationRunsStale();
+    return db.courses[idx];
+  },
+
+  deleteCourse: async (id: number): Promise<void> => {
+    invalidateReference(REFERENCE_KEYS.courses);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await archiveBeforeDelete("courses", `course_${id}`);
+      await firestoreDb.collection("courses").doc(`course_${id}`).delete();
+      invalidateScheduleRelationCache();
+      await markRegistrationRunsStale();
+      return;
+    }
+    db.courses = db.courses.filter(c => c.AdCourseId !== id);
+    saveDatabase();
+    await markRegistrationRunsStale();
+  },
+
+  // Curriculum plans -------------------------------------------------------
+  getCurriculumPlans: async (sectionId: number): Promise<CurriculumPlan[]> => {
+    const sid = Number(sectionId || 0);
+    if (!sid) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("curriculumPlans").where("AdSectionId", "==", sid).get();
+      return snap.docs.map(doc => doc.data() as CurriculumPlan)
+        .sort((a,b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    }
+    if (!Array.isArray(db.curriculumPlans)) db.curriculumPlans = [];
+    return db.curriculumPlans.filter(row => Number(row.AdSectionId) === sid)
+      .sort((a,b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  },
+
+  getCurriculumPlanCourses: async (sectionId: number): Promise<CurriculumPlanCourse[]> => {
+  const sid = Number(sectionId || 0);
+  if (!sid) return [];
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    const [numericSnap, textSnap] = await Promise.all([
+      firestoreDb.collection("curriculumPlanCourses").where("AdSectionId", "==", sid).get(),
+      firestoreDb.collection("curriculumPlanCourses").where("AdSectionId", "==", String(sid)).get(),
+    ]);
+    const rows = new Map<string, CurriculumPlanCourse>();
+    [...numericSnap.docs, ...textSnap.docs].forEach(doc => {
+      const row = doc.data() as CurriculumPlanCourse;
+      if (Number(row.AdSectionId) === sid) rows.set(String(row.id || doc.id), row);
+    });
+    return [...rows.values()];
+  }
+  if (!Array.isArray(db.curriculumPlanCourses)) db.curriculumPlanCourses = [];
+  return db.curriculumPlanCourses.filter(row => Number(row.AdSectionId) === sid);
+},
+
+  getCourseTransitions: async (sectionId: number): Promise<CourseTransition[]> => {
+    const sid = Number(sectionId || 0);
+    if (!sid) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("courseTransitions").where("AdSectionId", "==", sid).get();
+      return snap.docs.map(doc => doc.data() as CourseTransition)
+        .sort((a,b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    }
+    if (!Array.isArray(db.courseTransitions)) db.courseTransitions = [];
+    return db.courseTransitions.filter(row => Number(row.AdSectionId) === sid)
+      .sort((a,b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  },
+
+  /**
+   * Before the first explicit curriculum exists, the catalogue itself is the
+   * transition plan. The first new plan materializes that exact catalogue as a
+   * historical/transition version and starts the new version EMPTY — important
+   * for departments where most of the new curriculum is genuinely new.
+   */
+  createCurriculumPlan: async (input: { collegeId:number; sectionId:number; name:string; code?:string; by?:string }): Promise<CurriculumPlan> => {
+    const collegeId=Number(input.collegeId), sectionId=Number(input.sectionId);
+    const now=new Date().toISOString();
+    const existing=await Repository.getCurriculumPlans(sectionId);
+    const courses=await Repository.getCoursesBySection(sectionId);
+    /* The department's saved graduation rule is, by definition, the rule its
+       current students were admitted under. It travels with them into «الصحيفة
+       السابقة»; the new plan starts without one and asks for its own. */
+    const sectionRule=(await Repository.getDegreeRules()).find(row=>Number(row.AdSectionId)===sectionId);
+    const legacyRule:CurriculumDegreeRule|undefined=sectionRule?{
+      degreeUnits:Number(sectionRule.degreeUnits),fieldTrainingRequired:Number(sectionRule.fieldTrainingRequired),
+      graduateRegularPassed:Number(sectionRule.graduateRegularPassed),graduateSummerPassed:Number(sectionRule.graduateSummerPassed),
+      updatedAt:String(sectionRule.updatedAt||now),updatedBy:String(sectionRule.updatedBy||"")||undefined,
+    }:undefined;
+    const newPlan:CurriculumPlan={
+      id: randomUUID(), AdCollegeId:collegeId, AdSectionId:sectionId,
+      name:String(input.name||"").trim(), code:String(input.code||"").trim()||undefined,
+      status:"active", createdAt:now, createdBy:String(input.by||"")||undefined, activatedAt:now,
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const batch=firestoreDb.batch();
+      if (!existing.length) {
+        const legacy:CurriculumPlan={
+          id:randomUUID(),AdCollegeId:collegeId,AdSectionId:sectionId,
+          name:"الصحيفة السابقة",code:"LEGACY",status:"transition",createdAt:now,createdBy:String(input.by||"")||undefined,
+          ...(legacyRule?{degreeRule:legacyRule}:{}),
+        };
+        batch.set(firestoreDb.collection("curriculumPlans").doc(legacy.id),legacy);
+        for(const course of courses){
+          const row:CurriculumPlanCourse={id:`${legacy.id}_${course.AdCourseId}`,planId:legacy.id,AdCollegeId:collegeId,AdSectionId:sectionId,AdCourseId:course.AdCourseId,createdAt:now,createdBy:String(input.by||"")||undefined};
+          batch.set(firestoreDb.collection("curriculumPlanCourses").doc(row.id),row);
+        }
+      } else {
+        for(const plan of existing.filter(row=>row.status==="active")) batch.set(firestoreDb.collection("curriculumPlans").doc(plan.id),{status:"transition"},{merge:true});
+      }
+      batch.set(firestoreDb.collection("curriculumPlans").doc(newPlan.id),newPlan);
+      await batch.commit();
+      await markRegistrationRunsStale();
+      return newPlan;
+    }
+    if (!Array.isArray(db.curriculumPlans)) db.curriculumPlans=[];
+    if (!Array.isArray(db.curriculumPlanCourses)) db.curriculumPlanCourses=[];
+    if (!existing.length) {
+      const legacy:CurriculumPlan={id:randomUUID(),AdCollegeId:collegeId,AdSectionId:sectionId,name:"الصحيفة السابقة",code:"LEGACY",status:"transition",createdAt:now,createdBy:String(input.by||"")||undefined,...(legacyRule?{degreeRule:legacyRule}:{})};
+      db.curriculumPlans.push(legacy);
+      db.curriculumPlanCourses.push(...courses.map(course=>({id:`${legacy.id}_${course.AdCourseId}`,planId:legacy.id,AdCollegeId:collegeId,AdSectionId:sectionId,AdCourseId:course.AdCourseId,createdAt:now,createdBy:String(input.by||"")||undefined})));
+    } else {
+      db.curriculumPlans=db.curriculumPlans.map(plan=>Number(plan.AdSectionId)===sectionId&&plan.status==="active"?{...plan,status:"transition"}:plan);
+    }
+    db.curriculumPlans.push(newPlan); saveDatabase(); await markRegistrationRunsStale(); return newPlan;
+  },
+
+  /** Rename a plan or set its graduation rule. Status never changes here. */
+  updateCurriculumPlan: async (planId:string, sectionId:number, patch:{ name?:string; degreeRule?:CurriculumDegreeRule }): Promise<CurriculumPlan> => {
+    const plans=await Repository.getCurriculumPlans(sectionId),plan=plans.find(row=>row.id===planId);
+    if(!plan)throw new Error("الصحيفة غير موجودة");
+    if(plan.status==="archived")throw new Error("الصحيفة المؤرشفة محفوظة للتاريخ ولا تُعدّل");
+    const updated:CurriculumPlan={...plan};
+    if(patch.name!==undefined)updated.name=patch.name;
+    if(patch.degreeRule)updated.degreeRule=patch.degreeRule;
+    if(!updated.code)delete updated.code;
+    if(firestoreDb&&!demoSandboxContext.getStore()){await firestoreDb.collection("curriculumPlans").doc(planId).set(updated);await markRegistrationRunsStale();return updated;}
+    if(!Array.isArray(db.curriculumPlans))db.curriculumPlans=[];
+    const at=db.curriculumPlans.findIndex(row=>row.id===planId);if(at<0)throw new Error("الصحيفة غير موجودة");
+    db.curriculumPlans[at]=updated;saveDatabase();await markRegistrationRunsStale();return updated;
+  },
+
+  addCourseToCurriculumPlan: async (planId:string, course:AdCourse, by=""): Promise<CurriculumPlanCourse> => {
+    const plans=await Repository.getCurriculumPlans(Number(course.AdSectionId));
+    const plan=plans.find(row=>row.id===planId);
+    if(!plan||plan.status==="archived") throw new Error("الصحيفة غير متاحة للتعديل");
+    const row:CurriculumPlanCourse={id:`${planId}_${course.AdCourseId}`,planId,AdCollegeId:Number(course.AdCollegeId),AdSectionId:Number(course.AdSectionId),AdCourseId:Number(course.AdCourseId),createdAt:new Date().toISOString(),createdBy:by||undefined};
+    if(firestoreDb&&!demoSandboxContext.getStore()){await firestoreDb.collection("curriculumPlanCourses").doc(row.id).set(row);await markRegistrationRunsStale();return row;}
+    if(!Array.isArray(db.curriculumPlanCourses))db.curriculumPlanCourses=[];
+    const at=db.curriculumPlanCourses.findIndex(item=>item.id===row.id); if(at>=0)db.curriculumPlanCourses[at]=row;else db.curriculumPlanCourses.push(row);saveDatabase();await markRegistrationRunsStale();return row;
+  },
+
+  removeCourseFromCurriculumPlan: async (planId:string, courseId:number): Promise<void> => {
+    const id=`${planId}_${Number(courseId)}`;
+    if(firestoreDb&&!demoSandboxContext.getStore()){await firestoreDb.collection("curriculumPlanCourses").doc(id).delete();await markRegistrationRunsStale();return;}
+    if(!Array.isArray(db.curriculumPlanCourses))db.curriculumPlanCourses=[];
+    db.curriculumPlanCourses=db.curriculumPlanCourses.filter(row=>row.id!==id);saveDatabase();await markRegistrationRunsStale();
+  },
+
+  attachCourseToActiveCurriculum: async (course:AdCourse, by=""): Promise<void> => {
+    const plans=await Repository.getCurriculumPlans(Number(course.AdSectionId));
+    const active=plans.find(row=>row.status==="active");
+    if(active) await Repository.addCourseToCurriculumPlan(active.id,course,by);
+  },
+
+  saveCourseTransition: async (entry:Omit<CourseTransition,"id"|"createdAt">): Promise<CourseTransition> => {
+    const row:CourseTransition={...entry,id:randomUUID(),createdAt:new Date().toISOString()};
+    if(firestoreDb&&!demoSandboxContext.getStore()){await firestoreDb.collection("courseTransitions").doc(row.id).set(row);return row;}
+    if(!Array.isArray(db.courseTransitions))db.courseTransitions=[];db.courseTransitions.push(row);saveDatabase();return row;
+  },
+
+
+  getCourseTransitionById: async (id:string): Promise<CourseTransition | undefined> => {
+    const key=String(id||""); if(!key)return undefined;
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      const doc=await firestoreDb.collection("courseTransitions").doc(key).get();
+      return doc.exists ? doc.data() as CourseTransition : undefined;
+    }
+    if(!Array.isArray(db.courseTransitions))db.courseTransitions=[];
+    return db.courseTransitions.find(row=>row.id===key);
+  },
+
+  deleteCourseTransition: async (id:string): Promise<void> => {
+    if(firestoreDb&&!demoSandboxContext.getStore()){await firestoreDb.collection("courseTransitions").doc(id).delete();return;}
+    if(!Array.isArray(db.courseTransitions))db.courseTransitions=[];db.courseTransitions=db.courseTransitions.filter(row=>row.id!==id);saveDatabase();
+  },
+
+  archiveCurriculumPlan: async (planId:string, sectionId:number, by=""): Promise<CurriculumPlan> => {
+    const plans=await Repository.getCurriculumPlans(sectionId),plan=plans.find(row=>row.id===planId);
+    if(!plan)throw new Error("الصحيفة غير موجودة");
+    if(plan.status==="active")throw new Error("لا يمكن أرشفة الصحيفة الحالية. أنشئ صحيفة أحدث أولاً.");
+    const updated={...plan,status:"archived" as const,archivedAt:new Date().toISOString(),archivedBy:by||undefined};
+    if(firestoreDb&&!demoSandboxContext.getStore()){await firestoreDb.collection("curriculumPlans").doc(planId).set(updated);await markRegistrationRunsStale();return updated;}
+    if(!Array.isArray(db.curriculumPlans))db.curriculumPlans=[];const at=db.curriculumPlans.findIndex(row=>row.id===planId);if(at<0)throw new Error("الصحيفة غير موجودة");db.curriculumPlans[at]=updated;saveDatabase();await markRegistrationRunsStale();return updated;
+  },
+
+  getOperationalCourseIds: async (sectionId:number): Promise<Set<number>> => {
+  const courses=await Repository.getCoursesBySection(sectionId);
+  const plans=await Repository.getCurriculumPlans(sectionId);
+  // Compatibility contract: before setup, every current catalogue course is
+  // active in the transition stage exactly as it is today.
+  if(!plans.length)return new Set(courses.map(row=>Number(row.AdCourseId)));
+  const livePlanIds=new Set(plans.filter(row=>row.status!=="archived").map(row=>row.id));
+  const memberships=await Repository.getCurriculumPlanCourses(sectionId);
+  const planIdsByCourse=new Map<number,string[]>();
+  for(const row of memberships){
+    const courseId=Number(row.AdCourseId);
+    if(!courseId)continue;
+    const planIds=planIdsByCourse.get(courseId)||[];
+    if(!planIds.includes(row.planId))planIds.push(row.planId);
+    planIdsByCourse.set(courseId,planIds);
+  }
+  /* A real catalogue can predate curriculum metadata, and legacy/imported
+     rows may therefore have no membership document at all. Absence of
+     metadata must never make a department course disappear from the
+     professor card or schedule pickers. Explicit archival is different:
+     once a course has memberships and every membership belongs to an
+     archived plan, it is intentionally no longer operational. */
+  return new Set(courses
+    .filter(course=>{
+      const planIds=planIdsByCourse.get(Number(course.AdCourseId))||[];
+      return !planIds.length||planIds.some(planId=>livePlanIds.has(planId));
+    })
+    .map(course=>Number(course.AdCourseId)));
+},
+
+  getOperationalCoursesBySection: async (sectionId:number): Promise<AdCourse[]> => {
+    const [courses,ids]=await Promise.all([Repository.getCoursesBySection(sectionId),Repository.getOperationalCourseIds(sectionId)]);
+    return courses.filter(row=>ids.has(Number(row.AdCourseId)));
+  },
+
+  // Schedules
+  // Scoped reads are the normal path for the operational workspace.  The legacy
+  // getSchedules() method is retained for maintenance/export jobs, but interactive
+  // screens should not pull ten years of timetable rows just to display one term.
+  getSchedulesByScope: async (filters: { collegeId?: number; sectionId?: number; termId?: number } = {}): Promise<FSchedule[]> => {
+    const collegeId = Number(filters.collegeId || 0);
+    const sectionId = Number(filters.sectionId || 0);
+    const termId = Number(filters.termId || 0);
+    return scopedCachedSchedules(`${collegeId}:${sectionId}:${termId}`, async () => {
+      if (firestoreDb && !demoSandboxContext.getStore()) {
+        // The legacy SQL relationship is FSchedule -> AdCourse -> AdSection. Older
+        // imported schedule rows therefore cannot be trusted to contain denormalized
+        // AdCollegeId/AdSectionId fields. Resolve the academic hierarchy first, then
+        // fetch only schedule rows belonging to that course universe/current term.
+        if (sectionId) {
+          const [sectionDoc, courseSnap] = await Promise.all([
+            firestoreDb.collection("sections").doc(`section_${sectionId}`).get(),
+            firestoreDb.collection("courses").where("AdSectionId", "==", sectionId).get()
+          ]);
+          if (!sectionDoc.exists) return [];
+          const section = sectionDoc.data() as AdSection;
+          if (collegeId && Number(section.AdCollegeId) !== collegeId) return [];
+          const courses = courseSnap.docs.map(doc => doc.data() as AdCourse);
+          const rows = await getFirestoreSchedulesForCourseIds(courses.map(course => course.AdCourseId), termId);
+          return hydrateSchedules(rows, courses, [section]).sort((a,b)=>a.id-b.id);
+        }
+
+        if (collegeId) {
+          const sectionSnap = await firestoreDb.collection("sections").where("AdCollegeId", "==", collegeId).get();
+          const sections = sectionSnap.docs.map(doc => doc.data() as AdSection);
+          if (!sections.length) return [];
+          const sectionIds = sections.map(section => section.AdSectionId);
+          const courseSnaps = await Promise.all(
+            chunks(sectionIds).map(batch => firestoreDb!.collection("courses").where("AdSectionId", "in", batch).get())
+          );
+          const courseMap = new Map<number, AdCourse>();
+          for (const snap of courseSnaps) for (const doc of snap.docs) {
+            const course = doc.data() as AdCourse;
+            courseMap.set(course.AdCourseId, course);
+          }
+          const courses = [...courseMap.values()];
+          const rows = await getFirestoreSchedulesForCourseIds(courses.map(course => course.AdCourseId), termId);
+          return hydrateSchedules(rows, courses, sections).sort((a,b)=>a.id-b.id);
+        }
+
+        if (termId) {
+          const snap = await firestoreDb.collection("schedules").where("AdTermId", "==", termId).get();
+          const rows = snap.docs.map(doc => doc.data() as FSchedule);
+          return (await hydrateFirestoreScheduleRows(rows)).sort((a,b)=>a.id-b.id);
+        }
+
+        // Deliberately retain the all-history path only for explicit maintenance jobs.
+        // Interactive API routes resolve the latest term before calling this method.
+        return Repository.getSchedules();
+      }
+      return hydrateSchedules(db.schedules, db.courses, db.sections)
+        .filter(row => (!collegeId || row.AdCollegeId === collegeId) && (!sectionId || row.AdSectionId === sectionId) && (!termId || row.AdTermId === termId))
+        .sort((a,b)=>a.id-b.id);
+    });
+  },
+
+  getScheduleConflictCandidates: async (row: Partial<FSchedule>): Promise<FSchedule[]> => {
+    const termId = Number(row.AdTermId || 0);
+    const instructorId = Number(row.AdInstructorId || 0);
+    const courseId = Number(row.AdCourseId || 0);
+    const roomCode = String(row.AdRoomCode || "").trim();
+    if (!termId) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const collection = firestoreDb.collection("schedules");
+      const queries: Promise<any>[] = [];
+      // Single-field indexed lookups keep live validation responsive; hydrate the
+      // resulting handful of rows through Course -> Section before scope checks.
+      if (instructorId) queries.push(collection.where("AdInstructorId", "==", instructorId).get());
+      if (roomCode) queries.push(collection.where("AdRoomCode", "==", roomCode).get());
+      if (courseId) queries.push(collection.where("AdCourseId", "==", courseId).get());
+      if (!queries.length) return [];
+      const snapshots = await Promise.all(queries);
+      const unique = new Map<number, FSchedule>();
+      for (const snap of snapshots) for (const doc of snap.docs) {
+        const item = doc.data() as FSchedule;
+        if (Number(item.AdTermId) === termId) unique.set(item.id, item);
+      }
+      return (await hydrateFirestoreScheduleRows([...unique.values()])).sort((a,b)=>a.id-b.id);
+    }
+    return hydrateSchedules(db.schedules, db.courses, db.sections)
+      .filter(item => item.AdTermId === termId && (
+        (instructorId && item.AdInstructorId === instructorId) ||
+        (roomCode && String(item.AdRoomCode || "").trim() === roomCode) ||
+        (courseId && item.AdCourseId === courseId)
+      ))
+      .sort((a,b)=>a.id-b.id);
+  },
+
+  /**
+   * Everything a set of courses has ever been, across every term on record.
+   *
+   * The regulation says how a course *should* be split into meetings; ten years
+   * of this department's own timetables say how it *is* taught, including the
+   * single-day three, four and five hour blocks that the articles never spell
+   * out. Reading the history lets the product expect what the department
+   * actually does and reserve its warnings for genuine departures.
+   */
+  getScheduleHistoryForCourses: async (courseIds: number[]): Promise<FSchedule[]> => {
+    const ids = [...new Set(courseIds.map(Number).filter(Boolean))];
+    if (!ids.length) return [];
+    return scopedCachedReference(`history:${ids.slice(0, 60).join(",")}`, async () => {
+      if (firestoreDb && !demoSandboxContext.getStore()) {
+        const snapshots = await Promise.all(
+          chunks(ids).map(batch => firestoreDb!.collection("schedules").where("AdCourseId", "in", batch).get())
+        );
+        const rows = new Map<number, FSchedule>();
+        for (const snap of snapshots) for (const doc of snap.docs) {
+          const row = doc.data() as FSchedule;
+          rows.set(row.id, row);
+        }
+        return [...rows.values()];
+      }
+      const wanted = new Set(ids);
+      return db.schedules.filter(row => wanted.has(Number(row.AdCourseId)));
+    });
+  },
+
+  getSchedulesByRoom: async (roomCode: string, roomHall = ""): Promise<FSchedule[]> => {
+    const code = String(roomCode || "").trim();
+    const hall = String(roomHall || "").trim();
+    if (!code) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("schedules").where("AdRoomCode", "==", code).get();
+      const rows = snap.docs.map(doc => doc.data() as FSchedule)
+        .filter(row => !hall || String(row.AdRoomHall || "").trim() === hall);
+      return (await hydrateFirestoreScheduleRows(rows)).sort((a,b)=>a.id-b.id);
+    }
+    return hydrateSchedules(db.schedules, db.courses, db.sections)
+      .filter(row => String(row.AdRoomCode || "").trim() === code && (!hall || String(row.AdRoomHall || "").trim() === hall))
+      .sort((a,b)=>a.id-b.id);
+  },
+
+  countSchedules: async (): Promise<number> => scopedCachedReference(REFERENCE_KEYS.scheduleCount, async () => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const aggregate = await firestoreDb.collection("schedules").count().get();
+      return Number(aggregate.data().count || 0);
+    }
+    return db.schedules.length;
+  }),
+
+  hasSchedulesForCourse: async (courseId: number): Promise<boolean> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("schedules").where("AdCourseId", "==", courseId).limit(1).get();
+      return !snap.empty;
+    }
+    return db.schedules.some(row => row.AdCourseId === courseId);
+  },
+
+  hasSchedulesForTerm: async (termId: number): Promise<boolean> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("schedules").where("AdTermId", "==", termId).limit(1).get();
+      return !snap.empty;
+    }
+    return db.schedules.some(row => row.AdTermId === termId);
+  },
+
+  /* ── أين درّس هذا الأستاذ فعلاً، في كل الفصول ────────────────────────────
+     نسبة الفصل الأحدث وحدها تترك أغلب السجل بلا قسم: من لم يُسند إليه شيء هذا
+     الفصل يظهر بلا انتماء وكأنه غريب عن الجامعة. والتاريخ كله لا يُمسح لأجل
+     قائمة — يُسأل عن شخص واحد باستعلام مفهرس على معرّفه، وتُقرأ الأقسام من
+     مقرراته لا من حقول مكرّرة قد تغيب في الصفوف القديمة. */
+  getInstructorTeachingScopes: async (instructorId: number): Promise<Array<{ collegeId: number; sectionId: number; rows: number; termIds: number[] }>> => {
+    const id = Number(instructorId || 0);
+    if (!id) return [];
+    const rows: Array<{ AdCourseId?: unknown; AdTermId?: unknown }> = firestoreDb && !demoSandboxContext.getStore()
+      ? (await firestoreDb.collection("schedules").where("AdInstructorId", "==", id).get()).docs.map(doc => doc.data() as any)
+      : (db.schedules || []).filter(row => Number(row.AdInstructorId) === id) as any[];
+    if (!rows.length) return [];
+    const [courses, sections] = await Promise.all([Repository.getCourses(), Repository.getSections()]);
+    const courseById = new Map(courses.map(course => [Number(course.AdCourseId), course]));
+    const collegeOf = new Map(sections.map(section => [Number(section.AdSectionId), Number(section.AdCollegeId)]));
+    const scopes = new Map<string, { collegeId: number; sectionId: number; rows: number; termIds: Set<number> }>();
+    for (const row of rows) {
+      const course = courseById.get(Number(row.AdCourseId || 0));
+      const sectionId = Number(course?.AdSectionId || 0);
+      if (!sectionId) continue;
+      const collegeId = Number(course?.AdCollegeId || collegeOf.get(sectionId) || 0);
+      const key = `${collegeId}:${sectionId}`;
+      const entry = scopes.get(key) || { collegeId, sectionId, rows: 0, termIds: new Set<number>() };
+      entry.rows += 1;
+      const termId = Number(row.AdTermId || 0);
+      if (termId) entry.termIds.add(termId);
+      scopes.set(key, entry);
+    }
+    return [...scopes.values()]
+      .map(entry => ({ collegeId: entry.collegeId, sectionId: entry.sectionId, rows: entry.rows, termIds: [...entry.termIds].sort((a, b) => b - a) }))
+      .sort((a, b) => b.rows - a.rows);
+  },
+
+  hasSchedulesForInstructor: async (instructorId: number): Promise<boolean> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("schedules").where("AdInstructorId", "==", instructorId).limit(1).get();
+      return !snap.empty;
+    }
+    return db.schedules.some(row => row.AdInstructorId === instructorId);
+  },
+
+  getSchedules: async (): Promise<FSchedule[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const [scheduleSnap, courseSnap, sectionSnap] = await Promise.all([
+        firestoreDb.collection("schedules").orderBy("id", "asc").get(),
+        firestoreDb.collection("courses").get(),
+        firestoreDb.collection("sections").get()
+      ]);
+      return hydrateSchedules(
+        scheduleSnap.docs.map(doc => doc.data() as FSchedule),
+        courseSnap.docs.map(doc => doc.data() as AdCourse),
+        sectionSnap.docs.map(doc => doc.data() as AdSection)
+      );
+    }
+    return hydrateSchedules(db.schedules, db.courses, db.sections);
+  },
+
+  getScheduleById: async (id: number): Promise<FSchedule | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("schedules").doc(`schedule_${id}`).get();
+      if (!doc.exists) return undefined;
+      const schedule = doc.data() as FSchedule;
+      const courseDoc = await firestoreDb.collection("courses").doc(`course_${schedule.AdCourseId}`).get();
+      if (!courseDoc.exists) return { ...schedule };
+      const course = courseDoc.data() as AdCourse;
+      const sectionDoc = await firestoreDb.collection("sections").doc(`section_${course.AdSectionId}`).get();
+      return hydrateSchedules([schedule], [course], sectionDoc.exists ? [sectionDoc.data() as AdSection] : [])[0];
+    }
+    const schedule = db.schedules.find(row => row.id === id);
+    return schedule ? hydrateSchedules([schedule], db.courses, db.sections)[0] : undefined;
+  },
+
+  createSchedule: async (schedule: Omit<FSchedule, "id">): Promise<FSchedule> => {
+    invalidateSchedules();
+    invalidateReference(REFERENCE_KEYS.scheduleCount);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const nextId = await reserveFirestoreIds("schedules");
+      const newSched = { ...schedule, id: nextId, rev: 1 };
+      await firestoreDb.collection("schedules").doc(`schedule_${nextId}`).set(newSched);
+      await markRegistrationRunsStale(Number(schedule.AdTermId));
+      return newSched;
+    }
+    const nextId = db.schedules.length > 0 ? Math.max(...db.schedules.map(s => s.id)) + 1 : 1;
+    const newSched = { ...schedule, id: nextId, rev: 1 };
+    db.schedules.push(newSched);
+    saveDatabase();
+    await markRegistrationRunsStale(Number(schedule.AdTermId));
+    return newSched;
+  },
+
+  /**
+   * `expectedRev` is the revision the editor was looking at.
+   *
+   * Passing it turns the write into a comparison: if the row has moved on since
+   * that number, nothing is written and the current row comes back inside a
+   * ScheduleRevisionConflict. Omitting it keeps the old unconditional behaviour,
+   * which is what the internal callers (undo replay, imports, repairs) want —
+   * they are restoring a known state rather than editing a seen one.
+   *
+   * The read and the write happen inside one Firestore transaction, so the
+   * comparison cannot be overtaken between them.
+   */
+  updateSchedule: async (id: number, fields: Partial<FSchedule>, expectedRev?: number): Promise<FSchedule> => {
+    invalidateSchedules();
+    invalidateReference(REFERENCE_KEYS.scheduleCount);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docRef = firestoreDb.collection("schedules").doc(`schedule_${id}`);
+      const updated = await firestoreDb.runTransaction(async transaction => {
+        const doc = await transaction.get(docRef);
+        if (!doc.exists) throw new Error("الجدول غير موجود");
+        const current = doc.data() as FSchedule;
+        if (expectedRev !== undefined && Number(current.rev || 0) !== expectedRev)
+          throw new ScheduleRevisionConflict(current);
+        const updated = { ...current, ...fields, rev: Number(current.rev || 0) + 1 };
+        transaction.set(docRef, updated);
+        return updated;
+      });
+      await markRegistrationRunsStale(Number(updated.AdTermId));
+      return updated;
+    }
+    const idx = db.schedules.findIndex(s => s.id === id);
+    if (idx === -1) throw new Error("الجدول غير موجود");
+    if (expectedRev !== undefined && Number(db.schedules[idx].rev || 0) !== expectedRev)
+      throw new ScheduleRevisionConflict(db.schedules[idx]);
+    db.schedules[idx] = { ...db.schedules[idx], ...fields, rev: Number(db.schedules[idx].rev || 0) + 1 };
+    saveDatabase();
+    await markRegistrationRunsStale(Number(db.schedules[idx].AdTermId));
+    return db.schedules[idx];
+  },
+
+  /**
+   * All-or-none placement write.
+   *
+   * A group drag used to land as N separate PUTs — a network hiccup after the
+   * third left the timetable half-moved with no record of which half. Here the
+   * whole party is validated first, then written as ONE Firestore batch (or
+   * one snapshot save in demo mode): either every card lands or none do.
+   */
+  moveSchedulesBatch: async (
+    moves: Array<{ id: number; fields: Partial<FSchedule>; expectedRev?: number }>,
+  ): Promise<FSchedule[]> => {
+    invalidateSchedules();
+    invalidateReference(REFERENCE_KEYS.scheduleCount);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const refs = moves.map(m => firestoreDb!.collection("schedules").doc(`schedule_${m.id}`));
+      // A WriteBatch cannot carry a precondition, so the party moves inside a
+      // transaction instead: every revision is compared against the same read
+      // that the write is committed with, and the all-or-none promise is kept.
+      const updated = await firestoreDb.runTransaction(async transaction => {
+        const docs = await transaction.getAll(...refs);
+        const updated: FSchedule[] = [];
+        docs.forEach((doc, index) => {
+          if (!doc.exists) throw new Error("الجدول غير موجود");
+          const current = doc.data() as FSchedule;
+          const expected = moves[index].expectedRev;
+          if (expected !== undefined && Number(current.rev || 0) !== expected)
+            throw new ScheduleRevisionConflict(current);
+          updated.push({ ...current, ...moves[index].fields, rev: Number(current.rev || 0) + 1 });
+        });
+        updated.forEach((next, index) => transaction.set(refs[index], next));
+        return updated;
+      });
+      await Promise.all([...new Set(updated.map(row => Number(row.AdTermId)))].map(id => markRegistrationRunsStale(id)));
+      return updated;
+    }
+    // Demo mode: verify everything — existence AND revision — before touching
+    // anything, then one save.
+    for (const move of moves) {
+      const idx = db.schedules.findIndex(s => s.id === move.id);
+      if (idx === -1) throw new Error("الجدول غير موجود");
+      if (move.expectedRev !== undefined && Number(db.schedules[idx].rev || 0) !== move.expectedRev)
+        throw new ScheduleRevisionConflict(db.schedules[idx]);
+    }
+    const updated: FSchedule[] = [];
+    for (const move of moves) {
+      const idx = db.schedules.findIndex(s => s.id === move.id);
+      db.schedules[idx] = { ...db.schedules[idx], ...move.fields, rev: Number(db.schedules[idx].rev || 0) + 1 };
+      updated.push(db.schedules[idx]);
+    }
+    saveDatabase();
+    await Promise.all([...new Set(updated.map(row => Number(row.AdTermId)))].map(id => markRegistrationRunsStale(id)));
+    return updated;
+  },
+
+  deleteSchedule: async (id: number): Promise<void> => {
+    invalidateSchedules();
+    invalidateReference(REFERENCE_KEYS.scheduleCount);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const old = await firestoreDb.collection("schedules").doc(`schedule_${id}`).get();
+      const termId = old.exists ? Number((old.data() as FSchedule).AdTermId) : undefined;
+      await firestoreDb.collection("schedules").doc(`schedule_${id}`).delete();
+      await markRegistrationRunsStale(termId);
+      return;
+    }
+    const old = db.schedules.find(s => s.id === id);
+    db.schedules = db.schedules.filter(s => s.id !== id);
+    saveDatabase();
+    await markRegistrationRunsStale(old ? Number(old.AdTermId) : undefined);
+  },
+
+  // Copy Schedule (atomic transaction / batch write)
+  copySchedule: async (collegeId: number, sectionId: number, fromTermId: number, toTermId: number): Promise<number> => {
+    invalidateSchedules();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      // FSchedule has no Section/College FK in legacy SQL. Resolve those values through
+      // the current Course -> Section relationship before filtering/copying.
+      const [source, target] = await Promise.all([
+        Repository.getSchedulesByScope({ collegeId, sectionId, termId: fromTermId }),
+        Repository.getSchedulesByScope({ collegeId, sectionId, termId: toTermId })
+      ]);
+      if (target.length) return -1;
+      if (source.length === 0) return 0;
+
+      // Keep the legacy transfer all-or-nothing. A single Firestore batch supports 500 writes.
+      if (source.length > 500) throw new Error("تعذر نسخ الجدول دفعة واحدة");
+      const firstId = await reserveFirestoreIds("schedules", source.length);
+      const batch = firestoreDb.batch();
+      source.forEach((row, index) => {
+        const nextId = firstId + index;
+        batch.set(firestoreDb!.collection("schedules").doc(`schedule_${nextId}`), {
+          ...row,
+          id: nextId,
+          AdTermId: toTermId
+        });
+      });
+      await batch.commit();
+      await markRegistrationRunsStale(toTermId);
+      return source.length;
+    }
+
+    const hydrated = hydrateSchedules(db.schedules, db.courses, db.sections);
+    const targetExists = hydrated.some(row => row.AdSectionId === sectionId && row.AdTermId === toTermId);
+    if (targetExists) return -1;
+
+    const source = hydrated.filter(
+      row => row.AdCollegeId === collegeId && row.AdSectionId === sectionId && row.AdTermId === fromTermId
+    );
+    if (source.length === 0) return 0;
+
+    let nextId = db.schedules.length > 0 ? Math.max(...db.schedules.map(row => row.id)) + 1 : 1;
+    for (const row of source) db.schedules.push({ ...row, id: nextId++, AdTermId: toTermId });
+    saveDatabase();
+    await markRegistrationRunsStale(toTermId);
+    return source.length;
+  },
+
+  // Smart workspace: additive versions, drafts, comments and publication state.
+  createScheduleVersion: async (entry: Omit<ScheduleVersion, "id" | "createdAt" | "scopeKey">): Promise<ScheduleVersion> => {
+    const row: ScheduleVersion = {
+      ...entry,
+      id: randomUUID(),
+      createdAt: new Date().toISOString(),
+      scopeKey: `${entry.AdCollegeId}:${entry.AdSectionId}:${entry.AdTermId}`,
+      // Stored beside the rows so the history list can say "٤١ موعداً" without
+      // reading the snapshot it counted.
+      rowCount: entry.rows.length,
+      rows: entry.rows.map(item => ({ ...item }))
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleVersions").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.scheduleVersions)) db.scheduleVersions = [];
+    db.scheduleVersions.unshift(row);
+    if (db.scheduleVersions.length > 500) db.scheduleVersions.length = 500;
+    saveDatabase();
+    return row;
+  },
+
+  getScheduleVersions: async (collegeId: number, sectionId: number, termId: number, limit = 60): Promise<ScheduleVersion[]> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    const safeLimit = Math.max(1, Math.min(100, Number(limit) || 60));
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      /**
+       * Newest first, at the database, without the snapshots.
+       *
+       * Every version document embeds a complete copy of the department's term,
+       * so reading two hundred of them to show sixty one-line labels moved
+       * megabytes to build a list. Ordering and limiting now happen in
+       * Firestore, and `.select()` asks for the metadata fields only — the rows
+       * stay where they are until something actually needs to restore them.
+       */
+      const snap = await firestoreDb.collection("scheduleVersions")
+        .where("scopeKey", "==", scopeKey)
+        .orderBy("createdAt", "desc")
+        .limit(safeLimit)
+        .select("id", "scopeKey", "createdAt", "SystemUserId", "userName", "AdCollegeId", "AdSectionId", "AdTermId", "label", "source", "rowCount")
+        .get();
+      return snap.docs.map(doc => ({ rows: [], ...(doc.data() as ScheduleVersion) }));
+    }
+    return (db.scheduleVersions || []).filter(row => row.scopeKey === scopeKey).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,safeLimit);
+  },
+
+  /**
+   * The last few publications **with their snapshots attached**.
+   *
+   * The list read above strips `rows` on purpose — a version embeds a complete
+   * copy of the term, and sixty of them is megabytes to draw sixty labels. One
+   * question needs the snapshots: what happened to a single appointment over
+   * time. It is answered from a deliberately short tail, because a lecture's
+   * story is told by its recent publications and not by every one since 2016.
+   */
+  getScheduleVersionsWithRows: async (
+    collegeId: number, sectionId: number, termId: number, limit = 12,
+  ): Promise<ScheduleVersion[]> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    const safeLimit = Math.max(1, Math.min(24, Number(limit) || 12));
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("scheduleVersions")
+        .where("scopeKey", "==", scopeKey)
+        .orderBy("createdAt", "desc")
+        .limit(safeLimit)
+        .get();
+      return snap.docs.map(doc => doc.data() as ScheduleVersion);
+    }
+    return (db.scheduleVersions || [])
+      .filter(row => row.scopeKey === scopeKey)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, safeLimit);
+  },
+
+  /**
+   * The scope as it stood right after the change a version protects. Written
+   * once the change has succeeded, so a later restore can tell «nothing else
+   * happened since» from «these edits would be erased».
+   */
+  setScheduleVersionBase: async (id: string, base: { baseFingerprint: string; baseSignatures: Record<string, string> }): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleVersions").doc(id).set(base, { merge: true });
+      return;
+    }
+    const row = (db.scheduleVersions || []).find(item => item.id === id);
+    if (!row) return;
+    Object.assign(row, base);
+    saveDatabase();
+  },
+
+  getScheduleVersionById: async (id: string): Promise<ScheduleVersion | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("scheduleVersions").doc(id).get();
+      return doc.exists ? doc.data() as ScheduleVersion : undefined;
+    }
+    return (db.scheduleVersions || []).find(row => row.id === id);
+  },
+
+  createOpenDecision: async (entry: Omit<ScheduleOpenDecision, "id" | "createdAt" | "updatedAt" | "scopeKey" | "status"> & { status?: ScheduleOpenDecision["status"] }): Promise<ScheduleOpenDecision> => {
+    const now = new Date().toISOString();
+    const row: ScheduleOpenDecision = {
+      ...entry,
+      id: randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      scopeKey: `${entry.AdCollegeId}:${entry.AdSectionId}:${entry.AdTermId}`,
+      status: entry.status || "open",
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleOpenDecisions").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.scheduleOpenDecisions)) db.scheduleOpenDecisions = [];
+    db.scheduleOpenDecisions.unshift(row);
+    if (db.scheduleOpenDecisions.length > 2500) db.scheduleOpenDecisions.length = 2500;
+    saveDatabase();
+    return row;
+  },
+
+  getOpenDecisions: async (collegeId: number, sectionId: number, termId: number, limit = 100): Promise<ScheduleOpenDecision[]> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    const safeLimit = Math.max(1, Math.min(250, Number(limit) || 100));
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("scheduleOpenDecisions").where("scopeKey", "==", scopeKey).limit(safeLimit).get();
+      return snap.docs.map(doc => doc.data() as ScheduleOpenDecision).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+    }
+    return (db.scheduleOpenDecisions || []).filter(row => row.scopeKey === scopeKey).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)).slice(0,safeLimit);
+  },
+
+  updateOpenDecision: async (id: string, fields: Partial<Pick<ScheduleOpenDecision, "title" | "detail" | "owner" | "dueAt" | "priority" | "status">>): Promise<ScheduleOpenDecision> => {
+    const updatedAt = new Date().toISOString();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("scheduleOpenDecisions").doc(id);
+      const doc = await ref.get();
+      if (!doc.exists) throw new Error("القرار غير موجود");
+      await ref.update({ ...fields, updatedAt });
+      return { ...(doc.data() as ScheduleOpenDecision), ...fields, updatedAt };
+    }
+    if (!Array.isArray(db.scheduleOpenDecisions)) db.scheduleOpenDecisions = [];
+    const index = db.scheduleOpenDecisions.findIndex(row => row.id === id);
+    if (index < 0) throw new Error("القرار غير موجود");
+    db.scheduleOpenDecisions[index] = { ...db.scheduleOpenDecisions[index], ...fields, updatedAt };
+    saveDatabase();
+    return db.scheduleOpenDecisions[index];
+  },
+
+
+  /* ── الإعلانات والجمهور ─────────────────────────────────────────────────────
+   * مجموعاتٌ خاصة بالإدارة: الحملات والصور والعدّادات اليومية ونبض الزوار.
+   * العدّاداتُ تُكتب دفعاتٍ مجمَّعة (انظر server/adsStore) لا مرةً لكل ظهور. */
+  listAdCampaigns: async (): Promise<AdCampaign[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("adCampaigns").limit(500).get();
+      return snap.docs.map(doc => doc.data() as AdCampaign);
+    }
+    return [...(db.adCampaigns || [])];
+  },
+  saveAdCampaign: async (row: AdCampaign): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("adCampaigns").doc(row.id).set(row); return; }
+    db.adCampaigns = [...(db.adCampaigns || []).filter(item => item.id !== row.id), row];
+    saveDatabase();
+  },
+  /** حجزٌ ذرّي لإرسالٍ بريدي: يكتب حقل mailLog وحده (لا يمسح تعديلاً متزامناً)، ويعيد false إن سبق إرسالُ المفتاح نفسه. force يتجاوز التحقق (إرسالٌ يدوي صريح). */
+  claimAdMail: async (id: string, kind: "weekly" | "renewal", key: string, patch: { weekly?: string; renewal?: string }, force = false): Promise<boolean> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("adCampaigns").doc(id);
+      return firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return false;
+        const log = ((snap.data() as AdCampaign).mailLog || {}) as { weekly?: string; renewal?: string };
+        if (!force && log[kind] === key) return false;
+        tx.update(ref, { mailLog: { ...log, ...patch } });
+        return true;
+      });
+    }
+    const row = (db.adCampaigns || []).find(item => item.id === id);
+    if (!row) return false;
+    if (!force && row.mailLog?.[kind] === key) return false;
+    row.mailLog = { ...(row.mailLog || {}), ...patch };
+    saveDatabase();
+    return true;
+  },
+  deleteAdCampaign: async (id: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const creatives = await firestoreDb.collection("adCreatives").where("campaignId", "==", id).get();
+      const batch = firestoreDb.batch();
+      creatives.docs.forEach(doc => batch.delete(doc.ref));
+      batch.delete(firestoreDb.collection("adCampaigns").doc(id));
+      await batch.commit();
+      return;
+    }
+    db.adCampaigns = (db.adCampaigns || []).filter(item => item.id !== id);
+    db.adCreatives = (db.adCreatives || []).filter(item => item.campaignId !== id);
+    saveDatabase();
+  },
+  getAdCreative: async (id: string): Promise<AdCreative | null> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("adCreatives").doc(id).get();
+      return doc.exists ? (doc.data() as AdCreative) : null;
+    }
+    return (db.adCreatives || []).find(item => item.id === id) || null;
+  },
+  /** رؤوسُ الصور بلا بياناتها: القوائم لا تحمل مئات الكيلوبايتات. */
+  listAdCreativeHeads: async (campaignId?: string): Promise<Array<Omit<AdCreative, "data">>> => {
+    const strip = (row: AdCreative): Omit<AdCreative, "data"> => { const { data: _data, ...head } = row; return head; };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const query = campaignId ? firestoreDb.collection("adCreatives").where("campaignId", "==", campaignId) : firestoreDb.collection("adCreatives");
+      const snap = await query.limit(1000).get();
+      return snap.docs.map(doc => strip(doc.data() as AdCreative));
+    }
+    return (db.adCreatives || []).filter(item => !campaignId || item.campaignId === campaignId).map(strip);
+  },
+  saveAdCreative: async (row: AdCreative): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("adCreatives").doc(row.id).set(row); return; }
+    db.adCreatives = [...(db.adCreatives || []).filter(item => item.id !== row.id), row];
+    saveDatabase();
+  },
+  deleteAdCreative: async (id: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("adCreatives").doc(id).delete(); return; }
+    db.adCreatives = (db.adCreatives || []).filter(item => item.id !== id);
+    saveDatabase();
+  },
+  /** يضيف فروقاتٍ إلى عدّادات الأيام دفعةً واحدة (increment ذرّي في Firestore). */
+  addAdStats: async (deltas: Array<Omit<AdStatsDay, "id">>): Promise<void> => {
+    if (!deltas.length) return;
+    const idOf = (row: Omit<AdStatsDay, "id">) => `${row.campaignId}_${row.creativeId}_${row.day}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      for (let i = 0; i < deltas.length; i += 400) {
+        const batch = firestoreDb.batch();
+        for (const row of deltas.slice(i, i + 400)) {
+          batch.set(firestoreDb.collection("adStats").doc(idOf(row)), {
+            id: idOf(row), campaignId: row.campaignId, creativeId: row.creativeId, day: row.day,
+            impressions: FieldValue.increment(row.impressions), uniques: FieldValue.increment(row.uniques),
+            clicks: FieldValue.increment(row.clicks), filteredClicks: FieldValue.increment(row.filteredClicks),
+          }, { merge: true });
+        }
+        await batch.commit();
+      }
+      return;
+    }
+    const list = db.adStats || (db.adStats = []);
+    for (const row of deltas) {
+      const id = idOf(row);
+      const found = list.find(item => item.id === id);
+      if (found) { found.impressions += row.impressions; found.uniques += row.uniques; found.clicks += row.clicks; found.filteredClicks += row.filteredClicks; }
+      else list.push({ ...row, id });
+    }
+    saveDatabase();
+  },
+  listAdStats: async (campaignId?: string): Promise<AdStatsDay[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const query = campaignId ? firestoreDb.collection("adStats").where("campaignId", "==", campaignId) : firestoreDb.collection("adStats");
+      const snap = await query.limit(20000).get();
+      return snap.docs.map(doc => doc.data() as AdStatsDay);
+    }
+    return (db.adStats || []).filter(item => !campaignId || item.campaignId === campaignId);
+  },
+  addAudienceDay: async (day: string, delta: Omit<AudienceDay, "id" | "day">): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const inc = (map: Record<string, number>) => Object.fromEntries(Object.entries(map).map(([key, value]) => [key, FieldValue.increment(value)]));
+      await firestoreDb.collection("audienceDaily").doc(day).set({
+        id: day, day, visits: inc(delta.visits), hours: inc(delta.hours),
+        returning: FieldValue.increment(delta.returning), fresh: FieldValue.increment(delta.fresh),
+        mobile: FieldValue.increment(delta.mobile), desktop: FieldValue.increment(delta.desktop), installed: FieldValue.increment(delta.installed),
+      }, { merge: true });
+      return;
+    }
+    const list = db.audienceDaily || (db.audienceDaily = []);
+    let row = list.find(item => item.id === day);
+    if (!row) { row = { id: day, day, visits: {}, returning: 0, fresh: 0, mobile: 0, desktop: 0, installed: 0, hours: {} }; list.push(row); }
+    for (const [key, value] of Object.entries(delta.visits)) row.visits[key] = (row.visits[key] || 0) + value;
+    for (const [key, value] of Object.entries(delta.hours)) row.hours[key] = (row.hours[key] || 0) + value;
+    row.returning += delta.returning; row.fresh += delta.fresh; row.mobile += delta.mobile; row.desktop += delta.desktop; row.installed += delta.installed;
+    saveDatabase();
+  },
+  listAudienceDays: async (limit = 400): Promise<AudienceDay[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("audienceDaily").orderBy("day", "desc").limit(limit).get();
+      return snap.docs.map(doc => doc.data() as AudienceDay).sort((a, b) => a.day.localeCompare(b.day));
+    }
+    return [...(db.audienceDaily || [])].sort((a, b) => a.day.localeCompare(b.day)).slice(-limit);
+  },
+  getTrialCompanies: async (): Promise<Array<{ name: string; campaignId: string }>> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("adSettings").doc("trials").get();
+      const map = ((doc.data() as any)?.items || {}) as Record<string, { name: string; campaignId: string }>;
+      return Object.values(map).filter(item => item && item.name);
+    }
+    return [...(db.adTrialCompanies || [])];
+  },
+  /** يسجّل أن شركةً استهلكت تجربتها. لا يُستبدل تسجيلٌ قائم (الأول يبقى). */
+  addTrialCompany: async (name: string, campaignId: string): Promise<void> => {
+    if (!name) return;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      /* مفتاح الحقل مشفَّر: اسم الشركة قد يحمل نقطةً أو رموزاً لا تصلح اسم حقلٍ في Firestore. */
+      const key = Buffer.from(name, "utf8").toString("base64url");
+      const ref = firestoreDb.collection("adSettings").doc("trials");
+      await firestoreDb.runTransaction(async tx => {
+        const doc = await tx.get(ref);
+        const items = ((doc.data() as any)?.items || {}) as Record<string, unknown>;
+        if (!items[key]) tx.set(ref, { items: { ...items, [key]: { name, campaignId } } }, { merge: true });
+      });
+      return;
+    }
+    const list = db.adTrialCompanies || (db.adTrialCompanies = []);
+    if (!list.some(item => item.name === name)) { list.push({ name, campaignId }); saveDatabase(); }
+  },
+  getPartnerKitToken: async (): Promise<string> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("adSettings").doc("partnerKit").get();
+      return String((doc.data() as any)?.token || "");
+    }
+    return db.partnerKitToken || "";
+  },
+  setPartnerKitToken: async (token: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("adSettings").doc("partnerKit").set({ token, updatedAt: new Date().toISOString() }); return; }
+    db.partnerKitToken = token;
+    saveDatabase();
+  },
+
+  createClientTelemetry: async (entries: Array<Omit<ClientTelemetryEntry, "id" | "timestamp"> & { timestamp?: string }>): Promise<number> => {
+    const rows: ClientTelemetryEntry[] = entries.slice(0, 30).map(entry => ({
+      ...entry,
+      id: randomUUID(),
+      timestamp: entry.timestamp || new Date().toISOString(),
+      breadcrumbs: Array.isArray(entry.breadcrumbs) ? entry.breadcrumbs.slice(-12) : undefined,
+      // Experience telemetry is evidence for debugging, not a permanent user
+      // history. Firestore removes it after thirty days; the UI only reads 14.
+      expiresAtTtl: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    }));
+    if (!rows.length) return 0;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const batch = firestoreDb.batch();
+      rows.forEach(row => batch.set(firestoreDb!.collection("clientTelemetry").doc(row.id), row));
+      await batch.commit();
+      return rows.length;
+    }
+    if (!Array.isArray(db.clientTelemetry)) db.clientTelemetry = [];
+    db.clientTelemetry.unshift(...rows);
+    if (db.clientTelemetry.length > 4000) db.clientTelemetry.length = 4000;
+    saveDatabase();
+    return rows.length;
+  },
+
+  getClientTelemetry: async (collegeId: number, sectionId: number, limit = 800): Promise<ClientTelemetryEntry[]> => {
+    const safeLimit = Math.max(1, Math.min(1500, Number(limit) || 800));
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("clientTelemetry").where("AdSectionId", "==", sectionId).orderBy("timestamp", "desc").limit(safeLimit).get();
+      return snap.docs.map(doc => doc.data() as ClientTelemetryEntry)
+        .filter(row => !collegeId || Number(row.AdCollegeId) === collegeId)
+        .sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
+    }
+    return (db.clientTelemetry || []).filter(row => (!collegeId || Number(row.AdCollegeId) === collegeId) && Number(row.AdSectionId) === sectionId)
+      .sort((a,b)=>b.timestamp.localeCompare(a.timestamp)).slice(0,safeLimit);
+  },
+
+  createScheduleDraft: async (entry: Omit<ScheduleDraft, "id" | "createdAt" | "updatedAt" | "scopeKey" | "status"> & { status?: ScheduleDraft["status"] }): Promise<ScheduleDraft> => {
+    const now = new Date().toISOString();
+    const row: ScheduleDraft = {
+      ...entry,
+      id: randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      scopeKey: `${entry.AdCollegeId}:${entry.AdSectionId}:${entry.AdTermId}`,
+      status: entry.status || "draft",
+      rows: entry.rows.map(item => ({ ...item }))
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleDrafts").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.scheduleDrafts)) db.scheduleDrafts = [];
+    db.scheduleDrafts.unshift(row);
+    if (db.scheduleDrafts.length > 250) db.scheduleDrafts.length = 250;
+    saveDatabase();
+    return row;
+  },
+
+  updateScheduleDraft: async (id: string, fields: Partial<Pick<ScheduleDraft, "name" | "status" | "rows" | "publishedAt">>): Promise<ScheduleDraft> => {
+    const updatedAt = new Date().toISOString();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("scheduleDrafts").doc(id);
+      const doc = await ref.get();
+      if (!doc.exists) throw new Error("المسودة غير موجودة");
+      const current = doc.data() as ScheduleDraft;
+      const next: ScheduleDraft = { ...current, ...fields, updatedAt, rows: fields.rows ? fields.rows.map(item=>({...item})) : current.rows };
+      await ref.set(next);
+      return next;
+    }
+    if (!Array.isArray(db.scheduleDrafts)) db.scheduleDrafts = [];
+    const index = db.scheduleDrafts.findIndex(row => row.id === id);
+    if (index < 0) throw new Error("المسودة غير موجودة");
+    db.scheduleDrafts[index] = { ...db.scheduleDrafts[index], ...fields, updatedAt, rows: fields.rows ? fields.rows.map(item=>({...item})) : db.scheduleDrafts[index].rows };
+    saveDatabase();
+    return db.scheduleDrafts[index];
+  },
+
+  getScheduleDrafts: async (collegeId: number, sectionId: number, termId: number): Promise<ScheduleDraft[]> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("scheduleDrafts").where("scopeKey", "==", scopeKey).limit(100).get();
+      return snap.docs.map(doc=>doc.data() as ScheduleDraft).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+    }
+    return (db.scheduleDrafts || []).filter(row=>row.scopeKey===scopeKey).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+  },
+
+  getScheduleDraftById: async (id: string): Promise<ScheduleDraft | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("scheduleDrafts").doc(id).get();
+      return doc.exists ? doc.data() as ScheduleDraft : undefined;
+    }
+    return (db.scheduleDrafts || []).find(row => row.id === id);
+  },
+
+  // --- Inter-college passive hall barter ------------------------------------
+
+  createHallBarterRequest: async (entry: Omit<HallBarterRequest, "id" | "createdAt" | "updatedAt" | "status">): Promise<HallBarterRequest> => {
+    const now = new Date().toISOString();
+    const row: HallBarterRequest = { ...entry, id: randomUUID(), createdAt: now, updatedAt: now, status: "pending" };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("hallBarterRequests").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.hallBarterRequests)) db.hallBarterRequests = [];
+    db.hallBarterRequests.unshift(row);
+    if (db.hallBarterRequests.length > 4000) db.hallBarterRequests.length = 4000;
+    saveDatabase();
+    return row;
+  },
+
+  getHallBarterRequestById: async (id: string): Promise<HallBarterRequest | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("hallBarterRequests").doc(id).get();
+      return doc.exists ? doc.data() as HallBarterRequest : undefined;
+    }
+    return (db.hallBarterRequests || []).find(row => row.id === id);
+  },
+
+  getHallBarterRequests: async (termId: number): Promise<HallBarterRequest[]> => {
+    const keep = (row: HallBarterRequest) => !termId || Number(row.AdTermId) === Number(termId);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const query = termId
+        ? firestoreDb.collection("hallBarterRequests").where("AdTermId", "==", termId)
+        : firestoreDb.collection("hallBarterRequests");
+      const snap = await query.limit(1000).get();
+      return snap.docs.map(doc => doc.data() as HallBarterRequest).filter(keep)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+    return (db.hallBarterRequests || []).filter(keep).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  updateHallBarterRequest: async (id: string, fields: Partial<Pick<HallBarterRequest, "status" | "respondedAt" | "responderUserId" | "responderName" | "cancelReason">>): Promise<HallBarterRequest> => {
+    const updatedAt = new Date().toISOString();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("hallBarterRequests").doc(id);
+      const doc = await ref.get();
+      if (!doc.exists) throw new Error("طلب استعارة القاعة غير موجود");
+      const current = doc.data() as HallBarterRequest;
+      const next = { ...current, ...fields, updatedAt } as HallBarterRequest;
+      await ref.set(next, { merge: false });
+      return next;
+    }
+    if (!Array.isArray(db.hallBarterRequests)) db.hallBarterRequests = [];
+    const index = db.hallBarterRequests.findIndex(row => row.id === id);
+    if (index < 0) throw new Error("طلب استعارة القاعة غير موجود");
+    db.hallBarterRequests[index] = { ...db.hallBarterRequests[index], ...fields, updatedAt };
+    saveDatabase();
+    return db.hallBarterRequests[index];
+  },
+
+  // --- Week exceptions (dated facts over an appointment) ---------------------
+
+  createScheduleWeekException: async (entry: Omit<ScheduleWeekException, "id" | "createdAt">): Promise<ScheduleWeekException> => {
+    const row: ScheduleWeekException = { ...entry, id: randomUUID(), createdAt: new Date().toISOString() };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleWeekExceptions").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.scheduleWeekExceptions)) db.scheduleWeekExceptions = [];
+    db.scheduleWeekExceptions.unshift(row);
+    if (db.scheduleWeekExceptions.length > 8000) db.scheduleWeekExceptions.length = 8000;
+    saveDatabase();
+    return row;
+  },
+
+  getScheduleWeekExceptions: async (termId: number, scheduleId?: number): Promise<ScheduleWeekException[]> => {
+    const keep = (row: ScheduleWeekException) =>
+      (!termId || Number(row.AdTermId) === Number(termId)) &&
+      (scheduleId === undefined || Number(row.scheduleId) === Number(scheduleId));
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const query = scheduleId !== undefined
+        ? firestoreDb.collection("scheduleWeekExceptions").where("scheduleId", "==", Number(scheduleId))
+        : termId
+          ? firestoreDb.collection("scheduleWeekExceptions").where("AdTermId", "==", Number(termId))
+          : firestoreDb.collection("scheduleWeekExceptions");
+      const snap = await query.limit(2000).get();
+      return snap.docs.map(doc => doc.data() as ScheduleWeekException).filter(keep)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
+    }
+    return (db.scheduleWeekExceptions || []).filter(keep)
+      .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
+  },
+
+  getScheduleWeekExceptionById: async (id: string): Promise<ScheduleWeekException | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("scheduleWeekExceptions").doc(id).get();
+      return doc.exists ? doc.data() as ScheduleWeekException : undefined;
+    }
+    return (db.scheduleWeekExceptions || []).find(row => row.id === id);
+  },
+
+  deleteScheduleWeekException: async (id: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleWeekExceptions").doc(id).delete();
+      return;
+    }
+    if (!Array.isArray(db.scheduleWeekExceptions)) return;
+    db.scheduleWeekExceptions = db.scheduleWeekExceptions.filter(row => row.id !== id);
+    saveDatabase();
+  },
+
+  // --- Read-only share links -------------------------------------------------
+
+  createShareLink: async (entry: Omit<ScheduleShareLink, "id" | "scopeKey" | "createdAt" | "views">): Promise<ScheduleShareLink> => {
+    const row: ScheduleShareLink = {
+      ...entry,
+      /* رمزُ الصندوق التجريبي يعلن نفسه (src/utils/demoLinkToken.ts). */
+      id: `${demoSandboxContext.getStore() ? DEMO_LINK_TOKEN_PREFIX : ""}${randomBytes(24).toString("base64url")}`,
+      scopeKey: `${entry.AdCollegeId}:${entry.AdSectionId}:${entry.AdTermId}`,
+      createdAt: new Date().toISOString(),
+      views: 0
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleShareLinks").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.scheduleShareLinks)) db.scheduleShareLinks = [];
+    db.scheduleShareLinks.unshift(row);
+    if (db.scheduleShareLinks.length > 500) db.scheduleShareLinks.length = 500;
+    saveDatabase();
+    return row;
+  },
+
+  getShareLinks: async (collegeId: number, sectionId: number, termId: number): Promise<ScheduleShareLink[]> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      /* الروابطُ الشخصية رابطٌ لكل أستاذ في القسم؛ خمسون كانت تُسقط بعضها. */
+      const snap = await firestoreDb.collection("scheduleShareLinks").where("scopeKey", "==", scopeKey).limit(300).get();
+      return snap.docs.map(doc => doc.data() as ScheduleShareLink).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+    return (db.scheduleShareLinks || []).filter(row => row.scopeKey === scopeKey).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  /* ══════════════════════════════════════════════════════════════════════
+     طلباتُ الأساتذة على مسوّداتهم
+     ══════════════════════════════════════════════════════════════════════
+
+     سجلٌّ لكل أستاذٍ في فصلٍ واحد، ولا يُنشأ إلا حين يُرسَل إليه رابط. وهو
+     ليس مخزناً موازياً للجدول: التثبيتُ منه يمرّ بمسار الحفظ نفسه، فما يظهر
+     في الجدول وفي تقرير التغييرات يأتي من هناك لا من هنا.                   */
+
+  createInstructorRequest: async (entry: Omit<InstructorRequest, "id" | "createdAt" | "updatedAt">): Promise<InstructorRequest> => {
+    const now = new Date().toISOString();
+    const row: InstructorRequest = { ...entry, id: randomUUID(), createdAt: now, updatedAt: now };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("instructorRequests").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.instructorRequests)) db.instructorRequests = [];
+    db.instructorRequests.unshift(row);
+    saveDatabase();
+    return row;
+  },
+
+  saveInstructorRequest: async (row: InstructorRequest): Promise<InstructorRequest> => {
+    const next: InstructorRequest = { ...row, updatedAt: new Date().toISOString() };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("instructorRequests").doc(next.id).set(next);
+      return next;
+    }
+    if (!Array.isArray(db.instructorRequests)) db.instructorRequests = [];
+    const at = db.instructorRequests.findIndex(item => item.id === next.id);
+    if (at >= 0) db.instructorRequests[at] = next; else db.instructorRequests.unshift(next);
+    saveDatabase();
+    return next;
+  },
+
+  getInstructorRequest: async (id: string): Promise<InstructorRequest | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("instructorRequests").doc(id).get();
+      return doc.exists ? (doc.data() as InstructorRequest) : undefined;
+    }
+    return (db.instructorRequests || []).find(row => row.id === id);
+  },
+
+  /* البابُ الذي يفتحه الأستاذ: الرابطُ هو المفتاح، ولا شيء غيره يَصله. */
+  getInstructorRequestByLink: async (linkId: string): Promise<InstructorRequest | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("instructorRequests").where("linkId", "==", linkId).limit(1).get();
+      return snap.empty ? undefined : (snap.docs[0].data() as InstructorRequest);
+    }
+    return (db.instructorRequests || []).find(row => row.linkId === linkId);
+  },
+
+  /* وارد القسم أو الكلية: sectionId=0 يعني كل أقسام الكلية في الفصل نفسه. */
+  getInstructorRequests: async (collegeId: number, sectionId: number, termId: number): Promise<InstructorRequest[]> => {
+    const inScope = (row: InstructorRequest) =>
+      Number(row.AdTermId) === termId &&
+      (!collegeId || Number(row.AdCollegeId) === collegeId) &&
+      (!sectionId || Number(row.AdSectionId) === sectionId);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("instructorRequests").where("AdTermId", "==", termId).limit(2000).get();
+      return snap.docs.map(doc => doc.data() as InstructorRequest)
+        .filter(inScope)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+    return (db.instructorRequests || [])
+      .filter(inScope)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     المقترحات الدراسية
+     ══════════════════════════════════════════════════════════════════════
+
+     مسودةٌ يعدّها القسم لأستاذٍ في فصلٍ واحد، مستقلةٌ عن جدول المواعيد: لا
+     صفَّ فيه ولا حجزَ حتى التثبيت. كلُّ كتابةٍ تقارن `rev` بما قرأته، فلا
+     تُمحى موافقةٌ ولا نسخةٌ لم يرَها الكاتب (الأستاذ والقسم يكتبان معاً).   */
+
+  createStudyProposal: async (entry: Omit<StudyProposal, "id" | "createdAt" | "updatedAt" | "rev">): Promise<StudyProposal> => {
+    const now = new Date().toISOString();
+    const row: StudyProposal = { ...entry, id: randomUUID(), createdAt: now, updatedAt: now, rev: 1 };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("studyProposals").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.studyProposals)) db.studyProposals = [];
+    db.studyProposals.unshift(row);
+    saveDatabase();
+    return row;
+  },
+
+  getStudyProposal: async (id: string): Promise<StudyProposal | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("studyProposals").doc(String(id)).get();
+      return doc.exists ? (doc.data() as StudyProposal) : undefined;
+    }
+    return (db.studyProposals || []).find(row => row.id === id);
+  },
+
+  getStudyProposalsByTerm: async (termId: number): Promise<StudyProposal[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("studyProposals").where("AdTermId", "==", termId).limit(2000).get();
+      return snap.docs.map(doc => doc.data() as StudyProposal).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+    return (db.studyProposals || []).filter(row => Number(row.AdTermId) === termId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  getStudyProposalsByRequest: async (requestId: string): Promise<StudyProposal[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("studyProposals").where("requestId", "==", requestId).limit(200).get();
+      return snap.docs.map(doc => doc.data() as StudyProposal).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+    return (db.studyProposals || []).filter(row => row.requestId === requestId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  /** يكتب `next` إن كان `expectedRev` ما زال هو الحالي، وإلا يرمي StudyProposalRevisionConflict. */
+  saveStudyProposal: async (next: StudyProposal, expectedRev: number): Promise<StudyProposal> => {
+    const written: StudyProposal = { ...next, rev: expectedRev + 1, updatedAt: new Date().toISOString() };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("studyProposals").doc(next.id);
+      return await firestoreDb.runTransaction(async transaction => {
+        const doc = await transaction.get(ref);
+        if (!doc.exists) throw new Error("المقترح غير موجود");
+        const current = doc.data() as StudyProposal;
+        if (Number(current.rev || 0) !== expectedRev) throw new StudyProposalRevisionConflict(current);
+        transaction.set(ref, written);
+        return written;
+      });
+    }
+    if (!Array.isArray(db.studyProposals)) db.studyProposals = [];
+    const at = db.studyProposals.findIndex(item => item.id === next.id);
+    if (at < 0) throw new Error("المقترح غير موجود");
+    if (Number(db.studyProposals[at].rev || 0) !== expectedRev) throw new StudyProposalRevisionConflict(db.studyProposals[at]);
+    db.studyProposals[at] = written;
+    saveDatabase();
+    return written;
+  },
+
+  /**
+   * تثبيتُ المقترح: كلُّ التغييرات المترابطة وحالةُ المقترح نفسه في معاملةٍ
+   * واحدة. إما أن يهبط الجميع أو لا يهبط شيء؛ ولا تُنشأ شعبةٌ مرتين لأن
+   * المعاملة تقرأ المقترحَ فتجد `commit` إن سبقتها ضغطةٌ أخرى.
+   *
+   * `build` يستلم الصفوف الجديدة (بمعرّفاتها الحقيقية بالترتيب نفسه الذي
+   * أُعطيت به) ويعيد وثيقة المقترح النهائية بنتيجة التثبيت.
+   */
+  commitStudyProposal: async (plan: {
+    proposalId: string;
+    expectedRev: number;
+    /** الفصل ودالّةُ حارسٍ تُشغَّل على صفوفه المقروءة داخل المعاملة نفسها (فتدخل في مجموعة القراءة). */
+    termId?: number;
+    guard?: (termRows: FSchedule[]) => void;
+    creates: Array<Omit<FSchedule, "id">>;
+    updates: Array<{ id: number; fields: Partial<FSchedule>; expectedRev: number }>;
+    deletes: Array<{ id: number; expectedRev: number }>;
+    build: (created: FSchedule[]) => StudyProposal;
+  }): Promise<{ proposal: StudyProposal; created: FSchedule[]; updated: FSchedule[] }> => {
+    invalidateSchedules();
+    invalidateReference(REFERENCE_KEYS.scheduleCount);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const firstId = plan.creates.length ? await reserveFirestoreIds("schedules", plan.creates.length) : 0;
+      const proposalRef = firestoreDb.collection("studyProposals").doc(plan.proposalId);
+      const updateRefs = plan.updates.map(u => firestoreDb!.collection("schedules").doc(`schedule_${u.id}`));
+      const deleteRefs = plan.deletes.map(d => firestoreDb!.collection("schedules").doc(`schedule_${d.id}`));
+      const result = await firestoreDb.runTransaction(async transaction => {
+        const proposalDoc = await transaction.get(proposalRef);
+        if (!proposalDoc.exists) throw new Error("المقترح غير موجود");
+        const current = proposalDoc.data() as StudyProposal;
+        if (current.commit || current.status === "committed") throw new StudyProposalAlreadyCommitted(current);
+        if (Number(current.rev || 0) !== plan.expectedRev) throw new StudyProposalRevisionConflict(current);
+        if (plan.guard && plan.termId !== undefined) {
+          const termSnap = await transaction.get(firestoreDb!.collection("schedules").where("AdTermId", "==", plan.termId));
+          plan.guard(termSnap.docs.map(doc => doc.data() as FSchedule));
+        }
+        const refs = [...updateRefs, ...deleteRefs];
+        const docs = refs.length ? await transaction.getAll(...refs) : [];
+        const updated: FSchedule[] = [];
+        docs.forEach((doc, index) => {
+          if (!doc.exists) throw new Error("الجدول غير موجود");
+          const row = doc.data() as FSchedule;
+          const expected = index < plan.updates.length ? plan.updates[index].expectedRev : plan.deletes[index - plan.updates.length].expectedRev;
+          if (Number(row.rev || 0) !== expected) throw new ScheduleRevisionConflict(row);
+          if (index < plan.updates.length) updated.push({ ...row, ...plan.updates[index].fields, rev: Number(row.rev || 0) + 1 });
+        });
+        const created: FSchedule[] = plan.creates.map((row, index) => ({ ...row, id: firstId + index, rev: 1 }));
+        updated.forEach((row, index) => transaction.set(updateRefs[index], row));
+        deleteRefs.forEach(ref => transaction.delete(ref));
+        created.forEach(row => transaction.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`), row));
+        const next = { ...plan.build(created), rev: plan.expectedRev + 1, updatedAt: new Date().toISOString() };
+        transaction.set(proposalRef, next);
+        return { proposal: next, created, updated };
+      });
+      invalidateSchedules();
+      if (plan.termId !== undefined) await markRegistrationRunsStale(plan.termId);
+      return result;
+    }
+    /* Demo / local: the check and the apply run with no await between them, so
+       nothing can interleave. Everything is verified before anything is touched. */
+    if (!Array.isArray(db.studyProposals)) db.studyProposals = [];
+    const at = db.studyProposals.findIndex(item => item.id === plan.proposalId);
+    if (at < 0) throw new Error("المقترح غير موجود");
+    const current = db.studyProposals[at];
+    if (current.commit || current.status === "committed") throw new StudyProposalAlreadyCommitted(current);
+    if (Number(current.rev || 0) !== plan.expectedRev) throw new StudyProposalRevisionConflict(current);
+    if (plan.guard && plan.termId !== undefined) plan.guard(db.schedules.filter(r => Number(r.AdTermId) === plan.termId));
+    for (const item of [...plan.updates, ...plan.deletes]) {
+      const row = db.schedules.find(r => r.id === item.id);
+      if (!row) throw new Error("الجدول غير موجود");
+      if (Number(row.rev || 0) !== item.expectedRev) throw new ScheduleRevisionConflict(row);
+    }
+    const updated: FSchedule[] = [];
+    for (const item of plan.updates) {
+      const idx = db.schedules.findIndex(r => r.id === item.id);
+      db.schedules[idx] = { ...db.schedules[idx], ...item.fields, rev: Number(db.schedules[idx].rev || 0) + 1 };
+      updated.push(db.schedules[idx]);
+    }
+    const deleteIds = new Set(plan.deletes.map(d => d.id));
+    if (deleteIds.size) db.schedules = db.schedules.filter(r => !deleteIds.has(r.id));
+    let nextId = db.schedules.length > 0 ? Math.max(...db.schedules.map(r => r.id)) + 1 : 1;
+    const created: FSchedule[] = plan.creates.map(row => ({ ...row, id: nextId++, rev: 1 }));
+    db.schedules.push(...created);
+    const next = { ...plan.build(created), rev: plan.expectedRev + 1, updatedAt: new Date().toISOString() };
+    db.studyProposals[at] = next;
+    saveDatabase();
+    if (plan.termId !== undefined) await markRegistrationRunsStale(plan.termId);
+    return { proposal: next, created, updated };
+  },
+
+  /* ══════════════════════════════════════════════════════════════════════
+     سجلّ الاعتماد
+     ══════════════════════════════════════════════════════════════════════
+
+     وثيقةٌ واحدة لكل قسمٍ في فصلٍ واحد، مفتاحها scopeKey نفسه الذي تُحفظ به
+     النسخ منذ سنوات. ولا تُنشأ إلا عند أول توقيع: «قيد الإعداد» هي الحالة
+     الضمنية لكل قسمٍ لم يبدأ الدورة، فلا يُكتب لها صفٌّ في قاعدة البيانات —
+     لأن كتابة سجلٍّ لكل قسمٍ في كل فصلٍ ليقول «لم يبدأ بعد» هي ضجيجٌ يُخزَّن،
+     لا معلومة.                                                              */
+
+  getScheduleApproval: async (collegeId: number, sectionId: number, termId: number): Promise<ScheduleApproval | undefined> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("scheduleApprovals").doc(scopeKey.replace(/:/g, "_")).get();
+      return doc.exists ? (doc.data() as ScheduleApproval) : undefined;
+    }
+    return (db.scheduleApprovals || []).find(row => row.scopeKey === scopeKey);
+  },
+
+  /**
+   * سجلّات الاعتماد لفصلٍ كامل، بكلية أو بغيرها.
+   *
+   * هذه هي القراءة التي يقوم عليها ميزان الأقسام عند العميد وصندوق الوارد عند
+   * التسجيل: حالةُ كل قسمٍ دفعةً واحدة، لا استعلامٌ لكل قسمٍ على حدة — فكليةٌ
+   * فيها عشرون قسماً كانت ستكلّف عشرين رحلةً إلى قاعدة البيانات في كل فتحة
+   * شاشة.
+   */
+  getScheduleApprovalsForTerm: async (termId: number, collegeId?: number): Promise<ScheduleApproval[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      let query = firestoreDb.collection("scheduleApprovals").where("AdTermId", "==", Number(termId));
+      if (collegeId) query = query.where("AdCollegeId", "==", Number(collegeId));
+      const snap = await query.get();
+      return snap.docs.map(doc => doc.data() as ScheduleApproval);
+    }
+    return (db.scheduleApprovals || []).filter(row =>
+      Number(row.AdTermId) === Number(termId) && (!collegeId || Number(row.AdCollegeId) === Number(collegeId)));
+  },
+
+  /**
+   * حفظٌ كامل للسجلّ، لا دمجٌ جزئي.
+   *
+   * كل مُعدِّلٍ لهذا السجلّ يقرؤه أولاً ثم يكتبه كاملاً، لأن حالاته مترابطة:
+   * التوقيع يغيّر الحالة والتواقيع معاً، والإرجاع يغيّر الحالة والجولة
+   * والتواقيع في نفس اللحظة. ودمجُ حقلٍ حقلاً كان سيسمح بحالةٍ نصفُها من
+   * قرارٍ ونصفُها من قرارٍ آخر.
+   */
+  saveScheduleApproval: async (approval: ScheduleApproval): Promise<ScheduleApproval> => {
+    /* المراجعةُ المقروءة هي ما يُشترط. وثيقةٌ قديمة بلا رقمٍ تُقرأ صفراً، وقسمٌ
+       لم يُكتب له سجلٌّ بعد صفرٌ كذلك — فلا ينكسر شيءٌ مما كُتب قبل هذا. */
+    const expected = Math.max(0, Number(approval.revision || 0));
+    const row: ScheduleApproval = { ...approval, revision: expected + 1, updatedAt: new Date().toISOString() };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("scheduleApprovals").doc(row.scopeKey.replace(/:/g, "_"));
+      return await firestoreDb.runTransaction(async transaction => {
+        const doc = await transaction.get(ref);
+        const stored = doc.exists ? (doc.data() as ScheduleApproval) : undefined;
+        if (Math.max(0, Number(stored?.revision || 0)) !== expected) throw new ApprovalRevisionConflict(stored);
+        transaction.set(ref, row);
+        return row;
+      });
+    }
+    if (!Array.isArray(db.scheduleApprovals)) db.scheduleApprovals = [];
+    const index = db.scheduleApprovals.findIndex(item => item.scopeKey === row.scopeKey);
+    const stored = index === -1 ? undefined : db.scheduleApprovals[index];
+    if (Math.max(0, Number(stored?.revision || 0)) !== expected) throw new ApprovalRevisionConflict(stored);
+    if (index === -1) db.scheduleApprovals.push(row); else db.scheduleApprovals[index] = row;
+    saveDatabase();
+    return row;
+  },
+
+  /**
+   * علامةُ «تعديلٌ ينتظر جولته» فوق آخر مراجعة (مراجعة 6). ليست حفظاً مشروطاً:
+   * تقرأ الأحدث وتضيف العلامة وترفع المراجعة، فكلُّ من قرأ قبلها يخسر سباقه
+   * ويعيد القراءة فيراها — فلا يمحوها حفظٌ كاملٌ قديم. لا تُنشئ وثيقةً غائبة:
+   * قسمٌ بلا وثيقة لم يُعتمد، فلا جولة تُنتظر له.
+   */
+  markScheduleApprovalAmendmentPending: async (collegeId: number, sectionId: number, termId: number, marker: NonNullable<ScheduleApproval["amendmentPending"]>): Promise<boolean> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("scheduleApprovals").doc(scopeKey.replace(/:/g, "_"));
+      return await firestoreDb.runTransaction(async transaction => {
+        const doc = await transaction.get(ref);
+        if (!doc.exists) return false;
+        const stored = doc.data() as ScheduleApproval;
+        transaction.set(ref, { ...stored, amendmentPending: marker, revision: Math.max(0, Number(stored.revision || 0)) + 1, updatedAt: new Date().toISOString() });
+        return true;
+      });
+    }
+    const index = (db.scheduleApprovals || []).findIndex(item => item.scopeKey === scopeKey);
+    if (index === -1) return false;
+    const stored = db.scheduleApprovals![index];
+    db.scheduleApprovals![index] = { ...stored, amendmentPending: marker, revision: Math.max(0, Number(stored.revision || 0)) + 1, updatedAt: new Date().toISOString() };
+    saveDatabase();
+    return true;
+  },
+
+  getShareLink: async (id: string): Promise<ScheduleShareLink | undefined> => {
+    /* رمزٌ تجريبي لا يُبحث عنه في البيانات الحقيقية أبداً. */
+    if (isDemoLinkToken(id) && !demoSandboxContext.getStore()) return undefined;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("scheduleShareLinks").doc(id).get();
+      return doc.exists ? doc.data() as ScheduleShareLink : undefined;
+    }
+    return (db.scheduleShareLinks || []).find(row => row.id === id);
+  },
+
+  revokeShareLink: async (id: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleShareLinks").doc(id).set({ revoked: true }, { merge: true });
+      return;
+    }
+    const row = (db.scheduleShareLinks || []).find(item => item.id === id);
+    if (!row) throw new Error("الرابط غير موجود");
+    row.revoked = true;
+    saveDatabase();
+  },
+
+  /** يسجّل إرسالاً أو زيارةً لأستاذٍ على رابط (دمجٌ لا استبدال). */
+  markShareLinkInstructor: async (id: string, instructorId: number, patch: ShareLinkInstructorMark): Promise<void> => {
+    const key = String(Number(instructorId) || 0);
+    if (key === "0") return;
+    const clean = Object.fromEntries(Object.entries(patch).filter(([, value]) => typeof value === "string" && value)) as ShareLinkInstructorMark;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleShareLinks").doc(id).set({ marks: { [key]: clean } }, { merge: true });
+      return;
+    }
+    const row = (db.scheduleShareLinks || []).find(item => item.id === id);
+    if (!row) return;
+    row.marks = { ...(row.marks || {}), [key]: { ...(row.marks?.[key] || {}), ...clean } };
+    saveDatabase();
+  },
+
+  // Read counters are best-effort telemetry; a failed write must never block a reader.
+  touchShareLink: async (id: string): Promise<void> => {
+    const lastViewedAt = new Date().toISOString();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleShareLinks").doc(id)
+        .set({ lastViewedAt, views: FieldValue.increment(1) }, { merge: true });
+      return;
+    }
+    const row = (db.scheduleShareLinks || []).find(item => item.id === id);
+    if (!row) return;
+    row.views = Number(row.views || 0) + 1;
+    row.lastViewedAt = lastViewedAt;
+    saveDatabase();
+  },
+
+  createScheduleComment: async (entry: Omit<ScheduleComment, "id" | "createdAt" | "resolved"> & { resolved?: boolean }): Promise<ScheduleComment> => {
+    const row: ScheduleComment = { ...entry, id: randomUUID(), createdAt: new Date().toISOString(), resolved: Boolean(entry.resolved) };
+    /* Firestore refuses `undefined` outright — not as a null, as an error — so a
+       note with no date («أحتاج تعديلاً» without one) failed the whole write and
+       the instructor was told the system was broken. An absent field is absent,
+       not undefined. */
+    for (const key of Object.keys(row) as Array<keyof ScheduleComment>)
+      if (row[key] === undefined) delete row[key];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleComments").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.scheduleComments)) db.scheduleComments = [];
+    db.scheduleComments.unshift(row);
+    if (db.scheduleComments.length > 2000) db.scheduleComments.length = 2000;
+    saveDatabase();
+    return row;
+  },
+
+  getScheduleComments: async (scheduleId: number): Promise<ScheduleComment[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("scheduleComments").where("scheduleId", "==", scheduleId).limit(100).get();
+      return snap.docs.map(doc=>doc.data() as ScheduleComment).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+    }
+    return (db.scheduleComments || []).filter(row=>row.scheduleId===scheduleId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  },
+
+  /**
+   * Everything the instructors of one department have said, still unanswered.
+   *
+   * Deliberately scoped and deliberately unresolved-only: this is a tray, and a
+   * tray that also shows what has been dealt with stops being read.
+   */
+  /**
+   * ملاحظات نطاقٍ كامل — قسمٌ في فصل.
+   *
+   * القراءة القائمة كانت بالموعد الواحد، لأن الملاحظة كانت تأتي من بطاقة
+   * أستاذٍ عن موعدٍ بعينه. أمّا مراجعة التسجيل فتقرأ القسم كله دفعةً واحدة:
+   * صندوقُ الوارد يعرض «٥ خانات في ٤ صفوف» قبل أن يفتح الموظّف صفّاً واحداً،
+   * وقراءةُ ذلك موعداً موعداً كانت ستكلّف رحلةً لكل صفٍّ في الجدول.
+   */
+  getScheduleCommentsByScope: async (collegeId: number, sectionId: number, termId: number): Promise<ScheduleComment[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      /**
+       * الترتيب عند قاعدة البيانات، لا بعد القصّ.
+       *
+       * القصُّ بحدٍّ أعلى ثم الترتيب في الذاكرة يعني أن أيَّ ألفٍ تصل هي التي
+       * تُرتَّب — بترتيب المفاتيح لا بترتيب الزمن. وعلى هذه القائمة يُبنى عدُّ
+       * الملاحظات الذي يمنع الإرسال ويسمح به، فقصٌّ عشوائيٌّ فيها يعني قراراً
+       * عشوائياً. فليكن الترتيب أولاً، ثم يقع الحدّ على الأحدث.
+       */
+      return readCommentsOrdered(collection => collection
+        .where("AdCollegeId", "==", Number(collegeId))
+        .where("AdSectionId", "==", Number(sectionId))
+        .where("AdTermId", "==", Number(termId)), 2000);
+    }
+    return (db.scheduleComments || [])
+      .filter(row => Number(row.AdCollegeId) === Number(collegeId) && Number(row.AdSectionId) === Number(sectionId) && Number(row.AdTermId) === Number(termId))
+      .sort(byNewestComment);
+  },
+
+  /**
+   * ملاحظات الفصل كله، لكل الأقسام.
+   *
+   * صندوق وارد التسجيل يعرض عدّاد الملاحظات لكل قسمٍ في الكلية قبل أن يُفتح
+   * قسمٌ واحد. وقراءتُه قسماً قسماً تعني رحلةً لكل قسم في كل فتحةِ شاشة، وهي
+   * شاشةٌ تُفتح عشرين مرّةً في اليوم. فيُقرأ الفصل مرّةً ويُوزَّع في الذاكرة.
+   */
+  getScheduleCommentsForTerm: async (termId: number): Promise<ScheduleComment[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      return readCommentsOrdered(collection => collection.where("AdTermId", "==", Number(termId)), 5000);
+    }
+    return (db.scheduleComments || [])
+      .filter(row => Number(row.AdTermId) === Number(termId))
+      .sort(byNewestComment);
+  },
+
+  getScheduleCommentById: async (id: string): Promise<ScheduleComment | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("scheduleComments").doc(id).get();
+      return doc.exists ? (doc.data() as ScheduleComment) : undefined;
+    }
+    return (db.scheduleComments || []).find(row => row.id === id);
+  },
+
+  /**
+   * ── المسح فعلٌ مقصود، لا غيابُ قيمة ───────────────────────────────────────
+   *
+   * كانت هذه الدالّة تُسقط كل حقلٍ قيمتُه `undefined` قبل الكتابة — وهو صوابٌ
+   * لنداءٍ يريد أن يترك حقلاً كما هو، وخطأٌ تامٌّ لنداءٍ يريد أن يمحوه. والنداء
+   * الذي يمحو موجودٌ فعلاً: إصرارُ التسجيل على ملاحظةٍ ردّ عليها القسم يمحو
+   * الردّ لتعود الخانة برتقاليةً تنتظر. فكان الردّ يبقى، وتبقى الخانة رماديةً
+   * إلى الأبد، ويُعدّ الإصرارُ قبولاً في كل عدٍّ بعده.
+   *
+   * فصار المحوُ يُطلب صراحةً بقائمة أسماء، ويبقى `undefined` معناه «لا تمسّ».
+   * والفرق بين النيّتين لا يُستنتج من شكل القيمة؛ يُقال.
+   */
+  updateScheduleComment: async (
+    id: string,
+    fields: Partial<ScheduleComment>,
+    clearFields: Array<keyof ScheduleComment> = [],
+  ): Promise<ScheduleComment | undefined> => {
+    const clean: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(fields)) if (value !== undefined) clean[key] = value;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("scheduleComments").doc(id);
+      const doc = await ref.get();
+      if (!doc.exists) return undefined;
+      const updated = { ...(doc.data() as ScheduleComment), ...clean } as ScheduleComment;
+      for (const key of clearFields) delete updated[key];
+      /* كتابةٌ كاملة لا دمج: الدمج لا يحذف مفتاحاً، والحذف هو المقصود هنا. */
+      await ref.set(updated);
+      return updated;
+    }
+    if (!Array.isArray(db.scheduleComments)) db.scheduleComments = [];
+    const index = db.scheduleComments.findIndex(row => row.id === id);
+    if (index === -1) return undefined;
+    const merged = { ...db.scheduleComments[index], ...clean } as ScheduleComment;
+    for (const key of clearFields) delete merged[key];
+    db.scheduleComments[index] = merged;
+    saveDatabase();
+    return db.scheduleComments[index];
+  },
+
+  deleteScheduleComment: async (id: string): Promise<boolean> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("scheduleComments").doc(id);
+      const doc = await ref.get();
+      if (!doc.exists) return false;
+      await ref.delete();
+      return true;
+    }
+    if (!Array.isArray(db.scheduleComments)) db.scheduleComments = [];
+    const before = db.scheduleComments.length;
+    db.scheduleComments = db.scheduleComments.filter(row => row.id !== id);
+    if (db.scheduleComments.length === before) return false;
+    saveDatabase();
+    return true;
+  },
+
+  getStaffInbox: async (collegeId: number, sectionId: number, termId: number): Promise<ScheduleComment[]> => {
+    const keep = (row: ScheduleComment) =>
+      row.source === "staff-card" && !row.resolved &&
+      Number(row.AdCollegeId) === collegeId && Number(row.AdTermId) === termId &&
+      (!sectionId || Number(row.AdSectionId) === sectionId);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("scheduleComments")
+        .where("source", "==", "staff-card").where("AdTermId", "==", termId).limit(300).get();
+      return snap.docs.map(doc => doc.data() as ScheduleComment).filter(keep)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+    return (db.scheduleComments || []).filter(keep).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  /** How many notes one instructor has left today — the daily cap's counter. */
+  countStaffNotesToday: async (instructorId: number): Promise<number> => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const mine = (row: ScheduleComment) =>
+      row.source === "staff-card" && Number(row.fromInstructorId) === instructorId && row.createdAt >= since;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("scheduleComments")
+        .where("fromInstructorId", "==", instructorId).limit(60).get();
+      return snap.docs.map(doc => doc.data() as ScheduleComment).filter(mine).length;
+    }
+    return (db.scheduleComments || []).filter(mine).length;
+  },
+
+  /**
+   * ── ما يحتاجه الطالب ──────────────────────────────────────────────────────
+   *
+   * One record per student hand (fingerprint + term + survey department). The
+   * name and civil ID are stored only as field-level ciphertexts (see server.ts
+   * sealStudentIdentity) because the authorised department needs them to act
+   * on the case; the fingerprint is the duplicate key.
+   *
+   * Writing the same hand again UPDATES that record in place, inside one
+   * transaction: same id, same case number, the first submission date kept,
+   * and every decision the committee or registrar already made kept — a course
+   * the student removed after a decision stays visible, flagged
+   * `droppedByStudent` (rule: src/utils/studentNeedMerge.ts). It used to delete
+   * and recreate, discarding those decisions, in two non-atomic steps.
+   */
+  /* في «مساري» (byKind) «اليد الواحدة» يدٌ لكل نوع طلب: كان طلبُ التعارض يمحو طلبَ فتح المقرّر قبله،
+     وجوابُ «بعد التسجيل» يمحو حالةَ الخريج وقرارَ لجنتها (studentNeedKind). */
+  saveStudentNeed: async (entry: Omit<StudentNeed, "id" | "createdAt">, options: { byKind?: boolean } = {}): Promise<StudentNeed> => {
+    const now = new Date().toISOString();
+    const sameHand = (item: StudentNeed) => {
+      const itemSurveySection = Number(item.surveySectionId || item.AdSectionId || 0);
+      const entrySurveySection = Number(entry.surveySectionId || entry.AdSectionId || 0);
+      return item.fingerprint === entry.fingerprint && Number(item.AdTermId) === Number(entry.AdTermId)
+        && itemSurveySection === entrySurveySection
+        /* «مساري» وحده يفصل بالنوع؛ الاستبيان القديم يبقى حالةً واحدة برقمٍ واحد (تحقّقُ رقم الحالة فيه يفترض ذلك). */
+        && (!options.byKind || studentNeedKind(item) === studentNeedKind(entry));
+    };
+
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const collection = firestoreDb.collection("studentNeeds");
+      return await firestoreDb.runTransaction(async transaction => {
+        const snap = await transaction.get(collection.where("fingerprint", "==", entry.fingerprint).limit(500));
+        const prior = snap.docs.map(doc => doc.data() as StudentNeed).filter(sameHand);
+        const { row, removeIds } = mergeStudentResubmission(prior, entry, now, randomUUID());
+        for (const id of removeIds) transaction.delete(collection.doc(id));
+        transaction.set(collection.doc(row.id), row);
+        return row;
+      });
+    }
+    if (!Array.isArray(db.studentNeeds)) db.studentNeeds = [];
+    const prior = db.studentNeeds.filter(sameHand);
+    const { row, removeIds } = mergeStudentResubmission(prior, entry, now, randomUUID());
+    const at = db.studentNeeds.findIndex(item => item.id === row.id);
+    if (removeIds.length) db.studentNeeds = db.studentNeeds.filter(item => !removeIds.includes(item.id));
+    const index = db.studentNeeds.findIndex(item => item.id === row.id);
+    if (at >= 0 && index >= 0) db.studentNeeds[index] = row;
+    else {
+      db.studentNeeds.unshift(row);
+      if (db.studentNeeds.length > 20000) db.studentNeeds.length = 20000;
+    }
+    saveDatabase();
+    return row;
+  },
+
+  /**
+   * يكتب حالةَ مقرّرٍ واحدٍ في طلب طالب.
+   *
+   * كتابةٌ موضعيةٌ عن قصد: `saveStudentNeed` تكتب طلبَ الطالب كلَّه (وتُبقي
+   * القرارات)، وهذه تكتب قولاً واحداً عن مقرّرٍ واحد.
+   *
+   * وأحدثُ قولٍ في المقرّر هو قولُه: الحالةُ تُستبدل ولا تُكدَّس، فلا يقرأ
+   * أحدٌ سجلاًّ يقول «سُجّل» و«رُدّ» معاً.
+   */
+  /**
+   * `guard` يُسأل عن حالة المقرّر الحاليّة **داخل** المعاملة نفسها التي تكتب:
+   * قرارُ اللجنة وقرارُ التسجيل على المقرّر نفسه في اللحظة نفسها لا يمرّ
+   * أحدُهما على حالةٍ قديمة قرأها قبل أن يغيّرها الآخر. يُرجع سبب الرفض أو
+   * null، والرفضُ يُرمى `StudentCourseStateConflict` بلا كتابة.
+   */
+  setStudentCourseState: async (needId: string, next: StudentCourseState,
+    guard?: (current: StudentCourseState | undefined) => string | null): Promise<StudentNeed | undefined> => {
+    const check = (current: StudentNeed) => {
+      if (!guard) return;
+      const existing = (current.courseStates || []).find(state => Number(state.courseId) === Number(next.courseId));
+      const refusal = guard(existing);
+      if (refusal) throw new StudentCourseStateConflict(refusal);
+    };
+    const merge = (current: StudentNeed): StudentNeed => ({
+      ...current,
+      courseStates: [
+        ...(current.courseStates || []).filter(state => Number(state.courseId) !== Number(next.courseId)),
+        next,
+      ],
+    });
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      /* ── قراران في لحظةٍ واحدة ──────────────────────────────────────────
+       *
+       * قراءةٌ ثم كتابةٌ ليستا عمليةً واحدة: موظّفان يقرّران في طالبٍ واحدٍ
+       * معاً — أو موظّفٌ واحدٌ ينقر مقرّراً ثانياً قبل أن يعود الأول — فكلٌّ
+       * يقرأ الوثيقةَ نفسَها ثم يكتبها كاملةً، فيمحو الثاني قرارَ الأول بلا
+       * أن يقول شيئاً لأحد. والشاشةُ تسمح به: تُعطّل المقرّرَ المشغولَ وحدَه.
+       *
+       * والمعاملةُ تجعلهما عمليةً واحدة: من يخسر السباقَ يُعاد قراءتُه
+       * ودمجُه، فيبقى القراران.
+       */
+      const ref = firestoreDb.collection("studentNeeds").doc(needId);
+      return await firestoreDb.runTransaction(async transaction => {
+        const doc = await transaction.get(ref);
+        if (!doc.exists) return undefined;
+        check(doc.data() as StudentNeed);
+        const merged = merge(doc.data() as StudentNeed);
+        transaction.set(ref, merged);
+        return merged;
+      });
+    }
+    if (!Array.isArray(db.studentNeeds)) db.studentNeeds = [];
+    const at = db.studentNeeds.findIndex(row => row.id === needId);
+    if (at < 0) return undefined;
+    check(db.studentNeeds[at]);
+    db.studentNeeds[at] = merge(db.studentNeeds[at]);
+    saveDatabase();
+    return db.studentNeeds[at];
+  },
+
+  /**
+   * قرارُ جهةٍ واحدةٍ في الحالة كلها (طلبُ الخريج بلا مقرّرات).
+   *
+   * النمطُ نفسُه الذي يكتب به `setStudentCourseState`: القاعدةُ تُسأل داخل
+   * المعاملة على الحالة كما هي لحظتَها (`studentCaseRefusal`)، فقرارا اللجنة
+   * والتسجيل في اللحظة نفسها لا يمرّ أحدهما على حالةٍ قديمة. `next === null`
+   * يسحب قرارَ تلك الجهة.
+   */
+  setStudentCaseDecision: async (needId: string, side: StudentCaseSide, next: StudentCaseDecision | null): Promise<StudentNeed | undefined> => {
+    const merge = (current: StudentNeed): StudentNeed => {
+      const refusal = studentCaseRefusal(current.caseState, side, next);
+      if (refusal) throw new StudentCourseStateConflict(refusal);
+      return { ...current, caseState: applyStudentCaseDecision(current.caseState, side, next) };
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("studentNeeds").doc(needId);
+      return await firestoreDb.runTransaction(async transaction => {
+        const doc = await transaction.get(ref);
+        if (!doc.exists) return undefined;
+        const merged = merge(doc.data() as StudentNeed);
+        transaction.set(ref, merged);
+        return merged;
+      });
+    }
+    if (!Array.isArray(db.studentNeeds)) db.studentNeeds = [];
+    const at = db.studentNeeds.findIndex(row => row.id === needId);
+    if (at < 0) return undefined;
+    db.studentNeeds[at] = merge(db.studentNeeds[at]);
+    saveDatabase();
+    return db.studentNeeds[at];
+  },
+
+  /** سجلٌّ واحدٌ بمعرّفه. يحتاجه مسارُ الحالة ليتحقّق من نطاقه قبل الكتابة. */
+  getStudentNeedById: async (needId: string): Promise<StudentNeed | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("studentNeeds").doc(needId).get();
+      return doc.exists ? (doc.data() as StudentNeed) : undefined;
+    }
+    return (db.studentNeeds || []).find(row => row.id === needId);
+  },
+
+  /** Every answer for one board. The only read the coordinator's side needs. */
+  /**
+   * Every answer this section has ever collected, all terms.
+   *
+   * The per-term read above is what a reading of *this* term needs. This one is
+   * what learning a sequence needs: the same fingerprinted hand appearing in two
+   * terms is what makes «what follows what» knowable at all. Single-field
+   * query, so no composite index is involved.
+   */
+  getStudentNeedHistory: async (collegeId: number, sectionId: number): Promise<StudentNeed[]> => {
+    const mine = (item: StudentNeed) => {
+      if (Number(item.AdCollegeId) !== collegeId) return false;
+      if (!sectionId) return true;
+      return Number(item.surveySectionId || item.AdSectionId || 0) === sectionId;
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      // `surveySectionId` was added after the first deployed surveys. Read by
+      // college and filter in memory so old records are not made invisible by a
+      // field they could never have carried.
+      return (await readStudentNeedsWhere("AdCollegeId", collegeId)).filter(mine);
+    }
+    return (db.studentNeeds || []).filter(mine);
+  },
+
+  /**
+   * ── يدٌ واحدة، لا فصلٌ كامل ────────────────────────────────────────────────
+   *
+   * فحصُ الهوية والإرسال وصفحةُ الحالة كانت تسأل «هل لهذا الطالب طلبٌ؟» بقراءة
+   * **كل طلبات الكلية في الفصل** ثم البحث فيها بالذاكرة. على ألفٍ يعمل، وعلى
+   * خمسةٍ وعشرين ألف طالبٍ يقرأ كلُّ إرسالٍ آلافَ الوثائق أربع مرات، فتنتهي
+   * الحصةُ اليومية قبل أن يمرّ الصباح.
+   *
+   * البصمةُ حقلٌ واحدٌ له فهرسُ الحقل المفرد التلقائي، فالسؤالُ بها يقرأ ما
+   * يخصّ الطالب وحده — وهو ما تفعله `saveStudentNeed` أصلاً. والتصفيةُ بالكلية
+   * والفصل في الذاكرة على ما رجع (عشراتٌ لا آلاف)، كي لا يلزم فهرسٌ مركّب.
+   */
+  getStudentNeedsByFingerprint: async (fingerprint: string, collegeId: number, termId: number): Promise<StudentNeed[]> => {
+    /* كليةٌ = 0: كلُّ الكليات (طلبٌ في مقرراتِ قسمٍ من كليةٍ أخرى يُحفظ باسم كليّة المقرر). */
+    const mine = (item: StudentNeed) => item.fingerprint === fingerprint
+      && (!Number(collegeId) || Number(item.AdCollegeId) === Number(collegeId)) && Number(item.AdTermId) === Number(termId);
+    if (!fingerprint) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      /* كلُّ ما بصمته هذه — صفحةً صفحة — ثم الفصلُ والكلية في الذاكرة: حدٌّ بلا ترقيمٍ
+         يُسقط سجلَّ الفصل المطلوب لمن تراكمت له سجلاتٌ في فصولٍ وكلياتٍ كثيرة. */
+      const out: StudentNeed[] = [];
+      let last: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+      for (;;) {
+        let query: FirebaseFirestore.Query = firestoreDb.collection("studentNeeds")
+          .where("fingerprint", "==", fingerprint).orderBy(FieldPath.documentId()).limit(STUDENT_NEEDS_PAGE);
+        if (last) query = query.startAfter(last);
+        const snap = await query.get();
+        for (const doc of snap.docs) { const item = doc.data() as StudentNeed; if (mine(item)) out.push(item); }
+        if (snap.size < STUDENT_NEEDS_PAGE) break;
+        last = snap.docs[snap.docs.length - 1];
+      }
+      return out;
+    }
+    return (db.studentNeeds || []).filter(mine);
+  },
+
+  /**
+   * «مساري» يقرأ حالات صاحب الجلسة عبر الفصول، كي تبقى متابعة الحالة القديمة
+   * متاحة بعد انتهاء نافذة الاستبيان. القراءة بالبصمة وحدها ثم ترقيم كل الصفحات؛
+   * لا يُكشف سجلّ طالب آخر ولا يُسقط تاريخٌ قديم بسبب حدٍّ صامت.
+   */
+  getStudentNeedHistoryByFingerprint: async (fingerprint: string): Promise<StudentNeed[]> => {
+    if (!fingerprint) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const out: StudentNeed[] = [];
+      let last: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+      for (;;) {
+        let query: FirebaseFirestore.Query = firestoreDb.collection("studentNeeds")
+          .where("fingerprint", "==", fingerprint).orderBy(FieldPath.documentId()).limit(STUDENT_NEEDS_PAGE);
+        if (last) query = query.startAfter(last);
+        const snap = await query.get();
+        for (const doc of snap.docs) out.push(doc.data() as StudentNeed);
+        if (snap.size < STUDENT_NEEDS_PAGE) break;
+        last = snap.docs[snap.docs.length - 1];
+      }
+      return out;
+    }
+    return (db.studentNeeds || []).filter(item => item.fingerprint === fingerprint);
+  },
+
+  /**
+   * ── قواعدُ الصحيفة: مسوّدةٌ تُراجَع، ونسخةٌ معتمدة تُقرأ ─────────────────────
+   *
+   * وثيقتان لكل صحيفة بالمفتاح نفسه (planId): `curriculumRuleDrafts` يعدّلها القسم
+   * ويراجعها، و`curriculumRuleSets` هي المعتمدة التي يقرؤها المحرّكُ وبابُ
+   * الطالب. لا يكتب أحدٌ في المعتمدة إلا `approveRuleDraft`، في معاملةٍ واحدة،
+   * وبشرط ألا تكون المسوّدةُ تغيّرت بين ما رآه المعتمِد وما اعتمده.
+   */
+  getRuleDraft: async (planId: string): Promise<CurriculumRuleSet | undefined> => {
+    if (!planId) return undefined;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("curriculumRuleDrafts").doc(planId).get();
+      return doc.exists ? (doc.data() as CurriculumRuleSet) : undefined;
+    }
+    return (db.curriculumRuleDrafts || []).find(row => row.id === planId);
+  },
+  getRuleSet: async (planId: string): Promise<CurriculumRuleSet | undefined> => {
+    if (!planId) return undefined;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("curriculumRuleSets").doc(planId).get();
+      return doc.exists ? (doc.data() as CurriculumRuleSet) : undefined;
+    }
+    return (db.curriculumRuleSets || []).find(row => row.id === planId);
+  },
+  /** كلُّ المسوّدات: عددُها بعددِ الصحائف (عشراتٌ) فتُقرأ كلُّها وتُصفّى في الذاكرة. */
+  /**
+   * ── رادارُ التسجيل ───────────────────────────────────────────────────────────
+   * كلُّ ملفّات الطلبة (بلا أسماء) لتُغذّي المحرّك. ترقيمٌ صفحةً صفحة؛ وسقفٌ يحمي الذاكرة.
+   */
+  listStudentProfiles: async (limit = 60000): Promise<StudentProfile[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const out: StudentProfile[] = [];
+      let last: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+      while (out.length < limit) {
+        let query: FirebaseFirestore.Query = firestoreDb.collection("studentProfiles").orderBy(FieldPath.documentId()).limit(1000);
+        if (last) query = query.startAfter(last);
+        const snap = await query.get();
+        for (const doc of snap.docs) out.push(doc.data() as StudentProfile);
+        if (snap.size < 1000) break;
+        last = snap.docs[snap.docs.length - 1];
+      }
+      return out.slice(0, limit);
+    }
+    return [...(db.studentProfiles || [])].slice(0, limit);
+  },
+  /**
+   * Profiles for one college's demand analysis. The query scopes the Firestore
+   * scan before pagination; section and term are filtered by the pure merge
+   * helper so this uses the ordinary college index without a new composite
+   * index or an all-university profile read on each department screen.
+   */
+  getStudentProfilesByCollege: async (collegeId: number, limit = 60000): Promise<StudentProfile[]> => {
+    if (!Number.isInteger(collegeId) || collegeId <= 0) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const out: StudentProfile[] = [];
+      let last: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+      while (out.length < limit) {
+        let query: FirebaseFirestore.Query = firestoreDb.collection("studentProfiles")
+          .where("AdCollegeId", "==", collegeId).orderBy(FieldPath.documentId()).limit(1000);
+        if (last) query = query.startAfter(last);
+        const snap = await query.get();
+        for (const doc of snap.docs) out.push(doc.data() as StudentProfile);
+        if (snap.size < 1000) break;
+        last = snap.docs[snap.docs.length - 1];
+      }
+      return out.slice(0, limit);
+    }
+    return (db.studentProfiles || []).filter(profile => Number(profile.AdCollegeId) === collegeId).slice(0, limit);
+  },
+  /**
+   * قفلٌ في قاعدة البيانات لتحديثٍ واحد لكل فصل: مديران على نسختين من الخادم لا يشغّلان
+   * معاً (وإلا كتب كلٌّ فوق تذاكر الآخر وتركا الملخّصَ يشير إلى تحديثٍ كُنست تذاكرُه).
+   * ينتهي وحدَه بعد `ttlMs` إن مات الخادمُ في منتصف العمل.
+   */
+  acquireRegistrationRunLease: async (termId: number, holder: string, ttlMs = 15 * 60_000): Promise<boolean> => {
+    const now = Date.now();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("registrationRunLocks").doc(String(termId));
+      return await firestoreDb.runTransaction(async transaction => {
+        const snap = await transaction.get(ref);
+        const until = snap.exists ? Number((snap.data() as any).until) || 0 : 0;
+        if (until > now) return false;
+        transaction.set(ref, { until: now + ttlMs, holder });
+        return true;
+      });
+    }
+    const held = localRunLeases.get(termId);
+    if (held && held.until > now) return false;
+    localRunLeases.set(termId, { until: now + ttlMs, holder });
+    return true;
+  },
+  releaseRegistrationRunLease: async (termId: number, holder: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("registrationRunLocks").doc(String(termId));
+      await firestoreDb.runTransaction(async transaction => {
+        const snap = await transaction.get(ref);
+        if (snap.exists && (snap.data() as any).holder === holder) transaction.delete(ref);
+      });
+      return;
+    }
+    if (localRunLeases.get(termId)?.holder === holder) localRunLeases.delete(termId);
+  },
+  /**
+   * قفلُ تثبيت رغبات الأساتذة في الجدول، لكل فصل، في قاعدة البيانات: تثبيتان متزامنان على
+   * نسختين من الخادم (أو منطقتين) يفحص كلٌّ منهما أسبوعاً لا يرى ما يكتبه الآخر، فقد يحجزان
+   * القاعةَ أو الأستاذَ نفسَه. قفلُ الذاكرة لا يرى إلا نسختَه. ينتهي وحدَه إن مات الخادم.
+   */
+  acquireScheduleApplyLease: async (key: string, holder: string, ttlMs = 2 * 60_000): Promise<boolean> => {
+    const now = Date.now();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("scheduleApplyLocks").doc(key.replace(/[^\w-]/g, "_"));
+      return await firestoreDb.runTransaction(async transaction => {
+        const snap = await transaction.get(ref);
+        const until = snap.exists ? Number((snap.data() as any).until) || 0 : 0;
+        if (until > now) return false;
+        transaction.set(ref, { until: now + ttlMs, holder });
+        return true;
+      });
+    }
+    const held = localApplyLeases.get(key);
+    if (held && held.until > now) return false;
+    localApplyLeases.set(key, { until: now + ttlMs, holder });
+    return true;
+  },
+  /** يمدّ أجلَ القفل ما دام صاحبُه يعمل (تثبيتٌ طويل لا يفقد قفله في منتصفه). */
+  renewScheduleApplyLease: async (key: string, holder: string, ttlMs = 2 * 60_000): Promise<boolean> => {
+    const now = Date.now();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("scheduleApplyLocks").doc(key.replace(/[^\w-]/g, "_"));
+      return await firestoreDb.runTransaction(async transaction => {
+        const snap = await transaction.get(ref);
+        if (!snap.exists || (snap.data() as any).holder !== holder) return false;
+        transaction.set(ref, { until: now + ttlMs, holder });
+        return true;
+      });
+    }
+    const held = localApplyLeases.get(key);
+    if (!held || held.holder !== holder) return false;
+    localApplyLeases.set(key, { until: now + ttlMs, holder });
+    return true;
+  },
+  releaseScheduleApplyLease: async (key: string, holder: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("scheduleApplyLocks").doc(key.replace(/[^\w-]/g, "_"));
+      await firestoreDb.runTransaction(async transaction => {
+        const snap = await transaction.get(ref);
+        if (snap.exists && (snap.data() as any).holder === holder) transaction.delete(ref);
+      });
+      return;
+    }
+    if (localApplyLeases.get(key)?.holder === holder) localApplyLeases.delete(key);
+  },
+  getRegistrationRun: async (termId: number): Promise<RegistrationRun | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("registrationRuns").doc(String(termId)).get();
+      return doc.exists ? (doc.data() as RegistrationRun) : undefined;
+    }
+    return (db.registrationRuns || []).find(row => row.id === String(termId));
+  },
+  getRegistrationTicket: async (termId: number, fingerprint: string): Promise<RegistrationTicket | undefined> => {
+    if (!fingerprint) return undefined;
+    const id = `${termId}_${fingerprint}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("registrationTickets").doc(id).get();
+      return doc.exists ? (doc.data() as RegistrationTicket) : undefined;
+    }
+    return (db.registrationTickets || []).find(row => row.id === id);
+  },
+  /**
+   * يحفظ نتيجةَ تحديث: التذاكرُ دُفعاتٍ (٤٠٠ في الدفعة)، ثم الملخّصُ آخراً — فالباب لا يقرأ
+   * إلا ما اكتمل: تذكرةٌ لا يطابق `runId` ملخّصَها تُهمل. ولا تُحذف تذاكرُ الرادار السابقة
+   * (تُهمل ولا تُقرأ؛ ويحذفها مطهّرُ الملفات حين يحذف ملفَّ صاحبها).
+   */
+  saveRegistrationRun: async (run: RegistrationRun, tickets: RegistrationTicket[]): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      for (let i = 0; i < tickets.length; i += 400) {
+        const batch = firestoreDb.batch();
+        for (const ticket of tickets.slice(i, i + 400)) batch.set(firestoreDb.collection("registrationTickets").doc(ticket.id), ticket);
+        await batch.commit();
+      }
+      await firestoreDb.collection("registrationRuns").doc(run.id).set(run);
+      /* كنسُ تذاكر الرادار السابقة لهذا الفصل (طلبةٌ حُذفت ملفّاتهم أو خرجوا من الحساب). */
+      let after: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+      for (;;) {
+        let query: FirebaseFirestore.Query = firestoreDb.collection("registrationTickets").where("termId", "==", run.termId).orderBy(FieldPath.documentId()).limit(400);
+        if (after) query = query.startAfter(after);
+        const page = await query.get();
+        const old = page.docs.filter(doc => (doc.data() as RegistrationTicket).runId !== run.runId);
+        if (old.length) { const batch = firestoreDb.batch(); old.forEach(doc => batch.delete(doc.ref)); await batch.commit(); }
+        if (page.size < 400) break;
+        after = page.docs[page.docs.length - 1];
+      }
+      return;
+    }
+    if (!Array.isArray(db.registrationTickets)) db.registrationTickets = [];
+    if (!Array.isArray(db.registrationRuns)) db.registrationRuns = [];
+    db.registrationTickets = db.registrationTickets.filter(row => row.termId !== run.termId).concat(tickets);
+    db.registrationRuns = db.registrationRuns.filter(row => row.id !== run.id).concat(run);
+    saveDatabase();
+  },
+  /**
+   * ── «هل سجلت؟»: عدّاداتٌ مشاظِرة ─────────────────────────────────────────────
+   * كلُّ جوابٍ يطرح قديمَه ويضيف جديدَه في شظيةٍ يحدّدها اسمُ الطالب المجزّأ (٦٤ شظية)،
+   * فلا تتزاحم آلافُ الكتابات على وثيقةٍ واحدة يومَ التسجيل. القراءةُ تجمع الشظايا.
+   */
+  /**
+   * يكتب جوابَ الطالب وعدّاداتِه **معاً** (معاملةٌ واحدة على وثيقتي الملف والشظية): إن ماتت
+   * العمليةُ في المنتصف لا يبقى جوابٌ بلا عدٍّ، ولا يُحسب القديمُ مرتين عند إعادة المحاولة.
+   * `mutate` يُرجع الملفَّ الجديد (وفيه `registration` الجديد) أو undefined لترك الحال.
+   */
+  recordRegistrationAnswers: async (fingerprint: string, termId: number, mutate: (current: StudentProfile | undefined) => StudentProfile | undefined): Promise<StudentProfile | undefined> => {
+    if (!fingerprint) throw new Error("بصمة الطالب مطلوبة");
+    const OUTCOME_SHARDS = 64;
+    let h = 2166136261; for (let i = 0; i < fingerprint.length; i++) { h ^= fingerprint.charCodeAt(i); h = Math.imul(h, 16777619); }
+    const shard = (h >>> 0) % OUTCOME_SHARDS, id = `${termId}_${shard}`;
+    const deltaOf = (before: StudentRegistrationReport["answers"] | undefined, after: StudentRegistrationReport["answers"] | undefined) => {
+      const delta = new Map<number, { registered: number; stuck: number; full: number; prereq: number; conflict: number; other: number }>();
+      const bump = (answers: StudentRegistrationReport["answers"] | undefined, sign: 1 | -1) => {
+        for (const answer of answers || []) {
+          const row = delta.get(answer.courseId) || { registered: 0, stuck: 0, full: 0, prereq: 0, conflict: 0, other: 0 };
+          if (answer.state === "registered") row.registered += sign; else { row.stuck += sign; row[answer.reason || "other"] += sign; }
+          delta.set(answer.courseId, row);
+        }
+      };
+      bump(before, -1); bump(after, 1);
+      return { delta, students: (after && after.length ? 1 : 0) - (before && before.length ? 1 : 0) };
+    };
+    const termAnswers = (profile: StudentProfile | undefined) => (profile?.registration && profile.registration.termId === termId ? profile.registration.answers : undefined);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const profileRef = firestoreDb.collection("studentProfiles").doc(fingerprint);
+      const shardRef = firestoreDb.collection("registrationOutcomes").doc(id);
+      return await firestoreDb.runTransaction(async transaction => {
+        const snap = await transaction.get(profileRef);
+        const current = snap.exists ? (snap.data() as StudentProfile) : undefined;
+        const next = mutate(current);
+        if (!next) return current;
+        const { delta, students } = deltaOf(termAnswers(current), termAnswers(next));
+        const byCourse: Record<string, any> = {};
+        for (const [courseId, row] of delta) byCourse[String(courseId)] = Object.fromEntries(Object.entries(row).map(([k, v]) => [k, FieldValue.increment(v)]));
+        transaction.set(profileRef, { ...next, id: fingerprint, fingerprint });
+        transaction.set(shardRef, { id, termId, shard, students: FieldValue.increment(students), byCourse }, { merge: true });
+        return next;
+      });
+    }
+    if (!Array.isArray(db.studentProfiles)) db.studentProfiles = [];
+    const index = db.studentProfiles.findIndex(row => row.id === fingerprint);
+    const current = index >= 0 ? db.studentProfiles[index] : undefined;
+    const next = mutate(current);
+    if (!next) return current;
+    const { delta, students } = deltaOf(termAnswers(current), termAnswers(next));
+    if (!Array.isArray(db.registrationOutcomes)) db.registrationOutcomes = [];
+    let doc = db.registrationOutcomes.find(row => row.id === id);
+    if (!doc) { doc = { id, termId, shard, students: 0, byCourse: {} }; db.registrationOutcomes.push(doc); }
+    doc.students += students;
+    for (const [courseId, row] of delta) {
+      const target = doc.byCourse[String(courseId)] || (doc.byCourse[String(courseId)] = { registered: 0, stuck: 0, full: 0, prereq: 0, conflict: 0, other: 0 });
+      for (const key of Object.keys(row) as Array<keyof typeof row>) target[key] += row[key];
+    }
+    const row = { ...next, id: fingerprint, fingerprint };
+    if (index >= 0) db.studentProfiles[index] = row; else db.studentProfiles.push(row);
+    saveDatabase();
+    return row;
+  },
+  getRegistrationOutcome: async (termId: number): Promise<RegistrationOutcomeShard[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      return (await firestoreDb.collection("registrationOutcomes").where("termId", "==", termId).get()).docs.map(doc => doc.data() as RegistrationOutcomeShard);
+    }
+    return (db.registrationOutcomes || []).filter(row => row.termId === termId);
+  },
+  listRuleDrafts: async (): Promise<CurriculumRuleSet[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      return (await firestoreDb.collection("curriculumRuleDrafts").get()).docs.map(doc => doc.data() as CurriculumRuleSet);
+    }
+    return [...(db.curriculumRuleDrafts || [])];
+  },
+  listRuleSets: async (): Promise<CurriculumRuleSet[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      return (await firestoreDb.collection("curriculumRuleSets").get()).docs.map(doc => doc.data() as CurriculumRuleSet);
+    }
+    return [...(db.curriculumRuleSets || [])];
+  },
+  /** قراءةٌ ثم كتابةٌ في معاملةٍ واحدة. `mutate` يرجع المسوّدةَ الجديدة أو undefined لترك الحال. */
+  updateRuleDraft: async (planId: string, mutate: (current: CurriculumRuleSet | undefined) => CurriculumRuleSet | undefined): Promise<CurriculumRuleSet | undefined> => {
+    if (!planId) throw new Error("معرّف الصحيفة مطلوب");
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("curriculumRuleDrafts").doc(planId);
+      return await firestoreDb.runTransaction(async transaction => {
+        const snap = await transaction.get(ref);
+        const current = snap.exists ? (snap.data() as CurriculumRuleSet) : undefined;
+        const next = mutate(current);
+        if (!next) return current;
+        transaction.set(ref, { ...next, id: planId, planId });
+        return next;
+      });
+    }
+    if (!Array.isArray(db.curriculumRuleDrafts)) db.curriculumRuleDrafts = [];
+    const index = db.curriculumRuleDrafts.findIndex(row => row.id === planId);
+    const current = index >= 0 ? db.curriculumRuleDrafts[index] : undefined;
+    const next = mutate(current);
+    if (!next) return current;
+    const row = { ...next, id: planId, planId };
+    if (index >= 0) db.curriculumRuleDrafts[index] = row; else db.curriculumRuleDrafts.push(row);
+    saveDatabase();
+    return row;
+  },
+  /**
+   * الاعتماد: المسوّدةُ تصير النسخةَ المعتمدة (الإصدار +١) في معاملةٍ واحدة.
+   * يرمي `RuleDraftConflict` إن لم تكن المسوّدةُ قيد المراجعة أو تغيّرت بعد أن رآها
+   * المعتمِد (`expectedUpdatedAt`).
+   */
+  approveRuleDraft: async (planId: string, expectedUpdatedAt: string, by: string): Promise<CurriculumRuleSet> => {
+    const at = new Date().toISOString();
+    const promote = (draft: CurriculumRuleSet | undefined, live: CurriculumRuleSet | undefined) => {
+      if (!draft || draft.status !== "review") throw new RuleDraftConflict("لا مسوّدةَ قيد المراجعة لهذه الصحيفة.");
+      if (draft.updatedAt !== expectedUpdatedAt) throw new RuleDraftConflict("تغيّرت المسوّدةُ بعد أن راجعتَها — حدّث الصفحة وراجع التغيير.");
+      const version = (live?.version || 0) + 1;
+      const approved: CurriculumRuleSet = { ...draft, status: undefined, version, approvedAt: at, approvedBy: by, basedOnVersion: undefined };
+      return { approved, draft: { ...draft, status: "approved" as const, version, approvedAt: at, approvedBy: by } };
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const draftRef = firestoreDb.collection("curriculumRuleDrafts").doc(planId), liveRef = firestoreDb.collection("curriculumRuleSets").doc(planId);
+      const approved = await firestoreDb.runTransaction(async transaction => {
+        const [draftSnap, liveSnap] = await Promise.all([transaction.get(draftRef), transaction.get(liveRef)]);
+        const { approved, draft } = promote(draftSnap.exists ? (draftSnap.data() as CurriculumRuleSet) : undefined, liveSnap.exists ? (liveSnap.data() as CurriculumRuleSet) : undefined);
+        transaction.set(liveRef, approved); transaction.set(draftRef, draft);
+        return approved;
+      });
+      await markRegistrationRunsStale();
+      return approved;
+    }
+    if (!Array.isArray(db.curriculumRuleDrafts)) db.curriculumRuleDrafts = [];
+    if (!Array.isArray(db.curriculumRuleSets)) db.curriculumRuleSets = [];
+    const draftIndex = db.curriculumRuleDrafts.findIndex(row => row.id === planId);
+    const liveIndex = db.curriculumRuleSets.findIndex(row => row.id === planId);
+    const { approved, draft } = promote(draftIndex >= 0 ? db.curriculumRuleDrafts[draftIndex] : undefined, liveIndex >= 0 ? db.curriculumRuleSets[liveIndex] : undefined);
+    db.curriculumRuleDrafts[draftIndex] = draft;
+    if (liveIndex >= 0) db.curriculumRuleSets[liveIndex] = approved; else db.curriculumRuleSets.push(approved);
+    saveDatabase();
+    await markRegistrationRunsStale();
+    return approved;
+  },
+
+  /**
+   * ── ملفُّ الطالب (بصمته مفتاحُه) ───────────────────────────────────────────
+   *
+   * قراءةٌ بالمفتاح مباشرة: وثيقةٌ واحدة، لا استعلام. والكتابةُ كلُّها تمرّ
+   * بـ`updateStudentProfile` — دالّةٌ تقرأ الحالةَ وتكتبها في معاملةٍ واحدة، لأن
+   * عدّاد المحاولات الخاطئة وتحديثَ الملف من جهازين في اللحظة نفسها لا يجوز
+   * أن يكتب أحدُهما فوق الآخر.
+   */
+  getStudentProfile: async (fingerprint: string): Promise<StudentProfile | undefined> => {
+    if (!fingerprint) return undefined;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("studentProfiles").doc(fingerprint).get();
+      return doc.exists ? (doc.data() as StudentProfile) : undefined;
+    }
+    return (db.studentProfiles || []).find(row => row.id === fingerprint);
+  },
+
+  /**
+   * يقرأ الملفَّ ويُجري عليه `mutate` ويكتبه في معاملةٍ واحدة.
+   * `mutate` يُرجع الملفَّ الجديد، أو null لحذفه، أو undefined لترك الحال كما هي.
+   */
+  updateStudentProfile: async (
+    fingerprint: string,
+    mutate: (current: StudentProfile | undefined) => StudentProfile | null | undefined,
+  ): Promise<StudentProfile | undefined> => {
+    if (!fingerprint) throw new Error("بصمة الطالب مطلوبة");
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("studentProfiles").doc(fingerprint);
+      const result = await firestoreDb.runTransaction(async transaction => {
+        const snap = await transaction.get(ref);
+        const current = snap.exists ? (snap.data() as StudentProfile) : undefined;
+        const next = mutate(current);
+        if (next === undefined) return { profile: current, changed: false };
+        if (next === null) { if (snap.exists) transaction.delete(ref); return { profile: undefined, changed: registrationFactsChanged(current, null) }; }
+        transaction.set(ref, { ...next, id: fingerprint, fingerprint });
+        return { profile: next, changed: registrationFactsChanged(current, next) };
+      });
+      if (result.changed) await markRegistrationRunsStale();
+      return result.profile;
+    }
+    if (!Array.isArray(db.studentProfiles)) db.studentProfiles = [];
+    const index = db.studentProfiles.findIndex(row => row.id === fingerprint);
+    const current = index >= 0 ? db.studentProfiles[index] : undefined;
+    const next = mutate(current);
+    if (next === undefined) return current;
+    if (next === null) {
+      if (index >= 0) { db.studentProfiles.splice(index, 1); saveDatabase(); if (registrationFactsChanged(current, null)) await markRegistrationRunsStale(); }
+      return undefined;
+    }
+    const row = { ...next, id: fingerprint, fingerprint };
+    if (index >= 0) db.studentProfiles[index] = row; else db.studentProfiles.push(row);
+    saveDatabase();
+    if (registrationFactsChanged(current, row)) await markRegistrationRunsStale();
+    return row;
+  },
+
+  /**
+   * يحذف الملفاتِ التي انتهى عمرُها (deleteAt). دفعةٌ محدودة في المرّة:
+   * الحذفُ يُحسب من الحصة اليومية المجانية، والباقي يُحذف في الدورة التالية.
+   * يرجع ما حُذف.
+   */
+  purgeExpiredStudentProfiles: async (nowISO: string, limit = 400): Promise<number> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("studentProfiles").where("deleteAt", "<=", nowISO).limit(limit).get();
+      if (snap.empty) return 0;
+      const batch = firestoreDb.batch();
+      snap.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      return snap.size;
+    }
+    const before = (db.studentProfiles || []).length;
+    const keep: StudentProfile[] = [];
+    let removed = 0;
+    for (const row of db.studentProfiles || []) {
+      if (String(row.deleteAt) <= nowISO && removed < limit) removed += 1; else keep.push(row);
+    }
+    if (removed) { db.studentProfiles = keep; saveDatabase(); }
+    return before - keep.length;
+  },
+
+  /** كلُّ طلبات الطلبة في فصلٍ واحد، لكل الكليات: يحتاجها مركزُ الإشعارات ليعدّ لكل قسم. */
+  getStudentNeedsForTerm: async (termId: number): Promise<StudentNeed[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      return await readStudentNeedsWhere("AdTermId", termId);
+    }
+    return (db.studentNeeds || []).filter(item => Number(item.AdTermId) === termId);
+  },
+
+  getStudentNeeds: async (collegeId: number, sectionId: number, termId: number): Promise<StudentNeed[]> => {
+    const mine = (item: StudentNeed) => {
+      if (Number(item.AdCollegeId) !== collegeId || Number(item.AdTermId) !== termId) return false;
+      if (!sectionId) return true;
+      return Number(item.surveySectionId || item.AdSectionId || 0) === sectionId;
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      return (await readStudentNeedsWhere("AdTermId", termId)).filter(mine);
+    }
+    return (db.studentNeeds || []).filter(mine);
+  },
+
+  setScheduleCommentResolved: async (id: string, resolved: boolean): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref=firestoreDb.collection("scheduleComments").doc(id); const doc=await ref.get();
+      if (!doc.exists) throw new Error("التعليق غير موجود");
+      await ref.set({ ...(doc.data() as ScheduleComment), resolved }, { merge: false });
+      return;
+    }
+    if (!Array.isArray(db.scheduleComments)) db.scheduleComments=[];
+    const row=db.scheduleComments.find(item=>item.id===id); if(!row) throw new Error("التعليق غير موجود");
+    row.resolved=resolved; saveDatabase();
+  },
+
+  /** The seconded staff a department is using this term. */
+  /**
+   * The live channel, across every instance.
+   *
+   * A server-sent event only reaches the clients connected to the instance that
+   * performed the write — so the moment Cloud Run runs a second copy, half the
+   * university stops seeing their colleagues' changes and nothing looks broken.
+   * One tiny document fixes it: each write stamps it, and every instance keeps
+   * a listener on it, so a change made anywhere is announced everywhere.
+   *
+   * It is a beacon, not a payload: it carries a counter and a time, never a
+   * schedule row, so no permission decision depends on it. In demo mode there
+   * is only ever one process, and this quietly does nothing.
+   */
+  markSchedulesChanged: async (): Promise<void> => {
+    if (!firestoreDb || demoSandboxContext.getStore()) return;
+    try {
+      await firestoreDb.doc("_meta/schedulesChanged").set({
+        changedAt: Date.now(),
+        serial: FieldValue.increment(1),
+      }, { merge: true });
+    } catch {
+      // The in-process broadcast still fires; a missed beacon costs a live
+      // refresh on other instances, never correctness.
+    }
+  },
+
+  watchSchedulesChanged: (onChange: () => void): (() => void) => {
+    if (!firestoreDb || demoSandboxContext.getStore()) return () => undefined;
+    let first = true;
+    const stop = firestoreDb.doc("_meta/schedulesChanged").onSnapshot(
+      () => {
+        // The first callback is the document's current state, not news.
+        if (first) { first = false; return; }
+        onChange();
+      },
+      error => console.error("Schedule change listener stopped:", error?.message || error),
+    );
+    return stop;
+  },
+
+  getVisitingRosterMember: async (collegeId: number, sectionId: number, termId: number): Promise<number[]> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("visitingRosters").where("scopeKey", "==", scopeKey).limit(1).get();
+      return snap.empty ? [] : ((snap.docs[0].data() as VisitingRoster).instructorIds || []);
+    }
+    return (db.visitingRosters || []).find(row => row.scopeKey === scopeKey)?.instructorIds || [];
+  },
+
+  saveVisitingRosterMember: async (collegeId: number, sectionId: number, termId: number, instructorIds: number[]): Promise<number[]> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    const unique = [...new Set(instructorIds.map(Number).filter(Boolean))];
+    const row: VisitingRoster = {
+      id: scopeKey, scopeKey, collegeId, sectionId, termId,
+      instructorIds: unique, updatedAt: new Date().toISOString()
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("visitingRosters").doc(scopeKey.replace(/:/g, "_")).set(row, { merge: false });
+      return unique;
+    }
+    db.visitingRosters = [...(db.visitingRosters || []).filter(item => item.scopeKey !== scopeKey), row];
+    saveDatabase();
+    return unique;
+  },
+
+  getVisitingRosterHistoryMember: async (collegeId: number, sectionId: number): Promise<VisitingRoster[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("visitingRosters")
+        .where("collegeId", "==", collegeId)
+        .where("sectionId", "==", sectionId)
+        .get();
+      return snap.docs.map(doc => doc.data() as VisitingRoster)
+        .filter(row => Number(row.termId) && Array.isArray(row.instructorIds));
+    }
+    return (db.visitingRosters || [])
+      .filter(row => Number(row.collegeId) === collegeId && Number(row.sectionId) === sectionId && Number(row.termId))
+      .map(row => ({ ...row, instructorIds: (row.instructorIds || []).map(Number).filter(Boolean) }));
+  },
+
+  /** Department-owned visiting-instructor directory; independent of terms. */
+  getDepartmentDelegatesMember: async (collegeId: number, sectionId: number): Promise<number[]> => {
+    const scopeKey = `${collegeId}:${sectionId}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("departmentDelegates").doc(scopeKey.replace(/:/g, "_")).get();
+      if (doc.exists) return (((doc.data() as DepartmentDelegateDirectory).instructorIds || []).map(Number).filter(Boolean));
+      // Backwards compatibility: before the permanent directory existed, the
+      // only record of a department's delegates was its term rosters. Seed the
+      // first view from every historical roster; the first edit/save then
+      // creates the explicit directory (including an intentionally empty one).
+      const rosterSnap = await firestoreDb.collection("visitingRosters")
+        .where("collegeId", "==", collegeId).where("sectionId", "==", sectionId).get();
+      const legacy = new Set<number>();
+      rosterSnap.docs.forEach(item => ((item.data() as VisitingRoster).instructorIds || []).forEach(id => { const n=Number(id); if(n) legacy.add(n); }));
+      return [...legacy];
+    }
+    const explicit = (db.departmentDelegates || []).find(row => row.scopeKey === scopeKey);
+    if (explicit) return (explicit.instructorIds || []).map(Number).filter(Boolean);
+    const legacy = new Set<number>();
+    (db.visitingRosters || []).filter(row => Number(row.collegeId)===collegeId && Number(row.sectionId)===sectionId)
+      .forEach(row => (row.instructorIds || []).forEach(id => { const n=Number(id); if(n) legacy.add(n); }));
+    return [...legacy];
+  },
+
+  /* ── الانضمام للدليل ذرّيّ، لا قراءة-فتعديل-فكتابة ─────────────────────────
+   * إضافتان سريعتان متزامنتان لنفس القسم كانتا تقرآن الدليل نفسه ثم تكتب كل
+   * منهما مصفوفتها الكاملة، فتمحو الأخيرةُ عضوَ الأولى بصمت. الضمّ هنا اتحادُ
+   * مصفوفةٍ على الخادم نفسه — لا يمحو أحدٌ أحداً، وإعادة ضمّ عضوٍ موجود لا
+   * تفعل شيئاً. أما الاستبدال الكامل فيبقى لشاشة إدارة الدليل وحدها، حيث
+   * القائمة الكاملة هي القرار المقصود. */
+  addDepartmentDelegateMember: async (collegeId: number, sectionId: number, instructorId: number): Promise<void> => {
+    const scopeKey = `${collegeId}:${sectionId}`;
+    const id = Number(instructorId);
+    if (!Number.isFinite(id) || id <= 0) return;
+    /* ── أول سجل صريح يرث ما كان يُقرأ قبله ──────────────────────────────────
+     * قبل وجود الدليل الدائم، كان مندوبو القسم يُقرأون من كشوف الفصول
+     * التاريخية. وهذه القراءة تتوقف عند أول سجل صريح. فضمُّ عضوٍ إلى قسمٍ لا
+     * سجل صريح له كان يُنشئ السجل بعضوٍ واحد — فيختفي كل من وُرث من الكشوف
+     * دفعةً واحدة وبلا أثر.
+     * فحين لا سجل، يُبذَر الضمّ بما كانت القراءة تعطيه. والاتحاد يبقى ذرّياً
+     * وجمعياً: سباقٌ بين طلبين يضيف كلٌّ بذرته وعضوه، والنتيجة تجمعهما.
+     * ودليلٌ صريح فارغ قرارٌ مقصود من شاشة الإدارة، فلا يُبذَر فوقه شيء. */
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("departmentDelegates").doc(scopeKey.replace(/:/g, "_"));
+      const doc = await ref.get();
+      const seed = doc.exists ? [] : await Repository.getDepartmentDelegatesMember(collegeId, sectionId);
+      await ref.set({
+        id: scopeKey, scopeKey, collegeId, sectionId,
+        instructorIds: FieldValue.arrayUnion(...[...new Set([...seed.map(Number).filter(Boolean), id])]),
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      return;
+    }
+    const existing = (db.departmentDelegates || []).find(item => item.scopeKey === scopeKey);
+    const seed = existing ? (existing.instructorIds || []) : await Repository.getDepartmentDelegatesMember(collegeId, sectionId);
+    const unique = [...new Set([...seed, id].map(Number).filter(Boolean))];
+    const row: DepartmentDelegateDirectory = { id: scopeKey, scopeKey, collegeId, sectionId, instructorIds: unique, updatedAt: new Date().toISOString() };
+    db.departmentDelegates = [...(db.departmentDelegates || []).filter(item => item.scopeKey !== scopeKey), row];
+    saveDatabase();
+  },
+
+  saveDepartmentDelegatesMember: async (collegeId: number, sectionId: number, instructorIds: number[]): Promise<number[]> => {
+    const scopeKey = `${collegeId}:${sectionId}`;
+    const unique = [...new Set(instructorIds.map(Number).filter(Boolean))];
+    const row: DepartmentDelegateDirectory = { id: scopeKey, scopeKey, collegeId, sectionId, instructorIds: unique, updatedAt: new Date().toISOString() };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("departmentDelegates").doc(scopeKey.replace(/:/g, "_")).set(row, { merge: false });
+      return unique;
+    }
+    db.departmentDelegates = [...(db.departmentDelegates || []).filter(item => item.scopeKey !== scopeKey), row];
+    saveDatabase();
+    return unique;
+  },
+
+  /* ── منتدبو القسم للعائلة كلها (departmentFamily في sectionLabel) ─────────
+   *
+   * «القسم واحد ومنتدبوه واحد في كل كلياته». بلا ترحيل بيانات: كلُّ عضوٍ يحتفظ
+   * بوثيقته، والقراءةُ اتحادُ وثائق العائلة. والكتابةُ فرقٌ على هذا الاتحاد:
+   * المضافُ يُكتب في وثيقة القسم المفتوح وحده، والمحذوفُ يُزال من كل عضوٍ يحمله
+   * — وإلا أعاده الاتحادُ من وثيقة أخت. وعضوٌ لا يحمل المحذوف لا تُمسّ وثيقته.
+   * هذه الأسماء هي ما يستعمله الخادم كلُّه؛ و…Member للوثيقة الواحدة. */
+  familyOf: async (collegeId: number, sectionId: number) => departmentFamily(await Repository.getSections(), collegeId, sectionId),
+
+  getVisitingRoster: async (collegeId: number, sectionId: number, termId: number): Promise<number[]> => {
+    const members = await Repository.familyOf(collegeId, sectionId);
+    const lists = await Promise.all(members.map(m => Repository.getVisitingRosterMember(m.collegeId, m.sectionId, termId)));
+    return [...new Set(lists.flat().map(Number).filter(Boolean))];
+  },
+
+  saveVisitingRoster: async (collegeId: number, sectionId: number, termId: number, instructorIds: number[]): Promise<number[]> => {
+    const members = await Repository.familyOf(collegeId, sectionId);
+    const lists = await Promise.all(members.map(m => Repository.getVisitingRosterMember(m.collegeId, m.sectionId, termId)));
+    const wanted = new Set(instructorIds.map(Number).filter(Boolean));
+    const removed = new Set(lists.flat().map(Number).filter(id => !wanted.has(id)));
+    const familyNow = new Set(lists.flat().map(Number));
+    await Promise.all(members.map(async (m, index) => {
+      const own = lists[index].map(Number);
+      const next = index === 0
+        ? [...own.filter(id => !removed.has(id)), ...[...wanted].filter(id => !familyNow.has(id))]
+        : own.filter(id => !removed.has(id));
+      if (index === 0 || next.length !== own.length) await Repository.saveVisitingRosterMember(m.collegeId, m.sectionId, termId, next);
+    }));
+    return Repository.getVisitingRoster(collegeId, sectionId, termId);
+  },
+
+  /** تاريخ العائلة: لكل فصلٍ صفٌّ واحد باسم القسم المفتوح، اتحادُ أعضائه. */
+  getVisitingRosterHistory: async (collegeId: number, sectionId: number): Promise<VisitingRoster[]> => {
+    const members = await Repository.familyOf(collegeId, sectionId);
+    const rows = (await Promise.all(members.map(m => Repository.getVisitingRosterHistoryMember(m.collegeId, m.sectionId)))).flat();
+    const byTerm = new Map<number, VisitingRoster>();
+    for (const row of rows) {
+      const termId = Number(row.termId);
+      const prior = byTerm.get(termId);
+      const ids = [...new Set([...(prior?.instructorIds || []), ...(row.instructorIds || [])].map(Number).filter(Boolean))];
+      byTerm.set(termId, { ...(prior || row), id: `${collegeId}:${sectionId}:${termId}`, scopeKey: `${collegeId}:${sectionId}:${termId}`, collegeId, sectionId, termId, instructorIds: ids });
+    }
+    return [...byTerm.values()];
+  },
+
+  getDepartmentDelegates: async (collegeId: number, sectionId: number): Promise<number[]> => {
+    const members = await Repository.familyOf(collegeId, sectionId);
+    const lists = await Promise.all(members.map(m => Repository.getDepartmentDelegatesMember(m.collegeId, m.sectionId)));
+    return [...new Set(lists.flat().map(Number).filter(Boolean))];
+  },
+
+  addDepartmentDelegate: async (collegeId: number, sectionId: number, instructorId: number): Promise<void> => {
+    if ((await Repository.getDepartmentDelegates(collegeId, sectionId)).includes(Number(instructorId))) return;
+    await Repository.addDepartmentDelegateMember(collegeId, sectionId, instructorId);
+  },
+
+  saveDepartmentDelegates: async (collegeId: number, sectionId: number, instructorIds: number[]): Promise<number[]> => {
+    const members = await Repository.familyOf(collegeId, sectionId);
+    const lists = await Promise.all(members.map(m => Repository.getDepartmentDelegatesMember(m.collegeId, m.sectionId)));
+    const wanted = new Set(instructorIds.map(Number).filter(Boolean));
+    const familyNow = new Set(lists.flat().map(Number));
+    const removed = new Set([...familyNow].filter(id => !wanted.has(id)));
+    await Promise.all(members.map(async (m, index) => {
+      const own = lists[index].map(Number);
+      const next = index === 0
+        ? [...own.filter(id => !removed.has(id)), ...[...wanted].filter(id => !familyNow.has(id))]
+        : own.filter(id => !removed.has(id));
+      if (index === 0 || next.length !== own.length) await Repository.saveDepartmentDelegatesMember(m.collegeId, m.sectionId, next);
+    }));
+    return Repository.getDepartmentDelegates(collegeId, sectionId);
+  },
+
+  /** Rooms deliberately retained in the department directory for future scheduling. */
+  getPinnedDepartmentRooms: async (collegeId: number, sectionId: number): Promise<Array<{ building: string; hall: string }>> => {
+    const scopeKey = `${collegeId}:${sectionId}`;
+    let pinned: Array<{ building: string; hall: string }> = [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("departmentRooms").doc(scopeKey.replace(/:/g, "_")).get();
+      if (doc.exists) pinned = ((doc.data() as DepartmentRoomDirectory).rooms || []);
+    } else {
+      pinned = (db.departmentRooms || []).find(row => row.scopeKey === scopeKey)?.rooms || [];
+    }
+    const byKey = new Map<string, { building: string; hall: string }>();
+    for (const item of pinned) {
+      const clean = { building: String(item?.building || "").trim().slice(0, 50), hall: String(item?.hall || "").trim().slice(0, 50) };
+      if (!clean.building || !clean.hall) continue;
+      const key = `${clean.building.toLocaleLowerCase()}:${clean.hall.toLocaleLowerCase()}`;
+      if (!byKey.has(key)) byKey.set(key, clean);
+    }
+    return [...byKey.values()];
+  },
+
+  /** Complete room history for a department, plus rooms explicitly pinned by it. */
+  getDepartmentRooms: async (collegeId: number, sectionId: number): Promise<Array<{ building: string; hall: string }>> => {
+    const [pinned, historical] = await Promise.all([
+      Repository.getPinnedDepartmentRooms(collegeId, sectionId),
+      Repository.getSchedulesByScope({ collegeId, sectionId }),
+    ]);
+    const byKey = new Map<string, { building: string; hall: string }>();
+    for (const item of [...historical.map(row => ({ building: String(row.AdRoomCode || "").trim(), hall: String(row.AdRoomHall || "").trim() })), ...pinned]) {
+      if (!item.building || !item.hall) continue;
+      const key = `${item.building.toLocaleLowerCase()}:${item.hall.toLocaleLowerCase()}`;
+      if (!byKey.has(key)) byKey.set(key, item);
+    }
+    return [...byKey.values()];
+  },
+
+  /** إحصاءُ التسجيل لقسمٍ في فصل (أو null). */
+  getRegistrationStats: async (collegeId: number, sectionId: number, termId: number): Promise<RegistrationStats | null> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("registrationStats").doc(scopeKey.replace(/:/g, "_")).get();
+      return doc.exists ? (doc.data() as RegistrationStats) : null;
+    }
+    return (db.registrationStats || []).find(row => row.scopeKey === scopeKey) || null;
+  },
+
+  saveRegistrationStats: async (collegeId: number, sectionId: number, termId: number,
+    input: { counts?: Record<string, number>; remaining?: Record<string, number>; vacant?: Record<string, number>; accepted?: Record<string, number>; remainingSource?: { fileName?: unknown; importedAt?: unknown; column?: unknown } | null },
+    updatedBy = ""): Promise<RegistrationStats> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    const clean = (map: Record<string, unknown> | undefined, max: number, min = 0) => Object.fromEntries(
+      Object.entries(map || {}).slice(0, 2000)
+        .map(([key, value]) => [String(Number(key)), Math.floor(Number(value))] as const)
+        .filter(([key, value]) => Number(key) > 0 && Number.isFinite(value) && value >= min && value <= max));
+    /* الشاشة لم تعد تكتب «المسجّلين»: ما حُفظ منه قبلُ يبقى كما هو. */
+    const previous = input.counts === undefined ? await Repository.getRegistrationStats(collegeId, sectionId, termId) : null;
+    const source = input.remainingSource && String(input.remainingSource.fileName || "").trim()
+      ? { fileName: String(input.remainingSource.fileName).slice(0, 200), importedAt: String(input.remainingSource.importedAt || new Date().toISOString()).slice(0, 40),
+          ...(input.remainingSource.column === "unregistered" || input.remainingSource.column === "seats" ? { column: input.remainingSource.column as "unregistered" | "seats" } : {}) }
+      : undefined;
+    const row: RegistrationStats = {
+      id: scopeKey, scopeKey, collegeId, sectionId, termId,
+      counts: clean(input.counts ?? previous?.counts, 100000), remaining: Object.fromEntries(Object.entries(clean(input.remaining, 100000, -100000)).map(([key, value]) => [key, Math.max(0, value)])) /* لا متبقٍّ سالب: «الذين لم يسجلوا» السالب (طلبةٌ جدد) = لا متأخرين = صفر */,
+      vacant: clean(input.vacant, 100000, -100000) /* «المقاعد المتبقية» سالبةٌ إن زاد المسجّلون على السعة */, accepted: clean(input.accepted, 500),
+      ...(source ? { remainingSource: source } : {}),
+      updatedAt: new Date().toISOString(), updatedBy: String(updatedBy || "").slice(0, 120),
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("registrationStats").doc(scopeKey.replace(/:/g, "_")).set(row);
+    } else {
+      db.registrationStats = [...(db.registrationStats || []).filter(item => item.scopeKey !== scopeKey), row];
+      saveDatabase();
+    }
+    return row;
+  },
+
+  pinDepartmentRoom: async (collegeId: number, sectionId: number, building: string, hall: string): Promise<Array<{ building: string; hall: string }>> => {
+    const scopeKey = `${collegeId}:${sectionId}`;
+    const clean = { building: String(building || "").trim().slice(0, 50), hall: String(hall || "").trim().slice(0, 50) };
+    if (!clean.building || !clean.hall) return Repository.getDepartmentRooms(collegeId, sectionId);
+    let pinned: Array<{ building: string; hall: string }> = [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("departmentRooms").doc(scopeKey.replace(/:/g, "_"));
+      const doc = await ref.get();
+      if (doc.exists) pinned = ((doc.data() as DepartmentRoomDirectory).rooms || []);
+      const key = `${clean.building.toLocaleLowerCase()}:${clean.hall.toLocaleLowerCase()}`;
+      if (!pinned.some(item => `${String(item.building).toLocaleLowerCase()}:${String(item.hall).toLocaleLowerCase()}` === key)) pinned.push(clean);
+      const row: DepartmentRoomDirectory = { id: scopeKey, scopeKey, collegeId, sectionId, rooms: pinned, updatedAt: new Date().toISOString() };
+      await ref.set(row, { merge: false });
+    } else {
+      const current = (db.departmentRooms || []).find(row => row.scopeKey === scopeKey)?.rooms || [];
+      pinned = [...current];
+      const key = `${clean.building.toLocaleLowerCase()}:${clean.hall.toLocaleLowerCase()}`;
+      if (!pinned.some(item => `${String(item.building).toLocaleLowerCase()}:${String(item.hall).toLocaleLowerCase()}` === key)) pinned.push(clean);
+      const row: DepartmentRoomDirectory = { id: scopeKey, scopeKey, collegeId, sectionId, rooms: pinned, updatedAt: new Date().toISOString() };
+      db.departmentRooms = [...(db.departmentRooms || []).filter(item => item.scopeKey !== scopeKey), row];
+      saveDatabase();
+    }
+    return Repository.getDepartmentRooms(collegeId, sectionId);
+  },
+
+  // Every instructor who is a delegate in any roster, so the staff screen can
+  // mark them with a «منتدب» badge (Note 1).
+  /* ── لمن هذا المنتدب؟ ──────────────────────────────────────────────────
+     «منتدب» وسمٌ بلا نسب: لا يقول من القسم الذي أدرجه، فيبقى أمام الإدارة
+     اسمٌ معلّق. الانتساب مسجَّل فعلاً في دليل كل قسم وفي روستر كل فصل، لكنه
+     لم يكن يُقرأ إلا قسماً قسماً. تُقرأ القائمتان مرة واحدة هنا فيُعرف لكل
+     شخص من ضمّه ومن أين. */
+  getDelegateAffiliations: async (): Promise<Array<{ collegeId: number; sectionId: number; instructorIds: number[]; kind: "directory" | "roster"; termId?: number }>> => {
+    const rows: Array<{ collegeId: number; sectionId: number; instructorIds: number[]; kind: "directory" | "roster"; termId?: number }> = [];
+    const push = (collegeId: unknown, sectionId: unknown, ids: unknown, kind: "directory" | "roster", termId?: unknown) => {
+      const college = Number(collegeId || 0), section = Number(sectionId || 0);
+      const instructorIds = (Array.isArray(ids) ? ids : []).map(Number).filter(id => Number.isFinite(id) && id > 0);
+      if (college && section && instructorIds.length) rows.push({ collegeId: college, sectionId: section, instructorIds, kind, termId: Number(termId || 0) || undefined });
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const [rosters, directories] = await Promise.all([
+        firestoreDb.collection("visitingRosters").get(), firestoreDb.collection("departmentDelegates").get(),
+      ]);
+      rosters.docs.forEach(doc => { const row = doc.data() as VisitingRoster; push(row.collegeId, row.sectionId, row.instructorIds, "roster", (row as any).termId); });
+      directories.docs.forEach(doc => {
+        const row = doc.data() as DepartmentDelegateDirectory;
+        const [college, section] = String((row as any).scopeKey || doc.id).split(/[:_]/);
+        push((row as any).collegeId ?? college, (row as any).sectionId ?? section, row.instructorIds, "directory");
+      });
+      return rows;
+    }
+    (db.visitingRosters || []).forEach(row => push(row.collegeId, row.sectionId, row.instructorIds, "roster", (row as any).termId));
+    (db.departmentDelegates || []).forEach(row => {
+      const [college, section] = String(row.scopeKey || "").split(":");
+      push((row as any).collegeId ?? college, (row as any).sectionId ?? section, row.instructorIds, "directory");
+    });
+    return rows;
+  },
+
+  /* من هو منتدبٌ الآن = في دليل منتدبي قسمٍ. رواستر الفصول الماضية تبقى تاريخاً
+     بعد التحويل إلى معيّن، فلا تُحسب هنا وإلا بقيت الشارة على من حُوِّل. */
+  getAllDelegateInstructorIds: async (): Promise<number[]> => {
+    const set = new Set<number>();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const directories = await firestoreDb.collection("departmentDelegates").get();
+      directories.docs.forEach(doc => ((doc.data() as DepartmentDelegateDirectory).instructorIds || []).forEach(id => set.add(Number(id))));
+    } else {
+      (db.departmentDelegates || []).forEach(row => (row.instructorIds || []).forEach(id => set.add(Number(id))));
+    }
+    return [...set];
+  },
+
+  getDegreeRules: async (): Promise<AdDegreeRule[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("degreeRules").limit(500).get();
+      return snap.docs.map(doc => doc.data() as AdDegreeRule);
+    }
+    return db.degreeRules || [];
+  },
+
+  saveDegreeRule: async (rule: AdDegreeRule): Promise<AdDegreeRule> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("degreeRules").doc(String(rule.AdSectionId)).set(rule);
+      return rule;
+    }
+    if (!Array.isArray(db.degreeRules)) db.degreeRules = [];
+    const at = db.degreeRules.findIndex(row => Number(row.AdSectionId) === Number(rule.AdSectionId));
+    if (at >= 0) db.degreeRules[at] = rule; else db.degreeRules.push(rule);
+    saveDatabase();
+    return rule;
+  },
+
+  getScheduleConstraints: async (collegeId: number, sectionId: number, termId: number): Promise<ScheduleConstraint[]> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("scheduleConstraints").where("scopeKey", "==", scopeKey).limit(100).get();
+      return snap.docs.map(doc=>doc.data() as ScheduleConstraint).sort((a,b)=>a.createdAt.localeCompare(b.createdAt));
+    }
+    return (db.scheduleConstraints || []).filter(row=>row.scopeKey===scopeKey).sort((a,b)=>a.createdAt.localeCompare(b.createdAt));
+  },
+
+  createScheduleConstraint: async (entry: Omit<ScheduleConstraint, "id" | "scopeKey" | "createdAt" | "updatedAt">): Promise<ScheduleConstraint> => {
+    const now = new Date().toISOString();
+    const row: ScheduleConstraint = {
+      ...entry, id: randomUUID(), createdAt: now, updatedAt: now,
+      scopeKey: `${entry.AdCollegeId}:${entry.AdSectionId}:${entry.AdTermId}`
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleConstraints").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.scheduleConstraints)) db.scheduleConstraints = [];
+    db.scheduleConstraints.unshift(row);
+    if (db.scheduleConstraints.length > 1000) db.scheduleConstraints.length = 1000;
+    saveDatabase();
+    return row;
+  },
+
+  updateScheduleConstraint: async (id: string, fields: Partial<Pick<ScheduleConstraint, "label" | "enabled" | "time" | "maxMinutes" | "buildingId" | "roomId" | "roomCode" | "roomHall" | "day">>): Promise<ScheduleConstraint> => {
+    const updatedAt = new Date().toISOString();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("scheduleConstraints").doc(id);
+      const doc = await ref.get();
+      if (!doc.exists) throw new Error("القاعدة غير موجودة");
+      const next = { ...(doc.data() as ScheduleConstraint), ...fields, updatedAt } as ScheduleConstraint;
+      await ref.set(next);
+      return next;
+    }
+    if (!Array.isArray(db.scheduleConstraints)) db.scheduleConstraints = [];
+    const index = db.scheduleConstraints.findIndex(row=>row.id===id);
+    if (index < 0) throw new Error("القاعدة غير موجودة");
+    db.scheduleConstraints[index] = { ...db.scheduleConstraints[index], ...fields, updatedAt };
+    saveDatabase();
+    return db.scheduleConstraints[index];
+  },
+
+  deleteScheduleConstraint: async (id: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("scheduleConstraints").doc(id).delete(); return; }
+    if (!Array.isArray(db.scheduleConstraints)) db.scheduleConstraints = [];
+    db.scheduleConstraints = db.scheduleConstraints.filter(row=>row.id!==id);
+    saveDatabase();
+  },
+
+  /* «المقروء» في الجرس محفوظٌ للمستخدم نفسه على الخادم، فيتطابق على كل أجهزته.
+     تفضيلٌ لا بيانات جدول: لا يغيّر ما يُعرض، بل علامة «جديد» وحدها. */
+  getNotificationSeen: async (userId: number): Promise<string[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("notificationSeen").doc(String(userId)).get();
+      return cleanSeenIds(doc.exists ? doc.data()?.ids : []);
+    }
+    return cleanSeenIds((db.notificationSeen || []).find(row => row.userId === userId)?.ids);
+  },
+
+  addNotificationSeen: async (userId: number, ids: unknown): Promise<string[]> => {
+    const added = cleanSeenIds(ids);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("notificationSeen").doc(String(userId));
+      return firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        const stored = cleanSeenIds(snap.exists ? snap.data()?.ids : []);
+        const merged = mergeSeenIds(stored, added);
+        if (!seenUnchanged(stored, merged)) tx.set(ref, { userId, ids: merged, updatedAt: new Date().toISOString() });
+        return merged;
+      });
+    }
+    if (!Array.isArray(db.notificationSeen)) db.notificationSeen = [];
+    let row = db.notificationSeen.find(item => item.userId === userId);
+    if (!row) { row = { userId, ids: [], updatedAt: "" }; db.notificationSeen.push(row); }
+    const stored = cleanSeenIds(row.ids);
+    const merged = mergeSeenIds(stored, added);
+    if (!seenUnchanged(stored, merged)) { row.ids = merged; row.updatedAt = new Date().toISOString(); saveDatabase(); }
+    return merged;
+  },
+
+  createScheduleDecisionMemory: async (entry: Omit<ScheduleDecisionMemory, "id" | "createdAt">): Promise<ScheduleDecisionMemory> => {
+    const row: ScheduleDecisionMemory = { ...entry, id: randomUUID(), createdAt: new Date().toISOString() };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleDecisionMemories").doc(row.id).set(row);
+      return row;
+    }
+    if (!Array.isArray(db.scheduleDecisionMemories)) db.scheduleDecisionMemories = [];
+    db.scheduleDecisionMemories.unshift(row);
+    if (db.scheduleDecisionMemories.length > 2500) db.scheduleDecisionMemories.length = 2500;
+    saveDatabase();
+    return row;
+  },
+
+  getScheduleDecisionMemories: async (collegeId:number, sectionId:number, limit=250): Promise<ScheduleDecisionMemory[]> => {
+    const safeLimit=Math.max(1,Math.min(500,Number(limit)||250));
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap=await firestoreDb.collection("scheduleDecisionMemories").where("AdCollegeId","==",collegeId).where("AdSectionId","==",sectionId).limit(500).get();
+      return snap.docs.map(doc=>doc.data() as ScheduleDecisionMemory).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,safeLimit);
+    }
+    return (db.scheduleDecisionMemories||[]).filter(row=>row.AdCollegeId===collegeId&&row.AdSectionId===sectionId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,safeLimit);
+  },
+
+  getSchedulePublication: async (collegeId:number, sectionId:number, termId:number): Promise<SchedulePublication | undefined> => {
+    const scopeKey=`${collegeId}:${sectionId}:${termId}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc=await firestoreDb.collection("schedulePublications").doc(scopeKey).get();
+      return doc.exists ? doc.data() as SchedulePublication : undefined;
+    }
+    return (db.schedulePublications || []).find(row=>row.scopeKey===scopeKey);
+  },
+
+  upsertSchedulePublication: async (entry: Omit<SchedulePublication,"id"|"scopeKey"|"publishedAt">): Promise<SchedulePublication> => {
+    const scopeKey=`${entry.AdCollegeId}:${entry.AdSectionId}:${entry.AdTermId}`;
+    const row:SchedulePublication={...entry,id:scopeKey,scopeKey,publishedAt:new Date().toISOString()};
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("schedulePublications").doc(scopeKey).set(row);
+      return row;
+    }
+    if(!Array.isArray(db.schedulePublications))db.schedulePublications=[];
+    const index=db.schedulePublications.findIndex(item=>item.scopeKey===scopeKey);
+    if(index>=0)db.schedulePublications[index]=row;else db.schedulePublications.unshift(row);
+    saveDatabase(); return row;
+  },
+
+  replaceScheduleScope: async (collegeId:number, sectionId:number, termId:number, rows:FSchedule[]): Promise<FSchedule[]> => {
+    /* The widest write in the system — publishing a draft, restoring a version,
+       undoing a safety net — and the only one that used to change nothing as far
+       as anyone else could tell. Every other write path invalidates, which is
+       what wakes the live feed; this one rewrote the whole timetable in silence
+       while colleagues kept looking at the old one.
+
+       The read (current scope) and the delete+write batch are a read-modify-write
+       against a scope the course catalogue resolves — not a set of denormalised
+       fields one transaction query could lock — so isolation is enforced by
+       serialising this operation per scope (withScopeLock). The batch commit is
+       already atomic; the lock stops two interleaving replacements on the same
+       scope from both reading the same `current` and duplicating or orphaning
+       rows. Unrelated scopes stay fully parallel. */
+    return withSerialLock(`scope:${collegeId}:${sectionId}:${termId}`, async () => {
+    invalidateSchedules();
+    invalidateReference(REFERENCE_KEYS.scheduleCount);
+    const normalizedInput = rows.map(row => ({ ...row, AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId }));
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const current = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
+      const currentIds = new Set(current.map(row=>row.id));
+      const needsId = normalizedInput.filter(row=>!Number.isInteger(row.id)||row.id<=0||!currentIds.has(row.id));
+      const firstNewId = needsId.length ? await reserveFirestoreIds("schedules", needsId.length) : 0;
+      let cursor=0;
+      const normalized = normalizedInput.map(row=>currentIds.has(row.id)&&row.id>0 ? row : ({...row,id:firstNewId+cursor++}));
+      if (current.length + normalized.length > 480) throw new Error("حجم الجدول كبير جداً للاستبدال الآمن دفعة واحدة");
+      const batch=firestoreDb.batch();
+      current.forEach(row=>batch.delete(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`)));
+      normalized.forEach(row=>batch.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`),row));
+      await batch.commit();
+      await markRegistrationRunsStale(termId);
+      return normalized;
+    }
+    const hydrated=hydrateSchedules(db.schedules,db.courses,db.sections);
+    const current=hydrated.filter(row=>row.AdCollegeId===collegeId&&row.AdSectionId===sectionId&&row.AdTermId===termId);
+    const currentIds=new Set(current.map(row=>row.id));
+    let nextId=db.schedules.length?Math.max(...db.schedules.map(row=>row.id))+1:1;
+    const normalized=normalizedInput.map(row=>currentIds.has(row.id)&&row.id>0?row:{...row,id:nextId++});
+    const idsToRemove=new Set(current.map(row=>row.id));
+    db.schedules=db.schedules.filter(row=>!idsToRemove.has(row.id));
+    db.schedules.push(...normalized.map(row=>({...row})));
+    saveDatabase();
+    await markRegistrationRunsStale(termId);
+    return normalized;
+    });
+  },
+
+  // Campus mobility (additive metadata; does not mutate legacy college/room schemas)
+  getCampusMobilityProfile: async (collegeId: number): Promise<CampusMobilityProfile> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("campusMobilityProfiles").doc(`college_${collegeId}`).get();
+      if (doc.exists) return doc.data() as CampusMobilityProfile;
+    } else {
+      const found = (db.campusMobilityProfiles || []).find(row => row.AdCollegeId === collegeId);
+      if (found) return found;
+    }
+    return { AdCollegeId: collegeId, defaultTravelMinutes: DEFAULT_TRAVEL_MINUTES, sameBuildingMinutes: SAME_BUILDING_MINUTES, pairs: [] };
+  },
+
+  upsertCampusMobilityProfile: async (profile: CampusMobilityProfile): Promise<CampusMobilityProfile> => {
+    const normalized: CampusMobilityProfile = {
+      AdCollegeId: Number(profile.AdCollegeId),
+      defaultTravelMinutes: Math.max(1, Math.min(120, Number(profile.defaultTravelMinutes) || DEFAULT_TRAVEL_MINUTES)),
+      sameBuildingMinutes: Math.max(0, Math.min(30, Number(profile.sameBuildingMinutes) || SAME_BUILDING_MINUTES)),
+      pairs: Array.isArray(profile.pairs) ? profile.pairs.map(pair => ({
+        fromBuilding: String(pair.fromBuilding || "").trim().slice(0, 40),
+        toBuilding: String(pair.toBuilding || "").trim().slice(0, 40),
+        minutes: Math.max(1, Math.min(120, Number(pair.minutes) || 1)),
+      })).filter(pair => pair.fromBuilding && pair.toBuilding && pair.fromBuilding !== pair.toBuilding).slice(0, 120) : [],
+      updatedAt: profile.updatedAt || new Date().toISOString(),
+      updatedBy: String(profile.updatedBy || "").slice(0, 120),
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("campusMobilityProfiles").doc(`college_${normalized.AdCollegeId}`).set(normalized);
+      return normalized;
+    }
+    if (!Array.isArray(db.campusMobilityProfiles)) db.campusMobilityProfiles = [];
+    const index = db.campusMobilityProfiles.findIndex(row => row.AdCollegeId === normalized.AdCollegeId);
+    if (index >= 0) db.campusMobilityProfiles[index] = normalized;
+    else db.campusMobilityProfiles.push(normalized);
+    saveDatabase();
+    return normalized;
+  },
+
+  // Canonical building/room registry -------------------------------------------------
+  getLocationBuildings: async (): Promise<MasterBuilding[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap=await firestoreDb.collection("locationBuildings").get();
+      return snap.docs.map(doc=>doc.data() as MasterBuilding).sort((a,b)=>a.officialCode.localeCompare(b.officialCode));
+    }
+    return [...(db.locationBuildings||[])];
+  },
+  getLocationRooms: async (): Promise<MasterRoom[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap=await firestoreDb.collection("locationRooms").get();
+      return snap.docs.map(doc=>doc.data() as MasterRoom).sort((a,b)=>`${a.buildingCode}/${a.canonicalCode}`.localeCompare(`${b.buildingCode}/${b.canonicalCode}`));
+    }
+    return [...(db.locationRooms||[])];
+  },
+  upsertLocationBuildings: async (rows: MasterBuilding[]): Promise<void> => {
+    if(!rows.length)return;
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      for(let i=0;i<rows.length;i+=400){const batch=firestoreDb.batch();rows.slice(i,i+400).forEach(row=>batch.set(firestoreDb!.collection("locationBuildings").doc(row.id),row,{merge:true}));await batch.commit();}
+      return;
+    }
+    const map=new Map((db.locationBuildings||[]).map(x=>[x.id,x]));rows.forEach(x=>map.set(x.id,{...map.get(x.id),...x}));db.locationBuildings=[...map.values()];saveDatabase();
+  },
+  upsertLocationRooms: async (rows: MasterRoom[]): Promise<void> => {
+    if(!rows.length)return;
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      for(let i=0;i<rows.length;i+=400){const batch=firestoreDb.batch();rows.slice(i,i+400).forEach(row=>batch.set(firestoreDb!.collection("locationRooms").doc(row.id),row,{merge:true}));await batch.commit();}
+      await markRegistrationRunsStale();
+      return;
+    }
+    const map=new Map((db.locationRooms||[]).map(x=>[x.id,x]));rows.forEach(x=>map.set(x.id,{...map.get(x.id),...x}));db.locationRooms=[...map.values()];saveDatabase();await markRegistrationRunsStale();
+  },
+  getLocationReviewCases: async (): Promise<LocationReviewCase[]> => {
+    if(firestoreDb&&!demoSandboxContext.getStore()){const snap=await firestoreDb.collection("locationReviewCases").get();return snap.docs.map(d=>d.data() as LocationReviewCase);}
+    return [...(db.locationReviewCases||[])];
+  },
+  upsertLocationReviewCases: async (rows: LocationReviewCase[]): Promise<void> => {
+    if(!rows.length)return;
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      for(let i=0;i<rows.length;i+=400){const batch=firestoreDb.batch();rows.slice(i,i+400).forEach(row=>batch.set(firestoreDb!.collection("locationReviewCases").doc(row.id),row,{merge:true}));await batch.commit();}return;
+    }
+    const map=new Map((db.locationReviewCases||[]).map(x=>[x.id,x]));rows.forEach(x=>map.set(x.id,{...map.get(x.id),...x}));db.locationReviewCases=[...map.values()];saveDatabase();
+  },
+  appendLocationMigrationLogs: async (rows: LocationMigrationLog[]): Promise<void> => {
+    if(!rows.length)return;
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      for(let i=0;i<rows.length;i+=400){const batch=firestoreDb.batch();rows.slice(i,i+400).forEach(row=>batch.set(firestoreDb!.collection("locationMigrationLogs").doc(row.id),row));await batch.commit();}return;
+    }
+    db.locationMigrationLogs=[...(db.locationMigrationLogs||[]),...rows];saveDatabase();
+  },
+  getLocationMigrationLogs: async (migrationId?:string): Promise<LocationMigrationLog[]> => {
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      let q:any=firestoreDb.collection("locationMigrationLogs");if(migrationId)q=q.where("migrationId","==",migrationId);const snap=await q.get();return snap.docs.map((d:any)=>d.data() as LocationMigrationLog);
+    }
+    return (db.locationMigrationLogs||[]).filter(x=>!migrationId||x.migrationId===migrationId);
+  },
+  saveLocationMigrationRun: async (row: LocationMigrationRun): Promise<void> => {
+    if(firestoreDb&&!demoSandboxContext.getStore()){await firestoreDb.collection("locationMigrationRuns").doc(row.id).set(row,{merge:true});return;}
+    const list=db.locationMigrationRuns||[],i=list.findIndex(x=>x.id===row.id);if(i>=0)list[i]={...list[i],...row};else list.push(row);db.locationMigrationRuns=list;saveDatabase();
+  },
+  getLocationMigrationRuns: async (): Promise<LocationMigrationRun[]> => {
+    if(firestoreDb&&!demoSandboxContext.getStore()){const snap=await firestoreDb.collection("locationMigrationRuns").get();return snap.docs.map(d=>d.data() as LocationMigrationRun).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));}
+    return [...(db.locationMigrationRuns||[])].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  },
+  applyLocationSchedulePatches: async (patches: Array<{id:number;fields:Partial<FSchedule>}>): Promise<void> => {
+    if(!patches.length)return;invalidateSchedules();
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      const rows=await Repository.getSchedules();const terms=new Set(rows.filter(row=>patches.some(p=>p.id===row.id)).map(row=>Number(row.AdTermId)));
+      for(let i=0;i<patches.length;i+=400){const batch=firestoreDb.batch();patches.slice(i,i+400).forEach(p=>batch.set(firestoreDb!.collection("schedules").doc(`schedule_${p.id}`),p.fields,{merge:true}));await batch.commit();}
+      await Promise.all([...terms].map(id=>markRegistrationRunsStale(id)));return;
+    }
+    const byId=new Map(patches.map(p=>[p.id,p.fields]));const terms=new Set(db.schedules.filter(row=>byId.has(row.id)).map(row=>Number(row.AdTermId)));db.schedules=db.schedules.map(row=>byId.has(row.id)?{...row,...byId.get(row.id)}:row);saveDatabase();await Promise.all([...terms].map(id=>markRegistrationRunsStale(id)));
+  },
+
+  // Rooms
+  getRooms: async (): Promise<AdRoom[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("rooms").orderBy("AdRoomId", "asc").get();
+      return snap.docs.map(doc => doc.data() as AdRoom);
+    }
+    return db.rooms;
+  },
+
+  // Root-administrator system safety ---------------------------------------
+  // These four operations deliberately live beside the repository rather than
+  // in the UI. A browser button is not a security boundary; the server repeats
+  // every validation and every destructive operation creates a rollback point
+  // before changing a single durable row.
+  exportSystemBackup: async (rootAdminId = 1): Promise<SystemBackupPayload> =>
+    makeSystemBackup(rootAdminId),
+
+  clearSystemExportJobs: async (rootAdminId = 1): Promise<void> => {
+    if (!firestoreDb || demoSandboxContext.getStore()) return;
+    const snap = await firestoreDb.collection(SYSTEM_EXPORT_JOB_COLLECTION).where("rootAdminId", "==", rootAdminId).get();
+    const batch = firestoreDb.batch();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+  },
+
+  startSystemExportJob: async (byUserId: number, rootAdminId = 1, forceNew = false, purpose: "manual" | "safety" = "manual"): Promise<SystemExportJobSummary> =>
+    startSystemExportJob(byUserId, rootAdminId, forceNew, purpose),
+
+  getLatestSystemExportJob: async (rootAdminId = 1): Promise<SystemExportJobSummary | null> =>
+    latestSystemExportJob(rootAdminId),
+
+  getSystemExportJob: async (id: string, rootAdminId = 1): Promise<SystemExportJobSummary> =>
+    getSystemExportJob(id, rootAdminId),
+
+  advanceSystemExportJob: async (id: string, rootAdminId = 1): Promise<SystemExportJobSummary> =>
+    advanceSystemExportJob(id, rootAdminId),
+
+  readSystemExportFile: async (id: string, rootAdminId = 1): Promise<{ summary: SystemExportJobSummary; chunks: Buffer[] }> =>
+    readSystemExportFile(id, rootAdminId),
+
+  getLatestSystemImportJob: async (rootAdminId = 1): Promise<SystemImportJobSummary | null> =>
+    latestSystemImportJob(rootAdminId),
+
+  startSystemImportJob: async (input: unknown, byUserId: number, rootAdminId = 1): Promise<SystemImportJobSummary> =>
+    startSystemImportJob(input, byUserId, rootAdminId),
+
+  getSystemImportJob: async (id: string, rootAdminId = 1): Promise<SystemImportJobSummary> =>
+    getSystemImportJob(id, rootAdminId),
+
+  advanceSystemImportJob: async (id: string, rootAdminId = 1): Promise<SystemImportJobSummary> =>
+    advanceSystemImportJob(id, rootAdminId),
+
+  validateSystemBackup: async (input: unknown, rootAdminId = 1): Promise<SystemBackupPayload> =>
+    validateSystemBackupPayload(input, rootAdminId),
+
+  createSystemRestorePoint: async (action: string, byUserId: number, rootAdminId = 1): Promise<SystemRestorePointSummary> =>
+    saveSystemRestorePoint(action, byUserId, rootAdminId),
+
+  getSystemRestorePoints: async (): Promise<SystemRestorePointSummary[]> =>
+    listSystemRestorePoints(),
+
+  importSystemBackup: async (input: unknown, byUserId: number, rootAdminId = 1): Promise<{ backup: SystemBackupPayload; restorePoint: SystemRestorePointSummary }> => {
+    const backup = validateSystemBackupPayload(input, rootAdminId);
+    const restorePoint = await saveSystemRestorePoint("قبل الاستيراد الكامل", byUserId, rootAdminId);
+    try {
+      await replaceSystemFromBackup(backup, rootAdminId);
+      return { backup, restorePoint };
+    } catch (error: any) {
+      // Full-system replacement spans many Firestore batches. Treat the saved
+      // point as a transaction journal: if any batch fails, put the exact old
+      // state back before surfacing the error instead of leaving half a system.
+      try {
+        const original = await loadSystemRestorePoint(restorePoint.id, rootAdminId);
+        await replaceSystemFromBackup(original, rootAdminId);
+        await markRestorePointConsumed(restorePoint.id);
+      } catch (rollbackError: any) {
+        throw new Error(`تعذر الاستيراد وتعذر التراجع التلقائي: ${String(rollbackError?.message || rollbackError)}`);
+      }
+      throw new Error(`تعذر الاستيراد؛ أعاد النظام حالته السابقة تلقائياً. ${String(error?.message || error)}`);
+    }
+  },
+
+  resetSystem: async (byUserId: number, rootAdminId = 1): Promise<SystemRestorePointSummary> => {
+    const restorePoint = await saveSystemRestorePoint("قبل تصفير النظام", byUserId, rootAdminId);
+    try {
+      await resetSystemKeepingRoot(rootAdminId);
+      return restorePoint;
+    } catch (error: any) {
+      try {
+        const original = await loadSystemRestorePoint(restorePoint.id, rootAdminId);
+        await replaceSystemFromBackup(original, rootAdminId);
+        await markRestorePointConsumed(restorePoint.id);
+      } catch (rollbackError: any) {
+        throw new Error(`تعذر التصفير وتعذر التراجع التلقائي: ${String(rollbackError?.message || rollbackError)}`);
+      }
+      throw new Error(`تعذر التصفير؛ أعاد النظام حالته السابقة تلقائياً. ${String(error?.message || error)}`);
+    }
+  },
+
+  undoLastSystemOperation: async (byUserId: number, rootAdminId = 1): Promise<{ restored: SystemRestorePointSummary; redoPoint: SystemRestorePointSummary }> => {
+    const points = await listSystemRestorePoints();
+    const target = points.find(point => !point.consumedAt);
+    if (!target) throw new Error("لا توجد نقطة تراجع متاحة");
+    const backup = await loadSystemRestorePoint(target.id, rootAdminId);
+    // Capture the state we are leaving first. This means pressing «تراجع» مرة
+    // أخرى behaves like redo instead of turning one safety action into a trap.
+    const redoPoint = await saveSystemRestorePoint("قبل التراجع — نقطة إعادة", byUserId, rootAdminId);
+    try {
+      await replaceSystemFromBackup(backup, rootAdminId);
+      await markRestorePointConsumed(target.id);
+      return { restored: { ...target, consumedAt: new Date().toISOString() }, redoPoint };
+    } catch (error: any) {
+      try {
+        const current = await loadSystemRestorePoint(redoPoint.id, rootAdminId);
+        await replaceSystemFromBackup(current, rootAdminId);
+        await markRestorePointConsumed(redoPoint.id);
+      } catch (rollbackError: any) {
+        throw new Error(`تعذر التراجع وتعذر استعادة الحالة التي كنت عليها: ${String(rollbackError?.message || rollbackError)}`);
+      }
+      throw new Error(`تعذر التراجع؛ أعاد النظام الحالة التي كنت عليها تلقائياً. ${String(error?.message || error)}`);
+    }
+  }
+};

@@ -1,0 +1,224 @@
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  Command,
+  LockKeyhole,
+  ShieldCheck,
+  Sparkles,
+  FlaskConical,
+} from "lucide-react";
+import { Field, Notice, PrimaryButton } from "./ui";
+import InstallApp from "./InstallApp";
+import ScheduleJourney from "./ScheduleJourney";
+import BrandMark from "./BrandMark";
+interface LoginProps {
+  onLoginSuccess: (data: {
+    user: any;
+    permissions: number[];
+    scopes: any[];
+  }) => void;
+}
+export default function Login({ onLoginSuccess }: LoginProps) {
+  const [username, setUsername] = useState(""),
+    [password, setPassword] = useState(""),
+    [loading, setLoading] = useState(false),
+    [error, setError] = useState<string | null>(null),
+    [identityOpen, setIdentityOpen] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("journey") === "1"),
+    [demoLoading, setDemoLoading] = useState(false),
+    [demoEnabled, setDemoEnabled] = useState(false);
+
+  /* Chrome on iOS keeps its toolbars up on a page that cannot scroll, yet
+     reports svh/dvh as if they were retracted — the "fixed" login is then
+     taller than what the person actually sees and the story collapses onto
+     the card. window.innerHeight/visualViewport are the visible truth in both
+     Safari and Chrome, so the screen is sized from them and compacts itself
+     (data-short) when that visible height is small. */
+  const mainRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const node = mainRef.current;
+    if (!node) return;
+    const measure = () => {
+      const h = Math.round(window.visualViewport?.height || window.innerHeight || 0);
+      if (!h) return;
+      node.style.setProperty("--login-vh", `${h}px`);
+      node.dataset.short = h <= 720 ? "true" : "false";
+    };
+    measure();
+    const vv = window.visualViewport;
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    vv?.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+      vv?.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/demo/config", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(data => {
+      if (!alive) return;
+      setDemoEnabled(Boolean(data?.enabled));
+    }).catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
+  const enterDemo = async () => {
+    setError(null);
+    if (!demoEnabled) return;
+    setDemoLoading(true);
+    try {
+      const res = await fetch("/api/auth/demo", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "تعذر بدء البيئة التجريبية");
+      onLoginSuccess(data);
+    } catch (err: any) { setError(err.message || "تعذر بدء البيئة التجريبية"); }
+    finally { setDemoLoading(false); }
+  };
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!username.trim() || !password) {
+      setError("الرجاء إدخال اسم المستخدم وكلمة السر");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: username.trim(), password }),
+        }),
+        data = await res.json();
+      // A reference the reader can quote; the reason itself stays in the log.
+      if (!res.ok) throw new Error(data.ref ? `${data.error} (مرجع: ${data.ref})` : (data.error || "خطأ في تسجيل الدخول"));
+      onLoginSuccess(data);
+    } catch (err: any) {
+      setError(err.message || "خطأ في تسجيل الدخول");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <main ref={mainRef} className="apex-login visual-minimal" dir="rtl">
+      <div className="apex-login-ambient" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
+      <header className="apex-login-brand apex-login-brand--mark-only" aria-hidden="true">
+        <span className="apex-login-mark">
+          <BrandMark variant="tile" />
+        </span>
+      </header>
+      <section className="apex-login-stage">
+        <div className="apex-login-story">
+          <span className="apex-login-kicker">
+            <i /> نظام القرار الأكاديمي
+          </span>
+          <h1>
+            الجدول
+            <br />
+            <em>يبدأ من قرار.</em>
+          </h1>
+          <div className="apex-login-principles" aria-hidden="true">
+            <span>
+              <ShieldCheck />
+              <b>صلاحيات دقيقة</b>
+            </span>
+            <span>
+              <Sparkles />
+              <b>ذكاء في السياق</b>
+            </span>
+            <span>
+              <Command />
+              <b>وصول مباشر</b>
+            </span>
+          </div>
+        </div>
+        <div className="apex-login-access">
+          <div className="apex-access-head">
+            <span>دخول آمن</span>
+            <div className="apex-access-title-row">
+              <strong>أهلاً بعودتك</strong>
+              {/* A quiet, named door. The old version pulsed three rings next
+                  to the password field — an animation competing with the one
+                  thing this screen exists for. The journey deserves a name,
+                  not a heartbeat. */}
+              <button
+                type="button"
+                className="apex-login-identity-trigger"
+                onClick={() => setIdentityOpen(true)}
+                aria-label="افتح رحلة SCHEDULE"
+                title="ما صنعه النظام عبر السنوات"
+                data-guide-ignore="زر تعريفي قبل تسجيل الدخول يفتح رحلة SCHEDULE فقط ولا ينفذ إجراءً داخل النظام"
+              >
+                <Sparkles aria-hidden="true" />
+                <span>الرحلة</span>
+              </button>
+            </div>
+            <p>أكمل من حيث توقفت</p>
+          </div>
+          {error ? (
+            <div className="login-error">
+              <Notice inline>{error}</Notice>
+            </div>
+          ) : null}
+          <form className="apex-login-form" onSubmit={submit}>
+            <Field label="اسم المستخدم" required>
+              <input
+                autoFocus
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </Field>
+            <Field label="كلمة السر" required>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </Field>
+            <PrimaryButton type="submit" disabled={loading}>
+              {loading ? (
+                <span className="button-spinner" />
+              ) : (
+                <>
+                  <LockKeyhole /> دخول إلى البرنامج <ArrowLeft />
+                </>
+              )}
+            </PrimaryButton>
+          </form>
+          <footer>
+            {/* Identity and year read as one quiet signature; the two real
+                doors — trying the system, installing it — carry their names. */}
+            <span className="apex-login-signature">
+              الجدول الأكاديمي <small>{new Date().getFullYear()}</small>
+            </span>
+            <span className="apex-login-doors">
+              {demoEnabled ? (
+                <button type="button" className="demo-entry-link" onClick={enterDemo} disabled={loading || demoLoading} data-guide-ignore="دخول اختياري إلى بيئة Demo معزولة">
+                  {demoLoading ? <span className="button-spinner" /> : <FlaskConical aria-hidden="true" />}
+                  تجربة النظام
+                </button>
+              ) : null}
+              <InstallApp variant="login" />
+            </span>
+          </footer>
+        </div>
+      </section>
+      {identityOpen ? <ScheduleJourney onClose={() => {
+        /* Students arrive from مساري (/me?…→/?journey=1&back=/me); closing returns them there. */
+        const back = new URLSearchParams(window.location.search).get("back");
+        if (back === "/me") { window.location.href = "/me"; return; }
+        setIdentityOpen(false);
+      }} /> : null}
+    </main>
+  );
+}

@@ -1,0 +1,958 @@
+import { roomIdentityKey } from "./locationRegistry";
+import { requiredGapForDays } from "./scheduleRegulations";
+import { AR, countOf, nounFor } from "./arabicCount";
+import { placeholderInstructorIds as placeholderIdsOf } from "./instructorIdentity";
+import type { AdCourse, AdInstructor, FSchedule } from "../types";
+import { formatScheduleTimeRange, scheduleClockForDisplay, SCHEDULE_DAY_END, SCHEDULE_DAY_SPAN, SCHEDULE_DAY_START, SCHEDULE_SLOT_MINUTES } from "./scheduleTime";
+
+export type DayKey = "fsunday"|"fmonday"|"ftuesday"|"fwednesday"|"fthursday";
+export const SCHEDULE_DAYS: Array<{key:DayKey;label:string}> = [
+  {key:"fsunday",label:"الأحد"},{key:"fmonday",label:"الاثنين"},{key:"ftuesday",label:"الثلاثاء"},{key:"fwednesday",label:"الأربعاء"},{key:"fthursday",label:"الخميس"}
+];
+
+export function timeToMinutes(value:string):number {
+  const [h,m]=String(value||"0:0").split(":").map(Number);
+  return (Number.isFinite(h)?h:0)*60+(Number.isFinite(m)?m:0);
+}
+export function minutesToTime(value:number):string {
+  const bounded=Math.max(0,Math.min(23*60+59,Math.round(value)));
+  return `${String(Math.floor(bounded/60)).padStart(2,"0")}:${String(bounded%60).padStart(2,"0")}`;
+}
+export function activeDays(row:Partial<FSchedule>):DayKey[]{return SCHEDULE_DAYS.filter(day=>Boolean(row[day.key])).map(day=>day.key)}
+export function sharesDay(a:Partial<FSchedule>,b:Partial<FSchedule>):boolean{return SCHEDULE_DAYS.some(day=>Boolean(a[day.key])&&Boolean(b[day.key]))}
+export function overlaps(a:Partial<FSchedule>,b:Partial<FSchedule>):boolean {
+  return sharesDay(a,b) && timeToMinutes(String(a.fstarttime||"")) < timeToMinutes(String(b.fendtime||"")) && timeToMinutes(String(b.fstarttime||"")) < timeToMinutes(String(a.fendtime||""));
+}
+
+/**
+ * ── الفاصل بين محاضرتين في قاعة واحدة ───────────────────────────────────────
+ *
+ * Two lectures in the same hall, one ending at ten and the next beginning at
+ * ten, do not overlap by a single minute — and are impossible anyway. Thirty
+ * people have to leave the room while thirty more come in, and the second
+ * lecture starts late every week for the whole term.
+ *
+ * It was called «مهلة الباب» here, which named the doorway rather than the
+ * thing: what is short is the GAP between the two meetings, and a reader
+ * looking for it in the schedule looks for a gap. The wording follows the
+ * concept now, in the finding as well as in the card above it.
+ *
+ * The number is not one number. The college's rule is stated per day family —
+ * ten minutes on Sun/Tue/Thu, fifteen on Mon/Wed — because the longer meetings
+ * need the longer changeover, and `requiredGapForDays` reads it from the days
+ * the pair actually shares. A department that declares its own figure still
+ * overrides it.
+ *
+ * Applied HERE, in the one sweep every conflict in this product passes
+ * through, so the drag verdict, the radar, the repair chain and the review all
+ * inherit it at once without a single one of them learning a new rule.
+ *
+ * It is deliberately a quieter kind of finding. A double booking is an error;
+ * a tight turnaround may be exactly what someone intended, and the two must
+ * never wear the same colour.
+ */
+const roomsTouch=(a:Partial<FSchedule>,b:Partial<FSchedule>,gap:number):boolean=>{
+  if(!sharesDay(a,b)) return false;
+  const aStart=timeToMinutes(String(a.fstarttime||"")),aEnd=timeToMinutes(String(a.fendtime||""));
+  const bStart=timeToMinutes(String(b.fstarttime||"")),bEnd=timeToMinutes(String(b.fendtime||""));
+  return aStart < bEnd + gap && bStart < aEnd + gap;
+};
+/** The gap this pair must have, from the days it shares — unless one is declared. */
+const requiredGap=(a:Partial<FSchedule>,b:Partial<FSchedule>,declared:number):number=>{
+  if(declared>0) return declared;
+  const shared=SCHEDULE_DAYS.filter(day=>Boolean(a[day.key])&&Boolean(b[day.key])).map(day=>day.key);
+  return requiredGapForDays(shared as any);
+};
+const roomKey=(row:Partial<FSchedule>)=>roomIdentityKey(row);
+const duration=(row:Partial<FSchedule>)=>Math.max(0,timeToMinutes(String(row.fendtime||""))-timeToMinutes(String(row.fstarttime||"")));
+const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
+
+/** Why a pair collides. `sectionTwice` is the same section at the same placement
+    in two distinguishable places — a remark, never a wall (see `twinKind`). */
+export type ConflictReason="room"|"instructor"|"duplicate"|"sectionTwice"|"doorway"|"cohort";
+
+export interface ConflictInsight {
+  type:ConflictReason;
+  severity:"high"|"medium"|"low";
+  rowId:number;otherId:number;message:string;detail:string;
+  /** Every reason this one pair collides, so a clash is never counted twice. */
+  reasons?:ConflictReason[];
+}
+
+/**
+ * ── ما يمنع — سطرٌ واحد في المنتج كله ───────────────────────────────────────
+ *
+ * قاعدة المالك 2026-09-27: «التوقيع لا يمنعه إلا تعارض ماديّ». A real double
+ * booking — the same real INSTRUCTOR or the same HALL at overlapping times —
+ * arrives as severity "high". The one other wall is the double ENTRY: the same
+ * course, section and placement with nothing to tell the two rows apart
+ * (`type:"duplicate"`), which would publish one lecture twice. Everything else
+ * the system knows — the same section recorded in two halls or with two
+ * teachers, cohort overlap, the gap between two lectures, hall history, day
+ * rhythm, memory — is a remark beside a move, never a wall.
+ *
+ * `soft` is how the save gate marks advice riding in the same array as real
+ * collisions, so the same predicate reads a raw sweep and a server answer.
+ * It lived in six places, each spelled slightly differently (one forgot the
+ * duplicate, another the soft flag); `tests/blocker-oracle-audit.ts` now
+ * refuses a seventh.
+ */
+export function isBlockingConflict(item: any): boolean {
+  if (!item) return false;
+  if (item.soft === true) return false;
+  if (item.type === "memory" || item.type === "advice" || item.type === "regulation") return false;
+  return item.severity === "high" || item.type === "duplicate";
+}
+
+export interface ConflictOptions {
+  /** Minutes a hall needs between two lectures. Zero means the rule is unset. */
+  doorwayMinutes?:number;
+  /**
+   * ── «هيئة تدريسية» لا تُحجز مرتين ─────────────────────────────────────────
+   *
+   * الحجز المزدوج قاعدة عن شخص: جسدٌ واحد لا يكون في قاعتين في الساعة نفسها.
+   * لكن «هيئة تدريسية» ليست شخصاً، بل معنى واحد تتشاركه الجامعة كلها حين لا
+   * يكون للشعبة اسم مدرّس ثابت. فمحاضرتان تحملانها ليستا تعارضاً، ولا شيء
+   * يُصلحه المنسّق — والنتيجة خانة حمراء دائمة على جدول صحيح، لأن أقساماً أخرى
+   * نشرت شعبها بالمعنى نفسه في الفصل نفسه.
+   *
+   * تُمرَّر معرّفات هذه السجلات هنا فتُستثنى من قاعدة الأستاذ وحدها؛ أما القاعة
+   * والشعبة المكرّرة والطلاب فتبقى محسوبة كما هي.
+   */
+  placeholderInstructorIds?:Iterable<number>;
+  /**
+   * ── تعارض الطالب ──────────────────────────────────────────────────────────
+   *
+   * The third kind of double booking, and the commonest complaint in any
+   * university: a student with two lectures at the same hour. This engine has
+   * caught the teacher and the hall since its first day and has never been able
+   * to catch this one — because nothing in ten years of schedules says which
+   * courses share students. A timetable knows where every teacher is; it has
+   * never known where anybody's week collides.
+   *
+   * The survey is the only thing that can say it. A student who answers «أحتاج
+   * ISL 210 و ARB 220» has stated a constraint no history could infer, and it
+   * arrives here as a set of `"courseA|courseB"` keys — course ids, ascending,
+   * so a pair is one pair however it was written.
+   *
+   * Empty by default. A department that has never run a survey sees exactly
+   * what it saw before.
+   */
+  cohortPairs?:Set<string>;
+  /** How many students a pair shares, so the finding can say why. */
+  cohortSize?:(a:number,b:number)=>number;
+}
+
+/**
+ * One clash between two appointments is one conflict.
+ *
+ * The previous version emitted a separate record for each *reason* a pair
+ * collided, so a single lecture booked over another with the same instructor in
+ * the same hall was reported three times — once for the instructor, once for the
+ * room, once for the repeated section — and a department with forty-six real
+ * collisions was told it had a hundred and thirty-eight. Saving already refuses
+ * a genuine clash, so the number on the screen was not describing anything a
+ * coordinator could act on; it was describing the loop that produced it.
+ *
+ * Now a pair yields at most one conflict, carrying every reason it has, and the
+ * count is a count of collisions.
+ *
+ * A repeated course and section is also no longer a conflict by itself. Half of
+ * a department's catalogue is taught as a lecture on one day and a laboratory on
+ * another under the same section number, and that is the timetable working, not
+ * failing. It is only reported when the two rows occupy the very same placement,
+ * which is the actual duplicate the check was written to catch.
+ */
+const samePlacement=(a:FSchedule,b:FSchedule)=>
+  a.fstarttime===b.fstarttime && a.fendtime===b.fendtime &&
+  SCHEDULE_DAYS.every(day=>Boolean(a[day.key])===Boolean(b[day.key]));
+
+/**
+ * ── لا استثناء للشعبتين المدمجتين ──────────────────────────────────────────
+ *
+ * There used to be one exemption here, and it was the only hole in the whole
+ * principle: when two rows shared a course, a lecturer, a hall and an exact
+ * placement — differing only in section code — the pair was skipped outright,
+ * on the assumption that a department storing a combined class writes it as one
+ * row per registered section. The assumption was silent, and it swallowed the
+ * three findings a coordinator most needs to see at once: the lecturer is in
+ * two places, the hall is booked twice, and two appointments occupy the same
+ * hour. A department looking at «شعبة 501» and «شعبة 502» — same doctor, same
+ * hall, same 11:00 — was told the timetable was clean.
+ *
+ * An engine cannot know which of those two readings is true, and the safe
+ * default is the one that shows the collision. A combined class is a decision a
+ * human makes and can see; a double booking that is never reported is a
+ * decision nobody made. So the pair is now examined like every other pair: if
+ * the lecturer is the same it is a lecturer clash, if the hall is the same it
+ * is a room clash, and the shared hour is what makes both true.
+ *
+ * `samePlacement` above is kept — the exact twin (same course AND same section
+ * at the same placement) still has its own, distinct finding: `twinKind` below.
+ */
+
+/**
+ * ── الشعبة نفسها مرتين: مكرّرٌ يمنع، أم شعبةٌ في مكانين تُقال ولا تمنع ──────
+ *
+ * قاعدة المالك 2026-09-27: «التوقيع لا يمنعه إلا تعارض ماديّ». كان كلُّ صفّين
+ * بالمقرر نفسه والشعبة نفسها والأيام والوقت نفسها «موعدين متطابقين» يمنعان
+ * الحفظ والتوقيع والاعتماد — ولو كان أحدهما في G28 مع أستاذ والآخر في G31 مع
+ * أستاذٍ آخر. هذان ليسا تعارضاً ماديّاً: لا أستاذ في مكانين، ولا قاعة محجوزة
+ * مرتين. فكان القسم يُمنع من التوقيع بلا سبب يراه، والصفّان أحمران بلا كلمة.
+ *
+ * فالتوأمان صنفان، والحكم بينهما هنا وحده، تقرؤه المحرّكات الثلاثة:
+ *
+ *   • «duplicate» — لا شيء يميّز الصفّين: القاعة نفسها (أو لا قاعة لكليهما)،
+ *     والأستاذ نفسه (أو أحدهما «هيئة تدريسية» أو بلا أستاذ). إدخالٌ مكرّر
+ *     سيُنشر مرتين؛ يبقى مانعاً كما كان. وأغلبه يُمسَك أصلاً تعارضَ قاعة أو
+ *     أستاذ، ويبقى هذا السبب لما لا قاعة له ولا شخص.
+ *   • «sectionTwice» — قاعتان مختلفتان، أو أستاذان حقيقيان مختلفان. ليس
+ *     ماديّاً ولا يمنع شيئاً، لكنه لا يُسكَت: يُقال تنبيهاً باسم ما يختلف،
+ *     لأنه إمّا شعبةٌ مقسومة عن قصد وإمّا شعبتان نُسي تغيير رقم إحداهما.
+ *
+ * وقاعدة 2026-08-28 قائمة كما هي: الأستاذ نفسه أو القاعة نفسها في الساعة
+ * نفسها تعارضٌ بسببه هو (instructor/room)، أيّاً كان رقم الشعبة.
+ */
+type TwinKind="duplicate"|"sectionTwice";
+/* القاعة تميّز الصفّين فقط حين يحمل كلٌّ منهما قاعةً، ويختلف رقماهما بعد
+   التطبيع (المراجعة المستقلة 2026-09-27):
+   • «G28» من السجل و«G/G28» أو «G-28» نصّاً قديماً قاعةٌ واحدة كُتبت بطرق
+     شتّى — البوابة تطبّعها فتعدّها تعارض قاعة يمنع، فلا تقول اللوحة «لا يمنع».
+   • وصفٌّ بلا قاعة (أو بانتظار تثبيتها) لا «يختلف» عن غيره: نسخةٌ مُسحت
+     قاعتها تُنشر مرتين كما لو بقيت.
+   والمبنى يميّز كذلك حين يحمله الصفّان ويختلفان (012B08/G28 غير 012B09/G28). */
+const twinHall=(row:FSchedule)=>row.locationStatus==="PENDING_ROOM"?""
+  :String(row.AdRoomHall||"").split("/").pop()!.toUpperCase().replace(/[^A-Z0-9]/g,"");
+const twinBuilding=(row:FSchedule)=>String(row.AdRoomCode||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+function twinKind(a:FSchedule,b:FSchedule,person:(row:FSchedule)=>number):TwinKind|null{
+  if(Number(a.AdCourseId)!==Number(b.AdCourseId)||String(a.SCode)!==String(b.SCode)||!samePlacement(a,b)) return null;
+  const ha=twinHall(a),hb=twinHall(b),ba=twinBuilding(a),bb=twinBuilding(b);
+  const hallTellsApart=Boolean(ha)&&Boolean(hb)&&(ha!==hb||(Boolean(ba)&&Boolean(bb)&&ba!==bb));
+  const pa=person(a),pb=person(b);
+  const teacherTellsApart=Boolean(pa)&&Boolean(pb)&&pa!==pb;
+  return hallTellsApart||teacherTellsApart?"sectionTwice":"duplicate";
+}
+
+/** ما يُقال عن شعبةٍ مسجّلة مرتين — جملةٌ واحدة للمسارين (برهان التكافؤ يقارن النص). */
+function sectionTwiceWords(a:FSchedule,b:FSchedule,person:(row:FSchedule)=>number):{message:string;detail:string}{
+  const hall=(row:FSchedule)=>row.locationStatus==="PENDING_ROOM"?"":String(row.AdRoomHall||"").trim();
+  const place=(row:FSchedule)=>[String(row.AdRoomCode||"").trim(),hall(row)].filter(Boolean).join("/");
+  /* القاعة وحدها تكفي القارئ، إلا حين يتشابه الاسمان في مبنيين. */
+  const [ha,hb]=hall(a)&&hall(a)===hall(b)?[place(a),place(b)]:[hall(a),hall(b)];
+  const pa=person(a),pb=person(b);
+  const apart=Boolean(twinHall(a))&&Boolean(twinHall(b))&&(twinHall(a)!==twinHall(b)||(Boolean(twinBuilding(a))&&Boolean(twinBuilding(b))&&twinBuilding(a)!==twinBuilding(b)));
+  const halls=apart?` في قاعتين (${ha} و ${hb})`:"";
+  const teachers=pa&&pb&&pa!==pb?(halls?" وبأستاذين":" بأستاذين"):"";
+  return {
+    message:halls?"الشعبة نفسها في مكانين في الوقت نفسه":"الشعبة نفسها بأستاذين في الوقت نفسه",
+    detail:`شعبة ${String(a.SCode)} مسجّلة مرتين بالأيام والوقت نفسيهما${halls}${teachers}؛ إن كانتا شعبتين فغيّر رقم إحداهما.`,
+  };
+}
+
+/**
+ * ── لماذا لا يُقارَن كل موعد بكل موعد ───────────────────────────────────────
+ *
+ * Conflict detection is the foundation of this product, so nothing here looks
+ * at less than it did: every appointment in the university's term is still a
+ * candidate, and no row is excluded for being someone else's.
+ *
+ * What changed is that most of those comparisons could never have produced an
+ * answer. A lecture in G12 on Sunday against a lecture in B205 on Monday is not
+ * a near miss — it is not a question. Yet the nested loop asked it, along with
+ * hundreds of thousands like it, on every reading. Measured on production, one
+ * analysis held the whole server for 2.5 seconds; a health check that reads
+ * nothing waited behind it.
+ *
+ * Every reason a pair can be reported has a mandatory shared key:
+ *
+ *     أستاذ محجوز مرتين   نفس اليوم + نفس الأستاذ
+ *     قاعة محجوزة مرتين   نفس اليوم + نفس القاعة
+ *     الفاصل بين محاضرتين  نفس اليوم + نفس القاعة
+ *     موعد مكرر           نفس المقرر + نفس الشعبة   (ونفس الموضع، فنفس اليوم)
+ *     تعارض أفواج         نفس اليوم + مقرر مقترن
+ *
+ * — because `overlaps` and `roomsTouch` both begin with `sharesDay`, and a
+ * duplicate is only reported at an identical placement. So the rows worth
+ * examining are exactly those sharing one of those keys, and they are found by
+ * lookup instead of by sweeping.
+ *
+ * This is exact, not an approximation: a pair outside every bucket fails the
+ * gate below by definition, so it cannot be a conflict that was missed. The
+ * candidates are walked in ascending `allRows` order, which is the order the
+ * sweep visited them in, so the first-wins behaviour of `byPair` and the order
+ * of the returned list are unchanged too.
+ *
+ * `findConflictsExhaustive` below is the original sweep, kept deliberately.
+ * `tests/conflict-parity.ts` runs both over every shape this timetable takes
+ * and fails on the first difference of pair, reason, order or wording.
+ */
+export function findConflicts(targetRows:FSchedule[], allRows:FSchedule[], options?:ConflictOptions):ConflictInsight[] {
+  const doorway=Math.max(0,Number(options?.doorwayMinutes||0));
+  const byPair=new Map<string,ConflictInsight>();
+  const dayKeys=SCHEDULE_DAYS.map(day=>day.key as keyof FSchedule);
+  const wantCohort=Boolean(options?.cohortPairs?.size);
+
+  /* Partners first: a cohort pair is stored as "min|max", and a row needs the
+     courses ITS course is paired with, not the whole set, once per row. */
+  const partners=new Map<number,number[]>();
+  if(wantCohort){
+    for(const entry of options!.cohortPairs!){
+      const [a,b]=String(entry).split("|").map(Number);
+      if(!a||!b) continue;
+      const forA=partners.get(a); if(forA) forA.push(b); else partners.set(a,[b]);
+      const forB=partners.get(b); if(forB) forB.push(a); else partners.set(b,[a]);
+    }
+  }
+
+  const push=(index:Map<string,number[]>,key:string,at:number)=>{
+    const bucket=index.get(key);
+    if(bucket) bucket.push(at); else index.set(key,[at]);
+  };
+  const placeholderInstructors=new Set<number>(Array.from<number>(options?.placeholderInstructorIds??[]).map(value=>Number(value)).filter(Boolean));
+  const personalInstructor=(row:FSchedule)=>{
+    const id=Number(row.AdInstructorId||0);
+    return id>0&&!placeholderInstructors.has(id)?id:0;
+  };
+  const byDayInstructor=new Map<string,number[]>();
+  const byDayRoom=new Map<string,number[]>();
+  const byDayCourse=new Map<string,number[]>();
+  const byCourseSection=new Map<string,number[]>();
+  for(let at=0;at<allRows.length;at++){
+    const other=allRows[at];
+    const place=roomKey(other);
+    for(const day of dayKeys){
+      if(!other[day]) continue;
+      if(personalInstructor(other)) push(byDayInstructor,`${String(day)}|${Number(other.AdInstructorId)}`,at);
+      if(place) push(byDayRoom,`${String(day)}|${place}`,at);
+      if(wantCohort) push(byDayCourse,`${String(day)}|${Number(other.AdCourseId)}`,at);
+    }
+    push(byCourseSection,`${other.AdCourseId}|${String(other.SCode)}`,at);
+  }
+
+  for(const row of targetRows){
+    const candidates=new Set<number>();
+    const take=(bucket:number[]|undefined)=>{ if(bucket) for(const at of bucket) candidates.add(at); };
+    const place=roomKey(row);
+    for(const day of dayKeys){
+      if(!row[day]) continue;
+      if(personalInstructor(row)) take(byDayInstructor.get(`${String(day)}|${Number(row.AdInstructorId)}`));
+      if(place) take(byDayRoom.get(`${String(day)}|${place}`));
+      if(wantCohort) for(const partner of partners.get(Number(row.AdCourseId))||[]) take(byDayCourse.get(`${String(day)}|${partner}`));
+    }
+    take(byCourseSection.get(`${row.AdCourseId}|${String(row.SCode)}`));
+
+    /* Ascending, so the sweep's visiting order — and therefore which member of
+       a duplicated pair is kept — is reproduced exactly. */
+    for(const at of [...candidates].sort((a,b)=>a-b)){
+      const other=allRows[at];
+      if(row.id===other.id || row.AdTermId!==other.AdTermId) continue;
+      const clashing=overlaps(row,other);
+      const sameRoom=Boolean(roomKey(row)) && roomKey(row)===roomKey(other);
+      /* A turnaround too short to empty the hall. Only meaningful when the two
+         do not already overlap — an overlap is the louder problem, and naming
+         one pair twice would double every count in the product. */
+      /* The requirement comes from the days this pair shares, unless the
+         department declared its own — so a rule stated per day family is no
+         longer flattened into one number that is wrong on one of them. */
+      const needGap=sameRoom?requiredGap(row,other,doorway):0;
+      const tight=needGap>0 && sameRoom && !clashing && roomsTouch(row,other,needGap);
+      /* «duplicate» يمنع، و«sectionTwice» يُقال ولا يمنع — الحكم في twinKind وحده. */
+      const twin=twinKind(row,other,personalInstructor);
+      /* Two overlapping lectures whose COURSES share students. Only meaningful
+         when they actually overlap — a survey says nothing about a gap. */
+      const cohort=clashing && Number(row.AdCourseId)!==Number(other.AdCourseId) && Boolean(options?.cohortPairs?.size) &&
+        options!.cohortPairs!.has(`${Math.min(Number(row.AdCourseId),Number(other.AdCourseId))}|${Math.max(Number(row.AdCourseId),Number(other.AdCourseId))}`);
+      if(!clashing && !twin && !tight) continue;
+
+      const pair=[row.id,other.id].sort((a,b)=>a-b).join(":");
+      if(byPair.has(pair)) continue;
+
+      const reasons:ConflictReason[]=[];
+      if(clashing && personalInstructor(row) && Number(row.AdInstructorId)===Number(other.AdInstructorId)) reasons.push("instructor");
+      if(clashing && sameRoom) reasons.push("room");
+      if(twin) reasons.push(twin);
+      if(cohort) reasons.push("cohort");
+      if(tight) reasons.push("doorway");
+      if(!reasons.length) continue;
+
+      // The pair is named after the most serious thing true about it.
+      /* A teacher or a hall booked twice is a fact about the timetable; a
+         cohort clash is a fact about people, reported by them. When both are
+         true the timetable's own error is named first, because fixing it may
+         resolve the other. */
+      const type=reasons.includes("instructor")?"instructor":reasons.includes("room")?"room"
+        :reasons.includes("duplicate")?"duplicate":reasons.includes("sectionTwice")?"sectionTwice"
+        :reasons.includes("cohort")?"cohort":"doorway";
+      /* ── الفارق يُقاس بين الطرفين المتجاورين فعلاً ────────────────────────
+       * This read `other.start - row.end` whichever way round the two sat, so
+       * whenever the other lecture came FIRST it measured from its start to
+       * this one's end — the span of both lectures plus everything between —
+       * and printed it as the gap. A one-minute turnaround (11:50 → 11:51)
+       * was reported to the reader as «101 دقيقة»: a number that says the hall
+       * is comfortably free while the finding says it is not, which teaches a
+       * person to distrust the finding rather than the number.
+       *
+       * The gap is between the one that ends first and the one that starts
+       * next. Overlapping rows never reach here — an overlap is its own,
+       * louder finding — so a negative result cannot occur; it is floored at
+       * zero for safety rather than trusted. */
+      const gap=(()=>{
+        const rowStart=timeToMinutes(String(row.fstarttime||"")),rowEnd=timeToMinutes(String(row.fendtime||""));
+        const otherStart=timeToMinutes(String(other.fstarttime||"")),otherEnd=timeToMinutes(String(other.fendtime||""));
+        return Math.max(0,rowStart>=otherEnd?rowStart-otherEnd:otherStart-rowEnd);
+      })();
+      const shared=cohort?(options?.cohortSize?.(row.AdCourseId,other.AdCourseId)||0):0;
+      const twice=type==="sectionTwice"?sectionTwiceWords(row,other,personalInstructor):null;
+      const message=type==="instructor"?"حجز مزدوج لأستاذ المقرر"
+        :type==="room"?"حجز مزدوج للقاعة"
+        :type==="duplicate"?"موعدان متطابقان لنفس الشعبة"
+        :twice?twice.message
+        :type==="cohort"?"تعارض على الطلاب"
+        :"الفاصل بين المحاضرتين غير كافٍ";
+      const detail=type==="instructor"
+        ? `الموعدان ${formatScheduleTimeRange(row.fstarttime, row.fendtime)} و ${formatScheduleTimeRange(other.fstarttime, other.fendtime)} يتقاطعان في يوم مشترك.`
+        : type==="room"
+          ? `القاعة ${row.AdRoomCode}/${row.AdRoomHall} مستخدمة في موعد متداخل.`
+          : type==="duplicate"
+            ? "نفس المقرر ونفس الشعبة بنفس الأيام ونفس الوقت، ولا قاعة ولا أستاذ يميّز أحدهما من الآخر."
+            : twice
+              ? twice.detail
+              : type==="cohort"
+                ? `${shared} من الطلاب الذين أجابوا يحتاجون المقررين معاً، والموعدان متقاطعان.`
+                : `الفاصل بين المحاضرتين ${countOf(gap, AR.minute)} في القاعة ${row.AdRoomCode}/${row.AdRoomHall}، والمطلوب ${countOf(needGap, AR.minute)}.`;
+      byPair.set(pair,{
+        type,
+        /* Never a save-blocker. A tight turnaround can be deliberate, and
+           dressing it in the colour that also means a real double booking
+           teaches people to stop reading that colour. */
+        /* A cohort clash is real but it speaks for whoever answered a survey,
+           not for the registrar — so it is a strong warning and never a refusal
+           to save. The department decides what a partial answer is worth. */
+        /* والشعبة المسجّلة مرتين في مكانين ليست تعارضاً ماديّاً (قاعدة المالك
+           2026-09-27): تنبيهٌ قويّ يُرى، ولا يمنع حفظاً ولا توقيعاً ولا اعتماداً. */
+        severity:type==="doorway"?"low":type==="duplicate"||type==="cohort"||type==="sectionTwice"?"medium":"high",
+        rowId:row.id,otherId:other.id,message,detail,reasons,
+      });
+    }
+  }
+  return [...byPair.values()];
+}
+
+export interface OutsideScopeClash {
+  conflict:ConflictInsight;
+  /** The appointment inside the caller's scope. */
+  ownId:number;
+  /** The one it collides with, which the scoped board never loaded. */
+  otherId:number;
+  other:FSchedule;
+}
+
+/**
+ * ── التعارض الذي لا تستطيع اللوحة أن تراه بنفسها ───────────────────────────
+ *
+ * A board is loaded by scope — a college, a department, a term — and that is
+ * what keeps it fast. The cost was that its live clash marker could only mark
+ * a collision against a row already on screen: a lecture of another department
+ * standing in the same hall at the same hour produced no mark at all.
+ *
+ * Detection was never the scoped half; the *board* was. This is the reading a
+ * server can do on its behalf, and it lives here beside the sweep rather than
+ * inside a route, so the rule is one rule and a test can hold it.
+ *
+ * Two filters, and the reason for each:
+ *
+ *   • Only what blocks. A tight turnaround or a cohort note never refuses a
+ *     save, and a ring that does not correspond to a refusal teaches people to
+ *     stop reading rings.
+ *
+ *   • Only pairs with exactly one foot inside the scope. A collision between
+ *     two rows of the same board is already found in the browser, instantly
+ *     and for free; sending it again would double every number on screen.
+ *
+ * `other` is resolved here so the caller can name the collision without a
+ * second lookup, and pairs whose other side is missing from `allRows` are
+ * dropped — there is nothing truthful to say about them.
+ */
+export function outsideScopeClashes(scopeRows:FSchedule[], allRows:FSchedule[], options?:ConflictOptions):OutsideScopeClash[] {
+  const ownIds=new Set(scopeRows.map(row=>Number(row.id)));
+  const byId=new Map(allRows.map(row=>[Number(row.id),row] as const));
+  return findConflicts(scopeRows,allRows,options)
+    .filter(isBlockingConflict)
+    .map(item=>{
+      /* findConflicts names a pair from the target's side, but the target list
+         is the scope itself — so read which end is ours rather than assume. */
+      const ownId=ownIds.has(Number(item.rowId))?Number(item.rowId):Number(item.otherId);
+      const otherId=Number(item.rowId)===ownId?Number(item.otherId):Number(item.rowId);
+      return {conflict:item,ownId,otherId,other:byId.get(otherId)};
+    })
+    .filter((entry):entry is OutsideScopeClash =>
+      ownIds.has(entry.ownId) && !ownIds.has(entry.otherId) && Boolean(entry.other));
+}
+
+/** The original exhaustive sweep. Kept as the reference the parity test proves against. */
+export function findConflictsExhaustive(targetRows:FSchedule[], allRows:FSchedule[], options?:ConflictOptions):ConflictInsight[] {
+  const doorway=Math.max(0,Number(options?.doorwayMinutes||0));
+  /* المسار الشامل يقرأ القاعدة نفسها: «هيئة تدريسية» ليست شخصاً يُحجز مرتين. */
+  const placeholderInstructors=new Set<number>(Array.from<number>(options?.placeholderInstructorIds??[]).map(value=>Number(value)).filter(Boolean));
+  const personalInstructor=(row:FSchedule)=>{
+    const id=Number(row.AdInstructorId||0);
+    return id>0&&!placeholderInstructors.has(id)?id:0;
+  };
+  const byPair=new Map<string,ConflictInsight>();
+  for(const row of targetRows){
+    for(const other of allRows){
+      if(row.id===other.id || row.AdTermId!==other.AdTermId) continue;
+      const clashing=overlaps(row,other);
+      const sameRoom=Boolean(roomKey(row)) && roomKey(row)===roomKey(other);
+      /* A turnaround too short to empty the hall. Only meaningful when the two
+         do not already overlap — an overlap is the louder problem, and naming
+         one pair twice would double every count in the product. */
+      /* The requirement comes from the days this pair shares, unless the
+         department declared its own — so a rule stated per day family is no
+         longer flattened into one number that is wrong on one of them. */
+      const needGap=sameRoom?requiredGap(row,other,doorway):0;
+      const tight=needGap>0 && sameRoom && !clashing && roomsTouch(row,other,needGap);
+      /* «duplicate» يمنع، و«sectionTwice» يُقال ولا يمنع — الحكم في twinKind وحده. */
+      const twin=twinKind(row,other,personalInstructor);
+      /* Two overlapping lectures whose COURSES share students. Only meaningful
+         when they actually overlap — a survey says nothing about a gap. */
+      const cohort=clashing && Number(row.AdCourseId)!==Number(other.AdCourseId) && Boolean(options?.cohortPairs?.size) &&
+        options!.cohortPairs!.has(`${Math.min(Number(row.AdCourseId),Number(other.AdCourseId))}|${Math.max(Number(row.AdCourseId),Number(other.AdCourseId))}`);
+      if(!clashing && !twin && !tight) continue;
+
+      const pair=[row.id,other.id].sort((a,b)=>a-b).join(":");
+      if(byPair.has(pair)) continue;
+
+      const reasons:ConflictReason[]=[];
+      if(clashing && personalInstructor(row) && Number(row.AdInstructorId)===Number(other.AdInstructorId)) reasons.push("instructor");
+      if(clashing && sameRoom) reasons.push("room");
+      if(twin) reasons.push(twin);
+      if(cohort) reasons.push("cohort");
+      if(tight) reasons.push("doorway");
+      if(!reasons.length) continue;
+
+      // The pair is named after the most serious thing true about it.
+      /* A teacher or a hall booked twice is a fact about the timetable; a
+         cohort clash is a fact about people, reported by them. When both are
+         true the timetable's own error is named first, because fixing it may
+         resolve the other. */
+      const type=reasons.includes("instructor")?"instructor":reasons.includes("room")?"room"
+        :reasons.includes("duplicate")?"duplicate":reasons.includes("sectionTwice")?"sectionTwice"
+        :reasons.includes("cohort")?"cohort":"doorway";
+      /* ── الفارق يُقاس بين الطرفين المتجاورين فعلاً ────────────────────────
+       * This read `other.start - row.end` whichever way round the two sat, so
+       * whenever the other lecture came FIRST it measured from its start to
+       * this one's end — the span of both lectures plus everything between —
+       * and printed it as the gap. A one-minute turnaround (11:50 → 11:51)
+       * was reported to the reader as «101 دقيقة»: a number that says the hall
+       * is comfortably free while the finding says it is not, which teaches a
+       * person to distrust the finding rather than the number.
+       *
+       * The gap is between the one that ends first and the one that starts
+       * next. Overlapping rows never reach here — an overlap is its own,
+       * louder finding — so a negative result cannot occur; it is floored at
+       * zero for safety rather than trusted. */
+      const gap=(()=>{
+        const rowStart=timeToMinutes(String(row.fstarttime||"")),rowEnd=timeToMinutes(String(row.fendtime||""));
+        const otherStart=timeToMinutes(String(other.fstarttime||"")),otherEnd=timeToMinutes(String(other.fendtime||""));
+        return Math.max(0,rowStart>=otherEnd?rowStart-otherEnd:otherStart-rowEnd);
+      })();
+      const shared=cohort?(options?.cohortSize?.(row.AdCourseId,other.AdCourseId)||0):0;
+      const twice=type==="sectionTwice"?sectionTwiceWords(row,other,personalInstructor):null;
+      const message=type==="instructor"?"حجز مزدوج لأستاذ المقرر"
+        :type==="room"?"حجز مزدوج للقاعة"
+        :type==="duplicate"?"موعدان متطابقان لنفس الشعبة"
+        :twice?twice.message
+        :type==="cohort"?"تعارض على الطلاب"
+        :"الفاصل بين المحاضرتين غير كافٍ";
+      const detail=type==="instructor"
+        ? `الموعدان ${formatScheduleTimeRange(row.fstarttime, row.fendtime)} و ${formatScheduleTimeRange(other.fstarttime, other.fendtime)} يتقاطعان في يوم مشترك.`
+        : type==="room"
+          ? `القاعة ${row.AdRoomCode}/${row.AdRoomHall} مستخدمة في موعد متداخل.`
+          : type==="duplicate"
+            ? "نفس المقرر ونفس الشعبة بنفس الأيام ونفس الوقت، ولا قاعة ولا أستاذ يميّز أحدهما من الآخر."
+            : twice
+              ? twice.detail
+              : type==="cohort"
+                ? `${shared} من الطلاب الذين أجابوا يحتاجون المقررين معاً، والموعدان متقاطعان.`
+                : `الفاصل بين المحاضرتين ${countOf(gap, AR.minute)} في القاعة ${row.AdRoomCode}/${row.AdRoomHall}، والمطلوب ${countOf(needGap, AR.minute)}.`;
+      byPair.set(pair,{
+        type,
+        /* Never a save-blocker. A tight turnaround can be deliberate, and
+           dressing it in the colour that also means a real double booking
+           teaches people to stop reading that colour. */
+        /* A cohort clash is real but it speaks for whoever answered a survey,
+           not for the registrar — so it is a strong warning and never a refusal
+           to save. The department decides what a partial answer is worth. */
+        /* والشعبة المسجّلة مرتين في مكانين ليست تعارضاً ماديّاً (قاعدة المالك
+           2026-09-27): تنبيهٌ قويّ يُرى، ولا يمنع حفظاً ولا توقيعاً ولا اعتماداً. */
+        severity:type==="doorway"?"low":type==="duplicate"||type==="cohort"||type==="sectionTwice"?"medium":"high",
+        rowId:row.id,otherId:other.id,message,detail,reasons,
+      });
+    }
+  }
+  return [...byPair.values()];
+}
+
+/** One pair as a row sees it: with whom, why, and whether it blocks. */
+export interface LiveClashNote {
+  otherId: number;
+  /** The reason the pair is named by — the same precedence findConflicts uses. */
+  kind: "instructor" | "room" | "duplicate" | "sectionTwice";
+  /** Refuses a save, a signature and an approval (isBlockingConflict). */
+  blocking: boolean;
+}
+
+export interface LiveClashScan {
+  /** Every appointment that participates in at least one BLOCKING collision. */
+  ids: Set<number>;
+  /** Distinct blocking pairs, each counted once whatever its reasons. */
+  pairs: number;
+  instructorPairs: number;
+  roomPairs: number;
+  duplicatePairs: number;
+  /** The same section at the same placement in two halls or with two teachers:
+      said on the board, never counted as a blocker (قاعدة المالك 2026-09-27). */
+  sectionTwicePairs: number;
+  /** Every appointment standing in such a pair. */
+  warningIds: Set<number>;
+  /** Per appointment, each pair it stands in — what its row says in words. */
+  notes: Map<number, LiveClashNote[]>;
+}
+
+/**
+ * The whole board read for collisions in one sweep, cheap enough to run live.
+ *
+ * findConflicts answers "does this one row clash?" and is quadratic when asked
+ * about everything at once. The board needs the everything answer on every
+ * change, so this buckets the rows per weekday, sorts each bucket once, and
+ * only compares appointments that actually overlap in time — the same
+ * instructor/room/duplicate reading, with no pair exempted, at a cost that
+ * stays flat while the term grows.
+ *
+ * The same section recorded twice is judged by `twinKind`, the one rule the
+ * other two engines read: the indistinguishable double entry rings red with the
+ * blockers; the section in two halls or with two teachers is kept apart, in
+ * `warningIds`, so the board can say it in the warning colour without ever
+ * adding it to the number that stops a signature.
+ */
+export function fastConflictScan(rows:FSchedule[], options?:{placeholderInstructorIds?:Iterable<number>}):LiveClashScan {
+  /* «هيئة تدريسية» is not a person on the board either: the ring and the
+     toolbar count must match the approval count (scheduleBlockers). */
+  const placeholders=new Set<number>(Array.from<number>(options?.placeholderInstructorIds??[]).map(Number).filter(Boolean));
+  const person=(row:FSchedule)=>{
+    const id=Number(row.AdInstructorId||0);
+    return id>0&&!placeholders.has(id)?id:0;
+  };
+  const ids=new Set<number>();
+  const seen=new Set<string>();
+  const warningIds=new Set<number>();
+  const warned=new Set<string>();
+  const notes=new Map<number,LiveClashNote[]>();
+  const note=(a:FSchedule,b:FSchedule,kind:LiveClashNote["kind"],blocking:boolean)=>{
+    for(const [own,other] of [[a,b],[b,a]] as const){
+      const list=notes.get(own.id);
+      const entry={otherId:other.id,kind,blocking};
+      if(list) list.push(entry); else notes.set(own.id,[entry]);
+    }
+  };
+  let instructorPairs=0,roomPairs=0,duplicatePairs=0,sectionTwicePairs=0;
+  type Meta={row:FSchedule;start:number;end:number;room:string};
+  const metas:Meta[]=rows.map(row=>({
+    row,
+    start:timeToMinutes(String(row.fstarttime||"")),
+    end:timeToMinutes(String(row.fendtime||"")),
+    room:roomKey(row),
+  }));
+  for(const day of SCHEDULE_DAYS){
+    const todays=metas
+      .filter(meta=>Boolean(meta.row[day.key])&&meta.end>meta.start)
+      .sort((a,b)=>a.start-b.start);
+    const active:Meta[]=[];
+    for(const meta of todays){
+      for(let i=active.length-1;i>=0;i--) if(active[i].end<=meta.start) active.splice(i,1);
+      for(const other of active){
+        const a=meta.row,b=other.row;
+        if(a.id===b.id||a.AdTermId!==b.AdTermId) continue;
+        const sameInstructor=Boolean(person(a))&&person(a)===person(b);
+        const sameRoom=Boolean(meta.room)&&meta.room===other.room;
+        if(!sameInstructor&&!sameRoom) continue;
+        const key=a.id<b.id?`${a.id}:${b.id}`:`${b.id}:${a.id}`;
+        if(seen.has(key)) continue;
+        seen.add(key);
+        if(sameInstructor) instructorPairs++; else roomPairs++;
+        ids.add(a.id); ids.add(b.id);
+        note(a,b,sameInstructor?"instructor":"room",true);
+      }
+      active.push(meta);
+    }
+  }
+  /* The twin — same course, same section, same placement — is found by
+     identity, since the indistinguishable one may name no instructor and no
+     room. Every pair of a group is judged, as findConflicts judges it, and a
+     pair already standing as a physical clash keeps that stronger name. */
+  const twins=new Map<string,FSchedule[]>();
+  for(const meta of metas){
+    const row=meta.row;
+    const key=`${row.AdTermId}|${Number(row.AdCourseId)}|${String(row.SCode)}|${SCHEDULE_DAYS.map(day=>row[day.key]?1:0).join("")}|${row.fstarttime}|${row.fendtime}`;
+    const list=twins.get(key);
+    if(list) list.push(row); else twins.set(key,[row]);
+  }
+  for(const list of twins.values()){
+    if(list.length<2) continue;
+    for(let i=0;i<list.length;i++) for(let j=i+1;j<list.length;j++){
+      const a=list[i],b=list[j];
+      if(a.id===b.id||a.AdTermId!==b.AdTermId) continue;
+      const kind=twinKind(a,b,person);
+      if(!kind) continue;
+      const key=a.id<b.id?`${a.id}:${b.id}`:`${b.id}:${a.id}`;
+      if(seen.has(key)) continue;
+      if(kind==="duplicate"){
+        seen.add(key);
+        duplicatePairs++;
+        ids.add(a.id); ids.add(b.id);
+        note(a,b,"duplicate",true);
+      }else if(!warned.has(key)){
+        warned.add(key);
+        sectionTwicePairs++;
+        warningIds.add(a.id); warningIds.add(b.id);
+        note(a,b,"sectionTwice",false);
+      }
+    }
+  }
+  return {ids,pairs:seen.size,instructorPairs,roomPairs,duplicatePairs,sectionTwicePairs,warningIds,notes};
+}
+
+export function instructorGapStats(rows:FSchedule[]){
+  const byInstructor=new Map<number,FSchedule[]>();
+  rows.forEach(row=>{if(row.AdInstructorId){const list=byInstructor.get(row.AdInstructorId)||[];list.push(row);byInstructor.set(row.AdInstructorId,list)}});
+  const result=new Map<number,{gapMinutes:number;maxGap:number;weeklyMinutes:number;days:Set<DayKey>;maxContinuous:number}>();
+  for(const [id,list] of byInstructor){
+    let gapMinutes=0,maxGap=0,weeklyMinutes=0,maxContinuous=0; const daySet=new Set<DayKey>();
+    for(const day of SCHEDULE_DAYS){
+      const blocks=list.filter(row=>Boolean(row[day.key])).map(row=>({start:timeToMinutes(row.fstarttime),end:timeToMinutes(row.fendtime)})).sort((a,b)=>a.start-b.start);
+      if(!blocks.length) continue; daySet.add(day.key);
+      weeklyMinutes+=blocks.reduce((sum,b)=>sum+Math.max(0,b.end-b.start),0);
+      let chainStart=blocks[0].start,chainEnd=blocks[0].end;
+      for(let i=1;i<blocks.length;i++){
+        const gap=Math.max(0,blocks[i].start-blocks[i-1].end); gapMinutes+=gap; maxGap=Math.max(maxGap,gap);
+        if(blocks[i].start<=chainEnd+15) chainEnd=Math.max(chainEnd,blocks[i].end); else {maxContinuous=Math.max(maxContinuous,chainEnd-chainStart);chainStart=blocks[i].start;chainEnd=blocks[i].end}
+      }
+      maxContinuous=Math.max(maxContinuous,chainEnd-chainStart);
+    }
+    result.set(id,{gapMinutes,maxGap,weeklyMinutes,days:daySet,maxContinuous});
+  }
+  return result;
+}
+
+export interface AnalyzeOptions {
+  /** «هيئة تدريسية» records. Derived from `instructors` when not given. */
+  placeholderInstructorIds?:Iterable<number>;
+  /** The save gate's hall canonicalisation (legacy aliases → one hall). */
+  normalizeRow?:(row:FSchedule)=>FSchedule;
+}
+
+export function analyzeSchedule(targetRows:FSchedule[], allRows:FSchedule[], courses:AdCourse[]=[], instructors:AdInstructor[]=[], options:AnalyzeOptions={}){
+  /* «مانع اعتماد» here is the same number every other screen prints: the same
+     placeholder exemption, the same hall identity, the same predicate
+     (duplicates included) — see `approvalBlockerCount` in scheduleBlockers. */
+  const placeholders=options.placeholderInstructorIds??placeholderIdsOf(instructors as any);
+  const normalize=options.normalizeRow;
+  const conflicts=normalize
+    ? findConflicts(targetRows.map(normalize),allRows.map(normalize),{placeholderInstructorIds:placeholders})
+    : findConflicts(targetRows,allRows,{placeholderInstructorIds:placeholders});
+  const dayLoad=SCHEDULE_DAYS.map(day=>({key:day.key,label:day.label,count:targetRows.filter(row=>Boolean(row[day.key])).length}));
+  const activeDayCounts=dayLoad.map(x=>x.count); const maxDay=Math.max(0,...activeDayCounts),minDay=Math.min(...activeDayCounts);
+  const gaps=instructorGapStats(targetRows); const gapValues=[...gaps.values()]; const totalGap=gapValues.reduce((s,g)=>s+g.gapMinutes,0); const avgGap=gapValues.length?Math.round(totalGap/gapValues.length):0;
+  const lateRows=targetRows.filter(row=>timeToMinutes(row.fstarttime)>=16*60).length;
+  /* «ناقص» ما لا يُعرف مكانُه أصلاً، لا ما كُتب مكانُه نصّاً قبل سجل المباني: القاعة
+     التاريخية غير الموثّقة بيانٌ صحيح ينتظر التوثيق (قاعدة الحالة الذهبية)، وعدُّها
+     «ناقصة» كان يجعل كل جدولٍ قديمٍ «محجوباً» بمانعٍ لا تعرفه بوابة الحفظ. */
+  const hasPlace=(row:any)=>Boolean(row.buildingId||String(row.AdRoomCode||"").trim())&&(row.locationStatus==="PENDING_ROOM"||Boolean(row.roomId)||Boolean(String(row.AdRoomHall||"").trim()));
+  const invalidRows=targetRows.filter(row=>!row.AdInstructorId||!row.AdCourseId||!hasPlace(row)||duration(row)<=0||activeDays(row).length===0).length;
+  const imbalance=maxDay?Math.round((maxDay-minDay)/maxDay*100):0;
+  // Conflict counts can become large in imported/legacy semesters because every overlapping
+  // pair is counted. A square-root curve keeps the score sensitive to meaningful reductions
+  // instead of saturating immediately after a handful of collisions.
+  const criticalConflictCount=conflicts.filter(x=>x.severity==="high").length;
+  const duplicateConflictCount=conflicts.filter(x=>x.type==="duplicate").length;
+  const conflictPenalty=criticalConflictCount?Math.min(58,Math.round(5+Math.sqrt(criticalConflictCount)*2.45)):Math.min(8,Math.round(duplicateConflictCount*1.5));
+  const gapPenalty=Math.min(16,Math.round(avgGap/45*2)); const latePenalty=targetRows.length?Math.min(10,Math.round(lateRows/targetRows.length*24)):0; const balancePenalty=Math.min(10,Math.round(imbalance/10)); const healthPenalty=Math.min(18,invalidRows*5);
+  const score=clamp(100-conflictPenalty-gapPenalty-latePenalty-balancePenalty-healthPenalty,0,100);
+
+  const heatmap:any[]=[];
+  for(const day of SCHEDULE_DAYS){for(let minute=SCHEDULE_DAY_START;minute<SCHEDULE_DAY_END;minute+=SCHEDULE_SLOT_MINUTES){const count=targetRows.filter(row=>Boolean(row[day.key])&&timeToMinutes(row.fstarttime)<minute+SCHEDULE_SLOT_MINUTES&&timeToMinutes(row.fendtime)>minute).length;heatmap.push({day:day.key,label:day.label,time:minutesToTime(minute),count})}}
+
+  const roomGroups=new Map<string,FSchedule[]>();
+  targetRows.forEach(row=>{const key=roomKey(row);if(key){const list=roomGroups.get(key)||[];list.push(row);roomGroups.set(key,list)}});
+  const rooms=[...roomGroups.entries()].map(([key,list])=>{const representative=list[0];const code=String(representative?.AdRoomCode||"");const hall=String(representative?.AdRoomHall||"");const occupied=list.reduce((sum,row)=>sum+duration(row)*activeDays(row).length,0);return{key,code,hall,buildingId:representative?.buildingId,roomId:representative?.roomId,sessions:list.length,occupiedMinutes:occupied,utilization:Math.round(clamp(occupied/(5*SCHEDULE_DAY_SPAN)*100,0,100))}}).sort((a,b)=>b.occupiedMinutes-a.occupiedMinutes);
+
+  const instructorById=new Map(instructors.map(i=>[i.AdInstructorId,i]));
+  const professorLoads=[...gaps.entries()].map(([id,g])=>({id,name:instructorById.get(id)?.AdInstructorName||`أستاذ ${id}`,weeklyHours:Number((g.weeklyMinutes/60).toFixed(1)),days:g.days.size,gapMinutes:g.gapMinutes,maxGap:g.maxGap,maxContinuous:g.maxContinuous})).sort((a,b)=>b.weeklyHours-a.weeklyHours);
+
+  const duplicateKeys=new Map<string,number>(); targetRows.forEach(row=>{const key=`${row.AdCourseId}:${row.SCode}`;duplicateKeys.set(key,(duplicateKeys.get(key)||0)+1)});
+  const duplicates=[...duplicateKeys.entries()].filter(([,count])=>count>1).length;
+  const courseById=new Map(courses.map(c=>[c.AdCourseId,c]));
+  /* The catalogue is not an offering plan. Counting every catalogue course
+     absent from this term produced a false "unassigned" alarm for dormant and
+     elective courses. This health reading now judges only actual term rows. */
+  const unscheduledCourses=0;
+  void courseById;
+
+  const alerts:Array<{severity:"critical"|"warning"|"info";title:string;detail:string}>=[];
+  const critical=conflicts.filter(isBlockingConflict).length;
+  if(critical)alerts.push({severity:"critical",title:`${countOf(critical, AR.approvalBlocker)}`,detail:"حجز مزدوج يجب معالجته قبل الاعتماد."});
+  /* الشعبة المسجّلة مرتين في مكانين: تنبيهٌ لا مانع (twinKind) — يُعدّ بالشعب لا بالأزواج. */
+  const rowById=new Map([...allRows,...targetRows].map(row=>[Number(row.id),row] as const));
+  const sectionsTwice=new Set(conflicts.filter(item=>item.type==="sectionTwice")
+    .map(item=>rowById.get(Number(item.rowId))).filter(Boolean).map(row=>`${Number(row!.AdCourseId)}|${String(row!.SCode)}`)).size;
+  if(sectionsTwice)alerts.push({severity:"warning",title:`الشعبة نفسها مرتين في الوقت نفسه · ${countOf(sectionsTwice, AR.section)}`,detail:"في قاعتين أو بأستاذين. تنبيهٌ لا يمنع الاعتماد؛ إن كانتا شعبتين فغيّر رقم إحداهما."});
+  const longGap=professorLoads.filter(x=>x.maxGap>=180).length;if(longGap)alerts.push({severity:"warning",title:`${countOf(longGap, AR.instructor)} ${nounFor(longGap, AR.hasPron)} فراغ طويل`,detail:"أكثر من 3 ساعات بين محاضرتين."});
+  if(lateRows)alerts.push({severity:"info",title:`${countOf(lateRows, AR.appointment)} ${nounFor(lateRows, AR.lateAdj)}`,detail:`بعد ${scheduleClockForDisplay("16:00")}.`});
+  if(imbalance>=35)alerts.push({severity:"warning",title:"توزيع الأيام غير متوازن",detail:`تفاوت ملحوظ بين أحمال الأيام · ${imbalance}%.`});
+  if(invalidRows)alerts.push({severity:"critical",title:`${countOf(invalidRows, AR.record)} ببيانات ناقصة`,detail:"موعد ناقص أو غير صالح."});
+  if(!alerts.length)alerts.push({severity:"info",title:"الوضع مستقر",detail:"لا توجد ملاحظات حرجة."});
+
+  const readiness=critical===0&&invalidRows===0? (score>=85?"ready":score>=70?"review":"needs-work") : "blocked";
+  return {
+    score,
+    readiness,
+    metrics:{rows:targetRows.length,criticalConflicts:critical,allConflicts:conflicts.length,avgInstructorGap:avgGap,lateRows,imbalance,invalidRows,uniqueRooms:rooms.length,uniqueInstructors:professorLoads.length},
+    factors:[
+      {label:"سلامة الحجز",penalty:conflictPenalty},{label:"فراغات الأساتذة",penalty:gapPenalty},{label:"الأوقات المتأخرة",penalty:latePenalty},{label:"توازن الأيام",penalty:balancePenalty},{label:"صحة البيانات",penalty:healthPenalty}
+    ],
+    dayLoad,heatmap,rooms,professorLoads,conflicts,alerts,
+    dataHealth:{invalidRows,duplicates,unscheduledCourses,healthy:invalidRows===0&&duplicates===0},
+  };
+}
+
+function candidateConflictCount(candidate:FSchedule, allRows:FSchedule[], excludeId:number){
+  let count=0;
+  for(const other of allRows){
+    if(other.id===excludeId||other.AdTermId!==candidate.AdTermId||!overlaps(candidate,other))continue;
+    if(Number(candidate.AdInstructorId)===Number(other.AdInstructorId))count++;
+    if(roomKey(candidate)&&roomKey(candidate)===roomKey(other))count++;
+  }
+  return count;
+}
+
+export function conflictSolutions(row:FSchedule, allRows:FSchedule[], max=5){
+  const rooms=[...new Map(allRows.filter(r=>r.buildingId&&r.roomId&&r.locationStatus!=="PENDING_ROOM"&&roomKey(r)).map(r=>[roomKey(r),{key:roomKey(r),code:r.AdRoomCode,hall:r.AdRoomHall,buildingId:r.buildingId,roomId:r.roomId}])).values()];
+  const preferredRooms=rooms.sort((a,b)=>Number(b.buildingId===row.buildingId)-Number(a.buildingId===row.buildingId)).slice(0,60);
+  // The universe checked against is only the rows that could ever collide: a
+  // candidate never changes the instructor and only lands in a preferred room,
+  // so the whole-term scan (millions of comparisons — seconds of thinking)
+  // narrows to the instructor's own rows plus the rows already in those rooms.
+  // Same answer, a fraction of the work.
+  const roomScope=new Set(preferredRooms.map(r=>r.key));
+  if(roomKey(row))roomScope.add(roomKey(row));
+  const relevant=allRows.filter(r=>Number(r.AdInstructorId)===Number(row.AdInstructorId)||roomScope.has(roomKey(r)));
+  const dur=Math.max(30,duration(row)); const original=timeToMinutes(row.fstarttime); const candidates:Array<any>=[];
+  for(let start=SCHEDULE_DAY_START;start+dur<=SCHEDULE_DAY_END;start+=SCHEDULE_SLOT_MINUTES){
+    const currentRoom=row.roomId&&row.buildingId?{key:roomKey(row),code:row.AdRoomCode,hall:row.AdRoomHall,buildingId:row.buildingId,roomId:row.roomId}:null;
+    for(const room of [...(currentRoom?[currentRoom]:[]),...preferredRooms]){
+      const candidate={...row,fstarttime:minutesToTime(start),fendtime:minutesToTime(start+dur),AdRoomCode:room.code,AdRoomHall:room.hall,buildingId:room.buildingId,roomId:room.roomId,locationStatus:"VERIFIED" as const};
+      const conflicts=candidateConflictCount(candidate,relevant,row.id); const roomChanged=room.roomId!==row.roomId;
+      const score=conflicts*10000+Math.abs(start-original)+(roomChanged?90:0)+(start>=16*60?80:0);
+      candidates.push({score,conflicts,start:candidate.fstarttime,end:candidate.fendtime,buildingId:room.buildingId,roomId:room.roomId,roomCode:room.code,roomHall:room.hall,roomChanged});
+    }
+  }
+  const unique=new Map<string,any>();
+  candidates.sort((a,b)=>a.score-b.score).forEach(item=>{const key=`${item.start}|${item.roomId}`;if(!unique.has(key))unique.set(key,item)});
+  return [...unique.values()].slice(0,max).map((item,index)=>({...item,rank:index+1,label:item.conflicts===0?"بدون مانع ظاهر":`${countOf(item.conflicts, AR.blocker)} ${nounFor(item.conflicts, AR.possibleAdj)}`,reason:item.roomChanged?"تغيير الوقت والقاعة لتحقيق أفضل مساحة متاحة":"الإبقاء على القاعة مع تحسين الوقت"}));
+}
+
+export function autoScheduleProposal(targetRows:FSchedule[], allRows:FSchedule[]){
+  // Greedy, safety-first optimisation. A candidate is never allowed to introduce more
+  // professor/room conflicts than the row had at the moment it was evaluated.
+  const targetIds=new Set(targetRows.map(r=>r.id));
+  const external=allRows.filter(r=>!targetIds.has(r.id));
+  const placed:FSchedule[]=[];
+  const ordered=[...targetRows].sort((a,b)=>a.AdInstructorId-b.AdInstructorId||a.id-b.id);
+  for(let index=0;index<ordered.length;index++){
+    const row=ordered[index];
+    const remaining=ordered.slice(index+1);
+    const dur=Math.max(30,duration(row));
+    const original=timeToMinutes(row.fstarttime);
+    const originalUniverse=[...external,...placed,...remaining];
+    const originalConflicts=candidateConflictCount(row,originalUniverse,row.id);
+    let best={row:{...row},score:originalConflicts*10000};
+    for(let start=SCHEDULE_DAY_START;start+dur<=SCHEDULE_DAY_END;start+=SCHEDULE_SLOT_MINUTES){
+      const candidate={...row,fstarttime:minutesToTime(start),fendtime:minutesToTime(start+dur)};
+      const universe=[...external,...placed,...remaining];
+      const conflicts=candidateConflictCount(candidate,universe,row.id);
+      // Never trade a clean/safer row for a new conflict merely to improve compactness.
+      if(conflicts>originalConflicts)continue;
+      let proximityPenalty=Math.abs(start-original)*0.38;
+      if(start===original)proximityPenalty-=18;
+      const latePenalty=start>=16*60?(start-16*60+30)*1.2:0;
+      let gapPenalty=0;
+      for(const other of [...placed,...remaining]){
+        if(Number(other.AdInstructorId)!==Number(candidate.AdInstructorId)||!sharesDay(other,candidate))continue;
+        const otherStart=timeToMinutes(other.fstarttime),otherEnd=timeToMinutes(other.fendtime);
+        const gap=Math.min(Math.abs(start-otherEnd),Math.abs(otherStart-(start+dur)));
+        gapPenalty+=Math.min(180,gap)*0.16;
+      }
+      const score=conflicts*10000+proximityPenalty+latePenalty+gapPenalty;
+      if(score<best.score)best={row:candidate,score};
+    }
+    placed.push(best.row);
+  }
+  const byId=new Map(placed.map(r=>[r.id,r]));
+  const rows=targetRows.map(row=>byId.get(row.id)||row);
+  const changed=rows.filter((row,index)=>row.fstarttime!==targetRows[index].fstarttime||row.fendtime!==targetRows[index].fendtime).length;
+  return {rows,changed};
+}
+
+/**
+ * What changed between two terms.
+ *
+ * Counts alone ("+4 / -3") tell a coordinator that something moved but not
+ * what, so the answer they need — is this new offering right? — is still a
+ * manual row-by-row comparison. The identity of a lecture is its course and
+ * section; everything else about it (day, time, hall, instructor) is a
+ * property that can change. That gives three honest buckets: offerings that
+ * appeared, offerings that disappeared, and offerings that stayed but moved.
+ */
+export function compareTerms(a:FSchedule[],b:FSchedule[]){
+  const key=(r:FSchedule)=>`${r.AdCourseId}:${r.SCode}:${r.AdInstructorId}:${activeDays(r).join(",")}:${r.fstarttime}:${r.fendtime}:${roomKey(r)}`;
+  const aKeys=new Set(a.map(key)),bKeys=new Set(b.map(key));
+
+  /** Identity survives a move; the shape is what a move changes. */
+  const identity=(r:FSchedule)=>`${r.AdCourseId}:${String(r.SCode||"").trim()}`;
+  const dayLabel=(r:FSchedule)=>SCHEDULE_DAYS.filter(day=>Boolean((r as any)[day.key])).map(day=>day.label).join("، ");
+  const shape=(r:FSchedule)=>({
+    days:dayLabel(r),
+    time:formatScheduleTimeRange(r.fstarttime, r.fendtime),
+    room:roomKey(r),
+    instructorId:Number(r.AdInstructorId||0)
+  });
+  const before=new Map(a.map(row=>[identity(row),row]));
+  const after=new Map(b.map(row=>[identity(row),row]));
+
+  const appeared=[...after.entries()].filter(([id])=>!before.has(id)).map(([,row])=>row);
+  const disappeared=[...before.entries()].filter(([id])=>!after.has(id)).map(([,row])=>row);
+  const moved:Array<{row:FSchedule;from:ReturnType<typeof shape>;to:ReturnType<typeof shape>;fields:string[]}>=[];
+  for(const [id,next] of after){
+    const previous=before.get(id);
+    if(!previous)continue;
+    const from=shape(previous),to=shape(next);
+    const fields:string[]=[];
+    if(from.days!==to.days)fields.push("الأيام");
+    if(from.time!==to.time)fields.push("الوقت");
+    if(from.room!==to.room)fields.push("القاعة");
+    if(from.instructorId!==to.instructorId)fields.push("الأستاذ");
+    if(fields.length)moved.push({row:next,from,to,fields});
+  }
+
+  return {
+    fromCount:a.length,toCount:b.length,
+    added:[...bKeys].filter(k=>!aKeys.has(k)).length,
+    removed:[...aKeys].filter(k=>!bKeys.has(k)).length,
+    uniqueInstructorsFrom:new Set(a.map(r=>r.AdInstructorId)).size,
+    uniqueInstructorsTo:new Set(b.map(r=>r.AdInstructorId)).size,
+    uniqueRoomsFrom:new Set(a.map(roomKey).filter(Boolean)).size,
+    uniqueRoomsTo:new Set(b.map(roomKey).filter(Boolean)).size,
+    appeared,disappeared,moved
+  };
+}

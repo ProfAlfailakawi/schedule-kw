@@ -1,0 +1,184 @@
+/**
+ * مرقاةُ الرحلة: الحركةُ تُظهر الحقيقة ولا تصنعها.
+ *
+ *  ١) الاستهداف: آخرُ محطةٍ مكتملةٍ أو حاليةٍ فقط؛ لا تُضاء محطةٌ حقيقتُها معلّقة/مُرجَعة/متوقفة.
+ *  ٢) أثناء المقدمة تُعرض المحطاتُ بعد المؤشّر «لاحقة»، وبعد التسوية تعود حالاتُها الحقيقية.
+ *  ٣) الإيقاعُ محصورٌ بين ٣٥٠ و٧٥٠ مللي ثانية وزمنُ الكلّ لا يتجاوز ٤٫٥ ثوانٍ تقريباً.
+ *  ٤) لا يُعاد التشغيلُ لنفس الكيان (playKey).
+ *  ٥) الاستخدامُ العاديّ بلا reveal لا يتغيّر في شيء؛ والعرضُ على الخادم يخرج بالحالة النهائية كاملةً.
+ *  ٦) النصُّ لقارئ الشاشة وaria-current يتبعان الحقيقة لا المقدمة.
+ */
+import fs from "fs";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { DnaStepper } from "../src/components/dna/DnaKit";
+import {
+  JOURNEY_SETTLE_MS, journeyThreshold, journeyKey, journeyReached, journeyNext, journeyAlreadyPlayed, journeyShown, journeyStepMs, journeyTarget, resetJourneyPlayed,
+} from "../src/components/dna/useJourneyReveal";
+
+let passed = 0, failed = 0;
+const check = (ok: unknown, label: string) => {
+  if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); }
+  else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); }
+};
+
+check(journeyTarget(["done", "done", "current", "pending"]) === 3, "الهدف: حتى المحطة الحالية ضمناً");
+check(journeyTarget(["done", "done", "done"]) === 3, "الهدف: كلُّها مكتملة");
+check(journeyTarget(["pending", "pending"]) === 0, "الهدف: لا شيء مضاء → صفر (لا مقدمة)");
+check(journeyTarget(["done", "returned", "pending"]) === 1, "الهدف: لا يتخطّى محطةً مُرجَعة");
+check(journeyTarget(["done", "blocked"]) === 1, "الهدف: لا يتخطّى محطةً متوقفة");
+
+check(journeyShown("done", 0, 0) === "pending" && journeyShown("done", 0, 1) === "done", "العرض: ما بعد المؤشّر لاحقة");
+check(journeyShown("returned", 1, 5) === "returned" && journeyShown("blocked", 1, null) === "blocked", "العرض: الحالات غير المضيئة تبقى كما هي حين تُبلغ");
+check(journeyShown("done", 9, null) === "done", "التسوية: الحالات الحقيقية");
+
+check(journeyStepMs(3) === 750 && journeyStepMs(100) === 350 && journeyStepMs(8) === 500, "الإيقاع محصور بين ٣٥٠ و٧٥٠");
+check(journeyStepMs(5) * 5 <= 4000 && JOURNEY_SETTLE_MS <= 1600, "إيقاعُ خمس محطات ضمن ٤ ثوانٍ، والهالة الأخيرة ١٫٦ث");
+
+resetJourneyPlayed();
+check(!journeyAlreadyPlayed("a") && !journeyAlreadyPlayed(null) && !journeyAlreadyPlayed(undefined), "لا مفتاح → لا ذاكرة");
+
+const steps = [
+  { key: "a", label: "أ", state: "done" as const },
+  { key: "b", label: "ب", state: "current" as const },
+  { key: "c", label: "ج", state: "pending" as const },
+];
+const plain = renderToStaticMarkup(React.createElement(DnaStepper, { steps }));
+check(!/data-journey|data-reveal|data-lit|data-just/.test(plain), "بلا reveal: لا سمات جديدة إطلاقاً");
+const ssr = renderToStaticMarkup(React.createElement(DnaStepper, { steps, reveal: true, playKey: "k" }));
+check(/data-journey/.test(ssr) && /data-reveal="done"/.test(ssr), "على الخادم: الحالة النهائية (data-reveal=done)");
+check(/data-state="done"/.test(ssr) && /data-state="current"/.test(ssr) && !/data-lit/.test(ssr), "على الخادم: الحالات الحقيقية كاملة بلا إخفاء");
+check(/aria-current="step"/.test(ssr) && /الحالية/.test(ssr), "aria-current ونصُّ القارئ حاضران");
+check(/data-link="done"/.test(ssr), "الوصلة بعد المحطة المكتملة مضاءة");
+
+const css = fs.readFileSync("src/components/dna/dna.css", "utf8");
+const theme = fs.readFileSync("src/components/dna/dna-theme.css", "utf8");
+check(/\[data-journey\][^{]*::after[\s\S]*?scaleX\(0\)/.test(css), "CSS: وصلةٌ تتعبّأ بـ scaleX");
+check(/:dir\(ltr\)::after \{ transform-origin: left/.test(css), "CSS: اتجاهان (RTL افتراضي، LTR يسار)");
+check(/dna-journey-halo 1\.5s var\(--dna-ease\) 1;/.test(css), "CSS: هالةٌ واحدة لا تتكرّر");
+check(/prefers-reduced-motion: reduce[\s\S]*data-journey/.test(css), "CSS: حركةٌ مخفّضة تعطّل الانتقال والهالة");
+check(/--journey-fill: var\(--brass\)/.test(theme), "الثيم: لون التعبئة سطرٌ واحد (البرونزي)");
+
+/* ── العتبة يجب أن تكون قابلة للبلوغ ─────────────────────────────────────── */
+check(journeyThreshold(0.5, 300, 800) === 0.5, "عنصرٌ يتسع للشاشة: العتبة كما هي");
+check(journeyThreshold(0.5, 1200, 500) < 0.4 && journeyThreshold(0.5, 1200, 500) * 1200 <= 500, "عنصرٌ أطول من الشاشة: عتبةٌ يمكن بلوغها");
+check(journeyThreshold(0.6, 5000, 300) >= 0.05, "حدٌّ أدنى معقول");
+const landing = fs.readFileSync("public/landing/index.html", "utf8");
+check(/Math\.min\(0\.6, \(0\.9 \* window\.innerHeight\)/.test(landing), "الصفحة الهابطة: العتبة محدودة بارتفاع الشاشة");
+
+/* ── التقارب: لا تبقى محطةٌ معلّقة، ولا يبدأ العرض من بكسلٍ واحد ──────────── */
+check(journeyNext(2, 5, true, false) === "tick" && journeyNext(5, 5, true, false) === "settle", "المؤقّت: يتقدّم حتى الهدف ثم يستقرّ");
+check(journeyNext(2, 3, true, false) === "tick" && journeyNext(2, 4, true, false) === "tick", "الهدف يكبر أثناء المقدمة: يُعاد التخطيط ولا تبقى محطةٌ معلّقة");
+check(journeyNext(3, 2, true, false) === "settle", "الهدف يصغر: يستقرّ");
+check(journeyNext(0, 3, true, true) === "wait" && journeyNext(0, 3, false, false) === "wait", "hold أو قبل الظهور: انتظار");
+check(journeyNext(null, 3, true, false) === "idle", "بعد التسوية: لا إعادة");
+check(!journeyReached({ isIntersecting: true, intersectionRatio: 0.02 }, 0.5) && journeyReached({ isIntersecting: true, intersectionRatio: 0.5 }, 0.5) && !journeyReached({ isIntersecting: false, intersectionRatio: 0.9 }, 0.5), "المراقب: النسبة المرئية لا isIntersecting وحدها");
+const hookSrc = fs.readFileSync("src/components/dna/useJourneyReveal.ts", "utf8");
+check(/\[enabled, hasTarget, journeyKey\(playKey\)\]/.test(hookSrc) && /armed\.current/.test(hookSrc), "التسليح يُعاد عند أول هدفٍ > 0 مع حارس armed (مرة واحدة)");
+check(/keyRef\.current !== journeyKey\(playKey\)[\s\S]*armed\.current = false[\s\S]*setSeen\(false\)/.test(hookSrc), "تغيّر playKey: يُعاد التسليح ويُقطع المراقب القديم ولا تتسرّب الحالة");
+check(/\[lit, target, seen, hold, step, playKey\]/.test(hookSrc), "المؤقّت يعتمد على الهدف");
+check(/data-journey\] \.dna-stepi\[data-state='current'\] \.dna-node \{[^}]*animation: none;/.test(fs.readFileSync("src/components/dna/dna.css", "utf8")), "CSS: المحطة الحالية في وضع الرحلة بلا حركة لانهائية");
+check(/need - 0\.01/.test(landing), "الصفحة الهابطة: تتحقق من النسبة المرئية");
+
+check(/if \(!fired\) armed\.current = false;/.test(hookSrc) && /fired = true; observer\.disconnect\(\); setSeen\(true\)/.test(hookSrc), "StrictMode: التنظيف قبل أي تشغيل يُسقط علامة التسليح فيُعاد التسليح؛ وبعد التشغيل لا إعادة");
+check(journeyKey(42) === journeyKey("42") && journeyKey(null) === null && journeyKey(undefined) === null && journeyKey(0) === "0" && journeyKey(1) !== journeyKey(2), "playKey: 42 و\"42\" كيانٌ واحد؛ null/undefined بلا مفتاح");
+const dnaCss = fs.readFileSync("src/components/dna/dna.css", "utf8");
+const haloUses = dnaCss.match(/animation(-name)?: dna-journey-halo[^;]*;|animation-name: dna-journey-halo-ring;/g) || [];
+check(haloUses.length === 2 && /\[data-just\][^{]*\{\s*animation: dna-journey-halo/.test(dnaCss) && /\[data-just\]\[data-state='current'\][^{]*\{\s*animation-name: dna-journey-halo-ring/.test(dnaCss), "الهالة تُستعمل فقط على [data-just]؛ المحطة المحفوظة (playKey) تُرسم بحلقة ثابتة");
+
+/* ── محطات قراءة PDF: من أطوار الخادم الفعلية فقط ───────────────────────── */
+import { importStageStates, noteImportPhase } from "../src/utils/importStages";
+{
+  const st = (...p: string[]) => importStageStates(p.reduce((a: string[], x) => noteImportPhase(a, x), []));
+  check(st().join() === "current,pending,pending,pending", "قبل أي حدث: التجهيز جارٍ");
+  check(st("render").join() === "current,pending,pending,pending", "render: التجهيز");
+  check(st("read", "orient").join() === "current,pending,pending,pending" || st("read", "orient")[1] === "current", "read قبل orient: لا رجوع إلى الوراء");
+  check(st("render", "read")[0] === "done" && st("render", "read")[1] === "current", "read: التجهيز اكتمل والقراءة جارية");
+  check(st("render", "read", "match").join() === "done,done,skipped,current", "match دون rescue: التدقيق «لم يلزم» لا «اكتمل»");
+  check(st("render", "read", "rescue", "match").join() === "done,done,done,current", "rescue ثم match: كلها حقيقية");
+  check(st("bogus").join() === "current,pending,pending,pending", "طورٌ مجهول يُهمل");
+  check(noteImportPhase(["read"], "read").length === 1, "التكرار لا يضيف");
+}
+
+
+/* ── جولة الصقل: لا تأخيرٌ بعد المقدمة، حالةٌ نهائية واحدة، المحطات خارج منطقة الإعلان ───────── */
+{
+  const pres = fs.readFileSync("public/schedule-presentation.html", "utf8");
+  const jcss = fs.readFileSync("src/styles/10-journey.css", "utf8");
+  const xfer = fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8");
+  check(!/flow\.flow-play/.test(landing) && /flow\.flow-intro \.fstep\{/.test(landing) && /classList\.remove\('flow-intro'\)/.test(landing), "الصفحة الهابطة: التأخيرات المتدرّجة على flow-intro فقط وتُزال بعد المقدمة");
+  check(/\.flow \.fstep \.tile__ic\{background:var\(--brass\)/.test(landing) && /\.flow \.fstep \.tile__ic\{background:var\(--brass\)/.test(pres), "الحالة النهائية (بلا JS/حركة مخفّضة) هي نفسها بعد المقدمة: بلاطات نحاسية");
+  check(!/is-live \.flow/.test(pres) && /flow-armed/.test(pres) && /IntersectionObserver/.test(pres.slice(pres.indexOf("Governance flow: plays once"))), "العرض: المقدمة مرتبطة بظهور الشريحة فعلاً لا بـ is-live");
+  const presFlow = pres.slice(pres.indexOf("governance flow"), pres.indexOf(".blocked{"));
+  check(!/rgba\(/.test(presFlow) && !/@keyframes (flowHalo|simHalo)[^}]*rgba/.test(landing), "الهالة بلا ألوان حرفية جديدة");
+  check(/\.jr-rail:dir\(ltr\)::after\{[^}]*to right/.test(jcss.replace(/\s+/g, " ").replace(/\{ /g, "{")) || /jr-rail:dir\(ltr\)::after\{\s*transform-origin:left center;\s*background:linear-gradient\(to right/.test(jcss), "10-journey: تدرّج الوصلة يتبع اتجاه السطر في LTR");
+  check(!/className="import-progress" role="status"/.test(xfer) && /<span role="status" aria-live="polite">\{readProgress\.message\}/.test(xfer), "ScheduleTransfer: الرسالة وحدها منطقة إعلان، لا قائمة المحطات");
+  check(/bar\.style\.width = '0%'/.test(landing) && /p\.done \|\| step >= phases\.length/.test(landing), "المحاكاة: الشريط يبدأ من صفر، والشارة تنقلب مع المحطة الرابعة");
+}
+
+
+/* ── الدفعة الثانية: لا غياب ولا خطّ مرسوم قبل المحطات ──────────────────────────────────── */
+{
+  const jcss2 = fs.readFileSync("src/styles/10-journey.css", "utf8");
+  check(!/\.jr-rail>\.jr-station\{opacity:0/.test(jcss2) && /\.jr-rail>\.jr-station\{opacity:\.4\}/.test(jcss2) && /@keyframes jr-light\{from\{opacity:\.4\}/.test(jcss2), "الرحلة: المحطات الخامدة ظاهرة خافتة لا غائبة، وتُضاء بالتتابع");
+  check(/transition:transform calc\(4 \* var\(--jr-step\) \+ \.3s\)/.test(jcss2) && /animation-delay:calc\(var\(--i,0\) \* var\(--jr-step\)\)/.test(jcss2), "الرحلة: امتلاء الخط وتتابع المحطات من متغيّر إيقاع واحد");
+  check(/@media \(max-width: 599px\) \{ #sim-log-text \{ min-height: 3em/.test(landing), "المحاكاة: ارتفاع السجل محجوز على الهاتف");
+}
+
+
+/* ── جولة الحركة الهادئة: العدّادات والرسم الأحادي والحلقات المهدّأة ───────────────────── */
+{
+  const { Counted, countShouldAnimate, countStaysEligible } = await import("../src/components/dna/Counted");
+  const { motionShouldArm } = await import("../src/components/dna/useMotionScope");
+  const fmt = (n: number) => n.toLocaleString("ar-KW-u-nu-latn");
+  const base = { value: 12, reduced: false, played: false, needsObserver: true, hasObserver: true, hidden: false };
+  check(countShouldAnimate(base), "العدّاد: يتحرّك حين يُسمح له");
+  check(!countShouldAnimate({ ...base, reduced: true }) && !countShouldAnimate({ ...base, played: true }) && !countShouldAnimate({ ...base, value: 0 }) && !countShouldAnimate({ ...base, hasObserver: false }) && !countShouldAnimate({ ...base, hidden: true }), "العدّاد: الحركة المخفّضة/المعروض سابقاً/الصفر/غياب المراقب/التبويب المخفي → القيمة النهائية");
+  check(countShouldAnimate({ ...base, needsObserver: false, hasObserver: false }), "العدّاد بلا مراقب (رحلة SCHEDULE) لا يشترط المراقب");
+  check(countStaysEligible({ value: 0, reduced: false, played: false }) && !countStaysEligible({ value: 5, reduced: false, played: false }) && !countStaysEligible({ value: 0, reduced: true, played: false }) && !countStaysEligible({ value: 0, reduced: false, played: true }), "العدّاد: الصفر أثناء التحميل يبقى مؤهَّلاً للعدّ عند وصول أول قيمة موجبة");
+  const final = renderToStaticMarkup(React.createElement(Counted, { value: 9418, observe: true, playKey: "t" }));
+  check(final.includes(fmt(9418)) && !/sr-only/.test(final), "العدّاد على الخادم: القيمة النهائية فوراً، بلا نصٍّ مكرّر");
+  const plainFinal = renderToStaticMarkup(React.createElement(Counted, { value: 9418 }));
+  check(plainFinal === fmt(9418), "العدّاد بلا observe على الخادم: النص النهائي وحده (بلا غلاف)");
+  const held = renderToStaticMarkup(React.createElement(Counted, { value: 9418, play: false }));
+  check(/aria-hidden="true">0</.test(held.replace(/[٠]/g, "0")) || held.includes("sr-only"), "العدّاد المحجوز (play=false): الصفر مخفيٌّ عن القارئ والقيمة النهائية له");
+  check(motionShouldArm({ hasObserver: true, reduced: false, hidden: false, played: false }) && !motionShouldArm({ hasObserver: false, reduced: false, hidden: false, played: false }) && !motionShouldArm({ hasObserver: true, reduced: true, hidden: false, played: false }) && !motionShouldArm({ hasObserver: true, reduced: false, hidden: true, played: false }) && !motionShouldArm({ hasObserver: true, reduced: false, hidden: false, played: true }), "نطاق الرسم: لا يُسلَّح بلا مراقب/مع الحركة المخفّضة/التبويب المخفي/بعد التشغيل");
+
+  const read = (f: string) => fs.readFileSync(f, "utf8");
+  const scopeSrc = read("src/components/dna/useMotionScope.ts");
+  check(/setPhase\('hold'\)/.test(scopeSrc) && /markPlayed\(playKey\)/.test(scopeSrc) && /MOTION_FAILSAFE_MS/.test(scopeSrc), "نطاق الرسم: hold قبل الرسم، play-once بالذاكرة نفسها، ومهلة أمان");
+  check(/useMotionScope/.test(read("src/components/ScheduleChanges.tsx")) && (read("src/components/ScheduleChanges.tsx").match(/new IntersectionObserver/g) || []).length === 0, "وارد التغييرات: مراقبٌ واحد للقائمة لا لكل سطر");
+  const ScheduleJourneySrc = read("src/components/ScheduleJourney.tsx");
+  check(/import \{ Counted \} from "\.\/dna\/Counted"/.test(ScheduleJourneySrc) && !/function Counted/.test(ScheduleJourneySrc), "ScheduleJourney يستورد Counted المشترك");
+
+  const noInfinite = (file: string, selectorRe: RegExp, label: string) => {
+    const css = read(file);
+    const rule = css.match(selectorRe);
+    check(Boolean(rule) && !/infinite/.test(rule![0]), label);
+  };
+  noInfinite("src/styles/03-shell.css", /\.side-nav-link \.side-nav-badge\[data-bump\]\{[^}]*\}/, "شارة الشريط الجانبي: نبضةٌ واحدة عند الزيادة لا دائمة");
+  noInfinite("src/styles/11-approval.css", /\.apb-steps li\[data-turn\] \.apb-node,\.apb-steps li\[data-turn\] \.apb-stamp\{[^}]*\}/, "عقدة «دورك»: هالةٌ واحدة");
+  const dnaCssAll = read("src/components/dna/dna.css");
+  check(!/dna-halo[^;]*infinite/.test(dnaCssAll), "مرقاة DNA: لا هالةَ لانهائية على المحطة الحالية");
+  check(!/\.schedule-live-dot\.on\{[^}]*infinite/.test(read("src/styles/05-schedule.css")), "نقطة البث الحيّ ساكنة");
+  const details = read("src/styles/09-details.css");
+  check(!/\.week-chip\.just-changed::after,[^{]*\{[^}]*animation:pulse/.test(details) && /animation:review-glow 1\.6s var\(--ease\) 3;/.test(details), "just-changed: نقطةٌ ساكنة، وreview-glow ثلاث مرّات");
+  const sched = read("src/styles/05-schedule.css");
+  check(/animation:presence-held 1\.8s ease-in-out 3;/.test(sched) && /animation:hall-barter-inbox-pulse 2\.4s ease-out 3;/.test(sched) && /\.ripple-pulse i\{[^}]*animation:pulse 1\.8s ease-in-out 3\}/.test(sched), "الحجز داخل الشبكة وصندوق المقايضة وripple-pulse: منتهية");
+  check(/jr-cue 2\.1s var\(--ease-out,ease\) 3\}/.test(read("src/styles/10-journey.css")), "10-journey: مؤشّر التمرير ثلاث دورات");
+  check(!/sml-calm[^;]*infinite/.test(read("src/styles/02-primitives.css")), "المحمّل: لا حلقة لانهائية تحت الحركة المخفّضة");
+  const appr = read("src/styles/11-approval.css");
+  check(/@media print\{\s*\.ad-ring-fill,\.ad-timeline>li\{animation:none!important\}/.test(appr) && /@media screen and \(prefers-reduced-motion:no-preference\)\{\s*\.ad-dialog \.ad-ring-fill/.test(appr), "ملف الاعتماد: الحركة على الشاشة فقط، والطباعة بالحالة النهائية");
+  check(!/(forwards|both)/.test((appr.match(/apb-expanded\[data-reveal\][^\n]*/g) || []).join("\n")), "فتح شريط الاعتماد: لا forwards/both على حركات transform");
+
+  /* مراجعةٌ بصرية (عرضٌ فقط): لا تُترك حركةُ clip-path بلا to صريحة (inset ↔ none لا تُستكمل فتنقلب دفعةً)،
+     والرقمُ العادّ لا يرث تسميةَ المؤشّر، والتظليلةُ تلفّ الكلمات لا الترويسة، والشارةُ لا تنبض لوصول أول رقم. */
+  const kfs = [...read("src/styles/12-deadlines.css").matchAll(/@keyframes (sd-bar-draw(?:-ltr)?)\{([^@]*?)\}\}/g), ...read("src/styles/09-details.css").matchAll(/@keyframes (review-spread-draw(?:-ltr)?)\{([^@]*?)\}\}/g)];
+  check(kfs.length === 4 && kfs.every(m => /from\{clip-path:inset\([^)]*\)\}to\{clip-path:inset\(0 0 0 0\)\}/.test(m[2] + "}")), "كشفُ الشرائط (clip-path): from وto كلاهما inset فيُستكمل بينهما");
+  check(/\.deck-signals b \.dna-counted\{[^}]*font:inherit/.test(read("src/styles/04-screens.css")), "مؤشّرات اللوحة: الرقمُ العادّ يرث حجم الرقم لا تسمية المؤشّر");
+  check(/\.review-title h2\[data-resolved\]\{[^}]*inline-size:fit-content/.test(details), "تظليلة «أتحقق…»: تلفّ الكلمات وحدها بلا فيضٍ جانبي");
+  check(/lastBadge\.current > 0 && badge > lastBadge\.current/.test(read("src/App.tsx")), "شارة الشريط الجانبي: لا نبضةَ لوصول أول رقمٍ من صفر");
+}
+
+console.log(`\n${passed} passed, ${failed} failed`);
+if (failed) process.exit(1);

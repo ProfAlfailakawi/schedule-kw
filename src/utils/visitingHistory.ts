@@ -1,0 +1,336 @@
+import { byArabic } from "./sorting";
+import { termChronology } from "./termSequence";
+import { dedupeVisitingRows, visitingSectionKey, type VisitingTeachingRow } from "./visitingTeaching";
+
+/**
+ * ── سجل الانتداب عبر السنوات: نموذج واحد للشاشة وللطباعة ────────────────────
+ *
+ * كان التقرير المطبوع وحده يعرف كيف تُصفّ السنوات: سنة أكاديمية واحدة = عمود
+ * واحد، وداخله الفصل الأول ثم الثاني ثم الصيفي إن وُجد. أما الشاشة فكانت
+ * بطاقات مرتّبة بالعدد، لا تُظهر «متى» كان الانتداب إلا بعد فتح كل اسم.
+ * فمن يقارن أستاذين لا يستطيع أن يرى الفجوات — سنة انتُدب فيها هذا وغاب ذاك.
+ *
+ * لذلك صار الحساب هنا، مرة واحدة: الشاشة تقرأه فتعرض المصفوفة نفسها، والورقة
+ * تقرأه فتطبعها. وأي تصحيح في ترتيب السنوات أو في اسم الفصل يصلح الاثنين معاً.
+ *
+ * ولأن الأرشيف يكبر — خمس عشرة سنة وأكثر — لا يجوز أن يتمدّد العرض إلى ما لا
+ * نهاية. النموذج يقسم السنوات إلى «نافذة» أحدث ما يهم، و«ما قبلها» يُجمع في
+ * عمود واحد يحمل مجموعه، فتبقى الصفحة واحدة مهما طال التاريخ.
+ */
+
+export interface VisitingHistoryTermEntry {
+  termId: number;
+  termName: string;
+  rostered?: boolean;
+  sections: number;
+  courses: number;
+  items?: VisitingHistoryItem[];
+}
+
+/** موعدٌ درّسه المنتدب في فصل، بموقعه (الكلية والقسم) ومفتاح شعبته الفريد. */
+export interface VisitingHistoryItem {
+  scheduleId: number;
+  courseId: number;
+  courseName?: string;
+  sectionCode?: string;
+  collegeId?: number;
+  sectionId?: number;
+  /** مفتاح الشعبة: موعدا محاضرة ومختبر لشعبة واحدة = شعبة واحدة. */
+  sectionKey?: string;
+}
+
+/** مفتاح الشعبة داخل فصلها؛ والعنصر القديم بلا مفتاح يُعدّ بموعده (لا دمج بالتخمين). */
+export function historyItemSectionKey(termId: number, item: VisitingHistoryItem): string {
+  return `${Number(termId)}|${item.sectionKey || `row:${Number(item.scheduleId) || `${item.courseId}:${item.sectionCode || ""}`}`}`;
+}
+
+/** شعب الفصل الفريدة لمنتدب: من عناصره إن وُجدت، وإلا الرقم المحفوظ. */
+export function termSectionCount(term: Pick<VisitingHistoryTermEntry, "termId" | "sections" | "items">): number {
+  const items = Array.isArray(term.items) ? term.items : [];
+  if (!items.length) return Number(term.sections || 0);
+  return new Set(items.map(item => historyItemSectionKey(term.termId, item))).size;
+}
+
+/**
+ * يبني سجل كل منتدب من روسترات الفصول وصفوف تدريسها — مرة واحدة للخادم والاختبار.
+ * صفوف الفصل تأتي من كل كليات القسم المقروءة، والمكرر منها يسقط، والشعبة تُعدّ
+ * مرةً ولو تعددت مواعيدها، والفصل يُعدّ مرةً للمنتدب ولو ظهر في روسترين.
+ */
+export function aggregateVisitingHistory(input: {
+  rosters: ReadonlyArray<{ termId: number; instructorIds: readonly unknown[] }>;
+  rowsByTerm: ReadonlyMap<number, readonly (VisitingTeachingRow & { CourseCodeSnapshot?: string })[]>;
+  known: (id: number) => boolean;
+  termName: (termId: number) => string;
+}): Array<Omit<VisitingHistoryPerson, "name" | "civil" | "listedNow">> {
+  const people = new Map<number, Map<number, Map<string, VisitingHistoryItem>>>();
+  for (const roster of input.rosters) {
+    const termId = Number(roster.termId || 0);
+    if (!termId) continue;
+    const rows = dedupeVisitingRows(input.rowsByTerm.get(termId) || []);
+    const ids = [...new Set((roster.instructorIds || []).map(Number))].filter(id => id > 0 && input.known(id));
+    for (const instructorId of ids) {
+      const terms = people.get(instructorId) || new Map<number, Map<string, VisitingHistoryItem>>();
+      const items = terms.get(termId) || new Map<string, VisitingHistoryItem>();
+      for (const row of rows) {
+        if (Number(row.AdInstructorId) !== instructorId) continue;
+        const key = `${Number(row.id) || ""}|${row.AdCollegeId}|${row.AdSectionId}|${row.AdCourseId}|${row.SCode || ""}|${row.fstarttime}`;
+        items.set(key, {
+          scheduleId: Number(row.id || 0),
+          courseId: Number(row.AdCourseId || 0),
+          courseName: String(row.AdCourseName || ""),
+          sectionCode: String(row.SCode || "").trim(),
+          collegeId: Number(row.AdCollegeId || 0),
+          sectionId: Number(row.AdSectionId || 0),
+          sectionKey: visitingSectionKey(row),
+        });
+      }
+      terms.set(termId, items);
+      people.set(instructorId, terms);
+    }
+  }
+  return [...people.entries()].map(([instructorId, terms]) => {
+    const entries = [...terms.entries()].map(([termId, items]) => {
+      const list = [...items.values()];
+      const entry: VisitingHistoryTermEntry = {
+        termId, termName: input.termName(termId), rostered: true, sections: 0,
+        courses: new Set(list.map(item => item.courseId).filter(Boolean)).size, items: list,
+      };
+      entry.sections = termSectionCount(entry);
+      return entry;
+    });
+    return {
+      instructorId,
+      times: entries.length,
+      sections: entries.reduce((sum, term) => sum + term.sections, 0),
+      courses: new Set(entries.flatMap(term => (term.items || []).map(item => item.courseId)).filter(Boolean)).size,
+      terms: entries,
+    };
+  });
+}
+
+export interface VisitingHistoryPerson {
+  instructorId: number;
+  name: string;
+  civil?: string;
+  times: number;
+  sections: number;
+  courses: number;
+  terms: VisitingHistoryTermEntry[];
+  /** هل ما زال في دليل القسم اليوم؟ التاريخ يُبقيه ولو خرج منه. */
+  listedNow?: boolean;
+}
+
+export interface VisitingHistoryTerm { termId: number; termName: string }
+
+export interface VisitingHistorySlot {
+  key: string;
+  label: string;
+  order: number;
+  term: VisitingHistoryTerm | null;
+}
+
+export interface VisitingHistoryYear {
+  key: string;
+  label: string;
+  chronology: number;
+  slots: VisitingHistorySlot[];
+  /** شعب القسم الفريدة التي درّسها منتدبون في هذه السنة (الشعبة المشتركة تُعدّ مرة). */
+  sections: number;
+  /** فصول هذه السنة التي ظهر فيها انتداب فعلي. */
+  terms: number;
+  /** عدد المنتدبين الذين ظهروا في هذه السنة. */
+  people: number;
+}
+
+/** جزء الأرشيف الأقدم من النافذة، مطويًا في عمود واحد. */
+export interface VisitingHistoryArchive {
+  years: VisitingHistoryYear[];
+  yearCount: number;
+  label: string;
+  /** مجموع شعب كل منتدب داخل هذا الجزء، مفهرسًا برقم المنتدب. */
+  sectionsByPerson: Map<number, number>;
+  termsByPerson: Map<number, number>;
+}
+
+export interface VisitingHistoryModel {
+  people: VisitingHistoryPerson[];
+  years: VisitingHistoryYear[];
+  /** كل السنوات، بما فيها المطوية. */
+  allYears: VisitingHistoryYear[];
+  archive: VisitingHistoryArchive | null;
+  /**
+   * إجماليات القسم، كلٌّ بتعريفه:
+   *  terms    — فصول القسم الفريدة التي فيها انتداب (لا مجموع فصول الأفراد).
+   *  sections — شعب القسم الفريدة المسندة لمنتدبين في الفترة كلها.
+   *  personTerms / assignedSections — مجموع ما في صفوف الأفراد؛ يختلف عن
+   *  الفريد حين يشترك منتدبان في فصل أو شعبة، فيُذكر عندها بعنوانه.
+   */
+  totals: { people: number; terms: number; sections: number; years: number; personTerms: number; assignedSections: number };
+}
+
+const ARABIC_INDIC = "٠١٢٣٤٥٦٧٨٩";
+const EASTERN_INDIC = "۰۱۲۳۴۵۶۷۸۹";
+
+/** الأرقام العربية والفارسية تُقرأ كما تُقرأ اللاتينية عند استخراج السنة. */
+export function normalizeYearDigits(value: string): string {
+  return String(value || "")
+    .replace(/[٠-٩]/g, digit => String(ARABIC_INDIC.indexOf(digit)))
+    .replace(/[۰-۹]/g, digit => String(EASTERN_INDIC.indexOf(digit)));
+}
+
+export function seasonOf(name: string): { key: string; label: string; order: number } {
+  const text = String(name || "");
+  if (/الأول|الاول/.test(text)) return { key: "first", label: "الأول", order: 1 };
+  if (/الثاني/.test(text)) return { key: "second", label: "الثاني", order: 2 };
+  if (/الصيف/.test(text)) return { key: "summer", label: "الصيفي", order: 3 };
+  return { key: `other-${text}`, label: "فصل", order: 9 };
+}
+
+/** ترتيب أسماء المنتدبين أبجدياً للشاشة والطباعة. */
+export function sortVisitingPeople(people: readonly VisitingHistoryPerson[]): VisitingHistoryPerson[] {
+  return [...people].sort((a, b) =>
+    byArabic(a.name, b.name)
+  );
+}
+
+/** فصول المنتدب من الأحدث إلى الأقدم. */
+export function sortVisitingTerms(terms: readonly VisitingHistoryTermEntry[]): VisitingHistoryTermEntry[] {
+  return [...terms].sort((a, b) =>
+    termChronology({ AdTermId: b.termId, AdTermName: b.termName })
+    - termChronology({ AdTermId: a.termId, AdTermName: a.termName })
+  );
+}
+
+/**
+ * يبني المصفوفة الكاملة ثم يطويها إلى نافذة.
+ *
+ * @param windowYears عدد السنوات المعروضة مفصّلة. أي رقم غير موجب = كل السنوات.
+ */
+export function buildVisitingHistoryModel(
+  source: { terms?: readonly VisitingHistoryTerm[]; people?: readonly VisitingHistoryPerson[] } | null | undefined,
+  windowYears = 0
+): VisitingHistoryModel {
+  const people = sortVisitingPeople(source?.people || []);
+
+  /* الفصل الذي لا منتدب فيه ليس عمودًا: لا يُقارن به أحد ولا يحمل رقمًا. */
+  const activeTermIds = new Set(
+    people.flatMap(person => person.terms.map(term => Number(term.termId))).filter(Boolean)
+  );
+  const knownTerms = (source?.terms || []).filter(term => activeTermIds.has(Number(term.termId)));
+  const knownIds = new Set(knownTerms.map(term => Number(term.termId)));
+  /* فصل ظهر في سجل منتدب دون أن يرد في قائمة الفصول لا يجوز أن يختفي. */
+  const orphanTerms: VisitingHistoryTerm[] = [];
+  people.forEach(person => person.terms.forEach(term => {
+    const id = Number(term.termId);
+    if (!id || knownIds.has(id)) return;
+    knownIds.add(id);
+    orphanTerms.push({ termId: id, termName: term.termName });
+  }));
+
+  /* الشعبة الفريدة لكل فصل: من عناصرها إن وُجدت؛ وفصلٌ بلا عناصر يُعدّ برقمه
+     المحفوظ لكل منتدب (لا يمكن كشف التشارك فيه بلا عناصر). */
+  const sectionsByTerm = new Map<number, Set<string>>();
+  const peopleByTerm = new Map<number, Set<number>>();
+  people.forEach(person => person.terms.forEach(term => {
+    const id = Number(term.termId);
+    const keys = sectionsByTerm.get(id) || new Set<string>();
+    const items = Array.isArray(term.items) ? term.items : [];
+    if (items.length) items.forEach(item => keys.add(historyItemSectionKey(id, item)));
+    else for (let i = 0; i < Number(term.sections || 0); i++) keys.add(`${id}|person:${person.instructorId}:${i}`);
+    sectionsByTerm.set(id, keys);
+    const seen = peopleByTerm.get(id) || new Set<number>();
+    seen.add(Number(person.instructorId));
+    peopleByTerm.set(id, seen);
+  }));
+
+  type YearDraft = { key: string; label: string; chronology: number; terms: Array<VisitingHistoryTerm & { season: ReturnType<typeof seasonOf> }> };
+  const yearMap = new Map<string, YearDraft>();
+  [...knownTerms, ...orphanTerms].forEach(term => {
+    const termName = String(term.termName || "");
+    const match = normalizeYearDigits(termName).match(/(\d{4})\s*\/\s*(\d{4})/);
+    const key = match ? `${match[1]}/${match[2]}` : `term-${term.termId}`;
+    const label = match ? `${match[1]}/${match[2]}` : termName;
+    const chronology = termChronology({ AdTermId: term.termId, AdTermName: term.termName });
+    const draft = yearMap.get(key) || { key, label, chronology, terms: [] };
+    draft.chronology = Math.max(draft.chronology, chronology);
+    draft.terms.push({ ...term, season: seasonOf(termName) });
+    yearMap.set(key, draft);
+  });
+
+  const allYears: VisitingHistoryYear[] = [...yearMap.values()]
+    .sort((a, b) => b.chronology - a.chronology)
+    .map(year => {
+      const bySeason = new Map(year.terms.map(term => [term.season.key, term]));
+      const slots: VisitingHistorySlot[] = [
+        { key: "first", label: "الأول", term: bySeason.get("first") || null, order: 1 },
+        { key: "second", label: "الثاني", term: bySeason.get("second") || null, order: 2 },
+      ];
+      /* الصيفي عمودٌ يُفتح عند وجوده وحده، فلا تدفع كل سنة ثمن خانة فارغة. */
+      if (bySeason.has("summer")) slots.push({ key: "summer", label: "الصيفي", term: bySeason.get("summer") || null, order: 3 });
+      year.terms
+        .filter(term => !["first", "second", "summer"].includes(term.season.key))
+        .sort((a, b) => a.season.order - b.season.order || Number(a.termId) - Number(b.termId))
+        .forEach((term, index) => slots.push({ key: `other-${term.termId}`, label: term.season.label || `فصل ${index + 1}`, term, order: 9 + index }));
+
+      const yearTermIds = year.terms.map(term => Number(term.termId));
+      const yearPeople = new Set<number>();
+      yearTermIds.forEach(id => peopleByTerm.get(id)?.forEach(personId => yearPeople.add(personId)));
+      return {
+        key: year.key,
+        label: year.label,
+        chronology: year.chronology,
+        slots,
+        sections: yearTermIds.reduce((sum, id) => sum + (sectionsByTerm.get(id)?.size || 0), 0),
+        terms: yearTermIds.filter(id => peopleByTerm.has(id)).length,
+        people: yearPeople.size,
+      };
+    });
+
+  const limit = windowYears > 0 ? Math.min(windowYears, allYears.length) : allYears.length;
+  const years = allYears.slice(0, limit);
+  const older = allYears.slice(limit);
+  const archive: VisitingHistoryArchive | null = older.length ? (() => {
+    const olderTermIds = new Set(older.flatMap(year => year.slots.map(slot => Number(slot.term?.termId || 0)).filter(Boolean)));
+    const sectionsByPerson = new Map<number, number>();
+    const termsByPerson = new Map<number, number>();
+    people.forEach(person => {
+      let sections = 0, terms = 0;
+      person.terms.forEach(term => {
+        if (!olderTermIds.has(Number(term.termId))) return;
+        sections += Number(term.sections || 0);
+        terms += 1;
+      });
+      if (sections || terms) { sectionsByPerson.set(Number(person.instructorId), sections); termsByPerson.set(Number(person.instructorId), terms); }
+    });
+    const oldest = older[older.length - 1]?.label || "";
+    const newest = older[0]?.label || "";
+    return {
+      years: older,
+      yearCount: older.length,
+      label: oldest && newest && oldest !== newest ? `${oldest} — ${newest}` : (newest || oldest || "سنوات سابقة"),
+      sectionsByPerson,
+      termsByPerson,
+    };
+  })() : null;
+
+  return {
+    people,
+    years,
+    allYears,
+    archive,
+    totals: {
+      people: people.length,
+      terms: allYears.reduce((sum, year) => sum + year.terms, 0),
+      sections: allYears.reduce((sum, year) => sum + year.sections, 0),
+      years: allYears.length,
+      personTerms: people.reduce((sum, person) => sum + Number(person.times || 0), 0),
+      assignedSections: people.reduce((sum, person) => sum + Number(person.sections || 0), 0),
+    },
+  };
+}
+
+/** درجة تظليل الخانة: صفر = فارغة، وأربع درجات تكفي لتمييز الكثافة دون ضجيج. */
+export function visitingHeatLevel(sections: number): number {
+  const value = Number(sections || 0);
+  return value ? Math.min(4, Math.max(1, value)) : 0;
+}

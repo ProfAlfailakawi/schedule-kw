@@ -1,0 +1,417 @@
+import type { AdCourse, AdInstructor, FSchedule, MasterRoom } from "../types";
+import { AR, countOf, oblique } from "./arabicCount";
+import {
+  SCHEDULE_DAYS,
+  findConflicts,
+  minutesToTime,
+  timeToMinutes,
+  type DayKey,
+} from "./scheduleIntelligence";
+import type { RhythmReading } from "./departmentRhythm";
+import { cohortPairs, type DemandReading } from "./studentDemand";
+import type { Prediction } from "./courseSuccession";
+import { roomIdentityKey } from "./locationRegistry";
+import { weeklyLoadOf } from "./instructorRequestVerdict";
+
+/**
+ * ── الشعبة الجديدة، وأين توضع ───────────────────────────────────────────────
+ *
+ * The survey goes out before the term and registration runs in the first week,
+ * by which time the timetable is already written. So the question the answers
+ * actually have to settle is not «انقل محاضرة» — the department is past that.
+ * It is:
+ *
+ *     **كم شعبة نفتح، وأين نضعها؟**
+ *
+ * The first half is arithmetic the program could always have done and never
+ * did: every course already carries `MaxStudent`, and the survey says how many
+ * people want it. Thirty-four students, a ceiling of twenty-five, one section
+ * open — nine people have no seat and a second section has to exist.
+ *
+ * The second half is the part nobody wants to do by hand, and it is the same
+ * search the repair engine already runs, pointed the other way: instead of
+ * moving a lecture that exists, it PLACES one that does not. The department's
+ * own start ladder decides the candidate hours; ten years of history decide how
+ * long a lecture runs and what the gap between two of them is; every hall's
+ * week, every teacher's week, and the courses those same students need decide
+ * what is actually free.
+ *
+ * **The bar is the same absolute one.** A placement is returned only if it
+ * collides with nothing: no hall double-booked, no teacher in two rooms, no
+ * turnaround shorter than the department's own, and — the whole point — no
+ * overlap with a course this cohort also needs. Opening a second section at an
+ * hour that clashes with what those same students are taking solves nothing.
+ *
+ * **Sections opened together are placed against each other.** The second new
+ * section is searched for in a week that already contains the first, so two
+ * proposals never land in the same hall at the same hour.
+ *
+ * **It says when it cannot answer.** A course with no `MaxStudent` is reported
+ * as a course with no ceiling, not silently skipped and not given a guessed
+ * one. And nothing here is ever written — every placement is a sentence until
+ * a person opens it and saves it.
+ */
+
+export interface Placement {
+  /** 1 for the first new section, 2 for the second … */
+  index: number;
+  day: DayKey;
+  dayLabel: string;
+  start: string;
+  end: string;
+  buildingId: string;
+  roomId: string;
+  roomCode: string;
+  roomHall: string;
+  /** Zero when nobody who teaches this course is free at that hour. */
+  instructorId: number;
+  instructorName: string;
+  /**
+   * The number this new section would carry.
+   *
+   * Not decoration: the save path rejects a non-numeric section code outright
+   * («رقم الشعبة يجب أن يكون بالأرقام الإنجليزية»), so a placeholder like
+   * «جديدة-٢» makes the proposal unopenable. It continues the course's own
+   * numbering instead.
+   */
+  sectionCode: string;
+  note: string;
+  /** أيامٌ عدّة لشعبةٍ واحدة (قالبٌ من الفصل المماثل)؛ `day` أولها. */
+  days?: DayKey[];
+  /** بانتظار التثبيت: بلا قاعة، وأستاذها «هيئة تدريسية». */
+  pending?: boolean;
+}
+
+export interface SectionProposal {
+  courseId: number;
+  courseName: string;
+  courseCode: string;
+  /** Students who asked for it — real answers, or the forecast when there are none. */
+  demand: number;
+  /** True when `demand` came from the forecast rather than from answers. */
+  predicted: boolean;
+  /** MaxStudent. Zero means the course has no ceiling recorded. */
+  capacity: number;
+  openSections: number;
+  seats: number;
+  /** Students with no seat. */
+  shortfall: number;
+  /** New sections the arithmetic asks for. */
+  needed: number;
+  placements: Placement[];
+  /** لماذا لم توضع كلُّ الشعب المطلوبة (حين placements < needed): ما يحتاجه القسم لا ما يخمّنه المحرّك. */
+  unplacedReason?: string;
+  sentence: string;
+}
+
+export interface OpeningReading {
+  proposals: SectionProposal[];
+  /** Courses in demand whose ceiling is not recorded, so nothing can be said. */
+  noCeiling: Array<{ courseId: number; name: string; demand: number }>;
+  headline: string;
+  /** Proposal counts that were re-simulated against explicit current-term responses. */
+  simulationTested?: number;
+  simulationRejected?: number;
+}
+
+const DAY_LABEL = new Map(SCHEDULE_DAYS.map(day => [day.key, day.label] as const));
+const DAY_KEYS = SCHEDULE_DAYS.map(day => day.key as DayKey);
+
+const dayOf = (row: FSchedule): DayKey | null =>
+  DAY_KEYS.find(key => Boolean((row as any)[key])) || null;
+
+const mode = (values: number[]) => {
+  const counts = new Map<number, number>();
+  for (const value of values) counts.set(value, (counts.get(value) || 0) + 1);
+  let best = 0, bestCount = 0;
+  counts.forEach((count, value) => { if (count > bestCount) { best = value; bestCount = count; } });
+  return best;
+};
+
+/** A row that does not exist yet, shaped like every other row so the sweep reads it. */
+const draft = (
+  seed: FSchedule,
+  day: DayKey,
+  start: number,
+  length: number,
+  room: { key: string; buildingId: string; roomId: string; code: string; hall: string },
+  instructorId: number,
+  id: number,
+  termId?: number,
+): FSchedule => {
+  const next: any = { ...seed, id };
+  /* القالب قد يكون من فصلٍ سابق: الصفّ الجديد يُحكم عليه في الفصل المخطَّط. */
+  if (termId) next.AdTermId = termId;
+  for (const key of DAY_KEYS) next[key] = false;
+  next[day] = true;
+  next.fstarttime = minutesToTime(start);
+  next.fendtime = minutesToTime(start + length);
+  next.buildingId = room.buildingId;
+  next.roomId = room.roomId;
+  next.AdRoomCode = room.code;
+  next.AdRoomHall = room.hall;
+  next.locationStatus = "VERIFIED";
+  next.AdInstructorId = instructorId;
+  // A new section is a new SCode; inside the sweep it only has to be unlike
+  // every other, and the number a person would actually save is carried on the
+  // placement rather than invented here.
+  next.SCode = `new${id}`;
+  return next as FSchedule;
+};
+
+const clean = (rows: FSchedule[], all: FSchedule[], pairs: Set<string>, doorway: number) =>
+  findConflicts(rows, all, { cohortPairs: pairs, doorwayMinutes: doorway }).length === 0;
+
+/**
+ * A hall holds one lecture and a teacher stands in one room — with no exemption.
+ *
+ * The sweep deliberately excuses one case: same course, same teacher, same hall,
+ * same hour, different section codes. That is a real thing — one lecture
+ * delivered to two combined groups — and treating it as a clash would flood a
+ * legitimate timetable with findings.
+ *
+ * It is also exactly wrong here. A section proposed because 34 students do not
+ * fit in 25 seats is not a combined delivery; putting it in the same hall at the
+ * same hour creates the second section on paper and nowhere else. Measured: the
+ * search proposed «مقرر ١» twice into G12/12 at 08:00 and the sweep called it
+ * clean, because from its side it was.
+ *
+ * So placements are checked against physics directly, and physics has no
+ * exemptions.
+ */
+const physicallyFree = (candidate: FSchedule, week: FSchedule[]): boolean => {
+  const day = dayOf(candidate);
+  if (!day) return false;
+  const from = timeToMinutes(candidate.fstarttime), to = timeToMinutes(candidate.fendtime);
+  const room = roomIdentityKey(candidate);
+  for (const row of week) {
+    if (row.id === candidate.id) continue;
+    if (Number(row.AdTermId) !== Number(candidate.AdTermId)) continue;
+    if (!(row as any)[day]) continue;
+    const overlaps = timeToMinutes(row.fstarttime) < to && timeToMinutes(row.fendtime) > from;
+    if (!overlaps) continue;
+    if (room && roomIdentityKey(row) === room) return false;
+    if (candidate.AdInstructorId && Number(row.AdInstructorId) === Number(candidate.AdInstructorId)) return false;
+  }
+  return true;
+};
+
+/**
+ * @param week      every row in this term for this section — the week being planned
+ * @param universe  every row in the term from every department, for hall clashes
+ * @param demand    the survey reading; its cohort pairs are enforced on placements
+ * @param forecast  used only for a term with no answers of its own
+ */
+export function readSectionOpenings(
+  week: FSchedule[],
+  universe: FSchedule[],
+  courses: AdCourse[],
+  instructors: AdInstructor[],
+  history: FSchedule[],
+  demand: DemandReading,
+  forecast: Prediction | null,
+  rhythm: RhythmReading | null,
+  doorway: number,
+  limit = 6,
+  verifiedRooms: readonly MasterRoom[] = [],
+  termId?: number,
+): OpeningReading {
+  const wanted = demand.respondents
+    ? demand.courses.map(course => ({ id: course.courseId, students: course.students, predicted: false }))
+    : (forecast?.courses || []).map(course => ({ id: course.courseId, students: course.expected, predicted: true }));
+  if (!wanted.length) return { proposals: [], noCeiling: [], headline: "" };
+
+  const byId = new Map(courses.map(course => [course.AdCourseId, course]));
+  const personById = new Map(instructors.map(person => [person.AdInstructorId, person]));
+  const courseById = new Map(courses.map(course => [Number(course.AdCourseId), course]));
+  const verifiedRoomById = new Map(verifiedRooms.filter(room => room.active && room.confidence === "CONFIRMED").map(room => [String(room.id), room] as const));
+  const pairs = cohortPairs(demand);
+
+  /* Rooms this section actually uses, commonest first. A proposal that puts a
+     lecture in a hall the department has never taught in is not a proposal. */
+  const roomUse = new Map<string, { count:number; buildingId:string; roomId:string; code:string; hall:string; capacity:number }>();
+  for (const row of history) {
+    const key=roomIdentityKey(row);
+    const verifiedRoom = verifiedRoomById.get(String(row.roomId || ""));
+    if (!key || !row.buildingId || !row.roomId || row.locationStatus !== "VERIFIED" || !verifiedRoom || !(Number(verifiedRoom.capacity) > 0)) continue;
+    const current=roomUse.get(key);
+    roomUse.set(key,{count:(current?.count||0)+1,buildingId:row.buildingId,roomId:row.roomId,code:String(row.AdRoomCode||""),hall:String(row.AdRoomHall||""),capacity:Number(verifiedRoom.capacity)});
+  }
+  const rooms = [...roomUse.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([key,item]) => ({ key, buildingId:item.buildingId, roomId:item.roomId, code:item.code, hall:item.hall, capacity:item.capacity }));
+
+  const proposals: SectionProposal[] = [];
+  const noCeiling: OpeningReading["noCeiling"] = [];
+  /* Every placement accepted is added here before the next one is searched, so
+     two new sections are never proposed into the same hall at the same hour. */
+  const working = [...universe];
+  let draftId = -1;
+  const currentLoads = new Map<number, number>();
+  for (const instructor of instructors) {
+    const assigned = weeklyLoadOf(universe.filter(row => Number(row.AdInstructorId) === Number(instructor.AdInstructorId)), courseById);
+    currentLoads.set(Number(instructor.AdInstructorId), assigned);
+  }
+
+  for (const item of wanted) {
+    const course = byId.get(item.id);
+    if (!course) continue;
+    const mine = week.filter(row => Number(row.AdCourseId) === item.id);
+    const openSections = new Set(mine.map(row => String(row.SCode))).size;
+    const capacity = Number(course.MaxStudent) || 0;
+
+    if (!capacity) {
+      if (item.students > 0) noCeiling.push({ courseId: item.id, name: course.CourseName, demand: item.students });
+      continue;
+    }
+
+    const seats = openSections * capacity;
+    const shortfall = Math.max(0, item.students - seats);
+    if (!shortfall) continue;
+    const needed = Math.ceil(shortfall / capacity);
+
+    /* Shape the new section on the existing one: same length, same kind of
+       hall, and a teacher who has actually taught this course. With no section
+       open at all, the department's learned lecture length is used instead. */
+    /* فصلٌ لم يُفتح فيه شيء بعد: القالب والمدة من آخر فصلٍ درّس فيه القسم هذا المقرر (ثم أي مقرر للقسم)، لا من موعدٍ يُطلب من القسم أن يبدأ به. */
+    const past = history.filter(row => Number(row.AdCourseId) === item.id).sort((a, b) => Number(b.AdTermId) - Number(a.AdTermId));
+    const seed = mine[0] || week[0] || past[0] || history[0];
+    if (!seed) continue;
+    const spanOf = (rows: FSchedule[]) => rows.map(row => timeToMinutes(row.fendtime) - timeToMinutes(row.fstarttime)).filter(minutes => minutes > 0);
+    const lengths = spanOf(mine);
+    const length = mode(lengths)
+      || (!week.length ? mode(spanOf(past.filter(row => Number(row.AdTermId) === Number(past[0]?.AdTermId)))) : 0)
+      || rhythm?.patterns.find(pattern => Number(pattern.durationMinutes) > 0)?.durationMinutes
+      || 0;
+    /* لا نخترع مدة للمحاضرة. من دون شعبة قائمة أو مدة تعلّمها القسم، لا توجد
+       توصية قابلة للتنفيذ حتى لو توافرت قاعة وأستاذ. */
+    if (!Number.isFinite(Number(length)) || Number(length) <= 0) continue;
+
+    const taught = new Map<number, number>();
+    for (const row of history)
+      if (Number(row.AdCourseId) === item.id && row.AdInstructorId)
+        taught.set(row.AdInstructorId, (taught.get(row.AdInstructorId) || 0) + 1);
+    const teachers = [...taught.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+
+    /* Continue this course's own numbering, across its whole history so a code
+       that was retired is not handed out again. */
+    const usedCodes = history
+      .filter(row => Number(row.AdCourseId) === item.id)
+      .map(row => Number(String(row.SCode).replace(/\D/g, "")))
+      .filter(value => Number.isFinite(value) && value > 0);
+    const nextCode = (usedCodes.length ? Math.max(...usedCodes) : openSections) + 1;
+
+    const placements: Placement[] = [];
+    const courseHoursNow = Number(course.CourseHours || course.CourseCredit) || 0;
+    const eligibleAtStart = teachers.filter(id => {
+      const person = personById.get(id);
+      const limit = Number(person?.AdInstructorLoad) || 0;
+      return person && person.AdInstructorStatus !== "retired" && person.AdInstructorStatus !== "sabbatical" && limit > 0 && (currentLoads.get(id) || 0) + courseHoursNow <= limit;
+    });
+    for (let slot = 1; slot <= needed; slot += 1) {
+      let placed: Placement | null = null;
+
+      for (const day of DAY_KEYS) {
+        const ladder = rhythm?.forDay(day)?.ladder || [];
+        if (!ladder.length) continue;
+        for (const time of ladder) {
+          if (placed) break;
+          const at = timeToMinutes(time);
+          for (const room of rooms.filter(candidateRoom => candidateRoom.capacity >= capacity).slice(0, 24)) {
+            if (placed) break;
+            /* An executable placement needs an active teacher with a recorded
+               load allowance and a verified hall large enough for this section. */
+            const courseHours = Number(course.CourseHours || course.CourseCredit) || 0;
+            const candidates = teachers.filter(id => {
+              const person = personById.get(id);
+              const limit = Number(person?.AdInstructorLoad) || 0;
+              return person && person.AdInstructorStatus !== "retired" && person.AdInstructorStatus !== "sabbatical"
+                && limit > 0 && (currentLoads.get(id) || 0) + courseHours <= limit;
+            });
+            for (const teacherId of candidates) {
+              const candidate = draft(seed, day, at, length, room, teacherId, draftId, termId);
+              if (!physicallyFree(candidate, working)) continue;
+              if (!clean([candidate], [...working, candidate], pairs, doorway)) continue;
+              draftId -= 1;
+              working.push(candidate);
+              currentLoads.set(teacherId, (currentLoads.get(teacherId) || 0) + courseHours);
+              const person = personById.get(teacherId);
+              placed = {
+                index: slot, day, dayLabel: DAY_LABEL.get(day) || "",
+                start: minutesToTime(at), end: minutesToTime(at + length),
+                buildingId: room.buildingId, roomId: room.roomId, roomCode: room.code, roomHall: room.hall,
+                instructorId: teacherId,
+                instructorName: person?.AdInstructorName || "",
+                sectionCode: String(nextCode + slot - 1),
+                note: "",
+              };
+              break;
+            }
+          }
+        }
+        if (placed) break;
+      }
+
+      if (placed) placements.push(placed);
+      else break;
+    }
+    const unplacedReason = placements.length >= needed ? undefined
+      : !rooms.some(candidateRoom => candidateRoom.capacity >= capacity) ? "لا قاعة موثّقة بسعةٍ تكفي لهذا المقرر"
+      : !teachers.length ? "لا أستاذ درّس هذا المقرر من قبل: اختر أستاذاً"
+      : !eligibleAtStart.length ? "أحمال من درّسوه ممتلئة أو بلا نصاب مسجَّل"
+      : "لا وقتَ خالياً من التعارض مع الجدول والقاعات والدفعة";
+
+    const proposal: SectionProposal = {
+      courseId: item.id,
+      courseName: course.CourseName,
+      courseCode: course.CourseCode,
+      demand: item.students,
+      predicted: item.predicted,
+      capacity, openSections, seats, shortfall, needed, placements, ...(unplacedReason ? { unplacedReason } : {}),
+      sentence: "",
+    };
+    proposal.sentence = describeProposal(proposal);
+    proposals.push(proposal);
+  }
+
+  proposals.sort((a, b) => b.shortfall - a.shortfall);
+  const kept = proposals.slice(0, limit);
+  return { proposals: kept, noCeiling, headline: describeOpenings(kept, noCeiling.length) };
+}
+
+/** One sentence per course, built from its own numbers. */
+export function describeProposal(proposal: SectionProposal): string {
+  const found = proposal.placements.length;
+  const open = proposal.openSections
+    ? `والمفتوح ${countOf(proposal.openSections, AR.section)} بسعة ${proposal.capacity} لكل شعبة`
+    : `ولا شعبة مفتوحة له، وسعة الشعبة ${proposal.capacity}`;
+  const head = `«${proposal.courseName}»: طلبه ${countOf(proposal.demand, AR.student)}` +
+    `${proposal.predicted ? " (توقُّع)" : ""}، ${open} — ${countOf(proposal.shortfall, AR.student)} بلا مقعد.`;
+  /* «تحتاج شعبتان» is wrong — تحتاج governs the accusative, شعبتين. The counted
+     phrase is made a predicate after a colon instead, where the nominative is
+     the correct case at every number. */
+  const need = `المطلوب: ${countOf(proposal.needed, AR.section)}`;
+  if (!found) return `${head} ${need} — ولم أجد وقتاً يخلو من كل التعارضات.`;
+  if (found < proposal.needed)
+    return `${head} ${need} — ووجدتُ مكاناً نظيفاً لـ${countOf(found, oblique(AR.section))} فقط.`;
+  return proposal.needed === 1
+    ? `${head} ${need} — ولها مكان نظيف.`
+    : `${head} ${need} — ولكلٍّ منها مكان نظيف.`;
+}
+
+/** The one line above the list. */
+export function describeOpenings(proposals: SectionProposal[], noCeiling: number): string {
+  if (!proposals.length)
+    return noCeiling
+      ? `${countOf(noCeiling, AR.course)} مطلوب بلا «الحد الأعلى للطلبة» — سجّله في المقررات ليُحسب عدد الشعب.`
+      : "";
+  const placed = proposals.reduce((sum, item) => sum + item.placements.length, 0);
+  const needed = proposals.reduce((sum, item) => sum + item.needed, 0);
+  const head = `${countOf(needed, AR.section)} يقترحها الطلب على ${countOf(proposals.length, oblique(AR.course))}` +
+    (placed === needed
+      ? (needed === 1 ? " — ولها وقتٌ وقاعة بلا تعارض." : " — ولكلٍّ منها وقتٌ وقاعة بلا تعارض.")
+      : ` — وُجد مكان نظيف لـ${placed} منها.`);
+  return noCeiling
+    ? `${head} و${countOf(noCeiling, AR.course)} بلا حدٍّ أعلى مسجَّل.`
+    : head;
+}

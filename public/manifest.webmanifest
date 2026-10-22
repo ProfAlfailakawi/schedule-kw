@@ -1,0 +1,60 @@
+{
+  "name": "SCHEDULE · نظام القرار الأكاديمي",
+  "short_name": "SCHEDULE",
+  "description": "نظام القرار الأكاديمي: ابنِ الجدول، راجعه، اتخذ القرار، وانشره.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f2f3ef",
+  "theme_color": "#f2f3ef",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/schedule-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/schedule-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/schedule-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/schedule-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/schedule-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/cover-narrow.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "SCHEDULE · نظام القرار الأكاديمي"
+    },
+    {
+      "src": "/screenshots/cover-wide.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "SCHEDULE · نظام القرار الأكاديمي"
+    }
+  ]
+}

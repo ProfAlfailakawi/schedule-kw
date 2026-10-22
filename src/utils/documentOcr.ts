@@ -1,0 +1,6399 @@
+import type { AdCourse, AdInstructor } from "../types";
+import { academicDigits, assignAuthoritySections, authorityCourseCodeMatches, authoritySectionCodeLooksPlausible, normalizeAuthoritySectionCode } from "./authorityAcademicCodes";
+import { OFFICIAL_COLLEGE_SITE_PREFIXES } from "./locationCollegePrefixes";
+import { instructorCleanName, instructorIdentityTokens } from "./instructorIdentity";
+import { AR, countOf, nounFor, oblique } from "./arabicCount";
+import { columnKind } from "./remainingReport";
+/* قانون هوية الاسم يعيش في وحدته المشتركة كي تقرأه المعاينة أيضاً؛ يُعاد
+   تصديره هنا لأن الخادم والاختبارات تعرفه من هذا الملف. */
+export { instructorRegistryOutcome, uniqueExactIdentityMatch, instructorIdentityKey } from "./instructorIdentity";
+
+const toAscii=(value:string)=>String(value||"")
+  /* Generated Authority PDFs often store Arabic as Presentation Forms
+     (e.g. «ﺟﺪﻭﻝ» instead of «جدول»). NFKC turns those glyph forms back into
+     ordinary Arabic letters before ANY header/course/instructor matching. */
+  .normalize("NFKC")
+  /* PDF generators also inject bidi-control glyphs around RTL cells. They are
+     layout instructions, not document text, and keeping them breaks otherwise
+     exact header regexes such as «012 : الفرع». */
+  .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,"")
+  .replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+  .replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+const fold=(value:string)=>toAscii(value).replace(/[ً-ْـ]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/[^ء-يa-zA-Z0-9: ]/g," ").replace(/\s+/g," ").trim().toLowerCase();
+
+/** A cell as the scanner saw it: its text and where it sat on the page. */
+export type OcrCell={text:string;x0:number;x1:number};
+/** One physical table row, right-to-left, with the columns still apart. */
+export type OcrRow={cells:OcrCell[];line:string;y:number};
+export type OcrPageDiagnostic={page:number;visualRows:number;extractedRows:number;gridDetected:boolean;orientation:-1|0|1;suspicious:boolean;reason?:string;warning?:string;
+  /** Flagged by the first reading but never given its deep pass, because an
+   *  earlier page already stopped the file. Its reason is not a confirmed one. */
+  unverified?:boolean;
+  /** Printed lines that produced no row, within the tolerance that keeps the
+   *  page a warning. They have no row in the preview, so publishing waits for
+   *  the reviewer to confirm the page (importPageReview). */
+  missedLines?:number};
+export type OcrPage={rows:OcrRow[];gridRows?:GridRow[];diagnostic?:OcrPageDiagnostic};
+export type Legibility={readable:boolean;confidence:number;charactersPerPage:number;reason:string};
+export type HeaderTerm={season:"first"|"second"|"summer";years:[number,number];label:string};
+export type HeaderBranch={code:string;name:string;label:string};
+export type HeaderDepartment={code:string;name:string;label:string};
+export type AuthorityPdfHeader={
+  term?:HeaderTerm;
+  branch?:HeaderBranch;
+  department?:HeaderDepartment;
+  source?:"text"|"scan";
+  /** Image-only Authority timetable scans must arrive already horizontal. */
+  requiresLandscapeUpload?:boolean;
+  /** Physical PDF pages that violate the landscape-only Authority contract. */
+  requiresLandscapePages?:number[];
+  /** Another scan held the OCR workers past the preflight's wait: the upload
+   *  is refused as busy at once instead of timing out in the queue. */
+  busy?:boolean;
+  /** Pages that are grey photographs, not scans (scanPageTone): the file is
+   *  refused in seconds instead of after minutes of reading. */
+  greyPhotoPages?:number[];
+};
+export type OcrResult={pages:OcrPage[];text:string;pageCount:number;confidence:number;orientation:-1|0|1;legibility:Legibility;headerTerm?:HeaderTerm;headerBranch?:HeaderBranch;headerDepartment?:HeaderDepartment;pageDiagnostics:OcrPageDiagnostic[];suspiciousExtraction:boolean};
+export type GraduationSheetOcrResult={text:string;pageCount:number;confidence:number;legibility:Legibility};
+/** `notice` names the pages the first reading could not read, as soon as it
+ *  finds them — the reviewer learns early that the file may be stopped. */
+export type OcrProgress=(stage:{phase:"render"|"orient"|"read"|"rescue";page:number;pages:number;message:string;notice?:string})=>void;
+export type OcrDocumentOptions={authorityCourseKeys?:string[]};
+
+const MAX_PAGES=12;
+/* صفحات بعد الحد كانت تُسقط بصمت: ملف من 14 صفحة يُقرأ 12 ويبدو كاملاً.
+   الجدول الناقص أخطر من الرفض، فيُرفض الملف كله برسالة صريحة. */
+class PdfPageLimitError extends Error{}
+function assertPageLimit(pages:number){
+  if(pages>MAX_PAGES)throw new PdfPageLimitError(`الملف يحتوي ${countOf(pages, oblique(AR.page))}، والحد الأقصى ${countOf(MAX_PAGES, AR.page)}. قسّم الملف ثم ارفع كل جزء في قسمه — لم يُستورد أي صف.`);
+}
+/** A4 at ~300dpi. The old 157dpi render was the single largest cause of
+ *  unreadable rows: Arabic table text at that size loses its dots. */
+const TARGET_LONG_EDGE:number=2800;
+/** The orientation probe runs on a deliberately small render. Deciding which
+ *  way is up needs a tenth of the pixels that reading the text needs. */
+const PROBE_LONG_EDGE:number=1400;
+const headerPreflightCache=new WeakMap<object,{header:AuthorityPdfHeader;orientation:-1|0|1}>();
+
+let canvasModule:any=null;
+async function canvas(){
+  if(canvasModule)return canvasModule;
+  canvasModule=await import("@napi-rs/canvas");
+  for(const key of ["DOMMatrix","ImageData","Path2D"])if(!(globalThis as any)[key]&&canvasModule[key])(globalThis as any)[key]=canvasModule[key];
+  return canvasModule;
+}
+
+/*
+ * ═══ THE PERSISTENT WORKER POOL ═══
+ *
+ * Creating a Tesseract worker costs ~1.5s and the first recognition on a cold
+ * worker pays JIT warm-up on top. Every import used to pay that four times
+ * over; the pool below is created once per process and lives across requests,
+ * so the second upload starts hot. Five Latin-digits workers carry the
+ * numeric strips in parallel; one Arabic worker carries the names. A worker
+ * serialises its own jobs internally, so the semaphore hands each exactly one
+ * job at a time.
+ */
+type PooledWorker={recognize:Function;setParameters:Function;terminate:Function};
+let headerWorkerPromise:Promise<PooledWorker>|null=null;
+/**
+ * ── الفشل العابر لا يصير دائماً ─────────────────────────────────────────────
+ *
+ * These four getters memoise a PROMISE, not a result — which is what makes the
+ * pool live across requests and is exactly right. But a memoised promise that
+ * REJECTS stays memoised: `if(!poolPromise)` sees a filled variable and never
+ * tries again, so one failed creation — a small instance out of memory, a
+ * language file that did not arrive — turned every later import into the same
+ * failure until somebody restarted the server.
+ *
+ * Clearing the slot on rejection is the whole change. The success path is
+ * untouched: the promise resolves, the catch never runs, and the same pool is
+ * returned and reused exactly as before. Nothing about recognition, geometry,
+ * cells, ink or rescue is involved.
+ */
+export const retryOnFailure=<T,>(promise:Promise<T>,clear:()=>void):Promise<T>=>
+  promise.catch(error=>{clear();throw error;});
+
+/* ── ملفّا اللغة يُعرَف مكانهما، لا يُفترَض ────────────────────────────────
+ *
+ * ara.traineddata وeng.traineddata في جذر المستودع، وكان tesseract يجدهما
+ * لأن مجلّدَ التشغيل الافتراضيَّ عنده هو مجلّدُ العمل الحاليّ — وهو /app في
+ * الإنتاج مصادفةً لا قصداً. فإن بدأ الخادمُ من مجلّدٍ آخر لم يجدهما، فذهب
+ * يطلبهما من الشبكة، فإن كانت محجوبةً فشلت القراءةُ كلُّها. قيس ذلك: من الجذر
+ * تعمل بلا شبكة، ومن مجلّدٍ آخر تُطلب من jsdelivr فتُردّ 403.
+ *
+ * فيُبحث عنهما في أماكن معروفة. ولا يُعطى tesseract مساراً إلا إن وُجد
+ * الملفّان كلاهما فيه؛ وإلا تُترك له قيمتُه الافتراضية كما كانت تماماً. فهذا
+ * لا يُضيّق شيئاً كان يعمل: ما كان يجد الملفّين يجدهما، وما لم يكن يجدهما صار
+ * يجدهما إن كانا في مكانٍ معروف. و OCR_DATA_DIR يُسمّي مكاناً صريحاً عند الحاجة. */
+let ocrDataDirPromise:Promise<string|null>|null=null;
+function ocrLanguageDataDir(){
+  if(!ocrDataDirPromise)ocrDataDirPromise=(async()=>{
+    const fs=await import("node:fs");
+    const path=await import("node:path");
+    const script=process.argv[1]?path.dirname(path.resolve(process.argv[1])):"";
+    /* dist/server.cjs يعمل من dist/ والملفّان في الجذر فوقه، فيُسأل عن الأب أيضاً. */
+    const candidates=[process.env.OCR_DATA_DIR,process.cwd(),script,script&&path.dirname(script)]
+      .filter((dir):dir is string=>Boolean(dir));
+    return candidates.find(dir=>["ara","eng"].every(lang=>fs.existsSync(path.join(dir,`${lang}.traineddata`))))||null;
+  })();
+  return ocrDataDirPromise;
+}
+/* المحرّك يُترك لقيمة tesseract الافتراضية (undefined لا رقم) كي لا يتغيّر
+   التعرّفُ نفسُه بشيء؛ المتغيّر هنا مكانُ الملفّين وحده. */
+async function newOcrWorker(langs:string):Promise<PooledWorker>{
+  const {createWorker}=await import("tesseract.js");
+  const dir=await ocrLanguageDataDir();
+  return await createWorker(langs,undefined,dir?{langPath:dir,cachePath:dir}:{}) as PooledWorker;
+}
+async function getHeaderWorker(){
+  if(!headerWorkerPromise)headerWorkerPromise=retryOnFailure((async()=>{
+    return await newOcrWorker("ara+eng");
+  })(),()=>{headerWorkerPromise=null;});
+  return headerWorkerPromise;
+}
+type OcrWorkerPool={eng:PooledWorker[];ara:PooledWorker;ara2:PooledWorker};
+let poolPromise:Promise<OcrWorkerPool>|null=null;
+async function getWorkerPool(){
+  if(!poolPromise)poolPromise=retryOnFailure((async()=>{
+    /* The page-1 preflight worker is reused as the first Arabic table worker.
+       A wrong scanned PDF therefore initializes ONE OCR worker and stops;
+       a valid PDF does not pay that cold-start twice. */
+    /* Five digit workers are right for a developer machine, but a small cloud
+       instance (1–2 vCPU) running SEVEN WASM workers starves its own event
+       loop and memory: the platform then answers every request with 429 while
+       a scan is read, and late rescue recognitions can die silently — which is
+       precisely a page-1 quality loss, because page 1 leans hardest on the
+       rescue lanes. Size the digit pool to the machine instead; large machines
+       keep the proven five-worker behaviour byte-for-byte. */
+    const os=await import("node:os");
+    const cores=(os as any).availableParallelism?.()??(os.cpus()?.length||4);
+    const engCount=Math.min(5,Math.max(2,cores-1));
+    const engWorkers=await Promise.all(Array.from({length:engCount},()=>newOcrWorker("eng")));
+    /* On a small instance the second Arabic worker is pure memory pressure:
+       readGrid already serialises the two Arabic strips whenever ara===ara2,
+       so sharing one worker is a supported, slower-but-safe mode — and an
+       instance that stays alive beats one the platform kills mid-request. */
+    const a1=await getHeaderWorker();
+    /* Share the Arabic worker only when BOTH cpu and memory are scarce. On an
+       instance with raised memory the second Arabic worker restores real
+       name/instructor parallelism — the largest per-page cost block. */
+    const lowMemory=(os.totalmem?.()||0)<3*1024*1024*1024;
+    const a2=cores<=2&&lowMemory?a1:await newOcrWorker("ara+eng");
+    return{eng:engWorkers as PooledWorker[],ara:a1 as PooledWorker,ara2:a2 as PooledWorker};
+  })(),()=>{poolPromise=null;});
+  return poolPromise;
+}
+/*
+ * ═══ ONE SCAN AT A TIME, AND ITS MEMORY GOES BACK AFTERWARDS ═══
+ *
+ * Measured in production (Cloud Run europe-west1, 2026-09-24 18:16 UTC): the
+ * instance that had just read a five-page scan was killed while reading the
+ * NEXT one — «Memory limit of 4096 MiB exceeded with 4659 MiB used» — and the
+ * reader saw only «تعذرت قراءة PDF». A WASM heap never shrinks, so the warm
+ * workers above kept every heap at the largest page they had ever read, and
+ * each upload started where the last one peaked. documentReadingGate also
+ * admits two uploads at once; both then drove the SAME workers, so their
+ * pages were in memory together and one reading's setParameters could land
+ * between the other's setParameters and recognize.
+ *
+ * Two rules close both:
+ *  1. Only one reading uses the table workers at a time. A second upload waits
+ *     for its turn — and is told so — instead of sharing them.
+ *  2. When a full table reading ends, every table worker is terminated, which
+ *     hands its memory back. The next upload starts fresh workers — all eleven
+ *     start in 2.4–3.1 s (measured) — and reads a file exactly as a fresh
+ *     instance would: the owner's three scans gave identical rows either way.
+ * The header preflight takes its turn too (it drives the first Arabic worker)
+ * but keeps the workers: it reads one small band, and the full reading that
+ * follows it reuses them.
+ *
+ * The wait for a turn is bounded, because it runs inside a request that Cloud
+ * Run cuts at 300 s: a scan queued behind another scan's full reading (191 s
+ * measured) would be cut before its own reading ended. So a DIFFERENT file
+ * waits at most SCAN_TURN_WAIT_MS and is then refused as busy, in words; the
+ * SAME file sent again while it is being read shares that reading instead.
+ * Worst case of an accepted upload: 20 s + preflight + 45 s + its reading.
+ */
+export const SCAN_READING_BUSY_MESSAGE="الخادم يقرأ الآن ملفاً ممسوحاً آخر، ولا يُقرأ ملفّان ممسوحان معاً. لم يُستورد أي صف. أعد رفع ملفك بعد دقيقة أو دقيقتين.";
+export class ScanReadingBusyError extends Error{constructor(){super(SCAN_READING_BUSY_MESSAGE);}}
+const SCAN_TURN_WAIT_MS=45_000;
+const PREFLIGHT_TURN_WAIT_MS=20_000;
+type ScanReadingTurn={release:(freeWorkers:boolean)=>Promise<void>};
+let scanTurnHeld=false;
+const scanTurnQueue:Array<()=>void>=[];
+/** First come, first served. Resolves null when the turn did not come within
+ *  `waitMs`; the caller then refuses as busy rather than holding its request. */
+export async function takeScanReadingTurn(waitMs=Number.POSITIVE_INFINITY,onWait?:()=>void):Promise<ScanReadingTurn|null>{
+  if(scanTurnHeld){
+    onWait?.();
+    const granted=await new Promise<boolean>(resolve=>{
+      let timer:ReturnType<typeof setTimeout>|undefined;
+      const grant=()=>{if(timer)clearTimeout(timer);resolve(true);};
+      scanTurnQueue.push(grant);
+      if(Number.isFinite(waitMs))timer=setTimeout(()=>{
+        const at=scanTurnQueue.indexOf(grant);
+        if(at>=0)scanTurnQueue.splice(at,1);
+        resolve(false);
+      },Math.max(0,waitMs));
+    });
+    if(!granted)return null;
+  }else scanTurnHeld=true;
+  let released=false;
+  return{release:async(freeWorkers:boolean)=>{
+    if(released)return;
+    released=true;
+    try{if(freeWorkers)await releaseTableWorkers();}
+    catch{/* a worker that will not stop must never keep the queue closed */}
+    finally{
+      const next=scanTurnQueue.shift();
+      if(next)next();else scanTurnHeld=false;
+    }
+  }};
+}
+/** Full readings in progress, by document fingerprint (content + course keys). */
+const inflightScanReads=new Map<string,Promise<unknown>>();
+/**
+ * Read one scanned document in its turn, sharing it with the same file sent
+ * again while it waits or runs. The fingerprint is registered BEFORE waiting
+ * for the turn: registered only after, two requests for one uncached file
+ * could both miss the entry, and the second would wait behind the first and
+ * be refused as busy instead of sharing it (review of #117).
+ */
+export async function readScanInTurn<T>(fingerprint:string,read:()=>Promise<T>,events:{waiting?:()=>void;sharing?:()=>void}={},waitMs=SCAN_TURN_WAIT_MS):Promise<T>{
+  const running=inflightScanReads.get(fingerprint) as Promise<T>|undefined;
+  if(running){events.sharing?.();return structuredClone(await running);}
+  const reading=(async()=>{
+    const turn=await takeScanReadingTurn(waitMs,events.waiting);
+    if(!turn)throw new ScanReadingBusyError();
+    try{return await read();}
+    finally{await turn.release(true);}
+  })();
+  inflightScanReads.set(fingerprint,reading);
+  try{return await reading;}
+  finally{if(inflightScanReads.get(fingerprint)===reading)inflightScanReads.delete(fingerprint);}
+}
+/** Terminate every table-reading worker so its WASM memory returns to the
+ *  system; the getters create fresh ones on the next reading. */
+async function releaseTableWorkers():Promise<void>{
+  const held:Array<Promise<unknown>|null>=[headerWorkerPromise,poolPromise,wordLaneWorkerPromise,identityBandWorkerPromise,scheduleBandWorkerPromise,dayCellWorkerPromise,roomCellWorkerPromise,timeCellWorkerPromise];
+  headerWorkerPromise=null;poolPromise=null;wordLaneWorkerPromise=null;identityBandWorkerPromise=null;scheduleBandWorkerPromise=null;dayCellWorkerPromise=null;roomCellWorkerPromise=null;timeCellWorkerPromise=null;
+  const workers=new Set<PooledWorker>();
+  for(const promise of held){
+    const value:any=await promise?.catch(()=>null);
+    if(!value)continue;
+    if(Array.isArray(value.eng)){for(const worker of [...value.eng,value.ara,value.ara2])if(worker)workers.add(worker);}
+    else workers.add(value as PooledWorker);
+  }
+  await Promise.all([...workers].map(worker=>Promise.resolve().then(()=>worker.terminate()).catch(()=>undefined)));
+}
+
+/** Run jobs over the eng workers, one in flight per worker. */
+async function runOnPool<T>(workers:PooledWorker[],jobs:Array<(worker:PooledWorker)=>Promise<T>>):Promise<T[]>{
+  const results:T[]=new Array(jobs.length);
+  let next=0;
+  await Promise.all(workers.map(async worker=>{
+    for(;;){
+      const index=next++;
+      if(index>=jobs.length)break;
+      results[index]=await jobs[index](worker);
+    }
+  }));
+  return results;
+}
+
+const isHeic=(input:Buffer,mime:string)=>/heic|heif/i.test(mime)
+  ||(input.length>12&&input.subarray(4,8).toString("latin1")==="ftyp"&&/^(heic|heix|hevc|heim|heis|hevm|hevs|mif1|msf1)/.test(input.subarray(8,12).toString("latin1")));
+
+/** iPhones photograph in HEIC by default, and neither the canvas backend nor
+ *  the OCR engine can decode it. Converting here is the difference between a
+ *  student's proof being read and a dead end they cannot act on. */
+async function heicToPng(input:Buffer):Promise<Buffer>{
+  const {default:decode}=await import("heic-decode");
+  const frame:any=await decode({buffer:input as any});
+  const lib=await canvas();
+  const surface=lib.createCanvas(frame.width,frame.height),context=surface.getContext("2d");
+  const image=context.createImageData(frame.width,frame.height);
+  image.data.set(new Uint8ClampedArray(frame.data.buffer,frame.data.byteOffset,frame.data.byteLength));
+  context.putImageData(image,0,0);
+  return surface.toBuffer("image/png");
+}
+
+async function renderPdf(input:Buffer,longEdge:number,onProgress?:OcrProgress):Promise<Buffer[]>{
+  const lib=await canvas();
+  const pdfjs:any=await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdf=await pdfjs.getDocument({data:new Uint8Array(input),disableWorker:true,useSystemFonts:true}).promise;
+  assertPageLimit(Number(pdf.numPages||0));
+  const count=Math.min(Number(pdf.numPages||0),MAX_PAGES),pages:Buffer[]=[];
+  for(let index=1;index<=count;index++){
+    onProgress?.({phase:"render",page:index,pages:count,message:`تحويل الصفحة ${index} من ${count}`});
+    const page=await pdf.getPage(index),base=page.getViewport({scale:1});
+    const scale=longEdge/Math.max(base.width,base.height);
+    const viewport=page.getViewport({scale});
+    const surface=lib.createCanvas(Math.ceil(viewport.width),Math.ceil(viewport.height));
+    /* pdfjs paints on TRANSPARENT pixels, and Tesseract composites transparency
+       as BLACK — a crop that reaches past the scanned photo grows a black band
+       that kills page segmentation outright. Measured: a pixel-perfect header
+       crop read as empty at every psm until this fill. */
+    const ground=surface.getContext("2d");
+    ground.fillStyle="#ffffff";ground.fillRect(0,0,surface.width,surface.height);
+    await page.render({canvasContext:ground,viewport}).promise;
+    pages.push(surface.toBuffer("image/png"));
+  }
+  return pages;
+}
+
+
+/** Render page 1 only. Header preflight must never rasterize all timetable
+ * pages: a wrong semester/college should be rejected before body work starts. */
+/** Page images for the optional sharper reading. Sending a whole multi-page
+ *  scan as one request made the model exceed any sane budget; one page per
+ *  request keeps each call small and lets them run side by side. */
+export async function renderPdfPagesForSmartRead(input:Buffer,longEdge=1700):Promise<Buffer[]>{
+  return renderPdf(input,longEdge);
+}
+
+/**
+ * Row strips for the sharper (Gemini) reading ONLY — the approved reader keeps
+ * whole pages and is not touched by this.
+ *
+ * A page with three unreadable rows does not need its twenty-five clean rows
+ * shipped to Google again. We reuse the same grid geometry the approved reader
+ * trusts to find the row bands, then compose ONE small image: the table's
+ * header band (so every column keeps its name) followed by each requested row
+ * with one band of context above and below — enough that an off-by-one in band
+ * detection still shows the wanted row, while the corroboration gate discards
+ * any neighbour that sneaks in. Anything uncertain (no grid, tiny page, odd
+ * ordinals) returns null and the caller falls back to the full page: cropping
+ * is an optimisation, never a new way to lose data.
+ */
+export async function cropRowStripsForSmartRead(pagePng:Buffer,ordinals:number[]):Promise<Buffer|null>{
+  try{
+    const wanted=[...new Set(ordinals.map(v=>Math.floor(Number(v))).filter(v=>Number.isFinite(v)&&v>0))].sort((a,b)=>a-b);
+    if(!wanted.length)return null;
+    const lib=await canvas();
+    const image=await lib.loadImage(pagePng);
+    const geometry=adaptiveGridGeometry(lib,image);
+    if(!geometry||geometry.bands.length<3)return null;
+    const probeScale=Math.min(1,PROBE_LONG_EDGE/Math.max(image.width,image.height));
+    const toFull=(v:number)=>Math.round(v/probeScale);
+    const bands=geometry.bands.map(b=>({top:toFull(b.top),bottom:toFull(b.bottom)}));
+    /* Band 0 is the header row of the Authority grid; data row k sits at band k.
+       If the caller asks for more rows than the grid holds, or for most of the
+       page, a strip buys nothing — send the page. */
+    const dataBands=bands.length-1;
+    if(wanted[wanted.length-1]>dataBands)return null;
+    if(wanted.length>=Math.ceil(dataBands*0.6))return null;
+    const pad=Math.max(2,Math.round((bands[1].bottom-bands[1].top)*0.18));
+    const pick=new Set<number>([0]);                       // header always rides along
+    for(const k of wanted){pick.add(k);if(k>1)pick.add(k-1);if(k<dataBands)pick.add(k+1);}
+    /* Merge adjacent picks into continuous slices so shared borders are not
+       drawn twice and the model sees natural table fragments. */
+    const order=[...pick].sort((a,b)=>a-b);
+    const slices:{top:number;bottom:number}[]=[];
+    for(const k of order){
+      const top=Math.max(0,bands[k].top-pad),bottom=Math.min(image.height,bands[k].bottom+pad);
+      const last=slices[slices.length-1];
+      if(last&&top<=last.bottom+pad)last.bottom=Math.max(last.bottom,bottom);
+      else slices.push({top,bottom});
+    }
+    const gap=14;
+    const totalHeight=slices.reduce((sum,slice)=>sum+(slice.bottom-slice.top),0)+gap*(slices.length-1);
+    if(totalHeight<=0||totalHeight>=image.height*0.85)return null;   // no real saving
+    const surface=lib.createCanvas(image.width,totalHeight);
+    const ctx=surface.getContext("2d");
+    ctx.fillStyle="#e8e8e8";ctx.fillRect(0,0,surface.width,surface.height);
+    let y=0;
+    for(const slice of slices){
+      const height=slice.bottom-slice.top;
+      ctx.drawImage(image,0,slice.top,image.width,height,0,y,image.width,height);
+      y+=height+gap;
+    }
+    return surface.toBuffer("image/png");
+  }catch{
+    return null;   // any surprise → whole page, never a broken crop
+  }
+}
+
+async function renderPdfFirstPage(input:Buffer,longEdge:number):Promise<Buffer|null>{
+  const lib=await canvas();
+  const pdfjs:any=await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdf=await pdfjs.getDocument({data:new Uint8Array(input),disableWorker:true,useSystemFonts:true}).promise;
+  if(!Number(pdf.numPages||0))return null;
+  const page=await pdf.getPage(1),base=page.getViewport({scale:1});
+  const scale=longEdge/Math.max(base.width,base.height),viewport=page.getViewport({scale});
+  const surface=lib.createCanvas(Math.ceil(viewport.width),Math.ceil(viewport.height));
+  const ground=surface.getContext("2d");
+  ground.fillStyle="#ffffff";ground.fillRect(0,0,surface.width,surface.height);
+  await page.render({canvasContext:ground,viewport}).promise;
+  return surface.toBuffer("image/png");
+}
+
+
+/**
+ * Fast path for real PDF exports that still contain a text layer.
+ *
+ * The Authority timetable is frequently a generated PDF, not a photograph. In
+ * that case rendering every page and running Tesseract on 15–25 strips per
+ * page is both slower and less accurate than using the characters already
+ * embedded in the PDF. We rebuild physical rows from the text coordinates and
+ * hand them to the exact same catalogue matcher used by OCR. A scanned/image
+ * PDF has no useful text layer, so it simply returns null and falls through to
+ * the OCR path below.
+ */
+/** A real Authority timetable body row carries its academic key plus
+ * another independent timetable signal. This is deliberately structural:
+ * page headers may be one, three or five physical lines and may change wording,
+ * while a genuine body row still has the 7-digit course code and a time or
+ * canonical-looking building code. */
+function isAuthorityBodyRow(line:string):boolean{
+  const ascii=toAscii(line).replace(/[Oo]/g,"0").replace(/\s+/g," ").trim();
+  const digitRuns=ascii.match(/\d+/g)||[];
+  const hasCourseKey=digitRuns.some(run=>/^\d{7}$/.test(run))||digitRuns.some(run=>/^\d{11,13}$/.test(run));
+  const hasTime=/\b[0-2]?\d[0-5]\d\s*[-–—]\s*[0-2]?\d[0-5]\d\b/.test(ascii);
+  const hasBuilding=/\b\d{3}[A-Za-z]\d{2}\b/.test(ascii);
+  return hasCourseKey&&(hasTime||hasBuilding);
+}
+
+function authorityBodyOnly(rows:OcrRow[]):OcrRow[]{
+  const firstBody=rows.findIndex(row=>isAuthorityBodyRow(row.line));
+  return firstBody>=0?rows.slice(firstBody):rows;
+}
+
+/**
+ * Native generated SWRSCHA PDFs are read from their embedded text coordinates,
+ * never re-OCR'd as photographs. A row still has to prove its seven-digit
+ * academic key before any timetable values are accepted.
+ */
+export type AuthorityPdfNativeLayout = "legacy-basic-girls" | "semantic";
+
+/** Fold only enough Arabic typography to identify SWRSCHA body labels. */
+function nativeAuthorityLabel(value:string):string{
+  return String(value||"")
+    .normalize("NFKC")
+    .replace(/[ً-ْـ]/g,"")
+    .replace(/[أإآٱ]/g,"ا")
+    .replace(/ى/g,"ي")
+    .replace(/ة/g,"ه")
+    .replace(/\s+/g,"")
+    .trim();
+}
+
+/**
+ * Reconstruct generated SWRSCHA rows from the PDF text layer.
+ *
+ * `legacy-basic-girls` is deliberately the frozen, already-proven geometry for
+ * كلية التربية الأساسية بنات. Every other college uses the semantic lane:
+ * academic identity is anchored from the far-right course code/reference/
+ * section sequence, while days are taken immediately beside «النشاط», time is
+ * taken from the row's explicit clock pair, and location is taken only from an
+ * official building token. This makes column shifts harmless instead of
+ * teaching the importer one set of x-ratios per college.
+ */
+/* ملف أُعيدت طباعته بتصغير حول منتصف الصفحة، أو حُفظ مقلوباً: يُعاد إلى
+   مقاسه واتجاهه بأقرب نسبة (100٪ ثم 99٪ … حتى 70٪) تُثبت كل صف مطبوع كاملاً
+   وسليماً. لا نسبة كهذه ⇒ لا شيء، ويبقى الرفض. */
+export function authorityRescaledNativeRows(words:Word[],width:number,height:number,printedRows:number,soundRows:(rows:GridRow[])=>number):GridRow[]|null{
+  if(!words.length||!(width>0)||!(height>0)||printedRows<1)return null;
+  const cx=width/2,cy=height/2;
+  /* صفحة مقلوبة (180°) تُقرأ بعد قلب مواضع الكلمات؛ نص كل كلمة كما هو. */
+  const upright=words.map(word=>({...word,x0:width-word.x1,x1:width-word.x0,y0:height-word.y1,y1:height-word.y0}));
+  for(let percent=100;percent>=70;percent--){
+    const factor=100/percent;
+    for(const source of percent===100?[upright]:[words,upright]){
+      const scaled=source.map(word=>({...word,x0:cx+(word.x0-cx)*factor,x1:cx+(word.x1-cx)*factor,y0:cy+(word.y0-cy)*factor,y1:cy+(word.y1-cy)*factor}));
+      const candidate=authorityPdfTextGridRows(scaled,width,"semantic");
+      if(candidate.length>=printedRows&&soundRows(candidate)===candidate.length)return candidate;
+    }
+  }
+  return null;
+}
+
+export function authorityPdfTextGridRows(words:Word[],pageWidth:number,layout:AuthorityPdfNativeLayout="legacy-basic-girls"):GridRow[]{
+  if(!words.length||!Number.isFinite(pageWidth)||pageWidth<=0)return[];
+  const center=(word:Word)=>(word.x0+word.x1)/2;
+  const yCenter=(word:Word)=>(word.y0+word.y1)/2;
+  const heights=words.map(word=>Math.abs(word.y1-word.y0)).filter(Boolean).sort((a,b)=>a-b);
+  const medianHeight=Math.max(7,heights[Math.floor(heights.length/2)]||10);
+  const tolerance=Math.max(1.5,Math.min(4,medianHeight*.42));
+  const groups:{words:Word[];y:number}[]=[];
+  for(const word of [...words].sort((a,b)=>yCenter(a)-yCenter(b))){
+    const y=yCenter(word);let best=-1,dist=Infinity;
+    for(let i=0;i<groups.length;i++){const d=Math.abs(groups[i].y-y);if(d<=tolerance&&d<dist){best=i;dist=d;}}
+    if(best<0)groups.push({words:[word],y});
+    else{groups[best].words.push(word);groups[best].y=groups[best].words.reduce((sum,item)=>sum+yCenter(item),0)/groups[best].words.length;}
+  }
+  const zone=(row:Word[],from:number,to:number)=>row.filter(word=>{const x=center(word)/pageWidth;return x>=from&&x<to;});
+  const rtlText=(row:Word[])=>[...row].sort((a,b)=>b.x1-a.x1).map(word=>word.text).join(" ").replace(/\s+/g," ").trim();
+  const compact=(row:Word[])=>rtlText(row).replace(/\s+/g,"");
+  const rows:GridRow[]=[];
+  const activityNames=new Set(["محاضره","مختبر","تمارين","كلينيكي","عملي","نظري","ورشه","تدريب","بحث"]);
+  /* ── عمود القاعة من عنوانه المطبوع ────────────────────────────────────────
+     نسبة ثابتة من عرض الصفحة تنزلق مع أي إعادة طباعة، فتقع في عمود «المقاعد
+     في الرزم» المجاور: قاعة فارغة تصير «20»، وقاعة «124» تصير «20124». عناوين
+     الأعمدة مطبوعة في طبقة النص نفسها، فحدود خلية القاعة هي منتصف المسافة بين
+     عنوانها وعنوانَي جارَيها. */
+  const labelCenters=(label:string)=>words.filter(word=>nativeAuthorityLabel(word.text)===label).map(center);
+  const roomLabel=labelCenters("القاعه")[0];
+  const buildingLabel=labelCenters("المبني").filter(x=>roomLabel!==undefined&&x<roomLabel).sort((a,b)=>b-a)[0];
+  const packagesLabel=labelCenters("الرزم").filter(x=>roomLabel!==undefined&&x>roomLabel).sort((a,b)=>a-b)[0];
+  const roomWindow=roomLabel!==undefined&&buildingLabel!==undefined&&packagesLabel!==undefined
+    ?{from:(buildingLabel+roomLabel)/2,to:(roomLabel+packagesLabel)/2}
+    :undefined;
+
+  for(const group of groups.sort((a,b)=>a.y-b.y)){
+    const row=group.words;
+    const rightText=rtlText(zone(row,.885,1.001));
+    const rightRuns=(toAscii(rightText).match(/\d+/g)||[]);
+    const code=rightRuns.find(run=>/^\d{7}$/.test(run))||"";
+    if(!code)continue;
+
+    /* The girls lane is intentionally bit-for-bit the existing production
+       reader. Do not widen or reinterpret its columns here. */
+    if(layout==="legacy-basic-girls"){
+      const referenceText=toAscii(rtlText(zone(row,.895,.945)));
+      const reference=(referenceText.match(/\b\d{4,8}\b/g)||[]).find(value=>value!==code)||"";
+      const sectionText=toAscii(compact(zone(row,.862,.900)));
+      const scode=(sectionText.match(/\d{1,4}/g)||[]).map(normalizeAuthoritySectionCode).find(Boolean)||"";
+      const courseText=rtlText(zone(row,.718,.872));
+      const instructorText=rtlText(zone(row,0,.128));
+      const days=toAscii(rtlText(zone(row,.128,.182))).replace(/[^1-5]+/g," ").trim();
+      const timeRaw=toAscii(rtlText(zone(row,.225,.300)));
+      const pair=timePair(timeRaw);
+      /* Building and room are read ONLY from their physical native-PDF cells.
+         Capacity/seat columns start to the right of x=.39 and can therefore never
+         become 345045/520020 in AdRoomCode. */
+      const buildingRaw=toAscii(compact(zone(row,.294,.348))).toUpperCase();
+      const hallRaw=toAscii(compact(zone(row,.348,.390))).toUpperCase();
+      const located=extractAuthorityLocationEvidence(`${buildingRaw} ${hallRaw}`);
+      const building=located.building||cleanBuildingCode(buildingRaw);
+      const hall=located.hall||cleanHallCode(hallRaw);
+      rows.push({
+        code,reference,scode,courseText,instructorText,days,daysRaw:days,timeRaw,
+        start:pair?.start||"",end:pair?.end||"",
+        building,hall,buildingRaw,hallRaw,sourceMode:"pdf-text",y:group.y,
+      });
+      continue;
+    }
+
+    /* ── Semantic lane for every other college ─────────────────────────────
+       The user's failing 011 report moves SECTION, DAYS, TIME and instructor
+       relative to 012B. Fixed ratios therefore read the CRN as SECTION and
+       only the first day digit (or no day at all). The row already exposes
+       stronger evidence than x-ratios, so use that evidence directly. */
+    const rowAsc=[...row].sort((a,b)=>center(a)-center(b));
+    const asciiOf=(word:Word)=>toAscii(String(word.text||"")).trim();
+    const codeWord=[...row].filter(word=>/^\d{7}$/.test(asciiOf(word).replace(/\D/g,""))).sort((a,b)=>center(b)-center(a))[0];
+    const codeX=codeWord?center(codeWord):pageWidth*.94;
+
+    const numericBeforeCode=row
+      .filter(word=>center(word)<codeX&&/^\d+$/.test(asciiOf(word)))
+      .sort((a,b)=>center(b)-center(a));
+    const referenceWord=numericBeforeCode.find(word=>{const token=asciiOf(word);return /^\d{4,8}$/.test(token)&&token!==code;});
+    const reference=referenceWord?asciiOf(referenceWord):"";
+    const referenceX=referenceWord?center(referenceWord):codeX-pageWidth*.045;
+    const sectionWord=numericBeforeCode.find(word=>{
+      if(center(word)>=referenceX)return false;
+      const token=normalizeAuthoritySectionCode(asciiOf(word));
+      return Boolean(token)&&referenceX-center(word)<=pageWidth*.09;
+    });
+    const scode=sectionWord?normalizeAuthoritySectionCode(asciiOf(sectionWord)):"";
+    const sectionX=sectionWord?center(sectionWord):referenceX-pageWidth*.035;
+
+    /* Course prose is the Arabic cluster immediately left of SECTION. Status,
+       response and seat columns are Latin/numeric and are never admitted. */
+    const courseWords=row.filter(word=>{
+      const x=center(word);
+      const text=String(word.text||"").normalize("NFKC");
+      return x<sectionX&&x>sectionX-pageWidth*.20&&(/[ء-ي]/.test(text)||/^\(?\d{1,2}\)?$/.test(toAscii(text).trim()));
+    });
+    const courseText=rtlText(courseWords);
+
+    /* OCR يُسقط التاء المربوطة الأخيرة («محاضر» من «محاضرة»)؛ الكلمة نفسها
+       بلا حرفها الأخير ما زالت هي النشاط، ولا يبدأ بها اسم مقرر أو أستاذ. */
+    const activityWord=rowAsc.find(word=>{const label=nativeAuthorityLabel(word.text);return activityNames.has(label)||activityNames.has(`${label}ه`);});
+    const activityX=activityWord?center(activityWord):pageWidth*.23;
+
+    /* DAYS are the consecutive day tokens immediately to the left of ACTIVITY.
+       This survives 42, 5 3 1 and 5 4 3 2 1 whether pdfjs emits one item or
+       five. It cannot accidentally mine the capacity columns because scanning
+       stops at the first non-day item. */
+    const leftOfActivity=row.filter(word=>center(word)<activityX).sort((a,b)=>center(b)-center(a));
+    const dayWords:Word[]=[];
+    /* «محاضر» فقدت تاءها: التاء المربوطة نفسها تُقرأ رمزاً قصيراً ملاصقاً
+       للكلمة («5» أو «J)» أو «3»)، لا يوماً. الأيام خلية مستقلة بفراغ واضح. */
+    const lostTa=Boolean(activityWord)&&!activityNames.has(nativeAuthorityLabel(activityWord!.text));
+    const touchesActivity=(word:Word)=>lostTa&&word.x1>=activityWord!.x0-pageWidth*.008&&toAscii(String(word.text||"")).replace(/\s+/g,"").length<=2;
+    while(leftOfActivity.length&&touchesActivity(leftOfActivity[0]))leftOfActivity.shift();
+    for(const word of leftOfActivity){
+      const raw=asciiOf(word).replace(/[|،,;:_/\\–—-]/g," ").trim();
+      const daySyntax=Boolean(raw)&&/^[1-5](?:\s*[1-5])*$/.test(raw)&&Boolean(parseDays(raw));
+      if(daySyntax){dayWords.push(word);continue;}
+      if(dayWords.length)break;
+      /* Skip zero-width/punctuation artefacts before the first actual token —
+         and OCR specks such as «°» or «.» that carry no letter or digit. */
+      if(!raw||!/[0-9A-Za-z\u0621-\u064A]/.test(toAscii(raw)))continue;
+      break;
+    }
+    /* خلية الأيام لا تكرر يوماً. رقمٌ مكرر يعني أن أقرب «رمز» للنشاط أثرُ
+       مسحٍ (التاء المربوطة من «محاضرة» تُقرأ 3) لا يومٌ: يُسقط، ثم يُعاد الفحص. */
+    /* «محاضر» بلا تائها + «3» منفردة ملاصقة لها: الـ3 هي التاء نفسها. */
+    const activityLostTa=Boolean(activityWord)&&!activityNames.has(nativeAuthorityLabel(activityWord!.text));
+    if(activityLostTa&&dayWords.length>1&&toAscii(String(dayWords[0].text)).trim()==="3")dayWords.shift();
+    const dayDigits=(list:Word[])=>toAscii(list.map(word=>word.text).join("")).replace(/[^1-5]/g,"");
+    while(dayWords.length>1&&new Set(dayDigits(dayWords)).size!==dayDigits(dayWords).length)dayWords.shift();
+    const days=dayWords.length?toAscii(rtlText(dayWords)).replace(/[^1-5]+/g," ").trim():"";
+    const dayLeft=dayWords.length?Math.min(...dayWords.map(word=>center(word))):activityX;
+    const instructorText=rtlText(row.filter(word=>center(word)<dayLeft-pageWidth*.002&&/[ء-ي]/.test(String(word.text||"").normalize("NFKC"))));
+
+    /* The printed clock pair carries its own dash and is therefore stronger
+       than any absolute TIME x-position. Limit evidence to the activity→room
+       corridor when possible, then fall back to the proven whole row. */
+    const semanticRowText=rtlText(row);
+    const located=extractAuthorityLocationEvidence(semanticRowText);
+    const locatedWord=located.building?rowAsc.find(word=>asciiOf(word).replace(/[^A-Z0-9]/gi,"").toUpperCase().includes(located.building)):undefined;
+    /* خلية المبنى نفسها: كلمة بشكل الكود (3 أرقام، حرف الموقع، رقمان) بين
+       الوقت والقاعة. المسح يقرأ B «8» («011818») فلا يعرفها المستخرج، وكانت
+       شريحة ثابتة تلصق بها الساعة («0118180800»). تُؤخذ الكلمة كما هي،
+       ويبقى ترميم الحرف للسجل وحده (كود وحيد في الفرع). */
+    const cellBuildingWord=rowAsc.find(word=>{
+      const x=center(word);
+      return x>activityX&&x<(roomWindow?.from??pageWidth*.40)&&/^\d{3}[A-Z0-9]\d{2}$/.test(asciiOf(word).replace(/[^A-Z0-9]/gi,"").toUpperCase());
+    });
+    /* كود مبنى رسمي مُستخرج يبقى هو الحَكَم ما دام في ممر خلية المبنى؛ كلمة
+       الشكل وحدها لا تُستعمل إلا حين لا يوجد مبنى مستخرج هناك (أثرٌ رقمي من
+       ستّ خانات في ممر الوقت، «110050»، لا يُزيح مبنىً ثابتاً). */
+    const inBuildingCorridor=(word:Word)=>center(word)>activityX&&center(word)<(roomWindow?.from??pageWidth*.40);
+    const buildingWord=locatedWord&&inBuildingCorridor(locatedWord)?locatedWord:(cellBuildingWord||locatedWord);
+    if(buildingWord&&buildingWord!==locatedWord)located.building=cleanBuildingCode(asciiOf(buildingWord).replace(/[^A-Z0-9]/gi,"").toUpperCase())||"";
+    const buildingX=buildingWord?center(buildingWord):Math.min(pageWidth*.42,activityX+pageWidth*.20);
+    const timeWords=row.filter(word=>center(word)>activityX&&center(word)<buildingX);
+    let timeRaw=toAscii(rtlText(timeWords));
+    let pair=timePair(timeRaw);
+    /* المسح قد يُسقط شرطة الوقت («1400 1450»). داخل ممر خلية الوقت نفسها —
+       بين النشاط والمبنى — ساعتان متتاليتان فقط هما زوج الوقت؛ ويبقى شرط
+       المدة المعقولة في timePair نفسه. خارج الممر لا يُقبل زوج بلا شرطة. */
+    if(!pair){
+      const clocks=(toAscii(timeRaw).match(/\d+/g)||[]);
+      if(clocks.length===2&&clocks.every(clock=>/^[0-2]\d[0-5]\d$/.test(clock)))pair=timePair(`${clocks[0]} - ${clocks[1]}`);
+    }
+    if(!pair){timeRaw=toAscii(semanticRowText);pair=timePair(timeRaw);}
+
+    let building=located.building;
+    let hall=located.hall;
+    let buildingRaw=buildingWord?asciiOf(buildingWord).replace(/\s+/g,"").toUpperCase():toAscii(compact(zone(row,.294,.365))).toUpperCase();
+    if(!building)building=cleanBuildingCode(buildingRaw);
+    let hallWord:Word|undefined;
+    if(buildingWord){
+      hallWord=rowAsc.find(word=>center(word)>center(buildingWord)&&center(word)-center(buildingWord)<pageWidth*.09&&Boolean(cleanHallCode(asciiOf(word))));
+    }
+    const roomCellWords=roomWindow?row.filter(word=>center(word)>roomWindow.from&&center(word)<roomWindow.to):[];
+    let hallRaw=roomWindow
+      ?toAscii(compact(roomCellWords)).toUpperCase()
+      :hallWord?asciiOf(hallWord).replace(/\s+/g,"").toUpperCase():toAscii(compact(zone(row,.34,.42))).toUpperCase();
+    /* حين تُعرف حدود الخلية فهي الحَكَم: لا قاعة من خارجها. */
+    if(roomWindow)hall=cleanHallCode(hallRaw);
+    if(!hall)hall=cleanHallCode(hallRaw);
+
+    rows.push({
+      code,reference,scode,courseText,instructorText,days,daysRaw:days,timeRaw,
+      start:pair?.start||"",end:pair?.end||"",
+      building,hall,buildingRaw,hallRaw,sourceMode:"pdf-text",y:group.y,
+    });
+  }
+  return rows;
+}
+
+async function pdfTextLayer(input:Buffer,onProgress?:OcrProgress):Promise<OcrResult|null>{
+  try{
+    const pdfjs:any=await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const pdf=await pdfjs.getDocument({data:new Uint8Array(input),disableWorker:true,useSystemFonts:true}).promise;
+    assertPageLimit(Number(pdf.numPages||0));
+    const count=Math.min(Number(pdf.numPages||0),MAX_PAGES);
+    if(!count)return null;
+    const pages:OcrPage[]=[];const pageTexts:string[]=[];let structuralRows=0,totalChars=0,pagesWithBody=0;
+    let preserveBasicGirlsNativeLayout=false;
+    for(let index=1;index<=count;index++){
+      onProgress?.({phase:"render",page:index,pages:count,message:`فحص النص المضمّن في الصفحة ${index} من ${count}`});
+      const page=await pdf.getPage(index);
+      const viewport=page.getViewport({scale:1});
+      /* ── مسحٌ «قابل للبحث» ليس PDF نصياً ─────────────────────────────────
+         CamScanner و Adobe Scan يضعان صورة الصفحة وتحتها طبقة نص مخفية من
+         قراءتهما الخاصة. تلك الطبقة ليست ما طبعته الجهة، وأخطاؤها كانت تدخل
+         بثقة 99٪. صورة بحجم صفحة (ألف بكسل فأكثر) تعني مسحاً: يُقرأ بالمسار
+         المصوّر وضوابطه. تقرير الجهة الأصلي لا يحمل صوراً أصلاً. */
+      try{
+        const ops:any=await page.getOperatorList();
+        const imageOps=new Set([pdfjs.OPS?.paintImageXObject,pdfjs.OPS?.paintJpegXObject,pdfjs.OPS?.paintInlineImageXObject].filter((op:any)=>op!==undefined));
+        const scanImage=(ops?.fnArray||[]).some((fn:number,at:number)=>{
+          if(!imageOps.has(fn))return false;
+          const args=ops.argsArray?.[at]||[];
+          const width=Number(args[1]||args[0]?.width||0),height=Number(args[2]||args[0]?.height||0);
+          return Math.max(width,height)>=1000;
+        });
+        if(scanImage)return null;
+      }catch{/* An unreadable operator list is not proof of a scan. */}
+      const content:any=await page.getTextContent({includeMarkedContent:false,disableNormalization:false});
+      const words:Word[]=[];
+      for(const item of content?.items||[]){
+        const text=String(item?.str||"").normalize("NFKC").replace(/\s+/g," ").trim();
+        if(!text||!Array.isArray(item?.transform))continue;
+        const transformed=pdfjs.Util?.transform?pdfjs.Util.transform(viewport.transform,item.transform):item.transform;
+        const x=Number(transformed?.[4]??item.transform[4]??0);
+        const baseline=Number(transformed?.[5]??item.transform[5]??0);
+        const width=Math.max(1,Math.abs(Number(item?.width||0)*Number(viewport.scale||1)));
+        const height=Math.max(7,Math.abs(Number(item?.height||0)*Number(viewport.scale||1))||10);
+        /* viewport.transform uses top-left page coordinates; a text item's
+           transform points at its baseline, so this box is intentionally a
+           little generous vertically. Row clustering only needs the centre. */
+        words.push({text,x0:x,y0:baseline-height,x1:x+width,y1:baseline+height*.15});
+        totalChars+=text.replace(/\s+/g,"").length;
+      }
+      const physicalRows=tableFromWords(words,[],"pdf-text");
+      /* Keep the complete text for header term/branch extraction, but hand only
+         the table body to the schedule parser. This removes the repeated
+         SWRSCHA/term/department header independently on EVERY PDF page. */
+      const pageText=physicalRows.map(row=>row.line).join("\n");
+      pageTexts.push(pageText);
+      const rows=authorityBodyOnly(physicalRows);
+      const pageHeader=parseAuthorityHeaderText(pageText);
+      if(String(pageHeader.branch?.code||"").trim()==="012")preserveBasicGirlsNativeLayout=true;
+      /* Keep the proven two-argument legacy call intact for Basic Education —
+         Girls. Besides protecting the frozen 012B path, this deliberately
+         preserves the audit contract that native text PDFs use the coordinate
+         grid rather than camera OCR. Every other college opts into the semantic
+         lane explicitly. */
+      const semanticRows=authorityPdfTextGridRows(words,Number(viewport.width||0),"semantic");
+      /* ── مسار بنات الأساسية محفوظ، لكنه لا يُصدَّق بلا فحص ────────────────
+         نِسَبه الثابتة صحيحة على تصدير الجهة الأصلي، أما إعادة الطباعة على A4
+         فتجعل الشعبة صدرَ الرقم المرجعي («1064» من 10643) وتُسقط الأيام. الصف
+         السليم: رقم مرجعي من 4–8 خانات، وأيام، وشعبة ليست صدر المرجعي. يبقى
+         المسار القديم ما دام لا يقل سلامةً عن الدلالي؛ وإلا يُقرأ الدلالي. */
+      const soundRows=(grid:GridRow[])=>grid.filter(row=>/^\d{4,8}$/.test(row.reference)&&Boolean(row.days)
+        &&!(row.scode.length>=3&&row.reference.startsWith(row.scode))).length;
+      const legacyRows=preserveBasicGirlsNativeLayout?authorityPdfTextGridRows(words,Number(viewport.width||0)):[];
+      let nativeGridRows=preserveBasicGirlsNativeLayout&&soundRows(legacyRows)>=soundRows(semanticRows)
+        ?legacyRows
+        :semanticRows;
+      const fallbackStructuralRows=rows.filter(row=>{
+        const ascii=toAscii(row.line).replace(/[Oo]/g,"0");
+        const hasTime=/\b[0-2]?\d[0-5]\d\s*[-–—]?\s*[0-2]?\d[0-5]\d\b/.test(ascii)
+          ||/\b(?:[01]?\d|2[0-3])[:.]?[0-5]\d\s*[-–—]?\s*(?:[01]?\d|2[0-3])[:.]?[0-5]\d\b/.test(ascii);
+        const digitRuns:string[]=ascii.match(/\d+/g)||[];
+        const hasTableKey=digitRuns.some(run=>run.length>=4)||/\b\d{3}[A-Za-z]\d{2}\b/.test(ascii)||/[ء-ي]{4,}/.test(row.line);
+        return hasTime||(hasTableKey&&digitRuns.length>=3);
+      }).length;
+      /* Native generated PDFs get the coordinate-grid path whenever at least
+         one academic row is proven. A one-row tail page is legitimate. */
+      /* ── صفوف مطبوعة بلا شبكة = استخراج غير آمن ──────────────────────────
+         كل صف بيانات يحمل رقم مقرر من سبع خانات وزوج وقت. إن زادت هذه الصفوف
+         على ما أثبتته شبكة الأعمدة، فالأعمدة انزلقت (إعادة طباعة بمقاس آخر،
+         رقم مقرر مقسوم) وكان المسار البديل يقرأ الأيام من عمود الوحدات
+         والشعبة من الساعات بصمت. تُعلَّم الصفحة مشبوهة فيتوقف الاستيراد. */
+      const keyedBodyRows=rows.filter(row=>{
+        const ascii=toAscii(row.line).toUpperCase();
+        const courseKey=/(?:^|\D)0\d{6}(?:\D|$)/.test(ascii);
+        const buildingKey=/(?:^|[^A-Z0-9])\d{3}[A-Z]\d{2}(?:[^A-Z0-9]|$)/.test(ascii);
+        return (courseKey||buildingKey)&&Boolean(timePair(ascii));
+      }).length;
+      /* ── ملفٌ أُعيدت طباعته بتصغير «ملاءمة الصفحة» ─────────────────────────
+         الطباعة بنسبة 80–95٪ تُصغّر الجدول حول منتصف الصفحة، فيخرج رقم المقرر
+         من عموده. يُعاد الجدول إلى مقاسه بأقرب نسبة تُثبت كل صف مطبوع كاملاً
+         وسليماً؛ وإن لم توجد نسبة كهذه يبقى الرفض برسالته. مسار بنات الأساسية
+         (012) لا يُمَسّ. */
+      if(keyedBodyRows>nativeGridRows.length&&nativeGridRows===semanticRows){
+        const restored=authorityRescaledNativeRows(words,Number(viewport.width||0),Number(viewport.height||0),keyedBodyRows,soundRows);
+        if(restored)nativeGridRows=restored;
+      }
+      const gridShortfall=keyedBodyRows>nativeGridRows.length;
+      const pageStructuralRows=nativeGridRows.length||fallbackStructuralRows;
+      structuralRows+=pageStructuralRows;
+      if(pageStructuralRows>=2||(index===count&&pageStructuralRows>=1))pagesWithBody++;
+      pages.push({
+        rows,
+        ...(nativeGridRows.length?{gridRows:nativeGridRows}:{}),
+        diagnostic:{page:index,visualRows:Math.max(nativeGridRows.length,keyedBodyRows)||rows.length,extractedRows:pageStructuralRows,gridDetected:Boolean(nativeGridRows.length),orientation:0,suspicious:gridShortfall,
+          ...(gridShortfall?{reason:`طُبع في الصفحة ${countOf(keyedBodyRows, AR.row)}، ولم تثبت حدود الأعمدة إلا لـ ${nativeGridRows.length}. غالباً أُعيدت طباعة الملف بمقاس مختلف؛ ارفع الملف كما صدّرته الجهة (100٪)`}:{})},
+      });
+    }
+    const text=pageTexts.join("\n\n--- PAGE ---\n\n");
+    /* A few metadata characters or one accidental body-looking line must not
+       route a hybrid/image PDF into the text parser. Every non-tail page of a
+       genuine generated timetable contributes several structural body rows. */
+    const requiredBodyPages=count===1?1:Math.max(1,count-1);
+    /* قسمٌ له شعبة أو شعبتان فقط جدولُه نصي أصيل أيضاً: صفٌّ واحد أثبتت
+       شبكة الأعمدة رقم مقرره يكفي لإبقائه على طبقة النص بدل OCR. */
+    const provenGridRows=pages.reduce((sum,page)=>sum+(page.gridRows?.length||0),0);
+    const provenNative=provenGridRows>=1&&totalChars>=160;
+    if(!provenNative&&(structuralRows<Math.max(3,count*2)||pagesWithBody<requiredBodyPages||totalChars<160))return null;
+    const confidence=99;
+    const header=parseAuthorityHeaderText(text);
+    return{
+      pages,text,pageCount:count,confidence,orientation:0,
+      legibility:{readable:true,confidence,charactersPerPage:Math.round(totalChars/Math.max(1,count)),reason:""},
+      headerTerm:header.term,headerBranch:header.branch,headerDepartment:header.department,
+      pageDiagnostics:pages.map(page=>page.diagnostic!),suspiciousExtraction:pages.some(page=>Boolean(page.diagnostic?.suspicious)),
+    };
+  }catch(error){if(error instanceof PdfPageLimitError)throw error;return null;}
+}
+
+async function imagePages(input:Buffer,mime:string,longEdge:number,onProgress?:OcrProgress):Promise<Buffer[]>{
+  if(/pdf/i.test(mime)||input.subarray(0,4).toString("latin1")==="%PDF")return renderPdf(input,longEdge,onProgress);
+  const source=isHeic(input,mime)?await heicToPng(input):input;
+  const lib=await canvas();
+  let image:any;
+  try{image=await lib.loadImage(source);}
+  catch{throw new Error("صيغة الملف غير مدعومة. ارفع PDF أو صورة JPG أو PNG أو HEIC.");}
+  const scale=Math.min(1,longEdge/Math.max(image.width,image.height));
+  const surface=lib.createCanvas(Math.round(image.width*scale),Math.round(image.height*scale));
+  surface.getContext("2d").drawImage(image,0,0,surface.width,surface.height);
+  return[surface.toBuffer("image/png")];
+}
+
+/*
+ * Student graduation-sheet OCR is intentionally separate from timetable OCR.
+ *
+ * The official student page contains a small summary grid. Feeding that page
+ * through the timetable reader can legitimately detect the grid and then skip
+ * whole-page prose OCR — which hides the civil number/title above the grid and
+ * produces the misleading “not enough text” error. This reader never takes the
+ * timetable-grid fast path. It reads the page as a document, then performs one
+ * narrow digits-only pass over the identity band. No uploaded bytes are kept.
+ */
+let graduationTextWorkerPromise:Promise<PooledWorker>|null=null;
+let graduationDigitsWorkerPromise:Promise<PooledWorker>|null=null;
+async function getGraduationTextWorker(){
+  if(!graduationTextWorkerPromise)graduationTextWorkerPromise=retryOnFailure((async()=>{
+    return await newOcrWorker("ara+eng");
+  })(),()=>{graduationTextWorkerPromise=null;});
+  return graduationTextWorkerPromise;
+}
+async function getGraduationDigitsWorker(){
+  if(!graduationDigitsWorkerPromise)graduationDigitsWorkerPromise=retryOnFailure((async()=>{
+    return await newOcrWorker("eng");
+  })(),()=>{graduationDigitsWorkerPromise=null;});
+  return graduationDigitsWorkerPromise;
+}
+
+async function graduationPdfTextLayer(input:Buffer):Promise<{text:string;pageCount:number}|null>{
+  try{
+    const pdfjs:any=await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const pdf=await pdfjs.getDocument({data:new Uint8Array(input),disableWorker:true,useSystemFonts:true}).promise;
+    const count=Math.min(Number(pdf.numPages||0),MAX_PAGES);
+    if(!count)return null;
+    const pages:string[]=[];
+    for(let index=1;index<=count;index++){
+      const page=await pdf.getPage(index),content=await page.getTextContent({includeMarkedContent:false});
+      const text=(content?.items||[]).map((item:any)=>String(item?.str||"").normalize("NFKC")).filter(Boolean).join(" ");
+      pages.push(text);
+    }
+    const text=pages.join("\n\n--- PAGE ---\n\n");
+    return(text.match(/[ء-يa-zA-Z0-9]/g)||[]).length>=80?{text,pageCount:count}:null;
+  }catch{return null;}
+}
+
+async function graduationCivilBand(page:Buffer):Promise<Buffer>{
+  const lib=await canvas(),image=await lib.loadImage(page);
+  /* The official Authority study-plan page prints the civil ID as the dark
+     12-digit run at the LEFT of the blue identity band, with the timestamp one
+     line below it. OCRing the whole blue band lets the much brighter date win
+     segmentation and can turn 24/08/2026 08:08 into the only 12-digit token.
+     Read the civil line itself first. This is geometry, not guessing: the
+     server still checksum-validates and requires exact equality with the civil
+     the student entered. */
+  const sx=0,sy=Math.max(0,Math.round(image.height*.425));
+  const sw=Math.max(1,Math.round(image.width*.25)),sh=Math.max(1,Math.round(image.height*.05));
+  const targetWidth=Math.min(2200,Math.max(sw,1800)),scale=Math.max(1,targetWidth/sw);
+  const surface=lib.createCanvas(Math.round(sw*scale),Math.round(sh*scale)),ctx=surface.getContext("2d");
+  ctx.fillStyle="#ffffff";ctx.fillRect(0,0,surface.width,surface.height);
+  ctx.imageSmoothingEnabled=true;if("imageSmoothingQuality" in ctx)(ctx as any).imageSmoothingQuality="high";
+  ctx.drawImage(image,sx,sy,sw,sh,0,0,surface.width,surface.height);
+  return surface.toBuffer("image/png");
+}
+
+async function graduationIdentityBand(page:Buffer):Promise<Buffer>{
+  const lib=await canvas(),image=await lib.loadImage(page);
+  /* On the Authority page the civil number sits in the left side of the blue
+     identity band. The crop is deliberately generous so normal desktop widths,
+     browser zoom and screenshot margins all remain inside it. */
+  const sx=0,sy=Math.max(0,Math.round(image.height*.27));
+  const sw=Math.max(1,Math.round(image.width*.58)),sh=Math.max(1,Math.round(image.height*.38));
+  const targetWidth=Math.min(2200,Math.max(sw,1800));
+  const scale=Math.max(1,targetWidth/sw);
+  const surface=lib.createCanvas(Math.round(sw*scale),Math.round(sh*scale)),ctx=surface.getContext("2d");
+  ctx.fillStyle="#ffffff";ctx.fillRect(0,0,surface.width,surface.height);
+  ctx.imageSmoothingEnabled=true;
+  if("imageSmoothingQuality" in ctx)(ctx as any).imageSmoothingQuality="high";
+  ctx.drawImage(image,sx,sy,sw,sh,0,0,surface.width,surface.height);
+  return surface.toBuffer("image/png");
+}
+
+const graduationTextScore=(text:string)=>{
+  const facts=graduationSheetFacts(text);
+  return (facts.signals.title?180:0)+(facts.signals.authority?120:0)+(facts.signals.programme?80:0)
+    +(facts.signals.passedUnits?100:0)+(facts.signals.requiredUnits?55:0)+(facts.civilCandidates.length?110:0)
+    +Math.min(80,(text.match(/[ء-ي]/g)||[]).length);
+};
+
+/** Read the public-survey proof as a normal official document, not a timetable. */
+export async function ocrGraduationSheetDocument(input:Buffer,mime:string):Promise<GraduationSheetOcrResult>{
+  const looksLikePdf=/pdf/i.test(mime)||input.subarray(0,4).toString("latin1")==="%PDF";
+  const embedded=looksLikePdf?await graduationPdfTextLayer(input):null;
+  if(embedded){
+    const facts=graduationSheetFacts(embedded.text);
+    if(facts.signals.title&&facts.civilCandidates.length&&(facts.signals.passedUnits||facts.passedUnitCandidates.length)){
+      const confidence=99;
+      return{text:embedded.text,pageCount:embedded.pageCount,confidence,legibility:judgeLegibility(embedded.text,embedded.pageCount,confidence)};
+    }
+  }
+
+  /* Keep native screenshot pixels for Arabic labels — artificial whole-page
+     upscaling can deform the small Arabic programme name. PDF pages, however,
+     are rendered sharply at the normal high-resolution document target. */
+  const pages=await imagePages(input,mime,TARGET_LONG_EDGE);
+  if(!pages.length)throw new Error("تعذر تحويل صحيفة التخرج إلى صورة قابلة للقراءة");
+  const [textWorker,digitsWorker]=await Promise.all([getGraduationTextWorker(),getGraduationDigitsWorker()]);
+  const texts:string[]=[];const confidences:number[]=[];
+  const maxPages=Math.min(pages.length,3);
+  for(let index=0;index<maxPages;index++){
+    const page=pages[index];
+    const readings:Array<{text:string;confidence:number}>=[];
+    for(const psm of [11,6]){
+      await textWorker.setParameters({tessedit_char_whitelist:"",tessedit_pageseg_mode:String(psm) as any});
+      const result:any=await textWorker.recognize(page).catch(()=>null);
+      readings.push({text:String(result?.data?.text||"").normalize("NFKC"),confidence:Number(result?.data?.confidence||0)});
+    }
+    readings.sort((a,b)=>graduationTextScore(b.text)-graduationTextScore(a.text)||b.confidence-a.confidence);
+    /* Keep both passes: sparse mode often reads the white-on-blue labels while
+       block mode reads the programme/value row. Their union is the document;
+       factual extraction below still requires the official identity signals. */
+    const prose=readings.map(item=>item.text).filter(Boolean).join("\n");
+
+    const [civilBand,identity]=await Promise.all([graduationCivilBand(page),graduationIdentityBand(page)]);
+    const digitReadings:Array<{text:string;confidence:number}>=[];
+    /* First read the dedicated civil line; then retain the older generous band
+       as fallback for unusual screenshot crops. A timestamp can remain in the
+       candidate union, but it cannot pass Kuwait civil checksum + exact typed-ID
+       equality on the server. */
+    for(const band of [civilBand,identity]){
+      for(const psm of [7,6,11]){
+        await digitsWorker.setParameters({tessedit_char_whitelist:"0123456789",tessedit_pageseg_mode:String(psm) as any});
+        const result:any=await digitsWorker.recognize(band).catch(()=>null);
+        const text=String(result?.data?.text||"").normalize("NFKC");
+        digitReadings.push({text,confidence:Number(result?.data?.confidence||0)});
+        if(/\b\d{12}\b/.test(text))break;
+      }
+      if(digitReadings.some(item=>/\b\d{12}\b/.test(item.text)))break;
+    }
+    const digits=digitReadings.map(item=>item.text).filter(Boolean).join("\n");
+    texts.push([prose,digits].filter(Boolean).join("\n"));
+    confidences.push(Math.max(...readings.map(item=>item.confidence),...digitReadings.map(item=>item.confidence)));
+  }
+  const text=[embedded?.text||"",...texts].filter(Boolean).join("\n\n--- PROOF ---\n\n");
+  const confidence=Math.round(confidences.reduce((sum,value)=>sum+value,0)/Math.max(1,confidences.length));
+  const pageCount=embedded?.pageCount||pages.length;
+  return{text,pageCount,confidence,legibility:judgeLegibility(text,Math.max(1,Math.min(pageCount,3)),confidence)};
+}
+
+/*
+ * ── كشفُ «المتبقي» من عمادة التسجيل: خلايا بمواضعها ─────────────────────────
+ *
+ * لا جدولَ مواعيد هنا ولا رؤوسَ الهيئة: صفوفٌ فيها رقمُ مقرر وأعداد. فيكفي أن
+ * تُستخرج كلُّ خليةٍ بنصّها وموضعها نسبةً إلى الصفحة (٠–١)، والقراءةُ نفسها
+ * في src/utils/remainingReport.ts. طبقةُ النص أولاً (تقرير النظام الأصلي يُقرأ
+ * في ثوانٍ وبلا خطأ)، والمسحُ الضوئي بدوره في طابور القراءة كأي ملفٍ ممسوح.
+ */
+const REPORT_TEXT_MAX_PAGES=60;
+export type ReportCell={text:string;x0:number;x1:number;y:number;confidence?:number};
+export type ReportCellsResult={source:"text"|"scan";pages:ReportCell[][];pageCount:number;
+  /** نصُّ الترويسة (القسم والفصل) — ليُنبَّه من رفع كشف قسمٍ أو فصلٍ آخر. */
+  headerText:string;
+  /** عناوين أعمدة الصفحة الأولى الممسوحة، لتُقرأ بها صورُ الصفحات التالية. */
+  template?:RuledTemplate};
+
+/** خلايا صفحةٍ سطوراً تُقرأ من اليمين — لنصّ الترويسة. */
+const reportLinesText=(cells:ReportCell[])=>{
+  const lines:ReportCell[][]=[];
+  for(const cell of [...cells].sort((a,b)=>a.y-b.y)){
+    const last=lines[lines.length-1];
+    if(last&&Math.abs(last[0].y-cell.y)<=.006)last.push(cell);else lines.push([cell]);
+  }
+  return lines.map(line=>line.sort((a,b)=>b.x1-a.x1).map(cell=>cell.text).join(" ")).join("\n");
+};
+
+async function reportTextLayer(input:Buffer):Promise<ReportCellsResult|null>{
+  const pdfjs:any=await import("pdfjs-dist/legacy/build/pdf.mjs");
+  let pdf:any;
+  try{pdf=await pdfjs.getDocument({data:new Uint8Array(input),disableWorker:true,useSystemFonts:true}).promise;}
+  catch{throw new Error("تعذّر فتح الملف — تأكد أنه PDF سليم من عمادة التسجيل.");}
+  /* حدُّ الاثنتي عشرة صفحة لكلفة القراءة الضوئية؛ وطبقةُ النص تُقرأ في ثوانٍ،
+     فيتّسع كشفُ الكلية كلها. الممسوح يبقى على حدّه في renderPdf. */
+  const count=Number(pdf.numPages||0);
+  if(count>REPORT_TEXT_MAX_PAGES)throw new PdfPageLimitError(`الكشف ${countOf(count, AR.page)}، والحد ${countOf(REPORT_TEXT_MAX_PAGES, AR.page)}. ارفع صفحات القسم وحدها.`);
+  if(!count)return null;
+  const pages:ReportCell[][]=[];let chars=0;
+  for(let index=1;index<=count;index++){
+    const page=await pdf.getPage(index),viewport=page.getViewport({scale:1});
+    const vw=Number(viewport.width||1),vh=Number(viewport.height||1);
+    /* صورةٌ بحجم الصفحة تعني مسحاً — وطبقةُ نصه المخفية قراءةُ تطبيق المسح لا
+       ما طبعته العمادة؛ فيُقرأ بالمسار المصوّر كما في استيراد الجدول. */
+    try{
+      const ops:any=await page.getOperatorList();
+      const imageOps=new Set([pdfjs.OPS?.paintImageXObject,pdfjs.OPS?.paintJpegXObject,pdfjs.OPS?.paintInlineImageXObject].filter((op:any)=>op!==undefined));
+      if((ops?.fnArray||[]).some((fn:number,at:number)=>{
+        if(!imageOps.has(fn))return false;
+        const args=ops.argsArray?.[at]||[];
+        return Math.max(Number(args[1]||args[0]?.width||0),Number(args[2]||args[0]?.height||0))>=1000;
+      }))return null;
+    }catch{/* An unreadable operator list is not proof of a scan. */}
+    const content:any=await page.getTextContent({includeMarkedContent:false,disableNormalization:false});
+    const cells:ReportCell[]=[];
+    for(const item of content?.items||[]){
+      const text=String(item?.str||"").normalize("NFKC").replace(/\s+/g," ").trim();
+      if(!text||!Array.isArray(item?.transform))continue;
+      const transformed=pdfjs.Util?.transform?pdfjs.Util.transform(viewport.transform,item.transform):item.transform;
+      const x=Number(transformed?.[4]??item.transform[4]??0),baseline=Number(transformed?.[5]??item.transform[5]??0);
+      const width=Math.max(1,Math.abs(Number(item?.width||0))),height=Math.max(6,Math.abs(Number(item?.height||0))||10);
+      cells.push({text,x0:x/vw,x1:(x+width)/vw,y:(baseline-height*.4)/vh});
+      chars+=text.replace(/\s+/g,"").length;
+    }
+    pages.push(cells);
+  }
+  return chars>=40?{source:"text",pages,pageCount:count,headerText:reportLinesText(pages[0]||[])}:null;
+}
+
+/*
+ * كشفُ العمادة جدولٌ مسطّر. صورتُه (مسحاً أو تصويراً بالهاتف) تميل قليلاً
+ * ويعلوها رماديّ الورق، والقراءةُ العامة للصفحة كلها أسقطت في كشفٍ حقيقي
+ * (SWRS136، صورتا هاتف) أكثرَ من ثلاثين مقرراً من ثمانية وثلاثين. فيُقاس
+ * الجدول بخطوطه كما يُقاس جدول الهيئة في الاستيراد:
+ *
+ *   1) تُعدَّل الزاوية (deskew)، ثم تُوجد الصفوف بخطوطها (adaptiveGridGeometry)
+ *      وتُستقام الصفحة (straightenTable).
+ *   2) الأعمدة تُقاس على ارتفاع الجسم كله: خطٌّ يغطي حبرُه ثلاثة أرباعه. (في
+ *      شريط العنوان وحده تُحسب جذوعُ حروف العنوان ذي السطرين خطوطاً.)
+ *   3) كلُّ خانةٍ تُقرأ وحدها بالأرقام فقط، بعد تحويلها أبيضَ وأسود بمتوسطها
+ *      المحلي — الحشوةُ البيضاء حولها كانت تجعل رماديَّ الورق حبراً فيختفي
+ *      الرقم. تُجرَّب عتبتان ثم الأصل، ويؤخذ أوثقها.
+ *   4) العنوان يُقرأ بالعربية بالطرق نفسها، ويؤخذ منها ما عُرف معناه
+ *      (columnKind). عمودُ الاسم (أعرضها) والأعمدةُ الخالية لا تُقرأ.
+ *
+ * فيأخذ كلُّ رقمٍ صفَّه وعمودَه من الخطوط لا من تقدير، والفارغُ فارغٌ فعلاً.
+ */
+export type RuledTemplate={labels:string[];kinds:Array<ReturnType<typeof columnKind>>};
+async function ruledReportCells(image:Buffer,worker:PooledWorker,template?:RuledTemplate):Promise<{cells:ReportCell[];headerText:string;template:RuledTemplate}|null>{
+  const lib=await canvas();
+  const loaded=await lib.loadImage(await deskew(image));
+  let surface=lib.createCanvas(loaded.width,loaded.height);
+  surface.getContext("2d").drawImage(loaded,0,0);
+  let geometry=adaptiveGridGeometry(lib,surface);
+  if(!geometry)return null;
+  const straightened=straightenTable(lib,surface,geometry);
+  if(straightened){surface=straightened.surface;geometry=straightened.geometry;}
+  const {bands}=geometry;
+  const W=surface.width,H=surface.height;
+  if(!bands.length)return null;
+  const bodyTop=bands[0].top,bodyBottom=bands[bands.length-1].bottom,bodyHeight=Math.max(1,bodyBottom-bodyTop);
+  const dark=localMeanDark(surface.getContext("2d").getImageData(0,0,W,H).data,W,H,25,5);
+  const ruleAt:number[]=[];
+  for(let x=0;x<W;x++){
+    let ink=0;
+    for(let y=bodyTop;y<bodyBottom;y++){
+      const row=y*W;
+      if(dark[row+x]||(x>1&&dark[row+x-2])||(x>0&&dark[row+x-1])||(x+1<W&&dark[row+x+1])||(x+2<W&&dark[row+x+2]))ink++;
+    }
+    if(ink>=bodyHeight*.75)ruleAt.push(x);
+  }
+  const cols:number[]=[];
+  for(let i=0;i<ruleAt.length;){
+    let j=i;while(j+1<ruleAt.length&&ruleAt[j+1]-ruleAt[j]<=6)j++;
+    cols.push(Math.round((ruleAt[i]+ruleAt[j])/2));i=j+1;
+  }
+  const inkOf=(left:number,right:number)=>{
+    let ink=0,area=0;
+    for(let y=bodyTop+4;y<bodyBottom-4;y+=2)for(let x=left+8;x<right-8;x+=2){area++;if(dark[y*W+x])ink++;}
+    return area?ink/area:0;
+  };
+  const columns=cols.slice(1).map((right,index)=>({left:cols[index],right}))
+    .filter(column=>column.right-column.left>=Math.max(24,W*.015)&&inkOf(column.left,column.right)>=.004);
+  if(columns.length<3)return null;
+  const widths=columns.map(column=>column.right-column.left).sort((a,b)=>a-b);
+  const median=widths[Math.floor(widths.length/2)];
+  const pitch=bands.reduce((sum,band)=>sum+band.bottom-band.top,0)/bands.length;
+  /* شريطُ العنوان فوق أول صفّ: ارتفاعه في هذا الكشف سطران (≈ صفّان ونصف). */
+  const header={top:Math.max(0,Math.round(bodyTop-pitch*2.4)),bottom:bodyTop};
+  const crop=(left:number,right:number,top:number,bottom:number,radius:number|null)=>{
+    /* حدودُ الخانة بعد الاستقامة قد تبقى سميكةً بكسلين أو ثلاثة، والخطُّ
+       العمودي يُقرأ «0» أو «1» في طرف الرقم (840 بدل 84، 28000 بدل 280):
+       يُقصّ عُشرُ العرض من كل جانب، وسُدسُ الارتفاع. */
+    const insetX=Math.max(3,Math.min(14,Math.round((right-left)*.1))),insetY=Math.max(2,Math.min(10,Math.round((bottom-top)*.16)));
+    const sw=Math.max(1,right-left-insetX*2),sh=Math.max(1,bottom-top-insetY*2);
+    const scale=Math.max(1,Math.min(4,64/Math.min(sh,pitch))),cw=Math.max(1,Math.round(sw*scale)),ch=Math.max(1,Math.round(sh*scale)),pad=16;
+    const cell=lib.createCanvas(cw,ch),cctx=cell.getContext("2d");
+    cctx.imageSmoothingEnabled=true;
+    cctx.drawImage(surface,left+insetX,top+insetY,sw,sh,0,0,cw,ch);
+    const out=lib.createCanvas(cw+pad*2,ch+pad*2),octx=out.getContext("2d");
+    octx.fillStyle="#ffffff";octx.fillRect(0,0,out.width,out.height);
+    if(radius==null)octx.drawImage(cell,pad,pad);
+    else{
+      const pixels=cctx.getImageData(0,0,cw,ch),ink=localMeanDark(pixels.data,cw,ch,radius,radius);
+      const target=octx.getImageData(0,0,out.width,out.height);
+      for(let y=0;y<ch;y++)for(let x=0;x<cw;x++)if(ink[y*cw+x]){const at=((y+pad)*out.width+x+pad)*4;target.data[at]=target.data[at+1]=target.data[at+2]=0;}
+      octx.putImageData(target,0,0);
+    }
+    return out.toBuffer("image/png");
+  };
+  const cells:ReportCell[]=[];
+  /* الصفحة الثانية فما بعدها بعدد أعمدة الأولى: عناوينُها عناوينُ الأولى (كشفٌ
+     واحد)، فلا تُقرأ ثانيةً، وتُتخطّى الأعمدةُ نفسها في كل صفحة — فتتطابق
+     الصفحاتُ عموداً عموداً وإن اختلف تأطيرُ الصورتين. */
+  const reuse=template&&template.labels.length===columns.length?template:null;
+  const labels:string[]=reuse?[...reuse.labels]:[];
+  const kinds:Array<ReturnType<typeof columnKind>>=reuse?[...reuse.kinds]:[];
+  if(reuse)columns.forEach((column,index)=>{if(labels[index])cells.push({text:labels[index],x0:column.left/W,x1:column.right/W,y:(header.top+header.bottom)/2/H});});
+  await worker.setParameters({tessedit_char_whitelist:"",tessedit_pageseg_mode:"6" as any});
+  for(const column of reuse?[]:columns){
+    const readings:string[]=[];
+    for(const radius of [15,10,null]){
+      const result:any=await worker.recognize(crop(column.left,column.right,header.top,header.bottom,radius)).catch(()=>null);
+      const text=String(result?.data?.text||"").normalize("NFKC").replace(/\s+/g," ").trim();
+      if(text)readings.push(text);
+      if(columnKind(text))break;
+    }
+    const label=readings.find(text=>columnKind(text))||readings.sort((a,b)=>(b.match(/[ء-ي]/g)||[]).length-(a.match(/[ء-ي]/g)||[]).length)[0]||"";
+    kinds.push(columnKind(label));labels.push(label);
+    if(label)cells.push({text:label,x0:column.left/W,x1:column.right/W,y:(header.top+header.bottom)/2/H});
+  }
+  await worker.setParameters({tessedit_char_whitelist:"0123456789",tessedit_pageseg_mode:"7" as any});
+  /* «الذين لم يسجلوا» مدخل التخطيط، و«لم يجتازوا» والمسجّلون يفحصونه، وعدد الشعب والسعة تعرف ما لا شعب له،
+     و«المقاعد المتبقية» شاغرُ الشعب المفتوحة للإنذار المبكر. كل الأعمدة تُقرأ. */
+  const skipped=new Set<string>([]);
+  const read:Array<{column:number;band:{top:number;bottom:number};cell:ReportCell}>=[];
+  for(const [index,column] of columns.entries()){
+    if(column.right-column.left>median*1.8||skipped.has(String(kinds[index])))continue;
+    for(const band of bands){
+      /* ثلاث قراءات (عتبتان ثم الأصل): ما اتفق عليه اثنان يُؤخذ، وإلا أوثقها. */
+      const reads:Array<{text:string;confidence:number}>=[];
+      for(const radius of [10,15,null]){
+        const result:any=await worker.recognize(crop(column.left,column.right,band.top,band.bottom,radius)).catch(()=>null);
+        const text=String(result?.data?.text||"").replace(/\s+/g,""),confidence=Number(result?.data?.confidence||0);
+        if(/^\d{1,7}$/.test(text))reads.push({text,confidence});
+        if(reads.length===1&&confidence>=90)break;
+        if(reads.length>=2&&reads[0].text===reads[1].text)break;
+      }
+      const agreed=reads.find((read,i)=>reads.some((other,j)=>j!==i&&other.text===read.text));
+      const best=agreed?{text:agreed.text,confidence:Math.max(...reads.filter(read=>read.text===agreed.text).map(read=>read.confidence))}
+        :reads.sort((a,b)=>b.confidence-a.confidence)[0];
+      if(best&&best.confidence>=50){const cell={text:best.text,x0:column.left/W,x1:column.right/W,y:(band.top+band.bottom)/2/H,confidence:best.confidence};cells.push(cell);read.push({column:index,band,cell});}
+    }
+  }
+  /* رقم مقررٍ قُرئ ناقصاً («22» بدل «252» في صورة هاتف حقيقية): يضيع الصفّ كله.
+     في عمودٍ أغلب خاناته رموزٌ بطولٍ واحد (٣ أو ٧)، الخانةُ المخالفة تُعاد
+     قراءتها من خانتها نفسها في الجدول المستقيم — بقصٍّ أوسع وأنماطٍ أخرى —
+     ولا تُستبدل إلا بقراءةٍ بالطول نفسه وثقةٍ كافية. وإلا بقيت، وأبلغ الحكمُ
+     عن السطر الناقص بدل أن يُسكت عنه. */
+  /* عمود رقم المقرر وحده: أقصى اليمين، ولا عنوان رقمياً له (السعة والمسجلون
+     والمقاعد قيمٌ مشروعةٌ بأي طول — 70 أو 1336 — فلا تُعاد قراءتها بطول الرموز). */
+  const codeColumn=columns.reduce((best,column,index)=>column.right>columns[best].right?index:best,0);
+  for(const [index,column] of columns.entries()){
+    if(index!==codeColumn||kinds[index])continue;
+    const mine=read.filter(item=>item.column===index);
+    const lengths=new Map<number,number>();mine.forEach(item=>lengths.set(item.cell.text.length,(lengths.get(item.cell.text.length)||0)+1));
+    const [size,count]=[...lengths.entries()].sort((a,b)=>b[1]-a[1])[0]||[0,0];
+    if(!(size===3||size===7)||count<5||count<mine.length*.7)continue;
+    for(const item of mine.filter(entry=>entry.cell.text.length!==size)){
+      let fixed:{text:string;confidence:number}|null=null;
+      for(const psm of ["7","8","13"]){
+        await worker.setParameters({tessedit_char_whitelist:"0123456789",tessedit_pageseg_mode:psm as any});
+        for(const radius of [null,20,10]){
+          const result:any=await worker.recognize(crop(column.left-2,column.right+2,item.band.top-2,item.band.bottom+2,radius)).catch(()=>null);
+          const text=String(result?.data?.text||"").replace(/\s+/g,""),confidence=Number(result?.data?.confidence||0);
+          if(text.length===size&&/^\d+$/.test(text)&&confidence>=60){fixed={text,confidence};break;}
+        }
+        if(fixed)break;
+      }
+      if(fixed){item.cell.text=fixed.text;item.cell.confidence=fixed.confidence;}
+    }
+  }
+  await worker.setParameters({tessedit_char_whitelist:"0123456789",tessedit_pageseg_mode:"7" as any});
+  /* الترويسة فوق الجدول: القسم والفصل — من الصفحة الأولى. */
+  let headerText="";
+  if(!reuse&&header.top>H*.04){
+    await worker.setParameters({tessedit_char_whitelist:"",tessedit_pageseg_mode:"6" as any});
+    const top=lib.createCanvas(W,header.top);
+    top.getContext("2d").drawImage(surface,0,0,W,header.top,0,0,W,header.top);
+    const result:any=await worker.recognize(top.toBuffer("image/png")).catch(()=>null);
+    headerText=String(result?.data?.text||"").normalize("NFKC");
+    /* قراءةٌ ثانية رخيصة للرأس نفسه بالأرقام وحدها: العربية تتشوّه فيضيع رمز القسم (0101)، والأرقام تثبت. */
+    await worker.setParameters({tessedit_char_whitelist:"0123456789",tessedit_pageseg_mode:"6" as any});
+    const digits:any=await worker.recognize(top.toBuffer("image/png")).catch(()=>null);
+    const digitsText=String(digits?.data?.text||"").normalize("NFKC").replace(/\s+/g," ").trim();
+    if(digitsText)headerText+=`\n#digits: ${digitsText}`;
+  }
+  return{cells,headerText,template:{labels,kinds}};
+}
+
+/** خلايا كشف «المتبقي» بمواضعها: طبقة النص، وإلا القراءة الضوئية في دورها — من PDF أو صورة (هاتف). */
+/* صورةٌ من بايتاتها، والمتصفح قد يرسلها بلا نوع: JPEG، PNG، HEIC. */
+const reportImageMime=(buffer:Buffer,fallback:string)=>buffer[0]===0xff&&buffer[1]===0xd8?"image/jpeg"
+  :buffer.subarray(1,4).toString("latin1")==="PNG"?"image/png":isHeic(buffer,fallback)?"image/heic":/^image\//i.test(fallback)?fallback:"";
+/**
+ * صفحاتُ كشفٍ واحد صوراً (حتى أربع) تُقرأ في طلبٍ واحد: فتُعرف أعمدتُها معاً،
+ * ويُعاد في كل صورةٍ قراءةُ خاناتِ عمودٍ فاتت القراءةَ كلُّها فيها — وهذا لا
+ * يكون إن قُرئت كلُّ صورةٍ وحدها ثم جُمعت خلاياها.
+ */
+export async function readReportCells(input:Buffer|Buffer[],mime="application/pdf",blanks?:(pages:ReportCell[][])=>Array<{page:number;x:number;y:number}>,firstTemplate?:RuledTemplate):Promise<ReportCellsResult>{
+  if(Array.isArray(input)&&input.length>1){
+    if(input.some(part=>!reportImageMime(part,"")))throw new Error("صفحات الكشف تُرفع معاً صوراً (JPG أو PNG أو HEIC)، أو ملفَّ PDF واحداً.");
+    return readReportScan(input.map(part=>({buffer:part,mime:reportImageMime(part,"")})),false,blanks,firstTemplate);
+  }
+  input=Array.isArray(input)?input[0]:input;
+  const isPdf=input.subarray(0,4).toString("latin1")==="%PDF";
+  /* المتصفح قد يرسل الصورة بلا نوع: تُعرف من بايتاتها (JPEG، PNG، HEIC). */
+  const looksImage=/^image\//i.test(mime)||isHeic(input,mime)||(input[0]===0xff&&input[1]===0xd8)||input.subarray(1,4).toString("latin1")==="PNG";
+  if(!isPdf&&!looksImage)throw new Error("ارفع كشف المتبقي PDF كما أرسلته العمادة، أو صورةً واضحة له.");
+  if(!isPdf&&!/^image\//i.test(mime))mime=input[0]===0xff?"image/jpeg":input.subarray(1,4).toString("latin1")==="PNG"?"image/png":mime;
+  if(isPdf){
+    const text=await reportTextLayer(input);
+    if(text)return text;
+  }
+  return readReportScan([{buffer:input,mime}],isPdf,blanks,firstTemplate);
+}
+
+async function readReportScan(parts:Array<{buffer:Buffer;mime:string}>,isPdf:boolean,blanks?:(pages:ReportCell[][])=>Array<{page:number;x:number;y:number}>,firstTemplate?:RuledTemplate):Promise<ReportCellsResult>{
+  return readScanInTurn(`remaining:${await documentFingerprint(Buffer.concat(parts.map(part=>part.buffer)))}`,async()=>{
+    /* صورةُ الهاتف المرسلة عبر المحادثات صغيرة (عرضها نحو ألف بكسل): تُكبَّر إلى
+       مقاس صفحة الـPDF المقروءة، وإلا صغرت خاناتُها عن القراءة (١٥ مقرراً من
+       ٣٨ في الصورتين الأصليتين، و٣٦ بعد التكبير). */
+    const enlarge=async(image:Buffer)=>{
+      const lib=await canvas(),loaded=await lib.loadImage(image),edge=Math.max(loaded.width,loaded.height);
+      if(edge>=TARGET_LONG_EDGE*.85)return image;
+      const scale=TARGET_LONG_EDGE/edge,surface=lib.createCanvas(Math.round(loaded.width*scale),Math.round(loaded.height*scale)),ctx=surface.getContext("2d");
+      ctx.imageSmoothingEnabled=true;if("imageSmoothingQuality" in ctx)(ctx as any).imageSmoothingQuality="high";
+      ctx.drawImage(loaded,0,0,surface.width,surface.height);
+      return surface.toBuffer("image/png");
+    };
+    const images=isPdf?await renderPdf(parts[0].buffer,TARGET_LONG_EDGE)
+      :(await Promise.all(parts.map(async part=>Promise.all((await imagePages(part.buffer,part.mime,TARGET_LONG_EDGE)).map(enlarge))))).flat();
+    assertPageLimit(images.length);
+    const worker=await getHeaderWorker();
+    const pages:ReportCell[][]=[];
+    const ruledPages=new Set<number>();
+    /* صورٌ تُرفع واحدةً واحدة: عناوينُ الصورة الأولى تصل مع ما بعدها. */
+    let headerText="";let template:RuledTemplate|undefined=firstTemplate;
+    for(const [index,image] of images.entries()){
+      const grid=await ruledReportCells(image,worker,template).catch(()=>null);
+      if(grid&&grid.cells.length){pages.push(grid.cells);ruledPages.add(index);if(!headerText)headerText=grid.headerText;template??=grid.template;continue;}
+      /* «11» (نصٌّ متفرّق) يقرأ خلايا جدولٍ بلا خطوط؛ «6» و«4» أسقطا الصفوف كلها في التجربة. */
+      await worker.setParameters({tessedit_char_whitelist:"",tessedit_pageseg_mode:"11" as any});
+      const result:any=await worker.recognize(image,{},{blocks:true});
+      const width=image.readUInt32BE(16)||1,height=image.readUInt32BE(20)||1;
+      const cells:ReportCell[]=[];
+      for(const block of result?.data?.blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[])for(const word of line?.words||[]){
+        const text=String(word?.text||"").normalize("NFKC").trim();
+        if(text&&word?.bbox)cells.push({text,x0:word.bbox.x0/width,x1:word.bbox.x1/width,y:(word.bbox.y0+word.bbox.y1)/2/height});
+      }
+      pages.push(cells);
+      if(!headerText)headerText=reportLinesText(cells.filter(cell=>cell.y<.3));
+    }
+    /* صفحةٌ بلا خطوط جدول: القراءة العامة تُسقط العددَ المنفرد («0»، «8») في
+       خانته، فما بقي فارغاً في صفوف المقررات تحت أعمدة الأرقام تُقرأ خانتُه
+       وحدها، مكبّرةً وبالأرقام فقط. الصفحات المسطّرة قُرئت خانةً خانة. */
+    const spots=(blanks?.(pages)||[]).filter(spot=>!ruledPages.has(spot.page)).slice(0,240);
+    if(spots.length){
+      const lib=await canvas();const loaded=new Map<number,any>();
+      for(const spot of spots){
+        const source=images[spot.page];if(!source)continue;
+        if(!loaded.has(spot.page))loaded.set(spot.page,await lib.loadImage(source));
+        const image=loaded.get(spot.page);
+        const sw=Math.round(image.width*.05),sh=Math.round(image.height*.016);
+        const sx=Math.max(0,Math.round(spot.x*image.width-sw/2)),sy=Math.max(0,Math.round(spot.y*image.height-sh/2));
+        const scale=3,pad=24;
+        const surface=lib.createCanvas(sw*scale+pad*2,sh*scale+pad*2),ctx=surface.getContext("2d");
+        ctx.fillStyle="#ffffff";ctx.fillRect(0,0,surface.width,surface.height);
+        ctx.drawImage(image,sx,sy,sw,sh,pad,pad,sw*scale,sh*scale);
+        const crop=surface.toBuffer("image/png");
+        for(const psm of ["7","10"]){
+          await worker.setParameters({tessedit_char_whitelist:"0123456789",tessedit_pageseg_mode:psm as any});
+          const result:any=await worker.recognize(crop).catch(()=>null);
+          const text=String(result?.data?.text||"").replace(/\s+/g,"");
+          if(/^\d{1,5}$/.test(text)&&Number(result?.data?.confidence||0)>=50){
+            pages[spot.page].push({text,x0:spot.x-.005,x1:spot.x+.005,y:spot.y});
+            break;
+          }
+        }
+      }
+    }
+    return{source:"scan",pages,pageCount:images.length,headerText,...(template?{template}:{})};
+  });
+}
+
+async function rotateImage(input:Buffer,quarterTurns:-1|0|1):Promise<Buffer>{
+  if(!quarterTurns)return input;
+  const lib=await canvas();
+  const image=await lib.loadImage(input);
+  const surface=lib.createCanvas(image.height,image.width),context=surface.getContext("2d");
+  context.fillStyle="#ffffff";context.fillRect(0,0,surface.width,surface.height);
+  context.translate(surface.width/2,surface.height/2);
+  context.rotate(quarterTurns*Math.PI/2);
+  context.drawImage(image,-image.width/2,-image.height/2);
+  return surface.toBuffer("image/png");
+}
+
+const darkAt=(pixels:Uint8ClampedArray,index:number)=>(pixels[index]*299+pixels[index+1]*587+pixels[index+2]*114)/1000<165;
+
+/**
+ * Straighten the scan before anything measures it.
+ *
+ * A phone-held page is never square, and a single degree of tilt drags a ruled
+ * line twelve pixels sideways over the height of a table. That is enough to
+ * hide every vertical rule from a column-by-column scan — measured on a real
+ * CamScanner page, grid detection found nothing at all until the tilt was taken
+ * out. Straightening also lifts plain text accuracy, because Tesseract segments
+ * lines on horizontal bands.
+ */
+async function deskew(input:Buffer):Promise<Buffer>{
+  const lib=await canvas();
+  const image=await lib.loadImage(input);
+  const scale=Math.min(1,620/Math.max(image.width,image.height));
+  const probe=lib.createCanvas(Math.max(1,Math.round(image.width*scale)),Math.max(1,Math.round(image.height*scale)));
+  const context=probe.getContext("2d");
+  const score=(radians:number)=>{
+    context.save();
+    context.fillStyle="#ffffff";context.fillRect(0,0,probe.width,probe.height);
+    context.translate(probe.width/2,probe.height/2);
+    context.rotate(radians);
+    context.drawImage(image,-probe.width/2,-probe.height/2,probe.width,probe.height);
+    context.restore();
+    const {data}=context.getImageData(0,0,probe.width,probe.height);
+    let total=0;
+    for(let y=0;y<probe.height;y++){
+      let run=0,best=0;
+      for(let x=0;x<probe.width;x++){
+        if(darkAt(data,(y*probe.width+x)*4)){run++;if(run>best)best=run;}else run=0;
+      }
+      if(best>probe.width*0.35)total+=best;
+    }
+    return total;
+  };
+  // Coarse sweep, then a fine one around the winner.
+  let best=-1,bestDegrees=0;
+  for(let degrees=-2.5;degrees<=2.5+1e-9;degrees+=1){
+    const value=score(degrees*Math.PI/180);
+    if(value>best){best=value;bestDegrees=degrees;}
+  }
+  for(let degrees=bestDegrees-0.75;degrees<=bestDegrees+0.75+1e-9;degrees+=0.25){
+    if(Math.abs(degrees-bestDegrees)<1e-9)continue;
+    const value=score(degrees*Math.PI/180);
+    if(value>best){best=value;bestDegrees=degrees;}
+  }
+  if(!bestDegrees)return input;
+  const surface=lib.createCanvas(image.width,image.height),painter=surface.getContext("2d");
+  painter.fillStyle="#ffffff";painter.fillRect(0,0,surface.width,surface.height);
+  painter.translate(surface.width/2,surface.height/2);
+  painter.rotate(bestDegrees*Math.PI/180);
+  painter.drawImage(image,-image.width/2,-image.height/2);
+  return surface.toBuffer("image/png");
+}
+
+/**
+ * Which way is up, decided by pixels alone.
+ *
+ * The old probe ran three full OCR passes and asked Tesseract's confidence —
+ * fifteen seconds to answer a question the ruled grid answers for free: only
+ * the upright turn shows many long VERTICAL rules with a regular row pitch.
+ * Scored on a small binarized render, all three turns cost well under a
+ * second. The OCR fallback below survives only for pages with no grid at all.
+ */
+async function pixelOrientationScore(image:Buffer):Promise<number>{
+  const lib=await canvas();
+  const img=await lib.loadImage(image);
+  const scale=Math.min(1,700/Math.max(img.width,img.height));
+  const c=lib.createCanvas(Math.max(1,Math.round(img.width*scale)),Math.max(1,Math.round(img.height*scale)));
+  const ctx=c.getContext("2d");
+  ctx.drawImage(img,0,0,c.width,c.height);
+  const {data}=ctx.getImageData(0,0,c.width,c.height);
+  const W=c.width,H=c.height;
+  const dark=(x:number,y:number)=>(data[(y*W+x)*4]*299+data[(y*W+x)*4+1]*587+data[(y*W+x)*4+2]*114)/1000<150;
+  let vertical=0;
+  for(let x=0;x<W;x+=2){let run=0,best=0;for(let y=0;y<=H;y++){
+    if(y<H&&dark(x,y))run++;else{if(run>best)best=run;run=0;}}
+    if(best>H*0.45)vertical++;}
+  const rowHits:number[]=[];
+  for(let y=0;y<H;y++){let run=0,best=0;for(let x=0;x<=W;x++){
+    if(x<W&&dark(x,y))run++;else{if(run>best)best=run;run=0;}}
+    if(best>W*0.45)rowHits.push(y);}
+  const merged:number[]=[];
+  for(const y of rowHits){if(merged.length&&y-merged[merged.length-1]<=2)merged[merged.length-1]=y;else merged.push(y);}
+  const gaps=merged.slice(1).map((v,i)=>v-merged[i]).filter(g=>g>4);
+  let regular=0;
+  if(gaps.length>=4){
+    const sorted=[...gaps].sort((a,b)=>a-b);
+    const median=sorted[Math.floor(sorted.length/2)];
+    regular=gaps.filter(g=>Math.abs(g-median)<=2).length;
+  }
+  return vertical*3+merged.length*2+regular*6;
+}
+const orientationScore=(text:string)=>{
+  const ascii=toAscii(text).replace(/[Oo]/g,"0");
+  const times=(ascii.match(/\b[0-2]\d[0-5]\d\s*[-–—]\s*[0-2]\d[0-5]\d\b/g)||[]).length;
+  const rooms=(ascii.match(/\b\d{3}[A-Za-z]\d{2}\b/g)||[]).length;
+  const arabic=(text.match(/[ء-ي]/g)||[]).length;
+  return times*40+rooms*25+arabic;
+};
+
+/**
+ * Find the printed grid, then pull the columns apart.
+ *
+ * Reading the page as flat text welded neighbouring cells together: a lecture
+ * ending at 15:30 in building 012B09 came back as the single token
+ * `1530012B09`, so neither field could ever match. The long dark runs are the
+ * ruled lines and mark the real cell boundaries.
+ *
+ * Erasing those rules was tried and reverted — the white band clipped digits
+ * that touch a line, turning `1050 - 1000` into `1050-6`. Re-drawing each strip
+ * with a gutter between them separates the columns just as decisively without
+ * altering a single pixel of the content.
+ *
+ * The grid itself is measured on a small copy. Rules survive downscaling
+ * intact, and scanning eight million pixels twice at full size cost about a
+ * minute per document for a measurement that needs none of that detail.
+ */
+async function spreadColumns(input:Buffer):Promise<{image:Buffer;columns:number[];bands:number[]}>{
+  const lib=await canvas();
+  const image=await lib.loadImage(input);
+  const probeScale=Math.min(1,1200/Math.max(image.width,image.height));
+  const probe=lib.createCanvas(Math.max(1,Math.round(image.width*probeScale)),Math.max(1,Math.round(image.height*probeScale)));
+  probe.getContext("2d").drawImage(image,0,0,probe.width,probe.height);
+  const frame=probe.getContext("2d").getImageData(0,0,probe.width,probe.height),pixels=frame.data;
+  const {width,height}=probe;
+  const minRun=Math.max(40,Math.round(height/6));
+  const columnInk=new Int32Array(width);
+  for(let x=0;x<width;x++){
+    let run=0;
+    for(let y=0;y<=height;y++){
+      const lit=y<height&&darkAt(pixels,(y*width+x)*4);
+      if(lit)run++;else{if(run>=minRun)columnInk[x]+=run;run=0;}
+    }
+  }
+  const threshold=height*0.4,found:number[]=[];
+  for(let x=0;x<width;x++){
+    if(columnInk[x]<threshold)continue;
+    if(found.length&&x-found[found.length-1]<=3)found[found.length-1]=x;
+    else found.push(x);
+  }
+
+  /* The horizontal rules are the row boundaries, and they matter as much as the
+     columns. Grouping words by the height of their glyphs split one physical
+     row in half across a wide table: the left side (instructor, days, time)
+     became one row and the right side (course number, reference, section,
+     course name) either became another or was dropped entirely — which is why
+     the course number, the most reliable key on the page, never reached the
+     parser. A ruled band holds the whole width of a row together. */
+  const rowInk=new Int32Array(height);
+  const minRowRun=Math.max(40,Math.round(width/6));
+  for(let y=0;y<height;y++){
+    let run=0;
+    for(let x=0;x<=width;x++){
+      const lit=x<width&&darkAt(pixels,(y*width+x)*4);
+      if(lit)run++;else{if(run>=minRowRun)rowInk[y]+=run;run=0;}
+    }
+  }
+  const rowThreshold=width*0.4,rowsFound:number[]=[];
+  for(let y=0;y<height;y++){
+    if(rowInk[y]<rowThreshold)continue;
+    if(rowsFound.length&&y-rowsFound[rowsFound.length-1]<=3)rowsFound[rowsFound.length-1]=y;
+    else rowsFound.push(y);
+  }
+  const bands=rowsFound.map(y=>Math.round(y/probeScale)).filter(y=>y>2&&y<image.height-2);
+
+  const edges=found.map(x=>Math.round(x/probeScale)).filter(x=>x>4&&x<image.width-4);
+  if(edges.length<4)return{image:input,columns:[],bands};
+
+  const gutter=Math.max(12,Math.round(image.width/260));
+  const bounds=[0,...edges,image.width];
+  const surface=lib.createCanvas(image.width+gutter*(bounds.length-2),image.height);
+  const context=surface.getContext("2d");
+  context.fillStyle="#ffffff";context.fillRect(0,0,surface.width,surface.height);
+  const columns:number[]=[];let cursor=0;
+  for(let index=0;index<bounds.length-1;index++){
+    const from=bounds[index],span=bounds[index+1]-from;
+    if(span<=0)continue;
+    context.drawImage(image,from,0,span,image.height,cursor,0,span,image.height);
+    cursor+=span;
+    if(index<bounds.length-2){columns.push(cursor+gutter/2);cursor+=gutter;}
+  }
+  return{image:surface.toBuffer("image/png"),columns,bands};
+}
+
+type Word={text:string;x0:number;y0:number;x1:number;y1:number};
+const wordsOf=(data:any):Word[]=>{
+  const words:Word[]=[];
+  for(const block of data?.blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[])for(const word of line?.words||[]){
+    const text=String(word?.text||"").trim();
+    if(text&&word?.bbox)words.push({text,x0:word.bbox.x0,y0:word.bbox.y0,x1:word.bbox.x1,y1:word.bbox.y1});
+  }
+  return words;
+};
+
+/**
+ * Rebuild the table from where the words physically sit.
+ *
+ * Reading the flat text lost every column boundary: a lecture ending at 08:00
+ * in building 012B07 came back as the single token `0800012BO7`, so neither
+ * the time nor the building could ever match. Grouping words by their line and
+ * then cutting on the horizontal gaps between them keeps each ruled cell apart,
+ * which is what makes times, days, rooms and section numbers recoverable.
+ */
+function tableFromWords(words:Word[],columns:number[],rowGrouping:"default"|"pdf-text"="default"):OcrRow[]{
+  const validWords=words.filter(w=>w.text&&w.text.trim().length>0);
+  if(!validWords.length)return[];
+  const heights=validWords.map(w=>Math.abs(w.y1-w.y0)).sort((a,b)=>a-b);
+  const medianHeight=Math.max(8,heights[Math.floor(heights.length/2)]||12);
+
+  // Generated PDFs expose exact baselines. Their glyph boxes can overlap the
+  // next ruled row, so the loose OCR grouping would weld every two timetable
+  // rows together. PDF text therefore groups by baseline distance only.
+  const strictPdfRows=rowGrouping==="pdf-text";
+  const sortedByY=[...validWords].sort((a,b)=>((a.y0+a.y1)/2)-((b.y0+b.y1)/2));
+  const rowTolerance=strictPdfRows?Math.max(1.5,Math.min(3.5,medianHeight*0.35)):medianHeight*0.8;
+  const lineGroups:{words:Word[];yMin:number;yMax:number;yCenter:number}[]=[];
+
+  for(const word of sortedByY){
+    const wCenter=(word.y0+word.y1)/2;
+    const wMin=Math.min(word.y0,word.y1);
+    const wMax=Math.max(word.y0,word.y1);
+
+    let bestIndex=-1;let minDist=Infinity;
+    for(let i=0;i<lineGroups.length;i++){
+      const grp=lineGroups[i];
+      const dist=Math.abs(wCenter-grp.yCenter);
+      const overlaps=(wMin<=grp.yMax+3&&wMax>=grp.yMin-3);
+      const samePhysicalRow=strictPdfRows?dist<=rowTolerance:(overlaps||dist<=rowTolerance);
+      if(samePhysicalRow&&dist<minDist){minDist=dist;bestIndex=i;}
+    }
+
+    if(bestIndex>=0&&minDist<=(strictPdfRows?rowTolerance:rowTolerance*1.5)){
+      const grp=lineGroups[bestIndex];
+      grp.words.push(word);
+      grp.yMin=Math.min(grp.yMin,wMin);
+      grp.yMax=Math.max(grp.yMax,wMax);
+      grp.yCenter=grp.words.reduce((sum,w)=>(w.y0+w.y1)/2+sum,0)/grp.words.length;
+    }else{
+      lineGroups.push({words:[word],yMin:wMin,yMax:wMax,yCenter:wCenter});
+    }
+  }
+
+  lineGroups.sort((a,b)=>a.yCenter-b.yCenter);
+
+  const columnOf=(x:number)=>{let index=0;while(index<columns.length&&columns[index]<x)index++;return index;};
+
+  const rows:OcrRow[]=[];
+  for(const line of lineGroups){
+    // Right to left: the first cell of an Arabic table is the rightmost one.
+    const sorted=[...line.words].sort((a,b)=>b.x1-a.x1);
+    const buckets=new Map<number,Word[]>();
+    for(const word of sorted){
+      const key=columns.length?columnOf((word.x0+word.x1)/2):-1;
+      const list=buckets.get(key);if(list)list.push(word);else buckets.set(key,[word]);
+    }
+    let cells:OcrCell[]=[];
+    if(columns.length){
+      cells=[...buckets.entries()].sort((a,b)=>b[0]-a[0]).map(([,list])=>({
+        text:list.sort((a,b)=>b.x1-a.x1).map(word=>word.text).join(" ").replace(/\s+/g," ").trim(),
+        x0:Math.min(...list.map(word=>word.x0)),x1:Math.max(...list.map(word=>word.x1)),
+      }));
+    }else{
+      // No printed grid: group words into cells by horizontal spacing
+      const gaps=sorted.slice(1).map((word,index)=>sorted[index].x0-word.x1).filter(gap=>gap>0).sort((a,b)=>a-b);
+      const minPosGap=gaps.length?gaps[0]:6;
+      const typical=gaps.length?gaps[Math.floor(gaps.length/2)]:medianHeight*0.4;
+      const cut=Math.max(12,minPosGap*1.6,typical*1.4);
+      let bucket:Word[]=[];
+      const flush=()=>{
+        if(!bucket.length)return;
+        cells.push({text:bucket.map(word=>word.text).join(" ").replace(/\s+/g," ").trim(),x0:Math.min(...bucket.map(w=>w.x0)),x1:Math.max(...bucket.map(w=>w.x1))});
+        bucket=[];
+      };
+      for(let index=0;index<sorted.length;index++){
+        if(index>0&&(sorted[index-1].x0-sorted[index].x1)>cut)flush();
+        bucket.push(sorted[index]);
+      }
+      flush();
+    }
+    const filtered=cells.filter(cell=>cell.text.length>0);
+    if(filtered.length)rows.push({cells:filtered,line:filtered.map(cell=>cell.text).join(" | "),y:line.yCenter});
+  }
+  return rows.sort((a,b)=>a.y-b.y).slice(0,4000);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE GRIDDED READER — the path a ruled Authority table deserves.
+
+   Reading the page as free text was the ceiling on every measurement: columns
+   welded, digits misread, the course-code column often lost outright. A ruled
+   table offers something free text never does — its own geometry — and this
+   path uses all of it:
+
+   · Otsu binarization makes the faint CamScanner rules solid. Measured on the
+     real export, the full grid then falls out: every column rule and a row
+     rule every 49px, one per printed row.
+   · Each column STRIP is cropped from the untouched greyscale at 2× and read
+     alone with the alphabet that column is allowed to use. Digits columns
+     cannot hallucinate Arabic; the days column can only say 1–5. Measured:
+     the reference column jumped to 22/27 rows and instructors went from
+     garbage to «د. عبد الرؤوف الكمالى» verbatim.
+   · Nobody guesses which column is which. Every strip is read, then columns
+     CLAIM their meaning by what validates: the column where most cells look
+     like `0920 - 0800` is the time column, wherever it sits. A re-ordered
+     export changes nothing.
+   · Numeric strips are read from BOTH the greyscale and the binarized image;
+     per cell, whichever pass yields a value the column's validator accepts
+     wins. Measured: the two passes fail on DIFFERENT rows (8/27 vs 17/27 on
+     times), so the union is what neither pass could reach alone.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export type GridRow={
+  code:string;reference:string;scode:string;courseText:string;instructorText:string;
+  days:string;start:string;end:string;building:string;hall:string;
+  /** Literal same-cell evidence kept for field-level provenance. */
+  daysRaw?:string;timeRaw?:string;sourceMode?:"pdf-text"|"ocr-grid"|"ocr-fallback";
+  /** Same proven physical cells before strict token validation. They are kept as
+   * evidence so the registry can reconstruct only an already-known official
+   * code (e.g. a dropped leading 0 in 012B09), never invent a location. */
+  buildingRaw?:string;hallRaw?:string;
+  /** صفٌّ أضافه الدمج بهويته وحدها وأُفرغت جدولته عمداً للمراجعة: لا يُحسب
+   * على الصفحة في حكم «بلا وقت ولا مبنى» — فراغه قرارٌ لا فشلُ قراءة. */
+  identityOnly?:boolean;
+  /** وسط سطر الصف رأسياً بمقياس 842، من تجميع الكلمات: به تُسند قراءةُ
+   * حزامٍ عمودي (الوقت والمبنى) إلى صفها دون مرسى نصيٍّ لكل صف. */
+  y?:number;
+};
+type GridPage={gridRows:GridRow[]};
+
+/** Otsu's threshold: the split that maximizes between-class variance. */
+function otsuBinarize(lib:any,src:any){
+  const ctx=src.getContext("2d");
+  const {data}=ctx.getImageData(0,0,src.width,src.height);
+  const hist=new Array(256).fill(0);
+  const grey=new Uint8Array(src.width*src.height);
+  for(let i=0;i<grey.length;i++){
+    const g=Math.round((data[i*4]*299+data[i*4+1]*587+data[i*4+2]*114)/1000);
+    grey[i]=g;hist[g]++;
+  }
+  let sum=0;for(let t=0;t<256;t++)sum+=t*hist[t];
+  let sumB=0,wB=0,best=0,threshold=127;
+  for(let t=0;t<256;t++){
+    wB+=hist[t];if(!wB)continue;
+    const wF=grey.length-wB;if(!wF)break;
+    sumB+=t*hist[t];
+    const mB=sumB/wB,mF=(sum-sumB)/wF,between=wB*wF*(mB-mF)*(mB-mF);
+    if(between>best){best=between;threshold=t;}
+  }
+  const out=lib.createCanvas(src.width,src.height),octx=out.getContext("2d");
+  const img=octx.createImageData(src.width,src.height);
+  for(let i=0;i<grey.length;i++){
+    const v=grey[i]<threshold?0:255;
+    img.data[i*4]=v;img.data[i*4+1]=v;img.data[i*4+2]=v;img.data[i*4+3]=255;
+  }
+  octx.putImageData(img,0,0);
+  return out;
+}
+
+/** Ink by LOCAL mean, not one page-wide threshold: a shadowed side of a
+ *  CamScanner page keeps its rules. One rule for the geometry probe and for the
+ *  full-resolution rule tracing in straightenTable. */
+function localMeanDark(data:Uint8ClampedArray,W:number,H:number,radius:number,offset:number):Uint8Array{
+  const grey=new Uint8Array(W*H);
+  const stride=W+1;
+  /* 32-bit is safe: 255 × pixels stays below 2^32 up to ~16.8M pixels (the
+     probe is 1,400px and the reading surface 2,800px on its long edge). */
+  const integral=new Uint32Array((W+1)*(H+1));
+  for(let y=0;y<H;y++){
+    let rowSum=0;
+    for(let x=0;x<W;x++){
+      const at=(y*W+x)*4;
+      const g=Math.round((data[at]*299+data[at+1]*587+data[at+2]*114)/1000);
+      grey[y*W+x]=g;rowSum+=g;
+      integral[(y+1)*stride+x+1]=integral[y*stride+x+1]+rowSum;
+    }
+  }
+  const dark=new Uint8Array(W*H);
+  for(let y=0;y<H;y++){
+    const y0=Math.max(0,y-radius),y1=Math.min(H-1,y+radius);
+    for(let x=0;x<W;x++){
+      const x0=Math.max(0,x-radius),x1=Math.min(W-1,x+radius);
+      const sum=integral[(y1+1)*stride+x1+1]-integral[y0*stride+x1+1]-integral[(y1+1)*stride+x0]+integral[y0*stride+x0];
+      const area=(x1-x0+1)*(y1-y0+1),mean=sum/area;
+      if(grey[y*W+x]<mean-offset)dark[y*W+x]=1;
+    }
+  }
+  return dark;
+}
+
+/**
+ * Detect the ruled Authority table on a SMALL adaptive-threshold probe.
+ *
+ * CamScanner pages often have a bright centre and dark/shadowed edges. A
+ * single global (Otsu) threshold can therefore erase a real row/column rule on
+ * one side of the page while keeping the same rule on the other. That was the
+ * structural root cause behind merged rows and column drift (building leaking
+ * into room, course name into instructor, etc.). Geometry is now measured with
+ * a local mean threshold; OCR still reads the untouched high-resolution image.
+ *
+ * The table header is also useful evidence: true vertical borders cross the
+ * tall header band, while body text should never be used to invent a column
+ * boundary. Horizontal rules give row identity; the tall header band followed
+ * by the regular body-row pitch tells us exactly where the data starts.
+ */
+function adaptiveGridGeometry(lib:any,src:any):{cols:number[];bands:{top:number;bottom:number}[]}|null{
+  const probeScale=Math.min(1,PROBE_LONG_EDGE/Math.max(src.width,src.height));
+  const probe=lib.createCanvas(Math.max(1,Math.round(src.width*probeScale)),Math.max(1,Math.round(src.height*probeScale)));
+  const pctx=probe.getContext("2d");
+  pctx.fillStyle="#ffffff";pctx.fillRect(0,0,probe.width,probe.height);
+  pctx.drawImage(src,0,0,probe.width,probe.height);
+  const {data}=pctx.getImageData(0,0,probe.width,probe.height);
+  const W=probe.width,H=probe.height;
+  if(W<200||H<200)return null;
+
+  const dark=localMeanDark(data,W,H,25,5);
+
+  const cluster=(points:number[],maxGap:number,score?:Int32Array)=>{
+    const groups:number[][]=[];
+    for(const point of points){
+      if(!groups.length||point-groups[groups.length-1][groups[groups.length-1].length-1]>maxGap)groups.push([point]);
+      else groups[groups.length-1].push(point);
+    }
+    return groups.map(group=>{
+      if(!score)return Math.round(group.reduce((a,b)=>a+b,0)/group.length);
+      let best=group[0];for(const point of group)if(score[point]>score[best])best=point;return best;
+    });
+  };
+
+  /* A row rule contributes only when it contains a LONG continuous run. This
+     rejects ordinary text lines even when the page is densely printed. */
+  const rowInk=new Int32Array(H),minHorizontal=Math.max(30,Math.round(W/10));
+  for(let y=0;y<H;y++){
+    let run=0,total=0;
+    for(let x=0;x<=W;x++){
+      if(x<W&&dark[y*W+x])run++;
+      else{if(run>=minHorizontal)total+=run;run=0;}
+    }
+    rowInk[y]=total;
+  }
+  const rowPoints:number[]=[];
+  for(let y=0;y<H;y++)if(rowInk[y]>=W*0.18)rowPoints.push(y);
+  const rowRules=cluster(rowPoints,5,rowInk);
+  if(rowRules.length<3)return null;
+
+  /* Estimate body-row pitch from the small gaps only. The header is roughly
+     twice as tall and page title/footer separators are much farther apart. */
+  const allGaps=rowRules.slice(1).map((value,index)=>value-rowRules[index]);
+  const pitchSamples=allGaps.filter(gap=>gap>=10&&gap<=36).sort((a,b)=>a-b);
+  if(!pitchSamples.length)return null;
+  const pitch=pitchSamples[Math.floor(pitchSamples.length/2)];
+  if(!pitch||pitch<10)return null;
+
+  /* MISSED-RULE SPLICE
+     ------------------
+     On a phone photo the lowest horizontal rules fade with the perspective and
+     can drop below the hard 18% ink threshold. The old walk simply STOPPED at
+     the first double-height gap, silently discarding every row below it — on
+     the owner's real single-page upload that cost five whole courses. A gap of
+     roughly two row pitches is therefore re-examined at a lower threshold, but
+     ONLY in its central window and ONLY when a genuinely darker horizontal
+     trace exists there: a footer/whitespace gap has no internal trace and still
+     terminates the body exactly as before. Nothing is invented — the splice
+     point is a measured weak rule, never an assumed midpoint. */
+  const weakRuleBetween=(topRule:number,bottomRule:number)=>{
+    const from=topRule+Math.round((bottomRule-topRule)*0.36),to=topRule+Math.round((bottomRule-topRule)*0.64);
+    let bestY=-1,bestInk=0;
+    for(let y=from;y<=to;y++)if(rowInk[y]>bestInk){bestInk=rowInk[y];bestY=y;}
+    return bestInk>=W*0.05?bestY:-1;
+  };
+  let best:{header:number;end:number;count:number}|null=null;
+  for(let index=0;index<allGaps.length;index++){
+    const headerGap=allGaps[index];
+    if(headerGap<pitch*1.35||headerGap>pitch*2.6)continue;
+    let cursor=index+1,count=0;
+    while(cursor<allGaps.length){
+      const gap=allGaps[cursor];
+      if(gap>=pitch*0.65&&gap<=pitch*1.5){count++;cursor++;continue;}
+      /* A blurred/thick rule near the photographed page bottom clusters as TWO
+         rules a few pixels apart. That is the same physical rule, not a row:
+         absorb it and keep walking instead of amputating the rest of the table
+         (this exact break cost five whole courses on the owner's upload). */
+      if(gap<=Math.max(6,Math.round(pitch*0.45))){cursor++;continue;}
+      if(gap>=pitch*1.7&&gap<=pitch*2.4&&weakRuleBetween(rowRules[cursor],rowRules[cursor+1])>=0){count+=2;cursor++;continue;}
+      break;
+    }
+    /* A final page may legitimately contain only ONE timetable row. Geometry
+       is still strong evidence when the header band and columns are present. */
+    if(count>=1&&(!best||count>best.count))best={header:index,end:cursor,count};
+  }
+  if(!best)return null;
+  const headerTop=rowRules[best.header],headerBottom=rowRules[best.header+1];
+  const rawWalkedBounds=rowRules.slice(best.header+1,best.end+1);
+  if(rawWalkedBounds.length<2)return null;
+  /* Collapse the double-edge clusters the walk absorbed: two bounds closer
+     than half a row pitch are one physical rule — keep the first edge. */
+  const walkedBounds:number[]=[rawWalkedBounds[0]];
+  for(let index=1;index<rawWalkedBounds.length;index++)
+    if(rawWalkedBounds[index]-walkedBounds[walkedBounds.length-1]>Math.max(6,Math.round(pitch*0.45)))walkedBounds.push(rawWalkedBounds[index]);
+  if(walkedBounds.length<2)return null;
+  /* Perspective makes the LOWEST rows of a phone photo physically shorter than
+     the top rows, so a two-row weld near the bottom can still sit inside the
+     page-wide pitch tolerance. Judge each gap against its LOCAL neighbours
+     instead: a gap nearly twice its surrounding gaps, with a measured weak rule
+     in its central window, is one missed rule — split exactly there. */
+  const walkedGaps=walkedBounds.slice(1).map((value,index)=>value-walkedBounds[index]);
+  const localPitchAt=(gapIndex:number)=>{
+    const neighbours:number[]=[];
+    for(let at=Math.max(0,gapIndex-3);at<=Math.min(walkedGaps.length-1,gapIndex+3);at++)
+      if(at!==gapIndex)neighbours.push(walkedGaps[at]);
+    if(!neighbours.length)return pitch;
+    neighbours.sort((a,b)=>a-b);
+    return neighbours[Math.floor(neighbours.length/2)];
+  };
+  const bodyBounds:number[]=[walkedBounds[0]];
+  for(let index=1;index<walkedBounds.length;index++){
+    const previous=walkedBounds[index-1],current=walkedBounds[index],gap=current-previous;
+    const local=Math.min(pitch,localPitchAt(index-1));
+    if(gap>=local*1.7&&gap<=local*2.6){
+      const weak=weakRuleBetween(previous,current);
+      if(weak>=0)bodyBounds.push(weak);
+    }
+    bodyBounds.push(current);
+  }
+
+  /* Vertical rules are measured INSIDE the tall header band. Over this short
+     distance a phone-camera slant is only a pixel or two, so real borders stay
+     continuous; measuring them over the full page was what made faint/slanted
+     borders disappear. */
+  const y0=Math.max(0,headerTop+1),y1=Math.min(H,headerBottom-1),headerHeight=Math.max(1,y1-y0);
+  const colInk=new Int32Array(W),colRun=new Int32Array(W),colPoints:number[]=[];
+  for(let x=0;x<W;x++){
+    let run=0,bestRun=0,ink=0;
+    for(let y=y0;y<=y1;y++){
+      if(y<y1&&dark[y*W+x]){run++;ink++;if(run>bestRun)bestRun=run;}
+      else run=0;
+    }
+    colInk[x]=ink;colRun[x]=bestRun;
+    if(bestRun>=headerHeight*0.55||ink>=headerHeight*0.72)colPoints.push(x);
+  }
+  const colScore=new Int32Array(W);for(let x=0;x<W;x++)colScore[x]=colRun[x]*4+colInk[x];
+  const colsProbe=cluster(colPoints,3,colScore);
+  if(colsProbe.length<7)return null;
+
+  const inv=1/probeScale;
+  const cols=colsProbe.map(x=>Math.round(x*inv)).filter((x,index,list)=>x>2&&x<src.width-2&&(index===0||x-list[index-1]>=4));
+  const bounds=bodyBounds.map(y=>Math.round(y*inv)).filter((y,index,list)=>y>2&&y<src.height-2&&(index===0||y-list[index-1]>=4));
+  const bands:{top:number;bottom:number}[]=[];
+  for(let index=0;index<bounds.length-1;index++)if(bounds[index+1]-bounds[index]>=8)bands.push({top:bounds[index],bottom:bounds[index+1]});
+  return cols.length>=7&&bands.length?{cols,bands}:null;
+}
+
+/* ── الجدول المائل يُستقام قبل أن يُقطع ──────────────────────────────────────
+   الأعمدة تُقاس في شريط الترويسة وحده والصفوف بإسقاطٍ على عرض الصفحة كله، ثم
+   تُقطع كل خلية بهما من أعلى الجدول إلى أسفله. صورةٌ فيها ميلٌ أو منظور (الورقة
+   أعرض من أسفلها) تنزاح خطوطها كلما نزلنا: في 3.pdf ص1 خط العمود عند أول صف
+   +1…+3 بكسل وعند آخر صف +10…+18 — عرضُ خانة كاملة في عمود رقم المقرر، فخرج
+   «0101150» «3010115» (خانةٌ من الحدّ في أوله وضاعت الأخيرة) والأيام «5 4 3 2 1»
+   «5432» والمبنى فارغاً؛ ومال خط الصف 11 بكسلاً عند عمود الأستاذ فأُخذ اسمٌ من
+   الصف الذي فوقه. العلاج في مكان واحد: يُتتبَّع كل خط في كل صف ويُطابَق بمنحنى
+   (مع رفض الشواذ)، وتُصحَّح الصورة حتى يعود كل خط عمود إلى موضعه في الترويسة
+   وكل خط صف مستقيماً؛ ثم يجري كل ما بعدها — الأشرطة وخلايا الإنقاذ والصورة
+   الثنائية — على الصورة المستقيمة. صفحةٌ لا انزياح فيها (أقل من 2.5 بكسل) لا
+   تُمسّ، وتتبّعٌ لا يثبت أو يشطّ يُترك معه الأصل كما هو. */
+type RuleCurve={at:(t:number)=>number;from:number;to:number};
+/** Robust quadratic v(t) through the points; points further than 3 px (or 3 MADs)
+ *  from the first fit are dropped once. Null when the evidence is thin. */
+function robustRuleCurve(points:{t:number;v:number}[],minimum:number):RuleCurve|null{
+  const solve=(list:{t:number;v:number}[])=>{
+    if(list.length<3)return null;
+    const tMin=Math.min(...list.map(p=>p.t)),tMax=Math.max(...list.map(p=>p.t)),span=Math.max(1,tMax-tMin),mid=(tMin+tMax)/2;
+    let s0=0,s1=0,s2=0,s3=0,s4=0,r0=0,r1=0,r2=0;
+    for(const point of list){const u=(point.t-mid)/span,u2=u*u;s0++;s1+=u;s2+=u2;s3+=u2*u;s4+=u2*u2;r0+=point.v;r1+=point.v*u;r2+=point.v*u2;}
+    /* A short run of samples is fitted as a line; a quadratic needs spread. */
+    const quadratic=list.length>=6;
+    const det3=(a:number[][])=>a[0][0]*(a[1][1]*a[2][2]-a[1][2]*a[2][1])-a[0][1]*(a[1][0]*a[2][2]-a[1][2]*a[2][0])+a[0][2]*(a[1][0]*a[2][1]-a[1][1]*a[2][0]);
+    let c0=0,c1=0,c2=0;
+    if(quadratic){
+      const m=[[s0,s1,s2],[s1,s2,s3],[s2,s3,s4]],d=det3(m);
+      if(Math.abs(d)<1e-9)return null;
+      c0=det3([[r0,s1,s2],[r1,s2,s3],[r2,s3,s4]])/d;
+      c1=det3([[s0,r0,s2],[s1,r1,s3],[s2,r2,s4]])/d;
+      c2=det3([[s0,s1,r0],[s1,s2,r1],[s2,s3,r2]])/d;
+    }else{
+      const d=s0*s2-s1*s1;if(Math.abs(d)<1e-9)return null;
+      c0=(r0*s2-r1*s1)/d;c1=(s0*r1-s1*r0)/d;
+    }
+    const f=(t:number)=>{const u=(t-mid)/span;return c0+c1*u+c2*u*u;};
+    return{f,tMin,tMax};
+  };
+  if(points.length<minimum)return null;
+  const first=solve(points);if(!first)return null;
+  const residuals=points.map(point=>Math.abs(point.v-first.f(point.t)));
+  const sorted=[...residuals].sort((a,b)=>a-b),mad=sorted[Math.floor(sorted.length/2)];
+  const keep=points.filter((_,index)=>residuals[index]<=Math.max(3,mad*3));
+  if(keep.length<minimum)return null;
+  const fit=solve(keep);if(!fit)return null;
+  /* Never extrapolate a curve: beyond its evidence it holds its last value. */
+  return{at:(t:number)=>fit.f(Math.max(fit.tMin,Math.min(fit.tMax,t))),from:fit.tMin,to:fit.tMax};
+}
+export const STRAIGHTEN_MIN_SHIFT=2.5,STRAIGHTEN_MIN_TYPICAL=2;
+type TableTrace={shift:number;typicalV:number;typicalH:number;pitch:number;vTargets:number[];hTargets:number[];dxRule:Float32Array[];dyRule:Float32Array[]};
+/** Trace every rule of the table band by band and fit it (robustRuleCurve).
+ *  `shift` is the largest displacement of any rule from its target. */
+function traceTable(data:Uint8ClampedArray,W:number,H:number,cols:number[],bands:{top:number;bottom:number}[]):TableTrace|null{
+  if(cols.length<4||bands.length<4)return null;
+  const dark=localMeanDark(data,W,H,50,5);
+  const heights=bands.map(band=>band.bottom-band.top).sort((a,b)=>a-b);
+  const pitch=heights[Math.floor(heights.length/2)];
+  if(pitch<10)return null;
+  const reachX=Math.max(4,Math.round(pitch*0.3)),reachY=Math.max(4,Math.round(pitch*0.4));
+  const headerBottom=bands[0].top,headerTop=Math.max(0,headerBottom-Math.round(pitch*1.8));
+  const tableLeft=cols[0],tableRight=cols[cols.length-1];
+
+  /* A column rule inside one row band: the x whose ink covers ≥70% of the band
+     height, nearest the prediction; refined to the stroke's centroid. */
+  const columnInk=(x:number,yA:number,yB:number)=>{let ink=0;for(let y=yA;y<yB;y++)if(dark[y*W+x])ink++;return ink/Math.max(1,yB-yA);};
+  const verticalAt=(center:number,yA:number,yB:number)=>{
+    let bestX=-1,best=0;
+    for(let x=Math.max(1,center-reachX);x<=Math.min(W-2,center+reachX);x++){
+      const f=columnInk(x,yA,yB);
+      if(f>best+1e-9||(Math.abs(f-best)<1e-9&&Math.abs(x-center)<Math.abs(bestX-center))){best=f;bestX=x;}
+    }
+    if(best<0.7)return -1;
+    let sum=0,weight=0;
+    for(let x=Math.max(0,bestX-2);x<=Math.min(W-1,bestX+2);x++){const f=columnInk(x,yA,yB);if(f>=best*0.8){sum+=x*f;weight+=f;}}
+    return weight?sum/weight:bestX;
+  };
+  const rowInk=(y:number,xA:number,xB:number)=>{let ink=0;for(let x=xA;x<xB;x++)if(dark[y*W+x])ink++;return ink/Math.max(1,xB-xA);};
+  const horizontalAt=(center:number,xA:number,xB:number)=>{
+    let bestY=-1,best=0;
+    for(let y=Math.max(1,center-reachY);y<=Math.min(H-2,center+reachY);y++){
+      const f=rowInk(y,xA,xB);
+      if(f>best+1e-9||(Math.abs(f-best)<1e-9&&Math.abs(y-center)<Math.abs(bestY-center))){best=f;bestY=y;}
+    }
+    if(best<0.7)return -1;
+    let sum=0,weight=0;
+    for(let y=Math.max(0,bestY-2);y<=Math.min(H-1,bestY+2);y++){const f=rowInk(y,xA,xB);if(f>=best*0.8){sum+=y*f;weight+=f;}}
+    return weight?sum/weight:bestY;
+  };
+
+  /* Vertical rules: header first, then band by band, each prediction the last
+     measured x — drift grows a pixel or two per row, never a jump. */
+  const verticalCurves:(RuleCurve|null)[]=cols.map(x0=>{
+    const points:{t:number;v:number}[]=[];
+    let prediction=x0;
+    if(headerBottom-headerTop>=12){
+      const x=verticalAt(x0,headerTop+3,headerBottom-3);
+      if(x>=0){points.push({t:(headerTop+headerBottom)/2,v:x});prediction=Math.round(x);}
+    }
+    for(const band of bands){
+      const yA=band.top+3,yB=band.bottom-3;if(yB-yA<6)continue;
+      const x=verticalAt(prediction,yA,yB);
+      if(x>=0){points.push({t:(yA+yB)/2,v:x});prediction=Math.round(x);}
+    }
+    return robustRuleCurve(points,Math.max(5,Math.round(bands.length*0.35)));
+  });
+  /* Horizontal rules: measured inside every column span, each span predicted
+     from where the rule ABOVE sat in that same span — rows are near parallel,
+     so the search starts on the rule even where the page tilts by a quarter
+     row (3.pdf p1 bottom-left: 12 px), instead of on a neighbouring text line. */
+  const ruleYs=[bands[0].top,...bands.map(band=>band.bottom)];
+  const spans=cols.slice(1).map((right,index)=>({left:cols[index],right})).filter(span=>span.right-span.left>=16);
+  const spanOffset=spans.map(()=>0);
+  const horizontalCurves:(RuleCurve|null)[]=ruleYs.map(y0=>{
+    const points:{t:number;v:number}[]=[];
+    spans.forEach((span,at)=>{
+      const y=horizontalAt(Math.round(y0+spanOffset[at]),span.left+4,span.right-4);
+      if(y>=0){points.push({t:(span.left+span.right)/2,v:y});spanOffset[at]=y-y0;}
+    });
+    return robustRuleCurve(points,Math.max(4,Math.round(spans.length*0.35)));
+  });
+  if(verticalCurves.filter(Boolean).length<3||horizontalCurves.filter(Boolean).length<3)return null;
+
+  /* Targets: a column rule returns to where the header shows it; a row rule to
+     its own height at the table's middle. A rule that could not be traced takes
+     its neighbours' displacement. */
+  const headerMid=(headerTop+headerBottom)/2,tableMid=(tableLeft+tableRight)/2;
+  const vTargets=cols.map((x,index)=>verticalCurves[index]?verticalCurves[index]!.at(headerMid):x);
+  /* Two detected rules a few pixels apart (a double border) can both follow the
+     same stroke (3.pdf p2: 213 and 213). The second is not traced: it keeps its
+     own spacing from its neighbour and takes its neighbours' displacement, so
+     the page keeps every column it had instead of being refused whole. */
+  for(let index=1;index<cols.length;index++){
+    if(!verticalCurves[index]||!verticalCurves[index-1]||vTargets[index]-vTargets[index-1]>=Math.max(2,(cols[index]-cols[index-1])*0.5))continue;
+    /* The impostor is the rule that moved further from where the header put it:
+       with a broken left stroke at 100 and the real rule at 110, both trace to
+       110 — 100 is the one that jumped, and it keeps the real rule's (zero) drift. */
+    const impostor=Math.abs(vTargets[index-1]-cols[index-1])>Math.abs(vTargets[index]-cols[index])?index-1:index;
+    const real=impostor===index?index-1:index;
+    verticalCurves[impostor]=null;
+    vTargets[impostor]=cols[impostor]+(vTargets[real]-cols[real]);
+  }
+  const hTargets=ruleYs.map((y,index)=>horizontalCurves[index]?horizontalCurves[index]!.at(tableMid):y);
+  const dxRule:Float32Array[]=cols.map(()=>new Float32Array(H));
+  const dyRule:Float32Array[]=ruleYs.map(()=>new Float32Array(W));
+  let shift=0;
+  for(let index=0;index<cols.length;index++){
+    const curve=verticalCurves[index];if(!curve)continue;
+    for(let y=0;y<H;y++)dxRule[index][y]=curve.at(y)-vTargets[index];
+    for(const band of bands){const d=Math.abs(curve.at((band.top+band.bottom)/2)-vTargets[index]);if(d>shift)shift=d;}
+  }
+  for(let index=0;index<ruleYs.length;index++){
+    const curve=horizontalCurves[index];if(!curve)continue;
+    for(let x=0;x<W;x++)dyRule[index][x]=curve.at(x)-hTargets[index];
+    for(const span of spans){const d=Math.abs(curve.at((span.left+span.right)/2)-hTargets[index]);if(d>shift)shift=d;}
+  }
+  const fillFromNeighbours=(curves:(RuleCurve|null)[],rows:Float32Array[],length:number)=>{
+    for(let index=0;index<curves.length;index++){
+      if(curves[index])continue;
+      let below=index-1;while(below>=0&&!curves[below])below--;
+      let above=index+1;while(above<curves.length&&!curves[above])above++;
+      for(let at=0;at<length;at++)rows[index][at]=below>=0&&above<curves.length?(rows[below][at]+rows[above][at])/2:below>=0?rows[below][at]:rows[above][at];
+    }
+  };
+  fillFromNeighbours(verticalCurves,dxRule,H);
+  fillFromNeighbours(horizontalCurves,dyRule,W);
+  /* The typical rule's displacement, per direction (median over the traced
+     rules of that direction): one rule whose trace flips between the two
+     strokes of a thick border cannot speak for the table, and a page whose
+     columns drift while its rows stay level (or the reverse) is still slanted —
+     the more numerous row rules must not outvote the columns. */
+  const median=(values:number[])=>{const sorted=[...values].sort((a,b)=>a-b);return sorted.length?sorted[Math.floor(sorted.length/2)]:0;};
+  const typicalV=median(verticalCurves.flatMap((curve,index)=>{if(!curve)return[];let most=0;for(const band of bands){const d=Math.abs(curve.at((band.top+band.bottom)/2)-vTargets[index]);if(d>most)most=d;}return[most];}));
+  const typicalH=median(horizontalCurves.flatMap((curve,index)=>{if(!curve)return[];let most=0;for(const span of spans){const d=Math.abs(curve.at((span.left+span.right)/2)-hTargets[index]);if(d>most)most=d;}return[most];}));
+  return{shift,typicalV,typicalH,pitch,vTargets,hTargets,dxRule,dyRule};
+}
+/**
+ * Straighten a slanted or perspective table page (see the note above). Returns
+ * the straightened surface together with the geometry it now HAS by
+ * construction — every column rule at its header x, every row rule level —
+ * so the reader keeps exactly the columns it measured and only loses the
+ * drift. Re-detecting columns on the straightened page is deliberately NOT
+ * done: rules that were slanted inside the header become visible there and
+ * change the column count (1.pdf p3: 27 → 30), and the reader's edge windows
+ * are counted in columns.
+ */
+export function straightenTable(lib:any,surface:any,geometry:{cols:number[];bands:{top:number;bottom:number}[]}):{surface:any;shift:number;geometry:{cols:number[];bands:{top:number;bottom:number}[]}}|null{
+  const W=surface.width,H=surface.height;
+  const {cols,bands}=geometry;
+  const source=surface.getContext("2d").getImageData(0,0,W,H);
+  const src=source.data;
+  const trace=traceTable(src,W,H,cols,bands);
+  if(!trace)return null;
+  const {shift,pitch,vTargets,hTargets,dxRule,dyRule}=trace;
+  /* A slanted page moves its TYPICAL rule; one noisy trace on a straight page
+     does not make it slanted (sampleB_200lowcon: worst rule 5.1 px, typical
+     0.2 px — warping it around that one rule broke its reference column). */
+  if(shift<STRAIGHTEN_MIN_SHIFT||Math.max(trace.typicalV,trace.typicalH)<STRAIGHTEN_MIN_TYPICAL)return null;
+  /* A trace that wanders by most of a row pitch is not a slanted page but a
+     wrong line followed: keep the original. */
+  if(shift>pitch*0.8)return null;
+
+  /* Interpolation weights per pixel column / row between the traced rules. */
+  const vOrder=vTargets.map((x,index)=>({x,index})).sort((a,b)=>a.x-b.x);
+  const hOrder=hTargets.map((y,index)=>({y,index})).sort((a,b)=>a.y-b.y);
+  const colLo=new Int32Array(W),colHi=new Int32Array(W),colFrac=new Float32Array(W);
+  for(let x=0,k=0;x<W;x++){
+    while(k<vOrder.length-2&&x>vOrder[k+1].x)k++;
+    const a=vOrder[k],b=vOrder[Math.min(k+1,vOrder.length-1)];
+    colLo[x]=a.index;colHi[x]=b.index;colFrac[x]=b.x>a.x?Math.max(0,Math.min(1,(x-a.x)/(b.x-a.x))):0;
+  }
+  const rowLo=new Int32Array(H),rowHi=new Int32Array(H),rowFrac=new Float32Array(H);
+  for(let y=0,k=0;y<H;y++){
+    while(k<hOrder.length-2&&y>hOrder[k+1].y)k++;
+    const a=hOrder[k],b=hOrder[Math.min(k+1,hOrder.length-1)];
+    rowLo[y]=a.index;rowHi[y]=b.index;rowFrac[y]=b.y>a.y?Math.max(0,Math.min(1,(y-a.y)/(b.y-a.y))):0;
+  }
+  /* The nearest source pixel, copied — never a blend of four. Blending
+     softened one-pixel strokes, and a «1» is a single stroke: «F12» read «F2»
+     twice on the straightened 3.pdf. Moving each cell whole instead (to keep
+     glyphs free of half-pixel seams) measured the same on 3.pdf pp1–3 — one
+     misread either way — so the simpler rule stays. */
+  const out=lib.createCanvas(W,H),octx=out.getContext("2d");
+  const target=octx.createImageData(W,H),dst=target.data;
+  for(let y=0;y<H;y++){
+    const rl=dyRule[rowLo[y]],rh=dyRule[rowHi[y]],fy=rowFrac[y];
+    for(let x=0;x<W;x++){
+      const fx=colFrac[x];
+      const dx=dxRule[colLo[x]][y]*(1-fx)+dxRule[colHi[x]][y]*fx;
+      const dy=rl[x]*(1-fy)+rh[x]*fy;
+      let sx=Math.round(x+dx),sy=Math.round(y+dy);
+      if(sx<0)sx=0;else if(sx>W-1)sx=W-1;
+      if(sy<0)sy=0;else if(sy>H-1)sy=H-1;
+      const i=(sy*W+sx)*4,o=(y*W+x)*4;
+      dst[o]=src[i];dst[o+1]=src[i+1];dst[o+2]=src[i+2];dst[o+3]=255;
+    }
+  }
+  /* The geometry the straightened page has by construction. */
+  const straightCols=vTargets.map(x=>Math.round(x));
+  const straightRules=hTargets.map(y=>Math.round(y));
+  const straightBands=bands.map((_,index)=>({top:straightRules[index],bottom:straightRules[index+1]}));
+  if(straightCols.some((x,index)=>index>0&&x<=straightCols[index-1])||straightBands.some(band=>band.bottom-band.top<8))return null;
+  /* Straightening must measurably straighten: traced again, the typical rule
+     of each direction must keep under half its drift (3.pdf p1: 8.5 → 0.3 px),
+     or the original stays. The typical rule, not the worst: a thick bottom border whose trace
+     flips between its two strokes stays «off» by 9–14 px on a table whose
+     every column rule is back within 1.5 px. */
+  const again=traceTable(dst,W,H,straightCols,straightBands);
+  if(!again||again.typicalV>Math.max(1.5,trace.typicalV*0.5)||again.typicalH>Math.max(1.5,trace.typicalH*0.5))return null;
+  octx.putImageData(target,0,0);
+  return{surface:out,shift:Math.round(shift*10)/10,geometry:{cols:straightCols,bands:straightBands}};
+}
+
+/** Long dark runs, per axis, on the binarized image. */
+function findRules(bin:any){
+  const ctx=bin.getContext("2d");
+  const {data}=ctx.getImageData(0,0,bin.width,bin.height);
+  const W=bin.width,H=bin.height;
+  const dark=(x:number,y:number)=>data[(y*W+x)*4]<128;
+  const colInk=new Int32Array(W),rowInk=new Int32Array(H);
+  for(let x=0;x<W;x++){let run=0;for(let y=0;y<=H;y++){
+    if(y<H&&dark(x,y))run++;else{if(run>=H/8)colInk[x]+=run;run=0;}}}
+  for(let y=0;y<H;y++){let run=0;for(let x=0;x<=W;x++){
+    if(x<W&&dark(x,y))run++;else{if(run>=W/8)rowInk[y]+=run;run=0;}}}
+  const peaks=(ink:Int32Array,threshold:number)=>{
+    const out:number[]=[];
+    for(let i=0;i<ink.length;i++){
+      if(ink[i]<threshold)continue;
+      if(out.length&&i-out[out.length-1]<=6)out[out.length-1]=i;
+      else out.push(i);
+    }
+    return out;
+  };
+  return{cols:peaks(colInk,H*0.35),rows:peaks(rowInk,W*0.35)};
+}
+
+const OFFICIAL_SITE_PREFIXES=[...new Set(OFFICIAL_COLLEGE_SITE_PREFIXES.map(item=>String(item.sitePrefix||"").toUpperCase()).filter(Boolean))];
+const escapeRegex=(value:string)=>value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+const officialSitePrefixPattern=OFFICIAL_SITE_PREFIXES.map(escapeRegex).sort((a,b)=>b.length-a.length).join("|");
+/* IMPORTANT: a generic six-digit number is NOT a building. Values such as
+   345045/520020 are capacity-seat columns welded by OCR and were the exact
+   regression visible in the import preview. A building candidate must carry
+   one of the owner-supplied site prefixes (012B, 011B, 0520, 0410, ...). */
+const OFFICIAL_BUILDING_PATTERN=new RegExp(`^(?:${officialSitePrefixPattern})\\d{2}$`,"i");
+
+export const authorityBuildingCellLooksPlausible=(raw:string):boolean=>{
+  const token=toAscii(String(raw||"")).toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(!token)return false;
+  if(OFFICIAL_BUILDING_PATTERN.test(token))return true;
+  /* Column claiming may tolerate the camera dropping leading zeroes from the
+     SITE PREFIX (e.g. 012B09 -> 12B09). This does not canonicalize anything;
+     the server still resolves the raw value against the finite official
+     registry before it can be imported. */
+  return OFFICIAL_SITE_PREFIXES.some(prefix=>{
+    const compactPrefix=prefix.replace(/^0+/,"");
+    return Boolean(compactPrefix)&&new RegExp(`^${escapeRegex(compactPrefix)}\\d{2}$`,"i").test(token);
+  });
+};
+
+const stripPatterns={
+  /* A building such as 012B09 can OCR as «012-809». The old shape-only
+     time regex accepted that and shifted every left-side role by one column:
+     days appeared as the instructor and time/building/room went blank. A time
+     candidate must now be a plausible teaching clock on BOTH sides. Three-digit
+     values are retained only for 7:00–9:59 where the missing leading zero is
+     unambiguous (920 => 09:20); «012» can never become a clock. */
+  time:/^(?:[7-9][0-5]\d|(?:0[7-9]|1\d|20)[0-5]\d)\s*[-–—]?\s*(?:[7-9][0-5]\d|(?:0[7-9]|1\d|20)[0-5]\d)$/,
+  code:/^\d{7}$/,
+  refcode:/^\d{11,13}$/,
+  reference:/^\d{4,8}$/,
+  /* SWRSCHA section numbering varies by report generation. Older exports use
+     501/502… while the 2026-2027 report family can use 01/02… (and sometimes
+     1 without the leading zero). The broad shape is used only after geometry
+     anchors this strip beside the reference column. General fallback claiming
+     below remains on the legacy 5xx shape so small capacity/day columns cannot
+     steal SECTION when the identity geometry itself is missing. */
+  scode:/^(?=\d{1,4}$)(?!0+$)\d+$/,
+  scodeLegacy:/^(?:50[1-9]|5[1-9]\d|[6-9]\d{2})$/,
+  building:OFFICIAL_BUILDING_PATTERN,
+  hall:/^[A-Z]\d{1,3}$/i,
+  days:/^[1-5](?:[\s,\-–—./]*[1-5])*$/,
+};
+
+/**
+ * Day cells are ordered runs, not arbitrary 1–5 digit soup. A photographed
+ * «5 3 1» can become «5 3 4» while still passing the old shape-only regex;
+ * requiring a unique monotonic run turns that plausible-but-wrong OCR into a
+ * recoverable cell instead of silently dropping the schedule days later.
+ */
+export const authorityDaysCellLooksPlausible=(raw:string):boolean=>{
+  const value=toAscii(String(raw||"")).replace(/\s+/g," ").trim();
+  if(!stripPatterns.days.test(value))return false;
+  const digits=value.replace(/[^1-5]/g,"");
+  if(!digits||new Set(digits).size!==digits.length)return false;
+  if(digits.length<=2)return true;
+  let ascending=true,descending=true;
+  for(let index=1;index<digits.length;index++){
+    const previous=Number(digits[index-1]),current=Number(digits[index]);
+    if(current<=previous)ascending=false;
+    if(current>=previous)descending=false;
+  }
+  return ascending||descending;
+};
+
+/**
+ * A seven-digit token is not automatically an Authority course key.
+ *
+ * On photographed SWRSCHA pages the SECTION + CRN columns can weld into a
+ * perfectly plausible seven-digit number such as `5011894`. Treating that as
+ * the course column is catastrophic because every row then looks structurally
+ * valid while the real course column is ignored. When the page header already
+ * proved the scientific-department key (for example `0101`), the printed course
+ * key must be exactly:
+ *
+ *   department key + three-digit course number  =>  0101 + 102 = 0101102
+ *
+ * With no proven department we retain the older shape check and fail closed
+ * later at catalogue matching; with a proven department this function is the
+ * semantic proof used to CLAIM the physical course column.
+ */
+const authorityCourseDigits=(raw:unknown):string=>academicDigits(
+  toAscii(String(raw||"")).replace(/[Oo]/g,"0")
+);
+
+export const authorityCourseCellLooksPlausible=(raw:string,departmentCode=""):boolean=>{
+  /* Course keys are digits-only by definition. Tesseract's most common right-
+     edge mistake is O↔0; normalizing that glyph here is a character correction,
+     not a catalogue guess. Canonical course identity is still resolved later
+     against the selected department catalogue and ambiguity still fails closed. */
+  const token=authorityCourseDigits(raw);
+  if(!/^\d{7}$/.test(token))return false;
+  const department=academicDigits(departmentCode);
+  if(!department)return true;
+  return token.length===department.length+3&&token.startsWith(department);
+};
+
+/* Column discovery is allowed one deliberately narrower tolerance than final
+   course identity. On dense photographed pages, whole-column OCR can drop the
+   final course digit (0101102 -> 010110) or absorb one row-edge digit
+   (0101102 -> 30101102). Requiring four perfect seven-digit hits then fails to
+   claim the physical course column, so the later cell-by-cell rescue never gets
+   a chance to read the exact key. These tolerant shapes are therefore useful
+   ONLY to locate the already department-anchored column. They can never leave
+   readGrid as course codes: every row is re-read in that same physical cell and
+   the normal strict seven-digit validator still owns canonical identity. */
+export const authorityCourseColumnLooksPlausible=(raw:string,departmentCode=""):boolean=>{
+  if(authorityCourseCellLooksPlausible(raw,departmentCode))return true;
+  const token=authorityCourseDigits(raw),department=academicDigits(departmentCode);
+  if(!department)return false;
+  /* Discovery only: dense photographed rows can either lose the final course
+     digit (0101102 -> 010110) or pick up ONE neighbour/row-edge digit
+     (0101102 -> 30101102). Both shapes are allowed solely to locate the
+     department-anchored physical column. Canonical course identity is still
+     accepted later only by authorityCourseCellLooksPlausible after PSM-7
+     same-cell rescue, so no shortened/contaminated code can escape readGrid. */
+  const discoveryShape=(value:string)=>value.startsWith(department)
+    &&(value.length===department.length+2||value.length===department.length+3);
+  const exactLength=department.length+3;
+  /* On the older phone/CamScanner PDF, the outer course-cell rule is sometimes
+     painted as TWO leading 1-like strokes (0101201 -> 110101201). This is still
+     discovery-only: accept the exact department-shaped 7-digit TAIL behind at
+     most two leading rule glyphs so the physical column can be claimed, then
+     reread the same cell before canonical identity is decided. */
+  const boundedLeadingRuleTail=token.length>exactLength&&token.length<=exactLength+2
+    ? token.slice(-exactLength)
+    : "";
+  return discoveryShape(token)||(token.length>1&&discoveryShape(token.slice(1)))
+    ||Boolean(boundedLeadingRuleTail&&authorityCourseCellLooksPlausible(boundedLeadingRuleTail,department));
+};
+
+/**
+ * Golden rescue for a photographed course-key cell.
+ *
+ * This is intentionally catalogue-constrained: OCR is allowed to be one digit
+ * short/long/wrong only when the SAME physical cell points to exactly one
+ * canonical seven-digit key that already exists in the selected department.
+ * Ambiguity returns an empty string. Nothing here creates a course identity
+ * from prose, a neighbouring row, or sequence position.
+ */
+export const recoverAuthorityCourseCell=(raw:string,departmentCode="",canonicalKeys:string[]=[]):string=>{
+  const token=authorityCourseDigits(raw),department=academicDigits(departmentCode);
+  const catalogue=[...new Set(canonicalKeys.map(academicDigits).filter(key=>/^\d{7}$/.test(key)&&(!department||key.startsWith(department))))];
+  if(authorityCourseCellLooksPlausible(token,department)&&(!catalogue.length||catalogue.includes(token)))return token;
+  if(!token||!catalogue.length)return"";
+  const distance=(a:string,b:string)=>{
+    const previous=Array.from({length:b.length+1},(_,i)=>i);
+    for(let i=1;i<=a.length;i++){let diagonal=previous[0];previous[0]=i;for(let j=1;j<=b.length;j++){const above=previous[j],cost=a[i-1]===b[j-1]?0:1;previous[j]=Math.min(previous[j]+1,previous[j-1]+1,diagonal+cost);diagonal=above;}}
+    return previous[b.length];
+  };
+  /* Prefer the photographed-grid failure modes we have actually observed
+     before allowing generic edit distance. This matters for a six-digit cell:
+     010110 is an exact dropped-final-digit prefix of 0101102, while plain
+     Levenshtein also considers 0101150 one insertion away and would make an
+     otherwise deterministic repair ambiguous. */
+  const structural=catalogue.filter(key=>{
+    if(token.length===3)return key.endsWith(token);
+    if(token.length>=3&&token.length<=6&&key.endsWith(token))return true;
+    if(token.length===key.length-1)return key.startsWith(token)||key.endsWith(token);
+    if(token.length>key.length&&token.length<=key.length+2)
+      return token.endsWith(key)||token.startsWith(key);
+    if(token.length===key.length&&token.slice(1)===key.slice(1))return true;
+    return false;
+  });
+  if(structural.length===1)return structural[0];
+  if(structural.length>1)return"";
+  const candidates=catalogue.filter(key=>{
+    if(Math.abs(token.length-key.length)>1)return false;
+    if(token.length>=6&&token.length<=8&&distance(token,key)<=1)return true;
+    return false;
+  });
+  return candidates.length===1?candidates[0]:"";
+};
+
+/* ── رقم مقرر ممسوح مكسور، واسمه المطبوع واضح ──────────────────────────────
+   انزياح قصّ خلية الرقم في المسح يضيف خانة من خط الجدول في أوله ويُسقط خانته
+   الأخيرة: «3010115» و«9010115» هي 010115x. الخانات الست الباقية تُثبت عائلة
+   المقرر (0101150…0101159) ولا تُثبت واحداً منها، فخرجت هذه الصفوف «—» في
+   ملف 3.pdf مع أن اسمها المطبوع مقروء بوضوح («تجويد القران الكريم وحفظه (1)»).
+   القاعدة: الرقم وحده يحدد العائلة، والاسم المطبوع يختار داخلها فقط — لا
+   يُنشئ الاسم هويةً خارج ما سمح به الرقم، ولا يُقبل إلا باسمٍ واحدٍ واضح الفرق
+   عن جيرانه، ويُعرض الناتج للمراجعة لا مؤكداً. */
+const COURSE_PLACE_WORDS=["فحيحيل","الفحيحيل","جهراء","الجهراء","الذكور","ذكور","البنين","بنين","البنات","بنات","الاناث","اناث"];
+/* رقم الجزء ما طُبع بين قوسين «(1)» (أو مقلوبهما «)1(» في المسح) أو لصق اسم
+   الموقع «2 جهراء»/«1جهراء» — لا أي خانة شاردة من خط الجدول. */
+const courseNameMarkers=(value:string)=>{
+  const text=toAscii(String(value||""));
+  const found=[...text.matchAll(/[()]\s*(\d)\s*[()]/g),...text.matchAll(new RegExp(`(\\d)\\s*(?:${COURSE_PLACE_WORDS.join("|")})`,"g"))].map(hit=>hit[1]);
+  return [...new Set(found)].sort().join("");
+};
+const courseNameTokens=(value:string)=>fold(String(value||"")).replace(/\d/g," ").split(" ")
+  .filter(token=>token.length>=2&&/^[ء-ي]+$/.test(token)&&!COURSE_PLACE_WORDS.some(place=>place===token||(token.length>=3&&place.startsWith(token))));
+const courseTokenAlike=(a:string,b:string)=>{
+  if(a===b)return true;
+  const shorter=Math.min(a.length,b.length),longer=Math.max(a.length,b.length),distance=editDistance(a,b);
+  if(shorter<3)return false;
+  return distance<=1||(longer>=5&&distance<=2&&1-distance/longer>=.6);
+};
+/** مدى تطابق اسم مطبوع (ممسوح) مع اسم مقرر في الكتالوج، من 0 إلى 1. رقم الجزء
+    «(1)»/«(2)» جزء من الاسم: اختلافه يُنصّف الدرجة. */
+export const authorityCourseNameScore=(printed:string,catalogueName:string,ignorePart=false):number=>{
+  const seen=courseNameTokens(printed),known=courseNameTokens(catalogueName);
+  if(!seen.length||!known.length)return 0;
+  const knownCovered=known.filter(k=>seen.some(s=>courseTokenAlike(s,k))).length/known.length;
+  const seenCovered=seen.filter(s=>known.some(k=>courseTokenAlike(s,k))).length/seen.length;
+  const joinedSeen=seen.join(""),joinedKnown=known.join("");
+  const chars=1-editDistance(joinedSeen,joinedKnown)/Math.max(joinedSeen.length,joinedKnown.length);
+  const score=Math.max((knownCovered+seenCovered)/2,chars);
+  if(ignorePart)return score;
+  const knownPart=[...new Set(toAscii(String(catalogueName||"")).match(/\d/g)||[])].sort().join("");
+  return courseNameMarkers(printed)===knownPart?score:score/2;
+};
+export const AUTHORITY_NAME_PICK_MIN=.7,AUTHORITY_NAME_PICK_MARGIN=.2,AUTHORITY_NAME_DISAGREES=.3;
+/** يختار مفتاحاً واحداً من العائلة التي تثبتها خانات الرقم المقروءة، باسمه
+    المطبوع. يعيد "" عند غياب العائلة أو التباس الاسم. */
+export const authorityCourseFromFamilyAndName=(rawCode:string,printedName:string,departmentCode:string,catalogue:{key:string;name:string}[]):string=>{
+  const token=academicDigits(rawCode),department=academicDigits(departmentCode);
+  /* خلية رقم المقرر وحدها بطولها المطبوع (7 خانات: خانة واحدة معيبة)، والعائلة
+     في طرفها لا في وسط لحامٍ مع المرجعي أو الشعبة، وداخل القسم المثبت. الخلية
+     الأطول بالمفتاح كاملاً يصلحها recoverAuthorityCourseCell؛ ما دون ذلك عيبان. */
+  if(!/^\d{4}$/.test(department)||!/^\d{7}$/.test(token)||!courseNameTokens(printedName).length)return"";
+  const edge=(piece:string)=>token.startsWith(piece)||token.endsWith(piece);
+  const family=catalogue.filter(item=>/^\d{7}$/.test(item.key)&&item.key.startsWith(department)
+    &&(edge(item.key.slice(0,6))||edge(item.key.slice(1))));
+  if(!family.length)return"";
+  const scored=family.map(item=>({key:item.key,score:authorityCourseNameScore(printedName,item.name)})).sort((a,b)=>b.score-a.score);
+  const [best,second]=scored;
+  if(best.score<AUTHORITY_NAME_PICK_MIN)return"";
+  if(second&&best.score-second.score<AUTHORITY_NAME_PICK_MARGIN)return"";
+  return best.key;
+};
+/** رقمٌ قرئ كاملاً قد يكون خانته الأخيرة هي ما أبدله الانزياح («0101155» لصفٍّ
+    مطبوع «تجويد القران الكريم وحفظه»). يُستبدل بأخيه في العائلة نفسها فقط حين
+    يطابق الاسمُ المطبوع الأخَ بوضوح ولا يشبه المقرر المقروء. */
+export const authorityCourseSiblingByName=(readKey:string,printedName:string,catalogue:{key:string;name:string}[]):string=>{
+  const own=catalogue.find(item=>item.key===readKey);
+  if(!own||!courseNameTokens(printedName).length)return"";
+  /* الرقم المقروء كاملاً لا يُنقض إلا بكلمات الاسم، لا برقم الجزء وحده: «(1)»
+     الغائبة من اسمٍ مقصوص («القران الكريم وحفظه» لصفٍّ رقمه 0101151 في 1.pdf)
+     أو خانةٌ شاردة لا تناقضه. */
+  const ownScore=authorityCourseNameScore(printedName,own.name,true);
+  if(ownScore>=.65)return"";
+  const siblings=catalogue.filter(item=>item.key!==readKey&&item.key.slice(0,6)===readKey.slice(0,6))
+    .map(item=>({key:item.key,score:authorityCourseNameScore(printedName,item.name)})).sort((a,b)=>b.score-a.score);
+  const [best,second]=siblings;
+  if(!best||best.score<AUTHORITY_NAME_PICK_MIN||best.score-ownScore<.35)return"";
+  if(second&&best.score-second.score<AUTHORITY_NAME_PICK_MARGIN)return"";
+  return best.key;
+};
+
+/** Combined CRN/reference + full course key in one OCR span. The only part
+ * that carries academic identity is the seven-digit TAIL, which must satisfy
+ * the same department proof as a standalone course cell. */
+export const authorityReferenceCourseCellLooksPlausible=(raw:string,departmentCode=""):boolean=>{
+  const token=authorityCourseDigits(raw);
+  if(!/^\d{11,13}$/.test(token))return false;
+  return authorityCourseCellLooksPlausible(token.slice(-7),departmentCode);
+};
+
+/* Claim the TIME column without going back to the old unsafe shape-only regex.
+   Phone scans often append one grid-rule digit to a clock (1000 -> 10040) or
+   drop the leading zero (0920 -> 920). A candidate still has to contain TWO
+   independently plausible teaching clocks and a 30–240 minute interval. A
+   building such as 012B09 can therefore never claim the time role. */
+export const authorityTimeCellLooksPlausible=(raw:string):boolean=>{
+  const text=toAscii(String(raw||"")).toUpperCase().replace(/[Oo]/g,"0");
+  const parts=(text.match(/\d{3,5}/g)||[]);
+  if(parts.length<2)return false;
+  const clocks=(piece:string)=>{
+    const variants=new Set<string>();
+    if(piece.length===4)variants.add(piece);
+    if(piece.length===3){variants.add(piece.padStart(4,"0"));variants.add(piece.padEnd(4,"0"));}
+    if(piece.length===5){variants.add(piece.slice(0,4));variants.add(piece.slice(-4));}
+    return [...variants].filter(value=>{const h=Number(value.slice(0,2)),m=Number(value.slice(2));return h>=7&&h<21&&m>=0&&m<60;});
+  };
+  const left=clocks(parts[0]),right=clocks(parts[1]);
+  for(const a of left)for(const b of right){
+    const am=Number(a.slice(0,2))*60+Number(a.slice(2)),bm=Number(b.slice(0,2))*60+Number(b.slice(2));
+    const diff=Math.abs(am-bm);if(diff>=30&&diff<=240)return true;
+  }
+  return false;
+};
+
+/**
+ * Read the ruled table cell by cell. Returns null when the page carries no
+ * usable grid, so the caller can fall back to the flat-text path.
+ */
+/* ── قراءة المسح بالكلمات لا بالخطوط ─────────────────────────────────────────
+   جدول الجهة الممسوح ليس فيه خطوط أعمدة أصلاً: خطوط الصفوف أفقية وحدها،
+   فكاشف الأعمدة كان يخترع «حدوداً» من جذوع حروف الترويسة الرمادية (41 بدل
+   22) فتتبعثر الخلايا. الكلمات نفسها تحمل مواضعها: تُقرأ بمواضعها، ويُفكّ
+   الملتصق منها بأشكاله المعروفة، ثم تمرّ في قارئ طبقة النص نفسه الذي يقرأ
+   تصدير الجهة الأصلي صحيحاً 100٪. لا نِسَب ثابتة ولا خطوط مخترعة. */
+let wordLaneWorkerPromise:Promise<PooledWorker>|null=null;
+async function getWordLaneWorker(){
+  if(!wordLaneWorkerPromise)wordLaneWorkerPromise=retryOnFailure((async()=>{
+    const worker=await newOcrWorker("ara+eng");
+    await worker.setParameters({tessedit_pageseg_mode:"11" as any,preserve_interword_spaces:"1",tessedit_char_whitelist:""});
+    return worker;
+  })(),()=>{wordLaneWorkerPromise=null;});
+  return wordLaneWorkerPromise;
+}
+export function authorityOcrWordsToWords(raw:Array<{text:string;x0:number;y0:number;x1:number;y1:number}>,imageWidth:number,pageWidth=842):Word[]{
+  const scale=pageWidth/Math.max(1,imageWidth);const out:Word[]=[];
+  for(const word of raw){
+    /* Tesseract يلفّ الكلمة العربية بعلامات اتجاه خفية (U+200F … U+200E)؛
+       «‏محاضر‎» بها لا تُعرف كلمة نشاط، فتضيع الأيام المجاورة لها. */
+    let text=String(word?.text||"").normalize("NFKC").replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,"").trim();if(!text)continue;
+    /* ملتصقات الوقت والمبنى تحمل أثر خط الجدول («-1230011B16/»، «1400011B18)»):
+       تُنزع علامات الأطراف وحدها، وتبقى الشرطة الأولى قطعةً مستقلة. */
+    const leadDash=/^[-–—]\d{4}\d{3}[A-Za-z0-9]\d{2}/.test(toAscii(text));
+    const stripped=toAscii(text).replace(/^[-–—,()/\\|[\]]+|[,()/\\|.[\]]+$/g,"");
+    if(/^\d{4}(?:[-–—]\d{4})?\d{3}[A-Za-z0-9]\d{2}(?:[FGTS]\d{2})?$/.test(stripped))text=stripped;
+    /* أثر الخط الرأسي يُقرأ قوساً أو خطاً داخل الرمز نفسه، لا على طرفيه فقط
+       («[1350-1230042B09[F11]»، «0920-0800012807/F31]» في صفحة 1 من مسح 2026):
+       تُمحى رموز الخردة أينما وقعت، ويُقبل الناتج إن صار شكلَ لحامٍ معروفاً —
+       وقت أو وقتين ومبنى وقاعة. غير ذلك تبقى الكلمة كما وصلت. */
+    else{
+      const scrubbed=toAscii(text).replace(/[[\]|/\\(){}«»]/g,"").replace(/^[-–—,.]+|[,.]+$/g,"");
+      if(scrubbed!==toAscii(text)&&/^\d{4}(?:[-–—]\d{4})?\d{3}[A-Za-z0-9]\d{2}(?:[FGTS]\d{2})?$/.test(scrubbed))text=scrubbed;
+      /* «[189510101102»: خردة الطرف على لحام المرجعي ورقم المقرر (أو الشعبة
+         معهما) — الأرقام الخالصة بعد المحو تُقبل بأشكال اللحام الكاملة وحدها. */
+      else if(scrubbed!==toAscii(text)&&/^(?:\d{3})?\d{4,6}0\d{6}$/.test(scrubbed))text=scrubbed;
+    }
+    /* «[1150-»: ساعة بشرطتها التصق بها أثر الخط. تبقى الساعة وتبقى الشرطة. */
+    if((/^[[(|]?([0-2]\d[0-5]\d)[-–—][\])|]?$/).test(toAscii(text)))text=toAscii(text).replace(/[^\d-]/g,"");
+    /* «FO7»: حرف الطابق ثم O في موضع الصفر هو «F07» — في المسح وحده. */
+    if(/^[FGTS]O\d{1,2}$/i.test(toAscii(text)))text=toAscii(text).toUpperCase().replace(/^([FGTS])O/,"$10");
+    let ascii=toAscii(text);
+    let m:RegExpMatchArray|null;const pieces:string[]=[];
+    if(leadDash&&text===stripped)pieces.push("-");
+    /* جدول 012 مسطّر بأعمدة رأسية: الشعبة والمرجعي ورقم المقرر تلتصق بأثر
+       الخط («503/18947/0101102»، «503(19707.0101150»، «[18945|0101102»). تُنزع
+       الفواصل ثم يُقبل التقسيم بأشكاله الكاملة وحدها: شعبة 3 + مرجعي 5 + مقرر
+       7، أو مرجعي 4–6 + مقرر 7. */
+    const packed=toAscii(text).replace(/^[\[(|]+|[\])|.,]+$/g,"");
+    if(/^\d[\d/(.|\[\]]*\d$/.test(packed)&&/[/(.|\[\]]/.test(packed)){
+      const digits=packed.replace(/[^\d]/g,"");
+      if(/^\d{3}\d{5}0\d{6}$/.test(digits)||/^\d{4,6}0\d{6}$/.test(digits)){text=digits;ascii=digits;}
+    }
+    if((m=toAscii(text).match(/^(\d{3})(\d{5})(0\d{6})$/))){
+      pieces.push(m[1],m[2],m[3]);
+      const unit=(word.x1-word.x0)/15;let x=word.x0;
+      for(const piece of pieces){const x1=x+unit*piece.length;out.push({text:piece,x0:x*scale,x1:x1*scale,y0:word.y0*scale,y1:word.y1*scale});x=x1;}
+      continue;
+    }
+    /* لحام الشعبة والمرجعي ورقم المقرر في ذيل كلمةٍ صدرُها خردةُ خطٍّ وحبر
+       («%…|503/189470101102»): يُقبل الذيل وحده بأشكاله الكاملة، ويبقى الصدر
+       كلمةً مستقلة في موضعه لا يُخترع منه شيء. */
+    if((m=toAscii(text).replace(/[[\]|/\\(){}.]/g,"").match(/^(.*?)(\d{3})(\d{5})(0\d{6})$/))&&m[1]&&!/\d$/.test(m[1])){
+      const tail=m[2]+m[3]+m[4];
+      const unit=(word.x1-word.x0)/Math.max(1,(m[1].length+15));
+      let x=word.x0+unit*m[1].length;
+      out.push({text:m[1],x0:word.x0*scale,x1:x*scale,y0:word.y0*scale,y1:word.y1*scale});
+      for(const piece of [m[2],m[3],m[4]]){const x1=x+unit*piece.length;out.push({text:piece,x0:x*scale,x1:x1*scale,y0:word.y0*scale,y1:word.y1*scale});x=x1;}
+      void tail;continue;
+    }
+    if((m=ascii.match(/^(\d{4})[-–—](\d{4})(\d{3}[A-Za-z0-9]\d{2})([FGTS]\d{2})$/)))pieces.push(m[1],"-",m[2],m[3],m[4]); // clock - clock + building + hall
+    else if((m=ascii.match(/^(\d{4})[-–—](\d{4})(\d{3}[A-Za-z0-9]\d{2})$/)))pieces.push(m[1],"-",m[2],m[3]);   // clock - clock + building
+    else if((m=ascii.match(/^(\d{4,6})(0\d{6})$/)))pieces.push(m[1],m[2]);                 // CRN + course key
+    else if((m=ascii.match(/^([0-2]\d[0-5]\d)(\d{3}[A-Za-z]\d{2})$/)))pieces.push(m[1],m[2]); // clock + building
+    else if((m=ascii.match(/^(\d{3}[A-Za-z]\d{2})([0-2]\d[0-5]\d)$/)))pieces.push(m[1],m[2]);
+    else if((m=ascii.match(/^([0-2]\d[0-5]\d)(0\d{5})$/)))pieces.push(m[1],m[2]);      // clock + building (letter read as digit)
+    else if((m=ascii.match(/^(0\d{5})([0-2]\d[0-5]\d)$/)))pieces.push(m[1],m[2]);      // building (letter read as digit) + clock
+    /* قراءة الحزام أرقاماً فقط تلحم عموداً أو عمودين قبل الهوية («5505189490101102»):
+       الذيل الثابت — شعبة 3 ثم مرجعي 5 ثم مقرر يبدأ بصفر — يُفكّ، ويبقى الصدر
+       كلمته في موضعه. أقصر من 16 رقماً يلتبس بالمقاعد فلا يُمسّ. */
+    else if(ascii.length>=16&&ascii.length<=22&&(m=ascii.match(/^(\d+?)(\d{3})(\d{5})(0\d{6})$/)))pieces.push(m[1],m[2],m[3],m[4]);
+    else pieces.push(text);
+    const unit=(word.x1-word.x0)/Math.max(1,pieces.join("").length);let x=word.x0;
+    for(const piece of pieces){const x1=x+unit*piece.length;out.push({text:piece,x0:x*scale,x1:x1*scale,y0:word.y0*scale,y1:word.y1*scale});x=x1;}
+  }
+  return out;
+}
+/** صفوف غير واضحة: إن بلغت ربع الصفحة (3 فأكثر) فالمسح لم يُقرأ،
+ *  لا صفٌّ ناقص هنا وهناك. يُعاد عددها ليُذكر في الرسالة، وإلا صفر. */
+/** صف غير واضح: بلا رقم مقرر كامل، أو بلا أيام ولا وقت (هوية فقط). */
+export function unclearRowCount(rows:GridRow[]):number{
+  return rows.filter(row=>!/^\d{7}$/.test(String(row.code||""))||(!String(row.days||"").trim()&&!row.start)).length;
+}
+export function unreadableIdentityRows(rows:GridRow[]):number{
+  const broken=unclearRowCount(rows);
+  return broken>=3&&broken>=rows.length*.25?broken:0;
+}
+/* ── حكم الصفحة الممسوحة: متى يكون النقص تنبيهاً، ومتى يوقف الملف ─────────────
+ *
+ * سطرٌ مطبوع لم يخرج له صف لا يظهر في المعاينة أصلاً، فلا شيء يمنع نشر الجدول
+ * ناقصاً. كان كل نقصٍ قد صار تنبيهاً (#115)، فمرّت صفحةٌ طُبع فيها 28 سطراً ولم
+ * يُقرأ منها إلا 4، ولم يذكر تنبيهها إلا «3 صفوف غير واضحة».
+ *
+ * نقصٌ حتى سطرين، أو حتى 15٪ من أسطر الصفحة، يبقى تنبيهاً على الصفحة: آخر صفحة
+ * في الملف قد تُطبع فيها ثلاثة أسطر يُقرأ منها واحد، ورفضُ الملف كله لأجلها هو
+ * ما جعل الملفات لا تُقرأ قبل #115. ما زاد على ذلك يعني أن المسح لم يُقرأ: تُعلَّم
+ * الصفحة مشبوهة ويتوقف الملف برسالة تسمّي العددين. أما الصف المقروء بخانة غير
+ * واضحة فيبقى في المعاينة فارغ الخانة يمنع نشر صفّه وحده، فيبقى تنبيهاً. وإن
+ * اجتمع التنبيهان قيلا معاً، لا يُخفي أحدهما الآخر.
+ *
+ * وصفوفٌ أكثرها بلا وقت ولا مبنى صفحةٌ لم يُقرأ نصفها المجدول: الجدول يطبع
+ * لكل شعبة وقتاً ومبنى، والقراءة التي تأتي بأرقام المقررات وحدها لا تُنشر إلا
+ * بإعادة كتابة الصفحة يدوياً، وقد تحمل يوماً ناقصاً لا يلفت النظر (قيس على
+ * الصفحة 2 من جدول 2026: 28 صفاً بلا وقت ولا مبنى، وفي أحدها «3 1» والمطبوع
+ * «5 3 1»). فأكثر من نصف الصفوف (وأكثر من صفّين) بلا وقت ولا مبنى يوقف الملف. */
+export type ScanPageVerdict={suspicious:boolean;reason?:string;warning?:string;missedLines?:number};
+export function scanPageVerdict({rows,filled,printed,broken,unscheduled=0}:{rows:number;filled:number;printed:number;broken:number;unscheduled?:number}):ScanPageVerdict{
+  const thin=rows>=3&&filled<Math.ceil(rows*0.55);
+  const missed=Math.max(0,printed-rows);
+  const severeMiss=missed>Math.max(2,Math.ceil(printed*0.15));
+  const blindSchedule=unscheduled>Math.max(2,rows/2);
+  const lines=`طُبع فيها ${countOf(printed,AR.line)}`;
+  const reason=severeMiss
+    ?`${lines} ${rows?`ولم يُقرأ منها إلا ${countOf(rows,AR.row)}`:"ولم يُقرأ منها أي صف"}`
+    :blindSchedule?`${countOf(unscheduled,AR.row)} من ${rows.toLocaleString("ar-KW-u-nu-latn")} بلا وقت ولا مبنى، والجدول يطبعهما لكل شعبة`
+    :thin?"عدد الصفوف المقروءة أقل بكثير من حدود الجدول المرئية":undefined;
+  const notes=[
+    broken>0?`${countOf(broken,AR.row)} بلا رقم مقرر واضح أو بلا أيام ووقت، وخاناتها غير الواضحة فارغة للمراجعة`:"",
+    missed>0&&!severeMiss?`${lines} ${rows?`وقُرئ منها ${countOf(rows,AR.row)}`:"ولم يُقرأ منها أي صف"} — راجع الصفحة، وأضف الناقص في الجدول بعد الاستيراد`:"",
+  ].filter(Boolean);
+  return{suspicious:thin||severeMiss||blindSchedule,reason,warning:notes.length?notes.join("؛ "):undefined,
+    missedLines:missed>0&&!severeMiss?missed:undefined};
+}
+/** A page the deep pass still leaves with no row keeps its first verdict unless
+ *  judged again: its enhanced read may have counted more printed lines («2
+ *  printed, 0 read» that is really 5). The first, smaller count would accept
+ *  the page with a note — and ask the reviewer about 2 missing lines instead of
+ *  refusing a page that lost all 5. Only a page not already refused is judged
+ *  again, and only upward: a count never shrinks. */
+export function rejudgeEmptyPage(diagnostic:OcrPageDiagnostic,printedRows:number):OcrPageDiagnostic{
+  if(diagnostic.suspicious||!diagnostic.gridDetected||printedRows<=Number(diagnostic.visualRows||0))return diagnostic;
+  const{reason:_reason,warning:_warning,missedLines:_missed,...rest}=diagnostic;
+  return{...rest,visualRows:printedRows,...scanPageVerdict({rows:0,filled:0,printed:printedRows,broken:0,unscheduled:0})};
+}
+/** Rows the reader gave neither a time nor a building: their schedule side was not read. */
+export const unscheduledRowCount=(rows:GridRow[])=>rows.filter(row=>!row.identityOnly&&!row.start&&!(row.building||row.buildingRaw)).length;
+/** The one sentence that stops a scanned file: it names each page that could
+ *  not be read and why, says nothing was imported, and says what reads fully.
+ *  Pages that were never given their deep pass (an earlier page had already
+ *  stopped the file) are not named: only confirmed pages are. */
+export function scanRefusalMessage(pages:OcrPageDiagnostic[]):string{
+  const suspicious=pages.filter(page=>page.suspicious);
+  const confirmed=suspicious.filter(page=>!page.unverified);
+  const named=(confirmed.length?confirmed:suspicious).map(page=>`الصفحة ${page.page}: ${page.reason||"لم تثبت هندسة الجدول"}`).join(" · ");
+  return `أوقفت الاستيراد لأن جزءاً من الجدول لم يُقرأ. ${named}. لم يُستورد أي صف. ارفع مسحاً أوضح (300 نقطة، أبيض وأسود)، أو اطلب ملف جدول بيانات أو PDF مُصدَّراً من النظام، فهو يُقرأ كاملاً في ثوانٍ.`;
+}
+/* ── خانة أيامٍ لا تطبعها الجهة لا تدخل الجدول ───────────────────────────────
+ *
+ * الجهة تطبع أيام المحاضرة تسلسلاً مرتّباً من أرقام 1–5 بلا تكرار («5 3 1»،
+ * «4 2»، «5 4 3 2 1»). وقارئ الشبكة كان يقيس الخلية بهذا الفاحص ليختار بين
+ * قراءتيها، ثم يرجع إلى النص الخام حين يرفضهما معاً — فدخلت «3 2 4» (والمطبوع
+ * «4 2») أياماً ثلاثة خاطئة في نسخة نظيفة بدقة 200 نقطة، ومثلها «1 53» و«2 4 3»
+ * في مسح 2026. هذه قراءة خاطئة لا قيمة: تُفرَّغ للمراجعة، ويبقى نصها الخام في
+ * daysRaw دليلاً يراه المراجع، ويبقى للخادم أن يستعيدها من تطابق تاريخي فريد.
+ * القراءة الناقصة المرتّبة («3» بدل «4 2») يلتقطها الخادم بمطابقة الأيام مع
+ * مدة المحاضرة وساعات المقرر. الملفات النصية لا تمرّ من هنا.
+ *
+ * إلا خانةً قُرئت كلماتُها معكوسة الترتيب: رقمٌ لاتيني داخل صفحة عربية قد تخرج
+ * كلماته من اليمين إلى اليسار، فتصير «5 3 1» «31 5» أو «1 53» (قيس في ثلاث نسخ
+ * نظيفة من العيّنة B وفي مسح 2026). عكسُ ترتيب الكلمات وحده — لا رقم يُزاد ولا
+ * يُحذف — يعيدها تسلسلاً صحيحاً، فتُقبل. و«3 2 4» تبقى خاطئة معكوسةً أيضاً. */
+export function clearImplausibleScanDays(rows:GridRow[]){
+  for(const row of rows){
+    const days=String(row.days||"").trim();
+    if(!days||authorityDaysCellLooksPlausible(days))continue;
+    row.daysRaw=row.daysRaw||days;
+    const mirrored=toAscii(days.split(/\s+/).filter(Boolean).reverse().join(" "));
+    row.days=authorityDaysCellLooksPlausible(mirrored)?mirrored.replace(/[^1-5]/g,"").split("").join(" "):"";
+  }
+}
+/** The reason an empty day cell gives the reviewer. A cell the scanner did
+ *  read — and this reader or the server's hours check then emptied — says what
+ *  it read, isolated left-to-right as it stands on the sheet, so the reviewer
+ *  sets the days from the paper knowing why the cell is blank. */
+export function unresolvedDaysReason(raw:unknown):string{
+  const seen=String(raw||"").trim();
+  return/^[\d\s]+$/.test(seen)?`لم تثبت أيام المحاضرة؛ قُرئت الخلية «\u2066${seen}\u2069»`:"لم تثبت أيام المحاضرة";
+}
+/** The reason a day cell filled from a unique historical match gives. The cell
+ *  was empty only when nothing was read; a reading this reader or the server's
+ *  hours check refused is named, so the tooltip never claims no value changed. */
+export function restoredDaysReason(raw:unknown):string{
+  const seen=String(raw||"").trim();
+  return/^[\d\s]+$/.test(seen)
+    ?`قُرئت خلية الأيام «\u2066${seen}\u2069» ولم تُقبل؛ استعيدت الأيام من تطابق تاريخي فريد`
+    :"خلية الأيام كانت فارغة؛ استعيدت من تطابق تاريخي فريد دون تغيير أي قيمة OCR موجودة";
+}
+/** «الصفحة 2» / «الصفحتان 1 و3» / «الصفحات 1، 3، 4» — the pages a notice names. */
+function unreadPagesNotice(pages:number[]):string|undefined{
+  if(!pages.length)return undefined;
+  const sorted=[...pages].sort((a,b)=>a-b);
+  const named=sorted.length===1?`الصفحة ${sorted[0]} غير واضحة`
+    :sorted.length===2?`الصفحتان ${sorted[0]} و${sorted[1]} غير واضحتين`
+    :`الصفحات ${sorted.join("، ")} غير واضحة`;
+  return `${named} — تُفحص بدقة الآن، وإن بقي نقصها يتوقف الاستيراد ولا يُستورد أي صف.`;
+}
+/** Contrast-stretch a scanned page and erase long table rules (runs of dark
+ *  pixels far longer than any glyph) so digits touching a rule separate. */
+async function enhanceScanForOcr(source:Buffer):Promise<Buffer>{
+  const lib=await canvas();
+  const image=await lib.loadImage(source);
+  const W=image.width,H=image.height;
+  const surface=lib.createCanvas(W,H);const context=surface.getContext("2d");
+  context.drawImage(image,0,0);
+  const data=context.getImageData(0,0,W,H);const px=data.data;
+  const lum=new Uint8Array(W*H);
+  for(let i=0;i<W*H;i++)lum[i]=(px[i*4]*.299+px[i*4+1]*.587+px[i*4+2]*.114)|0;
+  const hist=new Array(256).fill(0);for(let i=0;i<lum.length;i++)hist[lum[i]]++;
+  let lo=0,hi=255,acc=0;
+  for(let v=0;v<256;v++){acc+=hist[v];if(acc>W*H*.02){lo=v;break;}}
+  acc=0;for(let v=255;v>=0;v--){acc+=hist[v];if(acc>W*H*.02){hi=v;break;}}
+  for(let i=0;i<lum.length;i++)lum[i]=Math.max(0,Math.min(255,((lum[i]-lo)*255/Math.max(1,hi-lo))|0));
+  const dark=140,vertical=Math.round(H*.02),horizontal=Math.round(W*.06);
+  const erase=new Uint8Array(W*H);
+  for(let x=0;x<W;x++){let y=0;while(y<H){if(lum[y*W+x]<dark){const s=y;while(y<H&&lum[y*W+x]<dark)y++;if(y-s>=vertical)for(let k=s;k<y;k++)erase[k*W+x]=1;}else y++;}}
+  for(let y=0;y<H;y++){let x=0;while(x<W){if(lum[y*W+x]<dark){const s=x;while(x<W&&lum[y*W+x]<dark)x++;if(x-s>=horizontal)for(let k=s;k<x;k++)erase[y*W+k]=1;}else x++;}}
+  for(let i=0;i<W*H;i++){const v=erase[i]?255:lum[i];px[i*4]=px[i*4+1]=px[i*4+2]=v;px[i*4+3]=255;}
+  context.putImageData(data,0,0);
+  return surface.toBuffer("image/png");
+}
+/* ── إعادة قراءة حزام الهوية (الشعبة، المرجعي، رقم المقرر) ─────────────────
+   قارئ الصفحة الكاملة (ara+eng، PSM 11) يهشّم أعمدة الأرقام اليمنى المتلاصقة:
+   من «0101102» لا يبقى إلا «2»، فيخرج طريقُ الكلمات بخمس هويات من 28 ويخسر
+   المفاضلة. الحزام نفسه يُقصّ ويُقرأ أرقاماً فقط (eng، PSM 6) — القراءة التي
+   أثبتت في القياس كلَّ أكواد الصفحة — ثم تحلّ كلماتُه محلّ كلمات الحزام
+   الرقمية وحدها؛ الكلمات العربية وكل ما هو خارج الحزام يبقيان كما قُرئا. */
+let identityBandWorkerPromise:Promise<PooledWorker>|null=null;
+async function getIdentityBandWorker(){
+  if(!identityBandWorkerPromise)identityBandWorkerPromise=retryOnFailure((async()=>{
+    const worker=await newOcrWorker("eng");
+    await worker.setParameters({tessedit_pageseg_mode:"6" as any,preserve_interword_spaces:"1",tessedit_char_whitelist:"0123456789 "});
+    return worker;
+  })(),()=>{identityBandWorkerPromise=null;});
+  return identityBandWorkerPromise;
+}
+const IDENTITY_BAND_FROM=0.775;
+async function rereadIdentityBand(source:Buffer,imageWidth:number,prepared:Word[]):Promise<{prepared:Word[];identityLines:Array<{y:number;code:string;reference:string;scode:string}>}>{
+  const lib=await canvas(),image=await lib.loadImage(source);
+  const bx0=Math.round(image.width*IDENTITY_BAND_FROM);
+  const bw=image.width-bx0;if(bw<40)return{prepared,identityLines:[]};
+  const upscale=image.width<2600?2:1;
+  const crop=lib.createCanvas(bw*upscale,image.height*upscale),ctx=crop.getContext("2d");
+  ctx.fillStyle="#ffffff";ctx.fillRect(0,0,crop.width,crop.height);
+  ctx.imageSmoothingEnabled=true;if("imageSmoothingQuality" in ctx)(ctx as any).imageSmoothingQuality="high";
+  ctx.drawImage(image,bx0,0,bw,image.height,0,0,crop.width,crop.height);
+  const worker=await getIdentityBandWorker();
+  const result:any=await worker.recognize(crop.toBuffer("image/png"),{},{blocks:true});
+  const read:Array<{text:string;x0:number;y0:number;x1:number;y1:number}>=[];
+  for(const block of result?.data?.blocks||[])for(const paragraph of block.paragraphs||[])for(const line of paragraph.lines||[])for(const word of line.words||[])
+    read.push({text:word.text,x0:bx0+word.bbox.x0/upscale,y0:word.bbox.y0/upscale,x1:bx0+word.bbox.x1/upscale,y1:word.bbox.y1/upscale});
+  const band=authorityOcrWordsToWords(read.filter(word=>/\d{2,}/.test(toAscii(String(word.text||"")))),imageWidth);
+  if(!band.length)return{prepared,identityLines:[]};
+  /* الحدّ بمقياس 842 الذي تُقارن به الكلمات المجهزة. */
+  const from=842*IDENTITY_BAND_FROM;
+  const kept=prepared.filter(word=>{
+    const center=(word.x0+word.x1)/2;
+    return center<from||!/\d/.test(toAscii(String(word.text||"")));
+  });
+  /* سطر هوية: كود مقرر (يبدأ بصفر) ومرجعي، وشعبة إن قُرئت — بيسار الكود.
+     به يُبنى صفٌّ لصفٍّ لم يخرج من تجميع الصفحة (بندان التصقا فضاعا معاً). */
+  const heights=band.map(word=>Math.abs(word.y1-word.y0)).sort((a,b)=>a-b);
+  const lineTolerance=Math.max(2,(heights[Math.floor(heights.length/2)]||8)*.6);
+  const grouped:Array<{y:number;words:Word[]}>=[];
+  for(const word of [...band].sort((a,b)=>(a.y0+a.y1)-(b.y0+b.y1))){
+    const y=(word.y0+word.y1)/2;
+    const slot=grouped.find(candidate=>Math.abs(candidate.y-y)<=lineTolerance);
+    if(slot){slot.words.push(word);slot.y=(slot.y+y)/2;}else grouped.push({y,words:[word]});
+  }
+  const identityLines:Array<{y:number;code:string;reference:string;scode:string}>=[];
+  for(const slot of grouped){
+    const tokens=slot.words.sort((a,b)=>a.x0-b.x0).map(word=>toAscii(word.text).trim());
+    const code=tokens.find(token=>/^0\d{6}$/.test(token))||"";
+    if(!code)continue;
+    const referenceAt=tokens.findIndex(token=>/^\d{4,8}$/.test(token)&&token!==code);
+    if(referenceAt<0)continue;
+    const reference=tokens[referenceAt];
+    /* الشعبة هي الرمز الملاصق للمرجعي من يساره وحده — رقمٌ آخر في السطر
+       (مقاعد، تسلسل) ليس شعبة؛ والشعبة هوية مصدرية لا تُخمَّن ولا تُولَّد. */
+    const left=referenceAt>0?tokens[referenceAt-1]:"";
+    const scode=/^\d{1,3}$/.test(left)?left:"";
+    identityLines.push({y:slot.y,code,reference,scode});
+  }
+  return{prepared:[...kept,...band],identityLines};
+}
+
+/* ── قراءة حزام الجدولة (الوقت، المبنى، القاعة) عموداً واحداً ────────────────
+   القصُّ الفردي لكل صفٍّ يحتاج مرسى مرجعيٍّ فريداً وكلمةَ نشاطٍ سليمة، وكلاهما
+   يغيب في المسح الرديء فتخرج صفحةٌ أوقاتها مطبوعة واضحة بلا وقتٍ واحد (صفحتا
+   1 و2 من مسح 2026). الممرّ نفسه عمودٌ ثابت: يُقصّ مرةً واحدة بكامل ارتفاع
+   الصفحة، يُقرأ بمحرّك أسطر، وتُسند أزواج الساعات إلى الصفوف بوسطها الرأسي.
+   لا يُمسّ صفٌّ قرأ وقته من الصفحة، ويبقى القصّ الفردي مكمّلاً لمن بقي. */
+let scheduleBandWorkerPromise:Promise<PooledWorker>|null=null;
+async function getScheduleBandWorker(){
+  if(!scheduleBandWorkerPromise)scheduleBandWorkerPromise=retryOnFailure((async()=>{
+    const worker=await newOcrWorker("eng");
+    await worker.setParameters({tessedit_pageseg_mode:"6" as any,preserve_interword_spaces:"1",tessedit_char_whitelist:"0123456789- ABCDEFGHJKLMNPQRSTUVWXYZ"});
+    return worker;
+  })(),()=>{scheduleBandWorkerPromise=null;});
+  return scheduleBandWorkerPromise;
+}
+const SCHEDULE_BAND_FROM=0.19,SCHEDULE_BAND_TO=0.46;
+async function rereadScheduleBand(source:Buffer,imageWidth:number,rows:GridRow[]){
+  const pending=rows.filter(row=>!row.start&&Number.isFinite(row.y));
+  if(!pending.length)return;
+  const lib=await canvas(),image=await lib.loadImage(source);
+  const bx0=Math.round(image.width*SCHEDULE_BAND_FROM),bx1=Math.round(image.width*SCHEDULE_BAND_TO);
+  const bw=bx1-bx0;if(bw<40)return;
+  const upscale=image.width<2600?2:1;
+  const crop=lib.createCanvas(bw*upscale,image.height*upscale),ctx=crop.getContext("2d");
+  ctx.fillStyle="#ffffff";ctx.fillRect(0,0,crop.width,crop.height);
+  ctx.imageSmoothingEnabled=true;if("imageSmoothingQuality" in ctx)(ctx as any).imageSmoothingQuality="high";
+  ctx.drawImage(image,bx0,0,bw,image.height,0,0,crop.width,crop.height);
+  const worker=await getScheduleBandWorker();
+  const result:any=await worker.recognize(crop.toBuffer("image/png"),{},{blocks:true});
+  const scale=842/Math.max(1,imageWidth);
+  type BandLine={y:number;text:string};
+  const lines:BandLine[]=[];
+  for(const block of result?.data?.blocks||[])for(const paragraph of block.paragraphs||[])for(const line of paragraph.lines||[]){
+    const wordsOfLine=(line.words||[]).map((word:any)=>({text:String(word.text||""),x0:word.bbox.x0}));
+    if(!wordsOfLine.length)continue;
+    const y=((line.bbox.y0+line.bbox.y1)/2)/upscale*scale;
+    wordsOfLine.sort((a:any,b:any)=>a.x0-b.x0);
+    lines.push({y,text:toAscii(wordsOfLine.map((word:any)=>word.text).join(" "))});
+  }
+  if(!lines.length)return;
+  const heights=pending.map(row=>row.y!).sort((a,b)=>a-b);
+  const gaps=heights.slice(1).map((y,i)=>y-heights[i]).filter(gap=>gap>2).sort((a,b)=>a-b);
+  const tolerance=Math.max(4,(gaps[Math.floor(gaps.length/2)]||14)*.45);
+  for(const row of pending){
+    const near=lines.filter(line=>Math.abs(line.y-row.y!)<=tolerance).sort((a,b)=>Math.abs(a.y-row.y!)-Math.abs(b.y-row.y!));
+    for(const line of near){
+      const m=line.text.match(/([0-2]\d[0-5]\d)\s*-\s*([0-2]\d[0-5]\d)\s*(\d{3}[A-Z0-9]\d{2})?\s*([FGTS]\d{2})?/);
+      if(!m)continue;
+      const read=authorityTimeStripRead(`${m[1]} - ${m[2]}${m[3]||""} ${m[4]||""}`);
+      if(!read)continue;
+      row.start=read.start;row.end=read.end;row.timeRaw=row.timeRaw||read.timeRaw;
+      if(m[3]&&!row.building&&!row.buildingRaw)row.buildingRaw=m[3];
+      if(m[4]&&!row.hall&&!row.hallRaw)row.hallRaw=m[4];
+      break;
+    }
+  }
+}
+
+/* ── الشعبة على الصفحة تتبع نمطاً واحداً ────────────────────────────────────
+   الجهة ترقّم شعب الصفحة بنمط واحد (501، 502… أو 01، 02…). قراءةٌ تخرج عن نمط
+   الصفحة («021»، «1501»، «91») هي لحامُ رقمٍ مجاور بالشعبة لا شعبة، والشعبة
+   هوية مصدرية: تُفرَّغ للمراجعة ولا تدخل الجدول قيمةً خاطئة (بلاغ 2026-09-26:
+   «الشعب من 501 وبالترتيب» خرجت مبتورة). النمط = طول الرمز وخانة مئاته حين
+   يشترك فيه معظم الصفوف المقروءة؛ صفحة بلا نمط غالب تبقى كما قُرئت. */
+export function harmonizePageSections(rows:GridRow[]){
+  const codes=rows.map(row=>normalizeAuthoritySectionCode(row.scode)).filter(Boolean);
+  if(codes.length<4)return;
+  const shape=(code:string)=>code.length===3?`3:${code[0]}`:code.length===2?"2":`${code.length}`;
+  const tally=new Map<string,number>();
+  for(const code of codes)tally.set(shape(code),(tally.get(shape(code))||0)+1);
+  const [dominant,count]=[...tally.entries()].sort((a,b)=>b[1]-a[1])[0];
+  if(count<codes.length*.6)return;
+  for(const row of rows){
+    const code=normalizeAuthoritySectionCode(row.scode);
+    if(code&&shape(code)!==dominant)row.scode="";
+  }
+}
+
+async function readWordLane(upright:Buffer):Promise<{rows:GridRow[];bodyEvidence:number;tableNumbers:number;printedRows:number}>{
+  const worker=await getWordLaneWorker();
+  /* الأرقام الصغيرة في مسح منخفض الدقة تلتصق وتتشوّه؛ تُكبَّر الصفحة إلى
+     عرض 3300 تقريباً (300 نقطة لصفحة أفقية) قبل القراءة. */
+  const source=upright;
+  const result:any=await worker.recognize(source,{},{blocks:true});
+  const words:any[]=[];
+  for(const block of result?.data?.blocks||[])for(const paragraph of block.paragraphs||[])for(const line of paragraph.lines||[])for(const word of line.words||[])
+    words.push({text:word.text,x0:word.bbox.x0,y0:word.bbox.y0,x1:word.bbox.x1,y1:word.bbox.y1});
+  const width=source.length>24&&source.subarray(1,4).toString("latin1")==="PNG"?source.readUInt32BE(16):Math.max(1,...words.map(word=>word.x1));
+  let prepared=authorityOcrWordsToWords(words,width);
+  let identityLines:Array<{y:number;code:string;reference:string;scode:string}>=[];
+  try{const band=await rereadIdentityBand(source,width,prepared);prepared=band.prepared;identityLines=band.identityLines;}catch{/* the page-pass identity words stand */}
+  const rows=authorityPdfTextGridRows(prepared,842,"semantic").map(row=>({...row,sourceMode:"ocr-grid" as const}));
+  /* سطر هوية من الحزام لا صفَّ له من تجميع الصفحة يُنشئ صفَّه بهويته وموضعه
+     الرأسي؛ حزام الجدولة أدناه يملأ وقته ومبناه بالموضع نفسه، وتبقى خاناته
+     الأخرى فارغة للمراجعة. لا سطرَ مطبوعاً يضيع لأن بندَي تجميعٍ التصقا. */
+  {
+    const taken=rows.filter(row=>Number.isFinite(row.y)).map(row=>row.y!);
+    const gaps=[...taken].sort((a,b)=>a-b).slice(1).map((y,i,arr)=>y-[...taken].sort((a,b)=>a-b)[i]).filter(gap=>gap>2).sort((a,b)=>a-b);
+    const rowTolerance=Math.max(4,(gaps[Math.floor(gaps.length/2)]||14)*.45);
+    for(const line of identityLines){
+      const near=rows.some(row=>Number.isFinite(row.y)&&Math.abs(row.y!-line.y)<=rowTolerance);
+      const seen=rows.some(row=>row.reference===line.reference||(row.code===line.code&&row.scode&&row.scode===normalizeAuthoritySectionCode(line.scode)));
+      if(near||seen)continue;
+      /* الصف يُجمَّع كاملاً من كلمات سطره وحده (الأيام، النشاط، الوقت، المبنى،
+         القاعة، الأستاذ) بالمجمّع المعتمد نفسه: حين يُعطى كلمات السطر معزولةً
+         عن جاره الملاصق يُخرج صفّه الذي أضاعه تجميعُ الصفحة. صفٌّ بهوية ووقت
+         بلا أيام ولا أستاذ كان يصل المراجع فارغَ نصفه (بلاغ 2026-09-26). */
+      const lineWords=prepared.filter(word=>Math.abs((word.y0+word.y1)/2-line.y)<=rowTolerance&&!/^0\d{6}$/.test(toAscii(word.text)));
+      /* رقم المقرر يُثبَّت في عمود الكود القياسي (يمين الصفحة) ليعرفه المجمّع:
+         في هذا المسح يقع الكود دون حدّ عموده فيتجاهل المجمّعُ السطرَ كله. */
+      const heightAt=lineWords.length?Math.max(6,...lineWords.map(word=>word.y1-word.y0)):8;
+      const anchored=[...lineWords,{text:line.code,x0:842*.93,x1:842*.99,y0:line.y-heightAt/2,y1:line.y+heightAt/2}];
+      const assembled=authorityPdfTextGridRows(anchored,842,"semantic")[0];
+      if(assembled){
+        rows.push({...assembled,code:assembled.code||line.code,reference:assembled.reference||line.reference,
+          scode:assembled.scode||normalizeAuthoritySectionCode(line.scode)||"",sourceMode:"ocr-grid",y:line.y});
+      }else{
+        rows.push({code:line.code,reference:line.reference,scode:normalizeAuthoritySectionCode(line.scode)||"",courseText:"",instructorText:"",days:"",daysRaw:"",timeRaw:"",start:"",end:"",building:"",buildingRaw:"",hall:"",hallRaw:"",sourceMode:"ocr-grid",y:line.y});
+      }
+    }
+    rows.sort((a,b)=>(a.y??0)-(b.y??0));
+  }
+  harmonizePageSections(rows);
+  const bodyEvidence=prepared.filter(word=>/^0\d{6}$/.test(toAscii(word.text))).length;
+  /* أرقام الجدول (ساعات، مراجع، أكواد) — صفحة دليل الأيام لا تحمل منها شيئاً. */
+  const tableNumbers=prepared.filter(word=>/\d{4,}/.test(toAscii(word.text))).length;
+  const printedRows=authorityPrintedRowBands(prepared);
+  try{await rereadDayCells(source,width,prepared,rows);}catch{/* the lane's own day reading stands */}
+  try{await rereadScheduleBand(source,width,rows);}catch{/* the per-row time crops below still run */}
+  try{await rereadTimeCells(source,width,prepared,rows);}catch{/* the lane's own time reading stands */}
+  try{await rereadRoomCells(source,width,prepared,rows);}catch{/* the lane's own room reading stands */}
+  return{rows,bodyEvidence,tableNumbers,printedRows};
+}
+/* ── كم سطر جدول مطبوع تراه الصفحة؟ ────────────────────────────────────────
+   دليلٌ مستقل عن قارئ الصفوف: سطر يحمل رقم مقرر (7) أو رقماً مرجعياً (5) أو
+   كود مبنى، ومعه رقمٌ ثانٍ من أرقام الجدول (أحدها أو ساعة). الترويسة لا تحمل
+   شيئاً من الثلاثة الأولى فلا تُعدّ. */
+export function authorityPrintedRowBands(words:Word[]):number{
+  const kind=(word:Word)=>{
+    const t=toAscii(String(word.text||"")).toUpperCase();
+    if(/^0\d{6}$/.test(t))return "code";
+    if(/^\d{5}$/.test(t))return "ref";
+    if(/^\d{3}[A-Z0-9]\d{2}$/.test(t))return "building";
+    if(/^[0-2]\d[0-5]\d$/.test(t))return "clock";
+    return "";
+  };
+  const marked=words.map(word=>({word,kind:kind(word)})).filter(item=>item.kind);
+  if(!marked.length)return 0;
+  const heights=marked.map(item=>Math.abs(item.word.y1-item.word.y0)).sort((a,b)=>a-b);
+  const tolerance=Math.max(2,(heights[Math.floor(heights.length/2)]||8)*.6);
+  const bands:{y:number;kinds:string[]}[]=[];
+  for(const item of marked.sort((a,b)=>(a.word.y0+a.word.y1)-(b.word.y0+b.word.y1))){
+    const y=(item.word.y0+item.word.y1)/2;
+    const band=bands.find(candidate=>Math.abs(candidate.y-y)<=tolerance);
+    if(band){band.kinds.push(item.kind);band.y=(band.y+y)/2;}else bands.push({y,kinds:[item.kind]});
+  }
+  return bands.filter(band=>band.kinds.some(k=>k!=="clock")&&band.kinds.length>=2).length;
+}
+/* ── إعادة قراءة خلية الأيام وحدها ─────────────────────────────────────────
+   أرقام الأيام صغيرة ومنفصلة («4 2»)، وقراءة الصفحة كاملة تُسقطها أو تضم
+   إليها أثر التاء من «محاضرة». تُقصّ خلية الأيام لكل صف — على سطر رقمه
+   المرجعي، يسار كلمة النشاط مباشرة — وتُقرأ أرقاماً فقط. لا تُقبل القراءة
+   إلا تسلسلاً تنازلياً بلا تكرار كما تطبعه الجهة («5 3 1»، «4 2»)؛ غير ذلك
+   يبقى ما قرأه الطريق نفسه. والخادم يطابق بعدها الأيام مع ساعات المقرر. */
+let dayCellWorkerPromise:Promise<PooledWorker>|null=null;
+async function getDayCellWorker(){
+  if(!dayCellWorkerPromise)dayCellWorkerPromise=retryOnFailure((async()=>{
+    const worker=await newOcrWorker("eng");
+    await worker.setParameters({tessedit_pageseg_mode:"7" as any,tessedit_char_whitelist:"12345 "});
+    return worker;
+  })(),()=>{dayCellWorkerPromise=null;});
+  return dayCellWorkerPromise;
+}
+export function authorityPrintedDayRun(text:string):string{
+  const digits=String(text||"").trim();
+  if(!/^[1-5](?:\s*[1-5])*$/.test(digits))return "";
+  const run=digits.replace(/\s+/g,"");
+  for(let i=1;i<run.length;i++)if(Number(run[i-1])<=Number(run[i]))return "";
+  return run.split("").join(" ");
+}
+/* ── إعادة قراءة خلية القاعة وحدها ────────────────────────────────────────
+   حرف الطابق (G/F) يسقط في قراءة الصفحة: «07» لا تُعرف أهي G07 أم F07.
+   تُقصّ الخلية يمين كلمة المبنى على سطر الرقم المرجعي وتُقرأ بحروف القاعات
+   وأرقامها فقط. تُقبل بشكل القاعة الكامل (حرف ورقمان) وحده؛ وإن كان ما قرأه
+   الطريق نفسه قاعةً كاملة تخالفها لا تُرجَّح إحداهما فتُفرَّغ للمراجعة. والسجل
+   يتحقق بعدها أن القاعة موجودة في ذلك المبنى. */
+let roomCellWorkerPromise:Promise<PooledWorker>|null=null;
+async function getRoomCellWorker(){
+  if(!roomCellWorkerPromise)roomCellWorkerPromise=retryOnFailure((async()=>{
+    const worker=await newOcrWorker("eng");
+    await worker.setParameters({tessedit_pageseg_mode:"7" as any,tessedit_char_whitelist:"FGTS0123456789"});
+    return worker;
+  })(),()=>{roomCellWorkerPromise=null;});
+  return roomCellWorkerPromise;
+}
+export function authorityPrintedRoomCell(text:string):string{
+  const cell=String(text||"").replace(/\s+/g,"").toUpperCase();
+  return /^[FGTS]\d{2}$/.test(cell)?cell:"";
+}
+async function rereadRoomCells(source:Buffer,imageWidth:number,words:Word[],rows:GridRow[]){
+  if(!rows.length)return;
+  const lib=await canvas();
+  const image=await lib.loadImage(source);
+  const worker=await getRoomCellWorker();
+  const scale=842/Math.max(1,imageWidth);
+  for(const row of rows){
+    const anchors=words.filter(word=>toAscii(word.text)===row.reference);
+    if(!row.reference||anchors.length!==1)continue;
+    const anchor=anchors[0];
+    const yc=(anchor.y0+anchor.y1)/2,h=Math.max(1,anchor.y1-anchor.y0);
+    const building=words.filter(word=>Math.abs((word.y0+word.y1)/2-yc)<h*.8&&/^\d{3}[A-Z0-9]\d{2}$/.test(toAscii(word.text).toUpperCase())).sort((a,b)=>a.x0-b.x0)[0];
+    /* موضع المبنى من قصّ الشريط تقديريٌّ بحرف: يبدأ القصّ قبله بقليل، وشكل
+       القاعة الصارم (حرف ورقمان) يرفض أي بقية من كود المبنى. */
+    const buildingRight=building?building.x1+1:(stripBuildingRight.has(row)?stripBuildingRight.get(row)!-3:undefined);
+    if(buildingRight===undefined)continue;
+    const x0=buildingRight/scale,x1=(buildingRight+842*.04)/scale;
+    const y0=Math.max(0,(yc-h*.55)/scale),y1=(yc+h*.55)/scale;
+    if(!(x1>x0&&y1>y0))continue;
+    const crop=lib.createCanvas(Math.round((x1-x0)*2),Math.round((y1-y0)*2));
+    const context=crop.getContext("2d");
+    context.fillStyle="#fff";context.fillRect(0,0,crop.width,crop.height);
+    context.drawImage(image,x0,y0,x1-x0,y1-y0,0,0,crop.width,crop.height);
+    const result:any=await worker.recognize(crop.toBuffer("image/png"));
+    const room=authorityPrintedRoomCell(String(result?.data?.text||""));
+    if(!room)continue;
+    /* قاعة رقمية كاملة (124) شكلٌ آخر للقاعات في فروع أخرى: لا يغيّرها القص. */
+    if(/^[1-9]\d{2}$/.test(toAscii(String(row.hallRaw||row.hall||"")).replace(/\s+/g,"")))continue;
+    const lane=authorityPrintedRoomCell(toAscii(String(row.hallRaw||row.hall||"")).toUpperCase().replace(/(?<=[FGTS])O/g,"0"));
+    const value=!lane||lane===room?room:"";
+    row.hall=value;row.hallRaw=value;
+  }
+}
+/* ── إعادة قراءة شريط الوقت والمبنى ───────────────────────────────────────
+   الساعة الأولى وكود المبنى يسقطان أحياناً من قراءة الصفحة كاملة. لصفٍّ بلا
+   وقت فقط: يُقصّ الشريط يمين كلمة النشاط على سطر رقمه المرجعي، ويُقرأ أرقاماً
+   وحروف مواقع. يُقبل الوقت زوجاً مكتملاً بشرطته يجتاز فحص المدة في timePair،
+   والمبنى يُملأ فقط إن كانت خليته فارغة، خاماً يحكم عليه السجل. */
+let timeCellWorkerPromise:Promise<PooledWorker>|null=null;
+async function getTimeCellWorker(){
+  if(!timeCellWorkerPromise)timeCellWorkerPromise=retryOnFailure((async()=>{
+    const worker=await newOcrWorker("eng");
+    await worker.setParameters({tessedit_pageseg_mode:"7" as any,tessedit_char_whitelist:"0123456789-ABFGJTS "});
+    return worker;
+  })(),()=>{timeCellWorkerPromise=null;});
+  return timeCellWorkerPromise;
+}
+export function authorityTimeStripRead(text:string):{start:string;end:string;timeRaw:string;buildingRaw:string}|null{
+  const strip=String(text||"").toUpperCase();
+  const m=strip.match(/^\s*(\d{4})\s*-\s*(\d{4})\s*(\d{3}[A-Z0-9]\d{2})?(?![0-9])/);
+  if(!m)return null;
+  const timeRaw=`${m[1]} - ${m[2]}`;
+  const pair=timePair(timeRaw);
+  if(!pair)return null;
+  return{start:pair.start,end:pair.end,timeRaw,buildingRaw:m[3]||""};
+}
+async function rereadTimeCells(source:Buffer,imageWidth:number,words:Word[],rows:GridRow[]){
+  const pending=rows.filter(row=>!row.start&&row.reference);
+  if(!pending.length)return;
+  const lib=await canvas();
+  const image=await lib.loadImage(source);
+  const worker=await getTimeCellWorker();
+  const scale=842/Math.max(1,imageWidth);
+  const activity=/^(م[حخج]اضر|مختبر|تمارين|كلينيكي|عملي|نظري|ورش|تدريب)/;
+  /* صفٌّ ضاعت كلمة نشاطه في المسح يستعير عمودَ النشاط من وسط كلمات النشاط
+     المقروءة في الصفحة نفسها: العمود رأسي ثابت وإن غابت كلمته في سطر. */
+  const pageActivityWords=words.filter(word=>activity.test(String(word.text||"").normalize("NFKC")));
+  const median=(list:number[])=>list.length?list.sort((a,b)=>a-b)[Math.floor(list.length/2)]:undefined;
+  const medianActX0=median(pageActivityWords.map(word=>word.x0)),medianActX1=median(pageActivityWords.map(word=>word.x1));
+  for(const row of pending){
+    const anchors=words.filter(word=>toAscii(word.text)===row.reference);
+    if(anchors.length!==1)continue;
+    const anchor=anchors[0];
+    const yc=(anchor.y0+anchor.y1)/2,h=Math.max(1,anchor.y1-anchor.y0);
+    const act=words.filter(word=>Math.abs((word.y0+word.y1)/2-yc)<h*.8&&activity.test(String(word.text||"").normalize("NFKC"))).sort((a,b)=>a.x0-b.x0)[0]
+      ||(medianActX1!==undefined?{x0:medianActX0!,x1:medianActX1} as Word:undefined);
+    if(!act)continue;
+    const x0=(act.x1+1)/scale,x1=(act.x1+842*.135)/scale;
+    const y0=Math.max(0,(yc-h*.55)/scale),y1=(yc+h*.55)/scale;
+    if(!(x1>x0&&y1>y0))continue;
+    const crop=lib.createCanvas(Math.round((x1-x0)*2),Math.round((y1-y0)*2));
+    const context=crop.getContext("2d");
+    context.fillStyle="#fff";context.fillRect(0,0,crop.width,crop.height);
+    context.drawImage(image,x0,y0,x1-x0,y1-y0,0,0,crop.width,crop.height);
+    const result:any=await worker.recognize(crop.toBuffer("image/png"),{},{blocks:true});
+    const read=authorityTimeStripRead(String(result?.data?.text||""));
+    if(!read)continue;
+    row.start=read.start;row.end=read.end;row.timeRaw=read.timeRaw;
+    if(read.buildingRaw&&!row.building&&!/^\d{3}[A-Z0-9]\d{2}$/.test(toAscii(String(row.buildingRaw||"")).toUpperCase())){
+      row.buildingRaw=read.buildingRaw;
+      /* موضع المبنى من القصّ نفسه: مرساة قصّ القاعة لصفٍّ لم تجد قراءةُ الصفحة
+         كلمةَ مبناه. */
+      const stripWords:any[]=[];
+      for(const block of result?.data?.blocks||[])for(const paragraph of block.paragraphs||[])for(const line of paragraph.lines||[])for(const item of line.words||[])stripWords.push(item);
+      const last=stripWords.filter(item=>String(item.text||"").toUpperCase().includes(read.buildingRaw)).sort((a,b)=>b.bbox.x1-a.bbox.x1)[0];
+      if(last)stripBuildingRight.set(row,x0*scale+(last.bbox.x1/2)*scale);
+    }
+  }
+}
+/* A row whose building the page lane missed but the time strip read: its
+   building's right edge (page units), the room crop's anchor. */
+const stripBuildingRight=new WeakMap<GridRow,number>();
+async function rereadDayCells(source:Buffer,imageWidth:number,words:Word[],rows:GridRow[]){
+  if(!rows.length)return;
+  const lib=await canvas();
+  const image=await lib.loadImage(source);
+  const worker=await getDayCellWorker();
+  const scale=842/Math.max(1,imageWidth);
+  const activity=/^(م[حخج]اضر|مختبر|تمارين|كلينيكي|عملي|نظري|ورش|تدريب)/;
+  /* صفٌّ ضاعت كلمة نشاطه في المسح يستعير عمودَ النشاط من وسط كلمات النشاط
+     المقروءة في الصفحة نفسها: العمود رأسي ثابت وإن غابت كلمته في سطر. */
+  const pageActivityWords=words.filter(word=>activity.test(String(word.text||"").normalize("NFKC")));
+  const median=(list:number[])=>list.length?list.sort((a,b)=>a-b)[Math.floor(list.length/2)]:undefined;
+  const medianActX0=median(pageActivityWords.map(word=>word.x0)),medianActX1=median(pageActivityWords.map(word=>word.x1));
+  for(const row of rows){
+    const anchors=words.filter(word=>toAscii(word.text)===row.reference);
+    if(!row.reference||anchors.length!==1)continue;
+    const anchor=anchors[0];
+    const yc=(anchor.y0+anchor.y1)/2,h=Math.max(1,anchor.y1-anchor.y0);
+    const act=words.filter(word=>Math.abs((word.y0+word.y1)/2-yc)<h*.8&&activity.test(String(word.text||"").normalize("NFKC"))).sort((a,b)=>a.x0-b.x0)[0]
+      ||(medianActX0!==undefined?{x0:medianActX0,x1:medianActX1!} as Word:undefined);
+    if(!act)continue;
+    const x0=Math.max(0,(act.x0-842*.075)/scale),x1=(act.x0-1)/scale;
+    const y0=Math.max(0,(yc-h*.55)/scale),y1=(yc+h*.55)/scale;
+    if(!(x1>x0&&y1>y0))continue;
+    const crop=lib.createCanvas(Math.round((x1-x0)*2),Math.round((y1-y0)*2));
+    const context=crop.getContext("2d");
+    context.fillStyle="#fff";context.fillRect(0,0,crop.width,crop.height);
+    context.drawImage(image,x0,y0,x1-x0,y1-y0,0,0,crop.width,crop.height);
+    const result:any=await worker.recognize(crop.toBuffer("image/png"));
+    const run=authorityPrintedDayRun(String(result?.data?.text||""));
+    if(!run)continue;
+    /* قراءتان لخلية واحدة: فارغة ⇒ تُملأ بالقصّ؛ متطابقتان ⇒ تبقى؛ مختلفتان
+       ⇒ لا تُرجَّح إحداهما (نفس عدد الأيام يمرّ من فحص الساعات) فتُفرَّغ
+       للمراجعة. */
+    const lane=String(row.days||"").replace(/[^1-5]/g,"").split("").sort().join("");
+    const cropped=run.replace(/[^1-5]/g,"").split("").sort().join("");
+    const value=!lane||lane===cropped?run:"";
+    row.days=value;row.daysRaw=value;
+  }
+}
+/** Rows whose identity is proven: a full course code and a reference number.
+ *  ومع قسمٍ معروفٍ من ترويسة الصفحة، «مرجعيٌّ» يبدأ برمز القسم نفسه
+ *  («0101»، «010115») ليس مرجعياً بل صدرُ رقم مقررٍ التقطه انزياحُ أعمدةٍ في
+ *  قارئ الشبكة — فلا يُحسب هويةً يغلب بعددها قراءةً صادقة. رقمُ المقرر نفسه
+ *  لا يُشترط ببادئة القسم: مقررات الخدمة تأتي من كليات أخرى («2462504»). */
+const identityRows=(rows:GridRow[]|null|undefined,departmentPrefix="")=>(rows||[]).filter(row=>/^\d{7}$/.test(String(row.code||""))&&/^\d{4,8}$/.test(String(row.reference||""))&&(!departmentPrefix||!String(row.reference).startsWith(departmentPrefix))).length;
+const soundScanRows=(rows:GridRow[]|null|undefined)=>(rows||[]).filter(row=>/^\d{7}$/.test(row.code)&&/^\d{4,8}$/.test(row.reference)&&Boolean(row.start)&&Boolean(row.building||row.buildingRaw)).length;
+/** القراءة الفائزة بالهوية لا تُفقد ما قرأته الأخرى من الجدولة: الخانة
+ *  الفارغة وحدها تُملأ من صف القراءة الأخرى نفسه (بالمرجعي، أو بالمقرر
+ *  والشعبة)، ولا تُمسّ قيمة قرأها الأساس. الصفحة 1 من جدول 2026: طريق
+ *  الكلمات أثبت 28 هوية بلا وقت ولا مبنى، والشبكة قرأت الأوقات — فكان
+ *  الاستبدال الكامل يوقف الملف «بلا وقت ولا مبنى» بعدما كان يُقرأ. */
+/* ── السطر المطبوع الواحد صفٌّ واحد ───────────────────────────────────────────
+   طريقا القراءة يقرآن الصفحة نفسها، وكان الصف من أحدهما يُطابَق بصفّه في
+   الآخر بالهوية وحدها (المرجعي، أو المقرر والشعبة). فإذا أخطأ أحدهما المرجعي
+   أو غابت عنه الشعبة صار السطر المطبوع الواحد صفّين: واحداً بجدولته من طريق
+   الكلمات، وآخرَ بهويته من طريق الخطوط وجدولتُه فارغة (1.pdf ص1، 2026-09-27:
+   «0101102 — 89541» و«0101102 510 1895» على ارتفاع واحد). وكلا الطريقين يحمل
+   الآن موضع صفّه على الورقة بمقياس 842، فالسطر الواحد يُعرف بموضعه: يُقرن كل
+   صفٍّ بأقرب صفٍّ في الطريق الآخر على السطر نفسه (أقل من ثلث المسافة بين
+   سطرين)، مرةً واحدة لكلٍّ منهما. */
+export function pairRowsByLine(base:GridRow[],donor:GridRow[],shape:{referenceLength?:number;sectionLength?:number}={}):Map<number,GridRow>{
+  const pairs=new Map<number,GridRow>();
+  const ys=base.map(row=>row.y).filter((y):y is number=>Number.isFinite(y)).sort((a,b)=>a-b);
+  const gaps=ys.slice(1).map((y,i)=>y-ys[i]).filter(gap=>gap>2).sort((a,b)=>a-b);
+  const pitch=gaps[Math.floor(gaps.length/2)]||12;
+  const tolerance=Math.max(2,pitch*0.3);
+  /* The two readings measure height on two images (the word lane reads the page
+     as rendered, the grid the straightened one), so a slanted page can shift one
+     against the other. The shift is measured first — the median gap from each
+     base row to its nearest donor row within half a pitch — and lines are paired
+     around it. */
+  const nearestGaps:number[]=[];
+  for(const row of base){
+    if(!Number.isFinite(row.y))continue;
+    let best=Infinity,gap=0;
+    for(const other of donor){if(!Number.isFinite(other.y))continue;const d=other.y!-row.y!;if(Math.abs(d)<Math.abs(best)){best=d;gap=d;}}
+    if(Math.abs(best)<=pitch*0.5)nearestGaps.push(gap);
+  }
+  nearestGaps.sort((a,b)=>a-b);
+  const offset=nearestGaps.length?nearestGaps[Math.floor(nearestGaps.length/2)]:0;
+  /* A shift near half a line is ambiguous — each row would sit between its own
+     line and the next: pair nothing rather than pair every row one line off. */
+  if(Math.abs(offset)>pitch*0.3)return new Map();
+  /* Two readings are two lines, however close, when each read a complete,
+     different section of the page's own length (501 / 502), or course keys of
+     different families (0101102 / 0101150). References prove nothing here: the
+     word lane reads them garbled at full length («89541» for 18954). Neighbours
+     in one family (0101151 / 0101153) are a known misread of one line. */
+  const complete=(value:string,length?:number)=>Boolean(length)&&value.length===length;
+  const family=(code:string)=>/^\d{7}$/.test(code)?code.slice(0,6):"";
+  const clash=(a:GridRow,b:GridRow)=>{
+    const sa=String(a.scode||"").replace(/\D/g,""),sb=String(b.scode||"").replace(/\D/g,"");
+    const fa=family(String(a.code||"")),fb=family(String(b.code||""));
+    return(complete(sa,shape.sectionLength)&&complete(sb,shape.sectionLength)&&sa!==sb)
+      ||(Boolean(fa)&&Boolean(fb)&&fa!==fb);
+  };
+  const candidates:{at:number;donor:number;distance:number}[]=[];
+  base.forEach((row,at)=>{
+    if(!Number.isFinite(row.y))return;
+    donor.forEach((other,donorAt)=>{
+      if(!Number.isFinite(other.y))return;
+      const distance=Math.abs(row.y!+offset-other.y!);
+      if(distance<=tolerance&&!clash(row,other))candidates.push({at,donor:donorAt,distance});
+    });
+  });
+  const usedDonor=new Set<number>();
+  for(const item of candidates.sort((a,b)=>a.distance-b.distance)){
+    if(pairs.has(item.at)||usedDonor.has(item.donor))continue;
+    pairs.set(item.at,donor[item.donor]);usedDonor.add(item.donor);
+  }
+  /* Lines that do not line up for most rows are not two readings of one page
+     order — pair nothing, and the identity rules decide as before. */
+  const pairable=Math.min(base.filter(row=>Number.isFinite(row.y)).length,donor.filter(row=>Number.isFinite(row.y)).length);
+  if(pairable&&pairs.size<pairable/3)return new Map();
+  return pairs;
+}
+/** The page's own number lengths — the most common reference and section
+ *  length among the rows both lanes read. */
+export function pageNumberShape(rows:Array<{reference?:string;scode?:string}>):{referenceLength?:number;sectionLength?:number}{
+  const mode=(values:string[])=>{const counts=new Map<number,number>();for(const value of values)if(value)counts.set(value.length,(counts.get(value.length)||0)+1);let best=0,length=0;for(const [key,count] of counts)if(count>best){best=count;length=key;}return best>=3?length:undefined;};
+  return{referenceLength:mode(rows.map(row=>String(row.reference||"").replace(/\D/g,""))),sectionLength:mode(rows.map(row=>String(row.scode||"").replace(/\D/g,"")))};
+}
+/** Empty cells of one reading of a printed line take the other reading's value;
+ *  a cell already read is never overwritten — except a course key or section the
+ *  row's own reading could not prove, when the other reading proves it. */
+export function fillLineCells(target:GridRow,donor:GridRow,departmentCode="",pageShape:{referenceLength?:number;sectionLength?:number}={}){
+  if(!authorityCourseCellLooksPlausible(target.code,departmentCode)&&authorityCourseCellLooksPlausible(donor.code,departmentCode))target.code=donor.code;
+  /* رقمٌ هو صدرُ رقم الطريق الآخر الأطول («50» من «503»، «1895» من «18956»)
+     هو الرقم نفسه مبتوراً عند حافة خليته: يُكمَل. */
+  /* …بشرط أن يكون الأطول بطول أرقام الصفحة نفسها: «189561» ليس «18956»
+     مكتملاً بل مقروءاً بخانةٍ من حدّ الخلية، و«5011» ليس «501» (المراجعة المستقلة). */
+  const truncationOf=(short:string,full:string,length?:number)=>Boolean(short&&full&&length)&&full.length===length&&short.length<length&&full.startsWith(short);
+  if((!authoritySectionCodeLooksPlausible(target.scode)||truncationOf(target.scode,donor.scode,pageShape.sectionLength))&&authoritySectionCodeLooksPlausible(donor.scode)&&(!pageShape.sectionLength||donor.scode.length===pageShape.sectionLength))target.scode=donor.scode;
+  if((!String(target.reference||"").trim()||truncationOf(String(target.reference),String(donor.reference||""),pageShape.referenceLength))&&donor.reference&&(!pageShape.referenceLength||String(donor.reference).length===pageShape.referenceLength))target.reference=donor.reference;
+  if(String(target.courseText||"").trim().length<3&&donor.courseText)target.courseText=donor.courseText;
+  /* الخانة الفارغة هنا هي القيمة المُتحقَّق منها (building/hall/days/start)؛
+     النصّ الخام الذي لم يجتز التحقق شاهدٌ لا قيمة، فلا يمنع قيمةً صحيحة قرأها
+     الطريق الآخر للسطر نفسه (1.pdf ص3: 27 مبنى صاروا 15 حين غلب طريق الخطوط). */
+  if(!target.start&&donor.start){target.start=donor.start;target.end=target.end||donor.end;target.timeRaw=donor.timeRaw||target.timeRaw;}
+  if(!target.building&&donor.building){target.building=donor.building;target.buildingRaw=donor.buildingRaw||donor.building;}
+  else if(!target.building&&!target.buildingRaw&&donor.buildingRaw)target.buildingRaw=donor.buildingRaw;
+  if(!target.hall&&donor.hall){target.hall=donor.hall;target.hallRaw=donor.hallRaw||donor.hall;}
+  else if(!target.hall&&!target.hallRaw&&donor.hallRaw)target.hallRaw=donor.hallRaw;
+  /* الأيام لا تُنقل بين القراءتين بالسطر: يومٌ خاطئ أسوأ من خانةٍ فارغة (الفارغة
+     تذهب للمراجعة، والخاطئة تمرّ صامتة)، وعلى المسح الباهت كان نصفُ ما يُنقل
+     خطأ (متغيرات الحقيقة 2026-09-27). تبقى الأيام لقراءتها ولقاعدتها القديمة. */
+  if(!String(target.instructorText||"").trim()&&donor.instructorText)target.instructorText=donor.instructorText;
+}
+
+export function fillScheduleCellsFrom(base:GridRow[],donor:GridRow[]|null|undefined,options:{blankDisagreeingDays?:boolean}={}){
+  if(!donor?.length)return;
+  const dayKey=(value:unknown)=>String(value||"").replace(/[^1-5]/g,"").split("").sort().join("");
+  const byReference=new Map<string,GridRow>(),byCourseSection=new Map<string,GridRow>();
+  for(const row of donor){
+    const reference=String(row.reference||"").trim();
+    if(reference&&!byReference.has(reference))byReference.set(reference,row);
+    const course=`${row.code}|${row.scode}`;
+    if(row.code&&row.scode&&!byCourseSection.has(course))byCourseSection.set(course,row);
+  }
+  for(const row of base){
+    const match=byReference.get(String(row.reference||"").trim())||((row.code&&row.scode)?byCourseSection.get(`${row.code}|${row.scode}`):undefined);
+    if(!match)continue;
+    if(!row.start&&match.start){row.start=match.start;row.end=row.end||match.end;row.timeRaw=row.timeRaw||match.timeRaw;}
+    if(!row.building&&!row.buildingRaw&&(match.building||match.buildingRaw)){row.building=match.building;row.buildingRaw=match.buildingRaw;}
+    if(!row.hall&&!row.hallRaw&&(match.hall||match.hallRaw)){row.hall=match.hall;row.hallRaw=match.hallRaw;}
+    if(!String(row.days||"").trim()&&!row.daysRaw&&(match.days||match.daysRaw)){row.days=match.days;row.daysRaw=match.daysRaw;}
+    /* قراءةٌ أعمق تحلّ محلّ الأولى وتخالفها في أيام السطر نفسه: لا تُصدَّق
+       إحداهما — تُفرَّغ الأيام للمراجعة (القاعدة نفسها لخلية الأيام، a1f2693).
+       1.pdf ص1: الشبكة المستقيمة ربحت الصفحة بأرقامها فقرأت «1» حيث قرأت
+       القراءة الأولى «2 4» الصحيحة. */
+    else if(options.blankDisagreeingDays&&dayKey(row.days)&&dayKey(match.days)&&dayKey(row.days)!==dayKey(match.days))row.days="";
+    if(!row.instructorText&&match.instructorText)row.instructorText=match.instructorText;
+  }
+}
+
+async function readGrid(
+  upright:Buffer,
+  pool:{eng:PooledWorker[];ara:PooledWorker;ara2:PooledWorker},
+  authorityDepartmentCode="",
+  authorityCourseKeys:string[]=[],
+  allowRightEdgeCourseSpan:boolean=true
+):Promise<GridRow[]|null>{
+  const profile=process.env.OCR_PROFILE==="1";
+  let profT=Date.now();
+  const mark=(label:string)=>{if(profile){const now=Date.now();console.error(`[prof] ${label} ${(now-profT)}ms`);profT=now;}};
+  const lib=await canvas();
+  const image=await lib.loadImage(upright);
+  let surface=lib.createCanvas(image.width,image.height);
+  surface.getContext("2d").drawImage(image,0,0);
+  let geometry=adaptiveGridGeometry(lib,surface);
+  if(!geometry)return null;
+  mark('geometry');
+  /* A slanted or perspective page is straightened once, here, so every strip,
+     cell rescue and binarized read below cuts the cell that is really there
+     (straightenTable). The straightened geometry must still prove the table. */
+  const straightened=straightenTable(lib,surface,geometry);
+  if(straightened){surface=straightened.surface;geometry=straightened.geometry;}
+  mark('straighten');
+  const bin=otsuBinarize(lib,surface);
+  mark('binarize');
+  const {cols,bands}=geometry;
+
+  /* The adaptive detector includes the OUTER table borders, therefore every
+     physical cell is exactly the space between two consecutive rules. Do not
+     invent an open margin column: doing so shifts TIME/BUILDING/ROOM by one and
+     is precisely how a building token used to land in the room field. */
+  const columnBands:{left:number;right:number}[]=[];
+  for(let i=0;i<cols.length-1;i++){
+    const width=cols[i+1]-cols[i];
+    if(width>=Math.max(10,image.width*0.004))columnBands.push({left:cols[i],right:cols[i+1]});
+  }
+  if(columnBands.length<6)return null;
+
+  const top=bands[0].top,bottom=bands[bands.length-1].bottom;
+  /* 2× is deliberate. At 1.5× the real four-page CamScanner retained all 28
+     geometric rows on page 2 but lost the academic key in 13 of them. That is
+     faster-looking failure, not useful speed. */
+  const stripScale=2;
+  const cropScaled=(source:any,left:number,right:number)=>{
+    const rawWidth=right-left,height=bottom-top;
+    /* Do not feed the two vertical grid rules to OCR. On narrow numeric cells a
+       ruled border is easily hallucinated as «1», which created 1501/1507 and
+       bled room digits into 012B09. The semantic cell remains unchanged; only a
+       tiny border inset is removed from the recognition image. */
+    const insetX=Math.max(1,Math.min(4,Math.round(rawWidth*.045)));
+    const x=left+insetX,width=Math.max(1,rawWidth-insetX*2);
+    const c=lib.createCanvas(Math.max(1,Math.round(width*stripScale)),Math.max(1,Math.round(height*stripScale)));
+    const ctx=c.getContext("2d");
+    ctx.imageSmoothingEnabled=true;
+    ctx.drawImage(source,x,top,width,height,0,0,c.width,c.height);
+    return c.toBuffer("image/png");
+  };
+
+  type StripRead={cells:string[]};
+  const readStrip=async(source:any,band:{left:number;right:number},alphabet:string,psm:string,worker:PooledWorker=pool.ara):Promise<StripRead>=>{
+    await worker.setParameters({tessedit_char_whitelist:alphabet,tessedit_pageseg_mode:psm as any});
+    const result:any=await worker.recognize(cropScaled(source,band.left,band.right),{},{text:true,blocks:true});
+    const words:{t:string;x:number;y:number}[]=[];
+    for(const block of result?.data?.blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[])for(const word of line?.words||[]){
+      const text=String(word?.text||"").trim();
+      if(text)words.push({t:text,x:word.bbox.x0,y:(word.bbox.y0+word.bbox.y1)/2/stripScale+top});
+    }
+    const cells=bands.map(row=>words.filter(w=>w.y>=row.top&&w.y<row.bottom).sort((a,b)=>b.x-a.x).map(w=>w.t).join(" ").trim());
+    return{cells};
+  };
+
+  /* Pass 1 — numerics, from grey AND binarized. The two fail on different
+     rows; per cell, the value the validator accepts wins. */
+  const NUMERIC="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ -";
+  const IDENTITY_DIGITS="0123456789 -";
+  /* The right edge is identity-heavy (section/reference/course key). Reading
+     those discovery strips with an A–Z whitelist made clean zeroes become O's
+     before the course column had even been claimed. Keep the flexible alphabet
+     on the scheduling/location side, but make the bounded right-edge discovery
+     lane digits-only. This is both faster and more accurate, and it does not
+     change any validator or canonical matching rule. */
+  const rightIdentityStart=columnBands.length>=12?Math.max(0,columnBands.length-7):columnBands.length;
+  const claimAlphabet=(index:number)=>index>=rightIdentityStart?IDENTITY_DIGITS:NUMERIC;
+  /* Grey strips fan out over the pool. The binarized pass — an equal second
+     bill — is paid only for the columns the grey pass left weak: on the real
+     scan most columns validate from grey alone, so most of that bill vanishes. */
+  /* Import only needs the identity/scheduling edges of this report. Capacity,
+     reserved-seat and bundle columns in the middle do not participate in course,
+     time, location or instructor resolution, so OCRing all ~21 strips was pure
+     latency. Keep a safety window on both edges; validators still prove which
+     strip is which before any value is accepted. */
+  const edgeIndices=[...Array.from({length:Math.min(6,Math.max(0,columnBands.length-1))},(_,index)=>index+1),
+    ...Array.from({length:Math.min(8,columnBands.length)},(_,offset)=>columnBands.length-1-offset)]
+    .filter((index,pos,list)=>index>=0&&list.indexOf(index)===pos).sort((a,b)=>a-b);
+mark('setup');
+  const greyReads=await runOnPool(pool.eng,edgeIndices.map(index=>(worker:PooledWorker)=>readStrip(surface,columnBands[index],claimAlphabet(index),"6",worker)));
+  const numericGrey:StripRead[]=columnBands.map(()=>({cells:bands.map(()=>"")}));
+  edgeIndices.forEach((columnIndex,at)=>{numericGrey[columnIndex]=greyReads[at];});
+  const anyPattern=Object.values(stripPatterns);
+  mark('greyStrips');
+  const bestPatternHits=(read:StripRead)=>Math.max(...anyPattern.map(pattern=>read.cells.filter(cell=>pattern.test(cell.replace(/\s+/g," ").trim())).length));
+  const likelyStructural=new Set<number>([1,3,4,5,...Array.from({length:Math.min(8,columnBands.length)},(_,offset)=>columnBands.length-1-offset)]);
+  const binIndices=edgeIndices.filter(index=>{
+    const best=bestPatternHits(numericGrey[index]);
+    return best<bands.length*0.5&&(best>0||likelyStructural.has(index));
+  });
+  const binReads=await runOnPool(pool.eng,
+    binIndices.map(index=>(worker:PooledWorker)=>readStrip(bin,columnBands[index],claimAlphabet(index),"6",worker)));
+  const numericBin:StripRead[]=columnBands.map(()=>({cells:bands.map(()=>"")}));
+  binIndices.forEach((columnIndex,at)=>{numericBin[columnIndex]=binReads[at];});
+
+  mark('binStrips');
+  const normalizeCell=(value:string)=>value.replace(/\s+/g," ").trim();
+  const validatorHits=(cells:string[],pattern:RegExp)=>cells.filter(cell=>pattern.test(normalizeCell(cell))).length;
+  const validatorHitsBy=(cells:string[],test:(value:string)=>boolean)=>cells.filter(cell=>test(normalizeCell(cell))).length;
+  const courseCellTest=(value:string)=>authorityCourseCellLooksPlausible(value,authorityDepartmentCode);
+  const refCourseCellTest=(value:string)=>authorityReferenceCourseCellLooksPlausible(value,authorityDepartmentCode);
+
+  /* Columns claim their meaning by what validates in them. */
+  const claim=(pattern:RegExp,minimum:number,exclude:Set<number>)=>{
+    let bestIndex=-1,bestHits=0;
+    for(let i=0;i<columnBands.length;i++){
+      if(exclude.has(i))continue;
+      const hits=Math.max(validatorHits(numericGrey[i].cells,pattern),validatorHits(numericBin[i].cells,pattern));
+      if(hits>bestHits){bestHits=hits;bestIndex=i;}
+    }
+    return bestHits>=minimum?bestIndex:-1;
+  };
+  const claimBy=(test:(value:string)=>boolean,minimum:number,exclude:Set<number>)=>{
+    let bestIndex=-1,bestHits=0;
+    for(let i=0;i<columnBands.length;i++){
+      if(exclude.has(i))continue;
+      const hits=Math.max(validatorHitsBy(numericGrey[i].cells,test),validatorHitsBy(numericBin[i].cells,test));
+      if(hits>bestHits){bestHits=hits;bestIndex=i;}
+    }
+    return bestHits>=minimum?bestIndex:-1;
+  };
+  const taken=new Set<number>();
+  /* A final report page can contain one or two rows. Requiring two validator
+     hits made those legitimate tail pages disappear entirely. Geometry has
+     already proved the table, so one row is sufficient evidence here. */
+  const minimumRows=Math.max(1,Math.floor(bands.length*0.15));
+  const timeIndex=claimBy(authorityTimeCellLooksPlausible,minimumRows,taken);if(timeIndex>=0)taken.add(timeIndex);
+
+  /* SWRSCHA's semantic block is:
+       instructor | days | activity | time | building | room | ...
+     but photographed pages can contain FALSE vertical strokes inside a wide
+     cell. Therefore `time + 1` is only a starting hypothesis, not proof. Probe
+     a tiny bounded window to the right of TIME and let the OWNER-SUPPLIED site
+     prefixes prove the building column. This is what stops seat/capacity text
+     such as 345045 or 520020 from ever being displayed as a building. */
+  const geometryHits=(index:number,pattern:RegExp)=>index>=0&&index<columnBands.length
+    ? Math.max(validatorHits(numericGrey[index].cells,pattern),validatorHits(numericBin[index].cells,pattern))
+    : 0;
+  const boundedIndices=(from:number,to:number)=>Array.from({length:Math.max(0,to-from+1)},(_,offset)=>from+offset)
+    .filter(index=>index>=0&&index<columnBands.length);
+  const locationProbeIndices=timeIndex>=0?boundedIndices(timeIndex+1,timeIndex+6):[];
+  if(locationProbeIndices.length){
+    /* These strips are cheap and were previously outside the first-six edge
+       window on scans with a false instructor rule. Reading them now prevents
+       the later rescue from being locked onto the wrong physical column. */
+    const locationReads=await runOnPool(pool.eng,locationProbeIndices.flatMap(index=>[
+      (worker:PooledWorker)=>readStrip(surface,columnBands[index],"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ","6",worker),
+      (worker:PooledWorker)=>readStrip(bin,columnBands[index],"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ","6",worker),
+    ]));
+    locationProbeIndices.forEach((index,at)=>{numericGrey[index]=locationReads[at*2];numericBin[index]=locationReads[at*2+1];});
+  }
+  mark('locationProbe');
+  const bestBy=(indices:number[],test:(value:string)=>boolean,minimum:number)=>{
+    let bestIndex=-1,bestHits=0;
+    for(const index of indices){
+      const hits=Math.max(validatorHitsBy(numericGrey[index].cells,test),validatorHitsBy(numericBin[index].cells,test));
+      if(hits>bestHits){bestHits=hits;bestIndex=index;}
+    }
+    return bestHits>=minimum?bestIndex:-1;
+  };
+  const provenBuilding=bestBy(locationProbeIndices,authorityBuildingCellLooksPlausible,minimumRows);
+  const geometricBuilding=timeIndex>=0&&timeIndex+1<columnBands.length?timeIndex+1:-1;
+  const buildingIndex=provenBuilding>=0?provenBuilding:geometricBuilding;
+  if(buildingIndex>=0)taken.add(buildingIndex);
+
+  /* Room is resolved only AFTER the building column. If a false rule split the
+     building cell, scan at most the next three strips and pick the first column
+     with real room-shaped evidence; never search the capacities block. */
+  const roomProbeIndices=buildingIndex>=0?boundedIndices(buildingIndex+1,buildingIndex+3):[];
+  const provenHall=bestBy(roomProbeIndices,value=>stripPatterns.hall.test(normalizeCell(value)),minimumRows);
+  const geometricHall=buildingIndex>=0&&buildingIndex+1<columnBands.length?buildingIndex+1:-1;
+  const hallIndex=provenHall>=0?provenHall:geometricHall;
+  if(hallIndex>=0)taken.add(hallIndex);
+
+  const geometricDays=timeIndex>=2?timeIndex-2:-1;
+  const geometricDaysHits=geometricDays>=0?Math.max(
+    validatorHitsBy(numericGrey[geometricDays].cells,authorityDaysCellLooksPlausible),
+    validatorHitsBy(numericBin[geometricDays].cells,authorityDaysCellLooksPlausible),
+  ):0;
+  const daysIndex=geometricDaysHits>=minimumRows?geometricDays:claimBy(authorityDaysCellLooksPlausible,minimumRows,taken);
+  if(daysIndex>=0)taken.add(daysIndex);
+
+  /* The academic key lives near the RIGHT edge, but the photographed PDF also
+     carries a vertical CamScanner/page artefact beyond the real table border.
+     The previous implementation blindly anchored the course code to the final
+     physical band; on pages 2–3 that meant the watermark margin became part of
+     the key, shifting section/course-name extraction. Search a bounded right-
+     edge window instead, and let the 7-digit/11–13-digit validators prove the
+     actual span. False rules INSIDE the course code are still repaired by
+     joining at most three adjacent bands. */
+  type Span={from:number;to:number};
+  const joinedCells=(reads:StripRead[],span:Span)=>bands.map((_,row)=>{
+    let value="";for(let index=span.from;index<=span.to;index++)value+=normalizeCell(reads[index]?.cells[row]||"").replace(/\s+/g,"");
+    return value;
+  });
+  const spanHits=(span:Span,pattern:RegExp)=>Math.max(validatorHits(joinedCells(numericGrey,span),pattern),validatorHits(joinedCells(numericBin,span),pattern));
+  const spanHitsBy=(span:Span,test:(value:string)=>boolean)=>Math.max(validatorHitsBy(joinedCells(numericGrey,span),test),validatorHitsBy(joinedCells(numericBin,span),test));
+  const lastBand=columnBands.length-1,maxJoin=Math.min(3,columnBands.length);
+  const keySearchFrom=Math.max(0,columnBands.length-7);
+  let codeSpan:Span|null=null,refcodeSpan:Span|null=null,bestCodeHits=0,bestRefcodeHits=0;
+
+  /* MULTI-PAGE RIGHT-EDGE IDENTITY ANCHOR
+     -------------------------------------
+     The photographed SWRSCHA family has a much stronger geometric fact than
+     fuzzy OCR: at the right table edge the three identity fields are adjacent
+     in this fixed order:
+
+       section (501...) | reference (18945...) | 7-digit course key
+
+     On the owner's four-page scan, the course strip itself can be weak while
+     section + reference remain beautifully legible. The older code made course
+     OCR prove its own physical column first; when that proof failed, every
+     downstream row lost the canonical course name even though we were looking
+     at the correct table. For MULTI-PAGE scans only, let the adjacent section +
+     reference pair prove where the course cell must physically begin. We still
+     accept course identity only from the SAME cell and the finite selected-
+     department catalogue. Single-page OCR receives no catalogue-assisted key
+     rescue; the strict geometry-only fallback below remains catalogue-free. */
+  /* Discover the structural SECTION | REFERENCE anchor once. This geometry is
+     useful even when catalogue-assisted rescue is intentionally disabled (the
+     one-page golden path): if the normal course-strip vote is just below its
+     page-wide threshold, one exact department-shaped key beside a strongly
+     proven section/reference pair is enough to locate the physical COURSE CELL.
+     Every row is still reread/validated from that same cell; no neighbour value
+     and no course name is used to manufacture identity. */
+  let identityAnchor=-1,identityAnchorScore=-1;
+  for(let index=keySearchFrom;index<=lastBand-2;index++){
+    const sectionHits=Math.max(validatorHits(numericGrey[index].cells,stripPatterns.scode),validatorHits(numericBin[index].cells,stripPatterns.scode));
+    const referenceHits=Math.max(validatorHits(numericGrey[index+1].cells,stripPatterns.reference),validatorHits(numericBin[index+1].cells,stripPatterns.reference));
+    if(sectionHits<minimumRows||referenceHits<minimumRows)continue;
+    const score=sectionHits+referenceHits;
+    if(score>identityAnchorScore||(score===identityAnchorScore&&index>identityAnchor)){identityAnchor=index;identityAnchorScore=score;}
+  }
+
+  let strictRightEdgeCourseSpan:Span|null=null;
+  if(identityAnchor>=0){
+    const start=identityAnchor+2,referenceWidth=columnBands[identityAnchor+1].right-columnBands[identityAnchor+1].left;
+    let best:Span|null=null,bestExact=0,bestDiscovery=0;
+    for(let width=1;width<=3&&start+width-1<=lastBand;width++){
+      const span={from:start,to:start+width-1};
+      const combinedWidth=columnBands[span.to].right-columnBands[span.from].left;
+      if(combinedWidth<referenceWidth*.72)continue;
+      if(combinedWidth>referenceWidth*2.65)break;
+      const exactHits=spanHitsBy(span,courseCellTest);
+      const discoveryHits=spanHitsBy(span,value=>authorityCourseColumnLooksPlausible(value,authorityDepartmentCode));
+      if(exactHits>bestExact||(exactHits===bestExact&&discoveryHits>bestDiscovery)){best=span;bestExact=exactHits;bestDiscovery=discoveryHits;}
+      if(width===1&&exactHits>=minimumRows&&combinedWidth>=referenceWidth*.95)break;
+    }
+    /* Do not weaken the course validator. This fallback only lowers the COLUMN
+       claiming burden when two adjacent identity columns already prove the
+       geometry and at least one exact 7-digit department key proves the cell. */
+    if(best&&bestExact>=1)strictRightEdgeCourseSpan=best;
+  }
+
+  let rightEdgeCourseSpan:Span|null=null;
+  if(authorityCourseKeys.length && allowRightEdgeCourseSpan && identityAnchor>=0){
+    const anchor=identityAnchor;
+    const start=anchor+2,referenceWidth=columnBands[anchor+1].right-columnBands[anchor+1].left;
+    let best:Span|null=null,bestRecover=-1;
+    for(let width=1;width<=3&&start+width-1<=lastBand;width++){
+      const span={from:start,to:start+width-1};
+      const combinedWidth=columnBands[span.to].right-columnBands[span.from].left;
+      /* The seven-digit key is not a hairline. This width guard prevents a
+         CamScanner/page-margin artefact from being joined merely because it
+         happens to sit after the real table border. */
+      if(combinedWidth<referenceWidth*.72)continue;
+      if(combinedWidth>referenceWidth*2.65)break;
+      const greyJoined=joinedCells(numericGrey,span),binJoined=joinedCells(numericBin,span);
+      const recoverHits=bands.reduce((count,_,row)=>{
+        const evidence=[greyJoined[row],binJoined[row]];
+        return count+(evidence.some(value=>Boolean(recoverAuthorityCourseCell(value,authorityDepartmentCode,authorityCourseKeys)))?1:0);
+      },0);
+      if(recoverHits>bestRecover){bestRecover=recoverHits;best=span;}
+      /* Once one physical band is already wide enough for a seven-digit key
+         and yields catalogue evidence, do not drift into the page margin. */
+      if(width===1&&recoverHits>=minimumRows&&combinedWidth>=referenceWidth*.95)break;
+    }
+    if(best)rightEdgeCourseSpan=best;
+  }
+  for(let end=lastBand;end>=keySearchFrom;end--){
+    for(let width=1;width<=maxJoin;width++){
+      const from=end-width+1;if(from<keySearchFrom)continue;
+      const span={from,to:end};
+      /* Claim the physical course strip using exact keys first, then the
+         department-anchored truncated shape used only for DISCOVERY. This
+         unlocks the existing exact cell rescue on dense scanned pages without
+         weakening course identity by a single digit. */
+      const exactCodeHits=spanHitsBy(span,courseCellTest);
+      const discoveryCodeHits=spanHitsBy(span,value=>authorityCourseColumnLooksPlausible(value,authorityDepartmentCode));
+      const codeHits=Math.max(exactCodeHits,discoveryCodeHits);
+      if(codeHits>bestCodeHits||(codeHits===bestCodeHits&&codeHits>0&&codeSpan&&(span.to>codeSpan.to||(span.to===codeSpan.to&&width<(codeSpan.to-codeSpan.from+1))))){bestCodeHits=codeHits;codeSpan=span;}
+      const bothHits=spanHitsBy(span,refCourseCellTest);
+      if(bothHits>bestRefcodeHits||(bothHits===bestRefcodeHits&&bothHits>0&&refcodeSpan&&(span.to>refcodeSpan.to||(span.to===refcodeSpan.to&&width<(refcodeSpan.to-refcodeSpan.from+1))))){bestRefcodeHits=bothHits;refcodeSpan=span;}
+    }
+  }
+  if(rightEdgeCourseSpan){
+    codeSpan=rightEdgeCourseSpan;
+    bestCodeHits=Math.max(bestCodeHits,minimumRows);
+  }else if(bestCodeHits<minimumRows&&strictRightEdgeCourseSpan){
+    /* Same-cell, catalogue-free fallback for a weak ONE-PAGE or page-1 strip.
+       It activates only when the established vote would otherwise discard the
+       course column, so already-good golden pages stay on their old path. */
+    codeSpan=strictRightEdgeCourseSpan;
+    bestCodeHits=minimumRows;
+  }else if(bestCodeHits<minimumRows)codeSpan=null;
+  /* Prefer a proven 7-digit code span over a wider reference+code span: false
+     vertical strokes inside the code are common; a genuinely missing separator
+     still falls through to refcode below. */
+  if(codeSpan)refcodeSpan=null;else if(bestRefcodeHits<minimumRows)refcodeSpan=null;
+  for(const span of [codeSpan,refcodeSpan])if(span)for(let index=span.from;index<=span.to;index++)taken.add(index);
+
+  let refcodeIndex=-1,codeIndex=-1,referenceIndex=-1;
+  if(!codeSpan&&!refcodeSpan){
+    refcodeIndex=claimBy(refCourseCellTest,minimumRows,taken);if(refcodeIndex>=0)taken.add(refcodeIndex);
+    codeIndex=refcodeIndex>=0?-1:claimBy(courseCellTest,minimumRows,taken);if(codeIndex>=0)taken.add(codeIndex);
+  }
+  if(codeSpan){
+    const expected=codeSpan.from-1;
+    referenceIndex=geometryHits(expected,stripPatterns.reference)>=minimumRows?expected:claim(stripPatterns.reference,minimumRows,taken);
+  }else if(!refcodeSpan&&refcodeIndex<0){
+    referenceIndex=claim(stripPatterns.reference,minimumRows,taken);
+  }
+  if(referenceIndex>=0)taken.add(referenceIndex);
+
+  /* The section column sits immediately left of reference (or of a merged
+     reference+course cell). Test that structural neighbour first; only a failed
+     structural read may use the general validator search. */
+  const anchorIndex=refcodeSpan?.from??(refcodeIndex>=0?refcodeIndex:(referenceIndex>=0?referenceIndex:(codeSpan?.from??codeIndex)));
+  let scodeIndex=-1;
+  for(const near of [anchorIndex-1,anchorIndex+1]){
+    if(near<0||near>=columnBands.length||taken.has(near))continue;
+    const hits=Math.max(validatorHits(numericGrey[near].cells,stripPatterns.scode),validatorHits(numericBin[near].cells,stripPatterns.scode));
+    if(hits>=minimumRows){scodeIndex=near;break;}
+  }
+  if(scodeIndex<0)scodeIndex=claim(stripPatterns.scodeLegacy,minimumRows,taken);
+  if(scodeIndex>=0)taken.add(scodeIndex);
+  if(timeIndex<0&&!codeSpan&&!refcodeSpan&&refcodeIndex<0&&codeIndex<0)return null;
+
+  const DIGITS="0123456789 -";
+  const spanIndices=[codeSpan,refcodeSpan].filter((span):span is Span=>Boolean(span)).flatMap(span=>Array.from({length:span.to-span.from+1},(_,offset)=>span.from+offset));
+  const refineIndices=[daysIndex,refcodeIndex,referenceIndex,codeIndex,scodeIndex,...spanIndices].filter((index,pos,list)=>index>=0&&list.indexOf(index)===pos);
+  const refined=await runOnPool(pool.eng,refineIndices.flatMap(index=>[
+    (worker:PooledWorker)=>readStrip(surface,columnBands[index],DIGITS,"6",worker),
+    (worker:PooledWorker)=>readStrip(bin,columnBands[index],DIGITS,"6",worker),
+  ]));
+  refineIndices.forEach((index,at)=>{numericGrey[index]=refined[at*2];numericBin[index]=refined[at*2+1];});
+  mark('refine');
+
+  /* Cell-by-cell is the expensive rescue path, not the default path. Keep the
+     fast strip result here; failed time cells are handled once by the unified
+     field-specific escalation lane below instead of paying a preliminary OCR
+     call and then escalating the same cell a second time. */
+  /* Rescue recognitions must never fail SILENTLY again: a memory-starved
+     instance that drops readCell calls produces exactly the «course = —» rows
+     the fast strips cannot explain. The count is reported once per page so the
+     platform logs show the truth. */
+  let recognitionFailures=0;
+  const readCell=async(source:any,band:{left:number;right:number},rowBand:{top:number;bottom:number},alphabet:string,worker:PooledWorker=pool.ara,psm="7",scale=stripScale):Promise<string>=>{
+    const rawWidth=band.right-band.left,rawHeight=rowBand.bottom-rowBand.top;
+    if(rawWidth<6||rawHeight<6)return"";
+    const insetX=Math.max(1,Math.min(4,Math.round(rawWidth*.05)));
+    const insetY=Math.max(1,Math.min(3,Math.round(rawHeight*.08)));
+    const left=band.left+insetX,topCell=rowBand.top+insetY;
+    const width=Math.max(1,rawWidth-insetX*2),height=Math.max(1,rawHeight-insetY*2);
+    const cell=lib.createCanvas(Math.max(1,Math.round(width*scale)),Math.max(1,Math.round(height*scale)));
+    const ctx=cell.getContext("2d");
+    ctx.imageSmoothingEnabled=true;
+    ctx.drawImage(source,left,topCell,width,height,0,0,cell.width,cell.height);
+    await worker.setParameters({tessedit_char_whitelist:alphabet,tessedit_pageseg_mode:psm as any});
+    try{
+      const result:any=await worker.recognize(cell.toBuffer("image/png"));
+      return String(result?.data?.text||"").replace(/\s+/g," ").trim();
+    }catch{recognitionFailures++;return"";}
+  };
+  /* A physically EMPTY cell (no hall on many real Authority rows, no building
+     on some, a blank tail row) can never validate, yet every rescue lane would
+     still pay full OCR for it — and PSM 8 on a blank crop occasionally
+     hallucinates a lone digit. Measure ink on the already-binarized page first:
+     below the floor the cell is genuinely blank, every rescue skips it, and it
+     stays empty for manual review. Nothing is ever guessed into it. The inset
+     is wider than the OCR inset so a grid rule can never count as ink. */
+  const binInkCtx=bin.getContext("2d");
+  const cellHasInk=(band:{left:number;right:number},rowBand:{top:number;bottom:number})=>{
+    const rawWidth=band.right-band.left,rawHeight=rowBand.bottom-rowBand.top;
+    if(rawWidth<6||rawHeight<6)return false;
+    const insetX=Math.max(2,Math.min(7,Math.round(rawWidth*.09)));
+    const insetY=Math.max(2,Math.min(5,Math.round(rawHeight*.14)));
+    const width=Math.max(1,rawWidth-insetX*2),height=Math.max(1,rawHeight-insetY*2);
+    try{
+      const {data}=binInkCtx.getImageData(band.left+insetX,rowBand.top+insetY,width,height);
+      let dark=0;const total=width*height;
+      for(let i=0;i<total;i++)if(data[i*4]<128)dark++;
+      return dark>=Math.max(6,total*0.0035);
+    }catch{return true;/* fail open: an unreadable probe must not silence OCR */}
+  };
+  /* A weak/shadowed page may prove the whole strip but drop isolated row keys.
+     Rescue only the SAME already-proven physical cell; never search a neighbour
+     and never trim a value. The catalogue/registry still canonicalize later. */
+  const rescueIndex=async(index:number,pattern:RegExp,alphabet:string,validator:(value:string)=>boolean=(value=>pattern.test(value)))=>{
+    if(index<0)return;
+    const missing=bands.map((_,row)=>{
+      const grey=normalizeCell(numericGrey[index].cells[row]||"");
+      const binary=normalizeCell(numericBin[index].cells[row]||"");
+      return !validator(grey)&&!validator(binary)?row:-1;
+    }).filter(row=>row>=0&&cellHasInk(columnBands[index],bands[row]));
+    if(!missing.length)return;
+    const rescued=await runOnPool(pool.eng,missing.map(row=>(worker:PooledWorker)=>readCell(surface,columnBands[index],bands[row],alphabet,worker)));
+    const next=[...numericGrey[index].cells];
+    missing.forEach((row,at)=>{
+      const value=normalizeCell(rescued[at]||"");
+      if(validator(value))next[row]=value;
+      else if(pattern===stripPatterns.code&&recoverAuthorityCourseCell(value,authorityDepartmentCode,authorityCourseKeys))next[row]=value;
+    });
+    numericGrey[index]={cells:next};
+  };
+  const rescueSpan=async(span:Span|null,pattern:RegExp,alphabet:string)=>{
+    if(!span)return;
+    const current=(reads:StripRead[],row:number)=>{let value="";for(let index=span.from;index<=span.to;index++)value+=normalizeCell(reads[index]?.cells[row]||"").replace(/\s+/g,"");return value;};
+    const band={left:columnBands[span.from].left,right:columnBands[span.to].right};
+    const missing=bands.map((_,row)=>!pattern.test(current(numericGrey,row))&&!pattern.test(current(numericBin,row))?row:-1).filter(row=>row>=0&&cellHasInk(band,bands[row]));
+    if(!missing.length)return;
+    const rescued=await runOnPool(pool.eng,missing.map(row=>(worker:PooledWorker)=>readCell(surface,band,bands[row],alphabet,worker)));
+    const first=[...numericGrey[span.from].cells];
+    missing.forEach((row,at)=>{
+      const value=normalizeCell(rescued[at]||"").replace(/\s+/g,"");
+      if(pattern.test(value))first[row]=value;
+      else if(pattern===stripPatterns.code&&recoverAuthorityCourseCell(value,authorityDepartmentCode,authorityCourseKeys))first[row]=value;
+    });
+    numericGrey[span.from]={cells:first};
+    for(let index=span.from+1;index<=span.to;index++){
+      const rest=[...numericGrey[index].cells];missing.forEach(row=>{if(pattern.test(first[row]||"")||recoverAuthorityCourseCell(first[row]||"",authorityDepartmentCode,authorityCourseKeys))rest[row]="";});numericGrey[index]={cells:rest};
+    }
+  };
+  const KEY_DIGITS="0123456789";
+  const LOCATION_ALNUM="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  /* With a department catalogue present, the GOLDEN rescue below re-reads the
+     same failed course cells at higher resolution with catalogue-exact voting,
+     and the escalation lane covers whatever remains — this earlier pattern-only
+     pass then only duplicated those reads. It stays as the sole rescue for the
+     catalogue-free path. */
+  if(!authorityCourseKeys.length){
+    if(codeSpan)await rescueSpan(codeSpan,stripPatterns.code,KEY_DIGITS);
+    else if(refcodeSpan)await rescueSpan(refcodeSpan,stripPatterns.refcode,KEY_DIGITS);
+    else if(refcodeIndex>=0)await rescueIndex(refcodeIndex,stripPatterns.refcode,KEY_DIGITS);
+    else await rescueIndex(codeIndex,stripPatterns.code,KEY_DIGITS);
+  }
+
+  /* MULTI-PAGE COURSE-KEY GOLDEN RESCUE
+     -----------------------------------
+     A page uploaded by itself already had enough OCR budget to recover its
+     seven-digit academic key. In a dense multi-page scan the whole-column pass
+     can lose exactly one tiny digit on many rows (0101102 -> 010110). Re-read
+     ONLY those same proven course cells at 3.2x from grey + binarized pixels,
+     then accept a repair only when the selected department catalogue has one
+     and only one canonical key consistent with the observed cell. No course
+     name, neighbour, row sequence or fuzzy prose can create identity. */
+  const hasCourseAnchor = Boolean(codeSpan || codeIndex >= 0 || refcodeSpan || refcodeIndex >= 0);
+  if(authorityCourseKeys.length&&(codeSpan||codeIndex>=0) || (authorityCourseKeys.length && hasCourseAnchor)){
+    const span=codeSpan||(codeIndex>=0?{from:codeIndex,to:codeIndex}:(refcodeSpan||{from:refcodeIndex,to:refcodeIndex}));
+    const rawAt=(reads:StripRead[],row:number)=>{let value="";for(let index=span.from;index<=span.to;index++)value+=normalizeCell(reads[index]?.cells[row]||"").replace(/\s+/g,"");return value;};
+    /* Two outcomes per row, both deterministic:
+       — the raw cell already recovers to exactly ONE canonical key: WRITE that
+         canonical key back (a plausible-looking 0101105 must become the real
+         0101102, not survive because it merely looked like a course key);
+       — nothing recovers: queue the row for the high-resolution same-cell
+         re-read below. Ambiguity keeps the raw cell for manual review. */
+    const directCanonical=[...numericGrey[span.from].cells];
+    let directRepairs=0;
+    const unresolved=bands.map((_,row)=>{
+      const recovered=[...new Set([rawAt(numericGrey,row),rawAt(numericBin,row)].map(value=>recoverAuthorityCourseCell(value,authorityDepartmentCode,authorityCourseKeys)).filter(Boolean))];
+      if(recovered.length===1&&recovered[0]!==rawAt(numericGrey,row)){directCanonical[row]=recovered[0];directRepairs++;}
+      return recovered.length? -1:row;
+    }).filter(row=>row>=0);
+    if(directRepairs){
+      numericGrey[span.from]={cells:directCanonical};
+      for(let index=span.from+1;index<=span.to;index++){
+        const rest=[...numericGrey[index].cells];
+        bands.forEach((_,row)=>{if(authorityCourseCellLooksPlausible(directCanonical[row]||"",authorityDepartmentCode))rest[row]="";});
+        numericGrey[index]={cells:rest};
+      }
+    }
+    const band={left:columnBands[span.from].left,right:columnBands[span.to].right};
+    const normalKeys=[...new Set(authorityCourseKeys.map(academicDigits).filter(key=>/^\d{7}$/.test(key)))];
+    /* CATALOGUE-ADJACENCY CONFIRMATION
+       A dense department prints many keys one digit apart (0101150 beside
+       0101154, the whole 020x block…). A single strip read that lands on the
+       WRONG sibling is shape-valid, catalogue-valid, and previously final.
+       For exactly those rows — an accepted key with a distance-1 sibling in
+       the catalogue — re-read the SAME cell twice at high resolution and flip
+       only when BOTH independent re-reads agree on one different canonical
+       key. Anything less keeps the original value, so a clean page can only
+       gain corrections, never churn. */
+    const hasAdjacentSibling=(key:string)=>normalKeys.some(other=>{
+      if(other===key||other.length!==key.length)return false;
+      let diff=0;for(let i=0;i<key.length;i++)if(key[i]!==other[i]&&++diff>1)return false;
+      return diff===1;
+    });
+    const acceptedKeyAt=(row:number)=>{
+      const value=academicDigits(directCanonical[row]||rawAt(numericGrey,row));
+      return /^\d{7}$/.test(value)&&normalKeys.includes(value)?value:"";
+    };
+    const confirmRows=bands.map((_,row)=>{
+      if(unresolved.includes(row))return -1;
+      const key=acceptedKeyAt(row);
+      if(!key||!hasAdjacentSibling(key)||!cellHasInk(band,bands[row]))return -1;
+      /* Two INDEPENDENT sources (grey strip and binarized strip) that already
+         recover to the same canonical key ARE the two-vote agreement this
+         guard exists to obtain — re-reading them again is pure latency. Only a
+         single-source acceptance still pays the confirmation reads. */
+      const greyKey=recoverAuthorityCourseCell(rawAt(numericGrey,row),authorityDepartmentCode,authorityCourseKeys);
+      const binKey=recoverAuthorityCourseCell(rawAt(numericBin,row),authorityDepartmentCode,authorityCourseKeys);
+      if(greyKey&&binKey&&greyKey===binKey)return -1;
+      return row;
+    }).filter(row=>row>=0);
+    if(confirmRows.length){
+      const rereads=await runOnPool(pool.eng,confirmRows.flatMap(row=>[
+        (worker:PooledWorker)=>readCell(surface,band,bands[row],KEY_DIGITS,worker,"7",3.2),
+        (worker:PooledWorker)=>readCell(bin,band,bands[row],KEY_DIGITS,worker,"7",3.2),
+      ]));
+      let confirmFlips=0;
+      confirmRows.forEach((row,at)=>{
+        const current=acceptedKeyAt(row);
+        const votes=[rereads[at*2]||"",rereads[at*2+1]||""]
+          .map(value=>recoverAuthorityCourseCell(value,authorityDepartmentCode,authorityCourseKeys)).filter(Boolean);
+        if(votes.length===2&&votes[0]===votes[1]&&votes[0]!==current){directCanonical[row]=votes[0];confirmFlips++;}
+      });
+      if(confirmFlips){
+        numericGrey[span.from]={cells:[...directCanonical]};
+        for(let index=span.from+1;index<=span.to;index++){
+          const rest=[...numericGrey[index].cells];
+          confirmRows.forEach(row=>{if(authorityCourseCellLooksPlausible(directCanonical[row]||"",authorityDepartmentCode))rest[row]="";});
+          numericGrey[index]={cells:rest};
+        }
+      }
+    }
+    const inkedUnresolved=unresolved.filter(row=>cellHasInk(band,bands[row]));
+    if(inkedUnresolved.length){
+      /* Two high-resolution passes, not three: the PSM-8 pass duplicated what
+         the field-specific escalation lane below already tries (including the
+         platform-shifted crops), so unresolved cells paid the same read twice. */
+      const passes=await runOnPool(pool.eng,inkedUnresolved.flatMap(row=>[
+        (worker:PooledWorker)=>readCell(surface,band,bands[row],KEY_DIGITS,worker,"7",3.2),
+        (worker:PooledWorker)=>readCell(bin,band,bands[row],KEY_DIGITS,worker,"7",3.2),
+      ]));
+      const first=[...numericGrey[span.from].cells];
+      inkedUnresolved.forEach((row,at)=>{
+        const evidence=[rawAt(numericGrey,row),rawAt(numericBin,row),passes[at*2]||"",passes[at*2+1]||""];
+        const canonical=[...new Set(evidence.map(value=>recoverAuthorityCourseCell(value,authorityDepartmentCode,authorityCourseKeys)).filter(Boolean))];
+        if(canonical.length===1)first[row]=canonical[0];
+      });
+      /* A right-half "read the missing final digit" synthesis was tried here
+         and REVERTED: at high magnification the crop systematically catches
+         the second-to-last digit and flips healthy 0101151 rows to 0101155.
+         An ambiguous truncated key therefore deliberately stays raw for
+         manual review — an empty course is recoverable, a wrong one is not. */
+      numericGrey[span.from]={cells:first};
+      for(let index=span.from+1;index<=span.to;index++){
+        const rest=[...numericGrey[index].cells];unresolved.forEach(row=>{if(authorityCourseCellLooksPlausible(first[row]||"",authorityDepartmentCode))rest[row]="";});numericGrey[index]={cells:rest};
+      }
+    }
+  }
+mark('goldenRescue');
+  await rescueIndex(scodeIndex,stripPatterns.scode,KEY_DIGITS);
+  await rescueIndex(daysIndex,stripPatterns.days,"12345 ",authorityDaysCellLooksPlausible);
+  await rescueIndex(buildingIndex,stripPatterns.building,LOCATION_ALNUM);
+  mark('smallRescues');
+
+  /* Rooms are the narrowest identity cells in SWRSCHA. Whole-column OCR can
+     legitimately turn F32 into 32 while still producing a syntactically valid
+     token; an "invalid-only" rescue would therefore miss exactly the dangerous
+     cases. Once geometry has PROVEN the room column, re-read each room cell in
+     isolation (PSM 7) and prefer that same-cell value only when it validates.
+     The five-worker pool keeps this bounded, and no neighbouring column is ever
+     consulted or used as evidence. */
+  if(hallIndex>=0){
+    /* Many legitimate rows print NO hall at all. The ink gate keeps this
+       precision pass exactly as strong on printed cells while no longer paying
+       one OCR call per blank cell — and a blank cell can no longer be
+       hallucinated into a plausible-looking room. */
+    /* When the grey and binarized strips independently agree on the same
+       validator-clean hall token, that is already two votes for the same
+       evidence — the isolated re-read exists for the cases where whole-column
+       OCR could have truncated the token (F32→32), and two agreeing sources
+       make that failure mode vanishingly unlikely. Skipping them converts the
+       most expensive per-row pass into a targeted one. */
+    const hallAgreed=(row:number)=>{
+      const grey=normalizeCell(numericGrey[hallIndex].cells[row]||"").replace(/\s+/g,"").toUpperCase();
+      const binary=normalizeCell(numericBin[hallIndex].cells[row]||"").replace(/\s+/g,"").toUpperCase();
+      return Boolean(grey)&&grey===binary&&stripPatterns.hall.test(grey);
+    };
+    const inkedHallRows=bands.map((row,at)=>cellHasInk(columnBands[hallIndex],row)&&!hallAgreed(at)?at:-1).filter(at=>at>=0);
+    const isolated=await runOnPool(pool.eng,inkedHallRows.map(at=>(worker:PooledWorker)=>readCell(surface,columnBands[hallIndex],bands[at],LOCATION_ALNUM,worker)));
+    const next=[...numericGrey[hallIndex].cells];
+    isolated.forEach((raw,pos)=>{const row=inkedHallRows[pos];const value=normalizeCell(raw||"").replace(/\s+/g,"").toUpperCase();if(stripPatterns.hall.test(value))next[row]=value;});
+    /* A THREE-digit hall (F112, F332) is the room-cell twin of the course-key
+       border phantom: shape-valid, so no rescue ever fired, and the registry
+       alone cannot arbitrate F11-vs-F12 when both exist. The image can: read
+       the SAME cell again with the crop shifted a tenth of the cell to each
+       side — the shift that drops the border stroke reveals the true two-digit
+       room. Accept only a two-digit result CONSISTENT with the observed three
+       digits (its prefix or its suffix); two conflicting consistent answers
+       leave the cell for manual review exactly as before. */
+    const tripleRows=bands.map((_,row)=>/^[A-Z]\d{3}$/.test(next[row]||"")?row:-1).filter(row=>row>=0);
+    if(tripleRows.length){
+      const hallBand=columnBands[hallIndex],hallWidth=hallBand.right-hallBand.left;
+      const shifted=(offset:number)=>({left:hallBand.left+Math.round(hallWidth*offset),right:hallBand.right+Math.round(hallWidth*offset)});
+      const rereads=await runOnPool(pool.eng,tripleRows.flatMap(row=>[
+        (worker:PooledWorker)=>readCell(surface,shifted(0.12),bands[row],LOCATION_ALNUM,worker),
+        (worker:PooledWorker)=>readCell(surface,shifted(-0.12),bands[row],LOCATION_ALNUM,worker),
+      ]));
+      tripleRows.forEach((row,at)=>{
+        const triple=next[row]||"";
+        const votes=[rereads[at*2]||"",rereads[at*2+1]||""]
+          .map(value=>normalizeCell(value).replace(/\s+/g,"").toUpperCase())
+          .filter(value=>/^[A-Z]\d{2}$/.test(value)&&value[0]===triple[0]
+            &&(value.slice(1)===triple.slice(1,3)||value.slice(1)===triple.slice(2)));
+        const unique=[...new Set(votes)];
+        if(unique.length===1)next[row]=unique[0];
+      });
+    }
+    numericGrey[hallIndex]={cells:next};
+  }
+
+mark('hallIsolated');
+  /* Pass 2 — Arabic. Instructor names are mandatory because the system must
+     display every doctor after upload. Course names are only an OCR fallback:
+     once the numeric course key is readable on most rows, the authoritative
+     name comes from the system catalogue and paying a second Arabic strip adds
+     time without adding truth. */
+  await pool.ara.setParameters({tessedit_char_whitelist:"",tessedit_pageseg_mode:"4" as any});
+  const unclaimed=columnBands.map((band,index)=>({band,index,width:band.right-band.left}))
+    .filter(item=>!taken.has(item.index));
+  /* Instructor is the semantic field immediately LEFT of DAYS, but a phone
+     photo can draw one or two false "vertical rules" through the wide Arabic
+     name cell. `time - 3` then reads only the LAST fragment of the doctor's
+     name, which destroyed the previously-good exact instructor matching.
+     Rejoin up to three contiguous physical bands ending immediately before DAYS.
+     On a clean PDF this is exactly one band; on the measured photo it rejoins
+     the three fragments of the same instructor cell. No neighbouring semantic
+     field is crossed because DAYS is the hard right boundary. */
+  const instructorEnd=daysIndex>0?daysIndex-1:(timeIndex>=3?timeIndex-3:-1);
+  const instructorStart=instructorEnd>=0?Math.max(0,instructorEnd-2):-1;
+  const instructorBand=instructorEnd>=0?{
+    index:instructorEnd,
+    band:{left:columnBands[instructorStart].left,right:columnBands[instructorEnd].right},
+    width:columnBands[instructorEnd].right-columnBands[instructorStart].left,
+  }:undefined;
+  const codeSignalIndex=refcodeIndex>=0?refcodeIndex:codeIndex;
+  const codeHits=codeSpan?spanHitsBy(codeSpan,courseCellTest)
+    :refcodeSpan?spanHitsBy(refcodeSpan,refCourseCellTest)
+    :(codeSignalIndex>=0?Math.max(
+      validatorHitsBy(numericGrey[codeSignalIndex].cells,refcodeIndex>=0?refCourseCellTest:courseCellTest),
+      validatorHitsBy(numericBin[codeSignalIndex].cells,refcodeIndex>=0?refCourseCellTest:courseCellTest),
+    ):0);
+  /* Always preserve the printed Arabic course-name column. Course catalogues in
+     this system often store the short 3-digit code (101/156/201), while the
+     Authority PDF prints the full 7-digit institutional key. Skipping names
+     merely because the 7-digit strip OCR looked strong made unresolved rows
+     appear as «0101156» instead of their course name. One Arabic strip per page
+     buys both a human-readable preview and an exact-name fallback. */
+  const needCourseNames=true;
+  const preferredNameIndex=scodeIndex>0?scodeIndex-1:-1;
+  const fallbackNameIndex=anchorIndex>1?anchorIndex-2:-1;
+  const nameBand=needCourseNames
+    ? (unclaimed.find(item=>item.index===preferredNameIndex)||unclaimed.find(item=>item.index===fallbackNameIndex))
+    : undefined;
+  const arabicRead=async(item?:{band:{left:number;right:number}})=>{
+    if(!item)return{cells:bands.map(()=>"")};
+    return readStrip(surface,item.band,"","4");
+  };
+  const readInstructor=async()=>{
+    if(!instructorBand||instructorBand.index===nameBand?.index)return{cells:bands.map(()=>"")};
+    /* One sparse strip only. The second whole-strip DENSE pass used to re-pay
+       the full column for a handful of weak rows; those same weak rows are
+       already re-read individually below at PSM 7 and higher scale, which is
+       strictly stronger evidence than a dense strip. Measured: the Arabic
+       block was the single largest per-page cost, and this halves it. */
+    return readStrip(surface,instructorBand.band,"","4",pool.ara2);
+  };
+  /* A multi-page lane may intentionally use ONE Arabic worker for both name
+     fields so two pages can run in parallel without allocating more OCR
+     engines. Never issue concurrent setParameters calls to that same worker. */
+  let nameCells:{cells:string[]},instructorCells:{cells:string[]};
+  if(pool.ara===pool.ara2){
+    nameCells=await arabicRead(nameBand);
+    instructorCells=await readInstructor();
+  }else{
+    [nameCells,instructorCells]=await Promise.all([arabicRead(nameBand),readInstructor()]);
+  }
+
+  /* Sparse Arabic strip OCR is fast, but a shadow or an internal false rule can
+     leave one instructor cell with only a surname fragment. Escalate ONLY those
+     weak same-cell reads (never a neighbouring row/column) at PSM 7. Clean rows
+     pay no extra OCR, so multi-page speed is preserved while the human-name
+     evidence gets the same cell-level safety already used by numeric fields. */
+  if(instructorBand){
+    const arabicLetters=(value:string)=>(String(value||"").match(/[ء-ي]/g)||[]).length;
+    const weakInstructorRows=bands.map((_,row)=>{
+      const value=normalizeCell(instructorCells.cells[row]||"");
+      const words=value.split(/\s+/).filter(Boolean).length;
+      const weak=!/هيئ[هة]/.test(value)&&(arabicLetters(value)<8||words<2);
+      return weak?row:-1;
+    }).filter(row=>row>=0&&cellHasInk(instructorBand.band,bands[row]));
+    if(weakInstructorRows.length){
+      const recovered=await runOnPool([pool.ara2],weakInstructorRows.map(row=>(worker:PooledWorker)=>readCell(surface,instructorBand.band,bands[row],"",worker,"7",2.6)));
+      const next=[...instructorCells.cells];
+      const stillWeak:number[]=[];
+      weakInstructorRows.forEach((row,at)=>{
+        const current=normalizeCell(next[row]||""),candidate=normalizeCell(recovered[at]||"");
+        if(arabicLetters(candidate)>=Math.max(8,arabicLetters(current)+2)&&candidate.split(/\s+/).filter(Boolean).length>=2)next[row]=candidate;
+        else if(arabicLetters(normalizeCell(next[row]||""))<8)stillWeak.push(row);
+      });
+      /* The instructor is the field the reviewer needs most. A row that stayed
+         weak after the first same-cell pass gets ONE deeper attempt from the
+         binarized pixels at a denser segmentation — shadows over the doctor's
+         name binarize away more often than they grey away. Longest legible
+         Arabic wins; nothing shorter ever replaces something longer. */
+      if(stillWeak.length){
+        const deeper=await runOnPool([pool.ara2],stillWeak.map(row=>(worker:PooledWorker)=>readCell(bin,instructorBand.band,bands[row],"",worker,"6",3.0)));
+        stillWeak.forEach((row,at)=>{
+          const current=normalizeCell(next[row]||""),candidate=normalizeCell(deeper[at]||"");
+          if(arabicLetters(candidate)>=Math.max(8,arabicLetters(current)+2)&&candidate.split(/\s+/).filter(Boolean).length>=2)next[row]=candidate;
+        });
+      }
+      instructorCells={cells:next};
+    }
+  }
+
+  /* Keep unresolved rows useful for manual review without ever using Arabic
+     course prose as identity. Whole-strip Arabic OCR can occasionally return a
+     blank/tiny fragment in one shadowed row even when the physical cell is
+     clear. Re-read only those weak COURSE-NAME cells once at high resolution;
+     canonical matching below still depends exclusively on the numeric key. */
+  if(nameBand){
+    const arabicLetters=(value:string)=>(String(value||"").match(/[ء-ي]/g)||[]).length;
+    const weakNameRows=bands.map((_,row)=>arabicLetters(normalizeCell(nameCells.cells[row]||""))<5?row:-1).filter(row=>row>=0&&cellHasInk(nameBand.band,bands[row]));
+    if(weakNameRows.length){
+      const recovered=await runOnPool([pool.ara],weakNameRows.map(row=>(worker:PooledWorker)=>readCell(surface,nameBand.band,bands[row],"",worker,"7",2.8)));
+      const next=[...nameCells.cells];
+      weakNameRows.forEach((row,at)=>{
+        const current=normalizeCell(next[row]||""),candidate=normalizeCell(recovered[at]||"");
+        if(arabicLetters(candidate)>=Math.max(5,arabicLetters(current)+2))next[row]=candidate;
+      });
+      nameCells={cells:next};
+    }
+  }
+
+mark('arabic');
+  /* The claiming pass shares one alphanumeric alphabet so building and hall
+     can be recognised at all — but that same freedom lets stray strokes become
+     letters inside the time and days columns and break their patterns. Once a
+     column has claimed a purely-numeric meaning, it is read AGAIN with digits
+     only, from both sources. Two small strips; measured, the difference is the
+     majority of the time column. */
+
+
+  /* «الفرع: 012» in the header is the building prefix for every row, so the
+     rows themselves vote it in: the majority prefix among the cells that
+     validated. A cell that failed then only needs its letter and two digits
+     recovered — and the letter, when the scan turned it into a digit, morphs
+     back at a KNOWN position, anchored by the prefix. This is what the free-
+     floating letter repair reverted earlier could never promise. */
+  // Rooms are identifiers, not prose. Never reconstruct a plausible room from
+  // ambiguous OCR. A wrong room is more dangerous than an empty one because it
+  // can be published unnoticed; only validator-clean values survive.
+  const safeBuilding=(raw:string)=>{
+    const value=toAscii(raw).replace(/[^A-Z0-9]/gi,"").trim().toUpperCase();
+    if(!value)return"";
+    if(stripPatterns.building.test(value)||cleanBuildingCode(value))return cleanBuildingCode(value);
+    /* Preserve one very specific extraction artefact as RAW evidence:
+       012B09 + a neighbouring room digit can become 012B091. The server only
+       repairs this when the six-character prefix resolves to one CONFIRMED
+       canonical building, so we neither invent nor silently shorten a code. */
+    if(/^\d{3}[A-Z]\d{3}$/.test(value))return value;
+    return"";
+  };
+  const safeHall=(raw:string)=>{
+    const value=toAscii(raw).replace(/[^A-Z0-9]/gi,"").trim().toUpperCase();
+    if(!value)return"";
+    return cleanHallCode(value);
+  };
+
+  /* MULTI-PAGE CELL RECOVERY ESCALATION
+     Identify cells that failed the normal fast lane, and apply a targeted,
+     isolated recovery pipeline with upscaling, expanded cropping, and PSM shifts.
+     This fulfills the "Page OCR -> Row OCR -> Cell Recovery" mandate. */
+  const cellEscalationPipeline = async (
+    row: number,
+    band: { left: number; right: number },
+    rowBand: { top: number; bottom: number },
+    alphabet: string,
+    validator: (v: string) => boolean,
+    worker: PooledWorker,
+    field: string
+  ): Promise<{ value: string, confidence: number } | null> => {
+    const rawWidth = band.right - band.left, rawHeight = rowBand.bottom - rowBand.top;
+    if (rawWidth < 6 || rawHeight < 6) return null;
+    
+    /* Strategy order is field-specific. On the supplied SWRSCHA scan the time
+       tail sits against a ruled border, so a +4px same-cell expansion recovers
+       0800/1000 on the FIRST attempt; rooms are the opposite and must stay tight
+       to avoid importing a neighbouring building digit. Rooms cap at three
+       high-yield passes and the remaining fields at five instead of seven. */
+    type CellStrategy={source:any;scale:number;psm:string;xPadding:number;yPadding:number;localOtsu?:boolean;xShift?:number};
+    const strategies:CellStrategy[] = field === "time" ? [
+      { source: surface, scale: 3.0, psm: "7", xPadding: 4, yPadding: 3 },
+      { source: bin,     scale: 3.2, psm: "7", xPadding: 6, yPadding: 4 },
+      { source: surface, scale: 3.2, psm: "7", xPadding: 0, yPadding: 0 },
+      { source: bin,     scale: 3.2, psm: "7", xPadding: 0, yPadding: 0 },
+      { source: surface, scale: 2.8, psm: "8", xPadding: 2, yPadding: 2 },
+    ] : (field === "code" || field === "refcode") ? [
+      /* Course identity cells sit at the photographed page edge and fail mostly
+         through border clipping + local shadows. A tiny expanded crop comes
+         first; local Otsu is paid only after that fails. All passes stay inside
+         the same proven course/ref+course span and use a digits-only whitelist. */
+      { source: surface, scale: 3.6, psm: "7",  xPadding: 4, yPadding: 3 },
+      { source: bin,     scale: 3.6, psm: "7",  xPadding: 4, yPadding: 3 },
+      /* MEASURED PRODUCTION FAILURE MODE (2026-08-27, taken from the live
+         server's own raw evidence): on the deployment platform the code-cell
+         crop lands one digit to the LEFT of where the same code sits on the
+         development machine — the cell border becomes a leading phantom digit
+         (3010115) while the true FINAL digit falls outside the crop. Native
+         canvas rasterisation differs by a pixel or two per platform, so fix
+         the CROP, not the digits: retry the same proven cell shifted right.
+         These run only after the unshifted passes fail, and the strict
+         department 7-digit validator still owns acceptance. */
+      { source: surface, scale: 3.6, psm: "7",  xPadding: 2, yPadding: 3, xShift: 0.10 },
+      { source: bin,     scale: 3.6, psm: "7",  xPadding: 2, yPadding: 3, xShift: 0.10 },
+      { source: surface, scale: 3.6, psm: "7",  xPadding: 2, yPadding: 3, xShift: 0.16 },
+      { source: surface, scale: 4.0, psm: "8",  xPadding: 5, yPadding: 3, localOtsu: true },
+      { source: surface, scale: 4.0, psm: "13", xPadding: 2, yPadding: 2, localOtsu: true },
+      /* Last resort for a course key whose FINAL digit hugs the outer table
+         border in the shadowed bottom corner: one wider crop, still the same
+         proven cell, still digits-only, still gated by the exact 7-digit
+         department validator (and the catalogue when present), so margin noise
+         cannot pass — it can only recover the clipped digit. */
+      { source: surface, scale: 4.2, psm: "7",  xPadding: 9, yPadding: 4, localOtsu: true },
+    ] : field === "hall" ? [
+      { source: surface, scale: 3.2, psm: "7", xPadding: 0, yPadding: 0 },
+      { source: bin,     scale: 3.2, psm: "7", xPadding: 0, yPadding: 0 },
+      { source: surface, scale: 2.8, psm: "8", xPadding: 2, yPadding: 2 },
+      /* Same platform crop-drift retry as the course key: a hall crop that
+         drifted absorbs a border stroke as a phantom digit (F11 -> F111). */
+      { source: surface, scale: 3.2, psm: "7", xPadding: 0, yPadding: 0, xShift: 0.10 },
+    ] : field === "days" ? [
+      { source: bin,     scale: 3.2, psm: "7", xPadding: 0, yPadding: 0 },
+      { source: surface, scale: 3.0, psm: "7", xPadding: 4, yPadding: 3 },
+      { source: bin,     scale: 3.0, psm: "7", xPadding: 4, yPadding: 3 },
+      { source: surface, scale: 2.8, psm: "8", xPadding: 2, yPadding: 2 },
+    ] : [
+      { source: surface, scale: 3.2, psm: "7", xPadding: 0, yPadding: 0 },
+      { source: bin,     scale: 3.2, psm: "7", xPadding: 0, yPadding: 0 },
+      { source: surface, scale: 3.0, psm: "7", xPadding: 4, yPadding: 3 },
+      { source: bin,     scale: 3.0, psm: "7", xPadding: 4, yPadding: 3 },
+      { source: surface, scale: 2.8, psm: "8", xPadding: 2, yPadding: 2 },
+      /* Platform crop drift affects section/reference cells the same way as
+         the course key (see the shifted passes above). One shifted retry,
+         still validator-gated. */
+      { source: surface, scale: 3.2, psm: "7", xPadding: 2, yPadding: 2, xShift: 0.10 },
+    ];
+
+    for (let i = 0; i < strategies.length; i++) {
+      const s = strategies[i];
+      const insetX = Math.max(1, Math.min(4, Math.round(rawWidth * .05)));
+      const insetY = Math.max(1, Math.min(3, Math.round(rawHeight * .08)));
+      const shift = Math.round(rawWidth * (s.xShift || 0));
+      const left = Math.max(0, band.left + insetX - s.xPadding + shift);
+      const topCell = Math.max(0, rowBand.top + insetY - s.yPadding);
+      const right = Math.min(image.width, band.right - insetX + s.xPadding + shift);
+      const bottomCell = Math.min(image.height, rowBand.bottom - insetY + s.yPadding);
+      const width = Math.max(1, right - left);
+      const height = Math.max(1, bottomCell - topCell);
+      
+      const cell = lib.createCanvas(Math.max(1, Math.round(width * s.scale)), Math.max(1, Math.round(height * s.scale)));
+      const ctx = cell.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(s.source, left, topCell, width, height, 0, 0, cell.width, cell.height);
+      
+      const recognitionCell=s.localOtsu?otsuBinarize(lib,cell):cell;
+      await worker.setParameters({ tessedit_char_whitelist: alphabet, tessedit_pageseg_mode: s.psm as any });
+      let value = "";
+      try {
+        const result: any = await worker.recognize(recognitionCell.toBuffer("image/png"));
+        value = String(result?.data?.text || "").replace(/\s+/g, " ").trim();
+      } catch { recognitionFailures++; }
+      
+      if (value && validator(value)) {
+        return { value, confidence: 0.89 - (i * 0.05) };
+      }
+    }
+    return null;
+  };
+
+  type RecoveryTask = { row: number, index: number, field: string, validator: (v: string) => boolean, alphabet: string, span?: Span };
+  const recoveryTasks: RecoveryTask[] = [];
+  
+  const checkAndAddTask = (row: number, index: number, field: string, test: (v: string) => boolean, alphabet: string, span?: Span) => {
+    if (index < 0 && !span) return;
+    const grey = span ? (() => { let v=""; for(let i=span.from; i<=span.to; i++) v+=normalizeCell(numericGrey[i]?.cells[row]||"").replace(/\s+/g,""); return v; })() : normalizeCell(numericGrey[index]?.cells[row]||"");
+    const binary = span ? (() => { let v=""; for(let i=span.from; i<=span.to; i++) v+=normalizeCell(numericBin[i]?.cells[row]||"").replace(/\s+/g,""); return v; })() : normalizeCell(numericBin[index]?.cells[row]||"");
+    if (!test(grey) && !test(binary)) {
+      /* Escalation is for cells that FAILED, not cells that are EMPTY. A blank
+         cell pays zero strategies and stays empty for manual review. */
+      const physicalBand = span ? { left: columnBands[span.from].left, right: columnBands[span.to].right } : columnBands[index];
+      if (!cellHasInk(physicalBand, bands[row])) return;
+      recoveryTasks.push({ row, index: span ? span.from : index, field, validator: test, alphabet, span });
+    }
+  };
+
+  for (let row = 0; row < bands.length; row++) {
+    checkAndAddTask(row, timeIndex, 'time', v => stripPatterns.time.test(v), DIGITS);
+    checkAndAddTask(row, buildingIndex, 'building', v => Boolean(safeBuilding(v)), LOCATION_ALNUM);
+    checkAndAddTask(row, hallIndex, 'hall', v => Boolean(safeHall(v)), LOCATION_ALNUM);
+    checkAndAddTask(row, daysIndex, 'days', authorityDaysCellLooksPlausible, "12345 ");
+    checkAndAddTask(row, scodeIndex, 'scode', v => stripPatterns.scode.test(v), KEY_DIGITS);
+    
+    if (codeSpan) checkAndAddTask(row, -1, 'code', courseCellTest, KEY_DIGITS, codeSpan);
+    else checkAndAddTask(row, codeIndex, 'code', courseCellTest, KEY_DIGITS);
+    
+    if (refcodeSpan) checkAndAddTask(row, -1, 'refcode', refCourseCellTest, KEY_DIGITS, refcodeSpan);
+    else checkAndAddTask(row, refcodeIndex, 'refcode', refCourseCellTest, KEY_DIGITS);
+    
+    checkAndAddTask(row, referenceIndex, 'reference', v => stripPatterns.reference.test(v), KEY_DIGITS);
+  }
+
+  if (recoveryTasks.length > 0) {
+    await runOnPool(pool.eng, recoveryTasks.map(task => async (worker: PooledWorker) => {
+      let band = columnBands[task.index];
+      if (task.span) band = { left: columnBands[task.span.from].left, right: columnBands[task.span.to].right };
+      
+      const res = await cellEscalationPipeline(task.row, band, bands[task.row], task.alphabet, task.validator, worker, task.field);
+      if (res) {
+        if (task.span) {
+          const first = [...numericGrey[task.span.from].cells];
+          first[task.row] = res.value;
+          numericGrey[task.span.from] = { cells: first };
+          for (let i = task.span.from + 1; i <= task.span.to; i++) {
+            const rest = [...numericGrey[i].cells];
+            rest[task.row] = "";
+            numericGrey[i] = { cells: rest };
+          }
+        } else {
+          const next = [...numericGrey[task.index].cells];
+          next[task.row] = res.value;
+          numericGrey[task.index] = { cells: next };
+        }
+      }
+    }));
+  }
+
+mark('escalation');
+  const pickValidated=(index:number,pattern:RegExp)=>(row:number)=>{
+
+    if(index<0)return"";
+    const grey=normalizeCell(numericGrey[index].cells[row]||"");
+    const binary=normalizeCell(numericBin[index].cells[row]||"");
+    if(pattern.test(grey))return grey;
+    if(pattern.test(binary))return binary;
+    return grey||binary;
+  };
+  const pickValidatedBy=(index:number,test:(value:string)=>boolean)=>(row:number)=>{
+    if(index<0)return"";
+    const grey=normalizeCell(numericGrey[index].cells[row]||"");
+    const binary=normalizeCell(numericBin[index].cells[row]||"");
+    if(test(grey))return grey;
+    if(test(binary))return binary;
+    return grey||binary;
+  };
+  const timeAt=pickValidated(timeIndex,stripPatterns.time);
+  const buildingAt=pickValidated(buildingIndex,stripPatterns.building);
+  const hallAt=pickValidated(hallIndex,stripPatterns.hall);
+  const daysAt=pickValidatedBy(daysIndex,authorityDaysCellLooksPlausible);
+  const pickSpanValidated=(span:Span|null,pattern:RegExp)=>(row:number)=>{
+    if(!span)return"";
+    const joined=(reads:StripRead[])=>{let value="";for(let index=span.from;index<=span.to;index++)value+=normalizeCell(reads[index]?.cells[row]||"").replace(/\s+/g,"");return value;};
+    const grey=joined(numericGrey),binary=joined(numericBin);
+    if(pattern.test(grey))return grey;
+    if(pattern.test(binary))return binary;
+    return grey||binary;
+  };
+  const pickSpanValidatedBy=(span:Span|null,test:(value:string)=>boolean)=>(row:number)=>{
+    if(!span)return"";
+    const joined=(reads:StripRead[])=>{let value="";for(let index=span.from;index<=span.to;index++)value+=normalizeCell(reads[index]?.cells[row]||"").replace(/\s+/g,"");return value;};
+    const grey=joined(numericGrey),binary=joined(numericBin);
+    if(test(grey))return grey;
+    if(test(binary))return binary;
+    return grey||binary;
+  };
+  const refcodeAt=refcodeSpan?pickSpanValidatedBy(refcodeSpan,refCourseCellTest):pickValidatedBy(refcodeIndex,refCourseCellTest);
+  const codeAt=codeSpan?pickSpanValidatedBy(codeSpan,courseCellTest):pickValidatedBy(codeIndex,courseCellTest);
+  const referenceAt=pickValidated(referenceIndex,stripPatterns.reference);
+  const scodeAt=pickValidated(scodeIndex,stripPatterns.scode);
+
+  /* The printed Authority clocks on one page share a stable one-minute
+     lattice. A ruled right border is sometimes OCR'd as the last digit (0800 →
+     0801, 1400 → 1406). Derive the dominant final digit from the many intact
+     four-digit clocks on THIS page; correction is then page evidence rather
+     than a hard-coded schedule assumption. */
+  const clockTailCounts=new Map<string,number>();let clockTailSamples=0;
+  for(let row=0;row<bands.length;row++){
+    for(const piece of timeAt(row).replace(/\D+/g," ").trim().split(" ").filter(Boolean)){
+      if(!/^\d{4}$/.test(piece))continue;
+      clockTailSamples++;const tail=piece.slice(-1);clockTailCounts.set(tail,(clockTailCounts.get(tail)||0)+1);
+    }
+  }
+  const dominantClockTail=[...clockTailCounts.entries()].sort((a,b)=>b[1]-a[1])[0];
+  const pageClockTail=dominantClockTail&&dominantClockTail[1]>=Math.max(4,Math.ceil(clockTailSamples*.55))?dominantClockTail[0]:"";
+  const teachingClock=(value:string)=>{const h=Number(value.slice(0,2)),m=Number(value.slice(2));return /^\d{4}$/.test(value)&&h>=7&&h<21&&m<60;};
+
+  const rowsOut:GridRow[]=[];
+  for(let row=0;row<bands.length;row++){
+    /* A table border read as «1» prefixes the digits; the tail is the value. */
+    let refcode=refcodeAt(row).replace(/\D/g,"");
+    if(refcode.length>13)refcode=refcode.slice(-13);
+    let reference=referenceAt(row).replace(/\D/g,""),code=codeAt(row).replace(/\D/g,"");
+    if(reference.length>6)reference=reference.slice(-6);
+    if(code.length>7)code=code.slice(-7);
+    /* Authority exports across years use 4–6 digit reference numbers but the
+       academic course key is consistently the 7-digit tail. Split from the
+       tail instead of hard-coding a 5+7 layout. */
+    if(refcode.length>=11&&refcode.length<=13){
+      code=refcode.slice(-7);
+      reference=refcode.slice(0,-7);
+    }
+    const rawTime=timeAt(row);
+    const timeText=rawTime.replace(/\D+/g," ").trim();
+    let pieces=timeText.split(" ").filter(piece=>piece.length>=3&&piece.length<=4);
+    let start="",end="";
+    /* A 3-digit piece lost one digit, and which end it lost decides the hour:
+       «080» is 0800 with its tail gone, «950» is 0950 with its head gone. Try
+       both pads and keep the one that lands inside teaching hours — for these
+       values exactly one of them ever does. */
+    const mend=(piece:string):string|null=>{
+      if(piece.length===4){
+        let value=piece;
+        /* Only a one-character tail correction is permitted, only when a
+           dominant tail was independently learned from this same page. */
+        if(pageClockTail&&value.slice(-1)!==pageClockTail&&teachingClock(value)){
+          const corrected=value.slice(0,-1)+pageClockTail;
+          if(teachingClock(corrected)&&Math.abs(Number(value.slice(-1))-Number(pageClockTail))<=6)value=corrected;
+        }
+        return teachingClock(value)?value:null;
+      }
+      const padded=[piece.padEnd(4,"0"),piece.padStart(4,"0")].filter(teachingClock);
+      return padded.length===1?padded[0]:null;
+    };
+    /* Some OCR passes retain all eight clock digits but lose only the printed
+       dash. The column has already been semantically proven as TIME, so 09200800
+       can be split into its two four-digit clocks without consulting a neighbour. */
+    if(pieces.length<2){
+      const packed=rawTime.replace(/\D/g,"");
+      if(/^\d{8}$/.test(packed))pieces=[packed.slice(0,4),packed.slice(4)];
+      else if(/^\d{7}$/.test(packed)){
+        const p1=[packed.slice(0,3),packed.slice(3)],p2=[packed.slice(0,4),packed.slice(4)];
+        if(p1.map(mend).filter(Boolean).length===2)pieces=p1;
+        else if(p2.map(mend).filter(Boolean).length===2)pieces=p2;
+      }
+    }
+    const mended=pieces.map(mend).filter((value):value is string=>Boolean(value));
+    if(mended.length>=2){
+      const toMinutes=(value:string)=>Number(value.slice(0,2))*60+Number(value.slice(2));
+      const sorted=[...mended].sort((a,b)=>toMinutes(a)-toMinutes(b));
+      start=`${sorted[0].slice(0,2)}:${sorted[0].slice(2)}`;
+      end=`${sorted[sorted.length-1].slice(0,2)}:${sorted[sorted.length-1].slice(2)}`;
+    }
+    if(!start||!end){
+      const pair=timePair(rawTime);
+      if(pair){start=start||pair.start;end=end||pair.end;}
+    }
+    let scode=normalizeAuthoritySectionCode(scodeAt(row));
+    if(!authoritySectionCodeLooksPlausible(scode))scode="";
+
+    const bRaw=buildingAt(row);
+    const hRaw=hallAt(row);
+    /* Column identity is stronger evidence than a token that merely “looks
+       like” a room/building. Never rescue one field from another column. */
+    const building=safeBuilding(bRaw);
+    const hall=safeHall(hRaw);
+
+    /* Days stay in the days cell. Do not “rescue” them from units/capacity
+       columns where values such as 3 or 5 are valid digits but wrong evidence. */
+    const rowDays=daysAt(row).trim();
+
+    rowsOut.push({
+      code,reference,scode,
+      courseText:normalizeCell(nameCells.cells[row]||""),
+      instructorText:normalizeCell(instructorCells.cells[row]||""),
+      days:rowDays,daysRaw:rowDays,timeRaw:rawTime,
+      start,end,
+      building,
+      hall,
+      buildingRaw:bRaw,
+      hallRaw:hRaw,
+      sourceMode:"ocr-grid",
+      /* موضع الصف على الورقة بمقياس 842 كطريق الكلمات: به يُرتَّب الدمج
+         كترتيب الصفحة المطبوعة (processPage). */
+      y:((bands[row].top+bands[row].bottom)/2)*842/Math.max(1,image.width),
+    });
+  }
+  if(recognitionFailures>0)console.warn(`[ocr] ${recognitionFailures} rescue recognitions failed on this page — likely memory/CPU pressure; affected cells stayed empty for manual review`);
+  const meaningful=rowsOut.filter(row=>row.code||row.start||row.courseText.length>3);
+  /* The final physical page may contain only one or two legitimate rows. The
+     adaptive grid/header proof above is what makes this safe. */
+  return meaningful.length>=1?rowsOut:null;
+}
+
+/**
+ * The term the sheet says it belongs to: «الفصل الدراسي الاول 2027-2026».
+ *
+ * The header names the term on every export, and uploading last year's sheet
+ * into this year's term is the one mistake nothing downstream can catch — the
+ * rows are all valid, just a year old. Read it here so the caller can compare
+ * it with the term the person actually selected.
+ */
+function readHeaderTerm(text:string):HeaderTerm|undefined{
+  const ascii=toAscii(text).replace(/\r/g,"");
+  const seasonOf=(value:string):HeaderTerm["season"]=>/الاول|الأول/.test(value)?"first":/الثاني|الثانى/.test(value)?"second":"summer";
+  const build=(seasonRaw:string,aRaw:string,bRaw:string):HeaderTerm=>{
+    const season=seasonOf(seasonRaw),a=Number(aRaw),b=Number(bRaw);
+    const years:[number,number]=[Math.min(a,b),Math.max(a,b)];
+    const seasonLabel=season==="first"?"الأول":season==="second"?"الثاني":"الصيفي";
+    return{season,years,label:`الفصل الدراسي ${seasonLabel} ${years[0]}/${years[1]}`};
+  };
+  /* Logical-order text (what a browser normally gives us). */
+  let match=ascii.match(/الفصل\s*الدراسي\s*(الاول|الأول|الثاني|الثانى|الصيفي|الصيفى)\s*(\d{4})\s*[-/]\s*(\d{4})/)
+    ||ascii.match(/(الاول|الأول|الثاني|الثانى|الصيفي|الصيفى)\s*(\d{4})\s*[-/]\s*(\d{4})/);
+  if(match)return build(match[1],match[2],match[3]);
+  /* Oracle/Quartz RTL exports can expose the same visible header in physical
+     order: «2027-2026 الاول الدراسي الفصل». The year pair appearing BEFORE
+     the season is still explicit page-header evidence and must not force OCR. */
+  match=ascii.match(/(\d{4})\s*[-/]\s*(\d{4})\s*(الاول|الأول|الثاني|الثانى|الصيفي|الصيفى)(?:\s*الدراسي)?(?:\s*الفصل)?/);
+  if(match)return build(match[3],match[1],match[2]);
+  return undefined;
+}
+
+/** Branch line printed in the Authority header, e.g.
+ * «الفرع: 012 كلية التربية الأساسية بنات». RTL PDF text layers sometimes
+ * expose the exact same visible cell as «012 كلية التربية الأساسية بنات : الفرع»;
+ * both are document evidence, not an inferred campus. */
+function readHeaderBranch(text:string):HeaderBranch|undefined{
+  const ascii=toAscii(text).replace(/\r/g,"");
+  const build=(code:string,nameRaw:string):HeaderBranch=>{
+    const name=String(nameRaw||"")
+      .replace(/\s+(?:القسم|الكلية|الفصل|التاريخ|رقم\s*المقرر|مسمى\s*المقرر)\s*[:：]?.*$/," ")
+      .replace(/^[|:：-]+|[|:：-]+$/g,"").replace(/\s+/g," ").trim();
+    return{code,name,label:[code,name].filter(Boolean).join(" ")};
+  };
+  const campusName=String.raw`(?:كلي[هة]\s+)?(?:التربي[هة]\s+الاساسي[هة]|التربي[هة]\s+الأساسي[هة]|الدراسات[^\n]{0,40}|العلوم[^\n]{0,40}|التمريض[^\n]{0,40})[^\n]{0,70}?(?:بنات|بنين|الجهراء|الفحيحيل)`;
+  for(const rawLine of ascii.split("\n")){
+    const line=rawLine.replace(/\s+/g," ").trim();
+    let match=line.match(/الفرع\s*[:：-]?\s*(\d{3})\s*(.*)$/);
+    if(match)return build(match[1],match[2]);
+    /* Some Oracle/PDF extractors glue the code to the Arabic word visually:
+       «012كليه التربية الاساسيه بنات الفرع». A word boundary or mandatory
+       space rejects a perfectly valid Authority header, so the campus phrase
+       itself is the boundary evidence. */
+    match=line.match(new RegExp(`(?:^|\\s)(\\d{3})\\s*(${campusName})\\s*[:：-]?\\s*الفرع(?:\\s|$)`));
+    if(match)return build(match[1],match[2]);
+    /* Some raw layers split the campus name away but keep «012 : الفرع». */
+    match=line.match(/(?:^|\s)(\d{3})\s*[:：-]?\s*الفرع(?:\s|$)/);
+    if(match)return build(match[1],"");
+  }
+  const flat=ascii.replace(/\s+/g," ").trim();
+  let flatMatch=flat.match(/الفرع\s*[:：-]?\s*(\d{3})\s*([^]{0,180}?)(?=\s+(?:القسم|الكلية|الفصل|التاريخ|رقم\s*المقرر|مسمى\s*المقرر)\b|$)/);
+  if(flatMatch)return build(flatMatch[1],flatMatch[2]);
+  flatMatch=flat.match(new RegExp(`(?:^|\\s)(\\d{3})\\s*(${campusName})\\s*[:：-]?\\s*الفرع(?:\\s|$)`));
+  if(flatMatch)return build(flatMatch[1],flatMatch[2]);
+  const reversedCode=flat.match(/(?:^|\s)(\d{3})\s*[:：-]?\s*الفرع(?:\s|$)/);
+  if(reversedCode){
+    /* Search immediately BEFORE the code for the visible campus wording. */
+    const at=reversedCode.index||0, before=flat.slice(Math.max(0,at-150),at).trim();
+    const nameMatch=before.match(new RegExp(`(${campusName})$`));
+    return build(reversedCode[1],nameMatch?.[1]||"");
+  }
+  const structural=flat.match(new RegExp(`(?:^|\\s)(\\d{3})\\s*(${campusName})(?=\\s|$)`));
+  return structural?build(structural[1],structural[2]):undefined;
+}
+
+/** Department printed in the document header, e.g. «القسم: 0101 التربية الإسلامية». */
+function readHeaderDepartment(text:string):HeaderDepartment|undefined{
+  const ascii=toAscii(text).replace(/\r/g,"");
+  const cleanName=(value:string)=>String(value||"")
+    .replace(/\s+(?:الفرع|الكلية|الفصل|التاريخ|رقم\s*المقرر|مسمى\s*المقرر)\s*[:：]?.*$/," ")
+    /* College/header numbers can sit physically beside the department cell in
+       RTL text extraction (e.g. department 0101 followed by college 01). They
+       are not part of the department name. Keep Arabic identity text only. */
+    .replace(/(?:^|\s)\d{1,6}(?=\s|$)/g," ")
+    .replace(/^[|:：_-]+|[|:：_-]+$/g,"").replace(/\s+/g," ").trim();
+  const nearestDepartmentName=(value:string)=>{
+    /* Physical RTL extraction may place the whole branch phrase before the
+       department, e.g. «012كلية... الفرع : التربية الاسلامية 0101 القسم».
+       Only the Arabic phrase nearest the department code belongs to القسم. */
+    /* وفي الترتيب المنطقي يأتي الاسم أولاً ثم «| الفرع : 022 كليه…»: ما
+       قبل «الفرع» هو القسم، وما بعده اسم الفرع. يُؤخذ الجزء الملاصق للرمز
+       ما لم يكن هو نفسه اسم كلية/فرع. */
+    const parts=String(value||"").split(/(?:^|\s)الفرع\s*[:：_-]?\s*/);
+    const beforeBranch=cleanName(parts[0]||"");
+    const campusLike=/^(?:\d+\s*)?كلي[هة]\s/.test(beforeBranch)||/(?:بنات|بنين|الجهراء|الفحيحيل)$/.test(beforeBranch);
+    const chosen=parts.length>1&&beforeBranch.length>=3&&!campusLike?beforeBranch:cleanName(parts[parts.length-1]||value);
+    /* pdfjs يعكس الأقواس في النص العربي: «)تربيه اساسيه(». */
+    return chosen.replace(/\)([^()]*)\(/g,"($1)").replace(/\s+/g," ").trim();
+  };
+  const build=(code:string,nameRaw:string):HeaderDepartment=>{
+    const name=nearestDepartmentName(nameRaw);return{code,name,label:[code,name].filter(Boolean).join(" ")};
+  };
+  for(const rawLine of ascii.split("\n")){
+    const line=rawLine.replace(/\s+/g," ").trim();
+    let match=line.match(/القسم\s*[:：_-]?\s*(\d{3,6})\s*(.*)$/);
+    if(match)return build(match[1],match[2]);
+    /* Physical RTL order may be either «التربية الاسلامية : القسم 0101» or
+       «التربية الاسلامية 0101 القسم :». Support both explicitly. */
+    match=line.match(/([ء-ي][ء-ي\s:：_-]{3,140}?)\s*[:：_-]?\s*القسم\s*[:：_-]?\s*(\d{3,6})(?:\s|$)/);
+    if(match)return build(match[2],match[1]);
+    match=line.match(/([ء-ي][ء-ي\s:：_-]{3,180}?)\s*(\d{4,6})\s*[:：_-]?\s*القسم(?:\s*[:：_-]?|$)/);
+    if(match)return build(match[2],match[1]);
+    match=line.match(/(?:^|\s)(\d{3,6})\s*[:：_-]?\s*القسم(?:\s|$)/);
+    if(match){
+      const before=line.slice(0,match.index||0).replace(/\d+/g," ").replace(/[^ء-ي\s:：_-]/g," ").replace(/\s+/g," ").trim();
+      return build(match[1],before);
+    }
+  }
+  const flat=ascii.replace(/\s+/g," ").trim();
+  let flatMatch=flat.match(/القسم\s*[:：_-]?\s*(\d{3,6})\s*([^]{0,180}?)(?=\s+(?:الفرع|الكلية|الفصل|التاريخ|رقم\s*المقرر|مسمى\s*المقرر)\b|$)/);
+  if(flatMatch)return build(flatMatch[1],flatMatch[2]);
+  flatMatch=flat.match(/([ء-ي][ء-ي\s:：_-]{3,140}?)\s*[:：_-]?\s*القسم\s*[:：_-]?\s*(\d{3,6})(?=\s|$)/);
+  if(flatMatch)return build(flatMatch[2],flatMatch[1]);
+  flatMatch=flat.match(/([ء-ي][ء-ي\s:：_-]{3,180}?)\s*(\d{4,6})\s*[:：_-]?\s*القسم(?:\s*[:：_-]?|$)/);
+  if(flatMatch)return build(flatMatch[2],flatMatch[1]);
+  /* When the label/code glyphs are damaged but the department name survives,
+     retain that raw Arabic evidence for a conservative name comparison on the
+     server. Stop at the independently detected branch code/site name. */
+  for(const rawLine of ascii.split("\n")){
+    const branchAt=rawLine.search(/\b\d{3}\s*(?:كلي[هة]|التربي[هة]|الدراسات|العلوم|التمريض)/);
+    if(branchAt<0)continue;
+    const before=rawLine.slice(0,branchAt);
+    const code=before.match(/\b(\d{4,6})\b/)?.[1]||"";
+    const name=nearestDepartmentName(before.replace(/\d+/g," ").replace(/[^ء-ي\s:：_-]/g," ").replace(/(?:^|\s)(?:القسم|العم|جح)(?=\s|$)/g," ").replace(/\s+/g," ").trim());
+    if(name.length>=5)return{code,name,label:[code,name].filter(Boolean).join(" ")};
+  }
+  return undefined;
+}
+
+/** Pure parser used by both text-layer and scan header paths, and by regression
+ * tests. Keeping one parser prevents the fast preflight and the full OCR path
+ * from disagreeing about the same visible Authority header. */
+export function parseAuthorityHeaderText(text:string):AuthorityPdfHeader{
+  return{term:readHeaderTerm(text),branch:readHeaderBranch(text),department:readHeaderDepartment(text)};
+}
+
+/**
+ * Safety guard for scanned Authority timetables. Native-text PDFs are exempt:
+ * only image-only pages are required to arrive in the report's horizontal
+ * geometry, because silently rotating a dense ruled table can bind OCR text to
+ * neighbouring physical columns while still looking plausible.
+ */
+export function authorityScanRequiresLandscape(
+  width:number,
+  height:number,
+  embeddedCharacters:number,
+  embeddedItems:number,
+):boolean{
+  const imageOnly=embeddedCharacters<120&&embeddedItems<12;
+  return imageOnly&&height>width*1.05;
+}
+
+
+/* ── صورة رمادية لا مسح: يُعرف ذلك في ثوانٍ لا بعد خمس دقائق ─────────────
+   6.pdf (CamScanner) صفحاته صور هاتف رمادية: خلفيتها نحو 160 لا بيضاء، و79–86%
+   من نقاطها رمادي متوسط. كانت تُقرأ أربع دقائق ثم تُرفض («18 صفاً بلا وقت ولا
+   مبنى»)، وعلى الخادم كانت تُسقطه بنفاد الذاكرة قبل الرفض فيرى المستخدم «انقطع
+   الاتصال». المسح المقروء أبيض الخلفية: أسوأ ما قُرئ فعلاً (1.pdf صورة هاتف)
+   خلفيته ≈200 ورماديه 13–23%، والملف النظيف 2–8%، ومتغيرات الاختبار العشرون
+   (ضباب، JPEG 40، تباين 55%، هاتف مائل) لا تتجاوز 11%. الحدّ بينهما واسع. */
+export const GREY_PHOTO_BACKGROUND_MAX=185,GREY_PHOTO_MID_SHARE_MIN=.55;
+/** نغمة صفحة من نقاطها الرمادية (0–255): الخلفية = الوسيط، والرمادي المتوسط =
+    نسبة النقاط بين 110 و180. */
+export function scanPageTone(gray:ArrayLike<number>):{background:number;midShare:number;greyPhoto:boolean}{
+  const histogram=new Array(256).fill(0);let total=0,mid=0;
+  for(let i=0;i<gray.length;i++){const v=Math.max(0,Math.min(255,Math.round(gray[i])));histogram[v]++;total++;if(v>=110&&v<180)mid++;}
+  if(!total)return{background:255,midShare:0,greyPhoto:false};
+  let seen=0,background=255;
+  for(let v=0;v<256;v++){seen+=histogram[v];if(seen>=total/2){background=v;break;}}
+  const midShare=mid/total;
+  return{background,midShare,greyPhoto:background<GREY_PHOTO_BACKGROUND_MAX&&midShare>=GREY_PHOTO_MID_SHARE_MIN};
+}
+/** الملف يُردّ مبكراً حين تكون نصف صفحاته على الأقل صوراً رمادية. */
+export const greyPhotoVerdict=(tones:{greyPhoto:boolean}[]):number[]=>{
+  const pages=tones.map((tone,index)=>tone.greyPhoto?index+1:0).filter(Boolean);
+  return tones.length&&pages.length*2>=tones.length?pages:[];
+};
+export const GREY_PHOTO_REFUSAL="المستند صورة رمادية باهتة لا مسح واضح، فلن تكتمل قراءته. لم يُستورد أي صف. صوّره ماسحاً ضوئياً بالأبيض والأسود (300 نقطة)، أو اختر «أبيض وأسود» في تطبيق المسح، أو اطلب ملف جدول بيانات أو PDF مُصدَّراً من النظام فيُقرأ كاملاً في ثوانٍ.";
+const TONE_LONG_EDGE=480;
+const canvasTone=(ground:any,width:number,height:number)=>{
+  const rgba=ground.getImageData(0,0,width,height).data;
+  const gray=new Uint8Array(rgba.length/4);
+  for(let i=0,j=0;i<rgba.length;i+=4,j++)gray[j]=(rgba[i]*299+rgba[i+1]*587+rgba[i+2]*114)/1000;
+  return scanPageTone(gray);
+};
+/* رسم الصفحة يفكّ صورتها كاملة (≈3 ث للصفحة)، فلا تُقاس الصفحات الأخرى إلا
+   حين تكون الأولى — المرسومة أصلاً للترويسة — رمادية: الملف الواضح لا يدفع شيئاً. */
+async function pdfPageTones(pdf:any,first:{background:number;midShare:number;greyPhoto:boolean},pageCount:number):Promise<{background:number;midShare:number;greyPhoto:boolean}[]>{
+  const lib=await canvas();const tones=[first];
+  /* نصف الصفحات يحسم الحكم: يتوقف القياس عنده، فلا تُفكّ صورٌ لا حاجة إليها. */
+  for(let index=2;index<=pageCount&&tones.filter(tone=>tone.greyPhoto).length*2<pageCount;index++){
+    const page=await pdf.getPage(index),base=page.getViewport({scale:1});
+    const viewport=page.getViewport({scale:TONE_LONG_EDGE/Math.max(base.width,base.height)});
+    const surface=lib.createCanvas(Math.ceil(viewport.width),Math.ceil(viewport.height)),ground=surface.getContext("2d");
+    ground.fillStyle="#ffffff";ground.fillRect(0,0,surface.width,surface.height);
+    await page.render({canvasContext:ground,viewport}).promise;
+    tones.push(canvasTone(ground,surface.width,surface.height));
+    page.cleanup?.();
+  }
+  return tones;
+}
+
+/**
+ * Cheap first-page preflight for Authority PDFs.
+ *
+ * It first inspects ONLY page 1's embedded text. For image-only/CamScanner
+ * PDFs it renders ONLY page 1 at probe resolution, fixes 90-degree orientation,
+ * and OCRs ONLY the header band. It never reads timetable body rows here.
+ */
+export async function readAuthorityPdfHeader(input:Buffer):Promise<AuthorityPdfHeader>{
+  let turn:ScanReadingTurn|null=null;
+  try{
+    const cached=headerPreflightCache.get(input);
+    if(cached)return cached.header;
+    if(input.subarray(0,4).toString("latin1")!=="%PDF")return{};
+    const pdfjs:any=await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const pdf=await pdfjs.getDocument({data:new Uint8Array(input),disableWorker:true,useSystemFonts:true}).promise;
+    if(!Number(pdf.numPages||0))return{};
+    const page=await pdf.getPage(1);
+    const viewport=page.getViewport({scale:1});
+    const content:any=await page.getTextContent({includeMarkedContent:false,disableNormalization:false});
+    const logicalText=(content?.items||[]).map((item:any)=>String(item?.str||"").normalize("NFKC")).filter(Boolean).join(" ");
+    /* RTL Oracle reports do not promise logical item order. Rebuild the same
+       page once by physical baselines as well; this is still embedded text and
+       costs milliseconds, but restores visible lines such as
+       «012 كلية التربية الأساسية بنات : الفرع» before OCR is considered. */
+    const headerWords:Word[]=[];
+    for(const item of content?.items||[]){
+      const value=String(item?.str||"").normalize("NFKC").replace(/\s+/g," ").trim();
+      if(!value||!Array.isArray(item?.transform))continue;
+      const transformed=pdfjs.Util?.transform?pdfjs.Util.transform(viewport.transform,item.transform):item.transform;
+      const x=Number(transformed?.[4]??item.transform[4]??0),baseline=Number(transformed?.[5]??item.transform[5]??0);
+      const width=Math.max(1,Math.abs(Number(item?.width||0)*Number(viewport.scale||1)));
+      const height=Math.max(7,Math.abs(Number(item?.height||0)*Number(viewport.scale||1))||10);
+      headerWords.push({text:value,x0:x,y0:baseline-height,x1:x+width,y1:baseline+height*.15});
+    }
+    const physicalText=tableFromWords(headerWords,[],"pdf-text").map(row=>row.line).join("\n");
+    const text=[logicalText,physicalText].filter(Boolean).join("\n");
+    const embeddedParsed=parseAuthorityHeaderText(text);
+    /* الرموز من القراءة المدموجة كما كانت؛ أما الأسماء فالترتيب الفيزيائي
+       وحده يحفظ سطر الترويسة سليماً — القراءة المدموجة تلصق «القسم : 0201»
+       بـ«022 الفرع : 02 الكلية» فيخرج الاسم فارغاً. يُكمَل الاسم الفارغ فقط،
+       وبشرط تطابق الرمز، ولا يُغيَّر رمز. */
+    const physicalParsed=parseAuthorityHeaderText(physicalText);
+    const withName=<T extends {code:string;name:string;label:string}>(field:T|undefined,alt:T|undefined):T|undefined=>{
+      if(!field||field.name||!alt?.name||alt.code!==field.code)return field;
+      return{...field,name:alt.name,label:[field.code,alt.name].filter(Boolean).join(" ")};
+    };
+    const embedded:AuthorityPdfHeader={...embeddedParsed,branch:withName(embeddedParsed.branch,physicalParsed.branch),department:withName(embeddedParsed.department,physicalParsed.department),source:"text"};
+    if(embedded.term&&embedded.branch&&embedded.department){headerPreflightCache.set(input,{header:embedded,orientation:0});return embedded;}
+
+    /* ROOT ORIENTATION SAFETY — for image-only Authority timetable scans, stop
+       before body OCR when the physical page is portrait. Do not silently turn
+       a dense ruled table and risk shifting course/building/room columns. */
+    const embeddedCharacters=text.replace(/\s+/g,"").length;
+    const imageOnly=embeddedCharacters<120&&headerWords.length<12;
+    if(imageOnly){
+      /* Landscape is a document contract, not an OCR guess. Check every PDF
+         page box in milliseconds before starting the heavy table workers. This
+         catches a single portrait page in a multi-page scan immediately and
+         removes the old need to discover it after minutes of OCR. */
+      const portraitPages:number[]=[];
+      const pageCount=Math.min(Number(pdf.numPages||0),MAX_PAGES);
+      for(let index=1;index<=pageCount;index++){
+        const candidate=index===1?page:await pdf.getPage(index);
+        const candidateViewport=candidate.getViewport({scale:1});
+        if(authorityScanRequiresLandscape(
+          Number(candidateViewport.width||0),
+          Number(candidateViewport.height||0),
+          0,
+          0,
+        ))portraitPages.push(index);
+      }
+      if(portraitPages.length){
+        const rotated:AuthorityPdfHeader={...embedded,source:"scan",requiresLandscapeUpload:true,requiresLandscapePages:portraitPages};
+        headerPreflightCache.set(input,{header:rotated,orientation:0});
+        return rotated;
+      }
+    }
+
+    /* A PARTIAL text-layer hit is not success. The regression that prompted
+       this guard returned immediately after finding only the term, then told
+       the user the branch was missing. OCR now fills only whatever the text
+       layer could not prove. */
+    const probe=await renderPdfFirstPage(input,PROBE_LONG_EDGE);
+    if(!probe){if(embedded.term||embedded.branch||embedded.department)return embedded;return{};}
+    const probeImage=await (await canvas()).loadImage(probe);
+    /* صفحات صور هاتف رمادية لا مسح (greyPhotoVerdict): تُعرف هنا في ثوانٍ. */
+    if(imageOnly){
+      try{
+        const lib=await canvas(),surface=lib.createCanvas(probeImage.width,probeImage.height),ground=surface.getContext("2d");
+        ground.drawImage(probeImage,0,0);
+        const first=canvasTone(ground,surface.width,surface.height);
+        if(first.greyPhoto){
+          const pageCount=Math.min(Number(pdf.numPages||0),MAX_PAGES);
+          const tones=await pdfPageTones(pdf,first,pageCount);
+          /* الصفحات التي لم تُقَس بعد بلوغ النصف لا تُحسب في المقام. */
+          const greyPages=tones.filter(tone=>tone.greyPhoto).length*2>=pageCount?greyPhotoVerdict(tones):[];
+          if(greyPages.length){
+            const grey:AuthorityPdfHeader={...embedded,source:"scan",greyPhotoPages:greyPages};
+            headerPreflightCache.set(input,{header:grey,orientation:0});
+            return grey;
+          }
+        }
+      }catch{/* a tone probe that fails never refuses: the reading decides */}
+    }
+    /* Authority timetables are landscape reports. Prefer the turn that makes a
+       portrait camera/PDF page landscape; pixel grid scores cannot distinguish
+       a dense ruled table from its sideways twin reliably. */
+    const turns:Array<-1|0|1>=probeImage.height>probeImage.width?[-1,1,0]:[0,-1,1];
+    const scored=await Promise.all(turns.map(async turn=>({turn,score:await pixelOrientationScore(await rotateImage(probe,turn))})));
+    scored.sort((a,b)=>turns.indexOf(a.turn)-turns.indexOf(b.turn)||b.score-a.score);
+    /* +90 and -90 have identical grid geometry. OCR the best candidate first;
+       stop as soon as the three independent header authorities are present. */
+    /* Keep the third turn as a bounded fallback. Camera/PDF rotation metadata can
+       make the two pixel-axis finalists tie while the textual header sits in the
+       remaining turn; semantic header fields, not a geometric tie-break, decide. */
+    const candidates=scored;
+    /* This worker is also the first Arabic table worker: drive it only in turn.
+       The same file already being read needs no preflight of its own — its
+       reading proves the header — and another scan's full reading makes this
+       upload a busy refusal instead of a request that times out waiting. */
+    const contentHash=await documentFingerprint(input);
+    if([...inflightScanReads.keys()].some(key=>key.startsWith(contentHash)))return embedded;
+    turn=await takeScanReadingTurn(PREFLIGHT_TURN_WAIT_MS);
+    if(!turn)return{...embedded,busy:true};
+    const worker=await getHeaderWorker();
+    let best:{header:AuthorityPdfHeader;score:number;turn:-1|0|1}|null=null;
+    const lib=await canvas();
+    const semanticScore=(header:AuthorityPdfHeader,ocrText:string)=>(header.term?120:0)+(header.branch?80:0)+(header.department?80:0)
+      +(ocrText.match(/الفصل|الفرع|القسم|الكلية/g)||[]).length*8;
+    const remember=(header:AuthorityPdfHeader,ocrText:string,turn:-1|0|1)=>{
+      const score=semanticScore(header,ocrText);
+      if(!best||score>best.score)best={header,score,turn};
+    };
+    for(const candidate of candidates){
+      const upright=await rotateImage(probe,candidate.turn as -1|0|1);
+      const image=await lib.loadImage(upright);
+      const headerTop=Math.round(image.height*0.005);
+      const headerHeight=Math.max(130,Math.round(image.height*0.27));
+      /* The probe is intentionally small for speed, but the printed department
+         line is fine. Upscaling only this narrow band made the real CamScanner
+         header deterministic while keeping preflight to a few seconds. */
+      const headerScale=1.65;
+      const crop=lib.createCanvas(Math.round(image.width*headerScale),Math.round(headerHeight*headerScale)),ctx=crop.getContext("2d");
+      ctx.fillStyle="#ffffff";ctx.fillRect(0,0,crop.width,crop.height);
+      ctx.drawImage(image,0,headerTop,image.width,headerHeight,0,0,crop.width,crop.height);
+      await worker.setParameters({tessedit_char_whitelist:"",tessedit_pageseg_mode:"6" as any});
+      const result:any=await worker.recognize(crop.toBuffer("image/png")).catch(()=>null);
+      const ocrText=String(result?.data?.text||"").normalize("NFKC");
+      const parsed=parseAuthorityHeaderText(ocrText);
+      const header:AuthorityPdfHeader={...parsed,source:"scan"};
+      remember(header,ocrText,candidate.turn);
+      if(header.term&&header.branch&&header.department)break;
+    }
+
+    let merged:AuthorityPdfHeader={
+      term:embedded.term||best?.header.term,
+      branch:embedded.branch||best?.header.branch,
+      department:embedded.department||best?.header.department,
+      source:(embedded.term&&embedded.branch&&embedded.department)?"text":best?.header.source||embedded.source,
+    };
+
+    /* A landscape PDF can still carry a sideways raster. If the header only
+       becomes semantically valid after a physical ±90° turn, stop before body
+       extraction instead of letting auto-rotation remap the table columns. */
+    if(best&&best.turn!==0){
+      const rotated:AuthorityPdfHeader={...merged,source:"scan",requiresLandscapeUpload:true};
+      headerPreflightCache.set(input,{header:rotated,orientation:best.turn});
+      return rotated;
+    }
+
+    /* Deep header rescue: cheap 1400px preflight can still lose tiny Arabic
+       dots in a phone-scanned/CamScanner page. Do NOT reject the document at
+       that point. Re-render page 1 only at the same 2800px quality used by the
+       table reader, crop a slightly taller header band, and try sparse-text
+       segmentation as a second pass. This is bounded to page 1 and only runs
+       when at least one required authority field is still unresolved. */
+    if(!merged.term||!merged.branch||!merged.department){
+      const deep=await renderPdfFirstPage(input,TARGET_LONG_EDGE);
+      if(deep){
+        const deepTurns:Array<-1|0|1>=[...(best?[best.turn]:[]),...candidates.map(item=>item.turn)].filter((turn,index,array)=>array.indexOf(turn)===index) as Array<-1|0|1>;
+        for(const turn of deepTurns){
+          let upright=await rotateImage(deep,turn);
+          upright=await deskew(upright);
+          const image=await lib.loadImage(upright);
+          const headerTop=0,headerHeight=Math.max(220,Math.round(image.height*0.34));
+          const crop=lib.createCanvas(image.width,headerHeight),ctx=crop.getContext("2d");
+          ctx.fillStyle="#ffffff";ctx.fillRect(0,0,crop.width,crop.height);
+          ctx.drawImage(image,0,headerTop,image.width,headerHeight,0,0,crop.width,headerHeight);
+          let deepText="";
+          for(const psm of [6,11]){
+            await worker.setParameters({tessedit_char_whitelist:"",tessedit_pageseg_mode:String(psm) as any});
+            const result:any=await worker.recognize(crop.toBuffer("image/png")).catch(()=>null);
+            deepText=String(result?.data?.text||"").normalize("NFKC");
+            const parsed=parseAuthorityHeaderText(deepText);
+            const header:AuthorityPdfHeader={...parsed,source:"scan"};
+            remember(header,deepText,turn);
+            merged={term:embedded.term||header.term||merged.term,branch:embedded.branch||header.branch||merged.branch,department:embedded.department||header.department||merged.department,source:"scan"};
+            if(merged.term&&merged.branch&&merged.department)break;
+          }
+          if(merged.term&&merged.branch&&merged.department)break;
+        }
+      }
+    }
+
+    if(merged.term||merged.branch||merged.department){
+      headerPreflightCache.set(input,{header:merged,orientation:best?.turn||0});return merged;
+    }
+    return{};
+  }catch{return{};}
+  finally{await turn?.release(false);}
+}
+
+/**
+ * Is this scan worth reading at all?
+ *
+ * Handing back a half-empty table from an unreadable photo is worse than
+ * refusing it: the reader cannot tell which blanks are the document and which
+ * are the camera. Two signals decide it — how much text came off the page, and
+ * how sure the engine was — and the thresholds sit well under the Authority's
+ * own exports, measured at 54 and 63, so a real document is never turned away.
+ */
+const LEGIBLE_MIN_CONFIDENCE=42;
+const LEGIBLE_MIN_CHARS_PER_PAGE=140;
+function judgeLegibility(text:string,pages:number,confidence:number):Legibility{
+  const meaningful=(text.match(/[ء-يa-zA-Z0-9]/g)||[]).length;
+  const charactersPerPage=Math.round(meaningful/Math.max(1,pages));
+  if(charactersPerPage<LEGIBLE_MIN_CHARS_PER_PAGE)
+    return{readable:false,confidence,charactersPerPage,reason:"لم أتبيّن نصاً كافياً في الصورة. الرجاء رفع صورة أوضح أو ملف PDF أعلى دقة."};
+  if(confidence<LEGIBLE_MIN_CONFIDENCE)
+    return{readable:false,confidence,charactersPerPage,reason:"الصورة غير واضحة بما يكفي للقراءة. صوّر الورقة في إضاءة جيدة ومن زاوية مستقيمة، أو ارفع نسخة PDF أوضح."};
+  return{readable:true,confidence,charactersPerPage,reason:""};
+}
+
+/** Read only the authority band from an already upright high-resolution page.
+ * This is the safety net used when grid extraction succeeds (so full-page OCR
+ * is intentionally skipped) but the cheap preflight could not prove all three
+ * scope fields. The table body is never used as a substitute for the header. */
+async function readAuthorityHeaderBand(upright:Buffer,worker:PooledWorker):Promise<string>{
+  const lib=await canvas(),image=await lib.loadImage(upright);
+  const height=Math.max(220,Math.round(image.height*0.34));
+  const crop=lib.createCanvas(image.width,height),ctx=crop.getContext("2d");
+  ctx.fillStyle="#ffffff";ctx.fillRect(0,0,crop.width,crop.height);
+  ctx.drawImage(image,0,0,image.width,height,0,0,crop.width,height);
+  let bestText="",bestScore=-1;
+  for(const psm of [6,11]){
+    await worker.setParameters({tessedit_char_whitelist:"",tessedit_pageseg_mode:String(psm) as any});
+    const result:any=await worker.recognize(crop.toBuffer("image/png")).catch(()=>null);
+    const text=String(result?.data?.text||"").normalize("NFKC");
+    const header=parseAuthorityHeaderText(text);
+    const score=(header.term?120:0)+(header.branch?80:0)+(header.department?80:0)+(text.match(/الفصل|الفرع|القسم|الكلية/g)||[]).length*8;
+    if(score>bestScore){bestScore=score;bestText=text;}
+    if(header.term&&header.branch&&header.department)break;
+  }
+  return bestText;
+}
+
+/* Short-lived result cache: keeps no uploaded bytes, only the parsed result.
+   Re-opening the same scan during review is therefore effectively instant. */
+const OCR_RESULT_TTL_MS=10*60*1000;
+const OCR_RESULT_CACHE_MAX=12;
+const ocrResultCache=new Map<string,{at:number;value:OcrResult}>();
+async function documentFingerprint(input:Buffer){
+  const {createHash}=await import("node:crypto");
+  return createHash("sha256").update(input).digest("hex");
+}
+function cachedOcr(key:string){
+  const hit=ocrResultCache.get(key);
+  if(!hit||Date.now()-hit.at>OCR_RESULT_TTL_MS){if(hit)ocrResultCache.delete(key);return null;}
+  ocrResultCache.delete(key);ocrResultCache.set(key,hit);
+  return structuredClone(hit.value);
+}
+function rememberOcr(key:string,value:OcrResult){
+  ocrResultCache.set(key,{at:Date.now(),value:structuredClone(value)});
+  while(ocrResultCache.size>OCR_RESULT_CACHE_MAX)ocrResultCache.delete(ocrResultCache.keys().next().value!);
+}
+
+/**
+ * OCR is deliberately server-side: the PDF import and the public survey share
+ * one implementation. Uploaded bytes are never retained; only a short-lived
+ * parsed-result cache is kept to make repeat review of the same scan instant.
+ */
+export async function ocrDocument(input:Buffer,mime:string,onProgress?:OcrProgress,options?:OcrDocumentOptions):Promise<OcrResult>{
+  const optionKeys=[...new Set((options?.authorityCourseKeys||[]).map(academicDigits).filter(Boolean))].sort();
+  const fingerprint=(await documentFingerprint(input))+(optionKeys.length?`:courses:${optionKeys.join(",")}`:"");
+  const cacheHit=cachedOcr(fingerprint);
+  if(cacheHit){onProgress?.({phase:"read",page:cacheHit.pageCount,pages:cacheHit.pageCount,message:"تم استرجاع القراءة المحفوظة"});return cacheHit;}
+  const looksLikePdf=/pdf/i.test(mime)||input.subarray(0,4).toString("latin1")==="%PDF";
+  if(looksLikePdf){
+    const embedded=await pdfTextLayer(input,onProgress);
+    if(embedded){rememberOcr(fingerprint,embedded);return embedded;}
+  }
+  /* The same file sent again while it is being read (a reviewer who reloaded
+     the page mid-read) shares that reading instead of queueing a second one. */
+  return readScanInTurn(fingerprint,async()=>{
+    /* A file that waited for its turn behind its own first reading finds that
+       reading remembered now, and returns at once. */
+    const finished=cachedOcr(fingerprint);
+    if(finished){onProgress?.({phase:"read",page:finished.pageCount,pages:finished.pageCount,message:"تم استرجاع القراءة المحفوظة"});return finished;}
+    return await readScannedDocument(input,mime,fingerprint,optionKeys,onProgress);
+  },{
+    waiting:()=>onProgress?.({phase:"render",page:0,pages:0,message:"الخادم يقرأ ملفاً آخر الآن — ينتظر ملفك دوره"}),
+    sharing:()=>onProgress?.({phase:"read",page:0,pages:0,message:"هذا الملف نفسه يُقرأ الآن — تظهر نتيجته حين تكتمل قراءته"}),
+  });
+}
+
+/** The image path of ocrDocument. It runs only while holding the scan-reading
+ *  turn, and every table worker it starts is released when it ends. */
+async function readScannedDocument(input:Buffer,mime:string,fingerprint:string,optionKeys:string[],onProgress?:OcrProgress):Promise<OcrResult>{
+  /* One render. The old flow paid pdfjs twice — a probe pass and a full pass —
+     when a probe is only a downscale of the full page it already had. */
+  const images=await imagePages(input,mime,TARGET_LONG_EDGE,onProgress);
+  const wordLaneSources:Promise<Buffer[]>|null=/pdf/i.test(mime)||input.subarray(0,4).toString("latin1")==="%PDF"
+    ?renderPdf(input,3300).catch(()=>[] as Buffer[])
+    :null;
+  if(!images.length)throw new Error("تعذر تحويل صفحات الملف إلى صور قابلة للقراءة");
+  /* OWNER MANDATE 2026-08-27: the catalogue-EXACT course-key rescue now runs on
+     EVERY scanned page, including a one-page upload and page 1 of a multi-page
+     scan. The rescue is still the same bounded, fail-closed lane: it re-reads
+     ONLY the already-proven physical course cell at high resolution and accepts
+     a repair only when exactly ONE canonical key of the selected department is
+     consistent with that same cell (O↔0-class typos). Ambiguity returns the raw
+     cell for manual review — no name, neighbour or sequence can create identity.
+     A page whose codes already read perfectly is untouched: the rescue list is
+     empty there, so the proven golden pages keep their byte-identical output. */
+  const multiPageCourseKeys=optionKeys;
+  const courseKeysForPage=(_index:number)=>multiPageCourseKeys;
+  const pagePrintedRows:number[]=[];
+  const pool=await getWorkerPool();
+  const lib0=await canvas();
+  const probeOf=async(buffer:Buffer)=>{
+    const image=await lib0.loadImage(buffer);
+    const scale=Math.min(1,PROBE_LONG_EDGE/Math.max(image.width,image.height));
+    const c=lib0.createCanvas(Math.max(1,Math.round(image.width*scale)),Math.max(1,Math.round(image.height*scale)));
+    c.getContext("2d").drawImage(image,0,0,c.width,c.height);
+    return c.toBuffer("image/png") as Buffer;
+  };
+  const cachedPreflight=headerPreflightCache.get(input);
+  const probeFirst=cachedPreflight?.header.source==="scan"?null:await probeOf(images[0]);
+
+  /* Orientation costs pixels now, not recognitions: the three turns are scored
+     on a small render in well under a second. A page with no grid signal at
+     all (a photographed transcript) falls back to one small OCR probe. */
+  if(cachedPreflight?.header.source==="scan")
+    onProgress?.({phase:"read",page:0,pages:images.length,message:`تم التحقق من اتجاه ${countOf(images.length, oblique(AR.page))} · بدء القراءة`});
+  else
+    onProgress?.({phase:"orient",page:1,pages:images.length,message:"تحديد اتجاه الصفحة"});
+  let orientation:-1|0|1=cachedPreflight?.header.source==="scan"?cachedPreflight.orientation:0;
+  if(!cachedPreflight||cachedPreflight.header.source!=="scan"){
+    /* Pixels answer the cheap half only: WHICH AXIS. A table turned +90° and
+       one turned −90° show identical rule geometry — the first cut of this
+       heuristic picked the upside-down twin and read zero rows — so the two
+       finalists are separated by one small TEXT probe each: legible Arabic and
+       time patterns only appear on the right-side-up twin. Two small
+       recognitions, not three big ones. */
+    const turns:[-1,0,1]=[-1,0,1];
+    const pixelScores=await Promise.all(turns.map(async turn=>({turn,score:await pixelOrientationScore(await rotateImage(probeFirst!,turn))})));
+    pixelScores.sort((a,b)=>b.score-a.score);
+    const [first,second]=pixelScores;
+    if(first.score>second.score*1.35){
+      orientation=first.turn as -1|0|1;
+    }else{
+      const finalists=[first.turn,second.turn] as Array<-1|0|1>;
+      const textScore=async(turn:-1|0|1)=>{
+        const result:any=await pool.ara.recognize(await rotateImage(probeFirst!,turn)).catch(()=>null);
+        const text=String(result?.data?.text||"");
+        const ascii=toAscii(text).replace(/[Oo]/g,"0");
+        /* Structural marks only. An upside-down page still yields hundreds of
+           GARBAGE Arabic characters — counting them once waved the flipped twin
+           through — but it yields zero legible time ranges and building codes. */
+        const structural=(ascii.match(/\b[0-2]\d[0-5]\d\s*[-–—]\s*[0-2]\d[0-5]\d\b/g)||[]).length*40
+          +(ascii.match(/\b\d{3}[A-Za-z]\d{2}\b/g)||[]).length*25;
+        return{structural,total:structural+(text.match(/[ء-ي]/g)||[]).length};
+      };
+      const firstScore=await textScore(finalists[0]);
+      if(firstScore.structural>=120)orientation=finalists[0];
+      else{
+        const secondScore=await textScore(finalists[1]);
+        orientation=secondScore.total>firstScore.total?finalists[1]:finalists[0];
+      }
+    }
+  }
+
+  const pages:OcrPage[]=new Array(images.length);
+  const texts:string[]=new Array(images.length).fill("");
+  const scores:number[]=new Array(images.length).fill(0);
+  /* The page-1 preflight already proved the scientific department before the
+     body is allowed to publish. Feed that proof into grid-column claiming so a
+     welded SECTION+CRN token such as 5011894 can never impersonate 0101102. */
+  const authorityGridDepartment=academicDigits(cachedPreflight?.header.department?.code);
+
+  /* PAGE READER — one proven implementation for one page or many.
+     `processPage` always receives the complete warm pool; multi-page documents
+     are sequenced below so every page gets exactly the one-page behaviour. */
+  let pagesDone=0;
+  /* الصفحات التي لم تقرأها القراءة الأولى تُسمّى للمراجع لحظة اكتشافها، لا بعد
+     انتهاء الملف كله («إذا تعذّر يظهر من البداية»). */
+  const flaggedPages:number[]=[];
+  const processPage=async(index:number,lanePool:OcrWorkerPool)=>{
+    /* Move the UI out of the orientation stage before the expensive grid read.
+       `page` here means completed pages, so zero is intentional on page 1. */
+    onProgress?.({phase:"read",page:pagesDone,pages:images.length,message:`قراءة الصفحة ${index+1} من ${images.length}`,notice:unreadPagesNotice(flaggedPages)});
+    const pageImage=images[index];
+    let pageOrientation=orientation;
+    let upright=await deskew(await rotateImage(pageImage,orientation));
+    let gridRows:GridRow[]|null=null;
+    const pageCourseKeys=courseKeysForPage(index);
+    try{gridRows=await readGrid(upright,lanePool,authorityGridDepartment,pageCourseKeys);}catch{/* an unreadable grid falls back */}
+    /* Scanned PDFs are often saved with a wrong orientation flag or a camera
+       rotation that the first-page probe cannot infer reliably. Do not give up
+       after one guess: only when the chosen turn fails, try the two remaining
+       quarter-turns and keep the one that produces the strongest physical
+       table. This rescue is paid only for failed pages, so clean exports remain
+       fast while photographed/CamScanner sheets stop collapsing into prose. */
+    const scanOrientationLocked=cachedPreflight?.header.source==="scan"&&!cachedPreflight.header.requiresLandscapeUpload;
+    if(!gridRows&&!scanOrientationLocked){
+      let best:{upright:Buffer;rows:GridRow[];turn:-1|0|1}|null=null;
+      const tried=new Set<number>([orientation]);
+      for(const turn of [-1,0,1] as const){
+        if(tried.has(turn))continue;
+        try{
+          const candidate=await deskew(await rotateImage(pageImage,turn));
+          const pageCourseKeys=courseKeysForPage(index);
+          const candidateRows=await readGrid(candidate,lanePool,authorityGridDepartment,pageCourseKeys);
+          const strength=(candidateRows||[]).filter(row=>row.code||row.reference||row.start||row.days).length;
+          const bestStrength=(best?.rows||[]).filter(row=>row.code||row.reference||row.start||row.days).length;
+          if(candidateRows&&strength>bestStrength)best={upright:candidate,rows:candidateRows,turn};
+        }catch{/* try the remaining orientation */}
+      }
+      if(best){upright=best.upright;gridRows=best.rows;pageOrientation=best.turn;}
+    }
+    /* الطريقان معاً، ويُختار لكل صفحة ما أثبت صفوفاً سليمة أكثر (رقم مقرر،
+       مرجعي، وقت، مبنى). ما كان يعمل لا يُفقد: يبقى إن كان الأسلم. */
+    let wordLane:{rows:GridRow[];bodyEvidence:number;tableNumbers:number;printedRows:number}|null=null;
+    try{
+      /* طريق الكلمات يقرأ الصفحة من الملف الأصلي بدقة أعلى (3500) لا من
+         الصورة المصغّرة المعدّة للخطوط: أرقام الخلايا الصغيرة لا تلتصق. */
+      const sharp=wordLaneSources?(await wordLaneSources)[index]:undefined;
+      wordLane=await readWordLane(sharp||upright);
+    }catch{/* the grid reader remains */}
+    /* طريق الكلمات أساسٌ متى أثبت صفوفاً سليمة أكثر. وما رآه طريق الخطوط ولم
+       يجمعه طريق الكلمات يُضاف بهويته فقط (المقرر، الشعبة، المرجعي) وتُترك
+       خلاياه الأخرى فارغة للمراجعة: لا صف يضيع، ولا قيمة مشكوك فيها تدخل. */
+    /* أو حين يثبت هويةَ صفوفٍ أكثر (رقم مقرر كامل ومرجعي): شبكة أزاحت أعمدتها
+       (المقرر فارغ، والكود في خانة المرجعي) لا تغلب قراءةً صحيحة الهوية. */
+    if(wordLane&&wordLane.rows.length&&(soundScanRows(wordLane.rows)>soundScanRows(gridRows)||identityRows(wordLane.rows,authorityGridDepartment)>identityRows(gridRows,authorityGridDepartment))){
+      /* هويات طريق الكلمات كما قرأها — قبل أي إكمال: مرجعيٌّ مبتور («1894»
+         من 18945…18948) يُكمَل به صفٌّ فيصير «مرئياً» ويُسقط صفوفاً مطبوعة
+         حقيقية تحمل البتر نفسه (1.pdf ص1). */
+      const asRead=wordLane.rows.map(row=>({code:row.code,scode:row.scode,reference:row.reference}));
+      const shape=pageNumberShape([...asRead,...(gridRows||[])]);
+      /* السطر نفسه في الطريقين صفٌّ واحد (pairRowsByLine): يُكمَل ولا يُكرَّر. */
+      const sameLine=pairRowsByLine(wordLane.rows,gridRows||[],shape);
+      for(const [at,gridRow] of sameLine)fillLineCells(wordLane.rows[at],gridRow,authorityGridDepartment,shape);
+      const pairedGrid=new Set(sameLine.values());
+      fillScheduleCellsFrom(wordLane.rows,gridRows);
+      const seen=new Set(asRead.map(row=>`${row.reference}|${row.scode}`));
+      /* الصف نفسه = المرجعي والشعبة، أو المقرر والشعبة. رقم مقرر مبتور من
+         طريق الخطوط («02011») صدرُ مقررٍ قرأه طريق الكلمات كاملاً، فالشعبة
+         نفسها تحت ذلك المقرر صفٌّ واحد لا صفّان. شعبة 01 لمقرر آخر تبقى. */
+      const sameCourse=(full:string,partial:string)=>Boolean(full&&partial)&&(full===partial||(partial.length>=5&&partial.length<7&&full.startsWith(partial)));
+      /* ولا يُضاف صفّ إلا لمقرر أثبتته الصفحة: رقم مقرر لا يطابق (ولا يبدأ)
+         مقرراً قرأه طريق الكلمات هو رقم تسلسل ملتصق بمرجعي مبتور، لا صف. */
+      const seenReferences=new Set(asRead.map(row=>row.reference).filter(Boolean));
+      const catalogueKeys=new Set((courseKeysForPage(index)||[]).map(key=>String(key)));
+      const provenCourse=(code:string)=>catalogueKeys.has(code)||asRead.some(word=>sameCourse(word.code,code));
+      const duplicate=(row:GridRow)=>seen.has(`${row.reference}|${row.scode}`)
+        ||Boolean(row.reference&&seenReferences.has(row.reference))
+        ||!provenCourse(row.code)
+        ||Boolean(row.scode&&asRead.some(word=>word.scode===row.scode&&sameCourse(word.code,row.code)));
+      const missing=(gridRows||[]).filter(row=>!pairedGrid.has(row)&&!duplicate(row))
+        .map(row=>({...row,days:"",daysRaw:"",timeRaw:"",start:"",end:"",building:"",buildingRaw:"",hall:"",hallRaw:"",instructorText:"",identityOnly:true}));
+      /* الصف الذي أضافه طريق الخطوط يأخذ مكانه على الورقة، لا آخرَ الصفحة:
+         المراجع يقارن المعاينة بالورقة سطراً بسطر (طلب المالك 2026-09-27). */
+      gridRows=[...wordLane.rows,...missing].map((row,index)=>({row,index}))
+        .sort((a,b)=>(Number.isFinite(a.row.y)&&Number.isFinite(b.row.y)?a.row.y!-b.row.y!:0)||a.index-b.index)
+        .map(item=>item.row);
+    }else if(gridRows&&wordLane?.rows.length){
+      /* وحين يغلب طريقُ الخطوط تُكمَل خاناته الفارغة من طريق الكلمات بالسطر
+         نفسه — الدمج في الاتجاهين، كما في الفحص الأعمق (65509b4). */
+      const shape=pageNumberShape([...gridRows,...wordLane.rows]);
+      for(const [at,wordRow] of pairRowsByLine(gridRows,wordLane.rows,shape))fillLineCells(gridRows[at],wordRow,authorityGridDepartment,shape);
+    }
+    /* صفحة بلا رقم مقرر ولا صف (صفحة دليل الأيام الأخيرة) صفحةٌ فارغة، لا
+       استخراج مشبوه: كانت تُسقط كل مسح متعدد الصفحات برسالة «صورة غير واضحة». */
+    /* صفحة دليل حقاً: لا كود مقرر ولا أرقام جدول إطلاقاً. صفحة جدول رديئة
+       المسح لا يُقرأ فيها الكود لكن تبقى ساعاتها ومراجعها — تلك ليست فارغة،
+       وتذهب إلى الفحص الذي يعلّمها مشبوهة بدل أن تُسقط صفوفها بصمت. */
+    if(!gridRows&&wordLane&&!wordLane.rows.length&&wordLane.bodyEvidence===0&&wordLane.tableNumbers<3){
+      texts[index]="";scores[index]=85;
+      pages[index]={rows:[],diagnostic:{page:index+1,visualRows:0,extractedRows:0,gridDetected:false,orientation:pageOrientation,suspicious:false,reason:"صفحة بلا صفوف جدول"}};
+      pagesDone++;
+      onProgress?.({phase:"read",page:pagesDone,pages:images.length,message:`قراءة الصفحة ${pagesDone} من ${images.length}`,notice:unreadPagesNotice(flaggedPages)});
+      return;
+    }
+    if(gridRows){
+      if(index===0){
+        const cachedHeader=cachedPreflight?.header;
+        const cachedText=[cachedHeader?.term?.label,cachedHeader?.branch?.label,cachedHeader?.department?.label].filter(Boolean).join("\n");
+        /* A successful grid deliberately skips expensive whole-page OCR. If the
+           preflight header is incomplete, however, recover the header from this
+           already-upright 2800px page before returning recognition metadata. */
+        const needsHeaderRescue=!cachedHeader?.term||!cachedHeader?.branch||!cachedHeader?.department;
+        const rescued=needsHeaderRescue?await readAuthorityHeaderBand(upright,lanePool.ara):"";
+        texts[index]=[cachedText,rescued].filter(Boolean).join("\n");
+      }else texts[index]="";
+      const filled=gridRows.filter(row=>row.code||row.start||row.courseText.length>3).length;
+      scores[index]=Math.min(85,55+filled*2);
+      /* أسطر مطبوعة يراها طريق الكلمات بأرقامها ولم يخرج لها صف = صفوف كانت
+         ستسقط بصمت. نقصها الكبير يوقف الملف، والصغير تنبيه (scanPageVerdict). */
+      const printedRows=wordLane?.printedRows||0;
+      pagePrintedRows[index]=printedRows;
+      const verdict=scanPageVerdict({rows:gridRows.length,filled,printed:printedRows,broken:unreadableIdentityRows(gridRows),unscheduled:unscheduledRowCount(gridRows)});
+      pages[index]={rows:[],gridRows,diagnostic:{page:index+1,visualRows:Math.max(gridRows.length,printedRows),extractedRows:filled,gridDetected:true,orientation:pageOrientation,...verdict}};
+      if(verdict.suspicious)flaggedPages.push(index+1);
+    }else{
+      const grid=await spreadColumns(upright);
+      await lanePool.ara.setParameters({tessedit_char_whitelist:"",tessedit_pageseg_mode:"3" as any});
+      const result:any=await lanePool.ara.recognize(grid.image,{},{text:true,blocks:true});
+      const surface=result?.data||{};
+      texts[index]=String(surface.text||"");
+      scores[index]=Number(surface.confidence||0);
+      const flatRows=tableFromWords(wordsOf(surface),grid.columns);
+      pages[index]={rows:flatRows,diagnostic:{page:index+1,visualRows:grid.bands.length>1?grid.bands.length-1:0,extractedRows:flatRows.length,gridDetected:false,orientation:pageOrientation,suspicious:true,reason:"لم يتم إثبات هندسة الجدول في هذه الصفحة؛ أوقفت المعاينة الآمنة"}};
+      flaggedPages.push(index+1);
+    }
+    pagesDone++;
+    onProgress?.({phase:"read",page:pagesDone,pages:images.length,message:`قراءة الصفحة ${pagesDone} من ${images.length}`,notice:unreadPagesNotice(flaggedPages)});
+  
+  };
+  /* MULTI-PAGE GOLDEN PATH — now with ISOLATED PAGE LANES
+     ------------------------------------------------------
+     The original rule stands: no second OCR engine, no parameter bleed, and
+     small machines still read strictly sequentially through the one warm pool.
+     What changed (owner-mandated speed round, 2026-08-27): on a machine with
+     enough workers, the SAME warm pool is split into two fully DISJOINT lanes
+     — separate digit workers, one dedicated Arabic worker each (the supported
+     ara===ara2 serialised mode) — and two pages proceed concurrently. No lane
+     ever touches the other lane's workers, so per-page behaviour and results
+     remain exactly those of the sequential path; only the wall-clock halves. */
+  const lanes:OcrWorkerPool[]=(images.length>=2&&pool.eng.length>=4&&pool.ara!==pool.ara2)
+    ? (()=>{const half=Math.ceil(pool.eng.length/2);return [
+        {eng:pool.eng.slice(0,half),ara:pool.ara,ara2:pool.ara},
+        {eng:pool.eng.slice(half),ara:pool.ara2,ara2:pool.ara2},
+      ];})()
+    : [pool];
+  let nextPageIndex=0;
+  await Promise.all(lanes.map(async lane=>{
+    for(;;){
+      const index=nextPageIndex++;
+      if(index>=images.length)break;
+      await processPage(index,lane);
+    }
+  }));
+
+  /* SAFE FALLBACK — suspicious pages only
+     ---------------------------------------
+     Keep the established page-scoped rescue, but reuse the same proven worker
+     pool rather than spawning a second OCR engine. Clean pages are never re-read,
+     and a weak page cannot make the rest of the document pay a retry. */
+  const suspiciousIndexes=pages.map((page,index)=>page?.diagnostic?.suspicious||page?.diagnostic?.warning?index:-1).filter(index=>index>=0);
+  /* A page that is still unreadable after its deep pass stops the whole file,
+     so such pages go first, and the first one confirmed ends the rescue: the
+     pages after it can no longer change the outcome, only delay it. */
+  suspiciousIndexes.sort((a,b)=>Number(!pages[a]?.diagnostic?.suspicious)-Number(!pages[b]?.diagnostic?.suspicious)||a-b);
+  if(suspiciousIndexes.length){
+    onProgress?.({phase:"rescue",page:0,pages:suspiciousIndexes.length,message:`تدقيق ${countOf(suspiciousIndexes.length, oblique(AR.page))} بحاجة إلى مراجعة دقيقة`,notice:unreadPagesNotice(flaggedPages)});
+    let rescuedCount=0;
+    for(const [position,index] of suspiciousIndexes.entries()){
+      const rescuePool=pool;
+      const pageImage=images[index];
+      let bestRows=pages[index]?.gridRows||[];
+      let bestFilled=bestRows.filter(row=>row.code||row.start||row.courseText.length>3).length;
+      let bestOrientation=(pages[index]?.diagnostic?.orientation??orientation) as -1|0|1;
+      let bestUpright=await deskew(await rotateImage(pageImage,bestOrientation));
+      /* Re-read the same page in a clean worker context, then try the remaining
+         quarter-turns only if they improve the number of semantically useful
+         rows. This is the conservative Safe Path behind the fast lanes. */
+      const scanOrientationLocked=cachedPreflight?.header.source==="scan"&&!cachedPreflight.header.requiresLandscapeUpload;
+      /* صفحةٌ عليها تنبيهٌ فقط تكفيها القراءةُ المحسّنة أدناه؛ إعادةُ قراءة شبكتها
+         كاملةً تضاعف الوقت ولا تُضيف. */
+      let rescueTurns=scanOrientationLocked?[bestOrientation]:[bestOrientation,-1,0,1] as Array<-1|0|1>;
+      if(!pages[index]?.diagnostic?.suspicious)rescueTurns=[];
+      for(const turn of rescueTurns){
+        try{
+          const upright=turn===bestOrientation?bestUpright:await deskew(await rotateImage(pageImage,turn));
+          const pageCourseKeys=courseKeysForPage(index);
+          const rows=await readGrid(upright,rescuePool,authorityGridDepartment,pageCourseKeys);
+          const filled=(rows||[]).filter(row=>row.code||row.start||row.courseText.length>3).length;
+          /* قراءة الإنقاذ لا تُعتمد إن أنقصت الصفوف ثابتة الهوية (شبكة أزاحت أعمدتها). */
+          /* قراءة الشبكة تملأ خانة الأيام بما تجده ولو كان خطأً، فلا يُكافأ «امتلاء»
+             أيامها هنا؛ استعادة الأيام والوقت تُقبل من القراءة المحسّنة وحدها. */
+          if(rows&&filled>bestFilled&&identityRows(rows,authorityGridDepartment)>=identityRows(bestRows,authorityGridDepartment)&&soundScanRows(rows)>=soundScanRows(bestRows)){fillScheduleCellsFrom(rows,bestRows,{blankDisagreeingDays:true});bestRows=rows;bestFilled=filled;bestOrientation=turn;bestUpright=upright;}
+        }catch{/* retain the fast-lane result when rescue cannot improve it */}
+      }
+      /* ── تحسين الصورة قبل الاستسلام ─────────────────────────────────────
+         صفحة ما زالت ناقصة: تُعاد من الملف بدقة عالية، ويُمدّ تباينها، وتُمحى
+         خطوط الجدول الطويلة الملاصقة للأرقام، ثم تُقرأ كلماتها من جديد. تُعتمد
+         القراءة المحسّنة إن أخرجت صفوفاً أكثر، ويبقى فحص الأسطر المطبوعة حكماً. */
+      /* A page read without its schedule side (scanPageVerdict) gets this read
+         too: it is the reading trusted to restore times, so without it such a
+         page could only ever be refused, even when a re-read would recover it. */
+      const scheduleBlind=unscheduledRowCount(bestRows)>Math.max(2,bestRows.length/2);
+      if(bestRows.length<(pagePrintedRows[index]||0)||!bestRows.length||unreadableIdentityRows(bestRows)>0||scheduleBlind){
+        try{
+          /* صورة مرفوعة مباشرة (JPG/PNG/HEIC) لا عرض PDF لها: تُحسَّن الصفحة المعدّلة نفسها. */
+          const sharp=(wordLaneSources?(await wordLaneSources)[index]:undefined)||bestUpright;
+          if(sharp){
+            const enhanced=await enhanceScanForOcr(sharp);
+            const lane=await readWordLane(enhanced);
+            pagePrintedRows[index]=Math.max(pagePrintedRows[index]||0,lane.printedRows);
+            const filled=lane.rows.filter(row=>row.code||row.start||row.courseText.length>3).length;
+            if(soundScanRows(lane.rows)>soundScanRows(bestRows)||(lane.rows.length>bestRows.length&&filled>=bestFilled&&identityRows(lane.rows,authorityGridDepartment)>=identityRows(bestRows,authorityGridDepartment))||identityRows(lane.rows,authorityGridDepartment)>identityRows(bestRows,authorityGridDepartment)
+              ||(lane.rows.length>=bestRows.length&&identityRows(lane.rows,authorityGridDepartment)>=identityRows(bestRows,authorityGridDepartment)&&unclearRowCount(lane.rows)<unclearRowCount(bestRows))
+              ||(lane.rows.length>=bestRows.length&&identityRows(lane.rows,authorityGridDepartment)>=identityRows(bestRows,authorityGridDepartment)&&unscheduledRowCount(lane.rows)<unscheduledRowCount(bestRows))){fillScheduleCellsFrom(lane.rows,bestRows,{blankDisagreeingDays:true});bestRows=lane.rows;bestFilled=lane.rows.filter(row=>row.code||row.start||row.courseText.length>3).length;}
+          }
+        }catch{/* the earlier reading and its warning stand */}
+      }
+      if(bestRows.length){
+        /* إعادة القراءة لا تمسح دليل الأسطر المطبوعة: صفوف أقل منها = مشبوهة. */
+        const printedRows=pagePrintedRows[index]||0;
+        const verdict=scanPageVerdict({rows:bestRows.length,filled:bestFilled,printed:printedRows,broken:unreadableIdentityRows(bestRows),unscheduled:unscheduledRowCount(bestRows)});
+        pages[index]={rows:[],gridRows:bestRows,diagnostic:{page:index+1,visualRows:Math.max(bestRows.length,printedRows),extractedRows:bestFilled,gridDetected:true,orientation:bestOrientation,...verdict}};
+        scores[index]=Math.min(92,60+bestFilled*2);
+        if(index===0&&(!texts[index]||!parseAuthorityHeaderText(texts[index]).term||!parseAuthorityHeaderText(texts[index]).branch||!parseAuthorityHeaderText(texts[index]).department)){
+          const cachedHeader=cachedPreflight?.header;
+          const cachedText=[cachedHeader?.term?.label,cachedHeader?.branch?.label,cachedHeader?.department?.label].filter(Boolean).join("\n");
+          const rescuedHeader=await readAuthorityHeaderBand(bestUpright,rescuePool.ara);
+          texts[index]=[cachedText,rescuedHeader].filter(Boolean).join("\n");
+        }
+      }else if(pages[index]?.diagnostic){
+        pages[index]={...pages[index]!,diagnostic:rejudgeEmptyPage(pages[index]!.diagnostic!,pagePrintedRows[index]||0)};
+      }
+      rescuedCount++;
+      if(pages[index]?.diagnostic?.suspicious){
+        for(const rest of suspiciousIndexes.slice(position+1)){const later=pages[rest]?.diagnostic;if(later?.suspicious)later.unverified=true;}
+        onProgress?.({phase:"rescue",page:suspiciousIndexes.length,pages:suspiciousIndexes.length,message:`الصفحة ${index+1} لم تُقرأ حتى بعد الفحص الدقيق — يتوقف الاستيراد`,notice:unreadPagesNotice(flaggedPages)});
+        break;
+      }
+      const cleared=flaggedPages.indexOf(index+1);
+      if(cleared>=0)flaggedPages.splice(cleared,1);
+      onProgress?.({phase:"rescue",page:rescuedCount,pages:suspiciousIndexes.length,message:`تدقيق الصفحة ${index+1} بدقة`,notice:unreadPagesNotice(flaggedPages)});
+    }
+  }
+
+  /* Every row is now final: a day cell the Authority could never have printed
+     leaves the reading here (clearImplausibleScanDays). */
+  for(const page of pages)if(page?.gridRows)clearImplausibleScanDays(page.gridRows);
+  const text=texts.join("\n\n--- PAGE ---\n\n");
+  const confidence=Math.round(scores.reduce((sum,value)=>sum+value,0)/Math.max(1,scores.length));
+  const pageDiagnostics=pages.map((page,index)=>page?.diagnostic||{page:index+1,visualRows:0,extractedRows:0,gridDetected:false,orientation,suspicious:true,reason:"لم تنتج الصفحة نتيجة قابلة للمراجعة"});
+  const suspiciousExtraction=pageDiagnostics.some(page=>page.suspicious);
+  /* صفحة الدليل الفارغة الموثّقة لا تُسقط المستند إلى فحص النص النثري. */
+  const emptyLegend=(page:typeof pageDiagnostics[number])=>!page.gridDetected&&!page.suspicious&&page.extractedRows===0&&page.reason==="صفحة بلا صفوف جدول";
+  const allGrid=pageDiagnostics.some(page=>page.gridDetected)&&pageDiagnostics.every(page=>page.gridDetected||emptyLegend(page));
+  const proseLegibility=judgeLegibility(text,images.length,confidence);
+  /* ocrDocument is also used by non-timetable documents. Preserve their prose
+     legibility verdict here and expose table safety separately through
+     suspiciousExtraction. The authority-PDF endpoint explicitly blocks that
+     flag, while transcript/survey OCR is not accidentally forced to contain a
+     timetable grid. */
+  /* A table in which one page lost its ruled geometry is still a table: its
+     refusal names the unread pages (scanRefusalMessage), not «لم أتبيّن نصاً
+     كافياً» — grid pages skip whole-page OCR, so their prose text is near empty
+     and that sentence was false. The outcome is unchanged (the import refuses a
+     suspicious extraction either way); only the sentence the reviewer reads is. */
+  const tableRefused=suspiciousExtraction&&pageDiagnostics.some(page=>page.gridDetected);
+  const legibility=allGrid
+    ?(!suspiciousExtraction
+      ?{readable:true,confidence,charactersPerPage:Math.round(text.replace(/\s+/g,"").length/Math.max(1,images.length)),reason:""}
+      :{...proseLegibility,readable:false,reason:scanRefusalMessage(pageDiagnostics)})
+    :tableRefused?{...proseLegibility,readable:false,reason:scanRefusalMessage(pageDiagnostics)}:proseLegibility;
+  const header=parseAuthorityHeaderText(text);
+  const finalResult:OcrResult={
+    pages:pages.map(page=>page||{rows:[]}),
+    text,
+    pageCount:images.length,
+    confidence,
+    orientation,
+    legibility,
+    headerTerm:header.term,
+    headerBranch:header.branch,
+    headerDepartment:header.department,
+    pageDiagnostics,
+    suspiciousExtraction,
+  };
+  rememberOcr(fingerprint,finalResult);
+  return finalResult;
+}
+
+const repairClockDigits=(value:string)=>value.replace(/[Oo°QDﻩ]/g,"0").replace(/[¢()\[\]{}|!lI]/g,"0");
+const minutesOf = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3));
+
+export const cleanBuildingCode = (raw: string): string => {
+  const clean=toAscii(String(raw||"")).replace(/[^A-Z0-9]/gi,"").toUpperCase();
+  if(!clean)return"";
+  /* A numeric six-digit value is NOT automatically a building. SWRSCHA has
+     adjacent capacity columns whose text layer can weld into values such as
+     345045 / 520020 / 320020. Accept a full building only when it starts with
+     one of the owner-supplied official site prefixes. */
+  if(OFFICIAL_BUILDING_PATTERN.test(clean))return clean;
+  /* If camera dropped leading zero from site prefix (e.g. 12B09 -> 012B09) */
+  for(const prefix of OFFICIAL_SITE_PREFIXES){
+    const compactPrefix=prefix.replace(/^0+/,"");
+    if(compactPrefix&&new RegExp(`^${escapeRegex(compactPrefix)}\\d{2}$`,"i").test(clean)){
+      const suffix=clean.slice(compactPrefix.length);
+      return `${prefix}${suffix}`;
+    }
+  }
+  /* RTL reversal check: e.g. 07B012 -> 012B07, 09B012 -> 012B09, 15F012 -> 012F15 */
+  const reversed=clean.match(/^(\d{2})([A-Z])(\d{2,3})$/);
+  if(reversed){
+    const candidatePrefix=`${reversed[3].padStart(3,"0")}${reversed[2]}`;
+    const candidate=`${candidatePrefix}${reversed[1]}`;
+    if(OFFICIAL_BUILDING_PATTERN.test(candidate))return candidate;
+  }
+  /* Legacy short alpha-site evidence (B09/F15/J14) is kept only as evidence;
+     the server can canonicalize it against the proven document branch + finite
+     registry. It is never enough by itself to create a building identity. */
+  const short=clean.match(/^([A-Z])(\d{1,2})$/);
+  if(short)return`${short[1]}${short[2].padStart(2,"0")}`;
+  return"";
+};
+
+export const cleanHallCode = (raw: string): string => {
+  const clean=toAscii(String(raw||"")).replace(/[^A-Z0-9]/gi,"").toUpperCase();
+  if(!clean)return"";
+  /* A proven official building token can never be a room, even if it contains
+     a room-looking suffix such as F15. */
+  if(OFFICIAL_BUILDING_PATTERN.test(clean))return"";
+  if(/^[A-Z]\d{1,3}$/.test(clean))return clean;
+  /* RTL reversal check: e.g. 31F -> F31, 07F -> F07, 12F -> F12 */
+  const reversed=clean.match(/^(\d{1,3})([A-Z])$/);
+  if(reversed){
+    const candidate=`${reversed[2]}${reversed[1]}`;
+    if(/^[A-Z]\d{1,3}$/.test(candidate))return candidate;
+  }
+  return"";
+};
+
+/** Extract location evidence from a REAL text-layer row without trusting cell
+ * splitting. Generated Authority PDFs often place `012B09 F13` in one physical
+ * text item, while seat/capacity columns can be welded into `345045`. The site
+ * prefix is therefore the identity anchor; only an owner-supplied prefix may
+ * produce a building. */
+export function extractAuthorityLocationEvidence(raw:string):{building:string;hall:string}{
+  const ascii=toAscii(String(raw||"")).toUpperCase();
+  const chunks=ascii.match(/[A-Z0-9]+/g)||[];
+  let building="",hall="";
+  const prefixPattern=officialSitePrefixPattern;
+  const joinedBuilding=new RegExp(`(?:${prefixPattern})\\d{2}`,"i");
+  const joinedPair=new RegExp(`((?:${prefixPattern})\\d{2})([A-Z]\\d{1,3})?`,"i");
+
+  for(const chunk of chunks){
+    const pair=chunk.match(joinedPair);
+    if(pair){
+      const candidate=String(pair[1]||"").toUpperCase();
+      if(OFFICIAL_BUILDING_PATTERN.test(candidate)){building=candidate;if(pair[2])hall=String(pair[2]).toUpperCase();break;}
+    }
+  }
+  if(!building){
+    /* Spaced text items, e.g. `012 B 09`, are compacted only for the narrow
+       official-prefix search. This cannot turn capacity digits into a building
+       because the distinctive official prefix is mandatory. */
+    const compact=ascii.replace(/[^A-Z0-9]/g,"");
+    const match=compact.match(joinedBuilding);
+    if(match&&OFFICIAL_BUILDING_PATTERN.test(String(match[0]).toUpperCase()))building=String(match[0]).toUpperCase();
+  }
+
+  if(building&&!hall){
+    /* Remove the building before looking for a room so the site letter/digits
+       can never masquerade as a hall. Status columns A/Y have no digits and do
+       not match this rule. */
+    const withoutBuilding=ascii.replace(new RegExp(escapeRegex(building),"i")," ");
+    const hallMatches=withoutBuilding.match(/(?:^|[^A-Z0-9])([A-Z]\d{1,3})(?=$|[^A-Z0-9])/g)||[];
+    for(const token of hallMatches){
+      const candidate=token.replace(/[^A-Z0-9]/g,"").toUpperCase();
+      if(/^[A-Z]\d{1,3}$/.test(candidate)){hall=candidate;break;}
+    }
+  }
+  return{building,hall};
+}
+
+
+const timePair=(text:string)=>{
+  const ascii=repairClockDigits(toAscii(text));
+  
+  // 1. Explicit colon/dot format: 15:30 - 16:50 or 08:00 - 09:20 or 11:00-11:50
+  const colonMatches = [...ascii.matchAll(/\b([01]?\d|2[0-3])[:٫.]([0-5]\d)\b/g)];
+  if (colonMatches.length >= 2) {
+    for (let i = 0; i < colonMatches.length - 1; i++) {
+      const h1 = Number(colonMatches[i][1]), m1 = Number(colonMatches[i][2]);
+      const h2 = Number(colonMatches[i+1][1]), m2 = Number(colonMatches[i+1][2]);
+      const t1 = `${String(h1).padStart(2, "0")}:${String(m1).padStart(2, "0")}`;
+      const t2 = `${String(h2).padStart(2, "0")}:${String(m2).padStart(2, "0")}`;
+      const min1 = h1 * 60 + m1, min2 = h2 * 60 + m2;
+      const start = min1 <= min2 ? t1 : t2;
+      const end = min1 <= min2 ? t2 : t1;
+      const diff = Math.abs(min1 - min2);
+      if (diff >= 30 && diff <= 240 && Math.min(min1, min2) >= 7 * 60 && Math.max(min1, min2) <= 22 * 60) {
+        return { start, end };
+      }
+    }
+  }
+
+  // 2. Military format with REQUIRED separator: 1650 - 1530, 0800 - 0920, 1150-1100
+  // REQUIRED SEPARATOR: [-–—~] or "to" or "إلى"
+  const militaryMatches = [...ascii.matchAll(/\b([0-2]\d[0-5]\d)\s*[-–—~]\s*([0-2]\d[0-5]\d)\b/g)];
+  for (const match of militaryMatches) {
+    const rawA = match[1], rawB = match[2];
+    const hA = Number(rawA.slice(0, 2)), mA = Number(rawA.slice(2));
+    const hB = Number(rawB.slice(0, 2)), mB = Number(rawB.slice(2));
+    if (hA < 24 && mA < 60 && hB < 24 && mB < 60) {
+      const minA = hA * 60 + mA, minB = hB * 60 + mB;
+      const tA = `${String(hA).padStart(2, "0")}:${String(mA).padStart(2, "0")}`;
+      const tB = `${String(hB).padStart(2, "0")}:${String(mB).padStart(2, "0")}`;
+      const start = minA <= minB ? tA : tB;
+      const end = minA <= minB ? tB : tA;
+      const diff = Math.abs(minA - minB);
+      if (diff >= 30 && diff <= 240 && Math.min(minA, minB) >= 7 * 60 && Math.max(minA, minB) <= 22 * 60) {
+        return { start, end };
+      }
+    }
+  }
+
+  return null;
+};
+
+const DAY_FIELDS=["fsunday","fmonday","ftuesday","fwednesday","fthursday"]as const;
+const EMPTY_DAYS={fsunday:false,fmonday:false,ftuesday:false,fwednesday:false,fthursday:false};
+
+export const parseDays = (raw: string): { fsunday: boolean; fmonday: boolean; ftuesday: boolean; fwednesday: boolean; fthursday: boolean } | null => {
+  if (!raw) return null;
+  const ascii = toAscii(raw).trim();
+
+  // 1. Digits 1-5 with separators or an Authority day run (531 / 42).
+  // Column identity is enforced upstream, so a valid three-day run must not be
+  // rejected merely because removing spaces turns «5 3 1» into «531».
+  const separatedMatch = ascii.match(/(?:^|[\s|،,;:\-_/])([1-5](?:[\s,\-_/]+[1-5])+)(?=$|[\s|،,;:\-_/])/);
+  if (separatedMatch) {
+    const digits = separatedMatch[1].replace(/[^1-5]/g, "");
+    if (digits.length >= 1 && digits.length <= 5) {
+      const flags = { ...EMPTY_DAYS };
+      for (const d of digits) {
+        flags[DAY_FIELDS[Number(d) - 1]] = true;
+      }
+      return flags;
+    }
+  }
+
+  const directDigits = ascii.replace(/\s+/g, "");
+  const runMatch = directDigits.match(/^(?:54321|12345|531|135|42|24|31|13|[1-5])$/);
+  if (runMatch) {
+    const flags = { ...EMPTY_DAYS };
+    for (const d of runMatch[0]) {
+      flags[DAY_FIELDS[Number(d) - 1]] = true;
+    }
+    return flags;
+  }
+
+  const cleanDigits = ascii.replace(/[^1-5]/g, "");
+  if (cleanDigits.length >= 1 && cleanDigits.length <= 5) {
+    const nonAllowedDigits = ascii.replace(/[^0-9]/g, "").replace(/[1-5]/g, "");
+    if (nonAllowedDigits.length === 0 && !/\d{3,}/.test(ascii)) {
+      const flags = { ...EMPTY_DAYS };
+      for (const d of cleanDigits) {
+        flags[DAY_FIELDS[Number(d) - 1]] = true;
+      }
+      return flags;
+    }
+  }
+
+  // 2. Arabic day initials or names (e.g. ح ث خ, ن ر, الأحد, الاثنين, الثلاثاء, الأربعاء, الخميس)
+  const cleanAr = raw.replace(/[ً-ْـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه");
+  const hasSun = /الاحد|احد|(?:^|[\s،,\-\/])ح(?=$|[\s،,\-\/])/.test(cleanAr);
+  const hasMon = /الاثنين|اثنين|(?:^|[\s،,\-\/])ن(?=$|[\s،,\-\/])/.test(cleanAr);
+  const hasTue = /الثلاثاء|ثلاثاء|(?:^|[\s،,\-\/])ث(?=$|[\s،,\-\/])/.test(cleanAr);
+  const hasWed = /الاربعاء|اربعاء|(?:^|[\s،,\-\/])ر(?=$|[\s،,\-\/])/.test(cleanAr);
+  const hasThu = /الخميس|خميس|(?:^|[\s،,\-\/])خ(?=$|[\s،,\-\/])/.test(cleanAr);
+
+  if (hasSun || hasMon || hasTue || hasWed || hasThu) {
+    return {
+      fsunday: hasSun,
+      fmonday: hasMon,
+      ftuesday: hasTue,
+      fwednesday: hasWed,
+      fthursday: hasThu,
+    };
+  }
+
+  return null;
+};
+
+const dayFlagsFromCell = parseDays;
+const dayFlagsFromText = parseDays;
+
+const editDistance=(a:string,b:string)=>{
+  const previous=Array.from({length:b.length+1},(_,index)=>index);
+  for(let i=1;i<=a.length;i++){
+    let diagonal=previous[0];previous[0]=i;
+    for(let j=1;j<=b.length;j++){
+      const above=previous[j],cost=a[i-1]===b[j-1]?0:1;
+      previous[j]=Math.min(previous[j]+1,previous[j-1]+1,diagonal+cost);diagonal=above;
+    }
+  }
+  return previous[b.length];
+};
+const wordTokens=(value:string)=>fold(value).split(" ").filter(token=>token.length>=3&&!/^\d+$/.test(token));
+const fuzzyNameScore=(line:string,name:string)=>{
+  const normalized=fold(line),needle=fold(name);
+  if(!needle)return 0;if(normalized.includes(needle))return 1;
+  const lineTokens=wordTokens(line),tokens=wordTokens(name);if(!tokens.length)return 0;
+  let earned=0,total=0;
+  for(const token of tokens){
+    const weight=Math.max(3,token.length);total+=weight;
+    const found=lineTokens.some(candidate=>candidate===token||(Math.min(candidate.length,token.length)>=4&&editDistance(candidate,token)<=Math.max(1,Math.floor(token.length*.28))));
+    if(found)earned+=weight;
+  }
+  return total?earned/total:0;
+};
+
+export type ParsedScheduleRow={
+  sourceOrder:number;referenceNumber:string;AdCourseId:number;AdCourseName:string;SCode:string;AdInstructorId:number;
+  TotalHours?:number;TotalUnits?:number;CourseCredit?:number;CourseHours?:number;fcredithours?:number;fcontacthours?:number;
+  fsunday:boolean;fmonday:boolean;ftuesday:boolean;fwednesday:boolean;fthursday:boolean;
+  fstarttime:string;fendtime:string;AdRoomCode:string;AdRoomHall:string;ocrLine:string;sourceInstructorText?:string;
+  sourceCourseCode?:string;sourceCourseText?:string;sourceSectionText?:string;sourceBuildingText?:string;sourceRoomText?:string;
+  sourceDaysText?:string;sourceTimeText?:string;sourceReadMode?:"pdf-text"|"ocr-grid"|"ocr-fallback";
+  instructorMatchMethod?:string;courseMatchMethod?:string;instructorMatchScore?:number;instructorMatchedTokens?:number;
+  /** Physical PDF/image page that produced this row. Kept through preview so
+   * multi-page review can be page-scoped without changing academic identity. */
+  sourcePage?:number;
+};
+
+/** Match an instructor printed on the Authority sheet to the registry.
+ *
+ * Restores the successful behaviour of the original importer without bringing
+ * back unsafe fuzzy guessing:
+ * - د. / أ. / ا. / أ.د. / ا.د. are titles, not identity.
+ * - an exact full system name wins immediately;
+ * - otherwise TWO or THREE real name tokens may identify the instructor, but
+ *   only when the result is unique (department candidates first, then global);
+ * - a truncated fourth/family name does not hurt a three-token proof;
+ * - «هيئة…» maps only to the system's own «هيئة تدريسية» identity;
+ * - ambiguous names stay blank. The PDF spelling is never saved as a new name.
+ */
+type InstructorIdentityMatch={person:AdInstructor;method:"EXACT_FULL"|"FACULTY_IDENTITY"|"COURSE_ONE_NAME"|"DEPARTMENT_ONE_NAME"|"COURSE_TWO_NAME"|"DEPARTMENT_TWO_NAME"|"GLOBAL_SOLE_TWO_NAME"|"GLOBAL_THREE_NAME";score:number;matchedTokens:number};
+
+export function matchInstructorIdentity(raw:string,instructors:AdInstructor[],preferredIds?:Set<number>,coursePreferredIds?:Set<number>):InstructorIdentityMatch|undefined{
+  const clean=instructorCleanName,identityTokens=instructorIdentityTokens;
+  const rawClean=clean(raw),rawTokens=identityTokens(raw);
+  if(!rawClean||!rawTokens.length)return undefined;
+
+  /* المتقاعد وصاحب التفرغ يبقيان في تاريخ الجداول، لكن فصلاً جديداً لا يُسند
+     إليهما آلياً — كما تستبعدهما قائمة الاختيار في المعاينة. */
+  /* سجلان بالرقم المدني نفسه شخصٌ واحد: يُحتفظ بأقدمهما ولا يُعدّان التباساً. */
+  const civilSeen=new Map<string,number>();
+  for(const person of [...instructors].sort((a,b)=>Number(a.AdInstructorId)-Number(b.AdInstructorId))){
+    const civil=String((person as any)?.AdInstructorCivil||"").replace(/\D/g,"");
+    if(civil.length>=8&&!civilSeen.has(civil))civilSeen.set(civil,Number(person.AdInstructorId));
+  }
+  const sameCivilDuplicate=(person:AdInstructor)=>{
+    const civil=String((person as any)?.AdInstructorCivil||"").replace(/\D/g,"");
+    return civil.length>=8&&civilSeen.get(civil)!==Number(person.AdInstructorId);
+  };
+  const catalogue=instructors.filter(person=>!sameCivilDuplicate(person)).filter(person=>!["retired","sabbatical"].includes(String((person as any)?.AdInstructorStatus||""))).map(person=>({
+    person,
+    normalized:identityTokens(person.AdInstructorName).join(" "),
+    tokens:identityTokens(person.AdInstructorName),
+    preferred:Boolean(preferredIds?.has(Number(person.AdInstructorId))),
+  })).filter(item=>item.normalized&&item.tokens.length);
+
+  /* «هيئة» is an explicit system identity, not a fuzzy person-name query.
+     Several departments keep their own «هيئة تدريسية» placeholder, so the
+     university-wide list is deliberately narrowed before it is called
+     ambiguous: this course's own history first, then this department, then a
+     single university-wide record. Uniqueness is counted by instructor id, not
+     by row, so two catalogue entries for the SAME person no longer read as a
+     tie and no longer leave the cell blank. */
+  /* ── لا تُكتب صورة الاسم المطوَّع بخط اليد ──────────────────────────────
+     كان هذا الفرع يقارن بنصّ «هيئه تدريسيه» مكتوباً حرفياً، بينما التطبيع
+     نفسه يحوّل الهمزة على نبرة إلى ياء: «هيئة تدريسية» تصير «هييه تدريسيه».
+     فلم يطابق الشرط شيئاً قطّ، ومات مسار الهوية كله بصمت مهما كتب المستند.
+     الصيغة تُشتقّ الآن من الاسم نفسه بالقانون نفسه، فلا تنفصل عنه أبداً. */
+  const facultyKey=identityTokens("هيئة تدريسية").join(" ");
+  if(rawClean===facultyKey||rawClean.startsWith(`${facultyKey} `)||rawTokens[0]===identityTokens("هيئة")[0]){
+    /* ── السجل يكتبها كما يشاء: «هيئة تدريسية»، «هيئة التدريس»، «هيئة تدريس» ──
+       المقارنة بالعبارة كاملة تشترط أن يكتب السجل ما يكتبه المستند حرفاً بحرف،
+       وهو شرطٌ لا يُوفى: القسم سجّلها مرة بصيغة والوثيقة تطبعها بأخرى، فتبقى
+       الخانة فارغة رغم أن المعنى واحد لا ثاني له. وكلمة «هيئة» لا تبدأ بها
+       أسماء الناس، فصدرُها وحده يكفي للتعرّف على السجل. */
+    const facultyHead=identityTokens("هيئة")[0];
+    const faculty=catalogue.filter(item=>item.normalized===facultyKey||item.normalized.startsWith(`${facultyKey} `)||item.tokens[0]===facultyHead);
+    const sole=(pool:typeof faculty)=>{
+      const ids=new Set(pool.map(item=>Number(item.person.AdInstructorId)));
+      return ids.size===1?pool[0]:undefined;
+    };
+    const inCourse=coursePreferredIds?.size?faculty.filter(item=>coursePreferredIds.has(Number(item.person.AdInstructorId))):[];
+    /* ── «هيئة تدريسية» معنى واحد، لا أشخاص متعددون ─────────────────────────
+       حين لا يكون للشعبة اسم دكتور ثابت يُكتب هذا المعنى في خانة الأستاذ. فهو
+       هوية واحدة يتشاركها الجميع، وتقارير القسم تبقى قسمه لأن الصف نفسه يحمل
+       قسمه لا الشخص. ولذلك تعدّد السجلات هنا ليس التباساً بين شخصين — وهو
+       الحالة التي يجب أن تُترك للإنسان — بل تكرارٌ لمعنى واحد. فبعد نطاق
+       المقرر ثم نطاق القسم، يُؤخذ أقدم سجل (الأصغر معرّفاً) قاعدةً ثابتة لا
+       تتغيّر بين قراءتين، ولا تُترك الخانة فارغة لأن الإدارة لم تدمج نسخاً
+       متطابقة الاسم بعد. */
+    const canonical=(pool:typeof faculty)=>pool.length
+      ?[...pool].sort((a,b)=>Number(a.person.AdInstructorId)-Number(b.person.AdInstructorId))[0]
+      :undefined;
+    const hit=sole(inCourse)||sole(faculty.filter(item=>item.preferred))||canonical(faculty.filter(item=>item.preferred))||canonical(faculty);
+    return hit?{person:hit.person,method:"FACULTY_IDENTITY",score:100,matchedTokens:2}:undefined;
+  }
+  if(rawClean.includes(`عضو ${identityTokens("هيئة")[0]}`)||/شاغر|منتدب/.test(rawClean))return undefined;
+
+  const normalizedRaw=rawTokens.join(" ");
+  const haystack=` ${normalizedRaw} `;
+  /* المساواة بلا مسافات طريقٌ حرفي ثالث: مسافة سقطت في غير موضعها — «اقبال
+     عبدالعزيزالمطوع» — لا تصنع شخصاً جديداً. مساواةٌ كاملة فقط، لا احتواء. */
+  const spacelessRaw=rawTokens.join("");
+  /* والترتيب المقلوب («الأنصاري عبدالله رجب» في سجل قديم يُدخل العائلة أولاً)
+     مساواةُ مجموعةٍ كاملة، لا احتواء. */
+  /* ── المساواة تسبق الاحتواء، ولا تُزاحَم به ────────────────────────────────
+     الاحتواء قاعدةٌ لاسم عائلة قُصّ عند حافة الخانة: اسم السجل يرد كاملاً
+     داخل المطبوع. لكنه على مستوى جامعةٍ بآلاف الأسماء يصطاد الأقصر داخل
+     الأطول — «رجب الأنصاري» يقع داخل «عبدالله رجب الأنصاري» — فيصير للاسم
+     مرشحان، ويسقط أقوى برهان لدينا (المساواة التامة) إلى برهانٍ عالميٍّ أضعف
+     يشترط تفرّداً بين الآلاف. المساواة التامة تُقرأ أولاً وحدها؛ فإن حسمت
+     شخصاً واحداً فهو هو، ولا يُنظر في الاحتواء أصلاً. */
+  const equalIds=(pool:typeof catalogue)=>new Set(pool.map(item=>Number(item.person.AdInstructorId)));
+  /* الترتيب المقلوب المقبول وحده: العائلة نُقلت إلى أول الاسم في سجل قديم
+     («الأنصاري عبدالله رجب»). أي تبديل آخر للأسماء — «محمد حسن عبدالله» مقابل
+     «عبدالله محمد حسن» — شخصٌ آخر لا الشخص نفسه. */
+  const familyFirst=(tokens:string[])=>tokens.length>=3?[...tokens.slice(1),tokens[0]].join(" "):"";
+  const equals=catalogue.filter(item=>normalizedRaw===item.normalized||item.tokens.join("")===spacelessRaw);
+  /* التدوير برهانٌ أضعف من المساواة: بثلاثة أسماء لا يُفرَّق بين «سجل يبدأ
+     بالعائلة» وشخص آخر اسمه مقلوب («محمد حسن عبدالله»). فلا يُقرأ إلا بعد
+     براهين المقرر والقسم، وحين لا يبقى غيره. */
+  const rotated=catalogue.filter(item=>rawTokens.length>=3&&item.tokens.length===rawTokens.length&&(familyFirst(item.tokens)===normalizedRaw||familyFirst(rawTokens)===item.normalized));
+  if(equalIds(equals).size===1)return{person:equals[0].person,method:"EXACT_FULL",score:100,matchedTokens:Math.min(rawTokens.length,equals[0].tokens.length)};
+  /* الاحتواء لاسم عائلة قُصّ عند حافة الخانة فقط: اسم السجل يبدأ به المطبوع
+     من أوله، باسمين على الأقل. اسمٌ يقع في وسط المطبوع أو آخره —
+     «درويش مطر الشمري» داخل «حسين درويش مطر الشمري» — هو الأب لا الابن. */
+  const exact=equals.length?equals:catalogue.filter(item=>item.tokens.length>=2&&haystack.startsWith(` ${item.normalized} `));
+  const exactIds=equalIds(exact);
+  if(exactIds.size===1)return{person:exact[0].person,method:"EXACT_FULL",score:100,matchedTokens:Math.min(rawTokens.length,exact[0].tokens.length)};
+  const preferredExact=exact.filter(item=>item.preferred);
+  if(preferredExact.length===1)return{person:preferredExact[0].person,method:"EXACT_FULL",score:100,matchedTokens:Math.min(rawTokens.length,preferredExact[0].tokens.length)};
+
+  const tokenEqual=(a:string,b:string)=>a===b;
+  /* One OCR-noised character inside a LONG name token (نورى -> تورى,
+     العازمي -> العارمي) may count as SUPPORTING evidence only. It can never
+     become one of the two exact tokens the two-name proofs require, so no
+     identity is ever created from noise alone — it only lets a three-token
+     ordered proof survive a single damaged glyph. */
+  const oneEditApart=(a:string,b:string)=>{
+    if(a===b)return true;
+    if(Math.abs(a.length-b.length)>1||Math.min(a.length,b.length)<4)return false;
+    if(a.length===b.length){let diff=0;for(let i=0;i<a.length;i++)if(a[i]!==b[i]&&++diff>1)return false;return diff===1;}
+    const [short,long]=a.length<b.length?[a,b]:[b,a];
+    let i=0,j=0,skips=0;
+    while(i<short.length&&j<long.length){
+      if(short[i]===long[j]){i++;j++;continue;}
+      if(++skips>1)return false;
+      j++;
+    }
+    return true;
+  };
+  const stemEqual=(a:string,b:string)=>a===b||(Math.min(a.length,b.length)>=3&&(a.startsWith(b)||b.startsWith(a)))||oneEditApart(a,b);
+  /* ── اسمٌ مطبوع آخرُ كلمةٍ فيه مقصوصة عند حافة الخانة، في القسم نفسه ─────────
+     «د.عبدالرحمن صالح سالم الم» لسجل القسم «د. عبدالرحمن صالح سالم الجميلي»:
+     كل الكلمات المطبوعة مطابقة حرفياً لصدر اسم السجل بترتيبها، إلا آخرها
+     فهي صدرُ كلمةِ السجل (حرفان فأكثر) قُصّ باقيها عند حافة الخانة. كان يُربط
+     قبل 24 سبتمبر ثم صار «اسم غير واضح» (بلاغ المالك 2026-09-26). أما حرفٌ
+     مختلف داخل اسمٍ («فهيد» عن «فهد»، «حسن» عن «حسين») فشخصٌ آخر لا ضجيج،
+     فلا يُقبل هنا؛ تبقى الخانة للمراجع مع الأقرب اقتراحاً. القسم وحده، وثلاث
+     كلمات مطبوعة فأكثر، وشخصٌ واحد لا غير. */
+  if(rawTokens.length>=3){
+    const last=rawTokens.length-1;
+    const truncatedPrefix=catalogue.filter(item=>item.preferred&&item.tokens.length>=rawTokens.length
+      &&rawTokens.slice(0,last).every((token,i)=>item.tokens[i]===token)
+      &&rawTokens[last].length>=2&&item.tokens[last].length>rawTokens[last].length&&item.tokens[last].startsWith(rawTokens[last]));
+    if(equalIds(truncatedPrefix).size===1)return{person:truncatedPrefix[0].person,method:"DEPARTMENT_TWO_NAME",score:97,matchedTokens:rawTokens.length};
+  }
+
+  /* ── الاسم يُقرأ في موضعه ─────────────────────────────────────────────────
+     الاسم الأول يقابل الأول، والأب يقابل الأب، والجد الجد. اسمٌ مطبوع يخالف
+     نظيره في السجل ليس ضجيجاً بل دليلُ شخصٍ آخر: «احمد يوسف النصف» ليس
+     «احمد يوسف الكندري»، و«فهيد» ليس «فهد». يُسمح فقط بقصّ آخر اسم مطبوع عند
+     حافة الخانة، وبحرف واحد تالف في اسم طويل. */
+  const alignedEvidence=(candidate:string[],observed:string[])=>{
+    /* «علي السند» و«حسين درويش مطر الشمري» لسجلٍّ فيه «…مطر حمد الشمري»:
+       الأسماء الأولى بترتيبها، ثم العائلة مطابقةً لعائلة السجل، وما سقط بينهما
+       أسماء وسطى لم تطبعها الجهة. أي مخالفة في الموضع تُسقط المرشح. */
+    if(observed.length>=2&&candidate.length>observed.length){
+      const last=candidate[candidate.length-1],printedLast=observed[observed.length-1];
+      const lastOk=last===printedLast||(printedLast.length>=3&&last.startsWith(printedLast));
+      let headExact=0,headOk=true;
+      for(let i=0;i<observed.length-1&&headOk;i++){
+        if(candidate[i]===observed[i])headExact++;
+        else if(!oneEditApart(candidate[i],observed[i]))headOk=false;
+      }
+      if(lastOk&&headOk&&candidate[observed.length-1]!==printedLast){
+        const exactCount=headExact+(last===printedLast?1:0);
+        return{total:observed.length,exactCount,stemCount:observed.length-exactCount};
+      }
+    }
+    /* ── السجل يحفظ الاسم المختصر: الأول والعائلة ───────────────────────────
+       «د. شجاع العتيبي» لمطبوعٍ «شجاع غازي شجاع العتيبي»، و«أحمد النصف» لـ
+       «احمد يوسف النصف». أسماء السجل كلها واردة في المطبوع بترتيبها: الأول
+       أولاً والعائلة آخراً، وما بينهما أسماء وسطى لم يحفظها السجل. لا تناقض
+       هنا — السجل لم يذكر اسماً يخالف المطبوع. */
+    if(candidate.length>=2&&candidate.length<observed.length){
+      const last=candidate[candidate.length-1],printedLast=observed[observed.length-1];
+      const firstOk=candidate[0]===observed[0]||oneEditApart(candidate[0],observed[0]);
+      const lastOk=last===printedLast||(printedLast.length>=3&&last.startsWith(printedLast));
+      let at=1,inner=0;
+      for(let i=1;i<candidate.length-1;i++){
+        while(at<observed.length-1&&observed[at]!==candidate[i])at++;
+        if(at>=observed.length-1)break;
+        inner++;at++;
+      }
+      if(firstOk&&lastOk&&inner===candidate.length-2){
+        /* عائلة مقصوصة عند حافة الخانة («المهي» من «المهيني») بأربعة أحرف فأكثر
+           شاهدٌ على العائلة نفسها كالمطابقة التامة. */
+        const tailProof=last===printedLast||printedLast.length>=4;
+        const exactCount=(candidate[0]===observed[0]?1:0)+(tailProof?1:0)+inner;
+        return{total:candidate.length,exactCount,stemCount:candidate.length-exactCount};
+      }
+    }
+    const n=Math.min(candidate.length,observed.length);
+    let exactCount=0,stemCount=0;
+    for(let i=0;i<n;i++){
+      const a=candidate[i],b=observed[i];
+      if(a===b){exactCount++;continue;}
+      const sharedHead=(()=>{let k=0;while(k<a.length&&k<b.length&&a[k]===b[k])k++;return k;})();
+      /* آخر اسم مطبوع قد يُقصّ عند حافة الخانة؛ وبعد ثلاثة أسماء متطابقة قد
+         يبقى منه صدره فقط مشوّه الشكل («الجي» من «الجميلي»). صدر «ال» وحده
+         لا يكفي: «النصف» و«الكندري» عائلتان. */
+      const truncatedTail=i===observed.length-1&&((b.length>=3&&(a.startsWith(b)||(exactCount>=3&&sharedHead>=3)))||(b.length<3&&exactCount>=2&&a.startsWith(b)));
+      if(truncatedTail||oneEditApart(a,b)){stemCount++;continue;}
+      return{total:0,exactCount:0,stemCount:0};
+    }
+    /* أسماء مطبوعة زائدة على سجلٍ قصير لا يُتحقَّق منها؛ تُقبل فقط حين يحمل
+       السجل ثلاثة أسماء على الأقل تطابقت كلها. */
+    if(observed.length>candidate.length&&candidate.length<3)return{total:0,exactCount:0,stemCount:0};
+    return{total:n,exactCount,stemCount};
+  };
+  const orderedEvidence=(candidate:string[],observed:string[])=>{
+    let at=0,exactCount=0,stemCount=0,total=0;
+    for(const token of candidate){
+      let found=-1,exact=false;
+      for(let i=at;i<observed.length;i++){
+        if(tokenEqual(token,observed[i])){found=i;exact=true;break;}
+        if(found<0&&stemEqual(token,observed[i]))found=i;
+      }
+      if(found<0)continue;
+      total++;if(exact)exactCount++;else stemCount++;at=found+1;
+    }
+    return{total,exactCount,stemCount};
+  };
+  const commonExact=(candidate:string[],observed:string[])=>[...new Set(candidate.filter(token=>observed.includes(token)))].length;
+
+  const choose=(pool:typeof catalogue,allowTwo:boolean,soleOnly=false,allowNear=false,exactPairOnly=false)=>{
+    const ranked=pool.map(item=>{
+      const ordered=alignedEvidence(item.tokens,rawTokens);
+      const exactCommon=commonExact(item.tokens,rawTokens);
+      const first=item.tokens[0],last=item.tokens[item.tokens.length-1];
+      const firstHit=rawTokens.some(token=>tokenEqual(first,token));
+      /* ── الاسم الأول قد يصله OCR ناقص حرفاً واحداً ─────────────────────────
+         «عبدالله حسن» تُطبع أحياناً «بدالله حسن»: العين وحدها ضاعت. كان هذا
+         يُسقط الصف كاملاً لأن الاسم الأول كان يُشترط مطابقته حرفياً. يُقبل
+         الآن جذعاً (فرق حرف واحد) بشرط أن يكون اسم آخر قد طابق حرفياً، فلا
+         تُبنى هوية من الضجيج وحده. */
+      const firstStemHit=rawTokens.some(token=>stemEqual(first,token));
+      const lastHit=rawTokens.some(token=>stemEqual(last,token));
+      /* Three ordered names are strong evidence even when the printed family
+         name is cut at the cell edge. Two names are accepted only in the
+         department/preferred pool and only when no rival receives the same
+         evidence. This restores the old high hit-rate without saving OCR text. */
+      const threeProof=ordered.total>=3&&ordered.exactCount>=2;
+      const twoExactProof=allowTwo&&ordered.exactCount>=2&&ordered.total>=2;
+      const firstLastProof=allowTwo&&!exactPairOnly&&item.tokens.length>=2&&(firstHit||(firstStemHit&&ordered.exactCount>=1))&&lastHit&&ordered.total>=2&&ordered.exactCount>=1;
+      /* ── اسمان مطبوعان وأحدهما ناقص حرفاً ──────────────────────────────────
+         «عبدالله حسن الرشيدي» تُطبع «بدالله حسن»: اسم العائلة مقصوص عند حافة
+         الخانة، والاسم الأول فقد حرفاً واحداً. لا يبقى برهان حرفيّ كامل لاسمين،
+         فكان الصف يسقط. يُقبل هذا الشكل داخل نطاق القسم/المقرر وحده، وبشرط اسم
+         واحد على الأقل مطابق حرفياً وترتيب محفوظ — ويظل مرهوناً بأن يبقى مرشح
+         واحد بلا منازع، وإلا فالخانة فارغة. */
+      const twoNearProof=allowNear&&ordered.total>=2&&ordered.exactCount>=1&&ordered.stemCount>=1;
+      const qualified=threeProof||twoExactProof||firstLastProof||twoNearProof;
+      const score=qualified?(ordered.total*100+ordered.exactCount*20+exactCommon*10+(firstHit?3:0)+(lastHit?3:0)-ordered.stemCount):0;
+      return{item,qualified,score,ordered,exactCommon};
+    }).filter(entry=>entry.qualified).sort((a,b)=>b.score-a.score||b.exactCommon-a.exactCommon||b.item.tokens.length-a.item.tokens.length);
+    if(!ranked.length)return undefined;
+    const distinct=new Set(ranked.map(entry=>Number(entry.item.person.AdInstructorId)));
+    if(soleOnly&&distinct.size>1)return undefined;
+    const top=ranked[0],runner=ranked[1];
+    if(runner&&runner.score===top.score&&Number(runner.item.person.AdInstructorId)!==Number(top.item.person.AdInstructorId))return undefined;
+    return top;
+  };
+
+  /* ── اسم واحد مطبوع في خانة الأستاذ ────────────────────────────────────────
+     الجدول المعتمد يكتب أحياناً اسماً أولاً وحده («إقبال»). كان يُترك فارغاً
+     دائماً لأن كل البراهين تبدأ من اسمين، فأستاذة موجودة أصلاً في القسم كانت
+     تسقط من الاستيراد بلا سبب. يُقبل الاسم المفرد داخل نطاق المقرر أو القسم
+     فقط، ومطابقةً حرفية كاملة للرمز، وبشرط ألا يحمله سوى شخص واحد في ذلك
+     النطاق — أي أن النظام لا يختار، بل يقرأ نتيجة وحيدة. */
+  const soleByToken=(pool:typeof catalogue)=>{
+    if(rawTokens.length!==1)return undefined;
+    const token=rawTokens[0];
+    if(token.length<3)return undefined;
+    /* الاسم المفرد اسمٌ أول، لا أي اسم في أي موضع: «سالم» ليس «يحيى سالم». */
+    const hits=pool.filter(item=>tokenEqual(item.tokens[0],token));
+    const ids=new Set(hits.map(item=>Number(item.person.AdInstructorId)));
+    return ids.size===1?hits[0]:undefined;
+  };
+
+  /* Course history is a tie-breaker, never identity by itself. Two-name proof is
+     allowed here only when the printed tokens leave ONE existing system person
+     among instructors who have actually taught this canonical course. */
+  const coursePool=coursePreferredIds?.size?catalogue.filter(item=>coursePreferredIds.has(Number(item.person.AdInstructorId))):[];
+  const courseHit=coursePool.length?choose(coursePool,true,false,true):undefined;
+  if(courseHit)return{person:courseHit.item.person,method:"COURSE_TWO_NAME",score:99,matchedTokens:courseHit.ordered.total};
+
+  const preferred=catalogue.filter(item=>item.preferred);
+  const preferredHit=preferred.length?choose(preferred,true,false,true):undefined;
+  if(preferredHit)return{person:preferredHit.item.person,method:"DEPARTMENT_TWO_NAME",score:98,matchedTokens:preferredHit.ordered.total};
+
+  const rotatedIds=equalIds(rotated);
+  if(rotatedIds.size===1)return{person:rotated[0].person,method:"EXACT_FULL",score:100,matchedTokens:rawTokens.length};
+
+  const courseSingle=coursePool.length?soleByToken(coursePool):undefined;
+  if(courseSingle)return{person:courseSingle.person,method:"COURSE_ONE_NAME",score:95,matchedTokens:1};
+  const preferredSingle=preferred.length?soleByToken(preferred):undefined;
+  if(preferredSingle)return{person:preferredSingle.person,method:"DEPARTMENT_ONE_NAME",score:94,matchedTokens:1};
+
+  /* Outside the department, require three-name proof; two-name university-wide
+     matches are deliberately left blank unless the FULL identity matched above. */
+  const globalHit=choose(catalogue,false);
+  if(globalHit)return{person:globalHit.item.person,method:"GLOBAL_THREE_NAME",score:96,matchedTokens:globalHit.ordered.total};
+  /* ── اسمان خارج القسم ──────────────────────────────────────────────────────
+     القسم الذي لا تاريخ له في النظام (فصل جديد، قسم حديث) كان يفقد كل اسم
+     ثنائي لأن نطاق التفضيل يولد فارغاً، فيظهر الجدول كله أحمر. يُقبل الاسمان
+     على مستوى الجامعة فقط حين لا ينطبقان إلا على شخص واحد لا ثاني له — مرشّح
+     وحيد مؤهل، لا «الأعلى درجة» بين متزاحمين. */
+  const solePairHit=choose(catalogue,true,true,false,true);
+  return solePairHit?{person:solePairHit.item.person,method:"GLOBAL_SOLE_TWO_NAME",score:93,matchedTokens:solePairHit.ordered.total}:undefined;
+}
+
+function matchInstructorName(raw:string,instructors:AdInstructor[],preferredIds?:Set<number>,coursePreferredIds?:Set<number>):AdInstructor|undefined{
+  return matchInstructorIdentity(raw,instructors,preferredIds,coursePreferredIds)?.person;
+}
+
+/**
+ * Best-effort table parser for the Authority's scanned timetable.
+ *
+ * It reads each cell on its own rather than mining a flattened line, and it
+ * matches names against the real catalogue instead of inventing identifiers.
+ * Anything it cannot resolve is returned as an issue and never published.
+ */
+/**
+ * Structured rows from the gridded reader, matched against the catalogue.
+ *
+ * The course code is the key that cannot drift: college(2) + department(2) +
+ * course(3). Only that number may create a canonical course identity. The
+ * Arabic name is evidence for the reviewer; the displayed canonical name comes
+ * exclusively from the selected system catalogue row.
+ */
+function isHeaderLine(text:string):boolean{
+  if(!text) return false;
+  
+  // Strict alphanumeric exact checks bypassing any folding
+  const alphanumeric = text.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (alphanumeric.includes("swrscha")) return true;
+  if (alphanumeric.includes("swrscha:")) return true;
+  
+  const f=fold(text);
+  
+  // Any line that strongly starts with these keywords
+  if(
+    f.startsWith("القسم") || 
+    f.startsWith("الفصل") || 
+    f.startsWith("التقرير") || 
+    f.startsWith("جدول") || 
+    f.startsWith("كليه") || 
+    f.startsWith("كلية") || 
+    f.startsWith("الفرع")
+  ) {
+    return true;
+  }
+  
+  // Highly specific header substrings
+  if(
+    f.includes("جدول الفصل") || 
+    f.includes("جميع الشعب") || 
+    f.includes("التربيه الاساسيه") || 
+    f.includes("التربية الاساسية") || 
+    f.includes("كليه التربيه") || 
+    f.includes("كلية التربية") || 
+    f.includes("صفحة :") || 
+    f.includes("صفحه :") || 
+    f.includes("صفحة رقم") || 
+    f.includes("تاريخ :") || 
+    f.includes("من أصل") || 
+    f.includes("من اصل") || 
+    f.includes("التسجيل التقرير")
+  ) {
+    return true;
+  }
+
+  const headerPhrases=[
+    "رقم المقرر", "مسمى مقرر", "الرقم المرجعي", "الرقم المرجعى",
+    "الحد الاقصى", "مقاعد مسجلة", "مقاعد مسجله", "الحالة في الرزم", "عدد الرزم",
+    "تاريخ الطباعة", "طبع في",
+    "القسم :", "القسم:", "الفرع :", "الفرع:", "الكلية :", "الكلية:", "الفصل :", "الفصل:"
+  ];
+  if(headerPhrases.some(phrase => {
+    const foldedPhrase = fold(phrase);
+    return foldedPhrase.length > 2 && f.includes(foldedPhrase);
+  })) {
+    return true;
+  }
+  
+  return false;
+}
+
+function parseGridRows(gridRows:GridRow[],courses:AdCourse[],instructors:AdInstructor[],startOrder:number,preferredInstructorIds?:Set<number>,authorityDepartment="",courseInstructorIds?:Map<number,Set<number>>){
+  const catalogue=courses.map(course=>({course,digits:academicDigits(course.CourseCode),folded:fold(course.CourseName)}));
+  const tailCounts=new Map<string,number>();
+  for(const item of catalogue){
+    if(item.digits.length>=3){const tail=item.digits.slice(-3);tailCounts.set(tail,(tailCounts.get(tail)||0)+1);}
+  }
+  const canonicalKeys=catalogue.map(item=>{
+    const d=item.digits;
+    if(d.length>=7)return d;
+    if(authorityDepartment&&d.length<=3)return`${authorityDepartment}${d.padStart(3,"0").slice(-3)}`;
+    return d;
+  }).filter(k=>k.length===7);
+  const keyedCatalogue=catalogue.map(item=>{
+    const d=item.digits;
+    const key=d.length>=7?d:(authorityDepartment&&d.length<=3?`${authorityDepartment}${d.padStart(3,"0").slice(-3)}`:d);
+    return{course:item.course,key,name:String(item.course.CourseName||"")};
+  }).filter(item=>item.key.length===7);
+  const courseByKey=(key:string)=>{
+    const hits=keyedCatalogue.filter(item=>item.key===key);
+    return hits.length===1?hits[0].course:null;
+  };
+  /* صف يحمل رقم مقرر سليماً من سبع خانات صفُّ بيانات، ولو كان اسم مقرره
+     «التقرير الفني» أو «الفصل الميداني» أو «مناهج التربية الأساسية»: فحص
+     الترويسة بالكلمات كان يُسقطه بصمت. */
+  const provenRowCode=(code:string)=>/^\d{7}$/.test(academicDigits(code))&&authorityCourseCellLooksPlausible(academicDigits(code),authorityDepartment);
+  const headerLike=(grid:{code:string;courseText:string;scode?:string;instructorText?:string})=>provenRowCode(grid.code)
+    ?isHeaderLine(grid.code)
+    :(isHeaderLine(`${grid.code} ${grid.scode||""} ${grid.courseText} ${grid.instructorText||""}`)||isHeaderLine(grid.courseText)||isHeaderLine(grid.code));
+  const matchCourse=(code:string,nameText:string,sourceMode?:string)=>{
+    if(isHeaderLine(code)||(!provenRowCode(code)&&isHeaderLine(nameText)))return null;
+    const source=academicDigits(code);
+    if(!source)return null;
+    const matches=catalogue.filter(item=>authorityCourseCodeMatches(source,item.digits,authorityDepartment));
+    if(matches.length===1)return matches[0].course;
+    /* A 3-digit source can only resolve when that tail is unique in the selected
+       department. Course NAMES are display evidence only and never create ID. */
+    if(source.length===3&&tailCounts.get(source)===1){
+      const unique=catalogue.find(item=>item.digits.slice(-3)===source);
+      if(unique)return unique.course;
+    }
+    /* ── رقم مقرر ممسوح يُصلَح من الكتالوج؛ رقم طبقة النص لا يُصلَح ────────────
+       الإصلاح بفرق خانة واحدة وُجد لخطأ OCR في المسح: «0101104» في مسح
+       file1 هي «0101102» المطبوعة بخانةٍ أخطأها القارئ، وكانت تُربط باسمها
+       قبل 24 سبتمبر ثم صارت «—». وقد قُيّد الإصلاح يومها بالرقم «غير السليم
+       الشكل» فحسب، فحُرم منه كل رقمٍ أخطأ القارئ خانةً واحدة من ذيله (بلاغ
+       المالك 2026-09-26). القيد يبقى لطبقة النص وحدها: أرقامها ما طُبع فعلاً،
+       فإن غابت عن الكتالوج فهي مقرر غير مسجّل لا أقرب جار — 0101357 ليس
+       0101157. ويبقى شرط الإصلاح مفتاحاً واحداً لا غير في كتالوج القسم. */
+    if(canonicalKeys.length&&sourceMode!=="pdf-text"){
+      const recovered=recoverAuthorityCourseCell(source,authorityDepartment,canonicalKeys);
+      if(recovered){
+        const recoveredMatches=catalogue.filter(item=>authorityCourseCodeMatches(recovered,item.digits,authorityDepartment));
+        if(recoveredMatches.length===1)return recoveredMatches[0].course;
+      }
+    }
+    return null;
+  };
+
+  const validGrids=gridRows.filter(grid=>{
+    if(headerLike(grid))return false;
+    const hasData = Boolean(grid.code || grid.reference || grid.start || grid.days || authoritySectionCodeLooksPlausible(grid.scode) || grid.courseText.length > 2);
+    return hasData;
+  });
+  /* المسح وحده (لا طبقة النص): رقمٌ لم يحسم مقرراً يُحسم من عائلته واسمه
+     المطبوع، ورقمٌ حسم مقرراً يناقضه اسمه المطبوع بوضوح يُستبدل بأخيه في
+     العائلة. كلاهما يُعرض للمراجعة (courseMatchMethod). */
+  const firstPass=validGrids.map(grid=>{
+    const course=matchCourse(grid.code,grid.courseText,grid.sourceMode);
+    if(grid.sourceMode==="pdf-text"||!keyedCatalogue.length||headerLike(grid))return{grid,course,courseMethod:""};
+    if(!course){
+      const key=authorityCourseFromFamilyAndName(grid.code,grid.courseText,authorityDepartment,keyedCatalogue);
+      const picked=key?courseByKey(key):null;
+      return picked?{grid,course:picked,courseMethod:"COURSE_FAMILY_AND_PRINTED_NAME"}:{grid,course,courseMethod:""};
+    }
+    const readKey=keyedCatalogue.find(item=>item.course===course)?.key||"";
+    const sibling=readKey?authorityCourseSiblingByName(readKey,grid.courseText,keyedCatalogue):"";
+    const swapped=sibling?courseByKey(sibling):null;
+    if(swapped)return{grid,course:swapped,courseMethod:"PRINTED_NAME_OVER_LAST_DIGIT"};
+    /* رقمٌ حسم مقرراً واسمُه المطبوع لا يشترك مع اسم ذلك المقرر في شيء
+       («اعجاز علمى فى القران والسنه» على 0101121 «المدخل إلى علوم القرآن»):
+       الأرجح أن الرقم ليس ما طُبع — مقرر خارج الكتالوج أصلحه الإنقاذ إلى جاره.
+       لا يُستبدل شيء؛ يُعرض للمراجعة بسببه. */
+    const printed=courseNameTokens(grid.courseText);
+    if(printed.length>=2&&authorityCourseNameScore(grid.courseText,String(course.CourseName||""),true)<AUTHORITY_NAME_DISAGREES)
+      return{grid,course,courseMethod:"PRINTED_NAME_DISAGREES"};
+    return{grid,course,courseMethod:""};
+  });
+  /* A missing course key stays unresolved. Neighbouring rows and edit-distance
+     similarity are not identity evidence and must never create canonical data. */
+  const rows:ParsedScheduleRow[]=[];const issues:string[]=[];let order=startOrder;
+  for(const {grid,course,courseMethod} of firstPass){
+    if(headerLike(grid))continue;
+    const flags = parseDays(grid.days) || EMPTY_DAYS;
+    const coursePreferred=course?courseInstructorIds?.get(Number(course.AdCourseId)):undefined;
+    const instructorMatch=matchInstructorIdentity(grid.instructorText,instructors,preferredInstructorIds,coursePreferred);
+    const instructorHit=instructorMatch?.person;
+    const cleanBuilding = cleanBuildingCode(grid.building);
+    const cleanHall = cleanHallCode(grid.hall);
+
+    if(!course){
+      const rawEvidence = grid.courseText || grid.code || "";
+      const hasScheduleData = Boolean(grid.start || grid.days || authoritySectionCodeLooksPlausible(grid.scode) || grid.reference || (grid.code && grid.code.length >= 3));
+      if(!hasScheduleData || !rawEvidence || rawEvidence.length < 3) {
+        continue;
+      }
+      /* Canonical course display is system-owned. A raw OCR number/text is
+         audit evidence only and must never occupy AdCourseName when the course
+         ID was not proven. This is the final display guard against welded
+         section+CRN values such as 5011894 looking like a real course. */
+      const readableCourseEvidence=/[ء-يA-Za-z]/.test(rawEvidence)&&!/^\s*\d[\d\s._/-]*\s*$/.test(rawEvidence)
+        ?rawEvidence.trim()
+        :"";
+      const issueLabel=readableCourseEvidence||"مقرر غير محسوم";
+      rows.push({
+        sourceOrder:order++,
+        referenceNumber:grid.reference,
+        AdCourseId:0,AdCourseName:"",SCode:grid.scode,
+        AdInstructorId:instructorHit?.AdInstructorId||0,
+        TotalHours:3,TotalUnits:3,
+        CourseHours:3,CourseCredit:3,
+        fcontacthours:3,fcredithours:3,
+        ...flags,
+        fstarttime:grid.start,fendtime:grid.end,
+        AdRoomCode:cleanBuilding,AdRoomHall:cleanHall,
+        ocrLine:[grid.code,grid.scode,grid.courseText,grid.days,`${grid.start}-${grid.end}`,cleanBuilding,cleanHall,grid.instructorText].filter(Boolean).join(" | "),
+        sourceInstructorText:grid.instructorText,
+        sourceCourseCode:grid.code,sourceCourseText:grid.courseText,sourceSectionText:grid.scode,
+        sourceBuildingText:grid.buildingRaw||grid.building,sourceRoomText:grid.hallRaw||grid.hall,
+        sourceDaysText:grid.daysRaw||grid.days,sourceTimeText:grid.timeRaw||[grid.start,grid.end].filter(Boolean).join(" - "),sourceReadMode:grid.sourceMode||"ocr-grid",
+        instructorMatchMethod:instructorMatch?.method,instructorMatchScore:instructorMatch?.score,instructorMatchedTokens:instructorMatch?.matchedTokens,
+      });
+      issues.push(`صف «${issueLabel}» شعبة ${grid.scode||"—"}: لم يتم إثبات رقم المقرر من كتالوج القسم — يرجى اختياره من القائمة`);
+      if(!grid.start)issues.push(`صف «${issueLabel}» شعبة ${grid.scode||"—"}: لم أتعرف على الوقت`);
+      if(!Object.values(flags).some(Boolean))issues.push(`صف «${issueLabel}» شعبة ${grid.scode||"—"}: لم أتعرف على الأيام`);
+      if(!instructorHit&&grid.instructorText&&!grid.instructorText.includes("هيئة")&&!grid.instructorText.includes("هيئه"))
+        issues.push(`صف «${issueLabel}» شعبة ${grid.scode||"—"}: لم أتعرف على أستاذ المقرر («${grid.instructorText}»)`);
+      if(!cleanBuilding&&!cleanHall)issues.push(`صف «${issueLabel}» شعبة ${grid.scode||"—"}: لم أتعرف على المبنى والقاعة`);
+      continue;
+    }
+
+    rows.push({
+      sourceOrder:order++,
+      referenceNumber:grid.reference,
+      AdCourseId:course.AdCourseId,AdCourseName:course.CourseName,SCode:grid.scode,
+      ...(courseMethod?{courseMatchMethod:courseMethod}:{}),
+      AdInstructorId:instructorHit?.AdInstructorId||0,
+      TotalHours:course.CourseHours,TotalUnits:course.CourseCredit,
+      CourseHours:course.CourseHours,CourseCredit:course.CourseCredit,
+      fcontacthours:course.CourseHours||3,fcredithours:course.CourseCredit||3,
+      ...flags,
+      fstarttime:grid.start,fendtime:grid.end,
+      AdRoomCode:cleanBuilding,AdRoomHall:cleanHall,
+      ocrLine:[grid.code,grid.scode,grid.courseText,grid.days,`${grid.start}-${grid.end}`,cleanBuilding,cleanHall,grid.instructorText].filter(Boolean).join(" | "),
+      sourceInstructorText:grid.instructorText,
+      sourceCourseCode:grid.code,sourceCourseText:grid.courseText,sourceSectionText:grid.scode,
+      sourceBuildingText:grid.buildingRaw||grid.building,sourceRoomText:grid.hallRaw||grid.hall,
+      sourceDaysText:grid.daysRaw||grid.days,sourceTimeText:grid.timeRaw||[grid.start,grid.end].filter(Boolean).join(" - "),sourceReadMode:grid.sourceMode||"ocr-grid",
+      instructorMatchMethod:instructorMatch?.method,instructorMatchScore:instructorMatch?.score,instructorMatchedTokens:instructorMatch?.matchedTokens,
+    });
+    const label=course.CourseName;
+    if(!grid.start)issues.push(`صف «${label}» شعبة ${grid.scode||"—"}: لم أتعرف على الوقت`);
+    if(!Object.values(flags).some(Boolean))issues.push(`صف «${label}» شعبة ${grid.scode||"—"}: لم أتعرف على الأيام`);
+    if(!instructorHit&&grid.instructorText&&!grid.instructorText.includes("هيئة")&&!grid.instructorText.includes("هيئه"))
+      issues.push(`صف «${label}» شعبة ${grid.scode||"—"}: لم أتعرف على أستاذ المقرر («${grid.instructorText}»)`);
+    if(!grid.scode)issues.push(`صف «${label}»: لم أتعرف على رقم الشعبة`);
+    if(!cleanBuilding&&!cleanHall)issues.push(`صف «${label}» شعبة ${grid.scode||"—"}: لم أتعرف على المبنى والقاعة`);
+  }
+  return{rows,issues,order};
+}
+
+export function parseScheduleTable(pages:OcrPage[],courses:AdCourse[],instructors:AdInstructor[],preferredInstructorIds?:Set<number>,options?:{authorityDepartmentCode?:string;sequentialSections?:boolean;courseInstructorIds?:Map<number,Set<number>>}){
+  const activeCourses=courses;
+  const catalogue=activeCourses.map(course=>({
+    course,
+    digits:toAscii(String(course.CourseCode||"")).replace(/\D/g,""),
+    folded:fold(course.CourseName),
+  }));
+
+  const tails=new Map<string,number>();
+  for(const item of catalogue){
+    if(item.digits.length>=3){const tail=item.digits.slice(-3);tails.set(tail,(tails.get(tail)||0)+1);}
+  }
+
+  const rows:ParsedScheduleRow[]=[];const issues:string[]=[];let order=0,scanned=0;
+
+  /* Parse each physical page in its own page-local pass, then merge only the
+     resulting rows. The parser does not carry geometry/column assumptions from
+     one page to the next; sourcePage is retained for a page-by-page preview. */
+  for(let pageIndex=0;pageIndex<pages.length;pageIndex++){
+    const page=pages[pageIndex];
+    if(page.gridRows?.length){
+      const parsed=parseGridRows(page.gridRows,activeCourses,instructors,order,preferredInstructorIds,academicDigits(options?.authorityDepartmentCode),options?.courseInstructorIds);
+      const pageRows=parsed.rows.map(row=>({...row,sourcePage:pageIndex+1}));
+      rows.push(...pageRows);issues.push(...parsed.issues);order=parsed.order;scanned+=page.gridRows.length;
+    }
+  }
+  const preserveAuthoritySections=()=>{
+    if(options?.sequentialSections===false)return;
+    const numbered=assignAuthoritySections(rows);
+    rows.splice(0,rows.length,...numbered);
+  };
+  if(rows.length){
+    /* The section cell is document identity. Preserve the printed value exactly
+       after digit normalization (01/02… or 501/502/510…), never regenerate it
+       from row order. The shared helper also repairs older generated values when
+       sourceSectionText exists, while source-less legacy rows are left intact. */
+    preserveAuthoritySections();
+    return{rows,issues:[...new Set(issues).values()],lines:scanned};
+  }
+
+  const activityTokens=["محاضرة","مختبر","تمارين","كلينيكي","عملي","نظري","ورشة","تدريب","بحث"];
+
+  for(let pageIndex=0;pageIndex<pages.length;pageIndex++)for(const row of pages[pageIndex].rows){
+    scanned++;
+    const cells=row.cells,line=row.line;
+    if(line.replace(/[^ء-يa-zA-Z0-9]/g,"").length<6)continue;
+    if(isHeaderLine(line))continue;
+    const rowDigitsSpaced=cells.map(cell=>toAscii(cell.text)).join(" ");
+    const digitRuns:string[]=(rowDigitsSpaced.match(/\d+/g)||[]);
+
+    // Rule 1: Course identity comes from its NUMBER only. The Arabic name is
+    // never allowed to manufacture a canonical course ID.
+    let matchedCourse:AdCourse|null=null;
+    const authorityDepartment=academicDigits(options?.authorityDepartmentCode);
+    const sourceCourseRuns=digitRuns.filter(run=>run.length===3||run.length===7);
+    const courseMatches=catalogue.filter(item=>sourceCourseRuns.some(run=>authorityCourseCodeMatches(run,item.digits,authorityDepartment)));
+    if(courseMatches.length===1)matchedCourse=courseMatches[0].course;
+    if(!matchedCourse){
+      const rawCourseText = cells.find(c => /[ء-ي]/.test(c.text) && !activityTokens.some(act => c.text.includes(act)))?.text || line;
+      // Extract time, days, room, instructor for unmapped row
+      let time:{start:string;end:string}|null=null;
+      for(const cell of cells){const found=timePair(cell.text);if(found){time=found;break;}}
+      if(!time)time=timePair(line);
+
+      let flags:typeof EMPTY_DAYS|null=null;
+      for(const cell of cells){const found=parseDays(cell.text);if(found){flags=found;break;}}
+      if(!flags)flags=parseDays(line);
+
+      const lineLocation=extractAuthorityLocationEvidence(line);
+      let roomCode=lineLocation.building,roomHall=lineLocation.hall;
+      for(const cell of cells){
+        if(roomCode&&roomHall)break;
+        const text=toAscii(cell.text).trim();
+        const embedded=extractAuthorityLocationEvidence(text);
+        if(!roomCode&&embedded.building)roomCode=embedded.building;
+        if(!roomHall&&embedded.hall)roomHall=embedded.hall;
+        const b=cleanBuildingCode(text);
+        if(b&&!roomCode){roomCode=b;continue;}
+        const h=cleanHallCode(text);if(h&&!roomHall)roomHall=h;
+      }
+
+      const reference=digitRuns.find(value=>/^\d{4,8}$/.test(value))||"";
+      const referenceCellIndex=reference ? cells.findIndex(c=>toAscii(c.text).includes(reference)) : -1;
+      let section="";
+      if(referenceCellIndex>=0){
+        const adjacentCells=cells.slice(Math.max(0,referenceCellIndex-2),referenceCellIndex+3);
+        const exactCell=adjacentCells.find(c=>authoritySectionCodeLooksPlausible(toAscii(c.text).trim())&&toAscii(c.text).trim()!==reference);
+        if(exactCell)section=normalizeAuthoritySectionCode(toAscii(exactCell.text).trim());
+      }
+      const instructorHit=matchInstructorName(line,instructors,preferredInstructorIds);
+
+      rows.push({
+        sourceOrder:order++,sourcePage:pageIndex+1,referenceNumber:reference,
+        /* Raw prose belongs to sourceCourseText only. Canonical course display
+           remains empty until a real catalogue ID is proven. */
+        AdCourseId:0,AdCourseName:"",SCode:section,
+        AdInstructorId:instructorHit?.AdInstructorId||0,
+        TotalHours:3,TotalUnits:3,CourseHours:3,CourseCredit:3,
+        fcontacthours:3,fcredithours:3,
+        ...(flags||EMPTY_DAYS),
+        fstarttime:time?.start||"",fendtime:time?.end||"",
+        AdRoomCode:roomCode,AdRoomHall:roomHall,ocrLine:line,
+        /* Keep what the document said. Canonical instructor identity is stored
+           separately in AdInstructorId and must never overwrite raw evidence. */
+        sourceInstructorText:line,
+        sourceCourseCode:sourceCourseRuns[0]||"",sourceCourseText:rawCourseText,sourceSectionText:section,
+        sourceBuildingText:roomCode,sourceRoomText:roomHall,
+        sourceDaysText:Object.keys(flags||{}).filter(key=>(flags as any)?.[key]).join(" "),sourceTimeText:time?[time.start,time.end].join(" - "):"",sourceReadMode:"ocr-fallback",
+      });
+      issues.push(`صف «${/[ء-يA-Za-z]/.test(rawCourseText)?rawCourseText:"مقرر غير محسوم"}»: لم يتم إثبات رقم المقرر من كتالوج القسم — يرجى اختياره من القائمة`);
+      continue;
+    }
+    const courseName=matchedCourse.CourseName;
+
+    // Rule 6: Exact time extraction with valid university lecture range
+    let time:{start:string;end:string}|null=null;
+    for(const cell of cells){const found=timePair(cell.text);if(found){time=found;break;}}
+    if(!time)time=timePair(line);
+
+    // Rule 7: Exact days extraction
+    let flags:typeof EMPTY_DAYS|null=null;
+    for(const cell of cells){
+      const found=parseDays(cell.text);
+      if(found){flags=found;break;}
+    }
+    if(!flags){
+      const actIdx=cells.findIndex(c=>activityTokens.some(act=>c.text.includes(act)));
+      if(actIdx>=0){
+        for(const offset of [1,-1,2,-2]){
+          const idx=actIdx+offset;
+          if(idx>=0&&idx<cells.length){
+            const found=parseDays(cells[idx].text);
+            if(found){flags=found;break;}
+          }
+        }
+      }
+    }
+    if(!flags)flags=parseDays(line);
+
+    // Rule 4 & 5: location identity is anchored by the official site prefix,
+    // not by "any six digits" and not by fragile PDF text-item boundaries.
+    const lineLocation=extractAuthorityLocationEvidence(line);
+    let roomCode=lineLocation.building,roomHall=lineLocation.hall;
+    for(const cell of cells){
+      if(roomCode&&roomHall)break;
+      const text=toAscii(cell.text).trim();
+      const embedded=extractAuthorityLocationEvidence(text);
+      if(!roomCode&&embedded.building)roomCode=embedded.building;
+      if(!roomHall&&embedded.hall)roomHall=embedded.hall;
+      const b=cleanBuildingCode(text);
+      if(b&&!roomCode){roomCode=b;continue;}
+      const h=cleanHallCode(text);
+      if(h&&!roomHall)roomHall=h;
+    }
+
+    // Section and Reference (CRN) extraction. The full seven-digit Authority
+    // course key must never be mistaken for the reference number when the live
+    // catalogue stores only its three-digit tail.
+    const courseCode=toAscii(String(matchedCourse.CourseCode||"")).replace(/\D/g,"");
+    const sourceCourseCode=sourceCourseRuns.find(run=>authorityCourseCodeMatches(run,courseCode,authorityDepartment))||"";
+    const reference=digitRuns.find(value=>/^\d{4,8}$/.test(value)&&value!==courseCode&&value!==sourceCourseCode&&value!==time?.start.replace(":","")&&value!==time?.end.replace(":",""))||"";
+    const referenceCellIndex=reference ? cells.findIndex(c=>toAscii(c.text).includes(reference)) : -1;
+    let section="";
+    if(referenceCellIndex>=0){
+      const adjacentCells=cells.slice(Math.max(0,referenceCellIndex-2),referenceCellIndex+3);
+      const exactCell=adjacentCells.find(c=>{
+        const t=toAscii(c.text).trim();
+        return authoritySectionCodeLooksPlausible(t) && t!==courseCode.slice(-3) && t!==reference;
+      });
+      if(exactCell) section=normalizeAuthoritySectionCode(toAscii(exactCell.text).trim());
+    }
+    if(!section){
+      /* Without a proven reference neighbour, keep the old conservative 5xx
+         fallback. Small values such as 3/25/60 also occur in unit/capacity
+         columns and must never be guessed as a section from flattened text. */
+      const secCandidate=digitRuns.find(v=>/^(?:50[1-9]|5[1-9]\d|[6-9]\d{2})$/.test(v)&&v!==reference&&v!==courseCode.slice(-3));
+      if(secCandidate)section=normalizeAuthoritySectionCode(secCandidate);
+    }
+
+    // Rule 8: Instructor extraction with department priority
+    const foldedCourse=fold(courseName).replace(/\s+/g,"");
+    const arabicCells=cells
+      .map(cell=>String(cell.text||"").trim())
+      .filter(value=>/[ء-ي]/.test(value)&&!activityTokens.some(act=>value.includes(act)));
+
+    const instructorCandidates=arabicCells.filter(cellText=>{
+      const fCell=fold(cellText).replace(/\s+/g,"");
+      if(!fCell)return false;
+      if(fCell===foldedCourse||foldedCourse.includes(fCell)||fCell.includes(foldedCourse))return false;
+      return true;
+    });
+
+    const instructorCandidateText=instructorCandidates.join(" ");
+    const fallbackCoursePreferred=options?.courseInstructorIds?.get(Number(matchedCourse.AdCourseId));
+    const instructorIdentity=matchInstructorIdentity(instructorCandidateText||line,instructors,preferredInstructorIds,fallbackCoursePreferred)
+      ||matchInstructorIdentity(line,instructors,preferredInstructorIds,fallbackCoursePreferred);
+    const instructorHit=instructorIdentity?.person;
+
+    rows.push({
+      sourceOrder:order++,sourcePage:pageIndex+1,referenceNumber:reference,
+      AdCourseId:matchedCourse.AdCourseId,AdCourseName:courseName,SCode:section,
+      AdInstructorId:instructorHit?.AdInstructorId||0,
+      TotalHours:matchedCourse.CourseHours,TotalUnits:matchedCourse.CourseCredit,
+      CourseHours:matchedCourse.CourseHours,CourseCredit:matchedCourse.CourseCredit,
+      fcontacthours:matchedCourse.CourseHours||3,fcredithours:matchedCourse.CourseCredit||3,
+      ...(flags||EMPTY_DAYS),
+      fstarttime:time?.start||"",fendtime:time?.end||"",
+      AdRoomCode:roomCode,AdRoomHall:roomHall,ocrLine:line,sourceInstructorText:instructorCandidateText,
+      sourceCourseCode,sourceCourseText:cells.find(cell=>fold(cell.text)===fold(courseName))?.text||courseName,sourceSectionText:section,
+      sourceBuildingText:roomCode,sourceRoomText:roomHall,
+      sourceDaysText:Object.keys(flags||{}).filter(key=>(flags as any)?.[key]).join(" "),sourceTimeText:time?[time.start,time.end].join(" - "):"",sourceReadMode:"ocr-fallback",
+      instructorMatchMethod:instructorIdentity?.method,instructorMatchScore:instructorIdentity?.score,instructorMatchedTokens:instructorIdentity?.matchedTokens,
+    });
+
+    if(!time)issues.push(`صف «${courseName}»: لم أتعرف على الوقت`);
+    if(!flags)issues.push(`صف «${courseName}»: لم أتعرف على الأيام`);
+    if(!instructorHit&&instructorCandidateText&&!instructorCandidateText.includes("هيئة")&&!instructorCandidateText.includes("هيئه"))
+      issues.push(`صف «${courseName}» شعبة ${section||"—"}: لم أتعرف على أستاذ المقرر («${instructorCandidateText}»)`);
+    if(!section)issues.push(`صف «${courseName}»: لم أتعرف على رقم الشعبة`);
+    if(!roomCode&&!roomHall)issues.push(`صف «${courseName}»: لم أتعرف على المبنى والقاعة`);
+  }
+
+  if(!rows.length)issues.push("لم أتعرف على صفوف الجدول. تأكد أن الملف واضح وبنفس نموذج الجدول المعتمد.");
+  preserveAuthoritySections();
+  return{rows,issues:[...new Set(issues).values()],lines:scanned};
+}
+
+export function transcriptFacts(text:string){
+  const plain=toAscii(text),folded=fold(text);
+  const civil=[...plain.matchAll(/\b\d{12}\b/g)].map(match=>match[0])[0]||"";
+  const labelled=[
+    /(?:الوحدات|الساعات)\s*(?:المجتاز[ةه]|المكتسب[ةه]|الناجح[ةه])\s*[:\-]?\s*(\d{2,3})/i,
+    /(?:earned|passed)\s*(?:credits|hours)?\s*[:\-]?\s*(\d{2,3})/i,
+  ];
+  let passedUnits=0;for(const pattern of labelled){const match=folded.match(pattern);if(match){passedUnits=Number(match[1]);break;}}
+  // Never infer eligibility from the largest number in a transcript: that is
+  // usually a programme total, course code, or academic year. A missing label
+  // must fail closed and be reviewed instead of falsely approving a student.
+  return{civil,passedUnits,text:plain.slice(0,16000)};
+}
+
+/**
+ * Facts that are safe to use from the Authority student «graduation sheet».
+ *
+ * The graduate door is intentionally stricter than generic transcript OCR. A
+ * readable document is NOT enough: it must identify itself as the study-plan /
+ * graduation-sheet view and expose the programme summary fields the Authority
+ * page shows (programme, required units, passed units). Anything weaker fails
+ * closed so another academic document can never be accepted merely because it
+ * happens to contain a civil ID and a number of credits.
+ */
+/**
+ * The student's programme as the sheet prints it: the text on the ONE visual
+ * line that carries the «البرنامج» label, after the label and before any
+ * other field label on that line.
+ *
+ * The specialization check used to search the whole OCR text, so a sheet whose
+ * course list or header merely mentioned another department's words could
+ * «match» it. Only the programme row decides; no programme row → "" and the
+ * caller fails closed.
+ */
+export function graduationProgrammeText(text:string):string{
+  for(const line of String(text||"").split(/\r?\n/)){
+    const folded=fold(line);
+    const label=folded.match(/(?:^|\s)(?:ال)?برنامج(?:\s*:)?(?=\s|$)/);
+    if(!label||label.index===undefined)continue;
+    const after=folded.slice(label.index+label[0].length)
+      .split(/\s(?:ال)?(?:وحدات|رقم|اسم|معدل|خطه|تاريخ|مستوي)(?:\s|$)/)[0]
+      .replace(/[:\d]+/g," ").replace(/\s+/g," ").trim();
+    return after;
+  }
+  return"";
+}
+
+export function graduationSheetFacts(text:string){
+  const plain=toAscii(text),folded=fold(text);
+  /* Civil IDs are sometimes OCR'd with spaces between digit groups. Recover
+     only a complete 12-digit value from ONE visual line; never concatenate
+     unrelated lines or repair digits. The server compares these complete
+     candidates only against the already-validated civil entered by the student. */
+  const directCivil=[...plain.matchAll(/\b\d{12}\b/g)].map(match=>match[0]);
+  const lines=plain.split(/\r?\n/);
+  const lineCivil=lines.map(line=>line.replace(/\D/g,""))
+    .filter(value=>value.length===12);
+  /* Tesseract often inserts spaces between digit groups (3000 1010 0122).
+     Recover a 12-digit run from one visual line even when unrelated text or a
+     date also exists elsewhere on that line. The server checksum-filters these
+     candidates and still requires the exact civil entered by the student. */
+  const groupedCivil=lines.flatMap(line=>[...line.matchAll(/(?:\d[ \t\u00a0\u200e\u200f.-]{0,3}){11}\d/g)]
+    .map(match=>String(match[0]||"").replace(/\D/g,""))
+    .filter(value=>value.length===12));
+  const civilCandidates=[...new Set([...directCivil,...lineCivil,...groupedCivil])];
+  const civil=civilCandidates[0]||"";
+  const readNumber=(patterns:RegExp[])=>{
+    for(const pattern of patterns){const match=folded.match(pattern);if(match)return Number(match[1]||0)||0;}
+    return 0;
+  };
+  const requiredUnits=readNumber([
+    /الوحدات\s*المطلوبه\s*[:\-]?\s*(\d{2,3})/i,
+    /(?:required)\s*(?:credits|hours|units)?\s*[:\-]?\s*(\d{2,3})/i,
+  ]);
+  const passedUnits=readNumber([
+    /الوحدات\s*المجتازه\s*[:\-]?\s*(\d{2,3})/i,
+    /الوحدات\s*(?:المكتسبه|الناجحه)\s*[:\-]?\s*(\d{2,3})/i,
+    /(?:earned|passed)\s*(?:credits|hours|units)?\s*[:\-]?\s*(\d{2,3})/i,
+  ]);
+  const titleOk=/(?:ال)?خطه\s*الدراسيه|صحيفه\s*التخرج/.test(folded);
+  const programmeOk=/(?:^|\s)ال?برنامج(?=\s|:|$)/.test(folded);
+  const requiredLabelOk=/الوحدات\s*المطلوبه/.test(folded);
+  const passedLabelOk=/الوحدات\s*المجتازه/.test(folded);
+  const authorityOk=/الهيئه\s*العامه\s*للتعليم\s*التطبيقي\s*والتدريب/.test(folded)
+    ||/public\s+authority\s+for\s+applied\s+education/.test(folded);
+
+  const allUnitCandidates=[...folded.matchAll(/(?:^|\s)(\d{2,3})(?=\s|$)/g)]
+    .map(match=>Number(match[1]))
+    .filter(value=>Number.isFinite(value)&&value>=60&&value<=180);
+  const candidatesNear=(pattern:RegExp)=>{
+    const match=folded.match(pattern);if(!match||match.index===undefined)return[] as number[];
+    const window=folded.slice(match.index,match.index+190);
+    return[...window.matchAll(/(?:^|\s)(\d{2,3})(?=\s|$)/g)]
+      .map(item=>Number(item[1]))
+      .filter(value=>Number.isFinite(value)&&value>=60&&value<=180);
+  };
+  const passedUnitCandidates=candidatesNear(/الوحدات\s*المجتازه/);
+  const requiredUnitCandidates=candidatesNear(/الوحدات\s*المطلوبه/);
+
+  /* The Authority screenshot sometimes OCRs the blue summary header sparsely:
+     «الوحدات المجتازة» is read, while «البرنامج» or «الوحدات المطلوبة» is
+     missed. Requiring the Authority identity in that exact rescue case is
+     stricter than accepting an arbitrary transcript, while keeping the same
+     substantive gates: official study-plan title + passed-units field. */
+  const isGraduationSheet=titleOk&&passedLabelOk&&(programmeOk||requiredLabelOk||authorityOk);
+  const programmeText=graduationProgrammeText(text);
+  return{
+    civil,civilCandidates,requiredUnits,passedUnits,isGraduationSheet,programmeText,
+    unitCandidates:allUnitCandidates,passedUnitCandidates,requiredUnitCandidates,
+    signals:{title:titleOk,programme:programmeOk,requiredUnits:requiredLabelOk,passedUnits:passedLabelOk,authority:authorityOk},
+    text:plain.slice(0,20000),normalizedText:folded.slice(0,20000),
+  };
+}

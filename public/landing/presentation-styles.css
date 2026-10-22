@@ -1,0 +1,906 @@
+/* ══════════════════════════════════════════════════════════════════════════════
+   SCHEDULE Executive Presentation Styles & Interactive Infographics
+   Authentic Academic Quiet Luxury, Motion & Live Interactions
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Keyframe Animations ─────────────────────────────────────────────────── */
+@keyframes dialArcDraw {
+  0% { stroke-dashoffset: 1000; }
+  100% { stroke-dashoffset: var(--off, 0); }
+}
+
+@keyframes goldPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 16px rgba(208, 166, 99, 0.45));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 28px rgba(208, 166, 99, 0.75));
+    transform: scale(1.015);
+  }
+}
+
+@keyframes jadePulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 16px rgba(105, 192, 168, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 32px rgba(105, 192, 168, 0.85));
+  }
+}
+
+@keyframes flowLineGlow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes barGrowUp {
+  0% { transform: scaleY(0); }
+  100% { transform: scaleY(1); }
+}
+
+@keyframes meterSlide {
+  0% { width: 0; }
+  100% { width: var(--v, 0%); }
+}
+
+@keyframes radarPing {
+  0% { transform: scale(1); opacity: 0.9; }
+  70% { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* ── 1. Then / Now Shift Matrix (Interactive) ────────────────────────────── */
+.shift {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.shift__r {
+  display: grid;
+  grid-template-columns: 1fr;
+  background: var(--surface);
+  transition: background 0.3s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+
+.shift__r:hover {
+  background: #111a16;
+}
+
+.shift__r.active-row {
+  background: rgba(46, 169, 140, 0.08);
+  outline: 1px solid var(--jade);
+}
+
+@media (min-width: 820px) {
+  .shift__r {
+    grid-template-columns: 0.9fr 1fr 52px 1fr;
+  }
+}
+
+.shift__q {
+  padding: clamp(18px, 2.2vw, 28px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 1.08rem;
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.shift__c {
+  padding: clamp(18px, 2.2vw, 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.shift__c small {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.shift__c.was {
+  background: rgba(168, 68, 60, 0.03);
+}
+
+.shift__c.was small {
+  color: #d66f67;
+}
+
+.shift__c.was span {
+  color: var(--muted);
+  font-size: 1.15rem;
+  font-weight: 500;
+  position: relative;
+}
+
+.shift__r:hover .shift__c.was span {
+  text-decoration: line-through;
+  color: rgba(214, 111, 103, 0.8);
+}
+
+.shift__c.now {
+  background: rgba(46, 169, 140, 0.05);
+}
+
+.shift__c.now small {
+  color: var(--jade-strong);
+}
+
+.shift__c.now span {
+  color: #ffffff;
+  font-size: 1.18rem;
+  font-weight: 600;
+}
+
+.shift__a {
+  display: grid;
+  place-items: center;
+  color: var(--brass);
+  font-size: 19px;
+  transition: transform 0.3s ease;
+}
+
+.shift__r:hover .shift__a {
+  transform: translateX(-4px) scale(1.15);
+  color: var(--brass-bright);
+}
+
+@media (max-width: 819px) {
+  .shift__a {
+    padding-block: 8px;
+    transform: rotate(90deg);
+  }
+}
+
+/* ── 2. Color Swatches (Interactive Filter) ──────────────────────────────── */
+.sw {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  grid-template-columns: repeat(2, 1fr);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+@media (min-width: 760px) {
+  .sw {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.swatch {
+  background: var(--surface);
+  padding: clamp(20px, 2.4vw, 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.25s ease, background 0.25s ease;
+  user-select: none;
+}
+
+.swatch:hover {
+  background: #121c17;
+  transform: translateY(-2px);
+}
+
+.swatch.active-swatch {
+  background: #14231d;
+  box-shadow: inset 0 0 0 2px var(--jade);
+}
+
+.swatch__c {
+  height: 72px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.swatch:hover .swatch__c {
+  transform: scale(1.03);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.swatch h3 {
+  font-size: 1.25rem;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.swatch p {
+  font-size: 0.92rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* Interactive Audit Rows connected to Swatches */
+.audit-preview-box {
+  margin-top: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 20px;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  transition: all 0.3s ease;
+}
+
+/* ── 3. Code Anatomy (Interactive Segment Inspector) ─────────────────────── */
+.anat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding-block: clamp(14px, 2.5vw, 30px);
+}
+
+.anat__code {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: clamp(2.4rem, 6.5vw, 4.2rem);
+  line-height: 1;
+  display: flex;
+  direction: ltr;
+  gap: 4px;
+}
+
+.anat__part {
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  user-select: none;
+}
+
+.anat__part:hover {
+  transform: translateY(-3px) scale(1.04);
+}
+
+.anat__part.a {
+  color: var(--jade-strong);
+  text-shadow: 0 0 35px rgba(105, 192, 168, 0.4);
+}
+.anat__part.a:hover, .anat__part.a.active {
+  background: rgba(105, 192, 168, 0.15);
+  box-shadow: 0 0 0 2px var(--jade-strong);
+}
+
+.anat__part.b {
+  color: var(--brass);
+  text-shadow: 0 0 35px rgba(208, 166, 99, 0.45);
+}
+.anat__part.b:hover, .anat__part.b.active {
+  background: rgba(208, 166, 99, 0.15);
+  box-shadow: 0 0 0 2px var(--brass);
+}
+
+.anat__part.c {
+  color: #7dd3fc;
+  text-shadow: 0 0 35px rgba(125, 211, 252, 0.4);
+}
+.anat__part.c:hover, .anat__part.c.active {
+  background: rgba(125, 211, 252, 0.15);
+  box-shadow: 0 0 0 2px #7dd3fc;
+}
+
+.anat__lb {
+  display: flex;
+  direction: ltr;
+  width: 100%;
+  max-width: 500px;
+  margin-top: 14px;
+  gap: 8px;
+}
+
+.anat__lb div {
+  text-align: center;
+  font-size: 0.86rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  transition: all 0.25s ease;
+}
+
+.anat__lb .p1 { flex: 4; color: var(--jade-strong); }
+.anat__lb .p2 { flex: 2; color: var(--brass); }
+.anat__lb .p3 { flex: 3; color: #7dd3fc; }
+
+.anat__lb small {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* Interactive Room Selector pills */
+.room-picker {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.room-chip-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.room-chip-btn:hover, .room-chip-btn.active {
+  background: rgba(46, 169, 140, 0.18);
+  border-color: var(--jade);
+  color: #fff;
+}
+
+/* ── 4. Flow & AI Governance (Interactive) ───────────────────────────────── */
+.flow {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+  position: relative;
+}
+
+@media (min-width: 880px) {
+  .flow {
+    grid-template-columns: 1fr 34px 1fr 34px 1fr;
+    align-items: center;
+  }
+}
+
+.fstep {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: clamp(20px, 2.5vw, 30px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  user-select: none;
+}
+
+.fstep:hover {
+  transform: translateY(-3px);
+  border-color: var(--jade);
+  box-shadow: 0 8px 24px rgba(46, 169, 140, 0.15);
+}
+
+.fstep.active-step {
+  border-color: var(--brass-bright);
+  background: linear-gradient(180deg, rgba(208, 166, 99, 0.12), rgba(15, 23, 19, 0.9));
+  box-shadow: 0 0 24px rgba(208, 166, 99, 0.2);
+}
+
+.fstep.human {
+  border-color: var(--brass);
+  background: linear-gradient(180deg, rgba(208, 166, 99, 0.08), transparent);
+}
+
+.fstep h3 {
+  font-size: 1.22rem;
+  color: #fff;
+}
+
+.fstep small {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.farrow {
+  display: grid;
+  place-items: center;
+  color: var(--jade-deep);
+  font-size: 18px;
+  animation: flowPulse 2s infinite ease-in-out;
+}
+
+@keyframes flowPulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.15); color: var(--jade-strong); }
+}
+
+@media (max-width: 879px) {
+  .farrow {
+    transform: rotate(90deg);
+    padding-block: 4px;
+  }
+}
+
+.blocked {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border: 1px dashed var(--danger);
+  background: var(--danger-soft);
+  color: #f87171;
+  border-radius: 13px;
+  padding: 16px 20px;
+  font-size: 0.98rem;
+  font-weight: 500;
+}
+
+/* ── 5. Time Dials & Benchmark Rings (Animated) ─────────────────────────── */
+.dials {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  grid-template-columns: repeat(1, 1fr);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+@media (min-width: 600px) {
+  .dials {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.dial {
+  background: var(--surface);
+  padding: clamp(16px, 2.2vw, 26px);
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.8vw, 20px);
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.25s ease;
+}
+
+.dial:hover {
+  background: #111a15;
+  transform: translateY(-2px);
+}
+
+.dial.active-dial {
+  background: #14231c;
+  box-shadow: inset 0 0 0 2px var(--brass);
+}
+
+.dial__ring {
+  position: relative;
+  width: clamp(54px, 5.8vw, 76px);
+  aspect-ratio: 1;
+  flex: none;
+}
+
+.dial__ring svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.dial__trk {
+  fill: none;
+  stroke: var(--surface-3);
+  stroke-width: 12;
+}
+
+.dial__arc {
+  fill: none;
+  stroke: var(--danger);
+  stroke-width: 12;
+  stroke-linecap: round;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  transition: stroke-dashoffset 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.is-in-view .dial__arc {
+  stroke-dashoffset: var(--off, 0);
+}
+
+.dial__txt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.dial__c {
+  font-weight: 600;
+  font-size: clamp(0.92rem, 1.2vw, 1.04rem);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.dial__t {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.1rem, 1.6vw, 1.45rem);
+  color: #f87171;
+  line-height: 1.2;
+}
+
+.dial__s {
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Our Stopwatch Dial */
+.ours {
+  display: grid;
+  gap: clamp(20px, 2.8vw, 48px);
+  grid-template-columns: 1fr;
+  align-items: center;
+  justify-items: center;
+  margin-top: 36px;
+  padding: clamp(24px, 3.2vw, 44px);
+  background: radial-gradient(circle at center, rgba(46, 169, 140, 0.08) 0%, rgba(15, 23, 19, 0.9) 70%);
+  border: 1px solid rgba(46, 169, 140, 0.25);
+  border-radius: 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+@media (min-width: 880px) {
+  .ours {
+    grid-template-columns: 0.95fr 1.05fr;
+  }
+}
+
+.big-dial {
+  position: relative;
+  width: clamp(190px, 24vw, 260px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+}
+
+.big-dial svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.bd__trk {
+  fill: none;
+  stroke: var(--surface-3);
+  stroke-width: 10;
+}
+
+.bd__arc {
+  fill: none;
+  stroke: var(--jade-strong);
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-dasharray: 600;
+  stroke-dashoffset: 585; /* Tiny hairline sweep */
+  animation: jadePulse 3s infinite ease-in-out;
+}
+
+.bd__c {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 1;
+}
+
+.bd__k {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  color: var(--brass);
+}
+
+.bd__t {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1;
+  font-size: clamp(2.8rem, 6vw, 4.4rem);
+  color: var(--jade-strong);
+  text-shadow: 0 0 36px rgba(105, 192, 168, 0.5);
+}
+
+.bd__u {
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.ours__lead {
+  font-weight: 700;
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.ours__lead em {
+  font-style: normal;
+  color: var(--brass-bright);
+}
+
+.ours__sub {
+  font-size: 1.02rem;
+  color: var(--ink-dim);
+  line-height: 1.7;
+  margin-block: 8px;
+}
+
+.ours__meta {
+  font-size: 0.82rem;
+  color: var(--muted);
+  display: block;
+}
+
+/* ── 6. Weekly Load Chart & Health Meters (Animated) ─────────────────────── */
+.chart {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: clamp(20px, 2.5vw, 32px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2vw, 24px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.chart:hover {
+  border-color: rgba(46, 169, 140, 0.4);
+}
+
+.chart__h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.chart__h h3 {
+  font-size: 1.3rem;
+  color: #fff;
+}
+
+.chart__h span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* Vertical Bars */
+.vbars {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: clamp(10px, 1.5vw, 20px);
+  align-items: end;
+  height: clamp(180px, 24vh, 260px);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.vbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  justify-content: flex-end;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.vbar:hover {
+  transform: translateY(-4px);
+}
+
+.vbar__v {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--ink);
+  transition: color 0.2s ease;
+}
+
+.vbar:hover .vbar__v {
+  color: var(--brass-bright);
+}
+
+.vbar__b {
+  width: 100%;
+  max-width: 48px;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, var(--jade), var(--jade-deep));
+  min-height: 8px;
+  height: var(--v, 10%);
+  transform-origin: bottom center;
+  transition: height 1s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+}
+
+.vbar:hover .vbar__b {
+  box-shadow: 0 0 20px rgba(46, 169, 140, 0.6);
+}
+
+.vbar__b.peak {
+  background: linear-gradient(180deg, var(--brass-bright), #8a6a2e);
+}
+
+.vbar:hover .vbar__b.peak {
+  box-shadow: 0 0 20px rgba(208, 166, 99, 0.7);
+}
+
+.vbar__l {
+  font-size: 0.88rem;
+  color: var(--muted);
+  transition: color 0.2s ease;
+}
+
+.vbar:hover .vbar__l {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Health Meters */
+.meters {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.meter {
+  display: grid;
+  grid-template-columns: 5.5ch 1fr 4.5ch;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.meter:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.meter__l {
+  font-size: 0.92rem;
+  color: var(--ink-dim);
+  font-weight: 500;
+}
+
+.meter__t {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  overflow: hidden;
+  position: relative;
+}
+
+.meter__f {
+  height: 100%;
+  border-radius: 6px;
+  background: var(--jade);
+  display: block;
+  width: var(--v, 0%);
+  transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s ease;
+}
+
+.meter:hover .meter__f {
+  filter: brightness(1.2) drop-shadow(0 0 8px rgba(46, 169, 140, 0.6));
+}
+
+.meter__v {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--jade-strong);
+  text-align: end;
+}
+
+/* ── 7. Timeline Beats ───────────────────────────────────────────────────── */
+.tl__row {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+  position: relative;
+}
+
+@media (min-width: 860px) {
+  .tl__row {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.beat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.beat:hover {
+  transform: translateY(-3px);
+  border-color: var(--jade);
+  background: #111a15;
+}
+
+.beat__y {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--brass);
+  font-weight: 700;
+}
+
+.beat h3 {
+  font-size: 1.15rem;
+  color: #fff;
+}
+
+.beat p {
+  font-size: 0.86rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── 8. Hotspot Radar Pulsing on Hero Screen ─────────────────────────────── */
+.hotspot-chip {
+  animation: floatBadge 4s ease-in-out infinite;
+}
+
+@keyframes floatBadge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.chip-dot {
+  position: relative;
+}
+
+.chip-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.6;
+  animation: radarPing 2s infinite ease-out;
+}

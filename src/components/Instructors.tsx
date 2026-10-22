@@ -1,0 +1,485 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { Phone, Trash2, UserRound } from "lucide-react";
+import { validateCivilId } from "../utils/civilId";
+import { numericText } from "../utils/digits";
+import { sortByName } from "../utils/sorting";
+import VisitingConversionPanel from "./VisitingConversionPanel";
+import {
+  AddButton,
+  EmbeddedAction,
+  EmptyState,
+  Field,
+  FormActions,
+  ListToolbar,
+  MetaPill,
+  Notice,
+  PageTitle,
+  PrimaryButton,
+  RecordCard,
+  RecordDeck,
+  SecondaryButton,
+  SkeletonDeck,
+  Surface,
+  CatalogFormDrawer,
+  visualConfirm,
+} from "./ui";
+type Mode = "index" | "create" | "edit";
+/** `embedded` means the academic console already supplies the page identity. */
+export default function Instructors({ embedded = false, actionSlot = null }: { embedded?: boolean; actionSlot?: HTMLElement | null }) {
+  const [items, setItems] = useState<any[]>([]),
+    [mode, setMode] = useState<Mode>("index"),
+    [editId, setEditId] = useState<number | null>(null),
+    [selectedId, setSelectedId] = useState<number | null>(null),
+    [civil, setCivil] = useState(""),
+    [name, setName] = useState(""),
+    [mobile, setMobile] = useState(""),
+    [teachingLoad, setTeachingLoad] = useState(""),
+    [query, setQuery] = useState(""),
+    [error, setError] = useState<string | null>(null),
+    [loading, setLoading] = useState(false),
+    [submitting, setSubmitting] = useState(false),
+    [visibleLimit, setVisibleLimit] = useState(160),
+    // Note 2: retired / sabbatical status. Note 1: which instructors are delegates.
+    [status, setStatus] = useState<"" | "retired" | "sabbatical">(""),
+    [delegateIds, setDelegateIds] = useState<Set<number>>(new Set());
+  type Affiliation = { collegeId: number; sectionId: number; section: string; college: string };
+  const [affiliations, setAffiliations] = useState<Record<string, { delegate: Affiliation[]; teaching: Affiliation[] }>>({});
+  type ScopeDetail = Affiliation & { rows?: number; terms?: string[] };
+  const [detail, setDetail] = useState<{ instructorId: number; teaching: ScopeDetail[]; delegate: ScopeDetail[] } | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/instructors");
+      if (!r.ok) throw 0;
+      const data = await r.json();
+      setItems(data);
+      setSelectedId((v) =>
+        v && data.some((x: any) => x.AdInstructorId === v)
+          ? v
+          : data[0]?.AdInstructorId || null,
+      );
+    } catch {
+      setError("فشل تحميل بيانات أستاذ المقرر");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    void load();
+    fetch("/api/delegates")
+      .then(r => (r.ok ? r.json() : { instructorIds: [] }))
+      .then(d => setDelegateIds(new Set((d.instructorIds || []).map(Number))))
+      .catch(() => undefined);
+    /* «منتدب» بلا نسب اسمٌ معلّق. النسبة تُقرأ من دليل كل قسم ومن جدول الفصل
+       الأحدث، فيُعرف لكل شخص من ضمّه وأين يدرّس فعلاً. */
+    fetch("/api/instructor-affiliations")
+      .then(r => (r.ok ? r.json() : { affiliations: {} }))
+      .then(d => setAffiliations(d?.affiliations && typeof d.affiliations === "object" ? d.affiliations : {}))
+      .catch(() => undefined);
+  }, []);
+  const back = () => {
+      setMode("index");
+      setError(null);
+    },
+    create = () => {
+      setEditId(null);
+      setCivil("");
+      setName("");
+      setMobile("");
+      setStatus("");
+      setTeachingLoad("");
+      setMode("create");
+      setError(null);
+    },
+    edit = (x: any) => {
+      setEditId(x.AdInstructorId);
+      setCivil(x.AdInstructorCivil || "");
+      setName(x.AdInstructorName || "");
+      setMobile(x.AdInstructorMobile || "");
+      setStatus(x.AdInstructorStatus === "retired" || x.AdInstructorStatus === "sabbatical" ? x.AdInstructorStatus : "");
+      setTeachingLoad(Number(x.AdInstructorLoad) > 0 ? String(x.AdInstructorLoad) : "");
+      setMode("edit");
+      setError(null);
+    };
+  const onCivil = (value: string) => {
+      setCivil(numericText(value).slice(0, 12));
+      setError(null);
+    },
+    validateCivil = () => {
+      if (!civil) return;
+      const v = validateCivilId(civil);
+      if (!v.isValid) {
+        // The typed value stays: a reader correcting a civil ID needs to see
+        // the digits they entered, not an empty box and a warning.
+        setError(
+          v.message ||
+            "الرقم المدني المدخل لأستاذ المقرر غير صحيح وفقاً لبيانات البطاقة المدنية",
+        );
+        return;
+      }
+      if (
+        items.some(
+          (x) =>
+            String(x.AdInstructorCivil || "") === civil &&
+            x.AdInstructorId !== editId,
+        )
+      ) {
+        setError("تم التسجيل من قبل");
+      }
+    };
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setError(null);
+    if (!civil || !name.trim()) {
+      setError("الرجاء إدخال الحقول المطلوبة بالأحمر");
+      return;
+    }
+    const v = validateCivilId(civil);
+    if (!v.isValid) {
+      setError(v.message);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const r = await fetch(
+          mode === "edit" ? `/api/instructors/${editId}` : "/api/instructors",
+          {
+            method: mode === "edit" ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              AdInstructorCivil: civil,
+              AdInstructorName: name.trim(),
+              AdInstructorMobile: mobile.trim(),
+              AdInstructorStatus: status || null,
+              AdInstructorLoad: teachingLoad.trim() ? Number(teachingLoad) : null,
+            }),
+          },
+        ),
+        d = await r.json();
+      if (!r.ok) {
+        setError(d.error || "فشل حفظ بيانات أستاذ المقرر");
+        return;
+      }
+      await load();
+      back();
+    } catch {
+      setError("تعذّر الاتصال بالخادم، تحقّق من الشبكة وحاول مرة أخرى");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const remove = async (id: number) => {
+    if (submitting) return;
+    if (!(await visualConfirm({ title: "حذف أستاذ المقرر", message: "سيُحذف سجل أستاذ المقرر من النظام.", confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/instructors/${id}`, { method: "DELETE" }),
+        d = await r.json();
+      if (!r.ok) {
+        setError(d.error || "فشل حذف بيانات أستاذ المقرر");
+        return;
+      }
+      setSelectedId(null);
+      await load();
+    } catch {
+      setError("تعذّر الاتصال بالخادم، تحقّق من الشبكة وحاول مرة أخرى");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  useEffect(() => setVisibleLimit(160), [query]);
+  useEffect(() => {
+    if (!selectedId) { setDetail(null); return; }
+    const controller = new AbortController();
+    setDetailLoading(true);
+    fetch(`/api/instructors/${selectedId}/affiliation`, { signal: controller.signal })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d) setDetail({ instructorId: Number(d.instructorId), teaching: d.teaching || [], delegate: d.delegate || [] }); })
+      .catch(() => undefined)
+      .finally(() => setDetailLoading(false));
+    return () => controller.abort();
+  }, [selectedId]);
+  const affiliationOf = (id: number) => affiliations[String(id)] || { delegate: [], teaching: [] };
+  /* البطاقة تكتفي بالفصل الأحدث لتبقى القائمة خفيفة، أما البطاقة المفتوحة
+     فتسأل عن سجل هذا الشخص كله باستعلام واحد على معرّفه. */
+  const scopeText = (items: ScopeDetail[]) =>
+    items.map(item => [item.section, item.college].filter(Boolean).join(" · ")).filter(Boolean);
+  const affiliationLabel = (items: Affiliation[]) =>
+    items.map(item => [item.section, item.college].filter(Boolean).join(" · ")).filter(Boolean);
+  /* القسم الذي ضمّه يُكتب بجانب الوسم لا في شاشة أخرى: من يقرأ السطر يعرف
+     تبعية الاسم فوراً، ومن لا انتساب له يُقال عنه ذلك صراحةً. */
+  const homeLabel = (id: number) => {
+    const { delegate, teaching } = affiliationOf(id);
+    const teach = affiliationLabel(teaching), sent = affiliationLabel(delegate);
+    if (teach.length) return `يدرّس في ${teach.join(" ، ")}`;
+    if (sent.length) return `منتدب لدى ${sent.join(" ، ")}`;
+    return "";
+  };
+  const filtered = useMemo(() => {
+      const q = query.trim().toLowerCase();
+      const base = q
+        ? items.filter((x) =>
+            [
+              x.AdInstructorCivil,
+              x.AdInstructorName,
+              x.AdInstructorMobile,
+            ].some((v) =>
+              String(v || "")
+                .toLowerCase()
+                .includes(q),
+            ),
+          )
+        : items;
+      return sortByName(base, (x: any) => x.AdInstructorName);
+    }, [items, query]),
+    selected =
+      filtered.find((x) => x.AdInstructorId === selectedId) || filtered[0] || null,
+    activeId = selected?.AdInstructorId ?? null;
+  const editorDrawer = mode !== "index" ? (
+      <CatalogFormDrawer onClose={back} label={mode === "create" ? "إنشاء أستاذ جديد" : "تعديل بيانات الأستاذ"}>
+        <PageTitle
+          eyebrow="البيانات الأكاديمية"
+          subtitle="تحقق الرقم المدني فعّال"
+        >
+          {mode === "create" ? "تسجيل أستاذ مقرر جديد" : "تعديل بيانات الأستاذ"}
+        </PageTitle>
+        {error ? <Notice>{error}</Notice> : null}
+        <Surface className="form-card smart-form">
+          <div className="form-intro">
+            <span>
+              <UserRound />
+            </span>
+            <div>
+              <strong>هوية أستاذ المقرر</strong>
+              <p>الرقم المدني للتحقق والبحث</p>
+            </div>
+          </div>
+          <form onSubmit={submit}>
+            <div className="form-grid">
+              <Field label="الرقم المدني" required>
+                <input
+                  inputMode="numeric"
+                  maxLength={12}
+                  value={civil}
+                  onChange={(e) => onCivil(e.target.value)}
+                  onBlur={validateCivil}
+                  placeholder="12 رقمًا"
+                  aria-label="الرقم المدني"
+                  autoComplete="off"
+                  autoFocus
+                  required
+                />
+              </Field>
+              <Field label="أستاذ المقرر" required>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  aria-label="اسم أستاذ المقرر"
+                  autoComplete="name"
+                  required
+                />
+              </Field>
+              <Field label="رقم الهاتف">
+                <input
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={mobile}
+                  aria-label="رقم الهاتف"
+                  autoComplete="tel"
+                  onChange={(e) => {
+                    setMobile(numericText(e.target.value).slice(0, 8));
+                  }}
+                />
+              </Field>
+              {/* ── النصاب ──────────────────────────────────────────────────
+                  الساعاتُ التي يُتوقّع أن يحملها هذا الأستاذ في الفصل. وهو
+                  القيدُ الذي كان غائباً حين صار الأستاذُ يطلب مقرّراً بنفسه:
+                  لا شيء كان يقول «هذا يتجاوز نصابك» قبل أن يُرسل الطلب.
+
+                  ويبقى اختيارياً: أستاذٌ بلا نصابٍ مسجّل لا يُفرض عليه رقمٌ
+                  مخترع، ويُترك القيدُ صامتاً كما كان. */}
+              <Field label="النصاب" hint="اختياري — ساعاتٌ معتمدة. يُترك فارغاً فلا يُقيَّد به أحد.">
+                <input
+                  inputMode="numeric"
+                  value={teachingLoad}
+                  placeholder="مثال: 12"
+                  onChange={(e) => setTeachingLoad(numericText(e.target.value).slice(0, 2))}
+                />
+              </Field>
+              <Field label="الحالة">
+                <div className="status-choice" role="radiogroup" aria-label="حالة الأستاذ">
+                  {[
+                    { value: "", label: "نشط" },
+                    { value: "sabbatical", label: "متفرّغ" },
+                    { value: "retired", label: "متقاعد" },
+                  ].map((opt) => (
+                    <button
+                      type="button"
+                      key={opt.value || "active"}
+                      role="radio"
+                      aria-checked={status === opt.value}
+                      className={status === opt.value ? "on" : ""}
+                      onClick={() => setStatus(opt.value as "" | "retired" | "sabbatical")}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            </div>
+            {status ? (
+              <p className="smart-term-hint">
+                <UserRound aria-hidden="true" />
+                {status === "retired" ? "متقاعد" : "متفرّغ"}: يبقى في السجل ويحتفظ بمواعيده السابقة، لكن لا يظهر عند إسناد مواعيد جديدة.
+              </p>
+            ) : null}
+            {mode === "edit" && editId ? <VisitingConversionPanel instructorId={Number(editId)} /> : null}
+            <FormActions
+              onBack={back}
+              loading={loading || submitting}
+              submitLabel={mode === "create" ? "إضافة الأستاذ" : "حفظ التعديلات"}
+            />
+          </form>
+        </Surface>
+      </CatalogFormDrawer>
+    ) : null;
+  return (
+    <div className={`content-stack library-page catalog-inspector-page visual-minimal ${embedded ? "embedded-catalog" : ""}`}>
+      {embedded ? (
+        <EmbeddedAction slot={actionSlot}>
+          <AddButton onClick={create}>إضافة أستاذ</AddButton>
+        </EmbeddedAction>
+      ) : (
+        <PageTitle
+          eyebrow="الدليل الأكاديمي"
+          subtitle="المكتبة والتفاصيل في لوحة واحدة"
+          action={<AddButton onClick={create}>إضافة أستاذ</AddButton>}
+        >
+          أساتذة المقررات
+        </PageTitle>
+      )}
+      {error ? <Notice>{error}</Notice> : null}
+      <div className="catalog-workspace" aria-busy={loading}>
+        <Surface className="catalog-master">
+          <h2 className="sr-only">قائمة أساتذة المقررات</h2>
+          <ListToolbar
+            value={query}
+            onChange={setQuery}
+            count={filtered.length}
+            placeholder="ابحث بالاسم أو الرقم المدني أو الهاتف"
+          />
+          {loading ? (
+            <SkeletonDeck count={6} />
+          ) : filtered.length ? (
+            <RecordDeck>
+              {filtered.slice(0, visibleLimit).map((x) => (
+                <RecordCard
+                  key={x.AdInstructorId}
+                  onClick={() => setSelectedId(x.AdInstructorId)}
+                  className={activeId === x.AdInstructorId ? "selected" : ""}
+                  icon={<UserRound />}
+                  title={(
+                    <>
+                      {x.AdInstructorName}
+                      {x.AdInstructorStatus === "retired" ? <span className="staff-badge is-retired">متقاعد</span>
+                        : x.AdInstructorStatus === "sabbatical" ? <span className="staff-badge is-sabbatical">متفرّغ</span> : null}
+                      {delegateIds.has(x.AdInstructorId) ? <span className="staff-badge is-delegate" title={affiliationLabel(affiliationOf(x.AdInstructorId).delegate).join(" ، ") || "قسم الانتداب غير مسجّل"}>منتدب</span> : null}
+                      {activeId === x.AdInstructorId ? <span className="sr-only">، محدد</span> : null}
+                    </>
+                  )}
+                  subtitle={homeLabel(x.AdInstructorId) ? <span className="record-home-line" title={homeLabel(x.AdInstructorId)}>{homeLabel(x.AdInstructorId)}</span> : undefined}
+                  meta={
+                    <>
+                      <MetaPill
+                        label="رقم الهاتف"
+                        value={x.AdInstructorMobile || "لا يوجد رقم هاتف مسجل"}
+                        dir={x.AdInstructorMobile ? "ltr" : undefined}
+                      />
+                      <MetaPill
+                        label="الرقم المدني"
+                        value={x.AdInstructorCivil}
+                        dir="ltr"
+                      />
+                    </>
+                  }
+                />
+              ))}
+            </RecordDeck>
+          ) : (
+            <EmptyState
+              title={query ? "لا يوجد أستاذ مطابق" : "لا يوجد أساتذة بعد"}
+              detail={query ? "جرّب الاسم أو الرقم المدني أو امسح البحث." : "أضف الأستاذ الأول ليصبح متاحًا عند بناء الجدول."}
+              action={query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
+            />
+          )}
+          {filtered.length > visibleLimit ? (
+            <div className="catalog-more">
+              <SecondaryButton onClick={() => setVisibleLimit((v) => v + 160)}>
+                عرض المزيد ·{" "}
+                {(filtered.length - visibleLimit).toLocaleString("ar-KW-u-nu-latn")} متبقٍ
+              </SecondaryButton>
+            </div>
+          ) : null}
+        </Surface>
+        <aside className="academic-inspector" aria-label="تفاصيل الأستاذ المحدد" aria-live="polite">
+          {selected ? (
+            <>
+              <div className="academic-inspector-icon">
+                <UserRound />
+              </div>
+              <span className="surface-kicker">تفاصيل الأستاذ</span>
+              <h2>{selected.AdInstructorName}</h2>
+              <p>يظهر في الجدول والتقارير.</p>
+              <div className="inspector-facts inspector-facts-pairs">
+                <article>
+                  <span>الرقم المدني</span>
+                  <b dir="ltr">{selected.AdInstructorCivil || "—"}</b>
+                </article>
+                <article>
+                  <span>رقم الهاتف</span>
+                  <b dir="ltr">{selected.AdInstructorMobile || "—"}</b>
+                </article>
+                <article>
+                  <span>الأقسام التي درّس فيها</span>
+                  <b>{detailLoading && detail?.instructorId !== selected.AdInstructorId
+                    ? "جارٍ القراءة…"
+                    : (scopeText(detail?.instructorId === selected.AdInstructorId ? detail.teaching : []).join(" ، ")
+                      || affiliationLabel(affiliationOf(selected.AdInstructorId).teaching).join(" ، ")
+                      || "لا جدول مسجّل في أي فصل")}</b>
+                </article>
+                <article>
+                  <span>منتدب لدى</span>
+                  <b>{scopeText(detail?.instructorId === selected.AdInstructorId ? detail.delegate : []).join(" ، ")
+                    || affiliationLabel(affiliationOf(selected.AdInstructorId).delegate).join(" ، ")
+                    || "لا انتداب مسجّل"}</b>
+                </article>
+              </div>
+              <div className="inspector-actions">
+                <PrimaryButton onClick={() => edit(selected)}>
+                  تعديل
+                </PrimaryButton>
+                <SecondaryButton
+                  data-guide-ignore="إجراء حذف حساس داخل شاشة الإدارة ويستخدم تأكيد الشاشة نفسه"
+                  className="danger-action"
+                  onClick={() => remove(selected.AdInstructorId)}
+                >
+                  <Trash2 /> حذف
+                </SecondaryButton>
+              </div>
+            </>
+          ) : (
+            <div className="master-empty">
+              <UserRound />
+              <strong>اختر أستاذاً</strong>
+              <span>التفاصيل ستظهر هنا.</span>
+            </div>
+          )}
+        </aside>
+      </div>
+      {editorDrawer}
+    </div>
+  );
+}

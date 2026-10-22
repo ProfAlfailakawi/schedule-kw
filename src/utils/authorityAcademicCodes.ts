@@ -1,0 +1,183 @@
+/**
+ * Academic number rules for the Authority (SWRSCHA) timetable.
+ *
+ * The document's scientific-department key is NOT the local AdSectionCode by
+ * itself. It is the college code followed by the local department code:
+ *   college 01 + department 01 => 0101
+ * and a course key is that four-digit department key + the three-digit course
+ * number:
+ *   0101 + 102 => 0101102
+ *
+ * The catalogue remains the authority. These helpers only reconcile the
+ * document representation with the already-stored college/department/course
+ * codes; they never invent a college, department or course identity.
+ */
+export const academicDigits = (value: unknown): string => String(value ?? "")
+  .normalize("NFKC")
+  .replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+  .replace(/[۰-۹]/g, digit => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+  .replace(/\D/g, "");
+
+/** Return the document-level department key represented by this catalogue row. */
+export function authorityDepartmentCode(collegeCode: unknown, sectionCode: unknown): string {
+  const collegeRaw = academicDigits(collegeCode);
+  /* The live catalogue commonly stores the BRANCH/site code (011, 012, 022,
+     0420, 0520...) in AdCollegeCode, while SWRSCHA's scientific-department
+     identity uses the two-digit COLLEGE authority printed separately in the
+     header: 01, 02, 04, 05.... The first two digits are therefore the stable
+     college authority boundary. This preserves Basic Education 011/012 as 01
+     while correctly mapping Commercial Girls 022 -> 02, Technology Girls
+     0420 -> 04, Nursing Girls 0520 -> 05, and the equivalent branches. */
+  const college = !collegeRaw
+    ? ""
+    : collegeRaw.length >= 2
+      ? collegeRaw.slice(0, 2)
+      : collegeRaw.padStart(2, "0");
+  const section = academicDigits(sectionCode);
+  if (!section) return "";
+
+  /* كلية التربية الأساسية (01) هي المسار الذهبي القائم — بنات وبنين — فلا
+     نعيد تفسير أي كود كامل فيها. هذا يحافظ حرفياً على السلوك الذي يعمل الآن. */
+  if (college === "01") {
+    if (section.length >= 4 && section.startsWith(college)) return section;
+    if (section.length <= 2) return `${college}${section.padStart(2, "0")}`;
+    return section;
+  }
+
+  /* في الكليات الأخرى قد يحتفظ كتالوج النظام بهوية القسم المشتركة كما أُنشئت
+     أصلاً تحت كلية أخرى (مثال: 0101 للتربية الإسلامية)، بينما SWRSCHA يطبع
+     هوية الوثيقة بحسب كلية التقرير نفسها: 02 + 01 => 0201، 04 + 01 => 0401.
+     أول رقمين ملك للكلية، وآخر رقمين هما القسم العلمي المحلي؛ لذلك نعيد ربط
+     الكود ذي الأربع خانات بالكلية المختارة فقط، من دون تغيير هوية القسم المحلية.
+     هذا لا يوسّع المطابقة بين الأقسام: 0201 لا يمكن أن يطابق 0202. */
+  if (college.length === 2 && section.length === 4) {
+    return section.startsWith(college) ? section : `${college}${section.slice(-2)}`;
+  }
+
+  // Some installations already store the complete document key in AdSectionCode.
+  if (section.length >= 4 && (!college || section.startsWith(college))) return section;
+
+  // SWRSCHA uses two digits for college + two digits for the scientific dept.
+  // The live catalogue may store 1 instead of 01, so padding happens only at
+  // the representation boundary; no catalogue identity is invented here.
+  if (college.length === 2 && section.length <= 2) return `${college}${section.padStart(2, "0")}`;
+
+  // Fail closed for unusual legacy codes: compare only the exact stored code.
+  return section;
+}
+
+/** Compare a document department key to the current catalogue scope. */
+export function authorityDepartmentMatches(sourceCode: unknown, collegeCode: unknown, sectionCode: unknown): boolean {
+  const source = academicDigits(sourceCode);
+  const local = academicDigits(sectionCode);
+  const college = academicDigits(collegeCode);
+  const composite = authorityDepartmentCode(collegeCode, sectionCode);
+  if (!source) return false;
+
+  // When the college is known, SWRSCHA's department identity is the composite
+  // key (college + local scientific department). Accepting local `01` beside
+  // expected `0101` would recreate the exact ambiguity that broke PDF import.
+  if (college && composite) return source === composite;
+  return source === local;
+}
+
+/**
+ * Exact course-key reconciliation. The Arabic course name is intentionally not
+ * accepted as identity evidence. The source number must identify the catalogue
+ * row either in its stored representation or in SWRSCHA's full 7-digit form.
+ */
+export function authorityCourseCodeMatches(sourceCode: unknown, catalogueCourseCode: unknown, departmentCode: unknown): boolean {
+  const source = academicDigits(sourceCode);
+  const course = academicDigits(catalogueCourseCode);
+  const department = academicDigits(departmentCode);
+  if (!source || !course) return false;
+  if (source === course) return true;
+
+  // Catalogue frequently stores only the three-digit course number (e.g. 102),
+  // while SWRSCHA prints the complete key (e.g. 0101102).
+  const tail = course.length >= 3 ? course.slice(-3) : course.padStart(3, "0");
+  /* مفتاح الكتالوج الكامل (7 خانات) قد يحمل كلية أخرى أُنشئ تحتها أولاً
+     (0101101 لمقرر يطبعه تقرير الكلية 02 بـ 0201101)، لكن القسم المحلي
+     (الخانتان 3–4) جزء من الهوية: 0102102 مقرر قسم آخر، لا 0101102. */
+  if (course.length === 7 && department.length === 4 && course.slice(2, 4) !== department.slice(2, 4)) return false;
+  if (course.length >= 4 && course.length < 7) return false;
+  if (department && source === `${department}${tail}`) return true;
+
+  // A clean three-digit source is acceptable only against the same three-digit
+  // catalogue number; uniqueness inside the selected department is checked by
+  // the caller before a canonical row is chosen.
+  return source.length === 3 && source === tail;
+}
+
+/** Normalize a section value exactly as printed by SWRSCHA.
+ *
+ * Section numbering is not globally fixed. Older reports may print 501/502…
+ * (and may legitimately skip a number), while newer reports can print 01/02…
+ * or even 1 without a leading zero. The section cell is therefore source
+ * identity, not a value that may be regenerated from row order.
+ */
+export function normalizeAuthoritySectionCode(value: unknown): string {
+  const raw = String(value ?? "")
+    .normalize("NFKC")
+    .replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, digit => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "")
+    .trim();
+  if (!/^\d{1,4}$/.test(raw)) return "";
+  if (Number(raw) <= 0) return "";
+  return raw;
+}
+
+export function authoritySectionCodeLooksPlausible(value: unknown): boolean {
+  return Boolean(normalizeAuthoritySectionCode(value));
+}
+
+/**
+ * ترقيم شعب جدول الجهة — القاعدة المعتمدة عند المالك (أُعيدت 2026-09-26):
+ * كل مقرر يبدأ من 501 ويتقدّم 502، 503… بترتيب ظهور صفوفه في المستند.
+ *
+ * خلية الشعبة في المسح هي الأكثر التصاقاً بجيرانها (المرجعي ورقم المقاعد)،
+ * فقراءتها الخام («1504»، «50»، «3150») كانت تدخل الجدول هويةً حين حُفظت كما
+ * قُرئت (13 سبتمبر). ما طُبع يبقى شاهداً في sourceSectionText يراه المراجع؛
+ * أما الرقم الذي يُنشر فمولَّد من هوية المقرر وترتيب الصفوف — لا من OCR.
+ * مقررٌ لم تثبت هويته لا يُعطى شعبة.
+ */
+export function assignAuthoritySections<T extends {
+  AdCourseId?: unknown;
+  SCode?: unknown;
+  sourceOrder?: unknown;
+  sourceSectionText?: unknown;
+  importEvidence?: { section?: { method?: unknown } } | unknown;
+}>(input: readonly T[]): T[] {
+  const rows = input.map(row => ({ ...row })) as T[];
+  const ordered = rows.map((row, index) => {
+    const numericOrder = Number((row as any).sourceOrder);
+    return { row, index, order: Number.isFinite(numericOrder) ? numericOrder : index };
+  }).sort((a, b) => a.order - b.order || a.index - b.index);
+  const nextByCourse = new Map<number, number>();
+  for (const item of ordered) {
+    const courseId = Number((item.row as any).AdCourseId || 0);
+    if (!Number.isFinite(courseId) || courseId <= 0) { (item.row as any).SCode = ""; continue; }
+    const next = (nextByCourse.get(courseId) || 500) + 1;
+    nextByCourse.set(courseId, next);
+    (item.row as any).SCode = String(next);
+  }
+  return rows;
+}
+
+/**
+ * خط أساس نسخة PDF يُحفظ بلا importEvidence.
+ *
+ * المسودة تحمل كل صف مرتين: الصفوف بعد المراجعة، والقراءة الأولى خط أساسٍ
+ * للتقرير. وبرهان القراءة (importEvidence) نصوص عربية مطوّلة — نحو ثلاثة أرباع
+ * وزن الصف. فمسحٌ من 117 صفاً بلغ 1,055,956 بايت فتجاوز حد الطلب (1 MiB)
+ * ورُفض نشره برسالة عامة (2026-09-30). وخط الأساس لا يقرأ البرهان أصلاً:
+ * التقرير يقارن الحقول والترتيب والمرجع، وإثبات أن الصف من المستند يُقرأ من
+ * الجدول الحيّ لا من الأساس. فيُنزع منه هنا، في الطلب وفي الحفظ معاً.
+ */
+export function withoutImportEvidence<T extends object>(input: readonly T[]): T[] {
+  return input.map(row => {
+    const { importEvidence: _evidence, ...rest } = row as T & { importEvidence?: unknown };
+    return rest as T;
+  });
+}

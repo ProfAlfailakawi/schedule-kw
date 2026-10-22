@@ -1,0 +1,1897 @@
+import type { AcademicRole } from "./utils/academicRoles";
+
+export interface SystemUser {
+  SystemUserId: number;
+  Name: string;
+  SystemUserLogin: string;
+  SystemUserPass: string; // password hash
+  SystemUserPassVault?: string; // AES-256-GCM legacy compatibility vault; never sent to normal clients
+  IsAdminUser: boolean;
+  IsActive: boolean;
+  IsLocked: boolean;
+  IsDeleted?: boolean;
+  // Optional link used by the modern personal dashboard. Existing legacy users remain valid without it.
+  AdInstructorId?: number;
+  /**
+   * ── الدور الأكاديمي ────────────────────────────────────────────────────────
+   *
+   * بُعدٌ فوق FormSecurity، لا بديلٌ عنه: الشاشة تقول «أين يدخل»، والدور يقول
+   * «بماذا يدخل» — أيكتب أم يقرأ، وأين يقف من دورة اعتماد الجدول.
+   *
+   * اختياريّ عمداً: عشر سنوات من الحسابات سبقته. وكلُّ حسابٍ بلا دور يُقرأ
+   * «رئيس لجنة» — وهو ما تفعله هذه الحسابات فعلاً اليوم — فلا يتغيّر سلوك أحد
+   * يوم التحديث. انظر `utils/academicRoles`.
+   */
+  Role?: AcademicRole;
+}
+
+export interface FormName {
+  FormNameId: number;
+  FormName: string;
+}
+
+export interface FormSecurity {
+  legacyId?: number;
+  SystemUserId: number;
+  FormNameId: number;
+}
+
+export interface AdCollegeUserAssign {
+  legacyId?: number;
+  SystemUserId: number;
+  AdCollegeId: number;
+  AdSectionId: number;
+}
+
+export interface AdTerm {
+  AdTermId: number;
+  AdTermName: string;
+  /**
+   * When teaching actually begins, as YYYY-MM-DD, and how many weeks it runs.
+   *
+   * Both optional, because ten years of terms exist with neither. Everything
+   * that reads them must still work when they are absent — but where they ARE
+   * present, a term stops being a name and becomes a period, which is what a
+   * calendar has needed all along.
+   */
+  AdTermStart?: string;
+  AdTermWeeks?: number;
+  /**
+   * Whether this term is over.
+   *
+   * Set explicitly by a coordinator; absent on the ten years of terms that
+   * pre-date the flag. Anything that reads it should go through
+   * `isTermClosed()` in utils/termSequence, which supplies the sane default —
+   * only the newest term is still live — rather than treating "absent" as
+   * "open" and offering room-borrowing on a term that ended years ago.
+   */
+  AdTermClosed?: boolean;
+  /** متى أعاد المنسق فتح فصلٍ مغلق (مغلق ← مفتوح). يحمي فصلاً انقضى تاريخه من الإغلاق التلقائي. */
+  AdTermReopenedAt?: string;
+  /**
+   * ── آخر موعد لتسليم الجداول ───────────────────────────────────────────────
+   *
+   * يضعه رئيس التسجيل مرة واحدة للفصل، كـ YYYY-MM-DD، فيظهر صريحاً لكل قسم
+   * ولكل عميد. قبله: الجدول يُسلَّم كاملاً بتوقيعيه. بعده: لا يُستورد ملف، ولا
+   * يُنسخ فصل، ولا يُحذف الجدول جملةً — وتبقى التعديلات الجزئية مفتوحة، لأن
+   * القاعة تتغيّر والأستاذ يعتذر بعد الموعد كما قبله.
+   *
+   * اختياريّ: فصلٌ بلا موعد هو فصلٌ بلا قيد، وهذا هو حال كل فصل قديم.
+   */
+  AdTermSubmissionDeadline?: string;
+  /**
+   * ── رحلة الطلبة في الفصل ───────────────────────────────────────────────────
+   *
+   * التواريخ التي تحرّك بابَ الطالب والشاشةَ الموحدة معاً: متى تُجمع الرغبات،
+   * ومتى يُجمَّد الجدول المتوقع، وجولات التسجيل، وآخر يومٍ لطلب المتعثّر.
+   * يضعها رئيس التسجيل من لوحة «مواعيد التسليم» نفسها، ومن لا تواريخ لفصله
+   * يعمل كما كان: لا بابَ مفتوحاً ولا مرحلة. القواعد في utils/termStudentPhases.
+   */
+  AdTermStudentPhases?: TermStudentPhases;
+}
+
+/** جولةُ تسجيل واحدة: «مبكر»، «عادي»… بداية ونهاية، YYYY-MM-DD شاملتان. */
+export interface TermStudentRound {
+  id: string;
+  name: string;
+  start: string;
+  end: string;
+}
+
+export interface TermStudentPhases {
+  /** أول يومٍ يكتب فيه الطالب رغباته، وبعد موعد تسليم الجداول. */
+  wishesOpen?: string;
+  /** آخر يوم للرغبات؛ بعده يُجمَّد الجدول المتوقع للقراءة. */
+  wishesClose?: string;
+  /** جولات التسجيل بالترتيب، لا تتداخل، وكلها بعد الرغبات. */
+  rounds?: TermStudentRound[];
+  /** آخر يومٍ يستقبل فيه القسمُ طلبَ طالبٍ متعثّر. */
+  requestsClose?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface AdCollege {
+  AdCollegeId: number;
+  AdCollegeCode: string;
+  AdCollegeName: string;
+}
+
+export interface AdSection {
+  AdSectionId: number;
+  AdCollegeId: number;
+  AdSectionCode: string;
+  AdSectionName: string;
+}
+
+export interface AdInstructor {
+  AdInstructorId: number;
+  AdInstructorCivil: string;
+  AdInstructorName: string;
+  AdInstructorMobile: string;
+  /**
+   * Additive, optional. Absent means an ordinary active teacher. A retired or
+   * sabbatical member keeps every historical appointment but is hidden from new
+   * assignment pickers so their name stops appearing where it should not (Note 2).
+   */
+  AdInstructorStatus?: "retired" | "sabbatical";
+  /**
+   * ── النصاب ────────────────────────────────────────────────────────────────
+   *
+   * الساعاتُ المعتمدة التي يُتوقّع أن يحملها هذا الأستاذ في الفصل.
+   *
+   * وهو القيدُ الذي كان غائباً حين صار الأستاذُ يطلب مقرّراً بنفسه: اللائحةُ
+   * تقول أين يقع الموعد، والقاعةُ تقول أيمكن، ولا شيء كان يقول «هذا يتجاوز
+   * نصابك». فكان القسمُ يكتشفه بعد أن يجمع الطلبات كلَّها ويحسبها بيده.
+   *
+   * اختياريٌّ عمداً: كلُّ سجلٍّ سابقٍ بلا نصابٍ مسجّل، وأستاذٌ بلا نصابٍ لا
+   * يُفرَض عليه رقمٌ مخترع — يُترك القيدُ صامتاً، ولا يُمنع به أحد.
+   */
+  AdInstructorLoad?: number;
+}
+
+export interface AdCourse {
+  AdCourseId: number;
+  AdCollegeId: number;
+  AdSectionId: number;
+  CourseCode: string;
+  CourseName: string;
+  CourseCredit: number;
+  CourseHours: number;
+  MaxStudent: number;
+}
+
+/** Academic curriculum version for one scientific section. */
+export type CurriculumPlanStatus = "active" | "transition" | "archived";
+
+export interface CurriculumPlan {
+  id: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  name: string;
+  code?: string;
+  status: CurriculumPlanStatus;
+  /** True only for the virtual compatibility plan synthesized before first setup. */
+  virtual?: boolean;
+  createdAt: string;
+  createdBy?: string;
+  activatedAt?: string;
+  archivedAt?: string;
+  archivedBy?: string;
+  /**
+   * شروط التخرج لطلبة هذه الصحيفة. في المرحلة الانتقالية لكل جيلٍ مجموعُه
+   * وشروطه، فالقاعدة تُحفظ على الصحيفة لا على القسم. قاعدةُ القسم
+   * (`AdDegreeRule`) تبقى لقسمٍ لم يُنشئ صحائف، وتُنسخ إلى «الصحيفة السابقة»
+   * عند إنشاء أول صحيفة جديدة.
+   */
+  degreeRule?: CurriculumDegreeRule;
+}
+
+export interface CurriculumDegreeRule {
+  degreeUnits: number;
+  fieldTrainingRequired: number;
+  graduateRegularPassed: number;
+  graduateSummerPassed: number;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+export interface CurriculumPlanCourse {
+  id: string;
+  planId: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdCourseId: number;
+  createdAt: string;
+  createdBy?: string;
+}
+
+export type CourseTransitionKind =
+  | "renumbered"
+  | "renamed"
+  | "renumbered-renamed"
+  | "replaced"
+  | "removed";
+
+export interface CourseTransition {
+  id: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  fromPlanId: string;
+  toPlanId: string;
+  fromCourseId: number;
+  toCourseId?: number;
+  kind: CourseTransitionKind;
+  note?: string;
+  createdAt: string;
+  createdBy?: string;
+}
+
+export interface FSchedule {
+  id: number;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  AdCourseId: number;
+  AdCourseName: string;
+  /** Immutable academic identity as it stood when this appointment was created. */
+  CourseCodeSnapshot?: string;
+  CourseNameSnapshot?: string;
+  CurriculumPlanIdSnapshot?: string;
+  SCode: string;
+  AdInstructorId: number;
+  fsunday: boolean;
+  fmonday: boolean;
+  ftuesday: boolean;
+  fwednesday: boolean;
+  fthursday: boolean;
+  fstarttime: string;
+  fendtime: string;
+  AdRoomCode: string;
+  AdRoomHall: string;
+  /** Stable canonical location references. Raw legacy strings remain for historical display/audit only. */
+  buildingId?: string;
+  roomId?: string;
+  locationStatus?: "VERIFIED" | "PENDING_ROOM" | "LOCATION_REVIEW_REQUIRED" | "INVALID_HISTORICAL";
+  sourceBuildingText?: string;
+  sourceRoomText?: string;
+  locationMigrationId?: string;
+  locationMigrationVersion?: string;
+  locationResolvedAt?: string;
+  fdetail?: string;
+  /** Source-PDF trace. Empty for ordinary/new rows; never used as an internal id. */
+  referenceNumber?: string;
+  sourceOrder?: number;
+  /** Raw instructor text read from the imported PDF. Kept only as a review aid
+   * when a catalogue match is uncertain; reports always print the system name. */
+  sourceInstructorText?: string;
+  /** Immutable source cells and their canonicalization proof for imported PDFs. */
+  sourceCourseCode?: string;
+  sourceCourseText?: string;
+  sourceSectionText?: string;
+  importEvidence?: Partial<Record<"course"|"section"|"instructor"|"building"|"room", {
+    raw?: string;
+    normalized?: string;
+    canonical?: string;
+    confidence?: "CONFIRMED"|"REVIEW_REQUIRED"|"UNRESOLVED";
+    reason?: string;
+    evidence?: string[];
+  }>>;
+  /**
+   * How many times this appointment has been written.
+   *
+   * Two coordinators can open the same lecture, and until now the second save
+   * simply won: the first person's change vanished with nothing said to either
+   * of them. The versions log could show what had happened afterwards; it could
+   * not stop it happening. This number is what makes the stop possible — a save
+   * carries the revision it was based on, and the store refuses to write over a
+   * newer one.
+   *
+   * Optional and treated as 0 when absent, so every row already in the database
+   * is valid as it stands and takes its first number on its next write.
+   */
+  rev?: number;
+  /**
+   * مصدرُ آخر تغييرٍ جاء من اقتراحٍ لا من يدٍ في الورشة: الرادار، أو حالة طالب، أو رغبة أستاذ.
+   * اختياريّ: كل صفٍّ قائم صالحٌ بدونه، ويُكتب فقط حين يمرّ التغيير من «اعتماد الاقتراح».
+   */
+  origin?: ScheduleOrigin;
+}
+
+export type ScheduleOriginKind = "radar" | "student-case" | "instructor-request" | "intelligence" | "planning";
+
+export interface ScheduleOrigin {
+  kind: ScheduleOriginKind;
+  /** معرّفُ ما انطلق منه: مقرر الرادار، أو طلب الطالب، أو طلب الأستاذ. */
+  refId?: string;
+  /** سطرٌ يقرؤه من يفتح الصف لاحقاً: لماذا وُجد هنا. */
+  note?: string;
+  by: string;
+  at: string;
+}
+
+export interface AdRoom {
+  AdRoomId: number;
+  AdRoomCode: string;
+  AdRoomHall: string;
+  AdRoomDescrip: string;
+}
+
+export type LocationConfidence = "CONFIRMED" | "PROBABLE" | "REVIEW_REQUIRED" | "INVALID";
+export type ScheduleLocationStatus = "VERIFIED" | "PENDING_ROOM" | "LOCATION_REVIEW_REQUIRED" | "INVALID_HISTORICAL";
+
+export interface LocationRegistryAlias {
+  value: string;
+  usageCount?: number;
+  confidence: LocationConfidence;
+  evidence?: string[];
+}
+
+export interface LocationAuditRecord {
+  id?: string;
+  at: string;
+  byUserId?: number;
+  action: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  note?: string;
+}
+
+export interface MasterBuilding {
+  id: string;
+  officialCode: string;
+  /** Authoritative college/site identity, e.g. 012B, 0510. */
+  sitePrefix?: string;
+  prefix: string;
+  siteLetter: string;
+  buildingNumber: string;
+  siteName?: string;
+  branchName?: string;
+  description?: string;
+  active: boolean;
+  aliases: LocationRegistryAlias[];
+  collegeIds: number[];
+  sectionIds: number[];
+  historicalUsageCount: number;
+  firstTermId?: number;
+  lastTermId?: number;
+  roomCount: number;
+  confidence: LocationConfidence;
+  source: string;
+  adminVerified: boolean;
+  evidence: string[];
+  auditHistory: LocationAuditRecord[];
+  createdAt?: string;
+  updatedAt?: string;
+  lastVerifiedAt?: string;
+}
+
+export interface MasterRoom {
+  id: string;
+  buildingId: string;
+  buildingCode: string;
+  canonicalCode: string;
+  /** Verified seat count used by the registration schedule rehearsal. Missing means unknown. */
+  capacity?: number;
+  active: boolean;
+  aliases: LocationRegistryAlias[];
+  collegeIds: number[];
+  sectionIds: number[];
+  primarySectionIds?: number[];
+  shared: boolean;
+  sharedConfidence?: LocationConfidence;
+  historicalUsageCount: number;
+  firstTermId?: number;
+  lastTermId?: number;
+  confidence: LocationConfidence;
+  source: string;
+  adminVerified: boolean;
+  evidence: string[];
+  auditHistory: LocationAuditRecord[];
+  createdAt?: string;
+  updatedAt?: string;
+  lastVerifiedAt?: string;
+}
+
+export interface LocationReviewCase {
+  id: string;
+  kind: "BUILDING" | "ROOM" | "PAIR" | "SWAPPED_FIELDS" | "UNKNOWN_PREFIX" | "CROSS_BUILDING_ROOM_CODE";
+  rawValue: string;
+  occurrences: number;
+  termNames: string[];
+  sectionNames: string[];
+  collegeNames: string[];
+  sectionIds: number[];
+  collegeIds: number[];
+  buildingCandidate?: string;
+  buildingCandidates: string[];
+  roomCandidate?: string;
+  roomCandidates: string[];
+  reason: string;
+  recommendation: string;
+  confidence: LocationConfidence;
+  status: "open" | "resolved" | "ignored";
+  resolution?: string;
+  resolvedAt?: string;
+  resolvedBy?: number;
+}
+
+export interface LocationMigrationLog {
+  id: string;
+  migrationId: string;
+  scheduleId: number;
+  timestamp: string;
+  oldBuilding: string;
+  newBuilding?: string;
+  oldRoom: string;
+  newRoom?: string;
+  oldBuildingId?: string;
+  newBuildingId?: string;
+  oldRoomId?: string;
+  newRoomId?: string;
+  oldStatus?: ScheduleLocationStatus;
+  newStatus?: ScheduleLocationStatus;
+  oldMigrationVersion?: string;
+  newMigrationVersion?: string;
+  confidence: LocationConfidence;
+  rule: string;
+}
+
+export interface LocationMigrationRun {
+  id: string;
+  version: string;
+  createdAt: string;
+  completedAt?: string;
+  byUserId: number;
+  status: "preview" | "running" | "completed" | "rolled_back" | "failed";
+  restorePointId?: string;
+  stats: Record<string, number>;
+}
+
+// Additive campus-mobility settings. Existing legacy college/room records stay untouched.
+// Building codes are learned from the room codes already used by the college, while the
+// travel matrix lets administrators express the real walking time between buildings.
+export interface CampusTravelPair {
+  fromBuilding: string;
+  toBuilding: string;
+  minutes: number;
+}
+
+export interface CampusMobilityProfile {
+  AdCollegeId: number;
+  defaultTravelMinutes: number;
+  sameBuildingMinutes: number;
+  pairs: CampusTravelPair[];
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  SystemUserId: number;
+  userName: string;
+  method: string;
+  path: string;
+  action: string;
+  entity: string;
+  entityId?: string;
+  /**
+   * What changed, in words — «الوقت 10:00 ← 11:00 · القاعة A/101 ← B/202».
+   * Optional and additive: entries written before this existed simply have
+   * none, and a handler that cannot describe its change omits it.
+   */
+  changes?: string;
+  /** صفوفُ الجدول التي مسّها الطلب (للمسارات التي لا تحمل معرّفها). */
+  rowIds?: number[];
+  status: number;
+}
+
+// Additive smart-workspace records. They live beside the verified legacy tables and never
+// change their schema or semantics.
+export interface ScheduleVersion {
+  id: string;
+  scopeKey: string;
+  createdAt: string;
+  /** How many appointments the snapshot holds, so a list never reads `rows`. */
+  rowCount?: number;
+  SystemUserId: number;
+  userName: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  label: string;
+  source: "manual" | "draft" | "publish" | "undo" | "copy" | "import";
+  rows: FSchedule[];
+  /** The live scope right after the change this version protects (see scopeFingerprint). */
+  baseFingerprint?: string;
+  baseSignatures?: Record<string, string>;
+}
+
+export interface ScheduleDraft {
+  id: string;
+  scopeKey: string;
+  createdAt: string;
+  updatedAt: string;
+  SystemUserId: number;
+  userName: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  name: string;
+  status: "draft" | "published" | "archived";
+  source: "what-if" | "auto" | "import" | "manual";
+  rows: FSchedule[];
+  /** The live scope the draft was built against (see scopeFingerprint). */
+  baseFingerprint?: string;
+  baseSignatures?: Record<string, string>;
+  /** Original scanned table, kept immutable for the colour-coded change report. */
+  baselineRows?: FSchedule[];
+  sourceFileName?: string;
+  importLayout?: "authority-pdf" | "worksheet";
+  /** Branch label read from the source PDF header (for the authority report). */
+  sourceBranchCode?: string;
+  sourceBranchName?: string;
+  /** Server-signed proof that the PDF header matched this exact academic scope. */
+  importReceipt?: string;
+  publishedAt?: string;
+}
+
+/** A decision that is intentionally not finished yet. */
+export interface ScheduleOpenDecision {
+  id: string;
+  scopeKey: string;
+  createdAt: string;
+  updatedAt: string;
+  SystemUserId: number;
+  userName: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  title: string;
+  detail?: string;
+  owner?: string;
+  dueAt?: string;
+  priority: "low" | "medium" | "high";
+  status: "open" | "done";
+  scheduleId?: number;
+  source: "manual" | "assistant";
+}
+
+/** Sparse operational telemetry: slow/failing interactions only, never schedule content. */
+export interface ClientTelemetryEntry {
+  id: string;
+  timestamp: string;
+  SystemUserId: number;
+  userName: string;
+  AdCollegeId?: number;
+  AdSectionId?: number;
+  AdTermId?: number;
+  kind: "api" | "error" | "offline" | "sync" | "guide";
+  name: string;
+  durationMs?: number;
+  status?: number;
+  ok?: boolean;
+  message?: string;
+  breadcrumbs?: Array<{ at: string; action: string }>;
+  /** Firestore TTL: operational telemetry is short-lived by design. */
+  expiresAtTtl?: Date | string;
+}
+
+/**
+ * ── ما يحتاجه الطالب ────────────────────────────────────────────────────────
+ *
+ * A student's structured case. Identity is encrypted at rest and is decrypted
+ * only in the permission-7 coordinator response; the fingerprint remains the
+ * duplicate-prevention key and never leaves the server.
+ */
+/* ── حالةُ المقرّر عند التسجيل ───────────────────────────────────────────────
+ *
+ * القسم يجمع رغبات الطلبة بالاستبيان، ثم يسلّمها التسجيلَ يدوياً إلى اليوم.
+ * والطالبُ بينهما لا يعرف شيئاً: أرسل، ثم صمتَ النظام، فجاء يسأل.
+ *
+ * هذه الحالةُ هي الخيط الذي يربط الثلاثة. يكتبها التسجيلُ على الكشف نفسه الذي
+ * يقرؤه القسم — لا على كشفٍ آخرَ يفترق عنه عند أول تعديل — فيراها القسمُ
+ * لحظتَها، ويراها الطالبُ في صفحته.
+ *
+ * **ولا تُكتب على الجدول.** هي قولٌ عن طلب طالبٍ بعينه، لا عن شعبةٍ ولا عن
+ * مقعد. النظام لا يملك مقاعد ولا يدّعي امتلاكها.
+ */
+
+/** أين وصل مقرّرٌ واحدٌ من طلب طالب. */
+export type StudentCourseStateValue =
+  | "awaiting-registration"  // وافقت لجنة القسم وسلّمته، والتسجيل لم يقل شيئاً بعد
+  | "committee-rejected"     // لم توافق عليه لجنة القسم، ومعه سبب — لا يصل التسجيل
+  | "registered"             // التسجيل سجّله
+  | "rejected";              // التسجيل ردّه، ومعه سبب
+
+/**
+ * أسبابُ عدم موافقة لجنة القسم، من قائمةٍ مغلقة.
+ *
+ * الطلبُ يمرّ على اللجنة أولاً: ما توافق عليه يُسلَّم للتسجيل، وما لا توافق
+ * عليه يبقى عند القسم ولا يراه التسجيل. والسببُ يصل الطالب في صفحته.
+ */
+export type StudentCommitteeRejectReason =
+  | "not-eligible"   // لا تنطبق عليه الشروط
+  | "not-in-plan"    // ليس من خطته الدراسية
+  | "prerequisite"   // متطلّبٌ سابق
+  | "duplicate"      // طلبٌ مكرر أو سبق تسجيله
+  | "other";
+
+/**
+ * أسبابُ الردّ، من قائمةٍ مغلقة.
+ *
+ * مغلقةٌ لنفس السبب الذي أُغلقت له أسبابُ رفض طلب الأستاذ: سببٌ حرٌّ لا
+ * يُقارن ولا يُحصى، ويدفع الطالبَ إلى المكتب ليسأل «ليش؟». والسطرُ الحرّ يبقى
+ * لما لا تسعه القائمة — تفصيلُ الحالة لا نوعُها.
+ */
+export type StudentCourseRejectReason =
+  | "no-seat"        // لا مقاعد
+  | "prerequisite"   // متطلّبٌ سابق
+  | "level"          // المستوى
+  | "conflict"       // تعارضٌ في جدوله
+  | "closed"         // الشعبة مغلقة
+  | "other";
+
+export interface StudentCourseState {
+  courseId: number;
+  state: StudentCourseStateValue;
+  reasonCode?: StudentCourseRejectReason | StudentCommitteeRejectReason;
+  note?: string;
+  /** من كتبها: القسم (اللجنة) حين يوافق أو لا يوافق، والتسجيل حين يقرّر. */
+  by: "department" | "registration";
+  /** الصفةُ لا الاسم: «موظف التسجيل»، «رئيس لجنة الجدول». */
+  byRole?: string;
+  at: string;
+  /** حذف الطالبُ هذا المقرّر من طلبه بعد أن قيل فيه شيء — يبقى القرارُ مقروءاً. */
+  droppedByStudent?: boolean;
+  droppedAt?: string;
+  /** موافقةُ اللجنة فتحت شعبةً في الجدول الأصلي: معرّفُ صفّها ورقمُها، ليُقرأ الربطُ في الكشف. */
+  scheduleId?: number;
+  sectionCode?: string;
+}
+
+/**
+ * قرارُ جهةٍ واحدةٍ في طلبٍ لا مقرّرات فيه (حالة الخريج).
+ *
+ * طلبُ الخريج لا يسمّي مقرّراً: يطلب ترتيباً للميداني بسببٍ من قائمةٍ مغلقة
+ * وملاحظاتٍ إلزامية. فالقرارُ فيه قرارٌ في الحالة كلها، لا في مقرّر — وكان
+ * الكشفُ يُسقطه لأنه لا يجد مقرّراً يعلّق عليه قراراً، فلا يُجاب أبداً.
+ * الترتيبُ نفسُه: اللجنةُ أولاً، ثم التسجيل.
+ */
+export interface StudentCaseDecision {
+  /** اللجنة: وافقت/لم توافق. التسجيل: نفّذه/ردّه. */
+  state: "approved" | "rejected";
+  reasonCode?: StudentCourseRejectReason | StudentCommitteeRejectReason;
+  /** «سطرٌ للطالب» — يصله في صفحة حالته. */
+  note?: string;
+  byRole?: string;
+  at: string;
+}
+
+export interface StudentCaseState {
+  committee?: StudentCaseDecision;
+  registrar?: StudentCaseDecision;
+}
+
+export interface StudentNeed {
+  id: string;
+  /** Keyed HMAC of the civil ID: the duplicate key. On its own it identifies nobody (the identity is in the ciphers below). */
+  fingerprint: string;
+  AdCollegeId: number;
+  /** The student's own scientific section, validated in the link's college. */
+  AdSectionId: number;
+  /** The department whose survey link received this request. New records always
+   * carry it; older records are recovered from their requested courses. */
+  surveySectionId?: number;
+  /** Exact share-link provenance, so one request is never attributed to the
+   * student's home department merely because they study there. */
+  surveyLinkId?: string;
+  /** Explicit alias retained for reporting/migrations; AdSectionId remains the
+   * student's selected/home section for degree-rule checks. */
+  studentSectionId?: number;
+  AdTermId: number;
+  /** Curriculum version selected/derived for this survey answer when available.
+   * For a graduate case it is the plan the graduation sheet proved. */
+  curriculumPlanId?: string;
+  /** Every course this student says they need. */
+  courseIds: number[];
+  requestType?: "new-course" | "course-conflict" | "graduate";
+  /** يربط أجزاء طلب التعارض الواحد الموجّهة إلى مالكي المقررات. */
+  requestGroupId?: string;
+  /** The student's name and civil ID, each sealed with field-level AES-256-GCM
+   * (server.ts sealStudentIdentity). Decrypted only for the authorised
+   * department/registration screens — the record is NOT anonymous. */
+  nameCipher?: string;
+  civilCipher?: string;
+  details?: string;
+  graduateReason?: "field-conflict" | "field-prerequisite-conflict" | "other";
+  passedUnits?: number;
+  requiredUnits?: number;
+  degreeUnits?: number;
+  eligibility?: "eligible" | "ineligible" | "not-checked";
+  proofNameMatched?: boolean;
+  createdAt: string;
+  /**
+   * أين وصل كلُّ مقرّرٍ طلبه هذا الطالب.
+   *
+   * غيابُها يعني أن أحداً لم يقل شيئاً بعد — وهي الحالة الطبيعية للسجلّات
+   * كلها قبل أن يبدأ التسليم، وللسجلّات القديمة كلها إلى الأبد. فلا يُكتب
+   * صفٌّ ليقول «لا جديد».
+   */
+  courseStates?: StudentCourseState[];
+  /** قرارُ الحالة كلها حين لا يسمّي الطلبُ مقرّراً (الخريج). */
+  caseState?: StudentCaseState;
+  /** غيّر الطالبُ طلبَ الخريج إلى نوعٍ آخر بعد قرارٍ فيه: متى. */
+  caseDroppedAt?: string;
+  /** آخر إعادة إرسال — السجلُّ يُحدَّث في مكانه ولا يُستبدل. */
+  updatedAt?: string;
+  /**
+   * رقمُ الحالة كما أُعطي للطالب، ثابتٌ عبر إعادة الإرسال.
+   *
+   * كان يُشتقّ من معرّف السجلّ، والسجلُّ يُستبدل كلّما غيّر الطالبُ رأيه —
+   * فالرقمُ الذي طُلب منه أن يحفظه يتغيّر تحت يده، ويبحث به موظّفُ التسجيل
+   * فلا يجده. فصار يُولَّد مرّةً ويُورَّث.
+   *
+   * اختياريٌّ لأن كلَّ سجلٍّ سابقٍ بلا هذا الحقل: تلك تُقرأ بالاشتقاق القديم
+   * من معرّفها، وهو ما أُعطي لأصحابها فعلاً.
+   */
+  caseRef?: string;
+}
+
+/**
+ * ── قواعدُ الصحيفة: ما يسبق ماذا ──────────────────────────────────────────────
+ *
+ * `CurriculumPlanCourse` تقول أيَّ المقررات في الصحيفة فقط. هذه تقول **كيف
+ * تُؤخذ**: في أي مستوى، ومن أيِّ نوع، وما يسبقها وما يُسجَّل معها، وأيُّ مجموعةٍ
+ * اختيارية تنتمي إليها. تُخزَّن بجانب الصحيفة لا فيها، فلا يمسّ شيءٌ منها
+ * بياناتِ الصحيفة القائمة، ولا تُعتمد إلا بتوقيع لجنة الجدول (مسوّدةٌ ثم اعتماد).
+ */
+export type CourseKind = "compulsory" | "college" | "university" | "elective";
+
+export interface CoursePrereq {
+  /** كلُّها يجب اجتيازها. */
+  all: number[];
+  /** كلُّ مجموعةٍ هنا: يكفي اجتيازُ واحدٍ منها («أ أو ب أو ج»). */
+  anyOf: number[][];
+  /** وحداتٌ مجتازة لا تقلّ عن. */
+  minUnits?: number;
+}
+
+export interface CurriculumCourseRule {
+  courseId: number;
+  /** المستوى المقترح في الصحيفة: ١٠٠ أو ٢٠٠ أو ٣٠٠ أو ٤٠٠؛ وتُطبَّع القيم القديمة ١–٤ عند القراءة. */
+  level?: number;
+  kind?: CourseKind;
+  prereq?: CoursePrereq;
+  /** مقرراتٌ تُسجَّل معه في الفصل نفسه (أو سبق اجتيازها). */
+  coreq?: number[];
+  /** المجموعةُ الاختيارية التي ينتمي إليها. */
+  groupId?: string;
+}
+
+export interface ElectiveGroup {
+  id: string;
+  name: string;
+  /** «اختر ٢». */
+  minCourses: number;
+  /** «بحدٍّ أدنى ٩ وحدات». الشرطان معاً. */
+  minUnits: number;
+  courseIds: number[];
+}
+
+export interface CurriculumRuleSet {
+  /** = planId. وثيقةٌ لكل صحيفة. */
+  id: string;
+  planId: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  rules: CurriculumCourseRule[];
+  groups: ElectiveGroup[];
+  /**
+   * متطلباتٌ عامة: مقرراتُ أقسامٍ أخرى (ثقافة عامة…) تُشترط في هذه الصحيفة. تُرى في صحيفة القسم مقفولةً،
+   * وتُحتسب في تقدّم الطالب والمحاكاة، ولا تُربط بعضويّتها (فلا تدخل كتالوجَ القسم ولا جدولَه). مالكُها قسمُها.
+   */
+  externals?: number[];
+  /** رقمُ النسخة المعتمدة؛ كل اعتمادٍ يرفعه. المسوّدةُ تحمل ما بُنيت عليه. */
+  version: number;
+  /** للمسوّدة: «review» قيد المراجعة، «approved» اعتُمدت (وتبقى سجلاً). */
+  status?: "review" | "approved";
+  basedOnVersion?: number;
+  updatedAt: string;
+  updatedBy?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+}
+
+/**
+ * ── ملفُّ الطالب: ما يحتاجه الباب ليبني له جدولاً ────────────────────────────
+ *
+ * مفتاحُه بصمةُ الرقم المدني نفسُها التي يعرفها الاستبيان (HMAC بمفتاح الخادم)،
+ * فالطالبُ نفسُه يُعرف في كل فصل دون أن يُحفظ رقمُه. **لا اسم ولا رقم مدنيّ
+ * هنا**: ما يلزم لتسجيل حالةٍ يدوياً يُكتب في الطلب نفسه (StudentNeed) عند
+ * التبليغ، لا في الملف الدائم.
+ *
+ * وله عمرٌ مكتوب (`deleteAt`): يُحسب من التخرّج المتوقّع + سنة، أو من الانقطاع
+ * عن الباب، أيهما أقرب؛ ويُحذف الملفُّ وحده بعدها.
+ */
+export interface StudentProfile {
+  /** = fingerprint. وثيقةٌ واحدة لكل طالب. */
+  id: string;
+  fingerprint: string;
+  /** قسمُه العلمي. 0 قبل أن يكمل إعداد ملفّه. */
+  AdCollegeId: number;
+  AdSectionId: number;
+  /** الصحيفة (السابقة/الجديدة) التي يدرس عليها، حين يكون للقسم أكثر من صحيفة حيّة. */
+  curriculumPlanId?: string;
+  /** المقررات التي أنجزها، من صحيفته. */
+  passedCourseIds: number[];
+  /** مجموع وحداتها وقت الحفظ — للعرض وللتخرّج المتوقَّع. */
+  passedUnits: number;
+  /** الرمزُ الشخصي: scrypt بملحٍ عشوائي. لا يُخزَّن الرمز نفسه. */
+  codeHash?: string;
+  codeSalt?: string;
+  /** محاولاتٌ خاطئة متتالية للرمز، وقفلٌ مؤقّت بعد الحدّ. */
+  codeFailures?: { count: number; lockedUntil?: number };
+  createdAt: string;
+  updatedAt: string;
+  /** آخرُ دخول (يُحدَّث مرةً في اليوم على الأكثر). */
+  lastSeenAt: string;
+  /** متى يُحذف هذا الملف، وسببه. */
+  deleteAt: string;
+  deleteReason: "initial" | "graduation" | "inactive" | "reset";
+  /** التخرّج المتوقَّع (ISO) كما قدّره النظام من المتبقّي — تقديرٌ لا وعد. */
+  expectedGraduationAt?: string;
+  /**
+   * «نسيت رمزي»: لا أحدَ يسترجع الرمز، ولا يُمحى الملفُّ بكلمةٍ من غريب. يُطلب
+   * الحذفُ فيُمحى بعد مهلة، ودخولُ صاحبه بالرمز في المهلة يُلغيه.
+   */
+  resetRequestedAt?: string;
+  /**
+   * رغبات الطالب في فصلٍ بعينه: ما يريد تسجيله ووحداته وقيوده. تُقرأ في
+   * مرحلة الرغبات وتُبنى منها تذكرتُه.
+   */
+  wishes?: StudentWishes;
+  /** جوابُه على «هل سجلت؟» في فصلٍ بعينه. */
+  registration?: StudentRegistrationReport;
+  /**
+   * اسمُه ورقمُه المدني **مختومان** (AES-GCM بمفتاح الخادم، كما في طلبات الطلبة). يُكتبان
+   * مرةً عند إنشاء الملف كي لا يُسألا ثانيةً إذا تعثّر وطلب مساعدة قسمه، ويُحذفان مع
+   * الملف. لا يخرجان إلى الطالب ولا إلى أيّ شاشةٍ إلا في الطلب الذي يرسله بنفسه.
+   */
+  nameCipher?: string;
+  civilCipher?: string;
+}
+
+/** ما قاله الطالبُ بعد جولة التسجيل: لكل مقررٍ سجّله أو تعثّر فيه وسبب التعثّر. */
+export type RegistrationAnswerReason = "full" | "prereq" | "conflict" | "other";
+export interface StudentRegistrationReport {
+  termId: number;
+  at: string;
+  answers: Array<{ courseId: number; state: "registered" | "stuck"; reason?: RegistrationAnswerReason }>;
+}
+
+/** عدّاداتُ أجوبة «هل سجلت؟» لفصلٍ: مشاظِرةٌ على عدّة وثائق كي لا تزدحم وثيقةٌ واحدة يومَ التسجيل. */
+export interface RegistrationOutcomeShard {
+  id: string;
+  termId: number;
+  shard: number;
+  students: number;
+  byCourse: Record<string, { registered: number; stuck: number; full: number; prereq: number; conflict: number; other: number }>;
+}
+
+/** تذكرةُ طالبٍ من رادار تسجيل فصلٍ بعينه. وثيقةٌ لكل طالب: `{termId}_{fingerprint}`. */
+export interface RegistrationTicket {
+  id: string;
+  termId: number;
+  runId: string;
+  fp: string;
+  planId: string;
+  /** رقمُ نافذته (١ = الأولى). الساعاتُ يقرّرها صاحبُ القرار. */
+  window: number;
+  remainingUnits: number;
+  defaulted: boolean;
+  plans: Array<{ label: "A" | "B" | "C"; units: number; items: Array<{ courseId: number; offeringId: string; tight: boolean }> }>;
+  unmet: Array<{ courseId: number; reason: "not-offered" | "conflict" | "full" | "prereq" | "units" }>;
+}
+
+/** ملخّصُ آخر تحديثٍ لفصل: أعدادٌ لا أسماء. وثيقةٌ واحدة لكل فصل. */
+export interface RegistrationRun {
+  id: string;
+  termId: number;
+  /** رغباتُ أيّ فصلٍ حُسب منها هذا الرادار إن اختلف عن `termId` (فصلٌ سابقٌ يُعرض للاطّلاع). */
+  wishesTermId?: number;
+  runId: string;
+  ranAt: string;
+  ranBy: string;
+  students: number;
+  /** Profiles with current-term explicit wishes; the main scenario uses these only. */
+  population?: number;
+  withoutRules: number;
+  defaulted: number;
+  /** Counts from a separate stated-assumption scenario for current nonrespondents. */
+  capacity?: { canReach15: number; canReach12To14: number; below12: number; graduatingBelow12: number; unknown: number };
+  projected?: {
+    students: number;
+    capacity: { canReach15: number; canReach12To14: number; below12: number; graduatingBelow12: number; unknown: number };
+    courses: RegistrationRun["courses"];
+  };
+  dataQuality?: { total: number; ready: number; excluded: number; issues: Record<string, number> };
+  /** Aggregate only; each department sees its own respondents and participation. */
+  scopes?: Array<{
+    collegeId: number; sectionId: number; students: number; population: number; withoutRules: number; defaulted: number; windows: number[];
+    capacity: NonNullable<RegistrationRun["capacity"]>;
+    projected: { students: number; capacity: NonNullable<RegistrationRun["capacity"]> };
+    dataQuality: NonNullable<RegistrationRun["dataQuality"]>;
+  }>;
+  sourceFingerprint?: string;
+  /** Set by source mutations; false means the saved result is no longer current. */
+  stale?: boolean;
+  staleAt?: string;
+  rounds: number;
+  windows: number[];
+  /** لكل مقرر: سعتُه وما أُخذ منه وكم شعبةً، مع أسباب ما لم يتحقّق. */
+  courses: Array<{
+    courseId: number; collegeId: number; sectionId: number; sections: number; capacity: number; taken: number;
+    wanted: number; seated: number; unmet: { "not-offered": number; conflict: number; full: number; prereq: number; units: number };
+  }>;
+}
+
+export interface StudentWishes {
+  termId: number;
+  /** الوحدات التي يريدها هذا الفصل: 12–18. */
+  targetUnits: number;
+  /** مقرراتٌ يريدها صراحةً. */
+  courseIds: number[];
+  /** قيودُ الوقت: ما لا يستطيعه فعلاً (عمل، مواصلات). */
+  constraints: { noMorning?: boolean; noAfternoon?: boolean; freeDay?: boolean };
+  updatedAt: string;
+}
+
+/**
+ * A digitally approved right to use another college's historically-owned hall
+ * for one recurring weekly window in one term.
+ *
+ * The request is intentionally separate from FSchedule: approving access must
+ * never invent a course, instructor or lecture. Once approved it behaves as a
+ * reservation guard around the room, while the borrowing department still
+ * creates its real lecture through the normal schedule editor and therefore
+ * passes every existing conflict check.
+ */
+export interface HallBarterRequest {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  AdTermId: number;
+  buildingId?: string;
+  roomId?: string;
+  roomCode: string;
+  roomHall: string;
+  day: "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday";
+  startTime: string;
+  endTime: string;
+  requesterCollegeId: number;
+  requesterSectionId: number;
+  requesterUserId: number;
+  requesterName: string;
+  ownerCollegeId: number;
+  ownerSectionId: number;
+  /** Percentage of historical terms in which the window was free. */
+  confidence: number;
+  /** Number of historical terms used to compute confidence. */
+  historyTerms: number;
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  respondedAt?: string;
+  responderUserId?: number;
+  responderName?: string;
+  /** سبب الإلغاء — يُملأ حين يُلغى الطلب تلقائياً بانتهاء مهلته. */
+  cancelReason?: string;
+}
+
+/**
+ * ── استثناء أسبوع واحد ──────────────────────────────────────────────────────
+ *
+ * The schedule models the ideal repeating week; reality has a lecture that was
+ * cancelled THIS Tuesday, or covered by a colleague THIS Thursday. An exception
+ * is one dated fact laid OVER an appointment — it never touches the FSchedule
+ * row itself, so nothing about the recurring plan, its conflicts or its
+ * history can be disturbed by recording what happened in a single week.
+ *
+ * The calendar feeds read these: a cancelled date becomes an EXDATE in the
+ * subscription, and a covering colleague's personal feed gains that one day —
+ * which is what makes the phone's calendar follow reality automatically.
+ */
+export interface ScheduleWeekException {
+  id: string;
+  createdAt: string;
+  /** The appointment this dated fact sits over. */
+  scheduleId: number;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  /** The one specific day, as YYYY-MM-DD. */
+  date: string;
+  /** cancel = لا تُعقد هذا اليوم · cover = تُعقد بأستاذ بديل هذا اليوم */
+  kind: "cancel" | "cover";
+  coverInstructorId?: number;
+  coverInstructorName?: string;
+  note?: string;
+  SystemUserId: number;
+  userName: string;
+}
+
+export interface ScheduleComment {
+  id: string;
+  createdAt: string;
+  SystemUserId: number;
+  userName: string;
+  scheduleId: number;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  text: string;
+  resolved: boolean;
+  /**
+   * Where this note came in from.
+   *
+   * A note from the staff card is the same record the appointment panel already
+   * shows and resolves — no second inbox, no second lifecycle. The two fields
+   * exist only so the department can tell «قالها زميل في النظام» apart from
+   * «قالها الأستاذ نفسه من بطاقته».
+   */
+  source?: "staff-card";
+  fromInstructorId?: number;
+  /** What the instructor is saying: an apology, or a request to change. */
+  kind?: "apology" | "change";
+  /** The day or range it concerns, as YYYY-MM-DD. Optional — «كل أسبوع» is a
+   *  real answer too. */
+  fromDate?: string;
+  toDate?: string;
+  /**
+   * ── ملاحظة على الخانة، لا على الصف ────────────────────────────────────────
+   *
+   * موظّف التسجيل لا يكتب «راجع الموعد رقم ٤١٨»؛ هو ينقر على القاعة نفسها.
+   * والخانة تحمل ثلاث معلومات دفعةً واحدة: أيُّ صفّ، وأيُّ حقل، وما القيمة
+   * المرفوضة — فتسقط الحاجة إلى شرحٍ من الطرفين.
+   *
+   * كلها اختيارية: الملاحظات القديمة، وملاحظات بطاقة الأستاذ، لا خانة لها،
+   * وتبقى تُقرأ وتُحلّ كما كانت تماماً.
+   */
+  field?: ScheduleNoteField;
+  /** القيمة كما كانت لحظة كتابة الملاحظة، ليُعرف لاحقاً أتغيّرت أم لا. */
+  valueAtNote?: string;
+  /** رقم الجولة التي كُتبت فيها. الجولة الأولى هي ١. */
+  round?: number;
+  /** من أي جهة: التسجيل، أو القسم، أو بطاقة الأستاذ. */
+  origin?: "registrar" | "department";
+  /**
+   * ردّ اللجنة حين ترى الملاحظة غير صحيحة.
+   *
+   * «أبقيها كما هي، لهذا السبب» — والسبب إلزاميّ هنا وحده، لأن رفضاً بلا سبب
+   * يدفع الطرفين إلى الهاتف، فتضيع الحجّة خارج النظام.
+   */
+  rebuttal?: { text: string; at: string; SystemUserId: number; userName: string };
+  /** قرار التسجيل على ردّ اللجنة في الجولة التالية. */
+  rebuttalVerdict?: "accepted" | "insisted";
+  /**
+   * كم مرّةً أصرّ التسجيل على هذه الخانة بعد ردٍّ من القسم.
+   *
+   * خانةٌ يُصرّ عليها طرفٌ ويردّ عليها الآخر ثلاث مرّات ليست خلافاً على قاعة؛
+   * هي خلافٌ لم يُحسم، ومكانُه فوق مستوى الاثنين. فيُعدّ صراحةً ليُعرض لرئيس
+   * القسم — إعلاماً لا إجباراً، فلا شيء في النظام يقف عليه.
+   */
+  insistCount?: number;
+  /** ردودُ القسم السابقة التي أصرّ عليها التسجيل — تُحفظ ولا تُمحى. */
+  rebuttalHistory?: Array<{ text: string; at: string; SystemUserId: number; userName: string; insistedAt: string; insistedBy: string }>;
+  /** متى بلغ الإصرارُ حدَّ الرفع إلى رئيس القسم. */
+  escalatedAt?: string;
+  /** كيف أُغلقت: بقبول تبرير القسم، أو بقبول الجدول كلّه. */
+  resolution?: "rebuttal-accepted" | "closed-by-acceptance";
+}
+
+/** الحقول التي يجوز أن تُعلَّق عليها ملاحظةٌ بالنقر. */
+export type ScheduleNoteField = "time" | "days" | "room" | "instructor" | "sectionCode" | "course" | "row";
+
+
+export type ScheduleConstraintType = "instructor_latest_end" | "instructor_day_off" | "department_day_off" | "course_room" | "max_instructor_gap" | "room_doorway";
+
+/**
+ * What a degree costs, per scientific department.
+ *
+ * These numbers gate the graduate case in the student survey: the transcript is
+ * read, and the units it reports are measured against the department's own
+ * requirement. They used to be inferred from the department NAME by regular
+ * expression, so a department earned 134 units by containing the word «انجليزي»
+ * and every unmatched department silently fell to 130 — a rule nobody chose,
+ * that no screen showed, and that a rename could change without warning.
+ */
+export interface AdDegreeRule {
+  AdSectionId: number;
+  degreeUnits: number;
+  /** Units that must be passed before field training opens. */
+  fieldTrainingRequired: number;
+  graduateRegularPassed: number;
+  graduateSummerPassed: number;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface ScheduleConstraint {
+  id: string;
+  scopeKey: string;
+  createdAt: string;
+  updatedAt: string;
+  SystemUserId: number;
+  userName: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  type: ScheduleConstraintType;
+  label: string;
+  enabled: boolean;
+  AdInstructorId?: number;
+  AdCourseId?: number;
+  day?: "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday";
+  time?: string;
+  buildingId?: string;
+  roomId?: string;
+  /** Canonical display values retained for readable audit/history; IDs are authoritative. */
+  roomCode?: string;
+  roomHall?: string;
+  maxMinutes?: number;
+}
+
+
+export interface ScheduleDecisionMemory {
+  id: string;
+  createdAt: string;
+  SystemUserId: number;
+  userName: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  AdCourseId?: number;
+  SCode?: string;
+  scheduleId?: number;
+  optionSignature?: string;
+  kind: "rejected-option" | "accepted-note" | "meeting-decision";
+  reason: string;
+}
+
+// Read-only publication of one scope to a non-guessable public token. The token
+// carries no account, expires on its own, and exposes only what a printed
+// timetable already shows: course, section, time, room and instructor name.
+export interface ScheduleShareLink {
+  id: string;
+  scopeKey: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  label: string;
+  createdAt: string;
+  expiresAt: string;
+  revoked?: boolean;
+  SystemUserId: number;
+  userName: string;
+  views: number;
+  lastViewedAt?: string;
+  showInstructors: boolean;
+  /**
+   * "department" publishes the whole section's timetable to anyone holding the
+   * link. "staff" publishes nothing on its own: the page asks for a civil ID
+   * and returns only that one instructor's own card. Links created before this
+   * field existed are department links.
+   */
+  /**
+   * "survey" is a door for students. It is scoped to ONE section, and that is
+   * load-bearing: sections here are already separated by gender, so the link
+   * decides which cohort is answering and nobody has to guess anything from a
+   * person's name. A boys' survey and a girls' survey are two links.
+   */
+  /**
+   * "request" is a door for ONE instructor, and it is the only kind that both
+   * shows a person their own draft and accepts a change to it. It is issued per
+   * instructor — never per section — because what it opens is that person's
+   * timetable and nobody else's, and the link IS the identity.
+   */
+  /** "students": رمزُ QR للطلبة — جدولُ القسم المعتمد للفصل الجاري دائماً. */
+  kind?: "department" | "staff" | "survey" | "request" | "students";
+  /** صاحبُ الرابط حين يكون `kind === "request"`. لا معنى له في غيره. */
+  AdInstructorId?: number;
+  /**
+   * آخرُ موعدٍ لاستقبال طلبات التعديل من بطاقة الأستاذ (ISO). يحكم الكتابة
+   * وحدها؛ الرابطُ نفسه يبقى صالحاً للقراءة حتى `expiresAt` (نهاية الفصل).
+   */
+  requestsCloseAt?: string;
+  /**
+   * ما يُعرف عن كل أستاذٍ فتح البطاقة أو أُرسلت إليه، مفتاحُه رقمُ الأستاذ.
+   * ‎sent*‎ لحظةُ آخر إرسالٍ من القسم وبصمةُ جدوله عندها («من تغيّر جدولهم»)،
+   * و‎seen*‎ لحظةُ آخر زيارةٍ وبصمتُها («منذ زيارتك الأخيرة»). لا شيء غير ذلك.
+   */
+  marks?: Record<string, ShareLinkInstructorMark>;
+}
+
+export interface ShareLinkInstructorMark {
+  sentAt?: string;
+  sentFingerprint?: string;
+  seenAt?: string;
+  seenFingerprint?: string;
+}
+
+/* ── طلبُ الأستاذ على مسوّدة جدوله ───────────────────────────────────────────
+ *
+ * القسم ينسخ الجدول من فصلٍ ماضٍ ثم يرسله للأساتذة، أو يرسله ثم ينسخ — وكلتا
+ * الحالتين تنتهيان إلى شيءٍ واحد: أستاذٌ يفتح مسوّدةَ جدوله فيقول «أبقِه» أو
+ * «عدّله» أو «احذفه» أو «أضف». وهذا السجلّ هو ما يحمل قولَه وردَّ القسم عليه.
+ *
+ * وهو **ليس مخزناً موازياً للجدول**. لا شيء فيه يظهر في جدولٍ ولا في تقرير
+ * تغييرات. حين يُثبَّت بندٌ منه يُنفَّذ عبر مسار الحفظ نفسه الذي يستعمله
+ * المنسّق بيده، فيُسجَّل في `scheduleComments` و`scheduleVersions` كما يُسجَّل
+ * أيُّ تعديل — والجدولُ يبقى مصدرَ الحقيقة الوحيد.
+ */
+
+/** ما يطلبه الأستاذ في صفٍّ واحد. */
+export type InstructorRequestAction = "keep" | "change" | "delete" | "add";
+
+/** حُكمُ النظام المسبق على البند: يمضي، أو يحتاج استثناءً، أو لا يجوز. */
+export type InstructorRequestVerdictKind = "clear" | "exception" | "conflict";
+
+/** قرارُ القسم على البند. */
+export type InstructorRequestDecisionState = "pending" | "fixed" | "rejected";
+
+/**
+ * أسبابُ الرفض، من قائمةٍ مغلقة.
+ *
+ * الرفضُ الحرّ كان يُنتج جملاً لا تُقارن ولا تُحصى، ويدفع الأستاذَ إلى الهاتف
+ * ليسأل «ليش؟». القائمةُ المغلقةُ تجعل السببَ قابلاً للعدّ عبر الفصول، وتترك
+ * السطرَ الحرَّ لما لا تسعه: تفصيلُ الحالة، لا نوعُها.
+ */
+export type InstructorRequestRejectReason =
+  | "room"            // لا قاعةَ مناسبة
+  | "instructor"      // يتعارض مع أستاذٍ آخر
+  | "regulation"      // مخالفةُ لائحة
+  | "cohort"          // يتقاطع مع مقرّرٍ يشترك طلبتُه
+  | "load"            // النصاب
+  | "department"      // قرارُ قسم
+  | "other";
+
+export interface InstructorRequestSlot {
+  day: "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday";
+  /** أيامُ النمط كلُّها حين يكون البديلُ نقلاً للمحاضرة بأيامها، لا ليومٍ واحد منها. */
+  days?: Array<"fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday">;
+  start: string;
+  end: string;
+}
+
+/** لقطةُ صفٍّ كما تُقرأ، لا كما تُخزَّن — ليُفهم «كان» و«طلب» بلا فكّ رموز. */
+export interface InstructorRequestSnapshot {
+  courseId: number;
+  courseName: string;
+  /** Target teaching location for a new appointment. Existing rows inherit their own scope. */
+  collegeId?: number;
+  collegeName?: string;
+  sectionId?: number;
+  sectionCode: string;
+  days: string;
+  time: string;
+  /** القاعة. تُملأ في «كان» وتبقى فارغةً في «طلب»: الأستاذ لا يختار قاعة. */
+  room?: string;
+}
+
+export interface InstructorRequestReason {
+  source: "regulation" | "instructor" | "room" | "cohort" | "window" | "shape";
+  article?: string;
+  text: string;
+  blocking: boolean;
+}
+
+export interface InstructorRequestItem {
+  /** الصفُّ الأصلي، و`null` في الإضافة. */
+  rowId: number | null;
+  action: InstructorRequestAction;
+  before?: InstructorRequestSnapshot;
+  /** ما طلبه الأستاذ. **لا يحمل قاعةً أبداً.** */
+  after?: InstructorRequestSnapshot;
+  /** اليومُ والبدايةُ كما اختارهما، والنهايةُ محسوبةٌ باللائحة. */
+  slots?: InstructorRequestSlot[];
+  verdict?: InstructorRequestVerdictKind;
+  reasons?: InstructorRequestReason[];
+  /** سببُ الاستثناء حين يطلبه النظام. إلزاميٌّ في `exception` وحده. */
+  excuse?: string;
+  /** القاعاتُ المرشّحة — **للقسم وحده**، ولا تُرسل إلى صفحة الأستاذ. */
+  roomCandidates?: string[];
+  /** تفاصيلُ أولى القاعات الخالية (مبنى وقاعة) — للقسم وحده — يُملأ بها نموذجُ الإضافة السريع. */
+  roomOptions?: Array<{ key: string; room: string; hall: string; buildingId?: string; roomId?: string }>;
+  /** أقربُ الأوقات المتاحة حين يُمنع الطلب. */
+  nearestTimes?: InstructorRequestSlot[];
+  decision?: {
+    state: InstructorRequestDecisionState;
+    reasonCode?: InstructorRequestRejectReason;
+    note?: string;
+    /** بدائلُ يعرضها القسم فيختار الأستاذ منها. */
+    alternatives?: InstructorRequestSlot[];
+    decidedBy?: string;
+    decidedAt?: string;
+    /** الصفُّ الذي أنتجه التثبيت، ليُربط القرارُ بأثره في الجدول. */
+    scheduleId?: number;
+  };
+  /** البديلُ الذي اختاره الأستاذ بعد الرفض. */
+  chosenAlternative?: InstructorRequestSlot;
+  /**
+   * حوارُ البند بعد وصوله القسم: القسمُ يردّ ويقترح أوقاتاً، والأستاذُ يوافق أو
+   * يقترح غيرها، حتى يتّفقا. الحالةُ تُقرأ من `negotiationState` وحدها.
+   */
+  thread?: InstructorRequestMessage[];
+}
+
+export interface InstructorRequestMessage {
+  from: "department" | "instructor";
+  at: string;
+  /** الصفةُ لا الاسم حين يكون من القسم. */
+  by?: string;
+  text?: string;
+  /** أوقاتٌ مقترحة في هذه الرسالة. */
+  slots?: InstructorRequestSlot[];
+  /** موافقةُ الأستاذ على مقترح القسم — والوقتُ الموافَق عليه في `slots[0]`. */
+  accepted?: boolean;
+}
+
+/** حدثٌ في حياة الطلب. الأستاذ يراها كلَّها عن طلبه هو، ولا يرى طلبَ غيره. */
+export type InstructorRequestEventKind =
+  | "link-created" | "link-opened" | "submitted" | "received"
+  | "item-fixed" | "item-rejected" | "alternative-offered" | "alternative-chosen"
+  | "settled" | "schedule-approved"
+  | "department-replied" | "instructor-replied" | "proposal-accepted"
+  | "study-proposal-sent" | "study-proposal-approved" | "study-proposal-changes"
+  | "study-proposal-revised" | "study-proposal-withdrawn" | "study-proposal-committed"
+  | "study-proposal-expired";
+
+export interface InstructorRequestEvent {
+  kind: InstructorRequestEventKind;
+  at: string;
+  /** الصفةُ لا الاسم حين يكون الفاعلُ من القسم: «المنسّق»، «رئيس القسم». */
+  by?: string;
+  itemIndex?: number;
+  detail?: string;
+}
+
+export type InstructorRequestStatus = "sent" | "submitted" | "in-review" | "settled";
+
+export interface InstructorRequest {
+  id: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  AdInstructorId: number;
+  /** رابطُ هذا الأستاذ وحده. هو المعرّفُ والبابُ معاً. */
+  linkId: string;
+  /** أولُ فتحٍ للرابط. غيابُه يعني أنه لم يُفتح، لا أنه لم يصل. */
+  linkOpenedAt?: string;
+  window: { opensAt: string; closesAt: string };
+  /**
+   * من أين جاءت المسوّدة: من جدولٍ منسوخٍ لهذا الفصل، أو من الفصل السابق حين
+   * يُرسل الرابطُ قبل النسخ. الصفحةُ واحدةٌ والمصدرُ يختلف، ويُقال للأستاذ.
+   */
+  source: "draft" | "previous-term";
+  status: InstructorRequestStatus;
+  items: InstructorRequestItem[];
+  timeline: InstructorRequestEvent[];
+  createdAt: string;
+  submittedAt?: string;
+  /**
+   * توقيعُ الأستاذ.
+   *
+   * ضغطةُ «أرسل» وحدَها لا تُثبت شيئاً: الرابطُ يصل في واتساب، ويُعاد توجيهه،
+   * ويُفتح من هاتفٍ ليس هاتفَه. فيُطلب رقمُه المدنيُّ عند الإرسال، ويُطابَق
+   * بسجلّه — وهو الشيءُ الذي لا يعرفه عنه غيرُه.
+   *
+   * ولا يُحفظ الرقمُ نفسُه: بصمتُه تُثبت أنه هو ولا تكشف رقمَه، ورمزٌ قصيرٌ
+   * يُطبع على الورقة فيُطابَق بعد شهرين بورقةٍ في ملفّ.
+   */
+  signature?: InstructorRequestSignature;
+  updatedAt: string;
+}
+
+export interface InstructorRequestSignature {
+  at: string;
+  /** بصمةُ الرقم المدني. تُثبت أنه هو، ولا تكشف رقمَه. */
+  fingerprint: string;
+  /** ستّةُ محارفَ تُطبع وتُطابَق. */
+  verifyCode: string;
+}
+
+export interface SchedulePublication {
+  id: string;
+  scopeKey: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  publishedAt: string;
+  SystemUserId: number;
+  userName: string;
+  draftId?: string;
+}
+
+/**
+ * The department's seconded teaching staff for one term.
+ *
+ * Visiting instructors change every term and belong to the department that
+ * invited them, not to the university's permanent register — so they are kept
+ * per scope and per term, and a new term starts by copying the previous list
+ * rather than typing it again.
+ */
+export interface VisitingRoster {
+  id: string;
+  scopeKey: string;
+  collegeId: number;
+  sectionId: number;
+  termId: number;
+  instructorIds: number[];
+  updatedAt: string;
+}
+
+/** Persistent department-owned directory of visiting instructors.
+ * Unlike VisitingRoster this survives term changes; the roster is only the
+ * subset teaching in one term. The same person may appear in several
+ * departments without being duplicated in the instructor register. */
+export interface DepartmentDelegateDirectory {
+  id: string;
+  scopeKey: string;
+  collegeId: number;
+  sectionId: number;
+  instructorIds: number[];
+  updatedAt: string;
+}
+
+/** Rooms the department has used or deliberately pinned for future use. */
+/** إحصاءُ التسجيل قبل الفصل: عددُ الطلبة لكل مقرر، وما قبله القسم من اقتراح الشعب. */
+export interface RegistrationStats {
+  id: string;
+  /** `${collegeId}:${sectionId}:${termId}` */
+  scopeKey: string;
+  collegeId: number;
+  sectionId: number;
+  termId: number;
+  /** AdCourseId → عدد الطلبة المسجّلين — الإدخال القديم، لم يعد يُكتب من الشاشة ويُحفظ كما هو. */
+  counts: Record<string, number>;
+  /** AdCourseId → «الذين لم يسجلوا» (المتبقي الإجمالي) من كشف عمادة التسجيل (حين remainingSource.column === "unregistered").
+      ما حُفظ بعمودٍ آخر («المقاعد المتبقية» = "seats"، أو بلا وسم): قديمٌ لا يُخلط به. */
+  remaining?: Record<string, number>;
+  /** AdCourseId → «المقاعد المتبقية» من الكشف نفسه: شاغر الشعب المفتوحة (للإنذار المبكر). */
+  vacant?: Record<string, number>;
+  /** من أين جاء المتبقي: الملف ومتى استُورد، وأيّ عمودٍ هو ("unregistered" = الذين لم يسجلوا؛ "seats" قديم). */
+  remainingSource?: { fileName: string; importedAt: string; column?: "unregistered" | "seats" };
+  /** AdCourseId → عدد الشعب الذي قبله القسم (اختياري) */
+  accepted?: Record<string, number>;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+export interface DepartmentRoomDirectory {
+  id: string;
+  scopeKey: string;
+  collegeId: number;
+  sectionId: number;
+  rooms: Array<{ building: string; hall: string }>;
+  updatedAt: string;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   دورة اعتماد الجدول
+   ══════════════════════════════════════════════════════════════════════════
+
+   الجدول في هذا النظام كان حقيقةً واحدة: صفوفٌ محفوظة. وهذه الإضافة تجعل له
+   سيرةً أيضاً — من وقّعه، ومتى أُرسل، وكم مرّة عاد، وعلى أيّ خانةٍ اختلف
+   الطرفان. السيرة تُحفظ بجانب الصفوف ولا تمسّها، فكل ما كان يعمل قبلها يعمل
+   بعدها بلا فرق.                                                            */
+
+/**
+ * حالة القسم في فصلٍ واحد.
+ *
+ * «قيد الإعداد» هي الحالة الضمنية لكل قسم لم يبدأ الدورة بعد — ولذلك لا يُنشأ
+ * سجلّ لها إطلاقاً. أول توقيعٍ هو ما يُنشئ السجل.
+ */
+export type ScheduleApprovalStatus =
+  | "drafting"    // قيد الإعداد
+  | "committee"   // موقّع من لجنة الجدول
+  | "head"        // موقّع من رئيس القسم — جاهز للإرسال
+  | "submitted"   // عند التسجيل
+  | "returned"    // مُرجَع بملاحظات
+  | "accepted";   // معتمد
+
+/** توقيعٌ واحد، مشدودٌ إلى نسخةٍ بعينها من الجدول. */
+export interface ScheduleApprovalSignature {
+  stage: "committee" | "head";
+  SystemUserId: number;
+  userName: string;
+  /** اسم الدور كما يُطبع في الوثيقة: «رئيس لجنة الجدول» أو «رئيس القسم العلمي». */
+  roleLabel: string;
+  at: string;
+  /** النسخة التي وُقّعت. بها يُعرف ما أُضيف بعد التوقيع. */
+  versionId?: string;
+  /** عدد الصفوف لحظة التوقيع — الدليل الرخيص على أن شيئاً أُضيف. */
+  rowCount: number;
+  /**
+   * عدد الملاحظات اللائحية التي كانت ظاهرة وقت التوقيع.
+   *
+   * اللائحة لا تمنع، لكنها لا تُنسى: يُطبع مع التوقيع «وقّع مع علمه بكذا
+   * ملاحظة لائحية»، فيبقى القرار للموقّع وتبقى المسؤولية موثّقة.
+   */
+  regulationNoticeCount?: number;
+  /** رمز تحقّق قصير يُطبع في الوثيقة ويُشتقّ من النسخة الموقّعة. */
+  verifyCode: string;
+}
+
+/** جولةٌ واحدة بين القسم والتسجيل: تبدأ بإرجاع، وتنتهي بإعادة إرسال. */
+export interface ScheduleApprovalRound {
+  number: number;
+  /** من أرسل، ومتى. */
+  submittedAt?: string;
+  submittedBy?: string;
+  /** من أرجع، ومتى، وبكم ملاحظة. */
+  returnedAt?: string;
+  returnedBy?: string;
+  returnedNoteCount?: number;
+  /**
+   * كم صفّاً تحرّك رداً على ملاحظات هذه الجولة.
+   *
+   * يُحسب لحظةَ إعادة الإرسال بمقارنة الجدول بالنسخة التي رآها التسجيل، فيقرأ
+   * الشريطُ الزمني «أُرجعت بأربع ملاحظات، فتحرّك خمسة صفوف» — وهو ما يُقاس به
+   * الردّ: عددُ الملاحظات يقول ما طُلب، وعددُ الصفوف يقول ما فُعل.
+   */
+  changedRowCount?: number;
+  /** من قبِل، ومتى. */
+  acceptedAt?: string;
+  acceptedBy?: string;
+  /** النسخة التي رآها التسجيل في هذه الجولة — أساس المقارنة للجولة التالية. */
+  reviewedVersionId?: string;
+  /** النسخة كما قبِلها التسجيل — ما يراه العميد جدولاً نهائياً حتى يُقبل غيره. */
+  acceptedVersionId?: string;
+  /**
+   * جولةُ تعديلٍ بعد القبول: فتحها أولُ تعديلٍ على جدولٍ مقبول، لا إرسالٌ من
+   * أحد. تتجمّع فيها التعديلات ما دام التسجيل لم يكتب فيها ملاحظة.
+   */
+  amendment?: boolean;
+  /** أساسُ مقارنة جولة التعديل: النسخة التي قُبلت آخر مرّة. */
+  baselineVersionId?: string;
+}
+
+/** حدثٌ واحد في سجلّ الدورة: من فعل ماذا، ومتى، وفي أيّ جولة. */
+export interface ScheduleApprovalEvent {
+  at: string;
+  by: string;
+  role?: string;
+  action: string;
+  round: number;
+  detail?: string;
+}
+
+/**
+ * صفٌّ أُضيف بعد التوقيع وينتظر إقرار رئيس القسم.
+ *
+ * التوقيع مرّة واحدة، وكلُّ تعديلٍ بعده يمرّ — إلا إضافة شعبة أو مقرر، فهي
+ * وحدها ما لم يره رئيس القسم حين وقّع. والإقرار ضغطةٌ واحدة، لا توقيعٌ جديد.
+ */
+export interface ScheduleAdditionPending {
+  scheduleId: number;
+  courseId: number;
+  courseName?: string;
+  sectionCode?: string;
+  addedAt: string;
+  addedBy: string;
+}
+
+/** سجلّ الاعتماد لقسمٍ واحد في فصلٍ واحد. مفتاحه scopeKey نفسه المستعمل في النسخ. */
+export interface ScheduleApproval {
+  id: string;
+  scopeKey: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  status: ScheduleApprovalStatus;
+  signatures: ScheduleApprovalSignature[];
+  rounds: ScheduleApprovalRound[];
+  /** الجولة الجارية. الإرسال الأول هو الجولة ١. */
+  currentRound: number;
+  pendingAdditions: ScheduleAdditionPending[];
+  /** تمديدٌ خاصّ بهذا القسم يتجاوز موعد الفصل، بسببه ومن منحه. */
+  extensionUntil?: string;
+  extensionReason?: string;
+  extensionBy?: string;
+  extensionAt?: string;
+  /** طلبُ تمديدٍ من القسم ينتظر رئيس التسجيل. يُمحى متى مُنح التمديد. */
+  extensionRequest?: { by: string; role?: string; at: string; reason: string; days: number };
+  /** إرجاعُ رئيس القسم للجنة قبل أن يعتمد: من، ومتى، ولماذا. */
+  headReturn?: { by: string; at: string; reason: string };
+  /**
+   * تعديلٌ على جدولٍ معتمد لم تُفتح له جولةُ تعديل لأن حفظ الوثيقة خسر سباق
+   * المراجعة مرّتين. علامةٌ تُحفظ فوق آخر مراجعة، وأوّلُ من يقرأ الوثيقة في
+   * الخادم (قرار، شريط القسم، الوارد، التعديل التالي) يفتح الجولة ويمحوها.
+   */
+  amendmentPending?: { at: string; by: string; role?: string; kind: "add" | "edit" | "delete" };
+  /**
+   * كم إضافةً بعد التوقيع زادت على ما تحفظه القائمة. تُعدّ ولا تُسمّى، وتمنع
+   * الإرسال كما تمنعه المسمّاة حتى يُقرّها رئيس القسم.
+   */
+  pendingAdditionsOverflow?: number;
+  /** رقمُ مراجعة الوثيقة: يزيد مع كل حفظ، ويُرفض الحفظ فوق مراجعةٍ أقدم. */
+  revision?: number;
+  /** سجلُّ ما جرى على الدورة، أحدثُه آخرُه، بسقفٍ ثابت. */
+  events?: ScheduleApprovalEvent[];
+  updatedAt: string;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   المقترح الدراسي — ترتيبٌ كاملٌ لعدة مواد يعدّه القسم للأستاذ
+
+   ليس جدولاً موازياً: المقترحُ مسودةٌ مستقلة عن الجدول الفعلي. لا يُنشأ فيه
+   موعدٌ ولا يُحجز فيه رقمُ شعبة ولا قاعة حتى يوافق الأستاذ ويثبّت القسم، ويمرّ
+   التثبيتُ بالفاحص نفسه الذي يمرّ به كلُّ حفظٍ في الجدول.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export type StudyProposalOpKind = "assign" | "create" | "edit" | "replace";
+
+/** مسودة / مرسَل / وافق الأستاذ على الكل / وافق على بعض / طلب تعديلاً / مسحوب / انتهت صلاحيته / ثُبّت / حلّت نسخةٌ أحدث محلّه. */
+export type StudyProposalStatus =
+  | "draft" | "sent" | "approved" | "partial" | "changes"
+  | "withdrawn" | "expired" | "committed";
+
+export type StudyProposalResponseMode = "independent" | "linked";
+
+export type StudyProposalDayKey = "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday";
+
+/** لقطةٌ من موعدٍ قائمٍ وقت الإعداد: بها يُعرف أنه تغيّر بعد ذلك. */
+export interface StudyProposalRowSnapshot {
+  id: number;
+  rev: number;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdCourseId: number;
+  courseName: string;
+  courseCode: string;
+  SCode: string;
+  AdInstructorId: number;
+  /** اسم صاحب الموعد وقت اللقطة — للعرض فقط. */
+  instructorName?: string;
+  days: StudyProposalDayKey[];
+  fstarttime: string;
+  fendtime: string;
+  AdRoomCode: string;
+  AdRoomHall: string;
+  buildingId?: string;
+  roomId?: string;
+  locationStatus?: ScheduleLocationStatus;
+}
+
+/** الشكل النهائي المطلوب للموعد الداخل إلى جدول الأستاذ. */
+export interface StudyProposalRowSpec {
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdCourseId: number;
+  courseName: string;
+  courseCode: string;
+  SCode: string;
+  days: StudyProposalDayKey[];
+  fstarttime: string;
+  fendtime: string;
+  AdRoomCode: string;
+  AdRoomHall: string;
+  buildingId?: string;
+  roomId?: string;
+  locationStatus?: ScheduleLocationStatus;
+}
+
+export interface StudyProposalOp {
+  id: string;
+  kind: StudyProposalOpKind;
+  /**
+   * assign: الشعبة القائمة (هيئة تدريسية) · edit: موعد الأستاذ الذي يتغيّر ·
+   * replace مع incoming="assign": الشعبة القائمة الداخلة.
+   */
+  source?: StudyProposalRowSnapshot;
+  /** replace: الموعد الذي يخرج من جدول الأستاذ، وما يُفعل به. */
+  out?: { snapshot: StudyProposalRowSnapshot; action: "unassign" | "delete" };
+  /** replace: هل الداخل شعبةٌ قائمة أم جديدة. */
+  incoming?: "assign" | "create";
+  target: StudyProposalRowSpec;
+  note?: string;
+}
+
+export interface StudyProposalDecision {
+  opId: string;
+  decision: "approve" | "changes";
+}
+
+export type StudyProposalChangeReason = "time" | "place" | "days" | "load" | "other";
+
+export interface StudyProposalResponse {
+  id: string;
+  /** النسخةُ التي رُدّ عليها. موافقةُ نسخةٍ قديمة لا تنطبق على أحدث. */
+  version: number;
+  at: string;
+  by: "instructor" | "department";
+  /** من وقّع: يطابق ما في طلب الأستاذ. لا يُخزَّن الرقم المدني. */
+  verifyCode?: string;
+  fingerprint?: string;
+  decisions: StudyProposalDecision[];
+  reason?: StudyProposalChangeReason;
+  note?: string;
+  suggestedStart?: string;
+  suggestedDays?: StudyProposalDayKey[];
+  /** الموادُّ التي طلب فيها تعديلاً (للعرض). */
+  opId?: string;
+}
+
+export interface StudyProposalEvent {
+  kind: "created" | "saved" | "sent" | "approved" | "partial" | "changes" | "revised" | "withdrawn" | "expired" | "committed" | "commit-refused" | "link-shared";
+  at: string;
+  by?: string;
+  version?: number;
+  detail?: string;
+}
+
+export interface StudyProposalVersion {
+  version: number;
+  sentAt: string;
+  sentBy: number;
+  sentByName?: string;
+  message: string;
+  responseMode: StudyProposalResponseMode;
+  expiresAt?: string;
+  ops: StudyProposalOp[];
+  title: string;
+  /** ما رآه الأستاذ من أثرٍ وقت الإرسال (أرقامٌ حسبها النظام). */
+  impact?: StudyProposalImpact;
+}
+
+export interface StudyProposalMetrics {
+  /** عدد الشعب (مقرر + شعبة) في الجدول. */
+  sections: number;
+  /** النصاب بالساعات المعتمدة، أو null حين لا تتوفر ساعات المقررات. */
+  loadUnits: number | null;
+  /** مجموع دقائق التدريس الفعلية. */
+  teachingMinutes: number;
+  /** ساعات الحضور: من أول محاضرة إلى آخر محاضرة في كل يوم، مجموعةً. */
+  presenceMinutes: number;
+  attendanceDays: number;
+  dayKeys: StudyProposalDayKey[];
+  gapMinutes: number;
+  maxGap: number;
+  /** بيانات ناقصة تمنع حساب مؤشرٍ ما. */
+  unknown: Array<"load">;
+}
+
+export interface StudyProposalImpact {
+  before: StudyProposalMetrics;
+  after: StudyProposalMetrics;
+  loadCap: number | null;
+}
+
+export interface StudyProposalCommitResult {
+  at: string;
+  by: number;
+  byName?: string;
+  version: number;
+  results: Array<{
+    opId: string;
+    state: "applied" | "skipped";
+    /** السجلات الناتجة في الجدول الفعلي. */
+    createdRowIds?: number[];
+    updatedRowIds?: number[];
+    deletedRowIds?: number[];
+  }>;
+}
+
+export interface StudyProposal {
+  id: string;
+  AdCollegeId: number;
+  AdSectionId: number;
+  AdTermId: number;
+  AdInstructorId: number;
+  /** طلبُ الأستاذ (الحوار) الذي يخرج منه المقترح، ورابطُه الشخصي. */
+  requestId: string;
+  linkId: string;
+  /** البندُ المرتبط في الحوار إن وُجد. */
+  itemIndex?: number | null;
+  title: string;
+  status: StudyProposalStatus;
+  /** نسخةُ العمل. تزيد حين تتغير تفاصيلُ ما سبق إرسالُه. */
+  version: number;
+  /** آخر نسخةٍ أُرسلت (0 = لم يُرسَل شيء). */
+  sentVersion: number;
+  responseMode: StudyProposalResponseMode;
+  message: string;
+  ops: StudyProposalOp[];
+  /** مدة صلاحية الرد المختارة بالأيام؛ تتحوّل إلى expiresAt عند الإرسال. */
+  expiryDays?: number;
+  expiresAt?: string;
+  versions: StudyProposalVersion[];
+  responses: StudyProposalResponse[];
+  events: StudyProposalEvent[];
+  commit?: StudyProposalCommitResult;
+  createdBy: number;
+  createdByName?: string;
+  createdAt: string;
+  updatedAt: string;
+  /** عدّاد تزامن: كل كتابةٍ تقارنه بما قرأته. */
+  rev: number;
+}
+
+/**
+ * ── الإعلانات والجمهور ───────────────────────────────────────────────────────
+ *
+ * حملةٌ إعلانية = شركةٌ + موقعٌ + صورةٌ (أو صورتان للمقارنة A/B) + تاريخا بدايةٍ ونهاية.
+ * لا أسعار هنا عمداً: الشاشة للتتبع. التواريخ أيامٌ بتوقيت الكويت (YYYY-MM-DD) والنهاية شاملة.
+ */
+export type AdStatus = "draft" | "approved" | "paused";
+export interface AdCampaign {
+  id: string;
+  company: string;
+  /** فئة النشاط: لا تظهر حملتان من فئةٍ واحدة معاً في موقعٍ واحد. */
+  category: string;
+  slot: string;
+  creativeIds: string[];
+  linkUrl: string;
+  /** كودُ خصمٍ خاصٌّ بالشركة يظهر تحت الإعلان ويقيس التحويل عندها. */
+  coupon?: string;
+  startDay: string;
+  endDay: string;
+  status: AdStatus;
+  /** حملةٌ تجريبية مجانية: تُوسَم في تقريرها. */
+  trial?: boolean;
+  /** رمزُ رابط تقرير الشركة (يرى حملته وحدها). */
+  reportToken: string;
+  /** مواسم العرض (utils/adSeasons)؛ فارغ = كل المواسم. */
+  seasons?: string[];
+  /** كلياتٌ مستهدفة: تظهر الحملة في صفحاتٍ تعرف كلية الطالب (الجدول العام وحالة الطلب) لا في «مساري»؛ فارغ = كل الكليات. */
+  colleges?: number[];
+  note?: string;
+  /** بريدُ الشركة (اختياري، يعطيه المالك): لإرسال تقريرها الأسبوعي وتذكير التجديد إن فُعّل البريد. إداريٌّ فقط، لا يظهر في صفحةٍ عامة. */
+  contactEmail?: string;
+  /** آخر ما أُرسل بالبريد: أحدُ الأسبوع الأخير، وآخر تذكيرِ تجديدٍ لتاريخ نهايةٍ معيّن. يمنع التكرار. */
+  mailLog?: { weekly?: string; renewal?: string };
+  createdAt: string;
+  updatedAt: string;
+  approvedAt?: string;
+}
+export interface AdCreative {
+  id: string;
+  campaignId: string;
+  label: string;
+  mime: "image/png" | "image/jpeg" | "image/webp";
+  width: number;
+  height: number;
+  bytes: number;
+  /** رُفعت رغم تحذير فحص الجودة بقرار الإدارة. */
+  qualityOverride?: boolean;
+  /** base64 بلا بادئة data: */
+  data: string;
+  createdAt: string;
+}
+/** عدّادُ يومٍ لإعلانٍ واحد: ظهورٌ مرئي، ومشاهدون فريدون تقريبياً، ونقراتٌ صحيحة، ونقراتٌ مُرشَّحة. */
+export interface AdStatsDay {
+  id: string;
+  campaignId: string;
+  creativeId: string;
+  day: string;
+  impressions: number;
+  uniques: number;
+  clicks: number;
+  filteredClicks: number;
+}
+/** نبضُ الزوار اليومي، مجهولٌ كلياً: أعدادٌ فقط. */
+export interface AudienceDay {
+  id: string;
+  day: string;
+  /** زياراتٌ فريدة تقريبية (متصفحٌ واحد = مرةً في اليوم لكل نوع صفحة). */
+  visits: Record<string, number>;
+  returning: number;
+  fresh: number;
+  mobile: number;
+  desktop: number;
+  installed: number;
+  /** ساعة الكويت "0".."23" → عدد. */
+  hours: Record<string, number>;
+}

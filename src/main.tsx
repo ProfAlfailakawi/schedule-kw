@@ -1,0 +1,383 @@
+import {StrictMode} from "react";
+import {createRoot} from "react-dom/client";
+import App from "./App.tsx";
+import ErrorBoundary from "./components/ErrorBoundary.tsx";
+import EntranceOverture from "./components/EntranceOverture.tsx";
+import {safeStorage} from "./utils/safeStorage";
+import {BUILD_STAMP} from "./generated/buildStamp";
+import {toEnglishDigits} from "./utils/digits";
+import "./index.css";
+/* The journey and print styles, fetched in parallel the instant the app boots
+   but never allowed to block the first paint. A visitor landing directly on
+   the journey page gets them within the same breath — the SPA cannot render
+   anything before this module runs anyway, so the race is unlosable. */
+void import("./styles/deferred.css");
+
+/**
+ * Mobile viewport lock.
+ *
+ * iOS Safari can still honor pinch/double-tap magnification after rotation even
+ * when the viewport meta says user-scalable=no. SCHEDULE is a fixed-scale
+ * workspace, so coarse-pointer devices get one global guard shared by every
+ * route, dialog and internal screen. Ordinary one-finger scrolling and all
+ * existing drag interactions remain untouched.
+ */
+const installMobileViewportLock = () => {
+  const touchDevice = navigator.maxTouchPoints > 0 || window.matchMedia?.("(pointer: coarse)").matches;
+  if (!touchDevice) return;
+
+  const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+  const lockedViewport = "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
+  const reinforceViewport = () => {
+    if (viewport && viewport.content !== lockedViewport) viewport.content = lockedViewport;
+  };
+  reinforceViewport();
+
+  // Safari-specific gesture events are what let landscape pinch zoom escape
+  // the viewport contract on iPhone/iPad.
+  const stopGesture = (event: Event) => event.preventDefault();
+  document.addEventListener("gesturestart", stopGesture, { passive: false });
+  document.addEventListener("gesturechange", stopGesture, { passive: false });
+  document.addEventListener("gestureend", stopGesture, { passive: false });
+  document.addEventListener("touchmove", event => {
+    if (event.touches.length > 1) event.preventDefault();
+  }, { passive: false });
+
+  // Prevent double-tap magnification without interfering with normal taps.
+  let lastTouchEnd = 0;
+  document.addEventListener("touchend", event => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 280) event.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
+
+  // Reassert immediately after device rotation; older WebKit may recalculate
+  // the visual viewport before applying the existing meta tag again.
+  window.addEventListener("orientationchange", () => {
+    reinforceViewport();
+    window.setTimeout(reinforceViewport, 120);
+    window.setTimeout(reinforceViewport, 420);
+  }, { passive: true });
+};
+
+installMobileViewportLock();
+
+// Global safety layer for the existing application. It never changes successful online
+// responses; it only blocks writes while offline and softens unexpected infrastructure
+// errors into a message a scheduling coordinator can act on.
+const nativeFetch=window.fetch.bind(window);
+const normalizePayload=(value:any):any=>{
+  if(typeof value==="string")return toEnglishDigits(value);
+  if(Array.isArray(value))return value.map(normalizePayload);
+  if(value&&typeof value==="object")return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,normalizePayload(v)]));
+  return value;
+};
+
+/**
+ * Arabic-Indic digits are rewritten to ASCII as they are typed, because every
+ * comparison in the product — times, civil IDs, codes — is done on ASCII.
+ *
+ * Rewriting `value` on its own is not enough. React remembers the last value it
+ * saw on each field; assigning `value` updates that memory too, so React would
+ * conclude nothing had changed and never run the field's onChange. The field
+ * would then show the typed text while the component's state stayed empty —
+ * the text looks accepted and is silently lost on save. Restoring React's
+ * memory to the pre-edit value keeps the change visible to React, and the caret
+ * is put back because assigning `value` sends it to the end of the field.
+ */
+const textEntry = (target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement =>
+  target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+
+const setNativeFieldValue = (target: HTMLInputElement | HTMLTextAreaElement, value: string) => {
+  const prototype = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+  if (setter) setter.call(target, value);
+  else target.value = value;
+};
+
+/**
+ * Normalize Arabic/Persian digits before React sees the change.
+ *
+ * `beforeinput` matters for input[type=number]: some browsers reject Arabic
+ * digits before an ordinary `input` event exists. Text fields are also checked
+ * on `input` as a safety net for IME/autofill/paste paths.
+ */
+document.addEventListener("beforeinput", (event) => {
+  if (!textEntry(event.target)) return;
+  const input = event as InputEvent;
+  if (!input.data || toEnglishDigits(input.data) === input.data) return;
+  const target = event.target;
+  const incoming = toEnglishDigits(input.data);
+  const type = target instanceof HTMLInputElement ? target.type : "textarea";
+  if (["date", "time", "datetime-local", "month", "week", "color", "file", "checkbox", "radio", "range"].includes(type)) return;
+  event.preventDefault();
+  const current = target.value;
+  const start = target.selectionStart ?? current.length;
+  const end = target.selectionEnd ?? start;
+  const next = `${current.slice(0, start)}${incoming}${current.slice(end)}`;
+  setNativeFieldValue(target, next);
+  try { target.setSelectionRange(start + incoming.length, start + incoming.length); } catch {}
+  target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: input.inputType || "insertText", data: incoming }));
+}, true);
+
+document.addEventListener("input",(event)=>{
+  if(!textEntry(event.target))return;
+  const target=event.target;
+  // Clear any translated native-validation message as soon as the user edits.
+  if(target.validationMessage) target.setCustomValidity("");
+  const original=target.value;
+  const normalized=toEnglishDigits(original);
+  if(normalized===original)return;
+  const start=target.selectionStart,end=target.selectionEnd;
+  setNativeFieldValue(target, normalized);
+  const tracker=(target as any)._valueTracker;
+  if(tracker&&typeof tracker.setValue==="function")tracker.setValue(original);
+  if(start!==null&&end!==null){
+    try{target.setSelectionRange(start,end)}catch{/* number/date fields reject selection */}
+  }
+},true);
+
+// Browser-native validation bubbles follow the browser language. Keep the
+// native accessibility/focus behaviour, but make every message in this Arabic
+// product Arabic. Manual schedule time fields accept every minute; this also
+// explains any true range/required failure without leaking an English string.
+document.addEventListener("invalid", (event) => {
+  if (!textEntry(event.target)) return;
+  const target = event.target;
+  const v = target.validity;
+  let message = "تحقق من القيمة المدخلة.";
+  if (v.valueMissing) message = "هذا الحقل مطلوب.";
+  else if (v.stepMismatch && target instanceof HTMLInputElement && target.type === "time") message = "يمكن إدخال الوقت بالدقيقة، مثل 12:20.";
+  else if (v.rangeUnderflow) message = `القيمة يجب ألا تقل عن ${target.getAttribute("min") || "الحد الأدنى"}.`;
+  else if (v.rangeOverflow) message = `القيمة يجب ألا تتجاوز ${target.getAttribute("max") || "الحد الأعلى"}.`;
+  else if (v.typeMismatch) message = "صيغة القيمة غير صحيحة.";
+  else if (v.patternMismatch) message = "صيغة القيمة لا تطابق المطلوب.";
+  target.setCustomValidity(message);
+}, true);
+
+const friendlyInfrastructureError=(text:string,status:number)=>{
+  const value=String(text||"").trim();
+  if(!value)return status>=500?"تعذر إكمال العملية بسبب مشكلة مؤقتة في الخادم. قد لا يكون الحفظ قد تم؛ إن كنت تحفظ تغييراً فتأكد من حالته قبل إعادة المحاولة.":"تعذر إكمال العملية. راجع البيانات ثم أعد المحاولة.";
+  // Preserve Arabic validation/business-rule messages returned by the application itself.
+  if(/[\u0600-\u06FF]/.test(value))return value;
+  if(/Failed to fetch|NetworkError|ECONN|ENOTFOUND|ETIMEDOUT|socket|network/i.test(value))return"تعذر الاتصال بالخادم. تحقق من الإنترنت ثم أعد المحاولة. إن كنت تحفظ تغييراً فتأكد من حالته قبل التكرار.";
+  if(/Firebase|Firestore|database|SQL|internal server|stack|TypeError|ReferenceError|SyntaxError/i.test(value)||status>=500)return"تعذر إكمال العملية بسبب مشكلة مؤقتة في الخادم. قد لا يكون الحفظ قد تم؛ إن كنت تحفظ تغييراً فتأكد من حالته (أو من سجل التغييرات) قبل إعادة المحاولة.";
+  if(status===401)return"انتهت جلسة الدخول أو لم تعد صالحة. سجّل الدخول من جديد ثم أعد المحاولة.";
+  if(status===403)return"هذه العملية خارج صلاحيات حسابك أو نطاق قسمك.";
+  if(status===404)return"تعذر العثور على الجزء المطلوب. تأكد من رفع ملفات التحديث كاملة مع الحفاظ على المسارات.";
+  return value;
+};
+
+// Catalogue reads are identical across screens and change only when someone
+// edits them. Holding them briefly in memory removes most of the network wait
+// when moving between the schedule, the query centre and the academic screens.
+const CATALOGUE=/^\/api\/(colleges|sections|terms|instructors|courses|rooms|form-names)(\/|\?|$)/;
+const CATALOGUE_TTL_MS=45_000;
+const catalogueCache=new Map<string,{at:number;body:string;status:number;headers:Headers}>();
+const clearCatalogueCache=()=>catalogueCache.clear();
+
+const customFetch = ((input:RequestInfo|URL,init?:RequestInit)=>{
+  const method=String(init?.method||((typeof Request!=="undefined"&&input instanceof Request)?input.method:"GET")).toUpperCase();
+  const rawUrl=typeof input==="string"?input:input instanceof URL?input.href:input.url;
+  const url=new URL(rawUrl,window.location.origin);
+  const isApi=url.origin===window.location.origin&&url.pathname.startsWith("/api/");
+  const isWrite=!( ["GET","HEAD","OPTIONS"].includes(method) );
+  if(isApi&&isWrite&&!navigator.onLine){
+    return Promise.resolve(new Response(JSON.stringify({error:"أنت الآن دون اتصال. بقيت آخر البيانات المتاحة للقراءة، لكن الحفظ والنشر والتعديل متوقفون لحماية الجدول."}),{status:503,statusText:"Offline write blocked",headers:{"Content-Type":"application/json; charset=utf-8","X-Schedule-Offline":"1"}}));
+  }
+  const cacheKey=isApi&&method==="GET"&&CATALOGUE.test(url.pathname)?url.pathname+url.search:null;
+  if(cacheKey){
+    const hit=catalogueCache.get(cacheKey);
+    if(hit&&Date.now()-hit.at<CATALOGUE_TTL_MS){
+      return Promise.resolve(new Response(hit.body,{status:hit.status,headers:new Headers(hit.headers)}));
+    }
+  }
+  return nativeFetch(input as any,init).then(async response=>{
+    if(!isApi)return response;
+    // Any successful write can invalidate any catalogue read.
+    if(isWrite&&response.ok)clearCatalogueCache();
+    const contentType=response.headers.get("content-type")||"";
+    if(!contentType.includes("application/json"))return response;
+    try{
+      const raw=await response.clone().json();
+      const data=normalizePayload(raw);
+      const headers=new Headers(response.headers);headers.set("Content-Type","application/json; charset=utf-8");headers.set("X-Schedule-English-Digits","1");
+      if(response.ok){
+        const body=JSON.stringify(data);
+        if(cacheKey)catalogueCache.set(cacheKey,{at:Date.now(),body,status:response.status,headers:new Headers(headers)});
+        return new Response(body,{status:response.status,statusText:response.statusText,headers});
+      }
+      if(!data||typeof data.error!=="string")return response;
+      const error=friendlyInfrastructureError(data.error,response.status);
+      headers.set("X-Schedule-Friendly-Error","1");
+      return new Response(JSON.stringify({...data,error}),{status:response.status,statusText:response.statusText,headers});
+    }catch{return response}
+  }).catch((error:unknown)=>{
+    /* A dropped connection rejects with the browser's own English text
+       («Failed to fetch», «Load failed»). Screens print error.message, so it
+       reached users verbatim. Same error type, same cause — Arabic wording. */
+    if(error instanceof TypeError&&/Failed to fetch|Load failed|NetworkError|Network request failed/i.test(String(error.message))){
+      const friendly=new TypeError("تعذر الاتصال بالخادم. تحقق من الإنترنت ثم أعد المحاولة. إن كنت تحفظ تغييراً فتأكد من حالته قبل التكرار.");
+      (friendly as any).cause=error;
+      throw friendly;
+    }
+    throw error;
+  });
+}) as typeof window.fetch;
+
+try {
+  const desc = Object.getOwnPropertyDescriptor(window, "fetch") || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(window), "fetch");
+  if (!desc || desc.configurable !== false) {
+    Object.defineProperty(window, "fetch", {
+      value: customFetch,
+      configurable: true,
+      writable: true,
+      enumerable: true
+    });
+  } else {
+    console.warn("window.fetch is not configurable, skipping override to prevent browser exception.");
+  }
+} catch (e) {
+  console.warn("Could not override window.fetch:", e);
+}
+
+/**
+ * Self-heal after a release.
+ *
+ * The screens are code-split, so an open tab (or a shell held by the service
+ * worker) can still be pointing at the previous build's file names. Those files
+ * are gone the moment a new version is published, and the tab would sit on a
+ * blank page until someone thought to hard-refresh. Instead: drop the caches,
+ * unregister the worker and reload — once. The guard makes a genuinely broken
+ * build fail visibly rather than spin.
+ */
+const RECOVERY_KEY="schedule-chunk-recovery";
+const recoverFromStaleBuild=async()=>{
+  if(safeStorage.get(RECOVERY_KEY,"session"))return;
+  safeStorage.set(RECOVERY_KEY,"1","session");
+  try{
+    if("caches" in window){const keys=await caches.keys();await Promise.all(keys.map(key=>caches.delete(key)))}
+    const registrations=await navigator.serviceWorker?.getRegistrations?.();
+    await Promise.all((registrations||[]).map(registration=>registration.unregister()));
+  }catch{/* a blocked cache API must not stop the reload */}
+  window.location.reload();
+};
+window.addEventListener("vite:preloadError",event=>{event.preventDefault();void recoverFromStaleBuild()});
+window.addEventListener("error",event=>{
+  const message=String((event as ErrorEvent).message||"");
+  if(/Loading chunk|Importing a module script failed|dynamically imported module|Failed to fetch dynamically/i.test(message))void recoverFromStaleBuild();
+});
+// A clean start clears the guard, so the next release can heal itself too.
+window.addEventListener("load",()=>{window.setTimeout(()=>safeStorage.remove(RECOVERY_KEY,"session"),4000)});
+
+const container=document.getElementById("root")!;
+createRoot(container).render(<StrictMode><ErrorBoundary><App/><EntranceOverture/></ErrorBoundary></StrictMode>);
+
+// Tell the document-level boot guard that the screen is alive. It waits for a
+// real paint rather than for render() to return, because React commits later.
+const announceBoot=()=>{
+  if(container.childElementCount>0){(window as any).__scheduleBooted?.();return}
+  requestAnimationFrame(announceBoot);
+};
+requestAnimationFrame(announceBoot);
+
+/*
+ * A tab that was already open when a new version shipped keeps running the old
+ * one until someone happens to reload. Nothing said so, so a fixed bug looked
+ * unfixed and the same ground got tested twice.
+ *
+ * The worker itself already claims its clients; what was missing was telling
+ * the person. A new worker taking over means the code on screen is stale, so
+ * the page reloads once - guarded against the reload loop that a claim on first
+ * install would otherwise cause, and never mid-drag or mid-edit, where a reload
+ * would throw away work in progress.
+ */
+/*
+ * The version beacon: the page asks the server which build it is running.
+ *
+ * The service-worker update path only reaches pages a worker event can reach.
+ * A tab restored from the browser's back-forward cache resumes OLD JavaScript
+ * from memory with no network and no worker event at all — which is exactly
+ * the «أشوف القديم إلا في التخفي» report. pageshow(persisted) fires at that
+ * exact moment; the visibility change covers a tab left open across a deploy;
+ * and the slow interval is the net under both. A mismatch reloads once, never
+ * mid-drag and never over an open dialog.
+ */
+if (import.meta.env.PROD) {
+  let versionReloading = false;
+  const versionBusy = () =>
+    document.documentElement.classList.contains("schedule-physics-active")
+    || Boolean(document.querySelector("dialog[open],[role='dialog'],[aria-busy='true']"));
+  /* Nobody using this program should ever be told to "do a hard refresh" or to
+     "clear the cache". The words mean nothing to a professor between two
+     lectures, and the instruction is really the program asking a person to
+     repair it by hand. So the program repairs itself, in this order:
+     ask the worker to fetch the new release · drop the API cache it filled ·
+     reload once, but never over an open dialog or a drag. And if a tab comes
+     back STILL running the old build, the reload was answered from somewhere
+     stale, so the next step is the hard refresh itself — every cache deleted
+     and the worker unregistered — performed by the program, once, silently. */
+  const UPDATE_ATTEMPT_KEY = "schedule-update-attempt";
+  const primeNewRelease = async () => {
+    try {
+      const registration = await navigator.serviceWorker?.getRegistration?.();
+      await registration?.update().catch(() => undefined);
+      navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_API_CACHE" });
+    } catch { /* no worker on this browser — the reload alone will do */ }
+  };
+  const checkVersion = async () => {
+    if (versionReloading) return;
+    try {
+      const response = await fetch("/api/version", { cache: "no-store" });
+      const data = await response.json();
+      if (!data?.build || data.build === BUILD_STAMP) { safeStorage.remove(UPDATE_ATTEMPT_KEY, "local"); return; }
+      versionReloading = true;
+      /* A tab that already reloaded for THIS release and still runs the old
+         code was served a stale document. Clearing every cache and dropping
+         the worker is exactly what the hand-typed hard refresh does. */
+      if (safeStorage.get(UPDATE_ATTEMPT_KEY, "local") === String(data.build)) {
+        safeStorage.remove(UPDATE_ATTEMPT_KEY, "local");
+        const reset = async () => {
+          if (versionBusy()) { window.setTimeout(() => { void reset(); }, 4000); return; }
+          try {
+            if ("caches" in window) { const keys = await caches.keys(); await Promise.all(keys.map(key => caches.delete(key))); }
+            const registrations = await navigator.serviceWorker?.getRegistrations?.();
+            await Promise.all((registrations || []).map(registration => registration.unregister()));
+          } catch { /* a blocked cache API must not stop the reload */ }
+          window.location.reload();
+        };
+        void reset();
+        return;
+      }
+      safeStorage.set(UPDATE_ATTEMPT_KEY, String(data.build), "local");
+      await primeNewRelease();
+      const reload = () => { if (versionBusy()) { window.setTimeout(reload, 4000); return; } window.location.reload(); };
+      reload();
+    } catch { /* offline — the next check will see */ }
+  };
+  window.addEventListener("pageshow", event => { if ((event as PageTransitionEvent).persisted) void checkVersion(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) void checkVersion(); });
+  window.setInterval(() => { void checkVersion(); }, 120_000);
+}
+
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js").then(registration => {
+      if (!registration) return;
+      window.setInterval(() => { void registration.update().catch(() => undefined); }, 300_000);
+    }).catch(() => undefined);
+  });
+  let refreshing = false;
+  const busy = () =>
+    document.documentElement.classList.contains("schedule-physics-active")
+    || Boolean(document.querySelector("dialog[open],[role='dialog'],[aria-busy='true']"));
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    /* The very first install also fires this, and there is nothing stale to
+       replace on a page that just loaded the current build. */
+    if (refreshing || !navigator.serviceWorker.controller) return;
+    if (performance.now() < 5000) return;
+    refreshing = true;
+    const reload = () => { if (busy()) { window.setTimeout(reload, 4000); return; } window.location.reload(); };
+    reload();
+  });
+}

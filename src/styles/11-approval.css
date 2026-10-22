@@ -1,0 +1,1549 @@
+/* ==========================================================================
+   SCHEDULE — دورة الاعتماد
+   ==========================================================================
+   طبقةٌ واحدة لكل ما تضيفه دورة الاعتماد: الصفة في شاشة المستخدمين، وشريط
+   الموعد، وصندوق وارد التسجيل، والملاحظة على الخانة، والتوقيع.
+
+   قاعدتان تحكمان كل ما يلي:
+
+   الأولى: لا لونَ جديد. كل ما هنا مبنيٌّ على الرموز القائمة — البرتقالي هو
+   ‎--warning‎، والأخضر ‎--success‎، والأحمر ‎--danger‎ — فتعمل الطبقة في
+   الوضعين الفاتح والداكن بلا سطرٍ واحدٍ إضافي، ولا تنشقّ هوية الشاشة.
+
+   والثانية: ما لا يحتاجه الناظر لا يُرسم. لا ظلالَ زائدة، ولا إطاراتٍ حول كل
+   شيء، ولا حركةَ لمجرّد الحركة. الحالةُ تُقال بلونٍ واحدٍ في مكانها الصحيح.
+   ========================================================================== */
+
+/* ── الصفة في شاشة المستخدمين ─────────────────────────────────────────── */
+.role-select{width:100%;min-height:42px}
+.role-college-pills{flex-wrap:wrap;gap:8px}
+.role-scope-note{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 12px;border-radius:var(--r-full);
+  background:var(--accent-softer);color:var(--accent-ink);
+  font-size:.86rem;font-weight:600;
+}
+.role-scope-note svg{inline-size:16px;block-size:16px}
+
+/* ── شريط موعد التسليم ───────────────────────────────────────────────────
+   سطرٌ واحد فوق الجدول. لا بطاقة، ولا أيقونة كبيرة: الموعد رقمٌ يُقرأ مرّة
+   في اليوم ثم يُنسى، فلا يستحقّ أكثر من سطر. ويتلوّن وحده كلما قرب.        */
+.deadline-strip{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:9px 14px;border-radius:var(--r-md);
+  border:1px solid var(--line);background:var(--surface-2);
+  color:var(--ink-2);font-size:.88rem;
+}
+.deadline-strip svg{inline-size:16px;block-size:16px;flex:none;opacity:.75}
+.deadline-strip strong{color:var(--ink);font-weight:700}
+.deadline-strip[data-tone="near"]{
+  border-color:color-mix(in srgb,var(--warning) 32%,transparent);
+  background:var(--warning-soft);color:var(--warning);
+}
+.deadline-strip[data-tone="near"] strong{color:var(--warning)}
+.deadline-strip[data-tone="past"]{
+  border-color:color-mix(in srgb,var(--danger) 32%,transparent);
+  background:var(--danger-soft);color:var(--danger);
+}
+.deadline-strip[data-tone="past"] strong{color:var(--danger)}
+.deadline-strip .deadline-extension{
+  margin-inline-start:auto;font-size:.8rem;font-weight:600;opacity:.9;
+}
+
+/* ── حالة الاعتماد: شارةٌ واحدة تُستعمل في كل مكان ───────────────────── */
+.approval-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:3px 10px;border-radius:var(--r-full);
+  font-size:.78rem;font-weight:700;white-space:nowrap;
+  border:1px solid transparent;
+}
+.approval-chip::before{
+  content:"";inline-size:7px;block-size:7px;border-radius:var(--r-full);
+  background:currentColor;flex:none;
+}
+.approval-chip[data-status="drafting"]{background:var(--surface-3);color:var(--muted);border-color:var(--line)}
+.approval-chip[data-status="committee"],
+.approval-chip[data-status="head"]{background:var(--info-soft);color:var(--info);border-color:color-mix(in srgb,var(--info) 26%,transparent)}
+.approval-chip[data-status="submitted"]{background:var(--accent-softer);color:var(--accent-ink);border-color:color-mix(in srgb,var(--accent) 26%,transparent)}
+.approval-chip[data-status="returned"]{background:var(--warning-soft);color:var(--warning);border-color:color-mix(in srgb,var(--warning) 30%,transparent)}
+.approval-chip[data-status="accepted"]{background:var(--success-soft);color:var(--success);border-color:color-mix(in srgb,var(--success) 28%,transparent)}
+.approval-chip[data-status="late"]{background:var(--danger-soft);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 30%,transparent)}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   شاشة تغييرات الجدول
+   ══════════════════════════════════════════════════════════════════════════
+   ثلاثة قرارات تحكم هذه الشاشة كلها:
+
+   الأول: التقرير قائمةُ بطاقات، لا جدولٌ بأعمدة. لأن ما يُعرض ليس صفوفاً
+   متجانسة — بعضها محذوفٌ بلا «بعد»، وبعضها مضافٌ بلا «قبل»، وبعضها معدّلٌ في
+   خانةٍ واحدة من ست. والجدول يُجبرها كلها على شكلٍ واحد فيُفرغ خمسة أعمدة من
+   ستّة، ويجعل الموظّف يمسح بعينه فراغاً ليجد ما تغيّر.
+
+   والثاني: النوع يُقال بشريطٍ جانبيٍّ ملوّن لا بخلفيةٍ كاملة. البطاقة الملوّنة
+   كلها تصرخ، وعشرون منها في صفحةٍ واحدة تُلغي أثر اللون فلا يبقى فرقٌ بين
+   المحذوف والمعدّل.
+
+   والثالث: القرار في الأسفل، ملتصقاً بأسفل النافذة. لأنه يُضغط بعد القراءة
+   لا قبلها، ولأن الموظّف الذي انتهى من عشرين بطاقةً لا يُطلب منه أن يصعد.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.changes-screen{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+
+/* ── أعداد الوارد ────────────────────────────────────────────────────────
+   أرقامٌ في سطر، لا بطاقاتٌ بظلال. هي سياقٌ يُلمح لا لوحةُ قيادة تُدرس.   */
+.changes-totals{
+  display:flex;flex-wrap:wrap;gap:8px 20px;align-items:baseline;
+  padding-block-end:12px;margin-block-end:4px;
+  border-block-end:1px solid var(--line);
+  color:var(--muted);font-size:.86rem;
+}
+.changes-totals b{
+  font-size:1.35rem;font-weight:700;color:var(--ink);
+  margin-inline-end:5px;font-variant-numeric:tabular-nums;
+}
+.changes-totals [data-tone="late"] b{color:var(--danger)}
+
+.changes-filter{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.86rem;font-weight:600;color:var(--ink-2);cursor:pointer;
+}
+
+/* ── صندوق الوارد ──────────────────────────────────────────────────────── */
+.changes-inbox{display:grid;gap:6px;margin-block-start:12px}
+.changes-inbox-row{
+  /* شبكةٌ لا سطر: طلبُ التمديد سطرٌ ثانٍ تحت القسم، لا عمودٌ ثالث يعصر اسمه. */
+  display:grid;grid-template-columns:4px minmax(0,1fr) auto;grid-template-rows:auto auto;align-items:stretch;gap:0;
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface);overflow:hidden;
+  transition:border-color .16s ease,background .16s ease;
+}
+.changes-inbox-row:hover{border-color:var(--line-strong);background:var(--surface-2)}
+/* الحالة شريطٌ على الحافّة: تُقرأ بالمسح السريع، ولا تُلوّن السطر كله. */
+.changes-inbox-row::before{content:"";inline-size:4px;grid-column:1;grid-row:1 / -1;background:var(--line-strong)}
+.changes-inbox-row[data-status="submitted"]::before{background:var(--accent)}
+.changes-inbox-row[data-status="returned"]::before{background:var(--warning)}
+.changes-inbox-row[data-status="accepted"]::before{background:var(--success)}
+.changes-inbox-row[data-late]::before{background:var(--danger)}
+.changes-inbox-row[data-status="accepted"]{opacity:.62}
+.changes-inbox-row[data-status="accepted"]:hover{opacity:1}
+
+.changes-inbox-open{
+  grid-column:2;grid-row:1;display:flex;align-items:center;gap:14px;
+  padding:13px 16px;border:0;background:transparent;
+  font:inherit;color:inherit;text-align:start;cursor:pointer;min-inline-size:0;
+}
+.changes-inbox-open>svg:last-child{inline-size:16px;block-size:16px;opacity:.35;flex:none}
+.changes-inbox-title{display:grid;gap:2px;min-inline-size:0;flex:1}
+.changes-inbox-title strong{font-size:.97rem;font-weight:700}
+.changes-inbox-title small{color:var(--muted);font-size:.8rem}
+.changes-inbox-state{display:flex;align-items:center;gap:8px;flex:none}
+.changes-inbox-state small{color:var(--muted);font-size:.78rem;white-space:nowrap}
+
+/* ── الدوائر الثلاث ──────────────────────────────────────────────────────
+   العدد داخل الدائرة، لا بجانبها: الموظّف يعرف أين المشكلة وكم هي قبل أن
+   يفتح القسم أصلاً — وهذا ما يوفّر عليه فتح ما لا يحتاج فتحه.            */
+.changes-signals{display:flex;align-items:center;gap:5px;flex:none}
+/* Pills with an icon and a number: the icon names the kind, so colour is a
+   hint, not the only carrier. The tone stays on the icon only. */
+.changes-signals .changes-signal{font-size:.76rem}
+.changes-signals .changes-signal--block svg{color:var(--danger)}
+.changes-signals .changes-signal--note svg{color:var(--warning)}
+.changes-signals .changes-signal--answered svg{color:var(--muted)}
+.changes-signals .changes-signal--pending svg{color:var(--info)}
+.changes-inbox-state .dna-steps{flex:none}
+
+/* زرٌّ حقيقيّ لا خليةٌ رمادية: حدٌّ وأيقونة وهدفُ لمسٍ ≥44px، ومحفوظٌ
+   فوق ما حوله (position/z-index) فلا يبتلع نقرتَه شيءٌ من السطر. */
+.changes-extend{
+  grid-column:3;grid-row:1 / -1;align-self:center;position:relative;z-index:1;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-block-size:44px;min-inline-size:88px;margin-inline:10px;padding:0 14px;
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--ink-2);font:inherit;font-size:.84rem;font-weight:600;cursor:pointer;
+  transition:background .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease);
+}
+.changes-extend svg{inline-size:16px;block-size:16px;flex:none;color:var(--brass)}
+.changes-extend:hover{background:var(--surface-3);border-color:var(--accent);color:var(--ink)}
+.changes-extend:focus-visible{outline:none;box-shadow:var(--ring);border-color:var(--accent)}
+/* طلبٌ ينتظر: الزرّ هو الفعل التالي، فيُرى. */
+.changes-extend[data-pending]{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.changes-extend[data-pending] svg{color:var(--accent)}
+.changes-extend[data-pending]:hover{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent)}
+/* طلبُ القسم: سطرٌ هادئ تحت اسمه، بعلامةٍ لا بلونٍ صارخ. */
+.changes-extension-request{
+  grid-column:2;grid-row:2;justify-self:start;
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  margin:-4px 16px 12px;padding:5px 11px;
+  border-radius:var(--r-full);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent);
+  background:color-mix(in srgb,var(--accent) 6%,transparent);
+  color:var(--ink-2,var(--ink));font-size:.8rem;line-height:1.5;
+}
+.changes-extension-request b{color:var(--accent);font-weight:700}
+.changes-extension-request i{font-style:normal;color:var(--muted)}
+
+/* ── التقرير ───────────────────────────────────────────────────────────── */
+.changes-report{display:grid;gap:14px}
+.changes-back{
+  justify-self:start;display:inline-flex;align-items:center;gap:7px;
+  padding:6px 12px 6px 14px;border:1px solid var(--line);border-radius:var(--r-full);
+  background:var(--surface);color:var(--muted);font:inherit;font-size:.84rem;font-weight:600;cursor:pointer;
+}
+.changes-back:hover{border-color:var(--line-strong);color:var(--ink)}
+.changes-back svg{inline-size:15px;block-size:15px}
+
+.changes-report-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.changes-report-head h2{margin:0;font-size:1.32rem;font-weight:700}
+.changes-report-head p{margin:3px 0 0;color:var(--muted);font-size:.88rem}
+.changes-report-state{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+.changes-summary{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:12px 16px;border-radius:var(--r-md);
+  background:var(--surface-2);border:1px solid var(--line);
+}
+.changes-summary svg{inline-size:17px;block-size:17px;opacity:.6;flex:none}
+.changes-summary strong{font-size:.98rem;font-weight:700}
+.changes-summary small{color:var(--muted);font-size:.83rem;margin-inline-start:auto}
+
+/* ── اللائحة: مطويّة حتى تُطلب ─────────────────────────────────────────── */
+.changes-regulations{
+  border:1px solid color-mix(in srgb,var(--warning) 22%,var(--line));
+  border-inline-start:4px solid var(--warning);
+  border-radius:var(--r-md);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--warning-soft) 72%,var(--surface)),var(--surface));
+}
+.changes-regulations>button{
+  inline-size:100%;display:flex;align-items:center;gap:10px;
+  padding:11px 15px;border:0;background:transparent;font:inherit;color:inherit;text-align:start;cursor:pointer;
+}
+.changes-regulations>button svg{
+  inline-size:18px;block-size:18px;color:var(--warning);flex:none;
+  padding:5px;box-sizing:content-box;border-radius:12px;
+  background:color-mix(in srgb,var(--warning-soft) 72%,var(--surface));
+}
+.changes-regulations>button span{font-weight:700;font-size:.9rem}
+.changes-regulations>button small{
+  color:var(--warning);
+  font-size:.8rem;font-weight:700;margin-inline-start:auto;
+  padding:4px 10px;border-radius:999px;
+  background:color-mix(in srgb,var(--warning-soft) 82%,var(--surface));
+}
+.changes-regulations p{
+  margin:0;padding:0 15px 14px;color:var(--muted);
+  font-size:.86rem;line-height:1.85;border-block-start:1px solid color-mix(in srgb,var(--warning) 18%,var(--line));padding-block-start:12px;
+}
+
+/* ── الجولات السابقة ───────────────────────────────────────────────────── */
+.changes-rounds>button{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:7px 14px;border:1px solid var(--line);border-radius:var(--r-full);
+  background:var(--surface);font:inherit;font-size:.84rem;font-weight:600;color:var(--muted);cursor:pointer;
+}
+.changes-rounds>button:hover{border-color:var(--line-strong);color:var(--ink)}
+.changes-rounds>button svg{inline-size:15px;block-size:15px}
+.changes-rounds>ol{
+  list-style:none;margin:10px 0 0;padding:0;display:grid;gap:10px;
+}
+.changes-rounds>ol>li{
+  display:grid;gap:8px;padding:14px 16px;font-size:.85rem;color:var(--muted);
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+}
+.changes-rounds>ol>li>strong{color:var(--ink);font-size:.9rem}
+.changes-rounds>ol>li[data-current]{border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
+.changes-rounds>ol>li[data-current]>strong{color:var(--accent-ink)}
+.changes-rounds>ol>li>button{
+  justify-self:start;padding:0;border:0;background:transparent;
+  color:var(--accent);font:inherit;font-size:.82rem;font-weight:600;cursor:pointer;text-decoration:underline;
+  text-underline-offset:3px;
+}
+
+/* ── بطاقات التغيير ────────────────────────────────────────────────────── */
+/* ── الصفُّ نفسُه الذي في ورشة الجدول ──────────────────────────────────────
+   لا شكلٌ يشبهه: `agenda-card` بأصنافه، محاطاً بإطارٍ واحدٍ للقائمة بدل
+   إطارٍ لكل بطاقة — فيقرأ الموظّف الصفَّ هنا كما يقرؤه هناك، وما يتحسّن في
+   أحدهما يتحسّن في الآخر. */
+.agenda-list{
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface);overflow:hidden;
+}
+.agenda-list .agenda-card{cursor:default}
+/* النوعُ بشريطٍ جانبيٍّ كما كان: عشرون بطاقةً ملوّنةً تُلغي أثر اللون. */
+.changes-row[data-kind]{position:relative}
+.changes-row[data-kind]::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;inline-size:3px}
+.changes-row[data-kind="added"]::before{background:var(--success)}
+.changes-row[data-kind="removed"]::before{background:var(--danger)}
+.changes-row[data-kind="changed"]::before{background:var(--warning)}
+.changes-row[data-kind="removed"]{background:var(--surface-2)}
+.changes-row[data-kind="removed"] .agenda-core strong{text-decoration:line-through;text-decoration-thickness:1px}
+/* ما تحرّك في الصفّ، وملاحظاتُه: تحته بعرضه كلّه، لا في خانةٍ من خاناته. */
+.changes-row-extra{grid-column:1/-1;display:grid;gap:9px;padding-block-start:2px}
+/* ── وأين وقع التغييرُ بالضبط ──────────────────────────────────────────────
+   قائمةٌ تحت الصفّ تقول «القاعة: من ١٢٠ إلى ١٢٤» تجعل القارئ يقرأ الصفَّ ثم
+   القائمةَ ثم يربط بينهما بعينه — وهو ربطٌ يُخطئ فيه من يراجع عشرين قسماً.
+   فالتغييرُ يُعلَّم في خانته نفسِها، حيث يقرأ القارئُ تلك القيمةَ أصلاً. */
+.changes-moved{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;min-inline-size:0}
+.changes-moved s{color:var(--muted);text-decoration-thickness:1px;opacity:.75;font-weight:500}
+.changes-moved svg{inline-size:12px;block-size:12px;opacity:.45;flex:none}
+.changes-moved b{font-weight:700;color:var(--warning)}
+/* والخانةُ المتحرّكةُ تُلمَّح بخلفيةٍ خفيفة: العينُ تجدها قبل أن تقرأ. */
+.changes-row [data-changed]{
+  border-radius:var(--r-sm);
+  background:var(--warning-soft);
+  padding-inline:6px;padding-block:2px;
+  margin-inline:-6px;
+}
+
+@media (max-width:760px){
+  .agenda-list .agenda-card{grid-template-columns:28px minmax(0,1fr);row-gap:8px}
+  .agenda-list .agenda-time,.agenda-list .agenda-place{grid-column:2}
+}
+
+.changes-table{display:grid;gap:8px}
+.changes-entry{
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface);padding:13px 16px;
+  display:grid;gap:10px;position:relative;overflow:hidden;
+}
+/* النوع بشريطٍ جانبيٍّ لا بخلفيةٍ كاملة: عشرون بطاقةً ملوّنةً تُلغي أثر اللون. */
+.changes-entry::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;inline-size:3px}
+.changes-entry[data-kind="added"]::before{background:var(--success)}
+.changes-entry[data-kind="removed"]::before{background:var(--danger)}
+.changes-entry[data-kind="changed"]::before{background:var(--warning)}
+.changes-entry[data-kind="removed"]{background:var(--surface-2)}
+
+.changes-entry>header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.changes-entry>header strong{font-size:.96rem;font-weight:700}
+.changes-entry>header small{color:var(--muted);font-size:.82rem}
+.changes-kind{
+  padding:2px 9px;border-radius:var(--r-full);
+  font-size:.75rem;font-weight:700;flex:none;
+}
+.changes-entry[data-kind="added"] .changes-kind,.changes-row[data-kind="added"] .changes-kind{background:var(--success-soft);color:var(--success)}
+.changes-entry[data-kind="removed"] .changes-kind,.changes-row[data-kind="removed"] .changes-kind{background:var(--danger-soft);color:var(--danger)}
+.changes-entry[data-kind="changed"] .changes-kind,.changes-row[data-kind="changed"] .changes-kind{background:var(--warning-soft);color:var(--warning)}
+/* و«تحرّك» في الجدول الكامل: الصفُّ نفسُه بلا نوعٍ يُلوَّن به شريطُه. */
+.changes-row .changes-kind{flex:none}
+
+/* ── الخانة المتغيّرة: من ماذا إلى ماذا ────────────────────────────────── */
+.changes-fields{margin:0;display:grid;gap:7px}
+.changes-fields>div{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.changes-fields dt{
+  min-inline-size:88px;flex:none;
+  color:var(--muted);font-size:.83rem;font-weight:600;
+}
+.changes-fields dd{margin:0;display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:.9rem}
+.changes-fields s{color:var(--muted);text-decoration-thickness:1px;opacity:.8}
+.changes-fields svg{inline-size:14px;block-size:14px;opacity:.4;flex:none}
+.changes-fields b{font-weight:700}
+
+/* ── النقر على الخانة ───────────────────────────────────────────────────
+   أزرارٌ بأسماء الخانات نفسها. والموظّف لا يصف أين المشكلة — ينقر عليها. */
+.changes-note-targets{display:flex;flex-wrap:wrap;gap:5px;padding-block-start:3px}
+.changes-note-targets button{
+  padding:4px 11px;border:1px dashed var(--line-strong);border-radius:var(--r-full);
+  background:transparent;color:var(--muted);
+  font:inherit;font-size:.79rem;font-weight:600;cursor:pointer;
+  transition:border-color .14s ease,color .14s ease,background .14s ease;
+}
+.changes-note-targets button:hover{border-style:solid;border-color:var(--warning);color:var(--warning);background:var(--warning-soft)}
+.changes-note-targets [data-state="open"]{border-style:solid;border-color:color-mix(in srgb,var(--warning) 40%,transparent);background:var(--warning-soft);color:var(--warning)}
+.changes-note-targets [data-state="changed"]{border-style:solid;border-color:color-mix(in srgb,var(--success) 36%,transparent);background:var(--success-soft);color:var(--success)}
+.changes-note-targets [data-state="answered"]{border-style:solid;border-color:var(--line-strong);background:var(--surface-3);color:var(--muted)}
+
+/* ── الملاحظات تحت صفّها ───────────────────────────────────────────────── */
+.changes-notes{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.changes-notes li{
+  display:grid;gap:5px;padding:9px 12px;border-radius:var(--r-sm);
+  background:var(--surface-2);border-inline-start:3px solid var(--line-strong);
+}
+.changes-notes [data-state="open"]{border-inline-start-color:var(--warning);background:var(--warning-soft)}
+.changes-notes [data-state="changed"]{border-inline-start-color:var(--success);background:var(--success-soft)}
+.changes-notes [data-state="answered"]{border-inline-start-color:var(--muted-2)}
+.changes-note-field{font-size:.76rem;font-weight:700;color:var(--muted);letter-spacing:.01em}
+.changes-notes p{margin:0;font-size:.88rem;line-height:1.7}
+.changes-notes small{color:var(--muted);font-size:.79rem}
+.changes-notes blockquote{
+  margin:2px 0 0;padding:7px 11px;border-radius:var(--r-xs);
+  background:var(--surface);font-size:.85rem;line-height:1.7;
+}
+.changes-notes blockquote strong{font-weight:700}
+.changes-notes blockquote cite{display:block;margin-block-start:3px;color:var(--muted);font-size:.78rem;font-style:normal}
+.changes-note-actions{display:flex;flex-wrap:wrap;gap:7px}
+.changes-note-actions button{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 11px;border:1px solid var(--line-strong);border-radius:var(--r-full);
+  background:var(--surface);color:var(--ink-2);font:inherit;font-size:.79rem;font-weight:600;cursor:pointer;
+}
+.changes-note-actions button:hover{border-color:var(--accent);color:var(--accent)}
+.changes-note-actions button svg{inline-size:13px;block-size:13px}
+.changes-note-actions button:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── شريط القرار ────────────────────────────────────────────────────────
+   ملتصقٌ بالأسفل: يُضغط بعد القراءة، ومن انتهى من عشرين بطاقةً لا يُطلب
+   منه أن يصعد ليقرّر.                                                    */
+.changes-decision{
+  position:sticky;inset-block-end:0;z-index:2;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:13px 16px;margin-block-start:4px;
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface);box-shadow:var(--shadow-md);
+}
+.changes-decision>span{flex:1;min-inline-size:180px;color:var(--muted);font-size:.85rem}
+.changes-decision .btn{flex:none}
+.changes-decision svg{inline-size:15px;block-size:15px}
+
+/* ── الورقة المنبثقة ───────────────────────────────────────────────────── */
+.changes-extend-sheet{
+  position:fixed;inset:0;z-index:60;
+  display:grid;place-items:center;padding:20px;
+  background:color-mix(in srgb,#0b1210 46%,transparent);
+  backdrop-filter:blur(2px);
+}
+.changes-extend-card{
+  inline-size:min(430px,100%);display:grid;gap:13px;
+  padding:19px;border-radius:var(--r-lg);
+  background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-lg);
+}
+.changes-extend-card header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.changes-extend-card header strong{font-size:1.02rem;font-weight:700}
+.changes-extend-card header button{
+  border:0;background:transparent;padding:5px;border-radius:var(--r-xs);
+  color:var(--muted);cursor:pointer;display:grid;place-items:center;
+}
+.changes-extend-card header button:hover{background:var(--surface-3);color:var(--ink)}
+.changes-extend-card header svg{inline-size:17px;block-size:17px}
+.changes-extend-card label{display:grid;gap:6px}
+.changes-extend-card label>span{font-size:.85rem;font-weight:700}
+.changes-extend-card label>span small{font-weight:500;color:var(--muted);margin-inline-start:5px}
+.changes-extend-card input{
+  min-block-size:40px;padding:8px 11px;font:inherit;
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--ink);
+}
+.changes-extend-card input:focus-visible{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
+.changes-rebut-hint{margin:0;color:var(--muted);font-size:.84rem;line-height:1.75}
+.changes-extend-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+
+/* ── الشاشات الضيّقة ────────────────────────────────────────────────────
+   لا تخطيطَ ثانٍ يُصان مرّتين: ما يضيق يلتفّ، والقرار يبقى في مكانه.    */
+@media (max-width:640px){
+  .changes-inbox-open{flex-wrap:wrap;gap:8px 12px}
+  .changes-inbox-title{flex:1 1 100%}
+  /* the stepper, ring and status chip wrap inside their column instead of running under the extend button */
+  .changes-inbox-state{flex:1 1 100%;flex-wrap:wrap;min-width:0}
+  .changes-inbox-open>svg:last-child{display:none}
+  .changes-fields dt{min-inline-size:0}
+  .changes-fields>div{gap:4px 10px}
+  .changes-decision{flex-direction:column;align-items:stretch}
+  .changes-decision .btn{inline-size:100%;justify-content:center}
+  .changes-totals{gap:6px 14px;font-size:.82rem}
+  .changes-totals b{font-size:1.15rem}
+}
+
+/* ── الطباعة ────────────────────────────────────────────────────────────
+   التقرير يُطبع ويُرفق بالورق. فيسقط منه كل ما لا يُضغط على الورق.      */
+@media print{
+  .changes-back,.changes-note-targets,.changes-note-actions,
+  .changes-decision,.changes-extend,.changes-filter,.changes-extend-sheet{display:none !important}
+  .changes-entry{break-inside:avoid;border-color:#999;box-shadow:none}
+  .changes-rounds>ol{display:grid !important}
+}
+
+/* ── اختيار الفصل وموعده ────────────────────────────────────────────────
+   الموعد حقلٌ واحد في الشاشة التي يفتحها رئيس التسجيل كل يوم، لا إعدادٌ
+   يُبحث عنه. والزرّ لا يظهر إلا إذا تغيّرت القيمة — فلا يُدعى أحدٌ إلى
+   حفظ ما لم يُعدَّل.                                                      */
+.changes-term-picker{display:inline-flex;align-items:center;gap:8px}
+.changes-term-picker>span{color:var(--muted);font-size:.84rem;font-weight:600}
+/* The title actions were a plain block: the term label touched the department-schedule button and sat on a different line-box. */
+.changes-title-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.changes-term-picker select{
+  min-block-size:38px;padding:6px 11px;font:inherit;
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--ink);
+  -webkit-appearance:none;appearance:none;cursor:pointer;
+  padding-inline-end:32px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6660' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:left 11px center;
+  transition:border-color .16s,box-shadow .16s;
+}
+.changes-term-picker select:hover{border-color:var(--accent)}
+.changes-term-picker select:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+@media (prefers-reduced-motion:reduce){.changes-term-picker select{transition:none}}
+/* ── سطر الإضافات المنتظِرة، ولوحة توقيع رئيس القسم ────────────────────
+   سطرٌ واحد فوق الجدول، وزرٌّ واحد. ولا يظهر أيٌّ منهما إلا حين يكون
+   مطلوباً فعلاً — فرئيس القسم الذي لا ينتظره شيء لا يرى شيئاً.          */
+.approval-bar{
+  --apb-tone:var(--accent);
+  position:relative;
+  display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;
+  padding:10px 14px;border-radius:var(--r-lg);
+  border:1px solid var(--line);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--apb-tone) 6%,var(--surface)),var(--surface) 62%);
+  box-shadow:0 14px 36px -32px color-mix(in srgb,var(--apb-tone) 70%,transparent);
+}
+.approval-bar[data-tone="pending"]{--apb-tone:var(--info);border-color:color-mix(in srgb,var(--info) 26%,var(--line))}
+.approval-bar[data-tone="returned"]{--apb-tone:var(--warning);border-color:color-mix(in srgb,var(--warning) 30%,var(--line))}
+.approval-bar[data-tone="locked"]{--apb-tone:var(--accent);border-color:color-mix(in srgb,var(--accent) 26%,var(--line))}
+.approval-bar .btn{flex:none}
+
+/* الشارة القديمة في الشريط (العدّ التنازلي) صارت حلقة؛ القاعدة تبقى لشارات
+   الحال في ميزان الأقسام وشاشة التغييرات. */
+.approval-chip{
+  display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:var(--r-full);
+  font-size:.78rem;font-weight:600;color:var(--muted);
+  background:color-mix(in srgb,var(--surface) 70%,transparent);border:1px solid var(--line);
+}
+.approval-chip svg{inline-size:13px;block-size:13px;flex:none}
+.approval-chip[data-past]{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 30%,transparent)}
+
+/* ── التلميح: بالمرور، وبالتركيز، وبالنقر (الهاتف) ─────────────────────── */
+.apb-tip{position:relative;display:inline-flex;flex:none}
+.apb-tip-target{
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:help;border-radius:var(--r-full);
+}
+.apb-tip-target:focus-visible,.apb-icon-btn:focus-visible,.approval-bar .apb-primary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;box-shadow:var(--ring)}
+.apb-pop{
+  position:absolute;z-index:60;inset-block-start:calc(100% + 9px);left:50%;
+  transform:translate(-50%,-3px);
+  display:grid;gap:3px;inline-size:max-content;max-inline-size:min(320px,78vw);
+  padding:9px 12px;border-radius:var(--r-sm);
+  background:var(--ink);color:var(--surface);
+  font-size:.8rem;font-weight:500;line-height:1.65;text-align:start;white-space:normal;
+  box-shadow:0 16px 38px -18px rgba(0,0,0,.45);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .14s ease,transform .14s ease,visibility 0s linear .14s;
+}
+.apb-pop::before{
+  content:"";position:absolute;inset-block-start:-5px;left:calc(50% - 5px);
+  inline-size:10px;block-size:10px;background:inherit;transform:rotate(45deg);border-radius:2px;
+}
+.apb-tip[data-align="start"] .apb-pop{left:auto;inset-inline-start:0;transform:translateY(-3px)}
+.apb-tip[data-align="start"] .apb-pop::before{left:auto;inset-inline-start:13px}
+.apb-tip[data-align="end"] .apb-pop{left:auto;inset-inline-end:0;transform:translateY(-3px)}
+.apb-tip[data-align="end"] .apb-pop::before{left:auto;inset-inline-end:13px}
+.apb-tip:hover .apb-pop,.apb-tip:focus-within .apb-pop,.apb-tip[data-open] .apb-pop{
+  opacity:1;visibility:visible;transform:translate(-50%,0);transition-delay:0s;
+}
+.apb-tip[data-align]:hover .apb-pop,.apb-tip[data-align]:focus-within .apb-pop,.apb-tip[data-align][data-open] .apb-pop{transform:none}
+/* تلميحُ زرّ الفعل لا يتعلّق بالتركيز وحده بعد النقر: يكفي المرور. */
+.apb-tip:has(.apb-icon-btn:not(:focus-visible)):not(:hover) .apb-pop{opacity:0;visibility:hidden}
+.apb-tip[data-open] .apb-pop{pointer-events:auto}
+
+/* ── أيقونة الحال والعنوان ────────────────────────────────────────────── */
+.apb-status{
+  inline-size:36px;block-size:36px;border-radius:12px;
+  background:color-mix(in srgb,var(--apb-tone) 13%,var(--surface));
+  color:var(--apb-tone);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--apb-tone) 22%,transparent);
+}
+.apb-status svg{inline-size:19px;block-size:19px}
+.apb-headline{font-size:.94rem;font-weight:750;color:var(--ink);line-height:1.4;min-inline-size:0}
+
+/* ── الحلية المرئية: مرقاة، حلقة، شارات ────────────────────────────────── */
+.apb-visuals{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.apb-visuals:empty{display:none}
+
+.apb-steps{
+  --node:22px;
+  position:relative;margin:0;padding:0;list-style:none;
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+}
+.apb-steps[data-size="sm"]{inline-size:118px;padding-block-start:7px}
+.apb-steps[data-size="lg"]{--node:44px;inline-size:min(100%,460px);padding-block-start:22px}
+.apb-steps li{position:relative;display:grid;justify-items:center;gap:6px;min-inline-size:0}
+/* الخيط بين كل عقدةٍ والتي قبلها: من مركزها إلى مركز سابقتها — في الاتجاهين. */
+.apb-steps li+li::before{
+  content:"";position:absolute;z-index:0;
+  inset-block-start:calc(var(--node) / 2 - 1px);inset-inline-start:-50%;
+  inline-size:100%;block-size:2px;border-radius:2px;
+  background:var(--line-strong);
+}
+.apb-steps li[data-reached]+li[data-reached]::before,
+.apb-steps li[data-state="done"]+li::before{background:var(--accent)}
+.apb-steps li[data-state="returned"]::before{background:repeating-linear-gradient(90deg,var(--warning) 0 4px,transparent 4px 7px)}
+.apb-node{
+  position:relative;z-index:1;
+  inline-size:var(--node);block-size:var(--node);border-radius:50%;
+  display:grid;place-items:center;
+  background:var(--surface);color:var(--muted-2);
+  border:1.5px solid var(--line-strong);
+}
+.apb-steps[data-size="sm"] .apb-node svg{inline-size:11px;block-size:11px;stroke-width:2.2}
+.apb-steps[data-size="lg"] .apb-node svg{inline-size:20px;block-size:20px}
+.apb-steps li[data-state="done"] .apb-node{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}
+.apb-steps li[data-state="current"] .apb-node,
+.apb-steps li[data-turn] .apb-node{border-color:var(--apb-tone);color:var(--apb-tone);background:color-mix(in srgb,var(--apb-tone) 10%,var(--surface))}
+.apb-steps li[data-state="returned"] .apb-node{border-color:var(--warning);color:var(--warning);background:var(--warning-soft)}
+.apb-steps li[data-state="pending"] .apb-node{border-color:var(--info);color:var(--info);background:var(--info-soft)}
+/* دورُ هذه المرحلة: هالةٌ واحدة عند ظهورها أو انتقال الدور إليها، ثم حلقةٌ ساكنة — لا نبضَ دائماً. */
+.apb-steps li[data-turn] .apb-node,.apb-steps li[data-turn] .apb-stamp{animation:apb-pulse 1.8s var(--ease-out) 1}
+@keyframes apb-pulse{
+  0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--apb-tone) 42%,transparent)}
+  70%{box-shadow:0 0 0 7px color-mix(in srgb,var(--apb-tone) 0%,transparent)}
+  100%{box-shadow:0 0 0 0 transparent}
+}
+.apb-step-label{font-size:.76rem;font-weight:650;color:var(--muted);text-align:center;line-height:1.3}
+.apb-steps li[data-state="done"] .apb-step-label,.apb-steps li[data-turn] .apb-step-label{color:var(--ink)}
+.apb-node-badge{
+  position:absolute;z-index:2;inset-block-start:-7px;inset-inline-end:calc(50% - var(--node) / 2 - 10px);
+  min-inline-size:18px;padding:0 5px;border-radius:var(--r-full);
+  font-size:.64rem;font-weight:800;line-height:15px;text-align:center;font-variant-numeric:tabular-nums;
+  background:var(--surface);color:var(--ink-2);border:1px solid var(--line-strong);
+}
+.apb-steps[data-size="sm"] .apb-node-badge{display:none}
+.apb-node-badge[data-tone="info"]{background:var(--info);border-color:var(--info);color:#fff}
+
+/* قوسُ الإرجاع: من العقدة التي أرجعت إلى اللجنة، فوق الخيط. */
+.apb-return{
+  position:absolute;z-index:0;inset-block-start:0;inset-inline-start:12.5%;
+  block-size:calc(var(--node) / 2 + 6px);
+  border:1.5px dashed var(--warning);border-block-end:0;border-radius:14px 14px 0 0;
+}
+.apb-steps[data-size="sm"] .apb-return{block-size:calc(var(--node) / 2 + 5px);border-radius:8px 8px 0 0}
+.apb-return[data-from="1"]{inline-size:25%}
+.apb-return[data-from="2"]{inline-size:50%}
+.apb-return::after{
+  content:"";position:absolute;inset-inline-start:-4.5px;inset-block-end:-1px;
+  border:4px solid transparent;border-block-start:6px solid var(--warning);border-block-end:0;
+}
+.apb-steps[data-size="lg"] .apb-return{inset-block-start:4px;block-size:calc(var(--node) / 2 + 14px)}
+.apb-return svg{
+  position:absolute;inset-block-start:-9px;left:50%;transform:translateX(-50%);
+  inline-size:16px;block-size:16px;padding:1px;border-radius:50%;
+  background:var(--surface);color:var(--warning);
+}
+
+.apb-steps-tip{padding:2px 4px;border-radius:var(--r-sm)}
+
+/* الختمُ: دائرةٌ مزدوجة الحافّة بحرفَي الاسم، وعلامةُ صحّةٍ صغيرة. */
+.apb-stamp{
+  position:relative;z-index:1;
+  inline-size:var(--node);block-size:var(--node);border-radius:50%;
+  background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--accent) 14%,var(--surface)),var(--surface) 72%);
+  color:var(--accent-ink);
+  border:2px solid var(--accent);
+  box-shadow:inset 0 0 0 3px var(--surface),inset 0 0 0 4px color-mix(in srgb,var(--accent) 45%,transparent);
+  transform:rotate(-8deg);
+}
+.apb-stamp-initials{font-size:.92rem;font-weight:800;letter-spacing:.02em;transform:rotate(8deg)}
+.apb-stamp-check{
+  position:absolute;inset-block-end:-3px;inset-inline-end:-3px;
+  inline-size:17px;block-size:17px;border-radius:50%;display:grid;place-items:center;
+  background:var(--accent);color:var(--accent-contrast);border:2px solid var(--surface);transform:rotate(8deg);
+}
+.apb-stamp-check svg{inline-size:10px;block-size:10px;stroke-width:3}
+
+/* حلقةُ الموعد: الأيامُ الباقية رقماً في وسطها، ولونُها قربُها. */
+.apb-ring{--ring-tone:var(--success);position:relative;inline-size:36px;block-size:36px;flex:none}
+.apb-ring[data-size="lg"]{inline-size:58px;block-size:58px}
+.apb-ring[data-tone="near"]{--ring-tone:var(--warning)}
+.apb-ring[data-tone="past"]{--ring-tone:var(--danger)}
+.apb-ring>svg{position:absolute;inset:0;inline-size:100%;block-size:100%;transform:rotate(-90deg)}
+.apb-ring>svg circle{fill:none;stroke-width:3.4;stroke-linecap:round}
+.apb-ring-track{stroke:color-mix(in srgb,var(--ring-tone) 16%,var(--line))}
+.apb-ring-value{stroke:var(--ring-tone);transition:stroke-dasharray .8s var(--ease-out)}
+.apb-ring-core{position:relative;display:grid;place-items:center;line-height:1;color:var(--ring-tone)}
+.apb-ring-core b{font-size:.86rem;font-weight:800;font-variant-numeric:tabular-nums}
+.apb-ring[data-size="lg"] .apb-ring-core b{font-size:1.18rem}
+.apb-ring-core small{font-size:.6rem;font-weight:650;color:var(--muted);margin-block-start:2px}
+.apb-ring-core svg{inline-size:15px;block-size:15px}
+.apb-ring-badge{
+  position:absolute;inset-block-start:-3px;inset-inline-end:-4px;
+  inline-size:16px;block-size:16px;border-radius:50%;display:grid;place-items:center;
+  border:2px solid var(--surface);color:#fff;background:var(--info);
+}
+.apb-ring-badge[data-tone="warning"]{background:var(--warning)}
+.apb-ring-badge[data-tone="danger"]{background:var(--danger)}
+.apb-ring-badge svg{inline-size:9px;block-size:9px;stroke-width:3}
+
+/* الشارات: أيقونةٌ وعدد. */
+.apb-badge{
+  --badge-tone:var(--muted);
+  min-block-size:28px;padding:0 9px;border-radius:var(--r-full);
+  font-size:.8rem;font-weight:750;font-variant-numeric:tabular-nums;
+  color:var(--badge-tone);
+  background:color-mix(in srgb,var(--badge-tone) 11%,var(--surface));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--badge-tone) 26%,transparent);
+}
+.apb-badge[data-tone="info"]{--badge-tone:var(--info)}
+.apb-badge[data-tone="warning"]{--badge-tone:var(--warning)}
+.apb-badge[data-tone="danger"]{--badge-tone:var(--danger)}
+.apb-badge svg{inline-size:15px;block-size:15px}
+
+/* ── الأفعال ─────────────────────────────────────────────────────────── */
+.approval-sign{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-inline-start:auto}
+.apb-icon-btn{
+  position:relative;inline-size:36px;block-size:36px;border-radius:12px;
+  display:grid;place-items:center;padding:0;cursor:pointer;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink-2);
+  transition:background-color .15s ease,border-color .15s ease,color .15s ease;
+}
+.apb-icon-btn svg{inline-size:17px;block-size:17px}
+.apb-icon-btn:hover:not(:disabled){background:color-mix(in srgb,var(--apb-tone) 8%,var(--surface));border-color:color-mix(in srgb,var(--apb-tone) 30%,var(--line));color:var(--ink)}
+.apb-icon-btn:disabled{opacity:.5;cursor:not-allowed}
+.apb-icon-btn[aria-expanded="true"],.apb-icon-btn[data-active]{background:color-mix(in srgb,var(--apb-tone) 12%,var(--surface));border-color:color-mix(in srgb,var(--apb-tone) 36%,var(--line));color:var(--apb-tone)}
+.apb-expand{border-color:transparent;background:transparent}
+.apb-expand svg{transition:transform .18s ease}
+.apb-expand[aria-expanded="true"]{background:transparent;border-color:transparent}
+.apb-expand[aria-expanded="true"] svg{transform:rotate(180deg)}
+.apb-count{
+  position:absolute;inset-block-start:-6px;inset-inline-end:-6px;
+  min-inline-size:18px;block-size:18px;padding:0 4px;border-radius:var(--r-full);
+  display:grid;place-items:center;font-size:.66rem;font-weight:800;font-variant-numeric:tabular-nums;
+  background:var(--warning);color:#fff;border:2px solid var(--surface);
+}
+.approval-bar .apb-primary{min-block-size:36px;padding-inline:14px;gap:7px;border-radius:12px}
+.apb-count-inline{
+  min-inline-size:20px;padding:0 6px;border-radius:var(--r-full);
+  font-size:.75rem;font-weight:800;line-height:18px;text-align:center;font-variant-numeric:tabular-nums;
+  background:color-mix(in srgb,var(--accent-contrast) 24%,transparent);
+}
+
+/* ── التفاصيل: المرقاة بأختامها، وما كتبه إنسانٌ بنصّه ─────────────────── */
+.apb-expanded{
+  flex:1 1 100%;display:grid;gap:12px;
+  padding-block-start:12px;border-block-start:1px dashed color-mix(in srgb,var(--apb-tone) 26%,var(--line));
+}
+.apb-data-readiness{display:grid;gap:10px;padding:12px 14px;border-radius:16px;background:var(--warning-soft);color:var(--ink)}
+.apb-data-readiness[data-ready]{background:var(--success-soft,#e2f0e8)}
+.apb-data-readiness>header{display:flex;align-items:center;gap:10px}
+.apb-dr-ic{inline-size:30px;block-size:30px;border-radius:10px;display:grid;place-items:center;background:color-mix(in srgb,var(--warning) 18%,transparent);color:var(--warning);flex:none}
+.apb-data-readiness[data-ready] .apb-dr-ic{background:color-mix(in srgb,var(--success,#25684a) 16%,transparent);color:var(--success,#25684a)}
+.apb-dr-ic svg{inline-size:16px;block-size:16px}
+.apb-data-readiness>header strong{font-size:.9rem;flex:1}
+.apb-dr-link{border:0;background:none;color:var(--accent-ink,var(--accent));font:inherit;font-size:.8rem;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:4px}
+.apb-dr-chips{display:flex;flex-wrap:wrap;gap:6px}
+.apb-dr-chips span{display:inline-flex;align-items:baseline;gap:6px;padding:4px 10px;border-radius:99px;background:var(--surface);border:1px solid var(--line);font-size:.8rem}
+.apb-dr-chips small{color:var(--muted)}
+.apb-room-capacities{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px}
+.apb-room{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.apb-room[data-missing]{border-color:color-mix(in srgb,var(--warning) 45%,var(--line))}
+.apb-room-ic{inline-size:34px;block-size:34px;border-radius:11px;display:grid;place-items:center;background:var(--surface-2,#f1f0eb);color:var(--muted)}
+.apb-room-ic svg{inline-size:17px;block-size:17px}
+.apb-room-name{display:grid;gap:0;min-inline-size:0}
+.apb-room-name b{font-size:.9rem}.apb-room-name small{font-size:.74rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apb-room label{display:inline-flex;align-items:center;gap:6px;padding-inline:9px;border:1.5px solid var(--line);border-radius:11px;background:var(--surface);color:var(--muted)}
+.apb-room label:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent)}
+.apb-room label svg{inline-size:15px;block-size:15px;flex:none}
+.apb-room input{inline-size:58px;min-block-size:36px;border:0;background:transparent;font:inherit;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink);padding:0;outline:none;text-align:center}
+.apb-room-save{inline-size:38px;block-size:38px;border:0;border-radius:12px;display:grid;place-items:center;background:var(--accent);color:var(--on-accent,#fff);cursor:pointer}
+.apb-room-save:disabled{background:var(--surface-2,#e9e8e3);color:var(--muted);cursor:default}
+.apb-room-save svg{inline-size:18px;block-size:18px}
+.apb-expanded-row{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.apb-quote{
+  display:flex;align-items:flex-start;gap:8px;margin:0;
+  padding:8px 12px;border-radius:var(--r-sm);
+  background:var(--warning-soft);color:var(--ink);font-size:.86rem;line-height:1.7;
+  border-inline-start:3px solid var(--warning);
+}
+.apb-quote svg{inline-size:15px;block-size:15px;color:var(--warning);margin-block-start:4px;flex:none}
+.apb-quote small{color:var(--muted);font-size:.78rem}
+.apb-additions{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.apb-additions li{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--r-full);
+  font-size:.78rem;font-weight:600;color:var(--info);background:var(--info-soft);
+}
+.apb-additions svg{inline-size:13px;block-size:13px}
+
+.approval-sheet{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
+.approval-sheet label{display:grid;gap:4px;flex:1 1 220px;font-size:.84rem;color:var(--muted)}
+.approval-sheet input{
+  min-block-size:38px;padding:7px 10px;font:inherit;color:var(--ink);
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface);
+}
+.approval-sheet input:focus-visible{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
+.approval-sheet-actions{display:flex;gap:8px}
+
+/* السجلّ: خطٌّ زمنيّ بنقاطٍ ملوّنة بنوع الفعل. */
+.approval-history{
+  flex:1 1 100%;margin:0;padding:10px 0 0;list-style:none;display:grid;gap:0;
+  border-block-start:1px solid var(--line);max-block-size:280px;overflow:auto;
+}
+.approval-history li{
+  --event-tone:var(--muted);
+  position:relative;display:grid;grid-template-columns:26px max-content 1fr;align-items:center;column-gap:10px;
+  padding-block:5px;font-size:.82rem;color:var(--muted);
+}
+.approval-history li+li::before{
+  content:"";position:absolute;inset-inline-start:12px;inset-block-start:-9px;
+  inline-size:2px;block-size:18px;background:var(--line);
+}
+.approval-history li[data-kind="accent"]{--event-tone:var(--accent)}
+.approval-history li[data-kind="success"]{--event-tone:var(--success)}
+.approval-history li[data-kind="info"]{--event-tone:var(--info)}
+.approval-history li[data-kind="warning"]{--event-tone:var(--warning)}
+.approval-history li[data-kind="danger"]{--event-tone:var(--danger)}
+.apb-event-dot{
+  position:relative;z-index:1;grid-row:span 2;
+  inline-size:26px;block-size:26px;border-radius:50%;display:grid;place-items:center;
+  color:var(--event-tone);background:color-mix(in srgb,var(--event-tone) 12%,var(--surface));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--event-tone) 28%,transparent);
+}
+.apb-event-dot svg{inline-size:13px;block-size:13px}
+.approval-history strong{color:var(--ink);font-weight:650}
+.approval-history time{font-size:.76rem;font-variant-numeric:tabular-nums}
+.apb-event-who{grid-column:2 / -1;font-size:.76rem;color:var(--muted-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+@media (prefers-reduced-motion:reduce){
+  .apb-steps li[data-turn] .apb-node,.apb-steps li[data-turn] .apb-stamp,
+  .apb-expanded[data-reveal] .apb-steps li+li::before,
+  .apb-expanded[data-reveal] .apb-steps li .apb-node,
+  .apb-expanded[data-reveal] .apb-steps li .apb-stamp{animation:none}
+  .apb-pop,.apb-ring-value,.apb-expand svg{transition:none}
+}
+
+/* الهاتف: المرقاة أيقوناتٌ بلا تسميات، والتلميحُ ورقةٌ في أسفل الشاشة. */
+@media (max-width:640px){
+  .approval-bar{gap:8px 10px;padding:10px 12px}
+  .apb-headline{flex:1 1 0}
+  .apb-visuals{order:3;flex:1 1 100%}
+  .approval-sign{order:4;flex:1 1 100%;margin-inline-start:0}
+  .approval-sign .apb-primary{flex:1 1 auto;justify-content:center}
+  .approval-sign .apb-tip:has(.apb-expand){order:-1;position:absolute;inset-block-start:10px;inset-inline-end:10px}
+  .approval-bar{padding-inline-end:52px}
+  .apb-step-label{display:none}
+  .apb-steps[data-size="lg"]{--node:38px;inline-size:100%}
+  .apb-pop,.apb-tip[data-align] .apb-pop{
+    position:fixed;left:16px;right:16px;inset-block-start:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px));inset-inline:16px;
+    inline-size:auto;max-inline-size:none;transform:translateY(6px);
+    padding:12px 14px;font-size:.86rem;border-radius:var(--r-md);
+  }
+  .apb-pop::before{display:none}
+  .apb-tip:hover .apb-pop,.apb-tip:focus-within .apb-pop,.apb-tip[data-open] .apb-pop,
+  .apb-tip[data-align]:hover .apb-pop,.apb-tip[data-align][data-open] .apb-pop{transform:none}
+  /* على اللمس لا يُعتمد على «المرور»: التلميح يُفتح بالنقر وحده. */
+  .apb-tip:not([data-open]) .apb-pop{opacity:0;visibility:hidden}
+}
+
+@media print{
+  .changes-term-picker,.sd-panel{display:none !important}
+}
+
+/* ── عمود الاعتماد في ميزان الأقسام ────────────────────────────────────
+   إضافة العميد كلها: عمودٌ واحد في جدولٍ يقرؤه أصلاً. لا لوحةَ قيادةٍ
+   ثانية تقول الشيء نفسه وتفترق عنه عند أول تعديل.                       */
+.balance-approval{white-space:nowrap}
+.balance-relay{display:flex;align-items:center;gap:8px;margin-block-end:6px}
+.balance-approval small{
+  display:block;margin-block-start:3px;
+  color:var(--muted);font-size:.75rem;
+}
+
+/* الشارة على الورق: الألوان تخرج رماديةً من طابعاتٍ أحاديّة، فالحال تُقال
+   بالكلمة أولاً، وتبقى النقطة حدّاً يفصل لا معنىً يُحمَل. */
+@media print{
+  .approval-chip{
+    border:.4pt solid #8d9792 !important;
+    background:transparent !important;
+    color:#131817 !important;
+    padding:.4mm 1.4mm !important;
+    font-size:6.6pt !important;
+  }
+  .approval-chip::before{display:none !important}
+}
+
+/* السبب في مكان الزرّ: من مُنع يعرف لماذا قبل أن يمدّ يده، لا بعدها. */
+.approval-blocked{
+  display:flex;align-items:center;gap:14px;
+  padding:16px 18px;border-radius:var(--r-lg);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--danger-soft) 82%,#fff),var(--surface));
+  color:var(--danger);
+  border:1px solid color-mix(in srgb,var(--danger) 26%,var(--line));
+  border-inline-start:5px solid var(--danger);
+  box-shadow:0 18px 44px -34px color-mix(in srgb,var(--danger) 55%,transparent);
+}
+.approval-blocked-icon{
+  inline-size:42px;block-size:42px;border-radius:14px;
+  display:grid;place-items:center;flex:none;
+  background:color-mix(in srgb,var(--danger-soft) 70%,var(--surface));
+  color:var(--danger);
+}
+.approval-blocked-icon svg{inline-size:22px;block-size:22px}
+.approval-blocked strong{display:block;color:var(--danger);font-size:1rem;font-weight:700;line-height:1.35}
+.approval-blocked p{margin:3px 0 0;color:var(--muted);font-size:.88rem;line-height:1.7}
+
+/* ── تعارضٌ مع قسمٍ آخر ─────────────────────────────────────────────────
+   يُعرض ولا يُعلَّق عليه: الملاحظة تذهب لصاحب الصفّ، ومن لا يملك تعديلَه لا
+   يُطالَب بمعالجة ملاحظةٍ عليه. فلا يُرسم كملاحظةٍ لئلّا يُنتظر منه ما لا
+   يُنتظر — سطرٌ مائلُ الحافّة، خبرٌ لا صندوق.                             */
+.changes-cross{
+  display:flex;align-items:flex-start;gap:9px;
+  padding:8px 12px;border-radius:var(--r-sm);
+  background:var(--info-soft);
+  border-inline-start:3px solid var(--info);
+}
+.changes-cross svg{inline-size:15px;block-size:15px;flex:none;color:var(--info);margin-block-start:2px}
+.changes-cross strong{display:block;font-size:.86rem;font-weight:700;color:var(--info)}
+.changes-cross small{display:block;margin-block-start:2px;color:var(--muted);font-size:.8rem;line-height:1.65}
+
+/* مصدرُ الملاحظة: ملاحظةُ التسجيل تمنع الإرسال، وملاحظةُ القسم لا تمنع. */
+.changes-note-field em{font-style:normal;font-weight:600;opacity:.8}
+
+/* خانةٌ اختلف عليها الطرفان ثلاثاً: إعلامٌ لا إجبار، فلا يُصرخ به. */
+.changes-note-stuck{color:var(--warning) !important;font-weight:600}
+
+@media print{ .changes-cross{background:transparent !important;border-inline-start-color:#999 !important} }
+
+/* ملاحظةٌ حُسمت: تبقى في مكانها للحجّة، وتُخفت لأنها لم تعد تنتظر أحداً. */
+.changes-notes [data-state="resolved"]{border-inline-start-color:var(--line-strong);opacity:.72}
+
+/* ── شريط الوارد: فلترٌ بالحالة وبحثٌ سريع ──────────────────────────────────
+ * الأقسام كثيرة، فمن يبحث عن قسمٍ بعينه لا يمرّ على البطاقات كلها. */
+.changes-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;margin-bottom:12px}
+.changes-filter-chips{display:flex;flex-wrap:wrap;gap:6px}
+.changes-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:var(--r-full);border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-size:.82rem;font-weight:600;cursor:pointer}
+.changes-chip:hover{border-color:var(--line-strong)}
+.changes-chip>b{font-size:.75rem;font-weight:700;padding:0 6px;border-radius:var(--r-full);background:var(--surface-3);color:var(--ink-2);min-width:18px;text-align:center}
+.changes-chip[data-active]{background:var(--accent-softer);color:var(--accent-ink);border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+.changes-chip[data-active]>b{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--accent-ink)}
+.changes-search{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:var(--r-full);border:1px solid var(--line);background:var(--surface-2);min-width:210px;flex:1 1 210px;max-width:320px}
+.changes-search>svg{inline-size:15px;block-size:15px;color:var(--muted);flex:0 0 auto}
+.changes-search>input{flex:1;border:0;background:transparent;color:var(--ink);font-size:.86rem;outline:none;min-width:0}
+
+/* ── شريط العرض: ما تحرّك / الجدول كامل ─────────────────────────────────────
+ * القسم يريد رؤية جدوله كله والملاحظات فيه، لا الملاحظات وحدها. */
+.changes-viewbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;margin:14px 0 10px}
+.changes-view-toggle{display:inline-flex;gap:4px;padding:3px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--surface-2)}
+.changes-view-toggle>button{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border:0;border-radius:calc(var(--r-md) - 3px);background:transparent;color:var(--ink-2);font-size:.84rem;font-weight:700;cursor:pointer}
+.changes-view-toggle>button>svg{inline-size:15px;block-size:15px}
+.changes-view-toggle>button[data-active]{background:var(--accent);color:var(--accent-contrast,#fff)}
+
+/* زرُّ تعليقٍ واحدٍ لكل موعد — بدل صفٍّ من ستّة أزرارٍ كان يزاحم كل بطاقة. */
+.changes-note-add{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:6px 12px;border-radius:var(--r-full);border:1px dashed color-mix(in srgb,var(--accent) 40%,var(--line));background:transparent;color:var(--accent-ink);font-size:.82rem;font-weight:700;cursor:pointer}
+.changes-note-add:hover{background:var(--accent-softer);border-style:solid}
+.changes-note-add>svg{inline-size:15px;block-size:15px}
+
+/* ── الجدول كامل: كل موعدٍ ببطاقةٍ هادئة، والمتحرّك مُعلَّم ─────────────────── */
+.changes-full{display:grid;gap:10px}
+.changes-fields-full{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px 16px}
+.changes-fields-full>div{display:flex;flex-direction:column;gap:2px}
+.changes-fields-full dt{font-size:.75rem;color:var(--muted);font-weight:600}
+.changes-fields-full dd{margin:0;font-size:.9rem;color:var(--ink)}
+.changes-full .changes-entry[data-kind="changed"]{border-inline-start:3px solid color-mix(in srgb,var(--warning) 55%,transparent)}
+
+/* ==========================================================================
+   وارِدُ الأساتذة — الفروقُ وحدها، مرتّبةً كما يُعمل بها
+   --------------------------------------------------------------------------
+   الشاشةُ كلُّها مبنيّةٌ على قاعدةٍ واحدة: لا يُعرض إلا ما يحتاج قراراً. ولذلك
+   ليس فيها جدول، ولا بطاقةَ لمن لم يغيّر شيئاً، ولا لونَ إلا حيث يدلّ اللونُ
+   على فعلٍ مختلف — أخضرُ يُثبَّت بضغطة، وأصفرُ يُقرأ، وأحمرُ يُقرَّر فيه.
+   ========================================================================== */
+
+.request-totals{padding:var(--s4) var(--s5)}
+
+.request-funnel{display:grid;gap:var(--s3)}
+.request-funnel-pills{justify-content:center}
+.request-funnel-pills span{color:var(--muted);font-weight:500}
+
+/* مسارُ الطلب وسجلُّه: سطرٌ رفيع تحت رأس البطاقة. */
+.request-card-relay{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--s2) var(--s3);
+  padding:var(--s2) var(--s4);border-bottom:1px dashed var(--line);
+}
+.request-trail{display:contents}
+.request-trail-line{flex-basis:100%;padding-block:var(--s2)}
+
+/* من لم يفتح رابطه: سطرٌ واحد، وكلُّ اسمٍ فيه زرُّ تذكيرٍ يفتح واتساب.
+   الإنسانُ يضغط إرسال — لا شيء هنا يراسل أحداً من تلقائه. */
+.request-silent{
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2) var(--s3);
+  padding:var(--s3) var(--s4);border:1px dashed var(--line);border-radius:var(--r-lg);
+  background:var(--surface-2);font-size:var(--t-sm);color:var(--muted);
+}
+.request-silent>svg{width:16px;height:16px;flex:none}
+.request-silent-links{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.request-remind{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:var(--r-full);
+  background:var(--surface);border:1px solid var(--line);
+  font-size:var(--t-xs);color:var(--ink);text-decoration:none;
+}
+.request-remind:hover{border-color:var(--accent)}
+.request-remind svg{width:12px;height:12px}
+.request-remind[data-blocked]{opacity:.55;cursor:not-allowed}
+
+/* «الجدول كما هو» — اثنان وعشرون اسماً في سطرٍ واحدٍ مطويّ. */
+.request-unchanged{
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);
+  width:100%;padding:var(--s3) var(--s4);text-align:start;
+  border:1px solid var(--line);border-radius:var(--r-lg);
+  background:var(--surface);color:var(--muted);font-size:var(--t-sm);cursor:pointer;
+}
+.request-unchanged:hover{border-color:var(--accent)}
+.request-unchanged svg{width:15px;height:15px;flex:none;transition:transform .16s var(--ease)}
+.request-unchanged svg[data-open]{transform:rotate(180deg)}
+.request-unchanged em{flex-basis:100%;font-style:normal;color:var(--muted-2);font-size:var(--t-xs)}
+
+.request-deck{display:flex;flex-direction:column;gap:var(--s4)}
+.request-card{
+  border:1px solid var(--line);border-radius:var(--r-xl);
+  background:var(--surface);overflow:hidden;
+}
+.request-card-head{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+  padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);background:var(--surface-2);
+}
+.request-card-head strong{display:block;font-size:var(--t-h4)}
+.request-card-head small{color:var(--muted);font-size:var(--t-xs)}
+.request-card-head .request-card-section{display:inline-flex;align-items:center;margin:3px 0 2px;padding:1px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:var(--t-xs);font-weight:600;line-height:1.8;margin-inline-end:6px}
+
+.request-items{display:flex;flex-direction:column}
+.request-item{
+  padding:var(--s4);border-top:1px solid var(--line);
+  border-inline-start:3px solid transparent;
+}
+.request-item:first-child{border-top:0}
+/* اللونُ على الحافّة لا على الخلفية: يدلّ ولا يصرخ، ويبقى النصُّ مقروءاً. */
+.request-item[data-verdict="clear"]{border-inline-start-color:var(--ok,#2e7d5b)}
+.request-item[data-verdict="exception"]{border-inline-start-color:var(--warn,#b8860b)}
+.request-item[data-verdict="conflict"]{border-inline-start-color:var(--danger,#b3261e)}
+.request-item[data-decided]{opacity:.7}
+
+.request-item-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin-bottom:var(--s3)}
+.request-item-head strong{font-size:var(--t-base)}
+.request-item-head small{color:var(--muted);font-size:var(--t-xs)}
+
+.request-diff{display:flex;flex-direction:column;gap:4px;margin:0}
+.request-diff>div{display:flex;align-items:baseline;gap:var(--s3)}
+.request-diff dt{
+  flex:none;min-width:42px;font-size:var(--t-xs);color:var(--muted);font-weight:700;
+}
+.request-diff dd{margin:0;font-size:var(--t-sm);color:var(--ink)}
+
+.request-excuse{
+  display:flex;align-items:flex-start;gap:6px;margin:var(--s3) 0 0;
+  font-size:var(--t-xs);color:var(--muted);
+}
+.request-excuse svg{width:13px;height:13px;flex:none;margin-top:2px}
+
+.request-reasons{list-style:none;margin:var(--s3) 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.request-reasons li{
+  display:flex;align-items:flex-start;gap:6px;
+  font-size:var(--t-xs);color:var(--muted);
+}
+.request-reasons li[data-blocking]{color:var(--danger,#b3261e)}
+.request-reasons svg{width:13px;height:13px;flex:none;margin-top:2px}
+
+.request-rooms{margin:var(--s2) 0 0;font-size:var(--t-xs);color:var(--muted-2)}
+
+.request-actions{display:flex;gap:var(--s2);margin-top:var(--s4)}
+.request-actions .btn{min-height:38px}
+
+.request-decided{
+  display:flex;align-items:center;gap:6px;margin:var(--s3) 0 0;
+  font-size:var(--t-xs);color:var(--muted);
+}
+.request-decided svg{width:13px;height:13px;flex:none}
+.request-decided[data-state="fixed"]{color:var(--ok,#2e7d5b)}
+
+.request-alternatives{display:flex;flex-direction:column;gap:var(--s2)}
+.request-alternatives>span{font-size:var(--t-xs);color:var(--muted);font-weight:700}
+
+@media (max-width:640px){
+  .request-card-head{align-items:flex-start;flex-direction:column}
+  .request-diff>div{display:grid;grid-template-columns:minmax(54px,auto) minmax(0,1fr)}
+  .request-actions{flex-direction:column}
+  .request-actions .btn{width:100%}
+}
+
+/* ==========================================================================
+   كشفُ التسجيل — الطرفان على ورقةٍ واحدة
+   --------------------------------------------------------------------------
+   يشارك بطاقةَ الوارد شكلَها عن قصد: من يفتح الشاشتين في اليوم نفسه لا يتعلّم
+   لغتين. وما يفترق هو ما يختلف فعلاً — صفُّ المقرّر هنا يحمل حالةً وثلاثةَ
+   أزرار، لا «كان» و«طلب».
+   ========================================================================== */
+
+.registration-readonly{
+  display:flex;align-items:center;gap:8px;margin:0;
+  padding:var(--s3) var(--s4);border-radius:var(--r-lg);
+  background:var(--surface-2);border:1px dashed var(--line);
+  color:var(--muted);font-size:var(--t-sm);
+}
+.registration-readonly svg{width:15px;height:15px;flex:none}
+
+.registration-count{color:var(--muted);font-size:var(--t-xs);flex:none}
+
+.registration-course{
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3);
+  padding:var(--s3) var(--s4);border-top:1px solid var(--line);
+  border-inline-start:3px solid transparent;
+}
+.registration-course:first-child{border-top:0}
+/* اللونُ على الحافّة لا على الخلفية: يدلّ ولا يصرخ، ويبقى الاسمُ مقروءاً. */
+.registration-course[data-state="registered"]{border-inline-start-color:var(--ok,#2e7d5b)}
+.registration-course[data-state="rejected"]{border-inline-start-color:var(--danger,#b3261e)}
+.registration-course[data-state="committee-rejected"]{border-inline-start-color:var(--danger,#b3261e)}
+.registration-course[data-state="awaiting-registration"]{border-inline-start-color:var(--accent,#2f6f9f)}
+
+.registration-course-name{flex:1 1 180px;min-width:0;display:flex;flex-direction:column;gap:1px}
+.registration-course-name strong{font-size:var(--t-base);font-weight:700}
+.registration-course-name small{color:var(--muted);font-size:var(--t-xs)}
+
+.registration-course-state{flex:1 1 150px;min-width:0;display:flex;flex-direction:column;gap:1px}
+.registration-course-state>span{font-size:var(--t-sm);color:var(--muted)}
+.registration-course-state>span[data-state="registered"]{color:var(--ok,#2e7d5b);font-weight:700}
+.registration-course-state>span[data-state="rejected"],
+.registration-course-state>span[data-state="committee-rejected"]{color:var(--danger,#b3261e);font-weight:700}
+.registration-course-state>span[data-state="pending"]{color:var(--warn,#9a6a00)}
+
+/* تصفيةُ الكشف بالحالة: اللجنةُ تبدأ بما ينتظرها، والتسجيلُ بما سُلّم إليه. */
+.registration-filter{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.registration-export{display:inline-flex;align-items:center;gap:5px;margin-inline-end:auto}
+.registration-export svg{width:13px;height:13px}
+.request-card-head .changes-chip{display:inline-flex;align-items:center;gap:5px;flex:none}
+.request-card-head .changes-chip svg{width:13px;height:13px}
+.registration-course-state em{font-style:normal;font-size:var(--t-xs);color:var(--muted-2)}
+
+.registration-course-actions{display:flex;gap:6px;flex:none}
+.registration-course-actions .changes-chip{display:inline-flex;align-items:center;gap:5px}
+.registration-course-actions .changes-chip svg{width:12px;height:12px}
+.registration-course-actions .changes-chip:disabled{opacity:.5;cursor:not-allowed}
+
+@media (max-width:640px){
+  .registration-course{align-items:stretch;display:grid}
+  .registration-course-actions{width:100%}
+  .registration-course-actions .changes-chip{flex:1;justify-content:center}
+}
+
+/* سطرُ الأساس تحت الملخّص: يُقال حين لا يكون الأساسُ نسخةَ جولةٍ سابقة، فلا
+   يُقرأ «كلُّ صفٍّ مضاف» على أنه خبرٌ عن الجدول وهو خبرٌ عن المقارنة. */
+.changes-baseline-note{color:var(--muted);font-size:.8rem;line-height:1.55}
+
+/* ── من وقّع الطلب ────────────────────────────────────────────────────────
+   الرابطُ يصل في واتساب ويُعاد توجيهه، فضغطةُ «أرسل» وحدَها لا تُثبت صاحبَها.
+   والرمزُ هنا هو ما يُطابَق به الطلبُ بعد شهرين إن أُنكر. */
+.request-signed{
+  display:inline-flex;align-items:center;gap:6px;flex:none;
+  padding:3px 10px;border-radius:var(--r-full);
+  background:var(--success-soft);color:var(--success);
+  font-size:.76rem;font-weight:700;
+}
+.request-signed svg{inline-size:13px;block-size:13px}
+.request-signed code{font-family:var(--font-mono);letter-spacing:.04em}
+.request-signed[data-missing="true"]{background:var(--surface-3);color:var(--muted)}
+
+/* ── مراجعة الاعتماد داخل «تغييرات الجدول» ────────────────────────────────
+   هي نفس لغة نافذة المراجعة، لكن بلا خلفيةٍ حاجبة ولا ارتفاعٍ مقفول: هنا
+   التقرير جزءٌ من الصفحة، وهو المكان الدائم لتفاصيل المانع بعد حذف التنبيه
+   المتكرر من شريط التوقيع. */
+.changes-review-overview{
+  width:100%;display:flex;flex-direction:column;
+  border:1px solid var(--line);border-radius:var(--r-2xl);
+  background:var(--surface);overflow:hidden;
+}
+.changes-review-overview .review-head{min-height:128px}
+.changes-review-overview .review-body{flex:none;overflow:visible;min-height:0}
+.changes-review-overview .review-body>.review-finding:last-child,
+.changes-review-overview .review-body>.review-quiet:last-child{border-bottom:0}
+.changes-review-overview .review-clear{border-top:0}
+.changes-review-overview .spread-keys{grid-template-columns:repeat(4,minmax(0,1fr))}
+.changes-review-overview .spread-keys span>svg{display:none}
+
+@media (max-width:640px){
+  .changes-review-overview .review-head{
+    grid-template-columns:auto minmax(0,1fr);gap:12px;padding:16px;
+  }
+  .changes-review-overview .review-ring{width:72px;height:72px}
+  .changes-review-overview .review-spread{padding:12px 16px}
+  .changes-review-overview .spread-keys{gap:8px}
+  .changes-review-overview .spread-keys span{gap:5px}
+  .changes-review-overview .review-finding>button{grid-template-columns:32px minmax(0,1fr);padding:13px 16px}
+  .changes-review-overview .review-finding>button>em,
+  .changes-review-overview .review-finding>button>i{grid-column:2;margin-top:0}
+}
+
+/* تغييرات الجدول: المراجعة مغلقة افتراضياً، وتفتح بنفس التسلسل البصري لشاشة الاعتماد. */
+.changes-review-overview{overflow:hidden}
+.changes-review-toggle{width:100%;min-height:58px;padding:11px 16px;border:0;background:var(--surface);color:var(--ink);display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;text-align:start;font:inherit;cursor:pointer}
+.changes-review-toggle>span:nth-child(2){display:grid;gap:2px}.changes-review-toggle strong{font-size:14px}.changes-review-toggle small{font-size:12px;color:var(--muted)}
+.changes-review-toggle>svg{inline-size:18px;block-size:18px;color:var(--muted);transition:transform .18s ease}.changes-review-overview.open .changes-review-toggle>svg{transform:rotate(180deg)}
+.review-mini-dot{inline-size:10px;block-size:10px;border-radius:50%;background:var(--success)}.review-mini-dot.tone-danger{background:var(--danger)}.review-mini-dot.tone-warn{background:var(--warning)}
+.changes-review-panel{border-top:1px solid var(--line)}
+.changes-row{scroll-margin-block:22vh}.changes-row-focus{animation:changes-row-focus 1.8s ease both}
+@keyframes changes-row-focus{0%,100%{box-shadow:none}18%,70%{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 55%,transparent);border-color:var(--accent)}}
+@media (prefers-reduced-motion:reduce){.changes-review-toggle>svg,.changes-row-focus{transition:none;animation:none}}
+
+/* ── وارد الأساتذة: جدولٌ مرتّب ────────────────────────────────────────────
+   صفٌّ لكل بند بأعمدةٍ ثابتة، ولونُ الحالة على الصفّ كلّه كما في تقرير
+   الاستعلامات: أخضرُ مضاف، وأصفرُ معدّل، وأحمرُ محذوف. */
+.request-card-flags{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;justify-content:flex-end}
+.request-table-wrap{overflow-x:auto}
+.request-table{inline-size:100%;border-collapse:collapse;font-size:var(--t-sm)}
+.request-table thead th{padding:10px 12px;text-align:start;font-size:var(--t-xs);font-weight:600;color:var(--muted);background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap}
+.request-table td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.6;min-inline-size:0}
+.request-table tbody tr:last-child td{border-bottom:0}
+.request-table td strong{display:block;font-weight:600}
+.request-table td small{display:block;color:var(--muted);font-size:var(--t-xs)}
+.request-row[data-action="add"]{background:color-mix(in srgb,var(--success,#1f7a55) 7%,transparent)}
+.request-row[data-action="change"]{background:color-mix(in srgb,var(--warning,#a06b00) 8%,transparent)}
+.request-row[data-action="delete"]{background:color-mix(in srgb,var(--danger,#b3261e) 7%,transparent)}
+.request-row td:first-child{box-shadow:inset -3px 0 0 transparent}
+.request-row[data-action="add"] td:first-child{box-shadow:inset -3px 0 0 var(--success,#1f7a55)}
+.request-row[data-action="change"] td:first-child{box-shadow:inset -3px 0 0 var(--warning,#a06b00)}
+.request-row[data-action="delete"] td:first-child{box-shadow:inset -3px 0 0 var(--danger,#b3261e)}
+.request-action{display:inline-block;padding:2px 10px;border-radius:999px;font-size:var(--t-xs);font-weight:600;color:#fff;background:var(--muted);white-space:nowrap}
+.request-action[data-action="add"]{background:var(--success,#1f7a55)}
+.request-action[data-action="change"]{background:var(--warning,#a06b00)}
+.request-action[data-action="delete"]{background:var(--danger,#b3261e)}
+.request-was-gone{text-decoration:line-through;color:var(--muted)}
+.request-none{color:var(--muted)}
+.request-room{margin-top:2px;font-family:var(--font-mono,ui-monospace,monospace);overflow-wrap:anywhere}
+.request-table .request-excuse{display:flex;gap:4px;align-items:flex-start;margin-top:6px;color:var(--ink)}
+.request-table .request-excuse svg{inline-size:14px;block-size:14px;flex:none;margin-top:3px}
+.request-table .request-reasons{margin:0;padding:0;list-style:none;display:grid;gap:4px}
+.request-table .request-reasons li{display:flex;gap:6px;align-items:flex-start;font-size:var(--t-xs);line-height:1.6;color:var(--warning,#a06b00)}
+.request-table .request-reasons li[data-blocking]{color:var(--danger,#b3261e)}
+.request-table .request-reasons svg{inline-size:14px;block-size:14px;flex:none;margin-top:3px}
+.request-check{display:inline-flex;align-items:center;gap:4px;font-size:var(--t-xs);color:var(--success,#1f7a55)}
+.request-check svg{inline-size:14px;block-size:14px}
+.request-table .request-rooms{margin-top:6px}
+.request-table .request-actions{display:flex;gap:6px;flex-wrap:wrap}
+.request-table .request-actions .btn{min-block-size:36px;padding-inline:14px}
+.request-table .request-decided{margin:0;font-size:var(--t-xs);font-weight:600}
+.request-reject-row td{background:var(--surface)}
+@media (max-width:760px){
+  .request-table thead{display:none}
+  .request-table,.request-table tbody,.request-table tr,.request-table td{display:block;inline-size:100%}
+  .request-row{padding:6px 0;border-bottom:1px solid var(--line)}
+  /* التسمية فوق القيمة لا في عمودٍ بجانبها: العمودُ الجانبيّ كان يأكل خُمسَ عرض الهاتف
+     فيلتفّ قرارُ القسم وبدائلُه في ثلاثة أسطرٍ ضيّقة. */
+  .request-table td{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;padding:8px 14px;border-bottom:0}
+  .request-table td::before{content:attr(data-label);font-size:11px;letter-spacing:.02em;color:var(--muted);font-weight:700}
+  .request-row td:first-child{box-shadow:none}
+  .request-row[data-action="add"]{box-shadow:inset -4px 0 0 var(--success,#1f7a55)}
+  .request-row[data-action="change"]{box-shadow:inset -4px 0 0 var(--warning,#a06b00)}
+  .request-row[data-action="delete"]{box-shadow:inset -4px 0 0 var(--danger,#b3261e)}
+}
+/* البطاقةُ داخل شبكة الشاشة: بلا حدٍّ أدنى صفري تتّسع لعرض محتواها الأدنى
+   فتتجاوز الهاتف (397 من 362) وتُقصّ أزرارُها من اليسار. */
+.request-deck,.request-card,.request-table-wrap{min-inline-size:0;max-inline-size:100%}
+@media (max-width:760px){
+  .request-table td{row-gap:4px;align-items:start}
+  .request-table td>*{grid-column:1;min-inline-size:0;justify-self:start}
+  .request-table td>.request-actions{justify-self:stretch}
+  .request-table td::before{grid-column:1;grid-row:1}
+  .request-table .request-actions .btn{flex:1 1 0;min-inline-size:0}
+}
+
+/* ── وارد الأساتذة: جاهزيّةُ البند، وموانعُه، والمرشّحات ─────────────────── */
+@media screen{
+  .request-readiness{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:4px 11px;border-radius:999px;font-size:12.5px;font-weight:700;line-height:1.5;
+    background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line);
+  }
+  .request-readiness svg{width:14px;height:14px;flex:none}
+  .request-readiness[data-readiness="ready"]{background:var(--success-soft);color:var(--success);border-color:color-mix(in srgb,var(--success) 25%,transparent)}
+  .request-readiness[data-readiness="review"]{background:var(--warning-soft);color:var(--warning);border-color:color-mix(in srgb,var(--warning) 25%,transparent)}
+  .request-readiness[data-readiness="blocked"]{background:var(--danger-soft);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 25%,transparent)}
+  .request-readiness .spin{animation:request-spin 1s linear infinite}
+  @keyframes request-spin{to{transform:rotate(360deg)}}
+
+  .request-issues{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+  .request-issues li{
+    display:grid;grid-template-columns:16px minmax(0,1fr);gap:8px;align-items:start;
+    padding:8px 10px;border-radius:12px;font-size:12.5px;line-height:1.7;
+    background:var(--warning-soft);color:var(--ink);
+    border-inline-start:3px solid var(--warning);
+  }
+  .request-issues li[data-severity="high"]{background:var(--danger-soft);border-inline-start-color:var(--danger)}
+  .request-issues li[data-severity="low"]{background:var(--surface-2);border-inline-start-color:var(--line)}
+  .request-issues li svg{width:15px;height:15px;margin-top:3px;color:var(--warning)}
+  .request-issues li[data-severity="high"] svg{color:var(--danger)}
+  .request-issues li span{overflow-wrap:anywhere}
+  .request-issues li small{display:block;color:var(--ink-2);font-size:12px;margin-top:2px}
+  .request-issue-note{margin:8px 0 0;font-size:12.5px;color:var(--danger)}
+  .request-row-error{display:flex;gap:6px;align-items:flex-start;margin:8px 0 0;padding:8px 10px;border-radius:10px;background:var(--danger-soft);color:var(--danger);font-size:12.5px;line-height:1.6}
+  .request-row-error svg{width:14px;height:14px;flex:none;margin-top:3px}
+  .request-row[data-readiness="blocked"]:not([data-decided]) td:first-child{box-shadow:inset -3px 0 0 var(--danger)}
+
+  .request-filters{
+    display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;
+    padding:12px 16px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);
+    box-shadow:var(--shadow-xs);
+  }
+  .request-filters-mark{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
+  .request-filters-mark svg{width:17px;height:17px}
+  .request-filter{display:flex;align-items:center;gap:8px;min-width:0}
+  .request-filter-label{font-size:12px;font-weight:700;color:var(--ink-2)}
+  .request-filter-chips{display:flex;flex-wrap:wrap;gap:4px;padding:3px;border-radius:999px;background:var(--surface-2)}
+  .request-filter-chips button{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:5px 12px;border-radius:999px;font-size:12.5px;font-weight:700;color:var(--ink-2);
+    transition:background .15s,color .15s,box-shadow .15s;
+  }
+  .request-filter-chips button b{min-width:18px;padding:0 5px;border-radius:9px;background:var(--line);color:var(--ink);font-size:12px;text-align:center;font-variant-numeric:tabular-nums}
+  .request-filter-chips button:hover:not(:disabled){color:var(--ink)}
+  .request-filter-chips button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
+  .request-filter-chips button.active[data-tone="warn"] b{background:var(--warning);color:#fff}
+  .request-filter-chips button.active[data-tone="ok"] b{background:var(--success);color:#fff}
+  .request-filter-chips button.active[data-tone="bad"] b{background:var(--danger);color:#fff}
+  .request-filter-chips button:disabled{opacity:.45;cursor:default}
+  .request-filters-reset{display:inline-flex;align-items:center;gap:4px;margin-inline-start:auto;font-size:12.5px;font-weight:700;color:var(--accent)}
+  .request-filters-reset svg{width:14px;height:14px}
+}
+@media screen and (max-width:760px){
+  .request-filters{gap:10px}
+  .request-filter{flex-wrap:wrap}
+  .request-filters-mark{display:none}
+}
+@media (prefers-reduced-motion:reduce){.request-readiness .spin{animation:none}}
+@media screen{
+  .request-depends{display:grid;grid-template-columns:16px minmax(0,1fr);gap:8px;margin:8px 0 0;padding:8px 10px;border-radius:12px;background:var(--accent-soft);color:var(--ink);font-size:12.5px;line-height:1.7;border-inline-start:3px solid var(--accent)}
+  .request-depends svg{width:15px;height:15px;margin-top:3px;color:var(--accent);transform:scaleX(-1)}
+}
+@media screen{.request-readiness[data-readiness="waiting"]{background:var(--accent-soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 25%,transparent)}}
+@media screen{.request-depends[data-tone="linked"]{background:var(--warning-soft);border-inline-start-color:var(--warning)}.request-depends[data-tone="linked"] svg{color:var(--warning)}}
+@media screen{
+  .request-notify{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:12.5px;font-weight:700;background:#e7f6ec;color:#16784a;border:1px solid color-mix(in srgb,#16784a 25%,transparent);text-decoration:none}
+  .request-notify svg{width:14px;height:14px}
+  .request-notify:hover{background:#d9f0e2}
+  .request-notify[data-blocked]{background:var(--surface-2);color:var(--ink-2);border-color:var(--line)}
+}
+
+/* ── تدقيق الدورة: طلبُ التمديد في الوارد، وسجلُّ الردود، ورابطُ العودة ── */
+.changes-extension-request{
+  display:block;flex:1 1 100%;padding:4px 12px 8px;
+  color:var(--info);font-size:.8rem;
+}
+/* كتلةٌ لا مرنة هنا، فتضيع فجوةُ المرن: مسافةٌ صريحة بين الطلب وسببه ومقدّمه. */
+.changes-extension-request>*+*{margin-inline-start:6px}
+.changes-note-history{font-size:.8rem;color:var(--muted)}
+.changes-note-history summary{cursor:pointer}
+.changes-note-history ul{margin:4px 0 0;padding-inline-start:16px;display:grid;gap:3px}
+.changes-inline-link{
+  padding:0;border:0;background:none;font:inherit;color:var(--accent);
+  text-decoration:underline;cursor:pointer;
+}
+.changes-inline-link:focus-visible{outline:none;box-shadow:var(--ring)}
+.conflict-clear[data-locked]{color:var(--warning)}
+
+/* ── حوارُ البند مع الأستاذ ──────────────────────────────────────────────
+   خيطٌ هادئٌ تحت صفّ البند: رسائلُ القسم إلى البداية ورسائلُ الأستاذ إلى
+   النهاية، وحالتُه بشارةٍ واحدة الألوانِ في الوارد وصفحة الأستاذ. */
+.request-thread-row td{background:var(--surface)}
+.request-thread{display:grid;gap:10px;padding:10px 4px}
+.request-thread header{display:flex;align-items:center;gap:10px}
+.request-thread header strong{display:inline-flex;align-items:center;gap:6px;font-size:var(--t-sm)}
+.request-thread header svg{width:14px;height:14px}
+.request-thread header button{margin-inline-start:auto;border:0;background:none;color:var(--muted);cursor:pointer}
+.request-negotiation{display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:var(--t-xs);font-weight:700;white-space:nowrap;background:var(--surface-2,rgba(127,127,127,.12));color:var(--muted)}
+.request-negotiation[data-negotiation="proposed"]{background:color-mix(in srgb,var(--warn,#b07d00) 14%,transparent);color:var(--warn,#b07d00)}
+.request-negotiation[data-negotiation="agreed"]{background:color-mix(in srgb,var(--ok,#2e7d5b) 14%,transparent);color:var(--ok,#2e7d5b)}
+.request-negotiation[data-negotiation="rejected"]{background:color-mix(in srgb,var(--bad,#b3261e) 12%,transparent);color:var(--bad,#b3261e)}
+.request-thread-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.request-thread-list li{max-inline-size:min(560px,92%);padding:8px 11px;border-radius:12px;border:1px solid var(--line);background:var(--card,transparent);font-size:var(--t-sm);line-height:1.7}
+.request-thread-list li[data-from="instructor"]{margin-inline-start:auto;background:color-mix(in srgb,var(--ok,#2e7d5b) 8%,transparent)}
+.request-thread-list li small{display:block;color:var(--muted);font-size:var(--t-xs)}
+.request-thread-list li p{margin:2px 0 0;display:flex;gap:6px;align-items:center}
+.request-thread-list li p svg{width:13px;height:13px}
+.request-thread-reply{display:grid;gap:8px}
+.request-thread-reply label{display:grid;gap:4px;font-size:var(--t-xs);color:var(--muted)}
+.request-thread-reply textarea{inline-size:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:transparent;color:inherit;font:inherit;resize:vertical}
+.request-thread-reply > button{justify-self:start}
+.request-talk{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:4px 0;border:0;background:none;color:var(--muted);font:inherit;font-size:var(--t-xs);cursor:pointer}
+.request-talk:hover{color:var(--ok,#2e7d5b)}
+.request-talk svg{width:13px;height:13px}
+@media (max-width:760px){.request-table .request-thread-row td{display:block}}
+
+/* ── ملف الاعتماد: ورقةٌ واحدة هادئة، معاينةً وطباعة ─────────────────────────
+   الألوان من رموز الموقع (accent للمضاف، warning للمعدَّل، danger للمحذوف)؛
+   والورقةُ نفسها تُطبع، فلا شيء هنا يعتمد على ظلٍّ أو حركة. */
+.ad-backdrop{position:fixed;inset:0;z-index:2400;display:grid;place-items:center;padding:16px;background:rgb(8 13 12 / .45);backdrop-filter:blur(4px)}
+.ad-dialog{width:min(860px,100%);max-height:calc(100dvh - 32px);display:flex;flex-direction:column;border-radius:var(--r-lg);background:var(--canvas);border:1px solid var(--line);box-shadow:var(--shadow-lg);overflow:hidden}
+.ad-toolbar{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface)}
+.ad-btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);font:inherit;font-size:var(--t-sm);cursor:pointer}
+.ad-btn svg{width:16px;height:16px}
+.ad-btn:disabled{opacity:.5;cursor:default}
+.ad-btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}
+.ad-scroll{overflow:auto;padding:16px}
+.ad-state{margin:40px 0;text-align:center;color:var(--muted)}
+.ad-sheet{display:grid;gap:14px;padding:22px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);color:var(--ink);font-size:13px;line-height:1.6}
+.ad-sheet h1,.ad-sheet h2,.ad-sheet h3{margin:0}
+.ad-sheet small{color:var(--muted);font-size:12px}
+.ad-sheet svg{width:16px;height:16px;flex:none}
+.ad-na{color:var(--muted-2);font-style:normal}
+.ad-head{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:2px solid var(--accent)}
+.ad-head-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:var(--r-md);background:var(--accent-soft);color:var(--accent)}
+.ad-head-icon svg{width:24px;height:24px}
+.ad-head-copy{flex:1;min-width:0}
+.ad-head h1{font-size:1.35rem;font-weight:700}
+.ad-head p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
+/* Phones: the status pill drops under the title instead of squeezing it to a sliver. Screen only. */
+@media screen and (max-width:480px){
+  .ad-head{flex-wrap:wrap}
+  .ad-head-copy{flex:1 1 calc(100% - 60px)}
+  .ad-head .ad-status{flex:0 0 auto;margin-inline-start:56px}
+}
+.ad-status{padding:4px 12px;border-radius:var(--r-full);background:var(--surface-3);color:var(--ink-2);font-size:12px;font-weight:600;white-space:nowrap}
+.ad-status[data-tone="success"]{background:var(--success-soft);color:var(--success)}
+.ad-status[data-tone="warning"]{background:var(--warning-soft);color:var(--warning)}
+.ad-status[data-tone="info"]{background:var(--info-soft);color:var(--info)}
+.ad-baseline{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;padding:8px 12px;border-radius:var(--r-sm);background:var(--accent-softer);color:var(--ink-2);font-size:12.5px}
+.ad-baseline strong{color:var(--accent-ink)}
+.ad-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.ad-tile{display:grid;justify-items:center;align-content:start;gap:2px;padding:14px 8px 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2);text-align:center}
+.ad-tile b{font-size:2.4rem;line-height:1.1;font-weight:700;font-variant-numeric:tabular-nums}
+.ad-tile-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:var(--r-full)}
+.ad-tile-label{font-size:12px;color:var(--ink-2)}
+.ad-tile[data-kind="added"] b,.ad-tile[data-kind="added"] .ad-tile-icon{color:var(--success)}
+.ad-tile[data-kind="added"] .ad-tile-icon{background:var(--success-soft)}
+.ad-tile[data-kind="modified"] b,.ad-tile[data-kind="modified"] .ad-tile-icon{color:var(--warning)}
+.ad-tile[data-kind="modified"] .ad-tile-icon{background:var(--warning-soft)}
+.ad-tile[data-kind="removed"] b,.ad-tile[data-kind="removed"] .ad-tile-icon{color:var(--danger)}
+.ad-tile[data-kind="removed"] .ad-tile-icon{background:var(--danger-soft)}
+.ad-tile-ring{align-content:center}
+.ad-ring{width:72px;height:72px}
+.ad-ring circle{fill:none;stroke-width:7}
+.ad-ring-track{stroke:var(--line)}
+.ad-ring-fill{stroke:var(--accent);stroke-linecap:round}
+.ad-ring text{fill:var(--ink);font-size:14px;font-weight:700;stroke:none}
+.ad-bar{display:flex;height:10px;margin-top:10px;border-radius:var(--r-full);overflow:hidden;background:var(--line);direction:ltr}
+.ad-bar i{display:block;min-width:4px}
+.ad-bar i[data-kind="added"]{background:var(--success)}
+.ad-bar i[data-kind="modified"]{background:var(--warning)}
+.ad-bar i[data-kind="removed"]{background:var(--danger)}
+.ad-calm{display:flex;align-items:center;gap:6px;margin:8px 0 0;color:var(--muted)}
+.ad-ok{color:var(--success)}
+.ad-columns{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;align-items:start}
+.ad-card{display:grid;gap:8px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-md);break-inside:avoid}
+.ad-card h2,.ad-list h2{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--ink)}
+.ad-card h2 svg{color:var(--accent)}
+.ad-signs{display:flex;flex-wrap:wrap;gap:6px}
+.ad-signs span{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--r-full);background:var(--surface-3);color:var(--muted);font-size:12px}
+.ad-signs span[data-done="true"]{background:var(--success-soft);color:var(--success)}
+.ad-timeline{list-style:none;margin:0;padding:0;display:grid;gap:10px;position:relative}
+.ad-timeline li{display:flex;gap:10px;align-items:flex-start}
+.ad-timeline li>div{display:grid;gap:1px;min-width:0}
+.ad-dot{display:grid;place-items:center;width:26px;height:26px;flex:none;border-radius:var(--r-full);background:var(--accent-soft);color:var(--accent)}
+.ad-timeline li[data-kind="returned"] .ad-dot,.ad-timeline li[data-kind="head-returned"] .ad-dot{background:var(--warning-soft);color:var(--warning)}
+.ad-timeline li[data-kind="accepted"] .ad-dot{background:var(--success-soft);color:var(--success)}
+.ad-dot svg{width:14px;height:14px}
+.ad-meta{display:flex;flex-wrap:wrap;gap:4px 10px;color:var(--muted);font-size:12px}
+.ad-sheet code{font-family:var(--font-mono);font-size:12px;color:var(--ink-2)}
+.ad-note{display:flex;gap:6px;align-items:flex-start;margin:0;color:var(--muted);font-size:12px}
+.ad-blockers-summary{margin:0;font-weight:600;color:var(--danger)}
+.ad-blockers{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ad-blockers li{display:grid;gap:1px;padding:6px 10px;border-radius:var(--r-sm);background:var(--danger-soft)}
+.ad-more{margin:0;color:var(--muted);font-size:12px}
+.ad-list{display:grid;gap:8px}
+.ad-course{display:grid;gap:4px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-sm);break-inside:avoid}
+.ad-course{align-content:start}
+.ad-course h3{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;margin:0}
+.ad-course-name{min-inline-size:0;flex:1;overflow-wrap:anywhere}
+.ad-code{padding:1px 7px;border-radius:var(--r-sm);background:var(--accent-soft);color:var(--accent)}
+.ad-course-count{flex:none;min-inline-size:22px;padding:0 7px;text-align:center;border-radius:var(--r-full);background:var(--surface-2);border:1px solid var(--line);font-size:12px;font-variant-numeric:tabular-nums}
+.ad-item-body{flex:1}
+.ad-item-head{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.ad-chip{display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:var(--r-full);background:var(--surface-2);border:1px solid var(--line);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.ad-renum{background:var(--warning-soft);border-color:transparent;color:var(--warning)}
+.ad-renum s{opacity:.65}
+.ad-renum svg,.ad-move svg{inline-size:12px;block-size:12px;flex:none}
+.ad-when{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:12px}
+.ad-when svg{inline-size:13px;block-size:13px}
+.ad-move{display:flex;flex-wrap:wrap;align-items:center;gap:5px;font-size:12px}
+.ad-move>svg:first-child{color:var(--muted)}
+.ad-move s{color:var(--muted);text-decoration-thickness:1px}
+.ad-move b{color:var(--ink);font-weight:700}
+.ad-move-plain{color:var(--muted);gap:10px}
+.ad-move-plain span{display:inline-flex;align-items:center;gap:4px}
+.ad-course ul{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.ad-course li{display:flex;gap:8px;align-items:flex-start}
+.ad-course li>div{display:grid;gap:1px;min-width:0}
+.ad-item-icon{display:grid;place-items:center;margin-top:2px}
+.ad-item-icon svg{width:14px;height:14px}
+.ad-course li[data-kind="added"] .ad-item-icon{color:var(--success)}
+.ad-course li[data-kind="modified"] .ad-item-icon{color:var(--warning)}
+.ad-course li[data-kind="removed"] .ad-item-icon{color:var(--danger)}
+.ad-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 14px;padding-top:10px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+@media (max-width:640px){
+  .ad-tiles{grid-template-columns:repeat(2,1fr)}
+  .ad-columns{grid-template-columns:1fr}
+  .ad-sheet{padding:14px}
+}
+.changes-report-state .changes-note-add{margin-top:0}
+.ad-sheet .ad-ring{width:72px;height:72px}
+.ad-courses{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:stretch}
+@media (max-width:640px){.ad-courses{grid-template-columns:1fr}}
+
+
+/* ── فتحُ التفاصيل لأول مرّة: العقد تمتلئ بالتتابع ثم تظهر الأختام ──────────────
+   تعمل حين يفتح المستخدمُ الطيَّ بنفسه فقط (data-reveal)، ومرّةً لكل نطاق.
+   بلا fill-mode سوى `backwards` — حالةُ الراحة هي الحالةُ النهائية نفسُها، فلا شيءَ
+   يبقى معلّقاً بعد الانتهاء. حركةٌ مخفّضة: لا شيء (الحالةُ النهائية مباشرةً). */
+@media (prefers-reduced-motion:no-preference){
+  .apb-expanded[data-reveal] .apb-steps li{--rv:0s}
+  .apb-expanded[data-reveal] .apb-steps li[data-index="1"]{--rv:.22s}
+  .apb-expanded[data-reveal] .apb-steps li[data-index="2"]{--rv:.44s}
+  .apb-expanded[data-reveal] .apb-steps li[data-index="3"]{--rv:.66s}
+  .apb-expanded[data-reveal] .apb-steps li+li:not([data-state="returned"])::before{animation:apb-link-fill .45s var(--ease-out) var(--rv) backwards}
+  .apb-expanded[data-reveal] .apb-steps li .apb-node{animation:apb-node-fill .45s var(--ease-out) calc(var(--rv) + .12s) backwards}
+  .apb-expanded[data-reveal] .apb-steps li[data-turn] .apb-node{animation:apb-node-fill .45s var(--ease-out) calc(var(--rv) + .12s) backwards,apb-pulse 1.8s var(--ease-out) calc(var(--rv) + .6s) 1 backwards}
+  .apb-expanded[data-reveal] .apb-steps li .apb-stamp{animation:apb-stamp-in .4s var(--ease-out) calc(var(--rv) + .3s) backwards}
+}
+@keyframes apb-node-fill{from{background:var(--surface);border-color:var(--line-strong);color:var(--muted-2)}}
+@keyframes apb-link-fill{from{background-color:var(--line-strong)}}
+@keyframes apb-stamp-in{from{opacity:0;transform:rotate(-8deg) scale(1.3)}}
+
+/* ── ملف الاعتماد على الشاشة: الحلقة تُرسم والمسار يظهر بالترتيب، مرّةً واحدة ────
+   المعاينة فقط (داخل .ad-dialog) وعلى `screen` فقط: النسخةُ المطبوعة (PrintPortal) خارج
+   هذا النطاق، وأي قاعدةٍ هنا لا تنطبق على الورق — فالطباعة/PDF تُخرج الحالةَ النهائية
+   كاملةً دائماً. لا fill-mode سوى backwards؛ حالةُ الراحة هي النهاية نفسها. */
+@keyframes ad-ring-draw{from{stroke-dasharray:0 163.4}}
+@keyframes ad-step-in{from{opacity:0;transform:translateY(5px)}}
+@media screen and (prefers-reduced-motion:no-preference){
+  .ad-dialog .ad-ring-fill{animation:ad-ring-draw .9s var(--ease-out) .1s backwards}
+  .ad-dialog .ad-timeline>li{animation:ad-step-in .4s var(--ease-out) backwards}
+  .ad-dialog .ad-timeline>li:nth-child(2){animation-delay:.1s}
+  .ad-dialog .ad-timeline>li:nth-child(3){animation-delay:.2s}
+  .ad-dialog .ad-timeline>li:nth-child(4){animation-delay:.3s}
+  .ad-dialog .ad-timeline>li:nth-child(5){animation-delay:.4s}
+  .ad-dialog .ad-timeline>li:nth-child(n+6){animation-delay:.5s}
+}
+@media print{
+  .ad-ring-fill,.ad-timeline>li{animation:none!important}
+}
+
+/* ── بياناتٌ ناقصة: عنصرٌ واحد (كهرماني) وقائمةٌ بكل بندٍ وفعله؛ والمانع الحقيقي أحمر ── */
+.apb-badge span{font-size:.78rem;font-weight:700}
+.apb-data-btn{display:inline-flex;align-items:center;gap:5px;border:0;font:inherit;font-weight:750;cursor:pointer}
+.apb-data-btn:hover{background:color-mix(in srgb,var(--badge-tone) 18%,var(--surface))}
+.apb-data-btn .apb-data-chev{inline-size:13px;block-size:13px;transition:transform .16s ease}
+.apb-data-btn[aria-expanded="true"] .apb-data-chev{transform:rotate(180deg)}
+.apb-badge[data-tone="success"]{--badge-tone:var(--success)}
+.apb-ready{display:inline-flex;align-items:center;gap:5px}
+.apb-expanded-solo{margin-block-start:8px}
+.apb-dr-close{margin-inline-start:auto;display:grid;place-items:center;inline-size:28px;block-size:28px;border:0;border-radius:var(--r-full);background:transparent;color:var(--muted);cursor:pointer}
+.apb-dr-close svg{inline-size:15px;block-size:15px}
+.apb-dr-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.apb-dr-list li{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line)}
+.apb-dr-list .apb-dr-ic{display:grid;place-items:center;inline-size:28px;block-size:28px;flex:none;border-radius:var(--r-full);background:var(--warning-soft);color:var(--warning)}
+.apb-dr-list .apb-dr-ic svg{inline-size:15px;block-size:15px}
+.apb-dr-txt{display:grid;gap:1px;min-inline-size:0;flex:1;font-size:.84rem}
+.apb-dr-txt small{color:var(--muted)}
+.apb-dr-go,.apb-dr-more{display:inline-flex;align-items:center;gap:4px;flex:none;padding:4px 10px;border:1px solid var(--line-strong);border-radius:var(--r-full);background:transparent;color:var(--ink-2);font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+.apb-dr-go svg{inline-size:13px;block-size:13px}
+.apb-dr-more{justify-self:start;border-style:dashed}
+
+/* بندٌ ناقص يحمل إصلاحَه: خانة سعة + حفظ داخل صفّ القائمة نفسه */
+.apb-dr-fix{display:inline-flex;align-items:center;gap:6px;flex:none}
+.apb-dr-cap{display:inline-flex;align-items:center;gap:6px;padding-inline:9px;border:1.5px solid var(--line);border-radius:11px;background:var(--surface);color:var(--muted)}
+.apb-dr-cap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent)}
+.apb-dr-cap svg{inline-size:15px;block-size:15px;flex:none}
+.apb-dr-cap input{inline-size:58px;min-block-size:34px;border:0;background:transparent;font:inherit;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink);padding:0;outline:none}
+
+/* إصلاح المقرر والقاعة في مكانهما: صفٌّ يلتفّ على الجوال، وقفلٌ هادئ بدل الخطأ */
+.apb-dr-list li{flex-wrap:wrap}
+.apb-dr-fix{flex-wrap:wrap;justify-content:flex-end}
+.apb-dr-cap[data-text] input{inline-size:92px;text-align:start}
+.apb-dr-fix[data-locked] .apb-dr-cap{opacity:.55;background:var(--surface-2,transparent)}
+.apb-dr-fix[data-locked] .apb-dr-cap input{cursor:not-allowed}
+.apb-dr-lock{display:grid;place-items:center;inline-size:34px;block-size:34px;border-radius:var(--r-full);color:var(--muted);cursor:help}
+.apb-dr-lock svg{inline-size:16px;block-size:16px}
+.apb-dr-err{color:var(--danger,#b3261e)}
+.apb-dr-link select{min-block-size:36px;max-inline-size:150px;border:1.5px solid var(--line);border-radius:11px;background:var(--surface);color:var(--ink);font:inherit;font-size:.8rem;padding-inline:8px}
+.apb-dr-link select:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent)}
+@media (max-width:560px){.apb-dr-list li{align-items:flex-start}.apb-dr-fix{inline-size:100%;justify-content:flex-start}.apb-dr-link select{flex:1 1 40%;max-inline-size:none}}

@@ -1,0 +1,669 @@
+#!/usr/bin/env python3
+import json,re,sys
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[1]
+SEED=ROOT/'src/generated/locationRegistrySeed.ts'
+
+def load_seed():
+    # The generated seed is intentionally JSON embedded in TypeScript:
+    #   export const LOCATION_REGISTRY_SEED = {...} as const;
+    # Read that checked-in, privacy-safe artifact so CI never depends on
+    # /mnt/data, the historical backup, or a developer-specific workspace.
+    text=SEED.read_text(encoding='utf-8')
+    match=re.search(r'export\s+const\s+LOCATION_REGISTRY_SEED\s*=\s*(\{.*\})\s+as\s+const;?\s*$', text, re.S)
+    if not match:
+        raise RuntimeError(f'Unable to parse LOCATION_REGISTRY_SEED from {SEED}')
+    return json.loads(match.group(1))
+
+data=load_seed()
+B=data['buildings'];R=data['rooms'];C=data['reviewCases']; summary=data['summary']
+passed=[]
+def ok(name,cond):
+    if not cond: raise AssertionError(name)
+    passed.append(name)
+def norm(v): return re.sub(r'\s+','',str(v or '')).upper()
+def aliases(x): return {norm(x.get('officialCode') or x.get('canonicalCode'))}|{norm(a['value']) for a in x.get('aliases',[])}
+def resolve_build(raw,college=None,section=None):
+    cand=[b for b in B if norm(raw) in aliases(b) and (not college or college in b['collegeIds']) and (not section or section in b['sectionIds'] or not b['sectionIds'])]
+    return cand[0] if len(cand)==1 else None
+def resolve_room(raw,bid,college=None):
+    cand=[r for r in R if r['buildingId']==bid and norm(raw) in aliases(r) and (not college or not r['collegeIds'] or college in r['collegeIds'])]
+    return cand[0] if len(cand)==1 else None
+b09=next(b for b in B if b['officialCode']=='012B09')
+ok('01 B9 contextual', resolve_build('B9',6)['officialCode']=='012B09')
+ok('02 B9 no other context', resolve_build('B9',5) is None)
+ok('03 012B9 canonical anchor/alias', norm('012B9') in aliases(b09) or b09['officialCode']=='012B09')
+ok('04 whitespace normalization', norm('B 09')=='B09')
+ok('05 lowercase normalization', norm('b09')=='B09')
+ok('06 suspicious G09 not blind building', not any(b['officialCode']=='012G09' and b['confidence']=='CONFIRMED' for b in B) or any(c['rawValue'].upper()=='G09' for c in C))
+ok('07 placeholders not rooms', all(norm(r['canonicalCode']) not in {'TBA','00','0','-','---','PENDING_ROOM'} for r in R))
+ok('07b CANCEL placeholders handled in runtime', all(x in (ROOT/'src/utils/locationRegistry.ts').read_text() for x in ['CANCEL','Pure punctuation/garbage']))
+room_alias=next((r for r in R if r['confidence']=='CONFIRMED' and r.get('aliases')),None)
+ok('08 room alias in building', room_alias is not None and resolve_room(room_alias['aliases'][0]['value'],room_alias['buildingId']) is not None)
+code_multi={}
+for r in R: code_multi.setdefault(norm(r['canonicalCode']),set()).add(r['buildingId'])
+ok('09 same room code remains per-building', any(len(v)>1 for v in code_multi.values()) and all(r['id'].startswith('room_') for r in R))
+ok('10 shared logic evidence', summary['sharedRooms']>0 and all(str(r.get('sharedConfidence')) in {'CONFIRMED','PROBABLE'} for r in R if r['shared']))
+loc=(ROOT/'src/utils/locationRegistry.ts').read_text()
+ok('11 pending system state', 'PENDING_ROOM' in loc and 'return ""' in loc)
+server=(ROOT/'server.ts').read_text()
+ok('12 ordinary add room unavailable UI/backend', 'إضافة القاعات محصورة بمدير النظام' in server)
+ok('13 admin backend protected', 'app.post("/api/admin/location-registry/rooms", requirePermission(7), requirePowerAdmin' in server)
+imp=(ROOT/'src/components/ImportPreviewTable.tsx').read_text()
+ok('14 import unknown blocks', 'locationStatus !== "PENDING_ROOM"' in imp and 'buildingId' in imp and 'roomId' in imp)
+ok('15 unknown building blocks', 'اختر مبنى رسميًا من سجل المباني' in (ROOT/'src/server/locationRegistryEngine.ts').read_text())
+ok('16 pending allows preflight', 'type:"pending_room",severity:"warning"' in (ROOT/'src/server/locationRegistryEngine.ts').read_text())
+ok('17 later room runs conflicts', '/api/schedules/check-conflicts' in imp and 'scheduleConflicts(req,canonicalBody' in server)
+ok('18 historical view allowed', 'allowHistoricalView' in (ROOT/'src/server/locationRegistryEngine.ts').read_text())
+ok('19 unresolved reuse blocks', 'resolveHistorical: true' in server and 'لا يمكن نسخ الجدول قبل معالجة بياناته' in server)
+ok('20 stats excludes pending', 'verified=rows.filter' in loc and 'pendingRoomSchedules' in loc)
+ok('21 registry filters canonical and historical aliases safely', 'rowMatchesBuilding' in (ROOT/'src/components/Reports.tsx').read_text() and 'rowMatchesRoom' in (ROOT/'src/components/Reports.tsx').read_text() and 'resolveBuilding' in (ROOT/'src/components/Reports.tsx').read_text() and 'resolveRoom' in (ROOT/'src/components/Reports.tsx').read_text())
+engine=(ROOT/'src/server/locationRegistryEngine.ts').read_text()
+ok('22 migration idempotent version', 'locationMigrationVersion===LOCATION_MIGRATION_VERSION' in engine)
+ok('23 migration rollback', 'rollbackPatch' in engine and 'rollback-location-registry' in server)
+ok('24 review queue', summary['reviewCases']>0 and '/api/admin/location-registry/review/' in server)
+seed=(ROOT/'src/generated/locationRegistrySeed.ts').read_text()
+ok('25 no personal data in seed/export', all(x not in seed for x in ['SystemUserPass','AdInstructorCivil','studentName','civilId','passwordHash']))
+ok('26 probable inactive', all(not b['active'] for b in B if b['confidence']=='PROBABLE') and all(not r['active'] for r in R if r['confidence']=='PROBABLE'))
+ok('27 no free text schedule location', 'data-location-registry-picker="true"' in (ROOT/'src/components/LocationPicker.tsx').read_text())
+ok('28 hall barter canonical ids', 'canonicalForBarter' in server and 'barterRequestMatchesRow(request,row)' in server)
+ok('29 copy writes validated rows', 'replaceScheduleScope(collegeId, sectionId, targetTermId, copiedRows' in server)
+ok('30 backup not embedded', not any('schedule-full-backup_2026' in str(p) for base in [ROOT/'src',ROOT/'scripts',ROOT/'tests',ROOT/'public'] if base.exists() for p in base.rglob('*')))
+
+# Owner-supplied college/site prefix semantics: 012B07 = site 012B + BUILDING 7.
+b07=next(b for b in B if b['officialCode']=='012B07')
+b11=next(b for b in B if b['officialCode']=='012B11')
+ok('31 owner prefix semantics building 7', b07.get('sitePrefix')=='012B' and str(b07.get('buildingNumber'))=='7' and 6 in b07['collegeIds'])
+ok('32 owner prefix semantics building 11', b11.get('sitePrefix')=='012B' and str(b11.get('buildingNumber'))=='11' and 6 in b11['collegeIds'])
+ok('33 full identity retains zero padding', b07['officialCode']=='012B07' and b11['officialCode']=='012B11')
+ok('34 authoritative prefix prevents cross-college binding', all(not (cid==6 and not b['officialCode'].startswith('012B')) for b in B for cid in b.get('collegeIds',[])))
+prefix_src=(ROOT/'src/utils/locationCollegePrefixes.ts').read_text()
+ok('35 numeric college prefixes require context', 'Numeric site prefixes' in prefix_src and '0510' in prefix_src and '0420' in prefix_src)
+living=(ROOT/'src/components/LivingScheduleLayer.tsx').read_text()
+reports=(ROOT/'src/components/Reports.tsx').read_text()
+intel=(ROOT/'src/components/IntelligenceWorkspace.tsx').read_text()
+# The student-case register is shared with the registration sheet (StudentCasesTable).
+cases_table=(ROOT/'src/components/StudentCasesTable.tsx').read_text()
+ok('36 hidden decision editor uses registry picker', '<LocationPicker' in living and '<span>المبنى</span>\n                          <input' not in living and 'roomIdentityKey(selected)' in living)
+ok('37 room report filters use canonical ids', 'String(row.roomId) === matrixHall' in reports and 'placeholder="F10 مثلاً"' not in reports)
+ok('38 smart room proposals carry canonical ids', '{ ...row, ...change, locationStatus: change.locationStatus || "VERIFIED" }' in intel)
+ok('39 operational buildings require an actually usable room', 'eligibleBuildingIds' in server and '!sectionId||eligibleBuildingIds.has(building.id)' in server and 'stale\n  // building.sectionIds relationship' in server)
+ok('40 import blocker guides user to preview', 'أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.' in intel and 'scrollIntoView({ behavior: "smooth", block: "center" })' in intel and 'أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.' in server)
+admin=(ROOT/'src/components/LocationRegistryAdmin.tsx').read_text()
+ok('41 shared room is derived, never manually checked', 'shared=sectionIds.length>1' in server and 'checked={Boolean(editEntity.shared)}' not in admin and 'checked={newRoom.shared}' not in admin and 'تُصنّف تلقائيًا كمشتركة' in admin)
+registry_src=(ROOT/'src/utils/locationRegistry.ts').read_text(encoding='utf-8')
+ok('42 suggestions obey the same department room scope', 'room.shared||room.sectionIds.length===0||room.sectionIds.includes(sectionId)' not in server and 'eligibleHallsForSection(registry,sectionId,borrowedRoomIds)' in server and 'borrowedRoomIds.has(room.id)' in registry_src and '(room.sectionIds || []).includes(sectionId)' in registry_src)
+ok('43 admin workspace collapses secondary controls', '<details className="location-admin-guide">' in admin and 'showBuildingCreate' in admin and 'showRoomCreate' in admin)
+
+
+ok('44 basic education female site label is explicit', 'siteLabel: "التربية الأساسية - بنات"' in prefix_src)
+ok('45 registry ordering is natural everywhere', 'compareLocationCodes' in loc and 'merged.buildings.sort' in server and 'merged.rooms.sort' in server)
+ok('46 admin department filter requires an actual department room', 'hasDepartmentRoom' in admin and 'room.sectionIds.includes(sectionFilter)' in admin)
+ok('47 admin refresh is automatic and duplicate buttons removed', 'visibilitychange' in admin and '<RefreshCw' not in admin and 'setWorkspaceTab("migration");void previewMigration()' not in admin)
+ok('48 empty review and pending tabs removed', 'workspaceTab==="review"' not in admin and 'workspaceTab==="pending"' not in admin)
+ok('49 historical migration uses smart safe recovery without promoting PROBABLE to VERIFIED', 'RECOVERED_FROM_UNIQUE_ROOM_FINGERPRINT' in engine and 'HISTORICAL_STRONG_PROBABLE_REVIEW' in engine and 'resolveStrongHistoricalProbableRoom' in engine and 'HISTORICAL_STRONG_PROBABLE_ROOM' not in engine)
+ok('50 invalid historical garbage is classified explicitly', 'CANCELLED' in loc and 'Pure punctuation/garbage' in loc and 'Placeholder تاريخي' in admin)
+
+
+admin=(ROOT/'src/components/LocationRegistryAdmin.tsx').read_text()
+picker=(ROOT/'src/components/LocationPicker.tsx').read_text()
+ok('51 redundant site filter removed from registry UI', 'aria-label="الموقع"' not in admin and 'كل المواقع' not in admin and 'siteFilter' not in admin)
+ok('52 department room picker merges then sorts all department rooms', 'departmentRooms=useMemo' in picker and 'compareLocationCodes(a.canonicalCode,b.canonicalCode)' in picker)
+repository_src=(ROOT/'src/db/repository.ts').read_text()
+ok('52a department history read contract is restored without reopening ordinary room writes', 'Repository.getDepartmentRooms(collegeId,sectionId)' in server and 'app.post("/api/department-rooms"' in server and 'إضافة القاعات محصورة بمدير النظام' in server)
+ok('52b add/edit asks for department history while import picker remains isolated', 'departmentHistory)q.set("departmentHistory","1")' in picker and 'useRegistry(collegeId,sectionId,termId,false,true)' in picker and 'useRegistry(collegeId,sectionId,termId,branchSites)' in picker)
+ok('52c only confirmed registry identities bridge historical room strings into add/edit', 'confirmedDepartmentRoomIds' in server and 'departmentHistoryRoomIds.has(room.id)' in server and 'fromDepartmentHistory' in server)
+ok('52d pinned directory rooms are selectable and save with the same scope rule', 'getPinnedDepartmentRooms' in repository_src and 'pinnedForDepartment' in server and 'allowOutOfScopeRoom:directoryApprovedRoom' in server and 'قاعات القسم من السجل التاريخي' in picker)
+ok('52e historical use owned elsewhere stays visible but cannot bypass barter', 'historyNeedsBorrowing' in server and 'استخدام تاريخي يحتاج استعارة' in picker and 'disabled>{r.canonicalCode} · تحتاج استعارة معتمدة' in picker)
+ok('53 section selectors are Arabic-natural sorted', 'sortByName(data.sections.filter' in admin and 'sortByName(availableSections' in (ROOT/'src/components/IntelligenceContextBar.tsx').read_text())
+
+ok('54 import publish is disabled while any issue remains', 'importReady = Boolean(importPreview?.valid && importBlockingIssues.length === 0)' in intel and 'disabled={!importReady || busy}' in intel)
+ok('55 empty query hides all print/report actions, including Authority change report', 'authorityReportAvailable && all.length > 0' in reports and '{results.length ? <>' in reports and 'تقرير تغييرات الجدول' in reports)
+ok('56 query facets cascade through the actual intersected dataset', 'rowLocation = useCallback' in reports and 'rowsForFacet = useCallback' in reports and 'rowsForFacet("course")' in reports and 'rowsForFacet("instructor")' in reports and 'rowsForFacet("building")' in reports and 'rowsForFacet("room")' in reports)
+ok('57 late alert shows thin course name under course code', 'subtitle: courseName || undefined' in intel and 'intel-reason-course-name' in intel)
+ok('58 demand arithmetic values are centered under labels', 'justify-items:center' in (ROOT/'src/styles/06-intelligence.css').read_text())
+courses_src=(ROOT/'src/components/Courses.tsx').read_text()
+ok('59 courses type import restored for CI', 'import type { AdSection } from "../types";' in courses_src)
+ok('60 course inspector shows public code not internal id', '<b>{selected.CourseCode || "—"}</b>' in courses_src)
+transfer=(ROOT/'src/components/ScheduleTransfer.tsx').read_text()
+# النشر يبقى مخفياً ومعطّلاً كما كان، ويضيف الآن شرطاً ثالثاً: أن يكون فحص
+# التعارض مع بقية أقسام الفصل قد أجاب عن هذه الصفوف بالذات. الوعد ثم الرفض بعد
+# الضغط ليس مراجعة، فالانتظار لحظةً هو الشكل الصحيح للقاعدة لا تخفيفها.
+ok('61 transfer publish is hidden and hard-disabled for any unresolved preview note while a saved Authority baseline may publish zero live rows', 'const importReady = Boolean((xlsxPreview?.rows?.length || authorityBaselineCount > 0) && importBlockingIssues.length === 0)' in transfer and '{importReady && publishGateSatisfied ? (' in transfer and 'disabled={busy || !importReady}' in transfer and 'previewIssues: importBlockingIssues' in transfer and 'if (!importReady)' in transfer)
+# الانتظار خاص بجدول PDF المعتمد: استيراد Excel لا يمرّ بالفحص المسبق أصلاً،
+# فلو شمله الشرط لبقي بلا زر نشر إلى الأبد.
+# رايتان لا راية: «عندنا جواب يخصّ هذه الصفوف» غير «بوابة النشر لا تنتظر». خلطهما
+# جعل مسار Excel يدّعي نتائج فحصٍ لم يُجرَ، فتُقرأ حقول من null وتسقط الشاشة.
+ok('61b transfer publish waits for the term-wide conflict preflight, and only for the Authority PDF path', '/api/schedules/import-preflight' in transfer and 'const termConflictsFresh = Boolean(termConflicts && termConflicts.signature === previewRowsSignature)' in transfer and 'const publishGateSatisfied = importKind !== "authority-pdf" || termConflictsFresh' in transfer and '{importReady && publishGateSatisfied ? (' in transfer and 'import-preflight' in server and 'blockingImportConflicts(' in server)
+# ولا يُقرأ من termConflicts إلا عبر وصول آمن، فلا تسقط الشاشة إن اختلّت الراية.
+# «موجود عندنا للقسم» حقيقة يسجّلها النظام لحظة الإضافة، لا استنتاجاً من جداول
+# منشورة: الإضافة من سياق قسم تُدرِج العضو في دليل القسم اليدوي الذي تقرأه
+# المطابقة وبوابة النشر، ورقمٌ مدني موجود يُضمّ ويُعاد كاختيار بدل أن يُرفض.
+# قانون الهوية يطوي كل تقلبات الرسم — الهمزات وؤ/ئ والهمزة المفردة وى/ة
+# والفارسية ی/ک و«ال» المشطورة والمسافات — ولا نسخة محلية منه في أي موضع
+# يقارن أسماء الأساتذة: البحث والمطابقة وطبقة Gemini والاسترجاع والمقارنة
+# كلها تستورده، فلا يجد أحدها اسماً يعمى عنه الآخر.
+_law=(ROOT/'src/utils/instructorIdentity.ts').read_text()
+ok('96d the identity law folds every orthographic variant including spaces', 'ؤ' in _law and 'ئ' in _law and 'replace(/ء/g, "")' in _law and '[ىی]' in _law and 'instructorSpacelessKey' in _law and 'يي+$' in _law and 'token === "عبد" || token === "ال"' in _law)
+ok('96e every instructor-name comparison imports the shared law, no local copies', 'from "../utils/instructorIdentity"' in (ROOT/'src/components/InstructorPicker.tsx').read_text() and 'from "./instructorIdentity"' in (ROOT/'src/utils/geminiScheduleLayer.ts').read_text() and 'from "./instructorIdentity"' in (ROOT/'src/utils/authorityScanRecovery.ts').read_text() and 'foldInstructorText' in server and 'instructorCleanName' in server)
+# الضمّ صار ذرّياً (arrayUnion) بعد ملاحظة مراجعة: إضافتان متزامنتان كانتا
+# تمحو إحداهما عضوَ الأخرى بكتابة المصفوفة كاملة. الحارس يتبع الشكل الأشدّ.
+# وأول سجل صريح يرث ما كانت القراءة تعطيه من كشوف الفصول التاريخية: إنشاؤه
+# بعضوٍ واحد كان يمحو كل مندوب موروث دفعةً واحدة وبلا أثر.
+ok('96g the first explicit delegate directory inherits the legacy roster members', 'const seed = doc.exists ? [] : await Repository.getDepartmentDelegatesMember(collegeId, sectionId)' in (ROOT/'src/db/repository.ts').read_text() and 'FieldValue.arrayUnion(...[...new Set([...seed.map(Number).filter(Boolean), id])])' in (ROOT/'src/db/repository.ts').read_text())
+ok('96h the import result carries the identities the server actually resolved', 'const resolvedInstructors=[...new Map((rows as any[])' in server and 'verificationSummary,pageSummaries,resolvedInstructors,' in server)
+ok('96k the display-only match list carries no civil ID', 'AdInstructorCivil' not in server.split('const resolvedInstructors=')[1].split(';')[0])
+ok('96l an identity matched outside the department is confirmed in one click instead of re-picking it by hand', 'className="import-instructor-confirm"' in (ROOT/'src/components/ImportPreviewTable.tsx').read_text() and 'patchManual(index, "instructor", { AdInstructorId: Number(row.AdInstructorId) })' in (ROOT/'src/components/ImportPreviewTable.tsx').read_text() and '.import-instructor-confirm{' in (ROOT/'src/styles/06-intelligence.css').read_text())
+ok('96m one department-membership law, read by the publish gate and by the preview alike', 'async function departmentInstructorIdSet(' in server and 'await departmentInstructorIdSet(allColleges as any, allSections as any, collegeId, sectionId, termId)' in server and 'resolvedInstructors,departmentInstructorIds,' in server)
+ok('96o the department membership snapshot is read once per import and shared by the gate and the preview', 'departmentInstructorIds?:Set<number>' in server and 'requireDepartmentInstructor:true,departmentInstructorIds:departmentMembership' in server and 'const departmentInstructorIds=[...departmentMembership];' in server)
+ok('96p only a match that leaves ONE qualifying identity in the whole register proves itself; the ranked three-name proof stays behind department review', 'instructorProvenByFullName=["EXACT_FULL","FACULTY_IDENTITY","GLOBAL_SOLE_TWO_NAME"]' in server.replace(' ','') and 'GLOBAL_THREE_NAME' not in server and '!instructorChosenByHand&&!instructorProvenByFullName&&!departmentInstructorIds.has' in server)
+ok('96q a proven identity is shown like every other name, with no review tint and no badge of its own', 'instructorOutsideRegister(row) && !provenByFullName(row)' in (ROOT/'src/components/ImportPreviewTable.tsx').read_text() and 'import-registry-badge' not in (ROOT/'src/components/ImportPreviewTable.tsx').read_text() and '.import-registry-badge{' not in (ROOT/'src/styles/06-intelligence.css').read_text())
+ok('96r the faculty placeholder identity is derived through the shared normalizer instead of a hand-written folded spelling', 'const facultyKey=identityTokens("هيئة تدريسية").join(" ")' in (ROOT/'src/utils/documentOcr.ts').read_text() and 'item.normalized==="هيئه تدريسيه"' not in (ROOT/'src/utils/documentOcr.ts').read_text())
+ok('96s a delegate carries the department that enrolled them, read from every directory and roster at once', 'getDelegateAffiliations: async ()' in (ROOT/'src/db/repository.ts').read_text() and 'app.get("/api/instructor-affiliations"' in server and 'requireAnyPermission([3, 7])' in server.split('/api/instructor-affiliations')[1][:120])
+ok('96t every instructor reads their department on the card and in the details pane, teaching and secondment apart', 'fetch("/api/instructor-affiliations")' in (ROOT/'src/components/Instructors.tsx').read_text() and 'const homeLabel = (id: number)' in (ROOT/'src/components/Instructors.tsx').read_text() and '<span>الأقسام التي درّس فيها</span>' in (ROOT/'src/components/Instructors.tsx').read_text() and '<span>منتدب لدى</span>' in (ROOT/'src/components/Instructors.tsx').read_text())
+ok('96u every term counts: an instructor reads their departments from one indexed query on their own id, never a sweep of the whole history', 'getInstructorTeachingScopes: async (instructorId: number)' in (ROOT/'src/db/repository.ts').read_text() and 'where("AdInstructorId", "==", id)' in (ROOT/'src/db/repository.ts').read_text() and 'app.get("/api/instructors/:id/affiliation"' in server and '/affiliation`, { signal: controller.signal })' in (ROOT/'src/components/Instructors.tsx').read_text() and '<span>الأقسام التي درّس فيها</span>' in (ROOT/'src/components/Instructors.tsx').read_text())
+ok('96v the matcher reads the same branch-wide membership the publish gate reads, so a record registered at another site of the department is visible to both', 'const departmentMembership=await departmentInstructorIdSet(' in server and 'for(const id of departmentMembership)preferredInstructorIds.add(id);' in server and server.count('const departmentMembership=await departmentInstructorIdSet(')==1)
+ok('96w an unresolved «هيئة تدريسية» says it is a departmental record rather than telling the reviewer to add a civil id', 'const placeholderKey=instructorIdentityTokens("هيئة تدريسية").join(" ")' in server and 'ولا سجلّ لهذا القسم بعد' in server)
+ok('96x «هيئة تدريسية» is one shared meaning, so duplicate records settle on the oldest instead of leaving the cell empty, with the department still first', 'const canonical=(pool:typeof faculty)=>pool.length' in (ROOT/'src/utils/documentOcr.ts').read_text() and 'sole(inCourse)||sole(faculty.filter(item=>item.preferred))||canonical(faculty.filter(item=>item.preferred))||canonical(faculty)' in (ROOT/'src/utils/documentOcr.ts').read_text())
+ok('96y the registry may spell the faculty placeholder its own way: the leading «هيئة» identifies the record, since no person is named that', 'const facultyHead=identityTokens("هيئة")[0]' in (ROOT/'src/utils/documentOcr.ts').read_text() and 'item.tokens[0]===facultyHead' in (ROOT/'src/utils/documentOcr.ts').read_text() and 'tokens[0]===placeholderHead' in server)
+ok('96z «هيئة تدريسية» is a shared meaning, not a body: it never raises an instructor double-booking, while room, duplicate and cohort rules are untouched', 'placeholderInstructorIds?:Iterable<number>' in (ROOT/'src/utils/scheduleIntelligence.ts').read_text() and (ROOT/'src/utils/scheduleIntelligence.ts').read_text().count('const personalInstructor=(row:FSchedule)=>')==2 and 'push(byDayInstructor' in (ROOT/'src/utils/scheduleIntelligence.ts').read_text() and 'if(personalInstructor(other)) push(byDayInstructor' in (ROOT/'src/utils/scheduleIntelligence.ts').read_text())
+ok('96aa the import path carries that exemption on every side: publish gate, preflight, live row check and the preview itself', 'function placeholderInstructorIds(instructors:' in server and 'placeholderIds?:Set<number>' in server and '{placeholderInstructorIds:placeholderIds' in server and 'placeholderInstructorIds: placeholderIds' in (ROOT/'src/components/ScheduleTransfer.tsx').read_text() and '!placeholderIds.has(Number(row.AdInstructorId))' in (ROOT/'src/components/ImportPreviewTable.tsx').read_text())
+ok('96n the preview reads the department definition instead of inventing a narrower one', 'affiliatedIds?: number[]' in (ROOT/'src/components/ImportPreviewTable.tsx').read_text() and '...affiliatedIds.map(Number),' in (ROOT/'src/components/ImportPreviewTable.tsx').read_text() and 'affiliatedIds={Array.isArray(xlsxPreview.departmentInstructorIds)' in (ROOT/'src/components/ScheduleTransfer.tsx').read_text())
+ok('96i a server-resolved instructor is displayed by name instead of red «غير محسوم»', 'matchedPeople = []' in (ROOT/'src/components/ImportPreviewTable.tsx').read_text() and '...visitingPeople, ...matchedPeople]' in (ROOT/'src/components/ImportPreviewTable.tsx').read_text() and 'matchedPeople={(Array.isArray(xlsxPreview.resolvedInstructors)' in (ROOT/'src/components/ScheduleTransfer.tsx').read_text())
+ok('96j display-only matches never grant department membership', 'matchedPeople' not in (ROOT/'src/components/ImportPreviewTable.tsx').read_text().split('const departmentAffiliated')[1].split(']), [departmentIds')[0])
+ok('96b quick-add from a department context enrols the person into the manual department directory', 'const scoped = Boolean(collegeId && sectionId && isScopeAllowed(req, collegeId, sectionId))' in server and 'addDepartmentDelegate(collegeId, sectionId, Number(instructorId))' in server and 'existing: true' in server and 'collegeId, sectionId })' in (ROOT/'src/components/InstructorPicker.tsx').read_text() and 'FieldValue.arrayUnion' in (ROOT/'src/db/repository.ts').read_text())
+paged=(ROOT/'src/components/PagedImportPreview.tsx').read_text()
+# المعاينة تشفي نفسها بقانون الهوية المشترك: مطابقة حرفية وحيدة داخل نطاق
+# القسم فقط، وتعميم حسمٍ واحد على كل الصفوف الحاملة لنفس الاسم، والخلاف يبطله.
+ok('96c the preview self-heals with the shared identity law, department-scoped and dispute-aware', 'uniqueExactIdentityMatch' in paged and 'instructorIdentityKey' in paged and 'disputed' in paged and 'DEPARTMENT_DIRECTORY' in paged and 'from "../utils/instructorIdentity"' in paged)
+# ربط الآلة يحمل نسبته ويُنقض عند الخلاف، والمتقاعد/المجاز لا يُربط تلقائياً،
+# والتعميم ليس مصدر قرار — وإلا شهد القرار على نفسه ولم يُنقض أبداً.
+ok('96f machine links carry provenance, yield to disputes, and never pick inactive staff', 'NAME_PROPAGATION' in paged and 'DISPUTED_NAME' in paged and 'evidence?.method === "NAME_PROPAGATION"' in paged and '"retired"' in paged and '"sabbatical"' in paged and 'addDepartmentDelegate' in server)
+ok('61d transfer never dereferences absent preflight data', 'termConflicts!' not in transfer and '(termConflicts?.issues || [])' in transfer and '(termConflictsFresh && termConflicts?.notes) || {}' in transfer)
+# المعرّف السالب يبقى مع الصف بعد حذف ما قبله، فلا يساوي موضعه. العلامة تُقرأ
+# من الترتيب الحالي وإلا وقعت على صف بريء بينما يُمنع النشر بسبب لا يُرى.
+ok('61c preflight conflict positions come from the current row order, never from decoding the negative id', 'const positionById=new Map<number,number>()' in server and 'positionById.get(Number(id))' in server and 'return value<0?-value-1:null' not in server)
+ok('62 draft backend rejects unresolved preview notes', 'لا يمكن حفظ المسودة أو نشرها قبل معالجة جميع ملاحظات المعاينة.' in server and 'previewIssues.length' in server)
+ok('63 pending room never waives the required building', 'building: (row: ImportRow) => !row.buildingId,' in imp)
+doc_ocr=(ROOT/'src/utils/documentOcr.ts').read_text()
+ok('64 authority PDF normalizes Arabic presentation forms before header and instructor matching', '.normalize("NFKC")' in doc_ocr and 'ordinary Arabic letters before ANY header/course/instructor matching' in doc_ocr)
+ok('65 authority PDF text layer keeps one physical timetable row and drops each repeated page header structurally', 'tableFromWords(words,[],"pdf-text")' in doc_ocr and 'authorityBodyOnly(physicalRows)' in doc_ocr and 'strictPdfRows?dist<=rowTolerance' in doc_ocr and 'hasCourseKey&&(hasTime||hasBuilding)' in doc_ocr)
+ok('66 authority PDF building bleed is repaired only through the central confirmed-registry resolver', 'const bleed=token.match(/^(\\d{3}[A-Z]\\d{2})\\d$/)' in loc and 'buildingMethod="BORDER_BLEED_RECOVERY"' in loc and 'resolveAuthorityLocation(registry' in server)
+ok('67 wrong academic term is rejected before table OCR', 'readAuthorityPdfHeader(bytes)' in server and server.index('readAuthorityPdfHeader(bytes)') < server.index('ocrDocument(bytes,"application/pdf"') and 'PDF_TERM_MISMATCH' in server)
+ok('68 cross-branch PDF rows are surfaced and never silently assigned to current college', 'sourceSitePrefix!==targetSitePrefix' in server and 'لن يُضاف هذا السطر إلى الكلية المحددة قبل مراجعته' in server and 'officialSiteLabel(sourceSitePrefix)' in server)
+ok('69 instructor import keeps department roster evidence and accepts only unique system identities from full/two/three-name proof', 'Repository.getDepartmentDelegates(collegeId,sectionId)' in server and 'Repository.getVisitingRoster(collegeId,sectionId,termId)' in server and 'TWO or THREE real name tokens' in doc_ocr and 'preferredHit' in doc_ocr and 'const globalHit=choose(catalogue,false)' in doc_ocr)
+
+# PDF import regressions observed on real Authority text PDFs and CamScanner scans.
+ok('70 partial text PDF header falls back instead of rejecting a valid branch', 'const physicalText=tableFromWords(headerWords,[],"pdf-text")' in doc_ocr and 'if(embedded.term&&embedded.branch&&embedded.department)' in doc_ocr and 'A PARTIAL text-layer hit is not success' in doc_ocr)
+ok('71 time-column proof tolerates one ruled-border digit while rejecting building-shaped OCR', 'authorityTimeCellLooksPlausible' in doc_ocr and '012-809' in doc_ocr and 'const timeIndex=claimBy(authorityTimeCellLooksPlausible' in doc_ocr)
+ok('72 academic key searches the bounded right table edge instead of the last physical band', 'const keySearchFrom=Math.max(0,columnBands.length-7)' in doc_ocr and 'for(let end=lastBand;end>=keySearchFrom;end--)' in doc_ocr)
+ok('73 full Authority course keys resolve by number inside the selected document department', 'authorityCourseCodeMatches(source,item.digits,authorityDepartment)' in doc_ocr and 'Course NAMES are display evidence only' in doc_ocr)
+schedules_src=(ROOT/'src/components/Schedules.tsx').read_text()
+ok('74 section numbering starts at 501 and ignores legacy/broken lower values when suggesting next section', 'return "501"' in schedules_src and 'value >= 501 && value <= 999' in schedules_src and 'Sections of one course run 501, 502, 503' in schedules_src)
+
+ok('75 narrow room cells are re-read in isolation after geometry proves the room column, and blank cells are ink-gated instead of OCRed', 'Rooms are the narrowest identity cells in SWRSCHA' in doc_ocr and 'readCell(surface,columnBands[hallIndex],bands[at],LOCATION_ALNUM,worker)' in doc_ocr and 'if(stripPatterns.hall.test(value))next[row]=value' in doc_ocr and 'const cellHasInk=' in doc_ocr and 'cellHasInk(columnBands[hallIndex],row)' in doc_ocr)
+ok('76 scan clock border artefacts use a same-page dominant tail rather than a hard-coded time guess', 'const clockTailCounts=new Map<string,number>()' in doc_ocr and 'pageClockTail' in doc_ocr and 'one-character tail correction' in doc_ocr)
+ok('77 generated RTL header keeps glued 012 branch separate from 0101 department', 'Some Oracle/PDF extractors glue the code to the Arabic word visually' in doc_ocr and 'nearestDepartmentName' in doc_ocr and 'التربية الاسلامية 0101 القسم' in doc_ocr)
+ok('78 CamScanner page-1 header has bounded high-resolution rescue', 'Deep header rescue' in doc_ocr and 'renderPdfFirstPage(input,TARGET_LONG_EDGE)' in doc_ocr and 'for(const psm of [6,11])' in doc_ocr)
+ok('79 partial preflight is rescued before PDF_HEADER_UNRESOLVED is emitted', 'A partial preflight is NOT a rejection' in server and server.index('ocrDocument(bytes,"application/pdf"') < server.index('code:"PDF_HEADER_UNRESOLVED"'))
+ok('80 successful scan grid still rereads page-1 header when preflight is incomplete', 'readAuthorityHeaderBand(upright,lanePool.ara)' in doc_ocr and 'needsHeaderRescue' in doc_ocr and 'already-upright 2800px page' in doc_ocr)
+ok('81 native text PDF reconstructs SWRSCHA cells from embedded coordinates instead of camera OCR', 'authorityPdfTextGridRows(words,Number(viewport.width||0))' in doc_ocr and 'Native generated PDFs get the coordinate-grid path' in doc_ocr)
+ok('82 native text PDF building/room are physically bounded away from seat-capacity columns', 'Capacity/seat columns start to the right of x=.39' in doc_ocr and 'zone(row,.294,.348)' in doc_ocr and 'zone(row,.348,.390)' in doc_ocr)
+ok('83 building identity is owned by one registry resolver rather than shape alone', 'resolveAuthorityLocation(registry' in server and 'EXACT_REGISTRY' in loc and 'known.includes(token)' in loc and 'Never send arbitrary six-digit numeric seat/capacity strings' in loc)
+ok('84 room validity is building-bound and not incorrectly rejected by main-campus context', 'a room is valid iff it exists under THAT building' in server and 'resolveRoom(registry,rawHall,building.value.id,{})' in server)
+ok('85 instructor titles d/a/a.d are stripped only as presentation and هيئة is registry-bound', 'د./ا./ا.د.' in server and 'هيئة تدريسية' in doc_ocr and 'ambiguous names stay blank' in doc_ocr)
+ok('86 fast OCR lanes have page-scoped safe fallback and do not reread clean pages', 'SAFE FALLBACK — suspicious pages only' in doc_ocr and 'const suspiciousIndexes=pages.map' in doc_ocr and 'Clean pages are never re-read' in doc_ocr)
+preview_import=(ROOT/'src/components/ImportPreviewTable.tsx').read_text()
+ok('87 visiting instructor is shown as a quiet badge beside the canonical system name', 'import-visiting-badge' in preview_import and 'visitingIdSet.has' in preview_import)
+
+
+# Owner academic-import identity rules (2026-08-25).
+auth=(ROOT/'src/utils/authorityAcademicCodes.ts').read_text()
+doc=(ROOT/'src/utils/documentOcr.ts').read_text()
+server=(ROOT/'server.ts').read_text()
+ok('81 scientific department code is college + local department', 'college 01 + department 01 => 0101' in auth and 'authorityDepartmentMatches' in server)
+ok('81b branch/site college codes collapse to the two-digit SWRSCHA college authority', 'collegeRaw.length >= 2' in auth and 'collegeRaw.slice(0, 2)' in auth and 'Commercial Girls 022 -> 02' in auth)
+ok('81c PDF import derives department college authority from the official site prefix, not a branch-shaped catalogue code', 'const targetAuthorityCollegeCode=(()=>{' in server and 'academicDigits(targetSitePrefix)' in server and 'siteDigits.slice(0,2)' in server and 'authorityDepartmentMatches(sourceDepartment,targetAuthorityCollegeCode,targetSection.AdSectionCode)' in server)
+ok('82 course identity is number-only and canonical name comes from system', 'Course NAMES are display evidence only' in doc and 'AdCourseName:course.CourseName' in doc)
+ok('83 imported Authority sections are generated 501, 502... per course in row order (owner rule restored 2026-09-26); the printed cell stays evidence only', 'assignAuthoritySections' in auth and 'nextByCourse' in auth and '(nextByCourse.get(courseId) || 500) + 1' in auth and 'sourceSectionText' in auth and 'sequentialSections:true' in server and 'assignAuthoritySections(safeDraftRows(parsed.rows' in server)
+ok('84 instructor import uses unique full/two/three-name system identity with no edit-distance rescue', 'TWO or THREE real name tokens' in doc and 'ambiguous names stay blank' in doc and 'const globalHit=choose(catalogue,false)' in doc)
+preview=(ROOT/'src/components/ImportPreviewTable.tsx').read_text()
+ok('85 unmatched instructor source text is never displayed as a canonical professor', 'person?.AdInstructorName ?' in preview and 'person.AdInstructorName' in preview and 'person?.AdInstructorName || String(row.sourceInstructorText' not in preview)
+ok('86 document department rejects local-only code when college composite is known', 'if (college && composite) return source === composite' in auth)
+ok('87 authority source section normalization is re-applied server-side after preview, edit, delete and publish', server.count('assignAuthoritySections(safeDraftRows') >= 5)
+transfer=(ROOT/'src/components/ScheduleTransfer.tsx').read_text()
+ok('88 authority source section normalization is re-applied in both import UIs', 'assignAuthoritySections(next)' in transfer and 'assignAuthoritySections(rows)' in intel)
+ok('89 canonical header receipt uses system department label after numeric proof', 'canonical system label in the receipt/preview' in server and 'name:canonicalName' in server)
+ok('90 fallback parser never confuses full course key with CRN', 'value!==sourceCourseCode' in doc and 'sourceCourseCode=sourceCourseRuns.find' in doc)
+
+
+location_prefixes=(ROOT/'src/utils/locationCollegePrefixes.ts').read_text()
+location_registry=(ROOT/'src/utils/locationRegistry.ts').read_text()
+ok('91 owner grammar reconstructs 012B09 only from branch 012 + B09 + official registry', 'recoverOfficialBuildingCodeFromAuthorityCell' in location_prefixes and 'site prefix 012B + building 09' in location_prefixes and 'knownOfficialCodes' in location_prefixes)
+ok('92 PDF import preserves raw same-cell building evidence for registry recovery', 'buildingRaw?:string' in doc_ocr and 'sourceBuildingText:grid.buildingRaw||grid.building' in doc_ocr and 'row.sourceBuildingText||row.AdRoomCode' in server)
+ok('93 room OCR correction is constrained to confirmed room inside already resolved building', 'Same-cell OCR repair' in location_registry and 'repairedMatches=base.filter' in location_registry and 'repairedMatches.length===1' in location_registry)
+ok('94 alternate-site course cue is informational and restored beside the course name', 'courseSiteLabel' in server and 'import-course-site-note' in preview and '<MapPin />' in preview)
+ok('95 same-branch 012J/012F site cue does not become a blocking cross-branch mismatch', 'sameAuthorityBranch' in server and 'row.courseSiteLabel=sourceSiteLabel' in server and 'sourceSitePrefix!==targetSitePrefix&&!sameAuthorityBranch' in server)
+ok('96 distinctive confirmed room may rescue a damaged building only when the room fingerprint is unique', 'resolveBuildingFromUniqueRoom' in location_registry and 'UNIQUE_ROOM_FINGERPRINT' in location_registry and 'Ambiguous rooms' in location_registry and 'resolveAuthorityLocation(registry' in server)
+# قانون تطبيع الأسماء انتقل إلى وحدته المشتركة كي تقرأه المعاينة أيضاً؛ الحارس
+# يتبعه إلى موضعه الجديد ويثبّت أن المحرك يستورده من هناك لا من نسخة محلية.
+identity_util=(ROOT/'src/utils/instructorIdentity.ts').read_text()
+ok('97 instructor identity canonicalizes spaced/unspaced عبد names and keeps two-name proof department-only', '«عبد الله» و«عبدالله» اسم واحد' in identity_util and 'from "./instructorIdentity"' in doc_ocr and 'const twoExactProof=allowTwo' in doc_ocr and 'const globalHit=choose(catalogue,false)' in doc_ocr)
+ok('98 authority location grammar has one central resolver', 'export function resolveAuthorityLocation' in location_registry and server.count('resolveAuthorityLocation(registry') >= 1)
+ok('99 import evidence covers all seven canonical fields', all(key in server for key in ['course:{raw:', 'section:{raw:', 'days:{raw:', 'time:{raw:', 'instructor:{raw:', 'building:{raw:', 'room:{raw:']))
+ok('100 provenance survives preview and carries source/method/score', 'score?: number; source?: string; method?: string; derived?: boolean' in preview and 'evidenceTitle' in preview)
+ok('101 safely-derived cells use a calm non-danger preview state', 'import-cell-derived' in preview and 'td.import-cell-derived' in (ROOT/'src/styles/06-intelligence.css').read_text())
+ok('102 PDF preview exposes quiet ready/review counts instead of a large blocker banner', 'pdfReadinessSummary' in transfer and '<small>جاهز للنشر</small>' in transfer and '<small>مقرراً للمراجعة</small>' in transfer and 'import-color-key' in transfer)
+ok('103 golden Authority fixture and regression guard are wired into npm test', (ROOT/'tests/fixtures/authority-import-golden.json').exists() and (ROOT/'tests/pdf-import-golden.ts').exists() and 'tsx tests/pdf-import-regression.ts && tsx tests/pdf-import-golden.ts' in (ROOT/'package.json').read_text())
+ok('104 golden baseline documents no-regression change protocol', 'Existing golden fixtures must remain unchanged' in (ROOT/'docs/PDF_IMPORT_GOLDEN_BASELINE.md').read_text() and 'Never weaken a validator' in (ROOT/'docs/PDF_IMPORT_GOLDEN_BASELINE.md').read_text())
+ok('105 instructor resolver uses course history before department before global proof', doc_ocr.index('const courseHit=') < doc_ocr.index('const preferredHit=') < doc_ocr.index('const globalHit='))
+ok('106 seat/capacity numerics cannot enter contextual building shorthand', 'Never send arbitrary six-digit numeric seat/capacity strings' in location_registry and '/^(?:0*\\d{1,3}|[A-Z]0*\\d{1,3})$/' in location_registry)
+ok('107 sideways image-only Authority PDF is refused before body OCR without weakening semantic course proof', 'authorityScanRequiresLandscape' in doc_ocr and 'ROOT ORIENTATION SAFETY' in doc_ocr and 'authorityCourseCellLooksPlausible' in doc_ocr and 'PDF_SCAN_REQUIRES_LANDSCAPE' in server and server.index('PDF_SCAN_REQUIRES_LANDSCAPE') < server.index('ocrDocument(bytes,"application/pdf"'))
+ok('108 any later scan page that required a physical turn is refused before row parsing', 'pageDiagnostics' in doc_ocr and 'const rotatedPages=recognized.pageDiagnostics.filter' in server and server.index('const rotatedPages=recognized.pageDiagnostics.filter') < server.index('parseScheduleTable(recognized.pages'))
+css=(ROOT/'src/styles/06-intelligence.css').read_text()
+# Read-vs-derived was engine bookkeeping, not a reviewer's decision: both mean
+# «settled», so they share one green. The legend now names the three states a
+# person actually acts on, and each must still be visually distinct.
+ok('109 import confidence legend uses three visually distinct named states', 'أخضر · مكتمل' in transfer and 'ذهبي · يحتاج مراجعة' in transfer and 'أحمر · ناقص' in transfer and 'أبيض · مؤكد مباشر' not in transfer and 'import-cell-review' in css)
+ok('109b settled cells share one green regardless of read-or-derived provenance', 'proof?.confidence==="CONFIRMED"?"import-cell-derived"' in preview and 'proof.derived' not in preview.split('evidenceClass')[1].split('};')[0])
+ok('110 scan course-column proof rejects welded section+CRN as a course key', 'authorityCourseCellLooksPlausible' in doc_ocr and '5011894' in doc_ocr and 'authorityGridDepartment' in doc_ocr and 'readGrid(upright,lanePool,authorityGridDepartment' in doc_ocr)
+ok('111 unresolved OCR course evidence can never become the user-facing course title', 'AdCourseId:0,AdCourseName:""' in doc_ocr and 'course?.CourseName ? <strong>{course.CourseName}</strong>' in preview and '<small>رقم المقرر غير واضح</small>' in preview and 'row.AdCourseName=canonicalCourse?String(canonicalCourse.CourseName||""):""' in server)
+
+ok('P0 probable room never becomes verified from usage alone', 'HISTORICAL_STRONG_PROBABLE_REVIEW' in engine and 'locationStatus:"LOCATION_REVIEW_REQUIRED"' in engine)
+ok('P1 room college metadata follows canonical target building', 'roomCollegeIds=targetBuilding.collegeIds.length?[...targetBuilding.collegeIds]' in server and 'لا يمكن نقل/ربط القاعة بكلية لا يتبع لها المبنى الهدف' in server)
+ok('P1 shared identity derives from section associations', 'shared:room.sectionIds.length>1' in engine and 'shared:room.sectionIds.length>1' in server)
+ok('P1 punctuation garbage is classified consistently', '*+=~!|:;,' in location_registry)
+ok('P1 query filters use dependent facet intersections', all(x in reports for x in ['rowsForFacet("course")','rowsForFacet("instructor")','rowsForFacet("building")','rowsForFacet("room")']))
+
+# Golden-stage UX invariants: presentation improvements must not weaken import identity.
+schedule_review=(ROOT/'src/components/ScheduleReview.tsx').read_text()
+golden_state=(ROOT/'docs/CURRENT_GOLDEN_STATE.md').read_text()
+ok('112 import course and section identities are locked during quick edit', 'import-locked-course' in preview and 'import-locked-section' in preview and 'المقرر مثبت من النظام ولا يتغير' in preview and 'رقم الشعبة مثبت من المصدر ولا يتغير هنا' in preview)
+ok('113 corrected instructor editor hides raw OCR identity and shows only canonical picker', 'sourceInstructorText' in preview and 'قرأ الملف:' not in preview and '<InstructorPicker' in preview)
+ok('114 valid manual preview edits replace stale error evidence with confirmed manual provenance', 'source:"MANUAL"' in preview and 'method:"USER_EDIT"' in preview and 'score:100' in preview and 'import-cell-manual' in preview)
+ok('115 visiting badge is present in import, schedule, reports and final schedule review', 'import-visiting-badge' in preview and 'VisitingBadge' in schedules_src and 'VisitingBadge' in reports and 'VisitingBadge' in schedule_review and 'visitingIds={visitingIds}' in schedules_src)
+ok('116 schedule and report time ranges are kept as one visual value', 'formatScheduleTimeRange(row.fstarttime, row.fendtime)' in reports and 'white-space:nowrap' in (ROOT/'src/styles/05-schedule.css').read_text() and 'white-space:nowrap' in (ROOT/'src/styles/06-intelligence.css').read_text())
+ok('117 change log has a dedicated print action and print sheet', 'طباعة تقرير التعديلات' in schedules_src and 'change-log-print-host' in schedules_src and 'تقرير التعديلات' in schedules_src and 'data-print-kind="change-log"' not in schedules_src and 'root.dataset.printKind="change-log"' in schedules_src)
+ok('118 current golden stage is documented for future maintainers', 'اسم المقرر ورقم الشعبة في معاينة الاستيراد **هويتان مقفلتان**' in golden_state and 'Badge صغيرة `منتدب`' in golden_state and 'تقرير تعديلات قابل للطباعة' in golden_state)
+ai_review_prompt=(ROOT/'docs/MAINTENANCE_REVIEW_RULES.md').read_text()
+ok('119 maintenance review prompt is embedded in the project and linked from golden state', 'لا تعِد البناء' in ai_review_prompt and 'عدم التخمين' in ai_review_prompt and 'docs/MAINTENANCE_REVIEW_RULES.md' in golden_state)
+
+# Graduate-proof + report-availability invariants added after the Golden stage.
+reports_src=(ROOT/'src/components/Reports.tsx').read_text()
+ok('120 authority change report remains discoverable whenever a saved baseline exists', 'setAuthorityReportAvailable(Boolean(data?.draftId))' in reports_src and 'setAuthorityReportAvailable(Boolean(data?.hasChanges))' not in reports_src)
+ok('121 graduate door accepts only the official graduation sheet and checks civil, department and passed units', 'graduationSheetFacts(ocr.text)' in server and 'ليس صحيفة التخرج/الخطة الدراسية المعتمدة' in server and 'الرقم المدني في الإثبات لا يطابق' in server and 'التخصص الظاهر في صحيفة التخرج لا يطابق' in server and 'مجموع الوحدات المجتازة' in server)
+ok('122 Special Education is one canonical umbrella for its programme sub-specialties', 'academicSectionNameMatches' in server and 'sourceSpecial||targetSpecial' in server and 'sourceSpecial&&targetSpecial' in server and 'academicSectionNameMatches(programmeText,' in server)
+ok('123 graduate proof cannot be bypassed with an old/generic proof token', 'proof.documentKind!=="graduation-sheet"' in server and 'proof.specializationMatched!==true' in server and 'Number(proof.degreeUnits)!==Number(currentRule.degreeUnits)' in server)
+ok('124 public graduate UI explicitly asks for the graduation sheet, not a generic transcript', 'ارفع صحيفة التخرج' in server and 'أي مستند آخر لن يُقبل' in server and 'تحقق من صحيفة التخرج أولاً' in server)
+ok('125 graduate eligibility uses only stored academic degree rules, never name-derived defaults', 'storedDegreeRuleForSection' in server and 'Graduate proof is a hard data gate' in server and 'لا توجد قواعد تخرج أكاديمية معتمدة' in server)
+
+# Authority PDF change-report presentation and deletion invariants.
+authority_report=(ROOT/'src/components/AuthorityPdfReport.tsx').read_text()
+print_css=(ROOT/'src/styles/08-print.css').read_text()
+# The official column order is unchanged; the branch document only inserts «الموقع» after المبنى, and only when sites exist.
+ok('126 authority change report preserves source PDF column order including section', '["رقم المقرر", "الرقم المرجعي", "الشعبة", "مسمى المقرر", "عدد الوحدات", "عدد الساعات", "الحد الأقصى", "القاعة", "المبنى", "الوقت", "الأيام", "المدرس"]' in authority_report)
+ok('127 authority report prints time in the established end-to-start visual order', '`${row.fendtime} - ${row.fstarttime}`' in authority_report)
+ok('128 deleted Authority rows remain visible in red and added rows have their own green state', 'authority-pdf-row-${entry.status}' in authority_report and '.authority-pdf-row-deleted' in print_css and '.authority-pdf-row-added' in print_css and '#fbe8e8' in print_css and '#e8f6ed' in print_css)
+ok('129 changed Authority rows highlight only changed cells and carry a compact row marker', 'authority-pdf-cell-changed' in authority_report and 'authority-pdf-row-marker' in authority_report and '.authority-pdf-row-changed>[role="cell"].authority-pdf-cell-changed' in print_css)
+ok('130 Authority diff engine can still represent full deletion against an empty live timetable', 'if(!live.length){res.status(404)' not in server and 'buildAuthorityPdfDiff(scopedBaseline,live,{instructorNameById,courseCodeById:await authorityCourseCodeMap()})' in server and 'authorityBaselineForScope(draft.baselineRows||[],draft,collegeId,sectionId)' in server)
+# One Authority document holds every site of the branch, and each row is published where it belongs.
+ok('130b each row of one Authority document is published into its own branch department, all sites or none', 'splitRowsByBranch(locatedRows,branchContext)' in server and 'BRANCH_SCOPE_UNRESOLVED' in server and 'BRANCH_SCOPE_FORBIDDEN' in server and 'BRANCH_COURSE_MISSING' in server and 'BRANCH_VALIDATION_FAILED' in server)
+ok('130c a site of the same branch is not out of scope, while another branch still is', 'branchRoot' in (ROOT/'src/server/locationRegistryEngine.ts').read_text() and 'sameBranch' in (ROOT/'src/server/locationRegistryEngine.ts').read_text() and 'branchRoot:collegeBranchRoot' not in server)
+# One department taught at several sites of one branch reads as ONE document when asked for.
+reports_branch=(ROOT/'src/components/Reports.tsx').read_text()
+authority_branch=(ROOT/'src/components/AuthorityPdfReport.tsx').read_text()
+ok('130f the branch-wide documents are the SAME renderers, so a one-site department prints exactly what it printed before', 'if (kind === "comprehensive" || kind === "comprehensive-branch")' in reports_branch and 'siteGroups?.length' in reports_branch and 'branchSites.length > 1 ?' in reports_branch)
+ok('130x the change report across sites is ONE merged document, not three reports glued together', 'rows: authorityBook.flatMap(entry => entry.report.rows.map(row => ({ ...row, siteLabel: entry.site.isBase ? "" : entry.site.siteLabel })))' in reports_branch and 'showSite = false,' in authority_branch and 'print-site-chip' in authority_branch)
+ok('130g the book numbers its pages continuously across sites instead of restarting at every site', '{bookPage} / {totalPages}' in reports_branch and 'pageOffset + pageIndex + 1' in authority_branch and 'pageTotal ?? pages.length' in authority_branch)
+ok('130h the first page states the shape of the whole department before its detail', 'print-comprehensive-sites' in reports_branch and 'print-comprehensive-sites' in authority_branch and '.print-comprehensive-sites{' in (ROOT/'src/styles/08-print.css').read_text())
+ok('130i a site outside the reader permissions is named, never silently dropped from the document', 'لم تُدرج مواقع خارج صلاحياتك' in reports_branch and 'denied.push(site.siteLabel)' in reports_branch)
+ok('130j the branch document takes each site whole timetable, never one filtered site beside three complete ones', 'rows: site.isBase ? all :' in reports_branch)
+# A row belongs to the site its OFFICIAL BUILDING names — a field can be lost, a building code cannot.
+ok('130k publishing reads each row site from the confirmed building, never only from a field that an edit can clear', 'const siteOfRow=(row:any)=>{' in server and 'building?.sitePrefix||building?.officialCode?.slice(0,4)' in server and 'splitRowsByBranch(locatedRows,branchContext)' in server)
+ok('130l choosing a building in the preview SETS the site instead of erasing it', 'sourceSitePrefix: String(b?.sitePrefix || b?.officialCode?.slice(0, 4) || "").toUpperCase() || undefined' in (ROOT/'src/components/ImportPreviewTable.tsx').read_text())
+ok('130m a publication spread across sites names every site and its count instead of closing in silence', 'transfer-receipt-scopes' in transfer and 'setPublishReceipt({count:total,scopes})' in transfer and 'data?.scopes' in transfer)
+location_picker=(ROOT/'src/components/LocationPicker.tsx').read_text()
+reports_branch_ui=(ROOT/'src/components/Reports.tsx').read_text()
+import_preview=(ROOT/'src/components/ImportPreviewTable.tsx').read_text()
+ok('130n reviewing a Jahra row offers Jahra buildings and halls, and only in the import preview', "String(req.query.branchSites||\"\")===\"1\"" in server and 'inBranch(building.officialCode)' in server and 'branchSectionIds.has(Number(id))' in server and 'branchSites=false' in location_picker and 'branchSites\n' in import_preview)
+ok('130o a refused publication paints the rows it names instead of a lone sentence above a spotless table', 'data.rowIssues' in transfer and 'saveIssues:merged' in transfer and 'transfer-commit-error' in transfer and '.transfer-commit-error{' in (ROOT/'src/styles/05-schedule.css').read_text())
+# The guide hands a step to the screen; both the confirmation and the handover must be escapable.
+smart_guide=(ROOT/'src/components/SmartGuide.tsx').read_text()
+shell_css=(ROOT/'src/styles/03-shell.css').read_text()
+ok('130p the guide confirmation sits ABOVE the guide panel instead of trapped behind it', '.guide-preview-backdrop{position:fixed;inset:0;z-index:2300' in shell_css and '.smart-guide{\n  position:fixed;left:18px;top:18px;bottom:18px;z-index:2200' in shell_css)
+ok('130q a handover banner ends when the screen resolves it, and can never outlive its purpose', 'if (!tourActiveRef.current) finishHandoffToScreen();' in smart_guide and 'finishHandoffRef.current?.();' in smart_guide and '}, 12000);' in smart_guide)
+# القاعدة نفسها لم تتغير، لكنها انتقلت إلى `blockingImportConflicts` كي تقرأها
+# بوابة النشر والفحص المسبق من موضع واحد: نسختان منها كانتا ستفترقان، فتقول
+# المعاينة «مضبوط» عن جدول يرفضه الحفظ — وهو العيب الذي جاء الفحص ليزيله.
+ok('130r re-importing one document never conflicts with the copies it is about to replace at the other sites', 'const ownScopes=new Set<string>' in server and 'ownScopeList.map(scope=>`${scope.collegeId}:${scope.sectionId}`)' in server and 'function branchOwnScopes(' in server and 'branchOwnScopes(allColleges as any, allSections as any, collegeId, sectionId)' in server)
+ok('130s a site building is offered even before a hall of this department is recorded under it', 'inBranch(building.officialCode))&&' in server and 'inBranch(buildingCodeById.get(room.buildingId))' in server)
+ok('130t the site opening covers OTHER sites only, so the picker never becomes every building of the branch', 'const otherSitePrefixes=new Set<string>();' in server and "prefix&&prefix!==basePrefix)otherSitePrefixes.add(prefix)" in server)
+ok('130u a building number is written with its site whenever the list holds more than one site', 'const multiSite=bySite.size>1;' in (ROOT/'src/components/LocationPicker.tsx').read_text() and '<optgroup key={prefix} label={officialSiteLabel(prefix)}>' in (ROOT/'src/components/LocationPicker.tsx').read_text())
+ok('130v report scope is asked at the moment of printing, not carried as a second button for every report', 'query-scope-menu' in reports_branch_ui and 'setScopeMenu(scopeMenu === "comprehensive" ? null : "comprehensive")' in reports_branch_ui and '"يجمع الفروع…" : "الشامل — كل الفروع"' not in reports_branch_ui)
+ok('130w the branch document is ONE table in the imported document order, and the site rides beside the course name instead of taking a column', 'const importOrder = (row: FSchedule)' in reports_branch_ui and 'const showSite = bookSites.length > 1;' in reports_branch_ui and 'print-site-chip' in reports_branch_ui and '"الموقع",' not in reports_branch_ui and '.print-site-chip{' in (ROOT/'src/styles/08-print.css').read_text())
+# The course keeps its identity across departments: the same course carries a different catalogue id in each one.
+ok('130y the change report compares a course by its official code, so a branch row is not reported as an edited course', "if(field===\"AdCourseId\"){" in server and 'options.courseCodeById?.get(Number(value||0))' in server and 'async function authorityCourseCodeMap()' in server)
+ok('130d a department report compares only the baseline rows of its own site', 'authorityBaselineForScope' in server and 'siblingBranchScopes({colleges:colleges as any' in server)
+ok('131 Authority report shows visiting badge beside canonical instructor identity', 'VisitingBadge' in authority_report and 'visitingIds.has(Number(row.AdInstructorId))' in authority_report and 'visitingIds={visitingIds}' in reports_src)
+ok('132 duplicate source PDF filename is not printed under the Authority report title', '<p>{report.sourceFileName}</p>' not in authority_report)
+
+ok('133 original Authority PDF rows survive preview deletions as immutable report baseline', 'req.body?.baselineRows' in server and 'suppliedBaseline.length?suppliedBaseline' in server and 'baselineRows:scannedRows.map' in transfer)
+ok('134 graduate proof does not require literal typed-name equality', 'if(!nameMatched)' not in server and 'proof.nameMatched!==true' not in server and 'Civil ID remains the 100% identity gate' in server)
+ok('135 graduate required threshold comes from stored department academic data', 'Required graduation units come from the selected department' in server and 'graduateThreshold(rule,termName)' in server and 'sheetRequiredUnits!==Number(rule.degreeUnits)' not in server)
+ok('136 conservative generic legibility cannot override sufficient graduate proof facts', 'proofFactsReadable' in server and 'facts.isGraduationSheet&&civilVisible&&Number(facts.passedUnits)>0' in server)
+ok('137 multi-page scans reuse the one warm OCR pool — split only into fully DISJOINT page lanes, never a second engine, sequential on small machines', 'MULTI-PAGE GOLDEN PATH' in doc_ocr and 'ISOLATED PAGE LANES' in doc_ocr and 'pool.eng.length>=4&&pool.ara!==pool.ara2' in doc_ocr and 'pool.eng.slice(0,half)' in doc_ocr and ': [pool]' in doc_ocr and 'getFastLaneWorkerPool' not in doc_ocr)
+ok('138 image-only multi-page landscape contract is checked from every PDF page box before table OCR', 'const portraitPages:number[]=[]' in doc_ocr and 'for(let index=1;index<=pageCount;index++)' in doc_ocr and 'requiresLandscapePages:portraitPages' in doc_ocr)
+ok('139 graduate request keeps approved reason plus a bounded mandatory requirement tied to it', 'ملاحظات الطلب وسبب الاحتياج · إلزامي' in server and 'details:graduateDetails' in server and 'wireGraduateDetails' in server and 'String(item.details||"").trim()' in cases_table and '<StudentCasesTable' in intel)
+ok('140 deleting every Authority preview row can still publish the immutable baseline as a full-deletion report', 'authorityBaselineCount > 0' in transfer and 'اعتماد حذف جميع مواعيد PDF ونشره' in transfer and 'baselineRows:importKind==="authority-pdf"&&Array.isArray(xlsxPreview.baselineRows)?withoutImportEvidence(xlsxPreview.baselineRows)' in transfer)
+ok('141 successful fill-and-publish closes the transfer sheet automatically', 'await publishImportedDraft(id);' in transfer and 'onClose();' in transfer)
+ok('142 manual rows are permanently post-PDF green and cannot impersonate imported provenance', 'sourceOrder: Math.max(1_000_000, Date.now())' in server and 'Number(rawOrder)<1_000_000&&hasPdfEvidence(row)' in server and 'isImportedPdfRow(row)&&Number(row?.sourceOrder)===order' in server)
+ok('143 reference number remains readable on deleted rows without changing the report design', '.authority-pdf-row-deleted>[role="cell"].authority-pdf-reference-number{text-decoration:none!important}' in print_css and 'authority-pdf-reference-number' in authority_report and 'entry.referenceNumber || row.referenceNumber || "—"' in authority_report and 'pdf-report-reference-number' in intel and '.pdf-report-table tr.deleted td.pdf-report-reference-number{text-decoration:none}' in (ROOT/'src/styles/06-intelligence.css').read_text())
+ok('144 graduate civil proof compares the entered ID against every complete document candidate instead of trusting the first 12-digit OCR token', 'const civilVisible=civilCandidates.includes(civil)' in server and 'if(!civilVisible){res.status(422)' in server and 'const lines=plain.split' in doc_ocr and 'const lineCivil=lines.map' in doc_ocr and 'facts.civil&&facts.civil!==civil' not in server)
+ok('145 student-case report/table headings keep the frozen original report design', '<th>المقررات / السبب</th>' in cases_table and '<th>المقررات / السبب / المتطلبات</th>' not in intel + cases_table)
+
+ok('146 dense scan course-column discovery tolerates bounded department-anchored OCR damage before exact cell rescue', 'authorityCourseColumnLooksPlausible' in doc_ocr and 'value.length===department.length+2||value.length===department.length+3' in doc_ocr and 'discoveryShape(token.slice(1))' in doc_ocr and 'if(codeSpan)await rescueSpan(codeSpan,stripPatterns.code,KEY_DIGITS);' in doc_ocr)
+ok('147 preflight-proven landscape scans do not waste time retrying quarter turns', 'scanOrientationLocked' in doc_ocr and 'if(!gridRows&&!scanOrientationLocked)' in doc_ocr and 'rescueTurns=scanOrientationLocked?[bestOrientation]' in doc_ocr)
+ok('148 Authority changed-cell comparison normalizes weekday flags and clock storage without painting untouched cells', 'const comparable=(field:string,value:any)' in server and 'token==="1"||token==="true"' in server and r'const digits=String(value||"").replace(/\D/g,"")' in server and 'changedFields=AUTHORITY_PDF_COMPARE_FIELDS.filter' in server)
+ok('149 empty live scope hides the Authority report/print action in Query Center', 'all.length === 0' in reports_src and reports_src.count('authorityReportAvailable && all.length > 0') >= 2)
+ok('150 desktop Chromium print geometry is isolated and cannot alter the proven Safari print path', 'CHROMIUM_PRINT_ENGINE' in reports_src and 'root.dataset.printChromium = "1"' in reports_src and 'html[data-print-chromium="1"]' in print_css and 'html[data-print-rotate="1"]{ --safari-rot-scale:.86; }' in print_css)
+ok('151 graduate civil OCR recovers spaced one-line groups then checksum-filters before exact entered-ID comparison', 'groupedCivil=lines.flatMap' in doc_ocr and 'validateCivilId(value).isValid' in server and 'const civilVisible=civilCandidates.includes(civil)' in server)
+ok('152 golden state records no print button on an empty live timetable while preserving immutable baseline', 'يخفي زر/أيقونة «تقرير تغييرات الجدول» عندما يكون النطاق الحي صفر مواعيد' in golden_state)
+ok('153 graduate proof reads the dedicated civil line before the brighter timestamp band', 'graduationCivilBand' in doc_ocr and 'for(const band of [civilBand,identity])' in doc_ocr and 'timestamp one' in doc_ocr)
+ok('154 graduate civil crop isolates the civil line and tries single-line OCR before block/sparse fallback', 'image.height*.425' in doc_ocr and 'image.width*.25' in doc_ocr and 'image.height*.05' in doc_ocr and 'for(const psm of [7,6,11])' in doc_ocr)
+ok('155 Chrome on iOS receives WebKit rotate geometry through its own branch without changing Safari detection', 'IOS_CHROME_PRINT_ENGINE' in reports_src and '/CriOS/i.test' in reports_src and reports_src.count('SAFARI_PRINT_ENGINE || IOS_CHROME_PRINT_ENGINE') >= 2)
+ok('156 multi-page scan rescues a damaged course key only from the same cell and finite selected-department catalogue', 'recoverAuthorityCourseCell' in doc_ocr and 'MULTI-PAGE COURSE-KEY GOLDEN RESCUE' in doc_ocr and 'readCell(surface,band,bands[row],KEY_DIGITS,worker,"7",3.2)' in doc_ocr and 'canonical.length===1' in doc_ocr)
+ok('157 one-page photographed PDF gets the bounded catalogue-exact course rescue, still fail-closed on ambiguity', 'const multiPageCourseKeys=optionKeys' in doc_ocr and 'OWNER MANDATE 2026-08-27' in doc_ocr and 'authorityCourseKeys.length&&(codeSpan||codeIndex>=0)' in doc_ocr and 'canonical.length===1' in doc_ocr)
+ok('158 Authority PDF endpoint constrains multi-page course repair to canonical course keys from the selected department', 'const authorityCourseKeys=courses.map' in server and 'ocrDepartmentKey' in server and '{authorityCourseKeys}' in server)
+ok('159 a previously verified eligible graduate can receive a fresh short proof token without re-uploading the sheet', 'reusableGraduateVerification' in server and '/api/public/survey/:token/proof-status' in server and 'تم التحقق مسبقًا من صحيفة التخرج، وأنت مجتاز للوحدات المطلوبة' in server and 'no longer qualifies' not in server)
+ok('160 reusable graduate proof is revalidated against the current stored degree rule and current term threshold', 'storedDegreeRuleForSection(sectionId)' in server and 'graduateThreshold(rule,termName)' in server and 'passedUnits<requiredUnits' in server)
+ok('161 replacement student requests preserve reusable graduate eligibility so the next graduate request does not require another upload', 'if(requestType!=="graduate"&&reusableVerification)' in server and 'eligibility="eligible"' in server and 'graduateNameMatched=reusableVerification.proofNameMatched' in server)
+ok('162 graduate reason notes are mandatory in both UI gating and server validation', 'ملاحظات الطلب وسبب الاحتياج · إلزامي' in server and 'minlength="3" required' in server and 'refreshGraduateSubmit' in server and 'String(box.value||"").trim().length>=3' in server and 'اكتب ملاحظات الطلب وسبب احتياجك قبل الإرسال' in server)
+ok('163 multi-page course identity is physically anchored by adjacent section + reference before same-cell catalogue rescue', 'MULTI-PAGE RIGHT-EDGE IDENTITY ANCHOR' in doc_ocr and 'sectionHits<minimumRows||referenceHits<minimumRows' in doc_ocr and 'const start=anchor+2' in doc_ocr and 'rightEdgeCourseSpan' in doc_ocr and 'recoverAuthorityCourseCell(value,authorityDepartmentCode,authorityCourseKeys)' in doc_ocr)
+
+ok('164 public student-case survey is civil-first and does not probe while name/department are being typed', 'ابدأ بالرقم المدني' in server and 'body:JSON.stringify({civil:civil})' in server and 'probePriorIdentity' not in server and 'loadIdentityMemory' not in server)
+ok('165 prior student identity is restored server-side only by exact civil id AND case number, and the stored name/department are read-only', 'name:String(prior?.name||"")' in server and 'caseRefMatches(priorNeed,suppliedRef)' in server and 'تم العثور على طلب سابق لهذا الرقم المدني' in server and 'الاسم والرقم المدني والقسم العلمي مثبتة' in server)
+ok('166 graduate upload shows the approved visual example only when a new graduation sheet is actually needed', '/graduation-sheet-example.jpg' in server and 'id="proofExample"' in server and 'if(example)example.hidden=false' in server and 'if(example)example.hidden=true' in server)
+ok('167 immutable Authority baselines restore source-owned section identity before diffing', 'const baseline=assignAuthoritySections([...(baselineInput||[])])' in server and '?withoutImportEvidence(assignAuthoritySections(safeDraftRows(req.body?.baselineRows' in server)
+ok('168 Authority instructor comparison uses the visible canonical identity so import-time id resolution does not create a false yellow row', 'sameInstructorIdentity' in server and 'foldHeaderIdentity(source.sourceInstructorText' in server and 'foldHeaderIdentity(names?.get(Number(next.AdInstructorId))' in server)
+ok('169 graduate-sheet example asset is bundled locally with the public survey', (ROOT/'public/graduation-sheet-example.jpg').exists())
+ok('170 section-only Authority canonicalization is audit-visible but cannot create a modified badge', 'const visibleChangedFields=changedFields.filter(field=>field!=="SCode")' in server and 'status:visibleChangedFields.length?"changed":"unchanged"' in server)
+ok('171 Authority section cell is explicitly exempt from yellow field highlighting', 'fieldChanged(entry, "SCode")' not in authority_report and 'className="print-ltr">{String(row.SCode' in authority_report)
+ok('172 first page of a multi-page scan uses the same bounded course rescue as a one-page upload', 'const courseKeysForPage=(_index:number)=>multiPageCourseKeys' in doc_ocr and 'const pageCourseKeys=courseKeysForPage(index)' in doc_ocr and 'readGrid(upright,lanePool,authorityGridDepartment,pageCourseKeys)' in doc_ocr)
+ok('173 course-code OCR fixes only the measured O-to-zero glyph before numeric identity validation', 'const authorityCourseDigits=' in doc_ocr and '.replace(/[Oo]/g,"0")' in doc_ocr and 'const token=authorityCourseDigits(raw)' in doc_ocr)
+ok('174 full Authority right edge uses a digit-only discovery alphabet without changing narrow/fallback tables', 'const IDENTITY_DIGITS="0123456789 -"' in doc_ocr and 'columnBands.length>=12?' in doc_ocr and 'claimAlphabet(index)' in doc_ocr)
+ok('175 weak course-column vote may use strict adjacent section/reference geometry but never course prose or catalogue on the one-page fallback', 'strictRightEdgeCourseSpan' in doc_ocr and 'if(best&&bestExact>=1)strictRightEdgeCourseSpan=best' in doc_ocr and 'bestCodeHits<minimumRows&&strictRightEdgeCourseSpan' in doc_ocr)
+ok('176 failed course cells receive field-specific same-cell local threshold recovery only after the fast strip lane', '(field === "code" || field === "refcode")' in doc_ocr and 'localOtsu: true' in doc_ocr and 'recognitionCell=s.localOtsu?otsuBinarize(lib,cell):cell' in doc_ocr)
+ok('177 older CamScanner course cells may carry at most two leading grid-rule glyphs for discovery and exact catalogue-constrained same-cell recovery', 'boundedLeadingRuleTail' in doc_ocr and 'token.length<=exactLength+2' in doc_ocr and 'token.length<=key.length+2' in doc_ocr and 'token.endsWith(key)||token.startsWith(key)' in doc_ocr)
+
+ok('178 the changes report never rides along with another printed document', 'body.has-print-portal>#app-print-root>.authority-pdf-print-host,' in print_css and 'if (printKind !== kind || authorityReport || authorityBook) {' in reports_src and 'setPrintKind("comprehensive-branch"); setAuthorityReport(null); setAuthorityBook(null);' in reports_src)
+ok('179 a hall registered to another department is absent from the picker until a barter is approved', 'if(room.sectionIds.some(id=>branchSectionIds.has(Number(id))))return true;' in server and 'if(borrowedSet.has(room.id))return true;' in server and 'return room.sectionIds.length===0&&inBranch(buildingCodeById.get(room.buildingId));' in server)
+
+schedule_css=(ROOT/'src/styles/05-schedule.css').read_text()
+transfer_src=(ROOT/'src/components/ScheduleTransfer.tsx').read_text()
+
+ok('180 publishing from the import preview ends in its own receipt instead of returning to the transfer tabs',
+   'const [publishReceipt, setPublishReceipt]' in transfer_src
+   and 'setPublishReceipt({count:total,scopes})' in transfer_src
+   and 'className="transfer-receipt"' in transfer_src
+   and '{publishReceipt ? null : (' in transfer_src
+   and '.transfer-receipt{' in schedule_css)
+
+ok('181 the site chip is written on branch rows only, never on the main campus, in both printed reports',
+   'bookSites.forEach(group => { if (!group.site.isBase) group.rows.forEach(row => siteOfRow.set(row, group.site.siteLabel)); });' in reports_src
+   and 'siteLabel: entry.site.isBase ? "" : entry.site.siteLabel' in reports_src)
+
+ok('182 the per-site change tally is written in words, and no change is said outright',
+   '`مضاف ${site.added}`' in authority_report and '`محذوف ${site.deleted}`' in authority_report
+   and '`معدّل ${site.changed}`' in authority_report and '"بلا تغيير"' in authority_report
+   and '+{site.added}' not in authority_report)
+
+ok('183 the branch-site prefix set is declared before the loop that fills it (a const read first threw at runtime)',
+   server.index('const otherSitePrefixes=new Set<string>();') < server.index('if(prefix&&prefix!==basePrefix)otherSitePrefixes.add(prefix);'))
+
+ok('184 an official branch-site location proven by the authority document is registered, and only at other sites of the same branch',
+   'async function provisionBranchSiteLocationsFromAuthority(' in server
+   and 'const shape=reading.match(/^(\\d{3})([A-Z])(\\d{2})$/);' in server
+   and 'const code=`${shape[1]}${shape[2]}${shape[3]}`;' in server
+   and 'if(!shape||shape[1]!==branchRoot)continue;' in server
+   and 'if(!prefix||prefix===basePrefix)continue;' in server
+   and 'if(!scope||scope.isBase)continue;' in server
+   and 'source:"AUTHORITY_DOCUMENT"' in server
+   and 'if(provisioned.buildings.length||provisioned.rooms.length)registry=await readLocationRegistry(true);' in server
+   and 'تعذّر تسجيل مواقع الفرع المذكورة في المستند' in server)
+
+ok('185 an empty print portal claims no paper, and the rule outranks the portal display rule that carries an id',
+   'body.has-print-portal>#app-print-root>.print-only:empty{display:none!important}' in print_css
+   and 'body.has-print-portal>#app-print-root>.authority-pdf-print-host,' in print_css)
+
+ok('186 the hall-barter screen measures its cards against its own container, not against the viewport',
+   'width:min(1180px,100%)!important;min-height:112px!important' in schedule_css
+   and 'width:min(1180px,100%)!important;min-height:0!important' in schedule_css
+   and 'calc(100vw - clamp(36px,4.8vw,68px))' not in schedule_css)
+
+ok('187 a course the authority document places at a branch site is copied from the main catalogue after the permission check, never invented, and the copy is announced',
+   'missingTwins.set(key,{scope:group.scope,origin});' in server
+   and server.index("const forbidden=groups.filter(group=>!isScopeAllowed(req,group.scope.collegeId,group.scope.sectionId));") < server.index("const created=await Repository.createCourse(")
+   and 'String(entry.origin.CourseCode||"").trim(),String(entry.origin.CourseName||"").trim(),' in server
+   and 'plantedCourses:plantedTwins' in server
+   and 'transfer-receipt-planted' in transfer_src)
+
+barter_board=(ROOT/'src/components/HallBarterBoard.tsx').read_text()
+app_src=(ROOT/'src/App.tsx').read_text()
+ok('188 hall barter offers every free window in the college from THIS term only — no ten-year memory, no stability threshold',
+   'HALL_BARTER_MIN_WINDOW_MINUTES = 50' in server
+   and 'HALL_BARTER_MIN_FREE_SHARE' not in server
+   and 'HALL_BARTER_MIN_HISTORY_TERMS' not in server
+   and 'dominantHistoricalHallOwner' not in server
+   and 'const collegeRooms=registry.rooms.filter(room=>{' in server
+   and 'if(roomColleges.includes(collegeId))return true;' in server
+   and 'const free=!roomRows.some(row=>rowOccupiesWindow(row,day,start,end))' in server)
+ok('189 a room with no registered department cannot be borrowed, and no department borrows from itself',
+   'if(!ownerSectionId||ownerIds.includes(sectionId))continue;' in server
+   and 'if(!requesterGender||hallCampusGender(ownerCollege.AdCollegeName)!==requesterGender)continue;' in server)
+ok('190 the barter board hides itself when there is nothing to borrow and nothing pending, and filters what it does show',
+   'if (!hasAnything && !loading && !error) return null;' in barter_board
+   and 'hall-barter-selects' in barter_board
+   and 'hall-barter-search' in barter_board
+   and 'ثبات الفراغ' not in barter_board
+   and 'لهذا الفصل وحده' in barter_board)
+
+ok('191 a changed instructor in the change report carries the civil id beside the name, from the system record and only on the changed cell',
+   'fieldChanged(entry, "AdInstructorId") && instructor?.AdInstructorCivil' in authority_report
+   and 'className="authority-pdf-civil print-ltr"' in authority_report
+   and '.authority-pdf-instructor .authority-pdf-civil{' in print_css)
+
+ok('192 a shared hall names every department registered to it, so a co-owner department is never invisible, and the request still goes to one owner',
+   'const roomOwnerSections=(room:any)=>' in server
+   and 'if(!ownerSectionId||ownerIds.includes(sectionId))continue;' in server
+   and 'ownerSections,shared:ownerSections.length>1,' in server
+   and 'ownersOf(opportunity).map(owner => owner.name).join(" · ")' in barter_board
+   and '.some((owner:any)=>Number(owner.id)===filterOwner)' in server)
+ok('193 the barter filters are compact lists in one row — day, building, department — not a wall of chips',
+   'hall-barter-selects' in barter_board
+   and 'تصفية باليوم' in barter_board and 'تصفية بالمبنى' in barter_board
+   and 'تصفية بالقسم' in barter_board
+   and 'تصفية بالفترة' not in barter_board
+   and 'hall-barter-owner-chips' not in barter_board
+   and 'hall-barter-owner-chips' not in schedule_css)
+ok('194 the college building list opens ONLY when the department has no building at all — never as a second, longer list beside its own',
+   'const openBuildings=buildings.length?buildings:(sectionId&&collegeId' in server
+   and 'buildings:openBuildings' in server
+   and '(!sectionId||eligibleBuildingIds.has(building.id)||inBranch(building.officialCode))&&' in server)
+ok('195 a borrowed hall says whose hall it is, in the picker that offers it',
+   'borrowedFrom:borrowedSet.has(room.id)' in server
+   and 'const borrowedLabel=(room:any)=>' in (ROOT/'src/components/LocationPicker.tsx').read_text()
+   and '{borrowedLabel(r)}' in (ROOT/'src/components/LocationPicker.tsx').read_text())
+ok('196 a pending barter request is announced outside the board, and the board can be opened straight onto it',
+   'hall-barter-inbox' in (ROOT/'src/components/Schedules.tsx').read_text()
+   and 'setBarterOpenSignal(value => value + 1)' in (ROOT/'src/components/Schedules.tsx').read_text()
+   and 'openSignal?: number;' in barter_board
+   and 'onPendingChange?.(incoming.filter' in barter_board
+   and '.hall-barter-inbox{' in schedule_css)
+ok('197 a department the registry never linked to its halls is recovered from this term AND from the college history, so a department that has not entered its timetable yet is still known by its halls',
+   'const usageByRoom=tallyUsage(new Map(),termRows);' in server
+   and 'const historyByRoom=tallyUsage(new Map(),collegeHistory);' in server
+   and 'const now=rankSections(usageByRoom.get(roomId));' in server
+   and 'return now.length?now:rankSections(historyByRoom.get(roomId));' in server
+   and '||Boolean(historyByRoom.get(room.id)?.colleges.has(collegeId));' in server
+   and 'const ownerIds=registeredIds.some(id=>collegeSectionIds.has(id))?registeredIds:usageOwnerSections(room.id);' in server)
+ok('198 the requesting department is told the decision once, in the same bar, and never told twice',
+   'schedule-hall-barter-seen-decisions' in (ROOT/'src/components/Schedules.tsx').read_text()
+   and 'hall-barter-inbox-decision' in (ROOT/'src/components/Schedules.tsx').read_text()
+   and 'وُوفق على استعارتك' in (ROOT/'src/components/Schedules.tsx').read_text()
+   and '.hall-barter-inbox-decision{cursor:default}' in schedule_css)
+
+ok('199 the barter page cap no longer erases whole departments: the share is taken in turn, the filter lists every department, and narrowing asks the server for that department in full',
+   'export function fairShareByOwner<Row>(' in (ROOT/'src/utils/hallBarterFairness.ts').read_text()
+   and 'const fairSlice=(rows:readonly any[],limit:number)=>fairShareByOwner(rows,limit,row=>Number(row.ownerSectionId||0));' in server
+   and 'owners:facetsOf(opportunities.filter(row=>matchesDay(row)&&matchesBuilding(row))).owners,' in server
+   and 'const filterOwner=Number((req.query as any)?.ownerSectionId||0);' in server
+   and 'truncated:visible.length<narrowed.length,' in server
+   and 'if (ownerFilter) query.set("ownerSectionId", String(ownerFilter));' in barter_board
+   and 'const owners = board.facets.owners;' in barter_board
+   and 'hall-barter-truncated' in barter_board)
+
+ok('200 barter filters accumulate — each list is counted after the OTHER choices — and a native dropdown is not read as a click outside the screen',
+   'owners:facetsOf(opportunities.filter(row=>matchesDay(row)&&matchesBuilding(row))).owners,' in server
+   and 'days:facetsOf(opportunities.filter(row=>matchesOwner(row)&&matchesBuilding(row))).days,' in server
+   and 'buildings:facetsOf(opportunities.filter(row=>matchesOwner(row)&&matchesDay(row))).buildings,' in server
+   and 'const narrowed=opportunities.filter(row=>matchesOwner(row)&&matchesDay(row)&&matchesBuilding(row));' in server
+   and 'if (event.target !== boardRef.current) return;' in barter_board)
+
+ok('201 a pending barter request is counted for the department wherever the user is, from a light inbox endpoint, and shown as a breathing dot on the schedule nav',
+   'app.get("/api/hall-barter/inbox"' in server
+   and 'const owns=(request:HallBarterRequest)=>scopes.some(scope=>Number(scope.AdCollegeId)===Number(request.ownerCollegeId)&&Number(scope.AdSectionId)===Number(request.ownerSectionId));' in server
+   and 'fetch("/api/hall-barter/inbox"' in app_src
+   and 'badge={barterPending}' in app_src
+   and '.side-nav-link .side-nav-badge{' in (ROOT/'src/styles/03-shell.css').read_text())
+ok('202 a waiting request carries its age quietly, and turns amber past three days',
+   'ageDays' in server and 'ageDays,' in server
+   and 'const ageChip = (row: HallBarterReservationView)' in barter_board
+   and 'days >= 3' in barter_board
+   and '.hall-barter-age.is-stale{' in schedule_css)
+ok('203 the editor offers borrowing inline when a time is set and no room is chosen yet — it borrows in place without opening the full board or leaving the editor',
+   'schedule-borrow-hint' in (ROOT/'src/components/Schedules.tsx').read_text()
+   and 'const openBorrow = async ()' in (ROOT/'src/components/Schedules.tsx').read_text()
+   and 'const requestBorrow = async (op: any)' in (ROOT/'src/components/Schedules.tsx').read_text()
+   and 'schedule-borrow-panel' in (ROOT/'src/components/Schedules.tsx').read_text()
+   and '.schedule-borrow-hint{' in schedule_css
+   and '.schedule-borrow-panel{' in schedule_css)
+
+ok('204 the barter board keeps a term-wide log of every movement — folded by default, both directions and all statuses, printable as a report',
+   'const logRows = useMemo(' in barter_board
+   and '[...board.incoming, ...board.outgoing]' in barter_board
+   and 'hall-barter-log-toggle' in barter_board
+   and 'hall-barter-log-print-host' in barter_board
+   and 'root.dataset.printKind = "barter-log"' in barter_board
+   and 'html[data-print-kind="barter-log"] #app-print-root>.hall-barter-log-print-host{display:block!important' in print_css)
+
+ok('205 a branch site (الجهراء/الفحيحيل) does not import for itself — the import tab points to the base college instead, and only there',
+   'const branchSite = campusOf(collegeName) !== "main"' in transfer_src
+   and 'tab === "import" && branchSite ?' in transfer_src
+   and 'tab === "import" && !branchSite ?' in transfer_src
+   and 'الاستيراد يتم من' in transfer_src
+   and 'collegeName={colleges.find((c) => c.AdCollegeId === filterCollege)?.AdCollegeName}' in (ROOT/'src/components/Schedules.tsx').read_text()
+   and '.transfer-branch-import{' in (ROOT/'src/styles/09-details.css').read_text())
+
+ok('206 a pending barter request older than a week auto-cancels with a stated reason, so it stops counting and shows «ملغاة» with why',
+   'const HALL_BARTER_STALE_DAYS = 7' in server
+   and 'async function sweepStaleHallBarter' in server
+   and 'await sweepStaleHallBarter(await Repository.getHallBarterRequests(0))' in server
+   and 'const requests=await sweepStaleHallBarter(requestsRaw)' in server
+   and 'cancelReason' in (ROOT/'src/types.ts').read_text()
+   and 'row.status === "cancelled" && row.cancelReason' in barter_board)
+
+ok('207 the inline borrow panel carries the board’s three filters — day, building, department — and they interdepend: each option set is computed from the OTHER active filters, and a thin time line distinguishes two rooms of one department',
+   'const [borrowDay, setBorrowDay]' in schedules_src
+   and 'const [borrowBuilding, setBorrowBuilding]' in schedules_src
+   and 'const [borrowDept, setBorrowDept]' in schedules_src
+   and 'schedule-borrow-selects' in schedules_src
+   and 'const matchExcept = (op: any, except: string) =>' in schedules_src
+   and 'schedule-borrow-time' in schedules_src
+   and '.schedule-borrow-selects{' in schedule_css
+   and '.schedule-borrow-time{' in schedule_css)
+
+ok('208 the academic scope is shared product-wide: Query Center reads the last chosen college/section/term first, not its own stale memory',
+   'readSharedScope(scopeOwner)' in reports_src
+   and 'resolveSharedScope(stored' in reports_src
+   and 'workspaceSaved' not in reports_src)
+
+ok('209 an actually empty selected term hides the zero counters and schedule-health deck instead of showing fake 100 scores',
+   ('!rowsForeign && rows.length > 0 ? (' in schedules_src or '!rowsForeign && filteredRows.length > 0 ? (' in schedules_src)
+   and '<section className="schedule-mini-stats">' in schedules_src
+   and '<LivingScheduleLayer' in schedules_src)
+
+ok('210 non-basic colleges rebase shared academic department/course keys to the report college while Basic Education 01 stays frozen',
+   'if (college === "01")' in auth
+   and 'section.length === 4' in auth
+   and '`${college}${section.slice(-2)}`' in auth
+   and '`${ocrDepartmentKey}${digits.slice(-3)}`' in server)
+
+location_admin=(ROOT/'src/components/LocationRegistryAdmin.tsx').read_text()
+index_css=(ROOT/'src/index.css').read_text()
+
+ok('211 only the root administrator may create a building and the server accepts a full official code only inside the selected college prefix',
+   'app.post("/api/admin/location-registry/buildings", requirePermission(7), requireRootAdmin' in server
+   and 'const manualCode=String(req.body?.officialCode||"")' in server
+   and 'parseOfficialBuildingCode(manualCode||legacyCode||"",sitePrefix)' in server
+   and 'كود المبنى غير صالح أو لا يتبع الموقع الرسمي' in server)
+
+ok('212 the root location UI accepts a complete official building code such as 022T01 and validates it with the same parser before submit',
+   'كود المبنى الكامل، مثال 022T01' in location_admin
+   and 'parseOfficialBuildingCode(newBuilding.officialCode,selectedNewBuildingPrefix)' in location_admin
+   and 'officialCode:e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,7)' in location_admin
+   and 'buildingNumber:parsedNewBuildingCode?.buildingNumber' in location_admin)
+
+ok('213 the location registry phone layout overrides the late desktop important grid and keeps every control inside the viewport',
+   'سجل المواقع على الهاتف: لا يخرج شيء من إطار الشاشة' in index_css
+   and '.location-admin-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))!important' in index_css
+   and '.location-admin-toolbar{grid-template-columns:minmax(0,1fr)!important}' in index_css
+   and '.location-admin-columns{grid-template-columns:minmax(0,1fr)!important' in index_css)
+
+
+
+ok('214 an official building code/prefix outranks stale metadata and room usage when filtering by college, so a boys building cannot leak into the girls list',
+   'building.officialCode?.slice(0,4)||building.sitePrefix' in location_admin
+   and 'if(officialIds.length)return [...new Set(officialIds)]' in location_admin
+   and 'Historical room links may contain stale cross-college associations' in location_admin)
+
+ok('215 a room created while a department filter is active inherits that college/department immediately, so it remains visible after reload',
+   'const inheritedSections=sectionFilter?[sectionFilter]:[]' in location_admin
+   and 'primarySectionIds:inheritedSections' in location_admin
+   and 'تمت إضافة القاعة وربطها بالنطاق الحالي' in location_admin)
+
+ok('216 the desktop building-create form is bounded by the buildings panel instead of spilling its code/button into the detail pane',
+   'سجل المواقع على سطح المكتب: نموذج المبنى يعيش داخل عمود المباني نفسه' in index_css
+   and '.location-create-building>select{grid-column:1/-1' in index_css
+   and '.location-create-building>.location-code-preview{' in index_css)
+
+transfer_src=(ROOT/'src/components/ScheduleTransfer.tsx').read_text()
+schedules_src=(ROOT/'src/components/Schedules.tsx').read_text()
+ok('217 a PDF department mismatch is actionable for root admin: the same file can resolve/create the proven section and retry under that section',
+   '/api/intelligence/pdf-import/bootstrap-section' in server
+   and 'canBootstrapSection' in server
+   and 'PDF_DEPARTMENT_AMBIGUOUS' in server
+   and 'const resolvePdfDepartment = async () =>' in transfer_src
+   and 'إضافة القسم وإعادة الاستيراد' in transfer_src
+   and 'readPdf(fix.file,nextSectionId)' in transfer_src)
+
+ok('218 resolving the PDF department also moves the live schedule selector, and draft saving uses that effective section rather than the stale original selector',
+   'onSectionChange?: (sectionId: number) => void' in transfer_src
+   and 'const activeImportSectionId = importSectionId || sectionId' in transfer_src
+   and 'sectionId:activeImportSectionId' in transfer_src
+   and 'onSectionChange={(nextSectionId) =>' in schedules_src
+   and 'setFilterSection(nextSectionId)' in schedules_src)
+
+ok('219 a short-name instructor match that would double-book that person in another college is unlinked for review, for every row of that printed name',
+   'instructorAmbiguousShortName' in server
+   and 'SHORT_NAME_CONTRADICTED' in server
+   and 'instructorIdentityTokens(person).length<instructorIdentityTokens(String(row.sourceInstructorText||"")).length' in server)
+ok('220 the import conflict note names the other saved lecture instead of only "outside this department"',
+   'otherLabel:describeOther(item?.otherId)||describeOther(item?.rowId)' in server
+   and 'مع موعد محفوظ في ${otherLabel}' in transfer)
+
+preview_src=(ROOT/'src/components/ImportPreviewTable.tsx').read_text()
+ok('221 an instructor double booking marks the TIME cell (the value that is wrong), not the correctly read name',
+   'if (/حجز مزدوج لأستاذ|لديه محاضرة متداخلة/.test(text)) return "time";' in preview_src
+   and preview_src.index('return "time";') < preview_src.index('return "instructor";'))
+
+print(json.dumps({'passed':len(passed),'tests':passed},ensure_ascii=False,indent=2))

@@ -1,0 +1,5726 @@
+import IntelligenceScopeSwitch from "./IntelligenceScopeSwitch";
+import PredictiveInsightPanel from "./PredictiveInsightPanel";
+import { mergeDemandReadings, mergeOperationsReadings, mergeDecisionReadings, scopedReadingList, sameIntelligenceScope, type IntelligenceScope, type ScopedReading } from "../utils/intelligenceReadingScope";
+import { DEMO_STAGE_SECTION_ID, isDemoSession } from "../utils/demoSession";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { TimeField } from "./TimeField";
+import { DnaStepper } from "./dna";
+import { CampusTravelMap, EquationChips } from "./VisualBits";
+import { runVisualTransition } from "../utils/visualTransition";
+import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowLeftRight,
+  BarChart3,
+  BrainCircuit,
+  Building2,
+  CalendarClock,
+  Ban,
+  Check,
+  CheckCircle2,
+  ChevronLeft,
+  CircleHelp,
+  Clock3,
+  Command,
+  Dna,
+  FileClock,
+  FileText,
+  FileSpreadsheet,
+  Download,
+  Gauge,
+  History,
+  Lightbulb,
+  LockKeyhole,
+  MessageSquareText,
+  Network,
+  Play,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Send,
+  ShieldCheck,
+  ShieldAlert,
+  SlidersHorizontal,
+  Sparkles,
+  Target,
+  Trash2,
+  Upload,
+  UsersRound,
+  WandSparkles,
+  Link2,
+  QrCode,
+  Printer,
+  Plus,
+  X,
+} from "lucide-react";
+import {
+  Badge,
+  Field,
+  GhostButton,
+  MetaPill,
+  Notice,
+  Num,
+  PageTitle,
+  PrimaryButton,
+  PrintLetterhead,
+  PrintPortal,
+  RecordCard,
+  RecordDeck,
+  SecondaryButton,
+  Segmented,
+  StatCard,
+  Surface,
+  visualConfirm,
+} from "./ui";
+import type {
+  AdCollege,
+  AdCourse,
+  AdInstructor,
+  AdSection,
+  AdTerm,
+  FSchedule,
+} from "../types";
+import IntelligenceContextBar from "./IntelligenceContextBar";
+import { AR, countOf, nounFor, oblique, studentNounsFor } from "../utils/arabicCount";
+import { proposeSmartFills, applySmartFills } from "../utils/geminiScheduleLayer";
+import { resolveScopeSelection, singleDepartmentOf } from "../utils/scopeContext";
+import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
+import { sortByName, byRoom, byArabic } from "../utils/sorting";
+import { sortTermsNewest, termIsArchive } from "../utils/termSequence";
+import { importRowKey, type ImportRow } from "./ImportPreviewTable";
+import { blockingConflicts, placeholderInstructorIds } from "../utils/scheduleBlockers";
+import StudentCasesTable from "./StudentCasesTable";
+import { RegistrationJourney, journeyFromViews, viewStatuses, type StatusFilter as CaseStatusFilter } from "./StudentCaseStatus";
+import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
+import PagedImportPreview, { PageReviewWait } from "./PagedImportPreview";
+import LocationPicker, { BuildingPicker } from "./LocationPicker";
+import { roomIdentityKey } from "../utils/locationRegistry";
+import { assignAuthoritySections, authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
+import { parseNaturalQuery } from "../utils/naturalQuery";
+import {
+  IntelligenceVersionCanvas as VersionCanvas,
+  IntelligenceVersionDiffTable,
+  intelligenceDayLabels as dayLabels,
+  intelligenceMinutes as twinMinutes,
+} from "./IntelligenceVersionCanvas";
+import { formatCompactDurationArabic, formatMinuteMetricArabic, formatUnitMetricArabic, formatScheduleTimeRange, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, SCHEDULE_SLOT_MINUTES, scheduleClockForDisplay } from "../utils/scheduleTime";
+
+import { setTelemetryScope, telemetryApi, telemetryBreadcrumb, telemetryError, telemetryTiming } from "../utils/clientTelemetry";
+import { interruptedImportMessage } from "../utils/importStreamFailure";
+import { pageReviewIssues, pagesAwaitingReview, scanLeftCellUnread, pagesWithUnreadCells, pagesLabel } from "../utils/importPageReview";
+import MiniRing, { ringFromScoreText } from "./MiniRing";
+import ApplyProposal, { postScheduleProposal, postWhatIf } from "./ApplyProposal";
+
+/**
+ * A professor's week, laid out where it actually falls.
+ *
+ * Every other reading of a gap in this application is a quantity — an average
+ * on the dashboard, a maximum beside a name, a count in a report. A quantity
+ * cannot separate the two shapes that matter most: three hours of dead air
+ * before the first class, which is an early start and nothing worse, and three
+ * hours wedged between two classes, which is an afternoon spent waiting on
+ * campus. Both read "3س فراغ".
+ *
+ * So this returns position, not size: for each taught day, the blocks in the
+ * order they occur and the empty stretches between them, as percentages of the
+ * professor's own teaching window. Long waits are marked; short turnarounds are
+ * left alone, because a thirty-minute gap is a walk between buildings.
+ */
+const WAIT_THRESHOLD = 60;
+function professorWeekShape(rows: any[]) {
+  const dayKeys = Object.keys(dayLabels);
+  const spans: Array<{ day: string; start: number; end: number }> = [];
+  rows.forEach(row => {
+    const start = twinMinutes(row.fstarttime), end = twinMinutes(row.fendtime);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+    dayKeys.forEach(day => { if (row[day]) spans.push({ day, start, end }); });
+  });
+  if (!spans.length) return null;
+  const from = Math.floor(Math.min(...spans.map(s => s.start)) / 60) * 60;
+  const to = Math.ceil(Math.max(...spans.map(s => s.end)) / 60) * 60;
+  const width = Math.max(60, to - from);
+  const pct = (value: number) => ((value - from) / width) * 100;
+  const days = dayKeys.map(day => {
+    const blocks = spans.filter(s => s.day === day).sort((a, b) => a.start - b.start);
+    const waits: Array<{ left: number; width: number; minutes: number }> = [];
+    for (let i = 1; i < blocks.length; i += 1) {
+      const minutes = blocks[i].start - blocks[i - 1].end;
+      if (minutes >= WAIT_THRESHOLD) {
+        waits.push({ left: pct(blocks[i - 1].end), width: pct(blocks[i].start) - pct(blocks[i - 1].end), minutes });
+      }
+    }
+    return {
+      day,
+      label: (dayLabels as any)[day],
+      blocks: blocks.map(b => ({ left: pct(b.start), width: pct(b.end) - pct(b.start) })),
+      waits,
+      longest: waits.reduce((most, w) => Math.max(most, w.minutes), 0),
+    };
+  }).filter(d => d.blocks.length);
+  const hours: number[] = [];
+  for (let m = from; m <= to; m += 60) hours.push(m);
+  return { from, to, days, hours };
+}
+
+type Tab = "command" | "copilot" | "twin" | "history" | "import";
+
+function PdfDifferenceBody({report,courses,instructors}:{report:any;courses:AdCourse[];instructors:AdInstructor[]}){
+  return <>
+    <div className="pdf-report-summary">
+      <article className="added"><strong>{report.counts.added}</strong><span>{nounFor(report.counts.added, AR.course)} {nounFor(report.counts.added, AR.addedAdj)}</span></article>
+      <article className="deleted"><strong>{report.counts.deleted}</strong><span>{nounFor(report.counts.deleted, AR.course)} {nounFor(report.counts.deleted, AR.deletedAdj)}</span></article>
+      <article className="changed"><strong>{report.counts.changed}</strong><span>{nounFor(report.counts.changed, AR.course)} {nounFor(report.counts.changed, AR.editedVerb)}</span></article>
+      <article><strong>{report.counts.unchanged}</strong><span>دون تغيير</span></article>
+    </div>
+    <div className="pdf-report-legend" aria-label="دليل الألوان"><span className="added"><i />إضافة جديدة — الرقم المرجعي فارغ</span><span className="deleted"><i />حذف</span><span className="changed"><i />الخانة المعدّلة</span></div>
+    <div className="pdf-report-table-wrap">
+      <table className="pdf-report-table">
+        <thead><tr><th>الرقم المرجعي</th><th>رمز المقرر</th><th>اسم المقرر</th><th>الشعبة</th><th>أستاذ المقرر</th><th>الأيام</th><th>الوقت</th><th>المبنى</th><th>القاعة</th></tr></thead>
+        <tbody>{report.rows.map((entry:any,index:number)=>{
+          const row=entry.current||entry.source||{};
+          const changed=new Set<string>(entry.changedFields||[]);
+          const daysChanged=["fsunday","fmonday","ftuesday","fwednesday","fthursday"].some(day=>changed.has(day));
+          const days=Object.keys(dayLabels).filter(day=>row[day]).map(day=>(dayLabels as any)[day]).join(" - ")||"—";
+          const instructor=instructors.find(person=>Number(person.AdInstructorId)===Number(row.AdInstructorId))?.AdInstructorName||"—";
+          const course=courses.find(item=>Number(item.AdCourseId)===Number(row.AdCourseId));
+          const mark=(...fields:string[])=>entry.status==="changed"&&fields.some(field=>changed.has(field))?"cell-changed":"";
+          return <tr key={`${entry.status}-${row.sourceOrder}-${index}`} className={entry.status}>
+            <td className="pdf-report-reference-number">{entry.status==="added"?"":entry.referenceNumber||"—"}</td>
+            <td>{course?.CourseCode||"—"}</td>
+            <td>{row.AdCourseName||course?.CourseName||"—"}</td>
+            <td className={mark("SCode")}>{row.SCode||"—"}</td>
+            <td className={mark("AdInstructorId")}>{instructor}</td>
+            <td className={daysChanged&&entry.status==="changed"?"cell-changed":""}>{days}</td>
+            <td className={mark("fstarttime","fendtime")} dir="ltr">{formatScheduleTimeRange(row.fstarttime,row.fendtime)}</td>
+            <td className={mark("AdRoomCode")}>{row.AdRoomCode||"—"}</td>
+            <td className={mark("AdRoomHall")}>{row.AdRoomHall||"—"}</td>
+          </tr>;
+        })}</tbody>
+      </table>
+    </div>
+    <footer className="pdf-report-foot"><ShieldCheck /> اسم المقرر الوارد في الأصل محمي من التبديل. الحذف مسموح، وأي مقرر جديد يظهر برقمه المرجعي فارغاً.</footer>
+  </>;
+}
+
+type InsightScene =
+  | "quality"
+  | "attention"
+  | "density"
+  | "spatial"
+  | "rooms"
+  | "professors"
+  | "health"
+  | "genome"
+  /* قراءةُ الفصل القادم: اللوحةُ نفسها في رادار التسجيل، لا نسخة. */
+  | "predict"
+  /* Carved out of the quality panel, which was the last reading still holding
+     two cards. One reading, one card, one screen — a panel that stacks two is
+     exactly the thing this strip exists to end. */
+  | "approval"
+  /* ما قاله الطلاب: الطلب، والتقاطع، والنقلة التي تُزيله. */
+  | "students";
+/* «جرّب» — every card it holds, including the three that used to appear on
+   their own the moment a scenario existed. */
+type TwinCard = "hero" | "lab" | "board" | "editor" | "ledger";
+type ApproveCard = "compare" | "drafts" | "versions";
+type ChatItem = { prompt: string; answer: any };
+type InsightReason = {
+  kicker: string;
+  title: string;
+  metric?: string;
+  tone?: "good" | "warn" | "bad" | "plain";
+  icon?: React.ReactNode;
+  summary?: string;
+  facts?: Array<{ label: string; value: string }>;
+  bars?: Array<{ label: string; value: number; max: number; caption?: string }>;
+  items?: Array<{ title: string; subtitle?: string; meta?: string; value?: string }>;
+};
+interface Props {
+  user: any;
+  scopes: any[];
+}
+/**
+ * ── بطاقة واحدة، صفحة واحدة ─────────────────────────────────────────────────
+ *
+ * Three screens here kept re-inventing the same thing badly. «افهم» got a
+ * dashboard of tiles that open as pages; «جرّب» and «اعتمد» got a strip of
+ * chips — and a strip only ever governed the cards it knew about. Everything
+ * else stayed stacked underneath it, so choosing «مختبر القرار» still left the
+ * board, the what-if editor and the change ledger sitting below, and the page
+ * did not move an inch when you pressed.
+ *
+ * One mechanism now, used by all three: a deck. Closed, it is a dashboard of
+ * small cards. Open, it is a single card as a full page, with the way back
+ * pinned above everything.
+ */
+interface DeckCard {
+  value: string;
+  label: string;
+  detail: string;
+  metric?: string;
+  icon?: React.ReactNode;
+}
+
+/**
+ * Put whatever just appeared at the top of the screen.
+ *
+ * Measured after paint, and only on an element that is actually on screen: a
+ * `display:none` element measures zero, which silently reads as "you are
+ * already there" and leaves the page exactly where it was. That was the whole
+ * bug — pressing a card changed the content a thousand pixels below the fold
+ * and never scrolled to it.
+ */
+/**
+ * ── افتح القراءة من أعلى الصفحة ─────────────────────────────────────────────
+ *
+ * Two bugs lived here, and the second one hid inside the fix for the first.
+ *
+ *  1. Measuring one frame after the state change measured the panel React had
+ *     not swapped yet.
+ *  2. The real one: `.insight-page-head` is `position: sticky; top: 84px`. A
+ *     stuck element's `getBoundingClientRect().top` reports where it is STUCK
+ *     — 84 — not where it lives in the document. So the arithmetic
+ *     `rect.top + scrollY` resolved to "roughly where you already are", the
+ *     guard then decided the page was close enough, and nothing moved. It was
+ *     never a timing problem at heart; it was measuring a lie.
+ *
+ * A sticky element cannot answer "where do you begin?", so it is not asked.
+ * The destination is the workspace container itself, measured through the
+ * offset chain — a value stickiness cannot touch — and the reading always
+ * opens at the top of its own page.
+ */
+const documentTop = (node: HTMLElement | null) => {
+  let top = 0;
+  let walker: HTMLElement | null = node;
+  while (walker) {
+    top += walker.offsetTop;
+    walker = walker.offsetParent as HTMLElement | null;
+  }
+  return top;
+};
+
+const liftToTop = (instant: boolean) => {
+  let tries = 0;
+  const measure = () => {
+    const page = document.querySelector<HTMLElement>(".intelligence-page");
+    const marker = [
+      ...document.querySelectorAll<HTMLElement>(".insight-page-head, .insight-preview-rail"),
+    ].find(el => el.getClientRects().length > 0);
+    if (!page && !marker) { if (tries++ < 8) requestAnimationFrame(measure); return; }
+    /* A few pixels of air above the page so it does not butt against the
+       shell's own header. */
+    const top = Math.max(0, documentTop(page || marker!) - 12);
+    if (Math.abs(window.scrollY - top) >= 4) window.scrollTo({ top, behavior: instant ? "auto" : "smooth" });
+  };
+  requestAnimationFrame(() => requestAnimationFrame(measure));
+};
+
+const CardDeck = ({ cards, value, onChange, backLabel, title, hint }: {
+  cards: DeckCard[];
+  value: string | null;
+  onChange: (next: string | null) => void;
+  backLabel: string;
+  title: string;
+  hint: string;
+}) => {
+  const active = cards.find(card => card.value === value) || null;
+  if (active)
+    return (
+      <header className="insight-page-head">
+        <button type="button" className="insight-back" onClick={() => onChange(null)}>
+          <ChevronLeft aria-hidden="true" />
+          {backLabel}
+        </button>
+        <div className="insight-page-title">
+          <span className="surface-kicker">{active.detail}</span>
+          <span className="insight-title-line"><strong>{active.label}</strong>{active.metric ? <b className="insight-page-metric">{active.metric}</b> : null}</span>
+        </div>
+      </header>
+    );
+  return (
+    <nav className="insight-preview-rail no-print" aria-label={title}>
+      <div className="insight-preview-head">
+        <span className="surface-kicker">{title}</span>
+        <strong>اختر بطاقة</strong>
+        <small>{hint}</small>
+      </div>
+      <div className="insight-preview-list" role="list">
+        {cards.map(card => (
+          <button
+            key={card.value}
+            type="button"
+            data-guide-ignore="بطاقة اختيار معاينة داخل الورشة، السلوك نفسه قبل إعادة التنسيق"
+            className="insight-preview"
+            role="listitem"
+            aria-label={`${card.label} — ${card.detail}`}
+            onClick={() => onChange(card.value)}
+          >
+            {card.icon ? (
+              <span className="insight-preview-icon" aria-hidden="true">{card.icon}</span>
+            ) : null}
+            <span className="insight-preview-copy">
+              <strong>{card.label}</strong>
+              <small>{card.detail}</small>
+            </span>
+            {card.metric ? (ringFromScoreText(card.metric) ? <b className="insight-preview-ring">{ringFromScoreText(card.metric)}</b> : <b data-long={card.metric.length > 7 || undefined}>{card.metric}</b>) : null}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+};
+
+const smartMessage = (value: any) => {
+  const text = String(value?.message || value || "حدث خطأ غير متوقع");
+  if (/Failed to fetch|NetworkError/i.test(text))
+    return "تعذر الاتصال بالخادم. تحقق من الإنترنت ثم أعد المحاولة؛ لم يتم حفظ أي تغيير.";
+  if (/API endpoint not found/i.test(text))
+    return "جزء من التحديث لم يُرفع على الخادم بعد. ارفع ملفات الحزمة الجديدة كاملة مع الحفاظ على المسارات.";
+  const issues = Array.isArray(value?.issues) ? value.issues.filter(Boolean).slice(0, 4) : [];
+  return issues.length ? `${text}: ${issues.join(" · ")}` : text;
+};
+
+const importClockMinutes = (value: unknown) => {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : -1;
+};
+const importRowsShareDay = (a: ImportRow, b: ImportRow) =>
+  ["fsunday","fmonday","ftuesday","fwednesday","fthursday"].some(key => Boolean((a as any)[key]) && Boolean((b as any)[key]));
+const importRowsOverlap = (a: ImportRow, b: ImportRow) => {
+  const a0=importClockMinutes(a.fstarttime),a1=importClockMinutes(a.fendtime),b0=importClockMinutes(b.fstarttime),b1=importClockMinutes(b.fendtime);
+  return a0>=0&&a1>a0&&b0>=0&&b1>b0&&a0<b1&&b0<a1;
+};
+/** Authority-PDF section identity comes from the printed section cell.
+ * Preserve the exact source value (including leading zeroes and legitimate gaps). */
+const normalizeImportSectionSeries = (rows: ImportRow[]) => assignAuthoritySections(rows);
+const validateImportRowsLocally = (rows: ImportRow[]) => {
+  const issues:string[] = [];
+  rows.forEach((row, index) => {
+    const label = `الصف ${(index + 1).toLocaleString("ar-KW-u-nu-latn")}`;
+    if (!Number(row.AdCourseId)) issues.push(`${label}: المقرر غير محدد`);
+    if (!authoritySectionCodeLooksPlausible(row.SCode)) issues.push(`${label}: رقم الشعبة غير صالح أو لم يُقرأ من ملف PDF`);
+    if (![row.fsunday,row.fmonday,row.ftuesday,row.fwednesday,row.fthursday].some(Boolean)) issues.push(`${label}: الأيام غير محددة`);
+    const start=importClockMinutes(row.fstarttime),end=importClockMinutes(row.fendtime);
+    if (start < 0 || end < 0 || end <= start) issues.push(`${label}: الوقت غير مكتمل أو غير منطقي`);
+    if (!row.buildingId) issues.push(`${label}: المبنى الرسمي غير محدد`);
+    if (!row.roomId && row.locationStatus !== "PENDING_ROOM") issues.push(`${label}: القاعة غير محددة`);
+    if (!Number(row.AdInstructorId)) issues.push(`${label}: أستاذ المقرر غير محدد`);
+  });
+  rows.forEach((row,index)=>rows.slice(index+1).forEach((other,offset)=>{
+    if(!importRowsShareDay(row,other)||!importRowsOverlap(row,other))return;
+    const otherIndex=index+offset+1;
+    if(Number(row.AdInstructorId)&&Number(row.AdInstructorId)===Number(other.AdInstructorId))
+      issues.push(`الصفان ${index+1} و${otherIndex+1}: أستاذ المقرر متعارض في الوقت نفسه`);
+    if(roomIdentityKey(row)&&roomIdentityKey(row)===roomIdentityKey(other))
+      issues.push(`الصفان ${index+1} و${otherIndex+1}: القاعة متعارضة في الوقت نفسه`);
+  }));
+  return [...new Set(issues)];
+};
+
+/** رقمُ بطاقة القراءة، أو لا شيء حين يكون صفراً أو فارغاً (قاعدة إخفاء الفارغ). */
+function metricBadge(metric: unknown) {
+  const text = String(metric ?? "").trim();
+  /* «84%» is a real out-of-100 figure too (the genome match): same ring. */
+  const pct = /^(\d{1,3}(?:\.\d+)?)\s*%$/.exec(text);
+  const ring = ringFromScoreText(pct ? `${pct[1]}/100` : text);
+  if (ring) return <b className="insight-preview-ring">{ring}</b>;
+  /* قيمةٌ نصيةٌ طويلة («لا موانع»، «تاريخ غير كافٍ») تُصغَّر فلا تنكسر بخطّ الرقم الكبير. */
+  return text && !/^[0٠]$/.test(text) ? <b data-long={text.length > 7 || undefined}>{text}</b> : null;
+}
+
+export default function IntelligenceWorkspace({ user, scopes }: Props) {
+  const isPowerAdmin = Boolean(user?.IsAdminUser || user?.SystemUserId === 1);
+  const [colleges, setColleges] = useState<AdCollege[]>([]),
+    [sections, setSections] = useState<AdSection[]>([]),
+    [terms, setTerms] = useState<AdTerm[]>([]),
+    [courses, setCourses] = useState<AdCourse[]>([]),
+    [instructors, setInstructors] = useState<AdInstructor[]>([]);
+  const [collegeId, setCollegeId] = useState(0),
+    [sectionId, setSectionId] = useState(0),
+    [termId, setTermId] = useState(0),
+    [tab, setTab] = useState<Tab>(() => {
+      const v = sessionStorage.getItem(
+        "schedule-intelligence-tab",
+      ) as Tab | null;
+      sessionStorage.removeItem("schedule-intelligence-tab");
+      /* "import" no longer has an entry point here — a tab restored from an
+         older session would strand the reader on a screen with no way back. */
+      return v &&
+        ["command", "copilot", "twin", "history"].includes(v)
+        ? v
+        : "command";
+    });
+  const scopeOwner = Number(user?.SystemUserId || 0);
+  const [analysisScope, setAnalysisScope] = useState<"college" | "department">("college");
+  const readingMode = tab === "twin" ? "college" : analysisScope;
+  const pendingReadingAction = useRef<any>(null);
+  const [scopeReady, setScopeReady] = useState("");
+  const [overview, setOverview] = useState<any>(null),
+    [rows, setRows] = useState<FSchedule[]>([]),
+    [drafts, setDrafts] = useState<any[]>([]),
+    [versions, setVersions] = useState<any[]>([]),
+    [operationsReview, setOperationsReview] = useState<any>(null),
+    [experienceHealth, setExperienceHealth] = useState<any>(null),
+    [decisionInbox, setDecisionInbox] = useState<any>({ manual: [], inferred: [], totalOpen: 0 }),
+    [loading, setLoading] = useState(true),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState<string | null>(null),
+    [message, setMessage] = useState<string | null>(null);
+  /**
+   * ── الوصول إلى المشهد، لا تغييره فقط ────────────────────────────────────
+   *
+   * Choosing a reading changed which panel was rendered and left the page
+   * exactly where it stood. Measured on the live board: pressing «الأساتذة»
+   * from 5,886px down moved the page ZERO pixels, and the panel it had just
+   * opened began 1,273 pixels ABOVE the viewport — so what the reader saw was
+   * whatever happened to sit at that scroll height, which was a different
+   * reading entirely. The tab worked; the page never went there, and that is
+   * indistinguishable from a tab that does nothing.
+   *
+   * The destination is the STRIP, not the panel. Measuring the panel looked
+   * right and worked once in four: the measurement happens before React has
+   * hidden the previous panel, so the page is a different height by the time
+   * the scroll lands. Exactly one panel is ever visible and it always begins
+   * under the strip — so bringing the strip to the top of the window puts the
+   * chosen reading under it every time. A fixed anchor cannot go stale.
+   */
+  /**
+   * ── شريط داخل المشهد ────────────────────────────────────────────────────
+   *
+   * The reading tabs solved stacking for «افهم» and left the other two scenes
+   * exactly as they were: «جرّب» stacks three cards and «اعتمد» three more,
+   * each one a full screen tall, with nothing to say which is which until you
+   * have scrolled past the previous one.
+   *
+   * The same strip answers it. One card at a time, chosen by name — not a
+   * second mechanism, the same one these readings already use.
+   */
+  /* null is the dashboard. Every card below — including the ones that used to
+     sit stacked under the strip with no way to choose them — is now a page. */
+  const [twinCard, setTwinCard] = useState<TwinCard | null>(null);
+  const [approveCard, setApproveCard] = useState<ApproveCard | null>(null);
+
+  const showScene = (value: InsightScene | null) => {
+    setInsightScene(value);
+    liftToTop(reduceMotion.current);
+  };
+  const showTwinCard = (value: TwinCard | null) => {
+    setTwinCard(value);
+    liftToTop(reduceMotion.current);
+  };
+  const showApproveCard = (value: ApproveCard | null) => {
+    setApproveCard(value);
+    liftToTop(reduceMotion.current);
+  };
+
+  const [heatMode, setHeatMode] = useState("department"),
+    [detail, setDetail] = useState<any>(null),
+    /* null = the dashboard itself. A reading is a page that opens ON TOP of it
+       and closes back to it — not a section further down the same scroll.
+       Publishing can hand off directly to the students reading; consume that
+       one-shot request here so the shortcut lands on the exact destination. */
+    [insightScene, setInsightScene] = useState<InsightScene | null>(() => {
+      try {
+        const requested = sessionStorage.getItem("schedule-intelligence-insight") as InsightScene | null;
+        sessionStorage.removeItem("schedule-intelligence-insight");
+        return requested && ["quality", "approval", "attention", "density", "spatial", "rooms", "professors", "health", "students", "genome"].includes(requested)
+          ? requested
+          : null;
+      } catch { return null; }
+    });
+  const [insightReason, setInsightReason] = useState<InsightReason | null>(null);
+  useEffect(() => { if (!isPowerAdmin && heatMode !== "department") setHeatMode("department"); }, [isPowerAdmin, heatMode]);
+  const [prompt, setPrompt] = useState(""),
+    [chat, setChat] = useState<ChatItem[]>([]);
+  const copilotThread = useRef<HTMLDivElement | null>(null);
+  const pendingCopilotAnswer = useRef<number | null>(null);
+  const drawerClose = useRef<HTMLButtonElement | null>(null),
+    drawerReturnFocus = useRef<HTMLElement | null>(null),
+    reduceMotion = useRef(false);
+  const [scenario, setScenario] = useState<FSchedule[] | null>(null),
+    [scenarioEval, setScenarioEval] = useState<any>(null),
+    [scenarioId, setScenarioId] = useState<number | "">(""),
+    [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+  const [guideSimulationMeta, setGuideSimulationMeta] = useState<null | { before:FSchedule; after:FSchedule; request:any }>(null);
+  const intelligenceGuideOperationRef = useRef<null | { featureId:string; transactionId?:string; startedAt:number; expected:string }>(null);
+  const [compareFrom, setCompareFrom] = useState(0),
+    [compareTo, setCompareTo] = useState(0),
+    [termCompare, setTermCompare] = useState<any>(null);
+  const [versionFrom, setVersionFrom] = useState(""),
+    [versionTo, setVersionTo] = useState(""),
+    [versionCompare, setVersionCompare] = useState<any>(null),
+    [timeTravel, setTimeTravel] = useState(50);
+  const [importProgress, setImportProgress] = useState<{ phase: string; page: number; pages: number; message: string; notice?: string } | null>(null);
+  /* Scanned pages whose missing printed lines the reviewer confirmed (importPageReview). */
+  const [reviewedImportPages, setReviewedImportPages] = useState<number[]>([]);
+  const [importPreview, setImportPreview] = useState<any>(null),
+    [importFile, setImportFile] = useState(""),
+    [importInstructorIds, setImportInstructorIds] = useState<number[]>([]),
+    [importVisitingIds, setImportVisitingIds] = useState<Set<number>>(new Set()),
+    [importDepartmentRooms, setImportDepartmentRooms] = useState<Array<{ building:string; hall:string }>>([]),
+    [importErrorModal, setImportErrorModal] = useState<string | null>(null),
+    // A failed Authority-PDF read never routes to Gemini on its own. We stash the
+    // file so the person can consciously choose Smart Import — nothing leaves the
+    // server to Google without that deliberate click.
+    [smartRetry, setSmartRetry] = useState<{ file: File; reason: string } | null>(null),
+    [online, setOnline] = useState(navigator.onLine);
+  // Help never opens on its own; one deliberate question mark owns it.
+  const [decisionCompose, setDecisionCompose] = useState(false);
+  const [decisionTitle, setDecisionTitle] = useState("");
+  const [versionScrubIndex, setVersionScrubIndex] = useState(0);
+  /* ما قاله الطلاب — والنقلة التي تُصلحه.
+     Loaded with everything else, and empty is the ordinary state: a department
+     that has never opened the survey sees the door and nothing more. */
+  const [demand, setDemand] = useState<any>(null);
+  const allStudentCases = Array.isArray(demand?.cases) ? demand.cases : [];
+  /* «رحلة الطلب» نفسُها التي في كشف التسجيل: السجلّ واحد، والتصفيةُ بالمحطة محليّة. */
+  const [caseJourneyFilter, setCaseJourneyFilter] = useState<CaseStatusFilter>("all");
+  const caseJourney = useMemo(() => journeyFromViews(allStudentCases), [allStudentCases]);
+  const studentCases = useMemo(() => caseJourneyFilter === "all" ? allStudentCases
+    : allStudentCases.filter((item: any) => viewStatuses(item).includes(caseJourneyFilter)), [allStudentCases, caseJourneyFilter]);
+  /* من أجاب — عددٌ واحد تقرؤه البطاقةُ ونصُّها، لا أربعُ صيغٍ مكرّرة. */
+  const answered = Number(demand?.totalRespondents || demand?.totalCases || demand?.cases?.length || demand?.respondents || 0);
+  /* كلية البنات: «طالبتان أجابتا» — القاعدة في arabicCount وحدها. */
+  const studentWords = studentNounsFor(colleges.find((college: any) => Number(college.AdCollegeId) === Number(collegeId))?.AdCollegeName);
+  const [genome, setGenome] = useState<any>(null),
+    [constraints, setConstraints] = useState<any[]>([]),
+    [innovationMode, setInnovationMode] = useState<
+      "constraints" | "war" | "autopilot" | "policy"
+    >("constraints"),
+    [warRoom, setWarRoom] = useState<any>(null),
+    [warRowId, setWarRowId] = useState<number | "">(""),
+    [warBusy, setWarBusy] = useState(false),
+    [autopilotGoal, setAutopilotGoal] = useState(
+      "قلل الفراغات ومواضع التحقق بأقل تغيير ممكن، وحافظ على القاعات والأيام الحالية",
+    ),
+    [autopilot, setAutopilot] = useState<any>(null),
+    [autopilotBusy, setAutopilotBusy] = useState(false);
+  const [policyDraft, setPolicyDraft] = useState<any>({ type: "day_off", day: "fwednesday", time: "17:00", building: "", growth: 10, scope: "department" });
+  const [policyResult, setPolicyResult] = useState<any>(null);
+  const [policyBusy, setPolicyBusy] = useState(false);
+  const [constraintDraft, setConstraintDraft] = useState<any>({
+    type: "instructor_latest_end",
+    AdInstructorId: 0,
+    AdCourseId: 0,
+    day: "fwednesday",
+    time: "14:00",
+    buildingId: "",
+    roomId: "",
+    roomCode: "",
+    roomHall: "",
+    maxMinutes: 120,
+  });
+  const fetchJson = async (url: string, options?: RequestInit) => {
+    const method=String(options?.method||"GET").toUpperCase();
+    if (method !== "GET" && !navigator.onLine)
+      throw new Error("أنت الآن دون اتصال. القراءة متاحة، لكن الحفظ والنشر ينتظر عودة الاتصال.");
+    telemetryBreadcrumb(`${method} ${url.split("?")[0]}`);
+    const started=performance.now();
+    let r:Response;
+    try{r=await fetch(url,{...options,credentials:options?.credentials||"include"});telemetryApi(url.split("?")[0],performance.now()-started,r.status,r.ok);}
+    catch(error){telemetryError(url.split("?")[0],error,performance.now()-started);throw error;}
+    const body = await r.text();
+    let d: any = {};
+    if (body) {
+      try { d = JSON.parse(body); }
+      catch { const error=new Error(r.ok ? "وصل رد غير متوقع من الخادم. أعد المحاولة بعد لحظات." : `الخادم مشغول حالياً (${r.status}). أعد المحاولة بعد قليل.`);telemetryError("response.parse",error);throw error; }
+    }
+    if (!r.ok)
+      throw Object.assign(new Error(d.error || "تعذر تنفيذ العملية"), { issues: d.issues, code: d.code, changes: d.changes });
+    return d;
+  };
+  useEffect(() => {
+    const up = () => setOnline(true),
+      down = () => setOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    return () => {
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+    };
+  }, []);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => {
+      reduceMotion.current = query.matches;
+    };
+    sync();
+    query.addEventListener?.("change", sync);
+    return () => query.removeEventListener?.("change", sync);
+  }, []);
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        /**
+         * A power-only panel must not take the whole room down with it.
+         *
+         * `lookups` is reserved for the main administrator, and `Promise.all`
+         * rejects on the first refusal — so a department coordinator, who is
+         * allowed on this screen and needs most of it, used to arrive at a
+         * blank page with a permission error and no way forward. The optional
+         * pieces now fail alone: their panels stay quiet, the rest opens.
+         */
+        const [c, s, t, lookups] = await Promise.all([
+          fetchJson("/api/colleges"),
+          fetchJson("/api/sections"),
+          fetchJson("/api/terms"),
+          fetchJson("/api/intelligence/lookups").catch(() => null),
+        ]);
+        setColleges(sortByName(c, (row:any)=>row.AdCollegeName));
+        setSections(sortByName(s, (row:any)=>row.AdSectionName));
+        const sortedTerms = sortTermsNewest<AdTerm>(t);
+        setTerms(sortedTerms);
+        setCourses(sortByName(lookups?.courses || [], (row:any)=>row.CourseName));
+        setInstructors(sortByName(lookups?.instructors || [], (row:any)=>row.AdInstructorName));
+        // مركز الذكاء يقرأ نفس آخر نطاق فعّال في الجدول والاستعلامات.
+        // طلب محاكاة حديث من المرشد يبقى أولوية مؤقتة، وإلا فآخر كلية/قسم/فصل
+        // صالح يعود Active تلقائيًا بعد الدخول من جديد.
+        try { sessionStorage.removeItem("schedule-intelligence-scope"); } catch {}
+        let guideRequest:any = null;
+        try { guideRequest = JSON.parse(sessionStorage.getItem("schedule-guide-simulation") || "null"); } catch {}
+        const guideFresh = guideRequest && Date.now() - Number(guideRequest.createdAt || 0) < 10 * 60 * 1000;
+        /* النطاق المشترك (src/utils/sharedScope.ts)، وطلب المرشد الحديث يتقدّمه
+           مؤقّتاً دون أن يُكتب فوقه. */
+        const stored = guideFresh
+          ? { collegeId: Number(guideRequest.collegeId || 0), sectionId: Number(guideRequest.sectionId || 0), termId: Number(guideRequest.termId || 0) }
+          : readSharedScope(scopeOwner);
+        const scoped = resolveSharedScope(stored, {
+          scopes, isAdmin: isPowerAdmin, colleges: c, sections: s, terms: sortedTerms,
+          fallbackTermId: stored.termId ? Number(sortedTerms[0]?.AdTermId || 0) : 0,
+        });
+        setCollegeId(scoped.collegeId);
+        /* التجربة: شاشةٌ لا تعمل إلا على قسمٍ واحد لا تُفتح على «اختر القسم» — قسم الحاسب مسرح البيانات. */
+        setSectionId(scoped.sectionId || (isDemoSession() && scoped.collegeId ? DEMO_STAGE_SECTION_ID : 0));
+        setTermId(scoped.termId);
+        setCompareTo(sortedTerms[0]?.AdTermId || 0);
+        setCompareFrom(sortedTerms[1]?.AdTermId || sortedTerms[0]?.AdTermId || 0);
+      } catch (e: any) {
+        setError(smartMessage(e));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+  /* يُكتب في النطاق المشترك ما يختاره القارئ في شريط السياق وحده؛ وتغيّرٌ من
+     شاشةٍ أخرى أو لسانٍ آخر يُعرض على النطاق ثم يُتبع. */
+  const sharedScope = useSharedScope((incoming) => {
+    if (!terms.length) return;
+    pendingReadingAction.current = null;
+    const next = resolveSharedScope(incoming, { scopes, isAdmin: isPowerAdmin, colleges, sections, terms, fallbackTermId: termId });
+    setCollegeId(next.collegeId);
+    setSectionId(next.sectionId);
+    setTermId(next.termId);
+  }, scopeOwner);
+  const availableSections = useMemo(
+    () => sections.filter((s) => !collegeId || s.AdCollegeId === collegeId),
+    [sections, collegeId],
+  );
+  const contextQuery = useMemo(
+    () =>
+      new URLSearchParams({
+        collegeId: String(collegeId),
+        sectionId: String(sectionId),
+        termId: String(termId),
+      }).toString(),
+    [collegeId, sectionId, termId],
+  );
+  const analysisQuery = `${contextQuery}&analysisScope=${readingMode}`;
+  const ownScope = { collegeId, sectionId, collegeName: colleges.find(c => Number(c.AdCollegeId) === Number(collegeId))?.AdCollegeName || "" };
+  const scopeLabel = (item: any) => readingMode === "department" ? item?.readingScope?.collegeName || "" : "";
+  const sourceScope = (item: any): IntelligenceScope => item?.readingScope || {
+    collegeId: Number(item?.AdCollegeId || collegeId), sectionId: Number(item?.AdSectionId || sectionId),
+    collegeName: colleges.find(c => Number(c.AdCollegeId) === Number(item?.AdCollegeId || collegeId))?.AdCollegeName || "",
+  };
+  const enterSourceScope = (item: any, kind: string, extra?: any) => {
+    const source = sourceScope(item);
+    if (sameIntelligenceScope(source, ownScope)) return true;
+    pendingReadingAction.current = { kind, item, extra, source, termId };
+    setCollegeId(source.collegeId); setSectionId(source.sectionId);
+    setAnalysisScope("college");
+    return false;
+  };
+  const readAcross = async (path: string, merge: (readings: ScopedReading[]) => any, family = overview?.family) => {
+    const members: IntelligenceScope[] = readingMode === "department" && family?.length ? family : [ownScope];
+    const readings = await Promise.all(members.map(async scope => ({ scope, data: await fetchJson(`${path}?${new URLSearchParams({ collegeId: String(scope.collegeId), sectionId: String(scope.sectionId), termId: String(termId) })}`) })));
+    return merge(readings);
+  };
+  const readDemand = (family?: IntelligenceScope[]) => readAcross("/api/schedules/demand", mergeDemandReadings, family);
+  const refreshDecisionInbox = () => readAcross("/api/intelligence/open-decisions", mergeDecisionReadings);
+  useEffect(() => {
+    setTelemetryScope({collegeId,sectionId,termId});
+    if(collegeId&&sectionId&&termId)telemetryBreadcrumb(`مركز الذكاء ${collegeId}/${sectionId}/${termId}`);
+  },[collegeId,sectionId,termId]);
+
+  /**
+   * Import uses the exact same instructor vocabulary as Add/Edit Schedule.
+   *
+   * The old preview inherited `lookups.instructors`, which is power-admin only.
+   * Coordinators therefore opened the PDF preview with an empty catalogue and
+   * the only names that later leaked in were visiting/delegate records. Load
+   * this department's historical staff plus this term's delegates explicitly;
+   * InstructorPicker can still widen to the whole university when someone types.
+   */
+  useEffect(() => {
+    if (!collegeId || !sectionId || !termId) {
+      setImportInstructorIds([]);
+      setImportVisitingIds(new Set());
+      setImportDepartmentRooms([]);
+      return;
+    }
+    let alive = true;
+    const paramsBase = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId) });
+    const paramsTerm = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
+    Promise.all([
+      fetchJson(`/api/instructors?${paramsBase.toString()}`).catch(() => []),
+      fetchJson(`/api/instructors?${paramsTerm.toString()}`).catch(() => []),
+      fetchJson(`/api/visiting-roster?${paramsTerm.toString()}`).catch(() => ({ instructorIds: [], instructors: [] })),
+      fetchJson(`/api/courses?sectionId=${sectionId}`).catch(() => []),
+      fetchJson(`/api/department-rooms?${paramsBase.toString()}`).catch(() => ({ rooms: [] })),
+    ]).then(([historyPeople, termPeople, roster, sectionCourses, roomData]) => {
+      if (!alive) return;
+      const localPeople = [...new Map(
+        [...(Array.isArray(historyPeople) ? historyPeople : []),
+         ...(Array.isArray(termPeople) ? termPeople : []),
+         ...(Array.isArray(roster?.instructors) ? roster.instructors : [])]
+          .map((person:any) => [Number(person.AdInstructorId), person] as const),
+      ).values()].filter((person:any) => Number(person.AdInstructorId));
+      const ids = localPeople.map((person:any) => Number(person.AdInstructorId));
+      setImportInstructorIds(ids);
+      setImportVisitingIds(new Set((Array.isArray(roster?.instructorIds) ? roster.instructorIds : []).map(Number).filter(Boolean)));
+      setImportDepartmentRooms(Array.isArray(roomData?.rooms) ? roomData.rooms : []);
+      if (localPeople.length) {
+        setInstructors(current => sortByName(
+          [...new Map([...current, ...localPeople].map((person:any) => [Number(person.AdInstructorId), person] as const)).values()],
+          (row:any) => row.AdInstructorName,
+        ));
+      }
+      if (Array.isArray(sectionCourses) && sectionCourses.length) {
+        setCourses(current => sortByName(
+          [...new Map([...current, ...sectionCourses].map((course:any) => [Number(course.AdCourseId), course] as const)).values()],
+          (row:any) => row.CourseName,
+        ));
+      }
+    }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [collegeId, sectionId, termId]);
+  /** Only the newest read may paint. Switching scope quickly used to let an
+   *  older answer land last and describe another department's numbers under
+   *  the new department's name. */
+  const reloadSerial = useRef(0);
+  const intelligenceReadyScope = useRef("");
+  const reload = async () => {
+    if (!collegeId || !sectionId || !termId) return;
+    const uiStarted = performance.now();
+    const serial = ++reloadSerial.current;
+    setLoading(true);
+    setOverview(null); setDemand(null); setGenome(null); setOperationsReview(null); setExperienceHealth(null);
+    setDrafts([]); setVersions([]); setDecisionInbox({manual:[],inferred:[],totalOpen:0});
+    setError(null);
+    let painted = false;
+    try {
+      // The board and its score are the first paint. Everything else is useful
+      // context, not a reason to hold the whole intelligence room behind a
+      // spinner. This keeps the page responsive even when history/telemetry is
+      // cold in Firestore.
+      const [o, r] = await Promise.all([
+        fetchJson(`/api/intelligence/overview?${analysisQuery}`),
+        fetchJson(`/api/schedules?${contextQuery}`),
+      ]);
+      if (serial !== reloadSerial.current) return;
+      setOverview(o);
+      setRows(r);
+      setScopeReady(`${collegeId}:${sectionId}:${termId}`);
+      if (!scenario) setScenarioId(r[0]?.id || "");
+      painted = true;
+      setLoading(false);
+      const readyKey = `${collegeId}:${sectionId}:${termId}`;
+      if (intelligenceReadyScope.current !== readyKey) {
+        intelligenceReadyScope.current = readyKey;
+        requestAnimationFrame(() => telemetryTiming("intelligence.ready", performance.now() - uiStarted));
+      }
+
+      // Secondary evidence arrives in parallel and quietly fills only the cards
+      // that use it. A slow history query can no longer make «مركز الذكاء» feel
+      // blank or make a department think the feature is missing.
+      const [d, v, g, cx, dm, ops, decisions, ux] = await Promise.all([
+        readAcross("/api/intelligence/drafts", readings => scopedReadingList(readings), o.family),
+        readAcross("/api/intelligence/versions", readings => scopedReadingList(readings), o.family),
+        fetchJson(`/api/intelligence/genome?${analysisQuery}`),
+        fetchJson(`/api/intelligence/constraints?${contextQuery}`),
+        readDemand(o.family),
+        readAcross("/api/intelligence/operations-review", mergeOperationsReadings, o.family),
+        readAcross("/api/intelligence/open-decisions", mergeDecisionReadings, o.family),
+        fetchJson(`/api/intelligence/experience-health?${analysisQuery}`),
+      ]);
+      if (serial !== reloadSerial.current) return;
+      setDrafts(Array.isArray(d) ? d : []);
+      setOverview((current: any) => current ? {...current, draftCount: Array.isArray(d) ? d.filter((draft:any) => draft.status === "draft").length : 0} : current);
+      setVersions(Array.isArray(v) ? v : []);
+      setGenome(g);
+      setConstraints(Array.isArray(cx) ? cx : []);
+      setDemand(dm);
+      setOperationsReview(ops);
+      setDecisionInbox(decisions || {manual:[],inferred:[],totalOpen:0});
+      setExperienceHealth(ux);
+      setVersionScrubIndex(Math.max(0,(Array.isArray(v)?v.length:0)-1));
+    } catch (e: any) {
+      if (serial === reloadSerial.current) setError(smartMessage(e));
+    } finally {
+      if (!painted && serial === reloadSerial.current) setLoading(false);
+    }
+  };
+  /**
+   * Student requests arrive from outside the app.
+   *
+   * Everything else on this screen changes because somebody in the room changed
+   * it, so reloading on the reader's own actions was enough. A survey answer is
+   * the exception: it is written by a student on their phone, and nothing here
+   * would ever hear about it — several requests were filed and the register
+   * stayed empty until the page was reloaded by hand. So the demand card, and
+   * only it, is re-read on a timer while this tab is actually being looked at.
+   */
+  useEffect(() => {
+    if (!collegeId || !sectionId || !termId || !overview || overview.analysisScope !== readingMode) return;
+    let alive = true;
+    const pollDemand = async () => {
+      if (document.hidden) return;
+      try {
+        const fresh = await readDemand();
+        if (alive && fresh) setDemand(fresh);
+      } catch { /* A missed poll is corrected by the next one. */ }
+    };
+    void pollDemand();
+    const timer = window.setInterval(pollDemand, 10_000);
+    document.addEventListener("visibilitychange", pollDemand);
+    return () => { alive = false; window.clearInterval(timer); document.removeEventListener("visibilitychange", pollDemand); };
+  }, [collegeId, sectionId, termId, analysisQuery, overview?.family]);
+
+  const previousReadingMode = useRef(readingMode);
+  useEffect(() => {
+    if (previousReadingMode.current === readingMode) return;
+    previousReadingMode.current = readingMode;
+    reloadSerial.current++;
+    setChat([]); setTermCompare(null); setVersionCompare(null); setVersionFrom(""); setVersionTo("");
+    if (collegeId && sectionId && termId) void reload();
+  }, [readingMode]);
+  useEffect(() => {
+    setScenario(null);
+    setScenarioEval(null);
+    setActiveDraftId(null);
+    setVersionCompare(null);
+    setDetail(null);
+    setWarRoom(null);
+    setAutopilot(null);
+    setWarRowId("");
+    if (collegeId && sectionId && termId) {
+      void reload();
+    } else {
+      // An incomplete scope is a true idle state, never the previous scope
+      // dimmed behind empty selectors. This also removes the visual flash that
+      // used to occur while switching college/term.
+      // A permission error from the previous scope must not survive into it
+      // either: the empty-scope screen was showing a red «خارج صلاحيات الأقسام»
+      // above «اختر الكلية والفصل», turning an ordinary starting state into an
+      // apparent failure.
+      setError(null);
+      setOverview(null);
+      setRows([]);
+      setDrafts([]);
+      setVersions([]);
+      setGenome(null);
+      setConstraints([]);
+      setDemand(null);
+      setOperationsReview(null);
+      setDecisionInbox({ manual: [], inferred: [], totalOpen: 0 });
+      setExperienceHealth(null);
+    }
+  }, [collegeId, sectionId, termId]);
+  useEffect(() => {
+    const index = pendingCopilotAnswer.current;
+    if (index == null || chat.length <= index) return;
+    const frame = window.requestAnimationFrame(() => {
+      const thread = copilotThread.current;
+      const answer = thread?.querySelector<HTMLElement>(`[data-copilot-answer="${index}"]`);
+      if (!thread || !answer) return;
+      const threadBox = thread.getBoundingClientRect();
+      const answerBox = answer.getBoundingClientRect();
+      const nextTop = Math.max(0, thread.scrollTop + answerBox.top - threadBox.top - 12);
+      thread.scrollTo({
+        top: nextTop,
+        behavior: reduceMotion.current ? "auto" : "smooth",
+      });
+      // Keep keyboard/screen-reader focus with the answer without asking the
+      // browser to scroll the document itself. `preventScroll` is essential:
+      // scrollIntoView on this nested chat was the reason the whole page used
+      // to jump to its bottom.
+      answer.focus({ preventScroll: true });
+      pendingCopilotAnswer.current = null;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [chat.length]);
+  const detailOpen = Boolean(detail);
+  useEffect(() => {
+    if (!detailOpen) return;
+    drawerReturnFocus.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const frame = window.requestAnimationFrame(() => drawerClose.current?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDetail(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", onKeyDown);
+      drawerReturnFocus.current?.focus();
+      drawerReturnFocus.current = null;
+    };
+  }, [detailOpen]);
+  useEffect(()=>{if(versions.length>=2){setVersionFrom(v=>v||String(versions[1].id));setVersionTo(v=>v||String(versions[0].id));}},[versions]);
+  useEffect(() => {
+    if (!scenario) return;
+    const timer = window.setTimeout(async () => {
+      try {
+        const d = await fetchJson("/api/intelligence/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            collegeId,
+            sectionId,
+            termId,
+            rows: scenario,
+          }),
+        });
+        setScenarioEval(d);
+      } catch (e: any) {
+        setError(smartMessage(e));
+      }
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [scenario, collegeId, sectionId, termId]);
+  const heatData =
+    heatMode === "university"
+      ? overview?.universityHeatmap || []
+      : overview?.heatmap || [];
+  const heatMax = Math.max(1, ...heatData.map((x: any) => x.count));
+  // Only the hours that carry teaching. A campus that finishes at noon should
+  // not read its density map through nine empty rows.
+  const heatTimes = useMemo(() => {
+    const all = Array.from(new Set(heatData.map((x: any) => x.time))).sort() as string[];
+    const busy = new Set(heatData.filter((x: any) => Number(x.count) > 0).map((x: any) => x.time));
+    if (!busy.size) return all;
+    const first = all.findIndex((time) => busy.has(time));
+    let last = all.length - 1;
+    while (last > first && !busy.has(all[last])) last -= 1;
+    return all.slice(Math.max(0, first - 1), Math.min(all.length, last + 2));
+  }, [heatData]);
+  const selectedScenario = useMemo(
+    () => scenario?.find((r) => r.id === Number(scenarioId)) || null,
+    [scenario, scenarioId],
+  );
+  const twinSlots = useMemo(
+    () =>
+      Array.from({ length: 21 }, (_, i) => {
+        const mins = 8 * 60 + i * 30;
+        return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+      }),
+    [],
+  );
+  const originalById = useMemo(
+    () => new Map(rows.map((r) => [r.id, r])),
+    [rows],
+  );
+  const changedRows = useMemo(
+    () =>
+      !scenario
+        ? []
+        : scenario.filter((r) => {
+            const o = originalById.get(r.id);
+            return (
+              !o ||
+              o.fstarttime !== r.fstarttime ||
+              o.fendtime !== r.fendtime ||
+              o.AdRoomCode !== r.AdRoomCode ||
+              o.AdRoomHall !== r.AdRoomHall ||
+              o.fsunday !== r.fsunday ||
+              o.fmonday !== r.fmonday ||
+              o.ftuesday !== r.ftuesday ||
+              o.fwednesday !== r.fwednesday ||
+              o.fthursday !== r.fthursday
+            );
+          }),
+    [scenario, originalById],
+  );
+  const twinTime = (value: number) =>
+    `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+  const moveTwinTime = (id: number, start: string) => {
+    if (!scenario) return;
+    const row = scenario.find((r) => r.id === id);
+    if (!row) return;
+    const duration = Math.max(
+      30,
+      twinMinutes(row.fendtime) - twinMinutes(row.fstarttime),
+    );
+    const startMinutes = twinMinutes(start);
+    setScenario(
+      (s) =>
+        s?.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                fstarttime: start,
+                fendtime: twinTime(startMinutes + duration),
+              }
+            : r,
+        ) || null,
+    );
+    setScenarioId(id);
+  };
+  const readinessLabel =
+    overview?.readiness === "ready"
+      ? "جاهز للاعتماد"
+      : overview?.readiness === "review"
+        ? "جاهز بعد مراجعة"
+        : overview?.readiness === "blocked"
+          ? "يوجد ما يمنع الاعتماد"
+          : "يحتاج تحسين";
+  const sendCopilot = async (text = prompt) => {
+    const q = text.trim();
+    if (!q) return;
+    // There is only one request at a time. Capture the exact slot that will
+    // receive this answer so the question can hand the reader to that answer,
+    // not to the bottom of the document.
+    const requestSerial = reloadSerial.current;
+    pendingCopilotAnswer.current = chat.length;
+    setBusy(true);
+    setError(null);
+    setPrompt("");
+    try {
+      // Idea 3: an imperative like "انقل 101 إلى 11:00" becomes a previewed move,
+      // not just an answer. Everything else stays a normal read-only question.
+      if (parseNaturalQuery(q).intent === "move") {
+        if (readingMode === "department") {
+          setAnalysisScope("college");
+          setPrompt(q); pendingCopilotAnswer.current = null;
+          setMessage("اختر كلية الموعد ثم أرسل أمر النقل.");
+          return;
+        }
+        const move = await fetchJson("/api/intelligence/nl-schedule", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collegeId, sectionId, termId, q }),
+        });
+        if (requestSerial !== reloadSerial.current) return;
+        setChat((p) => [...p, { prompt: q, move } as any]);
+        return;
+      }
+      const answer = await fetchJson("/api/intelligence/copilot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collegeId, sectionId, termId, prompt: q, analysisScope: readingMode }),
+      });
+      if (requestSerial !== reloadSerial.current) return;
+      setChat((p) => [...p, { prompt: q, answer }]);
+    } catch (e: any) {
+      pendingCopilotAnswer.current = null;
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  // Applying a previewed natural-language move is a second, deliberate press —
+  // the same atomic door as a drag, so the same conflict rules protect it.
+  const applyMove = async (mv: any, index: number) => {
+    if (!mv?.move) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await fetchJson("/api/schedules/move-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ strict: false, moves: [mv.move] }),
+      });
+      setChat((p) => p.map((item, i) => (i === index ? ({ ...item, move: { ...(item as any).move, applied: true } } as any) : item)));
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const evaluateScenario = async (next = scenario) => {
+    if (!next) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setScenarioEval(
+        await fetchJson("/api/intelligence/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collegeId, sectionId, termId, rows: next }),
+        }),
+      );
+    } catch (e: any) {
+      setError(smartMessage(e));
+      if (e.issues) setMessage(e.issues.slice(0, 3).join(" · "));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const startTwin = async () => {
+    const copy = rows.map((r) => ({ ...r }));
+    setActiveDraftId(null);
+    setScenario(copy);
+    setScenarioId(copy[0]?.id || "");
+    await evaluateScenario(copy);
+    setTwinCard("board");
+  };
+  const autoSchedule = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const d = await fetchJson("/api/intelligence/auto-schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collegeId, sectionId, termId }),
+      });
+      /* An empty term answers with the way forward, not with rows. */
+      if (d?.empty) { setMessage(d.message); return; }
+      setActiveDraftId(null);
+      setScenario(d.rows);
+      setScenarioEval({ baseline: d.before, scenario: d.after });
+      setScenarioId(d.rows[0]?.id || "");
+      setMessage(d.summary);
+      setTab("twin");
+      setTwinCard("board");
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  /**
+   * Take a student-clash proposal into the trial copy — applied, not saved.
+   *
+   * The engine's answer stops at "this would work"; a person still decides. So
+   * the press lands where deciding is safe: a duplicate week with the move
+   * already made, the before/after score beside it, and publishing behind the
+   * two doors it has always been behind. The real schedule is untouched until
+   * somebody saves a draft and publishes it.
+   */
+  /* ── باب الطلاب ─────────────────────────────────────────────────────────
+     The survey could be answered but never issued — the public routes existed
+     and nothing anywhere could create their link. A door with no handle. The
+     handle belongs on the page that reads the answers, so collecting more of
+     them and reading them are one place, not two. */
+  const [surveyQr, setSurveyQr] = useState<{ id: string; svg: string } | null>(null);
+  /* The same durations the instructor and department links offer. A student
+     door was fixed at thirty days with no way to say otherwise, so a survey
+     that had to close with the add-drop week could not. */
+  const SURVEY_DAY_CHOICES = [7, 30, 90, 180];
+  const [surveyDays, setSurveyDays] = useState(30);
+  const [surveyCopied, setSurveyCopied] = useState<string | null>(null);
+  const surveyUrl = (id: string) => `${window.location.origin}/q/${id}`;
+
+  /**
+   * Close the students' door.
+   *
+   * The link could be issued and could expire on its own, but there was no way
+   * to end it early — and a survey that has to close with the add-drop week
+   * cannot wait for its own expiry. Revoking is immediate and irreversible for
+   * that link; a new one can always be issued.
+   */
+  const stopSurvey = async (id: string) => {
+    const ok = await visualConfirm({
+      title: "إيقاف رابط الاستبيان",
+      message: "يتوقف استقبال الطلبات من هذا الرابط فوراً. الحالات المرسلة تبقى محفوظة، ويبقى أصحابها قادرين على متابعة «حالة طلبي» بالرابط نفسه حتى 30 يوماً بعد نهاية الفصل. يمكنك إصدار رابط جديد متى شئت.",
+      confirmLabel: "أوقف الرابط",
+      tone: "danger",
+    });
+    if (!ok) return;
+    setBusy(true); setError(null);
+    try {
+      await fetchJson(`/api/share/${encodeURIComponent(id)}`, { method: "DELETE" });
+      setMessage("أُوقف استقبال الطلبات من هذا الرابط. متابعة «حالة طلبي» تبقى متاحة لمن أرسل حتى 30 يوماً بعد نهاية الفصل.");
+      await reload();
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const issueSurvey = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      /* Scoped to ONE section, which is what makes the cohort unambiguous: the
+         boys' link and the girls' link are two links on two sections, and no
+         gender is ever guessed from a name. */
+      await fetchJson("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collegeId, sectionId, termId, kind: "survey", days: surveyDays }),
+      });
+      setMessage(`صدر رابط الاستبيان لهذا القسم — صالح ${countOf(surveyDays, AR.day)}. انسخه أو اعرض رمز QR وعلّقه للطلاب.`);
+      await reload();
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const showSurveyQr = async (id: string) => {
+    if (surveyQr?.id === id) { setSurveyQr(null); return; }
+    try {
+      // ~50KB, so it only ships when somebody actually asks for a code.
+      type QrFactory = (t: number, e: "L" | "M" | "Q" | "H") => {
+        addData(s: string): void; make(): void;
+        createSvgTag(o?: { cellSize?: number; margin?: number; scalable?: boolean }): string;
+      };
+      const factory = (await import("../utils/qrcodeGenerator")).default as unknown as QrFactory;
+      const code = factory(0, "M");
+      code.addData(surveyUrl(id));
+      code.make();
+      setSurveyQr({ id, svg: code.createSvgTag({ scalable: true, margin: 1 }) });
+    } catch { setError("تعذّر توليد رمز QR."); }
+  };
+
+  const copySurvey = async (id: string) => {
+    const url = surveyUrl(id);
+    try { await navigator.clipboard.writeText(url); }
+    catch {
+      const field = document.createElement("input");
+      field.value = url;
+      document.body.appendChild(field);
+      field.select();
+      document.execCommand("copy");
+      field.remove();
+    }
+    setSurveyCopied(id);
+    window.setTimeout(() => setSurveyCopied(current => (current === id ? null : current)), 1800);
+  };
+
+  /**
+   * Open a proposed section inside the trial copy — added, not saved.
+   *
+   * Same doctrine as every other proposal here: the engine's answer ends at
+   * "this would fit". The row appears in the duplicate week with a negative id
+   * so nothing can mistake it for something the database has seen, and it stays
+   * a draft until a person saves and publishes it.
+   */
+  const openSectionDraft = async (proposal: any, slot: any) => {
+    if (!enterSourceScope(proposal, "opening", slot)) return;
+    const base = (scenario || rows).map(row => ({ ...row }));
+    const sibling = base.find(row => Number(row.AdCourseId) === Number(proposal.courseId)) || base[0];
+    if (!sibling) return;
+    const fresh: any = {
+      ...sibling,
+      AdCourseId: Number(proposal.courseId), AdCourseName: proposal.courseName,
+      AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
+      id: -Math.abs(Date.now() % 100000) - proposal.courseId,
+      // Comes from the engine: the save path refuses anything non-numeric.
+      SCode: String(slot.sectionCode || proposal.openSections + slot.index),
+      AdRoomCode: slot.roomCode,
+      AdRoomHall: slot.roomHall,
+      buildingId: slot.buildingId,
+      roomId: slot.roomId,
+      locationStatus: slot.buildingId && slot.roomId ? "VERIFIED" : undefined,
+      AdInstructorId: slot.instructorId || 0,
+      fstarttime: slot.start,
+      fendtime: slot.end,
+      fsunday: slot.day === "fsunday",
+      fmonday: slot.day === "fmonday",
+      ftuesday: slot.day === "ftuesday",
+      fwednesday: slot.day === "fwednesday",
+      fthursday: slot.day === "fthursday",
+    };
+    const applied = [...base, fresh];
+    setActiveDraftId(null);
+    setScenario(applied);
+    setScenarioId(fresh.id);
+    setTab("twin");
+    showTwinCard("editor");
+    setMessage(
+      `أُضيفت شعبة «${proposal.courseName}» داخل النسخة التجريبية فقط: ${slot.dayLabel} ${scheduleClockForDisplay(slot.start)}` +
+      `${slot.roomCode ? ` · ${slot.roomCode}${slot.roomHall ? "/" + slot.roomHall : ""}` : ""}. ` +
+      (slot.instructorId ? "" : "اختر لها أستاذاً. ") +
+      "لا شيء منشور — راجعها ثم احفظها كمسودة.",
+    );
+    await evaluateScenario(applied);
+  };
+
+  const openRepair = async (fix: any) => {
+    if (!enterSourceScope(fix, "repair")) return;
+    const base = (scenario || rows).map(row => ({ ...row }));
+    const moves = [fix, ...(fix.swapWith ? [fix.swapWith] : [])];
+    const byId = new Map(moves.map((move: any) => [Number(move.rowId), move.to]));
+    const applied = base.map(row => {
+      const to: any = byId.get(Number(row.id));
+      return to ? {
+        ...row,
+        fsunday: to.day === "fsunday",
+        fmonday: to.day === "fmonday",
+        ftuesday: to.day === "ftuesday",
+        fwednesday: to.day === "fwednesday",
+        fthursday: to.day === "fthursday",
+        fstarttime: to.start,
+        fendtime: to.end,
+      } : row;
+    });
+    setActiveDraftId(null);
+    setScenario(applied);
+    setScenarioId(fix.rowId);
+    setTab("twin");
+    showTwinCard("editor");
+    setMessage(
+      `${fix.swapWith ? "طُبِّق تبديل الموعدين" : "طُبِّقت النقلة"} داخل النسخة التجريبية فقط: «${fix.courseName}» إلى ${fix.to.dayLabel} ${scheduleClockForDisplay(fix.to.start)}` +
+      `${fix.swapWith ? `، و«${fix.swapWith.courseName}» إلى ${fix.swapWith.to.dayLabel} ${scheduleClockForDisplay(fix.swapWith.to.start)}` : ""}. ` +
+      `أُعيد حساب جداول ${countOf(demand?.respondents || 0, AR.student)} مشاركاً. هذه معاينة محلية؛ لا تحفظ المسودة الأصلية ولا تنشر التغيير.`,
+    );
+    await evaluateScenario(applied);
+  };
+
+  const patchScenario = (fields: Partial<FSchedule>) => {
+    if (!scenario || !selectedScenario) return;
+    setScenario(
+      scenario.map((r) =>
+        r.id === selectedScenario.id ? { ...r, ...fields } : r,
+      ),
+    );
+  };
+  const saveDraft = async (
+    source = "what-if",
+    draftRows = scenario,
+    importLayout?: "authority-pdf" | "worksheet",
+    customName = "",
+  ) => {
+    if (!draftRows) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const existing =
+        source === "what-if" && activeDraftId
+          ? drafts.find((d) => String(d.id) === String(activeDraftId))
+          : null;
+      const d =
+        existing && existing.status === "draft"
+          ? await fetchJson(`/api/intelligence/drafts/${existing.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ rows: draftRows }),
+            })
+          : await fetchJson("/api/intelligence/drafts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                collegeId,
+                sectionId,
+                termId,
+                source,
+                name:
+                  customName ||
+                  `${source === "auto" ? "اقتراح تلقائي" : source === "import" ? (importLayout === "authority-pdf" ? "نسخة PDF المعتمدة" : "استيراد النموذج") : "سيناريو"} — ${new Date().toLocaleString("ar-KW-u-nu-latn")}`,
+                rows: draftRows,
+                ...(importLayout ? { importLayout } : {}),
+                ...(importLayout === "authority-pdf" ? {
+                  importReceipt: importPreview?.importReceipt,
+                  reviewedPages: reviewedImportPages,
+                  sourceFileName: importPreview?.fileName,
+                  sourceBranchCode: importPreview?.headerBranch?.code,
+                  sourceBranchName: importPreview?.headerBranch?.name,
+                  previewIssues: validateImportRowsLocally(draftRows as ImportRow[]),
+                } : {}),
+              }),
+            });
+      setActiveDraftId(String(d.id));
+      setMessage(
+        existing
+          ? `تم تحديث «${d.name}» داخل المسودة المشتركة للقسم. الجدول الفعلي لم يتغير.`
+          : `تم حفظ «${d.name}» كمسودة مشتركة للقسم، ولم يتغير الجدول الفعلي.`,
+      );
+      await reload();
+      return d;
+    } catch (e: any) {
+      const text=smartMessage(e);
+      if(source==="import"&&/جدول المعاينة|الحقول المطلوبة|الملاحظات/.test(text)){setError(null);setImportErrorModal("راجع الملاحظات والحقول المطلوبة قبل حفظ المسودة.");}
+      else setError(text);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const openDraft = async (d: any) => {
+    if (!enterSourceScope(d, "draft")) return;
+    const draftRows = Array.isArray(d?.rows) ? d.rows.map((r:any)=>({...r})) : [];
+    if (!draftRows.length) { setError("هذه المسودة لا تحتوي مواعيد قابلة للفتح."); return; }
+    setActiveDraftId(String(d.id));
+    setScenario(draftRows);
+    setScenarioId(draftRows[0]?.id || "");
+    setTab("twin");
+    await evaluateScenario(draftRows);
+  };
+  const publishDraft = async (d: any) => {
+    if (!enterSourceScope(d, "publish")) return;
+    if (!online) {
+      setError("النشر متوقف أثناء عدم الاتصال لحماية الجدول.");
+      return;
+    }
+    // One deliberate click publishes. The server always captures a rollback
+    // point first, so a browser-native confirmation dialog adds friction but
+    // no extra safety — and on iOS it can be suppressed permanently.
+    setBusy(true);
+    try {
+      /* A draft saved earlier may be published over edits made since; the
+         server names them and this asks before erasing them. */
+      const published = await applyWithOverwriteConfirm("publish",
+        confirm => fetchJson(`/api/intelligence/drafts/${d.id}/publish`, {
+          method: "POST",
+          headers: { "x-schedule-confirm": confirm },
+        }),
+        options => visualConfirm(options));
+      if (published === null) return;
+      setMessage("تم النشر بنجاح، وحُفظت نسخة زمنية قبل التغيير.");
+      setScenario(null);
+      setScenarioEval(null);
+      setActiveDraftId(null);
+      await reload();
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const restoreVersion = async (v: any) => {
+    if (!enterSourceScope(v, "restore")) return;
+    // Restore is itself versioned before it runs, so it is reversible without
+    // relying on a native confirm dialog.
+    setBusy(true);
+    try {
+      const restored = await applyWithOverwriteConfirm("restore",
+        confirm => fetchJson(`/api/intelligence/versions/${v.id}/restore`, {
+          method: "POST",
+          headers: { "x-schedule-confirm": confirm },
+        }),
+        options => visualConfirm(options));
+      if (restored === null) return;
+      setMessage("تم الاسترجاع، والنسخة التي كانت قبل الاسترجاع محفوظة أيضاً.");
+      await reload();
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const compareVersionPair = async (fromId: string, toId: string, quiet = false) => {
+    if (!fromId || !toId || fromId === toId) return;
+    const fromVersion = versions.find(v => v.id === fromId), toVersion = versions.find(v => v.id === toId);
+    if (!fromVersion || !toVersion || !sameIntelligenceScope(sourceScope(fromVersion), sourceScope(toVersion))) {
+      if (!quiet) setError("اختر نسختين من الكلية نفسها.");
+      return;
+    }
+    if (!quiet) setBusy(true);
+    try {
+      setVersionCompare(await fetchJson(`/api/intelligence/versions/compare?fromId=${encodeURIComponent(fromId)}&toId=${encodeURIComponent(toId)}`));
+      setVersionFrom(fromId); setVersionTo(toId); setTimeTravel(50);
+    } catch (e: any) {
+      if (!quiet) setError(smartMessage(e));
+    } finally {
+      if (!quiet) setBusy(false);
+    }
+  };
+  const compareVersions = async () => {
+    if (!versionFrom || !versionTo) { setError("اختر نسختين للمقارنة."); return; }
+    if (versionFrom === versionTo) { setError("اختر نسختين مختلفتين للمقارنة."); return; }
+    await compareVersionPair(versionFrom, versionTo);
+  };
+  useEffect(() => {
+    if (approveCard !== "versions" || versions.length < 2) return;
+    const chronological=[...versions].sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
+    const index=Math.max(1,Math.min(chronological.length-1,versionScrubIndex));
+    const timer=window.setTimeout(()=>{void compareVersionPair(String(chronological[index-1].id),String(chronological[index].id),true);},220);
+    return()=>window.clearTimeout(timer);
+  },[versionScrubIndex,approveCard,versions.length]);
+  const addOpenDecision = async () => {
+    const title=decisionTitle.trim(); if(title.length<3)return;
+    setBusy(true);
+    try{
+      await fetchJson("/api/intelligence/open-decisions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId,sectionId,termId,title,priority:"medium",source:"manual"})});
+      setDecisionTitle("");setDecisionCompose(false);
+      setDecisionInbox(await refreshDecisionInbox());
+    }catch(e:any){setError(smartMessage(e));}finally{setBusy(false);}
+  };
+  const closeOpenDecision = async (item:any) => {
+    if(!item?.id||String(item.id).startsWith("inferred:"))return;
+    try{
+      await fetchJson(`/api/intelligence/open-decisions/${encodeURIComponent(item.id)}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId:sourceScope(item).collegeId,sectionId:sourceScope(item).sectionId,termId,status:item.status==="done"?"open":"done"})});
+      setDecisionInbox(await refreshDecisionInbox());
+    }catch(e:any){setError(smartMessage(e));}
+  };
+  const proposeUnwrittenRule = async (rule:any) => {
+    if (!enterSourceScope(rule, "rule")) return;
+    if(!rule?.title)return;
+    setBusy(true);
+    try{
+      await fetchJson("/api/intelligence/open-decisions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId,sectionId,termId,title:`قاعدة مقترحة: ${String(rule.title).slice(0,110)}`,detail:`مكتشفة من التاريخ بثقة ${Number(rule.confidence||0)}٪ · ${String(rule.detail||"").slice(0,220)}`,priority:Number(rule.confidence||0)>=90?"high":"medium",source:"assistant"})});
+      setDecisionInbox(await refreshDecisionInbox());
+      setMessage("أُضيفت القاعدة المقترحة إلى دفتر القرارات للمراجعة.");
+    }catch(e:any){setError(smartMessage(e));}finally{setBusy(false);}
+  };
+  const runPolicy = async () => {
+    setPolicyBusy(true);setError(null);
+    try{
+      setPolicyResult(await fetchJson("/api/intelligence/policy-simulate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId,sectionId,termId,...policyDraft,analysisScope:policyDraft.scope === "family" ? "department" : "college",scope:policyDraft.scope === "university" && isPowerAdmin ? "university" : "department"})}));
+    }catch(e:any){setError(smartMessage(e));}finally{setPolicyBusy(false);}
+  };
+  const compareTerms = async () => {
+    if (!compareFrom || !compareTo) return;
+    setBusy(true);
+    try {
+      const p = new URLSearchParams({
+        collegeId: String(collegeId),
+        sectionId: String(sectionId),
+        analysisScope: readingMode,
+        fromTermId: String(compareFrom),
+        toTermId: String(compareTo),
+      });
+      setTermCompare(await fetchJson(`/api/intelligence/compare-terms?${p}`));
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const loadRoom = async (room: any) => {
+    setBusy(true);
+    try {
+      const p = new URLSearchParams({
+        ...(room.roomId ? { roomId: String(room.roomId) } : {}),
+        code: room.code,
+        hall: room.hall,
+        termId: String(termId),
+      });
+      setDetail({
+        type: "room",
+        data: await fetchJson(`/api/intelligence/room?${p}`),
+      });
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const loadProfessor = async (prof: any) => {
+    setBusy(true);
+    try {
+      setDetail({
+        type: "professor",
+        data: await fetchJson(
+          `/api/intelligence/professor/${prof.id}?termId=${termId}`,
+        ),
+      });
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  /** The same blank workbook Data Tools offers, so the two importers hand a
+   *  professor one identical template rather than two subtly different ones. */
+  const downloadImportTemplate = async () => {
+    const XLSX = await import("xlsx");
+    /* Reversed on purpose: with Arabic headers the sheet is read right to left,
+       so the hall must be the FIRST column for the row to arrive in the order a
+       person fills it in — course last is how the printed timetable reads too.
+       The importer matches by header name, so order is presentation only. */
+    const headers = ["القاعة", "المبنى", "الوقت", "الأيام", "الرقم المدني", "أستاذ المقرر", "الشعبة", "المقرر الدراسي", "رمز المقرر"];
+    /* Placeholders, not people. Numbered names cannot be mistaken for a real
+       instructor, and the civil id starts with 3 — a century Kuwait has not
+       issued — so a sample row left in by accident fails validation instead of
+       importing as somebody. */
+    const sample = [
+      ["F10", "B9", "08:00-09:20", "الأحد - الثلاثاء", "300123100006", "اسم دكتور 1", "501", "اسم المقرر الأول", "101"],
+      ["F12", "B9", "11:00-12:20", "الاثنين - الأربعاء", "", "اسم دكتور 2", "502", "اسم المقرر الثاني", "102"],
+    ];
+    const sheet = XLSX.utils.aoa_to_sheet([headers, ...sample]);
+    (sheet as any)["!cols"] = [{ wch: 9 }, { wch: 9 }, { wch: 13 }, { wch: 22 }, { wch: 15 }, { wch: 22 }, { wch: 8 }, { wch: 30 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, "الجدول");
+    XLSX.writeFile(wb, "نموذج-استيراد-الجدول.xlsx");
+  };
+
+  /** A PDF is the Authority's scanned timetable and takes the same reviewed
+   *  route as the one in Data Tools: read to a preview, published only after a
+   *  person approves, and only into an empty term. */
+  const importSmartFile = async (file: File, fallbackReason = "") => {
+    setImportFile(file.name);
+    setImportPreview(null);
+    setSmartRetry(null);
+    setBusy(true);
+    setError(null);
+    setImportProgress({ phase: "read", page: 0, pages: 0, message: "يفهم الملف عبر Smart Import" });
+    try {
+      const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId), mime: file.type || "application/octet-stream" });
+      const data = await fetchJson(`/api/intelligence/smart-import?${query}`, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream", "x-file-name": encodeURIComponent(file.name) },
+        body: await file.arrayBuffer(),
+      });
+      const normalizedRows=normalizeImportSectionSeries((Array.isArray(data.rows)?data.rows:[]) as ImportRow[]);
+      const localIssues=validateImportRowsLocally(normalizedRows);
+      const issues=[...(Array.isArray(data.issues)?data.issues:[]),...localIssues];
+      setImportPreview({ ...data, rows:normalizedRows, preview:normalizedRows, count:normalizedRows.length, issues, valid:normalizedRows.length>0&&issues.length===0, importLayout:"worksheet", smartFallbackReason:fallbackReason });
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+      setImportProgress(null);
+    }
+  };
+
+  /* القراءة الأدق بعد قراءةٍ معتمدة ناجحة: تُرسل الصفحات التي بقيت فيها خانة
+     غير مقروءة وحدها (pages=)، ولا تُكتب إلا الخانة الفارغة (proposeSmartFills)
+     — لا صفَّ يُستبدل ولا صفحةٌ قُرئت نظيفةً تغادر إلى Google. القاعدة نفسها
+     التي تعمل بها شاشة نقل الجدول. */
+  const smartUnreadPages = useMemo(() => pagesWithUnreadCells((importPreview?.rows || []) as any), [importPreview?.rows]);
+  const fillUnreadCellsSmart = async (file: File, pages: number[]) => {
+    if (!pages.length) return;
+    const keptRows = (Array.isArray(importPreview?.rows) ? importPreview!.rows : []) as ImportRow[];
+    setBusy(true);
+    setError(null);
+    setImportProgress({ phase: "read", page: 0, pages: pages.length, message: `قراءة أدق · ${pagesLabel(pages)}` });
+    try {
+      const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId), mime: file.type || "application/octet-stream", pages: pages.join(",") });
+      const data = await fetchJson(`/api/intelligence/smart-import?${query}`, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream", "x-file-name": encodeURIComponent(file.name) },
+        body: await file.arrayBuffer(),
+      });
+      const fresh = (Array.isArray(data.rows) ? data.rows : []) as ImportRow[];
+      const readPages = (Array.isArray(data.pagesRead) ? data.pagesRead : []).map((page: any) => Number(page)).filter(Boolean);
+      const proposal = proposeSmartFills(keptRows, fresh, readPages.length ? readPages : pages);
+      if (!proposal.fills.length) {
+        setMessage("القراءة الأدق لم تضف جديداً — ما تبقّى من خانات يحتاج تعبئة يدوية. جدولك لم يتغيّر.");
+        return;
+      }
+      const rows = normalizeImportSectionSeries(applySmartFills(keptRows, proposal.fills) as ImportRow[]);
+      const localIssues = validateImportRowsLocally(rows);
+      setImportPreview((prev: any) => prev ? { ...prev, rows, preview: rows, count: rows.length, issues: [...(prev.issues || []).filter((issue: string) => !/^السطر/.test(String(issue))), ...localIssues], smartRead: true } : prev);
+      setMessage(`القراءة الأدق ملأت ${countOf(proposal.fills.length, AR.cell)} في ${pagesLabel(pages)}؛ راجعها في الجدول قبل الاعتماد.`);
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+      setImportProgress(null);
+    }
+  };
+
+  const importPdf = async (file: File) => {
+    setImportFile(file.name);
+    setImportPreview(null);
+    setSmartRetry(null);
+    setBusy(true);
+    setError(null);
+    setImportProgress({ phase: "render", page: 0, pages: 0, message: "يجهّز الملف للقراءة" });
+    setReviewedImportPages([]);
+    try {
+      const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
+      const payload = await file.arrayBuffer();
+      /* A request that never reached the server, or a stream that broke before
+         its result, is named for what it was (see importStreamFailure). */
+      const response = await fetch(`/api/intelligence/pdf-import?${query}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream", "Accept": "application/x-ndjson", "x-file-name": encodeURIComponent(file.name) },
+        body: payload,
+      }).catch(() => { throw new Error(interruptedImportMessage(0)); });
+      /* The server streams NDJSON: one progress object per line while it reads,
+         a final line carrying the result. Reading the body as it arrives is what
+         lets the bar advance page by page instead of freezing on one spinner. */
+      if (!response.ok && !response.body) throw new Error(interruptedImportMessage(response.status));
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "", data: any = null, failure = "";
+      if (reader) {
+        for (;;) {
+          const { value, done } = await reader.read().catch(() => ({ value: undefined, done: true }));
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let cut = buffer.indexOf("\n");
+          while (cut >= 0) {
+            const line = buffer.slice(0, cut).trim();
+            buffer = buffer.slice(cut + 1);
+            cut = buffer.indexOf("\n");
+            if (!line) continue;
+            let event: any; try { event = JSON.parse(line); } catch { continue; }
+            if (event.type === "progress") setImportProgress({ phase: event.phase, page: event.page, pages: event.pages, message: event.message, notice: event.notice ? String(event.notice) : undefined });
+            else if (event.type === "done") data = event.result;
+            else if (event.type === "error") failure = event.error;
+          }
+        }
+      }
+      if (failure) throw new Error(failure);
+      if (!data) { const rest = buffer.trim(); if (rest) { try { const tail = JSON.parse(rest); data = tail.result || tail; } catch { /* no trailing json */ } } }
+      if (data && (data as any).error && !(data as any).rows) throw new Error((data as any).error);
+      if (!data) throw new Error(interruptedImportMessage(response.status));
+      {
+        const normalizedRows=normalizeImportSectionSeries((Array.isArray(data.rows)?data.rows:[]) as ImportRow[]);
+        const localIssues=validateImportRowsLocally(normalizedRows);
+        const globalIssues=(Array.isArray(data.issues)?data.issues:[]).filter((issue:string)=>/^تحذير:/.test(String(issue)));
+        const issues=[...globalIssues,...localIssues];
+        setImportPreview({ ...data, rows:normalizedRows, count: normalizedRows.length, preview: normalizedRows, valid: normalizedRows.length>0&&issues.length===0, issues, importLayout: "authority-pdf" });
+        /* A successful read is not always the best read — but a sharper reading
+           costs money, so it is offered only when this one left a cell unread
+           (scanLeftCellUnread). A file read clean on the first pass shows no
+           offer; nothing reaches Gemini without a click either way. */
+        setSmartRetry(normalizedRows.some(scanLeftCellUnread) ? { file, reason: "" } : null);
+      }
+    } catch (e: any) {
+      // The Authority PDF stays local. We surface the failure and offer Smart
+      // Import as a deliberate, opt-in retry — never an automatic hop to Google.
+      setError(smartMessage(e));
+      setSmartRetry({ file, reason: smartMessage(e) });
+    } finally {
+      setBusy(false);
+      setImportProgress(null);
+    }
+  };
+
+  const importAnyFile = async (file: File) => {
+    const name = String(file.name || "").trim();
+    const mime = String(file.type || "").toLowerCase();
+    let isPdf = /\.pdf$/i.test(name) || mime.includes("pdf");
+    /* Safari/iOS and some scanned-file share sheets hand us an empty or generic
+       MIME type. The PDF signature is authoritative and costs only five bytes. */
+    if (!isPdf) {
+      try {
+        const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+        isPdf = String.fromCharCode(...head) === "%PDF-";
+      } catch { /* Fall through to spreadsheet parsing. */ }
+    }
+    const isImage = /^image\//i.test(mime) || /\.(png|jpe?g|webp|heic|heif)$/i.test(name);
+    if (isImage) return void importSmartFile(file);
+    if (isPdf) return void importPdf(file);
+    return void importExcel(file);
+  };
+
+  const importExcel = async (file: File) => {
+    setImportFile(file.name);
+    setImportPreview(null);
+    setSmartRetry(null);
+    setBusy(true);
+    setError(null);
+    try {
+      // The spreadsheet parser is ~400KB. It loads the first time someone
+      // actually imports a file, not on every page view.
+      const XLSX = await import("xlsx");
+      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      const d = await fetchJson("/api/intelligence/import-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collegeId, sectionId, termId, rows: data }),
+      });
+      if (Array.isArray(d?.rows)) {
+        const normalizedRows=normalizeImportSectionSeries(d.rows as ImportRow[]);
+        const issues=validateImportRowsLocally(normalizedRows);
+        setImportPreview({ ...d, rows:normalizedRows, preview:normalizedRows, count:normalizedRows.length, issues, valid:normalizedRows.length>0&&issues.length===0 });
+      } else setImportPreview(d);
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  /**
+   * The authority PDF is copied into an EMPTY term in one confirmed step:
+   * approve, and the whole schedule drops in. It saves the draft (which keeps
+   * the immutable baseline the colour report reads) and publishes it straight
+   * away, so the professor is not left hunting for a second screen.
+   */
+  const approveAndPublishPdf = async () => {
+    if (!importPreview?.valid || importBlockingIssues.length) {
+      setImportErrorModal("أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.");
+      return;
+    }
+    /* The publish endpoint checks every conflict in one server-side pass. Do not
+       make one network request per imported row before sending the same table. */
+    const preflight=validateImportRowsLocally(importPreview.rows as ImportRow[]);
+    if(preflight.length){
+      setImportPreview((prev:any)=>prev?{...prev,issues:[...new Set([...(prev.issues||[]),...preflight])],valid:false}:prev);
+      setError(null);
+      setImportErrorModal(`يوجد ${countOf(preflight.length, AR.note)} بحاجة إلى معالجة قبل تعبئة الجدول.`);
+      return;
+    }
+    const ok = await visualConfirm({
+      title: "اعتماد الجدول المعتمد",
+      message: `سيُنشر ${countOf(Number(importPreview.count || 0), AR.appointment)} في هذا الفصل الفارغ دفعة واحدة. تبقى الأرقام المرجعية محفوظة للتقرير دون أن تظهر في الجدول. هل تعتمد؟`,
+      confirmLabel: "اعتمد وانشر",
+      tone: "warning",
+    });
+    if (!ok) return;
+    setBusy(true); setError(null);
+    try {
+      const draft = await fetchJson("/api/intelligence/drafts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collegeId, sectionId, termId, source: "import", importLayout: "authority-pdf",
+          name: `نسخة PDF المعتمدة — ${importPreview.fileName || ""}`.trim(),
+          sourceFileName: importPreview.fileName, rows: importPreview.rows,importReceipt:importPreview.importReceipt,reviewedPages:reviewedImportPages,
+          previewIssues:importBlockingIssues,sourceBranchCode:importPreview.headerBranch?.code,sourceBranchName:importPreview.headerBranch?.name }),
+      });
+      await fetchJson(`/api/intelligence/drafts/${draft.id}/publish`, {
+        method: "POST", headers: { "x-schedule-confirm": "publish" },
+      });
+      setImportPreview(null); setImportFile("");
+      setMessage("اكتمل تعبئة الجدول ونشره. الأرقام المرجعية محفوظة وتظهر في تقرير المقارنة فقط.");
+      await reload();
+      setTab("command");
+    } catch (e: any) {
+      const text=smartMessage(e);
+      if(/جدول المعاينة|الحقول المطلوبة|الملاحظات/.test(text)){setError(null);setImportErrorModal("راجع الملاحظات والحقول المطلوبة قبل تعبئة الجدول.");}
+      else setError(text);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createImportDraft = async () => {
+    if (!importPreview?.valid || importBlockingIssues.length) {
+      setImportErrorModal("أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.");
+      return;
+    }
+    const d = await saveDraft("import", importPreview.rows, importPreview.importLayout);
+    if (d) {
+      setImportPreview(null);
+      setTab("history");
+    }
+  };
+
+  /* الملاحظة عن الصف تُصبغ خليته، لا سطراً تحت الجدول. هذه الشاشة كانت تحسب
+     التعارض في قائمة الملاحظات ولا تمرّر شيئاً إلى الجدول، فتبقى كل الخلايا
+     خضراء بينما القائمة تقول إن هناك حجزاً مزدوجاً. */
+  const importRowIssues = useMemo(() => {
+    const rows = Array.isArray(importPreview?.rows) ? importPreview.rows as ImportRow[] : [];
+    const byRow: Record<string, string[]> = {};
+    if (rows.length < 2) return byRow;
+    const staged = rows.map((row, index) => ({ ...row, id: index + 1, AdTermId: termId })) as any[];
+    blockingConflicts(staged, staged, { placeholderInstructorIds: placeholderInstructorIds(instructors) })
+      .forEach(item => {
+        const pair: Array<[number, number]> = [[Number(item.rowId), Number(item.otherId)], [Number(item.otherId), Number(item.rowId)]];
+        pair.forEach(([at, partner]) => {
+          const row = rows[at - 1];
+          if (!row) return;
+          const key = importRowKey(row);
+          const text = `${item.message} مع الصف ${partner.toLocaleString("ar-KW-u-nu-latn")}`;
+          byRow[key] = [...new Set([...(byRow[key] || []), text])];
+        });
+      });
+    return byRow;
+  }, [importPreview?.rows, termId, instructors]);
+
+  const importBlockingIssues = useMemo(() => {
+    if (!importPreview) return [] as string[];
+    const rows = Array.isArray(importPreview.rows) ? importPreview.rows as ImportRow[] : [];
+    /* ما يُصبغ بالأحمر يجب أن يمنع النشر. فحص الأزواج هنا يعرف تعارض الأستاذ
+       والقاعة فقط، بينما يرفض الخادم كذلك الموعدين المتطابقين لنفس المقرر
+       والشعبة. فكان الجدول يحمرّ والزر يبقى مفعّلاً حتى يرفضه الخادم. */
+    return [...new Set([
+      ...(Array.isArray(importPreview.issues) ? importPreview.issues : []),
+      ...validateImportRowsLocally(rows),
+      ...Object.values(importRowIssues).flat(),
+      /* صفحة قُبلت بأسطر مطبوعة بلا صف تنتظر «راجعت الصفحة» قبل النشر. */
+      ...(importPreview.importLayout === "authority-pdf" ? pageReviewIssues(importPreview.pageDiagnostics, reviewedImportPages) : []),
+    ])];
+  }, [importPreview, importRowIssues, reviewedImportPages]);
+  const importReady = Boolean(importPreview?.valid && importBlockingIssues.length === 0);
+  /* Scanned pages still waiting for «راجعت الصفحة» — named beside save and publish. */
+  const importPagesPendingReview = importPreview?.importLayout === "authority-pdf" ? pagesAwaitingReview(importPreview.pageDiagnostics, reviewedImportPages) : [];
+  const confirmImportPage = (page: number) => setReviewedImportPages(prev => prev.includes(page) ? prev : [...prev, page]);
+
+  const scopedCourses = useMemo(
+    () => sortByName(
+      courses.filter((c) => c.AdCollegeId === collegeId && c.AdSectionId === sectionId),
+      (c: any) => c.CourseName,
+    ),
+    [courses, collegeId, sectionId],
+  );
+  const reloadConstraints = async () =>
+    setConstraints(
+      await fetchJson(`/api/intelligence/constraints?${contextQuery}`),
+    );
+  const createConstraint = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await fetchJson("/api/intelligence/constraints", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collegeId,
+          sectionId,
+          termId,
+          ...constraintDraft,
+        }),
+      });
+      await reloadConstraints();
+      setMessage(
+        "تمت إضافة القاعدة إلى لوحة القيود. ستدخل فوراً في تقييم النسخة التجريبية وغرفة القرار والتحسين الآلي.",
+      );
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const toggleConstraint = async (c: any) => {
+    try {
+      await fetchJson(`/api/intelligence/constraints/${c.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collegeId,
+          sectionId,
+          termId,
+          enabled: !c.enabled,
+        }),
+      });
+      await reloadConstraints();
+    } catch (e: any) {
+      setError(smartMessage(e));
+    }
+  };
+  const deleteConstraint = async (c: any) => {
+    if (!(await visualConfirm({ title: `حذف القاعدة «${c.label}»`, message: "ستُحذف هذه القاعدة من لوحة القيود.", confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    try {
+      await fetchJson(`/api/intelligence/constraints/${c.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collegeId, sectionId, termId }),
+      });
+      await reloadConstraints();
+    } catch (e: any) {
+      setError(smartMessage(e));
+    }
+  };
+  const runWarRoom = async () => {
+    setWarBusy(true);
+    setError(null);
+    try {
+      const room = await fetchJson("/api/intelligence/war-room", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collegeId,
+          sectionId,
+          termId,
+          rowId: warRowId || undefined,
+        }),
+      });
+      if (room?.empty) { setWarRoom(null); setMessage(room.message); }
+      else setWarRoom(room);
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setWarBusy(false);
+    }
+  };
+  const runAutopilot = async () => {
+    setAutopilotBusy(true);
+    setError(null);
+    try {
+      const plan = await fetchJson("/api/intelligence/autopilot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collegeId,
+          sectionId,
+          termId,
+          goal: autopilotGoal,
+        }),
+      });
+      if (plan?.empty) { setAutopilot(null); setMessage(plan.message); }
+      else setAutopilot(plan);
+    } catch (e: any) {
+      setError(smartMessage(e));
+    } finally {
+      setAutopilotBusy(false);
+    }
+  };
+  const openScenarioOption = async (option: any) => {
+    setActiveDraftId(null);
+    setScenario(option.rows.map((r: any) => ({ ...r })));
+    setScenarioId(option.rows[0]?.id || "");
+    setInnovationMode("constraints");
+    await evaluateScenario(option.rows);
+    setTwinCard("board");
+  };
+  const saveOptionAsDraft = async (option: any, label: string) => {
+    const d = await saveDraft(
+      "auto",
+      option.rows,
+      undefined,
+      `${label} — ${new Date().toLocaleString("ar-KW-u-nu-latn")}`,
+    );
+    if (d)
+      setMessage(
+        `${label} أصبح مسودة فقط. لم يُنشر أي تغيير على الجدول الحقيقي.`,
+      );
+  };
+
+  const openScheduleWorkspace = (message?: string) => {
+    if (message) sessionStorage.setItem("schedule-return-note", message);
+    sessionStorage.setItem("schedule-command", "focus");
+    window.location.assign("/FSchedule/Index");
+  };
+
+  const scopedContext = resolveScopeSelection(scopes, collegeId, isPowerAdmin);
+  const contextColleges = isPowerAdmin ? colleges : colleges.filter((college) => resolveScopeSelection(scopes, 0, false).collegeIds.includes(Number(college.AdCollegeId)));
+  const ContextBar = () => (
+    <IntelligenceContextBar
+      collegeId={collegeId}
+      sectionId={sectionId}
+      termId={termId}
+      colleges={contextColleges}
+      sections={sections}
+      availableSections={availableSections}
+      terms={terms}
+      online={online}
+      lockCollege={scopedContext.lockCollege}
+      lockSection={singleDepartmentOf(scopes, collegeId, isPowerAdmin) !== null}
+      hideSection={!isPowerAdmin}
+      onCollegeChange={(nextCollegeId, firstSectionId) => {
+        pendingReadingAction.current = null;
+        const nextSectionId = nextCollegeId ? (isPowerAdmin ? firstSectionId : (resolveScopeSelection(scopes, nextCollegeId, false).defaultSectionId || firstSectionId)) : 0;
+        sharedScope.pick({ collegeId: nextCollegeId, sectionId: nextSectionId });
+        setCollegeId(nextCollegeId);
+        setSectionId(nextSectionId);
+      }}
+      onSectionChange={(nextSectionId) => { pendingReadingAction.current = null; sharedScope.pick({ sectionId: nextSectionId }); setSectionId(nextSectionId); }}
+      onTermChange={(nextTermId) => { pendingReadingAction.current = null; sharedScope.pick({ termId: nextTermId }); setTermId(nextTermId); }}
+    />
+  );
+  const scene: "understand" | "try" | "approve" =
+    tab === "command" || tab === "copilot"
+      ? "understand"
+      : tab === "history"
+        ? "approve"
+        : "try";
+  const changeScene = (value: string) =>
+    setTab(
+      value === "understand" ? "command" : value === "try" ? "twin" : "history",
+    );
+
+  const intelligenceGuideTask = useMemo(() => tab === "copilot" ? ({
+    title: "اسأل الجدول",
+    featureId: "intelligence.ask-table",
+    target: "intelligence.ask-table",
+    command: { scope: "intelligence", type: "tab", value: "copilot" },
+  }) : ({
+    title: scene === "understand" ? "فهم حالة الجدول" : scene === "try" ? "تجربة السيناريو" : "اعتماد القرار",
+    featureId: scene === "understand" ? "intelligence.scene.understand" : scene === "try" ? "intelligence.scene.try" : "intelligence.scene.approve",
+    target: scene === "understand" ? "intelligence.scene.understand" : scene === "try" ? "intelligence.scene.try" : "intelligence.scene.approve",
+    command: { scope: "intelligence", type: "scene", value: scene },
+  }), [scene, tab]);
+  const intelligenceGuideSummary = !collegeId || !termId
+    ? "اختر الكلية والفصل أولًا ليبدأ مركز الذكاء في القراءة والتجربة والاعتماد."
+    : scene === "understand"
+      ? "أنت الآن داخل «افهم» لقراءة الجودة والضغط والأسئلة الذكية."
+      : scene === "try"
+        ? "أنت الآن داخل «جرّب» لتجربة ماذا لو؟ دون لمس الجدول الحقيقي."
+        : "أنت الآن داخل «اعتمد» لمقارنة النسخ وتثبيت القرار النهائي.";
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("schedule-smart-guide-context", {
+      detail: {
+        scope: "intelligence",
+        view: "intelligence",
+        title: "مركز الذكاء",
+        collegeId: collegeId || undefined,
+        sectionId: sectionId || undefined,
+        termId: termId || undefined,
+        currentFeatureId: tab === "copilot" ? "intelligence.ask-table" : scene === "understand" ? "intelligence.scene.understand" : scene === "try" ? "intelligence.scene.try" : "intelligence.scene.approve",
+        summary: intelligenceGuideSummary,
+        placeLabel: scene === "understand" ? "افهم" : scene === "try" ? "جرّب" : "اعتمد",
+        stageLabel: scene === "understand" ? "افهم" : scene === "try" ? "جرّب" : "اعتمد",
+        scopeLabel: [colleges.find(item => item.AdCollegeId === collegeId)?.AdCollegeName, terms.find(item => item.AdTermId === termId)?.AdTermName].filter(Boolean).join(" · "),
+        whatHappens: intelligenceGuideSummary,
+        currentTask: intelligenceGuideTask,
+        metrics: { isExpert: false },
+        detectedHelp: !collegeId || !termId
+          ? {
+              title: "ابدأ من النطاق أولًا",
+              detail: "اختر الكلية والفصل، وبعد ذلك سيعرف المرشد ما الذي يعرضه لك في هذا المركز.",
+              level: "soft",
+            }
+          : null,
+      },
+    }));
+  }, [collegeId, colleges, intelligenceGuideSummary, intelligenceGuideTask, scene, sectionId, tab, termId, terms]);
+  useEffect(() => {
+    const onGuideCommand = (event: Event) => {
+      const detail = (event as CustomEvent).detail || {};
+      if (detail.scope !== "intelligence") return;
+      const featureId = String(detail.featureId || "");
+      if (detail.type === "scene" && detail.value) {
+        const value=String(detail.value);
+        if (featureId) intelligenceGuideOperationRef.current={ featureId, transactionId:detail.transactionId ? String(detail.transactionId) : undefined, startedAt:Date.now(), expected:value === "understand" ? "intelligence.scene.understand" : value === "try" ? "intelligence.scene.try" : "intelligence.scene.approve" };
+        changeScene(value);
+      }
+      if (detail.type === "tab" && detail.value && ["command","copilot","twin","history"].includes(String(detail.value))) {
+        const value=String(detail.value);
+        if (featureId) intelligenceGuideOperationRef.current={ featureId, transactionId:detail.transactionId ? String(detail.transactionId) : undefined, startedAt:Date.now(), expected:value === "copilot" ? "intelligence.ask-table" : featureId };
+        setTab(value as Tab);
+      }
+    };
+    window.addEventListener("schedule-smart-guide-command", onGuideCommand as EventListener);
+    return () => window.removeEventListener("schedule-smart-guide-command", onGuideCommand as EventListener);
+  }, []);
+  useEffect(() => {
+    const operation=intelligenceGuideOperationRef.current;
+    if(!operation)return;
+    const current=tab === "copilot" ? "intelligence.ask-table" : scene === "understand" ? "intelligence.scene.understand" : scene === "try" ? "intelligence.scene.try" : "intelligence.scene.approve";
+    if(current!==operation.expected)return;
+    intelligenceGuideOperationRef.current=null;
+    window.dispatchEvent(new CustomEvent("schedule-smart-guide-action-result",{detail:{featureId:operation.featureId,ok:true,signal:current,transactionId:operation.transactionId,durationMs:Date.now()-operation.startedAt,stepCount:1}}));
+  }, [scene,tab]);
+  useEffect(() => {
+    if (!rows.length || !collegeId || !termId) return;
+    let request: any = null;
+    try { request = JSON.parse(sessionStorage.getItem("schedule-guide-simulation") || "null"); } catch {}
+    if (!request || Date.now() - Number(request.createdAt || 0) > 10 * 60 * 1000) return;
+    try { sessionStorage.removeItem("schedule-guide-simulation"); } catch {}
+    const run = async () => {
+      const copy = rows.map((row) => ({ ...row }));
+      const requestedId = Number(request.selectedId || 0);
+      const selectedId = requestedId && copy.some(row => Number(row.id) === requestedId) ? requestedId : Number(copy[0]?.id || 0);
+      const index = copy.findIndex(row => Number(row.id) === selectedId);
+      const before = index >= 0 ? { ...copy[index] } : null;
+      const intent = request.intent || {};
+      if (before && index >= 0) {
+        const after:any = { ...before };
+        const day = String(intent?.entities?.day || "");
+        if (["fsunday","fmonday","ftuesday","fwednesday","fthursday"].includes(day)) {
+          ["fsunday","fmonday","ftuesday","fwednesday","fthursday"].forEach(key => { after[key] = key === day; });
+        }
+        const time = String(intent?.entities?.time || "");
+        if (/^\d{2}:\d{2}$/.test(time)) {
+          const toMinutes = (value:string) => { const [h,m]=String(value||"0:0").split(":").map(Number); return h*60+m; };
+          const fromMinutes = (value:number) => `${String(Math.floor(value/60)).padStart(2,"0")}:${String(value%60).padStart(2,"0")}`;
+          const duration = Math.max(30, toMinutes(before.fendtime) - toMinutes(before.fstarttime));
+          after.fstarttime = time;
+          after.fendtime = fromMinutes(Math.min(23*60+59, toMinutes(time) + duration));
+        }
+        if (intent?.entities?.room) after.AdRoomCode = String(intent.entities.room);
+        if (intent?.constraints?.findAlternativeRoom && !intent?.entities?.room) {
+          const activeDays = ["fsunday","fmonday","ftuesday","fwednesday","fthursday"].filter(key => Boolean(after[key]));
+          const toMinutes = (value:string) => { const [h,m]=String(value||"0:0").split(":").map(Number); return h*60+m; };
+          const start = toMinutes(after.fstarttime);
+          const end = toMinutes(after.fendtime);
+          const unique = new Map<string,{key:string;code:string;hall:string;buildingId:string;roomId:string}>();
+          (overview?.rooms || []).forEach((room:any) => {
+            const code=String(room?.code||"").trim(), hall=String(room?.hall||"").trim(), buildingId=String(room?.buildingId||""), roomId=String(room?.roomId||"");
+            if(code&&hall&&buildingId&&roomId) unique.set(`id:${roomId}`,{key:`id:${roomId}`,code,hall,buildingId,roomId});
+          });
+          copy.forEach((row:any) => {
+            const code=String(row?.AdRoomCode||"").trim(), hall=String(row?.AdRoomHall||"").trim(), buildingId=String(row?.buildingId||""), roomId=String(row?.roomId||"");
+            if(code&&hall&&buildingId&&roomId) unique.set(`id:${roomId}`,{key:`id:${roomId}`,code,hall,buildingId,roomId});
+          });
+          const occupied = (room:{key:string;code:string;hall:string;buildingId:string;roomId:string}) => copy.some((row:any,rowIndex:number) => {
+            if(rowIndex===index) return false;
+            if(roomIdentityKey(row)!==room.key) return false;
+            if(!activeDays.some(day => Boolean(row[day]))) return false;
+            const rowStart=toMinutes(row.fstarttime), rowEnd=toMinutes(row.fendtime);
+            return start < rowEnd && end > rowStart;
+          });
+          const candidates=[...unique.values()]
+            .filter(room => room.key !== roomIdentityKey(before))
+            .filter(room => !occupied(room))
+            .sort((a,b) => {
+              const aSame=a.buildingId===String(before.buildingId||"")?0:1;
+              const bSame=b.buildingId===String(before.buildingId||"")?0:1;
+              return aSame-bSame || byRoom(a.code, a.hall, b.code, b.hall);
+            });
+          if(candidates[0]) {
+            after.buildingId=candidates[0].buildingId;
+            after.roomId=candidates[0].roomId;
+            after.AdRoomCode=candidates[0].code;
+            after.AdRoomHall=candidates[0].hall;
+            after.locationStatus="VERIFIED";
+          }
+        }
+        if (Number(intent?.entities?.instructorId || 0) && !intent?.constraints?.keepInstructor) after.AdInstructorId = Number(intent.entities.instructorId);
+        copy[index] = after;
+        setGuideSimulationMeta({ before, after:{...after}, request });
+        try { sessionStorage.setItem("schedule-guide-ghost-preview", JSON.stringify({ id:before.id, before, after, createdAt:Date.now() })); } catch {}
+      }
+      setActiveDraftId(null);
+      setScenario(copy);
+      setScenarioId(selectedId || "");
+      setTab("twin");
+      setTwinCard("board");
+      await evaluateScenario(copy);
+      const subject = String(request.selectedCourse || "").trim();
+      const taskLabel = request.task === "move-room" || request.task === "schedule.action.move-room" ? "نقل القاعة" : request.task === "change-time" || request.task === "schedule.action.change-time" ? "تغيير الوقت" : request.task === "change-instructor" || request.task === "schedule.action.change-instructor" ? "تغيير الأستاذ" : "التغيير المطلوب";
+      setMessage(`${subject ? `أنشأت نسخة تجريبية للمقرر «${subject}»` : "أنشأت نسخة تجريبية من الجدول"} وطبقت فيها ${taskLabel}. الجدول الحقيقي لم يتغير.`);
+    };
+    void run();
+  }, [collegeId, overview?.rooms, rows, sectionId, termId]);
+  /* ملخّصُ بطاقة «تنبّؤ الفصل القادم»: يُقرأ من الخادم (أعدادٌ فقط، من القراءة المخزَّنة نفسها) فتظهر قيمتُها قبل فتح اللوحة، ويتبع مفتاحَ الكلية/القسم. */
+  const [predictSummary, setPredictSummary] = useState<{ historyTerms: number; thin: boolean; actions: number } | null>(null);
+  useEffect(() => {
+    if (!overview || !collegeId || !sectionId) return;
+    let live = true;
+    setPredictSummary(null);
+    fetchJson(`/api/simulation/predictive-summary?analysisScope=${readingMode}&collegeId=${collegeId}&sectionId=${sectionId}`)
+      .then(body => { if (live && body?.ready && body.summary) setPredictSummary(body.summary); })
+      .catch(() => undefined);
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Boolean(overview), collegeId, sectionId, readingMode, termId]);
+  const insightScenes: Array<{
+    value: InsightScene;
+    label: string;
+    detail: string;
+    metric: string;
+    icon: React.ReactNode;
+  }> = overview
+    ? [
+        {
+          value: "quality",
+          label: "الجودة والجاهزية",
+          detail: readinessLabel,
+          metric: `${overview.score}/100`,
+          icon: <Gauge />,
+        },
+        {
+          value: "approval",
+          label: "قبل الاعتماد",
+          detail: "ما يمنع النشر، ومتى نُشر آخر مرة",
+          /* «لا موانع» بدل شرطةٍ غامضة بعد «قبل الاعتماد»: عرضٌ فقط. */
+          metric: Number(overview.blockers ?? overview.metrics?.criticalConflicts ?? 0) ? String(overview.blockers ?? overview.metrics?.criticalConflicts) : "لا موانع",
+          icon: <ShieldCheck />,
+        },
+        {
+          value: "attention",
+          label: "الانتباه",
+          detail: "المواضع التي تستحق قرارك أولاً",
+          metric: String(overview.alerts?.length || 0),
+          icon: <AlertTriangle />,
+        },
+        {
+          value: "density",
+          label: "الكثافة",
+          detail: "شكل الضغط عبر الأيام والأوقات",
+          metric: String(
+            Math.max(
+              0,
+              ...heatData.map((item: any) => Number(item.count) || 0),
+            ),
+          ),
+          icon: <BarChart3 />,
+        },
+        ...(overview.spatialBurnout
+          ? [
+              {
+                value: "spatial" as const,
+                label: "الحركة المكانية",
+                detail: "راحة الانتقال بين المباني والقاعات",
+                metric: `${overview.spatialBurnout.score}/100`,
+                icon: <Building2 />,
+              },
+            ]
+          : []),
+        {
+          value: "rooms",
+          label: "القاعات",
+          detail: "الاستخدام والنوافذ المتاحة",
+          metric: String(overview.rooms?.length || 0),
+          icon: <Building2 />,
+        },
+        {
+          value: "professors",
+          label: "الأساتذة",
+          detail: "الحمل الأسبوعي والفراغات الطويلة",
+          metric: String(overview.professorLoads?.length || 0),
+          icon: <UsersRound />,
+        },
+        ...(isPowerAdmin ? [{
+          value: "health" as const,
+          label: "صحة البيانات",
+          detail: "النواقص والتكرار قبل أن تصبح مشكلة",
+          metric: overview.dataHealth?.healthy
+            ? "سليمة"
+            : String(overview.dataHealth?.invalidRows || 0),
+          icon: <CheckCircle2 />,
+        }] : []),
+        ...(demand
+          ? [
+              {
+                value: "students" as const,
+                label: "طلبات الطلاب",
+                detail: "كم شعبة نفتح، وأين نضعها",
+                metric: String(demand.totalRespondents || demand.totalCases || demand.cases?.length || demand.respondents
+                  || demand.openings?.proposals?.reduce((sum: number, item: any) => sum + item.needed, 0)
+                  || demand.repairs?.length || demand.pairs?.length || demand.prediction?.pairs?.length || 0),
+                icon: <UsersRound />,
+              },
+            ]
+          : []),
+        ...(genome
+          ? [
+              {
+                value: "genome" as const,
+                label: "بصمة القسم",
+                detail: "النمط المتكرر عبر الفصول",
+                metric:
+                  genome.compatibility == null
+                    ? "—"
+                    : `${genome.compatibility}%`,
+                icon: <Dna />,
+              },
+            ]
+          : []),
+        {
+          value: "predict" as const,
+          label: "تنبّؤ الفصل القادم",
+          detail: predictSummary?.thin ? "التاريخ لا يكفي بعد" : predictSummary ? `من ${countOf(predictSummary.historyTerms, AR.term)} سابقة · وبأي ثقة` : "ما سيحتاجه الفصل، وبأي ثقة",
+          metric: !predictSummary ? "—" : predictSummary.thin ? "تاريخ غير كافٍ" : predictSummary.actions ? countOf(predictSummary.actions, AR.procedure) : "لا مقترح",
+          icon: <Sparkles />,
+        },
+      ]
+    : [];
+  /* Escape closes an open reading, exactly as it closes every other overlay
+     on this workspace. */
+  useEffect(() => {
+    if (!insightScene && !insightReason) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (insightReason) setInsightReason(null);
+      else setInsightScene(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [insightScene, insightReason]);
+
+  const activeInsight = insightScenes.find((item) => item.value === insightScene) || null;
+  const activeInsightKey = activeInsight?.value || "";
+  const reasonCourseById = useMemo(() => new Map(courses.map(course => [Number(course.AdCourseId), course])), [courses]);
+  const reasonInstructorById = useMemo(() => new Map(instructors.map(instructor => [Number(instructor.AdInstructorId), instructor])), [instructors]);
+  const readingRows: FSchedule[] = overview?.readingRows || rows;
+  const reasonRowById = useMemo(() => new Map(readingRows.map(row => [Number(row.id), row])), [readingRows]);
+  const reasonCollege = (row: FSchedule | undefined) => readingMode === "department" && row ? `${colleges.find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeName || ""} · ` : "";
+  const reasonDays = (row: FSchedule | undefined) => row ? Object.entries(dayLabels).filter(([key]) => Boolean((row as any)[key])).map(([,label]) => label).join("، ") : "";
+  const reasonCourse = (row: FSchedule | undefined) => row ? (reasonCourseById.get(Number(row.AdCourseId))?.CourseCode || row.AdCourseName || "المقرر") : "موعد";
+  const reasonInstructor = (row: FSchedule | undefined) => row ? (reasonInstructorById.get(Number(row.AdInstructorId))?.AdInstructorName || "بدون أستاذ") : "";
+  const conflictReasonItems = useMemo<NonNullable<InsightReason["items"]>>(() => {
+    const conflicts = Array.isArray(overview?.conflicts) ? overview.conflicts.filter((item:any) => item?.severity === "high") : [];
+    return conflicts.slice(0, 12).map((conflict:any) => {
+      const first = reasonRowById.get(Number(conflict.rowId));
+      const second = reasonRowById.get(Number(conflict.otherId));
+      const title = conflict.type === "instructor"
+        ? reasonInstructor(first) || "أستاذ المقرر"
+        : conflict.type === "room"
+          ? `القاعة ${first?.AdRoomCode || "—"}/${first?.AdRoomHall || "—"}`
+          : reasonCourse(first);
+      const left = first ? `${reasonCollege(first)}${reasonCourse(first)} · شعبة ${first.SCode || "—"} · ${reasonDays(first) || "بلا أيام"}` : "الموعد الأول";
+      const right = second ? `${reasonCollege(second)}${reasonCourse(second)} · شعبة ${second.SCode || "—"}` : "موعد آخر";
+      return {
+        title,
+        readingScopes: [first, second].filter(Boolean).map(row => sourceScope(row)),
+        meta: `${left} ↔ ${right}`,
+        value: first ? formatScheduleTimeRange(first.fstarttime, first.fendtime) : "تعارض",
+      };
+    });
+  }, [overview?.conflicts, reasonRowById, reasonCourseById, reasonInstructorById, readingMode, colleges]);
+  const longGapReasonItems = useMemo<NonNullable<InsightReason["items"]>>(() => {
+    const loads = Array.isArray(overview?.professorLoads) ? overview.professorLoads : [];
+    return loads.filter((item:any) => Number(item.maxGap || 0) >= 180).sort((a:any,b:any) => Number(b.maxGap||0)-Number(a.maxGap||0)).slice(0, 12).map((item:any) => ({
+      title: String(item.name || "أستاذ"),
+      meta: `${formatUnitMetricArabic(Number(item.weeklyHours || 0), "ساعة أسبوعيًا")} · ${formatUnitMetricArabic(Number(item.days || 0), "أيام")}`,
+      value: formatCompactDurationArabic(Number(item.maxGap || 0)),
+    }));
+  }, [overview?.professorLoads]);
+  const lateReasonItems = useMemo<NonNullable<InsightReason["items"]>>(() => readingRows.filter(row => twinMinutes(row.fstarttime) >= 16 * 60).sort((a,b) => twinMinutes(a.fstarttime) - twinMinutes(b.fstarttime)).slice(0, 12).map(row => {
+    const course = reasonCourseById.get(Number(row.AdCourseId));
+    const courseName = String(row.AdCourseName || course?.CourseName || "").trim();
+    return {
+      title: reasonCourse(row),
+      subtitle: courseName || undefined,
+      readingScopes: [sourceScope(row)],
+      meta: `${reasonCollege(row)}${reasonInstructor(row)} · شعبة ${row.SCode || "—"} · ${reasonDays(row) || "بلا أيام"}`,
+      value: formatScheduleTimeRange(row.fstarttime, row.fendtime),
+    };
+  }), [readingRows, reasonCourseById, reasonInstructorById, readingMode, colleges]);
+  const invalidReasonItems = useMemo<NonNullable<InsightReason["items"]>>(() => readingRows.filter(row => !row.AdInstructorId || !row.AdCourseId || !row.AdRoomCode || !row.AdRoomHall || twinMinutes(row.fendtime) <= twinMinutes(row.fstarttime) || !reasonDays(row)).slice(0, 12).map(row => {
+    const missing = [!row.AdInstructorId ? "الأستاذ" : "", !row.AdCourseId ? "المقرر" : "", !row.AdRoomCode || !row.AdRoomHall ? "القاعة" : "", twinMinutes(row.fendtime) <= twinMinutes(row.fstarttime) ? "الوقت" : "", !reasonDays(row) ? "الأيام" : ""].filter(Boolean);
+    return { readingScopes: [sourceScope(row)], title: `${reasonCourse(row)} · شعبة ${row.SCode || "—"}`, meta: `${reasonCollege(row)}ناقص: ${missing.join("، ")}`, value: countOf(missing.length, AR.field) };
+  }), [readingRows, reasonCourseById, readingMode, colleges]);
+  const dayBalanceReasonItems = useMemo<NonNullable<InsightReason["items"]>>(() => {
+    const load = Array.isArray(overview?.dayLoad) ? [...overview.dayLoad].sort((a:any,b:any)=>Number(b.count||0)-Number(a.count||0)) : [];
+    const max = Math.max(1,...load.map((item:any)=>Number(item.count||0)));
+    return load.map((item:any) => ({ title:String(item.label || item.key || "يوم"), meta:`${Math.round(Number(item.count||0)/max*100)}٪ من أعلى يوم`, value:countOf(Number(item.count||0), AR.appointment) }));
+  }, [overview?.dayLoad]);
+  const reasonForSmartAlert = (alert:any, index:number): InsightReason => {
+    const title = String(alert?.title || "تنبيه ذكي");
+    const member = alert?.readingScope ? overview?.collegeReadings?.find((item:any) => sameIntelligenceScope(item, alert.readingScope)) : null;
+    const metrics = member?.metrics || overview?.metrics;
+    const scopedItems = (items: any[]) => member ? items.filter(item => (item.readingScopes || []).some((scope: IntelligenceScope) => sameIntelligenceScope(scope, member))) : items;
+    const conflicts = scopedItems(conflictReasonItems || []), late = scopedItems(lateReasonItems || []), invalid = scopedItems(invalidReasonItems || []);
+    const gaps = member ? (member.professorLoads || []).filter((item:any) => Number(item.maxGap || 0) >= 180).map((item:any) => ({title:item.name,meta:formatUnitMetricArabic(item.weeklyHours, "ساعة أسبوعيًا"),value:formatCompactDurationArabic(item.maxGap)})) : longGapReasonItems;
+    const days = member ? (member.dayLoad || []).map((item:any) => ({title:item.label,meta:"",value:countOf(item.count,AR.appointment)})) : dayBalanceReasonItems;
+    const base = { kicker:member?.collegeName || "تفاصيل التنبيه", title, metric:String(index + 1), tone:(alert?.severity === "critical" || alert?.severity === "high" || alert?.severity === "danger" ? "bad" : alert?.severity === "ok" ? "good" : "warn") as InsightReason["tone"] };
+    if (/مانع اعتماد|مانعا اعتماد|موانع اعتماد|تعارض|حجز|مزدوج/.test(title)) return { ...base, icon:<ShieldAlert />, summary:"هذه هي الموانع الفعلية التي كوّنت الرقم:", items:conflicts, facts:[{label:"الموانع",value:String(metrics?.criticalConflicts || 0)},{label:"النوع",value:"حجز فعلي"},{label:"اللائحة",value:"تحذيرية"}] };
+    if (/فراغ/.test(title)) return { ...base, icon:<CalendarClock />, summary:"الأساتذة الذين تجاوز لديهم الفراغ 3 ساعات:", items:gaps, facts:[{label:"الأساتذة",value:String(gaps.length)},{label:"الحد",value:formatUnitMetricArabic(3,"ساعات",0)},{label:"القراءة",value:"إرشادية"}] };
+    if (/متأخر|بعد 4|وقت/.test(title)) return { ...base, icon:<Clock3 />, summary:`المواعيد التي تبدأ من ${scheduleClockForDisplay("16:00")} فأكثر:`, items:late, facts:[{label:"المواعيد",value:String(late.length)},{label:"من",value:scheduleClockForDisplay("16:00")},{label:"النوع",value:"توقيت"}] };
+    if (/بيانات|سجل/.test(title)) return { ...base, icon:<FileClock />, summary:"السجلات التي ينقصها شيء محدد:", items:invalid, facts:[{label:"السجلات",value:String(invalid.length)},{label:"الحالة",value:"تحتاج إكمال"}] };
+    if (/توزيع|أيام/.test(title)) return { ...base, icon:<BarChart3 />, summary:"هذا هو توزيع الحمل بين الأيام:", items:days, facts:[{label:"التفاوت",value:`${metrics?.imbalance || 0}٪`},{label:"الأيام",value:String(days.length)}] };
+    return { ...base, icon:<AlertTriangle />, summary:"تفاصيل هذا التنبيه:", items:[{title,meta:String(alert?.detail || "لا توجد تفاصيل إضافية."),value:""}] };
+  };
+  const chronologicalVersions = useMemo(() => versions.filter(v => sameIntelligenceScope(sourceScope(v), ownScope)).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))), [versions, collegeId, sectionId]);
+  const versionActivityHeatmap = useMemo(() => {
+    const labels=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"],hours=Array.from({length:16},(_,i)=>i+7),counts=new Map<string,number>();
+    versions.forEach(version=>{const stamp=new Date(version.createdAt);if(Number.isNaN(stamp.getTime()))return;const hour=stamp.getHours();if(hour<7||hour>22)return;const key=`${stamp.getDay()}-${hour}`;counts.set(key,(counts.get(key)||0)+1);});
+    const max=Math.max(0,...counts.values());
+    return{labels,hours,max,cells:labels.map((label,day)=>({label,hours:hours.map(hour=>({hour,count:counts.get(`${day}-${hour}`)||0}))}))};
+  },[versions]);
+
+  const openSpatialProposal = async (proposal: any) => {
+    if (!enterSourceScope(proposal, "spatial")) return;
+    const changes = new Map((proposal.changes || []).map((change: any) => [Number(change.id), change]));
+    if ([...changes.keys()].some(id => !rows.some(row => Number(row.id) === id))) { setError("الاقتراح يتضمن موعداً خارج هذه الكلية."); return; }
+    const next = rows.map(row => { const change: any = changes.get(Number(row.id)); return change ? { ...row, ...change, locationStatus: change.locationStatus || "VERIFIED" } : row; });
+    setScenario(next); setScenarioEval(null); setTab("twin"); setTwinCard("board");
+    await evaluateScenario(next);
+  };
+  useEffect(() => {
+    const pending = pendingReadingAction.current;
+    if (pending && pending.termId !== termId) { pendingReadingAction.current = null; return; }
+    if (!pending || loading || scopeReady !== `${collegeId}:${sectionId}:${termId}` || !sameIntelligenceScope(pending.source, ownScope)) return;
+    pendingReadingAction.current = null;
+    const actions: Record<string, () => unknown> = {
+      draft: () => openDraft(pending.item), publish: () => publishDraft(pending.item), restore: () => restoreVersion(pending.item),
+      opening: () => openSectionDraft(pending.item, pending.extra), repair: () => openRepair(pending.item),
+      spatial: () => openSpatialProposal(pending.item), rule: () => proposeUnwrittenRule(pending.item),
+    };
+    void actions[pending.kind]?.();
+  }, [loading, scopeReady, collegeId, sectionId, termId]);
+  const handleDividerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const stage = e.currentTarget.parentElement;
+    if (!stage) return;
+
+    const updatePosition = (clientX: number) => {
+      const rect = stage.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const offset = clientX - rect.left;
+      const pct = Math.max(0, Math.min(100, Math.round((offset / rect.width) * 100)));
+      setTimeTravel(pct);
+    };
+
+    const handlePointerMove = (ev: PointerEvent) => {
+      updatePosition(ev.clientX);
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+  };
+  const moveInsightFocus = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    let next = index;
+    if (event.key === "ArrowDown" || event.key === "ArrowRight")
+      next = (index + 1) % insightScenes.length;
+    else if (event.key === "ArrowUp" || event.key === "ArrowLeft")
+      next = (index - 1 + insightScenes.length) % insightScenes.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = insightScenes.length - 1;
+    else return;
+    event.preventDefault();
+    const value = insightScenes[next]?.value;
+    if (!value) return;
+    showScene(value);
+    window.requestAnimationFrame(() =>
+      document.getElementById(`insight-tab-${value}`)?.focus(),
+    );
+  };
+
+  return (
+    <div className={`content-stack intelligence-page scene-${scene} visual-minimal`}>
+      <PageTitle
+        eyebrow="ذكاء الجدول"
+        subtitle="افهم · جرّب · اعتمد"
+      >
+        مركز الذكاء
+      </PageTitle>
+      <ContextBar />
+      {collegeId && sectionId && termId ? <div className="intelligence-reading-toolbar no-print">
+        {tab === "twin" ? <span className="intelligence-working-scope">{ownScope.collegeName}</span>
+          : <IntelligenceScopeSwitch value={analysisScope} onChange={value => {pendingReadingAction.current = null; setAnalysisScope(value);}} />}
+      </div> : null}
+      {guideSimulationMeta ? (
+        <section className="guide-simulation-brief no-print">
+          <header><ShieldCheck aria-hidden="true" /><div><small>محاكاة حقيقية · لا حفظ</small><strong>{guideSimulationMeta.before.AdCourseName || "المقرر المحدد"}</strong></div></header>
+          <div className="guide-simulation-flow">
+            <span><small>قبل</small><b>{Object.keys(dayLabels).filter(key => (guideSimulationMeta.before as any)[key]).map(key => (dayLabels as any)[key]).join(" · ") || "—"}</b><em>{formatScheduleTimeRange(guideSimulationMeta.before.fstarttime, guideSimulationMeta.before.fendtime)}</em></span>
+            <ChevronLeft aria-hidden="true" />
+            <span className="after"><small>بعد</small><b>{Object.keys(dayLabels).filter(key => (guideSimulationMeta.after as any)[key]).map(key => (dayLabels as any)[key]).join(" · ") || "—"}</b><em>{formatScheduleTimeRange(guideSimulationMeta.after.fstarttime, guideSimulationMeta.after.fendtime)}</em></span>
+          </div>
+          <p>{scenarioEval?.scenario?.conflicts || scenarioEval?.scenario?.conflictCount ? "توجد آثار تحتاج مراجعة في النسخة التجريبية." : "النسخة التجريبية جاهزة للمقارنة، والجدول الحقيقي لم يتغير."}</p>
+          <footer>
+            <button type="button" onClick={async () => {
+              if (!scenario || !guideSimulationMeta) return;
+              const copy=scenario.map(item=>({...item})); const index=copy.findIndex(item=>item.id===guideSimulationMeta.after.id); if(index<0)return;
+              const before={...copy[index]}; const after:any={...before};
+              const toMinutes=(value:string)=>{const [h,m]=String(value||"0:0").split(":").map(Number);return h*60+m;}; const fromMinutes=(value:number)=>`${String(Math.floor(value/60)).padStart(2,"0")}:${String(value%60).padStart(2,"0")}`;
+              const duration=Math.max(30,toMinutes(before.fendtime)-toMinutes(before.fstarttime)); const nextStart=fromMinutes(Math.min(22*60,toMinutes(before.fstarttime)+30)); after.fstarttime=nextStart; after.fendtime=fromMinutes(toMinutes(nextStart)+duration); copy[index]=after; setScenario(copy); setGuideSimulationMeta(current=>current?{...current,after}:current); await evaluateScenario(copy);
+            }}>جرّب بديلًا</button>
+            <button type="button" onClick={() => { try { sessionStorage.setItem("schedule-guide-ghost-preview", JSON.stringify({ id:guideSimulationMeta.before.id, before:guideSimulationMeta.before, after:guideSimulationMeta.after, createdAt:Date.now() })); } catch {} openScheduleWorkspace("هذه معاينة من مساحة «جرّب». راجعها على الجدول ثم اعتمدها يدويًا إذا رغبت."); }}>معاينة على الجدول</button>
+            <button type="button" data-guide-ignore="يحفظ المحاكاة كمسودة تجريبية فقط ولا ينشر أي تغيير حقيقي" className="primary" onClick={async () => { if(!scenario)return; const draft=await saveDraft("guide-simulation",scenario,undefined,"محاكاة المرشد"); if(draft)setMessage("حُفظ الحل كمسودة فقط. راجعه في «اعتمد» قبل أي نشر."); }}>اعتماد كمسودة</button>
+          </footer>
+        </section>
+      ) : null}
+      {!collegeId || !termId ? (
+        <Surface className="intel-context-idle" aria-live="polite">
+          <Target aria-hidden="true" />
+          <div><strong>اختر الكلية والفصل</strong><span>تبدأ القراءات بعد تحديد النطاق؛ وبعد أول اختيار سيعود آخر نطاق فعّال تلقائيًا.</span></div>
+        </Surface>
+      ) : null}
+      <nav className="intelligence-scenes no-print" aria-label="مراحل مركز الذكاء">
+        {/* افهم ← جرّب ← اعتمد: مِرقاةٌ تُرى، وكلُّ مرحلةٍ زرُّها باسمها. */}
+        <DnaStepper
+          size="sm"
+          className="intelligence-steps"
+          ariaLabel="مراحل مركز الذكاء"
+          steps={([
+            { value: "understand", label: <span data-guide-target="intelligence.scene.understand">افهم</span>, icon: <BrainCircuit /> },
+            { value: "try", label: <span data-guide-target="intelligence.scene.try">جرّب</span>, icon: <Network /> },
+            { value: "approve", label: <span data-guide-target="intelligence.scene.approve">اعتمد</span>, icon: <ShieldCheck /> },
+          ] as const).map((option, index, all) => {
+            const at = all.findIndex(item => item.value === scene);
+            return {
+              key: option.value,
+              onSelect: () => runVisualTransition(() => changeScene(option.value)),
+              actionLabel: `فتح مرحلة ${option.value === "understand" ? "افهم" : option.value === "try" ? "جرّب" : "اعتمد"}`,
+              icon: option.icon,
+              state: option.value === scene ? "current" as const : index < at ? "done" as const : "pending" as const,
+              label: (
+                <button
+                  type="button"
+                  className={scene === option.value ? "active" : ""}
+                  aria-pressed={scene === option.value}
+                  data-guide-ignore="تنقّل بين مراحل مركز الذكاء — عرضٌ لا فعل؛ الهدف على اسم المرحلة"
+                  onClick={() => runVisualTransition(() => changeScene(option.value))}
+                >
+                  {option.label}
+                </button>
+              ),
+            };
+          })}
+        />
+        <span className="scene-caption">
+          {scene === "understand"
+            ? "جودة · تنبيهات · قاعات · أساتذة"
+            : scene === "try"
+              ? "تجريبي · خارج الجدول الحقيقي"
+              : "مسودات · نشر · نسخ · تراجع"}
+        </span>
+      </nav>
+      {scene === "understand" ? (
+        <nav className="scene-subnav no-print" aria-label="أدوات الفهم">
+          <button
+            type="button"
+            className={tab === "command" ? "active" : ""}
+            aria-pressed={tab === "command"}
+            onClick={() => setTab("command")}
+          >
+            <Gauge /> قراءة القرار
+          </button>
+          <button
+            type="button"
+            data-guide-target="intelligence.ask-table"
+            className={tab === "copilot" ? "active" : ""}
+            aria-pressed={tab === "copilot"}
+            onClick={() => setTab("copilot")}
+          >
+            <BrainCircuit /> اسأل الجدول
+          </button>
+        </nav>
+      ) : scene === "try" ? (
+        <nav className="scene-subnav no-print" aria-label="أدوات التجربة">
+          <button
+            type="button"
+            className={tab === "twin" ? "active" : ""}
+            aria-pressed={tab === "twin"}
+            onClick={() => setTab("twin")}
+          >
+            <Network /> النسخة التجريبية
+          </button>
+          {/* Importing a timetable lives in Data Tools only. Two doors to the
+              same reviewed route split attention and let one screen fall behind
+              the other; the guide points at «أدوات البيانات» for this. */}
+        </nav>
+      ) : null}
+      {error && collegeId && sectionId && termId ? (
+        <Notice>
+          {error}
+          {smartRetry ? (
+            <div style={{ marginTop: 8 }}>
+              <button type="button" className="nl-move-apply" data-guide-ignore="زر تعافٍ سياقي يظهر فقط بعد فشل قراءة PDF المعتمد؛ إجراء اختياري لإعادة المحاولة عبر Smart Import، ليس ميزة إرشاد مستقلة" disabled={busy} onClick={() => { const f = smartRetry.file; setSmartRetry(null); void importSmartFile(f, smartRetry.reason); }}>
+                جرّب Smart Import (يقرأ الملف عبر Gemini — بدون الأرقام المدنية)
+              </button>
+            </div>
+          ) : null}
+        </Notice>
+      ) : null}
+      {message ? <Notice type="success">{message}</Notice> : null}
+      {loading && !overview ? (
+        <div className="intel-loading" role="status" aria-live="polite">
+          <span />
+          <strong>أقرأ الجدول وأبني صورة القرار...</strong>
+        </div>
+      ) : null}
+
+      {tab === "command" && overview ? (
+        <div className="intel-command-grid intel-insight-workspace">
+          <nav
+            className="insight-preview-rail no-print"
+            aria-label="مشاهد قراءة القرار"
+          >
+            <div className="insight-preview-head">
+              <span className="surface-kicker">مشاهد الذكاء</span>
+              <strong>اختر قراءة</strong>
+              <small>كل قراءة تفتح صفحتها — رقم واحد أولاً، ثم التفاصيل.</small>
+            </div>
+            {/* الصفرُ لا يُكتب رقماً على بطاقة القراءة (قاعدة إخفاء الفارغ). */}
+            <div className="insight-preview-list" role="list">
+              {insightScenes.map((item, index) => {
+                const selected = activeInsightKey === item.value;
+                return (
+                  <button
+                    type="button"
+                    key={item.value}
+                    id={`insight-tab-${item.value}`}
+                    className={`insight-preview ${selected ? "active" : ""}`}
+                    role="listitem"
+                    aria-label={`${item.label} — ${item.detail}`}
+                    title={item.detail}
+                    data-guide-ignore="بطاقة اختيار قراءة داخل مركز الذكاء: تفتح القراءة نفسها كما قبل، والوصف صار تلميحاً فقط"
+                    onClick={() => showScene(item.value)}
+                    onKeyDown={(event) => moveInsightFocus(event, index)}
+                  >
+                    <span className="insight-preview-icon" aria-hidden="true">
+                      {item.icon}
+                    </span>
+                    <span className="insight-preview-copy">
+                      <strong>{item.label}</strong>
+                      <small>{item.detail}</small>
+                    </span>
+                    {metricBadge(item.metric)}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+          {/*
+            ── القراءة صفحة، لا قسم أسفل الصفحة ──────────────────────────────
+            Tabs were not enough, and the reason is simple: a panel is a
+            thousand pixels tall, so switching between them still felt like
+            scrolling one long page. A reading opens as its own page over the
+            dashboard now, with a way back — the dashboard stays one place, and
+            nothing is ever under anything else.
+          */}
+          <section
+            className={`insight-canvas${activeInsight ? " open" : ""}`}
+            aria-label={activeInsight?.label || "قراءة القرار"}
+            aria-hidden={activeInsight ? undefined : true}
+          >
+            {activeInsight ? (
+              <header className="insight-page-head">
+                <button type="button" className="insight-back" onClick={() => showScene(null)}>
+                  <ChevronLeft aria-hidden="true" />
+                  العودة إلى مركز القراءات
+                </button>
+                <div className="insight-page-title">
+                  <span className="surface-kicker">{activeInsight.detail}</span>
+                  <span className="insight-title-line"><strong>{activeInsight.label}</strong><b className="insight-page-metric"><Num value={activeInsight.metric} /></b></span>
+                </div>
+              </header>
+            ) : null}
+            <p className="sr-only" role="status" aria-live="polite">
+              المشهد الحالي: {activeInsight?.label}. {activeInsight?.detail}
+            </p>
+            <div
+              className="content-stack insight-scene-panel"
+              id="insight-panel-quality"
+              role="tabpanel"
+              aria-labelledby="insight-tab-quality"
+              hidden={activeInsightKey !== "quality"}
+              tabIndex={activeInsightKey === "quality" ? 0 : -1}
+            >
+          <Surface className="quality-hero">
+            <div
+              className="quality-orbit"
+              style={{ "--score": `${overview.score}%` } as React.CSSProperties}
+            >
+              <div>
+                <Num value={overview.score} className="quality-orbit-score" />
+                <small>من 100</small>
+              </div>
+            </div>
+            <div className="quality-copy">
+              <span className="surface-kicker">مؤشر جودة الجدول</span>
+              <h2>{readinessLabel}</h2>
+              <p>
+                الدرجة تجمع موانع الاعتماد، فراغات الأساتذة، توازن الأيام، الأوقات
+                المتأخرة وصحة البيانات.
+              </p>
+              {/*
+                Where the hundred went.
+                The old row printed "-0" beside every factor that cost nothing,
+                which reads as an error and says nothing: a minus sign in front
+                of zero is not a deduction. Each factor is now a bar showing how
+                much of the score it took, the ones that took nothing say so in
+                words, and the whole row adds up to the number in the ring.
+              */}
+              <details className="insight-disclosure quality-breakdown">
+                <summary>كيف تكوّنت الدرجة؟</summary>
+                <div
+                  className="quality-factors"
+                  role="img"
+                  aria-label="توزيع نقاط الجودة"
+                >
+                  {overview.factors.map((f: any) => {
+                    const cost = Math.max(0, Number(f.penalty) || 0);
+                    return (
+                      <span key={f.label} className={cost ? "costly" : "clean"}>
+                        <em>{f.label}</em>
+                        <i aria-hidden="true">
+                          <b
+                            style={{ width: `${Math.min(100, cost * 2)}%` }}
+                          />
+                        </i>
+                        <u>{cost ? `−${cost}` : "سليم"}</u>
+                      </span>
+                    );
+                  })}
+                </div>
+              </details>
+            </div>
+            <div className="quality-actions">
+              <PrimaryButton onClick={autoSchedule} disabled={busy}>
+                <WandSparkles /> تحسين تلقائي
+              </PrimaryButton>
+              <SecondaryButton onClick={() => setTab("copilot")}>
+                <BrainCircuit /> اسأل المساعد
+              </SecondaryButton>
+            </div>
+          </Surface>
+            </div>
+            <div
+              className="content-stack insight-scene-panel"
+              id="insight-panel-approval"
+              role="tabpanel"
+              aria-labelledby="insight-tab-approval"
+              hidden={activeInsightKey !== "approval"}
+              tabIndex={activeInsightKey === "approval" ? 0 : -1}
+            >
+          <Surface className="approval-center">
+            <div className="surface-head">
+              <div>
+                <span className="surface-kicker">قبل الاعتماد</span>
+                <h2>مركز القيادة</h2>
+              </div>
+              <ShieldCheck />
+            </div>
+            {readingMode === "department" ? <div className="intelligence-college-status">
+              {(overview.collegeReadings || []).map((item: any) => <button key={`${item.collegeId}:${item.sectionId}`} type="button" data-guide-ignore="فتح قراءة الاعتماد في كلية بعينها دون نشر" onClick={() => { setCollegeId(item.collegeId); setSectionId(item.sectionId); setAnalysisScope("college"); }}>
+                <span>{item.collegeName}</span><b>{item.blockers ? countOf(item.blockers, AR.position) : "بلا موانع"}</b><small>{item.publication ? "منشور" : "غير منشور"}</small>
+              </button>)}
+            </div> : null}
+            <div className="approval-metrics">
+              {/* بطاقاتُ الصفر لا تُعرض: «جاهز للاعتماد» تقولها بطاقةُ الحالة تحتها. */}
+              {overview.metrics.criticalConflicts ? <button type="button" data-guide-ignore="يفتح شرحاً بصرياً لهذا المؤشر داخل مركز القيادة فقط" className={`approval-metric-card ${overview.metrics.criticalConflicts ? "danger" : "ok"}`} onClick={() => setInsightReason({
+                kicker:"قبل الاعتماد", title:"موانع الاعتماد", metric:String(overview.metrics.criticalConflicts), tone:overview.metrics.criticalConflicts?"bad":"good", icon:<ShieldAlert />,
+                summary:overview.metrics.criticalConflicts?"هذه هي الموانع الموجودة الآن:":"لا تظهر موانع حفظ في النطاق الحالي.",
+                facts:[{label:"الموانع",value:String(overview.metrics.criticalConflicts)},{label:"حالة الاعتماد",value:overview.metrics.criticalConflicts?"متوقف":"جاهز"},{label:"اللائحة",value:"تحذيرية"}],
+                items:conflictReasonItems,
+                bars:[{label:"المتأثر",value:Number(overview.metrics.criticalConflicts||0),max:Math.max(1,Number(rows.length||1)),caption:countOf(overview.metrics.criticalConflicts, AR.position)}]
+              })}>
+                <strong>{overview.metrics.criticalConflicts}</strong>
+                <span>موضع يحتاج تحقق</span>
+                <ChevronLeft aria-hidden="true" />
+              </button> : null}
+              {overview.metrics.invalidRows ? <button type="button" data-guide-ignore="يفتح شرحاً بصرياً لهذا المؤشر داخل مركز القيادة فقط" className="approval-metric-card" onClick={() => setInsightReason({
+                kicker:"سلامة البيانات", title:"سجلات تحتاج مراجعة", metric:String(overview.metrics.invalidRows), tone:overview.metrics.invalidRows?"warn":"good", icon:<FileClock />,
+                summary:overview.metrics.invalidRows?"هذه السجلات وما ينقص كل واحد منها:":"لا توجد سجلات ناقصة ظاهرة في النطاق الحالي.",
+                items:invalidReasonItems,
+                facts:[{label:"السجلات",value:String(overview.metrics.invalidRows)},{label:"الجدول",value:String(readingRows.length)},{label:"الأثر",value:overview.metrics.invalidRows?"مراجعة":"لا شيء"}]
+              })}>
+                <strong>{overview.metrics.invalidRows}</strong>
+                <span>سجل يحتاج مراجعة</span><ChevronLeft aria-hidden="true" />
+              </button> : null}
+              {overview.draftCount ? <button type="button" data-guide-ignore="يفتح شرحاً بصرياً لهذا المؤشر داخل مركز القيادة فقط" className="approval-metric-card" onClick={() => setInsightReason({
+                kicker:"مساحة العمل", title:"المسودات الداخلية", metric:String(overview.draftCount), tone:"plain", icon:<Save />,
+                summary:"هذه نسخ تجريبية أو محفوظة للمراجعة ولم تُنشر على الجدول المعتمد.",
+                facts:[{label:"المسودات",value:String(overview.draftCount)},{label:"النشر",value:"لا"},{label:"الجدول الحقيقي",value:"لم يتغير"}]
+              })}>
+                <strong>{overview.draftCount}</strong>
+                <span>مسودة داخلية</span><ChevronLeft aria-hidden="true" />
+              </button> : null}
+              <button type="button" data-guide-ignore="يفتح شرحاً بصرياً لهذا المؤشر داخل مركز القيادة فقط" className="approval-metric-card" onClick={() => setInsightReason({
+                kicker:"راحة الجدول", title:"متوسط فراغ الأساتذة", metric:formatCompactDurationArabic(overview.metrics.avgInstructorGap), tone:Number(overview.metrics.avgInstructorGap)>=180?"warn":"plain", icon:<CalendarClock />,
+                summary:longGapReasonItems.length?"أصحاب الفراغات الأطول الآن:":"لا يوجد أستاذ بفراغ يومي يتجاوز 3 ساعات.",
+                items:longGapReasonItems,
+                facts:[{label:"المتوسط",value:formatMinuteMetricArabic(overview.metrics.avgInstructorGap)},{label:"أكثر من 3س",value:String(longGapReasonItems.length)},{label:"القراءة",value:"إرشادية"}]
+              })}>
+                <strong>{overview.metrics.avgInstructorGap}</strong>
+                <span>دقيقة متوسط الفراغ</span><ChevronLeft aria-hidden="true" />
+              </button>
+            </div>
+            <div className="approval-status approval-status-grid" hidden={readingMode === "department"}>
+              <button type="button" data-guide-ignore="يفتح سبب حالة الاعتماد داخل القراءة الحالية فقط" className={overview.metrics.criticalConflicts ? "blocked" : "ready"} onClick={() => setInsightReason({
+                kicker:"حالة الاعتماد", title:overview.metrics.criticalConflicts?"لماذا الاعتماد متوقف؟":"لماذا الجدول جاهز؟", metric:overview.metrics.criticalConflicts?String(overview.metrics.criticalConflicts):"✓", tone:overview.metrics.criticalConflicts?"bad":"good", icon:overview.metrics.criticalConflicts?<ShieldAlert />:<ShieldCheck />,
+                summary:overview.metrics.criticalConflicts?"الموانع الفعلية التي توقف الاعتماد:":"لا توجد موانع حفظ ظاهرة. ملاحظات اللائحة — إن وجدت — تبقى للمراجعة فقط.",
+                items:overview.metrics.criticalConflicts?conflictReasonItems:[],
+                facts:[{label:"موانع حقيقية",value:String(overview.metrics.criticalConflicts)},{label:"اللائحة",value:"تحذيرية"},{label:"الحالة",value:overview.metrics.criticalConflicts?"يحتاج معالجة":"جاهز"}]
+              })}>
+                <small>حالة الاعتماد</small>
+                <strong>{overview.metrics.criticalConflicts ? "يمنع الاعتماد" : "جاهز للاعتماد"}</strong>
+                <span>{overview.metrics.criticalConflicts ? `${countOf(overview.metrics.criticalConflicts, AR.position)} بحاجة إلى تحقق` : "لا توجد موانع اعتماد ظاهرة"}</span><ChevronLeft aria-hidden="true" />
+              </button>
+              <button type="button" data-guide-ignore="يفتح شرح حالة النشر داخل القراءة الحالية فقط" className="publication-state" onClick={() => setInsightReason({
+                kicker:"حالة النشر", title:overview.publication?"الجدول منشور":"لم يُنشر بعد", metric:overview.publication?"✓":"—", tone:overview.publication?"good":"plain", icon:<Upload />,
+                summary:overview.publication?"هذه النسخة سبق نشرها للمستخدمين.":"النشر خطوة مستقلة وتبقى بقرار المستخدم صاحب الصلاحية.",
+                facts:[{label:"الحالة",value:overview.publication?"منشور":"غير منشور"},{label:"الاعتماد",value:"مستقل"},{label:"التحكم",value:"يدوي"}]
+              })}>
+                <small>حالة النشر</small>
+                <strong>{overview.publication ? "تم النشر" : "لم يُنشر بعد"}</strong>
+                <span>{overview.publication ? new Date(overview.publication.publishedAt).toLocaleString("ar-KW-u-nu-latn") : "النشر مستقل عن نتيجة الاعتماد"}</span><ChevronLeft aria-hidden="true" />
+              </button>
+            </div>
+          </Surface>
+            </div>
+            <div
+              className="content-stack insight-scene-panel"
+              id="insight-panel-attention"
+              role="tabpanel"
+              aria-labelledby="insight-tab-attention"
+              hidden={activeInsightKey !== "attention"}
+              tabIndex={activeInsightKey === "attention" ? 0 : -1}
+            >
+          <Surface className="attention-center">
+            <div className="surface-head">
+              <div>
+                <span className="surface-kicker">يحتاج انتباهك</span>
+                <h2>تنبيهات ذكية</h2>
+              </div>
+              <AlertTriangle />
+            </div>
+            <div className="smart-alerts">
+              {overview.alerts.slice(0, 3).map((a: any, i: number) => {
+                const icon = /اعتماد|تعارض|حجز|مزدوج/.test(a.title) ? <ShieldAlert />
+                  : /فراغ|موعد|وقت/.test(a.title) ? <CalendarClock />
+                  : /توزيع|أيام/.test(a.title) ? <BarChart3 />
+                  : a.severity === "ok" ? <CheckCircle2 /> : <AlertTriangle />;
+                return (
+                  <button type="button" data-guide-ignore="يفتح سبب التنبيه الذكي داخل مركز القيادة فقط" key={i} className={`smart-alert-card ${a.severity}`} onClick={() => setInsightReason(reasonForSmartAlert(a, i))}>
+                    <span className="smart-alert-icon">{icon}</span>
+                    <div><strong>{a.title}</strong>{scopeLabel(a) ? <small className="reading-college-label">{scopeLabel(a)}</small> : null}<p>{a.detail}</p></div>
+                    <ChevronLeft className="smart-alert-open" aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
+            {overview.alerts.length > 3 ? (
+              <details className="insight-disclosure alert-disclosure">
+                <summary>
+                  عرض الباقي ({countOf(overview.alerts.length - 3, AR.alert)})
+                </summary>
+                <div className="smart-alerts">
+                  {overview.alerts.slice(3).map((a: any, i: number) => (
+                    <button type="button" data-guide-ignore="يفتح سبب التنبيه الذكي داخل مركز القيادة فقط" key={i + 3} className={`smart-alert-card ${a.severity}`} onClick={() => setInsightReason(reasonForSmartAlert(a, i + 3))}>
+                      <span className="smart-alert-icon"><AlertTriangle /></span>
+                      <div><strong>{a.title}</strong>{scopeLabel(a) ? <small className="reading-college-label">{scopeLabel(a)}</small> : null}<p>{a.detail}</p></div><ChevronLeft className="smart-alert-open" aria-hidden="true" />
+                    </button>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </Surface>
+            </div>
+            <div
+              className="content-stack insight-scene-panel"
+              id="insight-panel-density"
+              role="tabpanel"
+              aria-labelledby="insight-tab-density"
+              hidden={activeInsightKey !== "density"}
+              tabIndex={activeInsightKey === "density" ? 0 : -1}
+            >
+          <Surface className="heatmap-card">
+            <div className="surface-head">
+              <div>
+                <span className="surface-kicker">خريطة الكثافة</span>
+                <h2>
+                  {heatMode === "university" ? "حركة الجامعة" : "حركة القسم"}
+                </h2>
+              </div>
+              {isPowerAdmin ? (
+                <Segmented
+                  value={heatMode}
+                  onChange={setHeatMode}
+                  options={[
+                    { value: "department", label: "القسم" },
+                    { value: "university", label: "الجامعة" },
+                  ]}
+                />
+              ) : null}
+            </div>
+            <div className="schedule-heatmap">
+              <div className="heat-corner">الوقت</div>
+              {Object.values(dayLabels).map((d: any) => (
+                <strong key={d}>{d}</strong>
+              ))}
+              {heatTimes.map((time) => (
+                <React.Fragment key={time}>
+                  <span className="heat-time" dir="ltr">
+                    {time}
+                  </span>
+                  {Object.keys(dayLabels).map((day) => {
+                    const cell = heatData.find(
+                      (x: any) => x.day === day && x.time === time,
+                    );
+                    const ratio = (cell?.count || 0) / heatMax;
+                    return (
+                      <span
+                        key={`${day}-${time}`}
+                        className="heat-cell"
+                        style={{ "--heat": ratio } as React.CSSProperties}
+                        role="img"
+                        aria-label={`${dayLabels[day]}، الساعة ${time}، ${countOf(cell?.count || 0, AR.appointment)}`}
+                        title={`${dayLabels[day]} ${time}: ${cell?.count || 0}`}
+                      >
+                        <i aria-hidden="true" />
+                        {(cell?.count || 0) > 0 ? <b>{cell?.count}</b> : null}
+                      </span>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </div>
+            <div className="heat-legend" role="img" aria-label="تدرج الألوان من هادئ إلى ذروة">
+              <i />
+              <i />
+              <i />
+              <i />
+            </div>
+            <details className="insight-disclosure">
+              <summary>كيف وصلنا لهذه النتيجة؟</summary>
+              {(() => {
+                const counts = heatData.map((x: any) => Number(x.count) || 0).filter((n: number) => n > 0);
+                const sample = counts.length && heatMax > 0 ? Math.min(...counts) : 0;
+                return (
+                  <>
+                    {sample ? (
+                      <EquationChips
+                        parts={[{ value: String(sample), label: "مواعيد الخانة" }, { op: "÷" }, { value: String(heatMax), label: "أعلى خانة" }]}
+                        result={{ value: String(Math.round((sample / heatMax) * 100)), unit: "%", label: "شدة اللون" }}
+                      />
+                    ) : null}
+                    <p className={`insight-method${sample ? " sr-only" : ""}`}>تُحسب الكثافة بعدّ المواعيد المتزامنة في كل خانة (يوم × ساعة) داخل النطاق المختار، ثم تُقارن كل خانة بالخانة الأعلى ازدحامًا لتحديد شدّة التلوين.</p>
+                  </>
+                );
+              })()}
+            </details>
+          </Surface>
+            </div>
+          {overview.spatialBurnout ? (
+            <div
+              className="content-stack insight-scene-panel"
+              id="insight-panel-spatial"
+              role="tabpanel"
+              aria-labelledby="insight-tab-spatial"
+              hidden={activeInsightKey !== "spatial"}
+              tabIndex={activeInsightKey === "spatial" ? 0 : -1}
+            >
+            <Surface className="spatial-burnout-card">
+              <div className="surface-head">
+                <div>
+                  <span className="surface-kicker">الحركة المكانية</span>
+                  <h2>راحة الحركة</h2>
+                </div>
+                <Building2 />
+              </div>
+              <div className="spatial-score-row">
+                <div className={`spatial-score ${overview.spatialBurnout.highRisk ? "danger" : overview.spatialBurnout.guardedRisk ? "guarded" : "safe"}`}>
+                  <Num value={overview.spatialBurnout.score} suffix=" / 100" className="spatial-score-value" />
+                  {readingMode === "department" ? <small title="الدرجة تعرض الكلية ذات أكبر ضغط في الحركة">أشد ضغط بين الكليات</small> : null}
+                  <small>{overview.spatialBurnout.highRisk ? "الحركة مرهقة" : overview.spatialBurnout.guardedRisk ? "تحتاج مراجعة" : "حركة مريحة"}</small>
+                </div>
+                <div className="spatial-metrics">
+                  {overview.spatialBurnout.highRisk ? <article><span className="spatial-metric-icon"><AlertTriangle /></span><b><Num value={overview.spatialBurnout.highRisk} /></b><span>انتقال مرهق</span></article> : null}
+                  {overview.spatialBurnout.guardedRisk ? <article><span className="spatial-metric-icon"><CalendarClock /></span><b><Num value={overview.spatialBurnout.guardedRisk} /></b><span>انتقال ضيق</span></article> : null}
+                  {overview.roomCastling?.length ? <article><span className="spatial-metric-icon"><Building2 /></span><b><Num value={overview.roomCastling.length} /></b><span>تبديل آمن</span></article> : null}
+                </div>
+              </div>
+              {overview.spatialBurnout.risks?.length ? <CampusTravelMap risks={overview.spatialBurnout.risks} /> : null}
+              {overview.spatialBurnout.risks?.length ? (
+                <div className="spatial-risk-list">
+                  {overview.spatialBurnout.risks.slice(0, 5).map((risk: any) => (
+                    <article key={`${risk.instructorId}-${risk.day}-${risk.fromRowId}-${risk.toRowId}`} className={risk.level}>
+                      <span className="risk-mark"><AlertTriangle /></span>
+                      <div><strong>{risk.instructorName}</strong>{scopeLabel(risk) ? <small className="reading-college-label">{scopeLabel(risk)}</small> : null}<small className="visual-flow-inline">{risk.dayLabel} · <b>{risk.fromBuilding}</b><ArrowLeftRight aria-hidden="true" /><b>{risk.toBuilding}</b></small></div>
+                      <b>{risk.gapMinutes}د <small>متاح</small></b>
+                      <span>{risk.requiredMinutes}د مطلوبة</span>
+                    </article>
+                  ))}
+                </div>
+              ) : <div className="spatial-clear"><CheckCircle2 /><div><strong>لا توجد انتقالات مرهقة</strong><span>الفواصل تستوعب زمن الحركة.</span></div></div>}
+              {overview.roomCastling?.length ? (
+                <div className="castling-strip castling-cards">
+                  <div className="castling-head"><span className="castling-mark"><Building2 /></span><div><strong>تبديل القاعات</strong><span>اقتراحات أقرب دون تغيير الوقت</span></div></div>
+                  <div className="castling-options">
+                  {overview.roomCastling.slice(0, 3).map((proposal: any, index: number) => (
+                    <button key={`${proposal.rowId}-${index}`} type="button" data-guide-ignore="اقتراح تبديل قاعة تجريبي داخل مساحة الذكاء؛ يفتح سيناريو للمراجعة ولا يحفظ تلقائيًا" onClick={() => void openSpatialProposal(proposal)}>
+                      <span className="castling-person"><UsersRound />{proposal.instructorName}</span>{scopeLabel(proposal) ? <span className="reading-college-label">{scopeLabel(proposal)}</span> : null}
+                      <strong dir="ltr">{proposal.before.roomCode}/{proposal.before.roomHall} <ArrowLeftRight /> {proposal.after.roomCode}/{proposal.after.roomHall}</strong>
+                      <small role="img" aria-label="متاح وآمن" title="متاح وآمن"><CheckCircle2 aria-hidden="true" /></small>
+                      <ChevronLeft className="castling-open" />
+                    </button>
+                  ))}
+                  </div>
+                </div>
+              ) : null}
+              <details className="insight-disclosure">
+                <summary>كيف وصلنا لهذه النتيجة؟</summary>
+                {(() => {
+                  const top: any = overview.spatialBurnout.risks?.[0];
+                  const gap = Number(top?.gapMinutes), need = Number(top?.requiredMinutes);
+                  const ok = Number.isFinite(gap) && Number.isFinite(need);
+                  return (
+                    <>
+                      {ok ? (
+                        <EquationChips
+                          parts={[{ value: String(gap), unit: "د", label: "فراغ متاح" }, { op: "\u2212" }, { value: String(need), unit: "د", label: "مطلوب" }]}
+                          result={{ value: String(gap - need), unit: "د", label: "الهامش" }}
+                          tone={gap - need < 0 ? "danger" : "ok"}
+                        />
+                      ) : null}
+                      <p className={`insight-method${ok ? " sr-only" : ""}`}>نقارن الفراغ المتاح بزمن الانتقال المطلوب بين المباني؛ كل انتقال أضيق من اللازم يخفض راحة الحركة.</p>
+                    </>
+                  );
+                })()}
+              </details>
+            </Surface>
+            </div>
+          ) : null}
+            <div
+              className="content-stack insight-scene-panel"
+              id="insight-panel-rooms"
+              role="tabpanel"
+              aria-labelledby="insight-tab-rooms"
+              hidden={activeInsightKey !== "rooms"}
+              tabIndex={activeInsightKey === "rooms" ? 0 : -1}
+            >
+          <Surface className="room-intelligence">
+            <div className="surface-head">
+              <div>
+                <span className="surface-kicker">ذكاء القاعات</span>
+                <h2>القاعات الأكثر استخداماً</h2>
+              </div>
+              <Building2 />
+            </div>
+            <div className="intel-rank-list">
+              {overview.rooms.slice(0, 8).map((r: any) => (
+                <button key={r.key} onClick={() => loadRoom(r)}>
+                  <span className="rank-icon">
+                    <Building2 />
+                  </span>
+                  <div>
+                    <strong>
+                      {r.code} / {r.hall}
+                    </strong>
+                    <small>
+                      {countOf(r.sessions, AR.appointment)} · استخدام تقديري {r.utilization}%
+                    </small>
+                    <i>
+                      <b style={{ width: `${r.utilization}%` }} />
+                    </i>
+                  </div>
+                  <ChevronLeft />
+                </button>
+              ))}
+            </div>
+            <details className="insight-disclosure">
+              <summary>كيف وصلنا لهذه النتيجة؟</summary>
+              <p className="insight-method">الاستخدام التقديري لكل قاعة = ساعات إشغالها ÷ ساعات اليوم الرسمية (<b dir="ltr">{formatScheduleTimeRange("08:00", "20:00")}</b>) على مدى أيام النطاق، والترتيب حسب عدد المواعيد.</p>
+            </details>
+          </Surface>
+            </div>
+            <div
+              className="content-stack insight-scene-panel"
+              id="insight-panel-professors"
+              role="tabpanel"
+              aria-labelledby="insight-tab-professors"
+              hidden={activeInsightKey !== "professors"}
+              tabIndex={activeInsightKey === "professors" ? 0 : -1}
+            >
+          <Surface className="professor-intelligence">
+            <div className="surface-head">
+              <div>
+                <span className="surface-kicker">حمل أعضاء هيئة التدريس</span>
+                <h2>حمل أعضاء هيئة التدريس</h2>
+                <small className="reading-college-label">{readingMode === "department" ? "حمل القسم عبر كلياته" : "حمل هذه الكلية"}</small>
+              </div>
+              <UsersRound />
+            </div>
+            <div className="professor-load-list">
+              {[...overview.professorLoads].sort((a: any, b: any) => byArabic(a.name, b.name)).map((p: any) => (
+                <button key={p.id} onClick={() => loadProfessor(p)}>
+                  <span className="prof-avatar">{p.name.trim().charAt(0)}</span>
+                  <div>
+                    <strong>{p.name}</strong>
+                    <small>
+                      {countOf(p.weeklyHours, AR.hour)} · {countOf(p.days, AR.day)}
+                    </small>
+                  </div>
+                  <span className={p.maxGap >= 180 ? "gap-warn" : ""}>
+                    {p.maxGap
+                      ? `فراغ ${formatCompactDurationArabic(p.maxGap)}`
+                      : "بلا فراغ طويل"}
+                  </span>
+                  <ChevronLeft />
+                </button>
+              ))}
+            </div>
+            <details className="insight-disclosure">
+              <summary>كيف وصلنا لهذه النتيجة؟</summary>
+              <p className="insight-method">يجمع الحمل الساعات الأسبوعية وعدد أيام الحضور لكل عضو، مع أطول فراغٍ متصل بين محاضرتين في اليوم نفسه.</p>
+            </details>
+          </Surface>
+            </div>
+            {isPowerAdmin ? <div
+              className="content-stack insight-scene-panel"
+              id="insight-panel-health"
+              role="tabpanel"
+              aria-labelledby="insight-tab-health"
+              hidden={activeInsightKey !== "health"}
+              tabIndex={activeInsightKey === "health" ? 0 : -1}
+            >
+          <Surface className="data-health">
+            <div className="surface-head">
+              <div>
+                <span className="surface-kicker">صحة البيانات</span>
+                <h2>صحة البيانات</h2>
+              </div>
+              <CheckCircle2 />
+            </div>
+            <div className={`health-verdict ${overview.dataHealth.healthy ? "ok" : "review"}`}>
+              {overview.dataHealth.healthy ? <CheckCircle2 aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}
+              <strong>{overview.dataHealth.healthy ? "سليمة" : "تحتاج مراجعة"}</strong>
+            </div>
+            {/* Three counts, read at a glance instead of a run-on line — each
+                tile is quiet when zero and lit when it holds something. */}
+            <div className="health-tiles">
+              <article className={overview.dataHealth.invalidRows ? "hit" : ""}>
+                <b>{Number(overview.dataHealth.invalidRows).toLocaleString("ar-KW-u-nu-latn")}</b>
+                <span>ناقص</span>
+              </article>
+              <article className={overview.dataHealth.duplicates ? "hit" : ""}>
+                <b>{Number(overview.dataHealth.duplicates).toLocaleString("ar-KW-u-nu-latn")}</b>
+                <span>تكرار</span>
+              </article>
+              <article className={overview.dataHealth.unscheduledCourses ? "hit" : ""}>
+                <b>{Number(overview.dataHealth.unscheduledCourses).toLocaleString("ar-KW-u-nu-latn")}</b>
+                <span>مقرر بلا موعد</span>
+              </article>
+            </div>
+            <div className="health-advanced-row">
+              <article className={operationsReview?.anomalies?.length ? "hit" : ""}><span>منطقياً</span><b>{Number(operationsReview?.anomalies?.length||0).toLocaleString("ar-KW-u-nu-latn")}</b><small>شذوذ محتمل</small></article>
+              <article className={experienceHealth?.score<75 ? "hit" : ""}><span>تجربة القسم</span><b>{experienceHealth?.score ?? "—"}</b><small>{experienceHealth?.label || "تُقاس مع الاستخدام"}</small></article>
+              <article><span>زمن الاستجابة (المئين 95)</span><b>{experienceHealth?.p95 ? countOf(experienceHealth.p95, AR.millisecond) : "—"}</b><small>أبطأ 5٪</small></article>
+              <article className={experienceHealth?.failures ? "hit" : ""}><span>أخطاء الواجهة</span><b>{experienceHealth?.failures ?? 0}</b><small>آخر 14 يوماً</small></article>
+            </div>
+            {operationsReview?.anomalies?.length ? <details className="insight-disclosure"><summary>الشذوذ المنطقي ({operationsReview.anomalies.length})</summary><ul className="health-anomaly-list">{operationsReview.anomalies.slice(0,6).map((item:any,index:number)=><li key={`${item.kind}-${item.rowId||index}`} className={item.severity}><strong>{item.title}</strong>{scopeLabel(item) ? <small>{scopeLabel(item)}</small> : null}<span>{item.detail}</span></li>)}</ul></details>:null}
+            {experienceHealth?.replays?.length ? <details className="insight-disclosure"><summary>إعادة عرض الأعطال الأخيرة ({experienceHealth.replays.length})</summary><div className="failure-replays">{experienceHealth.replays.slice(0,4).map((item:any,index:number)=><article key={`${item.timestamp}-${index}`}><strong>{item.name}</strong><small>{new Date(item.timestamp).toLocaleString("ar-KW-u-nu-latn")}</small><p>{item.message}</p><ol>{(item.breadcrumbs||[]).slice(-6).map((b:any,i:number)=><li key={i}>{b.action}</li>)}</ol></article>)}</div></details>:null}
+            {experienceHealth?.slowest?.length ? <details className="insight-disclosure"><summary>أبطأ مسارات الخادم</summary><div className="slow-endpoints">{experienceHealth.slowest.map((item:any)=><span key={item.path}><code>{item.path}</code><b>{countOf(item.avg, AR.millisecond)}</b></span>)}</div></details>:null}
+            <p>
+              هذه القراءة لا تحذف ولا تصحح شيئاً تلقائياً؛ هدفها فقط كشف ما قد
+              يفوت أثناء العمل السريع.
+            </p>
+            <details className="insight-disclosure">
+              <summary>كيف وصلنا لهذه النتيجة؟</summary>
+              <p className="insight-method">الفحص يعدّ الصفوف الناقصة، والتكرارات (نفس المقرر والشعبة والوقت)، والمقررات بلا موعد داخل النطاق المختار — دون أي تعديل تلقائي.</p>
+            </details>
+          </Surface>
+            </div> : null}
+          {demand ? (
+            <div
+              className="content-stack insight-scene-panel"
+              id="insight-panel-students"
+              role="tabpanel"
+              aria-labelledby="insight-tab-students"
+              hidden={activeInsightKey !== "students"}
+              tabIndex={activeInsightKey === "students" ? 0 : -1}
+            >
+            <Surface className="demand-reading">
+              <div className="surface-head">
+                <div>
+                  <span className="surface-kicker">ما قاله الطلاب</span>
+                  <h2>كم شعبة نفتح، وأين نضعها</h2>
+                  <span className={`demand-cohort cohort-${demand.cohort || "mixed"}`}>
+                    <i aria-hidden="true" />
+                    {demand.cohortLabel || "طلبة القسم"}
+                    {demand.sectionName ? ` · ${demand.sectionName}` : ""}
+                  </span>
+                </div>
+                <UsersRound />
+              </div>
+
+              {/* ── باب الطلاب ───────────────────────────────────────────
+                  الرابط ورمزه في نفس الصفحة التي تقرأ إجاباتهم. */}
+              {termIsArchive(terms.find(row => Number(row.AdTermId) === Number(termId)), terms) ? null : <div className="demand-door">
+                {(demand.survey || []).length ? (
+                  (demand.survey || []).map((link: any) => (
+                    <article key={link.id} className="demand-door-card">
+                      <div className="demand-door-copy">
+                        <span className="surface-kicker">رابط الاستبيان</span>
+                        <strong>{link.label}</strong>{scopeLabel(link) ? <small>{scopeLabel(link)}</small> : null}
+                        <small>
+                          ينتهي {new Date(link.expiresAt).toLocaleDateString("ar-KW-u-nu-latn")} ·
+                          فُتح <Num value={link.views} /> {nounFor(link.views, AR.visit)}
+                        </small>
+                        <code dir="ltr" className="demand-door-url">{surveyUrl(link.id)}</code>
+                        <div className="demand-actions">
+                          <SecondaryButton onClick={() => copySurvey(link.id)}>
+                            <Link2 /> {surveyCopied === link.id ? "نُسخ" : "انسخ الرابط"}
+                          </SecondaryButton>
+                          <SecondaryButton onClick={() => showSurveyQr(link.id)}>
+                            <QrCode /> {surveyQr?.id === link.id ? "أخفِ الرمز" : "رمز QR"}
+                          </SecondaryButton>
+                          {surveyQr?.id === link.id ? (
+                            <GhostButton data-guide-ignore="طباعة رمز QR للرابط العام — لا تغيّر الجدول" onClick={() => { if (!showPwaPrintHelp()) window.print(); }}>
+                              <Printer /> اطبع الرمز
+                            </GhostButton>
+                          ) : null}
+                          <GhostButton
+                            className="danger-action"
+                            data-guide-ignore="إيقاف رابط عام له تأكيد صريح ولا يمسّ الجدول"
+                            onClick={() => void stopSurvey(link.id)}
+                            disabled={busy}
+                            title="إيقاف الرابط فوراً"
+                          >
+                            <Ban /> أوقف الرابط
+                          </GhostButton>
+                        </div>
+                      </div>
+                      {surveyQr?.id === link.id ? (
+                        <figure
+                          className="demand-qr"
+                          dangerouslySetInnerHTML={{ __html: surveyQr.svg }}
+                          aria-label="رمز الاستبيان"
+                        />
+                      ) : null}
+                    </article>
+                  ))
+                ) : (
+                  <article className="demand-door-card empty">
+                    <div className="demand-door-copy">
+                      <span className="surface-kicker">باب الطلاب</span>
+                      <strong>لا يوجد رابط استبيان لهذا القسم بعد</strong>
+                      <small>
+                        يبدأ الطالب باسمه ورقمه المدني وقسمه، ثم يختار نوع الحالة. تُحفظ الهوية
+                        مشفّرة ولا تظهر إلا للمسؤول المخوّل داخل هذا المركز.
+                      </small>
+                      <div className="share-days" role="group" aria-label="مدة صلاحية رابط الاستبيان">
+                        {SURVEY_DAY_CHOICES.map(choice => (
+                          <button
+                            key={choice}
+                            type="button"
+                            data-guide-ignore="اختيار مدة محلي لا يصدر الرابط بنفسه"
+                            className={surveyDays === choice ? "active" : ""}
+                            onClick={() => setSurveyDays(choice)}
+                            aria-pressed={surveyDays === choice}
+                          >
+                            {choice}
+                            <small>يوم</small>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="demand-actions">
+                        <PrimaryButton data-guide-ignore="إصدار رابط استبيان عام له صلاحية محددة ولا يعدّل الجدول" onClick={issueSurvey} disabled={busy}>
+                          <QrCode /> أصدر رابط الاستبيان · {countOf(surveyDays, AR.day)}
+                          {readingMode === "department" ? <small>{ownScope.collegeName}</small> : null}
+                        </PrimaryButton>
+                      </div>
+                    </div>
+                  </article>
+                )}
+              </div>}
+
+              {/* ── التوقّع ──────────────────────────────────────────────────
+                  فصلٌ بلا إجابات بعد يرث توقُّعاً من الفصل الذي قبله. مكتوبٌ
+                  عليه أنه توقُّع في كل مكان يظهر فيه، ويسقط فوراً عند أول إجابة
+                  حقيقية. */}
+              {!demand.respondents && demand.prediction?.courses?.length ? (
+                <div className="demand-forecast">
+                  <p className="demand-headline forecast">
+                    <Sparkles aria-hidden="true" /> {demand.prediction.headline}
+                  </p>
+                  <div className="demand-bars">
+                    {demand.prediction.courses.slice(0, 8).map((course: any) => (
+                      <article key={`${course.readingScope?.collegeId || collegeId}:${course.courseId}`}>
+                        <span className="demand-course-label" title={course.because}>
+                          <b>{course.name}</b>{scopeLabel(course) ? <small>{scopeLabel(course)}</small> : null}
+                          <small dir="ltr">{course.code || course.courseId}</small>
+                        </span>
+                        <i><b style={{ width: `${Math.min(100, Math.max(6, Math.round((course.expected / Math.max(1, course.predictionFrom ?? demand.prediction.from)) * 100)))}%` }} /></i>
+                        <strong dir="ltr">~{course.expected}/{course.predictionFrom ?? demand.prediction.from}</strong>
+                      </article>
+                    ))}
+                  </div>
+                  {demand.prediction.pairs?.length ? (
+                    <ul className="demand-stuck">
+                      {demand.prediction.pairs.slice(0, 5).map((pair: any, index: number) => (
+                        <li key={index}>
+                          يُتوقَّع أن يحتاج «{pair.nameA}» و«{pair.nameB}» معاً
+                          نحو <b>{countOf(pair.expected, AR.student)}</b> — ضعهما في وقتين مختلفين من الآن.
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* من جديد ومن عائد — السؤال الذي طرحه القسم بنفسه. */}
+              {demand.turnover?.total ? (
+                <p className="demand-turnover">
+                  <UsersRound aria-hidden="true" /> {demand.turnover.headline}
+                </p>
+              ) : null}
+
+              {/* الرقم أولاً، ثم التفصيل — كبقية القراءات. */}
+              <div className="stat-tiles demand-figures">
+                <div className="stat-tone" data-tone={answered ? "accent" : "quiet"}>
+                  <StatCard
+                    icon={<UsersRound aria-hidden="true" />}
+                    value={<Num value={answered} />}
+                    label={answered ? (readingMode === "department" ? "إجابات عبر الكليات" : `${nounFor(answered, studentWords.student)} ${nounFor(answered, studentWords.answered)}`) : "لم يُجب أحدٌ بعد"}
+                    detail={demand.cohortLabel || "طلبة القسم"}
+                  />
+                </div>
+                <div className="stat-tone" data-tone="info">
+                  <StatCard icon={<BarChart3 aria-hidden="true" />} value={<Num value={demand.courses?.length || 0} />} label="مقررات مطلوبة" detail="من إجاباتهم" />
+                </div>
+                <div className="stat-tone" data-tone={demand.pairs?.length ? "warning" : "quiet"}>
+                  <StatCard icon={<ArrowLeftRight aria-hidden="true" />} value={<Num value={demand.pairs?.length || 0} />} label="لا يجوز أن تتقاطع" detail={nounFor(demand.pairs?.length || 0, AR.pair)} />
+                </div>
+                <div className="stat-tone" data-tone={demand.repairs?.length ? "success" : "quiet"}>
+                  <StatCard icon={<WandSparkles aria-hidden="true" />} value={<Num value={demand.repairs?.length || 0} />} label="نقلات جاهزة" detail="بلا أثر جانبي" />
+                </div>
+              </div>
+
+              {/* The case register — the same component the registration sheet
+                  draws (StudentCasesTable), so both screens read alike. */}
+              {readingMode === "department" ? (demand.byCollege || []).filter((entry: ScopedReading) => entry.data?.cases?.length).map((entry: ScopedReading) =>
+                <section key={`${entry.scope.collegeId}:${entry.scope.sectionId}`} className="demand-college-cases">
+                  <span className="reading-college-label">{entry.scope.collegeName}</span>
+                  <StudentCasesTable cases={entry.data.cases} sectionId={entry.scope.sectionId} print={{ scope: entry.data.sectionName, college: entry.scope.collegeName || "" }} />
+                </section>
+              ) : (
+              <>
+              {allStudentCases.some((item: any) => item.caseLevel || item.courses?.some((course: any) => course.settled !== undefined))
+                ? <RegistrationJourney totals={caseJourney} active={caseJourneyFilter} onPick={setCaseJourneyFilter} /> : null}
+              <StudentCasesTable
+                cases={studentCases}
+                total={allStudentCases.length}
+                exportName="طلبات_الطلبة.xlsx"
+                sectionId={Number(sectionId)}
+                print={{
+                  scope: [demand.sectionName, terms.find(term => Number(term.AdTermId) === Number(termId))?.AdTermName].filter(Boolean).join(" · "),
+                  college: colleges.find((college: any) => Number(college.AdCollegeId) === Number(collegeId))?.AdCollegeName || "",
+                }}
+              />
+              </>
+              )}
+
+              {/* ── الشعب ────────────────────────────────────────────────────
+                  السؤال الذي يُرسَل الاستبيان لأجله: الطلب مقابل سعة المقرر،
+                  ثم مكانٌ نظيف لكل شعبة جديدة. */}
+              {demand.openings?.proposals?.length ? (
+                <div className="demand-openings">
+                  <p className="demand-headline">{demand.openings.headline}</p>
+                  {demand.openings.proposals.map((item: any) => (
+                    <article key={`${item.readingScope?.collegeId || collegeId}:${item.courseId}`} className="opening-card">
+                      <header>
+                        <div>
+                          <b>{item.courseName}</b>{scopeLabel(item) ? <small>{scopeLabel(item)}</small> : null}
+                          <span>{item.courseCode}{item.predicted ? " · توقُّع" : ""}</span>
+                        </div>
+                        <strong className="opening-need">
+                          +<Num value={item.needed} /> {nounFor(item.needed, AR.section)}
+                        </strong>
+                      </header>
+
+                      {/* الحساب ظاهرٌ كاملاً: الطلب ÷ السعة − المفتوح. */}
+                      <div className="opening-math">
+                        <span><small>طلبوه</small><b><Num value={item.demand} /></b></span>
+                        <em>÷</em>
+                        <span><small>سعة الشعبة</small><b><Num value={item.capacity} /></b></span>
+                        <em>−</em>
+                        <span><small>المفتوح</small><b><Num value={item.openSections} /></b></span>
+                        <em>=</em>
+                        <span className="opening-gap">
+                          <small>بلا مقعد</small><b><Num value={item.shortfall} /></b>
+                        </span>
+                      </div>
+
+                      {item.simulationImpact ? <p className="demand-why">
+                        بعد إضافة الشعب المقترحة وإعادة محاكاة {countOf(item.simulationImpact.respondents, AR.student)} من أصحاب الرغبات الحالية، يرتفع القادرون على بلوغ 12 وحدة بمقدار <b>{countOf(item.simulationImpact.delta12, AR.student)}</b>، وبلوغ 15 وحدة بمقدار <b>{countOf(item.simulationImpact.delta15, AR.student)}</b>. وتقل حالات تعارض المقررات في الخطط من <b>{countOf(item.simulationImpact.conflictsBefore, AR.course)}</b> إلى <b>{countOf(item.simulationImpact.conflictsAfter, AR.course)}</b>. المقاعد افتراضية؛ هذه معاينة بلا حفظ.
+                      </p> : item.predicted ? <p className="opening-note">هذا توقع من بيانات سابقة؛ لم يُخلط مع الرغبات الحالية ولم يُعرض كتحسن مؤكد.</p> : null}
+
+                      {item.placements.length ? (
+                        <div className="opening-slots">
+                          {item.placements.map((slot: any) => (
+                            <div key={slot.index} className="opening-slot">
+                              <span className="opening-slot-day">{slot.dayLabel}</span>
+                              <b dir="ltr">{formatScheduleTimeRange(slot.start, slot.end)}</b>
+                              <span className="opening-slot-room">
+                                {slot.roomCode}{slot.roomHall ? `/${slot.roomHall}` : ""}
+                              </span>
+                              <span className={`opening-slot-who${slot.instructorId ? "" : " vacant"}`}>
+                                {slot.instructorName || "بلا أستاذ"}
+                              </span>
+                              <SecondaryButton onClick={() => openSectionDraft(item, slot)}>
+                                <Plus /> افتحها في النسخة التجريبية
+                              </SecondaryButton>
+                              {slot.instructorId ? (
+                                <ApplyProposal
+                                  compact
+                                  lines={[`شعبة ${slot.sectionCode} لـ«${item.courseName}» · ${slot.dayLabel} ${formatScheduleTimeRange(slot.start, slot.end)} · ${slot.roomCode}${slot.roomHall ? `/${slot.roomHall}` : ""} · ${slot.instructorName}`]}
+                                  why={`تخدم ${countOf(item.shortfall, AR.student)} بلا مقعدٍ اليوم.`}
+                                  preview={() => { const source = sourceScope(item); return postWhatIf({ kind: "opening", collegeId: source.collegeId, sectionId: source.sectionId, termId, courseId: item.courseId, placement: slot }); }}
+                                  run={async () => {
+                                    const source = sourceScope(item);
+                                    const result = await postScheduleProposal({
+                                      kind: "opening", collegeId: source.collegeId, sectionId: source.sectionId, termId, courseId: item.courseId, placement: slot,
+                                      origin: { kind: "intelligence", refId: `course:${item.courseId}`, note: `فتح شعبة لـ«${item.courseName}» (طلبه ${item.demand})` },
+                                    });
+                                    return { summary: `فُتحت شعبة ${result.applied[0].row.SCode} لـ«${item.courseName}» في الجدول`, amendment: Boolean(result.amendment) };
+                                  }}
+                                  onApplied={() => { void reload(); }}
+                                />
+                              ) : <small className="ap-why-not">يلزم أستاذٌ: اختره من النسخة التجريبية ثم احفظ.</small>}
+                              {slot.note ? <small className="opening-note">{slot.note}</small> : null}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="opening-note">
+                          لم أجد وقتاً يخلو من كل التعارضات — كل ساعة يستخدمها قسمك مشغولة
+                          بأستاذٍ أو قاعة، أو تتقاطع مع مقرر يحتاجه هؤلاء الطلاب أنفسهم.
+                        </p>
+                      )}
+                    </article>
+                  ))}
+                  {demand.openings.noCeiling?.length ? (
+                    <p className="opening-note">
+                      {demand.openings.noCeiling.length} من المقررات المطلوبة بلا «الحد الأعلى للطلبة» —
+                      سجّله في شاشة المقررات ليُحسب عدد الشعب.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              {!demand.openings?.proposals?.length && demand.openings?.simulationTested ? <p className="demand-headline">
+                أُعيدت محاكاة {countOf(demand.openings.simulationTested, AR.section)} لفتح شعب على رغبات المشاركين؛ لم يثبت تحسن صافٍ في بلوغ 12 أو 15 وحدة دون الإضرار بطالب آخر، لذلك لا توجد توصية مؤكدة.
+              </p> : null}
+
+              {/* ── الاقتراح ─────────────────────────────────────────────────
+                  Each card is one move that was tried against the real week and
+                  produced nothing new. Pressing it opens the lecture; nothing
+                  moves until a person saves it. */}
+              {demand.repairs?.length ? (
+                <div className="demand-repairs">
+                  <p className="demand-headline">{demand.headline}</p>
+                  {demand.repairs.map((fix: any) => (
+                    <article key={`${fix.rowId}-${fix.to.day}-${fix.to.start}`} className="demand-repair">
+                      <header>
+                        <b>{fix.swapWith ? "تبديل موعدي شعبتين" : fix.courseName}</b>
+                        <span>شعبة {fix.sectionCode}{fix.room ? ` · ${fix.room}` : ""}</span>
+                      </header>
+                      <div className="demand-move" dir="rtl">
+                        <span className="demand-from">
+                          <small>{fix.courseName} · {fix.from.dayLabel}</small>
+                          <b dir="ltr">{scheduleClockForDisplay(fix.from.start)}</b>
+                        </span>
+                        <ArrowLeftRight aria-hidden="true" />
+                        <span className="demand-to">
+                          <small>{fix.to.dayLabel}</small>
+                          <b dir="ltr">{scheduleClockForDisplay(fix.to.start)}</b>
+                        </span>
+                      </div>
+                      {fix.swapWith ? <div className="demand-move" dir="rtl">
+                        <span className="demand-from"><small>{fix.swapWith.courseName} · {fix.swapWith.from.dayLabel}</small><b dir="ltr">{scheduleClockForDisplay(fix.swapWith.from.start)}</b></span>
+                        <ArrowLeftRight aria-hidden="true" />
+                        <span className="demand-to"><small>{fix.swapWith.to.dayLabel}</small><b dir="ltr">{scheduleClockForDisplay(fix.swapWith.to.start)}</b></span>
+                      </div> : null}
+                      <p className="demand-why">
+                        بعد إعادة المحاكاة، يرتفع القادرون على بلوغ 12 وحدة من <b>{countOf((fix.simulationImpact?.before.canReach15 || 0) + (fix.simulationImpact?.before.canReach12To14 || 0), AR.student)}</b> إلى{" "}
+                        <b>{countOf((fix.simulationImpact?.after.canReach15 || 0) + (fix.simulationImpact?.after.canReach12To14 || 0), AR.student)}</b> من أصل {countOf(fix.simulationImpact?.respondents || 0, AR.student)} مشاركاً؛ وبلوغ 15 وحدة يتحسن بمقدار{" "}
+                        <b>{countOf(fix.simulationImpact?.delta15 || 0, AR.student)}</b>. وتقل تعارضات الخطط من <b>{countOf(fix.simulationImpact?.conflictsBefore || 0, AR.course)}</b> إلى <b>{countOf(fix.simulationImpact?.conflictsAfter || 0, AR.course)}</b> بتغيير {countOf(fix.simulationImpact?.scheduleChanges || 1, AR.schedule)}. المقاعد افتراضية، والنتيجة للرغبات المرسلة فقط.
+                      </p>
+                      <div className="demand-actions">
+                        <SecondaryButton onClick={() => openRepair(fix)} data-guide-ignore="معاينة نقل الجدول داخل نسخة محلية لا تحفظ التعديل">
+                          <WandSparkles /> معاينة التأثير
+                        </SecondaryButton>
+                        <ApplyProposal
+                          compact
+                          icon="check"
+                          label={fix.swapWith ? "اعتمد التبديل في الجدول" : "اعتمد النقل في الجدول"}
+                          lines={[
+                            `${fix.courseName} · شعبة ${fix.sectionCode}: من ${fix.from.dayLabel} ${scheduleClockForDisplay(fix.from.start)} إلى ${fix.to.dayLabel} ${scheduleClockForDisplay(fix.to.start)}`,
+                            ...(fix.swapWith ? [`${fix.swapWith.courseName} · شعبة ${fix.swapWith.sectionCode}: من ${fix.swapWith.from.dayLabel} ${scheduleClockForDisplay(fix.swapWith.from.start)} إلى ${fix.swapWith.to.dayLabel} ${scheduleClockForDisplay(fix.swapWith.to.start)}`] : []),
+                          ]}
+                          why={fix.simulationImpact ? `بعد إعادة المحاكاة: ${countOf(fix.simulationImpact.delta15 || 0, AR.student)} إضافي يبلغ 15 وحدة، وتعارضات الخطط من ${fix.simulationImpact.conflictsBefore || 0} إلى ${fix.simulationImpact.conflictsAfter || 0}.` : undefined}
+                          preview={() => postWhatIf({ kind: fix.swapWith ? "swap" : "move", termId, moves: [{ rowId: fix.rowId, to: fix.to }, ...(fix.swapWith ? [{ rowId: fix.swapWith.rowId, to: fix.swapWith.to }] : [])] })}
+                          run={async () => {
+                            const source = sourceScope(fix);
+                            const moves = [fix, ...(fix.swapWith ? [fix.swapWith] : [])].map((move: any, index: number) => ({
+                              rowId: index === 0 ? fix.rowId : fix.swapWith.rowId, from: move.from, to: move.to,
+                            }));
+                            const result = await postScheduleProposal({
+                              kind: fix.swapWith ? "swap" : "move", collegeId: source.collegeId, sectionId: source.sectionId, termId, moves,
+                              origin: { kind: "intelligence", refId: `row:${fix.rowId}`, note: `${fix.swapWith ? "تبديل" : "نقل"} «${fix.courseName}» لتخفيف تعارض الطلبة` },
+                            });
+                            return { summary: `${fix.swapWith ? "بُدّل موعدا" : "نُقل موعد"} «${fix.courseName}» في الجدول`, amendment: Boolean(result.amendment) };
+                          }}
+                          onApplied={() => { void reload(); }}
+                        />
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : demand.repairSimulationReady && demand.repairCandidates ? (
+                <p className="demand-headline">
+                  اختُبر <Num value={demand.repairCandidates} /> اقتراح نقل في محاكاة التسجيل، ولم تثبت نقلةٌ تحسّن بلوغ 12 أو 15 وحدة دون الإضرار بالنتيجة الحالية.
+                </p>
+              ) : demand.unsolved?.length ? (
+                <p className="demand-headline">{demand.headline}</p>
+              ) : demand.pairs?.length ? (
+                <p className="demand-headline">
+                  لا يوجد تقاطع فعلي على الطلاب في هذا الفصل — الأزواج المشتركة كلها في أوقات مختلفة.
+                </p>
+              ) : null}
+
+              {/* المقررات الأكثر طلباً — شريط بسيط، بالقاعدة إلى جانب كل رقم. */}
+              {demand.courses?.length ? (
+                <section className="demand-chart" aria-label="المقررات الأكثر طلباً">
+                  <header>
+                    <strong><BarChart3 aria-hidden="true" /> المقررات الأكثر طلباً</strong>
+                    <small>{readingMode === "department" ? `${demand.respondents} إجابات عبر الكليات` : `من ${countOf(demand.respondents, oblique(studentWords.student))}`}</small>
+                  </header>
+                  <ol className="demand-bars">
+                    {demand.courses.slice(0, 8).map((course: any, index: number) => (
+                      <li key={`${course.readingScope?.collegeId || collegeId}:${course.courseId}`}>
+                        <b className="demand-rank" aria-hidden="true">{index + 1}</b>
+                        <span className="demand-course-label">
+                          <b>{course.name}</b>{scopeLabel(course) ? <small>{scopeLabel(course)}</small> : null}
+                          <small dir="ltr">{course.code || course.courseId}</small>
+                        </span>
+                        <i role="img" aria-label={`${course.share}%`}><b style={{ width: `${Math.max(4, course.share)}%` }} /></i>
+                        <strong dir="ltr">{course.students}/{demand.respondents} <small>{course.share}%</small></strong>
+                      </li>
+                    ))}
+                  </ol>
+                  {demand.courses.length > 8 ? <p className="demand-chart-more">و{countOf(demand.courses.length - 8, AR.course)} {nounFor(demand.courses.length - 8, AR.otherAdj)} في السجلّ أدناه.</p> : null}
+                </section>
+              ) : null}
+
+              {demand.unsolved?.length ? (
+                <details className="insight-disclosure">
+                  <summary>تقاطعات بلا حلٍّ نظيف ({demand.unsolved.length})</summary>
+                  <ul className="demand-stuck">
+                    {demand.unsolved.map((item: any, index: number) => (
+                      <li key={index}>
+                        «{item.a}» و«{item.b}» — {countOf(item.shared, AR.student)}.
+                        كل نقلة مُتاحة تُنشئ تعارضاً آخر؛ الأمر يحتاج قراراً بشرياً.
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+
+              {demand.succession?.links?.length ? (
+                <details className="insight-disclosure">
+                  <summary>تسلسل المقررات — ما الذي يأتي بعد ماذا ({demand.succession.links.length})</summary>
+                  <p className="insight-method">{demand.succession.headline}</p>
+                  <ul className="demand-sequence">
+                    {demand.succession.links.map((link: any) => (
+                      <li key={`${link.from}-${link.to}`}>
+                        <b>{link.fromName}</b>
+                        <ArrowLeftRight aria-hidden="true" />
+                        <b>{link.toName}</b>
+                        <em dir="ltr">{link.students}/{link.base}</em>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="insight-method">
+                    مقروءة من طلابٍ أجابوا في أكثر من فصل. لا تُعرَض علاقة أقل من ثلاثة
+                    طلاب — لا لأن الرقم صغير، بل لأنه عندها يصف مسار شخصٍ بعينه.
+                    ولا يُحفظ اسم ولا رقم مدني في أي مرحلة.
+                  </p>
+                </details>
+              ) : null}
+
+              <details className="insight-disclosure">
+                <summary>كيف وصلنا إلى هذه النقلات؟</summary>
+                <p className="insight-method">فحصنا أسبوع الفصل كاملًا واخترنا النقلات التي تزيل التقاطع دون إنشاء تعارض جديد.</p>
+              </details>
+            </Surface>
+            </div>
+          ) : null}
+          {genome ? (
+            <div
+              className="content-stack insight-scene-panel"
+              id="insight-panel-genome"
+              role="tabpanel"
+              aria-labelledby="insight-tab-genome"
+              hidden={activeInsightKey !== "genome"}
+              tabIndex={activeInsightKey === "genome" ? 0 : -1}
+            >
+            <Surface className="schedule-genome">
+              <div className="surface-head">
+                <div>
+                  <span className="surface-kicker">بصمة الجدول</span>
+                  <h2>نمط القسم عبر الفصول</h2>
+                </div>
+                <Dna />
+              </div>
+              <div className="genome-core">
+                <div className="genome-score">
+                  <span>مطابقة النمط</span>
+                  <strong>
+                    {genome.compatibility == null
+                      ? "—"
+                      : `${genome.compatibility}%`}
+                  </strong>
+                  <small>
+                    {genome.available
+                      ? `${countOf(genome.history.length, AR.term)} سابق في البصمة`
+                      : "البصمة تبدأ من هذا الفصل"}
+                  </small>
+                </div>
+                <div className="genome-days">
+                  {Object.entries(genome.dna?.dayShares || {}).map(
+                    ([key, value]: any) => (
+                      <article key={key}>
+                        <span>{dayLabels[key]}</span>
+                        <i>
+                          <b
+                            style={{
+                              width: `${Math.min(100, Number(value) || 0)}%`,
+                            }}
+                          />
+                        </i>
+                        <strong>{value}%</strong>
+                      </article>
+                    ),
+                  )}
+                </div>
+                <div className="genome-rooms">
+                  <span>القاعات المعتادة</span>
+                  {(genome.dna?.rooms || []).slice(0, 5).map((r: any) => (
+                    <b key={r.key}>{r.label}</b>
+                  ))}
+                </div>
+              </div>
+              <details className="insight-disclosure genome-details">
+                <summary>تفاصيل القراءة</summary>
+              <div className="genome-patterns">
+                <section>
+                  <span>نمط ساعات البداية</span>
+                  <div>
+                    {Object.entries(genome.dna?.timeShares || {}).sort((a:any,b:any)=>Number(b[1])-Number(a[1])).slice(0, 4).map(
+                      ([key, value]: any) => (
+                        <b key={key}>
+                          <small>{/^(\d{2})-(\d{2})$/.test(key) ? formatScheduleTimeRange(`${key.slice(0, 2)}:00`, `${key.slice(3, 5)}:00`) : key.replace(/^0/, "")}</small>
+                          <strong>{value}%</strong>
+                        </b>
+                      ),
+                    )}
+                  </div>
+                </section>
+                <section>
+                  <span>أماكن الاختناق التاريخية</span>
+                  <div>
+                    {(genome.dna?.bottlenecks || [])
+                      .slice(0, 3)
+                      .map((b: any) => (
+                        <b key={`${b.day}-${b.time}`}>
+                          <small>
+                            {b.label || dayLabels[b.day]} · {scheduleClockForDisplay(b.time)}
+                          </small>
+                          <strong>{b.avgLoad}</strong>
+                        </b>
+                      ))}
+                  </div>
+                </section>
+              </div>
+              <div className="genome-deviations">
+                {(genome.deviations || [])
+                  .slice(0, 2)
+                  .map((d: any, i: number) => (
+                    <article className={d.severity || "info"} key={i}>
+                      <i />
+                      <div>
+                        <strong>{d.title}</strong>
+                        <p>{d.detail}</p>
+                      </div>
+                    </article>
+                  ))}
+              </div>
+              </details>
+              {operationsReview?.unwrittenRules?.length ? (
+                <div className="unwritten-rules">
+                  <div className="unwritten-rules-head"><Sparkles /><span><small>قواعد لم يكتبها أحد</small><strong>مكتشفة من التاريخ</strong></span></div>
+                  <div className="unwritten-rules-list">{operationsReview.unwrittenRules.slice(0,6).map((rule:any)=><article key={rule.id}><b>{rule.confidence}%</b><span><strong>{rule.title}</strong>{scopeLabel(rule) ? <small>{scopeLabel(rule)}</small> : null}<small>{rule.detail}</small></span><button type="button" onClick={()=>void proposeUnwrittenRule(rule)} disabled={busy} title="أضفها كقاعدة مقترحة إلى دفتر القرارات" aria-label={`اقتراح قاعدة: ${rule.title}`}><Plus /></button></article>)}</div>
+                </div>
+              ) : null}
+              <div className="genome-foot">
+                <History />
+                <span>
+                  متوسط الفراغ التاريخي:{" "}
+                  <b>{formatUnitMetricArabic(genome.dna?.avgGap ?? "—", "دقيقة", 0)}</b>. هذه قراءة نمطية
+                  وليست قاعدة إلزامية.
+                </span>
+              </div>
+            </Surface>
+            </div>
+          ) : null}
+          {activeInsightKey === "predict" ? (
+            <div
+              className="content-stack insight-scene-panel"
+              id="insight-panel-predict"
+              role="tabpanel"
+              aria-labelledby="insight-tab-predict"
+              tabIndex={0}
+            >
+              <PredictiveInsightPanel
+                canSchedule
+                onChanged={() => undefined}
+                scope={{ mode: readingMode === "department" ? "department" : "college", collegeId: Number(collegeId) || 0, sectionId: Number(sectionId) || 0 }}
+              />
+            </div>
+          ) : null}
+          </section>
+        </div>
+      ) : null}
+
+      {insightReason ? (
+        <div className="intel-reason-backdrop no-print" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setInsightReason(null); }}>
+          <section className={`intel-reason-sheet tone-${insightReason.tone || "plain"}`} role="dialog" aria-modal="true" aria-label={insightReason.title}>
+            <header className="intel-reason-head">
+              <span className="intel-reason-icon" aria-hidden="true">{insightReason.icon || <CircleHelp />}</span>
+              <div><small>{insightReason.kicker}</small><strong>{insightReason.title}</strong></div>
+              {insightReason.metric ? <b className="intel-reason-metric">{insightReason.metric === "✓"
+                ? <><Check className="intel-reason-check" aria-hidden="true" /><span className="sr-only">✓</span></>
+                : <Num value={insightReason.metric} />}</b> : null}
+              <button type="button" data-guide-ignore="إغلاق نافذة شرح المؤشر فقط" onClick={() => setInsightReason(null)} aria-label="إغلاق التفاصيل" title="إغلاق"><X /></button>
+            </header>
+            {insightReason.summary ? <p className="intel-reason-summary">{insightReason.summary}</p> : null}
+            {insightReason.facts?.length ? (
+              <div className="intel-reason-facts">
+                {insightReason.facts.map((fact, index) => <article key={`${fact.label}-${index}`}><small>{fact.label}</small><strong><Num value={fact.value} /></strong></article>)}
+              </div>
+            ) : null}
+            {insightReason.items?.length ? (
+              <div className="intel-reason-items" aria-label="التفاصيل الفعلية">
+                {insightReason.items.map((item, index) => (
+                  <article key={`${item.title}-${index}`}>
+                    <span className="intel-reason-item-index">{(index + 1).toLocaleString("ar-KW-u-nu-latn")}</span>
+                    <div><strong>{item.title}</strong>{item.subtitle ? <small className="intel-reason-course-name">{item.subtitle}</small> : null}{item.meta ? <small>{item.meta}</small> : null}</div>
+                    {item.value ? <b dir="ltr"><Num value={item.value} /></b> : null}
+                  </article>
+                ))}
+              </div>
+            ) : null}
+            {insightReason.bars?.length ? (
+              <div className="intel-reason-bars" role="img" aria-label="رسم توضيحي للسبب">
+                {insightReason.bars.map((bar, index) => (
+                  <div key={`${bar.label}-${index}`}><span>{bar.label}</span><i><b style={{ width:`${Math.max(3,Math.min(100,(bar.value/Math.max(1,bar.max))*100))}%` }} /></i><em><Num value={bar.caption ?? bar.value} /></em></div>
+                ))}
+              </div>
+            ) : null}
+            <footer><ShieldCheck aria-hidden="true" /><span>شرح فقط · لا يغيّر الجدول</span><button type="button" data-guide-ignore="إغلاق نافذة شرح المؤشر فقط" onClick={() => setInsightReason(null)}>تم</button></footer>
+          </section>
+        </div>
+      ) : null}
+
+      {tab === "copilot" ? (
+        <div className="copilot-layout">
+          <Surface className="copilot-panel">
+            <div className="copilot-head">
+              <span className="copilot-mark">
+                <BrainCircuit />
+              </span>
+              <div>
+                <span className="surface-kicker">مساعد الجدول</span>
+                <h2>اسأل الجدول نفسه</h2>
+                <p>تحليل فقط · بلا تعديل</p>
+              </div>
+              <Badge tone="success">تحليل فقط</Badge>
+              {chat.length ? (
+                <SecondaryButton
+                  type="button"
+                  data-guide-ignore="طباعة نتائج الاستعلام فقط ولا تغيّر الجدول"
+                  className="copilot-print no-print"
+                  onClick={() => { if (!showPwaPrintHelp()) window.print(); }}
+                  title="طباعة نتائج الاستعلامات"
+                >
+                  <Printer aria-hidden="true" /> طباعة النتائج
+                </SecondaryButton>
+              ) : null}
+            </div>
+            <div className="prompt-chips">
+              {[
+                "لماذا يوم الاثنين مزدحم؟",
+                "منو عنده أكثر من 3 ساعات فراغ؟",
+                "ما أفضل القاعات الأقل استخداماً؟",
+                "أعطني أفضل توزيع يقلل الفراغات",
+              ].map((x) => (
+                <button key={x} onClick={() => sendCopilot(x)} disabled={busy}>
+                  <Lightbulb />
+                  {x}
+                </button>
+              ))}
+            </div>
+            <div className="copilot-thread" ref={copilotThread}>
+              {chat.length ? (
+                chat.map((item, i) => (
+                  <React.Fragment key={i}>
+                    <div className="chat-user">
+                      <span>{user.Name.trim().charAt(0) || "د"}</span>
+                      <p>{item.prompt}</p>
+                    </div>
+                    <div className="chat-assistant" data-copilot-answer={i} tabIndex={-1}>
+                      <span>
+                        <Sparkles />
+                      </span>
+                      {(item as any).move ? (
+                        <div className="nl-move">
+                          {(item as any).move.ok ? (() => {
+                            const mv = (item as any).move;
+                            return (
+                              <>
+                                <strong>{mv.preview.course}{mv.preview.section ? ` · شعبة ${mv.preview.section}` : ""}</strong>
+                                <div className="nl-move-change">
+                                  <span className="nl-from"><i>من</i>{mv.preview.before.days} · <time dir="ltr">{formatScheduleTimeRange(mv.preview.before.start, mv.preview.before.end)}</time></span>
+                                  <ArrowLeft aria-hidden="true" />
+                                  <span className="nl-to"><i>إلى</i>{mv.preview.after.days} · <time dir="ltr">{formatScheduleTimeRange(mv.preview.after.start, mv.preview.after.end)}</time></span>
+                                </div>
+                                {mv.conflicts?.length ? (
+                                  <ul className="nl-move-conflicts">
+                                    {mv.conflicts.slice(0, 4).map((c: any, j: number) => (
+                                      <li key={j} className={c.soft ? "soft" : c.severity}>{c.message}</li>
+                                    ))}
+                                  </ul>
+                                ) : <p className="nl-move-clear">لا مانع ظاهر لهذا النقل.</p>}
+                                {mv.applied ? (
+                                  <span className="nl-move-done"><CheckCircle2 aria-hidden="true" /> تم النقل بنجاح</span>
+                                ) : mv.canApply ? (
+                                  <button type="button" data-guide-feature-id="schedule.action.move-room" className="nl-move-apply" disabled={busy} onClick={() => applyMove(mv, i)}><WandSparkles aria-hidden="true" /> طبّق النقل</button>
+                                ) : (
+                                  <span className="nl-move-blocked"><ShieldAlert aria-hidden="true" /> {mv.blockedReason || "يوجد تعارض يمنع النقل"}</span>
+                                )}
+                              </>
+                            );
+                          })() : (
+                            <p className="nl-move-hint">{(item as any).move.hint || "لم أفهم أمر النقل."}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="nl-answer">
+                          <strong>{item.answer?.title}</strong>
+                          {item.answer?.scope ? <small className="nl-scope-proof"><ShieldCheck aria-hidden="true" /> النطاق: {item.answer.scope.sectionName} · {countOf(item.answer.scope.rowCount, AR.appointment)}</small> : null}
+
+                          {/* The assistant already measured these; a paragraph
+                              is the slowest way to hand over a number. */}
+                          {item.answer?.figures?.length ? (
+                            <div className="nl-figures">
+                              {item.answer.figures.map((f: any, j: number) => (
+                                <article key={j} className={`nl-figure tone-${f.tone || "plain"} ${/[^\d.,\/\s٠-٩]/.test(String(f.value)) ? "is-text" : ""}`.trim()}>
+                                  <b><Num value={f.value} /></b>
+                                  {f.hint ? <i>{f.hint}</i> : null}
+                                  <span>{f.label}</span>
+                                </article>
+                              ))}
+                            </div>
+                          ) : null}
+
+                          {/* A change is two numbers and an arrow between them. */}
+                          {item.answer?.shift ? (
+                            <div className={`nl-shift ${item.answer.shift.better ? "better" : "worse"}`}>
+                              <span>{item.answer.shift.label}</span>
+                              <b><Num value={item.answer.shift.before} /></b>
+                              <ArrowLeft aria-hidden="true" />
+                              <b className="to"><Num value={item.answer.shift.after} /></b>
+                            </div>
+                          ) : null}
+
+                          {/* Six bars are read in the time one sentence takes. */}
+                          {item.answer?.bars?.length ? (
+                            <div className="nl-bars">
+                              {item.answer.bars.map((b: any, j: number) => (
+                                <div key={j} className="nl-bar">
+                                  <span>{b.label}</span>
+                                  <div><i style={{ width: `${Math.max(2, Math.min(100, (b.value / (b.max || 1)) * 100))}%` }} /></div>
+                                  <em><Num value={b.caption ?? b.value} /></em>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+
+                          {!(item.answer?.figures?.length || item.answer?.bars?.length || item.answer?.shift) ? (
+                            <>
+                              <p>{item.answer?.summary}</p>
+                              {item.answer?.bullets?.length ? (
+                                <ul>
+                                  {item.answer.bullets.map((b: string, j: number) => (
+                                    <li key={j}>{b}</li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                            </>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  </React.Fragment>
+                ))
+              ) : (
+                <div className="copilot-empty">
+                  <BrainCircuit />
+                  <strong>اسأله كما تسأل زميلك</strong>
+                  <span>مثال: انقل 101 إلى {scheduleClockForDisplay("11:00")}</span>
+                </div>
+              )}
+            </div>
+            <form
+              className="copilot-compose"
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendCopilot();
+              }}
+            >
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="اكتب سؤالك عن جدول هذا القسم..."
+                rows={2}
+              />
+              <button
+                type="submit"
+                aria-label="إرسال السؤال"
+                title="إرسال السؤال"
+                disabled={busy || !prompt.trim()}
+              >
+                <Send />
+              </button>
+            </form>
+          </Surface>
+          <aside className="copilot-context">
+            <Surface>
+              <span className="surface-kicker">حدود المعرفة</span>
+              <h3>{overview?.context?.sectionName}</h3>
+              <p>{readingMode === "department" ? "القسم عبر كلياته المسموحة" : "هذه الكلية"} · الحجوزات الخارجية محسوبة.</p>
+            </Surface>
+            <Surface className="decision-inbox-mini">
+              <div className="decision-inbox-mini-head"><div><span className="surface-kicker">دفتر القرارات</span><h3>{Number(decisionInbox?.totalOpen||0).toLocaleString("ar-KW-u-nu-latn")} مفتوح</h3></div><button type="button" onClick={()=>setDecisionCompose(value=>!value)} aria-label="إضافة قرار"><Plus /></button></div>
+              {decisionCompose?<form onSubmit={e=>{e.preventDefault();void addOpenDecision();}} className="decision-inbox-compose"><input autoFocus value={decisionTitle} onChange={e=>setDecisionTitle(e.target.value)} placeholder="قرار يحتاج حسم…" maxLength={140}/><button type="submit" aria-label="أضف القرار" title="أضف القرار" data-guide-ignore="زر إرسال داخل نموذج «قرار يحتاج حسم» — يضيف السطر الذي كُتب في الحقل بجواره ولا يمثل ميزة مستقلة" disabled={busy||decisionTitle.trim().length<3}><Save /></button></form>:null}
+              <div className="decision-inbox-list">
+                {[...(decisionInbox?.manual||[]).filter((item:any)=>item.status==="open"),...(decisionInbox?.inferred||[])].slice(0,5).map((item:any)=><button key={item.id} type="button" className={`priority-${item.priority||"medium"}`} onClick={()=>{if(!String(item.id).startsWith("inferred:"))void closeOpenDecision(item);}} title={String(item.id).startsWith("inferred:")?"مستنتج تلقائياً من الجدول":"اضغط لإغلاق القرار"}><i/><span><strong>{item.title}</strong>{scopeLabel(item) ? <small>{scopeLabel(item)}</small> : null}{item.detail?<small>{item.detail}</small>:null}</span>{String(item.id).startsWith("inferred:")?<Sparkles/>:<CheckCircle2/>}</button>)}
+              </div>
+            </Surface>
+            <Surface>
+              <span className="surface-kicker">أوامر مفيدة</span>
+              {/* These were <span>s: they looked pressable and did nothing.
+                  Each now writes its own question into the box. */}
+              <div className="mini-command-list">
+                {[
+                  "أين الفراغات الطويلة عند الأساتذة؟",
+                  "إذا نقلت 101 إلى الساعة 11، فما الذي سيتأثر؟",
+                  "اقترح أفضل توزيع يقلل الفراغ",
+                  "اقرأ القاعات وأقلها استخداماً",
+                ].map(text => (
+                  <button key={text} type="button" onClick={() => setPrompt(text)}>
+                    <Command aria-hidden="true" />
+                    <span>{text}</span>
+                  </button>
+                ))}
+              </div>
+            </Surface>
+          </aside>
+        </div>
+      ) : null}
+
+      {tab === "twin" ? (
+        <div className="twin-layout">
+          <CardDeck
+            value={twinCard}
+            onChange={(next) => showTwinCard(next as TwinCard | null)}
+            backLabel="العودة إلى بطاقات التجربة"
+            title="بطاقات التجربة"
+            hint="كل بطاقة تفتح صفحتها وحدها — لا شيء تحت شيء."
+            cards={[
+              { value: "hero", label: "النسخة التجريبية", detail: "حالة النسخة وما غيّرته فيها", icon: <Dna />,
+                metric: scenario ? String(changedRows.length) : undefined },
+              { value: "lab", label: "مختبر القرار", detail: "القواعد والمحاكاة والتحسين", icon: <BrainCircuit /> },
+              ...(scenario
+                ? [
+                    { value: "board", label: "لوحة التجربة", detail: "حرّك الوقت وشاهد النتيجة لحظياً", icon: <CalendarClock />,
+                      metric: String(scenarioEval?.scenario?.score ?? overview?.score ?? "") },
+                    { value: "ledger", label: "سجل التغييرات", detail: "ما غيّرته، موعداً موعداً", icon: <FileClock />,
+                      metric: String(changedRows.length) },
+                  ]
+                : []),
+            ]}
+          />
+          {twinCard === "hero" ? (
+          <Surface className="twin-hero">
+            <div>
+              <span className="surface-kicker">نسخة الجدول التجريبية</span>
+              <h2>
+                {scenario
+                  ? activeDraftId
+                    ? "أنت تعدّل مسودة القسم المشتركة"
+                    : "أنت تعمل الآن على نسخة وهمية"
+                  : "جرّب أي شيء بدون لمس الجدول الحقيقي"}
+              </h2>
+              <p>
+                {scenario
+                  ? `غيّرت ${countOf(changedRows.length, oblique(AR.appointment))} داخل السيناريو حتى الآن. لا شيء منها منشور.`
+                  : "انسخ الجدول إلى مساحة تجريبية، حرّك الأوقات والقاعات، قارن النتيجة، وبعدها فقط احفظه كمسودة أو انشره."}
+              </p>
+            </div>
+            <div className="twin-actions">
+              {!scenario ? (
+                <>
+                  <PrimaryButton onClick={startTwin}>
+                    <Play /> ابدأ نسخة مطابقة
+                  </PrimaryButton>
+                  <SecondaryButton onClick={autoSchedule} disabled={busy}>
+                    <WandSparkles /> ولّد اقتراحاً ذكياً
+                  </SecondaryButton>
+                </>
+              ) : (
+                <>
+                  <SecondaryButton
+                    onClick={() => evaluateScenario()}
+                    disabled={busy}
+                  >
+                    <RefreshCw /> أعد التقييم
+                  </SecondaryButton>
+                  <PrimaryButton
+                    onClick={async () => {
+                      const draft = await saveDraft("what-if");
+                      if (draft) openScheduleWorkspace(`تم حفظ «${draft.name}» كمسودة. أنت الآن في الجدول الحقيقي؛ المسودة لم تُنشر بعد.`);
+                    }}
+                    disabled={busy || !changedRows.length}
+                  >
+                    <Save /> احفظ كمسودة
+                  </PrimaryButton>
+                  <GhostButton onClick={() => openScheduleWorkspace("عدت إلى الجدول الحقيقي. النسخة التجريبية لم تغيّر أي موعد منشور.")}>
+                    <CalendarClock /> افتح الجدول الحقيقي
+                  </GhostButton>
+                  <GhostButton
+                    onClick={() => {
+                      setScenario(null);
+                      setScenarioEval(null);
+                      setActiveDraftId(null);
+                    }}
+                  >
+                    إغلاق النسخة
+                  </GhostButton>
+                </>
+              )}
+            </div>
+          </Surface>
+          ) : null}
+          {twinCard === "lab" ? (
+          <Surface className="innovation-suite">
+            <div className="innovation-suite-head">
+              <div>
+                <span className="surface-kicker">مختبر القرار</span>
+                <h2>مختبر القرار المتقدم</h2>
+                <p>
+                  القواعد، غرفة الاجتماع، والتحسين الآلي كلها تعمل داخل النسخة التجريبية
+                  فقط. لا توجد هنا أي قناة نشر تلقائي.
+                </p>
+              </div>
+              <LockKeyhole />
+            </div>
+            <div className="innovation-tabs">
+              <button
+                className={innovationMode === "constraints" ? "active" : ""}
+                onClick={() => setInnovationMode("constraints")}
+              >
+                <SlidersHorizontal /> لوحة القيود{" "}
+                <b>{constraints.length}</b>
+              </button>
+              <button
+                className={innovationMode === "war" ? "active" : ""}
+                onClick={() => setInnovationMode("war")}
+              >
+                <UsersRound /> غرفة القرار
+              </button>
+              <button
+                className={innovationMode === "autopilot" ? "active" : ""}
+                onClick={() => setInnovationMode("autopilot")}
+              >
+                <WandSparkles /> التحسين الآلي
+              </button>
+              <button
+                className={innovationMode === "policy" ? "active" : ""}
+                onClick={() => setInnovationMode("policy")}
+              >
+                <BarChart3 /> مختبر السياسات
+              </button>
+            </div>
+            {innovationMode === "constraints" ? (
+              <div className="constraint-canvas">
+                <div className="constraint-builder">
+                  <div className="constraint-builder-copy">
+                    <Dna />
+                    <div>
+                      <strong>حوّل قواعد القسم البشرية إلى قيود مفهومة</strong>
+                      <span>
+                        لا محاضرات بعد وقت محدد، يوم بحث، قاعة إلزامية، أو حد
+                        أقصى للفراغ.
+                      </span>
+                    </div>
+                  </div>
+                  <div className="constraint-form">
+                    <Field label="نوع القاعدة">
+                      <select
+                        value={constraintDraft.type}
+                        onChange={(e) =>
+                          setConstraintDraft((p: any) => ({
+                            ...p,
+                            type: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="instructor_latest_end">
+                          أستاذ · آخر وقت
+                        </option>
+                        <option value="instructor_day_off">
+                          أستاذ · يوم محجوز
+                        </option>
+                        <option value="department_day_off">
+                          القسم · يوم بحث/محجوز
+                        </option>
+                        <option value="course_room">مقرر · قاعة إلزامية</option>
+                        <option value="max_instructor_gap">
+                          حد أقصى للفراغ
+                        </option>
+                      </select>
+                    </Field>
+                    {constraintDraft.type === "course_room" ? (
+                      <Field label="المقرر">
+                        <select
+                          value={constraintDraft.AdCourseId || ""}
+                          onChange={(e) =>
+                            setConstraintDraft((p: any) => ({
+                              ...p,
+                              AdCourseId: Number(e.target.value) || 0,
+                            }))
+                          }
+                        >
+                          <option value="">اختر المقرر...</option>
+                          {scopedCourses.map((c) => (
+                            <option key={c.AdCourseId} value={c.AdCourseId}>
+                              {c.CourseCode} — {c.CourseName}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    ) : constraintDraft.type === "department_day_off" ? (
+                      <div className="constraint-rule-note">
+                        <CalendarClock />
+                        <span>
+                          <strong>قاعدة على القسم كله</strong>
+                          <small>
+                            كل موعد في هذا اليوم = مخالفة.
+                          </small>
+                        </span>
+                      </div>
+                    ) : (
+                      <Field label="أستاذ المقرر">
+                        <select
+                          value={constraintDraft.AdInstructorId || ""}
+                          onChange={(e) =>
+                            setConstraintDraft((p: any) => ({
+                              ...p,
+                              AdInstructorId: Number(e.target.value) || 0,
+                            }))
+                          }
+                        >
+                          {constraintDraft.type === "max_instructor_gap" ? (
+                            <option value="">كل الأساتذة</option>
+                          ) : (
+                            <option value="">اختر الأستاذ...</option>
+                          )}
+                          {instructors.map((i) => (
+                            <option
+                              key={i.AdInstructorId}
+                              value={i.AdInstructorId}
+                            >
+                              {i.AdInstructorName}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    )}
+                    {constraintDraft.type === "instructor_latest_end" ? (
+                      <Field label="آخر نهاية">
+                        <TimeField
+                         
+                          min={SCHEDULE_DAY_START_TIME}
+                          max={SCHEDULE_DAY_END_TIME}
+                          value={constraintDraft.time}
+                          onChange={(e) =>
+                            setConstraintDraft((p: any) => ({
+                              ...p,
+                              time: e.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                    ) : null}
+                    {constraintDraft.type === "instructor_day_off" ||
+                    constraintDraft.type === "department_day_off" ? (
+                      <Field label="اليوم">
+                        <select
+                          value={constraintDraft.day}
+                          onChange={(e) =>
+                            setConstraintDraft((p: any) => ({
+                              ...p,
+                              day: e.target.value,
+                            }))
+                          }
+                        >
+                          {Object.entries(dayLabels).map(([key, label]) => (
+                            <option key={key} value={key}>
+                              {label as string}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    ) : null}
+                    {constraintDraft.type === "course_room" ? (
+                      <LocationPicker
+                        collegeId={collegeId}
+                        sectionId={sectionId}
+                        termId={termId}
+                        allowPending={false}
+                        value={{
+                          buildingId: constraintDraft.buildingId || undefined,
+                          roomId: constraintDraft.roomId || undefined,
+                          AdRoomCode: constraintDraft.roomCode || "",
+                          AdRoomHall: constraintDraft.roomHall || "",
+                          locationStatus: constraintDraft.roomId ? "VERIFIED" : undefined,
+                        }}
+                        onChange={(patch) => setConstraintDraft((p: any) => ({
+                          ...p,
+                          buildingId: "buildingId" in patch ? (patch.buildingId || "") : p.buildingId,
+                          roomId: "roomId" in patch ? (patch.roomId || "") : p.roomId,
+                          roomCode: "AdRoomCode" in patch ? (patch.AdRoomCode || "") : p.roomCode,
+                          roomHall: "AdRoomHall" in patch ? (patch.AdRoomHall || "") : p.roomHall,
+                        }))}
+                      />
+                    ) : null}
+                    {constraintDraft.type === "max_instructor_gap" ? (
+                      <Field label="الدقائق">
+                        <input
+                          type="number"
+                          min="30"
+                          max="480"
+                          step="30"
+                          value={constraintDraft.maxMinutes}
+                          onChange={(e) =>
+                            setConstraintDraft((p: any) => ({
+                              ...p,
+                              maxMinutes: Number(e.target.value) || 120,
+                            }))
+                          }
+                        />
+                      </Field>
+                    ) : null}
+                    <PrimaryButton onClick={createConstraint} disabled={busy}>
+                      <Save /> أضف القاعدة
+                    </PrimaryButton>
+                  </div>
+                </div>
+                <div className="constraint-list">
+                  <div className="constraint-list-head">
+                    <strong>القواعد الفعالة لهذا الفصل</strong>
+                    {scenarioEval?.constraints ? (
+                      <Badge
+                        tone={
+                          scenarioEval.constraints.scenario.total
+                            ? "warning"
+                            : "success"
+                        }
+                      >
+                        {scenarioEval.constraints.scenario.total
+                          ? `${countOf(scenarioEval.constraints.scenario.total, AR.breach)} في السيناريو`
+                          : "السيناريو يحترمها كلها"}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  {constraints.length ? (
+                    constraints.map((c) => (
+                      <article
+                        className={c.enabled ? "enabled" : "disabled"}
+                        key={c.id}
+                      >
+                        <button
+                          className="constraint-toggle"
+                          onClick={() => toggleConstraint(c)}
+                        >
+                          <i />
+                          {c.enabled ? "فعالة" : "متوقفة"}
+                        </button>
+                        <div>
+                          <strong>{c.label}</strong>
+                          <small>
+                            {c.userName} ·{" "}
+                            {new Date(c.createdAt).toLocaleDateString("ar-KW-u-nu-latn")}
+                          </small>
+                        </div>
+                        <button
+                          data-guide-ignore="حذف قاعدة محلية داخل النسخة التجريبية وله تأكيده الخاص"
+                          className="constraint-delete"
+                          onClick={() => deleteConstraint(c)}
+                          title="حذف القاعدة"
+                        >
+                          <Trash2 />
+                        </button>
+                      </article>
+                    ))
+                  ) : (
+                    <div className="innovation-empty">
+                      لا توجد قواعد بعد. أضف أول قاعدة بشرية وستبدأ النسخة التجريبية
+                      بمحاسبة السيناريوهات عليها.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+            {innovationMode === "war" ? (
+              <div className="war-room">
+                <div className="war-control">
+                  <div>
+                    <span className="war-mark">
+                      <UsersRound />
+                    </span>
+                    <strong>غرفة قرار اللجنة</strong>
+                    <p>
+                      اختر المشكلة، ثم اعرض ثلاثة حلول على اللجنة جنباً إلى جنب.
+                      اختيار اللجنة يتحول إلى مسودة فقط.
+                    </p>
+                  </div>
+                  <div className="war-picker">
+                    <Field label="المشكلة">
+                      <select
+                        value={warRowId}
+                        onChange={(e) =>
+                          setWarRowId(Number(e.target.value) || "")
+                        }
+                      >
+                        <option value="">أكبر مشكلة يكتشفها النظام</option>
+                        {Array.from(
+                          new Map(
+                            (overview?.conflicts || []).map((c: any) => [
+                              c.rowId,
+                              c,
+                            ]),
+                          ).values(),
+                        )
+                          .slice(0, 12)
+                          .map((c: any) => (
+                            <option key={c.rowId} value={c.rowId}>
+                              {c.message} · موعد #{c.rowId}
+                            </option>
+                          ))}
+                      </select>
+                    </Field>
+                    <PrimaryButton onClick={runWarRoom} disabled={warBusy}>
+                      {warBusy ? <RefreshCw /> : <Play />}
+                      {warBusy ? "أبني السيناريوهات…" : "افتح غرفة القرار"}
+                    </PrimaryButton>
+                  </div>
+                </div>
+                {warRoom ? (
+                  <>
+                    <div className="war-baseline">
+                      <span>الوضع الحالي</span>
+                      <b className="score-ring-slot"><MiniRing value={Number(warRoom.baseline.score)} /></b>
+                      <small>
+                        {countOf(warRoom.baseline.conflicts, AR.blocker)} ·{" "}
+                        {warRoom.baseline.avgGap}د فراغ
+                      </small>
+                    </div>
+                    <div className="war-options">
+                      {warRoom.options.map((o: any) => (
+                        <article
+                          key={o.id}
+                          className={o.rank === 1 ? "recommended" : ""}
+                        >
+                          <span className="war-rank">0{o.rank}</span>
+                          <h3>{o.title}</h3>
+                          <p>{o.reason}</p>
+                          <div className="war-metrics">
+                            <span>
+                              <b>{o.score}</b> جودة
+                            </span>
+                            <span>
+                              <b>
+                                {o.deltaScore > 0
+                                  ? `+${o.deltaScore}`
+                                  : o.deltaScore}
+                              </b>{" "}
+                              فرق
+                            </span>
+                            <span>
+                              <b>{o.conflicts}</b> {nounFor(o.conflicts, AR.blocker)}
+                            </span>
+                            <span>
+                              <b>{o.avgGap}د</b> فراغ عام
+                            </span>
+                            <span
+                              title={o.professorImpact?.name}
+                              className={
+                                o.professorImpact?.gapDelta > 0
+                                  ? "warn"
+                                  : o.professorImpact?.gapDelta < 0
+                                    ? "ok"
+                                    : ""
+                              }
+                            >
+                              <b>
+                                {o.professorImpact?.gapDelta > 0
+                                  ? `+${o.professorImpact.gapDelta}`
+                                  : o.professorImpact?.gapDelta || 0}
+                                د
+                              </b>{" "}
+                              أثر الأستاذ
+                            </span>
+                            <span
+                              title={`من ${o.roomImpact?.from || "—"} إلى ${o.roomImpact?.to || "—"}`}
+                            >
+                              <b>{o.roomImpact?.changed ? "تغيير" : "ثابتة"}</b>{" "}
+                              القاعة
+                            </span>
+                            <span
+                              className={o.constraintViolations ? "warn" : "ok"}
+                            >
+                              <b>{o.constraintViolations}</b> كسر قاعدة
+                            </span>
+                          </div>
+                          <div className="war-actions">
+                            <SecondaryButton
+                              onClick={() => openScenarioOption(o)}
+                            >
+                              افتح في Twin
+                            </SecondaryButton>
+                            <PrimaryButton
+                              data-guide-ignore="يحفظ خيار اللجنة كمسودة تجريبية فقط"
+                              onClick={() =>
+                                saveOptionAsDraft(o, `خيار اللجنة ${o.rank}`)
+                              }
+                            >
+                              <Save /> اختيار اللجنة <ChevronLeft className="visual-inline-arrow" aria-hidden="true" /> مسودة
+                            </PrimaryButton>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="innovation-empty">
+                    غرفة القرار لا تغيّر شيئاً. ستبني ثلاثة مسارات قابلة
+                    للمقارنة فقط.
+                  </div>
+                )}
+              </div>
+            ) : null}
+            {innovationMode === "policy" ? (
+              <div className="policy-lab">
+                <div className="policy-lab-head">
+                  <span className="policy-orb"><BarChart3 /></span>
+                  <div><strong>اختبر السياسة قبل إصدارها</strong><p>{isPowerAdmin ? "الجامعة أو القسم · آخر 10 سنوات كمرجع" : "قسمك · آخر 10 سنوات كمرجع"}</p></div>
+                  <Badge tone="success">محاكاة فقط</Badge>
+                </div>
+                <div className="policy-controls">
+                  <Field label="السياسة">
+                    <select value={policyDraft.type} onChange={e=>setPolicyDraft((p:any)=>({...p,type:e.target.value}))}>
+                      <option value="day_off">يوم بلا محاضرات</option>
+                      <option value="close_building">إغلاق مبنى</option>
+                      <option value="no_classes_after">لا محاضرات بعد وقت</option>
+                      <option value="growth">نمو الطلب</option>
+                    </select>
+                  </Field>
+                  {policyDraft.type==="day_off"?<Field label="اليوم"><select value={policyDraft.day} onChange={e=>setPolicyDraft((p:any)=>({...p,day:e.target.value}))}>{Object.entries(dayLabels).map(([key,label])=><option key={key} value={key}>{String(label)}</option>)}</select></Field>:null}
+                  {policyDraft.type==="close_building"?<Field label="المبنى"><BuildingPicker collegeId={collegeId} sectionId={sectionId} termId={termId} value={policyDraft.buildingId||""} onChange={building=>setPolicyDraft((p:any)=>({...p,buildingId:building?.id||"",building:building?.officialCode||""}))} /></Field>:null}
+                  {policyDraft.type==="no_classes_after"?<Field label="آخر وقت"><TimeField value={policyDraft.time} onChange={e=>setPolicyDraft((p:any)=>({...p,time:e.target.value}))} /></Field>:null}
+                  {policyDraft.type==="growth"?<Field label="النمو %"><input type="number" min="1" max="100" value={policyDraft.growth} onChange={e=>setPolicyDraft((p:any)=>({...p,growth:Number(e.target.value)||1}))} /></Field>:null}
+                  <Field label="النطاق"><select value={policyDraft.scope} onChange={e=>{setPolicyResult(null);setPolicyDraft((p:any)=>({...p,scope:e.target.value}));}}><option value="department">هذه الكلية</option><option value="family">كل كليات القسم</option>{isPowerAdmin?<option value="university">الجامعة</option>:null}</select></Field>
+                  <PrimaryButton onClick={runPolicy} disabled={policyBusy||(policyDraft.type==="close_building"&&!policyDraft.building.trim())}>{policyBusy?<RefreshCw/>:<Play/>}{policyBusy?"أحاكي…":"اختبر"}</PrimaryButton>
+                </div>
+                {policyResult?<div className="policy-result">
+                  <div className="policy-result-hero"><strong>{Number(policyResult.affected||0).toLocaleString("ar-KW-u-nu-latn")}</strong><span>{policyDraft.type==="growth"?"موعد/شعبة إضافية تقديرياً":"موعداً سيتأثر"}</span><i style={{["--policy-share" as any]:`${Math.min(100,Number(policyResult.share||0))}%`}} /></div>
+                  <div className="policy-metrics"><article><b>{policyResult.share}%</b><span>الحالي</span></article><article><b>{policyResult.historicalShare}%</b><span>تاريخياً</span></article><article><b>{policyResult.impact?.sections||0}</b><span>{nounFor(policyResult.impact?.sections||0, AR.department)}</span></article><article><b>{policyResult.impact?.instructors||0}</b><span>{nounFor(policyResult.impact?.instructors||0, AR.instructor)}</span></article></div>
+                  <p>{policyResult.summary}</p><small><ShieldCheck /> {policyResult.guardrail}</small>
+                </div>:<div className="innovation-empty">اختر سياسة واحدة. سترى أثرها على الواقع الحالي وعلى التاريخ قبل أن تتحول إلى قاعدة.</div>}
+              </div>
+            ) : null}
+            {innovationMode === "autopilot" ? (
+              <div className="autopilot-lab">
+                <div className="autopilot-command">
+                  <div>
+                    <span className="autopilot-orb">
+                      <WandSparkles />
+                    </span>
+                    <div>
+                      <strong>تحسين آلي ببوابة بشرية</strong>
+                      <p>
+                        اكتب هدفك · يعرض أفضل ثلاثة.
+                      </p>
+                    </div>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={autopilotGoal}
+                    onChange={(e) => setAutopilotGoal(e.target.value)}
+                    placeholder="مثال: قلل الفراغات، لا تغيّر الأيام…"
+                  />
+                  <div className="autopilot-guard">
+                    <ShieldCheck />
+                    <span>
+                      لا يغيّر الأيام ولا القاعات في هذا الإصدار الآمن، ولا يملك
+                      endpoint للنشر.
+                    </span>
+                    <PrimaryButton
+                      onClick={runAutopilot}
+                      disabled={autopilotBusy || !autopilotGoal.trim()}
+                    >
+                      {autopilotBusy ? <RefreshCw /> : <Sparkles />}
+                      {autopilotBusy ? "أجرب السيناريوهات…" : "شغّل التحسين الآلي"}
+                    </PrimaryButton>
+                  </div>
+                </div>
+                {autopilot ? (
+                  <>
+                    <div className="autopilot-summary">
+                      <strong>{autopilot.explored}</strong>
+                      <span>سيناريو تم توليده</span>
+                      <i />
+                      <small>
+                        البوابة البشرية فعالة · النشر = مستحيل من هذه الأداة
+                      </small>
+                    </div>
+                    <div className="autopilot-options">
+                      {autopilot.options.map((o: any) => (
+                        <article key={o.id}>
+                          <div className="auto-option-head">
+                            <span>#{o.rank}</span>
+                            <div>
+                              <strong>{o.title}</strong>
+                              <small>{countOf(o.changed, AR.appointment)} {nounFor(o.changed, AR.changesVerb)}</small>
+                            </div>
+                            <b className="score-ring-slot"><MiniRing value={Number(o.score)} /></b>
+                          </div>
+                          <div className="auto-metrics">
+                            <span>{countOf(o.conflicts, AR.blocker)}</span>
+                            <span>{o.avgGap}د فراغ</span>
+                            <span>{o.imbalance}% عدم توازن</span>
+                            <span
+                              className={o.constraintViolations ? "warn" : "ok"}
+                            >
+                              {countOf(o.constraintViolations, AR.breach)} للقواعد
+                            </span>
+                          </div>
+                          <ul>
+                            {o.explanation.map((x: string, i: number) => (
+                              <li key={i}>{x}</li>
+                            ))}
+                          </ul>
+                          <div className="war-actions">
+                            <SecondaryButton
+                              onClick={() => openScenarioOption(o)}
+                            >
+                              افتح السيناريو
+                            </SecondaryButton>
+                            <PrimaryButton
+                              onClick={async () => {
+                                await saveOptionAsDraft(o, `خطة تلقائية ${o.rank}`);
+                                openScheduleWorkspace("حُفظت الخطة التلقائية كمسودة فقط. أنت الآن في الجدول الحقيقي للمراجعة.");
+                              }}
+                            >
+                              <Save /> احفظ كمسودة
+                            </PrimaryButton>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="innovation-empty">
+                    التحسين الآلي لن يلمس الجدول الحقيقي. حتى أفضل نتيجة تحتاج منك
+                    تحويلها إلى مسودة ثم مراجعتها ثم نشرها يدوياً من شاشة
+                    الاعتماد.
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </Surface>
+          ) : null}
+          {scenario && twinCard === "board" ? (
+            <>
+              <section className="twin-score-row" aria-label="مقارنة جودة الجدول والسيناريو">
+                <article className="twin-score-card baseline">
+                  <span>الجدول الحالي</span>
+                  <strong><Num value={scenarioEval?.baseline?.score ?? overview?.score} /></strong>
+                  <small>من 100</small>
+                </article>
+                <span className="twin-score-arrow" aria-hidden="true"><ArrowLeftRight /></span>
+                <button
+                  type="button"
+                  className="twin-delta twin-score-action"
+                  onClick={() => void evaluateScenario()}
+                  disabled={busy}
+                  aria-label="إعادة حساب فرق الجودة"
+                  title="إعادة حساب الجودة الآن"
+                >
+                  <b>
+                    {scenarioEval
+                      ? <Num
+                          prefix={(scenarioEval.scenario.score || 0) - (scenarioEval.baseline.score || 0) >= 0 ? "+" : ""}
+                          value={(scenarioEval.scenario.score || 0) - (scenarioEval.baseline.score || 0)} />
+                      : "—"}
+                  </b>
+                  <span>{busy ? "أحسب الجودة…" : "فرق الجودة"}</span>
+                </button>
+                {scenarioEval?.constraints ? (
+                  <div
+                    className={`twin-constraint-score ${scenarioEval.constraints.scenario.total ? "warn" : "ok"}`}
+                  >
+                    <b>{scenarioEval.constraints.scenario.total}</b>
+                    <span>مخالفات القيود</span>
+                  </div>
+                ) : null}
+              </section>
+              <Surface className="twin-visual-board">
+                <div className="surface-head">
+                  <div>
+                    <span className="surface-kicker">المساحة البصرية التجريبية</span>
+                    <h2>حرّك الوقت… وشاهد النتيجة لحظياً</h2>
+                  </div>
+                  <div className="twin-board-head-actions">
+                    <button type="button" className="twin-editor-link" onClick={() => showTwinCard("editor")}>
+                      تعديل السيناريو
+                    </button>
+                    <span className="twin-live">
+                      <i /> تقييم تلقائي
+                    </span>
+                  </div>
+                </div>
+                <p className="soft-copy">
+                  اسحب أي موعد إلى نصف ساعة أخرى. أيام اللقاء تبقى كما هي
+                  للحماية؛ غيّر الأيام من محرر السيناريو إذا كان القرار مقصوداً.
+                </p>
+                <div className="twin-week-scroll">
+                  <div className="twin-week-grid">
+                    <div className="twin-grid-corner">الوقت</div>
+                    {Object.entries(dayLabels).map(([key, label]) => (
+                      <strong className="twin-day-head" key={key}>
+                        {label as string}
+                      </strong>
+                    ))}
+                    {twinSlots.map((time) => (
+                      <React.Fragment key={time}>
+                        <span className="twin-time" dir="ltr">
+                          {time}
+                        </span>
+                        {Object.keys(dayLabels).map((day) => (
+                          <div
+                            className="twin-drop-cell"
+                            key={`${day}-${time}`}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const id = Number(
+                                e.dataTransfer.getData("text/twin-id"),
+                              );
+                              if (id) moveTwinTime(id, time);
+                            }}
+                          >
+                            {scenario
+                              .filter(
+                                (r) =>
+                                  Boolean((r as any)[day]) &&
+                                  r.fstarttime === time,
+                              )
+                              .map((r) => (
+                                <article
+                                  className="twin-event"
+                                  draggable
+                                  key={`${day}-${r.id}`}
+                                  onDragStart={(e) =>
+                                    e.dataTransfer.setData(
+                                      "text/twin-id",
+                                      String(r.id),
+                                    )
+                                  }
+                                  onClick={() => setScenarioId(r.id)}
+                                  title={`${r.AdCourseName} · شعبة ${r.SCode}`}
+                                >
+                                  <strong>{r.AdCourseName}</strong>
+                                  <span>
+                                    {r.SCode} · {r.AdRoomCode}/{r.AdRoomHall}
+                                  </span>
+                                </article>
+                              ))}
+                          </div>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              </Surface>
+            </>
+          ) : null}
+          {scenario && twinCard === "editor" ? (
+              <div className="twin-workbench">
+                <Surface className="scenario-editor">
+                  <div className="surface-head">
+                    <div>
+                      <span className="surface-kicker">ماذا لو؟</span>
+                      <h2>عدّل موعداً داخل النسخة</h2>
+                    </div>
+                    <Network />
+                  </div>
+                  <Field label="الموعد">
+                    <select
+                      value={scenarioId}
+                      onChange={(e) =>
+                        setScenarioId(Number(e.target.value) || "")
+                      }
+                    >
+                      <option value="">اختر ...</option>
+                      {scenario.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.AdCourseName} — شعبة {r.SCode}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  {selectedScenario ? (
+                    <div className="scenario-fields">
+                      <Field label="البداية">
+                        <TimeField
+                         
+                          min={SCHEDULE_DAY_START_TIME}
+                          max={SCHEDULE_DAY_END_TIME}
+                          value={selectedScenario.fstarttime}
+                          onChange={(e) =>
+                            patchScenario({ fstarttime: e.target.value })
+                          }
+                        />
+                      </Field>
+                      <Field label="النهاية">
+                        <TimeField
+                         
+                          min={SCHEDULE_DAY_START_TIME}
+                          max={SCHEDULE_DAY_END_TIME}
+                          value={selectedScenario.fendtime}
+                          onChange={(e) =>
+                            patchScenario({ fendtime: e.target.value })
+                          }
+                        />
+                      </Field>
+                      <LocationPicker
+                        collegeId={collegeId}
+                        sectionId={sectionId}
+                        termId={termId}
+                        value={selectedScenario}
+                        onChange={(location) => patchScenario(location as Partial<FSchedule>)}
+                        showRaw
+                      />
+                      <div className="scenario-days">
+                        {Object.entries(dayLabels).map(([key, label]) => (
+                          <label key={key}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean((selectedScenario as any)[key])}
+                              onChange={(e) =>
+                                patchScenario({
+                                  [key]: e.target.checked,
+                                } as any)
+                              }
+                            />
+                            <span>{label as string}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  <p className="safety-note">
+                    <ShieldCheck /> أي تعديل هنا محلي داخل السيناريو حتى تضغط
+                    «احفظ كمسودة» ثم «نشر» صراحة.
+                  </p>
+                </Surface>
+              </div>
+          ) : null}
+          {scenario && twinCard === "ledger" ? (
+              <div className="twin-workbench">
+                <Surface className="change-ledger">
+                  <div className="surface-head">
+                    <div>
+                      <span className="surface-kicker">سجل التعديلات</span>
+                      <h2>{changedRows.length === 1 ? "تعديل واحد" : countOf(changedRows.length, AR.edit)}</h2>
+                    </div>
+                    <FileClock />
+                  </div>
+                  <div className="change-list">
+                    {changedRows.length ? (
+                      changedRows.slice(0, 30).map((r) => {
+                        const o = originalById.get(r.id);
+                        return (
+                          <article key={r.id} className="change-card">
+                            <div className="change-card-main">
+                              <div className="change-card-title"><strong>{r.AdCourseName}</strong><Badge tone="neutral">شعبة {r.SCode}</Badge></div>
+                              <div className="change-time-flow">
+                                <span><small>قبل</small><time dir="ltr">{formatScheduleTimeRange(o?.fstarttime, o?.fendtime)}</time></span>
+                                <ArrowLeftRight aria-hidden="true" />
+                                <span className="after"><small>بعد</small><time dir="ltr">{formatScheduleTimeRange(r.fstarttime, r.fendtime)}</time></span>
+                              </div>
+                            </div>
+                            {o?.AdRoomCode !== r.AdRoomCode ||
+                            o?.AdRoomHall !== r.AdRoomHall ? (
+                              <Badge tone="info">
+                                <span className="change-room-flow">
+                                  <small>قاعة</small>
+                                  <bdi>{o?.AdRoomCode}/{o?.AdRoomHall}</bdi>
+                                  <ArrowLeftRight aria-hidden="true" />
+                                  <bdi>{r.AdRoomCode}/{r.AdRoomHall}</bdi>
+                                </span>
+                              </Badge>
+                            ) : null}
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <div className="empty-state-compact">
+                        مطابقة للجدول الحقيقي.
+                      </div>
+                    )}
+                  </div>
+                </Surface>
+              </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {tab === "history" ? (
+        <div className="history-layout">
+          <CardDeck
+            value={approveCard}
+            onChange={(next) => showApproveCard(next as ApproveCard | null)}
+            backLabel="العودة إلى بطاقات الاعتماد"
+            title="بطاقات الاعتماد"
+            hint="كل بطاقة تفتح صفحتها وحدها — لا شيء تحت شيء."
+            cards={[
+              { value: "compare", label: "مقارنة الفصول", detail: "ما تغيّر بين فصل وفصل", icon: <ArrowLeftRight /> },
+              { value: "drafts", label: "المسودات", detail: "ما لم يُنشر بعد", icon: <FileClock />,
+                metric: String(drafts.length || 0) },
+              { value: "versions", label: "سجل النسخ", detail: "كل نشرة سابقة ومن نشرها", icon: <History /> },
+            ]}
+          />
+          {approveCard === "compare" ? (
+          <Surface className="term-compare">
+            <div className="surface-head">
+              <div>
+                <span className="surface-kicker">مقارنة الفصول</span>
+                <h2>ماذا تغيّر؟</h2>
+              </div>
+              <ArrowLeftRight />
+            </div>
+            <div className="compare-controls">
+              <select
+                value={compareFrom || ""}
+                onChange={(e) => setCompareFrom(Number(e.target.value) || 0)}
+              >
+                {terms.map((t) => (
+                  <option key={t.AdTermId} value={t.AdTermId}>
+                    {t.AdTermName}
+                  </option>
+                ))}
+              </select>
+              <ArrowLeftRight />
+              <select
+                value={compareTo || ""}
+                onChange={(e) => setCompareTo(Number(e.target.value) || 0)}
+              >
+                {terms.map((t) => (
+                  <option key={t.AdTermId} value={t.AdTermId}>
+                    {t.AdTermName}
+                  </option>
+                ))}
+              </select>
+              <SecondaryButton onClick={compareTerms}>قارن</SecondaryButton>
+            </div>
+            {termCompare ? (
+              <div className="compare-result">
+                <article>
+                  <strong>
+                    <span className="visual-metric-flow"><b>{termCompare.fromCount}</b><ArrowLeftRight aria-hidden="true" /><b>{termCompare.toCount}</b></span>
+                  </strong>
+                  <span>عدد المواعيد</span>
+                </article>
+                <article>
+                  <strong>
+                    <span className="visual-metric-flow"><b>{termCompare.fromScore}</b><ArrowLeftRight aria-hidden="true" /><b>{termCompare.toScore}</b></span>
+                  </strong>
+                  <span>مؤشر الجودة</span>
+                </article>
+                <article>
+                  <strong>
+                    +{termCompare.added} / -{termCompare.removed}
+                  </strong>
+                  <span>تغييرات تركيبية</span>
+                </article>
+                <article>
+                  <strong>
+                    <span className="visual-metric-flow"><b>{termCompare.uniqueRoomsFrom}</b><ArrowLeftRight aria-hidden="true" /><b>{termCompare.uniqueRoomsTo}</b></span>
+                  </strong>
+                  <span>القاعات المستخدمة</span>
+                </article>
+              </div>
+            ) : (
+              <p className="soft-copy">
+                مقارنة فصلين · بدون تغيير.
+              </p>
+            )}
+            {termCompare && (termCompare.appeared?.length || termCompare.disappeared?.length || termCompare.moved?.length) ? (
+              <div className="compare-diff">
+                {[
+                  { key: "appeared", title: "أُضيف", tone: "add", rows: termCompare.appeared || [] },
+                  { key: "moved", title: "انتقل", tone: "move", rows: termCompare.moved || [] },
+                  { key: "disappeared", title: "اختفى", tone: "drop", rows: termCompare.disappeared || [] }
+                ].map(group => (
+                  <section key={group.key} className={`compare-column tone-${group.tone}`}>
+                    <h3>
+                      {group.title}
+                      <b>{Number(group.rows.length).toLocaleString("ar-KW-u-nu-latn")}</b>
+                    </h3>
+                    {group.rows.length ? (
+                      <div className="compare-rows">
+                        {group.rows.slice(0, 24).map((row: any) => (
+                          <article key={`${group.key}-${row.collegeId}-${row.sectionId}-${row.id}`}>
+                            <header>
+                              <span className="code-chip">{row.code || "—"}</span>
+                              <strong>{row.name}</strong>
+                              {row.section ? <small>{row.section}</small> : null}
+                              {readingMode === "department" ? <small className="reading-college-label">{row.collegeName}</small> : null}
+                            </header>
+                            {group.key === "moved" ? (
+                              <div className="compare-move">
+                                {row.fields.map((field: string) => {
+                                  const pick = (side: any) =>
+                                    field === "الأيام" ? side.days : field === "الوقت" ? side.time : field === "القاعة" ? side.room : side.instructor;
+                                  return (
+                                    <p key={field}>
+                                      <i>{field}</i>
+                                      <del dir="auto">{pick(row.before) || "—"}</del>
+                                      <ArrowLeft aria-hidden="true" />
+                                      <ins dir="auto">{pick(row.after) || "—"}</ins>
+                                    </p>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="compare-facts">
+                                <time dir="ltr">{scheduleClockForDisplay(row.time)}</time>
+                                <span>{row.room || "—"}</span>
+                                <span>{row.instructor || "—"}</span>
+                              </p>
+                            )}
+                          </article>
+                        ))}
+                        {group.rows.length > 24 ? <p className="compare-more">و{Number(group.rows.length - 24).toLocaleString("ar-KW-u-nu-latn")} غيرها</p> : null}
+                      </div>
+                    ) : (
+                      <p className="compare-none">لا شيء</p>
+                    )}
+                  </section>
+                ))}
+              </div>
+            ) : null}
+          </Surface>
+          ) : null}
+          {approveCard === "drafts" ? (
+          <Surface className="drafts-card">
+            <div className="surface-head">
+              <div>
+                <span className="surface-kicker">وضع النشر</span>
+                <h2>المسودات الداخلية</h2>
+              </div>
+              <Save />
+            </div>
+            <p className="soft-copy">
+              المسودة لا تغيّر الجدول الذي يعتمد عليه القسم. المسؤولون المخولون
+              يستطيعون مراجعتها داخل نفس النطاق.
+            </p>
+            <div className="draft-list">
+              {drafts.length ? (
+                drafts.map((d) => (
+                  <article key={d.id} className={d.status}>
+                    <span className="draft-source">
+                      {d.source === "auto" ? (
+                        <WandSparkles />
+                      ) : d.source === "import" ? (
+                        <FileSpreadsheet />
+                      ) : (
+                        <Network />
+                      )}
+                    </span>
+                    <div>
+                      <strong>{d.name}</strong>{scopeLabel(d) ? <small className="reading-college-label">{scopeLabel(d)}</small> : null}
+                      <small>
+                        {new Date(d.updatedAt).toLocaleString("ar-KW-u-nu-latn")} ·{" "}
+                        {countOf(d.rows.length, AR.appointment)} · {d.userName}
+                      </small>
+                    </div>
+                    <Badge
+                      tone={d.status === "published" ? "success" : "warning"}
+                    >
+                      {d.status === "published" ? "منشورة" : "مسودة"}
+                    </Badge>
+                    <div className="draft-actions">
+                      <GhostButton onClick={() => openDraft(d)}>
+                        فتح
+                      </GhostButton>
+                      {d.status === "draft" ? (
+                        <PrimaryButton
+                          data-guide-target="intelligence.publish-draft"
+                          data-guide-feature-id="intelligence.publish-draft"
+                          onClick={() => publishDraft(d)}
+                          disabled={!online || busy}
+                        >
+                          نشر
+                        </PrimaryButton>
+                      ) : null}
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="empty-state-compact">
+                  لا توجد مسودات لهذا الفصل.
+                </div>
+              )}
+            </div>
+          </Surface>
+          ) : null}
+          {approveCard === "versions" ? (
+          <Surface className="versions-card">
+            <div className="surface-head">
+              <div>
+                <span className="surface-kicker">سجل النسخ</span>
+                <h2>النسخ الزمنية</h2>
+              </div>
+              <History />
+            </div>
+            {operationsReview?.accuracy ? (
+              <div className="accuracy-strip">
+                <article><span>دقة الجدول</span><strong>{operationsReview.accuracy.available ? `${operationsReview.accuracy.accuracy}%` : "—"}</strong><small>{operationsReview.accuracy.available ? `${operationsReview.accuracy.unchanged} بقيت كما اعتمدت${operationsReview.accuracy.complete === false ? " · بحسب النسخ المتاحة" : ""}` : "تحتاج نسخة محفوظة"}</small></article>
+                <article><span>تغيّر</span><strong>{operationsReview.accuracy.changed || 0}</strong><small>{nounFor(operationsReview.accuracy.changed || 0, AR.appointment)}</small></article>
+                <article><span>أضيف / حُذف</span><strong>+{operationsReview.accuracy.added || 0} / -{operationsReview.accuracy.removed || 0}</strong><small>هوية شعبة</small></article>
+              </div>
+            ) : null}
+            {chronologicalVersions.length >= 2 ? (
+              <div className="version-scrubber">
+                <div><span className="surface-kicker">الوضع الزمني</span><strong>{new Date(chronologicalVersions[Math.max(1,Math.min(chronologicalVersions.length-1,versionScrubIndex))]?.createdAt).toLocaleString("ar-KW-u-nu-latn")}</strong></div>
+                <input type="range" min="1" max={Math.max(1,chronologicalVersions.length-1)} value={Math.max(1,Math.min(chronologicalVersions.length-1,versionScrubIndex))} onChange={e=>setVersionScrubIndex(Number(e.target.value))} aria-label="اسحب عبر تاريخ الجدول" />
+                <small>المحفوظ: {countOf(chronologicalVersions.length, AR.station)}</small>
+              </div>
+            ) : null}
+            <div className="version-compare">
+              <select
+                value={versionFrom}
+                onChange={(e) => { setVersionFrom(e.target.value); setVersionTo(""); setVersionCompare(null); }}
+              >
+                <option value="">نسخة البداية...</option>
+                {versions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {scopeLabel(v) ? `${scopeLabel(v)} · ` : ""}{new Date(v.createdAt).toLocaleString("ar-KW-u-nu-latn")} — {v.label}
+                  </option>
+                ))}
+              </select>
+              <ArrowLeftRight />
+              <select
+                value={versionTo}
+                onChange={(e) => setVersionTo(e.target.value)}
+              >
+                <option value="">نسخة المقارنة...</option>
+                {versions.filter(v => !versionFrom || sameIntelligenceScope(sourceScope(v), sourceScope(versions.find(first => first.id === versionFrom)))).map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {scopeLabel(v) ? `${scopeLabel(v)} · ` : ""}{new Date(v.createdAt).toLocaleString("ar-KW-u-nu-latn")} — {v.label}
+                  </option>
+                ))}
+              </select>
+              <SecondaryButton onClick={compareVersions}>قارن</SecondaryButton>
+            </div>
+            {versionCompare ? (
+              <>
+                <div className="version-diff">
+                  <article>
+                    <strong>+{versionCompare.added}</strong>
+                    <span>أضيف</span>
+                  </article>
+                  <article>
+                    <strong>-{versionCompare.removed}</strong>
+                    <span>أزيل</span>
+                  </article>
+                  <article>
+                    <strong>{versionCompare.unchanged}</strong>
+                    <span>لم يتغير</span>
+                  </article>
+                </div>
+                <div className="time-travel-compare">
+                  <div className="time-travel-head">
+                    <div>
+                      <span className="surface-kicker">
+                        مقارنة النسخ الزمنية
+                      </span>
+                      <h3>مقارنة بصرية بين النسختين</h3>
+                    </div>
+                    <div className="time-travel-meta">
+                      <span>{versionCompare.from.label || "نسخة البداية"}</span>
+                      <ArrowLeftRight />
+                      <span>{versionCompare.to.label || "نسخة المقارنة"}</span>
+                    </div>
+                  </div>
+
+                  <div className="time-travel-control-bar">
+                    <div className="time-travel-control-presets">
+                      <button
+                        type="button"
+                        className={`time-preset-btn ${timeTravel === 0 ? "active" : ""}`}
+                        onClick={() => setTimeTravel(0)}
+                      >
+                        النسخة الأولى (0%)
+                      </button>
+                      <button
+                        type="button"
+                        className={`time-preset-btn ${timeTravel === 50 ? "active" : ""}`}
+                        onClick={() => setTimeTravel(50)}
+                      >
+                        مقارنة بالمنتصف (50%)
+                      </button>
+                      <button
+                        type="button"
+                        className={`time-preset-btn ${timeTravel === 100 ? "active" : ""}`}
+                        onClick={() => setTimeTravel(100)}
+                      >
+                        النسخة الثانية (100%)
+                      </button>
+                    </div>
+
+                    <div className="time-travel-slider-wrapper">
+                      <input
+                        className="time-travel-range-input"
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={timeTravel}
+                        onChange={(e) => setTimeTravel(Number(e.target.value))}
+                        aria-label="مقارنة النسختين"
+                      />
+                      <span className="time-travel-slider-badge">{timeTravel}%</span>
+                    </div>
+                  </div>
+
+                  <div className="time-travel-scroll-container">
+                    <div className="time-travel-stage">
+                      <div className="time-travel-before">
+                        <VersionCanvas
+                          rows={versionCompare.from.rows || []}
+                          label={versionCompare.from.label ? `النسخة السابقة (${versionCompare.from.label})` : "قبل"}
+                          isAfter={false}
+                        />
+                      </div>
+                      <div
+                        className="time-travel-after"
+                        style={{ clipPath: `inset(0 ${100 - timeTravel}% 0 0)` }}
+                      >
+                        <VersionCanvas
+                          rows={versionCompare.to.rows || []}
+                          label={versionCompare.to.label ? `النسخة المحدثة (${versionCompare.to.label})` : "بعد"}
+                          isAfter={true}
+                        />
+                      </div>
+                      <div
+                        className="time-travel-divider"
+                        style={{ left: `${timeTravel}%` }}
+                        onPointerDown={handleDividerPointerDown}
+                        title="اسحب لمقارنة النسختين"
+                      >
+                        <span className="time-travel-handle">
+                          <ArrowLeftRight aria-hidden="true" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <IntelligenceVersionDiffTable comparison={versionCompare} />
+                </div>
+              </>
+            ) : null}
+            <div className="timeline-versions">
+              {versions.length ? (
+                versions.map((v, i) => (
+                  <article key={v.id}>
+                    <span className="version-dot" />
+                    <div>
+                      <strong>{v.label}</strong>{scopeLabel(v) ? <small className="reading-college-label">{scopeLabel(v)}</small> : null}
+                      <small>
+                        {new Date(v.createdAt).toLocaleString("ar-KW-u-nu-latn")} ·{" "}
+                        {v.userName} · {countOf(v.rowCount, AR.appointment)}
+                      </small>
+                    </div>
+                    <Badge
+                      tone={
+                        v.source === "publish"
+                          ? "success"
+                          : v.source === "undo"
+                            ? "warning"
+                            : "neutral"
+                      }
+                    >
+                      {v.source}
+                    </Badge>
+                    <GhostButton
+                      onClick={() => restoreVersion(v)}
+                      disabled={!online || busy}
+                    >
+                      <RotateCcw /> استرجاع
+                    </GhostButton>
+                  </article>
+                ))
+              ) : (
+                <div className="empty-state-compact">
+                  نسخة قبل كل تعديل.
+                </div>
+              )}
+            </div>
+            {operationsReview?.accuracy?.postmortem?.length ? (
+              <div className="postmortem-card"><div><FileClock/><span><small>تشريح الفصل</small><strong>ماذا تعلّمنا من النسخ؟</strong></span></div><ul>{operationsReview.accuracy.postmortem.slice(0,4).map((line:string,index:number)=><li key={index}>{line}</li>)}</ul></div>
+            ) : null}
+            {versions.length ? (
+              <div className="edit-heatmap"><div className="edit-heatmap-head"><span><small>حرارة التعديلات البشرية</small><strong>متى يكثر التغيير</strong></span><Badge>{countOf(versions.length, AR.version)}</Badge></div><div className="edit-heatmap-grid"><i/>{versionActivityHeatmap.hours.map(hour=><small key={hour}>{scheduleClockForDisplay(`${String(hour).padStart(2,"0")}:00`)}</small>)}{versionActivityHeatmap.cells.map(day=><React.Fragment key={day.label}><b>{day.label}</b>{day.hours.map(cell=>{const strength=versionActivityHeatmap.max?cell.count/versionActivityHeatmap.max:0;return <span key={`${day.label}-${cell.hour}`} title={`${day.label} ${scheduleClockForDisplay(`${String(cell.hour).padStart(2,"0")}:00`)} · ${countOf(cell.count, AR.edit)}`} style={{["--heat-pct" as any]:`${Math.max(10,Math.round(strength*85))}%`}}>{cell.count||""}</span>;})}</React.Fragment>)}</div></div>
+            ) : null}
+          </Surface>
+          ) : null}
+        </div>
+      ) : null}
+
+      {tab === "import" ? (
+        <div className="import-layout">
+          <Surface className="import-drop">
+            <div className="import-icon">
+              <Upload />
+            </div>
+            <span className="surface-kicker">استيراد الجدول</span>
+            <h2>ارفع الجدول وراجعه قبل الحفظ</h2>
+            <p>نزّل النموذج ثم ارفعه، أو انسخ جدول PDF المعتمد إلى فصل فارغ.</p>
+            <div className="import-entry-actions">
+              <SecondaryButton type="button" data-guide-ignore="تنزيل نموذج محلي لا يغيّر الجدول" onClick={() => void downloadImportTemplate()} disabled={busy}>
+                <Download /> تحميل النموذج
+              </SecondaryButton>
+              <label className="file-button">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,application/pdf,.pdf"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) importAnyFile(f);
+                    e.currentTarget.value = "";
+                  }}
+                />
+                <FileSpreadsheet />
+                {importFile || "رفع جدول بيانات أو PDF"}
+              </label>
+            </div>
+            <small>
+              <ShieldCheck /> معاينة أولاً · الملف يُقرأ ولا يُحفظ
+            </small>
+            {importProgress ? (() => {
+              const total = Math.max(importProgress.pages || 0, 1);
+              const doneCount = importProgress.phase === "match" ? total : Math.max(0, importProgress.page);
+              const pct = importProgress.phase === "render" && !importProgress.page ? 6 : Math.min(97, Math.round((doneCount / total) * 100));
+              return (
+                <div className="import-progress" role="status" aria-live="polite">
+                  <div className="import-progress-track"><i style={{ width: `${pct}%` }} /></div>
+                  <span>{importProgress.message}{importProgress.pages ? ` · ${(importProgress.page || 0).toLocaleString("ar-KW-u-nu-latn")}/${importProgress.pages.toLocaleString("ar-KW-u-nu-latn")}` : ""}</span>
+                  {importProgress.notice ? <p className="import-progress-notice"><AlertTriangle aria-hidden="true" />{importProgress.notice}</p> : null}
+                </div>
+              );
+            })() : null}
+          </Surface>
+          {importPreview ? (
+            <Surface className="import-preview">
+              <div className="surface-head">
+                <div>
+                  <span className="surface-kicker">معاينة</span>
+                  <h2>قُرئ {countOf(importPreview.count, AR.row)}</h2>
+                </div>
+                <Badge tone={importPreview.valid ? "success" : "danger"}>
+                  {importPreview.valid
+                    ? "جاهز كمسودة"
+                    : countOf(importPreview.issues.length, AR.note)}
+                </Badge>
+              </div>
+              {importPreview.legibility && importPreview.legibility.confidence < 55 ? (
+                <Notice>
+                  جودة الصورة منخفضة ({Number(importPreview.legibility.confidence).toLocaleString("ar-KW-u-nu-latn")}٪).
+                  قرأتُ ما استطعت، لكن نسخة أوضح ستقلّل الملاحظات كثيراً.
+                </Notice>
+              ) : null}
+              {/* The deterministic reader ran first and its result stands above.
+                  A second, sharper reading is available on request — never
+                  automatic, so no file reaches Gemini without this click. */}
+              {smartRetry && importPreview.importLayout === "authority-pdf" && smartUnreadPages.length ? (
+                <Notice>
+                  هذه قراءة المحرك المعتمد. بقيت خانات لم يقرأها المسح في {pagesLabel(smartUnreadPages)} — القراءة الأدق تُرسل هذه الصفحات وحدها وتملأ الخانات الفارغة فقط؛ ما قُرئ يبقى كما هو.
+                  <div style={{ marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="nl-move-apply"
+                      data-guide-ignore="إجراء اختياري داخل معاينة الاستيراد لإعادة القراءة عبر Smart Import؛ ليس ميزة إرشاد مستقلة"
+                      disabled={busy}
+                      onClick={() => { const f = smartRetry.file; setSmartRetry(null); void fillUnreadCellsSmart(f, smartUnreadPages); }}
+                    >
+                      قراءة أدق · {pagesLabel(smartUnreadPages)} (بدون الأرقام المدنية)
+                    </button>
+                  </div>
+                </Notice>
+              ) : null}
+              {importPreview.importLayout !== "authority-pdf" ? (importPreview.issues.length ? (
+                <div className="import-issues">
+                  {importPreview.issues
+                    .slice(0, 12)
+                    .map((x: string, i: number) => (
+                      <span key={i}>
+                        <AlertTriangle />
+                        {x}
+                      </span>
+                    ))}
+                </div>
+              ) : (
+                <Notice type="success">
+                  لا أخطاء ظاهرة.
+                </Notice>
+              )) : null}
+              {importPreview.importLayout === "authority-pdf" && importPreview.rows?.length ? (
+                <PagedImportPreview
+                  rows={importPreview.rows as ImportRow[]}
+                  pageCount={Number(importPreview.pages||0)}
+                  pageDiagnostics={Array.isArray(importPreview.pageDiagnostics)?importPreview.pageDiagnostics:[]}
+                  pageSummaries={Array.isArray(importPreview.pageSummaries)?importPreview.pageSummaries:[]}
+                  reviewedPages={reviewedImportPages}
+                  onReviewPage={confirmImportPage}
+                  courses={courses as any}
+                  instructors={instructors as any}
+                  departmentIds={importInstructorIds}
+                  visitingIds={importVisitingIds}
+                  rowIssues={importRowIssues}
+                  departmentRooms={importDepartmentRooms}
+                  collegeId={collegeId}
+                  sectionId={sectionId}
+                  termId={termId}
+                  onRows={next => setImportPreview((prev: any) => {
+                    if (!prev) return prev;
+                    const normalized=normalizeImportSectionSeries(next);
+                    const globalIssues = (Array.isArray(prev.issues) ? prev.issues : [])
+                      .filter((issue:string) => /^تحذير:/.test(String(issue)));
+                    const issues = [...globalIssues, ...validateImportRowsLocally(normalized)];
+                    return { ...prev, rows: normalized, preview: normalized, count: normalized.length, issues, valid: normalized.length > 0 && issues.length === 0 };
+                  })}
+                />
+              ) : (
+              <RecordDeck className="import-records">
+                {importPreview.preview.slice(0, 12).map((r: any) => (
+                  <RecordCard
+                    key={r.id}
+                    icon={<FileSpreadsheet />}
+                    title={r.AdCourseName || "مقرر"}
+                    subtitle={`شعبة ${r.SCode || "—"}`}
+                    meta={
+                      <>
+                        <MetaPill
+                          label="الوقت"
+                          value={formatScheduleTimeRange(r.fstarttime, r.fendtime)}
+                          dir="ltr"
+                        />
+                        <MetaPill
+                          label="المكان"
+                          value={`${r.AdRoomCode || "—"}/${r.AdRoomHall || "—"}`}
+                        />
+                      </>
+                    }
+                  />
+                ))}
+              </RecordDeck>
+              )}
+              {/* ملاحظات صفحات PDF لا تُسرد فوق الجدول؛ فالصفحة التي تنتظر «راجعت الصفحة»
+                  تُسمّى هنا بجوار الحفظ والنشر، كما في شاشة نقل الجدول. */}
+              <PageReviewWait pages={importPagesPendingReview} onReviewPage={confirmImportPage} withButtons={!importPreview.rows?.length} />
+              {importBlockingIssues.length ? <button type="button" data-guide-ignore="ينقل المستخدم إلى ملاحظات الاستيراد داخل نفس المعاينة" className="import-review-jump" onClick={() => (document.querySelector(".import-preview [data-import-issue='true']")||document.querySelector(".import-preview"))?.scrollIntoView({behavior:"smooth",block:"center"})}>راجع {countOf(importBlockingIssues.length, oblique(AR.note))} لتفعيل الحفظ والنشر</button> : null}
+              <div className="import-actions">
+                <SecondaryButton
+                  onClick={() => {
+                    setImportPreview(null);
+                    setImportFile("");
+                  }}
+                >
+                  إلغاء
+                </SecondaryButton>
+                {importPreview.importLayout === "authority-pdf" ? (
+                  <>
+                    <SecondaryButton data-guide-ignore="حفظ نسخة PDF كمسودة قابلة للتعديل قبل الاعتماد" onClick={createImportDraft} disabled={!importReady || busy}>
+                      <Save /> حفظ كمسودة للتعديل
+                    </SecondaryButton>
+                    <PrimaryButton data-guide-ignore="اعتماد ونشر جدول PDF كاملاً إلى الفصل الفارغ بعد تأكيد صريح" onClick={approveAndPublishPdf} disabled={!importReady || busy}>
+                      <CheckCircle2 /> اعتمد وانزّل الجدول كاملاً
+                    </PrimaryButton>
+                  </>
+                ) : (
+                  <PrimaryButton
+                    data-guide-ignore="تحويل ملف الاستيراد المعاين إلى مسودة بعد اكتمال التحقق"
+                    onClick={createImportDraft}
+                    disabled={!importReady || busy}
+                  >
+                    <Save /> تحويل إلى مسودة
+                  </PrimaryButton>
+                )}
+              </div>
+            </Surface>
+          ) : null}
+        </div>
+      ) : null}
+
+      {tab === "copilot" && chat.length ? (() => {
+        /* Same explicit-page structure as every other landscape report. */
+        const PER_PAGE = 4;
+        const pages: any[][] = [];
+        for (let at = 0; at < chat.length; at += PER_PAGE) pages.push(chat.slice(at, at + PER_PAGE));
+        const scopeLine = [demand?.sectionName, terms.find(term => Number(term.AdTermId) === Number(termId))?.AdTermName].filter(Boolean).join(" · ");
+        const stamp = new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", year: "numeric" }).format(new Date());
+        return <PrintPortal><div className="print-report print-wide query-print">
+          {pages.map((slice, pageIndex) => (
+            <section className="print-explicit-page" key={`q-${pageIndex}`}>
+              <PrintLetterhead title="نتائج استعلامات الجدول" scope={scopeLine} footer={false} />
+              {slice.map((item: any, index: number) => {
+                const answer = item.answer || {};
+                const figures = Array.isArray(answer.figures) ? answer.figures : [];
+                return <section key={index} className="query-print-item">
+                  <h2>{(pageIndex * PER_PAGE + index + 1).toLocaleString("ar-KW-u-nu-latn")}. {item.prompt}</h2>
+                  {answer.title ? <strong>{answer.title}</strong> : null}
+                  {answer.summary ? <p>{answer.summary}</p> : null}
+                  {figures.length ? <table><tbody>{figures.map((f: any, j: number) => (
+                    <tr key={j}><th>{f.label}</th><td dir="ltr">{String(f.value)}{f.hint ? ` ${f.hint}` : ""}</td></tr>
+                  ))}</tbody></table> : null}
+                  {Array.isArray(answer.bullets) && answer.bullets.length
+                    ? <ul>{answer.bullets.map((b: string, j: number) => <li key={j}>{b}</li>)}</ul> : null}
+                </section>;
+              })}
+              <footer className="print-explicit-page-meta">
+                <span>{scopeLine || "الجدول الأكاديمي"}</span>
+                <bdi dir="ltr">{pageIndex + 1} / {pages.length}</bdi>
+                <time dir="ltr">{stamp}</time>
+              </footer>
+            </section>
+          ))}
+        </div></PrintPortal>;
+      })() : null}
+
+      {detail ? (
+        <div
+          className="intel-drawer-backdrop"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setDetail(null);
+          }}
+        >
+          {/* درجٌ فوق خلفيةٍ تحجب الصفحة: حوارٌ يُعلن ذلك، فيتنحّى الجرسُ عن ✕ في زاويته. */}
+          <aside className="intel-drawer" role="dialog" aria-modal="true" aria-label={detail.type === "room" ? "ذكاء القاعات" : "حمل الأستاذ"}>
+            <button
+              className="drawer-close"
+              type="button"
+              aria-label="إغلاق التفاصيل"
+              title="إغلاق التفاصيل"
+              onClick={() => setDetail(null)}
+            >
+              <X />
+            </button>
+            {detail.type === "room" ? (
+              <>
+                <div className="drawer-title">
+                  <span>
+                    <Building2 />
+                  </span>
+                  <div>
+                    <small>ذكاء القاعات</small>
+                    <h2>
+                      مبنى {detail.data.code} · قاعة {detail.data.hall}
+                    </h2>
+                  </div>
+                </div>
+                <div className="room-drawer-infographic">
+                  <div className="drawer-metrics room-kpis">
+                    <article><span><CalendarClock /></span><strong>{detail.data.totalAppointments}</strong><small>{nounFor(detail.data.totalAppointments, AR.appointment)} في الفصل</small></article>
+                    <article><span><Clock3 /></span><strong>{detail.data.freeWindows.length}</strong><small>{nounFor(detail.data.freeWindows.length, AR.window)} {nounFor(detail.data.freeWindows.length, AR.availableFemAdj)}</small></article>
+                  </div>
+                  <section className="room-usage-block">
+                    <header><div><small>الجهة الأبرز</small><strong>الأكثر استخدامًا</strong></div><Building2 /></header>
+                    <div className="room-usage-grid">
+                      {detail.data.departments.slice(0, 6).map((x: any, i: number) => (
+                        <article key={i}><strong>{x.name}</strong><span>{countOf(x.count, AR.meeting)}</span></article>
+                      ))}
+                    </div>
+                  </section>
+                  <section className="room-windows-block">
+                    <header><div><small>الفترات القريبة</small><strong>النوافذ المتاحة</strong></div><CalendarClock /></header>
+                    <div className="room-window-days">
+                      {Object.entries(detail.data.freeWindows.slice(0, 14).reduce((acc: Record<string, any[]>, x: any) => { (acc[x.day] ||= []).push(x); return acc; }, {})).map(([day, windows]: any) => (
+                        <article key={day}><b>{day}</b><div>{windows.map((x: any, i: number) => <span key={i} dir="ltr">{formatScheduleTimeRange(x.start, x.end)}</span>)}</div></article>
+                      ))}
+                    </div>
+                  </section>
+                  <p className="drawer-privacy room-privacy"><ShieldCheck />تُحسب الحجوزات الأخرى لمنع التعارض مع إبقاء تفاصيلها مخفية.</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="drawer-title">
+                  <span>
+                    <UsersRound />
+                  </span>
+                  <div>
+                    <small>حمل الأستاذ الكامل</small>
+                    <h2>{detail.data.instructor?.AdInstructorName}</h2>
+                  </div>
+                </div>
+                <div className="drawer-metrics">
+                  <article>
+                    <strong>{detail.data.load?.weeklyHours || 0}</strong>
+                    <span>ساعة أسبوعية</span>
+                  </article>
+                  <article>
+                    <strong>{detail.data.load?.days || 0}</strong>
+                    <span>أيام تدريس</span>
+                  </article>
+                  <article>
+                    <strong>{detail.data.externalCommitments}</strong>
+                    <span>التزام خارج نطاقك</span>
+                  </article>
+                </div>
+                {(() => {
+                  const shape = professorWeekShape(detail.data.visibleRows || []);
+                  if (!shape) return null;
+                  return (
+                    <>
+                      <h3 className="week-shape-title">شكل الأسبوع</h3>
+                      <div className="week-shape" aria-label="توزيع المواعيد والانتظار عبر الأسبوع">
+                        <div className="week-shape-scale" aria-hidden="true">
+                          {shape.hours.map(m => (
+                            <span key={m} dir="ltr">{String(Math.floor(m / 60)).padStart(2, "0")}</span>
+                          ))}
+                        </div>
+                        {shape.days.map(day => (
+                          <div className="week-shape-row" key={day.day}>
+                            <small>{day.label}</small>
+                            <div className="week-shape-track">
+                              {day.waits.map((wait, i) => (
+                                <i
+                                  key={`w${i}`}
+                                  className="week-shape-wait"
+                                  style={{ insetInlineStart: `${wait.left}%`, width: `${wait.width}%` }}
+                                  title={`انتظار ${formatCompactDurationArabic(wait.minutes)}`}
+                                >
+                                  {wait.width > 12 ? <span>{formatCompactDurationArabic(wait.minutes)}</span> : null}
+                                </i>
+                              ))}
+                              {day.blocks.map((block, i) => (
+                                <b
+                                  key={`b${i}`}
+                                  style={{ insetInlineStart: `${block.left}%`, width: `${block.width}%` }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="week-shape-legend" aria-label="مفتاح شكل الأسبوع">
+                          <span className="teaching"><i />محاضرة</span>
+                          <span className="waiting"><i />انتظار طويل</span>
+                          <span className="idle"><i />وقت خامل</span>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+                <h3>المواعيد الظاهرة ضمن صلاحياتك</h3>
+                <div className="drawer-schedule-list">
+                  {detail.data.visibleRows.map((r: any) => (
+                    <article key={r.id} className="drawer-schedule-card">
+                      <div className="drawer-schedule-title"><strong>{r.AdCourseName}</strong><Badge tone="neutral">شعبة {r.SCode}</Badge></div>
+                      <div className="drawer-schedule-meta">
+                        <span><CalendarClock />{Object.keys(dayLabels).filter((k) => r[k]).map((k) => dayLabels[k]).join(" · ") || "—"}</span>
+                        <time dir="ltr">{formatScheduleTimeRange(r.fstarttime, r.fendtime)}</time>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
+            )}
+          </aside>
+        </div>
+      ) : null}
+
+      {importErrorModal ? (
+        <div className="intel-drawer-backdrop" role="dialog" aria-modal="true" onMouseDown={(e) => { if (e.target === e.currentTarget) setImportErrorModal(null); }}>
+          <div style={{ background: "var(--surface)", padding: "32px", borderRadius: "18px", maxWidth: "480px", width: "90%", margin: "auto", boxShadow: "0 20px 40px rgba(0,0,0,0.18)", border: "1px solid var(--line)", direction: "rtl", textAlign: "right" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+              <span style={{ color: "var(--warn)", display: "inline-flex" }}><AlertTriangle size={28} /></span>
+              <h3 style={{ margin: 0, fontSize: "18px", color: "var(--foreground)" }}>أكمل الملاحظات أولاً</h3>
+            </div>
+            <p style={{ color: "var(--muted)", lineHeight: "1.7", fontSize: "14px", marginBottom: "24px" }}>{importErrorModal}</p>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <PrimaryButton type="button" data-guide-ignore="الانتقال إلى ملاحظات الاستيراد" onClick={() => { setImportErrorModal(null); window.setTimeout(() => (document.querySelector(".import-preview [data-import-issue='true']")||document.querySelector(".import-preview"))?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }}>اذهب إلى الملاحظات</PrimaryButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

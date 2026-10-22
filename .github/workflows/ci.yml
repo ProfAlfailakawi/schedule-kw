@@ -1,0 +1,86 @@
+name: Comprehensive CI
+# Revalidated after the instructor-request cross-college opening repair.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify Project
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Repository hygiene (names, temporary instruction files, references)
+        env:
+          HYGIENE_BRANCH: ${{ github.head_ref }}
+          HYGIENE_PR_TITLE: ${{ github.event.pull_request.title }}
+          HYGIENE_PR_BODY: ${{ github.event.pull_request.body }}
+          HYGIENE_COMMIT_RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || '' }}
+        run: node tests/repo-hygiene-check.mjs
+
+      - name: Deploy target guard (AGENTS.md)
+        run: node tests/deploy-target-guard.mjs
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check (noEmit)
+        run: npm run lint
+
+      - name: Run all tests
+        run: npm test
+
+      - name: Production Build
+        run: npm run build
+
+      - name: Verify intelligence scopes through the isolated demo API
+        env:
+          DATA_MODE: demo
+          NODE_ENV: production
+        run: |
+          # خادمٌ تركه اختبارٌ سابق على المنفذ 3000 يُسقط خادمَ هذه الخطوة بـ EADDRINUSE فيقرأ الفحصُ خادماً قديماً ثم يفشل إيقافه.
+          # نطبع ما وُجد ثم نغلقه؛ والأقواس في النمط تمنع مطابقة هذا الأمر نفسه.
+          ps -eo pid,args | grep -E "[t]sx|[s]erver\.(ts|cjs)" || true
+          pkill -9 -f "[t]sx server.ts" || true
+          pkill -9 -f "[s]erver.ts" || true
+          sleep 1
+          node dist/server.cjs > /tmp/schedule-api.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:3000/api/health > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          npm run test:intelligence-api

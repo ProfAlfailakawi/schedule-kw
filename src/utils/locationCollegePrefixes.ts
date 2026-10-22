@@ -1,0 +1,176 @@
+/**
+ * Authoritative college/site prefixes supplied by the system owner on 2026-08-24.
+ * A building identity is <sitePrefix><two-digit building number>.
+ * Example: 012B + building 7 => 012B07.
+ */
+export const OFFICIAL_COLLEGE_SITE_PREFIXES = [
+  { collegeName: "كلية التربية الأساسية - بنات", sitePrefix: "012B", siteLabel: "التربية الأساسية - بنات" },
+  { collegeName: "كلية التربية الأساسية - بنين", sitePrefix: "011B", siteLabel: "التربية الأساسية - بنين" },
+  { collegeName: "كلية التربية الأساسية - بنات - الجهراء", sitePrefix: "012J", siteLabel: "التربية الأساسية - الجهراء" },
+  { collegeName: "كلية التربية الأساسية - بنات - الفحيحيل", sitePrefix: "012F", siteLabel: "التربية الأساسية - الفحيحيل" },
+  { collegeName: "كلية الدراسات التجارية - بنات", sitePrefix: "022T", siteLabel: "الدراسات التجارية - بنات" },
+  { collegeName: "كلية الدراسات التجارية - بنين", sitePrefix: "021T", siteLabel: "الدراسات التجارية - بنين" },
+  { collegeName: "كلية العلوم الصحية - بنات", sitePrefix: "032B", siteLabel: "العلوم الصحية - بنات" },
+  { collegeName: "كلية العلوم الصحية - بنين", sitePrefix: "031B", siteLabel: "العلوم الصحية - بنين" },
+  { collegeName: "كلية التمريض - بنين", sitePrefix: "0510", siteLabel: "التمريض - بنين" },
+  { collegeName: "كلية التمريض - بنات", sitePrefix: "0520", siteLabel: "التمريض - بنات" },
+  { collegeName: "كلية الدراسات التكنولوجية - بنات", sitePrefix: "0420", siteLabel: "الدراسات التكنولوجية - بنات" },
+  { collegeName: "كلية الدراسات التكنولوجية - بنين", sitePrefix: "0410", siteLabel: "الدراسات التكنولوجية - بنين" },
+] as const;
+
+export const normalizeCollegeName = (value: unknown): string => String(value ?? "")
+  .normalize("NFKC")
+  .replace(/[\s\-–—_]+/g, "")
+  .trim();
+
+const EXTRA_COLLEGE_NAME_ALIASES: Record<string, string> = {
+  [normalizeCollegeName("التربية الأساسية")]: "012B",
+  [normalizeCollegeName("التربية الاساسية")]: "012B",
+  [normalizeCollegeName("الجهراء")]: "012J",
+  [normalizeCollegeName("التربية الأساسية - الجهراء")]: "012J",
+  [normalizeCollegeName("كلية التربية الأساسية - الجهراء")]: "012J",
+  [normalizeCollegeName("الفحيحيل")]: "012F",
+  [normalizeCollegeName("التربية الأساسية - الفحيحيل")]: "012F",
+  [normalizeCollegeName("كلية التربية الأساسية - الفحيحيل")]: "012F",
+};
+
+const PREFIX_BY_COLLEGE_NAME = new Map<string, string>([
+  ...OFFICIAL_COLLEGE_SITE_PREFIXES.map(item => [normalizeCollegeName(item.collegeName), item.sitePrefix] as const),
+  ...Object.entries(EXTRA_COLLEGE_NAME_ALIASES),
+]);
+
+const SITE_LABEL_BY_PREFIX = new Map<string, string>(
+  OFFICIAL_COLLEGE_SITE_PREFIXES.map(item => [item.sitePrefix, item.siteLabel] as const),
+);
+
+export const officialCollegeSitePrefix = (collegeName: unknown): string | undefined =>
+  PREFIX_BY_COLLEGE_NAME.get(normalizeCollegeName(collegeName));
+
+export const officialSiteLabel = (sitePrefix: unknown, fallback?: unknown): string => {
+  const prefix = String(sitePrefix ?? "").trim().toUpperCase();
+  return SITE_LABEL_BY_PREFIX.get(prefix) || String(fallback ?? "").trim() || prefix || "موقع غير محدد";
+};
+
+export function officialBuildingCode(sitePrefix: string, buildingNumber: unknown): string | null {
+  const prefix = String(sitePrefix || "").trim().toUpperCase();
+  const raw = String(buildingNumber ?? "").trim().replace(/^0+/, "") || "0";
+  if (!/^\d{1,3}$/.test(raw) || Number(raw) <= 0 || !/^[A-Z0-9]{4}$/.test(prefix)) return null;
+  return `${prefix}${String(Number(raw)).padStart(2, "0")}`;
+}
+
+export function parseOfficialBuildingCode(code: unknown, sitePrefix?: string): { sitePrefix: string; buildingNumber: string; officialCode: string } | null {
+  const token = String(code ?? "").normalize("NFKC").trim().toUpperCase().replace(/\s+/g, "");
+  const prefix = String(sitePrefix || "").trim().toUpperCase();
+  if (prefix) {
+    const m = token.match(new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}0*(\\d{1,3})$`));
+    if (!m || Number(m[1]) <= 0) return null;
+    const canonical = officialBuildingCode(prefix, Number(m[1]));
+    return canonical ? { sitePrefix: prefix, buildingNumber: String(Number(m[1])), officialCode: canonical } : null;
+  }
+  // Without a college context only the already-unambiguous alpha form is parsed.
+  // Numeric site prefixes (0510/0520/0410/0420) MUST have college context.
+  const alpha = token.match(/^(\d{3}[A-Z])0*(\d{1,3})$/);
+  if (!alpha || Number(alpha[2]) <= 0) return null;
+  const canonical = officialBuildingCode(alpha[1], Number(alpha[2]));
+  return canonical ? { sitePrefix: alpha[1], buildingNumber: String(Number(alpha[2])), officialCode: canonical } : null;
+}
+
+export const buildingNumberLabel = (building: { buildingNumber?: string; officialCode: string; sitePrefix?: string }): string => {
+  const n = Number(building.buildingNumber);
+  return Number.isFinite(n) && n > 0 ? String(n) : building.officialCode;
+};
+
+/**
+ * Recover an OFFICIAL building code from the already-proven building cell of an
+ * Authority/SWRSCHA report. This is deliberately registry constrained.
+ *
+ * Example for branch 012:
+ *   printed 012B09 -> site prefix 012B + building 09.
+ * Phone OCR may drop the leading zero or paint a border over it (12B09,
+ * 112B09), but the meaningful suffix B09 is still present in the BUILDING
+ * cell. We reconstruct only when that suffix points to exactly one CONFIRMED
+ * code supplied by the caller for the document branch. No code is invented.
+ */
+export function recoverOfficialBuildingCodeFromAuthorityCell(
+  raw: unknown,
+  branchCode: unknown,
+  knownOfficialCodes: readonly string[],
+): string | null {
+  const token=String(raw??"").normalize("NFKC").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(!token)return null;
+  const branch=String(branchCode??"").normalize("NFKC").replace(/[^0-9]/g,"").slice(0,3);
+  const codes=[...new Set(knownOfficialCodes.map(code=>String(code||"").trim().toUpperCase()).filter(Boolean))];
+  const inBranch=(code:string)=>!branch||code.startsWith(branch);
+  const candidates=codes.filter(inBranch);
+  const exact=candidates.filter(code=>code===token);
+  if(exact.length===1)return exact[0];
+
+  /* Alpha-site colleges: branch 012 + site B + building 09 => 012B09.
+     Require at least the last two branch digits immediately before the site
+     letter. This rejects a stray room token such as F13 while accepting the
+     measured scan artefacts 12B09 / 112B09 / J12B07. */
+  /* The site letter itself can be the one glyph damaged by a ruled scan: B is
+     commonly read as 8 and J as 1. Because this function receives ONLY the
+     already-proven BUILDING cell, we may repair that single glyph — but still
+     only against the finite official registry for the document branch. A seat
+     weld such as 345045 cannot pass the branch-prefix proof. */
+  const alphaPieces=[...token.matchAll(/([0-9]{2,4})([A-Z0-9])0*([0-9]{1,2})/g)];
+  const siteGlyphMatches=(rawGlyph:string,official:string)=>rawGlyph===official
+    ||(official==="B"&&rawGlyph==="8")
+    ||(official==="J"&&rawGlyph==="1")
+    /* T المطبوعة في مسح 022T/021T تُقرأ 7 — مقيدة بالسجل والفرع كسابقتيها. */
+    ||(official==="T"&&rawGlyph==="7");
+  const packedFull=token.match(/^(\d{3})([A-Z0-9])(\d{2})$/);
+  const packedDropZero=token.match(/^(\d{2})([A-Z0-9])(\d{2})$/);
+  /* ── الحرف المتضرر لا يُخمَّن، بل يسقط من المعادلة ────────────────────────
+   *
+   * كان الترميم يعرف تلفَ B و J وحدهما (8 و1)، فصفُّ الجهراء يُنقذ وصفُّ
+   * الفحيحيل لا — والقارئ يرى العلة «في الفحيحيل فقط» ولا يعرف لماذا.
+   * وقائمة تخمينٍ لكل حرف علاجٌ للأعراض. الأصحّ أن يُسأل: هل بقيةُ ما في
+   * الخلية — أرقامُ الفرع ورقمُ المبنى — تحدد كوداً رسمياً واحداً لا ثانيَ
+   * له في هذا الفرع؟ فإن كانت كذلك فالكود ثابتٌ بالدليل مهما قرأ الماسحُ
+   * الحرف، وإن نازعه كودٌ آخر بالرقم نفسه رُفض الصف كما كان يُرفض. لا
+   * تخمينَ حرفٍ، ولا توسيعَ للمقبول عند أدنى التباس. */
+  const uniqueByNumber=(building:string)=>{
+    const hits=candidates.filter(code=>{
+      const parsed=code.match(/^(\d{3})([A-Z])(\d{2})$/);
+      return Boolean(parsed&&parsed[3]===building);
+    });
+    return hits.length===1?hits[0]:null;
+  };
+  const packed=packedFull||packedDropZero;
+  if(packed&&(!branch||packed[1]===branch||packed[1]===branch.slice(-2))){
+    const hits=candidates.filter(code=>{
+      const parsed=code.match(/^(\d{3})([A-Z])(\d{2})$/);
+      return Boolean(parsed&&parsed[3]===packed[3]&&siteGlyphMatches(packed[2],parsed[2]));
+    });
+    if(hits.length===1)return hits[0];
+    const byNumber=uniqueByNumber(packed[3]);
+    if(byNumber)return byNumber;
+  }
+  for(const piece of alphaPieces){
+    const beforeDigits=piece[1],siteGlyph=piece[2],building=String(Number(piece[3])).padStart(2,"0");
+    if(branch&&beforeDigits.slice(-2)!==branch.slice(-2))continue;
+    const hits=candidates.filter(code=>{
+      const parsed=code.match(/^(\d{3})([A-Z])(\d{2})$/);
+      return Boolean(parsed&&parsed[3]===building&&siteGlyphMatches(siteGlyph,parsed[2]));
+    });
+    if(hits.length===1)return hits[0];
+    const byNumber=uniqueByNumber(building);
+    if(byNumber)return byNumber;
+  }
+
+  /* A clean short site+building token (B09) is accepted only if the supplied
+     branch catalogue has one and only one such official code. */
+  const short=token.match(/^([A-Z])0*([0-9]{1,2})$/);
+  if(short){
+    const suffix=`${short[1]}${String(Number(short[2])).padStart(2,"0")}`;
+    const hits=candidates.filter(code=>/^\d{3}[A-Z]\d{2}$/.test(code)&&code.slice(-3)===suffix);
+    if(hits.length===1)return hits[0];
+  }
+
+  /* Numeric-site prefixes (0510/0520/0410/0420) are intentionally conservative:
+     only the already-complete official six-digit token is accepted. Without the
+     site digit, a two-digit building number alone is not enough evidence. */
+  return null;
+}

@@ -1,0 +1,2637 @@
+/* ==========================================================================
+   SCHEDULE — SCREENS: LOGIN · DASHBOARD · CATALOG · ADMIN · ABOUT
+   ========================================================================== */
+
+/* ==========================================================================
+   LOGIN
+   ========================================================================== */
+
+.apex-login{
+  position:relative;
+  min-height:100dvh;
+  /* clip (not hidden): the decorative ::before/::after glows overhang the edges;
+     with overflow:hidden the box becomes a scroll container and RTL parks it at a
+     negative scrollLeft, shifting the whole login off-centre and clipping its right
+     side on phones. clip crops the glows without ever creating that scroll offset. */
+  overflow:clip;
+  display:flex;
+  flex-direction:column;
+  padding:clamp(20px,3vw,38px);
+  background:var(--nav);
+  color:#eef2ee;
+}
+.apex-login::before{
+  content:"";
+  position:absolute;
+  inset:-30% -10% auto -30%;
+  height:120%;
+  background:
+    radial-gradient(ellipse 60% 50% at 22% 18%, color-mix(in srgb,#2f8574 34%,transparent), transparent 70%),
+    radial-gradient(ellipse 45% 40% at 82% 78%, color-mix(in srgb,#9a6f2d 22%,transparent), transparent 72%);
+  filter:blur(20px);
+  pointer-events:none;
+}
+.apex-login::after{
+  content:"";
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(to left, color-mix(in srgb,#ffffff 3%,transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb,#ffffff 3%,transparent) 1px, transparent 1px);
+  background-size:88px 88px;
+  mask-image:radial-gradient(ellipse 80% 70% at 50% 40%, #000 20%, transparent 78%);
+  pointer-events:none;
+}
+.apex-login-ambient{display:none}
+
+.apex-login-brand{
+  position:relative;z-index:2;
+  display:flex;align-items:center;gap:var(--s3);
+}
+/* The mark draws its own ground and ring — the same tile the reader has on
+   their home screen — so the box around it is only a size and a shadow. */
+.apex-login-mark{
+  width:54px;height:54px;flex:0 0 54px;display:grid;place-items:center;
+  filter:drop-shadow(0 14px 28px rgb(0 0 0 / .42));
+}
+.apex-login-mark svg{width:54px;height:54px}
+.apex-login-brand strong,.apex-login-brand small{display:block}
+.apex-login-brand strong{
+  font-size:13px;
+  font-family:var(--brand-word-family);
+  font-weight:var(--brand-word-weight);
+  letter-spacing:var(--brand-word-track);
+}
+.apex-login-brand small{margin-top:3px;color:#8b968f;font-size:var(--t-xs)}
+
+.apex-login-stage{
+  position:relative;z-index:2;
+  width:min(1180px,100%);
+  flex:1;
+  display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(400px,440px);
+  align-items:center;
+  gap:clamp(32px,6vw,88px);
+  margin-inline:auto;
+  padding:clamp(28px,5vh,64px) 0;
+}
+.apex-login-story{max-width:660px}
+.apex-login-kicker{
+  display:flex;align-items:center;gap:var(--s2);
+  color:var(--brass);font-size:var(--t-eyebrow);font-weight:600;letter-spacing:.12em;
+}
+.apex-login-kicker i{width:26px;height:1px;background:var(--brass)}
+.apex-login-story h1{
+  margin-top:var(--s5);
+  font-size:clamp(44px,6.4vw,86px);
+  line-height:1.02;
+  font-weight:600;
+  letter-spacing:-.045em;
+  color:#f4f7f4;
+}
+.apex-login-story h1 em{color:var(--brass);font-style:normal}
+.apex-login-story>p{
+  max-width:56ch;margin-top:var(--s6);
+  color:#93a09a;font-size:15px;line-height:1.8;
+}
+.apex-login-principles{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:var(--s4);margin-top:clamp(28px,5vh,48px);
+}
+.apex-login-principles>span{padding:var(--s4) 0 0;border-top:1px solid #2a3531}
+.apex-login-principles svg{width:17px;height:17px;color:var(--brass)}
+.apex-login-principles b,.apex-login-principles small{display:block}
+.apex-login-principles b{margin-top:var(--s3);font-size:var(--t-sm);font-weight:600;color:#e6ece8}
+.apex-login-principles small{margin-top:var(--s1);color:#7b8781;font-size:var(--t-xs);line-height:1.6}
+
+.apex-login-access{
+  padding:clamp(26px,3vw,36px);
+  border:1px solid #26312d;
+  border-radius:var(--r-2xl);
+  background:color-mix(in srgb,#111917 92%,transparent);
+  box-shadow:0 40px 90px -30px rgb(0 0 0 / .7);
+}
+.apex-access-head>span{color:var(--brass);font-size:var(--t-eyebrow);font-weight:600;letter-spacing:.1em}
+.apex-access-head strong{display:block;margin-top:var(--s2);font-size:27px;font-weight:600;letter-spacing:-.02em}
+.apex-access-head p{margin-top:var(--s2);color:#8b968f;font-size:var(--t-sm);line-height:1.7}
+.login-error{margin-top:var(--s5)}
+.apex-login-form{display:grid;gap:var(--s5);margin-top:var(--s6)}
+.apex-login-form .field>label{color:#8e9a94}
+.apex-login-form .field input{
+  min-height:50px;
+  background:#0b100f;border-color:#2b3630;color:#eef2ee;
+}
+.apex-login-form .field input:hover{border-color:#3c4842}
+.apex-login-form .field input:focus{
+  border-color:var(--accent);background:#0d1312;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent);
+}
+.apex-login-form .btn{margin-top:var(--s1);min-height:50px;font-size:var(--t-body)}
+.apex-login-form .btn-primary{
+  background:var(--accent);border-color:var(--accent);color:#04100d;
+}
+.apex-login-form .btn-primary:hover:not(:disabled){background:var(--accent-strong);border-color:var(--accent-strong)}
+.apex-login-access footer{
+  display:flex;justify-content:space-between;align-items:center;gap:var(--s4);
+  margin-top:var(--s6);padding-top:var(--s5);
+  border-top:1px solid #26312d;color:#6d7a73;font-size:var(--t-xs);
+}
+.apex-login-signature{display:inline-flex;align-items:baseline;gap:8px;white-space:nowrap}
+.apex-login-signature small{color:#51605a;font-size:12px}
+.apex-login-doors{display:inline-flex;align-items:center;gap:10px}
+.demo-entry-link{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid color-mix(in srgb,#8fa49a 24%,transparent);border-radius:999px;
+  background:transparent;color:#95a69e;
+  padding:5px 12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;
+  transition:color .18s var(--ease),border-color .18s var(--ease),background .18s var(--ease);
+}
+.demo-entry-link svg{width:13px;height:13px}
+/* Phone hit area: the pills stay small to the eye, the tap is 44px. */
+.demo-entry-link{position:relative}
+.demo-entry-link::after,.apex-login-identity-trigger::after{content:"";position:absolute;inset:-7px -4px}
+.demo-entry-link:hover:not(:disabled){color:#cfd9d1;border-color:color-mix(in srgb,#79a695 50%,transparent);background:color-mix(in srgb,#0d1714 70%,transparent)}
+.demo-entry-link:disabled{opacity:.55;cursor:default}
+
+/* ==========================================================================
+   DASHBOARD — COMMAND DECK
+   Numbers, arcs and bars carry the meaning. Prose is the exception.
+   ========================================================================== */
+
+.dashboard-page,.command-deck{display:flex;flex-direction:column;gap:var(--s4)}
+
+/* --- Identity bar --------------------------------------------------------- */
+
+.deck-bar{
+  /* Above the cards that follow it, below the shell's own furniture. */
+  position:relative;z-index:45;
+  display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;
+  padding:var(--s3) var(--s5);
+  border:1px solid var(--line);
+  border-radius:var(--r-full);
+  background:var(--surface);
+}
+.deck-avatar{
+  width:38px;height:38px;flex:none;display:grid;place-items:center;
+  border-radius:var(--r-full);
+  background:color-mix(in srgb,var(--brass) 16%,transparent);
+  color:var(--brass);font-size:var(--t-h4);font-weight:600;
+}
+.deck-identity{min-width:0;margin-inline-end:auto}
+.deck-identity strong{display:block;font-size:var(--t-h4);font-weight:600;line-height:1.2}
+.deck-identity small{display:block;color:var(--muted);font-size:var(--t-xs)}
+.deck-chip{
+  display:inline-flex;align-items:center;gap:var(--s2);
+  min-height:32px;padding:0 var(--s4);
+  border-radius:var(--r-full);
+  background:var(--surface-2);
+  color:var(--muted);font-size:var(--t-sm);white-space:nowrap;
+}
+.deck-chip svg{width:14px;height:14px;color:var(--muted-2)}
+.deck-live{width:22px;height:22px;flex:none;display:grid;place-items:center}
+/* النقطةُ الخضراء تقول «البيانات محدّثة» وتُعرض دائماً بلا شرط، فنبضُها الدائم
+   لا يُخبر بشيء — زينةٌ تتحرّك في طرف العين طوال الجلسة. فتبقى النقطةُ وهالتُها
+   ساكنتين. أمّا النبضاتُ الأخرى فتبقى لأنها حالاتٌ عابرة تقف وحدها: «يُعاد
+   الاتصال» و«يفكّر» و«أحلّل…» حتى تأتي النتيجة، و«تغيّر للتوّ» ستَّ ثوانٍ. */
+.deck-live i{
+  width:8px;height:8px;border-radius:var(--r-full);background:var(--success);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--success) 18%,transparent);
+}
+
+/* --- Today ribbon --------------------------------------------------------- */
+
+.deck-today{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:clamp(20px,3vw,40px);
+  padding:clamp(22px,2.6vw,32px) clamp(24px,3vw,36px);
+  border:1px solid var(--line);
+  border-radius:var(--r-2xl);
+  background:
+    radial-gradient(ellipse 50% 130% at 92% 50%, color-mix(in srgb,var(--accent) 8%,transparent), transparent 60%),
+    var(--surface);
+  box-shadow:var(--shadow-xs);
+}
+.deck-today-lead{display:flex;align-items:baseline;gap:var(--s2)}
+.deck-today-lead b{
+  font-size:clamp(44px,5vw,64px);line-height:.9;font-weight:600;
+  letter-spacing:-.05em;font-variant-numeric:tabular-nums;
+}
+.deck-today-lead span{color:var(--muted);font-size:var(--t-h4)}
+.deck-today-lead em{
+  font-style:normal;margin-inline-start:var(--s2);
+  padding:3px var(--s3);border-radius:var(--r-full);
+  background:var(--accent-soft);color:var(--accent-ink);
+  font:600 var(--t-xs)/1.6 var(--font-mono);
+}
+
+.daybar{min-width:0}
+/*
+   ── شكل اليوم ──────────────────────────────────────────────────────────────
+ *
+ * Twelve columns, one per teaching hour, each as tall as the hour is full.
+ * Nothing here can overlap another thing, because nothing shares a column —
+ * which is the whole point: the previous strip drew a block per lecture and,
+ * measured on the live board, put seventy-three of seventy-four on a pixel
+ * another block already held.
+ *
+ * It answers the question the dashboard actually asks — where is today heavy —
+ * and it answers it at a glance instead of demanding a reading.
+ */
+.daybar-track{
+  position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
+  /* `align-items:end` shrank every column to its own content — 22px instead of
+     72 — so a bar asking for "100%" got 100% of twenty-two pixels and the whole
+     shape read as a row of hairlines. Stretch gives each column the track's
+     full height, which is what a percentage of it is supposed to mean. */
+  gap:3px;align-items:stretch;height:78px;padding:0;
+  border-radius:var(--r-sm);background:var(--surface-2);
+}
+.daybar-hour{
+  position:relative;display:flex;flex-direction:column;justify-content:flex-end;
+  gap:3px;padding:6px 0 4px;min-width:0;height:100%;
+  background:transparent;border:0;cursor:pointer;
+}
+.daybar-hour>i{
+  display:block;width:100%;min-height:4px;
+  /* Grows from the floor of the column, which is now the floor of the strip. */
+  flex:0 0 var(--fill,0%);
+  border-radius:4px 4px 2px 2px;
+  background:var(--accent);opacity:.9;
+  transition:height .24s var(--ease),opacity .16s var(--ease);
+}
+.daybar-hour>b{
+  font:600 12px/1.2 var(--font-mono);color:var(--muted);
+  font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate;
+  min-height:12px;
+}
+.daybar-hour.empty>i{background:var(--line);opacity:.6}
+.daybar-hour:hover>i{opacity:1}
+.daybar-hour:hover>b{color:var(--ink)}
+/* «الآن» — the hour being taught right now, marked on the column itself
+   rather than as a floating rule that had to explain what it was. */
+.daybar-hour.now>i{background:var(--brass)}
+.daybar-hour.now>b{color:var(--brass);font-weight:700}
+.daybar-hour.now::after{
+  content:"";position:absolute;inset-block-end:-3px;inset-inline:20%;
+  height:2px;border-radius:2px;background:var(--brass);
+}
+@media (prefers-reduced-motion:reduce){.daybar-hour>i{transition:none}}
+/* أعمدةُ الساعات تنمو من أرضيّة الشريط مرّةً واحدة (useMotionScope على .daybar-track):
+   hold = مطويّة قبل الرسم الأول، go = تنمو بحركة bar-grow نفسها بتتابعٍ خفيف.
+   لا fill-mode سوى backwards؛ وبعد الانتهاء تُزال السمةُ فتبقى الحالةُ النهائية. */
+.daybar-hour>i{transform-origin:bottom center}
+.daybar-track[data-motion="hold"] .daybar-hour>i{transform:scaleY(0)}
+.daybar-track[data-motion="go"] .daybar-hour>i{animation:bar-grow .6s var(--ease-out) backwards}
+.daybar-track[data-motion="go"] .daybar-hour:nth-child(2) >i{animation-delay:45ms}
+.daybar-track[data-motion="go"] .daybar-hour:nth-child(3) >i{animation-delay:90ms}
+.daybar-track[data-motion="go"] .daybar-hour:nth-child(4) >i{animation-delay:135ms}
+.daybar-track[data-motion="go"] .daybar-hour:nth-child(5) >i{animation-delay:180ms}
+.daybar-track[data-motion="go"] .daybar-hour:nth-child(6) >i{animation-delay:225ms}
+.daybar-track[data-motion="go"] .daybar-hour:nth-child(7) >i{animation-delay:270ms}
+.daybar-track[data-motion="go"] .daybar-hour:nth-child(8) >i{animation-delay:315ms}
+.daybar-track[data-motion="go"] .daybar-hour:nth-child(9) >i{animation-delay:360ms}
+.daybar-track[data-motion="go"] .daybar-hour:nth-child(10) >i{animation-delay:405ms}
+.daybar-track[data-motion="go"] .daybar-hour:nth-child(11) >i{animation-delay:450ms}
+.daybar-track[data-motion="go"] .daybar-hour:nth-child(12) >i{animation-delay:495ms}
+@media (prefers-reduced-motion:reduce){.daybar-track[data-motion] .daybar-hour>i{transform:none;animation:none}}
+
+.daybar-scale{position:relative;height:18px;margin-top:var(--s2)}
+.daybar-scale span{
+  position:absolute;top:0;transform:translateX(50%);
+  color:var(--muted-2);font:500 var(--t-xs)/1 var(--font-mono);
+}
+/* The first and last hour sit on the card's own edges: centred on them, half the figure would hang outside the track (and be clipped on a phone). */
+.daybar-scale span:first-child{transform:none}
+.daybar-scale span:last-child{right:auto!important;left:0;transform:none}
+.deck-clear{
+  display:inline-flex;align-items:center;gap:var(--s2);
+  color:var(--success);font-size:var(--t-sm);
+}
+.deck-clear svg{width:16px;height:16px}
+.deck-today-actions{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap}
+
+/* --- Gauges --------------------------------------------------------------- */
+
+/* --- One decision --------------------------------------------------------- */
+
+.deck-decision{
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto auto;
+  align-items:center;gap:var(--s4);
+  padding:var(--s4) var(--s5);
+  border:1px solid var(--line);
+  border-radius:var(--r-xl);
+  background:var(--surface);
+}
+.deck-decision>div{min-width:0}
+.deck-decision strong{display:block;font-size:var(--t-h3);font-weight:600;line-height:1.35}
+.deck-decision small{
+  display:block;margin-top:var(--s1);color:var(--muted);font-size:var(--t-sm);line-height:1.6;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;
+}
+.deck-decision-mark{
+  width:44px;height:44px;display:grid;place-items:center;
+  border-radius:var(--r-md);background:var(--success-soft);color:var(--success);
+}
+.deck-decision-mark svg{width:20px;height:20px}
+.deck-decision-count{
+  min-width:30px;height:30px;display:grid;place-items:center;
+  border-radius:var(--r-full);background:var(--surface-3);
+  color:var(--muted);font-size:var(--t-xs);font-weight:600;font-variant-numeric:tabular-nums;
+}
+.deck-decision>button{
+  width:38px;height:38px;display:grid;place-items:center;
+  border:1px solid var(--line);border-radius:var(--r-xs);
+  background:var(--surface-2);color:var(--muted);
+}
+.deck-decision>button:hover{border-color:var(--accent);color:var(--accent)}
+.deck-decision.level-warning{border-color:color-mix(in srgb,var(--warning) 28%,var(--line))}
+.deck-decision.level-warning .deck-decision-mark{background:var(--warning-soft);color:var(--warning)}
+.deck-decision.level-danger,.deck-decision.level-critical{border-color:color-mix(in srgb,var(--danger) 28%,var(--line))}
+.deck-decision.level-danger .deck-decision-mark,
+.deck-decision.level-critical .deck-decision-mark{background:var(--danger-soft);color:var(--danger)}
+
+/* --- شريط الجاهزية (لوحة القيادة) --- */
+.deck-signals{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));
+  border:1px solid var(--line);border-radius:var(--r-xl);
+  background:var(--surface);overflow:hidden;
+}
+.deck-signals article{
+  display:flex;flex-direction:column;gap:3px;
+  padding:var(--s4) var(--s5);
+  border-inline-start:1px solid var(--line);
+}
+.deck-signals article:first-child{border-inline-start:0}
+.deck-signals b{
+  font-size:clamp(23px,2.5vw,29px);line-height:1.05;font-weight:600;
+  letter-spacing:-.03em;font-variant-numeric:tabular-nums lining-nums;
+}
+.deck-signals span{color:var(--muted);font-size:var(--t-xs);font-weight:500}
+/* الرقمُ الذي يعدّ صاعداً (Counted observe) يلفّه span؛ فلا يرث تسميةَ المؤشّر الصغيرة. */
+.deck-signals b .dna-counted{color:inherit;font:inherit;letter-spacing:inherit}
+.deck-signals .signal-danger b{color:var(--danger)}
+/* أربعة مؤشرات على الجوال: شبكة ٢×٢ بدل ثلاثة في صفّ ورابعٍ وحيد تحته. */
+@media (max-width:560px){
+  .deck-signals:has(>article:nth-child(4):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
+  .deck-signals:has(>article:nth-child(4):last-child)>article:nth-child(3){border-inline-start:0}
+  .deck-signals:has(>article:nth-child(4):last-child)>article:nth-child(n+3){border-top:1px solid var(--line)}
+  /* Three: two figures over one full-width row — the odd one out must not wrap into a half-empty row with a stray divider on the card's edge. */
+  .deck-signals:has(>article:nth-child(3):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
+  .deck-signals:has(>article:nth-child(3):last-child)>article:nth-child(3){grid-column:1/-1;border-inline-start:0;border-top:1px solid var(--line)}
+}
+
+/* ── انتظارٌ يُقرأ انتظاراً، لا عطلاً ────────────────────────────────────────
+   القراءة الثقيلة تصل بعد الجدول بجولةٍ كاملة. البطاقة والشريط يحجزان
+   مكانهما من أول رسمة — فلا تنمو الصفحة تحت إبهام القارئ — ويقولان بهدوء
+   إن الرقم في الطريق: «—» باهتةٌ تتنفّس، لا صفرٌ يدّعي قياساً لم يُؤخذ.
+   والحركة تتوقّف تماماً لمن طلب تقليلها. */
+@keyframes deck-awaiting{50%{opacity:.42}}
+/* القيمةُ التي وصلت بعد «—»: تلاشٍ واحد، ثم تستقرّ. (opacity فقط، بلا fill-mode) */
+@keyframes deck-arrive{from{opacity:0}}
+.deck-signals article.signal-arrived b,
+.deck-signals article.signal-arrived .signal-ring-row{animation:deck-arrive .5s var(--ease-out)}
+.deck-signals article.is-awaiting b{
+  color:var(--muted-2);
+  animation:deck-awaiting 1.9s var(--ease-out) infinite;
+}
+.dashboard-health-ribbon.is-awaiting em{
+  color:var(--muted-2);
+  animation:deck-awaiting 1.9s var(--ease-out) infinite;
+}
+/* المسار فارغٌ فعلاً: لمعةٌ خفيفة تعبره بدل امتلاءٍ كاذب. */
+.dashboard-health-ribbon.is-awaiting .bar-rows i{
+  background:linear-gradient(
+    100deg,
+    var(--surface-3) 38%,
+    color-mix(in srgb,var(--surface-3) 55%,var(--surface)) 50%,
+    var(--surface-3) 62%
+  );
+  background-size:280% 100%;
+  animation:deck-awaiting-sheen 1.6s linear infinite;
+}
+@keyframes deck-awaiting-sheen{from{background-position:180% 0}to{background-position:-80% 0}}
+
+/* شريط «يحتاج انتباهك» وحده لا يُحجز مكانه بصدق: وجوده نفسه هو الخبر، ولا
+   يُعرف قبل أن تصل القراءة. فما لا يُحجز مكانه… يصل. يفتح ارتفاعه في أقلّ
+   من نصف ثانية بدل أن يظهر دفعةً واحدة، فتنزل الصفحة تحته انزلاقاً مقروءاً
+   لا قفزةً. بلا fill-mode عمداً: تنتهي الحركة فيعود الارتفاع طبيعياً، ولا
+   يبقى سقفٌ يقصّ القائمة حين يفتحها القارئ. */
+@keyframes deck-band-arrive{
+  from{max-height:0;opacity:0}
+  60%{opacity:1}
+  to{max-height:96px;opacity:1}
+}
+.dashboard-attention{animation:deck-band-arrive .42s var(--ease-out)}
+
+@media (prefers-reduced-motion:reduce){
+  .dashboard-attention{animation:none}
+  .deck-signals article.is-awaiting b,
+  .deck-signals article.signal-arrived b,
+  .deck-signals article.signal-arrived .signal-ring-row,
+  .dashboard-health-ribbon.is-awaiting em,
+  .dashboard-health-ribbon.is-awaiting .bar-rows i{animation:none}
+  .dashboard-health-ribbon.is-awaiting .bar-rows i{background:var(--surface-3)}
+}
+
+.dashboard-attention-all{
+  display:inline-flex;align-items:center;gap:var(--s2);
+  margin:var(--s2) var(--s2) var(--s1);
+  color:var(--accent);font-size:var(--t-sm);font-weight:600;
+}
+.dashboard-attention-all svg{width:15px;height:15px}
+.dashboard-attention-all:hover{color:var(--accent-strong)}
+
+/* --- Metric tiles --------------------------------------------------------- */
+
+.deck-metrics{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:var(--s3);
+}
+.deck-metrics article{
+  position:relative;
+  display:flex;flex-direction:column;align-items:flex-start;gap:var(--s1);
+  padding:var(--s5);
+  border:1px solid var(--line);border-radius:var(--r-xl);background:var(--surface);
+}
+.deck-metrics svg{width:17px;height:17px;color:var(--muted-2);margin-bottom:var(--s2)}
+.deck-metrics span{color:var(--muted);font-size:var(--t-sm)}
+/* The trend sits in the corner of the card rather than beside the number.
+   Standing next to a five-figure total it pushed the total off its own line. */
+.deck-metrics b{
+  display:block;
+  font-size:clamp(22px,2.4vw,28px);line-height:1;font-weight:600;
+  letter-spacing:-.03em;font-variant-numeric:tabular-nums;
+}
+.deck-metrics .delta{position:absolute;top:var(--s4);inset-inline-end:var(--s4)}
+.delta{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:2px var(--s2);border-radius:var(--r-full);
+  font-size:var(--t-xs);font-weight:600;line-height:1.4;
+  font-variant-numeric:tabular-nums;letter-spacing:0;
+}
+.delta i{font-style:normal;display:inline-flex;line-height:1}
+.delta i svg{width:12px;height:12px}
+/* ── لماذا فقدت هذه الشارات لونها ────────────────────────────────────────────
+   `.deck-metrics span{color:var(--muted)}` is one class and one type — (0,1,1)
+   — and these modifiers were one class each, so inside the metrics deck every
+   rise and fall was repainted the same grey. The badge kept its green tint in
+   the background while the arrow and the number went colourless, which reads as
+   a design choice rather than the bug it is: up and down stopped being
+   distinguishable at a glance, and that distinction is the whole point of them.
+   Qualifying each modifier with `.delta` makes them (0,2,0) and settles it
+   everywhere, not only in the deck — and it is the honest selector anyway,
+   since none of these three means anything on an element that is not a delta. */
+.delta.delta-up{background:var(--success-soft);color:var(--success)}
+.delta.delta-down{background:var(--warning-soft);color:var(--warning)}
+.delta.delta-flat{background:var(--surface-3);color:var(--muted);padding-inline:var(--s2)}
+.deck-compare-note{
+  display:flex;align-items:center;flex-wrap:wrap;gap:var(--s1) var(--s2);
+  margin-top:calc(var(--s2) * -1);
+  /* --muted-2 measured 4.36 here and 4.19 inside the <em>, which sits on the
+     darker --surface-3. --muted clears both (4.69 / 4.51). */
+  color:var(--muted);font-size:var(--t-xs);
+}
+.deck-compare-note b{color:var(--muted);font-weight:600}
+.deck-compare-note i{font-style:normal;opacity:.6}
+.deck-compare-note em{
+  font-style:normal;padding:1px var(--s2);
+  border-radius:var(--r-full);background:var(--surface-3);
+  font-variant-numeric:tabular-nums;
+}
+
+/* --- Charts --------------------------------------------------------------- */
+
+.deck-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--s3)}
+.deck-chart{
+  padding:var(--s5);
+  border:1px solid var(--line);border-radius:var(--r-xl);background:var(--surface);
+}
+.deck-chart>header{display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s5)}
+.deck-chart>header svg{width:16px;height:16px;color:var(--muted-2)}
+.deck-chart>header span{color:var(--ink-2);font-size:var(--t-sm);font-weight:600}
+
+.bar-columns{display:flex;align-items:flex-end;gap:var(--s2);height:132px}
+.bar-columns>div{
+  flex:1;min-width:0;height:100%;
+  /* شبكةٌ لا عمودُ flex: ارتفاعُ العمود بالنسبة المئوية يُحسب من خلية الرسم
+     (الصفّ 1fr) فلا يتقلّص مع الرقم والحرف تحته؛ كان flex-shrink يساوي
+     بين الأعمدة كلّها فيبدو حملُ الأيام متطابقاً مهما اختلفت أرقامُها. */
+  display:grid;grid-template-rows:minmax(0,1fr) auto auto;justify-items:center;row-gap:var(--s2);
+}
+.bar-columns i{
+  width:100%;max-width:34px;align-self:end;
+  border-radius:var(--r-xs) var(--r-xs) 2px 2px;
+  background:var(--accent);
+  transition:height .6s var(--ease-out);
+}
+.bar-columns b{font-size:var(--t-xs);font-weight:600;font-variant-numeric:tabular-nums}
+.bar-columns span{color:var(--muted);font-size:var(--t-xs);white-space:nowrap}
+
+.bar-rows{display:flex;flex-direction:column;gap:var(--s3)}
+.bar-rows>div{display:grid;grid-template-columns:52px minmax(0,1fr);align-items:center;gap:var(--s3)}
+/* The figure sits at the tip of its own bar, not in a column at the far edge of
+   the card. The bar grows from the right (the start of the line); the figure
+   follows the tip leftwards. A grid item's percentage margin resolves against the
+   track it spans, so `--v` (0-100) is the bar's own fill. Long bars carry the
+   figure inside the fill instead, so it never runs off the card. */
+.bar-rows>div>i{grid-column:2;grid-row:1}
+.bar-rows>div>em{
+  grid-column:2;grid-row:1;justify-self:left;
+  margin-left:calc((100 - var(--v,0)) * 1%);
+  transform:translateX(calc(-100% - 6px));
+  position:relative;z-index:1;white-space:nowrap;pointer-events:none;
+}
+.bar-rows>div[data-high]>em{transform:translateX(6px);color:var(--surface)}
+.bar-rows>div>em:empty{display:none}
+.bar-rows span{color:var(--muted);font:500 var(--t-xs)/1 var(--font-mono)}
+/* أسماء مؤشرات الصحة عربية: الخط الأحادي يفكّك حروفها («مرو نة»)، فتُكتب بخط الواجهة. */
+.dashboard-health-factor>span{font-family:var(--font-ui);line-height:1.3}
+.bar-rows i{display:block;height:8px;border-radius:var(--r-full);background:var(--surface-3);overflow:hidden}
+.bar-rows i>b{display:block;height:100%;border-radius:var(--r-full);background:var(--accent);transition:width .6s var(--ease-out)}
+.bar-rows em{font-style:normal;font-size:var(--t-xs);font-weight:600;text-align:end;font-variant-numeric:tabular-nums}
+
+.rank-rows{display:flex;flex-direction:column;gap:var(--s3)}
+.rank-rows>div{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:var(--s3)}
+.rank-rows>div>b{
+  width:24px;height:24px;display:grid;place-items:center;border-radius:var(--r-xs);
+  background:var(--surface-3);color:var(--muted);font-size:var(--t-xs);font-variant-numeric:tabular-nums;
+}
+.rank-rows>div>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--t-sm)}
+.rank-rows>div>em{font-style:normal;color:var(--muted);font-size:var(--t-xs);font-variant-numeric:tabular-nums}
+
+/* --- Folded facts --------------------------------------------------------- */
+
+.dashboard-insights{
+  border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;background:var(--surface);
+}
+.dashboard-insights-toggle{
+  width:100%;min-height:60px;
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s4);
+  padding:var(--s3) var(--s5);color:var(--ink);text-align:start;
+}
+.dashboard-insights-toggle:hover{background:var(--surface-2)}
+.dashboard-insights-toggle>span{display:flex;align-items:center;gap:var(--s3);min-width:0}
+.dashboard-insights-toggle>span>svg{width:17px;height:17px;color:var(--brass)}
+.dashboard-insights-toggle strong{font-size:var(--t-sm);font-weight:600}
+.dashboard-insights-toggle>svg{transition:transform .22s var(--ease);color:var(--muted)}
+.dashboard-insights.open .dashboard-insights-toggle>svg{transform:rotate(180deg)}
+.pulse-legacy-details{padding:0 var(--s5) var(--s5);border-top:1px solid var(--line)}
+.deck-facts{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--s2);padding-top:var(--s5);
+}
+.deck-facts>div{
+  padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2);
+}
+.deck-facts small{display:block;color:var(--muted);font-size:var(--t-xs)}
+.deck-facts strong{display:block;margin-top:2px;font-size:var(--t-h4);font-weight:600}
+
+.dashboard-canvas-skeleton{
+  display:grid;grid-template-columns:2fr 1fr;gap:var(--s3);
+  /* Same two tokens the schedule's skeletons use, so every surface in the app
+     waits with one voice instead of three different greys. */
+  --sk-base:color-mix(in srgb,var(--ink) 10%,var(--surface-2));
+  --sk-sheen:color-mix(in srgb,var(--accent) 17%,var(--surface-3));
+}
+.dashboard-canvas-skeleton i{
+  min-height:190px;border:1px solid var(--line);border-radius:var(--r-xl);
+  background:linear-gradient(100deg,var(--sk-base) 28%,var(--sk-sheen) 50%,var(--sk-base) 72%);
+  background-size:220% 100%;
+  animation:sk-shimmer 1.4s ease-in-out infinite,sk-fade .42s var(--ease-out) both;
+}
+.dashboard-canvas-skeleton i:nth-child(2){animation-delay:-.36s,.08s}
+.dashboard-canvas-skeleton i:nth-child(3){animation-delay:-.72s,.16s}
+@media (prefers-reduced-motion:reduce){
+  .dashboard-canvas-skeleton i{animation:sk-fade .42s var(--ease-out) both}
+}
+.dashboard-canvas-skeleton i:first-child{grid-row:span 2;min-height:400px}
+
+/* ==========================================================================
+   CATALOG / MASTER-DETAIL
+   ========================================================================== */
+
+/*
+   ── شريط الأدوات: سطران، لا عمود مضغوط ─────────────────────────────────────
+ *
+ * These sat on one line and shared it badly: the search took the width it
+ * wanted and the filters were squeezed into a narrow column beside it, each
+ * one truncated, stacked vertically, and reading as a broken sidebar rather
+ * than as controls. Two of them plus a record count cannot share a line with a
+ * search field at any width a person actually uses.
+ *
+ * So they are two rows. The search owns the first, whole. The filters own the
+ * second and sit side by side at full size, where every label reads.
+ */
+.list-toolbar{
+  min-height:64px;display:flex;flex-direction:column;align-items:stretch;gap:var(--s3);
+  padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);
+}
+.list-search,.schedule-quick-search{
+  min-width:0;max-width:none;flex:1 1 auto;width:100%;
+  display:flex;align-items:center;gap:var(--s2);
+  min-height:42px;padding:0 var(--s3);
+  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);
+  transition:border-color .16s var(--ease),box-shadow .16s var(--ease),background .16s var(--ease);
+}
+.list-search:focus-within,.schedule-quick-search:focus-within{
+  border-color:var(--accent);background:var(--surface);box-shadow:var(--ring);
+}
+.list-search>svg,.schedule-quick-search>svg{width:16px;height:16px;color:var(--muted)}
+.list-search input,.schedule-quick-search input{
+  flex:1;min-width:0;border:0;outline:0;background:transparent;padding:0;
+  font-size:var(--t-body);color:var(--ink);
+  /* The shell is 42px and the input inside it had no height of its own, so it
+     collapsed to its line box — measured at 23px on the live courses screen,
+     against 38px filters beside it. A control that is short by fifteen pixels
+     next to two that are not reads as broken alignment, and it is also below
+     any comfortable tap target. It fills its own shell now. */
+  align-self:stretch;height:auto;
+}
+.list-search input::placeholder,.schedule-quick-search input::placeholder{color:var(--muted-2)}
+.list-search button,.schedule-quick-search button{color:var(--muted);padding:var(--s1);display:grid;place-items:center}
+.list-search button svg,.schedule-quick-search button svg{width:14px;height:14px}
+.list-search button:hover,.schedule-quick-search button:hover{color:var(--ink)}
+/* The second row: filters first because they are what a person reaches for,
+   and the record count pushed to the far end where a total belongs. */
+.list-toolbar-side{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;width:100%}
+.list-toolbar-side>*{min-height:42px}
+/* 190px was a floor, not a basis: two of them plus a gap need 390 before they
+   will sit together, and the card they live in is narrower than that at the
+   width this screen is actually used. A basis of 130 lets them share a row
+   down to about 280px and stack only below it — measured, not guessed. */
+.list-toolbar-side .list-filter{flex:1 1 130px;min-width:0;max-width:none}
+.list-toolbar .count-chip{display:inline-flex;align-items:center;margin-inline-start:auto;flex:none}
+/* Compact per-screen filters that sit beside the search — quiet until used. */
+.list-filter{
+  min-height:42px;max-width:190px;
+  padding:0 var(--s3);
+  border:1px solid var(--line);border-radius:var(--r-xs);
+  background:var(--surface-2);color:var(--ink-2);
+  font-size:var(--t-sm);text-overflow:ellipsis;
+}
+.list-filter:hover{border-color:var(--line-strong)}
+.list-filter:focus{border-color:var(--accent);outline:none;box-shadow:var(--ring)}
+
+.record-deck{display:flex;flex-direction:column}
+.record-card{
+  position:relative;
+  /* Never let a scroll container squash a row below its own content. */
+  flex:0 0 auto;
+  min-height:76px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:var(--s3);
+  align-items:center;
+  padding:var(--s4) var(--s5);
+  border-bottom:1px solid var(--line);
+  background:var(--surface);
+}
+.record-card:last-child{border-bottom:0}
+.record-card-clickable{cursor:pointer;transition:background .15s var(--ease)}
+.record-card-clickable:hover{background:var(--surface-2)}
+.record-card-lead{min-width:0;display:flex;align-items:center;gap:var(--s3)}
+.record-card-copy{min-width:0}
+.record-card-copy>strong,.record-card-copy>span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.record-card-copy>strong{font-size:var(--t-h4);font-weight:600}
+.record-card-copy>span{margin-top:2px;color:var(--muted);font-size:var(--t-sm)}
+.record-card-meta{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s2)}
+.record-card-actions{display:flex;align-items:center;gap:var(--s2)}
+.record-card-arrow{width:15px;height:15px;color:var(--muted-2)}
+.record-card-body{grid-column:1/-1}
+.record-path{display:flex;align-items:center;gap:var(--s1);color:var(--muted);font-size:var(--t-xs)}
+.catalog-more{display:flex;justify-content:center;padding:var(--s4);border-top:1px solid var(--line)}
+
+/* --------------------------------------------------------------------------
+   CONSOLE RAIL
+   The academic reference and system administration are each one destination
+   now. The rail is both the navigation and the census: every tab carries the
+   size of the catalogue behind it, so the page answers "how much is in here?"
+   before anything is opened.
+   -------------------------------------------------------------------------- */
+.console-rail{
+  display:flex;gap:var(--s2);
+  padding:var(--s2);
+  border:1px solid var(--line);border-radius:var(--r-2xl);
+  background:var(--surface);box-shadow:var(--shadow-xs);
+  overflow-x:auto;overscroll-behavior-inline:contain;
+  scrollbar-width:none;
+}
+.console-rail::-webkit-scrollbar{display:none}
+.console-tab{
+  position:relative;
+  flex:1 1 0;min-width:112px;
+  display:grid;grid-template-columns:auto minmax(0,1fr);
+  grid-template-rows:auto auto;
+  align-items:center;
+  gap:0 var(--s2);
+  padding:var(--s3) var(--s3);
+  border:1px solid transparent;border-radius:var(--r-lg);
+  background:transparent;color:var(--muted);text-align:start;
+  transition:background .16s var(--ease),color .16s var(--ease),border-color .16s var(--ease);
+}
+.console-tab:hover{background:var(--surface-2);color:var(--ink)}
+.console-tab-icon{
+  grid-row:1/3;
+  width:34px;height:34px;display:grid;place-items:center;
+  border-radius:var(--r-md);
+  background:var(--surface-2);color:var(--muted);
+  transition:background .16s var(--ease),color .16s var(--ease);
+}
+.console-tab-icon svg{width:17px;height:17px}
+.console-tab b{
+  font-size:19px;font-weight:600;line-height:1.1;letter-spacing:-.02em;
+  color:var(--ink);font-variant-numeric:tabular-nums;
+}
+.console-tab b.pending{color:var(--muted-2)}
+.console-tab-label{font-size:var(--t-xs);line-height:1.4;white-space:nowrap}
+/* A tab with no census is a single centred row rather than a stat. */
+.console-tab-plain{grid-template-rows:auto}
+.console-tab-plain .console-tab-icon{grid-row:1}
+.console-tab-plain .console-tab-label{font-size:var(--t-sm);font-weight:500}
+.console-tab.active{background:var(--accent-softer);color:var(--accent-ink);border-color:var(--accent-soft)}
+.console-tab.active .console-tab-icon{background:var(--accent);color:var(--accent-contrast)}
+.console-tab.active b{color:var(--accent-ink)}
+
+/* The console owns the page identity, so the open catalogue lends it the one
+   action it still needs. */
+.console-head{display:flex;align-items:stretch;gap:var(--s3)}
+.console-head .console-rail{flex:1 1 auto;min-width:0}
+.console-action-slot{flex:0 0 auto;display:flex;align-items:center}
+.console-action-slot:empty{display:none}
+.academic-console>.view-loading{min-height:280px}
+.embedded-catalog{gap:var(--s4)}
+
+/* --------------------------------------------------------------------------
+   CATALOGUE SKELETON
+   The placeholder wears the workspace's own geometry — same columns, same
+   divider, same radius — so the real screen resolves into it rather than
+   replacing it. Decorative and inert.
+   -------------------------------------------------------------------------- */
+.catalog-skeleton{
+  /* Slightly firmer than the schedule's own skeletons: these sit on --surface
+     rather than the page ground, so they need a touch more separation to read
+     as placeholders instead of as empty panes. */
+  --sk-base:color-mix(in srgb,var(--ink) 10%,var(--surface-2));
+  --sk-sheen:color-mix(in srgb,var(--accent) 17%,var(--surface-3));
+  min-height:min(74vh,720px);
+  display:grid;
+  grid-template-columns:minmax(320px,34%) minmax(0,1fr);
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:var(--r-2xl);
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+}
+.catalog-skeleton .csk-line,
+.catalog-skeleton .csk-box,
+.catalog-skeleton .csk-mark{
+  display:block;border-radius:var(--r-sm);
+  background:linear-gradient(100deg,var(--sk-base) 28%,var(--sk-sheen) 50%,var(--sk-base) 72%);
+  background-size:220% 100%;
+  animation:sk-shimmer 1.4s ease-in-out infinite,sk-fade .42s var(--ease-out) both;
+  animation-delay:calc(var(--i,0)*-130ms),calc(var(--i,0)*46ms);
+}
+.catalog-skeleton .csk-list{
+  min-width:0;display:flex;flex-direction:column;gap:var(--s4);
+  padding:var(--s5);
+  border-inline-start:1px solid var(--line);
+}
+.catalog-skeleton .csk-search{height:38px;border-radius:var(--r-full)}
+.catalog-skeleton .csk-row{display:flex;flex-direction:column;gap:6px}
+.catalog-skeleton .csk-row .csk-line{height:12px}
+.catalog-skeleton .csk-dim{opacity:.6}
+.catalog-skeleton .csk-detail{
+  min-width:0;display:flex;flex-direction:column;gap:var(--s4);
+  padding:var(--s6);
+}
+/* No auto margins: a sized item in a column flex box already sits on the
+   inline-start edge, which is the right in Arabic — exactly where the real
+   record draws its icon and its title. */
+.catalog-skeleton .csk-mark{width:38px;height:38px;border-radius:var(--r-lg)}
+.catalog-skeleton .csk-kicker{width:84px;height:10px}
+.catalog-skeleton .csk-title{width:min(62%,320px);height:26px}
+.catalog-skeleton .csk-sub{width:min(40%,220px);height:12px;opacity:.6}
+.catalog-skeleton .csk-grid{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3);margin-top:var(--s3);
+}
+.catalog-skeleton .csk-box{height:72px;border-radius:var(--r-lg)}
+.catalog-skeleton .csk-box:nth-child(4){grid-column:span 2}
+@media (prefers-reduced-motion:reduce){
+  .catalog-skeleton .csk-line,
+  .catalog-skeleton .csk-box,
+  .catalog-skeleton .csk-mark{animation:sk-fade .42s var(--ease-out) both}
+}
+
+.catalog-workspace,.master-detail-shell{
+  min-height:min(74vh,720px);
+  display:grid;
+  grid-template-columns:minmax(320px,34%) minmax(0,1fr);
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:var(--r-2xl);
+  /* The inspector's tint, so a short inspector beside a long list does not
+     stop in mid-card; the list column paints its own surface. */
+  background:var(--surface-2);
+  box-shadow:var(--shadow-sm);
+}
+.catalog-master,.master-pane{
+  min-width:0;
+  display:flex;flex-direction:column;
+  border-inline-start:1px solid var(--line);
+  background:var(--surface);
+}
+.catalog-master>.record-deck,.master-list{
+  min-height:0;flex:1;
+  max-height:min(74vh,720px);
+  overflow-y:auto;
+}
+.master-search{
+  display:flex;align-items:center;gap:var(--s2);
+  margin:var(--s4);padding:0 var(--s3);
+  min-height:44px;
+  border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--surface-2);
+  transition:border-color .16s var(--ease),box-shadow .16s var(--ease),background .16s var(--ease);
+}
+.master-search:focus-within{border-color:var(--accent);background:var(--surface);box-shadow:var(--ring)}
+.master-search>svg{width:16px;height:16px;color:var(--muted)}
+.master-search input{
+  /* Same shape as .query-ask: the wrapper draws the field and the input
+     inside it is transparent and one line tall, so the top and bottom of
+     something that looks exactly like a text box answered nothing when
+     clicked. Stretching costs no layout — the 44px is already occupied. */
+  flex:1;min-width:0;min-height:0;align-self:stretch;
+  border:0;outline:0;background:transparent;padding:0;
+  font-size:var(--t-body);color:var(--ink);
+}
+.master-search input::placeholder{color:var(--muted-2)}
+/* The dot stays 24px because that is the right size to look at; the target
+   around it is 44px because that is the right size to hit with a thumb. */
+.master-search>button{
+  width:24px;height:24px;display:grid;place-items:center;
+  border-radius:var(--r-full);background:var(--surface-3);color:var(--muted);
+  font-size:15px;line-height:1;
+  position:relative;
+}
+.master-search>button::after{
+  content:"";position:absolute;inset:50% auto auto 50%;
+  width:44px;height:44px;transform:translate(50%,-50%);
+}
+.master-search>button:hover{color:var(--ink)}
+/* --- Audit trail -----------------------------------------------------------
+   The log is read by scanning, so the sentence that answers "what changed"
+   sits in the row itself rather than one click away. */
+/* --- ميزان الأقسام ---------------------------------------------------------
+   Every department on one line, sortable by the column you suspect. This is
+   the only reading in the product that deliberately crosses scope, so it is
+   drawn as a ledger: quiet rules, tabular figures, and colour used only where
+   a number needs a verdict. */
+.balance-lens{display:flex;flex-direction:column;gap:var(--s4);padding:var(--s5)}
+.balance-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--s4);flex-wrap:wrap}
+.balance-head h3{margin:var(--s2) 0 0;font-size:var(--t-h3);font-weight:600;letter-spacing:-.02em}
+.balance-flag{
+  padding:var(--s2) var(--s4);border-radius:var(--r-full);
+  background:var(--danger-soft);color:var(--danger);
+  font-size:var(--t-sm);font-weight:700;
+}
+.balance-table tr.is-focused td{background:var(--accent-soft,#eef4ff)}
+.balance-note{margin:0 0 10px;font-size:12.5px;color:var(--muted,#66707a)}
+.balance-deadline{display:block;margin-top:3px;font-size:12px;color:var(--muted,#66707a)}
+.balance-empty-cells small{color:var(--muted,#66707a)}
+.approval-chip[data-status="notStarted"]{background:var(--surface-2,#f1f2f4);color:var(--muted,#55606b)}
+.balance-clear{
+  padding:var(--s2) var(--s4);border-radius:var(--r-full);
+  background:var(--success-soft);color:var(--success);
+  font-size:var(--t-sm);font-weight:700;
+}
+.balance-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-lg)}
+.balance-table{width:100%;border-collapse:collapse;font-size:var(--t-sm);min-width:760px}
+.balance-table th{
+  position:sticky;top:0;z-index:1;
+  background:var(--surface-2);border-bottom:1px solid var(--line);
+  text-align:start;white-space:nowrap;
+}
+.balance-table th button{
+  display:flex;align-items:center;gap:4px;width:100%;
+  padding:var(--s3) var(--s4);
+  color:var(--muted);font-size:var(--t-xs);font-weight:600;letter-spacing:.02em;
+  background:none;border:0;cursor:pointer;text-align:start;
+}
+.balance-table th button:hover{color:var(--ink)}
+.balance-table th button.sorted{color:var(--accent)}
+.balance-table th button i{font-style:normal;display:inline-flex}
+.balance-table th button i svg{width:13px;height:13px}
+.balance-table td{
+  padding:var(--s3) var(--s4);
+  border-bottom:1px solid var(--line);
+  font-variant-numeric:tabular-nums;vertical-align:middle;
+}
+.balance-table tbody tr:last-child td{border-bottom:0}
+.balance-table tbody tr:hover td{background:var(--surface-2)}
+.balance-table tbody tr.has-conflicts td:first-child{box-shadow:inset 3px 0 0 var(--danger)}
+.balance-table td strong{display:block;font-weight:600}
+.balance-table td small{display:block;color:var(--muted);font-size:var(--t-xs);margin-top:2px}
+.balance-split{
+  display:block;width:64px;height:6px;border-radius:var(--r-full);
+  background:color-mix(in srgb,var(--brass) 26%,var(--surface-3));overflow:hidden;
+}
+.balance-split i{display:block;height:100%;background:var(--accent);border-radius:var(--r-full)}
+.balance-table td b{font-size:var(--t-xs);color:var(--muted);font-weight:600}
+.balance-ring{vertical-align:middle}
+.balance-ring .dna-ringc{font-size:.75rem;font-weight:700;font-variant-numeric:tabular-nums}
+.balance-bad{color:var(--danger);font-weight:700}
+.balance-ok{color:var(--muted-2)}
+
+/* --- Query centre: live + recovery ----------------------------------------
+   A report is a photograph of a moving thing, so the screen offers the refresh
+   rather than taking it — nothing shifts under a reader mid-print. */
+.query-live-nudge{
+  display:flex;align-items:center;gap:var(--s3);
+  width:100%;padding:var(--s3) var(--s4);
+  border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));
+  border-radius:var(--r-md);
+  background:var(--accent-softer,var(--surface-2));
+  color:var(--accent-ink,var(--ink));font-size:var(--t-sm);font-weight:600;
+  text-align:start;cursor:pointer;
+  animation:query-nudge-in .3s ease both;
+}
+.query-live-nudge:hover{border-color:var(--accent)}
+.query-live-dot{
+  width:8px;height:8px;flex:none;border-radius:50%;background:var(--success);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--success) 18%,transparent);
+}
+@keyframes query-nudge-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.notice-retry{
+  margin-inline-start:var(--s3);
+  padding:2px var(--s3);border-radius:var(--r-full);
+  border:1px solid currentColor;background:transparent;color:inherit;
+  font-size:var(--t-xs);font-weight:600;cursor:pointer;
+}
+@media (prefers-reduced-motion:reduce){.query-live-nudge{animation:none}}
+
+.audit-change{
+  display:block;font-style:normal;
+  font-size:var(--t-xs);color:var(--ink-2);line-height:1.6;
+  margin-block:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.audit-user-filter{
+  min-height:38px;max-width:190px;
+  padding-inline:var(--s3);
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface-2);color:var(--ink);font-size:var(--t-sm);
+}
+.audit-change-card{
+  margin:var(--s4) 0 0;padding:var(--s3) var(--s4);
+  border:1px solid color-mix(in srgb,var(--accent) 20%,var(--line));
+  border-radius:var(--r-md);
+  background:var(--accent-softer,var(--surface-2));
+}
+.audit-change-card span{
+  display:block;font-size:var(--t-eyebrow);font-weight:600;
+  letter-spacing:.06em;color:var(--accent);margin-bottom:4px;
+}
+.audit-change-card p{margin:0;font-size:var(--t-sm);color:var(--ink);line-height:1.8;word-break:break-word}
+
+.master-list{display:flex;flex-direction:column}
+.master-list>button,.master-list>article{
+  position:relative;
+  flex:0 0 auto;
+  min-height:74px;
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr) auto auto;
+  align-items:center;
+  gap:var(--s3);
+  padding:var(--s3) var(--s5);
+  border-bottom:1px solid var(--line);
+  background:transparent;color:var(--ink);text-align:start;
+  transition:background .15s var(--ease);
+}
+.master-list>button:hover,.master-list>article:hover{background:var(--surface-2)}
+.master-list>button>svg:last-child,.master-list>article>svg:last-child{width:15px;height:15px;color:var(--muted-2)}
+.master-list>button.active,.master-list>article.active,
+.master-list>button.selected{background:var(--accent-softer)}
+.master-list>button.active::before,.master-list>article.active::before{
+  content:"";position:absolute;inset-block:0;inset-inline-end:0;width:3px;background:var(--accent);
+}
+.master-list>button>div,.master-list>article>div{min-width:0}
+.master-list strong,.master-list small{display:block;min-width:0;overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere}
+.master-list strong{font-size:var(--t-h4);font-weight:600;line-height:1.45}
+.master-list small{margin-top:2px;color:var(--muted);font-size:var(--t-sm);line-height:1.45}
+.master-list .record-card-meta{margin-top:var(--s2)}
+/* A row carrying more chips than the four grid tracks (avatar, name, two
+   badges, chevron) used to spill the chevron to a second row and squeeze the
+   name to one letter per line. Such rows read like the phone layout instead:
+   avatar and full-width name, the badges on a line beneath. */
+.master-list>button:has(>:nth-child(5)),.master-list>article:has(>:nth-child(5)){
+  display:flex;flex-wrap:wrap;align-items:center;column-gap:var(--s3);row-gap:6px;
+}
+.master-list>:is(button,article):has(>:nth-child(5))>:is(.master-avatar,.master-symbol){flex:0 0 38px}
+.master-list>:is(button,article):has(>:nth-child(5))>div{flex:1 1 calc(100% - 38px - 15px - 2 * var(--s3) - 1px);min-width:0}
+.master-list>:is(button,article):has(>:nth-child(5))>svg:last-child{flex:0 0 15px;order:1}
+.master-list>:is(button,article):has(>:nth-child(5))>:not(.master-avatar,.master-symbol,div,svg){order:2;max-width:100%}
+.master-list>:is(button,article):has(>:nth-child(5))>div+:not(svg){margin-inline-start:calc(38px + var(--s3))}
+.master-filter-stack{padding:var(--s4);display:grid;gap:var(--s2);border-bottom:1px solid var(--line)}
+/* The stack already pads 16px; the search's own 16px margin used to double it, so the field sat narrower than the select below it. */
+.master-filter-stack>.master-search{margin:0}
+
+.academic-inspector,.inspector-pane{
+  min-width:0;
+  padding:clamp(24px,2.6vw,36px);
+  background:var(--surface-2);
+  overflow-y:auto;
+  max-height:min(74vh,720px);
+}
+.academic-inspector-icon{
+  width:50px;height:50px;display:grid;place-items:center;
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface);color:var(--accent);
+  margin-bottom:var(--s5);
+}
+.academic-inspector-icon svg{width:21px;height:21px}
+.academic-inspector h2,.inspector-hero h2{font-size:26px;line-height:1.25;font-weight:600;letter-spacing:-.025em}
+.academic-inspector>p,.inspector-hero p{margin-top:var(--s2);color:var(--muted);font-size:var(--t-sm);line-height:1.7}
+.inspector-hero{display:flex;align-items:flex-start;gap:var(--s4);padding-bottom:var(--s6);border-bottom:1px solid var(--line)}
+.inspector-hero>div{min-width:0}
+.inspector-avatar{
+  width:54px;height:54px;flex:none;display:grid;place-items:center;
+  border-radius:var(--r-md);background:var(--surface);color:var(--accent);
+  font-size:19px;font-weight:600;
+}
+.inspector-status{margin-inline-start:auto;flex:none}
+
+.inspector-facts{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+  gap:var(--s2);
+  margin-top:var(--s6);
+}
+.inspector-facts>div,
+.inspector-facts>span,
+.inspector-facts>article{
+  min-height:74px;padding:var(--s3) var(--s4);
+  display:flex;flex-direction:column;justify-content:center;
+  border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);
+}
+.inspector-facts small,
+.inspector-facts>*>span{display:block;color:var(--muted);font-size:var(--t-xs)}
+.inspector-facts strong,.inspector-facts b{
+  display:block;margin-top:var(--s1);
+  font-size:var(--t-h4);font-weight:600;
+  overflow-wrap:anywhere;
+}
+.inspector-facts b[dir="ltr"]{
+  direction:ltr;unicode-bidi:isolate;text-align:start;
+  font-family:var(--font-mono);font-size:var(--t-sm);
+}
+.inspector-actions{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s6)}
+.inspector-path{margin-top:var(--s4);color:var(--muted);font:500 var(--t-xs)/1.5 var(--font-mono);display:block;min-inline-size:0;max-inline-size:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;user-select:text;text-align:start}
+.master-empty{min-height:420px;display:grid;place-items:center;text-align:center;color:var(--muted);padding:var(--s7)}
+
+/* ==========================================================================
+   ADMIN
+   ========================================================================== */
+
+.admin-page{display:flex;flex-direction:column;gap:var(--s5)}
+.admin-role-warning{margin:8px 0 0;padding:8px 12px;border-radius:10px;background:var(--warning-soft,#fff5e0);color:var(--warning,#8a5a00);font-size:12.5px;line-height:1.7}
+/* The count leads and the word follows it on its own line. Set inline, a
+   four-figure total and its label ran together as one string of text. */
+.admin-quiet-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s3)}
+.admin-quiet-summary>article,
+.admin-quiet-summary>span{
+  display:grid;grid-template-columns:34px minmax(0,1fr);
+  align-items:center;gap:var(--s1) var(--s3);
+  min-height:66px;padding:var(--s3) var(--s5);
+  border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);
+  color:var(--muted);font-size:var(--t-xs);line-height:1.35;
+}
+.admin-quiet-summary svg{
+  grid-row:1 / span 2;
+  width:34px;height:34px;padding:8px;
+  border-radius:var(--r-xs);background:var(--surface-2);
+  color:var(--muted-2);flex:none;
+}
+.admin-quiet-summary b,
+.admin-quiet-summary strong{
+  display:block;
+  color:var(--ink);font-size:20px;font-weight:600;line-height:1.1;
+  font-variant-numeric:tabular-nums;direction:ltr;text-align:start;
+}
+.permission-master .master-symbol{color:var(--brass)}
+/* Nine rows of one person: the name is said once, as a heading with a count, and
+   the rows under it keep only the permission itself. */
+.permission-group-head{
+  display:flex;align-items:center;gap:var(--s2);
+  padding:var(--s3) var(--s4) var(--s2);
+  color:var(--muted);font-size:var(--t-xs);font-weight:600;
+  border-top:1px solid var(--line);background:var(--surface);
+}
+.permission-group-head:first-child{border-top:0}
+.permission-group-head svg{width:14px;height:14px;color:var(--muted-2)}
+.permission-group-head>span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.permission-group-head>b{
+  min-width:22px;padding:1px 7px;border-radius:var(--r-full);text-align:center;
+  background:var(--surface-3);color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums;
+}
+.permission-master>button.in-run small{display:none}
+.permission-master>button.in-run .master-symbol{opacity:.7}
+.audit-master-detail{grid-template-columns:minmax(360px,38%) minmax(0,1fr)}
+.audit-master .record-card{min-height:80px}
+
+/* --- Choosing what a person may open ---------------------------------------
+   The rules that styled these tiles were written against the card that
+   contains them, so the tiles themselves had none: the icon, the name and the
+   internal number ran together as one line of text and the ticks overlapped.
+   Each tile is now a row — mark, name, number — with the number demoted to a
+   quiet monospace tag at the end where it belongs. */
+
+.permission-choice-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--s2);
+}
+.permission-choice-grid>button{
+  display:grid;grid-template-columns:28px minmax(0,1fr) auto;
+  align-items:center;gap:var(--s3);
+  min-height:52px;padding:var(--s2) var(--s4);
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface-2);color:var(--ink);text-align:start;
+  transition:border-color .16s var(--ease),background .16s var(--ease);
+}
+.permission-choice-grid>button:hover{border-color:var(--line-strong);background:var(--surface-3)}
+.permission-choice-grid>button.active{
+  border-color:var(--accent);background:var(--accent-softer);
+}
+.permission-choice-grid>button strong{
+  min-width:0;font-size:var(--t-sm);font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+/* --muted-2 is the quietest ink there is: it clears the floor on white and on
+   --surface-3's lighter neighbour, but reads 4.19 on --surface-3 itself, which
+   is exactly the tint this chip sits on. --muted is one step up and measures
+   4.51 there. Darkening the token instead would have pushed --muted-2 past
+   --muted and inverted the hierarchy everywhere else it is used. */
+.permission-choice-grid>button small{
+  padding:1px var(--s2);border-radius:var(--r-full);
+  background:var(--surface-3);color:var(--muted);
+  font:600 12px/1.5 var(--font-mono);
+  direction:ltr;unicode-bidi:isolate;
+}
+.permission-choice-grid>button.active small{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.permission-check{
+  width:28px;height:28px;display:grid;place-items:center;
+  border-radius:var(--r-full);
+  background:var(--surface-3);color:var(--muted-2);
+}
+.permission-check svg{width:14px;height:14px}
+.permission-choice-grid>button.active .permission-check{background:var(--accent);color:var(--accent-contrast)}
+
+/* The permission editor, now living inside the selected user's inspector (Note 26). */
+.inspector-permissions{
+  margin-top:var(--s4);padding-top:var(--s4);border-top:1px solid var(--line);
+  display:flex;flex-direction:column;gap:var(--s3);
+}
+.inspector-perm-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s3)}
+.inspector-perm-head .surface-kicker{display:inline-flex;align-items:center;gap:var(--s2)}
+.inspector-perm-head .surface-kicker svg{width:15px;height:15px;color:var(--accent)}
+.inspector-perm-head b{font-variant-numeric:tabular-nums;color:var(--muted);font-size:var(--t-sm)}
+.inspector-perm-actions{display:flex;gap:var(--s2);flex-wrap:wrap}
+
+.permission-picker-card .form-intro{margin-bottom:var(--s4)}
+.permission-selection-summary{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--s2);
+  padding:var(--s3) var(--s4);margin-top:var(--s4);
+  border-radius:var(--r-md);background:var(--surface-2);color:var(--muted);font-size:var(--t-sm);
+}
+.permission-selection-summary button{
+  color:var(--accent);font-size:var(--t-xs);font-weight:600;
+}
+.permission-editor-page,.master-detail-page,.catalog-inspector-page,
+.library-page,.editor-page,.query-studio-page,.report-studio-page,.copy-page{
+  display:flex;flex-direction:column;gap:var(--s5);
+}
+
+/* ==========================================================================
+   ABOUT
+   ========================================================================== */
+
+.about-editorial{
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:var(--r-2xl);
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+}
+.about-editorial-hero{
+  min-height:280px;
+  display:grid;
+  align-content:end;
+  padding:clamp(28px,4vw,52px);
+  border-bottom:1px solid var(--line);
+  background:
+    radial-gradient(ellipse 60% 100% at 88% 0%, color-mix(in srgb,var(--brass) 10%,transparent), transparent 62%),
+    var(--surface-2);
+}
+.about-editorial-hero span{color:var(--brass);font-size:var(--t-eyebrow);font-weight:600;letter-spacing:.11em}
+.about-editorial-hero h1,.about-editorial-hero h2{
+  max-width:22ch;margin-top:var(--s3);
+  font-size:clamp(30px,3.6vw,44px);line-height:1.18;font-weight:600;letter-spacing:-.03em;
+}
+.about-editorial-hero p{max-width:60ch;margin-top:var(--s4);color:var(--muted);font-size:15px;line-height:1.8}
+
+/* Install-as-app (Idea 4): an icon in the identity bar, with the steps in a
+   small elegant popover on demand. No standing paragraph. */
+.install{position:relative;flex:none}
+.install-trigger{
+  width:34px;height:34px;display:grid;place-items:center;
+  border:1px solid color-mix(in srgb,var(--accent) 24%,var(--line));
+  border-radius:var(--r-full);
+  background:var(--surface);color:var(--accent-ink,var(--accent));cursor:pointer;
+  transition:background .15s var(--ease),border-color .15s var(--ease);
+}
+.install-trigger:hover,.install-trigger.active{background:var(--accent-softer);border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.install-trigger svg{width:16px;height:16px}
+.install-pop{
+  position:absolute;z-index:40;top:calc(100% + 8px);inset-inline-end:0;
+  width:240px;padding:var(--s4);
+  border:1px solid var(--line);border-radius:var(--r-lg);
+  background:var(--surface);box-shadow:var(--shadow-lg);
+  animation:install-open .2s var(--ease-out,ease) both;
+}
+@keyframes install-open{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+.install-pop header{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--s3)}
+.install-pop header strong{font-size:var(--t-sm);font-weight:700;color:var(--ink)}
+.install-pop header button{width:24px;height:24px;display:grid;place-items:center;border-radius:var(--r-full);color:var(--muted);cursor:pointer}
+.install-pop header button:hover{background:var(--surface-2);color:var(--ink)}
+.install-pop header button svg{width:14px;height:14px}
+.install-pop p{margin:0 0 var(--s3);color:var(--muted);font-size:var(--t-xs);line-height:1.6}
+.install-go{
+  display:inline-flex;align-items:center;gap:var(--s2);width:100%;justify-content:center;
+  padding:var(--s2) var(--s4);border-radius:var(--r-sm);
+  background:var(--accent);color:var(--accent-contrast);font-size:var(--t-sm);font-weight:600;cursor:pointer;
+}
+.install-go:hover{background:var(--accent-strong)}
+.install-go svg{width:15px;height:15px}
+/* Three short steps, numbered, as a quiet checklist. */
+.install-steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--s2);counter-reset:step}
+.install-steps li{
+  display:flex;align-items:center;gap:var(--s2);
+  color:var(--ink-2);font-size:var(--t-sm);line-height:1.5;
+}
+.install-steps li::before{
+  counter-increment:step;content:counter(step);
+  flex:none;width:20px;height:20px;display:grid;place-items:center;
+  border-radius:var(--r-full);background:var(--accent-soft);color:var(--accent-ink);
+  font-size:var(--t-eyebrow);font-weight:700;
+}
+.install-steps svg{width:14px;height:14px;color:var(--accent)}
+
+/* نصّ الصفحة بعد إزالة بطاقات الأشخاص. */
+.about-editorial-note{
+  padding:var(--s7) var(--gutter);
+  border-top:1px solid var(--line);
+}
+.about-editorial-note p{
+  max-width:62ch;
+  color:var(--ink-2);
+  font-size:15px;
+  line-height:1.9;
+}
+
+.about-editorial-footer{
+  display:flex;align-items:baseline;gap:var(--s3);
+  padding:var(--s5) clamp(24px,3vw,36px);border-top:1px solid var(--line);
+  color:var(--muted);font-size:var(--t-sm);
+}
+.about-editorial-footer span{font-weight:600;letter-spacing:.1em;color:var(--ink-2)}
+.about-editorial-footer small{font-size:var(--t-eyebrow)}
+
+/* Four terms of one number, small enough not to compete with it. */
+.deck-metrics article{position:relative;overflow:hidden}
+.spark{
+  width:100%;height:22px;margin-top:var(--s2);
+  opacity:.75;
+}
+.spark polyline{stroke:var(--muted-2)}
+.spark circle{fill:var(--muted-2)}
+.spark-up polyline{stroke:var(--success)}
+.spark-up circle{fill:var(--success)}
+.spark-down polyline{stroke:var(--warning)}
+.spark-down circle{fill:var(--warning)}
+
+
+/* --- The occupancy grid answers back ---------------------------------------
+   A heat square is a question. Clicking one — or a room's name — opens exactly
+   the appointments behind it, so the picture stops being only a picture.
+   -------------------------------------------------------------------------- */
+.occupancy-row .occupancy-name{
+  text-align:start;color:inherit;font:inherit;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  border-radius:var(--r-xs);
+}
+.occupancy-row .occupancy-name:hover{color:var(--accent)}
+.occupancy-row.picked .occupancy-name{color:var(--accent);font-weight:600}
+.occupancy-row button[data-level]{
+  padding:0;border:0;cursor:pointer;
+  transition:outline-color .12s var(--ease),transform .12s var(--ease);
+  outline:1px solid transparent;outline-offset:-1px;
+}
+.occupancy-row button[data-level]:hover{outline-color:var(--ink);z-index:2}
+.occupancy-row button[data-level].picked{
+  outline:2px solid var(--accent);outline-offset:-1px;z-index:3;
+}
+
+.occupancy-pick{
+  margin-top:var(--s4);
+  border:1px solid var(--accent);border-radius:var(--r-md);
+  background:var(--surface);overflow:hidden;
+  animation:rise .2s var(--ease-out) both;
+}
+.occupancy-pick>header{
+  display:flex;align-items:center;gap:var(--s3);
+  padding:var(--s3) var(--s4);
+  border-bottom:1px solid var(--line);background:var(--accent-softer);
+}
+.occupancy-pick>header>div{flex:1;min-width:0}
+.occupancy-pick>header small{
+  display:block;color:var(--accent-ink);font-size:var(--t-eyebrow);font-weight:600;letter-spacing:.05em;
+}
+.occupancy-pick>header strong{font-size:var(--t-sm);font-weight:600}
+.occupancy-pick-count{
+  padding:2px var(--s3);border-radius:var(--r-full);
+  background:var(--surface);color:var(--muted);
+  font-size:var(--t-xs);font-variant-numeric:tabular-nums;
+}
+.occupancy-pick>header button{color:var(--muted);font-size:var(--t-sm);line-height:1}
+.occupancy-pick-rows{max-height:280px;overflow-y:auto}
+.occupancy-pick-rows article{
+  display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto auto;
+  align-items:center;gap:var(--s3);
+  padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);
+  font-size:var(--t-sm);
+}
+.occupancy-pick-rows article:last-child{border-bottom:0}
+.occupancy-pick-rows strong{min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.occupancy-pick-rows span{min-width:0;color:var(--muted);font-size:var(--t-xs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.occupancy-pick-rows em{font-style:normal;color:var(--muted-2);font-size:var(--t-xs);white-space:nowrap}
+.occupancy-pick-rows time{
+  color:var(--ink-2);font-size:var(--t-xs);font-variant-numeric:tabular-nums;
+  font-family:var(--font-mono);white-space:nowrap;
+}
+.occupancy-pick-empty{margin:0;padding:var(--s5);color:var(--muted);font-size:var(--t-sm);text-align:center}
+/* A hall booked by another department is busy, not empty — and the panel says
+   so in the colour of a warning rather than the grey of an absence. */
+.occupancy-pick-external{
+  margin:0;padding:var(--s5);text-align:center;
+  display:flex;flex-direction:column;gap:6px;
+}
+.occupancy-pick-external b{font-size:var(--t-sm);font-weight:700;color:var(--warning)}
+.occupancy-pick-external span{font-size:var(--t-xs);color:var(--ink-2);line-height:1.7}
+/* An account with no password set is a state worth seeing at a glance. */
+.inspector-facts .fact-warn{color:var(--warning)}
+/* Weekend: the day bar below is Sunday's, and the line says which day it is. */
+.deck-weekend{color:var(--brass)}
+
+/* A report result opens as a side panel, not an accordion: the results list
+   keeps its exact place and scroll while the detail is read alongside, and
+   closing returns the reader to precisely where they were. On phones it becomes
+   a bottom sheet. Reuses the occupancy-pick header/rows; only re-homes the box. */
+.query-detail-backdrop{
+  position:fixed;inset:0;z-index:120;
+  background:color-mix(in srgb,var(--nav) 26%,transparent);
+  animation:fade .18s var(--ease) both;
+}
+.query-detail-panel{
+  position:fixed;z-index:121;
+  top:var(--s3);inset-inline-end:var(--s3);
+  width:min(440px,calc(100vw - 24px));
+  max-height:calc(100dvh - var(--s6));
+  margin:0;overflow-y:auto;
+  border-color:var(--line);border-radius:var(--r-2xl);
+  box-shadow:var(--shadow-lg);
+  animation:drawer-in .26s var(--ease-out) both;
+}
+.query-detail-panel>header{position:sticky;top:0;z-index:1}
+.query-detail-panel .occupancy-pick-rows{max-height:none}
+@media screen and (max-width:768px){
+  .query-detail-panel{
+    top:auto;inset-inline:0;bottom:0;width:100%;
+    border-radius:var(--r-2xl) var(--r-2xl) 0 0;
+    max-height:88dvh;
+    animation:sheet-up .26s var(--ease-out) both;
+  }
+}
+
+/* Academic add/edit opens as a side panel over the list — the master list keeps
+   its place and context instead of the whole page swapping to a form. Shared by
+   colleges, departments, instructors, courses and terms. Phone: a bottom sheet. */
+.catalog-form-backdrop{
+  position:fixed;inset:0;z-index:120;
+  background:color-mix(in srgb,var(--nav) 30%,transparent);
+  animation:fade .18s var(--ease) both;
+}
+.catalog-form-drawer{
+  position:fixed;z-index:121;
+  top:var(--s3);bottom:var(--s3);inset-inline-end:var(--s3);
+  width:min(760px,calc(100vw - 24px));
+  overflow-y:auto;
+  padding:var(--s5) var(--s5) var(--s6);
+  background:var(--canvas);
+  border:1px solid var(--line);border-radius:var(--r-2xl);
+  box-shadow:var(--shadow-lg);
+  animation:drawer-in .26s var(--ease-out) both;
+}
+/* The heading keeps clear of the close button's corner so the title and the ✕
+   never share the same pixels. */
+.catalog-form-drawer .page-heading{padding-top:0;padding-inline-end:44px}
+.catalog-form-drawer .catalog-drawer-close{
+  /* Moved to the opposite corner from the right-aligned title. At
+     inset-inline-start (top-right in RTL) it sat directly on top of the first
+     word of every drawer's heading; at inset-inline-end it has the empty
+     corner to itself. */
+  position:absolute;top:var(--s4);inset-inline-end:var(--s4);
+  margin:0;z-index:3;
+}
+/* A roomier variant for forms with a grid (e.g. the permission picker). */
+/* The drawer already pads the sheet; the card inside it padding again spent a
+   hundred pixels of a narrow container on nothing, and the fields paid. */
+.catalog-form-drawer .form-card,
+.catalog-form-drawer .smart-form{padding:var(--s5)}
+.catalog-form-drawer-wide{width:min(960px,calc(100vw - 24px))}
+@media screen and (max-width:768px){
+  .catalog-form-drawer{
+    top:auto;inset-inline:0;bottom:0;width:100%;
+    border-radius:var(--r-2xl) var(--r-2xl) 0 0;
+    max-height:94dvh;
+    animation:sheet-up .26s var(--ease-out) both;
+  }
+}
+
+
+/* A campus of twenty buildings makes a hundred and ninety pairs; the search is
+   how anyone reaches the two they came to change. */
+.travel-search{
+  display:flex;align-items:center;gap:var(--s2);
+  min-height:40px;padding:0 var(--s3);margin-bottom:var(--s3);
+  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);
+}
+.travel-search svg{width:15px;height:15px;color:var(--muted-2);flex:none}
+.travel-search input{
+  flex:1;min-width:0;border:0;background:none;color:var(--ink);
+  font-size:var(--t-sm);outline:none;
+}
+.travel-search b{
+  flex:none;padding:1px var(--s2);border-radius:var(--r-full);
+  background:var(--surface-3);color:var(--muted-2);
+  font-size:var(--t-xs);font-variant-numeric:tabular-nums;direction:ltr;
+}
+.travel-search button{color:var(--muted);font-size:var(--t-sm);line-height:1;flex:none}
+
+/* --- Travel map on a college ----------------------------------------------
+   The buildings a college actually teaches in, and how long it takes to walk
+   between them — the number the schedule uses when it says a move is unkind. */
+.campus-mobility-card{
+  margin-top:var(--s5);padding:var(--s5);
+  border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface-2);
+}
+.campus-mobility-head{
+  display:flex;align-items:flex-start;gap:var(--s3);margin-bottom:var(--s4);
+}
+.campus-mobility-head svg{width:18px;height:18px;color:var(--brass);flex:none;margin-top:2px}
+.campus-mobility-head>div{min-width:0}
+.campus-mobility-head strong{display:block;font-size:var(--t-sm);font-weight:600}
+.campus-mobility-head p{margin:2px 0 0;color:var(--muted);font-size:var(--t-xs);line-height:1.6}
+.detected-buildings{display:flex;flex-wrap:wrap;gap:var(--s2);margin-bottom:var(--s4)}
+.detected-buildings span{
+  padding:2px var(--s3);border-radius:var(--r-full);
+  background:var(--surface-3);color:var(--muted);
+  font-size:var(--t-xs);font-variant-numeric:tabular-nums;
+}
+.mobility-empty{margin:0;color:var(--muted-2);font-size:var(--t-sm);line-height:1.7}
+.mobility-loading{color:var(--muted);font-size:var(--t-sm)}
+.mobility-save{
+  display:inline-flex;align-items:center;gap:var(--s2);
+  min-height:36px;padding:0 var(--s4);margin-top:var(--s4);
+  border:1px solid var(--line);border-radius:var(--r-full);
+  background:var(--surface);color:var(--ink-2);font-size:var(--t-xs);font-weight:600;
+}
+.mobility-save:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.mobility-save svg{width:14px;height:14px}
+
+/* Two times side by side in one field. */
+.time-pair{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);min-width:0}
+.time-pair input{min-width:0}
+
+/* ── تسليم البطاقة ─────────────────────────────────────────────────────────
+ * A list of people, not a broadcast console. Each row is one conversation a
+ * human opens and a human sends; nothing here can reach anybody on its own. */
+.share-deliver{
+  margin-block-start:12px;padding:13px;border:1px solid var(--line);border-radius:14px;
+  background:color-mix(in srgb,var(--line) 14%,transparent);display:grid;gap:10px;
+}
+.share-deliver-lead{margin:0;font-size:12px;line-height:1.85;color:var(--ink-2)}
+.share-deliver-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-block-size:260px;overflow:auto}
+.share-deliver-list li{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:7px 10px;border-radius:10px;background:var(--surface,#fff);border:1px solid var(--line);
+}
+.share-deliver-list li.sent{opacity:.62}
+.share-deliver-name{font-size:13px;font-weight:600;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-deliver-list a{
+  flex:none;display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 11px;
+  border-radius:999px;text-decoration:none;font:600 12px/1 var(--font-ui);
+  background:color-mix(in srgb,var(--accent) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--accent) 36%,transparent);
+  color:var(--accent-strong,var(--accent));
+}
+.share-deliver-list a svg{inline-size:14px;block-size:14px}
+.share-deliver-missing{
+  margin:0;padding:9px 11px;border-radius:10px;font-size:12px;line-height:1.8;
+  color:var(--ink-2);background:color-mix(in srgb,var(--line) 26%,transparent);
+}
+.share-deliver-wait{flex:none;font-size:12px;color:var(--muted-2)}
+.share-deliver-changed{display:grid;gap:6px;padding:10px;border-radius:12px;border:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}
+.share-deliver-changed>strong{font-size:12.5px;color:var(--ink)}
+.share-created-empty{color:var(--ink-2)}
+
+/* ── الروابط الشخصية: رابطٌ لكل أستاذ، يُوقف كلٌّ منها وحده ─────────────── */
+.share-personal{margin-block-start:14px;padding:12px;border:1px solid var(--line);border-radius:14px;display:grid;gap:8px}
+.share-personal header{display:grid;gap:2px}
+.share-personal header strong{font-size:13px}
+.share-personal header small{font-size:12px;color:var(--muted);line-height:1.7}
+.share-personal ul{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-block-size:280px;overflow:auto}
+.share-personal li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 10px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface,#fff)}
+.share-personal li.dead{opacity:.55}
+.share-personal-name{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-personal li small{grid-column:1;font-size:12px;color:var(--muted-2)}
+.share-personal-revoke{grid-row:1 / span 2;grid-column:2;display:inline-grid;place-items:center;inline-size:32px;block-size:32px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--danger,#b42318);cursor:pointer}
+.share-personal-revoke svg{inline-size:14px;block-size:14px}
+
+
+/* PWA discovery never competes with onboarding: the icon can glow quietly, but
+   its instructions open only after an explicit press. */
+.install-trigger{position:relative}
+.install-trigger.discoverable::after{
+  content:"";position:absolute;inset-block-start:-2px;inset-inline-start:-2px;
+  width:7px;height:7px;border-radius:50%;background:var(--brass);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--brass) 15%,transparent);
+}
+.install-login .install-trigger{
+  width:auto;min-width:34px;padding-inline:9px;gap:7px;
+  display:inline-flex;color:#9fb0a8;background:#0b100f;border-color:#2b3630;
+  box-sizing:border-box;overflow:hidden;isolation:isolate;
+}
+.install-login .install-trigger svg{display:block;width:16px;height:16px;flex:none}
+.install-login .install-trigger.discoverable::after{
+  inset-block-start:4px;inset-inline-start:4px;width:5px;height:5px;z-index:2;
+  box-shadow:0 0 0 2px #0b100f,0 0 0 3px color-mix(in srgb,var(--brass) 15%,transparent);
+}
+.install-login .install-trigger span{font-size:12px;white-space:nowrap}
+.install-login .install-trigger:hover,.install-login .install-trigger.active{
+  color:#dfe8e3;background:#121a17;border-color:#425149;
+}
+.install-login .install-pop{
+  top:auto;bottom:calc(100% + 9px);inset-inline-end:0;
+  background:#111917;border-color:#2b3630;color:#eef2ee;
+}
+.install-login .install-pop header strong{color:#eef2ee}
+.install-login .install-pop p,.install-login .install-steps li{color:#9aa8a1}
+.install-login .install-pop header button{color:#8e9a94}
+.apex-login-access footer{align-items:center}
+
+/* ── Root administrator · system vault ------------------------------------
+   A database backup is not a utility drawer. It is a deliberate, calm safety
+   surface: four actions, each with a different consequence and a visible
+   restore contract before anything destructive can happen. */
+.system-vault-page{gap:var(--s4)}
+.system-vault-hero{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;
+  gap:var(--s5);padding:var(--s6);border-color:color-mix(in srgb,var(--accent) 28%,var(--line));
+  background:linear-gradient(135deg,color-mix(in srgb,var(--accent-softer) 72%,var(--surface)) 0%,var(--surface) 58%);
+}
+.system-vault-seal{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;background:var(--accent);color:white;box-shadow:0 12px 30px color-mix(in srgb,var(--accent) 20%,transparent)}
+.system-vault-seal svg{width:27px;height:27px}
+.system-vault-hero h2{margin:3px 0 4px;font-size:clamp(20px,2vw,28px);font-weight:700;letter-spacing:-.025em}
+.system-vault-hero p{margin:0;max-width:780px;color:var(--muted);font-size:var(--t-sm);line-height:1.8}
+.system-vault-state{min-width:126px;padding:12px 15px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--surface) 88%,transparent);text-align:center}
+.system-vault-state span,.system-vault-state strong{display:block}.system-vault-state span{font-size:var(--t-xs);color:var(--muted)}.system-vault-state strong{margin-top:4px;font:600 var(--t-sm)/1.2 var(--font-mono)}
+.system-vault-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s4)}
+.system-vault-action{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s4);align-items:start;padding:var(--s5);overflow:hidden}
+.system-vault-action::after{content:"";position:absolute;inset-inline-start:0;inset-block:0;width:3px;background:var(--line-strong);opacity:.72}
+.system-vault-action.vault-export::after,.system-vault-action.vault-undo::after{background:var(--accent)}
+.system-vault-action.vault-reset::after{background:var(--danger)}
+.vault-action-icon{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--surface-2);color:var(--accent);border:1px solid var(--line)}
+.vault-action-icon svg{width:21px;height:21px}.vault-reset .vault-action-icon{color:var(--danger);background:color-mix(in srgb,var(--danger-soft) 55%,var(--surface))}
+.system-vault-action>div:nth-of-type(1){min-width:0}.system-vault-action small{display:block;color:var(--muted-2);font:600 12px/1 var(--font-mono);letter-spacing:.08em}.system-vault-action h3{margin:5px 0 4px;font-size:18px}.system-vault-action p{margin:0;color:var(--muted);font-size:var(--t-sm);line-height:1.75}
+.system-vault-action>.btn,.system-vault-action>.vault-file-picker,.system-vault-action>.vault-inline-actions,.system-vault-action>.vault-confirm-input,.system-vault-action>.vault-restore-meta,.system-vault-action>.vault-preview-card{grid-column:1/-1}
+.system-vault-action>.btn{justify-self:stretch;width:100%}
+.vault-file-picker{min-height:52px;border:1px dashed var(--line-strong);border-radius:14px;padding:10px 13px;display:flex;align-items:center;gap:10px;color:var(--ink-2);background:var(--surface-2);cursor:pointer;transition:border-color .15s var(--ease),background .15s var(--ease)}
+.vault-file-picker:hover{border-color:var(--accent);background:var(--accent-softer)}.vault-file-picker input{position:absolute;inline-size:1px;block-size:1px;opacity:0;pointer-events:none}.vault-file-picker svg{width:18px;height:18px;color:var(--accent);flex:none}.vault-file-picker span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--t-sm)}
+.vault-inline-actions{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}.vault-inline-actions .btn{width:100%;justify-content:center}
+.vault-confirm-input{width:100%;height:48px;border:1px solid color-mix(in srgb,var(--danger) 30%,var(--line));border-radius:13px;background:var(--surface);padding:0 14px;color:var(--ink);font:inherit;outline:none}.vault-confirm-input:focus{border-color:var(--danger);box-shadow:0 0 0 3px color-mix(in srgb,var(--danger) 12%,transparent)}
+.vault-restore-meta{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:10px 12px;background:var(--surface-2);border-radius:12px;font-size:var(--t-xs);color:var(--muted)}.vault-restore-meta strong{font-weight:600;color:var(--ink-2)}
+.vault-preview-card{padding:var(--s5);display:grid;gap:var(--s4);border-color:color-mix(in srgb,var(--success) 40%,var(--line));background:color-mix(in srgb,var(--success-soft) 36%,var(--surface))}
+.vault-preview-head{display:flex;align-items:center;gap:var(--s3)}.vault-preview-head>svg{width:30px;height:30px;color:var(--success)}.vault-preview-head strong,.vault-preview-head span{display:block}.vault-preview-head span{margin-top:2px;color:var(--muted);font-size:var(--t-sm)}
+.vault-preview-hash{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s3);align-items:center}.vault-preview-hash span{font-size:var(--t-xs);color:var(--muted);font-weight:600}.vault-preview-hash code{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 11px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:12px;color:var(--ink-2)}
+.vault-counts{display:flex;flex-wrap:wrap;gap:6px}.vault-counts span{display:inline-flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font:500 12px/1.1 var(--font-mono);color:var(--muted)}.vault-counts b{font-family:var(--font-ui);color:var(--ink)}
+.vault-safety-note{display:flex;align-items:flex-start;gap:var(--s3);padding:var(--s4) var(--s5)}.vault-safety-note>svg{width:22px;height:22px;color:var(--accent);flex:none;margin-top:1px}.vault-safety-note strong{display:block}.vault-safety-note p{margin:3px 0 0;color:var(--muted);font-size:var(--t-sm);line-height:1.7}
+.vault-history{padding:0;overflow:hidden}.vault-history>header{display:flex;align-items:center;gap:9px;padding:14px 16px;border-bottom:1px solid var(--line)}.vault-history>header svg{width:18px;height:18px;color:var(--accent)}.vault-history article{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--s3);padding:12px 16px;border-bottom:1px solid var(--line)}.vault-history article:last-child{border-bottom:0}.vault-history article>div strong,.vault-history article>div span{display:block}.vault-history article>div span{margin-top:2px;color:var(--muted);font-size:var(--t-xs)}.vault-history article>b{font:600 var(--t-sm)/1 var(--font-mono);color:var(--accent)}.vault-history article.consumed{opacity:.48}
+
+/* Root-only system vault confirmation. Destructive full-system actions never
+   fall back to a browser-native alert; the same calm admin language stays on
+   screen while the server keeps the real security boundary. */
+.vault-confirm-backdrop{
+  position:fixed;inset:0;z-index:1200;display:grid;place-items:center;
+  padding:24px;background:color-mix(in srgb,#07120f 55%,transparent);backdrop-filter:blur(7px);
+}
+.vault-confirm-sheet{
+  width:min(560px,100%);padding:26px;display:grid;
+  grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:start;
+  border-color:color-mix(in srgb,var(--accent) 42%,var(--line));
+  box-shadow:0 30px 90px color-mix(in srgb,#000 24%,transparent);
+}
+.vault-confirm-sheet.danger{border-color:color-mix(in srgb,var(--danger) 52%,var(--line))}
+.vault-confirm-seal{width:52px;height:52px;border-radius:17px;display:grid;place-items:center;background:var(--accent-softer);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line))}
+.vault-confirm-sheet.danger .vault-confirm-seal{color:var(--danger);background:color-mix(in srgb,var(--danger-soft) 70%,var(--surface));border-color:color-mix(in srgb,var(--danger) 25%,var(--line))}
+.vault-confirm-seal svg{width:24px;height:24px}
+.vault-confirm-copy{min-width:0}.vault-confirm-copy small{display:block;color:var(--brass);font-size:var(--t-xs);font-weight:700}.vault-confirm-copy h3{margin:5px 0 7px;font-size:22px;letter-spacing:-.02em}.vault-confirm-copy p{margin:0;color:var(--muted);font-size:var(--t-sm);line-height:1.85}
+.vault-confirm-actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:4px}.vault-confirm-actions .btn{width:100%;justify-content:center}
+
+/* Durable export progress --------------------------------------------------
+   The root backup is a resumable server job now, not a spinner attached to one
+   HTTP request. This block makes the checkpoint visible without turning the
+   vault into a developer console. */
+.vault-export-progress{grid-column:1/-1;display:grid;gap:9px;padding:12px 13px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);min-width:0}
+.vault-export-progress-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.vault-export-progress-head span{color:var(--ink-2);font-size:var(--t-xs);font-weight:600}.vault-export-progress-head strong{font:700 13px/1 var(--font-mono);color:var(--accent)}
+.vault-export-progress-track{height:7px;border-radius:999px;background:color-mix(in srgb,var(--line) 72%,transparent);overflow:hidden}.vault-export-progress-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 72%,var(--brass)));transition:width .28s var(--ease)}
+.vault-export-progress-meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px 13px;color:var(--muted);font-size:11px}.vault-export-progress-meta span{display:inline-flex;gap:4px;align-items:baseline}.vault-export-progress-meta b{font:600 11px/1 var(--font-mono);color:var(--ink-2)}
+.vault-export-current,.vault-export-ready-hash{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0!important;padding:0!important;color:var(--muted-2)!important;font:500 10px/1.4 var(--font-mono)!important;letter-spacing:0!important}
+.vault-export-ready-hash{color:var(--success)!important}.vault-export-error{margin:0!important;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--danger-soft) 52%,var(--surface));color:var(--danger)!important;font-size:11px!important;line-height:1.55!important}
+.vault-export-progress.status-ready{border-color:color-mix(in srgb,var(--success) 36%,var(--line));background:color-mix(in srgb,var(--success-soft) 32%,var(--surface))}.vault-export-progress.status-failed{border-color:color-mix(in srgb,var(--danger) 32%,var(--line))}
+
+/* Resumable import uses the same quiet progress language as export. The file
+   picker locks only after the source has been staged, preventing a second file
+   from replacing an import that is already halfway through. */
+.vault-file-picker.disabled{opacity:.58;cursor:not-allowed;pointer-events:none}
+.vault-import-progress{border-color:color-mix(in srgb,var(--accent) 28%,var(--line));background:color-mix(in srgb,var(--accent-softer) 42%,var(--surface))}
+.vault-import-progress .vault-export-progress-track i{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 78%,var(--success)),var(--success))}
+.vault-counts span svg {
+  color: var(--success);
+  opacity: 0.9;
+}
+
+/* Backup import: operational facts first, forensic details only when asked. */
+.vault-preview-compact{grid-column:1/-1;padding:16px;gap:13px;border-style:solid;margin:0;background:color-mix(in srgb,var(--success-soft) 28%,var(--surface))}
+.vault-preview-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.vault-preview-summary>span{padding:11px 12px;border:1px solid color-mix(in srgb,var(--success) 16%,var(--line));border-radius:13px;background:var(--surface);min-width:0}.vault-preview-summary b{display:block;font-size:14px;line-height:1.2;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vault-preview-summary small{display:block;margin-top:4px!important;color:var(--muted);font:500 12px/1 var(--font-ui)!important;letter-spacing:0!important}
+.vault-preview-details{border-top:1px solid color-mix(in srgb,var(--success) 16%,var(--line));padding-top:10px}.vault-preview-details summary{cursor:pointer;color:var(--muted);font-size:var(--t-xs);font-weight:600;list-style:none}.vault-preview-details summary::-webkit-details-marker{display:none}.vault-preview-details summary::before{content:"+";display:inline-grid;place-items:center;width:18px;height:18px;margin-inline-end:7px;border-radius:50%;background:var(--surface-2);color:var(--accent);font-weight:700}.vault-preview-details[open] summary::before{content:"−"}.vault-preview-details .vault-preview-hash{margin-top:12px}.vault-preview-details .vault-counts{margin-top:10px;max-height:190px;overflow:auto;align-content:flex-start;padding-inline-end:2px}.vault-preview-details .vault-counts span{background:var(--surface);box-shadow:none}.vault-preview-details .vault-counts svg{width:13px;height:13px}
+.vault-import-progress{padding:14px 15px;gap:10px}.vault-import-progress .vault-export-current{font-family:var(--font-ui)!important;direction:rtl!important;text-align:start!important;font-size:11px!important}.vault-import-progress .vault-export-progress-meta{justify-content:space-between}.vault-import-progress.status-ready{border-color:color-mix(in srgb,var(--success) 34%,var(--line));background:color-mix(in srgb,var(--success-soft) 34%,var(--surface))}
+@media(max-width:720px){.vault-preview-summary{grid-template-columns:1fr 1fr}.vault-preview-summary>span:last-child{grid-column:1/-1}.vault-preview-details .vault-preview-hash{grid-template-columns:1fr}.vault-preview-details .vault-preview-hash code{font-size:12px}.vault-import-progress .vault-export-progress-meta{align-items:flex-start;flex-direction:column}}
+
+/* Login carries the same restrained identity as the dark navigation mark. */
+.apex-login-brand>div{display:grid;gap:6px}.apex-login-brand small{font-size:.92rem;letter-spacing:0;color:color-mix(in srgb,#fff 52%,transparent)}
+
+/* ── ترويسة الدخول ───────────────────────────────────────────────────────
+   This header used to render NOTHING. `Login.tsx` prints a single
+   `.apex-login-mark` inside `.apex-login-brand--mark-only`, the rule below hid
+   every `.apex-login-mark`, and `--mark-only` had no stylesheet of its own — so
+   the sign-in screen carried an empty, centred, aria-hidden box where its
+   identity should be. Two more `strong` declarations argued over a wordmark
+   that was not in the markup either.
+
+   The mark is the whole header now: the tile the reader tapped, above the form
+   they came to fill. */
+.apex-login-brand{justify-content:center;text-align:center;gap:0}
+.apex-login-brand--mark-only{padding-block-end:var(--s2)}
+.apex-login-brand small{margin-top:7px;color:#748079;font-size:clamp(14px,1.3vw,19px);line-height:1.55}
+
+/* Login identity reveal: the exact dark navigation signature is available from
+   a quiet, deliberate trigger instead of opening a separate journey screen. */
+.apex-access-title-row{
+  display:flex;align-items:center;gap:12px;margin-top:var(--s2);min-height:42px;
+}
+.apex-access-title-row strong{margin-top:0!important}
+.apex-login-identity-trigger{
+  position:relative;inset:auto;z-index:2;flex:none;
+  display:inline-flex;align-items:center;gap:7px;
+  height:34px;padding:0 13px;
+  border:1px solid color-mix(in srgb,#8fa49a 26%,transparent);border-radius:999px;
+  background:color-mix(in srgb,#0d1714 72%,transparent);color:#95a69e;
+  font-size:12px;font-weight:700;font-family:inherit;letter-spacing:.02em;
+  cursor:pointer;transition:transform .18s var(--ease),border-color .18s var(--ease),background .18s var(--ease),color .18s var(--ease);
+}
+.apex-login-identity-trigger:hover{
+  transform:translateY(-1px);color:#cfd9d1;
+  border-color:color-mix(in srgb,#79a695 54%,transparent);background:#0d1714;
+}
+.apex-login-identity-trigger:focus-visible{outline:3px solid color-mix(in srgb,#2b7d69 28%,transparent);outline-offset:3px}
+.apex-login-identity-trigger svg{width:15px;height:15px;color:#c9a55f}
+.apex-login-identity-trigger--pulse{position:relative;isolation:isolate;overflow:visible;animation:loginJourneyBreath 4s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite}
+.apex-login-identity-trigger--pulse::before{
+  content:"";position:absolute;pointer-events:none;border-radius:18px;
+}
+.apex-login-identity-trigger--pulse::before{
+  inset:-4px;z-index:-1;
+  background:radial-gradient(circle at 50% 50%,color-mix(in srgb,#7aa48f 35%,transparent),transparent 70%);
+  opacity:0.4;filter:blur(4px);animation:loginJourneyGlow 4s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+.apex-login-pulse-rings{
+  position:absolute;inset:0;z-index:-2;pointer-events:none;display:block;border-radius:inherit;
+}
+.apex-login-pulse-rings i{
+  position:absolute;inset:-6px;border:1px solid color-mix(in srgb,#8bb7a3 65%,transparent);border-radius:20px;
+  opacity:0;transform:scale(0.85);animation:loginJourneyPulse 4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+.apex-login-pulse-rings i:nth-child(2){animation-delay:0.4s}
+.apex-login-pulse-rings i:nth-child(3){animation-delay:0.8s}
+@keyframes loginJourneyBreath{
+  0%,10%,20%,32%,100%{transform:scale(1);box-shadow:0 8px 22px color-mix(in srgb,#000 16%,transparent),0 0 0 1px color-mix(in srgb,#fff 2%,transparent) inset}
+  4%,14%,24%{transform:scale(1.04);box-shadow:0 10px 25px color-mix(in srgb,#0b1714 28%,transparent),0 0 0 1px color-mix(in srgb,#b7dccb 20%,transparent) inset}
+}
+@keyframes loginJourneyGlow{
+  0%,10%,20%,32%,100%{opacity:0.3;transform:scale(0.9)}
+  4%,14%,24%{opacity:0.75;transform:scale(1.06)}
+}
+@keyframes loginJourneyPulse{
+  0%{transform:scale(0.85);opacity:0}
+  3%{transform:scale(0.95);opacity:0.7}
+  15%{transform:scale(1.25);opacity:0.15}
+  25%,100%{transform:scale(1.35);opacity:0}
+}
+@media (prefers-reduced-motion:reduce){
+  .apex-login-identity-trigger--pulse{animation:none}
+  .apex-login-identity-trigger--pulse::before,.apex-login-pulse-rings i{animation:none}
+  .apex-login-identity-trigger--pulse::before{opacity:0.4;transform:none}
+  .apex-login-pulse-rings i{opacity:0}
+}
+@keyframes loginIdentityIn{from{opacity:0}to{opacity:1}}
+@keyframes loginIdentityCard{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+@media(max-width:680px){
+  .apex-access-title-row{gap:10px}
+  .apex-login-identity-trigger{height:32px;padding:0 11px}
+}
+
+
+/* --------------------------------------------------------------------------
+   ICON-FIRST POLISH — general console/catalog surfaces.
+   -------------------------------------------------------------------------- */
+.visual-minimal .page-heading-action .btn,
+.console-action-slot .btn,
+.list-toolbar .btn,
+.list-toolbar .icon-action{border-radius:16px}
+.list-toolbar .count-chip{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 12px;border-radius:999px;background:var(--surface-2)}
+.console-head{gap:12px}
+.console-tab{border-radius:18px}
+.console-tab-icon{inline-size:34px;block-size:34px;border-radius:12px;background:color-mix(in srgb,var(--surface-2) 92%,var(--surface));display:grid;place-items:center}
+.record-card,.surface,.catalog-form-drawer{border-radius:24px}
+
+
+/* --------------------------------------------------------------------------
+   ICON-FIRST POLISH — catalog, dashboard, admin, saved views.
+   -------------------------------------------------------------------------- */
+.visual-minimal.catalog-inspector-page .page-heading p,
+.visual-minimal.admin-page .page-heading p,
+.visual-minimal.dashboard-page .deck-identity small,
+.visual-minimal .record-card p,
+.visual-minimal .record-card small{display:none}
+.visual-minimal.catalog-inspector-page .catalog-workspace,
+.visual-minimal.admin-page .master-detail-shell{gap:16px}
+.visual-minimal.catalog-inspector-page .catalog-master,
+.visual-minimal.catalog-inspector-page .catalog-detail,
+.visual-minimal.admin-page .master-pane,
+.visual-minimal.admin-page .detail-pane,
+.visual-minimal.dashboard-page .deck-panel,
+.visual-minimal.dashboard-page .deck-card{border-radius:26px}
+.visual-minimal.catalog-inspector-page .page-heading-action .btn,
+.visual-minimal.admin-page .page-heading-action .btn,
+.visual-minimal.admin-page .console-action-slot .btn,
+.visual-minimal.catalog-inspector-page .list-toolbar .list-search,
+.visual-minimal.catalog-inspector-page .list-filter,
+.visual-minimal.admin-page .list-toolbar .list-search{border-radius:16px}
+.visual-minimal.catalog-inspector-page .record-card,
+.visual-minimal.catalog-inspector-page .meta-pill{border-radius:18px}
+.visual-minimal.catalog-inspector-page .record-card header,
+.visual-minimal.catalog-inspector-page .record-card footer{align-items:center}
+.visual-minimal.catalog-inspector-page .icon-action,
+.visual-minimal.admin-page .icon-action{width:42px;height:42px;border-radius:14px}
+.visual-minimal.dashboard-page .deck-bar{border-radius:26px}
+.visual-minimal.dashboard-page .deck-chip,
+.visual-minimal.dashboard-page .deck-live,
+.visual-minimal.dashboard-page .deck-action{border-radius:999px}
+.visual-minimal.admin-page .system-vault-seal,
+.visual-minimal.admin-page .vault-action-icon,
+.visual-minimal.admin-page .form-intro>span{border-radius:18px}
+.visual-minimal.admin-page .system-vault-hero p,
+.visual-minimal.admin-page .vault-safety-note p,
+.visual-minimal.admin-page .system-vault-action p{opacity:.88}
+.visual-minimal.schedule-views .views-trigger,
+.schedule-views.visual-minimal .views-trigger{border-radius:18px;min-height:46px}
+.schedule-views.visual-minimal .views-menu,
+.schedule-views.visual-minimal .views-dialog{border-radius:22px}
+.schedule-views.visual-minimal .views-current,
+.schedule-views.visual-minimal .views-item,
+.schedule-views.visual-minimal .views-manage-row{border-radius:14px}
+
+/* ========================================================================== 
+   EXHAUSTIVE VISUAL PASS — catalog / dashboard / admin / common screens.
+   Functionality is untouched. The goal is icon-first hierarchy without hiding
+   identifiers or forcing a reader through decorative copy.
+   ========================================================================== */
+
+/* The previous broad minimal rule hid every `small` inside every record card,
+   including useful identifiers. Keep the card clean, but preserve structured
+   metadata and paths. */
+.visual-minimal .record-card p{display:none}
+.visual-minimal .record-card small{display:inline}
+.visual-minimal .record-card .meta-pill small{display:none}
+.visual-minimal.catalog-inspector-page .record-card-copy>span{
+  display:flex;align-items:center;gap:7px;color:var(--muted);font-size:.75rem;line-height:1.45;
+  /* السطر الوصفي يلتفّ بدل أن يُقصّ من منتصف رقم الهاتف. */
+  flex-wrap:wrap;white-space:normal;overflow:visible;
+}
+/* Instructor records: the departments are one calm line (the full text is its
+   tooltip and sits in the detail panel); phone and civil ID are two small pills
+   below, so a record is a name, a line and two pills instead of a paragraph. */
+.visual-minimal.catalog-inspector-page .record-card-copy>span:has(>.record-home-line){flex-wrap:nowrap}
+.record-home-line{display:block;min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Four facts read as a 2x2, not three and an orphan. */
+.inspector-facts.inspector-facts-pairs{grid-template-columns:repeat(2,minmax(0,1fr))}
+.record-path{display:inline-flex;align-items:center;gap:7px;min-inline-size:0}
+.record-path svg{inline-size:13px;block-size:13px;color:var(--accent);flex:none}
+.record-path-dot{inline-size:4px;block-size:4px;border-radius:999px;background:var(--line-strong);flex:none}
+
+.visual-minimal.catalog-inspector-page .record-card{
+  position:relative;overflow:hidden;padding:var(--card-pad);border-radius:var(--radius-card);
+  transition:border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease),background .18s var(--ease);
+}
+.visual-minimal.catalog-inspector-page .record-card::before{
+  content:"";position:absolute;inset-block:10px;inset-inline-start:0;inline-size:3px;border-radius:999px;
+  background:transparent;transition:background .18s var(--ease);
+}
+.visual-minimal.catalog-inspector-page .record-card.selected::before,
+.visual-minimal.catalog-inspector-page .record-card:focus-visible::before{background:var(--accent)}
+.visual-minimal.catalog-inspector-page .record-card:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.visual-minimal.catalog-inspector-page .record-card-icon{
+  inline-size:46px;block-size:46px;border-radius:16px;border:1px solid var(--line);
+  background:linear-gradient(180deg,var(--surface),var(--surface-2));color:var(--accent);
+}
+.visual-minimal.catalog-inspector-page .record-card-icon svg{inline-size:20px;block-size:20px}
+.visual-minimal.catalog-inspector-page .record-card-meta{gap:6px;margin-top:8px}
+.visual-minimal.catalog-inspector-page .meta-pill{
+  min-block-size:30px;padding-inline:9px;border-radius:999px;background:var(--surface-2);border-color:color-mix(in srgb,var(--line) 84%,transparent);
+}
+.visual-minimal.catalog-inspector-page .meta-pill-glyph{display:grid;place-items:center;color:var(--muted)}
+.visual-minimal.catalog-inspector-page .meta-pill-glyph svg{inline-size:13px;block-size:13px}
+.visual-minimal.catalog-inspector-page .meta-pill b{font-size:.75rem;font-weight:700}
+
+/* Academic mobility becomes an infographic rather than a text separator. */
+.travel-matrix{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:var(--s2);margin-block:var(--s3)}
+.travel-matrix label{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+  min-inline-size:0;padding:6px var(--s3);border:1px solid var(--line);border-radius:14px;background:var(--surface);
+}
+.travel-matrix label>div{display:inline-flex;align-items:center;gap:6px;flex:none}
+.travel-matrix label input{inline-size:64px;min-block-size:34px;padding:0 8px;text-align:center;font-variant-numeric:tabular-nums}
+.travel-matrix label>div>b{font-size:var(--t-xs);font-weight:500;color:var(--muted)}
+.campus-mobility-card .mobility-save{margin-top:var(--s3)}
+.mobility-defaults{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:var(--s2);margin-bottom:var(--s3)}
+.mobility-defaults label{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:6px var(--s3);border:1px solid var(--line);border-radius:14px;background:var(--surface);min-inline-size:0}
+.mobility-defaults label>span{font-size:var(--t-xs);color:var(--ink-2)}
+.mobility-defaults label>div{display:inline-flex;align-items:center;gap:6px;flex:none}
+.mobility-defaults label input{inline-size:64px;min-block-size:34px;padding:0 8px;text-align:center;font-variant-numeric:tabular-nums}
+.mobility-defaults label>div>b{font-size:var(--t-xs);font-weight:500;color:var(--muted)}
+.travel-pair-name{display:inline-flex!important;align-items:center;gap:8px;min-inline-size:0}
+.travel-pair-name>b{font:700 .78rem/1 var(--font-mono);direction:ltr;unicode-bidi:isolate}
+.travel-pair-name>svg{inline-size:15px;block-size:15px;color:var(--accent);flex:none}
+.travel-search>button{border:0;background:transparent;color:var(--muted);cursor:pointer}
+.travel-search>button:hover{color:var(--ink)}
+
+/* Dashboard: keep the information, remove the feeling of competing rectangles. */
+.visual-minimal.dashboard-page .deck-bar{box-shadow:var(--shadow-xs)}
+.visual-minimal.dashboard-page .deck-chip{gap:7px;padding-inline:11px}
+.visual-minimal.dashboard-page .deck-chip svg{inline-size:15px;block-size:15px;color:var(--accent)}
+.visual-minimal.dashboard-page .deck-card,
+.visual-minimal.dashboard-page .deck-chart{overflow:hidden;border-color:color-mix(in srgb,var(--line) 88%,transparent)}
+.visual-minimal.dashboard-page .deck-card>header svg,
+.visual-minimal.dashboard-page .deck-chart>header svg{inline-size:18px;block-size:18px;color:var(--accent)}
+.visual-minimal.dashboard-page .deck-compare-note{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+.visual-minimal.dashboard-page .deck-compare-note i{display:grid;place-items:center;color:var(--muted)}
+.visual-minimal.dashboard-page .deck-compare-note i svg{inline-size:14px;block-size:14px}
+
+/* Admin vault: the icon is the first read; prose becomes secondary and bounded. */
+.visual-minimal.admin-page .system-vault-hero,
+.visual-minimal.admin-page .system-vault-action,
+.visual-minimal.admin-page .vault-safety-note,
+.visual-minimal.admin-page .vault-history,
+.visual-minimal.admin-page .vault-preview-card{
+  border-radius:var(--radius-card);box-shadow:var(--shadow-xs);overflow:hidden;
+}
+.visual-minimal.admin-page .system-vault-seal,
+.visual-minimal.admin-page .vault-action-icon{
+  inline-size:56px;block-size:56px;display:grid;place-items:center;border:1px solid var(--line);
+  background:linear-gradient(180deg,var(--surface),var(--surface-2));
+}
+/* الختم على سطحٍ فاتح: الأيقونة بلون التمييز لا بالأبيض فتختفي. */
+.visual-minimal.admin-page .system-vault-seal{color:var(--accent);box-shadow:var(--shadow-xs)}
+.visual-minimal.admin-page .system-vault-seal svg,
+.visual-minimal.admin-page .vault-action-icon svg{inline-size:23px;block-size:23px}
+.visual-minimal.admin-page .system-vault-action p,
+.visual-minimal.admin-page .system-vault-hero p,
+.visual-minimal.admin-page .vault-safety-note p{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.75;
+}
+.visual-minimal.admin-page .vault-inline-actions .btn,
+.visual-minimal.admin-page .system-vault-action .btn,
+.visual-minimal.admin-page .vault-confirm-actions .btn{border-radius:16px}
+.visual-minimal.admin-page .vault-export-progress-track{border-radius:999px;overflow:hidden}
+.visual-minimal.admin-page .vault-preview-summary>span{border-radius:16px;background:var(--surface-2)}
+.visual-minimal.admin-page .master-search>button{border:0;background:transparent;color:var(--muted);cursor:pointer}
+.visual-minimal.admin-page .master-search>button:hover{color:var(--ink)}
+
+/* Saved views: icons carry the actions, the name is the only persistent text. */
+.schedule-views.visual-minimal .views-trigger{gap:8px;padding-inline:11px}
+.schedule-views.visual-minimal .views-trigger>svg{inline-size:17px;block-size:17px;color:var(--accent)}
+.schedule-views.visual-minimal .views-menu{padding:8px;box-shadow:var(--shadow-lg)}
+.schedule-views.visual-minimal .views-item{min-block-size:42px}
+.schedule-views.visual-minimal .views-manage-row>button{inline-size:38px;block-size:38px;border-radius:12px}
+
+@media(max-width:760px){
+  .visual-minimal.catalog-inspector-page .record-card{padding:13px}
+  .visual-minimal.catalog-inspector-page .record-card-icon{inline-size:42px;block-size:42px;border-radius:14px}
+  .visual-minimal.admin-page .system-vault-action{grid-template-columns:48px minmax(0,1fr)}
+  .visual-minimal.admin-page .system-vault-seal,.visual-minimal.admin-page .vault-action-icon{inline-size:48px;block-size:48px;border-radius:16px}
+}
+
+/* ========================================================================== 
+   SECONDARY SURFACES — the rest of the application receives the same visual
+   grammar without changing any workflow.
+   ========================================================================== */
+
+/* Academic console / terms */
+.academic-console.visual-minimal .console-head{border-radius:20px}
+.academic-console.visual-minimal .console-tab{min-block-size:56px}
+.academic-console.visual-minimal .console-tab-icon{inline-size:38px;block-size:38px;border-radius:13px}
+.academic-console.visual-minimal .console-tab-label{font-size:.75rem}
+.visual-minimal .term-deck .record-card{border-radius:20px}
+.visual-minimal .academic-inspector{border-radius:var(--radius-card);overflow:hidden}
+.visual-minimal .academic-inspector-icon{inline-size:56px;block-size:56px;border-radius:18px;background:var(--accent-softer);color:var(--accent)}
+.visual-minimal .inspector-facts{gap:8px}
+.visual-minimal .inspector-facts>div{border-radius:16px;background:var(--surface-2)}
+
+/* Command palette: search first, groups and shortcuts visually secondary. */
+.cmdk.visual-minimal{border-radius:28px;box-shadow:var(--shadow-lg);overflow:hidden}
+.cmdk.visual-minimal .cmdk-field{min-block-size:62px}
+.cmdk.visual-minimal .cmdk-field>svg{inline-size:21px;block-size:21px;color:var(--accent)}
+.cmdk.visual-minimal .cmdk-row{min-block-size:48px;border-radius:14px}
+.cmdk.visual-minimal .cmdk-row[aria-selected="true"]{background:var(--accent-softer)}
+.cmdk.visual-minimal .cmdk-icon{inline-size:36px;block-size:36px;border-radius:12px;background:var(--surface-2);color:var(--accent)}
+.cmdk.visual-minimal .cmdk-group-name{font-size:.75rem;letter-spacing:.04em;color:var(--muted)}
+.cmdk.visual-minimal .cmdk-shortcut{border-radius:9px;background:var(--surface-2)}
+.cmdk.visual-minimal .cmdk-foot{opacity:.78}
+
+/* Product journey / about: editorial, not dashboard-like. */
+
+/* Login is already intentionally sparse; only unify control geometry. */
+.apex-login.visual-minimal .apex-login-access{border-radius:30px}
+.apex-login.visual-minimal .apex-login-form input{border-radius:15px}
+.apex-login.visual-minimal .apex-login-form button{border-radius:16px}
+.apex-login.visual-minimal .login-error{border-radius:16px}
+
+/* Install prompt: one pictographic entry point, details only once opened. */
+.install.visual-minimal .install-trigger{border-radius:15px}
+.install.visual-minimal .install-pop{border-radius:22px;box-shadow:var(--shadow-lg)}
+.install.visual-minimal .install-go{border-radius:15px}
+
+
+/* --- Visual confirm dialog ---------------------------------------------- */
+/* A confirm is the last thing opened, so it is the last thing drawn. 1400 was
+   chosen when the tallest layer was a card; the focus board (1500), the PDF
+   change report (4200) and the meeting sheet (4300) all arrived above it, and
+   a question asked from any of them was painted behind the thing that asked
+   it — the app appearing to freeze while it waited for an answer nobody could
+   see. */
+.schedule-confirm-backdrop{position:fixed;inset:0;z-index:4400;display:grid;place-items:center;padding:20px;background:color-mix(in srgb,#09120f 54%,transparent);backdrop-filter:blur(8px)}
+.schedule-confirm-card{width:min(92vw,420px);display:grid;gap:14px;padding:22px;border:1px solid var(--line);border-radius:24px;background:var(--surface);box-shadow:var(--shadow-lg)}
+.schedule-confirm-mark{width:52px;height:52px;display:grid;place-items:center;border-radius:18px;background:var(--warning-soft);color:var(--warning)}
+.schedule-confirm-card.tone-danger .schedule-confirm-mark{background:var(--danger-soft);color:var(--danger)}
+.schedule-confirm-card.tone-info .schedule-confirm-mark{background:var(--info-soft);color:var(--info)}
+.schedule-confirm-mark svg{width:24px;height:24px}
+.schedule-confirm-copy{display:grid;gap:5px}.schedule-confirm-copy small{font-size:12px;font-weight:700;color:var(--muted)}.schedule-confirm-copy strong{font-size:22px;line-height:1.2}.schedule-confirm-copy p{margin:0;color:var(--ink-2);font-size:13px;line-height:1.8;white-space:pre-line}
+.schedule-confirm-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.schedule-confirm-actions .btn{min-width:118px}
+
+/* Install popover: three explicit cards instead of tiny checklist rows. */
+.install-pop{width:292px;padding:16px;border-radius:22px}
+.install-pop p{margin-bottom:12px;line-height:1.75}
+.install-steps-grid{display:grid;grid-template-columns:1fr;gap:8px}
+.install-steps-grid li{align-items:flex-start;padding:10px 11px;border:1px solid var(--line);border-radius:15px;background:var(--surface-2);gap:10px}
+.install-steps-grid li::before{margin-top:1px}
+.install-steps-grid li b{display:block;font-size:12px;color:var(--ink)}
+.install-steps-grid li small{display:block;margin-top:2px;color:var(--muted);font-size:12px;line-height:1.55}
+.install-steps-grid li svg{display:inline;width:12px;height:12px;vertical-align:-2px}
+.install-go{min-height:42px;border-radius:13px}
+@media (max-width:640px){.schedule-confirm-card{width:min(94vw,390px);padding:18px;border-radius:22px}.schedule-confirm-copy strong{font-size:20px}.install-pop{width:min(92vw,320px)}}
+
+/* ── Contextual delete confirmation ----------------------------------------
+ * Small deletes borrow the source button's position instead of opening a full
+ * modal. It is the same safety check, but the eye never loses the thing it was
+ * acting on. Larger restore/reset decisions keep the full decision sheet. */
+.schedule-confirm-inline-layer{
+  position:fixed;inset:0;z-index:1450;background:transparent;
+}
+.schedule-confirm-inline{
+  position:fixed;z-index:1;
+  transform:translateX(-50%);
+  display:flex;align-items:center;gap:6px;
+  min-height:48px;padding:5px 6px;
+  border:1px solid color-mix(in srgb,var(--danger) 28%,var(--line));
+  border-radius:18px;
+  background:color-mix(in srgb,var(--nav) 96%,transparent);
+  color:var(--nav-ink);
+  box-shadow:0 18px 48px rgba(8,15,13,.28);
+  backdrop-filter:blur(16px) saturate(1.08);
+  transform-origin:center;
+  animation:scheduleConfirmMorph .2s var(--ease-spring) both;
+}
+.schedule-confirm-inline-mark{
+  width:36px;height:36px;display:grid;place-items:center;flex:none;
+  border-radius:13px;background:color-mix(in srgb,var(--danger) 18%,transparent);color:#f5c3bf;
+}
+.schedule-confirm-inline-mark svg{width:16px;height:16px}
+.schedule-confirm-inline button{
+  width:36px;height:36px;padding:0;display:grid;place-items:center;flex:none;
+  border:1px solid color-mix(in srgb,#fff 11%,transparent);border-radius:12px;
+  background:color-mix(in srgb,#fff 6%,transparent);color:#dfe7e3;cursor:pointer;
+  transition:transform .14s var(--ease),background .14s var(--ease),border-color .14s var(--ease);
+}
+.schedule-confirm-inline button:hover{transform:translateY(-1px);background:color-mix(in srgb,#fff 11%,transparent)}
+.schedule-confirm-inline button:focus-visible{outline:2px solid color-mix(in srgb,#fff 70%,transparent);outline-offset:2px}
+.schedule-confirm-inline .schedule-confirm-inline-accept{
+  background:var(--danger);border-color:var(--danger);color:#fff;
+}
+.schedule-confirm-inline .schedule-confirm-inline-accept:hover{background:color-mix(in srgb,var(--danger) 88%,#000)}
+.schedule-confirm-inline .schedule-confirm-inline-cancel:hover{border-color:color-mix(in srgb,#fff 22%,transparent)}
+@keyframes scheduleConfirmMorph{
+  from{opacity:0;transform:translateX(-50%) scale(.72);filter:blur(2px)}
+  to{opacity:1;transform:translateX(-50%) scale(1);filter:none}
+}
+@media(max-width:640px){
+  .schedule-confirm-inline{min-height:54px;padding:6px 7px;border-radius:19px}
+  .schedule-confirm-inline-mark,.schedule-confirm-inline button{width:40px;height:40px;border-radius:13px}
+  /* The confirm sits centred on the tapped button but never closer than 70px to an
+     edge. Check + cross at 44px fit inside that; the decorative trash mark (hidden
+     from assistive tech already) made the pill 148px wide and 4px off-screen. */
+  .schedule-confirm-inline-mark{display:none}
+  .schedule-confirm-inline button{width:44px;height:44px}
+}
+@media(prefers-reduced-motion:reduce){.schedule-confirm-inline{animation:none}.schedule-confirm-inline button{transition:none}}
+
+/* Install prompt: three pictographic steps, not a numbered paragraph. */
+.install-pop{width:min(320px,calc(100vw - 28px))}
+.install-steps-grid{position:relative;gap:7px}
+.install-steps-grid li{
+  position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;
+  min-height:58px;padding:9px 10px;border-radius:16px;
+}
+.install-steps-grid li::before{display:none}
+.install-steps-grid li+li::after{
+  content:"";position:absolute;inset-inline-start:27px;inset-block-start:-8px;width:1px;height:8px;background:color-mix(in srgb,var(--accent) 25%,var(--line));
+}
+.install-step-icon{
+  width:34px;height:34px;display:grid;place-items:center;flex:none;border-radius:12px;
+  background:var(--accent-soft);color:var(--accent);
+}
+.install-step-icon svg{width:16px!important;height:16px!important}
+.install-steps-grid li>div{min-width:0}.install-steps-grid li b{font-size:12px}.install-steps-grid li small{font-size:12px;line-height:1.45}
+.install-login .install-step-icon{background:#17231f;color:#b6d8cc}
+.install-login .install-steps-grid li{background:#0d1412;border-color:#2b3630}
+
+/* Dedicated demo entry: visually distinct, quiet, and explicit about isolation. */
+
+/* System administration in Demo is a true showroom: no interactive control can fire. */
+html[data-demo-admin-readonly="true"] .app-main button,
+html[data-demo-admin-readonly="true"] .app-main input,
+html[data-demo-admin-readonly="true"] .app-main select,
+html[data-demo-admin-readonly="true"] .app-main textarea,
+html[data-demo-admin-readonly="true"] .app-main [role="button"]{pointer-events:none!important;cursor:not-allowed!important}
+html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي · الإدارة للعرض فقط";position:sticky;top:12px;z-index:35;display:block;width:max-content;max-width:calc(100% - 24px);margin:10px auto 10px;padding:5px 11px;line-height:1.4;border-radius:999px;background:color-mix(in srgb,#7a5712 88%,transparent);color:#fff8df;border:1px solid color-mix(in srgb,#fff 18%,transparent);font-size:.7rem;font-weight:700;box-shadow:0 4px 14px color-mix(in srgb,#000 12%,transparent);backdrop-filter:blur(6px)}
+
+/* ==========================================================================
+   INSTALL APP — PORTALED LOGIN SHEET
+   The login card clips its own contents by design. Installation guidance must
+   therefore live above the page, not inside the card's geometry.
+   ========================================================================== */
+.install-modal-backdrop{
+  position:fixed;inset:0;z-index:1400;
+  display:flex;align-items:flex-end;justify-content:center;
+  padding:18px max(14px,env(safe-area-inset-right)) max(18px,calc(env(safe-area-inset-bottom) + 14px)) max(14px,env(safe-area-inset-left));
+  background:rgb(3 8 7 / .58);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  animation:fade .16s var(--ease-out) both;
+}
+.install-pop.install-pop-login-modal{
+  position:relative!important;inset:auto!important;
+  width:min(430px,100%)!important;
+  max-width:100%!important;
+  max-height:min(68svh,560px)!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  padding:18px!important;
+  border:1px solid #314039!important;
+  border-radius:26px!important;
+  background:#101816!important;
+  color:#eef2ee!important;
+  box-shadow:0 28px 90px rgb(0 0 0 / .55)!important;
+  animation:install-sheet-up .2s var(--ease-out,ease) both!important;
+}
+@keyframes install-sheet-up{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
+.install-pop-login-modal header{position:sticky;top:-18px;z-index:2;margin:-18px -18px 12px;padding:16px 18px 10px;background:linear-gradient(#101816 82%,transparent)}
+.install-pop-login-modal header strong{color:#f1f5f2!important;font-size:14px!important}
+.install-pop-login-modal header button{color:#91a099!important;background:#18211e!important}
+.install-pop-login-modal p{color:#a6b2ac!important;font-size:12px!important;line-height:1.8!important;margin-bottom:14px!important}
+.install-pop-login-modal .install-steps-grid{display:grid!important;gap:9px!important}
+.install-pop-login-modal .install-steps-grid li{
+  position:relative;display:grid!important;grid-template-columns:42px minmax(0,1fr)!important;
+  align-items:center!important;gap:12px!important;padding:12px!important;
+  border:1px solid #2b3732!important;border-radius:17px!important;background:#0c1210!important;
+  color:#a6b2ac!important;min-width:0!important;
+}
+.install-pop-login-modal .install-steps-grid li::before,
+.install-pop-login-modal .install-steps-grid li+li::after{display:none!important}
+.install-pop-login-modal .install-step-icon{
+  width:42px;height:42px;display:grid;place-items:center;border-radius:14px;
+  background:#15241f;color:#78c1aa;
+}
+.install-pop-login-modal .install-step-icon svg{width:18px;height:18px}
+.install-pop-login-modal .install-steps-grid li>div{min-width:0}
+.install-pop-login-modal .install-steps-grid li b{font-size:13px!important;color:#eef2ee!important}
+.install-pop-login-modal .install-steps-grid li small{font-size:12px!important;line-height:1.55!important;color:#94a19b!important;white-space:normal!important}
+.install-pop-login-modal .install-go{min-height:44px;border-radius:15px}
+@media (min-width:700px){
+  .install-modal-backdrop{align-items:center;padding:24px}
+  .install-pop.install-pop-login-modal{max-height:min(76vh,580px)!important}
+}
+
+/* The end-of-term mark. A checkbox with the consequence written beside it,
+   because "this term is over" quietly removes a feature from another screen. */
+.term-closed-toggle{
+  display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:10px;
+  margin-top:var(--s4);padding:12px 14px;
+  border:1px solid var(--line);border-radius:var(--r-lg);
+  background:var(--surface-2);cursor:pointer;
+}
+.term-closed-toggle:hover{border-color:var(--line-strong)}
+.term-closed-toggle>input{width:18px;height:18px;margin:2px 0 0;accent-color:var(--accent);cursor:pointer}
+.term-closed-toggle>span{display:grid;gap:3px;min-width:0}
+.term-closed-toggle strong{font-size:13px;font-weight:600;color:var(--ink)}
+.term-closed-toggle small{font-size:12px;line-height:1.65;color:var(--muted)}
+
+/* ── The install control is a footer glyph, not a button ───────────────────
+   In the sign-in footer it sits directly beside the demo flask, which is a bare
+   glyph: no border, no fill, muted ink. The install trigger kept the boxed
+   treatment it wears elsewhere in the application, so one lone rounded square
+   floated in a row of quiet marks and pulled the eye to the least important
+   thing on the screen. Same size, same hit area, same weight as its neighbour;
+   it announces itself on hover, and its brass dot still marks "installable". */
+.install-login .install-trigger{
+  border-color:transparent;
+  background:transparent;
+  color:#6d7a73;
+}
+.install-login .install-trigger:hover,
+.install-login .install-trigger:focus-visible,
+.install-login .install-trigger.active{
+  border-color:transparent;
+  background:color-mix(in srgb,#ffffff 7%,transparent);
+  color:#dfe8e3;
+}
+.install-login .install-trigger.discoverable::after{
+  box-shadow:0 0 0 2px #0d1211,0 0 0 3px color-mix(in srgb,var(--brass) 15%,transparent);
+}
+
+/* ── ترويسة أداة: أيقونة، عنوان، ورقائق ─────────────────────────────────────
+   The shape a tool introduces itself with. What a paragraph used to spend a
+   sentence listing — the five things in the file, the two keys a row is matched
+   by — is a list, and is drawn as one. What genuinely is a sentence stays a
+   sentence: a promise that nothing will be written, that nothing is deleted.
+   Those are the lines a chip cannot carry, and they keep their <small>. */
+.tool-lede{
+  display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:var(--s3);
+  padding:var(--s4);
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface-2);
+}
+.tool-lede-mark{
+  width:36px;height:36px;display:grid;place-items:center;
+  border-radius:var(--r-sm);background:var(--accent-soft);color:var(--accent);
+}
+.tool-lede-mark svg{width:17px;height:17px}
+.tool-lede>div{min-width:0;display:grid;gap:var(--s2)}
+.tool-lede strong{font-size:var(--t-sm);font-weight:600;line-height:1.5;color:var(--ink)}
+.tool-lede-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.tool-lede-chips li{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 10px;
+  border:1px solid var(--line);border-radius:var(--r-full);
+  background:var(--surface);
+  color:var(--ink-2);font-size:var(--t-xs);font-weight:600;
+}
+.tool-lede-chips svg{width:13px;height:13px;color:var(--muted)}
+.tool-lede small{color:var(--muted);font-size:var(--t-xs);line-height:1.6}
+@media (max-width:640px){
+  .tool-lede{grid-template-columns:30px minmax(0,1fr);gap:var(--s2);padding:var(--s3)}
+  .tool-lede-mark{width:30px;height:30px}
+  .tool-lede-mark svg{width:15px;height:15px}
+}
+
+/* ── ما يشمله الملف ─────────────────────────────────────────────────────────
+   Sixteen names that used to run together inside one sentence. As a wrapped
+   grid the reader scans for the one they came to check instead of reading to
+   the end to find out whether it is there. */
+.vault-contents{
+  display:flex;flex-wrap:wrap;gap:5px;
+  margin:var(--s2) 0 0;padding:0;list-style:none;
+}
+.vault-contents li{
+  padding:3px 9px;
+  border:1px solid var(--line);border-radius:var(--r-full);
+  background:var(--surface);
+  color:var(--ink-2);font-size:12px;font-weight:600;
+}
+.vault-contents-note{margin:var(--s2) 0 0;color:var(--muted);font-size:var(--t-xs);line-height:1.6}
+.vault-chips{margin-top:var(--s2)}
+
+/* إدارة البيانات: الاسم معلومة هوية لا زينة مقتطعة. */
+.master-list strong,
+.master-list small{
+  min-inline-size:0;
+  max-inline-size:100%;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
+  overflow-wrap:anywhere;
+  word-break:normal;
+  letter-spacing:0 !important;
+}
+
+/* ── ما يعمل وما لا يعمل على الهاتف ─────────────────────────────────────────
+   A state, a limit and a way out. Three marks so the reader finds the one that
+   applies to them without reading past the two that do not. */
+.gate-facts{
+  display:flex;flex-wrap:wrap;gap:var(--s2);
+  margin:var(--s2) 0 0;padding:0;list-style:none;
+}
+.gate-facts li{
+  flex:1 1 92px;min-width:0;
+  display:grid;justify-items:center;gap:2px;
+  padding:9px 7px;
+  border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--surface);text-align:center;
+}
+.gate-facts svg{width:16px;height:16px;color:var(--muted)}
+.gate-facts b{font-size:12px;font-weight:700;color:var(--ink)}
+.gate-facts span{font-size:12px;color:var(--muted);line-height:1.4}
+
+
+/* ── قواعد التخرج داخل بطاقة القسم ─────────────────────────────────────────
+   These four numbers decide whether a real student is told they may apply as a
+   graduate, so they are shown as a reviewed record — with the state of never
+   having been reviewed said out loud, not left to look like a decision. */
+.degree-rule-card{display:grid;gap:10px;margin-top:var(--s4);padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--surface-muted,var(--surface))}
+.degree-rule-card>header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.degree-rule-card>header .surface-kicker{display:inline-flex;align-items:center;gap:6px}
+.degree-rule-card>header .surface-kicker svg{inline-size:14px;block-size:14px}
+.degree-rule-card>header small{font-size:12px;color:var(--muted)}
+.degree-rule-card>header small.warn{color:var(--warning,var(--brass));font-weight:700}
+.degree-rule-card>p{margin:0;font-size:12px;line-height:1.75;color:var(--muted)}
+.degree-rule-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:9px;margin:0}
+.degree-rule-grid>div{display:grid;gap:4px;padding:9px 11px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}
+.degree-rule-grid dt{font-size:12px;color:var(--muted)}
+.degree-rule-grid dd{margin:0;font-size:17px;font-weight:700;color:var(--ink)}
+.degree-rule-grid dd input{width:100%;padding:6px 8px;font:inherit;font-size:15px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
+.degree-rule-actions{display:flex;flex-wrap:wrap;gap:8px}
+.degree-rule-grid dd .degree-rule-guess{
+  display:inline-block;margin-inline-start:6px;padding:1px 7px;border-radius:999px;
+  border:1px dashed color-mix(in srgb,var(--brass,#a9803f) 45%,var(--line));
+  color:var(--brass,#a9803f);font-size:12px;font-weight:700;font-style:normal;vertical-align:middle;
+}
+
+/* ── الصحائف الأكاديمية: انتقال حيّ بلا تلويث للتاريخ ───────────────────── */
+.curriculum-admin{display:grid;gap:var(--s4);padding-block-end:var(--s6)}
+.curriculum-section-bar{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(180px,280px);align-items:center;gap:12px;padding:14px 16px}
+.curriculum-section-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:14px;background:color-mix(in srgb,var(--brand,#375b52) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--brand,#375b52) 20%,var(--line))}
+.curriculum-section-icon svg{width:21px;height:21px;color:var(--brand,#375b52)}
+.curriculum-section-bar>div:nth-child(2){display:grid;gap:2px}.curriculum-section-bar strong{font-size:13px}.curriculum-section-bar span{font-size:12px;color:var(--muted)}
+.curriculum-section-bar select{width:100%;min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:10px 11px;font:inherit;font-size:12px;outline:none}
+.curriculum-section-bar:has(select+select){grid-template-columns:auto minmax(0,1fr) minmax(160px,260px) minmax(160px,260px)}
+.curriculum-section-bar select:focus{border-color:color-mix(in srgb,var(--brand,#375b52) 55%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--brand,#375b52) 10%,transparent)}
+.curriculum-loading{padding:32px;text-align:center;color:var(--muted)}
+.curriculum-admin,.plan-grid,.plan-card,.plan-steps{min-width:0;max-width:100%}
+/* ── الصحائف الأكاديمية: صحيفتان تعملان معاً ─────────────────────────────
+   Jade marks the new plan, brass the previous one — the same two colours on
+   the plan cards, the step list and the student-case tag. */
+.curriculum-admin .course-code{display:inline-flex;align-items:center;justify-content:center;min-width:64px;padding:3px 7px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--ink-2);direction:ltr;letter-spacing:.02em}
+.plan-chip{display:inline-flex;align-items:center;width:max-content;padding:3px 9px;border-radius:var(--r-full);font-size:12px;font-weight:700;border:1px solid var(--line)}
+.plan-chip.is-new{color:var(--accent-ink);background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 28%,var(--line))}
+.plan-chip.is-old{color:var(--brass);background:var(--brass-soft);border-color:color-mix(in srgb,var(--brass) 28%,var(--line))}
+.plan-chip.is-shared{color:var(--muted);background:var(--surface-2)}
+.plan-muted{margin:0;color:var(--muted);font-size:12px;line-height:1.75}
+.plan-link-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border:0;border-radius:var(--r-xs);background:transparent;color:var(--accent);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.plan-link-btn:hover{background:var(--accent-softer)}.plan-link-btn:disabled{opacity:.5;cursor:default}.plan-link-btn svg{width:14px;height:14px}
+.plan-icon-btn{display:inline-grid;place-items:center;width:28px;height:28px;border:0;border-radius:var(--r-xs);background:transparent;color:var(--muted);cursor:pointer;vertical-align:middle}
+.plan-icon-btn:hover{background:var(--surface-2);color:var(--ink)}.plan-icon-btn svg{width:14px;height:14px}
+.curriculum-admin input[type=number],.plan-rename input,.plan-start-form input,.plan-search input,.plan-map-form select,.plan-next-form input{min-width:0;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);padding:10px 12px;font:inherit;font-size:13px;outline:none}
+.curriculum-admin input:focus,.plan-map-form select:focus{border-color:var(--accent);box-shadow:var(--ring)}
+
+/* بدء الصحيفة الجديدة */
+.plan-start{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(240px,.8fr);gap:var(--s6);padding:var(--s6);border-color:color-mix(in srgb,var(--accent) 24%,var(--line));background:linear-gradient(135deg,var(--accent-softer),var(--surface) 62%)}
+.plan-start-copy{display:grid;gap:10px;align-content:start}
+.plan-start-copy h2{margin:0;font-size:var(--t-h2)}
+.plan-start-copy p{margin:0;color:var(--ink-2);font-size:13px;line-height:1.8}
+.plan-start-copy ol{margin:0;padding:0;list-style:none;display:grid;gap:8px;counter-reset:step}
+.plan-start-copy li{position:relative;padding-inline-start:34px;font-size:12.5px;line-height:1.75;color:var(--ink-2);counter-increment:step}
+.plan-start-copy li:before{content:counter(step);position:absolute;inset-inline-start:0;top:1px;display:grid;place-items:center;width:23px;height:23px;border-radius:50%;background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));color:var(--accent);font-size:12px;font-weight:700}
+.plan-start-copy li strong{color:var(--ink)}
+.plan-start-form{display:grid;gap:10px;align-content:center;padding:var(--s5);border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-sm)}
+.plan-start-form label{font-size:12px;font-weight:700}.plan-start-form small{color:var(--muted);font-size:12px}
+
+/* خطوات الانتقال */
+.plan-steps{display:grid;gap:12px;padding:14px 16px}
+.plan-steps-head{display:flex;align-items:baseline;justify-content:space-between}.plan-steps-head strong{font-size:13px}.plan-steps-head span{font-size:12px;color:var(--muted)}
+.plan-steps ol{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.plan-steps li{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2);border:1px solid var(--line)}
+.plan-steps li>div{display:grid;gap:2px;min-width:0}.plan-steps li strong{font-size:12px}.plan-steps li small{font-size:12px;color:var(--muted);line-height:1.55;overflow-wrap:anywhere}
+.plan-step-mark{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--surface);border:1px solid var(--line-strong);font-size:12px;font-weight:700;color:var(--muted)}
+.plan-steps li.is-done{background:var(--accent-softer);border-color:color-mix(in srgb,var(--accent) 22%,var(--line))}
+.plan-steps li.is-done .plan-step-mark{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}.plan-step-mark svg{width:13px;height:13px}
+
+/* بطاقتا الصحيفتين */
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:var(--s4)}
+.plan-card{position:relative;display:grid;align-content:start;gap:14px;padding:18px;overflow:hidden}
+.plan-card:before{content:"";position:absolute;inset-inline-start:0;inset-block:0;width:4px;background:var(--brass)}
+.plan-card.is-new:before{background:var(--accent)}
+.plan-card-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start}
+.plan-card-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:var(--r-md);background:var(--brass-soft);color:var(--brass)}
+.plan-card.is-new .plan-card-icon{background:var(--accent-soft);color:var(--accent)}.plan-card-icon svg{width:19px;height:19px}
+.plan-card-title{display:grid;gap:5px;min-width:0}
+.plan-card-title h3{display:flex;align-items:center;gap:4px;margin:0;font-size:var(--t-h3);overflow-wrap:anywhere}
+.plan-card-title p{margin:0;color:var(--muted);font-size:12px;line-height:1.65}
+.plan-rename{display:flex;gap:6px}.plan-rename input{flex:1;padding:7px 10px}
+.plan-card-count{display:grid;justify-items:center;font-size:26px;line-height:1;font-variant-numeric:tabular-nums}.plan-card-count small{margin-top:4px;font-size:12px;font-weight:600;color:var(--muted)}
+.plan-card-foot{display:flex;justify-content:flex-start;margin-top:-4px}.plan-card-foot .plan-link-btn{color:var(--muted)}.plan-card-foot .plan-link-btn:hover{color:var(--danger);background:var(--danger-soft)}
+
+/* شروط التخرج داخل البطاقة */
+.plan-rule{display:grid;gap:10px;padding:12px;border-radius:var(--r-md);background:var(--surface-2);border:1px solid var(--line)}
+.plan-rule-grid{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.plan-rule-grid>div,.plan-rule-grid>label{display:grid;gap:3px;padding:9px 10px;border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--line)}
+.plan-rule-grid dt,.plan-rule-grid label>span{font-size:12px;color:var(--muted);font-weight:600}
+.plan-rule-grid dd{margin:0;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.plan-rule-grid label>small{font-size:12px;color:var(--muted-2);line-height:1.5}
+.plan-rule-grid input{width:100%;padding:7px 9px!important;font-size:16px!important;font-weight:700}
+.plan-rule-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}.plan-rule-foot small{font-size:12px;color:var(--muted)}
+.plan-rule-actions{display:flex;flex-wrap:wrap;gap:8px}
+.plan-rule.is-missing{background:var(--warning-soft);border-color:color-mix(in srgb,var(--warning) 26%,var(--line))}
+.plan-rule.is-missing p{margin:0;font-size:12px;line-height:1.75;color:var(--ink-2)}.plan-rule.is-missing strong{color:var(--warning)}
+.plan-rule.is-missing button{justify-self:start}
+.plan-rule.is-editing{background:var(--accent-softer);border-color:color-mix(in srgb,var(--accent) 24%,var(--line))}
+
+/* المقررات */
+.plan-courses{display:grid;gap:0;padding:0;overflow:hidden}
+.plan-tabs{display:flex;gap:4px;padding:8px 8px 0;border-bottom:1px solid var(--line);overflow-x:auto}
+.plan-tabs button{display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+.plan-tabs button b{padding:1px 7px;border-radius:var(--r-full);background:var(--surface-2);font-size:12px;color:var(--ink-2)}
+.plan-tabs button small{font-size:12px;color:var(--muted-2);font-weight:500}
+.plan-tabs button.is-on{color:var(--ink);border-bottom-color:var(--accent)}.plan-tabs button.is-on b{background:var(--accent-soft);color:var(--accent-ink)}
+.plan-tab-body{display:grid;gap:12px;padding:16px}
+.plan-list-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.plan-search{flex:1 1 220px;position:relative;display:flex}.plan-search svg{position:absolute;inset-inline-start:11px;top:50%;width:15px;height:15px;transform:translateY(-50%);color:var(--muted-2)}
+.plan-search input{flex:1;padding-inline-start:34px!important}
+.plan-course-list{display:grid;gap:6px;max-height:460px;overflow:auto;padding-inline-end:2px}
+.plan-course-list article{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
+.plan-course-list article>div{display:grid;gap:2px;min-width:0}.plan-course-list strong{font-size:13px;overflow-wrap:anywhere}.plan-course-list small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.plan-course-list article>button{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:var(--r-xs);background:transparent;color:var(--muted-2);cursor:pointer}
+.plan-course-list article>button:hover{background:var(--danger-soft);color:var(--danger)}.plan-course-list article>button svg{width:15px;height:15px}
+.plan-picker{display:grid;gap:10px;padding:12px;border-radius:var(--r-md);border:1px solid color-mix(in srgb,var(--accent) 24%,var(--line));background:var(--accent-softer)}
+.plan-picker header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.plan-picker header>div{display:grid;gap:2px}.plan-picker header strong{font-size:13px}.plan-picker header span{font-size:12px;color:var(--muted);line-height:1.6}
+.plan-picker-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:6px;max-height:300px;overflow:auto}
+.plan-picker-list label{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--line);font-size:12px;cursor:pointer}
+.plan-picker-list label.is-on{border-color:var(--accent);box-shadow:var(--ring)}.plan-picker-list input{accent-color:var(--accent);width:16px;height:16px}
+.plan-map-form{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto;align-items:center;gap:8px}.plan-map-form>svg{width:16px;height:16px;color:var(--muted)}
+.plan-next{display:flex;justify-content:flex-start}.plan-next>.plan-link-btn{color:var(--muted)}
+.plan-next-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 14px;width:100%}.plan-next-form p{flex:1 1 100%;margin:0;font-size:12px;color:var(--muted)}.plan-next-form input{flex:1 1 200px}
+
+/* وسم الصحيفة في سجل الحالات */
+.student-case-plan{display:inline-flex;margin-inline-start:6px;padding:1px 7px;border-radius:var(--r-full);font-size:12px;font-weight:700;vertical-align:1px;border:1px solid var(--line)}
+.student-case-plan.is-new{color:var(--accent-ink);background:var(--accent-soft)}.student-case-plan.is-old{color:var(--brass);background:var(--brass-soft)}
+/* وسم الصحيفة في قائمة المقررات */
+.course-plan-tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--r-full);font-size:12px;font-weight:700;border:1px solid var(--line)}
+.course-plan-tag.is-new{color:var(--accent-ink);background:var(--accent-soft)}.course-plan-tag.is-old{color:var(--brass);background:var(--brass-soft)}.course-plan-tag.is-shared{color:var(--ink-2);background:var(--surface-2)}
+.curriculum-archive-strip{display:flex;align-items:center;gap:11px;padding:13px 15px;background:var(--surface-muted,var(--surface))}.curriculum-archive-strip>svg{width:19px;height:19px;color:var(--muted)}.curriculum-archive-strip>div{display:grid;gap:2px}.curriculum-archive-strip strong{font-size:12px}.curriculum-archive-strip span{font-size:12px;color:var(--muted);line-height:1.6}
+@media(max-width:900px){.plan-start{grid-template-columns:1fr}.plan-steps ol{grid-template-columns:1fr}.plan-map-form{grid-template-columns:1fr}.plan-map-form>svg{justify-self:center;transform:rotate(90deg)}}
+@media(max-width:640px){
+  .curriculum-admin{inline-size:100%;overflow-wrap:anywhere}
+  .curriculum-section-bar{grid-template-columns:auto minmax(0,1fr);gap:10px;padding:12px}
+  .curriculum-section-bar select{grid-column:1/-1;inline-size:100%;min-inline-size:0}
+  .plan-start{grid-template-columns:minmax(0,1fr);padding:var(--s4);gap:14px}
+  .plan-start-form{min-width:0;padding:14px}
+  .plan-card{padding:14px;gap:12px}
+  .plan-card-head{grid-template-columns:36px minmax(0,1fr);gap:9px}
+  .plan-card-title h3{display:block;font-size:1rem;line-height:1.55}
+  .plan-card-count{grid-column:2;justify-self:start;display:flex;align-items:baseline;gap:6px;font-size:22px}
+  .plan-rule{padding:10px}
+  .plan-rule-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .plan-rule-grid>div,.plan-rule-grid>label{min-width:0;padding:8px}
+  .plan-rule-grid dd{font-size:clamp(16px,5vw,20px)}
+  .plan-rule-foot{align-items:flex-start;flex-wrap:wrap}
+  .plan-rule-actions>*{flex:1 1 auto}
+  .plan-tabs{scrollbar-width:none}
+  .plan-tabs button{padding-inline:10px}
+  .plan-tab-body{padding:10px}
+  .plan-course-list{max-height:min(54dvh,460px)}
+  .plan-course-list article{grid-template-columns:auto minmax(0,1fr) auto;gap:8px;padding:9px}
+  .plan-course-list article>button{width:40px;height:40px}
+  .plan-picker{padding:10px}
+  .plan-picker-list{grid-template-columns:minmax(0,1fr);max-height:min(42dvh,300px)}
+}
+
+/* ── نشر الجدول من أدوات البيانات ──────────────────────────────────────────
+   بطاقةٌ واحدة: علامة، وسطران، وزرٌّ بارز. على الهاتف ينزل الزرُّ تحت النص
+   بعرضه الكامل فلا يتزاحم مع العنوان. */
+.publish-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:var(--s3) var(--s4);padding:var(--s4) var(--s5,20px);border:1px solid var(--line);border-radius:var(--r-lg,18px);background:var(--surface);box-shadow:0 10px 28px rgba(22,57,40,.06)}
+.publish-hero-mark{display:grid;place-items:center;inline-size:52px;block-size:52px;border-radius:16px;background:var(--accent-softer,rgba(36,119,86,.1));color:var(--accent)}
+.publish-hero-mark svg{inline-size:24px;block-size:24px}
+.publish-hero-copy{min-inline-size:0}
+.publish-hero-copy strong{display:block;font-size:var(--t-h4,1.05rem);font-weight:700}
+.publish-hero-copy p{margin:4px 0 0;color:var(--muted);font-size:var(--t-sm,.88rem);line-height:1.7}
+.publish-hero .publish-open{min-block-size:48px;padding-inline:22px;border-radius:14px;font-weight:700;gap:10px;white-space:nowrap}
+.publish-hero .publish-open svg{inline-size:20px;block-size:20px}
+.publish-open-count{display:inline-flex;align-items:center;padding:1px 9px;border-radius:999px;background:rgba(255,255,255,.2);font-size:.78rem;font-weight:600}
+@media (max-width:640px){
+  .publish-hero{grid-template-columns:auto minmax(0,1fr);padding:var(--s4)}
+  .publish-hero .publish-open{grid-column:1 / -1;inline-size:100%;justify-content:center}
+}
+
+/* ── قسمٌ واحد في مواقع عدّة (inboxAudience) ─────────────────────────────
+   يُقال اسمُ القسم مرّةً فوق القائمة، وتُسمّى السطورُ بكلياتها. */
+.changes-inbox-multisite{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:0 0 2px;padding:8px var(--s4);border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2);color:var(--muted);font-size:13px}
+.changes-inbox-multisite svg{inline-size:16px;block-size:16px;flex:none;color:var(--accent)}
+.changes-inbox-multisite span{padding-inline-start:10px;border-inline-start:1px solid var(--line)}
+.changes-inbox-multisite strong{color:var(--ink);font-weight:700}
+.course-bootstrap-ok{display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:600;cursor:pointer}.course-bootstrap-ok input{width:16px;height:16px;accent-color:var(--accent)}
+.course-plan-line{display:flex;align-items:center;gap:8px;margin:10px 0 0;color:var(--muted)}.course-plan-line svg{width:15px;height:15px}
+.degree-rule-plan{display:grid;gap:8px;padding-top:10px;border-top:1px solid var(--line)}.degree-rule-plan>strong{display:flex;align-items:center;gap:8px;font-size:13px}
+
+/* معاينة «إنشاء حسابات رؤساء الأقسام» — لوحٌ هادئ فوق قائمة المستخدمين. */
+.admin-head-plan { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--line, #e2e5ea); border-radius: 14px; background: var(--surface, #fff); overflow-x: auto; }
+.admin-head-plan > header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.admin-head-plan table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.admin-head-plan th, .admin-head-plan td { padding: 6px 8px; border-block-end: 1px solid var(--line, #e2e5ea); text-align: start; }
+.admin-head-plan small { color: var(--muted, #6b7280); }
+.admin-head-plan > footer { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* رأسُ القائمة على كل العروض: البحثُ سطرٌ، والمرشّحُ والعدّادُ سطرٌ داخل البطاقة
+   — فلا يخرج المرشّحُ عن حافتها ولا يبقى العدّادُ رقماً عائماً بلا إطار. */
+.master-pane>header:not(.master-filter-stack){
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);
+  padding:0 var(--s4) var(--s3);
+}
+.master-pane>header:not(.master-filter-stack)>.master-search{flex:1 1 100%;margin:var(--s4) 0 0}
+.master-pane>header:not(.master-filter-stack)>select{flex:1 1 0;min-width:0;max-width:none}
+.master-pane>header:not(.master-filter-stack)>span{
+  margin-inline-start:auto;min-width:32px;padding:2px 10px;border-radius:999px;
+  background:var(--surface-2);color:var(--muted);font-size:12px;font-weight:700;text-align:center;
+}
+
+/* ── Locations: zero readings stand back ─────────────────────────────────────
+   Most of the eight health tiles are 0 on a clean registry. They stay (and say
+   what they count) but sit quieter, so the one tile that is not zero is the one
+   the eye finds. On a phone the three long-caption tiles take a full row each
+   rather than wrapping to four short lines in half a row. */
+.location-admin-page .location-health-grid>.surface.is-zero{opacity:.66;min-height:0;padding-block:10px}
+.location-admin-page .location-health-grid>.surface.is-zero b{font-size:1.05rem;font-weight:500;color:var(--muted)}
+.location-admin-page .location-health-grid>.surface.is-zero svg{color:var(--muted-2)}
+@media (max-width:640px){
+  .location-admin-page .location-health-grid>.surface:nth-child(n+5){grid-column:1/-1}
+}
+/* Zero readings: one calm collapsed row. The summary shows each reading's real count; opening it lists the full captions. */
+.location-admin-page .location-health-zero{border:1px solid var(--line);border-radius:var(--r-lg,16px);background:var(--surface);padding:0}
+.location-admin-page .location-health-zero>summary{display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px;min-block-size:44px;padding:8px 14px;cursor:pointer;list-style:none;color:var(--muted)}
+.location-admin-page .location-health-zero>summary::-webkit-details-marker{display:none}
+.location-admin-page .location-health-zero-chip{display:inline-flex;align-items:center;gap:5px}
+.location-admin-page .location-health-zero-chip svg{inline-size:16px;block-size:16px;color:var(--muted-2)}
+.location-admin-page .location-health-zero-chip b{font-size:.95rem;font-weight:500;color:var(--muted)}
+.location-admin-page .location-health-zero-caret{inline-size:16px;block-size:16px;margin-inline-start:auto;transition:transform .15s}
+.location-admin-page .location-health-zero[open] .location-health-zero-caret{transform:rotate(180deg)}
+.location-admin-page .location-health-zero-grid{padding:0 10px 10px}
+.location-admin-page .location-health-zero>summary:focus-visible{outline:2px solid var(--accent,#16745f);outline-offset:2px;border-radius:var(--r-lg,16px)}
+@media (max-width:640px){
+  .location-admin-page .location-health-zero-grid>.surface{grid-column:1/-1}
+  .location-admin-page .location-health-grid:not(.location-health-zero-grid)>.surface:last-child:nth-child(odd){grid-column:1/-1}
+}
+
+/* الجاهزية: الرقم نفسه مع حلقته — الرسم يكرّر الرقم الظاهر ولا يضيف قراءة. */
+.deck-signals .signal-ring-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.deck-signals .signal-ring-row .mini-ring{flex:none}
+
+/* Read-only travel-time heat map above the editable pairs. */
+.travel-heat{overflow-x:auto;margin-bottom:var(--s3);padding:var(--s2);border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2)}
+.travel-heat-grid{display:grid;gap:3px;min-width:max-content;direction:ltr}
+.travel-heat-head{display:grid;place-items:center;padding:0 var(--s2);font-size:var(--t-xs);font-weight:600;color:var(--ink-2)}
+.travel-heat-cell{display:grid;place-items:center;min-height:30px;border-radius:6px;font-size:var(--t-xs);font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--warning) var(--heat-pct,0%),var(--surface))}
+.travel-heat-cell.is-self{background:var(--surface-3);color:var(--muted);font-weight:500}
+
+/* نوع التعاقد (منتدب/معيّن) في شاشة تعديل الأستاذ */
+.visiting-conversion{border:1px dashed var(--border);border-radius:var(--r-md,10px);padding:var(--s3);margin-top:var(--s3)}
+.visiting-conversion legend{display:flex;align-items:center;gap:var(--s2);font-weight:700;padding:0 var(--s2)}
+.visiting-conversion legend svg{width:1rem;height:1rem;color:var(--accent)}
+.visiting-conversion .smart-term-hint{margin-top:0}
+.visiting-conversion .visiting-conversion-warn svg{color:var(--warning)}
+.visiting-conversion-list label{display:block}
+.visiting-conversion-grid{display:grid;gap:var(--s2)}
+.visiting-conversion-preview{margin:var(--s2) 0}
+.visiting-conversion-msg.error{color:var(--danger)}
+
+/* --- الإنذار المبكر للفصل: بطاقةٌ هادئة، لا لونَ إلا لمخاطرٍ حقيقية --- */
+.term-forecast{border:1px solid var(--line);border-radius:var(--r-xl);background:var(--surface);padding:var(--s4) var(--s5);display:grid;gap:var(--s3)}
+.term-forecast>header{display:flex;align-items:center;gap:var(--s2);color:var(--muted);font-size:var(--t-xs);font-weight:600}
+.term-forecast>header svg{width:15px;height:15px}
+.term-forecast-body{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
+.forecast-gauge{position:relative;display:grid;place-items:center;width:84px;flex:none;gap:2px;text-align:center}
+.forecast-gauge .mini-ring{grid-area:1/1}
+.forecast-gauge b{grid-area:1/1;font-size:17px;font-weight:600;font-variant-numeric:tabular-nums lining-nums;margin-bottom:0}
+.forecast-gauge small{grid-row:2;color:var(--muted);font-size:var(--t-xs)}
+.forecast-list{flex:1;min-width:200px;display:grid;gap:var(--s2)}
+.forecast-list ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.forecast-risk{display:flex;align-items:center;gap:var(--s2);font-size:var(--t-sm,14px)}
+.forecast-risk i{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;flex:none;background:var(--surface-2);color:var(--muted)}
+.forecast-risk i svg{width:14px;height:14px}
+.forecast-risk.tone-danger i{background:var(--danger-soft);color:var(--danger)}
+.forecast-risk.tone-warning i{background:var(--warning-soft);color:var(--warning)}
+.forecast-note,.forecast-calm{margin:0;color:var(--muted);font-size:var(--t-xs)}
+.forecast-more{justify-self:start;display:inline-flex;align-items:center;gap:4px;background:none;border:0;padding:0;color:var(--muted);font:inherit;font-size:var(--t-xs);cursor:pointer}
+.forecast-more svg{width:14px;height:14px;transition:transform .2s}
+.forecast-more[aria-expanded="true"] svg{transform:rotate(180deg)}
+
+/* ── Dashboard calm pass (display only) ─────────────────────────────────────
+   One place for every bar's figure: at the end of the row, outside the track,
+   never on top of it. Health bars take a tone from the same thresholds the
+   score rings use. An empty «today» is a one-line state, not a tall card. */
+.bar-rows>div{grid-template-columns:52px minmax(0,1fr) 3.2em}
+.bar-rows>div>em,.bar-rows>div[data-high]>em{
+  grid-column:3;grid-row:1;justify-self:end;margin:0;transform:none;
+  color:var(--ink-2);position:static;
+}
+.dashboard-health-factor[data-tone="good"]>i>b{background:var(--success)}
+.dashboard-health-factor[data-tone="warn"]>i>b{background:var(--warning)}
+.dashboard-health-factor[data-tone="bad"]>i>b{background:var(--danger)}
+.dashboard-health-factor[data-tone="mid"]>i>b{background:color-mix(in srgb,var(--warning) 62%,var(--surface))}
+.dashboard-health-factor[data-tone="mid"]>em{color:var(--ink-2)}
+.dashboard-health-factor[data-tone="good"]>em{color:var(--success)}
+.dashboard-health-factor[data-tone="warn"]>em{color:var(--warning)}
+.dashboard-health-factor[data-tone="bad"]>em{color:var(--danger)}
+.dashboard-health-factor[data-tone="calm"]>i>b{background:color-mix(in srgb,var(--muted-2) 70%,var(--surface))}
+.dashboard-health-factor[data-tone="calm"]>em{color:var(--ink-2)}
+.deck-signals .signal-ring-row{justify-content:flex-start}
+.deck-signals article:has(.signal-ring-row){align-items:center}
+.deck-today.is-empty{
+  grid-template-columns:auto minmax(0,1fr) auto;
+  padding-block:12px;gap:var(--s4);
+}
+.deck-today.is-empty .daybar{display:none}
+.deck-today.is-empty .deck-today-lead b{font-size:28px}
+.deck-today.is-empty .deck-clear{margin:0}
+.deck-today.is-empty .deck-today-actions{gap:var(--s3)}
+@media (max-width:640px){
+  .deck-today.is-empty{grid-template-columns:auto minmax(0,1fr)}
+  .deck-today.is-empty .deck-today-actions{grid-column:1/-1}
+  .deck-decision small{-webkit-line-clamp:1}
+}
+
+/* Motion polish — campus travel map draws its lines once, heat cells fade in. */
+@media screen and (prefers-reduced-motion:no-preference){
+  .travel-edge{stroke-dasharray:1;stroke-dashoffset:1;animation:travel-draw .8s cubic-bezier(.2,.7,.2,1) .1s forwards}
+  .travel-heat-cell{animation:heat-in .45s ease both}
+  .travel-heat-grid>.travel-heat-cell:nth-child(3n){animation-delay:.05s}
+  .travel-heat-grid>.travel-heat-cell:nth-child(3n+1){animation-delay:.1s}
+}
+@keyframes travel-draw{to{stroke-dashoffset:0}}
+@keyframes heat-in{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.travel-edge{animation:none;stroke-dasharray:none;stroke-dashoffset:0}.travel-heat-cell{animation:none}}
+@media print{.travel-edge{animation:none!important;stroke-dasharray:none!important;stroke-dashoffset:0!important}.travel-heat-cell{animation:none!important}}
+
+/* ── «تغيّر الجدول بعد هذه النسخة»: عدّادٌ كبير، مقررٌ في سطر، أرقام الشعب رقائق ── */
+.so-body{display:grid;gap:10px}
+.so-count{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--r-md);background:var(--danger-soft);color:var(--danger)}
+.so-count b{font-size:38px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
+.so-count span{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:14px}
+.so-count svg{inline-size:18px;block-size:18px}
+.so-courses{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.so-course{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2)}
+.so-course strong{min-inline-size:0;font-size:13px;font-weight:700;overflow-wrap:anywhere}
+.so-chips{display:inline-flex;flex-wrap:wrap;gap:4px;flex:none}
+.so-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:var(--r-full);background:var(--warning-soft);color:var(--warning);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.so-chip[data-kind="added"]{background:var(--success-soft);color:var(--success)}
+.so-chip[data-kind="removed"]{background:var(--danger-soft);color:var(--danger)}
+.so-chip svg{inline-size:12px;block-size:12px}
+.so-more{justify-self:start;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px dashed var(--line-strong);border-radius:var(--r-full);background:transparent;color:var(--ink-2);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.so-more svg{inline-size:14px;block-size:14px}
+.so-warn{margin:0;color:var(--warning);font-size:12px;font-weight:700}
+.btn.so-destroy{background:transparent;border:1.5px solid var(--warning);color:var(--warning)}
+.btn.so-destroy:hover{background:var(--warning-soft)}
