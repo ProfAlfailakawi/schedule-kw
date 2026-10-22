@@ -14987,6 +14987,18 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
       };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
+  /* ── المنتقي يعرض فصولَ مواعيده وحدَها ───────────────────────────────────
+   * أستاذٌ لا يدرّس إلا في فصلٍ واحد كانت قائمتُه تعرض كلَّ فصول النظام، وأغلبُها
+   * بطاقةٌ فارغة. فالفصلُ يظهر إن كان له فيه جدول، ويبقى المعروضُ حالياً دائماً
+   * ليجد المنتقي خيارَه المحدَّد. */
+  /* استعلامٌ واحد مفهرس على معرّف الأستاذ، لا مسحُ جداول كل فصلٍ في الجامعة. */
+  const ownTermIds = new Set((await Repository.getInstructorTeachingScopes(Number(person.AdInstructorId)))
+    .flatMap(scope => scope.termIds.map(Number)));
+  const termsWithOwnRows = terms.filter(term => ownTermIds.has(Number(term.AdTermId)));
+  if (!termsWithOwnRows.some(term => Number(term.AdTermId) === Number(displayTermId))) {
+    const shown = terms.find(term => Number(term.AdTermId) === Number(displayTermId));
+    if (shown) termsWithOwnRows.push(shown);
+  }
   const departmentScopes = new Map<string, { collegeId: number; sectionId: number }>();
   for (const row of rows) departmentScopes.set(`${row.AdCollegeId}:${row.AdSectionId}`, { collegeId: Number(row.AdCollegeId), sectionId: Number(row.AdSectionId) });
   const departmentApprovals = [...departmentScopes.values()].map(scope => {
@@ -15006,7 +15018,7 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
     term: terms.find(row => row.AdTermId === displayTermId)?.AdTermName || "",
     termId: displayTermId,
     // Newest first, so the instructor can pin any semester from the card (Idea 2).
-    availableTerms: sortTermsNewestServer(terms).map(t => ({ id: t.AdTermId, name: t.AdTermName })),
+    availableTerms: sortTermsNewestServer(termsWithOwnRows).map(t => ({ id: t.AdTermId, name: t.AdTermName })),
     /* الفصل التشغيلي يأتي من حالة الفصول، لا من الرابط. رابطٌ قديم يظل باباً
        آمناً لبطاقة صاحبه، لكنه لا يجعل فصله جارياً إلى الأبد. */
     liveTermId: currentTermId(terms as any),
@@ -17800,6 +17812,7 @@ button[disabled]{filter:grayscale(.5);opacity:.6;cursor:default}
 .pmap[hidden]{display:none}
 .pmap:hover,.pmap:focus-visible{color:var(--jade);border-color:var(--jade);outline:none}
 .pmap svg{width:20px;height:20px}
+.term-switch[hidden]{display:none}
 .term-switch{display:flex;align-items:center;gap:10px;margin:0 0 20px;flex-wrap:wrap}
 .term-switch label{color:var(--dim);font-size:12px;font-weight:600}
 .term-switch select{flex:1;min-width:180px;min-height:44px;padding:0 14px;font-size:16px;
@@ -18194,6 +18207,10 @@ input:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--jade) 20%,transparent)}
     if(termPick&&d.availableTerms&&d.availableTerms.length){
       termPick.innerHTML=d.availableTerms.map(function(t){return '<option value="'+t.id+'"'+(t.id===d.termId?' selected':'')+'>'+esc(t.name)+'</option>'}).join("");
       termPick.onchange=function(){switchTerm(Number(termPick.value)||0)};
+      /* فصلٌ واحدٌ لا يحتاج منتقياً: يُكتب اسمُه بجانب الكلية ويختفي الاختيار. */
+      var termSwitch=termPick.closest(".term-switch");
+      if(termSwitch)termSwitch.hidden=d.availableTerms.length<2;
+      if(d.availableTerms.length<2&&d.term)document.getElementById("scope").textContent=(d.college?d.college+" · ":"")+d.term;
     }
     /* حالةُ اعتماد كل قسمٍ يدرّس فيه — للقراءة فقط. */
     document.getElementById("approvals").innerHTML=(d.departmentApprovals||[]).map(function(a){
@@ -18714,9 +18731,6 @@ function acceptVerifiedProof(d,reused){var upload=document.getElementById("proof
 function checkPriorGraduateProof(){var rule=section().graduateRule;if(rule&&rule.saved===false){var up=document.getElementById("proofUpload"),ex=document.getElementById("proofExample"),st=document.getElementById("proofStatus");if(up)up.hidden=true;if(ex)ex.hidden=true;if(st){st.className="proof-status bad";st.textContent="لم يعتمد قسمك العلمي قواعد التخرج في النظام بعد، فلا يمكن التحقق من صحيفة التخرج الآن. راجع القسم، ويمكنك اختيار نوع طلب آخر."}proofEligible=false;proofToken="";refreshGraduateSubmit();return}if(proofEligible&&proofToken){acceptVerifiedProof({eligible:true,proofToken:proofToken,message:"تم التحقق من صحيفة التخرج في هذه الجلسة. يمكنك متابعة الطلب."},false);return}fetch('/api/public/survey/'+encodeURIComponent(TOKEN)+'/proof-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({civil:student.civil,sectionId:student.sectionId,caseRef:caseRef})}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d}})}).then(function(x){if(x.ok&&x.d.verified){acceptVerifiedProof(x.d,true);return}showProofUpload(x.ok?"لم يتم التحقق من صحيفة التخرج لهذا الطالب بعد.":(x.d.error||"تعذر التحقق من الحالة السابقة."))}).catch(function(){showProofUpload("تعذر التحقق من الحالة السابقة؛ يمكنك رفع الصحيفة الآن.")})}
 function wireProof(){var verify=document.getElementById("verify");if(verify)verify.onclick=function(){var file=document.getElementById("proof").files[0],button=this,status=document.getElementById("proofStatus"),meter=document.getElementById("uploadMeter"),bar=document.getElementById("uploadBar"),pct=document.getElementById("uploadPct"),bytes=document.getElementById("uploadBytes");if(!file)return fail("اختر صحيفة التخرج أولاً");button.disabled=true;button.textContent="يجهّز الملف…";meter.hidden=false;bar.style.width="0%";pct.textContent="0%";bytes.textContent="يجهّز الملف للرفع السريع…";status.className="proof-status";status.textContent="سيظهر تقدم الرفع هنا، ثم تبدأ قراءة الصحيفة والتحقق منها.";compactProof(file).then(function(payload){var original=file.size,sent=payload.size||file.size;if(sent>MAX_PROOF_BYTES){button.disabled=false;button.textContent="إعادة التحقق";meter.hidden=true;status.className="proof-status bad";status.textContent="حجم الملف "+formatBytes(sent)+" أكبر من الحد (14 MB). صوّر الصفحة الرسمية وحدها أو احفظها PDF بحجمٍ أصغر.";refreshGraduateSubmit();return}if(sent<original)bytes.textContent="تم ضغط الصورة من "+formatBytes(original)+" إلى "+formatBytes(sent);else bytes.textContent="حجم الملف "+formatBytes(sent);button.textContent="يرفع الإثبات…";var xhr=new XMLHttpRequest();xhr.open("POST",'/api/public/survey/'+encodeURIComponent(TOKEN)+'/proof');xhr.setRequestHeader('Content-Type','application/octet-stream');xhr.setRequestHeader('x-file-type',payload===file?(file.type||'application/pdf'):(payload.type||'image/jpeg'));xhr.setRequestHeader('x-student-name',encodeURIComponent(student.name));xhr.setRequestHeader('x-student-civil',student.civil);xhr.setRequestHeader('x-student-section',String(student.sectionId));xhr.upload.onprogress=function(e){if(!e.lengthComputable)return;var n=Math.min(99,Math.round(e.loaded/e.total*100));bar.style.width=n+"%";pct.textContent=n+"%";bytes.textContent="رُفع "+formatBytes(e.loaded)+" من "+formatBytes(e.total)};xhr.upload.onload=function(){bar.style.width="100%";pct.textContent="100%";bytes.textContent="اكتمل الرفع · جاري قراءة صحيفة التخرج والتحقق…";button.textContent="يتحقق من الصحيفة…"};xhr.onload=function(){bar.style.width="100%";pct.textContent="100%";var d={};try{d=JSON.parse(xhr.responseText||"{}")}catch(e){};button.disabled=false;button.textContent="إعادة التحقق";if(xhr.status<200||xhr.status>=300){proofEligible=false;proofToken="";status.className="proof-status bad";status.textContent=d.error||"تعذر التحقق";refreshGraduateSubmit();return}acceptVerifiedProof(d,false)};xhr.onerror=function(){button.disabled=false;button.textContent="إعادة التحقق";status.className="proof-status bad";status.textContent="تعذر رفع الإثبات — تحقق من الاتصال.";refreshGraduateSubmit()};xhr.send(payload)}).catch(function(){button.disabled=false;button.textContent="إعادة التحقق";status.className="proof-status bad";status.textContent="تعذر تجهيز الإثبات للرفع.";refreshGraduateSubmit()})};checkPriorGraduateProof()}
 /* من يعدّل موعداً عليه اقتراحٌ معلّق ثم يُرسل يستبدل اقتراحَ القسم بطلبٍ جديد: يُقال له قبل التوقيع لا بعده. */
-function replacedWarn(){var cur=payloadItems(),names=[];
- state.forEach(function(it,i){if(it.negotiation==="proposed"&&baseItems&&JSON.stringify(cur[i])!==JSON.stringify(baseItems[i]))names.push(courseOf(it))});
- return names.length?'<div class="sk-warn">'+gi("alert")+'<span>تعديلك على <b>'+esc(names.join("، "))+'</b> يستبدل اقتراح القسم بطلبٍ جديد. إن أردت قبول اقتراحه فارجع واضغط «يناسبني».</span></div>':""}
 function submit(){var send=document.getElementById("send"),reasonEl=host.querySelector('input[name=reason]:checked'),reason=reasonEl?reasonEl.value:"";if(kind==="new-course"&&!picked.length)return fail("اختر مقرراً واحداً على الأقل");if(kind==="course-conflict"&&(!picked.length||!otherCourse))return fail("اختر مقرراً من قسمك ومقرراً آخر يتعارض معه");if(kind==="course-conflict"&&picked[0]===otherCourse)return fail("اختر مقررين مختلفين");if(kind==="graduate"&&proofEligible&&proofAt&&Date.now()-proofAt>PROOF_TTL-60000){showProofUpload("انتهت مهلة التحقق من صحيفة التخرج (20 دقيقة). أعد رفعها للتحقق — ملاحظاتك ونوع طلبك باقيان.");var up=document.getElementById("proofUpload");if(up&&up.scrollIntoView)up.scrollIntoView({block:"center"});return fail("أعد التحقق من صحيفة التخرج ثم أرسل.")}if(kind==="graduate"&&!proofEligible)return fail("تحقق من صحيفة التخرج أولاً");if(kind==="graduate"&&!reason)return fail("اختر نوع طلب الميداني");var graduateDetails=kind==="graduate"?String((document.getElementById("graduateDetails")||{}).value||"").trim():"";if(kind==="graduate"&&graduateDetails.length<3)return fail("اكتب ملاحظات الطلب وسبب احتياجك قبل الإرسال");send.disabled=true;send.textContent="جارٍ الإرسال…";fetch('/api/public/survey/'+encodeURIComponent(TOKEN),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:student.name,civil:student.civil,sectionId:student.sectionId,requestType:kind,courseIds:kind==="course-conflict"?[picked[0],otherCourse]:picked,proofToken:proofToken,graduateReason:reason,details:graduateDetails,caseRef:caseRef})}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d}})}).then(function(x){if(!x.ok){send.disabled=false;send.textContent=sendLabel();if(kind==="graduate"&&(x.d.code==="proof-expired"||x.d.code==="proof-required")){showProofUpload(x.d.error);var up=document.getElementById("proofUpload");if(up&&up.scrollIntoView)up.scrollIntoView({block:"center"})}return fail(x.d.error||"تعذر الإرسال")}identityLocked=true;caseRef=String(x.d.caseRef||caseRef);host.innerHTML='<div class="done"><div class="tick"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><h2>وصل طلبك إلى القسم</h2><p>شكراً '+esc(x.d.name)+' — تم حفظ الحالة للمراجعة.<br><strong class="case-ref"><span>رقم الحالة:</span> <bdi>'+esc(x.d.caseRef||"—")+'</bdi></strong>احفظ رقم الحالة أو التقط صورة للشاشة. وإذا غيّرت اختيارك، افتح الرابط نفسه وأرسل الطلب من جديد فيُحدّث طلبك الحالي.<br><a href="/m/'+encodeURIComponent(TOKEN)+'#'+encodeURIComponent(caseRef)+'" style="display:inline-block;margin-top:14px;padding:11px 18px;border-radius:11px;background:#2e7d5b;color:#fff;text-decoration:none;font-weight:700">تابع حالة طلبك</a></p></div>';step=3;paintProgress();window.scrollTo(0,0)}).catch(function(){send.disabled=false;send.textContent=sendLabel();fail("تعذر الإرسال — تحقق من الاتصال.")})}
 fetch('/api/public/survey/'+encodeURIComponent(TOKEN)).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d}})}).then(function(x){if(!x.ok){host.innerHTML='<div class="err">'+esc(x.d.error||"تعذر فتح النموذج")+'</div>';return}if(x.d.termEnded){host.innerHTML='<div class="done" role="status"><h2>انتهى هذا الفصل</h2><p>'+esc(x.d.message||"")+'</p><a href="'+esc(x.d.statusUrl||"#")+'" style="display:inline-block;margin-top:14px;padding:11px 18px;border-radius:11px;background:#2e7d5b;color:#fff;text-decoration:none;font-weight:700">حالة طلبي</a></div>';return}data=x.d;student={name:"",civil:"",sectionId:0};identityLocked=false;identityChecked=false;identity()}).catch(function(){host.innerHTML='<div class="err">تعذر الاتصال. تحقق من الإنترنت.</div>'})})();
 </script></body></html>`;
@@ -20603,6 +20617,10 @@ var baseItems=null;
 function editedCount(){if(!baseItems)return 0;var cur=payloadItems(),n=0,len=Math.max(cur.length,baseItems.length);
  for(var k=0;k<len;k++){if(JSON.stringify(cur[k])!==JSON.stringify(baseItems[k]))n++}return n}
 function rebase(i){var cur=payloadItems();if(baseItems&&cur[i])baseItems[i]=JSON.parse(JSON.stringify(cur[i]))}
+/* تحذيرُ الاستبدال: يظهر في ورقة التوقيع حين يعدّل الأستاذ بنداً اقترح فيه القسم بديلاً. */
+function replacedWarn(){var cur=payloadItems(),names=[];
+ state.forEach(function(it,i){if(it.negotiation==="proposed"&&baseItems&&JSON.stringify(cur[i])!==JSON.stringify(baseItems[i]))names.push(courseOf(it))});
+ return names.length?'<div class="sk-warn">'+gi("alert")+'<span>تعديلك على <b>'+esc(names.join("، "))+'</b> يستبدل اقتراح القسم بطلبٍ جديد. إن أردت قبول اقتراحه فارجع واضغط «يناسبني».</span></div>':""}
 var PIPS=["ح","ن","ث","ر","خ"];
 function pipsHtml(days){return '<span class="pips" aria-hidden="true">'+DAYS.map(function(d,k){return '<i data-on="'+(days.indexOf(d[0])>=0?1:0)+'">'+PIPS[k]+'</i>'}).join("")+'</span>'}
 function rowIcon(it){var neg=it.negotiation,fixed=it.decision&&it.decision.state==="fixed";
