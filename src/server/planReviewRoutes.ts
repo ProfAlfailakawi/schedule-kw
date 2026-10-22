@@ -663,6 +663,87 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   });
 
   /* ── حسابات الأقسام الموجودة: معاينةٌ ثم إنشاءُ الناقص لما يختاره المسؤول (رئيس القسم · رئيس الجدول · المرشد) ── */
+  /* ── المقررات المكررة في القسم الواحد: رفعٌ قديمٌ بنظامٍ سابق ثم رفعٌ جديد فصار المقرر مرتين (رمزٌ قصير «105» وآخر كامل «0109105») ──────
+     الرقم لا يتكرر في القسم، فمقرران بالرقم نفسه (آخر ثلاث خانات) واسمٍ متقارب أو رمزٍ كامل: مكرَّر. يُبقى ما هو أولى بالبقاء
+     (له جدول، أو تشير إليه قواعد، أو مربوطٌ بصحيفة، أو سعته)، ويُعرض غيرُه للحذف إن لم يُستعمل أبداً. ما استُعمل كلاهما يُترك لقرارك. */
+  const duplicateScan = async () => {
+    const [sections, colleges, courses, ruleSets, drafts] = await Promise.all([Repository.getSections(), Repository.getColleges(), Repository.getCourses(), Repository.listRuleSets(), Repository.listRuleDrafts()]);
+    const collegeName = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
+    const referenced = new Set<number>();
+    for (const set of [...(ruleSets as any[]), ...(drafts as any[])]) {
+      for (const rule of set.rules || []) { referenced.add(Number(rule.courseId)); for (const id of [...(rule.prereq?.all || []), ...(rule.prereq?.anyOf || []).flat(), ...(rule.coreq || [])]) referenced.add(Number(id)); }
+      for (const group of set.groups || []) for (const id of group.courseIds || []) referenced.add(Number(id));
+      for (const id of set.externals || []) referenced.add(Number(id));
+    }
+    /* هويةُ المقرر: رمزٌ قصير يُوسَّع برمز قسمه (105 ← 0109105)، والكامل كما هو؛ مقرران بالهوية نفسها مكرَّران، وغير ذلك مقرران مختلفان ولو تشابه الاسم. */
+    const authority = new Map((sections as any[]).map(row => [Number(row.AdSectionId), authorityDepartmentCode((colleges as any[]).find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeCode, row.AdSectionCode)] as const));
+    const identityOf = (row: AdCourse) => {
+      const key = referenceCodeKey(row.CourseCode), dept = authority.get(Number(row.AdSectionId)) || "";
+      if (!/^\d+$/.test(key)) return "";
+      if (key.length <= 3 && /^\d{4}$/.test(dept)) return `${dept}${key.padStart(3, "0")}`;
+      return key.length === 6 ? `${key.slice(0, 4)}0${key.slice(4)}` : key;
+    };
+    /* ما تشير إليه بياناتُ الطلبة (منجَز ورغبات ومعادَل وطلبات): يُحمَّل مرةً واحدة وعند وجود مكرَّرٍ فقط. */
+    let studentUsed: Set<number> | null = null;
+    const studentsUse = async () => {
+      if (studentUsed) return studentUsed;
+      studentUsed = new Set<number>();
+      for (const profile of await Repository.listStudentProfiles() as any[]) {
+        for (const id of [...(profile.passedCourseIds || []), ...(profile.equivalentCourseIds || []), ...(profile.wishes?.courseIds || []), ...(profile.visitSnapshot?.passedIds || [])]) studentUsed.add(Number(id));
+      }
+      for (const term of await Repository.getTerms() as any[]) for (const need of await Repository.getStudentNeedsForTerm(Number(term.AdTermId)) as any[]) for (const id of need.courseIds || []) studentUsed.add(Number(id));
+      return studentUsed;
+    };
+    const out: Array<{ sectionId: number; section: string; groups: Array<{ number: number; keeper: any; dups: any[] }> }> = [];
+    for (const section of sections as any[]) {
+      const sid = Number(section.AdSectionId);
+      const byIdentity = new Map<string, AdCourse[]>();
+      for (const row of (courses as AdCourse[]).filter(item => Number(item.AdSectionId) === sid)) { const key = identityOf(row); if (key) byIdentity.set(key, [...(byIdentity.get(key) || []), row]); }
+      const candidates = [...byIdentity].filter(([, rows]) => rows.length > 1);
+      if (!candidates.length) continue;
+      const linked = new Set<number>((await Repository.getCurriculumPlanCourses(sid) as any[]).map(link => Number(link.AdCourseId)));
+      const groups: Array<{ number: number; keeper: any; dups: any[] }> = [];
+      for (const [identity, rows] of candidates) {
+        const students = await studentsUse();
+        const info = await Promise.all(rows.map(async row => {
+          const id = Number(row.AdCourseId);
+          const scheduled = await Repository.hasSchedulesForCourse(id);
+          const score = (scheduled ? 16 : 0) + (students.has(id) ? 8 : 0) + (referenced.has(id) ? 4 : 0) + (Number(row.MaxStudent) > 0 ? 2 : 0) + (linked.has(id) ? 1 : 0);
+          return { row, id, scheduled, score, used: score > 0, byStudents: students.has(id) };
+        }));
+        info.sort((a, b) => b.score - a.score || referenceCodeKey(a.row.CourseCode).length - referenceCodeKey(b.row.CourseCode).length || a.id - b.id);
+        const [keep, ...rest] = info;
+        groups.push({
+          number: Number(identity.slice(-3)),
+          keeper: { id: keep.id, code: String(keep.row.CourseCode), name: String(keep.row.CourseName), used: keep.used },
+          dups: rest.map(item => ({ id: item.id, code: String(item.row.CourseCode), name: String(item.row.CourseName), removable: !item.used, reason: item.used ? (item.scheduled ? "له جدول" : item.byStudents ? "يشير إليه طلبة" : referenced.has(item.id) ? "تشير إليه قواعد" : Number(item.row.MaxStudent) > 0 ? "له سعة" : "مربوط بصحيفة") : "" })),
+        });
+      }
+      if (groups.length) out.push({ sectionId: sid, section: `${collegeName.get(Number(section.AdCollegeId)) || ""} · ${section.AdSectionName}`, groups });
+    }
+    return out;
+  };
+  app.get("/api/plan-review/sheet/duplicates", deps.requireAuth, async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    res.setHeader("Cache-Control", "no-store");
+    const sections = await duplicateScan();
+    res.json({ ok: true, sections, total: sections.reduce((sum, row) => sum + row.groups.length, 0), removable: sections.reduce((sum, row) => sum + row.groups.reduce((n, group) => n + group.dups.filter(dup => dup.removable).length, 0), 0) });
+  });
+  app.post("/api/plan-review/sheet/duplicates/delete", sheetLimit, deps.requireAuth, express.json({ limit: "1mb" }), async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    const ids = new Set(((req.body?.ids as unknown[]) || []).map(Number).filter(Number.isFinite));
+    if (!ids.size) { fail(res, 400, "لا مقررات للحذف."); return; }
+    const names: string[] = [];
+    /* يُعاد الفحص عند الحذف: لا يُحذف إلا ما ما زال مكرراً وغيرَ مستعمل. */
+    for (const section of await duplicateScan()) for (const group of section.groups) for (const dup of group.dups) {
+      if (!ids.has(dup.id) || !dup.removable) continue;
+      await Repository.deleteCourse(dup.id);
+      names.push(`${dup.code} ${dup.name} (${section.section})`);
+    }
+    res.locals.auditChanges = `حذف مقرراتٍ مكررة (${names.length}): ${names.slice(0, 40).join(" | ")}`;
+    res.json({ ok: true, deleted: names.length });
+  });
+
   /* ── مقررات الأقسام الخدمية (بلا صحائف): تُضاف بتأكيد المسؤول لكل رمز قسم ─────────────────────────────
      الأشيعُ من الصحائف الجديدة لكل مقرر قسمٍ لا قسم له بالنظام (رمز كلية+قسم). يختار المسؤول لكل رمزٍ القسمَ الذي تُحفظ فيه،
      فتُنشأ مقرراتُه برمزها الكامل (7 خانات: كلية+قسم+رقم) في كل مواقع مسار ذلك القسم، فلا يلتبس رقمٌ بقسمٍ آخر ولا يتكرر ما له نسخة.
