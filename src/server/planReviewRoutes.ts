@@ -1004,7 +1004,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       if (rejection) return { status: 422, json: { error: rejection.message, rejection } };
       /* القديمة تدخل «الصحيفة السابقة» وحدها: لا تسمّي القسم ولا تغيّر رمزه، وتصحّح اسم المقرر ووحداته وساعاته إلا مقرراً في صحيفة فعّالة (الكتالوج مشترك مع الجديدة). */
       const isNew = isNewSheet(sheet);
-      const newPlanName = sheet.startYear ? `صحيفة ${sheet.startYear}/${sheet.startYear + 1}` : "الصحيفة الجديدة";
+      const newPlanName = sheet.startYear ? `صحيفة ${sheet.startYear}` : "الصحيفة الجديدة";
       const { key: ownKey, umbrella } = sheetOwnKey(sheet, scope);
 
       /* الصحيفةُ لمسارٍ كامل: بناتُ القسم (الرئيسي والجهراء والفحيحيل) صحيفةٌ واحدة، وللبنين مسارُهم. */
@@ -1092,7 +1092,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
           }
         }
         if (!plan) throw new Error("تعذّر إنشاء صحيفة للقسم.");
-        /* اسمٌ واحد لصحيفة السنة في كل المواقع («صحيفة 2026/2027») بدل أسماءٍ تختلف باختلاف مرحلة الرفع. */
+        /* اسمٌ واحد لصحيفة السنة في كل المواقع («صحيفة 2026») بدل أسماءٍ تختلف باختلاف مرحلة الرفع. */
         if (isNew && !trackProgram && sheet.startYear && plan.status === "active" && plan.name !== newPlanName) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { name: newPlanName })) };
         if (sheet.startYear && (era.rollover || !plan.sheetYear)) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { sheetYear: sheet.startYear })) };
 
