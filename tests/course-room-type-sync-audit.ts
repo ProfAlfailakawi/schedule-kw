@@ -60,6 +60,10 @@ const route = server.slice(server.indexOf('app.put("/api/courses/:id"'), server.
 const syncAt = route.indexOf("setCourseRoomTypeForIds"), updateAt = route.indexOf("Repository.updateCourse(");
 check(syncAt > 0 && updateAt > syncAt, "مزامنة النسخ تُكتب قبل المقرر المعدَّل ليبقى إعادةُ المحاولة ممكنةً");
 
+/* النوع الجديد يسري عند كل حفظٍ بنوعٍ غير فارغ لا عند تغييره وحده؛ ولا يُكتب إلا في نسخةٍ نوعُها يختلف. */
+check(/roomTypeEvaluated\s*=\s*roomTypeChanged\s*\|\|\s*CourseRoomType\s*!==\s*""/.test(route), "المزامنة تعمل عند كل حفظٍ بنوعٍ غير فارغ ولو لم يتغيّر نوعُ النسخة المحفوظة");
+check(route.includes("differing") && route.includes("setCourseRoomTypeForIds(differing"), "تُكتب النسخُ المختلفةُ النوع وحدها");
+
 /* بوابة لجنة الجدول: مدير النظام يتجاوزها (حسابه بلا دورٍ يقع افتراضياً على رئيس اللجنة)، ورئيس اللجنة يبقى مقيَّداً. */
 const gate = server.slice(server.indexOf("async function committeeCatalogEditAllowed"), server.indexOf("function refuseCommitteeCatalogEdit"));
 const adminAt = gate.indexOf("req.user?.IsAdminUser"), chairAt = gate.indexOf('"committeeChair"'), reviewAt = gate.indexOf('"review"');

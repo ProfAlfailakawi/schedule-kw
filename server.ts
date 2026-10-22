@@ -4123,7 +4123,11 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
     /* ما لم يُطابَق يُقال للمسؤول بسببه: نسخةٌ بالرمز نفسه بقيت على نوعها القديم لا تُترك لغزاً. */
     let roomTypeSkipped: Array<{ college: string; section: string; reason: string }> = [];
     const roomTypeChanged = String(currentCourse.CourseRoomType || "").normalize("NFKC").trim() !== CourseRoomType;
-    if (roomTypeChanged) {
+    /* النوعُ الجديد يسري عند كل حفظٍ بنوعٍ غير فارغ، لا عند تغييره وحده: نسخةٌ كان نوعُها محفوظاً من قبل
+       فأُعيد حفظها بلا تغيير كانت لا توحّد البقية. والفارغ لا يُمحى به غيرُه إلا حين يُمحى عمداً (تغيير). */
+    const roomTypeEvaluated = roomTypeChanged || CourseRoomType !== "";
+    let roomTypeAligned = 0;
+    if (roomTypeEvaluated) {
       const [allCourses, allSections, allColleges] = await Promise.all([Repository.getCourses(), Repository.getSections(), Repository.getColleges()]);
       const candidates = roomTypeSiblingIds({ ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId, CourseCode }, allCourses as any, allSections as any, allColleges as any);
       const siblings: number[] = [];
@@ -4147,7 +4151,10 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
           reason: miss.reason === "department-name" ? "اسم القسم يختلف عن اسم قسمك" : "الكلية من عائلةٍ أخرى",
         });
       }
-      roomTypeSynced = await Repository.setCourseRoomTypeForIds(siblings, CourseRoomType);
+      const typeOf = (courseId: number) => String(allCourses.find(course => Number(course.AdCourseId) === courseId)?.CourseRoomType || "").normalize("NFKC").trim();
+      const differing = siblings.filter(siblingId => typeOf(siblingId) !== CourseRoomType);
+      roomTypeAligned = siblings.length - differing.length;
+      roomTypeSynced = await Repository.setCourseRoomTypeForIds(differing, CourseRoomType);
     }
     const updated = await Repository.updateCourse(
       id,
@@ -4160,7 +4167,7 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
       MaxStudent!,
       CourseRoomType
     );
-    res.json({ ...updated, roomTypeSynced, roomTypeChanged, roomTypeSkipped: roomTypeSkipped.slice(0, 8) });
+    res.json({ ...updated, roomTypeSynced, roomTypeAligned, roomTypeChanged, roomTypeEvaluated, roomTypeSkipped: roomTypeSkipped.slice(0, 8) });
   } catch (e: any) {
     res.status(404).json({ error: e.message });
   }
