@@ -196,6 +196,10 @@
      height at the foot of the scroll so the content always stops clear of them.
      `--dock-h` is 0 on desktop, so this collapses back to the plain footer there. */
   .app-main{padding-bottom:calc(var(--s9) + var(--dock-h) + env(safe-area-inset-bottom))}
+  /* The guide launcher is the next rung of that stack (see the bottom-left
+     ladder in 01-foundation): reserve its height too, so the last row of a
+     list stops above it instead of ending beneath it. */
+  .app-main{padding-bottom:calc(var(--fab-floor) + var(--fab-step) + var(--s2))}
 
   /* The phone already has a dock at the very bottom — the one that moves between
      screens. The schedule's own rides above it rather than on top of it, so
