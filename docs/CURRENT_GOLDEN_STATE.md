@@ -65,7 +65,6 @@
 
 ## ملفات الحماية الرئيسية
 
-- `docs/MAINTENANCE_REVIEW_RULES.md` — قواعد المراجعة الإلزامية لأي مراجعة/تعديل مستقبلي.
 - `docs/PDF_IMPORT_GOLDEN_BASELINE.md`
 - `docs/CURRENT_GOLDEN_STATE.md`
 - `tests/fixtures/authority-import-golden.json`

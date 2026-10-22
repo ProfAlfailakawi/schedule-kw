@@ -12,6 +12,7 @@
  * العدّاداتُ تُجمَّع في الذاكرة وتُكتب دفعةً كل نصف دقيقة، فلا تُكلّف كتابةً لكل ظهور.
  * الحملاتُ تُقرأ من ذاكرةٍ مؤقتة عمرها ١٥ ثانية: إيقافُ حملةٍ يسري خلال ثوانٍ.
  */
+import { AUDIENCE_BASELINE } from "../utils/audienceBaseline";
 import { randomBytes, randomUUID } from "crypto";
 import express from "express";
 import type { Express, NextFunction, Request, Response } from "express";
@@ -19,21 +20,23 @@ import { Repository } from "../db/repository";
 import type { AdCampaign, AdCourse, AdCreative, AdStatsDay, AdTerm, AudienceDay, InstructorRequest, StudentNeed, StudentProfile } from "../types";
 import { PUBLIC_LINK_PAGE_PREFIXES, isDemoLinkToken } from "../utils/demoLinkToken";
 import {
-  AD_CATEGORIES, AD_MAX_BYTES, AD_RULES, AD_SLOTS, MAX_ROTATE_CREATIVES, campaignProblems, cleanColleges, cleanCoupon, cleanLink, cleanSeasons, eligibleNow,
+  trackedLink, AD_CATEGORIES, AD_MAX_BYTES, AD_RULES, AD_SLOTS, MAX_ROTATE_CREATIVES, campaignProblems, cleanColleges, cleanCoupon, cleanLink, cleanSeasons, eligibleNow,
   creativeBreakdown, creativeProblem, daysBetween, daysLeft, endingSoon, expectedShare, isLive, kuwaitDay, kuwaitHour,
   looksAutomated, nextFreeDay, phaseOf, placementProblems, readImageInfo, rotationOrder, slotById, totalsOf, dailySeries,
   trialProblems, weeklyCompare, slotBenchmarkCtr, TRIAL_DAYS, normCompany, activeSlots,
 } from "../utils/adsEngine";
-import { buildAudienceStats } from "../utils/audienceStats";
+import { buildAudienceStats, pickDashboardTerm } from "../utils/audienceStats";
 import { reportCalendar } from "../utils/adCalendar";
-import { abVerdict } from "../utils/adInsights";
-import { cleanEmail, mailConfig, renewalMail, sendMail, weekKey, weeklyMail } from "./adMailer";
+import { LEAD_ERRORS, cleanLead } from "../utils/adLeads";
+import { abVerdict, conversionOf } from "../utils/adInsights";
+import { partnerBadgeSvg } from "../utils/adBadge";
+import { cleanEmail, leadMail, leadNotifyTo, mailConfig, renewalMail, sendMail, weekKey, weeklyMail } from "./adMailer";
 import { SEASONS, activeSeasons, seasonCalendar, seasonsText } from "../utils/adSeasons";
 import { AR, countOf } from "../utils/arabicCount";
 import type { CenterNotification } from "../utils/notificationCenter";
 import { AD_CLIENT_SCRIPT } from "./adClientScript";
 import { analyzeCreative } from "./adQuality";
-import { campaignReportPage, measurementPage, partnerKitPage } from "./adsPages";
+import { badgeId, campaignReportPage, measurementPage, partnerKitPage } from "./adsPages";
 
 /** إشعاراتُ الجرس لحساب الإدارة الرئيسي: حملاتٌ تنتهي قريباً أو انتهت هذه الأيام، ليُجدَّد معها أو تُؤرشف. */
 export async function adNotifications(today = kuwaitDay()): Promise<CenterNotification[]> {
@@ -53,6 +56,13 @@ export async function adNotifications(today = kuwaitDay()): Promise<CenterNotifi
         detail: "جدّدها أو أرشِفها؛ أرقامها وتقريرها باقيان", view: "ads", at: `${c.endDay}T00:00:00Z`,
       });
     }
+  }
+  /* طلباتُ حملاتٍ جديدة من ملف الشراكة: تُنبَّه الإدارةُ لتتواصل، وتزول بوضعها «تم التواصل». */
+  for (const lead of (await Repository.listAdLeads()).filter(l => l.status === "new").slice(0, 20)) {
+    items.push({
+      id: `ad-lead:${lead.id}`, tone: "action", title: `طلب حملة جديدة من «${lead.company}»`,
+      detail: `تواصل مع ${lead.name} · ${lead.phone}`, view: "ads", at: lead.createdAt,
+    });
   }
   return items;
 }
@@ -278,6 +288,7 @@ async function campaignView(c: AdCampaign, stats: AdStatsDay[], heads: Array<Omi
     creatives,
     totals: totalsOf(mine),
     breakdown: creativeBreakdown(mine),
+    conversion: conversionOf(c.redemptions, totalsOf(mine).clicks),
     ab: abVerdict(c.creativeIds.map(id => creativeBreakdown(mine).find(b => b.creativeId === id) ?? { creativeId: id, impressions: 0, clicks: 0 })),
     series: dailySeries(mine, c.startDay, c.endDay, today).slice(-30),
     weekly: weeklyCompare(mine, today),
@@ -340,11 +351,10 @@ async function heavyInputs(): Promise<Heavy> {
 
 async function audienceInputs(requestedTermId: number) {
   const h = await heavyInputs();
-  const [days, camps] = await Promise.all([Repository.listAudienceDays(120), campaigns()]);
+  const [days, camps] = await Promise.all([Repository.listAudienceDays(Math.max(120, Math.ceil((Date.now() - Date.parse(`${AUDIENCE_BASELINE.asOf}T00:00:00Z`)) / 86_400_000) + 7)), campaigns()]);
   if (!adStatsCache || Date.now() - adStatsCache.at > 60_000) adStatsCache = { at: Date.now(), rows: await Repository.listAdStats() };
   const recent = [...h.terms].sort((a, b) => Number(b.AdTermId) - Number(a.AdTermId)).slice(0, 12);
-  const withAnswers = recent.find(term => (h.needsByTerm.get(Number(term.AdTermId)) || []).length > 0);
-  const current = recent.find(term => Number(term.AdTermId) === requestedTermId) || withAnswers || recent[0];
+  const current = pickDashboardTerm(recent, h.terms, requestedTermId);
   const currentTermId = current ? Number(current.AdTermId) : 0;
   let requests: InstructorRequest[] = [];
   if (currentTermId) {
@@ -352,9 +362,24 @@ async function audienceInputs(requestedTermId: number) {
     if (hit && Date.now() - hit.at < HEAVY_TTL_MS) requests = hit.rows;
     else { requests = await Repository.getInstructorRequests(0, 0, currentTermId); h.requests.set(currentTermId, { at: Date.now(), rows: requests }); }
   }
+  /* «مرّات الفتح» منذ الرصيد: من كل فصلٍ يمتد إلى ما بعد تاريخه (الفصل الجاري عند التاريخ فما بعده)، لا من الفصل المعروض وحده،
+     وإلا نقص العدّاد حين يبدّل المدير الفصل أو يبدأ فصلٌ جديد. */
+  const byIdDesc = [...h.terms].sort((a, b) => Number(b.AdTermId) - Number(a.AdTermId));
+  const atBaseline = byIdDesc.findIndex(t => t.AdTermStart && t.AdTermStart <= AUDIENCE_BASELINE.asOf);
+  const spanning = byIdDesc.slice(0, Math.min(8, atBaseline >= 0 ? atBaseline + 1 : 2));
+  const openRequests: InstructorRequest[] = [];
+  for (const term of spanning) {
+    const id = Number(term.AdTermId);
+    if (id === currentTermId) { openRequests.push(...requests); continue; }
+    const hit = h.requests.get(id);
+    if (hit && Date.now() - hit.at < HEAVY_TTL_MS) { openRequests.push(...hit.rows); continue; }
+    const rows = await Repository.getInstructorRequests(0, 0, id);
+    h.requests.set(id, { at: Date.now(), rows });
+    openRequests.push(...rows);
+  }
   return {
     termChoices: recent.map(term => ({ id: Number(term.AdTermId), name: term.AdTermName })),
-    input: { now: new Date(), terms: h.terms, currentTermId, needsByTerm: h.needsByTerm, instructorRequests: requests, profiles: h.profiles, courses: h.courses, days, campaigns: camps, adStats: adStatsCache.rows },
+    input: { now: new Date(), terms: h.terms, currentTermId, needsByTerm: h.needsByTerm, instructorRequests: requests, openRequests, profiles: h.profiles, courses: h.courses, days, campaigns: camps, adStats: adStatsCache.rows },
   };
 }
 
@@ -364,7 +389,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
   const timer = setInterval(() => { sweepLimiters(); void flushAdsCounters(); }, 30_000);
   timer.unref?.();
   /* الإرسال التلقائي بالبريد: فحصٌ كل ساعة، ولا يفعل شيئاً ما لم يُفعَّل البريد بإعدادات البيئة. */
-  const mailTimer = setInterval(() => { void autoMailTick(String(process.env.AD_PUBLIC_ORIGIN || "https://schedule.dr-alfailakawi.com")).catch(() => undefined); }, 3_600_000);
+  const mailTimer = setInterval(() => { void autoMailTick(String(process.env.AD_PUBLIC_ORIGIN || "https://schedule-kw.com")).catch(() => undefined); }, 3_600_000);
   mailTimer.unref?.();
   /* تسجيل مستمعٍ لـSIGTERM/SIGINT يُلغي إنهاء Node الافتراضي: كان المستمع يفرّغ العدّادات ولا ينهي العملية، فيبقى الخادم حيّاً
      بعد إيقافه (Ctrl-C، وإيقاف المنصة، وخوادم الاختبارات اليتيمة على المنفذ 3000). نفرّغ ثم ننهي، بمهلة تحمي من تعليق الكتابة. */
@@ -437,7 +462,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     const ip = String(req.ip || "?");
     const filtered = looksAutomated(req.headers["user-agent"]) || clickWasRepeat(`${ip}|${String(req.headers["user-agent"] || "").slice(0, 160)}|${campaign.id}`) || !underLimit(`click|${ip}`, 120);
     bumpStat(campaign.id, creativeId, filtered ? { filteredClicks: 1 } : { clicks: 1 });
-    res.redirect(302, campaign.linkUrl);
+    res.redirect(302, trackedLink(campaign.linkUrl, campaign));
   });
 
   app.post("/_ads/e", express.json({ limit: "8kb" }), async (req, res) => {
@@ -485,6 +510,39 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     res.send(measurementPage(deps.publicPageNonce(res)));
   });
 
+  /* شارة «شريك SCHEDULE»: صورةٌ ثابتة بمعرّفٍ عام مشتقٍّ من الرمز ولا يكشفه (الشارة تُنشر في موقع الشركة، فلا يجوز أن يحمل رمز التقرير). تتغيّر بتجديد الرمز. لا تُصدَر لمسودة أو لحملةٍ لم تبدأ. */
+  app.get("/partner-badge/:id.svg", async (req, res) => {
+    const id = String(req.params.id || "");
+    const campaign = /^[0-9a-f]{32}$/.test(id) ? (await Repository.listAdCampaigns()).find(c => badgeId(c.reportToken) === id) : undefined;
+    if (!campaign || campaign.status === "draft" || campaign.startDay > kuwaitDay()) { missing(res); return; }
+    noindex(res);
+    res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'");
+    if (req.query.dl) res.setHeader("Content-Disposition", 'attachment; filename="schedule-partner.svg"');
+    res.send(partnerBadgeSvg(campaign));
+  });
+
+  /* تبليغُ الشركة عن استعمال الكود في يوم (نموذجٌ عادي بلا سكربت). غير موثَّق: يُعرض لها ولمديرها بوسم «مُبلَّغ» وحده. */
+  app.post("/ad-report/:token/redemptions", express.urlencoded({ extended: false, limit: "2kb" }), async (req, res) => {
+    const token = String(req.params.token || "");
+    const campaign = token.length >= 20 ? (await Repository.listAdCampaigns()).find(c => c.reportToken === token) : undefined;
+    if (!campaign) { missing(res); return; }
+    noindex(res);
+    const today = kuwaitDay();
+    const day = String(req.body?.day || "");
+    const count = Number(req.body?.count);
+    const back = `/ad-report/${encodeURIComponent(token)}`;
+    if (!underLimit(`red|${String(req.ip || "?")}`, 60)) { res.status(429).send("محاولات كثيرة؛ أعد المحاولة بعد قليل."); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day < campaign.startDay || day > campaign.endDay || day > today || !Number.isInteger(count) || count < 0 || count > 100_000) {
+      res.redirect(303, `${back}?red=bad#redemptions`); return;
+    }
+    await Repository.reportAdRedemption(campaign.id, day, count);
+    dropCampaignCache();
+    res.redirect(303, `${back}?red=ok#redemptions`);
+  });
+
   /* اشتراكُ تقويمٍ للشركة (تنبيهاتٌ بلا حساب): الرمزُ هو الهوية. بلا بياناتٍ تتجاوز اسمَ الشركة وتواريخَ حملتها وهي تعرفها. */
   app.get("/ad-report/:token/calendar.ics", async (req, res) => {
     const token = String(req.params.token || "");
@@ -508,10 +566,38 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     const nonce = deps.publicPageNonce(res);
     const allStats = await Repository.listAdStats();
     res.send(campaignReportPage({
-      campaign, creatives: heads, stats, nonce, today, origin: `${req.protocol}://${req.get("host")}`,
+      campaign, creatives: heads, stats, nonce, today, origin: `${req.protocol}://${req.get("host")}`, redemptionResult: req.query.red === "ok" || req.query.red === "bad" ? String(req.query.red) : "",
       weekly: weeklyCompare(stats, today), benchmarkCtr: slotBenchmarkCtr(campaign.id, campaign.slot, all, allStats),
       liveInSlot: Math.max(1, all.filter(x => x.slot === campaign.slot && isLive(x, today)).length),
     }));
+  });
+
+  /* «حملة جديدة» من ملف الشراكة: نموذجٌ عادي بلا سكربت، الرمزُ هو الهوية. يُخزَّن للإدارة وحدها وتُنبَّه به. */
+  app.post("/partners/:token/lead", express.urlencoded({ extended: false, limit: "4kb" }), async (req, res) => {
+    const token = String(req.params.token || "");
+    const expected = await Repository.getPartnerKitToken();
+    if (!expected || token.length < 20 || token !== expected) { missing(res); return; }
+    noindex(res);
+    const back = `/partners/${encodeURIComponent(token)}`;
+    /* حقلٌ مخفي يملؤه الروبوت وحده: نُظهر له النجاح ولا نخزّن شيئاً. */
+    if (String(req.body?.website || "").trim()) { res.redirect(303, `${back}?lead=ok#new`); return; }
+    if (!underLimit(`lead|${String(req.ip || "?")}`, 5, 3_600_000)) { res.redirect(303, `${back}?lead=rate#new`); return; }
+    const parsed = cleanLead(req.body);
+    if (parsed.error) { res.redirect(303, `${back}?lead=bad&why=${encodeURIComponent(parsed.error)}#new`); return; }
+    const lead = parsed.lead!;
+    const existing = await Repository.listAdLeads();
+    /* الضغط المكرّر (الشركة والجوّال نفسهما خلال يوم) لا يُنشئ طلباً ثانياً ولا إشعاراً ثانياً. */
+    const dup = existing.find(l => l.status === "new" && l.phone === lead.phone && l.company === lead.company && Date.now() - Date.parse(l.createdAt) < 86_400_000);
+    if (!dup && existing.filter(l => l.status === "new").length < 200) {
+      await Repository.createAdLead({ company: lead.company, name: lead.name, phone: lead.phone, ...(lead.email ? { email: lead.email } : {}), slots: lead.slots, ...(lead.season ? { season: lead.season } : {}), ...(lead.note ? { note: lead.note } : {}) });
+      /* بريدٌ للمالك إن ضُبطت إعداداته؛ لا ننتظره ولا يفشل الطلب بفشله. */
+      const cfg = mailConfig(), to = leadNotifyTo();
+      if (cfg && to) {
+        void sendMail(cfg, to, leadMail({ company: lead.company, name: lead.name, phone: lead.phone, email: lead.email, slotLabels: lead.slots.map(id => activeSlots().find(x => x.id === id)?.label || id), seasonLabel: SEASONS.find(x => x.id === lead.season)?.label, note: lead.note }))
+          .then(r => { if (!r.ok) console.warn("lead mail:", r.error); });
+      }
+    }
+    res.redirect(303, `${back}?lead=ok#new`);
   });
 
   app.get("/partners/:token", async (req, res) => {
@@ -525,7 +611,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     for (const c of input.campaigns) if (isLive(c, today)) liveBySlot[c.slot] = (liveBySlot[c.slot] || 0) + 1;
     noindex(res);
     const nonce = deps.publicPageNonce(res);
-    res.send(partnerKitPage({ stats: buildAudienceStats(input), liveBySlot, nonce, today, calendar: seasonCalendar(input.terms as any), activeSeasons: activeSeasons(input.terms as any) }));
+    res.send(partnerKitPage({ stats: buildAudienceStats(input), liveBySlot, nonce, today, leadResult: ({ ok: "ok", bad: "bad", rate: "rate" } as Record<string, "ok" | "bad" | "rate">)[String(req.query.lead || "")], leadError: req.query.lead === "bad" ? (LEAD_ERRORS as readonly string[]).find(e => e === String(req.query.why || "")) || "" : "", token, calendar: seasonCalendar(input.terms as any), activeSeasons: activeSeasons(input.terms as any) }));
   });
 
   /* ── الإدارة ── */
@@ -553,11 +639,18 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
       nextFree: nextFreeDay(slot.id, all, today),
     }));
     res.json({
-      today, mailEnabled: Boolean(mailConfig()), slots, categories: AD_CATEGORIES, rules: AD_RULES, maxBytes: AD_MAX_BYTES, maxCreatives: MAX_ROTATE_CREATIVES, campaigns: rows, partnerKit: kit ? `/partners/${kit}` : "",
+      today, mailEnabled: Boolean(mailConfig()), slots, categories: AD_CATEGORIES, rules: AD_RULES, maxBytes: AD_MAX_BYTES, maxCreatives: MAX_ROTATE_CREATIVES, campaigns: rows, leads: await Repository.listAdLeads(), partnerKit: kit ? `/partners/${kit}` : "",
       seasons: SEASONS, activeSeasons: activeSeasons(terms), calendar: seasonCalendar(terms),
       /* أسماء الكليات للأدمن وحده هنا (يختار منها استهداف الحملة)؛ لا تصل إلى أي صفحةٍ عامة. */
       colleges: colleges.map(c => ({ id: Number(c.AdCollegeId), name: c.AdCollegeName })),
     });
+  });
+
+  app.post("/api/admin/ads/leads/:id/contacted", ...admin, async (req: Request, res: Response) => {
+    const ok = await Repository.markAdLeadContacted(String(req.params.id || ""), new Date().toISOString());
+    if (!ok) { fail(res, 404, "الطلب غير موجود."); return; }
+    audit(res, String(req.params.id), "طلب حملة: تم التواصل");
+    res.json({ ok: true });
   });
 
   const readBody = (b: any) => ({

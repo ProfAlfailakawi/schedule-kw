@@ -49,6 +49,28 @@ ok('11 pending system state', 'PENDING_ROOM' in loc and 'return ""' in loc)
 server=(ROOT/'server.ts').read_text()
 ok('12 ordinary add room unavailable UI/backend', 'إضافة القاعات محصورة بمدير النظام' in server)
 ok('13 admin backend protected', 'app.post("/api/admin/location-registry/rooms", requirePermission(7), requirePowerAdmin' in server)
+room_create=server[server.index('app.post("/api/admin/location-registry/rooms"'):server.index('app.put("/api/admin/location-registry/rooms/:id"')]
+room_update=server[server.index('app.put("/api/admin/location-registry/rooms/:id"'):server.index('app.put("/api/admin/location-registry/review/:id"')]
+quick_create=server[server.index('app.post("/api/admin/location-setup/rooms"'):server.index('app.delete("/api/admin/location-setup/rooms/:id"')]
+room_admin=(ROOT/'src/components/LocationRegistryAdmin.tsx').read_text()
+quick_setup=(ROOT/'src/components/LocationQuickSetup.tsx').read_text()
+ok('13a room capacity optional and validated on create', 'capacityRaw=req.body?.capacity' in room_create and 'capacity>5000' in room_create and '...(capacity===undefined?{}:{capacity})' in room_create)
+ok('13b room capacity editable and clearable', 'capacityRaw=req.body?.capacity' in room_update and 'capacity:roomCapacity??null' in room_update)
+ok('13b1 room type optional, validated, editable, and admin-manageable', 'roomType=String(req.body?.roomType||"")' in room_create and 'roomType:roomType' in room_update and 'roomType?: string' in (ROOT/'src/types.ts').read_text() and 'نوع القاعة، اختياري' in room_admin)
+ok('13b2 course room type options are scoped and persist with the course', 'app.get("/api/location-room-types", requireAnyPermission([6, 7])' in server and 'CourseRoomType' in server and 'CourseRoomType?: string' in (ROOT/'src/types.ts').read_text())
+ok('13b3 only the root admin manages the shared room type catalogue', 'app.get("/api/admin/location-room-types",requirePermission(7),requireRootAdmin' in server and 'app.post("/api/admin/location-room-types",requirePermission(7),requireRootAdmin' in server)
+ok('13b4 renaming a room type updates rooms and courses and is persisted centrally', 'app.put("/api/admin/location-room-types/:type",requirePermission(7),requireRootAdmin' in server and 'Repository.renameCourseRoomType(oldName,newName)' in server and 'Repository.setLocationRoomTypes([...types])' in server)
+room_types=(ROOT/'src/components/LocationRoomTypeManager.tsx').read_text()
+ok('13b4a only unused room types can be deleted by root admin', 'app.delete("/api/admin/location-room-types/:type",requirePermission(7),requireRootAdmin' in server and 'if(linkedRooms||linkedCourses)' in server and 'if(types.size<=1)' in server and 'method: "DELETE"' in room_types and 'location-type-delete' in room_types)
+ok('13b5 room types are managed in quick setup and feed room/course forms', 'إضافة نوع' in room_types and 'تغيير الاسم' in room_types and 'LocationRoomTypeManager' in quick_setup and 'نوع القاعة المناسب' in (ROOT/'src/components/Courses.tsx').read_text() and 'location-type-manager' not in room_admin)
+ok('13b6 course room type badge appears only when a type is assigned', 'course-room-type-badge' in (ROOT/'src/components/CourseRoomTypeBadge.tsx').read_text() and 'if (!value) return null' in (ROOT/'src/components/CourseRoomTypeBadge.tsx').read_text() and 'CourseRoomTypeBadge type={x.CourseRoomType}' in (ROOT/'src/components/Courses.tsx').read_text())
+ok('13b8 room type badge is shown beside tagged courses in timetable and schedule queries', 'CourseRoomTypeBadge type={roomType} compact' in (ROOT/'src/components/Schedules.tsx').read_text() and 'CourseRoomTypeBadge type={course?.CourseRoomType} compact' in (ROOT/'src/components/Reports.tsx').read_text() and 'CourseRoomTypeBadge type={pickedCourse?.CourseRoomType} compact' in (ROOT/'src/components/Reports.tsx').read_text())
+ok('13b7 demo includes a course with a room type for the badge showcase', 'demoFitCourse.CourseRoomType="مختبر حاسوب"' in (ROOT/'src/db/demoSandbox.ts').read_text())
+ok('13c capacity available in room create and edit forms', 'السعة (اختياري)' in room_admin and 'السعة الداخلية (اختياري)' in room_admin)
+ok('13d quick setup applies optional capacity to batch-created rooms', 'عدد الطلبة في كل قاعة (اختياري)' in quick_setup and 'capacity: roomCapacity === "" ? undefined : Number(roomCapacity)' in quick_setup and 'capacityRaw=req.body?.capacity' in quick_create and '...(capacity===undefined?{}:{capacity})' in quick_create)
+ok('13e quick setup can edit capacity per room', 'capacity: room.capacity == null ? "" : String(room.capacity)' in quick_setup and 'capacity: roomDraft.capacity === "" ? null : Number(roomDraft.capacity)' in quick_setup)
+review_layout=(ROOT/'src/styles/05-schedule.css').read_text()
+ok('13f review counts and labels stay together on one line', '.review-sheet.visual-minimal .spread-keys span{align-items:center;white-space:nowrap}' in review_layout and 'grid-template-columns:repeat(4,minmax(0,1fr))' in review_layout)
 imp=(ROOT/'src/components/ImportPreviewTable.tsx').read_text()
 ok('14 import unknown blocks', 'locationStatus !== "PENDING_ROOM"' in imp and 'buildingId' in imp and 'roomId' in imp)
 ok('15 unknown building blocks', 'اختر مبنى رسميًا من سجل المباني' in (ROOT/'src/server/locationRegistryEngine.ts').read_text())
@@ -285,8 +307,8 @@ ok('115 visiting badge is present in import, schedule, reports and final schedul
 ok('116 schedule and report time ranges are kept as one visual value', 'formatScheduleTimeRange(row.fstarttime, row.fendtime)' in reports and 'white-space:nowrap' in (ROOT/'src/styles/05-schedule.css').read_text() and 'white-space:nowrap' in (ROOT/'src/styles/06-intelligence.css').read_text())
 ok('117 change log has a dedicated print action and print sheet', 'طباعة تقرير التعديلات' in schedules_src and 'change-log-print-host' in schedules_src and 'تقرير التعديلات' in schedules_src and 'data-print-kind="change-log"' not in schedules_src and 'root.dataset.printKind="change-log"' in schedules_src)
 ok('118 current golden stage is documented for future maintainers', 'اسم المقرر ورقم الشعبة في معاينة الاستيراد **هويتان مقفلتان**' in golden_state and 'Badge صغيرة `منتدب`' in golden_state and 'تقرير تعديلات قابل للطباعة' in golden_state)
-ai_review_prompt=(ROOT/'docs/MAINTENANCE_REVIEW_RULES.md').read_text()
-ok('119 maintenance review prompt is embedded in the project and linked from golden state', 'لا تعِد البناء' in ai_review_prompt and 'عدم التخمين' in ai_review_prompt and 'docs/MAINTENANCE_REVIEW_RULES.md' in golden_state)
+delivery_ops=(ROOT/'docs/DELIVERY_OPERATIONS.md').read_text()
+ok('119 operational maintenance guidance is kept in the engineering handover document', 'Never delete, recreate, move' in delivery_ops and 'A normal release changes the image only' in delivery_ops and 'CURRICULUM_SHEET_RULES.md' in delivery_ops)
 
 # Graduate-proof + report-availability invariants added after the Golden stage.
 reports_src=(ROOT/'src/components/Reports.tsx').read_text()
@@ -613,6 +635,29 @@ ok('212 the root location UI accepts a complete official building code such as 0
    and 'officialCode:e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,7)' in location_admin
    and 'buildingNumber:parsedNewBuildingCode?.buildingNumber' in location_admin)
 
+quick_setup=(ROOT/'src/components/LocationQuickSetup.tsx').read_text()
+repository=(ROOT/'src/db/repository.ts').read_text()
+admin_users=(ROOT/'src/components/AdminUsers.tsx').read_text()
+app_source=(ROOT/'src/App.tsx').read_text()
+ok('212a the lightweight add-buildings-and-rooms icon lives inside System Administration and is root-admin-only',
+   'rootAdmin ? { value: "roomSetup", label: "إضافة مبانٍ وقاعات"' in admin_users
+   and 'case "roomSetup":' in app_source
+   and 'user.IsRootAdmin && allowed.admin' in app_source
+   and 'mode === "roomSetup"' in admin_users)
+ok('212b quick room setup filters site/department/building/shared rooms and supports batch room entry',
+   'label="الحرم / الموقع"' in quick_setup
+   and 'label="القسم"' in quick_setup
+   and 'label="المبنى"' in quick_setup
+   and '<legend>تخصيص القاعات للأقسام</legend>' in quick_setup
+   and 'المشتركة فقط' in quick_setup
+   and 'roomCodes.split(/[' in quick_setup
+   and 'roomSectionIds.length > 1' in quick_setup)
+ok('212c quick setup APIs return a small directory and validate ownership/same-site sharing on the server',
+   'app.get("/api/admin/location-setup", requirePermission(7), requireRootAdmin' in server
+   and 'app.post("/api/admin/location-setup/rooms", requirePermission(7), requireRootAdmin' in server
+   and 'sections.some(section=>sectionIds.includes(Number(section.AdSectionId))&&!officialCollegeIds.includes(Number(section.AdCollegeId)))' in server
+   and 'res.json({buildings:registry.buildings,rooms:registry.rooms,colleges,sections})' in server)
+
 ok('213 the location registry phone layout overrides the late desktop important grid and keeps every control inside the viewport',
    'سجل المواقع على الهاتف: لا يخرج شيء من إطار الشاشة' in index_css
    and '.location-admin-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))!important' in index_css
@@ -665,5 +710,25 @@ preview_src=(ROOT/'src/components/ImportPreviewTable.tsx').read_text()
 ok('221 an instructor double booking marks the TIME cell (the value that is wrong), not the correctly read name',
    'if (/حجز مزدوج لأستاذ|لديه محاضرة متداخلة/.test(text)) return "time";' in preview_src
    and preview_src.index('return "time";') < preview_src.index('return "instructor";'))
+
+quick_setup=(ROOT/'src/components/LocationQuickSetup.tsx').read_text()
+ok('222 the root-admin quick location screen can edit buildings and rooms and soft-delete without losing historical room use',
+   'app.put("/api/admin/location-setup/buildings/:id", requirePermission(7), requireRootAdmin' in server
+   and 'app.delete("/api/admin/location-setup/buildings/:id", requirePermission(7), requireRootAdmin' in server
+   and 'app.delete("/api/admin/location-setup/rooms/:id", requirePermission(7), requireRootAdmin' in server
+   and 'action:"DELETE"' in server
+   and 'await Repository.archiveLocationBuilding(inactiveBuilding,inactiveRooms)' in server
+   and 'archiveLocationBuilding: async (building: MasterBuilding, rooms: MasterRoom[])' in repository
+   and 'await batch.commit()' in repository
+   and 'onClick={() => startBuildingEdit(currentBuilding)}' in quick_setup
+   and 'onClick={() => void deleteBuilding(currentBuilding)}' in quick_setup
+   and 'onClick={() => startRoomEdit(room)}' in quick_setup
+   and 'onClick={() => void deleteRoom(room)}' in quick_setup
+   and 'مع الاحتفاظ بسجل المواعيد القديمة' in quick_setup)
+ok('223 soft-deleted rooms disappear immediately and building deletion removes its rooms and building in one saved action',
+   'data.rooms.filter(room => room.active &&' in quick_setup
+   and 'buildings: current.buildings.filter(item => item.id !== building.id), rooms: current.rooms.filter(room => room.buildingId !== building.id)' in quick_setup
+   and 'rooms: current.rooms.filter(item => item.id !== room.id)' in quick_setup
+   and 'await Repository.archiveLocationBuilding(inactiveBuilding,inactiveRooms)' in server)
 
 print(json.dumps({'passed':len(passed),'tests':passed},ensure_ascii=False,indent=2))

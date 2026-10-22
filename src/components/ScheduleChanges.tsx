@@ -1,3 +1,4 @@
+import TermSelect from "./TermSelect";
 import { byArabic } from "../utils/sorting";
 /**
  * ── تغييرات الجدول ──────────────────────────────────────────────────────────
@@ -26,7 +27,8 @@ import { DnaCount, DnaTimeline, useMotionScope } from "./dna";
 import { ApprovalDnaStepper, DeadlineDnaRing } from "./dna/scheduleDna";
 import ApprovalBar from "./ApprovalBar";
 import SubmissionDeadlines from "./SubmissionDeadlines";
-import ScopeAskBar, { type ScopeAskSelect } from "./ScopeAskBar";
+import { useScopedTerms } from "./useScopedTerms";
+import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "./ScopeAskBar";
 import { EMPTY_INBOX_ASK, matchesInboxAsk, parseInboxAsk, type InboxAsk, type InboxAskSignal } from "../utils/inboxAsk";
 import { Badge, EmptyState, MicroLoader, Notice, PageTitle, PrimaryButton, SecondaryButton, Surface } from "./ui";
 import { APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, CLOSED_BY_ACCEPTANCE_LABEL, countAnsweredRegistrarNotes, countOpenRegistrarNotes, ESCALATE_AFTER_INSISTS } from "../utils/approvalWorkflow";
@@ -231,6 +233,7 @@ function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExt
   const reader = { scopes, isAdmin: powerAdmin };
   const [collegeId, setCollegeId] = useState(() => resolveSharedScope(readSharedScope(), reader).collegeId);
   const [sectionId, setSectionId] = useState(() => resolveSharedScope(readSharedScope(), reader).sectionId);
+  const scopedTerms = useScopedTerms<AdTerm>(terms, collegeId, sectionId, termId, onTermChange);
   const sharedScope = useSharedScope((incoming) => {
     const next = resolveSharedScope(incoming, reader);
     setCollegeId(next.collegeId);
@@ -326,13 +329,13 @@ function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExt
       options: collegeOptions,
     },
     /* قسمٌ واحد في نطاق القارئ: لا منتقيَ له، كلوحة الجدول. */
-    ...(singleDepartmentOf(scopes, shownCollege, powerAdmin) === null && !audience.multiSite ? [{
+    ...(!audience.multiSite ? [{
       key: "section", label: "القسم", value: shownSection, placeholder: "كل الأقسام",
       options: sectionOptions, disabled: sectionOptions.length === 0,
     }] : []),
     {
       key: "term", label: "الفصل", value: termId, placeholder: "اختر الفصل",
-      options: terms.map(row => ({ value: row.AdTermId, label: row.AdTermName })),
+      options: scopedTerms.map(row => ({ value: row.AdTermId, label: row.AdTermName })),
     },
   ];
 
@@ -376,7 +379,7 @@ function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExt
         askPlaceholder={audience.department ? "اسأل: المتأخر أو اللي فيه ملاحظات" : "اسأل: الأقسام المتأخرة اللي عندها موانع"}
         askNote={askNote}
         onClear={clearAll}
-        selects={selects}
+        selects={trimScopeSelects(selects, scopes, powerAdmin)}
         onSelect={(key, value) => {
           const id = Number(value) || 0;
           if (key === "college") { sharedScope.pick({ collegeId: id, sectionId: 0 }); setCollegeId(id); setSectionId(0); }
@@ -1433,6 +1436,11 @@ export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin =
     if (next.termId) setTermId(next.termId);
   });
   const pickTerm = (id: number) => { sharedScope.pick({ termId: id }); setTermId(id); };
+  /* قائمةُ الفصل في ركن العنوان (تقريرُ قسمٍ مفتوح): فصولُ ذلك القسم التي فيها بيانات، والحالي دائماً. */
+  const openedTerms = useScopedTerms<AdTerm>(opened ? terms : null, opened?.collegeId || 0, opened?.sectionId || 0, opened ? termId : 0, pickTerm);
+  /* وحين لا يُفتح قسمٌ بعينه: فصولُ نطاق القارئ نفسه — القاعدةُ ذاتها (الفارغ القديم يختفي، والأحدثُ يبقى). */
+  const ownTerms = useScopedTerms<AdTerm>(opened ? null : terms, 0, 0, opened ? 0 : termId, pickTerm);
+  const shownTerms = opened ? openedTerms : ownTerms;
   useEffect(() => { setOpened(null); setInboxRows(null); }, [termId]);
   /* ── الإشعار يفتح على قسمه (N16) ─────────────────────────────────────
      يُؤخذ التركيز مرّةً بعد أن يُعرف الفصل: فصلُ الإشعار إن اختلف، ثم القسم.
@@ -1459,6 +1467,8 @@ export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin =
   /* القسم يفتح على تقريره مباشرةً: لا وارد عنده يختار منه. */
   const single = scope && !role.canReview ? { ...scope } : null;
   const active = opened || single;
+  /* ومن بقي له فصلٌ واحد وقد فرّغ اختياره يبقى المنتقي، وإلا علق على «اختر الفصل». */
+  const showTermPicker = shownTerms.length > 0 && Boolean(active || !termId);
   const deadlinesShown = Boolean(termId && !active && term && !termIsArchive(term, terms || []) && audience.deadlinesPanel);
 
   return (
@@ -1474,15 +1484,15 @@ export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin =
            يكون ثمّة فصلٌ مختار. والثانيةُ ليست حالةً نظرية: «اختر الفصل» خيارٌ
            يُنقر، ونقرُه كان يُفرّغ الفصلَ فيختفي الشريطُ الذي يحمل قائمته،
            فيبقى القارئ أمام شاشةٍ فارغةٍ لا مخرجَ منها إلا إعادة التحميل. */
-        action={onOpenDepartmentSchedule || (terms.length > 1 && (active || !termId)) ? (
+        action={onOpenDepartmentSchedule || showTermPicker ? (
           <div className="changes-title-actions">
             {onOpenDepartmentSchedule ? <SecondaryButton onClick={onOpenDepartmentSchedule} data-guide-ignore="فتح جدول القسم للقراءة فقط"><CalendarDays size={16} /> جدول القسم</SecondaryButton> : null}
-            {terms.length > 1 && (active || !termId) ? (
+            {showTermPicker ? (
               <label className="changes-term-picker">
                 <span>الفصل</span>
-                <select value={termId || ""} onChange={(e) => pickTerm(Number(e.target.value) || 0)}>
-                  {terms.map(row => <option key={row.AdTermId} value={row.AdTermId}>{row.AdTermName}</option>)}
-                </select>
+                <TermSelect value={termId || ""} onValueChange={(id) => pickTerm(id)}>
+                  {shownTerms.map(row => <option key={row.AdTermId} value={row.AdTermId}>{row.AdTermName}</option>)}
+                </TermSelect>
               </label>
             ) : null}
           </div>

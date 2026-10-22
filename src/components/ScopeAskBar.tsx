@@ -1,3 +1,4 @@
+import TermSelect from "./TermSelect";
 /**
  * ── شريط السؤال والنطاق ─────────────────────────────────────────────────────
  *
@@ -25,6 +26,8 @@ import React from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { Field, GhostButton } from "./ui";
 import { AR, countOf } from "../utils/arabicCount";
+import type { ScopeAssignmentLike } from "../utils/scopeContext";
+import { hidesCollege, hidesSection, scopeShape } from "../utils/scopeShape";
 
 export interface ScopeAskOption {
   value: string | number;
@@ -73,6 +76,16 @@ export interface ScopeAskBarProps {
   children?: React.ReactNode;
   /** معرّفٌ فريدٌ يربط الحقل بملاحظته وبلوحة «المزيد». */
   idPrefix?: string;
+}
+
+/**
+ * يُخفي ما لا خيارَ فيه لمن دخل بحساب قسمه (scopeShape): قسمٌ واحد في كليةٍ → لا كلية ولا قسم؛
+ * قسمٌ في عدّة مواقع → لا قسم. والقيمُ تبقى افتراضيةً في حالة الشاشة؛ والفصلُ وغيرُه كما هي. الإدارة ومن له أقسامٌ عدّة
+ * يرون كل شيء.
+ */
+export function trimScopeSelects(selects: ScopeAskSelect[], scopes: ScopeAssignmentLike[], isAdmin: boolean): ScopeAskSelect[] {
+  const shape = scopeShape(scopes, isAdmin);
+  return selects.filter(select => !(select.key === "college" && hidesCollege(shape)) && !(select.key === "section" && hidesSection(shape)));
 }
 
 /**
@@ -137,6 +150,18 @@ export default function ScopeAskBar({
              كذلك عند React. الغلافُ يُبقي الحدّ حيث هو. */
           <React.Fragment key={select.key}>
             <Field label={select.label}>
+              {select.key === "term" ? (
+              <TermSelect
+                value={select.value || ""}
+                disabled={select.disabled}
+                onValueChange={id => onSelect(select.key, String(id))}
+              >
+                <option value="">{select.placeholder}</option>
+                {select.options.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </TermSelect>
+              ) : (
               <select
                 value={select.value || ""}
                 disabled={select.disabled}
@@ -147,6 +172,7 @@ export default function ScopeAskBar({
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
+              )}
             </Field>
           </React.Fragment>
         ))}

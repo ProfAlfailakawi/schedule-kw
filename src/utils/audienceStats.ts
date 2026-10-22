@@ -10,11 +10,15 @@
  * يتضخّم بتكرار الطلبات ولا يصحّ أن يُسمّى «زوّاراً».
  */
 import type { AdCampaign, AdCourse, AdStatsDay, AdTerm, AudienceDay, InstructorRequest, StudentNeed, StudentProfile } from "../types";
-import { addDays, endingSoon, isLive, kuwaitDay, totalsOf } from "./adsEngine";
+import { AUDIENCE_BASELINE } from "./audienceBaseline";
+import { currentTermId, sortTermsNewest } from "./termSequence";
+import { addDays, ctrOf, endingSoon, isLive, kuwaitDay, slotById, totalsOf } from "./adsEngine";
 
 export interface TermPoint { termId: number; termName: string; answers: number; students: number }
 export interface CollegePoint { label: string; count: number }
 export interface DayPoint { day: string; count: number }
+export interface SlotPerformance { slot: string; label: string; campaigns: number; impressions: number; clicks: number; ctr: number }
+export interface ContinuityPair { fromTerm: string; toTerm: string; before: number; stayed: number; rate: number }
 
 export interface AudienceStats {
   generatedAt: string;
@@ -29,7 +33,7 @@ export interface AudienceStats {
     current: { answers: number; students: number; byType: { newCourse: number; conflict: number; graduate: number }; byCollege: CollegePoint[]; byDay: DayPoint[] };
   };
   /** الأساتذة: بطاقاتٌ أُرسلت، وفُتحت، وأُرسل منها طلب. */
-  instructors: { invited: number; opened: number; submitted: number; openRate: number; submitRate: number; byCollege: CollegePoint[] };
+  instructors: { invited: number; opened: number; /** بطاقاتٌ فُتحت بعد `AUDIENCE_BASELINE.asOf`. */ openedAfterBaseline: number; submitted: number; openRate: number; submitRate: number; byCollege: CollegePoint[] };
   /** الزيارات المقيسة منذ تشغيل القياس. `since` = أول يومٍ فيه بيانات. */
   visits: {
     since: string;
@@ -39,6 +43,8 @@ export interface AudienceStats {
     last7: number;
     last30: number;
     total: number;
+    /** مجموع الأيام المقيسة بعد تاريخ الرصيد الافتتاحي (`AUDIENCE_BASELINE.asOf`). */
+    afterBaseline: number;
     bySource: Array<{ source: string; count: number }>;
     returningRate: number;
     mobileRate: number;
@@ -48,15 +54,21 @@ export interface AudienceStats {
     peakDay: string;
   };
   ads: { live: number; endingSoon: number; impressions: number; clicks: number; ctr: number };
+  /** أداء الإعلانات لكل موقع إعلاني (من حملاته كلها). مواقع بلا ظهور لا تُعرض. */
+  adsBySlot: SlotPerformance[];
+  /** استمرارية الطلبة: من أجاب في فصلٍ ثم أجاب في الفصل التالي (بصمات الاستبيان). أحدث الأزواج أولاً. */
+  continuity: ContinuityPair[];
   /** ما يطلبه الطلبة هذا الفصل (رغباتهم وطلباتهم)، مجمّعاً بالمقرر. مقرراتٌ بأقل من `DEMAND_MIN_STUDENTS` طلاب لا تظهر أبداً. */
   demand: { top: Array<{ name: string; students: number }>; hidden: number; minStudents: number };
   /** الجمهور الكلي المقدَّر: أدنى عددٍ مؤكد من الطلبة (الأكبر من الاستبيان وملفات مساري). */
-  reach: { studentsMin: number; instructors: number };
+  reach: { studentsMin: number; instructors: number; /** طلبةٌ ظهروا لأول مرة بعد `AUDIENCE_BASELINE.asOf` (بصمات فريدة). */ newSinceBaseline: number };
 }
 
 /** حدُّ الخصوصية: مقرر لا يطلبه عشرةُ طلابٍ مختلفين على الأقل لا يُعرض ولا يُعدّ ظاهراً، فلا يُستدلّ منه على طالبٍ بعينه. */
 export const DEMAND_MIN_STUDENTS = 10;
 const DEMAND_TOP = 8;
+/** أقل عددٍ من طلبة الفصل السابق تُحسب له استمرارية؛ دونه لا تظهر نسبة. */
+export const CONTINUITY_MIN_STUDENTS = 30;
 
 export interface AudienceInput {
   now: Date;
@@ -64,6 +76,8 @@ export interface AudienceInput {
   currentTermId: number;
   needsByTerm: ReadonlyMap<number, readonly StudentNeed[]>;
   instructorRequests: readonly InstructorRequest[];
+  /** كل بطاقات الفصول التي قد تُفتح فيها بطاقةٌ بعد الرصيد؛ تُستعمل لعدّاد «مرّات الفتح» وحده (الافتراضي: بطاقات الفصل الجاري). */
+  openRequests?: readonly InstructorRequest[];
   profiles: readonly StudentProfile[];
   days?: readonly AudienceDay[];
   campaigns?: readonly AdCampaign[];
@@ -84,6 +98,12 @@ const anonymous = (counts: Map<number, number>): CollegePoint[] =>
 const bump = (map: Map<number, number>, key: number) => map.set(key, (map.get(key) || 0) + 1);
 const dayKey = (iso: string) => (/^\d{4}-\d{2}-\d{2}/.test(iso) ? iso.slice(0, 10) : "");
 const dayTotal = (d: AudienceDay) => sum(Object.values(d.visits || {}));
+
+/** مرّات فتح بطاقةٍ بعد الرصيد: من سجلّ الأيام، وللبطاقات القديمة بلا سجلٍّ فتحُها الأول إن جاء بعد التاريخ. */
+const opensAfterBaseline = (r: InstructorRequest): number => {
+  if (r.linkOpenDays) return sum(Object.entries(r.linkOpenDays).filter(([day]) => day > AUDIENCE_BASELINE.asOf).map(([, n]) => Number(n) || 0));
+  return dayKey(r.linkOpenedAt || "") > AUDIENCE_BASELINE.asOf ? 1 : 0;
+};
 
 export function buildAudienceStats(input: AudienceInput): AudienceStats {
   const term = input.terms.find(t => Number(t.AdTermId) === input.currentTermId) || null;
@@ -124,6 +144,18 @@ export function buildAudienceStats(input: AudienceInput): AudienceStats {
     if (now - seen <= 7 * DAY_MS) active7++;
     if (now - seen <= 30 * DAY_MS) active30++;
   }
+
+  /* طلبةٌ جدد بعد الرصيد الافتتاحي: بصمةٌ أول ظهورٍ لها (استبيان أو ملف) بعد التاريخ. */
+  const firstSeen = new Map<string, string>();
+  const see = (fp: string, iso: string) => {
+    const day = dayKey(iso);
+    if (!fp || !day) return;
+    const cur = firstSeen.get(fp);
+    if (!cur || day < cur) firstSeen.set(fp, day);
+  };
+  for (const rows of input.needsByTerm.values()) for (const r of rows) see(r.fingerprint, r.createdAt);
+  for (const profile of input.profiles) see(profile.fingerprint, profile.createdAt);
+  const newSinceBaseline = [...firstSeen.values()].filter(day => day > AUDIENCE_BASELINE.asOf).length;
 
   const requests = input.instructorRequests;
   const opened = requests.filter(r => Boolean(r.linkOpenedAt)).length;
@@ -178,6 +210,35 @@ export function buildAudienceStats(input: AudienceInput): AudienceStats {
   const demandTop = ranked.filter(r => r.students >= DEMAND_MIN_STUDENTS).slice(0, DEMAND_TOP);
   const demandHidden = ranked.filter(r => r.students < DEMAND_MIN_STUDENTS).length;
 
+  /* ── استمرارية الطلبة: فصلان متتاليان في تسلسل الفصول فقط، وبعيّنةٍ كافية ── */
+  const sequence = sortTermsNewest(input.terms).reverse()
+    .map(t => ({ term: t, people: new Set((input.needsByTerm.get(Number(t.AdTermId)) || []).map(r => r.fingerprint).filter(Boolean)) }));
+  const continuity: ContinuityPair[] = [];
+  for (let i = 1; i < sequence.length; i++) {
+    const prev = sequence[i - 1], cur = sequence[i];
+    /* فصلٌ بلا إجابات بينهما يقطع التتالي، وعيّنةٌ صغيرة تُنتج نسبةً مضللة (0% من طالبٍ واحد). */
+    if (prev.people.size < CONTINUITY_MIN_STUDENTS || cur.people.size === 0) continue;
+    let stayed = 0;
+    for (const fp of prev.people) if (cur.people.has(fp)) stayed++;
+    continuity.push({ fromTerm: prev.term.AdTermName, toTerm: cur.term.AdTermName, before: prev.people.size, stayed, rate: ratio(stayed, prev.people.size) });
+  }
+  continuity.reverse();
+
+  /* ── أداء الإعلانات لكل موقع ── */
+  const slotOf = new Map(campaigns.map(c => [c.id, c.slot] as const));
+  const perSlot = new Map<string, { impressions: number; clicks: number; ids: Set<string> }>();
+  for (const row of input.adStats || []) {
+    const slot = slotOf.get(row.campaignId);
+    if (!slot) continue;
+    const cur = perSlot.get(slot) || { impressions: 0, clicks: 0, ids: new Set<string>() };
+    cur.impressions += row.impressions; cur.clicks += row.clicks; cur.ids.add(row.campaignId);
+    perSlot.set(slot, cur);
+  }
+  const adsBySlot: SlotPerformance[] = [...perSlot.entries()]
+    .filter(([, v]) => v.impressions > 0)
+    .map(([slot, v]) => ({ slot, label: slotById(slot)?.label || slot, campaigns: v.ids.size, impressions: v.impressions, clicks: v.clicks, ctr: ctrOf(v.clicks, v.impressions) }))
+    .sort((a, b) => b.impressions - a.impressions);
+
   return {
     generatedAt: input.now.toISOString(),
     term: term ? { id: Number(term.AdTermId), name: term.AdTermName } : null,
@@ -198,6 +259,7 @@ export function buildAudienceStats(input: AudienceInput): AudienceStats {
     instructors: {
       invited: requests.length,
       opened,
+      openedAfterBaseline: sum((input.openRequests || requests).map(opensAfterBaseline)),
       submitted,
       openRate: ratio(opened, requests.length),
       submitRate: ratio(submitted, requests.length),
@@ -211,6 +273,7 @@ export function buildAudienceStats(input: AudienceInput): AudienceStats {
       last7: sum(series.slice(-7).map(p => p.count)),
       last30: sum(series.map(p => p.count)),
       total,
+      afterBaseline: sum(measured.filter(d => d.day > AUDIENCE_BASELINE.asOf).map(dayTotal)),
       bySource: [...sources.entries()].map(([source, count]) => ({ source, count })).sort((a, b) => b.count - a.count),
       returningRate: ratio(returning, returning + fresh),
       mobileRate: ratio(mobile, mobile + desktop),
@@ -225,7 +288,32 @@ export function buildAudienceStats(input: AudienceInput): AudienceStats {
       clicks: adTotals.clicks,
       ctr: adTotals.ctr,
     },
-    reach: { studentsMin: Math.max(everyone.size, input.profiles.length), instructors: opened },
+    reach: { studentsMin: Math.max(everyone.size, input.profiles.length), instructors: opened, newSinceBaseline },
+    adsBySlot,
+    continuity,
     demand: { top: demandTop, hidden: demandHidden, minStudents: DEMAND_MIN_STUDENTS },
   };
+}
+
+/**
+ * الأرقام الكبرى منذ 2016 كما تعرضها اللوحة وملف الشراكة معاً: الرصيد الافتتاحي الذي أقرّته الإدارة
+ * (`AUDIENCE_BASELINE`) + ما قيس بعد تاريخه. دالةٌ واحدة كي لا يختلف رقمٌ بين الصفحتين.
+ */
+export function headlineTotals(s: AudienceStats) {
+  return {
+    students: AUDIENCE_BASELINE.students + (s.reach.newSinceBaseline || 0),
+    visits: AUDIENCE_BASELINE.visits + (s.visits.afterBaseline || 0),
+    instructorOpens: AUDIENCE_BASELINE.instructorOpens + (s.instructors.openedAfterBaseline || 0),
+    /** حدٌّ أدنى: يظهر المقيس إن زاد عليه. */
+    instructorOpenRate: Math.max(AUDIENCE_BASELINE.instructorOpenRate, s.instructors.openRate || 0),
+  };
+}
+
+/**
+ * الفصل الذي تعرضه اللوحة: المطلوب إن وُجد، وإلا الفصل **الجاري تشغيلياً** (`currentTermId`)، لا آخر فصلٍ فيه إجابات.
+ * بعد حذف قائمة اختيار الفصل لا مهرب من هذا الافتراضي، فلو سقط إلى «آخر فصلٍ فيه إجابات» لعرضت اللوحة فصلاً قديماً باسم «هذا الفصل».
+ */
+export function pickDashboardTerm<T extends AdTerm>(recent: readonly T[], allTerms: readonly AdTerm[], requestedId = 0, now = Date.now()): T | undefined {
+  const operational = currentTermId(allTerms as any, now);
+  return recent.find(t => Number(t.AdTermId) === requestedId) || recent.find(t => Number(t.AdTermId) === operational) || recent[0];
 }

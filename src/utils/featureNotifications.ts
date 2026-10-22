@@ -9,10 +9,11 @@
  *
  * المعرّفُ يحمل ما يجعل التغيّرَ إشعاراً جديداً (وقتَ التعديل، وقتَ تشغيل الرادار، العدد).
  */
-import { AR, countOf, nounFor } from "./arabicCount";
+import { AR, countOf, nounFor, oblique } from "./arabicCount";
 import type { CenterNotification } from "./notificationCenter";
+import { planMatchKey } from "./collegeTrack";
 
-export interface PlanReviewNotice { planId: string; planName: string; sectionId: number; collegeId: number; sectionName: string; updatedAt: string }
+export interface PlanReviewNotice { planId: string; planName: string; sectionId: number; collegeId: number; sectionName: string; /** مسارُ القسم (بنات بمواقعهنّ / بنين): يجمع إشعاراتِ الصحائف المتماثلة. */ groupKey?: string; groupLabel?: string; /** هويةُ الصحيفة (قسمٌ ومسارٌ وكليةٌ وسنة): يُعدّ بها ما ينتظر. */ unitKey?: string; updatedAt: string }
 export interface RadarNotice { ranAt: string; needsDecision: number; scoped: boolean }
 export interface OutcomeNotice { answered: number; stuck: number; scoped: boolean }
 
@@ -32,18 +33,29 @@ export function buildFeatureNotifications(input: FeatureNotificationInput): Cent
   const items: CenterNotification[] = [];
   const decides = role === "committeeChair" || role === "admin";
 
-  /* ── صحائف قيد المراجعة ── */
-  for (const review of input.planReviews.slice(0, 4)) {
+  /* ── صحائف قيد المراجعة ── إشعارٌ واحد لكل قسمٍ (كليةٍ وقسم)، لا لكل صحيفة: قسمٌ فيه صحيفتان يُزعج مرتين بلا فائدة. */
+  const bySection = new Map<string, PlanReviewNotice[]>();
+  for (const review of input.planReviews) {
+    const key = review.groupKey || `${review.collegeId}:${review.sectionId}`;
+    bySection.set(key, [...(bySection.get(key) || []), review]);
+  }
+  const groups = [...bySection.values()];
+  for (const group of groups.slice(0, 4)) {
+    const first = group[0], latest = group.reduce((at, r) => (r.updatedAt > at ? r.updatedAt : at), "");
+    /* صحائفُ البنات المتماثلة في المواقع الثلاثة تُعدّ صحيفةً واحدة (بالسنة أو الاسم). */
+    const kinds = new Set(group.map(r => r.unitKey || planMatchKey(r.planName))), one = kinds.size === 1;
     items.push({
-      id: `plan-review:${review.planId}:${review.updatedAt}`, tone: decides ? "action" : "waiting",
-      title: decides ? `صحيفة «${review.planName}» تنتظر مراجعتك واعتمادك` : `صحيفة «${review.planName}» قيد المراجعة`,
-      detail: review.sectionName, view: "planReview", at: review.updatedAt, collegeId: review.collegeId, sectionId: review.sectionId,
+      id: `plan-review:${first.groupKey || `${first.collegeId}:${first.sectionId}`}:${[...kinds].sort().join(",")}:${latest}`, tone: decides ? "action" : "waiting",
+      title: one
+        ? (decides ? `صحيفة «${first.planName}» تنتظر مراجعتك واعتمادك` : `صحيفة «${first.planName}» قيد المراجعة`)
+        : (decides ? `بانتظار مراجعتك واعتمادك: ${countOf(kinds.size, AR.sheet)}` : `قيد المراجعة: ${countOf(kinds.size, AR.sheet)}`),
+      detail: one ? first.sectionName : (first.groupLabel || first.sectionName), view: "planReview", at: latest, collegeId: first.collegeId, sectionId: first.sectionId,
     });
   }
-  if (input.planReviews.length > 4) {
-    const more = input.planReviews.length - 4;
+  if (groups.length > 4) {
+    const more = groups.length - 4;
     items.push({
-      id: `plan-review:more:${input.planReviews.length}`, tone: "waiting", title: `و${countOf(more, AR.draft)} أخرى قيد المراجعة`,
+      id: `plan-review:more:${groups.length}`, tone: "waiting", title: `بانتظارك أيضاً: ${countOf(more, AR.department)} فيها صحائف قيد المراجعة`,
       detail: "مراجعة الصحيفة", view: "planReview",
     });
   }
@@ -70,4 +82,15 @@ export function buildFeatureNotifications(input: FeatureNotificationInput): Cent
     });
   }
   return items.map(item => ({ ...item, termId: input.termId, termName: input.termName }));
+}
+
+export interface MasariGapNotice { collegeId: number; sectionId: number; sectionName: string; courses: number }
+
+/** مقرراتُ قسمك التي يطلبها طلبةُ «مساري» والشعبُ المفتوحة لا تكفيها (من الحال لحظةَ السؤال؛ يتغيّر العدد فيصير إشعاراً جديداً). */
+export function buildMasariGapNotifications(gaps: readonly MasariGapNotice[], termId?: number, termName?: string): CenterNotification[] {
+  return gaps.filter(gap => gap.courses > 0).slice(0, 4).map(gap => ({
+    id: `masari-gap:${gap.collegeId}:${gap.sectionId}:${gap.courses}`, tone: "action" as const,
+    title: `طلبة «مساري» يحتاجون شعباً في ${countOf(gap.courses, oblique(AR.course))}`,
+    detail: gap.sectionName, view: "schedules" as const, collegeId: gap.collegeId, sectionId: gap.sectionId, termId, termName,
+  }));
 }

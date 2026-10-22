@@ -200,7 +200,7 @@
   font-weight:600;
 }
 @media (pointer:coarse){
-  .side-nav-link{min-height:var(--ix-tap,44px)}
+  .side-nav-link{min-height:var(--ix-tap)}
 }
 
 /* --- Surfaces & controls: ledger edges, tighter radii --------------------- */
@@ -224,4 +224,4 @@
 .apex-login-principles>span{border-top-style:solid}
 
 /* --- Onboarding header ----------------------------------------------------- */
-.ob-skip{min-height:var(--ix-tap,44px)}
+.ob-skip{min-height:var(--ix-tap)}

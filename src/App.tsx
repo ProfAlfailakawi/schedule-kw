@@ -31,6 +31,7 @@ import {
   Ticket,
   MailCheck,
   Wifi,
+  GraduationCap,
   WifiOff,
   Wrench,
   X,
@@ -45,12 +46,16 @@ import type { AdminMode } from "./components/AdminUsers";
 import type { AcademicTab } from "./components/AcademicConsole";
 import { safeStorage } from "./utils/safeStorage";
 import { singleDepartmentOf } from "./utils/scopeContext";
+import { scopeShape } from "./utils/scopeShape";
+import { multiSiteDepartment } from "./utils/inboxAudience";
+import ScopeContextChip from "./components/ScopeContextChip";
 import { readSharedScope, setSharedScopeUser, writeSharedScope } from "./utils/sharedScope";
 import { warmStart } from "./utils/warmStart";
 import { setDemoSession } from "./utils/demoSession";
 import { formatScheduleTimeRange } from "./utils/scheduleTime";
 import { installClientTelemetry, setTelemetryOwner, telemetryBreadcrumb, telemetryGuide } from "./utils/clientTelemetry";
 import { AR, countOf, nounFor } from "./utils/arabicCount";
+import { isInvitationHash } from "./utils/invitationLink";
 
 function safeLazy<T extends React.ComponentType<any>>(factory: () => Promise<{ default: T }>) {
   return lazy(() =>
@@ -236,7 +241,7 @@ const reportViews: ReportMode[] = [
   "reportTime",
   "reportRoomTime",
 ];
-const adminViews: AdminMode[] = ["users", "permissions", "scopes", "audit", "locations", "backup"];
+const adminViews: AdminMode[] = ["users", "permissions", "scopes", "audit", "locations", "roomSetup", "sectionHours", "teachingLoad", "backup"];
 const academicViews: AcademicTab[] = ["terms", "colleges", "sections", "instructors", "courses"];
 /** Permission id that unlocks each academic catalogue. */
 const ACADEMIC_PERM: Record<AcademicTab, number> = {
@@ -300,6 +305,9 @@ const pathByView: Record<View, string> = {
   scopes: "/AdCollegeUserAssign/Index",
   audit: "/System/AuditLog",
   locations: "/System/Locations",
+  roomSetup: "/System/LocationSetup",
+  sectionHours: "/System/SectionHours",
+  teachingLoad: "/System/TeachingLoad",
   backup: "/System/Backup",
   scheduleChanges: "/FSchedule/Changes",
   instructorRequests: "/FSchedule/InstructorRequests",
@@ -310,17 +318,8 @@ const pathByView: Record<View, string> = {
   ads: "/System/Ads",
   about: "/Public/Aboutus",
 };
-/**
- * ── كل صفةٍ تفتح على شاشتها ─────────────────────────────────────────────────
- *
- * العميد على ميزان الأقسام، والتسجيل على الوارد، والقسم على جدوله. ولوحةُ
- * البداية لمن لا شاشةَ تخصّه.
- */
-function landingViewFor(role: { landing: string }): View {
-  if (role.landing === "changes") return "scheduleChanges";
-  if (role.landing === "balance") return "reportDepartment";
-  if (role.landing === "schedules") return "schedules";
-  if (role.landing === "registration") return "studentRegistration";
+/** بعد تسجيل الدخول يبدأ كل مستخدم من لوحة التحكم، مهما كانت صفته. */
+function landingViewFor(): View {
   return "dashboard";
 }
 
@@ -599,7 +598,7 @@ export default function App() {
   /* ── صفات البيئة التجريبية ─────────────────────────────────────────────────
    * قائمةُ الصفات التي يبدّل بينها شريط الديمو، والصفةُ الحاضرة الآن. تصل من
    * الخادم مع حمولة الجلسة، وتغيب تماماً خارج البيئة التجريبية. */
-  const [demoInfo, setDemoInfo] = useState<{ roles: Array<{ role: string; label: string }>; activeRole: string } | null>(null);
+  const [demoInfo, setDemoInfo] = useState<{ roles: Array<{ role: string; label: string }>; activeRole: string; seedStatus: "preparing" | "ready" | "failed" } | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   /* ── البيئة التجريبية تفتح على نطاقٍ مختار ───────────────────────────────────
    * مديرُ التجربة يرى الكليات كلَّها فلا نطاقَ يُفترض له، فكانت شاشات الجدول
@@ -1103,6 +1102,10 @@ export default function App() {
      foot of the rail, where it belongs: a thing you glance at, not a place you
      navigate to. */
   const [journeyOpen, setJourneyOpen] = useState(false);
+  /* «الرحلة» من مساري (/?journey=1&back=/me): تُفتح فوق التطبيق نفسه حين يكون الزائر داخلاً (حساب العرض مثلاً)، لا في شاشة الدخول وحدها. */
+  const [journeyFromMasari, setJourneyFromMasari] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("journey") === "1");
+  /* التطبيق يعيد كتابة العنوان عند الإقلاع فيضيع ?back=: يُلتقط مرةً عند أول رسم. */
+  const [journeyBack] = useState(() => (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("back") : null));
   /* The rail starts present on a desk and folded on a phone; after that its
      state is the reader's, on every width alike. */
   const [sidebarOpen, setSidebarOpen] = useState(
@@ -1279,6 +1282,14 @@ export default function App() {
         : health === "database-down" ? "الخدمة غير متاحة · متوقفة مؤقتاً"
           : "لا يوجد اتصال بالإنترنت";
   useEffect(() => {
+    /* A credential invite is an intentional sign-in handoff, even when this
+       browser still has another account's session. Let Login consume the
+       fragment before restoring that session; the fragment never reaches the
+       server and Login removes it from the address bar after reading it. */
+    if (isInvitationHash(window.location.hash)) {
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
         const res = await fetch("/api/auth/me"),
@@ -1311,26 +1322,13 @@ export default function App() {
           setScopes(Array.isArray(data.scopes) ? data.scopes : []);
           const restoredRole: SessionRole = data.role ? { ...DEFAULT_SESSION_ROLE, ...data.role } : DEFAULT_SESSION_ROLE;
           setSessionRole(restoredRole);
-          /**
-           * ── الشاشة الافتتاحية تصمد أمام إعادة التحميل ───────────────────
-           *
-           * كانت تُطبَّق عند تسجيل الدخول وحده. وأكثرُ ما يفعله الناس ليس
-           * تسجيلَ دخول: هو فتحُ صفحةٍ محفوظة، أو ضغطُ زرّ التحديث. فكان
-           * العميد يُوضع على شاشته مرّةً في اليوم، ويُعاد إلى لوحةٍ ليست له
-           * في كل مرّةٍ بعدها.
-           *
-           * والقيد مقصود: من فتح عنواناً بعينه أراده، فلا يُنقل عنه. وإنما
-           * يُوجَّه من وصل إلى الجذر بلا وجهة.
-           */
+          /* اترك الرابط المباشر الذي أعاد المستخدم إليه، واجعل الجذر يطابق
+             الشاشة الافتراضية: لوحة التحكم. */
           if (!viewByPath.has(window.location.pathname.toLowerCase())) {
-            const landing = landingViewFor(restoredRole);
-            if (landing !== "dashboard") {
-              setActiveView(landing);
-              window.history.replaceState({}, "", pathByView[landing] || pathByView.dashboard);
-            }
+            window.history.replaceState({}, "", pathByView.dashboard);
           }
           setDataMode(data.data || null);
-          setDemoInfo(data.demo && Array.isArray(data.demo.roles) ? { roles: data.demo.roles, activeRole: String(data.demo.activeRole || "admin") } : null);
+          setDemoInfo(data.demo && Array.isArray(data.demo.roles) ? { roles: data.demo.roles, activeRole: String(data.demo.activeRole || "admin"), seedStatus: data.demo.seedStatus || "ready" } : null);
         }
       } catch {
         setHealth(navigator.onLine ? "reconnecting" : "offline");
@@ -1505,6 +1503,16 @@ export default function App() {
     [permissions],
   );
   const isPowerAdmin = Boolean(user?.IsAdminUser || user?.IsRootAdmin);
+  /* شارةُ السياق لحساب القسم (scopeShape): الكلية والقسم مخفيّان في الشاشات، فيُقال له أين يعمل في رأسها. */
+  const scopeContext = (() => {
+    const shape = scopeShape(scopes as any, isPowerAdmin);
+    if (shape === "single") return { department: String(scopes[0]?.AdSectionName || "") };
+    if (shape === "multiSite") {
+      const dept = multiSiteDepartment(scopes as any);
+      return dept ? { department: dept.name } : null;
+    }
+    return null;
+  })();
   const planReviewAccess = Boolean(user && (user.IsAdminUser || user.IsRootAdmin || ["committeeChair", "departmentHead", "standard"].includes(sessionRole.id)) && (hasPerm(7) || hasPerm(14)));
   const planReviewVisible = planReviewAccess && (Boolean(user?.IsAdminUser || user?.IsRootAdmin) || planReviewCount > 0);
 
@@ -1592,7 +1600,7 @@ export default function App() {
     permissions: number[];
     scopes: any[];
     data?: { mode: string; real: boolean };
-    demo?: { roles?: Array<{ role: string; label: string }>; activeRole?: string };
+    demo?: { roles?: Array<{ role: string; label: string }>; activeRole?: string; seedStatus?: "preparing" | "ready" | "failed" };
   }) => {
     setUser(data.user);
     try { localStorage.setItem("schedule-last-user", String(data.user?.SystemUserId || 0)); } catch { /* private mode */ }
@@ -1600,9 +1608,9 @@ export default function App() {
     setScopes(data.scopes || []);
     const role: SessionRole = data.role ? { ...DEFAULT_SESSION_ROLE, ...data.role } : DEFAULT_SESSION_ROLE;
     setSessionRole(role);
-    setDemoInfo(data.demo && Array.isArray(data.demo.roles) ? { roles: data.demo.roles, activeRole: String(data.demo.activeRole || "admin") } : null);
+    setDemoInfo(data.demo && Array.isArray(data.demo.roles) ? { roles: data.demo.roles, activeRole: String(data.demo.activeRole || "admin"), seedStatus: data.demo.seedStatus || "preparing" } : null);
     setDataMode(data.data || null);
-    const landingView = landingViewFor(role);
+    const landingView = landingViewFor();
     setActiveView(landingView);
     window.history.replaceState({}, "", pathByView[landingView] || pathByView.dashboard);
   };
@@ -1643,6 +1651,30 @@ export default function App() {
     setEntityFavorites(safeStorage.json(`schedule-entity-favorites-${user.SystemUserId}`, []));
     if (!onboardingSeen(key => safeStorage.get(key), user.SystemUserId, sessionRole.id)) setOnboardingStep(0);
   }, [user?.SystemUserId, sessionRole.id]);
+  useEffect(() => {
+    if (!user?.IsDemo || demoInfo?.seedStatus !== "preparing") return;
+    let active = true;
+    let timer: number | undefined;
+    const checkSeed = async () => {
+      try {
+        const response = await fetch("/api/demo/seed-status", { cache: "no-store" });
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 404) {
+            setDemoInfo(current => current ? { ...current, seedStatus: "failed" } : current);
+            if (timer !== undefined) window.clearInterval(timer);
+          }
+          return;
+        }
+        const result = await response.json();
+        if (!active || !["ready", "failed"].includes(result.status)) return;
+        setDemoInfo(current => current ? { ...current, seedStatus: result.status } : current);
+        if (timer !== undefined) window.clearInterval(timer);
+      } catch { /* A temporary network interruption leaves the next check scheduled. */ }
+    };
+    void checkSeed();
+    timer = window.setInterval(() => void checkSeed(), 2000);
+    return () => { active = false; if (timer !== undefined) window.clearInterval(timer); };
+  }, [user?.IsDemo, demoInfo?.seedStatus]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
@@ -1747,6 +1779,8 @@ export default function App() {
             tab={activeView}
             onTab={(next) => go(next)}
             hasPerm={hasAcademicPerm}
+            scopes={scopes}
+            isAdmin={isPowerAdmin}
           />
         ) : (
           unauthorized()
@@ -1987,6 +2021,18 @@ export default function App() {
         return isPowerAdmin && allowed.admin ? (
           <AdminUsers mode="locations" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin)} demoReadOnly={Boolean(user.IsDemo)} />
         ) : unauthorized();
+      case "roomSetup":
+        return user.IsRootAdmin && allowed.admin ? (
+          <AdminUsers mode="roomSetup" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
+        ) : unauthorized();
+      case "sectionHours":
+        return user.IsRootAdmin && allowed.admin ? (
+          <AdminUsers mode="sectionHours" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
+        ) : unauthorized();
+      case "teachingLoad":
+        return user.IsRootAdmin && allowed.admin ? (
+          <AdminUsers mode="teachingLoad" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
+        ) : unauthorized();
       case "backup":
         return user.IsRootAdmin ? (
           <AdminUsers mode="backup" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
@@ -2078,8 +2124,9 @@ export default function App() {
   // The academic console opens on the first catalogue this account can reach,
   // so a coordinator without "terms" still lands somewhere useful.
   const academicEntry = academicViews.find((view) => hasAcademicPerm(ACADEMIC_PERM[view]));
-  const canOpenAcademicCatalog = isPowerAdmin || ((sessionRole.id === "committeeChair" || sessionRole.id === "departmentHead")
-    && singleDepartmentOf(scopes, 0, false) !== null && (sessionRole.id !== "departmentHead" || hasPerm(ACADEMIC_PERM.courses)));
+  // «البيانات الأكاديمية» للإدارة الرئيسية وحدها. كانت تُفتح أيضاً لرئيس لجنة الجدول ولرئيس القسم
+  // ذي إذن المقررات، فتظهر في قائمة كل قسم دون حاجة؛ وقرار المالك ألا تُعرض إلا للإدارة.
+  const canOpenAcademicCatalog = isPowerAdmin;
   const viewLabels: Partial<Record<View, string>> = {
     dashboard: "لوحة العمل",
     schedules: "إدارة الجدول",
@@ -2257,6 +2304,14 @@ export default function App() {
       data-role={isPowerAdmin ? "admin" : "scheduler"}
       data-demo={user.IsDemo ? "true" : "false"}
     >
+      {journeyFromMasari ? (
+        <Suspense fallback={null}>
+          <ScheduleJourney onClose={() => {
+            if (journeyBack === "/me") { window.location.href = "/me"; return; }
+            setJourneyFromMasari(false);
+          }} />
+        </Suspense>
+      ) : null}
       <header className={`mobile-topbar no-print ${online ? "" : "offline"}`}>
         <button
           type="button"
@@ -2267,6 +2322,7 @@ export default function App() {
         >
           <Menu />
         </button>
+        <div className="mobile-brand-wrap">
         <button
           type="button"
           className="mobile-brand"
@@ -2276,6 +2332,8 @@ export default function App() {
         >
           SCHEDULE
         </button>
+        {scopeContext?.department ? <small className="mobile-scope">{scopeContext.department}</small> : null}
+        </div>
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
@@ -2315,7 +2373,7 @@ export default function App() {
             </span>
             <span>
               <strong>SCHEDULE</strong>
-              <small>نظام القرار الأكاديمي</small>
+              <small>{scopeContext?.department || "نظام القرار الأكاديمي"}</small>
             </span>
           </button>
           <button
@@ -2331,8 +2389,14 @@ export default function App() {
           </button>
         </div>
         {user.IsDemo ? (
-          <div className="demo-rail-chip" role="status" aria-label="بيئة تجريبية معزولة">
+          <div className="demo-rail-chip" aria-label="بيئة تجريبية معزولة">
             <FlaskConical aria-hidden="true" /><span>تجريبي</span><i aria-hidden="true" />
+            {demoInfo?.seedStatus === "preparing" ? <small className="demo-seed-status" role="status">يُجهَّز العرض</small> : null}
+            {demoInfo?.seedStatus === "failed" ? <small className="demo-seed-status demo-seed-status--error" role="status">بعض أمثلة العرض لم تكتمل</small> : null}
+            <a className="demo-student-link" href="/me/demo" target="_blank" rel="noopener" title="افتح «مساري» كما يراه طالب، ببياناتٍ افتراضية"
+              data-guide-ignore="رابطٌ خاصّ ببيئة Demo يفتح تجربة «مساري» للطالب في صندوقٍ معزول ببيانات وهمية">
+              <GraduationCap aria-hidden="true" /><span>جرّب كطالب</span>
+            </a>
             {demoInfo && demoInfo.roles.length ? (
               <label className="demo-role-switch" title="جرّب النظام بصفةٍ مختلفة">
                 <span className="demo-role-switch-label">الصفة</span>
@@ -2618,6 +2682,7 @@ export default function App() {
       ) : null}
       <main className="app-main">
         <div className="content-frame">
+          {scopeContext ? <ScopeContextChip department={scopeContext.department} /> : null}
           <Suspense fallback={<div className="view-loading" aria-busy="true"><span /><i /><i /><i /></div>}>{renderView()}</Suspense>
         </div>
       </main>

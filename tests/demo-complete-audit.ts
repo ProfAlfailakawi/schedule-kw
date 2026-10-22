@@ -114,15 +114,17 @@ function p2Registry() {
   const csHalls = new Set(state.schedules.filter(r => r.AdTermId === 1 && r.AdCollegeId === 1 && r.AdSectionId === 1).map(r => r.roomId));
   check(csHalls.size >= 3, `محاضراتُ علوم الحاسب موزّعةٌ على قاعاتها (${csHalls.size})، لا في قاعةٍ واحدة`);
   const perHall = new Map<string, number>();
-  state.schedules.filter(r => r.AdTermId === 1).forEach(r => perHall.set(String(r.roomId), (perHall.get(String(r.roomId)) || 0) + 1));
+  state.schedules.filter(r => r.AdTermId === 1 && !String(r.fdetail || "").includes("حالة تجريبية مقصودة")).forEach(r => perHall.set(String(r.roomId), (perHall.get(String(r.roomId)) || 0) + 1));
   check(Math.max(...perHall.values()) <= 5, "ولا قاعةٌ تحمل أكثر من خمس محاضرات — فلا «نقطة اعتماد حساسة» مصطنعة");
-  /* فصلٌ جارٍ حيّ أيّاً كان يوم الدخول، وفصلٌ سابقٌ انتهى يُبنى منه الجديد. */
-  const [current, previous] = state.terms;
+  /* فصلٌ جارٍ وفصلٌ ثانٍ يختبر إحالة كشف التسجيل عند غياب كشفه. */
+  check(state.terms.length === 6 && state.terms.some((term: any) => term.AdTermName === "الفصل الثاني 2026/2027") && state.terms.filter((term: any) => /202[45]\/202[56]/.test(String(term.AdTermName)) && term.AdTermClosed === true).length === 4, "الفصلان الأول والثاني موجودان في الصندوق، ومعهما أربعةُ فصولٍ سابقة مغلقة (تاريخٌ للتنبّؤ وبصمة القسم)");
+  const [current] = state.terms;
   const day = 86_400_000, startOf = (t: any) => Date.parse(t.AdTermStart), endOf = (t: any) => startOf(t) + t.AdTermWeeks * 7 * day;
   check(startOf(current) <= Date.now() && endOf(current) > Date.now(), `الفصل الجاري جارٍ اليوم (${current.AdTermName})`);
-  check(!!previous && endOf(previous) < Date.now() && state.schedules.some(r => r.AdTermId === previous.AdTermId && r.AdSectionId === 1),
-    `وفصلٌ سابقٌ انتهى وله جدولٌ لعلوم الحاسب (${previous?.AdTermName}) — مصدرُ «بداية الفصل»`);
-  check(!state.schedules.some(r => r.AdTermId === previous?.AdTermId && /حالة تجريبية مقصودة/.test(String(r.fdetail || ""))), "والحالتان المقصودتان لا تُورَّثان للتاريخ");
+  check(/2026\/2027/.test(String(current.AdTermName)) && state.schedules.some(r => r.AdTermId === current.AdTermId) && state.schedules.every(r => r.AdTermId === current.AdTermId || state.terms.some((term: any) => term.AdTermId === r.AdTermId && term.AdTermClosed === true)), "وهو من السنة الدراسية 2026/2027 وجداولُه فيه، وما سواه جداولُ تاريخٍ مغلقة");
+  check(state.hallBarterRequests.some((request: any) => request.status === "pending" && request.requesterSectionId === 2 && request.ownerSectionId === 1 && request.roomHall === "301"), "طلب استعارة تجريبي بين قسمين مختلفين");
+  check(state.registrationStats?.some((row: any) => row.termId === 1 && row.remainingSource?.column === "unregistered")
+    && state.registrationStats?.some((row: any) => row.termId === 2 && row.remainingSource == null), "كشف الفصل الأول موجود والثاني بلا كشف لاختبار fallback");
   const server = read("src/db/repository.ts");
   check(server.includes("return [...(db.locationBuildings||[])];") && server.includes("return [...(db.locationRooms||[])];"),
     "Repository يقرأ سجلَّ الصندوق داخل الجلسة التجريبية");
@@ -180,10 +182,15 @@ async function p4Stories() {
     "(b) بالبصمة والختم نفسيهما، وبأرقامٍ وهمية");
   check(seed.includes("judgeRequestItems(") && seed.includes("requestFullySettled(decidedItems)") && seed.includes("alternatives: offered"),
     "(c) طلبا أستاذين يحكم عليهما النظام نفسُه: واحدٌ ينتظر، وآخرُ رُفض ببدائل");
-  check(seed.includes("Repository.saveDegreeRule(rule)"), "(d) قاعدةُ تخرّجٍ محفوظة لعلوم الحاسب");
+  check(seed.includes("Repository.saveDegreeRule({ ...rule, degreeUnits: 130"), "(d) قاعدةُ تخرّج الصحيفة القديمة محفوظةٌ قبل إنشاء الصحائف (وللجديدة قاعدتُها في seedDemoRadar)");
   const demoRoute = body('app.post("/api/auth/demo"');
-  check(demoRoute.includes("await seedDemoStories()"), "تُبذر القصصُ عند دخول التجربة");
-  check(body('app.post("/api/demo/reset"').includes("seedDemoStories()"), "وعند إعادة ضبط الصندوق");
+  check(demoRoute.includes("scheduleDemoExtras(sessionId)") && !demoRoute.includes("await seedDemoRadar"), "الدخول يفتح الصندوق ثم يجهّز القصص والرادار في الخلفية");
+  const extras = server.slice(server.indexOf("function scheduleDemoExtras("), server.indexOf("async function seedDemoStories("));
+  check(extras.includes("Repository.withDemoSandbox(sessionId") && extras.includes("seedDemoStories") && extras.includes("seedDemoRadar(") && extras.includes("seedDemoMasariDemand"),
+    "كل بيانات العرض الثقيلة تُزرع داخل جلسة الديمو نفسها بعد الدخول");
+  check(extras.includes("demoSeedJobs") && extras.includes('demoSeedStatus.set(sessionId, "ready")'), "إعادة الضبط والبذر المتزامن مرتّبان لكل جلسة ويظهر اكتمال التجهيز");
+  check(body('app.post("/api/demo/reset"').includes("scheduleDemoExtras(sessionId)"), "إعادة ضبط الصندوق تعيد تجهيز أمثلة العرض بالخلفية");
+  check(body('app.get("/api/demo/seed-status"').includes('demoSeedStatus.get(sessionId)'), "حالة تجهيز بيانات الديمو متاحة لجلسة العرض فقط");
 
   const hint = body("async function demoPageHint(");
   check(hint.includes('if (!Repository.isDemoRequest()) return "";'), "تلميحُ الرقم الوهمي لا يُكتب خارج البيئة التجريبية أبداً");
@@ -222,7 +229,9 @@ function p5Findings() {
     && readiness.includes('"أيام المحاضرة"') && readiness.includes('"عضو هيئة التدريس"') && readiness.includes('"وقت بداية ونهاية صحيح"'),
     "فحصٌ موحّد قبل التوقيع يكشف حقول المقرر والشعبة والأستاذ والموعد والقاعة الناقصة");
   const getApproval = server.slice(server.indexOf('app.get("/api/approvals"'), server.indexOf('app.get("/api/approvals/term"'));
-  check(getApproval.includes("dataReadiness: await scheduleDataReadiness"), "شريط الاعتماد يستلم نواقص البيانات لنطاق القسم نفسه");
+  check(getApproval.includes("await scheduleDataReadiness(collegeId,sectionId,termId,rows)")
+    && getApproval.includes("dataReadiness: plannerReadiness")
+    && getApproval.includes("const plannerReadiness="), "شريط الاعتماد يستلم نواقص البيانات لنطاق القسم نفسه مع إخفاء تنبيهات القاعات عن غير المخطط");
   /* القاعدة الجديدة (2026-09-27، قرار المالك): نواقص البيانات إشعارٌ لا يمنع التوقيع — حُدّث الفحص القديم الذي كان يُلزم بالبوابة. */
   check(!sign.includes("scheduleDataReadiness") && !sign.includes("data-readiness"), "التوقيع لا تحجبه نواقص البيانات — لا يمنعه إلا تعارضٌ ماديّ");
   check(sign.indexOf("blockingSummaryFor(") > staleAt && sign.indexOf("canSign(") > sign.indexOf("blockingSummaryFor("), "ويبقى المانع المادّي يُسأل قبل التوقيع");

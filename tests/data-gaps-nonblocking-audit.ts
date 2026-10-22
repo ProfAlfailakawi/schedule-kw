@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { canSign, emptyApproval } from "../src/utils/approvalWorkflow";
 import { approvalBlockerSummary } from "../src/utils/scheduleBlockers";
 import { computeScheduleDataReadiness } from "../src/utils/scheduleDataReadiness";
+import { createDemoSandboxState } from "../src/db/demoSandbox";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 let passed = 0, failed = 0;
@@ -26,6 +27,30 @@ const row = (id: number, o: Record<string, unknown> = {}) => ({
 }) as any;
 const base = { courses: [course], instructorIds: new Set([7, 8]) };
 
+/* 0) ملاءمة القاعة مراجعة تخطيطية لا مانع اعتماد، والسعة المجهولة تبقى مجهولة. */
+{
+  const rows=[row(1,{SCode:"1"}),row(2,{SCode:"2",ftuesday:false,fwednesday:true})];
+  const configuredCourse={...course,MaxStudent:100,CourseRoomType:"مختبر حاسوب"};
+  const review=computeScheduleDataReadiness({courses:[configuredCourse],instructorIds:new Set([7]),rows,rooms:[{...room("f13",40),roomType:"تدريسية"}]});
+  check(review.roomFit.count===4&&review.roomFit.items.some(item=>item.kind==="capacity")&&review.roomFit.items.some(item=>item.kind==="room-type"),"يعرض تقدير التكدس واختلاف نوع القاعة للمخطط دون منع الجدول");
+  const alphabetical=computeScheduleDataReadiness({
+    courses:[{...course,AdCourseId:6,CourseCode:"212",CourseName:"ورشة انتاج",CourseRoomType:"مختبر"},{...course,AdCourseId:7,CourseCode:"112",CourseName:"التدريب الميداني",CourseRoomType:"مختبر"}],
+    instructorIds:new Set([7]),rows:[row(1,{AdCourseId:6}),row(2,{AdCourseId:7})],rooms:[{...room("f13",10),roomType:"تدريسية"}],
+  });
+  check(alphabetical.roomFit.items.map(item=>item.courseName).join("|")==="التدريب الميداني|التدريب الميداني|ورشة انتاج|ورشة انتاج","ملاحظات ملاءمة القاعات مرتبة أبجدياً باسم المقرر");
+  const unknown=computeScheduleDataReadiness({courses:[configuredCourse],instructorIds:new Set([7]),rows,rooms:[room("f13",null)]});
+  check(unknown.roomFit.unknownRoomCapacity===2&&!unknown.roomFit.items.some(item=>item.kind==="capacity"),"السعة غير المسجلة تُترك بلا حكم ولا تحذير زائف");
+}
+
+/* 0ب) الديمو يضم مشهداً جاهزاً لشرح فحص النوع والسعة في الجدول، بلا تفعيل في إدارة النظام. */
+{
+  const demo=createDemoSandboxState();
+  const rows=demo.schedules.filter(item=>Number(item.AdTermId)===1&&Number(item.AdSectionId)===1);
+  const review=computeScheduleDataReadiness({courses:demo.courses,instructorIds:new Set(demo.instructors.map(item=>Number(item.AdInstructorId))),rows,rooms:demo.locationRooms});
+  check(rows.some(item=>{const c=demo.courses.find(course=>Number(course.AdCourseId)===Number(item.AdCourseId));const r=demo.locationRooms.find(room=>room.id===item.roomId);return c?.CourseRoomType==="مختبر حاسوب"&&r?.roomType==="تدريسية";}),"الديمو يجهّز في الجدول مقرراً مختبرياً بقاعة تدريسية لشرح التنبيه الترويجي");
+  check(review.roomFit.items.some(item=>item.kind==="room-type")&&review.roomFit.items.some(item=>item.kind==="capacity"),"مشهد الديمو يعرض ملاحظتي النوع والتكدس للمخطط قبل الاعتماد");
+}
+
 /* 1) نواقص بلا تعارضٍ ماديّ: يُوقَّع. */
 {
   const rows = [row(1, { roomId: "f13" })];
@@ -35,6 +60,13 @@ const base = { courses: [course], instructorIds: new Set([7, 8]) };
   check(blockers.conflicts === 0, "ولا تعارضَ ماديّ فيه");
   const verdict = canSign(emptyApproval(1, 5, 20), "committee", { blockingConflicts: blockers.conflicts, blockingDuplicates: blockers.duplicates, rowCount: rows.length });
   check(verdict.ok === true, "نواقصُ البيانات وحدها لا تمنع التوقيع");
+}
+/* 1ب) «بانتظار تثبيت القاعة» (مبنى بلا قاعة مثبّتة) حالةٌ مقصودة لا بندٌ ناقص؛ وبلا مبنى تبقى ناقصة. */
+{
+  const pending = computeScheduleDataReadiness({ ...base, rows: [row(1, { roomId: "", buildingId: "b8", locationStatus: "PENDING_ROOM" })], rooms: [] });
+  check(!pending.items.some(i => i.kind === "location" || i.kind === "room"), "مبنى محدد + قاعة بانتظار التثبيت: لا ملاحظة");
+  const noBuilding = computeScheduleDataReadiness({ ...base, rows: [row(1, { roomId: "", buildingId: "", locationStatus: "PENDING_ROOM" })], rooms: [] });
+  check(noBuilding.items.some(i => i.kind === "location"), "بلا مبنى ولا قاعة: تبقى ملاحظة");
 }
 /* 2) تعارضٌ حقيقي: لا يُوقَّع. */
 {

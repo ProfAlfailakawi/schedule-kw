@@ -7,6 +7,9 @@
  * سجلّ المواقع ليست ناقصة.
  */
 import { SCHEDULE_DAYS, timeToMinutes } from "./scheduleIntelligence";
+import { isPendingRoom } from "./locationRegistry";
+import { AR, countOf } from "./arabicCount";
+import { sortByName } from "./sorting";
 
 export interface DataGapItem { kind: string; id: string; label: string; fields: string[] }
 export interface DataReadinessInput {
@@ -22,6 +25,10 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
   const courseById = new Map(courses.map(course => [Number(course.AdCourseId), course]));
   const roomById = new Map(registryRooms.map(room => [String(room.id), room]));
   const missing = new Map<string, DataGapItem>();
+  const sectionsByCourse=new Map<number,Set<string>>();
+  for(const row of scheduleRows){const id=Number(row.AdCourseId||0);if(!id)continue;const set=sectionsByCourse.get(id)||new Set<string>();set.add(String(row.SCode||row.id));sectionsByCourse.set(id,set);}
+  const fitIssues:Array<{kind:"capacity"|"room-type";scheduleId:string;label:string;room:string;detail:string;courseName:string}> = [];
+  let unknownRoomCapacity=0;
   for (const row of scheduleRows) {
     const courseId = Number(row.AdCourseId || 0), course = courseById.get(courseId);
     const label = `${course?.CourseCode || "موعد"} · ${course?.CourseName || row.AdCourseName || "مقرر"} · شعبة ${row.SCode || "—"}`;
@@ -46,13 +53,24 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
     if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) rowFields.push("وقت بداية ونهاية صحيح");
     if (rowFields.length) missing.set(`schedule:${row.id}`, { kind: "schedule", id: String(row.id), label, fields: rowFields });
     const roomId = String(row.roomId || "");
+    /* قاعدة الحفظ نفسها في الخادم: مبنى مطلوب، ثم قاعةٌ مثبّتة أو «بانتظار التثبيت» (حالةٌ مقصودة لا نقص). */
+    const hasBuilding = Boolean(String(row.buildingId || "").trim());
+    if (hasBuilding && isPendingRoom(row)) continue;
     if (!roomId) {
       missing.set(`location:${row.id}`, { kind: "location", id: String(row.id), label, fields: ["ربط الموعد بقاعة معتمدة"] });
     } else {
       const room = roomById.get(roomId);
       if (!room) missing.set(`room:${roomId}`, { kind: "room", id: roomId, label: `قاعة ${row.AdRoomHall || roomId}`, fields: ["تأكيد ربط القاعة في سجل المواقع"] });
+      else if(course){
+        const sectionCount=Math.max(1,sectionsByCourse.get(courseId)?.size||1);
+        const estimatedSeats=Number(course.MaxStudent)>0?Math.ceil(Number(course.MaxStudent)/sectionCount):0;
+        if(estimatedSeats>0&&Number(room.capacity)>0&&estimatedSeats>Number(room.capacity))fitIssues.push({kind:"capacity",scheduleId:String(row.id),label,room:`${row.AdRoomCode||room.buildingCode}/${row.AdRoomHall||room.canonicalCode}`,detail:`تقديريًا ${countOf(estimatedSeats,AR.seat)} مقابل سعة ${countOf(Number(room.capacity),AR.seat)}.`,courseName:String(course.CourseName||row.AdCourseName||"")});
+        else if(estimatedSeats>0&&!Number(room.capacity))unknownRoomCapacity++;
+        const requiredType=String(course.CourseRoomType||"").trim(),actualType=String(room.roomType||"").trim();
+        if(requiredType&&actualType&&requiredType!==actualType)fitIssues.push({kind:"room-type",scheduleId:String(row.id),label,room:`${row.AdRoomCode||room.buildingCode}/${row.AdRoomHall||room.canonicalCode}`,detail:`المقرر يفضّل ${requiredType} والقاعة من نوع ${actualType}.`,courseName:String(course.CourseName||row.AdCourseName||"")});
+      }
     }
   }
   const items = [...missing.values()];
-  return { ready: items.length === 0, count: items.length, items };
+  return { ready: items.length === 0, count: items.length, items, roomFit:{count:fitIssues.length,unknownRoomCapacity,items:sortByName(fitIssues, item => item.courseName).slice(0,40)} };
 }

@@ -37,7 +37,7 @@ export function weekKey(day: string): string {
 const nf = new Intl.NumberFormat("ar-KW-u-nu-latn");
 const pct = (n: number) => `${new Intl.NumberFormat("ar-KW-u-nu-latn", { maximumFractionDigits: 1 }).format(n)}٪`;
 
-export function weeklyMail(c: Pick<AdCampaign, "company" | "endDay">, w: WeeklyCompare, reportUrl: string): { subject: string; text: string } {
+export function weeklyMail(c: Pick<AdCampaign, "company" | "endDay"> & { coupon?: string }, w: WeeklyCompare, reportUrl: string): { subject: string; text: string } {
   const change = w.hasLastWeek && w.impressionsChange != null ? (w.impressionsChange > 0 ? ` (ارتفاع ${pct(w.impressionsChange)} عن الأسبوع الماضي)` : w.impressionsChange < 0 ? ` (انخفاض ${pct(Math.abs(w.impressionsChange))} عن الأسبوع الماضي)` : " (مثل الأسبوع الماضي)") : "";
   return {
     subject: `تقريرك الأسبوعي: حملة ${c.company}`,
@@ -47,6 +47,7 @@ export function weeklyMail(c: Pick<AdCampaign, "company" | "endDay">, w: WeeklyC
       `• الظهور المرئي: ${nf.format(w.thisWeek.impressions)}${change}`,
       `• النقرات الصحيحة: ${nf.format(w.thisWeek.clicks)}`,
       `• نسبة النقر: ${pct(w.thisWeek.ctr)}`, "",
+      ...(c.coupon ? ["اختيارياً: أخبرونا بعدد من استعمل كود الخصم لنرسم لكم التحويل (من صفحة التقرير).", ""] : []),
       `تقريركم الحي: ${reportUrl}`,
     ].join("\n"),
   };
@@ -60,6 +61,28 @@ export function renewalMail(c: Pick<AdCampaign, "company" | "endDay">, daysLeft:
       daysLeft > 0 ? `تنتهي حملة «${c.company}» بعد ${countOf(daysLeft, AR.day)}.` : daysLeft === 0 ? `تنتهي حملة «${c.company}» اليوم.` : `انتهت حملة «${c.company}» قبل ${countOf(-daysLeft, AR.day)}.`,
       "يسعدنا تثبيت مكانكم في الفصل القادم؛ نحجز لكم الموقع نفسه قبل أن يمتلئ. للتجديد تواصلوا مع إدارة البرنامج.", "",
       `نتائجكم الحية: ${reportUrl}`,
+    ].join("\n"),
+  };
+}
+
+/** المستلم: بريد المالك في AD_LEAD_NOTIFY_TO (سرّ بيئة)؛ فارغٌ أو غير صالح = لا بريد. */
+export function leadNotifyTo(env: NodeJS.ProcessEnv = process.env): string {
+  const v = cleanEmail(env.AD_LEAD_NOTIFY_TO);
+  return v || "";
+}
+
+/** رسالةُ المالك عند وصول طلب حملة جديد. نصٌّ بسيط، لا يخرج إلا إلى بريد المالك. */
+export function leadMail(l: { company: string; name: string; phone: string; email?: string; slotLabels: string[]; seasonLabel?: string; note?: string }): { subject: string; text: string } {
+  return {
+    subject: `طلب حملة جديدة: ${l.company}`,
+    text: [
+      "طلبٌ جديد من ملف الشراكة:", "",
+      `الشركة: ${l.company}`, `الاسم: ${l.name}`, `الجوّال: ${l.phone}`,
+      ...(l.email ? [`البريد: ${l.email}`] : []),
+      ...(l.slotLabels.length ? [`المواقع: ${l.slotLabels.join("، ")}`] : []),
+      ...(l.seasonLabel ? [`الموسم: ${l.seasonLabel}`] : []),
+      ...(l.note ? [`ملاحظة: ${l.note}`] : []),
+      "", "تجده في إدارة الإعلانات ← الطلبات.",
     ].join("\n"),
   };
 }

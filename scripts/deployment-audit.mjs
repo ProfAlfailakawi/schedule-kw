@@ -10,7 +10,7 @@ const errors = [];
 const warnings = [];
 
 if (!fs.existsSync(gzipPath)) errors.push("database/db.json.gz is missing");
-if (!fs.existsSync(plainPath)) warnings.push("database/db.json is absent from the editable workspace; AI Studio may show it as a deletion when replacing an existing project.");
+if (!fs.existsSync(plainPath)) warnings.push("database/db.json is absent from the editable workspace; it may appear as a deletion when replacing an existing project.");
 if (fs.existsSync(path.join(root, "node_modules"))) errors.push("node_modules must not be inside the upload ZIP");
 
 let ignore = "";
@@ -44,7 +44,7 @@ if (fs.existsSync(plainPath) && fs.existsSync(gzipPath)) {
 
 const size = (p) => fs.existsSync(p) ? fs.statSync(p).size : 0;
 console.log(JSON.stringify({
-  workspaceMode: "AI Studio merge-safe",
+  workspaceMode: "merge-safe",
   plainJsonBytes: size(plainPath),
   gzipBytes: size(gzipPath),
   distPreserved: fs.existsSync(path.join(root, "dist", "index.html")),

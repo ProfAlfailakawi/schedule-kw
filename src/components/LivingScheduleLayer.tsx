@@ -1,5 +1,7 @@
+import TermSelect from "./TermSelect";
 import IntelligenceScopeSwitch from "./IntelligenceScopeSwitch";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useScopedTerms } from "./useScopedTerms";
 import { TimeField } from "./TimeField";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import {
@@ -50,6 +52,7 @@ import { SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, SCHEDULE_SLOT_MINUTES }
 import { telemetryApi, telemetryBreadcrumb, telemetryError, telemetryTiming } from "../utils/clientTelemetry";
 import { sortByName } from "../utils/sorting";
 import { roomIdentityKey } from "../utils/locationRegistry";
+import { isAssignableInstructor } from "../utils/instructorStatus";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import MiniRing from "./MiniRing";
 
@@ -208,12 +211,14 @@ export default function LivingScheduleLayer({
     () => terms.find((term) => term.AdTermId === termId) || null,
     [terms, termId],
   );
+  /* الفصلُ المصدر: فصولٌ سابقة للقسم فيها بيانات فقط. */
+  const scopedSourceTerms = useScopedTerms<AdTerm>(terms, collegeId, sectionId, 0);
   const sourceTerms = useMemo(() => {
     const targetOrder = termChronology(targetTerm);
-    return [...terms]
+    return [...scopedSourceTerms]
       .filter((term) => term.AdTermId !== termId && termChronology(term) < targetOrder)
       .sort((a, b) => termChronology(b) - termChronology(a));
-  }, [terms, termId, targetTerm]);
+  }, [scopedSourceTerms, termId, targetTerm]);
   const contextQuery = () => {
     const p = new URLSearchParams();
     if (collegeId) p.set("collegeId", String(collegeId));
@@ -1089,9 +1094,9 @@ export default function LivingScheduleLayer({
                   <div className="genesis-controls">
                     <label>
                       <span>1 · الفصل المصدر</span>
-                      <select
+                      <TermSelect
                         value={sourceTerm}
-                        onChange={(e) => setSourceTerm(Number(e.target.value))}
+                        onValueChange={(id) => setSourceTerm(id)}
                         disabled={!sourceTerms.length}
                       >
                         {!sourceTerms.length ? <option value="">لا يوجد فصل سابق متاح</option> : null}
@@ -1100,7 +1105,7 @@ export default function LivingScheduleLayer({
                               {t.AdTermName}
                             </option>
                           ))}
-                      </select>
+                      </TermSelect>
                       {sourceTerm ? (
                         <output className="genesis-term-full" title={sourceTerms.find(t => t.AdTermId === sourceTerm)?.AdTermName || ""}>
                           {sourceTerms.find(t => t.AdTermId === sourceTerm)?.AdTermName || ""}
@@ -1196,7 +1201,7 @@ export default function LivingScheduleLayer({
                                     </tr>
                                     {flagged ? <tr className="genesis-row-reason"><td colSpan={8}><ShieldAlert /><strong>سبب المنع:</strong><span>{(genesis.rowIssues?.[String(row.id)] || [])[0] || "هذا الموعد مرتبط بمشكلة تمنع النشر."}</span></td></tr> : null}
                                     {editing ? <tr className="genesis-inline-editor"><td colSpan={8}><div>
-                                      <label><span>الأستاذ</span><select value={genesisEdit?.AdInstructorId || ""} onChange={e => setGenesisEdit((v:any)=>({...v,AdInstructorId:Number(e.target.value)||0}))}><option value="">اختر</option>{sortByName(instructors, i => i.AdInstructorName).map(i=><option key={i.AdInstructorId} value={i.AdInstructorId}>{i.AdInstructorName}</option>)}</select></label>
+                                      <label><span>الأستاذ</span><select value={genesisEdit?.AdInstructorId || ""} onChange={e => setGenesisEdit((v:any)=>({...v,AdInstructorId:Number(e.target.value)||0}))}><option value="">اختر</option>{Number(genesisEdit?.AdInstructorId || 0) && !isAssignableInstructor(instructors.find(i => Number(i.AdInstructorId) === Number(genesisEdit?.AdInstructorId))) ? <option value={genesisEdit.AdInstructorId} disabled>{instructors.find(i => Number(i.AdInstructorId) === Number(genesisEdit?.AdInstructorId))?.AdInstructorName || "أستاذ سابق"} · غير متاح للإسناد</option> : null}{sortByName(instructors.filter(isAssignableInstructor), i => i.AdInstructorName).map(i=><option key={i.AdInstructorId} value={i.AdInstructorId}>{i.AdInstructorName}</option>)}</select></label>
                                       <label><span>من</span><TimeField value={genesisEdit?.fstarttime || ""} onChange={e=>setGenesisEdit((v:any)=>({...v,fstarttime:e.target.value}))}/></label>
                                       <label><span>إلى</span><TimeField value={genesisEdit?.fendtime || ""} onChange={e=>setGenesisEdit((v:any)=>({...v,fendtime:e.target.value}))}/></label>
                                       <LocationPicker collegeId={collegeId} sectionId={sectionId} termId={termId} value={genesisEdit || {}} onChange={patch=>setGenesisEdit((v:any)=>({...v,...patch}))} showRaw />
