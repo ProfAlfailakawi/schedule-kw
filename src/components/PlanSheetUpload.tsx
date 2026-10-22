@@ -26,7 +26,7 @@ interface ReportRow {
   file: string; status: "ok" | "skipped" | "rejected" | "unreadable"; reason?: string; detail?: string;
   program?: string; programName?: string; year?: number; era?: "new" | "old";
   tracks?: number; sites?: number; sections?: string[]; plan?: string; created?: number; updated?: number; linked?: number;
-  nameFixes?: number; otherDepartments?: number; prereqLinked?: number; prereqPrinted?: number; renames?: unknown[]; unresolved?: string[]; addedOther?: number; differsOther?: string[]; noDepartment?: string[]; rollover?: boolean;
+  nameFixes?: number; otherDepartments?: number; prereqLinked?: number; prereqPrinted?: number; renames?: unknown[]; unresolved?: string[]; addedOther?: number; foreignNotAdded?: string[]; differsOther?: string[]; noDepartment?: string[]; rollover?: boolean;
   /** ردّ الخادم كاملاً للمرور الأول (للمراجعة)، ومدة الطلب بالمللي ثانية، ورمز HTTP، وعدد المحاولات. */
   server?: unknown; ms?: number; http?: number; attempts?: number;
   /** قسمٌ للصحيفة لا وجود له بالنظام (يُعرض إنشاؤه بموافقة المسؤول)، وأقسامٌ أُنشئت لها. */
@@ -39,7 +39,7 @@ const pick = (data: any): Partial<ReportRow> => ({
   nameFixes: typeof data.nameFixes === "number" ? data.nameFixes : Array.isArray(data.nameFixes) ? data.nameFixes.length : 0,
   otherDepartments: Number(data.otherDepartments || 0), prereqLinked: Number(data.prereqLinked || 0), prereqPrinted: Number(data.prereqPrinted || 0),
   renames: Array.isArray(data.renames) ? data.renames : [], unresolved: Array.isArray(data.unresolved) ? data.unresolved : [],
-  addedOther: Number(data.addedOther || 0), rollover: Boolean(data.rollover), createdSections: Array.isArray(data.createdSections) ? data.createdSections : [], differsOther: Array.isArray(data.differsOther) ? data.differsOther : [], noDepartment: Array.isArray(data.noDepartment) ? data.noDepartment : [],
+  addedOther: Number(data.addedOther || 0), foreignNotAdded: Array.isArray(data.foreignNotAdded) ? data.foreignNotAdded : [], rollover: Boolean(data.rollover), createdSections: Array.isArray(data.createdSections) ? data.createdSections : [], differsOther: Array.isArray(data.differsOther) ? data.differsOther : [], noDepartment: Array.isArray(data.noDepartment) ? data.noDepartment : [],
 });
 
 /** رموز الأقسام المطبوعة في الصحف وغير الموجودة بالنظام، بعدد مقرراتها (للتقرير النهائي). */
@@ -158,13 +158,8 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
       const ranked = [...bucket.values()].sort((a, b) => b.count - a.count);
       if (ranked.length > 1 && ranked[0].count === ranked[1].count) ambiguous.push(key); else winners.push({ key, name: ranked[0].name, units: ranked[0].units, hours: ranked[0].hours });
     }
-    let reconciled = 0;
-    if (winners.length) {
-      try {
-        const response = await fetch("/api/plan-review/sheet/reconcile", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ courses: winners }) });
-        if (response.ok) reconciled = Number((await response.json().catch(() => ({}))).updated || 0);
-      } catch { /* المرور الأول كفى */ }
-    }
+    /* تصحيح مقررات الأقسام الخدمية معطَّل مؤقتاً: يربطها بالقسم من رمزه، ورموز بعض الأقسام لا تطابق الصحائف. */
+    const reconciled = 0;
     setReconcile({ updated: reconciled, ambiguous: ambiguous.sort() });
     /* 4) مرورٌ ثانٍ على ما قُبل: مسبقٌ لمقرر قسمٍ رُفع بعده يُربط الآن */
     state.phase = "prereq"; state.done = 0; state.total = accepted.length; publish();

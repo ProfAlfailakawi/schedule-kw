@@ -170,17 +170,20 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
 
     /* المسبقات: مسبقٌ لمقررِ قسمٍ آخر لم يُرفع بعد يُعدّ ولا يضيع، ثم يُربط حين يوجد المقرر بإعادة الرفع */
     const english = fs.readFileSync("tests/fixtures/plans/graduation-2026/ba-0116.pdf");
+    const beforeEnglish = (() => { const map = new Map<number, number>(); return map; })();
+    for (const row of await Repository.getCourses()) beforeEnglish.set(Number(row.AdSectionId), (beforeEnglish.get(Number(row.AdSectionId)) || 0) + 1);
     const firstEnglish = await upload("root", 51, english);
-    check(firstEnglish.status === 200 && firstEnglish.json.unlinked === 0 && firstEnglish.json.unresolved.length === 0 && firstEnglish.json.prereqLinked === firstEnglish.json.prereqPrinted, "مقررات الأقسام الأخرى المطبوعة تُضاف فتُربط مسبقاتها", firstEnglish.json);
+    const perSection = (rows: Array<{ AdSectionId: number }>) => { const map = new Map<number, number>(); for (const row of rows) map.set(Number(row.AdSectionId), (map.get(Number(row.AdSectionId)) || 0) + 1); return map; };
+    check(firstEnglish.status === 200 && firstEnglish.json.addedOther === 0 && firstEnglish.json.unlinked === 2 && firstEnglish.json.unresolved.length === 2, "مقررات الأقسام الأخرى لا تُضاف تلقائياً: مسبقاتها تُعدّ ولا تُربط", firstEnglish.json);
+    check(Array.isArray(firstEnglish.json.foreignNotAdded) && firstEnglish.json.foreignNotAdded.length > 0, "رموز الأقسام الأخرى المطبوعة تُذكر في التقرير ولا يُكتب فيها شيء", firstEnglish.json.foreignNotAdded);
+    const afterEnglish = perSection(await Repository.getCourses() as any);
+    check([...afterEnglish].every(([sectionId, count]) => [51].includes(sectionId) || count === (beforeEnglish.get(sectionId) || 0)), "لم يُكتب مقررٌ في قسمٍ غير قسم الصحيفة (وحدة الكهرباء لم تتلقَّ مقررات أصول التربية)", [...afterEnglish]);
+    await Repository.createCourse(1, 52, "322", "مقرر المناهج", 3, 3, 0, false);
+    await Repository.createCourse(1, 53, "425", "مقرر آخر", 3, 3, 0, false);
     const depA = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 52 && String(row.CourseCode) === "322");
     const depB = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 53 && String(row.CourseCode) === "425");
-    check(Boolean(depA && depB) && firstEnglish.json.addedOther > 0, "مقرر القسم الخدمي الناقص أُضيف إلى قسمه من الصحيفة", [depA, depB, firstEnglish.json.addedOther]);
     const secondEnglish = await upload("root", 51, english);
-    check(secondEnglish.status === 200 && secondEnglish.json.addedOther === 0 && secondEnglish.json.unlinked === 0 && secondEnglish.json.prereqLinked === secondEnglish.json.prereqPrinted, "الرفع المتكرر لا يُكرّر المضاف", secondEnglish.json);
-    await Repository.updateCourse(depA!.AdCourseId, depA!.AdCollegeId, depA!.AdSectionId, depA!.CourseCode, "اسم خطأ", 1, 1, 40);
-    const fixedElsewhere = await upload("root", 51, english);
-    const depAfter = (await Repository.getCourses()).find(row => Number(row.AdCourseId) === Number(depA!.AdCourseId))!;
-    check(fixedElsewhere.json.differsOther.length === 1 && depAfter.CourseName === "اسم خطأ" && depAfter.MaxStudent === 40, "مقرر قسمٍ آخر قائم يخالف الصحيفة: لا يصحّحه غير صحيفة قسمه، ويُذكر الفرق في التقرير", [fixedElsewhere.json.differsOther, depAfter]);
+    check(secondEnglish.status === 200 && secondEnglish.json.unlinked === 0 && secondEnglish.json.prereqLinked === secondEnglish.json.prereqPrinted, "بعد وجود المقررين (أضافهما المسؤول): كل المسبقات تُربط", secondEnglish.json);
     const englishDraft = (await Repository.listRuleDrafts()).find(row => row.planId === secondEnglish.json.planId);
     const needy = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 51 && String(row.CourseCode) === "454");
     const rule = englishDraft?.rules.find(item => item.courseId === Number(needy?.AdCourseId));
@@ -214,14 +217,10 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const restored = await call("root", "POST", "/api/plan-review/previous-plans", { action: "restore", sectionIds: [21] });
     check(restored.json.changed === 1 && (await Repository.getCurriculumPlans(21)).some(plan => plan.status === "transition") && (await Repository.getOperationalCourseIds(21)).size === operationalBefore.size && (await call("root", "GET", "/api/plan-review/previous-ended?sectionId=21")).json.ended === false, "«أعد السابقة» تتراجع كلياً", restored.json);
 
-    /* أقسامٌ بلا صحائف: الأشيع من الصحائف الأخرى يصحّح مقرراتها، وما في صحيفةٍ فعّالة لا يُمسّ */
+    /* تصحيح مقررات الأقسام الأخرى معطَّل حتى تُؤكَّد رموز الأقسام: المسار يرفض ولا يكتب */
     const reconcileCall = (who: string, courses: unknown[]) => call(who, "POST", "/api/plan-review/sheet/reconcile", { courses });
-    const c105Before = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 21 && row.CourseCode === "105")!;
-    const reconciled = await reconcileCall("root", [{ key: "0121322", name: depA!.CourseName, units: depA!.CourseCredit, hours: depA!.CourseHours }, { key: "0109105", name: "اسم آخر", units: 9, hours: 9 }]);
-    const depBack = (await Repository.getCourses()).find(row => Number(row.AdCourseId) === Number(depA!.AdCourseId))!, c105After = (await Repository.getCourses()).find(row => row.AdCourseId === c105Before.AdCourseId)!;
-    check(reconciled.json.updated === 1 && depBack.CourseName === depA!.CourseName && depBack.CourseCredit === depA!.CourseCredit && depBack.CourseHours === depA!.CourseHours && depBack.MaxStudent === 40, "قسمٌ بلا صحيفة: مقرره يُصحَّح بالأشيع والسعة كما هي", [reconciled.json, depBack]);
-    check(c105After.CourseName === c105Before.CourseName && c105After.CourseCredit === c105Before.CourseCredit, "مقررٌ في صحيفة فعّالة (قسمٌ له صحيفة) لا يُمسّه التجميع");
-    check((await reconcileCall("other", [])).status === 403, "التجميع للحساب الرئيسي وحده");
+    const coursesBeforeReconcile = JSON.stringify(await Repository.getCourses());
+    check((await reconcileCall("root", [{ key: "0121322", name: "اسم", units: 1, hours: 1 }])).status === 409 && (await reconcileCall("other", [])).status === 403 && JSON.stringify(await Repository.getCourses()) === coursesBeforeReconcile, "تصحيح مقررات الأقسام الأخرى معطَّل: لا يكتب");
     const scanEnglish = await fetch(`${base}/api/plan-review/sheet/scan`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": "root" }, body: english }).then(res => res.json()) as any;
     check(Array.isArray(scanEnglish.others) && scanEnglish.others.length > 5 && scanEnglish.others.every((item: any[]) => item.length === 4 && /^\d{7}$/.test(String(item[0]))), "قراءة الترويسة تعيد مقررات الأقسام الأخرى للتجميع", scanEnglish.others?.slice(0, 2));
 
