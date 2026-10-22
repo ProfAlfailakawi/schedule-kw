@@ -265,6 +265,16 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     check(madeFrench.status === 200 && madeFrench.json.createdSections.length === frenchSections.length && frenchSections.length >= 1 && frenchSections.every(row => /الفرنسية/.test(String(row.AdSectionName))) && (await Repository.getCourses()).some(row => frenchSections.some(sec => sec.AdSectionId === row.AdSectionId)), "بموافقة المسؤول: يُنشأ القسم باسمه ورمزه من الصحيفة وتدخل مقرراته", madeFrench.json.createdSections);
     const againFrench = await importAuto("root", "?createMissing=1");
     check(againFrench.status === 200 && againFrench.json.createdSections.length === 0 && (await Repository.getSections()).filter(row => String(row.AdSectionCode) === "40").length === frenchSections.length, "الرفع المتكرر لا ينشئ قسماً ثانياً");
+    {
+      const users = ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted);
+      const owned = users.filter(row => frenchSections.some(sec => (row.Name || "").endsWith(String(sec.AdSectionName))));
+      const roles = new Set(owned.map(row => row.Role));
+      check(owned.length === frenchSections.length * 3 && ["departmentHead", "committeeChair", "advisor"].every(role => roles.has(role)), "القسم الجديد يولد بثلاثة حسابات: رئيس قسم ورئيس جدول ومرشد", owned.map(row => [row.SystemUserLogin, row.Role, frenchSections.length]));
+      check(owned.every(row => row.IsActive === true && Repository.verifyPassword("12345678", row.SystemUserPass) === true), "الحسابات فعّالة");
+      const assigns = await Promise.all(owned.map(async row => ({ row, a: await Repository.getUserAssigns(row.SystemUserId) })));
+      check(assigns.every(({ a }) => a.length === 1 && Number(a[0].AdSectionId) > 0), "كل حساب مقيَّد بقسمه وكليته وحدهما");
+      check((madeFrench.json.createdSections as any[]).every(row => row.accounts?.length === 3 && row.accounts.every((acc: any) => acc.status === "created")) && againFrench.json.createdSections.length === 0 && users.length === ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted).length, "الإعادة لا تكرر الحسابات");
+    }
 
     /* قراءة الترويسة بلا كتابة (لتصفية الدفعة) */
     const scanOf = async (who: string, body: Buffer) => { const res = await fetch(`${base}/api/plan-review/sheet/scan`, { method: "POST", headers: { "content-type": "application/octet-stream", "x-who": who }, body }); return { status: res.status, json: await res.json().catch(() => ({})) as any }; };

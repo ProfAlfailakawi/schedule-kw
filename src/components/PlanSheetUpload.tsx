@@ -30,7 +30,7 @@ interface ReportRow {
   /** ردّ الخادم كاملاً للمرور الأول (للمراجعة)، ومدة الطلب بالمللي ثانية، ورمز HTTP، وعدد المحاولات. */
   server?: unknown; ms?: number; http?: number; attempts?: number;
   /** قسمٌ للصحيفة لا وجود له بالنظام (يُعرض إنشاؤه بموافقة المسؤول)، وأقسامٌ أُنشئت لها. */
-  missingDept?: { name: string; code: string }; createdSections?: Array<{ name: string; college: string }>;
+  missingDept?: { name: string; code: string }; createdSections?: Array<{ name: string; college: string; accounts?: Array<{ login: string; label: string; status: string }> }>;
 }
 /** ما يُحفظ في التقرير من ردّ الخادم لصحيفةٍ مقبولة. */
 const pick = (data: any): Partial<ReportRow> => ({

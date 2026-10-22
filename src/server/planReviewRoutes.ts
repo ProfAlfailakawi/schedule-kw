@@ -36,6 +36,7 @@ import { correctCourseName } from "../utils/courseNameCorrection";
 import { blockingWarnings, checkSheetScope, correctedNames, isNewSheet, sheetKey, sheetNameMatches, sheetOwnKey, sheetSectionCode, sheetSectionName, ownCourses, sheetToReference, storedCode } from "../utils/planSheetImport";
 import { parsePlanItems } from "../utils/planPdfParser";
 import { extractPlanItems, PLAN_PDF_MAX_BYTES } from "./planPdfExtract";
+import { provisionSectionUsers, type SectionAccountResult } from "./sectionUsers";
 
 export interface PlanReviewDeps {
   requireAuth: RequestHandler;
@@ -881,14 +882,16 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     let matched = matchIn(sections as any[]);
     /* قسمٌ للصحيفة لا وجود له: يُنشأ (بموافقة المسؤول، createMissing=1) في كل كلية من كلية الصحيفة، باسمه ورمزه منها.
        لا يُنشأ لقسمٍ إداري (علم النفس/علم التربية) ولا حيث للقسم نفسه صحيفةٌ برمزٍ مطابق. */
-    const createdSections: Array<{ name: string; college: string }> = [];
+    const createdSections: Array<{ name: string; college: string; accounts: SectionAccountResult[] }> = [];
     const missingKey = sheetKey(sheet), missingName = sheetSectionName(sheet, "قسم م");
     if (!matched.length && req.query.createMissing === "1" && /^\d{4}$/.test(missingKey) && missingName && ownCourses(sheet, missingKey).length) {
       for (const college of colleges as any[]) {
         if (academicDigits(college.AdCollegeCode).slice(0, 2) !== missingKey.slice(0, 2)) continue;
         if ((sections as any[]).some(row => Number(row.AdCollegeId) === Number(college.AdCollegeId) && authorityDepartmentCode(college.AdCollegeCode, row.AdSectionCode) === missingKey)) continue;
-        await Repository.createSection(Number(college.AdCollegeId), missingKey.slice(2), missingName);
-        createdSections.push({ name: missingName, college: String(college.AdCollegeName || "") });
+        const created = await Repository.createSection(Number(college.AdCollegeId), missingKey.slice(2), missingName);
+        /* القسم الجديد يولد بحساباته (رئيس قسم · رئيس جدول · مرشد) فعّالةً بكلمة السر الافتراضية؛ والعميد والمدير نطاقهم الكلية فيشمله. */
+        const accounts = await provisionSectionUsers(Repository, college, created);
+        createdSections.push({ name: missingName, college: String(college.AdCollegeName || ""), accounts });
       }
       if (createdSections.length) matched = matchIn(await Repository.getSections() as any[]);
     }
