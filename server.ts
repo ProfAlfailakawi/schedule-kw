@@ -4106,6 +4106,29 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
   }
 
   try {
+    /* ── نوعُ القاعة يسري على نسخ المقرر في كل أحرام القسم ──────────────────
+     * القسمُ الواحد له نسخةٌ من مقرره في كل حرم (الجهراء · الفحيحيل · بنات ·
+     * بنين)، ورمزُ المقرر لا يتكرر داخل القسم. فمن اختار «مختبر» لنسخةٍ لا
+     * يُطلب منه أن يكرّرها في البقية: تُطابَق بالرمز وباسم القسم الأكاديمي،
+     * ولا تُمسّ إلا نسخةٌ يملك المستخدمُ نطاقَها.
+     *
+     * وتُكتب النسخُ قبل المقرر المعدَّل لا بعده: إن تعثّرت كتابةٌ بقيت المصدرُ
+     * على نوعه القديم فتعيد المحاولةُ المزامنةَ كاملةً؛ لو كُتب المصدرُ أولاً
+     * لصار «لم يتغيّر» ولما أعادت المحاولةُ ما فات من النسخ. والكتابةُ
+     * متساويةُ الأثر عند التكرار. */
+    let roomTypeSynced = 0;
+    if (String(currentCourse.CourseRoomType || "").normalize("NFKC").trim() !== CourseRoomType) {
+      const [allCourses, allSections, allColleges] = await Promise.all([Repository.getCourses(), Repository.getSections(), Repository.getColleges()]);
+      const candidates = roomTypeSiblingIds({ ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId, CourseCode }, allCourses as any, allSections as any, allColleges as any);
+      const siblings: number[] = [];
+      for (const siblingId of candidates) {
+        const other = allCourses.find(course => Number(course.AdCourseId) === siblingId)!;
+        if (!req.user.IsAdminUser && !isScopeAllowed(req, Number(other.AdCollegeId), Number(other.AdSectionId))) continue;
+        if (!await committeeCatalogEditAllowed(req, Number(other.AdSectionId))) continue;
+        siblings.push(siblingId);
+      }
+      roomTypeSynced = await Repository.setCourseRoomTypeForIds(siblings, CourseRoomType);
+    }
     const updated = await Repository.updateCourse(
       id,
       collegeId,
@@ -4117,24 +4140,6 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
       MaxStudent!,
       CourseRoomType
     );
-    /* ── نوعُ القاعة يسري على نسخ المقرر في كل أحرام القسم ──────────────────
-     * القسمُ الواحد له نسخةٌ من مقرره في كل حرم (الجهراء · الفحيحيل · بنات ·
-     * بنين)، ورمزُ المقرر لا يتكرر داخل القسم. فمن اختار «مختبر» لنسخةٍ لا
-     * يُطلب منه أن يكرّرها في البقية: تُطابَق بالرمز وباسم القسم الأكاديمي،
-     * ولا تُمسّ إلا نسخةٌ يملك المستخدمُ نطاقَها. */
-    let roomTypeSynced = 0;
-    if (String(currentCourse.CourseRoomType || "").normalize("NFKC").trim() !== CourseRoomType) {
-      const [allCourses, allSections] = await Promise.all([Repository.getCourses(), Repository.getSections()]);
-      const candidates = roomTypeSiblingIds({ ...currentCourse, AdSectionId: sectionId, CourseCode }, allCourses as any, allSections as any, academicSectionNameMatches);
-      const siblings: number[] = [];
-      for (const siblingId of candidates) {
-        const other = allCourses.find(course => Number(course.AdCourseId) === siblingId)!;
-        if (!req.user.IsAdminUser && !isScopeAllowed(req, Number(other.AdCollegeId), Number(other.AdSectionId))) continue;
-        if (!await committeeCatalogEditAllowed(req, Number(other.AdSectionId))) continue;
-        siblings.push(siblingId);
-      }
-      roomTypeSynced = await Repository.setCourseRoomTypeForIds(siblings, CourseRoomType);
-    }
     res.json({ ...updated, roomTypeSynced });
   } catch (e: any) {
     res.status(404).json({ error: e.message });
