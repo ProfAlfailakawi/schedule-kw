@@ -34,7 +34,7 @@ export default function PreviousPlansPanel() {
       const response = await fetch("/api/plan-review/previous-plans", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, sectionIds: list.map(row => row.sectionId) }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) setNote(String(data.error || "تعذّر التنفيذ."));
-      else { setPicked(new Set()); setNote(`${action === "end" ? "انتهت السابقة" : "أُعيدت السابقة"}: ${countOf(Number(data.changed || 0), AR.department)}`); await load(); }
+      else { setPicked(new Set()); setNote(`${action === "end" ? "انتهت السابقة" : "أُعيدت السابقة"}: ${countOf(Number(data.changed || 0), AR.department)}`); await load(); /* شارات «صحيفة XXXX» تتبع ثنائية الصحائف: تُجلب من جديد */ window.dispatchEvent(new Event("schedule:plan-review-updated")); }
     } finally { setBusy(false); }
   };
 

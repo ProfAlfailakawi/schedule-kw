@@ -50,6 +50,8 @@ import { DnaRing } from "./dna";
 import MeetingSlots from "./MeetingSlots";
 import { instructorCourseLoad } from "../utils/instructorCourseLoad";
 import { ApprovalDnaStepper, DeadlineDnaRing } from "./dna/scheduleDna";
+import PlanBadge from "./PlanBadge";
+import { usePlanBadges } from "../utils/planBadges";
 
 /**
  * One question, seven lenses.
@@ -446,6 +448,7 @@ function QuerySkeleton() {
 const QUERY_PHONE_HEAD = 6;
 
 export default function Reports({ mode, user, scopes = [], roleId }: Props) {
+  const planBadges = usePlanBadges();
   const prefKey = `schedule-unified-prefs-${user?.SystemUserId || 0}`;
   const scopeOwner = Number(user?.SystemUserId || 0);
   let saved: any = {};
@@ -1938,7 +1941,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         aria-label={`تفاصيل ${pickedCourse?.CourseName || selectedResult.AdCourseName || "الموعد"}`}
       >
         <header>
-          <div><small>تفاصيل الموعد</small><div className="course-room-type-line"><strong>{pickedCourse?.CourseName || selectedResult.AdCourseName || "—"}</strong><CourseRoomTypeBadge type={pickedCourse?.CourseRoomType} compact/></div></div>
+          <div><small>تفاصيل الموعد</small><div className="course-room-type-line"><strong>{pickedCourse?.CourseName || selectedResult.AdCourseName || "—"}<PlanBadge courseId={selectedResult.AdCourseId} /></strong><CourseRoomTypeBadge type={pickedCourse?.CourseRoomType} compact/></div></div>
           <span className="occupancy-pick-count">الشعبة {selectedResult.SCode || "—"}</span>
           <button type="button" onClick={() => setSelectedResultId(null)} aria-label="إغلاق التفاصيل" title="إغلاق"><X aria-hidden="true" /></button>
         </header>
@@ -2158,7 +2161,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 value={filters.courseId || ""}
                 onChange={picked => set("courseId", Number(picked) || 0)}
                 title={selectedCourse ? cleanOptionText(selectedCourse.CourseName) : "كل المقررات"}
-                options={[{ value: "", label: "الكل" }, ...courseOptions.map(row => ({ value: row.AdCourseId, label: cleanOptionText(row.CourseName), hint: row.CourseCode || undefined, keywords: String(row.CourseCode || "") }))]}
+                options={[{ value: "", label: "الكل" }, ...courseOptions.map(row => ({ value: row.AdCourseId, label: cleanOptionText(row.CourseName), badge: planBadges[Number(row.AdCourseId)] || undefined, hint: row.CourseCode || undefined, keywords: String(row.CourseCode || "") }))]}
                 placeholder="الكل"
                 ariaLabel="المقرر"
                 searchPlaceholder="اكتب اسم المقرر أو رمزه"
@@ -2420,7 +2423,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 >
                   <span className="lens-index">{String(index + 1).padStart(2, "0")}</span>
                   <div className="lens-main">
-                    <div className="course-room-type-line"><strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName}</strong><CourseRoomTypeBadge type={course?.CourseRoomType} compact/></div>
+                    <div className="course-room-type-line"><strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName}<PlanBadge courseId={row.AdCourseId} /></strong><CourseRoomTypeBadge type={course?.CourseRoomType} compact/></div>
                     <div className="lens-tags">
                       <span className="code-chip">{row.CourseCodeSnapshot || course?.CourseCode || "—"}</span>
                       <span>{row.SCode}</span>
@@ -2477,7 +2480,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                     <article key={`${day.key}-${row.id}`}>
                       <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                       <div>
-                        <div className="course-room-type-line"><strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}</strong><CourseRoomTypeBadge type={courseById.get(row.AdCourseId)?.CourseRoomType} compact/></div>
+                        <div className="course-room-type-line"><strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<PlanBadge courseId={row.AdCourseId} /></strong><CourseRoomTypeBadge type={courseById.get(row.AdCourseId)?.CourseRoomType} compact/></div>
                         <span className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
                       </div>
                       <small>
@@ -2535,7 +2538,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                           <td key={cell.point} className={cell.rows.length ? "taken" : ""}>
                             {cell.rows.map(row => (
                               <span key={row.id} className="matrix-slot">
-                                <b>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}</b>
+                                <b>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<PlanBadge courseId={row.AdCourseId} /></b>
                                 <em className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "—"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</em>
                                 <i dir="ltr">{row.CourseCodeSnapshot || courseById.get(row.AdCourseId)?.CourseCode || "—"} · {row.SCode}</i>
                               </span>
@@ -2653,7 +2656,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                     <div className="occupancy-pick-rows">
                       {picked.map(row => (
                         <article key={row.id}>
-                          <strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}</strong>
+                          <strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<PlanBadge courseId={row.AdCourseId} /></strong>
                           <span className="report-instructor-with-badge"><span className="rib-name">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}</span>{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
                           <em>{dayText(row)}</em>
                           <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
@@ -2743,7 +2746,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                       {group.rows.map(row => (
                         <div key={`${row.AdCollegeId}-${row.id}`}>
                           <span className="code-chip">{row.CourseCodeSnapshot || courseById.get(row.AdCourseId)?.CourseCode || "—"}</span>
-                          <span>{courseById.get(row.AdCourseId)?.CourseName || row.AdCourseName}{row.SCode ? <small> · شعبة <bdi>{row.SCode}</bdi></small> : null}</span>
+                          <span>{courseById.get(row.AdCourseId)?.CourseName || row.AdCourseName}<PlanBadge courseId={row.AdCourseId} />{row.SCode ? <small> · شعبة <bdi>{row.SCode}</bdi></small> : null}</span>
                           <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                           <small>{dayText(row)} · {row.AdRoomCode || "—"}/{row.AdRoomHall || "—"}</small>
                           <small className="visiting-row-place">{visitingPlaceLabel(row.AdCollegeId, row.AdSectionId)}</small>

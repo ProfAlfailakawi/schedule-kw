@@ -143,6 +143,8 @@ import {
 } from "../utils/scheduleViews";
 import ScheduleTransfer from "./ScheduleTransfer";
 import SearchableSelect from "./SearchableSelect";
+import { usePlanBadges } from "../utils/planBadges";
+import PlanBadge from "./PlanBadge";
 import type { GapItem as SectionGapItem } from "../utils/sectionGap";
 import VisitingBadge from "./VisitingBadge";
 import { usePageAwake } from "../utils/pageAwake";
@@ -2439,6 +2441,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const mine = ordered.findIndex(term => Number(term.AdTermId) === Number(form.AdTermId));
     return at >= 0 && mine > at;
   }, [terms, form.AdTermId]);
+  const planBadges = usePlanBadges();
   const formSections = useMemo(
       () =>
         sortByName(sections.filter(
@@ -8336,7 +8339,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         <div>
                           <strong>
                             {c?.CourseCode || "—"} ·{" "}
-                            {r.AdCourseName || c?.CourseName || "مقرر"}
+                            {r.AdCourseName || c?.CourseName || "مقرر"}<PlanBadge courseId={r.AdCourseId} />
                           </strong>
                           <span>{i?.AdInstructorName || "بدون أستاذ"}{visitingIds.has(r.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
                           <small>
@@ -8632,7 +8635,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       setCourseName(String(name));
                       setForm((p) => ({ ...p, AdCourseId: 0 }));
                     }}
-                    options={courseNames.map((name) => ({ value: name, label: name }))}
+                    options={courseNames.map((name) => ({ value: name, label: name, badge: formCourses.filter((c) => c.CourseName === name).map((c) => planBadges[Number(c.AdCourseId)]).find(Boolean) || undefined }))}
                     searchPlaceholder="اكتب اسم المقرر"
                     required
                   />
@@ -8661,7 +8664,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         return next;
                       });
                     }}
-                    options={courseCodes.map((c) => ({ value: c.AdCourseId, label: String(c.CourseCode) }))}
+                    options={courseCodes.map((c) => ({ value: c.AdCourseId, label: String(c.CourseCode), badge: planBadges[Number(c.AdCourseId)] || undefined }))}
                     searchPlaceholder="اكتب الرمز"
                     required
                   />
@@ -10429,7 +10432,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         <span className={`code-chip${c?.CourseCode ? "" : " is-empty"}`}>
                           {c?.CourseCode || "—"}
                         </span>
-                        <strong>{s.AdCourseName || c?.CourseName || ""}</strong>
+                        <strong>{s.AdCourseName || c?.CourseName || ""}<PlanBadge courseId={s.AdCourseId} /></strong>
                         <CourseRoomTypeBadge type={c?.CourseRoomType} compact />
                         {liveNow.running.has(s.id) ? (
                           <span className="agenda-live-tag">جارية الآن</span>
@@ -11455,7 +11458,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         tabIndex={0}
                         onKeyDown={(e) => { if (e.key === "Enter") void openContext(r); }}
                       >
-                        <strong>{r.AdCourseName || c?.CourseName || code}</strong>
+                        <strong>{r.AdCourseName || c?.CourseName || code}<PlanBadge courseId={r.AdCourseId} /></strong>
                         <span>{i?.AdInstructorName || "بدون أستاذ"}{visitingIds.has(r.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
                         <em dir="ltr">{code} · {r.SCode}</em>
                         <i>{!days.some(day => Boolean((r as any)[day.key])) ? "بلا يوم" : "بلا وقت"}</i>
@@ -12017,7 +12020,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                                 <strong>
                                   {c?.CourseCode || r.AdCourseName}
                                 </strong>
-                                <span>{r.AdCourseName || c?.CourseName}</span>
+                                <span>{r.AdCourseName || c?.CourseName}<PlanBadge courseId={r.AdCourseId} /></span>
                                 <small dir="ltr">
                                   {formatScheduleTimeRange(r.fstarttime, r.fendtime)}
                                 </small>
@@ -12591,7 +12594,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <tr key={s.id}>
                 <td>{i + 1}</td>
                 <td className="print-wrap">
-                  {courseById.get(s.AdCourseId)?.CourseCode} — {s.AdCourseName}
+                  {courseById.get(s.AdCourseId)?.CourseCode} — {s.AdCourseName}<PlanBadge courseId={s.AdCourseId} />
                 </td>
                 <td className="print-ltr">{s.SCode}</td>
                 <td className="print-wrap">
@@ -12685,7 +12688,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <div>
                 <small>الجدول يفهم نفسه</small>
                 <h2>
-                  {context.selected.AdCourseName}
+                  {context.selected.AdCourseName}<PlanBadge courseId={context.selected.AdCourseId} />
                   <span className="context-section-label">شعبة <bdi>{context.selected.SCode}</bdi></span>
                 </h2>
                 <div className="context-appointment-meta">
@@ -12910,7 +12913,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               {context.related.professor.slice(0, 6).map((r: any) => (
                 <article key={r.id}>
                   <strong>
-                    {r.AdCourseName} · {r.SCode}
+                    {r.AdCourseName}<PlanBadge courseId={r.AdCourseId} /> · {r.SCode}
                   </strong>
                   <span>{arabicDays(r)}</span>
                   <small dir="ltr">

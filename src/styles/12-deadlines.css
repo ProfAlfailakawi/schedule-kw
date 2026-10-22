@@ -782,3 +782,6 @@
 .pr-col>.pr-level-head b,.pr-col>.pr-level-head small{line-height:1.35;overflow-wrap:anywhere}
 .pr-sheet-missing select{margin-inline-start:8px;min-height:36px;max-width:min(260px,100%);padding:5px 8px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);color:inherit}
 .pr-sheet-missing li{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+/* شارة الصحيفة على المقررات: صغيرةٌ جداً ونحيفة، لا تزاحم الاسم */
+.plan-badge{display:inline-block;margin-inline-start:6px;padding:0 5px;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:999px;color:color-mix(in srgb,var(--accent) 85%,var(--muted));background:transparent;font-size:9px;font-weight:500;line-height:14px;letter-spacing:0;white-space:nowrap;vertical-align:middle}
