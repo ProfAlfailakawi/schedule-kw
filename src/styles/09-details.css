@@ -2161,6 +2161,17 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
     width:100%;
     max-height:calc(100dvh - max(var(--s3),env(safe-area-inset-top)) - var(--dock-h) - env(safe-area-inset-bottom));
   }
+  /* The sheet scrolls inside itself, so its header (and the X) scrolled away
+     with the content and a long tab left no way to close it. Hold the header
+     at the top, one line of title, the X always in reach. */
+  .transfer-sheet>header{
+    position:sticky;inset-block-start:0;z-index:6;
+    align-items:center;padding:var(--s3) var(--s4);
+    background:var(--surface);border-bottom:1px solid var(--line);
+  }
+  .transfer-sheet>header>div{min-inline-size:0;flex:1}
+  .transfer-sheet>header h2{margin-top:0;font-size:var(--t-lg,1.05rem);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .transfer-sheet>header .drawer-close{position:static;flex:none;margin:0;inline-size:44px;block-size:44px;min-inline-size:44px}
 }
 
 /* The unsaved-suggestion sentence is the warning notice right below it: say it once. */
