@@ -261,7 +261,25 @@ body.km-lock{overflow:hidden}
 .km[data-pane="reg"] [data-pane]:not([data-pane="reg"]),.km[data-pane="progress"] [data-pane]:not([data-pane="progress"]){display:none}
 }
 @keyframes kslide{from{transform:translateX(-24px);opacity:0}to{transform:none;opacity:1}}
-@media (prefers-reduced-motion:reduce){.km-ring path,.kc,.kdot,.kd,.kbar,.km-conf i,.kl-h i u{transition:none;animation:none}}
+@media (prefers-reduced-motion:reduce){.km-ring path,.kc,.kdot,.kd,.kbar,.km-conf i,.kl-h i u{transition:none;animation:none}}/* لمسٌ مريح: الرسم كما هو، والمساحة القابلة للّمس تكبر بطبقةٍ شفافة (أو بارتفاعٍ أدنى حيث يقصّها شريطُ التمرير). */
+@media (pointer:coarse){
+.jrn,.kc-add,.chp,.link,.kl-h{position:relative}
+.jrn::after,.kc-add::after,.chp::after,.link::after,.kl-h::after{content:"";position:absolute}
+.jrn::after{inset:-6px}
+.kc-add::after{inset:-5px;border-radius:50%}
+.chp::after,.link::after{inset-block:-4px;inset-inline:0}
+.kl-h::after{inset-block:-6px;inset-inline:0}
+.km-f,.seg.sm2 button{min-block-size:40px}
+}
+/* هاتفٌ ضيّق (٣٢٠): رمزُ المقرر في خلية الأسبوع يلتفّ على سطرين بدل أن يُقصّ أوّلُه، وعنوانُ الخطة لا يترك «وحدة» وحدها، والإجماليّ لا ينكسر. */
+@media (max-width:360px){
+.wk-b{padding-inline:1px}
+.wk-b b{direction:ltr;unicode-bidi:isolate;text-align:center;overflow-wrap:anywhere;word-break:break-all;font-size:8px;letter-spacing:-.03em;line-height:1.2}
+.wk-b span{font-size:8.5px;overflow-wrap:anywhere}
+.tk-plan strong{text-wrap:balance}
+.row.between>.muted{min-inline-size:0}
+.row.between>.u{flex:none;white-space:nowrap}
+}
 `;
 
 export const STUDENT_MAP_SCRIPT = STUDENT_MAP_CORE + String.raw`

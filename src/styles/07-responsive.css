@@ -1665,6 +1665,22 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overscroll-behavior:non
   .smart-guide-fab:not(.icon-only)::after{content:"";position:absolute;inset:-4px -8px -4px 0} /* physical: the tab sits on the screen's left edge in this RTL page */
 }
 
+/* Mid-size controls (21-34px tall) on phones and tablets: transparent vertical hit growth, drawing unchanged.
+   Request reminders and proposal pills, the registrar's case chips and "details" toggles, the impact button,
+   the teaching-load notice chip, the people toggle in the reports and the summary lines of the registration radar. */
+@media (pointer:coarse) and (max-width:1024px){
+  .request-remind,.request-propose,.request-thread-proposal,.student-case-more-toggle,.ci-btn,.changes-chip,.tl-notice-chip,
+  .course-load-person-toggle,.sm-how>summary,.sm-provenance>summary{position:relative}
+  .request-remind::after,.request-propose::after,.request-thread-proposal::after,.student-case-more-toggle::after,.ci-btn::after,
+  .changes-chip::after,.tl-notice-chip::after,.course-load-person-toggle::after,.sm-how>summary::after,.sm-provenance>summary::after{
+    content:"";position:absolute;inset-block:-6px;inset-inline:0;
+  }
+  .course-load-person-toggle::after,.sm-how>summary::after,.sm-provenance>summary::after{inset-block:-9px}
+  .changes-term-picker.changes-term-picker select{min-block-size:40px}
+  /* Plan-review note chips sit 6px apart, so they grow in height instead of with an overlay. */
+  .pr-ib-group>ul>li>button{min-block-size:40px}
+}
+
 /* ── Guide panel on phones: legibility floor (visual only) ───────────────────
    The phone layout of the guide set its captions and buttons at 8–9.5px. Nothing
    here moves, hides or reorders anything: it only lifts the type to a readable

@@ -928,6 +928,11 @@ html[data-schedule-workspace="focus"] .quick-create{z-index:2600}
 .ob-dots.is-playing button.on::after{animation:ob-dot-fill var(--hold,4s) linear both}
 @keyframes ob-dot-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .ob-dots button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+/* لمسٌ مريح للنقاط (٢٠px ارتفاعاً): المساحةُ تكبر عمودياً بحشوٍ يقابله هامشٌ سالب، فلا يتغيّر رسمٌ ولا تخطيط. */
+@media (pointer:coarse){
+  .ob-dots button{height:44px;padding:20px 0;margin-block:-12px}
+  .ob-dots button.on::after{inset:20px 0}
+}
 @media (prefers-reduced-motion:reduce){
   .ob-dots.is-playing button.on::after{animation:none;transform:scaleX(1)}
 }
@@ -946,11 +951,17 @@ html[data-schedule-workspace="focus"] .quick-create{z-index:2600}
   .ob-chip{padding:2px 4px}
   .ob-chip>*{min-width:0}
   .ob-chip span{white-space:normal;overflow-wrap:anywhere;line-height:1.25}
+  /* A long word in a 27px chip broke out of the box and its first letters were cut. */
+  .ob-chip b{overflow-wrap:break-word;line-height:1.3}
   .ob-chip i{display:none}
   .ob-badge{top:-22px}
   .ob-trace,.ob-window{top:calc(var(--row) * var(--ob-row));height:calc(var(--span) * var(--ob-row) - 4px)}
   .ob-phone{width:48px;height:80px}
   .ob-foot{justify-content:center}
+}
+@media (max-width:400px){
+  .ob-chip{padding-inline:2px}
+  .ob-chip b{font-size:9px}
 }
 
 /* --------------------------------------------------------------------------
@@ -2109,3 +2120,12 @@ html[data-dialog-open] .notify-toast{visibility:hidden}
 .mobile-scope{display:none}
 html[data-schedule-workspace="focus"] .scope-context,
 html[data-schedule-workspace="presentation"] .scope-context{display:none}
+
+/* Phones: the launcher badge keeps only the number. The word «جديد» lives in the
+   button's aria-label/title, so the chip no longer stretches over the cards under it. */
+@media (max-width:760px){
+  .smart-guide-fab-new-word{display:none}
+  .smart-guide-fab-new,
+  .smart-guide-fab.icon-only .smart-guide-fab-new{min-width:24px!important;justify-content:center}
+  .smart-guide-fab.icon-only .smart-guide-fab-new{inset-inline-start:-4px!important}
+}
