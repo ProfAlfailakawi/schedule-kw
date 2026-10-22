@@ -734,7 +734,17 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       const sid = Number(section.AdSectionId);
       const byIdentity = new Map<string, AdCourse[]>();
       for (const row of (courses as AdCourse[]).filter(item => Number(item.AdSectionId) === sid)) { const key = identityOf(row); if (key) byIdentity.set(key, [...(byIdentity.get(key) || []), row]); }
-      const candidates = [...byIdentity].filter(([, rows]) => rows.length > 1);
+      /* المكرَّر: مقرران بالهوية نفسها واسمٍ واحد، أو (حين يكون في الهوية مقرران فقط) رمزان مكتوبان بصيغتين (105 و0109105) ولو اختلف الاسم قليلاً.
+         رمزٌ واحد لمقرراتٍ بأسماءٍ مختلفة (آلاتٌ موسيقية بالرمز نفسه) تنويعاتٌ مقصودة لا تُحذف. */
+      const candidates: Array<[string, AdCourse[]]> = [];
+      for (const [identity, rows] of byIdentity) {
+        if (rows.length < 2) continue;
+        const byName = new Map<string, AdCourse[]>();
+        for (const row of rows) byName.set(nameKey(row.CourseName), [...(byName.get(nameKey(row.CourseName)) || []), row]);
+        const same = [...byName.values()].filter(list => list.length > 1);
+        if (same.length) for (const list of same) candidates.push([identity, list]);
+        else if (rows.length === 2 && new Set(rows.map(row => referenceCodeKey(row.CourseCode))).size === 2) candidates.push([identity, rows]);
+      }
       if (!candidates.length) continue;
       const linked = new Set<number>((await Repository.getCurriculumPlanCourses(sid) as any[]).map(link => Number(link.AdCourseId)));
       const groups: Array<{ number: number; keeper: any; dups: any[] }> = [];
@@ -1029,7 +1039,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       if (rejection) return { status: 422, json: { error: rejection.message, rejection } };
       /* القديمة تدخل «الصحيفة السابقة» وحدها: لا تسمّي القسم ولا تغيّر رمزه، وتصحّح اسم المقرر ووحداته وساعاته إلا مقرراً في صحيفة فعّالة (الكتالوج مشترك مع الجديدة). */
       const isNew = isNewSheet(sheet);
-      const newPlanName = sheet.startYear ? `صحيفة ${sheet.startYear}/${sheet.startYear + 1}` : "الصحيفة الجديدة";
+      const newPlanName = sheet.startYear ? `صحيفة ${sheet.startYear}` : "الصحيفة الجديدة";
       const { key: ownKey, umbrella } = sheetOwnKey(sheet, scope);
 
       /* الصحيفةُ لمسارٍ كامل: بناتُ القسم (الرئيسي والجهراء والفحيحيل) صحيفةٌ واحدة، وللبنين مسارُهم. */
@@ -1117,7 +1127,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
           }
         }
         if (!plan) throw new Error("تعذّر إنشاء صحيفة للقسم.");
-        /* اسمٌ واحد لصحيفة السنة في كل المواقع («صحيفة 2026/2027») بدل أسماءٍ تختلف باختلاف مرحلة الرفع. */
+        /* اسمٌ واحد لصحيفة السنة في كل المواقع («صحيفة 2026») بدل أسماءٍ تختلف باختلاف مرحلة الرفع. */
         if (isNew && !trackProgram && sheet.startYear && plan.status === "active" && plan.name !== newPlanName) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { name: newPlanName })) };
         if (sheet.startYear && (era.rollover || !plan.sheetYear)) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { sheetYear: sheet.startYear })) };
 
