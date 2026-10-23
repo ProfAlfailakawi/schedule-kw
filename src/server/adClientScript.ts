@@ -89,9 +89,11 @@ function record(it){
  if(dailyTotal()>=DAILY_CAP)return;
  var uk="adx:u:"+it.c+":"+day,nk="adx:n:"+it.c+":"+day;
  var u=get(uk)?0:1;if(u)put(uk,"1");
+ /* الوصول: مفتاحٌ بنطاق الحملة لا اليوم، فيُعدّ المتصفح مرةً واحدة طوال الحملة. */
+ var rk="adx:r:"+it.c,r=get(rk)?0:1;if(r)put(rk,"1");
  put(nk,String((parseInt(get(nk)||"0",10)||0)+1));
  put("adx:t:"+day,String(dailyTotal()+1));
- queue.push({c:it.c,k:it.k,u:u});
+ queue.push({c:it.c,k:it.k,u:u,r:r});
  if(!timer)timer=setTimeout(function(){flush(false)},1500);
 }
 window.addEventListener("pagehide",function(){flush(true)});

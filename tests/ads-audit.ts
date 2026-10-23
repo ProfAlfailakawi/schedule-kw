@@ -477,10 +477,14 @@ async function main() {
     check(imgRes.status === 200 && imgRes.headers.get("content-type") === "image/png" && (await imgRes.arrayBuffer()).byteLength > 100, "A6 الصورة تُخدم من الأصل نفسه بنوعها الصحيح");
 
     // الظهور: حدثان لنفس الحملة (أحدهما فريد)، وحدثٌ مزيَّف لحملةٍ غير موجودة يُتجاهل.
-    r = await call("POST", "/_ads/e", { e: [{ c: item.c, k: item.k, u: 1 }, { c: item.c, k: item.k, u: 0 }, { c: "ghost", k: "x", u: 1 }, { c: item.c, k: "wrong-creative", u: 1 }] });
+    r = await call("POST", "/_ads/e", { e: [{ c: item.c, k: item.k, u: 1, r: 1 }, { c: item.c, k: item.k, u: 0, r: 0 }, { c: "ghost", k: "x", u: 1, r: 1 }, { c: item.c, k: "wrong-creative", u: 1 }] });
     check(r.status === 204, "A6 استقبال الظهور");
     r = await call("POST", "/_ads/e", { e: [{ c: item.c, k: item.k, u: 1 }] }, { "User-Agent": "Googlebot/2.1" });
     check(r.status === 204, "A6 الروبوت: يُقبل الطلب ويُتجاهل");
+    await R.flushAdsCounters();
+    const reachRows = await Repository.listAdStats(item.c);
+    check(E.totalsOf(reachRows).reach === 1 && E.totalsOf(reachRows).impressions === 2, "الوصول: شخصٌ واحد وظهوران؛ الروبوت لا يُحتسب", E.totalsOf(reachRows));
+    check(fs.readFileSync("src/server/adClientScript.ts", "utf8").includes('"adx:r:"+it.c') && E.totalsOf([{ id: "a", campaignId: "c", creativeId: "k", day: "2026-01-01", impressions: 5, uniques: 3, clicks: 0, filteredClicks: 0 }]).reach === 0, "الوصول: مفتاحٌ محلي بنطاق الحملة، والصفوف القديمة بلا وصولٍ تُحسب صفراً");
 
     // النقر: الأول صحيح، والمتكرر خلال ثوانٍ يُرشَّح، والروبوت يُرشَّح.
     r = await call("GET", item.href);
@@ -803,6 +807,10 @@ async function main() {
     check(leadRes.status === 303 && String(leadRes.headers.get("location")).includes("lead=ok"), "رابط الشراكة: طلب حملة جديدة من الرابط الخاص يُقبل");
     const leadRow = (await call("GET", "/api/admin/ads")).json.leads.find((l: any) => l.phone === "55512345");
     check(leadRow?.partnerCompany === "شركة باء", "رابط الشراكة: الطلب يظهر مربوطاً بشركة الرابط", leadRow);
+    /* حاسبة «ماذا ستحصل؟» في صفحة الرابط: بلا سكربت، ونتيجتها تقديرٌ أو «لا بيانات كافية». */
+    const calcPage = await call("GET", plB.url + "?slot=schedule&season=finals&weeks=4");
+    check(calcPage.status === 200 && calcPage.text.includes("ماذا ستحصل؟") && calcPage.text.includes('name="weeks"') && (calcPage.text.includes("تقديرٌ لا وعد") || calcPage.text.includes("لا بيانات كافية")), "الحاسبة: تظهر في ملف الشراكة بنتيجة تقديرٍ أو بيانات غير كافية");
+    check((await call("GET", plB.url + "?slot=evil&weeks=999&season=x")).status === 200 && !(await call("GET", plB.url + "?slot=<script>")).text.includes("<script>alert"), "الحاسبة: قيمٌ غير معروفة تُهمل ولا تنعكس في الصفحة");
     check((await call("POST", `/api/admin/ads/partner-links/${plA.id}/revoke`)).status === 200 && (await call("GET", plA.url)).status === 404, "رابط الشراكة: الإيقاف يعطّل ذلك الرابط");
     check((await call("GET", plB.url)).status === 200 && (await row(plA.id)).state === "revoked", "رابط الشراكة: إيقاف رابطٍ لا يمسّ غيره");
     check((await call("POST", "/api/admin/ads/partner-links/nope/revoke")).status === 404, "رابط الشراكة: إيقاف رابطٍ غير موجود ٤٠٤");
@@ -961,6 +969,24 @@ async function main() {
     check(routes.includes("cachedAdStats(5 * 60_000)") && !routes.includes("const allStats = await Repository.listAdStats()"), "تقرير الحملة: المتوسط المرجعي من إحصاءاتٍ مخزّنة لا قراءةٍ كاملةٍ في كل فتح");
     const pages = fs.readFileSync("src/server/adsPages.ts", "utf8");
     check(pages.includes("ظهر إعلانك لنحو") && pages.includes("ظهر إعلانكم لنحو") && !pages.includes("مشاهدٍ،"), "تقرير الحملة: «مشاهدة» لا «مشاهد»");
+    /* حاسبة «ماذا ستحصل؟»: مدىً من سجلّ الموقع الفعلي لا رقماً مخترعاً. */
+    const F = await import("../src/utils/adForecast");
+    const fCamp = [{ id: "f1", slot: "schedule" }, { id: "x1", slot: "me" }] as any[];
+    const mkDays = (n: number, imp: number, clk = 20, from = 1) => Array.from({ length: n }, (_, i) => ({ id: `d${i}-${imp}`, campaignId: "f1", creativeId: "k", day: `2026-03-${String(from + i).padStart(2, "0")}`, impressions: imp, uniques: 0, clicks: clk, filteredClicks: 0 })) as any[];
+    const base = F.forecastSlot({ slotId: "schedule", weeks: 2, campaigns: fCamp, stats: mkDays(10, 1000), liveNow: 0 });
+    check(base.ok && base.impressions.low === 14000 && base.impressions.high === 14000 && base.clicks.low === 210 && base.clicks.high === 350 && base.share === 1, "الحاسبة: ١٠ أيامٍ بألف ظهور = ١٤ ألفاً في أسبوعين، والنقرات بنسبة ±٢٥%", base);
+    const shared = F.forecastSlot({ slotId: "schedule", weeks: 1, campaigns: fCamp, stats: mkDays(10, 1000), liveNow: 1 });
+    check(shared.ok && shared.share === 0.5 && shared.impressions.high === 3500, "الحاسبة: حملةٌ عاملة معك تقسم الحصة مناصفة", shared);
+    const few = F.forecastSlot({ slotId: "schedule", weeks: 2, campaigns: fCamp, stats: mkDays(6, 1000), liveNow: 0 });
+    check(!few.ok && few.reason === "no-data" && few.basisDays === 6, "الحاسبة: أقل من سبعة أيام مقيسة = لا تقدير", few);
+    check(!F.forecastSlot({ slotId: "dashboard", weeks: 2, campaigns: fCamp, stats: mkDays(10, 1000), liveNow: 0 }).ok, "الحاسبة: موقعٌ بلا حملاتٍ تاريخية = لا تقدير");
+    const mixed = [...mkDays(10, 1000), ...mkDays(5, 3000, 60, 20)];
+    const win = [{ season: "finals", from: "2026-03-20", to: "2026-03-31" }] as any[];
+    const inSeason = F.forecastSlot({ slotId: "schedule", weeks: 1, season: "finals", campaigns: fCamp, stats: mixed, liveNow: 0, windows: win });
+    check(inSeason.ok && inSeason.seasonUsed && inSeason.impressions.low === 21000, "الحاسبة: أيام الموسم الفعلية (٥ فأكثر) هي أساس تقدير الموسم", inSeason);
+    const thinSeason = F.forecastSlot({ slotId: "schedule", weeks: 1, season: "finals", campaigns: fCamp, stats: [...mkDays(10, 1000), ...mkDays(4, 3000, 60, 20)], liveNow: 0, windows: win });
+    check(thinSeason.ok && !thinSeason.seasonUsed && thinSeason.seasonNote.includes("لا أيام كافية"), "الحاسبة: موسمٌ بأقل من ٥ أيام يعود للتقدير العام ويقول ذلك", thinSeason);
+    check(F.quantile([1, 2, 3, 4, 5], 0.25) === 2 && F.quantile([1, 2, 3, 4, 5], 0.75) === 4 && F.quantile([], 0.5) === 0, "الحاسبة: الربيعان");
   }
 
   console.log(`\n${failed ? "\x1b[31m" : "\x1b[32m"}${passed} نجح، ${failed} فشل\x1b[0m`);
