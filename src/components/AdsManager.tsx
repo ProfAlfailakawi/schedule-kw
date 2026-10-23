@@ -172,7 +172,7 @@ export default function AdsManager() {
                 <li><b>٣</b><span>أضف حملتها وأرسل لها رابط تقريرها الحي</span></li>
               </ol>
               <PartnerLinks data={data} busy={busy}
-                onCreate={(company, days) => act("plink", () => api("/api/admin/ads/partner-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company, days }) }), `أُنشئ رابط «${company}».`)}
+                onCreate={(company, days, category, seasons) => act("plink", () => api("/api/admin/ads/partner-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company, days, category, seasons }) }), `أُنشئ رابط «${company}».`)}
                 onRevoke={id => void act(`revoke-${id}`, () => api(`/api/admin/ads/partner-links/${id}/revoke`, { method: "POST" }), "أُوقف الرابط.")}
                 onCopy={url => void copy(url)} />
             </div>

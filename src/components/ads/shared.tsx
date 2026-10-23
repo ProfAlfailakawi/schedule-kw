@@ -24,7 +24,7 @@ export interface Campaign {
 }
 export interface Season { id: string; label: string; hint: string }
 export interface CalendarItem { season: string; label: string; term: string; from: string; to: string; now: boolean }
-export interface PartnerLinkRow { id: string; company: string; url: string; createdAt: string; expiresAt: string; state: "active" | "expired" | "revoked"; opens: number; firstOpenAt: string; lastOpenAt: string; openDays: Record<string, number> }
+export interface PartnerLinkRow { id: string; company: string; category: string; seasons: string[]; url: string; createdAt: string; expiresAt: string; state: "active" | "expired" | "revoked"; opens: number; firstOpenAt: string; lastOpenAt: string; openDays: Record<string, number> }
 export interface Lead { id: string; createdAt: string; company: string; name: string; phone: string; email?: string; slots: string[]; season?: string; note?: string; status: "new" | "contacted"; contactedAt?: string; partnerCompany?: string }
 export interface Payload {
   today: string; mailEnabled?: boolean; slots: Slot[]; categories: string[]; rules: string[]; maxBytes: number; campaigns: Campaign[]; partnerLinks: PartnerLinkRow[];
