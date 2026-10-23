@@ -13,7 +13,7 @@ import { DEMAND_MIN_STUDENTS, headlineTotals, type AudienceStats } from "../util
 import { AUDIENCE_BASELINE } from "../utils/audienceBaseline";
 import { AD_DAILY_REPEAT_CAP, AD_RULES, TRIAL_DAYS, activeSlots, creativeBreakdown, dailySeries, daysLeft, expectedShare, kuwaitDay, phaseOf, slotById, totalsOf, type AdPhase, type WeeklyCompare } from "../utils/adsEngine";
 import { conversionOf, hourAr, peakSummary, wrapUp, type WrapUp } from "../utils/adInsights";
-import { AR, countOf } from "../utils/arabicCount";
+import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { SEASONS, seasonLabel, type CalendarItem } from "../utils/adSeasons";
 import { FORECAST_WEEKS, type Forecast } from "../utils/adForecast";
 import { formatCoupon } from "../utils/adCoupons";
@@ -229,7 +229,7 @@ ${msg}
   /* الكوبون الفريد: التحويل **موثَّق** لأن المتجر هو من تحقق منه ومسحه، بخلاف الرقم المُبلَّغ أعلاه. */
   const verifiedCard = !c.uniqueCoupons || !input.unique || phase === "draft" ? "" : `
 <h2>كوبونات الطلبة الموثَّقة</h2>
-<div class="card"><p style="margin:0 0 8px">استعمل <b>${fmt(input.unique.verified)}</b> طالبٍ كوبونه الفريد عندكم${totals.clicks > 0 ? ` (${pct((input.unique.verified / totals.clicks) * 100)} من نقراتكم الموثَّقة)` : ""}. كل كوبونٍ يُستعمل مرةً واحدة ولا يحمل اسم الطالب.</p>
+<div class="card"><p style="margin:0 0 8px">استعمل <b>${fmt(input.unique.verified)}</b> ${nounFor(input.unique.verified, AR.student)} كوبونه الفريد عندكم${totals.clicks > 0 ? ` (${pct((input.unique.verified / totals.clicks) * 100)} من نقراتكم الموثَّقة)` : ""}. كل كوبونٍ يُستعمل مرةً واحدة ولا يحمل اسم الطالب.</p>
 <p style="margin:0 0 8px">يمسح موظفكم رمز QR الذي يريه الطالب، أو يفتح هذا الرابط ويكتب الكوبون:</p>
 <p class="btnrow"><a class="btn" href="${esc(input.unique.verifyUrl)}">صفحة التحقق للمتجر</a></p>
 <p class="note"><bdi dir="ltr">${esc(input.unique.verifyUrl)}</bdi></p></div>`;

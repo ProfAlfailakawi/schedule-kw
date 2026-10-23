@@ -48,7 +48,7 @@ export function summaryText(c: Campaign, slotLabel: string): string {
     `• الظهور المرئي هذا الأسبوع: ${nf.format(w?.thisWeek.impressions ?? 0)}${w?.hasLastWeek ? ` (${arrowOf(w.impressionsChange)} عن الأسبوع الماضي)` : ""}`,
     `• النقرات الصحيحة: ${nf.format(w?.thisWeek.clicks ?? 0)}${w?.hasLastWeek ? ` (${arrowOf(w.clicksChange)})` : ""}`,
     `• نسبة النقر: ${nf.format(w?.thisWeek.ctr ?? 0)}%`,
-    `• منذ بداية الحملة: ظهور ${nf.format(c.totals.impressions)}، مشاهدون تقريباً ${nf.format(c.totals.uniques)}،${c.totals.reach > 0 ? ` وصلنا إلى نحو ${nf.format(c.totals.reach)} شخص،` : ""} نقرات ${nf.format(c.totals.clicks)}`,
+    `• منذ بداية الحملة: ظهور ${nf.format(c.totals.impressions)}، مشاهدون تقريباً ${nf.format(c.totals.uniques)}،${c.totals.reach > 0 ? ` وصلنا إلى نحو ${countOf(c.totals.reach, AR.person)}،` : ""} نقرات ${nf.format(c.totals.clicks)}`,
     c.trial ? (c.phase === "ended" ? "انتهت التجربة المجانية؛ يسعدنا تثبيت مكانكم في الفصل القادم." : "التجربة المجانية جارية، وتنتهي تلقائياً في موعدها.") : (c.endingSoon ? `تنتهي الحملة بعد ${countOf(Math.max(0, c.daysLeft), AR.day)}؛ نرتّب التجديد؟` : ""),
     `تقريركم الحي: ${new URL(c.reportUrl, location.origin).toString()}`,
   ];
