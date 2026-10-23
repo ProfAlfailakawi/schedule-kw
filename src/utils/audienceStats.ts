@@ -18,13 +18,18 @@ export interface TermPoint { termId: number; termName: string; answers: number; 
 export interface CollegePoint { label: string; count: number }
 export interface DayPoint { day: string; count: number }
 export interface SlotPerformance { slot: string; label: string; campaigns: number; impressions: number; clicks: number; ctr: number }
+/** قمعُ «مساري»: من أنشأ ملفاً، ومن أكمل الإعداد، ومن أرسل رغباته هذا الفصل، ومن عاد بعد إرسالها. أعدادٌ بلا هوية. */
+export interface StudentFunnel { created: number; setupDone: number; wishesSent: number; returned: number }
+export const FUNNEL_TARGETS = { setupDone: 0.85, wishesSent: 0.6, returned: 0.5 } as const;
+/** عودةٌ حقيقية: دخل بعد يومٍ كاملٍ على الأقل من آخر تعديلٍ لرغباته (لا جلسةُ الإرسال نفسها). */
+export const FUNNEL_RETURN_AFTER_MS = 24 * 3600 * 1000;
 export interface ContinuityPair { fromTerm: string; toTerm: string; before: number; stayed: number; rate: number }
 
 export interface AudienceStats {
   generatedAt: string;
   term: { id: number; name: string } | null;
   /** «مساري»: ملفاتٌ شخصية أنشأها الطلبة بأنفسهم. */
-  students: { profiles: number; active7: number; active30: number; byCollege: CollegePoint[] };
+  students: { profiles: number; active7: number; active30: number; byCollege: CollegePoint[]; funnel: StudentFunnel };
   /** الاستبيان: عبر كل الفصول، ثم الفصل الجاري على حدة. */
   survey: {
     allTimeAnswers: number;
@@ -137,7 +142,15 @@ export function buildAudienceStats(input: AudienceInput): AudienceStats {
   const profileColleges = new Map<number, number>();
   const now = input.now.getTime();
   let active7 = 0, active30 = 0;
+  const funnel: StudentFunnel = { created: input.profiles.length, setupDone: 0, wishesSent: 0, returned: 0 };
   for (const profile of input.profiles) {
+    if (Number(profile.AdSectionId) > 0) funnel.setupDone++;
+    const wishes = profile.wishes;
+    if (wishes && Number(wishes.termId) === input.currentTermId) {
+      funnel.wishesSent++;
+      const sent = Date.parse(wishes.updatedAt), back = Date.parse(profile.lastSeenAt);
+      if (Number.isFinite(sent) && Number.isFinite(back) && back - sent >= FUNNEL_RETURN_AFTER_MS) funnel.returned++;
+    }
     if (Number(profile.AdCollegeId) > 0) bump(profileColleges, Number(profile.AdCollegeId));
     const seen = Date.parse(profile.lastSeenAt);
     if (!Number.isFinite(seen)) continue;
@@ -242,7 +255,7 @@ export function buildAudienceStats(input: AudienceInput): AudienceStats {
   return {
     generatedAt: input.now.toISOString(),
     term: term ? { id: Number(term.AdTermId), name: term.AdTermName } : null,
-    students: { profiles: input.profiles.length, active7, active30, byCollege: anonymous(profileColleges) },
+    students: { profiles: input.profiles.length, active7, active30, byCollege: anonymous(profileColleges), funnel },
     survey: {
       allTimeAnswers,
       allTimeStudents: everyone.size,
