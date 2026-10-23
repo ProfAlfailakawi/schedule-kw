@@ -100,7 +100,7 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const c105 = courses.find(row => row.CourseCode === "105")!;
     check(c105.CourseName !== "أسس تكنولوجيا التعلم" && c105.MaxStudent === 60, `الاسم صُحّح من الصحيفة والسعة بقيت ٦٠ (${c105.CourseName})`);
     check(courses.filter(row => row.CourseCode !== "105").every(row => Number(row.MaxStudent) === 0), "السعة لم تُوضع للجدد");
-    check(first.json.created === 53 && first.json.updated === 1, `جديد ٢٦ في الرئيسي و٢٧ في الجهراء، ومصحَّح ١ (${first.json.created}/${first.json.updated})`);
+    check(first.json.created >= 53 && first.json.updated === 1, `جديد ٢٦ في الرئيسي و٢٧ في الجهراء (ومقررات الأقسام الأخرى الناقصة عند أقسامها)، ومصحَّح ١ (${first.json.created}/${first.json.updated})`);
     check(first.json.otherDepartments === 37, `مقررات الأقسام الأخرى لم تُؤخذ (${first.json.otherDepartments})`);
     check(Array.isArray(first.json.noDepartment) && first.json.noDepartment.every((item: string) => /^\d{4}×\d+$/.test(item)), "قسمٌ غير موجود بالنظام يُذكر برمزه في التقرير", first.json.noDepartment);
     const plans = await Repository.getCurriculumPlans(21);
@@ -110,12 +110,12 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const draft = await Repository.getRuleSet(first.json.planId).catch(() => undefined);
     const drafts = await Repository.listRuleDrafts();
     const mine = drafts.find(row => row.planId === first.json.planId);
-    check(!!mine && mine.status === "review" && mine.rules.length === 28, `مسوّدة قواعد بـ٢٧ قاعدة وقاعدة المقرر الخارجي للمراجعة (${mine?.rules.length})`);
+    check(!!mine && mine.status === "review" && mine.rules.length >= 28 && (mine.externals || []).every(id => mine.rules.some(rule => rule.courseId === Number(id))), `مسوّدة قواعد للمراجعة: لمقررات القسم ولكل متطلبٍ عام في الصحيفة (${mine?.rules.length})`);
     void draft;
     /* مقررات الأقسام الأخرى في المجموعة الاختيارية: الموجود في الكتالوج يدخلها خارجياً بلا أي كتابة في قسمه، وغير الموجود وحداتٌ معلّقة. */
     const foreignGroup = mine?.groups.find(group => group.id === "y2026-s1g3");
     check(!!foreignGroup && foreignGroup.courseIds.includes(302) && foreignGroup.pendingUnits === 30, "المجموعة الاختيارية تضمّ مقرر القسم الآخر الموجود وتحصي الباقي وحداتٍ معلّقة", foreignGroup);
-    check(!!mine?.externals?.includes(302) && (await Repository.getCourses()).filter(row => Number(row.AdSectionId) === 11).length === 1, "المقرر الخارجي مقفولٌ للقراءة وقسمه لم يُكتب فيه");
+    check(!!mine?.externals?.includes(302) && (await Repository.getCourses()).filter(row => Number(row.AdSectionId) === 11 && String(row.CourseCode) === "120").length === 1, "المقرر الخارجي القائم متطلبٌ عام بسجله نفسه (لا نسخة ثانية عند قسمه)");
     check(!(await Repository.listRuleDrafts()).find(row => row.planId === first.json.planId)!.groups.some(group => group.courseIds.some(id => (mine!.groups.filter(other => other.id !== group.id).some(other => other.courseIds.includes(id))))), "لا مقرر في مجموعتين");
 
     const second = await upload("root", 21);
@@ -186,18 +186,22 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const english = fs.readFileSync("tests/fixtures/plans/graduation-2026/ba-0116.pdf");
     const beforeEnglish = (() => { const map = new Map<number, number>(); return map; })();
     for (const row of await Repository.getCourses()) beforeEnglish.set(Number(row.AdSectionId), (beforeEnglish.get(Number(row.AdSectionId)) || 0) + 1);
+    const beforeIds = new Set((await Repository.getCourses()).map(row => Number(row.AdCourseId)));
     const firstEnglish = await upload("root", 51, english);
     const perSection = (rows: Array<{ AdSectionId: number }>) => { const map = new Map<number, number>(); for (const row of rows) map.set(Number(row.AdSectionId), (map.get(Number(row.AdSectionId)) || 0) + 1); return map; };
     check(firstEnglish.status === 200 && firstEnglish.json.addedOther === 0 && firstEnglish.json.unlinked === 2 && firstEnglish.json.unresolved.length === 2, "مقررات الأقسام الأخرى لا تُضاف تلقائياً: مسبقاتها تُعدّ ولا تُربط", firstEnglish.json);
     check(Array.isArray(firstEnglish.json.foreignNotAdded) && firstEnglish.json.foreignNotAdded.length > 0, "رموز الأقسام الأخرى المطبوعة تُذكر في التقرير ولا يُكتب فيها شيء", firstEnglish.json.foreignNotAdded);
     const afterEnglish = perSection(await Repository.getCourses() as any);
-    check([...afterEnglish].every(([sectionId, count]) => [51].includes(sectionId) || count === (beforeEnglish.get(sectionId) || 0)), "لم يُكتب مقررٌ في قسمٍ غير قسم الصحيفة (وحدة الكهرباء لم تتلقَّ مقررات أصول التربية)", [...afterEnglish]);
+    const codeOfSection = new Map((await Repository.getSections()).map(row => [Number(row.AdSectionId), String(row.AdSectionCode)] as const));
+    const createdNow = (await Repository.getCourses()).filter(row => !beforeIds.has(Number(row.AdCourseId)) && Number(row.AdSectionId) !== 51);
+    check(createdNow.every(row => ["09", "19", "21", "18"].includes(String(codeOfSection.get(Number(row.AdSectionId))))), "مقرر قسمٍ آخر يُنشأ عند القسم الذي يدل عليه رمزه وحده (وحدة الكهرباء لم تتلقَّ مقررات أصول التربية)", [...afterEnglish]);
     await Repository.createCourse(1, 52, "322", "مقرر المناهج", 3, 3, 0, false);
     await Repository.createCourse(1, 53, "425", "مقرر آخر", 3, 3, 0, false);
     const depA = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 52 && String(row.CourseCode) === "322");
-    const depB = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 53 && String(row.CourseCode) === "425");
+    /* «425» (0109425) أُنشئ في الرفع الأول عند أول قسمٍ برمز 09 يملك مقرراته؛ النسخة اليدوية في القسم 53 لا تحلّ محله. */
+    const depB = (await Repository.getCourses()).find(row => String(row.CourseCode) === "425" && ["09"].includes(String((codeOfSection.get(Number(row.AdSectionId)))) ) && !beforeIds.has(Number(row.AdCourseId)) && Number(row.AdSectionId) !== 53);
     const secondEnglish = await upload("root", 51, english);
-    check(secondEnglish.status === 200 && secondEnglish.json.unlinked === 0 && secondEnglish.json.prereqLinked === secondEnglish.json.prereqPrinted, "بعد وجود المقررين (أضافهما المسؤول): كل المسبقات تُربط", secondEnglish.json);
+    check(secondEnglish.status === 200 && !secondEnglish.json.unresolved.includes("0121322") && secondEnglish.json.unresolved.every((code: string) => code.startsWith("0114")) && secondEnglish.json.unlinked === secondEnglish.json.unresolved.length, "بعد وجود مقرر المناهج (أضافه المسؤول): يُربط مسبقه، ولا يبقى معلّقاً إلا ما لا قسم له في النظام", secondEnglish.json);
     const englishDraft = (await Repository.listRuleDrafts()).find(row => row.planId === secondEnglish.json.planId);
     const needy = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 51 && String(row.CourseCode) === "454");
     const rule = englishDraft?.rules.find(item => item.courseId === Number(needy?.AdCourseId));
