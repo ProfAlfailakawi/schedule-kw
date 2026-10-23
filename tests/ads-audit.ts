@@ -1103,6 +1103,22 @@ async function main() {
     check(E5.placementProblems({ ...spBase, targetCodes: ["CS101".toLowerCase(), "eng1"] }, [other]).some(p => p.includes("يرعى المقرر نفسه")) && E5.placementProblems({ ...spBase, targetCodes: ["eng1"] }, [other]).every(p => !p.includes("يرعى المقرر نفسه")) && E5.placementProblems({ ...spBase, startDay: "2026-12-05", endDay: "2026-12-30", targetCodes: ["cs101"] }, [other]).every(p => !p.includes("يرعى المقرر نفسه")), "راعي المقرر: مقررٌ واحد لراعٍ واحد في الفترة نفسها فقط");
     const homeSrc3 = fs.readFileSync("src/server/studentHomePage.ts", "utf8");
     check(homeSrc3.includes('adxMountLater("adx-course-box","course",adxCtx({codes:ticketCodes') && homeSrc3.includes("var ticketCodes=items.map"), "راعي المقرر: «تذكرتي» تطابق رموز مقررات الجدول لا الرغبات");
+    /* وضع القصة: منطق التنقّل والتشغيل التلقائي، والرسم يحمل أرقام اللوحة نفسها. */
+    const ST = await import("../src/utils/audienceStory");
+    check(JSON.stringify(ST.STORY_SLIDES) === JSON.stringify(["size", "peak", "demand", "slots", "next"]) && ST.STORY_MS === 8000, "القصة: الترتيب الحجم ← الذروة ← الطلب ← المواقع ← الخطوة، ٨ ثوانٍ للشريحة");
+    check(ST.stepStory(0, -1) === 0 && ST.stepStory(0, 1) === 1 && ST.stepStory(4, 1) === 4 && ST.stepStory(4, -1) === 3, "القصة: التنقّل بلا التفاف");
+    check(ST.storyAutoplays({ paused: false, reducedMotion: false, index: 0 }) && !ST.storyAutoplays({ paused: true, reducedMotion: false, index: 0 }) && !ST.storyAutoplays({ paused: false, reducedMotion: true, index: 0 }) && !ST.storyAutoplays({ paused: false, reducedMotion: false, index: 4 }), "القصة: لا تقدّم تلقائي مع الإيقاف أو قلّة الحركة أو في الشريحة الأخيرة");
+    check(ST.keyDirection("ArrowLeft") === 1 && ST.keyDirection("ArrowRight") === -1 && ST.keyDirection("PageDown") === 1 && ST.keyDirection("x") === 0, "القصة: السهم الأيسر للتالي والأيمن للسابق (عربي)");
+    check(ST.swipeDirection(120, 10) === 1 && ST.swipeDirection(-120, 10) === -1 && ST.swipeDirection(20, 0) === 0 && ST.swipeDirection(60, 90) === 0, "القصة: السحب الأفقي الطويل وحده يغيّر الشريحة");
+    const React = (await import("react")).default;
+    const { renderToString } = await import("react-dom/server");
+    const Story = (await import("../src/components/AudienceStory")).default;
+    const storyHtml = renderToString(React.createElement(Story, { stats: stats as any, onClose: () => undefined }));
+    check(storyHtml.includes('role="dialog"') && storyHtml.includes('aria-modal="true"') && storyHtml.includes("جمهورٌ حقيقي يفتح البرنامج بنفسه") && storyHtml.includes(fmtN(B.students + 2)) && storyHtml.includes(fmtN(B.visits + 55)) && storyHtml.includes(fmtN(B.instructors)), "القصة: الشريحة الأولى بأرقام اللوحة نفسها داخل نافذة حوارية");
+    check(storyHtml.includes('aria-label="إيقاف العرض"') && storyHtml.includes('aria-label="إغلاق العرض"') && storyHtml.includes('aria-label="الشريحة التالية"') && (storyHtml.match(/aria-label="الشريحة \d من 5"/g) || []).length === 5, "القصة: أزرار الإيقاف والإغلاق والتالي ونقاط الشرائح الخمس");
+    const storySrc = fs.readFileSync("src/components/AudienceStory.tsx", "utf8");
+    check(storySrc.includes("reducedMotion()") && storySrc.includes("useState(reducedMotion())") && storySrc.includes("requestFullscreen") && storySrc.includes('e.key === "Escape"') && storySrc.includes("onPointerUp"), "القصة: تبدأ موقوفةً لقلّة الحركة، ملء الشاشة، Escape واللمس");
+    check(fs.readFileSync("src/components/AudienceDashboard.tsx", "utf8").includes("ابدأ العرض") && fs.readFileSync("src/styles/25-partners.css", "utf8").includes("prefers-reduced-motion:reduce){.pt-story-slide{animation:none}"), "القصة: زر «ابدأ العرض» في اللوحة، والحركة تُلغى لمن يفضّل قلّتها");
   }
 
   console.log(`\n${failed ? "\x1b[31m" : "\x1b[32m"}${passed} نجح، ${failed} فشل\x1b[0m`);
