@@ -36,7 +36,7 @@ import { isViewerOnlyRole } from "../utils/academicRoles";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 import { DIFF_FIELD_LABEL, type DiffFieldKey } from "../utils/scheduleDiff";
-import { DECISION_1912_LABEL, regulationScore, type RegulationFinding } from "../utils/scheduleRegulations";
+import { DECISION_1912_LABEL, regulationScore, type PeriodBalanceData, type RegulationFinding } from "../utils/scheduleRegulations";
 import { currentTermId, termIsArchive } from "../utils/termSequence";
 import type { AdTerm, ScheduleApprovalStatus } from "../types";
 import { singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeContext";
@@ -101,7 +101,7 @@ interface RegulationNotice {
   rule: string; article: string; source: string;
   approvalEffect: "note" | "review";
   title: string; detail: string; rowIds: number[];
-  data?: { morning: number; evening: number; sections: number };
+  data?: PeriodBalanceData;
 }
 
 interface ReviewBlocker {

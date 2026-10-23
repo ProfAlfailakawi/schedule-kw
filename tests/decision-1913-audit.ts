@@ -47,7 +47,7 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   const allMorning = courses.map(c => row(c.AdCourseId, "1", ["sun", "tue", "thu"], "09:00", "09:50"));
   const found = byRule(review(allMorning, courses), "period-balance");
   check(Boolean(found) && found!.rowIds.length === 0 && /100%/.test(found!.detail), "قسمٌ كلُّه صباحي: ملاحظة بالنسبة ولا تسمّي موعداً");
-  check(found?.data?.morning === 100 && found?.data?.evening === 0 && found?.data?.sections === 12, "وتحمل أرقامها (صباحي/مسائي/شعب) ليرسمها الانفوجرافيك لا جملةً");
+  check(found?.data?.morning === 100 && found?.data?.evening === 0 && found?.data?.sections === 12 && found?.data?.morningCount === 12, "وتحمل أرقامها (صباحي/مسائي/شعب) ليرسمها الانفوجرافيك لا جملةً");
   const balanced = courses.map((c, i) => row(c.AdCourseId, "1", ["sun", "tue", "thu"], i < 7 ? "09:00" : "15:00", i < 7 ? "09:50" : "15:50"));
   check(!byRule(review(balanced, courses), "period-balance"), "7 صباحاً و5 مساءً (58%): ضمن الحدّين، لا تنبيه");
   check(!byRule(review(allMorning.slice(0, 4), courses), "period-balance"), "أربع شعبٍ لا تكفي لنسبة: لا تنبيه");

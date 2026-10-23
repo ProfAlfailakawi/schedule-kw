@@ -47,8 +47,11 @@ export interface RegulationFinding {
   /** The appointments this finding is about, for highlighting on the grid. */
   rowIds: number[];
   /** Figures a screen can draw instead of reading the detail sentence (م.7/2: the morning/evening split). */
-  data?: { morning: number; evening: number; sections: number };
+  data?: PeriodBalanceData;
 }
+
+/** م.7/2 as numbers: the shares, the sections counted, and how many are in the morning. */
+export interface PeriodBalanceData { morning: number; evening: number; sections: number; morningCount: number }
 
 export const isDecision1912Finding = (finding: RegulationFinding) => finding.source === "decision-1912";
 
@@ -545,7 +548,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
         title: "توزيع الفترتين الصباحية والمسائية",
         detail: `الصباحية (8–14) ${arabicNumber(morningShare)}% والمسائية (14–20) ${arabicNumber(eveningShare)}% من ${countOf(sectionStarts.length, AR.section)}. اللائحة: الصباحية بين 50% و70%، والمسائية بين 30% و50%.`,
         rowIds: [],
-        data: { morning: morningShare, evening: eveningShare, sections: sectionStarts.length },
+        data: { morning: morningShare, evening: eveningShare, sections: sectionStarts.length, morningCount: morning },
       });
     }
   }
