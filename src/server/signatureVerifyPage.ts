@@ -49,8 +49,13 @@ dt{color:var(--muted)}dd{margin:0;font-weight:600}
 .sigs{display:grid;gap:10px}
 .sig{border:1px solid var(--line);border-radius:14px;background:var(--card2);padding:12px 13px}
 .sig[data-hit="1"]{border-color:var(--accent);background:var(--accent-soft)}
-.sig>summary{cursor:pointer;list-style:none;min-height:44px;display:flex;align-items:center}
+.sig>summary{position:relative;cursor:pointer;list-style:none;min-height:44px;display:block;padding-inline-end:24px}
 .sig>summary::-webkit-details-marker{display:none}
+.sig>summary::after{content:"";position:absolute;inset-inline-end:4px;top:50%;width:8px;height:8px;border:solid var(--muted);border-width:0 2px 2px 0;transform:translateY(-75%) rotate(45deg);transition:transform .15s}
+.sig[open]>summary::after{transform:translateY(-25%) rotate(-135deg)}
+.sig>summary:focus-visible{outline:3px solid rgba(31,107,92,.3);outline-offset:3px;border-radius:10px}
+.more{display:block;margin-top:2px;color:var(--accent);font-size:12px;font-weight:600}
+@media (prefers-reduced-motion:reduce){.sig>summary::after{transition:none}}
 .sig-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px;width:100%}
 .sig-head b{font-size:15px}
 .sig-head small{color:var(--muted);font-size:12.5px}
@@ -96,7 +101,7 @@ function sigHtml(s,k,hit){
  var head='<div class="sig-head"><span><b>'+esc(s.termName||"")+'</b><br><small>'+esc(when(s.signedAt))+'</small></span><span class="code">'+esc(s.code)+'</span></div>';
  /* الأولُ مفتوح، وما بعده مطويّ: صفحةٌ قصيرة لمن له توقيعٌ واحد، ومنظّمة لمن له أكثر. */
  return k===0?'<div class="sig" data-hit="'+(hit?1:0)+'">'+head+itemsHtml(s)+'</div>'
-  :'<details class="sig" data-hit="'+(hit?1:0)+'"><summary>'+head+'</summary>'+itemsHtml(s)+'</details>'}
+  :'<details class="sig" data-hit="'+(hit?1:0)+'"><summary>'+head+'<small class="more">اضغط لعرض ما وُقّع عليه</small></summary>'+itemsHtml(s)+'</details>'}
 function show(d){
  msg.innerHTML="";form.hidden=true;out.hidden=false;
  var sigs=d.signatures||[],name=sigs[0]&&sigs[0].instructorName||"";

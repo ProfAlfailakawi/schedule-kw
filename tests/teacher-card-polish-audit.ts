@@ -91,6 +91,7 @@ check(/id="civil"[\s\S]*id="code"/.test(verifyHtml), "والرقمُ المدن�
 check(/if\(code&&code\.length!==6\)/.test(verifyScript) && !/if\(code\.length!==6\)/.test(verifyScript), "والصفحةُ لا تشترط الرمز قبل الإرسال");
 check(/code:code\|\|undefined/.test(verifyScript), "ولا ترسله إن كان فارغاً");
 check(/AR\.signature/.test(verifyScript) && /var AR=/.test(verifyScript), "العدّ بقاعدة العدّ العربية الواحدة");
+check(/<details class="sig"/.test(verifyScript) && /اضغط لعرض ما وُقّع عليه/.test(verifyScript) && /\.sig>summary::after/.test(verifyHtml), "التوقيعاتُ بعد الأول مطويّة وعليها سهمٌ وعبارةٌ تدلّ على أنها تُفتح");
 const hostileVerify = signatureVerifyPage("</script><img src=x>", '"</script>', "n");
 check([...hostileVerify.matchAll(/<script\b/gi)].length === 1 && !hostileVerify.includes("</script><img"), "رمزٌ خبيثٌ لا يُغلق وسم السكربت");
 check(!/localStorage|sessionStorage/.test(verifyScript), "الرقم المدني لا يُحفظ في المتصفّح");

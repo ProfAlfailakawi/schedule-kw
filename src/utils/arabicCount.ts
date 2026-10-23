@@ -173,7 +173,6 @@ export const AR = {
   gap:         { one: "فراغ", two: "فراغان", few: "فراغات", many: "فراغاً" },
   edit:        { one: "تعديل", two: "تعديلان", few: "تعديلات", many: "تعديلاً" },
   signature:   { one: "توقيع", two: "توقيعان", few: "توقيعات", many: "توقيعاً" },
-  second:      { one: "ثانية", two: "ثانيتان", few: "ثوانٍ", many: "ثانية" },
   item:        { one: "بند", two: "بندان", few: "بنود", many: "بنداً" },
   slot:        { one: "خانة", two: "خانتان", few: "خانات", many: "خانة" },
   bond:        { one: "ارتباط", two: "ارتباطان", few: "ارتباطات", many: "ارتباطاً" },
