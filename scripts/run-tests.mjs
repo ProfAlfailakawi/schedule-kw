@@ -53,6 +53,15 @@ const portBusy = () => new Promise(resolve => {
   socket.setTimeout(1000, () => { socket.destroy(); resolve(false); });
 });
 
+/** خادمٌ قُتل للتوّ قد يُفلت المنفذَ بعد لحظة: يُنتظر حتى ثلاث ثوانٍ قبل الحكم بأنه بقي. */
+const stillBusy = async () => {
+  for (let i = 0; i < 6; i += 1) {
+    if (!await portBusy()) return false;
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  return true;
+};
+
 /** يغلق ما يستمع على المنفذ — خادمٌ تركه اختبار. */
 const freePort = () => {
   const found = spawnSync("lsof", ["-t", `-iTCP:${PORT}`, "-sTCP:LISTEN"], { encoding: "utf8" });
@@ -85,7 +94,7 @@ for (const name of suite) {
   const reasons = [];
   if (code !== 0) reasons.push(`خرج بـ ${code}`);
   if (/تخطّي[^\n]*المنفذ مشغول/.test(output)) reasons.push("تخطّى جزأه الحيّ لأن المنفذ مشغول");
-  if (await portBusy()) {
+  if (await stillBusy()) {
     reasons.push(`ترك خادماً على المنفذ ${PORT}`);
     freePort();
   }
