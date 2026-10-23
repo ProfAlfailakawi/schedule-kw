@@ -106,7 +106,8 @@ function instructorReasons(input: RowReasonInput): RowReason[] {
   /* طلبٌ أو مقترحٌ مفتوح يمسّ هذا الصف. */
   const REQ: Record<string, string> = { keep: "إبقاء", change: "تعديل", delete: "حذف" };
   for (const request of input.requests || []) {
-    if (num(request.AdInstructorId) !== num(row.AdInstructorId) || request.status === "settled") continue;
+    /* «sent» = البطاقةُ صدرت بمسوّدةٍ جاهزة (كل صف «إبقاء») ولم يرسل الأستاذ شيئاً: ليست رغبتَه بعد. */
+    if (num(request.AdInstructorId) !== num(row.AdInstructorId) || request.status === "settled" || request.status === "sent") continue;
     const item = (request.items || []).find(entry => entry.rowId != null && num(entry.rowId) === num(row.id) && (!entry.decision || entry.decision.state === "pending"));
     if (item && REQ[item.action]) {
       out.push({ kind: "request", tone: "info", label: `رغبته: ${REQ[item.action]}`, tip: `طلب الأستاذ المفتوح يطلب ${REQ[item.action]} هذا الموعد` });
