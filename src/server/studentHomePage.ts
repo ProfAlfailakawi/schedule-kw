@@ -612,7 +612,7 @@ function viewHome(){
   h+='<div class="pane" data-pane="now"><div id="visitChanges"></div><div id="notices"></div><div id="cases"></div><div id="ticket"></div><div id="report"></div><div id="wishes"></div>'
    +'<section class="card fade"><h2><span class="b">'+ic("clock")+'</span>رحلة الفصل</h2>'+track()+'</section><div id="caseRequest"></div><div id="adx-me-box"></div></div>';
   h+='<div class="pane" data-pane="plan" hidden><div id="advice"></div>'
-   +'<details class="more how fade"><summary>'+ic("info")+' كيف قدّرنا التخرج؟</summary><p class="muted">'+(pr.remainingUnits?'نحو '+countOf(terms,AR.term)+' بحسب المتبقي ومعدل '+lim("termUnits",13.5)+' وحدة في الفصل.':'أكملت وحدات الصحيفة بحسب المقررات التي علّمتها.')+' تقدير يتغير مع تحديث إنجازك والقواعد المعتمدة، وليس موعداً رسمياً.</p></details></div>';
+   +'<details class="more how fade"><summary>'+ic("info")+' كيف قدّرنا التخرج؟</summary><p class="muted">'+(pr.remainingUnits?'نحو '+countOf(terms,AR.term)+' بحسب المتبقي ومعدل '+countOf(lim("termUnits",13.5),AR.unit)+' في الفصل.':'أكملت وحدات الصحيفة بحسب المقررات التي علّمتها.')+' تقدير يتغير مع تحديث إنجازك والقواعد المعتمدة، وليس موعداً رسمياً.</p></details></div>';
   h+='<div class="pane" data-pane="me" hidden>'
    +(p.identity?'<section class="card idn fade"><div class="row" style="gap:12px"><span class="ic">'+ic("user")+'</span><div class="tx"><b>'+esc(p.identity.name)+'</b><small>الرقم المدني <bdi dir="ltr">'+esc(p.identity.civilMasked)+'</bdi></small></div><button type="button" class="link" id="nmb">تصحيح</button></div></section>':"")
    +'<section class="card fade"><div class="acts"><button class="act" id="chg">'+ic("key")+'<span>غيّر الرمز</span></button><button class="act" id="out">'+ic("out")+'<span>اخرج</span></button><button class="act bad" id="del">'+ic("trash")+'<span>احذف ملفّي</span></button></div><p class="priv">'+ic("shield")+' يُحفظ حتى '+esc(fmtDate(p.keepsUntil))+(p.keepsReason==="inactive"?" ما لم تعد إليه":"")+'، ثم يُحذف وحده.</p></section></div>';
@@ -782,7 +782,7 @@ function tkPoolSheet(cur,replaceId){
     var lock=p.needs&&p.needs.length;
     var opt=p.offerings.filter(function(o){return!items.some(function(x){return clash(x.slots,o.slots)})})[0];
     var over=base+Number(p.credit)>lim("wishUnitsMax",15);
-    var why=lock?ic("lock","")+' يلزمك أولاً: '+esc(p.needs.join(" + ")):(!opt?'يتعارض مع جدولك':(over?'يتجاوز '+lim("wishUnitsMax",15)+' وحدة':''));
+    var why=lock?ic("lock","")+' يلزمك أولاً: '+esc(p.needs.join(" + ")):(!opt?'يتعارض مع جدولك':(over?'يتجاوز '+countOf(lim("wishUnitsMax",15),AR.unit):''));
     var row='<button type="button" class="opt'+(why?' off':'')+'" data-p="'+p.courseId+'"'+(why?' disabled':'')+'><span class="tx"><b>'+esc(p.name)+'</b><small><span class="code">'+esc(p.code)+'</span> · '+countOf(p.credit,AR.unit)+' · '+countOf(p.offerings.length,AR.section)+'</small>'+(why?'<small class="need">'+why+'</small>':'')+'</span>'+(why?'':ic("plus"))+'</button>';
     if(lock)locked+=row;else ok+=row});
   var el=sheet('<div class="pool-sheet-head"><h3>'+(replaceId?'بدّل المقرر':'أضف مقرراً')+'</h3><button type="button" class="pool-sheet-close" aria-label="إغلاق النافذة" title="إغلاق">×</button></div><p class="muted">وحداتك الآن '+tkUnits(items)+' · معاينةٌ شخصية لا تغيّر جدول القسم.</p><div class="list">'+(ok||'<p class="muted">لا مقررات متاحة لك الآن.</p>')+(locked?'<div class="grp">مقفلة — ينقصك مسبق</div>'+locked:'')+'</div><button class="btn alt" id="pc">إغلاق</button>');
