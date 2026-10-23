@@ -42,6 +42,7 @@ import { effectiveStatus as studyProposalStatus, decisionStateOf as studyProposa
 import { studyProposalPage } from "./src/server/studyProposalPage";
 import { signatureVerifyPage } from "./src/server/signatureVerifyPage";
 import { pickPreviousRequest } from "./src/utils/previousTermRequest";
+import { latestRequestByInstructor, reissueMove, requestLinkNeedsReplacing } from "./src/utils/requestReissue";
 import { REQUEST_REPLAY_SCRIPT } from "./src/server/requestReplayScript";
 import { REQUEST_DAY_AUTOFILL_SCRIPT } from "./src/server/requestDayAutofillScript";
 import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT } from "./src/server/voiceInputScript";
@@ -15226,7 +15227,25 @@ app.post("/api/share", requirePermission(7), async (req: AuthenticatedRequest, r
     userName: String(req.user!.Name || ""),
     showInstructors: req.body?.showInstructors !== false
   });
-  res.status(201).json(link);
+  /* ── بطاقةٌ حيّةٌ واحدةٌ للقسم في الفصل ──────────────────────────────────
+   * كلُّ بطاقةٍ جديدةٍ كانت تُضاف إلى ما قبلها، فتتراكم في اللوحة بطاقاتٌ
+   * بمواعيدَ مختلفة، ولا يعرف المنسّقُ أيَّها يقرأ الأستاذ. فالجديدةُ تحلّ محلّ
+   * السابقة: تُوقف بطاقاتُ القسم القديمة، وتأخذ الروابطُ الشخصيةُ — وقد وصلت
+   * الأساتذةَ في واتساب — موعدَها الجديد بدل أن تُوقف. */
+  let replaced = 0;
+  if (kind === "staff") {
+    const scopeLinks = await Repository.getShareLinks(collegeId, sectionId, termId);
+    for (const old of scopeLinks) {
+      if (old.id === link.id || old.kind !== "staff" || old.revoked) continue;
+      if (isPersonalStaffLink(old)) {
+        if (requestsCloseAt && old.requestsCloseAt !== requestsCloseAt) await Repository.setShareLinkRequestsCloseAt(old.id, requestsCloseAt);
+        continue;
+      }
+      await Repository.revokeShareLink(old.id);
+      replaced++;
+    }
+  }
+  res.status(201).json({ ...link, replaced });
 });
 
 app.delete("/api/share/:id", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
@@ -19516,7 +19535,9 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   /* من يُصدَر له رابطٌ يحدّده جدولُ هذا القسم؛ وما في طلبه جدولُه كلُّه. */
   const termRowsOf = (instructorId: number) => (sourceTermRows as any[])
     .filter(row => Number(row.AdInstructorId) === instructorId);
-  const already = new Map(existing.map(row => [Number(row.AdInstructorId), row]));
+  /* الأحدثُ لكل أستاذ: القراءةُ مرتّبةٌ من الأحدث، فكان `new Map` يُبقي آخرَ ما
+     يمرّ عليه — أي الأقدم — فيحكم طلبٌ قديمٌ على الجديد. */
+  const already = latestRequestByInstructor(existing);
 
   const byInstructor = new Map<number, any[]>();
   for (const row of rows as any[]) {
@@ -19535,41 +19556,65 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     return;
   }
 
-  const issued: Array<{ instructorId: number; linkId: string; reissued: boolean }> = [];
+  const windowClosesAt = requestsCloseAtFromDate(closesAt);
+  const mintRequestLink = (instructorId: number) => Repository.createShareLink({
+    AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
+    label: `طلب جدول — ${instructorId}`,
+    /* ── الصلاحيةُ تتبع الموعدَ المُعلَن ────────────────────────────────
+     * كانت ثابتةً بـ21 يوماً والموعدُ يُكتب بحرّية. فمن كتب موعداً أبعدَ
+     * منها رأى أساتذتُه «انتهت صلاحية هذا الرابط» قبل الموعد الذي وعدهم
+     * به — ولا شيءَ في الشاشة يقول لماذا. فتُشتقّ من الموعد نفسِه، ولا
+     * تنزل عن الحدّ الأدنى حتى لا يُغلق رابطُ موعدٍ قريبٍ لحظةَ انتهائه. */
+    /* والقراءةُ تبقى حتى نهاية الفصل: قرارُ القسم وبدائلُه يصلان بعد الموعد،
+     * ورابطٌ يموت بعد يومٍ من الإغلاق يُخفي عن الأستاذ جوابَ ما طلبه. */
+    expiresAt: new Date(Math.max(
+      Date.parse(windowClosesAt) + 86400000,
+      Date.now() + REQUEST_LINK_DAYS * 86400000,
+      Date.parse(termLinkExpiresAt(issueTerm)),
+    )).toISOString(),
+    SystemUserId: Number(req.user?.SystemUserId || 0),
+    userName: String(req.user?.UserName || ""),
+    showInstructors: false,
+    kind: "request",
+    AdInstructorId: instructorId,
+  } as any);
+
+  /* `reissued`: ينتظر قرارَ القسم فلم يُمسّ. `renewed`: طلبُه القائم أخذ الموعدَ الجديد. */
+  const issued: Array<{ instructorId: number; linkId: string; reissued: boolean; renewed?: boolean }> = [];
   for (const [instructorId, own] of byInstructor) {
-    /* أستاذٌ له رابطٌ في هذا الفصل لا يُعطى ثانياً: رابطان يعنيان طلبين،
-       وطلبان يعنيان أن أحدهما سيُقرأ ويُهمل الآخر بلا أن يعرف صاحبُه. */
-    if (already.has(instructorId)) {
-      issued.push({ instructorId, linkId: already.get(instructorId)!.linkId, reissued: true });
+    /* أستاذٌ له طلبٌ في هذا الفصل لا يُعطى ثانياً: طلبان يعنيان أن أحدهما
+       سيُقرأ ويُهمل الآخر بلا أن يعرف صاحبُه. لكن طلباً مات موعدُه أو رابطُه
+       لا يبقى «طلبَه» — يتبع الموعدَ الجديد (src/utils/requestReissue.ts). */
+    const held = already.get(instructorId);
+    const move = reissueMove(held);
+    if (held && move === "keep") {
+      issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
-    const link = await Repository.createShareLink({
-      AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
-      label: `طلب جدول — ${instructorId}`,
-      /* ── الصلاحيةُ تتبع الموعدَ المُعلَن ────────────────────────────────
-       * كانت ثابتةً بـ21 يوماً والموعدُ يُكتب بحرّية. فمن كتب موعداً أبعدَ
-       * منها رأى أساتذتُه «انتهت صلاحية هذا الرابط» قبل الموعد الذي وعدهم
-       * به — ولا شيءَ في الشاشة يقول لماذا. فتُشتقّ من الموعد نفسِه، ولا
-       * تنزل عن الحدّ الأدنى حتى لا يُغلق رابطُ موعدٍ قريبٍ لحظةَ انتهائه. */
-      /* والقراءةُ تبقى حتى نهاية الفصل: قرارُ القسم وبدائلُه يصلان بعد الموعد،
-       * ورابطٌ يموت بعد يومٍ من الإغلاق يُخفي عن الأستاذ جوابَ ما طلبه. */
-      expiresAt: new Date(Math.max(
-        Date.parse(requestsCloseAtFromDate(closesAt)) + 86400000,
-        Date.now() + REQUEST_LINK_DAYS * 86400000,
-        Date.parse(termLinkExpiresAt(issueTerm)),
-      )).toISOString(),
-      SystemUserId: Number(req.user?.SystemUserId || 0),
-      userName: String(req.user?.UserName || ""),
-      showInstructors: false,
-      kind: "request",
-      AdInstructorId: instructorId,
-    } as any);
+    if (held && move === "extend") {
+      const heldLink = await Repository.getShareLink(held.linkId);
+      const readable = heldLink ? await shareLinkStillReadable(heldLink) : false;
+      let linkId = held.linkId;
+      if (requestLinkNeedsReplacing(heldLink, readable, Date.parse(windowClosesAt) + 86400000)) {
+        linkId = (await mintRequestLink(instructorId)).id;
+        if (heldLink && !heldLink.revoked) await Repository.revokeShareLink(heldLink.id);
+      }
+      const startsLater = Date.parse(held.window?.opensAt || "") > Date.now();
+      await Repository.saveInstructorRequest({
+        ...held,
+        linkId,
+        window: { opensAt: startsLater ? opensAt : held.window?.opensAt || opensAt, closesAt: windowClosesAt },
+      });
+      issued.push({ instructorId, linkId, reissued: false, renewed: true });
+      continue;
+    }
+    const link = await mintRequestLink(instructorId);
 
     await Repository.createInstructorRequest({
       AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
       AdInstructorId: instructorId,
       linkId: link.id,
-      window: { opensAt, closesAt: requestsCloseAtFromDate(closesAt) },
+      window: { opensAt, closesAt: windowClosesAt },
       source,
       status: "sent",
       items: (termRowsOf(instructorId).length ? termRowsOf(instructorId) : own).map(row =>
@@ -19579,7 +19624,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     issued.push({ instructorId, linkId: link.id, reissued: false });
   }
 
-  res.json({ issued, total: issued.length, fresh: issued.filter(row => !row.reissued).length });
+  res.json({ issued, total: issued.length, fresh: issued.filter(row => !row.reissued && !row.renewed).length });
 });
 
 /* ── وارِدُ القسم ────────────────────────────────────────────────────────── */
