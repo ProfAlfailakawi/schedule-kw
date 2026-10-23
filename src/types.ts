@@ -2033,6 +2033,8 @@ export interface AdStatsDay {
   uniques: number;
   clicks: number;
   filteredClicks: number;
+  /** أشخاصٌ (متصفحاتٌ) رأوا الحملة لأول مرة طوال مدتها: مفتاحٌ محلي بنطاق الحملة لا باليوم. حقلٌ جديد؛ الصفوف القديمة بلا قيمة. */
+  reach?: number;
 }
 /** نبضُ الزوار اليومي، مجهولٌ كلياً: أعدادٌ فقط. */
 export interface AudienceDay {

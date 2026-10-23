@@ -48,7 +48,7 @@ export function summaryText(c: Campaign, slotLabel: string): string {
     `• الظهور المرئي هذا الأسبوع: ${nf.format(w?.thisWeek.impressions ?? 0)}${w?.hasLastWeek ? ` (${arrowOf(w.impressionsChange)} عن الأسبوع الماضي)` : ""}`,
     `• النقرات الصحيحة: ${nf.format(w?.thisWeek.clicks ?? 0)}${w?.hasLastWeek ? ` (${arrowOf(w.clicksChange)})` : ""}`,
     `• نسبة النقر: ${nf.format(w?.thisWeek.ctr ?? 0)}%`,
-    `• منذ بداية الحملة: ظهور ${nf.format(c.totals.impressions)}، مشاهدون تقريباً ${nf.format(c.totals.uniques)}، نقرات ${nf.format(c.totals.clicks)}`,
+    `• منذ بداية الحملة: ظهور ${nf.format(c.totals.impressions)}، مشاهدون تقريباً ${nf.format(c.totals.uniques)}،${c.totals.reach > 0 ? ` وصلنا إلى نحو ${nf.format(c.totals.reach)} شخص،` : ""} نقرات ${nf.format(c.totals.clicks)}`,
     c.trial ? (c.phase === "ended" ? "انتهت التجربة المجانية؛ يسعدنا تثبيت مكانكم في الفصل القادم." : "التجربة المجانية جارية، وتنتهي تلقائياً في موعدها.") : (c.endingSoon ? `تنتهي الحملة بعد ${countOf(Math.max(0, c.daysLeft), AR.day)}؛ نرتّب التجديد؟` : ""),
     `تقريركم الحي: ${new URL(c.reportUrl, location.origin).toString()}`,
   ];
@@ -110,6 +110,7 @@ export default function CampaignDrawer({ campaign: c, data, onClose, actions }: 
         <div className="ad-kpis">
           <div><b>{fmt(c.totals.impressions)}</b><span>ظهور مرئي</span><small>{c.weekly?.hasLastWeek ? `${arrowOf(c.weekly.impressionsChange)} عن الأسبوع الماضي` : "إعلانك كان على الشاشة فعلاً"}</small></div>
           <div><b>{fmt(c.totals.uniques)}</b><span>مشاهدون (تقدير)</span><small>متصفحٌ واحد = مرة في اليوم</small></div>
+          {c.totals.reach > 0 ? <div><b>{fmt(c.totals.reach)}</b><span>وصل إلى نحو شخص</span><small>مرة واحدة طوال الحملة</small></div> : null}
           <div><b>{fmt(c.totals.clicks)}</b><span>عدد النقرات الصحيحة</span><small>{c.totals.filteredClicks ? `استُبعدت ${countOf(c.totals.filteredClicks, AR.click)}` : c.weekly?.hasLastWeek ? `${arrowOf(c.weekly.clicksChange)} عن الأسبوع الماضي` : "بعد استبعاد الروبوتات"}</small></div>
           <div><b>{pct1(c.totals.ctr)}</b><span>نسبة النقر</span><small>النقرات ÷ الظهور</small></div>
         </div>

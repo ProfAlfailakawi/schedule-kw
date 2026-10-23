@@ -4472,6 +4472,7 @@ export const Repository = {
             id: idOf(row), campaignId: row.campaignId, creativeId: row.creativeId, day: row.day,
             impressions: FieldValue.increment(row.impressions), uniques: FieldValue.increment(row.uniques),
             clicks: FieldValue.increment(row.clicks), filteredClicks: FieldValue.increment(row.filteredClicks),
+            ...(row.reach ? { reach: FieldValue.increment(row.reach) } : {}),
           }, { merge: true });
         }
         await batch.commit();
@@ -4482,7 +4483,7 @@ export const Repository = {
     for (const row of deltas) {
       const id = idOf(row);
       const found = list.find(item => item.id === id);
-      if (found) { found.impressions += row.impressions; found.uniques += row.uniques; found.clicks += row.clicks; found.filteredClicks += row.filteredClicks; }
+      if (found) { found.impressions += row.impressions; found.uniques += row.uniques; found.clicks += row.clicks; found.filteredClicks += row.filteredClicks; if (row.reach) found.reach = (found.reach || 0) + row.reach; }
       else list.push({ ...row, id });
     }
     saveDatabase();

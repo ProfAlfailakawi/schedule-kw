@@ -252,6 +252,7 @@ ${msg}
 <div class="grid">
   <div class="kpi"><b>${fmt(totals.impressions)}</b><span>ظهور مرئي</span><small>إعلانك كان على الشاشة فعلاً</small></div>
   <div class="kpi"><b>${fmt(totals.uniques)}</b><span>مشاهدون (تقدير)</span><small>متصفحٌ واحد = مرة في اليوم</small></div>
+  ${totals.reach > 0 ? `<div class="kpi"><b>${fmt(totals.reach)}</b><span>وصل إلى نحو شخص</span><small>متصفحٌ واحد = مرة واحدة طوال الحملة</small></div>` : ""}
   <div class="kpi"><b>${fmt(totals.clicks)}</b><span>عدد النقرات الصحيحة</span><small>بعد استبعاد الروبوتات والتكرار</small></div>
   <div class="kpi"><b>${pct(totals.ctr)}</b><span>نسبة النقر</span><small>النقرات ÷ الظهور</small></div>
 </div>

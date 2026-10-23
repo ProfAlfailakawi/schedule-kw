@@ -79,11 +79,12 @@ export interface AdsDeps {
 const pendingStats = new Map<string, Omit<AdStatsDay, "id">>();
 const pendingAudience = new Map<string, Omit<AudienceDay, "id" | "day">>();
 
-const bumpStat = (campaignId: string, creativeId: string, patch: Partial<Pick<AdStatsDay, "impressions" | "uniques" | "clicks" | "filteredClicks">>) => {
+const bumpStat = (campaignId: string, creativeId: string, patch: Partial<Pick<AdStatsDay, "impressions" | "uniques" | "clicks" | "filteredClicks" | "reach">>) => {
   const day = kuwaitDay();
   const key = `${campaignId}|${creativeId}|${day}`;
   const row = pendingStats.get(key) || { campaignId, creativeId, day, impressions: 0, uniques: 0, clicks: 0, filteredClicks: 0 };
   row.impressions += patch.impressions || 0; row.uniques += patch.uniques || 0; row.clicks += patch.clicks || 0; row.filteredClicks += patch.filteredClicks || 0;
+  if (patch.reach) row.reach = (row.reach || 0) + patch.reach;
   pendingStats.set(key, row);
 };
 
@@ -505,7 +506,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
         const campaign = live.get(String(e?.c || ""));
         const creativeId = String(e?.k || "");
         if (!campaign || !campaign.creativeIds.includes(creativeId)) continue;
-        bumpStat(campaign.id, creativeId, { impressions: 1, uniques: e?.u ? 1 : 0 });
+        bumpStat(campaign.id, creativeId, { impressions: 1, uniques: e?.u ? 1 : 0, reach: e?.r ? 1 : 0 });
       }
     }
     res.end();

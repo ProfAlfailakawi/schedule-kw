@@ -262,14 +262,16 @@ export function rotationOrder<T>(items: readonly T[], rand: () => number = Math.
 /* ── الأرقام ── */
 export interface CampaignTotals {
   impressions: number; uniques: number; clicks: number; filteredClicks: number;
+  /** وصلت إلى نحو كم شخصٍ طوال الحملة (مفتاحٌ محلي بنطاق الحملة). */
+  reach: number;
   /** نسبة النقر % بخانةٍ عشرية. */
   ctr: number;
 }
 export const ctrOf = (clicks: number, impressions: number): number => (impressions > 0 ? Math.round((clicks / impressions) * 1000) / 10 : 0);
 
 export function totalsOf(rows: readonly AdStatsDay[]): CampaignTotals {
-  const t = { impressions: 0, uniques: 0, clicks: 0, filteredClicks: 0 };
-  for (const r of rows) { t.impressions += r.impressions; t.uniques += r.uniques; t.clicks += r.clicks; t.filteredClicks += r.filteredClicks; }
+  const t = { impressions: 0, uniques: 0, clicks: 0, filteredClicks: 0, reach: 0 };
+  for (const r of rows) { t.impressions += r.impressions; t.uniques += r.uniques; t.clicks += r.clicks; t.filteredClicks += r.filteredClicks; t.reach += r.reach || 0; }
   return { ...t, ctr: ctrOf(t.clicks, t.impressions) };
 }
 
