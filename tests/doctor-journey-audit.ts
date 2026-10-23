@@ -103,7 +103,7 @@ async function main() {
     check(publish.includes("requestsCloseAt: closesAt"), "D2 الموعد يُرسل موعداً للطلبات لا مدّةً للرابط");
     check(!server.includes("اشتراك دائم"), "D2 لا تقول البطاقة «اشتراك دائم» وهي تنتهي");
     check(server.includes("حتى نهاية الفصل"), "D2 البطاقة تقول صراحةً إن الاشتراك حتى نهاية الفصل");
-    check(server.includes("window: { opensAt, closesAt: requestsCloseAtFromDate(closesAt) }"), "D2 نافذة الطلب تُحسب بالدالة نفسها");
+    check(server.includes("const windowClosesAt = requestsCloseAtFromDate(closesAt);") && server.includes("window: { opensAt, closesAt: windowClosesAt }"), "D2 نافذة الطلب تُحسب بالدالة نفسها");
   }
 
 

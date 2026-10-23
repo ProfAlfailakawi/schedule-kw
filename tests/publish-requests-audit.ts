@@ -54,7 +54,7 @@ check(publish.includes('disabled={busy || (withRequests && !closesAt)}'),
    رابطٌ واحدٌ يُنسخ. فلو صمتت الشاشةُ بعد الإصدار لظنَّ القسمُ أنه لم يقع. */
 check(publish.includes("const reissued = rows.filter(row => row.reissued).length;"),
   "ويُفرَّق بين رابطٍ جديدٍ وآخرَ يحمله صاحبُه من قبل");
-check(publish.includes("فُتحت طلبات التعديل لـ") && publish.includes("يحملون طلباتهم من قبل"),
+check(publish.includes("فُتحت طلبات التعديل لـ") && publish.includes("طلباتهم عند القسم"),
   "فلا يظنُّ القسمُ أنه أرسل لعشرين وقد أرسل لثلاثة");
 check(publish.includes("يطلبون من بطاقتهم، وتتابعها في «وارد الأساتذة»"),
   "ويُدلُّ على موضع المتابعة، فالروابطُ لا تظهر في هذه القائمة");
@@ -89,7 +89,8 @@ check(publish.includes('link => link.kind !== "request"') && publish.includes('?
       أبعدَ منها رأى أساتذتُه «انتهت صلاحية هذا الرابط» قبل الموعد الذي
       وعدهم به، ولا شيءَ في الشاشة يقول لماذا. */
 check(server.includes("expiresAt: new Date(Math.max(")
-  && server.includes("Date.parse(requestsCloseAtFromDate(closesAt)) + 86400000,"),
+  && server.includes("const windowClosesAt = requestsCloseAtFromDate(closesAt);")
+  && server.includes("Date.parse(windowClosesAt) + 86400000,"),
   "وصلاحيةُ الرمز تتبع الموعدَ المُعلَن، فلا يُغلق قبل ما وُعد به");
 check(server.includes("Date.now() + REQUEST_LINK_DAYS * 86400000,"),
   "ولا تنزل عن الحدّ الأدنى، فلا يُغلق رابطُ موعدٍ قريبٍ لحظةَ انتهائه");
@@ -97,11 +98,11 @@ check(server.includes("Date.now() + REQUEST_LINK_DAYS * 86400000,"),
 /* ٣) «أُصدر ١٢ رابطاً» كانت تبقى بعد إغلاق اللوحة وفتحِها على نطاقٍ آخر، أو
       بعد إنشاء رابط قراءةٍ عادي — فتُقرأ خبراً عن الفعل الجاري وهي خبرٌ عن
       فعلٍ مضى. */
-check(publish.includes("useEffect(() => { setIssued(null); }, [open, collegeId, sectionId, termId, kind]);"),
+check(publish.includes("useEffect(() => { setIssued(null); setReplaced(0); setShowPast(false); }, [open, collegeId, sectionId, termId, kind]);"),
   "ونتيجةُ الإصدار تُمحى عند تغيّر النطاق أو النوع أو إعادة الفتح");
 check(publish.includes("setCreatedId(data.id);\n      setIssued(null);"),
   "وعند إنشاء رابطٍ من نوعٍ آخر");
-check(publish.includes("setIssued({ created: rows.length - reissued, reissued });"),
+check(publish.includes("setIssued({ created: rows.length - reissued - renewed, reissued, renewed });"),
   "ويُقال ما فُتح من الطلبات مع البطاقة، في الموضع نفسه");
 
 /* ── والمرشدُ يعرف البابَ الثالث ──────────────────────────────────────────

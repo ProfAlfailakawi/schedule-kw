@@ -113,7 +113,11 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     [closesAt, setClosesAt] = useState(""),
     /* ومع البطاقة تُفتح نافذةُ طلبات التعديل ما لم يُطفئها المنسّق. */
     [openRequests, setOpenRequests] = useState(true),
-    [issued, setIssued] = useState<{ created: number; reissued: number; empty?: "no-rows" | "no-instructors" } | null>(null),
+    [issued, setIssued] = useState<{ created: number; reissued: number; renewed?: number; empty?: "no-rows" | "no-instructors" } | null>(null),
+    /* كم بطاقةً سابقةً حلّت محلَّها البطاقةُ الجديدة — سطرٌ في خبر الإنشاء لا قائمة. */
+    [replaced, setReplaced] = useState(0),
+    /* الروابطُ الموقوفة والمنتهية مطويّةٌ تحت سطرٍ واحد، فلا تزاحم الحيّة. */
+    [showPast, setShowPast] = useState(false),
     [qr, setQr] = useState<{ id: string; svg: string } | null>(null),
     /* الروابطُ الشخصية: رابطٌ لكل أستاذ، يُسكّ عند التسليم ويُدار هنا. */
     [personalLinks, setPersonalLinks] = useState<PersonalLink[]>([]),
@@ -150,7 +154,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
    * «أُصدر ١٢ رابطاً» كانت تبقى بعد إغلاق اللوحة وفتحِها على نطاقٍ آخر، أو
    * بعد إنشاء رابط قراءةٍ عادي — فتُقرأ خبراً عن الفعل الجاري وهي خبرٌ عن
    * فعلٍ مضى، ويظنّ المنسّقُ أنه أرسل لهذا القسم وقد أرسل لغيره. */
-  useEffect(() => { setIssued(null); }, [open, collegeId, sectionId, termId, kind]);
+  useEffect(() => { setIssued(null); setReplaced(0); setShowPast(false); }, [open, collegeId, sectionId, termId, kind]);
 
   /**
    * إصدارُ روابط الرغبات.
@@ -170,11 +174,12 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       setIssued({ created: 0, reissued: 0, empty: data.reason === "no-instructors" ? "no-instructors" : "no-rows" });
       return;
     }
-    const rows: Array<{ reissued?: boolean }> = data?.issued || [];
+    const rows: Array<{ reissued?: boolean; renewed?: boolean }> = data?.issued || [];
     /* والفرقُ يُقال: جديدٌ، ومُعادٌ صاحبُه يحمل طلبَه من قبل. فلا يظنُّ القسمُ
        أنه فتح لعشرين وقد فتح لثلاثة. */
     const reissued = rows.filter(row => row.reissued).length;
-    setIssued({ created: rows.length - reissued, reissued });
+    const renewed = rows.filter(row => row.renewed).length;
+    setIssued({ created: rows.length - reissued - renewed, reissued, renewed });
   };
 
   /* بطاقة الأستاذ: الموعدُ يحكم استقبالَ الطلبات وحده. الرابطُ نفسه — والتقويم
@@ -197,7 +202,10 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
         body: JSON.stringify({ collegeId, sectionId, termId, days: linkDays, showInstructors, kind, ...(withRequests ? { requestsCloseAt: closesAt } : {}) })
       });
       const data = await readReply(response, "تعذر إنشاء الرابط");
-      setLinks(current => [data, ...current]);
+      /* الخادمُ أوقف بطاقاتِ القسم السابقة؛ تُرى هنا موقوفةً بلا إعادة تحميل. */
+      const superseded = (item: ShareLink) => data.kind === "staff" && item.kind === "staff" && !Number(item.AdInstructorId || 0);
+      setLinks(current => [data, ...current.map(item => (superseded(item) ? { ...item, revoked: true } : item))]);
+      setReplaced(Number(data.replaced || 0));
       setCreatedId(data.id);
       setIssued(null);
       setStep("links");
@@ -322,6 +330,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   const livePersonal = personalLinks.filter(link => !link.revoked && Date.parse(link.expiresAt) > Date.now());
   const changedSinceSent = livePersonal.filter(link => link.changedSinceSent);
   const active = publicationLinks.filter(link => !link.revoked && new Date(link.expiresAt).getTime() > Date.now());
+  /* الحيّةُ أولاً، والموقوفةُ والمنتهية خلف سطرٍ واحد «السابقة (n)». */
+  const pastLinks = publicationLinks.filter(link => !active.includes(link));
+  const shownLinks = showPast ? [...active, ...pastLinks] : active;
 
   const currentStep = PUBLISH_STEPS.findIndex(item => item.id === step);
   const openDialog = () => {
@@ -549,6 +560,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               {createdId ? (
                 <p className="share-created" role="status">
                   <Check aria-hidden="true" /> تم إنشاء الرابط وأصبح جاهزاً للنسخ.
+                  {replaced ? (replaced === 1 ? " وحلّ محلّ البطاقة السابقة." : " وحلّ محلّ البطاقات السابقة.") : ""}
                 </p>
               ) : null}
               {/* طلباتُ التعديل تُفتح من البطاقة نفسها، فلا روابطَ منفصلةً تُنسخ
@@ -562,18 +574,20 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               ) : issued ? (
                 <p className="share-created" role="status">
                   <Check aria-hidden="true" />
-                  {issued.created
-                    ? `فُتحت طلبات التعديل لـ${countOf(issued.created, oblique(AR.instructor))}`
-                    : "طلبات التعديل مفتوحة من قبل"}
-                  {issued.reissued
-                    ? ` · ${countOf(issued.reissued, AR.instructor)} يحملون طلباتهم من قبل`
-                    : ""}
-                  {" — يطلبون من بطاقتهم، وتتابعها في «وارد الأساتذة»."}
+                  {/* ثلاثةُ أحوالٍ تُعدّ ولا تُخلط: طلبٌ جديد، وطلبٌ قائمٌ أخذ الموعدَ
+                      الجديد، وطلبٌ أرسله صاحبُه وينتظر القسم. «مفتوحة من قبل» كانت
+                      تُقال لطلباتٍ مات موعدُها، فيظنّها المنسّقُ مفتوحة. */}
+                  {[
+                    issued.created ? `فُتحت طلبات التعديل لـ${countOf(issued.created, oblique(AR.instructor))}` : "",
+                    issued.renewed ? `جُدّد الموعد لـ${countOf(issued.renewed, oblique(AR.instructor))}` : "",
+                    issued.reissued ? `${countOf(issued.reissued, AR.instructor)} طلباتهم عند القسم` : "",
+                  ].filter(Boolean).join(" · ")}
+                  {issued.created || issued.renewed ? " — يطلبون من بطاقتهم، وتتابعها في «وارد الأساتذة»." : " — تتابعها في «وارد الأساتذة»."}
                 </p>
               ) : null}
               <div className="share-list" role="list" aria-live="polite">
-                {publicationLinks.length ? (
-                  publicationLinks.map(link => {
+                {shownLinks.length ? (
+                  shownLinks.map(link => {
                     const expired = new Date(link.expiresAt).getTime() <= Date.now();
                     const dead = expired || Boolean(link.revoked);
                     const status = link.revoked ? "ملغي" : expired ? "منتهٍ" : "فعال";
@@ -772,9 +786,16 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                     );
                   })
                 ) : (
-                  <p className="share-empty">لا روابط بعد. ابدأ باختيار نوع الرابط.</p>
+                  <p className="share-empty">{pastLinks.length ? "لا رابط فعّال الآن." : "لا روابط بعد. ابدأ باختيار نوع الرابط."}</p>
                 )}
               </div>
+              {pastLinks.length ? (
+                <button type="button" className="share-past-toggle"
+                  data-guide-ignore="إظهار الروابط الموقوفة والمنتهية أو طيّها: عرضٌ فقط لا يغيّر شيئاً"
+                  aria-expanded={showPast} onClick={() => setShowPast(value => !value)}>
+                  {showPast ? "إخفاء السابقة" : `السابقة (${pastLinks.length.toLocaleString("ar-KW-u-nu-latn")})`}
+                </button>
+              ) : null}
               {personalLinks.length ? (
                 <section className="share-personal" aria-label="الروابط الشخصية للأساتذة">
                   <header>
