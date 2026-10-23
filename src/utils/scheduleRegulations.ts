@@ -419,11 +419,11 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       const courseLabel = course?.CourseCode || entry.rows[0]?.AdCourseName || String(courseId);
       findings.push({
         rule: "out-of-character",
-        article: "الاعتياد التاريخي",
+        article: "المعتاد للمقرر",
         severity: "medium",
         source: "history",
         approvalEffect: "note",
-        title: `خارج المعتاد تاريخياً${entry.rows.length > 1 ? ` (${arabicNumber(entry.rows.length)})` : ""}`,
+        title: `خارج المعتاد${entry.rows.length > 1 ? ` (${arabicNumber(entry.rows.length)})` : ""}`,
         detail: `المقرر ${courseLabel}: ${entry.reasons.slice(0, 3).join(" — ")}`,
         subjectKey: `course:${courseId}`,
         subjectLabel: courseLabel,

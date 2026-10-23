@@ -3574,7 +3574,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       severity: "low",
       source: "history",
       approvalEffect: "note",
-      title: "خارج المعتاد تاريخياً",
+      title: "خارج المعتاد",
       detail: uniqueDetails.join(" — "),
       rowIds: editId ? [editId] : [],
       icon: "history",

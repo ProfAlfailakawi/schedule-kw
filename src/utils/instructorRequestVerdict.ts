@@ -106,10 +106,10 @@ export interface RequestVerdict {
    */
   shapes?: Array<{ days: DayKey[]; label: string }>;
   /**
-   * ملاحظةٌ فقط: الأصلُ التاريخي للمقرّر يختلف عن نمط اللائحة. لا تُدخل الطلبَ في «يحتاج استثناءً»
-   * ولا تمنع شيئاً — المرجعُ هو ما درج عليه المقرّر، واللائحةُ تُقارَن به لا تُفرَض عليه.
+   * تنبيهاتُ اللائحة: ساعاتٌ لا يغطّيها المختار، أو نمطُ المقرّر المعتاد يخالف نمطَها. تُعرض فقط:
+   * لا تمنع الإرسال ولا تُدخل الطلبَ في «يحتاج استثناءً».
    */
-  histNote?: string;
+  notices?: string[];
   /** طولُ اللقاء الذي حُكم به حين يكون يوماً واحداً بطولٍ غير طول المحاضرة (من الصفّ نفسه أو من تاريخ المقرّر). */
   blockMinutes?: number;
   /** جملةٌ واحدةٌ تصف الحكم كله، جاهزةٌ للعرض. */
@@ -407,8 +407,11 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     ...afterRows,
   ];
 
-  /* ملاحظةُ الأصل التاريخي: حين يتبع الطلبُ ما درج عليه المقرّر وهذا يخالف نمط اللائحة. لا تمنع ولا تُسبّب استثناءً. */
-  const histNoteOf = (): string => {
+  /* تنبيهاتُ اللائحة: تُعرض ولا تمنع ولا تطلب استثناءً. */
+  const notices: string[] = [];
+  let coverageShapes: Array<{ days: DayKey[]; label: string }> | undefined;
+  /* حين يتبع الطلبُ نمطَ المقرّر المعتاد وهذا يخالف نمط اللائحة. */
+  const followNoteOf = (): string => {
     if (request.action !== "add" && request.action !== "change") return "";
     const origin = historicalOrigin(context.nature?.get(Number(request.AdCourseId)), context.termId);
     const hours = Number(context.courses.get(request.AdCourseId)?.CourseHours || context.courses.get(request.AdCourseId)?.CourseCredit || 0);
@@ -421,7 +424,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       && origin.patterns.some(days => days.every(day => pattern.days.includes(day))) && Math.abs(pattern.weeklyMinutes - origin.weeklyMinutes) <= 20);
     if (agrees) return "";
     const own = request.days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day], request.blockMinutes)}د`).join(" · ");
-    return `الأصل التاريخي للمقرّر (${own}، ${origin.weeklyMinutes}د أسبوعياً) يختلف عن نمط اللائحة (${regulation.map(pattern => pattern.label).slice(0, 2).join(" أو ")}) — ملاحظةٌ فقط، لا تمنع.`;
+    return `نمط هذا المقرّر المعتاد (${own}، ${origin.weeklyMinutes}د أسبوعياً) يختلف عن نمط اللائحة (${regulation.map(pattern => pattern.label).slice(0, 2).join(" أو ")}) — تنبيهٌ فقط.`;
   };
 
   const verdictOf = (): RequestVerdict => {
@@ -430,7 +433,8 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     return {
       kind, reasons, sendable: !blocking, needsExcuse: kind === "exception",
       roomAvailable: null, roomCandidates: [], nearestTimes: [], computedEnd, blockMinutes: request.blockMinutes,
-      ...(histNoteOf() ? { histNote: histNoteOf() } : {}),
+      ...(notices.length || followNoteOf() ? { notices: [...notices, ...(followNoteOf() ? [followNoteOf()] : [])] } : {}),
+      ...(coverageShapes ? { shapes: coverageShapes } : {}),
       headline: blocking
         ? headlineReasonOf(reasons)!.text
         : reasons.length ? "يحتاج استثناءً من القسم" : "الوقت متاح",
@@ -502,28 +506,20 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       const blockDay = request.blockMinutes && original ? DAY_KEYS.find(day => (original as any)[day]) : habitDay;
       const blockLength = request.blockMinutes || habitLength;
       const keepOneDay = blockDay && blockLength
-        ? [{ days: [blockDay] as DayKey[], label: `${request.blockMinutes && original ? "يوم واحد كما هو الآن" : "يوم واحد كما دُرّس سابقاً"}: ${DAY_NAMES[DAY_KEYS.indexOf(blockDay)]} ${blockLength}د` }]
+        ? [{ days: [blockDay] as DayKey[], label: `${request.blockMinutes && original ? "يوم واحد كما هو الآن" : "يوم واحد كما هو معتاد"}: ${DAY_NAMES[DAY_KEYS.indexOf(blockDay)]} ${blockLength}د` }]
         : [];
       /* وما درج عليه المقرّر (أياماً متعدّدة) يُعرض قبل أنماط اللائحة، وبما يمرّ من الفاحص نفسه. */
       const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
       const originShapes = keepOneDay.length || !origin ? [] : origin.patterns
         .filter(days => days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= Math.min(threshold, origin.weeklyMinutes))
-        .map(days => ({ days, label: `كما دُرّس سابقاً: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
+        .map(days => ({ days, label: `المعتاد: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
       const shapes = keepOneDay.length ? keepOneDay[0].label : originShapes.length ? originShapes.map(shape => shape.label).join(" أو ") : patternsForHours(courseHours).map(pattern => pattern.label).slice(0, 3).join(" أو ");
-      reasons.push({
-        source: "shape",
-        text: `هذا المقرّر ${countOf(courseHours, { one: "ساعة", two: "ساعتان", few: "ساعات", many: "ساعةً" })} أسبوعياً، والمختار لا يغطّيها${shapes ? ` — جرّب ${shapes}` : ""}.`,
-        blocking: true,
-      });
-      const result = verdictOf();
-      /* لا يُعرض زرٌّ إلا لما يقبله الفاحصُ نفسُه بالأيام وحدها: كتلةُ اليوم الواحد
-         الطويلة تحتاج طولَ لقاءٍ لا يختاره الأستاذ من هنا، فزرُّها كان سيعود إلى المنع. */
-      /* شعبةٌ طبيعتُها لقاءٌ ممتدّ بيومٍ واحد (من صفّها أو من تاريخها) خيارُها الوحيد أن تبقى كذلك:
-         نمطُ المحاضرات (٨٠+٨٠+٥٠ وأخواتُه) ليس من طبيعتها ولا ممّا درجت عليه، فلا يُعرض بجانبها. */
-      result.shapes = keepOneDay.length ? keepOneDay : originShapes.length ? originShapes.slice(0, 3) : patternsForHours(courseHours)
+      notices.push(`هذا المقرّر ${countOf(courseHours, { one: "ساعة", two: "ساعتان", few: "ساعات", many: "ساعةً" })} أسبوعياً، والمختار لا يغطّيها${shapes ? ` — المعتاد: ${shapes}` : ""} — تنبيهٌ فقط.`);
+      /* أزرارٌ تُطبَّق بضغطة، وكلُّ ما فيها يمرّ من الفاحص بلا تنبيه. وشعبةٌ طبيعتُها لقاءٌ ممتدّ بيومٍ واحد
+         خيارُها الوحيد أن تبقى كذلك: نمطُ المحاضرات (٨٠+٨٠+٥٠ وأخواتُه) ليس من طبيعتها فلا يُعرض بجانبها. */
+      coverageShapes = keepOneDay.length ? keepOneDay : originShapes.length ? originShapes.slice(0, 3) : patternsForHours(courseHours)
         .filter(pattern => pattern.days.length > 1 && pattern.days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold)
         .map(pattern => ({ days: [...pattern.days], label: pattern.label })).slice(0, 3);
-      return result;
     }
   }
 

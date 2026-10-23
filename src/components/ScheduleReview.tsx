@@ -58,7 +58,7 @@ type ReviewFindingGroup = RegulationFinding & {
 /**
  * The title without the count it carries.
  *
- * A rule that fires on five appointments titles itself «خارج المعتاد تاريخياً (5)»,
+ * A rule that fires on five appointments titles itself «خارج المعتاد (5)»,
  * and one that fires on two titles itself «… (2)». Both are the same finding, but
  * the count was part of the grouping key — so the review listed the same heading
  * three and four times, each with its own little number, and the reader had to

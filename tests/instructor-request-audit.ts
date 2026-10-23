@@ -377,7 +377,7 @@ check(judgeRequest(ask({ action: "delete" }), context({
   const three = row({ id: 32, AdCourseId: 100, fsunday: true, ftuesday: true, fthursday: true });
   const dropped = judgeRequest({ rowId: 32, action: "change", AdCourseId: 100, days: ["fsunday"], start: "08:00" },
     context({ courses: new Map([[100, course(100, 3)]]), allRows: [three], instructorRowsAfter: [three] }));
-  check(!dropped.sendable && dropped.reasons.some(r => r.source === "shape" && /ساعات/.test(r.text)), "ثلاثُ ساعاتٍ في يومٍ واحدٍ بخمسين دقيقة: لا تغطّي ساعاتِ المقرّر");
+  check(dropped.sendable && !dropped.reasons.some(r => r.blocking) && Boolean(dropped.notices?.some(note => /ساعات/.test(note))), "ثلاثُ ساعاتٍ في يومٍ واحدٍ بخمسين دقيقة: لا تغطّي ساعاتِ المقرّر — تنبيهٌ بلا منع");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
