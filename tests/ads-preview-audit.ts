@@ -15,7 +15,7 @@ function check(condition: boolean, name: string) {
 }
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
 
-check(SAMPLE_BRANDS.length >= 3 && SAMPLE_BRANDS[0].name === "شركتك" && !SAMPLE_BRANDS.some(b => /آبل|apple/i.test(b.name + b.id)), "شركاتٌ جاهزة للمعاينة أولها إعلانٌ عام «شركتك» بلا اسمٍ تجاري");
+check(SAMPLE_BRANDS.length >= 3 && SAMPLE_BRANDS[0].name === "مساحة إعلانية" && !SAMPLE_BRANDS.some(b => /آبل|apple/i.test(b.name + b.id)), "شركاتٌ جاهزة للمعاينة أولها إعلانٌ عام «مساحة إعلانية» بلا اسمٍ تجاري");
 check(customBrand("   ") === null, "اسمٌ فارغ لا يصنع شركة");
 check(customBrand("ب".repeat(80))?.name.length === SAMPLE_NAME_MAX, "الاسم المكتوب يُقصّ عند الحدّ");
 check(customBrand("شركة الأفق")?.hue === customBrand("شركة   الأفق")?.hue, "اللونُ ثابتٌ من الاسم ولو تغيّرت المسافات");

@@ -2645,19 +2645,27 @@ app.post("/api/demo/reset", requireAuth, async (req: AuthenticatedRequest, res: 
 /**
  * ── «جرّب كأستاذ»: كرتُ الأستاذ في الديمو ────────────────────────────────────
  *
- * تحت «جرّب كطالب» في شريط الديمو. يفتح الرابطَ الشخصيّ المبذور لأستاذٍ وهمي في صندوق الزائر
- * (`/r/demo.…`) فيرى كرتَه كما يراه الأستاذ: يغيّر أيامَه ويوقّع برقمه المدني الوهمي (في تلميح الصفحة
- * مع زرّ نسخ). يُفضَّل أستاذٌ فتح رابطه ولم يرسل شيئاً بعد، لتكون التجربةُ من أولها. والمسارُ رابطٌ
+ * تحت «جرّب كطالب» في شريط الديمو. يفتح «بطاقة الأستاذ» (`/s/demo.…`) أولاً: يكتب الزائرُ رقمَ أستاذٍ
+ * وهمي (في تلميح الصفحة مع زرّ نسخ) ثم يصل منها إلى طلب تعديل الجدول (`/r/demo.…`) فيغيّر أيامَه ويوقّع. يُفضَّل أستاذٌ فتح رابطه ولم يرسل شيئاً بعد، لتكون التجربةُ من أولها. والمسارُ رابطٌ
  * عادي (لا JavaScript): إن لم يكتمل البذرُ بعدُ أجاب بصفحةٍ تعيد المحاولة وحدها كل ثانيتين.
  */
+/** أستاذُ التجربة: من فتح رابطه ولم يرسل (ثم من لم يرسل) — يُبذر طلبُه في صندوق الزائر. */
+async function demoTeacherRequest(): Promise<InstructorRequest | undefined> {
+  const { collegeId, sectionId, termId } = DEMO_STORY_SCOPE;
+  const requests = await Repository.getInstructorRequests(collegeId, sectionId, termId);
+  return requests.find(row => !row.submittedAt && row.linkOpenedAt) || requests.find(row => !row.submittedAt) || requests[0];
+}
+
 app.get("/api/demo/teacher-card", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   if (!Repository.isDemoRequest()) { res.status(404).json({ error: "هذه العملية متاحة للبيئة التجريبية فقط" }); return; }
   res.setHeader("Cache-Control", "no-store");
   const sessionId = getCookies(req)["session_id"];
   const { collegeId, sectionId, termId } = DEMO_STORY_SCOPE;
-  const requests = demoSeedStatus.get(String(sessionId || "")) === "preparing" ? [] : await Repository.getInstructorRequests(collegeId, sectionId, termId);
-  const pick = requests.find(row => !row.submittedAt && row.linkOpenedAt) || requests.find(row => !row.submittedAt) || requests[0];
-  if (pick?.linkId) { res.redirect(302, `/r/${encodeURIComponent(pick.linkId)}`); return; }
+  const preparing = demoSeedStatus.get(String(sessionId || "")) === "preparing";
+  /* يدخل الزائرُ من بطاقة الأستاذ (الصفحة التي تطلب رقمه المدني) ثم يصل منها إلى طلب تعديل الجدول،
+     كما يفعل الأستاذ الحقيقي — لا مباشرةً إلى نموذج الطلب. */
+  const staff = preparing ? undefined : (await Repository.getShareLinks(collegeId, sectionId, termId)).find(link => link.kind === "staff");
+  if (staff?.id && await demoTeacherRequest()) { res.redirect(302, `/s/${encodeURIComponent(staff.id)}`); return; }
   res.status(demoSeedStatus.get(String(sessionId || "")) === "failed" ? 503 : 202).type("text/html; charset=utf-8").send(
     `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="2"><title>كرت الأستاذ · SCHEDULE</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.7 system-ui,"Noto Sans Arabic",Tahoma,sans-serif;color:#2f3a36;background:#f6f4ee;text-align:center}</style></head><body><p>يُجهَّز كرت الأستاذ في العرض…<br><small>ينفتح تلقائياً بعد لحظات.</small></p></body></html>`);
 });
@@ -17862,7 +17870,11 @@ async function demoPageHint(link: ScheduleShareLink, page: "staff" | "survey" | 
     const ownerId = Number(link.AdInstructorId || 0);
     const rows = ownerId ? [] : await Repository.getSchedulesByScope({ collegeId: link.AdCollegeId, sectionId: link.AdSectionId, termId: link.AdTermId });
     const ids = ownerId ? [ownerId] : [...new Set(rows.map(row => Number(row.AdInstructorId)))].sort((a, b) => a - b);
-    const person = (await Repository.getInstructors()).find(row => ids.includes(Number(row.AdInstructorId)) && normalizeCivilId(row.AdInstructorCivil));
+    /* في بطاقة القسم يُقترح رقمُ أستاذ التجربة نفسه (من له طلبٌ ينتظره)، فيجد بعد الدخول رابطَ طلبه؛ أمّا البطاقةُ الشخصية فرقمُ صاحبها وحده (غيره يُردّ). */
+    const demoOwner = page === "staff" && !ownerId ? Number((await demoTeacherRequest())?.AdInstructorId || 0) : 0;
+    const instructors = await Repository.getInstructors();
+    const person = (demoOwner ? instructors.find(row => Number(row.AdInstructorId) === demoOwner && normalizeCivilId(row.AdInstructorCivil)) : undefined)
+      || instructors.find(row => ids.includes(Number(row.AdInstructorId)) && normalizeCivilId(row.AdInstructorCivil));
     if (person) lines.push(page === "request"
       ? `رقمُ صاحب هذا الرابط المدني (وهمي) للتوقيع عند الإرسال: ${num(normalizeCivilId(person.AdInstructorCivil))}`
       : `جرّب الرقم المدني ${num(normalizeCivilId(person.AdInstructorCivil))} — أستاذٌ وهمي في هذا القسم.`);

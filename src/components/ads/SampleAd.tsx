@@ -19,7 +19,7 @@ export interface SampleBrand {
 }
 
 export const SAMPLE_BRANDS: readonly SampleBrand[] = [
-  { id: "generic", name: "شركتك", tagline: "إعلانك هنا بمقاسه الحقيقي", cta: "اعرف أكثر", hue: 0, neutral: true },
+  { id: "generic", name: "مساحة إعلانية", tagline: "إعلانك هنا بمقاسه الحقيقي", cta: "اعرف أكثر", hue: 0, neutral: true },
   { id: "cafe", name: "كافيه الجامعة", tagline: "قهوتك بين المحاضرات", cta: "اطلب الآن", hue: 28 },
   { id: "bank", name: "بنك المستقبل", tagline: "حسابٌ مجاني لكل طالب", cta: "افتح حسابك", hue: 165 },
 ] as const;

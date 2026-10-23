@@ -91,8 +91,9 @@ check(server.includes('data-demo-copy="${digits}"') && (server.match(/\$\{DEMO_C
 const app = fs.readFileSync(path.join(process.cwd(), "src/App.tsx"), "utf8");
 const studentAt = app.indexOf("جرّب كطالب</span>"), teacherAt = app.indexOf("جرّب كأستاذ</span>");
 check(studentAt > 0 && teacherAt > studentAt && app.includes('href="/api/demo/teacher-card"'), "رابط «جرّب كأستاذ» يلي «جرّب كطالب» مباشرةً في شريط الديمو");
-check(server.includes('app.get("/api/demo/teacher-card", requireAuth') && server.includes("Repository.isDemoRequest()") && server.includes("res.redirect(302, `/r/${encodeURIComponent(pick.linkId)}`)"), "مسارُ الديمو يحوّل إلى الرابط الشخصيّ المبذور لأستاذٍ وهمي ولا يعمل خارج الصندوق");
-check(server.includes("!row.submittedAt && row.linkOpenedAt"), "يُفضَّل أستاذٌ فتح رابطه ولم يرسل ليبدأ الزائر التجربة من أولها");
+check(server.includes('app.get("/api/demo/teacher-card", requireAuth') && server.includes("Repository.isDemoRequest()") && server.includes("res.redirect(302, `/s/${encodeURIComponent(staff.id)}`)"), "مسارُ الديمو يفتح بطاقة الأستاذ أولاً (الرقم المدني) ثم منها طلب التعديل، ولا يعمل خارج الصندوق");
+check(server.includes("!row.submittedAt && row.linkOpenedAt") && server.includes("await demoTeacherRequest())?.AdInstructorId") && server.includes('page === "staff" && !ownerId'), "أستاذُ التجربة فتح رابطه ولم يرسل، ورقمُه هو المقترح في بطاقته");
+check(app.includes("demoScopeReset.current = Boolean(data.demo)") && app.includes("freshDemoLogin ||"), "الدخول الجديد للديمو يعيد الاختيار الجاهز ولو حمل المتصفح اختياراً قديماً");
 check(app.includes("sectionId: DEMO_STAGE_SECTION_ID, termId: 1"), "الاختيار الافتراضي للديمو: كلية التربية الأساسية ← تكنولوجيا التعليم ← الفصل الأول 2026/2027");
 
 console.log(`\nRequest day autofill audit: ${passed} passed, ${failed} failed`);
