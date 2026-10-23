@@ -185,7 +185,6 @@ export const REQUEST_V3_CSS = `:root{--ok-ink:#16523a;--on:#fff;--amber:#b07d00;
  *  - أسبوعُه رسماً واحداً بدل أعدادٍ ونقاط.
  *  - خريطةُ الأوقات: شريطٌ لونيٌّ على كل وقتِ بداية.
  *  - العرضُ على الشاشات الكبيرة.
- *  - الوضعُ الداكن بالرموز المشتركة مع «مساري» (PUBLIC_DARK_VARS).
  */
 export const REQUEST_V4_CSS = `
 /* ── التباين ── */
@@ -226,31 +225,4 @@ export const REQUEST_V4_CSS = `
 .calm .cal-line{margin:10px 0 0}
 .verdict[data-tone=warn]>i{background:#8a6100}
 
-/* ── الوضع الداكن: الرموزُ نفسُها ثم ما كُتب بلونٍ ثابت. كلُّ زوجٍ يُقاس تباينُه في tests/teacher-card-polish-audit.ts. ── */
-@media screen and (prefers-color-scheme:dark){
-:root{color-scheme:dark;--ink:#eef2ef;--muted:#b3bfb8;--muted2:#a5b2ab;--line:#2a3732;--line2:#3d4f47;--bg:#0f1513;--card:#17201d;--soft:#212d28;
---ok:#4cb89c;--ok2:#1d332d;--ok-ink:#8fe0c8;--accent:#4cb89c;--accent-soft:#1d332d;--warn:#e3b563;--warn2:#33290f;--warn-line:#5a4a1d;--amber-line:#6b5522;--amber:#c99532;--gold:#c99532;
---bad:#f08a84;--bad2:#3a1f1e;--on:#0b1512;--sk-on:#0b1512;--raise:#1d2824;--shadow:0 12px 34px rgba(0,0,0,.45)}
-body{background:var(--bg);color:var(--ink)}
-.tabs{background:rgba(23,32,29,.92)}
-.card{box-shadow:0 5px 18px rgba(0,0,0,.3)}
-.card[data-act="delete"]{background:#2a1a19}
-.pick button,.days button,.alts button,.starts button,.act,label.time input,textarea,.course-college select,.course-search,.course-option,label.sign input,details.demo>summary,.pb-more .pb-go{background:var(--card);color:var(--ink)}
-.add-card{background:rgba(23,32,29,.72);border-color:#3d6a5b}
-.sendbox{background:rgba(23,32,29,.96);box-shadow:0 -8px 28px rgba(0,0,0,.4)}
-.err{background:var(--bad2);color:var(--bad)}
-.state,.chip.st{background:var(--warn2);border-color:var(--warn-line);color:var(--warn)}
-.state[data-approved="1"],.statusline[data-approved="1"] .chip.st{background:var(--ok2);border-color:#2f5a4c;color:var(--ok-ink)}
-.add-start,.send button,.starts button[aria-pressed=true],.status[data-act=add],.status[data-act=change],.status[data-act=delete],.verdict>i,.dept i,.reply button[data-reply],.done .tick,.pb-ic,.pb-go{color:var(--on)}
-.verdict[data-tone=warn]>i{background:var(--warn);color:var(--on)}.verdict[data-tone=ok]>i{background:var(--ok-ink);color:var(--on)}.verdict[data-tone=bad]>i{background:var(--bad);color:var(--on)}
-.verdict[data-tone=warn]{color:var(--warn)}
-.wc-t{background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(33.333% - 1px),rgba(255,255,255,.1) calc(33.333% - 1px),rgba(255,255,255,.1) 33.333%)}
-.wb{background:#5f8a77}
-.wb[data-k=ghost]{border-color:#9aa7a0}
-.wb[data-k=chg]{background:#c99532}
-.wb[data-k=prop]{background:#e0a93a;box-shadow:0 0 0 2px var(--warn2)}
-.wb[data-k=del]{background:repeating-linear-gradient(135deg,#c4534b 0 4px,#5a2a27 4px 8px)}
-.starts button[data-heat=bad]{color:var(--bad)}
-.starts button[aria-pressed=true][data-heat]::after{background:rgba(11,21,18,.8)}
-}
 `;
