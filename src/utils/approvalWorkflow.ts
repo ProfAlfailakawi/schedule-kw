@@ -132,6 +132,7 @@ export function verificationCode(versionId: string, userId: number, at: string):
 
 export type SignRefusal =
   | { ok: false; code: "blocking-conflicts"; message: string }
+  | { ok: false; code: "missing-capacity"; message: string }
   | { ok: false; code: "wrong-order"; message: string }
   | { ok: false; code: "already-signed"; message: string }
   | { ok: false; code: "locked"; message: string }
@@ -142,13 +143,14 @@ export type SignVerdict = { ok: true } | SignRefusal;
 /**
  * أيجوز التوقيع الآن؟
  *
- * التعارض المادّي وحده يمنع — لأنه ليس مخالفةً لقاعدة، بل استحالةٌ في الواقع:
- * أستاذٌ في قاعتين في اللحظة نفسها لا يحدث، مهما وقّع عليه أحد.
+ * التعارض المادّي يمنع — لأنه ليس مخالفةً لقاعدة، بل استحالةٌ في الواقع:
+ * أستاذٌ في قاعتين في اللحظة نفسها لا يحدث، مهما وقّع عليه أحد. وكذلك سعةٌ
+ * غير مسجّلة لمقررٍ في الجدول (طلب المالك): بقية النواقص إشعارٌ لا مانع.
  */
 export function canSign(
   approval: ScheduleApproval,
   stage: "committee" | "head",
-  context: { blockingConflicts: number; rowCount: number; blockingDuplicates?: number },
+  context: { blockingConflicts: number; rowCount: number; blockingDuplicates?: number; missingCapacity?: number },
 ): SignVerdict {
   if (approval.status === "submitted") {
     return { ok: false, code: "locked", message: "الجدول عند التسجيل الآن. لا توقيع حتى يُقبل أو يُرجَع." };
@@ -161,6 +163,14 @@ export function canSign(
       ok: false, code: "blocking-conflicts",
       message: `يوجد ${blockingConflictPhrase(context.blockingConflicts, context.blockingDuplicates)} يمنع الاعتماد. `
         + "الملاحظات اللائحية لا تمنع، أمّا التعارض فلا يُوقَّع عليه.",
+    };
+  }
+  const missingCapacity = Number(context.missingCapacity || 0);
+  if (missingCapacity > 0) {
+    return {
+      ok: false, code: "missing-capacity",
+      message: `سعة ${missingCapacity === 1 ? "مقرر واحد" : `${missingCapacity} مقررات`} غير مسجّلة. `
+        + "سجّل السعة لكل مقرر في الجدول ثم وقّع.",
     };
   }
   if (signatureOf(approval, stage)) {

@@ -5,9 +5,36 @@
 import React, { useMemo } from "react";
 import { AR, countOf } from "../../utils/arabicCount";
 import { dateShort, type Payload, type Slot } from "./shared";
+import { SampleAd, type SampleBrand } from "./SampleAd";
 
-function SlotBlock({ slot, thin = false }: { slot?: Slot; thin?: boolean }) {
+/** معاينةُ الإعلان التجريبي على المخطّط: الشركةُ، والموقعُ المسلَّط عليه الضوء، وأرقامُ المواقع كما في القائمة. */
+export interface PreviewProps {
+  sample?: SampleBrand | null;
+  hot?: string;
+  onHot?: (id: string) => void;
+  numbers?: Record<string, number>;
+  /** سطحٌ واحد فقط من الثلاثة؛ بلا قيمةٍ تُعرض كلُّها. */
+  only?: "me" | "schedule" | "staff";
+}
+
+function SlotBlock({ slot, thin = false, preview }: { slot?: Slot; thin?: boolean; preview?: PreviewProps }) {
   if (!slot) return null;
+  if (preview?.sample) {
+    const number = preview.numbers?.[slot.id];
+    const hot = preview.hot === slot.id;
+    return (
+      <div
+        className={`ad-slotsample${hot ? " hot" : ""}`}
+        title={slot.where}
+        onMouseEnter={() => preview.onHot?.(slot.id)}
+        onMouseLeave={() => preview.onHot?.("")}
+        data-slot={slot.id}
+      >
+        <SampleAd brand={preview.sample} slot={slot} />
+        {number ? <span className="ad-slotno" aria-hidden="true">{number}</span> : null}
+      </div>
+    );
+  }
   const cap = slot.exclusive ? 1 : slot.capacity;
   const ratio = slot.live / cap;
   const tone = ratio >= 1 ? "full" : ratio >= 0.6 ? "busy" : "free";
@@ -20,35 +47,36 @@ function SlotBlock({ slot, thin = false }: { slot?: Slot; thin?: boolean }) {
   );
 }
 
-export function PlacementMap({ data }: { data: Payload }) {
+export function PlacementMap({ data, preview }: { data: Payload; preview?: PreviewProps }) {
   const by = (id: string) => data.slots.find(s => s.id === id);
+  const only = preview?.only;
   return (
     <div className="ad-map">
-      <figure className="ad-surface">
+      {!only || only === "me" ? <figure className="ad-surface">
         <div className="ad-phone3">
           <div className="ad-sk ad-sk-bar" /><div className="ad-sk ad-sk-hero" />
-          <div className="ad-sk ad-sk-card"><i /><i /><i className="s" /><SlotBlock slot={by("break")} /></div>
-          <SlotBlock slot={by("sponsor")} thin /><SlotBlock slot={by("me")} />
+          <div className="ad-sk ad-sk-card"><i /><i /><i className="s" /><SlotBlock slot={by("break")} preview={preview} /></div>
+          <SlotBlock slot={by("sponsor")} thin preview={preview} /><SlotBlock slot={by("me")} preview={preview} />
           <div className="ad-sk ad-sk-tabs" />
         </div>
         <figcaption><b>«مساري» · كل الجامعة</b><span>يصل كل الطلبة من كل الكليات افتراضياً، ويمكن حصره بكلية. على الجوال: «وقت الفراغ» داخل التذكرة، و«مساري» أسفل الصفحة، والراعي فوقها. لا إعلان قبل الدخول.</span></figcaption>
-      </figure>
-      <figure className="ad-surface">
+      </figure> : null}
+      {!only || only === "schedule" ? <figure className="ad-surface">
         <div className="ad-desk">
           <div className="ad-sk ad-sk-bar" />
           <div className="ad-grid-sk">{Array.from({ length: 20 }, (_, i) => <i key={i} />)}</div>
-          <SlotBlock slot={by("sponsor")} thin /><SlotBlock slot={by("schedule")} />
+          <SlotBlock slot={by("sponsor")} thin preview={preview} /><SlotBlock slot={by("schedule")} preview={preview} />
         </div>
         <figcaption><b>الجدول العام وجدول الطلبة</b><span>أسفل الجدول (روابط الجداول للعرض فقط). لا إعلان في بطاقة الأستاذ ولا الاستبيان.</span></figcaption>
-      </figure>
-      <figure className="ad-surface">
+      </figure> : null}
+      {!only || only === "staff" ? <figure className="ad-surface">
         <div className="ad-desk">
           <div className="ad-sk ad-sk-bar" />
           <div className="ad-stat-sk"><i /><i /><i /><i /></div>
-          <SlotBlock slot={by("dashboard")} />
+          <SlotBlock slot={by("dashboard")} preview={preview} />
         </div>
         <figcaption><b>أعضاء هيئة التدريس والإداريين</b><span>بطاقةٌ في لوحة الأساتذة والإداريين بعد تسجيل الدخول.</span></figcaption>
-      </figure>
+      </figure> : null}
     </div>
   );
 }

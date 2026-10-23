@@ -12,11 +12,12 @@ import CampaignList from "./ads/CampaignList";
 import CampaignDrawer, { type DrawerActions } from "./ads/CampaignDrawer";
 import CampaignWizard, { blankForm, formOf, type WizardForm } from "./ads/CampaignWizard";
 import { PlacementMap, SeasonTimeline } from "./ads/PlacementMap";
+import PlacementPreview from "./ads/PlacementPreview";
 import AttentionList, { attentionItems } from "./ads/AttentionList";
 import LeadsPanel from "./ads/LeadsPanel";
 import { api, fmt, pct1, type Payload } from "./ads/shared";
 
-type Tab = "campaigns" | "leads" | "placements" | "kit";
+type Tab = "campaigns" | "leads" | "placements" | "preview" | "kit";
 
 export default function AdsManager() {
   const [data, setData] = useState<Payload | null>(null);
@@ -87,6 +88,8 @@ export default function AdsManager() {
     edit: (c, step) => { setOpenId(""); setWizard({ form: formOf(c), step }); },
   };
   const newCampaign = () => { setOpenId(""); setWizard({ form: blankForm(data), step: 1 }); };
+  /* من المعاينة: الموقعُ المختار يُحجز في المعالج، واسمُ الشركة إن كتبه الأدمن. */
+  const startAt = (slot: string, company: string) => { setOpenId(""); setWizard({ form: { ...blankForm(data), slot, company }, step: 1 }); };
   const kitUrl = data.partnerKit ? new URL(data.partnerKit, location.origin).toString() : "";
 
   return (
@@ -108,7 +111,7 @@ export default function AdsManager() {
       </section>
 
       <div className="ad-tabs" role="tablist" aria-label="أقسام الإعلانات">
-        {([["campaigns", "الحملات", data.campaigns.length], ["leads", "الطلبات", data.leads.filter(l => l.status === "new").length], ["placements", "المواقع والمواسم", 0], ["kit", "ملف الشراكة", 0]] as Array<[Tab, string, number]>).map(([id, label, n]) => (
+        {([["campaigns", "الحملات", data.campaigns.length], ["leads", "الطلبات", data.leads.filter(l => l.status === "new").length], ["placements", "المواقع والمواسم", 0], ["preview", "معاينة للشركات", 0], ["kit", "ملف الشراكة", 0]] as Array<[Tab, string, number]>).map(([id, label, n]) => (
           <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" key={id} type="button" role="tab" id={`ad-tab-${id}`} aria-selected={tab === id} aria-controls={`ad-panel-${id}`} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>
             {label}{n ? <em>{fmt(n)}</em> : null}
           </button>
@@ -135,6 +138,13 @@ export default function AdsManager() {
           <PlacementMap data={data} />
           <div className="ad-sech"><h3>تقويم المواسم</h3><p>متى يكون الطلبة في موسم التسجيل أو بدء الفصل أو نهايته، لتختار كل شركةٍ موسم منتجها.</p></div>
           <SeasonTimeline data={data} />
+        </section>
+      ) : null}
+
+      {tab === "preview" ? (
+        <section id="ad-panel-preview" role="tabpanel" aria-labelledby="ad-tab-preview" className="ad-sec">
+          <div className="ad-sech"><h3>معاينةٌ للشركات: أين سيظهر إعلانك؟</h3><p>اعرض على الشركة شكلَ إعلانها في كل مكان قبل الاتفاق. إعلانٌ تجريبي (مثل «آبل» أو أيُّ اسمٍ تكتبه) يوضع في كل موقع بمقاسه الحقيقي، ولا يراه غيرك.</p></div>
+          <PlacementPreview data={data} onStart={startAt} />
         </section>
       ) : null}
 
