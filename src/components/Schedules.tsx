@@ -10984,6 +10984,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           <span className={`week-legend-item ${folded ? "is-folded" : ""}`} key={item.key} style={{ ["--hue" as any]: item.hue, ...textureFor(item.hue) }}>
                             <button
                               type="button"
+                              data-guide-ignore="تصفية بصرية لمفتاح ألوان المباني والقاعات"
                               className={`week-legend-chip ${hueFocus.has(item.key) ? "is-on" : ""}`}
                               aria-pressed={hueFocus.has(item.key)}
                               disabled={folded}
@@ -10995,6 +10996,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                             </button>
                             <button
                               type="button"
+                              data-guide-ignore="إخفاء عنصر من مفتاح الألوان مؤقتاً عرض بصري فقط"
                               className="week-legend-eye"
                               aria-pressed={folded}
                               aria-label={folded ? `إظهار ${legendText(item)}` : `إخفاء ${legendText(item)} من المباني والقاعات`}
@@ -11379,6 +11381,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       >
                         <button
                           type="button"
+                          data-guide-ignore="تصفية بصرية لمفتاح ألوان الأسبوع"
                           className={`week-legend-chip ${hueFocus.has(item.key) ? "is-on" : ""}`}
                           aria-pressed={hueFocus.has(item.key)}
                           disabled={folded}
@@ -11395,6 +11398,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                             them?». Nothing is deleted either way. */}
                         <button
                           type="button"
+                          data-guide-ignore="إخفاء عنصر من مفتاح الألوان مؤقتاً عرض بصري فقط"
                           className="week-legend-eye"
                           aria-pressed={folded}
                           aria-label={folded ? `إظهار ${legendText(item)}` : `إخفاء ${legendText(item)} من الشبكة`}
