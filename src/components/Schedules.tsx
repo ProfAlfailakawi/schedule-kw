@@ -1,3 +1,4 @@
+import PatternLibraryButton from "./PatternLibraryButton";
 import TermSelect from "./TermSelect";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import RowHistory from "./RowHistory";
@@ -10232,6 +10233,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 instead of removing — did not earn a permanent button in a busy
                 toolbar when the quick search answers the same question by name
                 and the query centre covers the structured cases in full. */}
+            <PatternLibraryButton data-guide-ignore="يفتح مكتبة الأنماط للعرض فقط؛ لا يغير بيانات الجدول" />
             <GhostButton
               type="button"
               className={workspaceToolsOpen ? "schedule-tools-toggle is-close" : "schedule-tools-toggle"}
