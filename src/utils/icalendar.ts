@@ -24,7 +24,7 @@
  */
 
 import { termWindow } from "./termSequence";
-import { withVisitingSuffix } from "../components/VisitingBadge";
+import { withVisitingSuffix } from "./visitingText";
 
 export interface CalendarLecture {
   /** Stable across edits — the appointment's own id. */

@@ -4,6 +4,5 @@ export default function VisitingBadge({ compact = false, className = "" }: { com
   return <span className={`visiting-badge${compact ? " compact" : ""}${className ? ` ${className}` : ""}`}>منتدب</span>;
 }
 
-/** للأماكن النصّية (قوائم منسدلة، جُمل، عناوين) التي لا تحمل مكوّناً: اللاحقةُ نفسُها التي تطبعها التقارير. */
-export const VISITING_SUFFIX = " · منتدب";
-export const withVisitingSuffix = (name: string, visiting: boolean) => (visiting ? `${name}${VISITING_SUFFIX}` : name);
+/** للأماكن النصّية: الدالةُ في ملفٍّ خالصٍ (يستورده الخادم أيضاً) وتُعاد هنا لمن اعتاد الاستيراد من المكوّن. */
+export { VISITING_SUFFIX, withVisitingSuffix } from "../utils/visitingText";

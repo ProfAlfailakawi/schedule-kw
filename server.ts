@@ -136,7 +136,7 @@ import { FACULTY_PLACEHOLDER, facultyPlaceholderOf, placePending, templatesFromH
 import { courseLevelFromCode } from "./src/utils/curriculumRules";
 import { reasonForMove } from "./src/utils/appointmentStory";
 import { buildCalendar, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "./src/utils/icalendar";
-import { withVisitingSuffix } from "./src/components/VisitingBadge";
+import { withVisitingSuffix } from "./src/utils/visitingText";
 import { dayHabitOf, learnAll, learnCourseNature, habitualBlockMinutes, type CourseNature } from "./src/utils/courseNature";
 import { firstLast } from "./src/utils/weekVisual";
 import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, campusOf, interCampusMinutes } from "./src/utils/campusTravel";
