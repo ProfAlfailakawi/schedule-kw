@@ -32,13 +32,15 @@ import { abVerdict, conversionOf } from "../utils/adInsights";
 import { partnerBadgeSvg } from "../utils/adBadge";
 import { cleanExpiryDays, partnerLinkState } from "../utils/partnerLinks";
 import { FORECAST_WEEKS, forecastSlot } from "../utils/adForecast";
+import { cleanDeviceKey, formatCoupon, issueCoupon, normalizeCoupon, verifyCoupon, verifyId } from "../utils/adCoupons";
+import qrFactory from "../utils/qrcodeGenerator";
 import { cleanEmail, leadMail, leadNotifyTo, mailConfig, renewalMail, sendMail, weekKey, weeklyMail } from "./adMailer";
 import { SEASONS, activeSeasons, seasonCalendar, seasonsText } from "../utils/adSeasons";
 import { AR, countOf } from "../utils/arabicCount";
 import type { CenterNotification } from "../utils/notificationCenter";
 import { AD_CLIENT_SCRIPT } from "./adClientScript";
 import { analyzeCreative } from "./adQuality";
-import { badgeId, campaignReportPage, measurementPage, partnerKitPage } from "./adsPages";
+import { badgeId, campaignReportPage, couponVerifyPage, measurementPage, partnerKitPage } from "./adsPages";
 
 /** إشعاراتُ الجرس لحساب الإدارة الرئيسي: حملاتٌ تنتهي قريباً أو انتهت هذه الأيام، ليُجدَّد معها أو تُؤرشف. */
 export async function adNotifications(today = kuwaitDay()): Promise<CenterNotification[]> {
@@ -300,6 +302,7 @@ async function campaignView(c: AdCampaign, stats: AdStatsDay[], heads: Array<Omi
     weekly: weeklyCompare(mine, today),
     sharePct: Math.round(expectedShare(c.slot, Math.max(1, live)) * 100),
     reportUrl: `/ad-report/${c.reportToken}`,
+    ...(c.uniqueCoupons ? { verifiedCoupons: (await Repository.listAdCouponUseDays(c.id)).length, verifyUrl: `/verify/${verifyId(c.reportToken)}` } : {}),
   };
 }
 
@@ -462,7 +465,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
       const spec = slotById(c.slot)!;
       return {
         c: c.id, k: creativeId, img: `/_ads/img/${creativeId}`, href: `/_ads/c/${c.id}/${creativeId}`,
-        alt: `إعلان — ${c.company}`, coupon: c.coupon || "", w: spec.width, h: spec.height,
+        alt: `إعلان — ${c.company}`, coupon: c.coupon || "", uc: c.uniqueCoupons ? 1 : 0, w: spec.width, h: spec.height,
       };
     };
     const items = rotationOrder(live.filter(c => c.slot === slot.id).map(itemFor).filter(Boolean) as NonNullable<ReturnType<typeof itemFor>>[]);
@@ -528,6 +531,35 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     res.end();
   });
 
+  /* ── كوبون فريد لكل طالب: يصدره الخادم بتوقيت، ويتحقق منه المتجر، ويُستعمل مرةً واحدة ── */
+  const couponCampaign = async (id: unknown) => {
+    const today = kuwaitDay();
+    return (await campaigns()).find(c => c.id === String(id || "") && c.uniqueCoupons && isLive(c, today));
+  };
+  app.get("/_ads/coupon", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const campaign = underLimit(`cpn|${String(req.ip || "?")}`, 600) ? await couponCampaign(req.query.c) : undefined;
+    const code = campaign ? issueCoupon(await Repository.getAdCouponSecret(), campaign.id, req.query.d) : "";
+    if (!campaign || !code) { res.status(404).json({ error: "no" }); return; }
+    res.json({ code: formatCoupon(code), qr: `/_ads/coupon.svg?c=${encodeURIComponent(campaign.id)}&d=${encodeURIComponent(cleanDeviceKey(req.query.d))}` });
+  });
+  app.get("/_ads/coupon.svg", async (req, res) => {
+    const campaign = underLimit(`cpn|${String(req.ip || "?")}`, 600) ? await couponCampaign(req.query.c) : undefined;
+    const code = campaign ? issueCoupon(await Repository.getAdCouponSecret(), campaign.id, req.query.d) : "";
+    if (!campaign || !code) { res.status(404).end(); return; }
+    /* الرمز يفتح صفحة تحقق المتجر بالكوبون مملوءاً؛ لا اسم ولا هوية فيه. */
+    const qr = (qrFactory as any)(0, "M");
+    qr.addData(`${req.protocol}://${req.get("host")}/verify/${verifyId(campaign.reportToken)}?code=${code}`);
+    qr.make();
+    let svg = String(qr.createSvgTag({ cellSize: 5, margin: 2 }));
+    if (!svg.includes("xmlns=")) svg = svg.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+    res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'");
+    res.send(svg);
+  });
+
   /* ── صفحاتُ الشركاء ── */
   const noindex = (res: Response) => { res.setHeader("Cache-Control", "no-store"); res.setHeader("Content-Type", "text/html; charset=utf-8"); res.setHeader("X-Robots-Tag", "noindex, nofollow"); };
   const missing = (res: Response) => { noindex(res); res.status(404).send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>غير موجود</title><body style="font-family:system-ui;text-align:center;margin-top:80px" dir="rtl"><h2>الرابط غير صالح</h2><p>تحقق من الرابط الذي وصلك من الإدارة.</p></body>`); };
@@ -538,6 +570,33 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("X-Robots-Tag", "noindex, nofollow");
     res.send(measurementPage(deps.publicPageNonce(res)));
+  });
+
+  /* صفحة تحقق المتجر: معرّفها مشتقٌّ من رمز التقرير ولا يفتح التقرير. الكوبون يُتحقَّق من توقيعه ثم يُسجَّل استعماله ذرّياً. */
+  const verifyTarget = async (vid: unknown) => {
+    const id = String(vid || "");
+    return /^[0-9a-f]{32}$/.test(id) ? (await Repository.listAdCampaigns()).find(c => c.uniqueCoupons && c.status !== "draft" && verifyId(c.reportToken) === id) : undefined;
+  };
+  app.get("/verify/:vid", async (req, res) => {
+    const campaign = await verifyTarget(req.params.vid);
+    if (!campaign) { missing(res); return; }
+    noindex(res);
+    const raw = String(req.query.code || "");
+    const code = raw && underLimit(`vfy|${String(req.ip || "?")}`, 60) ? verifyCoupon(await Repository.getAdCouponSecret(), campaign.id, raw) : "";
+    const used = code ? await Repository.hasAdCouponUse(campaign.id, code) : false;
+    const state = !raw ? "empty" : !code ? "bad" : used ? (req.query.done === "ok" ? "done" : "used") : "valid";
+    res.send(couponVerifyPage({ company: campaign.company, vid: String(req.params.vid), nonce: deps.publicPageNonce(res), code, state }));
+  });
+  app.post("/verify/:vid", express.urlencoded({ extended: false, limit: "1kb" }), async (req, res) => {
+    const campaign = await verifyTarget(req.params.vid);
+    if (!campaign) { missing(res); return; }
+    noindex(res);
+    const back = `/verify/${encodeURIComponent(String(req.params.vid))}`;
+    if (!underLimit(`vfy|${String(req.ip || "?")}`, 60)) { res.redirect(303, `${back}?code=0`); return; }
+    const code = verifyCoupon(await Repository.getAdCouponSecret(), campaign.id, req.body?.code);
+    if (!code) { res.redirect(303, `${back}?code=${encodeURIComponent(normalizeCoupon(req.body?.code).slice(0, 14) || "0")}`); return; }
+    const first = await Repository.redeemAdCoupon(campaign.id, code, kuwaitDay());
+    res.redirect(303, `${back}?code=${code}${first ? "&done=ok" : ""}`);
   });
 
   /* شارة «شريك SCHEDULE»: صورةٌ ثابتة بمعرّفٍ عام مشتقٍّ من الرمز ولا يكشفه (الشارة تُنشر في موقع الشركة، فلا يجوز أن يحمل رمز التقرير). تتغيّر بتجديد الرمز. لا تُصدَر لمسودة أو لحملةٍ لم تبدأ. */
@@ -597,6 +656,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     const allStats = await cachedAdStats(5 * 60_000);
     res.send(campaignReportPage({
       campaign, creatives: heads, stats, nonce, today, origin: `${req.protocol}://${req.get("host")}`, redemptionResult: req.query.red === "ok" || req.query.red === "bad" ? String(req.query.red) : "",
+      unique: campaign.uniqueCoupons ? { verified: (await Repository.listAdCouponUseDays(campaign.id)).length, verifyUrl: `${req.protocol}://${req.get("host")}/verify/${verifyId(campaign.reportToken)}` } : undefined,
       weekly: weeklyCompare(stats, today), benchmarkCtr: slotBenchmarkCtr(campaign.id, campaign.slot, all, allStats),
       liveInSlot: Math.max(1, all.filter(x => x.slot === campaign.slot && isLive(x, today)).length),
     }));
@@ -699,7 +759,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
   const readBody = (b: any) => ({
     ...(b && "contactEmail" in b ? { contactEmail: cleanEmail(b.contactEmail) ?? "\u0000bad" } : {}),
     company: str(b?.company, 80), category: str(b?.category, 40), slot: str(b?.slot, 20),
-    startDay: str(b?.startDay, 10), endDay: str(b?.endDay, 10), coupon: cleanCoupon(b?.coupon),
+    startDay: str(b?.startDay, 10), endDay: str(b?.endDay, 10), coupon: cleanCoupon(b?.coupon), uniqueCoupons: Boolean(b?.uniqueCoupons),
     note: str(b?.note, 300), trial: Boolean(b?.trial),
     seasons: cleanSeasons(b?.seasons), colleges: cleanColleges(b?.colleges),
   });

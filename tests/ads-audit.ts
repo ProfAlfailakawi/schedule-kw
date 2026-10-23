@@ -819,6 +819,40 @@ async function main() {
     check((await call("GET", plB.url)).status === 404 && (await call("POST", plB.url + "/lead", {})).status === 404 && (await row(plB.id)).state === "expired", "رابط الشراكة: المنتهي يتوقف مع «الرابط غير صالح»");
     check((await call("GET", "/partners/" + "A".repeat(32))).status === 404 && (await call("GET", "/partners/short")).status === 404, "رابط الشراكة: رمزٌ غير معروف أو قصير ٤٠٤");
 
+    /* ── كوبون فريد لكل طالب ── */
+    const CP = await import("../src/utils/adCoupons");
+    const ucBase = (await Repository.listAdCampaigns())[0];
+    await Repository.saveAdCampaign({ ...ucBase, id: "uc-live", company: "متجر الكوبون", uniqueCoupons: true, status: "approved", startDay: E.addDays(today, -1), endDay: E.addDays(today, 20), reportToken: "u".repeat(40), creativeIds: [] } as any);
+    await Repository.saveAdCampaign({ ...ucBase, id: "uc-draft", company: "مسودة", uniqueCoupons: true, status: "draft", reportToken: "d".repeat(40) } as any);
+    await Repository.saveAdCampaign({ ...ucBase, id: "uc-plain", company: "عادية", uniqueCoupons: false, status: "approved", startDay: E.addDays(today, -1), endDay: E.addDays(today, 20), reportToken: "p".repeat(40) } as any);
+    await call("GET", "/api/admin/ads"); // يُسقط ذاكرة الحملات المؤقتة
+    const issued = await call("GET", "/_ads/coupon?c=uc-live&d=abcd2345");
+    check(issued.status === 200 && /^[2-9A-Z]{4}(-[2-9A-Z]{4}){2}-[2-9A-Z]{2}$/.test(issued.json.code) && issued.json.qr.includes("coupon.svg"), "الكوبون الفريد: يصدر كوداً منسّقاً مع رابط QR", issued.json);
+    check((await call("GET", "/_ads/coupon?c=uc-live&d=ABCD2345")).json.code === issued.json.code, "الكوبون الفريد: الجهاز نفسه يأخذ الكوبون نفسه");
+    check((await call("GET", "/_ads/coupon?c=uc-live&d=ZZZZ2345")).json.code !== issued.json.code, "الكوبون الفريد: جهازٌ آخر كوبونٌ آخر");
+    check((await call("GET", "/_ads/coupon?c=uc-live&d=bad")).status === 404 && (await call("GET", "/_ads/coupon?c=uc-plain&d=ABCD2345")).status === 404 && (await call("GET", "/_ads/coupon?c=uc-draft&d=ABCD2345")).status === 404 && (await call("GET", "/_ads/coupon?c=nope&d=ABCD2345")).status === 404, "الكوبون الفريد: مفتاحٌ سيئ أو حملةٌ عادية أو مسودة أو مجهولة = ٤٠٤");
+    const qrRes = await fetch(base + "/_ads/coupon.svg?c=uc-live&d=ABCD2345", { headers: { "User-Agent": UA } });
+    const qrText = await qrRes.text();
+    check(qrRes.status === 200 && String(qrRes.headers.get("content-type")).includes("image/svg+xml") && qrText.includes("<svg") && !qrText.includes("<script"), "الكوبون الفريد: رمز QR بصيغة SVG");
+    const vid = CP.verifyId("u".repeat(40));
+    check(vid.length === 32 && vid !== "u".repeat(32) && !vid.includes("u".repeat(10)), "الكوبون الفريد: معرّف التحقق لا يكشف رمز التقرير");
+    const raw = issued.json.code.replace(/-/g, "");
+    const v1 = await call("GET", `/verify/${vid}?code=${raw}`);
+    check(v1.status === 200 && v1.text.includes("كوبونٌ صالح") && v1.text.includes("تأكيد الاستعمال") && !v1.text.includes("u".repeat(40)), "التحقق: الكوبون السليم صالح وغير مستعمل", v1.status);
+    const post = (code: string) => fetch(base + `/verify/${vid}`, { method: "POST", redirect: "manual", headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ code }).toString() });
+    const r1v = await post(raw);
+    check(r1v.status === 303 && String(r1v.headers.get("location")).includes("done=ok"), "التحقق: تأكيد الاستعمال يسجّل أول مرة", r1v.headers.get("location"));
+    check((await call("GET", `/verify/${vid}?code=${raw}&done=ok`)).text.includes("سُجّل الاستعمال"), "التحقق: صفحة النجاح");
+    const r2v = await post(raw);
+    check(r2v.status === 303 && !String(r2v.headers.get("location")).includes("done=ok") && (await call("GET", `/verify/${vid}?code=${raw}`)).text.includes("مستعمل من قبل"), "التحقق: الكوبون يُستعمل مرةً واحدة فقط");
+    const forged = raw.slice(0, 13) + (raw[13] === "2" ? "3" : "2");
+    check((await call("GET", `/verify/${vid}?code=${forged}`)).text.includes("غير صالح") && (await post(forged)).headers.get("location")?.includes("done=ok") !== true && (await call("GET", `/verify/${vid}?code=XXXX`)).text.includes("غير صالح"), "التحقق: توقيعٌ مزوَّر أو قصير = غير صالح");
+    check(CP.verifyCoupon("sec-a", "c1", CP.issueCoupon("sec-a", "c1", "ABCD2345")) !== "" && CP.verifyCoupon("sec-b", "c1", CP.issueCoupon("sec-a", "c1", "ABCD2345")) === "" && CP.verifyCoupon("sec-a", "c2", CP.issueCoupon("sec-a", "c1", "ABCD2345")) === "", "الكوبون: التوقيع مربوطٌ بالسرّ وبالحملة");
+    check((await call("GET", `/verify/${"0".repeat(32)}`)).status === 404 && (await call("GET", `/verify/${CP.verifyId("d".repeat(40))}`)).status === 404 && (await call("GET", "/verify/short")).status === 404, "التحقق: معرّفٌ مجهول أو حملةٌ مسودة = ٤٠٤");
+    const ucReport = await call("GET", "/ad-report/" + "u".repeat(40));
+    check(ucReport.text.includes("كوبونات الطلبة الموثَّقة") && ucReport.text.includes("<b>1</b>") && ucReport.text.includes(`/verify/${vid}`), "التقرير: التحويل الموثَّق وصفحة تحقق المتجر");
+    const ucAdmin = (await call("GET", "/api/admin/ads")).json.campaigns.find((x: any) => x.id === "uc-live");
+    check(ucAdmin.verifiedCoupons === 1 && ucAdmin.verifyUrl === `/verify/${vid}`, "الإدارة: عدد الكوبونات الموثَّقة ورابط التحقق", ucAdmin);
     /* ── دخول الطلبة للطلبة فقط، ومستخدمو النظام عدّادٌ مستقل ── */
     const dayRow = async () => (await Repository.listAudienceDays(5)).find(d => d.day === today)!;
     const sumRates = (d: any) => d.returning + d.fresh + d.mobile + d.desktop + Object.values(d.hours as Record<string, number>).reduce((a, b) => a + b, 0);
@@ -978,7 +1012,7 @@ async function main() {
     const shared = F.forecastSlot({ slotId: "schedule", weeks: 1, campaigns: fCamp, stats: mkDays(10, 1000), liveNow: 1 });
     check(shared.ok && shared.share === 0.5 && shared.impressions.high === 3500, "الحاسبة: حملةٌ عاملة معك تقسم الحصة مناصفة", shared);
     const few = F.forecastSlot({ slotId: "schedule", weeks: 2, campaigns: fCamp, stats: mkDays(6, 1000), liveNow: 0 });
-    check(!few.ok && "reason" in few && few.reason === "no-data" && few.basisDays === 6, "الحاسبة: أقل من سبعة أيام مقيسة = لا تقدير", few);
+    check(!few.ok && (few as any).reason === "no-data" && few.basisDays === 6, "الحاسبة: أقل من سبعة أيام مقيسة = لا تقدير", few);
     check(!F.forecastSlot({ slotId: "dashboard", weeks: 2, campaigns: fCamp, stats: mkDays(10, 1000), liveNow: 0 }).ok, "الحاسبة: موقعٌ بلا حملاتٍ تاريخية = لا تقدير");
     const mixed = [...mkDays(10, 1000), ...mkDays(5, 3000, 60, 20)];
     const win = [{ season: "finals", from: "2026-03-20", to: "2026-03-31" }] as any[];

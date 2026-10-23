@@ -158,6 +158,7 @@ export default function CampaignDrawer({ campaign: c, data, onClose, actions }: 
           <div><dt>الكليات</dt><dd>{collegeText}</dd></div>
           <div><dt>الوجهة</dt><dd><bdi dir="ltr" className="ad-url">{c.linkUrl}</bdi></dd></div>
           {c.coupon ? <div><dt>كود الخصم</dt><dd><bdi dir="ltr">{c.coupon}</bdi></dd></div> : null}
+          {c.uniqueCoupons ? <div><dt>كوبونات فريدة موثَّقة</dt><dd>{fmt(c.verifiedCoupons || 0)}</dd></div> : null}
           {c.note ? <div><dt>ملاحظة</dt><dd>{c.note}</dd></div> : null}
         </dl>
       </section>
