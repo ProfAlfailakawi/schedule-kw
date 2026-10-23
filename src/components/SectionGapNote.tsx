@@ -15,8 +15,8 @@ import { VISITOR_MAX_SECTIONS, visitingNeed, type CourseStaffing } from "../util
 interface GapPayload {
   respondents: number; planImported: boolean; planSource: { fileName: string; importedAt: string } | null;
   accepted: Record<string, number>; remaining: Record<string, number>; courses: GapCourse[];
-  staffing?: Record<string, CourseStaffing>; visitorFreeSlots?: number;
 }
+interface StaffingPayload { staffing: Record<string, CourseStaffing>; visitorFreeSlots: number }
 const SHOWN = 5;
 const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
 
@@ -26,11 +26,22 @@ const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
  */
 export const PLAN_SAVED_EVENT = "schedule:plan-saved";
 
-export function useSectionGap(collegeId: number, sectionId: number, termId: number, refreshSignal = 0) {
+export function useSectionGap(collegeId: number, sectionId: number, termId: number, refreshSignal = 0, wantStaffing = false) {
   const scope = `${collegeId}:${sectionId}:${termId}`;
   const [loaded, setLoaded] = useState<{ scope: string; payload: GapPayload } | null>(null);
   const [past, setPast] = useState<{ scope: string; stamp: string; history: GapPlan["history"] } | null>(null);
   const [bump, setBump] = useState(0);
+  /* من يدرّس كل مقرر: ثقيلٌ، فيُجلب حين تُفتح اللوحة فقط، ويُجدَّد مع كل تغيّرٍ في الجدول. */
+  const [staffed, setStaffed] = useState<{ scope: string; payload: StaffingPayload } | null>(null);
+  useEffect(() => {
+    if (!wantStaffing || !collegeId || !sectionId || !termId) return;
+    let cancelled = false;
+    fetch(`/api/schedules/section-gap/staffing?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`)
+      .then(response => (response.ok ? response.json() : null))
+      .then((body: StaffingPayload | null) => { if (!cancelled) setStaffed(body ? { scope, payload: body } : null); })
+      .catch(() => { if (!cancelled) setStaffed(null); });
+    return () => { cancelled = true; };
+  }, [wantStaffing, collegeId, sectionId, termId, refreshSignal, scope, bump]);
   useEffect(() => {
     if (!collegeId || !sectionId || !termId) return;
     let cancelled = false;
@@ -72,7 +83,7 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
   const reload = useCallback(() => setBump(value => value + 1), []);
   /* مع كشفٍ مرفوع لا تكتمل حسبة التخطيط قبل أن يصل تاريخ الفصول (وإلا اقترح «شعبةً واحدة» فأخفى النقص). */
   const ready = data !== null && (!data.planImported || historyReady);
-  return { planItems, studentItems, staffing: data?.staffing || null, freeSlots: data?.visitorFreeSlots || 0, courses: data?.courses || [], planImported: Boolean(data?.planImported), loaded: data !== null, ready, source: data?.planSource?.fileName || "", reload };
+  return { planItems, studentItems, staffing: staffed && staffed.scope === scope ? staffed.payload.staffing : null, freeSlots: staffed && staffed.scope === scope ? staffed.payload.visitorFreeSlots : 0, courses: data?.courses || [], planImported: Boolean(data?.planImported), loaded: data !== null, ready, source: data?.planSource?.fileName || "", reload };
 }
 
 export type Gap = ReturnType<typeof useSectionGap>;

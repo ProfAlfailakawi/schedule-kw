@@ -16929,16 +16929,34 @@ app.get("/api/schedules/section-gap", requirePermission(7), async (req: Authenti
   }
   const data = await sectionGapData(collegeId, sectionId, termId);
   res.setHeader("Cache-Control", "no-store");
-  res.json({ ...data, ...(await sectionGapStaffing(collegeId, sectionId, termId, data.courses.map(course => course.id))) });
+  res.json(data);
+});
+
+/* من يدرّس كل مقرر: يُطلب عند فتح اللوحة فقط، لا مع كل شاشة (يقرأ جدول الفصل وتاريخ القسم كلَّه). */
+app.get("/api/schedules/section-gap/staffing", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0);
+  const sectionId = Number(req.query.sectionId || 0);
+  const termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) {
+    res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" });
+    return;
+  }
+  const courses = await Repository.getCoursesBySection(sectionId);
+  res.setHeader("Cache-Control", "no-store");
+  res.json(await sectionGapStaffing(collegeId, sectionId, termId, (courses as any[]).map(course => Number(course.AdCourseId))));
 });
 
 /* ── من يدرّس كل مقرر؟ أعدادٌ لا أسماء ─────────────────────────────────────────────────
    أساتذتنا من تاريخ القسم كلّه (منذ ٢٠١٦)، دون المنتدبين و«هيئة تدريسية» ومن تقاعد أو تفرّغ. الحساب في utils/visitingNeed.ts. */
 async function sectionGapStaffing(collegeId: number, sectionId: number, termId: number, courseIds: number[]) {
-  const [termRows, sectionRows, { instructors, visiting }, affiliations] = await Promise.all([
+  const [termRows, sectionRows, { instructors, visiting }, affiliations, allTerms] = await Promise.all([
     Repository.getSchedulesByScope({ termId }), Repository.getSchedulesByScope({ collegeId, sectionId }),
-    meetingExcludedIds(termId), Repository.getDelegateAffiliations(),
+    meetingExcludedIds(termId), Repository.getDelegateAffiliations(), Repository.getTerms().catch(() => []),
   ]);
+  /* «درّسه سابقاً» = فصلٌ أسبق بالتسلسل الزمني، لا أي فصلٍ آخر (فصلٌ قادمٌ لا يُحسب). */
+  const target = (allTerms as any[]).find(row => Number(row.AdTermId) === termId);
+  const rank = termChronologyServer(target);
+  const earlier = new Set<number>((allTerms as any[]).filter(row => termChronologyServer(row) < rank).map(row => Number(row.AdTermId)));
   const visitingNow = new Set<number>(visiting);
   const rosterOf = new Map<number, Set<number>>();
   for (const row of affiliations) if (row.kind === "roster" && row.termId) {
@@ -16954,7 +16972,7 @@ async function sectionGapStaffing(collegeId: number, sectionId: number, termId: 
   for (const id of courseIds) {
     staffing[String(id)] = staffCourse(
       mine.filter(row => Number(row.AdCourseId) === id && Number(row.AdTermId) === termId),
-      mine.filter(row => Number(row.AdCourseId) === id && Number(row.AdTermId) !== termId),
+      mine.filter(row => Number(row.AdCourseId) === id && earlier.has(Number(row.AdTermId))),
       isOurs, isVisiting, id2 => placeholder.has(id2), id2 => !inactive.has(id2), (id2, term) => Boolean(rosterOf.get(term)?.has(id2)),
     );
   }
