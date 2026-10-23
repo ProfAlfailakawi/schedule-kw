@@ -654,10 +654,10 @@ const rateLimitPublicRequest = rateLimit({
   message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
 });
 
-/* فتحُ بثّ الكرت الحيّ: إنسانٌ يقلّب تبويبات هاتفه لا يتجاوز بضعَ مراتٍ في الدقيقة، وإعادةُ الاتصال تتراجع أُسّياً من جهة الصفحة. */
+/* فتحُ بثّ الكرت الحيّ: إنسانٌ يقلّب تبويبات هاتفه لا يتجاوز بضعَ مراتٍ في الدقيقة، وإعادةُ الاتصال تتراجع أُسّياً من جهة الصفحة. والحدُّ سخيٌّ لأن شبكةَ الجامعة تشترك في عنوانٍ واحدٍ: أربعون أستاذاً يفتحون روابطهم في الدقيقة نفسها لا يُحجب منهم أحد. */
 const rateLimitCardEvents = rateLimit({
   windowMs: 60_000,
-  limit: 20,
+  limit: 120,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
@@ -21188,17 +21188,16 @@ app.get("/api/public/request/:token/previous", async (req: Request, res: Respons
   const memoKey = dataContextCacheKey(request.id);
   const cached = previousTermMemo.get(memoKey);
   if (cached && Date.now() - cached.at < 5 * 60_000) { res.json(cached.value); return; }
-  const terms = (await Repository.getTerms() as any[])
-    .filter(row => Number(row.AdTermId) < Number(request.AdTermId))
-    .sort((a, b) => Number(b.AdTermId) - Number(a.AdTermId))
-    .slice(0, 3);
-  let found: { request: InstructorRequest; termName: string } | null = null;
-  for (const term of terms) {
-    const rows = (await Repository.getInstructorRequests(0, 0, Number(term.AdTermId)))
-      .filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId) && row.submittedAt)
-      .sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
-    if (rows[0]) { found = { request: rows[0], termName: String(term.AdTermName || "") }; break; }
-  }
+  /* طلباتُ هذا الأستاذ وحده، لا طلباتُ كلّ من في الفصل: بضعةُ مستنداتٍ بدل المئات. */
+  const termsAll = await Repository.getTerms() as any[];
+  const earlier = (await Repository.getInstructorRequestsByInstructor(Number(request.AdInstructorId)))
+    .filter(row => row.submittedAt && Number(row.AdTermId) < Number(request.AdTermId)
+      && Number(row.AdCollegeId) === Number(request.AdCollegeId) && Number(row.AdSectionId) === Number(request.AdSectionId))
+    .sort((a, b) => Number(b.AdTermId) - Number(a.AdTermId) || String(b.submittedAt).localeCompare(String(a.submittedAt)));
+  const nearest = earlier[0];
+  const found: { request: InstructorRequest; termName: string } | null = nearest
+    ? { request: nearest, termName: String(termsAll.find(row => Number(row.AdTermId) === Number(nearest.AdTermId))?.AdTermName || "") }
+    : null;
   const value = { previous: null as null | { termName: string; items: unknown[] } };
   if (found) {
     const stripped = stripForInstructor(found.request);
@@ -21245,12 +21244,14 @@ Repository.onInstructorRequestSaved(info => {
   if (!open?.size) return;
   const payload = `event: changed\ndata: ${JSON.stringify({ kind: info.kind, at: info.at })}\n\n`;
   for (const response of open) {
-    try { response.write(payload); } catch { open.delete(response); }
+    try { response.write(payload); } catch { if (open.delete(response)) cardStreamTotal -= 1; }
   }
 });
 app.get("/api/public/request/:token/events", rateLimitCardEvents, async (req: Request, res: Response) => {
   const resolved = await resolveRequestLink(String(req.params.token || ""));
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
+  /* انقطع الاتصالُ ونحن ننتظر قراءة الرابط: لا يُسجَّل بثٌّ ميّت يأكل من السقف ولا يُنظَّف أبداً. */
+  if (req.socket.destroyed || res.writableEnded) return;
   const id = String(resolved.request.id);
   const open = cardStreams.get(id) || new Set<Response>();
   if (cardStreamTotal >= CARD_STREAMS_TOTAL || open.size >= CARD_STREAMS_PER_REQUEST) {

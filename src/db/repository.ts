@@ -4879,6 +4879,21 @@ export const Repository = {
   },
 
   /**
+   * طلباتُ أستاذٍ واحدٍ في كل الفصول — لذاكرة الفصول في بطاقته. استعلامٌ بمعرّفه وحده،
+   * فيقرأ بضعةَ مستنداتٍ هي له، لا فصلاً كاملاً من الطلبات (وهو ما يستنزف حصّةَ القراءات
+   * المجانية حين يفتح أربعمئة أستاذٍ بطاقاتهم في أسبوعٍ واحد).
+   */
+  getInstructorRequestsByInstructor: async (instructorId: number): Promise<InstructorRequest[]> => {
+    const id = Number(instructorId);
+    if (!Number.isFinite(id) || id <= 0) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("instructorRequests").where("AdInstructorId", "==", id).limit(40).get();
+      return snap.docs.map(doc => doc.data() as InstructorRequest);
+    }
+    return (db.instructorRequests || []).filter(row => Number(row.AdInstructorId) === id);
+  },
+
+  /**
    * الطلباتُ التي وقّعها صاحبُ هذه البصمة (بصمةُ رقمه المدني) — للتحقّق من توقيعاته.
    * المفتاحُ رقمُه المدنيّ كما في التوقيع نفسه؛ والرمزُ المطبوع اختياريٌّ يُطابَق بعد القراءة.
    * البصمةُ نفسُها لا تُرجَع إلى أحد: تُقارَن هنا وتُحذف من كل جواب.

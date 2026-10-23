@@ -97,6 +97,19 @@ async function main() {
   const changed = stream.events.find(e => e.name === "changed");
   check(!!changed && changed.at - sentAt < 2000, "الحدثُ يصل الأستاذَ خلال ثانيتين من قرار القسم");
 
+  check(stream.events.filter(e => e.name === "changed").length === 1, "وحفظٌ واحد يُنتج حدثاً واحداً");
+  /* الصفحةُ تعيد القراءة بعد الحدث: القراءةُ الصامتة لا تحفظ شيئاً فلا يتولّد منها حدثٌ جديد (لا حلقة). */
+  const before = stream.events.length;
+  const openState = async () => {
+    const row = (await A("GET", `/api/instructor-requests?${SCOPE}`)).json.rows.find((r: any) => r.id === target.id);
+    return JSON.stringify([row.linkOpenedAt, row.linkLastOpenAt, row.linkOpenDays]);
+  };
+  const openedBefore = await openState();
+  const silent = await http("GET", `/api/public/request/${encodeURIComponent(target.linkId)}?live=1`);
+  await wait(800);
+  check(silent.status === 200 && stream.events.length === before, "وإعادةُ القراءة الصامتة لا تولّد حدثاً جديداً: لا حلقةَ بين البثّ والقراءة");
+  check(await openState() === openedBefore, "ولا تُحسب فتحاً للرابط");
+
   /* البثُّ لا يحمل شيئاً من الطلب: نوعٌ ولحظةٌ فقط. */
   stream.close();
   const raw = await new Promise<string>(async resolve => {
