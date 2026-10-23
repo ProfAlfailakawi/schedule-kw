@@ -1936,6 +1936,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     return wanted && actual && wanted !== actual ? [{ row, wanted, actual, room: [row.AdRoomCode, room?.canonicalCode || row.AdRoomHall].filter(Boolean).join("/") }] : [];
   }).sort((a, b) => byArabic(String(a.row.AdCourseName || ""), String(b.row.AdCourseName || "")) || String(a.row.SCode).localeCompare(String(b.row.SCode), "en")),
   [results, courseById, rowLocation]);
+  const roomTypeRoomCount = useMemo(() => new Set(roomTypeMismatches.map(item => roomIdentityKey(item.row) || item.room)).size, [roomTypeMismatches]);
   const roomTypeGroups = useMemo(() => {
     const byCourse = new Map<number, { courseId: number; name: string; code: string; items: typeof roomTypeMismatches }>();
     for (const item of roomTypeMismatches) {
@@ -2964,9 +2965,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           <div className="course-room-report">
             {roomTypeMismatches.length ? <>
               <div className="course-room-tiles" aria-label="ملخص عدم التطابق">
-                <span className="is-alert"><TriangleAlert aria-hidden="true" /><b>{num(roomTypeMismatches.length)}</b><small>موعد</small></span>
-                <span><BookOpen aria-hidden="true" /><b>{num(roomTypeGroups.length)}</b><small>مقرر</small></span>
-                <span><DoorOpen aria-hidden="true" /><b>{num(new Set(roomTypeMismatches.map(item => item.room)).size)}</b><small>قاعة</small></span>
+                <span className="is-alert"><TriangleAlert aria-hidden="true" /><b>{num(roomTypeMismatches.length)}</b><small>{nounFor(roomTypeMismatches.length, AR.appointment)}</small></span>
+                <span><BookOpen aria-hidden="true" /><b>{num(roomTypeGroups.length)}</b><small>{nounFor(roomTypeGroups.length, AR.course)}</small></span>
+                <span><DoorOpen aria-hidden="true" /><b>{num(roomTypeRoomCount)}</b><small>{nounFor(roomTypeRoomCount, AR.room)}</small></span>
               </div>
               <ul className="course-room-list">{roomTypeGroups.map(group => {
                 const open = expandedCourseRoomIds.has(group.courseId);
