@@ -13,6 +13,21 @@ const MORNING_MIN = 0.5;
 const MORNING_MAX = 0.7;
 const nf = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
 
+/** مقياسٌ لفترةٍ واحدة: منطقةُ المطلوب مظلَّلة، ودبّوسٌ عند الحالي. */
+function Gauge({ icon, hours, value, min, max }: { icon: React.ReactNode; hours: string; value: number; min: number; max: number }) {
+  const ok = value >= min && value <= max;
+  return (
+    <div className={`pb-gauge ${ok ? "pb-gauge--ok" : "pb-gauge--off"}`}>
+      <div className="pb-gauge-head">{icon}<small dir="ltr">{hours}</small></div>
+      <div className="pb-gauge-track">
+        <span className="pb-gauge-band" style={{ insetInlineStart: `${min}%`, width: `${max - min}%` }} />
+        <i className="pb-gauge-pin" style={{ insetInlineStart: `${Math.min(100, Math.max(0, value))}%` }} />
+      </div>
+      <div className="pb-gauge-foot"><b dir="ltr">{nf(min)}–{nf(max)}%</b></div>
+    </div>
+  );
+}
+
 export default function PeriodBalanceInfographic({ morning, evening, sections, morningCount }: PeriodBalanceData) {
   const most = Math.floor(sections * MORNING_MAX);
   const least = Math.ceil(sections * MORNING_MIN);
@@ -44,6 +59,11 @@ export default function PeriodBalanceInfographic({ morning, evening, sections, m
             {toEvening ? <><ArrowLeft /><Moon /></> : <><ArrowRight /><Sun /></>}
           </span>
         ) : <span className="pb-ok"><Check /></span>}
+      </div>
+      <div className="period-balance-rule" aria-hidden="true">
+        <Gauge icon={<Sun />} hours="8–2" value={morning} min={50} max={70} />
+        <span className="pb-rule-ref">م.7/2</span>
+        <Gauge icon={<Moon />} hours="2–8" value={evening} min={30} max={50} />
       </div>
     </div>
   );

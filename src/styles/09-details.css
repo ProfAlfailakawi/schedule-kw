@@ -2222,7 +2222,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .transfer-import-hero>div{flex:1;min-inline-size:0}
 
 /* ── نسبة الفترتين (م.7/2): قطعةٌ لكل شعبة، والزائدةُ تُنقل ───────────────── */
-.period-balance{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"day strip night" "verdict verdict verdict";align-items:center;gap:8px 12px;direction:rtl}
+.period-balance{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"day strip night" "verdict verdict verdict" "rule rule rule";align-items:center;gap:8px 12px;direction:rtl}
 .period-balance-side{display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
 .period-balance-side:first-child{grid-area:day}
 .period-balance-side:nth-of-type(2){grid-area:night}
@@ -2244,3 +2244,16 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .pb-ok{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent-strong)}
 .pb-move svg,.pb-ok svg{width:18px;height:18px}
 @media print{.pb-cell{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+/* بند اللائحة تحت الشريط: مقياسان، المطلوبُ مظلَّل والحاليُّ دبّوس ───────── */
+.period-balance-rule{grid-area:rule;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;margin-top:4px;padding-top:12px;border-top:1px dashed var(--line-strong)}
+.pb-rule-ref{padding:3px 10px;border-radius:999px;background:var(--surface-3);color:var(--ink-2);font-size:var(--t-xs,.75rem);font-weight:700}
+.pb-gauge{display:grid;gap:5px}
+.pb-gauge-head{display:flex;align-items:center;gap:6px;color:var(--ink-2)}
+.pb-gauge-head svg{width:16px;height:16px}
+.pb-gauge-track{position:relative;height:8px;border-radius:999px;background:var(--surface-3)}
+.pb-gauge-band{position:absolute;inset-block:0;border-radius:999px;background:color-mix(in srgb,var(--accent) 35%,var(--surface-3))}
+.pb-gauge-pin{position:absolute;top:50%;width:14px;height:14px;margin-inline-start:-7px;transform:translateY(-50%);border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 1px var(--ink-2);background:var(--accent)}
+.pb-gauge--off .pb-gauge-pin{background:var(--danger)}
+.pb-gauge-foot{font-size:var(--t-xs,.75rem);color:var(--ink-2)}
+@media (max-width:480px){.period-balance-rule{grid-template-columns:1fr;gap:10px}.pb-rule-ref{justify-self:center}}
