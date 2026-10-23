@@ -132,7 +132,9 @@ async function sectionCatalog(sectionId: number): Promise<SectionCatalog> {
       known.set(Number(course.AdCourseId), { code: String(course.CourseCode || ""), name: String(course.CourseName || ""), credit: Number(course.CourseCredit) || 0, sectionId: Number(course.AdSectionId) || 0 });
     }
     const catalog = (courses as AdCourse[]).filter(course => Number(course.AdSectionId) === sectionId && operational.has(Number(course.AdCourseId))).map(course => Number(course.AdCourseId));
-    return { plans: live.map(plan => ({ id: plan.id, name: plan.name, status: plan.status })), byPlan, catalog, courses: known };
+    /* صحيفةٌ بلا مقرر (مسارٌ «جديد» لم تصدر صحيفته بعد) لا تُعرض للطالب: لا يختار صحيفةً فارغة فيتوهّم أنها صحيفته. */
+    const filled = live.filter(plan => (byPlan.get(plan.id) || []).length > 0);
+    return { plans: filled.map(plan => ({ id: plan.id, name: plan.name, status: plan.status })), byPlan, catalog, courses: known };
   });
 }
 
