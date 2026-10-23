@@ -99,9 +99,9 @@ export default function VisitingConversionPanel({ instructorId, onChanged }: { i
   };
 
   return (
-    <fieldset className="visiting-conversion">
-      <legend><ArrowLeftRight aria-hidden="true" /> نوع التعاقد: {isVisiting ? "منتدب" : "معيّن"}</legend>
-      <p className="smart-term-hint"><History aria-hidden="true" />منفصلٌ عن «الحالة» أعلاه. تبقى الفصول الماضية منتدبةً كما كانت، ولا يحمله أيُّ فصلٍ جديد.</p>
+    <div role="group" aria-labelledby={`visiting-conversion-${instructorId}`} className="visiting-conversion">
+      <div id={`visiting-conversion-${instructorId}`} className="visiting-conversion-title"><ArrowLeftRight aria-hidden="true" /> نوع التعاقد: {isVisiting ? "منتدب" : "معيّن"}</div>
+      <p className="smart-term-hint"><History aria-hidden="true" /><span>منفصلٌ عن «الحالة» أعلاه. تبقى الفصول الماضية منتدبةً كما كانت، ولا يحمله أيُّ فصلٍ جديد.</span></p>
       {isVisiting ? (
         <>
           <div role="group" aria-label="أقسام الانتداب" className="visiting-conversion-list">
@@ -115,7 +115,7 @@ export default function VisitingConversionPanel({ instructorId, onChanged }: { i
           </div>
           <p className="smart-term-hint visiting-conversion-warn">
             <TriangleAlert aria-hidden="true" />
-            يُرفع تلقائياً من دليل منتدبي القسم (وعائلته عبر الكليات) ومن رواستر الفصل الحالي وكل فصلٍ قادم؛ لا تُمسّ الفصول الماضية.
+            <span>يُرفع تلقائياً من دليل منتدبي القسم (وعائلته عبر الكليات) ومن رواستر الفصل الحالي وكل فصلٍ قادم؛ لا تُمسّ الفصول الماضية.</span>
           </p>
         </>
       ) : (
@@ -137,6 +137,6 @@ export default function VisitingConversionPanel({ instructorId, onChanged }: { i
       <button type="button" className="secondary-button" data-guide-ignore="يعرض أولاً معاينة السجلات التي ستتغير ويطلب التأكيد؛ لا يغيّر شيئاً قبل الموافقة الصريحة" disabled={busy} onClick={run}>
         {isVisiting ? "تحويل إلى معيّن…" : "تحويل إلى منتدب…"}
       </button>
-    </fieldset>
+    </div>
   );
 }
