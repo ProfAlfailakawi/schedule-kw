@@ -24,6 +24,7 @@
  */
 
 import { termWindow } from "./termSequence";
+import { withVisitingSuffix } from "../components/VisitingBadge";
 
 export interface CalendarLecture {
   /** Stable across edits — the appointment's own id. */
@@ -33,6 +34,8 @@ export interface CalendarLecture {
   code?: string;
   section?: string;
   instructor?: string;
+  /** منتدب في قسم هذا الموعد: تُلحق «· منتدب» باسمه في وصف الموعد. */
+  instructorVisiting?: boolean;
   room?: string;
   /** "HH:MM" in campus local time. */
   start: string;
@@ -255,7 +258,7 @@ export function buildCalendar(document: CalendarDocument): string {
     const detail = [
       lecture.code ? `الرمز: ${lecture.code}` : "",
       lecture.section ? `الشعبة: ${lecture.section}` : "",
-      lecture.instructor ? `الأستاذ: ${lecture.instructor}` : "",
+      lecture.instructor ? `الأستاذ: ${withVisitingSuffix(lecture.instructor, lecture.instructorVisiting === true)}` : "",
     ].filter(Boolean).join("\n");
 
     /* One EXDATE line per cancelled date. The stamp must repeat the series'
