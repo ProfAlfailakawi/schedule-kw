@@ -29,7 +29,7 @@ check(slotAvailability(slot({ exclusive: true, capacity: 1, live: 1 })).full, "�
 const mgr = read("src/components/AdsManager.tsx");
 const prev = read("src/components/ads/PlacementPreview.tsx");
 const sample = read("src/components/ads/SampleAd.tsx");
-check(mgr.includes('["preview", "معاينة للشركات"') && mgr.includes("<PlacementPreview data={data} onStart={startAt} />"), "تبويبُ «معاينة للشركات» في شاشة الإعلانات");
+check(mgr.includes('["placements", "المواقع والمواسم", 0]') && !mgr.includes('"preview"') && mgr.includes("<PlacementPreview data={data} onStart={startAt} />") && mgr.includes("<SeasonTimeline data={data} />"), "«المواقع والمواسم» تبويبٌ واحد: المعاينة بإعلانٍ تجريبي والتقويم، بلا تبويب معاينةٍ مكرَّر");
 check(!/fetch\(|api\(|localStorage|sessionStorage/.test(prev + sample), "المعاينة بلا شبكة ولا تخزين: لا تصل إلى أحد");
 check(sample.includes("تجريبي") && sample.includes('role="img"'), "وسمُ «تجريبي» على الإعلان وبديلٌ نصّي للقارئ");
 check((prev.match(/<(button|input)/g) || []).length === (prev.match(/data-guide-ignore=/g) || []).length, "كل أزرار المعاينة وحقلها مسجّلة في المرشد");

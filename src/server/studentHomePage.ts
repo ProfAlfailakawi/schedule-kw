@@ -709,11 +709,11 @@ function viewHome(){
   var h='<section class="hero me fade"><div class="row" style="gap:16px">'+ring(pr.percent)+'<div class="who"><small>'+(first?"أهلاً، "+esc(first):"مساري")+'</small><h1>'+esc(p.sectionName)+'</h1><span>'+(p.planName?esc(p.planName)+" · ":"")+countOf(p.passedUnits,AR.unit)+' مجتازة</span></div><button class="ghost" id="edp" aria-label="عدّل ما أنجزت">'+ic("edit")+'</button></div>'
    +'<div class="kpis"><div><b>'+(pr.remainingUnits||0)+'</b><small>الوحدات المتبقية</small></div><div><b id="kt">'+(terms||"✓")+'</b><small id="kts">'+(terms?"فصول للتخرّج":"أكملت الصحيفة")+'</small></div><div><b class="w">'+esc(ph.label)+'</b><small>'+(ph.nextAt?esc(fmtShort(ph.nextAt)):"المرحلة الآن")+'</small></div></div></section>';
   /* لسان «الآن»: بطاقةٌ واحدة فوق الطيّة تحسبها المرحلة، والباقي مطويٌّ تحت «المزيد». تُنقل المضيفات بين الموضعين ولا يتغيّر معرّفها. */
-  h+='<div class="pane" data-pane="now"><div id="visitChanges"></div><div id="noticesTop"></div><div id="primarySlot"></div>'
+  h+='<div class="pane" data-pane="now"><div id="visitChanges"></div><div id="noticesTop"></div><div id="primarySlot"></div><div id="adx-me-box"></div>'
    +'<details class="more later" id="later" hidden><summary id="laterSum"></summary><div id="laterBody">'
    +'<div id="notices" data-o="0"></div><div id="cases" data-o="1"></div><div id="ticket" data-o="2"></div><div id="report" data-o="3"></div><div id="wishes" data-o="4"></div><div id="caseRequest" data-o="5"></div>'
    +'<section class="card fade" id="journey" data-o="6"><h2><span class="b">'+ic("clock")+'</span>رحلة الفصل</h2>'+track()+(ph.nextAt?'<button type="button" class="btn alt small" id="icsNext">'+ic("cal")+'ذكّرني بـ«'+esc(ph.nextLabel||"الموعد القادم")+'» '+esc(fmtShort(ph.nextAt))+'</button>':'')+'</section>'
-   +'</div></details><div id="adx-me-box"></div></div>';
+   +'</div></details></div>';
   h+='<div class="pane" data-pane="plan" hidden><div id="advice"></div>'+(pr.remainingUnits?'<section class="card fade">'+whatIfHtml()+'</section>':'')
    +'<details class="more how fade"><summary>'+ic("info")+' كيف قدّرنا التخرج؟</summary><p class="muted">'+(pr.remainingUnits?'نحو '+countOf(terms,AR.term)+' بحسب المتبقي ومعدل '+countOf(lim("termUnits",13.5),AR.unit)+' في الفصل.':'أكملت وحدات الصحيفة بحسب المقررات التي علّمتها.')+' تقدير يتغير مع تحديث إنجازك والقواعد المعتمدة، وليس موعداً رسمياً.</p></details></div>';
   h+='<div class="pane" data-pane="me" hidden>'

@@ -7,7 +7,7 @@
  * number, and the existing checks are untouched.
  */
 import {
-  DECISION_1912_LABEL, isDecision1912Finding, regulationScore, reviewSchedule,
+  DECISION_1912_LABEL, isDecision1912Finding, periodBalanceFinding, regulationScore, reviewSchedule,
 } from "../src/utils/scheduleRegulations";
 import type { AdCourse, FSchedule } from "../src/types";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
@@ -108,6 +108,18 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   };
   check(moveOf(90, 90) === 27, "90 موعداً كلُّها صباحية: تُنقل 27 لا 28 (الحدّ 63)");
   check(moveOf(35, 26) === 2 && moveOf(20, 8) === 2 && moveOf(10, 6) === 0, "35→2، و20 بثمانٍ صباحية→2، و6 من 10 ضمن المطلوب");
+}
+
+/* ── نسبة الفترتين للقسم كلِّه عبر كلياته ──────────────────────────────────── */
+{
+  const courses = Array.from({ length: 20 }, (_, i) => course(300 + i, 3));
+  const boys = courses.slice(0, 10).map(c => row(c.AdCourseId, "1", ["sun", "tue", "thu"], "09:00", "09:50"));
+  const girls = courses.slice(10).map(c => row(c.AdCourseId, "1", ["sun", "tue", "thu"], "15:00", "15:50"));
+  check(Boolean(periodBalanceFinding(boys)), "كلية بنين وحدها كلُّها صباحية: تنبيه");
+  check(periodBalanceFinding([...boys, ...girls]) === null, "ومع البنات (10 صباحي + 10 مسائي = 50%): القسمُ كلُّه ضمن المطلوب فلا تنبيه");
+  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const notices = server.slice(server.indexOf("async function regulationNoticesForScope("), server.indexOf("async function regulationNoticeCount("));
+  check(/departmentFamily\(/.test(notices) && /periodBalanceFinding\(familyRows/.test(notices), "وملاحظاتُ شاشة التغييرات تحسب النسبةَ على عائلة القسم لا الكلية وحدها");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

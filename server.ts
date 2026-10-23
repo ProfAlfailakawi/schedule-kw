@@ -92,7 +92,7 @@ import { chooseCaptureBaseline } from "./src/utils/changesBaseline";
 import { approvalScopeKey, authorityRowsForScope } from "./src/utils/approvalScope";
 import { buildNotifications } from "./src/utils/notificationCenter";
 import { awaitedItemIndexes } from "./src/utils/linkedRequestItems";
-import { reviewSchedule } from "./src/utils/scheduleRegulations";
+import { periodBalanceFinding, reviewSchedule } from "./src/utils/scheduleRegulations";
 import {
   ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, canManageDeadline, canReviewSubmissions,
   canAnnotateCells, isAcademicRole, isAdvisorRole, isReadOnlyRole, isRegistrarRole, isViewerOnlyRole, roleDefinition, roleLabel,
@@ -10952,11 +10952,22 @@ async function regulationNoticesForScope(collegeId: number, sectionId: number, t
       Repository.getCourses(),
       Repository.getInstructors(),
     ]);
-    const findings = reviewSchedule({
+    const scopeFindings = reviewSchedule({
       rows: rows as any,
       courses: new Map(courses.map((row: any) => [Number(row.AdCourseId), row])),
       instructors: new Map(instructors.map((row: any) => [Number(row.AdInstructorId), row])),
     });
+    /* نسبةُ الفترتين (م.7/2) للقسم كلِّه عبر كلياته: عائلةُ القسم مجتمعةً في الفصل نفسه،
+       لا الكليةُ المفتوحة وحدها. وباقي ملاحظات اللائحة تبقى على النطاق. */
+    const familyRows = (await Promise.all(
+      departmentFamily(await Repository.getSections(), collegeId, sectionId)
+        .map(member => Repository.getSchedulesByScope({ collegeId: member.collegeId, sectionId: member.sectionId, termId })),
+    )).flat();
+    const familyBalance = periodBalanceFinding(familyRows as any);
+    const findings = [
+      ...scopeFindings.filter(item => item.rule !== "period-balance"),
+      ...(familyBalance ? [familyBalance] : []),
+    ];
     const ownIds = new Set(rows.map((row: any) => Number(row.id)));
     return findings
       .filter(item => item.approvalEffect !== "block")
@@ -12664,8 +12675,11 @@ app.get("/api/reports/schedule-changes", rateLimitHeavyReport, requireAuth, asyn
     const index = SHOW_DAYS.findIndex(([key]) => Boolean(row?.[key]));
     return index < 0 ? 99 : index;
   };
+  /* المنتدبون يُعرفون في كل شاشةٍ بشارتهم: يُحمل علمُ المنتدب مع كل صفٍّ يعرضه التقرير. */
+  const visitingIdsForReport = new Set((await readLiveVisitingRoster(collegeId, sectionId, termId)).instructorIds.map(Number));
   const asDisplayRow = (row: any) => ({
     scheduleId: Number(row.id),
+    visiting: visitingIdsForReport.has(Number(row.AdInstructorId)),
     courseCode: courseCodeById.get(Number(row.AdCourseId)) || "",
     course: names.courseById.get(Number(row.AdCourseId)) || String(row.AdCourseName || `موعد ${row.id}`),
     sectionCode: String(row.SCode || "—"),
@@ -21698,7 +21712,10 @@ const rateLimitVerifySignature = rateLimit({
   legacyHeaders: false,
   message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
 });
-app.get(["/verify", "/verify/:code"], (req: Request, res: Response) => {
+/* معرّفُ صفحة تحقق الكوبون (٣٢ خانةً ست عشرية صغيرة) يخصّ مسار الإعلانات المسجَّل لاحقاً؛ رمز التوقيع ست خاناتٍ كبيرة،
+   فلا تلتقيان. بغير هذا التمرير حجبَ هذا المسارُ صفحةَ التاجر وفتح رابطُ الـQR صفحةَ «التحقّق من توقيعك». */
+app.get(["/verify", "/verify/:code"], (req: Request, res: Response, next: NextFunction) => {
+  if (/^[0-9a-f]{32}$/.test(String(req.params.code || ""))) { next(); return; }
   res.setHeader("Cache-Control", "no-store");
   res.type("text/html; charset=utf-8").send(signatureVerifyPage(String(req.params.code || ""), String(req.query.t || ""), publicPageNonce(res)));
 });
