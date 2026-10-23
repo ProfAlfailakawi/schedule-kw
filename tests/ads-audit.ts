@@ -477,10 +477,14 @@ async function main() {
     check(imgRes.status === 200 && imgRes.headers.get("content-type") === "image/png" && (await imgRes.arrayBuffer()).byteLength > 100, "A6 الصورة تُخدم من الأصل نفسه بنوعها الصحيح");
 
     // الظهور: حدثان لنفس الحملة (أحدهما فريد)، وحدثٌ مزيَّف لحملةٍ غير موجودة يُتجاهل.
-    r = await call("POST", "/_ads/e", { e: [{ c: item.c, k: item.k, u: 1 }, { c: item.c, k: item.k, u: 0 }, { c: "ghost", k: "x", u: 1 }, { c: item.c, k: "wrong-creative", u: 1 }] });
+    r = await call("POST", "/_ads/e", { e: [{ c: item.c, k: item.k, u: 1, r: 1 }, { c: item.c, k: item.k, u: 0, r: 0 }, { c: "ghost", k: "x", u: 1, r: 1 }, { c: item.c, k: "wrong-creative", u: 1 }] });
     check(r.status === 204, "A6 استقبال الظهور");
     r = await call("POST", "/_ads/e", { e: [{ c: item.c, k: item.k, u: 1 }] }, { "User-Agent": "Googlebot/2.1" });
     check(r.status === 204, "A6 الروبوت: يُقبل الطلب ويُتجاهل");
+    await R.flushAdsCounters();
+    const reachRows = await Repository.listAdStats(item.c);
+    check(E.totalsOf(reachRows).reach === 1 && E.totalsOf(reachRows).impressions === 2, "الوصول: شخصٌ واحد وظهوران؛ الروبوت لا يُحتسب", E.totalsOf(reachRows));
+    check(fs.readFileSync("src/server/adClientScript.ts", "utf8").includes('"adx:r:"+it.c') && E.totalsOf([{ id: "a", campaignId: "c", creativeId: "k", day: "2026-01-01", impressions: 5, uniques: 3, clicks: 0, filteredClicks: 0 }]).reach === 0, "الوصول: مفتاحٌ محلي بنطاق الحملة، والصفوف القديمة بلا وصولٍ تُحسب صفراً");
 
     // النقر: الأول صحيح، والمتكرر خلال ثوانٍ يُرشَّح، والروبوت يُرشَّح.
     r = await call("GET", item.href);

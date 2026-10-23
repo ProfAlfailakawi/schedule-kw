@@ -4,7 +4,7 @@
 import React from "react";
 
 export interface Slot { id: string; label: string; where: string; hint: string; audience: string; width: number; height: number; capacity: number; exclusive?: boolean; wholeUniversity?: boolean; live: number; nextFree: string }
-export interface Totals { impressions: number; uniques: number; clicks: number; filteredClicks: number; ctr: number }
+export interface Totals { impressions: number; uniques: number; clicks: number; filteredClicks: number; ctr: number; reach: number }
 export interface Creative { id: string; label: string; width: number; height: number; bytes: number; qualityOverride?: boolean }
 export interface WeekTotals { impressions: number; uniques: number; clicks: number; ctr: number }
 export type AbVerdict =
