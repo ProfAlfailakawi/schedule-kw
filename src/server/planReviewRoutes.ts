@@ -143,6 +143,20 @@ export function referenceSnapshotFor(sections: any[], courses: AdCourse[]) {
  *  (برنامجٌ بلا قسمٍ مالك، مقرراته من الأقسام التربوية). */
 const TRACK_PROGRAMS = new Set(["BA-0119", "BA-0110"]);
 
+/** صحيفةُ القسم الإداري («علم النفس/علم التربية» في رأسها) لأقسام برنامجها وحدها: التربية الخاصة وقسمُ المادة في مسارات
+ *  التربية الخاصة، وقسم رياض الأطفال لرياض الأطفال. القسمُ الذي يمدّها بمقرراتٍ فقط (علم النفس…) لا يحمل نسخةً منها. */
+function programHome(sheet: { program: string; programName?: string; courses: Array<{ dept: string; sectionNo: number }> }, section: { AdSectionCode?: unknown }): boolean {
+  const code = String(section.AdSectionCode ?? "").trim();
+  if (sheet.program === "BA-0110") return code === "KG";
+  if (/تربيه\s*خاصه|تربية\s*خاصة/.test(sheet.programName || "")) {
+    const counts = new Map<string, number>();
+    for (const course of sheet.courses) if (course.sectionNo === 2 && !["19", "15", "14", "20", "21"].includes(course.dept)) counts.set(course.dept, (counts.get(course.dept) || 0) + 1);
+    const subject = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+    return code === "19" || code === subject;
+  }
+  return true;
+}
+
 export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): void {
   const fail = (res: Response, status: number, error: string, extra: Record<string, unknown> = {}) => res.status(status).json({ error, ...extra });
   const roleId = (req: any): string => roleDefinition(req.user?.Role).id;
@@ -1317,7 +1331,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       const scope = scopeOf(section);
       /* الاسم، أو رمز الهيئة الكامل (كلية+قسم) المطابق لرمز الصحيفة: «معلم الحاسب» و«حاسوب» برمزٍ واحد هو القسم نفسه. */
       const sameAuthorityCode = /^\d{4}$/.test(scope.departmentKey) && scope.departmentKey === sheetKey(sheet);
-      return checkSheetScope(sheet, scope) === null && (sheetNameMatches(sheet, scope.sectionName) || sameAuthorityCode || sheetOwnKey(sheet, scope).umbrella);
+      return checkSheetScope(sheet, scope) === null && (sheetNameMatches(sheet, scope.sectionName) || sameAuthorityCode || (sheetOwnKey(sheet, scope).umbrella && programHome(sheet, section)));
     });
     let matched = matchIn(sections as any[]);
     /* قسمٌ للصحيفة لا وجود له: يُنشأ بموافقة المسؤول وفي كلية يختارها (createMissing=1&collegeId=N)، باسمه ورمزه من الصحيفة.

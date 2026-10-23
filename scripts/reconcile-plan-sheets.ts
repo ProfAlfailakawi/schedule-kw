@@ -107,6 +107,8 @@ const write = async <T>(fn: () => Promise<T>): Promise<T | undefined> => { write
 
 for (const cid of collegeIds) {
   const collegeSections = sections.filter(row => Number(row.AdCollegeId) === cid);
+  /* ما دُرِّس فعلاً في هذه الكلية (عبر تاريخ الجدول): سجلُّ المقرر الحقيقي عند قسمه. */
+  const taught = new Set<number>((await Repository.getSchedulesByScope({ collegeId: cid })).map(row => Number(row.AdCourseId)));
   const coursesIn = (sid: number) => courses.filter(row => Number(row.AdSectionId) === sid);
   /* رمزٌ فيه حرف («18-F» برنامج اللغة الفرنسية القديم) قسمٌ آخر وإن شاركت أرقامُه رمزَ قسم: لا يُعدّ منه. */
   const sectionsWithCode = (code: string) => collegeSections.filter(row => sectionDigits(row) === code && !/[A-Za-z\u0621-\u064A]/.test(String(row.AdSectionCode)));
@@ -149,9 +151,30 @@ for (const cid of collegeIds) {
     return candidates.find(row => findIn(Number(row.AdSectionId), code)) || candidates.find(row => /^قسم/.test(String(row.AdSectionName))) || candidates[0];
   };
   /** يجد المقرر في قسمه المالك أو يُنشئه بالاسم والوحدات والساعات من الصحيفة، ويصحّح ما اختلف منها. */
+  /** سجلُّ المقرر الذي دُرِّس فعلاً، في أي قسمٍ من الكلية، بالرقم نفسه والاسم: مقررات قسم التربية القديم (14) بقيت بأرقامها عند
+   *  القسم الذي يدرّسها («طرق التدريس العام» 304 عند المناهج). لا يُؤخذ سجلٌّ هو نفسه مقررُ رمزٍ آخر في الصحائف. */
+  const taughtTwin = (code: string, name: string): AdCourse | undefined => {
+    /* في قسم الرمز نفسه فقط؛ ومقررات قسم التربية القديم (14) عند الأقسام التي ورثت أرقامه (المناهج 21، الأصول 20، علم النفس 15). */
+    const homes = new Set((deptOf(code) === "14" ? ["21", "20", "15"] : [ALIAS[deptOf(code)] || deptOf(code)])
+      .flatMap(dept => sectionsWithCode(dept).map(row => Number(row.AdSectionId))));
+    const sameNumber = (row: AdCourse) => keyOf(row) === code || (academicDigits(row.CourseCode).length <= 3 && academicDigits(row.CourseCode).padStart(3, "0") === numOf(code));
+    const claimedElsewhere = (row: AdCourse) => keyOf(row) !== code && truth.has(keyOf(row)) && ["same", "spelling"].includes(nameRelation(row.CourseName, truth.get(keyOf(row))!.name));
+    const found = courses.filter(row => {
+      if (Number(row.AdCollegeId) !== cid || !taught.has(Number(row.AdCourseId)) || !homes.has(Number(row.AdSectionId)) || !sameNumber(row) || claimedElsewhere(row)) return false;
+      const relation = nameRelation(row.CourseName, name);
+      return relation === "same" || relation === "spelling" || (relation === "related" && keyOf(row) === code);
+    });
+    const rank = (row: AdCourse) => (keyOf(row) === code ? 0 : 2) + (["same", "spelling"].includes(nameRelation(row.CourseName, name)) ? 0 : 1);
+    const best = found.sort((x, y) => rank(x) - rank(y));
+    return best.length && (best.length === 1 || rank(best[0]) < rank(best[1])) ? best[0] : undefined;
+  };
   const ensureCourse = async (sid: number, code: string): Promise<AdCourse | undefined> => {
     const t = truth.get(code)!;
     let row = findIn(sid, code);
+    if (!row || !taught.has(Number(row.AdCourseId))) {
+      const twin = taughtTwin(code, t.name);
+      if (twin && twin !== row) { log(cid, "ربط بالسجل المدرَّس", { code, name: t.name, twin: twin.AdCourseId, twinCode: twin.CourseCode, twinSection: sections.find(item => Number(item.AdSectionId) === Number(twin.AdSectionId))?.AdSectionName, replaces: row?.AdCourseId }); row = twin; }
+    }
     /* الرقم نفسه لمقررٍ آخر في القسم (مقررات التربية الخاصة القديمة بأرقامٍ قصيرة عند علم النفس): لا يُعاد تسميتُه،
        بل يُستعمل للصحيفة مقررٌ مستقل برمزها الكامل. */
     let distinct = false;
@@ -205,19 +228,26 @@ for (const cid of collegeIds) {
     const list = sheet.courses.filter(course => !(course.girlsOnly && !girlsCollege(cid)));
     let targets: CurriculumPlan[];
     if (track) {
-      targets = allPlans.filter(plan => plan.track === track && plan.status === status);
-      if (!targets.length && (track === "BA-0119" || track === "BA-0110")) {
-        /* مسارٌ لم يكن له صحيفة: يُنشأ في أقسامه (الإنجليزية: أقسامها الثلاثة؛ رياض الأطفال: الأقسام التربوية المالكة لمقرراتها). */
-        const homes = track === "BA-0119" ? sectionsWithCode("18") : ["15", "20", "21"].flatMap(code => sectionsWithCode(code));
-        for (const home of homes) {
-          const name = `${sheet.programName || track} · ${status === "active" ? "الجديدة" : "السابقة"}`;
-          log(cid, "إنشاء صحيفة مسار", { section: home.AdSectionName, name, track });
-          const created = await write(() => Repository.createTrackPlan({ collegeId: cid, sectionId: Number(home.AdSectionId), name, track, status, by: BY }));
-          const plan = created || ({ id: `dry-${track}-${home.AdSectionId}`, AdCollegeId: cid, AdSectionId: Number(home.AdSectionId), name, track, status, createdAt: "" } as CurriculumPlan);
-          if (created) await Repository.patchCurriculumPlan(plan.id, Number(home.AdSectionId), { sheetYear: sheet.startYear });
-          allPlans.push({ ...plan, sheetYear: sheet.startYear });
-          targets.push(plan);
-        }
+      /* صحيفةُ المسار لأقسام برنامجها وحدها: التربية الخاصة وقسمُ المادة (عربية/إسلامية/رياضيات/علوم)، والتخصص المزدوج لقسمه،
+         والإنجليزية للمتوسط والثانوي لقسم اللغة الإنجليزية، ورياض الأطفال لقسمها. القسمُ الذي يمدّها بمقرراتٍ فقط (علم النفس…) لا يحمل نسخةً منها. */
+      const subject = (() => { const counts = new Map<string, number>(); for (const course of sheet.courses.filter(row => row.sectionNo === 2 && !["19", "15", "14", "20", "21"].includes(row.dept))) counts.set(course.dept, (counts.get(course.dept) || 0) + 1); return [...counts].sort((x, y) => y[1] - x[1])[0]?.[0] || ""; })();
+      const homes: any[] = track === "BA-0110" ? collegeSections.filter(row => String(row.AdSectionCode) === "KG")
+        : track === "BA-0119" ? sectionsWithCode("18")
+        : /تربيه\s*خاصه|تربية\s*خاصة/.test(sheet.programName || "") ? [...sectionsWithCode("19"), ...sectionsWithCode(subject)]
+        : sectionsWithCode(homeDeptOf(sheet));
+      const homeIds = new Set(homes.map(row => Number(row.AdSectionId)));
+      for (const plan of allPlans.filter(row => row.track === track && !homeIds.has(Number(row.AdSectionId)))) {
+        log(cid, "حذف نسخة في قسم ليس من أقسام البرنامج", { planId: plan.id, plan: plan.name, section: sections.find(row => Number(row.AdSectionId) === Number(plan.AdSectionId))?.AdSectionName });
+      }
+      targets = allPlans.filter(plan => plan.track === track && plan.status === status && homeIds.has(Number(plan.AdSectionId)));
+      for (const home of homes.filter(row => !targets.some(plan => Number(plan.AdSectionId) === Number(row.AdSectionId)))) {
+        const name = `${sheet.programName || track} · ${status === "active" ? "الجديدة" : "السابقة"}`;
+        log(cid, "إنشاء صحيفة مسار", { section: home.AdSectionName, name, track });
+        const created = await write(() => Repository.createTrackPlan({ collegeId: cid, sectionId: Number(home.AdSectionId), name, track, status, by: BY }));
+        const plan = created || ({ id: `dry-${track}-${home.AdSectionId}`, AdCollegeId: cid, AdSectionId: Number(home.AdSectionId), name, track, status, createdAt: "" } as CurriculumPlan);
+        if (created) await Repository.patchCurriculumPlan(plan.id, Number(home.AdSectionId), { sheetYear: sheet.startYear });
+        allPlans.push({ ...plan, sheetYear: sheet.startYear });
+        targets.push(plan);
       }
     } else {
       const home = homeDeptOf(sheet);
@@ -235,7 +265,9 @@ for (const cid of collegeIds) {
       for (const course of list) {
         if (isOwn(course)) {
           const row = await ensureCourse(sid, course.codeKey);
-          if (row) memberIdByCode.set(course.codeKey, Number(row.AdCourseId));
+          /* سجلُّه المدرَّس عند قسمٍ آخر: يدخل متطلباً عاماً لا عضواً (العضوية لسجلات القسم نفسه). */
+          if (row && Number(row.AdSectionId) === sid) memberIdByCode.set(course.codeKey, Number(row.AdCourseId));
+          else if (row) externalIdByCode.set(course.codeKey, Number(row.AdCourseId));
         } else {
           const owner = ownerOf(course.codeKey);
           if (!owner) { log(cid, "مقرر خدمي بلا قسم", { file: sheet.file, code: course.codeKey, name: course.name }); continue; }
@@ -261,7 +293,8 @@ for (const cid of collegeIds) {
       /* القواعد: المسبقات لمقررات القسم من الصحيفة حرفياً، ومقررات الأقسام الأخرى متطلباتٌ عامة بمجموعاتها. */
       const own = list.filter(isOwn), foreign = list.filter(course => !isOwn(course) && externalIdByCode.has(course.codeKey));
       const names = new Map(list.map(course => [course.codeKey, truth.get(course.codeKey)?.name || course.name] as const));
-      const { reference } = sheetToReference(sheet, own, names, foreign);
+      /* المسبقات كما طُبعت لكل مقررٍ في الصحيفة (لمقررات القسم ولمقررات الأقسام الأخرى): لا تعتمد الصحيفة على نسخةٍ في قسمٍ آخر. */
+      const { reference } = sheetToReference(sheet, [...own, ...foreign], names, []);
       const scope = new Map([...memberIdByCode, ...externalIdByCode]);
       const known = new Map<string, number>(courses.filter(row => Number(row.AdCollegeId) === cid).map(row => [keyOf(row), Number(row.AdCourseId)] as const));
       const built = buildReferenceRules(reference, scope, new Map([...known, ...scope]), new Set());
@@ -281,7 +314,6 @@ for (const cid of collegeIds) {
       const held = new Map((base?.rules || []).map(rule => [rule.courseId, rule] as const));
       const rules: CurriculumCourseRule[] = built.rules.map(fresh => {
         const prior = held.get(fresh.courseId);
-        if (!ownIds.has(fresh.courseId)) return { ...(prior || {}), ...fresh, prereq: undefined, ...(prior?.coreq?.length ? { coreq: prior.coreq } : {}) } as CurriculumCourseRule;
         return { ...(prior || {}), ...fresh, ...(fresh.prereq ? { prereq: fresh.prereq } : { prereq: undefined }), ...(prior?.coreq?.length ? { coreq: prior.coreq } : {}) } as CurriculumCourseRule;
       }).map(rule => { const copy: any = { ...rule }; if (!copy.prereq) delete copy.prereq; if (!copy.groupId) delete copy.groupId; return copy; });
       const groups = dedupeGroups(built.groups.map(group => normalizeGroup(group)).filter(Boolean) as ElectiveGroup[]);
@@ -311,7 +343,8 @@ for (const cid of collegeIds) {
         const rules = await Repository.getDegreeRules();
         const twin = sections.find(row => Number(row.AdCollegeId) === 6 && sectionDigits(row) === sectionCode);
         const stored = (rules.find(row => Number(row.AdSectionId) === sid && Number(row.degreeUnits) > 0) || rules.find(row => Number(row.AdSectionId) === Number(twin?.AdSectionId))) as any;
-        const baseRule = stored?.degreeUnits ? stored : null;
+        const STD130 = { degreeUnits: 130, fieldTrainingRequired: 102, graduateRegularPassed: 107, graduateSummerPassed: 109 };
+        const baseRule = stored?.degreeUnits ? stored : STD130;
         if (baseRule) {
           const f = sheet.degreeUnits / Number(baseRule.degreeUnits);
           const rule = { degreeUnits: sheet.degreeUnits, fieldTrainingRequired: Math.round(baseRule.fieldTrainingRequired * f), graduateRegularPassed: Math.round(baseRule.graduateRegularPassed * f), graduateSummerPassed: Math.round(baseRule.graduateSummerPassed * f), updatedAt: new Date().toISOString(), updatedBy: BY };
