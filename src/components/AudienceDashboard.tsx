@@ -9,7 +9,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Expand, Megaphone, Minimize } from "lucide-react";
 import { EmptyState, MicroLoader, Notice, PageTitle, SecondaryButton, PrimaryButton } from "./ui";
 import { AR, countOf } from "../utils/arabicCount";
-import { CONTINUITY_MIN_STUDENTS, headlineTotals, type AudienceStats } from "../utils/audienceStats";
+import { CONTINUITY_MIN_STUDENTS, FUNNEL_TARGETS, headlineTotals, type AudienceStats, type StudentFunnel } from "../utils/audienceStats";
 import { AUDIENCE_BASELINE } from "../utils/audienceBaseline";
 
 type Payload = AudienceStats & { termChoices: Array<{ id: number; name: string }> };
@@ -70,6 +70,34 @@ function HBars({ rows }: { rows: Array<{ label: string; count: number }> }) {
 
 const DAYS = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 const SOURCE_LABEL: Record<string, string> = { me: "«مساري»", schedule: "جداول القسم والطلبة", status: "حالة الطلب", survey: "الاستبيان", staff: "بطاقة الأستاذ", app: "نظام SCHEDULE" };
+
+
+/** قمعُ «مساري»: ثلاث نسبٍ تقيس السهولة فعلاً — أكمل الإعداد، أرسل رغباته، عاد بعدها — مقابل أهدافها. */
+function MasariFunnel({ funnel }: { funnel: StudentFunnel }) {
+  const rows = [
+    { key: "setup", label: "أكمل إعداد ملفه", num: funnel.setupDone, den: funnel.created, target: FUNNEL_TARGETS.setupDone },
+    { key: "wishes", label: "أرسل رغباته هذا الفصل", num: funnel.wishesSent, den: funnel.setupDone, target: FUNNEL_TARGETS.wishesSent },
+    { key: "back", label: "عاد بعد إرسال رغباته", num: funnel.returned, den: funnel.wishesSent, target: FUNNEL_TARGETS.returned },
+  ];
+  return (
+    <div className="pt-funnel" aria-label="قمع مساري">
+      <p className="pt-sub">هل «مساري» سهلٌ فعلاً؟ النسبةُ من المرحلة التي قبلها، والهدف بجانبها.</p>
+      <ul className="pt-funnel-list">
+        {rows.map(r => {
+          const rate = r.den > 0 ? r.num / r.den : null;
+          const met = rate !== null && rate >= r.target;
+          return (
+            <li key={r.key}>
+              <span>{r.label}</span>
+              <b>{rate === null ? "—" : pct(rate * 100)}</b>
+              <small>{fmt(r.num)} من {fmt(r.den)} · الهدف {pct(r.target * 100)}{rate === null ? "" : met ? " ✓" : ""}</small>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 export default function AudienceDashboard({ onNavigate }: { onNavigate?: (view: string) => void }) {
   const [data, setData] = useState<Payload | null>(null);
@@ -249,6 +277,7 @@ export default function AudienceDashboard({ onNavigate }: { onNavigate?: (view: 
           <p className="pt-sub">أرقام فقط، بلا أسماء. مرتّبة بالحجم.</p>
           <HBars rows={s.survey.current.byCollege.length ? s.survey.current.byCollege : s.students.byCollege} />
           <p className="pt-note">ملفات «مساري»: {fmt(s.students.profiles)} · نشط خلال 7 أيام {fmt(s.students.active7)} · خلال 30 يوماً {fmt(s.students.active30)}.</p>
+          <MasariFunnel funnel={s.students.funnel} />
         </section>
       </div>
 

@@ -302,6 +302,26 @@ async function main() {
   check(!dem.demand.top.some(d => d.name === "مقرر نادر") && dem.demand.hidden === 1, "A12 مقررٌ بتسعة طلاب لا يظهر ويُعدّ مخفياً (حد الخصوصية ١٠)", dem.demand);
   check(!JSON.stringify(dem).includes("fp-"), "A12 لا بصمةَ طالبٍ في المخرجات");
 
+  /* ── قمع مساري: ثلاث نسبٍ من ملفاتٍ حقيقية، بلا هوية ── */
+  {
+    const D = 86400000, t0 = Date.parse("2026-01-10T00:00:00Z");
+    const iso = (ms: number) => new Date(ms).toISOString();
+    const mk = (id: string, sectionId: number, wishes?: { termId: number; sentAt: number }, seenAt = t0) => ({
+      id, fingerprint: id, AdCollegeId: 1, AdSectionId: sectionId, passedCourseIds: [], passedUnits: 0, createdAt: iso(t0 - 5 * D), lastSeenAt: iso(seenAt),
+      ...(wishes ? { wishes: { termId: wishes.termId, targetUnits: 15, courseIds: [], constraints: {}, updatedAt: iso(wishes.sentAt) } } : {}),
+    });
+    const profs = [
+      mk("a", 0),                                                        // أنشأ ولم يُكمل
+      mk("b", 11),                                                       // أكمل، بلا رغبات
+      mk("c", 11, { termId: 5, sentAt: t0 }, t0 + 1000),                 // أرسل ولم يعد (نفس الجلسة)
+      mk("d", 11, { termId: 5, sentAt: t0 }, t0 + 3 * D),                // أرسل وعاد بعد ٣ أيام
+      mk("e", 11, { termId: 4, sentAt: t0 }, t0 + 9 * D),                // رغباتُ فصلٍ سابق: لا تُحسب
+    ];
+    const f = buildAudienceStats({ now: new Date("2026-02-01T00:00:00Z"), terms: [{ AdTermId: 5, AdTermName: "ف" }] as any[], currentTermId: 5, needsByTerm: new Map(), instructorRequests: [], profiles: profs as any[] }).students.funnel;
+    check(f.created === 5 && f.setupDone === 4 && f.wishesSent === 2 && f.returned === 1, "A13 القمع: ٥ ملفات، ٤ أكملت، ٢ أرسلت رغبات الفصل، ١ عاد بعد يوم", f);
+    check(!JSON.stringify(f).includes("fp") && Object.keys(f).length === 4, "A13 القمع أعدادٌ فقط");
+  }
+
   /* ── التجربة والأسبوع والمقارنة ── */
   check(E.trialProblems({ company: "أ", trial: true, startDay: "2026-11-01", endDay: "2026-11-07" }, []).length === 0, "A11 تجربةٌ من ٧ أيام تُقبل");
   check(E.trialProblems({ company: "أ", trial: true, startDay: "2026-11-01", endDay: "2026-11-08" }, []).some(p => p.includes("سبعة أيام")), "A11 تجربةٌ من ٨ أيام تُرفض");
