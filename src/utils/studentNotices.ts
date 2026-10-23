@@ -28,7 +28,7 @@ export interface StudentNoticeInput {
   reportAnswered: boolean;
   reportCourses: number;
   cases: StudentCaseCourse[];
-  /** شعبٌ فتحها القسمُ حديثاً لمقرراتٍ أرادها الطالبُ أو تعثّر فيها (من اقتراح الرادار/مركز الذكاء). */
+  /** شعبٌ فتحها القسمُ حديثاً لمقرراتٍ أرادها الطالبُ أو تعثّر فيها (من اقتراح مركز الذكاء). */
   opened?: Array<{ courseId: number; name: string; section: string }>;
 }
 
@@ -50,10 +50,10 @@ export function buildStudentNotices(input: StudentNoticeInput): StudentNotice[] 
   }
   if (input.ticket) {
     const t = input.ticket;
-    if (t.stale) out.push({ id: "ticket-stale", tone: "info", icon: "info", title: "عدّلت ملفّك بعد آخر حساب", detail: "ستتحدّث تذكرتك في التحديث القادم.", target: "ticket" });
+    if (t.stale) out.push({ id: "ticket-stale", tone: "info", icon: "info", title: "عدّلت ملفّك بعد آخر حساب", detail: "سيتحدّث جدولك المقترح في التحديث القادم.", target: "ticket" });
     out.push({
-      id: `ticket-ready:${t.window}`, tone: "info", icon: "ticket", title: `تذكرتك جاهزة — نافذتك ${t.window} من ${t.of}`,
-      detail: t.start ? `${t.windowName || "نافذتك"}: ${t.start}${t.end ? ` → ${t.end}` : ""}` : "يحدّد موعدَها صاحبُ القرار.", target: "ticket",
+      id: `ticket-ready:${t.window}`, tone: "info", icon: "ticket", title: `جدولك المقترح جاهز — دورك ${t.window} من ${t.of}`,
+      detail: t.start ? `${t.windowName || "دورك"}: ${t.start}${t.end ? ` → ${t.end}` : ""}` : "يحدّد موعدَها صاحبُ القرار.", target: "ticket",
     });
   }
   if (phase.canReport && input.reportCourses > 0 && !input.reportAnswered) {

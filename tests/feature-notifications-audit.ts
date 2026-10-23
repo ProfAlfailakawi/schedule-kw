@@ -37,7 +37,7 @@ const ids = (input: StudentNoticeInput) => buildStudentNotices(input).map(n => n
   check(ids({ ...base, phase: { ...base.phase, canEditWishes: true, nextAt: "25 أكتوبر", nextLabel: "تنتهي الرغبات" } }).includes("wishes-open"), "N1 الرغباتُ مفتوحة ولم يكتب: يُطلب منه");
   check(!ids({ ...base, hasWishes: true, phase: { ...base.phase, canEditWishes: true } }).includes("wishes-open"), "N1 كتب رغباته: لا يُطلب ثانيةً");
   const tk = buildStudentNotices({ ...base, ticket: { stale: false, window: 2, of: 3, windowName: "مبكر", start: "14 نوفمبر" } });
-  check(tk.some(n => n.id === "ticket-ready:2" && /نافذتك 2 من 3/.test(n.title) && /14 نوفمبر/.test(n.detail || "")), "N1 تذكرةٌ جاهزة بنافذتها وتاريخها", tk);
+  check(tk.some(n => n.id === "ticket-ready:2" && /دورك 2 من 3/.test(n.title) && /14 نوفمبر/.test(n.detail || "")), "N1 تذكرةٌ جاهزة بنافذتها وتاريخها", tk);
   check(ids({ ...base, ticket: { stale: true, window: 1, of: 2 } }).includes("ticket-stale"), "N1 ملفٌّ عُدّل بعد الحساب: يُقال له");
   check(ids({ ...base, phase: { ...base.phase, canReport: true }, reportCourses: 4 }).includes("report-open"), "N1 الجولة جارية: «هل سجّلت؟» مطلوب");
   check(!ids({ ...base, phase: { ...base.phase, canReport: true }, reportCourses: 0 }).includes("report-open"), "N1 بلا مقرراتٍ تُسأل عنها: لا يُسأل");
