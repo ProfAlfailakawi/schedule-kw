@@ -19,6 +19,7 @@ check(applyVisitingToFaculty([{ AdInstructorId: 7 }], { visiting: new Set(), pla
 
 const server = fs.readFileSync("server.ts", "utf8");
 check((server.match(/visitingToFacultyPlan\(collegeId, ?sectionId, ?termId\)/g) || []).length === 3, "مسارات الاستيراد الثلاثة (PDF والنموذج والملف المُصدَّر) تطبّق القاعدة");
+check(/replacedVisitingInstructorId: Number\(raw\?\.replacedVisitingInstructorId/.test(server), "تنقية المسودة تحفظ المنتدب الأصلي فلا يضيع بعد الاستبدال");
 check(/!faculty\.has\(id\)/.test(server), "من هو في هيئة القسم لا يُعدّ منتدباً");
 
 console.log(`\nVisiting → faculty audit: ${passed} passed, ${failed} failed`);

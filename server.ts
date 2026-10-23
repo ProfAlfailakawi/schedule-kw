@@ -1570,6 +1570,7 @@ function safeDraftRows(input: unknown, collegeId: number, sectionId: number, ter
     fdetail: legacyFDetail(raw || {}),
     referenceNumber: String(raw?.referenceNumber || "").slice(0,30),
     sourceInstructorText: String(raw?.sourceInstructorText || "").slice(0,180) || undefined,
+    replacedVisitingInstructorId: Number(raw?.replacedVisitingInstructorId || 0) || undefined,
     sourceCourseCode:String(raw?.sourceCourseCode||"").slice(0,40)||undefined,
     sourceCourseText:String(raw?.sourceCourseText||"").slice(0,220)||undefined,
     sourceSectionText:String(raw?.sourceSectionText||"").slice(0,40)||undefined,
