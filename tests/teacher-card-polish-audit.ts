@@ -68,6 +68,14 @@ check(/\?live=1/.test(page) && /String\(req\.query\.live \|\| ""\) === "1"/.test
 check(/<link rel="icon" href="\/schedule-icon\.svg"/.test(page), "الصفحة تحمل أيقونتها فلا يطلب المتصفحُ favicon.ico ويعود 404");
 check(/data-shape=/.test(page) && /\[data-shape\]/.test(page), "أزرار التوزيع المعتمد تُطبَّق بضغطة");
 
+/* ── المرحلة ٢: البثّ الحيّ (عقودُ الصفحة) ─────────────────────────────── */
+check(/new EventSource\("\/api\/public\/request\/"\+encodeURIComponent\(TOKEN\)\+"\/events"\)/.test(page), "الصفحة تفتح بثّها بالرابط الشخصيّ نفسه");
+check(/else closeLive\(\)/.test(page) && /document\.visibilityState==="hidden"/.test(page), "ويُغلق البثّ حين تُخفى الصفحة ويُعاد فتحه عند العودة");
+check(/liveBack=Math\.min\(liveBack\*2,60000\)/.test(page), "وإعادة الاتصال تتراجع أُسّياً");
+check(/class="fresh-note"/.test(page) && /وصل ردّ من القسم/.test(page), "مسودةٌ لم تُرسل لا تُستبدل: يُقال للأستاذ إن عند القسم ردّاً");
+check(/navigator\.vibrate/.test(page) && /prefers-reduced-motion/.test(page), "اهتزازٌ خفيف وتمريرٌ إلى «قرارك» يحترمان تقليل الحركة");
+check(/app\.get\("\/api\/public\/request\/:token\/events", rateLimitCardEvents/.test(server) && /resolveRequestLink/.test(server.slice(server.indexOf('"/api/public/request/:token/events"'), server.indexOf('"/api/public/request/:token/events"') + 400)), "مسار البثّ يمرّ بحدّ المعدّل وبالتحقّق نفسه من الرابط");
+
 /* السكربت المولَّد يُجمَّع كما هو. */
 const html = server.includes("function instructorRequestPage") ? "ok" : "";
 check(html === "ok", "الدالة موجودة");

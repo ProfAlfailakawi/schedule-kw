@@ -2504,6 +2504,15 @@ export const studentNeedKind = (need: { requestType?: string; details?: string }
         : "course";
 
 const localApplyLeases = new Map<string, { until: number; holder: string }>();
+const instructorRequestSavedListeners = new Set<(info: { id: string; kind: string; at: string }) => void>();
+function announceInstructorRequestSaved(row: InstructorRequest) {
+  const last = (row.timeline || [])[(row.timeline || []).length - 1];
+  const info = { id: row.id, kind: String(last?.kind || "saved"), at: String(row.updatedAt || new Date().toISOString()) };
+  for (const listener of instructorRequestSavedListeners) {
+    try { listener(info); } catch { /* مستمعٌ معطوب لا يُفسد الحفظ */ }
+  }
+}
+
 export const Repository = {
   getStudentCaseSecret: async (): Promise<string> => getOrCreateStudentCaseSecret(),
   /** السرّ المشترك بين نسخ الخادم، مقروءاً خارج صندوق العرض دائماً: مفتاحُ
@@ -4806,13 +4815,25 @@ export const Repository = {
     const next: InstructorRequest = { ...row, updatedAt: new Date().toISOString() };
     if (firestoreDb && !demoSandboxContext.getStore()) {
       await firestoreDb.collection("instructorRequests").doc(next.id).set(next);
+      announceInstructorRequestSaved(next);
       return next;
     }
     if (!Array.isArray(db.instructorRequests)) db.instructorRequests = [];
     const at = db.instructorRequests.findIndex(item => item.id === next.id);
     if (at >= 0) db.instructorRequests[at] = next; else db.instructorRequests.unshift(next);
     saveDatabase();
+    announceInstructorRequestSaved(next);
     return next;
+  },
+
+  /**
+   * يُخبَر المستمعُ كلَّما حُفظ طلبُ أستاذ: معرّفُه وآخرُ ما سُجّل في خطّه الزمني، لا غير.
+   * يقوم عليه بثُّ الكرت الحيّ، فلا يحتاج الأستاذ إلى إعادة التحميل ليرى ردَّ القسم.
+   * ويبلغ هذه النسخةَ وحدها؛ والنسخُ الأخرى تلحق بإعادة الجلب عند العودة وبالنبض البطيء في الصفحة.
+   */
+  onInstructorRequestSaved: (listener: (info: { id: string; kind: string; at: string }) => void): (() => void) => {
+    instructorRequestSavedListeners.add(listener);
+    return () => { instructorRequestSavedListeners.delete(listener); };
   },
 
   /**

@@ -651,6 +651,15 @@ const rateLimitPublicRequest = rateLimit({
   message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
 });
 
+/* فتحُ بثّ الكرت الحيّ: إنسانٌ يقلّب تبويبات هاتفه لا يتجاوز بضعَ مراتٍ في الدقيقة، وإعادةُ الاتصال تتراجع أُسّياً من جهة الصفحة. */
+const rateLimitCardEvents = rateLimit({
+  windowMs: 60_000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
+});
+
 /* كشفُ «المتبقي» يُقرأ ملفاً كاملاً، وقد يمرّ بالقراءة الضوئية: حدٌّ سخيٌّ
    لقسمٍ يرفع كشفه ويعيده، يمنع حلقةً من شغل طابور القراءة عن الجميع. */
 const rateLimitDocumentRead = rateLimit({
@@ -20969,10 +20978,22 @@ function refresh(fromPush){
   var nowPending=pendingList().length;
   data=x.d;state=mapItems(x.d);rankState();state.forEach(function(it){if(it.rowId!=null&&ords[it.rowId]!=null)it.ord=ords[it.rowId]});
   baseItems=JSON.parse(JSON.stringify(payloadItems()));paint.last=JSON.stringify(payloadItems());dirty=false;freshNote=false;paint();
-  if(pendingList().length>nowPending)onDecisionArrived()}).catch(function(){refreshing=false})}
-function onDecisionArrived(){try{if(navigator.vibrate)navigator.vibrate(30)}catch(e){}
- var d=document.getElementById("deck");if(d)d.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})}
-document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&Date.now()-lastFetch>30000)refresh()});
+  onDecisionArrived(pendingList().length>nowPending)}).catch(function(){refreshing=false})}
+function onDecisionArrived(newDecision){try{if(navigator.vibrate)navigator.vibrate(30)}catch(e){}
+ var d=newDecision?document.getElementById("deck"):null;if(d)d.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})}
+/* ── البثّ الحيّ ──────────────────────────────────────────────────────────────
+   اتصالٌ واحدٌ يُفتح والصفحةُ ظاهرة ويُغلق إذا أُخفيت، ويتراجع أُسّياً إن فشل.
+   وهو لا يحمل بيانات: يقول «تغيّر شيء»، والصفحةُ تقرأ بالمسار العادي. ومعه نبضٌ
+   بطيءٌ كل دقيقتين لمن لا يبلغه البثّ (نسخةٌ أخرى من الخادم، أو شبكةٌ تقطع). */
+var live=null,liveBack=2000,liveTimer=null,liveReady=false;
+function closeLive(){if(live){live.close();live=null}clearTimeout(liveTimer);liveReady=false}
+function openLive(){if(live||!window.EventSource||document.visibilityState==="hidden"||!data)return;
+ live=new EventSource("/api/public/request/"+encodeURIComponent(TOKEN)+"/events");
+ live.addEventListener("ready",function(){liveBack=2000;if(liveReady)refresh(false);liveReady=true});
+ live.addEventListener("changed",function(){refresh(true)});
+ live.onerror=function(){closeLive();liveTimer=setTimeout(openLive,liveBack);liveBack=Math.min(liveBack*2,60000)}}
+setInterval(function(){if(document.visibilityState==="visible"&&Date.now()-lastFetch>110000)refresh(false)},30000);
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"){openLive();if(Date.now()-lastFetch>30000)refresh()}else closeLive()});
 window.addEventListener("focus",function(){if(Date.now()-lastFetch>30000)refresh()});
 fetch("/api/public/request/"+encodeURIComponent(TOKEN)).then(function(r){
  return r.json().then(function(d){return{ok:r.ok,d:d}})}).then(function(x){
@@ -20991,6 +21012,7 @@ fetch("/api/public/request/"+encodeURIComponent(TOKEN)).then(function(r){
   state=state.concat(adds);restoredDraft=true;dirty=true}
  paint();
  loadProposalBanner();
+ openLive();
  if(restoredDraft)recheckAll();
  }).catch(function(){host.innerHTML='<div class="err">تعذّر الاتصال. تحقّق من الإنترنت.</div>'});
 })();</script></body></html>`;
@@ -21073,6 +21095,55 @@ app.post("/api/public/request/:token/check", async (req: Request, res: Response)
     roomAvailable: !(item.reasons || []).some((reason: any) => reason.source === "room"),
     nearestTimes: (item.nearestTimes || []).map(slot => ({ day: slot.day, days: slot.days, start: slot.start, end: slot.end })),
     shapes: item.shapes || [],
+  });
+});
+
+/**
+ * ── بثُّ الكرت الحيّ ────────────────────────────────────────────────────────
+ *
+ * ردُّ القسم يصل الأستاذَ وصفحتُه مفتوحة، فيرى «قرارك» في لحظته بلا إعادة تحميل.
+ * البثُّ لا يحمل شيئاً من الطلب: نوعُ الحدث ولحظتُه، والصفحةُ تسأل بعدها عن
+ * جدولها بالمسار العادي نفسِه (فتبقى القراءةُ حيث التجريدُ واحد، لا نسخةً ثانية).
+ * ولا يُفتح إلا بالرابط الشخصيّ نفسه، ولكل طلبٍ سقفٌ من الاتصالات، فلا يصير بابُه
+ * عدّاً مفتوحاً من الاتصالات المعلّقة.
+ */
+const cardStreams = new Map<string, Set<Response>>();
+let cardStreamTotal = 0;
+const CARD_STREAMS_PER_REQUEST = 4;
+const CARD_STREAMS_TOTAL = 600;
+Repository.onInstructorRequestSaved(info => {
+  const open = cardStreams.get(info.id);
+  if (!open?.size) return;
+  const payload = `event: changed\ndata: ${JSON.stringify({ kind: info.kind, at: info.at })}\n\n`;
+  for (const response of open) {
+    try { response.write(payload); } catch { open.delete(response); }
+  }
+});
+app.get("/api/public/request/:token/events", rateLimitCardEvents, async (req: Request, res: Response) => {
+  const resolved = await resolveRequestLink(String(req.params.token || ""));
+  if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
+  const id = String(resolved.request.id);
+  const open = cardStreams.get(id) || new Set<Response>();
+  if (cardStreamTotal >= CARD_STREAMS_TOTAL || open.size >= CARD_STREAMS_PER_REQUEST) {
+    /* السقفُ لا يكسر الصفحة: تعود إلى القراءة عند العودة وإلى النبض البطيء. */
+    res.status(429).json({ error: "اتصالاتٌ كثيرة بهذا الرابط." });
+    return;
+  }
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-store, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.write("retry: 8000\nevent: ready\ndata: {}\n\n");
+  open.add(res);
+  cardStreams.set(id, open);
+  cardStreamTotal += 1;
+  const heartbeat = setInterval(() => { try { res.write(": ping\n\n"); } catch { /* الإغلاقُ يتولّى التنظيف */ } }, 25_000);
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    if (open.delete(res)) cardStreamTotal -= 1;
+    if (!open.size) cardStreams.delete(id);
   });
 });
 
