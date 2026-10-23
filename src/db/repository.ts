@@ -4878,15 +4878,19 @@ export const Repository = {
     return (db.instructorRequests || []).find(row => row.id === id);
   },
 
-  /** الطلباتُ التي يحمل توقيعُها هذا الرمز — للتحقّق من ورقةٍ مطبوعة. قد يشترك رمزان في ستّة محارف، فيُرجَع الكلّ ويُفصل بالبصمة. */
-  getInstructorRequestsBySignatureCode: async (code: string): Promise<InstructorRequest[]> => {
-    const wanted = String(code || "").trim().toUpperCase();
-    if (!/^[0-9A-Z]{6}$/.test(wanted)) return [];
+  /**
+   * الطلباتُ التي وقّعها صاحبُ هذه البصمة (بصمةُ رقمه المدني) — للتحقّق من توقيعاته.
+   * المفتاحُ رقمُه المدنيّ كما في التوقيع نفسه؛ والرمزُ المطبوع اختياريٌّ يُطابَق بعد القراءة.
+   * البصمةُ نفسُها لا تُرجَع إلى أحد: تُقارَن هنا وتُحذف من كل جواب.
+   */
+  getInstructorRequestsBySignatureFingerprint: async (fingerprint: string): Promise<InstructorRequest[]> => {
+    const wanted = String(fingerprint || "");
+    if (!/^[0-9a-f]{32}$/.test(wanted)) return [];
     if (firestoreDb && !demoSandboxContext.getStore()) {
-      const snap = await firestoreDb.collection("instructorRequests").where("signature.verifyCode", "==", wanted).limit(20).get();
+      const snap = await firestoreDb.collection("instructorRequests").where("signature.fingerprint", "==", wanted).limit(50).get();
       return snap.docs.map(doc => doc.data() as InstructorRequest);
     }
-    return (db.instructorRequests || []).filter(row => String(row.signature?.verifyCode || "").toUpperCase() === wanted);
+    return (db.instructorRequests || []).filter(row => row.signature?.fingerprint === wanted);
   },
 
   /* البابُ الذي يفتحه الأستاذ: الرابطُ هو المفتاح، ولا شيء غيره يَصله. */

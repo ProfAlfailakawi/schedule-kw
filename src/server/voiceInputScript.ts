@@ -17,6 +17,7 @@
  *
  * القاعدتان الخالصتان (viNormalize وviJoin) لا تعرفان المتصفّح، فتُختبران بمحرّك V8 كما هما.
  * ES5 عادي، ولا علامةَ اقتباسٍ مائلة ولا ‎${‎ داخل النص: هو قالبٌ نصّيٌّ في الخادم.
+ * ويعتمد على ‎countOf‎ و‎AR‎ من ‎ARABIC_COUNT_SCRIPT‎ في الصفحة نفسها: عددُ الثواني يُصاغ بقاعدة العدّ لا بنصٍّ يدوي.
  */
 export const VOICE_INPUT_LIMIT = 400;
 export const VOICE_INPUT_SECONDS = 30;
@@ -68,7 +69,7 @@ VI.paintActive=function(){
   btn.setAttribute("aria-pressed",on?"true":"false");btn.classList.toggle("vi-on",on);
   var sec=btn.querySelector("[data-vi-sec]"),arc=btn.querySelector(".vi-arc");
   if(on){var left=Math.max(0,VI.active.until-Date.now()),total=VI.seconds*1000;
-   btn.setAttribute("aria-label","إيقاف الإملاء، تبقّى "+Math.ceil(left/1000)+" ثانية");
+   btn.setAttribute("aria-label","إيقاف الإملاء، تبقّى "+countOf(Math.ceil(left/1000),AR.second));
    if(sec)sec.textContent=String(Math.ceil(left/1000));
    if(arc)arc.style.strokeDashoffset=String(100-(left/total)*100)}
   else{btn.setAttribute("aria-label","إملاء بالصوت");if(sec)sec.textContent="";if(arc)arc.style.strokeDashoffset="100"}})};

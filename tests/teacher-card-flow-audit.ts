@@ -134,19 +134,47 @@ async function main() {
   check(!JSON.stringify(submitted.json).includes("signedItems"), "وما وُقّع عليه لا يعود إلى صفحة الأستاذ مع الطلب");
 
   const hint = fresh.linkId;
-  const good = await http("POST", "/api/public/verify", { code, civil, hint });
-  check(good.status === 200 && good.json.code === code, "رمزٌ صحيح مع رقمه يفتح", good.json);
-  check(good.json.hasItems === true && good.json.items?.length === 1 && good.json.items[0].action === "delete", "ويعرض ما وُقّع عليه بالضبط لحظتَه", good.json.items);
-  check(good.json.keptCount === sentItems.length - 1, "وكم موعداً أُبقي كما هو");
-  check(!JSON.stringify(good.json).includes(civil), "والرقم المدني لا يعود في الجواب");
-  const wrongCivil = await http("POST", "/api/public/verify", { code, civil: civil.slice(0, 11) + String((Number(civil.slice(-1)) + 1) % 10), hint });
+  const sig = (r: Res) => (r.json.signatures || []) as any[];
+
+  /* الرمزُ اختياريّ: يكفي الرقمُ المدنيّ كما في التوقيع نفسه، فمن نسي رمزه لا يُغلق عليه الباب. */
+  const byCivil = await http("POST", "/api/public/verify", { civil, hint });
+  check(byCivil.status === 200 && sig(byCivil).some(x => x.code === code), "الرقم المدني وحده يكفي: يعرض توقيعاتِه ومعها رموزُها", byCivil.json);
+  check(byCivil.json.codeGiven === false && byCivil.json.matchedCode === null, "ولا يدّعي مطابقةَ رمزٍ لم يُكتب");
+  const mine = sig(byCivil).find(x => x.code === code);
+  check(mine?.hasItems === true && mine.items?.length === 1 && mine.items[0].action === "delete", "ويعرض ما وُقّع عليه بالضبط لحظتَه", mine);
+  check(mine?.keptCount === sentItems.length - 1, "وكم موعداً أُبقي كما هو");
+  check(!JSON.stringify(byCivil.json).includes(civil) && !JSON.stringify(byCivil.json).includes("fingerprint"), "والرقم المدني والبصمة لا يعودان في الجواب");
+
+  /* ومع الرمز: يتقدّم التوقيعُ المطابق ويُقال إنه طابق. */
+  const withCode = await http("POST", "/api/public/verify", { code, civil, hint });
+  check(withCode.status === 200 && withCode.json.matchedCode === code && sig(withCode)[0].code === code, "الرمزُ الصحيح مع الرقم يتقدّم ويُعلَن مطابقتُه", withCode.json);
+  const lower = await http("POST", "/api/public/verify", { code: code.toLowerCase(), civil, hint });
+  check(lower.status === 200 && lower.json.matchedCode === code, "ولا تهمّ حالةُ الأحرف");
+
+  /* رمزٌ لا يطابق (نُسي أو أُخطئ فيه): لا يُسقط الباب، تُعرض توقيعاتُه ويُقال إنه لا يطابق. */
   const wrongCode = await http("POST", "/api/public/verify", { code: code === "AAAAAA" ? "BBBBBB" : "AAAAAA", civil, hint });
-  check(wrongCivil.status === 404 && wrongCode.status === 404, "رقمٌ خاطئ ورمزٌ خاطئ يعطيان الحالةَ نفسها", [wrongCivil.status, wrongCode.status]);
-  check(wrongCivil.text === wrongCode.text, "وبالنصّ نفسه: لا يُعرف أيُّهما أخطأ");
-  const shape = await http("POST", "/api/public/verify", { code: "xx", civil: "1" });
-  check(shape.status === 400, "صيغةٌ ناقصة تُردّ بلا بحث");
+  check(wrongCode.status === 200 && wrongCode.json.codeGiven === true && wrongCode.json.matchedCode === null && sig(wrongCode).some(x => x.code === code), "رمزٌ لا يطابق لا يُغلق الباب: تُعرض توقيعاتُه ويُقال إنه لا يطابق", wrongCode.json);
+
+  /* رقمٌ لا توقيعَ باسمه: جوابٌ واحدٌ بالنصّ نفسه سواءٌ كُتب رمزٌ أو لم يُكتب. */
+  const nonSigner = list.find((i: any) => !rows.some((r: any) => Number(r.AdInstructorId) === Number(i.AdInstructorId) && r.signature) && i.AdInstructorCivil);
+  check(!!nonSigner, "يوجد أستاذٌ صحيحُ الرقم المدني لم يوقّع شيئاً");
+  const stranger = String(nonSigner.AdInstructorCivil);
+  const unknown = await http("POST", "/api/public/verify", { civil: stranger, hint });
+  const unknownWithCode = await http("POST", "/api/public/verify", { civil: stranger, code, hint });
+  check(unknown.status === 404, "رقمٌ صحيحٌ لا توقيعَ باسمه لا يعطي شيئاً", unknown.status);
+  check(unknown.status === unknownWithCode.status && unknown.text === unknownWithCode.text, "وبالجواب نفسه ولو كُتب معه رمزٌ صحيح: الرمزُ لا يفتح بابَ غير صاحبه");
+
+  /* الصيغة تُردّ قبل البحث. */
+  check((await http("POST", "/api/public/verify", { civil: "1" })).status === 400, "رقمٌ ناقص يُردّ بلا بحث");
+  check((await http("POST", "/api/public/verify", { civil, code: "ab" })).status === 400, "ورمزٌ مكتوبٌ ناقص يُردّ ويُقال له أن يتركه فارغاً");
+  check((await http("POST", "/api/public/verify", { code })).status === 400, "والرمزُ وحده لا يكفي: لا يُفتح بلا رقمٍ مدنيّ");
+
+  /* والصفحة. */
   const page = await http("GET", `/verify/${code}?t=${encodeURIComponent(hint)}`);
-  check(page.status === 200 && /التحقّق من رمز التوقيع/.test(page.text) && page.text.includes(JSON.stringify(code)), "وصفحةُ التحقّق تُفتح بالرمز جاهزاً");
+  check(page.status === 200 && /التحقّق من توقيعك/.test(page.text) && page.text.includes(JSON.stringify(code)), "وصفحةُ التحقّق تُفتح والرمزُ جاهزٌ فيها");
+  check(/اختياري/.test(page.text) && /يكفي|فلا يضرّ/.test(page.text), "وتقول إن الرمز اختياري");
+  const bare = await http("GET", "/verify");
+  check(bare.status === 200 && /id="civil"/.test(bare.text), "وتُفتح بلا رمزٍ أصلاً");
   const hostile = await http("GET", `/verify/${encodeURIComponent("</script><img src=x>")}`);
   check(!hostile.text.includes("</script><img"), "ورمزٌ خبيث في الرابط لا يُغلق وسمَ السكربت");
 

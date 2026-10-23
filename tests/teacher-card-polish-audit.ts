@@ -86,6 +86,11 @@ try { new vm.Script(verifyScript, { filename: "verify-inline.js" }); } catch { v
 check(verifyCompiles && [...verifyHtml.matchAll(/<script\b/gi)].length === 1, "سكربت صفحة التحقّق سليم الصياغة وواحد");
 check(/lang="ar" dir="rtl"/.test(verifyHtml) && /noindex/.test(verifyHtml) && /SCHEDULE_PUBLIC_PLEX_ARABIC/.test(verifyHtml), "هويةُ الصفحات العامة: RTL ولا تُفهرس وخطّ Plex");
 check(/"3Z0RWU"/.test(verifyScript), "الرمز يدخل السكربت JSON");
+check(/اختياري/.test(verifyHtml) && /وإن نسيتَه فلا يضرّ/.test(verifyHtml), "الصفحة تقول إن الرمز اختياري وإن نسيانه لا يضرّ");
+check(/id="civil"[\s\S]*id="code"/.test(verifyHtml), "والرقمُ المدني أولاً ثم الرمز الاختياري");
+check(/if\(code&&code\.length!==6\)/.test(verifyScript) && !/if\(code\.length!==6\)/.test(verifyScript), "والصفحةُ لا تشترط الرمز قبل الإرسال");
+check(/code:code\|\|undefined/.test(verifyScript), "ولا ترسله إن كان فارغاً");
+check(/AR\.signature/.test(verifyScript) && /var AR=/.test(verifyScript), "العدّ بقاعدة العدّ العربية الواحدة");
 const hostileVerify = signatureVerifyPage("</script><img src=x>", '"</script>', "n");
 check([...hostileVerify.matchAll(/<script\b/gi)].length === 1 && !hostileVerify.includes("</script><img"), "رمزٌ خبيثٌ لا يُغلق وسم السكربت");
 check(!/localStorage|sessionStorage/.test(verifyScript), "الرقم المدني لا يُحفظ في المتصفّح");

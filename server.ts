@@ -21374,36 +21374,45 @@ app.get(["/verify", "/verify/:code"], (req: Request, res: Response) => {
 });
 app.post("/api/public/verify", rateLimitVerifySignature, async (req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
-  const attempt = publicAttemptReserve("verify-signature", req.ip || "unknown");
-  if (!attempt) { res.status(429).json({ error: "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة." }); return; }
-  const code = String(req.body?.code || "").trim().toUpperCase();
   const civil = normalizeCivilId(req.body?.civil);
-  if (!/^[0-9A-Z]{6}$/.test(code) || !/^\d{12}$/.test(civil)) {
-    res.status(400).json({ error: "اكتب الرمز (ستّة أحرف) ورقمك المدني (اثنا عشر رقماً)." });
+  const code = String(req.body?.code || "").trim().toUpperCase();
+  /* الصيغةُ تُردّ قبل أي بحثٍ ولا تُحسب محاولة: خطأُ كتابةٍ لا يُغلق الباب على صاحبه. */
+  if (!/^\d{12}$/.test(civil) || !validateCivilId(civil).isValid) {
+    res.status(400).json({ error: "الرقم المدني غير مكتمل أو فيه خطأ كتابة. راجعه وأعد المحاولة." });
     return;
   }
-  const notFound = { error: "لا يوجد توقيعٌ يطابق هذا الرمز مع هذا الرقم المدني." };
+  if (code && !/^[0-9A-Z]{6}$/.test(code)) {
+    res.status(400).json({ error: "الرمز ستّة أحرف وأرقام. اتركه فارغاً إن لم تتذكّره: يكفي رقمك المدني." });
+    return;
+  }
+  const attempt = publicAttemptReserve("verify-signature", req.ip || "unknown");
+  if (!attempt) { res.status(429).json({ error: "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة." }); return; }
   const lookup = async () => {
-    /* البصمةُ تُحسب قبل البحث دائماً، فلا يفرّق الزمنُ بين رمزٍ موجودٍ وغير موجود. */
-    const fingerprint = Buffer.from(await surveyFingerprint(civil));
-    const found = (await Repository.getInstructorRequestsBySignatureCode(code)).filter(row => {
-      const stored = Buffer.from(String(row.signature?.fingerprint || ""));
-      return stored.length === fingerprint.length && timingSafeEqual(stored, fingerprint);
-    }).sort((a, b) => Date.parse(String(b.signature?.at || "")) - Date.parse(String(a.signature?.at || "")))[0];
-    if (!found?.signature) return null;
+    const fingerprint = await surveyFingerprint(civil);
+    const found = (await Repository.getInstructorRequestsBySignatureFingerprint(fingerprint))
+      .filter(row => row.signature && row.signature.fingerprint === fingerprint)
+      .sort((a, b) => Date.parse(String(b.signature?.at || "")) - Date.parse(String(a.signature?.at || "")))
+      .slice(0, 20);
+    if (!found.length) return null;
     const [instructors, terms] = await Promise.all([Repository.getInstructors(), Repository.getTerms()]);
-    const person = (instructors as any[]).find(row => Number(row.AdInstructorId) === Number(found.AdInstructorId));
-    const term = (terms as any[]).find(row => Number(row.AdTermId) === Number(found.AdTermId));
-    const signed = found.signature.signedItems;
-    return {
-      code,
-      instructorName: String(person?.AdInstructorName || ""),
-      termName: String(term?.AdTermName || ""),
-      signedAt: found.signature.at,
-      hasItems: Array.isArray(signed),
-      items: Array.isArray(signed) ? signed : [],
-      keptCount: Number(found.signature.keptCount || 0),
-    };
+    const signatures = found.map(row => {
+      const person = (instructors as any[]).find(item => Number(item.AdInstructorId) === Number(row.AdInstructorId));
+      const term = (terms as any[]).find(item => Number(item.AdTermId) === Number(row.AdTermId));
+      const signed = row.signature!.signedItems;
+      return {
+        code: String(row.signature!.verifyCode || ""),
+        instructorName: String(person?.AdInstructorName || ""),
+        termName: String(term?.AdTermName || ""),
+        signedAt: row.signature!.at,
+        hasItems: Array.isArray(signed),
+        items: Array.isArray(signed) ? signed : [],
+        keptCount: Number(row.signature!.keptCount || 0),
+      };
+    });
+    /* الرمزُ إن كُتب وطابق يتقدّم؛ وإن لم يطابق لا يُسقط البابَ: تُعرض توقيعاتُه ويُقال إنه لا يطابق. */
+    const hit = code ? signatures.findIndex(item => item.code === code) : -1;
+    if (hit > 0) signatures.unshift(...signatures.splice(hit, 1));
+    return { count: signatures.length, codeGiven: Boolean(code), matchedCode: hit >= 0 ? code : null, signatures };
   };
   /* رابطُ تجربةٍ يربط البحثَ بصندوقه، كما تفعل روابطُ الأبواب العامة الأخرى. */
   const hint = String(req.body?.hint || "");
@@ -21413,7 +21422,8 @@ app.post("/api/public/verify", rateLimitVerifySignature, async (req: Request, re
     if (!sandbox || !Repository.runDemoSandbox(sandbox, () => { void run(); })) void run();
   });
   if (result === "error") { res.status(500).json({ error: "تعذّر التحقّق الآن. أعد المحاولة بعد قليل." }); return; }
-  if (!result) { res.status(404).json(notFound); return; }
+  /* الجوابُ واحدٌ لرقمٍ لا توقيعَ باسمه ولرقمٍ لا يخصّ أحداً. */
+  if (!result) { res.status(404).json({ error: "لا يوجد توقيعٌ مسجَّل بهذا الرقم المدني." }); return; }
   attempt.release();
   res.json(result);
 });

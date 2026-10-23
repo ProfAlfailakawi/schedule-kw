@@ -8,6 +8,7 @@
  */
 import fs from "fs";
 import vm from "vm";
+import { ARABIC_COUNT_SCRIPT } from "../src/utils/arabicCount";
 import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT, VOICE_INPUT_SECONDS } from "../src/server/voiceInputScript";
 
 let passed = 0, failed = 0;
@@ -66,7 +67,7 @@ function makeWorld(withApi: boolean) {
     fetch: () => { throw new Error("لا شبكةَ في الإملاء"); },
     XMLHttpRequest: function () { throw new Error("لا شبكةَ في الإملاء"); },
   };
-  vm.runInNewContext(`${VOICE_INPUT_JS}\nthis.VI=VI;this.viNormalize=viNormalize;this.viJoin=viJoin;`, sandbox, { timeout: 1000 });
+  vm.runInNewContext(`${ARABIC_COUNT_SCRIPT}\n${VOICE_INPUT_JS}\nthis.VI=VI;this.viNormalize=viNormalize;this.viJoin=viJoin;`, sandbox, { timeout: 1000 });
   const advance = (ms: number) => { const step = 100; for (let t = 0; t < ms; t += step) { now += step; [...timers].forEach(x => x.fn()); } };
   const say = (rec: any, parts: Array<{ t: string; final: boolean }>) =>
     rec.onresult({ results: parts.map(p => Object.assign([{ transcript: p.t }], { isFinal: p.final })) });
