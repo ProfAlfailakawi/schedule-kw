@@ -5,7 +5,7 @@
  * قابلة للقراءة، والمدير يعدّل اسم الدخول من شاشة المستخدمين متى شاء.
  */
 
-const GENERIC = new Set(["تربيه", "تربويه", "لغه", "لغات", "هندسه", "دراسات", "الي", "بنين", "بنات", "عامه", "عام"]);
+const GENERIC = new Set(["تربيه", "تربويه", "لغه", "لغات", "هندسه", "دراسات", "الي", "بنين", "بنات", "عامه", "عام", "اطفال"]);
 const NOISE = new Set(["قسم", "وحده", "وحدة", "علم", "علوم", "برنامج", "تخصص", "ال", "في", "و", "مع", "الكويت"]);
 
 /* الكلمات بعد توحيد الهمزات والتاء المربوطة والياء، وبلا «ال» التعريف */
@@ -14,7 +14,7 @@ const WORDS: Record<string, string> = {
   اسلاميه: "Islamic", اسلامي: "Islamic", شرعيه: "Sharia", شريعه: "Sharia", تربيه: "Education", تربويه: "Education",
   اصول: "Foundations", مناهج: "Curricula", تدريس: "Teaching", طرق: "Methods", نفس: "Psychology", نفسيه: "Psychology",
   اجتماع: "Sociology", اجتماعيه: "Social", جغرافيا: "Geography", تاريخ: "History", فلسفه: "Philosophy",
-  رياضيات: "Math", رياضه: "Sport", فيزياء: "Physics", كيمياء: "Chemistry", احياء: "Biology", حاسب: "Computer", حاسوب: "Computer",
+  رياض: "Kinder", رياضيات: "Math", رياضه: "Sport", فيزياء: "Physics", كيمياء: "Chemistry", احياء: "Biology", حاسب: "Computer", حاسوب: "Computer",
   حاسبات: "Computer", معلومات: "Info", معلوماتيه: "Informatics", مكتبات: "Library", ادارة: "Admin", اداره: "Admin", ادارية: "Admin",
   اعمال: "Business", محاسبه: "Accounting", اقتصاد: "Economics", تسويق: "Marketing", تمويل: "Finance",
   كهرباء: "Electric", كهربائيه: "Electric", ميكانيكيه: "Mechanical", ميكانيكا: "Mechanical", هندسه: "Eng", مدنيه: "Civil",
