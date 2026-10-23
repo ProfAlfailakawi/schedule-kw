@@ -7,7 +7,7 @@ import VisitingBadge from "./VisitingBadge";
 import PagedFindingList from "./PagedFindingList";
 import { packPrintFindings, type PrintFindingPiece } from "../utils/printFindingPages";
 import {
-  DAY_KEYS, DAY_NAMES, DECISIONS_LABEL, isDecisionFinding, isDecisionSource, regulationScore, reviewSchedule,
+  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, isDecision1912Finding, regulationScore, reviewSchedule,
   type DayKey, type RegulationFinding
 } from "../utils/scheduleRegulations";
 import type { CourseNature } from "../utils/courseNature";
@@ -71,7 +71,7 @@ const groupFindingKey = (finding: RegulationFinding) =>
 
 const findingStatus = (finding: RegulationFinding) => {
   if (finding.approvalEffect === "block") return "يمنع الاعتماد";
-  if (isDecisionSource(finding.source)) return finding.approvalEffect === "review" ? "مراجعة لائحية" : "ملاحظة لائحية";
+  if (finding.source === "decision-1912") return finding.approvalEffect === "review" ? "مراجعة لائحية" : "ملاحظة لائحية";
   if (finding.source === "history") return "سياق تاريخي";
   if (finding.source === "department") return "سياسة القسم";
   return "مراجعة";
@@ -202,7 +202,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
     () => reviewSchedule({ rows, courses, instructors, previousRows, meeting, nature }),
     [rows, courses, instructors, previousRows, meeting, nature]
   );
-  const decisionFindings = useMemo(() => baseFindings.filter(isDecisionFinding), [baseFindings]);
+  const decisionFindings = useMemo(() => baseFindings.filter(isDecision1912Finding), [baseFindings]);
   const score = useMemo(() => regulationScore(decisionFindings, rows.length), [decisionFindings, rows.length]);
   const [serverBlockers, setServerBlockers] = useState<Array<{id:string;type:string;title:string;detail:string;rowIds:number[];subjectKey?:string;subjectLabel?:string}>>([]);
   /* What the same reading says without counting it: the same section in two
@@ -292,8 +292,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
     rowIds: Array.isArray(item.rowIds) ? item.rowIds.map(Number).filter(Boolean) : [],
   })), [activeWarnings]);
   const readinessFindings = useMemo(() => baseFindings.filter(finding => finding.source === "readiness"), [baseFindings]);
-  const supplementalFindings = useMemo(() => baseFindings.filter(finding => finding.source !== "readiness" && !isDecisionFinding(finding)), [baseFindings]);
-  // Approval reads in a predictable order: hard save blockers, decisions 1912/1913,
+  const supplementalFindings = useMemo(() => baseFindings.filter(finding => finding.source !== "readiness" && !isDecision1912Finding(finding)), [baseFindings]);
+  // Approval reads in a predictable order: hard save blockers, decision 1912,
   // then historical/department context. This keeps different authorities from
   // being visually mixed under one regulation heading.
   const findings = useMemo(
@@ -378,7 +378,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
     const entity = groupEntitySummary(finding);
     if (finding.groupedCount > 1) return `${entity} · ${countOf(finding.groupedCount, AR.conflict)}`;
     if (finding.approvalEffect === "block") return `${entity} · يحتاج معالجة قبل الاعتماد`;
-    if (isDecisionSource(finding.source)) return `${entity} · تنبيه لائحي`;
+    if (finding.source === "decision-1912") return `${entity} · تنبيه لائحي`;
     if (finding.source === "history") return `${entity} · استنتاج تاريخي`;
     return entity;
   };
@@ -627,7 +627,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
     <div className="review-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="review-sheet no-print visual-minimal" role="dialog" aria-modal="true" aria-label="مراجعة الاعتماد">
         <header className={`review-head tone-${tone}`}>
-          <svg className="review-ring" viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISIONS_LABEL} ${score} من 100`}>
+          <svg className="review-ring" viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
             <circle className="ring-track" cx="32" cy="32" r="26" />
             <circle
               className="ring-value"
@@ -638,11 +638,11 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
             <text x="32" y="45" className="ring-unit">/ 100</text>
           </svg>
           <div className="review-title">
-            <span className="surface-kicker">مراجعة الاعتماد · {DECISIONS_LABEL}</span>
+            <span className="surface-kicker">مراجعة الاعتماد · {DECISION_1912_LABEL}</span>
             <h2 data-resolved={readinessChecked && sawChecking.current ? "" : undefined}>{!readinessChecked ? "أتحقق من موانع الاعتماد…" : blocking.length ? "يوجد ما يمنع الاعتماد" : readinessError ? "تعذر فحص الموانع خارج القسم" : findings.length ? "جاهز مع تنبيهات" : "مطابق للتنبيهات المعتمدة"}</h2>
             <p>{scopeLabel}</p>
             {readinessChecked && blockerSummary.conflicts > 0 ? <strong className="review-blocker-headline" data-review-headline="blocking">يمنع الاعتماد: {blockingSummaryPhrase(blockerSummary.conflicts, blockerSummary.rows, blockerSummary.duplicates)}</strong> : null}
-            {readinessError ? <small>تمت مراجعة {DECISIONS_LABEL} محلياً، لكن تعذر التأكد الآن من الحجوزات المتعارضة خارج نطاق القسم.</small> : null}
+            {readinessError ? <small>تمت مراجعة قرار 1913/2016 محلياً، لكن تعذر التأكد الآن من الحجوزات المتعارضة خارج نطاق القسم.</small> : null}
           </div>
           <button type="button" className="drawer-close" onClick={onClose} aria-label="إغلاق"><X /></button>
         </header>
@@ -720,15 +720,15 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
         <div className="print-sheet-modal">
           <div className="print-report print-wide print-query-report print-review-report">
             <section className="print-explicit-page print-review-page">
-              <PrintLetterhead title={`مراجعة الاعتماد · ${DECISIONS_LABEL}`} scope={scopeLabel} />
+              <PrintLetterhead title={`مراجعة الاعتماد · ${DECISION_1912_LABEL}`} scope={scopeLabel} />
               <section className={`print-review-hero tone-${tone}`}>
-                <svg className="print-review-ring" viewBox="0 0 64 64" aria-label={`مطابقة ${DECISIONS_LABEL} ${score} من 100`}>
+                <svg className="print-review-ring" viewBox="0 0 64 64" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
                   <circle className="ring-track" cx="32" cy="32" r="26" />
                   <circle className="ring-value" cx="32" cy="32" r="26" strokeDasharray={`${(score / 100) * ringLength} ${ringLength}`} />
                   <text x="32" y="34" className="ring-number">{score.toLocaleString("ar-KW-u-nu-latn")}</text>
                   <text x="32" y="45" className="ring-unit">/ 100</text>
                 </svg>
-                <div><small>مراجعة الاعتماد · {DECISIONS_LABEL}</small><strong>{blocking.length ? "يوجد ما يمنع الاعتماد" : readinessError ? "تعذر فحص الموانع خارج القسم" : findings.length ? "جاهز مع تنبيهات" : "مطابق للتنبيهات المعتمدة"}</strong><span>{scopeLabel}</span></div>
+                <div><small>مراجعة الاعتماد · {DECISION_1912_LABEL}</small><strong>{blocking.length ? "يوجد ما يمنع الاعتماد" : readinessError ? "تعذر فحص الموانع خارج القسم" : findings.length ? "جاهز مع تنبيهات" : "مطابق للتنبيهات المعتمدة"}</strong><span>{scopeLabel}</span></div>
               </section>
               <div className="print-review-spread" role="img" aria-label="توزيع المواعيد حسب نتيجة المراجعة">
                 <div className="print-spread-bar">

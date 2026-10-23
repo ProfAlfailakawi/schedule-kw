@@ -4,14 +4,7 @@ import { SCHEDULE_DAY_END , formatScheduleTimeRange } from "./scheduleTime";
 import { AR, countOf, oblique } from "./arabicCount";
 
 /**
- * The timetable rules of PAAET decisions 1912/2016 and 1913/2016, written as code.
- *
- * Two decisions are read side by side. 1912/2016 is the one the system was
- * built on (50-minute lectures on Sun/Tue/Thu, 80 on Mon/Wed). 1913/2016 is
- * «لائحة إعداد الجداول الدراسية في كليات الهيئة» (19 July 2016, in force from
- * 2016/2017), which states the same lectures as one-hour and hour-and-a-half
- * periods. The articles both decisions share cite both numbers; the ones only
- * 1913 states cite 1913 alone.
+ * The timetable rules of PAAET decision 1913/2016, written as code.
  *
  * Every check here quotes the article it comes from, because a warning a
  * coordinator cannot trace back to a rule is a warning they will learn to
@@ -23,42 +16,29 @@ import { AR, countOf, oblique } from "./arabicCount";
  *   م.6/2  no more than two consecutive sections in a day for lectures over an hour
  *   م.6/3  no more than three consecutive sections in a day for one-hour lectures
  *   م.6/4  single-section courses rotate between staff each term
+ *   م.7/2  morning 08–14 holds 50–70% of the department's sections, evening 14–20 holds 30–50%
  *   م.7/5  sections of one course spread across different hours and days
- *   م.7/2  (1913) morning 08–14 holds 50–70% of the department's sections, evening 14–20 holds 30–50%
- *   م.7/8  (1913) a theoretical lecture fits its period: an hour on Sun/Tue/Thu,
- *          an hour and a half on Mon/Wed, two hours on Tue/Thu for four-hour courses
- *   م.7/9  (1913) a course is offered at the same time on every day it meets
+ *   م.7/8  a theoretical lecture fits its period: an hour on Sun/Tue/Thu, an
+ *          hour and a half on Mon/Wed, two hours on Tue/Thu for four-hour courses
+ *   م.7/9  a course is offered at the same time on every day it meets
  *
  * The rest of the full decision is intentionally not enforced here unless the
- * current product actually carries reliable data for it — م.8's section sizes
- * need enrolment counts the timetable does not hold. These checks are only
+ * current product actually carries reliable data for it. These checks are only
  * the scheduling alerts the department chose to surface.
  */
 
 export type RegulationSeverity = "high" | "medium" | "low";
-/**
- * "decision-1912" carries the rules both decisions share (it predates 1913 in
- * this code and stays the stored identifier of those notices); "decision-1913"
- * carries the rules only 1913/2016 states.
- */
-export type RegulationFindingSource = "decision-1912" | "decision-1913" | "history" | "department" | "readiness";
+export type RegulationFindingSource = "decision-1912" | "history" | "department" | "readiness";
 export type ApprovalEffect = "note" | "review" | "block";
 
-export const DECISION_1912_LABEL = "قرار 1912/2016";
-export const DECISION_1913_LABEL = "قرار 1913/2016";
-/** Both numbers, as every screen that cites the regulation shows them. */
-export const DECISIONS_LABEL = `${DECISION_1912_LABEL} و${DECISION_1913_LABEL}`;
-/** An article both decisions state, e.g. «م.7/5 · 1912/2016 و1913/2016». */
-const sharedArticle = (article: string) => `${article} · 1912/2016 و1913/2016`;
-/** An article only 1913/2016 states. */
-const article1913 = (article: string) => `${article} · 1913/2016`;
+export const DECISION_1912_LABEL = "قرار 1913/2016";
 
 export interface RegulationFinding {
   /** Stable identifier, so a department can silence one rule and not the rest. */
   rule: string;
   article: string;
   severity: RegulationSeverity;
-  /** What authority this finding comes from. Only the two decisions belong to the regulation score. */
+  /** What authority this finding comes from. Only decision-1912 belongs to the regulation score. */
   source: RegulationFindingSource;
   /** Whether approval should merely note it, review it, or actually stop. */
   approvalEffect: ApprovalEffect;
@@ -71,9 +51,7 @@ export interface RegulationFinding {
   rowIds: number[];
 }
 
-export const isDecisionSource = (source: unknown) => source === "decision-1912" || source === "decision-1913";
-/** A finding from either decision — the ones the regulation score and the «ملاحظات اللائحة» section hold. */
-export const isDecisionFinding = (finding: RegulationFinding) => isDecisionSource(finding.source);
+export const isDecision1912Finding = (finding: RegulationFinding) => finding.source === "decision-1912";
 
 export const DAY_KEYS = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
 export const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
@@ -91,10 +69,10 @@ const MORNING_START = 8 * 60;
 const MORNING_END = 14 * 60;
 const EVENING_END = 20 * 60;
 
-/** 1913/2016 periods (م.7/8): an hour on Sun/Tue/Thu, an hour and a half on Mon/Wed. */
-const SHORT_PERIOD_1913 = 60;
-const LONG_PERIOD_1913 = 90;
-/** The longest lecture 1913 describes (four-hour course on Tue/Thu); longer is a lab sitting. */
+/** The decision's periods (م.7/8): an hour on Sun/Tue/Thu, an hour and a half on Mon/Wed. */
+const SHORT_PERIOD_MINUTES = 60;
+const LONG_PERIOD_MINUTES = 90;
+/** The longest lecture the decision describes (four-hour course on Tue/Thu); longer is a lab sitting. */
 const LONGEST_LECTURE_MINUTES = 120;
 /** Room types that mark a course as practical (free text in the catalogue). */
 const PRACTICAL_ROOM_TYPE = /مختبر|معمل|ورش|استوديو|ستوديو|عملي|تدريب|ميدان|مرسم|ملعب|مسبح|صالة|مطبخ|كلينيك|حاسوب|حاسب|مشغل/;
@@ -345,7 +323,7 @@ export function planMove(options: {
       meetings: [{ day: targetDay, start: targetStart, end: clock(Math.min(SCHEDULE_DAY_END, start + expected)) }],
       reshapes: false,
       headline: `${dayLabel(targetDay)} ${targetStart}`,
-      detail: `مدة اللقاء ${countOf(expected, AR.minute)} على هذا اليوم (م.7/8/أ،ب · ${DECISIONS_LABEL}).`
+      detail: `مدة اللقاء ${countOf(expected, AR.minute)} على هذا اليوم (م.7/8/أ،ب).`
     };
   }
 
@@ -456,7 +434,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   if (clashing.length) {
     findings.push({
       rule: "sections-same-hour",
-      article: sharedArticle("م.7/5"),
+      article: "م.7/5",
       severity: "high",
       source: "decision-1912",
       approvalEffect: "review",
@@ -507,7 +485,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   if (runsOver.length) {
     findings.push({
       rule: "consecutive-sections",
-      article: sharedArticle("م.6/2،3"),
+      article: "م.6/2،3",
       severity: "medium",
       source: "decision-1912",
       approvalEffect: "review",
@@ -538,7 +516,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     if (repeated.length) {
       findings.push({
         rule: "rotation",
-        article: sharedArticle("م.6/4"),
+        article: "م.6/4",
         severity: "medium",
         source: "decision-1912",
         approvalEffect: "review",
@@ -549,10 +527,10 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     }
   }
 
-  // --- م.7/9 (1913) — one section, one fixed time across its days ----------
+  // --- م.7/9 — one section, one fixed time across its days ---------------
   // A section is often stored as more than one appointment (Mon/Wed and Thu
-  // for a four-hour course). 1913 asks that they share a start time. Long
-  // sittings (labs, workshops, field training) are left out: م.10 lets their
+  // for a four-hour course). The decision asks that they share a start time.
+  // Long sittings (labs, workshops, field training) are left out: م.10 lets their
   // practical part run at its own time.
   const bySection = new Map<string, FSchedule[]>();
   rows.forEach(row => {
@@ -571,23 +549,24 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   if (driftingRows.length) {
     findings.push({
       rule: "fixed-time",
-      article: article1913("م.7/9"),
+      article: "م.7/9",
       severity: "low",
-      source: "decision-1913",
+      source: "decision-1912",
       approvalEffect: "note",
       title: `وقت الشعبة غير ثابت بين أيامها (${arabicNumber(driftingNames.length)})`,
-      detail: `قرار 1913/2016 يطلب أن يُطرح المقرر بأوقات ثابتة في سائر أيامه. ${driftingNames.slice(0, 6).join("، ")}`,
+      detail: `اللائحة تطلب أن يُطرح المقرر بأوقات ثابتة في سائر أيامه. ${driftingNames.slice(0, 6).join("، ")}`,
       rowIds: driftingRows,
     });
   }
 
-  // --- م.7/8 (1913) — a theoretical lecture fits its period ----------------
-  // 1913 states lectures as periods: an hour on Sun/Tue/Thu, an hour and a
-  // half on Mon/Wed, and two hours on Tue/Thu for a four-hour course. The
-  // 50/80-minute lectures of 1912 sit inside those periods, so only a lecture
-  // longer than its period is noted. The article speaks of three- and
-  // four-hour theoretical courses; anything longer than two hours is a lab or
-  // workshop sitting, which م.7/8/ث leaves to the department.
+  // --- م.7/8 — a theoretical lecture fits its period ---------------------
+  // The decision states lectures as periods: an hour on Sun/Tue/Thu, an hour
+  // and a half on Mon/Wed, and two hours on Tue/Thu for a four-hour course.
+  // The 50/80-minute lectures sit inside those periods (the rest is the
+  // changeover), so only a lecture longer than its period is noted. The
+  // article speaks of three- and four-hour theoretical courses; anything
+  // longer than two hours is a lab or workshop sitting, which م.7/8/ث leaves
+  // to the department.
   const overPeriod: FSchedule[] = [];
   const overNames: string[] = [];
   for (const row of rows) {
@@ -602,7 +581,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     if (PRACTICAL_ROOM_TYPE.test(String(course?.CourseRoomType || ""))) continue;
     const allowed = hours === 4 && days.every(day => day === "ftuesday" || day === "fthursday")
       ? LONGEST_LECTURE_MINUTES
-      : Math.min(...days.map(day => LONG_LECTURE_DAYS.includes(day) ? LONG_PERIOD_1913 : SHORT_PERIOD_1913));
+      : Math.min(...days.map(day => LONG_LECTURE_DAYS.includes(day) ? LONG_PERIOD_MINUTES : SHORT_PERIOD_MINUTES));
     if (length <= allowed) continue;
     overPeriod.push(row);
     const label = name(row);
@@ -611,17 +590,17 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   if (overPeriod.length) {
     findings.push({
       rule: "lecture-period",
-      article: article1913("م.7/8"),
+      article: "م.7/8",
       severity: "low",
-      source: "decision-1913",
+      source: "decision-1912",
       approvalEffect: "note",
       title: `محاضرة أطول من فترتها (${arabicNumber(overPeriod.length)})`,
-      detail: `فترة المحاضرة في قرار 1913/2016: ساعة للأحد والثلاثاء والخميس، وساعة ونصف للاثنين والأربعاء، وساعتان للثلاثاء والخميس في المقرر ذي الأربع ساعات. ${overNames.slice(0, 6).join("، ")}`,
+      detail: `فترة المحاضرة في اللائحة: ساعة للأحد والثلاثاء والخميس، وساعة ونصف للاثنين والأربعاء، وساعتان للثلاثاء والخميس في المقرر ذي الأربع ساعات. ${overNames.slice(0, 6).join("، ")}`,
       rowIds: overPeriod.map(row => row.id),
     });
   }
 
-  // --- م.7/2 (1913) — the morning and evening shares of the department -----
+  // --- م.7/2 — the morning and evening shares of the department ----------
   // A share of the whole department, so it names no appointment and is read
   // only on a schedule large enough for a proportion to mean something — an
   // instructor's week or a single edit is not a department.
@@ -640,12 +619,12 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     if (morningShare < 50 || morningShare > 70) {
       findings.push({
         rule: "period-balance",
-        article: article1913("م.7/2"),
+        article: "م.7/2",
         severity: "low",
-        source: "decision-1913",
+        source: "decision-1912",
         approvalEffect: "note",
         title: "توزيع الفترتين الصباحية والمسائية",
-        detail: `الصباحية (8–14) ${arabicNumber(morningShare)}% والمسائية (14–20) ${arabicNumber(eveningShare)}% من ${countOf(sectionStarts.length, AR.section)}. قرار 1913/2016: الصباحية بين 50% و70%، والمسائية بين 30% و50%.`,
+        detail: `الصباحية (8–14) ${arabicNumber(morningShare)}% والمسائية (14–20) ${arabicNumber(eveningShare)}% من ${countOf(sectionStarts.length, AR.section)}. اللائحة: الصباحية بين 50% و70%، والمسائية بين 30% و50%.`,
         rowIds: [],
       });
     }
@@ -706,7 +685,7 @@ export function regulationScore(findings: RegulationFinding[], rowCount: number)
   const weight: Record<RegulationSeverity, number> = { high: 1, medium: 0.5, low: 0.2 };
   const worst = new Map<number, number>();
   for (const finding of findings) {
-    if (!isDecisionFinding(finding)) continue;
+    if (!isDecision1912Finding(finding)) continue;
     const cost = weight[finding.severity];
     // A finding with no specific rows (a balance ratio, say) counts as a light
     // touch on the whole schedule rather than on nothing.
@@ -715,6 +694,6 @@ export function regulationScore(findings: RegulationFinding[], rowCount: number)
     for (const id of targets) worst.set(id, Math.max(worst.get(id) || 0, cost));
   }
   const implicated = [...worst.values()].reduce((total, cost) => total + cost, 0);
-  const wide = findings.filter(finding => isDecisionFinding(finding) && !finding.rowIds.length).length * 0.02 * rowCount;
+  const wide = findings.filter(finding => isDecision1912Finding(finding) && !finding.rowIds.length).length * 0.02 * rowCount;
   return Math.max(0, Math.min(100, Math.round(100 - ((implicated + wide) / rowCount) * 100)));
 }

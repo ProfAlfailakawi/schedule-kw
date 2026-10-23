@@ -374,7 +374,7 @@ function plantConflicts(rows: FSchedule[]): void {
   });
 }
 
-/** الفصل الثاني: مخالفتان من القرارين 1912/2016 و1913/2016 — «مراجعة» لا «منع»، فيبقى الجدولُ المرسَل بلا مانع اعتماد. */
+/** الفصل الثاني: مخالفتان من قرار 1913/2016 — «مراجعة» لا «منع»، فيبقى الجدولُ المرسَل بلا مانع اعتماد. */
 function plantRegulation(rows: FSchedule[], courses: AdCourse[], termId: number, startId: number): FSchedule[] {
   const halls = hallsForSection(DEMO_SECTION_ID).filter(h => !isLabHall(h));
   const own = [...new Set(rows.map(row => row.AdCourseId))].map(id => courses.find(c => c.AdCourseId === id)!).filter(Boolean);
