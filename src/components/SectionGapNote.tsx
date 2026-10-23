@@ -6,6 +6,7 @@
  * الحساب في utils/sectionGap.ts؛ المصدران: /api/schedules/section-gap و/api/registration-stats.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { DEMO_SEEDED_EVENT } from "../utils/demoSeedEvent";
 import { ChevronDown, ClipboardList, Layers, Users, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { planGaps, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
@@ -44,8 +45,10 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
       const at = (event as CustomEvent<{ scope?: string }>).detail?.scope;
       if (!at || at === scope) setBump(n => n + 1);
     };
+    const onSeeded = () => setBump(n => n + 1);
     window.addEventListener(PLAN_SAVED_EVENT, onSaved);
-    return () => window.removeEventListener(PLAN_SAVED_EVENT, onSaved);
+    window.addEventListener(DEMO_SEEDED_EVENT, onSeeded);
+    return () => { window.removeEventListener(PLAN_SAVED_EVENT, onSaved); window.removeEventListener(DEMO_SEEDED_EVENT, onSeeded); };
   }, [scope]);
   const data = loaded && loaded.scope === scope ? loaded.payload : null;
   const stamp = data?.planImported ? String(data.planSource?.importedAt || "imported") : "";
