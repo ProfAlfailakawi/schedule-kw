@@ -601,6 +601,7 @@ export default function App() {
   /* ── صفات البيئة التجريبية ─────────────────────────────────────────────────
    * قائمةُ الصفات التي يبدّل بينها شريط الديمو، والصفةُ الحاضرة الآن. تصل من
    * الخادم مع حمولة الجلسة، وتغيب تماماً خارج البيئة التجريبية. */
+  const demoScopeReset = useRef(false);
   const [demoInfo, setDemoInfo] = useState<{ roles: Array<{ role: string; label: string }>; activeRole: string; seedStatus: "preparing" | "ready" | "failed" } | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   /* ── البيئة التجريبية تفتح على نطاقٍ مختار ───────────────────────────────────
@@ -610,7 +611,12 @@ export default function App() {
    * التعليم ← الفصل الأول 2026/2027 (الجاري)، جاهزةً لكل من يدخل — وهو قسم
    * مسرح البيانات (مركز الذكاء، كشف التسجيل). ما اختاره المجرِّب بنفسه لا يُمسّ. */
   setDemoSession(Boolean(demoInfo));
-  if (demoInfo && user?.SystemUserId && !readSharedScope(Number(user.SystemUserId)).collegeId) {
+  /* دخولٌ جديد إلى الديمو يعيد الاختيار الجاهز ولو كان المتصفحُ يحمل اختيارَ زائرٍ سابق: النطاق يُحفظ بمعرّف
+     المستخدم (واحدٌ لكل زوّار الديمو) فكان يبقى ما اختاره آخرُ زائرٍ أو نسخةٌ قديمة (الكلية بلا قسم). وتحديثُ
+     الصفحة داخل الجلسة لا يمسّ اختيار المجرِّب. */
+  const freshDemoLogin = demoScopeReset.current;
+  if (demoInfo && user?.SystemUserId && (freshDemoLogin || !readSharedScope(Number(user.SystemUserId)).collegeId)) {
+    demoScopeReset.current = false;
     /* في الرسم نفسه لا في effect: الشاشات تقرأ النطاق في أوّل effect لها.
        ومن نطاقُه أقسامٌ بعينها (رئيس القسم، اللجنة، المتعدّد المواقع) يفتح على
        قسمه هو: «الكلية كلها» خارج نطاقه فتردّ تقاريرُ القاعات والمنتدبين 403. */
@@ -1613,6 +1619,7 @@ export default function App() {
     const role: SessionRole = data.role ? { ...DEFAULT_SESSION_ROLE, ...data.role } : DEFAULT_SESSION_ROLE;
     setSessionRole(role);
     setDemoInfo(data.demo && Array.isArray(data.demo.roles) ? { roles: data.demo.roles, activeRole: String(data.demo.activeRole || "admin"), seedStatus: data.demo.seedStatus || "preparing" } : null);
+    demoScopeReset.current = Boolean(data.demo);
     setDataMode(data.data || null);
     const landingView = landingViewFor();
     setActiveView(landingView);
