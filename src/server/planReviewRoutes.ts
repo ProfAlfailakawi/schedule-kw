@@ -1173,7 +1173,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
           const group = sheet.groups.find(item => item.id === course.groupId);
           const misprinted = Boolean(row && group?.kind === "elective" && group.units !== null && course.units > group.units);
           const units = misprinted ? Number(row!.CourseCredit) : course.units;
-          if (misprinted) notes.push(`«${name}»: ${course.units} وحدات مطبوعة فوق ما تطلبه مجموعتها (${group!.units})؛ بقيت وحداته ${units}.`);
+          if (misprinted) notes.push(`«${name}»: المطبوع ${countOf(course.units, AR.unit)} فوق ما تطلبه مجموعتها (${countOf(group!.units!, AR.unit)})؛ بقي ${countOf(units, AR.unit)}.`);
           /* الإملاء وحده لا يغيّر الاسم، ومقررٌ آخر يحمل الرقم لا يُعاد تسميتُه (courseNameRelation). */
           const relation = row ? courseNameRelation(String(row.CourseName), name) : "same";
           const protectedName = Boolean(row && relation === "different" && linkedElsewhere.has(Number(row.AdCourseId)));

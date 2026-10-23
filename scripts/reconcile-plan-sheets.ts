@@ -122,7 +122,9 @@ for (const cid of collegeIds) {
   /** المقرر في قسمٍ بعينه: بالرمز الكامل، أو برقمه إن كان رمزُ قسمه رمزَ هذا القسم (أو تابعاً له). */
   const findIn = (sid: number, code: string): AdCourse | undefined => {
     const section = sections.find(row => Number(row.AdSectionId) === sid);
-    const own = section ? [sectionDigits(section), ...aliasesOf(sectionDigits(section))] : [];
+    /* بالرقم وحده: رمزُ القسم نفسه ورموزه الفرعية المحفوظة بأرقامها (73 عند الكهرباء). رمزُ قسم التربية القديم (14) لا يُطابَق
+       بالرقم أبداً: «464» عند الأصول هو 0120464 الجديد، و0114464 القديم مقررٌ آخر برمزه الكامل (القديم للقديم والجديد للجديد). */
+    const own = section ? [sectionDigits(section), ...aliasesOf(sectionDigits(section)).filter(code => code !== "14")] : [];
     const rows = coursesIn(sid);
     const exact = rows.filter(row => keyOf(row) === code);
     if (exact.length === 1) return exact[0];
