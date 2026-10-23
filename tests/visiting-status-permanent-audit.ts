@@ -20,8 +20,8 @@ check(!visitingByScope([{ collegeId: 1, sectionId: 1, instructorIds: [10], kind:
 check(!visitingByScope([{ collegeId: 1, sectionId: 1, instructorIds: [12], kind: "roster", termId: 3 }] as any, 5, known, scopes)["1:1"], "قسمٌ بلا دليلٍ لا يُنتدَب فيه من مرّ في روستر فصلٍ قديم");
 
 const server = read("server.ts");
-const status = server.slice(server.indexOf("async function readVisitingStatus("), server.indexOf("async function readVisitingStatus(") + 700);
-check(/getDepartmentDelegates\(collegeId, sectionId\)/.test(status) && !/getVisitingRoster/.test(status), "الخادم يقرأ الصفة من دليل القسم لا من الروستر");
+const status = server.slice(server.indexOf("async function readVisitingStatus("), server.indexOf("async function readVisitingStatus(") + 1500);
+check(/getDepartmentDelegates\(collegeId, sectionId\)/.test(status) && /getExplicitDirectoryScopes\(\)/.test(status) && /saved \|\| !termId \? directory/.test(status), "الخادم يقرأ الصفة من دليل القسم، وقسمٌ بلا دليلٍ محفوظ يُقرأ له روسترُ الفصل وحده (كما visitingByScope)");
 check(/visitingStatusIds/.test(server) && /visitingInstructorIds,/.test(server), "حمولةُ الجدول تحمل الصفةَ (للشارة) وروسترَ الفصل (للمنتقي) معاً");
 const client = read("src/components/Schedules.tsx");
 check(/data\?\.visitingStatusIds/.test(client) && /\[\.\.\.scheduled, \.\.\.scopedRoster, \.\.\.visitingRosterIds\]/.test(client), "الشارةُ من الصفة، ومنتقي الأساتذة من روستر الفصل وحده");

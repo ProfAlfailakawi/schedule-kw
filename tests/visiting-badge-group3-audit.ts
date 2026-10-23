@@ -59,7 +59,7 @@ check(/isVisiting=\{\(instructorId\) => isVisiting\(instructorId, collegeId, sec
 console.log("الخادم");
 const compareAt = server.indexOf('app.get("/api/intelligence/compare-terms"');
 const compare = server.slice(compareAt, compareAt + 6000);
-check(/readVisitingStatus\(scope\.collegeId,scope\.sectionId\)/.test(compare) && /visiting:isVisitingAt\(termSide,/.test(compare), "مقارنة الفصول: علمٌ لكل صف من فصله");
+check(/readVisitingStatus\(scope\.collegeId,scope\.sectionId,termSide\)/.test(compare) && /visiting:isVisitingAt\(termSide,/.test(compare), "مقارنة الفصول: علمٌ لكل صف من فصله");
 check(/before:readable\(entry\.from,fromTermId\),after:readable\(entry\.to,toTermId\)/.test(compare), "قبل من الفصل الأول وبعد من الثاني");
 const warAt = server.indexOf('app.post("/api/intelligence/war-room"');
 const war = server.slice(warAt, warAt + 2200);
