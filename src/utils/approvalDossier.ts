@@ -30,7 +30,7 @@ export interface DossierDiffEntry {
   scheduleId: number;
   row?: { AdCollegeId?: unknown; AdSectionId?: unknown; AdTermId?: unknown } & Record<string, unknown>;
   changes?: DossierDiffChange[];
-  display?: { courseCode?: string; course?: string; sectionCode?: string; time?: string; days?: string; room?: string; instructor?: string };
+  display?: { courseCode?: string; course?: string; sectionCode?: string; time?: string; days?: string; room?: string; instructor?: string; visiting?: boolean };
 }
 export interface DossierSignature {
   stage: "committee" | "head"; userName: string; roleLabel?: string; at: string;
@@ -87,6 +87,8 @@ export interface DossierChangeItem {
   kind: DossierKind; scheduleId: number; section: string; where: string; lines: string[];
   /** Structured pieces of the same facts, for the visual list (the text lines above stay for print/tests). */
   days: string; time: string; room: string; instructor: string;
+  /** الأستاذ منتدب: تظهر شارته بجانب اسمه. */
+  visiting?: boolean;
   /** Section renumbering (e.g. 517 ← 518), kept apart from the other moves. */
   renumber: { before: string; after: string } | null;
   /** Every other changed field, old → new. */
@@ -255,7 +257,7 @@ function describeItem(entry: DossierDiffEntry, kind: DossierKind): DossierChange
   const clean = (value: unknown) => (value && value !== "—" ? String(value) : "");
   return {
     kind, scheduleId: Number(entry.scheduleId), section: String(display.sectionCode || ""), where, lines,
-    days: clean(display.days), time: clean(display.time), room: clean(display.room), instructor: clean(display.instructor),
+    days: clean(display.days), time: clean(display.time), room: clean(display.room), instructor: clean(display.instructor), visiting: Boolean(display.visiting),
     renumber: renumberChange ? { before: renumberChange.before || "—", after: renumberChange.after || "—" } : null,
     moves,
   };
