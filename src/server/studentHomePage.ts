@@ -877,6 +877,13 @@ function tkLongestGap(items){var by={},best=null;
   Object.keys(by).forEach(function(d){var a=by[d].sort(function(x,y){return x.start-y.start});
     for(var n=1;n<a.length;n++){var g=a[n].start-a[n-1].end;if(g>=60&&(!best||g>best.min))best={day:Number(d),from:a[n-1].end,to:a[n].start,min:g}}});
   return best}
+/* لحظتان تُضافان إلى «وقت الفراغ»: انتهاءُ محاضرات يومٍ (أبكرُ الأيام انتهاءً)، وفراغٌ بين محاضرتين متتاليتين في المبنى نفسه (من معرّف المبنى الثابت). */
+function tkMoments(items){var by={},after=null,near=null;
+  items.forEach(function(i){if(!i.timesVisible)return;(i.slots||[]).forEach(function(s){(by[s.day]=by[s.day]||[]).push(s)})});
+  Object.keys(by).forEach(function(d){var a=by[d].sort(function(x,y){return x.start-y.start}),last=a[a.length-1].end;
+    if(!after||last<after.at)after={day:Number(d),at:last};
+    for(var n=1;n<a.length;n++){var g=a[n].start-a[n-1].end;if(a[n].b&&a[n].b===a[n-1].b&&g>=30&&g<=180&&(!near||g>near.min))near={day:Number(d),from:a[n-1].end,to:a[n].start,min:g}}});
+  return{after:after,near:near}}
 function tkPlanFit(plan){var items=plan.items||[],units=items.reduce(function(n,i){return n+(Number(i.credit)||0)},0),w=S.state&&S.state.profile&&S.state.profile.wishes;if(w&&S.state.term&&w.termId!==S.state.term.id)w=null;var target=w?Number(w.targetUnits)||15:15,allTimes=items.length>0&&items.every(function(i){return i.timesVisible}),days={},early=0,late=0,gap=0;
   if(allTimes){items.forEach(function(i){(i.slots||[]).forEach(function(s){days[s.day]=true;if(s.start<540)early++;if(s.start>=780)late++})});var by={};items.forEach(function(i){(i.slots||[]).forEach(function(s){(by[s.day]||(by[s.day]=[])).push(s)})});Object.keys(by).forEach(function(d){var a=by[d].sort(function(x,y){return x.start-y.start});for(var j=1;j<a.length;j++)gap+=Math.max(0,a[j].start-a[j-1].end)})}
   var constraints=w&&w.constraints||{},unitFit=Math.max(0,100-Math.abs(units-target)*12),violations=(constraints.noMorning?early:0)+(constraints.noAfternoon?late:0),daysN=Object.keys(days).length,scheduleFit=allTimes?Math.max(0,100-violations*22-(constraints.freeDay?Math.max(0,daysN-1)*9:Math.max(0,daysN-3)*3)-Math.floor(gap/60)*5):unitFit;
@@ -981,10 +988,17 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
   if(t.unmet.length){h+='<details class="more"><summary>'+ic("down")+' ما لم نضعه ('+t.unmet.length+')</summary><div class="list" style="margin-block-start:6px">'+t.unmet.map(function(u){return '<div class="opt off"><span class="tx"><b>'+esc(u.name)+'</b><small>'+esc(WHY[u.reason]||"")+'</small></span></div>'}).join("")+'</div></details>'}
   var brk=visibleTimes?tkLongestGap(items):null;
   if(brk)h+='<div id="adx-break-box" data-gap="'+brk.min+'"></div>';
+  var mom=visibleTimes?tkMoments(items):{after:null,near:null};
+  /* الفراغ نفسه لا يحمل إعلانين: إن كان أطولُ فراغٍ هو نفسه فراغَ المبنى الواحد بقي لموقع «وقت الفراغ». */
+  if(mom.near&&brk&&mom.near.day===brk.day&&mom.near.from===brk.from)mom.near=null;
+  if(mom.near)h+='<div id="adx-near-box"></div>';
+  if(mom.after)h+='<div id="adx-after-box"></div>';
   h+='</div></section>';
   host.innerHTML=h;
   /* محطة الاستراحة: أطولُ فراغٍ في أسبوعه يُعرض فيه إعلانٌ إن وُجدت حملةٌ للموقع (السكربت العام يحمّله من الخادم ويحتسب ظهوره). */
   if(brk)adxMountLater("adx-break-box","break",{college:(S.state.profile&&S.state.profile.collegeId)||0,intro:'عندك فراغٌ يوم '+DAYN[brk.day]+' من '+tkClock(brk.from)+' إلى '+tkClock(brk.to)+' (نحو '+countOf(Math.round(brk.min/6)/10,AR.hour)+'). استراحتك برعاية:'});
+  if(mom.near)adxMountLater("adx-near-box","nearby",{college:(S.state.profile&&S.state.profile.collegeId)||0,intro:'بين محاضرتيك يوم '+DAYN[mom.near.day]+' ('+tkClock(mom.near.from)+' ← '+tkClock(mom.near.to)+') أنت في المبنى نفسه. استراحتك القريبة برعاية:'});
+  if(mom.after)adxMountLater("adx-after-box","afterclass",{college:(S.state.profile&&S.state.profile.collegeId)||0,intro:'تنتهي محاضراتك يوم '+DAYN[mom.after.day]+' عند '+tkClock(mom.after.at)+'. وقتك بعدها برعاية:'});
   host.querySelectorAll(".tk-plan").forEach(function(b){b.addEventListener("click",function(){var next=b.getAttribute("data-l");if(next===S.tkPlan)return;S.tkPlan=next;S.tkSel=0;S.tkErr="";paintTicket(host)})});
   host.querySelectorAll('[data-seg="view"] button').forEach(function(b){b.addEventListener("click",function(){S.tkView=b.getAttribute("data-v");paintTicket(host)})});
   host.querySelectorAll(".wk-b[data-c]").forEach(function(b){b.addEventListener("click",function(){var id=Number(b.getAttribute("data-c"));S.tkSel=Number(S.tkSel)===id?0:id;S.tkErr="";paintTicket(host)})});

@@ -55,7 +55,7 @@ export function PlacementMap({ data, preview }: { data: Payload; preview?: Previ
       {!only || only === "me" ? <figure className="ad-surface">
         <div className="ad-phone3">
           <div className="ad-sk ad-sk-bar" /><div className="ad-sk ad-sk-hero" />
-          <div className="ad-sk ad-sk-card"><i /><i /><i className="s" /><SlotBlock slot={by("break")} preview={preview} /></div>
+          <div className="ad-sk ad-sk-card"><i /><i /><i className="s" /><SlotBlock slot={by("break")} preview={preview} /><SlotBlock slot={by("nearby")} preview={preview} /><SlotBlock slot={by("afterclass")} preview={preview} /></div>
           <SlotBlock slot={by("sponsor")} thin preview={preview} /><SlotBlock slot={by("me")} preview={preview} />
           <div className="ad-sk ad-sk-tabs" />
         </div>

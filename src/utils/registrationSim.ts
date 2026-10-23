@@ -25,7 +25,8 @@ export const SIM_UNITS_DEFAULT = 15;
 /** أقلُّ نسبةٍ من السعة يُعدّ دونها المقعدُ «حرجاً». */
 export const TIGHT_RATIO = 0.1;
 
-export interface SimSlot { day: number; start: number; end: number }
+/** `b`: معرّف المبنى الثابت من سجلّ القاعات (في سياق «تذكرتي» وحده)، لتمييز لحظة «بين محاضرتين في المبنى نفسه». */
+export interface SimSlot { day: number; start: number; end: number; b?: string }
 
 /** شعبةٌ مطروحة: مقررٌ + رمزُ شعبة، وله مواعيدُه وسعتُه. */
 export interface SimOffering {

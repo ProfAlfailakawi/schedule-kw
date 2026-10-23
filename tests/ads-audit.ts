@@ -82,7 +82,7 @@ async function main() {
     const soonMail = MAIL.renewalMail({ company: "ش", endDay: "2026-10-01" }, 3, "https://x.test/r");
     check(endedMail.text.includes("انتهت حملة «ش» قبل") && !endedMail.text.includes("اليوم") && todayMail.text.includes("اليوم") && soonMail.text.includes("بعد"), "A14 تذكير التجديد: صياغةٌ صادقة للمنتهية واليوم والقادمة", endedMail.text);
     const { AD_CLIENT_SCRIPT: adScript } = await import("../src/server/adClientScript");
-    check(adScript.includes('var sponsor=slot==="break"?null:'), "A14 محطة الاستراحة لا تكرر شريط الراعي (يظهر مرةً مع إعلان «مساري»)");
+    check(adScript.includes('var sponsor=(slot==="break"||slot==="afterclass"||slot==="nearby")?null:'), "A14 محطات الاستراحة والمحاضرات لا تكرر شريط الراعي (يظهر مرةً مع إعلان «مساري»)");
     /* A15: الرابط المتتبَّع، والتحويل المُبلَّغ، والشارة، وسقف الظهور اليومي */
     const tl = (url: string) => E.trackedLink(url, { id: "ABCD-1234-xyz", slot: "me" } as any);
     check(tl("https://a.example.com/x?y=1") === "https://a.example.com/x?y=1&utm_source=schedule&utm_medium=banner&utm_campaign=ad-abcd1234&utm_content=me", "A15 رابط متتبَّع: يُضاف utm مع بقاء بارامترات الشركة");
@@ -970,7 +970,7 @@ async function main() {
     check(leadForm.includes("الصفحة الرئيسية للطالب") && leadForm.includes("وقت الفراغ") && leadForm.includes("أعضاء هيئة التدريس والإداريين") && !leadForm.includes("محطة الاستراحة") && !leadForm.includes("الكادر"), "ملف الشراكة: تظهر للشركة الأسماء الجديدة وسطر الشرح تحت كل موقع");
     check(fs.readFileSync("src/components/AudienceDashboard.tsx", "utf8").includes('app: "مستخدمو النظام (اللجان والإدارة)"'), "لوحة الشركاء: تسمية دخول مستخدمي النظام بالاسم المعتمد");
     check(leadForm.includes("background:rgba(255,255,255,.07);pointer-events:none}") && leadForm.includes(".k-cta{position:relative;z-index:1;"), "ملف الشراكة: دائرة زينة الغلاف لا تعترض النقر على زر «حملة جديدة»");
-    check((leadForm.match(/<span class="k-opt"><b>/g) || []).length === 5 && leadForm.includes("<small>للطالب حين يكون بين محاضراته فراغ ساعة فأكثر</small>"), "نموذج الطلب: كل موقعٍ بطاقةُ اختيار باسمه وسطر شرحه ظاهرٌ تحته (لا تلميح فقط)");
+    check((leadForm.match(/<span class="k-opt"><b>/g) || []).length === 7 && leadForm.includes("<small>للطالب حين يكون بين محاضراته فراغ ساعة فأكثر</small>"), "نموذج الطلب: كل موقعٍ بطاقةُ اختيار باسمه وسطر شرحه ظاهرٌ تحته (لا تلميح فقط)");
     check(leadForm.includes(".k-new:target{display:flex}") && leadForm.includes('role="dialog"') && (leadForm.match(/href="#"/g) || []).length >= 2, "ملف الشراكة: «حملة جديدة» نافذةٌ فوق الصفحة تفتح بالرابط وتُغلق بلا JavaScript");
     check(leadForm.includes('action="/partners/tok%2F1/lead"') && leadForm.includes('name="website"') && leadForm.includes('href="#new"') && leadForm.includes("وصلنا طلبك"), "ملف الشراكة: زر «حملة جديدة» ونموذجٌ يُرسل إلى مسار الطلب مع حقل الفخ ورسالة النجاح");
     check(B.instructorOpens === 75_000 && B.instructors === 786 && B.students === 80_000 && B.visits === 5_300_000 && B.instructorOpenRate === 90, "الرصيد: الأرقام المُقرَّة كما أُعطيت");
@@ -1021,6 +1021,22 @@ async function main() {
     const thinSeason = F.forecastSlot({ slotId: "schedule", weeks: 1, season: "finals", campaigns: fCamp, stats: [...mkDays(10, 1000), ...mkDays(4, 3000, 60, 20)], liveNow: 0, windows: win });
     check(thinSeason.ok && !thinSeason.seasonUsed && thinSeason.seasonNote.includes("لا أيام كافية"), "الحاسبة: موسمٌ بأقل من ٥ أيام يعود للتقدير العام ويقول ذلك", thinSeason);
     check(F.quantile([1, 2, 3, 4, 5], 0.25) === 2 && F.quantile([1, 2, 3, 4, 5], 0.75) === 4 && F.quantile([], 0.5) === 0, "الحاسبة: الربيعان");
+    /* لحظات «تذكرتي»: موقعان جديدان بجانب «وقت الفراغ»، والراعي لا يتكرر فيها، والمبنى من سجلّ القاعات. */
+    const E3 = await import("../src/utils/adsEngine");
+    const mom = ["afterclass", "nearby"].map(id => E3.slotById(id));
+    check(mom.every(m => m && !m.retired && m.audience === "students" && m.wholeUniversity && m.width === 480 && m.height === 160) && E3.activeSlots().length === 7, "اللحظات: موقعا «بعد آخر محاضرة» و«بين محاضرتين في المبنى نفسه» فاعلان بمقاس وقت الفراغ");
+    const home = fs.readFileSync("src/server/studentHomePage.ts", "utf8");
+    check(home.includes("function tkMoments") && home.includes('"adx-near-box","nearby"') && home.includes('"adx-after-box","afterclass"') && home.includes("a[n].b===a[n-1].b"), "اللحظات: «تذكرتي» تحسب الموقعين وتركّبهما");
+    check(fs.readFileSync("src/server/simulationData.ts", "utf8").includes("b: String(row.buildingId)") && fs.readFileSync("src/utils/registrationSim.ts", "utf8").includes("b?: string"), "اللحظات: المبنى الثابت من سجلّ القاعات يصل إلى فترات «تذكرتي» وحدها");
+    /* المنطق نفسه يُجرَّب بتشغيل الدالة المستخرجة من الصفحة: فراغ المبنى الواحد والأبكر انتهاءً. */
+    const momSrc = /function tkMoments\(items\)\{[\s\S]*?return\{after:after,near:near\}\}/.exec(home)![0];
+    const tkMoments = new Function(`${momSrc}; return tkMoments;`)() as (items: any[]) => { after: any; near: any };
+    const mk = (day: number, start: number, end: number, b?: string) => ({ timesVisible: true, slots: [{ day, start, end, ...(b ? { b } : {}) }] });
+    const m1 = tkMoments([mk(1, 480, 560, "B1"), mk(1, 600, 680, "B1"), mk(1, 900, 980, "B2"), mk(3, 480, 540, "B3")]);
+    check(m1.near && m1.near.day === 1 && m1.near.from === 560 && m1.near.to === 600 && m1.near.min === 40 && m1.after.day === 3 && m1.after.at === 540, "اللحظات: فراغ ٤٠ دقيقة في المبنى نفسه، وأبكر انتهاءٍ يوم ٣", m1);
+    const m2 = tkMoments([mk(1, 480, 560, "B1"), mk(1, 600, 680, "B2"), mk(1, 700, 760)]);
+    check(m2.near === null && m2.after.at === 760, "اللحظات: مبنيان مختلفان أو بلا مبنى = لا لحظة قرب", m2);
+    check(tkMoments([{ timesVisible: false, slots: [{ day: 1, start: 480, end: 560, b: "B1" }] }]).after === null, "اللحظات: مواعيدٌ غير ظاهرة = لا لحظة");
   }
 
   console.log(`\n${failed ? "\x1b[31m" : "\x1b[32m"}${passed} نجح، ${failed} فشل\x1b[0m`);

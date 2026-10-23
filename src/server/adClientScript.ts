@@ -176,7 +176,7 @@ fetch("/_ads/serve?slot="+encodeURIComponent(slot)+(tok?"&t="+encodeURIComponent
  var day2=day,items=(d.items||[]).filter(function(it){return (parseInt(get("adx:n:"+it.c+":"+day2)||"0",10)||0)<${AD_DAILY_REPEAT_CAP}});
  if(!items.length)items=d.items||[];
  /* الراعي شريطٌ واحد للصفحة: محطة الاستراحة تقع في «تذكرتي» وفي الصفحة نفسها إعلانُ «مساري» بشريطه، فلا يتكرر الراعي (ولا يُحتسب ظهورُه مرتين). */
- var sponsor=slot==="break"?null:(d.sponsor||null);
+ var sponsor=(slot==="break"||slot==="afterclass"||slot==="nearby")?null:(d.sponsor||null);
  if(!items.length&&!sponsor)return;
  box.textContent="";
  if(opt&&opt.intro){box.classList.add("brk");box.appendChild(el("p","adx-intro",opt.intro))}
