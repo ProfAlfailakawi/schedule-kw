@@ -82,7 +82,7 @@ async function main() {
     const soonMail = MAIL.renewalMail({ company: "ش", endDay: "2026-10-01" }, 3, "https://x.test/r");
     check(endedMail.text.includes("انتهت حملة «ش» قبل") && !endedMail.text.includes("اليوم") && todayMail.text.includes("اليوم") && soonMail.text.includes("بعد"), "A14 تذكير التجديد: صياغةٌ صادقة للمنتهية واليوم والقادمة", endedMail.text);
     const { AD_CLIENT_SCRIPT: adScript } = await import("../src/server/adClientScript");
-    check(adScript.includes('var sponsor=(slot==="break"||slot==="afterclass"||slot==="nearby")?null:'), "A14 محطات الاستراحة والمحاضرات لا تكرر شريط الراعي (يظهر مرةً مع إعلان «مساري»)");
+    check(adScript.includes('var sponsor=(slot==="break"||slot==="afterclass"||slot==="nearby"||slot==="course")?null:'), "A14 محطات الاستراحة والمحاضرات لا تكرر شريط الراعي (يظهر مرةً مع إعلان «مساري»)");
     /* A15: الرابط المتتبَّع، والتحويل المُبلَّغ، والشارة، وسقف الظهور اليومي */
     const tl = (url: string) => E.trackedLink(url, { id: "ABCD-1234-xyz", slot: "me" } as any);
     check(tl("https://a.example.com/x?y=1") === "https://a.example.com/x?y=1&utm_source=schedule&utm_medium=banner&utm_campaign=ad-abcd1234&utm_content=me", "A15 رابط متتبَّع: يُضاف utm مع بقاء بارامترات الشركة");
@@ -863,6 +863,15 @@ async function main() {
     check(tgSave.status === 200 && JSON.stringify(tgRow.targetCodes) === JSON.stringify(["cs101", "eng1"]) && tgRow.nearGraduation === true, "الفرص: الحملة تُحفظ باستهدافها منظَّفاً", tgRow);
     const tgBad = await call("POST", "/api/admin/ads/campaigns", { ...tgBody, company: "مركز آخر", slot: "schedule" });
     check(tgBad.status === 400 && String(tgBad.json.error).includes("الاستهداف"), "الفرص: الجدول العام يرفض الحملة الموجَّهة", tgBad.json);
+    /* راعي مقرر: التقرير يسمّي المقرر المرعي. */
+    await Repository.createCourse(1, 1, "SPN101", "مقرر الرعاية", 3, 3, 30);
+    const courseCode = "spn101";
+    const spSave = await call("POST", "/api/admin/ads/campaigns", { company: "راعي المقرر", category: "تعليم ودورات", slot: "course", startDay: today, endDay: dayPlus(10), linkUrl: "https://sponsor.example.com", targetCodes: [courseCode] });
+    const spRow = (await call("GET", "/api/admin/ads")).json.campaigns.find((x: any) => x.id === spSave.json.id);
+    const spReport = await call("GET", spRow.reportUrl);
+    check(spSave.status === 200 && spReport.status === 200 && spReport.text.includes("راعي مقرر:"), "راعي المقرر: التقرير يسمّي المقرر المرعي", spSave.json);
+    const spBad = await call("POST", "/api/admin/ads/campaigns", { company: "بلا مقرر", category: "تعليم ودورات", slot: "course", startDay: today, endDay: dayPlus(10), linkUrl: "https://sponsor.example.com" });
+    check(spBad.status === 400 && String(spBad.json.error).includes("المقرر"), "راعي المقرر: لا حملة بلا مقرر", spBad.json);
     /* ── دخول الطلبة للطلبة فقط، ومستخدمو النظام عدّادٌ مستقل ── */
     const dayRow = async () => (await Repository.listAudienceDays(5)).find(d => d.day === today)!;
     const sumRates = (d: any) => d.returning + d.fresh + d.mobile + d.desktop + Object.values(d.hours as Record<string, number>).reduce((a, b) => a + b, 0);
@@ -980,7 +989,7 @@ async function main() {
     check(leadForm.includes("الصفحة الرئيسية للطالب") && leadForm.includes("وقت الفراغ") && leadForm.includes("أعضاء هيئة التدريس والإداريين") && !leadForm.includes("محطة الاستراحة") && !leadForm.includes("الكادر"), "ملف الشراكة: تظهر للشركة الأسماء الجديدة وسطر الشرح تحت كل موقع");
     check(fs.readFileSync("src/components/AudienceDashboard.tsx", "utf8").includes('app: "مستخدمو النظام (اللجان والإدارة)"'), "لوحة الشركاء: تسمية دخول مستخدمي النظام بالاسم المعتمد");
     check(leadForm.includes("background:rgba(255,255,255,.07);pointer-events:none}") && leadForm.includes(".k-cta{position:relative;z-index:1;"), "ملف الشراكة: دائرة زينة الغلاف لا تعترض النقر على زر «حملة جديدة»");
-    check((leadForm.match(/<span class="k-opt"><b>/g) || []).length === 7 && leadForm.includes("<small>للطالب حين يكون بين محاضراته فراغ ساعة فأكثر</small>"), "نموذج الطلب: كل موقعٍ بطاقةُ اختيار باسمه وسطر شرحه ظاهرٌ تحته (لا تلميح فقط)");
+    check((leadForm.match(/<span class="k-opt"><b>/g) || []).length === 8 && leadForm.includes("<small>للطالب حين يكون بين محاضراته فراغ ساعة فأكثر</small>"), "نموذج الطلب: كل موقعٍ بطاقةُ اختيار باسمه وسطر شرحه ظاهرٌ تحته (لا تلميح فقط)");
     check(leadForm.includes(".k-new:target{display:flex}") && leadForm.includes('role="dialog"') && (leadForm.match(/href="#"/g) || []).length >= 2, "ملف الشراكة: «حملة جديدة» نافذةٌ فوق الصفحة تفتح بالرابط وتُغلق بلا JavaScript");
     check(leadForm.includes('action="/partners/tok%2F1/lead"') && leadForm.includes('name="website"') && leadForm.includes('href="#new"') && leadForm.includes("وصلنا طلبك"), "ملف الشراكة: زر «حملة جديدة» ونموذجٌ يُرسل إلى مسار الطلب مع حقل الفخ ورسالة النجاح");
     check(B.instructorOpens === 75_000 && B.instructors === 786 && B.students === 80_000 && B.visits === 5_300_000 && B.instructorOpenRate === 90, "الرصيد: الأرقام المُقرَّة كما أُعطيت");
@@ -1034,7 +1043,7 @@ async function main() {
     /* لحظات «تذكرتي»: موقعان جديدان بجانب «وقت الفراغ»، والراعي لا يتكرر فيها، والمبنى من سجلّ القاعات. */
     const E3 = await import("../src/utils/adsEngine");
     const mom = ["afterclass", "nearby"].map(id => E3.slotById(id));
-    check(mom.every(m => m && !m.retired && m.audience === "students" && m.wholeUniversity && m.width === 480 && m.height === 160) && E3.activeSlots().length === 7, "اللحظات: موقعا «بعد آخر محاضرة» و«بين محاضرتين في المبنى نفسه» فاعلان بمقاس وقت الفراغ");
+    check(mom.every(m => m && !m.retired && m.audience === "students" && m.wholeUniversity && m.width === 480 && m.height === 160) && E3.activeSlots().length === 8, "اللحظات: موقعا «بعد آخر محاضرة» و«بين محاضرتين في المبنى نفسه» فاعلان بمقاس وقت الفراغ");
     const home = fs.readFileSync("src/server/studentHomePage.ts", "utf8");
     check(home.includes("function tkMoments") && home.includes('"adx-near-box","nearby"') && home.includes('"adx-after-box","afterclass"') && home.includes("a[n].b===a[n-1].b"), "اللحظات: «تذكرتي» تحسب الموقعين وتركّبهما");
     check(fs.readFileSync("src/server/simulationData.ts", "utf8").includes("b: String(row.buildingId)") && fs.readFileSync("src/utils/registrationSim.ts", "utf8").includes("b?: string"), "اللحظات: المبنى الثابت من سجلّ القاعات يصل إلى فترات «تذكرتي» وحدها");
@@ -1062,10 +1071,20 @@ async function main() {
     check(!targetMatch(tgBoth, undefined) && !targetMatch(tgBoth, { codes: [], remaining: -1 }) && targetMatch({ c: ["CS101"], g: 0 }, { codes: ["cs101"], remaining: -1 }) && !targetMatch({ c: [], g: 30 }, { codes: ["cs101"], remaining: 31 }) && targetMatch({ c: [], g: 30 }, { codes: [], remaining: 30 }), "الفرص: صفحةٌ لا تعرف الطالب لا تعرض موجَّهاً، والحدّ ٣٠ شاملٌ و٣١ خارج");
     check(adSrc.includes("it.tg||targetMatch(it.tg,opt)") && adSrc.includes("if(!items.length)items=pool;") && !adSrc.includes("items=d.items||[]"), "الفرص: احتياط السقف لا يُظهر موجَّهاً لغير المطابق");
     const homeSrc2 = fs.readFileSync("src/server/studentHomePage.ts", "utf8");
-    check(homeSrc2.includes("function adxCtx") && homeSrc2.includes("o.codes=p.wishCodes||[]") && (homeSrc2.match(/adxCtx\(/g) || []).length >= 5, "الفرص: «مساري» و«تذكرتي» تمرّران رموز الرغبات والوحدات المتبقية إلى الإعلان وحده");
+    check(homeSrc2.includes("function adxCtx") && homeSrc2.includes("o.codes=o.codes||p.wishCodes||[]") && (homeSrc2.match(/adxCtx\(/g) || []).length >= 5, "الفرص: «مساري» و«تذكرتي» تمرّران رموز الرغبات والوحدات المتبقية إلى الإعلان وحده");
     const doorSrc = fs.readFileSync("src/server/studentDoorRoutes.ts", "utf8");
     check(doorSrc.includes("wishCodes = [...new Set((profile.wishes?.courseIds") && doorSrc.includes("progress, wishes: profile.wishes || null, wishCodes,"), "الفرص: ملف الطالب يحمل رموز رغباته لمتصفحه");
     check((await import("../src/server/adsPages")).measurementPage("N").includes("يُحسم ذلك داخل متصفحك") && kitPage.includes("وجّه لمن يهمّه"), "الفرص: السياسة العامة وملف الشراكة يشرحان الاستهداف");
+    /* راعي مقرر: موقعٌ بشريط ٤٨٠×٨٠ يُفصل بمقررات الجدول، ومقررٌ واحد لراعٍ واحدٍ في الوقت نفسه. */
+    const E5 = await import("../src/utils/adsEngine");
+    const cs = E5.slotById("course")!;
+    check(cs && !cs.retired && cs.width === 480 && cs.height === 80 && cs.wholeUniversity && cs.audience === "students", "راعي المقرر: الموقع شريط ٤٨٠×٨٠ يعرف الطالب");
+    const spBase = { company: "ر", category: "تعليم ودورات", slot: "course", startDay: "2026-11-01", endDay: "2026-11-30" };
+    check(E5.campaignProblems({ ...spBase }).some(p => p.includes("المقرر")) && E5.campaignProblems({ ...spBase, targetCodes: ["cs101"], nearGraduation: true }).some(p => p.includes("التخرج")) && E5.campaignProblems({ ...spBase, targetCodes: ["cs101"] }).length === 0, "راعي المقرر: يلزم مقرر، ولا قرب تخرج");
+    const other = { id: "o1", ...spBase, company: "راعٍ أول", status: "approved", targetCodes: ["cs101"], creativeIds: [], linkUrl: "", reportToken: "", createdAt: "", updatedAt: "" } as any;
+    check(E5.placementProblems({ ...spBase, targetCodes: ["CS101".toLowerCase(), "eng1"] }, [other]).some(p => p.includes("يرعى المقرر نفسه")) && E5.placementProblems({ ...spBase, targetCodes: ["eng1"] }, [other]).every(p => !p.includes("يرعى المقرر نفسه")) && E5.placementProblems({ ...spBase, startDay: "2026-12-05", endDay: "2026-12-30", targetCodes: ["cs101"] }, [other]).every(p => !p.includes("يرعى المقرر نفسه")), "راعي المقرر: مقررٌ واحد لراعٍ واحد في الفترة نفسها فقط");
+    const homeSrc3 = fs.readFileSync("src/server/studentHomePage.ts", "utf8");
+    check(homeSrc3.includes('adxMountLater("adx-course-box","course",adxCtx({codes:ticketCodes') && homeSrc3.includes("var ticketCodes=items.map"), "راعي المقرر: «تذكرتي» تطابق رموز مقررات الجدول لا الرغبات");
   }
 
   console.log(`\n${failed ? "\x1b[31m" : "\x1b[32m"}${passed} نجح، ${failed} فشل\x1b[0m`);

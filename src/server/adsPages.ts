@@ -138,6 +138,8 @@ export interface CampaignReportInput {
   redemptionResult?: string;
   /** كوبونات فريدة: كم استُعمل منها (موثَّقاً من المتجر)، وأيّ يومٍ، ورابط صفحة التحقق للمتجر. */
   unique?: { verified: number; verifyUrl: string };
+  /** أسماء المقررات التي ترعاها الحملة (موقع «راعي مقرر»). */
+  sponsoredCourses?: string[];
 }
 
 const arrow = (v: number | null): string => (v === null ? "—" : v > 0 ? `▲ ${pct(v)}` : v < 0 ? `▼ ${pct(Math.abs(v))}` : "ثابت");
@@ -258,6 +260,7 @@ ${msg}
     ${slot?.wholeUniversity && !c.colleges?.length ? `<span class="chip">يصل كل طلبة الجامعة</span>` : ""}
     <span class="chip">من ${esc(dateAr(c.startDay))} إلى ${esc(dateAr(c.endDay))}</span>
     ${phaseNote ? `<span class="chip">${esc(phaseNote)}</span>` : ""}
+    ${(input.sponsoredCourses || []).map(n => `<span class="chip">راعي مقرر: ${esc(n)}</span>`).join("")}
   </div>
 </section>
 <div class="grid">

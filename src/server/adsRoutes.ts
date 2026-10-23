@@ -658,6 +658,9 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     const allStats = await cachedAdStats(5 * 60_000);
     res.send(campaignReportPage({
       campaign, creatives: heads, stats, nonce, today, origin: `${req.protocol}://${req.get("host")}`, redemptionResult: req.query.red === "ok" || req.query.red === "bad" ? String(req.query.red) : "",
+      sponsoredCourses: campaign.slot === "course" && campaign.targetCodes?.length
+        ? [...new Map((await Repository.getCourses()).filter(c => campaign.targetCodes!.includes(String(c.CourseCode || c.CourseName).trim().toLowerCase())).map(c => [String(c.CourseCode || c.CourseName).trim().toLowerCase(), c.CourseName] as const)).values()]
+        : undefined,
       unique: campaign.uniqueCoupons ? { verified: (await Repository.listAdCouponUseDays(campaign.id)).length, verifyUrl: `${req.protocol}://${req.get("host")}/verify/${verifyId(campaign.reportToken)}` } : undefined,
       weekly: weeklyCompare(stats, today), benchmarkCtr: slotBenchmarkCtr(campaign.id, campaign.slot, all, allStats),
       liveInSlot: Math.max(1, all.filter(x => x.slot === campaign.slot && isLive(x, today)).length),
