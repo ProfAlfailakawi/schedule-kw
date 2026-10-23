@@ -31,6 +31,7 @@ import { LEAD_ERRORS, cleanLead } from "../utils/adLeads";
 import { abVerdict, conversionOf } from "../utils/adInsights";
 import { partnerBadgeSvg } from "../utils/adBadge";
 import { cleanExpiryDays, partnerLinkState } from "../utils/partnerLinks";
+import { FORECAST_WEEKS, forecastSlot } from "../utils/adForecast";
 import { cleanEmail, leadMail, leadNotifyTo, mailConfig, renewalMail, sendMail, weekKey, weeklyMail } from "./adMailer";
 import { SEASONS, activeSeasons, seasonCalendar, seasonsText } from "../utils/adSeasons";
 import { AR, countOf } from "../utils/arabicCount";
@@ -643,9 +644,17 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     const today = kuwaitDay();
     const liveBySlot: Record<string, number> = {};
     for (const c of input.campaigns) if (isLive(c, today)) liveBySlot[c.slot] = (liveBySlot[c.slot] || 0) + 1;
+    /* حاسبة «ماذا ستحصل؟»: تُحسب من سجلّ الموقع الفعلي عند اختيار الشركة (نموذج GET)، وقيمٌ غير معروفة تُهمل. */
+    const calcSlot = activeSlots().find(s => s.id === String(req.query.slot || "") && s.id !== "sponsor")?.id || "";
+    const calcSeason = SEASONS.find(s => s.id === String(req.query.season || ""))?.id || "";
+    const calcWeeks = (FORECAST_WEEKS as readonly number[]).includes(Number(req.query.weeks)) ? Number(req.query.weeks) : 2;
+    const calc = req.query.slot === undefined ? undefined : {
+      slot: calcSlot, season: calcSeason, weeks: calcWeeks,
+      forecast: calcSlot ? forecastSlot({ slotId: calcSlot, weeks: calcWeeks, season: calcSeason, campaigns: input.campaigns || [], stats: input.adStats || [], liveNow: liveBySlot[calcSlot] || 0, windows: seasonCalendar(input.terms as any, Date.now(), "2000-01-01") }) : null,
+    };
     noindex(res);
     const nonce = deps.publicPageNonce(res);
-    res.send(partnerKitPage({ stats: buildAudienceStats(input), liveBySlot, nonce, today, leadResult: ({ ok: "ok", bad: "bad", rate: "rate" } as Record<string, "ok" | "bad" | "rate">)[String(req.query.lead || "")], company: link.company, leadError: req.query.lead === "bad" ? (LEAD_ERRORS as readonly string[]).find(e => e === String(req.query.why || "")) || "" : "", token, calendar: seasonCalendar(input.terms as any), activeSeasons: activeSeasons(input.terms as any) }));
+    res.send(partnerKitPage({ calc, stats: buildAudienceStats(input), liveBySlot, nonce, today, leadResult: ({ ok: "ok", bad: "bad", rate: "rate" } as Record<string, "ok" | "bad" | "rate">)[String(req.query.lead || "")], company: link.company, leadError: req.query.lead === "bad" ? (LEAD_ERRORS as readonly string[]).find(e => e === String(req.query.why || "")) || "" : "", token, calendar: seasonCalendar(input.terms as any), activeSeasons: activeSeasons(input.terms as any) }));
   });
 
   /* ── الإدارة ── */

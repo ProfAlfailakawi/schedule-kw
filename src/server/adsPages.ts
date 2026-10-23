@@ -15,6 +15,7 @@ import { AD_DAILY_REPEAT_CAP, AD_RULES, TRIAL_DAYS, activeSlots, creativeBreakdo
 import { conversionOf, hourAr, peakSummary, wrapUp, type WrapUp } from "../utils/adInsights";
 import { AR, countOf } from "../utils/arabicCount";
 import { SEASONS, seasonLabel, type CalendarItem } from "../utils/adSeasons";
+import { FORECAST_WEEKS, type Forecast } from "../utils/adForecast";
 
 /** معرّفٌ عام للشارة مشتقٌّ من رمز التقرير بتجزئةٍ لا تُعكس: يُنشر في موقع الشركة دون أن يكشف الرمز السري. */
 export const badgeId = (reportToken: string): string => createHash("sha256").update(`badge:${reportToken}`).digest("hex").slice(0, 32);
@@ -341,6 +342,8 @@ const KIT_CSS = `
 .k-cal div.now{background:var(--soft);box-shadow:0 0 0 2px var(--accent) inset}
 .k-cal b{font-size:15px}.k-cal small{color:var(--muted);font-size:12px}
 .k-cal .live{color:var(--accent);font-weight:800;font-size:12px}
+.k-calc{display:flex;flex-wrap:wrap;gap:12px;align-items:end}.k-calc .k-f{flex:1 1 150px}.k-calc select{inline-size:100%;min-block-size:42px;border-radius:12px;border:1px solid var(--line);padding:0 10px;font:inherit;background:var(--surface);color:var(--ink)}
+.k-calc-res{margin-block-start:12px}.k-calc-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}.k-calc-grid span{display:block;color:var(--muted);font-size:13px}.k-calc-grid b{font-size:22px}
 .k-slots{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 .k-slot{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px;box-shadow:var(--shadow);display:grid;gap:10px}
 .k-screen{border:1.5px solid var(--line);border-radius:14px;padding:10px;display:grid;gap:6px;background:var(--bg);aspect-ratio:16/10;align-content:start}
@@ -410,6 +413,36 @@ function slotScreen(slot: { id: string; width: number; height: number }): string
 }
 
 /** تقويمُ المواسم: خطٌّ زمني أفقي بألوان المواسم، والموسم الجاري مُضاء. */
+/** تقريبٌ للعرض: دون المئة كما هو، ثم عشراتٌ فمئاتٌ فخمسمئات؛ فلا يُوهِم الرقمُ بدقةٍ لا يملكها. */
+const niceNumber = (n: number): string => fmt(n < 100 ? n : n < 1000 ? Math.round(n / 10) * 10 : n < 10000 ? Math.round(n / 100) * 100 : Math.round(n / 500) * 500);
+
+/** «ماذا ستحصل؟»: نموذج GET عادي (الرابط يحفظ الاختيار)، والنتيجة مدىً تقديري من سجلّ الموقع الفعلي. */
+function calculatorHtml(input: PartnerKitInput): string {
+  const c = input.calc;
+  const action = `/partners/${encodeURIComponent(input.token || "")}#calc`;
+  const slotsList = activeSlots().filter(s => s.id !== "sponsor");
+  const weeks = c?.weeks || 2;
+  let result = "";
+  if (c?.forecast) {
+    const f = c.forecast;
+    const slot = slotById(c.slot);
+    result = !f.ok
+      ? `<div class="card k-calc-res"><p style="margin:0">لا بيانات كافية بعد لتقدير موقع «${esc(slot?.label || c.slot)}». نحدّثه حين تتراكم أيامٌ مقيسة، وتواصل معنا لنقدّره لك.</p></div>`
+      : `<div class="card k-calc-res"><div class="k-calc-grid">
+<div><span>الظهور المتوقع</span><b>بين ${niceNumber(f.impressions.low)} و${niceNumber(f.impressions.high)}</b></div>
+<div><span>النقرات المتوقعة</span><b>بين ${niceNumber(f.clicks.low)} و${niceNumber(f.clicks.high)}</b></div></div>
+<p class="note" style="margin:10px 0 0">تقديرٌ لا وعد: لمدة ${esc(countOf(f.days, AR.day))} في «${esc(slot?.label || c.slot)}»، ${esc(f.seasonNote)}${f.share < 1 ? "، بحصةٍ متساوية مع الحملات العاملة معك في الموقع" : ""}. مبنيٌّ على ${esc(countOf(f.basisDays, AR.day))} مقيسة فعلاً.</p></div>`;
+  }
+  return `<h2 class="k-h2" id="calc">${icon("chart")}ماذا ستحصل؟</h2>
+<form class="card k-calc" method="get" action="${action}">
+  <label class="k-f"><span>${icon("globe")}الموقع</span><select name="slot">${slotsList.map(s => `<option value="${esc(s.id)}"${c?.slot === s.id ? " selected" : ""}>${esc(s.label)}</option>`).join("")}</select></label>
+  <label class="k-f"><span>${icon("calendar")}الموسم</span><select name="season"><option value="">أي وقت</option>${SEASONS.map(se => `<option value="${esc(se.id)}"${c?.season === se.id ? " selected" : ""}>${esc(se.label)}</option>`).join("")}</select></label>
+  <label class="k-f"><span>${icon("clock")}المدة</span><select name="weeks">${FORECAST_WEEKS.map(w => `<option value="${w}"${weeks === w ? " selected" : ""}>${esc(countOf(w, AR.week))}</option>`).join("")}</select></label>
+  <button class="k-send" type="submit">${icon("chart")}احسب</button>
+</form>
+${result}`;
+}
+
 function seasonCalendarHtml(items: CalendarItem[], active: string[]): string {
   const upcoming = items.slice(0, 8);
   if (!upcoming.length) return "";
@@ -430,6 +463,8 @@ export interface PartnerKitInput {
   company?: string;
   /** رمز الرابط ليكون هدفَ النموذج. */
   token?: string;
+  /** حاسبة «ماذا ستحصل؟»: اختيارات الشركة ونتيجة التقدير (تُحسب في الخادم؛ بلا سكربت). */
+  calc?: { slot: string; season: string; weeks: number; forecast: Forecast | null };
   /** نتيجة آخر إرسال لنموذج «حملة جديدة». */
   leadResult?: "ok" | "bad" | "rate";
   leadError?: string;
@@ -504,6 +539,7 @@ ${demand}
 ${seasonCalendarHtml(input.calendar || [], input.activeSeasons || [])}
 <h2 class="k-h2">${icon("globe")}أين يظهر إعلانك</h2>
 <div class="k-slots">${slots}</div>
+${calculatorHtml(input)}
 ${lead}
 <h2 class="k-h2">${icon("chart")}تتابع نتائجك حيّة</h2>
 <div class="k-tools"><div>${icon("chart")}<span>تقرير حيّ</span></div><div>${icon("ab")}<span>اختبار A/B</span></div><div>${icon("ticket")}<span>كود خصم</span></div><div>${icon("flask")}<span>تجربة قبل الالتزام</span></div></div>
