@@ -20513,7 +20513,7 @@ var FRIENDLY=[
    لا تُختار من هذه الصفحة (أطوالُ لقاءٍ يحدّدها القسم)، فيجرّبها فيُردّ ثانيةً. فتُقال له جملةٌ تدلّه على الزرّ
    الذي يمرّ فعلاً، أو على أن يُبقي موعده حين لا يوجد ما يُختار من هنا. */
 function verdictText(it){var n=String(it&&it.note||"");
- if(/لا يغطّيها/.test(n))return it.shapes&&it.shapes.length?"الأيام المختارة لا تغطي ساعات هذا المقرر الأسبوعية. اختر التوزيع المعتمد تحته.":"ساعات هذا المقرر تحتاج توزيعاً يحدّده القسم. أبقِ موعدك كما هو، أو اكتب للقسم ما تريده.";
+ if(/لا يغطّيها/.test(n))return it.shapes&&it.shapes.length?"الأيام المختارة لا تغطي ساعات هذا المقرر الأسبوعية. اختر أحد الخيارات تحته.":"ساعات هذا المقرر تحتاج توزيعاً يحدّده القسم. أبقِ موعدك كما هو، أو اكتب للقسم ما تريده.";
  return friendly(n)}
 function friendly(text){text=String(text||"");for(var k=0;k<FRIENDLY.length;k++){if(FRIENDLY[k][0].test(text))return FRIENDLY[k][1]}return text}
 function collegeNameOf(it){return it.action==="add"?(it.collegeName||(it.after&&it.after.collegeName)||""):((it.before&&it.before.collegeName)||"")}

@@ -471,9 +471,15 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       /* لا يُعرض زرٌّ إلا لما يقبله الفاحصُ نفسُه بالأيام وحدها: كتلةُ اليوم الواحد
          الطويلة تحتاج طولَ لقاءٍ لا يختاره الأستاذ من هنا، فزرُّها كان سيعود إلى المنع. */
       const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
-      result.shapes = patternsForHours(courseHours)
+      /* شعبةٌ تُدرَّس يوماً واحداً بلقاءٍ ممتدّ (مختبر، ورشة، تدريب) أوّلُ خياراتها أن تبقى يوماً واحداً بطولها
+         نفسه: كانت الأزرارُ تدفعها إلى نمط المحاضرات على ثلاثة أيام، وهو ليس طبيعتها. */
+      const blockDay = request.blockMinutes && original ? DAY_KEYS.find(day => (original as any)[day]) : undefined;
+      const keepOneDay = blockDay
+        ? [{ days: [blockDay] as DayKey[], label: `يوم واحد كما هو الآن: ${DAY_NAMES[DAY_KEYS.indexOf(blockDay)]} ${request.blockMinutes}د` }]
+        : [];
+      result.shapes = [...keepOneDay, ...patternsForHours(courseHours)
         .filter(pattern => pattern.days.length > 1 && pattern.days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold)
-        .slice(0, 3).map(pattern => ({ days: [...pattern.days], label: pattern.label }));
+        .map(pattern => ({ days: [...pattern.days], label: pattern.label }))].slice(0, 3);
       return result;
     }
   }

@@ -51,6 +51,18 @@ for (const shape of short.shapes || []) {
   if (!verdict.sendable || verdict.reasons.some(reason => reason.source === "shape")) everyShapePasses = false;
 }
 check(everyShapePasses, "كلُّ توزيعٍ يقترحه الفاحص يمرّ منه بلا منعٍ ولا ملاحظة شكل");
+/* شعبةٌ تُدرَّس يوماً واحداً بلقاءٍ ممتدّ: أوّلُ الخيارات أن تبقى يوماً واحداً بطولها، وهو يمرّ. */
+const labRow = row({ fmonday: false, fwednesday: true, fthursday: false, fstarttime: "08:00", fendtime: "12:00" });
+const labContext = { ...context(4), allRows: [labRow], instructorRowsAfter: [labRow] };
+const labSplit = judgeRequest(ask({ days: ["fmonday", "fwednesday"] }), labContext);
+check(!labSplit.sendable && labSplit.shapes?.[0]?.days.join() === "fwednesday" && /يوم واحد كما هو الآن/.test(labSplit.shapes?.[0]?.label || ""), "مختبرٌ يومي جُعل يومين: أوّلُ الخيارات «يوم واحد كما هو الآن» لا نمطُ المحاضرات");
+const labKept = judgeRequest(ask({ days: labSplit.shapes?.[0]?.days as any || [] }), labContext);
+check(labKept.sendable && labKept.computedEnd === "12:00", "وتطبيقُه يمرّ ويبقى طولُ اللقاء أربع ساعات");
+const labMoved = judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), labContext);
+check(labMoved.sendable && labMoved.computedEnd === "12:00", "ونقلُ المختبر اليومي إلى يومٍ آخر يُبقي طولَه ويمرّ");
+const notLab = judgeRequest(ask({ days: ["fwednesday"] }), context(4));
+check(!(notLab.shapes || []).some(shape => /كما هو الآن/.test(shape.label)), "وشعبةٌ ليست لقاءً ممتدّاً لا يُعرض لها خيارُ اليوم الواحد");
+
 const stillMixed = judgeRequest(ask({ days: ["fsunday", "fmonday"] }), context(1));
 check(stillMixed.reasons.some(reason => /أيام مختلطة/.test(reason.text)), "ويبقى التحذير لما ليس نمطاً معتمداً لمقرّره");
 
@@ -83,7 +95,7 @@ check(vOk && typeof vBox.verdictText === "function", "دالّةُ نصّ الح
 if (vBox.verdictText) {
   const longText = "هذا المقرّر 4 ساعات أسبوعياً، والمختار لا يغطّيها — جرّب الاثنين 80د · الأربعاء 80د · الخميس 50د أو الثلاثاء 100د · الخميس 100د.";
   const withShapes = vBox.verdictText({ note: longText, shapes: [{ days: ["fmonday"], label: "x" }] });
-  check(!/الثلاثاء 100د|جرّب/.test(withShapes) && /اختر التوزيع المعتمد/.test(withShapes), "المانعُ لا يعِد بتوزيعٍ لا يُختار من الصفحة: يدلّ على الزرّ الذي يمرّ");
+  check(!/الثلاثاء 100د|جرّب/.test(withShapes) && /اختر أحد الخيارات تحته/.test(withShapes), "المانعُ لا يعِد بتوزيعٍ لا يُختار من الصفحة: يدلّ على الزرّ الذي يمرّ");
   const noShapes = vBox.verdictText({ note: longText, shapes: [] });
   check(/يحدّده القسم/.test(noShapes) && /أبقِ موعدك/.test(noShapes) && !/جرّب/.test(noShapes), "وحين لا يوجد ما يُختار من هنا يُقال له أن يُبقي موعده أو يكتب للقسم");
   check(vBox.verdictText({ note: "تتابع مرتفع على الأستاذ (2)" }) === "FRIENDLY:تتابع مرتفع على الأستاذ (2)", "وبقيةُ الرسائل تمرّ بمترجم اللغة نفسه");
