@@ -271,6 +271,7 @@ type ShelvedBoard = {
   instructors: AdInstructor[] | null;
   courses: AdCourse[] | null;
   visitingIds: number[] | null;
+  visitingRosterIds?: number[] | null;
   at: number;
 };
 const boardShelf = new Map<string, ShelvedBoard>();
@@ -1531,6 +1532,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   }, [form.fsunday, form.fmonday, form.ftuesday, form.fwednesday, form.fthursday, form.fstarttime, form.fendtime]);
 
   const [visitingIds, setVisitingIds] = useState<Set<number>>(new Set());
+  /* من يُدرِّس هذا الفصل من المنتدبين؛ أما `visitingIds` فمن صفتُهم منتدب (دائمة) لتُرسم شارتهم. */
+  const [visitingRosterIds, setVisitingRosterIds] = useState<Set<number>>(new Set());
   /* «منتدب» للنموذج المفتوح: القسمُ والفصلُ اللذان يحفظ فيهما النموذج قد يخالفان اللوحة المعروضة
      (المشرف يحرّر قسماً آخر)، فإن طابقاها فالقائمةُ المحمّلة مع اللوحة هي المرجع، وإلا فالقائمةُ الموحّدة. */
   const formLookupTerm = Number(form.AdTermId) || filterTerm;
@@ -1568,8 +1571,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const scopedRoster = instructors.map(person => Number(person.AdInstructorId)).filter(Boolean);
     // The section roster is a department fact, not a current-term fact. A new
     // term may have zero rows and must still show every professor in the section.
-    return [...new Set([...scheduled, ...scopedRoster, ...visitingIds])];
-  }, [rows, instructors, visitingIds]);
+    return [...new Set([...scheduled, ...scopedRoster, ...visitingRosterIds])];
+  }, [rows, instructors, visitingRosterIds]);
 
   /**
    * A whole working day to change your mind.
@@ -2049,6 +2052,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           instructors: prior?.instructors ?? null,
           courses: prior?.courses ?? null,
           visitingIds: prior?.visitingIds ?? null,
+          visitingRosterIds: prior?.visitingRosterIds ?? null,
           at: Date.now(),
         });
       }
@@ -2185,13 +2189,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // section was picked, so the editor never loses a name it must display.
       setInstructors(Array.isArray(data?.instructors) ? sortByName(data.instructors, (row: any) => row.AdInstructorName) : []);
       setCourses(Array.isArray(data?.courses) ? sortByName(data.courses, (row: any) => row.CourseName) : []);
-      const visiting = (Array.isArray(data?.visitingInstructorIds) ? data.visitingInstructorIds : []).map(Number).filter(Boolean);
+      const rosterIds = (Array.isArray(data?.visitingInstructorIds) ? data.visitingInstructorIds : []).map(Number).filter(Boolean);
+      const visiting = (Array.isArray(data?.visitingStatusIds) ? data.visitingStatusIds : rosterIds).map(Number).filter(Boolean);
       setVisitingIds(new Set(visiting));
+      setVisitingRosterIds(new Set(rosterIds));
       shelveBoard(shelfKey(nextScopeKey), {
         rows: Array.isArray(data?.rows) ? data.rows : [],
         instructors: Array.isArray(data?.instructors) ? sortByName(data.instructors, (row: any) => row.AdInstructorName) : null,
         courses: Array.isArray(data?.courses) ? sortByName(data.courses, (row: any) => row.CourseName) : null,
         visitingIds: visiting,
+        visitingRosterIds: rosterIds,
         at: Date.now(),
       });
       onContext?.(context);
@@ -2225,6 +2232,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           if (held.instructors) setInstructors(held.instructors);
           if (held.courses) setCourses(held.courses);
           if (held.visitingIds) setVisitingIds(new Set(held.visitingIds));
+          if (held.visitingRosterIds) setVisitingRosterIds(new Set(held.visitingRosterIds));
           setRowsScope(requestedScope);
           rowsScopeRef.current = requestedScope;
           appliedScope.current = requestedScope;
@@ -2292,6 +2300,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           instructors: fallbackInstructors,
           courses: coursesData,
           visitingInstructorIds: roster?.instructorIds || [],
+          visitingStatusIds: roster?.instructorIds || [],
         });
       }
     } catch (error: any) {
@@ -12757,6 +12766,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   ...(!context.conflicts?.length && roomDisplay(context.selected) ? [{ tone: "good", kind: "room", label: "القاعة خالية" } as const] : []),
                   ...(Array.isArray(context.reasons) ? context.reasons : []),
                 ]} />
+                {context.conflicts?.length ? (
+                  <ul className="context-conflict-list" aria-label="سبب التعارض">
+                    {context.conflicts.slice(0, 4).map((conflict: any, index: number) => (
+                      <li key={`${conflict.type}-${conflict.otherId}-${index}`}>
+                        <AlertTriangle aria-hidden="true" />
+                        <span><strong>{conflict.message}</strong>{conflict.detail ? <small>{conflict.detail}</small> : null}{!conflict.otherId ? <small>الموعد الآخر خارج ما تراه من أقسامك.</small> : null}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
             </div>
             <nav className="context-tabs" aria-label="أقسام تفاصيل الموعد">
