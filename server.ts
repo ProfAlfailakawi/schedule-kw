@@ -24,6 +24,7 @@ import { describeRollover, readTermRollover } from "./src/utils/termRollover";
 import { visibleTermIds } from "./src/utils/scopedTerms";
 import { currentTermId, planningTermCandidates, termHasEnded, termIsArchive } from "./src/utils/termSequence";
 import { acceptedPdfSourceLabel, pdfTermAccepted } from "./src/utils/pdfTermRule";
+import { ensureSectionFaculty } from "./src/server/sectionFaculty";
 import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadProblem } from "./src/utils/teachingLoad";
 import { buildConflictTopology, buildDecisionMemoryInsight, buildFairnessEngine, buildFragilityMap, buildOneMinuteBrief, buildRoomResilience, buildScheduleHealth2, buildSchedulePulse, createEmergencyPlans, explainScheduleDecision } from "./src/utils/livingSchedule";
 import type { AdCourse, AdInstructor, AdSection, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleComment, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestSnapshot, InstructorRequestEventKind, StudentNeed, CurriculumPlan, CurriculumDegreeRule } from "./src/types";
@@ -3307,6 +3308,8 @@ app.post("/api/sections", requirePermission(4), async (req: AuthenticatedRequest
     return;
   }
   const newSec = await Repository.createSection(collegeId, AdSectionCode, AdSectionName);
+  /* القسم الجديد يولد بسجل «هيئة تدريسية»؛ وتعثّره لا يُسقط القسم، فيُعاد عند أول استيراد. */
+  try { await ensureSectionFaculty(Repository, collegeId, Number(newSec.AdSectionId)); } catch (error: any) { console.error("[sections] faculty placeholder:", error?.stack || error); }
   res.status(201).json(newSec);
 });
 
@@ -9689,6 +9692,7 @@ app.post("/api/intelligence/pdf-import/bootstrap-section", requirePermission(7),
     }
   }
 
+  if(created){try{await ensureSectionFaculty(Repository,collegeId,Number(section.AdSectionId));}catch(error:any){console.error("[pdf-bootstrap] faculty placeholder:",error?.stack||error);}}
   /* If the section is new/empty, copy only catalogue identities from the best
      proven same-name department already in the system. This is catalogue data,
      never OCR text: course name/credits/hours/max all come from the existing
