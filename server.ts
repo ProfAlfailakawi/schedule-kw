@@ -31,7 +31,7 @@ import { buildConflictTopology, buildDecisionMemoryInsight, buildFairnessEngine,
 import type { AdCourse, AdInstructor, AdSection, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleComment, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestSnapshot, InstructorRequestEventKind, StudentNeed, CurriculumPlan, CurriculumDegreeRule } from "./src/types";
 import { DAY_FLAGS, DAY_LABELS, parseNaturalQuery } from "./src/utils/naturalQuery";
 import { computeMeetingSlots, meetingParticipants } from "./src/utils/meetingSlots";
-import { directoryVisitingIds, liveVisitingIds, termVisitingIds } from "./src/utils/liveVisiting";
+import { directoryVisitingIds, liveVisitingIds, termVisitingIds, visitingByScope } from "./src/utils/liveVisiting";
 import { departmentFamily, departmentFamilyResolver } from "./src/utils/sectionLabel";
 import { readConversionState, runVisitingConversion } from "./src/db/visitingConversion";
 import { readVisitingTeaching } from "./src/server/visitingTeachingRead";
@@ -6700,6 +6700,36 @@ async function wholeCollegeSectionIds(req: AuthenticatedRequest, collegeId: numb
 /** Read-only counterpart for the inquiry centre. Report permissions must be
  * able to see the current visiting roster without granting the data-editing
  * permission used by the schedule transfer tool. */
+/**
+ * ── من هو منتدبٌ في أي قسم، دفعةً واحدة ─────────────────────────────────────
+ *
+ * الشارةُ «منتدب» تظهر بجانب اسم الأستاذ في كل شاشة، والمنتدبُ يُعرف بقسمه وفصله. كانت
+ * كل شاشةٍ تحمل قائمتَها الخاصة أو لا تحمل شيئاً، فاختفت الشارةُ من شاشاتٍ لا تعرف إلا
+ * الاسم. هذه النقطةُ تُعطي الجميعَ قائمةً واحدة: مفتاحُ «كلية:قسم» ← معرّفاتُ منتدبيه
+ * في الفصل، بالقاعدة نفسها التي يقرأ بها `readLiveVisitingRoster` (دليلُ العائلة مع روستر
+ * الفصل). وتقتصر على أقسام القارئ.
+ */
+async function visitingLookupFor(allowedSections: Array<{ AdCollegeId: number; AdSectionId: number }>, allSections: any[], termId: number): Promise<Record<string, number[]>> {
+  const [affiliations, instructors, explicitDirectories] = await Promise.all([
+    Repository.getDelegateAffiliations(), Repository.getInstructors(), Repository.getExplicitDirectoryScopes(),
+  ]);
+  const known = new Set(instructors.map(person => Number(person.AdInstructorId)));
+  return visitingByScope(
+    affiliations, termId, id => known.has(id),
+    allowedSections.map(section => ({ collegeId: Number(section.AdCollegeId), sectionId: Number(section.AdSectionId) })),
+    departmentFamilyResolver(allSections),
+    explicitDirectories,
+  );
+}
+
+app.get("/api/visiting-lookup", requireAnyPermission([3, 7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {
+  const termId = Number(req.query.termId || 0);
+  if (!termId) { res.json({ termId: 0, scopes: {} }); return; }
+  const allSections = await Repository.getSections();
+  /* أقسامُ القارئ وحدها (حارسُ النطاق)؛ والدالةُ لا تعرف غيرها. */
+  res.json({ termId, scopes: await visitingLookupFor(filterByScope(req, allSections as any[]), allSections as any[], termId) });
+});
+
 app.get("/api/reports/visiting-roster", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0);
   const sectionId = Number(req.query.sectionId || 0);
