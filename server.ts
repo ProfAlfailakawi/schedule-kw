@@ -17869,8 +17869,8 @@ async function demoPageHint(link: ScheduleShareLink, page: "staff" | "survey" | 
     const ownerId = Number(link.AdInstructorId || 0);
     const rows = ownerId ? [] : await Repository.getSchedulesByScope({ collegeId: link.AdCollegeId, sectionId: link.AdSectionId, termId: link.AdTermId });
     const ids = ownerId ? [ownerId] : [...new Set(rows.map(row => Number(row.AdInstructorId)))].sort((a, b) => a - b);
-    /* في بطاقة الأستاذ يُقترح رقمُ أستاذ التجربة نفسه (من له طلبٌ ينتظره)، فيجد بعد الدخول رابطَ طلبه. */
-    const demoOwner = page === "staff" ? Number((await demoTeacherRequest())?.AdInstructorId || 0) : 0;
+    /* في بطاقة القسم يُقترح رقمُ أستاذ التجربة نفسه (من له طلبٌ ينتظره)، فيجد بعد الدخول رابطَ طلبه؛ أمّا البطاقةُ الشخصية فرقمُ صاحبها وحده (غيره يُردّ). */
+    const demoOwner = page === "staff" && !ownerId ? Number((await demoTeacherRequest())?.AdInstructorId || 0) : 0;
     const instructors = await Repository.getInstructors();
     const person = (demoOwner ? instructors.find(row => Number(row.AdInstructorId) === demoOwner && normalizeCivilId(row.AdInstructorCivil)) : undefined)
       || instructors.find(row => ids.includes(Number(row.AdInstructorId)) && normalizeCivilId(row.AdInstructorCivil));
