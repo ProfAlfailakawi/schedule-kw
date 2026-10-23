@@ -531,7 +531,7 @@ function placeTabs(){var nav=document.querySelector("nav.tabs");if(!nav)return;
 function syncWide(){var box=document.getElementById("later");if(box&&S.view==="home")box.open=isWide();placeTabs()}
 var wideTimer=0;window.addEventListener("resize",function(){clearTimeout(wideTimer);wideTimer=setTimeout(syncWide,120)});
 function setTop(){var s=S.state;var keep=topEl.querySelector("nav.tabs");if(keep)dockEl.appendChild(keep);topEl.innerHTML='<span class="mark">SCHEDULE</span><span class="topr">'+(s&&s.demo?'<span class="term demo">تجربة · افتراضي</span><button type="button" class="devbtn" id="devsw" aria-label="'+(deviceMode()==="phone"?"اعرض بشكل الحاسوب":"اعرض بشكل الهاتف")+'" title="'+(deviceMode()==="phone"?"وضع الحاسوب":"وضع الهاتف")+'">'+ic(deviceMode()==="phone"?"monitor":"phone")+'</button>':"")+(s&&s.term?'<span class="term">'+ic("cal")+esc(s.term.name)+'</span>':"")+'<a class="jrn" href="/?journey=1&amp;back=/me" aria-label="افتح التعريف بنظام SCHEDULE">'+ic("spark")+'<span>عن النظام</span></a></span>';
-  var db=document.getElementById("devsw");if(db)db.addEventListener("click",function(){var next=deviceMode()==="phone"?"desktop":"phone";try{localStorage.setItem("masari-device",next)}catch(e){}if(/[?&]device=/.test(location.search))history.replaceState(null,"",location.pathname+location.hash);applyDevice();setTop();syncWide()});
+  var db=document.getElementById("devsw");if(db)db.addEventListener("click",function(){var next=deviceMode()==="phone"?"desktop":"phone";try{localStorage.setItem("masari-device",next)}catch(e){}if(/[?&]device=/.test(location.search))history.replaceState(null,"",location.pathname+location.search.replace(/^\?/,"").split("&").filter(function(x){return x&&x.indexOf("device=")!==0}).reduce(function(q,x){return q+(q?"&":"?")+x},"")+location.hash);applyDevice();setTop();syncWide()});
   placeTabs()}
 function setView(v){S.view=v;if(v!=="home"){var kb=document.getElementById("kbar");if(kb)kb.hidden=true;kmClose()}render()}
 var sheetOpener=null;
@@ -722,7 +722,7 @@ function viewHome(){
   dockEl.innerHTML='<nav class="tabs" role="tablist" aria-label="أقسام مساري"><button type="button" role="tab" data-tab="now" aria-selected="true">'+ic("home")+'<span>الآن</span><i class="dot" id="nowdot" hidden></i></button><button type="button" role="tab" data-tab="plan" aria-selected="false">'+ic("layers")+'<span>خطتي</span></button><button type="button" role="tab" data-tab="me" aria-selected="false">'+ic("user")+'<span>ملفي</span></button></nav>';
   dockEl.querySelectorAll("[data-tab]").forEach(function(b){b.addEventListener("click",function(){showTab(b.getAttribute("data-tab"))})});
   placeTabs();
-  document.getElementById("edp").addEventListener("click",function(){var d=startDraft();d.step=3;viewSetup()});
+  document.getElementById("edp").addEventListener("click",function(){var d=startDraft();d.step=3;setView("setup")});
   document.getElementById("out").addEventListener("click",function(){api("POST","/api/public/me/exit",{}).then(function(){S.state.signedIn=false;S.state.profile=null;S.civil="";S.remember=false;S.draft=null;S.offered=null;setView("gate")})});
   document.getElementById("chg").addEventListener("click",sheetCode);
   var nmb=document.getElementById("nmb");if(nmb)nmb.addEventListener("click",sheetName);

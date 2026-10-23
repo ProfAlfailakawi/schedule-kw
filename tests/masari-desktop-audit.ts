@@ -97,6 +97,9 @@ check(/box\.hidden=n===0;if\(isWide\(\)\)box\.open=true/.test(STUDENT_HOME_SCRIP
 check(STUDENT_HOME_SCRIPT.includes('id="i-monitor"') === false && studentHomePage("n").includes('id="i-monitor"') && studentHomePage("n").includes('id="i-phone"'), "أيقونتا الحاسوب والهاتف في السبرايت");
 check(!/onclick\s*=/.test(STUDENT_HOME_SCRIPT), "لا معالجَ سطرياً (تمنعه CSP)");
 
+check(/document\.getElementById\("edp"\)\.addEventListener\("click",function\(\)\{var d=startDraft\(\);d\.step=3;setView\("setup"\)\}\)/.test(STUDENT_HOME_SCRIPT), "«عدّل المواد المنجزة» يمرّ عبر setView فتُزال تبويبات الحاسوب ويتبدّل data-view");
+check(/\.filter\(function\(x\)\{return x&&x\.indexOf\("device="\)!==0\}\)/.test(STUDENT_HOME_SCRIPT) && !/history\.replaceState\(null,"",location\.pathname\+location\.hash\);applyDevice/.test(STUDENT_HOME_SCRIPT), "تبديل الجهاز يحذف باراميتر device وحده ويُبقي track وغيره");
+
 /* ── ٤. الوثيقة ── */
 const doc = fs.readFileSync(path.join(process.cwd(), "docs/STUDENT_DOOR.md"), "utf8");
 check(doc.includes("## الحاسوب") && doc.includes("masari-device") && doc.includes("## تفعيل مواعيد الطلبة"), "الوثيقة تشرح الحاسوب وأيقونة الديمو وتفعيل المواعيد");
