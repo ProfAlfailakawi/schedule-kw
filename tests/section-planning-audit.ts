@@ -17,7 +17,11 @@ const firsts = [
   { termName: "الفصل الصيفي 2025/2026", sections: 1, similar: false },
 ];
 const base = historicalBaseline(firsts)!;
-check(base.sections === 3 && base.label.includes("آخر 3 فصول أولى") && base.remaining === null, `الأساس الموزون: 3 شعب (${base.label})`);
+check(base.sections === 3 && base.label.includes("متوسط 3 فصول أولى") && base.remaining === null, `الأساس: المتوسط العادي للفصول المماثلة وحدها: 3 شعب (${base.label})`);
+/* كاملُ التاريخ لا آخر ثلاثةٍ فقط، وبمتوسطٍ عادي: 2،2،2،8،8 ← 4.4 ← 4. */
+const longRun = [2, 2, 2, 8, 8].map((sections, i) => ({ termName: `الفصل الأول ${2025 - i}/${2026 - i}`, sections, similar: true }));
+const longBase = historicalBaseline(longRun)!;
+check(longBase.sections === 4 && longBase.label.includes("متوسط 5 فصول أولى"), `كاملُ التاريخ بمتوسطٍ عادي (${longBase.sections} · ${longBase.label})`);
 
 /* المتبقي وعاءُ من يحتاج المقرر لا عددُ من سيسجّله: لا يُقسم على السعة. */
 let s = suggestSectionCount(15000, 50, firsts);

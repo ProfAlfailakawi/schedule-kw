@@ -15328,9 +15328,8 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
   const similar: Array<{ AdTermId: number; AdTermName: string; similar: boolean; rows: FSchedule[] }> = [];
   let sameCount = 0, otherCount = 0;
   for (const row of sortTermsNewestServer(terms).filter(row => termChronologyServer(row) < targetRank)) {
-    if (sameCount >= 3 && otherCount >= 3) break;
     const same = Boolean(season) && termSeasonOf(row.AdTermName) === season;
-    if (same ? sameCount >= 3 : otherCount >= 3) continue;
+    if (!same && otherCount >= 3) continue;
     const rows = await Repository.getSchedulesByScope({ collegeId, sectionId, termId: Number(row.AdTermId) });
     if (!rows.length) continue;
     similar.push({ AdTermId: Number(row.AdTermId), AdTermName: String(row.AdTermName), similar: same, rows });
