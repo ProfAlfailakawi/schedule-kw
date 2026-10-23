@@ -6677,22 +6677,25 @@ async function wholeCollegeSectionIds(req: AuthenticatedRequest, collegeId: numb
  * في الفصل، بالقاعدة نفسها التي يقرأ بها `readLiveVisitingRoster` (دليلُ العائلة مع روستر
  * الفصل). وتقتصر على أقسام القارئ.
  */
-async function visitingLookupFor(req: AuthenticatedRequest, termId: number): Promise<Record<string, number[]>> {
-  const [affiliations, instructors, sections] = await Promise.all([
-    Repository.getDelegateAffiliations(), Repository.getInstructors(), Repository.getSections(),
+async function visitingLookupFor(allowedSections: Array<{ AdCollegeId: number; AdSectionId: number }>, allSections: any[], termId: number): Promise<Record<string, number[]>> {
+  const [affiliations, instructors, explicitDirectories] = await Promise.all([
+    Repository.getDelegateAffiliations(), Repository.getInstructors(), Repository.getExplicitDirectoryScopes(),
   ]);
   const known = new Set(instructors.map(person => Number(person.AdInstructorId)));
   return visitingByScope(
     affiliations, termId, id => known.has(id),
-    filterByScope(req, sections as any[]).map(section => ({ collegeId: Number(section.AdCollegeId), sectionId: Number(section.AdSectionId) })),
-    departmentFamilyResolver(sections as any[]),
+    allowedSections.map(section => ({ collegeId: Number(section.AdCollegeId), sectionId: Number(section.AdSectionId) })),
+    departmentFamilyResolver(allSections),
+    explicitDirectories,
   );
 }
 
 app.get("/api/visiting-lookup", requireAnyPermission([3, 7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {
   const termId = Number(req.query.termId || 0);
   if (!termId) { res.json({ termId: 0, scopes: {} }); return; }
-  res.json({ termId, scopes: await visitingLookupFor(req, termId) });
+  const allSections = await Repository.getSections();
+  /* أقسامُ القارئ وحدها (حارسُ النطاق)؛ والدالةُ لا تعرف غيرها. */
+  res.json({ termId, scopes: await visitingLookupFor(filterByScope(req, allSections as any[]), allSections as any[], termId) });
 });
 
 app.get("/api/reports/visiting-roster", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {

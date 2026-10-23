@@ -6620,6 +6620,32 @@ export const Repository = {
      اسمٌ معلّق. الانتساب مسجَّل فعلاً في دليل كل قسم وفي روستر كل فصل، لكنه
      لم يكن يُقرأ إلا قسماً قسماً. تُقرأ القائمتان مرة واحدة هنا فيُعرف لكل
      شخص من ضمّه ومن أين. */
+  /**
+   * الأقسام التي لها دليلُ منتدبين محفوظ — ولو فارغاً عمداً (حين يُزال آخرُ منتدب). `getDelegateAffiliations`
+   * يُسقط الصفوف الفارغة، فلا يُفرَّق بها بين «دليلٌ فارغ» و«لا دليل»، والفرقُ هو ما يحكم زرعَ الدليل القديم.
+   */
+  getExplicitDirectoryScopes: async (): Promise<Array<{ collegeId: number; sectionId: number }>> => {
+    const scopes: Array<{ collegeId: number; sectionId: number }> = [];
+    const push = (collegeId: unknown, sectionId: unknown) => {
+      const college = Number(collegeId || 0), section = Number(sectionId || 0);
+      if (college && section) scopes.push({ collegeId: college, sectionId: section });
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const directories = await firestoreDb.collection("departmentDelegates").get();
+      directories.docs.forEach(doc => {
+        const row = doc.data() as DepartmentDelegateDirectory;
+        const [college, section] = String((row as any).scopeKey || doc.id).split(/[:_]/);
+        push((row as any).collegeId ?? college, (row as any).sectionId ?? section);
+      });
+      return scopes;
+    }
+    (db.departmentDelegates || []).forEach(row => {
+      const [college, section] = String(row.scopeKey || "").split(":");
+      push((row as any).collegeId ?? college, (row as any).sectionId ?? section);
+    });
+    return scopes;
+  },
+
   getDelegateAffiliations: async (): Promise<Array<{ collegeId: number; sectionId: number; instructorIds: number[]; kind: "directory" | "roster"; termId?: number }>> => {
     const rows: Array<{ collegeId: number; sectionId: number; instructorIds: number[]; kind: "directory" | "roster"; termId?: number }> = [];
     const push = (collegeId: unknown, sectionId: unknown, ids: unknown, kind: "directory" | "roster", termId?: unknown) => {

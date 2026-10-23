@@ -57,7 +57,10 @@ export function visitingByScope(
   affiliations: Affiliation[], termId: number, known: (id: number) => boolean,
   sections: ReadonlyArray<{ collegeId: number; sectionId: number }>,
   familyOf: (collegeId: number, sectionId: number) => string = (c, s) => `${c}:${s}`,
+  /** أقسامٌ لها دليلٌ محفوظ ولو فارغاً: لا يُزرع دليلُها من التاريخ. */
+  explicitDirectories: ReadonlyArray<{ collegeId: number; sectionId: number }> = [],
 ): Record<string, number[]> {
+  const explicitFamilies = new Set(explicitDirectories.map(scope => familyOf(scope.collegeId, scope.sectionId)));
   const rosters = new Map<string, number[]>();
   const directories = new Map<string, number[]>();
   const everRostered = new Map<string, number[]>();
@@ -70,7 +73,7 @@ export function visitingByScope(
     }
   }
   /* قسمٌ لم يحفظ دليلاً قطّ: دليلُه كلُّ من مرّ في روستر فصوله (كما يزرعه المستودعُ عند أول قراءة). */
-  for (const [family, ids] of everRostered) if (!directories.has(family)) directories.set(family, ids);
+  for (const [family, ids] of everRostered) if (!directories.has(family) && !explicitFamilies.has(family)) directories.set(family, ids);
   const byFamily = new Map<string, number[]>();
   const out: Record<string, number[]> = {};
   for (const section of sections) {

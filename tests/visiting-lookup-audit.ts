@@ -38,6 +38,7 @@ check(lookup["2:2"]?.slice().sort().join() === "10,11", "والقسمُ عائل
 const legacy: any[] = [{ collegeId: 1, sectionId: 3, instructorIds: [12], kind: "roster", termId: 5 }, { collegeId: 1, sectionId: 3, instructorIds: [13], kind: "roster", termId: 4 }];
 check(visitingByScope(legacy, 5, known, scopes, familyOf)["1:3"]?.join() === "12", "قسمٌ بلا دليلٍ محفوظ: دليلُه كلُّ من مرّ في روستره فيظهر منتدبُ الفصل (والفصلُ الآخر لا يدخل)");
 check(JSON.stringify(lookup["1:3"]) === "[12]" && !lookup["1:3"].includes(999), "والمعرّفُ المجهول لا يُحسب منتدباً");
+check(!visitingByScope(legacy, 5, known, scopes, familyOf, [{ collegeId: 1, sectionId: 3 }])["1:3"], "ودليلٌ محفوظٌ فارغٌ عمداً (أُزيل آخرُ منتدب) لا يُزرع من التاريخ فلا يظهر المحوَّلون منتدبين");
 check(!visitingByScope(affiliations, 7, known, scopes, familyOf)["1:1"], "فصلٌ بلا روستر: لا منتدبين (الدليلُ وحده لا يكفي)");
 check(visitingByScope(affiliations, 6, known, scopes, familyOf)["1:1"]?.join() === "11", "وروستر فصلٍ آخر لا يختلط: الفصل 6 فيه 11 وحده");
 
@@ -63,7 +64,10 @@ check(withVisitingSuffix("أ. سالم", true) === `أ. سالم${VISITING_SUFFI
 
   const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
   check(/app\.get\("\/api\/visiting-lookup", requireAnyPermission\(\[3, 7, 8, 9, 10, 14, 16, 17\]\)/.test(server), "والنقطة /api/visiting-lookup موجودة بصلاحيات القراءة نفسها");
-  check(/filterByScope\(req, sections as any\[\]\)\.map\(section => \(\{ collegeId/.test(server), "وتقتصر على أقسام القارئ");
+  const route = server.slice(server.indexOf('app.get("/api/visiting-lookup"'), server.indexOf('app.get("/api/reports/visiting-roster"'));
+  check(/filterByScope\(req, allSections as any\[\]\)/.test(route), "وتقتصر على أقسام القارئ (الحارسُ ظاهرٌ في المعالج نفسه)");
+  const hook = fs.readFileSync(path.join(process.cwd(), "src/hooks/useVisitingLookup.ts"), "utf8");
+  check(/lookup\.termId === \(Number\(termId\) \|\| 0\)/.test(hook), "وقراءةُ فصلٍ سابق لا يُجاب بها عن فصلٍ جديد ريثما تصل");
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) process.exit(1);

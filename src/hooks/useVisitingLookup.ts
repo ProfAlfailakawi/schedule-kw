@@ -14,8 +14,10 @@ export function useVisitingLookup(termId: number | null | undefined) {
     void loadVisitingLookup(term).then(next => { if (alive) setLookup(next); });
     return () => { alive = false; };
   }, [termId]);
+  /* ما قُرئ لفصلٍ سابق لا يُجاب به عن فصلٍ جديد ريثما تصل قراءتُه. */
+  const current = lookup.termId === (Number(termId) || 0) ? lookup : EMPTY_VISITING_LOOKUP;
   return {
-    lookup,
-    isVisiting: (instructorId: unknown, collegeId: unknown, sectionId: unknown) => isVisitingIn(lookup, instructorId, collegeId, sectionId),
+    lookup: current,
+    isVisiting: (instructorId: unknown, collegeId: unknown, sectionId: unknown) => isVisitingIn(current, instructorId, collegeId, sectionId),
   };
 }
