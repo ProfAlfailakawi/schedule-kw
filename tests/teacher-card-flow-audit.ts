@@ -175,6 +175,34 @@ async function main() {
   const forged = await fetch(BASE + feedPath.replace(/\/[0-9a-f]{32}\?/, "/" + "0".repeat(32) + "?"));
   check(forged.status === 404, "مفتاحٌ مزوَّر لا يفتح شيئاً", forged.status);
 
+  /* ═══ المرحلة ٥: ذاكرةُ الفصول ═══════════════════════════════════════════ */
+  const terms = (await A("GET", "/api/terms")).json as any[];
+  const later = terms.find(t => Number(t.AdTermId) === 2);
+  if (!later) {
+    check(true, "لا فصلَ لاحقٌ في هذه البيئة فلا يُفحص مسار ذاكرة الفصول");
+  } else {
+    const closes = new Date(Date.now() + 45 * 864e5).toISOString().slice(0, 10);
+    const issued = await A("POST", "/api/instructor-requests/issue", { collegeId: 1, sectionId: 1, termId: 2, closesAt: closes, source: "previous-term", previousTermId: 1 });
+    check(issued.status === 200 && (issued.json.issued || []).length > 0, "يُصدَر للفصل اللاحق رابطٌ لكل أستاذ", issued.json);
+    const rows2 = (await A("GET", `/api/instructor-requests?collegeId=1&sectionId=1&termId=2`)).json.rows as any[];
+    const firstTerm = terms.find(t => Number(t.AdTermId) === 1);
+    const hadChange = rows.find(r => r.submittedAt && (r.items || []).some((i: any) => i.action === "change") && rows2.some(x => x.AdInstructorId === r.AdInstructorId));
+    check(!!hadChange, "يوجد أستاذٌ طلب تعديلاً في الفصل الأول وله رابطٌ في اللاحق");
+    const link2 = rows2.find(x => x.AdInstructorId === hadChange.AdInstructorId);
+    const mem = await http("GET", `/api/public/request/${encodeURIComponent(link2.linkId)}/previous`);
+    check(mem.status === 200 && mem.json.previous?.termName === firstTerm.AdTermName, "الكرتُ اللاحق يعيد ما طلبه في الفصل السابق", mem.json);
+    const first = mem.json.previous?.items?.[0] || {};
+    check(["fixed", "rejected", "pending"].includes(first.state) && first.action !== "keep" && !!first.courseId, "بحالة كل بندٍ كما قُرّر فيه");
+    check(!/room|roomCandidates|roomOptions|قاعة/.test(JSON.stringify(mem.json)), "ولا قاعةَ ولا مرشّحاً فيما يخرج");
+    const none = rows2.find(x => !rows.some(r => r.AdInstructorId === x.AdInstructorId && r.submittedAt));
+    if (none) {
+      const empty = await http("GET", `/api/public/request/${encodeURIComponent(none.linkId)}/previous`);
+      check(empty.status === 200 && empty.json.previous === null, "ومن لم يطلب شيئاً فيما مضى لا يرى بطاقة");
+    }
+    const noLink = await http("GET", "/api/public/request/demo.nope-nope/previous");
+    check(noLink.status >= 400 && noLink.status < 500, "رابطٌ غير صالح لا يعيد شيئاً");
+  }
+
   /* ورمزٌ بتوقيعٍ قديمٍ بلا بنود: يُقال ذلك ولا يُخترع. */
   console.log(`\nTeacher card flow audit: ${passed} passed, ${failed} failed`);
   child?.kill();

@@ -40,6 +40,7 @@ import { registerStudyProposalRoutes, seedDemoStudyProposals } from "./src/serve
 import { effectiveStatus as studyProposalStatus, decisionStateOf as studyProposalDecision } from "./src/utils/studyProposal";
 import { studyProposalPage } from "./src/server/studyProposalPage";
 import { signatureVerifyPage } from "./src/server/signatureVerifyPage";
+import { REQUEST_REPLAY_SCRIPT } from "./src/server/requestReplayScript";
 import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from "./src/server/studyProposalAlert";
 import { REQUEST_V3_CSS } from "./src/server/requestPageStyles";
 import { PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "./src/server/publicKit";
@@ -20379,7 +20380,13 @@ label.time input:focus,select:focus,textarea:focus,label.sign input:focus{outlin
 .alts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .alts button{padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;cursor:pointer}
 .fresh-note{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:10px 13px;border:1px solid #eed994;border-radius:13px;background:var(--warn2);color:#735100;font-size:13px;font-weight:600}.fresh-note .ic,.fresh-note svg{flex:none}
-.verdict .shapes-box,.verdict .alts{flex:1 1 100%}.cal-line{margin:10px 2px 14px;text-align:center}.cal-line p{margin:6px 6px 0;font-size:12px;color:var(--muted);line-height:1.7}
+.verdict .shapes-box,.verdict .alts{flex:1 1 100%}.memory{padding:0}.memory>summary{display:flex;align-items:center;gap:9px;padding:14px 15px;cursor:pointer;font-weight:700;font-size:14px;list-style:none;min-height:48px}.memory>summary::-webkit-details-marker{display:none}.memory>summary .sk-gi{inline-size:18px;block-size:18px;flex:none;color:var(--accent)}
+.mem-list{list-style:none;margin:0;padding:0 15px;display:grid;gap:8px}.mem-list li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}.mem-list b{display:block;font-size:14px}.mem-list small{display:block;color:var(--muted);font-size:12.5px}
+.mem-s{flex:none;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;background:var(--soft);color:var(--muted)}.mem-s[data-s=fixed]{background:var(--ok2);color:var(--ok)}.mem-s[data-s=rejected]{background:var(--bad2);color:var(--bad)}
+.memory .btn-ghost{display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 30px);margin:12px 15px 0;min-height:46px;border:1px solid var(--accent);border-radius:12px;background:var(--soft);color:var(--accent);font-weight:700;cursor:pointer}.memory .btn-ghost .sk-gi{inline-size:18px;block-size:18px}
+.mem-note{margin:8px 15px 14px;font-size:12px;color:var(--muted);line-height:1.7}
+.replay-note{margin:0 0 12px;padding:12px 14px;border:1px solid var(--accent);border-radius:14px;background:var(--soft);font-size:13.5px;line-height:1.7}.replay-note p{margin:6px 0 2px;font-weight:700}.replay-note ul{margin:0;padding-inline-start:18px;color:var(--muted)}.replay-note li b{color:var(--ink)}
+.cal-line{margin:10px 2px 14px;text-align:center}.cal-line p{margin:6px 6px 0;font-size:12px;color:var(--muted);line-height:1.7}
 .cal-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:9px 16px;border:1px solid var(--accent);border-radius:13px;background:var(--soft);color:var(--accent);font-weight:700;font-size:14px;text-decoration:none}.cal-btn .sk-gi{inline-size:18px;block-size:18px;flex:none}
 .cal-line.compact{margin:0 0 12px;text-align:start}.cal-line.compact p{margin:4px 2px 0}
 .verify-line{margin:14px 2px 0;font-size:13px;color:var(--muted);text-align:center}.verify-line a{color:var(--accent);font-weight:700}
@@ -20785,6 +20792,37 @@ function activityHtml(r){
  loadMovement();
  return '<div class="section-head"><b>طلبك</b><small>ما طلبتَه، وقرار القسم في كل بند</small></div>'+(rows||timeline?'<ul class="activity-list">'+rows+timeline+'</ul>':'<div class="activity-empty">لم تطلب شيئاً بعد. أي إضافة أو تعديل أو حذف يظهر هنا فوراً.</div>')+verifyHtml(r.signature&&r.signature.verifyCode)+officialHtml()
 }
+${REQUEST_REPLAY_SCRIPT}
+/* ── ذاكرةُ الفصول ───────────────────────────────────────────────────────────
+   ما طلبه الأستاذ في الفصل الماضي وكيف قُرّر فيه. «أعد الطلب نفسه» يملأ مسودتَه
+   في هذه الصفحة وحدها: لا يُرسل شيئاً حتى يوقّع، والفحصُ المباشر يحكم على كل بندٍ
+   كأنه كتبه الآن. وما لا يصلح يُقال له لماذا بدل أن يُسقَط بصمت. */
+var prev=null,prevAsked=false,replayNote="";
+function loadPrevious(){if(prevAsked)return;prevAsked=true;
+ fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/previous",{cache:"no-store"}).then(function(r){return r.json()}).then(function(d){
+  if(d&&d.previous&&d.previous.items&&d.previous.items.length){prev=d.previous;paint()}}).catch(function(){})}
+var PSTATE={fixed:"ثُبّت",rejected:"رُفض",pending:"لم يُقرَّر"};
+function memoryHtml(){if(!prev||!data||!data.windowOpen||data.request.submittedAt)return "";
+ var n=prev.items.length,fx=prev.items.filter(function(p){return p.state==="fixed"}).length,rj=prev.items.filter(function(p){return p.state==="rejected"}).length;
+ var tail=(fx?" · ثُبّت "+fx:"")+(rj?" · رُفض "+rj:"");
+ var lines=prev.items.map(function(p){return '<li><span class="mem-s" data-s="'+esc(p.state)+'">'+esc(PSTATE[p.state]||"")+'</span><div><b>'+esc(actionName(p.action))+" · "+esc(p.courseName)+'</b><small>'+(p.action==="delete"?"حذف المقرر من الجدول":'<bdi dir="ltr" class="num">'+esc(p.asked)+'</bdi>')+'</small></div></li>'}).join("");
+ return '<details class="card memory"><summary>'+gi("clock")+'<span>في '+esc(prev.termName)+' كان لك '+esc(countOf(n,AR.request))+esc(tail)+'</span></summary>'+
+  '<ul class="mem-list">'+lines+'</ul>'+
+  '<button type="button" class="btn-ghost" id="replay">'+gi("send")+'أعد الطلب نفسه</button>'+
+  '<p class="mem-note">يملأ مسودتك فقط ولا يُرسل شيئاً حتى توقّع. وما رُفض في ذلك الفصل لا يُعاد.</p></details>'}
+function replayHtml(){return replayNote?'<div class="replay-note" role="status">'+replayNote+'</div>':""}
+function replayPrevious(){if(!prev||!data||!data.windowOpen)return;
+ var plan=planReplay(prev,state,data.courses,DAYS.map(function(d){return d[0]}),function(cur,days,start){
+  var o=originalOf(cur);return o.days.length&&o.start&&o.days.slice().sort().join()===days.slice().sort().join()&&o.start===start});
+ plan.ops.forEach(function(op){
+  if(op.kind==="add"){var c=op.course;state.push({rowId:null,action:"add",courseId:op.courseId,collegeId:op.collegeId,sectionId:op.sectionId,collegeName:c.collegeName||"",before:{courseName:c.name,sectionCode:""},after:{courseId:op.courseId,courseName:c.name,collegeId:op.collegeId,collegeName:c.collegeName,sectionId:op.sectionId},decision:null,slots:[],days:op.days,start:op.start,excuse:"",tone:"",note:"",alts:[]});return}
+  var it=state[op.index];it.tone="";it.note="";
+  if(op.kind==="delete"){it.action="delete";it.days=[];it.start="";return}
+  it.action="change";it.days=op.days;it.start=op.start});
+ var skipped=plan.skipped.map(function(x){return '<li><b>'+esc(x.name)+'</b> — '+esc(x.why)+'</li>'});
+ replayNote=(plan.ops.length?'<b>ملأنا مسودتك: '+esc(countOf(plan.ops.length,AR.request))+'.</b> راجعها، والفحص المباشر يقول ما لا يصلح، ثم وقّع وأرسل.':'<b>لم نجد ما يُعاد.</b>')+
+  (skipped.length?'<p>لم يُعَد:</p><ul>'+skipped.join("")+'</ul>':'');
+ activeTab="schedule";paint();recheckAll()}
 /* ── «أضف جدولك إلى تقويم هاتفك» ───────────────────────────────────────────
    الاشتراكُ واحدٌ بُني لبطاقة الأستاذ: يعرض ما ثبّته القسم في جدوله الرسمي لا غير،
    ويتحدّث من نفسه عند كل تثبيتٍ جديد. فلا يُكتب هنا ما لم يثبّته أحد. */
@@ -20821,7 +20859,7 @@ function paint(){
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div></div></div>'+
   (anyFixed()?calendarHtml(true):'')+pathHtml()+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
- h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(deckHtml()||calmHtml())+planTable();
+ h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(deckHtml()||calmHtml())+replayHtml()+planTable()+memoryHtml();
  if(open&&data.courses&&data.courses.length){
   var collegeMap={};data.courses.forEach(function(c){if(c.collegeId&&!collegeMap[c.collegeId])collegeMap[c.collegeId]=c.collegeName||("كلية "+c.collegeId)});
   var collegeOptions=Object.keys(collegeMap).map(function(id){return{id:Number(id),name:collegeMap[id]}});
@@ -20905,6 +20943,7 @@ function wire(){
     يُحفظ يُمحى تحت يده ويُردّ إرسالُه بلا سبب. */
  var drop=document.getElementById("dropDraft");if(drop)drop.onclick=function(){clearDraft();dirty=false;location.reload()};
  var send=document.getElementById("send");if(send)send.onclick=submit;
+ var replay=document.getElementById("replay");if(replay)replay.onclick=replayPrevious;
  host.querySelectorAll("[data-accept]").forEach(function(el){el.onclick=function(){askAccept(+el.dataset.i,+el.dataset.accept)}});
  host.querySelectorAll("[data-accept-all]").forEach(function(el){el.onclick=askAcceptAll});
  host.querySelectorAll("[data-counter]").forEach(function(el){el.onclick=function(){openCounter(+el.dataset.counter)}});
@@ -21040,6 +21079,7 @@ fetch("/api/public/request/"+encodeURIComponent(TOKEN)).then(function(r){
   state=state.concat(adds);restoredDraft=true;dirty=true}
  paint();
  loadProposalBanner();
+ loadPrevious();
  openLive();
  if(restoredDraft)recheckAll();
  }).catch(function(){host.innerHTML='<div class="err">تعذّر الاتصال. تحقّق من الإنترنت.</div>'});
@@ -21124,6 +21164,63 @@ app.post("/api/public/request/:token/check", async (req: Request, res: Response)
     nearestTimes: (item.nearestTimes || []).map(slot => ({ day: slot.day, days: slot.days, start: slot.start, end: slot.end })),
     shapes: item.shapes || [],
   });
+});
+
+/**
+ * ── ذاكرةُ الفصول ───────────────────────────────────────────────────────────
+ *
+ * أستاذٌ يفتح كرتَ فصلٍ جديد وقد طلب في الفصل الماضي الشيءَ نفسه. هذا المسارُ يعيد
+ * له ما طلبه وكيف قُرّر فيه، ليُعيد الطلبَ بضغطةٍ إن شاء — مسودةً في صفحته لا
+ * إرسالاً. يُقرأ عند الطلب لا مع فتح الكرت: مسحُ فصلٍ كاملٍ ثمنٌ لا يُدفع كلَّ
+ * مرّة، ويُحفظ جوابُه دقائقَ في الذاكرة. ويمرّ بالتجريد نفسه الذي يمرّ به الطلبُ
+ * الحاليّ، فلا يخرج منه ما هو للقسم وحده.
+ */
+const previousTermMemo = new Map<string, { at: number; value: unknown }>();
+app.get("/api/public/request/:token/previous", async (req: Request, res: Response) => {
+  const resolved = await resolveRequestLink(String(req.params.token || ""));
+  if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
+  res.setHeader("Cache-Control", "no-store");
+  const request = resolved.request;
+  const memoKey = `${Repository.currentDemoSessionId()}|${request.id}`;
+  const cached = previousTermMemo.get(memoKey);
+  if (cached && Date.now() - cached.at < 5 * 60_000) { res.json(cached.value); return; }
+  const terms = (await Repository.getTerms() as any[])
+    .filter(row => Number(row.AdTermId) < Number(request.AdTermId))
+    .sort((a, b) => Number(b.AdTermId) - Number(a.AdTermId))
+    .slice(0, 3);
+  let found: { request: InstructorRequest; termName: string } | null = null;
+  for (const term of terms) {
+    const rows = (await Repository.getInstructorRequests(0, 0, Number(term.AdTermId)))
+      .filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId) && row.submittedAt)
+      .sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
+    if (rows[0]) { found = { request: rows[0], termName: String(term.AdTermName || "") }; break; }
+  }
+  const value = { previous: null as null | { termName: string; items: unknown[] } };
+  if (found) {
+    const stripped = stripForInstructor(found.request);
+    const items = (stripped.items || []).filter(item => item.action !== "keep").map(item => {
+      const snapshot = (item.action === "add" ? item.after : item.before) as any;
+      const state = item.decision?.state === "fixed" ? "fixed" : item.decision?.state === "rejected" ? "rejected" : "pending";
+      return {
+        action: item.action,
+        courseId: Number(snapshot?.courseId || item.after?.courseId || 0),
+        courseName: String(snapshot?.courseName || item.after?.courseName || ""),
+        collegeId: Number(snapshot?.collegeId || item.after?.collegeId || found!.request.AdCollegeId || 0),
+        collegeName: String(snapshot?.collegeName || ""),
+        sectionId: Number(snapshot?.sectionId || item.after?.sectionId || found!.request.AdSectionId || 0),
+        sectionCode: String(item.before?.sectionCode || ""),
+        was: [item.before?.days, item.before?.time].filter(Boolean).join(" · "),
+        asked: item.action === "delete" ? "حذف المقرر من الجدول" : [item.after?.days, item.after?.time].filter(Boolean).join(" · "),
+        days: (item.slots || []).map(slot => String(slot.day)),
+        start: String(item.slots?.[0]?.start || ""),
+        state,
+      };
+    });
+    if (items.length) value.previous = { termName: found.termName, items };
+  }
+  if (previousTermMemo.size > 500) previousTermMemo.clear();
+  previousTermMemo.set(memoKey, { at: Date.now(), value });
+  res.json(value);
 });
 
 /**

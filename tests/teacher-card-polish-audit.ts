@@ -8,6 +8,7 @@
 import fs from "fs";
 import vm from "vm";
 import { judgeRequest, type RequestedRow, type VerdictContext } from "../src/utils/instructorRequestVerdict";
+import { REQUEST_REPLAY_SCRIPT } from "../src/server/requestReplayScript";
 import { signatureVerifyPage } from "../src/server/signatureVerifyPage";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 
@@ -96,6 +97,48 @@ check(/calendarFeed: `\/api\/public\/ics\/\$\{encodeURIComponent\(resolved\.link
 check(/webcal:\/\/'\+esc\(location\.host\)\+esc\(data\.calendarFeed\)/.test(page) && /أضف جدولك إلى تقويم هاتفك/.test(page), "زرّ «أضف جدولك إلى تقويم هاتفك» برابط webcal");
 check(/anyFixed\(\)\?calendarHtml\(true\)/.test(page) && /calendarHtml\(false\)\+'<button type="button" class="btn-main" id="again">/.test(page), "في رأس الكرت بعد التثبيت وفي شاشة «وصل طلبك»");
 check(/يتحدّث تلقائياً عند أي تثبيتٍ جديد/.test(page), "ويشرح أنه يتحدّث من نفسه");
+
+/* ── المرحلة ٥: «أعد الطلب نفسه» (سلوكٌ بمحرّك V8 نفسه) ──────────────── */
+const replaySandbox: any = {};
+vm.runInNewContext(REQUEST_REPLAY_SCRIPT + "\nthis.planReplay=planReplay;", replaySandbox, { timeout: 1000 });
+const planReplay = replaySandbox.planReplay as (prev: any, state: any[], courses: any[], dayKeys: string[], same?: (cur: any, days: string[], start: string) => boolean) => { ops: any[]; skipped: Array<{ name: string; why: string }> };
+const DAYS5 = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"];
+const rowOf = (rowId: number, courseId: number, over: any = {}) => ({ rowId, action: "keep", before: { courseId, courseName: `م${courseId}`, sectionCode: "01" }, decision: null, days: [], start: "", ...over });
+const askP = (over: any) => ({ action: "change", courseId: 1, courseName: "م1", collegeId: 1, sectionId: 1, sectionCode: "01", days: ["fmonday", "fwednesday"], start: "09:30", state: "fixed", ...over });
+const run = (items: any[], state: any[], same?: any) => planReplay({ termName: "الفصل الماضي", items }, state, [{ id: 7, collegeId: 1, sectionId: 1, name: "م7", collegeName: "ك" }], DAYS5, same);
+
+const changed = run([askP({})], [rowOf(10, 1)]);
+check(changed.ops.length === 1 && changed.ops[0].kind === "change" && changed.ops[0].index === 0 && changed.ops[0].start === "09:30", "طلبُ تعديلٍ سابق يعود عمليةً على صفّه الحالي");
+check(run([askP({ state: "pending" })], [rowOf(10, 1)]).ops.length === 1, "ولو لم يُقرَّر فيه آنذاك");
+const rejected = run([askP({ state: "rejected" })], [rowOf(10, 1)]);
+check(rejected.ops.length === 0 && /رُفض/.test(rejected.skipped[0].why), "ما رُفض لا يُعاد، ويُقال لماذا");
+const gone = run([askP({})], [rowOf(10, 99)]);
+check(gone.ops.length === 0 && /ليس في جدولك/.test(gone.skipped[0].why), "مقرّرٌ ليس في جدوله هذا الفصل يُقال له ذلك");
+const removed = run([askP({ action: "delete", days: [], start: "" })], [rowOf(10, 1)]);
+check(removed.ops.length === 1 && removed.ops[0].kind === "delete", "الحذف السابق يعود حذفاً");
+const added = run([askP({ action: "add", courseId: 7, collegeId: 1, sectionId: 1 })], []);
+check(added.ops.length === 1 && added.ops[0].kind === "add" && added.ops[0].course.id === 7, "الإضافة السابقة تعود إضافةً من كتالوج هذا الفصل");
+const unlisted = run([askP({ action: "add", courseId: 8, collegeId: 1, sectionId: 1 })], []);
+check(unlisted.ops.length === 0 && /لم يعد متاحاً/.test(unlisted.skipped[0].why), "ومقرّرٌ خرج من الكتالوج يُقال إنه لم يعد متاحاً");
+const badDays = run([askP({ days: ["fsaturday"] })], [rowOf(10, 1)]);
+check(badDays.ops.length === 0 && /لم تعد صالحة/.test(badDays.skipped[0].why), "أيامٌ لم تعد صالحة تُقال ولا تُملأ");
+const badStart = run([askP({ start: "" })], [rowOf(10, 1)]);
+check(badStart.ops.length === 0, "ووقتٌ ناقص لا يُملأ");
+const edited = run([askP({})], [rowOf(10, 1, { action: "change" })]);
+check(edited.ops.length === 0 && /مسودتك/.test(edited.skipped[0].why), "ما عدّله الأستاذ في مسودته الآن لا يُمسّ");
+const decided = run([askP({})], [rowOf(10, 1, { decision: { state: "fixed" } })]);
+check(decided.ops.length === 0 && /قرّر القسم/.test(decided.skipped[0].why), "وما قرّر فيه القسم هذا الفصل لا يُمسّ");
+const twoSections = run([askP({ sectionCode: "02" })], [rowOf(10, 1), rowOf(11, 1, { before: { courseId: 1, courseName: "م1", sectionCode: "01" } })]);
+check(twoSections.ops.length === 0 && /أكثر من شعبة/.test(twoSections.skipped[0].why), "شعبتان ولا شعبةَ بالرقم نفسه: لا تخمين");
+const matchedSection = run([askP({ sectionCode: "02" })], [rowOf(10, 1), rowOf(11, 1, { before: { courseId: 1, courseName: "م1", sectionCode: "02" } })]);
+check(matchedSection.ops.length === 1 && matchedSection.ops[0].index === 1, "وشعبةٌ بالرقم نفسه تُختار");
+const same = run([askP({})], [rowOf(10, 1)], () => true);
+check(same.ops.length === 0 && /موعدك الحالي نفسه/.test(same.skipped[0].why), "ما صار موعدَه الحاليَّ لا يُعاد");
+const twice = run([askP({}), askP({ start: "11:00" })], [rowOf(10, 1)]);
+check(twice.ops.length === 1 && twice.skipped.length === 1, "صفٌّ واحدٌ لا يُستعمل مرّتين");
+check(/data-replay|id="replay"/.test(page) && /planReplay\(prev,state,data\.courses/.test(page), "الصفحة تطبّق عمليات القاعدة نفسها");
+check(/لا يُرسل شيئاً حتى توقّع/.test(page) && !/function replayPrevious\(\)\{[\s\S]{0,2500}fetch\(/.test(page), "ولا ترسل شيئاً: لا شبكة داخل الإعادة");
+check(/\/previous"/.test(server) && /previousTermMemo/.test(server), "ذاكرةُ الفصول تُقرأ عند الطلب وتُحفظ دقائق");
 
 /* السكربت المولَّد يُجمَّع كما هو. */
 const html = server.includes("function instructorRequestPage") ? "ok" : "";
