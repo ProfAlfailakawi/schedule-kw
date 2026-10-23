@@ -139,12 +139,17 @@ function Staffing({ staffing, visitors }: { staffing: CourseStaffing; visitors: 
     { Icon: UserPlus, n: staffing.withVisitors, tip: `${countOf(staffing.withVisitors, AR.section)} عند منتدبٍ حالي` },
     { Icon: History, n: staffing.returnable, tip: `${countOf(staffing.returnable, AR.instructor)} درّسوه سابقاً ولا يدرّسونه هذا الفصل`, tone: "soft" },
   ];
+  /* اللمس لا يعرف «title»: الضغط على أيقونةٍ يكتب معناها تحت الصف، والضغط عليها ثانيةً يطويه. */
+  const [picked, setPicked] = useState<string | null>(null);
+  const needTip = `نحتاج ${countOf(visitors, AR.visitor)}`;
+  const toggle = (tip: string) => setPicked(current => (current === tip ? null : tip));
   return (
     <div className="apb-staff" role="group" aria-label="من يدرّس المقرر">
       {chips.filter(chip => chip.always || chip.n > 0).map(({ Icon, n, tip, tone }) => (
-        <span key={tip} className="apb-staff-chip" data-tone={tone} title={tip} aria-label={tip}><Icon aria-hidden="true" /><b>{num(n)}</b></span>
+        <button key={tip} type="button" className="apb-staff-chip" data-tone={tone} data-picked={picked === tip || undefined} title={tip} aria-label={tip} aria-pressed={picked === tip} onClick={() => toggle(tip)}><Icon aria-hidden="true" /><b>{num(n)}</b></button>
       ))}
-      <span className="apb-staff-need" data-zero={visitors === 0 || undefined} title={`نحتاج ${countOf(visitors, AR.visitor)}`} aria-label={`نحتاج ${countOf(visitors, AR.visitor)}`}><UserPlus aria-hidden="true" /><b>{num(visitors)}</b></span>
+      <button type="button" className="apb-staff-need" data-zero={visitors === 0 || undefined} data-picked={picked === needTip || undefined} title={needTip} aria-label={needTip} aria-pressed={picked === needTip} onClick={() => toggle(needTip)}><UserPlus aria-hidden="true" /><b>{num(visitors)}</b></button>
+      {picked ? <p className="apb-staff-tip" role="status">{picked}</p> : null}
     </div>
   );
 }

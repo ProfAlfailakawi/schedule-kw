@@ -1579,6 +1579,10 @@ button.apb-gap-row{cursor:pointer}
 .apb-staff{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:8px;border-top:1px dashed var(--line);animation:apb-staff-in .18s ease-out}
 .apb-staff-chip,.apb-staff-need{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--r-full);background:var(--info-soft);color:var(--info);font-variant-numeric:tabular-nums;font-size:.86rem}
 .apb-staff-chip svg,.apb-staff-need svg{inline-size:15px;block-size:15px}
+button.apb-staff-chip,button.apb-staff-need{border:0;font-family:inherit;cursor:pointer;min-block-size:36px}
+.apb-staff-chip[data-picked]{outline:2px solid var(--info);outline-offset:1px}
+.apb-staff-need[data-picked]{outline:2px solid var(--info);outline-offset:2px}
+.apb-staff-tip{flex:1 0 100%;margin:0;padding:8px 12px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:.86rem;animation:apb-staff-in .15s ease-out}
 .apb-staff-chip[data-tone=warn]{background:var(--warning-soft,var(--info-soft));color:var(--warning,var(--info))}
 .apb-staff-chip[data-tone=soft]{background:transparent;border:1px solid var(--line);color:var(--muted)}
 .apb-staff-need{margin-inline-start:auto;background:var(--info);color:var(--surface);font-weight:800}
@@ -1597,7 +1601,7 @@ button.apb-gap-row{cursor:pointer}
 .apb-seat i{inline-size:8px;block-size:8px;border-radius:50%;border:1.5px solid currentColor;opacity:.55}
 .apb-seat i[data-on]{background:currentColor;opacity:1}
 @keyframes apb-staff-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.apb-staff{animation:none}.apb-gap-chev{transition:none}}
+@media (prefers-reduced-motion:reduce){.apb-staff,.apb-staff-tip{animation:none}.apb-gap-chev{transition:none}}
 @media (max-width:560px){.apb-gap-row{flex-wrap:wrap}.apb-gap-name{flex:1 1 60%}.apb-gap-why{order:3;inline-size:100%}}
 .gap-sheet{inline-size:min(560px,calc(100vw - 32px));max-block-size:calc(100vh - 48px);overflow:auto;display:grid;gap:14px;padding:20px;border-radius:24px;background:var(--surface);color:var(--ink);box-shadow:0 30px 80px rgba(0,0,0,.3)}
 .gap-sheet>header{display:flex;align-items:center;gap:12px}
