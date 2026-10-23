@@ -26,7 +26,7 @@ import { byArabic } from "../utils/sorting";
 import { AR, countOf } from "../utils/arabicCount";
 import {
   AFTER_GRADUATION_DAYS, CODE_LENGTH, CODE_MAX_FAILURES, REMEMBER_DAYS, afterCodeFailure, codeProblem, expectedGraduation,
-  lockState, planProgress, profileLifetime, resetLifetime, sanitizePassed, shouldTouch, unitsOf, RESET_COOLDOWN_DAYS, TYPICAL_TERM_UNITS,
+  lockState, planProgress, profileLifetime, resetLifetime, sanitizePassed, shouldTouch, unitsOf, RESET_COOLDOWN_DAYS, TYPICAL_TERM_UNITS, peerCourseCounts,
 } from "../utils/studentProfile";
 import { buildSimulationOfferings, ticketContext } from "./simulationData";
 import { auditSimOfferings } from "../utils/registrationSim";
@@ -107,7 +107,7 @@ const offeringMemo = scoped(createTtlMemo<Map<number, { sections: number }>>({ t
 /** شعبٌ فُتحت من اقتراحٍ حديثاً: [مقرر → رمز الشعبة]. دقيقتان تكفيان: الإشعارُ لا يُلحّ. */
 const openedMemo = scoped(createTtlMemo<Map<number, string>>({ ttlMs: 2 * 60_000 }));
 /** كم قسّمٌ أرسلوا رغباتهم: عددٌ واحد لكل (قسم، فصل)، لا قراءةَ كلّ الملفات لكل طالب. */
-const wishCountMemo = scoped(createTtlMemo<{ n: number; of: number }>({ ttlMs: 10 * 60_000 }));
+const wishCountMemo = scoped(createTtlMemo<{ n: number; of: number; byCourse: Record<number, number> }>({ ttlMs: 10 * 60_000 }));
 const OPENED_WINDOW_DAYS = 21;
 /** قواعدُ الصحيفة المعتمدة: تُقرأ في كل فتحةٍ لمساري، فتُحفظ دقائق. */
 const ruleSetMemo = scoped(createTtlMemo<Awaited<ReturnType<typeof Repository.getRuleSet>> | null>({ ttlMs: 5 * 60_000 }));
@@ -686,14 +686,18 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const { profile } = doorOf(res);
     noStore(res);
     const term = pickDoorTerm((await Repository.getTerms()) as any);
-    if (!term || profile.AdSectionId <= 0 || !profile.wishes || profile.wishes.termId !== Number(term.AdTermId)) { res.json({ ready: false }); return; }
+    if (!term || profile.AdSectionId <= 0) { res.json({ ready: false }); return; }
+    const mine = Boolean(profile.wishes && profile.wishes.termId === Number(term.AdTermId));
     const termId = Number(term.AdTermId), sectionId = profile.AdSectionId;
     const stat = await wishCountMemo.get(`${termId}:${sectionId}`, async () => {
       const list = (await Repository.getStudentProfilesByCollege(Number(profile.AdCollegeId))).filter(row => Number(row.AdSectionId) === sectionId && row.AdSectionId > 0);
-      return { of: list.length, n: list.filter(row => row.wishes && row.wishes.termId === termId).length };
+      const wishers = list.filter(row => row.wishes && row.wishes.termId === termId);
+      return { of: list.length, n: wishers.length, byCourse: peerCourseCounts(wishers.map(row => row.wishes!)) };
     });
-    const n = Math.max(1, stat.n);
-    res.json({ ready: true, n, of: Math.max(stat.of, n), show: stat.of >= 10 });
+    const n = Math.max(1, stat.n), show = stat.of >= 10;
+    /* عددُ كل مقررٍ يظهر في القسم الكبير وحده، وبعد حدٍّ أدنى؛ وما تحته لا يُرسل أصلاً. */
+    const byCourse = show ? stat.byCourse : {};
+    res.json({ ready: true, mine, n, of: Math.max(stat.of, n), show, byCourse });
   });
 
   /* ── حالاتي: متابعة آمنة لطلبات الاستبيان القديم من ملف مساري ─────────── */

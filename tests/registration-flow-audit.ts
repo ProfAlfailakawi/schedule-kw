@@ -143,25 +143,6 @@ try {
   check(offeredMid.courses.every((c: any) => c.id !== 101) && offeredMid.courses.find((c: any) => c.id === 102).needs.length === 0, "F0 ومن اجتاز المسبق لا يُقال له شيء");
 
 
-  /* H1: الرئيسية بطلبٍ واحد تعيد الأجزاء التسعة نفسها التي تعيدها مساراتُها الخاصة. */
-  {
-    const keys = ["notices", "cases", "graduate", "request-context", "ticket", "report", "advice", "offered", "map"];
-    const cookie = rookies[0].cookie;
-    check((await http("GET", "/api/public/me/home")).status === 401, "H1 الرئيسية بلا جلسة: ٤٠١");
-    const home = await http("GET", "/api/public/me/home", { cookie });
-    check(home.status === 200 && keys.every(k => home.json.parts?.[k]), "H1 الرئيسية تعيد الأجزاء التسعة", Object.keys(home.json.parts || {}));
-    for (const k of keys) {
-      const single = await http("GET", `/api/public/me/${k}`, { cookie });
-      const part = home.json.parts?.[k];
-      /* «منذ زيارتك» في الخريطة يحمل حالةً: القراءةُ الأولى تسجّل خطّ الأساس (null) والثانية تقارن به؛ فيُقارَن الباقي. */
-      const strip = (d: any) => (k === "map" && d ? { ...d, changes: undefined } : d);
-      const same = part && part.status === single.status && part.ok === (single.status < 400) && JSON.stringify(strip(part.d)) === JSON.stringify(strip(single.json));
-      check(!!same, `H1 جزء ${k} مطابق لمساره الخاص`);
-    }
-    const state = (await http("GET", "/api/public/me/state", { cookie })).json;
-    check(state.limits?.termUnits === 13.5 && state.limits.wishUnitsMin === 12 && state.limits.wishUnitsMax === 15, "H1 /state يرسل حدود الوحدات وثابت الفصل");
-  }
-
   /* F1 */
   check((await http("POST", "/api/simulation/run")).status === 401, "F1 بلا دخول: ٤٠١");
   check((await http("POST", "/api/simulation/run", { who: "chair11" })).status === 403, "F1 رئيسُ لجنةٍ لا يشغّل (يحسب لكل الطلبة)");
@@ -337,6 +318,28 @@ try {
   check(adminSummary.auto?.enabled === true && adminSummary.auto.everyHours === 24, "I2 الشاشةُ تقول إنه تلقائي وكم ساعة");
   const rs = fs.readFileSync(path.join(process.cwd(), "src/server/simulationRoutes.ts"), "utf8"), sv = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
   check(rs.includes("acquireRegistrationRunLease") && rs.includes("Repository.isDemoMode()") && sv.includes("scheduleRadarAutoRun(") && rs.includes("if (run?.stale && !frozen) kickRadarRefresh()"), "I2 بقفلٍ بين الخوادم، ولا يعمل في التجربة، ويُجدول عند الإقلاع");
+
+  /* H1: الرئيسية بطلبٍ واحد تعيد الأجزاء التسعة نفسها التي تعيدها مساراتُها الخاصة. */
+  {
+    const keys = ["notices", "cases", "graduate", "request-context", "ticket", "report", "advice", "offered", "map"];
+    const cookie = rookies[0].cookie;
+    check((await http("GET", "/api/public/me/home")).status === 401, "H1 الرئيسية بلا جلسة: ٤٠١");
+    const home = await http("GET", "/api/public/me/home", { cookie });
+    check(home.status === 200 && keys.every(k => home.json.parts?.[k]), "H1 الرئيسية تعيد الأجزاء التسعة", Object.keys(home.json.parts || {}));
+    for (const k of keys) {
+      const single = await http("GET", `/api/public/me/${k}`, { cookie });
+      const part = home.json.parts?.[k];
+      /* «منذ زيارتك» في الخريطة يحمل حالةً: القراءةُ الأولى تسجّل خطّ الأساس (null) والثانية تقارن به؛ فيُقارَن الباقي. */
+      const strip = (d: any) => (k === "map" && d ? { ...d, changes: undefined } : d);
+      const same = part && part.status === single.status && part.ok === (single.status < 400) && JSON.stringify(strip(part.d)) === JSON.stringify(strip(single.json));
+      check(!!same, `H1 جزء ${k} مطابق لمساره الخاص`);
+    }
+    const peers = (await http("GET", "/api/public/me/wishes-count", { cookie })).json;
+    check(peers.ready === true && peers.mine === true && peers.show === true && typeof peers.byCourse === "object" && Object.values(peers.byCourse).every((n: any) => n >= 5), "H1 «يريده N طالباً»: الرد فيه byCourse وكلُّ عددٍ ٥ فأكثر", peers);
+    const state = (await http("GET", "/api/public/me/state", { cookie })).json;
+    check(state.limits?.termUnits === 13.5 && state.limits.wishUnitsMin === 12 && state.limits.wishUnitsMax === 15, "H1 /state يرسل حدود الوحدات وثابت الفصل");
+  }
+
 } finally { server.close(); }
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -161,3 +161,12 @@ export function resetLifetime(profile: Pick<StudentProfile, "deleteAt">, now: Da
     ? { deleteAt: profile.deleteAt, deleteReason: "reset" }
     : { deleteAt: new Date(at).toISOString(), deleteReason: "reset" };
 }
+
+/** أقلُّ عددٍ يُعرض لمقرر («يريده ٨ طلاب»): تحته يُحجب فلا يُستدلّ على أحد. */
+export const PEER_COURSE_MIN = 5;
+/** كم زميلاً طلب كلَّ مقرر. المقررُ المكرَّر في رغبات طالبٍ واحد يُعدّ مرة، وما دون الحدّ الأدنى لا يظهر في الناتج. */
+export function peerCourseCounts(wishers: ReadonlyArray<{ courseIds?: readonly number[] }>, min: number = PEER_COURSE_MIN): Record<number, number> {
+  const counts: Record<number, number> = {};
+  for (const wish of wishers) for (const id of new Set((wish.courseIds || []).map(Number))) counts[id] = (counts[id] || 0) + 1;
+  return Object.fromEntries(Object.entries(counts).filter(([, n]) => n >= min).map(([id, n]) => [Number(id), n]));
+}
