@@ -1,4 +1,6 @@
 import PlanBadge from "../PlanBadge";
+import VisitingBadge from "../VisitingBadge";
+import { useVisitingLookup } from "../../hooks/useVisitingLookup";
 /**
  * ── معاينةُ الإرسال، ومراجعةُ التثبيت، وردودُ الأستاذ ───────────────────────
  *
@@ -62,6 +64,8 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 export function SendDialog({ ws, onClose, onSent }: { ws: Workspace; onClose: () => void; onSent: () => void }) {
   const { ctx, proposal, evaluation } = ws;
+  const { isVisiting: lookupVisiting } = useVisitingLookup(ctx?.term.id);
+  const visiting = Boolean(ctx) && lookupVisiting(ctx!.instructor.id, ctx!.scope.collegeId, ctx!.scope.sectionId);
   const [stage, setStage] = useState<"preview" | "sent">("preview");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -123,7 +127,7 @@ export function SendDialog({ ws, onClose, onSent }: { ws: Workspace; onClose: ()
         <div className="sp-sent">
           <span className="sp-sent-icon" aria-hidden="true"><Check /></span>
           <h2>أُرسل المقترح إلى الأستاذ</h2>
-          <p className="sp-sent-lead">أصبح المقترح (النسخة {num(sentView.proposal.sentVersion)}) ظاهراً في كرت {ctx.instructor.name} الشخصي. الإرسال لا يحجز شعبةً ولا قاعةً، ولا يغيّر جدوله الفعلي.</p>
+          <p className="sp-sent-lead">أصبح المقترح (النسخة {num(sentView.proposal.sentVersion)}) ظاهراً في كرت {ctx.instructor.name}{visiting ? <> <VisitingBadge compact /></> : null} الشخصي. الإرسال لا يحجز شعبةً ولا قاعةً، ولا يغيّر جدوله الفعلي.</p>
           <p className="sp-note-box"><AlertTriangle aria-hidden="true" />لم يُرسل النظام بريداً أو رسالةً إلى الأستاذ. انسخ الرابط أو الرسالة الجاهزة وأرسلها له بوسيلتك.</p>
           <label className="sp-copy-field"><span><Link2 aria-hidden="true" />رابط المقترح الشخصي</span>
             <input readOnly value={link} dir="ltr" onFocus={e => e.currentTarget.select()} /></label>
@@ -145,7 +149,7 @@ export function SendDialog({ ws, onClose, onSent }: { ws: Workspace; onClose: ()
       <div className="sp-send">
         <header>
           <p className="sp-eyebrow">معاينة وإرسال</p>
-          <h2>هذا ما سيراه {ctx.instructor.name}</h2>
+          <h2>هذا ما سيراه {ctx.instructor.name}{visiting ? <> <VisitingBadge compact /></> : null}</h2>
           <p className="sp-send-sum">{summaryLine(ws.ops.length, evaluation?.counts.blockers ?? null, evaluation?.counts.reviews ?? null, ws.evalCurrent)}</p>
         </header>
 

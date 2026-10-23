@@ -1,4 +1,6 @@
 import PlanBadge from "../PlanBadge";
+import VisitingBadge from "../VisitingBadge";
+import { useVisitingLookup } from "../../hooks/useVisitingLookup";
 /**
  * ── نموذج إعداد المادة ─────────────────────────────────────────────────────
  *
@@ -319,6 +321,8 @@ function CreateFields({ ws }: { ws: Workspace }) {
 
 export default function ProposalOpForm({ ws, onDone }: { ws: Workspace; onDone?: () => void }) {
   const { draft, ctx } = ws;
+  const { isVisiting: lookupVisiting } = useVisitingLookup(ctx?.term.id);
+  const visiting = Boolean(ctx) && lookupVisiting(ctx!.instructor.id, ctx!.scope.collegeId, ctx!.scope.sectionId);
   const editing = Boolean(draft.editingOpId);
   const set = ws.patchDraft;
 
@@ -396,7 +400,7 @@ export default function ProposalOpForm({ ws, onDone }: { ws: Workspace; onDone?:
     <form className="sp-form" onSubmit={e => { e.preventDefault(); if (ws.submitDraft()) onDone?.(); }} aria-labelledby="sp-form-title" noValidate>
       <div className="sp-form-head">
         <h2 id="sp-form-title">{editing ? "تعديل مادة في المقترح" : "إضافة مادة إلى المقترح"}</h2>
-        <p className="sp-fixed"><span><Users aria-hidden="true" />{ctx.instructor.name}</span><span>{ctx.term.name}</span></p>
+        <p className="sp-fixed"><span><Users aria-hidden="true" />{ctx.instructor.name}{visiting ? <VisitingBadge compact /> : null}</span><span>{ctx.term.name}</span></p>
       </div>
       <div className="sp-modes" role="radiogroup" aria-label="نوع الإضافة">
         {MODES.map(({ mode, title, hint, Icon }) => (
