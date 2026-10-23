@@ -602,6 +602,10 @@
 .pr-sheet-service li li{padding-inline-start:4px}
 .pr-sheet-service select{max-width:100%}
 .pr-sheet-service>div,.pr-sheet-duplicates>div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+/* قائمة القسم/القرار تتّسع لأطول خيار فيها فتخرج من إطارها على الهاتف: تُحصر في عرض حاويتها. */
+.pr-sheet-result select{max-inline-size:100%;min-inline-size:0;text-overflow:ellipsis}
+/* «المستوى 100» و«5 مقررات · 15 وحدة» كانا متلاصقين فيُقرأ العدد جزءاً من الرقم (1005): عنصران بينهما فراغ. */
+.pr-level-head>span:only-child{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;column-gap:8px;row-gap:2px;min-inline-size:0}
 .pr-sheet-result details{flex:1 1 100%}
 .pr-sheet-result ul{margin:6px 0 0;padding-inline-start:18px;display:grid;gap:3px;font-size:13px}
 .sm-auto{margin:0;color:var(--muted);font-size:.84rem;line-height:1.8}
