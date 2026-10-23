@@ -1,6 +1,6 @@
 import TermSelect from "./TermSelect";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeftRight, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X } from "lucide-react";
 import { PrimaryButton, SecondaryButton, useDialogDismiss, visualConfirm } from "./ui";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
@@ -108,6 +108,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
      section, then the SAME file is retried under that section. */
   const [importSectionId, setImportSectionId] = useState(0);
   const [pdfScopeFix, setPdfScopeFix] = useState<any>(null);
+  /* ملف PDF لفصلٍ لا يقبله الفصل المختار: يُعرض بطاقةً مصوّرة لا جملةً طويلة. */
+  const [termMismatch, setTermMismatch] = useState<{ source: string; accepted: string; target: string } | null>(null);
   /* The quick-edit course picker needs the department's catalogue; fetched once
      the first time a PDF preview opens, never on plain Excel imports. */
   const [deptCourses, setDeptCourses] = useState<any[]>([]);
@@ -840,7 +842,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     setSmartPicked(new Set());
   };
   const readPdf = async (file: File, targetSectionId = sectionId) => {
-    setError(null); setPdfScopeFix(null); setXlsxPreview(null); setXlsxDraft(""); setImportKind("authority-pdf"); setBusy(true); setReviewedImportPages([]);
+    setError(null); setPdfScopeFix(null); setTermMismatch(null); setXlsxPreview(null); setXlsxDraft(""); setImportKind("authority-pdf"); setBusy(true); setReviewedImportPages([]);
     setSmartProposal(null); setSmartPicked(new Set()); setSmartFile(file);
     setReadProgress({ pct: 4, message: "يجهّز الملف للقراءة", seen: [] });
     try {
@@ -896,12 +898,18 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
         setError(null);
         return true;
       };
-      if(failure){if(offerScopeFix(failure))return;throw new Error(String(failure?.error||failure||"تعذرت قراءة PDF"));}
+      const offerTermMismatch=(problem:any)=>{
+        if(problem?.code!=="PDF_TERM_MISMATCH"||!problem?.acceptedTerm)return false;
+        setTermMismatch({source:String(problem.sourceTerm||""),accepted:String(problem.acceptedTerm),target:String(problem.targetTerm||"")});
+        setError(null);
+        return true;
+      };
+      if(failure){if(offerScopeFix(failure)||offerTermMismatch(failure))return;throw new Error(String(failure?.error||failure||"تعذرت قراءة PDF"));}
       if(!data){const rest=buffer.trim();if(rest){try{const tail=JSON.parse(rest);data=tail.result||tail;}catch{/* no trailing json */}}}
       /* A refusal (an occupied term, a permission wall) arrives as one plain
          JSON object with no newline. Structured department mismatch stays on
          screen as an actionable recovery instead of a dead-end sentence. */
-      if(data&&(data as any).error&&!(data as any).rows){if(offerScopeFix(data))return;throw new Error((data as any).error);}
+      if(data&&(data as any).error&&!(data as any).rows){if(offerScopeFix(data)||offerTermMismatch(data))return;throw new Error((data as any).error);}
       if(!data)throw new Error(interruptedImportMessage(response.status));
       const scannedRows=assignAuthoritySections(Array.isArray(data.rows)?data.rows:[]);
       setImportSectionId(targetSectionId);
@@ -1062,7 +1070,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     /* A new file starts a new review. Anything the sharper reading proposed for
        the previous file would otherwise still be on screen, offering cells that
        belong to a table that is no longer here. */
-    setImportSectionId(0); setPdfScopeFix(null);
+    setImportSectionId(0); setPdfScopeFix(null); setTermMismatch(null);
     setSmartProposal(null); setSmartPicked(new Set()); setSmartFile(null); setPublishReceipt(null);
     if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") { await readPdf(file); return; }
     if (/\.xlsx?$/i.test(file.name)) { await readExcel(file); return; }
@@ -1238,6 +1246,16 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
             <strong>دوّر صفحات الجدول للوضع الأفقي ثم أعد الرفع</strong>
           </div>
         ) : <p className="transfer-error"><AlertTriangle />{error}</p> : null}
+        {tab==="import"&&termMismatch?
+          <div className="transfer-term-card" role="alert">
+            <header><Ban aria-hidden="true" /><strong>فصل غير مقبول</strong></header>
+            <div className="ttc-flow">
+              <div className="ttc-node is-bad"><FileX aria-hidden="true" /><small>ملفك</small><b>{termMismatch.source}</b></div>
+              <ArrowLeft className="ttc-arrow" aria-hidden="true" />
+              <div className="ttc-node is-good"><FileCheck aria-hidden="true" /><small>المقبول</small><b>{termMismatch.accepted}</b></div>
+            </div>
+            <footer><small>الفصل المختار</small><b>{termMismatch.target}</b><span>· لم يُستورد أي صف</span></footer>
+          </div>:null}
         {tab==="import"&&pdfScopeFix?
           <div className="transfer-scope-fix" role="alert">
             <Building2 aria-hidden="true" />

@@ -513,13 +513,15 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   }
 
   /* ── اللائحة ──────────────────────────────────────────────────────────── */
+  /* ملاحظاتُ اللائحة من درجة «note» (م.7/2) تبقى تنبيهاً في شاشات القسم
+     ولا تُدخل الطلبَ في «يحتاج استثناءً»: هي تنبيهٌ لا قيد. */
   const findings = reviewSchedule({
     rows: context.instructorRowsAfter,
     courses: context.courses,
     instructors: context.instructors,
     previousRows: context.previousRows,
     nature: context.nature,
-  }).filter(isDecision1912Finding);
+  }).filter(finding => isDecision1912Finding(finding) && finding.approvalEffect !== "note");
 
   /* الملاحظةُ تُنسب إلى الصفّ المطلوب وحدَه، لا إلى كل صفٍّ يشاركه رقمَ
      المقرّر: أستاذٌ يدرّس شعبتين من مقرّرٍ واحد كانت ملاحظةٌ تخصّ شعبةً لم

@@ -16,6 +16,7 @@ import { AR, countOf, oblique } from "./arabicCount";
  *   م.6/2  no more than two consecutive sections in a day for lectures over an hour
  *   م.6/3  no more than three consecutive sections in a day for one-hour lectures
  *   م.6/4  single-section courses rotate between staff each term
+ *   م.7/2  morning 08–14 holds 50–70% of the department's sections, evening 14–20 holds 30–50%
  *   م.7/5  sections of one course spread across different hours and days
  *
  * The rest of the full decision is intentionally not enforced here unless the
@@ -64,6 +65,9 @@ export const LONG_LECTURE_MINUTES = 80;
 const MORNING_START = 8 * 60;
 const MORNING_END = 14 * 60;
 const EVENING_END = 20 * 60;
+
+/** Below this many sections a morning/evening share is noise, not a department. */
+const PERIOD_BALANCE_MIN_SECTIONS = 10;
 
 export const toMinutes = (value: string) => {
   const [h, m] = String(value || "0:0").split(":").map(Number);
@@ -309,7 +313,7 @@ export function planMove(options: {
       meetings: [{ day: targetDay, start: targetStart, end: clock(Math.min(SCHEDULE_DAY_END, start + expected)) }],
       reshapes: false,
       headline: `${dayLabel(targetDay)} ${targetStart}`,
-      detail: `مدة اللقاء ${countOf(expected, AR.minute)} على هذا اليوم (م.8/أ،ب).`
+      detail: `مدة اللقاء ${countOf(expected, AR.minute)} على هذا اليوم (م.7/8/أ،ب).`
     };
   }
 
@@ -392,7 +396,6 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     }
   }
 
-  // --- م.8/9 — one course, one fixed time across its days ------------------
   const byCourse = new Map<number, FSchedule[]>();
   rows.forEach(row => {
     if (!row.AdCourseId) return;
@@ -510,6 +513,36 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
         title: `التدوير غير محقق (${arabicNumber(repeated.length)})`,
         detail: `المقرر أحادي الطرح ما زال عند نفس العضو مقارنة بالفصل السابق. ${repeated.slice(0, 5).join(" — ")}`,
         rowIds: repeatedRows
+      });
+    }
+  }
+
+  // --- م.7/2 — the morning and evening shares of the department ----------
+  // A share of the whole department, so it names no appointment and is read
+  // only on a schedule large enough for a proportion to mean something — an
+  // instructor's week or a single edit is not a department.
+  const periodOf = new Map<string, number>();
+  rows.forEach(row => {
+    if (!row.AdCourseId || !row.fstarttime) return;
+    const key = `${row.AdCourseId}::${String(row.SCode || "").trim() || row.id}`;
+    const start = toMinutes(row.fstarttime);
+    periodOf.set(key, Math.min(periodOf.get(key) ?? start, start));
+  });
+  const sectionStarts = [...periodOf.values()].filter(start => start >= MORNING_START && start < EVENING_END);
+  if (sectionStarts.length >= PERIOD_BALANCE_MIN_SECTIONS) {
+    const morning = sectionStarts.filter(start => start < MORNING_END).length;
+    const morningShare = Math.round((morning / sectionStarts.length) * 100);
+    const eveningShare = 100 - morningShare;
+    if (morningShare < 50 || morningShare > 70) {
+      findings.push({
+        rule: "period-balance",
+        article: "م.7/2",
+        severity: "low",
+        source: "decision-1912",
+        approvalEffect: "note",
+        title: "توزيع الفترتين الصباحية والمسائية",
+        detail: `الصباحية (8–14) ${arabicNumber(morningShare)}% والمسائية (14–20) ${arabicNumber(eveningShare)}% من ${countOf(sectionStarts.length, AR.section)}. اللائحة: الصباحية بين 50% و70%، والمسائية بين 30% و50%.`,
+        rowIds: [],
       });
     }
   }

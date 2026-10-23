@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DEMO_SEEDED_EVENT } from "../utils/demoSeedEvent";
-import { ChevronDown, ClipboardList, History, Layers, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Armchair, ChevronDown, ClipboardList, History, Layers, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { planGaps, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
 import { sortByName } from "../utils/sorting";
@@ -116,35 +116,29 @@ export function SectionGapBadge({ items, kind, open, onToggle }: { items: GapIte
   );
 }
 
-/** مقاعد المنتدبين: كل منتدبٍ بطاقةٌ من مقعدين؛ المشغول نقطةٌ ممتلئة، والفارغ عند منتدبٍ حاليّ نقطةٌ مفرغة. */
-function Seats({ sections, free, visitors }: { sections: number; free: number; visitors: number }) {
-  const cards = Array.from({ length: Math.min(visitors, 8) }, (_, i) => i);
-  let filled = Math.max(0, sections - free);
-  return (
-    <span className="apb-seats" aria-hidden="true">
-      {cards.map(i => {
-        const used = Math.min(VISITOR_MAX_SECTIONS, filled); filled -= used;
-        return <span key={i} className="apb-seat"><UserPlus />{Array.from({ length: VISITOR_MAX_SECTIONS }, (_, d) => <i key={d} data-on={d < used || undefined} />)}</span>;
-      })}
-    </span>
-  );
-}
-
 /** سطرٌ تحت المقرر: أيقونةٌ ورقم، ولكلٍّ جملتُه الكاملة في التلميح. لا أسماء. */
 function Staffing({ staffing, visitors }: { staffing: CourseStaffing; visitors: number }) {
-  const chips: Array<{ Icon: typeof Users; n: number; tip: string; tone?: string; always?: boolean }> = [
-    { Icon: Users, n: staffing.ours, tip: `يدرّسه ${countOf(staffing.ours, AR.instructor)} من أساتذتنا هذا الفصل`, always: true },
-    { Icon: UserCheck, n: staffing.covered, tip: `${countOf(staffing.covered, AR.section)} يغطيها أساتذتنا`, always: true },
-    { Icon: UserMinus, n: staffing.unassigned, tip: `${countOf(staffing.unassigned, AR.section)} بلا أستاذ (هيئة تدريسية)`, tone: "warn" },
-    { Icon: UserPlus, n: staffing.withVisitors, tip: `${countOf(staffing.withVisitors, AR.section)} عند منتدبٍ حالي` },
-    { Icon: History, n: staffing.returnable, tip: `${countOf(staffing.returnable, AR.instructor)} درّسوه سابقاً ولا يدرّسونه هذا الفصل`, tone: "soft" },
+  const chips: Array<{ id: string; Icon: typeof Users; n: number; tip: string; tone?: string; always?: boolean }> = [
+    { id: "ours", Icon: Users, n: staffing.ours, tip: `يدرّسه ${countOf(staffing.ours, AR.instructor)} من أساتذتنا هذا الفصل`, always: true },
+    { id: "covered", Icon: UserCheck, n: staffing.covered, tip: `${countOf(staffing.covered, AR.section)} يغطيها أساتذتنا`, always: true },
+    { id: "unassigned", Icon: UserMinus, n: staffing.unassigned, tip: `${countOf(staffing.unassigned, AR.section)} بلا أستاذ (هيئة تدريسية)`, tone: "warn" },
+    { id: "visitors", Icon: UserPlus, n: staffing.withVisitors, tip: `${countOf(staffing.withVisitors, AR.section)} عند منتدبٍ حالي` },
+    { id: "returnable", Icon: History, n: staffing.returnable, tip: `${countOf(staffing.returnable, AR.instructor)} درّسوه سابقاً ولا يدرّسونه هذا الفصل`, tone: "soft" },
   ];
+  /* اللمس لا يعرف «title»: الضغط على أيقونةٍ يكتب معناها تحت الصف، والضغط عليها ثانيةً يطويه.
+     يُحفظ مفتاح الأيقونة لا نصُّها، فيُشتق النص من الأرقام الحالية، وتزول الجملة بزوال أيقونتها. */
+  const [picked, setPicked] = useState<string | null>(null);
+  const shown = chips.filter(chip => chip.always || chip.n > 0).map(chip => ({ ...chip, key: chip.id }));
+  const needTip = `نحتاج ${countOf(visitors, AR.visitor)}`;
+  const tipOf = picked === "need" ? needTip : shown.find(chip => chip.key === picked)?.tip || null;
+  const toggle = (key: string) => setPicked(current => (current === key ? null : key));
   return (
     <div className="apb-staff" role="group" aria-label="من يدرّس المقرر">
-      {chips.filter(chip => chip.always || chip.n > 0).map(({ Icon, n, tip, tone }) => (
-        <span key={tip} className="apb-staff-chip" data-tone={tone} title={tip} aria-label={tip}><Icon aria-hidden="true" /><b>{num(n)}</b></span>
+      {shown.map(({ Icon, n, tip, tone, key }) => (
+        <button key={key} type="button" className="apb-staff-chip" data-tone={tone} data-picked={picked === key || undefined} title={tip} aria-label={tip} aria-pressed={picked === key} onClick={() => toggle(key)} data-guide-ignore="أيقونة تشرح معناها تحت الصف عند الضغط"><Icon aria-hidden="true" /><b>{num(n)}</b></button>
       ))}
-      <span className="apb-staff-need" data-zero={visitors === 0 || undefined} title={`نحتاج ${countOf(visitors, AR.visitor)}`} aria-label={`نحتاج ${countOf(visitors, AR.visitor)}`}><UserPlus aria-hidden="true" /><b>{num(visitors)}</b></span>
+      <button type="button" className="apb-staff-need" data-zero={visitors === 0 || undefined} data-picked={picked === "need" || undefined} title={needTip} aria-label={needTip} aria-pressed={picked === "need"} onClick={() => toggle("need")} data-guide-ignore="أيقونة عدد المنتدبين تشرح معناها عند الضغط"><UserPlus aria-hidden="true" /><b>{num(visitors)}</b></button>
+      {tipOf ? <p className="apb-staff-tip" role="status">{tipOf}</p> : null}
     </div>
   );
 }
@@ -153,6 +147,7 @@ function Staffing({ staffing, visitors }: { staffing: CourseStaffing; visitors: 
 export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 }: { items: GapItem[]; kind: GapKind; onClose: () => void; staffing?: Record<string, CourseStaffing> | null; freeSlots?: number }) {
   const [all, setAll] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [totalOpen, setTotalOpen] = useState(false);
   const ordered = useMemo(() => sortByName(items, item => item.name), [items]);
   const list = all ? ordered : ordered.slice(0, SHOWN);
   const { Icon, title } = KIND[kind];
@@ -193,10 +188,20 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
         })}
       </ul>
       {need ? (
-        <footer className="apb-gap-total" data-zero={need.visitors === 0 || undefined}>
-          <span className="apb-gap-total-n" title={`نحتاج ${countOf(need.visitors, AR.visitor)}`}><UserPlus aria-hidden="true" /><b>{num(need.visitors)}</b><small>{need.visitors === 1 ? "منتدب" : "منتدبين"}</small></span>
-          <Seats sections={need.sections} free={need.freeSlots} visitors={need.visitors} />
-          <span className="apb-gap-total-s" title={`${countOf(need.sections, AR.section)} بلا أستاذ`}><Layers aria-hidden="true" />{num(need.sections)}</span>
+        <footer className="apb-gap-total" data-zero={need.visitors === 0 || undefined} data-open={totalOpen || undefined}>
+          <button type="button" className="apb-gap-total-btn" aria-expanded={totalOpen} onClick={() => setTotalOpen(value => !value)} data-guide-ignore="مجموع المنتدبين للقسم: الضغط يبيّن الحساب">
+            <UserPlus aria-hidden="true" /><b>{num(need.visitors)}</b><small>{need.visitors === 1 ? "منتدب" : "منتدبين"}</small><ChevronDown aria-hidden="true" className="apb-gap-chev" />
+          </button>
+          {totalOpen ? (
+            <div className="apb-sum" role="status" aria-label={`${countOf(need.sections, AR.section)} بلا أستاذ، ناقص ${Math.min(need.freeSlots, need.sections)} أماكن عند الحاليين، مقسوماً على ${VISITOR_MAX_SECTIONS}، يساوي ${countOf(need.visitors, AR.visitor)}`}>
+              <span className="apb-sum-c"><Layers aria-hidden="true" /><b>{num(need.sections)}</b><small>بلا أستاذ</small></span>
+              {need.freeSlots > 0 ? <><i aria-hidden="true">−</i><span className="apb-sum-c" data-tone="soft"><Armchair aria-hidden="true" /><b>{num(Math.min(need.freeSlots, need.sections))}</b><small>أماكن فارغة</small></span></> : null}
+              <i aria-hidden="true">÷</i>
+              <span className="apb-sum-c" data-tone="soft"><Users aria-hidden="true" /><b>{num(VISITOR_MAX_SECTIONS)}</b><small>لكل منتدب</small></span>
+              <i aria-hidden="true">=</i>
+              <span className="apb-sum-c" data-tone="result"><UserPlus aria-hidden="true" /><b>{num(need.visitors)}</b><small>{need.visitors === 1 ? "منتدب" : "منتدبين"}</small></span>
+            </div>
+          ) : null}
         </footer>
       ) : null}
       {items.length > SHOWN ? (

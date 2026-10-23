@@ -23,6 +23,7 @@ import { buildScheduleGenome, buildWarRoom, evaluateScheduleConstraints, forecas
 import { describeRollover, readTermRollover } from "./src/utils/termRollover";
 import { visibleTermIds } from "./src/utils/scopedTerms";
 import { currentTermId, planningTermCandidates, termHasEnded, termIsArchive } from "./src/utils/termSequence";
+import { acceptedPdfSourceLabel, pdfTermAccepted } from "./src/utils/pdfTermRule";
 import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadProblem } from "./src/utils/teachingLoad";
 import { buildConflictTopology, buildDecisionMemoryInsight, buildFairnessEngine, buildFragilityMap, buildOneMinuteBrief, buildRoomResilience, buildScheduleHealth2, buildSchedulePulse, createEmergencyPlans, explainScheduleDecision } from "./src/utils/livingSchedule";
 import type { AdCourse, AdInstructor, AdSection, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleComment, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestSnapshot, InstructorRequestEventKind, StudentNeed, CurriculumPlan, CurriculumDegreeRule } from "./src/types";
@@ -9792,21 +9793,11 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
   const headerScopeProblem=(header:any):{status:number;body:any}|null=>{
     if(header?.term&&targetTerm){
       const targetName=asciiDigits(String(targetTerm.AdTermName||"")).normalize("NFKC");
-      const seasonWord=header.term.season==="first"?/الاول|الأول/:header.term.season==="second"?/الثاني|الثانى/:/صيفي|صيفى/;
-      const seasonOk=seasonWord.test(targetName);
-      const targetYears=(targetName.match(/(?:19|20)\d{2}/g)||[]).map(Number);
-      const yearsOk=header.term.years.every((year:number)=>targetYears.includes(year));
-      /* ملف من فصل سابق للفصل المختار يُسمح به (يُنبَّه إليه في المعاينة)؛ الفصل
-         اللاحق أو غير المعروف يبقى مرفوضاً. الترتيب: سنة البداية ثم الأول/الثاني/الصيفي. */
-      const seasonRank=(season:string)=>season==="first"?0:season==="second"?1:2;
-      const targetSeason=/الاول|الأول/.test(targetName)?"first":/الثاني|الثانى/.test(targetName)?"second":/صيفي|صيفى/.test(targetName)?"summer":"";
-      const sourceStart=Math.min(...header.term.years.map(Number));
-      const targetStart=targetYears.length?Math.min(...targetYears):0;
-      const sourceIsEarlier=Boolean(targetSeason&&targetStart&&Number.isFinite(sourceStart))
-        &&(sourceStart<targetStart||(sourceStart===targetStart&&seasonRank(header.term.season)<seasonRank(targetSeason)));
-      if((!seasonOk||!yearsOk)&&!sourceIsEarlier)return{status:409,body:{
-        error:`هذا الملف للفصل «${header.term.label}»، بينما أنت تعمل على «${String(targetTerm.AdTermName||"")}». لم يتم استيراد أي صف.`,
-        code:"PDF_TERM_MISMATCH",sourceTerm:header.term.label,targetTerm:String(targetTerm.AdTermName||""),
+      /* لا يُقبل إلا الفصل نفسه من السنة السابقة (الثاني 2026/2027 ← الثاني 2025/2026)؛
+         فصل السنة نفسها لا جدول رسمي له بعد، وما عداه لا يُنسب لهذا الفصل. */
+      if(!pdfTermAccepted(header.term,targetName))return{status:409,body:{
+        error:`هذا الملف للفصل «${header.term.label}»، ولا يُقبل هنا إلا «${acceptedPdfSourceLabel(targetName)||"فصل السنة السابقة"}» لأن الفصل المختار «${String(targetTerm.AdTermName||"")}». لم يتم استيراد أي صف.`,
+        code:"PDF_TERM_MISMATCH",sourceTerm:header.term.label,targetTerm:String(targetTerm.AdTermName||""),acceptedTerm:acceptedPdfSourceLabel(targetName),
       }};
     }
 
@@ -10378,12 +10369,8 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
      mismatch becomes a loud issue that blocks the one-step publish. */
   if(!headerPreflight.term&&recognized.headerTerm&&targetTerm){
     const targetName=asciiDigits(String(targetTerm.AdTermName||"")).normalize("NFKC");
-    const seasonWord=recognized.headerTerm.season==="first"?/الاول|الأول/:recognized.headerTerm.season==="second"?/الثاني|الثانى/:/صيفي|صيفى/;
-    const seasonOk=seasonWord.test(targetName);
-    const targetYears=(targetName.match(/(?:19|20)\d{2}/g)||[]).map(Number);
-    const yearsOk=recognized.headerTerm.years.every(year=>targetYears.includes(year));
-    if(!seasonOk||!yearsOk){
-      parsed.issues.unshift(`تحذير: الملف يذكر «${recognized.headerTerm.label}» بينما الفصل المختار هو «${String(targetTerm.AdTermName||"")}». تأكد أنك ترفع الجدول إلى الفصل الصحيح.`);
+    if(!pdfTermAccepted(recognized.headerTerm,targetName)){
+      parsed.issues.unshift(`تحذير: الملف يذكر «${recognized.headerTerm.label}» بينما الفصل المختار هو «${String(targetTerm.AdTermName||"")}»، ولا يُقبل إلا «${acceptedPdfSourceLabel(targetName)||"فصل السنة السابقة"}». تأكد أنك ترفع الجدول إلى الفصل الصحيح.`);
     }
   }
   const rows=assignAuthoritySections(safeDraftRows(parsed.rows,collegeId,sectionId,termId));
@@ -20468,7 +20455,7 @@ function instructorRequestPage(token: string, nonce: string, demoHint = ""): str
   return `<!doctype html><html lang="ar" dir="rtl"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f2f3ef" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0f1513" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light"><meta name="theme-color" content="#f2f3ef">
 <title>جدولي — طلب تعديل</title>
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/schedule-icon-192.png">
 <style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}
