@@ -107,13 +107,12 @@ export async function cachedReference<T>(key: string, load: () => Promise<T>): P
 const SCHEDULE_TTL_MS = 300_000;
 /**
  * Key prefix for the per-department "everyone who ever taught here" id lists.
- * They live in the schedule store, so every schedule write (and the beacon from
- * other instances) clears them exactly like the rows; they also clear on any
- * catalogue write (invalidateReference). Correctness comes from that
- * invalidation, so they may keep a longer parachute than the rows.
+ * They live in the schedule store with the rows' own lifetime: every schedule
+ * write (and the beacon from other instances) clears them, and so does any
+ * catalogue write on this instance (invalidateReference). Catalogue writes are
+ * not broadcast, so the TTL stays the rows' five minutes, not longer.
  */
 export const INSTRUCTOR_IDS_PREFIX = "instructor-ids:";
-export const INSTRUCTOR_IDS_TTL_MS = 900_000;
 const scheduleStore = new Map<string, { value: unknown; expiresAt: number; loading?: Promise<unknown> }>();
 
 /**
@@ -143,7 +142,7 @@ export function clearScheduleCacheQuietly() {
   scheduleStore.clear();
 }
 
-export async function cachedSchedules<T>(key: string, load: () => Promise<T>, ttlMs: number = SCHEDULE_TTL_MS): Promise<T> {
+export async function cachedSchedules<T>(key: string, load: () => Promise<T>): Promise<T> {
   if (!enabled) return load();
   const now = Date.now();
   const hit = scheduleStore.get(key);
@@ -152,10 +151,10 @@ export async function cachedSchedules<T>(key: string, load: () => Promise<T>, tt
     return hit.value as T;
   }
   const loading = load().then(
-    value => { scheduleStore.set(key, { value, expiresAt: Date.now() + ttlMs }); return value; },
+    value => { scheduleStore.set(key, { value, expiresAt: Date.now() + SCHEDULE_TTL_MS }); return value; },
     error => { scheduleStore.delete(key); throw error; }
   );
-  scheduleStore.set(key, { value: hit?.value, expiresAt: now + ttlMs, loading });
+  scheduleStore.set(key, { value: hit?.value, expiresAt: now + SCHEDULE_TTL_MS, loading });
   return loading;
 }
 

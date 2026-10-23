@@ -4,7 +4,7 @@ import { normalizeArabicText } from "../utils/arabicText";
 import fs from "fs";
 import { chooseStudentCaseSecret, STUDENT_CASE_SECRET_CONFLICT_MESSAGE, type StudentCaseSecretChoice } from "../server/studentCaseSecret";
 import { AsyncLocalStorage } from "async_hooks";
-import { cachedReference, cachedSchedules, invalidateReference, invalidateSchedules, INSTRUCTOR_IDS_PREFIX, INSTRUCTOR_IDS_TTL_MS, REFERENCE_KEYS } from "./referenceCache";
+import { cachedReference, cachedSchedules, invalidateReference, invalidateSchedules, INSTRUCTOR_IDS_PREFIX, REFERENCE_KEYS } from "./referenceCache";
 import path from "path";
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { getApps, initializeApp, cert } from "firebase-admin/app";
@@ -320,8 +320,8 @@ const db = new Proxy({} as DBState, {
 function scopedCachedReference<T>(key: string, loader: () => Promise<T>): Promise<T> {
   return demoSandboxContext.getStore() ? loader() : cachedReference(key, loader);
 }
-function scopedCachedSchedules<T>(key: string, loader: () => Promise<T>, ttlMs?: number): Promise<T> {
-  return demoSandboxContext.getStore() ? loader() : cachedSchedules(key, loader, ttlMs);
+function scopedCachedSchedules<T>(key: string, loader: () => Promise<T>): Promise<T> {
+  return demoSandboxContext.getStore() ? loader() : cachedSchedules(key, loader);
 }
 
 /**
@@ -3231,7 +3231,6 @@ export const Repository = {
       const allTimeIds = await scopedCachedSchedules(
         `${INSTRUCTOR_IDS_PREFIX}${sectionId}`,
         () => firestoreDepartmentInstructorIdsAllTime(sectionId),
-        INSTRUCTOR_IDS_TTL_MS,
       );
       return firestoreInstructorsByIds(allTimeIds);
     }
@@ -3770,19 +3769,17 @@ export const Repository = {
      * none. Cached under two keys, the workspace read (college + department)
      * and the instructor read (department alone) fetched the same term twice
      * on every switch. The rows are now read once, under the department key,
-     * and the college is checked against the section afterwards.
+     * and the college is checked against the section document afterwards —
+     * read fresh, as before, so a section another instance just moved to a
+     * different college is never served under its old one.
      */
     if (sectionId && collegeId && firestoreDb && !demoSandboxContext.getStore()) {
-      const [rows, sections] = await Promise.all([
+      const [rows, sectionDoc] = await Promise.all([
         Repository.getSchedulesByScope({ sectionId, termId }),
-        Repository.getSections(),
+        firestoreDb.collection("sections").doc(`section_${sectionId}`).get(),
       ]);
-      let section: AdSection | undefined = sections.find(row => Number(row.AdSectionId) === sectionId);
-      if (!section) {
-        const doc = await firestoreDb.collection("sections").doc(`section_${sectionId}`).get();
-        section = doc.exists ? (doc.data() as AdSection) : undefined;
-      }
-      return section && Number(section.AdCollegeId) === collegeId ? rows : [];
+      if (!sectionDoc.exists) return [];
+      return Number((sectionDoc.data() as AdSection).AdCollegeId) === collegeId ? rows : [];
     }
     return scopedCachedSchedules(`${collegeId}:${sectionId}:${termId}`, async () => {
       if (firestoreDb && !demoSandboxContext.getStore()) {
