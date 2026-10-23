@@ -169,6 +169,10 @@ for (const cid of collegeIds) {
       courses.push(row);
       return row;
     }
+    /* رقمٌ واحدٌ لأكثر من مقرر في القسم: مكوّناتٌ يُجدوِل بها القسم مقرر الصحيفة (التربية الموسيقية: «بيانو1» و«اناشيد1»
+       لـ«بيانو وأناشيد (1)»، و«منوع كمان1/عود1…» لـ«عزف منوع (1)»). لا يُعاد تسمية أحدها ولا تُغيَّر وحداته. */
+    const siblings = coursesIn(sid).filter(item => academicDigits(item.CourseCode) === academicDigits(row!.CourseCode));
+    if (siblings.length > 1) { log(cid, "مقرر بمكوّنات", { code, ids: siblings.map(item => item.AdCourseId), names: siblings.map(item => item.CourseName) }); return row; }
     const relation = nameRelation(row.CourseName, t.name);
     /* الاسم المصحَّح يدوياً من كسر الـPDF يُكتب حرفياً، ولو كان الفرق إملاءً فقط. */
     const nameDiffers = relation === "related" || relation === "different" || (code in PRINTED_NAME_FIXES && row.CourseName.trim() !== t.name);
