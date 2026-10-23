@@ -37,6 +37,8 @@ import {
 } from "lucide-react";
 import { DnaCount } from "./dna";
 import { RequestTimelineToggle } from "./dna/requestDna";
+import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
 import { num } from "./proposal/proposalFormat";
 import { effectiveStatus } from "../utils/studyProposal";
@@ -399,13 +401,15 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
     .sort((a, b) => (VERDICT_ORDER[a.item.verdict || "clear"] ?? 0) - (VERDICT_ORDER[b.item.verdict || "clear"] ?? 0)),
     [row.items, filter]);
 
+  const { isVisiting } = useVisitingLookup(row.AdTermId);
+
   if (!items.length) return null;
 
   return (
     <article className="request-card">
       <header className="request-card-head">
         <div>
-          <strong>{row.instructorName}</strong>
+          <strong className="schedule-instructor-with-badge">{row.instructorName}{isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId) ? <VisitingBadge compact /> : null}</strong>
           {row.sectionName ? <span className="request-card-section">قسم {row.sectionName.replace(/^قسم\s+/, "")}</span> : null}
           <small>{countOf(items.length, AR.change)}{row.submittedAt ? ` · ${arabicDate(row.submittedAt)}` : ""}</small>
         </div>
@@ -940,17 +944,19 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
 
   /* الأساتذةُ الذين في الوارد فعلاً، مرتّبون أبجدياً بحسب الاسم — كقائمة الأستاذ في
      «الجدول الدراسي». */
+  const { lookup: visitingLookup, isVisiting: lookupVisiting } = useVisitingLookup(termId);
+  const rowVisiting = (row: InboxRequest) => lookupVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId);
   const instructorOptions = useMemo(() => {
     const seen = new Map<number, { label: string; changed: boolean }>();
     for (const row of rows || []) {
       const id = Number(row.AdInstructorId);
       if (!id || seen.has(id)) continue;
-      seen.set(id, { label: row.instructorName, changed: row.changedCount > 0 });
+      seen.set(id, { label: withVisitingSuffix(row.instructorName, rowVisiting(row)), changed: row.changedCount > 0 });
     }
     return [...seen]
       .sort((a, b) => byArabic(a[1].label, b[1].label))
       .map(([value, entry]) => ({ value, label: entry.changed ? `${entry.label} · طلب تعديلاً` : entry.label }));
-  }, [rows]);
+  }, [rows, visitingLookup]);
 
   const itemFilter = useCallback((item: InstructorRequestItem) => {
     const state = item.decision?.state;
@@ -1223,7 +1229,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     <TermFrozenContext.Provider value={frozen}>
     <div className="content-stack changes-screen visual-minimal" data-term-frozen-scope={frozen || undefined}>
       <PageTitle
-        action={rows && rows.length ? <ProposalLauncherBar rows={rows} proposals={proposals} onOpen={setWorkspace} /> : undefined}
+        action={rows && rows.length ? <ProposalLauncherBar rows={rows.map(row => ({ id: row.id, instructorName: row.instructorName, visiting: rowVisiting(row) }))} proposals={proposals} onOpen={setWorkspace} /> : undefined}
         eyebrow={<><Inbox aria-hidden="true" /> رغبات الأساتذة</>}
         subtitle="ما طلبه الأساتذة على مسوّداتهم، لا الجدول كله"
       >
@@ -1353,11 +1359,11 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                   );
                   return reach.href ? (
                     <a key={row.id} href={reach.href} target="_blank" rel="noreferrer noopener" className="request-remind">
-                      <Send aria-hidden="true" /> {row.instructorName}
+                      <Send aria-hidden="true" /> {row.instructorName}{rowVisiting(row) ? <VisitingBadge compact /> : null}
                     </a>
                   ) : (
                     <span key={row.id} className="request-remind" data-blocked="true" title={reach.blocked || ""}>
-                      <Link2 aria-hidden="true" /> {row.instructorName}
+                      <Link2 aria-hidden="true" /> {row.instructorName}{rowVisiting(row) ? <VisitingBadge compact /> : null}
                     </span>
                   );
                 })}
@@ -1376,7 +1382,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
               <ChevronDown aria-hidden="true" data-open={showUnchanged || undefined} />
               <Check aria-hidden="true" />
               {countOf(unchanged.length, AR.instructor)} قالوا «الجدول كما هو»
-              {showUnchanged ? <em>{unchanged.map(row => row.instructorName).join(" · ")}</em> : null}
+              {showUnchanged ? <em>{unchanged.map(row => withVisitingSuffix(row.instructorName, rowVisiting(row))).join(" · ")}</em> : null}
             </button>
           ) : null}
 

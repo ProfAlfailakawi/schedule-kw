@@ -34,6 +34,8 @@ interface Props {
   courseById: Map<number, AdCourse>;
   instructorById: Map<number, AdInstructor>;
   visitingIds: Set<number>;
+  /** يحكم على كل صفٍّ بكليته وقسمه هو (وثيقة كل الفروع تجمع صفوف أقسامٍ عدة فلا تصلح لها قائمةٌ واحدة). */
+  isVisitingRow?: (row: FSchedule) => boolean;
   /* ── الوثيقة الواحدة عبر مواقع الفرع ──────────────────────────────────────
    * حين يُطلب تقرير التغييرات للقسم كله، يُصيَّر هذا المكوّن مرة لكل موقع داخل
    * وثيقة واحدة. ولأن ترقيم الصفحات يجب أن يقرأ كوثيقة واحدة لا كثلاث وثائق
@@ -64,6 +66,7 @@ export default function AuthorityPdfReport({
   courseById,
   instructorById,
   visitingIds,
+  isVisitingRow,
   pageOffset = 0,
   pageTotal,
   bookSites,
@@ -190,7 +193,7 @@ export default function AuthorityPdfReport({
                         {fieldChanged(entry, "AdInstructorId") && instructor?.AdInstructorCivil
                           ? <bdi className="authority-pdf-civil print-ltr">{String(instructor.AdInstructorCivil).trim()}</bdi>
                           : null}
-                        {visitingIds.has(Number(row.AdInstructorId)) ? <VisitingBadge compact /> : null}
+                        {(isVisitingRow ? isVisitingRow(row) : visitingIds.has(Number(row.AdInstructorId))) ? <VisitingBadge compact /> : null}
                       </div>
                     </div>
                   );
