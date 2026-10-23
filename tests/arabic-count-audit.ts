@@ -56,6 +56,7 @@ const PATTERN = new RegExp(`(?:${INTERP})${ISO}${TAGS}${ISO}(?:${nounAlternation
 /* Noun-first names that follow an interpolation. Matched against the source
  * line; each entry must still match something, so a stale one is reported. */
 const ALLOW: Array<{ file: string; contains: string; why: string }> = [
+  { file: "src/components/ads/CampaignDrawer.tsx", contains: ": \"\"} نقرات ${nf.format(c.totals.clicks)}", why: "«نقرات» عنوانٌ يسبق رقمَه بعد وصلةٍ نصّية («نقرات 25»)، لا معدود" },
   { file: "server.ts", contains: "${dayLabel} يوم محجوز", why: "«الأحد يوم محجوز» — اسم يوم قبل «يوم»، لا عدد" },
   { file: "server.ts", contains: "${requestedInstructor.AdInstructorName} يوم ${dayMatch.label}", why: "اسم أستاذ ثم «يوم الأحد»" },
   { file: "server.ts", contains: "\"موعد آخر\")} شعبة ${String(other.SCode", why: "اسم مقرر ثم «شعبة 01» — رمز الشعبة بعد اسمها" },

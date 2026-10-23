@@ -858,7 +858,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     if (company.length < 2) { fail(res, 400, "اكتب اسم الشركة."); return; }
     const days = cleanExpiryDays(req.body?.days);
     const link = await Repository.createPartnerLink({ company, token: newToken(), ...(days ? { expiresAt: new Date(Date.now() + days * 86_400_000).toISOString() } : {}) });
-    audit(res, link.id, `إنشاء رابط ملف شراكةٍ لشركة «${company}»${days ? ` لمدة ${days} يوماً` : ""}`);
+    audit(res, link.id, `إنشاء رابط ملف شراكةٍ لشركة «${company}»${days ? ` لمدة ${countOf(days, AR.day)}` : ""}`);
     res.json({ ok: true, link: partnerLinkView(link) });
   });
 

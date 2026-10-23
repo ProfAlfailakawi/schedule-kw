@@ -120,6 +120,7 @@ export const AR = {
   building:    { one: "مبنى", two: "مبنيان", few: "مبانٍ", many: "مبنى" },
   term:        { one: "فصل", two: "فصلان", few: "فصول", many: "فصلاً" },
   day:         { one: "يوم", two: "يومان", few: "أيام", many: "يوماً" },
+  person:      { one: "شخص", two: "شخصان", few: "أشخاص", many: "شخصاً" },
   week:        { one: "أسبوع", two: "أسبوعان", few: "أسابيع", many: "أسبوعاً" },
   minute:      { one: "دقيقة", two: "دقيقتان", few: "دقائق", many: "دقيقة" },
   hour:        { one: "ساعة", two: "ساعتان", few: "ساعات", many: "ساعة" },

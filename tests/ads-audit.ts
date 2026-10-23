@@ -978,7 +978,7 @@ async function main() {
     const shared = F.forecastSlot({ slotId: "schedule", weeks: 1, campaigns: fCamp, stats: mkDays(10, 1000), liveNow: 1 });
     check(shared.ok && shared.share === 0.5 && shared.impressions.high === 3500, "الحاسبة: حملةٌ عاملة معك تقسم الحصة مناصفة", shared);
     const few = F.forecastSlot({ slotId: "schedule", weeks: 2, campaigns: fCamp, stats: mkDays(6, 1000), liveNow: 0 });
-    check(!few.ok && few.reason === "no-data" && few.basisDays === 6, "الحاسبة: أقل من سبعة أيام مقيسة = لا تقدير", few);
+    check(!few.ok && "reason" in few && few.reason === "no-data" && few.basisDays === 6, "الحاسبة: أقل من سبعة أيام مقيسة = لا تقدير", few);
     check(!F.forecastSlot({ slotId: "dashboard", weeks: 2, campaigns: fCamp, stats: mkDays(10, 1000), liveNow: 0 }).ok, "الحاسبة: موقعٌ بلا حملاتٍ تاريخية = لا تقدير");
     const mixed = [...mkDays(10, 1000), ...mkDays(5, 3000, 60, 20)];
     const win = [{ season: "finals", from: "2026-03-20", to: "2026-03-31" }] as any[];
