@@ -25,6 +25,7 @@ import { visibleTermIds } from "./src/utils/scopedTerms";
 import { currentTermId, planningTermCandidates, termHasEnded, termIsArchive } from "./src/utils/termSequence";
 import { acceptedPdfSourceLabel, pdfTermAccepted } from "./src/utils/pdfTermRule";
 import { applyVisitingToFaculty } from "./src/utils/visitingToFaculty";
+import { ensureSectionFaculty } from "./src/server/sectionFaculty";
 import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadProblem } from "./src/utils/teachingLoad";
 import { buildConflictTopology, buildDecisionMemoryInsight, buildFairnessEngine, buildFragilityMap, buildOneMinuteBrief, buildRoomResilience, buildScheduleHealth2, buildSchedulePulse, createEmergencyPlans, explainScheduleDecision } from "./src/utils/livingSchedule";
 import type { AdCourse, AdInstructor, AdSection, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleComment, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestSnapshot, InstructorRequestEventKind, StudentNeed, CurriculumPlan, CurriculumDegreeRule } from "./src/types";
@@ -1929,7 +1930,9 @@ async function departmentInstructorIdSet(
      وإلا لقبل أحد الطرفين ما يرفضه الآخر. */
   const baseIndex = scopes.findIndex(scope => scope.collegeId === collegeId && scope.sectionId === sectionId);
   const basePool = baseIndex >= 0 ? pools[baseIndex] : undefined;
-  if (!basePool || !idsOf(basePool).length) {
+  /* سجل «هيئة تدريسية» ليس أستاذاً: قسمٌ لا يملك غيره ما زال بلا نطاقٍ حقيقي، فيبقى له احتياط الكلية. */
+  const placeholders = placeholderInstructorIds(await Repository.getInstructors() as any);
+  if (!basePool || !idsOf(basePool).some(id => !placeholders.has(id))) {
     for (const id of await collegeFallbackInstructorIds(collegeId)) ids.add(id);
   }
   return ids;
@@ -3333,6 +3336,8 @@ app.post("/api/sections", requirePermission(4), async (req: AuthenticatedRequest
     return;
   }
   const newSec = await Repository.createSection(collegeId, AdSectionCode, AdSectionName);
+  /* القسم الجديد يولد بسجل «هيئة تدريسية»؛ وتعثّره لا يُسقط القسم، فيُعاد عند أول استيراد. */
+  try { await ensureSectionFaculty(Repository, collegeId, Number(newSec.AdSectionId)); } catch (error: any) { console.error("[sections] faculty placeholder:", error?.stack || error); }
   res.status(201).json(newSec);
 });
 
@@ -9716,6 +9721,7 @@ app.post("/api/intelligence/pdf-import/bootstrap-section", requirePermission(7),
     }
   }
 
+  if(created){try{await ensureSectionFaculty(Repository,collegeId,Number(section.AdSectionId));}catch(error:any){console.error("[pdf-bootstrap] faculty placeholder:",error?.stack||error);}}
   /* If the section is new/empty, copy only catalogue identities from the best
      proven same-name department already in the system. This is catalogue data,
      never OCR text: course name/credits/hours/max all come from the existing
@@ -9939,7 +9945,9 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
      حين لا يكون للقسم تاريخ بعد، يتسع النطاق إلى أساتذة الكلية نفسها: نطاق
      حقيقي محدود يُقرأ من جداول أقسامها الأخرى، لا الجامعة كلها. والقسم الذي
      له تاريخ لا يتغير سلوكه إطلاقاً، فهذا المسار لا يُقرأ عنده أصلاً. */
-  if(!preferredInstructorIds.size){
+  /* «هيئة تدريسية» وحدها لا تجعل للقسم نطاقاً حقيقياً (القسم الجديد يولد بسجلّها) فيبقى له احتياط الكلية. */
+  const importPlaceholderIds=placeholderInstructorIds(allInstructors as any);
+  if(![...preferredInstructorIds].some(id=>!importPlaceholderIds.has(id))){
     for(const id of await collegeFallbackInstructorIds(collegeId))preferredInstructorIds.add(id);
   }
   /* ── نطاق المطابقة هو نطاق النشر نفسه ─────────────────────────────────────

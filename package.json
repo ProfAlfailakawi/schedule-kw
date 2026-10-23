@@ -104,7 +104,7 @@
     "test:locations": "python3 tests/location-registry-audit.py",
     "test:visiting-to-faculty": "tsx tests/visiting-to-faculty-audit.ts",
     "test:pdf-term-rule": "tsx tests/pdf-term-rule-audit.ts",
-    "test:pdf-import": "tsx tests/pdf-term-rule-audit.ts && tsx tests/visiting-to-faculty-audit.ts && tsx tests/pdf-import-regression.ts && tsx tests/pdf-import-golden.ts && tsx tests/pdf-import-hardening.ts && tsx tests/scan-straighten.ts",
+    "test:pdf-import": "tsx tests/pdf-term-rule-audit.ts && tsx tests/section-faculty-audit.ts && tsx tests/visiting-to-faculty-audit.ts && tsx tests/pdf-import-regression.ts && tsx tests/pdf-import-golden.ts && tsx tests/pdf-import-hardening.ts && tsx tests/scan-straighten.ts",
     "audit:brand": "node scripts/render-brand.mjs --check",
     "brand": "node scripts/render-brand.mjs",
     "verify:pwa": "node scripts/verify-pwa.mjs",
