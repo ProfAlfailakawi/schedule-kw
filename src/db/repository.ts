@@ -5294,6 +5294,18 @@ export const Repository = {
     saveDatabase();
   },
 
+  /** الرابطُ الشخصيُّ يرث موعدَ الطلبات من بطاقة القسم؛ فإذا حلّت بطاقةٌ محلّ أخرى تبعها موعدُه. */
+  setShareLinkRequestsCloseAt: async (id: string, requestsCloseAt: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("scheduleShareLinks").doc(id).set({ requestsCloseAt }, { merge: true });
+      return;
+    }
+    const row = (db.scheduleShareLinks || []).find(item => item.id === id);
+    if (!row) return;
+    row.requestsCloseAt = requestsCloseAt;
+    saveDatabase();
+  },
+
   /** يسجّل إرسالاً أو زيارةً لأستاذٍ على رابط (دمجٌ لا استبدال). */
   markShareLinkInstructor: async (id: string, instructorId: number, patch: ShareLinkInstructorMark): Promise<void> => {
     const key = String(Number(instructorId) || 0);
