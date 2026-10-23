@@ -36,7 +36,7 @@ import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { negotiationClosed, type ThreadItem } from "./instructorRequestThread";
 import { AR, countOf } from "./arabicCount";
 import {
-  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding,
+  DAY_KEYS, DAY_NAMES, DECISIONS_LABEL, expectedMinutesForDay, isDecisionFinding,
   LONG_LECTURE_MINUTES, SHORT_LECTURE_MINUTES, patternsForHours, requiredGapForDays, reviewSchedule, toMinutes,
   type DayKey, type RegulationFinding,
 } from "./scheduleRegulations";
@@ -506,20 +506,22 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   if (short && long && !approvedShape) {
     reasons.push({
       source: "shape",
-      article: DECISION_1912_LABEL,
+      article: DECISIONS_LABEL,
       text: "أيام مختلطة: الأحد والثلاثاء والخميس مدّتها 50 دقيقة، والاثنين والأربعاء 80 دقيقة. راجع التوزيع.",
       blocking: false,
     });
   }
 
   /* ── اللائحة ──────────────────────────────────────────────────────────── */
+  /* ملاحظاتُ 1913/2016 وحدها («note») تبقى تنبيهاً في شاشات القسم ولا تُدخل
+     الطلبَ في «يحتاج استثناءً»: هي تنبيهٌ لا قيد، فلا يُطالَب الأستاذ بسببٍ لها. */
   const findings = reviewSchedule({
     rows: context.instructorRowsAfter,
     courses: context.courses,
     instructors: context.instructors,
     previousRows: context.previousRows,
     nature: context.nature,
-  }).filter(isDecision1912Finding);
+  }).filter(finding => isDecisionFinding(finding) && finding.approvalEffect !== "note");
 
   /* الملاحظةُ تُنسب إلى الصفّ المطلوب وحدَه، لا إلى كل صفٍّ يشاركه رقمَ
      المقرّر: أستاذٌ يدرّس شعبتين من مقرّرٍ واحد كانت ملاحظةٌ تخصّ شعبةً لم

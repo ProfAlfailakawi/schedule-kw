@@ -148,7 +148,7 @@ import PlanBadge from "./PlanBadge";
 import type { GapItem as SectionGapItem } from "../utils/sectionGap";
 import VisitingBadge from "./VisitingBadge";
 import { usePageAwake } from "../utils/pageAwake";
-import { adviseDayPattern, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding, patternsForHours, patternsForHoursOnDay, reviewSchedule, type DayKey as RegDayKey, type WeeklyPattern } from "../utils/scheduleRegulations";
+import { adviseDayPattern, DECISIONS_LABEL, expectedMinutesForDay, isDecisionFinding, patternsForHours, patternsForHoursOnDay, reviewSchedule, type DayKey as RegDayKey, type WeeklyPattern } from "../utils/scheduleRegulations";
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { rowClashReasons } from "../utils/scheduleBlockers";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
@@ -3370,8 +3370,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     form.fstarttime, form.fendtime, form.AdRoomCode, form.AdRoomHall,
     form.fsunday, form.fmonday, form.ftuesday, form.fwednesday, form.fthursday,
   ]);
-  const editorRegulation = useMemo(() => editorReviewFindings.filter(isDecision1912Finding), [editorReviewFindings]);
-  const editorSupplementalReview = useMemo(() => editorReviewFindings.filter(finding => !isDecision1912Finding(finding)), [editorReviewFindings]);
+  const editorRegulation = useMemo(() => editorReviewFindings.filter(isDecisionFinding), [editorReviewFindings]);
+  const editorSupplementalReview = useMemo(() => editorReviewFindings.filter(finding => !isDecisionFinding(finding)), [editorReviewFindings]);
   const timeRangeInvalid = Boolean(form.fstarttime&&form.fendtime)&&mins(form.fendtime)<=mins(form.fstarttime);
   const outsideTeachingDay = Boolean(form.fstarttime && form.fendtime) && !timeRangeInvalid &&
     !withinScheduleDay(mins(form.fstarttime), mins(form.fendtime),activeScheduleWindow);
@@ -9212,16 +9212,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 {editorRegulation.length ? (
                   <details className="decision-accordion decision-accordion--regulation">
                     <summary className="decision-accordion-summary">
-                      <span className="decision-accordion-title"><ClipboardCheck /> ملاحظات اللائحة · {DECISION_1912_LABEL}</span>
+                      <span className="decision-accordion-title"><ClipboardCheck /> ملاحظات اللائحة · {DECISIONS_LABEL}</span>
                       <em>{countOf(editorRegulation.length, AR.note)}</em>
                     </summary>
                     <div className="decision-accordion-body">
-                      <section className="decision-section decision-section--regulation" role="status" aria-label={`ملاحظات اللائحة · ${DECISION_1912_LABEL}`}>
+                      <section className="decision-section decision-section--regulation" role="status" aria-label={`ملاحظات اللائحة · ${DECISIONS_LABEL}`}>
                         <div className="decision-note-list">
                           {editorRegulationCards.map((finding) => (
                             <article key={finding.rule} className={`decision-note decision-note--${finding.severity} decision-note--feature`}>
                               <div className="decision-feature-topline">
-                                <span className="decision-card-kicker">ملاحظات اللائحة · {DECISION_1912_LABEL}</span>
+                                <span className="decision-card-kicker">ملاحظات اللائحة · {DECISIONS_LABEL}</span>
                                 <em className="decision-card-flag">{finding.article || "معلومة"}</em>
                               </div>
                               <div className="decision-feature-hero">
