@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DEMO_SEEDED_EVENT } from "../utils/demoSeedEvent";
-import { ChevronDown, ClipboardList, History, Layers, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Armchair, ChevronDown, ClipboardList, History, Layers, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { planGaps, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
 import { sortByName } from "../utils/sorting";
@@ -193,12 +193,14 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
             <UserPlus aria-hidden="true" /><b>{num(need.visitors)}</b><small>{need.visitors === 1 ? "منتدب" : "منتدبين"}</small><ChevronDown aria-hidden="true" className="apb-gap-chev" />
           </button>
           {totalOpen ? (
-            <p className="apb-gap-total-sum" role="status">
-              <span><Layers aria-hidden="true" /><b>{num(need.sections)}</b> {need.sections === 1 ? "شعبة" : "شعب"} بلا أستاذ</span>
-              {need.freeSlots > 0 ? <span>− <b>{num(Math.min(need.freeSlots, need.sections))}</b> أماكن عند المنتدبين الحاليين</span> : null}
-              <span>÷ <b>{num(VISITOR_MAX_SECTIONS)}</b> شعبتان لكل منتدب</span>
-              <span>= <b>{num(need.visitors)}</b> {need.visitors === 1 ? "منتدب" : "منتدبين"}</span>
-            </p>
+            <div className="apb-sum" role="status" aria-label={`${countOf(need.sections, AR.section)} بلا أستاذ، ناقص ${Math.min(need.freeSlots, need.sections)} أماكن عند الحاليين، مقسوماً على ${VISITOR_MAX_SECTIONS}، يساوي ${countOf(need.visitors, AR.visitor)}`}>
+              <span className="apb-sum-c"><Layers aria-hidden="true" /><b>{num(need.sections)}</b><small>بلا أستاذ</small></span>
+              {need.freeSlots > 0 ? <><i aria-hidden="true">−</i><span className="apb-sum-c" data-tone="soft"><Armchair aria-hidden="true" /><b>{num(Math.min(need.freeSlots, need.sections))}</b><small>أماكن فارغة</small></span></> : null}
+              <i aria-hidden="true">÷</i>
+              <span className="apb-sum-c" data-tone="soft"><Users aria-hidden="true" /><b>{num(VISITOR_MAX_SECTIONS)}</b><small>لكل منتدب</small></span>
+              <i aria-hidden="true">=</i>
+              <span className="apb-sum-c" data-tone="result"><UserPlus aria-hidden="true" /><b>{num(need.visitors)}</b><small>{need.visitors === 1 ? "منتدب" : "منتدبين"}</small></span>
+            </div>
           ) : null}
         </footer>
       ) : null}
