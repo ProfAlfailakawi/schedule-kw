@@ -717,7 +717,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
         {/* المانعُ شارةٌ بعدده في مكان الزرّ، وسببُه كاملاً في تلميحها. */}
         {capacityBlocksSign ? (
           <button type="button" className="apb-badge apb-blocked apb-capacity-btn" data-tone="danger" aria-expanded={readinessOpen}
-            title={`السعة غير مسجّلة لـ${missingCapacity === 1 ? "مقرر واحد" : `${missingCapacity.toLocaleString("ar-KW-u-nu-latn")} مقررات`} · تمنع التوقيع. اضغط لإدخالها.`}
+            title={`${countOf(missingCapacity, AR.course)} بلا سعةٍ مسجّلة · تمنع التوقيع. اضغط لإدخالها.`}
             onClick={() => setReadinessOpen(true)}
             data-guide-ignore="شارة مانع التوقيع بسبب سعةٍ ناقصة — تفتح قائمة إدخال السعة">
             <Users aria-hidden="true" /><span>السعة ناقصة</span><b>{missingCapacity.toLocaleString("ar-KW-u-nu-latn")}</b>

@@ -12,6 +12,7 @@ import React, { useMemo, useState } from "react";
 import { Eye, Plus } from "lucide-react";
 import { PlacementMap } from "./PlacementMap";
 import { SAMPLE_BRANDS, SAMPLE_NAME_MAX, customBrand, type SampleBrand } from "./SampleAd";
+import { AR, countOf } from "../../utils/arabicCount";
 import { dateShort, fmt, type Payload, type Slot } from "./shared";
 
 type Surface = "all" | "me" | "schedule" | "staff";
@@ -93,7 +94,7 @@ export default function PlacementPreview({ data, onStart }: { data: Payload; onS
 
       <div className="ad-sech">
         <h3>المواقع التي سيظهر فيها</h3>
-        <p>{fmt(openCount)} من {fmt(slots.length)} مواقع متاحةٌ لحملةٍ جديدة اليوم. مرّر على موقعٍ ليُضاء في المخطّط.</p>
+        <p>المتاح لحملةٍ جديدة اليوم: {fmt(openCount)} من {countOf(slots.length, AR.site)}. مرّر على موقعٍ ليُضاء في المخطّط.</p>
       </div>
       <ol className="ad-prev-legend">
         {visible.map(slot => {

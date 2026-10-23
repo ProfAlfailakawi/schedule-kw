@@ -5,8 +5,9 @@ import { NEGOTIATION_LABEL } from '../src/utils/instructorRequestThread.ts';
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from '../src/server/publicTheme.ts';
 import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from '../src/server/studyProposalAlert.ts';
 import { REQUEST_V3_CSS, REQUEST_V4_CSS } from '../src/server/requestPageStyles.ts';
-import { PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from '../src/server/publicKit.ts';
+import { DEMO_COPY_SCRIPT, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from '../src/server/publicKit.ts';
 import { REQUEST_REPLAY_SCRIPT } from '../src/server/requestReplayScript.ts';
+import { REQUEST_DAY_AUTOFILL_SCRIPT } from '../src/server/requestDayAutofillScript.ts';
 import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT } from '../src/server/voiceInputScript.ts';
 
 const server = fs.readFileSync('server.ts', 'utf8');
@@ -18,7 +19,7 @@ fn = fn.replace(
   'function instructorRequestPage(token: string, nonce: string, demoHint = ""): string {',
   'function instructorRequestPage(token, nonce, demoHint = "") {'
 );
-const sandbox = { html: '', ARABIC_COUNT_SCRIPT, NEGOTIATION_LABEL, PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, REQUEST_V3_CSS, REQUEST_V4_CSS, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT, REQUEST_REPLAY_SCRIPT, VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT };
+const sandbox = { html: '', DEMO_COPY_SCRIPT, REQUEST_DAY_AUTOFILL_SCRIPT, ARABIC_COUNT_SCRIPT, NEGOTIATION_LABEL, PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, REQUEST_V3_CSS, REQUEST_V4_CSS, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT, REQUEST_REPLAY_SCRIPT, VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT };
 vm.runInNewContext(`${fn}\nhtml=instructorRequestPage('browser-test-token','nonce123');`, sandbox, { timeout: 1000 });
 const scripts = [...String(sandbox.html).matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 if (scripts.length !== 1) throw new Error(`توقعت سكربت متصفح واحداً في صفحة الأستاذ، ووجدت ${scripts.length}`);

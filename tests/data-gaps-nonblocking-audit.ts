@@ -73,7 +73,7 @@ const base = { courses: [course], instructorIds: new Set([7, 8]) };
   check(capacityGapItems(noCredit.items).length === 0 && !noCredit.ready, "ونقصُ الوحدات وحده نقصٌ لا يمنع");
   const blockers = approvalBlockerSummary(rows, rows, {});
   const blocked = canSign(emptyApproval(1, 5, 20), "committee", { blockingConflicts: blockers.conflicts, rowCount: rows.length, missingCapacity: capacityGapItems(noCapacity.items).length });
-  check(blocked.ok === false && (blocked as any).code === "missing-capacity" && blocked.message.includes("السعة"), "canSign يرفض بسبب «missing-capacity» برسالةٍ تذكر السعة");
+  check(blocked.ok === false && (blocked as any).code === "missing-capacity" && blocked.message.includes("سعة"), "canSign يرفض بسبب «missing-capacity» برسالةٍ تذكر السعة");
   const allowed = canSign(emptyApproval(1, 5, 20), "committee", { blockingConflicts: 0, rowCount: rows.length, missingCapacity: 0 });
   check(allowed.ok === true, "وبعد تسجيل السعة يُوقَّع");
   const many = canSign(emptyApproval(1, 5, 20), "committee", { blockingConflicts: 0, rowCount: 3, missingCapacity: 3 });

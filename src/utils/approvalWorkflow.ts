@@ -169,8 +169,7 @@ export function canSign(
   if (missingCapacity > 0) {
     return {
       ok: false, code: "missing-capacity",
-      message: `سعة ${missingCapacity === 1 ? "مقرر واحد" : `${missingCapacity} مقررات`} غير مسجّلة. `
-        + "سجّل السعة لكل مقرر في الجدول ثم وقّع.",
+      message: `${countOf(missingCapacity, AR.course)} بلا سعةٍ مسجّلة — سجّل السعة ثم وقّع.`,
     };
   }
   if (signatureOf(approval, stage)) {
