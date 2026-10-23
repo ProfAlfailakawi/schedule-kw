@@ -24,7 +24,7 @@ import { describeRollover, readTermRollover } from "./src/utils/termRollover";
 import { visibleTermIds } from "./src/utils/scopedTerms";
 import { currentTermId, planningTermCandidates, termHasEnded, termIsArchive } from "./src/utils/termSequence";
 import { acceptedPdfSourceLabel, pdfTermAccepted } from "./src/utils/pdfTermRule";
-import { applyVisitingToFaculty } from "./src/utils/visitingToFaculty";
+import { applyVisitingToFaculty, recoverRetiredFromPrintedName, retiredOrSabbaticalIds } from "./src/utils/visitingToFaculty";
 import { ensureSectionFaculty } from "./src/server/sectionFaculty";
 import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadProblem } from "./src/utils/teachingLoad";
 import { buildConflictTopology, buildDecisionMemoryInsight, buildFairnessEngine, buildFragilityMap, buildOneMinuteBrief, buildRoomResilience, buildScheduleHealth2, buildSchedulePulse, createEmergencyPlans, explainScheduleDecision } from "./src/utils/livingSchedule";
@@ -1904,6 +1904,8 @@ async function visitingToFacultyPlan(collegeId: number, sectionId: number, termI
   const ids = (lists: any[][]) => new Set<number>(lists.flat().map(Number).filter(id => Number.isFinite(id) && id > 0));
   const faculty = ids(pools.map(pool => pool.faculty));
   const visiting = new Set([...ids(pools.flatMap(pool => [pool.delegates, pool.roster]))].filter(id => !faculty.has(id)));
+  /* المتقاعد والمتفرّغ بوضع المنتدب: يُستبدلان كذلك، ولو كانا في هيئة القسم. */
+  for (const id of retiredOrSabbaticalIds(instructors as any)) visiting.add(id);
   const membership = await departmentInstructorIdSet(colleges as any, sections as any, collegeId, sectionId, termId);
   const mine = [...placeholderInstructorIds(instructors as any)].filter(id => membership.has(id));
   return { visiting, placeholderId: mine.length === 1 ? mine[0] : 0 };
@@ -10416,8 +10418,9 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
       parsed.issues.unshift(`تحذير: الملف يذكر «${recognized.headerTerm.label}» بينما الفصل المختار هو «${String(targetTerm.AdTermName||"")}»، ولا يُقبل إلا «${acceptedPdfSourceLabel(targetName)||"فصل السنة السابقة"}». تأكد أنك ترفع الجدول إلى الفصل الصحيح.`);
     }
   }
+  recoverRetiredFromPrintedName(parsed.rows as any[],allInstructors as any);
   const visitingReplaced=applyVisitingToFaculty(parsed.rows as any[],await visitingToFacultyPlan(collegeId,sectionId,termId));
-  if(visitingReplaced)parsed.issues.push(`استُبدل المنتدبون بـ«هيئة تدريسية» في ${countOf(visitingReplaced, oblique(AR.section))}.`);
+  if(visitingReplaced)parsed.issues.push(`استُبدل المنتدبون والمتقاعدون والمتفرغون بـ«هيئة تدريسية» في ${countOf(visitingReplaced, oblique(AR.section))}.`);
   const rows=assignAuthoritySections(safeDraftRows(parsed.rows,collegeId,sectionId,termId));
   const structural=rows.length?await validateSmartRows(rows,collegeId,sectionId,{checkConflicts:true,requireDepartmentInstructor:true,departmentInstructorIds:departmentMembership}):[];
   /* تنبيهُ الصفحة (سطرٌ مطبوع لم يُقرأ، صفٌّ غير واضح) يتصدّر ملاحظات المعاينة
