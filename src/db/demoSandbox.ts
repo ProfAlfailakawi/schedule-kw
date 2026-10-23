@@ -719,6 +719,13 @@ export function createDemoSandboxState(): DemoSandboxState {
     const hall=DEMO_HALLS.find(item=>demoRoomType(item)==="تدريسية"&&Number(demoRoomCapacity(item)||0)<Number(demoFitCourse.MaxStudent)&&!occupied(item));
     if(hall)Object.assign(demoFitRow,hallFields(hall));
   }
+  /* مخالفتان إضافيتان بنوعين مختلفين لتقرير «المقررات × القاعات»: مقرران نوعُهما غير نوع قاعاتهما. */
+  {
+    const hallType = (row: FSchedule) => { const hall = DEMO_HALLS.find(item => item.roomId === row.roomId); return hall ? demoRoomType(hall) : ""; };
+    const roomsOf = (course: AdCourse) => first.filter(row => Number(row.AdCourseId) === Number(course.AdCourseId));
+    const candidates = courses.filter(course => course !== demoFitCourse && !course.CourseRoomType && roomsOf(course).length && roomsOf(course).every(row => hallType(row) === "تدريسية"));
+    for (const [at, type] of (["استوديو إنتاج", "مختبر حاسوب"] as const).entries()) if (candidates[at * 2]) candidates[at * 2].CourseRoomType = type;
+  }
   const acceptedFirst = structuredClone(first);
   plantConflicts(first);
   /* مخالفتان لائحيتان تُضافان بعد القبول (مراجعةٌ لا منع)، فيُقرأ تقريرُ الجدول بكشفهما. */
