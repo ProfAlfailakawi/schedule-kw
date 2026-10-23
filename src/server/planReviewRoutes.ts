@@ -35,6 +35,7 @@ import { academicDigits, authorityDepartmentCode } from "../utils/authorityAcade
 import { branchAudience } from "../utils/referenceApply";
 import { correctCourseName } from "../utils/courseNameCorrection";
 import { courseNameRelation } from "../utils/courseNameRelation";
+import { createReconciler, isSpecialEducationSheet, type SheetTruth } from "./sheetReconcile";
 import { blockingWarnings, checkSheetScope, correctedNames, isNewSheet, sheetKey, sheetNameMatches, sheetOwnKey, sheetSectionCode, sheetSectionName, ownCourses, sheetToReference, storedCode } from "../utils/planSheetImport";
 import { parsePlanItems } from "../utils/planPdfParser";
 import { extractPlanItems, PLAN_PDF_MAX_BYTES } from "./planPdfExtract";
@@ -148,7 +149,7 @@ const TRACK_PROGRAMS = new Set(["BA-0119", "BA-0110"]);
 function programHome(sheet: { program: string; programName?: string; courses: Array<{ dept: string; sectionNo: number }> }, section: { AdSectionCode?: unknown }): boolean {
   const code = String(section.AdSectionCode ?? "").trim();
   if (sheet.program === "BA-0110") return code === "KG";
-  if (/تربيه\s*خاصه|تربية\s*خاصة/.test(sheet.programName || "")) return code === "19";
+  if (isSpecialEducationSheet(sheet)) return code === "19";
   return true;
 }
 
@@ -1154,133 +1155,40 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         /* اسمٌ واحد لصحيفة السنة في كل المواقع («صحيفة 2026») بدل أسماءٍ تختلف باختلاف مرحلة الرفع. */
         if (isNew && !trackProgram && sheet.startYear && plan.status === "active" && plan.name !== newPlanName) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { name: newPlanName })) };
         if (sheet.startYear && (era.rollover || !plan.sheetYear)) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { sheetYear: sheet.startYear })) };
-        /* شروطُ تخرج الصحيفة: وحداتُ الدرجة من الصحيفة نفسها، وحدودُ فتح التدريب والخريج (عادي/صيفي) بالنسبة والتناسب من قاعدة القسم.
-           صحيفةٌ لها قاعدةٌ محفوظة لا تُمسّ (ما كتبه القسم يبقى). */
-        if (!plan.degreeRule && sheet.degreeUnits > 0 && sheet.degreeUnits <= 160) {
-          const sectionRule = (await Repository.getDegreeRules()).find(row => Number(row.AdSectionId) === sid);
-          if (sectionRule && Number(sectionRule.degreeUnits) > 0) {
-            const ratio = sheet.degreeUnits / Number(sectionRule.degreeUnits), scaled = (value: unknown) => Math.round(Number(value) * ratio);
-            plan = { ...plan, ...(await Repository.updateCurriculumPlan(plan.id, sid, { degreeRule: {
-              degreeUnits: sheet.degreeUnits, fieldTrainingRequired: scaled(sectionRule.fieldTrainingRequired),
-              graduateRegularPassed: scaled(sectionRule.graduateRegularPassed), graduateSummerPassed: scaled(sectionRule.graduateSummerPassed),
-              updatedAt: new Date().toISOString(), updatedBy: `رفع الصحيفة · ${by}`,
-            } })) };
+        /* المطابقة مع الصحيفة بالقلب نفسه الذي يستعمله سكربت المطابقة (sheetReconcile): مقررات القسم أعضاءٌ ومقررات الأقسام الأخرى
+           متطلباتٌ عامة (تُنشأ عند قسمها إن نقصت)، والسجلُّ المدرَّس مقدَّم، والعضوية والمجموعات والمسبقات كما طُبعت، وشروط التخرج. */
+        const courses = await Repository.getCourses() as AdCourse[];
+        const siteCourses = [...inBranch, ...foreignCourses];
+        const truth = new Map<string, SheetTruth>(), keepUnits = new Set<string>();
+        for (const course of siteCourses) {
+          truth.set(course.codeKey, { name: names.get(course.codeKey) || correctCourseName(course.name).name, units: course.units, hours: course.hours });
+          /* وحداتٌ مطبوعةٌ فوق ما تطلبه مجموعتها الاختيارية كلُّها خطأ طباعة (صحيفة التربية الفنية 2026): لا تُكتب فوق الكتالوج. */
+          const group = sheet.groups.find(item => item.id === course.groupId);
+          if (group?.kind === "elective" && group.units !== null && course.units > group.units) {
+            keepUnits.add(course.codeKey);
+            notes.push(`«${course.name}»: المطبوع ${countOf(course.units, AR.unit)} فوق ما تطلبه مجموعتها (${countOf(group.units, AR.unit)})؛ بقيت وحداته في الكتالوج.`);
           }
         }
-
-        /* 1) المقررات: تصحيح الاسم/الوحدات/الساعات وإضافة الناقص؛ السعة كما هي. */
-        let courses = await Repository.getCourses() as AdCourse[];
-        /* مقررٌ في صحيفةٍ أخرى للقسم مستعمَلٌ هناك باسمه: إن سمّته هذه الصحيفة مقرراً آخر لا يُعاد تسميته فيُفسد تلك. */
-        const linkedElsewhere = new Set((await Repository.getCurriculumPlanCourses(sid)).filter(link => link.planId !== plan!.id).map(link => Number(link.AdCourseId)));
-        for (const course of inBranch) {
-          const matches = courses.filter(row => Number(row.AdSectionId) === sid && numberOf(row.CourseCode) === Number(course.number));
-          if (matches.length > 1) { notes.push(`الرمز ${storedCode(course)} يطابق أكثر من مقرر في القسم: لم يُمسّ.`); continue; }
-          const name = names.get(course.codeKey) || course.name;
-          const row = matches[0];
-          /* وحداتٌ مطبوعةٌ فوق ما تطلبه مجموعتها الاختيارية كلُّها خطأ طباعة (صحيفة التربية الفنية 2026: «اختيارية 2» وحدةٌ واحدة
-             ومقرراتها مطبوعةٌ بثلاث خلافاً لسائر الصحائف): لا تُكتب فوق الكتالوج. */
-          const group = sheet.groups.find(item => item.id === course.groupId);
-          const misprinted = Boolean(row && group?.kind === "elective" && group.units !== null && course.units > group.units);
-          const units = misprinted ? Number(row!.CourseCredit) : course.units;
-          if (misprinted) notes.push(`«${name}»: المطبوع ${countOf(course.units, AR.unit)} فوق ما تطلبه مجموعتها (${countOf(group!.units!, AR.unit)})؛ بقي ${countOf(units, AR.unit)}.`);
-          /* الإملاء وحده لا يغيّر الاسم، ومقررٌ آخر يحمل الرقم لا يُعاد تسميتُه (courseNameRelation). */
-          const relation = row ? courseNameRelation(String(row.CourseName), name) : "same";
-          const protectedName = Boolean(row && relation === "different" && linkedElsewhere.has(Number(row.AdCourseId)));
-          if (protectedName) notes.push(`الرقم ${storedCode(course)} في القسم لمقرر «${String(row!.CourseName).trim()}» مستعمَلٍ في صحيفةٍ أخرى، والصحيفة تسمّيه «${name}»: لم يُعَد تسميته.`);
-          const keptName = relation === "same" || relation === "spelling" || protectedName ? String(row?.CourseName ?? name) : name;
-          if (!row) {
-            try { await Repository.createCourse(cid, sid, storedCode(course), name, course.units, course.hours, 0, false); report.created += 1; }
-            catch (error) { if (error instanceof DuplicateResourceError) notes.push(`الرمز ${storedCode(course)} مستعمل في القسم؛ لم يُنشأ.`); else throw error; }
-          } else if ((String(row.CourseName) !== keptName || Number(row.CourseCredit) !== units || Number(row.CourseHours) !== course.hours) && await mayCorrect(row, isNew)) {
-            await Repository.updateCourse(row.AdCourseId, row.AdCollegeId, row.AdSectionId, row.CourseCode, keptName, units, course.hours, Number(row.MaxStudent) || 0);
-            report.updated += 1;
-          } else report.unchanged += 1;
-        }
-
-        /* 2) ربط مقررات القسم بالصحيفة. */
-        courses = await Repository.getCourses() as AdCourse[];
-        const sectionCodes = new Map((sections as any[]).map(row => [Number(row.AdSectionId), authorityDepartmentCode(colleges.find((c: any) => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeCode, row.AdSectionCode)] as const));
-        const keyOf = (row: AdCourse) => {
-          const code = referenceCodeKey(row.CourseCode), dept = sectionCodes.get(Number(row.AdSectionId)) || "";
-          if (/^\d{1,3}$/.test(code) && /^\d{4}$/.test(dept)) return `${dept}${code.padStart(3, "0")}`;
-          /* «114164» محفوظٌ بلا صفر الكلية: هو 0114164 المطبوع. */
-          return /^1\d{5}$/.test(code) ? `0${code}` : code;
-        };
-        const knownIdByCode = new Map<string, number>(), memberIdByCode = new Map<string, number>();
-        for (const row of courses) if (Number(row.AdCollegeId) === cid) knownIdByCode.set(keyOf(row), Number(row.AdCourseId));
-        const members = new Set<number>((await Repository.getCurriculumPlanCourses(sid)).filter(link => link.planId === plan!.id).map(link => Number(link.AdCourseId)));
-        for (const course of inBranch) {
-          const row = courses.find(item => Number(item.AdSectionId) === sid && numberOf(item.CourseCode) === Number(course.number));
-          if (!row) continue;
-          memberIdByCode.set(course.codeKey, Number(row.AdCourseId));
-          if (!members.has(Number(row.AdCourseId))) { await Repository.addCourseToCurriculumPlan(plan.id, row, by); report.linked += 1; }
-        }
-
-        /* 3) مسوّدة القواعد: لا تُعتمد (يعتمدها القسم)، ولا تمحو ما كتبه. متطلباتُ الأقسام الأخرى تدخل مقفولةً للقراءة. */
-        const externalIdByCode = new Map<string, number>();
-        for (const group of reference.groups) for (const course of group.courses) for (const need of course.prerequisites) {
-          const id = knownIdByCode.get(referenceCodeKey(need));
-          if (id && !memberIdByCode.has(need)) externalIdByCode.set(need, id);
-        }
-        /* مقررات الأقسام الأخرى: الموجود في الكتالوج متطلبٌ عام، والاختياري منها يدخل مجموعته. */
-        const foreignMemberIdByCode = new Map<string, number>();
-        for (const course of foreignCourses) {
-          const id = knownIdByCode.get(course.codeKey);
-          if (id) { foreignMemberIdByCode.set(course.codeKey, id); externalIdByCode.set(course.codeKey, id); }
-        }
-        const ruleScope = new Map<string, number>([...memberIdByCode, ...externalIdByCode]);
-        const allIds = new Set<number>(ruleScope.values());
-        const built = buildReferenceRules(reference, new Map([...memberIdByCode, ...foreignMemberIdByCode]), ruleScope.size ? new Map([...knownIdByCode, ...ruleScope]) : knownIdByCode, new Set());
-        /* مجموعاتُ هذه الصحيفة تحمل سنتها في معرّفها (y2026-s1g2) فلا تلتبس بمجموعات صحيفةٍ أخرى للقسم نفسه. */
-        const stamp = (id: string) => `y${sheet.startYear || 0}-${id.replace(/^new-/, "")}`;
-        /* وحداتٌ عدّتها الصحيفة للمجموعة ولا يقابلها في النظام شيء (مقررٌ غير موجود، أو وحداتُه في الكتالوج أقل مما طُبع): النقص بقدرها تنبيهٌ لا مانع. */
-        const creditOf = new Map(courses.map(row => [Number(row.AdCourseId), Number(row.CourseCredit) || 0] as const));
-        const offeredBy = new Map<string, number>(reference.groups.map(group => [`${reference.id}-${group.id}`, group.courses.reduce((sum, course) => sum + (Number(course.credit) || 0), 0)] as [string, number]));
-        for (const group of built.groups) {
-          const present = group.courseIds.filter(id => allIds.has(id)).reduce((sum, id) => sum + (creditOf.get(id) || 0), 0);
-          const pending = Math.max(0, (offeredBy.get(group.id) || 0) - present);
-          group.id = stamp(group.id);
-          if (pending) group.pendingUnits = pending;
-        }
-        const live = await Repository.getRuleSet(plan.id);
-        const externalIds = [...externalIdByCode.values()];
-        await Repository.updateRuleDraft(plan.id, current => {
-          const base: CurriculumRuleSet = current ? { ...current } : { id: plan!.id, planId: plan!.id, AdCollegeId: cid, AdSectionId: sid, rules: live?.rules || [], groups: live?.groups || [], externals: live?.externals, version: live?.version || 0, status: "review", basedOnVersion: live?.version || 0, updatedAt: "", updatedBy: by };
-          const hasRule = new Set(base.rules.map(rule => rule.courseId));
-          /* ما كتبه الرفع وحده (لم يعدّله القسم بعد) يُكمَّل بما صار ممكناً ربطه من مسبقات (مقرر قسمٍ آخر وُجد بعد الرفع الأول)؛
-             وما عدّله القسم يُملأ فيه الفارغ فقط، فلا يُعاد مسبقٌ حذفه القسم. */
-          const fresh = new Map(built.rules.map(rule => [rule.courseId, rule] as const));
-          const untouched = String(base.updatedBy || "").startsWith("رفع الصحيفة");
-          const filled = base.rules.map(rule => {
-            const next = fresh.get(rule.courseId);
-            if (!next?.prereq?.all?.length) return rule;
-            const has = rule.prereq?.all || [];
-            if (!has.length && !rule.prereq?.anyOf?.length) return { ...rule, prereq: next.prereq };
-            const missing = next.prereq.all.filter(id => !has.includes(id));
-            return untouched && missing.length ? { ...rule, prereq: { all: [...has, ...missing], anyOf: rule.prereq?.anyOf || [] } } : rule;
-          });
-          const rules = normalizeRules([...filled, ...built.rules.filter(rule => !hasRule.has(rule.courseId))]);
-          const fromSheet = built.groups.map(group => normalizeGroup({ ...group, courseIds: group.courseIds.filter(id => allIds.has(id)) })).filter(Boolean) as ElectiveGroup[];
-          const yearOf = (group: ElectiveGroup) => Number(/^y(\d+)-/.exec(group.id)?.[1]) || 0;
-          const newestHeld = Math.max(0, ...base.groups.map(yearOf));
-          /* ما كتبه الرفع وحده: مجموعاتُ أحدث صحيفةٍ تحلّ محلّ ما قبلها (صحائفُ القسم المتعددة لا تتراكم مجموعاتُها فيقع المقرر في اثنتين)؛
-             وصحيفةٌ أقدم من المحفوظ لا تمسّ المجموعات. ما عدّله القسم يبقى وتُضاف إليه المجموعات الجديدة دون تكرار مقرر. */
-          const groups = dedupeGroups(untouched
-            ? (Number(sheet.startYear) || 0) >= newestHeld ? fromSheet : base.groups
-            : [...base.groups, ...fromSheet.filter(group => !base.groups.some(held => held.id === group.id))]);
-          const externals = [...new Set([...(base.externals || []), ...externalIds])].sort((a, b) => a - b);
-          return { ...base, rules: withDerivedGroups(rules, groups), groups, externals, status: "review", updatedAt: new Date().toISOString(), updatedBy: `رفع الصحيفة · ${by}` };
+        const taught = new Set<number>((await Repository.getSchedulesByScope({ collegeId: cid })).map(row => Number(row.AdCourseId)));
+        const counts = new Map<string, number>();
+        const reconciler = createReconciler({
+          Repository, collegeId: cid, sections: sections as any[], courses, taught, truth, keepUnits,
+          mayCorrect: row => mayCorrect(row, isNew), apply: true, approve: false, by: `رفع الصحيفة · ${by}`,
+          log: (kind, detail) => {
+            counts.set(kind, (counts.get(kind) || 0) + 1);
+            if (kind === "رقم لمقرر آخر") notes.push(`الرقم ${String(detail.code).slice(-3)} في القسم لمقرر «${String(detail.catalog).trim()}» والصحيفة تسمّيه «${detail.sheet}»: استُعمل له مقررٌ مستقل برمزه الكامل.`);
+          },
         });
-        report.rules = built.rules.length; report.groups = built.groups.length;
-        /* مسبقاتٌ مطبوعة لمقرراتٍ ليست في كتالوج الموقع بعد (قسمٌ لم تُرفع صحيفته): تُربط عند الرفع التالي. */
-        report.unlinked = built.notes.filter(note => /غير موجود في كتالوج/.test(note)).length;
-        /* رموزُ المسبقات التي لا مقرر لها في كتالوج الموقع (قسمٌ خدمي أو قسمٌ لم تُرفع صحيفته، أو رمزُ قسمه خطأ): للتقرير. */
-        const missing = new Set<string>();
-        for (const group of reference.groups) for (const course of group.courses) for (const code of [...course.prerequisites, ...(course.anyOf || []).flat()]) if (!knownIdByCode.has(referenceCodeKey(code))) missing.add(code);
-        unresolved = [...missing].sort();
-        /* مسبقات مطبوعة ↔ مربوطة بالقواعد (للمسؤول وحده): الفرق نصائحُ PEN ومسبقاتُ مقرراتٍ لم تُرفع صحائف أقسامها. */
-        report.prereqPrinted = reference.groups.flatMap(group => group.courses).reduce((sum, course) => sum + course.prerequisites.length + (course.anyOf?.length || 0), 0);
-        report.prereqLinked = built.rules.reduce((sum, rule) => sum + (rule.prereq?.all?.length || 0) + (rule.prereq?.anyOf?.length || 0), 0);
+        const outcome = await reconciler.reconcilePlan(sheet, siteCourses, plan);
+        report.created = counts.get("إنشاء مقرر") || 0;
+        report.updated = counts.get("تصحيح مقرر") || 0;
+        report.unchanged = Math.max(0, siteCourses.length - report.created - report.updated);
+        report.linked = outcome.linked; report.unlinked = outcome.unresolvedPrereqs.length; report.rules = outcome.rules; report.groups = outcome.groups;
+        report.prereqPrinted = siteCourses.reduce((sum, course) => sum + course.prereqAll.length + course.prereqAny.length, 0);
+        const linkedPrereqs = ((await Repository.getRuleDraft(plan.id))?.rules || []).reduce((sum, rule) => sum + (rule.prereq?.all?.length || 0) + (rule.prereq?.anyOf?.length || 0), 0);
+        report.prereqLinked = linkedPrereqs;
+        /* مسبقاتٌ مطبوعة لا مقرر لها في النظام بعد المطابقة (قسمٌ خدمي بلا قسم، أو رمزه خطأ): للتقرير. */
+        unresolved = [...outcome.unresolvedPrereqs].sort();
         return { sectionId: sid, plan, planCreated, rollover: era.rollover, report, renamed, recoded, fixes, notes, unresolved };
       };
 
