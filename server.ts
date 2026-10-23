@@ -41,6 +41,7 @@ import { effectiveStatus as studyProposalStatus, decisionStateOf as studyProposa
 import { studyProposalPage } from "./src/server/studyProposalPage";
 import { signatureVerifyPage } from "./src/server/signatureVerifyPage";
 import { REQUEST_REPLAY_SCRIPT } from "./src/server/requestReplayScript";
+import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT } from "./src/server/voiceInputScript";
 import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from "./src/server/studyProposalAlert";
 import { REQUEST_V3_CSS } from "./src/server/requestPageStyles";
 import { PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "./src/server/publicKit";
@@ -20442,6 +20443,7 @@ label.sign input::placeholder,.course-search::placeholder,textarea::placeholder{
 ${PROPOSAL_ALERT_CSS}
 ${PUBLIC_KIT_CSS}
 ${REQUEST_V3_CSS}
+${VOICE_INPUT_CSS}
 </style></head><body>${demoHint?`<div id="demoTop" style="max-width:760px;margin:0 auto;padding:12px 16px 0">${demoHint}</div>`:""}<div class="wrap" id="host">يفتح جدولك…</div>
 <script nonce="${nonce}">(function(){
 ${PUBLIC_KIT_SCRIPT}
@@ -20665,9 +20667,9 @@ function askAcceptAll(){var rows=pendingList().map(function(i){var it=state[i],o
    var r=rows[n];sendReply(r.i,r.k,civil,"","",function(msg,status){if(msg){done(n?"تعذّر إكمال الموافقة على الباقي: "+msg:msg,status);return}n++;next()})})()}})}
 function openMsg(i){var it=state[i];
  openSheet('<div class="sk-h"><span class="sk-b">'+gi("chat")+'</span><div><h3>اكتب للقسم</h3><p>'+esc(courseOf(it))+'</p></div></div>'+
-  '<textarea id="msgText" maxlength="400" data-show="1" placeholder="اكتب ردّك للقسم…" style="display:block"></textarea>'+
+  '<textarea id="msgText" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-vi-field="msg" data-show="1" placeholder="اكتب ردّك للقسم…" style="display:block"></textarea>'+VI.html("msg")+
   '<button type="button" class="sk-btn" id="msgGo" data-reply="'+i+'">'+gi("finger")+'التالي: التوقيع</button>');
- var ta=document.getElementById("msgText");setTimeout(function(){ta.focus()},120);
+ var ta=document.getElementById("msgText");VI.wire();setTimeout(function(){ta.focus()},120);
  document.getElementById("msgGo").onclick=function(){var t=ta.value.trim();if(!t){ta.focus();return}
   signSheet({ok:"وصلت رسالتك إلى القسم",what:'<div>'+gi("chat")+'<span>'+esc(t.length>160?t.slice(0,160)+"…":t)+'</span></div>',
    run:function(civil,done){sendReply(i,null,civil,t,"",done)}})}}
@@ -20705,7 +20707,7 @@ function actionsHtml(it,i){
  return actBtn(i,"keep","undo","تراجع عن الحذف");
 }
 function editHtml(it,i){var h="";h+='<div class="edit"><span class="field-title">أيام المحاضرة</span><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
-    h+='</div><span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+'>'+t+'</button>'}).join("")+'</div><label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(friendly(it.note||""))+'</span>'+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">التوزيع المعتمد لهذا المقرر — اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div><textarea data-i="'+i+'" data-excuse="1" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea></div>';return h}
+    h+='</div><span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+'>'+t+'</button>'}).join("")+'</div><label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(friendly(it.note||""))+'</span>'+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">التوزيع المعتمد لهذا المقرر — اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div><textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
 function bodyHtml(it,i,open){var h=decisionBox(it,i,open)+threadBox(it,i);
  if(open){if(it.negotiation==="proposed")h+='<p class="hint-pro">للرد على اقتراح القسم استخدم بطاقة «قرارك» في أعلى الصفحة. وتعديل الموعد من هنا يبدأ طلبًا جديدًا.</p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
  else if(!h)h='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
@@ -20793,6 +20795,7 @@ function activityHtml(r){
  return '<div class="section-head"><b>طلبك</b><small>ما طلبتَه، وقرار القسم في كل بند</small></div>'+(rows||timeline?'<ul class="activity-list">'+rows+timeline+'</ul>':'<div class="activity-empty">لم تطلب شيئاً بعد. أي إضافة أو تعديل أو حذف يظهر هنا فوراً.</div>')+verifyHtml(r.signature&&r.signature.verifyCode)+officialHtml()
 }
 ${REQUEST_REPLAY_SCRIPT}
+${VOICE_INPUT_JS}
 /* ── ذاكرةُ الفصول ───────────────────────────────────────────────────────────
    ما طلبه الأستاذ في الفصل الماضي وكيف قُرّر فيه. «أعد الطلب نفسه» يملأ مسودتَه
    في هذه الصفحة وحدها: لا يُرسل شيئاً حتى يوقّع، والفحصُ المباشر يحكم على كل بندٍ
@@ -20944,6 +20947,7 @@ function wire(){
  var drop=document.getElementById("dropDraft");if(drop)drop.onclick=function(){clearDraft();dirty=false;location.reload()};
  var send=document.getElementById("send");if(send)send.onclick=submit;
  var replay=document.getElementById("replay");if(replay)replay.onclick=replayPrevious;
+ VI.wire(function(key,value){if(key.indexOf("ex-")===0&&state[+key.slice(3)])state[+key.slice(3)].excuse=value});
  host.querySelectorAll("[data-accept]").forEach(function(el){el.onclick=function(){askAccept(+el.dataset.i,+el.dataset.accept)}});
  host.querySelectorAll("[data-accept-all]").forEach(function(el){el.onclick=askAcceptAll});
  host.querySelectorAll("[data-counter]").forEach(function(el){el.onclick=function(){openCounter(+el.dataset.counter)}});
