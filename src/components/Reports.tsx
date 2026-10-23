@@ -6,7 +6,7 @@ import { flushSync } from "react-dom";
 import {
   BookOpen, Building2, CalendarDays, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
-  ShieldCheck, FileSpreadsheet, UsersRound,
+  ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen,
 } from "lucide-react";
 import { parseNaturalQuery } from "../utils/naturalQuery";
 import { EmptyState, Field, GhostButton, Notice, PageTitle, PrintLetterhead, PrintPortal, SecondaryButton } from "./ui";
@@ -75,8 +75,8 @@ type VisitingTeachingData = {
   instructors: AdInstructor[];
   rows: FSchedule[];
 };
-type Lens = "list" | "week" | "instructor" | "courseLoad" | "room" | "roomInstructor" | "matrix" | "time" | "visiting" | "visitingHistory" | "fairness" | "balance";
-type PrintKind = Lens | "comprehensive" | "comprehensive-branch" | null;
+type Lens = "list" | "week" | "instructor" | "courseLoad" | "room" | "roomInstructor" | "matrix" | "time" | "visiting" | "visitingHistory" | "fairness" | "balance" | "courseRoom";
+type PrintKind = Exclude<Lens, "courseRoom"> | "comprehensive" | "comprehensive-branch" | null;
 
 /* Safari is the one printing engine here that ignores `@page size` (so wide
    sheets meet portrait paper) — detected once, and only ever used to OFFER a
@@ -156,6 +156,7 @@ const LENSES: Array<{ id: Lens; label: string; hint: string; icon: React.ReactNo
   { id: "courseLoad", label: "المواد × المواقع", hint: "مواد كل أستاذ في البنين والبنات والجهراء وبقية المواقع", icon: <BookOpen /> },
   { id: "room", label: "القاعات", hint: "ما تشغله كل قاعة ومتى تفرغ", icon: <Building2 /> },
   { id: "roomInstructor", label: "القاعات والأساتذة", hint: "كل قاعة ومبناها وأساتذتها، وكل أستاذ والقاعات التي يدرّس فيها", icon: <Landmark /> },
+  { id: "courseRoom", label: "المقررات × القاعات", hint: "مواعيد قاعتها لا يطابق نوعها نوع المقرر", icon: <DoorOpen /> },
   { id: "matrix", label: "القاعات × الأوقات", hint: "شبكة تقاطع كل قاعة مع كل وقت", icon: <Table2 /> },
   { id: "time", label: "الأوقات", hint: "توزّع المواعيد على ساعات اليوم", icon: <Clock3 /> },
   { id: "visiting", label: "المنتدبون", hint: "منتدبو الفصل الحالي أو المقارنة عبر كل الفصول", icon: <UserPlus /> },
@@ -186,10 +187,10 @@ const ROLE_LENSES: Record<string, Lens[]> = {
      والقائمةُ — المعتمدة وحدها — تكون فارغةً قبل أن يعتمد التسجيل شيئاً، فشاشةٌ
      أولى فارغة لا تجيب أحداً. ثم الجداول نفسها وما يُكمل الصورة. */
   dean:           ["balance", "list", "week", "fairness", "courseLoad", "visiting"],
-  viceDean:       ["balance", "list", "week", "fairness", "courseLoad", "visiting", "instructor", "room", "roomInstructor", "matrix"],
-  registrarDean:  ["balance", "list", "room", "roomInstructor", "matrix"],
-  registrarHead:  ["balance", "list", "room", "roomInstructor", "matrix"],
-  registrarStaff: ["balance", "list", "room", "roomInstructor"],
+  viceDean:       ["balance", "list", "week", "fairness", "courseLoad", "visiting", "instructor", "room", "roomInstructor", "matrix", "courseRoom"],
+  registrarDean:  ["balance", "list", "room", "roomInstructor", "matrix", "courseRoom"],
+  registrarHead:  ["balance", "list", "room", "roomInstructor", "matrix", "courseRoom"],
+  registrarStaff: ["balance", "list", "room", "roomInstructor", "courseRoom"],
 };
 
 /**
@@ -671,12 +672,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const controller=new AbortController();
     const qs=new URLSearchParams({collegeId:String(filters.collegeId)});
     if(filters.sectionId)qs.set("sectionId",String(filters.sectionId));
+    /* الفصلُ يُحضر القاعات المستعارة المعتمدة أيضاً، فلا يضيع نوعُ قاعةٍ مستعارة من «المقررات × القاعات». */
+    if(filters.termId)qs.set("termId",String(filters.termId));
     fetch(`/api/location-registry?${qs}`,{signal:controller.signal})
       .then(async response=>{if(!response.ok)throw new Error("تعذر تحميل سجل المباني والقاعات");return response.json();})
       .then(data=>setLocationRegistry({buildings:Array.isArray(data.buildings)?data.buildings:[],rooms:Array.isArray(data.rooms)?data.rooms:[]}))
       .catch(error=>{if(error?.name!=="AbortError")setError(String(error?.message||error));});
     return()=>controller.abort();
-  },[filters.collegeId,filters.sectionId]);
+  },[filters.collegeId,filters.sectionId,filters.termId]);
 
   useEffect(() => {
     /* مستوى الكلية مقبول (N7): الخادم يجيزه لمن يغطّي الكلية كلها. */
@@ -1924,7 +1927,15 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       && (!filters.civil.trim() || String(instructorById.get(person.instructorId)?.AdInstructorCivil || "").includes(filters.civil.trim()))),
   [courseLoadRows, instructorById, courseById, collegeById, filters.instructorId, filters.instructorQuery, filters.civil]);
   const courseLoadMax = Math.max(1, ...courseLoads.map(person => person.courseCount));
-  const roomTeacherIndex = useMemo(() => roomInstructorDirectory(results, instructorById), [results, instructorById]);
+  /* نوعُ المقرر يُقارَن بنوع القاعة المسجَّل لها؛ بلا نوعٍ في أيٍّ منهما لا مقارنة ولا مخالفة. */
+  const roomTypeMismatches = useMemo(() => results.flatMap(row => {
+    const wanted = String(courseById.get(row.AdCourseId)?.CourseRoomType || "").trim();
+    const room = rowLocation(row).room;
+    const actual = String(room?.roomType || "").trim();
+    return wanted && actual && wanted !== actual ? [{ row, wanted, actual, room: [row.AdRoomCode, room?.canonicalCode || row.AdRoomHall].filter(Boolean).join("/") }] : [];
+  }).sort((a, b) => byArabic(String(a.row.AdCourseName || ""), String(b.row.AdCourseName || "")) || String(a.row.SCode).localeCompare(String(b.row.SCode), "en")),
+  [results, courseById, rowLocation]);
+  const roomTeacherIndex = useMemo(() => () => roomInstructorDirectory(results, instructorById), [results, instructorById]);
   const maxLoad = Math.max(1, ...byInstructor.map(group => group.load));
   const maxSlot = Math.max(1, ...byTime.map(slot => slot.count));
   const selectedResult = selectedResultId === null ? null : results.find(row => row.id === selectedResultId) || null;
@@ -2937,6 +2948,25 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           ) : (
             <div className="query-empty"><EmptyState title="لا يوجد تاريخ منتدبين" detail="بعد حفظ منتدبي الفصول سيظهر هنا سجل المقارنة بين السنوات." /></div>
           )
+        ) : lens === "courseRoom" ? (
+          <div className="course-room-report">
+            {roomTypeMismatches.length ? <>
+              <p className="course-room-lede">{countOf(roomTypeMismatches.length, AR.appointment)} نوعُ قاعتها غير نوع المقرر. يحسن تغيير القاعة إلى النوع المناسب.</p>
+              <ul className="course-room-list">{roomTypeMismatches.map(({ row, wanted, actual, room }) => {
+                const course = courseById.get(row.AdCourseId);
+                const days = DAYS.filter(day => row[day.flag]).map(day => day.label).join(" · ");
+                return <li key={row.id}>
+                  <div className="course-room-main">
+                    <strong>{row.AdCourseName || course?.CourseName}</strong>
+                    <small>
+                      <bdi dir="ltr">{row.CourseCodeSnapshot || course?.CourseCode}</bdi> · شعبة <bdi dir="ltr">{row.SCode}</bdi> · {instructorById.get(row.AdInstructorId)?.AdInstructorName || "بلا أستاذ"} · <bdi dir="ltr">{row.fstarttime}–{row.fendtime}</bdi> · {days}
+                    </small>
+                  </div>
+                  <div className="course-room-room"><b dir="ltr">{room}</b><span>{actual} ← يلزم {wanted}</span></div>
+                </li>;
+              })}</ul>
+            </> : <EmptyState title="لا مخالفات" detail="كل قاعةٍ مسجَّل نوعُها تطابق نوعَ مقررها في هذا النطاق." />}
+          </div>
         ) : lens === "courseLoad" ? (
           <div className="course-load-report">
             <div className="course-load-intro"><span><BookOpen aria-hidden="true" /></span><div><strong>توزيع المواد بين المواقع</strong>{sectionName ? <small>{sectionName}</small> : null}</div></div>

@@ -136,7 +136,7 @@ export default function LocationPicker({collegeId,sectionId,termId,value,onChang
   const selectedHistoricalRoom=historicalRooms.find(room=>room.id===value.roomId);
   const selectedRoom=rooms.find(room=>room.id===value.roomId);
   const fitNotes:string[]=[];
-  if(selectedRoom&&courseRoomType&&selectedRoom.roomType&&selectedRoom.roomType!==courseRoomType)fitNotes.push(`نوع المقرر «${courseRoomType}» والقاعة «${selectedRoom.roomType}»`);
+  if(selectedRoom&&courseRoomType&&selectedRoom.roomType&&selectedRoom.roomType!==courseRoomType)fitNotes.push(`القاعة «${selectedRoom.roomType}» والمقرر يلزمه «${courseRoomType}»`);
   if(selectedRoom&&seatsNeeded>0&&Number(selectedRoom.capacity)>0&&Number(selectedRoom.capacity)<seatsNeeded)fitNotes.push(`سعة القاعة ${countOf(Number(selectedRoom.capacity),AR.seat)}، والمطلوب للمقرر ${countOf(Number(seatsNeeded),AR.seat)}`);
   const locationPending=value.locationStatus==="PENDING_ROOM";
   const chooseBuilding=(id:string)=>{const b=buildings.find(x=>x.id===id);onChange({buildingId:b?.id,roomId:undefined,AdRoomCode:b?.officialCode||"",AdRoomHall:"",locationStatus:undefined});};
@@ -146,7 +146,7 @@ export default function LocationPicker({collegeId,sectionId,termId,value,onChang
     <label><span>القاعة <b>*</b></span><select aria-label="القاعة الرسمية" value={locationPending?PENDING_ROOM:(value.roomId||"")} disabled={disabled||!selectedBuilding||loading} onChange={e=>chooseRoom(e.target.value)} required><option value="">{selectedBuilding?"اختر القاعة الرسمية":"اختر المبنى أولاً"}</option>{ownRooms.length?<optgroup label="قاعات القسم">{ownRooms.map(r=><option key={r.id} value={r.id}>{r.canonicalCode}</option>)}</optgroup>:null}{sharedRooms.length?<optgroup label="قاعات مشتركة مع أقسام أخرى">{sharedRooms.map(r=><option key={r.id} value={r.id}>{sharedRoomLabel(r as PickerRoom)}</option>)}</optgroup>:null}{historicalRooms.length?<optgroup label="قاعات القسم من السجل التاريخي">{historicalRooms.map(r=><option key={r.id} value={r.id}>{r.canonicalCode}</option>)}</optgroup>:null}{borrowed.length?<optgroup label="قاعات مستعارة معتمدة">{borrowed.map(r=><option key={r.id} value={r.id}>{borrowedLabel(r)}</option>)}</optgroup>:null}{restrictedHistoricalRooms.length?<optgroup label="استخدام تاريخي يحتاج استعارة">{restrictedHistoricalRooms.map(r=><option key={r.id} value={r.id} disabled>{r.canonicalCode} · تحتاج استعارة معتمدة</option>)}</optgroup>:null}{allowPending?<option value={PENDING_ROOM}>بانتظار تثبيت القاعة</option>:null}</select></label>
     {hallAction?<div className="location-hall-action">{hallAction}</div>:null}
     {selectedHistoricalRoom?<small className="location-history-badge">قاعة محفوظة في سجل القسم ومطابقة للسجل الرسمي.</small>:null}
-    {fitNotes.length?<small className="room-fit-note" role="status"><AlertTriangle aria-hidden="true"/><span>ملاحظة للمخطط: {fitNotes.join(" · ")}. اختيار القاعة يبقى متاحًا.</span></small>:null}
+    {fitNotes.length?<small className="room-fit-note" role="status"><AlertTriangle aria-hidden="true"/><span>{fitNotes.join(" · ")} — يمكنك المتابعة.</span></small>:null}
     {!value.roomId&&historicalRooms.length?<small className="location-history-badge">يتوفر {historicalRooms.length} من قاعات سجل القسم لهذا المبنى.</small>:null}
     {restrictedHistoricalRooms.length?<small className="location-history-review-badge">{restrictedHistoricalRooms.length} من الاستخدامات التاريخية تحتاج استعارة معتمدة قبل الحجز.</small>:null}
     {locationPending?<small className="location-pending-badge">بانتظار تثبيت القاعة</small>:null}
