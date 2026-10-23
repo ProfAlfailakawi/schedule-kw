@@ -57,6 +57,7 @@ const labRow = row({ fmonday: false, fwednesday: true, fthursday: false, fstartt
 const labContext = { ...context(4), allRows: [labRow], instructorRowsAfter: [labRow] };
 const labSplit = judgeRequest(ask({ days: ["fmonday", "fwednesday"] }), labContext);
 check(!labSplit.sendable && labSplit.shapes?.[0]?.days.join() === "fwednesday" && /يوم واحد كما هو الآن/.test(labSplit.shapes?.[0]?.label || ""), "مختبرٌ يومي جُعل يومين: أوّلُ الخيارات «يوم واحد كما هو الآن» لا نمطُ المحاضرات");
+check(labSplit.shapes?.length === 1, "ومعه وحده: نمطُ المحاضرات (٨٠+٨٠+٥٠) لا يُعرض لشعبةٍ طبيعتُها يومٌ واحد");
 const labKept = judgeRequest(ask({ days: labSplit.shapes?.[0]?.days as any || [] }), labContext);
 check(labKept.sendable && labKept.computedEnd === "12:00", "وتطبيقُه يمرّ ويبقى طولُ اللقاء أربع ساعات");
 const labMoved = judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), labContext);
@@ -80,6 +81,8 @@ check(addedWithHistory.sendable && addedWithHistory.computedEnd === "17:00", "و
 const threeDayRow = row({ id: 1, AdTermId: 20, fmonday: true, fwednesday: true, fthursday: true, fstarttime: "08:00", fendtime: "09:20" });
 const twoDays = judgeRequest(ask({ days: ["fmonday", "fwednesday"] }), { ...habitual, allRows: [threeDayRow], instructorRowsAfter: [threeDayRow] });
 check(!twoDays.sendable && twoDays.shapes?.[0]?.days.length === 1 && /كما دُرّس سابقاً/.test(twoDays.shapes?.[0]?.label || ""), "وجعلُها يومين يُمنع وأوّلُ الخيارات «يوم واحد كما دُرّس سابقاً»");
+check(!twoDays.reasons.some(reason => /80د|50د/.test(reason.text)) && twoDays.reasons.some(reason => /كما دُرّس سابقاً/.test(reason.text)), "ونصُّ المنع نفسه يقول «كما دُرّس سابقاً» لا يعدّد أنماط المحاضرات");
+check(twoDays.shapes?.length === 1, "وتاريخُها يومٌ واحد: الخيارُ الوحيد «كما دُرّس سابقاً» بلا نمط محاضرات");
 const oneTerm = judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), withHistory(natureOf(100, [18])));
 check(!oneTerm.sendable && oneTerm.blockMinutes === undefined, "وتاريخٌ من فصلٍ واحد لا يُعتدّ به: لا يَعِد بما لا يعرف");
 check(habitualBlockMinutes(natureOf(100, [16, 17, 18]).get(100), 17) === undefined, "ولا يُحتسب إلا ما سبق الفصلَ الحالي");

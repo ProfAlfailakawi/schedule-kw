@@ -468,16 +468,6 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     const original = request.rowId == null ? undefined : context.allRows.find(row => Number(row.id) === Number(request.rowId));
     const originalWeekly = original ? DAY_KEYS.filter(day => (original as any)[day]).length * (toMinutes(original.fendtime) - toMinutes(original.fstarttime)) : Infinity;
     if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly, habitBlock && request.days.length === 1 ? habitBlock : Infinity)) {
-      const shapes = patternsForHours(courseHours).map(pattern => pattern.label).slice(0, 3).join(" أو ");
-      reasons.push({
-        source: "shape",
-        text: `هذا المقرّر ${countOf(courseHours, { one: "ساعة", two: "ساعتان", few: "ساعات", many: "ساعةً" })} أسبوعياً، والمختار لا يغطّيها${shapes ? ` — جرّب ${shapes}` : ""}.`,
-        blocking: true,
-      });
-      const result = verdictOf();
-      /* لا يُعرض زرٌّ إلا لما يقبله الفاحصُ نفسُه بالأيام وحدها: كتلةُ اليوم الواحد
-         الطويلة تحتاج طولَ لقاءٍ لا يختاره الأستاذ من هنا، فزرُّها كان سيعود إلى المنع. */
-      const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
       /* شعبةٌ تُدرَّس يوماً واحداً بلقاءٍ ممتدّ (مختبر، ورشة، تدريب) أوّلُ خياراتها أن تبقى يوماً واحداً بطولها
          نفسه: كانت الأزرارُ تدفعها إلى نمط المحاضرات على ثلاثة أيام، وهو ليس طبيعتها. */
       const habitNature = context.nature?.get(Number(request.AdCourseId));
@@ -488,9 +478,21 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       const keepOneDay = blockDay && blockLength
         ? [{ days: [blockDay] as DayKey[], label: `${request.blockMinutes && original ? "يوم واحد كما هو الآن" : "يوم واحد كما دُرّس سابقاً"}: ${DAY_NAMES[DAY_KEYS.indexOf(blockDay)]} ${blockLength}د` }]
         : [];
-      result.shapes = [...keepOneDay, ...patternsForHours(courseHours)
+      const shapes = keepOneDay.length ? keepOneDay[0].label : patternsForHours(courseHours).map(pattern => pattern.label).slice(0, 3).join(" أو ");
+      reasons.push({
+        source: "shape",
+        text: `هذا المقرّر ${countOf(courseHours, { one: "ساعة", two: "ساعتان", few: "ساعات", many: "ساعةً" })} أسبوعياً، والمختار لا يغطّيها${shapes ? ` — جرّب ${shapes}` : ""}.`,
+        blocking: true,
+      });
+      const result = verdictOf();
+      /* لا يُعرض زرٌّ إلا لما يقبله الفاحصُ نفسُه بالأيام وحدها: كتلةُ اليوم الواحد
+         الطويلة تحتاج طولَ لقاءٍ لا يختاره الأستاذ من هنا، فزرُّها كان سيعود إلى المنع. */
+      const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
+      /* شعبةٌ طبيعتُها لقاءٌ ممتدّ بيومٍ واحد (من صفّها أو من تاريخها) خيارُها الوحيد أن تبقى كذلك:
+         نمطُ المحاضرات (٨٠+٨٠+٥٠ وأخواتُه) ليس من طبيعتها ولا ممّا درجت عليه، فلا يُعرض بجانبها. */
+      result.shapes = keepOneDay.length ? keepOneDay : patternsForHours(courseHours)
         .filter(pattern => pattern.days.length > 1 && pattern.days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold)
-        .map(pattern => ({ days: [...pattern.days], label: pattern.label }))].slice(0, 3);
+        .map(pattern => ({ days: [...pattern.days], label: pattern.label })).slice(0, 3);
       return result;
     }
   }
