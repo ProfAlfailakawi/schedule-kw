@@ -5003,3 +5003,6 @@ button.twin-delta{width:100%}
 [class*="section-plan-report"],.vault-export-progress-head{--t-xs:11.5px;--t-micro:11px;--t-eyebrow:11px}
 
 .living-health-strip>span.is-recalled{opacity:.7}
+
+/* الشارة «منتدب» داخل رقائق الجولة والمسرح: اسمُ الأستاذ يحملها كما في الجدول الحقيقي. */
+.ob-chip span .visiting-badge,.choreo-chip .visiting-badge{color:color-mix(in srgb,var(--brass,#a8792a) 88%,var(--ink));font-size:10px;min-height:16px;padding-inline:5px;margin-inline-start:3px}

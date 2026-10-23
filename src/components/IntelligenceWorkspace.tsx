@@ -1,4 +1,6 @@
 import PlanBadge from "./PlanBadge";
+import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import TermSelect from "./TermSelect";
 import SearchableSelect from "./SearchableSelect";
 import IntelligenceScopeSwitch from "./IntelligenceScopeSwitch";
@@ -175,7 +177,7 @@ function professorWeekShape(rows: any[]) {
 
 type Tab = "command" | "copilot" | "twin" | "history" | "import";
 
-function PdfDifferenceBody({report,courses,instructors}:{report:any;courses:AdCourse[];instructors:AdInstructor[]}){
+function PdfDifferenceBody({report,courses,instructors,isVisiting}:{report:any;courses:AdCourse[];instructors:AdInstructor[];isVisiting:(instructorId:unknown,collegeId:unknown,sectionId:unknown)=>boolean}){
   return <>
     <div className="pdf-report-summary">
       <article className="added"><strong>{report.counts.added}</strong><span>{nounFor(report.counts.added, AR.course)} {nounFor(report.counts.added, AR.addedAdj)}</span></article>
@@ -200,7 +202,7 @@ function PdfDifferenceBody({report,courses,instructors}:{report:any;courses:AdCo
             <td>{course?.CourseCode||"—"}</td>
             <td>{row.AdCourseName||course?.CourseName||"—"}<PlanBadge courseId={row.AdCourseId} /></td>
             <td className={mark("SCode")}>{row.SCode||"—"}</td>
-            <td className={mark("AdInstructorId")}>{instructor}</td>
+            <td className={mark("AdInstructorId")}>{instructor}{isVisiting(row.AdInstructorId,row.AdCollegeId,row.AdSectionId)?<> <VisitingBadge compact /></>:null}</td>
             <td className={daysChanged&&entry.status==="changed"?"cell-changed":""}>{days}</td>
             <td className={mark("fstarttime","fendtime")} dir="ltr">{formatScheduleTimeRange(row.fstarttime,row.fendtime)}</td>
             <td className={mark("AdRoomCode")}>{row.AdRoomCode||"—"}</td>
@@ -475,6 +477,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         ? v
         : "command";
     });
+  const { lookup: visitingLookup, isVisiting } = useVisitingLookup(termId);
   const scopeOwner = Number(user?.SystemUserId || 0);
   const [analysisScope, setAnalysisScope] = useState<"college" | "department">("college");
   const hasMultipleDepartmentColleges = useMemo(() => {
@@ -773,6 +776,11 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
   const sourceScope = (item: any): IntelligenceScope => item?.readingScope || {
     collegeId: Number(item?.AdCollegeId || collegeId), sectionId: Number(item?.AdSectionId || sectionId),
     collegeName: colleges.find(c => Number(c.AdCollegeId) === Number(item?.AdCollegeId || collegeId))?.AdCollegeName || "",
+  };
+  /* المنتدب بقسم الصفّ نفسه: لعنصرٍ يحمل قراءته (readingScope) أو كليتَه وقسمَه، وإلا فنطاق الشاشة. */
+  const visitingAt = (instructorId: unknown, item: any) => {
+    const source = sourceScope(item);
+    return isVisiting(instructorId, source.collegeId, source.sectionId);
   };
   const enterSourceScope = (item: any, kind: string, extra?: any) => {
     const source = sourceScope(item);
@@ -2492,7 +2500,9 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
   const reasonCollege = (row: FSchedule | undefined) => readingMode === "department" && row ? `${colleges.find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeName || ""} · ` : "";
   const reasonDays = (row: FSchedule | undefined) => row ? Object.entries(dayLabels).filter(([key]) => Boolean((row as any)[key])).map(([,label]) => label).join("، ") : "";
   const reasonCourse = (row: FSchedule | undefined) => row ? (reasonCourseById.get(Number(row.AdCourseId))?.CourseCode || row.AdCourseName || "المقرر") : "موعد";
-  const reasonInstructor = (row: FSchedule | undefined) => row ? (reasonInstructorById.get(Number(row.AdInstructorId))?.AdInstructorName || "بدون أستاذ") : "";
+  const reasonInstructor = (row: FSchedule | undefined) => row ? withVisitingSuffix(reasonInstructorById.get(Number(row.AdInstructorId))?.AdInstructorName || "بدون أستاذ", Boolean(row.AdInstructorId) && isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId)) : "";
+  /* قوائم الحمل تجمع صفوف قراءةٍ قد تمتد لأقسام: منتدبٌ إن كان منتدباً في أيٍّ من أقسام صفوفه. */
+  const visitingInReading = (instructorId: unknown) => readingRows.some(row => Number(row.AdInstructorId) === Number(instructorId) && isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId)) || isVisiting(instructorId, collegeId, sectionId);
   const conflictReasonItems = useMemo<NonNullable<InsightReason["items"]>>(() => {
     const conflicts = Array.isArray(overview?.conflicts) ? overview.conflicts.filter((item:any) => item?.severity === "high") : [];
     return conflicts.slice(0, 12).map((conflict:any) => {
@@ -2512,15 +2522,15 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         value: first ? formatScheduleTimeRange(first.fstarttime, first.fendtime) : "تعارض",
       };
     });
-  }, [overview?.conflicts, reasonRowById, reasonCourseById, reasonInstructorById, readingMode, colleges]);
+  }, [overview?.conflicts, reasonRowById, reasonCourseById, reasonInstructorById, readingMode, colleges, visitingLookup]);
   const longGapReasonItems = useMemo<NonNullable<InsightReason["items"]>>(() => {
     const loads = Array.isArray(overview?.professorLoads) ? overview.professorLoads : [];
     return loads.filter((item:any) => Number(item.maxGap || 0) >= 180).sort((a:any,b:any) => Number(b.maxGap||0)-Number(a.maxGap||0)).slice(0, 12).map((item:any) => ({
-      title: String(item.name || "أستاذ"),
+      title: withVisitingSuffix(String(item.name || "أستاذ"), visitingInReading(item.id)),
       meta: `${formatUnitMetricArabic(Number(item.weeklyHours || 0), "ساعة أسبوعيًا")} · ${formatUnitMetricArabic(Number(item.days || 0), "أيام")}`,
       value: formatCompactDurationArabic(Number(item.maxGap || 0)),
     }));
-  }, [overview?.professorLoads]);
+  }, [overview?.professorLoads, readingRows, visitingLookup]);
   const lateReasonItems = useMemo<NonNullable<InsightReason["items"]>>(() => readingRows.filter(row => twinMinutes(row.fstarttime) >= 16 * 60).sort((a,b) => twinMinutes(a.fstarttime) - twinMinutes(b.fstarttime)).slice(0, 12).map(row => {
     const course = reasonCourseById.get(Number(row.AdCourseId));
     const courseName = String(row.AdCourseName || course?.CourseName || "").trim();
@@ -2531,7 +2541,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       meta: `${reasonCollege(row)}${reasonInstructor(row)} · شعبة ${row.SCode || "—"} · ${reasonDays(row) || "بلا أيام"}`,
       value: formatScheduleTimeRange(row.fstarttime, row.fendtime),
     };
-  }), [readingRows, reasonCourseById, reasonInstructorById, readingMode, colleges]);
+  }), [readingRows, reasonCourseById, reasonInstructorById, readingMode, colleges, visitingLookup]);
   const invalidReasonItems = useMemo<NonNullable<InsightReason["items"]>>(() => readingRows.filter(row => !row.AdInstructorId || !row.AdCourseId || !row.AdRoomCode || !row.AdRoomHall || twinMinutes(row.fendtime) <= twinMinutes(row.fstarttime) || !reasonDays(row)).slice(0, 12).map(row => {
     const missing = [!row.AdInstructorId ? "الأستاذ" : "", !row.AdCourseId ? "المقرر" : "", !row.AdRoomCode || !row.AdRoomHall ? "القاعة" : "", twinMinutes(row.fendtime) <= twinMinutes(row.fstarttime) ? "الوقت" : "", !reasonDays(row) ? "الأيام" : ""].filter(Boolean);
     return { readingScopes: [sourceScope(row)], title: `${reasonCourse(row)} · شعبة ${row.SCode || "—"}`, meta: `${reasonCollege(row)}ناقص: ${missing.join("، ")}`, value: countOf(missing.length, AR.field) };
@@ -2547,7 +2557,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     const metrics = member?.metrics || overview?.metrics;
     const scopedItems = (items: any[]) => member ? items.filter(item => (item.readingScopes || []).some((scope: IntelligenceScope) => sameIntelligenceScope(scope, member))) : items;
     const conflicts = scopedItems(conflictReasonItems || []), late = scopedItems(lateReasonItems || []), invalid = scopedItems(invalidReasonItems || []);
-    const gaps = member ? (member.professorLoads || []).filter((item:any) => Number(item.maxGap || 0) >= 180).map((item:any) => ({title:item.name,meta:formatUnitMetricArabic(item.weeklyHours, "ساعة أسبوعيًا"),value:formatCompactDurationArabic(item.maxGap)})) : longGapReasonItems;
+    const gaps = member ? (member.professorLoads || []).filter((item:any) => Number(item.maxGap || 0) >= 180).map((item:any) => ({title:withVisitingSuffix(String(item.name || ""), isVisiting(item.id, member.collegeId, member.sectionId)),meta:formatUnitMetricArabic(item.weeklyHours, "ساعة أسبوعيًا"),value:formatCompactDurationArabic(item.maxGap)})) : longGapReasonItems;
     const days = member ? (member.dayLoad || []).map((item:any) => ({title:item.label,meta:"",value:countOf(item.count,AR.appointment)})) : dayBalanceReasonItems;
     const base = { kicker:member?.collegeName || "تفاصيل التنبيه", title, metric:String(index + 1), tone:(alert?.severity === "critical" || alert?.severity === "high" || alert?.severity === "danger" ? "bad" : alert?.severity === "ok" ? "good" : "warn") as InsightReason["tone"] };
     if (/مانع اعتماد|مانعا اعتماد|موانع اعتماد|تعارض|حجز|مزدوج/.test(title)) return { ...base, icon:<ShieldAlert />, summary:"هذه هي الموانع الفعلية التي كوّنت الرقم:", items:conflicts, facts:[{label:"الموانع",value:String(metrics?.criticalConflicts || 0)},{label:"النوع",value:"حجز فعلي"},{label:"اللائحة",value:"تحذيرية"}] };
@@ -3157,7 +3167,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                   {overview.spatialBurnout.risks.slice(0, 5).map((risk: any) => (
                     <article key={`${risk.instructorId}-${risk.day}-${risk.fromRowId}-${risk.toRowId}`} className={risk.level}>
                       <span className="risk-mark"><AlertTriangle /></span>
-                      <div><strong>{risk.instructorName}</strong>{scopeLabel(risk) ? <small className="reading-college-label">{scopeLabel(risk)}</small> : null}<small className="visual-flow-inline">{risk.dayLabel} · <b>{risk.fromBuilding}</b><ArrowLeftRight aria-hidden="true" /><b>{risk.toBuilding}</b></small></div>
+                      <div><strong>{risk.instructorName}{visitingAt(risk.instructorId, risk) ? <> <VisitingBadge compact /></> : null}</strong>{scopeLabel(risk) ? <small className="reading-college-label">{scopeLabel(risk)}</small> : null}<small className="visual-flow-inline">{risk.dayLabel} · <b>{risk.fromBuilding}</b><ArrowLeftRight aria-hidden="true" /><b>{risk.toBuilding}</b></small></div>
                       <b>{risk.gapMinutes}د <small>متاح</small></b>
                       <span>{risk.requiredMinutes}د مطلوبة</span>
                     </article>
@@ -3170,7 +3180,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                   <div className="castling-options">
                   {overview.roomCastling.slice(0, 3).map((proposal: any, index: number) => (
                     <button key={`${proposal.rowId}-${index}`} type="button" data-guide-ignore="اقتراح تبديل قاعة تجريبي داخل مساحة الذكاء؛ يفتح سيناريو للمراجعة ولا يحفظ تلقائيًا" onClick={() => void openSpatialProposal(proposal)}>
-                      <span className="castling-person"><UsersRound />{proposal.instructorName}</span>{scopeLabel(proposal) ? <span className="reading-college-label">{scopeLabel(proposal)}</span> : null}
+                      <span className="castling-person"><UsersRound />{proposal.instructorName}{visitingAt(proposal.instructorId, proposal) ? <> <VisitingBadge compact /></> : null}</span>{scopeLabel(proposal) ? <span className="reading-college-label">{scopeLabel(proposal)}</span> : null}
                       <strong dir="ltr">{proposal.before.roomCode}/{proposal.before.roomHall} <ArrowLeftRight /> {proposal.after.roomCode}/{proposal.after.roomHall}</strong>
                       <small role="img" aria-label="متاح وآمن" title="متاح وآمن"><CheckCircle2 aria-hidden="true" /></small>
                       <ChevronLeft className="castling-open" />
@@ -3267,7 +3277,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                 <button key={p.id} onClick={() => loadProfessor(p)}>
                   <span className="prof-avatar">{p.name.trim().charAt(0)}</span>
                   <div>
-                    <strong>{p.name}</strong>
+                    <strong>{p.name}{visitingInReading(p.id) ? <> <VisitingBadge compact /></> : null}</strong>
                     <small>
                       {countOf(p.weeklyHours, AR.hour)} · {countOf(p.days, AR.day)}
                     </small>
@@ -3578,6 +3588,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                               </span>
                               <span className={`opening-slot-who${slot.instructorId ? "" : " vacant"}`}>
                                 {slot.instructorName || "بلا أستاذ"}
+                                {slot.instructorId && visitingAt(slot.instructorId, item) ? <> <VisitingBadge compact /></> : null}
                               </span>
                               <SecondaryButton onClick={() => openSectionDraft(item, slot)}>
                                 <Plus /> افتحها في النسخة التجريبية
@@ -3585,7 +3596,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                               {slot.instructorId ? (
                                 <ApplyProposal
                                   compact
-                                  lines={[`شعبة ${slot.sectionCode} لـ«${item.courseName}» · ${slot.dayLabel} ${formatScheduleTimeRange(slot.start, slot.end)} · ${slot.roomCode}${slot.roomHall ? `/${slot.roomHall}` : ""} · ${slot.instructorName}`]}
+                                  lines={[`شعبة ${slot.sectionCode} لـ«${item.courseName}» · ${slot.dayLabel} ${formatScheduleTimeRange(slot.start, slot.end)} · ${slot.roomCode}${slot.roomHall ? `/${slot.roomHall}` : ""} · ${withVisitingSuffix(String(slot.instructorName || ""), visitingAt(slot.instructorId, item))}`]}
                                   why={`تخدم ${countOf(item.shortfall, AR.student)} بلا مقعدٍ اليوم.`}
                                   preview={() => { const source = sourceScope(item); return postWhatIf({ kind: "opening", collegeId: source.collegeId, sectionId: source.sectionId, termId, courseId: item.courseId, placement: slot }); }}
                                   run={async () => {
@@ -4374,7 +4385,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                               key={i.AdInstructorId}
                               value={i.AdInstructorId}
                             >
-                              {i.AdInstructorName}
+                              {withVisitingSuffix(i.AdInstructorName, isVisiting(i.AdInstructorId, collegeId, sectionId))}
                             </option>
                           ))}
                         </select>
@@ -4594,7 +4605,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                               <b>{o.avgGap}د</b> فراغ عام
                             </span>
                             <span
-                              title={o.professorImpact?.name}
+                              title={withVisitingSuffix(String(o.professorImpact?.name || ""), Boolean(o.professorImpact?.visiting))}
                               className={
                                 o.professorImpact?.gapDelta > 0
                                   ? "warn"
@@ -5132,9 +5143,9 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                                   return (
                                     <p key={field}>
                                       <i>{field}</i>
-                                      <del dir="auto">{pick(row.before) || "—"}</del>
+                                      <del dir="auto">{pick(row.before) || "—"}{field === "الأستاذ" && row.before?.visiting ? <> <VisitingBadge compact /></> : null}</del>
                                       <ArrowLeft aria-hidden="true" />
-                                      <ins dir="auto">{pick(row.after) || "—"}</ins>
+                                      <ins dir="auto">{pick(row.after) || "—"}{field === "الأستاذ" && row.after?.visiting ? <> <VisitingBadge compact /></> : null}</ins>
                                     </p>
                                   );
                                 })}
@@ -5143,7 +5154,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                               <p className="compare-facts">
                                 <time dir="ltr">{scheduleClockForDisplay(row.time)}</time>
                                 <span>{row.room || "—"}</span>
-                                <span>{row.instructor || "—"}</span>
+                                <span>{row.instructor || "—"}{row.instructor && row.visiting ? <> <VisitingBadge compact /></> : null}</span>
                               </p>
                             )}
                           </article>
@@ -5708,7 +5719,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                   </span>
                   <div>
                     <small>حمل الأستاذ الكامل</small>
-                    <h2>{detail.data.instructor?.AdInstructorName}</h2>
+                    <h2>{detail.data.instructor?.AdInstructorName}{detail.data.instructor && ((detail.data.visibleRows || []) as any[]).concat([{ AdCollegeId: collegeId, AdSectionId: sectionId }]).some((row: any) => isVisiting(detail.data.instructor.AdInstructorId, row.AdCollegeId, row.AdSectionId)) ? <> <VisitingBadge compact /></> : null}</h2>
                   </div>
                 </div>
                 <div className="drawer-metrics">

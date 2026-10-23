@@ -20,6 +20,10 @@ import { scheduleClockForDisplay } from "../utils/scheduleTime";import { Badge }
 import { DnaHubMap, type DnaTone } from "./dna";
 import type { AdCourse, FSchedule } from "../types";
 import { AR, countOf } from "../utils/arabicCount";
+import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
+
+/** «instructor:123» ← معرّف الأستاذ، وغيرُه 0. */
+const instructorIdOfSpot = (spot: any) => (spot?.type === "instructor" ? Number(String(spot.id || "").split(":")[1]) || 0 : 0);
 
 export type LivingScene =
   | "pulse"
@@ -49,12 +53,15 @@ export function ContextPicker({
   rows,
   courseById,
   instructorById,
+  visitingOf,
   onChange,
 }: {
   selectedId: number;
   rows: FSchedule[];
   courseById: Map<number, AdCourse>;
   instructorById?: Map<number, { AdInstructorName?: string }>;
+  /** منتدبٌ في قسم هذا الصفّ؟ (القسم والفصل من الصفّ نفسه.) */
+  visitingOf?: (row: FSchedule) => boolean;
   onChange: (id: number) => void;
 }) {
   const DAY_SHORT: Array<[keyof FSchedule, string]> = [
@@ -67,7 +74,7 @@ export function ContextPicker({
     const days = DAY_SHORT.filter(([key]) => Boolean(row[key])).map(([, label]) => label).join("·");
     const who = instructorById?.get(row.AdInstructorId)?.AdInstructorName || "";
     const code = course?.CourseCode ? ` [${course.CourseCode}]` : "";
-    return `${name} — شعبة ${row.SCode}${who ? ` · ${who}` : ""}${days ? ` · ${days}` : ""} · ${scheduleClockForDisplay(row.fstarttime)}${code}`;
+    return `${name} — شعبة ${row.SCode}${who ? ` · ${withVisitingSuffix(who, Boolean(visitingOf?.(row)))}` : ""}${days ? ` · ${days}` : ""} · ${scheduleClockForDisplay(row.fstarttime)}${code}`;
   };
 
   const groups = new Map<string, FSchedule[]>();
@@ -183,7 +190,8 @@ export function PulseScene({
  * thing it is, what it is called, how many collisions run through it, and a bar
  * that makes the worst one obvious without reading a single figure.
  */
-export function TopologyScene({ topology, context }: { topology: any; context?: { sectionName?: string; termName?: string } }) {
+export function TopologyScene({ topology, context, visitingFor }: { topology: any; context?: { sectionName?: string; termName?: string }; visitingFor?: (instructorId: number) => boolean }) {
+  const spotVisiting = (spot: any) => Boolean(visitingFor && instructorIdOfSpot(spot) && visitingFor(instructorIdOfSpot(spot)));
   if (!topology) {
     return (
       <div className="topology-empty">
@@ -245,10 +253,10 @@ export function TopologyScene({ topology, context }: { topology: any; context?: 
               key: String(spot.id),
               icon: kind.icon,
               tone: HUB_TONE[spot.type] || "slate",
-              label: spot.label,
+              label: withVisitingSuffix(String(spot.label ?? ""), spotVisiting(spot)),
               value: issues ? issues.toLocaleString("ar-KW-u-nu-latn") : undefined,
               state: issues > 0 ? "attention" as const : "ok" as const,
-              title: `${kind.label} · ${spot.label}${issues ? ` · ${countOf(issues, AR.signal)}` : ""}`,
+              title: `${kind.label} · ${withVisitingSuffix(String(spot.label ?? ""), spotVisiting(spot))}${issues ? ` · ${countOf(issues, AR.signal)}` : ""}`,
             };
           })}
         />
@@ -266,7 +274,7 @@ export function TopologyScene({ topology, context }: { topology: any; context?: 
                   {kind.icon}
                 </span>
                 <div className="rank-copy">
-                  <strong>{spot.label}</strong>
+                  <strong>{spot.label}{spotVisiting(spot) ? <> <VisitingBadge compact /></> : null}</strong>
                   <small>{kind.label}</small>
                 </div>
                 <div className="rank-weight">
@@ -390,7 +398,8 @@ export function WhyResult({
  * if it fails, and which hall has no substitute. Each item is a name, a bar and
  * a number, in that order, every time.
  */
-export function HealthScene({ living }: { living: any }) {
+export function HealthScene({ living, visitingFor }: { living: any; visitingFor?: (instructorId: number) => boolean }) {
+  const isVisitor = (id: unknown) => Boolean(visitingFor && Number(id) && visitingFor(Number(id)));
   const fairness = living.fairness;
   const frag = living.fragility;
   const rooms = living.roomIntelligence;
@@ -448,7 +457,7 @@ export function HealthScene({ living }: { living: any }) {
                 const value = Number(profile.weeklyHours ?? profile.days ?? 0);
                 return (
                   <li key={profile.id}>
-                    <span className="list-name">{profile.name}</span>
+                    <span className="list-name">{profile.name}{isVisitor(profile.id) ? <> <VisitingBadge compact /></> : null}</span>
                     <i aria-hidden="true"><b style={{ width: `${(value / heaviest) * 100}%` }} /></i>
                     <em>{value} {profile.weeklyHours != null ? "ساعة" : "يوم"}</em>
                   </li>
@@ -464,7 +473,7 @@ export function HealthScene({ living }: { living: any }) {
             <ul>
               {fragile.map((item: any) => (
                 <li key={`${item.type}-${item.key}`} className={item.severity || ""}>
-                  <span className="list-name">{item.label}<small>{KIND[item.type] || item.type}</small></span>
+                  <span className="list-name">{item.label}{(item.type === "professor" || item.type === "instructor") && isVisitor(item.key) ? <> <VisitingBadge compact /></> : null}<small>{KIND[item.type] || item.type}</small></span>
                   <i aria-hidden="true"><b style={{ width: `${Math.min(100, item.impactPct)}%` }} /></i>
                   <em>{item.impactPct}%</em>
                 </li>

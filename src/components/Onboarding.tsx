@@ -8,6 +8,7 @@ import { PrimaryButton } from "./ui";
 import { courseHue, courseTexture, firstLast } from "../utils/weekVisual";
 import { scheduleDays, scheduleMinutes } from "./scheduleWorkspace";
 import type { FSchedule } from "../types";
+import VisitingBadge from "./VisitingBadge";
 
 /**
  * ── الترحيب: البرنامج يشتغل أمامك، لا يشرح نفسه ─────────────────────────────
@@ -61,6 +62,8 @@ type Chip = {
   span: number;
   title: string;
   who: string;
+  /** الأستاذ منتدبٌ في قسم هذا الموعد: يحمل الشارةَ كما في الجدول الحقيقي. */
+  visiting?: boolean;
   hall: string;
 };
 
@@ -170,12 +173,15 @@ function stageFromWorkspace(payload: unknown): StageBoard | null {
     rows?: FSchedule[];
     courses?: Array<{ AdCourseId: number; CourseCode?: string; CourseName?: string }>;
     instructors?: Array<{ AdInstructorId: number; AdInstructorName?: string }>;
+    /** منتدبو قسم القارئ في فصله (من الخادم)؛ الأسماء هنا كلها من القسم نفسه. */
+    visitingInstructorIds?: number[];
   } | null;
   const rows = Array.isArray(data?.rows) ? data!.rows : [];
   if (rows.length < 3) return null;
 
   const courseById = new Map((data?.courses || []).map(course => [Number(course.AdCourseId), course]));
   const personById = new Map((data?.instructors || []).map(person => [Number(person.AdInstructorId), person]));
+  const visitingIds = new Set((Array.isArray(data?.visitingInstructorIds) ? data!.visitingInstructorIds! : []).map(Number));
 
   const usable = rows.filter(row =>
     columnsOf(row).length > 0
@@ -231,6 +237,7 @@ function stageFromWorkspace(payload: unknown): StageBoard | null {
       span: spanOf(row),
       title,
       who: firstLast(String(person?.AdInstructorName || "")) || "بدون أستاذ",
+      visiting: Boolean(person) && visitingIds.has(Number(row.AdInstructorId)),
       hall: [row.AdRoomCode, row.AdRoomHall].filter(Boolean).join("/") || "بدون قاعة",
     });
   };
@@ -252,6 +259,7 @@ function stageFromWorkspace(payload: unknown): StageBoard | null {
     span: host.span,
     title: "محاضرة مثال",
     who: host.who,
+    visiting: host.visiting,
     hall: "قاعة مثال",
   };
   const all = [...chips, example];
@@ -448,7 +456,7 @@ function Stage({ scene, board }: { scene: string; board: StageBoard }) {
                   }}
                 >
                   <b>{chip.title}</b>
-                  <span>{chip.who}</span>
+                  <span>{chip.who}{chip.visiting ? <> <VisitingBadge compact /></> : null}</span>
                   <i>{chip.hall}</i>
 
                 </article>
