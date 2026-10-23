@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { AlertTriangle, Building2, CalendarDays, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, History, Info, Printer, X } from "lucide-react";
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { PrintLetterhead, PrintPortal, PrimaryButton, SecondaryButton, useDialogDismiss } from "./ui";
-import VisitingBadge from "./VisitingBadge";
+import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
 import PagedFindingList from "./PagedFindingList";
 import { packPrintFindings, type PrintFindingPiece } from "../utils/printFindingPages";
 import {
@@ -358,10 +358,28 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
 
   const byId = useMemo(() => new Map(rows.map(row => [row.id, row])), [rows]);
 
+  /* نصوص الملاحظات (عناوين وتفاصيل وعناوين الحالات) تحمل أسماء الأساتذة مدموجةً في جُمل جاهزة من الخادم
+     أو من المحرّك المحلي، فلا تُرسم شارةً بل تُلحق اللاحقةَ النصيةَ بكل اسمٍ لمنتدبٍ بين صفوف الملاحظة. */
+  const markVisitingNames = (text: string, rowIds: number[]) => {
+    let out = String(text || "");
+    if (!out || !visitingIdSet.size) return out;
+    const names = new Set<string>();
+    for (const id of rowIds || []) {
+      const row = byId.get(id);
+      if (!row || !visitingIdSet.has(Number(row.AdInstructorId))) continue;
+      const name = instructors.get(row.AdInstructorId)?.AdInstructorName;
+      if (name) names.add(name);
+    }
+    const all = [...names];
+    all.filter(name => !all.some(other => other !== name && other.includes(name)))
+      .forEach(name => { if (!out.includes(`${name}${VISITING_SUFFIX}`)) out = out.split(name).join(`${name}${VISITING_SUFFIX}`); });
+    return out;
+  };
+
   const groupEntitySummary = (finding: ReviewFindingGroup) => {
     const affectedRows = finding.rowIds.map(id => byId.get(id)).filter(Boolean) as FSchedule[];
     if (finding.title.includes("أستاذ")) {
-      const names = [...new Set(affectedRows.map(row => instructors.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"))];
+      const names = [...new Set(affectedRows.map(row => withVisitingSuffix(instructors.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ", visitingIdSet.has(Number(row.AdInstructorId)))))];
       if (names.length === 1) return names[0];
       if (names.length > 1) return `أساتذة ${names.length.toLocaleString("ar-KW-u-nu-latn")}`;
     }
@@ -419,7 +437,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
     if (!row) return "";
     const days = DAY_KEYS.filter(key => (row as any)[key]).map(key => DAY_NAMES[DAY_KEYS.indexOf(key)]).join("، ");
     const code = courses.get(row.AdCourseId)?.CourseCode || row.AdCourseName || "";
-    const who = instructors.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ";
+    const who = withVisitingSuffix(instructors.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ", visitingIdSet.has(Number(row.AdInstructorId)));
     return `${code} · شعبة ${row.SCode} · ${who} · ${days || "بلا أيام"} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`;
   };
 
@@ -460,7 +478,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
   const printFollowupPages = printPages.slice(1);
   const renderPrintFinding = ({ finding, rowIds, part, parts }: PrintFindingPiece<ReviewFindingGroup>) => (
     <article className={`print-review-finding severity-${findingTone(finding)}`} key={`${finding.groupKey}:${part}`}>
-      <header><b className="print-finding-index">{findingIcon(finding)}</b><div><strong>{finding.title}{parts > 1 ? ` · ${part === 1 ? "يتبع" : "تتمة"} (${part.toLocaleString("ar-KW-u-nu-latn")} من ${parts.toLocaleString("ar-KW-u-nu-latn")})` : ""}</strong><span>{finding.groupedCount > 1 ? `${countOf(finding.groupedCount, AR.conflict)} · ${finding.detail}` : finding.detail}</span></div><em>{finding.article}</em><i>{findingStatus(finding)}</i></header>
+      <header><b className="print-finding-index">{findingIcon(finding)}</b><div><strong>{markVisitingNames(finding.title, finding.rowIds)}{parts > 1 ? ` · ${part === 1 ? "يتبع" : "تتمة"} (${part.toLocaleString("ar-KW-u-nu-latn")} من ${parts.toLocaleString("ar-KW-u-nu-latn")})` : ""}</strong><span>{finding.groupedCount > 1 ? `${countOf(finding.groupedCount, AR.conflict)} · ${finding.detail}` : finding.detail}</span></div><em>{finding.article}</em><i>{findingStatus(finding)}</i></header>
       {rowIds.length ? <div className="print-review-rows">{rowIds.map(id => <span key={id}>{describe(byId.get(id))}</span>)}</div> : null}
     </article>
   );
@@ -549,12 +567,12 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
           return (
             <section className="review-subject">
               <header>
-                <strong>{subject.label}</strong>
+                <strong>{markVisitingNames(subject.label, subjectRowIds)}</strong>
                 <small>{countOf(subject.items.length, AR.conflict)}</small>
               </header>
               <div className="review-subject-cases">
                 {renderCompactRows(subjectRowIds)}
-                {!subjectRowIds.length && uniqueDetails.length ? <p className="review-subject-summary">{uniqueDetails[0]}</p> : null}
+                {!subjectRowIds.length && uniqueDetails.length ? <p className="review-subject-summary">{markVisitingNames(uniqueDetails[0], subjectRowIds)}</p> : null}
               </div>
             </section>
           );
@@ -568,7 +586,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
               <button type="button" data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط" onClick={() => setOpen(current => (current === finding.groupKey ? null : finding.groupKey))}>
                 <span className="review-mark" aria-hidden="true">{findingIcon(finding)}</span>
                 <span className="review-copy">
-                  <strong>{finding.title}</strong>
+                  <strong>{markVisitingNames(finding.title, finding.rowIds)}</strong>
                   <small>{findingPreview(finding)}</small>
                   {finding.rowIds.length ? (
                     <span className="finding-share-wrap">
@@ -591,7 +609,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
                 <div className="review-rows">
                   {!finding.rowIds.length ? (
                     <div className="review-finding-detail">
-                      {finding.data && finding.groupedCount === 1 ? <PeriodBalanceInfographic {...finding.data} /> : <p>{finding.detail}</p>}
+                      {finding.data && finding.groupedCount === 1 ? <PeriodBalanceInfographic {...finding.data} /> : <p>{markVisitingNames(finding.detail, finding.rowIds)}</p>}
                       <div className="review-finding-meta">
                         <span>{finding.article}</span>
                         <span>{findingStatus(finding)}</span>
