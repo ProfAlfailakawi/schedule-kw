@@ -9134,7 +9134,17 @@ function emptyScopeGuidance(what: string) {
 app.post("/api/intelligence/war-room", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const {collegeId,sectionId,termId}=smartContextFrom(req);if(!collegeId||!sectionId||!termId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
   const [scheduleData,courses,instructors,constraints]=await Promise.all([scopedScheduleUniverse(collegeId,sectionId,termId),Repository.getCourses(),Repository.getInstructors(),Repository.getScheduleConstraints(collegeId,sectionId,termId)]);const {rows:base,universe}=scheduleData;if(!base.length){res.json(emptyScopeGuidance("غرفة القرار"));return;}
-  res.json(buildWarRoom(base,universe,courses,instructors,constraints,Number(req.body?.rowId||0)||undefined));
+  const room:any=buildWarRoom(base,universe,courses,instructors,constraints,Number(req.body?.rowId||0)||undefined);
+  /* أثر الأستاذ في كل خيار يحمل علمَ المنتدب (بقسم الشاشة وفصلها) ليرسم العنوانُ شارتَه. */
+  if(Array.isArray(room?.options)){
+    const visitingIds=new Set((await readLiveVisitingRoster(collegeId,sectionId,termId)).instructorIds.map(Number));
+    room.options=room.options.map((option:any)=>{
+      if(!option?.professorImpact)return option;
+      const person=instructors.find(item=>item.AdInstructorName===option.professorImpact.name);
+      return {...option,professorImpact:{...option.professorImpact,instructorId:person?.AdInstructorId,visiting:Boolean(person&&visitingIds.has(Number(person.AdInstructorId)))}};
+    });
+  }
+  res.json(room);
 });
 
 app.post("/api/intelligence/autopilot", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
@@ -13149,9 +13159,15 @@ app.get("/api/intelligence/compare-terms", requirePermission(7), async (req: Aut
   const colleges = await Repository.getColleges();
   const courseById=new Map(courses.map(row=>[row.AdCourseId,row]));
   const instructorName=(id:number)=>instructors.find(row=>row.AdInstructorId===id)?.AdInstructorName||"";
+  /* المنتدب يُعرف بقسمه وفصله: قبل/بعد يُقرآن من فصليهما، لا من فصلٍ واحد. */
+  const compareVisiting=new Map<string,Set<number>>();
+  for(const termSide of [fromTermId,toTermId])for(const scope of readScopes){
+    compareVisiting.set(`${termSide}:${scope.collegeId}:${scope.sectionId}`,new Set((await readLiveVisitingRoster(scope.collegeId,scope.sectionId,termSide)).instructorIds.map(Number)));
+  }
+  const isVisitingAt=(termSide:number,collegeId:unknown,sectionId:unknown,instructorId:unknown)=>Boolean(compareVisiting.get(`${termSide}:${Number(collegeId)}:${Number(sectionId)}`)?.has(Number(instructorId)));
   // Rows are shaped for reading, not for editing: code, section, and the
   // properties that differ. Nothing here is writable from this screen.
-  const shapeRow=(row:any)=>({
+  const shapeRow=(row:any,termSide:number=toTermId)=>({
     id:row.id,
     collegeId: row.AdCollegeId, sectionId: row.AdSectionId,
     collegeName: colleges.find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeName || "",
@@ -13160,16 +13176,18 @@ app.get("/api/intelligence/compare-terms", requirePermission(7), async (req: Aut
     section:row.SCode||"",
     time:formatScheduleTimeRange(row.fstarttime, row.fendtime),
     room:[row.AdRoomCode,row.AdRoomHall].filter(Boolean).join("/"),
-    instructor:instructorName(Number(row.AdInstructorId||0))
+    instructor:instructorName(Number(row.AdInstructorId||0)),
+    instructorId:Number(row.AdInstructorId||0),
+    visiting:isVisitingAt(termSide,row.AdCollegeId,row.AdSectionId,row.AdInstructorId)
   });
   res.json({
     ...diff,
-    appeared:diff.appeared.slice(0,80).map(shapeRow),
-    disappeared:diff.disappeared.slice(0,80).map(shapeRow),
+    appeared:diff.appeared.slice(0,80).map(row=>shapeRow(row,toTermId)),
+    disappeared:diff.disappeared.slice(0,80).map(row=>shapeRow(row,fromTermId)),
     moved:diff.moved.slice(0,80).map(entry=>{
       // roomKey joins with a pipe for comparison; a reader wants a slash.
-      const readable=(side:any)=>({...side,room:String(side.room||"").replaceAll("|","/"),instructor:instructorName(side.instructorId)});
-      return {...shapeRow(entry.row),fields:entry.fields,before:readable(entry.from),after:readable(entry.to)};
+      const readable=(side:any,termSide:number)=>({...side,room:String(side.room||"").replaceAll("|","/"),instructor:instructorName(side.instructorId),visiting:isVisitingAt(termSide,entry.row.AdCollegeId,entry.row.AdSectionId,side.instructorId)});
+      return {...shapeRow(entry.row,toTermId),fields:entry.fields,before:readable(entry.from,fromTermId),after:readable(entry.to,toTermId)};
     }),
     fromTermName:terms.find(t=>t.AdTermId===fromTermId)?.AdTermName||"",
     toTermName:terms.find(t=>t.AdTermId===toTermId)?.AdTermName||"",
@@ -13644,9 +13662,11 @@ app.post("/api/intelligence/genesis", requirePermission(7), async (req: Authenti
   const universe=external.concat(rows); const analysis=analyzeSchedule(rows,universe,courses,instructors,await approvalBlockerOptions()); const rules=evaluateScheduleConstraints(rows,constraints); const draft=await Repository.createScheduleDraft({SystemUserId:req.user.SystemUserId,userName:req.user.Name,AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:targetTermId,...scopeBase(targetUniverse.filter(r=>Number(r.AdCollegeId)===collegeId&&Number(r.AdSectionId)===sectionId)),name:`بداية الفصل · ${terms.find(t=>t.AdTermId===sourceTermId)?.AdTermName||sourceTermId} → ${terms.find(t=>t.AdTermId===targetTermId)?.AdTermName||targetTermId}`,source:"auto",rows});
   const courseById=new Map(courses.map(course=>[Number(course.AdCourseId),course]));
   const instructorById=new Map(instructors.map(instructor=>[Number(instructor.AdInstructorId),instructor]));
+  const genesisVisiting=new Set((await readLiveVisitingRoster(collegeId,sectionId,targetTermId)).instructorIds.map(Number));
   const previewRows=draft.rows.map((row,index)=>({
     index:index+1,id:row.id,courseId:Number(row.AdCourseId)||0,courseCode:courseById.get(Number(row.AdCourseId))?.CourseCode||"",courseName:row.AdCourseName||courseById.get(Number(row.AdCourseId))?.CourseName||"مقرر",
     section:row.SCode||"",instructor:instructorById.get(Number(row.AdInstructorId))?.AdInstructorName||"بدون أستاذ",
+    instructorId:Number(row.AdInstructorId)||0,visiting:genesisVisiting.has(Number(row.AdInstructorId)),
     days:SCHEDULE_DAY_KEYS.map((key,i)=>row[key]?DAY_LABELS[i]:null).filter(Boolean).join(" · "),start:row.fstarttime,end:row.fendtime,
     fsunday:Boolean(row.fsunday),fmonday:Boolean(row.fmonday),ftuesday:Boolean(row.ftuesday),fwednesday:Boolean(row.fwednesday),fthursday:Boolean(row.fthursday),
     building:row.AdRoomCode||"",hall:row.AdRoomHall||"",

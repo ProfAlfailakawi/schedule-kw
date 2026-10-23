@@ -4,6 +4,8 @@ import { SecondaryButton } from "./ui";
 import { AR, countOf } from "../utils/arabicCount";
 import ApplyProposal, { postScheduleProposal, postWhatIf } from "./ApplyProposal";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
+import { withVisitingSuffix } from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 
 /** مقرّرٌ يُقترح له فتحُ شعبة: ما يكفي لقراءة الاقتراح من محرّك الفتح (لا يعرف الرادارَ ولا التنبّؤ). */
 export interface RadarScheduleCourse { courseId: number; name: string; shortfall?: number; collegeId?: number; sectionId?: number; /** عددُ الشعب التي يتوقّعها التنبّؤ: إن لم يجد رغباتٌ حيّة ما يقترحه، يُقترح من التوقّع. */ forecastCount?: number }
@@ -23,6 +25,7 @@ export const request = async (url: string, init?: RequestInit) => {
  * أسبوعٍ حقيقيّ بلا تعارض)، ويُعتمد في الجدول الأصلي بضغطةٍ واحدة بعد التأكيد. لا يُقرأ شيءٌ حتى يُطلب.
  */
 export default function RadarSchedule({ course, termId, onChanged }: { course: RadarScheduleCourse; termId: number; onChanged: () => void }) {
+  const { isVisiting } = useVisitingLookup(termId);
   const [state, setState] = useState<"idle" | "loading" | "ready">("idle");
   const [proposal, setProposal] = useState<any>(null);
   const [message, setMessage] = useState("");
@@ -81,7 +84,7 @@ export default function RadarSchedule({ course, termId, onChanged }: { course: R
             <ApplyProposal
               key={slot.index}
               compact
-              lines={[`شعبة ${slot.sectionCode} لـ«${course.name}» · ${slot.dayLabel} ${formatScheduleTimeRange(slot.start, slot.end)} · ${slot.roomCode}${slot.roomHall ? `/${slot.roomHall}` : ""} · ${slot.instructorName}`]}
+              lines={[`شعبة ${slot.sectionCode} لـ«${course.name}» · ${slot.dayLabel} ${formatScheduleTimeRange(slot.start, slot.end)} · ${slot.roomCode}${slot.roomHall ? `/${slot.roomHall}` : ""} · ${withVisitingSuffix(String(slot.instructorName || ""), isVisiting(slot.instructorId, course.collegeId, course.sectionId))}`]}
               why={`تخدم ${countOf(proposal.shortfall, AR.student)} بلا مقعدٍ في هذا المقرر.`}
               preview={() => postWhatIf({ kind: "opening", collegeId: course.collegeId, sectionId: course.sectionId, termId, courseId: course.courseId, placement: slot })}
               run={async () => {

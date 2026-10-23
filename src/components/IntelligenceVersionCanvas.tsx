@@ -1,4 +1,6 @@
 import PlanBadge from "./PlanBadge";
+import VisitingBadge from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React from "react";
 import { ArrowLeftRight } from "lucide-react";
 import type { FSchedule } from "../types";
@@ -26,6 +28,7 @@ export function IntelligenceVersionCanvas({
   label: string;
   isAfter?: boolean;
 }) {
+  const { isVisiting } = useVisitingLookup(rows.find(row => Number(row.AdTermId))?.AdTermId);
   return (
     <div className={`time-travel-canvas ${isAfter ? "canvas-after" : "canvas-before"}`}>
       <div className="time-travel-label">{label}</div>
@@ -47,7 +50,7 @@ export function IntelligenceVersionCanvas({
                       <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                       <strong>{row.AdCourseName || "مقرر"}<PlanBadge courseId={row.AdCourseId} /></strong>
                       <small>{row.SCode} · {row.AdRoomCode ? `قاعة ${row.AdRoomCode}/${row.AdRoomHall}` : "بلا قاعة"}</small>
-                      {(row as any).AdInstructorName ? <span>{(row as any).AdInstructorName}</span> : null}
+                      {(row as any).AdInstructorName ? <span>{(row as any).AdInstructorName}{isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId) ? <> <VisitingBadge compact /></> : null}</span> : null}
                     </article>
                   ))
                 ) : (

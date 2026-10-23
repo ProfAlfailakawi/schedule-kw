@@ -54,6 +54,8 @@ import { telemetryApi, telemetryBreadcrumb, telemetryError, telemetryTiming } fr
 import { sortByName } from "../utils/sorting";
 import { roomIdentityKey } from "../utils/locationRegistry";
 import { isAssignableInstructor } from "../utils/instructorStatus";
+import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import MiniRing from "./MiniRing";
 
@@ -122,6 +124,10 @@ export default function LivingScheduleLayer({
   initialScene = null,
 }: Props) {
   const power = Boolean(user?.SystemUserId);
+  const { isVisiting } = useVisitingLookup(termId);
+  const visitingOfRow = (row: FSchedule) => isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId);
+  /* قراءةُ النبض قد تجمع صفوف أقسامٍ عدة: منتدبٌ إن كان منتدباً في قسم أيٍّ من صفوفه. */
+  const visitingForLiving = (instructorId: number) => sourceRows.some(row => Number(row.AdInstructorId) === instructorId && visitingOfRow(row)) || isVisiting(instructorId, collegeId, sectionId);
   const reducedMotion = useReducedMotion();
   const genesisPreviewRef = useRef<HTMLElement | null>(null);
   const [living, setLiving] = useState<any>(null),
@@ -522,6 +528,7 @@ export default function LivingScheduleLayer({
         previewRows: (current.previewRows || []).map((row:any) => Number(row.id) === genesisEditId ? {
           ...row, start: genesisEdit.fstarttime, end: genesisEdit.fendtime, building: genesisEdit.AdRoomCode, hall: genesisEdit.AdRoomHall,
           instructor: instructor?.AdInstructorName || row.instructor,
+          instructorId: Number(genesisEdit.AdInstructorId) || row.instructorId, visiting: isVisiting(genesisEdit.AdInstructorId, collegeId, sectionId),
           fsunday:Boolean(genesisEdit.fsunday),fmonday:Boolean(genesisEdit.fmonday),ftuesday:Boolean(genesisEdit.ftuesday),fwednesday:Boolean(genesisEdit.fwednesday),fthursday:Boolean(genesisEdit.fthursday),
           days:[["fsunday","الأحد"],["fmonday","الاثنين"],["ftuesday","الثلاثاء"],["fwednesday","الأربعاء"],["fthursday","الخميس"]].filter(([key]) => Boolean(genesisEdit[key])).map(([,label]) => label).join(" · "),
         } : row),
@@ -903,7 +910,7 @@ export default function LivingScheduleLayer({
                 <PulseScene living={living} onGo={(s) => open(s)} />
               ) : null}
               {scene === "topology" ? (
-                <TopologyScene topology={living.topology} context={living.context} />
+                <TopologyScene topology={living.topology} context={living.context} visitingFor={visitingForLiving} />
               ) : null}
               {scene === "why" ? (
                 <div className="why-scene">
@@ -924,6 +931,7 @@ export default function LivingScheduleLayer({
                     rows={rows}
                     courseById={courseById}
                     instructorById={instructorById}
+                    visitingOf={visitingOfRow}
                     onChange={setSelectedId}
                   />
                   {selected ? (
@@ -1012,7 +1020,7 @@ export default function LivingScheduleLayer({
                   ) : null}
                 </div>
               ) : null}
-              {scene === "health" ? <HealthScene living={living} /> : null}
+              {scene === "health" ? <HealthScene living={living} visitingFor={visitingForLiving} /> : null}
               {scene === "brief" ? <BriefScene brief={living.brief} /> : null}
               {scene === "genesis" ? (
                 <div className="genesis-scene">
@@ -1141,6 +1149,7 @@ export default function LivingScheduleLayer({
                     courses={courses}
                     instructors={instructors}
                     targetRoot={genesisPreviewRef}
+                    isVisiting={(instructorId) => isVisiting(instructorId, collegeId, sectionId)}
                     onSettled={() => setChoreoPhase("idle")}
                   />
                   {genesis ? (
@@ -1197,12 +1206,12 @@ export default function LivingScheduleLayer({
                                       <td data-choreo-target="day">{row.days || "—"}</td>
                                       <td dir="ltr" data-choreo-target="time">{formatScheduleTimeRange(row.start, row.end)}</td>
                                       <td dir="ltr" data-choreo-target="room">{[row.building,row.hall].filter(Boolean).join("/") || "—"}</td>
-                                      <td data-choreo-target="instructor"><span>{row.instructor || "—"}</span></td>
+                                      <td data-choreo-target="instructor"><span>{row.instructor || "—"}{row.instructor && row.visiting ? <> <VisitingBadge compact /></> : null}</span></td>
                                       <td><div className="genesis-row-actions"><button className="genesis-fix" type="button" onClick={() => beginGenesisEdit(row)}><Save /> تعديل</button><button className="genesis-delete" data-guide-ignore="حذف موعد واحد من مسودة بداية الفصل فقط" type="button" onClick={() => void deleteGenesisRow(Number(row.id))} disabled={busy}><Trash2 /> حذف</button></div></td>
                                     </tr>
                                     {flagged ? <tr className="genesis-row-reason"><td colSpan={8}><ShieldAlert /><strong>سبب المنع:</strong><span>{(genesis.rowIssues?.[String(row.id)] || [])[0] || "هذا الموعد مرتبط بمشكلة تمنع النشر."}</span></td></tr> : null}
                                     {editing ? <tr className="genesis-inline-editor"><td colSpan={8}><div>
-                                      <label><span>الأستاذ</span><select value={genesisEdit?.AdInstructorId || ""} onChange={e => setGenesisEdit((v:any)=>({...v,AdInstructorId:Number(e.target.value)||0}))}><option value="">اختر</option>{Number(genesisEdit?.AdInstructorId || 0) && !isAssignableInstructor(instructors.find(i => Number(i.AdInstructorId) === Number(genesisEdit?.AdInstructorId))) ? <option value={genesisEdit.AdInstructorId} disabled>{instructors.find(i => Number(i.AdInstructorId) === Number(genesisEdit?.AdInstructorId))?.AdInstructorName || "أستاذ سابق"} · غير متاح للإسناد</option> : null}{sortByName(instructors.filter(isAssignableInstructor), i => i.AdInstructorName).map(i=><option key={i.AdInstructorId} value={i.AdInstructorId}>{i.AdInstructorName}</option>)}</select></label>
+                                      <label><span>الأستاذ</span><select value={genesisEdit?.AdInstructorId || ""} onChange={e => setGenesisEdit((v:any)=>({...v,AdInstructorId:Number(e.target.value)||0}))}><option value="">اختر</option>{Number(genesisEdit?.AdInstructorId || 0) && !isAssignableInstructor(instructors.find(i => Number(i.AdInstructorId) === Number(genesisEdit?.AdInstructorId))) ? <option value={genesisEdit.AdInstructorId} disabled>{withVisitingSuffix(instructors.find(i => Number(i.AdInstructorId) === Number(genesisEdit?.AdInstructorId))?.AdInstructorName || "أستاذ سابق", isVisiting(genesisEdit.AdInstructorId, collegeId, sectionId))} · غير متاح للإسناد</option> : null}{sortByName(instructors.filter(isAssignableInstructor), i => i.AdInstructorName).map(i=><option key={i.AdInstructorId} value={i.AdInstructorId}>{withVisitingSuffix(i.AdInstructorName, isVisiting(i.AdInstructorId, collegeId, sectionId))}</option>)}</select></label>
                                       <label><span>من</span><TimeField value={genesisEdit?.fstarttime || ""} onChange={e=>setGenesisEdit((v:any)=>({...v,fstarttime:e.target.value}))}/></label>
                                       <label><span>إلى</span><TimeField value={genesisEdit?.fendtime || ""} onChange={e=>setGenesisEdit((v:any)=>({...v,fendtime:e.target.value}))}/></label>
                                       <LocationPicker collegeId={collegeId} sectionId={sectionId} termId={termId} value={genesisEdit || {}} onChange={patch=>setGenesisEdit((v:any)=>({...v,...patch}))} showRaw />
@@ -1243,6 +1252,7 @@ export default function LivingScheduleLayer({
                     rows={rows}
                     courseById={courseById}
                     instructorById={instructorById}
+                    visitingOf={visitingOfRow}
                     onChange={(id) => {
                       setSelectedId(id);
                       setTimeout(() => void loadMemory(), 0);
@@ -1351,6 +1361,7 @@ export default function LivingScheduleLayer({
                     rows={rows}
                     courseById={courseById}
                     instructorById={instructorById}
+                    visitingOf={visitingOfRow}
                     onChange={setSelectedId}
                   />
                   <div className="meeting-command">
@@ -1420,6 +1431,7 @@ export default function LivingScheduleLayer({
                     rows={rows}
                     courseById={courseById}
                     instructorById={instructorById}
+                    visitingOf={visitingOfRow}
                     onChange={setSelectedId}
                   />
                   {selected ? (
@@ -1444,6 +1456,7 @@ export default function LivingScheduleLayer({
                               instructorById.get(selected.AdInstructorId)
                                 ?.AdInstructorName
                             }
+                            {instructorById.get(selected.AdInstructorId) && isVisiting(selected.AdInstructorId, selected.AdCollegeId, selected.AdSectionId) ? <> <VisitingBadge compact /></> : null}
                           </small>
                         </span>
                       </button>
