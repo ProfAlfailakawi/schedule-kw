@@ -464,7 +464,7 @@ check(studentHomeSource.includes('homePart("request-context")') && studentHomeSo
   check(page.includes('e.key==="Escape"') && page.includes("function sheetKeys") && page.includes("sheetOpener"), "P1 الأوراق تُغلق بـEscape وتحبس التركيز وتعيده");
   check(!page.includes('<main id="app" aria-live'), "P1 لا منطقة حية على الصفحة كلها");
   check(page.includes('lim("wishUnitsMin",12)') && !page.includes("[12,13,14,15].map"), "P1 أزرار الوحدات تُبنى من حدود الخادم");
-  check(routes.includes("termUnits: TYPICAL_TERM_UNITS") && page.includes('lim("termUnits",13.5)') && mapUi.includes('lim("termUnits",13.5)'), "P1 ثابتُ وحدات الفصل واحدٌ للخادم والصفحة والخريطة");
+  check(routes.includes("termUnits: TYPICAL_TERM_UNITS") && page.includes('lim("termUnits",13.5)') && mapUi.includes("termsLeft(") && !mapUi.includes('Math.ceil(p.remainingUnits/lim'), "P1 ثابتُ وحدات الفصل واحدٌ للخادم والصفحة والخريطة (كلٌّ تحسب فصولها بـtermsLeft)");
   check(!page.includes('id="none"') && !page.includes("d.plans=null"), "P1 لا كودَ ميتاً في خطوة المنجَز");
   check(page.includes("AbortController") && page.includes("الشبكة بطيئة. أعد المحاولة."), "P1 للطلبات مهلةٌ ورسالةٌ واضحة");
   check(routes.includes('app.get("/api/public/me/home", requireDoor') && routes.includes("const HOME_KEYS") && page.includes('"/api/public/me/home"'), "P1 الرئيسية بطلبٍ واحد");

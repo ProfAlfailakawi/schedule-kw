@@ -12,6 +12,7 @@ import { STUDENT_MAP_CORE } from "../utils/studentMap";
 
 export const STUDENT_MAP_CSS = `
 /* ── خريطتي ── */
+.kdot,.ks,.kc em,.kn em,.kx em{direction:ltr;unicode-bidi:isolate}
 .km{margin-block-start:14px}
 .km-grid{display:flex;flex-direction:column;gap:18px}
 .km-side,.km-main,.km-sticky{display:contents}
@@ -47,7 +48,7 @@ export const STUDENT_MAP_CSS = `
 .km-stats .now b{color:#f0cf95}
 .km-chips{position:relative;display:flex;flex-wrap:wrap;gap:7px}
 .km-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 13px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12.5px;font-weight:600}
-.km-chip.gold{background:rgba(240,207,149,.2);color:#f0cf95}
+.km-chip.gold{background:rgba(240,207,149,.22);color:#f8e6bd}
 .km-chip .i{inline-size:14px;block-size:14px}
 .km-sec{display:grid;gap:12px}
 .km-progress-stack{display:grid;gap:18px}
@@ -86,7 +87,7 @@ export const STUDENT_MAP_CSS = `
 .kc:active{transform:scale(.985)}
 .kc.f{border-style:dashed;border-inline-start-style:solid;background:var(--card2)}
 .kc.on{border-color:var(--h);background:color-mix(in srgb,var(--h) 7%,var(--card))}
-.kc.no{opacity:.62}
+.kc.no{background:var(--card2);border-style:dashed;border-inline-start-style:solid}.kc.no em{color:var(--muted)}
 .kc-t{display:flex;align-items:center;justify-content:space-between}
 .kc em{font-style:normal;font-size:22px;font-weight:700;color:var(--h);font-variant-numeric:tabular-nums;letter-spacing:.3px}
 .kc b{font-size:14px;line-height:1.5;font-weight:700}
@@ -98,7 +99,7 @@ export const STUDENT_MAP_CSS = `
 .kc-add[aria-pressed="true"]{background:var(--h);color:#fff;animation:kpop .3s var(--ease)}
 .kc-add:disabled{opacity:.35;cursor:not-allowed;transform:none}
 @keyframes kpop{0%{transform:scale(.8)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
-.kc-rib{position:absolute;inset-block-start:-9px;inset-inline-start:12px;display:inline-flex;align-items:center;gap:4px;padding:1px 10px;border-radius:999px;background:linear-gradient(90deg,#c79b5f,#b8893f);color:#fff;font-size:12px;font-weight:700;box-shadow:0 6px 12px -6px rgba(141,100,35,.7)}
+.kc-rib{position:absolute;inset-block-start:-9px;inset-inline-start:12px;display:inline-flex;align-items:center;gap:4px;padding:1px 10px;border-radius:999px;background:linear-gradient(90deg,#d4a96a,#c79b5f);color:#1a1308;font-size:12px;font-weight:700;box-shadow:0 6px 12px -6px rgba(141,100,35,.7)}
 .kc-rib.key{background:linear-gradient(90deg,#1f6b5c,#2f8a76)}
 .kc-rib .i{inline-size:12px;block-size:12px}
 .km-map{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:22px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);color:inherit;text-decoration:none;transition:transform .15s var(--ease),border-color .15s}
@@ -123,7 +124,7 @@ export const STUDENT_MAP_CSS = `
 .kdot.s-ok{background:var(--h);color:#fff}
 .kdot.s-now{background:var(--gold-soft);color:var(--note-ink);border-color:#c79b5f;box-shadow:0 0 0 3px var(--gold-soft)}
 .kdot.s-wait,.kdot.s-full{background:var(--card2);color:var(--muted);border-color:var(--line)}
-.kdot.s-full{opacity:.6}
+.kdot.s-full{opacity:.78}
 .kdot.f{border-style:dashed}.kdot.s-ok.f{border-color:#fff8}
 .kdot.key::after{content:"";position:absolute;inset-block-start:-5px;inset-inline-start:-5px;inline-size:15px;block-size:15px;border-radius:50%;background:#c79b5f;box-shadow:0 0 0 2px var(--card)}
 .kdot.key::before{content:"";position:absolute;z-index:1;inset-block-start:-2px;inset-inline-start:-2px;inline-size:9px;block-size:9px;background:#fff;clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
@@ -210,6 +211,8 @@ body.km-lock{overflow:hidden}
 .visit-delta h2{font-size:15px}.visit-delta .b{inline-size:32px;block-size:32px}.visit-delta .visit-pills{display:flex;flex-wrap:wrap;gap:6px}.visit-delta .visit-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid color-mix(in srgb,var(--accent) 12%,var(--line));border-radius:999px;background:var(--card);font-size:12px;font-weight:600;color:var(--dim)}.visit-delta .visit-pill .i{inline-size:14px;block-size:14px;color:var(--accent)}
 .tk-compare{display:grid;gap:8px}.tk-compare-title{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700}.tk-compare-title .i{inline-size:17px;block-size:17px;color:var(--accent)}
 .tk-plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.tk-plan .tk-why{display:block;margin-block-start:4px;color:var(--ink);font-weight:600}
+@media (max-width:380px){.tk-plan{padding:9px 5px}.tk-plan strong{font-size:12px}}
 .tk-plan{position:relative;display:grid;gap:7px;min-inline-size:0;padding:10px 8px;border:1.5px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);text-align:center;font:inherit;cursor:pointer;transition:transform .15s,border-color .15s,background .15s}
 .tk-plan:hover{transform:translateY(-2px);border-color:var(--accent)}.tk-plan[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 5px 15px -12px var(--accent)}
 .tk-plan .tk-score{inline-size:46px;block-size:46px;display:grid;place-items:center;margin:0 auto;border-radius:50%;background:conic-gradient(var(--accent) var(--score),var(--soft) 0);position:relative;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
@@ -288,7 +291,8 @@ body.km-lock{overflow:hidden}
 export const STUDENT_MAP_SCRIPT = STUDENT_MAP_CORE + String.raw`
 /* ═══ خريطتي: صحيفتي كلُّها، كلُّ ما فيها يُضغط ويستجيب ═══ */
 var KM={ready:false,m:null,x:null,cart:{},status:"all",cat:"",focus:0,openLv:{},openCat:"",openGrp:{},regAll:false,advice:null,dirty:false,timer:0,saving:false,desk:false,first:true};
-var KMLV={100:"#2563EB",200:"#059669",300:"#7C3AED",400:"#EA580C",0:"#64748B"};
+/* ألوانُ المستويات تُعبّأ بها الأقراصُ ويُكتب فوقها أبيض: كلٌّ منها ≥ ٤٫٥ : ١ مع الأبيض (يفحصه tests/masari-visual-audit.ts). */
+var KMLV={100:"#2563EB",200:"#047857",300:"#7C3AED",400:"#C2410C",0:"#64748B"};
 function kmTint(col){return"color-mix(in srgb,"+col+" 14%,var(--card))"}
 var KMGOLD="#C79B5F";
 function kmCol(c){return KMLV[c.level]||KMLV[0]}
@@ -340,7 +344,7 @@ function kmAnimateRing(root){var els=(root||document).querySelectorAll(".km-ring
   for(var i=0;i<els.length;i++){(function(el){requestAnimationFrame(function(){requestAnimationFrame(function(){el.style.strokeDasharray=el.getAttribute("data-d")+" 100"})})})(els[i])}}
 function kmHeroHtml(){var X=KM.x,m=KM.m,p=X.progress(),segs=kmSegs(),nowN=0;
   X.plan.forEach(function(id){if(kmIsComp(id)&&X.status(id)==="now")nowN++});
-  var after=kmAfter(),terms=p.remainingUnits?Math.ceil(p.remainingUnits/lim("termUnits",13.5)):0,first=kmFirstName();
+  var after=kmAfter(),terms=termsLeft(p.remainingUnits),first=kmFirstName();
   var leg='';[100,200,300,400,0].forEach(function(l){var has=false;X.plan.forEach(function(id){if(X.byId[id].level===l)has=true});if(has)leg+='<button type="button" class="km-lg" data-act="lv" data-l="'+l+'"><i style="background:'+KMLV[l]+'"></i>'+kmLvName(l)+'</button>'});
   if(m.groups.length)leg+='<button type="button" class="km-lg" data-act="el"><i style="background:'+KMGOLD+'"></i>اختياري</button>';
   return '<section class="km-hero fade"><div class="km-hrow"><div class="km-ring" role="img" aria-label="'+p.percent+'٪ من التخرج">'+kmRingSvg(segs)+'<div><b id="kmPct">'+p.percent+'<small>٪</small></b><span>من التخرج</span></div></div>'
@@ -357,7 +361,7 @@ function kmAfter(){var ids=kmCartIds();if(!ids.length)return null;ids.forEach(fu
 function kmHeroUpdate(){var host=document.getElementById("kmHero");if(!host)return;var X=KM.x,p=X.progress(),segs=kmSegs(),nowN=0;X.plan.forEach(function(id){if(kmIsComp(id)&&X.status(id)==="now")nowN++});
   var set=function(id,v){var el=document.getElementById(id);if(el)el.innerHTML=v};
   set("kmPct",p.percent+"<small>٪</small>");set("kmSp",p.passedUnits);set("kmSl",p.remainingUnits);set("kmSn",nowN);
-  set("kmChips",kmChipsHtml(p,kmAfter(),p.remainingUnits?Math.ceil(p.remainingUnits/lim("termUnits",13.5)):0));
+  set("kmChips",kmChipsHtml(p,kmAfter(),termsLeft(p.remainingUnits)));
   var R=0;segs.forEach(function(s){R+=s.req});
   segs.forEach(function(s){var pl=host.querySelector('.pl[data-k="'+s.k+'"]'),dn=host.querySelector('.dn[data-k="'+s.k+'"]');
     if(pl){var v=Math.min(100,(s.done+s.plan)/s.req*100);pl.setAttribute("data-d",v.toFixed(2));pl.style.strokeDasharray=v.toFixed(2)+" 100"}
@@ -438,7 +442,7 @@ function kmJrHtml(){var X=KM.x,m=KM.m,chips='';
 /* ── سلاسل المسبقات العابرة للأقسام ── */
 function kmChainsHtml(){var X=KM.x,ch=X.chains();if(!ch.length)return'';
   var groups={},order=[];ch.forEach(function(line){var r=line[0];if(!groups[r]){groups[r]=[];order.push(r)}groups[r].push(line.slice(1))});
-  var hues=["#2563EB","#0891B2","#DB2777","#7C3AED","#EA580C","#059669"],h='<details class="km-pre-details"><summary><span class="km-pre-icon">'+ic("layers","")+'</span><span><b>المسبقات بين الأقسام</b><small>استكشف ما يفتح كل مقرر</small></span>'+ic("down","")+'</summary><section class="km-sec fade"><div class="kch">';
+  var hues=["#2563EB","#0E7490","#DB2777","#7C3AED","#C2410C","#047857"],h='<details class="km-pre-details"><summary><span class="km-pre-icon">'+ic("layers","")+'</span><span><b>المسبقات بين الأقسام</b><small>استكشف ما يفتح كل مقرر</small></span>'+ic("down","")+'</summary><section class="km-sec fade"><div class="kch">';
   var st=function(id,big){var s=X.status(id);return '<button type="button" class="ks s-'+s+(big?' big':'')+'" data-id="'+id+'" aria-label="'+esc(X.byId[id].name)+' — '+KMST[s]+'">'+esc(X.byId[id].short)+'</button>'};
   order.forEach(function(r,i){var root=X.byId[r],br=groups[r],hue=hues[i%hues.length],ids={};ids[r]=1;br.forEach(function(path){path.forEach(function(id){ids[id]=1})});
     var all=Object.keys(ids).map(Number),done=all.filter(function(id){return X.isPassed(id)}).length,kids={};

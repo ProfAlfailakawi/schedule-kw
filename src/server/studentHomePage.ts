@@ -59,7 +59,7 @@ export const STUDENT_HOME_CSS = `
 @media (prefers-color-scheme:dark){:root{${PUBLIC_DARK_VARS};--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -14px rgba(0,0,0,.6);--gold-soft:#2c2415;--ok:#6fd0a0;--ok-soft:#14291f;--note-ink:#ecd9ae;--bar:#0a0f0d}}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{margin:0;min-height:100dvh;background:radial-gradient(120% 60% at 100% 0,var(--accent-soft) 0,transparent 55%),var(--bg);color:var(--ink);font-family:"Plex Arabic",-apple-system,"Segoe UI","Noto Sans Arabic",Tahoma,sans-serif;font-synthesis:none;-webkit-font-smoothing:antialiased;line-height:1.65;padding-bottom:env(safe-area-inset-bottom)}
-button,input{font:inherit;color:inherit}
+button,input,textarea,select{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:10px}
 .i{inline-size:20px;block-size:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .ltr{direction:ltr;unicode-bidi:isolate}
@@ -149,7 +149,8 @@ header.top{flex-wrap:wrap}
 .opt{display:flex;align-items:center;gap:12px;padding:12px 14px;min-block-size:56px;border-radius:16px;border:1.5px solid var(--line);background:var(--card);cursor:pointer;text-align:start;inline-size:100%;transition:border-color .15s,background .15s}
 .opt:hover{border-color:var(--line-strong)}
 .opt[aria-pressed="true"],.opt[aria-checked="true"]{border-color:var(--accent);background:var(--accent-soft)}
-.opt.locked{opacity:.66;cursor:not-allowed}.opt.locked .box{background:transparent;border-style:dashed}.lk{color:var(--gold);font-weight:600}
+/* يخفت العنوان والرمز فقط (لون لا شفافية)، ويبقى السببُ بلونه الكامل فيُقرأ. */
+.opt.locked{cursor:not-allowed}.opt.locked .tx b,.opt.locked .code{color:var(--muted)}.opt.locked .box{background:transparent;border-style:dashed}.lk{color:var(--gold);font-weight:600}
 .opt .tx{flex:1;min-inline-size:0;display:grid;gap:2px}
 .opt .tx b{font-size:14.5px;font-weight:600;line-height:1.5}
 .opt .tx small{color:var(--muted);font-size:12px}
@@ -157,7 +158,7 @@ header.top{flex-wrap:wrap}
 .opt[aria-checked="true"] .box{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .opt .box .i{inline-size:16px;block-size:16px;stroke-width:2.6}
 .opt .code{font:600 12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);direction:ltr;unicode-bidi:isolate}
-.opt.off{opacity:.55}
+.opt.off .tx b,.opt.off .code{color:var(--muted)}
 .grp{margin:10px 2px 2px;font-size:12.5px;font-weight:700;color:var(--brass);letter-spacing:.02em}
 .track-picks{display:grid;gap:9px;margin-block-start:14px}
 .grad-estimate{padding-block-start:8px;border-block-start:1px solid var(--line)}
@@ -393,7 +394,7 @@ details.later>summary{justify-content:center;border:1.5px dashed var(--line-stro
 .tile .ti,.upl .ti{inline-size:44px;block-size:44px;border-radius:14px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
 .tile .ti .i,.upl .ti .i{inline-size:22px;block-size:22px}
 .tile b{font-size:13px;line-height:1.4}.tile small{font-size:12px;color:var(--muted)}
-.tile.dim{opacity:.7}
+.tile.dim b{color:var(--muted)}.tile.dim .ti{background:var(--soft);color:var(--muted)}
 .sheet .done{display:grid;justify-items:center;gap:6px;text-align:center;padding-block:10px}
 .okc{inline-size:60px;block-size:60px;border-radius:50%;display:grid;place-items:center;background:var(--ok-soft);color:var(--ok)}
 .okc .i{inline-size:28px;block-size:28px;stroke-width:2.4}
@@ -423,6 +424,9 @@ export const STUDENT_HOME_SCRIPT = String.raw`
 var app=document.getElementById("app"),topEl=document.getElementById("top"),dockEl=document.getElementById("dock");
 var S={state:null,view:"boot",civil:"",exists:false,resetPending:false,resetAt:"",catalog:null,plans:null,planSource:"",draft:null,offered:null,busy:false,remember:false,sheet:"",track:window.__SCHEDULE_TRACK||""};
 
+/* وحداتُه في الفصل: ما كتبه في رغباته لهذا الفصل، وإلا المعدلُ المقرَّب. منه تُحسب فصولُ التخرّج في كل مكانٍ في الصفحة (الرحلة، ماذا لو، الخريطة). */
+function defaultUnits(){var s=S.state,w=s&&s.profile&&s.profile.wishes,u=w&&s.term&&w.termId===s.term.id?Number(w.targetUnits):Math.round(lim("termUnits",13.5));var lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15);return Math.max(lo,Math.min(hi,u||lo))}
+function termsLeft(remaining){return remaining>0?whatIf(remaining,defaultUnits(),false).regular:0}
 function lim(k,d){var l=S.state&&S.state.limits;return l&&typeof l[k]==="number"?l[k]:d}
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function digits(v){return String(v||"").replace(/[٠-٩]/g,function(d){return String("٠١٢٣٤٥٦٧٨٩".indexOf(d))}).replace(/[۰-۹]/g,function(d){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))}).replace(/\D/g,"")}
@@ -456,7 +460,7 @@ function markOverflow(){var t=document.querySelector(".track");if(t&&t.scrollWid
 function animateRings(){var fgs=document.querySelectorAll(".ring .fg");for(var i=0;i<fgs.length;i++){(function(el){requestAnimationFrame(function(){requestAnimationFrame(function(){el.style.strokeDashoffset=el.getAttribute("data-off")})})})(fgs[i])}}
 function phaseChip(){var s=S.state;if(!s)return"";var ph=s.phase;return '<div class="phase">'+ic(ph.mode==="wishes"?"heart":ph.mode==="report"?"ticket":ph.mode==="frozen"?"lock":"clock")+'<span>'+(ph.line.indexOf(ph.label)>=0?'':'<b>'+esc(ph.label)+'</b> · ')+esc(ph.line)+'</span></div>'}
 function track(){var s=S.state;if(!s||!s.timeline)return"";var ICON={submission:"book",wishes:"heart",frozen:"lock",round:"ticket",close:"flag"};var h='<ol class="track" aria-label="رحلة الفصل">';s.timeline.forEach(function(st){var d=st.to||st.from;h+='<li class="stp '+st.state+'"'+(st.state==="now"?' aria-current="step"':"")+'><span class="d">'+ic(st.state==="done"?"check":ICON[st.kind]||"clock")+'</span><b>'+esc(st.title)+'</b><small>'+(d?esc(fmtShort(d)):"—")+'</small></li>'});return h+'</ol>'}
-function setTop(){var s=S.state;topEl.innerHTML='<span class="mark">SCHEDULE</span><span class="topr">'+(s&&s.demo?'<span class="term demo">تجربة · افتراضي</span>':"")+(s&&s.term?'<span class="term">'+ic("cal")+esc(s.term.name)+'</span>':"")+'<a class="jrn" href="/?journey=1&amp;back=/me" aria-label="افتح رحلة SCHEDULE">'+ic("spark")+'<span>الرحلة</span></a></span>'}
+function setTop(){var s=S.state;topEl.innerHTML='<span class="mark">SCHEDULE</span><span class="topr">'+(s&&s.demo?'<span class="term demo">تجربة · افتراضي</span>':"")+(s&&s.term?'<span class="term">'+ic("cal")+esc(s.term.name)+'</span>':"")+'<a class="jrn" href="/?journey=1&amp;back=/me" aria-label="افتح التعريف بنظام SCHEDULE">'+ic("spark")+'<span>عن النظام</span></a></span>'}
 function setView(v){S.view=v;if(v!=="home"){var kb=document.getElementById("kbar");if(kb)kb.hidden=true;kmClose()}render()}
 var sheetOpener=null;
 var FOCUSABLE='a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -627,7 +631,7 @@ function homePart(key,fresh){
 function viewHome(){
   homeP=null;S.tab="now";dockEl.innerHTML="";S.tkOverrides={};S.tkRemoved={};S.tkAdded={};S.tkSel=0;S.tkErr="";S.wDraft=null;S.wEdit=false;S.wStep=0;S.wCount=null;var s=S.state,p=s.profile,ph=s.phase,pr=p.progress||{percent:0,passedUnits:0,totalUnits:0,remainingUnits:0};
   var first=p.identity&&p.identity.name?String(p.identity.name).split(" ")[0]:"";
-  var terms=pr.remainingUnits?Math.ceil(pr.remainingUnits/lim("termUnits",13.5)):0;
+  var terms=termsLeft(pr.remainingUnits);
   /* ── الواجهة: بطاقةٌ واحدة تقول «أين أنا» — حلقةٌ ورقمان — والباقي في ثلاثة ألسنة. ── */
   var h='<section class="hero me fade"><div class="row" style="gap:16px">'+ring(pr.percent)+'<div class="who"><small>'+(first?"أهلاً، "+esc(first):"مساري")+'</small><h1>'+esc(p.sectionName)+'</h1><span>'+(p.planName?esc(p.planName)+" · ":"")+countOf(p.passedUnits,AR.unit)+' مجتازة</span></div><button class="ghost" id="edp" aria-label="عدّل ما أنجزت">'+ic("edit")+'</button></div>'
    +'<div class="kpis"><div><b>'+(pr.remainingUnits||0)+'</b><small>الوحدات المتبقية</small></div><div><b id="kt">'+(terms||"✓")+'</b><small id="kts">'+(terms?"فصول للتخرّج":"أكملت الصحيفة")+'</small></div><div><b class="w">'+esc(ph.label)+'</b><small>'+(ph.nextAt?esc(fmtShort(ph.nextAt)):"المرحلة الآن")+'</small></div></div></section>';
@@ -677,7 +681,10 @@ function laterUpdate(){var body=document.getElementById("laterBody"),slot=docume
   /* قبل وصول الرئيسية: تُحجز مساحةُ البطاقة المنتظَرة بهيكلٍ فلا تقفز الصفحة حين تصل. */
   var pending=!S.homeReady&&order.length>0&&want==="journey";if(pending)want="";
   var nt=els.notices;if(nt){var loud=nt.getAttribute("data-loud")==="1"&&hostFilled(nt);if(loud){if(nt.parentNode!==top)top.appendChild(nt)}else if(nt.parentNode!==body)laterPlace(nt,body)}
-  LATER_KEYS.forEach(function(k){var el=els[k];if(!el||k==="notices")return;if(k===want){if(el.parentNode!==slot)slot.appendChild(el)}else if(el.parentNode!==body)laterPlace(el,body)});
+  /* «طلب للقسم» لا يظهر إلا لمن ينطبق عليه (تعذّر جدوله): فيصعد تحت البطاقة الرئيسية بدل أن يُطوى. */
+  var raise=hostFilled(els.caseRequest)&&want!=="caseRequest"?"caseRequest":"";
+  LATER_KEYS.forEach(function(k){var el=els[k];if(!el||k==="notices")return;if(k===want||k===raise){if(el.parentNode!==slot)slot.appendChild(el)}else if(el.parentNode!==body)laterPlace(el,body)});
+  if(raise&&want&&els[want]&&els[raise].previousElementSibling!==els[want])slot.appendChild(els[raise]);
   var sk=document.getElementById("primSkel");if(pending){if(!sk){sk=document.createElement("div");sk.id="primSkel";sk.className="skel";slot.appendChild(sk)}}else if(sk)sk.remove();
   var n=0;LATER_KEYS.forEach(function(k){var el=els[k];if(el&&el.parentNode===body&&hostFilled(el))n++});
   box.hidden=n===0;var sm=document.getElementById("laterSum");if(sm)sm.innerHTML=ic("down")+' المزيد من مساري ('+n+')';
@@ -808,7 +815,7 @@ function tkPlanCompare(plans,current){/* لا تعِد ترتيب البطاقا
   var fits=plans.map(tkPlanFit).sort(function(a,b){return "ABC".indexOf(a.label)-"ABC".indexOf(b.label)}),
     best=fits.reduce(function(a,b){return !a||b.score>a.score||(b.score===a.score&&b.units<a.units)?b:a},null),labels={A:'الخطة أ',B:'الخطة ب',C:'الخطة ج'},hasTimes=fits.every(function(f){return f.allTimes});
   return '<div class="tk-compare"><div class="tk-compare-title">'+ic('spark','')+' أفضل جدول بالنسبة لك</div><div class="tk-plans" role="group" aria-label="قارن خطط التسجيل">'+fits.map(function(f){var selected=f.label===current?'true':'false',dayText=f.allTimes?countOf(f.days,AR.day)+' حضور':'مواعيد غير معتمدة',gapText=f.allTimes?(f.gap?('فراغات '+countOf(Math.round(f.gap/6)/10,AR.hour)):'فراغات أقل'):'',bestText=f.label===best.label?'<span class="tk-best">'+(f.allTimes?'الأنسب لك':'الأقرب لهدفك')+'</span>':'';
-    return '<button type="button" class="tk-plan" data-l="'+f.label+'" aria-pressed="'+selected+'" style="--score:'+f.score+'%"><span class="tk-score"><b>'+f.score+'<small>٪</small></b></span><strong>'+labels[f.label]+' · '+countOf(f.units,AR.unit)+'</strong><small>'+dayText+(gapText?' · '+gapText:'')+'<br>'+f.why+(f.tight?' · '+countOf(f.tight,AR.section)+' قليلة المقاعد':'')+'</small>'+bestText+'</button>'}).join('')+'</div><p class="tk-compare-note">'+(hasTimes?'المؤشر يوازن هدف الوحدات وقيودك وأيام الحضور والفراغات.':'المواعيد لم تعتمد بعد؛ المؤشر يقارن الوحدات بهدفك فقط.')+' التقدير لا يحجز مقعداً.</p></div>'}
+    return '<button type="button" class="tk-plan" data-l="'+f.label+'" aria-pressed="'+selected+'" style="--score:'+f.score+'%"><span class="tk-score"><b>'+f.score+'<small>٪</small></b></span><strong>'+labels[f.label]+' · '+countOf(f.units,AR.unit)+'</strong><small>'+dayText+(gapText?' · '+gapText:'')+(selected==='true'?'<span class="tk-why">'+f.why+(f.tight?' · '+countOf(f.tight,AR.section)+' قليلة المقاعد':'')+'</span>':'')+'</small>'+bestText+'</button>'}).join('')+'</div><p class="tk-compare-note">'+(hasTimes?'المؤشر يوازن هدف الوحدات وقيودك وأيام الحضور والفراغات.':'المواعيد لم تعتمد بعد؛ المؤشر يقارن الوحدات بهدفك فقط.')+'</p></div>'}
 function tkGrid(items,sel,ghosts){
   var lo=1440,hi=0;
   items.forEach(function(it){if(it.timesVisible)(it.slots||[]).forEach(function(s){lo=Math.min(lo,s.start);hi=Math.max(hi,s.end)})});
@@ -902,7 +909,7 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
   if(t.unmet.length){h+='<details class="more"><summary>'+ic("down")+' ما لم نضعه ('+t.unmet.length+')</summary><div class="list" style="margin-block-start:6px">'+t.unmet.map(function(u){return '<div class="opt off"><span class="tx"><b>'+esc(u.name)+'</b><small>'+esc(WHY[u.reason]||"")+'</small></span></div>'}).join("")+'</div></details>'}
   var brk=visibleTimes?tkLongestGap(items):null;
   if(brk)h+='<div id="adx-break-box" data-gap="'+brk.min+'"></div>';
-  h+='<p class="fine">'+ic("shield","")+' تقدير فقط — لا يحجز مقعداً.</p></div></section>';
+  h+='</div></section>';
   host.innerHTML=h;
   /* محطة الاستراحة: أطولُ فراغٍ في أسبوعه يُعرض فيه إعلانٌ إن وُجدت حملةٌ للموقع (السكربت العام يحمّله من الخادم ويحتسب ظهوره). */
   if(brk)adxMountLater("adx-break-box","break",{college:(S.state.profile&&S.state.profile.collegeId)||0,intro:'عندك فراغٌ يوم '+DAYN[brk.day]+' من '+tkClock(brk.from)+' إلى '+tkClock(brk.to)+' (نحو '+countOf(Math.round(brk.min/6)/10,AR.hour)+'). استراحتك برعاية:'});
@@ -936,11 +943,11 @@ function paintReport(host){var d=S.report,h='<section class="card rp fade"><h2><
   if(d.canReport)h+='<button class="btn" id="rps"'+(Object.keys(S.rp).length?"":" disabled")+'>'+ic("check")+' أرسل</button>';
   h+='<div id="rpdone"></div></section>';host.innerHTML=h;
   host.querySelectorAll(".ln").forEach(function(row){var id=Number(row.getAttribute("data-c"));
-    row.querySelectorAll(".yn button").forEach(function(b){b.addEventListener("click",function(){if(!d.canReport)return;var v=b.getAttribute("data-v");S.rp[id]={state:v,reason:(S.rp[id]&&S.rp[id].reason)||"other"};paintReport(host)})});
+    row.querySelectorAll(".yn button").forEach(function(b){b.addEventListener("click",function(){if(!d.canReport)return;var v=b.getAttribute("data-v");S.rp[id]={state:v,reason:(S.rp[id]&&S.rp[id].reason)||""};paintReport(host)})});
     row.querySelectorAll(".why button").forEach(function(b){b.addEventListener("click",function(){S.rp[id].reason=b.getAttribute("data-w");paintReport(host)})})});
   var hp=document.getElementById("hp");if(hp)hp.addEventListener("change",function(){S.rpHelp=hp.checked;paintReport(host)});
   var sv=document.getElementById("rps");if(sv)sv.addEventListener("click",function(){sv.disabled=true;showErr("rperr","");
-    var answers=Object.keys(S.rp).map(function(k){return{courseId:Number(k),state:S.rp[k].state,reason:S.rp[k].reason}});
+    var answers=Object.keys(S.rp).map(function(k){return{courseId:Number(k),state:S.rp[k].state,reason:S.rp[k].state==="stuck"?(S.rp[k].reason||"other"):S.rp[k].reason}});
     var body={answers:answers};if(anyStuck&&S.rpHelp){body.help=(S.state.profile&&S.state.profile.hasIdentity)?true:{name:(document.getElementById("hn")||{}).value||"",civil:(document.getElementById("hc")||{}).value||""}}
     api("POST","/api/public/me/report",body).then(function(r){sv.disabled=false;if(!r.ok){showErr("rperr",r.d.error||"تعذّر الإرسال");return}
       var m='<p class="lead">شكراً — سُجّل جوابك.</p>';(r.d.cases||[]).forEach(function(c){m+='<p class="muted">حالتك لدى '+esc(c.sectionName)+'؛ رقمها:</p><div class="ref">'+esc(c.caseRef)+'</div>'});
@@ -953,7 +960,7 @@ function whatIf(remaining,units,summer){var left=Number(remaining)||0,u=Number(u
   return{regular:regular,summers:summers,total:regular+summers,years:Math.ceil(i/(summer?3:2))}}
 function whatIfLine(w,units,summer){if(!w.total)return"أكملت وحدات الصحيفة.";
   return "بمعدل "+countOf(units,AR.unit)+" في الفصل: "+countOf(w.regular,AR.term)+(summer&&w.summers?" عاديّة + "+countOf(w.summers,AR.term)+" صيفية":"")+" · نحو "+countOf(w.years,AR.year)+"."}
-function wireWhatIf(remaining){var box=document.getElementById("whatif");if(!box)return;var st={u:Math.round(lim("termUnits",13.5)),s:false};
+function wireWhatIf(remaining){var box=document.getElementById("whatif");if(!box)return;var st={u:defaultUnits(),s:false};
   var seg=box.querySelector("[data-wi=units]"),sw=box.querySelector("[data-wi=summer]"),out=box.querySelector("[data-wi=out]");
   function paint(){var w=whatIf(remaining,st.u,st.s);out.textContent=whatIfLine(w,st.u,st.s);[].forEach.call(seg.children,function(b){b.setAttribute("aria-pressed",Number(b.getAttribute("data-n"))===st.u?"true":"false")});sw.setAttribute("aria-checked",st.s?"true":"false")}
   seg.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;st.u=Number(b.getAttribute("data-n"));paint()});
@@ -1020,7 +1027,7 @@ function loadPlan(){var host=document.getElementById("advice");if(!host)return;
     if(mp){KM.hasRules=!!mp.hasRules;kmInit(mp.model,a,rs[2].d.changes||null);kmMount(host);var ap=document.querySelector(".app");if(ap)ap.classList.toggle("km-on",S.tab==="plan")}
     else if(!a&&!o){host.innerHTML=""}else{host.innerHTML=planCard(a,o);animateRings();markOverflow()}
     var kt=document.getElementById("kt"),ks=document.getElementById("kts");
-    if(a&&kt){var n=a.done?0:(a.termsAfter===null?null:a.termsAfter+(a.picks.length?1:0));kt.textContent=n===null?"؟":(n===0?"✓":n);ks.textContent=n===0?"أكملت الصحيفة":(n===null?"راجع مرشدك":"فصول للتخرّج")}
+    if(a&&kt&&a.done){kt.textContent="✓";ks.textContent="أكملت الصحيفة"}
     var b=document.getElementById("advw");if(b&&a)b.addEventListener("click",function(){b.disabled=true;var w=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null;
       api("PUT","/api/public/me/wishes",{targetUnits:Math.max(12,Math.min(15,a.units||15)),courseIds:a.picks.map(function(p){return p.courseId}),constraints:w?w.constraints:{}}).then(function(x){b.disabled=false;
         if(!x.ok){toast(x.d.error||"تعذّر الحفظ",true);return}S.state.profile.wishes=x.d.wishes;S.wDraft=null;S.wCount=null;S.wEdit=false;toast("صارت رغباتك");renderWishes()})});
@@ -1030,11 +1037,13 @@ ${STUDENT_MAP_SCRIPT}
 function wishState(){if(S.wDraft)return S.wDraft;var s=S.state,w=s.profile.wishes;if(w&&s.term&&w.termId!==s.term.id)w=null;
   var cur=w||{targetUnits:15,courseIds:[],constraints:{}};
   S.wDraft={targetUnits:cur.targetUnits,courseIds:cur.courseIds.slice(),constraints:{noMorning:!!cur.constraints.noMorning,noAfternoon:!!cur.constraints.noAfternoon,freeDay:!!cur.constraints.freeDay}};return S.wDraft}
+/* «مقرر بعينه · مقرران بعينهما · ٣ مقررات بعينها · ١١ مقرراً بعينه»: المطابقةُ في العدد والجنس. */
+function chosenCourses(n){return n===1?"مقرر بعينه":n===2?"مقرران بعينهما":countOf(n,AR.course)+(n<=10?" بعينها":" بعينه")}
 function wishChips(w){var h='<span class="chip ok">'+countOf(w.targetUnits,AR.unit)+'</span>';
   if(w.constraints.noMorning)h+='<span class="chip">'+ic("sun","")+' لا صباحاً</span>';
   if(w.constraints.noAfternoon)h+='<span class="chip">'+ic("moon","")+' لا بعد الظهر</span>';
   if(w.constraints.freeDay)h+='<span class="chip">يومٌ فارغ '+ic("calx","")+'</span>';
-  if(w.courseIds&&w.courseIds.length)h+='<span class="chip">'+countOf(w.courseIds.length,AR.course)+' بعينها</span>';
+  if(w.courseIds&&w.courseIds.length)h+='<span class="chip">'+chosenCourses(w.courseIds.length)+'</span>';
   return h}
 function wishesDone(host,w,edit){var ph=S.state.phase;
   host.innerHTML='<section class="card fade"><h2><span class="b">'+ic("heart")+'</span>رغباتي لهذا الفصل'+(edit?'<span class="chip ok'+(S.wPulse?' pulse':'')+'">'+ic("check","")+' وصلت</span>':'<span class="chip">للقراءة</span>')+'</h2><div class="tags">'+wishChips({targetUnits:w.targetUnits,constraints:w.constraints||{},courseIds:w.courseIds||[]})+'</div><p class="muted">هذا ما تريده هذا الفصل. جدولك المقترح يُبنى عليه، ولا تتغيّر رغباتك إلا حين تحفظها.</p><p class="muted" id="wcnt"></p>'
@@ -1129,7 +1138,7 @@ export function studentHomePage(nonce: string, track: "boys" | "girls" | "" = ""
 <body>
 ${SPRITE}
 <div class="app">
-<header class="top" id="top"><span class="mark">SCHEDULE</span><span class="topr"><a class="jrn" href="/?journey=1&amp;back=/me" aria-label="افتح رحلة SCHEDULE"><svg class="i" aria-hidden="true"><use href="#i-spark"/></svg><span>الرحلة</span></a></span></header>
+<header class="top" id="top"><span class="mark">SCHEDULE</span><span class="topr"><a class="jrn" href="/?journey=1&amp;back=/me" aria-label="افتح التعريف بنظام SCHEDULE"><svg class="i" aria-hidden="true"><use href="#i-spark"/></svg><span>عن النظام</span></a></span></header>
 <main id="app"><div class="skel"></div></main>
 </div>
 <div class="dock" id="dock"></div>

@@ -52,4 +52,36 @@ check(/data-lv=/.test(STUDENT_HOME_SCRIPT) && /id="lvq"/.test(STUDENT_HOME_SCRIP
 check(/id="primSkel"|primSkel/.test(STUDENT_HOME_SCRIPT) && /S\.homeReady/.test(STUDENT_HOME_SCRIPT), "مساحةُ البطاقة المنتظَرة تُحجز بهيكلٍ حتى تصل الرئيسية (لا قفزة)");
 check(/\.chip\.pulse\{animation:pulse/.test(STUDENT_HOME_CSS) && /prefers-reduced-motion:reduce\)\{[^}]*\.chip\.pulse\{animation:none/.test(STUDENT_HOME_CSS), "نبضةٌ واحدة عند وصول الرغبات، وتُلغى مع «تقليل الحركة»");
 
+
+/* ── الصقل الأخير: رقمُ فصول التخرّج واحد، والنحو، والبطاقة المرفوعة ── */
+{
+  const cx: Record<string, any> = { S: { state: { term: { id: 7 }, profile: { wishes: null }, limits: { wishUnitsMin: 12, wishUnitsMax: 15, termUnits: 13.5 } } },
+    countOf: (n: number, u: string) => `${n} ${u}`, AR: { course: "مقرر" } };
+  runInNewContext([
+    "var SUMMER_UNITS=6;",
+    fn("defaultUnits", "termsLeft"), fn("termsLeft", "lim"), fn("lim", "esc"),
+    fn("whatIf", "whatIfLine"), fn("chosenCourses", "wishChips"),
+    "this.defaultUnits=defaultUnits;this.termsLeft=termsLeft;this.chosenCourses=chosenCourses;",
+  ].join("\n"), cx);
+  check(cx.defaultUnits() === 14, "من لم يكتب رغباته: وحداتُه في الفصل المعدلُ مقرَّباً (١٤)");
+  cx.S.state.profile.wishes = { termId: 7, targetUnits: 15 };
+  check(cx.defaultUnits() === 15, "ومن كتبها: ما كتبه");
+  cx.S.state.profile.wishes = { termId: 6, targetUnits: 12 };
+  check(cx.defaultUnits() === 14, "رغباتُ فصلٍ سابق لا تُحتسب");
+  cx.S.state.profile.wishes = { termId: 7, targetUnits: 40 };
+  check(cx.defaultUnits() === 15, "ويُقصَّ ما خرج عن حدود الخادم");
+  cx.S.state.profile.wishes = null;
+  check(cx.termsLeft(109) === 8 && cx.termsLeft(0) === 0 && cx.termsLeft(14) === 1 && cx.termsLeft(15) === 2, "فصولُ التخرّج: ١٠٩ وحدةً بمعدل ١٤ = ٨، وصفرٌ حين لا متبقّي");
+  check(cx.chosenCourses(1) === "مقرر بعينه" && cx.chosenCourses(2) === "مقرران بعينهما" && cx.chosenCourses(3) === "3 مقرر بعينها" && cx.chosenCourses(11) === "11 مقرر بعينه", "«بعينه/بعينهما/بعينها» تطابق العددَ والجنس");
+}
+const homeSrc = STUDENT_HOME_SCRIPT;
+check(/var raise=hostFilled\(els\.caseRequest\)/.test(homeSrc), "«طلب للقسم» يصعد تحت البطاقة الرئيسية حين ينطبق على الطالب");
+check(/S\.rp\[id\]=\{state:v,reason:\(S\.rp\[id\]&&S\.rp\[id\]\.reason\)\|\|""\}/.test(homeSrc) && /S\.rp\[k\]\.reason\|\|"other"/.test(homeSrc), "«تعثّرت» لا يختار سبباً عن الطالب، ويُرسَل «آخر» إن لم يختر");
+check(!/kt\.textContent=n===null/.test(homeSrc), "رقم «فصول للتخرّج» لا يُستبدل برقمٍ آخر بعد وصول المقترح");
+const { readStudentPhase } = await import("../src/utils/termStudentPhases");
+const { DEFAULT_TERM_UNITS, TYPICAL_TERM_UNITS } = await import("../src/utils/studentProfile");
+const unset = readStudentPhase(undefined);
+check(!unset.line.includes("لم تُحدَّد") && unset.label.includes("لم تُحدَّد"), "المرحلة غير المحدَّدة: العنوانُ يقول والسطرُ لا يكرّر");
+check(DEFAULT_TERM_UNITS === 14 && Math.round(TYPICAL_TERM_UNITS) === DEFAULT_TERM_UNITS, "الاقتراح في الخادم يبني على ١٤ وحدةً لمن لم يكتب رغباته، كالصفحة");
+
 console.log(`\n${passed} passed, 0 failed`);

@@ -81,4 +81,26 @@ check(ratio("#ffffff", "#131817") >= 4.5 && ratio("#ffffff", "#0a0f0d") >= 4.5, 
 const solid = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(m => /background:var\(--(accent|ok|bad)\)/.test(m[2]) && /(?<![-\w])color:#fff/.test(m[2])).map(m => m[1].trim().slice(-50));
 check(solid.length === 0, "النص فوق تعبئة الأخضر/الأحمر يستعمل --on-accent لا الأبيض الثابت", solid);
 
+
+/* ٦. أسبابُ التعطيل والبطاقاتُ غير المطروحة لا تبهت بالشفافية (تُنقص التباين فلا يُقرأ السبب) */
+const dimmed = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(m => /(?:^|,)\s*\.(?:opt\.off|opt\.locked|tile\.dim|kc\.no)(?![\w-])/.test(m[1].trim()) && /(?<![-\w])opacity:/.test(m[2])).map(m => m[1].trim());
+check(dimmed.length === 0, "لا opacity على الصفوف المعطَّلة (يخفت اللونُ لا الصف كله)", dimmed);
+check(/button,input,textarea,select\{font:inherit/.test(STUDENT_HOME_CSS), "الحقول المتعدّدة والقوائم ترث خطَّ الصفحة (لا monospace ولا Arial)");
+const rib = css.match(/\.kc-rib\{[^}]*\}/)?.[0] || "";
+const ribStops = [...(rib.match(/background:[^;]*/)?.[0] || "").matchAll(/#[0-9a-fA-F]{6}\b/g)].map(x => x[0]);
+const ribInk = rib.match(/(?<![-\w])color:(#[0-9a-fA-F]{6})/)?.[1] || "";
+check(ribStops.length === 2 && ribInk !== "" && ribStops.every(s => ratio(ribInk, s) >= 4.5), `شارة «مقترحنا»: النص ${ribInk} على الذهبي ٤٫٥ : ١ في طرفَي التدرّج`, { ribStops, ribInk });
+const goldChip = css.match(/\.km-chip\.gold\{[^}]*\}/)?.[0] || "";
+const chipInk = goldChip.match(/(?<![-\w])color:(#[0-9a-fA-F]{6})/)?.[1] || "";
+check(chipInk !== "" && ratio(blend(0.22, chipInk), mapStop) >= 1 && ratio(chipInk, mapStop) >= 4.5, `شارة «بعد هذا الفصل» على بطاقة الخريطة ${ratio(chipInk, mapStop).toFixed(2)} ≥ 4.5`);
+check(/\.kdot,\.ks,\.kc em,\.kn em,\.kx em\{direction:ltr;unicode-bidi:isolate\}/.test(STUDENT_MAP_CSS), "رموز المقررات في الخريطة تُكتب من اليسار فلا ينقلب «01·102»");
+
+
+/* ٧. ألوان المستويات (تعبئةٌ بنصٍّ أبيض) */
+const { STUDENT_MAP_SCRIPT } = await import("../src/server/studentMapUi");
+const levelCols = [...(STUDENT_MAP_SCRIPT.match(/var KMLV=\{[^}]*\}/)?.[0] || "").matchAll(/#[0-9a-fA-F]{6}\b/g)].map(x => x[0]);
+const hueCols = [...(STUDENT_MAP_SCRIPT.match(/var hues=\[[^\]]*\]/)?.[0] || "").matchAll(/#[0-9a-fA-F]{6}\b/g)].map(x => x[0]);
+check(levelCols.length === 5 && levelCols.every(c => ratio("#ffffff", c) >= 4.5), "كل لون مستوى يحمل الأبيض بتباين ٤٫٥ : ١", levelCols.map(c => `${c} ${ratio("#ffffff", c).toFixed(2)}`));
+check(hueCols.length === 6 && hueCols.every(c => ratio("#ffffff", c) >= 4.5), "وألوان أقراص الأقسام كذلك", hueCols.map(c => `${c} ${ratio("#ffffff", c).toFixed(2)}`));
+
 console.log(`\n${passed} passed, 0 failed`);
