@@ -40,7 +40,7 @@ check(studentHomeSource.includes("var remaining=(S.offered&&S.offered.courses)||
   && studentHomeSource.includes("غير مطروح هذا الفصل")
   && studentHomeSource.includes("غير مطروح") ,
 "D5 يستطيع الطالب إبداء حاجته إلى مقرر غير مطروح، وتظهر حالته بوضوح");
-check(studentHomeSource.includes("/api/public/me/request-context") && studentHomeSource.includes("/api/public/me/request")
+check(studentHomeSource.includes('homePart("request-context")') && studentHomeSource.includes("/api/public/me/request")
   && studentHomeSource.includes("أوافق على إرسال اسمي ورقمي المدني") && studentHomeSource.includes("تعذّر تكوين جدول؟")
   && studentHomeSource.includes("conflictPairs") && studentHomeSource.includes("لم نجد توليفة منشورة خالية منه"),
 "D5 يستطيع الطالب إرسال طلب الفتح/التعارض من مساري بموافقة صريحة");
@@ -408,14 +408,14 @@ check(studentHomeSource.includes("/api/public/me/request-context") && studentHom
   const routes = fs.readFileSync(path.join(process.cwd(), "src/server/studentDoorRoutes.ts"), "utf8");
   const page = fs.readFileSync(path.join(process.cwd(), "src/server/studentHomePage.ts"), "utf8");
   const repo = fs.readFileSync(path.join(process.cwd(), "src/db/repository.ts"), "utf8");
-  check(routes.includes('app.get("/api/public/me/cases", requireDoor') && routes.includes("getStudentNeedHistoryByFingerprint(fingerprint)"),
+  check(routes.includes('homeGet("cases", async') && routes.includes("getStudentNeedHistoryByFingerprint(fingerprint)"),
     "متابعة الحالات داخل مساري محمية بجلسة الملف وتقرأ تاريخ صاحبها فقط");
-  const caseRoute = routes.slice(routes.indexOf('app.get("/api/public/me/cases", requireDoor'), routes.indexOf('/* ── المطروح لي:', routes.indexOf('app.get("/api/public/me/cases", requireDoor')));
+  const caseRoute = routes.slice(routes.indexOf('homeGet("cases", async'), routes.indexOf('/* ── المطروح لي:', routes.indexOf('homeGet("cases", async')));
   check(!caseRoute.includes("decision?.note") && !caseRoute.includes("state?.note") && !caseRoute.includes("need.details"),
     "ملخص الطالب لا يكشف ملاحظات اللجنة الداخلية أو التفاصيل المخزنة للحالة");
   check(repo.includes("getStudentNeedHistoryByFingerprint: async") && /where\("fingerprint", "==", fingerprint\)/.test(repo),
     "تاريخ الحالة يُقرأ بفهرس البصمة لا بتحميل سجل الطلبات كله");
-  check(page.includes("loadCases();") && page.includes("حالاتي") && page.includes("/api/public/me/cases"),
+  check(page.includes("loadCases();") && page.includes("حالاتي") && page.includes('homePart("cases"'),
     "ملف مساري يعرض المتابعة دون فتح رابط استبيان جديد");
   check(routes.includes("lockState(current, now).locked) { locked = true; left = 0; return current; }"), "قفلٌ نشأ أثناء التحقّق يبقى ولا يُستبدل بعدّاد");
   check(routes.includes("lockedMeanwhile") && routes.includes("fail(res, 423"), "رمزٌ صحيح بعد قفلٍ متوازٍ لا يُدخل صاحبه");
@@ -451,6 +451,27 @@ check(studentHomeSource.includes("/api/public/me/request-context") && studentHom
     "المواعيد الناقصة لا تثبت تعارضاً");
   check(verifiedUnresolvableStudentConflicts([101], [202], base, new Set(["1:11"]), { collegeId: 1, sectionId: 11 }).length === 0,
     "شعبة قسم غير موقّع لا تستخدم لإثبات التعارض للطالب");
+}
+
+
+/* ── المرحلة 1: إصلاحات الصلابة والوصول ───────────────────────────────────── */
+{
+  const routes = fs.readFileSync(path.join(process.cwd(), "src/server/studentDoorRoutes.ts"), "utf8");
+  const page = fs.readFileSync(path.join(process.cwd(), "src/server/studentHomePage.ts"), "utf8");
+  const mapUi = fs.readFileSync(path.join(process.cwd(), "src/server/studentMapUi.ts"), "utf8");
+  check(!/onclick\s*=/.test(page) && !/onclick\s*=/.test(mapUi), "P1 لا معالج onclick داخلياً (تمنعه CSP)");
+  check(page.includes('id="retry"') && page.includes('getElementById("retry").addEventListener("click"'), "P1 زر إعادة المحاولة يعمل بمستمع لا بمعالج داخلي");
+  check(page.includes('e.key==="Escape"') && page.includes("function sheetKeys") && page.includes("sheetOpener"), "P1 الأوراق تُغلق بـEscape وتحبس التركيز وتعيده");
+  check(!page.includes('<main id="app" aria-live'), "P1 لا منطقة حية على الصفحة كلها");
+  check(page.includes('lim("wishUnitsMin",12)') && !page.includes("[12,13,14,15].map"), "P1 أزرار الوحدات تُبنى من حدود الخادم");
+  check(routes.includes("termUnits: TYPICAL_TERM_UNITS") && page.includes('lim("termUnits",13.5)') && mapUi.includes('lim("termUnits",13.5)'), "P1 ثابتُ وحدات الفصل واحدٌ للخادم والصفحة والخريطة");
+  check(!page.includes('id="none"') && !page.includes("d.plans=null"), "P1 لا كودَ ميتاً في خطوة المنجَز");
+  check(page.includes("AbortController") && page.includes("الشبكة بطيئة. أعد المحاولة."), "P1 للطلبات مهلةٌ ورسالةٌ واضحة");
+  check(routes.includes('app.get("/api/public/me/home", requireDoor') && routes.includes("const HOME_KEYS") && page.includes('"/api/public/me/home"'), "P1 الرئيسية بطلبٍ واحد");
+  for (const key of ["notices", "cases", "graduate", "request-context", "ticket", "report", "advice", "offered", "map"]) {
+    check(routes.includes(`homeGet("${key}", async`) && routes.includes(`"${key}"`), `P1 جزء ${key} يُسجَّل مساراً مستقلاً ويدخل في الرئيسية`);
+  }
+  check(!page.includes("الأقرب لرغبات الطالبة"), "P1 الخطاب مذكرٌ في الصفحة كلها");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -91,7 +91,7 @@ const ids = (input: StudentNoticeInput) => buildStudentNotices(input).map(n => n
   const app = read("src/App.tsx");
   check(app.includes('case "planReview"') && app.includes('case "simulation"'), "N3 والواجهة تفتح الوجهتين");
   const page = read("src/server/studentHomePage.ts");
-  check(page.includes("/api/public/me/notices") && page.includes('id=\\"notices\\"'.replace(/\\/g, "")) , "N3 مساري يعرض «ما الجديد؟»");
+  check(page.includes('homePart("notices")') && page.includes('id=\\"notices\\"'.replace(/\\/g, "")) , "N3 مساري يعرض «ما الجديد؟»");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

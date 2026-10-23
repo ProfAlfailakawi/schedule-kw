@@ -414,6 +414,7 @@ export const STUDENT_HOME_SCRIPT = String.raw`
 var app=document.getElementById("app"),topEl=document.getElementById("top"),dockEl=document.getElementById("dock");
 var S={state:null,view:"boot",civil:"",exists:false,resetPending:false,resetAt:"",catalog:null,plans:null,planSource:"",draft:null,offered:null,busy:false,remember:false,sheet:"",track:window.__SCHEDULE_TRACK||""};
 
+function lim(k,d){var l=S.state&&S.state.limits;return l&&typeof l[k]==="number"?l[k]:d}
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function digits(v){return String(v||"").replace(/[٠-٩]/g,function(d){return String("٠١٢٣٤٥٦٧٨٩".indexOf(d))}).replace(/[۰-۹]/g,function(d){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))}).replace(/\D/g,"")}
 function civilValid(v){v=String(v||"");if(!/^\d{12}$/.test(v))return false;var w=[2,1,6,3,7,9,10,5,8,4,2],sum=0;for(var i=0;i<11;i++)sum+=Number(v.charAt(i))*w[i];return 11-(sum%11)===Number(v.charAt(11))}
@@ -422,10 +423,13 @@ function fmtDate(iso){if(!iso)return"";var d=new Date(iso);if(isNaN(d.getTime())
 function fmtShort(iso){if(!iso)return"";var d=new Date(iso+"T00:00:00Z");if(isNaN(d.getTime()))return"";return d.toLocaleDateString("ar-KW-u-nu-latn",{day:"numeric",month:"short",timeZone:"UTC"})}
 ${ARABIC_COUNT_SCRIPT}
 
+var API_TIMEOUT_MS=15000;
 function api(method,url,body){
-  return fetch(url,{method:method,headers:{"Content-Type":"application/json"},credentials:"same-origin",body:body===undefined?undefined:JSON.stringify(body)})
-    .then(function(r){return r.text().then(function(t){var d={};try{d=t?JSON.parse(t):{}}catch(e){}return{ok:r.ok,status:r.status,d:d}})})
-    .catch(function(){return{ok:false,status:0,d:{error:"تعذّر الاتصال. تحقق من الإنترنت ثم أعد المحاولة."}}});
+  var ctl=typeof AbortController==="function"?new AbortController():null,timedOut=false,timer=0;
+  if(ctl)timer=setTimeout(function(){timedOut=true;ctl.abort()},API_TIMEOUT_MS);
+  return fetch(url,{method:method,headers:{"Content-Type":"application/json"},credentials:"same-origin",body:body===undefined?undefined:JSON.stringify(body),signal:ctl?ctl.signal:undefined})
+    .then(function(r){return r.text().then(function(t){clearTimeout(timer);var d={};try{d=t?JSON.parse(t):{}}catch(e){}return{ok:r.ok,status:r.status,d:d}})})
+    .catch(function(){clearTimeout(timer);return{ok:false,status:0,d:{error:timedOut?"الشبكة بطيئة. أعد المحاولة.":"تعذّر الاتصال. تحقق من الإنترنت ثم أعد المحاولة."}}});
 }
 var toastTimer=0;
 function toast(msg,bad){var old=document.getElementById("toast");if(old)old.remove();var el=document.createElement("div");el.id="toast";el.className="toast"+(bad?" bad":"");el.setAttribute("role",bad?"alert":"status");el.textContent=msg;document.body.appendChild(el);clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.remove()},3800)}
@@ -440,12 +444,25 @@ function phaseChip(){var s=S.state;if(!s)return"";var ph=s.phase;return '<div cl
 function track(){var s=S.state;if(!s||!s.timeline)return"";var ICON={submission:"book",wishes:"heart",frozen:"lock",round:"ticket",close:"flag"};var h='<ol class="track" aria-label="رحلة الفصل">';s.timeline.forEach(function(st){var d=st.to||st.from;h+='<li class="stp '+st.state+'"'+(st.state==="now"?' aria-current="step"':"")+'><span class="d">'+ic(st.state==="done"?"check":ICON[st.kind]||"clock")+'</span><b>'+esc(st.title)+'</b><small>'+(d?esc(fmtShort(d)):"—")+'</small></li>'});return h+'</ol>'}
 function setTop(){var s=S.state;topEl.innerHTML='<span class="mark">SCHEDULE</span><span class="topr">'+(s&&s.demo?'<span class="term demo">تجربة · افتراضي</span>':"")+(s&&s.term?'<span class="term">'+ic("cal")+esc(s.term.name)+'</span>':"")+'<a class="jrn" href="/?journey=1&amp;back=/me" aria-label="افتح رحلة SCHEDULE">'+ic("spark")+'<span>الرحلة</span></a></span>'}
 function setView(v){S.view=v;if(v!=="home"){var kb=document.getElementById("kbar");if(kb)kb.hidden=true;kmClose()}render()}
-function sheet(html){closeSheet();var el=document.createElement("div");el.className="scrim";el.id="scrim";el.innerHTML='<div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>'+html+'</div>';
+var sheetOpener=null;
+var FOCUSABLE='a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function sheetKeys(e){var el=document.getElementById("scrim");if(!el){document.removeEventListener("keydown",sheetKeys);return}
+  if(e.key==="Escape"){e.preventDefault();closeSheet();return}
+  if(e.key!=="Tab")return;
+  var items=[].filter.call(el.querySelectorAll(FOCUSABLE),function(n){return n.offsetParent!==null||n===document.activeElement});
+  if(!items.length){e.preventDefault();return}
+  var first=items[0],last=items[items.length-1];
+  if(!el.contains(document.activeElement)){e.preventDefault();first.focus();return}
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}
+function sheet(html){closeSheet();sheetOpener=document.activeElement;var el=document.createElement("div");el.className="scrim";el.id="scrim";el.innerHTML='<div class="sheet" role="dialog" aria-modal="true" tabindex="-1"><div class="grab"></div>'+html+'</div>';
   /* يعمل اللمس خارج الورقة في الهاتف حتى إذا لم يصدر المتصفح حدث click بعد اللمس. */
   el.addEventListener("pointerdown",function(e){if(e.target===el)closeSheet()});
   el.addEventListener("click",function(e){if(e.target===el||e.target.closest(".pool-sheet-close"))closeSheet()});
-  document.body.appendChild(el);return el}
-function closeSheet(){var el=document.getElementById("scrim");if(el)el.remove()}
+  document.body.appendChild(el);document.addEventListener("keydown",sheetKeys);
+  var fc=el.querySelector("input:not([type=hidden]),select,textarea,.btn:not(.alt):not(.danger),button");var sh=el.querySelector(".sheet");try{(fc||sh).focus({preventScroll:true})}catch(x){}
+  return el}
+function closeSheet(){var el=document.getElementById("scrim");if(el){el.remove();document.removeEventListener("keydown",sheetKeys);var o=sheetOpener;sheetOpener=null;if(o&&o.focus&&document.body.contains(o)){try{o.focus({preventScroll:true})}catch(x){}}}}
 function errBox(id){return '<div class="err" id="'+id+'" role="alert" hidden></div>'}
 function showErr(id,msg){var el=document.getElementById(id);if(!el)return;el.textContent=msg;el.hidden=!msg}
 
@@ -521,7 +538,7 @@ function setupSection(){var d=S.draft;
   var lst=document.getElementById("lst"),q=document.getElementById("q");
   function paint(){var t=q.value.trim(),h="",items=(S.catalog||[]).filter(function(s){return!t||s.name.indexOf(t)>=0});items.forEach(function(s){h+='<button type="button" class="opt" data-id="'+s.id+'" data-n="'+esc(s.name)+'" aria-pressed="'+(d.sectionId===s.id?"true":"false")+'"><span class="tx"><b>'+esc(s.name)+'</b></span>'+ic("fwd")+'</button>'});lst.innerHTML=h||'<p class="muted">لا تخصص بهذا الاسم في هذا المسار.</p>'}
   q.addEventListener("input",paint);paint();
-  lst.addEventListener("click",function(e){var b=e.target.closest(".opt");if(!b)return;var id=Number(b.getAttribute("data-id"));if(id!==d.sectionId){d.passed=[];d.planId=""}d.sectionId=id;d.sectionName=b.getAttribute("data-n");d.plans=null;
+  lst.addEventListener("click",function(e){var b=e.target.closest(".opt");if(!b)return;var id=Number(b.getAttribute("data-id"));if(id!==d.sectionId){d.passed=[];d.planId=""}d.sectionId=id;d.sectionName=b.getAttribute("data-n");
     api("GET","/api/public/me/plan?sectionId="+id).then(function(r){if(!r.ok){toast(r.d.error||"تعذّر تحميل القسم",true);return}S.plans=r.d.plans;S.planSource=r.d.source;
       if(S.plans.length===1){d.planId=S.plans[0].id;d.step=3}else d.step=2;viewSetup()})});
 }
@@ -538,7 +555,7 @@ function setupPassed(){var d=S.draft,load=function(){
   var plan=currentPlan(),courses=plan.courses,total=0,units=0;courses.forEach(function(c){total+=c.credit});
   app.innerHTML=stepsBar(3,3)+'<button class="link" id="bk" style="padding-inline:0">'+ic("back")+' رجوع</button><h1 class="h2 fade">ما الذي أنجزته؟</h1><p class="muted">المس كل مقرر اجتزته.</p><button type="button" class="link" id="tr" style="padding-inline:0"></button>'
    +'<div'+(courses.length>10?'':' hidden')+'><div class="srch" style="margin-block-start:12px">'+ic("search")+'<input class="inp" id="q" type="search" placeholder="ابحث باسم المقرر أو رمزه" aria-label="ابحث في المقررات" autocomplete="off"></div>'
-   +'<div class="row between" style="margin-block-start:10px"><div class="seg" role="group" aria-label="تصفية"><button type="button" data-f="all" aria-pressed="true">الكل</button><button type="button" data-f="done" aria-pressed="false">المنجَز</button><button type="button" data-f="todo" aria-pressed="false">الباقي</button></div><button class="link" id="none" hidden></button></div></div>'
+   +'<div class="row between" style="margin-block-start:10px"><div class="seg" role="group" aria-label="تصفية"><button type="button" data-f="all" aria-pressed="true">الكل</button><button type="button" data-f="done" aria-pressed="false">المنجَز</button><button type="button" data-f="todo" aria-pressed="false">الباقي</button></div></div></div>'
    +'<div class="list" id="crs" style="margin-block-start:6px"></div>';
   dockEl.innerHTML='<div><div id="dr"></div><div class="meta"><b id="dc"></b><span id="du"></span></div><button class="btn" id="sv">احفظ ملفّي</button></div>';
   var lst=document.getElementById("crs"),q=document.getElementById("q"),set={};d.passed.forEach(function(i){set[i]=1});
@@ -566,7 +583,6 @@ function setupPassed(){var d=S.draft,load=function(){
   lst.addEventListener("keydown",function(e){if(e.key===" "||e.key==="Enter"){var el=e.target.closest(".opt");if(el){e.preventDefault();toggle(el)}}});
   q.addEventListener("input",paint);
   document.querySelectorAll(".seg button").forEach(function(b){b.addEventListener("click",function(){d.filter=b.getAttribute("data-f");document.querySelectorAll(".seg button").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false")});paint()})});
-  document.getElementById("none").addEventListener("click",function(){visible().forEach(function(c){delete set[c.id]});paint()});
   document.getElementById("bk").addEventListener("click",function(){dockEl.innerHTML="";d.passed=Object.keys(set).map(Number);d.step=S.plans&&S.plans.length>1?2:1;viewSetup()});
   document.getElementById("sv").addEventListener("click",function(){var b=this;b.disabled=true;b.textContent="يحفظ…";
     api("PUT","/api/public/me/profile",{sectionId:d.sectionId,curriculumPlanId:d.planId,passedCourseIds:Object.keys(set).map(Number),transfer:transfer,equivalentCourseIds:transfer?Object.keys(eq).filter(function(k){return set[k]}).map(Number):[]}).then(function(r){
@@ -580,17 +596,23 @@ function setupPassed(){var d=S.draft,load=function(){
    ويُنفَّذ حين يجهز (فإن أُعيد رسم العنصر قبلها يسقط القديم ويُركَّب الجديد). لا إعلان قبل الدخول: صفحةُ الدخول تطلب الرقم المدني. */
 function adxMountLater(id,slot,opt){var box=document.getElementById(id);if(!box)return;
   if(window.AdxMount)window.AdxMount(box,slot,opt);else(window.__adxPending=window.__adxPending||[]).push([box,slot,opt])}
+/* الرئيسية بطلبٍ واحد: يجيب الخادمُ بالأجزاء التسعة معاً. إن تعذّر الطلب المجمَّع رجع كلُّ جزءٍ إلى مساره الخاص كما كان. */
+var homeP=null;
+function homePart(key,fresh){
+  if(fresh)return api("GET","/api/public/me/"+key);
+  if(!homeP)homeP=api("GET","/api/public/me/home");
+  return homeP.then(function(r){var p=r.ok&&r.d&&r.d.parts&&r.d.parts[key];return p?p:api("GET","/api/public/me/"+key)})}
 function viewHome(){
-  S.tab="now";dockEl.innerHTML="";S.tkOverrides={};S.tkRemoved={};S.tkAdded={};S.tkSel=0;S.tkErr="";S.wDraft=null;S.wEdit=false;S.wStep=0;S.wCount=null;var s=S.state,p=s.profile,ph=s.phase,pr=p.progress||{percent:0,passedUnits:0,totalUnits:0,remainingUnits:0};
+  homeP=null;S.tab="now";dockEl.innerHTML="";S.tkOverrides={};S.tkRemoved={};S.tkAdded={};S.tkSel=0;S.tkErr="";S.wDraft=null;S.wEdit=false;S.wStep=0;S.wCount=null;var s=S.state,p=s.profile,ph=s.phase,pr=p.progress||{percent:0,passedUnits:0,totalUnits:0,remainingUnits:0};
   var first=p.identity&&p.identity.name?String(p.identity.name).split(" ")[0]:"";
-  var terms=pr.remainingUnits?Math.ceil(pr.remainingUnits/15):0;
+  var terms=pr.remainingUnits?Math.ceil(pr.remainingUnits/lim("termUnits",13.5)):0;
   /* ── الواجهة: بطاقةٌ واحدة تقول «أين أنا» — حلقةٌ ورقمان — والباقي في ثلاثة ألسنة. ── */
   var h='<section class="hero me fade"><div class="row" style="gap:16px">'+ring(pr.percent)+'<div class="who"><small>'+(first?"أهلاً، "+esc(first):"مساري")+'</small><h1>'+esc(p.sectionName)+'</h1><span>'+(p.planName?esc(p.planName)+" · ":"")+countOf(p.passedUnits,AR.unit)+' مجتازة</span></div><button class="ghost" id="edp" aria-label="عدّل ما أنجزت">'+ic("edit")+'</button></div>'
    +'<div class="kpis"><div><b>'+(pr.remainingUnits||0)+'</b><small>الوحدات المتبقية</small></div><div><b id="kt">'+(terms||"✓")+'</b><small id="kts">'+(terms?"فصول للتخرّج":"أكملت الصحيفة")+'</small></div><div><b class="w">'+esc(ph.label)+'</b><small>'+(ph.nextAt?esc(fmtShort(ph.nextAt)):"المرحلة الآن")+'</small></div></div></section>';
   h+='<div class="pane" data-pane="now"><div id="visitChanges"></div><div id="notices"></div><div id="cases"></div><div id="ticket"></div><div id="report"></div><div id="wishes"></div>'
    +'<section class="card fade"><h2><span class="b">'+ic("clock")+'</span>رحلة الفصل</h2>'+track()+'</section><div id="caseRequest"></div><div id="adx-me-box"></div></div>';
   h+='<div class="pane" data-pane="plan" hidden><div id="advice"></div>'
-   +'<details class="more how fade"><summary>'+ic("info")+' كيف قدّرنا التخرج؟</summary><p class="muted">'+(pr.remainingUnits?'نحو '+countOf(terms,AR.term)+' بحسب المتبقي ومعدل 15 وحدة في الفصل.':'أكملت وحدات الصحيفة بحسب المقررات التي علّمتها.')+' تقدير يتغير مع تحديث إنجازك والقواعد المعتمدة، وليس موعداً رسمياً.</p></details></div>';
+   +'<details class="more how fade"><summary>'+ic("info")+' كيف قدّرنا التخرج؟</summary><p class="muted">'+(pr.remainingUnits?'نحو '+countOf(terms,AR.term)+' بحسب المتبقي ومعدل '+countOf(lim("termUnits",13.5),AR.unit)+' في الفصل.':'أكملت وحدات الصحيفة بحسب المقررات التي علّمتها.')+' تقدير يتغير مع تحديث إنجازك والقواعد المعتمدة، وليس موعداً رسمياً.</p></details></div>';
   h+='<div class="pane" data-pane="me" hidden>'
    +(p.identity?'<section class="card idn fade"><div class="row" style="gap:12px"><span class="ic">'+ic("user")+'</span><div class="tx"><b>'+esc(p.identity.name)+'</b><small>الرقم المدني <bdi dir="ltr">'+esc(p.identity.civilMasked)+'</bdi></small></div><button type="button" class="link" id="nmb">تصحيح</button></div></section>':"")
    +'<section class="card fade"><div class="acts"><button class="act" id="chg">'+ic("key")+'<span>غيّر الرمز</span></button><button class="act" id="out">'+ic("out")+'<span>اخرج</span></button><button class="act bad" id="del">'+ic("trash")+'<span>احذف ملفّي</span></button></div><p class="priv">'+ic("shield")+' يُحفظ حتى '+esc(fmtDate(p.keepsUntil))+(p.keepsReason==="inactive"?" ما لم تعد إليه":"")+'، ثم يُحذف وحده.</p></section></div>';
@@ -616,7 +638,7 @@ function slotsText(slots){var g={};slots.forEach(function(x){var k=hhmm(x.start)
 var WHY={prereq:"ينقصك مسبقه",full:"امتلأت شعبه",conflict:"يتعارض مع غيره",units:"فوق وحداتك المطلوبة","not-offered":"لا يُطرح هذا الفصل"};
 var NT_ICON={spark:"spark",home:"home",edit:"edit",ticket:"ticket",check:"check",info:"info",clock:"clock",lock:"lock"},NT_TARGET={setup:"edp",wishes:"wishes",ticket:"ticket",report:"report",cases:"cases",advice:"advice"};
 function loadNotices(){var host=document.getElementById("notices");if(!host)return;
-  api("GET","/api/public/me/notices").then(function(r){if(!r.ok||!r.d.notices||!r.d.notices.length){host.innerHTML="";return}
+  homePart("notices").then(function(r){if(!r.ok||!r.d.notices||!r.d.notices.length){host.innerHTML="";return}
     var list=r.d.notices.filter(function(n){return!(n.target==="wishes"&&document.querySelector("#wishes .card"))}),showAll=false;if(!list.length){host.innerHTML="";return}
     function paint(){var shown=showAll?list:list.slice(0,3);var dot=document.getElementById("nowdot");if(dot)dot.hidden=!list.some(function(n){return n.tone==="action"||n.tone==="alert"});
       var h='<section class="card nt fade"><h2><span class="b">'+ic("spark")+'</span>ما الجديد؟'+(list.filter(function(n){return n.tone==="action"||n.tone==="alert"}).length?'<span class="chip gold">'+list.filter(function(n){return n.tone==="action"||n.tone==="alert"}).length+'</span>':'')+'</h2>';
@@ -626,8 +648,8 @@ function loadNotices(){var host=document.getElementById("notices");if(!host)retu
       host.querySelectorAll(".it").forEach(function(b){b.addEventListener("click",function(){var n=shown[Number(b.getAttribute("data-i"))],el=document.getElementById(NT_TARGET[n.target]||"");if(el)reveal(el);if(n.target==="setup"&&el)el.click()})});
       var all=document.getElementById("ntall");if(all)all.addEventListener("click",function(){showAll=true;paint()})}
     paint()})}
-function loadCases(){var host=document.getElementById("cases");if(!host)return;
-  api("GET","/api/public/me/cases").then(function(r){if(!r.ok||!r.d.cases||!r.d.cases.length){host.innerHTML="";return}
+function loadCases(fresh){var host=document.getElementById("cases");if(!host)return;
+  homePart("cases",fresh).then(function(r){if(!r.ok||!r.d.cases||!r.d.cases.length){host.innerHTML="";return}
     var rows=r.d.cases,h='<section class="card fade"><h2><span class="b">'+ic("ticket")+'</span>حالاتي</h2><p class="muted">متابعة الطلبات التي أرسلتها، بما فيها الطلبات السابقة.</p>';
     rows.forEach(function(c){h+='<article class="case-row"><div class="case-head"><b>'+esc(c.title)+'</b><span class="chip '+(c.statusCode==="approved"?"ok":c.statusCode==="committee-rejected"||c.statusCode==="rejected"?"gold":"")+'">'+esc(c.status)+'</span></div><div class="row between"><span class="muted">'+esc(c.term)+'</span><bdi class="ref">'+esc(c.caseRef)+'</bdi></div>';
       if(c.courses&&c.courses.length)h+='<div class="case-courses">'+c.courses.map(function(course){return '<span class="case-course">'+esc(course.name)+(course.dropped?' · أُزيل من الطلب':course.state!=="pending"?' · '+esc(course.status):'')+'</span>'}).join("")+'</div>';
@@ -637,7 +659,7 @@ function loadCases(){var host=document.getElementById("cases");if(!host)return;
 function tileHtml(k,i,title,sub,dim){return '<button type="button" class="tile'+(dim?" dim":"")+'" data-k="'+k+'"><span class="ti">'+ic(i)+'</span><b>'+title+'</b><small>'+sub+'</small></button>'}
 function cardHtml(i,title,body){return '<section class="card fade"><h2><span class="b">'+ic(i)+'</span>'+title+'</h2>'+body+'</section>'}
 function loadCaseRequest(){var host=document.getElementById("caseRequest");if(!host)return;
-  Promise.all([api("GET","/api/public/me/request-context"),api("GET","/api/public/me/graduate")]).then(function(rs){
+  Promise.all([homePart("request-context"),homePart("graduate")]).then(function(rs){
     var c=rs[0].ok&&rs[0].d.ready&&rs[0].d.canRequest?rs[0].d:null,g=rs[1].ok&&rs[1].d.ready&&rs[1].d.ruleSaved&&rs[1].d.canRequest?rs[1].d:null;
     S.reqCtx=c;S.grad=g;var t="";
     if(c&&c.courses&&c.courses.length)t+=tileHtml("new-course","plus","مقرر لم يُفتح","اطلب فتحه");
@@ -649,7 +671,7 @@ function loadCaseRequest(){var host=document.getElementById("caseRequest");if(!h
 function reqShell(title,body,sendLabel){return '<h3>'+title+'</h3>'+body+errBox("crerr")+(sendLabel?'<button class="btn" id="crsend" disabled>'+sendLabel+'</button>':'')+'<button class="btn alt" id="crx">إغلاق</button>'}
 function reqDone(r){var cases=r.d.cases||[{sectionName:"القسم المختص",caseRef:r.d.caseRef}],h='<div class="done"><span class="okc">'+ic("check")+'</span><h3>وصل طلبك</h3><p class="lead">وصل طلبك للأقسام المعنية.</p>';
   cases.forEach(function(c){h+='<p class="muted">'+esc(c.sectionName)+' · رقم الحالة</p><div class="ref">'+esc(c.caseRef)+'</div>'});
-  h+='<button class="btn" id="crx2">تمّ</button></div>';var el=document.querySelector(".sheet");if(el){el.innerHTML='<div class="grab"></div>'+h;document.getElementById("crx2").addEventListener("click",closeSheet)}loadCases();toast("وصل طلبك")}
+  h+='<button class="btn" id="crx2">تمّ</button></div>';var el=document.querySelector(".sheet");if(el){el.innerHTML='<div class="grab"></div>'+h;document.getElementById("crx2").addEventListener("click",closeSheet)}loadCases(true);toast("وصل طلبك")}
 function reqConsent(){return '<label class="chk"><input type="checkbox" id="crconsent"><span>أوافق على إرسال اسمي ورقمي المدني إلى القسم لمراجعة هذا الطلب.</span></label>'}
 function reqCourses(d,kind){
   var options=function(list){return '<option value="">اختر المقرر</option>'+list.map(function(c){return '<option value="'+c.id+'">'+esc(c.code)+' · '+esc(c.name)+(c.sectionName?' · '+esc(c.sectionName):'')+'</option>'}).join("")};
@@ -694,7 +716,7 @@ function reqGrad(g){
     api("POST","/api/public/me/request",{requestType:"graduate",graduateReason:reason,details:document.getElementById("crdetails").value,proofToken:proof,consent:true}).then(function(r){
       if(!r.ok){send.disabled=false;if(r.d.code==="proof-expired"||r.d.code==="proof-required"){proof="";upf.value="";st.innerHTML='<div class="err">'+esc(r.d.error)+'</div>'}else showErr("crerr",r.d.error||"تعذّر إرسال الطلب");return}reqDone(r)})})}
 function loadTicket(){var host=document.getElementById("ticket");if(!host)return;
-  api("GET","/api/public/me/ticket").then(function(r){if(!r.ok||!r.d.ready){host.innerHTML="";return}var t=r.d;S.ticket=t;S.tkPlan=S.tkPlan||"A";paintTicket(host)})}
+  homePart("ticket").then(function(r){if(!r.ok||!r.d.ready){host.innerHTML="";return}var t=r.d;S.ticket=t;S.tkPlan=S.tkPlan||"A";paintTicket(host)})}
 /* ── التذكرة: أسبوعُه على شبكة. المس مقرراً: شعبُه البديلة أشباحٌ على الشبكة (الأحمر يتعارض)، وبدّله بمقررٍ آخر أو أزِله.
    كلُّه معاينةٌ شخصية — لا يغيّر جدول القسم — وزرٌّ واحد يحوّل ما اخترتَه إلى رغباتك. ── */
 var PAL=["#1f6b5c","#8d6423","#3b6ea5","#a0522d","#6b4e9b","#2f7f8f","#9a4a6a","#5a7d2a"];
@@ -759,8 +781,8 @@ function tkPoolSheet(cur,replaceId){
   pool.forEach(function(p){if(have[p.courseId])return;
     var lock=p.needs&&p.needs.length;
     var opt=p.offerings.filter(function(o){return!items.some(function(x){return clash(x.slots,o.slots)})})[0];
-    var over=base+Number(p.credit)>15;
-    var why=lock?ic("lock","")+' يلزمك أولاً: '+esc(p.needs.join(" + ")):(!opt?'يتعارض مع جدولك':(over?'يتجاوز 15 وحدة':''));
+    var over=base+Number(p.credit)>lim("wishUnitsMax",15);
+    var why=lock?ic("lock","")+' يلزمك أولاً: '+esc(p.needs.join(" + ")):(!opt?'يتعارض مع جدولك':(over?'يتجاوز '+countOf(lim("wishUnitsMax",15),AR.unit):''));
     var row='<button type="button" class="opt'+(why?' off':'')+'" data-p="'+p.courseId+'"'+(why?' disabled':'')+'><span class="tx"><b>'+esc(p.name)+'</b><small><span class="code">'+esc(p.code)+'</span> · '+countOf(p.credit,AR.unit)+' · '+countOf(p.offerings.length,AR.section)+'</small>'+(why?'<small class="need">'+why+'</small>':'')+'</span>'+(why?'':ic("plus"))+'</button>';
     if(lock)locked+=row;else ok+=row});
   var el=sheet('<div class="pool-sheet-head"><h3>'+(replaceId?'بدّل المقرر':'أضف مقرراً')+'</h3><button type="button" class="pool-sheet-close" aria-label="إغلاق النافذة" title="إغلاق">×</button></div><p class="muted">وحداتك الآن '+tkUnits(items)+' · معاينةٌ شخصية لا تغيّر جدول القسم.</p><div class="list">'+(ok||'<p class="muted">لا مقررات متاحة لك الآن.</p>')+(locked?'<div class="grp">مقفلة — ينقصك مسبق</div>'+locked:'')+'</div><button class="btn alt" id="pc">إغلاق</button>');
@@ -790,7 +812,7 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
   if(t.defaulted)h+='<div class="chip">'+ic("info")+' بُنيت على افتراضٍ (١٥ وحدة). اكتب رغباتك لتُناسبك</div>';
   /* كل خطة تُقيَّم بنسختها المعدّلة حتى لا تتبدّل وحداتها/نقاطها عند الانتقال عنها وإليها. */
   h+=tkPlanCompare(t.plans.map(function(p){return{label:p.label,items:tkItems(p)}}),cur.label);
-  if(S.state&&S.state.demo)h+='<div class="demo-plan-guide" role="note"><b>شرح تفاعلي للخطط الثلاث</b><span>أ: الأقرب لرغبات الطالبة · ب: شعب ومواعيد بديلة · ج: خطة احتياطية بالحد الأدنى. اختر أي خطة ثم المس مقرراً لعرض شعبته ومواعيده، أو جرّب تبديل شعبة. جميع البيانات تجريبية.</span></div>';
+  if(S.state&&S.state.demo)h+='<div class="demo-plan-guide" role="note"><b>شرح تفاعلي للخطط الثلاث</b><span>أ: الأقرب لرغباتك · ب: شعب ومواعيد بديلة · ج: خطة احتياطية بالحد الأدنى. اختر أي خطة ثم المس مقرراً لعرض شعبته ومواعيده، أو جرّب تبديل شعبة. جميع البيانات تجريبية.</span></div>';
   h+='<p class="plan-context">هذه خطة تسجيل مقترحة بحسب الشعب والتعارضات المتاحة الآن. هدفك الدراسي محفوظ في «احتياجي»، واختيار الخريطة تخطيطٌ شخصي؛ لذلك قد تختلف أرقامها.</p>';
   h+='<div class="row between"><span class="muted">إجمالي الخطة المقترحة · '+({A:"الأقرب لرغباتك",B:"شعبٌ بديلة إن امتلأت أ",C:"الحدّ الأدنى الآمن"})[cur.label]+'</span><span class="u">'+countOf(units,AR.unit)+(units<12&&items.length?' <span class="chip warn">أقل من 12</span>':'')+'</span></div>';
   if(anyTimes)h+='<div class="seg fit sm2" role="group" aria-label="العرض" data-seg="view"><button type="button" data-v="grid" aria-pressed="'+(view==="grid")+'">أسبوعي</button><button type="button" data-v="list" aria-pressed="'+(view==="list")+'">قائمة</button></div>';
@@ -835,7 +857,7 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
     if(!tkSet(cur,courseId,select.value)){var it=tkItems(cur).filter(function(x){return Number(x.courseId)===courseId})[0];select.value=it?it.offeringId:"";document.getElementById("tkerr").textContent=S.tkErr;return}
     paintTicket(host)})})(alternatives[ai])}
 function loadReport(){var host=document.getElementById("report");if(!host)return;
-  api("GET","/api/public/me/report").then(function(r){if(!r.ok||!r.d.ready||(!r.d.canReport&&!r.d.answers.length)||!r.d.courses.length){host.innerHTML="";return}S.report=r.d;S.rp={};r.d.answers.forEach(function(a){S.rp[a.courseId]={state:a.state,reason:a.reason||"other"}});S.rpHelp=false;paintReport(host)})}
+  homePart("report").then(function(r){if(!r.ok||!r.d.ready||(!r.d.canReport&&!r.d.answers.length)||!r.d.courses.length){host.innerHTML="";return}S.report=r.d;S.rp={};r.d.answers.forEach(function(a){S.rp[a.courseId]={state:a.state,reason:a.reason||"other"}});S.rpHelp=false;paintReport(host)})}
 function paintReport(host){var d=S.report,h='<section class="card rp fade"><h2><span class="b">'+ic("check")+'</span>هل سجّلت؟'+(d.answeredAt?'<span class="chip ok">'+ic("check","")+' أُرسل</span>':'')+'</h2><p class="muted">'+esc(d.line)+' أخبرنا بما حدث — يساعدنا ويساعد قسمك.</p>';
   var anyStuck=false;
   d.courses.forEach(function(c){var a=S.rp[c.courseId]||{},stuck=a.state==="stuck";if(stuck)anyStuck=true;
@@ -883,7 +905,7 @@ function planCard(a,o){
   return h+'<p class="fine">'+ic("shield","")+' اقتراح فقط — لا يحجز مقعداً.</p></section>'}
 function loadPlan(){var host=document.getElementById("advice");if(!host)return;
   host.innerHTML='<div class="skel"></div>';
-  Promise.all([api("GET","/api/public/me/advice"),api("GET","/api/public/me/offered"),api("GET","/api/public/me/map")]).then(function(rs){
+  Promise.all([homePart("advice"),homePart("offered"),homePart("map")]).then(function(rs){
     var a=rs[0].ok&&rs[0].d.ready?rs[0].d:null,o=rs[1].ok&&rs[1].d.ready?rs[1].d:null,mp=rs[2].ok&&rs[2].d.ready?rs[2].d:null;S.offered=o;
     if(mp){KM.hasRules=!!mp.hasRules;kmInit(mp.model,a,rs[2].d.changes||null);kmMount(host);var ap=document.querySelector(".app");if(ap)ap.classList.toggle("km-on",S.tab==="plan")}
     else if(!a&&!o){host.innerHTML=""}else{host.innerHTML=planCard(a,o);animateRings();markOverflow()}
@@ -920,7 +942,7 @@ function renderWishes(){var host=document.getElementById("wishes"),s=S.state,ph=
   var allowedNow=remaining.filter(function(c){return!(c.needs&&c.needs.length)}),lockedNow=remaining.filter(function(c){return c.needs&&c.needs.length});
   var row=function(c){return '<div class="opt'+(c.sections?"":" off")+'" role="checkbox" tabindex="0" aria-checked="'+(state.courseIds.indexOf(c.id)>=0?"true":"false")+'" data-id="'+c.id+'"><span class="box">'+ic("check")+'</span><span class="tx"><b>'+esc(c.name)+'</b><small><span class="code">'+esc(c.code)+'</span> · '+countOf(c.credit,AR.unit)+(c.sections?"":" · غير مطروح هذا الفصل")+'</small></span></div>'};
   var h='<section class="card fade wz"><h2><span class="b">'+ic("heart")+'</span>احتياجي لهذا الفصل<span class="chip">ليس تسجيلاً</span></h2>';
-  h+='<div class="sl" data-i="0"><span class="lbl">كم وحدةً تريد هذا الفصل؟</span><div class="bignum"><b id="wun"></b></div><p class="hint">وحدة دراسية هذا الفصل · بين 12 و15</p><div class="seg fit" id="wu" role="group" aria-label="الوحدات">'+[12,13,14,15].map(function(n){return '<button type="button" data-n="'+n+'" aria-pressed="'+(n===state.targetUnits?"true":"false")+'">'+n+'</button>'}).join("")+'</div></div>';
+  h+='<div class="sl" data-i="0"><span class="lbl">كم وحدةً تريد هذا الفصل؟</span><div class="bignum"><b id="wun"></b></div><p class="hint">وحدة دراسية هذا الفصل · بين '+lim("wishUnitsMin",12)+' و'+lim("wishUnitsMax",15)+'</p><div class="seg fit" id="wu" role="group" aria-label="الوحدات">'+(function(){var a=[],lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15);for(var n=lo;n<=hi;n++)a.push(n);return a})().map(function(n){return '<button type="button" data-n="'+n+'" aria-pressed="'+(n===state.targetUnits?"true":"false")+'">'+n+'</button>'}).join("")+'</div></div>';
   h+='<div class="sl" data-i="1" hidden><span class="lbl">ما الذي لا يناسبك؟ <small class="muted">اختياري</small></span><div class="tags" id="wc">'
    +'<button type="button" class="tag" data-k="noMorning" aria-pressed="'+(state.constraints.noMorning?"true":"false")+'">'+ic("sun")+'لا أستطيع الصباح الباكر</button>'
    +'<button type="button" class="tag" data-k="noAfternoon" aria-pressed="'+(state.constraints.noAfternoon?"true":"false")+'">'+ic("moon")+'لا أستطيع بعد الظهر</button>'
@@ -972,7 +994,7 @@ function render(){
   if(v==="home")return viewHome();
 }
 function boot(){setView("boot");api("GET","/api/public/me/state").then(function(r){
-  if(!r.ok){app.innerHTML='<section class="card"><p class="err">'+esc(r.d.error||"تعذّر فتح الصفحة")+'</p><button class="btn" onclick="location.reload()">أعد المحاولة</button></section>';return}
+  if(!r.ok){app.innerHTML='<section class="card"><p class="err">'+esc(r.d.error||"تعذّر فتح الصفحة")+'</p><button class="btn" id="retry">أعد المحاولة</button></section>';document.getElementById("retry").addEventListener("click",function(){location.reload()});return}
   S.state=r.d;setTop();
   if(S.state.signedIn&&S.state.profile)setView(S.state.profile.setupDone?"home":"setup");else setView("gate")})}
 boot();
@@ -996,7 +1018,7 @@ export function studentHomePage(nonce: string, track: "boys" | "girls" | "" = ""
 ${SPRITE}
 <div class="app">
 <header class="top" id="top"><span class="mark">SCHEDULE</span><span class="topr"><a class="jrn" href="/?journey=1&amp;back=/me" aria-label="افتح رحلة SCHEDULE"><svg class="i" aria-hidden="true"><use href="#i-spark"/></svg><span>الرحلة</span></a></span></header>
-<main id="app" aria-live="polite"><div class="skel"></div></main>
+<main id="app"><div class="skel"></div></main>
 </div>
 <div class="dock" id="dock"></div>
 <noscript><p style="padding:24px;text-align:center">يلزم تفعيل JavaScript لفتح مساري.</p></noscript>
