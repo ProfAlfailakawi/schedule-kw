@@ -27,3 +27,6 @@ cookies.txt
 
 # نسخة احتياطية تولّدها الاختبارات
 database/*.backup
+
+# نسخ احتياطية لجداول حقيقية (scripts/clear-term-schedule.ts): بيانات خاصة، لا تُرفع
+schedule-backups/
