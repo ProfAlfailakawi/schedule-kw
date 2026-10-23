@@ -287,19 +287,21 @@ async function main() {
   const fp = (n: number, tag: string) => Array.from({ length: n }, (_, i) => `fp-${tag}-${i}`);
   const dCourses = [
     { AdCourseId: 1, CourseCode: "CS101", CourseName: "مقدمة في الحاسوب" }, { AdCourseId: 2, CourseCode: "CS101", CourseName: "مقدمة في الحاسوب" },
-    { AdCourseId: 3, CourseCode: "ENG1", CourseName: "اللغة الإنجليزية" }, { AdCourseId: 4, CourseCode: "RARE", CourseName: "مقرر نادر" },
+    { AdCourseId: 3, CourseCode: "ENG1", CourseName: "اللغة الإنجليزية" }, { AdCourseId: 4, CourseCode: "RARE", CourseName: "مقرر نادر" }, { AdCourseId: 5, CourseCode: "SMALL", CourseName: "شعبة صغيرة" },
   ] as any[];
   const wishOf = (fingerprint: string, courseIds: number[]) => ({ fingerprint, AdCollegeId: 1, lastSeenAt: "2026-01-02T00:00:00Z", wishes: { termId: 5, targetUnits: 15, courseIds, constraints: {}, updatedAt: "" } }) as any;
   const dProfiles = [
     ...fp(7, "a").map(f => wishOf(f, [1])), ...fp(6, "b").map(f => wishOf(f, [2])),   // 13 طالباً يريدون CS101 (بقسمين مختلفين برمزٍ واحد)
     ...fp(11, "c").map(f => wishOf(f, [3])),                                            // 11 للإنجليزية
-    ...fp(9, "d").map(f => wishOf(f, [4])),                                             // 9 فقط: تحت الحد
+    ...fp(1, "d").map(f => wishOf(f, [4])),                                             // طالب واحد فقط: تحت الحد (٢)
+    ...fp(2, "e").map(f => wishOf(f, [5])),                                             // طالبان: شعبةٌ صغيرة تظهر
   ];
   const dNeeds = new Map<number, any[]>([[5, [{ fingerprint: "fp-a-0", AdCollegeId: 1, requestType: "new-course", courseIds: [1], createdAt: "2026-01-01T00:00:00Z" }]]]);
   const dem = buildAudienceStats({ now: new Date("2026-02-01T00:00:00Z"), terms: [{ AdTermId: 5, AdTermName: "ف" }] as any[], currentTermId: 5, needsByTerm: dNeeds, instructorRequests: [], profiles: dProfiles, courses: dCourses });
   check(dem.demand.top[0]?.name === "مقدمة في الحاسوب" && dem.demand.top[0]?.students === 13, "A12 المقرر نفسه في قسمين برمزٍ واحد يُجمَّع، والطالب المكرَّر يُعدّ مرة (١٣)", dem.demand);
-  check(dem.demand.top.length === 2 && dem.demand.top[1].students === 11, "A12 الإنجليزية ١١ طالباً تظهر", dem.demand);
-  check(!dem.demand.top.some(d => d.name === "مقرر نادر") && dem.demand.hidden === 1, "A12 مقررٌ بتسعة طلاب لا يظهر ويُعدّ مخفياً (حد الخصوصية ١٠)", dem.demand);
+  check(dem.demand.top.length === 3 && dem.demand.top[1].students === 11, "A12 الإنجليزية ١١ طالباً تظهر", dem.demand);
+  check(dem.demand.top[2]?.name === "شعبة صغيرة" && dem.demand.top[2].students === 2 && dem.demand.minStudents === 2, "A12 شعبةٌ فيها طالبان تظهر (حد الخصوصية ٢)", dem.demand);
+  check(!dem.demand.top.some(d => d.name === "مقرر نادر") && dem.demand.hidden === 1, "A12 مقررٌ بطالبٍ واحد لا يظهر ويُعدّ مخفياً (حد الخصوصية ٢)", dem.demand);
   check(!JSON.stringify(dem).includes("fp-"), "A12 لا بصمةَ طالبٍ في المخرجات");
 
   /* ── قمع مساري: ثلاث نسبٍ من ملفاتٍ حقيقية، بلا هوية ── */
@@ -533,7 +535,7 @@ async function main() {
     check((await form("z".repeat(32), { day: today, count: "1" })).status === 404, "A15 التبليغ برمزٍ خاطئ: ٤٠٤");
     const afterReport = await call("GET", `${mine.reportUrl}?red=ok`);
     check(afterReport.text.includes("سُجِّل رقمكم") && afterReport.text.includes("المُبلَّغة") && afterReport.text.includes("(9)") === false && afterReport.text.includes(">9<"), "A15 صفحة التقرير تعرض ما بلّغته الشركة بوسم «مُبلَّغ»", afterReport.status);
-    const kitTok = (await call("POST", "/api/admin/ads/partner-kit")).json.url;
+    const kitTok = (await call("POST", "/api/admin/ads/partner-links", { company: "شركة اختبار" })).json.link.url;
     const kitHtml = (await call("GET", kitTok)).text;
     const serveJson = JSON.stringify((await call("GET", "/_ads/serve?slot=me")).json);
     check(!kitHtml.includes("مُبلَّغ") && !kitHtml.includes("استعمالات الكود") && !serveJson.includes("redemptions") && !serveJson.includes("conversion"), "A15 التحويل المُبلَّغ لا يدخل ملف الشراكة ولا خدمة الإعلانات");
@@ -689,7 +691,7 @@ async function main() {
     const re = await call("POST", "/api/admin/ads/campaigns", { id: inSeason.id, company: "موسمي", category: "سفر وسياحة", slot: "schedule", startDay: today, endDay: dayPlus(10), linkUrl: "https://moseme.example.com", seasons: activeNow.length > 1 ? [activeNow[1]] : ["registration", "start"] });
     check(re.status === 200 && (await call("GET", "/api/admin/ads")).json.campaigns.find((x: any) => x.id === inSeason.id).status === "draft", "A9 تغيير موسم حملةٍ معتمدة يعيدها مسودة");
     check(String(audited[audited.length - 1]?.text).includes("عادت مسودةً"), "A9 سجلّ التدقيق يذكر عودتها مسودةً");
-    const partnerPage = await call("GET", (await call("POST", "/api/admin/ads/partner-kit")).json.url);
+    const partnerPage = await call("GET", (await call("POST", "/api/admin/ads/partner-links", { company: "شركة التقويم" })).json.link.url);
     check(partnerPage.text.includes("تقويم المواسم") || adminNow.calendar.length === 0, "A9 ملف الشراكة يعرض تقويم المواسم عند وجود تواريخ فصل");
     check(!partnerPage.text.includes("الفيلكاوي") && !partnerPage.text.includes("العنزي"), "A12 لا اسمَ في ملف الشراكة");
 
@@ -764,14 +766,61 @@ async function main() {
     await call("POST", "/_pulse", { k: "schedule", r: 0, m: 0, t: links.survey.id });
     await call("POST", "/_pulse", { k: "schedule", r: 0, m: 0, t: links.department.id });
     const visitsAfter = await sources();
-    check((visitsAfter.staff || 0) - (visitsBefore.staff || 0) === 1 && (visitsAfter.survey || 0) - (visitsBefore.survey || 0) === 1 && (visitsAfter.schedule || 0) - (visitsBefore.schedule || 0) === 1, "A14 زيارة بطاقة الأستاذ تُحسب «بطاقة» والاستبيان «استبيان» والجدول «جدول»", { visitsBefore, visitsAfter });
+    const staffDay = (await Repository.listAudienceDays(5)).find(d => d.day === today);
+    check(staffDay?.visits?.staff === 1 && (visitsAfter.staff || 0) === 0 && (visitsAfter.survey || 0) - (visitsBefore.survey || 0) === 1 && (visitsAfter.schedule || 0) - (visitsBefore.schedule || 0) === 1, "A14 زيارة بطاقة الأستاذ تُحسب «بطاقة» (خارج زيارات الطلبة) والاستبيان «استبيان» والجدول «جدول»", { visitsBefore, visitsAfter, staffDay });
 
 
     // ملف الشراكة
     check((await call("GET", "/partners/" + "q".repeat(32))).status === 404, "A6 ملف الشراكة: لا رابط بلا إنشاء");
-    const kit = await call("POST", "/api/admin/ads/partner-kit");
-    const kitPage = await call("GET", kit.json.url);
+    const kit = await call("POST", "/api/admin/ads/partner-links", { company: "شركة الملف" });
+    const kitPage = await call("GET", kit.json.link.url);
     check(kitPage.status === 200 && kitPage.text.includes("شروطنا") && kitPage.text.includes("640×200") && kitPage.text.includes("TESTNONCE"), "A6 ملف الشراكة يُعرض بالشروط والمقاسات");
+
+    /* ── روابط ملف الشراكة: رابطٌ لكل شركة، يُسجَّل فتحه ── */
+    const UA2 = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gecko/20100101 Firefox/120.0";
+    const pause = () => new Promise(r => setTimeout(r, 60));
+    check((await call("POST", "/api/admin/ads/partner-kit")).status === 404, "رابط الشراكة: مسار الرابط الواحد القديم لم يعد موجوداً");
+    check((await call("POST", "/api/admin/ads/partner-links", { company: "ا" })).status === 400, "رابط الشراكة: اسم الشركة مطلوب");
+    const plA = (await call("POST", "/api/admin/ads/partner-links", { company: "شركة ألف" })).json.link;
+    const plB = (await call("POST", "/api/admin/ads/partner-links", { company: "شركة باء", days: 7 })).json.link;
+    check(plA.url.startsWith("/partners/") && plA.url.length >= "/partners/".length + 32 && plA.url !== plB.url, "رابط الشراكة: رمزٌ عشوائيٌّ طويل لكل شركة", plA.url);
+    const row = async (id: string) => (await call("GET", "/api/admin/ads")).json.partnerLinks.find((x: any) => x.id === id);
+    check(!!plB.expiresAt && !plA.expiresAt && plB.state === "active", "رابط الشراكة: مدةُ الصلاحية اختيارية", [plA, plB]);
+    check((await row(plA.id)).opens === 0 && (await row(plA.id)).lastOpenAt === "", "رابط الشراكة: يبدأ بلا فتحات");
+    check((await call("GET", plA.url)).status === 200, "رابط الشراكة: الرابط الخاص يعمل");
+    await pause();
+    check((await row(plA.id)).opens === 1 && !!(await row(plA.id)).firstOpenAt && (await row(plA.id)).firstOpenAt === (await row(plA.id)).lastOpenAt, "رابط الشراكة: فتحة واحدة وأول فتحٍ وآخره", await row(plA.id));
+    await call("GET", plA.url); await pause();
+    check((await row(plA.id)).opens === 1, "رابط الشراكة: تكرارُ الفتح من المتصفح نفسه خلال نصف دقيقة لا يُعدّ");
+    await call("GET", plA.url, undefined, { "User-Agent": UA2 }); await pause();
+    check((await row(plA.id)).opens === 2 && Object.values((await row(plA.id)).openDays).reduce((a: number, b: any) => a + Number(b), 0) === 2, "رابط الشراكة: متصفحٌ آخر يُعدّ، وسجلُّ اليوم يطابق", await row(plA.id));
+    await call("GET", plA.url + "?preview=1", undefined, { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Preview Admin Browser/1.0 Edge" }); await pause();
+    await call("GET", plA.url, undefined, { "User-Agent": "Googlebot/2.1 (+http://www.google.com/bot.html)" }); await pause();
+    check((await row(plA.id)).opens === 2, "رابط الشراكة: فتحُ الإدارة (preview) والروبوتات لا يُعدّان");
+    const kitB = await call("GET", plB.url);
+    check(kitB.text.includes('value="شركة باء"'), "رابط الشراكة: اسم الشركة يملأ حقل النموذج");
+    const leadRes = await fetch(base + plB.url + "/lead", { method: "POST", redirect: "manual", headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ company: "شركة باء", name: "مندوب", phone: "55512345" }).toString() });
+    check(leadRes.status === 303 && String(leadRes.headers.get("location")).includes("lead=ok"), "رابط الشراكة: طلب حملة جديدة من الرابط الخاص يُقبل");
+    const leadRow = (await call("GET", "/api/admin/ads")).json.leads.find((l: any) => l.phone === "55512345");
+    check(leadRow?.partnerCompany === "شركة باء", "رابط الشراكة: الطلب يظهر مربوطاً بشركة الرابط", leadRow);
+    check((await call("POST", `/api/admin/ads/partner-links/${plA.id}/revoke`)).status === 200 && (await call("GET", plA.url)).status === 404, "رابط الشراكة: الإيقاف يعطّل ذلك الرابط");
+    check((await call("GET", plB.url)).status === 200 && (await row(plA.id)).state === "revoked", "رابط الشراكة: إيقاف رابطٍ لا يمسّ غيره");
+    check((await call("POST", "/api/admin/ads/partner-links/nope/revoke")).status === 404, "رابط الشراكة: إيقاف رابطٍ غير موجود ٤٠٤");
+    const stored = (await Repository.listPartnerLinks()).find(l => l.id === plB.id)!;
+    stored.expiresAt = new Date(Date.now() - 1000).toISOString();
+    check((await call("GET", plB.url)).status === 404 && (await call("POST", plB.url + "/lead", {})).status === 404 && (await row(plB.id)).state === "expired", "رابط الشراكة: المنتهي يتوقف مع «الرابط غير صالح»");
+    check((await call("GET", "/partners/" + "A".repeat(32))).status === 404 && (await call("GET", "/partners/short")).status === 404, "رابط الشراكة: رمزٌ غير معروف أو قصير ٤٠٤");
+
+    /* ── دخول الطلبة للطلبة فقط، ومستخدمو النظام عدّادٌ مستقل ── */
+    const dayRow = async () => (await Repository.listAudienceDays(5)).find(d => d.day === today)!;
+    const sumRates = (d: any) => d.returning + d.fresh + d.mobile + d.desktop + Object.values(d.hours as Record<string, number>).reduce((a, b) => a + b, 0);
+    const ratesBefore = sumRates(await dayRow());
+    R.recordPulse({ kind: "staff", returning: true, mobile: true }); R.recordPulse({ kind: "app", returning: true, mobile: true });
+    await R.flushAdsCounters();
+    const after = await dayRow();
+    check(sumRates(after) === ratesBefore && after.visits.app === 1, "الجمهور: نبضة الأستاذ والنظام لا تدخل العائدين ولا الجوال ولا ساعات الذروة", after);
+    const sysStats = (await call("GET", "/api/admin/audience-stats")).json;
+    check(sysStats.visits.system.today === 1 && sysStats.visits.system.last30 === 1 && !sysStats.visits.bySource.some((x: any) => x.source === "staff" || x.source === "app"), "الجمهور: دخول مستخدمي النظام عدّادٌ مستقل خارج مصادر الطلبة", sysStats.visits);
 
     /* ── A7 ── */
     const blob = JSON.stringify(stats.json);
@@ -877,12 +926,41 @@ async function main() {
     check(leadNotifyTo({ AD_LEAD_NOTIFY_TO: " Me@Mail.com " } as any) === "me@mail.com" && leadNotifyTo({} as any) === "" && leadNotifyTo({ AD_LEAD_NOTIFY_TO: "bad" } as any) === "", "بريد المالك: المستلم من البيئة، وفارغٌ أو غير صالح = لا بريد");
     const leadForm = (await import("../src/server/adsPages")).partnerKitPage({ stats: stats as any, liveBySlot: {}, today: "2026-11-20", nonce: "N", token: "tok/1", leadResult: "ok" });
     check(leadForm.includes("الصفحة الرئيسية للطالب") && leadForm.includes("وقت الفراغ") && leadForm.includes("أعضاء هيئة التدريس والإداريين") && !leadForm.includes("محطة الاستراحة") && !leadForm.includes("الكادر"), "ملف الشراكة: تظهر للشركة الأسماء الجديدة وسطر الشرح تحت كل موقع");
-    check(fs.readFileSync("src/components/AudienceDashboard.tsx", "utf8").includes('app: "نظام SCHEDULE"'), "لوحة الشركاء: تسمية زيارات النظام بالاسم المعتمد");
+    check(fs.readFileSync("src/components/AudienceDashboard.tsx", "utf8").includes('app: "مستخدمو النظام (اللجان والإدارة)"'), "لوحة الشركاء: تسمية دخول مستخدمي النظام بالاسم المعتمد");
     check(leadForm.includes("background:rgba(255,255,255,.07);pointer-events:none}") && leadForm.includes(".k-cta{position:relative;z-index:1;"), "ملف الشراكة: دائرة زينة الغلاف لا تعترض النقر على زر «حملة جديدة»");
     check((leadForm.match(/<span class="k-opt"><b>/g) || []).length === 5 && leadForm.includes("<small>للطالب حين يكون بين محاضراته فراغ ساعة فأكثر</small>"), "نموذج الطلب: كل موقعٍ بطاقةُ اختيار باسمه وسطر شرحه ظاهرٌ تحته (لا تلميح فقط)");
     check(leadForm.includes(".k-new:target{display:flex}") && leadForm.includes('role="dialog"') && (leadForm.match(/href="#"/g) || []).length >= 2, "ملف الشراكة: «حملة جديدة» نافذةٌ فوق الصفحة تفتح بالرابط وتُغلق بلا JavaScript");
     check(leadForm.includes('action="/partners/tok%2F1/lead"') && leadForm.includes('name="website"') && leadForm.includes('href="#new"') && leadForm.includes("وصلنا طلبك"), "ملف الشراكة: زر «حملة جديدة» ونموذجٌ يُرسل إلى مسار الطلب مع حقل الفخ ورسالة النجاح");
     check(B.instructorOpens === 75_000 && B.instructors === 786 && B.students === 80_000 && B.visits === 5_300_000 && B.instructorOpenRate === 90, "الرصيد: الأرقام المُقرَّة كما أُعطيت");
+    /* دخول الطلبة للطلبة وحدهم: بطاقة الأستاذ والنظام لا تدخلان، ويُقاس النظام على حدة. */
+    const studentOnly = buildAudienceStats({ now: new Date("2026-11-05T09:00:00Z"), terms: [{ AdTermId: 9, AdTermName: "ف" }] as any[], currentTermId: 9, needsByTerm: new Map(), profiles: [], instructorRequests: [],
+      days: [{ day: "2026-11-05", visits: { me: 3, schedule: 2, status: 1, survey: 1, staff: 7, app: 4 } }, { day: "2026-11-01", visits: { me: 1, staff: 5, app: 2 } }] as any[] });
+    check(studentOnly.visits.today === 7 && studentOnly.visits.total === 8 && studentOnly.visits.afterBaseline === 8 && studentOnly.visits.last30 === 8, "الجمهور: زيارات الطلبة بلا staff ولا app", studentOnly.visits);
+    check(studentOnly.visits.system.today === 4 && studentOnly.visits.system.last30 === 6 && studentOnly.visits.system.total === 6, "الجمهور: دخول مستخدمي النظام (اليوم وآخر 30 يوماً) من app وحدها", studentOnly.visits.system);
+    check(!studentOnly.visits.bySource.some(x => x.source === "staff" || x.source === "app"), "الجمهور: مصادر الزيارات للطلبة وحدهم");
+    /* نسبة فتح الأساتذة: حدٌّ أدنى 90 «أكثر من»، وإن زاد المقيس ظهر رقمه بعينه. */
+    const lowRate = headlineTotals({ ...studentOnly, instructors: { ...studentOnly.instructors, openRate: 70 } } as any);
+    const highRate = headlineTotals({ ...studentOnly, instructors: { ...studentOnly.instructors, openRate: 95.3 } } as any);
+    check(lowRate.instructorOpenRate === 90 && !lowRate.instructorOpenRateExact && highRate.instructorOpenRate === 95.3 && highRate.instructorOpenRateExact, "النسبة: 70% لا تظهر (90 أكثر من)، و95.3% تظهر بعينها بلا «أكثر من»", { lowRate, highRate });
+    const dash = fs.readFileSync("src/components/AudienceDashboard.tsx", "utf8");
+    check(!dash.includes("وصلتهم البطاقة") && !dash.includes("instructors.openRate") && !dash.includes("instructors.submitRate") && dash.includes("head.instructorOpenRateExact ?"), "النسبة: قمع الأساتذة أعدادٌ فقط، و«أكثر من» تسقط حين يُعرض المقيس");
+    check(dash.includes("دخول مستخدمي النظام"), "الجمهور: بطاقة دخول مستخدمي النظام مستقلة");
+    /* علامة النسبة «%» وحدها، والسقف مسمّى، وأربعة تبويبات بلوحة المفاتيح، والمتوسط المرجعي مخزَّن. */
+    const scope = ["src/server/adsPages.ts", "src/server/adMailer.ts", "src/utils/adQuality.ts", "src/components/AudienceDashboard.tsx", "src/components/AdsManager.tsx", ...fs.readdirSync("src/components/ads").map(f => `src/components/ads/${f}`)];
+    check(scope.every(f => !fs.readFileSync(f, "utf8").includes("٪")), "النسبة: «%» موحّدة في الشاشات وصفحات الشركاء", scope.filter(f => fs.readFileSync(f, "utf8").includes("٪")));
+    const E2 = await import("../src/utils/adsEngine");
+    const adjs2 = fs.readFileSync("src/server/adClientScript.ts", "utf8");
+    check(E2.AD_DAILY_REPEAT_CAP === 10 && adjs2.includes("<${AD_DAILY_REPEAT_CAP}") && !adjs2.includes("<40"), "السقف: عشر مرات للحملة في اليوم ثابتٌ مسمّى");
+    const clientJs = (await import("../src/server/adClientScript")).AD_CLIENT_SCRIPT;
+    check(clientJs.includes("<10})") && !clientJs.includes("<40})"), "السقف: السكربت المحقون يستعمل العشرة");
+    const policy = (await import("../src/server/adsPages")).measurementPage("N");
+    check(policy.includes("10 مرات") && policy.includes("طالبان على الأقل"), "السياسة العامة تذكر سقف التكرار وحدّ الخصوصية الجديد");
+    const ads = fs.readFileSync("src/components/AdsManager.tsx", "utf8");
+    check(ads.includes("أربعةُ تبويبات") && ads.includes('"Home"') && ads.includes('"End"') && ads.includes("ArrowLeft") && ads.includes("tabIndex={tab === id ? 0 : -1}"), "التبويبات: أربعة، وتنقّلٌ بالأسهم وHome/End، وtabIndex للمختار وحده");
+    const routes = fs.readFileSync("src/server/adsRoutes.ts", "utf8");
+    check(routes.includes("cachedAdStats(5 * 60_000)") && !routes.includes("const allStats = await Repository.listAdStats()"), "تقرير الحملة: المتوسط المرجعي من إحصاءاتٍ مخزّنة لا قراءةٍ كاملةٍ في كل فتح");
+    const pages = fs.readFileSync("src/server/adsPages.ts", "utf8");
+    check(pages.includes("ظهر إعلانك لنحو") && pages.includes("ظهر إعلانكم لنحو") && !pages.includes("مشاهدٍ،"), "تقرير الحملة: «مشاهدة» لا «مشاهد»");
   }
 
   console.log(`\n${failed ? "\x1b[31m" : "\x1b[32m"}${passed} نجح، ${failed} فشل\x1b[0m`);

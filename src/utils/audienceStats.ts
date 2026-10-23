@@ -50,6 +50,8 @@ export interface AudienceStats {
     total: number;
     /** مجموع الأيام المقيسة بعد تاريخ الرصيد الافتتاحي (`AUDIENCE_BASELINE.asOf`). */
     afterBaseline: number;
+    /** دخولُ مستخدمي النظام (اللجان والإدارة) من نبضات `app`: منفصلٌ عن زيارات الطلبة ولا يُدمج فيها. */
+    system: { today: number; last30: number; total: number };
     bySource: Array<{ source: string; count: number }>;
     returningRate: number;
     mobileRate: number;
@@ -69,8 +71,8 @@ export interface AudienceStats {
   reach: { studentsMin: number; instructors: number; /** طلبةٌ ظهروا لأول مرة بعد `AUDIENCE_BASELINE.asOf` (بصمات فريدة). */ newSinceBaseline: number };
 }
 
-/** حدُّ الخصوصية: مقرر لا يطلبه عشرةُ طلابٍ مختلفين على الأقل لا يُعرض ولا يُعدّ ظاهراً، فلا يُستدلّ منه على طالبٍ بعينه. */
-export const DEMAND_MIN_STUDENTS = 10;
+/** حدُّ الخصوصية: مقرر لا يطلبه طالبان مختلفان على الأقل لا يُعرض ولا يُعدّ ظاهراً (شعبٌ عندنا فيها طالبان فقط)؛ وهو أعدادٌ بلا أسماء. */
+export const DEMAND_MIN_STUDENTS = 2;
 const DEMAND_TOP = 8;
 /** أقل عددٍ من طلبة الفصل السابق تُحسب له استمرارية؛ دونه لا تظهر نسبة. */
 export const CONTINUITY_MIN_STUDENTS = 30;
@@ -102,7 +104,10 @@ const anonymous = (counts: Map<number, number>): CollegePoint[] =>
 
 const bump = (map: Map<number, number>, key: number) => map.set(key, (map.get(key) || 0) + 1);
 const dayKey = (iso: string) => (/^\d{4}-\d{2}-\d{2}/.test(iso) ? iso.slice(0, 10) : "");
-const dayTotal = (d: AudienceDay) => sum(Object.values(d.visits || {}));
+/** نبضاتُ الطلبة وحدها: «مساري» والجدول وحالة الطلب والاستبيان. بطاقةُ الأستاذ (`staff`) ومستخدمو النظام (`app`) لهم عدّادهم المستقل. */
+export const STUDENT_PULSES: readonly string[] = ["me", "schedule", "status", "survey"];
+const dayTotal = (d: AudienceDay) => sum(Object.entries(d.visits || {}).filter(([kind]) => STUDENT_PULSES.includes(kind)).map(([, n]) => Number(n) || 0));
+const systemTotal = (d: AudienceDay) => Number(d.visits?.app) || 0;
 
 /** مرّات فتح بطاقةٍ بعد الرصيد: من سجلّ الأيام، وللبطاقات القديمة بلا سجلٍّ فتحُها الأول إن جاء بعد التاريخ. */
 const opensAfterBaseline = (r: InstructorRequest): number => {
@@ -186,7 +191,7 @@ export function buildAudienceStats(input: AudienceInput): AudienceStats {
   let returning = 0, fresh = 0, mobile = 0, desktop = 0, installs = 0;
   const heat = Array.from({ length: 7 }, () => Array<number>(24).fill(0));
   for (const d of measured) {
-    for (const [source, count] of Object.entries(d.visits || {})) sources.set(source, (sources.get(source) || 0) + count);
+    for (const [source, count] of Object.entries(d.visits || {})) if (STUDENT_PULSES.includes(source)) sources.set(source, (sources.get(source) || 0) + count);
     returning += d.returning || 0; fresh += d.fresh || 0; mobile += d.mobile || 0; desktop += d.desktop || 0; installs += d.installed || 0;
     const dow = new Date(`${d.day}T00:00:00Z`).getUTCDay();
     for (const [hour, count] of Object.entries(d.hours || {})) {
@@ -287,6 +292,11 @@ export function buildAudienceStats(input: AudienceInput): AudienceStats {
       last30: sum(series.map(p => p.count)),
       total,
       afterBaseline: sum(measured.filter(d => d.day > AUDIENCE_BASELINE.asOf).map(dayTotal)),
+      system: {
+        today: systemTotal(measured.find(d => d.day === today) || { visits: {} } as AudienceDay),
+        last30: sum(measured.filter(d => d.day >= addDays(today, -29) && d.day <= today).map(systemTotal)),
+        total: sum(measured.map(systemTotal)),
+      },
       bySource: [...sources.entries()].map(([source, count]) => ({ source, count })).sort((a, b) => b.count - a.count),
       returningRate: ratio(returning, returning + fresh),
       mobileRate: ratio(mobile, mobile + desktop),
@@ -319,6 +329,8 @@ export function headlineTotals(s: AudienceStats) {
     instructorOpens: AUDIENCE_BASELINE.instructorOpens + (s.instructors.openedAfterBaseline || 0),
     /** حدٌّ أدنى: يظهر المقيس إن زاد عليه. */
     instructorOpenRate: Math.max(AUDIENCE_BASELINE.instructorOpenRate, s.instructors.openRate || 0),
+    /** المقيس زاد على الحدّ الأدنى: يُعرض رقماً بعينه لا «أكثر من». */
+    instructorOpenRateExact: (s.instructors.openRate || 0) > AUDIENCE_BASELINE.instructorOpenRate,
   };
 }
 

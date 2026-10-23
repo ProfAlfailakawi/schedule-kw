@@ -69,7 +69,7 @@ function HBars({ rows }: { rows: Array<{ label: string; count: number }> }) {
 }
 
 const DAYS = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-const SOURCE_LABEL: Record<string, string> = { me: "«مساري»", schedule: "جداول القسم والطلبة", status: "حالة الطلب", survey: "الاستبيان", staff: "بطاقة الأستاذ", app: "نظام SCHEDULE" };
+const SOURCE_LABEL: Record<string, string> = { me: "«مساري»", schedule: "جداول القسم والطلبة", status: "حالة الطلب", survey: "الاستبيان", staff: "بطاقة الأستاذ", app: "مستخدمو النظام (اللجان والإدارة)" };
 
 
 /** قمعُ «مساري»: ثلاث نسبٍ تقيس السهولة فعلاً — أكمل الإعداد، أرسل رغباته، عاد بعدها — مقابل أهدافها. */
@@ -183,8 +183,9 @@ export default function AudienceDashboard({ onNavigate }: { onNavigate?: (view: 
 
       <div className="pt-kpis">
         <div className="pt-kpi"><b><CountUp value={s.instructors.opened} /></b><span>فتحوا بطاقاتهم هذا الفصل</span><small>أعضاء هيئة التدريس في {s.term?.name || "الفصل الجاري"}</small></div>
-        <div className="pt-kpi"><b><em className="pt-more">أكثر من</em> {pct(head.instructorOpenRate)}</b><span>نسبة فتح بطاقات الأساتذة</span><small>التزامٌ عالٍ يعني جمهوراً منتبهاً</small></div>
-        <div className="pt-kpi"><b>{hasVisits ? <CountUp value={visits!.last30} /> : "—"}</b><span>زيارة آخر 30 يوماً</span><small>{hasVisits ? `مقيسة منذ ${visits!.since}` : "القياس يبدأ بأول زيارة بعد التفعيل"}</small></div>
+        <div className="pt-kpi"><b>{head.instructorOpenRateExact ? null : <em className="pt-more">أكثر من</em>} {pct(head.instructorOpenRate)}</b><span>نسبة فتح بطاقات الأساتذة</span><small>التزامٌ عالٍ يعني جمهوراً منتبهاً</small></div>
+        <div className="pt-kpi"><b>{hasVisits ? <CountUp value={visits!.last30} /> : "—"}</b><span>زيارة طلبة آخر 30 يوماً</span><small>{hasVisits ? `مقيسة منذ ${visits!.since}` : "القياس يبدأ بأول زيارة بعد التفعيل"}</small></div>
+        <div className="pt-kpi"><b>{hasVisits ? <CountUp value={visits!.system.last30} /> : "—"}</b><span>دخول مستخدمي النظام</span><small>اللجان والإدارة · آخر 30 يوماً · اليوم {fmt(visits?.system.today || 0)}</small></div>
       </div>
 
       <div className="pt-grid2">
@@ -255,19 +256,18 @@ export default function AudienceDashboard({ onNavigate }: { onNavigate?: (view: 
       <section className="pt-card">
         <h3>المقررات الأكثر طلباً</h3>
         <p className="pt-sub">طلبةٌ فريدون يريدون المقرر في رغباتهم أو طلباتهم هذا الفصل. للجهات التعليمية والتدريبية أن ترى ما يبحث عنه الطلبة.</p>
-        {s.demand.top.length ? <HBars rows={s.demand.top.map(d => ({ label: d.name, count: d.students }))} /> : <div className="pt-empty">لا مقرر بلغ حدّ الخصوصية بعد (يلزم {countOf(s.demand.minStudents, AR.student)} مختلفين على الأقل لكل مقرر).</div>}
-        <p className="pt-note">حدّ الخصوصية: لا يظهر مقررٌ يطلبه أقل من {countOf(s.demand.minStudents, AR.student)} مختلفين{s.demand.hidden ? `؛ أُخفي ${countOf(s.demand.hidden, AR.course)} لهذا السبب` : ""}. أعدادٌ مجمّعة بلا أسماء.</p>
+        {s.demand.top.length ? <HBars rows={s.demand.top.map(d => ({ label: d.name, count: d.students }))} /> : <div className="pt-empty">لا مقرر بلغ حدّ الخصوصية بعد (يلزم أن يطلب المقرر {countOf(s.demand.minStudents, AR.student)} على الأقل من أشخاصٍ مختلفين).</div>}
+        <p className="pt-note">حدّ الخصوصية: لا يظهر مقررٌ لا يطلبه {countOf(s.demand.minStudents, AR.student)} على الأقل من أشخاصٍ مختلفين{s.demand.hidden ? `؛ أُخفي ${countOf(s.demand.hidden, AR.course)} لهذا السبب` : ""}. أعدادٌ مجمّعة بلا أسماء.</p>
       </section>
 
       <div className="pt-grid2">
         <section className="pt-card">
           <h3>تفاعل الأساتذة هذا الفصل</h3>
-          <p className="pt-sub">من وصلته بطاقته، ومن فتحها، ومن أرسل منها.</p>
+          <p className="pt-sub">كم أستاذاً فتح بطاقته، وكم منهم أرسل طلباً. أعدادٌ فقط.</p>
           {s.instructors.invited ? (
             <div className="pt-funnel">
-              <div style={{ ["--w" as any]: "100%" }}><span>وصلتهم البطاقة</span><b>{fmt(s.instructors.invited)}</b></div>
-              <div style={{ ["--w" as any]: `${s.instructors.openRate}%` }}><span>فتحوها</span><b>{fmt(s.instructors.opened)} · {pct(s.instructors.openRate)}</b></div>
-              <div style={{ ["--w" as any]: `${s.instructors.submitRate}%` }}><span>أرسلوا طلباً</span><b>{fmt(s.instructors.submitted)} · {pct(s.instructors.submitRate)}</b></div>
+              <div style={{ ["--w" as any]: "100%" }}><span>فتحوا بطاقاتهم</span><b>{countOf(s.instructors.opened, AR.instructor)}</b></div>
+              <div style={{ ["--w" as any]: "100%" }}><span>أرسلوا طلباً</span><b>{countOf(s.instructors.submitted, AR.instructor)}</b></div>
             </div>
           ) : <div className="pt-empty">لا بطاقات مُرسلة في هذا الفصل.</div>}
         </section>
@@ -306,7 +306,7 @@ export default function AudienceDashboard({ onNavigate }: { onNavigate?: (view: 
         <summary>كيف نحسب هذه الأرقام؟</summary>
         <ul>
           <li><b>الطلبة المؤكَّدون:</b> الأكبر من عدد الطلبة الفريدين في الاستبيان وعدد ملفات «مساري». نعرف الطالب ببصمةٍ مشفّرة لا باسمه، فلا يُعدّ مرتين.</li>
-          <li><b>الزيارات:</b> إشارةٌ مجهولة واحدة لكل متصفحٍ في اليوم لكل نوع صفحة. تقدير؛ فمن يمسح بيانات متصفحه قد يُعدّ مرتين، ومن يمنع التخزين يُعدّ كل مرة.</li>
+          <li><b>الزيارات:</b> للطلبة وحدهم (مساري والجدول وحالة الطلب والاستبيان): إشارةٌ مجهولة واحدة لكل متصفحٍ في اليوم لكل نوع صفحة. أما فتحُ الأساتذة لبطاقاتهم ودخولُ مستخدمي النظام فلكلٍّ عدّادُه، ولا يدخلان في زيارات الطلبة. تقدير؛ فمن يمسح بيانات متصفحه قد يُعدّ مرتين، ومن يمنع التخزين يُعدّ كل مرة.</li>
           <li><b>العائدون والجوال:</b> من الإشارة نفسها؛ لا تُحفظ أي هوية أو عنوان.</li>
           <li><b>الاستمرارية:</b> نسبة طلبة فصلٍ ما (ببصمات الاستبيان) الذين أجابوا أيضاً في الفصل التالي له مباشرةً، وبعيّنةٍ لا تقل عن {countOf(CONTINUITY_MIN_STUDENTS, AR.student)}؛ دونها لا تظهر نسبة.</li>
           <li><b>أداء المواقع:</b> ظهورٌ ونقراتٌ صحيحة لكل موقع إعلاني، من حملاته كلها.</li>
@@ -326,7 +326,7 @@ export default function AudienceDashboard({ onNavigate }: { onNavigate?: (view: 
           <div><b><em>حوالي</em> {fmt(head.students)}</b><span>الطلبة الذين استخدموا النظام منذ {AUDIENCE_BASELINE.since}</span></div>
           <div><b><em>حوالي</em> {fmt(head.visits)}</b><span>زيارة منذ {AUDIENCE_BASELINE.since}</span></div>
           <div><b><em>حوالي</em> {fmt(head.instructorOpens)}</b><span>فتحٌ لبطاقات أعضاء هيئة التدريس</span></div>
-          <div><b><em>أكثر من</em> {pct(head.instructorOpenRate)}</b><span>نسبة فتح بطاقات الأساتذة</span></div>
+          <div><b>{head.instructorOpenRateExact ? null : <em>أكثر من</em>} {pct(head.instructorOpenRate)}</b><span>نسبة فتح بطاقات الأساتذة</span></div>
         </div>
         {s.continuity.length ? <p className="pt-kit-line">استمرارية الطلبة من {s.continuity[0].fromTerm} إلى {s.continuity[0].toTerm}: <b>{pct(s.continuity[0].rate)}</b></p> : null}
         {hasVisits && visits!.peakDay ? <p className="pt-kit-line">أنشط أيام الأسبوع: <b>{visits!.peakDay}</b></p> : null}

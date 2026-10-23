@@ -1958,6 +1958,24 @@ export interface AdLead {
   note?: string;
   status: "new" | "contacted";
   contactedAt?: string;
+  /** الرابطُ الخاص الذي جاء منه الطلب (ملف شراكةٍ باسم شركة) واسمُ الشركة وقت الإنشاء. */
+  partnerLinkId?: string;
+  partnerCompany?: string;
+}
+/** رابط «ملف الشراكة» الخاص بشركة: رمزٌ عشوائيّ يُسجَّل فتحُه، ويُوقَف وحده أو ينتهي بموعد. */
+export interface PartnerLink {
+  id: string;
+  company: string;
+  token: string;
+  createdAt: string;
+  /** موعد الانتهاء (ISO) أو فارغ إن لم يكن له انتهاء. */
+  expiresAt?: string;
+  revoked?: boolean;
+  opens: number;
+  firstOpenAt?: string;
+  lastOpenAt?: string;
+  /** عدد الفتحات في كل يومٍ بتوقيت الكويت. */
+  openDays: Record<string, number>;
 }
 export interface AdCampaign {
   id: string;

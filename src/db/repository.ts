@@ -41,6 +41,7 @@ import {
   AuditLogEntry,
   AdCampaign,
   AdLead,
+  PartnerLink,
   AdCreative,
   AdStatsDay,
   AudienceDay,
@@ -240,8 +241,8 @@ interface DBState {
   adCreatives?: AdCreative[];
   adStats?: AdStatsDay[];
   audienceDaily?: AudienceDay[];
-  /** رمز رابط «ملف الشراكة» العام (يُدار من شاشة الإعلانات). */
-  partnerKitToken?: string;
+  /** روابط «ملف الشراكة» الخاصة بالشركات (تُدار من شاشة الإعلانات). */
+  partnerLinks?: PartnerLink[];
   /** الشركات التي استهلكت تجربتها المجانية (اسمٌ مُطبَّع ← رقم حملتها). سجلٌّ دائم لا يمحوه تعديلٌ ولا حذف. */
   adTrialCompanies?: Array<{ name: string; campaignId: string }>;
   scheduleComments?: ScheduleComment[];
@@ -4544,16 +4545,53 @@ export const Repository = {
     const list = db.adTrialCompanies || (db.adTrialCompanies = []);
     if (!list.some(item => item.name === name)) { list.push({ name, campaignId }); saveDatabase(); }
   },
-  getPartnerKitToken: async (): Promise<string> => {
-    if (firestoreDb && !demoSandboxContext.getStore()) {
-      const doc = await firestoreDb.collection("adSettings").doc("partnerKit").get();
-      return String((doc.data() as any)?.token || "");
-    }
-    return db.partnerKitToken || "";
+  /** روابط ملف الشراكة الخاصة بالشركات، الأحدث أولاً. */
+  listPartnerLinks: async (): Promise<PartnerLink[]> => {
+    const rows = firestoreDb && !demoSandboxContext.getStore()
+      ? (await firestoreDb.collection("partnerLinks").limit(500).get()).docs.map(doc => doc.data() as PartnerLink)
+      : [...(db.partnerLinks || [])];
+    return rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   },
-  setPartnerKitToken: async (token: string): Promise<void> => {
-    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("adSettings").doc("partnerKit").set({ token, updatedAt: new Date().toISOString() }); return; }
-    db.partnerKitToken = token;
+  createPartnerLink: async (entry: { company: string; token: string; expiresAt?: string }): Promise<PartnerLink> => {
+    const row: PartnerLink = { id: randomUUID(), company: entry.company, token: entry.token, createdAt: new Date().toISOString(), ...(entry.expiresAt ? { expiresAt: entry.expiresAt } : {}), opens: 0, openDays: {} };
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("partnerLinks").doc(row.id).set(row); return row; }
+    db.partnerLinks = [row, ...(db.partnerLinks || [])];
+    saveDatabase();
+    return row;
+  },
+  /** يوقف رابطاً بعينه دون غيره. false إن لم يوجد. */
+  revokePartnerLink: async (id: string): Promise<boolean> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("partnerLinks").doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return false;
+      await ref.update({ revoked: true });
+      return true;
+    }
+    const row = (db.partnerLinks || []).find(item => item.id === id);
+    if (!row) return false;
+    row.revoked = true;
+    saveDatabase();
+    return true;
+  },
+  /** يسجّل فتحةً: العدّاد، وأول فتح وآخره، وفتحات اليوم (بتوقيت الكويت). */
+  recordPartnerOpen: async (id: string, day: string, atIso: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("partnerLinks").doc(id);
+      await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return;
+        const row = snap.data() as PartnerLink;
+        tx.update(ref, { opens: FieldValue.increment(1), lastOpenAt: atIso, ...(row.firstOpenAt ? {} : { firstOpenAt: atIso }), [`openDays.${day}`]: FieldValue.increment(1) });
+      });
+      return;
+    }
+    const row = (db.partnerLinks || []).find(item => item.id === id);
+    if (!row) return;
+    row.opens = (row.opens || 0) + 1;
+    row.lastOpenAt = atIso;
+    if (!row.firstOpenAt) row.firstOpenAt = atIso;
+    row.openDays = { ...(row.openDays || {}), [day]: ((row.openDays || {})[day] || 0) + 1 };
     saveDatabase();
   },
 

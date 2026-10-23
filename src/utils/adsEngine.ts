@@ -48,6 +48,8 @@ export const AD_MAX_BYTES = 300 * 1024;
 export const AD_MIMES = ["image/png", "image/jpeg", "image/webp"] as const;
 export const AD_CATEGORIES = ["مطاعم وكافيهات", "تقنية وإلكترونيات", "كتب وقرطاسية", "تعليم ودورات", "خدمات مصرفية", "صحة ولياقة", "سفر وسياحة", "مواصلات", "ترفيه", "أخرى"] as const;
 export const MAX_ROTATE_CREATIVES = 2;
+/** أقصى مرّاتٍ يرى فيها المتصفحُ الواحد الحملةَ نفسها في اليوم: بعدها تُقدَّم غيرها، فلا يملّ الطالب ولا يُحتسب ظهورٌ لا يُرى. */
+export const AD_DAILY_REPEAT_CAP = 10;
 
 /** شروطُ الإعلان كما تُعرض للشركة وللأدمن عند الإضافة. تُفرض آلياً ما أمكن. */
 export const AD_RULES: readonly string[] = [

@@ -9,9 +9,9 @@
  */
 import { createHash } from "crypto";
 import type { AdCampaign, AdCreative, AdStatsDay } from "../types";
-import { headlineTotals, type AudienceStats } from "../utils/audienceStats";
+import { DEMAND_MIN_STUDENTS, headlineTotals, type AudienceStats } from "../utils/audienceStats";
 import { AUDIENCE_BASELINE } from "../utils/audienceBaseline";
-import { AD_RULES, TRIAL_DAYS, activeSlots, creativeBreakdown, dailySeries, daysLeft, expectedShare, kuwaitDay, phaseOf, slotById, totalsOf, type AdPhase, type WeeklyCompare } from "../utils/adsEngine";
+import { AD_DAILY_REPEAT_CAP, AD_RULES, TRIAL_DAYS, activeSlots, creativeBreakdown, dailySeries, daysLeft, expectedShare, kuwaitDay, phaseOf, slotById, totalsOf, type AdPhase, type WeeklyCompare } from "../utils/adsEngine";
 import { conversionOf, hourAr, peakSummary, wrapUp, type WrapUp } from "../utils/adInsights";
 import { AR, countOf } from "../utils/arabicCount";
 import { SEASONS, seasonLabel, type CalendarItem } from "../utils/adSeasons";
@@ -24,7 +24,7 @@ export const esc = (value: unknown): string =>
 
 const nf = new Intl.NumberFormat("ar-KW-u-nu-latn");
 export const fmt = (n: number): string => nf.format(Math.round(n));
-export const pct = (n: number): string => `${new Intl.NumberFormat("ar-KW-u-nu-latn", { maximumFractionDigits: 1 }).format(n)}٪`;
+export const pct = (n: number): string => `${new Intl.NumberFormat("ar-KW-u-nu-latn", { maximumFractionDigits: 1 }).format(n)}%`;
 const dateAr = (day: string): string => {
   try { return new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`)); }
   catch { return day; }
@@ -157,7 +157,7 @@ function trialCard(args: { phase: AdPhase; totals: ReturnType<typeof totalsOf>; 
     : `نسبة نقر إعلانك (${pct(t.ctr)}) دون متوسط حملات هذا الموقع (${pct(benchmark)}) — جرّب صورةً أو عرضاً أوضح.`;
   const ended = args.phase === "ended";
   return `<h2>خلاصة التجربة المجانية</h2>
-<div class="card"><p style="margin:0 0 8px"><b>${ended ? "انتهت تجربتك" : "تجربتك جارية"}</b> (${countOf(TRIAL_DAYS, AR.day)} كحدٍّ أقصى): وصل إعلانك إلى نحو <b>${fmt(t.uniques)}</b> مشاهدٍ، وظهر <b>${countOf(t.impressions, AR.visit)}</b>، ونقر عليه <b>${fmt(t.clicks)}</b>.</p>
+<div class="card"><p style="margin:0 0 8px"><b>${ended ? "انتهت تجربتك" : "تجربتك جارية"}</b> (${countOf(TRIAL_DAYS, AR.day)} كحدٍّ أقصى): ظهر إعلانك لنحو <b>${fmt(t.uniques)}</b> مشاهدة (طالبٌ يراه ثلاثين يوماً يُحسب ثلاثين)، وظهر <b>${countOf(t.impressions, AR.visit)}</b>، ونقر عليه <b>${fmt(t.clicks)}</b>.</p>
 ${verdict ? `<p style="margin:0 0 8px">${esc(verdict)}</p>` : ""}
 <p class="note" style="margin:0">${ended ? "لمواصلة الظهور في مساحةٍ ثابتة بعد التجربة، تواصل مع الإدارة التي أرسلت لك هذا الرابط." : "عند انتهاء التجربة يتوقف الإعلان تلقائياً، وتبقى أرقامك في هذه الصفحة."}</p></div>`;
 }
@@ -173,10 +173,10 @@ function daysList(from: string, to: string): string[] {
 function wrapUpCard(w: WrapUp, args: { company: string; labelOf: (id: string) => string; benchmark: number | null | undefined }): string {
   const t = w.totals;
   const lines: string[] = [
-    `خلال <b>${esc(countOf(w.days, AR.day))}</b> بلغ عدد مشاهدي إعلانكم نحو <b>${fmt(t.uniques)}</b>، وبلغ ظهوره <b>${fmt(t.impressions)}</b>، وبلغت نقراته الصحيحة <b>${fmt(t.clicks)}</b> (${pct(t.ctr)}).`,
+    `خلال <b>${esc(countOf(w.days, AR.day))}</b> ظهر إعلانكم لنحو <b>${fmt(t.uniques)}</b> مشاهدة، وبلغ ظهوره <b>${fmt(t.impressions)}</b>، وبلغت نقراته الصحيحة <b>${fmt(t.clicks)}</b> (${pct(t.ctr)}).`,
   ];
   if (w.bestDay) lines.push(`أقوى يومٍ: <b>${esc(dateAr(w.bestDay.day))}</b> بـ${fmt(w.bestDay.impressions)} ظهور.`);
-  if (w.bestWeekday && w.bestWeekday.share >= 20) lines.push(`أكثر ما شاهدكم الطلبة يوم <b>${esc(w.bestWeekday.name)}</b> (${w.bestWeekday.share}٪ من ظهوركم).`);
+  if (w.bestWeekday && w.bestWeekday.share >= 20) lines.push(`أكثر ما شاهدكم الطلبة يوم <b>${esc(w.bestWeekday.name)}</b> (${w.bestWeekday.share}% من ظهوركم).`);
   if (w.bestCreative) lines.push(`الأعلى نقراً: <b>${esc(args.labelOf(w.bestCreative.creativeId))}</b> (${pct(w.bestCreative.ctr)}).`);
   if (args.benchmark != null && t.impressions >= 200) lines.push(t.ctr >= args.benchmark ? `نسبة نقركم أعلى من متوسط حملات هذا الموقع (${pct(args.benchmark)}).` : `نسبة نقركم دون متوسط حملات هذا الموقع (${pct(args.benchmark)}) — صورةٌ أو عرضٌ أوضح يرفعها.`);
   return `<h2>خلاصة حملتكم</h2>
@@ -425,6 +425,8 @@ export interface PartnerKitInput {
   liveBySlot: Record<string, number>;
   today?: string;
   nonce: string;
+  /** اسم الشركة صاحبة الرابط: يُملأ به حقل «الشركة» في النموذج (وتعدّله إن شاءت). */
+  company?: string;
   /** رمز الرابط ليكون هدفَ النموذج. */
   token?: string;
   /** نتيجة آخر إرسال لنموذج «حملة جديدة». */
@@ -469,7 +471,7 @@ export function partnerKitPage(input: PartnerKitInput): string {
 ${banner}
 <form class="k-form" method="post" action="/partners/${encodeURIComponent(input.token || "")}/lead" autocomplete="on">
   <div class="k-fields">
-    <label class="k-f"><span>${icon("building")}الشركة</span><input name="company" required minlength="2" maxlength="80" autocomplete="organization"></label>
+    <label class="k-f"><span>${icon("building")}الشركة</span><input name="company" required minlength="2" maxlength="80" autocomplete="organization" value="${esc(input.company || "")}"></label>
     <label class="k-f"><span>${icon("user")}الاسم</span><input name="name" required minlength="2" maxlength="60" autocomplete="name"></label>
     <label class="k-f"><span>${icon("phone")}الجوال</span><input name="phone" required type="tel" inputmode="tel" dir="ltr" maxlength="20" autocomplete="tel"></label>
     <label class="k-f"><span>${icon("mail")}البريد <small>(اختياري)</small></span><input name="email" type="email" dir="ltr" maxlength="120" autocomplete="email"></label>
@@ -522,8 +524,9 @@ export function measurementPage(nonce: string): string {
 <div class="card">${li([
   "<b>زيارةٌ واحدة في اليوم</b> لكل نوع صفحة (مثل «مساري» أو الجدول العام) من كل متصفح، لنعرف حجم من يستعمل البرنامج.",
   "هل هذه أول زيارةٍ لك أم عدتَ، وهل تتصفح من جوالٍ أم حاسوب، وفي أي ساعةٍ من اليوم.",
+  `<b>سقف التكرار:</b> لا يراه متصفحك أكثر من ${countOf(AD_DAILY_REPEAT_CAP, AR.visit)} في اليوم للحملة الواحدة، ثم تُقدَّم غيرها.`,
   "<b>ظهور الإعلان:</b> يُحتسب بعد أن يبقى نصفه ظاهراً على شاشتك ثانيةً كاملة. و<b>نقرته</b> عند فتحه.",
-  "عددُ الطلبة الذين يريدون كل مقرر، <b>مجمّعاً</b>، ولا يظهر مقررٌ يطلبه أقل من عشرة طلابٍ مختلفين.",
+  `عددُ الطلبة الذين يريدون كل مقرر، <b>مجمّعاً</b>، ولا يظهر مقررٌ لا يطلبه ${countOf(DEMAND_MIN_STUDENTS, AR.student)} على الأقل من أشخاصٍ مختلفين.`,
 ])}</div>
 <h2>وما الذي لا نقيسه؟</h2>
 <div class="card">${li([

@@ -13,11 +13,11 @@
  * الحملاتُ تُقرأ من ذاكرةٍ مؤقتة عمرها ١٥ ثانية: إيقافُ حملةٍ يسري خلال ثوانٍ.
  */
 import { AUDIENCE_BASELINE } from "../utils/audienceBaseline";
-import { randomBytes, randomUUID } from "crypto";
+import { randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import express from "express";
 import type { Express, NextFunction, Request, Response } from "express";
 import { Repository } from "../db/repository";
-import type { AdCampaign, AdCourse, AdCreative, AdStatsDay, AdTerm, AudienceDay, InstructorRequest, StudentNeed, StudentProfile } from "../types";
+import type { AdCampaign, AdCourse, AdCreative, AdStatsDay, AdTerm, AudienceDay, InstructorRequest, PartnerLink, StudentNeed, StudentProfile } from "../types";
 import { PUBLIC_LINK_PAGE_PREFIXES, isDemoLinkToken } from "../utils/demoLinkToken";
 import {
   trackedLink, AD_CATEGORIES, AD_MAX_BYTES, AD_RULES, AD_SLOTS, MAX_ROTATE_CREATIVES, campaignProblems, cleanColleges, cleanCoupon, cleanLink, cleanSeasons, eligibleNow,
@@ -25,11 +25,12 @@ import {
   looksAutomated, nextFreeDay, phaseOf, placementProblems, readImageInfo, rotationOrder, slotById, totalsOf, dailySeries,
   trialProblems, weeklyCompare, slotBenchmarkCtr, TRIAL_DAYS, normCompany, activeSlots,
 } from "../utils/adsEngine";
-import { buildAudienceStats, pickDashboardTerm } from "../utils/audienceStats";
+import { STUDENT_PULSES, buildAudienceStats, pickDashboardTerm } from "../utils/audienceStats";
 import { reportCalendar } from "../utils/adCalendar";
 import { LEAD_ERRORS, cleanLead } from "../utils/adLeads";
 import { abVerdict, conversionOf } from "../utils/adInsights";
 import { partnerBadgeSvg } from "../utils/adBadge";
+import { cleanExpiryDays, partnerLinkState } from "../utils/partnerLinks";
 import { cleanEmail, leadMail, leadNotifyTo, mailConfig, renewalMail, sendMail, weekKey, weeklyMail } from "./adMailer";
 import { SEASONS, activeSeasons, seasonCalendar, seasonsText } from "../utils/adSeasons";
 import { AR, countOf } from "../utils/arabicCount";
@@ -127,10 +128,13 @@ export function recordPulse(input: { kind: string; returning: boolean; mobile: b
   if (input.kind === "install") delta.installed += 1;
   else {
     delta.visits[input.kind] = (delta.visits[input.kind] || 0) + 1;
-    if (input.returning) delta.returning += 1; else delta.fresh += 1;
-    if (input.mobile) delta.mobile += 1; else delta.desktop += 1;
-    const hour = String(kuwaitHour(at));
-    delta.hours[hour] = (delta.hours[hour] || 0) + 1;
+    /* العائدون والجوال وساعات الذروة للطلبة وحدهم: بطاقة الأستاذ ومستخدمو النظام لا يلوّثون أرقام الجمهور. */
+    if (STUDENT_PULSES.includes(input.kind)) {
+      if (input.returning) delta.returning += 1; else delta.fresh += 1;
+      if (input.mobile) delta.mobile += 1; else delta.desktop += 1;
+      const hour = String(kuwaitHour(at));
+      delta.hours[hour] = (delta.hours[hour] || 0) + 1;
+    }
   }
   pendingAudience.set(day, delta);
   return true;
@@ -338,6 +342,11 @@ const HEAVY_TTL_MS = 5 * 60_000;
 type Heavy = { at: number; terms: AdTerm[]; courses: AdCourse[]; profiles: StudentProfile[]; needsByTerm: Map<number, StudentNeed[]>; requests: Map<number, { at: number; rows: InstructorRequest[] }> };
 let heavy: Heavy | null = null;
 let adStatsCache: { at: number; rows: AdStatsDay[] } | null = null;
+/** إحصاءاتُ كل الحملات مخزَّنةً مؤقتاً: اللوحة تقبل دقيقة، والمتوسط المرجعي في تقرير الشركة يقبل خمساً فلا تُقرأ السجلات كلها عند كل فتح. */
+async function cachedAdStats(maxAgeMs: number): Promise<AdStatsDay[]> {
+  if (!adStatsCache || Date.now() - adStatsCache.at > maxAgeMs) adStatsCache = { at: Date.now(), rows: await Repository.listAdStats() };
+  return adStatsCache.rows;
+}
 
 async function heavyInputs(): Promise<Heavy> {
   if (heavy && Date.now() - heavy.at < HEAVY_TTL_MS) return heavy;
@@ -352,7 +361,7 @@ async function heavyInputs(): Promise<Heavy> {
 async function audienceInputs(requestedTermId: number) {
   const h = await heavyInputs();
   const [days, camps] = await Promise.all([Repository.listAudienceDays(Math.max(120, Math.ceil((Date.now() - Date.parse(`${AUDIENCE_BASELINE.asOf}T00:00:00Z`)) / 86_400_000) + 7)), campaigns()]);
-  if (!adStatsCache || Date.now() - adStatsCache.at > 60_000) adStatsCache = { at: Date.now(), rows: await Repository.listAdStats() };
+  const adStatsRows = await cachedAdStats(60_000);
   const recent = [...h.terms].sort((a, b) => Number(b.AdTermId) - Number(a.AdTermId)).slice(0, 12);
   const current = pickDashboardTerm(recent, h.terms, requestedTermId);
   const currentTermId = current ? Number(current.AdTermId) : 0;
@@ -379,9 +388,28 @@ async function audienceInputs(requestedTermId: number) {
   }
   return {
     termChoices: recent.map(term => ({ id: Number(term.AdTermId), name: term.AdTermName })),
-    input: { now: new Date(), terms: h.terms, currentTermId, needsByTerm: h.needsByTerm, instructorRequests: requests, openRequests, profiles: h.profiles, courses: h.courses, days, campaigns: camps, adStats: adStatsCache.rows },
+    input: { now: new Date(), terms: h.terms, currentTermId, needsByTerm: h.needsByTerm, instructorRequests: requests, openRequests, profiles: h.profiles, courses: h.courses, days, campaigns: camps, adStats: adStatsRows },
   };
 }
+
+/* ─────────────────────────── روابط الشراكة الخاصة ─────────────────────────── */
+
+/** الرابطُ الفاعل لهذا الرمز، أو undefined (غير موجود أو موقوف أو منتهٍ). المقارنةُ بزمنٍ ثابت فلا يُستدلّ على الرمز من سرعة الرد. */
+async function partnerLinkByToken(token: string): Promise<PartnerLink | undefined> {
+  if (token.length < 20 || token.length > 120) return undefined;
+  const given = Buffer.from(token);
+  const link = (await Repository.listPartnerLinks()).find(l => {
+    const real = Buffer.from(l.token);
+    return real.length === given.length && timingSafeEqual(real, given);
+  });
+  return link && partnerLinkState(link) === "active" ? link : undefined;
+}
+
+/** ما تراه الإدارة عن رابط: بلا حقولٍ داخلية، مع الحالة محسوبةً ورابطٍ جاهزٍ للنسخ. */
+const partnerLinkView = (l: PartnerLink) => ({
+  id: l.id, company: l.company, url: `/partners/${l.token}`, createdAt: l.createdAt, expiresAt: l.expiresAt || "", state: partnerLinkState(l),
+  opens: l.opens || 0, firstOpenAt: l.firstOpenAt || "", lastOpenAt: l.lastOpenAt || "", openDays: l.openDays || {},
+});
 
 /* ─────────────────────────── التسجيل ─────────────────────────── */
 
@@ -564,7 +592,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     const today = kuwaitDay();
     noindex(res);
     const nonce = deps.publicPageNonce(res);
-    const allStats = await Repository.listAdStats();
+    const allStats = await cachedAdStats(5 * 60_000);
     res.send(campaignReportPage({
       campaign, creatives: heads, stats, nonce, today, origin: `${req.protocol}://${req.get("host")}`, redemptionResult: req.query.red === "ok" || req.query.red === "bad" ? String(req.query.red) : "",
       weekly: weeklyCompare(stats, today), benchmarkCtr: slotBenchmarkCtr(campaign.id, campaign.slot, all, allStats),
@@ -575,8 +603,8 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
   /* «حملة جديدة» من ملف الشراكة: نموذجٌ عادي بلا سكربت، الرمزُ هو الهوية. يُخزَّن للإدارة وحدها وتُنبَّه به. */
   app.post("/partners/:token/lead", express.urlencoded({ extended: false, limit: "4kb" }), async (req, res) => {
     const token = String(req.params.token || "");
-    const expected = await Repository.getPartnerKitToken();
-    if (!expected || token.length < 20 || token !== expected) { missing(res); return; }
+    const link = await partnerLinkByToken(token);
+    if (!link) { missing(res); return; }
     noindex(res);
     const back = `/partners/${encodeURIComponent(token)}`;
     /* حقلٌ مخفي يملؤه الروبوت وحده: نُظهر له النجاح ولا نخزّن شيئاً. */
@@ -589,7 +617,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     /* الضغط المكرّر (الشركة والجوّال نفسهما خلال يوم) لا يُنشئ طلباً ثانياً ولا إشعاراً ثانياً. */
     const dup = existing.find(l => l.status === "new" && l.phone === lead.phone && l.company === lead.company && Date.now() - Date.parse(l.createdAt) < 86_400_000);
     if (!dup && existing.filter(l => l.status === "new").length < 200) {
-      await Repository.createAdLead({ company: lead.company, name: lead.name, phone: lead.phone, ...(lead.email ? { email: lead.email } : {}), slots: lead.slots, ...(lead.season ? { season: lead.season } : {}), ...(lead.note ? { note: lead.note } : {}) });
+      await Repository.createAdLead({ partnerLinkId: link.id, partnerCompany: link.company, company: lead.company, name: lead.name, phone: lead.phone, ...(lead.email ? { email: lead.email } : {}), slots: lead.slots, ...(lead.season ? { season: lead.season } : {}), ...(lead.note ? { note: lead.note } : {}) });
       /* بريدٌ للمالك إن ضُبطت إعداداته؛ لا ننتظره ولا يفشل الطلب بفشله. */
       const cfg = mailConfig(), to = leadNotifyTo();
       if (cfg && to) {
@@ -602,8 +630,13 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
 
   app.get("/partners/:token", async (req, res) => {
     const token = String(req.params.token || "");
-    const expected = await Repository.getPartnerKitToken();
-    if (!expected || token.length < 20 || token !== expected) { missing(res); return; }
+    const link = await partnerLinkByToken(token);
+    if (!link) { missing(res); return; }
+    /* الفتحة تُسجَّل للشركة: بلا روبوتات، وبلا فتحٍ من الإدارة نفسها (preview)، وبلا تكرارٍ خلال نصف دقيقة من المتصفح نفسه. */
+    const ip = String(req.ip || "?");
+    if (!looksAutomated(req.headers["user-agent"]) && req.query.preview !== "1" && underLimit(`open|${link.id}|${ip}|${String(req.headers["user-agent"] || "").slice(0, 120)}`, 1, 30_000)) {
+      void Repository.recordPartnerOpen(link.id, kuwaitDay(), new Date().toISOString()).catch(error => console.error("[ads] partner open failed:", error));
+    }
     await flushAdsCounters();
     const { input } = await audienceInputs(0);
     const today = kuwaitDay();
@@ -611,7 +644,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     for (const c of input.campaigns) if (isLive(c, today)) liveBySlot[c.slot] = (liveBySlot[c.slot] || 0) + 1;
     noindex(res);
     const nonce = deps.publicPageNonce(res);
-    res.send(partnerKitPage({ stats: buildAudienceStats(input), liveBySlot, nonce, today, leadResult: ({ ok: "ok", bad: "bad", rate: "rate" } as Record<string, "ok" | "bad" | "rate">)[String(req.query.lead || "")], leadError: req.query.lead === "bad" ? (LEAD_ERRORS as readonly string[]).find(e => e === String(req.query.why || "")) || "" : "", token, calendar: seasonCalendar(input.terms as any), activeSeasons: activeSeasons(input.terms as any) }));
+    res.send(partnerKitPage({ stats: buildAudienceStats(input), liveBySlot, nonce, today, leadResult: ({ ok: "ok", bad: "bad", rate: "rate" } as Record<string, "ok" | "bad" | "rate">)[String(req.query.lead || "")], company: link.company, leadError: req.query.lead === "bad" ? (LEAD_ERRORS as readonly string[]).find(e => e === String(req.query.why || "")) || "" : "", token, calendar: seasonCalendar(input.terms as any), activeSeasons: activeSeasons(input.terms as any) }));
   });
 
   /* ── الإدارة ── */
@@ -629,7 +662,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
   app.get("/api/admin/ads", ...admin, async (_req: Request, res: Response) => {
     await flushAdsCounters();
     dropCampaignCache();
-    const [all, stats, heads, kit, terms, colleges] = await Promise.all([campaigns(), Repository.listAdStats(), Repository.listAdCreativeHeads(), Repository.getPartnerKitToken(), Repository.getTerms(), Repository.getColleges()]);
+    const [all, stats, heads, links, terms, colleges] = await Promise.all([campaigns(), Repository.listAdStats(), Repository.listAdCreativeHeads(), Repository.listPartnerLinks(), Repository.getTerms(), Repository.getColleges()]);
     const today = kuwaitDay();
     const rows = await Promise.all(all.map(c => campaignView(c, stats, heads, all, today)));
     rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -639,7 +672,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
       nextFree: nextFreeDay(slot.id, all, today),
     }));
     res.json({
-      today, mailEnabled: Boolean(mailConfig()), slots, categories: AD_CATEGORIES, rules: AD_RULES, maxBytes: AD_MAX_BYTES, maxCreatives: MAX_ROTATE_CREATIVES, campaigns: rows, leads: await Repository.listAdLeads(), partnerKit: kit ? `/partners/${kit}` : "",
+      today, mailEnabled: Boolean(mailConfig()), slots, categories: AD_CATEGORIES, rules: AD_RULES, maxBytes: AD_MAX_BYTES, maxCreatives: MAX_ROTATE_CREATIVES, campaigns: rows, leads: await Repository.listAdLeads(), partnerLinks: links.map(partnerLinkView),
       seasons: SEASONS, activeSeasons: activeSeasons(terms), calendar: seasonCalendar(terms),
       /* أسماء الكليات للأدمن وحده هنا (يختار منها استهداف الحملة)؛ لا تصل إلى أي صفحةٍ عامة. */
       colleges: colleges.map(c => ({ id: Number(c.AdCollegeId), name: c.AdCollegeName })),
@@ -809,10 +842,20 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     res.json({ ok: true });
   });
 
-  app.post("/api/admin/ads/partner-kit", ...admin, async (_req: Request, res: Response) => {
-    const token = newToken();
-    await Repository.setPartnerKitToken(token);
-    audit(res, "partner-kit", "إنشاء أو تجديد رابط ملف الشراكة (الرابط القديم لم يعد يعمل)");
-    res.json({ ok: true, url: `/partners/${token}` });
+  /* رابطُ ملف شراكةٍ باسم شركة: رمزٌ عشوائي، ومدةُ صلاحيةٍ اختيارية، ويُسجَّل فتحه. */
+  app.post("/api/admin/ads/partner-links", ...admin, async (req: Request, res: Response) => {
+    const company = str(req.body?.company, 80);
+    if (company.length < 2) { fail(res, 400, "اكتب اسم الشركة."); return; }
+    const days = cleanExpiryDays(req.body?.days);
+    const link = await Repository.createPartnerLink({ company, token: newToken(), ...(days ? { expiresAt: new Date(Date.now() + days * 86_400_000).toISOString() } : {}) });
+    audit(res, link.id, `إنشاء رابط ملف شراكةٍ لشركة «${company}»${days ? ` لمدة ${days} يوماً` : ""}`);
+    res.json({ ok: true, link: partnerLinkView(link) });
+  });
+
+  app.post("/api/admin/ads/partner-links/:id/revoke", ...admin, async (req: Request, res: Response) => {
+    const ok = await Repository.revokePartnerLink(String(req.params.id || ""));
+    if (!ok) { fail(res, 404, "الرابط غير موجود."); return; }
+    audit(res, String(req.params.id), "إيقاف رابط ملف شراكة (لا يعمل بعد الآن)");
+    res.json({ ok: true });
   });
 }

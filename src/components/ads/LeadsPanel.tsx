@@ -27,10 +27,11 @@ const LeadCard: React.FC<{ lead: Lead; data: Payload; busy: boolean; onContacted
           <span className="ad-lead-who">{lead.name}</span>
           <time dateTime={lead.createdAt}>{when(lead.createdAt)}</time>
         </header>
-        {slots.length || season ? (
+        {slots.length || season || lead.partnerCompany ? (
           <div className="ad-lead-tags">
             {slots.map(l => <span key={l}>{l}</span>)}
             {season ? <span className="when">{season}</span> : null}
+            {lead.partnerCompany ? <span className="when">من رابط «{lead.partnerCompany}»</span> : null}
           </div>
         ) : null}
         {lead.note ? <p className="ad-lead-note">{lead.note}</p> : null}
