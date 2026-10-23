@@ -303,6 +303,7 @@ async function main() {
   check(dem.demand.top[2]?.name === "شعبة صغيرة" && dem.demand.top[2].students === 2 && dem.demand.minStudents === 2, "A12 شعبةٌ فيها طالبان تظهر (حد الخصوصية ٢)", dem.demand);
   check(!dem.demand.top.some(d => d.name === "مقرر نادر") && dem.demand.hidden === 1, "A12 مقررٌ بطالبٍ واحد لا يظهر ويُعدّ مخفياً (حد الخصوصية ٢)", dem.demand);
   check(!JSON.stringify(dem).includes("fp-"), "A12 لا بصمةَ طالبٍ في المخرجات");
+  check(dem.demand.top[0]?.code === "cs101" && dem.demand.top.every(d => typeof d.code === "string" && d.code === d.code.toLowerCase()), "الفرص: كل مقررٍ في اتجاهات الطلب برمزه (حروف صغيرة) لاستهداف الحملات", dem.demand.top);
 
   /* ── قمع مساري: ثلاث نسبٍ من ملفاتٍ حقيقية، بلا هوية ── */
   {
@@ -853,6 +854,15 @@ async function main() {
     check(ucReport.text.includes("كوبونات الطلبة الموثَّقة") && ucReport.text.includes("<b>1</b>") && ucReport.text.includes(`/verify/${vid}`), "التقرير: التحويل الموثَّق وصفحة تحقق المتجر");
     const ucAdmin = (await call("GET", "/api/admin/ads")).json.campaigns.find((x: any) => x.id === "uc-live");
     check(ucAdmin.verifiedCoupons === 1 && ucAdmin.verifyUrl === `/verify/${vid}`, "الإدارة: عدد الكوبونات الموثَّقة ورابط التحقق", ucAdmin);
+    /* سوق الفرص عبر الخادم: نقطة الطلب للإدارة، وحفظ الحملة بالاستهداف. */
+    const demandRes = await call("GET", "/api/admin/ads/demand");
+    check(demandRes.status === 200 && demandRes.json.minStudents === 2 && Array.isArray(demandRes.json.top), "الفرص: مقررات الطلب متاحة للإدارة بحدّ الخصوصية ٢", demandRes.json);
+    const tgBody = { company: "مركز تدريب", category: "تدريب وتوظيف", slot: "me", startDay: today, endDay: dayPlus(10), linkUrl: "https://training.example.com", targetCodes: ["CS101", " cs101 ", "Eng1"], nearGraduation: true };
+    const tgSave = await call("POST", "/api/admin/ads/campaigns", tgBody);
+    const tgRow = (await call("GET", "/api/admin/ads")).json.campaigns.find((x: any) => x.id === tgSave.json.id);
+    check(tgSave.status === 200 && JSON.stringify(tgRow.targetCodes) === JSON.stringify(["cs101", "eng1"]) && tgRow.nearGraduation === true, "الفرص: الحملة تُحفظ باستهدافها منظَّفاً", tgRow);
+    const tgBad = await call("POST", "/api/admin/ads/campaigns", { ...tgBody, company: "مركز آخر", slot: "schedule" });
+    check(tgBad.status === 400 && String(tgBad.json.error).includes("الاستهداف"), "الفرص: الجدول العام يرفض الحملة الموجَّهة", tgBad.json);
     /* ── دخول الطلبة للطلبة فقط، ومستخدمو النظام عدّادٌ مستقل ── */
     const dayRow = async () => (await Repository.listAudienceDays(5)).find(d => d.day === today)!;
     const sumRates = (d: any) => d.returning + d.fresh + d.mobile + d.desktop + Object.values(d.hours as Record<string, number>).reduce((a, b) => a + b, 0);
@@ -1037,6 +1047,25 @@ async function main() {
     const m2 = tkMoments([mk(1, 480, 560, "B1"), mk(1, 600, 680, "B2"), mk(1, 700, 760)]);
     check(m2.near === null && m2.after.at === 760, "اللحظات: مبنيان مختلفان أو بلا مبنى = لا لحظة قرب", m2);
     check(tkMoments([{ timesVisible: false, slots: [{ day: 1, start: 480, end: 560, b: "B1" }] }]).after === null, "اللحظات: مواعيدٌ غير ظاهرة = لا لحظة");
+    /* سوق الفرص: استهدافٌ بالطلب وبقرب التخرج يُفصل في المتصفح، ولا يُقبل إلا في صفحةٍ تعرف الطالب. */
+    const E4 = await import("../src/utils/adsEngine");
+    check(JSON.stringify(E4.cleanTargetCodes([" CS101 ", "cs101", "Eng1", "", null, ...Array.from({ length: 12 }, (_, k) => `x${k}`)])) === JSON.stringify(["cs101", "eng1", "x0", "x1", "x2", "x3", "x4", "x5"]), "الفرص: رموز المقررات تُنظَّف وتُفرَد وبحدٍّ أقصى ٨");
+    const baseCand = { company: "م", category: "تدريب وتوظيف", startDay: "2026-11-01", endDay: "2026-11-10" };
+    check(E4.campaignProblems({ ...baseCand, slot: "me", targetCodes: ["cs101"] }).length === 0 && E4.campaignProblems({ ...baseCand, slot: "nearby", nearGraduation: true }).length === 0, "الفرص: الاستهداف مقبولٌ في «مساري» ولحظات «تذكرتي»");
+    check(E4.campaignProblems({ ...baseCand, slot: "schedule", targetCodes: ["cs101"] }).some(p => p.includes("الاستهداف")) && E4.campaignProblems({ ...baseCand, slot: "dashboard", nearGraduation: true }).some(p => p.includes("الاستهداف")), "الفرص: مرفوضٌ في الجدول العام ولوحة الكادر (لا يعرفان الطالب)");
+    check((E4.AD_CATEGORIES as readonly string[]).includes("تدريب وتوظيف") && E4.NEAR_GRADUATION_UNITS === 30, "الفرص: فئة «تدريب وتوظيف» وحدّ ٣٠ وحدة");
+    const adSrc = (await import("../src/server/adClientScript")).AD_CLIENT_SCRIPT;
+    const matchSrc = /function targetMatch\(tg,opt\)\{[\s\S]*?\n\}/.exec(adSrc)![0];
+    const targetMatch = new Function(`${matchSrc}; return targetMatch;`)() as (tg: any, opt: any) => boolean;
+    const tgBoth = { c: ["cs101", "eng1"], g: 30 };
+    check(targetMatch(tgBoth, { codes: ["eng1"], remaining: 90 }) && targetMatch(tgBoth, { codes: [], remaining: 24 }) && !targetMatch(tgBoth, { codes: ["math"], remaining: 90 }), "الفرص: يطابق بمقرر أو بقرب التخرج، وإلا لا");
+    check(!targetMatch(tgBoth, undefined) && !targetMatch(tgBoth, { codes: [], remaining: -1 }) && targetMatch({ c: ["CS101"], g: 0 }, { codes: ["cs101"], remaining: -1 }) && !targetMatch({ c: [], g: 30 }, { codes: ["cs101"], remaining: 31 }) && targetMatch({ c: [], g: 30 }, { codes: [], remaining: 30 }), "الفرص: صفحةٌ لا تعرف الطالب لا تعرض موجَّهاً، والحدّ ٣٠ شاملٌ و٣١ خارج");
+    check(adSrc.includes("it.tg||targetMatch(it.tg,opt)") && adSrc.includes("if(!items.length)items=pool;") && !adSrc.includes("items=d.items||[]"), "الفرص: احتياط السقف لا يُظهر موجَّهاً لغير المطابق");
+    const homeSrc2 = fs.readFileSync("src/server/studentHomePage.ts", "utf8");
+    check(homeSrc2.includes("function adxCtx") && homeSrc2.includes("o.codes=p.wishCodes||[]") && (homeSrc2.match(/adxCtx\(/g) || []).length >= 5, "الفرص: «مساري» و«تذكرتي» تمرّران رموز الرغبات والوحدات المتبقية إلى الإعلان وحده");
+    const doorSrc = fs.readFileSync("src/server/studentDoorRoutes.ts", "utf8");
+    check(doorSrc.includes("wishCodes = [...new Set((profile.wishes?.courseIds") && doorSrc.includes("progress, wishes: profile.wishes || null, wishCodes,"), "الفرص: ملف الطالب يحمل رموز رغباته لمتصفحه");
+    check((await import("../src/server/adsPages")).measurementPage("N").includes("يُحسم ذلك داخل متصفحك") && kitPage.includes("وجّه لمن يهمّه"), "الفرص: السياسة العامة وملف الشراكة يشرحان الاستهداف");
   }
 
   console.log(`\n${failed ? "\x1b[31m" : "\x1b[32m"}${passed} نجح، ${failed} فشل\x1b[0m`);

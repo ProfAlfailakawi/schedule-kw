@@ -1998,6 +1998,10 @@ export interface AdCampaign {
   reportToken: string;
   /** مواسم العرض (utils/adSeasons)؛ فارغ = كل المواسم. */
   seasons?: string[];
+  /** رموز مقرراتٍ (حروف صغيرة): لا يراها إلا من طلبها، والفصل يجري في متصفح الطالب فلا يعرف الخادم ما طلب. */
+  targetCodes?: string[];
+  /** لا يراها إلا من بقي عليه `NEAR_GRADUATION_UNITS` وحدةً أو أقل. مع `targetCodes` تكفي إحداهما. */
+  nearGraduation?: boolean;
   /** كلياتٌ مستهدفة: تظهر الحملة في صفحاتٍ تعرف كلية الطالب (الجدول العام وحالة الطلب) لا في «مساري»؛ فارغ = كل الكليات. */
   colleges?: number[];
   note?: string;

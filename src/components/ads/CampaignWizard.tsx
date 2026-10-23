@@ -3,7 +3,7 @@
  *   ١ الشركة والموقع والتواريخ   ٢ الجمهور (مواسم وكليات)   ٣ الصورة مع معاينة   ٤ المراجعة والاعتماد
  * تُحفظ الحملةُ مسودةً عند الانتقال من الثانية إلى الثالثة (الصورة تحتاج رقم حملة)، وللإدارة أن تغلق في أي وقتٍ فتبقى المسودة.
  */
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CalendarDays, Check, ChevronLeft, ChevronRight, ImagePlus, Link2, MapPin, Upload, Globe2 } from "lucide-react";
 import { CatalogFormDrawer } from "../ui";
 import { AR, countOf } from "../../utils/arabicCount";
@@ -12,17 +12,17 @@ import { addDay, dateShort, fmt, type Campaign, type Payload } from "./shared";
 
 export interface WizardForm {
   id: string; company: string; category: string; slot: string; startDay: string; endDay: string;
-  linkUrl: string; coupon: string; note: string; trial: boolean; seasons: string[]; colleges: number[]; contactEmail: string; uniqueCoupons: boolean;
+  linkUrl: string; coupon: string; note: string; trial: boolean; seasons: string[]; colleges: number[]; contactEmail: string; uniqueCoupons: boolean; targetCodes: string[]; nearGraduation: boolean;
 }
 const STEPS = ["الشركة والموقع", "الجمهور", "الصورة", "المراجعة"];
 
 export const blankForm = (data: Payload): WizardForm => ({
   id: "", company: "", category: data.categories[0] || "", slot: data.slots.find(s => s.id === "me")?.id || data.slots[0]?.id || "", startDay: data.today, endDay: addDay(data.today, 29),
-  linkUrl: "https://", coupon: "", note: "", trial: false, seasons: [], colleges: [], contactEmail: "", uniqueCoupons: false,
+  linkUrl: "https://", coupon: "", note: "", trial: false, seasons: [], colleges: [], contactEmail: "", uniqueCoupons: false, targetCodes: [], nearGraduation: false,
 });
 export const formOf = (c: Campaign): WizardForm => ({
   id: c.id, company: c.company, category: c.category, slot: c.slot, startDay: c.startDay, endDay: c.endDay, linkUrl: c.linkUrl,
-  coupon: c.coupon || "", note: c.note || "", trial: Boolean(c.trial), seasons: c.seasons || [], colleges: c.colleges || [], contactEmail: c.contactEmail || "", uniqueCoupons: Boolean(c.uniqueCoupons),
+  coupon: c.coupon || "", note: c.note || "", trial: Boolean(c.trial), seasons: c.seasons || [], colleges: c.colleges || [], contactEmail: c.contactEmail || "", uniqueCoupons: Boolean(c.uniqueCoupons), targetCodes: c.targetCodes || [], nearGraduation: Boolean(c.nearGraduation),
 });
 
 /** هاتفٌ مبسّط يعرض الصورة في موضعها: ليرى صاحبُ القرار كيف تبدو قبل الاعتماد. */
@@ -49,8 +49,16 @@ export default function CampaignWizard({ data, initial, startStep = 1, onClose, 
   const [showColleges, setShowColleges] = useState(initial.colleges.length > 0);
   const fileRef = useRef<HTMLInputElement>(null);
   const { api, upload, act, busy } = actions;
+  /* المقررات الأكثر طلباً (أعدادٌ مجمّعة بحدّ الخصوصية) لاستهداف «سوق الفرص»؛ تُجلب مرةً حين تُفتح الخطوة الثانية في موقعٍ يعرف الطالب. */
+  const [demand, setDemand] = useState<Array<{ code: string; name: string; students: number }> | null>(null);
 
   const slot = data.slots.find(s => s.id === form.slot);
+  useEffect(() => {
+    if (step !== 2 || !slot?.wholeUniversity || demand) return;
+    let live = true;
+    api<{ top: Array<{ code: string; name: string; students: number }> }>("/api/admin/ads/demand").then(r => { if (live) setDemand(r.top); }).catch(() => { if (live) setDemand([]); });
+    return () => { live = false; };
+  }, [step, slot?.wholeUniversity, demand, api]);
   const saved = data.campaigns.find(c => c.id === savedId);
   const slotLocked = Boolean(saved?.creatives.length);
   const set = <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => setForm(f => ({ ...f, [k]: v }));
@@ -227,6 +235,17 @@ export default function CampaignWizard({ data, initial, startStep = 1, onClose, 
               </>
             ) : null}
           </div>
+          {slot?.wholeUniversity ? (
+            <div className="ad-field"><span className="ad-lab">سوق الفرص: وجّه لمن يهمّه <small>(اختياري)</small></span>
+              <p className="ad-note">تُعرض الحملة لمن طلب هذه المقررات هذا الفصل أو لمن اقترب من التخرج. يُفصل ذلك في متصفح الطالب نفسه، فلا نعرف ما طلب.</p>
+              <div className="ad-chips ad-chips-wrap" role="group" aria-label="مقررات مطلوبة">
+                {(demand || []).map(d => <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" key={d.code} type="button" className={`ad-chip${form.targetCodes.includes(d.code) ? " on" : ""}`} aria-pressed={form.targetCodes.includes(d.code)} onClick={() => set("targetCodes", toggle(form.targetCodes, d.code).slice(0, 8))}>{d.name} <em>{fmt(d.students)}</em></button>)}
+              </div>
+              {demand && !demand.length ? <p className="ad-note">لا مقرر بلغ حدّ الخصوصية بعد؛ يظهر هنا ما يطلبه طالبان على الأقل.</p> : null}
+              <label className="ad-check"><input type="checkbox" checked={form.nearGraduation} onChange={e => set("nearGraduation", e.target.checked)} /> الطلبة الأقرب إلى التخرج (بقي عليهم ٣٠ وحدةً أو أقل)</label>
+              {form.targetCodes.length || form.nearGraduation ? <p className="ad-note">ستظهر لمن يطابق أيّاً من الشرطين. الحملات الموجَّهة تُحسب كاملةً على سعة الموقع.{demand && form.targetCodes.length ? ` طلب المقررات المختارة نحو ${fmt(demand.filter(d => form.targetCodes.includes(d.code)).reduce((n, d) => n + d.students, 0))} طالباً (حدٌّ أعلى؛ قد يتكرر الطالب).` : ""}</p> : null}
+            </div>
+          ) : null}
           <div className="ad-sumline"><b>ستظهر في:</b> {slot?.label || form.slot} · {seasonText} · {form.colleges.length ? countOf(form.colleges.length, AR.college) : slot?.wholeUniversity ? "كل الجامعة" : "كل الكليات"}</div>
         </div>
       ) : null}

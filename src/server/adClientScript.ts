@@ -100,6 +100,12 @@ function openUnique(it,holder,btn){
   holder.appendChild(el("p","adx-note","أرِ هذا الرمز للمتجر. يُستعمل مرةً واحدة."));
  }).catch(function(){btn.disabled=false});
 }
+function targetMatch(tg,opt){
+ if(!opt)return false;
+ var codes=opt.codes||[],i;
+ if(tg.c&&tg.c.length)for(i=0;i<tg.c.length;i++)if(codes.indexOf(String(tg.c[i]).toLowerCase())>=0)return true;
+ return !!(tg.g&&typeof opt.remaining==="number"&&opt.remaining>=0&&opt.remaining<=tg.g);
+}
 function el(tag,cls,text){var n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n}
 var queue=[],timer=0;
 function flush(beacon){
@@ -173,8 +179,10 @@ fetch("/_ads/serve?slot="+encodeURIComponent(slot)+(tok?"&t="+encodeURIComponent
 .then(function(r){return r.ok?r.json():null})
 .then(function(d){
  if(!d)return;
- var day2=day,items=(d.items||[]).filter(function(it){return (parseInt(get("adx:n:"+it.c+":"+day2)||"0",10)||0)<${AD_DAILY_REPEAT_CAP}});
- if(!items.length)items=d.items||[];
+ /* الإعلان الموجَّه (tg) يُفصل هنا من معطيات الصفحة نفسها: رموزُ ما طلبه الطالب وما بقي عليه من وحدات لا تغادر متصفحه. صفحةٌ لا تعرف شيئاً عنه لا تعرض موجَّهاً. */
+ var pool=(d.items||[]).filter(function(it){return !it.tg||targetMatch(it.tg,opt)});
+ var day2=day,items=pool.filter(function(it){return (parseInt(get("adx:n:"+it.c+":"+day2)||"0",10)||0)<${AD_DAILY_REPEAT_CAP}});
+ if(!items.length)items=pool;
  /* الراعي شريطٌ واحد للصفحة: محطة الاستراحة تقع في «تذكرتي» وفي الصفحة نفسها إعلانُ «مساري» بشريطه، فلا يتكرر الراعي (ولا يُحتسب ظهورُه مرتين). */
  var sponsor=(slot==="break"||slot==="afterclass"||slot==="nearby")?null:(d.sponsor||null);
  if(!items.length&&!sponsor)return;

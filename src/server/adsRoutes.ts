@@ -23,7 +23,7 @@ import {
   trackedLink, AD_CATEGORIES, AD_MAX_BYTES, AD_RULES, AD_SLOTS, MAX_ROTATE_CREATIVES, campaignProblems, cleanColleges, cleanCoupon, cleanLink, cleanSeasons, eligibleNow,
   creativeBreakdown, creativeProblem, daysBetween, daysLeft, endingSoon, expectedShare, isLive, kuwaitDay, kuwaitHour,
   looksAutomated, nextFreeDay, phaseOf, placementProblems, readImageInfo, rotationOrder, slotById, totalsOf, dailySeries,
-  trialProblems, weeklyCompare, slotBenchmarkCtr, TRIAL_DAYS, normCompany, activeSlots,
+  trialProblems, weeklyCompare, slotBenchmarkCtr, TRIAL_DAYS, normCompany, activeSlots, cleanTargetCodes, NEAR_GRADUATION_UNITS,
 } from "../utils/adsEngine";
 import { STUDENT_PULSES, buildAudienceStats, pickDashboardTerm } from "../utils/audienceStats";
 import { reportCalendar } from "../utils/adCalendar";
@@ -466,6 +466,8 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
       return {
         c: c.id, k: creativeId, img: `/_ads/img/${creativeId}`, href: `/_ads/c/${c.id}/${creativeId}`,
         alt: `إعلان — ${c.company}`, coupon: c.coupon || "", uc: c.uniqueCoupons ? 1 : 0, w: spec.width, h: spec.height,
+        /* الاستهداف يُفصل في متصفح الطالب: نرسل الشرط مع الإعلان، ولا يعرف الخادم ما طلبه الطالب. */
+        ...(c.targetCodes?.length || c.nearGraduation ? { tg: { c: c.targetCodes || [], g: c.nearGraduation ? NEAR_GRADUATION_UNITS : 0 } } : {}),
       };
     };
     const items = rotationOrder(live.filter(c => c.slot === slot.id).map(itemFor).filter(Boolean) as NonNullable<ReturnType<typeof itemFor>>[]);
@@ -749,6 +751,13 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     });
   });
 
+  /* المقررات الأكثر طلباً (بحدّ الخصوصية): يختار منها المعلنُ مقرراتِ استهدافه. أعدادٌ مجمّعة بلا هوية. */
+  app.get("/api/admin/ads/demand", ...admin, async (_req: Request, res: Response) => {
+    const { input } = await audienceInputs(0);
+    const demand = buildAudienceStats(input).demand;
+    res.json({ minStudents: demand.minStudents, top: demand.top });
+  });
+
   app.post("/api/admin/ads/leads/:id/contacted", ...admin, async (req: Request, res: Response) => {
     const ok = await Repository.markAdLeadContacted(String(req.params.id || ""), new Date().toISOString());
     if (!ok) { fail(res, 404, "الطلب غير موجود."); return; }
@@ -760,6 +769,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     ...(b && "contactEmail" in b ? { contactEmail: cleanEmail(b.contactEmail) ?? "\u0000bad" } : {}),
     company: str(b?.company, 80), category: str(b?.category, 40), slot: str(b?.slot, 20),
     startDay: str(b?.startDay, 10), endDay: str(b?.endDay, 10), coupon: cleanCoupon(b?.coupon), uniqueCoupons: Boolean(b?.uniqueCoupons),
+    targetCodes: cleanTargetCodes(b?.targetCodes), nearGraduation: Boolean(b?.nearGraduation),
     note: str(b?.note, 300), trial: Boolean(b?.trial),
     seasons: cleanSeasons(b?.seasons), colleges: cleanColleges(b?.colleges),
   });
