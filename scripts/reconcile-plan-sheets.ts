@@ -108,7 +108,8 @@ const write = async <T>(fn: () => Promise<T>): Promise<T | undefined> => { write
 for (const cid of collegeIds) {
   const collegeSections = sections.filter(row => Number(row.AdCollegeId) === cid);
   const coursesIn = (sid: number) => courses.filter(row => Number(row.AdSectionId) === sid);
-  const sectionsWithCode = (code: string) => collegeSections.filter(row => sectionDigits(row) === code);
+  /* رمزٌ فيه حرف («18-F» برنامج اللغة الفرنسية القديم) قسمٌ آخر وإن شاركت أرقامُه رمزَ قسم: لا يُعدّ منه. */
+  const sectionsWithCode = (code: string) => collegeSections.filter(row => sectionDigits(row) === code && !/[A-Za-z\u0621-\u064A]/.test(String(row.AdSectionCode)));
   /* مقررات «لغة إنجليزية» العامة (30) محفوظة برمزها الكامل في قسمٍ إنجليزي واحد: ذاك مالكها. */
   const englishHost = () => collegeSections.find(row => coursesIn(Number(row.AdSectionId)).some(course => academicDigits(course.CourseCode).startsWith("0130")))
     || sectionsWithCode("18").find(row => !/^قسم/.test(String(row.AdSectionName)));
