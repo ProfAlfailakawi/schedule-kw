@@ -4,7 +4,7 @@ import { normalizeArabicText } from "../utils/arabicText";
 import fs from "fs";
 import { chooseStudentCaseSecret, STUDENT_CASE_SECRET_CONFLICT_MESSAGE, type StudentCaseSecretChoice } from "../server/studentCaseSecret";
 import { AsyncLocalStorage } from "async_hooks";
-import { cachedReference, cachedSchedules, invalidateReference, invalidateSchedules, REFERENCE_KEYS } from "./referenceCache";
+import { cachedReference, cachedSchedules, invalidateReference, invalidateSchedules, INSTRUCTOR_IDS_PREFIX, REFERENCE_KEYS } from "./referenceCache";
 import path from "path";
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { getApps, initializeApp, cert } from "firebase-admin/app";
@@ -322,6 +322,63 @@ function scopedCachedReference<T>(key: string, loader: () => Promise<T>): Promis
 }
 function scopedCachedSchedules<T>(key: string, loader: () => Promise<T>): Promise<T> {
   return demoSandboxContext.getStore() ? loader() : cachedSchedules(key, loader);
+}
+
+/**
+ * ── الأسماء من السجلّ المحفوظ ───────────────────────────────────────────────
+ *
+ * Resolving the people behind a list of ids used to read one Firestore
+ * document per id, on every call and uncached — for a department's full
+ * history that is dozens to hundreds of round trips each time the board
+ * switched term or college. The whole register is already held in memory
+ * (getInstructors, invalidated on every instructor write), so the names come
+ * from there. Any id the register does not hold is still read by id, exactly
+ * as before, so the answer is unchanged.
+ */
+async function firestoreInstructorsByIds(ids: number[]): Promise<AdInstructor[]> {
+  if (!ids.length) return [];
+  const register = await Repository.getInstructors();
+  const byId = new Map(register.map(person => [Number(person.AdInstructorId), person]));
+  const found: AdInstructor[] = [];
+  const missing: number[] = [];
+  for (const id of ids) {
+    const person = byId.get(id);
+    if (person) found.push(person);
+    else missing.push(id);
+  }
+  if (missing.length) {
+    const docs = await Promise.all(missing.map(id => firestoreDb!.collection("instructors").doc(`instructor_${id}`).get()));
+    for (const doc of docs) if (doc.exists) found.push(doc.data() as AdInstructor);
+  }
+  return found.sort((a, b) => byArabic(a.AdInstructorName, b.AdInstructorName));
+}
+
+/**
+ * ── من درّس في القسم يوماً: الأرقام وحدها ──────────────────────────────────
+ *
+ * The department's all-time instructor list was built by reading every
+ * schedule row its courses ever had — a decade of full rows, hydrated — only
+ * to keep one field. This reads the same course universe and the same rows as
+ * getSchedulesByScope({ sectionId }) but asks Firestore for AdInstructorId
+ * alone, so far less travels and nothing is hydrated.
+ */
+async function firestoreDepartmentInstructorIdsAllTime(sectionId: number): Promise<number[]> {
+  const [sectionDoc, courseSnap] = await Promise.all([
+    firestoreDb!.collection("sections").doc(`section_${sectionId}`).get(),
+    firestoreDb!.collection("courses").where("AdSectionId", "==", sectionId).get(),
+  ]);
+  if (!sectionDoc.exists) return [];
+  const courseIds = [...new Set(courseSnap.docs.map(doc => Number((doc.data() as AdCourse).AdCourseId)).filter(Boolean))];
+  if (!courseIds.length) return [];
+  const snapshots = await Promise.all(
+    chunks(courseIds).map(batch => firestoreDb!.collection("schedules").where("AdCourseId", "in", batch).select("AdInstructorId").get())
+  );
+  const ids = new Set<number>();
+  for (const snap of snapshots) for (const doc of snap.docs) {
+    const id = Number(doc.get("AdInstructorId") || 0);
+    if (id) ids.add(id);
+  }
+  return [...ids];
 }
 
 let firestoreDb: Firestore | null = null;
@@ -3168,16 +3225,19 @@ export const Repository = {
    * the people teaching in one department.
    */
   getInstructorsByScheduleScope: async (filters: { collegeId?: number; sectionId?: number; termId?: number }): Promise<AdInstructor[]> => {
+    const sectionId = Number(filters.sectionId || 0);
+    const firestoreLive = Boolean(firestoreDb && !demoSandboxContext.getStore());
+    if (firestoreLive && sectionId && !Number(filters.collegeId || 0) && !Number(filters.termId || 0)) {
+      const allTimeIds = await scopedCachedSchedules(
+        `${INSTRUCTOR_IDS_PREFIX}${sectionId}`,
+        () => firestoreDepartmentInstructorIdsAllTime(sectionId),
+      );
+      return firestoreInstructorsByIds(allTimeIds);
+    }
     const rows = await Repository.getSchedulesByScope(filters);
     const ids = [...new Set(rows.map(row => Number(row.AdInstructorId)).filter(Boolean))];
     if (!ids.length) return [];
-    if (firestoreDb && !demoSandboxContext.getStore()) {
-      const docs = await Promise.all(ids.map(id => firestoreDb!.collection("instructors").doc(`instructor_${id}`).get()));
-      return docs
-        .filter(doc => doc.exists)
-        .map(doc => doc.data() as AdInstructor)
-        .sort((a, b) => byArabic(a.AdInstructorName, b.AdInstructorName));
-    }
+    if (firestoreLive) return firestoreInstructorsByIds(ids);
     const wanted = new Set(ids);
     return sortByName(db.instructors.filter(person => wanted.has(Number(person.AdInstructorId))), person => person.AdInstructorName);
   },
@@ -3701,6 +3761,26 @@ export const Repository = {
     const collegeId = Number(filters.collegeId || 0);
     const sectionId = Number(filters.sectionId || 0);
     const termId = Number(filters.termId || 0);
+    /**
+     * ── قسمٌ واحد، قراءةٌ واحدة ─────────────────────────────────────────────
+     *
+     * A department's rows are the same whether the caller also named its
+     * college: the college only decides whether the answer is those rows or
+     * none. Cached under two keys, the workspace read (college + department)
+     * and the instructor read (department alone) fetched the same term twice
+     * on every switch. The rows are now read once, under the department key,
+     * and the college is checked against the section document afterwards —
+     * read fresh, as before, so a section another instance just moved to a
+     * different college is never served under its old one.
+     */
+    if (sectionId && collegeId && firestoreDb && !demoSandboxContext.getStore()) {
+      const [rows, sectionDoc] = await Promise.all([
+        Repository.getSchedulesByScope({ sectionId, termId }),
+        firestoreDb.collection("sections").doc(`section_${sectionId}`).get(),
+      ]);
+      if (!sectionDoc.exists) return [];
+      return Number((sectionDoc.data() as AdSection).AdCollegeId) === collegeId ? rows : [];
+    }
     return scopedCachedSchedules(`${collegeId}:${sectionId}:${termId}`, async () => {
       if (firestoreDb && !demoSandboxContext.getStore()) {
         // The legacy SQL relationship is FSchedule -> AdCourse -> AdSection. Older

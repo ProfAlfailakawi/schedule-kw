@@ -33,6 +33,12 @@ export function setReferenceCacheEnabled(value: boolean) {
 }
 
 export function invalidateReference(...keys: string[]) {
+  /* The department instructor-id lists are derived from the course catalogue
+     (which course belongs to which department), so any catalogue write drops
+     them too, alongside the schedule writes that already clear them. */
+  for (const existing of [...scheduleStore.keys()]) {
+    if (existing.startsWith(INSTRUCTOR_IDS_PREFIX)) scheduleStore.delete(existing);
+  }
   if (!keys.length) { store.clear(); return; }
   for (const key of keys) {
     store.delete(key);
@@ -99,6 +105,14 @@ export async function cachedReference<T>(key: string, load: () => Promise<T>): P
    warm end to end while the beacon still delivers every real change within a
    heartbeat of it happening. */
 const SCHEDULE_TTL_MS = 300_000;
+/**
+ * Key prefix for the per-department "everyone who ever taught here" id lists.
+ * They live in the schedule store with the rows' own lifetime: every schedule
+ * write (and the beacon from other instances) clears them, and so does any
+ * catalogue write on this instance (invalidateReference). Catalogue writes are
+ * not broadcast, so the TTL stays the rows' five minutes, not longer.
+ */
+export const INSTRUCTOR_IDS_PREFIX = "instructor-ids:";
 const scheduleStore = new Map<string, { value: unknown; expiresAt: number; loading?: Promise<unknown> }>();
 
 /**
