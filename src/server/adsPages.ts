@@ -138,6 +138,8 @@ export interface CampaignReportInput {
   redemptionResult?: string;
   /** كوبونات فريدة: كم استُعمل منها (موثَّقاً من المتجر)، وأيّ يومٍ، ورابط صفحة التحقق للمتجر. */
   unique?: { verified: number; verifyUrl: string };
+  /** أسماء المقررات التي ترعاها الحملة (موقع «راعي مقرر»). */
+  sponsoredCourses?: string[];
 }
 
 const arrow = (v: number | null): string => (v === null ? "—" : v > 0 ? `▲ ${pct(v)}` : v < 0 ? `▼ ${pct(Math.abs(v))}` : "ثابت");
@@ -258,6 +260,7 @@ ${msg}
     ${slot?.wholeUniversity && !c.colleges?.length ? `<span class="chip">يصل كل طلبة الجامعة</span>` : ""}
     <span class="chip">من ${esc(dateAr(c.startDay))} إلى ${esc(dateAr(c.endDay))}</span>
     ${phaseNote ? `<span class="chip">${esc(phaseNote)}</span>` : ""}
+    ${(input.sponsoredCourses || []).map(n => `<span class="chip">راعي مقرر: ${esc(n)}</span>`).join("")}
   </div>
 </section>
 <div class="grid">
@@ -350,6 +353,8 @@ const KIT_CSS = `
 .k-cal{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
 .k-cal div{flex:0 0 auto;min-width:150px;scroll-snap-align:start;border-radius:16px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-top:5px solid var(--c);display:grid;gap:2px}
 .k-cal div.now{background:var(--soft);box-shadow:0 0 0 2px var(--accent) inset}
+.k-for{margin:10px 0 0;color:rgba(255,255,255,.92);font-size:14px;position:relative}
+.k-cal div.mine{box-shadow:0 0 0 2px var(--accent2,var(--accent)) inset}
 .k-cal b{font-size:15px}.k-cal small{color:var(--muted);font-size:12px}
 .k-cal .live{color:var(--accent);font-weight:800;font-size:12px}
 .k-calc{display:flex;flex-wrap:wrap;gap:12px;align-items:end}.k-calc .k-f{flex:1 1 150px}.k-calc select{inline-size:100%;min-block-size:42px;border-radius:12px;border:1px solid var(--line);padding:0 10px;font:inherit;background:var(--surface);color:var(--ink)}
@@ -431,6 +436,8 @@ function calculatorHtml(input: PartnerKitInput): string {
   const action = `/partners/${encodeURIComponent(input.token || "")}#calc`;
   const slotsList = activeSlots().filter(s => s.id !== "sponsor");
   const weeks = c?.weeks || 2;
+  /* أول اختيار للموسم من مواسم الشركة نفسها إن حدّدها المالك. */
+  const season = c ? c.season : (input.mySeasons || [])[0] || "";
   let result = "";
   if (c?.forecast) {
     const f = c.forecast;
@@ -445,7 +452,7 @@ function calculatorHtml(input: PartnerKitInput): string {
   return `<h2 class="k-h2" id="calc">${icon("chart")}ماذا ستحصل؟</h2>
 <form class="card k-calc" method="get" action="${action}">
   <label class="k-f"><span>${icon("globe")}الموقع</span><select name="slot">${slotsList.map(s => `<option value="${esc(s.id)}"${c?.slot === s.id ? " selected" : ""}>${esc(s.label)}</option>`).join("")}</select></label>
-  <label class="k-f"><span>${icon("calendar")}الموسم</span><select name="season"><option value="">أي وقت</option>${SEASONS.map(se => `<option value="${esc(se.id)}"${c?.season === se.id ? " selected" : ""}>${esc(se.label)}</option>`).join("")}</select></label>
+  <label class="k-f"><span>${icon("calendar")}الموسم</span><select name="season"><option value="">أي وقت</option>${SEASONS.map(se => `<option value="${esc(se.id)}"${season === se.id ? " selected" : ""}>${esc(se.label)}</option>`).join("")}</select></label>
   <label class="k-f"><span>${icon("clock")}المدة</span><select name="weeks">${FORECAST_WEEKS.map(w => `<option value="${w}"${weeks === w ? " selected" : ""}>${esc(countOf(w, AR.week))}</option>`).join("")}</select></label>
   <button class="k-send" type="submit">${icon("chart")}احسب</button>
 </form>
@@ -453,13 +460,13 @@ ${result}`;
 }
 
 /** تقويمُ المواسم: خطٌّ زمني أفقي بألوان المواسم، والموسم الجاري مُضاء. */
-function seasonCalendarHtml(items: CalendarItem[], active: string[]): string {
+function seasonCalendarHtml(items: CalendarItem[], active: string[], mine: string[] = []): string {
   const upcoming = items.slice(0, 8);
   if (!upcoming.length) return "";
   const COLORS: Record<string, string> = { registration: "var(--accent)", start: "var(--accent2)", middle: "#6b7f8c", finals: "#a0522d", break: "#8a8f98" };
   const short = (d: string) => esc(dateAr(d).replace(/\\s*\\d{4}$/, ""));
   return `<h2 class="k-h2">${icon("calendar")}تقويم المواسم${active.length ? ` <small class="note" style="margin:0">· الآن: ${active.map(seasonLabel).map(esc).join("، ")}</small>` : ""}</h2>
-<div class="k-cal">${upcoming.map(i => `<div class="${i.now ? "now" : ""}" style="--c:${COLORS[i.season] || "var(--accent)"}">${i.now ? `<span class="live">● الآن</span>` : ""}<b>${esc(i.label)}</b><small>${esc(i.term)}</small><small>${short(i.from)} ← ${short(i.to)}</small></div>`).join("")}</div>`;
+<div class="k-cal">${upcoming.map(i => `<div class="${i.now ? "now" : ""}${mine.includes(i.season) ? " mine" : ""}" style="--c:${COLORS[i.season] || "var(--accent)"}">${i.now ? `<span class="live">● الآن</span>` : ""}${mine.includes(i.season) ? `<span class="live">★ لك</span>` : ""}<b>${esc(i.label)}</b><small>${esc(i.term)}</small><small>${short(i.from)} ← ${short(i.to)}</small></div>`).join("")}</div>`;
 }
 
 export interface PartnerKitInput {
@@ -471,6 +478,9 @@ export interface PartnerKitInput {
   nonce: string;
   /** اسم الشركة صاحبة الرابط: يُملأ به حقل «الشركة» في النموذج (وتعدّله إن شاءت). */
   company?: string;
+  /** فئة الشركة ومواسمها المفضّلة (يحددها المالك عند إنشاء الرابط): تُبرز في الصفحة. */
+  category?: string;
+  mySeasons?: string[];
   /** رمز الرابط ليكون هدفَ النموذج. */
   token?: string;
   /** حاسبة «ماذا ستحصل؟»: اختيارات الشركة ونتيجة التقدير (تُحسب في الخادم؛ بلا سكربت). */
@@ -535,6 +545,7 @@ ${banner}
   <p class="brand">SCHEDULE · ملف الشراكة</p>
   <h1>جمهورك في لحظة الجدول</h1>
   <p>طلبةٌ وأساتذة يفتحون جداولهم بأنفسهم، كل فصل.</p>
+  ${input.company ? `<p class="k-for"><b>أُعدّ لـ ${esc(input.company)}</b>${input.category ? ` · ${esc(input.category)}` : ""}${(input.mySeasons || []).length ? ` · مواسمك: ${(input.mySeasons || []).map(id => esc(seasonLabel(id))).join("، ")}` : ""}</p>` : ""}
   <a class="k-cta noprint" href="#new">${icon("plus")}${NEW_CAMPAIGN}</a>
 </section>
 <div class="k-stats">
@@ -546,7 +557,7 @@ ${banner}
 <div class="k-why"><div>${icon("tap")}<span>يفتحونه بأنفسهم</span></div><div>${icon("repeat")}<span>كل فصل</span></div><div>${icon("shield")}<span>بلا بيانات شخصية</span></div></div>
 ${peakCard}
 ${demand}
-${seasonCalendarHtml(input.calendar || [], input.activeSeasons || [])}
+${seasonCalendarHtml(input.calendar || [], input.activeSeasons || [], input.mySeasons || [])}
 <h2 class="k-h2">${icon("globe")}أين يظهر إعلانك</h2>
 <div class="k-slots">${slots}</div>
 <h2 class="k-h2">${icon("tap")}وجّه لمن يهمّه</h2>

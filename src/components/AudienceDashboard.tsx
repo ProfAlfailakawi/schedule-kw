@@ -6,7 +6,8 @@
  * يملأ الشاشة. كل رقمٍ تقديري يشرح طريقته في «كيف نحسب؟».
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Expand, Megaphone, Minimize } from "lucide-react";
+import { Expand, Megaphone, Minimize, Presentation } from "lucide-react";
+import AudienceStory from "./AudienceStory";
 import { EmptyState, MicroLoader, Notice, PageTitle, SecondaryButton, PrimaryButton } from "./ui";
 import { AR, countOf } from "../utils/arabicCount";
 import { CONTINUITY_MIN_STUDENTS, FUNNEL_TARGETS, headlineTotals, type AudienceStats, type StudentFunnel } from "../utils/audienceStats";
@@ -104,6 +105,7 @@ export default function AudienceDashboard({ onNavigate }: { onNavigate?: (view: 
   const [error, setError] = useState("");
   const [stage, setStage] = useState(false);
   const [stamp, setStamp] = useState<Date | null>(null);
+  const [story, setStory] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
   /* لا اختيار فصل ولا زر تحديث: اللوحة للعرض العام وتتجدد وحدها كل دقيقة، والفصل هو الجاري. */
@@ -156,11 +158,13 @@ export default function AudienceDashboard({ onNavigate }: { onNavigate?: (view: 
         subtitle="أرقام الجمهور مجمّعة ومجهولة؛ مناسبة للعرض على الشركات."
         action={
           <div className="pt-tools">
+            <SecondaryButton data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" onClick={() => setStory(true)}><Presentation aria-hidden="true" size={16} /> ابدأ العرض</SecondaryButton>
             <PrimaryButton data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" onClick={() => void toggleStage()}>{document.fullscreenElement || stage ? <Minimize aria-hidden="true" size={16} /> : <Expand aria-hidden="true" size={16} />} وضع العرض</PrimaryButton>
           </div>
         }
       >لوحة الجمهور</PageTitle>
 
+      {story ? <AudienceStory stats={s} onClose={() => setStory(false)} /> : null}
       {error ? <Notice type="error">{error}</Notice> : null}
 
       <section className="pt-hero" aria-label="الجمهور في لمحة">

@@ -4596,8 +4596,8 @@ export const Repository = {
       : [...(db.partnerLinks || [])];
     return rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   },
-  createPartnerLink: async (entry: { company: string; token: string; expiresAt?: string }): Promise<PartnerLink> => {
-    const row: PartnerLink = { id: randomUUID(), company: entry.company, token: entry.token, createdAt: new Date().toISOString(), ...(entry.expiresAt ? { expiresAt: entry.expiresAt } : {}), opens: 0, openDays: {} };
+  createPartnerLink: async (entry: { company: string; token: string; expiresAt?: string; category?: string; seasons?: string[] }): Promise<PartnerLink> => {
+    const row: PartnerLink = { id: randomUUID(), company: entry.company, ...(entry.category ? { category: entry.category } : {}), ...(entry.seasons?.length ? { seasons: entry.seasons } : {}), token: entry.token, createdAt: new Date().toISOString(), ...(entry.expiresAt ? { expiresAt: entry.expiresAt } : {}), opens: 0, openDays: {} };
     if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("partnerLinks").doc(row.id).set(row); return row; }
     db.partnerLinks = [row, ...(db.partnerLinks || [])];
     saveDatabase();

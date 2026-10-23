@@ -6,6 +6,7 @@ import React, { useMemo } from "react";
 import { AR, countOf } from "../../utils/arabicCount";
 import { dateShort, type Payload, type Slot } from "./shared";
 import { SampleAd, type SampleBrand } from "./SampleAd";
+import RealScreens, { usePreviewManifest } from "./RealScreens";
 
 /** معاينةُ الإعلان التجريبي على المخطّط: الشركةُ، والموقعُ المسلَّط عليه الضوء، وأرقامُ المواقع كما في القائمة. */
 export interface PreviewProps {
@@ -48,6 +49,9 @@ function SlotBlock({ slot, thin = false, preview }: { slot?: Slot; thin?: boolea
 }
 
 export function PlacementMap({ data, preview }: { data: Payload; preview?: PreviewProps }) {
+  /* اللقطات الحقيقية إن وُجدت (أداة capture-ad-previews)، وإلا المخطّط المرسوم أدناه. */
+  const manifest = usePreviewManifest();
+  if (manifest) return <RealScreens data={data} manifest={manifest} preview={preview} />;
   const by = (id: string) => data.slots.find(s => s.id === id);
   const only = preview?.only;
   return (
@@ -55,7 +59,7 @@ export function PlacementMap({ data, preview }: { data: Payload; preview?: Previ
       {!only || only === "me" ? <figure className="ad-surface">
         <div className="ad-phone3">
           <div className="ad-sk ad-sk-bar" /><div className="ad-sk ad-sk-hero" />
-          <div className="ad-sk ad-sk-card"><i /><i /><i className="s" /><SlotBlock slot={by("break")} preview={preview} /><SlotBlock slot={by("nearby")} preview={preview} /><SlotBlock slot={by("afterclass")} preview={preview} /></div>
+          <div className="ad-sk ad-sk-card"><i /><i /><i className="s" /><SlotBlock slot={by("break")} preview={preview} /><SlotBlock slot={by("nearby")} preview={preview} /><SlotBlock slot={by("afterclass")} preview={preview} /><SlotBlock slot={by("course")} preview={preview} /></div>
           <SlotBlock slot={by("sponsor")} thin preview={preview} /><SlotBlock slot={by("me")} preview={preview} />
           <div className="ad-sk ad-sk-tabs" />
         </div>

@@ -82,7 +82,7 @@ async function main() {
     const soonMail = MAIL.renewalMail({ company: "ش", endDay: "2026-10-01" }, 3, "https://x.test/r");
     check(endedMail.text.includes("انتهت حملة «ش» قبل") && !endedMail.text.includes("اليوم") && todayMail.text.includes("اليوم") && soonMail.text.includes("بعد"), "A14 تذكير التجديد: صياغةٌ صادقة للمنتهية واليوم والقادمة", endedMail.text);
     const { AD_CLIENT_SCRIPT: adScript } = await import("../src/server/adClientScript");
-    check(adScript.includes('var sponsor=(slot==="break"||slot==="afterclass"||slot==="nearby")?null:'), "A14 محطات الاستراحة والمحاضرات لا تكرر شريط الراعي (يظهر مرةً مع إعلان «مساري»)");
+    check(adScript.includes('var sponsor=(slot==="break"||slot==="afterclass"||slot==="nearby"||slot==="course")?null:'), "A14 محطات الاستراحة والمحاضرات لا تكرر شريط الراعي (يظهر مرةً مع إعلان «مساري»)");
     /* A15: الرابط المتتبَّع، والتحويل المُبلَّغ، والشارة، وسقف الظهور اليومي */
     const tl = (url: string) => E.trackedLink(url, { id: "ABCD-1234-xyz", slot: "me" } as any);
     check(tl("https://a.example.com/x?y=1") === "https://a.example.com/x?y=1&utm_source=schedule&utm_medium=banner&utm_campaign=ad-abcd1234&utm_content=me", "A15 رابط متتبَّع: يُضاف utm مع بقاء بارامترات الشركة");
@@ -812,6 +812,24 @@ async function main() {
     const calcPage = await call("GET", plB.url + "?slot=schedule&season=finals&weeks=4");
     check(calcPage.status === 200 && calcPage.text.includes("ماذا ستحصل؟") && calcPage.text.includes('name="weeks"') && (calcPage.text.includes("تقديرٌ لا وعد") || calcPage.text.includes("لا بيانات كافية")), "الحاسبة: تظهر في ملف الشراكة بنتيجة تقديرٍ أو بيانات غير كافية");
     check((await call("GET", plB.url + "?slot=evil&weeks=999&season=x")).status === 200 && !(await call("GET", plB.url + "?slot=<script>")).text.includes("<script>alert"), "الحاسبة: قيمٌ غير معروفة تُهمل ولا تنعكس في الصفحة");
+    /* رابط الشركة: فئتها ومواسمها تُبرز في صفحتها، وأول فتحٍ يصل الجرس. */
+    const plC = (await call("POST", "/api/admin/ads/partner-links", { company: "شركة جيم", category: "تدريب وتوظيف", seasons: ["finals", "bogus"] })).json.link;
+    const plD = (await call("POST", "/api/admin/ads/partner-links", { company: "شركة دال", category: "فئة مجهولة" })).json.link;
+    check(plC.category === "تدريب وتوظيف" && JSON.stringify(plC.seasons) === JSON.stringify(["finals"]) && plD.category === "" && plD.seasons.length === 0, "رابط الشركة: الفئة المعروفة والموسم الصحيح فقط يُحفظان", [plC, plD]);
+    const kitC = await call("GET", plC.url);
+    check(kitC.text.includes("أُعدّ لـ شركة جيم") && kitC.text.includes("تدريب وتوظيف") && kitC.text.includes("مواسمك:") && kitC.text.includes('<option value="finals" selected>'), "رابط الشركة: صفحتها تبرز فئتها ومواسمها وتختار موسمها في الحاسبة");
+    check(!(await call("GET", plD.url)).text.includes("مواسمك:"), "رابط الشركة: بلا مواسم لا سطر مواسم");
+    await pause();
+    const linkBell = await R.adNotifications();
+    const firstOpen = linkBell.find(n => n.id === `ad-link-open:${plC.id}`);
+    check(!!firstOpen && firstOpen.view === "ads" && firstOpen.tone === "action" && firstOpen.title.includes("شركة جيم") && firstOpen.title.includes("لأول مرة"), "الجرس: أول فتحٍ لرابط شركة يُنبّه الإدارة", firstOpen);
+    check(!linkBell.some(n => n.id === `ad-link-open:${plB.id}x`) && linkBell.filter(n => n.id.startsWith("ad-link-open:")).length >= 1, "الجرس: تنبيه فتحٍ لكل رابطٍ فُتح");
+    const oldRow = (await Repository.listPartnerLinks()).find(l => l.id === plC.id)!;
+    oldRow.firstOpenAt = new Date(Date.now() - 9 * 86_400_000).toISOString();
+    check(!(await R.adNotifications()).some(n => n.id === `ad-link-open:${plC.id}`), "الجرس: لا يبقى تنبيه الفتح أكثر من أسبوع");
+    await call("POST", `/api/admin/ads/partner-links/${plC.id}/revoke`);
+    oldRow.firstOpenAt = new Date().toISOString();
+    check(!(await R.adNotifications()).some(n => n.id === `ad-link-open:${plC.id}`), "الجرس: الرابط الموقوف لا يُنبّه");
     check((await call("POST", `/api/admin/ads/partner-links/${plA.id}/revoke`)).status === 200 && (await call("GET", plA.url)).status === 404, "رابط الشراكة: الإيقاف يعطّل ذلك الرابط");
     check((await call("GET", plB.url)).status === 200 && (await row(plA.id)).state === "revoked", "رابط الشراكة: إيقاف رابطٍ لا يمسّ غيره");
     check((await call("POST", "/api/admin/ads/partner-links/nope/revoke")).status === 404, "رابط الشراكة: إيقاف رابطٍ غير موجود ٤٠٤");
@@ -863,6 +881,15 @@ async function main() {
     check(tgSave.status === 200 && JSON.stringify(tgRow.targetCodes) === JSON.stringify(["cs101", "eng1"]) && tgRow.nearGraduation === true, "الفرص: الحملة تُحفظ باستهدافها منظَّفاً", tgRow);
     const tgBad = await call("POST", "/api/admin/ads/campaigns", { ...tgBody, company: "مركز آخر", slot: "schedule" });
     check(tgBad.status === 400 && String(tgBad.json.error).includes("الاستهداف"), "الفرص: الجدول العام يرفض الحملة الموجَّهة", tgBad.json);
+    /* راعي مقرر: التقرير يسمّي المقرر المرعي. */
+    await Repository.createCourse(1, 1, "SPN101", "مقرر الرعاية", 3, 3, 30);
+    const courseCode = "spn101";
+    const spSave = await call("POST", "/api/admin/ads/campaigns", { company: "راعي المقرر", category: "تعليم ودورات", slot: "course", startDay: today, endDay: dayPlus(10), linkUrl: "https://sponsor.example.com", targetCodes: [courseCode] });
+    const spRow = (await call("GET", "/api/admin/ads")).json.campaigns.find((x: any) => x.id === spSave.json.id);
+    const spReport = await call("GET", spRow.reportUrl);
+    check(spSave.status === 200 && spReport.status === 200 && spReport.text.includes("راعي مقرر:"), "راعي المقرر: التقرير يسمّي المقرر المرعي", spSave.json);
+    const spBad = await call("POST", "/api/admin/ads/campaigns", { company: "بلا مقرر", category: "تعليم ودورات", slot: "course", startDay: today, endDay: dayPlus(10), linkUrl: "https://sponsor.example.com" });
+    check(spBad.status === 400 && String(spBad.json.error).includes("المقرر"), "راعي المقرر: لا حملة بلا مقرر", spBad.json);
     /* ── دخول الطلبة للطلبة فقط، ومستخدمو النظام عدّادٌ مستقل ── */
     const dayRow = async () => (await Repository.listAudienceDays(5)).find(d => d.day === today)!;
     const sumRates = (d: any) => d.returning + d.fresh + d.mobile + d.desktop + Object.values(d.hours as Record<string, number>).reduce((a, b) => a + b, 0);
@@ -980,7 +1007,7 @@ async function main() {
     check(leadForm.includes("الصفحة الرئيسية للطالب") && leadForm.includes("وقت الفراغ") && leadForm.includes("أعضاء هيئة التدريس والإداريين") && !leadForm.includes("محطة الاستراحة") && !leadForm.includes("الكادر"), "ملف الشراكة: تظهر للشركة الأسماء الجديدة وسطر الشرح تحت كل موقع");
     check(fs.readFileSync("src/components/AudienceDashboard.tsx", "utf8").includes('app: "مستخدمو النظام (اللجان والإدارة)"'), "لوحة الشركاء: تسمية دخول مستخدمي النظام بالاسم المعتمد");
     check(leadForm.includes("background:rgba(255,255,255,.07);pointer-events:none}") && leadForm.includes(".k-cta{position:relative;z-index:1;"), "ملف الشراكة: دائرة زينة الغلاف لا تعترض النقر على زر «حملة جديدة»");
-    check((leadForm.match(/<span class="k-opt"><b>/g) || []).length === 7 && leadForm.includes("<small>للطالب حين يكون بين محاضراته فراغ ساعة فأكثر</small>"), "نموذج الطلب: كل موقعٍ بطاقةُ اختيار باسمه وسطر شرحه ظاهرٌ تحته (لا تلميح فقط)");
+    check((leadForm.match(/<span class="k-opt"><b>/g) || []).length === 8 && leadForm.includes("<small>للطالب حين يكون بين محاضراته فراغ ساعة فأكثر</small>"), "نموذج الطلب: كل موقعٍ بطاقةُ اختيار باسمه وسطر شرحه ظاهرٌ تحته (لا تلميح فقط)");
     check(leadForm.includes(".k-new:target{display:flex}") && leadForm.includes('role="dialog"') && (leadForm.match(/href="#"/g) || []).length >= 2, "ملف الشراكة: «حملة جديدة» نافذةٌ فوق الصفحة تفتح بالرابط وتُغلق بلا JavaScript");
     check(leadForm.includes('action="/partners/tok%2F1/lead"') && leadForm.includes('name="website"') && leadForm.includes('href="#new"') && leadForm.includes("وصلنا طلبك"), "ملف الشراكة: زر «حملة جديدة» ونموذجٌ يُرسل إلى مسار الطلب مع حقل الفخ ورسالة النجاح");
     check(B.instructorOpens === 75_000 && B.instructors === 786 && B.students === 80_000 && B.visits === 5_300_000 && B.instructorOpenRate === 90, "الرصيد: الأرقام المُقرَّة كما أُعطيت");
@@ -1034,7 +1061,7 @@ async function main() {
     /* لحظات «تذكرتي»: موقعان جديدان بجانب «وقت الفراغ»، والراعي لا يتكرر فيها، والمبنى من سجلّ القاعات. */
     const E3 = await import("../src/utils/adsEngine");
     const mom = ["afterclass", "nearby"].map(id => E3.slotById(id));
-    check(mom.every(m => m && !m.retired && m.audience === "students" && m.wholeUniversity && m.width === 480 && m.height === 160) && E3.activeSlots().length === 7, "اللحظات: موقعا «بعد آخر محاضرة» و«بين محاضرتين في المبنى نفسه» فاعلان بمقاس وقت الفراغ");
+    check(mom.every(m => m && !m.retired && m.audience === "students" && m.wholeUniversity && m.width === 480 && m.height === 160) && E3.activeSlots().length === 8, "اللحظات: موقعا «بعد آخر محاضرة» و«بين محاضرتين في المبنى نفسه» فاعلان بمقاس وقت الفراغ");
     const home = fs.readFileSync("src/server/studentHomePage.ts", "utf8");
     check(home.includes("function tkMoments") && home.includes('"adx-near-box","nearby"') && home.includes('"adx-after-box","afterclass"') && home.includes("a[n].b===a[n-1].b"), "اللحظات: «تذكرتي» تحسب الموقعين وتركّبهما");
     check(fs.readFileSync("src/server/simulationData.ts", "utf8").includes("b: String(row.buildingId)") && fs.readFileSync("src/utils/registrationSim.ts", "utf8").includes("b?: string"), "اللحظات: المبنى الثابت من سجلّ القاعات يصل إلى فترات «تذكرتي» وحدها");
@@ -1062,10 +1089,61 @@ async function main() {
     check(!targetMatch(tgBoth, undefined) && !targetMatch(tgBoth, { codes: [], remaining: -1 }) && targetMatch({ c: ["CS101"], g: 0 }, { codes: ["cs101"], remaining: -1 }) && !targetMatch({ c: [], g: 30 }, { codes: ["cs101"], remaining: 31 }) && targetMatch({ c: [], g: 30 }, { codes: [], remaining: 30 }), "الفرص: صفحةٌ لا تعرف الطالب لا تعرض موجَّهاً، والحدّ ٣٠ شاملٌ و٣١ خارج");
     check(adSrc.includes("it.tg||targetMatch(it.tg,opt)") && adSrc.includes("if(!items.length)items=pool;") && !adSrc.includes("items=d.items||[]"), "الفرص: احتياط السقف لا يُظهر موجَّهاً لغير المطابق");
     const homeSrc2 = fs.readFileSync("src/server/studentHomePage.ts", "utf8");
-    check(homeSrc2.includes("function adxCtx") && homeSrc2.includes("o.codes=p.wishCodes||[]") && (homeSrc2.match(/adxCtx\(/g) || []).length >= 5, "الفرص: «مساري» و«تذكرتي» تمرّران رموز الرغبات والوحدات المتبقية إلى الإعلان وحده");
+    check(homeSrc2.includes("function adxCtx") && homeSrc2.includes("o.codes=o.codes||p.wishCodes||[]") && (homeSrc2.match(/adxCtx\(/g) || []).length >= 5, "الفرص: «مساري» و«تذكرتي» تمرّران رموز الرغبات والوحدات المتبقية إلى الإعلان وحده");
     const doorSrc = fs.readFileSync("src/server/studentDoorRoutes.ts", "utf8");
     check(doorSrc.includes("wishCodes = [...new Set((profile.wishes?.courseIds") && doorSrc.includes("progress, wishes: profile.wishes || null, wishCodes,"), "الفرص: ملف الطالب يحمل رموز رغباته لمتصفحه");
     check((await import("../src/server/adsPages")).measurementPage("N").includes("يُحسم ذلك داخل متصفحك") && kitPage.includes("وجّه لمن يهمّه"), "الفرص: السياسة العامة وملف الشراكة يشرحان الاستهداف");
+    /* راعي مقرر: موقعٌ بشريط ٤٨٠×٨٠ يُفصل بمقررات الجدول، ومقررٌ واحد لراعٍ واحدٍ في الوقت نفسه. */
+    const E5 = await import("../src/utils/adsEngine");
+    const cs = E5.slotById("course")!;
+    check(cs && !cs.retired && cs.width === 480 && cs.height === 80 && cs.wholeUniversity && cs.audience === "students", "راعي المقرر: الموقع شريط ٤٨٠×٨٠ يعرف الطالب");
+    const spBase = { company: "ر", category: "تعليم ودورات", slot: "course", startDay: "2026-11-01", endDay: "2026-11-30" };
+    check(E5.campaignProblems({ ...spBase }).some(p => p.includes("المقرر")) && E5.campaignProblems({ ...spBase, targetCodes: ["cs101"], nearGraduation: true }).some(p => p.includes("التخرج")) && E5.campaignProblems({ ...spBase, targetCodes: ["cs101"] }).length === 0, "راعي المقرر: يلزم مقرر، ولا قرب تخرج");
+    const other = { id: "o1", ...spBase, company: "راعٍ أول", status: "approved", targetCodes: ["cs101"], creativeIds: [], linkUrl: "", reportToken: "", createdAt: "", updatedAt: "" } as any;
+    check(E5.placementProblems({ ...spBase, targetCodes: ["CS101".toLowerCase(), "eng1"] }, [other]).some(p => p.includes("يرعى المقرر نفسه")) && E5.placementProblems({ ...spBase, targetCodes: ["eng1"] }, [other]).every(p => !p.includes("يرعى المقرر نفسه")) && E5.placementProblems({ ...spBase, startDay: "2026-12-05", endDay: "2026-12-30", targetCodes: ["cs101"] }, [other]).every(p => !p.includes("يرعى المقرر نفسه")), "راعي المقرر: مقررٌ واحد لراعٍ واحد في الفترة نفسها فقط");
+    const homeSrc3 = fs.readFileSync("src/server/studentHomePage.ts", "utf8");
+    check(homeSrc3.includes('adxMountLater("adx-course-box","course",adxCtx({codes:ticketCodes') && homeSrc3.includes("var ticketCodes=items.map"), "راعي المقرر: «تذكرتي» تطابق رموز مقررات الجدول لا الرغبات");
+    /* وضع القصة: منطق التنقّل والتشغيل التلقائي، والرسم يحمل أرقام اللوحة نفسها. */
+    const ST = await import("../src/utils/audienceStory");
+    check(JSON.stringify(ST.STORY_SLIDES) === JSON.stringify(["size", "peak", "demand", "slots", "next"]) && ST.STORY_MS === 8000, "القصة: الترتيب الحجم ← الذروة ← الطلب ← المواقع ← الخطوة، ٨ ثوانٍ للشريحة");
+    check(ST.stepStory(0, -1) === 0 && ST.stepStory(0, 1) === 1 && ST.stepStory(4, 1) === 4 && ST.stepStory(4, -1) === 3, "القصة: التنقّل بلا التفاف");
+    check(ST.storyAutoplays({ paused: false, reducedMotion: false, index: 0 }) && !ST.storyAutoplays({ paused: true, reducedMotion: false, index: 0 }) && !ST.storyAutoplays({ paused: false, reducedMotion: true, index: 0 }) && !ST.storyAutoplays({ paused: false, reducedMotion: false, index: 4 }), "القصة: لا تقدّم تلقائي مع الإيقاف أو قلّة الحركة أو في الشريحة الأخيرة");
+    check(ST.keyDirection("ArrowLeft") === 1 && ST.keyDirection("ArrowRight") === -1 && ST.keyDirection("PageDown") === 1 && ST.keyDirection("x") === 0, "القصة: السهم الأيسر للتالي والأيمن للسابق (عربي)");
+    check(ST.swipeDirection(120, 10) === 1 && ST.swipeDirection(-120, 10) === -1 && ST.swipeDirection(20, 0) === 0 && ST.swipeDirection(60, 90) === 0, "القصة: السحب الأفقي الطويل وحده يغيّر الشريحة");
+    const React = (await import("react")).default;
+    const { renderToString } = await import("react-dom/server");
+    const Story = (await import("../src/components/AudienceStory")).default;
+    const storyHtml = renderToString(React.createElement(Story, { stats: stats as any, onClose: () => undefined }));
+    check(storyHtml.includes('role="dialog"') && storyHtml.includes('aria-modal="true"') && storyHtml.includes("جمهورٌ حقيقي يفتح البرنامج بنفسه") && storyHtml.includes(fmtN(B.students + 2)) && storyHtml.includes(fmtN(B.visits + 55)) && storyHtml.includes(fmtN(B.instructors)), "القصة: الشريحة الأولى بأرقام اللوحة نفسها داخل نافذة حوارية");
+    check(storyHtml.includes('aria-label="إيقاف العرض"') && storyHtml.includes('aria-label="إغلاق العرض"') && storyHtml.includes('aria-label="الشريحة التالية"') && (storyHtml.match(/aria-label="الشريحة \d من 5"/g) || []).length === 5, "القصة: أزرار الإيقاف والإغلاق والتالي ونقاط الشرائح الخمس");
+    const storySrc = fs.readFileSync("src/components/AudienceStory.tsx", "utf8");
+    check(storySrc.includes("reducedMotion()") && storySrc.includes("useState(reducedMotion())") && storySrc.includes("requestFullscreen") && storySrc.includes('e.key === "Escape"') && storySrc.includes("onPointerUp"), "القصة: تبدأ موقوفةً لقلّة الحركة، ملء الشاشة، Escape واللمس");
+    check(fs.readFileSync("src/components/AudienceDashboard.tsx", "utf8").includes("ابدأ العرض") && fs.readFileSync("src/styles/25-partners.css", "utf8").includes("prefers-reduced-motion:reduce){.pt-story-slide{animation:none}"), "القصة: زر «ابدأ العرض» في اللوحة، والحركة تُلغى لمن يفضّل قلّتها");
+    /* لقطات الشاشات الحقيقية: بيانٌ سليم يغطي كل موقعٍ فاعل، ومواضعه داخل الصورة، وأبعاده تطابق اللقطة. */
+    const RE = await import("../src/utils/adsEngine");
+    const pv = JSON.parse(fs.readFileSync("public/ad-previews/manifest.json", "utf8")) as { surfaces: Record<string, { image: string; width: number; height: number; slots: Record<string, { x: number; y: number; w: number; h: number }> }> };
+    const covered = new Set(Object.values(pv.surfaces).flatMap(sf => Object.keys(sf.slots)));
+    const missing = RE.activeSlots().map(sl => sl.id).filter(id => !covered.has(id));
+    check(missing.length === 0, "اللقطات الحقيقية: كل موقعٍ فاعل له موضعٌ في لقطة (أضف الموقع الجديد إلى أداة capture-ad-previews وأعد التقاط)", missing);
+    check(Object.keys(pv.surfaces).sort().join() === "me,schedule,staff,ticket", "اللقطات الحقيقية: «مساري» و«تذكرتي» والجدول العام ولوحة الكادر");
+    let shotsOk = true; const shotProblems: string[] = [];
+    for (const [key, sf] of Object.entries(pv.surfaces)) {
+      const file = path.join("public", sf.image);
+      const info = fs.existsSync(file) ? E.readImageInfo(fs.readFileSync(file)) : null;
+      if (!info) { shotsOk = false; shotProblems.push(`${key}: لا صورة`); continue; }
+      const ratioOk = Math.abs(info.height / info.width - sf.height / sf.width) < 0.01;
+      if (!ratioOk) { shotsOk = false; shotProblems.push(`${key}: نسبة الصورة ${info.width}×${info.height} لا تطابق ${sf.width}×${sf.height}`); }
+      for (const [id, r] of Object.entries(sf.slots)) {
+        const spec = RE.slotById(id)!;
+        const inside = r.x >= 0 && r.y >= 0 && r.x + r.w <= sf.width + 1 && r.y + r.h <= sf.height + 1;
+        const aspect = Math.abs(r.w / r.h - spec.width / spec.height) < 0.06 * (spec.width / spec.height);
+        if (!inside || !aspect) { shotsOk = false; shotProblems.push(`${key}/${id}: ${inside ? "نسبة الموقع" : "خارج الصورة"}`); }
+      }
+    }
+    check(shotsOk, "اللقطات الحقيقية: الصور موجودة بنسبها، ومواضع المواقع داخلها بنسبة مقاسها الحقيقي", shotProblems);
+    const pm = fs.readFileSync("src/components/ads/PlacementMap.tsx", "utf8"), rs = fs.readFileSync("src/components/ads/RealScreens.tsx", "utf8");
+    check(pm.includes("usePreviewManifest()") && pm.includes("<RealScreens") && pm.includes("const by = (id: string)") && rs.includes("/ad-previews/manifest.json") && rs.includes("transform: `scale(${k})`") && rs.includes("<SampleAd") && rs.includes("<SlotTone"), "اللقطات الحقيقية: المعاينة والخريطة تعرضانها وتعودان للمخطّط المرسوم إن غابت");
+    check(fs.readFileSync("scripts/capture-ad-previews.ts", "utf8").includes("AD_CLIENT_SCRIPT") && fs.readFileSync("scripts/capture-ad-previews.ts", "utf8").includes("route.abort()"), "اللقطات الحقيقية: الأداة تستعمل أنماط الإعلان الفعلية وتمنع الإعلانات الحقيقية");
   }
 
   console.log(`\n${failed ? "\x1b[31m" : "\x1b[32m"}${passed} نجح، ${failed} فشل\x1b[0m`);

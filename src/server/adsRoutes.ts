@@ -61,6 +61,15 @@ export async function adNotifications(today = kuwaitDay()): Promise<CenterNotifi
       });
     }
   }
+  /* أول فتحٍ لرابط ملف شراكة شركة: اهتمامها ساخن فتتواصل معها. يبقى أسبوعاً، و«المقروء» يزيله من الجرس. */
+  const weekAgo = Date.now() - 7 * 86_400_000;
+  for (const link of await Repository.listPartnerLinks()) {
+    if (partnerLinkState(link) !== "active" || !link.firstOpenAt || Date.parse(link.firstOpenAt) < weekAgo) continue;
+    items.push({
+      id: `ad-link-open:${link.id}`, tone: "action", title: `«${link.company}» فتحت ملف الشراكة لأول مرة`,
+      detail: `${link.opens > 1 ? `فُتح ${countOf(link.opens, AR.visit)} · ` : ""}تواصل معها الآن`, view: "ads", at: link.firstOpenAt,
+    });
+  }
   /* طلباتُ حملاتٍ جديدة من ملف الشراكة: تُنبَّه الإدارةُ لتتواصل، وتزول بوضعها «تم التواصل». */
   for (const lead of (await Repository.listAdLeads()).filter(l => l.status === "new").slice(0, 20)) {
     items.push({
@@ -412,7 +421,7 @@ async function partnerLinkByToken(token: string): Promise<PartnerLink | undefine
 
 /** ما تراه الإدارة عن رابط: بلا حقولٍ داخلية، مع الحالة محسوبةً ورابطٍ جاهزٍ للنسخ. */
 const partnerLinkView = (l: PartnerLink) => ({
-  id: l.id, company: l.company, url: `/partners/${l.token}`, createdAt: l.createdAt, expiresAt: l.expiresAt || "", state: partnerLinkState(l),
+  id: l.id, company: l.company, category: l.category || "", seasons: l.seasons || [], url: `/partners/${l.token}`, createdAt: l.createdAt, expiresAt: l.expiresAt || "", state: partnerLinkState(l),
   opens: l.opens || 0, firstOpenAt: l.firstOpenAt || "", lastOpenAt: l.lastOpenAt || "", openDays: l.openDays || {},
 });
 
@@ -658,6 +667,9 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     const allStats = await cachedAdStats(5 * 60_000);
     res.send(campaignReportPage({
       campaign, creatives: heads, stats, nonce, today, origin: `${req.protocol}://${req.get("host")}`, redemptionResult: req.query.red === "ok" || req.query.red === "bad" ? String(req.query.red) : "",
+      sponsoredCourses: campaign.slot === "course" && campaign.targetCodes?.length
+        ? [...new Map((await Repository.getCourses()).filter(c => campaign.targetCodes!.includes(String(c.CourseCode || c.CourseName).trim().toLowerCase())).map(c => [String(c.CourseCode || c.CourseName).trim().toLowerCase(), c.CourseName] as const)).values()]
+        : undefined,
       unique: campaign.uniqueCoupons ? { verified: (await Repository.listAdCouponUseDays(campaign.id)).length, verifyUrl: `${req.protocol}://${req.get("host")}/verify/${verifyId(campaign.reportToken)}` } : undefined,
       weekly: weeklyCompare(stats, today), benchmarkCtr: slotBenchmarkCtr(campaign.id, campaign.slot, all, allStats),
       liveInSlot: Math.max(1, all.filter(x => x.slot === campaign.slot && isLive(x, today)).length),
@@ -716,7 +728,7 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     };
     noindex(res);
     const nonce = deps.publicPageNonce(res);
-    res.send(partnerKitPage({ calc, stats: buildAudienceStats(input), liveBySlot, nonce, today, leadResult: ({ ok: "ok", bad: "bad", rate: "rate" } as Record<string, "ok" | "bad" | "rate">)[String(req.query.lead || "")], company: link.company, leadError: req.query.lead === "bad" ? (LEAD_ERRORS as readonly string[]).find(e => e === String(req.query.why || "")) || "" : "", token, calendar: seasonCalendar(input.terms as any), activeSeasons: activeSeasons(input.terms as any) }));
+    res.send(partnerKitPage({ calc, stats: buildAudienceStats(input), liveBySlot, nonce, today, leadResult: ({ ok: "ok", bad: "bad", rate: "rate" } as Record<string, "ok" | "bad" | "rate">)[String(req.query.lead || "")], company: link.company, category: link.category, mySeasons: link.seasons, leadError: req.query.lead === "bad" ? (LEAD_ERRORS as readonly string[]).find(e => e === String(req.query.why || "")) || "" : "", token, calendar: seasonCalendar(input.terms as any), activeSeasons: activeSeasons(input.terms as any) }));
   });
 
   /* ── الإدارة ── */
@@ -927,7 +939,8 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     const company = str(req.body?.company, 80);
     if (company.length < 2) { fail(res, 400, "اكتب اسم الشركة."); return; }
     const days = cleanExpiryDays(req.body?.days);
-    const link = await Repository.createPartnerLink({ company, token: newToken(), ...(days ? { expiresAt: new Date(Date.now() + days * 86_400_000).toISOString() } : {}) });
+    const category = (AD_CATEGORIES as readonly string[]).includes(str(req.body?.category, 40)) ? str(req.body?.category, 40) : "";
+    const link = await Repository.createPartnerLink({ company, token: newToken(), category, seasons: cleanSeasons(req.body?.seasons), ...(days ? { expiresAt: new Date(Date.now() + days * 86_400_000).toISOString() } : {}) });
     audit(res, link.id, `إنشاء رابط ملف شراكةٍ لشركة «${company}»${days ? ` لمدة ${countOf(days, AR.day)}` : ""}`);
     res.json({ ok: true, link: partnerLinkView(link) });
   });

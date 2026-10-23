@@ -155,7 +155,7 @@ export default function AdsManager() {
 
       {tab === "preview" ? (
         <section id="ad-panel-preview" role="tabpanel" aria-labelledby="ad-tab-preview" className="ad-sec">
-          <div className="ad-sech"><h3>معاينةٌ للشركات: أين سيظهر إعلانك؟</h3><p>اعرض على الشركة شكلَ إعلانها في كل مكان قبل الاتفاق. إعلانٌ تجريبي (مثل «آبل» أو أيُّ اسمٍ تكتبه) يوضع في كل موقع بمقاسه الحقيقي، ولا يراه غيرك.</p></div>
+          <div className="ad-sech"><h3>معاينةٌ للشركات: أين سيظهر إعلانك؟</h3><p>اعرض على الشركة شكلَ إعلانها في كل مكان قبل الاتفاق. إعلانٌ تجريبي عام (أو باسمٍ تكتبه) يوضع في كل موقع بمقاسه الحقيقي، ولا يراه غيرك.</p></div>
           <PlacementPreview data={data} onStart={startAt} />
         </section>
       ) : null}
@@ -172,7 +172,7 @@ export default function AdsManager() {
                 <li><b>٣</b><span>أضف حملتها وأرسل لها رابط تقريرها الحي</span></li>
               </ol>
               <PartnerLinks data={data} busy={busy}
-                onCreate={(company, days) => act("plink", () => api("/api/admin/ads/partner-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company, days }) }), `أُنشئ رابط «${company}».`)}
+                onCreate={(company, days, category, seasons) => act("plink", () => api("/api/admin/ads/partner-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company, days, category, seasons }) }), `أُنشئ رابط «${company}».`)}
                 onRevoke={id => void act(`revoke-${id}`, () => api(`/api/admin/ads/partner-links/${id}/revoke`, { method: "POST" }), "أُوقف الرابط.")}
                 onCopy={url => void copy(url)} />
             </div>

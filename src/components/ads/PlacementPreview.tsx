@@ -23,9 +23,9 @@ const SURFACES: Array<{ id: Surface; label: string }> = [
   { id: "staff", label: "لوحة الكادر" },
 ];
 /** السطحُ الذي يقع فيه كلُّ موقع، ليُسلَّط الضوء على سطحه حين يُختار. */
-const SURFACE_OF: Record<string, Surface> = { sponsor: "me", me: "me", break: "me", afterclass: "me", nearby: "me", schedule: "schedule", dashboard: "staff" };
+const SURFACE_OF: Record<string, Surface> = { sponsor: "me", me: "me", break: "me", afterclass: "me", nearby: "me", course: "me", schedule: "schedule", dashboard: "staff" };
 /** ترتيبُ المواقع في القائمة كما يمرّ بها الطالب: الراعي أولاً ثم «مساري» ثم الفراغ ثم الجدول ثم الكادر. */
-const ORDER = ["sponsor", "me", "break", "nearby", "afterclass", "schedule", "dashboard"];
+const ORDER = ["sponsor", "me", "break", "nearby", "afterclass", "course", "schedule", "dashboard"];
 
 /** ما تبقّى في الموقع اليوم، من بيانات المواقع الحقيقية. */
 export function slotAvailability(slot: Slot): { free: number; cap: number; text: string; full: boolean } {

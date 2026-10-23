@@ -462,3 +462,59 @@
 .ad-plink-row small{display:block;color:var(--muted);font-size:12px}
 .ad-plink-acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
 @media (max-width:900px){.ad-plink-head{display:none}.ad-plink-row{grid-template-columns:1fr 1fr}.ad-plink-acts{grid-column:1/-1;justify-content:flex-start}}
+.ad-plink-seasons{display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex-basis:100%}
+.ad-plink-seasons>span{font-size:13px;color:var(--muted);margin-inline-end:6px}
+
+/* ── وضع القصة: شرائح الجمهور بملء الشاشة ── */
+.pt-story{position:fixed;inset:0;z-index:2000;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(12px,2vw,28px);padding:clamp(16px,3vw,40px);color:#fff;outline:none;touch-action:pan-y;background:radial-gradient(90% 120% at 100% 0%,#1f8f6a,transparent 60%),linear-gradient(135deg,#08392b,#0b4f3a 60%,#0f6b4f)}
+.pt-story-top{display:flex;justify-content:space-between;align-items:center;font-weight:700;opacity:.85}
+.pt-story-tools{display:flex;gap:8px}
+.pt-story button{appearance:none;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;border-radius:999px;min-inline-size:44px;min-block-size:44px;display:inline-grid;place-items:center;cursor:pointer;font:inherit}
+.pt-story button:hover:not(:disabled){background:rgba(255,255,255,.22)}
+.pt-story button:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.pt-story button:disabled{opacity:.35;cursor:default}
+.pt-story-slide{display:flex;flex-direction:column;align-items:center;gap:clamp(10px,2vh,24px);text-align:center;min-block-size:0;overflow:auto;animation:pt-story-in .5s ease both}
+/* مركزٌ آمن: إن زاد المحتوى على الشاشة بدأ من أعلاها ولم يُقصّ العنوان. */
+.pt-story-slide>:first-child{margin-block-start:auto}.pt-story-slide>:last-child{margin-block-end:auto}
+.pt-story-slide h2{margin:0;font-size:clamp(26px,5vw,56px);line-height:1.25;color:#fff}
+.pt-story-sub{margin:0;font-size:clamp(16px,2.4vw,26px);opacity:.85}
+.pt-story-big{margin:0;font-size:clamp(40px,9vw,120px);font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.pt-story-note{margin:0;font-size:clamp(13px,1.6vw,18px);opacity:.7}
+.pt-story-grid{display:grid;gap:clamp(12px,2vw,24px);grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));inline-size:min(1200px,100%)}
+.pt-story-grid div{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);border-radius:24px;padding:clamp(14px,2.4vw,32px)}
+.pt-story-grid b{display:block;font-size:clamp(24px,3.7vw,50px);font-variant-numeric:tabular-nums;line-height:1.15}
+.pt-story-grid em{font-style:normal;font-size:.4em;opacity:.8;margin-inline-end:.3em}
+.pt-story-grid span{display:block;margin-top:6px;font-size:clamp(14px,1.8vw,22px);opacity:.85}
+.pt-story-hours{display:flex;align-items:flex-end;gap:4px;inline-size:min(900px,100%);block-size:clamp(90px,22vh,220px)}
+.pt-story-hours i{flex:1;background:rgba(255,255,255,.35);border-radius:6px 6px 0 0}
+.pt-story-hours i.on{background:#fff}
+.pt-story-bars{display:grid;gap:12px;inline-size:min(900px,100%);text-align:start}
+.pt-story-bars div{display:grid;grid-template-columns:minmax(120px,1.4fr) minmax(0,3fr) auto;gap:12px;align-items:center;font-size:clamp(15px,2vw,24px)}
+.pt-story-bars em{display:block;block-size:14px;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden}
+.pt-story-bars em i{display:block;block-size:100%;background:#fff;border-radius:99px}
+.pt-story-bars b{font-variant-numeric:tabular-nums}
+.pt-story-slots{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));inline-size:min(1100px,100%)}
+.pt-story-slots div{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);border-radius:20px;padding:16px;display:grid;gap:4px}
+.pt-story-slots b{font-size:clamp(16px,2vw,24px)}.pt-story-slots small{opacity:.8}.pt-story-slots span{opacity:.9;font-size:14px}
+.pt-story-steps{list-style:none;margin:0;padding:0;display:grid;gap:12px;font-size:clamp(16px,2.2vw,26px);text-align:start}
+.pt-story-steps li{display:flex;gap:14px;align-items:center}
+.pt-story-steps b{display:inline-grid;place-items:center;inline-size:2.2em;block-size:2.2em;border-radius:50%;background:#fff;color:#0b4f3a}
+.pt-story-nav{display:flex;justify-content:center;align-items:center;gap:clamp(10px,2vw,24px)}
+.pt-story-dots{display:flex;gap:10px}
+.pt-story-dots button{min-inline-size:0!important;min-block-size:0!important;inline-size:14px;block-size:14px;padding:0;background:rgba(255,255,255,.35)}
+.pt-story-dots button.on{background:#fff;inline-size:34px}
+@keyframes pt-story-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.pt-story-slide{animation:none}}
+@media print{.pt-story{display:none!important}}
+
+/* ── مواضع الإعلانات على لقطاتٍ حقيقية ── */
+.ad-real-map{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));align-items:start}
+.ad-real-fig.wide{grid-column:1/-1}
+.ad-real-scroll{overflow:auto;max-block-size:620px;border-radius:16px;border:1px solid var(--line);background:var(--canvas)}
+.ad-real-scroll.phone{max-inline-size:340px;margin-inline:auto}
+.ad-real{position:relative;inline-size:100%}
+.ad-real img{display:block;inline-size:100%;block-size:auto}
+.ad-real-slot{position:absolute;transform-origin:0 0;border-radius:12px}
+.ad-real-slot.hot{box-shadow:0 0 0 4px var(--accent)}
+.ad-real-slot .ad-sample,.ad-real-slot .ad-slotblock{inline-size:100%;margin:0}
+.ad-real-slot .ad-slotno{inset-block-start:-12px;inset-inline-end:-12px}
