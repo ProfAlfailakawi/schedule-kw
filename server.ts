@@ -19162,13 +19162,14 @@ function stripForInstructor(request: InstructorRequest) {
  * لكل مقرّر، لا مع كل نقرة: الحكمُ يتكرّر عند كل تعديلٍ في الصفحة.
  */
 const courseHabitMemo = new Map<string, { at: number; nature: CourseNature | null }>();
-async function courseHabit(courseId: number): Promise<CourseNature | null> {
+/* `beforeTermId` يحصر التعلّمَ في الفصول التي سبقته: يُستعمل لبناء الأنماط المقترحة وحدها. بلا قيمةٍ يبقى كما كان. */
+async function courseHabit(courseId: number, beforeTermId = 0): Promise<CourseNature | null> {
   if (!courseId) return null;
-  const key = dataContextCacheKey(courseId);
+  const key = `${dataContextCacheKey(courseId)}:${beforeTermId}`;
   const held = courseHabitMemo.get(key);
   if (held && Date.now() - held.at < 10 * 60_000) return held.nature;
   let nature: CourseNature | null = null;
-  try { nature = learnCourseNature(courseId, await Repository.getScheduleHistoryForCourses([courseId])); } catch { nature = null; }
+  try { nature = learnCourseNature(courseId, (await Repository.getScheduleHistoryForCourses([courseId])).filter(row => !beforeTermId || Number(row.AdTermId) < beforeTermId)); } catch { nature = null; }
   if (courseHabitMemo.size > 800) courseHabitMemo.clear();
   courseHabitMemo.set(key, { at: Date.now(), nature });
   return nature;
@@ -19566,10 +19567,13 @@ async function judgeRequestItems(request: InstructorRequest, options: {
 
   /* تاريخُ المقرّرات التي يمسّها الطلب: يقرأ منه الحكمُ طولَ لقاء الشعب ذات اليوم الواحد. */
   const habits = new Map<number, CourseNature>();
+  const priorHabits = new Map<number, CourseNature>();
   for (const courseId of new Set((request.items || []).filter(item => item.action === "change" || item.action === "add")
     .map(item => Number(item.after?.courseId || item.before?.courseId || 0)).filter(Boolean))) {
     const nature = await courseHabit(courseId);
     if (nature) habits.set(courseId, nature);
+    const prior = await courseHabit(courseId, Number(request.AdTermId));
+    if (prior) priorHabits.set(courseId, prior);
   }
 
   const items = (request.items || []).map((item, index) => {
@@ -19602,6 +19606,7 @@ async function judgeRequestItems(request: InstructorRequest, options: {
       /* ورقةُ رفض القسم تعرض بدائلَ لكل بند، ولو كان متاحاً (مراجعة البروفة). */
       offerAlternatives: Boolean(options.forDepartment),
       nature: habits,
+      suggestNature: priorHabits,
       termId: Number(request.AdTermId),
     });
     return {
