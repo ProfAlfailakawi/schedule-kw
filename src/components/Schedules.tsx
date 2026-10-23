@@ -8259,7 +8259,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const liveNotes = useMemo(() => {
     if (!filteredRows.length) return [];
     try {
-      return reviewSchedule({ rows: filteredRows, courses: courseById, instructors: instructorById, nature });
+      /* نسبةُ الفترتين (م.7/2) تخصّ القسمَ كاملاً، والمعروضُ هنا قد يكون جزءاً منه
+         بعد الفلترة؛ فلا تُطفئ شارةَ «سليم». مكانُها مراجعةُ الاعتماد وشاشةُ التغييرات. */
+      return reviewSchedule({ rows: filteredRows, courses: courseById, instructors: instructorById, nature })
+        .filter(finding => finding.rule !== "period-balance");
     } catch {
       return [];
     }

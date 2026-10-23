@@ -11,6 +11,8 @@ import {
 } from "../src/utils/scheduleRegulations";
 import type { AdCourse, FSchedule } from "../src/types";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
+import fs from "fs";
+import path from "path";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -79,6 +81,13 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   const found = byRule(demo, "period-balance");
   check(Boolean(found) && /73%/.test(found!.detail), `الديمو يُظهر تنبيه النسبة على تكنولوجيا التعليم (${found?.detail || "لا تنبيه"})`);
   check(rows.filter((r: any) => /م\.7\/2/.test(String(r.fdetail || ""))).length === 1, "وشعبةٌ واحدة مشروحةٌ في ملاحظتها بأنها مقصودة");
+}
+
+/* ── شارة «سليم» أعلى الجدول لا تقرأ نسبة القسم من جزءٍ مفلتر ─────────────── */
+{
+  const source = fs.readFileSync(path.join(process.cwd(), "src/components/Schedules.tsx"), "utf8");
+  const live = source.slice(source.indexOf("const liveNotes = useMemo("), source.indexOf("const liveNotes = useMemo(") + 700);
+  check(/filter\(finding => finding\.rule !== "period-balance"\)/.test(live), "شارةُ «سليم» تتجاهل نسبة الفترتين (تخصّ القسم كاملاً لا المعروض)");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
