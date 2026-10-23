@@ -40,6 +40,7 @@ import { registerStudyProposalRoutes, seedDemoStudyProposals } from "./src/serve
 import { effectiveStatus as studyProposalStatus, decisionStateOf as studyProposalDecision } from "./src/utils/studyProposal";
 import { studyProposalPage } from "./src/server/studyProposalPage";
 import { signatureVerifyPage } from "./src/server/signatureVerifyPage";
+import { pickPreviousRequest } from "./src/utils/previousTermRequest";
 import { REQUEST_REPLAY_SCRIPT } from "./src/server/requestReplayScript";
 import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT } from "./src/server/voiceInputScript";
 import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from "./src/server/studyProposalAlert";
@@ -21040,14 +21041,16 @@ function rankState(){state.map(function(it,i){return{it:it,i:i}}).sort(function(
    عودةُ الأستاذ إلى الصفحة بعد دقائق (أو بثٌّ من القسم) تُعيد الجلب. وما كان فيه
    مسودةٌ لم تُرسَل لا يُستبدل أبداً: يُقال له إن عند القسم جديداً ويقرّر هو. */
 var lastFetch=Date.now(),refreshing=false,freshNote=false;
-function refresh(fromPush){
+function refresh(){
  if(refreshing||!data)return;
- if(dirty){if(fromPush&&!freshNote){freshNote=true;paint()}return}
  refreshing=true;
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"?live=1",{cache:"no-store"}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d}})}).then(function(x){
-  refreshing=false;lastFetch=Date.now();if(!x.ok||dirty)return;
-  var before=JSON.stringify(data.request),ords={};state.forEach(function(it){if(it.rowId!=null)ords[it.rowId]=it.ord});
-  if(before===JSON.stringify(x.d.request)&&data.windowOpen===x.d.windowOpen)return;
+  refreshing=false;lastFetch=Date.now();if(!x.ok)return;
+  if(JSON.stringify(data.request)===JSON.stringify(x.d.request)&&data.windowOpen===x.d.windowOpen)return;
+  /* مسودةٌ لم تُرسل لا تُستبدل أبداً. لكنّ الجديد يُقرأ ويُقال له، سواءٌ وصله بالبثّ أو بالقراءة الدورية:
+     بثٌّ لا يبلغ نسخةً أخرى من الخادم ولا يُستعمل في متصفحٍ بلا EventSource، فتبقى القراءةُ هي الطريق. */
+  if(dirty){if(!freshNote){freshNote=true;paint()}return}
+  var ords={};state.forEach(function(it){if(it.rowId!=null)ords[it.rowId]=it.ord});
   var nowPending=pendingList().length;
   data=x.d;state=mapItems(x.d);rankState();state.forEach(function(it){if(it.rowId!=null&&ords[it.rowId]!=null)it.ord=ords[it.rowId]});
   baseItems=JSON.parse(JSON.stringify(payloadItems()));paint.last=JSON.stringify(payloadItems());dirty=false;freshNote=false;paint();
@@ -21062,10 +21065,10 @@ var live=null,liveBack=2000,liveTimer=null,liveReady=false;
 function closeLive(){if(live){live.close();live=null}clearTimeout(liveTimer);liveReady=false}
 function openLive(){if(live||!window.EventSource||document.visibilityState==="hidden"||!data)return;
  live=new EventSource("/api/public/request/"+encodeURIComponent(TOKEN)+"/events");
- live.addEventListener("ready",function(){liveBack=2000;if(liveReady)refresh(false);liveReady=true});
- live.addEventListener("changed",function(){refresh(true)});
+ live.addEventListener("ready",function(){liveBack=2000;if(liveReady)refresh();liveReady=true});
+ live.addEventListener("changed",function(){refresh()});
  live.onerror=function(){closeLive();liveTimer=setTimeout(openLive,liveBack);liveBack=Math.min(liveBack*2,60000)}}
-setInterval(function(){if(document.visibilityState==="visible"&&Date.now()-lastFetch>110000)refresh(false)},30000);
+setInterval(function(){if(document.visibilityState==="visible"&&Date.now()-lastFetch>110000)refresh()},30000);
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"){openLive();if(Date.now()-lastFetch>30000)refresh()}else closeLive()});
 window.addEventListener("focus",function(){if(Date.now()-lastFetch>30000)refresh()});
 fetch("/api/public/request/"+encodeURIComponent(TOKEN)).then(function(r){
@@ -21190,16 +21193,13 @@ app.get("/api/public/request/:token/previous", async (req: Request, res: Respons
   const memoKey = dataContextCacheKey(request.id);
   const cached = previousTermMemo.get(memoKey);
   if (cached && Date.now() - cached.at < 5 * 60_000) { res.json(cached.value); return; }
-  /* طلباتُ هذا الأستاذ وحده، لا طلباتُ كلّ من في الفصل: بضعةُ مستنداتٍ بدل المئات. */
-  const termsAll = await Repository.getTerms() as any[];
-  const earlier = (await Repository.getInstructorRequestsByInstructor(Number(request.AdInstructorId)))
-    .filter(row => row.submittedAt && Number(row.AdTermId) < Number(request.AdTermId)
-      && Number(row.AdCollegeId) === Number(request.AdCollegeId) && Number(row.AdSectionId) === Number(request.AdSectionId))
-    .sort((a, b) => Number(b.AdTermId) - Number(a.AdTermId) || String(b.submittedAt).localeCompare(String(a.submittedAt)));
-  const nearest = earlier[0];
-  const found: { request: InstructorRequest; termName: string } | null = nearest
-    ? { request: nearest, termName: String(termsAll.find(row => Number(row.AdTermId) === Number(nearest.AdTermId))?.AdTermName || "") }
-    : null;
+  /* طلباتُ هذا الأستاذ وحده، لا طلباتُ كلّ من في الفصل: بضعةُ مستنداتٍ بدل المئات.
+     و«السابق» بالتسلسل الزمنيّ للفصول لا بمعرّفاتها (src/utils/previousTermRequest.ts). */
+  const found = pickPreviousRequest(
+    await Repository.getInstructorRequestsByInstructor(Number(request.AdInstructorId)),
+    await Repository.getTerms() as any[],
+    request,
+  );
   const value = { previous: null as null | { termName: string; items: unknown[] } };
   if (found) {
     const stripped = stripForInstructor(found.request);

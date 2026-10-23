@@ -8,6 +8,7 @@
 import fs from "fs";
 import vm from "vm";
 import { judgeRequest, type RequestedRow, type VerdictContext } from "../src/utils/instructorRequestVerdict";
+import { pickPreviousRequest } from "../src/utils/previousTermRequest";
 import { REQUEST_REPLAY_SCRIPT } from "../src/server/requestReplayScript";
 import { signatureVerifyPage } from "../src/server/signatureVerifyPage";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
@@ -65,7 +66,9 @@ check(!/"received":"استلمه القسم"/.test(page), "ولا بقي لفظ�
 check(server.includes("الرقم المدني غير مكتمل أو فيه خطأ كتابة. راجعه وأعد المحاولة."), "رسالة فشل رقم التحقق لا توحي بمطابقة");
 check(server.includes("الرقم المدني لا يطابق صاحب هذا الرابط."), "ورسالة عدم المطابقة (403) باقية كما هي");
 check(/visibilitychange/.test(page) && /Date\.now\(\)-lastFetch>30000/.test(page), "عودةُ الصفحة تُعيد الجلب بعد ثلاثين ثانية");
-check(/if\(dirty\)\{if\(fromPush/.test(page), "ولا تُعيد الجلب فوق مسودةٍ لم تُرسل");
+check(/if\(dirty\)\{if\(!freshNote\)\{freshNote=true;paint\(\)\}return\}/.test(page), "ولا تُبدّل مسودةً لم تُرسل: تُقال له الجديدُ فقط");
+check(!/function refresh\([^)]*\)\{\s*if\(refreshing\|\|!data\)return;\s*if\(dirty\)/.test(page), "لكنها تقرأ حتى مع المسودة: البثّ قد لا يبلغ (نسخةٌ أخرى أو متصفحٌ بلا EventSource) فالقراءةُ هي الطريق");
+check(/JSON\.stringify\(data\.request\)===JSON\.stringify\(x\.d\.request\)/.test(page) && !/refresh\((true|false)\)/.test(page), "وتقارن ما جاء بما عندها فلا تنبّه بلا جديد");
 check(/\?live=1/.test(page) && /String\(req\.query\.live \|\| ""\) === "1"/.test(server), "وإعادةُ الجلب الصامتة لا تُحسب فتحاً");
 check(/<link rel="icon" href="\/schedule-icon\.svg"/.test(page), "الصفحة تحمل أيقونتها فلا يطلب المتصفحُ favicon.ico ويعود 404");
 check(/data-shape=/.test(page) && /\[data-shape\]/.test(page), "أزرار التوزيع المعتمد تُطبَّق بضغطة");
@@ -145,6 +148,28 @@ check(twice.ops.length === 1 && twice.skipped.length === 1, "صفٌّ واحدٌ
 check(/data-replay|id="replay"/.test(page) && /planReplay\(prev,state,data\.courses/.test(page), "الصفحة تطبّق عمليات القاعدة نفسها");
 check(/لا يُرسل شيئاً حتى توقّع/.test(page) && !/function replayPrevious\(\)\{[\s\S]{0,2500}fetch\(/.test(page), "ولا ترسل شيئاً: لا شبكة داخل الإعادة");
 check(/\/previous"/.test(server) && /previousTermMemo/.test(server), "ذاكرةُ الفصول تُقرأ عند الطلب وتُحفظ دقائق");
+
+/* ── ذاكرةُ الفصول: «السابق» بالتسلسل الزمنيّ لا بالمعرّفات ─────────────── */
+const terms5 = [
+  { AdTermId: 1, AdTermName: "الفصل الأول 2026/2027" },   // الحالي، ومعرّفه الأصغر
+  { AdTermId: 3, AdTermName: "الفصل الثاني 2025/2026" },   // أقدم زمنياً ومعرّفه أكبر
+  { AdTermId: 5, AdTermName: "الفصل الأول 2025/2026" },    // أقدم منه
+  { AdTermId: 2, AdTermName: "الفصل الثاني 2026/2027" },   // أحدث زمنياً ومعرّفه 2
+];
+const req5 = (id: number, term: number, at: string, over: any = {}) => ({ id, AdTermId: term, AdCollegeId: 1, AdSectionId: 1, submittedAt: at, ...over });
+const cur5 = { AdTermId: 1, AdCollegeId: 1, AdSectionId: 1 };
+const byChrono = pickPreviousRequest([req5(10, 3, "2026-01-01"), req5(11, 5, "2025-09-01")], terms5, cur5);
+check(byChrono?.request.id === 10 && byChrono.termName === "الفصل الثاني 2025/2026", "فصلٌ معرّفُه أكبر وهو أقدم زمنياً يُختار سابقاً (لا مقارنةَ معرّفات)");
+const notLater = pickPreviousRequest([req5(12, 2, "2027-03-01")], terms5, { AdTermId: 3, AdCollegeId: 1, AdSectionId: 1 });
+check(notLater === null, "وفصلٌ أحدثُ زمنياً لا يُعدّ سابقاً ولو كان معرّفُه أصغر");
+const nearest = pickPreviousRequest([req5(13, 5, "2025-09-01"), req5(14, 3, "2026-01-01")], terms5, cur5);
+check(nearest?.request.id === 14, "وأقربُ السابقين زمنياً هو المختار");
+check(pickPreviousRequest([req5(15, 3, "2026-01-01", { AdSectionId: 9 })], terms5, cur5) === null, "وطلبُ قسمٍ آخر لا يُعرض");
+check(pickPreviousRequest([req5(16, 3, "")], terms5, cur5) === null, "وما لم يُرسَل لا يُعرض");
+check(pickPreviousRequest([req5(17, 1, "2026-01-01")], terms5, cur5) === null, "ولا طلبُ الفصل الحالي نفسه");
+const lastOfTwo = pickPreviousRequest([req5(18, 3, "2026-01-01"), req5(19, 3, "2026-02-01")], terms5, cur5);
+check(lastOfTwo?.request.id === 19, "وإن تعدّد في الفصل الواحد فآخرُ ما أُرسل");
+check(pickPreviousRequest([], terms5, cur5) === null, "ولا شيءَ عند غياب الطلبات");
 
 /* السكربت المولَّد يُجمَّع كما هو. */
 const html = server.includes("function instructorRequestPage") ? "ok" : "";
