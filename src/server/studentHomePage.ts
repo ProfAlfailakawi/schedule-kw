@@ -49,8 +49,66 @@ const SPRITE = `<svg width="0" height="0" style="position:absolute" aria-hidden=
 <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4"/></symbol>
 <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 16V5M7.5 9.5L12 5l4.5 4.5M5 19h14"/></symbol>
 <symbol id="i-fwd" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+<symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8 20h8M12 16.5V20"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.4"/><path d="M11 17.5h2"/></symbol>
 <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-6.5 8 6.5"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5.5h4V20"/></symbol>
 </defs></svg>`;
+
+/* الشرطُ الذي يُبطله «وضع الهاتف» في الديمو: كلُّ قاعدةِ حاسوبٍ تبدأ به. */
+const W = 'html:not([data-device="phone"])';
+const DESKTOP_CSS = `
+/* ── الحاسوب ─────────────────────────────────────────────────────────────
+   يُقرَّر مرةً بعرض النافذة (٩٦٠px فأكثر) وبالشاشة (الرئيسية فقط)، لا بوصول بياناتٍ متأخرة، فلا تقفز الصفحة بعد الرسم.
+   النماذج (الدخول، الإعداد، الرغبات) تبقى عموداً ضيقاً في الوسط؛ والرئيسية عمودان: ما يُفعل الآن، وبجانبه البقية.
+   data-device="phone" (الديمو وحده) يُلغي كلَّ هذا ويعرض الصفحة بعرض الهاتف. */
+.devbtn{display:none;place-items:center;inline-size:40px;block-size:40px;padding:0;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer}
+.devbtn:hover,.devbtn:focus-visible{border-color:var(--brass)}
+.devbtn .i{inline-size:19px;block-size:19px}
+@media (min-width:960px){
+.devbtn{display:inline-grid}
+html[data-device="phone"] body{background:radial-gradient(120% 60% at 100% 0,var(--accent-soft) 0,transparent 55%),var(--soft)}
+html[data-device="phone"] .app{margin-block:20px;min-block-size:calc(100dvh - 40px);padding-inline:18px;border:1px solid var(--line-strong);border-radius:34px;background:var(--bg);box-shadow:0 30px 70px -34px rgba(19,24,23,.5)}
+${W} .app[data-view="home"]{max-inline-size:1160px;padding-inline:28px}
+${W} .app[data-view="home"] header.top{min-block-size:68px;padding-block:10px}
+${W} .app[data-view="home"] .hero.me{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:center;gap:28px;padding:26px 32px;border-radius:30px}
+${W} .app[data-view="home"] .hero.me .kpis b{font-size:26px}
+${W} .app[data-view="home"] .hero.me .kpis small{font-size:12.5px}
+${W} .app[data-view="home"] .pane[data-pane="now"]{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px;align-items:start;margin-block-start:18px}
+${W} .pane[data-pane="now"] .card{margin-block-start:0}
+${W} .pane[data-pane="now"]>#visitChanges{grid-column:1}
+${W} .pane[data-pane="now"]>#noticesTop{grid-column:1}
+${W} .pane[data-pane="now"]>#primarySlot{grid-column:1}
+${W} .pane[data-pane="now"]>#later{grid-column:2;grid-row:1/span 6;margin-block-start:0}
+${W} .pane[data-pane="now"]>#adx-me-box{grid-column:1/-1}
+${W} .pane[data-pane="now"] #primarySlot{display:grid;gap:18px}
+${W} .pane[data-pane="now"] #laterBody{display:grid;gap:18px}
+${W} .pane[data-pane="now"] #laterBody>:empty{display:none}
+${W} .pane[data-pane="now"] #primarySlot>:empty:not(.skel){display:none}
+${W} .pane[data-pane="now"] #noticesTop:empty{display:none}
+${W} .pane[data-pane="now"] #visitChanges:empty{display:none}
+${W} #laterBody>:first-child{margin-block-start:0}
+${W} details.later>summary{display:none}
+${W} .app[data-view="home"] .pane[data-pane="plan"]{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:18px;align-items:start;margin-block-start:18px}
+${W} .pane[data-pane="plan"]>#advice{grid-column:1;grid-row:1/span 4}
+${W} .pane[data-pane="plan"]>section{grid-column:2}
+${W} .pane[data-pane="plan"]>details{grid-column:2}
+${W} .pane[data-pane="plan"] .card{margin-block-start:0}
+${W} .pane[data-pane="plan"] .km{margin-block-start:0}
+${W} .pane[data-pane="plan"] .kc-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+${W} .km-seg{top:80px}
+${W} .app[data-view="home"] .pane[data-pane="me"]{display:grid;gap:16px;max-inline-size:620px;margin:18px auto 0}
+${W} .pane[data-pane="me"] .card{margin-block-start:0}
+${W} header.top nav.tabs{flex:0 1 340px;max-inline-size:340px;margin:0;box-shadow:none;background:var(--soft);border-color:transparent;border-radius:18px;padding:4px}
+${W} header.top nav.tabs button{min-block-size:48px}
+${W} .app[data-view="home"] header.top{position:sticky;inset-block-start:0;z-index:35;margin-inline:-28px;padding-inline:28px;background:var(--bg);box-shadow:0 0 0 100vmax var(--bg);clip-path:inset(0 -100vmax)}
+${W} .dock:empty{display:none}
+${W} .kbar{inset-block-end:20px}
+${W} .toast{inset-block-end:28px}
+${W} .scrim{align-items:center}
+${W} .sheet{border-radius:28px;max-block-size:88dvh;padding-block-end:22px}
+${W} .kd{inset-block:6vh auto;border-radius:28px;max-block-size:88vh}
+}
+`;
 
 export const STUDENT_HOME_CSS = `
 *,*::before,*::after{box-sizing:border-box}
@@ -416,6 +474,7 @@ details.later>summary{justify-content:center;border:1.5px dashed var(--line-stro
 @keyframes pulse{0%{transform:scale(.9);opacity:.4}55%{transform:scale(1.12)}100%{transform:none;opacity:1}}
 .chip.pulse{animation:pulse .6s var(--ease) 1}
 @media (prefers-reduced-motion:reduce){.fade,.sheet,.toast,.skel,.chip.pulse{animation:none}.ring .fg{transition:none}}
+${DESKTOP_CSS}
 ${STUDENT_MAP_CSS}`;
 
 export const STUDENT_HOME_SCRIPT = String.raw`
@@ -460,7 +519,20 @@ function markOverflow(){var t=document.querySelector(".track");if(t&&t.scrollWid
 function animateRings(){var fgs=document.querySelectorAll(".ring .fg");for(var i=0;i<fgs.length;i++){(function(el){requestAnimationFrame(function(){requestAnimationFrame(function(){el.style.strokeDashoffset=el.getAttribute("data-off")})})})(fgs[i])}}
 function phaseChip(){var s=S.state;if(!s)return"";var ph=s.phase;return '<div class="phase">'+ic(ph.mode==="wishes"?"heart":ph.mode==="report"?"ticket":ph.mode==="frozen"?"lock":"clock")+'<span>'+(ph.line.indexOf(ph.label)>=0?'':'<b>'+esc(ph.label)+'</b> · ')+esc(ph.line)+'</span></div>'}
 function track(){var s=S.state;if(!s||!s.timeline)return"";var ICON={submission:"book",wishes:"heart",frozen:"lock",round:"ticket",close:"flag"};var h='<ol class="track" aria-label="رحلة الفصل">';s.timeline.forEach(function(st){var d=st.to||st.from;h+='<li class="stp '+st.state+'"'+(st.state==="now"?' aria-current="step"':"")+'><span class="d">'+ic(st.state==="done"?"check":ICON[st.kind]||"clock")+'</span><b>'+esc(st.title)+'</b><small>'+(d?esc(fmtShort(d)):"—")+'</small></li>'});return h+'</ol>'}
-function setTop(){var s=S.state;topEl.innerHTML='<span class="mark">SCHEDULE</span><span class="topr">'+(s&&s.demo?'<span class="term demo">تجربة · افتراضي</span>':"")+(s&&s.term?'<span class="term">'+ic("cal")+esc(s.term.name)+'</span>':"")+'<a class="jrn" href="/?journey=1&amp;back=/me" aria-label="افتح التعريف بنظام SCHEDULE">'+ic("spark")+'<span>عن النظام</span></a></span>'}
+/* ── الحاسوب والهاتف ──
+   التخطيطُ يتبع عرضَ النافذة وحده (٩٦٠px فأكثر = حاسوب). في الديمو أيقونةٌ تُجبره على عرض الهاتف ليُرى الاثنان من شاشةٍ واحدة؛ يُحفظ اختيارُه في المتصفح، و?device=phone يفرضه من الرابط. */
+function deviceMode(){var d="";try{d=localStorage.getItem("masari-device")||""}catch(e){}var q=/[?&]device=(phone|desktop)/.exec(location.search);if(q)d=q[1];return d==="phone"?"phone":"desktop"}
+function applyDevice(){var el=document.documentElement;if(S.state&&S.state.demo)el.setAttribute("data-device",deviceMode());else el.removeAttribute("data-device")}
+function isWide(){return !!(window.matchMedia&&window.matchMedia("(min-width:960px)").matches)&&document.documentElement.getAttribute("data-device")!=="phone"}
+/* الحاسوب: التبويباتُ في الترويسة (تبقى ظاهرةً مع التمرير)؛ الهاتف: شريطٌ سفليٌّ. العنصرُ نفسُه يُنقل فتبقى مستمعاتُه. */
+function placeTabs(){var nav=document.querySelector("nav.tabs");if(!nav)return;
+  if(isWide()&&S.view==="home"){if(nav.parentNode!==topEl)topEl.insertBefore(nav,topEl.querySelector(".topr"))}
+  else if(nav.parentNode!==dockEl)dockEl.appendChild(nav)}
+function syncWide(){var box=document.getElementById("later");if(box&&S.view==="home")box.open=isWide();placeTabs()}
+var wideTimer=0;window.addEventListener("resize",function(){clearTimeout(wideTimer);wideTimer=setTimeout(syncWide,120)});
+function setTop(){var s=S.state;var keep=topEl.querySelector("nav.tabs");if(keep)dockEl.appendChild(keep);topEl.innerHTML='<span class="mark">SCHEDULE</span><span class="topr">'+(s&&s.demo?'<span class="term demo">تجربة · افتراضي</span><button type="button" class="devbtn" id="devsw" aria-label="'+(deviceMode()==="phone"?"اعرض بشكل الحاسوب":"اعرض بشكل الهاتف")+'" title="'+(deviceMode()==="phone"?"وضع الحاسوب":"وضع الهاتف")+'">'+ic(deviceMode()==="phone"?"monitor":"phone")+'</button>':"")+(s&&s.term?'<span class="term">'+ic("cal")+esc(s.term.name)+'</span>':"")+'<a class="jrn" href="/?journey=1&amp;back=/me" aria-label="افتح التعريف بنظام SCHEDULE">'+ic("spark")+'<span>عن النظام</span></a></span>';
+  var db=document.getElementById("devsw");if(db)db.addEventListener("click",function(){var next=deviceMode()==="phone"?"desktop":"phone";try{localStorage.setItem("masari-device",next)}catch(e){}if(/[?&]device=/.test(location.search))history.replaceState(null,"",location.pathname+location.hash);applyDevice();setTop();syncWide()});
+  placeTabs()}
 function setView(v){S.view=v;if(v!=="home"){var kb=document.getElementById("kbar");if(kb)kb.hidden=true;kmClose()}render()}
 var sheetOpener=null;
 var FOCUSABLE='a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -540,7 +612,7 @@ function viewCreate(){
   document.getElementById("other").addEventListener("click",function(){S.civil="";setView("gate")});
   setTimeout(function(){var i=document.getElementById("nm");if(i)i.focus()},60);
 }
-function afterSignIn(){S.civil="";api("GET","/api/public/me/state").then(function(r){if(r.ok){S.state=r.d;setTop()}S.draft=null;S.offered=null;setView(S.state&&S.state.profile&&S.state.profile.setupDone?"home":"setup")})}
+function afterSignIn(){S.civil="";api("GET","/api/public/me/state").then(function(r){if(r.ok){S.state=r.d;applyDevice();setTop()}S.draft=null;S.offered=null;setView(S.state&&S.state.profile&&S.state.profile.setupDone?"home":"setup")})}
 
 /* ── إعداد الملف: القسم ← الصحيفة ← ما أنجزت ── */
 function ensureCatalog(cb){if(!S.track)return cb();if(S.catalog)return cb();api("GET","/api/public/me/catalog?track="+encodeURIComponent(S.track)).then(function(r){S.catalog=r.ok?r.d.specializations:[];cb()})}
@@ -649,6 +721,7 @@ function viewHome(){
   app.innerHTML=h;wireWhatIf(pr.remainingUnits);animateRings();markOverflow();adxMountLater("adx-me-box","me",{college:(S.state.profile&&S.state.profile.collegeId)||0});
   dockEl.innerHTML='<nav class="tabs" role="tablist" aria-label="أقسام مساري"><button type="button" role="tab" data-tab="now" aria-selected="true">'+ic("home")+'<span>الآن</span><i class="dot" id="nowdot" hidden></i></button><button type="button" role="tab" data-tab="plan" aria-selected="false">'+ic("layers")+'<span>خطتي</span></button><button type="button" role="tab" data-tab="me" aria-selected="false">'+ic("user")+'<span>ملفي</span></button></nav>';
   dockEl.querySelectorAll("[data-tab]").forEach(function(b){b.addEventListener("click",function(){showTab(b.getAttribute("data-tab"))})});
+  placeTabs();
   document.getElementById("edp").addEventListener("click",function(){var d=startDraft();d.step=3;viewSetup()});
   document.getElementById("out").addEventListener("click",function(){api("POST","/api/public/me/exit",{}).then(function(){S.state.signedIn=false;S.state.profile=null;S.civil="";S.remember=false;S.draft=null;S.offered=null;setView("gate")})});
   document.getElementById("chg").addEventListener("click",sheetCode);
@@ -664,7 +737,7 @@ function viewHome(){
 function showTab(t){if(KM.dirty&&t!=="plan"&&S.view==="home"){KM.dirty=false;S.keepTab=t;viewHome();return}
   S.tab=t;var ap=document.querySelector(".app");if(ap)ap.classList.toggle("km-on",t==="plan"&&KM.ready);if(t!=="plan")kmClose();kmBarUpdate();
   var panes=document.querySelectorAll(".pane");for(var i=0;i<panes.length;i++)panes[i].hidden=panes[i].getAttribute("data-pane")!==t;
-  dockEl.querySelectorAll("[data-tab]").forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===t?"true":"false")});window.scrollTo(0,0);animateRings()}
+  document.querySelectorAll("nav.tabs [data-tab]").forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===t?"true":"false")});window.scrollTo(0,0);animateRings()}
 /* ── «الآن»: بطاقةٌ رئيسية واحدة ── */
 var LATER_KEYS=["notices","cases","ticket","report","wishes","caseRequest","journey"];
 var laterBusy=false,laterMO=null,laterTimer=0;
@@ -687,7 +760,7 @@ function laterUpdate(){var body=document.getElementById("laterBody"),slot=docume
   if(raise&&want&&els[want]&&els[raise].previousElementSibling!==els[want])slot.appendChild(els[raise]);
   var sk=document.getElementById("primSkel");if(pending){if(!sk){sk=document.createElement("div");sk.id="primSkel";sk.className="skel";slot.appendChild(sk)}}else if(sk)sk.remove();
   var n=0;LATER_KEYS.forEach(function(k){var el=els[k];if(el&&el.parentNode===body&&hostFilled(el))n++});
-  box.hidden=n===0;var sm=document.getElementById("laterSum");if(sm)sm.innerHTML=ic("down")+' المزيد من مساري ('+n+')';
+  box.hidden=n===0;if(isWide())box.open=true;var sm=document.getElementById("laterSum");if(sm)sm.innerHTML=ic("down")+' المزيد من مساري ('+n+')';
   laterBusy=false;laterObserve()}
 function reveal(el){var dt=el.closest&&el.closest("details.later");if(dt)dt.open=true;var pane=el.closest&&el.closest(".pane");if(pane&&pane.hidden)showTab(pane.getAttribute("data-pane"));if(el.scrollIntoView)el.scrollIntoView({behavior:"smooth",block:"center"})}
 var DAYN=["أحد","اثنين","ثلاثاء","أربعاء","خميس"];
@@ -1103,7 +1176,8 @@ function sheetForget(){sheet('<h3>حذف ملفّي</h3><p class="lead">يُحذ
   fs.addEventListener("click",function(){fs.disabled=true;api("POST","/api/public/me/forget",{code:a}).then(function(r){fs.disabled=false;if(!r.ok){showErr("ferr",r.d.error||"تعذّر الحذف");return}closeSheet();S.state.signedIn=false;S.state.profile=null;S.civil="";S.draft=null;toast("حُذف ملفّك");setView("gate")})})}
 
 function render(){
-  closeSheet();window.scrollTo(0,0);if(S.view!=="setup")dockEl.innerHTML="";
+  closeSheet();window.scrollTo(0,0);var oldNav=topEl.querySelector("nav.tabs");if(oldNav)oldNav.remove();if(S.view!=="setup")dockEl.innerHTML="";
+  var appEl=document.querySelector(".app");if(appEl)appEl.setAttribute("data-view",S.view);
   var v=S.view;
   if(v==="boot"){app.innerHTML='<div class="skel"></div><div class="skel"></div>';return}
   if(v==="gate")return viewGate();
@@ -1114,7 +1188,7 @@ function render(){
 }
 function boot(){setView("boot");api("GET","/api/public/me/state").then(function(r){
   if(!r.ok){app.innerHTML='<section class="card"><p class="err">'+esc(r.d.error||"تعذّر فتح الصفحة")+'</p><button class="btn" id="retry">أعد المحاولة</button></section>';document.getElementById("retry").addEventListener("click",function(){location.reload()});return}
-  S.state=r.d;setTop();
+  S.state=r.d;applyDevice();setTop();
   if(S.state.signedIn&&S.state.profile)setView(S.state.profile.setupDone?"home":"setup");else setView("gate")})}
 boot();
 })();

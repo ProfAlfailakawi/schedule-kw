@@ -186,7 +186,9 @@ check(studentHomeSource.includes('homePart("request-context")') && studentHomeSo
   const used = [...STUDENT_HOME_SCRIPT.matchAll(/ic\("([a-z]+)"/g)].map(m => m[1]);
   const missing = [...new Set(used)].filter(name => !sprite.has(name));
   check(sprite.size >= 20 && missing.length === 0, "D5 كلُّ أيقونةٍ مستعملة معرَّفة في الصفحة", missing);
-  check(!/localStorage|sessionStorage|indexedDB/.test(STUDENT_HOME_SCRIPT), "D5 لا يُكتب شيءٌ في تخزين المتصفح: الملفُّ على الخادم");
+  /* المستثنى الوحيد: تفضيلُ عرض الديمو (حاسوب/هاتف) — لا بيانَ طالبٍ فيه. */
+  const withoutDevicePref = STUDENT_HOME_SCRIPT.replace(/localStorage\.(?:get|set)Item\("masari-device"/g, "");
+  check(!/localStorage|sessionStorage|indexedDB/.test(withoutDevicePref), "D5 لا يُكتب شيءٌ في تخزين المتصفح: الملفُّ على الخادم (عدا تفضيل عرض الديمو masari-device)");
   check(!/\$\{/.test(STUDENT_HOME_SCRIPT.replace(/var countOf=[\s\S]*?;var AR=\{[^\n]*\};/, "")), "D5 لا ‎${‎ شاردة في سكربت الصفحة");
   check(html.includes('lang="ar" dir="rtl"') && html.includes("viewport-fit=cover") && html.includes('name="robots" content="noindex,nofollow"'), "D5 عربيةٌ يمينية للهاتف ولا تُفهرَس");
   check(html.includes("prefers-reduced-motion") && html.includes("env(safe-area-inset-bottom)"), "D5 احترامُ تقليل الحركة وحوافّ الهاتف");
