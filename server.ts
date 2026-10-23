@@ -24,6 +24,8 @@ import { describeRollover, readTermRollover } from "./src/utils/termRollover";
 import { visibleTermIds } from "./src/utils/scopedTerms";
 import { currentTermId, planningTermCandidates, termHasEnded, termIsArchive } from "./src/utils/termSequence";
 import { acceptedPdfSourceLabel, pdfTermAccepted } from "./src/utils/pdfTermRule";
+import { applyVisitingToFaculty } from "./src/utils/visitingToFaculty";
+import { ensureSectionFaculty } from "./src/server/sectionFaculty";
 import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadProblem } from "./src/utils/teachingLoad";
 import { buildConflictTopology, buildDecisionMemoryInsight, buildFairnessEngine, buildFragilityMap, buildOneMinuteBrief, buildRoomResilience, buildScheduleHealth2, buildSchedulePulse, createEmergencyPlans, explainScheduleDecision } from "./src/utils/livingSchedule";
 import type { AdCourse, AdInstructor, AdSection, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleComment, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestSnapshot, InstructorRequestEventKind, StudentNeed, CurriculumPlan, CurriculumDegreeRule } from "./src/types";
@@ -42,6 +44,7 @@ import { effectiveStatus as studyProposalStatus, decisionStateOf as studyProposa
 import { studyProposalPage } from "./src/server/studyProposalPage";
 import { signatureVerifyPage } from "./src/server/signatureVerifyPage";
 import { pickPreviousRequest } from "./src/utils/previousTermRequest";
+import { latestRequestByInstructor, reissueMove, requestLinkNeedsReplacing } from "./src/utils/requestReissue";
 import { REQUEST_REPLAY_SCRIPT } from "./src/server/requestReplayScript";
 import { REQUEST_DAY_AUTOFILL_SCRIPT } from "./src/server/requestDayAutofillScript";
 import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT } from "./src/server/voiceInputScript";
@@ -1570,6 +1573,7 @@ function safeDraftRows(input: unknown, collegeId: number, sectionId: number, ter
     fdetail: legacyFDetail(raw || {}),
     referenceNumber: String(raw?.referenceNumber || "").slice(0,30),
     sourceInstructorText: String(raw?.sourceInstructorText || "").slice(0,180) || undefined,
+    replacedVisitingInstructorId: Number(raw?.replacedVisitingInstructorId || 0) || undefined,
     sourceCourseCode:String(raw?.sourceCourseCode||"").slice(0,40)||undefined,
     sourceCourseText:String(raw?.sourceCourseText||"").slice(0,220)||undefined,
     sourceSectionText:String(raw?.sourceSectionText||"").slice(0,40)||undefined,
@@ -1883,6 +1887,29 @@ async function collegeFallbackInstructorIds(collegeId: number): Promise<number[]
    من مواقع الفرع كلها ومعها احتياط الكلية للقسم الذي لا تاريخ له بعد. فمن
    يقبله الحفظ كان يُوسم في المعاينة غريباً عن القسم: إنذار كاذب على جدول
    صحيح تماماً. القائمة تُحسب هنا مرة واحدة، ويقرأ منها الطرفان. */
+/**
+ * ── المنتدب في جدول مستورد يصير «هيئة تدريسية» ─────────────────────────────
+ * المنتدبون يتغيّرون كل فصل، فلا يُحمَّل الفصل الجديد بأسمائهم: أي صف أستاذه
+ * منتدب (من دليل القسم أو روستر الفصل، وليس من هيئته) يُسنَد إلى سجل «هيئة
+ * تدريسية» الخاص بالقسم. التغيير في صفوف هذا الجدول وحدها؛ لا يُمَس وضع
+ * المنتدب نفسه في النظام. بلا سجلٍّ واحدٍ لـ«هيئة تدريسية» للقسم يبقى الصف كما هو.
+ */
+async function visitingToFacultyPlan(collegeId: number, sectionId: number, termId: number): Promise<{ visiting: Set<number>; placeholderId: number }> {
+  const [colleges, sections, instructors] = await Promise.all([Repository.getColleges(), Repository.getSections(), Repository.getInstructors()]);
+  const scopes = branchOwnScopes(colleges as any, sections as any, collegeId, sectionId);
+  const pools = await Promise.all(scopes.map(async scope => ({
+    delegates: await Repository.getDepartmentDelegates(scope.collegeId, scope.sectionId),
+    roster: await Repository.getVisitingRoster(scope.collegeId, scope.sectionId, termId),
+    faculty: await Repository.getDepartmentFaculty(scope.collegeId, scope.sectionId),
+  })));
+  const ids = (lists: any[][]) => new Set<number>(lists.flat().map(Number).filter(id => Number.isFinite(id) && id > 0));
+  const faculty = ids(pools.map(pool => pool.faculty));
+  const visiting = new Set([...ids(pools.flatMap(pool => [pool.delegates, pool.roster]))].filter(id => !faculty.has(id)));
+  const membership = await departmentInstructorIdSet(colleges as any, sections as any, collegeId, sectionId, termId);
+  const mine = [...placeholderInstructorIds(instructors as any)].filter(id => membership.has(id));
+  return { visiting, placeholderId: mine.length === 1 ? mine[0] : 0 };
+}
+
 async function departmentInstructorIdSet(
   allColleges: any[], allSections: any[], collegeId: number, sectionId: number, termId: number,
 ): Promise<Set<number>> {
@@ -1904,7 +1931,9 @@ async function departmentInstructorIdSet(
      وإلا لقبل أحد الطرفين ما يرفضه الآخر. */
   const baseIndex = scopes.findIndex(scope => scope.collegeId === collegeId && scope.sectionId === sectionId);
   const basePool = baseIndex >= 0 ? pools[baseIndex] : undefined;
-  if (!basePool || !idsOf(basePool).length) {
+  /* سجل «هيئة تدريسية» ليس أستاذاً: قسمٌ لا يملك غيره ما زال بلا نطاقٍ حقيقي، فيبقى له احتياط الكلية. */
+  const placeholders = placeholderInstructorIds(await Repository.getInstructors() as any);
+  if (!basePool || !idsOf(basePool).some(id => !placeholders.has(id))) {
     for (const id of await collegeFallbackInstructorIds(collegeId)) ids.add(id);
   }
   return ids;
@@ -3309,6 +3338,8 @@ app.post("/api/sections", requirePermission(4), async (req: AuthenticatedRequest
     return;
   }
   const newSec = await Repository.createSection(collegeId, AdSectionCode, AdSectionName);
+  /* القسم الجديد يولد بسجل «هيئة تدريسية»؛ وتعثّره لا يُسقط القسم، فيُعاد عند أول استيراد. */
+  try { await ensureSectionFaculty(Repository, collegeId, Number(newSec.AdSectionId)); } catch (error: any) { console.error("[sections] faculty placeholder:", error?.stack || error); }
   res.status(201).json(newSec);
 });
 
@@ -6575,6 +6606,7 @@ app.post("/api/schedules/import", requirePermission(7), async (req: Authenticate
     }
   }
 
+  const visitingPlan = await visitingToFacultyPlan(collegeId, sectionId, termId);
   const operationalImportIds=await Repository.getOperationalCourseIds(sectionId);
   const ready: any[] = [];
   const rejected: Array<{ line: number; reason: string; label: string }> = [];
@@ -6593,7 +6625,7 @@ app.post("/api/schedules/import", requirePermission(7), async (req: Authenticate
       AdCourseId: course.AdCourseId, AdCourseName: course.CourseName,
       CourseCodeSnapshot:String(course.CourseCode||""),CourseNameSnapshot:String(course.CourseName||""),
       SCode: String(entry?.section || "").trim(),
-      AdInstructorId: instructor.AdInstructorId,
+      AdInstructorId: visitingPlan.placeholderId && visitingPlan.visiting.has(Number(instructor.AdInstructorId)) ? visitingPlan.placeholderId : instructor.AdInstructorId,
       AdRoomCode: String(entry?.building || "").trim(),
       AdRoomHall: String(entry?.hall || "").trim(),
       fstarttime: normalizeClock(entry?.start),
@@ -9754,6 +9786,7 @@ app.post("/api/intelligence/pdf-import/bootstrap-section", requirePermission(7),
     }
   }
 
+  if(created){try{await ensureSectionFaculty(Repository,collegeId,Number(section.AdSectionId));}catch(error:any){console.error("[pdf-bootstrap] faculty placeholder:",error?.stack||error);}}
   /* If the section is new/empty, copy only catalogue identities from the best
      proven same-name department already in the system. This is catalogue data,
      never OCR text: course name/credits/hours/max all come from the existing
@@ -9977,7 +10010,9 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
      حين لا يكون للقسم تاريخ بعد، يتسع النطاق إلى أساتذة الكلية نفسها: نطاق
      حقيقي محدود يُقرأ من جداول أقسامها الأخرى، لا الجامعة كلها. والقسم الذي
      له تاريخ لا يتغير سلوكه إطلاقاً، فهذا المسار لا يُقرأ عنده أصلاً. */
-  if(!preferredInstructorIds.size){
+  /* «هيئة تدريسية» وحدها لا تجعل للقسم نطاقاً حقيقياً (القسم الجديد يولد بسجلّها) فيبقى له احتياط الكلية. */
+  const importPlaceholderIds=placeholderInstructorIds(allInstructors as any);
+  if(![...preferredInstructorIds].some(id=>!importPlaceholderIds.has(id))){
     for(const id of await collegeFallbackInstructorIds(collegeId))preferredInstructorIds.add(id);
   }
   /* ── نطاق المطابقة هو نطاق النشر نفسه ─────────────────────────────────────
@@ -10446,6 +10481,8 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
       parsed.issues.unshift(`تحذير: الملف يذكر «${recognized.headerTerm.label}» بينما الفصل المختار هو «${String(targetTerm.AdTermName||"")}»، ولا يُقبل إلا «${acceptedPdfSourceLabel(targetName)||"فصل السنة السابقة"}». تأكد أنك ترفع الجدول إلى الفصل الصحيح.`);
     }
   }
+  const visitingReplaced=applyVisitingToFaculty(parsed.rows as any[],await visitingToFacultyPlan(collegeId,sectionId,termId));
+  if(visitingReplaced)parsed.issues.push(`استُبدل المنتدبون بـ«هيئة تدريسية» في ${countOf(visitingReplaced, oblique(AR.section))}.`);
   const rows=assignAuthoritySections(safeDraftRows(parsed.rows,collegeId,sectionId,termId));
   const structural=rows.length?await validateSmartRows(rows,collegeId,sectionId,{checkConflicts:true,requireDepartmentInstructor:true,departmentInstructorIds:departmentMembership}):[];
   /* تنبيهُ الصفحة (سطرٌ مطبوع لم يُقرأ، صفٌّ غير واضح) يتصدّر ملاحظات المعاينة
@@ -13226,7 +13263,7 @@ app.get("/api/intelligence/compare-terms", requirePermission(7), async (req: Aut
 
 app.post("/api/intelligence/import-preview", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const {collegeId,sectionId,termId}=smartContextFrom(req); if(!collegeId||!sectionId||!termId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;} const raw=Array.isArray(req.body?.rows)?req.body.rows:[]; if(!raw.length){res.status(400).json({error:"الملف لا يحتوي صفوفاً قابلة للقراءة"});return;} if(raw.length>450){res.status(400).json({error:"الملف أكبر من الحد الآمن للاستيراد"});return;} const [courses,instructors,operationalImportIds]=await Promise.all([Repository.getCourses(),Repository.getInstructors(),Repository.getOperationalCourseIds(sectionId)]); const sectionCourses=courses.filter(c=>c.AdCollegeId===collegeId&&c.AdSectionId===sectionId&&operationalImportIds.has(Number(c.AdCourseId))); const byCode=new Map(sectionCourses.map(c=>[String(c.CourseCode).trim().toLowerCase(),c])); const byCivil=new Map(instructors.map(i=>[normalizeCivilId(i.AdInstructorCivil),i])); const byName=new Map(instructors.map(i=>[String(i.AdInstructorName).trim().toLowerCase(),i])); const issues:string[]=[]; const rows:any[]=[];
-  raw.forEach((item:any,index:number)=>{const code=String(item["رمز المقرر"]??item.CourseCode??item.courseCode??"").trim();const course=byCode.get(code.toLowerCase());const civil=normalizeCivilId(item["الرقم المدني"]??item.AdInstructorCivil??item.civil??"");const iname=String(item["أستاذ المقرر"]??item.AdInstructorName??item.instructor??"").trim();const instructor=byCivil.get(civil)||byName.get(iname.toLowerCase());const sectionCode=String(item["الشعبة"]??item.SCode??item.section??"").trim();const time=String(item["الوقت"]??item.time??"").trim();const parts=time.split(/\s*[-–—]\s*/);const start=normalizeClock(String(item.fstarttime??item.startTime??parts[1]??parts[0]??"").trim().slice(0,5)),end=normalizeClock(String(item.fendtime??item.endTime??parts[0]??parts[1]??"").trim().slice(0,5));const dayText=String(item["الأيام"]??item.days??"");const row:any={id:-(index+1),AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:course?.AdCourseId||0,AdCourseName:course?.CourseName||String(item["المقرر الدراسي"]??""),SCode:sectionCode,AdInstructorId:instructor?.AdInstructorId||0,fsunday:dayText.includes("الأحد")||Boolean(item.fsunday),fmonday:dayText.includes("الاثنين")||Boolean(item.fmonday),ftuesday:dayText.includes("الثلاثاء")||Boolean(item.ftuesday),fwednesday:dayText.includes("الأربعاء")||Boolean(item.fwednesday),fthursday:dayText.includes("الخميس")||Boolean(item.fthursday),fstarttime:start,fendtime:end,AdRoomCode:String(item["المبنى"]??item.AdRoomCode??"").trim(),AdRoomHall:String(item["القاعة"]??item.AdRoomHall??"").trim(),fdetail:""}; row.fdetail=legacyFDetail(row); if(!course)issues.push(`السطر ${index+1}: لم أجد رمز المقرر ${code||"(فارغ)"} في هذا القسم`);if(!instructor)issues.push(`السطر ${index+1}: لم أتعرف على أستاذ المقرر`);rows.push(row);}); const validation=await validateSmartRows(rows,collegeId,sectionId,{resolveHistorical:true}); issues.push(...validation); const duplicateKeys=new Set<string>(),duplicates:string[]=[]; rows.forEach((r:any,i:number)=>{const key=`${r.AdCourseId}:${r.SCode}`;if(duplicateKeys.has(key))duplicates.push(`السطر ${i+1}: مقرر/شعبة مكرر`);duplicateKeys.add(key)});issues.push(...duplicates); res.json({rows,issues:[...new Set(issues)].slice(0,40),valid:issues.length===0,count:rows.length,preview:rows.slice(0,20)});
+  raw.forEach((item:any,index:number)=>{const code=String(item["رمز المقرر"]??item.CourseCode??item.courseCode??"").trim();const course=byCode.get(code.toLowerCase());const civil=normalizeCivilId(item["الرقم المدني"]??item.AdInstructorCivil??item.civil??"");const iname=String(item["أستاذ المقرر"]??item.AdInstructorName??item.instructor??"").trim();const instructor=byCivil.get(civil)||byName.get(iname.toLowerCase());const sectionCode=String(item["الشعبة"]??item.SCode??item.section??"").trim();const time=String(item["الوقت"]??item.time??"").trim();const parts=time.split(/\s*[-–—]\s*/);const start=normalizeClock(String(item.fstarttime??item.startTime??parts[1]??parts[0]??"").trim().slice(0,5)),end=normalizeClock(String(item.fendtime??item.endTime??parts[0]??parts[1]??"").trim().slice(0,5));const dayText=String(item["الأيام"]??item.days??"");const row:any={id:-(index+1),AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:course?.AdCourseId||0,AdCourseName:course?.CourseName||String(item["المقرر الدراسي"]??""),SCode:sectionCode,AdInstructorId:instructor?.AdInstructorId||0,fsunday:dayText.includes("الأحد")||Boolean(item.fsunday),fmonday:dayText.includes("الاثنين")||Boolean(item.fmonday),ftuesday:dayText.includes("الثلاثاء")||Boolean(item.ftuesday),fwednesday:dayText.includes("الأربعاء")||Boolean(item.fwednesday),fthursday:dayText.includes("الخميس")||Boolean(item.fthursday),fstarttime:start,fendtime:end,AdRoomCode:String(item["المبنى"]??item.AdRoomCode??"").trim(),AdRoomHall:String(item["القاعة"]??item.AdRoomHall??"").trim(),fdetail:""}; row.fdetail=legacyFDetail(row); if(!course)issues.push(`السطر ${index+1}: لم أجد رمز المقرر ${code||"(فارغ)"} في هذا القسم`);if(!instructor)issues.push(`السطر ${index+1}: لم أتعرف على أستاذ المقرر`);rows.push(row);}); const visitingReplaced=applyVisitingToFaculty(rows,await visitingToFacultyPlan(collegeId,sectionId,termId)); const validation=await validateSmartRows(rows,collegeId,sectionId,{resolveHistorical:true}); issues.push(...validation); const duplicateKeys=new Set<string>(),duplicates:string[]=[]; rows.forEach((r:any,i:number)=>{const key=`${r.AdCourseId}:${r.SCode}`;if(duplicateKeys.has(key))duplicates.push(`السطر ${i+1}: مقرر/شعبة مكرر`);duplicateKeys.add(key)});issues.push(...duplicates); res.json({rows,issues:[...new Set(issues)].slice(0,40),valid:issues.length===0,count:rows.length,preview:rows.slice(0,20),visitingReplaced});
 });
 
 /* ── قائمة النسخ لا تحمل صفوفها ──────────────────────────────────────────
@@ -15326,7 +15363,25 @@ app.post("/api/share", requirePermission(7), async (req: AuthenticatedRequest, r
     userName: String(req.user!.Name || ""),
     showInstructors: req.body?.showInstructors !== false
   });
-  res.status(201).json(link);
+  /* ── بطاقةٌ حيّةٌ واحدةٌ للقسم في الفصل ──────────────────────────────────
+   * كلُّ بطاقةٍ جديدةٍ كانت تُضاف إلى ما قبلها، فتتراكم في اللوحة بطاقاتٌ
+   * بمواعيدَ مختلفة، ولا يعرف المنسّقُ أيَّها يقرأ الأستاذ. فالجديدةُ تحلّ محلّ
+   * السابقة: تُوقف بطاقاتُ القسم القديمة، وتأخذ الروابطُ الشخصيةُ — وقد وصلت
+   * الأساتذةَ في واتساب — موعدَها الجديد بدل أن تُوقف. */
+  let replaced = 0;
+  if (kind === "staff") {
+    const scopeLinks = await Repository.getShareLinks(collegeId, sectionId, termId);
+    for (const old of scopeLinks) {
+      if (old.id === link.id || old.kind !== "staff" || old.revoked) continue;
+      if (isPersonalStaffLink(old)) {
+        if (requestsCloseAt && old.requestsCloseAt !== requestsCloseAt) await Repository.setShareLinkRequestsCloseAt(old.id, requestsCloseAt);
+        continue;
+      }
+      await Repository.revokeShareLink(old.id);
+      replaced++;
+    }
+  }
+  res.status(201).json({ ...link, replaced });
 });
 
 app.delete("/api/share/:id", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
@@ -19619,7 +19674,9 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   /* من يُصدَر له رابطٌ يحدّده جدولُ هذا القسم؛ وما في طلبه جدولُه كلُّه. */
   const termRowsOf = (instructorId: number) => (sourceTermRows as any[])
     .filter(row => Number(row.AdInstructorId) === instructorId);
-  const already = new Map(existing.map(row => [Number(row.AdInstructorId), row]));
+  /* الأحدثُ لكل أستاذ: القراءةُ مرتّبةٌ من الأحدث، فكان `new Map` يُبقي آخرَ ما
+     يمرّ عليه — أي الأقدم — فيحكم طلبٌ قديمٌ على الجديد. */
+  const already = latestRequestByInstructor(existing);
 
   const byInstructor = new Map<number, any[]>();
   for (const row of rows as any[]) {
@@ -19638,41 +19695,65 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     return;
   }
 
-  const issued: Array<{ instructorId: number; linkId: string; reissued: boolean }> = [];
+  const windowClosesAt = requestsCloseAtFromDate(closesAt);
+  const mintRequestLink = (instructorId: number) => Repository.createShareLink({
+    AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
+    label: `طلب جدول — ${instructorId}`,
+    /* ── الصلاحيةُ تتبع الموعدَ المُعلَن ────────────────────────────────
+     * كانت ثابتةً بـ21 يوماً والموعدُ يُكتب بحرّية. فمن كتب موعداً أبعدَ
+     * منها رأى أساتذتُه «انتهت صلاحية هذا الرابط» قبل الموعد الذي وعدهم
+     * به — ولا شيءَ في الشاشة يقول لماذا. فتُشتقّ من الموعد نفسِه، ولا
+     * تنزل عن الحدّ الأدنى حتى لا يُغلق رابطُ موعدٍ قريبٍ لحظةَ انتهائه. */
+    /* والقراءةُ تبقى حتى نهاية الفصل: قرارُ القسم وبدائلُه يصلان بعد الموعد،
+     * ورابطٌ يموت بعد يومٍ من الإغلاق يُخفي عن الأستاذ جوابَ ما طلبه. */
+    expiresAt: new Date(Math.max(
+      Date.parse(windowClosesAt) + 86400000,
+      Date.now() + REQUEST_LINK_DAYS * 86400000,
+      Date.parse(termLinkExpiresAt(issueTerm)),
+    )).toISOString(),
+    SystemUserId: Number(req.user?.SystemUserId || 0),
+    userName: String(req.user?.UserName || ""),
+    showInstructors: false,
+    kind: "request",
+    AdInstructorId: instructorId,
+  } as any);
+
+  /* `reissued`: ينتظر قرارَ القسم فلم يُمسّ. `renewed`: طلبُه القائم أخذ الموعدَ الجديد. */
+  const issued: Array<{ instructorId: number; linkId: string; reissued: boolean; renewed?: boolean }> = [];
   for (const [instructorId, own] of byInstructor) {
-    /* أستاذٌ له رابطٌ في هذا الفصل لا يُعطى ثانياً: رابطان يعنيان طلبين،
-       وطلبان يعنيان أن أحدهما سيُقرأ ويُهمل الآخر بلا أن يعرف صاحبُه. */
-    if (already.has(instructorId)) {
-      issued.push({ instructorId, linkId: already.get(instructorId)!.linkId, reissued: true });
+    /* أستاذٌ له طلبٌ في هذا الفصل لا يُعطى ثانياً: طلبان يعنيان أن أحدهما
+       سيُقرأ ويُهمل الآخر بلا أن يعرف صاحبُه. لكن طلباً مات موعدُه أو رابطُه
+       لا يبقى «طلبَه» — يتبع الموعدَ الجديد (src/utils/requestReissue.ts). */
+    const held = already.get(instructorId);
+    const move = reissueMove(held);
+    if (held && move === "keep") {
+      issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
-    const link = await Repository.createShareLink({
-      AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
-      label: `طلب جدول — ${instructorId}`,
-      /* ── الصلاحيةُ تتبع الموعدَ المُعلَن ────────────────────────────────
-       * كانت ثابتةً بـ21 يوماً والموعدُ يُكتب بحرّية. فمن كتب موعداً أبعدَ
-       * منها رأى أساتذتُه «انتهت صلاحية هذا الرابط» قبل الموعد الذي وعدهم
-       * به — ولا شيءَ في الشاشة يقول لماذا. فتُشتقّ من الموعد نفسِه، ولا
-       * تنزل عن الحدّ الأدنى حتى لا يُغلق رابطُ موعدٍ قريبٍ لحظةَ انتهائه. */
-      /* والقراءةُ تبقى حتى نهاية الفصل: قرارُ القسم وبدائلُه يصلان بعد الموعد،
-       * ورابطٌ يموت بعد يومٍ من الإغلاق يُخفي عن الأستاذ جوابَ ما طلبه. */
-      expiresAt: new Date(Math.max(
-        Date.parse(requestsCloseAtFromDate(closesAt)) + 86400000,
-        Date.now() + REQUEST_LINK_DAYS * 86400000,
-        Date.parse(termLinkExpiresAt(issueTerm)),
-      )).toISOString(),
-      SystemUserId: Number(req.user?.SystemUserId || 0),
-      userName: String(req.user?.UserName || ""),
-      showInstructors: false,
-      kind: "request",
-      AdInstructorId: instructorId,
-    } as any);
+    if (held && move === "extend") {
+      const heldLink = await Repository.getShareLink(held.linkId);
+      const readable = heldLink ? await shareLinkStillReadable(heldLink) : false;
+      let linkId = held.linkId;
+      if (requestLinkNeedsReplacing(heldLink, readable, Date.parse(windowClosesAt) + 86400000)) {
+        linkId = (await mintRequestLink(instructorId)).id;
+        if (heldLink && !heldLink.revoked) await Repository.revokeShareLink(heldLink.id);
+      }
+      const startsLater = Date.parse(held.window?.opensAt || "") > Date.now();
+      await Repository.saveInstructorRequest({
+        ...held,
+        linkId,
+        window: { opensAt: startsLater ? opensAt : held.window?.opensAt || opensAt, closesAt: windowClosesAt },
+      });
+      issued.push({ instructorId, linkId, reissued: false, renewed: true });
+      continue;
+    }
+    const link = await mintRequestLink(instructorId);
 
     await Repository.createInstructorRequest({
       AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
       AdInstructorId: instructorId,
       linkId: link.id,
-      window: { opensAt, closesAt: requestsCloseAtFromDate(closesAt) },
+      window: { opensAt, closesAt: windowClosesAt },
       source,
       status: "sent",
       items: (termRowsOf(instructorId).length ? termRowsOf(instructorId) : own).map(row =>
@@ -19682,7 +19763,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     issued.push({ instructorId, linkId: link.id, reissued: false });
   }
 
-  res.json({ issued, total: issued.length, fresh: issued.filter(row => !row.reissued).length });
+  res.json({ issued, total: issued.length, fresh: issued.filter(row => !row.reissued && !row.renewed).length });
 });
 
 /* ── وارِدُ القسم ────────────────────────────────────────────────────────── */

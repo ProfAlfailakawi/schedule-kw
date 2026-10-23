@@ -13,6 +13,7 @@
  *     في القواعد (دورة، مجموعةٌ لا تتّسع لحدّها…)، أو تغيّرت المسوّدةُ بعد أن رآها.
  *   · كلُّ تعديلٍ في سجلّ التدقيق.
  */
+import { ensureSectionFaculty } from "./sectionFaculty";
 import { setPlanBadgeSource } from "./planBadgeShared";
 import { groupDeptTracks, planMatchKey, trackLabels, type DeptTrack } from "../utils/collegeTrack";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
@@ -1261,6 +1262,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       for (const college of targets) {
         if ((sections as any[]).some(row => Number(row.AdCollegeId) === Number(college.AdCollegeId) && authorityDepartmentCode(college.AdCollegeCode, row.AdSectionCode) === missingKey)) continue;
         const created = await Repository.createSection(Number(college.AdCollegeId), missingKey.slice(2), missingName);
+        try { await ensureSectionFaculty(Repository, Number(college.AdCollegeId), Number(created.AdSectionId)); } catch (error: any) { console.error("[sheet-import] faculty placeholder:", error?.stack || error); }
         /* القسم الجديد يولد بحساباته (رئيس قسم · رئيس جدول · مرشد)؛ وتعثّر الحسابات لا يُسقط القسم ولا الرفع، بل يُسجَّل سببُه في التقرير. */
         let accounts: SectionAccountResult[] = [], accountsError: string | undefined;
         try { accounts = await provisionSectionUsers(Repository, college, created); } catch (error: any) { accountsError = String(error?.message || error); console.error("[sheet-import] section accounts:", error?.stack || error); }
