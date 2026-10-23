@@ -790,7 +790,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 )}
               </div>
               {pastLinks.length ? (
-                <button type="button" className="share-past-toggle" aria-expanded={showPast} onClick={() => setShowPast(value => !value)}>
+                <button type="button" className="share-past-toggle"
+                  data-guide-ignore="إظهار الروابط الموقوفة والمنتهية أو طيّها: عرضٌ فقط لا يغيّر شيئاً"
+                  aria-expanded={showPast} onClick={() => setShowPast(value => !value)}>
                   {showPast ? "إخفاء السابقة" : `السابقة (${pastLinks.length.toLocaleString("ar-KW-u-nu-latn")})`}
                 </button>
               ) : null}
