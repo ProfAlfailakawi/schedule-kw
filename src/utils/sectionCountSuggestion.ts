@@ -9,9 +9,8 @@
  * السعة ليصير عدد شعب (يكون دائماً أكبر مما يُفتح، فيميل الاقتراح إلى أقصاه في
  * كل مقرر). بل:
  *
- *   1) الأساس = متوسطٌ موزون لشعب المقرر في الفصول المماثلة (الموسم نفسه،
- *      الأقرب أثقل ٣، ٢، ١)، ومعها أحدثُ الفصول الأخرى بوزنٍ أخفّ (١). بلا
- *      مماثل يُكتفى بالأحدث.
+ *   1) الأساس = المتوسط العادي لشعب المقرر في كامل الفصول المماثلة (الموسم
+ *      نفسه)، كلُّ فصلٍ بوزنٍ واحد. بلا مماثل يُكتفى بأحدث الفصول الأخرى.
  *   2) المتبقي يُقارن بنفسه في تلك الفصول: أعلى بـ٢٠٪ ← الشعب أعلى بقدره،
  *      داخل نطاقٍ واقعي فقط: ±١ (و±٢ إن كان الأساس ٤ فأكثر). أول فصلٍ يُستورد
  *      فيه المتبقي لا مقارنة له، فيبقى الأساس ويُقال ذلك.
@@ -61,14 +60,15 @@ export function rangeLabel(min: number, max: number): string {
   return min === max ? `يُقترح هذا الفصل ${countOf(min, AR.section)}` : `يُقترح هذا الفصل ${min} إلى ${countOf(max, AR.section)}`;
 }
 
-const SIMILAR_WEIGHTS = [3, 2, 1];
+/* متوسطٌ عادي لكل الفصول المماثلة: كلُّ فصلٍ بوزنٍ واحد. */
+const SIMILAR_WEIGHT = 1;
 const OTHER_WEIGHT = 1;
 
 function weighted<T>(items: readonly T[], value: (item: T) => number | null): number | null {
-  let sum = 0, weight = 0, similarIndex = 0, other = 0;
+  let sum = 0, weight = 0, other = 0;
   for (const item of items as Array<T & { similar?: boolean }>) {
     const isSimilar = item.similar !== false;
-    const w = isSimilar ? SIMILAR_WEIGHTS[similarIndex++] : (other++ < 3 ? OTHER_WEIGHT : 0);
+    const w = isSimilar ? SIMILAR_WEIGHT : (other++ < 3 ? OTHER_WEIGHT : 0);
     const v = value(item);
     if (!w || v == null) continue;
     sum += w * v; weight += w;
@@ -86,14 +86,15 @@ const known = (value: unknown): value is number => value != null && Number.isFin
 /** خطّ الأساس من التاريخ: الشعب المعتادة، ووصفُ مصدرها، والمتبقي المعتاد إن عُرف. */
 export function historicalBaseline(history: readonly SimilarTermHistory[]): { sections: number; label: string; remaining: number | null } | null {
   const opened = history.filter(item => item.sections > 0);
-  const similar = opened.filter(item => item.similar !== false).slice(0, 3);
-  const others = opened.filter(item => item.similar === false).slice(0, 3);
+  /* كاملُ التاريخ في الفصول المماثلة؛ غيرُ المماثلة احتياطٌ لا يدخل إلا إن لم يوجد مماثل. */
+  const similar = opened.filter(item => item.similar !== false);
+  const others = similar.length ? [] : opened.filter(item => item.similar === false).slice(0, 3);
   const used = [...similar, ...others];
   if (!used.length) return null;
   const avg = weighted(used, item => item.sections)!;
   const remaining = weighted(used, item => known(item.remaining) && Number(item.remaining) > 0 ? Number(item.remaining) : null);
   const label = similar.length
-    ? `آخر ${similar.length === 1 ? "فصل مماثل" : similar.length === 2 ? "فصلين مماثلين" : `${similar.length} ${seasonPlural(similar[0].termName)}`}${others.length ? " وأحدث الفصول" : ""}`
+    ? `متوسط ${similar.length === 1 ? "فصل مماثل" : similar.length === 2 ? "فصلين مماثلين" : `${similar.length} ${seasonPlural(similar[0].termName)}`}`
     : (others.length === 1 ? "أحدث فصل" : "أحدث الفصول");
   return { sections: Math.max(1, Math.round(avg)), label, remaining };
 }
