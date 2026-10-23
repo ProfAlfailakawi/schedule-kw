@@ -43,12 +43,15 @@ const ask = (over: Partial<RequestedRow> = {}): RequestedRow => ({
 /* ── ١. الفاحص لا يعاقب على ما يقترحه ───────────────────────────────────── */
 const short = judgeRequest(ask({ days: ["fwednesday"] }), context(4));
 check(!short.sendable, "يوم واحد لمقرّر أربع ساعات يُمنع");
-check(Array.isArray(short.shapes) && short.shapes.length > 0, "والمنعُ يحمل التوزيعات المعتمدة أزراراً لا نصاً فقط");
+/* لا نمطَ اسمُه ٨٠+٨٠+٥٠ في نظامنا: لا يُقترح، ولا يُعدّ نمطاً معتمداً. وأربعُ ساعاتٍ لا تُغطّى بأيامٍ وحدها (الثلاثاء+الخميس لقاءان من ١٠٠ دقيقة). */
+check(!(short.shapes || []).some(shape => shape.days.join() === "fmonday,fwednesday,fthursday") && !short.reasons.some(reason => /80د · الأربعاء 80د · الخميس 50د/.test(reason.text)), "ولا يُقترح ٨٠+٨٠+٥٠ لمقرّر الأربع ساعات");
+const threeHours = judgeRequest(ask({ days: ["fwednesday"] }), context(3));
+check(Array.isArray(threeHours.shapes) && threeHours.shapes.length > 0, "والمنعُ يحمل التوزيعات المعتمدة أزراراً لا نصاً فقط (مقرّر ثلاث ساعات)");
 const mixed = judgeRequest(ask({ days: ["fmonday", "fwednesday", "fthursday"] }), context(4));
-check(!mixed.reasons.some(reason => /أيام مختلطة/.test(reason.text)), "٨٠+٨٠+٥٠ المعتمد لمقرّر الأربع ساعات لا يُحذَّر منه");
+check(mixed.reasons.some(reason => /أيام مختلطة/.test(reason.text)), "٨٠+٨٠+٥٠ ليس نمطاً معتمداً: يُحذَّر منه كأيامٍ مختلطة");
 let everyShapePasses = true;
-for (const shape of short.shapes || []) {
-  const verdict = judgeRequest(ask({ days: shape.days as any }), context(4));
+for (const shape of threeHours.shapes || []) {
+  const verdict = judgeRequest(ask({ days: shape.days as any }), context(3));
   if (!verdict.sendable || verdict.reasons.some(reason => reason.source === "shape")) everyShapePasses = false;
 }
 check(everyShapePasses, "كلُّ توزيعٍ يقترحه الفاحص يمرّ منه بلا منعٍ ولا ملاحظة شكل");

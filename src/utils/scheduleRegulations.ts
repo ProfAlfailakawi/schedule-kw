@@ -175,8 +175,7 @@ export function adviseDayPattern(days: DayKey[], start: string, currentEnd: stri
  * weekly hours are cut into meetings, and the cut depends on which days are
  * used. Three weekly hours are three one-hour meetings on Sunday, Tuesday and
  * Thursday, or two ninety-minute meetings on Monday and Wednesday. Four hours
- * are 90+90+60 across Monday, Wednesday and Thursday, or two two-hour meetings
- * on Tuesday and Thursday.
+ * are two two-hour meetings on Tuesday and Thursday.
  *
  * This is why dragging a course from Monday+Wednesday onto Sunday cannot simply
  * keep its old end time: two meetings of ninety minutes become three meetings of
@@ -215,10 +214,6 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
   {
     hours: 3, id: "3h-two-days", days: ["fmonday", "fwednesday"], minutesPerDay: [80, 80], weeklyMinutes: 160,
     note: "ثلاث فترات موزعة على لقاءين: 80 دقيقة في الاثنين و80 دقيقة في الأربعاء."
-  },
-  {
-    hours: 4, id: "4h-mon-wed-thu", days: ["fmonday", "fwednesday", "fthursday"], minutesPerDay: [80, 80, 50], weeklyMinutes: 210,
-    note: "النمط الممتد: 80+80+50 دقيقة على الاثنين والأربعاء والخميس."
   },
   {
     hours: 4, id: "4h-tue-thu", days: ["ftuesday", "fthursday"], minutesPerDay: [100, 100], weeklyMinutes: 200,
