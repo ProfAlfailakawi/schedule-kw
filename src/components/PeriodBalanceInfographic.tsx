@@ -9,8 +9,8 @@ import type { PeriodBalanceData } from "../utils/scheduleRegulations";
  * الجهة التي تُنقل إليها، ويُكتب بجانبها رقمٌ واحد: كم شعبةً تُنقل. فيُعدّ الفرقُ بالعين
  * بدل أن يُحسب من نسبتين وحدّين.
  */
-const MORNING_MIN = 0.5;
-const MORNING_MAX = 0.7;
+const MORNING_MIN_PERCENT = 50;
+const MORNING_MAX_PERCENT = 70;
 const nf = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
 
 /** مقياسٌ لفترةٍ واحدة: منطقةُ المطلوب مظلَّلة، ودبّوسٌ عند الحالي. */
@@ -29,8 +29,9 @@ function Gauge({ icon, hours, value, min, max }: { icon: React.ReactNode; hours:
 }
 
 export default function PeriodBalanceInfographic({ morning, evening, sections, morningCount }: PeriodBalanceData) {
-  const most = Math.floor(sections * MORNING_MAX);
-  const least = Math.ceil(sections * MORNING_MIN);
+  /* بالأعداد الصحيحة: 90 × 0.7 تُحسب 62.999… فيهبط الحدّ درجة. */
+  const most = Math.floor((sections * MORNING_MAX_PERCENT) / 100);
+  const least = Math.ceil((sections * MORNING_MIN_PERCENT) / 100);
   const surplus = Math.max(0, morningCount - most);
   const shortfall = Math.max(0, least - morningCount);
   const move = surplus || shortfall;

@@ -11,6 +11,9 @@ import {
 } from "../src/utils/scheduleRegulations";
 import type { AdCourse, FSchedule } from "../src/types";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import PeriodBalanceInfographic from "../src/components/PeriodBalanceInfographic";
 import fs from "fs";
 import path from "path";
 
@@ -93,6 +96,18 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   const source = fs.readFileSync(path.join(process.cwd(), "src/components/Schedules.tsx"), "utf8");
   const live = source.slice(source.indexOf("const liveNotes = useMemo("), source.indexOf("const liveNotes = useMemo(") + 700);
   check(/filter\(finding => finding\.rule !== "period-balance"\)/.test(live), "شارةُ «سليم» تتجاهل نسبة الفترتين (تخصّ القسم كاملاً لا المعروض)");
+}
+
+/* ── الانفوجرافيك: حدُّ النقل بالأعداد الصحيحة (90 × 0.7 لا تُسقط درجة) ───── */
+{
+  const moveOf = (sections: number, morningCount: number) => {
+    const html = renderToStaticMarkup(React.createElement(PeriodBalanceInfographic, {
+      morning: Math.round((morningCount / sections) * 100), evening: 100 - Math.round((morningCount / sections) * 100), sections, morningCount,
+    }));
+    return Number(/pb-move"><b>(\d+)<\/b>/.exec(html)?.[1] ?? 0);
+  };
+  check(moveOf(90, 90) === 27, "90 موعداً كلُّها صباحية: تُنقل 27 لا 28 (الحدّ 63)");
+  check(moveOf(35, 26) === 2 && moveOf(20, 8) === 2 && moveOf(10, 6) === 0, "35→2، و20 بثمانٍ صباحية→2، و6 من 10 ضمن المطلوب");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
