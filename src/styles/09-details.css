@@ -2157,11 +2157,14 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
     place-items:end center;
     padding:max(var(--s3),env(safe-area-inset-top)) 0 calc(var(--dock-h) + env(safe-area-inset-bottom));
   }
-  .transfer-sheet,.review-sheet,
+  .transfer-sheet,.transfer-sheet.is-page-wide,.review-sheet,
   .review-sheet.visual-minimal{
     width:100%;
     max-height:calc(100dvh - max(var(--s3),env(safe-area-inset-top)) - var(--dock-h) - env(safe-area-inset-bottom));
   }
+  /* «.is-page-wide» (معاينة الاستيراد مفتوحة) أقوى نوعاً من «.transfer-sheet» فكانت تُبقي ارتفاعها
+     100dvh − 24px وعرضها 880px، فيطول الصفّ فوق الحافة العليا ويغيب الترويس وزرّ الإغلاق خلف شريط
+     الحالة (وفي PWA خلف الشق). هنا تأخذ قياس الهاتف نفسه. */
   /* The sheet scrolls inside itself, so its header (and the X) scrolled away
      with the content and a long tab left no way to close it. Hold the header
      at the top, one line of title, the X always in reach. */

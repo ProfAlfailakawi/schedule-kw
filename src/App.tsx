@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { DEMO_SEEDED_EVENT } from "./utils/demoSeedEvent";
 import NotificationCenter from "./components/NotificationCenter";
 import {
   BookOpen,
@@ -1671,6 +1672,9 @@ export default function App() {
         const result = await response.json();
         if (!active || !["ready", "failed"].includes(result.status)) return;
         setDemoInfo(current => current ? { ...current, seedStatus: result.status } : current);
+        /* الشاشة المفتوحة قرأت بياناتها قبل اكتمال تجهيز العرض (رغبات «مساري» وغيرها) فتبقى على النسخة الناقصة؛
+           هذه الإشارة تجعل القارئات تعيد القراءة دون إعادة بناء الشاشة ولا فقدان اختيار القسم. */
+        window.dispatchEvent(new CustomEvent(DEMO_SEEDED_EVENT));
         if (timer !== undefined) window.clearInterval(timer);
       } catch { /* A temporary network interruption leaves the next check scheduled. */ }
     };
