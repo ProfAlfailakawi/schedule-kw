@@ -6,7 +6,7 @@ import { flushSync } from "react-dom";
 import {
   BookOpen, Building2, CalendarDays, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
-  ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen,
+  ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert,
 } from "lucide-react";
 import { parseNaturalQuery } from "../utils/naturalQuery";
 import { EmptyState, Field, GhostButton, Notice, PageTitle, PrintLetterhead, PrintPortal, SecondaryButton } from "./ui";
@@ -498,6 +498,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const [courses, setCourses] = useState<AdCourse[]>([]);
   const [all, setAll] = useState<FSchedule[]>([]);
   const [siteLoadRead, setSiteLoadRead] = useState<{ termId: number; rows: FSchedule[]; denied: string[]; loading: boolean } | null>(null);
+  const [expandedCourseRoomIds, setExpandedCourseRoomIds] = useState<Set<number>>(() => new Set());
   const [expandedCourseLoadIds, setExpandedCourseLoadIds] = useState<Set<number>>(() => new Set());
   /* صفةُ كل قسمٍ لمن يرى النهائيَّ وحده («accepted» | «historical»)، من ترويسة
      الخادم. فارغةٌ لغير العميدين. */
@@ -1935,6 +1936,17 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     return wanted && actual && wanted !== actual ? [{ row, wanted, actual, room: [row.AdRoomCode, room?.canonicalCode || row.AdRoomHall].filter(Boolean).join("/") }] : [];
   }).sort((a, b) => byArabic(String(a.row.AdCourseName || ""), String(b.row.AdCourseName || "")) || String(a.row.SCode).localeCompare(String(b.row.SCode), "en")),
   [results, courseById, rowLocation]);
+  const roomTypeGroups = useMemo(() => {
+    const byCourse = new Map<number, { courseId: number; name: string; code: string; items: typeof roomTypeMismatches }>();
+    for (const item of roomTypeMismatches) {
+      const id = Number(item.row.AdCourseId);
+      const course = courseById.get(id);
+      const group = byCourse.get(id) || { courseId: id, name: String(item.row.AdCourseName || course?.CourseName || ""), code: String(item.row.CourseCodeSnapshot || course?.CourseCode || ""), items: [] };
+      group.items.push(item);
+      byCourse.set(id, group);
+    }
+    return [...byCourse.values()].sort((a, b) => b.items.length - a.items.length || byArabic(a.name, b.name));
+  }, [roomTypeMismatches, courseById]);
   const roomTeacherIndex = useMemo(() => () => roomInstructorDirectory(results, instructorById), [results, instructorById]);
   const maxLoad = Math.max(1, ...byInstructor.map(group => group.load));
   const maxSlot = Math.max(1, ...byTime.map(slot => slot.count));
@@ -2951,18 +2963,27 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         ) : lens === "courseRoom" ? (
           <div className="course-room-report">
             {roomTypeMismatches.length ? <>
-              <p className="course-room-lede">{countOf(roomTypeMismatches.length, AR.appointment)} نوعُ قاعتها غير نوع المقرر. يحسن تغيير القاعة إلى النوع المناسب.</p>
-              <ul className="course-room-list">{roomTypeMismatches.map(({ row, wanted, actual, room }) => {
-                const course = courseById.get(row.AdCourseId);
-                const days = DAYS.filter(day => row[day.flag]).map(day => day.label).join(" · ");
-                return <li key={row.id}>
-                  <div className="course-room-main">
-                    <strong>{row.AdCourseName || course?.CourseName}</strong>
-                    <small>
-                      <bdi dir="ltr">{row.CourseCodeSnapshot || course?.CourseCode}</bdi> · شعبة <bdi dir="ltr">{row.SCode}</bdi> · {instructorById.get(row.AdInstructorId)?.AdInstructorName || "بلا أستاذ"} · <bdi dir="ltr">{row.fstarttime}–{row.fendtime}</bdi> · {days}
-                    </small>
-                  </div>
-                  <div className="course-room-room"><b dir="ltr">{room}</b><span>{actual} ← يلزم {wanted}</span></div>
+              <div className="course-room-tiles" aria-label="ملخص عدم التطابق">
+                <span className="is-alert"><TriangleAlert aria-hidden="true" /><b>{num(roomTypeMismatches.length)}</b><small>موعد</small></span>
+                <span><BookOpen aria-hidden="true" /><b>{num(roomTypeGroups.length)}</b><small>مقرر</small></span>
+                <span><DoorOpen aria-hidden="true" /><b>{num(new Set(roomTypeMismatches.map(item => item.room)).size)}</b><small>قاعة</small></span>
+              </div>
+              <ul className="course-room-list">{roomTypeGroups.map(group => {
+                const open = expandedCourseRoomIds.has(group.courseId);
+                return <li key={group.courseId} className={open ? "is-open" : undefined}>
+                  <button type="button" data-guide-ignore="إظهار شعب المقرر التي نوع قاعتها غير مناسب؛ للعرض فقط" className="course-room-head" aria-expanded={open} aria-controls={`course-room-${group.courseId}`}
+                    onClick={() => setExpandedCourseRoomIds(previous => { const next = new Set(previous); if (next.has(group.courseId)) next.delete(group.courseId); else next.add(group.courseId); return next; })}>
+                    <span className="course-room-name"><strong>{group.name}</strong><bdi dir="ltr">{group.code}</bdi></span>
+                    <span className="course-room-count">{num(group.items.length)}</span>
+                    <ChevronDown aria-hidden="true" className="course-room-chevron" />
+                  </button>
+                  {open ? <ul id={`course-room-${group.courseId}`} className="course-room-sections">{group.items.map(({ row, wanted, actual, room }) => (
+                    <li key={row.id}>
+                      <span className="course-room-sec"><ClipboardList aria-hidden="true" /><bdi dir="ltr">{row.SCode}</bdi></span>
+                      <span className="course-room-time"><Clock3 aria-hidden="true" /><bdi dir="ltr">{row.fstarttime}–{row.fendtime}</bdi><small>{DAYS.filter(day => row[day.flag]).map(day => day.label).join(" · ")}</small><small className="course-room-who"><UserRound aria-hidden="true" />{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بلا أستاذ"}</small></span>
+                      <span className="course-room-room"><DoorOpen aria-hidden="true" /><b dir="ltr">{room}</b><small>{actual} ← {wanted}</small></span>
+                    </li>
+                  ))}</ul> : null}
                 </li>;
               })}</ul>
             </> : <EmptyState title="لا مخالفات" detail="كل قاعةٍ مسجَّل نوعُها تطابق نوعَ مقررها في هذا النطاق." />}
