@@ -508,11 +508,11 @@
 @media print{.pt-story{display:none!important}}
 
 /* ── مواضع الإعلانات على لقطاتٍ حقيقية ── */
-.ad-real-map{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));align-items:start}
+.ad-real-map{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));align-items:start;gap:20px}
 .ad-real-fig.wide{grid-column:1/-1}
-.ad-real-scroll{overflow:auto;max-block-size:620px;border-radius:16px;border:1px solid var(--line);background:var(--canvas)}
-.ad-real-scroll.phone{max-inline-size:340px;margin-inline:auto}
-.ad-real{position:relative;inline-size:100%}
+.ad-real-frame{position:relative;overflow:hidden;inline-size:100%;border-radius:14px;border:1px solid var(--line);background:var(--canvas)}
+.ad-real-frame.phone{max-inline-size:340px;margin-inline:auto;border:6px solid var(--ink);border-radius:30px}
+.ad-real{position:absolute;inset-inline:0;inline-size:100%}
 .ad-real img{display:block;inline-size:100%;block-size:auto}
 .ad-real-slot{position:absolute;transform-origin:0 0;border-radius:12px}
 .ad-real-slot.hot{box-shadow:0 0 0 4px var(--accent)}

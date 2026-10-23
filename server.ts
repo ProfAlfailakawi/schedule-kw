@@ -21653,7 +21653,10 @@ const rateLimitVerifySignature = rateLimit({
   legacyHeaders: false,
   message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
 });
-app.get(["/verify", "/verify/:code"], (req: Request, res: Response) => {
+/* معرّفُ صفحة تحقق الكوبون (٣٢ خانةً ست عشرية صغيرة) يخصّ مسار الإعلانات المسجَّل لاحقاً؛ رمز التوقيع ست خاناتٍ كبيرة،
+   فلا تلتقيان. بغير هذا التمرير حجبَ هذا المسارُ صفحةَ التاجر وفتح رابطُ الـQR صفحةَ «التحقّق من توقيعك». */
+app.get(["/verify", "/verify/:code"], (req: Request, res: Response, next: NextFunction) => {
+  if (/^[0-9a-f]{32}$/.test(String(req.params.code || ""))) { next(); return; }
   res.setHeader("Cache-Control", "no-store");
   res.type("text/html; charset=utf-8").send(signatureVerifyPage(String(req.params.code || ""), String(req.query.t || ""), publicPageNonce(res)));
 });

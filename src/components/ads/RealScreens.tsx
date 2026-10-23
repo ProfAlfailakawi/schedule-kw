@@ -50,12 +50,16 @@ function SlotTone({ slot }: { slot: Slot }) {
   );
 }
 
+/** هامشُ القصّ حول مواضع الإعلان: فوقها ما يدلّ على مكانها من الصفحة، وتحتها قليلٌ يُظهر أنها آخرُ ما فيها. */
+const CROP_ABOVE = 170, CROP_BELOW = 48;
+
 const SurfaceShot: React.FC<{ spec: typeof SURFACES[number]; surface: PreviewSurface; data: Payload; preview?: PreviewProps }> = ({ spec, surface, data, preview }) => {
   const box = useRef<HTMLDivElement>(null);
-  const scroller = useRef<HTMLDivElement>(null);
   const [k, setK] = useState(0);
   const ids = Object.keys(surface.slots);
-  const firstY = Math.min(...ids.map(id => surface.slots[id].y));
+  /* لا تمرير داخل الإطار: يُقصّ حول المواضع نفسها فيُرى مكانُ كل إعلانٍ من الصفحة دون بحثٍ في لقطةٍ طويلة. */
+  const top = Math.max(0, Math.min(...ids.map(id => surface.slots[id].y)) - CROP_ABOVE);
+  const bottom = Math.min(surface.height, Math.max(...ids.map(id => surface.slots[id].y + surface.slots[id].h)) + CROP_BELOW);
 
   useLayoutEffect(() => {
     const el = box.current;
@@ -67,18 +71,12 @@ const SurfaceShot: React.FC<{ spec: typeof SURFACES[number]; surface: PreviewSur
     ro.observe(el);
     return () => ro.disconnect();
   }, [surface.width]);
-  /* يبدأ العرض عند أول موقعٍ فيه، ويتبع الموقعَ المضاء من القائمة. */
-  const hotY = preview?.hot && surface.slots[preview.hot] ? surface.slots[preview.hot].y : null;
-  useEffect(() => {
-    if (!k || !scroller.current) return;
-    scroller.current.scrollTop = Math.max(0, (hotY ?? firstY) * k - 70);
-  }, [k, hotY, firstY]);
 
   return (
     <figure className={`ad-surface ad-real-fig${spec.phone ? "" : " wide"}`}>
       <figcaption><b>{spec.title}</b><span>{spec.note}</span></figcaption>
-      <div className={`ad-real-scroll${spec.phone ? " phone" : ""}`} ref={scroller}>
-        <div className="ad-real" ref={box} dir="ltr" style={{ aspectRatio: `${surface.width}/${surface.height}` }}>
+      <div className={`ad-real-frame${spec.phone ? " phone" : ""}`} ref={box} dir="ltr" style={{ aspectRatio: `${surface.width}/${bottom - top}` }}>
+        <div className="ad-real" style={{ top: -top * k }}>
           <img src={surface.image} alt={`لقطة حقيقية: ${spec.title}`} width={surface.width} height={surface.height} loading="lazy" decoding="async" />
           {k ? ids.map(id => {
             const slot = data.slots.find(s => s.id === id);
