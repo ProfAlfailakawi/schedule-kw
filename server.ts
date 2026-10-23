@@ -17815,6 +17815,8 @@ function publicPageNonce(res: Response): string {
     "img-src 'self' data: blob:",
     "font-src 'self'",
     "connect-src 'self'",
+    /* manifest-src يرجع إلى default-src 'none' فيُحجب `<link rel=manifest>` (تثبيتُ «مساري» مستقلاً). */
+    "manifest-src 'self'",
     "base-uri 'none'",
     /* 'self', not 'none': the survey form is submitted by script and normally
        never navigates, but if that script ever fails the browser falls back to a

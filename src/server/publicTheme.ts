@@ -22,3 +22,19 @@ export const PUBLIC_LIGHT_VARS = [
   "--bad:#973c38", "--bad-soft:#f8e4e2",
   "--cohort-rgb:31,107,92",
 ].join(";");
+
+/**
+ * الوضع الداكن: الأسماءُ نفسُها ليتبدّل اللونُ دون أن تُمسَّ القواعد. الأخضرُ هنا فاتحٌ فيصلح لوناً للنص وللتعبئة معاً؛
+ * والنصُّ فوق تعبئته `--on-accent` (داكنٌ هنا، أبيضُ في النهاري). كلُّ زوجٍ يُقاس تباينُه في tests/masari-visual-audit.ts.
+ */
+export const PUBLIC_DARK_THEME_COLOR = "#0f1513";
+export const PUBLIC_DARK_VARS = [
+  "color-scheme:dark",
+  "--bg:#0f1513", "--card:#17201d", "--card2:#1b2622", "--soft:#212d28",
+  "--line:#2a3732", "--line-strong:#3d4f47",
+  "--ink:#eef2ef", "--dim:#b3bfb8", "--muted:#a9b6af",
+  "--jade:#4cb89c", "--accent:#4cb89c", "--accent-soft:#1d332d", "--on-accent:#0b1512",
+  "--brass:#d8b06a", "--gold:#d8b06a",
+  "--bad:#f08a84", "--bad-soft:#3a1f1e",
+  "--cohort-rgb:76,184,156",
+].join(";");
