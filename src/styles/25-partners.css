@@ -506,3 +506,15 @@
 @keyframes pt-story-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.pt-story-slide{animation:none}}
 @media print{.pt-story{display:none!important}}
+
+/* ── مواضع الإعلانات على لقطاتٍ حقيقية ── */
+.ad-real-map{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));align-items:start}
+.ad-real-fig.wide{grid-column:1/-1}
+.ad-real-scroll{overflow:auto;max-block-size:620px;border-radius:16px;border:1px solid var(--line);background:var(--canvas)}
+.ad-real-scroll.phone{max-inline-size:340px;margin-inline:auto}
+.ad-real{position:relative;inline-size:100%}
+.ad-real img{display:block;inline-size:100%;block-size:auto}
+.ad-real-slot{position:absolute;transform-origin:0 0;border-radius:12px}
+.ad-real-slot.hot{box-shadow:0 0 0 4px var(--accent)}
+.ad-real-slot .ad-sample,.ad-real-slot .ad-slotblock{inline-size:100%;margin:0}
+.ad-real-slot .ad-slotno{inset-block-start:-12px;inset-inline-end:-12px}

@@ -6,6 +6,7 @@ import React, { useMemo } from "react";
 import { AR, countOf } from "../../utils/arabicCount";
 import { dateShort, type Payload, type Slot } from "./shared";
 import { SampleAd, type SampleBrand } from "./SampleAd";
+import RealScreens, { usePreviewManifest } from "./RealScreens";
 
 /** معاينةُ الإعلان التجريبي على المخطّط: الشركةُ، والموقعُ المسلَّط عليه الضوء، وأرقامُ المواقع كما في القائمة. */
 export interface PreviewProps {
@@ -48,6 +49,9 @@ function SlotBlock({ slot, thin = false, preview }: { slot?: Slot; thin?: boolea
 }
 
 export function PlacementMap({ data, preview }: { data: Payload; preview?: PreviewProps }) {
+  /* اللقطات الحقيقية إن وُجدت (أداة capture-ad-previews)، وإلا المخطّط المرسوم أدناه. */
+  const manifest = usePreviewManifest();
+  if (manifest) return <RealScreens data={data} manifest={manifest} preview={preview} />;
   const by = (id: string) => data.slots.find(s => s.id === id);
   const only = preview?.only;
   return (

@@ -1119,6 +1119,31 @@ async function main() {
     const storySrc = fs.readFileSync("src/components/AudienceStory.tsx", "utf8");
     check(storySrc.includes("reducedMotion()") && storySrc.includes("useState(reducedMotion())") && storySrc.includes("requestFullscreen") && storySrc.includes('e.key === "Escape"') && storySrc.includes("onPointerUp"), "القصة: تبدأ موقوفةً لقلّة الحركة، ملء الشاشة، Escape واللمس");
     check(fs.readFileSync("src/components/AudienceDashboard.tsx", "utf8").includes("ابدأ العرض") && fs.readFileSync("src/styles/25-partners.css", "utf8").includes("prefers-reduced-motion:reduce){.pt-story-slide{animation:none}"), "القصة: زر «ابدأ العرض» في اللوحة، والحركة تُلغى لمن يفضّل قلّتها");
+    /* لقطات الشاشات الحقيقية: بيانٌ سليم يغطي كل موقعٍ فاعل، ومواضعه داخل الصورة، وأبعاده تطابق اللقطة. */
+    const RE = await import("../src/utils/adsEngine");
+    const pv = JSON.parse(fs.readFileSync("public/ad-previews/manifest.json", "utf8")) as { surfaces: Record<string, { image: string; width: number; height: number; slots: Record<string, { x: number; y: number; w: number; h: number }> }> };
+    const covered = new Set(Object.values(pv.surfaces).flatMap(sf => Object.keys(sf.slots)));
+    const missing = RE.activeSlots().map(sl => sl.id).filter(id => !covered.has(id));
+    check(missing.length === 0, "اللقطات الحقيقية: كل موقعٍ فاعل له موضعٌ في لقطة (أضف الموقع الجديد إلى أداة capture-ad-previews وأعد التقاط)", missing);
+    check(Object.keys(pv.surfaces).sort().join() === "me,schedule,staff,ticket", "اللقطات الحقيقية: «مساري» و«تذكرتي» والجدول العام ولوحة الكادر");
+    let shotsOk = true; const shotProblems: string[] = [];
+    for (const [key, sf] of Object.entries(pv.surfaces)) {
+      const file = path.join("public", sf.image);
+      const info = fs.existsSync(file) ? E.readImageInfo(fs.readFileSync(file)) : null;
+      if (!info) { shotsOk = false; shotProblems.push(`${key}: لا صورة`); continue; }
+      const ratioOk = Math.abs(info.height / info.width - sf.height / sf.width) < 0.01;
+      if (!ratioOk) { shotsOk = false; shotProblems.push(`${key}: نسبة الصورة ${info.width}×${info.height} لا تطابق ${sf.width}×${sf.height}`); }
+      for (const [id, r] of Object.entries(sf.slots)) {
+        const spec = RE.slotById(id)!;
+        const inside = r.x >= 0 && r.y >= 0 && r.x + r.w <= sf.width + 1 && r.y + r.h <= sf.height + 1;
+        const aspect = Math.abs(r.w / r.h - spec.width / spec.height) < 0.06 * (spec.width / spec.height);
+        if (!inside || !aspect) { shotsOk = false; shotProblems.push(`${key}/${id}: ${inside ? "نسبة الموقع" : "خارج الصورة"}`); }
+      }
+    }
+    check(shotsOk, "اللقطات الحقيقية: الصور موجودة بنسبها، ومواضع المواقع داخلها بنسبة مقاسها الحقيقي", shotProblems);
+    const pm = fs.readFileSync("src/components/ads/PlacementMap.tsx", "utf8"), rs = fs.readFileSync("src/components/ads/RealScreens.tsx", "utf8");
+    check(pm.includes("usePreviewManifest()") && pm.includes("<RealScreens") && pm.includes("const by = (id: string)") && rs.includes("/ad-previews/manifest.json") && rs.includes("transform: `scale(${k})`") && rs.includes("<SampleAd") && rs.includes("<SlotTone"), "اللقطات الحقيقية: المعاينة والخريطة تعرضانها وتعودان للمخطّط المرسوم إن غابت");
+    check(fs.readFileSync("scripts/capture-ad-previews.ts", "utf8").includes("AD_CLIENT_SCRIPT") && fs.readFileSync("scripts/capture-ad-previews.ts", "utf8").includes("route.abort()"), "اللقطات الحقيقية: الأداة تستعمل أنماط الإعلان الفعلية وتمنع الإعلانات الحقيقية");
   }
 
   console.log(`\n${failed ? "\x1b[31m" : "\x1b[32m"}${passed} نجح، ${failed} فشل\x1b[0m`);

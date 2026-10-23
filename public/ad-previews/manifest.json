@@ -1,0 +1,97 @@
+{
+ "generatedAt": "2026-10-23T20:53:40.601Z",
+ "surfaces": {
+  "me": {
+   "image": "/ad-previews/me.jpg",
+   "width": 390,
+   "height": 1019,
+   "title": "«مساري» · الرئيسية",
+   "slots": {
+    "sponsor": {
+     "x": 17,
+     "y": 763,
+     "w": 356,
+     "h": 45
+    },
+    "me": {
+     "x": 17,
+     "y": 818,
+     "w": 356,
+     "h": 111
+    }
+   }
+  },
+  "ticket": {
+   "image": "/ad-previews/ticket.jpg",
+   "width": 390,
+   "height": 2010,
+   "title": "«تذكرتي» داخل «مساري»",
+   "slots": {
+    "break": {
+     "x": 18,
+     "y": 1322,
+     "w": 354,
+     "h": 118
+    },
+    "nearby": {
+     "x": 18,
+     "y": 1501,
+     "w": 354,
+     "h": 118
+    },
+    "afterclass": {
+     "x": 18,
+     "y": 1681,
+     "w": 354,
+     "h": 118
+    },
+    "course": {
+     "x": 18,
+     "y": 1861,
+     "w": 354,
+     "h": 59
+    }
+   }
+  },
+  "schedule": {
+   "image": "/ad-previews/schedule.jpg",
+   "width": 1280,
+   "height": 1100,
+   "title": "الجدول العام",
+   "slots": {
+    "sponsor": {
+     "x": 337,
+     "y": 823,
+     "w": 606,
+     "h": 76
+    },
+    "schedule": {
+     "x": 337,
+     "y": 908,
+     "w": 606,
+     "h": 152
+    }
+   }
+  },
+  "staff": {
+   "image": "/ad-previews/staff.jpg",
+   "width": 1280,
+   "height": 1808,
+   "title": "لوحة الأساتذة والإداريين",
+   "slots": {
+    "sponsor": {
+     "x": 221,
+     "y": 1431,
+     "w": 606,
+     "h": 76
+    },
+    "dashboard": {
+     "x": 221,
+     "y": 1516,
+     "w": 606,
+     "h": 202
+    }
+   }
+  }
+ }
+}
