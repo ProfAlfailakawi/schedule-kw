@@ -67,7 +67,7 @@ export async function adNotifications(today = kuwaitDay()): Promise<CenterNotifi
     if (partnerLinkState(link) !== "active" || !link.firstOpenAt || Date.parse(link.firstOpenAt) < weekAgo) continue;
     items.push({
       id: `ad-link-open:${link.id}`, tone: "action", title: `«${link.company}» فتحت ملف الشراكة لأول مرة`,
-      detail: `${link.opens > 1 ? `فُتح ${link.opens} مرات · ` : ""}تواصل معها الآن`, view: "ads", at: link.firstOpenAt,
+      detail: `${link.opens > 1 ? `فُتح ${countOf(link.opens, AR.visit)} · ` : ""}تواصل معها الآن`, view: "ads", at: link.firstOpenAt,
     });
   }
   /* طلباتُ حملاتٍ جديدة من ملف الشراكة: تُنبَّه الإدارةُ لتتواصل، وتزول بوضعها «تم التواصل». */
