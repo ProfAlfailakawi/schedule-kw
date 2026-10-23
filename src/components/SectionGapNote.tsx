@@ -193,7 +193,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
             <UserPlus aria-hidden="true" /><b>{num(need.visitors)}</b><small>{need.visitors === 1 ? "منتدب" : "منتدبين"}</small><ChevronDown aria-hidden="true" className="apb-gap-chev" />
           </button>
           {totalOpen ? (
-            <div className="apb-sum" role="status" aria-label={`${countOf(need.sections, AR.section)} بلا أستاذ، ناقص ${need.freeSlots} أماكن عند الحاليين، مقسوماً على ${VISITOR_MAX_SECTIONS}، يساوي ${countOf(need.visitors, AR.visitor)}`}>
+            <div className="apb-sum" role="status" aria-label={`${countOf(need.sections, AR.section)} بلا أستاذ، ناقص ${Math.min(need.freeSlots, need.sections)} أماكن عند الحاليين، مقسوماً على ${VISITOR_MAX_SECTIONS}، يساوي ${countOf(need.visitors, AR.visitor)}`}>
               <span className="apb-sum-c"><Layers aria-hidden="true" /><b>{num(need.sections)}</b><small>بلا أستاذ</small></span>
               {need.freeSlots > 0 ? <><i aria-hidden="true">−</i><span className="apb-sum-c" data-tone="soft"><Armchair aria-hidden="true" /><b>{num(Math.min(need.freeSlots, need.sections))}</b><small>أماكن فارغة</small></span></> : null}
               <i aria-hidden="true">÷</i>
