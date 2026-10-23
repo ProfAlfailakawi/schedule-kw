@@ -48,3 +48,36 @@ export function directoryVisitingIds(affiliations: Affiliation[], known: (id: nu
     for (const raw of row.instructorIds) { const id = Number(raw); if (Number.isFinite(id) && id > 0 && known(id)) out.add(id); }
   return [...out];
 }
+
+/**
+ * مفتاحُ «كلية:قسم» ← منتدبو القسم في الفصل، للأقسام المعطاة. القاعدةُ هي قاعدةُ
+ * `liveVisitingIds` لكل عائلة: دليلُ العائلة كلِّها مع روسترِ الفصل. وما لا منتدب فيه لا يُذكر.
+ */
+export function visitingByScope(
+  affiliations: Affiliation[], termId: number, known: (id: number) => boolean,
+  sections: ReadonlyArray<{ collegeId: number; sectionId: number }>,
+  familyOf: (collegeId: number, sectionId: number) => string = (c, s) => `${c}:${s}`,
+): Record<string, number[]> {
+  const rosters = new Map<string, number[]>();
+  const directories = new Map<string, number[]>();
+  const everRostered = new Map<string, number[]>();
+  for (const row of affiliations) {
+    const family = familyOf(row.collegeId, row.sectionId);
+    if (row.kind === "directory") directories.set(family, [...(directories.get(family) || []), ...row.instructorIds]);
+    else {
+      everRostered.set(family, [...(everRostered.get(family) || []), ...row.instructorIds]);
+      if (Number(row.termId) === Number(termId)) rosters.set(family, [...(rosters.get(family) || []), ...row.instructorIds]);
+    }
+  }
+  /* قسمٌ لم يحفظ دليلاً قطّ: دليلُه كلُّ من مرّ في روستر فصوله (كما يزرعه المستودعُ عند أول قراءة). */
+  for (const [family, ids] of everRostered) if (!directories.has(family)) directories.set(family, ids);
+  const byFamily = new Map<string, number[]>();
+  const out: Record<string, number[]> = {};
+  for (const section of sections) {
+    const family = familyOf(section.collegeId, section.sectionId);
+    if (!byFamily.has(family)) byFamily.set(family, liveVisitingIds(rosters.get(family) || [], directories.get(family) || [], known));
+    const ids = byFamily.get(family)!;
+    if (ids.length) out[`${section.collegeId}:${section.sectionId}`] = ids;
+  }
+  return out;
+}

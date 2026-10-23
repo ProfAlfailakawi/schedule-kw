@@ -1,0 +1,21 @@
+import { useEffect, useState } from "react";
+import { EMPTY_VISITING_LOOKUP, isVisitingIn, loadVisitingLookup, type VisitingLookup } from "../utils/visitingLookup";
+
+/**
+ * يُرجع `isVisiting(instructorId, collegeId, sectionId)` لفصلٍ بعينه. قبل وصول القراءة
+ * يُجيب «لا» (فلا تومض شارةٌ ثم تختفي)، ويُعاد الرسمُ حين تصل.
+ */
+export function useVisitingLookup(termId: number | null | undefined) {
+  const [lookup, setLookup] = useState<VisitingLookup>(EMPTY_VISITING_LOOKUP);
+  useEffect(() => {
+    let alive = true;
+    const term = Number(termId) || 0;
+    if (!term) { setLookup(EMPTY_VISITING_LOOKUP); return; }
+    void loadVisitingLookup(term).then(next => { if (alive) setLookup(next); });
+    return () => { alive = false; };
+  }, [termId]);
+  return {
+    lookup,
+    isVisiting: (instructorId: unknown, collegeId: unknown, sectionId: unknown) => isVisitingIn(lookup, instructorId, collegeId, sectionId),
+  };
+}
