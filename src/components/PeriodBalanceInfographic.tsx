@@ -61,9 +61,9 @@ export default function PeriodBalanceInfographic({ morning, evening, sections, m
         ) : <span className="pb-ok"><Check /></span>}
       </div>
       <div className="period-balance-rule" aria-hidden="true">
-        <Gauge icon={<Sun />} hours="8–2" value={morning} min={50} max={70} />
+        <Gauge icon={<Sun />} hours="8 AM – 2 PM" value={morning} min={50} max={70} />
         <span className="pb-rule-ref">م.7/2</span>
-        <Gauge icon={<Moon />} hours="2–8" value={evening} min={30} max={50} />
+        <Gauge icon={<Moon />} hours="2 PM – 8 PM" value={evening} min={30} max={50} />
       </div>
     </div>
   );
