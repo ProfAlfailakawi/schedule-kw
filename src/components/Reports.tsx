@@ -672,12 +672,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const controller=new AbortController();
     const qs=new URLSearchParams({collegeId:String(filters.collegeId)});
     if(filters.sectionId)qs.set("sectionId",String(filters.sectionId));
+    /* الفصلُ يُحضر القاعات المستعارة المعتمدة أيضاً، فلا يضيع نوعُ قاعةٍ مستعارة من «المقررات × القاعات». */
+    if(filters.termId)qs.set("termId",String(filters.termId));
     fetch(`/api/location-registry?${qs}`,{signal:controller.signal})
       .then(async response=>{if(!response.ok)throw new Error("تعذر تحميل سجل المباني والقاعات");return response.json();})
       .then(data=>setLocationRegistry({buildings:Array.isArray(data.buildings)?data.buildings:[],rooms:Array.isArray(data.rooms)?data.rooms:[]}))
       .catch(error=>{if(error?.name!=="AbortError")setError(String(error?.message||error));});
     return()=>controller.abort();
-  },[filters.collegeId,filters.sectionId]);
+  },[filters.collegeId,filters.sectionId,filters.termId]);
 
   useEffect(() => {
     /* مستوى الكلية مقبول (N7): الخادم يجيزه لمن يغطّي الكلية كلها. */
@@ -2396,7 +2398,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
 
         {loading || pending || (lens === "visitingHistory" && visitingHistoryLoading) ? (
           <QuerySkeleton />
-        ) : !results.length && lens !== "room" && lens !== "balance" && lens !== "visitingHistory" && lens !== "courseLoad" && lens !== "courseRoom" ? (
+        ) : !results.length && lens !== "room" && lens !== "balance" && lens !== "visitingHistory" && lens !== "courseLoad" ? (
           <div className="query-empty">
             <EmptyState
               title={error ? "تعذّرت القراءة" : isDeanReader && !filters.collegeId ? "اختر الكلية" : isDeanReader ? "لا جدول معتمد بعد" : "لا نتائج"}
