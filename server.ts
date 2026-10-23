@@ -91,7 +91,7 @@ import { chooseCaptureBaseline } from "./src/utils/changesBaseline";
 import { approvalScopeKey, authorityRowsForScope } from "./src/utils/approvalScope";
 import { buildNotifications } from "./src/utils/notificationCenter";
 import { awaitedItemIndexes } from "./src/utils/linkedRequestItems";
-import { reviewSchedule } from "./src/utils/scheduleRegulations";
+import { periodBalanceFinding, reviewSchedule } from "./src/utils/scheduleRegulations";
 import {
   ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, canManageDeadline, canReviewSubmissions,
   canAnnotateCells, isAcademicRole, isAdvisorRole, isReadOnlyRole, isRegistrarRole, isViewerOnlyRole, roleDefinition, roleLabel,
@@ -10951,11 +10951,22 @@ async function regulationNoticesForScope(collegeId: number, sectionId: number, t
       Repository.getCourses(),
       Repository.getInstructors(),
     ]);
-    const findings = reviewSchedule({
+    const scopeFindings = reviewSchedule({
       rows: rows as any,
       courses: new Map(courses.map((row: any) => [Number(row.AdCourseId), row])),
       instructors: new Map(instructors.map((row: any) => [Number(row.AdInstructorId), row])),
     });
+    /* نسبةُ الفترتين (م.7/2) للقسم كلِّه عبر كلياته: عائلةُ القسم مجتمعةً في الفصل نفسه،
+       لا الكليةُ المفتوحة وحدها. وباقي ملاحظات اللائحة تبقى على النطاق. */
+    const familyRows = (await Promise.all(
+      departmentFamily(await Repository.getSections(), collegeId, sectionId)
+        .map(member => Repository.getSchedulesByScope({ collegeId: member.collegeId, sectionId: member.sectionId, termId })),
+    )).flat();
+    const familyBalance = periodBalanceFinding(familyRows as any);
+    const findings = [
+      ...scopeFindings.filter(item => item.rule !== "period-balance"),
+      ...(familyBalance ? [familyBalance] : []),
+    ];
     const ownIds = new Set(rows.map((row: any) => Number(row.id)));
     return findings
       .filter(item => item.approvalEffect !== "block")
