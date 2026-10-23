@@ -143,17 +143,12 @@ export function referenceSnapshotFor(sections: any[], courses: AdCourse[]) {
  *  (برنامجٌ بلا قسمٍ مالك، مقرراته من الأقسام التربوية). */
 const TRACK_PROGRAMS = new Set(["BA-0119", "BA-0110"]);
 
-/** صحيفةُ القسم الإداري («علم النفس/علم التربية» في رأسها) لأقسام برنامجها وحدها: التربية الخاصة وقسمُ المادة في مسارات
- *  التربية الخاصة، وقسم رياض الأطفال لرياض الأطفال. القسمُ الذي يمدّها بمقرراتٍ فقط (علم النفس…) لا يحمل نسخةً منها. */
+/** صحيفةُ القسم الإداري («علم النفس/علم التربية» في رأسها) لقسم برنامجها وحده: مسارات التربية الخاصة لقسم التربية الخاصة،
+ *  ورياض الأطفال لقسم رياض الأطفال. القسمُ الذي يمدّها بمقرراتٍ (علم النفس، قسم المادة…) لا يحمل نسخةً منها. */
 function programHome(sheet: { program: string; programName?: string; courses: Array<{ dept: string; sectionNo: number }> }, section: { AdSectionCode?: unknown }): boolean {
   const code = String(section.AdSectionCode ?? "").trim();
   if (sheet.program === "BA-0110") return code === "KG";
-  if (/تربيه\s*خاصه|تربية\s*خاصة/.test(sheet.programName || "")) {
-    const counts = new Map<string, number>();
-    for (const course of sheet.courses) if (course.sectionNo === 2 && !["19", "15", "14", "20", "21"].includes(course.dept)) counts.set(course.dept, (counts.get(course.dept) || 0) + 1);
-    const subject = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
-    return code === "19" || code === subject;
-  }
+  if (/تربيه\s*خاصه|تربية\s*خاصة/.test(sheet.programName || "")) return code === "19";
   return true;
 }
 
