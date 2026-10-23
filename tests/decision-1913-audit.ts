@@ -10,6 +10,7 @@ import {
   DECISION_1912_LABEL, isDecision1912Finding, regulationScore, reviewSchedule,
 } from "../src/utils/scheduleRegulations";
 import type { AdCourse, FSchedule } from "../src/types";
+import { createDemoSandboxState } from "../src/db/demoSandbox";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -65,6 +66,19 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   check(findings.filter(isDecision1912Finding).every(f => f.approvalEffect !== "block"), "لا ملاحظة من اللائحة تمنع الاعتماد");
   check(regulationScore(findings, rows.length) < 100, "ودرجة المطابقة تحسب ملاحظة النسبة");
   check(!findings.some(f => f.rule === "lecture-period" || f.rule === "fixed-time"), "ولا قاعدةَ غير م.7/2 أُضيفت");
+}
+
+/* ── الديمو: تكنولوجيا التعليم، الفصل الأول 2026/2027 ─────────────────────── */
+{
+  const state: any = createDemoSandboxState();
+  const rows = state.schedules.filter((r: any) => r.AdTermId === 1 && r.AdCollegeId === 1 && r.AdSectionId === 1);
+  const demo = reviewSchedule({
+    rows, courses: new Map(state.courses.map((c: any) => [Number(c.AdCourseId), c])),
+    instructors: new Map(state.instructors.map((i: any) => [Number(i.AdInstructorId), i])),
+  });
+  const found = byRule(demo, "period-balance");
+  check(Boolean(found) && /73%/.test(found!.detail), `الديمو يُظهر تنبيه النسبة على تكنولوجيا التعليم (${found?.detail || "لا تنبيه"})`);
+  check(rows.filter((r: any) => /م\.7\/2/.test(String(r.fdetail || ""))).length === 1, "وشعبةٌ واحدة مشروحةٌ في ملاحظتها بأنها مقصودة");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

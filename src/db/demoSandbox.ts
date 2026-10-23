@@ -394,6 +394,37 @@ function plantRegulation(rows: FSchedule[], courses: AdCourse[], termId: number,
   } as FSchedule));
 }
 
+/**
+ * الفصل الأول: شعبةٌ مسائية تنتقل إلى الصباح فتصير الصباحيةُ فوق 70% من شعب القسم
+ * (م.7/2: الصباحية بين 50% و70%) — لاستعراض تنبيه نسبة الفترتين. تبقى في قاعتها،
+ * ويُختار لها موعدٌ صباحيٌّ قاعتُه وأستاذُه فارغان في الفصل كله، فلا يتولّد تعارض.
+ * وتُنقل في النسخة المقبولة أيضاً: هي جزءٌ من الجدول المعتمد، لا تعديلٌ بعده.
+ */
+function plantPeriodBalance(rows: FSchedule[], accepted: FSchedule[], termRows: FSchedule[]): void {
+  const days = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
+  const toMin = (value: string) => { const [h, m] = value.split(":").map(Number); return h * 60 + m; };
+  const overlaps = (a: Partial<FSchedule>, b: FSchedule) => days.some(day => Boolean((a as any)[day]) && Boolean((b as any)[day]))
+    && toMin(String(a.fstarttime)) < toMin(b.fendtime) && toMin(b.fstarttime) < toMin(String(a.fendtime));
+  const morning = SLOTS.filter(slot => slot.day !== "T" && toMin(slot.start) < 14 * 60);
+  const evening = rows.filter(row => toMin(row.fstarttime) >= 14 * 60 && !String(row.fdetail || "").includes(DEMO_CONFLICT_MARK));
+  for (const row of evening) {
+    for (const slot of morning) {
+      const moved = { ...row, ...slot.days, fstarttime: slot.start, fendtime: slot.end };
+      const clash = termRows.some(other => other !== row && Number(other.id) !== Number(row.id) && overlaps(moved, other)
+        && (other.roomId === row.roomId || Number(other.AdInstructorId) === Number(row.AdInstructorId)));
+      if (clash) continue;
+      const change = {
+        ...slot.days, fstarttime: slot.start, fendtime: slot.end,
+        fdetail: `${DEMO_CONFLICT_MARK}: شعبةٌ نُقلت إلى الصباح فصارت الصباحية فوق 70% من شعب القسم (م.7/2) — لاستعراض تنبيه نسبة الفترتين.`,
+      };
+      Object.assign(row, change);
+      const twin = accepted.find(other => Number(other.id) === Number(row.id));
+      if (twin) Object.assign(twin, change);
+      return;
+    }
+  }
+}
+
 /* ── فصولٌ بأسماء 2026/2027 وتواريخَ تتبع اليوم ───────────────────────────────
  *
  * الأسماءُ ثابتة (السنةُ الدراسية الواحدة التي يُعرض عليها الديمو)، والتواريخُ تتبع
@@ -773,6 +804,8 @@ export function createDemoSandboxState(): DemoSandboxState {
   const otherOffer = (sectionId: number) => (DEMO_OTHER_COURSES.find(([id]) => id === sectionId)?.[1] || []).map(([code], order) => [code, order === 1 ? 2 : 1] as const);
   const otherRows = DEMO_OTHER_DEPARTMENTS.map(({ sectionId, instructorIds }) =>
     placeTerm(DEMO_TERM_CURRENT, courses, 30_000 + sectionId * 1_000, otherOffer(sectionId), { sectionId, instructorIds }));
+  /* يُقاس الفراغُ على الجاري والمقبول معاً: المقبولُ ما زال فيه الشعبتان المحذوفتان بعده. */
+  plantPeriodBalance(first, acceptedFirst, [...first, ...acceptedFirst, ...otherRows.flat()]);
   const schedules = [...first, ...otherRows.flat(), ...history];
 
   /* أسماءُ الشاشات كما في academicRoles.ts (2…17). الرقمان 1 و13 غير موصوفين هناك فسُمّيا بما اختاره المالك (تجريبي فقط). */
