@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { instructorIdentityKey, uniqueExactIdentityMatch } from "../utils/instructorIdentity";
+import { instructorIdentityKey, instructorIdentityTokens, uniqueExactIdentityMatch } from "../utils/instructorIdentity";
 import { AlertTriangle, CheckCircle2, FileText } from "lucide-react";
-import ImportPreviewTable, { type ImportRow } from "./ImportPreviewTable";
+import ImportPreviewTable, { importRowKey, type ImportRow } from "./ImportPreviewTable";
+import { authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
 import { AR, countOf } from "../utils/arabicCount";
 import { pageReviewWaitLine } from "../utils/importPageReview";
 
@@ -58,9 +59,24 @@ export default function PagedImportPreview({
     const page = Number(row.sourcePage || 1);
     return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
   };
+  /* ── الصفحة لا تقول «نجحت» والجدول تحتها أحمر ─────────────────────────────
+     كانت الصفحة تُحكم ببرهان القراءة وحده: خانات مؤكدة ⇦ «تمت القراءة بنجاح»
+     وعلامة صح على لسانها، بينما الصف نفسه يحمل تعارضاً أو رفضاً من الخادم أو
+     خانة إلزامية فارغة، والسطر تحت الجدول يقول «بحاجة إلى مراجعة». فالحكم هنا
+     يقرأ ما يقرؤه زر النشر: البرهان، وملاحظات الصف، واكتمال خاناته. */
+  const rowIssues = ((tableProps as any).rowIssues || {}) as Record<string, string[]>;
+  const clock = (value: unknown) => { const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/); return match ? Number(match[1]) * 60 + Number(match[2]) : -1; };
+  const rowIncomplete = (row: ImportRow) => {
+    const start = clock(row.fstarttime), end = clock(row.fendtime);
+    return !Number(row.AdCourseId) || !authoritySectionCodeLooksPlausible(row.SCode)
+      || !(row.fsunday || row.fmonday || row.ftuesday || row.fwednesday || row.fthursday)
+      || start < 0 || end <= start || !row.buildingId
+      || (!row.roomId && row.locationStatus !== "PENDING_ROOM") || !Number(row.AdInstructorId);
+  };
   const rowNeedsReview = (row: ImportRow) => {
     const proofs = Object.values(row.importEvidence || {});
-    return proofs.length > 0 && proofs.some((proof: any) => proof?.confidence !== "CONFIRMED");
+    if (proofs.length > 0 && proofs.some((proof: any) => proof?.confidence !== "CONFIRMED")) return true;
+    return Boolean(rowIssues[importRowKey(row)]?.length) || rowIncomplete(row);
   };
   const maxRowPage = useMemo(() => rows.reduce((max, row) => Math.max(max, rowPage(row)), 1), [rows]);
   /* The tab strip follows the LIVE rows, not the original PDF page count. A page
@@ -121,8 +137,15 @@ export default function PagedImportPreview({
     return () => controller.abort();
   }, [collegeId, sectionId, termId]);
 
-  const readIdentity = (row: ImportRow) =>
-    instructorIdentityKey(String(row.sourceInstructorText || row.importEvidence?.instructor?.raw || ""));
+  /* ── «هيئة تدريسية» ليست اسماً يُحسم مرة واحدة ──────────────────────────
+     هي ما تطبعه الوثيقة حين لا يكون للشعبة مدرّس بعد، فتتكرر على شعب كثيرة
+     لا يجمعها شخص. تعميم القرار عن الاسم كان يحوّلها إلى اسم شخص: من أسند
+     إحدى هذه الشعب إلى دكتور وجد الشعبة التي تحتها أُسندت إليه أيضاً. فالقرار
+     في صفوفها قرار صفٍّ لا قرار اسم — لا يُعمَّم ولا يُنقض به غيره. */
+  const facultyHead = instructorIdentityTokens("هيئة")[0];
+  const readText = (row: ImportRow) => String(row.sourceInstructorText || row.importEvidence?.instructor?.raw || "");
+  const facultyRead = (row: ImportRow) => instructorIdentityTokens(readText(row))[0] === facultyHead;
+  const readIdentity = (row: ImportRow) => facultyRead(row) ? "" : instructorIdentityKey(readText(row));
   const linked = (row: ImportRow) => Number(row.AdInstructorId) > 0;
   /* ربطٌ صنعته الآلة هنا — تعميماً أو مطابقةَ دليلٍ — يحمل نسبته معه، فيبقى
      قابلاً للنقض حين يتغيّر قرار الإنسان. ربطُ الإنسان والخادم لا يُمسّ. */
@@ -157,8 +180,28 @@ export default function PagedImportPreview({
     });
     let changed = false;
     const healed = rows.map(row => {
-      const key = readIdentity(row);
+      /* خانة «هيئة تدريسية» فارغة تُربط بسجلها في القسم وحده إن كان واحداً —
+         كما يفعل الخادم — ولا تأخذ قرار صفٍّ آخر. */
+      const key = facultyRead(row) ? (linked(row) ? "" : instructorIdentityKey(readText(row))) : readIdentity(row);
       if (!key) return row;
+      if (facultyRead(row)) {
+        const person = activePeople.length ? uniqueExactIdentityMatch(key, activePeople) : undefined;
+        if (!person) return row;
+        changed = true;
+        return {
+          ...row,
+          AdInstructorId: Number(person.AdInstructorId),
+          importEvidence: {
+            ...(row.importEvidence || {}),
+            instructor: {
+              raw: readText(row),
+              confidence: "CONFIRMED", score: 100,
+              source: "DEPARTMENT_DIRECTORY", method: "REGISTRY_EXACT", derived: false,
+              reason: "الاسم المقروء يطابق حرفياً سجلاً واحداً من سجلات هذا القسم.",
+            },
+          },
+        } as ImportRow;
+      }
       /* ── نقض ما صنعته الآلة حين تبدّل القرار ─────────────────────────────
          الاسم صار محسوماً بشخصين مختلفين ⇦ كل ربط آلي له يعود خانةً مفتوحة،
          فالخلاف للمراجع لا للآلة. والاسم الذي بقي قراره واحداً لكنه تغيّر ⇦
