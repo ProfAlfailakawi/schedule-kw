@@ -91,6 +91,12 @@ check(!/localStorage|sessionStorage/.test(verifyScript), "الرقم المدن�
 check(/civilEl\.value=""/.test(verifyScript), "ويُمحى من الحقل بعد الإرسال");
 check(/verifyHtml\(r\.signature&&r\.signature\.verifyCode\)/.test(page) && /تحقّق من رمزك/.test(page), "رابط «تحقّق من رمزك» في تبويب الحركة وشاشة «وصل طلبك»");
 
+/* ── المرحلة ٤: اشتراك التقويم (عقودٌ ساكنة) ───────────────────────────── */
+check(/calendarFeed: `\/api\/public\/ics\/\$\{encodeURIComponent\(resolved\.link\.id\)\}\/\$\{encodeURIComponent\(await calendarKey\(resolved\.link\.id/.test(server), "الكرت يعيد استعمال مفتاح اشتراك بطاقة الأستاذ نفسه");
+check(/webcal:\/\/'\+esc\(location\.host\)\+esc\(data\.calendarFeed\)/.test(page) && /أضف جدولك إلى تقويم هاتفك/.test(page), "زرّ «أضف جدولك إلى تقويم هاتفك» برابط webcal");
+check(/anyFixed\(\)\?calendarHtml\(true\)/.test(page) && /calendarHtml\(false\)\+'<button type="button" class="btn-main" id="again">/.test(page), "في رأس الكرت بعد التثبيت وفي شاشة «وصل طلبك»");
+check(/يتحدّث تلقائياً عند أي تثبيتٍ جديد/.test(page), "ويشرح أنه يتحدّث من نفسه");
+
 /* السكربت المولَّد يُجمَّع كما هو. */
 const html = server.includes("function instructorRequestPage") ? "ok" : "";
 check(html === "ok", "الدالة موجودة");

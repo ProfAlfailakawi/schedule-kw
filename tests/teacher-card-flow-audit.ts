@@ -150,6 +150,31 @@ async function main() {
   const hostile = await http("GET", `/verify/${encodeURIComponent("</script><img src=x>")}`);
   check(!hostile.text.includes("</script><img"), "ورمزٌ خبيث في الرابط لا يُغلق وسمَ السكربت");
 
+  /* ═══ المرحلة ٤: اشتراك التقويم ═════════════════════════════════════════ */
+  const pending = rows.find(r => r.status === "submitted" && r.id !== target.id && (r.items || []).some((i: any) => i.action === "change" && !i.decision));
+  check(!!pending, "يوجد طلبٌ فيه تعديلٌ لم يثبّته القسم");
+  const calCard = await http("GET", `/api/public/request/${encodeURIComponent(pending.linkId)}`);
+  const feedPath = String(calCard.json.calendarFeed || "");
+  check(/^\/api\/public\/ics\/[^/]+\/[0-9a-f]{32}\?term=\d+$/.test(feedPath), "الكرت يحمل رابط اشتراكه — هو نفسه اشتراك بطاقة الأستاذ لا بابٌ ثانٍ", feedPath);
+  const feed = await fetch(BASE + feedPath);
+  const ics = await feed.text();
+  check(feed.status === 200 && /text\/calendar/.test(feed.headers.get("content-type") || "") && ics.startsWith("BEGIN:VCALENDAR") && ics.includes("END:VCALENDAR"), "والرابط يُرجع ملف تقويمٍ صالحاً");
+  check(/BEGIN:VEVENT/.test(ics), "وفيه مواعيدُ الأستاذ الرسمية");
+  const changeItem = (calCard.json.request.items || []).find((i: any) => i.action === "change");
+  const askedStart = String(changeItem?.slots?.[0]?.start || "");
+  const askedDays = (changeItem?.slots || []).map((sl: any) => sl.day).sort().join(",");
+  const beforeStart = (/\d{1,2}:\d{2}/.exec(String(changeItem?.before?.time || "")) || [""])[0];
+  const stamp = (t: string) => t.replace(":", "").padStart(4, "0") + "00";
+  if (askedStart && askedStart !== beforeStart) {
+    check(!new RegExp(`DTSTART[^\\n]*T${stamp(askedStart)}`).test(ics) || ics.split(`T${stamp(askedStart)}`).length - 1 <= (calCard.json.request.items || []).length, "ولا يحمل الموعدَ المطلوب الذي لم يثبّته القسم", { askedStart, askedDays });
+  } else {
+    check(true, "الموعد المطلوب يطابق الرسمي فلا فرق يُفحص");
+  }
+  const cacheHeader = feed.headers.get("cache-control") || "";
+  check(/no-cache|no-store/.test(cacheHeader) && !!feed.headers.get("etag"), "وإعادة القراءة تُفحص كل مرّة (ETag) فلا يبقى جدولٌ قديم في الهاتف", cacheHeader);
+  const forged = await fetch(BASE + feedPath.replace(/\/[0-9a-f]{32}\?/, "/" + "0".repeat(32) + "?"));
+  check(forged.status === 404, "مفتاحٌ مزوَّر لا يفتح شيئاً", forged.status);
+
   /* ورمزٌ بتوقيعٍ قديمٍ بلا بنود: يُقال ذلك ولا يُخترع. */
   console.log(`\nTeacher card flow audit: ${passed} passed, ${failed} failed`);
   child?.kill();

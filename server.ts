@@ -20010,6 +20010,9 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
     instructorName: String(person?.AdInstructorName || ""),
     termName: String(term?.AdTermName || ""),
     windowOpen: requestWindowOpen(request),
+    /* اشتراكُ التقويم هو نفسُه المبنيّ لبطاقة الأستاذ (/m): الرابطُ الشخصيّ مفتاحُه، فلا بابَ ثانٍ ولا خلاصةَ ثانية.
+       يقرأ جدولَه الرسميَّ وحدَه — ما ثبّته القسم — لا ما يُطلب ولا المسودة، ويتحدّث من نفسه عند كل تثبيت. */
+    calendarFeed: `/api/public/ics/${encodeURIComponent(resolved.link.id)}/${encodeURIComponent(await calendarKey(resolved.link.id, Number(request.AdInstructorId)))}?term=${Number(request.AdTermId)}`,
     /* مقررات هذا القسم العلمي في كل كليةٍ يوجد فيها؛ الكلية تُختار صراحةً قبل المقرر. */
     courses,
   });
@@ -20376,7 +20379,10 @@ label.time input:focus,select:focus,textarea:focus,label.sign input:focus{outlin
 .alts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .alts button{padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;cursor:pointer}
 .fresh-note{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:10px 13px;border:1px solid #eed994;border-radius:13px;background:var(--warn2);color:#735100;font-size:13px;font-weight:600}.fresh-note .ic,.fresh-note svg{flex:none}
-.verdict .shapes-box,.verdict .alts{flex:1 1 100%}.verify-line{margin:14px 2px 0;font-size:13px;color:var(--muted);text-align:center}.verify-line a{color:var(--accent);font-weight:700}
+.verdict .shapes-box,.verdict .alts{flex:1 1 100%}.cal-line{margin:10px 2px 14px;text-align:center}.cal-line p{margin:6px 6px 0;font-size:12px;color:var(--muted);line-height:1.7}
+.cal-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:9px 16px;border:1px solid var(--accent);border-radius:13px;background:var(--soft);color:var(--accent);font-weight:700;font-size:14px;text-decoration:none}.cal-btn .sk-gi{inline-size:18px;block-size:18px;flex:none}
+.cal-line.compact{margin:0 0 12px;text-align:start}.cal-line.compact p{margin:4px 2px 0}
+.verify-line{margin:14px 2px 0;font-size:13px;color:var(--muted);text-align:center}.verify-line a{color:var(--accent);font-weight:700}
 .shape-lead{margin:0;font-size:12px;color:var(--muted)}.alts.shapes button{border-color:var(--accent);background:var(--soft);color:var(--ink);font-weight:600}
 .alts-ro span{padding:7px 11px;border-radius:999px;border:1px dashed var(--line);background:var(--soft,#f4f6f5);color:var(--ink,#1d2b24);font-size:12px}
 .days button,.starts button,.alts button,.reply button,.acts .act{min-height:44px}
@@ -20779,6 +20785,13 @@ function activityHtml(r){
  loadMovement();
  return '<div class="section-head"><b>طلبك</b><small>ما طلبتَه، وقرار القسم في كل بند</small></div>'+(rows||timeline?'<ul class="activity-list">'+rows+timeline+'</ul>':'<div class="activity-empty">لم تطلب شيئاً بعد. أي إضافة أو تعديل أو حذف يظهر هنا فوراً.</div>')+verifyHtml(r.signature&&r.signature.verifyCode)+officialHtml()
 }
+/* ── «أضف جدولك إلى تقويم هاتفك» ───────────────────────────────────────────
+   الاشتراكُ واحدٌ بُني لبطاقة الأستاذ: يعرض ما ثبّته القسم في جدوله الرسمي لا غير،
+   ويتحدّث من نفسه عند كل تثبيتٍ جديد. فلا يُكتب هنا ما لم يثبّته أحد. */
+function calendarHtml(compact){if(!data||!data.calendarFeed)return "";
+ return '<div class="cal-line'+(compact?' compact':'')+'"><a class="cal-btn" href="webcal://'+esc(location.host)+esc(data.calendarFeed)+'">'+gi("cal")+'أضف جدولك إلى تقويم هاتفك</a>'+
+  '<p>يتحدّث تلقائياً عند أي تثبيتٍ جديد من القسم، ولا يحمل إلا ما ثُبّت في جدولك الرسمي.</p></div>'}
+function anyFixed(){return state.some(function(it){return it.decision&&it.decision.state==="fixed"})||(data&&data.request&&data.request.status==="settled")}
 /* رمزُ التوقيع له مكانٌ يُطابَق فيه: يُعرض مع رابطٍ يفتح التحقّق جاهزاً بالرمز. */
 function verifyHtml(code){if(!code)return "";
  return '<p class="verify-line">رمز توقيعك <b class="code num">'+esc(code)+'</b> · <a href="/verify/'+encodeURIComponent(code)+'?t='+encodeURIComponent(TOKEN)+'">تحقّق من رمزك</a></p>'}
@@ -20806,7 +20819,7 @@ function paint(){
  var h=proposalBanner+(freshNote?'<div class="fresh-note" role="status">'+gi("eye")+'<span>وصل ردّ من القسم. احفظ تعديلك أو أرسله ثم حدّث الصفحة.</span></div>':'')+
   '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open?"":" · انتهت مدّة الطلبات، والصفحة للقراءة")+'</p>'+
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div></div></div>'+
-  pathHtml()+
+  (anyFixed()?calendarHtml(true):'')+pathHtml()+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
  h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(deckHtml()||calmHtml())+planTable();
  if(open&&data.courses&&data.courses.length){
@@ -20961,7 +20974,7 @@ function postSubmit(civil,done){
    ' · يمكنك فتح الرابط نفسه لمتابعة ما ثُبّت وما رُفض.</p>'+
    /* رمزُ التوقيع يُعطى لصاحبه: هو ما يُطابَق به طلبُه بعد شهرين. */
    (code?'<p class="sub">رمز توقيعك: <b class="code num">'+esc(code)+'</b></p>'+verifyHtml(code):'')+
-   '<button type="button" class="btn-main" id="again">'+gi("eye")+'افتح جدولك</button></div>';
+   calendarHtml(false)+'<button type="button" class="btn-main" id="again">'+gi("eye")+'افتح جدولك</button></div>';
   var again=document.getElementById("again");if(again)again.onclick=function(){location.reload()};
   window.scrollTo(0,0)})
  .catch(function(){done("تعذّر الاتصال. تحقّق من الإنترنت.")});
