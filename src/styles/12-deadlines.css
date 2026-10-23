@@ -584,7 +584,7 @@
 .sm-links button{border:1px solid var(--line);background:var(--surface);color:var(--accent);border-radius:var(--r-full);padding:6px 14px;cursor:pointer;font:inherit}
 .pr-import{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:14px;border:1.5px dashed var(--line-strong);border-radius:var(--r-md);background:var(--surface)}
 .pr-import-head{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.pr-import-head>div:nth-child(2){display:grid;gap:2px;flex:1 1 160px;min-inline-size:0}
+.pr-import-head>div:not(.pr-import-actions){display:grid;gap:2px;flex:1 1 160px;min-inline-size:0}
 .pr-import-head small{color:var(--muted)}
 .pr-import-ic{display:grid;place-items:center;inline-size:40px;block-size:40px;border-radius:12px;background:var(--accent-soft);color:var(--accent)}
 .pr-import-actions{display:flex;gap:8px;flex-wrap:wrap;min-inline-size:0;max-inline-size:100%}
@@ -785,3 +785,15 @@
 
 /* شارة الصحيفة على المقررات: صغيرةٌ جداً ونحيفة، لا تزاحم الاسم */
 .plan-badge{display:inline-block;margin-inline-start:6px;padding:0 5px;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:999px;color:color-mix(in srgb,var(--accent) 85%,var(--muted));background:transparent;font-size:9px;font-weight:500;line-height:14px;letter-spacing:0;white-space:nowrap;vertical-align:middle}
+
+/* مراجعة الصحيفة: أدوات الصيانة والملاحظات مطويّة في سطرٍ واحد */
+.pr-tools,.pr-issues-fold{border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
+.pr-tools{border-style:dashed}
+.pr-tools>summary,.pr-issues-fold>summary{cursor:pointer;list-style:none;padding:10px 14px;font-weight:600;color:var(--muted);display:flex;gap:8px;align-items:center}
+.pr-tools>summary::-webkit-details-marker,.pr-issues-fold>summary::-webkit-details-marker{display:none}
+.pr-tools>summary::before,.pr-issues-fold>summary::before{content:"‹";transition:transform .15s;display:inline-block}
+.pr-tools[open]>summary::before,.pr-issues-fold[open]>summary::before{transform:rotate(-90deg)}
+.pr-tools[open]{padding-block-end:10px}
+.pr-tools>.pr-sheet-result,.pr-tools>.pr-import{margin-inline:10px}
+.pr-issues-fold>summary em{font-style:normal;font-size:.8em;padding:1px 8px;border-radius:999px;background:var(--brass-soft);color:var(--ink)}
+.pr-issues-fold[open]>.pr-issueboard{margin:0 10px 10px}

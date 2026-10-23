@@ -147,6 +147,7 @@ export const AR = {
   seat:        { one: "مقعد", two: "مقعدان", few: "مقاعد", many: "مقعداً" },
   profile:     { one: "ملف", two: "ملفان", few: "ملفات", many: "ملفاً" },
   unit:        { one: "وحدة", two: "وحدتان", few: "وحدات", many: "وحدة" },
+  level:       { one: "مستوى", two: "مستويان", few: "مستويات", many: "مستوى" },
   move:        { one: "حركة", two: "حركتان", few: "حركات", many: "حركة" },
   change:      { one: "تغيير", two: "تغييران", few: "تغييرات", many: "تغييراً" },
   point:       { one: "نقطة", two: "نقطتان", few: "نقاط", many: "نقطة" },
