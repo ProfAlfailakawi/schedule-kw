@@ -1406,6 +1406,10 @@ export interface InstructorRequestItem {
   roomOptions?: Array<{ key: string; room: string; hall: string; buildingId?: string; roomId?: string }>;
   /** أقربُ الأوقات المتاحة حين يُمنع الطلب. */
   nearestTimes?: InstructorRequestSlot[];
+  /** التوزيعاتُ المعتمدة لساعات المقرّر حين لا يغطّيها المختار — تُعرض أزراراً تُطبَّق بضغطة. */
+  shapes?: Array<{ days: string[]; label: string }>;
+  /** طولُ اللقاء بالدقائق حين يكون يوماً واحداً بطولٍ غير طول المحاضرة (من الصفّ أو من تاريخ المقرّر). */
+  block?: number;
   decision?: {
     state: InstructorRequestDecisionState;
     reasonCode?: InstructorRequestRejectReason;
@@ -1504,6 +1508,14 @@ export interface InstructorRequestSignature {
   fingerprint: string;
   /** ستّةُ محارفَ تُطبع وتُطابَق. */
   verifyCode: string;
+  /**
+   * ما وقّع عليه الأستاذ لحظةَ التوقيع، كما كان: البنودُ التي مسّها لا غير.
+   * يُحفظ لأن الطلب بعدها يتغيّر (قرارُ القسم، بديلٌ قُبل) فلا يبقى فيه ما وُقّع عليه.
+   * التوقيعاتُ السابقةُ لهذا الحقل لا تحمله، وصفحةُ التحقّق تقول ذلك ولا تخترع.
+   */
+  signedItems?: Array<{ action: string; courseName: string; collegeName?: string; was?: string; asked?: string }>;
+  /** كم صفّاً أبقاه كما هو لحظةَ التوقيع. */
+  keptCount?: number;
 }
 
 export interface SchedulePublication {

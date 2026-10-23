@@ -130,7 +130,7 @@ window.addEventListener("pagehide",function(){civil=""});
 /* o: {what: html, ok: toast, hint: sentence, run: function(civil, done(msg,status))} */
 function sign(o){var again=false;
  function draw(initErr){var kn=known()&&!again;
-  sheet('<div class="sk-h"><span class="sk-b">'+gi("finger")+'</span><div><h3>وقّع بلمسة واحدة</h3></div></div>'+
+  sheet('<div class="sk-h"><span class="sk-b">'+gi("finger")+'</span><div><h3>وقّع برقمك المدني</h3></div></div>'+
    '<div class="sk-what">'+o.what+'</div>'+
    (kn?'<div class="sk-known">'+gi("lock")+'<span>رقمك محفوظ لدقائق · ينتهي بـ <b>'+esc(civil.slice(-4))+'</b></span><button type="button" class="sk-link" id="skOther">رقم آخر</button></div>'
     :'<div class="sk-otpw"><div class="sk-otp" id="skOtp" aria-hidden="true"></div><input id="civil" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="12 رقمًا" aria-label="اكتب رقمك المدني كاملاً — 12 رقمًا — فهو توقيعك"></div>')+
