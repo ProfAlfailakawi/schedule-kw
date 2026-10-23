@@ -43,7 +43,7 @@ import {
 import { findConflicts, minutesToTime } from "./scheduleIntelligence";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
 import { roomIdentityKey } from "./locationRegistry";
-import type { CourseNature } from "./courseNature";
+import { habitualBlockMinutes, type CourseNature } from "./courseNature";
 
 /** ما يطلبه الأستاذ في صفٍّ واحد. */
 export type RequestAction = "keep" | "change" | "delete" | "add";
@@ -99,6 +99,14 @@ export interface RequestVerdict {
   nearestTimes: RequestSlot[];
   /** النهاية كما حسبتها اللائحة من اليوم والبداية. */
   computedEnd: string;
+  /**
+   * التوزيعاتُ المعتمدة لساعات المقرّر حين لا يغطّيها المختار: أزرارٌ تُطبَّق
+   * بضغطة، لا نصٌّ يُقرأ ثم يُعاد بناؤه باليد. كلُّ ما هنا يمرّ من فاحصٍ واحد
+   * بلا استثناء، فاقتراحُ الفاحص لا يُردّ عليه بفاحصٍ آخر.
+   */
+  shapes?: Array<{ days: DayKey[]; label: string }>;
+  /** طولُ اللقاء الذي حُكم به حين يكون يوماً واحداً بطولٍ غير طول المحاضرة (من الصفّ نفسه أو من تاريخ المقرّر). */
+  blockMinutes?: number;
   /** جملةٌ واحدةٌ تصف الحكم كله، جاهزةٌ للعرض. */
   headline: string;
 }
@@ -146,6 +154,8 @@ export interface VerdictContext {
   /** سُلّمُ البدايات الذي يدرّس به القسم فعلاً. حين يغيب لا تُقترح أوقات. */
   startLadder?: string[];
   nature?: Map<number, CourseNature> | null;
+  /** الفصلُ الذي يُحكم فيه: «السابقُ» في التاريخ ما قبله. */
+  termId?: number;
   previousRows?: FSchedule[];
   /** نافذة الطلبات: خارجَها لا يُقبل شيء. */
   windowOpen?: boolean;
@@ -363,8 +373,11 @@ export function headlineReasonOf(list: ReadonlyArray<RequestReason> | undefined)
 export function judgeRequest(inbound: RequestedRow, context: VerdictContext): RequestVerdict {
   const reasons: RequestReason[] = [];
   /* اللقاءُ الممتدّ يُعرف من صفّه القائم في الجدول، فلا يُصدَّق ما تقوله الصفحة عنه. */
-  const request: RequestedRow = inbound.rowId == null ? { ...inbound, blockMinutes: undefined }
-    : { ...inbound, blockMinutes: blockMinutesOfRow(context.allRows.find(row => Number(row.id) === Number(inbound.rowId))) };
+  /* طولُ اللقاء الممتدّ: من الصفّ نفسه إن كان ممتدّاً، وإلا مما درج عليه المقرّر في فصولٍ سابقة (شعبٌ بيومٍ واحد). */
+  const ownBlock = inbound.rowId == null ? undefined : blockMinutesOfRow(context.allRows.find(row => Number(row.id) === Number(inbound.rowId)));
+  const habitBlock = inbound.days.length === 1 && inbound.action !== "delete" && inbound.action !== "keep"
+    ? habitualBlockMinutes(context.nature?.get(Number(inbound.AdCourseId)), context.termId) : undefined;
+  const request: RequestedRow = { ...inbound, blockMinutes: ownBlock ?? habitBlock };
   const computedEnd = endForRequest(request.days, request.start, request.blockMinutes);
   /* هويّةُ الصفّ: معرّفُه إن كان قائماً، وإلا هويّتُه المؤقّتة. تُستعمل لتخطّي
      الصفِّ نفسِه في كل فحص، فلا يتعارض مع ذاته حين يُنقل. */
@@ -394,7 +407,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     const kind: RequestVerdictKind = blocking ? "conflict" : reasons.length ? "exception" : "clear";
     return {
       kind, reasons, sendable: !blocking, needsExcuse: kind === "exception",
-      roomAvailable: null, roomCandidates: [], nearestTimes: [], computedEnd,
+      roomAvailable: null, roomCandidates: [], nearestTimes: [], computedEnd, blockMinutes: request.blockMinutes,
       headline: blocking
         ? headlineReasonOf(reasons)!.text
         : reasons.length ? "يحتاج استثناءً من القسم" : "الوقت متاح",
@@ -454,20 +467,43 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
        بنمطٍ غير مثالي لا تُمنع من النقل ما دام مجموعُها لم ينقص. */
     const original = request.rowId == null ? undefined : context.allRows.find(row => Number(row.id) === Number(request.rowId));
     const originalWeekly = original ? DAY_KEYS.filter(day => (original as any)[day]).length * (toMinutes(original.fendtime) - toMinutes(original.fstarttime)) : Infinity;
-    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly)) {
+    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly, habitBlock && request.days.length === 1 ? habitBlock : Infinity)) {
       const shapes = patternsForHours(courseHours).map(pattern => pattern.label).slice(0, 3).join(" أو ");
       reasons.push({
         source: "shape",
         text: `هذا المقرّر ${countOf(courseHours, { one: "ساعة", two: "ساعتان", few: "ساعات", many: "ساعةً" })} أسبوعياً، والمختار لا يغطّيها${shapes ? ` — جرّب ${shapes}` : ""}.`,
         blocking: true,
       });
-      return verdictOf();
+      const result = verdictOf();
+      /* لا يُعرض زرٌّ إلا لما يقبله الفاحصُ نفسُه بالأيام وحدها: كتلةُ اليوم الواحد
+         الطويلة تحتاج طولَ لقاءٍ لا يختاره الأستاذ من هنا، فزرُّها كان سيعود إلى المنع. */
+      const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
+      /* شعبةٌ تُدرَّس يوماً واحداً بلقاءٍ ممتدّ (مختبر، ورشة، تدريب) أوّلُ خياراتها أن تبقى يوماً واحداً بطولها
+         نفسه: كانت الأزرارُ تدفعها إلى نمط المحاضرات على ثلاثة أيام، وهو ليس طبيعتها. */
+      const habitNature = context.nature?.get(Number(request.AdCourseId));
+      const habitLength = habitualBlockMinutes(habitNature, context.termId);
+      const habitDay = habitLength ? (habitNature?.dayPatterns.find(pattern => pattern.days.length === 1)?.days[0] || request.days[0]) : undefined;
+      const blockDay = request.blockMinutes && original ? DAY_KEYS.find(day => (original as any)[day]) : habitDay;
+      const blockLength = request.blockMinutes || habitLength;
+      const keepOneDay = blockDay && blockLength
+        ? [{ days: [blockDay] as DayKey[], label: `${request.blockMinutes && original ? "يوم واحد كما هو الآن" : "يوم واحد كما دُرّس سابقاً"}: ${DAY_NAMES[DAY_KEYS.indexOf(blockDay)]} ${blockLength}د` }]
+        : [];
+      result.shapes = [...keepOneDay, ...patternsForHours(courseHours)
+        .filter(pattern => pattern.days.length > 1 && pattern.days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold)
+        .map(pattern => ({ days: [...pattern.days], label: pattern.label }))].slice(0, 3);
+      return result;
     }
   }
 
   const short = request.days.filter(day => expectedMinutesForDay(day) === 50).length;
   const long = request.days.length - short;
-  if (short && long) {
+  /* التوزيعُ المعتمد للمقرّر نفسِه ليس «مختلطاً» ولو جمع الأسرتين: ٨٠+٨٠+٥٠ على
+     الاثنين والأربعاء والخميس نمطٌ في المكتبة يقترحه الفاحصُ بنفسه عند نقص
+     الساعات. وكان يعود فيحذّر منه ويطلب استثناءً — فيقترح ثم يعاقب. القاعدةُ
+     واحدة: ما كان من أنماط المقرّر المعتمدة يمرّ، وما سواه يُحذَّر منه. */
+  const approvedShape = courseHours > 0 && patternsForHours(courseHours).some(pattern =>
+    pattern.days.length === request.days.length && pattern.days.every(day => request.days.includes(day)));
+  if (short && long && !approvedShape) {
     reasons.push({
       source: "shape",
       article: DECISION_1912_LABEL,

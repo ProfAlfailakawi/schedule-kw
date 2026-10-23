@@ -211,6 +211,23 @@ export function learnAll(rows: FSchedule[]): Map<number, CourseNature> {
 const MIN_PRIOR_TERMS = 2;
 
 /**
+ * طولُ اللقاء الذي اعتاده المقرّر حين يُدرَّس يوماً واحداً في الأسبوع.
+ *
+ * شعبةٌ بيومٍ واحد (مختبرٌ، ورشةٌ، ساعةٌ واحدة) لا طولَ لها في اللائحة: اللائحة تعرف المحاضرةَ
+ * خمسين أو ثمانين دقيقة. وطولُها هو ما درجت عليه فصولاً، فإن نُقلت أو أُضيفت شعبةٌ مثلُها
+ * أخذت هذا الطول لا طولَ المحاضرة. لا يُقال شيءٌ إلا حين يكون للتاريخ رأيٌ: فصلان سابقان على
+ * الأقل، وثقةٌ لا تقلّ عن المتوسطة، ولقاءٌ واحدٌ في الأسبوع.
+ */
+export function habitualBlockMinutes(nature: CourseNature | null | undefined, termId?: number): number | undefined {
+  if (!nature || nature.confidence === "low") return undefined;
+  const prior = nature.seenInTerms.filter(term => !termId || term < termId);
+  if (prior.length < MIN_PRIOR_TERMS) return undefined;
+  if (nature.meetingsPerWeek !== 1) return undefined;
+  const length = Math.round(nature.meetingMinutes);
+  return length >= 40 && length <= 300 ? length : undefined;
+}
+
+/**
  * Is this appointment out of character for its course?
  *
  * Only says yes when the history is strong enough to have an opinion, and only

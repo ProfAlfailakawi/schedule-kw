@@ -2504,6 +2504,15 @@ export const studentNeedKind = (need: { requestType?: string; details?: string }
         : "course";
 
 const localApplyLeases = new Map<string, { until: number; holder: string }>();
+const instructorRequestSavedListeners = new Set<(info: { id: string; kind: string; at: string }) => void>();
+function announceInstructorRequestSaved(row: InstructorRequest) {
+  const last = (row.timeline || [])[(row.timeline || []).length - 1];
+  const info = { id: row.id, kind: String(last?.kind || "saved"), at: String(row.updatedAt || new Date().toISOString()) };
+  for (const listener of instructorRequestSavedListeners) {
+    try { listener(info); } catch { /* مستمعٌ معطوب لا يُفسد الحفظ */ }
+  }
+}
+
 export const Repository = {
   getStudentCaseSecret: async (): Promise<string> => getOrCreateStudentCaseSecret(),
   /** السرّ المشترك بين نسخ الخادم، مقروءاً خارج صندوق العرض دائماً: مفتاحُ
@@ -4806,13 +4815,25 @@ export const Repository = {
     const next: InstructorRequest = { ...row, updatedAt: new Date().toISOString() };
     if (firestoreDb && !demoSandboxContext.getStore()) {
       await firestoreDb.collection("instructorRequests").doc(next.id).set(next);
+      announceInstructorRequestSaved(next);
       return next;
     }
     if (!Array.isArray(db.instructorRequests)) db.instructorRequests = [];
     const at = db.instructorRequests.findIndex(item => item.id === next.id);
     if (at >= 0) db.instructorRequests[at] = next; else db.instructorRequests.unshift(next);
     saveDatabase();
+    announceInstructorRequestSaved(next);
     return next;
+  },
+
+  /**
+   * يُخبَر المستمعُ كلَّما حُفظ طلبُ أستاذ: معرّفُه وآخرُ ما سُجّل في خطّه الزمني، لا غير.
+   * يقوم عليه بثُّ الكرت الحيّ، فلا يحتاج الأستاذ إلى إعادة التحميل ليرى ردَّ القسم.
+   * ويبلغ هذه النسخةَ وحدها؛ والنسخُ الأخرى تلحق بإعادة الجلب عند العودة وبالنبض البطيء في الصفحة.
+   */
+  onInstructorRequestSaved: (listener: (info: { id: string; kind: string; at: string }) => void): (() => void) => {
+    instructorRequestSavedListeners.add(listener);
+    return () => { instructorRequestSavedListeners.delete(listener); };
   },
 
   /**
@@ -4855,6 +4876,36 @@ export const Repository = {
       return doc.exists ? (doc.data() as InstructorRequest) : undefined;
     }
     return (db.instructorRequests || []).find(row => row.id === id);
+  },
+
+  /**
+   * طلباتُ أستاذٍ واحدٍ في كل الفصول — لذاكرة الفصول في بطاقته. استعلامٌ بمعرّفه وحده،
+   * فيقرأ بضعةَ مستنداتٍ هي له، لا فصلاً كاملاً من الطلبات (وهو ما يستنزف حصّةَ القراءات
+   * المجانية حين يفتح أربعمئة أستاذٍ بطاقاتهم في أسبوعٍ واحد).
+   */
+  getInstructorRequestsByInstructor: async (instructorId: number): Promise<InstructorRequest[]> => {
+    const id = Number(instructorId);
+    if (!Number.isFinite(id) || id <= 0) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("instructorRequests").where("AdInstructorId", "==", id).limit(40).get();
+      return snap.docs.map(doc => doc.data() as InstructorRequest);
+    }
+    return (db.instructorRequests || []).filter(row => Number(row.AdInstructorId) === id);
+  },
+
+  /**
+   * الطلباتُ التي وقّعها صاحبُ هذه البصمة (بصمةُ رقمه المدني) — للتحقّق من توقيعاته.
+   * المفتاحُ رقمُه المدنيّ كما في التوقيع نفسه؛ والرمزُ المطبوع اختياريٌّ يُطابَق بعد القراءة.
+   * البصمةُ نفسُها لا تُرجَع إلى أحد: تُقارَن هنا وتُحذف من كل جواب.
+   */
+  getInstructorRequestsBySignatureFingerprint: async (fingerprint: string): Promise<InstructorRequest[]> => {
+    const wanted = String(fingerprint || "");
+    if (!/^[0-9a-f]{32}$/.test(wanted)) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("instructorRequests").where("signature.fingerprint", "==", wanted).limit(50).get();
+      return snap.docs.map(doc => doc.data() as InstructorRequest);
+    }
+    return (db.instructorRequests || []).filter(row => row.signature?.fingerprint === wanted);
   },
 
   /* البابُ الذي يفتحه الأستاذ: الرابطُ هو المفتاح، ولا شيء غيره يَصله. */

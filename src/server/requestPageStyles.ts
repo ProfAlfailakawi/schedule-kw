@@ -177,3 +177,80 @@ export const REQUEST_V3_CSS = `:root{--ok-ink:#16523a;--on:#fff;--amber:#b07d00;
 .verdict{border-radius:14px}
 :root{color-scheme:light}
 `;
+
+
+/**
+ * المرحلةُ الرابعة من أنماط صفحة الأستاذ: ما جاءت به مراجعةُ الجمال الأخيرة.
+ *  - التباينُ: كلُّ نصٍّ يبلغ ٤٫٥:١ على خلفيته (الكهرمانيُّ كان ٣٫٦ والرمادي الخافت ٤٫١).
+ *  - أسبوعُه رسماً واحداً بدل أعدادٍ ونقاط.
+ *  - خريطةُ الأوقات: شريطٌ لونيٌّ على كل وقتِ بداية.
+ *  - العرضُ على الشاشات الكبيرة.
+ *  - الوضعُ الداكن بالرموز المشتركة مع «مساري» (PUBLIC_DARK_VARS).
+ */
+export const REQUEST_V4_CSS = `
+/* ── التباين ── */
+:root{--amber:#8a5b00;--gold:#8f6200;--warn:#7a5400;--muted2:#56625b}
+@media screen{:root{--muted2:#56625b;--warn:#7a5400}}
+.neg{color:#6f4b00}
+/* ── العرض ── */
+@media (min-width:1000px){.wrap{max-width:820px}}
+/* ── أسبوعه في رسمٍ واحد ── */
+.wk{padding:12px 14px 8px}
+.wk-body{display:flex;gap:9px;align-items:flex-start}
+.wk-axis{display:flex;flex-direction:column;justify-content:space-between;block-size:104px;font-size:11px;line-height:1;color:var(--muted2);font-variant-numeric:tabular-nums;min-inline-size:26px}
+.wk-grid{flex:1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}
+.wc{display:grid;gap:5px}
+.wc-t{position:relative;block-size:104px;border-radius:9px;background:var(--soft);background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(33.333% - 1px),rgba(0,0,0,.08) calc(33.333% - 1px),rgba(0,0,0,.08) 33.333%)}
+.wc[data-today="1"] .wc-t{outline:2px solid var(--ok);outline-offset:1px}
+.wc-n{font-size:12px;text-align:center;color:var(--muted)}
+.wc[data-today="1"] .wc-n{color:var(--ok);font-weight:700}
+.wb{position:absolute;inset-inline:3px;border-radius:5px;background:#86a898}
+.wb[data-k=ghost]{background:transparent;border:1.5px dashed #6f7a74}
+.wb[data-k=chg]{background:#b57f10}
+.wb[data-k=prop]{background:#c58a12;box-shadow:0 0 0 2px var(--warn2)}
+.wb[data-k=fix],.wb[data-k=add]{background:var(--ok)}
+.wb[data-k=del]{background:repeating-linear-gradient(135deg,#ad2f28 0 4px,#e9b3af 4px 8px)}
+.wk-note{margin:8px 2px 0;font-size:12px;color:var(--muted)}
+/* ── خريطةُ الأوقات ── */
+.starts button[data-heat]{position:relative}
+.starts button[data-heat]::after{content:"";position:absolute;inset-inline:9px;inset-block-end:5px;block-size:3px;border-radius:3px;background:var(--heat)}
+.starts button[data-heat=ok]{--heat:#2f8f69}
+.starts button[data-heat=warn]{--heat:#c58a12}
+.starts button[data-heat=bad]{--heat:#c0392b;color:var(--bad)}
+.starts button[aria-pressed=true][data-heat]::after{background:rgba(255,255,255,.9)}
+.heat-key{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin:9px 2px 0;font-size:12px;color:var(--muted)}
+.heat-key span{display:inline-block;inline-size:16px;block-size:4px;border-radius:3px;margin-inline-end:5px;vertical-align:middle}
+.heat-key span[data-heat=ok]{background:#2f8f69}
+.heat-key span[data-heat=warn]{background:#c58a12}
+.heat-key span[data-heat=bad]{background:#c0392b}
+.calm .cal-line{margin:10px 0 0}
+.verdict[data-tone=warn]>i{background:#8a6100}
+
+/* ── الوضع الداكن: الرموزُ نفسُها ثم ما كُتب بلونٍ ثابت. كلُّ زوجٍ يُقاس تباينُه في tests/teacher-card-polish-audit.ts. ── */
+@media screen and (prefers-color-scheme:dark){
+:root{color-scheme:dark;--ink:#eef2ef;--muted:#b3bfb8;--muted2:#a5b2ab;--line:#2a3732;--line2:#3d4f47;--bg:#0f1513;--card:#17201d;--soft:#212d28;
+--ok:#4cb89c;--ok2:#1d332d;--ok-ink:#8fe0c8;--accent:#4cb89c;--accent-soft:#1d332d;--warn:#e3b563;--warn2:#33290f;--warn-line:#5a4a1d;--amber-line:#6b5522;--amber:#c99532;--gold:#c99532;
+--bad:#f08a84;--bad2:#3a1f1e;--on:#0b1512;--sk-on:#0b1512;--raise:#1d2824;--shadow:0 12px 34px rgba(0,0,0,.45)}
+body{background:var(--bg);color:var(--ink)}
+.tabs{background:rgba(23,32,29,.92)}
+.card{box-shadow:0 5px 18px rgba(0,0,0,.3)}
+.card[data-act="delete"]{background:#2a1a19}
+.pick button,.days button,.alts button,.starts button,.act,label.time input,textarea,.course-college select,.course-search,.course-option,label.sign input,details.demo>summary,.pb-more .pb-go{background:var(--card);color:var(--ink)}
+.add-card{background:rgba(23,32,29,.72);border-color:#3d6a5b}
+.sendbox{background:rgba(23,32,29,.96);box-shadow:0 -8px 28px rgba(0,0,0,.4)}
+.err{background:var(--bad2);color:var(--bad)}
+.state,.chip.st{background:var(--warn2);border-color:var(--warn-line);color:var(--warn)}
+.state[data-approved="1"],.statusline[data-approved="1"] .chip.st{background:var(--ok2);border-color:#2f5a4c;color:var(--ok-ink)}
+.add-start,.send button,.starts button[aria-pressed=true],.status[data-act=add],.status[data-act=change],.status[data-act=delete],.verdict>i,.dept i,.reply button[data-reply],.done .tick,.pb-ic,.pb-go{color:var(--on)}
+.verdict[data-tone=warn]>i{background:var(--warn);color:var(--on)}.verdict[data-tone=ok]>i{background:var(--ok-ink);color:var(--on)}.verdict[data-tone=bad]>i{background:var(--bad);color:var(--on)}
+.verdict[data-tone=warn]{color:var(--warn)}
+.wc-t{background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(33.333% - 1px),rgba(255,255,255,.1) calc(33.333% - 1px),rgba(255,255,255,.1) 33.333%)}
+.wb{background:#5f8a77}
+.wb[data-k=ghost]{border-color:#9aa7a0}
+.wb[data-k=chg]{background:#c99532}
+.wb[data-k=prop]{background:#e0a93a;box-shadow:0 0 0 2px var(--warn2)}
+.wb[data-k=del]{background:repeating-linear-gradient(135deg,#c4534b 0 4px,#5a2a27 4px 8px)}
+.starts button[data-heat=bad]{color:var(--bad)}
+.starts button[aria-pressed=true][data-heat]::after{background:rgba(11,21,18,.8)}
+}
+`;
