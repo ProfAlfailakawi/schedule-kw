@@ -8,6 +8,7 @@
 import fs from "fs";
 import vm from "vm";
 import { judgeRequest, type RequestedRow, type VerdictContext } from "../src/utils/instructorRequestVerdict";
+import { signatureVerifyPage } from "../src/server/signatureVerifyPage";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 
 let passed = 0, failed = 0;
@@ -75,6 +76,20 @@ check(/liveBack=Math\.min\(liveBack\*2,60000\)/.test(page), "وإعادة الا
 check(/class="fresh-note"/.test(page) && /وصل ردّ من القسم/.test(page), "مسودةٌ لم تُرسل لا تُستبدل: يُقال للأستاذ إن عند القسم ردّاً");
 check(/navigator\.vibrate/.test(page) && /prefers-reduced-motion/.test(page), "اهتزازٌ خفيف وتمريرٌ إلى «قرارك» يحترمان تقليل الحركة");
 check(/app\.get\("\/api\/public\/request\/:token\/events", rateLimitCardEvents/.test(server) && /resolveRequestLink/.test(server.slice(server.indexOf('"/api/public/request/:token/events"'), server.indexOf('"/api/public/request/:token/events"') + 400)), "مسار البثّ يمرّ بحدّ المعدّل وبالتحقّق نفسه من الرابط");
+
+/* ── المرحلة ٣: صفحة التحقّق (عقودٌ ساكنة) ─────────────────────────────── */
+const verifyHtml = signatureVerifyPage("3Z0RWU", "demo.x", "NONCE9");
+const verifyScript = /<script nonce="NONCE9">([\s\S]*?)<\/script>/.exec(verifyHtml)?.[1] || "";
+let verifyCompiles = true;
+try { new vm.Script(verifyScript, { filename: "verify-inline.js" }); } catch { verifyCompiles = false; }
+check(verifyCompiles && [...verifyHtml.matchAll(/<script\b/gi)].length === 1, "سكربت صفحة التحقّق سليم الصياغة وواحد");
+check(/lang="ar" dir="rtl"/.test(verifyHtml) && /noindex/.test(verifyHtml) && /SCHEDULE_PUBLIC_PLEX_ARABIC/.test(verifyHtml), "هويةُ الصفحات العامة: RTL ولا تُفهرس وخطّ Plex");
+check(/"3Z0RWU"/.test(verifyScript), "الرمز يدخل السكربت JSON");
+const hostileVerify = signatureVerifyPage("</script><img src=x>", '"</script>', "n");
+check([...hostileVerify.matchAll(/<script\b/gi)].length === 1 && !hostileVerify.includes("</script><img"), "رمزٌ خبيثٌ لا يُغلق وسم السكربت");
+check(!/localStorage|sessionStorage/.test(verifyScript), "الرقم المدني لا يُحفظ في المتصفّح");
+check(/civilEl\.value=""/.test(verifyScript), "ويُمحى من الحقل بعد الإرسال");
+check(/verifyHtml\(r\.signature&&r\.signature\.verifyCode\)/.test(page) && /تحقّق من رمزك/.test(page), "رابط «تحقّق من رمزك» في تبويب الحركة وشاشة «وصل طلبك»");
 
 /* السكربت المولَّد يُجمَّع كما هو. */
 const html = server.includes("function instructorRequestPage") ? "ok" : "";

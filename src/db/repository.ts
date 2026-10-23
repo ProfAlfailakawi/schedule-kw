@@ -4878,6 +4878,17 @@ export const Repository = {
     return (db.instructorRequests || []).find(row => row.id === id);
   },
 
+  /** الطلباتُ التي يحمل توقيعُها هذا الرمز — للتحقّق من ورقةٍ مطبوعة. قد يشترك رمزان في ستّة محارف، فيُرجَع الكلّ ويُفصل بالبصمة. */
+  getInstructorRequestsBySignatureCode: async (code: string): Promise<InstructorRequest[]> => {
+    const wanted = String(code || "").trim().toUpperCase();
+    if (!/^[0-9A-Z]{6}$/.test(wanted)) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("instructorRequests").where("signature.verifyCode", "==", wanted).limit(20).get();
+      return snap.docs.map(doc => doc.data() as InstructorRequest);
+    }
+    return (db.instructorRequests || []).filter(row => String(row.signature?.verifyCode || "").toUpperCase() === wanted);
+  },
+
   /* البابُ الذي يفتحه الأستاذ: الرابطُ هو المفتاح، ولا شيء غيره يَصله. */
   getInstructorRequestByLink: async (linkId: string): Promise<InstructorRequest | undefined> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {

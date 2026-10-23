@@ -1506,6 +1506,14 @@ export interface InstructorRequestSignature {
   fingerprint: string;
   /** ستّةُ محارفَ تُطبع وتُطابَق. */
   verifyCode: string;
+  /**
+   * ما وقّع عليه الأستاذ لحظةَ التوقيع، كما كان: البنودُ التي مسّها لا غير.
+   * يُحفظ لأن الطلب بعدها يتغيّر (قرارُ القسم، بديلٌ قُبل) فلا يبقى فيه ما وُقّع عليه.
+   * التوقيعاتُ السابقةُ لهذا الحقل لا تحمله، وصفحةُ التحقّق تقول ذلك ولا تخترع.
+   */
+  signedItems?: Array<{ action: string; courseName: string; collegeName?: string; was?: string; asked?: string }>;
+  /** كم صفّاً أبقاه كما هو لحظةَ التوقيع. */
+  keptCount?: number;
 }
 
 export interface SchedulePublication {

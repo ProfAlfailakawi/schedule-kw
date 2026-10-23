@@ -39,6 +39,7 @@ import { provisionCollegeUsers } from "./src/server/sectionUsers";
 import { registerStudyProposalRoutes, seedDemoStudyProposals } from "./src/server/studyProposalRoutes";
 import { effectiveStatus as studyProposalStatus, decisionStateOf as studyProposalDecision } from "./src/utils/studyProposal";
 import { studyProposalPage } from "./src/server/studyProposalPage";
+import { signatureVerifyPage } from "./src/server/signatureVerifyPage";
 import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from "./src/server/studyProposalAlert";
 import { REQUEST_V3_CSS } from "./src/server/requestPageStyles";
 import { PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "./src/server/publicKit";
@@ -20181,10 +20182,20 @@ sectionId: allowedOption.sectionId,
   const at = new Date().toISOString();
   /* ورمزُ التحقّق يُشتقّ كما يُشتقّ رمزُ توقيع الجدول: من الطلب وصاحبه ولحظته
      — فورقةٌ في ملفٍّ بعد شهرين تُطابَق بنسخةٍ في النظام، لا تشبه غيرَها. */
+  const asText = (snapshot?: { days?: string; time?: string }) => [snapshot?.days, snapshot?.time].filter(Boolean).join(" · ");
   const signature: InstructorRequestSignature = {
     at,
     fingerprint: await surveyFingerprint(civil),
     verifyCode: verificationCode(resolved.request.id, Number(resolved.request.AdInstructorId), at),
+    /* ما وُقّع عليه يُحفظ لحظتَه: الطلبُ يتغيّر بعدها فلا يبقى فيه ما كان. */
+    signedItems: judged.items.filter(item => item.action !== "keep").map(item => ({
+      action: item.action,
+      courseName: String((item.action === "add" ? item.after : item.before)?.courseName || item.after?.courseName || ""),
+      ...((item.action === "add" ? item.after : item.before)?.collegeName ? { collegeName: String((item.action === "add" ? item.after : item.before)?.collegeName) } : {}),
+      ...(item.action !== "add" && asText(item.before) ? { was: asText(item.before) } : {}),
+      asked: item.action === "delete" ? "حذف المقرر من الجدول" : asText(item.after),
+    })),
+    keptCount: judged.items.filter(item => item.action === "keep").length,
   };
   const changed = items.filter(item => item.action !== "keep").length;
   /* «اخترتَ بديلاً» يُسجَّل حين يطابق ما أرسله بندٌ مرفوضٌ أحدَ بدائل القسم —
@@ -20365,7 +20376,8 @@ label.time input:focus,select:focus,textarea:focus,label.sign input:focus{outlin
 .alts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .alts button{padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;cursor:pointer}
 .fresh-note{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:10px 13px;border:1px solid #eed994;border-radius:13px;background:var(--warn2);color:#735100;font-size:13px;font-weight:600}.fresh-note .ic,.fresh-note svg{flex:none}
-.verdict .shapes-box,.verdict .alts{flex:1 1 100%}.shape-lead{margin:0;font-size:12px;color:var(--muted)}.alts.shapes button{border-color:var(--accent);background:var(--soft);color:var(--ink);font-weight:600}
+.verdict .shapes-box,.verdict .alts{flex:1 1 100%}.verify-line{margin:14px 2px 0;font-size:13px;color:var(--muted);text-align:center}.verify-line a{color:var(--accent);font-weight:700}
+.shape-lead{margin:0;font-size:12px;color:var(--muted)}.alts.shapes button{border-color:var(--accent);background:var(--soft);color:var(--ink);font-weight:600}
 .alts-ro span{padding:7px 11px;border-radius:999px;border:1px dashed var(--line);background:var(--soft,#f4f6f5);color:var(--ink,#1d2b24);font-size:12px}
 .days button,.starts button,.alts button,.reply button,.acts .act{min-height:44px}
 textarea{width:100%;margin-top:9px;padding:11px;border-radius:11px;border:1px solid var(--line);font-size:14px;min-height:68px;background:#fff;display:none;resize:vertical}
@@ -20765,8 +20777,11 @@ function activityHtml(r){
   var detail=(item?(esc(actionName(item.action)+" · "+courseOf(item)+(collegeOf(item)?" · "+collegeOf(item):"")+" · ")+requestedHtml(item)):e.kind==="submitted"?esc(countOf(Number(e.detail)||0,AR.edit,"بلا تعديلات")):esc(e.detail||""));
   return '<li class="activity-item" data-kind="event"><i class="activity-dot" aria-hidden="true"></i><div class="activity-main"><b>'+esc(EVENTS[e.kind]||e.kind)+'</b>'+(detail?'<p>'+detail+'</p>':'')+(e.by&&e.kind!=="received"?'<div class="decision">بواسطة '+esc(e.by)+'</div>':'')+'</div><time>'+esc(dt(e.at))+'</time></li>'}).join("");
  loadMovement();
- return '<div class="section-head"><b>طلبك</b><small>ما طلبتَه، وقرار القسم في كل بند</small></div>'+(rows||timeline?'<ul class="activity-list">'+rows+timeline+'</ul>':'<div class="activity-empty">لم تطلب شيئاً بعد. أي إضافة أو تعديل أو حذف يظهر هنا فوراً.</div>')+officialHtml()
+ return '<div class="section-head"><b>طلبك</b><small>ما طلبتَه، وقرار القسم في كل بند</small></div>'+(rows||timeline?'<ul class="activity-list">'+rows+timeline+'</ul>':'<div class="activity-empty">لم تطلب شيئاً بعد. أي إضافة أو تعديل أو حذف يظهر هنا فوراً.</div>')+verifyHtml(r.signature&&r.signature.verifyCode)+officialHtml()
 }
+/* رمزُ التوقيع له مكانٌ يُطابَق فيه: يُعرض مع رابطٍ يفتح التحقّق جاهزاً بالرمز. */
+function verifyHtml(code){if(!code)return "";
+ return '<p class="verify-line">رمز توقيعك <b class="code num">'+esc(code)+'</b> · <a href="/verify/'+encodeURIComponent(code)+'?t='+encodeURIComponent(TOKEN)+'">تحقّق من رمزك</a></p>'}
 /* المسودةُ تُحفظ في الجهاز نفسه: أستاذٌ أغلق الصفحة خطأً أو انقطع اتصاله
    يعود فيجد ما كتبه. ولا يُحفظ الرقمُ المدني أبداً. */
 var openCards={};
@@ -20945,7 +20960,7 @@ function postSubmit(civil,done){
    '<p class="sub">'+esc(countOf(x.d.changed,AR.edit,"بلا تعديلات"))+
    ' · يمكنك فتح الرابط نفسه لمتابعة ما ثُبّت وما رُفض.</p>'+
    /* رمزُ التوقيع يُعطى لصاحبه: هو ما يُطابَق به طلبُه بعد شهرين. */
-   (code?'<p class="sub">رمز توقيعك: <b class="code num">'+esc(code)+'</b></p>':'')+
+   (code?'<p class="sub">رمز توقيعك: <b class="code num">'+esc(code)+'</b></p>'+verifyHtml(code):'')+
    '<button type="button" class="btn-main" id="again">'+gi("eye")+'افتح جدولك</button></div>';
   var again=document.getElementById("again");if(again)again.onclick=function(){location.reload()};
   window.scrollTo(0,0)})
@@ -21223,6 +21238,70 @@ app.get("/r/:token/proposal/:pid", async (req: Request, res: Response) => {
     return;
   }
   res.type("text/html; charset=utf-8").send(studyProposalPage(resolved.link.id, String(req.params.pid || ""), publicPageNonce(res), await demoPageHint(resolved.link, "request")));
+});
+
+/**
+ * ── التحقّق من رمز التوقيع ──────────────────────────────────────────────────
+ *
+ * الرمزُ يُعطى للأستاذ حين يرسل طلبَه ليُطابَق به بعد شهرين ما في ورقةٍ أو رسالة.
+ * يُفتح برمزٍ ورقمٍ مدنيّ، فيرى ما وُقّع عليه لحظتَه. والجوابُ واحدٌ حين لا يوجد
+ * رمزٌ وحين لا يطابقه الرقم: التفريقُ بينهما يقول لمن يجرّب إن رمزاً ما صحيح.
+ */
+const rateLimitVerifySignature = rateLimit({
+  windowMs: 60_000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
+});
+app.get(["/verify", "/verify/:code"], (req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.type("text/html; charset=utf-8").send(signatureVerifyPage(String(req.params.code || ""), String(req.query.t || ""), publicPageNonce(res)));
+});
+app.post("/api/public/verify", rateLimitVerifySignature, async (req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const attempt = publicAttemptReserve("verify-signature", req.ip || "unknown");
+  if (!attempt) { res.status(429).json({ error: "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة." }); return; }
+  const code = String(req.body?.code || "").trim().toUpperCase();
+  const civil = normalizeCivilId(req.body?.civil);
+  if (!/^[0-9A-Z]{6}$/.test(code) || !/^\d{12}$/.test(civil)) {
+    res.status(400).json({ error: "اكتب الرمز (ستّة أحرف) ورقمك المدني (اثنا عشر رقماً)." });
+    return;
+  }
+  const notFound = { error: "لا يوجد توقيعٌ يطابق هذا الرمز مع هذا الرقم المدني." };
+  const lookup = async () => {
+    /* البصمةُ تُحسب قبل البحث دائماً، فلا يفرّق الزمنُ بين رمزٍ موجودٍ وغير موجود. */
+    const fingerprint = Buffer.from(await surveyFingerprint(civil));
+    const found = (await Repository.getInstructorRequestsBySignatureCode(code)).filter(row => {
+      const stored = Buffer.from(String(row.signature?.fingerprint || ""));
+      return stored.length === fingerprint.length && timingSafeEqual(stored, fingerprint);
+    }).sort((a, b) => Date.parse(String(b.signature?.at || "")) - Date.parse(String(a.signature?.at || "")))[0];
+    if (!found?.signature) return null;
+    const [instructors, terms] = await Promise.all([Repository.getInstructors(), Repository.getTerms()]);
+    const person = (instructors as any[]).find(row => Number(row.AdInstructorId) === Number(found.AdInstructorId));
+    const term = (terms as any[]).find(row => Number(row.AdTermId) === Number(found.AdTermId));
+    const signed = found.signature.signedItems;
+    return {
+      code,
+      instructorName: String(person?.AdInstructorName || ""),
+      termName: String(term?.AdTermName || ""),
+      signedAt: found.signature.at,
+      hasItems: Array.isArray(signed),
+      items: Array.isArray(signed) ? signed : [],
+      keptCount: Number(found.signature.keptCount || 0),
+    };
+  };
+  /* رابطُ تجربةٍ يربط البحثَ بصندوقه، كما تفعل روابطُ الأبواب العامة الأخرى. */
+  const hint = String(req.body?.hint || "");
+  const sandbox = isDemoLinkToken(hint) ? Repository.demoSandboxForLinkToken(hint) : "";
+  const result = await new Promise<Awaited<ReturnType<typeof lookup>> | "error">(resolve => {
+    const run = () => lookup().then(resolve, () => resolve("error"));
+    if (!sandbox || !Repository.runDemoSandbox(sandbox, () => { void run(); })) void run();
+  });
+  if (result === "error") { res.status(500).json({ error: "تعذّر التحقّق الآن. أعد المحاولة بعد قليل." }); return; }
+  if (!result) { res.status(404).json(notFound); return; }
+  attempt.release();
+  res.json(result);
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

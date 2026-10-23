@@ -117,6 +117,40 @@ async function main() {
   check(refused >= 1, "اتصالاتٌ كثيرة بالرابط الواحد تُرفض بدل أن تتراكم", many.map(m => m?.status));
   many.forEach(m => m?.close());
 
+  /* ═══ المرحلة ٣: التحقّق من رمز التوقيع ═════════════════════════════════ */
+  const fresh = rows.find(r => r.status === "sent" && (r.items || []).length);
+  check(!!fresh, "يوجد طلبٌ لم يُرسَل بعد للتوقيع عليه");
+  const instructors = (await A("GET", "/api/instructors")).json;
+  const list = Array.isArray(instructors) ? instructors : (instructors.rows || instructors.instructors || []);
+  const civil = String(list.find((i: any) => Number(i.AdInstructorId) === Number(fresh.AdInstructorId))?.AdInstructorCivil || "");
+  const card = await http("GET", `/api/public/request/${encodeURIComponent(fresh.linkId)}`);
+  const sentItems = (card.json.request.items || []).map((it: any, k: number) => k === 0
+    ? { rowId: it.rowId, action: "delete", days: [], start: "" }
+    : { rowId: it.rowId, action: "keep", days: [], start: "" });
+  const submitted = await http("POST", `/api/public/request/${encodeURIComponent(fresh.linkId)}`, { civil, items: sentItems });
+  check(submitted.status === 200, "الأستاذ يوقّع ويرسل", submitted.json);
+  const code = String(submitted.json?.request?.signature?.verifyCode || "");
+  check(/^[0-9A-Z]{6}$/.test(code), "ويصله رمزُ توقيعه");
+  check(!JSON.stringify(submitted.json).includes("signedItems"), "وما وُقّع عليه لا يعود إلى صفحة الأستاذ مع الطلب");
+
+  const hint = fresh.linkId;
+  const good = await http("POST", "/api/public/verify", { code, civil, hint });
+  check(good.status === 200 && good.json.code === code, "رمزٌ صحيح مع رقمه يفتح", good.json);
+  check(good.json.hasItems === true && good.json.items?.length === 1 && good.json.items[0].action === "delete", "ويعرض ما وُقّع عليه بالضبط لحظتَه", good.json.items);
+  check(good.json.keptCount === sentItems.length - 1, "وكم موعداً أُبقي كما هو");
+  check(!JSON.stringify(good.json).includes(civil), "والرقم المدني لا يعود في الجواب");
+  const wrongCivil = await http("POST", "/api/public/verify", { code, civil: civil.slice(0, 11) + String((Number(civil.slice(-1)) + 1) % 10), hint });
+  const wrongCode = await http("POST", "/api/public/verify", { code: code === "AAAAAA" ? "BBBBBB" : "AAAAAA", civil, hint });
+  check(wrongCivil.status === 404 && wrongCode.status === 404, "رقمٌ خاطئ ورمزٌ خاطئ يعطيان الحالةَ نفسها", [wrongCivil.status, wrongCode.status]);
+  check(wrongCivil.text === wrongCode.text, "وبالنصّ نفسه: لا يُعرف أيُّهما أخطأ");
+  const shape = await http("POST", "/api/public/verify", { code: "xx", civil: "1" });
+  check(shape.status === 400, "صيغةٌ ناقصة تُردّ بلا بحث");
+  const page = await http("GET", `/verify/${code}?t=${encodeURIComponent(hint)}`);
+  check(page.status === 200 && /التحقّق من رمز التوقيع/.test(page.text) && page.text.includes(JSON.stringify(code)), "وصفحةُ التحقّق تُفتح بالرمز جاهزاً");
+  const hostile = await http("GET", `/verify/${encodeURIComponent("</script><img src=x>")}`);
+  check(!hostile.text.includes("</script><img"), "ورمزٌ خبيث في الرابط لا يُغلق وسمَ السكربت");
+
+  /* ورمزٌ بتوقيعٍ قديمٍ بلا بنود: يُقال ذلك ولا يُخترع. */
   console.log(`\nTeacher card flow audit: ${passed} passed, ${failed} failed`);
   child?.kill();
   process.exit(failed ? 1 : 0);
