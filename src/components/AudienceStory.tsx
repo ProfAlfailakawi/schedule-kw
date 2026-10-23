@@ -76,10 +76,10 @@ export default function AudienceStory({ stats, onClose }: { stats: AudienceStats
           <h2>جمهورٌ حقيقي يفتح البرنامج بنفسه</h2>
           <p className="pt-story-sub">منذ {AUDIENCE_BASELINE.since}، فصلاً بعد فصل</p>
           <div className="pt-story-grid">
-            <div><b><em>حوالي</em> {fmt(head.students)}</b><span>طالباً استفاد من النظام</span></div>
-            <div><b><em>حوالي</em> {fmt(head.visits)}</b><span>دخولاً للطلبة</span></div>
-            <div><b><em>حوالي</em> {fmt(AUDIENCE_BASELINE.instructors)}</b><span>عضو هيئة تدريس</span></div>
-            <div><b><em>حوالي</em> {fmt(head.instructorOpens)}</b><span>دخولاً للأساتذة</span></div>
+            <div><b><em>حوالي</em> {fmt(head.students)}</b><span>إجمالي الطلبة المستفيدين</span></div>
+            <div><b><em>حوالي</em> {fmt(head.visits)}</b><span>إجمالي دخول الطلبة</span></div>
+            <div><b><em>حوالي</em> {fmt(AUDIENCE_BASELINE.instructors)}</b><span>أعضاء هيئة التدريس</span></div>
+            <div><b><em>حوالي</em> {fmt(head.instructorOpens)}</b><span>إجمالي دخول أعضاء هيئة التدريس</span></div>
           </div>
         </> : null}
 
