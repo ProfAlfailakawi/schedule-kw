@@ -1,9 +1,9 @@
 /**
- * ── قرار 1913/2016: م.7/2، م.7/8، م.7/9 ──────────────────────────────────────
+ * ── قرار 1913/2016: م.7/2 ────────────────────────────────────────────────────
  *
- * Three scheduling articles of the decision, added beside the ones the system
- * already checked. They are notes: they are said, they never block and they
- * never ask an instructor for an excuse. The label stays the decision's one
+ * The morning/evening share of the department's sections, added beside the
+ * articles the system already checked. It is a note: it is said, it never
+ * blocks and it never asks an instructor for an excuse. The label stays the decision's one
  * number, and the existing checks are untouched.
  */
 import {
@@ -38,36 +38,6 @@ const byRule = (findings: ReturnType<typeof review>, rule: string) => findings.f
 /* ── رقم القرار واحد ──────────────────────────────────────────────────────── */
 check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ القرار وحده: «${DECISION_1912_LABEL}»`);
 
-/* ── م.7/8: 50 و80 دقيقة داخل فترتي الساعة والساعة ونصف، والأطول يُنبَّه عليه ── */
-{
-  const courses = [course(1, 3), course(2, 3), course(3, 4), course(4, 3)];
-  const fits = [
-    row(1, "1", ["sun", "tue", "thu"], "08:00", "08:50"),
-    row(2, "1", ["mon", "wed"], "08:00", "09:20"),
-    row(3, "1", ["tue", "thu"], "10:00", "12:00"),
-    row(4, "1", ["wed"], "08:00", "11:00"), /* مختبرٌ بثلاث ساعات: خارج المادة */
-  ];
-  check(!byRule(review(fits, courses), "lecture-period"), "محاضراتُ 50 و80 دقيقة، وساعتا الثلاثاء/الخميس للمقرر الرباعي، والمختبر: لا تنبيه");
-  const long = row(1, "2", ["sun", "tue"], "10:00", "11:15");
-  const found = byRule(review([...fits, long], courses), "lecture-period");
-  check(Boolean(found) && found!.rowIds.length === 1 && found!.rowIds[0] === long.id, "محاضرةُ 75 دقيقة يوم الأحد أطولُ من فترة الساعة فيُنبَّه عليها وحدها");
-  check(found?.source === "decision-1912" && found.approvalEffect === "note" && found.article === "م.7/8", "والتنبيه من اللائحة ومرجعه م.7/8، وهو ملاحظة لا منع");
-  const fractional = { ...course(6, 3), CourseHours: 2.5 };
-  check(!byRule(review([row(6, "1", ["sun"], "10:00", "11:15")], [fractional]), "lecture-period"), "مقرر 2.5 ساعة ليس ثلاثياً: لا تقريب إلى 3 ولا تنبيه");
-  const lab = { ...course(7, 3), CourseRoomType: "مختبر حاسوب" };
-  check(!byRule(review([row(7, "1", ["sun"], "10:00", "11:30")], [lab]), "lecture-period"), "مقرر نوع قاعته مختبر عملي وإن قصرت جلسته: لا تنبيه");
-}
-
-/* ── م.7/9: الشعبة بوقتٍ ثابت بين أيامها ──────────────────────────────────── */
-{
-  const courses = [course(5, 4)];
-  const same = [row(5, "1", ["mon", "wed"], "08:00", "09:20"), row(5, "1", ["thu"], "08:00", "08:50")];
-  check(!byRule(review(same, courses), "fixed-time"), "الرباعي على الاثنين والأربعاء والخميس بالبداية نفسها: لا تنبيه");
-  const drift = [row(5, "2", ["mon", "wed"], "08:00", "09:20"), row(5, "2", ["thu"], "11:00", "11:50")];
-  const found = byRule(review(drift, courses), "fixed-time");
-  check(Boolean(found) && found!.rowIds.length === 2 && found!.approvalEffect === "note", "الشعبة نفسها ببدايتين مختلفتين: ملاحظة على صفّيها");
-}
-
 /* ── م.7/2: الفترتان الصباحية والمسائية ───────────────────────────────────── */
 {
   const courses = Array.from({ length: 12 }, (_, i) => course(100 + i, 3));
@@ -89,11 +59,12 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
 
 /* ── لا شيءَ من اللائحة يمنع، والحلقة تقرأ الجديد ─────────────────────────── */
 {
-  const courses = [course(1, 3), course(5, 4)];
-  const rows = [row(1, "9", ["sun"], "10:00", "11:30"), row(5, "3", ["mon", "wed"], "08:00", "09:20"), row(5, "3", ["thu"], "12:00", "12:50")];
+  const courses = Array.from({ length: 12 }, (_, i) => course(200 + i, 3));
+  const rows = courses.map(c => row(c.AdCourseId, "1", ["sun", "tue", "thu"], "09:00", "09:50"));
   const findings = review(rows, courses);
   check(findings.filter(isDecision1912Finding).every(f => f.approvalEffect !== "block"), "لا ملاحظة من اللائحة تمنع الاعتماد");
-  check(regulationScore(findings, rows.length) < 100, "ودرجة المطابقة تحسب الملاحظات الجديدة");
+  check(regulationScore(findings, rows.length) < 100, "ودرجة المطابقة تحسب ملاحظة النسبة");
+  check(!findings.some(f => f.rule === "lecture-period" || f.rule === "fixed-time"), "ولا قاعدةَ غير م.7/2 أُضيفت");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

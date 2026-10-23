@@ -513,8 +513,8 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   }
 
   /* ── اللائحة ──────────────────────────────────────────────────────────── */
-  /* ملاحظاتُ اللائحة من درجة «note» (م.7/2، م.7/8، م.7/9) تبقى تنبيهاً في شاشات
-     القسم ولا تُدخل الطلبَ في «يحتاج استثناءً»: هي تنبيهٌ لا قيد. */
+  /* ملاحظاتُ اللائحة من درجة «note» (م.7/2) تبقى تنبيهاً في شاشات القسم
+     ولا تُدخل الطلبَ في «يحتاج استثناءً»: هي تنبيهٌ لا قيد. */
   const findings = reviewSchedule({
     rows: context.instructorRowsAfter,
     courses: context.courses,

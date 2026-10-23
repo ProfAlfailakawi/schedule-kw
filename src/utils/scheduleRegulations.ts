@@ -18,9 +18,6 @@ import { AR, countOf, oblique } from "./arabicCount";
  *   م.6/4  single-section courses rotate between staff each term
  *   م.7/2  morning 08–14 holds 50–70% of the department's sections, evening 14–20 holds 30–50%
  *   م.7/5  sections of one course spread across different hours and days
- *   م.7/8  a theoretical lecture fits its period: an hour on Sun/Tue/Thu, an
- *          hour and a half on Mon/Wed, two hours on Tue/Thu for four-hour courses
- *   م.7/9  a course is offered at the same time on every day it meets
  *
  * The rest of the full decision is intentionally not enforced here unless the
  * current product actually carries reliable data for it. These checks are only
@@ -69,13 +66,6 @@ const MORNING_START = 8 * 60;
 const MORNING_END = 14 * 60;
 const EVENING_END = 20 * 60;
 
-/** The decision's periods (م.7/8): an hour on Sun/Tue/Thu, an hour and a half on Mon/Wed. */
-const SHORT_PERIOD_MINUTES = 60;
-const LONG_PERIOD_MINUTES = 90;
-/** The longest lecture the decision describes (four-hour course on Tue/Thu); longer is a lab sitting. */
-const LONGEST_LECTURE_MINUTES = 120;
-/** Room types that mark a course as practical (free text in the catalogue). */
-const PRACTICAL_ROOM_TYPE = /مختبر|معمل|ورش|استوديو|ستوديو|عملي|تدريب|ميدان|مرسم|ملعب|مسبح|صالة|مطبخ|كلينيك|حاسوب|حاسب|مشغل/;
 /** Below this many sections a morning/evening share is noise, not a department. */
 const PERIOD_BALANCE_MIN_SECTIONS = 10;
 
@@ -525,79 +515,6 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
         rowIds: repeatedRows
       });
     }
-  }
-
-  // --- م.7/9 — one section, one fixed time across its days ---------------
-  // A section is often stored as more than one appointment (Mon/Wed and Thu
-  // for a four-hour course). The decision asks that they share a start time.
-  // Long sittings (labs, workshops, field training) are left out: م.10 lets their
-  // practical part run at its own time.
-  const bySection = new Map<string, FSchedule[]>();
-  rows.forEach(row => {
-    if (!row.AdCourseId || !row.fstarttime || duration(row) > LONGEST_LECTURE_MINUTES) return;
-    const key = `${row.AdCourseId}::${String(row.SCode || "").trim()}`;
-    bySection.set(key, [...(bySection.get(key) || []), row]);
-  });
-  const driftingRows: number[] = [];
-  const driftingNames: string[] = [];
-  for (const [, list] of bySection) {
-    if (list.length < 2 || new Set(list.map(row => toMinutes(row.fstarttime))).size < 2) continue;
-    driftingRows.push(...list.map(row => row.id));
-    const label = `${name(list[0])}${list[0].SCode ? ` ش${list[0].SCode}` : ""}`;
-    if (!driftingNames.includes(label)) driftingNames.push(label);
-  }
-  if (driftingRows.length) {
-    findings.push({
-      rule: "fixed-time",
-      article: "م.7/9",
-      severity: "low",
-      source: "decision-1912",
-      approvalEffect: "note",
-      title: `وقت الشعبة غير ثابت بين أيامها (${arabicNumber(driftingNames.length)})`,
-      detail: `اللائحة تطلب أن يُطرح المقرر بأوقات ثابتة في سائر أيامه. ${driftingNames.slice(0, 6).join("، ")}`,
-      rowIds: driftingRows,
-    });
-  }
-
-  // --- م.7/8 — a theoretical lecture fits its period ---------------------
-  // The decision states lectures as periods: an hour on Sun/Tue/Thu, an hour
-  // and a half on Mon/Wed, and two hours on Tue/Thu for a four-hour course.
-  // The 50/80-minute lectures sit inside those periods (the rest is the
-  // changeover), so only a lecture longer than its period is noted. The
-  // article speaks of three- and four-hour theoretical courses; anything
-  // longer than two hours is a lab or workshop sitting, which م.7/8/ث leaves
-  // to the department.
-  const overPeriod: FSchedule[] = [];
-  const overNames: string[] = [];
-  for (const row of rows) {
-    const course = courses.get(row.AdCourseId);
-    /* The hours as stored: a 2.5-hour course is not a three-hour one. */
-    const hours = Number(course?.CourseHours) || 0;
-    const days = daysOf(row);
-    const length = duration(row);
-    if ((hours !== 3 && hours !== 4) || !days.length || !length || length > LONGEST_LECTURE_MINUTES) continue;
-    /* A course the catalogue places in a lab, workshop or studio is practical,
-       however short its sitting: the article is about theoretical lectures. */
-    if (PRACTICAL_ROOM_TYPE.test(String(course?.CourseRoomType || ""))) continue;
-    const allowed = hours === 4 && days.every(day => day === "ftuesday" || day === "fthursday")
-      ? LONGEST_LECTURE_MINUTES
-      : Math.min(...days.map(day => LONG_LECTURE_DAYS.includes(day) ? LONG_PERIOD_MINUTES : SHORT_PERIOD_MINUTES));
-    if (length <= allowed) continue;
-    overPeriod.push(row);
-    const label = name(row);
-    if (!overNames.includes(label)) overNames.push(label);
-  }
-  if (overPeriod.length) {
-    findings.push({
-      rule: "lecture-period",
-      article: "م.7/8",
-      severity: "low",
-      source: "decision-1912",
-      approvalEffect: "note",
-      title: `محاضرة أطول من فترتها (${arabicNumber(overPeriod.length)})`,
-      detail: `فترة المحاضرة في اللائحة: ساعة للأحد والثلاثاء والخميس، وساعة ونصف للاثنين والأربعاء، وساعتان للثلاثاء والخميس في المقرر ذي الأربع ساعات. ${overNames.slice(0, 6).join("، ")}`,
-      rowIds: overPeriod.map(row => row.id),
-    });
   }
 
   // --- م.7/2 — the morning and evening shares of the department ----------
