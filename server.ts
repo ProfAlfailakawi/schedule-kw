@@ -12663,8 +12663,11 @@ app.get("/api/reports/schedule-changes", rateLimitHeavyReport, requireAuth, asyn
     const index = SHOW_DAYS.findIndex(([key]) => Boolean(row?.[key]));
     return index < 0 ? 99 : index;
   };
+  /* المنتدبون يُعرفون في كل شاشةٍ بشارتهم: يُحمل علمُ المنتدب مع كل صفٍّ يعرضه التقرير. */
+  const visitingIdsForReport = new Set((await readLiveVisitingRoster(collegeId, sectionId, termId)).instructorIds.map(Number));
   const asDisplayRow = (row: any) => ({
     scheduleId: Number(row.id),
+    visiting: visitingIdsForReport.has(Number(row.AdInstructorId)),
     courseCode: courseCodeById.get(Number(row.AdCourseId)) || "",
     course: names.courseById.get(Number(row.AdCourseId)) || String(row.AdCourseName || `موعد ${row.id}`),
     sectionCode: String(row.SCode || "—"),

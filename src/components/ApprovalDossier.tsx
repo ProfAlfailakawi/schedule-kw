@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PrintPortal, useDialogDismiss } from "./ui";
+import VisitingBadge from "./VisitingBadge";
 import { AR, countOf } from "../utils/arabicCount";
 import { approvalScopeKey, createScopeGuard } from "../utils/approvalScope";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
@@ -219,7 +220,7 @@ export function ApprovalDossierSheet({ model }: { model: ApprovalDossierModel })
                         {item.kind !== "modified" && (item.room || item.instructor) ? (
                           <div className="ad-move ad-move-plain">
                             {item.room ? <span title="القاعة"><MapPin aria-hidden="true" /><bdi dir="ltr">{item.room}</bdi></span> : null}
-                            {item.instructor ? <span title="الأستاذ"><UsersRound aria-hidden="true" /><bdi>{item.instructor}</bdi></span> : null}
+                            {item.instructor ? <span title="الأستاذ"><UsersRound aria-hidden="true" /><bdi>{item.instructor}</bdi>{item.visiting ? <VisitingBadge compact /> : null}</span> : null}
                           </div>
                         ) : null}
                       </div>

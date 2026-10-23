@@ -34,6 +34,7 @@ import { Badge, EmptyState, MicroLoader, Notice, PageTitle, PrimaryButton, Secon
 import { APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, CLOSED_BY_ACCEPTANCE_LABEL, countAnsweredRegistrarNotes, countOpenRegistrarNotes, ESCALATE_AFTER_INSISTS } from "../utils/approvalWorkflow";
 import { isViewerOnlyRole } from "../utils/academicRoles";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
+import VisitingBadge from "./VisitingBadge";
 import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 import { DIFF_FIELD_LABEL, type DiffFieldKey } from "../utils/scheduleDiff";
 import { DECISION_1912_LABEL, regulationScore, type PeriodBalanceData, type RegulationFinding } from "../utils/scheduleRegulations";
@@ -90,6 +91,8 @@ interface DisplayRow {
   scheduleId: number; courseCode: string; course: string; sectionCode: string;
   time: string; days: string; room: string; instructor: string;
   dayOrder?: number; startMinutes?: number;
+  /** الأستاذ منتدب: تظهر شارته بجانب اسمه كما في بقية الشاشات. */
+  visiting?: boolean;
 }
 interface DiffEntry {
   kind: "added" | "removed" | "changed";
@@ -569,7 +572,7 @@ function FindingPerson({ who, rows, onJump }: { who: string; rows: DisplayRow[];
   return (
     <div className={`review-person ${open ? "open" : ""}`}>
       <button type="button" className="review-person-head" data-guide-ignore="طيّ شعب أستاذ داخل ملاحظة مراجعة — عرض فقط، لا يغيّر الجدول" onClick={() => !single && setOpen(value => !value)} aria-expanded={single ? undefined : open}>
-        <strong>{who}</strong>
+        <strong className="schedule-instructor-with-badge">{who}{rows.some(row => row.visiting) ? <VisitingBadge compact /> : null}</strong>
         {single ? (
           <small>{rows[0].course}{rows[0].courseCode ? <> · <bdi dir="ltr">{rows[0].courseCode}</bdi></> : null} · شعبة {rows[0].sectionCode}</small>
         ) : (
@@ -853,6 +856,7 @@ function ScheduleRowCard({ row, index, kind, tag, changes, children }: {
           <span data-changed={moved.has("instructor") || undefined}>
             <UsersRound aria-hidden="true" />
             <Cell field="instructor">{row.instructor || "بدون أستاذ"}</Cell>
+            {row.visiting ? <VisitingBadge compact /> : null}
           </span>
           <span data-changed={moved.has("days") || undefined}>
             <CalendarDays aria-hidden="true" />
