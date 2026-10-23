@@ -132,24 +132,27 @@ function Seats({ sections, free, visitors }: { sections: number; free: number; v
 
 /** سطرٌ تحت المقرر: أيقونةٌ ورقم، ولكلٍّ جملتُه الكاملة في التلميح. لا أسماء. */
 function Staffing({ staffing, visitors }: { staffing: CourseStaffing; visitors: number }) {
-  const chips: Array<{ Icon: typeof Users; n: number; tip: string; tone?: string; always?: boolean }> = [
-    { Icon: Users, n: staffing.ours, tip: `يدرّسه ${countOf(staffing.ours, AR.instructor)} من أساتذتنا هذا الفصل`, always: true },
-    { Icon: UserCheck, n: staffing.covered, tip: `${countOf(staffing.covered, AR.section)} يغطيها أساتذتنا`, always: true },
-    { Icon: UserMinus, n: staffing.unassigned, tip: `${countOf(staffing.unassigned, AR.section)} بلا أستاذ (هيئة تدريسية)`, tone: "warn" },
-    { Icon: UserPlus, n: staffing.withVisitors, tip: `${countOf(staffing.withVisitors, AR.section)} عند منتدبٍ حالي` },
-    { Icon: History, n: staffing.returnable, tip: `${countOf(staffing.returnable, AR.instructor)} درّسوه سابقاً ولا يدرّسونه هذا الفصل`, tone: "soft" },
+  const chips: Array<{ id: string; Icon: typeof Users; n: number; tip: string; tone?: string; always?: boolean }> = [
+    { id: "ours", Icon: Users, n: staffing.ours, tip: `يدرّسه ${countOf(staffing.ours, AR.instructor)} من أساتذتنا هذا الفصل`, always: true },
+    { id: "covered", Icon: UserCheck, n: staffing.covered, tip: `${countOf(staffing.covered, AR.section)} يغطيها أساتذتنا`, always: true },
+    { id: "unassigned", Icon: UserMinus, n: staffing.unassigned, tip: `${countOf(staffing.unassigned, AR.section)} بلا أستاذ (هيئة تدريسية)`, tone: "warn" },
+    { id: "visitors", Icon: UserPlus, n: staffing.withVisitors, tip: `${countOf(staffing.withVisitors, AR.section)} عند منتدبٍ حالي` },
+    { id: "returnable", Icon: History, n: staffing.returnable, tip: `${countOf(staffing.returnable, AR.instructor)} درّسوه سابقاً ولا يدرّسونه هذا الفصل`, tone: "soft" },
   ];
-  /* اللمس لا يعرف «title»: الضغط على أيقونةٍ يكتب معناها تحت الصف، والضغط عليها ثانيةً يطويه. */
+  /* اللمس لا يعرف «title»: الضغط على أيقونةٍ يكتب معناها تحت الصف، والضغط عليها ثانيةً يطويه.
+     يُحفظ مفتاح الأيقونة لا نصُّها، فيُشتق النص من الأرقام الحالية، وتزول الجملة بزوال أيقونتها. */
   const [picked, setPicked] = useState<string | null>(null);
+  const shown = chips.filter(chip => chip.always || chip.n > 0).map(chip => ({ ...chip, key: chip.id }));
   const needTip = `نحتاج ${countOf(visitors, AR.visitor)}`;
-  const toggle = (tip: string) => setPicked(current => (current === tip ? null : tip));
+  const tipOf = picked === "need" ? needTip : shown.find(chip => chip.key === picked)?.tip || null;
+  const toggle = (key: string) => setPicked(current => (current === key ? null : key));
   return (
     <div className="apb-staff" role="group" aria-label="من يدرّس المقرر">
-      {chips.filter(chip => chip.always || chip.n > 0).map(({ Icon, n, tip, tone }) => (
-        <button key={tip} type="button" className="apb-staff-chip" data-tone={tone} data-picked={picked === tip || undefined} title={tip} aria-label={tip} aria-pressed={picked === tip} onClick={() => toggle(tip)}><Icon aria-hidden="true" /><b>{num(n)}</b></button>
+      {shown.map(({ Icon, n, tip, tone, key }) => (
+        <button key={key} type="button" className="apb-staff-chip" data-tone={tone} data-picked={picked === key || undefined} title={tip} aria-label={tip} aria-pressed={picked === key} onClick={() => toggle(key)}><Icon aria-hidden="true" /><b>{num(n)}</b></button>
       ))}
-      <button type="button" className="apb-staff-need" data-zero={visitors === 0 || undefined} data-picked={picked === needTip || undefined} title={needTip} aria-label={needTip} aria-pressed={picked === needTip} onClick={() => toggle(needTip)}><UserPlus aria-hidden="true" /><b>{num(visitors)}</b></button>
-      {picked ? <p className="apb-staff-tip" role="status">{picked}</p> : null}
+      <button type="button" className="apb-staff-need" data-zero={visitors === 0 || undefined} data-picked={picked === "need" || undefined} title={needTip} aria-label={needTip} aria-pressed={picked === "need"} onClick={() => toggle("need")}><UserPlus aria-hidden="true" /><b>{num(visitors)}</b></button>
+      {tipOf ? <p className="apb-staff-tip" role="status">{tipOf}</p> : null}
     </div>
   );
 }
