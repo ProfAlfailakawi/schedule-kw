@@ -71,7 +71,7 @@ const MORNING_START = 8 * 60;
 const MORNING_END = 14 * 60;
 const EVENING_END = 20 * 60;
 
-/** Below this many sections a morning/evening share is noise, not a department. */
+/** Below this many appointments a morning/evening share is noise, not a department. */
 const PERIOD_BALANCE_MIN_SECTIONS = 10;
 
 export const toMinutes = (value: string) => {
@@ -523,20 +523,15 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   }
 
   // --- م.7/2 — the morning and evening shares of the department ----------
+  // Every appointment in the schedule counts once, by the hour it starts: the
+  // total is the whole of what is on the page, split between the two periods.
   // A share of the whole department, so it names no appointment and is read
   // only on a schedule large enough for a proportion to mean something — an
   // instructor's week or a single edit is not a department.
-  const periodOf = new Map<string, number>();
-  rows.forEach(row => {
-    if (!row.AdCourseId || !row.fstarttime) return;
-    const key = `${row.AdCourseId}::${String(row.SCode || "").trim() || row.id}`;
-    const start = toMinutes(row.fstarttime);
-    periodOf.set(key, Math.min(periodOf.get(key) ?? start, start));
-  });
-  const sectionStarts = [...periodOf.values()].filter(start => start >= MORNING_START && start < EVENING_END);
-  if (sectionStarts.length >= PERIOD_BALANCE_MIN_SECTIONS) {
-    const morning = sectionStarts.filter(start => start < MORNING_END).length;
-    const morningShare = Math.round((morning / sectionStarts.length) * 100);
+  const starts = rows.map(row => toMinutes(row.fstarttime)).filter((start, index) => rows[index].fstarttime && start >= MORNING_START && start < EVENING_END);
+  if (starts.length >= PERIOD_BALANCE_MIN_SECTIONS) {
+    const morning = starts.filter(start => start < MORNING_END).length;
+    const morningShare = Math.round((morning / starts.length) * 100);
     const eveningShare = 100 - morningShare;
     if (morningShare < 50 || morningShare > 70) {
       findings.push({
@@ -546,9 +541,9 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
         source: "decision-1912",
         approvalEffect: "note",
         title: "توزيع الفترتين الصباحية والمسائية",
-        detail: `الصباحية (8–14) ${arabicNumber(morningShare)}% والمسائية (14–20) ${arabicNumber(eveningShare)}% من ${countOf(sectionStarts.length, AR.section)}. اللائحة: الصباحية بين 50% و70%، والمسائية بين 30% و50%.`,
+        detail: `الصباحية (8–14) ${arabicNumber(morningShare)}% والمسائية (14–20) ${arabicNumber(eveningShare)}% من ${countOf(starts.length, AR.appointment)}. اللائحة: الصباحية بين 50% و70%، والمسائية بين 30% و50%.`,
         rowIds: [],
-        data: { morning: morningShare, evening: eveningShare, sections: sectionStarts.length, morningCount: morning },
+        data: { morning: morningShare, evening: eveningShare, sections: starts.length, morningCount: morning },
       });
     }
   }
