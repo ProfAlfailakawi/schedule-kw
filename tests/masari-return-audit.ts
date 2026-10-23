@@ -58,6 +58,8 @@ check(ctx.whatIfLine(ctx.whatIf(0, 15, false), 15, false) === "أكملت وحد
 const ics = String(ctx.icsText("تذكير؛ مهم, جداً", "2026-11-15", "سطر1\nسطر2"));
 check(ics.startsWith("BEGIN:VCALENDAR\r\n") && ics.endsWith("END:VCALENDAR") && ics.includes("DTSTART;VALUE=DATE:20261115") && ics.includes("DTEND;VALUE=DATE:20261116"), "ملف التقويم يوماً كاملاً: يبدأ في ١٥ وينتهي قبل ١٦");
 check(ics.includes("SUMMARY:تذكير\\؛ مهم") === false && ics.includes("SUMMARY:تذكير\;") === false && ics.includes("SUMMARY:تذكير؛ مهم\\, جداً"), "الفاصلة تُهرَّب والفاصلةُ العربية تبقى كما هي", ics.split("\r\n").find(l => l.startsWith("SUMMARY")));
+const asciiSemi = String(ctx.icsText("دور 1; الفصل الأول, ملاحظة", "2026-11-15", "أ;ب\\ج"));
+check(asciiSemi.includes("SUMMARY:دور 1\\; الفصل الأول\\, ملاحظة") && asciiSemi.includes("DESCRIPTION:أ\\;ب\\\\ج"), "الفاصلة المنقوطة اللاتينية والفاصلة والشرطة المائلة تُهرَّب بشرطةٍ حقيقية (RFC 5545)", asciiSemi.split("\r\n").filter(l => /^(SUMMARY|DESCRIPTION)/.test(l)));
 check(ics.includes("DESCRIPTION:سطر1\\nسطر2") && (ics.match(/BEGIN:VALARM/g) || []).length === 2 && ics.includes("TRIGGER:-PT15H") && ics.includes("TRIGGER:PT8H"), "تنبيهان: ٩ صباحاً قبل اليوم، و٨ صباحاً فيه، والأسطر تُهرَّب");
 check(ctx.icsNext("2026-12-31") === "20270101" && ctx.icsNext("2028-02-28") === "20280229", "اليومُ التالي يعبر الشهر والسنة والكبيس");
 check(!/civil|الرقم المدني|\d{12}/.test(ics), "لا هويةَ في ملف التقويم");
