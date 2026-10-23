@@ -24,6 +24,7 @@ import { describeRollover, readTermRollover } from "./src/utils/termRollover";
 import { visibleTermIds } from "./src/utils/scopedTerms";
 import { currentTermId, planningTermCandidates, termHasEnded, termIsArchive } from "./src/utils/termSequence";
 import { acceptedPdfSourceLabel, pdfTermAccepted } from "./src/utils/pdfTermRule";
+import { applyVisitingToFaculty } from "./src/utils/visitingToFaculty";
 import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadProblem } from "./src/utils/teachingLoad";
 import { buildConflictTopology, buildDecisionMemoryInsight, buildFairnessEngine, buildFragilityMap, buildOneMinuteBrief, buildRoomResilience, buildScheduleHealth2, buildSchedulePulse, createEmergencyPlans, explainScheduleDecision } from "./src/utils/livingSchedule";
 import type { AdCourse, AdInstructor, AdSection, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleComment, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestSnapshot, InstructorRequestEventKind, StudentNeed, CurriculumPlan, CurriculumDegreeRule } from "./src/types";
@@ -1570,6 +1571,7 @@ function safeDraftRows(input: unknown, collegeId: number, sectionId: number, ter
     fdetail: legacyFDetail(raw || {}),
     referenceNumber: String(raw?.referenceNumber || "").slice(0,30),
     sourceInstructorText: String(raw?.sourceInstructorText || "").slice(0,180) || undefined,
+    replacedVisitingInstructorId: Number(raw?.replacedVisitingInstructorId || 0) || undefined,
     sourceCourseCode:String(raw?.sourceCourseCode||"").slice(0,40)||undefined,
     sourceCourseText:String(raw?.sourceCourseText||"").slice(0,220)||undefined,
     sourceSectionText:String(raw?.sourceSectionText||"").slice(0,40)||undefined,
@@ -1883,6 +1885,29 @@ async function collegeFallbackInstructorIds(collegeId: number): Promise<number[]
    من مواقع الفرع كلها ومعها احتياط الكلية للقسم الذي لا تاريخ له بعد. فمن
    يقبله الحفظ كان يُوسم في المعاينة غريباً عن القسم: إنذار كاذب على جدول
    صحيح تماماً. القائمة تُحسب هنا مرة واحدة، ويقرأ منها الطرفان. */
+/**
+ * ── المنتدب في جدول مستورد يصير «هيئة تدريسية» ─────────────────────────────
+ * المنتدبون يتغيّرون كل فصل، فلا يُحمَّل الفصل الجديد بأسمائهم: أي صف أستاذه
+ * منتدب (من دليل القسم أو روستر الفصل، وليس من هيئته) يُسنَد إلى سجل «هيئة
+ * تدريسية» الخاص بالقسم. التغيير في صفوف هذا الجدول وحدها؛ لا يُمَس وضع
+ * المنتدب نفسه في النظام. بلا سجلٍّ واحدٍ لـ«هيئة تدريسية» للقسم يبقى الصف كما هو.
+ */
+async function visitingToFacultyPlan(collegeId: number, sectionId: number, termId: number): Promise<{ visiting: Set<number>; placeholderId: number }> {
+  const [colleges, sections, instructors] = await Promise.all([Repository.getColleges(), Repository.getSections(), Repository.getInstructors()]);
+  const scopes = branchOwnScopes(colleges as any, sections as any, collegeId, sectionId);
+  const pools = await Promise.all(scopes.map(async scope => ({
+    delegates: await Repository.getDepartmentDelegates(scope.collegeId, scope.sectionId),
+    roster: await Repository.getVisitingRoster(scope.collegeId, scope.sectionId, termId),
+    faculty: await Repository.getDepartmentFaculty(scope.collegeId, scope.sectionId),
+  })));
+  const ids = (lists: any[][]) => new Set<number>(lists.flat().map(Number).filter(id => Number.isFinite(id) && id > 0));
+  const faculty = ids(pools.map(pool => pool.faculty));
+  const visiting = new Set([...ids(pools.flatMap(pool => [pool.delegates, pool.roster]))].filter(id => !faculty.has(id)));
+  const membership = await departmentInstructorIdSet(colleges as any, sections as any, collegeId, sectionId, termId);
+  const mine = [...placeholderInstructorIds(instructors as any)].filter(id => membership.has(id));
+  return { visiting, placeholderId: mine.length === 1 ? mine[0] : 0 };
+}
+
 async function departmentInstructorIdSet(
   allColleges: any[], allSections: any[], collegeId: number, sectionId: number, termId: number,
 ): Promise<Set<number>> {
@@ -6551,6 +6576,7 @@ app.post("/api/schedules/import", requirePermission(7), async (req: Authenticate
     }
   }
 
+  const visitingPlan = await visitingToFacultyPlan(collegeId, sectionId, termId);
   const operationalImportIds=await Repository.getOperationalCourseIds(sectionId);
   const ready: any[] = [];
   const rejected: Array<{ line: number; reason: string; label: string }> = [];
@@ -6569,7 +6595,7 @@ app.post("/api/schedules/import", requirePermission(7), async (req: Authenticate
       AdCourseId: course.AdCourseId, AdCourseName: course.CourseName,
       CourseCodeSnapshot:String(course.CourseCode||""),CourseNameSnapshot:String(course.CourseName||""),
       SCode: String(entry?.section || "").trim(),
-      AdInstructorId: instructor.AdInstructorId,
+      AdInstructorId: visitingPlan.placeholderId && visitingPlan.visiting.has(Number(instructor.AdInstructorId)) ? visitingPlan.placeholderId : instructor.AdInstructorId,
       AdRoomCode: String(entry?.building || "").trim(),
       AdRoomHall: String(entry?.hall || "").trim(),
       fstarttime: normalizeClock(entry?.start),
@@ -10382,6 +10408,8 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
       parsed.issues.unshift(`تحذير: الملف يذكر «${recognized.headerTerm.label}» بينما الفصل المختار هو «${String(targetTerm.AdTermName||"")}»، ولا يُقبل إلا «${acceptedPdfSourceLabel(targetName)||"فصل السنة السابقة"}». تأكد أنك ترفع الجدول إلى الفصل الصحيح.`);
     }
   }
+  const visitingReplaced=applyVisitingToFaculty(parsed.rows as any[],await visitingToFacultyPlan(collegeId,sectionId,termId));
+  if(visitingReplaced)parsed.issues.push(`استُبدل المنتدبون بـ«هيئة تدريسية» في ${countOf(visitingReplaced, oblique(AR.section))}.`);
   const rows=assignAuthoritySections(safeDraftRows(parsed.rows,collegeId,sectionId,termId));
   const structural=rows.length?await validateSmartRows(rows,collegeId,sectionId,{checkConflicts:true,requireDepartmentInstructor:true,departmentInstructorIds:departmentMembership}):[];
   /* تنبيهُ الصفحة (سطرٌ مطبوع لم يُقرأ، صفٌّ غير واضح) يتصدّر ملاحظات المعاينة
@@ -13154,7 +13182,7 @@ app.get("/api/intelligence/compare-terms", requirePermission(7), async (req: Aut
 
 app.post("/api/intelligence/import-preview", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const {collegeId,sectionId,termId}=smartContextFrom(req); if(!collegeId||!sectionId||!termId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;} const raw=Array.isArray(req.body?.rows)?req.body.rows:[]; if(!raw.length){res.status(400).json({error:"الملف لا يحتوي صفوفاً قابلة للقراءة"});return;} if(raw.length>450){res.status(400).json({error:"الملف أكبر من الحد الآمن للاستيراد"});return;} const [courses,instructors,operationalImportIds]=await Promise.all([Repository.getCourses(),Repository.getInstructors(),Repository.getOperationalCourseIds(sectionId)]); const sectionCourses=courses.filter(c=>c.AdCollegeId===collegeId&&c.AdSectionId===sectionId&&operationalImportIds.has(Number(c.AdCourseId))); const byCode=new Map(sectionCourses.map(c=>[String(c.CourseCode).trim().toLowerCase(),c])); const byCivil=new Map(instructors.map(i=>[normalizeCivilId(i.AdInstructorCivil),i])); const byName=new Map(instructors.map(i=>[String(i.AdInstructorName).trim().toLowerCase(),i])); const issues:string[]=[]; const rows:any[]=[];
-  raw.forEach((item:any,index:number)=>{const code=String(item["رمز المقرر"]??item.CourseCode??item.courseCode??"").trim();const course=byCode.get(code.toLowerCase());const civil=normalizeCivilId(item["الرقم المدني"]??item.AdInstructorCivil??item.civil??"");const iname=String(item["أستاذ المقرر"]??item.AdInstructorName??item.instructor??"").trim();const instructor=byCivil.get(civil)||byName.get(iname.toLowerCase());const sectionCode=String(item["الشعبة"]??item.SCode??item.section??"").trim();const time=String(item["الوقت"]??item.time??"").trim();const parts=time.split(/\s*[-–—]\s*/);const start=normalizeClock(String(item.fstarttime??item.startTime??parts[1]??parts[0]??"").trim().slice(0,5)),end=normalizeClock(String(item.fendtime??item.endTime??parts[0]??parts[1]??"").trim().slice(0,5));const dayText=String(item["الأيام"]??item.days??"");const row:any={id:-(index+1),AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:course?.AdCourseId||0,AdCourseName:course?.CourseName||String(item["المقرر الدراسي"]??""),SCode:sectionCode,AdInstructorId:instructor?.AdInstructorId||0,fsunday:dayText.includes("الأحد")||Boolean(item.fsunday),fmonday:dayText.includes("الاثنين")||Boolean(item.fmonday),ftuesday:dayText.includes("الثلاثاء")||Boolean(item.ftuesday),fwednesday:dayText.includes("الأربعاء")||Boolean(item.fwednesday),fthursday:dayText.includes("الخميس")||Boolean(item.fthursday),fstarttime:start,fendtime:end,AdRoomCode:String(item["المبنى"]??item.AdRoomCode??"").trim(),AdRoomHall:String(item["القاعة"]??item.AdRoomHall??"").trim(),fdetail:""}; row.fdetail=legacyFDetail(row); if(!course)issues.push(`السطر ${index+1}: لم أجد رمز المقرر ${code||"(فارغ)"} في هذا القسم`);if(!instructor)issues.push(`السطر ${index+1}: لم أتعرف على أستاذ المقرر`);rows.push(row);}); const validation=await validateSmartRows(rows,collegeId,sectionId,{resolveHistorical:true}); issues.push(...validation); const duplicateKeys=new Set<string>(),duplicates:string[]=[]; rows.forEach((r:any,i:number)=>{const key=`${r.AdCourseId}:${r.SCode}`;if(duplicateKeys.has(key))duplicates.push(`السطر ${i+1}: مقرر/شعبة مكرر`);duplicateKeys.add(key)});issues.push(...duplicates); res.json({rows,issues:[...new Set(issues)].slice(0,40),valid:issues.length===0,count:rows.length,preview:rows.slice(0,20)});
+  raw.forEach((item:any,index:number)=>{const code=String(item["رمز المقرر"]??item.CourseCode??item.courseCode??"").trim();const course=byCode.get(code.toLowerCase());const civil=normalizeCivilId(item["الرقم المدني"]??item.AdInstructorCivil??item.civil??"");const iname=String(item["أستاذ المقرر"]??item.AdInstructorName??item.instructor??"").trim();const instructor=byCivil.get(civil)||byName.get(iname.toLowerCase());const sectionCode=String(item["الشعبة"]??item.SCode??item.section??"").trim();const time=String(item["الوقت"]??item.time??"").trim();const parts=time.split(/\s*[-–—]\s*/);const start=normalizeClock(String(item.fstarttime??item.startTime??parts[1]??parts[0]??"").trim().slice(0,5)),end=normalizeClock(String(item.fendtime??item.endTime??parts[0]??parts[1]??"").trim().slice(0,5));const dayText=String(item["الأيام"]??item.days??"");const row:any={id:-(index+1),AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:course?.AdCourseId||0,AdCourseName:course?.CourseName||String(item["المقرر الدراسي"]??""),SCode:sectionCode,AdInstructorId:instructor?.AdInstructorId||0,fsunday:dayText.includes("الأحد")||Boolean(item.fsunday),fmonday:dayText.includes("الاثنين")||Boolean(item.fmonday),ftuesday:dayText.includes("الثلاثاء")||Boolean(item.ftuesday),fwednesday:dayText.includes("الأربعاء")||Boolean(item.fwednesday),fthursday:dayText.includes("الخميس")||Boolean(item.fthursday),fstarttime:start,fendtime:end,AdRoomCode:String(item["المبنى"]??item.AdRoomCode??"").trim(),AdRoomHall:String(item["القاعة"]??item.AdRoomHall??"").trim(),fdetail:""}; row.fdetail=legacyFDetail(row); if(!course)issues.push(`السطر ${index+1}: لم أجد رمز المقرر ${code||"(فارغ)"} في هذا القسم`);if(!instructor)issues.push(`السطر ${index+1}: لم أتعرف على أستاذ المقرر`);rows.push(row);}); const visitingReplaced=applyVisitingToFaculty(rows,await visitingToFacultyPlan(collegeId,sectionId,termId)); const validation=await validateSmartRows(rows,collegeId,sectionId,{resolveHistorical:true}); issues.push(...validation); const duplicateKeys=new Set<string>(),duplicates:string[]=[]; rows.forEach((r:any,i:number)=>{const key=`${r.AdCourseId}:${r.SCode}`;if(duplicateKeys.has(key))duplicates.push(`السطر ${i+1}: مقرر/شعبة مكرر`);duplicateKeys.add(key)});issues.push(...duplicates); res.json({rows,issues:[...new Set(issues)].slice(0,40),valid:issues.length===0,count:rows.length,preview:rows.slice(0,20),visitingReplaced});
 });
 
 /* ── قائمة النسخ لا تحمل صفوفها ──────────────────────────────────────────
