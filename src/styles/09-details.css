@@ -2220,3 +2220,16 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .transfer-import-steps svg{inline-size:16px;block-size:16px}
 .transfer-import-steps>li>b{font-size:.78rem;font-weight:600;color:var(--ink)}
 .transfer-import-hero>div{flex:1;min-inline-size:0}
+
+/* ── نسبة الفترتين (م.7/2): شمسٌ وقمر وشريطٌ واحد ───────────────────────── */
+.period-balance{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;direction:rtl}
+.period-balance-side{display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.period-balance-side svg{width:22px;height:22px;flex:none}
+.period-balance-side b{font-size:var(--t-lg,1.15rem);color:var(--ink)}
+.period-balance-side--day svg{color:var(--warning)}
+.period-balance-side--night svg{color:var(--accent-strong)}
+.period-balance-bar{position:relative;height:14px;border-radius:999px;background:var(--surface-3);overflow:hidden;border:1px solid var(--line)}
+.period-balance-fill{position:absolute;inset-block:0;inset-inline-start:0;background:var(--warning);border-radius:999px 0 0 999px}
+.period-balance--ok .period-balance-fill{background:var(--accent)}
+.period-balance-zone{position:absolute;inset-block:0;border-inline:2px solid var(--ink);pointer-events:none}
+@media print{.period-balance-fill{background:#8d6413!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.period-balance--ok .period-balance-fill{background:#1f6b5c!important}}

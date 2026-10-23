@@ -19,6 +19,7 @@ import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { rowsInApprovalScope } from "../utils/approvalScope";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import PlanBadge from "./PlanBadge";
+import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 
 /**
  * The last read before a schedule is adopted.
@@ -590,7 +591,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
                 <div className="review-rows">
                   {!finding.rowIds.length ? (
                     <div className="review-finding-detail">
-                      <p>{finding.detail}</p>
+                      {finding.data && finding.groupedCount === 1 ? <PeriodBalanceInfographic {...finding.data} /> : <p>{finding.detail}</p>}
                       <div className="review-finding-meta">
                         <span>{finding.article}</span>
                         <span>{findingStatus(finding)}</span>

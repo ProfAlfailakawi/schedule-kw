@@ -34,6 +34,7 @@ import { Badge, EmptyState, MicroLoader, Notice, PageTitle, PrimaryButton, Secon
 import { APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, CLOSED_BY_ACCEPTANCE_LABEL, countAnsweredRegistrarNotes, countOpenRegistrarNotes, ESCALATE_AFTER_INSISTS } from "../utils/approvalWorkflow";
 import { isViewerOnlyRole } from "../utils/academicRoles";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
+import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 import { DIFF_FIELD_LABEL, type DiffFieldKey } from "../utils/scheduleDiff";
 import { DECISION_1912_LABEL, regulationScore, type RegulationFinding } from "../utils/scheduleRegulations";
 import { currentTermId, termIsArchive } from "../utils/termSequence";
@@ -100,6 +101,7 @@ interface RegulationNotice {
   rule: string; article: string; source: string;
   approvalEffect: "note" | "review";
   title: string; detail: string; rowIds: number[];
+  data?: { morning: number; evening: number; sections: number };
 }
 
 interface ReviewBlocker {
@@ -641,7 +643,8 @@ function RegulationReview({ notices, onJump, rowsById }: { notices: RegulationNo
                 </button>
                 {openNotice === key ? (
                   <>
-                    {notice.detail ? <div className="review-finding-detail"><p>{notice.detail}</p></div> : null}
+                    {notice.data ? <div className="review-finding-detail"><PeriodBalanceInfographic {...notice.data} /></div>
+                      : notice.detail ? <div className="review-finding-detail"><p>{notice.detail}</p></div> : null}
                     <FindingRows rowIds={notice.rowIds} rowsById={rowsById} onJump={onJump} />
                   </>
                 ) : null}
@@ -687,6 +690,7 @@ function ChangesReviewOverview({ report, scopeLine, onJump }: { report: ChangeRe
       title: item.title,
       detail: item.detail,
       rowIds: item.rowIds,
+      data: item.data,
     })), [notices]);
   const score = useMemo(() => regulationScore(decisionFindings, rowCount), [decisionFindings, rowCount]);
 
