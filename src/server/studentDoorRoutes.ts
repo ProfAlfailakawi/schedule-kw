@@ -218,12 +218,15 @@ async function summaryOf(profile: StudentProfile) {
   const setupDone = profile.AdSectionId > 0;
   let progress = null as null | ReturnType<typeof planProgress>;
   let sectionName = "", planName = "";
+  /* رموز مقررات رغباته: لمتصفحه وحده، يفصل بها الإعلانات الموجَّهة بالطلب فلا يعرف الخادم ما طلب. */
+  let wishCodes: string[] = [];
   if (setupDone) {
     const [sections, catalog] = await Promise.all([Repository.getSections(), sectionCatalog(profile.AdSectionId)]);
     sectionName = String((sections as any[]).find(row => Number(row.AdSectionId) === profile.AdSectionId)?.AdSectionName || "");
     planName = catalog.plans.find(plan => plan.id === profile.curriculumPlanId)?.name || "";
     const credit = new Map([...catalog.courses].map(([id, course]) => [id, course.credit]));
     progress = planProgress(allowedFor(catalog, profile.curriculumPlanId), profile.passedCourseIds, credit);
+    wishCodes = [...new Set((profile.wishes?.courseIds || []).map(id => String(catalog.courses.get(Number(id))?.code || "").trim().toLowerCase()).filter(Boolean))].slice(0, 12);
     /* الاختياريُّ يُحسب بمجموعته: من أنجز «٢ من ٥» لا يبقى عليه الثلاثةُ الباقية — وإلا بالغنا في المتبقّي والفصول. */
     const rules = profile.curriculumPlanId ? await ruleSetOf(profile.curriculumPlanId) : null;
     if (rules && rules.groups.length) {
@@ -235,7 +238,7 @@ async function summaryOf(profile: StudentProfile) {
   return {
     setupDone, collegeId: profile.AdCollegeId || 0, sectionId: profile.AdSectionId, sectionName, planId: profile.curriculumPlanId || "", planName,
     passedCourseIds: profile.passedCourseIds, passedUnits: profile.passedUnits, transfer: profile.transfer === true, equivalentCourseIds: profile.equivalentCourseIds || [],
-    progress, wishes: profile.wishes || null,
+    progress, wishes: profile.wishes || null, wishCodes,
     createdAt: profile.createdAt, keepsUntil: profile.deleteAt, keepsReason: profile.deleteReason, hasIdentity: Boolean(profile.nameCipher && profile.civilCipher),
     identity: await identityOf(profile),
   };

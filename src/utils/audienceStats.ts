@@ -66,7 +66,7 @@ export interface AudienceStats {
   /** استمرارية الطلبة: من أجاب في فصلٍ ثم أجاب في الفصل التالي (بصمات الاستبيان). أحدث الأزواج أولاً. */
   continuity: ContinuityPair[];
   /** ما يطلبه الطلبة هذا الفصل (رغباتهم وطلباتهم)، مجمّعاً بالمقرر. مقرراتٌ بأقل من `DEMAND_MIN_STUDENTS` طلاب لا تظهر أبداً. */
-  demand: { top: Array<{ name: string; students: number }>; hidden: number; minStudents: number };
+  demand: { top: Array<{ code: string; name: string; students: number }>; hidden: number; minStudents: number };
   /** الجمهور الكلي المقدَّر: أدنى عددٍ مؤكد من الطلبة (الأكبر من الاستبيان وملفات مساري). */
   reach: { studentsMin: number; instructors: number; /** طلبةٌ ظهروا لأول مرة بعد `AUDIENCE_BASELINE.asOf` (بصمات فريدة). */ newSinceBaseline: number };
 }
@@ -209,14 +209,14 @@ export function buildAudienceStats(input: AudienceInput): AudienceStats {
   const adTotals = totalsOf(input.adStats || []);
 
   /* ── اتجاهات الطلب: طلبةٌ فريدون (بصمات) لكل مقرر، من رغبات الفصل وطلباته ── */
-  const byCourseKey = new Map<string, { name: string; who: Set<string> }>();
+  const byCourseKey = new Map<string, { code: string; name: string; who: Set<string> }>();
   const courseById = new Map((input.courses || []).map(c => [Number(c.AdCourseId), c] as const));
   const add = (courseId: number, fingerprint: string) => {
     const course = courseById.get(Number(courseId));
     if (!course || !fingerprint) return;
     /* المقرر نفسه في أقسامٍ مختلفة يحمل رمزاً واحداً: يُجمَّع بالرمز لا بالرقم الداخلي. */
     const key = String(course.CourseCode || course.CourseName).trim().toLowerCase();
-    const cur = byCourseKey.get(key) || { name: course.CourseName, who: new Set<string>() };
+    const cur = byCourseKey.get(key) || { code: key, name: course.CourseName, who: new Set<string>() };
     cur.who.add(fingerprint);
     byCourseKey.set(key, cur);
   };
@@ -224,7 +224,7 @@ export function buildAudienceStats(input: AudienceInput): AudienceStats {
     if (profile.wishes && Number(profile.wishes.termId) === input.currentTermId) for (const id of profile.wishes.courseIds || []) add(id, profile.fingerprint);
   }
   for (const row of currentRows) for (const id of row.courseIds || []) add(id, row.fingerprint);
-  const ranked = [...byCourseKey.values()].map(v => ({ name: v.name, students: v.who.size })).sort((a, b) => b.students - a.students || a.name.localeCompare(b.name, "ar"));
+  const ranked = [...byCourseKey.values()].map(v => ({ code: v.code, name: v.name, students: v.who.size })).sort((a, b) => b.students - a.students || a.name.localeCompare(b.name, "ar"));
   const demandTop = ranked.filter(r => r.students >= DEMAND_MIN_STUDENTS).slice(0, DEMAND_TOP);
   const demandHidden = ranked.filter(r => r.students < DEMAND_MIN_STUDENTS).length;
 

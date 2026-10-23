@@ -691,6 +691,8 @@ function setupPassed(){var d=S.draft,load=function(){
 /* ── الرئيسية ── */
 /* يركّب موقعَ إعلانٍ في عنصرٍ من الصفحة. السكربت العام مؤجَّل وقد يصل بعد هذه الدالة: إن لم يجهز يُؤجَّل الطلب
    ويُنفَّذ حين يجهز (فإن أُعيد رسم العنصر قبلها يسقط القديم ويُركَّب الجديد). لا إعلان قبل الدخول: صفحةُ الدخول تطلب الرقم المدني. */
+/* سياقُ الإعلان من ملف الطالب نفسه: كليتُه، ورموزُ ما طلبه، وما بقي عليه من وحدات. لا يغادر المتصفح؛ يفصل به السكربتُ الإعلانات الموجَّهة. */
+function adxCtx(o){var p=S.state&&S.state.profile||{},pr=p.progress||null;o.college=p.collegeId||0;o.codes=p.wishCodes||[];o.remaining=pr&&typeof pr.remainingUnits==="number"?pr.remainingUnits:-1;return o}
 function adxMountLater(id,slot,opt){var box=document.getElementById(id);if(!box)return;
   if(window.AdxMount)window.AdxMount(box,slot,opt);else(window.__adxPending=window.__adxPending||[]).push([box,slot,opt])}
 /* الرئيسية بطلبٍ واحد: يجيب الخادمُ بالأجزاء التسعة معاً. إن تعذّر الطلب المجمَّع رجع كلُّ جزءٍ إلى مساره الخاص كما كان. */
@@ -717,7 +719,7 @@ function viewHome(){
   h+='<div class="pane" data-pane="me" hidden>'
    +(p.identity?'<section class="card idn fade"><div class="row" style="gap:12px"><span class="ic">'+ic("user")+'</span><div class="tx"><b>'+esc(p.identity.name)+'</b><small>الرقم المدني <bdi dir="ltr">'+esc(p.identity.civilMasked)+'</bdi></small></div><button type="button" class="link" id="nmb">تصحيح</button></div></section>':"")
    +'<section class="card fade"><div class="acts"><button class="act" id="chg">'+ic("key")+'<span>غيّر الرمز</span></button><button class="act" id="out">'+ic("out")+'<span>اخرج</span></button><button class="act bad" id="del">'+ic("trash")+'<span>احذف ملفّي</span></button></div><p class="priv">'+ic("shield")+' يُحفظ حتى '+esc(fmtDate(p.keepsUntil))+(p.keepsReason==="inactive"?" ما لم تعد إليه":"")+'، ثم يُحذف وحده.</p></section></div>';
-  app.innerHTML=h;wireWhatIf(pr.remainingUnits);animateRings();markOverflow();adxMountLater("adx-me-box","me",{college:(S.state.profile&&S.state.profile.collegeId)||0});
+  app.innerHTML=h;wireWhatIf(pr.remainingUnits);animateRings();markOverflow();adxMountLater("adx-me-box","me",adxCtx({}));
   dockEl.innerHTML='<nav class="tabs" role="tablist" aria-label="أقسام مساري"><button type="button" role="tab" data-tab="now" aria-selected="true">'+ic("home")+'<span>الآن</span><i class="dot" id="nowdot" hidden></i></button><button type="button" role="tab" data-tab="plan" aria-selected="false">'+ic("layers")+'<span>خطتي</span></button><button type="button" role="tab" data-tab="me" aria-selected="false">'+ic("user")+'<span>ملفي</span></button></nav>';
   dockEl.querySelectorAll("[data-tab]").forEach(function(b){b.addEventListener("click",function(){showTab(b.getAttribute("data-tab"))})});
   placeTabs();
@@ -996,9 +998,9 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
   h+='</div></section>';
   host.innerHTML=h;
   /* محطة الاستراحة: أطولُ فراغٍ في أسبوعه يُعرض فيه إعلانٌ إن وُجدت حملةٌ للموقع (السكربت العام يحمّله من الخادم ويحتسب ظهوره). */
-  if(brk)adxMountLater("adx-break-box","break",{college:(S.state.profile&&S.state.profile.collegeId)||0,intro:'عندك فراغٌ يوم '+DAYN[brk.day]+' من '+tkClock(brk.from)+' إلى '+tkClock(brk.to)+' (نحو '+countOf(Math.round(brk.min/6)/10,AR.hour)+'). استراحتك برعاية:'});
-  if(mom.near)adxMountLater("adx-near-box","nearby",{college:(S.state.profile&&S.state.profile.collegeId)||0,intro:'بين محاضرتيك يوم '+DAYN[mom.near.day]+' ('+tkClock(mom.near.from)+' ← '+tkClock(mom.near.to)+') أنت في المبنى نفسه. استراحتك القريبة برعاية:'});
-  if(mom.after)adxMountLater("adx-after-box","afterclass",{college:(S.state.profile&&S.state.profile.collegeId)||0,intro:'تنتهي محاضراتك يوم '+DAYN[mom.after.day]+' عند '+tkClock(mom.after.at)+'. وقتك بعدها برعاية:'});
+  if(brk)adxMountLater("adx-break-box","break",adxCtx({intro:'عندك فراغٌ يوم '+DAYN[brk.day]+' من '+tkClock(brk.from)+' إلى '+tkClock(brk.to)+' (نحو '+countOf(Math.round(brk.min/6)/10,AR.hour)+'). استراحتك برعاية:'}));
+  if(mom.near)adxMountLater("adx-near-box","nearby",adxCtx({intro:'بين محاضرتيك يوم '+DAYN[mom.near.day]+' ('+tkClock(mom.near.from)+' ← '+tkClock(mom.near.to)+') أنت في المبنى نفسه. استراحتك القريبة برعاية:'}));
+  if(mom.after)adxMountLater("adx-after-box","afterclass",adxCtx({intro:'تنتهي محاضراتك يوم '+DAYN[mom.after.day]+' عند '+tkClock(mom.after.at)+'. وقتك بعدها برعاية:'}));
   host.querySelectorAll(".tk-plan").forEach(function(b){b.addEventListener("click",function(){var next=b.getAttribute("data-l");if(next===S.tkPlan)return;S.tkPlan=next;S.tkSel=0;S.tkErr="";paintTicket(host)})});
   host.querySelectorAll('[data-seg="view"] button').forEach(function(b){b.addEventListener("click",function(){S.tkView=b.getAttribute("data-v");paintTicket(host)})});
   host.querySelectorAll(".wk-b[data-c]").forEach(function(b){b.addEventListener("click",function(){var id=Number(b.getAttribute("data-c"));S.tkSel=Number(S.tkSel)===id?0:id;S.tkErr="";paintTicket(host)})});

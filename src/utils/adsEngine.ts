@@ -48,7 +48,7 @@ export const activeSlots = (): AdSlotSpec[] => AD_SLOTS.filter(slot => !slot.ret
 
 export const AD_MAX_BYTES = 300 * 1024;
 export const AD_MIMES = ["image/png", "image/jpeg", "image/webp"] as const;
-export const AD_CATEGORIES = ["مطاعم وكافيهات", "تقنية وإلكترونيات", "كتب وقرطاسية", "تعليم ودورات", "خدمات مصرفية", "صحة ولياقة", "سفر وسياحة", "مواصلات", "ترفيه", "أخرى"] as const;
+export const AD_CATEGORIES = ["مطاعم وكافيهات", "تقنية وإلكترونيات", "كتب وقرطاسية", "تعليم ودورات", "تدريب وتوظيف", "خدمات مصرفية", "صحة ولياقة", "سفر وسياحة", "مواصلات", "ترفيه", "أخرى"] as const;
 export const MAX_ROTATE_CREATIVES = 2;
 /** أقصى مرّاتٍ يرى فيها المتصفحُ الواحد الحملةَ نفسها في اليوم: بعدها تُقدَّم غيرها، فلا يملّ الطالب ولا يُحتسب ظهورٌ لا يُرى. */
 export const AD_DAILY_REPEAT_CAP = 10;
@@ -151,7 +151,15 @@ export function phaseOf(campaign: AdCampaign, today = kuwaitDay()): AdPhase {
 
 const overlaps = (a: Pick<AdCampaign, "startDay" | "endDay">, b: Pick<AdCampaign, "startDay" | "endDay">) => a.startDay <= b.endDay && b.startDay <= a.endDay;
 
-export interface Candidate { id?: string; company: string; category: string; slot: string; startDay: string; endDay: string; seasons?: string[]; colleges?: number[] }
+export interface Candidate { id?: string; company: string; category: string; slot: string; startDay: string; endDay: string; seasons?: string[]; colleges?: number[]; targetCodes?: string[]; nearGraduation?: boolean }
+
+/* ── الاستهداف بالطلب والقرب من التخرج: يُفصل في متصفح الطالب لا في الخادم ── */
+/** «قريبٌ من التخرج»: بقي عليه هذا العدد من الوحدات أو أقل (نحو فصلين). */
+export const NEAR_GRADUATION_UNITS = 30;
+export const MAX_TARGET_CODES = 8;
+/** رموز المقررات المستهدَفة بالصيغة نفسها التي تُجمَّع بها اتجاهات الطلب (حروفٌ صغيرة بلا فراغات طرفية). */
+export const cleanTargetCodes = (raw: unknown): string[] =>
+  [...new Set((Array.isArray(raw) ? raw : []).map(v => String(v ?? "").trim().toLowerCase().slice(0, 24)).filter(Boolean))].slice(0, MAX_TARGET_CODES);
 
 /* ── الاستهداف: المواسم والكليات ── */
 export const cleanSeasons = (raw: unknown): string[] =>
@@ -189,6 +197,8 @@ export function campaignProblems(input: Candidate): string[] {
   if (!String(input.company || "").trim()) out.push("اسم الشركة مطلوب.");
   if (!String(input.category || "").trim()) out.push("الفئة مطلوبة.");
   if (input.seasons?.some(s => !SEASON_IDS.includes(s))) out.push("موسمٌ غير معروف.");
+  /* الاستهداف بالمقررات والتخرج يحتاج صفحةً تعرف الطالب بعد دخوله («مساري» ولحظات «تذكرتي»)، لا جدولاً عاماً. */
+  if ((input.targetCodes?.length || input.nearGraduation) && slotById(input.slot) && !slotById(input.slot)?.wholeUniversity) out.push("الاستهداف بالمقررات أو بقرب التخرج متاح في «مساري» ولحظات «تذكرتي» فقط.");
   if (!isDay(input.startDay) || !isDay(input.endDay)) out.push("تاريخا البداية والنهاية مطلوبان بصيغة YYYY-MM-DD.");
   else {
     if (input.endDay < input.startDay) out.push("تاريخ النهاية قبل تاريخ البداية.");
