@@ -496,6 +496,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     homeHandlers.set(name, handler);
     app.get(`/api/public/me/${name}`, requireDoor, handler);
   };
+  const HOME_PART_MS = 8000;
   const HOME_KEYS = ["notices", "cases", "graduate", "request-context", "ticket", "report", "advice", "offered", "map"] as const;
   app.get("/api/public/me/home", requireDoor, async (req: Request, res: Response) => {
     noStore(res);
@@ -511,9 +512,15 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
         status(code: number) { out.status = code; out.ok = code < 400; return fake; },
         json(body: unknown) { out.d = body; return fake; },
       };
-      try { await handler(req, fake as unknown as Response); }
-      catch (error) { out.ok = false; out.status = 500; out.d = {}; console.error(`[student-door] home/${key}:`, error instanceof Error ? error.message : error); }
-      parts[key] = out;
+      /* جزءٌ بطيء (استعلامٌ بطيء أو اعتمادٌ معلَّق) لا يحجب بقية الأجزاء: يُسقَط بعد مهلةٍ ويعود العميلُ إلى مساره الخاص لهذا الجزء وحده. */
+      const run = (async () => {
+        try { await handler(req, fake as unknown as Response); }
+        catch (error) { out.ok = false; out.status = 500; out.d = {}; console.error(`[student-door] home/${key}:`, error instanceof Error ? error.message : error); }
+      })();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const verdict = await Promise.race([run.then(() => "done" as const), new Promise<"slow">(resolve => { timer = setTimeout(() => resolve("slow"), HOME_PART_MS); })]);
+      if (timer) clearTimeout(timer);
+      parts[key] = verdict === "slow" ? { ok: false, status: 504, d: {} } : out;
     }));
     res.json({ parts });
   });

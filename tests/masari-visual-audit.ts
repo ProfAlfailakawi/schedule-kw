@@ -46,23 +46,36 @@ for (const [name, theme] of [["النهاري", light], ["الداكن", dark]] 
   }
 }
 
-/* ٣. النصُّ الأبيض الشفاف فوق بطاقة «أين أنا» الخضراء (أفتحُ نقاطها #1f6b5c): ≥ ٤٫٥ بعد المزج */
+/* ٣. النصُّ الأبيض الشفاف فوق بطاقتَي «أين أنا» الخضراوين: يُقاس عند أفتح نقطةٍ فعليةٍ في تدرّج كلٍّ منهما */
 const blend = (alpha: number, bgHex: string) => { const [r, g, b] = rgb(bgHex); const m = (c: number) => Math.round(255 * alpha + c * (1 - alpha)); return "#" + [m(r), m(g), m(b)].map(v => v.toString(16).padStart(2, "0")).join(""); };
 const css = STUDENT_HOME_CSS + STUDENT_MAP_CSS;
+const lightestStop = (rule: RegExp) => {
+  const body = css.match(rule)?.[0] || "";
+  const stops = [...(body.match(/background:[^;}]*/)?.[0] || "").matchAll(/#[0-9a-fA-F]{6}\b/g)].map(x => x[0]);
+  assert.ok(stops.length >= 2, "تُستخرج نقاط التدرّج من القاعدة: " + rule);
+  return stops.sort((a, b) => lum(b) - lum(a))[0];
+};
+const heroStop = lightestStop(/\.hero\{[^}]*\}/), mapStop = lightestStop(/\.km-hero\{[^}]*\}/);
+check(ratio("#ffffff", heroStop) >= 4.5 && ratio("#ffffff", mapStop) >= 4.5, `الأبيض الكامل يبلغ ٤٫٥ عند أفتح نقطتين (${heroStop} · ${mapStop})`);
 const alphas = [...css.matchAll(/(?<![-\w])color:rgba\(255,255,255,(\.?\d+(?:\.\d+)?)\)/g)].map(m => Number(m[1]));
-check(alphas.length > 0 && alphas.every(a => ratio(blend(a, "#1f6b5c"), "#1f6b5c") >= 4.5), "كل نصٍّ أبيض شفاف فوق الأخضر يبلغ ٤٫٥ : ١", alphas);
+check(alphas.length > 0 && alphas.every(a => ratio(blend(a, heroStop), heroStop) >= 4.5), "كل نصٍّ أبيض شفاف فوق بطاقة الصفحة الخضراء يبلغ ٤٫٥ : ١ عند أفتح نقطة", alphas);
 const opac = [...STUDENT_MAP_CSS.matchAll(/\.km-(?:ring span|who small|who span|stats small)\{[^}]*?opacity:(\.\d+)/g)].map(m => Number(m[1])).filter(a => a < 0.95);
-check(opac.length > 0 && opac.every(a => ratio(blend(a, "#1f6b5c"), "#1f6b5c") >= 4.5), "شفافية نصوص بطاقة الخريطة الخضراء تبلغ ٤٫٥ : ١", opac);
+check(opac.length > 0 && opac.every(a => ratio(blend(a, mapStop), mapStop) >= 4.5), "شفافية نصوص بطاقة الخريطة الخضراء تبلغ ٤٫٥ : ١ عند أفتح نقطةٍ فعلية في تدرّجها", opac);
 
-/* ٤. حدُّ الخط: لا نصَّ تحت ١٢px إلا شبكة الأسبوع (١١px لضيق خلاياها) */
+/* ٤. حدُّ الخط: لا نصَّ تحت ١٢px إلا شبكة الأسبوع (١١px لضيق خلاياها) — يشمل `font-size` والاختصار `font:` */
 const small: string[] = [];
 for (const m of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
-  for (const f of m[2].matchAll(/font-size:(\d+(?:\.\d+)?)px/g)) {
-    const px = Number(f[1]), sel = m[1].trim();
-    if (px < 11 || (px < 12 && !/\.wk-/.test(sel))) small.push(`${sel.slice(-40)} ${px}px`);
-  }
+  const sel = m[1].trim();
+  const sizes = [...m[2].matchAll(/(?<![-\w])font-size:(\d+(?:\.\d+)?)px/g)].map(f => Number(f[1]))
+    .concat([...m[2].matchAll(/(?<![-\w])font:[^;]*?(\d+(?:\.\d+)?)px/g)].map(f => Number(f[1])));
+  for (const px of sizes) if (px < 11 || (px < 12 && !/\.wk-/.test(sel))) small.push(`${sel.slice(-40)} ${px}px`);
 }
-check(small.length === 0, "لا خطَّ أصغر من ١٢px خارج شبكة الأسبوع، ولا أصغر من ١١px فيها", small);
+check(small.length === 0, "لا خطَّ أصغر من ١٢px خارج شبكة الأسبوع، ولا أصغر من ١١px فيها (يشمل اختصار font)", small);
+
+/* ٤ب. الشريطُ السفلي في الخريطة على سطحٍ داكنٍ ثابتٍ في الوضعين: لا `--ink` (يصير فاتحاً ليلاً) تحت نصٍّ أبيض */
+const kbar = css.match(/\.kbar\{position:fixed[^}]*\}/)?.[0] || "";
+check(/background:var\(--bar\)/.test(kbar) && !/background:var\(--ink\)/.test(kbar), "شريط التخطيط على --bar لا --ink");
+check(ratio("#ffffff", "#131817") >= 4.5 && ratio("#ffffff", "#0a0f0d") >= 4.5, "النص الأبيض على --bar في الوضعين");
 
 /* ٥. لا لونَ أبيضَ ثابتاً فوق تعبئةٍ يتبدّل لونُها مع الوضع */
 const solid = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(m => /background:var\(--(accent|ok|bad)\)/.test(m[2]) && /(?<![-\w])color:#fff/.test(m[2])).map(m => m[1].trim().slice(-50));

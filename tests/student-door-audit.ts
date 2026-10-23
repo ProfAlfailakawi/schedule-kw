@@ -472,6 +472,8 @@ check(studentHomeSource.includes('homePart("request-context")') && studentHomeSo
     check(routes.includes(`homeGet("${key}", async`) && routes.includes(`"${key}"`), `P1 جزء ${key} يُسجَّل مساراً مستقلاً ويدخل في الرئيسية`);
   }
   check(!page.includes("الأقرب لرغبات الطالبة"), "P1 الخطاب مذكرٌ في الصفحة كلها");
+  check(/method==="GET"&&typeof AbortController/.test(page), "P1 مهلة الشبكة للقراءة وحدها: إلغاءُ كتابةٍ لا يوقف معالجها في الخادم");
+  check(routes.includes("HOME_PART_MS") && routes.includes('status: 504') && /p&&p\.status<500\?p:api\("GET"/.test(page), "P1 جزءٌ بطيءٌ في /home يُسقَط بمهلةٍ ويعود العميلُ لمساره الخاص وحده");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
