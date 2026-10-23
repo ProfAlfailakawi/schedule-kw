@@ -285,7 +285,6 @@ body.km-lock{overflow:hidden}
 }
 
 /* الوضع الداكن: ألوانُ المستويات متوسطةٌ تصلح تعبئةً بنصٍّ أبيض، فتُفتَّح حين تكون هي لونَ النص على بطاقةٍ داكنة. */
-@media (prefers-color-scheme:dark){.kc em,.kc-add,.kl-h b,.kn em,.kchh b,.ks,.kx em{color:color-mix(in srgb,var(--h) 55%,#fff)}}
 `;
 
 export const STUDENT_MAP_SCRIPT = STUDENT_MAP_CORE + String.raw`

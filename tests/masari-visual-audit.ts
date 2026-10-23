@@ -3,7 +3,7 @@
  * WCAG 2.1: نصٌّ عاديّ ٤٫٥ : ١، وكبيرٌ (≥ ١٨٫٦٦px عريضاً أو ≥ ٢٤px) ٣ : ١.
  */
 import assert from "node:assert/strict";
-import { PUBLIC_DARK_VARS, PUBLIC_LIGHT_VARS } from "../src/server/publicTheme";
+import { PUBLIC_LIGHT_VARS } from "../src/server/publicTheme";
 import { STUDENT_HOME_CSS, studentHomePage } from "../src/server/studentHomePage";
 import { STUDENT_MAP_CSS } from "../src/server/studentMapUi";
 
@@ -12,20 +12,17 @@ const check = (ok: boolean, label: string, extra?: unknown) => { if (!ok) consol
 
 const vars = (s: string) => Object.fromEntries(s.split(";").filter(p => p.startsWith("--")).map(p => { const i = p.indexOf(":"); return [p.slice(0, i), p.slice(i + 1)]; })) as Record<string, string>;
 const light = { ...vars(PUBLIC_LIGHT_VARS), "--gold": "#85601f", "--gold-soft": "#f3ead9", "--ok": "#25684a", "--ok-soft": "#dfeee6", "--note-ink": "#6b4a14" };
-const dark = { ...vars(PUBLIC_DARK_VARS), "--gold-soft": "#2c2415", "--ok": "#6fd0a0", "--ok-soft": "#14291f", "--note-ink": "#ecd9ae" };
 
 const rgb = (hex: string): [number, number, number] => { const h = hex.replace("#", ""); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)) as [number, number, number]; };
 const lin = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
 const lum = (hex: string) => { const [r, g, b] = rgb(hex); return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b); };
 const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
-/* ١. الأسماء نفسها في النهاري والداكن، فلا قاعدةَ تبقى بلا لونٍ في أحدهما */
-const keysL = Object.keys(vars(PUBLIC_LIGHT_VARS)).sort().join(), keysD = Object.keys(vars(PUBLIC_DARK_VARS)).sort().join();
+/* ١. الصفحة نهاريةٌ دائماً: لا وضعَ داكن يتبع نظام الجهاز */
 check(STUDENT_HOME_CSS.includes("--gold:#85601f"), "الذهبي في الصفحة هو الذي يُقاس هنا");
-check(keysL === keysD, "الداكن يعرّف الرموز نفسها التي يعرّفها النهاري", { keysL, keysD });
-check(/@media \(prefers-color-scheme:dark\)\{:root\{color-scheme:dark/.test(STUDENT_HOME_CSS), "الصفحة تتبع نظام الجهاز في الوضع الداكن");
+check(!/prefers-color-scheme:\s*dark/.test(STUDENT_HOME_CSS), "الصفحة لا تتبع الوضع الداكن للجهاز");
 const html = studentHomePage("n");
-check(/theme-color" content="#0f1513" media="\(prefers-color-scheme: dark\)"/.test(html), "شريط المتصفح يتبدّل مع الوضع");
+check(!/prefers-color-scheme/.test(html), "شريط المتصفح نهاريٌّ دائماً");
 
 /* ٢. تباينُ كل زوجِ نصٍّ وخلفيته في الوضعين */
 const pairs: Array<[string, string, string, number]> = [
@@ -39,7 +36,7 @@ const pairs: Array<[string, string, string, number]> = [
   ["--ok", "--ok-soft", "الأخضر الداكن على خلفيته", 4.5], ["--on-accent", "--ok", "نص زر «سجّلت»", 4.5],
   ["--brass", "--bg", "ذهبيّ الشارة على الصفحة", 3],
 ];
-for (const [name, theme] of [["النهاري", light], ["الداكن", dark]] as const) {
+for (const [name, theme] of [["النهاري", light]] as const) {
   for (const [fg, bg, what, min] of pairs) {
     const r = ratio(theme[fg], theme[bg]);
     check(r >= min, `${name}: ${what} ${r.toFixed(2)} ≥ ${min}`, { fg: theme[fg], bg: theme[bg] });
