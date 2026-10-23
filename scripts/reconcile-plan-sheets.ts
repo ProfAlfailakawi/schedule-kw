@@ -225,15 +225,16 @@ for (const cid of collegeIds) {
   for (const sheet of plansToMatch) {
     const status = sheet.era === "new" ? "active" : "transition";
     const track = trackOf(sheet);
+    /* رياض الأطفال للبنات وحدهن: لا قسم لها ولا صحيفة في كلية البنين. */
+    if (sheet.program === "BA-0110" && !girlsCollege(cid)) continue;
     const list = sheet.courses.filter(course => !(course.girlsOnly && !girlsCollege(cid)));
     let targets: CurriculumPlan[];
     if (track) {
-      /* صحيفةُ المسار لأقسام برنامجها وحدها: التربية الخاصة وقسمُ المادة (عربية/إسلامية/رياضيات/علوم)، والتخصص المزدوج لقسمه،
+      /* صحيفةُ المسار لأقسام برنامجها وحدها: مسارات التربية الخاصة لقسم التربية الخاصة وحده، والتخصص المزدوج لقسمه،
          والإنجليزية للمتوسط والثانوي لقسم اللغة الإنجليزية، ورياض الأطفال لقسمها. القسمُ الذي يمدّها بمقرراتٍ فقط (علم النفس…) لا يحمل نسخةً منها. */
-      const subject = (() => { const counts = new Map<string, number>(); for (const course of sheet.courses.filter(row => row.sectionNo === 2 && !["19", "15", "14", "20", "21"].includes(row.dept))) counts.set(course.dept, (counts.get(course.dept) || 0) + 1); return [...counts].sort((x, y) => y[1] - x[1])[0]?.[0] || ""; })();
       const homes: any[] = track === "BA-0110" ? collegeSections.filter(row => String(row.AdSectionCode) === "KG")
         : track === "BA-0119" ? sectionsWithCode("18")
-        : /تربيه\s*خاصه|تربية\s*خاصة/.test(sheet.programName || "") ? [...sectionsWithCode("19"), ...sectionsWithCode(subject)]
+        : /تربيه\s*خاصه|تربية\s*خاصة/.test(sheet.programName || "") ? sectionsWithCode("19")
         : sectionsWithCode(homeDeptOf(sheet));
       const homeIds = new Set(homes.map(row => Number(row.AdSectionId)));
       for (const plan of allPlans.filter(row => row.track === track && !homeIds.has(Number(row.AdSectionId)))) {
