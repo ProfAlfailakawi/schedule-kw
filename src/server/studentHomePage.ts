@@ -432,14 +432,18 @@ function fmtDate(iso){if(!iso)return"";var d=new Date(iso);if(isNaN(d.getTime())
 function fmtShort(iso){if(!iso)return"";var d=new Date(iso+"T00:00:00Z");if(isNaN(d.getTime()))return"";return d.toLocaleDateString("ar-KW-u-nu-latn",{day:"numeric",month:"short",timeZone:"UTC"})}
 ${ARABIC_COUNT_SCRIPT}
 
-var API_TIMEOUT_MS=15000;
+var API_TIMEOUT_MS=15000,API_WRITE_DEADLINE_MS=30000;
+/* القراءةُ تُلغى بعد مهلتها. الكتابةُ لا تُلغى (إلغاؤها في المتصفح لا يوقف معالجَها في الخادم): بعد ٣٠ ثانيةً تُعاد الشاشةُ للطالب بنتيجةٍ «غير معروفة»
+   تقول له أن يتحقق قبل أن يعيد، ويبقى الطلبُ الأصلي يعمل ونتيجتُه المتأخرة تُهمَل. */
 function api(method,url,body){
-  /* الحدُّ الزمني للقراءة وحدها: إلغاءُ طلب كتابةٍ في المتصفح لا يوقف معالجَه في الخادم، فقد يتغيّر الرمزُ أو يُحذف الملفّ والصفحةُ تقول «أعد المحاولة». */
-  var ctl=method==="GET"&&typeof AbortController==="function"?new AbortController():null,timedOut=false,timer=0;
+  var isRead=method==="GET",ctl=isRead&&typeof AbortController==="function"?new AbortController():null,timedOut=false,timer=0,deadline=0,done=false;
   if(ctl)timer=setTimeout(function(){timedOut=true;ctl.abort()},API_TIMEOUT_MS);
-  return fetch(url,{method:method,headers:{"Content-Type":"application/json"},credentials:"same-origin",body:body===undefined?undefined:JSON.stringify(body),signal:ctl?ctl.signal:undefined})
+  var call=fetch(url,{method:method,headers:{"Content-Type":"application/json"},credentials:"same-origin",body:body===undefined?undefined:JSON.stringify(body),signal:ctl?ctl.signal:undefined})
     .then(function(r){return r.text().then(function(t){clearTimeout(timer);var d={};try{d=t?JSON.parse(t):{}}catch(e){}return{ok:r.ok,status:r.status,d:d}})})
     .catch(function(){clearTimeout(timer);return{ok:false,status:0,d:{error:timedOut?"الشبكة بطيئة. أعد المحاولة.":"تعذّر الاتصال. تحقق من الإنترنت ثم أعد المحاولة."}}});
+  if(isRead)return call;
+  var late=new Promise(function(resolve){deadline=setTimeout(function(){if(!done)resolve({ok:false,status:0,unknown:true,d:{error:"لم نتأكد أن طلبك تمّ. افتح الصفحة من جديد وتحقق قبل أن تعيده."}})},API_WRITE_DEADLINE_MS)});
+  return Promise.race([call.then(function(r){done=true;clearTimeout(deadline);return r}),late])
 }
 var toastTimer=0;
 function toast(msg,bad){var old=document.getElementById("toast");if(old)old.remove();var el=document.createElement("div");el.id="toast";el.className="toast"+(bad?" bad":"");el.setAttribute("role",bad?"alert":"status");el.textContent=msg;document.body.appendChild(el);clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.remove()},3800)}
