@@ -22,6 +22,8 @@ export const NEW_PROFILE_YEARS = 6;
 export const AFTER_GRADUATION_DAYS = 365;
 /** متوسّط ما يسجّله الطالب في الفصل (الهدف ١٢–١٥) لتقدير ما بقي له. */
 export const TYPICAL_TERM_UNITS = 13.5;
+/** وحداتُ فصلٍ يُبنى عليها اقتراحُ من لم يكتب رغباته بعد: المعدلُ مقرَّباً (١٤). تقرؤه الصفحةُ نفسَه من `limits.termUnits`. */
+export const DEFAULT_TERM_UNITS = Math.round(TYPICAL_TERM_UNITS);
 /** الفصلان الأول والثاني؛ الصيفيُّ لا يُعدّ في التقدير. */
 export const MONTHS_PER_TERM = 6;
 /** آخرُ دخول لا يُكتب أكثر من مرةٍ في اليوم: القراءةُ لا تُكلّف كتابة. */

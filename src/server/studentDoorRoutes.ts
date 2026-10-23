@@ -26,7 +26,7 @@ import { byArabic } from "../utils/sorting";
 import { AR, countOf } from "../utils/arabicCount";
 import {
   AFTER_GRADUATION_DAYS, CODE_LENGTH, CODE_MAX_FAILURES, REMEMBER_DAYS, afterCodeFailure, codeProblem, expectedGraduation,
-  lockState, planProgress, profileLifetime, resetLifetime, sanitizePassed, shouldTouch, unitsOf, RESET_COOLDOWN_DAYS, TYPICAL_TERM_UNITS, peerCourseCounts,
+  lockState, planProgress, profileLifetime, resetLifetime, sanitizePassed, shouldTouch, unitsOf, RESET_COOLDOWN_DAYS, TYPICAL_TERM_UNITS, DEFAULT_TERM_UNITS, peerCourseCounts,
 } from "../utils/studentProfile";
 import { buildSimulationOfferings, ticketContext } from "./simulationData";
 import { auditSimOfferings } from "../utils/registrationSim";
@@ -683,7 +683,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       rules: rules?.rules || [], groups: rules?.groups || [], credit,
       name: id => catalog.courses.get(id)?.name || `مقرر ${id}`, code: id => catalog.courses.get(id)?.code || "",
       offered: id => (index.get(id)?.sections || 0) > 0,
-      targetUnits: profile.wishes && profile.wishes.termId === termId ? profile.wishes.targetUnits : 15,
+      targetUnits: profile.wishes && profile.wishes.termId === termId ? profile.wishes.targetUnits : DEFAULT_TERM_UNITS,
     });
     res.json({ ready: true, termName: String(term.AdTermName || ""), ...advice });
   });

@@ -191,7 +191,7 @@ export function readStudentPhase(phases: TermStudentPhases | null | undefined, t
     label: NAMES[key], line: NAMES[key], ...extra,
   });
   if (!hasStudentPhases(phases)) {
-    return base("unset", "none", { line: "لم تُحدَّد مواعيد الطلبة لهذا الفصل بعد." });
+    return base("unset", "none", { line: "نعلمك هنا فور تحديدها." });
   }
   const p = phases as TermStudentPhases;
   const rounds = p.rounds || [];
