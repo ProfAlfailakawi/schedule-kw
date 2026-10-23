@@ -37,7 +37,7 @@ check(s.ours === 2 && s.covered === 2 && s.withVisitors === 1 && s.unassigned ==
 
 /* العرض: لا يظهر شيءٌ من التفاصيل قبل الضغط، ولا اسم. */
 const html = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: three, kind: "plan", onClose: () => {}, staffing: { 1: staff({ ours: 3, covered: 5 }) }, freeSlots: 0 }));
-check(html.includes("apb-gap-total") && html.includes("apb-seats") && !html.includes("apb-staff\""), "المجموع ظاهرٌ والتفاصيل مطويّة", html.slice(0, 200));
+check(html.includes("apb-gap-total") && html.includes("apb-gap-total-btn") && !html.includes("apb-gap-total-sum") && !html.includes("apb-staff\""), "المجموع ظاهرٌ والتفاصيل مطويّة", html.slice(0, 200));
 const legacy = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: three, kind: "plan", onClose: () => {} }));
 check(!legacy.includes("apb-gap-total"), "بلا بيانات تدريس لا يظهر المجموع");
 
