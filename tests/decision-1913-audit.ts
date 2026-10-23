@@ -52,6 +52,10 @@ check(DECISIONS_LABEL.includes("1912/2016") && DECISIONS_LABEL.includes("1913/20
   const found = byRule(review([...fits, long], courses), "lecture-period");
   check(Boolean(found) && found!.rowIds.length === 1 && found!.rowIds[0] === long.id, "محاضرةُ 75 دقيقة يوم الأحد أطولُ من فترة الساعة فيُنبَّه عليها وحدها");
   check(found?.source === "decision-1913" && found.approvalEffect === "note" && found.article.includes("1913/2016"), "والتنبيه من قرار 1913 ومرجعه يذكره، وهو ملاحظة لا منع");
+  const fractional = { ...course(6, 3), CourseHours: 2.5 };
+  check(!byRule(review([row(6, "1", ["sun"], "10:00", "11:15")], [fractional]), "lecture-period"), "مقرر 2.5 ساعة ليس ثلاثياً: لا تقريب إلى 3 ولا تنبيه");
+  const lab = { ...course(7, 3), CourseRoomType: "مختبر حاسوب" };
+  check(!byRule(review([row(7, "1", ["sun"], "10:00", "11:30")], [lab]), "lecture-period"), "مقرر نوع قاعته مختبر عملي وإن قصرت جلسته: لا تنبيه");
 }
 
 /* ── م.7/9: الشعبة بوقتٍ ثابت بين أيامها ──────────────────────────────────── */

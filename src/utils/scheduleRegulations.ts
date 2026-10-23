@@ -96,6 +96,8 @@ const SHORT_PERIOD_1913 = 60;
 const LONG_PERIOD_1913 = 90;
 /** The longest lecture 1913 describes (four-hour course on Tue/Thu); longer is a lab sitting. */
 const LONGEST_LECTURE_MINUTES = 120;
+/** Room types that mark a course as practical (free text in the catalogue). */
+const PRACTICAL_ROOM_TYPE = /مختبر|معمل|ورش|استوديو|ستوديو|عملي|تدريب|ميدان|مرسم|ملعب|مسبح|صالة|مطبخ|كلينيك|حاسوب|حاسب|مشغل/;
 /** Below this many sections a morning/evening share is noise, not a department. */
 const PERIOD_BALANCE_MIN_SECTIONS = 10;
 
@@ -589,10 +591,15 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   const overPeriod: FSchedule[] = [];
   const overNames: string[] = [];
   for (const row of rows) {
-    const hours = Math.round(Number(courses.get(row.AdCourseId)?.CourseHours) || 0);
+    const course = courses.get(row.AdCourseId);
+    /* The hours as stored: a 2.5-hour course is not a three-hour one. */
+    const hours = Number(course?.CourseHours) || 0;
     const days = daysOf(row);
     const length = duration(row);
     if ((hours !== 3 && hours !== 4) || !days.length || !length || length > LONGEST_LECTURE_MINUTES) continue;
+    /* A course the catalogue places in a lab, workshop or studio is practical,
+       however short its sitting: the article is about theoretical lectures. */
+    if (PRACTICAL_ROOM_TYPE.test(String(course?.CourseRoomType || ""))) continue;
     const allowed = hours === 4 && days.every(day => day === "ftuesday" || day === "fthursday")
       ? LONGEST_LECTURE_MINUTES
       : Math.min(...days.map(day => LONG_LECTURE_DAYS.includes(day) ? LONG_PERIOD_1913 : SHORT_PERIOD_1913));
