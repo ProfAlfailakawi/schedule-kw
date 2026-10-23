@@ -61,7 +61,7 @@ const SHORT: Record<string, { icon: typeof FileX2; title: string; hint: string }
   empty: { icon: SearchX, title: "لا مقررات لهذا القسم", hint: "في الصحيفة" },
 };
 
-export default function PlanSheetUpload({ targets, sectionId, onDone }: { targets: SectionOption[]; sectionId: number; onDone: (sectionId: number, planId: string) => void }) {
+export default function PlanSheetUpload({ targets, sectionId, onDone, tools }: { targets: SectionOption[]; sectionId: number; onDone: (sectionId: number, planId: string) => void; tools?: React.ReactNode }) {
   const [chosen, setChosen] = useState(targets.find(item => item.sectionId === sectionId)?.sectionId || targets[0]?.sectionId || 0);
   const [busy, setBusy] = useState(false);
   const [rejection, setRejection] = useState<Rejection | null>(null);
@@ -312,18 +312,10 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
   return (
     <section className="pr-import pr-sheet">
       <div className="pr-import-head">
-        <span className="pr-import-ic"><GraduationCap /></span>
-        <div><b>رفع الخطة الدراسية لقسم</b><small>PDF من SWRCAPP · مقررات القسم وحدها · يعتمدها القسم بعد الرفع</small></div>
+        <div><b>رفع الخطة الدراسية</b><small>ملف PDF أو أكثر من SWRCAPP · كلُّ صحيفة تذهب إلى قسمها</small></div>
         <div className="pr-import-actions">
-          <select aria-label="قسم الصحيفة" value={chosen} disabled={busy} onChange={e => { setChosen(Number(e.target.value)); setRejection(null); setOutcome(null); }}>
-            {targets.map(item => <option key={item.sectionId} value={item.sectionId}>{item.label}{item.sites > 1 ? ` (${countOf(item.sites, AR.site)})` : ""}</option>)}
-          </select>
-          <label className={`btn btn-primary${busy ? " is-busy" : ""}`}>
-            <FileUp aria-hidden="true" size={16} /> {busy ? "جارٍ القراءة…" : "ارفع الصحيفة"}
-            <input type="file" accept="application/pdf,.pdf" hidden disabled={busy || !chosen} aria-label="الخطة الدراسية PDF" onChange={e => { void upload(e.target.files?.[0]); e.target.value = ""; }} />
-          </label>
-          <label className={`btn btn-secondary${busy ? " is-busy" : ""}`} data-guide-ignore="رفع كل الصحائف دفعة واحدة داخل شاشة مراجعة الصحيفة">
-            <FileUp aria-hidden="true" size={16} /> ارفع كل الصحف
+          <label className={`btn btn-primary${busy ? " is-busy" : ""}`} data-guide-ignore="رفع كل الصحائف دفعة واحدة داخل شاشة مراجعة الصحيفة">
+            <FileUp aria-hidden="true" size={16} /> {busy ? "جارٍ القراءة…" : "ارفع الصحائف"}
             <input type="file" accept="application/pdf,.pdf" multiple hidden disabled={busy} aria-label="كل الخطط الدراسية PDF دفعة واحدة" onChange={e => { void uploadAll([...(e.target.files || [])].slice(0, 120)); e.target.value = ""; }} />
           </label>
         </div>
@@ -385,6 +377,18 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
         </div>
       ) : null}
       {workingNote}
+      {/* أدواتُ ترتيب البيانات بعد الرفع (الدخيلة، الحسابات، المكررة، الخدمية، إنهاء السابقة): تُستعمل مرةً كل حين، فتبقى مطويّة. */}
+      <details className="pr-tools">
+        <summary>أدوات الصيانة</summary>
+      <div className="pr-sheet-result pr-sheet-single" role="group" aria-label="رفع صحيفة على قسم محدد">
+        <select aria-label="قسم الصحيفة" value={chosen} disabled={busy} onChange={e => { setChosen(Number(e.target.value)); setRejection(null); setOutcome(null); }}>
+          {targets.map(item => <option key={item.sectionId} value={item.sectionId}>{item.label}{item.sites > 1 ? ` (${countOf(item.sites, AR.site)})` : ""}</option>)}
+        </select>
+        <label className={`btn btn-primary${busy ? " is-busy" : ""}`}>
+          <FileUp aria-hidden="true" size={16} /> {busy ? "جارٍ القراءة…" : "ارفع الصحيفة"}
+          <input type="file" accept="application/pdf,.pdf" hidden disabled={busy || !chosen} aria-label="الخطة الدراسية PDF" onChange={e => { void upload(e.target.files?.[0]); e.target.value = ""; }} />
+        </label>
+      </div>
       <div className="pr-sheet-result pr-sheet-foreign" role="group" aria-label="المقررات الدخيلة">
         <button type="button" className="btn btn-secondary" disabled={Boolean(working)} onClick={() => void run("جارٍ فحص المقررات الدخيلة", scanForeign)} data-guide-ignore="فحص المقررات الدخيلة (نسخٌ لمقررات أقسامٍ أخرى بلا صحيفةٍ ولا جدول) داخل شاشة مراجعة الصحيفة"><SearchX aria-hidden="true" size={16} /> افحص المقررات الدخيلة</button>
         {foreignMsg ? <small role="status">{foreignMsg}</small> : null}
@@ -424,6 +428,8 @@ export default function PlanSheetUpload({ targets, sectionId, onDone }: { target
       </div>
       <DuplicateCoursesPanel />
       <ServiceCoursesPanel targets={targets} winners={serviceWinners} onWinners={setServiceWinners} />
+        {tools}
+      </details>
       <div className="pr-sheet-result pr-sheet-approval" role="group" aria-label="اعتماد الصحائف">
         <button type="button" className="btn btn-secondary" disabled={Boolean(working)} onClick={() => void run("جارٍ معاينة الاعتماد", previewApproval)} data-guide-ignore="معاينة الصحائف الجاهزة للاعتماد وما فيه حاجز داخل شاشة مراجعة الصحيفة"><CheckCircle2 aria-hidden="true" size={16} /> معاينة اعتماد كل الصحف</button>
         {approvalMsg ? <small role="status">{approvalMsg}</small> : null}

@@ -333,8 +333,7 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
     <div className="pr-page" dir="rtl">
       <PageTitle eyebrow="مراجعة الصحيفة" subtitle="مستوى كل مقرر ونوعه وما يسبقه، ثم يعتمدها رئيس لجنة الجدول.">قواعد المقررات</PageTitle>
       {error ? <Notice type="error" onDismiss={() => setError("")}>{error}</Notice> : null}
-      {status?.canImport ? <PlanSheetUpload targets={status.uploadTargets || []} sectionId={sectionId} onDone={(id, plan) => { void loadStatus().then(() => { setSectionId(id); setPlanId(plan); setSelected(0); window.dispatchEvent(new Event("schedule:plan-review-updated")); }); }} /> : null}
-      {status?.canImport ? <PreviousPlansPanel /> : null}
+      {status?.canImport ? <PlanSheetUpload targets={status.uploadTargets || []} sectionId={sectionId} tools={<PreviousPlansPanel />} onDone={(id, plan) => { void loadStatus().then(() => { setSectionId(id); setPlanId(plan); setSelected(0); window.dispatchEvent(new Event("schedule:plan-review-updated")); }); }} /> : null}
       {!status?.sections.length ? <EmptyState title="لا صحائف في نطاقك" detail="تظهر هنا صحائف الأقسام التي تملك نطاقها." /> : (
         <>
           {!isTechSection ? (
@@ -355,10 +354,9 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
           {!planId ? <EmptyState title="لم تُجهّز صحيفة تشغيلية بعد" detail="المرجع المرفق متاح للمطابقة. إنشاء الصحيفة وربط مقرراتها يسبق اعتماد قواعدها." /> : !view ? <MicroLoader /> : (
             <>
               <div className={`pr-state ${view.state.status}`}>
-                <span className="pr-state-ic">{view.state.status === "approved" ? <ShieldCheck /> : <BookOpenCheck />}</span>
                 <div>
                   <strong>{view.state.status === "approved" ? `معتمدة · الإصدار ${view.state.version}` : "قيد المراجعة"}</strong>
-                  <small>{view.state.status === "approved" ? `${view.state.approvedBy || ""}` : view.state.updatedBy ? `آخر تعديل: ${view.state.updatedBy}` : "لم تُعدَّل بعد"}</small>
+                  <small>{countOf(ownIds.size, AR.course)} · {countOf(levels.size, AR.level)} · {view.state.status === "approved" ? `${view.state.approvedBy || ""}` : view.state.updatedBy ? `آخر تعديل: ${view.state.updatedBy}` : "لم تُعدَّل بعد"}</small>
                 </div>
                 {view.can.approve && view.state.status === "review" ? (
                   <PrimaryButton disabled={busy || view.blockers > 0} onClick={() => setConfirmApprove(true)} data-guide-ignore="اعتمادُ الصحيفة داخل شاشةٍ مسجّلة في المرشد باسم page.planReview">
@@ -388,18 +386,15 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
                 </div>
               ) : null}
 
-              {view.issues.length ? <IssueBoard issues={view.issues} courses={view.courses} rules={view.rules} onPick={id => { setFocus(id); setSelected(id); }} /> : null}
+              {/* الملاحظاتُ مطويّةٌ في سطرٍ واحد، وتُفتح وحدها حين يكون فيها حاجزٌ يمنع الاعتماد. */}
+              {view.issues.length ? (
+                <details className="pr-issues-fold" open={view.blockers > 0}>
+                  <summary>ملاحظات المراجعة <em>{view.issues.length.toLocaleString("ar-KW-u-nu-latn")}</em></summary>
+                  <IssueBoard issues={view.issues} courses={view.courses} rules={view.rules} onPick={id => { setFocus(id); setSelected(id); }} />
+                </details>
+              ) : null}
               {view.blockers ? <Notice type="block" inline>{countOf(view.blockers, AR.blocker)} يمنع الاعتماد حتى يُصلَح.</Notice> : null}
 
-              <section className="pr-infographic" aria-label="ملخص الصحيفة">
-                <div className="pr-infographic-stat"><span><GraduationCap /></span><div><small>مقررات الصحيفة</small><strong>{ownIds.size.toLocaleString("ar-KW-u-nu-latn")}</strong></div></div>
-                <div className="pr-infographic-stat"><span><Layers /></span><div><small>المستويات</small><strong>{levels.size.toLocaleString("ar-KW-u-nu-latn")}</strong></div></div>
-                <div className="pr-level-ribbon" aria-label="توزيع المقررات على المستويات">
-                  {[...levels.entries()].map(([level, ids]) => <div className="pr-level-chip" key={level} title={`${level ? `المستوى ${level}` : "بلا مستوى"}: ${countOf(ids.length, AR.course)}`}>
-                    <span className="pr-level-chip-icon"><Layers size={15} aria-hidden="true" /></span><span className="pr-level-chip-label"><b>{level ? `المستوى ${level}` : "بلا مستوى"}</b><small>{countOf(ids.length, AR.course)}</small><i><b style={{ inlineSize: `${ownIds.size ? ids.length / ownIds.size * 100 : 0}%` }} /></i></span>
-                  </div>)}
-                </div>
-              </section>
 
               {view.categories?.length ? (
                 <nav className="pr-cats" aria-label="تصفية مقررات الصحيفة بحسب تصنيفها">
@@ -415,7 +410,7 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
                 {[...levels.entries()].map(([level, ids]) => (
                   <section key={level} className="pr-col" data-lvl={levelHue(level)}>
                     <div className="pr-level-head">
-                      <span className="pr-level-head-icon"><GraduationCap size={16} aria-hidden="true" /></span><span><b>{level ? `المستوى ${level}` : "بلا مستوى"}</b><small>{countOf(ids.length, AR.course)} · {countOf(ids.reduce((sum, id) => sum + (view.courses.find(course => course.id === id)?.credit || 0), 0), AR.unit)}</small></span>
+                      <span><b>{level ? `المستوى ${level}` : "بلا مستوى"}</b><small>{countOf(ids.length, AR.course)} · {countOf(ids.reduce((sum, id) => sum + (view.courses.find(course => course.id === id)?.credit || 0), 0), AR.unit)}</small></span>
                     </div>
                     {ids.map(id => {
                       const c = view.courses.find(x => x.id === id)!;
