@@ -44,7 +44,7 @@ import { pickPreviousRequest } from "./src/utils/previousTermRequest";
 import { REQUEST_REPLAY_SCRIPT } from "./src/server/requestReplayScript";
 import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT } from "./src/server/voiceInputScript";
 import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from "./src/server/studyProposalAlert";
-import { REQUEST_V3_CSS } from "./src/server/requestPageStyles";
+import { REQUEST_V3_CSS, REQUEST_V4_CSS } from "./src/server/requestPageStyles";
 import { PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "./src/server/publicKit";
 import { cleanSeenIds, seenKey } from "./src/utils/notificationSeen";
 import { calendarFeedKey, createCalendarSecretResolver } from "./src/server/calendarSecret";
@@ -133,7 +133,7 @@ import { facultyPlaceholderOf, placePending, templatesFromHistory, type PendingR
 import { courseLevelFromCode } from "./src/utils/curriculumRules";
 import { reasonForMove } from "./src/utils/appointmentStory";
 import { buildCalendar, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "./src/utils/icalendar";
-import { learnAll } from "./src/utils/courseNature";
+import { learnAll, learnCourseNature, habitualBlockMinutes, type CourseNature } from "./src/utils/courseNature";
 import { firstLast } from "./src/utils/weekVisual";
 import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, campusOf, interCampusMinutes } from "./src/utils/campusTravel";
 import {
@@ -18887,6 +18887,33 @@ function stripForInstructor(request: InstructorRequest) {
 }
 
 
+/**
+ * ما درج عليه المقرّر في فصولٍ سابقة (طولُ لقائه حين يُدرَّس يوماً واحداً). يُقرأ تاريخُه مرّةً كلَّ عشر دقائق
+ * لكل مقرّر، لا مع كل نقرة: الحكمُ يتكرّر عند كل تعديلٍ في الصفحة.
+ */
+const courseHabitMemo = new Map<string, { at: number; nature: CourseNature | null }>();
+async function courseHabit(courseId: number): Promise<CourseNature | null> {
+  if (!courseId) return null;
+  const key = dataContextCacheKey(courseId);
+  const held = courseHabitMemo.get(key);
+  if (held && Date.now() - held.at < 10 * 60_000) return held.nature;
+  let nature: CourseNature | null = null;
+  try { nature = learnCourseNature(courseId, await Repository.getScheduleHistoryForCourses([courseId])); } catch { nature = null; }
+  if (courseHabitMemo.size > 800) courseHabitMemo.clear();
+  courseHabitMemo.set(key, { at: Date.now(), nature });
+  return nature;
+}
+const habitBlockFor = async (courseId: number, termId: number) => habitualBlockMinutes(await courseHabit(courseId), termId);
+
+/** مدّةُ لقاءٍ ممتدٍّ من نصّ وقت البند «16:00 – 19:50» حين يكون يوماً واحداً. */
+function blockMinutesOfItem(item: InstructorRequestItem | undefined): number | undefined {
+  const before = item?.before;
+  const m = /(\d{1,2}:\d{2})\D+(\d{1,2}:\d{2})/.exec(String(before?.time || ""));
+  if (!m || String(before?.days || "").split("·").filter(part => part.trim()).length !== 1) return undefined;
+  const span = timeToMinutes(m[2]) - timeToMinutes(m[1]);
+  return span > 80 ? span : undefined;
+}
+
 /* قرارُ القسم يخصّ ما طُلب يومَ قُرِّر. أستاذٌ رُفض بندُه فغيّر وقتَه وأعاد
    الإرسال طلب شيئاً جديداً، فلا يبقى عليه «رُفض» عن طلبٍ لم يعد قائماً — ولا
    «ثُبّت» عن موعدٍ غير الذي ثُبّت. وما لم يتغيّر يبقى قرارُه كما هو. */
@@ -18914,15 +18941,6 @@ function priorAddFor(previous: InstructorRequestItem[] | undefined, used: Set<nu
   if (index < 0) return undefined;
   used.add(index);
   return (previous || [])[index];
-}
-
-/** مدّةُ لقاءٍ ممتدٍّ من نصّ وقت البند «16:00 – 19:50» حين يكون يوماً واحداً. */
-function blockMinutesOfItem(item: InstructorRequestItem | undefined): number | undefined {
-  const before = item?.before;
-  const m = /(\d{1,2}:\d{2})\D+(\d{1,2}:\d{2})/.exec(String(before?.time || ""));
-  if (!m || String(before?.days || "").split("·").filter(part => part.trim()).length !== 1) return undefined;
-  const span = timeToMinutes(m[2]) - timeToMinutes(m[1]);
-  return span > 80 ? span : undefined;
 }
 
 async function instructorRequestItemsFromPayload(request: InstructorRequest, sent: any[]): Promise<InstructorRequestItem[]> {
@@ -18962,7 +18980,7 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
           ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].includes(day))
       : [];
     const start = /^\d{1,2}:\d{2}$/.test(String(entry?.start || "")) ? String(entry.start) : "";
-    const blockMin = blockMinutesOfItem(stored);
+    const blockMin = blockMinutesOfItem(stored) ?? (days.length === 1 && action !== "keep" && action !== "delete" ? await habitBlockFor(courseId, Number(request.AdTermId)) : undefined);
     const end = start && days.length ? endForRequest(days, start, blockMin) : "";
 
     items.push({
@@ -19214,8 +19232,13 @@ async function requestRulesForScope(
  * متاحاً يومَ فُتح الرابط قد يكون أُخذ قبل أن يضغط الأستاذ إرسال، وحُكمٌ
  * محفوظٌ من أمس يكذب بصمت.
  */
-async function judgeRequestItems(request: InstructorRequest, options: { forDepartment?: boolean } = {}): Promise<InstructorRequest> {
-  const context = await buildRequestContext(request);
+async function judgeRequestItems(request: InstructorRequest, options: {
+  forDepartment?: boolean;
+  /** سياقٌ بُني مرّةً لحزمةِ أحكامٍ متتابعة (خريطة الأوقات): لا يُعاد بناؤه ولا تُعاد قراءةُ قواعد النطاق لكل وقت. */
+  context?: Awaited<ReturnType<typeof buildRequestContext>>;
+  rulesCache?: Map<string, any>;
+} = {}): Promise<InstructorRequest> {
+  const context = options.context || await buildRequestContext(request);
   /* نافذةُ الطلبات تحدّ إرسالَ الأستاذ، لا قرارَ القسم: بعد إغلاقها كان كلُّ
      بندٍ يُعلَّم «انتهت مدّة استقبال الطلبات» مانعاً، فيتعطّل «ثبّت» على ما
      لم يُقرَّر بعد. فالقسمُ يرى الحكمَ بلا شرط النافذة. */
@@ -19261,7 +19284,7 @@ async function judgeRequestItems(request: InstructorRequest, options: { forDepar
     });
   }
 
-  const rulesByScope = new Map<string, Awaited<ReturnType<typeof requestRulesForScope>>>();
+  const rulesByScope: Map<string, Awaited<ReturnType<typeof requestRulesForScope>>> = options.rulesCache || new Map();
   for (const item of (request.items || [])) {
     const original = item.rowId == null ? undefined : instructorRows.find(row => Number(row.id) === Number(item.rowId));
     const selectedCourse = context.courses.get(Number(item.after?.courseId || item.before?.courseId || 0));
@@ -19269,6 +19292,14 @@ async function judgeRequestItems(request: InstructorRequest, options: { forDepar
     const sectionId = Number(item.after?.sectionId || selectedCourse?.AdSectionId || original?.AdSectionId || request.AdSectionId);
     const key = `${collegeId}:${sectionId}`;
     if (!rulesByScope.has(key)) rulesByScope.set(key, await requestRulesForScope(context, collegeId, sectionId, Number(request.AdTermId)));
+  }
+
+  /* تاريخُ المقرّرات التي يمسّها الطلب: يقرأ منه الحكمُ طولَ لقاء الشعب ذات اليوم الواحد. */
+  const habits = new Map<number, CourseNature>();
+  for (const courseId of new Set((request.items || []).filter(item => item.action === "change" || item.action === "add")
+    .map(item => Number(item.after?.courseId || item.before?.courseId || 0)).filter(Boolean))) {
+    const nature = await courseHabit(courseId);
+    if (nature) habits.set(courseId, nature);
   }
 
   const items = (request.items || []).map((item, index) => {
@@ -19300,6 +19331,8 @@ async function judgeRequestItems(request: InstructorRequest, options: { forDepar
       instructorLoad: Number(context.instructors.get(Number(request.AdInstructorId))?.AdInstructorLoad || 0) || null,
       /* ورقةُ رفض القسم تعرض بدائلَ لكل بند، ولو كان متاحاً (مراجعة البروفة). */
       offerAlternatives: Boolean(options.forDepartment),
+      nature: habits,
+      termId: Number(request.AdTermId),
     });
     return {
       ...item,
@@ -19315,6 +19348,7 @@ async function judgeRequestItems(request: InstructorRequest, options: { forDepar
       }).filter(Boolean) as any,
       nearestTimes: verdict.nearestTimes.map(entry => ({ day: entry.day, days: entry.days, start: entry.start, end: entry.end })),
       shapes: verdict.shapes,
+      block: verdict.blockMinutes,
     } as InstructorRequestItem;
   });
 
@@ -20138,7 +20172,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
           ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].includes(day))
       : [];
     const start = /^\d{1,2}:\d{2}$/.test(String(entry?.start || "")) ? String(entry.start) : "";
-    const blockMin = blockMinutesOfItem(stored);
+    const blockMin = blockMinutesOfItem(stored) ?? (days.length === 1 && action !== "keep" && action !== "delete" ? await habitBlockFor(courseId, Number(resolved.request.AdTermId)) : undefined);
     const end = start && days.length ? endForRequest(days, start, blockMin) : "";
 
     items.push({
@@ -20339,11 +20373,11 @@ function instructorRequestPage(token: string, nonce: string, demoHint = ""): str
   return `<!doctype html><html lang="ar" dir="rtl"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f2f3ef" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0f1513" media="(prefers-color-scheme: dark)">
 <title>جدولي — طلب تعديل</title>
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/schedule-icon-192.png">
 <style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}
-:root{color-scheme:light;--ink:#15251d;--muted:#627269;--muted2:#8b9991;--line:#dce5df;--line2:#cbd8d0;--bg:#fff;--card:#fff;
+:root{color-scheme:light dark;--ink:#15251d;--muted:#627269;--muted2:#8b9991;--line:#dce5df;--line2:#cbd8d0;--bg:#fff;--card:#fff;
 --soft:#edf5f0;--ok:#247756;--ok2:#dff2e8;--warn:#9a6a00;--warn2:#fff5d9;--bad:#ad2f28;--bad2:#fdecea;--accent:#247756;--shadow:0 12px 34px rgba(22,57,40,.07)}
 /* لوحةُ الصفحات العامة الموحّدة — للشاشة فقط؛ الطباعةُ تبقى كما كانت. */
 @media screen{:root{color-scheme:light;--ink:#131817;--muted:#5b6660;--muted2:#6b766f;--line:#e3e6e0;--line2:#ccd2cb;--bg:#fff;--soft:#edefe9;--ok:#1f6b5c;--ok2:#dcece7;--accent:#1f6b5c}
@@ -20447,6 +20481,7 @@ ${PROPOSAL_ALERT_CSS}
 ${PUBLIC_KIT_CSS}
 ${REQUEST_V3_CSS}
 ${VOICE_INPUT_CSS}
+${REQUEST_V4_CSS}
 </style></head><body>${demoHint?`<div id="demoTop" style="max-width:760px;margin:0 auto;padding:12px 16px 0">${demoHint}</div>`:""}<div class="wrap" id="host">يفتح جدولك…</div>
 <script nonce="${nonce}">(function(){
 ${PUBLIC_KIT_SCRIPT}
@@ -20623,7 +20658,7 @@ function deckHtml(){var list=pendingList(),n=list.length;if(!n)return "";
 function calmHtml(){var r=data.request;if(!r.submittedAt||pendingList().length)return "";
  var s=stageIdx();if(!state.some(function(it){return it.action!=="keep"||(it.thread||[]).length}))return "";
  var m=s===4?["shield","ok","اكتملت مراجعة القسم","كلُّ ما طلبتَه وصله قرارُه."]:s===3?["check","ok","اتفقتما، وبانتظار التثبيت","يثبّته القسم قريبًا. جدولك الرسمي لم يتغيّر بعد."]:["hour","wait","طلبك عند القسم","لا شيء مطلوب منك الآن. سيظهر الردّ هنا."];
- return '<div class="calm" data-t="'+m[1]+'" role="status"><span class="b">'+gi(m[0])+'</span><div><b>'+m[2]+'</b><small>'+m[3]+'</small></div></div>'}
+ return '<div class="calm" data-t="'+m[1]+'" role="status"><span class="b">'+gi(m[0])+'</span><div><b>'+m[2]+'</b><small>'+m[3]+'</small>'+(anyFixed()?calendarHtml(true):'')+'</div></div>'}
 /* الورقةُ السفلية والتوقيعُ والإشعارُ من العدّة المشتركة (src/server/publicKit.ts). */
 var openSheet=SK.sheet,closeSheet=SK.close,toast=SK.toast,signSheet=SK.sign;
 /* حقلُ «وقت آخر»: يكتب 930 فيصير 09:30 بأرقامٍ إنجليزية، ولا يُؤخذ إلا إن كان كاملاً وداخل الدوام. */
@@ -20716,7 +20751,7 @@ function actionsHtml(it,i){
  return actBtn(i,"keep","undo","تراجع عن الحذف");
 }
 function editHtml(it,i){var h="";h+='<div class="edit"><span class="field-title">أيام المحاضرة</span><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
-    h+='</div><span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+'>'+t+'</button>'}).join("")+'</div><label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(verdictText(it))+'</span>'+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div><textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
+    h+='</div><span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+heatLegend(i)+'<label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(verdictText(it))+'</span>'+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div><textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
 function bodyHtml(it,i,open){var h=decisionBox(it,i,open)+threadBox(it,i);
  if(open){if(it.negotiation==="proposed")h+='<p class="hint-pro">للرد على اقتراح القسم استخدم بطاقة «قرارك» في أعلى الصفحة. وتعديل الموعد من هنا يبدأ طلبًا جديدًا.</p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
  else if(!h)h='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
@@ -20769,12 +20804,45 @@ function planTable(){
   '</div></div>'
 }
 /* شريط الأسبوع: عرضٌ فقط، من البنود التي تحملها الصفحة أصلاً (state). المحذوف لا يُعدّ. */
+/* ── أسبوعُه في رسمٍ واحد ────────────────────────────────────────────────────
+   أعمدةُ الأيام وفيها كتلُ المحاضرات في موضعها من اليوم (٨ صباحاً إلى ٨ مساءً): يرى الأستاذ تعارضَه بعينه قبل أن
+   يقوله الفاحص. الموعدُ الحاليّ قبل التعديل ظلٌّ متقطّع، والمطلوبُ كتلةٌ ملوّنة، والمحذوفُ مخطّط. */
 function weekStrip(){
- var today=new Date().getDay(),cnt={};
- state.forEach(function(it){if(it.action==="delete")return;planDays(it).forEach(function(d){cnt[d]=(cnt[d]||0)+1})});
- return '<ul class="weekstrip" aria-label="أيام محاضراتك في الأسبوع">'+DAYS.map(function(d,k){var n=cnt[d[0]]||0,dots="";for(var j=0;j<Math.min(n,4);j++)dots+="<i></i>";
-  return '<li data-n="'+n+'" data-today="'+(k===today?"1":"0")+'"><span>'+d[1]+'</span><span class="wk-n">'+n+'</span><span class="wk-d" aria-hidden="true">'+dots+'</span></li>'}).join("")+'</ul>'
+ var today=new Date().getDay(),L=480,R=1200,cols={},ghost=false,counts={};
+ DAYS.forEach(function(d){cols[d[0]]=[];counts[d[0]]=0});
+ function pos(m){return Math.max(0,Math.min(100,(m-L)/(R-L)*100))}
+ function put(slot,kind){if(!slot)return;slot.d.forEach(function(d){if(!cols[d])return;cols[d].push({s:slot.s,e:slot.e,k:kind});if(kind!=="ghost"&&kind!=="del")counts[d]++})}
+ state.forEach(function(it){var o=curSlot(it),off=proposed0(it);
+  if(it.action==="keep"){put(o,"keep");return}
+  if(it.action==="delete"){put(o,"del");return}
+  if(it.action==="add"){put(askSlot(it),"add");return}
+  if(it.decision&&it.decision.state==="rejected"&&it.negotiation!=="proposed"){put(o,"keep");return}
+  if(o){put(o,"ghost");ghost=true}
+  if(off){put({d:off.d,s:off.s,e:off.e},"prop");return}
+  put(askSlot(it),it.decision&&it.decision.state==="fixed"?"fix":"chg")});
+ var label="أسبوعك: "+DAYS.map(function(d){return d[1]+" "+counts[d[0]]}).join("، ");
+ return '<div class="wk" role="img" aria-label="'+esc(label)+'"><div class="wk-body"><div class="wk-axis" aria-hidden="true"><span>8 ص</span><span>12</span><span>4 م</span><span>8 م</span></div><div class="wk-grid">'+DAYS.map(function(d,k){
+  var blocks=cols[d[0]].map(function(b){return '<i class="wb" data-k="'+b.k+'" style="inset-block-start:'+pos(b.s)+'%;block-size:'+Math.max(5,pos(b.e)-pos(b.s))+'%"></i>'}).join("");
+  return '<div class="wc" data-today="'+(k===today?1:0)+'" data-n="'+counts[d[0]]+'"><div class="wc-t">'+blocks+'</div><span class="wc-n">'+d[1]+'</span></div>'}).join("")+
+  '</div></div>'+(ghost?'<p class="wk-note">الكتل المتقطّعة: موعدك الحالي قبل التعديل.</p>':'')+'</div>'
 }
+/* ── خريطةُ الأوقات ───────────────────────────────────────────────────────────
+   بعد اختيار الأيام يُسأل الخادمُ عن كل وقتِ بدايةٍ بالحكم نفسِه، ويُرسم على الزرّ شريطٌ: أخضر يمرّ، أصفر يحتاج سبب
+   استثناء، أحمر لا يمكن. والزرُّ لا يُعطَّل بها (القرارُ للخادم عند الإرسال)، وإنما يُرى. */
+var heat={},heatKey={},heatTimer=null;
+function heatAttr(i,t){var h=heat[i]&&heat[i][t];if(!h)return "";
+ return ' data-heat="'+h+'" aria-label="'+t+(h==="ok"?" · متاح":h==="warn"?" · يحتاج سبب استثناء":" · غير ممكن")+'"'}
+function heatLegend(i){return heat[i]&&Object.keys(heat[i]).length?'<p class="heat-key" aria-hidden="true"><span data-heat="ok"></span>متاح <span data-heat="warn"></span>يحتاج سبباً <span data-heat="bad"></span>غير ممكن</p>':""}
+function startList(it){return startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60})}
+function heatSig(i){return state[i].days.join()+"|"+state[i].blk+"|"+JSON.stringify(payloadItems().map(function(p,k){return k===i?{rowId:p.rowId,action:p.action,courseId:p.courseId,collegeId:p.collegeId,sectionId:p.sectionId,days:p.days}:p}))}
+function ensureHeat(){state.forEach(function(it,i){
+ if(!(it.action==="change"||it.action==="add")||!it.days.length||!openCards[i])return;
+ var sig=heatSig(i);if(heatKey[i]===sig)return;heatKey[i]=sig;heat[i]=null;
+ clearTimeout(heatTimer);heatTimer=setTimeout(function(){loadHeat(i,sig)},300)})}
+function loadHeat(i,sig){var it=state[i];if(!it||heatKey[i]!==sig)return;
+ fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-times",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({itemIndex:i,items:payloadItems(),starts:startList(it)})})
+ .then(function(r){return r.ok?r.json():null}).then(function(d){if(!d||heatKey[i]!==sig)return;heat[i]=d.times||{};paint()}).catch(function(){})}
 function planDays(it){return it.action==="add"||it.action==="change"?it.days:(it.slots||[]).map(function(s){return s.day})}
 function planStart(it){return it.action==="add"||it.action==="change"?it.start:((it.slots||[])[0]||{}).start||""}
 var movement=null,movementLoading=false;
@@ -20795,7 +20863,7 @@ function activityHtml(r){
    (college?'<p class="activity-meta">الكلية: '+esc(college)+'</p>':'')+
    (was?'<p class="activity-meta">كان: '+esc((it.before||{}).days||"")+' · '+ltr(rangeText((it.before||{}).time||""))+'</p>':'')+
    '<p>'+(it.action==="delete"?'':'المطلوب: ')+requestedHtml(it)+'</p>'+
-   (status&&it.action!=="delete"?'<p class="activity-meta" data-tone="'+esc(it.tone)+'">الفحص: '+esc(status)+'</p>':'')+
+   (status&&it.action!=="delete"&&!decision.state?'<p class="activity-meta" data-tone="'+esc(it.tone)+'">الفحص: '+esc(status)+'</p>':'')+
    '<div class="decision" data-state="'+esc(decision.state||"pending")+'">'+esc(decisionText)+'</div></div><time>البند '+(x.i+1)+'</time></li>'}).join("");
  var timeline=(r.timeline||[]).slice().reverse().map(function(e){var item=typeof e.itemIndex==="number"?state[e.itemIndex]:null,b=item&&(item.before||item.after)||{};
   var detail=(item?(esc(actionName(item.action)+" · "+courseOf(item)+(collegeOf(item)?" · "+collegeOf(item):"")+" · ")+requestedHtml(item)):e.kind==="submitted"?esc(countOf(Number(e.detail)||0,AR.edit,"بلا تعديلات")):esc(e.detail||""));
@@ -20871,9 +20939,9 @@ function paint(){
  var h=proposalBanner+(freshNote?'<div class="fresh-note" role="status">'+gi("eye")+'<span>وصل ردّ من القسم. احفظ تعديلك أو أرسله ثم حدّث الصفحة.</span></div>':'')+
   '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open?"":" · انتهت مدّة الطلبات، والصفحة للقراءة")+'</p>'+
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div></div></div>'+
-  (anyFixed()?calendarHtml(true):'')+pathHtml()+
+  (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
- h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(deckHtml()||calmHtml())+replayHtml()+planTable()+memoryHtml();
+ h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(deckHtml()||calmHtml())+replayHtml()+memoryHtml()+planTable();
  if(open&&data.courses&&data.courses.length){
   var collegeMap={};data.courses.forEach(function(c){if(c.collegeId&&!collegeMap[c.collegeId])collegeMap[c.collegeId]=c.collegeName||("كلية "+c.collegeId)});
   var collegeOptions=Object.keys(collegeMap).map(function(id){return{id:Number(id),name:collegeMap[id]}});
@@ -20895,6 +20963,7 @@ function paint(){
   det.addEventListener("toggle",function(){demoOpen=det.open});slot.appendChild(det);
   var top=document.getElementById("demoTop");if(top)top.style.display="none"}
  wire();
+ ensureHeat();
 }
 /* الأرقامُ كما تُكتب على أيّ لوحة: عربيةً أو فارسيةً أو لاتينية. وكان
    التحويلُ يعرف العربيةَ وحدَها، فمن لوحتُه فارسيةٌ يرى «اكتب ١٢ رقماً» مهما
@@ -20985,7 +21054,7 @@ function check(i){
  .then(function(r){return r.json()}).then(function(d){
   if(seq!==pending[i]||!state[i])return;
   it.tone=d.kind==="clear"?"ok":d.kind==="exception"?"warn":"bad";
-  it.note=d.headline||"";it.alts=d.nearestTimes||[];it.shapes=d.shapes||[];paint()})
+  it.note=d.headline||"";it.alts=d.nearestTimes||[];it.shapes=d.shapes||[];if(d.block)it.blk=d.block;paint()})
  .catch(function(){if(seq!==pending[i]||!state[i])return;it.tone="bad";it.note="تعذّر فحص الموعد الآن. أعد المحاولة قبل الإرسال.";paint()});
 }
 /* «كان» يُقرأ من لقطة الموعد الأصلي، لا من slots: بعد الإرسال تحمل slots ما
@@ -21044,7 +21113,7 @@ function postSubmit(civil,done){
 function mapItems(d){return (d.request.items||[]).map(function(it){var a=it.after||{};return{rowId:it.rowId,action:it.action||"keep",
   courseId:it.action==="add"?Number(a.courseId||0):undefined,collegeId:it.action==="add"?Number(a.collegeId||0):undefined,
   sectionId:it.action==="add"?Number(a.sectionId||0):undefined,collegeName:it.action==="add"?(a.collegeName||""):"",
-  before:it.before||it.after,blk:blockOf(it.before||it.after),after:it.after,slots:it.slots||[],days:(it.action==="change"||it.action==="add")?(it.slots||[]).map(function(s){return s.day}):[],
+  before:it.before||it.after,blk:(it.block||blockOf(it.before||it.after)),after:it.after,slots:it.slots||[],days:(it.action==="change"||it.action==="add")?(it.slots||[]).map(function(s){return s.day}):[],
   start:(it.action==="change"||it.action==="add")&&it.slots&&it.slots[0]?it.slots[0].start:"",excuse:it.excuse||"",
   decision:it.decision||null,thread:it.thread||[],negotiation:it.negotiation||"",tone:it.verdict==="clear"?"ok":it.verdict==="exception"?"warn":it.verdict==="conflict"?"bad":"",
   note:it.reasons&&it.reasons.length?it.reasons[0].text:(it.verdict==="clear"?"الوقت متاح":""),alts:it.nearestTimes||[]}})}
@@ -21189,6 +21258,7 @@ app.post("/api/public/request/:token/check", async (req: Request, res: Response)
     roomAvailable: !(item.reasons || []).some((reason: any) => reason.source === "room"),
     nearestTimes: (item.nearestTimes || []).map(slot => ({ day: slot.day, days: slot.days, start: slot.start, end: slot.end })),
     shapes: item.shapes || [],
+    block: item.block || 0,
   });
 });
 
@@ -21294,6 +21364,64 @@ app.get("/api/public/request/:token/events", rateLimitCardEvents, async (req: Re
     if (open.delete(res)) cardStreamTotal -= 1;
     if (!open.size) cardStreams.delete(id);
   });
+});
+
+/**
+ * ── خريطةُ الأوقات ─────────────────────────────────────────────────────────
+ *
+ * بعد أن يختار الأستاذ أيامَه يرى على كل وقتِ بدايةٍ شريطاً: أخضر يمرّ، أصفر يحتاج سبب استثناء، أحمر لا يمكن. فلا
+ * يجرّب الأوقاتَ واحداً واحداً ليعرف. والحكمُ هو الحكمُ نفسه (judgeRequestItems) على حزمته كلها، لا تقديرٌ ثانٍ.
+ * ولا يُقرأ شيءٌ لكل وقت: السياقُ وقواعدُ النطاق تُبنى مرّةً للطلب كله، وعددُ الأوقات محدود.
+ */
+const rateLimitCheckTimes = rateLimit({
+  windowMs: 60_000,
+  limit: 90,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
+});
+app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (req: Request, res: Response) => {
+  const resolved = await resolveRequestLink(String(req.params.token || ""));
+  if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
+  res.setHeader("Cache-Control", "no-store");
+  const items = Array.isArray(req.body?.items) ? (req.body.items as any[]) : null;
+  const index = Number(req.body?.itemIndex);
+  const entry = items && Number.isInteger(index) ? items[index] : null;
+  if (!items || items.length > 200 || !entry || (entry.action !== "change" && entry.action !== "add")) {
+    res.status(400).json({ error: "تعذّر فحص الأوقات لهذا البند." });
+    return;
+  }
+  const starts = [...new Set((Array.isArray(req.body?.starts) ? req.body.starts : []).map(String)
+    .filter((value: string) => /^\d{1,2}:\d{2}$/.test(value)))].slice(0, 14) as string[];
+  if (!starts.length) { res.json({ times: {} }); return; }
+  let base: InstructorRequestItem[];
+  try {
+    base = await instructorRequestItemsFromPayload(resolved.request, items.map((item, k) => k === index ? { ...item, start: "08:00" } : item));
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message || "تعذّر فحص الأوقات لهذا البند." });
+    return;
+  }
+  const target = base[index];
+  const days = (target?.slots || []).map(slot => slot.day as RequestDayKey);
+  if (!target || !days.length) { res.json({ times: {} }); return; }
+  /* طولُ اللقاء كما بُني في البند (ممتدّ أو معتاد تاريخياً)، لا ما تقوله الصفحة. */
+  const first = target.slots![0];
+  const block = days.length === 1 ? timeToMinutes(first.end) - timeToMinutes(first.start) : undefined;
+  const context = await buildRequestContext(resolved.request);
+  const rulesCache = new Map<string, any>();
+  const times: Record<string, "ok" | "warn" | "bad"> = {};
+  for (const start of starts) {
+    const end = endForRequest(days, start, block && block > 0 ? block : undefined);
+    const variant = base.map((item, k) => k !== index ? item : {
+      ...item,
+      after: { ...(item.after as any), time: `${start} – ${end}` },
+      slots: days.map(day => ({ day, start, end: endForRequest([day], start, block && block > 0 ? block : undefined) })),
+    });
+    const judged = await judgeRequestItems({ ...resolved.request, items: variant }, { context, rulesCache });
+    const verdict = judged.items[index]?.verdict;
+    times[start] = verdict === "conflict" ? "bad" : verdict === "exception" ? "warn" : "ok";
+  }
+  res.json({ times });
 });
 
 /**

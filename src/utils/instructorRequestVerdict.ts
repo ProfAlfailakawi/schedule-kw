@@ -43,7 +43,7 @@ import {
 import { findConflicts, minutesToTime } from "./scheduleIntelligence";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
 import { roomIdentityKey } from "./locationRegistry";
-import type { CourseNature } from "./courseNature";
+import { habitualBlockMinutes, type CourseNature } from "./courseNature";
 
 /** ما يطلبه الأستاذ في صفٍّ واحد. */
 export type RequestAction = "keep" | "change" | "delete" | "add";
@@ -105,6 +105,8 @@ export interface RequestVerdict {
    * بلا استثناء، فاقتراحُ الفاحص لا يُردّ عليه بفاحصٍ آخر.
    */
   shapes?: Array<{ days: DayKey[]; label: string }>;
+  /** طولُ اللقاء الذي حُكم به حين يكون يوماً واحداً بطولٍ غير طول المحاضرة (من الصفّ نفسه أو من تاريخ المقرّر). */
+  blockMinutes?: number;
   /** جملةٌ واحدةٌ تصف الحكم كله، جاهزةٌ للعرض. */
   headline: string;
 }
@@ -152,6 +154,8 @@ export interface VerdictContext {
   /** سُلّمُ البدايات الذي يدرّس به القسم فعلاً. حين يغيب لا تُقترح أوقات. */
   startLadder?: string[];
   nature?: Map<number, CourseNature> | null;
+  /** الفصلُ الذي يُحكم فيه: «السابقُ» في التاريخ ما قبله. */
+  termId?: number;
   previousRows?: FSchedule[];
   /** نافذة الطلبات: خارجَها لا يُقبل شيء. */
   windowOpen?: boolean;
@@ -369,8 +373,11 @@ export function headlineReasonOf(list: ReadonlyArray<RequestReason> | undefined)
 export function judgeRequest(inbound: RequestedRow, context: VerdictContext): RequestVerdict {
   const reasons: RequestReason[] = [];
   /* اللقاءُ الممتدّ يُعرف من صفّه القائم في الجدول، فلا يُصدَّق ما تقوله الصفحة عنه. */
-  const request: RequestedRow = inbound.rowId == null ? { ...inbound, blockMinutes: undefined }
-    : { ...inbound, blockMinutes: blockMinutesOfRow(context.allRows.find(row => Number(row.id) === Number(inbound.rowId))) };
+  /* طولُ اللقاء الممتدّ: من الصفّ نفسه إن كان ممتدّاً، وإلا مما درج عليه المقرّر في فصولٍ سابقة (شعبٌ بيومٍ واحد). */
+  const ownBlock = inbound.rowId == null ? undefined : blockMinutesOfRow(context.allRows.find(row => Number(row.id) === Number(inbound.rowId)));
+  const habitBlock = inbound.days.length === 1 && inbound.action !== "delete" && inbound.action !== "keep"
+    ? habitualBlockMinutes(context.nature?.get(Number(inbound.AdCourseId)), context.termId) : undefined;
+  const request: RequestedRow = { ...inbound, blockMinutes: ownBlock ?? habitBlock };
   const computedEnd = endForRequest(request.days, request.start, request.blockMinutes);
   /* هويّةُ الصفّ: معرّفُه إن كان قائماً، وإلا هويّتُه المؤقّتة. تُستعمل لتخطّي
      الصفِّ نفسِه في كل فحص، فلا يتعارض مع ذاته حين يُنقل. */
@@ -400,7 +407,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     const kind: RequestVerdictKind = blocking ? "conflict" : reasons.length ? "exception" : "clear";
     return {
       kind, reasons, sendable: !blocking, needsExcuse: kind === "exception",
-      roomAvailable: null, roomCandidates: [], nearestTimes: [], computedEnd,
+      roomAvailable: null, roomCandidates: [], nearestTimes: [], computedEnd, blockMinutes: request.blockMinutes,
       headline: blocking
         ? headlineReasonOf(reasons)!.text
         : reasons.length ? "يحتاج استثناءً من القسم" : "الوقت متاح",
@@ -460,7 +467,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
        بنمطٍ غير مثالي لا تُمنع من النقل ما دام مجموعُها لم ينقص. */
     const original = request.rowId == null ? undefined : context.allRows.find(row => Number(row.id) === Number(request.rowId));
     const originalWeekly = original ? DAY_KEYS.filter(day => (original as any)[day]).length * (toMinutes(original.fendtime) - toMinutes(original.fstarttime)) : Infinity;
-    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly)) {
+    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly, habitBlock && request.days.length === 1 ? habitBlock : Infinity)) {
       const shapes = patternsForHours(courseHours).map(pattern => pattern.label).slice(0, 3).join(" أو ");
       reasons.push({
         source: "shape",
@@ -473,9 +480,13 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
       /* شعبةٌ تُدرَّس يوماً واحداً بلقاءٍ ممتدّ (مختبر، ورشة، تدريب) أوّلُ خياراتها أن تبقى يوماً واحداً بطولها
          نفسه: كانت الأزرارُ تدفعها إلى نمط المحاضرات على ثلاثة أيام، وهو ليس طبيعتها. */
-      const blockDay = request.blockMinutes && original ? DAY_KEYS.find(day => (original as any)[day]) : undefined;
-      const keepOneDay = blockDay
-        ? [{ days: [blockDay] as DayKey[], label: `يوم واحد كما هو الآن: ${DAY_NAMES[DAY_KEYS.indexOf(blockDay)]} ${request.blockMinutes}د` }]
+      const habitNature = context.nature?.get(Number(request.AdCourseId));
+      const habitLength = habitualBlockMinutes(habitNature, context.termId);
+      const habitDay = habitLength ? (habitNature?.dayPatterns.find(pattern => pattern.days.length === 1)?.days[0] || request.days[0]) : undefined;
+      const blockDay = request.blockMinutes && original ? DAY_KEYS.find(day => (original as any)[day]) : habitDay;
+      const blockLength = request.blockMinutes || habitLength;
+      const keepOneDay = blockDay && blockLength
+        ? [{ days: [blockDay] as DayKey[], label: `${request.blockMinutes && original ? "يوم واحد كما هو الآن" : "يوم واحد كما دُرّس سابقاً"}: ${DAY_NAMES[DAY_KEYS.indexOf(blockDay)]} ${blockLength}د` }]
         : [];
       result.shapes = [...keepOneDay, ...patternsForHours(courseHours)
         .filter(pattern => pattern.days.length > 1 && pattern.days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold)

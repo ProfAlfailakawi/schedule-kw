@@ -11,6 +11,7 @@ import { judgeRequest, type RequestedRow, type VerdictContext } from "../src/uti
 import { pickPreviousRequest } from "../src/utils/previousTermRequest";
 import { REQUEST_REPLAY_SCRIPT } from "../src/server/requestReplayScript";
 import { signatureVerifyPage } from "../src/server/signatureVerifyPage";
+import { learnCourseNature, habitualBlockMinutes } from "../src/utils/courseNature";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 
 let passed = 0, failed = 0;
@@ -62,6 +63,33 @@ const labMoved = judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), labC
 check(labMoved.sendable && labMoved.computedEnd === "12:00", "ونقلُ المختبر اليومي إلى يومٍ آخر يُبقي طولَه ويمرّ");
 const notLab = judgeRequest(ask({ days: ["fwednesday"] }), context(4));
 check(!(notLab.shapes || []).some(shape => /كما هو الآن/.test(shape.label)), "وشعبةٌ ليست لقاءً ممتدّاً لا يُعرض لها خيارُ اليوم الواحد");
+
+/* ── تاريخُ المقرّر: شعبٌ بيومٍ واحد تأخذ طولَها المعتاد ─────────────────── */
+const hist = (course: number, terms: number[], over: any = {}) => terms.map((term, k) => row({ id: 900 + k, AdTermId: term, AdCourseId: course,
+  fmonday: false, fwednesday: true, fthursday: false, fsunday: false, fstarttime: "08:00", fendtime: "12:00", ...over }));
+const natureOf = (course: number, terms: number[], over: any = {}) => new Map([[course, learnCourseNature(course, hist(course, terms, over))!]]);
+const sundayRow = row({ id: 1, AdTermId: 20, fmonday: false, fwednesday: false, fsunday: true, fstarttime: "08:00", fendtime: "08:50" });
+const withHistory = (nature: any, hours = 4) => ({ ...context(hours), allRows: [sundayRow], instructorRowsAfter: [sundayRow], nature, termId: 20 });
+const habitual = withHistory(natureOf(100, [16, 17, 18]));
+const moved = judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), habitual);
+check(moved.sendable && moved.computedEnd === "12:00" && moved.blockMinutes === 240, "شعبةٌ تاريخُها يومٌ واحد بأربع ساعات: نقلُها يومَ الخميس يُبقي طولَها (ينتهي 12:00) ويمرّ");
+const unaware = judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), { ...habitual, nature: null });
+check(!unaware.sendable, "ومن غير التاريخ كان يُمنع: ما تغطّيه خمسون دقيقةً لا يكفي أربع ساعات");
+const addedWithHistory = judgeRequest({ rowId: null, action: "add", AdCourseId: 100, days: ["fmonday"], start: "13:00" }, habitual);
+check(addedWithHistory.sendable && addedWithHistory.computedEnd === "17:00", "وإضافةُ شعبةٍ جديدة لمثل هذا المقرّر بيومٍ واحد تأخذ طولَه المعتاد (13:00 ← 17:00)");
+const threeDayRow = row({ id: 1, AdTermId: 20, fmonday: true, fwednesday: true, fthursday: true, fstarttime: "08:00", fendtime: "09:20" });
+const twoDays = judgeRequest(ask({ days: ["fmonday", "fwednesday"] }), { ...habitual, allRows: [threeDayRow], instructorRowsAfter: [threeDayRow] });
+check(!twoDays.sendable && twoDays.shapes?.[0]?.days.length === 1 && /كما دُرّس سابقاً/.test(twoDays.shapes?.[0]?.label || ""), "وجعلُها يومين يُمنع وأوّلُ الخيارات «يوم واحد كما دُرّس سابقاً»");
+const oneTerm = judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), withHistory(natureOf(100, [18])));
+check(!oneTerm.sendable && oneTerm.blockMinutes === undefined, "وتاريخٌ من فصلٍ واحد لا يُعتدّ به: لا يَعِد بما لا يعرف");
+check(habitualBlockMinutes(natureOf(100, [16, 17, 18]).get(100), 17) === undefined, "ولا يُحتسب إلا ما سبق الفصلَ الحالي");
+const hour = withHistory(natureOf(100, [16, 17, 18], { fwednesday: false, fmonday: true, fstarttime: "09:00", fendtime: "09:50" }), 1);
+const hourMoved = judgeRequest(ask({ days: ["fmonday"], start: "10:00" }), hour);
+check(hourMoved.sendable && hourMoved.computedEnd === "10:50", "ومقرّرٌ بساعةٍ واحدة اعتاد خمسين دقيقة لا يصير ثمانين لأن اليوم اثنين");
+const multi = withHistory(new Map([[100, learnCourseNature(100, [16, 17, 18].flatMap((term, k) => [
+  row({ id: 800 + k * 2, AdTermId: term, fmonday: true, fwednesday: true, fthursday: false, fsunday: false, fstarttime: "09:00", fendtime: "10:20" }),
+])) ! ]]));
+check(judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), multi).blockMinutes === undefined, "ومقرّرٌ اعتاد لقاءين لا يأخذ طولَ يومٍ واحد");
 
 const stillMixed = judgeRequest(ask({ days: ["fsunday", "fmonday"] }), context(1));
 check(stillMixed.reasons.some(reason => /أيام مختلطة/.test(reason.text)), "ويبقى التحذير لما ليس نمطاً معتمداً لمقرّره");
@@ -207,6 +235,19 @@ check(pickPreviousRequest([req5(17, 1, "2026-01-01")], terms5, cur5) === null, "
 const lastOfTwo = pickPreviousRequest([req5(18, 3, "2026-01-01"), req5(19, 3, "2026-02-01")], terms5, cur5);
 check(lastOfTwo?.request.id === 19, "وإن تعدّد في الفصل الواحد فآخرُ ما أُرسل");
 check(pickPreviousRequest([], terms5, cur5) === null, "ولا شيءَ عند غياب الطلبات");
+
+/* حزمة التحسين البصري: عقودٌ على المصدر. */
+const css4 = fs.readFileSync("src/server/requestPageStyles.ts", "utf8");
+const kit4 = fs.readFileSync("src/server/publicKit.ts", "utf8");
+check(server.includes("/check-times"), "نقطةُ فحصِ الأوقات (الخريطة الحرارية) موجودة");
+check(server.includes("function weekStrip") && css4.includes(".wk"), "مخطط الأسبوع وأنماطه موجودان");
+check(css4.includes("heat-key") && server.includes("function heatAttr"), "مفتاح الخريطة الحرارية ودالتها موجودان");
+check(/prefers-color-scheme:dark/.test(css4) && css4.includes("color-scheme:dark"), "الوضع الداكن معرَّف");
+check(css4.includes(".verdict[data-tone=warn]>i{background:#8a6100}"), "أيقونة التنبيه بتباينٍ كافٍ في الفاتح");
+check(css4.includes(".verdict[data-tone=warn]>i{background:var(--warn);color:var(--on)}"), "وفي الداكن كذلك");
+check(kit4.includes("وقّع برقمك المدني"), "عنوانُ ورقة التوقيع الجديد");
+check(server.includes("memoryHtml()+planTable()") || server.includes("replayHtml()+memoryHtml()"), "بطاقةُ الذاكرة أعلى الجدول");
+check(server.includes("calmHtml") && server.includes("calendarHtml"), "التقويمُ داخل البطاقة الهادئة");
 
 /* السكربت المولَّد يُجمَّع كما هو. */
 const html = server.includes("function instructorRequestPage") ? "ok" : "";

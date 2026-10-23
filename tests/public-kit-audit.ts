@@ -71,9 +71,10 @@ check(!/localStorage|sessionStorage|indexedDB|document\.cookie/.test(PUBLIC_KIT_
   "العدّة لا تخزّن شيئاً ولا تطبع في السجل: الرقمُ المدني يبقى في ذاكرة الصفحة وحدها");
 check(!PUBLIC_KIT_CSS.includes("`") && !PUBLIC_KIT_SCRIPT.includes("`") && !PUBLIC_KIT_SCRIPT.includes("${"), "لا علامةَ اقتباسٍ مائلة ولا ‎${‎ في نصٍّ يُحقن في قالب");
 const requestStyles = fs.readFileSync("src/server/requestPageStyles.ts", "utf8");
-check([proposal, requestStyles].every(css => /color-scheme:\s*light(?:[;}])/.test(css)
-  && !/prefers-color-scheme:\s*dark|color-scheme:\s*(?:light\s+)?dark/.test(css)),
-  "الصفحتان تبقيان فاتحتين حتى مع تفضيل الجهاز للوضع الداكن");
+check(/color-scheme:\s*light(?:[;}])/.test(proposal) && !/prefers-color-scheme:\s*dark|color-scheme:\s*(?:light\s+)?dark/.test(proposal),
+  "صفحةُ المقترح تبقى فاتحة");
+check(/color-scheme:\s*light(?:[;}])/.test(requestStyles) && /@media screen and \(prefers-color-scheme:dark\)/.test(requestStyles),
+  "وبطاقةُ الأستاذ فاتحةٌ افتراضياً وتتبع تفضيل الجهاز الداكن عمداً");
 
 console.log(`\nPublic kit audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
