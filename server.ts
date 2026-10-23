@@ -21185,7 +21185,7 @@ app.get("/api/public/request/:token/previous", async (req: Request, res: Respons
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
   res.setHeader("Cache-Control", "no-store");
   const request = resolved.request;
-  const memoKey = `${Repository.currentDemoSessionId()}|${request.id}`;
+  const memoKey = dataContextCacheKey(request.id);
   const cached = previousTermMemo.get(memoKey);
   if (cached && Date.now() - cached.at < 5 * 60_000) { res.json(cached.value); return; }
   const terms = (await Repository.getTerms() as any[])
