@@ -107,6 +107,10 @@ check(wrongShape.sendable && /^المعتاد/.test(wrongShape.shapes?.[0]?.labe
 const applied = judgeRequest(ask({ days: wrongShape.shapes?.[0]?.days as any || [], start: "09:00" }), threeDays);
 check(applied.sendable && !applied.notices?.some(note => /لا يغطّيها/.test(note)), "وتطبيقُه يمرّ من الفاحص نفسه بلا تنبيه تغطية (ويبقى تنبيه المقارنة باللائحة وحده)");
 
+{
+  const serverSource = fs.readFileSync("server.ts", "utf8");
+  check(/Number\(row\.AdTermId\) < beforeTermId/.test(serverSource) && /courseHabit\(courseId, Number\(request\.AdTermId\)\)/.test(serverSource), "والمعتاد يُتعلَّم من الفصول التي سبقت الفصل الجاري وحدها");
+}
 const multi = withHistory(new Map([[100, learnCourseNature(100, [16, 17, 18].flatMap((term, k) => [
   row({ id: 800 + k * 2, AdTermId: term, fmonday: true, fwednesday: true, fthursday: false, fsunday: false, fstarttime: "09:00", fendtime: "10:20" }),
 ])) ! ]]));

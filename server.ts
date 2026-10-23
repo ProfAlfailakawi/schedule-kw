@@ -19086,18 +19086,19 @@ function stripForInstructor(request: InstructorRequest) {
  * لكل مقرّر، لا مع كل نقرة: الحكمُ يتكرّر عند كل تعديلٍ في الصفحة.
  */
 const courseHabitMemo = new Map<string, { at: number; nature: CourseNature | null }>();
-async function courseHabit(courseId: number): Promise<CourseNature | null> {
+/* المعتاد يُتعلَّم من الفصول التي سبقت `beforeTermId` وحدها: صفوفُ الفصل الجاري وما بعده ليست «ما درج عليه المقرّر». */
+async function courseHabit(courseId: number, beforeTermId = 0): Promise<CourseNature | null> {
   if (!courseId) return null;
-  const key = dataContextCacheKey(courseId);
+  const key = `${dataContextCacheKey(courseId)}:${beforeTermId}`;
   const held = courseHabitMemo.get(key);
   if (held && Date.now() - held.at < 10 * 60_000) return held.nature;
   let nature: CourseNature | null = null;
-  try { nature = learnCourseNature(courseId, await Repository.getScheduleHistoryForCourses([courseId])); } catch { nature = null; }
+  try { nature = learnCourseNature(courseId, (await Repository.getScheduleHistoryForCourses([courseId])).filter(row => !beforeTermId || Number(row.AdTermId) < beforeTermId)); } catch { nature = null; }
   if (courseHabitMemo.size > 800) courseHabitMemo.clear();
   courseHabitMemo.set(key, { at: Date.now(), nature });
   return nature;
 }
-const habitBlockFor = async (courseId: number, termId: number) => habitualBlockMinutes(await courseHabit(courseId), termId);
+const habitBlockFor = async (courseId: number, termId: number) => habitualBlockMinutes(await courseHabit(courseId, termId), termId);
 
 /** مدّةُ لقاءٍ ممتدٍّ من نصّ وقت البند «16:00 – 19:50» حين يكون يوماً واحداً. */
 function blockMinutesOfItem(item: InstructorRequestItem | undefined): number | undefined {
@@ -19492,7 +19493,7 @@ async function judgeRequestItems(request: InstructorRequest, options: {
   const habits = new Map<number, CourseNature>();
   for (const courseId of new Set((request.items || []).filter(item => item.action === "change" || item.action === "add")
     .map(item => Number(item.after?.courseId || item.before?.courseId || 0)).filter(Boolean))) {
-    const nature = await courseHabit(courseId);
+    const nature = await courseHabit(courseId, Number(request.AdTermId));
     if (nature) habits.set(courseId, nature);
   }
 
@@ -21520,7 +21521,7 @@ app.get("/api/public/request/:token/day-habits", async (req: Request, res: Respo
   }
   const habits: Record<string, { perWeek: number; patterns: string[][] }> = {};
   for (const id of asked.filter(value => allowed.has(value))) {
-    const habit = dayHabitOf(await courseHabit(id));
+    const habit = dayHabitOf(await courseHabit(id, Number(resolved.request.AdTermId)));
     if (habit) habits[String(id)] = habit;
   }
   res.json({ habits });
