@@ -79,6 +79,25 @@ export const PUBLIC_KIT_CSS = `/* ── عدّة الصفحات العامة �
 @media print{.sk-scrim,.sk-toast{display:none!important}}
 `;
 
+/**
+ * زرُّ «نسخ الرقم» في تلميح البيئة التجريبية: الأرقامُ الوهمية التي تُقترح على الزائر
+ * (الرقم المدني، رقم الحالة) كان نسخُها كاملةً يتعثّر على الهاتف. فكلُّ زرٍّ يحمل
+ * الرقمَ في `data-demo-copy` ويلتقطه مستمعٌ واحدٌ مفوَّضٌ للصفحة. محمي من التكرار
+ * بعلامةٍ على النافذة لأن الصفحةَ قد تحمله مرّتين (العدّة ثم سكربتها).
+ * ولا تُكتب هنا علامةُ الاقتباس المائلة ولا ‎${‎ (قالبٌ نصّي في الخادم).
+ */
+export const DEMO_COPY_SCRIPT = String.raw`
+(function(){if(window.__demoCopy)return;window.__demoCopy=1;
+document.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("[data-demo-copy]"):null;if(!b)return;e.preventDefault();
+var t=b.getAttribute("data-demo-copy")||"";
+function done(){var s=b.querySelector("[data-demo-copy-label]");b.setAttribute("data-copied","1");
+ if(s){if(!s.__orig)s.__orig=s.textContent;s.textContent="تم النسخ"}
+ clearTimeout(b.__t);b.__t=setTimeout(function(){b.removeAttribute("data-copied");if(s&&s.__orig)s.textContent=s.__orig},1800)}
+function legacy(){try{var a=document.createElement("textarea");a.value=t;a.setAttribute("readonly","");a.style.cssText="position:fixed;top:0;opacity:0";
+ document.body.appendChild(a);a.select();a.setSelectionRange(0,t.length);var ok=document.execCommand("copy");document.body.removeChild(a);if(ok)done()}catch(_){}}
+if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,legacy);else legacy()})})();
+`;
+
 export const PUBLIC_KIT_SCRIPT = String.raw`
 var SK=(function(){
 var G={
@@ -164,4 +183,4 @@ document.addEventListener("input",function(e){var el=e.target;if(!el||!el.classL
  for(var k=0;k<tfHandlers.length;k++)tfHandlers[k](el,t)});
 return {G:G,esc:esc,gi:gi,digits:digits,sheet:sheet,close:close,toast:toast,known:known,sign:sign,norm:norm,tf:tf,onTime:onTime};
 })();
-`;
+` + DEMO_COPY_SCRIPT;

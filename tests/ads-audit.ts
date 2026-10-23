@@ -956,7 +956,7 @@ async function main() {
     const policy = (await import("../src/server/adsPages")).measurementPage("N");
     check(policy.includes("10 مرات") && policy.includes("طالبان على الأقل"), "السياسة العامة تذكر سقف التكرار وحدّ الخصوصية الجديد");
     const ads = fs.readFileSync("src/components/AdsManager.tsx", "utf8");
-    check(ads.includes("أربعةُ تبويبات") && ads.includes('"Home"') && ads.includes('"End"') && ads.includes("ArrowLeft") && ads.includes("tabIndex={tab === id ? 0 : -1}"), "التبويبات: أربعة، وتنقّلٌ بالأسهم وHome/End، وtabIndex للمختار وحده");
+    check(ads.includes("خمسةُ تبويبات") && ads.includes('"Home"') && ads.includes('"End"') && ads.includes("ArrowLeft") && ads.includes("tabIndex={tab === id ? 0 : -1}"), "التبويبات: خمسة، وتنقّلٌ بالأسهم وHome/End، وtabIndex للمختار وحده");
     const routes = fs.readFileSync("src/server/adsRoutes.ts", "utf8");
     check(routes.includes("cachedAdStats(5 * 60_000)") && !routes.includes("const allStats = await Repository.listAdStats()"), "تقرير الحملة: المتوسط المرجعي من إحصاءاتٍ مخزّنة لا قراءةٍ كاملةٍ في كل فتح");
     const pages = fs.readFileSync("src/server/adsPages.ts", "utf8");

@@ -1,8 +1,10 @@
 /**
- * ── بياناتٌ ناقصة في الجدول — إشعارٌ لا مانع ──────────────────────────────
+ * ── بياناتٌ ناقصة في الجدول — إشعارٌ لا مانع، إلا السعة ───────────────────
  *
  * قاعدة المالك (2026-09-27): «التوقيع لا يمنعه إلا تعارض ماديّ». فهذه القائمة
- * تُعرض وتُستكمل، ولا يتوقف عليها توقيعٌ ولا إرسال. والصفوف تُقرأ بعد التطبيع
+ * تُعرض وتُستكمل، ولا يتوقف عليها توقيعٌ ولا إرسال — باستثناءٍ واحد أضافه
+ * المالك: سعة الشعبة. مقررٌ بلا سعةٍ مسجّلة يمنع التوقيع (`capacityGapItems`)
+ * لأن اقتراح الشعب وملاءمة القاعات وسقف التسجيل كلُّها تُبنى عليها. والصفوف تُقرأ بعد التطبيع
  * نفسه الذي تُعدّ به الموانع (`normalizeRow`)، فقاعةٌ مكتوبةٌ نصّاً تطابق
  * سجلّ المواقع ليست ناقصة.
  */
@@ -73,4 +75,12 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
   }
   const items = [...missing.values()];
   return { ready: items.length === 0, count: items.length, items, roomFit:{count:fitIssues.length,unknownRoomCapacity,items:sortByName(fitIssues, item => item.courseName).slice(0,40)} };
+}
+
+/** تسمية حقل السعة كما تكتبها قائمة النواقص أعلاه — مصدرٌ واحد للخادم والواجهة. */
+export const CAPACITY_GAP_FIELD = "سعة الشعبة";
+
+/** المقرراتُ التي في الجدول وسعتُها غير مسجّلة — هي وحدها ما يمنع التوقيع من النواقص. */
+export function capacityGapItems(items: DataGapItem[] | undefined | null): DataGapItem[] {
+  return (items || []).filter(item => item.kind === "course" && item.fields.includes(CAPACITY_GAP_FIELD));
 }

@@ -1,7 +1,7 @@
 /**
  * ── شاشة الإعلانات ───────────────────────────────────────────────────────────────
  *
- * رأسٌ بالأرقام، وأربعةُ تبويبات (الحملات · الطلبات · المواقع والمواسم · ملف الشراكة). القائمة مضغوطة، وتفاصيل الحملة
+ * رأسٌ بالأرقام، وخمسةُ تبويبات (الحملات · الطلبات · المواقع والمواسم · معاينة للشركات · ملف الشراكة). القائمة مضغوطة، وتفاصيل الحملة
  * وإجراءاتها في درجٍ جانبي، و«حملة جديدة» معالجٌ من أربع خطوات في درج. لا أسعار هنا؛ الشاشة للتتبع.
  * الشروط تُفرض في الخادم (مقاس، وزن، جودة، رابط، سعة، فئة منافس) وتُشرح هنا قبل أن تُرفض الحملة.
  */
@@ -12,12 +12,13 @@ import CampaignList from "./ads/CampaignList";
 import CampaignDrawer, { type DrawerActions } from "./ads/CampaignDrawer";
 import CampaignWizard, { blankForm, formOf, type WizardForm } from "./ads/CampaignWizard";
 import { PlacementMap, SeasonTimeline } from "./ads/PlacementMap";
+import PlacementPreview from "./ads/PlacementPreview";
 import AttentionList, { attentionItems } from "./ads/AttentionList";
 import LeadsPanel from "./ads/LeadsPanel";
 import PartnerLinks from "./ads/PartnerLinks";
 import { api, fmt, pct1, type Payload } from "./ads/shared";
 
-type Tab = "campaigns" | "leads" | "placements" | "kit";
+type Tab = "campaigns" | "leads" | "placements" | "preview" | "kit";
 
 export default function AdsManager() {
   const [data, setData] = useState<Payload | null>(null);
@@ -84,7 +85,7 @@ export default function AdsManager() {
 
   /* تنقّلُ التبويبات بلوحة المفاتيح (WAI-ARIA): في الصفحة العربية السهمُ الأيسر للتالي والأيمن للسابق، وHome/End للطرفين. */
   const onTabKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const ids: Tab[] = ["campaigns", "leads", "placements", "kit"];
+    const ids: Tab[] = ["campaigns", "leads", "placements", "preview", "kit"];
     const at = ids.indexOf(tab);
     const rtl = getComputedStyle(e.currentTarget).direction === "rtl";
     const step = e.key === "ArrowLeft" ? (rtl ? 1 : -1) : e.key === "ArrowRight" ? (rtl ? -1 : 1) : 0;
@@ -100,6 +101,8 @@ export default function AdsManager() {
     edit: (c, step) => { setOpenId(""); setWizard({ form: formOf(c), step }); },
   };
   const newCampaign = () => { setOpenId(""); setWizard({ form: blankForm(data), step: 1 }); };
+  /* من المعاينة: الموقعُ المختار يُحجز في المعالج، واسمُ الشركة إن كتبه الأدمن. */
+  const startAt = (slot: string, company: string) => { setOpenId(""); setWizard({ form: { ...blankForm(data), slot, company }, step: 1 }); };
 
   return (
     <div className="pt-page ad-page">
@@ -120,7 +123,7 @@ export default function AdsManager() {
       </section>
 
       <div className="ad-tabs" role="tablist" aria-label="أقسام الإعلانات" onKeyDown={onTabKey}>
-        {([["campaigns", "الحملات", data.campaigns.length], ["leads", "الطلبات", data.leads.filter(l => l.status === "new").length], ["placements", "المواقع والمواسم", 0], ["kit", "ملف الشراكة", 0]] as Array<[Tab, string, number]>).map(([id, label, n]) => (
+        {([["campaigns", "الحملات", data.campaigns.length], ["leads", "الطلبات", data.leads.filter(l => l.status === "new").length], ["placements", "المواقع والمواسم", 0], ["preview", "معاينة للشركات", 0], ["kit", "ملف الشراكة", 0]] as Array<[Tab, string, number]>).map(([id, label, n]) => (
           <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" key={id} type="button" role="tab" id={`ad-tab-${id}`} aria-selected={tab === id} aria-controls={`ad-panel-${id}`} tabIndex={tab === id ? 0 : -1} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>
             {label}{n ? <em>{fmt(n)}</em> : null}
           </button>
@@ -147,6 +150,13 @@ export default function AdsManager() {
           <PlacementMap data={data} />
           <div className="ad-sech"><h3>تقويم المواسم</h3><p>متى يكون الطلبة في موسم التسجيل أو بدء الفصل أو نهايته، لتختار كل شركةٍ موسم منتجها.</p></div>
           <SeasonTimeline data={data} />
+        </section>
+      ) : null}
+
+      {tab === "preview" ? (
+        <section id="ad-panel-preview" role="tabpanel" aria-labelledby="ad-tab-preview" className="ad-sec">
+          <div className="ad-sech"><h3>معاينةٌ للشركات: أين سيظهر إعلانك؟</h3><p>اعرض على الشركة شكلَ إعلانها في كل مكان قبل الاتفاق. إعلانٌ تجريبي (مثل «آبل» أو أيُّ اسمٍ تكتبه) يوضع في كل موقع بمقاسه الحقيقي، ولا يراه غيرك.</p></div>
+          <PlacementPreview data={data} onStart={startAt} />
         </section>
       ) : null}
 

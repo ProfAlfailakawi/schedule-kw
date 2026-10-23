@@ -3,13 +3,16 @@
  * «التوقيع لا يمنعه إلا تعارضٌ ماديّ». جدولٌ ببياناتٍ ناقصة وبلا تعارضٍ يُوقَّع؛
  * وجدولٌ فيه تعارضٌ حقيقي لا يُوقَّع. وعدّ النواقص يُطبّع القاعات النصّية
  * بالتطبيع نفسه الذي تُعدّ به الموانع.
+ *
+ * واستثناءٌ واحدٌ طلبه المالك: **سعة الشعبة** غير المسجّلة لمقرّرٍ في الجدول تمنع التوقيع
+ * (`capacityGapItems` ← `canSign({ missingCapacity })`)، وبقيةُ النواقص إشعارٌ كما كانت.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canSign, emptyApproval } from "../src/utils/approvalWorkflow";
 import { approvalBlockerSummary } from "../src/utils/scheduleBlockers";
-import { computeScheduleDataReadiness } from "../src/utils/scheduleDataReadiness";
+import { capacityGapItems, computeScheduleDataReadiness } from "../src/utils/scheduleDataReadiness";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -59,7 +62,22 @@ const base = { courses: [course], instructorIds: new Set([7, 8]) };
   check(gaps.count > 0 && !gaps.ready, "الجدول فيه بياناتٌ ناقصة (سعة شعبة) — وسعة القاعة لم تعد بنداً");
   check(blockers.conflicts === 0, "ولا تعارضَ ماديّ فيه");
   const verdict = canSign(emptyApproval(1, 5, 20), "committee", { blockingConflicts: blockers.conflicts, blockingDuplicates: blockers.duplicates, rowCount: rows.length });
-  check(verdict.ok === true, "نواقصُ البيانات وحدها لا تمنع التوقيع");
+  check(verdict.ok === true, "نواقصُ البيانات وحدها لا تمنع التوقيع (والسعةُ لا تُحسب إلا إن مُرّرت)");
+}
+/* 1ج) السعةُ المسجّلة شرطٌ: مقرّرٌ بلا سعةٍ يمنع التوقيع، ونقصُ الوحدات وحده لا يمنع. */
+{
+  const rows = [row(1, { roomId: "f13" })];
+  const noCapacity = computeScheduleDataReadiness({ ...base, courses: [{ ...course, MaxStudent: 0 }], rows, rooms: [room("f13", 40)] });
+  const noCredit = computeScheduleDataReadiness({ ...base, courses: [{ ...course, CourseCredit: 0 }], rows, rooms: [room("f13", 40)] });
+  check(capacityGapItems(noCapacity.items).length === 1, "مقرّرٌ في الجدول بلا سعةٍ مسجّلة يُعدّ مانعاً");
+  check(capacityGapItems(noCredit.items).length === 0 && !noCredit.ready, "ونقصُ الوحدات وحده نقصٌ لا يمنع");
+  const blockers = approvalBlockerSummary(rows, rows, {});
+  const blocked = canSign(emptyApproval(1, 5, 20), "committee", { blockingConflicts: blockers.conflicts, rowCount: rows.length, missingCapacity: capacityGapItems(noCapacity.items).length });
+  check(blocked.ok === false && (blocked as any).code === "missing-capacity" && blocked.message.includes("سعة"), "canSign يرفض بسبب «missing-capacity» برسالةٍ تذكر السعة");
+  const allowed = canSign(emptyApproval(1, 5, 20), "committee", { blockingConflicts: 0, rowCount: rows.length, missingCapacity: 0 });
+  check(allowed.ok === true, "وبعد تسجيل السعة يُوقَّع");
+  const many = canSign(emptyApproval(1, 5, 20), "committee", { blockingConflicts: 0, rowCount: 3, missingCapacity: 3 });
+  check(many.ok === false && many.message.includes("3 مقررات"), "الرسالةُ تعدّ المقرّرات الناقصة");
 }
 /* 1ب) «بانتظار تثبيت القاعة» (مبنى بلا قاعة مثبّتة) حالةٌ مقصودة لا بندٌ ناقص؛ وبلا مبنى تبقى ناقصة. */
 {
@@ -92,12 +110,14 @@ const base = { courses: [course], instructorIds: new Set([7, 8]) };
 {
   const server = readFileSync(join(ROOT, "server.ts"), "utf8");
   const sign = server.slice(server.indexOf('app.post("/api/approvals/sign"'), server.indexOf('app.post("/api/approvals/withdraw"'));
-  check(!sign.includes("data-readiness") && !sign.includes("scheduleDataReadiness"), "مسار التوقيع بلا بوابة نواقص");
+  check(!sign.includes("data-readiness") && sign.includes("capacityGapItems(readiness.items)") && sign.includes("missingCapacity"), "مسار التوقيع بلا بوابة نواقص عامة — السعةُ وحدها تُسأل");
   const fn = server.slice(server.indexOf("async function scheduleDataReadiness"), server.indexOf('app.get("/api/approvals"'));
   check(fn.includes("normalizeRow: (row: any) => canonicalizeHistoricalLocationForRuntime(row as FSchedule, registry)"), "عدّ النواقص يطبّع الصفوف بمطبّع الموانع نفسه");
   const bar = readFileSync(join(ROOT, "src/components/ApprovalBar.tsx"), "utf8");
-  check(!/disabled=\{busy \|\| blockingConflicts > 0 \|\|/.test(bar) && !bar.includes("تمنع التوقيع حتى") && bar.includes("لا تمنع التوقيع"), "زرّ التوقيع لا يُعطَّل بالنواقص والنصّ غير مانع");
-  check(bar.includes("canSignNow && blockingConflicts === 0 ?"), "شارة «جاهز للتوقيع» تظهر مع غياب الموانع ولو بقيت نواقص");
+  check(bar.includes("disabled={busy || blockingConflicts > 0 || capacityBlocksSign}") && !bar.includes("تمنع التوقيع حتى") && bar.includes("لا تمنع التوقيع"), "زرّ التوقيع لا يُعطَّل إلا بالمانع المادّي أو بنقص السعة، وبقية النواقص نصُّها غير مانع");
+  check(bar.includes("canSignNow && blockingConflicts === 0 && missingCapacity === 0 ?"), "شارة «جاهز للتوقيع» تظهر مع غياب الموانع والسعةُ كاملة ولو بقيت نواقص أخرى");
+  check(bar.includes("capacityBlocksSign ? (") && bar.includes("السعة ناقصة"), "شارةٌ حمراء «السعة ناقصة» تفتح قائمة الإدخال");
+  check(server.slice(server.indexOf('app.get("/api/approvals"'), server.indexOf('app.get("/api/approvals/term"')).includes("missingCapacity: capacityGapItems(readiness.items).length"), "حالةُ الاعتماد تحمل عدد المقرّرات بلا سعة للشريط");
   check(!bar.includes('className="apb-room-capacities"'), "لا بطاقات سعةٍ مكرّرة تحت القائمة");
 }
 console.log(`\n${passed} passed, ${failed} failed`);
