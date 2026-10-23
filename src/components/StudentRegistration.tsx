@@ -27,6 +27,8 @@ import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { useScopedTerms } from "./useScopedTerms";
 import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "./ScopeAskBar";
 import ApplyProposal from "./ApplyProposal";
+import { withVisitingSuffix } from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import StudentCasesTable, { exportStudentCasesXlsx, GRADUATE_REASON_LABEL, STUDENT_CASE_TYPE_LABEL, type StudentCaseView } from "./StudentCasesTable";
 import {
   CASE_STATUS_LABEL, COMMITTEE_REASONS, CaseStateChip, PENDING_COMMITTEE, REJECT_REASONS, RegistrationJourney, STATE_LABEL,
@@ -381,6 +383,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
   /* ── اقتراحاتُ فتح الشعب لمقرّرات هذا القسم ──────────────────────────────────
      من القراءة نفسها التي يعرضها مركز الذكاء (الطلبُ ÷ السعة − المفتوح، موضوعةً في أسبوعٍ حقيقيّ). لمن
      لا يملك صلاحيةَ الجدول يُرفض الطلب فلا يُعرض زرٌّ — والتسجيلُ لا يرى منها شيئاً. */
+  const { isVisiting } = useVisitingLookup(termId);
   const [openings, setOpenings] = useState<Map<number, { shortfall: number; slot: any }>>(new Map());
   const loadOpenings = useCallback(async () => {
     if (!collegeId || !sectionId || !termId) { setOpenings(new Map()); return; }
@@ -601,7 +604,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
                   label="موافقة + فتح شعبة"
                   lines={[
                     `موافقةُ اللجنة على طلب «${course.name}»`,
-                    `وفتحُ شعبةٍ جديدة له في الجدول: ${slot.dayLabel} ${formatScheduleTimeRange(slot.start, slot.end)} · ${slot.roomCode}${slot.roomHall ? `/${slot.roomHall}` : ""} · ${slot.instructorName}`,
+                    `وفتحُ شعبةٍ جديدة له في الجدول: ${slot.dayLabel} ${formatScheduleTimeRange(slot.start, slot.end)} · ${slot.roomCode}${slot.roomHall ? `/${slot.roomHall}` : ""} · ${withVisitingSuffix(String(slot.instructorName || ""), isVisiting(slot.instructorId, collegeId, sectionId))}`,
                   ]}
                   why={`${countOf(proposal.shortfall, AR.student)} بلا مقعدٍ في هذا المقرر اليوم.`}
                   run={async () => {

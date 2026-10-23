@@ -40,7 +40,8 @@ import { byRoom, byRoomLabel, byRoomPart } from "../utils/sorting";
 import InstructorPicker from "./InstructorPicker";
 import { departmentSiteScopes } from "../utils/instructorCourseLoad";
 import AuthorityPdfReport, { AuthorityReport } from "./AuthorityPdfReport";
-import VisitingBadge from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
+import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import SubmissionDeadlines, { type DeadlineRow } from "./SubmissionDeadlines";
 import { inboxAudience } from "../utils/inboxAudience";
@@ -519,6 +520,11 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     building: cleanOptionText(saved.filters?.building || ""),
     hall: cleanOptionText(saved.filters?.hall || ""),
   }));
+  /* وثيقة «كل الفروع» تضم صفوف أقسامٍ عدة: يُحكم على كل صفٍّ بكليته وقسمه (قائمة الفصل)،
+     وإن لم تصل القائمة فبقائمة النطاق المختار إن كان الصفُّ من نطاقها. */
+  const { isVisiting: lookupVisiting } = useVisitingLookup(filters.termId);
+  const bookRowIsVisiting = (row: FSchedule) => lookupVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId)
+    || (Number(row.AdCollegeId) === Number(filters.collegeId) && (!filters.sectionId || Number(row.AdSectionId) === Number(filters.sectionId)) && visitingIds.has(Number(row.AdInstructorId)));
   /* مرشّحات الشاشة كما هي، لملفّ Excel (N12). */
   const excelQuery = useMemo(() => {
     const query = new URLSearchParams();
@@ -1196,7 +1202,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const chips: Array<{ key: string; label: string; clear: () => void }> = [];
   const selectedInstructor = filters.instructorId ? instructorById.get(filters.instructorId) : null;
   const selectedCourse = filters.courseId ? courseById.get(filters.courseId) : null;
-  if (selectedInstructor) chips.push({ key: "instructor", label: `الأستاذ: ${selectedInstructor.AdInstructorName}`, clear: () => set("instructorId", 0) });
+  if (selectedInstructor) chips.push({ key: "instructor", label: `الأستاذ: ${withVisitingSuffix(selectedInstructor.AdInstructorName, isVisitingInstructor(selectedInstructor.AdInstructorId))}`, clear: () => set("instructorId", 0) });
   if (filters.civil) chips.push({ key: "civil", label: `الرقم المدني: ${filters.civil}`, clear: () => set("civil", "") });
   if (filters.instructorQuery) chips.push({ key: "instructor-query", label: `الأستاذ: ${filters.instructorQuery}`, clear: () => set("instructorQuery", "") });
   if (filters.building) chips.push({ key: "building", label: `المبنى: ${locationRegistry.buildings.find(b=>b.id===filters.building)?.officialCode||"رسمي"}`, clear: () => setFilters(prev => ({ ...prev, building: "", hall: "" })) });
@@ -1753,7 +1759,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       });
       const chosenCollege = scope === "college" ? collegeById.get(collegeId)?.AdCollegeName || "" : "كل الكليات";
       const instructorName = instructorId ? instructorById.get(instructorId)?.AdInstructorName : filters.instructorQuery.trim();
-      const title = `تقرير الأستاذ — ${instructorName || "استعلام"} — ${scope === "college" ? chosenCollege : "كل الكليات"}`;
+      const title = `تقرير الأستاذ — ${instructorName ? withVisitingSuffix(instructorName, !!instructorId && isVisitingInstructor(instructorId)) : "استعلام"} — ${scope === "college" ? chosenCollege : "كل الكليات"}`;
       flushSync(() => { setPrintRowsOverride(matches); setPrintCollegeOverride(chosenCollege); setPrintKind("instructor"); setAuthorityReport(null); setAuthorityBook(null); });
       printReport("instructor", title);
     } catch (e: any) {
@@ -2862,7 +2868,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                               >
                                 <span className="visiting-history-rank" aria-label={`الترتيب ${index + 1}`}>{num(index + 1)}</span>
                                 <span className="visiting-history-person-name">
-                                  <strong>{person.name}</strong>
+                                  <strong className="report-instructor-with-badge">{person.name}<VisitingBadge compact /></strong>
                                   {person.civil ? <small dir="ltr">{person.civil}</small> : null}
                                   {person.listedNow === false ? <small className="visiting-history-left">لم يعد في دليل القسم</small> : null}
                                 </span>
@@ -2981,7 +2987,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   {open ? <ul id={`course-room-${group.courseId}`} className="course-room-sections">{group.items.map(({ row, wanted, actual, room }) => (
                     <li key={row.id}>
                       <span className="course-room-sec"><ClipboardList aria-hidden="true" /><bdi dir="ltr">{row.SCode}</bdi></span>
-                      <span className="course-room-time"><Clock3 aria-hidden="true" /><bdi dir="ltr">{row.fstarttime}–{row.fendtime}</bdi><small>{DAYS.filter(day => row[day.flag]).map(day => day.label).join(" · ")}</small><small className="course-room-who"><UserRound aria-hidden="true" />{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بلا أستاذ"}</small></span>
+                      <span className="course-room-time"><Clock3 aria-hidden="true" /><bdi dir="ltr">{row.fstarttime}–{row.fendtime}</bdi><small>{DAYS.filter(day => row[day.flag]).map(day => day.label).join(" · ")}</small><small className="course-room-who report-instructor-with-badge"><UserRound aria-hidden="true" />{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بلا أستاذ"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</small></span>
                       <span className="course-room-room"><DoorOpen aria-hidden="true" /><b dir="ltr">{room}</b><small>{actual} ← {wanted}</small></span>
                     </li>
                   ))}</ul> : null}
@@ -3167,7 +3173,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             <div className="fairness-rows">
               {fairness.rows.map(row => (
                 <div key={row.id}>
-                  <span>{row.name}</span>
+                  <span className="report-instructor-with-badge">{row.name}{isVisitingInstructor(Number(row.id)) ? <VisitingBadge compact /> : null}</span>
                   <i title="العبء: الأيام والفراغات والبكور والمساء والساعات"><b style={{ width: share(row.load, fairness.rows[0].load) }} /></i>
                   <em>{num(row.hours)} س.م</em>
                 </div>
@@ -3253,6 +3259,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               courseById={bookCourseById}
               instructorById={instructorById}
               visitingIds={visitingIds}
+              isVisitingRow={bookRowIsVisiting}
               bookSites={bookSites}
               showSite
             />
@@ -4151,7 +4158,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
               <PrintLetterhead title={titles[kind]} scope={scopeLine} college={collegeName} footer={false} />
               <section className="print-query-group">
                 <header>
-                  <div><strong>{page.group.key}</strong>{instructor?.AdInstructorCivil ? <small className="print-ltr">{instructor.AdInstructorCivil}</small> : null}</div>
+                  <div><strong>{withVisitingSuffix(page.group.key, visitingIds.has(Number(page.group.rows[0]?.AdInstructorId)))}</strong>{instructor?.AdInstructorCivil ? <small className="print-ltr">{instructor.AdInstructorCivil}</small> : null}</div>
                   <span><b>{page.group.rows.length}</b> {nounFor(page.group.rows.length, AR.appointment)}</span><span><b>{Math.round(load / 60)}</b> س</span><span><b>{days}</b> {nounFor(days, AR.day)}</span>
                 </header>
                 <table>
@@ -4384,7 +4391,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
               <section className="print-query-group">
                 <header>
                   <div>
-                    <strong>{page.group.key}</strong>
+                    <strong>{withVisitingSuffix(page.group.key, true)}</strong>
                     {instructor?.AdInstructorCivil ? <small className="print-ltr">{instructor.AdInstructorCivil}</small> : null}
                   </div>
                   <span><b>{countOf(summary?.sections || 0, AR.section)} · {countOf(weeklyHours(load), AR.hour)} أسبوعياً</b></span>
@@ -4466,7 +4473,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                   return (
                     <tr key={person.instructorId}>
                       <td className="print-history-person-cell">
-                        <strong>{person.name}</strong>
+                        <strong>{withVisitingSuffix(person.name, true)}</strong>
                         {person.civil ? <small className="print-ltr">{person.civil}</small> : null}
                       </td>
                       <td className="print-history-total-cell"><strong>{person.times}</strong><small>{nounFor(person.times, AR.term)}</small></td>
@@ -4528,7 +4535,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
             </section>
             <div className="print-fairness-rows">
               {pageRows.map((row: any) => <div key={row.id}>
-                <span>{row.name}</span>
+                <span>{withVisitingSuffix(row.name, visitingIds.has(Number(row.id)))}</span>
                 <i><b style={{ width: `${Math.max(4, Math.round((row.load / Math.max(1, fairness.rows[0].load)) * 100))}%` }} /></i>
                 <em>{row.hours} س.م</em>
                 <small className="print-ltr">{row.delta > 0 ? "+" : ""}{Math.round(row.delta * 10) / 10}</small>

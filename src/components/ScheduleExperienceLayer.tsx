@@ -21,6 +21,8 @@ import { telemetryApi, telemetryBreadcrumb, telemetryError } from "../utils/clie
 import { sortTermsNewest } from "../utils/termSequence";
 import { scheduleClockForDisplay } from "../utils/scheduleTime";
 import { roomIdentityKey } from "../utils/locationRegistry";
+import VisitingBadge from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 
 type DayKey = "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday";
 const dayKeys: DayKey[] = [
@@ -197,6 +199,7 @@ export function useScheduleExperience({
     [decision, setDecision] = useState<any>(null),
     [decisionError, setDecisionError] = useState("");
   const [signatureOpen, setSignatureOpen] = useState(false);
+  const { isVisiting } = useVisitingLookup(termId);
   const currentTerm = terms.find((t) => t.AdTermId === termId) || null;
   const previousTerm = useMemo(() => {
     const history = Array.isArray(genome?.history) ? genome.history : [];
@@ -392,6 +395,7 @@ export function useScheduleExperience({
     courseById,
     instructorById,
     constraints,
+    isVisiting,
   };
 }
 
@@ -467,6 +471,7 @@ export default function ScheduleExperienceLayer({
           name: e.instructorById.get(id)?.AdInstructorName || e.living?.fairness?.profiles?.find((profile: any) => profile.id === id)?.name || `أستاذ ${id}`,
           count: counts.get(id) || 0,
           constraints: constrained.get(id) || 0,
+          visiting: (e.living?.analysisRows || rows).some((row: FSchedule) => Number(row.AdInstructorId) === id && e.isVisiting(id, row.AdCollegeId, row.AdSectionId)),
         }
       : null;
   })();
@@ -844,7 +849,7 @@ export default function ScheduleExperienceLayer({
                   <Users />
                 </span>
                 <small>الأساتذة الأكثر تقييدًا</small>
-                <strong>{topInstructor?.name || "—"}</strong>
+                <strong>{topInstructor?.name || "—"}{topInstructor?.visiting ? <> <VisitingBadge compact /></> : null}</strong>
                 <p>
                   {topInstructor
                     ? `${topInstructor.constraints ? `${countOf(topInstructor.constraints, AR.constraint)} مباشرةً · ` : ""}${countOf(topInstructor.count, AR.appointment)} أسبوعياً ${nounFor(topInstructor.count, AR.linkedAdj)} بهذا الأستاذ؛ لذلك هو الأكثر حساسية داخل البصمة الحالية.`

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { CalendarCheck, CircleAlert, CheckCircle2, ClipboardPenLine, DoorClosed, Layers, Undo2, UserRoundX } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { Notice, PrimaryButton, SecondaryButton } from "./ui";
+import VisitingBadge from "./VisitingBadge";
 import { ImpactCard, postWhatIf, type ChangeImpact } from "./ApplyProposal";
 
 /**
@@ -12,7 +13,7 @@ import { ImpactCard, postWhatIf, type ChangeImpact } from "./ApplyProposal";
  * المشترك (النطاق، القفل، التعارض)، كلّها أو لا شيء، ولها تراجعٌ بضغطة.
  */
 
-interface Placement { pending?: boolean; days?: string[]; index: number; day: string; dayLabel: string; start: string; end: string; roomCode: string; roomHall: string; instructorName: string; sectionCode: string; buildingId: string; roomId: string; instructorId: number }
+interface Placement { pending?: boolean; days?: string[]; index: number; day: string; dayLabel: string; start: string; end: string; roomCode: string; roomHall: string; instructorName: string; sectionCode: string; buildingId: string; roomId: string; instructorId: number; visiting?: boolean }
 interface BuildRow { courseId: number; name: string; code: string; target: number | null; existing: number; remaining: number; state: "done" | "missing" | "over" | "unset"; placements: Placement[]; unplaced: number; reason: string }
 interface Built { rows: BuildRow[]; started: boolean; fingerprint: string; totals: { target: number; existing: number; remaining: number; placeable: number; pending: number; roomless: number } }
 
@@ -149,13 +150,13 @@ export default function SectionBuild({ collegeId, sectionId, termId, targets, on
                   return p.pending ? (
                     <div key={key} className="sb-slot is-pending">
                       <span><b>شعبة {p.sectionCode}</b> · {p.dayLabel} {p.start}–{p.end}</span>
-                      <small>{p.roomId ? `${p.roomCode}/${p.roomHall}` : <><DoorClosed aria-hidden="true" /> قاعة؟</>} · {p.instructorName || "أستاذ؟"}</small>
+                      <small>{p.roomId ? `${p.roomCode}/${p.roomHall}` : <><DoorClosed aria-hidden="true" /> قاعة؟</>} · {p.instructorName || "أستاذ؟"}{p.visiting && p.instructorName ? <VisitingBadge compact /> : null}</small>
                     </div>
                   ) : (
                     <label key={key} className="sb-slot">
                       <input type="checkbox" checked={picked.has(key)} onChange={() => toggle(key)} />
                       <span><b>شعبة {p.sectionCode}</b> · {p.dayLabel} {p.start}–{p.end}</span>
-                      <small>{p.roomCode}/{p.roomHall} · {p.instructorName}</small>
+                      <small>{p.roomCode}/{p.roomHall} · {p.instructorName}{p.visiting ? <VisitingBadge compact /> : null}</small>
                     </label>
                   );
                 })}

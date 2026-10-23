@@ -4,6 +4,7 @@ import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
 import { sortByName } from "../utils/sorting";
 import VisitingConversionPanel from "./VisitingConversionPanel";
+import VisitingBadge from "./VisitingBadge";
 import {
   AddButton,
   EmbeddedAction,
@@ -386,7 +387,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
                       {x.AdInstructorName}
                       {x.AdInstructorStatus === "retired" ? <span className="staff-badge is-retired">متقاعد</span>
                         : x.AdInstructorStatus === "sabbatical" ? <span className="staff-badge is-sabbatical">متفرّغ</span> : null}
-                      {delegateIds.has(x.AdInstructorId) ? <span className="staff-badge is-delegate" title={affiliationLabel(affiliationOf(x.AdInstructorId).delegate).join(" ، ") || "قسم الانتداب غير مسجّل"}>منتدب</span> : null}
+                      {delegateIds.has(x.AdInstructorId) ? <span className="instructor-delegate-mark" title={affiliationLabel(affiliationOf(x.AdInstructorId).delegate).join(" ، ") || "قسم الانتداب غير مسجّل"}><VisitingBadge compact /></span> : null}
                       {activeId === x.AdInstructorId ? <span className="sr-only">، محدد</span> : null}
                     </>
                   )}
@@ -431,7 +432,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
                 <UserRound />
               </div>
               <span className="surface-kicker">تفاصيل الأستاذ</span>
-              <h2>{selected.AdInstructorName}</h2>
+              <h2>{selected.AdInstructorName}{delegateIds.has(selected.AdInstructorId) ? <VisitingBadge compact /> : null}</h2>
               <p>يظهر في الجدول والتقارير.</p>
               <div className="inspector-facts inspector-facts-pairs">
                 <article>

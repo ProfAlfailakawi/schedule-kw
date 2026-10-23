@@ -1,4 +1,5 @@
 import PlanBadge from "../PlanBadge";
+import VisitingBadge from "../VisitingBadge";
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, DoorOpen, GripVertical, Radio, UserRound } from "lucide-react";
@@ -11,6 +12,8 @@ interface Props {
   overlayRef: React.RefObject<HTMLDivElement | null>;
   course?: AdCourse;
   instructor?: AdInstructor;
+  /** الأستاذ منتدبٌ في قسم هذا الموعد: تقرره الشاشة الأم من قائمتها. */
+  instructorVisiting?: boolean;
   isPowerAdmin?: boolean;
   variant?: "week" | "rooms" | "list";
 }
@@ -24,7 +27,7 @@ const withoutTeacherLabel = (value: unknown) => String(value || "")
   .replace(/^\s*(?:الأستاذ|الاستاذ|أستاذ|استاذ)\s*[:：\-–—]?\s*/u, "")
   .trim();
 
-export default function SchedulePhysicsLayer({ state, overlayRef, course, instructor, isPowerAdmin = false, variant = "week" }: Props) {
+export default function SchedulePhysicsLayer({ state, overlayRef, course, instructor, instructorVisiting = false, isPowerAdmin = false, variant = "week" }: Props) {
   /**
    * The reading panel measures itself.
    *
@@ -95,7 +98,7 @@ export default function SchedulePhysicsLayer({ state, overlayRef, course, instru
       <div className="physics-float-copy">
         <strong>{course?.CourseCode || row.AdCourseName || "المقرر"}</strong>
         <span>{row.AdCourseName || course?.CourseName}<PlanBadge courseId={row.AdCourseId} /></span>
-        <small>{instructor?.AdInstructorName || ""}</small>
+        <small>{instructor?.AdInstructorName || ""}{instructor?.AdInstructorName && instructorVisiting ? <VisitingBadge compact /> : null}</small>
       </div>
       <div className="physics-float-meta"><b dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</b><small>{row.AdRoomCode}/{row.AdRoomHall}</small></div>
     </div>

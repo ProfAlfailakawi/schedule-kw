@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
+import VisitingBadge from "./VisitingBadge";
 
 /**
  * The wait itself becomes the show.
@@ -29,6 +30,8 @@ interface Chip {
   kind: ChipKind;
   label: string;
   ltr?: boolean;
+  /** اسم أستاذٍ منتدب: يحمل الشارةَ كما في الجدول الحقيقي الذي سيحطّ عليه. */
+  visiting?: boolean;
   /** Home position, in viewport percent. */
   x: number;
   y: number;
@@ -67,16 +70,21 @@ function buildChips(
   instructors: AdInstructor[],
   rand: () => number,
   compact: boolean,
+  isVisiting: (instructorId: number) => boolean = () => false,
 ): Chip[] {
   const courseNames = new Set<string>();
   rows.forEach((r) => r.AdCourseName && courseNames.add(String(r.AdCourseName)));
   courses.forEach((c: any) => c?.CourseName && courseNames.add(String(c.CourseName)));
   const instructorNames = new Set<string>();
-  rows.forEach((r: any) => {
-    const found = instructors.find((i) => i.AdInstructorId === r.AdInstructorId);
-    if (found?.AdInstructorName) instructorNames.add(String(found.AdInstructorName));
-  });
-  instructors.forEach((i) => i?.AdInstructorName && instructorNames.add(String(i.AdInstructorName)));
+  const visitingNames = new Set<string>();
+  const noteInstructor = (person: AdInstructor | undefined) => {
+    if (!person?.AdInstructorName) return;
+    const name = String(person.AdInstructorName);
+    instructorNames.add(name);
+    if (isVisiting(Number(person.AdInstructorId))) visitingNames.add(name);
+  };
+  rows.forEach((r: any) => noteInstructor(instructors.find((i) => i.AdInstructorId === r.AdInstructorId)));
+  instructors.forEach((i) => noteInstructor(i));
   const roomNames = new Set<string>();
   rows.forEach((r: any) => {
     const room = [r.AdRoomCode, r.AdRoomHall].filter(Boolean).join("/");
@@ -108,6 +116,7 @@ function buildChips(
         kind,
         label: truncate(label, kind === "course" ? 26 : 22),
         ltr,
+        visiting: kind === "instructor" && visitingNames.has(label),
         // Scatter across the stage, keeping clear of the very edges and of
         // the centered caption band.
         x: 8 + rand() * 80,
@@ -140,9 +149,11 @@ interface Props {
   /** Container that holds the destination table (the real preview). */
   targetRoot: React.RefObject<HTMLElement | null>;
   onSettled: () => void;
+  /** منتدبٌ في قسم هذه المسودة؟ (بلا هذا لا تظهر شارات.) */
+  isVisiting?: (instructorId: number) => boolean;
 }
 
-export default function GenesisChoreography({ phase, rows, courses, instructors, targetRoot, onSettled }: Props) {
+export default function GenesisChoreography({ phase, rows, courses, instructors, targetRoot, onSettled, isVisiting }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const settleStarted = useRef(false);
   const onSettledRef = useRef(onSettled);
@@ -152,7 +163,7 @@ export default function GenesisChoreography({ phase, rows, courses, instructors,
     if (phase === "idle") return [] as Chip[];
     const rand = makeRandom(Date.now() & 0xffff);
     const compact = typeof window !== "undefined" && window.innerWidth < 560;
-    return buildChips(rows, courses, instructors, rand, compact);
+    return buildChips(rows, courses, instructors, rand, compact, isVisiting);
     // Chips are frozen for the duration of one activation on purpose: the
     // same physical elements that floated are the ones that settle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -303,7 +314,7 @@ export default function GenesisChoreography({ phase, rows, courses, instructors,
           dir={chip.ltr ? "ltr" : undefined}
           aria-hidden="true"
         >
-          {chip.label}
+          {chip.label}{chip.visiting ? <> <VisitingBadge compact /></> : null}
         </span>
       ))}
       {phase === "drift" ? (

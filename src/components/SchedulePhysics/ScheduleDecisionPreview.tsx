@@ -1,6 +1,7 @@
 import React from "react";
 import { Activity, AlertTriangle, ArrowLeft, CheckCircle2, Gauge, History, RotateCcw, ShieldCheck, Waypoints, X } from "lucide-react";
 import type { AdCourse, AdInstructor, FSchedule } from "../../types";
+import VisitingBadge from "../VisitingBadge";
 import { buildMoveCandidate, PHYSICS_DAYS } from "./physics";
 import type { SchedulePhysicsDropRequest } from "./types";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
@@ -9,6 +10,8 @@ interface Props {
   request: SchedulePhysicsDropRequest;
   course?: AdCourse;
   instructor?: AdInstructor;
+  /** الأستاذ منتدبٌ في قسم هذا الموعد: تقرره الشاشة الأم من قائمتها. */
+  instructorVisiting?: boolean;
   busy?: boolean;
   isPowerAdmin?: boolean;
   onConfirm: () => void;
@@ -20,7 +23,7 @@ const signed = (value: unknown, suffix = "") => { const n = Number(value || 0); 
 /** A movement is good when it reduces cost or raises quality. */
 const tone = (improvement: number) => improvement > 0 ? "impact-good" : improvement < 0 ? "impact-warn" : "";
 
-export default function ScheduleDecisionPreview({ request, course, instructor, busy, isPowerAdmin = false, onConfirm, onCancel }: Props) {
+export default function ScheduleDecisionPreview({ request, course, instructor, instructorVisiting = false, busy, isPowerAdmin = false, onConfirm, onCancel }: Props) {
   const { row, target, decision } = request;
   const candidate = buildMoveCandidate(row, target);
   const ripple = decision?.ripple;
@@ -30,7 +33,7 @@ export default function ScheduleDecisionPreview({ request, course, instructor, b
   return <div className="schedule-decision-preview" role="dialog" aria-modal="false" aria-label="معاينة قرار نقل الموعد">
     <div className="decision-preview-head">
       <span className={`decision-state quality-${decision?.quality || "unknown"}`}>{bad ? <AlertTriangle/> : <CheckCircle2/>}</span>
-      <div><small>معاينة القرار · لم يُحفظ شيء بعد</small><strong>{course?.CourseCode || row.AdCourseName} · شعبة {row.SCode}</strong><p>{instructor?.AdInstructorName || ""}</p></div>
+      <div><small>معاينة القرار · لم يُحفظ شيء بعد</small><strong>{course?.CourseCode || row.AdCourseName} · شعبة {row.SCode}</strong><p>{instructor?.AdInstructorName || ""}{instructor?.AdInstructorName && instructorVisiting ? <VisitingBadge compact /> : null}</p></div>
       <button type="button" onClick={onCancel} aria-label="إلغاء"><X/></button>
     </div>
 

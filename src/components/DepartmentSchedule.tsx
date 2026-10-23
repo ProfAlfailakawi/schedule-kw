@@ -1,4 +1,6 @@
 import PlanBadge from "./PlanBadge";
+import VisitingBadge from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, CalendarDays, Printer } from "lucide-react";
 import { EmptyState, MicroLoader, Notice, PageTitle, SecondaryButton } from "./ui";
@@ -7,7 +9,7 @@ import { singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeCont
 
 type Row = {
   id: number; courseId: number; courseName: string; courseCode: string; section: string;
-  instructor: string; days: string; time: string; room: string;
+  instructor: string; instructorId: number; collegeId: number; sectionId: number; days: string; time: string; room: string;
 };
 const DAYS = [["fsunday", "الأحد"], ["fmonday", "الاثنين"], ["ftuesday", "الثلاثاء"], ["fwednesday", "الأربعاء"], ["fthursday", "الخميس"]] as const;
 const read = async (url: string) => {
@@ -22,6 +24,7 @@ export default function DepartmentSchedule({ scopes, onBack }: { scopes: ScopeAs
   const sectionId = singleDepartmentOf(scopes, 0, false);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [termName, setTermName] = useState("");
+  const [termId, setTermId] = useState(0);
   const [sectionName, setSectionName] = useState("");
   const [error, setError] = useState("");
   useEffect(() => {
@@ -46,18 +49,21 @@ export default function DepartmentSchedule({ scopes, onBack }: { scopes: ScopeAs
           return {
             id: Number(item.id), courseId: Number(item.AdCourseId), courseName: course?.CourseName || item.AdCourseName || "مقرر غير معرّف",
             courseCode: course?.CourseCode || item.CourseCodeSnapshot || "—", section: item.SCode || "—",
-            instructor: instructor?.AdInstructorName || "—", days: DAYS.filter(([key]) => Boolean(item[key])).map(([, label]) => label).join("، ") || "—",
+            instructor: instructor?.AdInstructorName || "—", instructorId: Number(item.AdInstructorId) || 0,
+            collegeId: Number(item.AdCollegeId) || 0, sectionId: Number(item.AdSectionId) || sectionId, days: DAYS.filter(([key]) => Boolean(item[key])).map(([, label]) => label).join("، ") || "—",
             time: [item.fstarttime, item.fendtime].filter(Boolean).join(" – ") || "—",
             room: [item.AdRoomCode, item.AdRoomHall].filter(Boolean).join(" · ") || "—",
           };
         }).sort((a: Row, b: Row) => a.days.localeCompare(b.days, "ar") || a.time.localeCompare(b.time));
         if (!active) return;
-        setRows(mapped); setTermName(String(term?.AdTermName || "")); setSectionName(String(section?.AdSectionName || "القسم"));
+        setRows(mapped); setTermId(Number(term?.AdTermId) || 0); setTermName(String(term?.AdTermName || "")); setSectionName(String(section?.AdSectionName || "القسم"));
       } catch (cause: any) { if (active) { setError(cause.message || "تعذّر تحميل الجدول"); setRows([]); } }
     })();
     return () => { active = false; };
   }, [sectionId]);
   const grouped = useMemo(() => rows || [], [rows]);
+  const { isVisiting } = useVisitingLookup(termId);
+  const who = (row: Row) => <span className="schedule-instructor-with-badge">{row.instructor}{isVisiting(row.instructorId, row.collegeId, row.sectionId) ? <VisitingBadge compact /> : null}</span>;
   if (rows === null) return <MicroLoader label="يُحمّل جدول القسم…" />;
   return <main className="department-schedule-page">
     <PageTitle eyebrow="الجدول الأكاديمي" subtitle={`${sectionName}${termName ? ` · ${termName}` : ""}`} action={<div className="department-schedule-actions"><SecondaryButton onClick={() => window.print()} data-guide-ignore="طباعة جدول القسم"><Printer size={16} /> طباعة</SecondaryButton><SecondaryButton onClick={onBack} data-guide-ignore="العودة إلى التغييرات"><ArrowRight size={16} /> العودة</SecondaryButton></div>}>
@@ -65,8 +71,8 @@ export default function DepartmentSchedule({ scopes, onBack }: { scopes: ScopeAs
     </PageTitle>
     {error ? <Notice type="error">{error}</Notice> : null}
     <p className="department-schedule-readonly">عرض للقراءة فقط · قد يكون الجدول مسودة. راجع حالة الاعتماد من «تغييرات الجدول».</p>
-    {grouped.length ? <div className="department-schedule-table-wrap"><table className="department-schedule-table"><thead><tr><th>المقرر</th><th>الشعبة</th><th>الأستاذ</th><th>الأيام</th><th>الوقت</th><th>القاعة</th></tr></thead><tbody>{grouped.map(row => <tr key={row.id}><td><strong>{row.courseName}<PlanBadge courseId={row.courseId} /></strong><small dir="ltr">{row.courseCode}</small></td><td>{row.section}</td><td>{row.instructor}</td><td>{row.days}</td><td><bdi dir="ltr">{row.time}</bdi></td><td>{row.room}</td></tr>)}</tbody></table>
-      <div className="department-schedule-cards">{grouped.map(row => <article key={row.id} className="department-schedule-card"><strong>{row.courseName}<PlanBadge courseId={row.courseId} /></strong><small dir="ltr">{row.courseCode} · {row.section}</small><span>{row.days} · <bdi dir="ltr">{row.time}</bdi></span><span>{row.instructor} · {row.room}</span></article>)}</div>
+    {grouped.length ? <div className="department-schedule-table-wrap"><table className="department-schedule-table"><thead><tr><th>المقرر</th><th>الشعبة</th><th>الأستاذ</th><th>الأيام</th><th>الوقت</th><th>القاعة</th></tr></thead><tbody>{grouped.map(row => <tr key={row.id}><td><strong>{row.courseName}<PlanBadge courseId={row.courseId} /></strong><small dir="ltr">{row.courseCode}</small></td><td>{row.section}</td><td>{who(row)}</td><td>{row.days}</td><td><bdi dir="ltr">{row.time}</bdi></td><td>{row.room}</td></tr>)}</tbody></table>
+      <div className="department-schedule-cards">{grouped.map(row => <article key={row.id} className="department-schedule-card"><strong>{row.courseName}<PlanBadge courseId={row.courseId} /></strong><small dir="ltr">{row.courseCode} · {row.section}</small><span>{row.days} · <bdi dir="ltr">{row.time}</bdi></span><span>{who(row)} · {row.room}</span></article>)}</div>
     </div> : <EmptyState title="لا توجد شعب لهذا الفصل" detail="تظهر هنا الشعب المطروحة ضمن صلاحية هذا القسم." />}
   </main>;
 }

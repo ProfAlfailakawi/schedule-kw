@@ -139,6 +139,7 @@ import { FACULTY_PLACEHOLDER, facultyPlaceholderOf, placePending, templatesFromH
 import { courseLevelFromCode } from "./src/utils/curriculumRules";
 import { reasonForMove } from "./src/utils/appointmentStory";
 import { buildCalendar, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "./src/utils/icalendar";
+import { withVisitingSuffix } from "./src/utils/visitingText";
 import { dayHabitOf, learnAll, learnCourseNature, habitualBlockMinutes, type CourseNature } from "./src/utils/courseNature";
 import { firstLast } from "./src/utils/weekVisual";
 import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, campusOf, interCampusMinutes } from "./src/utils/campusTravel";
@@ -3066,9 +3067,10 @@ app.get("/api/search", requireAnyPermission([7, 8, 9, 10, 16, 17]), async (req: 
   });
   const visibleInstructorIds = new Set(schedules.map(row => row.AdInstructorId));
   const visibleCourseIds = new Set(schedules.map(row => row.AdCourseId));
+  const paletteVisiting = await visitingChecker(latestTermId, matchedSchedules.slice(0, 12).map(row => ({ collegeId: row.AdCollegeId, sectionId: row.AdSectionId })));
   const scheduleResults = (canSchedule || canAdvanced || canTime) ? matchedSchedules.slice(0, 12).map(row => ({
     id: row.id, kind: "schedule", title: courseById.get(row.AdCourseId)?.CourseName || row.AdCourseName || "مقرر دراسي",
-    subtitle: `${canInstructor || canSchedule || canAdvanced ? instructorById.get(row.AdInstructorId)?.AdInstructorName || "" : ""}${canRoom || canSchedule || canAdvanced ? ` — ${row.AdRoomCode}/${row.AdRoomHall}` : ""} — ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`,
+    subtitle: `${canInstructor || canSchedule || canAdvanced ? withVisitingSuffix(instructorById.get(row.AdInstructorId)?.AdInstructorName || "", !!instructorById.get(row.AdInstructorId)?.AdInstructorName && paletteVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId)) : ""}${canRoom || canSchedule || canAdvanced ? ` — ${row.AdRoomCode}/${row.AdRoomHall}` : ""} — ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`,
     meta: `${courseById.get(row.AdCourseId)?.CourseCode || ""} / شعبة ${row.SCode}`
   })) : [];
   const readerInstructors = instructorsForReader(req, instructors);
@@ -5026,6 +5028,10 @@ async function scheduleConflicts(req:AuthenticatedRequest,row:any,excludeId=0,hy
       : elsewhereLine(other);
   };
 
+  /* «الأستاذ X لديه محاضرة متداخلة»: X هو أستاذ الموعد المفحوص، فيحمل «· منتدب» إن كان منتدباً في قسم هذا الموعد. القراءة لازمة عند تعارض أستاذ وحده. */
+  const instructorIsVisiting=instructor&&raw.some((conflict:any)=>conflict.type==="instructor")
+    ?(await visitingChecker(termId,[{collegeId:candidate.AdCollegeId,sectionId:candidate.AdSectionId}]))(instructor.AdInstructorId,candidate.AdCollegeId,candidate.AdSectionId)
+    :false;
   const conflicts=raw.map((conflict:any)=>{
     /* The turnaround rule is advice, not a refusal. `soft` is what keeps it out
        of the blocked list in move-batch and out of the 409 on save — a
@@ -5050,7 +5056,7 @@ async function scheduleConflicts(req:AuthenticatedRequest,row:any,excludeId=0,hy
     }
     const other=all.find(item=>item.id===conflict.otherId);
     const visible=other?Boolean(req.user?.IsAdminUser||isScopeAllowed(req,other.AdCollegeId,other.AdSectionId)):true;
-    if(conflict.type==="instructor"&&other)return{...conflict,severity:"high",rowId:visible?other.id:0,message:`الأستاذ ${instructor?.AdInstructorName||""} لديه محاضرة متداخلة`,detail:detailFor(other,visible)};
+    if(conflict.type==="instructor"&&other)return{...conflict,severity:"high",rowId:visible?other.id:0,message:`الأستاذ ${withVisitingSuffix(instructor?.AdInstructorName||"",Boolean(instructor?.AdInstructorName)&&instructorIsVisiting)} لديه محاضرة متداخلة`,detail:detailFor(other,visible)};
     if(conflict.type==="room"&&other)return{...conflict,severity:"high",rowId:visible?other.id:0,message:`القاعة ${other.AdRoomCode}/${other.AdRoomHall} مشغولة في نفس الوقت`,detail:detailFor(other,visible)};
     /* ── الشعبة نفسها في مكانين: تُقال ولا تمنع ─────────────────────────────
        قاعدة المالك 2026-09-27: «التوقيع لا يمنعه إلا تعارض ماديّ». قاعتان
@@ -5454,6 +5460,25 @@ async function readLiveVisitingRoster(collegeId: number, sectionId: number, term
     instructorIds,
     instructors: instructorIds.map(id => instructorById.get(id)).filter(Boolean),
   };
+}
+
+/**
+ * «منتدب» لكل صفٍّ بقسمه هو: يقرأ دفتر المنتدبين مرةً لكل (كلية، قسم) متميّز في الفصل ثم
+ * يجيب عن أي صف. المنتدب منتدبٌ في قسمٍ لا في كل الأقسام، فالقرار دائماً بنطاق الصف نفسه.
+ * للمخرجات التي لا طلب مستخدم خلفها (الصفحات العامة، التقويم، الإكسل).
+ */
+async function visitingChecker(termId: number, scopes: Iterable<{ collegeId: unknown; sectionId: unknown }>) {
+  const byScope = new Map<string, Set<number>>();
+  const wanted = new Map<string, { collegeId: number; sectionId: number }>();
+  for (const scope of scopes) {
+    const collegeId = Number(scope.collegeId) || 0, sectionId = Number(scope.sectionId) || 0;
+    if (collegeId && sectionId) wanted.set(`${collegeId}:${sectionId}`, { collegeId, sectionId });
+  }
+  await Promise.all([...wanted].map(async ([key, scope]) => {
+    byScope.set(key, new Set((await readLiveVisitingRoster(scope.collegeId, scope.sectionId, termId)).instructorIds.map(Number)));
+  }));
+  return (instructorId: unknown, collegeId: unknown, sectionId: unknown) =>
+    byScope.get(`${Number(collegeId) || 0}:${Number(sectionId) || 0}`)?.has(Number(instructorId)) === true;
 }
 
 /**
@@ -6139,7 +6164,7 @@ app.post("/api/intelligence/nl-move", requirePermission(7), async (req: Authenti
     preview:{
       course:courseById.get(target.AdCourseId)?.CourseName||target.AdCourseName||"",
       code:parsed.code,section:target.SCode||"",
-      instructor:instructors.find(i=>i.AdInstructorId===target.AdInstructorId)?.AdInstructorName||"",
+      instructor:withVisitingSuffix(instructors.find(i=>i.AdInstructorId===target.AdInstructorId)?.AdInstructorName||"",(await visitingChecker(termId,[{collegeId,sectionId}]))(target.AdInstructorId,collegeId,sectionId)&&Boolean(instructors.find(i=>i.AdInstructorId===target.AdInstructorId))),
       room:`${target.AdRoomCode||""}/${target.AdRoomHall||""}`.replace(/^\/$/,"—"),
       before:{days:dayLabelsOf(target),start:target.fstarttime,end:target.fendtime},
       after:{days:dayLabelsOf(after),start:newStart,end:newEnd},
@@ -6190,7 +6215,7 @@ async function previewNaturalLanguageMove(req: AuthenticatedRequest, q: string, 
     preview:{
       course:courseById.get(target.AdCourseId)?.CourseName||target.AdCourseName||"",
       code,section:target.SCode||"",
-      instructor:instructors.find(i=>i.AdInstructorId===target.AdInstructorId)?.AdInstructorName||"",
+      instructor:withVisitingSuffix(instructors.find(i=>i.AdInstructorId===target.AdInstructorId)?.AdInstructorName||"",(await visitingChecker(context.termId,[{collegeId:context.collegeId,sectionId:context.sectionId}]))(target.AdInstructorId,context.collegeId,context.sectionId)&&Boolean(instructors.find(i=>i.AdInstructorId===target.AdInstructorId))),
       room:`${target.AdRoomCode||""}/${target.AdRoomHall||""}`.replace(/^\/$/,"—"),
       changedFields:scheduleDelta(target,after),
       before:{days:dayLabelsOf(target),start:target.fstarttime,end:target.fendtime,score:beforeAnalysis.score,regulations:evaluateScheduleConstraints(rows,constraints)},
@@ -9171,7 +9196,17 @@ function emptyScopeGuidance(what: string) {
 app.post("/api/intelligence/war-room", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const {collegeId,sectionId,termId}=smartContextFrom(req);if(!collegeId||!sectionId||!termId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
   const [scheduleData,courses,instructors,constraints]=await Promise.all([scopedScheduleUniverse(collegeId,sectionId,termId),Repository.getCourses(),Repository.getInstructors(),Repository.getScheduleConstraints(collegeId,sectionId,termId)]);const {rows:base,universe}=scheduleData;if(!base.length){res.json(emptyScopeGuidance("غرفة القرار"));return;}
-  res.json(buildWarRoom(base,universe,courses,instructors,constraints,Number(req.body?.rowId||0)||undefined));
+  const room:any=buildWarRoom(base,universe,courses,instructors,constraints,Number(req.body?.rowId||0)||undefined);
+  /* أثر الأستاذ في كل خيار يحمل علمَ المنتدب (بقسم الشاشة وفصلها) ليرسم العنوانُ شارتَه. */
+  if(Array.isArray(room?.options)){
+    const visitingIds=new Set((await readLiveVisitingRoster(collegeId,sectionId,termId)).instructorIds.map(Number));
+    room.options=room.options.map((option:any)=>{
+      if(!option?.professorImpact)return option;
+      const person=instructors.find(item=>item.AdInstructorName===option.professorImpact.name);
+      return {...option,professorImpact:{...option.professorImpact,instructorId:person?.AdInstructorId,visiting:Boolean(person&&visitingIds.has(Number(person.AdInstructorId)))}};
+    });
+  }
+  res.json(room);
 });
 
 app.post("/api/intelligence/autopilot", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
@@ -13192,9 +13227,15 @@ app.get("/api/intelligence/compare-terms", requirePermission(7), async (req: Aut
   const colleges = await Repository.getColleges();
   const courseById=new Map(courses.map(row=>[row.AdCourseId,row]));
   const instructorName=(id:number)=>instructors.find(row=>row.AdInstructorId===id)?.AdInstructorName||"";
+  /* المنتدب يُعرف بقسمه وفصله: قبل/بعد يُقرآن من فصليهما، لا من فصلٍ واحد. */
+  const compareVisiting=new Map<string,Set<number>>();
+  for(const termSide of [fromTermId,toTermId])for(const scope of readScopes){
+    compareVisiting.set(`${termSide}:${scope.collegeId}:${scope.sectionId}`,new Set((await readLiveVisitingRoster(scope.collegeId,scope.sectionId,termSide)).instructorIds.map(Number)));
+  }
+  const isVisitingAt=(termSide:number,collegeId:unknown,sectionId:unknown,instructorId:unknown)=>Boolean(compareVisiting.get(`${termSide}:${Number(collegeId)}:${Number(sectionId)}`)?.has(Number(instructorId)));
   // Rows are shaped for reading, not for editing: code, section, and the
   // properties that differ. Nothing here is writable from this screen.
-  const shapeRow=(row:any)=>({
+  const shapeRow=(row:any,termSide:number=toTermId)=>({
     id:row.id,
     collegeId: row.AdCollegeId, sectionId: row.AdSectionId,
     collegeName: colleges.find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeName || "",
@@ -13203,16 +13244,18 @@ app.get("/api/intelligence/compare-terms", requirePermission(7), async (req: Aut
     section:row.SCode||"",
     time:formatScheduleTimeRange(row.fstarttime, row.fendtime),
     room:[row.AdRoomCode,row.AdRoomHall].filter(Boolean).join("/"),
-    instructor:instructorName(Number(row.AdInstructorId||0))
+    instructor:instructorName(Number(row.AdInstructorId||0)),
+    instructorId:Number(row.AdInstructorId||0),
+    visiting:isVisitingAt(termSide,row.AdCollegeId,row.AdSectionId,row.AdInstructorId)
   });
   res.json({
     ...diff,
-    appeared:diff.appeared.slice(0,80).map(shapeRow),
-    disappeared:diff.disappeared.slice(0,80).map(shapeRow),
+    appeared:diff.appeared.slice(0,80).map(row=>shapeRow(row,toTermId)),
+    disappeared:diff.disappeared.slice(0,80).map(row=>shapeRow(row,fromTermId)),
     moved:diff.moved.slice(0,80).map(entry=>{
       // roomKey joins with a pipe for comparison; a reader wants a slash.
-      const readable=(side:any)=>({...side,room:String(side.room||"").replaceAll("|","/"),instructor:instructorName(side.instructorId)});
-      return {...shapeRow(entry.row),fields:entry.fields,before:readable(entry.from),after:readable(entry.to)};
+      const readable=(side:any,termSide:number)=>({...side,room:String(side.room||"").replaceAll("|","/"),instructor:instructorName(side.instructorId),visiting:isVisitingAt(termSide,entry.row.AdCollegeId,entry.row.AdSectionId,side.instructorId)});
+      return {...shapeRow(entry.row,toTermId),fields:entry.fields,before:readable(entry.from,fromTermId),after:readable(entry.to,toTermId)};
     }),
     fromTermName:terms.find(t=>t.AdTermId===fromTermId)?.AdTermName||"",
     toTermName:terms.find(t=>t.AdTermId===toTermId)?.AdTermName||"",
@@ -13687,9 +13730,11 @@ app.post("/api/intelligence/genesis", requirePermission(7), async (req: Authenti
   const universe=external.concat(rows); const analysis=analyzeSchedule(rows,universe,courses,instructors,await approvalBlockerOptions()); const rules=evaluateScheduleConstraints(rows,constraints); const draft=await Repository.createScheduleDraft({SystemUserId:req.user.SystemUserId,userName:req.user.Name,AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:targetTermId,...scopeBase(targetUniverse.filter(r=>Number(r.AdCollegeId)===collegeId&&Number(r.AdSectionId)===sectionId)),name:`بداية الفصل · ${terms.find(t=>t.AdTermId===sourceTermId)?.AdTermName||sourceTermId} → ${terms.find(t=>t.AdTermId===targetTermId)?.AdTermName||targetTermId}`,source:"auto",rows});
   const courseById=new Map(courses.map(course=>[Number(course.AdCourseId),course]));
   const instructorById=new Map(instructors.map(instructor=>[Number(instructor.AdInstructorId),instructor]));
+  const genesisVisiting=new Set((await readLiveVisitingRoster(collegeId,sectionId,targetTermId)).instructorIds.map(Number));
   const previewRows=draft.rows.map((row,index)=>({
     index:index+1,id:row.id,courseId:Number(row.AdCourseId)||0,courseCode:courseById.get(Number(row.AdCourseId))?.CourseCode||"",courseName:row.AdCourseName||courseById.get(Number(row.AdCourseId))?.CourseName||"مقرر",
     section:row.SCode||"",instructor:instructorById.get(Number(row.AdInstructorId))?.AdInstructorName||"بدون أستاذ",
+    instructorId:Number(row.AdInstructorId)||0,visiting:genesisVisiting.has(Number(row.AdInstructorId)),
     days:SCHEDULE_DAY_KEYS.map((key,i)=>row[key]?DAY_LABELS[i]:null).filter(Boolean).join(" · "),start:row.fstarttime,end:row.fendtime,
     fsunday:Boolean(row.fsunday),fmonday:Boolean(row.fmonday),ftuesday:Boolean(row.ftuesday),fwednesday:Boolean(row.fwednesday),fthursday:Boolean(row.fthursday),
     building:row.AdRoomCode||"",hall:row.AdRoomHall||"",
@@ -14462,6 +14507,8 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
     ) || String(a.SCode || "").localeCompare(String(b.SCode || ""), "ar", { numeric: true }) || String(a.fstarttime || "").localeCompare(String(b.fstarttime || ""))
   );
 
+  /* «· منتدب» بجانب اسم المنتدب: القرار بقسم الصفّ نفسه، ودفتر كل (كلية، قسم) متميّز يُقرأ مرةً. */
+  const isVisitingRow = await visitingChecker(resolvedTermId, schedules.map(s => ({ collegeId: s.AdCollegeId, sectionId: s.AdSectionId })));
   const reportData = schedules.map(s => {
     const coll = collegeById.get(s.AdCollegeId);
     const sec = sectionById.get(s.AdSectionId);
@@ -14484,7 +14531,7 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
       "الشعبة": s.SCode || "",
       "الوحدات": course?.CourseCredit || 0,
       "الساعات": course?.CourseHours || 0,
-      "أستاذ المقرر": inst?.AdInstructorName || "",
+      "أستاذ المقرر": inst?.AdInstructorName ? withVisitingSuffix(inst.AdInstructorName, isVisitingRow(s.AdInstructorId, s.AdCollegeId, s.AdSectionId)) : "",
       "الرقم المدني": inst?.AdInstructorCivil || "",
       "الوقت": formatScheduleTimeRange(s.fstarttime, s.fendtime),
       "الأيام": days,
@@ -14543,12 +14590,16 @@ app.get("/api/search/natural", requireAnyPermission([7, 8, 9, 10, 16, 17]), asyn
     const point = toMinutes(time);
     return toMinutes(row.fstarttime) <= point && toMinutes(row.fendtime) > point;
   };
+  /* «· منتدب» بقسم الصفّ نفسه: يُملأ قبل التشكيل بنطاقات الصفوف التي ستخرج فقط. */
+  let shapeVisiting: (instructorId: unknown, collegeId: unknown, sectionId: unknown) => boolean = () => false;
+  const shapeScopes = (list: FSchedule[]) => list.slice(0, 40).map(row => ({ collegeId: row.AdCollegeId, sectionId: row.AdSectionId }));
   const shape = (row: FSchedule) => ({
     id: row.id,
     code: courseById.get(row.AdCourseId)?.CourseCode || "",
     name: row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "",
     section: row.SCode,
-    instructor: instructorById.get(row.AdInstructorId)?.AdInstructorName || "",
+    instructor: instructorById.get(row.AdInstructorId)?.AdInstructorName
+      ? withVisitingSuffix(instructorById.get(row.AdInstructorId)!.AdInstructorName, shapeVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId)) : "",
     start: row.fstarttime, end: row.fendtime,
     room: row.AdRoomCode || "", hall: row.AdRoomHall || "",
     days: DAY_FLAGS.map((flag, index) => ((row as any)[flag] ? DAY_LABELS[index] : null)).filter(Boolean).join(" · ")
@@ -14583,6 +14634,7 @@ app.get("/api/search/natural", requireAnyPermission([7, 8, 9, 10, 16, 17]), asyn
       .filter(row => String(row.AdRoomCode || "").includes(parsed.room || ""))
       .filter(row => onDay(row, parsed.day) && atTime(row, parsed.time))
       .sort((a, b) => a.fstarttime.localeCompare(b.fstarttime));
+    shapeVisiting = await visitingChecker(termId, shapeScopes(matched));
     res.json({ intent: "room", title: `قاعة ${parsed.room}${whenLabel ? ` · ${whenLabel}` : ""}`, count: matched.length, rows: matched.slice(0, 40).map(shape) });
     return;
   }
@@ -14618,6 +14670,7 @@ app.get("/api/search/natural", requireAnyPermission([7, 8, 9, 10, 16, 17]), asyn
     .filter(row => (targetIds.size ? targetIds.has(row.AdInstructorId) : true))
     .filter(row => onDay(row, parsed.day) && atTime(row, parsed.time))
     .sort((a, b) => a.fstarttime.localeCompare(b.fstarttime));
+  shapeVisiting = await visitingChecker(termId, shapeScopes(matched));
   res.json({
     intent: targetIds.size ? "instructor" : "time",
     title: targetIds.size
@@ -14842,6 +14895,13 @@ async function resolveShareToken(token: string) {
 
 /* `options.termId` يقرأ فصلاً غير فصل الرابط (رابط الطلبة: الجاري)، و
    `finalOnly` يقصر القراءة على المعتمد (finalRowsOnly) — للأبواب العامة للطلبة. */
+/**
+ * شارة «منتدب» في الصفحات العامة (/s و/t): الصفحةُ تحمل أنماطها بنفسها فلا تصلها أنماط التطبيق،
+ * فهذه هي القاعدة نفسها (src/styles/05-schedule.css) بالاسم نفسه `visiting-badge`.
+ */
+const PUBLIC_VISITING_BADGE_CSS = `.visiting-badge,.meta .visiting-badge,.pill.who .visiting-badge,.pub-week .slot .visiting-badge{display:inline-flex;align-items:center;justify-content:center;flex:none;min-height:18px;padding:1px 6px;margin-inline-start:5px;border:1px solid color-mix(in srgb,var(--brass,#a8792a) 42%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--brass,#a8792a) 10%,var(--card,#fff));color:color-mix(in srgb,var(--brass,#a8792a) 88%,var(--ink));font-size:11px;font-weight:700;font-style:normal;line-height:1.15;white-space:nowrap;vertical-align:middle;overflow:visible;text-overflow:clip}
+@media print{.visiting-badge,.meta .visiting-badge,.pill.who .visiting-badge,.pub-week .slot .visiting-badge{border-color:#9a7a43;background:#faf5e9;color:#6e521f}}`;
+
 async function buildSharePayload(link: ScheduleShareLink, options: { termId?: number; finalOnly?: boolean } = {}) {
   const termId = Number(options.termId || link.AdTermId);
   const [liveRows, courses, instructors, sections, colleges, terms] = await Promise.all([
@@ -14851,6 +14911,9 @@ async function buildSharePayload(link: ScheduleShareLink, options: { termId?: nu
   const rows = options.finalOnly ? await finalRowsOnly(liveRows, termId) : liveRows;
   const courseById = new Map(courses.map(row => [row.AdCourseId, row]));
   const instructorById = new Map(instructors.map(row => [row.AdInstructorId, row]));
+  /* الشارة «منتدب» تتبع الاسم: لا اسمَ حين تُخفى الأسماء فلا علامة، ويُحسب النطاق مرةً للرابط كله. */
+  const showNames = link.showInstructors !== false;
+  const isVisiting = showNames ? await visitingChecker(termId, [{ collegeId: link.AdCollegeId, sectionId: link.AdSectionId }]) : () => false;
   return {
     label: link.label,
     college: colleges.find(row => row.AdCollegeId === link.AdCollegeId)?.AdCollegeName || "",
@@ -14874,7 +14937,8 @@ async function buildSharePayload(link: ScheduleShareLink, options: { termId?: nu
         // Carried for the calendar feed: a subscriber's copy of an appointment
         // is only replaced when the version it holds is older than this one.
         rev: Number(row.rev || 0),
-        instructor: link.showInstructors !== false ? (instructorById.get(row.AdInstructorId)?.AdInstructorName || "") : ""
+        instructor: showNames ? (instructorById.get(row.AdInstructorId)?.AdInstructorName || "") : "",
+        visiting: showNames && isVisiting(row.AdInstructorId, link.AdCollegeId, link.AdSectionId)
       }))
   };
 }
@@ -15147,9 +15211,15 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
   const termRowById = new Map(allTermRows.map(row => [Number(row.id), row]));
   const ownIds = new Set(rows.map(row => Number(row.id)));
   const courseLabel = (row: any) => row?.AdCourseName || courseById.get(row?.AdCourseId)?.CourseName || courseById.get(row?.AdCourseId)?.CourseCode || "محاضرة";
-  const upcomingExceptions = termExceptions
+  const upcomingEntries = termExceptions
     .filter(entry => entry.date >= kuwaitToday && entry.date <= horizon)
-    .filter(entry => ownIds.has(Number(entry.scheduleId)) || (entry.kind === "cover" && Number(entry.coverInstructorId) === Number(person.AdInstructorId)))
+    .filter(entry => ownIds.has(Number(entry.scheduleId)) || (entry.kind === "cover" && Number(entry.coverInstructorId) === Number(person.AdInstructorId)));
+  /* المغطّي زميلٌ قد يكون منتدباً في قسم المحاضرة المغطّاة: يُقرأ بنطاق صفّها هي. */
+  const coverIsVisiting = await visitingChecker(Number(displayTermId), upcomingEntries
+    .filter(entry => entry.kind === "cover" && ownIds.has(Number(entry.scheduleId)))
+    .map(entry => termRowById.get(Number(entry.scheduleId))).filter(Boolean)
+    .map((row: any) => ({ collegeId: row.AdCollegeId, sectionId: row.AdSectionId })));
+  const upcomingExceptions = upcomingEntries
     .map(entry => {
       const row = termRowById.get(Number(entry.scheduleId));
       const mine = ownIds.has(Number(entry.scheduleId));
@@ -15161,7 +15231,7 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
         kind: !mine ? "covering" as const : entry.kind === "cancel" ? "cancelled" as const : "handed" as const,
         text: !mine ? "تغطّي هذه المحاضرة ليومٍ واحد"
           : entry.kind === "cancel" ? "أُلغيت هذا اليوم"
-          : `يغطّيها ${entry.coverInstructorName || "زميل"} هذا اليوم`,
+          : `يغطّيها ${entry.coverInstructorName ? withVisitingSuffix(entry.coverInstructorName, coverIsVisiting(entry.coverInstructorId, row?.AdCollegeId, row?.AdSectionId)) : "زميل"} هذا اليوم`,
       };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -15660,7 +15730,10 @@ app.post("/api/section-build/preview", requirePermission(7), async (req: Authent
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   res.setHeader("Cache-Control", "no-store");
-  const built = await readSectionBuild(collegeId, sectionId, termId, req.body?.targets);
+  const builtRaw = await readSectionBuild(collegeId, sectionId, termId, req.body?.targets);
+  /* الشارة «منتدب» بجانب أستاذ الشعبة المقترحة: علمٌ للعرض فقط في ردّ المعاينة، لا يدخل ما يُنزَّل. */
+  const placementVisiting = await visitingChecker(termId, [{ collegeId, sectionId }]);
+  const built = { ...builtRaw, rows: builtRaw.rows.map(row => ({ ...row, placements: row.placements.map(p => ({ ...p, visiting: placementVisiting(p.instructorId, collegeId, sectionId) })) })) };
   const totals = built.rows.reduce((sum, row) => ({
     target: sum.target + (row.target ?? 0), existing: sum.existing + (row.target === null ? 0 : Math.min(row.existing, row.target)),
     remaining: sum.remaining + row.remaining, placeable: sum.placeable + row.placements.length,
@@ -16042,7 +16115,7 @@ app.get("/api/public/ics/:token", async (req: Request, res: Response) => {
   await sendCalendar(req, res, payload.label || "الجدول الدراسي", resolved.link.AdTermId, payload.rows.map(row => ({
     id: row.id,
     title: [row.code, row.name].filter(Boolean).join(" · "),
-    code: row.code, section: row.section, instructor: row.instructor,
+    code: row.code, section: row.section, instructor: row.instructor, instructorVisiting: row.visiting,
     room: [row.room, row.hall].filter(Boolean).join(" / "),
     start: row.start, end: row.end, days: row.days, revision: row.rev,
     cancelledDates: cancelledBySchedule.get(Number(row.id)),
@@ -22346,6 +22419,9 @@ input[type=search]:focus{outline:none;border-color:var(--jade);box-shadow:0 0 0 
 .pill.hall .ltr{font:500 12px/1.75 ui-monospace,SFMono-Regular,Menlo,monospace}
 .pill.who{color:var(--ink)}
 .pill.who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* مطابقٌ لـ PUBLIC_VISITING_BADGE_CSS: هذه الدالة تُبنى معزولةً في تدقيق الصياغة فلا ترى ثوابت الوحدة. */
+.visiting-badge,.meta .visiting-badge,.pill.who .visiting-badge,.pub-week .slot .visiting-badge{display:inline-flex;align-items:center;justify-content:center;flex:none;min-height:18px;padding:1px 6px;margin-inline-start:5px;border:1px solid color-mix(in srgb,var(--brass,#a8792a) 42%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--brass,#a8792a) 10%,var(--card,#fff));color:color-mix(in srgb,var(--brass,#a8792a) 88%,var(--ink));font-size:11px;font-weight:700;font-style:normal;line-height:1.15;white-space:nowrap;vertical-align:middle;overflow:visible;text-overflow:clip}
+@media print{.visiting-badge,.meta .visiting-badge,.pill.who .visiting-badge,.pub-week .slot .visiting-badge{border-color:#9a7a43;background:#faf5e9;color:#6e521f}}
 
 /* ── عرض الأيام */
 .dayblock{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:6px 0 10px}
@@ -22498,7 +22574,8 @@ input[type=search]:focus{outline:none;border-color:var(--jade);box-shadow:0 0 0 
   /* البداية – النهاية داخل عزلٍ LTR، كما يكتبها formatScheduleTimeRange. */
   function range(r) { return '<span class="time" dir="ltr"><span>' + esc(r.start) + '</span><span class="dash">–</span><span>' + esc(r.end) + "</span></span>"; }
   function hallPill(r) { return place(r) ? '<span class="pill hall" title="القاعة">' + ICON.pin + '<span class="ltr" dir="ltr">' + esc(place(r)) + "</span></span>" : ""; }
-  function whoPill(r) { return r.instructor ? '<span class="pill who">' + ICON.user + "<span>" + esc(r.instructor) + "</span></span>" : ""; }
+  function visBadge(r) { return r.visiting ? '<span class="visiting-badge compact">منتدب</span>' : ""; }
+  function whoPill(r) { return r.instructor ? '<span class="pill who">' + ICON.user + "<span>" + esc(r.instructor) + "</span>" + visBadge(r) + "</span>" : ""; }
   function codePill(code) { return code ? '<span class="code" dir="ltr">' + esc(code) + "</span>" : ""; }
   function dayChips(r) {
     return '<span class="days">' + r.days.map(function (d) {
@@ -22539,12 +22616,12 @@ input[type=search]:focus{outline:none;border-color:var(--jade);box-shadow:0 0 0 
     return '<div class="grid">' + order.map(function (k) {
       var g = groups[k].slice().sort(bySection), first = g[0], n = uniq(g, sectionKey);
       var sharedHall = g.length > 1 && place(first) && g.every(function (r) { return place(r) === place(first); });
-      var sharedWho = g.length > 1 && first.instructor && g.every(function (r) { return r.instructor === first.instructor; });
+      var sharedWho = g.length > 1 && first.instructor && g.every(function (r) { return r.instructor === first.instructor && !!r.visiting === !!first.visiting; });
       return '<article class="course fade-in" aria-label="' + esc(first.name) + '"><header class="course-h"><h2>' + esc(first.name || "مقرر") + "</h2>" +
         '<div class="side">' + codePill(first.code) + '<span class="nsec">' + esc(countOf(n, NOUN.section)) + "</span></div></header>" +
         ((sharedHall || sharedWho) ? '<div class="line shared">' + (sharedHall ? hallPill(first) : "") + (sharedWho ? whoPill(first) : "") + "</div>" : "") +
         '<ul class="secs">' + g.map(function (r) {
-          var tip = [place(r) ? "القاعة: " + place(r) : "", r.instructor ? "الأستاذ: " + r.instructor : ""].filter(Boolean).join(" · ");
+          var tip = [place(r) ? "القاعة: " + place(r) : "", r.instructor ? "الأستاذ: " + r.instructor + (r.visiting ? " · منتدب" : "") : ""].filter(Boolean).join(" · ");
           return '<li class="sec" title="' + esc(tip) + '">' + (r.section ? '<span class="badge"><small>شعبة</small><b dir="ltr">' + esc(r.section) + "</b></span>" : "") +
             '<div class="sec-body"><div class="line">' + dayChips(r) + range(r) + "</div>" +
             (((place(r) && !sharedHall) || (r.instructor && !sharedWho)) ? '<div class="line">' + (sharedHall ? "" : hallPill(r)) + (sharedWho ? "" : whoPill(r)) + "</div>" : "") + "</div></li>";
@@ -22762,7 +22839,7 @@ app.get("/s/:token", async (req: Request, res: Response) => {
       ${row.code || row.section ? `<small dir="ltr">${esc(row.code || "")}${row.section ? ` · ${esc(row.section)}` : ""}</small>` : ""}
       <time dir="ltr">${esc(row.start)} – ${esc(row.end)}</time>
       ${row.room || row.hall ? `<time dir="ltr">${esc([row.room, row.hall].filter(Boolean).join("/"))}</time>` : ""}
-      ${row.instructor ? `<i>${esc(firstLast(row.instructor))}</i>` : ""}
+      ${row.instructor ? `<i>${esc(firstLast(row.instructor))}${row.visiting ? `<span class="visiting-badge compact">منتدب</span>` : ""}</i>` : ""}
     </span>`;
   const tableBody = startTimes.map(start => `<tr>
     <th class="t" dir="ltr">${esc(start)}</th>
@@ -22806,6 +22883,7 @@ time small{display:block;color:var(--muted);font-weight:400}
 b{display:block;font-size:15px;font-weight:600}
 .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .meta span{padding:2px 9px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--muted);font-size:12px}
+${PUBLIC_VISITING_BADGE_CSS}
 .code{direction:ltr;unicode-bidi:isolate;color:var(--brass);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .empty{padding:48px 0;text-align:center;color:var(--muted)}
@@ -22888,7 +22966,7 @@ footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--line);color:v
           ${row.code ? `<span class="code">${esc(row.code)}</span>` : ""}
           ${row.section ? `<span>شعبة ${esc(row.section)}</span>` : ""}
           ${row.room || row.hall ? `<span>${esc([row.room, row.hall].filter(Boolean).join(" / "))}</span>` : ""}
-          ${row.instructor ? `<span>${esc(row.instructor)}</span>` : ""}
+          ${row.instructor ? `<span>${esc(row.instructor)}${row.visiting ? `<span class="visiting-badge compact">منتدب</span>` : ""}</span>` : ""}
         </div>
       </div>
     </article>`).join("")}

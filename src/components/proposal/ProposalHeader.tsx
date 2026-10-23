@@ -6,6 +6,8 @@
  * فارغةً بنصٍّ صريح بدل أن تعرض رقماً قديماً.
  */
 import React from "react";
+import VisitingBadge from "../VisitingBadge";
+import { useVisitingLookup } from "../../hooks/useVisitingLookup";
 import {
   AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarCheck2, CalendarDays, Check, Clock, GraduationCap, Hourglass, Layers, Scale, ShieldAlert, X,
 } from "lucide-react";
@@ -72,6 +74,8 @@ export default function ProposalHeader(props: {
   onClose: () => void;
 }) {
   const { ctx, proposal, status, before, after, loadCap, blockers, reviews, evalState, evalCurrent, hasOps } = props;
+  const { isVisiting: lookupVisiting } = useVisitingLookup(ctx?.term.id);
+  const visiting = Boolean(ctx) && lookupVisiting(ctx!.instructor.id, ctx!.scope.collegeId, ctx!.scope.sectionId);
   const checking = hasOps && !evalCurrent && evalState !== "failed";
   const failed = hasOps && evalState === "failed";
   /* بلا مواد: الوضع المتوقع هو الحالي نفسه (لا شيء يتغيّر)، لا «غير متوفر». */
@@ -92,7 +96,7 @@ export default function ProposalHeader(props: {
         <span className="sp-avatar" aria-hidden="true"><GraduationCap /></span>
         <div className="sp-id-text">
           <p className="sp-eyebrow">إعداد مقترح دراسي</p>
-          <h1 id="sp-title">{ctx.instructor.name}</h1>
+          <h1 id="sp-title" className="schedule-instructor-with-badge">{ctx.instructor.name}{visiting ? <VisitingBadge compact /> : null}</h1>
           <p className="sp-meta">
             <span>{ctx.term.name}</span>
             <span aria-hidden="true">·</span>

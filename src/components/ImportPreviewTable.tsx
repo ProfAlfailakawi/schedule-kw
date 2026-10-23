@@ -4,6 +4,7 @@ import { TimeField } from "./TimeField";
 import { AlertTriangle, Building2, Check, Clock3, MapPin, Pencil, Trash2, UsersRound } from "lucide-react";
 import type { AdCourse, AdInstructor } from "../types";
 import InstructorPicker from "./InstructorPicker";
+import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import LocationPicker, { BuildingPicker, RoomPicker } from "./LocationPicker";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { expectedMinutesForDay, type DayKey as RegulationDayKey } from "../utils/scheduleRegulations";
@@ -308,14 +309,14 @@ export default function ImportPreviewTable({
     rows.forEach((other, at) => {
       if (at === editing || !daysOverlap(row, other) || !timeOverlap(row, other)) return;
       if (row.AdInstructorId && !placeholderIds.has(Number(row.AdInstructorId)) && Number(row.AdInstructorId) === Number(other.AdInstructorId)) {
-        notes.push({ type: "instructor", severity: "high", message: "تعارض أستاذ", detail: `${instructorById.get(Number(row.AdInstructorId))?.AdInstructorName || "الأستاذ"} مرتبط أيضاً بالصف ${(at + 1).toLocaleString("ar-KW-u-nu-latn")} · ${formatScheduleTimeRange(other.fstarttime, other.fendtime)}.` });
+        notes.push({ type: "instructor", severity: "high", message: "تعارض أستاذ", detail: `${withVisitingSuffix(instructorById.get(Number(row.AdInstructorId))?.AdInstructorName || "الأستاذ", visitingIdSet.has(Number(row.AdInstructorId)))} مرتبط أيضاً بالصف ${(at + 1).toLocaleString("ar-KW-u-nu-latn")} · ${formatScheduleTimeRange(other.fstarttime, other.fendtime)}.` });
       }
       if (roomIdentityKey(row as any) && roomIdentityKey(row as any) === roomIdentityKey(other as any)) {
         notes.push({ type: "room", severity: "high", message: "تعارض قاعة", detail: `${cleanRoom(row.AdRoomCode)}/${cleanRoom(row.AdRoomHall)} مستخدمة أيضاً في الصف ${(at + 1).toLocaleString("ar-KW-u-nu-latn")} · ${formatScheduleTimeRange(other.fstarttime, other.fendtime)}.` });
       }
     });
     return notes;
-  }, [editing, rows, instructorById, placeholderIds]);
+  }, [editing, rows, instructorById, placeholderIds, visitingIdSet]);
 
   useEffect(() => {
     if (editing === null || !rows[editing] || !collegeId || !sectionId || !termId) { setServerConflicts([]); return; }
@@ -463,7 +464,7 @@ export default function ImportPreviewTable({
                     )}
                   </td>
                   <td className={outsideNote?"import-cell-review":cellClass("instructor",missing.instructor(row))} title={[cellTitle("instructor"),outsideNote].filter(Boolean).join(" · ")||undefined}>
-                    {open ? <span className="import-instructor-editor"><InstructorPicker value={Number(row.AdInstructorId) || 0} onChange={id => patchManual(index, "instructor", { AdInstructorId: id })} instructors={pickerInstructors as any} suggestedName={readInstructorText(row)} departmentIds={departmentIds} visitingIds={visitingIds} collegeId={collegeId} sectionId={sectionId} termId={termId} strictDepartmentOnly onCreated={person => setExtraInstructors(current => [...new Map([...current, person as AdInstructor].map(item => [Number(item.AdInstructorId), item] as const)).values()])} onSelected={person => setExtraInstructors(current => [...new Map([...current, person as AdInstructor].map(item => [Number(item.AdInstructorId), item] as const)).values()])} /></span> : (person?.AdInstructorName ? <span className="import-instructor-name"><span>{person.AdInstructorName}</span>{visitingIdSet.has(Number(person.AdInstructorId)) ? <small className="import-visiting-badge">منتدب</small> : null}{outsideNote ? <button type="button" data-guide-ignore="تثبيت هوية مطابَقة داخل معاينة الاستيراد قبل أي حفظ" className="import-instructor-confirm" title="تثبيت هذا الأستاذ لهذا الصف" onClick={() => patchManual(index, "instructor", { AdInstructorId: Number(row.AdInstructorId) })}>تثبيت</button> : null}</span> : (rawInstructorText(row) ? <span className="import-instructor-name import-instructor-unlinked"><span className="import-unlinked-head">{readInstructorText(row) ? <span>{readInstructorText(row)}</span> : null}<small>{unlinkedLabel(row)}</small></span>{unlinkedReason(row) ? <em className="import-unlinked-why">{unlinkedReason(row)}</em> : null}</span> : "—"))}
+                    {open ? <span className="import-instructor-editor"><InstructorPicker value={Number(row.AdInstructorId) || 0} onChange={id => patchManual(index, "instructor", { AdInstructorId: id })} instructors={pickerInstructors as any} suggestedName={readInstructorText(row)} departmentIds={departmentIds} visitingIds={visitingIds} collegeId={collegeId} sectionId={sectionId} termId={termId} strictDepartmentOnly onCreated={person => setExtraInstructors(current => [...new Map([...current, person as AdInstructor].map(item => [Number(item.AdInstructorId), item] as const)).values()])} onSelected={person => setExtraInstructors(current => [...new Map([...current, person as AdInstructor].map(item => [Number(item.AdInstructorId), item] as const)).values()])} /></span> : (person?.AdInstructorName ? <span className="import-instructor-name"><span>{person.AdInstructorName}</span>{visitingIdSet.has(Number(person.AdInstructorId)) ? <VisitingBadge compact /> : null}{outsideNote ? <button type="button" data-guide-ignore="تثبيت هوية مطابَقة داخل معاينة الاستيراد قبل أي حفظ" className="import-instructor-confirm" title="تثبيت هذا الأستاذ لهذا الصف" onClick={() => patchManual(index, "instructor", { AdInstructorId: Number(row.AdInstructorId) })}>تثبيت</button> : null}</span> : (rawInstructorText(row) ? <span className="import-instructor-name import-instructor-unlinked"><span className="import-unlinked-head">{readInstructorText(row) ? <span>{readInstructorText(row)}</span> : null}<small>{unlinkedLabel(row)}</small></span>{unlinkedReason(row) ? <em className="import-unlinked-why">{unlinkedReason(row)}</em> : null}</span> : "—"))}
                   </td>
                   <td className="import-row-tools">
                     <button type="button" data-guide-ignore="تحرير صف داخل معاينة الاستيراد قبل أي حفظ" className={open ? "confirm" : ""} title={open ? "تم" : "تعديل سريع"} onClick={() => open ? setEditing(null) : beginEdit(index)}>{open ? <Check /> : <Pencil />}</button>

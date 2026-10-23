@@ -1,4 +1,6 @@
 import PlanBadge from "./PlanBadge";
+import VisitingBadge from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlarmClockOff, CalendarClock, Check, MessageCircle, ShieldCheck, Trash2, UserCheck, X } from "lucide-react";
 import { GhostButton, SecondaryButton } from "./ui";
@@ -30,6 +32,10 @@ type LectureRow = {
   fendtime: string;
   AdRoomCode: string;
   AdRoomHall: string;
+  /** نطاق الموعد: المنتدبُ يُعرف بقسمه وفصله، فيسأل الجلسةُ القائمةَ الموحّدة بهما. */
+  AdCollegeId?: number;
+  AdSectionId?: number;
+  AdTermId?: number;
 };
 
 type Candidate = {
@@ -45,6 +51,7 @@ type WeekException = {
   id: string;
   date: string;
   kind: "cancel" | "cover";
+  coverInstructorId?: number;
   coverInstructorName?: string;
   note?: string;
 };
@@ -78,6 +85,8 @@ export default function DaySubstitute({ row, instructorName, onClose, onRecorded
   const [exceptions, setExceptions] = useState<WeekException[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const { isVisiting } = useVisitingLookup(row.AdTermId);
+  const visitingHere = (instructorId: unknown) => isVisiting(instructorId, row.AdCollegeId, row.AdSectionId);
 
   const load = useCallback(async (chosen: string) => {
     setLoading(true);
@@ -167,7 +176,7 @@ export default function DaySubstitute({ row, instructorName, onClose, onRecorded
           <div>
             <small>ليوم واحد فقط — الموعد الأسبوعي لا يُمس</small>
             <h2>بديل اليوم</h2>
-            <p>{row.AdCourseName}<PlanBadge courseId={row.AdCourseId} /> · شعبة {row.SCode} · <bdi dir="ltr">{timeRange}</bdi>{room ? ` · ${room}` : ""}{instructorName ? ` · ${instructorName}` : ""}</p>
+            <p>{row.AdCourseName}<PlanBadge courseId={row.AdCourseId} /> · شعبة {row.SCode} · <bdi dir="ltr">{timeRange}</bdi>{room ? ` · ${room}` : ""}{instructorName ? <> · {instructorName}{visitingHere(row.AdInstructorId) ? <VisitingBadge compact /> : null}</> : null}</p>
           </div>
           <button type="button" className="drawer-close" data-guide-ignore="إغلاق نافذة بديل اليوم فقط" onClick={onClose} aria-label="إغلاق بديل اليوم" title="إغلاق"><X /></button>
         </header>
@@ -189,7 +198,7 @@ export default function DaySubstitute({ row, instructorName, onClose, onRecorded
           <article className="day-substitute-existing">
             <ShieldCheck aria-hidden="true" />
             <div>
-              <strong>{dayException.kind === "cancel" ? "المحاضرة ملغاة في هذا اليوم" : `يغطيها ${dayException.coverInstructorName || "زميل"} في هذا اليوم`}</strong>
+              <strong>{dayException.kind === "cancel" ? "المحاضرة ملغاة في هذا اليوم" : <>يغطيها {dayException.coverInstructorName || "زميل"}{dayException.coverInstructorName && visitingHere(dayException.coverInstructorId) ? <VisitingBadge compact /> : null} في هذا اليوم</>}</strong>
               <small>مسجّلة كاستثناء يوم واحد، والتقويمات المشتركة تتبعها.</small>
             </div>
             <GhostButton
@@ -226,7 +235,7 @@ export default function DaySubstitute({ row, instructorName, onClose, onRecorded
                   return (
                     <li key={candidate.id}>
                       <div className="day-substitute-person">
-                        <strong>{candidate.name}</strong>
+                        <strong>{candidate.name}{visitingHere(candidate.id) ? <VisitingBadge compact /> : null}</strong>
                         <small>{candidate.reasons.join(" · ")}</small>
                       </div>
                       <div className="day-substitute-acts">
@@ -264,7 +273,7 @@ export default function DaySubstitute({ row, instructorName, onClose, onRecorded
               {exceptions.filter(item => item.date !== date).map(item => (
                 <li key={item.id}>
                   <bdi dir="ltr">{item.date}</bdi>
-                  <span>{item.kind === "cancel" ? "إلغاء" : `تغطية: ${item.coverInstructorName || "زميل"}`}</span>
+                  <span>{item.kind === "cancel" ? "إلغاء" : <>تغطية: {item.coverInstructorName || "زميل"}{item.coverInstructorName && visitingHere(item.coverInstructorId) ? <VisitingBadge compact /> : null}</>}</span>
                   <button
                     type="button"
                     data-guide-ignore="حذف استثناء يوم واحد مسجل — يعيد ذلك اليوم كما كان"
