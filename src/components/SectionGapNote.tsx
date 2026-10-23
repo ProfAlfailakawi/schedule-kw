@@ -149,9 +149,9 @@ function Staffing({ staffing, visitors }: { staffing: CourseStaffing; visitors: 
   return (
     <div className="apb-staff" role="group" aria-label="من يدرّس المقرر">
       {shown.map(({ Icon, n, tip, tone, key }) => (
-        <button key={key} type="button" className="apb-staff-chip" data-tone={tone} data-picked={picked === key || undefined} title={tip} aria-label={tip} aria-pressed={picked === key} onClick={() => toggle(key)}><Icon aria-hidden="true" /><b>{num(n)}</b></button>
+        <button key={key} type="button" className="apb-staff-chip" data-tone={tone} data-picked={picked === key || undefined} title={tip} aria-label={tip} aria-pressed={picked === key} onClick={() => toggle(key)} data-guide-ignore="أيقونة تشرح معناها تحت الصف عند الضغط"><Icon aria-hidden="true" /><b>{num(n)}</b></button>
       ))}
-      <button type="button" className="apb-staff-need" data-zero={visitors === 0 || undefined} data-picked={picked === "need" || undefined} title={needTip} aria-label={needTip} aria-pressed={picked === "need"} onClick={() => toggle("need")}><UserPlus aria-hidden="true" /><b>{num(visitors)}</b></button>
+      <button type="button" className="apb-staff-need" data-zero={visitors === 0 || undefined} data-picked={picked === "need" || undefined} title={needTip} aria-label={needTip} aria-pressed={picked === "need"} onClick={() => toggle("need")} data-guide-ignore="أيقونة عدد المنتدبين تشرح معناها عند الضغط"><UserPlus aria-hidden="true" /><b>{num(visitors)}</b></button>
       {tipOf ? <p className="apb-staff-tip" role="status">{tipOf}</p> : null}
     </div>
   );
