@@ -27,5 +27,9 @@ const server = fs.readFileSync("server.ts", "utf8");
 check(!server.includes("sourceIsEarlier"), "الخادم لا يسمح بالفصل الأقدم عموماً");
 check((server.match(/pdfTermAccepted\(/g) || []).length === 2, "المسار الرئيسي والاحتياطي يطبّقان القاعدة نفسها");
 
+const ui = fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8");
+check(server.includes("acceptedTerm:acceptedPdfSourceLabel(targetName)"), "الخادم يرسل الفصل المقبول مع رمز الرفض");
+check(ui.includes('problem?.code!=="PDF_TERM_MISMATCH"') && ui.includes("transfer-term-card"), "الواجهة تعرض رفض الفصل بطاقةً مصوّرة");
+
 console.log(`\nPDF term rule audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
