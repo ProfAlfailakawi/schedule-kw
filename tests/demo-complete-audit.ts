@@ -233,7 +233,8 @@ function p5Findings() {
     && getApproval.includes("dataReadiness: plannerReadiness")
     && getApproval.includes("const plannerReadiness="), "شريط الاعتماد يستلم نواقص البيانات لنطاق القسم نفسه مع إخفاء تنبيهات القاعات عن غير المخطط");
   /* القاعدة الجديدة (2026-09-27، قرار المالك): نواقص البيانات إشعارٌ لا يمنع التوقيع — حُدّث الفحص القديم الذي كان يُلزم بالبوابة. */
-  check(!sign.includes("scheduleDataReadiness") && !sign.includes("data-readiness"), "التوقيع لا تحجبه نواقص البيانات — لا يمنعه إلا تعارضٌ ماديّ");
+  /* استثناء المالك: سعةُ المقرّر غير المسجّلة وحدها تمنع التوقيع؛ وما سواها من النواقص إشعار. */
+  check(!sign.includes("data-readiness") && sign.includes("capacityGapItems(readiness.items)"), "التوقيع لا تحجبه نواقص البيانات — يمنعه تعارضٌ ماديّ أو سعةُ مقرّرٍ غير مسجّلة");
   check(sign.indexOf("blockingSummaryFor(") > staleAt && sign.indexOf("canSign(") > sign.indexOf("blockingSummaryFor("), "ويبقى المانع المادّي يُسأل قبل التوقيع");
   const seed = server.slice(server.indexOf("async function seedDemoStories("), server.indexOf("\n}\n", server.indexOf("async function seedDemoStories(")));
   check(seed.includes('attempt.items[target].verdict === "clear"') && seed.includes("acceptable.slice(1, 3)"),

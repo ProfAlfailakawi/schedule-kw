@@ -208,6 +208,17 @@ export function learnAll(rows: FSchedule[]): Map<number, CourseNature> {
   return out;
 }
 
+/**
+ * نمطُ أيام المقرّر كما درج عليه في هذا القسم: عددُ لقاءاته في الأسبوع وتوزيعاتُه الأكثر استعمالاً.
+ * يُرسَل إلى صفحة الأستاذ ليكمل أيامَ المقرّر حين يضغط يوماً واحداً. لا يُقال شيءٌ إلا حين
+ * يكون للتاريخ رأي (ثقةٌ لا تقلّ عن المتوسطة)، وتُحذف الأنماطُ التي يخالف عددُ أيامها العددَ المعتاد.
+ */
+export function dayHabitOf(nature: CourseNature | null | undefined): { perWeek: number; patterns: DayKey[][] } | undefined {
+  if (!nature || nature.confidence === "low" || nature.meetingsPerWeek < 1) return undefined;
+  const patterns = nature.dayPatterns.filter(pattern => pattern.days.length === nature.meetingsPerWeek).map(pattern => pattern.days);
+  return patterns.length ? { perWeek: nature.meetingsPerWeek, patterns } : undefined;
+}
+
 const MIN_PRIOR_TERMS = 2;
 
 /**

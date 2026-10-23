@@ -33,6 +33,7 @@ import {
   MailCheck,
   Wifi,
   GraduationCap,
+  Presentation,
   WifiOff,
   Wrench,
   X,
@@ -52,7 +53,7 @@ import { multiSiteDepartment } from "./utils/inboxAudience";
 import ScopeContextChip from "./components/ScopeContextChip";
 import { readSharedScope, setSharedScopeUser, writeSharedScope } from "./utils/sharedScope";
 import { forgetWarmStarts, scheduleWorkspaceUrl, warmStart } from "./utils/warmStart";
-import { setDemoSession } from "./utils/demoSession";
+import { DEMO_STAGE_SECTION_ID, setDemoSession } from "./utils/demoSession";
 import { formatScheduleTimeRange } from "./utils/scheduleTime";
 import { installClientTelemetry, setTelemetryOwner, telemetryBreadcrumb, telemetryGuide } from "./utils/clientTelemetry";
 import { AR, countOf, nounFor } from "./utils/arabicCount";
@@ -605,9 +606,9 @@ export default function App() {
   /* ── البيئة التجريبية تفتح على نطاقٍ مختار ───────────────────────────────────
    * مديرُ التجربة يرى الكليات كلَّها فلا نطاقَ يُفترض له، فكانت شاشات الجدول
    * والاستعلامات ومركز الذكاء تفتح على «اختر الكلية» وقوائم فارغة أمام الجمهور.
-   * في التجربة وحدها، ولمن لم يختر بعدُ: كلية العلوم (كلُّ أقسامها) والفصل
-   * الجاري؛ والشاشاتُ التي لا تعمل إلا على قسمٍ واحد (مركز الذكاء، كشف التسجيل)
-   * تفتح على قسم الحاسب — مسرح البيانات. ما اختاره المجرِّب بنفسه لا يُمسّ. */
+   * في التجربة وحدها، ولمن لم يختر بعدُ: كلية التربية الأساسية ← قسم تكنولوجيا
+   * التعليم ← الفصل الأول 2026/2027 (الجاري)، جاهزةً لكل من يدخل — وهو قسم
+   * مسرح البيانات (مركز الذكاء، كشف التسجيل). ما اختاره المجرِّب بنفسه لا يُمسّ. */
   setDemoSession(Boolean(demoInfo));
   if (demoInfo && user?.SystemUserId && !readSharedScope(Number(user.SystemUserId)).collegeId) {
     /* في الرسم نفسه لا في effect: الشاشات تقرأ النطاق في أوّل effect لها.
@@ -621,7 +622,7 @@ export default function App() {
       writeSharedScope(
         sectionScoped
           ? { collegeId: Number(firstSection.AdCollegeId), sectionId: Number(firstSection.AdSectionId), termId: 1 }
-          : { collegeId: 1, sectionId: 0, termId: 1 },
+          : { collegeId: 1, sectionId: DEMO_STAGE_SECTION_ID, termId: 1 },
         { userId: Number(user.SystemUserId), source: "demo-default" });
   }
   const [guideContext, setGuideContext] = useState<any>(null);
@@ -2403,6 +2404,10 @@ export default function App() {
             <a className="demo-student-link" href="/me/demo" target="_blank" rel="noopener" title="افتح «مساري» كما يراه طالب، ببياناتٍ افتراضية"
               data-guide-ignore="رابطٌ خاصّ ببيئة Demo يفتح تجربة «مساري» للطالب في صندوقٍ معزول ببيانات وهمية">
               <GraduationCap aria-hidden="true" /><span>جرّب كطالب</span>
+            </a>
+            <a className="demo-student-link demo-teacher-link" href="/api/demo/teacher-card" target="_blank" rel="noopener" title="افتح كرت الأستاذ كما يراه عضو هيئة التدريس، ببياناتٍ افتراضية"
+              data-guide-ignore="رابطٌ خاصّ ببيئة Demo يفتح كرت الأستاذ في صندوقٍ معزول ببيانات وهمية">
+              <Presentation aria-hidden="true" /><span>جرّب كأستاذ</span>
             </a>
             {demoInfo && demoInfo.roles.length ? (
               <label className="demo-role-switch" title="جرّب النظام بصفةٍ مختلفة">
