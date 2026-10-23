@@ -869,6 +869,8 @@ async function main() {
     check(CP.verifyCoupon("sec-a", "c1", CP.issueCoupon("sec-a", "c1", "ABCD2345")) !== "" && CP.verifyCoupon("sec-b", "c1", CP.issueCoupon("sec-a", "c1", "ABCD2345")) === "" && CP.verifyCoupon("sec-a", "c2", CP.issueCoupon("sec-a", "c1", "ABCD2345")) === "", "الكوبون: التوقيع مربوطٌ بالسرّ وبالحملة");
     check((await call("GET", `/verify/${"0".repeat(32)}`)).status === 404 && (await call("GET", `/verify/${CP.verifyId("d".repeat(40))}`)).status === 404 && (await call("GET", "/verify/short")).status === 404, "التحقق: معرّفٌ مجهول أو حملةٌ مسودة = ٤٠٤");
     const ucReport = await call("GET", "/ad-report/" + "u".repeat(40));
+    const serverSrc = fs.readFileSync("server.ts", "utf8");
+    check(/app\.get\(\["\/verify", "\/verify\/:code"\][^\n]*next: NextFunction\)[^\n]*\n\s*if \(\/\^\[0-9a-f\]\{32\}\$\/\.test\(String\(req\.params\.code[^\n]*next\(\)/.test(serverSrc) && serverSrc.indexOf('app.get(["/verify", "/verify/:code"]') < serverSrc.indexOf("registerAdsRoutes(app,"), "التحقق: مسار توقيع الجدول يمرّر معرّف الكوبون (٣٢ ست عشرية) إلى مسار الإعلانات بدل حجبه");
     check(ucReport.text.includes("كوبونات الطلبة الموثَّقة") && ucReport.text.includes("<b>1</b>") && ucReport.text.includes(`/verify/${vid}`), "التقرير: التحويل الموثَّق وصفحة تحقق المتجر");
     const ucAdmin = (await call("GET", "/api/admin/ads")).json.campaigns.find((x: any) => x.id === "uc-live");
     check(ucAdmin.verifiedCoupons === 1 && ucAdmin.verifyUrl === `/verify/${vid}`, "الإدارة: عدد الكوبونات الموثَّقة ورابط التحقق", ucAdmin);
@@ -1035,7 +1037,7 @@ async function main() {
     const policy = (await import("../src/server/adsPages")).measurementPage("N");
     check(policy.includes("10 مرات") && policy.includes("طالبان على الأقل"), "السياسة العامة تذكر سقف التكرار وحدّ الخصوصية الجديد");
     const ads = fs.readFileSync("src/components/AdsManager.tsx", "utf8");
-    check(ads.includes("خمسةُ تبويبات") && ads.includes('"Home"') && ads.includes('"End"') && ads.includes("ArrowLeft") && ads.includes("tabIndex={tab === id ? 0 : -1}"), "التبويبات: خمسة، وتنقّلٌ بالأسهم وHome/End، وtabIndex للمختار وحده");
+    check(ads.includes("أربعةُ تبويبات") && ads.includes('"Home"') && ads.includes('"End"') && ads.includes("ArrowLeft") && ads.includes("tabIndex={tab === id ? 0 : -1}"), "التبويبات: أربعة، وتنقّلٌ بالأسهم وHome/End، وtabIndex للمختار وحده");
     const routes = fs.readFileSync("src/server/adsRoutes.ts", "utf8");
     check(routes.includes("cachedAdStats(5 * 60_000)") && !routes.includes("const allStats = await Repository.listAdStats()"), "تقرير الحملة: المتوسط المرجعي من إحصاءاتٍ مخزّنة لا قراءةٍ كاملةٍ في كل فتح");
     const pages = fs.readFileSync("src/server/adsPages.ts", "utf8");

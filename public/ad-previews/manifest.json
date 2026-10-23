@@ -1,21 +1,21 @@
 {
- "generatedAt": "2026-10-23T20:53:40.601Z",
+ "generatedAt": "2026-10-23T22:21:52.313Z",
  "surfaces": {
   "me": {
    "image": "/ad-previews/me.jpg",
    "width": 390,
-   "height": 1019,
+   "height": 953,
    "title": "«مساري» · الرئيسية",
    "slots": {
     "sponsor": {
      "x": 17,
-     "y": 763,
+     "y": 697,
      "w": 356,
      "h": 45
     },
     "me": {
      "x": 17,
-     "y": 818,
+     "y": 752,
      "w": 356,
      "h": 111
     }
