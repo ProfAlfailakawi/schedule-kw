@@ -89,6 +89,24 @@ check(habitualBlockMinutes(natureOf(100, [16, 17, 18]).get(100), 17) === undefin
 const hour = withHistory(natureOf(100, [16, 17, 18], { fwednesday: false, fmonday: true, fstarttime: "09:00", fendtime: "09:50" }), 1);
 const hourMoved = judgeRequest(ask({ days: ["fmonday"], start: "10:00" }), hour);
 check(hourMoved.sendable && hourMoved.computedEnd === "10:50", "ومقرّرٌ بساعةٍ واحدة اعتاد خمسين دقيقة لا يصير ثمانين لأن اليوم اثنين");
+/* ── الأصلُ التاريخي مرجعٌ قبل اللائحة، واختلافُه عنها ملاحظةٌ لا منع ─────────── */
+const monWed = natureOf(100, [16, 17, 18], { fmonday: true, fwednesday: true, fstarttime: "09:00", fendtime: "10:20" });
+const monWedCtx = { ...withHistory(monWed), allRows: [] as any[], instructorRowsAfter: [] as any[] };
+const followsHistory = judgeRequest(ask({ days: ["fmonday", "fwednesday"], start: "09:00" }), monWedCtx);
+check(!followsHistory.reasons.some(reason => reason.blocking), "مقرّرٌ أربع ساعات درج اثنين+أربعاء (١٦٠د أقلُّ من حدّ اللائحة): اتّباعُ تاريخه لا يُمنع");
+check(/يختلف عن نمط اللائحة/.test(followsHistory.histNote || "") && /ملاحظةٌ فقط/.test(followsHistory.histNote || ""), "ويحمل ملاحظةً تقارنه باللائحة");
+check(followsHistory.kind !== "exception" || followsHistory.reasons.length > 0, "والملاحظة وحدها لا تُدخله في «يحتاج استثناءً»");
+const withoutHistory = judgeRequest(ask({ days: ["fmonday", "fwednesday"], start: "09:00" }), { ...monWedCtx, nature: null });
+check(!withoutHistory.sendable && !withoutHistory.histNote, "ومن غير تاريخ يبقى حدُّ اللائحة كما كان ولا ملاحظة");
+const regular = { ...withHistory(natureOf(100, [16, 17, 18], { fmonday: false, fwednesday: false, fsunday: true, ftuesday: true, fthursday: true, fstarttime: "09:00", fendtime: "09:50" }), 3), allRows: [] as any[], instructorRowsAfter: [] as any[] };
+const onRegulation = judgeRequest(ask({ days: ["fsunday", "ftuesday", "fthursday"], start: "09:00" }), regular);
+check(!onRegulation.histNote, "وإن وافق تاريخُه نمطَ اللائحة (ثلاث ساعات: أحد+ثلاثاء+خميس ٥٠د) لا ملاحظة");
+const threeDays = { ...withHistory(natureOf(100, [16, 17, 18], { fmonday: false, fwednesday: false, fsunday: true, ftuesday: true, fthursday: true, fstarttime: "09:00", fendtime: "09:50" })), allRows: [] as any[], instructorRowsAfter: [] as any[] };
+const wrongShape = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), threeDays);
+check(!wrongShape.sendable && /كما دُرّس سابقاً/.test(wrongShape.shapes?.[0]?.label || ""), "ويُعرض أوّلاً ما درج عليه المقرّر (أحد+ثلاثاء+خميس) لا نمطُ اللائحة");
+const applied = judgeRequest(ask({ days: wrongShape.shapes?.[0]?.days as any || [], start: "09:00" }), threeDays);
+check(applied.sendable && !applied.reasons.some(reason => reason.source === "shape"), "وتطبيقُه يمرّ من الفاحص نفسه");
+
 const multi = withHistory(new Map([[100, learnCourseNature(100, [16, 17, 18].flatMap((term, k) => [
   row({ id: 800 + k * 2, AdTermId: term, fmonday: true, fwednesday: true, fthursday: false, fsunday: false, fstarttime: "09:00", fendtime: "10:20" }),
 ])) ! ]]));

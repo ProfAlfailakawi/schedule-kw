@@ -239,6 +239,23 @@ export function habitualBlockMinutes(nature: CourseNature | null | undefined, te
 }
 
 /**
+ * الأصلُ التاريخيّ للمقرّر: ما درج عليه فصولاً، مرجعاً يُقاس عليه الطلب قبل اللائحة.
+ *
+ * لا يُقال شيءٌ إلا حين يكون للتاريخ رأيٌ (كما في `habitualBlockMinutes`): فصلان سابقان
+ * على الأقل، وثقةٌ لا تقلّ عن المتوسطة. وهو وصفٌ لا حكم: لا يمنع شيئاً.
+ */
+export function historicalOrigin(nature: CourseNature | null | undefined, termId?: number):
+  { meetings: number; weeklyMinutes: number; meetingMinutes: number; patterns: DayKey[][] } | undefined {
+  if (!nature || nature.confidence === "low" || nature.meetingsPerWeek < 1) return undefined;
+  const prior = nature.seenInTerms.filter(term => !termId || term < termId);
+  if (prior.length < MIN_PRIOR_TERMS) return undefined;
+  const weeklyMinutes = Math.round(nature.weeklyMinutes), meetingMinutes = Math.round(nature.meetingMinutes);
+  if (weeklyMinutes < 40 || weeklyMinutes > 600) return undefined;
+  const patterns = nature.dayPatterns.filter(pattern => pattern.days.length === nature.meetingsPerWeek).slice(0, 3).map(pattern => [...pattern.days]);
+  return patterns.length ? { meetings: nature.meetingsPerWeek, weeklyMinutes, meetingMinutes, patterns } : undefined;
+}
+
+/**
  * Is this appointment out of character for its course?
  *
  * Only says yes when the history is strong enough to have an opinion, and only

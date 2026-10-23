@@ -43,7 +43,7 @@ import {
 import { findConflicts, minutesToTime } from "./scheduleIntelligence";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
 import { roomIdentityKey } from "./locationRegistry";
-import { habitualBlockMinutes, type CourseNature } from "./courseNature";
+import { habitualBlockMinutes, historicalOrigin, type CourseNature } from "./courseNature";
 
 /** ما يطلبه الأستاذ في صفٍّ واحد. */
 export type RequestAction = "keep" | "change" | "delete" | "add";
@@ -105,6 +105,11 @@ export interface RequestVerdict {
    * بلا استثناء، فاقتراحُ الفاحص لا يُردّ عليه بفاحصٍ آخر.
    */
   shapes?: Array<{ days: DayKey[]; label: string }>;
+  /**
+   * ملاحظةٌ فقط: الأصلُ التاريخي للمقرّر يختلف عن نمط اللائحة. لا تُدخل الطلبَ في «يحتاج استثناءً»
+   * ولا تمنع شيئاً — المرجعُ هو ما درج عليه المقرّر، واللائحةُ تُقارَن به لا تُفرَض عليه.
+   */
+  histNote?: string;
   /** طولُ اللقاء الذي حُكم به حين يكون يوماً واحداً بطولٍ غير طول المحاضرة (من الصفّ نفسه أو من تاريخ المقرّر). */
   blockMinutes?: number;
   /** جملةٌ واحدةٌ تصف الحكم كله، جاهزةٌ للعرض. */
@@ -402,12 +407,30 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     ...afterRows,
   ];
 
+  /* ملاحظةُ الأصل التاريخي: حين يتبع الطلبُ ما درج عليه المقرّر وهذا يخالف نمط اللائحة. لا تمنع ولا تُسبّب استثناءً. */
+  const histNoteOf = (): string => {
+    if (request.action !== "add" && request.action !== "change") return "";
+    const origin = historicalOrigin(context.nature?.get(Number(request.AdCourseId)), context.termId);
+    const hours = Number(context.courses.get(request.AdCourseId)?.CourseHours || context.courses.get(request.AdCourseId)?.CourseCredit || 0);
+    if (!origin || hours <= 0 || !request.days.length) return "";
+    const follows = origin.patterns.some(days => days.length === request.days.length && days.every(day => request.days.includes(day)));
+    if (!follows) return "";
+    const regulation = patternsForHours(hours);
+    if (!regulation.length) return "";
+    const agrees = regulation.some(pattern => pattern.days.length === origin.meetings
+      && origin.patterns.some(days => days.every(day => pattern.days.includes(day))) && Math.abs(pattern.weeklyMinutes - origin.weeklyMinutes) <= 20);
+    if (agrees) return "";
+    const own = request.days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day], request.blockMinutes)}د`).join(" · ");
+    return `الأصل التاريخي للمقرّر (${own}، ${origin.weeklyMinutes}د أسبوعياً) يختلف عن نمط اللائحة (${regulation.map(pattern => pattern.label).slice(0, 2).join(" أو ")}) — ملاحظةٌ فقط، لا تمنع.`;
+  };
+
   const verdictOf = (): RequestVerdict => {
     const blocking = reasons.some(reason => reason.blocking);
     const kind: RequestVerdictKind = blocking ? "conflict" : reasons.length ? "exception" : "clear";
     return {
       kind, reasons, sendable: !blocking, needsExcuse: kind === "exception",
       roomAvailable: null, roomCandidates: [], nearestTimes: [], computedEnd, blockMinutes: request.blockMinutes,
+      ...(histNoteOf() ? { histNote: histNoteOf() } : {}),
       headline: blocking
         ? headlineReasonOf(reasons)!.text
         : reasons.length ? "يحتاج استثناءً من القسم" : "الوقت متاح",
@@ -467,7 +490,10 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
        بنمطٍ غير مثالي لا تُمنع من النقل ما دام مجموعُها لم ينقص. */
     const original = request.rowId == null ? undefined : context.allRows.find(row => Number(row.id) === Number(request.rowId));
     const originalWeekly = original ? DAY_KEYS.filter(day => (original as any)[day]).length * (toMinutes(original.fendtime) - toMinutes(original.fstarttime)) : Infinity;
-    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly, habitBlock && request.days.length === 1 ? habitBlock : Infinity)) {
+    /* الأصلُ التاريخي مرجعٌ قبل اللائحة: طلبٌ بعدد لقاءات المقرّر المعتاد لا يُمنع لأن ما درج عليه المقرّر دون حدّ اللائحة. */
+    const origin = historicalOrigin(context.nature?.get(Number(request.AdCourseId)), context.termId);
+    const originFloor = origin && request.days.length === origin.meetings ? origin.weeklyMinutes : Infinity;
+    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly, habitBlock && request.days.length === 1 ? habitBlock : Infinity, originFloor)) {
       /* شعبةٌ تُدرَّس يوماً واحداً بلقاءٍ ممتدّ (مختبر، ورشة، تدريب) أوّلُ خياراتها أن تبقى يوماً واحداً بطولها
          نفسه: كانت الأزرارُ تدفعها إلى نمط المحاضرات على ثلاثة أيام، وهو ليس طبيعتها. */
       const habitNature = context.nature?.get(Number(request.AdCourseId));
@@ -478,7 +504,12 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       const keepOneDay = blockDay && blockLength
         ? [{ days: [blockDay] as DayKey[], label: `${request.blockMinutes && original ? "يوم واحد كما هو الآن" : "يوم واحد كما دُرّس سابقاً"}: ${DAY_NAMES[DAY_KEYS.indexOf(blockDay)]} ${blockLength}د` }]
         : [];
-      const shapes = keepOneDay.length ? keepOneDay[0].label : patternsForHours(courseHours).map(pattern => pattern.label).slice(0, 3).join(" أو ");
+      /* وما درج عليه المقرّر (أياماً متعدّدة) يُعرض قبل أنماط اللائحة، وبما يمرّ من الفاحص نفسه. */
+      const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
+      const originShapes = keepOneDay.length || !origin ? [] : origin.patterns
+        .filter(days => days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= Math.min(threshold, origin.weeklyMinutes))
+        .map(days => ({ days, label: `كما دُرّس سابقاً: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
+      const shapes = keepOneDay.length ? keepOneDay[0].label : originShapes.length ? originShapes.map(shape => shape.label).join(" أو ") : patternsForHours(courseHours).map(pattern => pattern.label).slice(0, 3).join(" أو ");
       reasons.push({
         source: "shape",
         text: `هذا المقرّر ${countOf(courseHours, { one: "ساعة", two: "ساعتان", few: "ساعات", many: "ساعةً" })} أسبوعياً، والمختار لا يغطّيها${shapes ? ` — جرّب ${shapes}` : ""}.`,
@@ -487,10 +518,9 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       const result = verdictOf();
       /* لا يُعرض زرٌّ إلا لما يقبله الفاحصُ نفسُه بالأيام وحدها: كتلةُ اليوم الواحد
          الطويلة تحتاج طولَ لقاءٍ لا يختاره الأستاذ من هنا، فزرُّها كان سيعود إلى المنع. */
-      const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
       /* شعبةٌ طبيعتُها لقاءٌ ممتدّ بيومٍ واحد (من صفّها أو من تاريخها) خيارُها الوحيد أن تبقى كذلك:
          نمطُ المحاضرات (٨٠+٨٠+٥٠ وأخواتُه) ليس من طبيعتها ولا ممّا درجت عليه، فلا يُعرض بجانبها. */
-      result.shapes = keepOneDay.length ? keepOneDay : patternsForHours(courseHours)
+      result.shapes = keepOneDay.length ? keepOneDay : originShapes.length ? originShapes.slice(0, 3) : patternsForHours(courseHours)
         .filter(pattern => pattern.days.length > 1 && pattern.days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold)
         .map(pattern => ({ days: [...pattern.days], label: pattern.label })).slice(0, 3);
       return result;

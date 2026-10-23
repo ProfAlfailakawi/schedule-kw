@@ -19542,6 +19542,7 @@ async function judgeRequestItems(request: InstructorRequest, options: {
       }).filter(Boolean) as any,
       nearestTimes: verdict.nearestTimes.map(entry => ({ day: entry.day, days: entry.days, start: entry.start, end: entry.end })),
       shapes: verdict.shapes,
+      histNote: verdict.histNote,
       block: verdict.blockMinutes,
     } as InstructorRequestItem;
   });
@@ -20648,7 +20649,7 @@ label.time input:focus,select:focus,textarea:focus,label.sign input:focus{outlin
 .cal-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:9px 16px;border:1px solid var(--accent);border-radius:13px;background:var(--soft);color:var(--accent);font-weight:700;font-size:14px;text-decoration:none}.cal-btn .sk-gi{inline-size:18px;block-size:18px;flex:none}
 .cal-line.compact{margin:0 0 12px;text-align:start}.cal-line.compact p{margin:4px 2px 0}
 .verify-line{margin:14px 2px 0;font-size:13px;color:var(--muted);text-align:center}.verify-line a{display:inline-flex;align-items:center;min-height:44px;padding:0 8px;color:var(--accent);font-weight:700}
-.shape-lead{margin:0;font-size:12px;color:var(--muted)}.auto-note{margin:6px 0 0;padding:6px 10px;border-radius:10px;background:var(--soft);color:var(--muted);font-size:12px;line-height:1.6}.alts.shapes button{border-color:var(--accent);background:var(--soft);color:var(--ink);font-weight:600}
+.shape-lead{margin:0;font-size:12px;color:var(--muted)}.hist-note{flex:1 1 100%;margin:4px 0 0;font-size:12px;line-height:1.7;color:var(--muted)}.auto-note{margin:6px 0 0;padding:6px 10px;border-radius:10px;background:var(--soft);color:var(--muted);font-size:12px;line-height:1.6}.alts.shapes button{border-color:var(--accent);background:var(--soft);color:var(--ink);font-weight:600}
 .alts-ro span{padding:7px 11px;border-radius:999px;border:1px dashed var(--line);background:var(--soft,#f4f6f5);color:var(--ink,#1d2b24);font-size:12px}
 .days button,.starts button,.alts button,.reply button,.acts .act{min-height:44px}
 textarea{width:100%;margin-top:9px;padding:11px;border-radius:11px;border:1px solid var(--line);font-size:14px;min-height:68px;background:#fff;display:none;resize:vertical}
@@ -20971,7 +20972,7 @@ function actionsHtml(it,i){
  return actBtn(i,"keep","undo","تراجع عن الحذف");
 }
 function editHtml(it,i){var h="";h+='<div class="edit"><span class="field-title">أيام المحاضرة</span><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
-    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status">'+esc(it.autoNote)+'</p>':'')+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+heatLegend(i)+'<label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(verdictText(it))+'</span>'+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div><textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
+    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status">'+esc(it.autoNote)+'</p>':'')+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+heatLegend(i)+'<label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(verdictText(it))+'</span>'+(it.histNote?'<p class="hist-note" role="note">'+esc(it.histNote)+'</p>':'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div><textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
 function bodyHtml(it,i,open){var h=decisionBox(it,i,open)+threadBox(it,i);
  if(open){if(it.negotiation==="proposed")h+='<p class="hint-pro">للرد على اقتراح القسم استخدم بطاقة «قرارك» في أعلى الصفحة. وتعديل الموعد من هنا يبدأ طلبًا جديدًا.</p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
  else if(!h)h='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
@@ -21288,7 +21289,7 @@ function check(i){
  .then(function(r){return r.json()}).then(function(d){
   if(seq!==pending[i]||!state[i])return;
   it.tone=d.kind==="clear"?"ok":d.kind==="exception"?"warn":"bad";
-  it.note=d.headline||"";it.alts=d.nearestTimes||[];it.shapes=d.shapes||[];if(d.block)it.blk=d.block;paint()})
+  it.note=d.headline||"";it.alts=d.nearestTimes||[];it.shapes=d.shapes||[];it.histNote=d.histNote||"";if(d.block)it.blk=d.block;paint()})
  .catch(function(){if(seq!==pending[i]||!state[i])return;it.tone="bad";it.note="تعذّر فحص الموعد الآن. أعد المحاولة قبل الإرسال.";paint()});
 }
 /* «كان» يُقرأ من لقطة الموعد الأصلي، لا من slots: بعد الإرسال تحمل slots ما
@@ -21492,6 +21493,7 @@ app.post("/api/public/request/:token/check", async (req: Request, res: Response)
     roomAvailable: !(item.reasons || []).some((reason: any) => reason.source === "room"),
     nearestTimes: (item.nearestTimes || []).map(slot => ({ day: slot.day, days: slot.days, start: slot.start, end: slot.end })),
     shapes: item.shapes || [],
+    histNote: item.histNote || "",
     block: item.block || 0,
   });
 });
