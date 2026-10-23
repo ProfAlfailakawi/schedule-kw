@@ -1406,6 +1406,8 @@ export interface InstructorRequestItem {
   roomOptions?: Array<{ key: string; room: string; hall: string; buildingId?: string; roomId?: string }>;
   /** أقربُ الأوقات المتاحة حين يُمنع الطلب. */
   nearestTimes?: InstructorRequestSlot[];
+  /** التوزيعاتُ المعتمدة لساعات المقرّر حين لا يغطّيها المختار — تُعرض أزراراً تُطبَّق بضغطة. */
+  shapes?: Array<{ days: string[]; label: string }>;
   decision?: {
     state: InstructorRequestDecisionState;
     reasonCode?: InstructorRequestRejectReason;
