@@ -337,7 +337,7 @@ function kmAnimateRing(root){var els=(root||document).querySelectorAll(".km-ring
   for(var i=0;i<els.length;i++){(function(el){requestAnimationFrame(function(){requestAnimationFrame(function(){el.style.strokeDasharray=el.getAttribute("data-d")+" 100"})})})(els[i])}}
 function kmHeroHtml(){var X=KM.x,m=KM.m,p=X.progress(),segs=kmSegs(),nowN=0;
   X.plan.forEach(function(id){if(kmIsComp(id)&&X.status(id)==="now")nowN++});
-  var after=kmAfter(),terms=p.remainingUnits?Math.ceil(p.remainingUnits/15):0,first=kmFirstName();
+  var after=kmAfter(),terms=p.remainingUnits?Math.ceil(p.remainingUnits/lim("termUnits",13.5)):0,first=kmFirstName();
   var leg='';[100,200,300,400,0].forEach(function(l){var has=false;X.plan.forEach(function(id){if(X.byId[id].level===l)has=true});if(has)leg+='<button type="button" class="km-lg" data-act="lv" data-l="'+l+'"><i style="background:'+KMLV[l]+'"></i>'+kmLvName(l)+'</button>'});
   if(m.groups.length)leg+='<button type="button" class="km-lg" data-act="el"><i style="background:'+KMGOLD+'"></i>اختياري</button>';
   return '<section class="km-hero fade"><div class="km-hrow"><div class="km-ring" role="img" aria-label="'+p.percent+'٪ من التخرج">'+kmRingSvg(segs)+'<div><b id="kmPct">'+p.percent+'<small>٪</small></b><span>من التخرج</span></div></div>'
@@ -354,7 +354,7 @@ function kmAfter(){var ids=kmCartIds();if(!ids.length)return null;ids.forEach(fu
 function kmHeroUpdate(){var host=document.getElementById("kmHero");if(!host)return;var X=KM.x,p=X.progress(),segs=kmSegs(),nowN=0;X.plan.forEach(function(id){if(kmIsComp(id)&&X.status(id)==="now")nowN++});
   var set=function(id,v){var el=document.getElementById(id);if(el)el.innerHTML=v};
   set("kmPct",p.percent+"<small>٪</small>");set("kmSp",p.passedUnits);set("kmSl",p.remainingUnits);set("kmSn",nowN);
-  set("kmChips",kmChipsHtml(p,kmAfter(),p.remainingUnits?Math.ceil(p.remainingUnits/15):0));
+  set("kmChips",kmChipsHtml(p,kmAfter(),p.remainingUnits?Math.ceil(p.remainingUnits/lim("termUnits",13.5)):0));
   var R=0;segs.forEach(function(s){R+=s.req});
   segs.forEach(function(s){var pl=host.querySelector('.pl[data-k="'+s.k+'"]'),dn=host.querySelector('.dn[data-k="'+s.k+'"]');
     if(pl){var v=Math.min(100,(s.done+s.plan)/s.req*100);pl.setAttribute("data-d",v.toFixed(2));pl.style.strokeDasharray=v.toFixed(2)+" 100"}
@@ -523,12 +523,13 @@ function kmSheetHtml(id,after){var X=KM.x,m=KM.m,c=X.byId[id],st=X.status(id),r=
   if(kmCanWish()&&st!=="ok"&&off&&st!=="wait")h+='<button type="button" class="btn" data-do="cart">'+ic(KM.cart[id]?"check":"heart")+(KM.cart[id]?' أزله من التخطيط':' أضفه إلى خطة هذا الفصل')+'</button>';
   h+='</div>';
   return h}
-function kmOpen(id,after){if(!KM.x.byId[id])return;if(KM.focus!==id)KM.futureCourse=0;KM.focus=id;var el=kmEnsureSheet(),b=document.getElementById("kdb");KM.desk=!!(window.matchMedia&&window.matchMedia("(min-width:900px)").matches);
+function kmOpen(id,after){if(!KM.x.byId[id])return;if(!KM.opener&&document.activeElement&&document.activeElement!==document.body)KM.opener=document.activeElement;if(KM.focus!==id)KM.futureCourse=0;KM.focus=id;var el=kmEnsureSheet(),b=document.getElementById("kdb");KM.desk=!!(window.matchMedia&&window.matchMedia("(min-width:900px)").matches);
   el.innerHTML=kmSheetHtml(id,after);el.hidden=false;el.classList.toggle("desk",KM.desk);el.scrollTop=0;
   if(!KM.desk){b.hidden=false;document.body.classList.add("km-lock")}
   var root=document.querySelector(".km");if(root)root.classList.toggle("km-d",KM.desk);
   kmFocusApply();if(!KM.desk){var x=el.querySelector(".kd-x");if(x)x.focus()}}
-function kmClose(){var el=document.getElementById("kd"),b=document.getElementById("kdb");if(el)el.hidden=true;if(b)b.hidden=true;document.body.classList.remove("km-lock");KM.futureCourse=0;
+function kmEsc(e){if(e.key!=="Escape")return;var el=document.getElementById("kd");if(el&&!el.hidden&&!document.getElementById("scrim")){e.preventDefault();kmClose()}}
+function kmClose(){var op=KM.opener;KM.opener=null;var el=document.getElementById("kd"),b=document.getElementById("kdb");if(op&&el&&!el.hidden&&op.focus&&document.body.contains(op)){try{op.focus({preventScroll:true})}catch(x){}}if(el)el.hidden=true;if(b)b.hidden=true;document.body.classList.remove("km-lock");KM.futureCourse=0;
   var root=document.querySelector(".km");if(root)root.classList.remove("km-d");KM.focus=0;kmFocusApply()}
 function kmSheetClick(e){var t=e.target,go=t.closest("[data-go]");if(go){kmOpen(Number(go.getAttribute("data-go")));return}
   var d=t.closest("[data-do]");if(!d)return;var act=d.getAttribute("data-do"),id=KM.focus;
@@ -593,5 +594,5 @@ function kmMount(host){
     var c=t.closest("[data-c].cat");if(c){var v=c.getAttribute("data-c");KM.cat=KM.cat===v?"":v;kmRefresh(false);return}
     var a=t.closest("[data-act]");if(a)kmAct(a)});
   host.addEventListener("keydown",function(e){if(e.key!=="Enter"&&e.key!==" ")return;var el=e.target.closest(".kc[data-id]");if(el&&e.target===el){e.preventDefault();kmOpen(Number(el.getAttribute("data-id")))}});
-  if(!KM.bound){KM.bound=true;window.addEventListener("pagehide",kmFlush);document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")kmFlush()});document.addEventListener("keydown",function(e){if(e.key==="Escape"&&KM.focus)kmClose()})}}
+  if(!KM.bound){KM.bound=true;document.addEventListener("keydown",kmEsc);window.addEventListener("pagehide",kmFlush);document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")kmFlush()});document.addEventListener("keydown",function(e){if(e.key==="Escape"&&KM.focus)kmClose()})}}
 `;
