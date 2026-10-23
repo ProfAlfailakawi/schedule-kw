@@ -20393,7 +20393,7 @@ label.time input:focus,select:focus,textarea:focus,label.sign input:focus{outlin
 .cal-line{margin:10px 2px 14px;text-align:center}.cal-line p{margin:6px 6px 0;font-size:12px;color:var(--muted);line-height:1.7}
 .cal-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:9px 16px;border:1px solid var(--accent);border-radius:13px;background:var(--soft);color:var(--accent);font-weight:700;font-size:14px;text-decoration:none}.cal-btn .sk-gi{inline-size:18px;block-size:18px;flex:none}
 .cal-line.compact{margin:0 0 12px;text-align:start}.cal-line.compact p{margin:4px 2px 0}
-.verify-line{margin:14px 2px 0;font-size:13px;color:var(--muted);text-align:center}.verify-line a{color:var(--accent);font-weight:700}
+.verify-line{margin:14px 2px 0;font-size:13px;color:var(--muted);text-align:center}.verify-line a{display:inline-flex;align-items:center;min-height:44px;padding:0 8px;color:var(--accent);font-weight:700}
 .shape-lead{margin:0;font-size:12px;color:var(--muted)}.alts.shapes button{border-color:var(--accent);background:var(--soft);color:var(--ink);font-weight:600}
 .alts-ro span{padding:7px 11px;border-radius:999px;border:1px dashed var(--line);background:var(--soft,#f4f6f5);color:var(--ink,#1d2b24);font-size:12px}
 .days button,.starts button,.alts button,.reply button,.acts .act{min-height:44px}
@@ -20509,6 +20509,12 @@ var FRIENDLY=[
  [/^خارج المعتاد تاريخياً/,"هذا الوقت غير معتاد لهذا المقرر — يُقبل مع ذكر السبب."],
  [/^يتقاطع هذا الوقت مع مقرّرٍ يشترك فيه طلبتك/,"طلبتُك مسجّلون في مقررٍ آخر في هذا الوقت — اختر وقتاً آخر."]
 ];
+/* «هذا المقرّر 4 ساعات… جرّب الاثنين 80د · … أو الثلاثاء 100د…» صحيحةٌ للقسم، لكنها تَعِد الأستاذَ بتوزيعاتٍ
+   لا تُختار من هذه الصفحة (أطوالُ لقاءٍ يحدّدها القسم)، فيجرّبها فيُردّ ثانيةً. فتُقال له جملةٌ تدلّه على الزرّ
+   الذي يمرّ فعلاً، أو على أن يُبقي موعده حين لا يوجد ما يُختار من هنا. */
+function verdictText(it){var n=String(it&&it.note||"");
+ if(/لا يغطّيها/.test(n))return it.shapes&&it.shapes.length?"الأيام المختارة لا تغطي ساعات هذا المقرر الأسبوعية. اختر التوزيع المعتمد تحته.":"ساعات هذا المقرر تحتاج توزيعاً يحدّده القسم. أبقِ موعدك كما هو، أو اكتب للقسم ما تريده.";
+ return friendly(n)}
 function friendly(text){text=String(text||"");for(var k=0;k<FRIENDLY.length;k++){if(FRIENDLY[k][0].test(text))return FRIENDLY[k][1]}return text}
 function collegeNameOf(it){return it.action==="add"?(it.collegeName||(it.after&&it.after.collegeName)||""):((it.before&&it.before.collegeName)||"")}
 function manyColleges(){var seen={};state.forEach(function(it){var c=collegeNameOf(it);if(c)seen[c]=1});return Object.keys(seen).length>1}
@@ -20710,7 +20716,7 @@ function actionsHtml(it,i){
  return actBtn(i,"keep","undo","تراجع عن الحذف");
 }
 function editHtml(it,i){var h="";h+='<div class="edit"><span class="field-title">أيام المحاضرة</span><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
-    h+='</div><span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+'>'+t+'</button>'}).join("")+'</div><label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(friendly(it.note||""))+'</span>'+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">التوزيع المعتمد لهذا المقرر — اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div><textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
+    h+='</div><span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+'>'+t+'</button>'}).join("")+'</div><label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(verdictText(it))+'</span>'+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div><textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
 function bodyHtml(it,i,open){var h=decisionBox(it,i,open)+threadBox(it,i);
  if(open){if(it.negotiation==="proposed")h+='<p class="hint-pro">للرد على اقتراح القسم استخدم بطاقة «قرارك» في أعلى الصفحة. وتعديل الموعد من هنا يبدأ طلبًا جديدًا.</p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
  else if(!h)h='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
@@ -20837,8 +20843,10 @@ function calendarHtml(compact){if(!data||!data.calendarFeed)return "";
   '<p>يتحدّث تلقائياً عند أي تثبيتٍ جديد من القسم، ولا يحمل إلا ما ثُبّت في جدولك الرسمي.</p></div>'}
 function anyFixed(){return state.some(function(it){return it.decision&&it.decision.state==="fixed"})||(data&&data.request&&data.request.status==="settled")}
 /* رمزُ التوقيع له مكانٌ يُطابَق فيه: يُعرض مع رابطٍ يفتح التحقّق جاهزاً بالرمز. */
-function verifyHtml(code){if(!code)return "";
- return '<p class="verify-line">رمز توقيعك <b class="code num">'+esc(code)+'</b> · <a href="/verify/'+encodeURIComponent(code)+'?t='+encodeURIComponent(TOKEN)+'">تحقّق من رمزك</a></p>'}
+function verifyHtml(code,linkOnly){if(!code)return "";
+ var link='<a href="/verify/'+encodeURIComponent(code)+'?t='+encodeURIComponent(TOKEN)+'">'+(linkOnly?'تحقّق من توقيعك لاحقاً':'تحقّق من رمزك')+'</a>';
+ /* في شاشة «وصل طلبك» الرمزُ مكتوبٌ فوقه، فلا يُكرَّر: الرابطُ وحده. */
+ return '<p class="verify-line">'+(linkOnly?link:'رمز توقيعك <b class="code num">'+esc(code)+'</b> · '+link)+'</p>'}
 /* المسودةُ تُحفظ في الجهاز نفسه: أستاذٌ أغلق الصفحة خطأً أو انقطع اتصاله
    يعود فيجد ما كتبه. ولا يُحفظ الرقمُ المدني أبداً. */
 var openCards={};
@@ -21004,26 +21012,33 @@ function submit(){
 }
 /* الإرسالُ نفسُه كما كان: الخادمُ يعيد الحكمَ ويتحقق من التوقيع، والصفحةُ تعرض ما يقوله. */
 function postSubmit(civil,done){
+ /* أثناء الإرسال لا تُقرأ الصفحة من جديد: حفظُ الإرسال نفسه يُطلق حدثاً في البثّ، وقراءتُه في منتصف الطريق
+    كانت تقول «وصل ردّ من القسم» عن إرسال الأستاذ نفسه، أو ترسم الجدولَ فوق شاشة «وصل طلبك». */
+ sendingNow=true;
  fetch("/api/public/request/"+encodeURIComponent(TOKEN),{method:"POST",
   headers:{"Content-Type":"application/json"},
   body:JSON.stringify({civil:civil,items:payloadItems()})})
  .then(function(r){return r.json().then(function(d){return{ok:r.ok,status:r.status,d:d}})})
  .then(function(x){
   if(!x.ok){
+   sendingNow=false;
    if(typeof x.d.itemIndex==="number"&&state[x.d.itemIndex]){var bad=state[x.d.itemIndex];if(bad.action!=="delete"&&bad.action!=="keep"){bad.tone="bad";bad.note=x.d.error||bad.note}closeSheet();focusItem(x.d.itemIndex,x.d.error||"تعذّر الإرسال");return}
    done(x.d.error||"تعذّر الإرسال",x.status);return}
   dirty=false;clearDraft();
+  /* شاشةُ «وصل طلبك» تبقى حتى يضغط «افتح جدولك»: حفظُ الإرسال نفسِه يُطلق حدثاً في البثّ،
+     وكانت إعادةُ القراءة التي يطلقها ترسم الجدولَ فوقها فتختفي بعد لحظة ومعها رمزُ التوقيع. */
+  liveOff=true;closeLive();
   var code=x.d.request&&x.d.request.signature&&x.d.request.signature.verifyCode||"";
   done();
   host.innerHTML='<div class="done"><div class="tick">'+gi("check")+'</div><h1>وصل طلبك إلى القسم</h1><div class="done-path">'+pathHtml(pendingList().length?2:1)+'</div>'+
    '<p class="sub">'+esc(countOf(x.d.changed,AR.edit,"بلا تعديلات"))+
    ' · يمكنك فتح الرابط نفسه لمتابعة ما ثُبّت وما رُفض.</p>'+
    /* رمزُ التوقيع يُعطى لصاحبه: هو ما يُطابَق به طلبُه بعد شهرين. */
-   (code?'<p class="sub">رمز توقيعك: <b class="code num">'+esc(code)+'</b></p>'+verifyHtml(code):'')+
+   (code?'<p class="sub">رمز توقيعك: <b class="code num">'+esc(code)+'</b></p>'+verifyHtml(code,true):'')+
    calendarHtml(false)+'<button type="button" class="btn-main" id="again">'+gi("eye")+'افتح جدولك</button></div>';
   var again=document.getElementById("again");if(again)again.onclick=function(){location.reload()};
   window.scrollTo(0,0)})
- .catch(function(){done("تعذّر الاتصال. تحقّق من الإنترنت.")});
+ .catch(function(){sendingNow=false;done("تعذّر الاتصال. تحقّق من الإنترنت.")});
 }
 
 function mapItems(d){return (d.request.items||[]).map(function(it){var a=it.after||{};return{rowId:it.rowId,action:it.action||"keep",
@@ -21042,10 +21057,12 @@ function rankState(){state.map(function(it,i){return{it:it,i:i}}).sort(function(
    مسودةٌ لم تُرسَل لا يُستبدل أبداً: يُقال له إن عند القسم جديداً ويقرّر هو. */
 var lastFetch=Date.now(),refreshing=false,freshNote=false;
 function refresh(){
- if(refreshing||!data)return;
+ if(liveOff||sendingNow||refreshing||!data)return;
  refreshing=true;
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"?live=1",{cache:"no-store"}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d}})}).then(function(x){
-  refreshing=false;lastFetch=Date.now();if(!x.ok)return;
+  refreshing=false;lastFetch=Date.now();
+  /* قراءةٌ بدأت قبل الإرسال وعادت بعده لا تُطبَّق: شاشةُ «وصل طلبك» هي الحاضرة الآن. */
+  if(liveOff||sendingNow||!x.ok)return;
   if(JSON.stringify(data.request)===JSON.stringify(x.d.request)&&data.windowOpen===x.d.windowOpen)return;
   /* مسودةٌ لم تُرسل لا تُستبدل أبداً. لكنّ الجديد يُقرأ ويُقال له، سواءٌ وصله بالبثّ أو بالقراءة الدورية:
      بثٌّ لا يبلغ نسخةً أخرى من الخادم ولا يُستعمل في متصفحٍ بلا EventSource، فتبقى القراءةُ هي الطريق. */
@@ -21061,9 +21078,9 @@ function onDecisionArrived(newDecision){try{if(navigator.vibrate)navigator.vibra
    اتصالٌ واحدٌ يُفتح والصفحةُ ظاهرة ويُغلق إذا أُخفيت، ويتراجع أُسّياً إن فشل.
    وهو لا يحمل بيانات: يقول «تغيّر شيء»، والصفحةُ تقرأ بالمسار العادي. ومعه نبضٌ
    بطيءٌ كل دقيقتين لمن لا يبلغه البثّ (نسخةٌ أخرى من الخادم، أو شبكةٌ تقطع). */
-var live=null,liveBack=2000,liveTimer=null,liveReady=false;
+var live=null,liveBack=2000,liveTimer=null,liveReady=false,liveOff=false,sendingNow=false;
 function closeLive(){if(live){live.close();live=null}clearTimeout(liveTimer);liveReady=false}
-function openLive(){if(live||!window.EventSource||document.visibilityState==="hidden"||!data)return;
+function openLive(){if(liveOff||live||!window.EventSource||document.visibilityState==="hidden"||!data)return;
  live=new EventSource("/api/public/request/"+encodeURIComponent(TOKEN)+"/events");
  live.addEventListener("ready",function(){liveBack=2000;if(liveReady)refresh();liveReady=true});
  live.addEventListener("changed",function(){refresh()});

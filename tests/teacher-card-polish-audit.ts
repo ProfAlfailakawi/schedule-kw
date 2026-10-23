@@ -73,6 +73,31 @@ check(/\?live=1/.test(page) && /String\(req\.query\.live \|\| ""\) === "1"/.test
 check(/<link rel="icon" href="\/schedule-icon\.svg"/.test(page), "الصفحة تحمل أيقونتها فلا يطلب المتصفحُ favicon.ico ويعود 404");
 check(/data-shape=/.test(page) && /\[data-shape\]/.test(page), "أزرار التوزيع المعتمد تُطبَّق بضغطة");
 
+/* ── نصُّ المانع بما تقدر عليه الصفحة (سلوكٌ بمحرّك V8) ──────────────────── */
+const vStart = page.indexOf("function verdictText(it){");
+const vEnd = page.indexOf("function friendly(text){", vStart);
+const vBox: any = { friendly: (t: string) => "FRIENDLY:" + t };
+let vOk = vStart > 0 && vEnd > vStart;
+try { vm.runInNewContext(page.slice(vStart, vEnd).replace(/\\\\/g, "\\") + "\nthis.verdictText=verdictText;", vBox, { timeout: 1000 }); } catch (e) { vOk = false; console.log(e); }
+check(vOk && typeof vBox.verdictText === "function", "دالّةُ نصّ الحكم تُجمَّع وحدها");
+if (vBox.verdictText) {
+  const longText = "هذا المقرّر 4 ساعات أسبوعياً، والمختار لا يغطّيها — جرّب الاثنين 80د · الأربعاء 80د · الخميس 50د أو الثلاثاء 100د · الخميس 100د.";
+  const withShapes = vBox.verdictText({ note: longText, shapes: [{ days: ["fmonday"], label: "x" }] });
+  check(!/الثلاثاء 100د|جرّب/.test(withShapes) && /اختر التوزيع المعتمد/.test(withShapes), "المانعُ لا يعِد بتوزيعٍ لا يُختار من الصفحة: يدلّ على الزرّ الذي يمرّ");
+  const noShapes = vBox.verdictText({ note: longText, shapes: [] });
+  check(/يحدّده القسم/.test(noShapes) && /أبقِ موعدك/.test(noShapes) && !/جرّب/.test(noShapes), "وحين لا يوجد ما يُختار من هنا يُقال له أن يُبقي موعده أو يكتب للقسم");
+  check(vBox.verdictText({ note: "تتابع مرتفع على الأستاذ (2)" }) === "FRIENDLY:تتابع مرتفع على الأستاذ (2)", "وبقيةُ الرسائل تمرّ بمترجم اللغة نفسه");
+}
+check(/<span>'\+esc\(verdictText\(it\)\)\+'<\/span>/.test(page), "مربّعُ الحكم يعرض النصّ المترجَم");
+
+/* ── شاشةُ «وصل طلبك» لا يمحوها البثّ ────────────────────────────────────── */
+check(/dirty=false;clearDraft\(\);[\s\S]{0,300}liveOff=true;closeLive\(\);/.test(page), "بعد الإرسال يُوقَف البثّ وإعادةُ القراءة فتبقى شاشة «وصل طلبك» ورمزُ التوقيع");
+check(/function refresh\(\)\{\s*if\(liveOff\|\|sendingNow\|\|/.test(page) && /function openLive\(\)\{if\(liveOff\|\|/.test(page), "وإعادةُ القراءة وفتحُ البثّ يحترمان ذلك");
+check(/if\(liveOff\|\|sendingNow\|\|!x\.ok\)return;/.test(page), "وقراءةٌ بدأت قبل الإرسال وعادت بعده لا تُطبَّق فوق شاشة «وصل طلبك»");
+check(/function postSubmit\(civil,done\)\{[\s\S]{0,400}sendingNow=true;/.test(page) && (page.match(/sendingNow=false;/g) || []).length >= 2, "وأثناء الإرسال لا تُقرأ الصفحة، ويُرفع القيد إن فشل الإرسال");
+check(/\.verify-line a\{display:inline-flex;align-items:center;min-height:44px/.test(page), "ورابطُ «تحقّق من رمزك» هدفُ لمسٍ بارتفاع 44");
+check(/verifyHtml\(code,true\)/.test(page) && /linkOnly\?link:/.test(page), "وفي شاشة «وصل طلبك» لا يتكرّر رمزُ التوقيع: الرابطُ وحده تحت الرمز");
+
 /* ── المرحلة ٢: البثّ الحيّ (عقودُ الصفحة) ─────────────────────────────── */
 check(/new EventSource\("\/api\/public\/request\/"\+encodeURIComponent\(TOKEN\)\+"\/events"\)/.test(page), "الصفحة تفتح بثّها بالرابط الشخصيّ نفسه");
 check(/else closeLive\(\)/.test(page) && /document\.visibilityState==="hidden"/.test(page), "ويُغلق البثّ حين تُخفى الصفحة ويُعاد فتحه عند العودة");
