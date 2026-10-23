@@ -6,15 +6,17 @@
  * الحساب في utils/sectionGap.ts؛ المصدران: /api/schedules/section-gap و/api/registration-stats.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ClipboardList, Layers, Users, X } from "lucide-react";
+import { ChevronDown, ClipboardList, History, Layers, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { planGaps, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
 import { sortByName } from "../utils/sorting";
+import { VISITOR_MAX_SECTIONS, visitingNeed, type CourseStaffing } from "../utils/visitingNeed";
 
 interface GapPayload {
   respondents: number; planImported: boolean; planSource: { fileName: string; importedAt: string } | null;
   accepted: Record<string, number>; remaining: Record<string, number>; courses: GapCourse[];
 }
+interface StaffingPayload { staffing: Record<string, CourseStaffing>; visitorFreeSlots: number }
 const SHOWN = 5;
 const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
 
@@ -24,11 +26,22 @@ const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
  */
 export const PLAN_SAVED_EVENT = "schedule:plan-saved";
 
-export function useSectionGap(collegeId: number, sectionId: number, termId: number, refreshSignal = 0) {
+export function useSectionGap(collegeId: number, sectionId: number, termId: number, refreshSignal = 0, wantStaffing = false) {
   const scope = `${collegeId}:${sectionId}:${termId}`;
   const [loaded, setLoaded] = useState<{ scope: string; payload: GapPayload } | null>(null);
   const [past, setPast] = useState<{ scope: string; stamp: string; history: GapPlan["history"] } | null>(null);
   const [bump, setBump] = useState(0);
+  /* من يدرّس كل مقرر: ثقيلٌ، فيُجلب حين تُفتح اللوحة فقط، ويُجدَّد مع كل تغيّرٍ في الجدول. */
+  const [staffed, setStaffed] = useState<{ scope: string; payload: StaffingPayload } | null>(null);
+  useEffect(() => {
+    if (!wantStaffing || !collegeId || !sectionId || !termId) return;
+    let cancelled = false;
+    fetch(`/api/schedules/section-gap/staffing?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`)
+      .then(response => (response.ok ? response.json() : null))
+      .then((body: StaffingPayload | null) => { if (!cancelled) setStaffed(body ? { scope, payload: body } : null); })
+      .catch(() => { if (!cancelled) setStaffed(null); });
+    return () => { cancelled = true; };
+  }, [wantStaffing, collegeId, sectionId, termId, refreshSignal, scope, bump]);
   useEffect(() => {
     if (!collegeId || !sectionId || !termId) return;
     let cancelled = false;
@@ -70,7 +83,7 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
   const reload = useCallback(() => setBump(value => value + 1), []);
   /* مع كشفٍ مرفوع لا تكتمل حسبة التخطيط قبل أن يصل تاريخ الفصول (وإلا اقترح «شعبةً واحدة» فأخفى النقص). */
   const ready = data !== null && (!data.planImported || historyReady);
-  return { planItems, studentItems, courses: data?.courses || [], planImported: Boolean(data?.planImported), loaded: data !== null, ready, source: data?.planSource?.fileName || "", reload };
+  return { planItems, studentItems, staffing: staffed && staffed.scope === scope ? staffed.payload.staffing : null, freeSlots: staffed && staffed.scope === scope ? staffed.payload.visitorFreeSlots : 0, courses: data?.courses || [], planImported: Boolean(data?.planImported), loaded: data !== null, ready, source: data?.planSource?.fileName || "", reload };
 }
 
 export type Gap = ReturnType<typeof useSectionGap>;
@@ -100,12 +113,48 @@ export function SectionGapBadge({ items, kind, open, onToggle }: { items: GapIte
   );
 }
 
-/** قائمةٌ قصيرة: اسم المقرر، وما بُني عليه الرقم، و«الموجود ← المطلوب». لا روابط ولا إدخال. */
-export function SectionGapPanel({ items, kind, onClose }: { items: GapItem[]; kind: GapKind; onClose: () => void }) {
+/** مقاعد المنتدبين: كل منتدبٍ بطاقةٌ من مقعدين؛ المشغول نقطةٌ ممتلئة، والفارغ عند منتدبٍ حاليّ نقطةٌ مفرغة. */
+function Seats({ sections, free, visitors }: { sections: number; free: number; visitors: number }) {
+  const cards = Array.from({ length: Math.min(visitors, 8) }, (_, i) => i);
+  let filled = Math.max(0, sections - free);
+  return (
+    <span className="apb-seats" aria-hidden="true">
+      {cards.map(i => {
+        const used = Math.min(VISITOR_MAX_SECTIONS, filled); filled -= used;
+        return <span key={i} className="apb-seat"><UserPlus />{Array.from({ length: VISITOR_MAX_SECTIONS }, (_, d) => <i key={d} data-on={d < used || undefined} />)}</span>;
+      })}
+    </span>
+  );
+}
+
+/** سطرٌ تحت المقرر: أيقونةٌ ورقم، ولكلٍّ جملتُه الكاملة في التلميح. لا أسماء. */
+function Staffing({ staffing, visitors }: { staffing: CourseStaffing; visitors: number }) {
+  const chips: Array<{ Icon: typeof Users; n: number; tip: string; tone?: string; always?: boolean }> = [
+    { Icon: Users, n: staffing.ours, tip: `يدرّسه ${countOf(staffing.ours, AR.instructor)} من أساتذتنا هذا الفصل`, always: true },
+    { Icon: UserCheck, n: staffing.covered, tip: `${countOf(staffing.covered, AR.section)} يغطيها أساتذتنا`, always: true },
+    { Icon: UserMinus, n: staffing.unassigned, tip: `${countOf(staffing.unassigned, AR.section)} بلا أستاذ (هيئة تدريسية)`, tone: "warn" },
+    { Icon: UserPlus, n: staffing.withVisitors, tip: `${countOf(staffing.withVisitors, AR.section)} عند منتدبٍ حالي` },
+    { Icon: History, n: staffing.returnable, tip: `${countOf(staffing.returnable, AR.instructor)} درّسوه سابقاً ولا يدرّسونه هذا الفصل`, tone: "soft" },
+  ];
+  return (
+    <div className="apb-staff" role="group" aria-label="من يدرّس المقرر">
+      {chips.filter(chip => chip.always || chip.n > 0).map(({ Icon, n, tip, tone }) => (
+        <span key={tip} className="apb-staff-chip" data-tone={tone} title={tip} aria-label={tip}><Icon aria-hidden="true" /><b>{num(n)}</b></span>
+      ))}
+      <span className="apb-staff-need" data-zero={visitors === 0 || undefined} title={`نحتاج ${countOf(visitors, AR.visitor)}`} aria-label={`نحتاج ${countOf(visitors, AR.visitor)}`}><UserPlus aria-hidden="true" /><b>{num(visitors)}</b></span>
+    </div>
+  );
+}
+
+/** قائمةٌ قصيرة: اسم المقرر، وما بُني عليه الرقم، و«الموجود ← المطلوب». تفتح البطاقةُ من يدرّسه وكم منتدباً نحتاج. */
+export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 }: { items: GapItem[]; kind: GapKind; onClose: () => void; staffing?: Record<string, CourseStaffing> | null; freeSlots?: number }) {
   const [all, setAll] = useState(false);
+  const [openId, setOpenId] = useState<number | null>(null);
   const ordered = useMemo(() => sortByName(items, item => item.name), [items]);
   const list = all ? ordered : ordered.slice(0, SHOWN);
   const { Icon, title } = KIND[kind];
+  const need = useMemo(() => (staffing ? visitingNeed(items, staffing, freeSlots) : null), [items, staffing, freeSlots]);
+  const rowOf = (id: number) => need?.rows.find(row => row.id === id);
   return (
     <section className="apb-gap" aria-label={title}>
       <header>
@@ -115,18 +164,38 @@ export function SectionGapPanel({ items, kind, onClose }: { items: GapItem[]; ki
         <button type="button" className="apb-dr-close" aria-label="إغلاق" onClick={onClose} data-guide-ignore="إغلاق قائمة الشعب المقترحة"><X aria-hidden="true" /></button>
       </header>
       <ul className="apb-gap-list">
-        {list.map(item => (
-          <li key={item.id}>
-            <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}</small></span>
-            {kind === "students"
-              ? <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
-              : item.demand > 0 ? <span className="apb-gap-why">المتبقي {num(item.demand)}</span> : null}
-            <span className="apb-gap-pill" title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
-              <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
-            </span>
-          </li>
-        ))}
+        {list.map(item => {
+          const row = rowOf(item.id);
+          const open = openId === item.id && Boolean(row);
+          const body = (
+            <>
+              <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}</small></span>
+              {kind === "students"
+                ? <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
+                : item.demand > 0 ? <span className="apb-gap-why">المتبقي {num(item.demand)}</span> : null}
+              <span className="apb-gap-pill" title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
+                <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
+              </span>
+              {row ? <ChevronDown aria-hidden="true" className="apb-gap-chev" /> : null}
+            </>
+          );
+          return (
+            <li key={item.id} data-open={open || undefined}>
+              {row
+                ? <button type="button" className="apb-gap-row" aria-expanded={open} onClick={() => setOpenId(open ? null : item.id)} data-guide-ignore="فتح تفاصيل من يدرّس المقرر وعدد المنتدبين">{body}</button>
+                : <div className="apb-gap-row">{body}</div>}
+              {open && row ? <Staffing staffing={row.staffing} visitors={row.visitors} /> : null}
+            </li>
+          );
+        })}
       </ul>
+      {need ? (
+        <footer className="apb-gap-total" data-zero={need.visitors === 0 || undefined}>
+          <span className="apb-gap-total-n" title={`نحتاج ${countOf(need.visitors, AR.visitor)}`}><UserPlus aria-hidden="true" /><b>{num(need.visitors)}</b><small>{need.visitors === 1 ? "منتدب" : "منتدبين"}</small></span>
+          <Seats sections={need.sections} free={need.freeSlots} visitors={need.visitors} />
+          <span className="apb-gap-total-s" title={`${countOf(need.sections, AR.section)} بلا أستاذ`}><Layers aria-hidden="true" />{num(need.sections)}</span>
+        </footer>
+      ) : null}
       {items.length > SHOWN ? (
         <footer>
           <button type="button" className="apb-gap-link" onClick={() => setAll(value => !value)} data-guide-ignore="عرض كل المقررات المقترحة أو إخفاؤها">

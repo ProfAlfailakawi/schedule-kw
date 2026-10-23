@@ -129,7 +129,8 @@ import { endForRequest, headlineReasonOf, judgeRequest, requestFullySettled, row
 import { readCourseSuccession, cohortTurnover, predictDemand } from "./src/utils/courseSuccession";
 import { nextSectionCodes, readSectionOpenings, type OpeningReading } from "./src/utils/sectionOpening";
 import { demandFromTargets, gapRows, hardestFirst, weekFingerprint, type GapRow } from "./src/utils/sectionBuild";
-import { facultyPlaceholderOf, placePending, templatesFromHistory, type PendingRoom } from "./src/utils/sectionPending";
+import { visitorFreeSlots, staffCourse, type CourseStaffing } from "./src/utils/visitingNeed";
+import { FACULTY_PLACEHOLDER, facultyPlaceholderOf, placePending, templatesFromHistory, type PendingRoom } from "./src/utils/sectionPending";
 import { courseLevelFromCode } from "./src/utils/curriculumRules";
 import { reasonForMove } from "./src/utils/appointmentStory";
 import { buildCalendar, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "./src/utils/icalendar";
@@ -16943,6 +16944,62 @@ app.get("/api/schedules/section-gap", requirePermission(7), async (req: Authenti
   res.setHeader("Cache-Control", "no-store");
   res.json(data);
 });
+
+/* من يدرّس كل مقرر: يُطلب عند فتح اللوحة فقط، لا مع كل شاشة (يقرأ جدول الفصل وتاريخ القسم كلَّه). */
+app.get("/api/schedules/section-gap/staffing", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0);
+  const sectionId = Number(req.query.sectionId || 0);
+  const termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) {
+    res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" });
+    return;
+  }
+  const courses = await Repository.getCoursesBySection(sectionId);
+  res.setHeader("Cache-Control", "no-store");
+  res.json(await sectionGapStaffing(collegeId, sectionId, termId, (courses as any[]).map(course => Number(course.AdCourseId))));
+});
+
+/* ── من يدرّس كل مقرر؟ أعدادٌ لا أسماء ─────────────────────────────────────────────────
+   أساتذتنا من تاريخ القسم كلّه (منذ ٢٠١٦)، دون المنتدبين و«هيئة تدريسية» ومن تقاعد أو تفرّغ. الحساب في utils/visitingNeed.ts. */
+async function sectionGapStaffing(collegeId: number, sectionId: number, termId: number, courseIds: number[]) {
+  const [termRows, sectionRows, { instructors, visiting }, affiliations, allTerms] = await Promise.all([
+    Repository.getSchedulesByScope({ termId }), Repository.getSchedulesByScope({ collegeId, sectionId }),
+    meetingExcludedIds(termId), Repository.getDelegateAffiliations(), Repository.getTerms().catch(() => []),
+  ]);
+  /* «درّسه سابقاً» = فصلٌ أسبق بالتسلسل الزمني، لا أي فصلٍ آخر (فصلٌ قادمٌ لا يُحسب). */
+  const target = (allTerms as any[]).find(row => Number(row.AdTermId) === termId);
+  const rank = termChronologyServer(target);
+  const earlier = new Set<number>((allTerms as any[]).filter(row => termChronologyServer(row) < rank).map(row => Number(row.AdTermId)));
+  const visitingNow = new Set<number>(visiting);
+  const rosterOf = new Map<number, Set<number>>();
+  for (const row of affiliations) if (row.kind === "roster" && row.termId) {
+    if (!rosterOf.has(row.termId)) rosterOf.set(row.termId, new Set());
+    row.instructorIds.forEach(id => rosterOf.get(row.termId!)!.add(Number(id)));
+  }
+  const placeholder = new Set<number>(instructors.filter(person => String(person.AdInstructorName || "").normalize("NFKC").replace(/\s+/g, " ").trim().startsWith(FACULTY_PLACEHOLDER)).map(person => Number(person.AdInstructorId)));
+  const inactive = new Set<number>(instructors.filter(person => person.AdInstructorStatus).map(person => Number(person.AdInstructorId)));
+  const isVisiting = (id: number) => visitingNow.has(id);
+  const isOurs = (id: number) => !isVisiting(id) && !placeholder.has(id) && !inactive.has(id);
+  const mine = (sectionRows as any[]);
+  const staffing: Record<string, CourseStaffing> = {};
+  for (const id of courseIds) {
+    staffing[String(id)] = staffCourse(
+      mine.filter(row => Number(row.AdCourseId) === id && Number(row.AdTermId) === termId),
+      mine.filter(row => Number(row.AdCourseId) === id && earlier.has(Number(row.AdTermId))),
+      isOurs, isVisiting, id2 => placeholder.has(id2), id2 => !inactive.has(id2), (id2, term) => Boolean(rosterOf.get(term)?.has(id2)),
+    );
+  }
+  /* منتدبو هذا القسم في جدول الفصل: كل منتدبٍ بعدد شعبه في الفصل كلّه (الحدّ للشخص لا للقسم). */
+  const here = new Set<number>(mine.filter(row => Number(row.AdTermId) === termId).map(row => Number(row.AdInstructorId || 0)).filter(id => id && isVisiting(id)));
+  const loads = new Map<number, Set<string>>();
+  for (const row of termRows as any[]) {
+    const id = Number(row.AdInstructorId || 0);
+    if (!here.has(id)) continue;
+    if (!loads.has(id)) loads.set(id, new Set());
+    loads.get(id)!.add(`${row.AdCourseId}|${row.SCode}`);
+  }
+  return { staffing, visitorFreeSlots: visitorFreeSlots([...here].map(id => loads.get(id)?.size || 0)) };
+}
 
 /* ── اقتراحُ شعبٍ من التوقّع لا من رغبات هذا الفصل ───────────────────────────────
    «تنبّؤ الفصل القادم» يقول «افتح شعبةً لهذا المقرر» من تاريخ القسم، وقد لا يكون في رغبات الطلبة الحاليين ما يُنقص مقاعده — فكان زرُّ
