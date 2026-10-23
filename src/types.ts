@@ -1966,6 +1966,9 @@ export interface AdLead {
 export interface PartnerLink {
   id: string;
   company: string;
+  /** فئة نشاط الشركة ومواسمها المفضّلة (اختياريان): يُبرزان في صفحتها. */
+  category?: string;
+  seasons?: string[];
   token: string;
   createdAt: string;
   /** موعد الانتهاء (ISO) أو فارغ إن لم يكن له انتهاء. */

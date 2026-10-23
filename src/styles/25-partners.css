@@ -462,3 +462,5 @@
 .ad-plink-row small{display:block;color:var(--muted);font-size:12px}
 .ad-plink-acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
 @media (max-width:900px){.ad-plink-head{display:none}.ad-plink-row{grid-template-columns:1fr 1fr}.ad-plink-acts{grid-column:1/-1;justify-content:flex-start}}
+.ad-plink-seasons{display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex-basis:100%}
+.ad-plink-seasons>span{font-size:13px;color:var(--muted);margin-inline-end:6px}

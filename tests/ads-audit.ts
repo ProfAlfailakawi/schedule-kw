@@ -812,6 +812,24 @@ async function main() {
     const calcPage = await call("GET", plB.url + "?slot=schedule&season=finals&weeks=4");
     check(calcPage.status === 200 && calcPage.text.includes("ماذا ستحصل؟") && calcPage.text.includes('name="weeks"') && (calcPage.text.includes("تقديرٌ لا وعد") || calcPage.text.includes("لا بيانات كافية")), "الحاسبة: تظهر في ملف الشراكة بنتيجة تقديرٍ أو بيانات غير كافية");
     check((await call("GET", plB.url + "?slot=evil&weeks=999&season=x")).status === 200 && !(await call("GET", plB.url + "?slot=<script>")).text.includes("<script>alert"), "الحاسبة: قيمٌ غير معروفة تُهمل ولا تنعكس في الصفحة");
+    /* رابط الشركة: فئتها ومواسمها تُبرز في صفحتها، وأول فتحٍ يصل الجرس. */
+    const plC = (await call("POST", "/api/admin/ads/partner-links", { company: "شركة جيم", category: "تدريب وتوظيف", seasons: ["finals", "bogus"] })).json.link;
+    const plD = (await call("POST", "/api/admin/ads/partner-links", { company: "شركة دال", category: "فئة مجهولة" })).json.link;
+    check(plC.category === "تدريب وتوظيف" && JSON.stringify(plC.seasons) === JSON.stringify(["finals"]) && plD.category === "" && plD.seasons.length === 0, "رابط الشركة: الفئة المعروفة والموسم الصحيح فقط يُحفظان", [plC, plD]);
+    const kitC = await call("GET", plC.url);
+    check(kitC.text.includes("أُعدّ لـ شركة جيم") && kitC.text.includes("تدريب وتوظيف") && kitC.text.includes("مواسمك:") && kitC.text.includes('<option value="finals" selected>'), "رابط الشركة: صفحتها تبرز فئتها ومواسمها وتختار موسمها في الحاسبة");
+    check(!(await call("GET", plD.url)).text.includes("مواسمك:"), "رابط الشركة: بلا مواسم لا سطر مواسم");
+    await pause();
+    const linkBell = await R.adNotifications();
+    const firstOpen = linkBell.find(n => n.id === `ad-link-open:${plC.id}`);
+    check(!!firstOpen && firstOpen.view === "ads" && firstOpen.tone === "action" && firstOpen.title.includes("شركة جيم") && firstOpen.title.includes("لأول مرة"), "الجرس: أول فتحٍ لرابط شركة يُنبّه الإدارة", firstOpen);
+    check(!linkBell.some(n => n.id === `ad-link-open:${plB.id}x`) && linkBell.filter(n => n.id.startsWith("ad-link-open:")).length >= 1, "الجرس: تنبيه فتحٍ لكل رابطٍ فُتح");
+    const oldRow = (await Repository.listPartnerLinks()).find(l => l.id === plC.id)!;
+    oldRow.firstOpenAt = new Date(Date.now() - 9 * 86_400_000).toISOString();
+    check(!(await R.adNotifications()).some(n => n.id === `ad-link-open:${plC.id}`), "الجرس: لا يبقى تنبيه الفتح أكثر من أسبوع");
+    await call("POST", `/api/admin/ads/partner-links/${plC.id}/revoke`);
+    oldRow.firstOpenAt = new Date().toISOString();
+    check(!(await R.adNotifications()).some(n => n.id === `ad-link-open:${plC.id}`), "الجرس: الرابط الموقوف لا يُنبّه");
     check((await call("POST", `/api/admin/ads/partner-links/${plA.id}/revoke`)).status === 200 && (await call("GET", plA.url)).status === 404, "رابط الشراكة: الإيقاف يعطّل ذلك الرابط");
     check((await call("GET", plB.url)).status === 200 && (await row(plA.id)).state === "revoked", "رابط الشراكة: إيقاف رابطٍ لا يمسّ غيره");
     check((await call("POST", "/api/admin/ads/partner-links/nope/revoke")).status === 404, "رابط الشراكة: إيقاف رابطٍ غير موجود ٤٠٤");
