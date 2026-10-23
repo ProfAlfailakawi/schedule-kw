@@ -116,20 +116,6 @@ export function SectionGapBadge({ items, kind, open, onToggle }: { items: GapIte
   );
 }
 
-/** مقاعد المنتدبين: كل منتدبٍ بطاقةٌ من مقعدين؛ المشغول نقطةٌ ممتلئة، والفارغ عند منتدبٍ حاليّ نقطةٌ مفرغة. */
-function Seats({ sections, free, visitors }: { sections: number; free: number; visitors: number }) {
-  const cards = Array.from({ length: Math.min(visitors, 8) }, (_, i) => i);
-  let filled = Math.max(0, sections - free);
-  return (
-    <span className="apb-seats" aria-hidden="true">
-      {cards.map(i => {
-        const used = Math.min(VISITOR_MAX_SECTIONS, filled); filled -= used;
-        return <span key={i} className="apb-seat"><UserPlus />{Array.from({ length: VISITOR_MAX_SECTIONS }, (_, d) => <i key={d} data-on={d < used || undefined} />)}</span>;
-      })}
-    </span>
-  );
-}
-
 /** سطرٌ تحت المقرر: أيقونةٌ ورقم، ولكلٍّ جملتُه الكاملة في التلميح. لا أسماء. */
 function Staffing({ staffing, visitors }: { staffing: CourseStaffing; visitors: number }) {
   const chips: Array<{ id: string; Icon: typeof Users; n: number; tip: string; tone?: string; always?: boolean }> = [
@@ -161,6 +147,7 @@ function Staffing({ staffing, visitors }: { staffing: CourseStaffing; visitors: 
 export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 }: { items: GapItem[]; kind: GapKind; onClose: () => void; staffing?: Record<string, CourseStaffing> | null; freeSlots?: number }) {
   const [all, setAll] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [totalOpen, setTotalOpen] = useState(false);
   const ordered = useMemo(() => sortByName(items, item => item.name), [items]);
   const list = all ? ordered : ordered.slice(0, SHOWN);
   const { Icon, title } = KIND[kind];
@@ -201,10 +188,18 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
         })}
       </ul>
       {need ? (
-        <footer className="apb-gap-total" data-zero={need.visitors === 0 || undefined}>
-          <span className="apb-gap-total-n" title={`نحتاج ${countOf(need.visitors, AR.visitor)}`}><UserPlus aria-hidden="true" /><b>{num(need.visitors)}</b><small>{need.visitors === 1 ? "منتدب" : "منتدبين"}</small></span>
-          <Seats sections={need.sections} free={need.freeSlots} visitors={need.visitors} />
-          <span className="apb-gap-total-s" title={`${countOf(need.sections, AR.section)} بلا أستاذ`}><Layers aria-hidden="true" />{num(need.sections)}</span>
+        <footer className="apb-gap-total" data-zero={need.visitors === 0 || undefined} data-open={totalOpen || undefined}>
+          <button type="button" className="apb-gap-total-btn" aria-expanded={totalOpen} onClick={() => setTotalOpen(value => !value)} data-guide-ignore="مجموع المنتدبين للقسم: الضغط يبيّن الحساب">
+            <UserPlus aria-hidden="true" /><b>{num(need.visitors)}</b><small>{need.visitors === 1 ? "منتدب" : "منتدبين"}</small><ChevronDown aria-hidden="true" className="apb-gap-chev" />
+          </button>
+          {totalOpen ? (
+            <p className="apb-gap-total-sum" role="status">
+              <span><Layers aria-hidden="true" /><b>{num(need.sections)}</b> {need.sections === 1 ? "شعبة" : "شعب"} بلا أستاذ</span>
+              {need.freeSlots > 0 ? <span>− <b>{num(Math.min(need.freeSlots, need.sections))}</b> أماكن عند المنتدبين الحاليين</span> : null}
+              <span>÷ <b>{num(VISITOR_MAX_SECTIONS)}</b> شعبتان لكل منتدب</span>
+              <span>= <b>{num(need.visitors)}</b> {need.visitors === 1 ? "منتدب" : "منتدبين"}</span>
+            </p>
+          ) : null}
         </footer>
       ) : null}
       {items.length > SHOWN ? (
