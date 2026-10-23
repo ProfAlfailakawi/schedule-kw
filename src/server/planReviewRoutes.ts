@@ -34,6 +34,7 @@ import { rowsToDrafts, type ImportPlan, type RuleImportRow } from "../utils/curr
 import { academicDigits, authorityDepartmentCode } from "../utils/authorityAcademicCodes";
 import { branchAudience } from "../utils/referenceApply";
 import { correctCourseName } from "../utils/courseNameCorrection";
+import { courseNameRelation } from "../utils/courseNameRelation";
 import { blockingWarnings, checkSheetScope, correctedNames, isNewSheet, sheetKey, sheetNameMatches, sheetOwnKey, sheetSectionCode, sheetSectionName, ownCourses, sheetToReference, storedCode } from "../utils/planSheetImport";
 import { parsePlanItems } from "../utils/planPdfParser";
 import { extractPlanItems, PLAN_PDF_MAX_BYTES } from "./planPdfExtract";
@@ -137,6 +138,10 @@ export function referenceSnapshotFor(sections: any[], courses: AdCourse[]) {
       return { plans, links, collegeCourses, references };
   };
 }
+
+/** برامجُ صحيفتُها مسارٌ مستقلٌّ إلى جانب صحيفة القسم الرئيسية: الإنجليزية للمتوسط والثانوي (بجانب BA-0116)، ورياض الأطفال
+ *  (برنامجٌ بلا قسمٍ مالك، مقرراته من الأقسام التربوية). */
+const TRACK_PROGRAMS = new Set(["BA-0119", "BA-0110"]);
 
 export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): void {
   const fail = (res: Response, status: number, error: string, extra: Record<string, unknown> = {}) => res.status(status).json({ error, ...extra });
@@ -1059,7 +1064,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       /* الثنائية الرئيسية (الجديدة/السابقة) بلا صحائف المسارات، فهي لا تُزيحها ولا تُحسب فيها. */
       const mainPlansOf = (id: number) => livePlansOf(id).then(rows => rows.filter(item => !item.track));
       /* برنامجٌ بتخصصٍ مزدوج (BA-012402…): صحيفةُ مسارٍ مستقلة داخل القسم، لها جديدتُها وسابقتُها. */
-      const trackProgram = /^BA-\d{4}\d{2}$/.test(sheet.program) ? sheet.program : "";
+      const trackProgram = /^BA-\d{4}\d{2}$/.test(sheet.program) || TRACK_PROGRAMS.has(sheet.program) ? sheet.program : "";
       /* التدوير: صحيفةٌ أحدث من سنة الفعّالة تصير الفعّالة وتنتقل القائمة إلى «السابقة» (للقسم المعني وحده)؛ نفس السنة تحديث؛ أقدم تدخل «السابقة». */
       const planScopeOf = async (sid: number) => (await livePlansOf(sid)).filter(item => (trackProgram ? item.track === trackProgram : !item.track));
       const eraOf = async (sid: number): Promise<{ isNew: boolean; rollover: boolean }> => {
@@ -1099,12 +1104,12 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         const branch = collegeBranchRoot(colleges as any[], cid);
         const inBranch = ownCourses(sheet, ownKey).filter(course => !(course.girlsOnly && branch && branchAudience(branch) !== "girls"));
         const { names, fixes } = correctedNames(inBranch);
-        /* مقرراتُ الأقسام الأخرى في المجموعات الاختيارية (الثقافة العامة وغيرها): الموجودُ منها في كتالوج الموقع يدخل المجموعة مقرراً خارجياً مقفولاً للقراءة،
-           وغير الموجود (قسمٌ خدمي بلا صحيفة) لا يُنشأ هنا ويُحصى وحداتٍ معلّقةً تُنبَّه ولا تمنع. الكتابة في قسمٍ آخر لا تحدث. */
-        const electiveIds = new Set(sheet.groups.filter(group => group.kind === "elective").map(group => group.id));
+        /* مقرراتُ الأقسام الأخرى في الصحيفة، إجباريةً كانت (لغة إنجليزية، الثقافة الإسلامية، طرق التدريس، التربية العملية…) أو اختيارية:
+           الموجودُ منها في كتالوج الموقع يدخل الصحيفة متطلباً عاماً مقفولاً للقراءة يُحتسب للطالب، وغير الموجود (قسمٌ خدمي بلا صحيفة)
+           لا يُنشأ هنا ويُحصى وحداتٍ معلّقةً تُنبَّه ولا تمنع. الكتابة في قسمٍ آخر لا تحدث. */
         const ownKeysAll = new Set(ownCourses(sheet, ownKey).map(course => course.codeKey));
-        const foreignElectives = sheet.courses.filter(course => electiveIds.has(course.groupId) && !ownKeysAll.has(course.codeKey) && !(course.girlsOnly && branch && branchAudience(branch) !== "girls"));
-        const { reference, notes } = sheetToReference(sheet, inBranch, names, foreignElectives);
+        const foreignCourses = sheet.courses.filter(course => !ownKeysAll.has(course.codeKey) && !(course.girlsOnly && branch && branchAudience(branch) !== "girls"));
+        const { reference, notes } = sheetToReference(sheet, inBranch, names, foreignCourses);
         const report = { updated: 0, created: 0, linked: 0, unchanged: 0, rules: 0, groups: 0, unlinked: 0, prereqPrinted: 0, prereqLinked: 0 };
         let unresolved: string[] = [];
 
@@ -1140,19 +1145,45 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         /* اسمٌ واحد لصحيفة السنة في كل المواقع («صحيفة 2026») بدل أسماءٍ تختلف باختلاف مرحلة الرفع. */
         if (isNew && !trackProgram && sheet.startYear && plan.status === "active" && plan.name !== newPlanName) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { name: newPlanName })) };
         if (sheet.startYear && (era.rollover || !plan.sheetYear)) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { sheetYear: sheet.startYear })) };
+        /* شروطُ تخرج الصحيفة: وحداتُ الدرجة من الصحيفة نفسها، وحدودُ فتح التدريب والخريج (عادي/صيفي) بالنسبة والتناسب من قاعدة القسم.
+           صحيفةٌ لها قاعدةٌ محفوظة لا تُمسّ (ما كتبه القسم يبقى). */
+        if (!plan.degreeRule && sheet.degreeUnits > 0 && sheet.degreeUnits <= 160) {
+          const sectionRule = (await Repository.getDegreeRules()).find(row => Number(row.AdSectionId) === sid);
+          if (sectionRule && Number(sectionRule.degreeUnits) > 0) {
+            const ratio = sheet.degreeUnits / Number(sectionRule.degreeUnits), scaled = (value: unknown) => Math.round(Number(value) * ratio);
+            plan = { ...plan, ...(await Repository.updateCurriculumPlan(plan.id, sid, { degreeRule: {
+              degreeUnits: sheet.degreeUnits, fieldTrainingRequired: scaled(sectionRule.fieldTrainingRequired),
+              graduateRegularPassed: scaled(sectionRule.graduateRegularPassed), graduateSummerPassed: scaled(sectionRule.graduateSummerPassed),
+              updatedAt: new Date().toISOString(), updatedBy: `رفع الصحيفة · ${by}`,
+            } })) };
+          }
+        }
 
         /* 1) المقررات: تصحيح الاسم/الوحدات/الساعات وإضافة الناقص؛ السعة كما هي. */
         let courses = await Repository.getCourses() as AdCourse[];
+        /* مقررٌ في صحيفةٍ أخرى للقسم مستعمَلٌ هناك باسمه: إن سمّته هذه الصحيفة مقرراً آخر لا يُعاد تسميته فيُفسد تلك. */
+        const linkedElsewhere = new Set((await Repository.getCurriculumPlanCourses(sid)).filter(link => link.planId !== plan!.id).map(link => Number(link.AdCourseId)));
         for (const course of inBranch) {
           const matches = courses.filter(row => Number(row.AdSectionId) === sid && numberOf(row.CourseCode) === Number(course.number));
           if (matches.length > 1) { notes.push(`الرمز ${storedCode(course)} يطابق أكثر من مقرر في القسم: لم يُمسّ.`); continue; }
           const name = names.get(course.codeKey) || course.name;
           const row = matches[0];
+          /* وحداتٌ مطبوعةٌ فوق ما تطلبه مجموعتها الاختيارية كلُّها خطأ طباعة (صحيفة التربية الفنية 2026: «اختيارية 2» وحدةٌ واحدة
+             ومقرراتها مطبوعةٌ بثلاث خلافاً لسائر الصحائف): لا تُكتب فوق الكتالوج. */
+          const group = sheet.groups.find(item => item.id === course.groupId);
+          const misprinted = Boolean(row && group?.kind === "elective" && group.units !== null && course.units > group.units);
+          const units = misprinted ? Number(row!.CourseCredit) : course.units;
+          if (misprinted) notes.push(`«${name}»: ${course.units} وحدات مطبوعة فوق ما تطلبه مجموعتها (${group!.units})؛ بقيت وحداته ${units}.`);
+          /* الإملاء وحده لا يغيّر الاسم، ومقررٌ آخر يحمل الرقم لا يُعاد تسميتُه (courseNameRelation). */
+          const relation = row ? courseNameRelation(String(row.CourseName), name) : "same";
+          const protectedName = Boolean(row && relation === "different" && linkedElsewhere.has(Number(row.AdCourseId)));
+          if (protectedName) notes.push(`الرقم ${storedCode(course)} في القسم لمقرر «${String(row!.CourseName).trim()}» مستعمَلٍ في صحيفةٍ أخرى، والصحيفة تسمّيه «${name}»: لم يُعَد تسميته.`);
+          const keptName = relation === "same" || relation === "spelling" || protectedName ? String(row?.CourseName ?? name) : name;
           if (!row) {
             try { await Repository.createCourse(cid, sid, storedCode(course), name, course.units, course.hours, 0, false); report.created += 1; }
             catch (error) { if (error instanceof DuplicateResourceError) notes.push(`الرمز ${storedCode(course)} مستعمل في القسم؛ لم يُنشأ.`); else throw error; }
-          } else if ((String(row.CourseName).normalize("NFKC").trim() !== name || Number(row.CourseCredit) !== course.units || Number(row.CourseHours) !== course.hours) && await mayCorrect(row, isNew)) {
-            await Repository.updateCourse(row.AdCourseId, row.AdCollegeId, row.AdSectionId, row.CourseCode, name, course.units, course.hours, Number(row.MaxStudent) || 0);
+          } else if ((String(row.CourseName) !== keptName || Number(row.CourseCredit) !== units || Number(row.CourseHours) !== course.hours) && await mayCorrect(row, isNew)) {
+            await Repository.updateCourse(row.AdCourseId, row.AdCollegeId, row.AdSectionId, row.CourseCode, keptName, units, course.hours, Number(row.MaxStudent) || 0);
             report.updated += 1;
           } else report.unchanged += 1;
         }
@@ -1162,7 +1193,9 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         const sectionCodes = new Map((sections as any[]).map(row => [Number(row.AdSectionId), authorityDepartmentCode(colleges.find((c: any) => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeCode, row.AdSectionCode)] as const));
         const keyOf = (row: AdCourse) => {
           const code = referenceCodeKey(row.CourseCode), dept = sectionCodes.get(Number(row.AdSectionId)) || "";
-          return /^\d{1,3}$/.test(code) && /^\d{4}$/.test(dept) ? `${dept}${code.padStart(3, "0")}` : code;
+          if (/^\d{1,3}$/.test(code) && /^\d{4}$/.test(dept)) return `${dept}${code.padStart(3, "0")}`;
+          /* «114164» محفوظٌ بلا صفر الكلية: هو 0114164 المطبوع. */
+          return /^1\d{5}$/.test(code) ? `0${code}` : code;
         };
         const knownIdByCode = new Map<string, number>(), memberIdByCode = new Map<string, number>();
         for (const row of courses) if (Number(row.AdCollegeId) === cid) knownIdByCode.set(keyOf(row), Number(row.AdCourseId));
@@ -1180,9 +1213,9 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
           const id = knownIdByCode.get(referenceCodeKey(need));
           if (id && !memberIdByCode.has(need)) externalIdByCode.set(need, id);
         }
-        /* أعضاءُ المجموعات الاختيارية من أقسامٍ أخرى: الموجود في الكتالوج يدخل المجموعة مقرراً خارجياً. */
+        /* مقررات الأقسام الأخرى: الموجود في الكتالوج متطلبٌ عام، والاختياري منها يدخل مجموعته. */
         const foreignMemberIdByCode = new Map<string, number>();
-        for (const course of foreignElectives) {
+        for (const course of foreignCourses) {
           const id = knownIdByCode.get(course.codeKey);
           if (id) { foreignMemberIdByCode.set(course.codeKey, id); externalIdByCode.set(course.codeKey, id); }
         }
