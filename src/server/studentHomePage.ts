@@ -1,6 +1,6 @@
 import { ARABIC_COUNT_SCRIPT } from "../utils/arabicCount";
 import { PUBLIC_FONT_FACES } from "./publicKit";
-import { PUBLIC_DARK_THEME_COLOR, PUBLIC_DARK_VARS, PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./publicTheme";
+import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./publicTheme";
 import { STUDENT_MAP_CSS, STUDENT_MAP_SCRIPT } from "./studentMapUi";
 
 /**
@@ -114,7 +114,6 @@ export const STUDENT_HOME_CSS = `
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
 :root{${PUBLIC_LIGHT_VARS};--r:20px;--shadow:0 1px 2px rgba(19,24,23,.04),0 8px 24px -14px rgba(19,24,23,.2);--ease:cubic-bezier(.2,.7,.2,1);--gold:#85601f;--gold-soft:#f3ead9;--ok:#25684a;--ok-soft:#dfeee6;--note-ink:#6b4a14;--bar:#131817}
-@media (prefers-color-scheme:dark){:root{${PUBLIC_DARK_VARS};--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -14px rgba(0,0,0,.6);--gold-soft:#2c2415;--ok:#6fd0a0;--ok-soft:#14291f;--note-ink:#ecd9ae;--bar:#0a0f0d}}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{margin:0;min-height:100dvh;background:radial-gradient(120% 60% at 100% 0,var(--accent-soft) 0,transparent 55%),var(--bg);color:var(--ink);font-family:"Plex Arabic",-apple-system,"Segoe UI","Noto Sans Arabic",Tahoma,sans-serif;font-synthesis:none;-webkit-font-smoothing:antialiased;line-height:1.65;padding-bottom:env(safe-area-inset-bottom)}
 button,input,textarea,select{font:inherit;color:inherit}
@@ -1200,8 +1199,7 @@ export function studentHomePage(nonce: string, track: "boys" | "girls" | "" = ""
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="${PUBLIC_THEME_COLOR}" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="${PUBLIC_DARK_THEME_COLOR}" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="${PUBLIC_THEME_COLOR}">
 <meta name="robots" content="noindex,nofollow">
 <title>مساري · SCHEDULE</title>
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml">

@@ -73,8 +73,8 @@ check(!PUBLIC_KIT_CSS.includes("`") && !PUBLIC_KIT_SCRIPT.includes("`") && !PUBL
 const requestStyles = fs.readFileSync("src/server/requestPageStyles.ts", "utf8");
 check(/color-scheme:\s*light(?:[;}])/.test(proposal) && !/prefers-color-scheme:\s*dark|color-scheme:\s*(?:light\s+)?dark/.test(proposal),
   "صفحةُ المقترح تبقى فاتحة");
-check(/color-scheme:\s*light(?:[;}])/.test(requestStyles) && /@media screen and \(prefers-color-scheme:dark\)/.test(requestStyles),
-  "وبطاقةُ الأستاذ فاتحةٌ افتراضياً وتتبع تفضيل الجهاز الداكن عمداً");
+check(/color-scheme:\s*light(?:[;}])/.test(requestStyles) && !/prefers-color-scheme:\s*dark/.test(requestStyles),
+  "وبطاقةُ الأستاذ فاتحةٌ دائماً ولا تتبع الوضع الداكن للجهاز");
 
 console.log(`\nPublic kit audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

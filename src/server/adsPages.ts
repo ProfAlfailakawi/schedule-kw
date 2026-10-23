@@ -38,7 +38,6 @@ export const approx = (n: number): string => {
 
 const PHASE_LABEL: Record<AdPhase, string> = { draft: "مسودة", paused: "موقوفة", scheduled: "مجدولة", live: "تعمل الآن", ended: "منتهية" };
 
-const BASE_DARK = `@media (prefers-color-scheme:dark){:root{--bg:#0f1512;--card:#17201c;--ink:#eef3ef;--muted:#9baba3;--line:#27342e;--accent:#4fc29a;--accent2:#e3a557;--soft:#12261e;--shadow:0 1px 2px rgba(0,0,0,.4),0 14px 40px rgba(0,0,0,.35)}}`;
 const BASE_CSS = `
 :root{--bg:#f6f4ef;--card:#fff;--ink:#17201c;--muted:#5f6b65;--line:#e4e0d6;--accent:#0f6b4f;--accent2:#c9822b;--soft:#e8f3ee;--shadow:0 1px 2px rgba(20,30,25,.06),0 14px 40px rgba(20,30,25,.07)}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
@@ -87,9 +86,9 @@ footer{margin-top:40px;color:var(--muted);font-size:12.5px;text-align:center}
 const page = (title: string, nonce: string, body: string, extraCss = "", light = false): string => `<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="robots" content="noindex,nofollow"><meta name="color-scheme" content="${light ? "light" : "light dark"}">
+<meta name="robots" content="noindex,nofollow"><meta name="color-scheme" content="light">
 <title>${esc(title)}</title><link rel="icon" href="/schedule-icon.svg" type="image/svg+xml">
-<style>${BASE_CSS}${light ? "" : BASE_DARK}${extraCss}</style></head><body><div class="wrap">${body}</div>
+<style>${BASE_CSS}${extraCss}</style></head><body><div class="wrap">${body}</div>
 <script nonce="${nonce}">(function(){var b=document.getElementById("print");if(b)b.addEventListener("click",function(){window.print()})})();</script>
 </body></html>`;
 
