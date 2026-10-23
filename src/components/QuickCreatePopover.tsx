@@ -13,6 +13,8 @@ import { sortByName } from "../utils/sorting";
 import { toEnglishDigits } from "../utils/digits";
 import { isAssignableInstructor } from "../utils/instructorStatus";
 import { usePlanBadges } from "../utils/planBadges";
+import { withVisitingSuffix } from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 
 /**
  * The appointment written where it was drawn.
@@ -105,6 +107,7 @@ export default function QuickCreatePopover({
   onCreate: (draft: QuickDraft) => void;
 }) {
   const planBadges = usePlanBadges();
+  const { isVisiting } = useVisitingLookup(termId);
   const ref = useRef<HTMLDivElement | null>(null);
   const firstField = useRef<HTMLButtonElement | null>(null);
   const [box, setBox] = useState<{ left: number; top: number } | null>(null);
@@ -251,7 +254,7 @@ export default function QuickCreatePopover({
             <option value="">اختر الأستاذ…</option>
             {instructors.filter(isAssignableInstructor).map((i) => (
               <option key={i.AdInstructorId} value={i.AdInstructorId}>
-                {i.AdInstructorName}
+                {withVisitingSuffix(i.AdInstructorName, isVisiting(i.AdInstructorId, collegeId, sectionId))}
               </option>
             ))}
           </select>

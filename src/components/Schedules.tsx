@@ -146,7 +146,8 @@ import SearchableSelect from "./SearchableSelect";
 import { usePlanBadges } from "../utils/planBadges";
 import PlanBadge from "./PlanBadge";
 import type { GapItem as SectionGapItem } from "../utils/sectionGap";
-import VisitingBadge from "./VisitingBadge";
+import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
 import { adviseDayPattern, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding, patternsForHours, patternsForHoursOnDay, reviewSchedule, type DayKey as RegDayKey, type WeeklyPattern } from "../utils/scheduleRegulations";
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
@@ -491,6 +492,21 @@ const placementFieldKey = (day: DayKey, start: string, roomKey?: string) =>
  * it slides back in. Nothing it says can be clipped by a column, which was the
  * entire failure of the version it replaces.
  */
+/**
+ * اسم أستاذ موعدٍ من فصلٍ آخر (ظلُّ الفصل السابق). المنتدبُ يُعرف بفصل الصفّ نفسه وقسمه لا بقائمة
+ * الفصل المعروض، فيسأل القائمةَ الموحّدة بفصل الصفّ.
+ */
+function GhostInstructorName({ row, name, fallbackCollegeId, fallbackSectionId }: {
+  row: { AdInstructorId?: number; AdTermId?: number; AdCollegeId?: number; AdSectionId?: number };
+  name?: string;
+  fallbackCollegeId: number;
+  fallbackSectionId: number;
+}) {
+  const { isVisiting } = useVisitingLookup(row.AdTermId);
+  const visiting = isVisiting(row.AdInstructorId, row.AdCollegeId || fallbackCollegeId, row.AdSectionId || fallbackSectionId);
+  return <>{name}{visiting ? <VisitingBadge compact /> : null}</>;
+}
+
 function WeekPeek({ anchor, title, who, code, section, days: dayText, from, to, room, hue }: {
   anchor: { x: number; y: number };
   title: string; who: string; code: string; section: string;
@@ -1515,6 +1531,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   }, [form.fsunday, form.fmonday, form.ftuesday, form.fwednesday, form.fthursday, form.fstarttime, form.fendtime]);
 
   const [visitingIds, setVisitingIds] = useState<Set<number>>(new Set());
+  /* «منتدب» للنموذج المفتوح: القسمُ والفصلُ اللذان يحفظ فيهما النموذج قد يخالفان اللوحة المعروضة
+     (المشرف يحرّر قسماً آخر)، فإن طابقاها فالقائمةُ المحمّلة مع اللوحة هي المرجع، وإلا فالقائمةُ الموحّدة. */
+  const formLookupTerm = Number(form.AdTermId) || filterTerm;
+  const { lookup: visitingLookupData, isVisiting: lookupVisiting } = useVisitingLookup(formLookupTerm);
+  const formVisiting = (instructorId: unknown) => {
+    const id = Number(instructorId) || 0;
+    if (!id) return false;
+    const college = Number(form.AdCollegeId) || filterCollege, section = Number(form.AdSectionId) || filterSection;
+    if (college === Number(filterCollege) && section === Number(filterSection) && formLookupTerm === Number(filterTerm)) return visitingIds.has(id);
+    return lookupVisiting(id, college, section);
+  };
 
   // The roster is a term-membership list; this toolbar, however, filters the
   // timetable itself. Count only visitors who actually have at least one row in
@@ -3469,7 +3496,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       ? [
           otherCourse || "موعد آخر",
           other.SCode ? `شعبة ${other.SCode}` : "",
-          instructorById.get(Number(other.AdInstructorId || 0))?.AdInstructorName || "",
+          withVisitingSuffix(instructorById.get(Number(other.AdInstructorId || 0))?.AdInstructorName || "", Boolean(other.AdInstructorId) && formVisiting(other.AdInstructorId)),
           formatScheduleTimeRange(other.fstarttime, other.fendtime),
         ].filter(Boolean).join(" · ")
       : "";
@@ -3477,7 +3504,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     let titleSecondary = "";
     let summary = detail;
     if (isInstructor) {
-      title = `الأستاذ: ${currentInstructorName || other?.AdInstructorName || title.replace(/^الأستاذ\s*/, "").replace(/\s*لديه.*$/, "") || "—"}`;
+      const instructorTitleName = currentInstructorName || other?.AdInstructorName || title.replace(/^الأستاذ\s*/, "").replace(/\s*لديه.*$/, "") || "—";
+      const instructorTitleId = currentInstructorName ? form.AdInstructorId : other?.AdInstructorId;
+      title = `الأستاذ: ${withVisitingSuffix(instructorTitleName, Boolean(instructorTitleId) && formVisiting(instructorTitleId))}`;
       titleSecondary = "لديه محاضرة متداخلة";
       summary = otherBooking || detail;
     } else if (conflict.type === "room") {
@@ -3543,7 +3572,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       overlap,
       lines,
     };
-  }), [conflicts, rows, form.fstarttime, form.fendtime, currentInstructorName, currentRoomLabel, selectedDaySummary, courseById]);
+  }), [conflicts, rows, form.fstarttime, form.fendtime, currentInstructorName, currentRoomLabel, selectedDaySummary, courseById, visitingIds, visitingLookupData, form.AdInstructorId, form.AdCollegeId, form.AdSectionId, form.AdTermId]);
   const editorTimingVisualDays = useMemo(() => {
     const startMinute = String(form.fstarttime || "").match(/^(\d{1,2}):(\d{2})$/) ? Number(String(form.fstarttime || "").split(":")[1]) : null;
     return days.map(day => {
@@ -6558,7 +6587,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           // meaning it always had, so nothing a reader already knows changes.
           if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); pickUpWithKeyboard(r); }
         }}
-        aria-label={`${title} · ${code} · شعبة ${r.SCode || "—"} · ${who} · ${arabicDays(r) || "بلا أيام"} · ${formatScheduleTimeRange(r.fstarttime, r.fendtime)}${place ? ` · قاعة ${place}` : ""}`}
+        aria-label={`${title} · ${code} · شعبة ${r.SCode || "—"} · ${withVisitingSuffix(who, visitingIds.has(r.AdInstructorId))} · ${arabicDays(r) || "بلا أيام"} · ${formatScheduleTimeRange(r.fstarttime, r.fendtime)}${place ? ` · قاعة ${place}` : ""}`}
         data-row-id={r.id}
         /* «أشر لي» describes what it is pointed at. Without this the card fell
            back to the generic "an interactive element" sentence, which is the
@@ -6698,23 +6727,25 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const hueIdentity = (r: FSchedule) => {
     if (hueBy === "instructor") {
       const name = instructorById.get(r.AdInstructorId)?.AdInstructorName || "بدون أستاذ";
-      return { key: `i:${name}`, label: firstLast(name), hue: courseHue(name, "") };
+      return { key: `i:${name}`, label: firstLast(name), hue: courseHue(name, ""), visiting: visitingIds.has(Number(r.AdInstructorId)) };
     }
     if (hueBy === "room") {
       const place = cleanWeekPlaceLabel(placeOf(r));
-      return { key: `r:${place}`, label: place, hue: courseHue(place, "") };
+      return { key: `r:${place}`, label: place, hue: courseHue(place, ""), visiting: false };
     }
     const course = courseById.get(r.AdCourseId);
     const code = course?.CourseCode || r.AdCourseName || "—";
     const title = r.AdCourseName || course?.CourseName || code;
-    return { key: `c:${code}·${title}`, label: title, hue: courseHue(code, title) };
+    return { key: `c:${code}·${title}`, label: title, hue: courseHue(code, title), visiting: false };
   };
+  /** نصُّ الشريحة للعنوان وقارئ الشاشة: اسم الأستاذ ولاحقة «منتدب» إن كان منتدباً. */
+  const legendText = (item: { label: string; visiting?: boolean }) => withVisitingSuffix(item.label, Boolean(item.visiting));
 
   /* The key to the week's colours, built from what is actually on screen and
      ordered by weight, so the course a reader is most likely hunting sits
      first. Rebuilt only when the rows or the colour's meaning change. */
   const hueLegend = useMemo(() => {
-    const seen = new Map<string, { key: string; label: string; hue: number; count: number }>();
+    const seen = new Map<string, { key: string; label: string; hue: number; count: number; visiting: boolean }>();
     filteredRows.forEach(r => {
       const id = hueIdentity(r);
       const found = seen.get(id.key);
@@ -6722,7 +6753,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       else seen.set(id.key, { ...id, count: 1 });
     });
     return [...seen.values()].sort((a, b) => byArabic(a.label, b.label) || b.count - a.count);
-  }, [filteredRows, hueBy, courseById, instructorById]);
+  }, [filteredRows, hueBy, courseById, instructorById, visitingIds]);
 
   /* Arabic is written with and without its diacritics and with three shapes of
      alef, so a raw substring match makes the reader spell a name exactly as the
@@ -9117,7 +9148,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     {form.SCode ? ` · شعبة ${form.SCode}` : ""}
                   </strong>
                   <span>
-                    {selectedInstructor?.AdInstructorName || "اختر الأستاذ"} ·{" "}
+                    {selectedInstructor?.AdInstructorName || "اختر الأستاذ"}
+                    {selectedInstructor && formVisiting(form.AdInstructorId) ? <VisitingBadge compact /> : null} ·{" "}
                     {arabicDays(form) || "اختر الأيام"}
                   </span>
                 </div>
@@ -10380,10 +10412,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         className={`week-legend-chip ${hueFocus.has(item.key) ? "is-on" : ""}`}
                         aria-pressed={hueFocus.has(item.key)}
                         disabled={folded}
-                        title={`${item.label} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية القائمة عليه`}
+                        title={`${legendText(item)} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية القائمة عليه`}
                         onClick={() => toggleHueFocus(item.key)}
                       >
-                        <i aria-hidden="true" /><span>{item.label}</span><em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
+                        <i aria-hidden="true" /><span>{item.label}{item.visiting ? <VisitingBadge compact /> : null}</span><em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
                         {needMark(item.key)}
                       </button>
                       <button
@@ -10391,8 +10423,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         data-guide-ignore="إخفاء عنصر من مفتاح الألوان مؤقتاً عرض بصري فقط"
                         className="week-legend-eye"
                         aria-pressed={folded}
-                        aria-label={folded ? `إظهار ${item.label}` : `إخفاء ${item.label} من القائمة`}
-                        title={folded ? `إظهار ${item.label} في القائمة` : `أخفِ ${item.label} من القائمة مؤقتاً — لا يُحذف شيء`}
+                        aria-label={folded ? `إظهار ${legendText(item)}` : `إخفاء ${legendText(item)} من القائمة`}
+                        title={folded ? `إظهار ${legendText(item)} في القائمة` : `أخفِ ${legendText(item)} من القائمة مؤقتاً — لا يُحذف شيء`}
                         onClick={() => toggleHueHidden(item.key)}
                       >
                         {folded ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
@@ -10707,8 +10739,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     beginRipple(row);
                   }}
                   onDragEnd={clearRipple}
-                  title={`${title} · ${instructor?.AdInstructorName || "بدون أستاذ"} · ${dayNames} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`}
-                  aria-label={`${title} · ${instructor?.AdInstructorName || "بدون أستاذ"} · ${dayNames} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`}
+                  title={`${title} · ${withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))} · ${dayNames} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`}
+                  aria-label={`${title} · ${withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))} · ${dayNames} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`}
                   onPointerDown={(e) => {
                     pressOrigin.current = { x: e.clientX, y: e.clientY }; explainApprovalLock();
                     if (rowPending) {
@@ -10740,7 +10772,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <b>{courseLabel(title, 0.82).text}</b>
                     <em dir="ltr">{code}</em>
                   </div>
-                  <span className="schedule-instructor-with-badge" title={instructor?.AdInstructorName || "بدون أستاذ"}>{who}{visitingIds.has(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
+                  <span className="schedule-instructor-with-badge" title={withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))}>{who}{visitingIds.has(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
                   {undoEntry ? (
                     <button
                       type="button"
@@ -10955,18 +10987,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                               className={`week-legend-chip ${hueFocus.has(item.key) ? "is-on" : ""}`}
                               aria-pressed={hueFocus.has(item.key)}
                               disabled={folded}
-                              title={`${item.label} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية المباني والقاعات عليه`}
+                              title={`${legendText(item)} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية المباني والقاعات عليه`}
                               onClick={() => toggleHueFocus(item.key)}
                             >
-                              <i aria-hidden="true" /><span>{item.label}</span><em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
+                              <i aria-hidden="true" /><span>{item.label}{item.visiting ? <VisitingBadge compact /> : null}</span><em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
                               {needMark(item.key)}
                             </button>
                             <button
                               type="button"
                               className="week-legend-eye"
                               aria-pressed={folded}
-                              aria-label={folded ? `إظهار ${item.label}` : `إخفاء ${item.label} من المباني والقاعات`}
-                              title={folded ? `إظهار ${item.label}` : `إخفاء ${item.label} مؤقتاً — لا يُحذف شيء`}
+                              aria-label={folded ? `إظهار ${legendText(item)}` : `إخفاء ${legendText(item)} من المباني والقاعات`}
+                              title={folded ? `إظهار ${legendText(item)}` : `إخفاء ${legendText(item)} مؤقتاً — لا يُحذف شيء`}
                               onClick={() => toggleHueHidden(item.key)}
                             >
                               {folded ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
@@ -11350,11 +11382,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           className={`week-legend-chip ${hueFocus.has(item.key) ? "is-on" : ""}`}
                           aria-pressed={hueFocus.has(item.key)}
                           disabled={folded}
-                          title={`${item.label} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية الأسبوع عليه، واضغط غيره لإضافته للمقارنة`}
+                          title={`${legendText(item)} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية الأسبوع عليه، واضغط غيره لإضافته للمقارنة`}
                           onClick={() => toggleHueFocus(item.key)}
                         >
                           <i aria-hidden="true" />
-                          <span>{item.label}</span>
+                          <span>{item.label}{item.visiting ? <VisitingBadge compact /> : null}</span>
                           <em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
                           {needMark(item.key)}
                         </button>
@@ -11365,8 +11397,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           type="button"
                           className="week-legend-eye"
                           aria-pressed={folded}
-                          aria-label={folded ? `إظهار ${item.label}` : `إخفاء ${item.label} من الشبكة`}
-                          title={folded ? `إظهار ${item.label} على الشبكة` : `أخفِ ${item.label} من الشبكة مؤقتاً — لا يُحذف شيء`}
+                          aria-label={folded ? `إظهار ${legendText(item)}` : `إخفاء ${legendText(item)} من الشبكة`}
+                          title={folded ? `إظهار ${legendText(item)} على الشبكة` : `أخفِ ${legendText(item)} من الشبكة مؤقتاً — لا يُحذف شيء`}
                           onClick={() => toggleHueHidden(item.key)}
                         >
                           {folded ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
@@ -12041,7 +12073,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                                   {formatScheduleTimeRange(r.fstarttime, r.fendtime)}
                                 </small>
                                 <small>
-                                  {i?.AdInstructorName} · {r.AdRoomCode}/
+                                  <GhostInstructorName row={r as any} name={i?.AdInstructorName} fallbackCollegeId={filterCollege} fallbackSectionId={filterSection} /> · {r.AdRoomCode}/
                                   {r.AdRoomHall}
                                 </small>
                               </article>
@@ -12085,7 +12117,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         ref={peekRef}
         describe={(row) => ({
           title: row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "مقرر",
-          who: `${instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}${visitingIds.has(row.AdInstructorId) ? " · منتدب" : ""}`,
+          who: withVisitingSuffix(instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId)),
           code: courseById.get(row.AdCourseId)?.CourseCode || "—",
           section: String(row.SCode || "—"),
           days: arabicDays(row),
@@ -12125,6 +12157,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         overlayRef={physics.overlayRef}
         course={physics.state.row ? courseById.get(physics.state.row.AdCourseId) : undefined}
         instructor={physics.state.row ? instructorById.get(physics.state.row.AdInstructorId) : undefined}
+        instructorVisiting={Boolean(physics.state.row && visitingIds.has(Number(physics.state.row.AdInstructorId)))}
         isPowerAdmin={isPowerAdmin}
         variant={viewMode === "rooms" ? "rooms" : viewMode === "list" ? "list" : "week"}
       />
@@ -12614,7 +12647,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </td>
                 <td className="print-ltr">{s.SCode}</td>
                 <td className="print-wrap">
-                  {instructorById.get(s.AdInstructorId)?.AdInstructorName}{visitingIds.has(s.AdInstructorId) ? " · منتدب" : ""}
+                  {withVisitingSuffix(instructorById.get(s.AdInstructorId)?.AdInstructorName || "", visitingIds.has(s.AdInstructorId))}
                 </td>
                 <td className="print-days">
                   {days.filter(d => Boolean((s as any)[d.key])).map((d, index) => (

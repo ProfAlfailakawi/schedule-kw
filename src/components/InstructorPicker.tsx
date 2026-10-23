@@ -4,6 +4,7 @@ import { byArabic, sortByName } from "../utils/sorting";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
 import { instructorCleanName } from "../utils/instructorIdentity";
+import VisitingBadge from "./VisitingBadge";
 
 /**
  * Choosing who teaches this, out of thousands.
@@ -241,7 +242,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
       >
         <UserRound aria-hidden="true" />
         <span className="instructor-identity">
-          <b>{selected ? <>{selected.AdInstructorName}{visitingSet.has(selected.AdInstructorId) ? <em className="instructor-visiting-label">منتدب</em> : null}</> : "اختر أستاذ المقرر"}</b>
+          <b>{selected ? <>{selected.AdInstructorName}{visitingSet.has(selected.AdInstructorId) ? <VisitingBadge compact /> : null}</> : "اختر أستاذ المقرر"}</b>
           {selected?.AdInstructorCivil ? <small dir="ltr">{selected.AdInstructorCivil}</small> : null}
         </span>
       </button>
@@ -279,7 +280,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
                     by side, twelve monospace digits left a department's names
                     truncated to a single letter. */}
                 <span className="instructor-identity">
-                  <b>{person.AdInstructorName}{visitingSet.has(person.AdInstructorId) ? <em className="instructor-visiting-label">منتدب</em> : null}</b>
+                  <b>{person.AdInstructorName}{visitingSet.has(person.AdInstructorId) ? <VisitingBadge compact /> : null}</b>
                   <small dir="ltr">{person.AdInstructorCivil || "—"}</small>
                 </span>
                 {departmentRank.has(person.AdInstructorId) ? <i className="instructor-department-mark" title={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"} aria-label={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"}><CircleDot aria-hidden="true" /></i> : null}

@@ -1,4 +1,6 @@
 import TermSelect from "./TermSelect";
+import { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X } from "lucide-react";
 import { PrimaryButton, SecondaryButton, useDialogDismiss, visualConfirm } from "./ui";
@@ -284,6 +286,18 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
   const branchSite = campusOf(collegeName) !== "main";
   const baseCollegeName = String(collegeName || "").replace(/\s*[-–]\s*(الجهراء|الفحيحيل)\s*$/, "").trim() || "كلية التربية الأساسية";
   const named = (id: number) => instructors.find(x => x.AdInstructorId === id)?.AdInstructorName || "";
+  /* «منتدب» في أي تبويب: القائمةُ الموحّدة (بقسم النقل وفصله) أو قائمة المنتدبين المحمّلة هنا، أيّهما عرفه. */
+  const { isVisiting: lookupVisiting } = useVisitingLookup(termId);
+  const visitingInDept = (id: unknown, deptSectionId: number = sectionId) =>
+    lookupVisiting(id, collegeId, deptSectionId) || (deptSectionId === sectionId && roster.includes(Number(id)));
+  /** يلحق «· منتدب» بكل اسمٍ لمنتدبٍ ورد داخل جملةٍ جاهزة (سجل الاستبدالات يحفظ أسماءه نصّاً). */
+  const markVisitingNames = (text: string) => {
+    let out = String(text || "");
+    const names = [...new Set([...instructors, ...directoryPeople].filter(person => person.AdInstructorName && visitingInDept(person.AdInstructorId)).map(person => person.AdInstructorName))];
+    names.filter(name => !names.some(other => other !== name && other.includes(name)))
+      .forEach(name => { if (out.includes(name) && !out.includes(`${name}${VISITING_SUFFIX}`)) out = out.split(name).join(`${name}${VISITING_SUFFIX}`); });
+    return out;
+  };
   const sortedInstructors = useMemo(() => sortByName(instructors.filter(isAssignableInstructor), person => person.AdInstructorName), [instructors]);
   const directory = useMemo(() => {
     const pool = new Map([...instructors, ...directoryPeople].map(person => [Number(person.AdInstructorId), person]));
@@ -1463,7 +1477,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                               const key = fillKey(fill);
                               const picked = smartPicked.has(key);
                               const shown = fill.field === "AdInstructorId"
-                                ? (instructors.find((person: any) => Number(person.AdInstructorId) === Number(fill.value))?.AdInstructorName || `أستاذ #${fill.value}`)
+                                ? withVisitingSuffix(instructors.find((person: any) => Number(person.AdInstructorId) === Number(fill.value))?.AdInstructorName || `أستاذ #${fill.value}`, visitingInDept(fill.value, activeImportSectionId))
                                 : fill.field === "AdCourseId"
                                   ? (deptCourses.find((course: any) => Number(course.AdCourseId) === Number(fill.value))?.CourseName || `مقرر #${fill.value}`)
                                   : fill.value;
@@ -1776,7 +1790,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                   <select value={fromId || ""} onChange={e => { setFromId(Number(e.target.value) || 0); setRetirePreview(null); }}>
                     <option value="">اختر الأستاذ</option>
                     {departmentStaff.map(person => (
-                      <option key={person.AdInstructorId} value={person.AdInstructorId}>{person.AdInstructorName}</option>
+                      <option key={person.AdInstructorId} value={person.AdInstructorId}>{withVisitingSuffix(person.AdInstructorName, visitingInDept(person.AdInstructorId))}</option>
                     ))}
                   </select>
                 </label>
@@ -1786,7 +1800,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                   <select value={toId || ""} onChange={e => setToId(Number(e.target.value) || 0)}>
                     <option value="">اتركها بلا أستاذ</option>
                     {sortedInstructors.map(person => (
-                      <option key={person.AdInstructorId} value={person.AdInstructorId}>{person.AdInstructorName}</option>
+                      <option key={person.AdInstructorId} value={person.AdInstructorId}>{withVisitingSuffix(person.AdInstructorName, visitingInDept(person.AdInstructorId))}</option>
                     ))}
                   </select>
                 </label>
@@ -1809,7 +1823,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               <section className="replacement-history">
                 <header><History /><div><strong>سجل الاستبدالات</strong><small>يمكن التراجع عن آخر القرارات بأمان.</small></div></header>
                 {replacementHistory.length ? replacementHistory.slice(0,8).map(item => (
-                  <article key={item.id}><div><strong>{String(item.label).replace("قبل استبدال الأستاذ: ", "")}</strong><small>{new Date(item.createdAt).toLocaleString("ar-KW-u-nu-latn")} · {item.userName}</small></div><SecondaryButton type="button" onClick={() => void undoReplacement(item.id)} disabled={busy}><RotateCcw />تراجع</SecondaryButton></article>
+                  <article key={item.id}><div><strong>{markVisitingNames(String(item.label).replace("قبل استبدال الأستاذ: ", ""))}</strong><small>{new Date(item.createdAt).toLocaleString("ar-KW-u-nu-latn")} · {item.userName}</small></div><SecondaryButton type="button" onClick={() => void undoReplacement(item.id)} disabled={busy}><RotateCcw />تراجع</SecondaryButton></article>
                 )) : <p className="muted">لا توجد عمليات استبدال مسجلة لهذا الفصل.</p>}
               </section>
             </>
