@@ -33,6 +33,12 @@ export function setReferenceCacheEnabled(value: boolean) {
 }
 
 export function invalidateReference(...keys: string[]) {
+  /* The department instructor-id lists are derived from the course catalogue
+     (which course belongs to which department), so any catalogue write drops
+     them too, alongside the schedule writes that already clear them. */
+  for (const existing of [...scheduleStore.keys()]) {
+    if (existing.startsWith(INSTRUCTOR_IDS_PREFIX)) scheduleStore.delete(existing);
+  }
   if (!keys.length) { store.clear(); return; }
   for (const key of keys) {
     store.delete(key);
@@ -99,6 +105,15 @@ export async function cachedReference<T>(key: string, load: () => Promise<T>): P
    warm end to end while the beacon still delivers every real change within a
    heartbeat of it happening. */
 const SCHEDULE_TTL_MS = 300_000;
+/**
+ * Key prefix for the per-department "everyone who ever taught here" id lists.
+ * They live in the schedule store, so every schedule write (and the beacon from
+ * other instances) clears them exactly like the rows; they also clear on any
+ * catalogue write (invalidateReference). Correctness comes from that
+ * invalidation, so they may keep a longer parachute than the rows.
+ */
+export const INSTRUCTOR_IDS_PREFIX = "instructor-ids:";
+export const INSTRUCTOR_IDS_TTL_MS = 900_000;
 const scheduleStore = new Map<string, { value: unknown; expiresAt: number; loading?: Promise<unknown> }>();
 
 /**
@@ -128,7 +143,7 @@ export function clearScheduleCacheQuietly() {
   scheduleStore.clear();
 }
 
-export async function cachedSchedules<T>(key: string, load: () => Promise<T>): Promise<T> {
+export async function cachedSchedules<T>(key: string, load: () => Promise<T>, ttlMs: number = SCHEDULE_TTL_MS): Promise<T> {
   if (!enabled) return load();
   const now = Date.now();
   const hit = scheduleStore.get(key);
@@ -137,10 +152,10 @@ export async function cachedSchedules<T>(key: string, load: () => Promise<T>): P
     return hit.value as T;
   }
   const loading = load().then(
-    value => { scheduleStore.set(key, { value, expiresAt: Date.now() + SCHEDULE_TTL_MS }); return value; },
+    value => { scheduleStore.set(key, { value, expiresAt: Date.now() + ttlMs }); return value; },
     error => { scheduleStore.delete(key); throw error; }
   );
-  scheduleStore.set(key, { value: hit?.value, expiresAt: now + SCHEDULE_TTL_MS, loading });
+  scheduleStore.set(key, { value: hit?.value, expiresAt: now + ttlMs, loading });
   return loading;
 }
 
