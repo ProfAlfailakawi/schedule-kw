@@ -50,6 +50,7 @@ export default function CampaignWizard({ data, initial, startStep = 1, onClose, 
   const fileRef = useRef<HTMLInputElement>(null);
   const { api, upload, act, busy } = actions;
   /* المقررات الأكثر طلباً (أعدادٌ مجمّعة بحدّ الخصوصية) لاستهداف «سوق الفرص»؛ تُجلب مرةً حين تُفتح الخطوة الثانية في موقعٍ يعرف الطالب. */
+  const [codeDraft, setCodeDraft] = useState("");
   const [demand, setDemand] = useState<Array<{ code: string; name: string; students: number }> | null>(null);
 
   const slot = data.slots.find(s => s.id === form.slot);
@@ -59,6 +60,7 @@ export default function CampaignWizard({ data, initial, startStep = 1, onClose, 
     api<{ top: Array<{ code: string; name: string; students: number }> }>("/api/admin/ads/demand").then(r => { if (live) setDemand(r.top); }).catch(() => { if (live) setDemand([]); });
     return () => { live = false; };
   }, [step, slot?.wholeUniversity, demand, api]);
+  const sponsorSlot = form.slot === "course";
   const saved = data.campaigns.find(c => c.id === savedId);
   const slotLocked = Boolean(saved?.creatives.length);
   const set = <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => setForm(f => ({ ...f, [k]: v }));
@@ -236,13 +238,15 @@ export default function CampaignWizard({ data, initial, startStep = 1, onClose, 
             ) : null}
           </div>
           {slot?.wholeUniversity ? (
-            <div className="ad-field"><span className="ad-lab">سوق الفرص: وجّه لمن يهمّه <small>(اختياري)</small></span>
-              <p className="ad-note">تُعرض الحملة لمن طلب هذه المقررات هذا الفصل أو لمن اقترب من التخرج. يُفصل ذلك في متصفح الطالب نفسه، فلا نعرف ما طلب.</p>
+            <div className="ad-field"><span className="ad-lab">{sponsorSlot ? "المقرر الذي ترعاه" : "سوق الفرص: وجّه لمن يهمّه"} <small>{sponsorSlot ? "(مطلوب)" : "(اختياري)"}</small></span>
+              <p className="ad-note">{sponsorSlot ? "يظهر شريط «برعاية» لمن في جدوله هذا المقرر في «تذكرتي». اختر من الأكثر طلباً أو اكتب رمز المقرر." : "تُعرض الحملة لمن طلب هذه المقررات هذا الفصل أو لمن اقترب من التخرج. يُفصل ذلك في متصفح الطالب نفسه، فلا نعرف ما طلب."}</p>
               <div className="ad-chips ad-chips-wrap" role="group" aria-label="مقررات مطلوبة">
                 {(demand || []).map(d => <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" key={d.code} type="button" className={`ad-chip${form.targetCodes.includes(d.code) ? " on" : ""}`} aria-pressed={form.targetCodes.includes(d.code)} onClick={() => set("targetCodes", toggle(form.targetCodes, d.code).slice(0, 8))}>{d.name} <em>{fmt(d.students)}</em></button>)}
               </div>
               {demand && !demand.length ? <p className="ad-note">لا مقرر بلغ حدّ الخصوصية بعد؛ يظهر هنا ما يطلبه طالبان على الأقل.</p> : null}
-              <label className="ad-check"><input type="checkbox" checked={form.nearGraduation} onChange={e => set("nearGraduation", e.target.checked)} /> الطلبة الأقرب إلى التخرج (بقي عليهم ٣٠ وحدةً أو أقل)</label>
+              {form.targetCodes.filter(c => !(demand || []).some(d => d.code === c)).map(c => <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" key={c} type="button" className="ad-chip on" aria-pressed="true" onClick={() => set("targetCodes", form.targetCodes.filter(x => x !== c))}><bdi dir="ltr">{c}</bdi> ×</button>)}
+              {sponsorSlot ? <label className="ad-field"><span className="ad-flab">رمز مقرر آخر <small>(اكتبه واضغط Enter)</small></span><input dir="ltr" maxLength={24} value={codeDraft} onChange={e => setCodeDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const c = codeDraft.trim().toLowerCase(); if (c && !form.targetCodes.includes(c)) set("targetCodes", [...form.targetCodes, c].slice(0, 8)); setCodeDraft(""); } }} /></label> : null}
+              {!sponsorSlot ? <label className="ad-check"><input type="checkbox" checked={form.nearGraduation} onChange={e => set("nearGraduation", e.target.checked)} /> الطلبة الأقرب إلى التخرج (بقي عليهم ٣٠ وحدةً أو أقل)</label> : null}
               {form.targetCodes.length || form.nearGraduation ? <p className="ad-note">ستظهر لمن يطابق أيّاً من الشرطين. الحملات الموجَّهة تُحسب كاملةً على سعة الموقع.{demand && form.targetCodes.length ? ` طلب المقررات المختارة نحو ${fmt(demand.filter(d => form.targetCodes.includes(d.code)).reduce((n, d) => n + d.students, 0))} طالباً (حدٌّ أعلى؛ قد يتكرر الطالب).` : ""}</p> : null}
             </div>
           ) : null}

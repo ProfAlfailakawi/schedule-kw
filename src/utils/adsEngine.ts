@@ -39,6 +39,7 @@ export const AD_SLOTS: readonly AdSlotSpec[] = [
   { id: "break", label: "وقت الفراغ", hint: "للطالب حين يكون بين محاضراته فراغ ساعة فأكثر", where: "داخل «تذكرتي» في «مساري» حين يكون للطالب فراغ ساعةٍ فأكثر بين محاضراته", audience: "students", width: 480, height: 160, capacity: 3, wholeUniversity: true },
   { id: "afterclass", label: "بعد آخر محاضرة", hint: "للطالب حين تنتهي محاضراته في يومٍ ما", where: "داخل «تذكرتي» في «مساري» حين تنتهي محاضرات الطالب في يوم", audience: "students", width: 480, height: 160, capacity: 3, wholeUniversity: true },
   { id: "nearby", label: "بين محاضرتين في المبنى نفسه", hint: "للطالب حين يكون بين محاضرتين متتاليتين في مبنى واحد", where: "داخل «تذكرتي» في «مساري» حين تفصل بين محاضرتين متتاليتين في المبنى نفسه نصفُ ساعةٍ فأكثر", audience: "students", width: 480, height: 160, capacity: 3, wholeUniversity: true },
+  { id: "course", label: "راعي مقرر", hint: "شريط «برعاية» تحت المقرر في «تذكرتي» لمن مقرره في جدوله", where: "شريط «برعاية» في «تذكرتي» لمن في جدوله المقرر المرعي", audience: "students", width: 480, height: 80, capacity: 8, wholeUniversity: true },
   { id: "dashboard", label: "أعضاء هيئة التدريس والإداريين", hint: "بطاقة تظهر لهم بعد تسجيل الدخول", where: "بطاقة في لوحة الأساتذة والإداريين", audience: "staff", width: 480, height: 160, capacity: 3 },
 ] as const;
 
@@ -197,6 +198,9 @@ export function campaignProblems(input: Candidate): string[] {
   if (!String(input.company || "").trim()) out.push("اسم الشركة مطلوب.");
   if (!String(input.category || "").trim()) out.push("الفئة مطلوبة.");
   if (input.seasons?.some(s => !SEASON_IDS.includes(s))) out.push("موسمٌ غير معروف.");
+  /* راعي مقرر: يُرعى مقررٌ بعينه (رمزه)، ولا معنى لقرب التخرج هنا. */
+  if (input.slot === "course" && !input.targetCodes?.length) out.push("اختر المقرر الذي ترعاه الحملة.");
+  if (input.slot === "course" && input.nearGraduation) out.push("رعاية المقرر لا تُوجَّه بقرب التخرج.");
   /* الاستهداف بالمقررات والتخرج يحتاج صفحةً تعرف الطالب بعد دخوله («مساري» ولحظات «تذكرتي»)، لا جدولاً عاماً. */
   if ((input.targetCodes?.length || input.nearGraduation) && slotById(input.slot) && !slotById(input.slot)?.wholeUniversity) out.push("الاستهداف بالمقررات أو بقرب التخرج متاح في «مساري» ولحظات «تذكرتي» فقط.");
   if (!isDay(input.startDay) || !isDay(input.endDay)) out.push("تاريخا البداية والنهاية مطلوبان بصيغة YYYY-MM-DD.");
@@ -216,6 +220,11 @@ export function placementProblems(input: Candidate, others: readonly AdCampaign[
   if (!slot || !isDay(input.startDay) || !isDay(input.endDay)) return [];
   const same = others.filter(c => c.id !== input.id && c.slot === input.slot && c.status === "approved" && overlaps(c, input));
   const out: string[] = [];
+  /* مقررٌ واحد لراعٍ واحدٍ في الوقت نفسه. */
+  if (input.slot === "course") {
+    const clash = same.find(c => c.targetCodes?.some(code => input.targetCodes?.includes(code)));
+    if (clash) out.push(`«${clash.company}» يرعى المقرر نفسه خلال ${clash.startDay} إلى ${clash.endDay}.`);
+  }
   const rival = same.find(c => c.category === input.category && targetsOverlap(c, input));
   if (rival) out.push(`«${rival.company}» من الفئة نفسها (${input.category}) في هذا الموقع خلال ${rival.startDay} إلى ${rival.endDay}${rival.seasons?.length || rival.colleges?.length ? " ولجمهورٍ يتقاطع مع جمهورك" : ""}.`);
   const limit = slot.exclusive ? 1 : slot.capacity;
