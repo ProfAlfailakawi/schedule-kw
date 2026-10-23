@@ -1,3 +1,4 @@
+import PlanBadge from "../PlanBadge";
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, DoorOpen, GripVertical, Radio, UserRound } from "lucide-react";
@@ -93,7 +94,7 @@ export default function SchedulePhysicsLayer({ state, overlayRef, course, instru
       <div className="physics-float-handle"><GripVertical/></div>
       <div className="physics-float-copy">
         <strong>{course?.CourseCode || row.AdCourseName || "المقرر"}</strong>
-        <span>{row.AdCourseName || course?.CourseName}</span>
+        <span>{row.AdCourseName || course?.CourseName}<PlanBadge courseId={row.AdCourseId} /></span>
         <small>{instructor?.AdInstructorName || ""}</small>
       </div>
       <div className="physics-float-meta"><b dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</b><small>{row.AdRoomCode}/{row.AdRoomHall}</small></div>

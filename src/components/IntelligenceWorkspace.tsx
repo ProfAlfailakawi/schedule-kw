@@ -1,3 +1,4 @@
+import PlanBadge from "./PlanBadge";
 import TermSelect from "./TermSelect";
 import SearchableSelect from "./SearchableSelect";
 import IntelligenceScopeSwitch from "./IntelligenceScopeSwitch";
@@ -197,7 +198,7 @@ function PdfDifferenceBody({report,courses,instructors}:{report:any;courses:AdCo
           return <tr key={`${entry.status}-${row.sourceOrder}-${index}`} className={entry.status}>
             <td className="pdf-report-reference-number">{entry.status==="added"?"":entry.referenceNumber||"—"}</td>
             <td>{course?.CourseCode||"—"}</td>
-            <td>{row.AdCourseName||course?.CourseName||"—"}</td>
+            <td>{row.AdCourseName||course?.CourseName||"—"}<PlanBadge courseId={row.AdCourseId} /></td>
             <td className={mark("SCode")}>{row.SCode||"—"}</td>
             <td className={mark("AdInstructorId")}>{instructor}</td>
             <td className={daysChanged&&entry.status==="changed"?"cell-changed":""}>{days}</td>
@@ -4874,7 +4875,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                                   onClick={() => setScenarioId(r.id)}
                                   title={`${r.AdCourseName} · شعبة ${r.SCode}`}
                                 >
-                                  <strong>{r.AdCourseName}</strong>
+                                  <strong>{r.AdCourseName}<PlanBadge courseId={r.AdCourseId} /></strong>
                                   <span>
                                     {r.SCode} · {r.AdRoomCode}/{r.AdRoomHall}
                                   </span>
@@ -4988,7 +4989,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                         return (
                           <article key={r.id} className="change-card">
                             <div className="change-card-main">
-                              <div className="change-card-title"><strong>{r.AdCourseName}</strong><Badge tone="neutral">شعبة {r.SCode}</Badge></div>
+                              <div className="change-card-title"><strong>{r.AdCourseName}<PlanBadge courseId={r.AdCourseId} /></strong><Badge tone="neutral">شعبة {r.SCode}</Badge></div>
                               <div className="change-time-flow">
                                 <span><small>قبل</small><time dir="ltr">{formatScheduleTimeRange(o?.fstarttime, o?.fendtime)}</time></span>
                                 <ArrowLeftRight aria-hidden="true" />
@@ -5772,7 +5773,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                 <div className="drawer-schedule-list">
                   {detail.data.visibleRows.map((r: any) => (
                     <article key={r.id} className="drawer-schedule-card">
-                      <div className="drawer-schedule-title"><strong>{r.AdCourseName}</strong><Badge tone="neutral">شعبة {r.SCode}</Badge></div>
+                      <div className="drawer-schedule-title"><strong>{r.AdCourseName}<PlanBadge courseId={r.AdCourseId} /></strong><Badge tone="neutral">شعبة {r.SCode}</Badge></div>
                       <div className="drawer-schedule-meta">
                         <span><CalendarClock />{Object.keys(dayLabels).filter((k) => r[k]).map((k) => dayLabels[k]).join(" · ") || "—"}</span>
                         <time dir="ltr">{formatScheduleTimeRange(r.fstarttime, r.fendtime)}</time>

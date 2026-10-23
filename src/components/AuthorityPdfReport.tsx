@@ -1,3 +1,4 @@
+import PlanBadge from "./PlanBadge";
 import React from "react";
 import { AdCourse, AdInstructor, FSchedule } from "../types";
 import VisitingBadge from "./VisitingBadge";
@@ -167,7 +168,7 @@ export default function AuthorityPdfReport({
                           تقولها حيث ينظر القارئ أصلاً — كما تقولها بطاقة
                           الموعد على الشاشة. */}
                       <div role="cell" className={`print-wrap print-course-name ${cell(fieldChanged(entry, "AdCourseId"))}`}>
-                        {course?.CourseName || row.AdCourseName || "—"}
+                        {course?.CourseName || row.AdCourseName || "—"}<PlanBadge courseId={row.AdCourseId} />
                         {showSite && entry.siteLabel ? <span className="print-site-chip">{entry.siteLabel}</span> : null}
                       </div>
                       <div role="cell" className={`num ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course?.CourseCredit ?? "—"}</div>

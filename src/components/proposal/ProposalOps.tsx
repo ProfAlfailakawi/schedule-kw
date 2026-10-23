@@ -1,3 +1,4 @@
+import PlanBadge from "../PlanBadge";
 /**
  * ── قائمةُ مواد المقترح (بطاقاتٌ مختصرة) ────────────────────────────────────
  *
@@ -50,7 +51,7 @@ function OpCard({ ws, op, onEdit }: { key?: React.Key; ws: Workspace; op: StudyP
         ws.setSelectedKey(key);
       }} aria-label={`${OP_KIND_LABEL[op.kind]}: ${t.courseName}، اضغط لإبرازها في الجدول`}>
         <span className="sp-op-kind"><Kind aria-hidden="true" />{OP_KIND_LABEL[op.kind]}</span>
-        <span className="sp-op-title"><b>{t.courseName}</b><small>{t.courseCode} · شعبة {t.SCode}</small></span>
+        <span className="sp-op-title"><b>{t.courseName}<PlanBadge courseId={t.AdCourseId} /></b><small>{t.courseCode} · شعبة {t.SCode}</small></span>
         <span className="sp-op-when"><bdi>{daysLabel(daysOf(t))}</bdi><bdi className="sp-time">{timeRange(t.fstarttime, t.fendtime)}</bdi></span>
         <span className="sp-op-where">{place.text}</span>
         {targetsModified ? (

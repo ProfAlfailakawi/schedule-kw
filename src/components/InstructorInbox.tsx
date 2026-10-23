@@ -1,3 +1,4 @@
+import PlanBadge from "./PlanBadge";
 import { buildInboxHeat } from "../utils/inboxHeat";
 import { byArabic } from "../utils/sorting";
 /**
@@ -563,7 +564,7 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
       <tr className="request-row" data-action={item.action} data-verdict={item.verdict || "clear"} data-decided={decided || undefined} data-readiness={readiness}>
         <td data-label="الطلب">
           <span className="request-action" data-action={item.action}>{ACTION_LABEL[item.action] || item.action}</span>
-          <strong>{item.after?.courseName || item.before?.courseName || "—"}</strong>
+          <strong>{item.after?.courseName || item.before?.courseName || "—"}<PlanBadge courseId={item.after?.courseId || item.before?.courseId} /></strong>
           {item.before?.sectionCode ? <small>شعبة {item.before.sectionCode}</small> : null}
           {item.action === "add" && item.after?.collegeName ? <small>{item.after.collegeName}</small> : null}
         </td>

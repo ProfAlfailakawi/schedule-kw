@@ -1,3 +1,4 @@
+import PlanBadge from "./PlanBadge";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Building2, CheckCircle2, ChevronDown, FileQuestion, FileText, FileUp, Hash, History, Layers, Lightbulb, MinusCircle, MousePointerClick, PencilLine, Printer, RotateCcw, ScanLine, Trash2, Users, X } from "lucide-react";
@@ -670,7 +671,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
             {nMissing ? (
               <details className="section-plan-missing-list">
                 <summary>غير واردة في الكشف: {countOf(nMissing, AR.course)} — لا تُمسّ قيمتها ولا تُفرَّغ</summary>
-                <ul>{preview.missing.map(id => courseName.get(id)).filter(Boolean).map(course => <li key={course!.id}><b dir="ltr">{course!.code}</b> {course!.name}</li>)}</ul>
+                <ul>{preview.missing.map(id => courseName.get(id)).filter(Boolean).map(course => <li key={course!.id}><b dir="ltr">{course!.code}</b> {course!.name}<PlanBadge courseId={course!.id} /></li>)}</ul>
               </details>
             ) : null}
             <div className="section-plan-report-actions">
