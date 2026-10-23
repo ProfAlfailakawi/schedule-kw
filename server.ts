@@ -10967,6 +10967,7 @@ async function regulationNoticesForScope(collegeId: number, sectionId: number, t
         title: String(item.title || "ملاحظة لائحية"),
         detail: String(item.detail || ""),
         rowIds: item.rowIds.map(Number).filter(id => ownIds.has(id)),
+        ...(item.data ? { data: item.data } : {}),
       }));
   } catch {
     /* اللائحة معيارٌ يُعرض، لا شرطُ حفظ. فإن تعذّر حسابها لا يُمنع التوقيع —
