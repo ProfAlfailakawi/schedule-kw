@@ -74,6 +74,16 @@ for (const era of ["new", "old"] as const) {
   }
 }
 
+/* أسماءٌ يكسرها نصُّ الـPDF (مسافةٌ وسط الكلمة، أو اسمٌ قُطع عند حافة العمود): تُكتب كما تعنيها الصحيفة. */
+const PRINTED_NAME_FIXES: Record<string, string> = {
+  "0102116": "النحو والصرف (1)", "0102227": "النحو والصرف (2)", "0102249": "القصة",
+  "0102129": "علم العروض والقافية (1)", "0102257": "علم العروض والقافية (2)",
+  "0103288": "التغيير الاجتماعي والتنمية في الوطن العربي", "0114464": "الإدارة التربوية التعليمية",
+  "0106113": "مدخل إلى مبادئ الفيزياء محاضرة", "0105304": "مبادئ في الإحصاء والاحتمال", "0105391": "مقدمة في التحليل العددي",
+  "0113202": "بيانو وأناشيد (3)", "0113262": "موشحات وفنون شعبية", "0113312": "تحليل شرقي وفنون شعبية", "0108197": "اللياقة البدنية والرياضة",
+};
+for (const [code, name] of Object.entries(PRINTED_NAME_FIXES)) if (truth.has(code)) truth.set(code, { ...truth.get(code)!, name });
+
 /* ── 2) قاعدة البيانات ─────────────────────────────────────────────────────── */
 const { initDatabase, Repository } = await import("../src/db/repository");
 await initDatabase();
@@ -158,7 +168,8 @@ for (const cid of collegeIds) {
       return row;
     }
     const relation = nameRelation(row.CourseName, t.name);
-    const nameDiffers = relation === "related" || relation === "different";
+    /* الاسم المصحَّح يدوياً من كسر الـPDF يُكتب حرفياً، ولو كان الفرق إملاءً فقط. */
+    const nameDiffers = relation === "related" || relation === "different" || (code in PRINTED_NAME_FIXES && row.CourseName.trim() !== t.name);
     if (nameDiffers || Number(row.CourseCredit) !== t.units || Number(row.CourseHours) !== t.hours) {
       const name = nameDiffers ? t.name : row.CourseName;
       log(cid, "تصحيح مقرر", { code, id: row.AdCourseId, before: { name: row.CourseName, units: row.CourseCredit, hours: row.CourseHours }, after: { ...t, name } });
@@ -289,7 +300,10 @@ for (const cid of collegeIds) {
 
       /* شروط التخرج: صحيفةٌ بلا قاعدة تأخذ وحدات تخرجها من الصحيفة، وحدودها بالنسبة والتناسب من قاعدة القسم. */
       if (!plan.degreeRule && sheet.degreeUnits) {
-        const stored = (await Repository.getDegreeRules()).find(row => Number(row.AdSectionId) === sid) as any;
+        /* قاعدة القسم في موقعه، وإلا قاعدةُ القسم نفسه (بالرمز) في كلية البنات الأصل: الفحيحيل بلا قواعد أقسام. */
+        const rules = await Repository.getDegreeRules();
+        const twin = sections.find(row => Number(row.AdCollegeId) === 6 && sectionDigits(row) === sectionCode);
+        const stored = (rules.find(row => Number(row.AdSectionId) === sid && Number(row.degreeUnits) > 0) || rules.find(row => Number(row.AdSectionId) === Number(twin?.AdSectionId))) as any;
         const baseRule = stored?.degreeUnits ? stored : null;
         if (baseRule) {
           const f = sheet.degreeUnits / Number(baseRule.degreeUnits);

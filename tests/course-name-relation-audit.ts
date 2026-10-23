@@ -12,6 +12,7 @@ const check = (ok: boolean, label: string) => {
 
 const kept = (catalog: string, sheet: string) => ["same", "spelling"].includes(courseNameRelation(catalog, sheet));
 check(kept("الثقافة الإسلامية", "الثقافه الاسلاميه"), "الهاء والتاء والهمزات إملاء: الاسم يبقى");
+check(kept("سيكولوجية النمو", "سيكلوجيه النمو") && kept("ميكروبيولوجيا الاغذيه", "ميكروبولوجيا الاغذيه"), "سيكولوجية/سيكلوجيه وميكروبيولوجيا/ميكروبولوجيا إملاء");
 check(courseNameRelation("تطور فكر تربوي", "تطور الفكر التربوي") === "spelling", "«ال» إملاء");
 check(courseNameRelation("كيمياء عامة محاضرة", "كيمياء عامة") === "spelling", "«محاضرة» يفرّق المحاضرة عن المختبر ولا يُحذف");
 check(courseNameRelation("أسس تكنولوجيا التعلم", "أسس تكنولوجيا التعليم") === "related", "«التعلم» ليست «التعليم»: يُصحَّح");
