@@ -245,6 +245,10 @@ interface DBState {
   partnerLinks?: PartnerLink[];
   /** الشركات التي استهلكت تجربتها المجانية (اسمٌ مُطبَّع ← رقم حملتها). سجلٌّ دائم لا يمحوه تعديلٌ ولا حذف. */
   adTrialCompanies?: Array<{ name: string; campaignId: string }>;
+  /** سرُّ توقيع الكوبونات الفريدة (يُولَّد مرة). */
+  adCouponSecret?: string;
+  /** كوبوناتٌ فريدة استُعملت: (حملة، كوبون) مرةً واحدة. */
+  adCouponUses?: Array<{ campaignId: string; code: string; day: string; at: string }>;
   scheduleComments?: ScheduleComment[];
   instructorRequests?: InstructorRequest[];
   studyProposals?: StudyProposal[];
@@ -4545,6 +4549,45 @@ export const Repository = {
     }
     const list = db.adTrialCompanies || (db.adTrialCompanies = []);
     if (!list.some(item => item.name === name)) { list.push({ name, campaignId }); saveDatabase(); }
+  },
+  /** سرُّ توقيع الكوبونات الفريدة: يُولَّد عند أول طلب ويبقى (تغييره يُبطل ما صدر). */
+  getAdCouponSecret: async (): Promise<string> => {
+    const fresh = () => randomBytes(32).toString("base64url");
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("adSettings").doc("couponSecret");
+      return firestoreDb.runTransaction(async tx => {
+        const doc = await tx.get(ref);
+        const have = String((doc.data() as any)?.secret || "");
+        if (have) return have;
+        const secret = fresh();
+        tx.set(ref, { secret, createdAt: new Date().toISOString() });
+        return secret;
+      });
+    }
+    if (!db.adCouponSecret) { db.adCouponSecret = fresh(); saveDatabase(); }
+    return db.adCouponSecret;
+  },
+  /** يسجّل استعمال كوبون. true إن كان أول استعمال، false إن سبق (الاستعمال مرةً واحدة، ذرّياً). */
+  redeemAdCoupon: async (campaignId: string, code: string, day: string): Promise<boolean> => {
+    const row = { campaignId, code, day, at: new Date().toISOString() };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      try { await firestoreDb.collection("adCouponUses").doc(`${campaignId}_${code}`).create(row); return true; }
+      catch (error: any) { if (error?.code === 6 || /already exists/i.test(String(error?.message))) return false; throw error; }
+    }
+    const list = db.adCouponUses || (db.adCouponUses = []);
+    if (list.some(item => item.campaignId === campaignId && item.code === code)) return false;
+    list.push(row);
+    saveDatabase();
+    return true;
+  },
+  hasAdCouponUse: async (campaignId: string, code: string): Promise<boolean> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) return (await firestoreDb.collection("adCouponUses").doc(`${campaignId}_${code}`).get()).exists;
+    return (db.adCouponUses || []).some(item => item.campaignId === campaignId && item.code === code);
+  },
+  /** كم كوبوناً فريداً استُعمل في هذه الحملة، وفي أي أيام (بلا الأكواد). */
+  listAdCouponUseDays: async (campaignId: string): Promise<string[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) return (await firestoreDb.collection("adCouponUses").where("campaignId", "==", campaignId).limit(5000).get()).docs.map(d => String((d.data() as any).day));
+    return (db.adCouponUses || []).filter(item => item.campaignId === campaignId).map(item => item.day);
   },
   /** روابط ملف الشراكة الخاصة بالشركات، الأحدث أولاً. */
   listPartnerLinks: async (): Promise<PartnerLink[]> => {

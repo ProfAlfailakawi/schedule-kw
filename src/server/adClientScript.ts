@@ -68,6 +68,9 @@ if(!document.getElementById("adx-css")){
  ".adx .adx-dot.cur{background:rgba(127,127,127,.95);inline-size:18px;border-radius:6px}"+
  ".adx .adx-pp{border:0;background:transparent;color:inherit;font-size:12px;opacity:.7;cursor:pointer;padding:2px 6px}"+
  ".adx .adx-coupon{display:inline-block;margin:6px 0 0;padding:4px 12px;border-radius:999px;border:1px dashed rgba(127,127,127,.55);font-size:13px;user-select:all;-webkit-user-select:all}"+
+ ".adx img.adx-qr{width:168px;height:168px;margin:8px auto;background:#fff;border-radius:10px;padding:6px;box-sizing:border-box;object-fit:contain}"+
+ ".adx .adx-ucode{margin:6px 0 0;font:700 17px/1.6 ui-monospace,monospace;letter-spacing:.08em;user-select:all;-webkit-user-select:all}"+
+ ".adx .adx-ucb{background:transparent;color:inherit;cursor:pointer;font:inherit;font-size:13px}"+
  ".adx .adx-note{margin:4px 0 0;text-align:center;font-size:11px;opacity:.6}"+
  ".adx .adx-foot{text-align:center}"+
  "@media (prefers-reduced-motion:reduce){.adx .adx-slide{transition:none}}"+
@@ -77,6 +80,26 @@ if(!document.getElementById("adx-css")){
  document.head.appendChild(css);
 }
 
+/* الكوبون الفريد: مفتاحُ جهازٍ عشوائي يولّده المتصفح ويحفظه محلياً (لا هوية)، والخادم يوقّعه فيصدر كوبونٌ وQR للمتجر. */
+function deviceKey(){
+ var k=get("adx:dk");if(k&&/^[2-9A-HJ-NP-Z]{8}$/.test(k))return k;
+ var a="23456789ABCDEFGHJKLMNPQRSTUVWXYZ",r=new Uint8Array(8),o="";
+ try{crypto.getRandomValues(r)}catch(e){for(var i=0;i<8;i++)r[i]=Math.floor(Math.random()*256)}
+ for(var j=0;j<8;j++)o+=a.charAt(r[j]%32);
+ put("adx:dk",o);return o;
+}
+function openUnique(it,holder,btn){
+ btn.disabled=true;
+ fetch("/_ads/coupon?c="+encodeURIComponent(it.c)+"&d="+deviceKey(),{credentials:"omit",cache:"no-store"})
+ .then(function(r){return r.ok?r.json():null})
+ .then(function(d){
+  holder.textContent="";
+  if(!d||!d.code){btn.disabled=false;return}
+  var code=el("p","adx-ucode",d.code);code.dir="ltr";holder.appendChild(code);
+  var img=document.createElement("img");img.className="adx-qr";img.src=d.qr;img.alt="رمز الكوبون";img.width=168;img.height=168;holder.appendChild(img);
+  holder.appendChild(el("p","adx-note","أرِ هذا الرمز للمتجر. يُستعمل مرةً واحدة."));
+ }).catch(function(){btn.disabled=false});
+}
 function el(tag,cls,text){var n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n}
 var queue=[],timer=0;
 function flush(beacon){
@@ -180,6 +203,7 @@ fetch("/_ads/serve?slot="+encodeURIComponent(slot)+(tok?"&t="+encodeURIComponent
   var foot=el("div","adx-foot"),shown=function(n){
    foot.textContent="";var it=items[n];
    if(it.coupon){var c=el("span","adx-coupon");c.textContent="كود الخصم: "+it.coupon;foot.appendChild(c)}
+   if(it.uc){var ub=el("button","adx-coupon adx-ucb","كوبونك الخاص");ub.type="button";var uh=el("div","adx-uc");ub.addEventListener("click",function(){openUnique(it,uh,ub)});foot.appendChild(ub);foot.appendChild(uh)}
   };
   shown(0);box.appendChild(foot);
   var prev=st.state.onShow;st.state.onShow=function(n){if(prev)prev(n);shown(n)};

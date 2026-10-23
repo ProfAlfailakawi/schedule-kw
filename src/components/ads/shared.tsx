@@ -14,7 +14,7 @@ export type AbVerdict =
   | { state: "winner"; winner: string; loser: string; winnerCtr: number; loserCtr: number; z: number };
 export type Phase = "draft" | "paused" | "scheduled" | "live" | "ended";
 export interface Campaign {
-  id: string; company: string; category: string; slot: string; slotLabel?: string; linkUrl: string; coupon?: string; startDay: string; endDay: string; note?: string;
+  id: string; company: string; category: string; slot: string; slotLabel?: string; linkUrl: string; coupon?: string; uniqueCoupons?: boolean; verifiedCoupons?: number; verifyUrl?: string; startDay: string; endDay: string; note?: string;
   status: "draft" | "approved" | "paused"; trial?: boolean; phase: Phase; daysLeft: number; endingSoon: boolean;
   creatives: Creative[]; totals: Totals; breakdown: Array<{ creativeId: string } & Totals>; sharePct: number; reportUrl: string;
   seasons?: string[]; colleges?: number[]; series: Array<{ day: string; impressions: number; clicks: number }>;
