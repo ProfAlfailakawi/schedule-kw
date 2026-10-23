@@ -58,7 +58,7 @@ export function measureQuality(rgba: ArrayLike<number>, width: number, height: n
   return { opaque: opaque / n, dominant: top / n, contrast: (p95 + 0.05) / (p5 + 0.05), edges: edge / n, stdev };
 }
 
-const pct = (v: number) => `${Math.round(v * 100)}٪`;
+const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 /** أسبابُ الرفض بالعربية، مرتَّبةً من الأخطر؛ فارغةٌ إن صلحت الصورة. */
 export function qualityProblems(m: QualityMetrics): string[] {

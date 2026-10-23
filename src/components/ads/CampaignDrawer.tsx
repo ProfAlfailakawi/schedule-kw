@@ -47,7 +47,7 @@ export function summaryText(c: Campaign, slotLabel: string): string {
     `ملخص حملة «${c.company}» (${slotLabel}):`,
     `• الظهور المرئي هذا الأسبوع: ${nf.format(w?.thisWeek.impressions ?? 0)}${w?.hasLastWeek ? ` (${arrowOf(w.impressionsChange)} عن الأسبوع الماضي)` : ""}`,
     `• النقرات الصحيحة: ${nf.format(w?.thisWeek.clicks ?? 0)}${w?.hasLastWeek ? ` (${arrowOf(w.clicksChange)})` : ""}`,
-    `• نسبة النقر: ${nf.format(w?.thisWeek.ctr ?? 0)}٪`,
+    `• نسبة النقر: ${nf.format(w?.thisWeek.ctr ?? 0)}%`,
     `• منذ بداية الحملة: ظهور ${nf.format(c.totals.impressions)}، مشاهدون تقريباً ${nf.format(c.totals.uniques)}، نقرات ${nf.format(c.totals.clicks)}`,
     c.trial ? (c.phase === "ended" ? "انتهت التجربة المجانية؛ يسعدنا تثبيت مكانكم في الفصل القادم." : "التجربة المجانية جارية، وتنتهي تلقائياً في موعدها.") : (c.endingSoon ? `تنتهي الحملة بعد ${countOf(Math.max(0, c.daysLeft), AR.day)}؛ نرتّب التجديد؟` : ""),
     `تقريركم الحي: ${new URL(c.reportUrl, location.origin).toString()}`,
@@ -95,7 +95,7 @@ export default function CampaignDrawer({ campaign: c, data, onClose, actions }: 
         <div>
           <h2>{c.company}</h2>
           <p><StatusPill phase={c.phase} />{c.trial ? <span className="ad-tag ad-tag-trial">تجريبية</span> : null}<span>{slotLabel}</span><span className="ad-dot" aria-hidden="true" /><span>{c.category}</span></p>
-          <p className="ad-dmeta"><span>{dateShort(c.startDay)}</span> ← <span>{dateShort(c.endDay)}</span>{c.phase === "live" ? <> · متبقٍّ {countOf(Math.max(0, c.daysLeft), AR.day)}</> : null}{c.phase === "live" && c.sharePct < 100 ? <> · حصتها المتوقعة {fmt(c.sharePct)}٪ من الظهور</> : null}</p>
+          <p className="ad-dmeta"><span>{dateShort(c.startDay)}</span> ← <span>{dateShort(c.endDay)}</span>{c.phase === "live" ? <> · متبقٍّ {countOf(Math.max(0, c.daysLeft), AR.day)}</> : null}{c.phase === "live" && c.sharePct < 100 ? <> · حصتها المتوقعة {fmt(c.sharePct)}% من الظهور</> : null}</p>
         </div>
         <div className="ad-dactions">
           <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" type="button" className="btn btn-secondary" onClick={() => edit(c, 1)}><Pencil aria-hidden="true" size={15} /> تعديل</button>

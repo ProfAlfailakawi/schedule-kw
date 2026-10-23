@@ -13,6 +13,8 @@
  * ثوابت: لا innerHTML بنصٍّ قادمٍ من الخادم، ولا مكتباتٍ، ولا تتبّعَ خارج هذا الأصل،
  * ويحترم «تقليل الحركة»، وفيه زرُّ إيقافٍ للتبديل التلقائي (WCAG 2.2.2).
  */
+import { AD_DAILY_REPEAT_CAP } from "../utils/adsEngine";
+
 export const AD_CLIENT_SCRIPT = String.raw`(function(){
 "use strict";
 var me=document.currentScript;if(!me)return;
@@ -146,7 +148,7 @@ fetch("/_ads/serve?slot="+encodeURIComponent(slot)+(tok?"&t="+encodeURIComponent
 .then(function(r){return r.ok?r.json():null})
 .then(function(d){
  if(!d)return;
- var day2=day,items=(d.items||[]).filter(function(it){return (parseInt(get("adx:n:"+it.c+":"+day2)||"0",10)||0)<40});
+ var day2=day,items=(d.items||[]).filter(function(it){return (parseInt(get("adx:n:"+it.c+":"+day2)||"0",10)||0)<${AD_DAILY_REPEAT_CAP}});
  if(!items.length)items=d.items||[];
  /* الراعي شريطٌ واحد للصفحة: محطة الاستراحة تقع في «تذكرتي» وفي الصفحة نفسها إعلانُ «مساري» بشريطه، فلا يتكرر الراعي (ولا يُحتسب ظهورُه مرتين). */
  var sponsor=slot==="break"?null:(d.sponsor||null);

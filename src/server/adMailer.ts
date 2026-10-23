@@ -35,7 +35,7 @@ export function weekKey(day: string): string {
 }
 
 const nf = new Intl.NumberFormat("ar-KW-u-nu-latn");
-const pct = (n: number) => `${new Intl.NumberFormat("ar-KW-u-nu-latn", { maximumFractionDigits: 1 }).format(n)}٪`;
+const pct = (n: number) => `${new Intl.NumberFormat("ar-KW-u-nu-latn", { maximumFractionDigits: 1 }).format(n)}%`;
 
 export function weeklyMail(c: Pick<AdCampaign, "company" | "endDay"> & { coupon?: string }, w: WeeklyCompare, reportUrl: string): { subject: string; text: string } {
   const change = w.hasLastWeek && w.impressionsChange != null ? (w.impressionsChange > 0 ? ` (ارتفاع ${pct(w.impressionsChange)} عن الأسبوع الماضي)` : w.impressionsChange < 0 ? ` (انخفاض ${pct(Math.abs(w.impressionsChange))} عن الأسبوع الماضي)` : " (مثل الأسبوع الماضي)") : "";

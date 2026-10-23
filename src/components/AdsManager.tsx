@@ -1,12 +1,12 @@
 /**
  * ── شاشة الإعلانات ───────────────────────────────────────────────────────────────
  *
- * رأسٌ بالأرقام، وثلاثةُ تبويبات (الحملات · المواقع والمواسم · ملف الشراكة). القائمة مضغوطة، وتفاصيل الحملة
+ * رأسٌ بالأرقام، وخمسةُ تبويبات (الحملات · الطلبات · المواقع والمواسم · معاينة للشركات · ملف الشراكة). القائمة مضغوطة، وتفاصيل الحملة
  * وإجراءاتها في درجٍ جانبي، و«حملة جديدة» معالجٌ من أربع خطوات في درج. لا أسعار هنا؛ الشاشة للتتبع.
  * الشروط تُفرض في الخادم (مقاس، وزن، جودة، رابط، سعة، فئة منافس) وتُشرح هنا قبل أن تُرفض الحملة.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Copy, ExternalLink, Megaphone, Plus, Send, ShieldCheck, TrendingUp } from "lucide-react";
+import { Megaphone, Plus, Send, ShieldCheck, TrendingUp } from "lucide-react";
 import { MicroLoader, Notice, PageTitle } from "./ui";
 import CampaignList from "./ads/CampaignList";
 import CampaignDrawer, { type DrawerActions } from "./ads/CampaignDrawer";
@@ -15,6 +15,7 @@ import { PlacementMap, SeasonTimeline } from "./ads/PlacementMap";
 import PlacementPreview from "./ads/PlacementPreview";
 import AttentionList, { attentionItems } from "./ads/AttentionList";
 import LeadsPanel from "./ads/LeadsPanel";
+import PartnerLinks from "./ads/PartnerLinks";
 import { api, fmt, pct1, type Payload } from "./ads/shared";
 
 type Tab = "campaigns" | "leads" | "placements" | "preview" | "kit";
@@ -82,6 +83,18 @@ export default function AdsManager() {
 
   if (!data || !stats) return <div className="pt-page">{error ? <Notice type="error">{error}</Notice> : <MicroLoader label="يجهّز الإعلانات…" />}</div>;
 
+  /* تنقّلُ التبويبات بلوحة المفاتيح (WAI-ARIA): في الصفحة العربية السهمُ الأيسر للتالي والأيمن للسابق، وHome/End للطرفين. */
+  const onTabKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const ids: Tab[] = ["campaigns", "leads", "placements", "preview", "kit"];
+    const at = ids.indexOf(tab);
+    const rtl = getComputedStyle(e.currentTarget).direction === "rtl";
+    const step = e.key === "ArrowLeft" ? (rtl ? 1 : -1) : e.key === "ArrowRight" ? (rtl ? -1 : 1) : 0;
+    const next = e.key === "Home" ? 0 : e.key === "End" ? ids.length - 1 : step ? (at + step + ids.length) % ids.length : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    setTab(ids[next]);
+    requestAnimationFrame(() => document.getElementById(`ad-tab-${ids[next]}`)?.focus());
+  };
   const open = data.campaigns.find(c => c.id === openId);
   const actions: DrawerActions = {
     busy, act, api, copy, upload, setMsg,
@@ -90,7 +103,6 @@ export default function AdsManager() {
   const newCampaign = () => { setOpenId(""); setWizard({ form: blankForm(data), step: 1 }); };
   /* من المعاينة: الموقعُ المختار يُحجز في المعالج، واسمُ الشركة إن كتبه الأدمن. */
   const startAt = (slot: string, company: string) => { setOpenId(""); setWizard({ form: { ...blankForm(data), slot, company }, step: 1 }); };
-  const kitUrl = data.partnerKit ? new URL(data.partnerKit, location.origin).toString() : "";
 
   return (
     <div className="pt-page ad-page">
@@ -110,9 +122,9 @@ export default function AdsManager() {
         <div className={`ad-hero-kpi${stats.soon ? " warn" : ""}`}><span className="ic"><Send aria-hidden="true" /></span><b>{fmt(stats.soon)}</b><span>{stats.soon ? "تنتهي خلال ٧ أيام: تواصل للتجديد" : "لا حملة تنتهي هذا الأسبوع"}</span></div>
       </section>
 
-      <div className="ad-tabs" role="tablist" aria-label="أقسام الإعلانات">
+      <div className="ad-tabs" role="tablist" aria-label="أقسام الإعلانات" onKeyDown={onTabKey}>
         {([["campaigns", "الحملات", data.campaigns.length], ["leads", "الطلبات", data.leads.filter(l => l.status === "new").length], ["placements", "المواقع والمواسم", 0], ["preview", "معاينة للشركات", 0], ["kit", "ملف الشراكة", 0]] as Array<[Tab, string, number]>).map(([id, label, n]) => (
-          <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" key={id} type="button" role="tab" id={`ad-tab-${id}`} aria-selected={tab === id} aria-controls={`ad-panel-${id}`} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>
+          <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" key={id} type="button" role="tab" id={`ad-tab-${id}`} aria-selected={tab === id} aria-controls={`ad-panel-${id}`} tabIndex={tab === id ? 0 : -1} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>
             {label}{n ? <em>{fmt(n)}</em> : null}
           </button>
         ))}
@@ -155,18 +167,14 @@ export default function AdsManager() {
               <h3>ملف الشراكة للشركات</h3>
               <p>صفحةٌ واحدة ترسل رابطها للشركة: حجم الجمهور بأرقامٍ تقريبية، وما يبحث عنه الطلبة، وتقويم المواسم، والمواقع ومقاساتها وتوفرها، وشروطنا. تتحدث وحدها ولا تكشف أي اسم.</p>
               <ol className="ad-steps3">
-                <li><b>١</b><span>أنشئ الرابط (مرةً، وتجدّده متى شئت)</span></li>
-                <li><b>٢</b><span>أرسله للشركة قبل الاجتماع أو بعده</span></li>
+                <li><b>١</b><span>أنشئ رابطاً باسم الشركة</span></li>
+                <li><b>٢</b><span>أرسله لها، وتابع هنا كم مرةً فتحته</span></li>
                 <li><b>٣</b><span>أضف حملتها وأرسل لها رابط تقريرها الحي</span></li>
               </ol>
-              <div className="ad-btnrow">
-                <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" type="button" className="btn btn-primary" disabled={busy === "kit"} onClick={() => void act("kit", () => api("/api/admin/ads/partner-kit", { method: "POST" }), data.partnerKit ? "تجدّد رابط ملف الشراكة." : "أُنشئ رابط ملف الشراكة.")}>{data.partnerKit ? "تجديد الرابط" : "إنشاء الرابط"}</button>
-                {data.partnerKit ? <>
-                  <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" type="button" className="btn btn-secondary" onClick={() => void copy(data.partnerKit)}><Copy aria-hidden="true" size={15} /> نسخ</button>
-                  <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" type="button" className="btn btn-secondary" onClick={() => window.open(data.partnerKit, "_blank", "noopener")}><ExternalLink aria-hidden="true" size={15} /> فتح</button>
-                </> : null}
-              </div>
-              {kitUrl ? <p className="ad-url-box"><bdi dir="ltr">{kitUrl}</bdi></p> : null}
+              <PartnerLinks data={data} busy={busy}
+                onCreate={(company, days) => act("plink", () => api("/api/admin/ads/partner-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company, days }) }), `أُنشئ رابط «${company}».`)}
+                onRevoke={id => void act(`revoke-${id}`, () => api(`/api/admin/ads/partner-links/${id}/revoke`, { method: "POST" }), "أُوقف الرابط.")}
+                onCopy={url => void copy(url)} />
             </div>
             <aside className="ad-kit-rules">
               <h4>شروط الإعلان</h4>

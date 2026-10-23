@@ -447,3 +447,18 @@
 .ad-empty-leads .ic{display:grid;place-items:center;inline-size:54px;block-size:54px;border-radius:18px;background:var(--accent-soft);color:var(--accent)}
 .ad-empty-leads b{color:var(--ink);font-size:16px}.ad-empty-leads p{margin:0;max-inline-size:44ch}
 @media (max-width:560px){.ad-leadcard{grid-template-columns:1fr}.ad-leadcard header time{margin-inline-start:0}}
+
+/* ── روابط ملف الشراكة: رابطٌ لكل شركة ── */
+.ad-plinks{display:grid;gap:14px;margin-block-start:14px}
+.ad-plink-new{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.ad-plink-new label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.ad-plink-new input,.ad-plink-new select{min-block-size:40px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+.ad-plink-new input{min-inline-size:200px}
+.ad-plink-list{display:grid;gap:6px}
+.ad-plink-head,.ad-plink-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) minmax(0,1fr) auto minmax(0,2fr);gap:10px;align-items:center;padding:10px 14px;border-radius:14px}
+.ad-plink-head{font-size:12px;font-weight:700;color:var(--muted)}
+.ad-plink-row{border:1px solid var(--line);background:var(--surface)}
+.ad-plink-row.off{opacity:.65}
+.ad-plink-row small{display:block;color:var(--muted);font-size:12px}
+.ad-plink-acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+@media (max-width:900px){.ad-plink-head{display:none}.ad-plink-row{grid-template-columns:1fr 1fr}.ad-plink-acts{grid-column:1/-1;justify-content:flex-start}}
