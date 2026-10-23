@@ -236,7 +236,7 @@ ok('84 room validity is building-bound and not incorrectly rejected by main-camp
 ok('85 instructor titles d/a/a.d are stripped only as presentation and هيئة is registry-bound', 'د./ا./ا.د.' in server and 'هيئة تدريسية' in doc_ocr and 'ambiguous names stay blank' in doc_ocr)
 ok('86 fast OCR lanes have page-scoped safe fallback and do not reread clean pages', 'SAFE FALLBACK — suspicious pages only' in doc_ocr and 'const suspiciousIndexes=pages.map' in doc_ocr and 'Clean pages are never re-read' in doc_ocr)
 preview_import=(ROOT/'src/components/ImportPreviewTable.tsx').read_text()
-ok('87 visiting instructor is shown as a quiet badge beside the canonical system name', 'import-visiting-badge' in preview_import and 'visitingIdSet.has' in preview_import)
+ok('87 visiting instructor is shown as a quiet badge beside the canonical system name', '<VisitingBadge compact />' in preview_import and 'visitingIdSet.has' in preview_import)
 
 
 # Owner academic-import identity rules (2026-08-25).
@@ -303,7 +303,7 @@ golden_state=(ROOT/'docs/CURRENT_GOLDEN_STATE.md').read_text()
 ok('112 import course and section identities are locked during quick edit', 'import-locked-course' in preview and 'import-locked-section' in preview and 'المقرر مثبت من النظام ولا يتغير' in preview and 'رقم الشعبة مثبت من المصدر ولا يتغير هنا' in preview)
 ok('113 corrected instructor editor hides raw OCR identity and shows only canonical picker', 'sourceInstructorText' in preview and 'قرأ الملف:' not in preview and '<InstructorPicker' in preview)
 ok('114 valid manual preview edits replace stale error evidence with confirmed manual provenance', 'source:"MANUAL"' in preview and 'method:"USER_EDIT"' in preview and 'score:100' in preview and 'import-cell-manual' in preview)
-ok('115 visiting badge is present in import, schedule, reports and final schedule review', 'import-visiting-badge' in preview and 'VisitingBadge' in schedules_src and 'VisitingBadge' in reports and 'VisitingBadge' in schedule_review and 'visitingIds={visitingIds}' in schedules_src)
+ok('115 visiting badge is present in import, schedule, reports and final schedule review', '<VisitingBadge compact />' in preview and 'VisitingBadge' in schedules_src and 'VisitingBadge' in reports and 'VisitingBadge' in schedule_review and 'visitingIds={visitingIds}' in schedules_src)
 ok('116 schedule and report time ranges are kept as one visual value', 'formatScheduleTimeRange(row.fstarttime, row.fendtime)' in reports and 'white-space:nowrap' in (ROOT/'src/styles/05-schedule.css').read_text() and 'white-space:nowrap' in (ROOT/'src/styles/06-intelligence.css').read_text())
 ok('117 change log has a dedicated print action and print sheet', 'طباعة تقرير التعديلات' in schedules_src and 'change-log-print-host' in schedules_src and 'تقرير التعديلات' in schedules_src and 'data-print-kind="change-log"' not in schedules_src and 'root.dataset.printKind="change-log"' in schedules_src)
 ok('118 current golden stage is documented for future maintainers', 'اسم المقرر ورقم الشعبة في معاينة الاستيراد **هويتان مقفلتان**' in golden_state and 'Badge صغيرة `منتدب`' in golden_state and 'تقرير تعديلات قابل للطباعة' in golden_state)
