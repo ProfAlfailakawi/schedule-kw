@@ -359,6 +359,37 @@ export interface RegulationContext {
 /** Consecutive means the next one starts within a quarter hour of this one ending. */
 const CONSECUTIVE_GAP = 15;
 
+/**
+ * م.7/2 — the morning and evening shares of the department.
+ *
+ * Every appointment in the schedule counts once, by the hour it starts: the
+ * total is the whole of what is on the page, split between the two periods.
+ * It is a share of the whole department, so it names no appointment, and the
+ * rows given must be the department's rows across all its colleges (the
+ * caller passes the whole family). It is read only on a schedule large enough
+ * for a proportion to mean something — an instructor's week or a single edit
+ * is not a department.
+ */
+export function periodBalanceFinding(rows: readonly FSchedule[]): RegulationFinding | null {
+  const starts = rows.map(row => toMinutes(row.fstarttime)).filter((start, index) => rows[index].fstarttime && start >= MORNING_START && start < EVENING_END);
+  if (starts.length < PERIOD_BALANCE_MIN_SECTIONS) return null;
+  const morning = starts.filter(start => start < MORNING_END).length;
+  const morningShare = Math.round((morning / starts.length) * 100);
+  const eveningShare = 100 - morningShare;
+  if (morningShare >= 50 && morningShare <= 70) return null;
+  return {
+    rule: "period-balance",
+    article: "م.7/2",
+    severity: "low",
+    source: "decision-1912",
+    approvalEffect: "note",
+    title: "توزيع الفترتين الصباحية والمسائية",
+    detail: `الصباحية (8–14) ${arabicNumber(morningShare)}% والمسائية (14–20) ${arabicNumber(eveningShare)}% من ${countOf(starts.length, AR.appointment)}. اللائحة: الصباحية بين 50% و70%، والمسائية بين 30% و50%.`,
+    rowIds: [],
+    data: { morning: morningShare, evening: eveningShare, sections: starts.length, morningCount: morning },
+  };
+}
+
 export function reviewSchedule(context: RegulationContext): RegulationFinding[] {
   const { rows, courses, instructors } = context;
   const findings: RegulationFinding[] = [];
@@ -523,30 +554,8 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   }
 
   // --- م.7/2 — the morning and evening shares of the department ----------
-  // Every appointment in the schedule counts once, by the hour it starts: the
-  // total is the whole of what is on the page, split between the two periods.
-  // A share of the whole department, so it names no appointment and is read
-  // only on a schedule large enough for a proportion to mean something — an
-  // instructor's week or a single edit is not a department.
-  const starts = rows.map(row => toMinutes(row.fstarttime)).filter((start, index) => rows[index].fstarttime && start >= MORNING_START && start < EVENING_END);
-  if (starts.length >= PERIOD_BALANCE_MIN_SECTIONS) {
-    const morning = starts.filter(start => start < MORNING_END).length;
-    const morningShare = Math.round((morning / starts.length) * 100);
-    const eveningShare = 100 - morningShare;
-    if (morningShare < 50 || morningShare > 70) {
-      findings.push({
-        rule: "period-balance",
-        article: "م.7/2",
-        severity: "low",
-        source: "decision-1912",
-        approvalEffect: "note",
-        title: "توزيع الفترتين الصباحية والمسائية",
-        detail: `الصباحية (8–14) ${arabicNumber(morningShare)}% والمسائية (14–20) ${arabicNumber(eveningShare)}% من ${countOf(starts.length, AR.appointment)}. اللائحة: الصباحية بين 50% و70%، والمسائية بين 30% و50%.`,
-        rowIds: [],
-        data: { morning: morningShare, evening: eveningShare, sections: starts.length, morningCount: morning },
-      });
-    }
-  }
+  const periodBalance = periodBalanceFinding(rows);
+  if (periodBalance) findings.push(periodBalance);
 
   // --- the department's own protected window ------------------------------
   if (context.meeting?.day && context.meeting.from && context.meeting.to) {
