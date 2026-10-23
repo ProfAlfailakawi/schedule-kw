@@ -422,7 +422,6 @@ function slotScreen(slot: { id: string; width: number; height: number }): string
   return `<div class="k-screen">${slot.id === "sponsor" ? ad + lines + lines : lines + ad + lines}</div>`;
 }
 
-/** تقويمُ المواسم: خطٌّ زمني أفقي بألوان المواسم، والموسم الجاري مُضاء. */
 /** تقريبٌ للعرض: دون المئة كما هو، ثم عشراتٌ فمئاتٌ فخمسمئات؛ فلا يُوهِم الرقمُ بدقةٍ لا يملكها. */
 const niceNumber = (n: number): string => fmt(n < 100 ? n : n < 1000 ? Math.round(n / 10) * 10 : n < 10000 ? Math.round(n / 100) * 100 : Math.round(n / 500) * 500);
 
@@ -453,6 +452,7 @@ function calculatorHtml(input: PartnerKitInput): string {
 ${result}`;
 }
 
+/** تقويمُ المواسم: خطٌّ زمني أفقي بألوان المواسم، والموسم الجاري مُضاء. */
 function seasonCalendarHtml(items: CalendarItem[], active: string[]): string {
   const upcoming = items.slice(0, 8);
   if (!upcoming.length) return "";

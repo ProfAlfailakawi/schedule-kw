@@ -37,6 +37,8 @@ export const AD_SLOTS: readonly AdSlotSpec[] = [
   /* متوقف: صفحة «حالة طلبي» تطلب رقماً مدنياً ورقم الحالة، وشرطُنا ألا إعلان في صفحات الهوية. */
   { id: "status", label: "حالة الطلب (متوقف)", hint: "متوقف", where: "متوقف: الصفحة تطلب الهوية", audience: "students", width: 600, height: 250, capacity: 3, retired: true },
   { id: "break", label: "وقت الفراغ", hint: "للطالب حين يكون بين محاضراته فراغ ساعة فأكثر", where: "داخل «تذكرتي» في «مساري» حين يكون للطالب فراغ ساعةٍ فأكثر بين محاضراته", audience: "students", width: 480, height: 160, capacity: 3, wholeUniversity: true },
+  { id: "afterclass", label: "بعد آخر محاضرة", hint: "للطالب حين تنتهي محاضراته في يومٍ ما", where: "داخل «تذكرتي» في «مساري» حين تنتهي محاضرات الطالب في يوم", audience: "students", width: 480, height: 160, capacity: 3, wholeUniversity: true },
+  { id: "nearby", label: "بين محاضرتين في المبنى نفسه", hint: "للطالب حين يكون بين محاضرتين متتاليتين في مبنى واحد", where: "داخل «تذكرتي» في «مساري» حين تفصل بين محاضرتين متتاليتين في المبنى نفسه نصفُ ساعةٍ فأكثر", audience: "students", width: 480, height: 160, capacity: 3, wholeUniversity: true },
   { id: "dashboard", label: "أعضاء هيئة التدريس والإداريين", hint: "بطاقة تظهر لهم بعد تسجيل الدخول", where: "بطاقة في لوحة الأساتذة والإداريين", audience: "staff", width: 480, height: 160, capacity: 3 },
 ] as const;
 
