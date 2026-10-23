@@ -1904,7 +1904,9 @@ async function departmentInstructorIdSet(
      وإلا لقبل أحد الطرفين ما يرفضه الآخر. */
   const baseIndex = scopes.findIndex(scope => scope.collegeId === collegeId && scope.sectionId === sectionId);
   const basePool = baseIndex >= 0 ? pools[baseIndex] : undefined;
-  if (!basePool || !idsOf(basePool).length) {
+  /* سجل «هيئة تدريسية» ليس أستاذاً: قسمٌ لا يملك غيره ما زال بلا نطاقٍ حقيقي، فيبقى له احتياط الكلية. */
+  const placeholders = placeholderInstructorIds(await Repository.getInstructors() as any);
+  if (!basePool || !idsOf(basePool).some(id => !placeholders.has(id))) {
     for (const id of await collegeFallbackInstructorIds(collegeId)) ids.add(id);
   }
   return ids;
@@ -9916,7 +9918,9 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
      حين لا يكون للقسم تاريخ بعد، يتسع النطاق إلى أساتذة الكلية نفسها: نطاق
      حقيقي محدود يُقرأ من جداول أقسامها الأخرى، لا الجامعة كلها. والقسم الذي
      له تاريخ لا يتغير سلوكه إطلاقاً، فهذا المسار لا يُقرأ عنده أصلاً. */
-  if(!preferredInstructorIds.size){
+  /* «هيئة تدريسية» وحدها لا تجعل للقسم نطاقاً حقيقياً (القسم الجديد يولد بسجلّها) فيبقى له احتياط الكلية. */
+  const importPlaceholderIds=placeholderInstructorIds(allInstructors as any);
+  if(![...preferredInstructorIds].some(id=>!importPlaceholderIds.has(id))){
     for(const id of await collegeFallbackInstructorIds(collegeId))preferredInstructorIds.add(id);
   }
   /* ── نطاق المطابقة هو نطاق النشر نفسه ─────────────────────────────────────

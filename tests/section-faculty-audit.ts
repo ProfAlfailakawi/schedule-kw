@@ -43,6 +43,9 @@ const fake = (seed: any[] = [], faculty: Record<string, number[]> = {}) => {
   check(server.includes("if(created){try{await ensureSectionFaculty(Repository,collegeId"), "إنشاء القسم من ترويسة PDF يُنشئ السجل (ما أُنشئ الآن فقط)");
   check(plan.includes("ensureSectionFaculty(Repository, Number(college.AdCollegeId), Number(created.AdSectionId))"), "إنشاء القسم من الصحيفة يُنشئ السجل");
 
+  check(/idsOf\(basePool\)\.some\(id => !placeholders\.has\(id\)\)/.test(server), "احتياط الكلية في عضوية القسم لا يُعطَّل بسجل «هيئة تدريسية» وحده");
+  check(/\[\.\.\.preferredInstructorIds\]\.some\(id=>!importPlaceholderIds\.has\(id\)\)/.test(server), "احتياط الكلية في مطابقة PDF لا يُعطَّل بسجل «هيئة تدريسية» وحده");
+
   console.log(`\nSection faculty audit: ${passed} passed, ${failed} failed`);
   if (failed) process.exit(1);
 })();
