@@ -1987,6 +1987,8 @@ export interface AdCampaign {
   linkUrl: string;
   /** كودُ خصمٍ خاصٌّ بالشركة يظهر تحت الإعلان ويقيس التحويل عندها. */
   coupon?: string;
+  /** كوبونٌ فريد لكل طالب (QR يُستعمل مرة واحدة ويتحقق منه المتجر)، بجانب الكود العام أو بدله. */
+  uniqueCoupons?: boolean;
   startDay: string;
   endDay: string;
   status: AdStatus;

@@ -16,6 +16,7 @@ import { conversionOf, hourAr, peakSummary, wrapUp, type WrapUp } from "../utils
 import { AR, countOf } from "../utils/arabicCount";
 import { SEASONS, seasonLabel, type CalendarItem } from "../utils/adSeasons";
 import { FORECAST_WEEKS, type Forecast } from "../utils/adForecast";
+import { formatCoupon } from "../utils/adCoupons";
 
 /** معرّفٌ عام للشارة مشتقٌّ من رمز التقرير بتجزئةٍ لا تُعكس: يُنشر في موقع الشركة دون أن يكشف الرمز السري. */
 export const badgeId = (reportToken: string): string => createHash("sha256").update(`badge:${reportToken}`).digest("hex").slice(0, 32);
@@ -135,6 +136,8 @@ export interface CampaignReportInput {
   origin?: string;
   /** نتيجة نموذج التبليغ عن التحويل: ok | bad. */
   redemptionResult?: string;
+  /** كوبونات فريدة: كم استُعمل منها (موثَّقاً من المتجر)، وأيّ يومٍ، ورابط صفحة التحقق للمتجر. */
+  unique?: { verified: number; verifyUrl: string };
 }
 
 const arrow = (v: number | null): string => (v === null ? "—" : v > 0 ? `▲ ${pct(v)}` : v < 0 ? `▼ ${pct(Math.abs(v))}` : "ثابت");
@@ -223,6 +226,13 @@ ${msg}
 <button class="btn" type="submit">سجّل</button></form>
 <p class="note">اختياري تماماً. وروابطُ نقراتكم تحمل وسم <bdi dir="ltr">utm_source=schedule</bdi> لتتحققوا من أرقامنا في تحليلاتكم أنتم.</p></div>`;
   })();
+  /* الكوبون الفريد: التحويل **موثَّق** لأن المتجر هو من تحقق منه ومسحه، بخلاف الرقم المُبلَّغ أعلاه. */
+  const verifiedCard = !c.uniqueCoupons || !input.unique || phase === "draft" ? "" : `
+<h2>كوبونات الطلبة الموثَّقة</h2>
+<div class="card"><p style="margin:0 0 8px">استعمل <b>${fmt(input.unique.verified)}</b> طالبٍ كوبونه الفريد عندكم${totals.clicks > 0 ? ` (${pct((input.unique.verified / totals.clicks) * 100)} من نقراتكم الموثَّقة)` : ""}. كل كوبونٍ يُستعمل مرةً واحدة ولا يحمل اسم الطالب.</p>
+<p style="margin:0 0 8px">يمسح موظفكم رمز QR الذي يريه الطالب، أو يفتح هذا الرابط ويكتب الكوبون:</p>
+<p class="btnrow"><a class="btn" href="${esc(input.unique.verifyUrl)}">صفحة التحقق للمتجر</a></p>
+<p class="note"><bdi dir="ltr">${esc(input.unique.verifyUrl)}</bdi></p></div>`;
   const badgeCard = c.status === "draft" || c.startDay > today || !origin ? "" : `
 <h2>شارة الشراكة</h2>
 <div class="card"><p style="margin:0 0 10px">ضعوها في موقعكم أو متجركم: تعلن أنكم شركاء SCHEDULE.</p>
@@ -259,7 +269,7 @@ ${msg}
 </div>
 ${c.trial ? trialCard({ phase, totals, benchmark: input.benchmarkCtr, days: series.length }) : ""}
 ${phase === "ended" && totals.impressions > 0 ? wrapUpCard(wrapUp(stats, creatives.map(x => x.id)), { company: c.company, labelOf, benchmark: input.benchmarkCtr }) : ""}
-${endingBanner}${convCard}${input.weekly && (input.weekly.hasLastWeek || input.weekly.thisWeek.impressions > 0) ? weeklyCard(input.weekly) : ""}${calendarCard}
+${endingBanner}${verifiedCard}${convCard}${input.weekly && (input.weekly.hasLastWeek || input.weekly.thisWeek.impressions > 0) ? weeklyCard(input.weekly) : ""}${calendarCard}
 <h2>الأداء اليومي</h2>
 <div class="card">${barChart(series.map(p => ({ day: p.day, a: p.impressions, b: p.clicks })), "الظهور", "النقرات")}</div>
 ${input.liveInSlot > 1 ? `<p class="note">يتناوب في هذا الموقع ${countOf(input.liveInSlot, AR.campaign)}، فحصتك المتوقعة من الظهور نحو ${pct(share * 100)}.</p>` : ""}
@@ -548,6 +558,30 @@ ${lead}
 <a class="k-fab noprint" href="#new">${icon("plus")}${NEW_CAMPAIGN}</a>`, KIT_CSS, true);
 }
 
+/** صفحة تحقق المتجر من كوبون طالب: يفتحها بمسح QR أو يكتب الكوبون. لا اسم ولا هوية، والاستعمال مرةً واحدة. */
+export function couponVerifyPage(input: { company: string; vid: string; nonce: string; code: string; state: "empty" | "valid" | "used" | "bad" | "done" }): string {
+  const { state } = input;
+  const shown = input.code ? formatCoupon(input.code) : "";
+  const verdict = state === "valid" ? `<div class="callout" style="border-color:var(--accent)"><b>كوبونٌ صالح</b><span>لم يُستعمل من قبل. اضغطوا «تأكيد الاستعمال» حين تمنحون الخصم.</span></div>`
+    : state === "done" ? `<div class="callout" style="border-color:var(--accent)"><b>سُجّل الاستعمال</b><span>امنحوا الطالب خصمه. لن يُقبل هذا الكوبون مرةً أخرى.</span></div>`
+    : state === "used" ? `<div class="callout" style="border-color:#b42318"><b>كوبونٌ مستعمل من قبل</b><span>لا يُمنح به خصمٌ ثانٍ.</span></div>`
+    : state === "bad" ? `<div class="callout" style="border-color:#b42318"><b>كوبونٌ غير صالح</b><span>تأكدوا من الكتابة، أو اطلبوا من الطالب أن يفتح كوبونه من الإعلان.</span></div>` : "";
+  const confirm = state === "valid" ? `<form method="post" action="/verify/${esc(input.vid)}" style="margin-top:10px"><input type="hidden" name="code" value="${esc(input.code)}"><button class="btn" type="submit">تأكيد الاستعمال</button></form>` : "";
+  return page(`تحقق من كوبون ${input.company}`, input.nonce, `
+<section class="hero">
+  <p class="brand">SCHEDULE · تحقق الكوبون</p>
+  <h1>${esc(input.company)}</h1>
+  <p class="lead">اكتبوا كوبون الطالب أو امسحوا رمزه لتتحققوا منه قبل منح الخصم.</p>
+</section>
+<div class="card">
+${verdict}${shown ? `<p style="margin:10px 0 0"><bdi dir="ltr" style="font:700 20px/1.6 ui-monospace,monospace;letter-spacing:.08em">${esc(shown)}</bdi></p>` : ""}${confirm}
+<form method="get" action="/verify/${esc(input.vid)}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:14px">
+<label style="display:grid;gap:4px;font-size:13px">الكوبون<input name="code" required maxlength="24" autocomplete="off" dir="ltr" style="padding:10px;border-radius:10px;border:1px solid var(--line);font:inherit;min-width:220px" value=""></label>
+<button class="btn" type="submit">تحقق</button></form>
+<p class="note">الكوبون لا يحمل اسم الطالب ولا أي بيان عنه، ولا يُقبل إلا مرةً واحدة.</p></div>
+<footer>SCHEDULE</footer>`, "", true);
+}
+
 /** سياسةُ القياس والإعلانات: صفحةٌ عامة بلا رمز، يصل إليها الطالب من السطر تحت كل إعلان. كلُّ سطرٍ فيها يصف ما يفعله الكود فعلاً. */
 export function measurementPage(nonce: string): string {
   const li = (items: string[]) => `<ul class="rules">${items.map(i => `<li>${i}</li>`).join("")}</ul>`;
@@ -574,7 +608,8 @@ export function measurementPage(nonce: string): string {
 ])}</div>
 <h2>ما الذي يُحفظ في متصفحك؟</h2>
 <div class="card">${li([
-  "مفاتيح صغيرة في التخزين المحلي (تبدأ بـ <bdi dir=\"ltr\">adx:</bdi>) تُخبر متصفحك أنك زرتَ اليوم فلا تُعدّ مرتين، وتحدّ عدد مرات ظهور الإعلان نفسه لك في اليوم.",
+  "مفاتيح صغيرة في التخزين المحلي (تبدأ بـ <bdi dir=\"ltr\">adx:</bdi>) تُخبر متصفحك أنك زرتَ اليوم فلا تُعدّ مرتين، وتحدّ عدد مرات ظهور الإعلان نفسه لك في اليوم، وتعدّ وصول الحملة إليك مرةً واحدة طوال مدتها.",
+  "إن فتحتَ <b>كوبونك الخاص</b> من إعلان: مفتاحٌ عشوائيٌّ من ثمانية رموز يولّده متصفحك ويحفظه عندك، لا يحمل اسماً ولا هوية. يوقّعه الخادم فيصير كوبونك، ولا نخزّن شيئاً عنك؛ يُسجَّل فقط أن كوبوناً استُعمل حين يتحقق منه المتجر.",
   "يمكنك مسحها في أي وقتٍ من إعدادات المتصفح؛ لا يتأثر عملك في البرنامج بذلك.",
   "إن منعتَ التخزين لن نعرف أنك زرتَ اليوم، فقد تُحتسب كل زيارة؛ لا شيء آخر يتغيّر.",
 ])}</div>

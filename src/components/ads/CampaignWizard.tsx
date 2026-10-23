@@ -12,17 +12,17 @@ import { addDay, dateShort, fmt, type Campaign, type Payload } from "./shared";
 
 export interface WizardForm {
   id: string; company: string; category: string; slot: string; startDay: string; endDay: string;
-  linkUrl: string; coupon: string; note: string; trial: boolean; seasons: string[]; colleges: number[]; contactEmail: string;
+  linkUrl: string; coupon: string; note: string; trial: boolean; seasons: string[]; colleges: number[]; contactEmail: string; uniqueCoupons: boolean;
 }
 const STEPS = ["الشركة والموقع", "الجمهور", "الصورة", "المراجعة"];
 
 export const blankForm = (data: Payload): WizardForm => ({
   id: "", company: "", category: data.categories[0] || "", slot: data.slots.find(s => s.id === "me")?.id || data.slots[0]?.id || "", startDay: data.today, endDay: addDay(data.today, 29),
-  linkUrl: "https://", coupon: "", note: "", trial: false, seasons: [], colleges: [], contactEmail: "",
+  linkUrl: "https://", coupon: "", note: "", trial: false, seasons: [], colleges: [], contactEmail: "", uniqueCoupons: false,
 });
 export const formOf = (c: Campaign): WizardForm => ({
   id: c.id, company: c.company, category: c.category, slot: c.slot, startDay: c.startDay, endDay: c.endDay, linkUrl: c.linkUrl,
-  coupon: c.coupon || "", note: c.note || "", trial: Boolean(c.trial), seasons: c.seasons || [], colleges: c.colleges || [], contactEmail: c.contactEmail || "",
+  coupon: c.coupon || "", note: c.note || "", trial: Boolean(c.trial), seasons: c.seasons || [], colleges: c.colleges || [], contactEmail: c.contactEmail || "", uniqueCoupons: Boolean(c.uniqueCoupons),
 });
 
 /** هاتفٌ مبسّط يعرض الصورة في موضعها: ليرى صاحبُ القرار كيف تبدو قبل الاعتماد. */
@@ -195,6 +195,7 @@ export default function CampaignWizard({ data, initial, startStep = 1, onClose, 
             <details className="ad-more"><summary>خياراتٌ إضافية: كود خصم وملاحظة وبريد</summary>
               <div className="ad-grid2">
                 <label className="ad-field"><span className="ad-flab">كود الخصم <small>(يظهر تحت الإعلان ويقيس التحويل)</small></span><input dir="ltr" maxLength={24} value={form.coupon} onChange={e => set("coupon", e.target.value)} /></label>
+                <label className="ad-check"><input type="checkbox" checked={form.uniqueCoupons} onChange={e => set("uniqueCoupons", e.target.checked)} /> كوبون فريد لكل طالب (QR يُستعمل مرة واحدة ويتحقق منه المتجر)</label>
                 <label className="ad-field"><span className="ad-flab">ملاحظة داخلية</span><input maxLength={300} value={form.note} onChange={e => set("note", e.target.value)} /></label>
                 <label className="ad-field"><span className="ad-flab">بريد الشركة <small>(اختياري: للتقرير الأسبوعي وتذكير التجديد إن فُعّل البريد)</small></span><input dir="ltr" type="email" maxLength={120} value={form.contactEmail} onChange={e => set("contactEmail", e.target.value)} /></label>
               </div>
