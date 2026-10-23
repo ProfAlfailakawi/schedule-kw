@@ -489,8 +489,13 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
 
   const unplacedSaveIssues = useMemo(() => {
     const notes = Array.isArray(xlsxPreview?.saveIssues) ? xlsxPreview.saveIssues : [];
-    return [...new Set(notes.map((note: unknown) => String(note || "").trim()).filter((note: string) => note && !/^السطر\s+\d+\s*:/.test(note)))] as string[];
-  }, [xlsxPreview]);
+    /* تحذير الوثيقة («الملف يذكر فصلاً آخر») يمنع النشر ولا صف له، فإن لم
+       يُكتب هنا اختفى الزر والشاشة كلها خضراء. */
+    const warnings = importKind === "authority-pdf" && Array.isArray(xlsxPreview?.issues)
+      ? xlsxPreview.issues.filter((issue: unknown) => /^تحذير:/.test(String(issue || "")))
+      : [];
+    return [...new Set([...warnings, ...notes].map((note: unknown) => String(note || "").trim()).filter((note: string) => note && !/^السطر\s+\d+\s*:/.test(note)))] as string[];
+  }, [xlsxPreview, importKind]);
 
   /* An Authority PDF can legitimately end with ZERO live rows: deleting every
      imported row means “publish an empty timetable”, while the immutable
@@ -535,7 +540,9 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
         hasDays(row) && start >= 0 && end > start &&
         row.buildingId && (row.roomId || row.locationStatus === "PENDING_ROOM") &&
         Number(row.AdInstructorId) &&
-        !serverRowIssues[importRowKey(row)]?.length
+        /* الملاحظات نفسها التي تصبغ الخلية وتمنع النشر — من الخادم ومن فحص
+           التعارض الحيّ — فلا تعدّ البطاقة «جاهزاً» صفاً يقول الجدول إنه أحمر. */
+        !previewRowIssues[importRowKey(row)]?.length
       );
     };
     const ready = rows.filter(rowReady).length;
@@ -555,7 +562,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     const reviewCells = rows.reduce((sum, row) => sum + Object.values((row as any).importEvidence || {})
       .filter((proof: any) => proof?.confidence === "UNRESOLVED" || proof?.confidence === "REVIEW_REQUIRED").length, 0);
     return { ready, review, reviewCells, derived, troubledPages };
-  }, [importKind, xlsxPreview?.rows, departmentIds, roster, serverRowIssues]);
+  }, [importKind, xlsxPreview?.rows, departmentIds, roster, previewRowIssues]);
 
   /* What a sharper reading could still fix: pages that carry an unresolved row
      AND have not already been re-read. When the approved engine left nothing
@@ -1516,7 +1523,12 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                         sectionId={sectionId}
                         termId={termId}
                         rowIssues={previewRowIssues}
-                        onRows={next => setXlsxPreview((prev: any) => {
+                        onRows={next => {
+                          /* رسالة رفضٍ سابقة تخص صفوفاً تغيّرت: بقاؤها تحت جدولٍ
+                             صار أخضر هو «صح فوق وخطأ تحت». الخادم يعيد فحصه عند
+                             الضغط التالي. */
+                          if(!smartBusy)setError(null);
+                          setXlsxPreview((prev: any) => {
                           if(!prev)return prev;
                           // The visual lock is the first guard; this is the one
                           // that actually protects the data if anything slips past it.
@@ -1526,7 +1538,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                           // Any edit invalidates a previous server rejection: the
                           // rows it named may no longer exist, so its notes must go.
                           return { ...prev, rows: normalized, count: normalized.length, issues: documentWarnings, saveIssues: undefined, valid: normalized.length > 0 || (Array.isArray(prev.baselineRows) && prev.baselineRows.length > 0) };
-                        })}
+                          });
+                        }}
                       />
                       {/* A note about a row belongs ON that row. Repeating the
                           same sentence once per line under a table that already
