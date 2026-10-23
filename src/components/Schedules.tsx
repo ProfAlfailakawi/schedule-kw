@@ -2220,9 +2220,20 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
            its answer is either here or on its way — so take that instead of
            asking it a second time. */
         const warmed = claimWarmStart<any>(url);
-        const data = warmed
-          ? await warmed.catch(() => fetchJson(url, { signal: controller.signal }))
-          : await fetchJson(url, { signal: controller.signal });
+        const early = warmed ? await warmed.catch(() => null) : null;
+        if (early) {
+          /* The warm answer paints at once, like the cached snapshot above, but
+             it is never the final word: it may predate a colleague's save made
+             before the live stream connected. A fresh read follows and replaces
+             it on arrival (apply ignores it if the scope has moved on). */
+          networkSettled = true;
+          const context = apply(early);
+          void fetchJson(url, { signal: controller.signal })
+            .then(fresh => { apply(fresh); })
+            .catch(() => undefined);
+          return context;
+        }
+        const data = await fetchJson(url, { signal: controller.signal });
         networkSettled = true;
         return apply(data);
       } catch (workspaceError: any) {

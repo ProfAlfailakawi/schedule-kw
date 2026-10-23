@@ -50,7 +50,7 @@ import { scopeShape } from "./utils/scopeShape";
 import { multiSiteDepartment } from "./utils/inboxAudience";
 import ScopeContextChip from "./components/ScopeContextChip";
 import { readSharedScope, setSharedScopeUser, writeSharedScope } from "./utils/sharedScope";
-import { scheduleWorkspaceUrl, warmStart } from "./utils/warmStart";
+import { forgetWarmStarts, scheduleWorkspaceUrl, warmStart } from "./utils/warmStart";
 import { setDemoSession } from "./utils/demoSession";
 import { formatScheduleTimeRange } from "./utils/scheduleTime";
 import { installClientTelemetry, setTelemetryOwner, telemetryBreadcrumb, telemetryGuide } from "./utils/clientTelemetry";
@@ -1314,7 +1314,7 @@ export default function App() {
           const signedIn = String(data.user?.SystemUserId || 0);
           let previous = "";
           try { previous = localStorage.getItem("schedule-last-user") || ""; } catch { /* private mode */ }
-          if (previous !== signedIn) void forgetCachedReads();
+          if (previous !== signedIn) { forgetWarmStarts(); void forgetCachedReads(); }
     setUser(data.user);
     try { localStorage.setItem("schedule-last-user", signedIn); } catch { /* private mode */ }
           setPermissions(
@@ -1603,6 +1603,7 @@ export default function App() {
     data?: { mode: string; real: boolean };
     demo?: { roles?: Array<{ role: string; label: string }>; activeRole?: string; seedStatus?: "preparing" | "ready" | "failed" };
   }) => {
+    forgetWarmStarts();
     setUser(data.user);
     try { localStorage.setItem("schedule-last-user", String(data.user?.SystemUserId || 0)); } catch { /* private mode */ }
     setPermissions(data.permissions || []);
@@ -1617,6 +1618,7 @@ export default function App() {
   };
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    forgetWarmStarts();
     await forgetCachedReads();
     setUser(null);
     setPermissions([]);

@@ -80,6 +80,16 @@ export function warmStart(url: string): Promise<unknown> {
 }
 
 /**
+ * Drops every pending warm answer. The workspace answer depends on who is
+ * signed in (their scopes), while the shelf is keyed by URL only, so it is
+ * emptied on every sign-in, sign-out and account change.
+ */
+export function forgetWarmStarts(): void {
+  inFlight.clear();
+  startedAt.clear();
+}
+
+/**
  * Takes the pending answer for this URL, if one exists, and removes it.
  *
  * Consumed once by design. A second reader of the same screen must go to the
