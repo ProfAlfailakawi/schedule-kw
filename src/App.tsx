@@ -50,7 +50,7 @@ import { scopeShape } from "./utils/scopeShape";
 import { multiSiteDepartment } from "./utils/inboxAudience";
 import ScopeContextChip from "./components/ScopeContextChip";
 import { readSharedScope, setSharedScopeUser, writeSharedScope } from "./utils/sharedScope";
-import { warmStart } from "./utils/warmStart";
+import { scheduleWorkspaceUrl, warmStart } from "./utils/warmStart";
 import { setDemoSession } from "./utils/demoSession";
 import { formatScheduleTimeRange } from "./utils/scheduleTime";
 import { installClientTelemetry, setTelemetryOwner, telemetryBreadcrumb, telemetryGuide } from "./utils/clientTelemetry";
@@ -87,14 +87,13 @@ const loadIntelligence = () => import("./components/IntelligenceWorkspace");
  * shared one (src/utils/sharedScope.ts) — the same value the board hydrates
  * from — so the warm answer is the one the board would have asked for.
  */
-function scheduleScopeQuery(userId: number): string {
-  const query = new URLSearchParams();
+function scheduleScopeQuery(userId: number): string | null {
   const scope = readSharedScope(userId);
-  if (scope.collegeId) query.set("collegeId", String(scope.collegeId));
-  if (scope.sectionId) query.set("sectionId", String(scope.sectionId));
-  if (scope.termId) query.set("termId", String(scope.termId));
-  query.set("resolve", "1");
-  return query.toString();
+  /* The board loads only once it has a college and a term, and asks with
+     exactly those values (no `resolve`); anything else would be a question the
+     board never asks, so its answer could never be claimed. */
+  if (!scope.collegeId || !scope.termId) return null;
+  return scheduleWorkspaceUrl(scope);
 }
 
 /** The id of whoever was last signed in here — enough to name the shelf. */
@@ -111,7 +110,8 @@ if (typeof window !== "undefined" && /\/fschedule\/index/i.test(window.location.
   /* من عرفنا في زيارةٍ سابقة أنه بلا الشاشة 7 لا نسأل له (كان 403 في كل فتحة). */
   let workspaceKnownDenied = false;
   try { workspaceKnownDenied = localStorage.getItem("schedule-workspace-denied") === "1"; } catch { /* التخزين غائب */ }
-  if (!workspaceKnownDenied) void warmStart(`/api/schedules/workspace?${scheduleScopeQuery(lastUserId())}`).catch(() => undefined);
+  const warmUrl = workspaceKnownDenied ? null : scheduleScopeQuery(lastUserId());
+  if (warmUrl) void warmStart(warmUrl).catch(() => undefined);
 }
 
 const AcademicConsole = safeLazy(loadAcademicConsole);
@@ -341,7 +341,8 @@ const viewByPath = new Map(
  * answer waiting instead of starting the wait.
  */
 export function warmScheduleWorkspace(userId: number) {
-  void warmStart(`/api/schedules/workspace?${scheduleScopeQuery(userId)}`).catch(() => undefined);
+  const url = scheduleScopeQuery(userId);
+  if (url) void warmStart(url).catch(() => undefined);
 }
 
 let workspaceDenied = false;

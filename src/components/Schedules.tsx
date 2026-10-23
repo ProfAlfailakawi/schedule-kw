@@ -160,7 +160,7 @@ import { courseLabel, instructorLabel } from "../utils/courseLabel";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { handoffNotice, takeHandoff, type RequestHandoff } from "../utils/requestHandoff";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
-import { claimWarmStart } from "../utils/warmStart";
+import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmStart";
 import { pickHistoricalDayModel, type HistoricalTimeModel } from "../utils/advancedIntelligence";
 import { setTelemetryScope, telemetryApi, telemetryBreadcrumb, telemetryError, telemetryGuide, telemetryOffline, telemetryTiming } from "../utils/clientTelemetry";
 import { canQueueScheduleMutation, discardParkedMutation, enqueueScheduleMutation, flushOfflineScheduleQueue, offlineQueueCount, parkedMutations, queuedPseudoResponse, retryParkedMutation, setOfflineQueueOwner, subscribeOfflineQueue, subscribeParkedMutations, type ParkedMutation } from "../utils/offlineScheduleQueue";
@@ -2172,12 +2172,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       return context;
     };
     try {
-      const query = new URLSearchParams();
-      if (collegeId) query.set("collegeId", String(collegeId));
-      if (sectionId) query.set("sectionId", String(sectionId));
-      if (termId) query.set("termId", String(termId));
-      if (resolve) query.set("resolve", "1");
-      const url = `/api/schedules/workspace?${query}`;
+      const url = scheduleWorkspaceUrl({ collegeId, sectionId, termId }, resolve);
       /**
        * ── ولماذا لم يكفِ إصلاح المسار الآخر ──────────────────────────────────
        *
@@ -2302,6 +2297,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         const savedTerm = stored.termId;
         if (mode === "schedule") {
           setViewMode(pref.viewMode === "week" ? "week" : pref.viewMode === "rooms" ? "rooms" : "list");
+          /* The workspace read does not need the lookups: for a reader with a
+             saved scope it is the same question either way. Sent now, it runs
+             alongside them instead of after, and loadWorkspace claims it below
+             (or rides the warm-up already in the air). */
+          if (savedCollege && savedTerm) {
+            void warmStart(scheduleWorkspaceUrl({ collegeId: savedCollege, sectionId: savedSection, termId: savedTerm })).catch(() => undefined);
+          }
           const lookup = await loadLookups();
 
           // First visit still starts unselected. Once this user has chosen a
