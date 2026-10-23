@@ -49,4 +49,7 @@ check(/id="primarySlot"/.test(STUDENT_HOME_SCRIPT) && /id="laterBody"/.test(STUD
 check(/\.seg\[aria-label="تصفية"\] button/.test(STUDENT_HOME_SCRIPT) && !/querySelectorAll\("\.seg button"\)/.test(STUDENT_HOME_SCRIPT), "أزرار التصفية لا تلتقط أزرار الاختصارات");
 check(/data-lv=/.test(STUDENT_HOME_SCRIPT) && /id="lvq"/.test(STUDENT_HOME_SCRIPT), "تعليمُ المستوى كله والاختصار «أنهيت حتى مستوى» موجودان");
 
+check(/id="primSkel"|primSkel/.test(STUDENT_HOME_SCRIPT) && /S\.homeReady/.test(STUDENT_HOME_SCRIPT), "مساحةُ البطاقة المنتظَرة تُحجز بهيكلٍ حتى تصل الرئيسية (لا قفزة)");
+check(/\.chip\.pulse\{animation:pulse/.test(STUDENT_HOME_CSS) && /prefers-reduced-motion:reduce\)\{[^}]*\.chip\.pulse\{animation:none/.test(STUDENT_HOME_CSS), "نبضةٌ واحدة عند وصول الرغبات، وتُلغى مع «تقليل الحركة»");
+
 console.log(`\n${passed} passed, 0 failed`);
