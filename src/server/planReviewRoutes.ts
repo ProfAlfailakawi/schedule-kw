@@ -37,7 +37,7 @@ import { academicDigits, authorityDepartmentCode } from "../utils/authorityAcade
 import { branchAudience } from "../utils/referenceApply";
 import { correctCourseName } from "../utils/courseNameCorrection";
 import { courseNameRelation } from "../utils/courseNameRelation";
-import { PRINTED_NAME_FIXES, createReconciler, isCombinedSheet, isSpecialEducationSheet, isSheetHome, trackProgramOf, type SheetTruth } from "./sheetReconcile";
+import { createReconciler, isSpecialEducationSheet, type SheetTruth } from "./sheetReconcile";
 import { blockingWarnings, checkSheetScope, correctedNames, isNewSheet, sheetKey, sheetNameMatches, sheetOwnKey, sheetSectionCode, sheetSectionName, ownCourses, sheetToReference, storedCode } from "../utils/planSheetImport";
 import { parsePlanItems } from "../utils/planPdfParser";
 import { extractPlanItems, PLAN_PDF_MAX_BYTES } from "./planPdfExtract";
@@ -157,12 +157,15 @@ export function referenceSnapshotFor(sections: any[], courses: AdCourse[]) {
 
 /** برامجُ صحيفتُها مسارٌ مستقلٌّ إلى جانب صحيفة القسم الرئيسية: الإنجليزية للمتوسط والثانوي (بجانب BA-0116)، ورياض الأطفال
  *  (برنامجٌ بلا قسمٍ مالك، مقرراته من الأقسام التربوية). */
+const TRACK_PROGRAMS = new Set(["BA-0119", "BA-0110"]);
 
 /** صحيفةُ القسم الإداري («علم النفس/علم التربية» في رأسها) لقسم برنامجها وحده: مسارات التربية الخاصة لقسم التربية الخاصة،
  *  ورياض الأطفال لقسم رياض الأطفال. القسمُ الذي يمدّها بمقرراتٍ (علم النفس، قسم المادة…) لا يحمل نسخةً منها. */
 function programHome(sheet: { program: string; programName?: string; courses: Array<{ dept: string; sectionNo: number }> }, section: { AdSectionCode?: unknown }): boolean {
-  /* القاعدة نفسها في سكربت المطابقة: صحيفة المسار لصاحبها وحده. */
-  return isSheetHome(sheet, section);
+  const code = String(section.AdSectionCode ?? "").trim();
+  if (sheet.program === "BA-0110") return code === "KG";
+  if (isSpecialEducationSheet(sheet)) return code === "19";
+  return true;
 }
 
 export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): void {
@@ -1091,7 +1094,6 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     let sheet;
     try { sheet = parsePlanItems(await extractPlanItems(body)); }
     catch (error) { reject("unreadable", error instanceof Error && /[؀-ۿ]/.test(error.message) ? error.message : "تعذّرت قراءة الملف. ارفع «الخطة الدراسية» PDF كما تطبعها SWRCAPP."); return; }
-    if (isCombinedSheet(sheet)) { reject("combined", `الملف يجمع عدة صحائف (${sheet.degreeUnits} وحدة). ارفع كل مسارٍ بملفه.`); return; }
     const by = deps.actorName(req);
     const scopeOf = (section: any) => {
       const college = (colleges as any[]).find(row => Number(row.AdCollegeId) === Number(section.AdCollegeId));
@@ -1104,7 +1106,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       const rejectWith = (kind: string, message: string, extra: Record<string, unknown> = {}) => ({ status: 422, json: { error: message, rejection: { kind, message, ...extra } } });
       const sectionId = Number(target.AdSectionId);
       const scope = scopeOf(target);
-      const rejection = checkSheetScope(sheet, scope, { force: (force && sectionId === Number(req.query.sectionId)) || Boolean(trackProgramOf(sheet) && programHome(sheet, target)) });
+      const rejection = checkSheetScope(sheet, scope, { force: force && sectionId === Number(req.query.sectionId) });
       if (rejection) return { status: 422, json: { error: rejection.message, rejection } };
       /* القديمة تدخل «الصحيفة السابقة» وحدها: لا تسمّي القسم ولا تغيّر رمزه، وتصحّح اسم المقرر ووحداته وساعاته إلا مقرراً في صحيفة فعّالة (الكتالوج مشترك مع الجديدة). */
       const isNew = isNewSheet(sheet);
@@ -1113,13 +1115,12 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
 
       /* الصحيفةُ لمسارٍ كامل: بناتُ القسم (الرئيسي والجهراء والفحيحيل) صحيفةٌ واحدة، وللبنين مسارُهم. */
       const track = groupDeptTracks(sections as any[], colleges as any[]).find(item => [item.canonical, ...item.mirrors].some(row => Number(row.AdSectionId) === sectionId));
-      const targets = (track ? [track.canonical, ...track.mirrors] : [target]).map(row => (sections as any[]).find(item => Number(item.AdSectionId) === Number(row.AdSectionId))).filter(row => row && programHome(sheet, row)) as any[];
-      if (!targets.length) return rejectWith("department", "هذه صحيفة مسار لقسمٍ آخر: تُرفع لقسم برنامجها وحده.");
+      const targets = (track ? [track.canonical, ...track.mirrors] : [target]).map(row => (sections as any[]).find(item => Number(item.AdSectionId) === Number(row.AdSectionId))).filter(Boolean) as any[];
       const livePlansOf = (id: number) => Repository.getCurriculumPlans(id).then(rows => rows.filter(item => !item.virtual && item.status !== "archived"));
       /* الثنائية الرئيسية (الجديدة/السابقة) بلا صحائف المسارات، فهي لا تُزيحها ولا تُحسب فيها. */
       const mainPlansOf = (id: number) => livePlansOf(id).then(rows => rows.filter(item => !item.track));
       /* برنامجٌ بتخصصٍ مزدوج (BA-012402…): صحيفةُ مسارٍ مستقلة داخل القسم، لها جديدتُها وسابقتُها. */
-      const trackProgram = trackProgramOf(sheet);
+      const trackProgram = /^BA-\d{4}\d{2}$/.test(sheet.program) || TRACK_PROGRAMS.has(sheet.program) ? sheet.program : "";
       /* التدوير: صحيفةٌ أحدث من سنة الفعّالة تصير الفعّالة وتنتقل القائمة إلى «السابقة» (للقسم المعني وحده)؛ نفس السنة تحديث؛ أقدم تدخل «السابقة». */
       const planScopeOf = async (sid: number) => (await livePlansOf(sid)).filter(item => (trackProgram ? item.track === trackProgram : !item.track));
       const eraOf = async (sid: number): Promise<{ isNew: boolean; rollover: boolean }> => {
@@ -1133,7 +1134,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       for (const item of targets) {
         const era = await eraOf(Number(item.AdSectionId)), rows = await planScopeOf(Number(item.AdSectionId));
         if (era.rollover && rows.some(plan => plan.status === "transition")) { return rejectWith("previous", "للقسم صحيفة سابقة جارية. اضغط «انتهوا» لها ثم ارفع الصحيفة الأحدث."); }
-        /* القديمة بعد الجديدة مقبولة: تُنشأ لها «السابقة» ولا تمسّ الجديدة؛ الترتيب لا يغيّر النتيجة. */
+        if (!era.isNew && !trackProgram && rows.length && !rows.some(plan => plan.status === "transition")) { return rejectWith("order", "لا صحيفة سابقة للقسم. ارفع القديمة قبل الجديدة."); }
       }
       const numberOf = (code: unknown) => Number(referenceCodeKey(code).slice(-3));
       /* القديمة تصحّح الاسم والوحدات والساعات كالجديدة، إلا مقرراً في صحيفة فعّالة: الجديدة هي المعتمدة ولا تُنقض بالقديمة. */
@@ -1145,30 +1146,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         }
         return activeCache.get(sid)!;
       };
-      /* ومتطلباتُ الأقسام الأخرى في أي صحيفةٍ فعّالة (الأصول، علم النفس…): الجديدة تحدّد وحداتها وساعاتها، والقديمة لا تنقضها مهما كان ترتيب الرفع. */
-      let activeExternals: Set<number> | null = null;
-      const activeExternalIds = async () => {
-        if (!activeExternals) {
-          const ids = new Set<number>(), statusOf = new Map<number, Map<string, string>>();
-          for (const rule of [...await Repository.listRuleDrafts(), ...await Repository.listRuleSets()]) {
-            const sid = Number(rule.AdSectionId);
-            if (!statusOf.has(sid)) statusOf.set(sid, new Map((await Repository.getCurriculumPlans(sid)).map(item => [item.id, item.status] as const)));
-            if (statusOf.get(sid)!.get(rule.planId) === "active") for (const id of rule.externals || []) ids.add(Number(id));
-          }
-          activeExternals = ids;
-        }
-        return activeExternals;
-      };
-      /* صحيفةُ المسار لا تنقض ما تطبعه صحيفةُ القسم الرئيسية لمقرراتها (ساعات «كيمياء عضوية» في «العلوم-رياضيات» غيرها في «العلوم»). */
-      const mainCache = new Map<number, Set<number>>();
-      const mainIdsOf = async (sid: number) => {
-        if (!mainCache.has(sid)) {
-          const main = new Set((await Repository.getCurriculumPlans(sid)).filter(item => !item.virtual && !item.track && item.status !== "archived").map(item => item.id));
-          mainCache.set(sid, new Set((await Repository.getCurriculumPlanCourses(sid)).filter(link => main.has(link.planId)).map(link => Number(link.AdCourseId))));
-        }
-        return mainCache.get(sid)!;
-      };
-      const mayCorrect = async (row: AdCourse, newEra: boolean) => !(trackProgram && (await mainIdsOf(Number(row.AdSectionId))).has(Number(row.AdCourseId))) && (newEra || (!(await activeIdsOf(Number(row.AdSectionId))).has(Number(row.AdCourseId)) && !(await activeExternalIds()).has(Number(row.AdCourseId))));
+      const mayCorrect = async (row: AdCourse, newEra: boolean) => newEra || !(await activeIdsOf(Number(row.AdSectionId))).has(Number(row.AdCourseId));
 
       const applyTo = async (site: any) => {
         const cid = Number(site.AdCollegeId), sid = Number(site.AdSectionId);
@@ -1209,43 +1187,27 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
             planCreated = true;
           } else {
             planCreated = !mine.some(item => item.status === wantedStatus);
-            /* لا تُنشأ أختُها فارغةً: صحيفةٌ بلا مقررات لا تُعرض ولا تُطابَق، وتُنشأ حين تُرفع. */
             plan = await ensure(wantedStatus);
+            await ensure(isNew ? "transition" : "active");
           }
         } else {
           plan = era.rollover ? undefined : wanted(await mainPlansOf(sid));
-          if (!plan && !isNew) {
-            /* القديمة أولاً: «السابقة» وحدها، بلا «جديدة» فارغة ولا لقطةٍ من الكتالوج. */
-            plan = await Repository.createTrackPlan({ collegeId: cid, sectionId: sid, name: "الصحيفة السابقة", track: "", status: "transition", by }) as any; planCreated = true;
-          }
-          if (!plan && !(await mainPlansOf(sid)).length) {
-            /* الجديدة لقسمٍ بلا صحيفة سابقة مرفوعة: «الجديدة» وحدها. مقرراتُ القسم خارجها تبقى في الجدول (لا عضوية لها). */
-            plan = await Repository.createTrackPlan({ collegeId: cid, sectionId: sid, name: newPlanName, track: "", status: "active", by }) as any; planCreated = true;
-          }
           if (!plan) {
             await Repository.createCurriculumPlan({ collegeId: cid, sectionId: sid, name: isNew ? newPlanName : `الصحيفة الجديدة ${sheet.semesterLabel || sheet.startYear || ""}`.trim(), by });
             plan = wanted(await mainPlansOf(sid)); planCreated = true;
           }
         }
         if (!plan) throw new Error("تعذّر إنشاء صحيفة للقسم.");
-        /* نسخةٌ أقدم من الصحيفة القائمة في المرحلة نفسها (1995 بعد 2015) لا تكتب شيئاً: الأحدث هي المعتمدة. */
-        if (!planCreated && !era.rollover && Number(plan.sheetYear) && sheet.startYear && sheet.startYear < Number(plan.sheetYear)) {
-          return { sectionId: sid, plan, planCreated, rollover: false, skippedOlder: Number(plan.sheetYear), report: { updated: 0, created: 0, linked: 0, unchanged: 0, rules: 0, groups: 0, unlinked: 0, prereqPrinted: 0, prereqLinked: 0 }, renamed, recoded, fixes, notes: [`نسخة ${sheet.startYear} أقدم من صحيفة ${plan.sheetYear} القائمة؛ لم يُكتب شيء.`], unresolved: [] as string[] };
-        }
         /* اسمٌ واحد لصحيفة السنة في كل المواقع («صحيفة 2026») بدل أسماءٍ تختلف باختلاف مرحلة الرفع. */
         if (isNew && !trackProgram && sheet.startYear && plan.status === "active" && plan.name !== newPlanName) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { name: newPlanName })) };
-        /* نسخةٌ أحدث تحلّ محلّ أقدم في الصحيفة نفسها: شرطُ التخرج الذي كتبه رفعُ الأقدم يُعاد من الأحدث؛ ما كتبه شخصٌ يبقى. */
-        const replacesOlder = !planCreated && Number(plan.sheetYear) > 0 && sheet.startYear > Number(plan.sheetYear);
-        const machineRule = /^(رفع الصحيفة|مطابقة الصحيفة)/.test(String(plan.degreeRule?.updatedBy || ""));
-        if (sheet.startYear && (era.rollover || !plan.sheetYear || sheet.startYear > Number(plan.sheetYear))) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { sheetYear: sheet.startYear })) };
+        if (sheet.startYear && (era.rollover || !plan.sheetYear)) plan = { ...plan, ...(await Repository.patchCurriculumPlan(plan.id, sid, { sheetYear: sheet.startYear })) };
         /* المطابقة مع الصحيفة بالقلب نفسه الذي يستعمله سكربت المطابقة (sheetReconcile): مقررات القسم أعضاءٌ ومقررات الأقسام الأخرى
            متطلباتٌ عامة (تُنشأ عند قسمها إن نقصت)، والسجلُّ المدرَّس مقدَّم، والعضوية والمجموعات والمسبقات كما طُبعت، وشروط التخرج. */
         const courses = await Repository.getCourses() as AdCourse[];
         const siteCourses = [...inBranch, ...foreignCourses];
         const truth = new Map<string, SheetTruth>(), keepUnits = new Set<string>();
         for (const course of siteCourses) {
-          const printed = PRINTED_NAME_FIXES[course.codeKey] || names.get(course.codeKey) || correctCourseName(course.name).name;
-          truth.set(course.codeKey, { name: printed.replace(/ـ/g, "").replace(/\s+/g, " ").trim(), units: course.units, hours: course.hours });
+          truth.set(course.codeKey, { name: names.get(course.codeKey) || correctCourseName(course.name).name, units: course.units, hours: course.hours });
           /* وحداتٌ مطبوعةٌ فوق ما تطلبه مجموعتها الاختيارية كلُّها خطأ طباعة (صحيفة التربية الفنية 2026): لا تُكتب فوق الكتالوج. */
           const group = sheet.groups.find(item => item.id === course.groupId);
           if (group?.kind === "elective" && group.units !== null && course.units > group.units) {
@@ -1256,14 +1218,14 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         const taught = new Set<number>((await Repository.getSchedulesByScope({ collegeId: cid })).map(row => Number(row.AdCourseId)));
         const counts = new Map<string, number>();
         const reconciler = createReconciler({
-          Repository, collegeId: cid, sections: sections as any[], courses, taught, truth, keepUnits, exactNames: new Set(Object.keys(PRINTED_NAME_FIXES)),
+          Repository, collegeId: cid, sections: sections as any[], courses, taught, truth, keepUnits,
           mayCorrect: row => mayCorrect(row, isNew), apply: true, approve: false, by: `رفع الصحيفة · ${by}`,
           log: (kind, detail) => {
             counts.set(kind, (counts.get(kind) || 0) + 1);
             if (kind === "رقم لمقرر آخر") notes.push(`الرقم ${String(detail.code).slice(-3)} في القسم لمقرر «${String(detail.catalog).trim()}» والصحيفة تسمّيه «${detail.sheet}»: استُعمل له مقررٌ مستقل برمزه الكامل.`);
           },
         });
-        const outcome = await reconciler.reconcilePlan(sheet, siteCourses, replacesOlder && machineRule ? { ...plan, degreeRule: undefined } : plan);
+        const outcome = await reconciler.reconcilePlan(sheet, siteCourses, plan);
         report.created = counts.get("إنشاء مقرر") || 0;
         report.updated = counts.get("تصحيح مقرر") || 0;
         report.unchanged = Math.max(0, siteCourses.length - report.created - report.updated);
@@ -1318,11 +1280,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       const scope = scopeOf(section);
       /* الاسم، أو رمز الهيئة الكامل (كلية+قسم) المطابق لرمز الصحيفة: «معلم الحاسب» و«حاسوب» برمزٍ واحد هو القسم نفسه. */
       const sameAuthorityCode = /^\d{4}$/.test(scope.departmentKey) && scope.departmentKey === sheetKey(sheet);
-      /* صاحبُ الصحيفة برمزه وحده: «وحدة اللغة الإنجليزية» يطابق اسمُها صحيفةَ القسم ولا تحمل نسختها. */
-      if (!programHome(sheet, section)) return false;
-      /* صحيفة المسار تُطبع باسم القسم الإداري («علم التربية» لرياض الأطفال): صاحبُها برمزه يكفي. */
-      if (trackProgramOf(sheet)) return checkSheetScope(sheet, scope, { force: true }) === null;
-      return checkSheetScope(sheet, scope) === null && (sheetNameMatches(sheet, scope.sectionName) || sameAuthorityCode || sheetOwnKey(sheet, scope).umbrella);
+      return checkSheetScope(sheet, scope) === null && (sheetNameMatches(sheet, scope.sectionName) || sameAuthorityCode || (sheetOwnKey(sheet, scope).umbrella && programHome(sheet, section)));
     });
     let matched = matchIn(sections as any[]);
     /* قسمٌ للصحيفة لا وجود له: يُنشأ بموافقة المسؤول وفي كلية يختارها (createMissing=1&collegeId=N)، باسمه ورمزه من الصحيفة.

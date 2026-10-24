@@ -127,9 +127,7 @@ export function createReconciler(input: ReconcilerInput) {
       if (twin && twin !== row) { log("ربط بالسجل المدرَّس", { code, name: t.name, twin: twin.AdCourseId, twinCode: twin.CourseCode, replaces: row?.AdCourseId }); row = twin; }
     }
     let distinct = false;
-    /* سجلٌّ باسم مقررٍ آخر تماماً لا يُعاد تسميته أبداً (مستعمَلاً أو لا): يُنشأ للصحيفة مقررٌ مستقل برمزه الكامل.
-       كان يُعاد تسمية غير المستعمَل، فتختلف النتيجة بحسب ترتيب الرفع (يصير مستعمَلاً بعد صحيفةٍ أخرى). */
-    if (row && nameRelation(row.CourseName, t.name) === "different") {
+    if (row && nameRelation(row.CourseName, t.name) === "different" && await inUse(row, planId)) {
       const full = coursesIn(sid).find(item => academicDigits(item.CourseCode) === code);
       log("رقم لمقرر آخر", { code, catalog: row.CourseName, sheet: t.name, resolved: full ? "مقرر مستقل قائم" : "يُنشأ مقرر مستقل" });
       row = full; distinct = true;
@@ -178,8 +176,7 @@ export function createReconciler(input: ReconcilerInput) {
         const owner = ownerOf(course.codeKey);
         /* لا يُنشأ مقررٌ عند قسمٍ لا يملك مقرراً واحداً برمز القسم نفسه: رمزٌ خطأ في النظام (وحدة الكهرباء كانت «20»، رمز الأصول)
            يُقال في التقرير ولا يُكتب فيه مقررٌ لغيره. */
-        /* يملك الرمزَ قسمٌ رمزُه رمزُ المقرر نفسه (بلا حروف: «20-2» ليست الأصول)، أو قسمٌ يحفظ مقرراً بهذا الرمز. */
-        const owns = owner && (sectionsWithCode(CODE_ALIAS[deptOf(course.codeKey)] || deptOf(course.codeKey)).some(row => Number(row.AdSectionId) === Number(owner.AdSectionId)) || coursesIn(Number(owner.AdSectionId)).some(row => deptOf(keyOf(row)) === deptOf(course.codeKey) || (deptOf(course.codeKey) === "14" && keyOf(row).startsWith("0114"))));
+        const owns = owner && coursesIn(Number(owner.AdSectionId)).some(row => deptOf(keyOf(row)) === deptOf(course.codeKey) || (deptOf(course.codeKey) === "14" && keyOf(row).startsWith("0114")));
         if (!owner || (!owns && !findIn(Number(owner.AdSectionId), course.codeKey) && !taughtTwin(course.codeKey, truth.get(course.codeKey)?.name || course.name))) {
           pending.push(course.codeKey); log("مقرر خدمي بلا قسم", { code: course.codeKey, name: course.name }); continue;
         }
@@ -273,37 +270,3 @@ export function createReconciler(input: ReconcilerInput) {
 export function isSpecialEducationSheet(sheet: { programName?: string }): boolean {
   return /تربيه\s*خاصه|تربية\s*خاصة/.test(sheet.programName || "");
 }
-
-/** صحيفةُ مسار: برنامجٌ بتخصصٍ مزدوج (BA-012402…)، أو الإنجليزية للمتوسط والثانوي، أو رياض الأطفال. */
-export const trackProgramOf = (sheet: { program: string }): string =>
-  /^BA-\d{6}$/.test(sheet.program) || sheet.program === "BA-0119" || sheet.program === "BA-0110" ? sheet.program : "";
-
-/** رمزُ القسم صاحب الصحيفة: KG لرياض الأطفال، 18 للإنجليزية للمتوسط والثانوي، 19 للتربية الخاصة، وإلا القسمُ الأكثر مقرراتٍ في التخصص. */
-export function sheetHomeCode(sheet: { program: string; programName?: string; courses: Array<{ dept: string; sectionNo: number }> }): string {
-  if (sheet.program === "BA-0110") return "KG";
-  if (sheet.program === "BA-0119") return "18";
-  if (isSpecialEducationSheet(sheet)) return "19";
-  const counts = new Map<string, number>();
-  for (const course of sheet.courses.filter(row => row.sectionNo === 2)) { const dept = CODE_ALIAS[course.dept] || course.dept; counts.set(dept, (counts.get(dept) || 0) + 1); }
-  return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
-}
-
-/** هل القسمُ صاحبُ الصحيفة؟ القسمُ الذي يمدّها بمقرراتٍ فقط (علم النفس، المناهج، وحدة اللغة…) لا يحمل نسخةً منها. */
-export function isSheetHome(sheet: Parameters<typeof sheetHomeCode>[0], section: { AdSectionCode?: unknown }): boolean {
-  const home = sheetHomeCode(sheet), code = String(section.AdSectionCode ?? "").trim();
-  if (!home) return true;
-  if (home === "KG") return code === "KG";
-  return sectionDigits(section) === home && !/[A-Za-zء-ي]/.test(code);
-}
-
-/** أسماءٌ يكسرها نصُّ الـPDF (مسافةٌ وسط الكلمة، أو اسمٌ قُطع عند حافة العمود): تُكتب كما تعنيها الصحيفة. */
-export const PRINTED_NAME_FIXES: Record<string, string> = {
-  "0102116": "النحو والصرف (1)", "0102227": "النحو والصرف (2)", "0102249": "القصة",
-  "0102129": "علم العروض والقافية (1)", "0102257": "علم العروض والقافية (2)",
-  "0103288": "التغيير الاجتماعي والتنمية في الوطن العربي", "0114464": "الإدارة التربوية التعليمية",
-  "0106113": "مدخل إلى مبادئ الفيزياء محاضرة", "0105304": "مبادئ في الإحصاء والاحتمال", "0105391": "مقدمة في التحليل العددي",
-  "0113202": "بيانو وأناشيد (3)", "0113262": "موشحات وفنون شعبية", "0113312": "تحليل شرقي وفنون شعبية", "0108197": "اللياقة البدنية والرياضة",
-};
-
-/** ملفٌّ يجمع عدة صحائف (وحدات تخرجه فوق أي صحيفة) لا يُطابَق: مساراته مرفوعةٌ كلٌّ بملفه. */
-export const isCombinedSheet = (sheet: { degreeUnits: number }) => sheet.degreeUnits > 160;
