@@ -23,8 +23,8 @@ check(!pdfTermAccepted(src("first", 2026), "الفصل الأول 2026/2027"), "
 check(!pdfTermAccepted(src("second", 2027), T), "الثاني 2027/2028 (لاحق) يُرفض");
 check(!pdfTermAccepted(src("first", 2027), T), "الأول 2027/2028 (لاحق) يُرفض");
 check(pdfTermAccepted(src("first", 2025), "الفصل الأول 2026/2027"), "الأول 2026/2027 يقبل الأول 2025/2026");
-check(pdfTermAccepted(src("summer", 2025), "الفصل الأول 2026/2027"), "الأول 2026/2027 يقبل الصيفي 2025/2026");
-check(!pdfTermAccepted(src("second", 2025), "الفصل الأول 2026/2027"), "الأول 2026/2027 لا يقبل الثاني 2025/2026");
+check(!pdfTermAccepted(src("summer", 2025), "الفصل الأول 2026/2027"), "الأول 2026/2027 لا يقبل الصيفي 2025/2026");
+check(pdfTermAccepted(src("second", 2025), "الفصل الأول 2026/2027"), "الأول 2026/2027 يقبل الثاني 2025/2026");
 check(!pdfTermAccepted(src("summer", 2026), "الفصل الأول 2026/2027"), "الأول 2026/2027 لا يقبل الصيفي 2026/2027");
 check(pdfTermAccepted(src("summer", 2025), "الفصل الصيفي 2026/2027"), "الصيفي 2026/2027 يقبل الصيفي 2025/2026");
 check(!pdfTermAccepted(src("second", 2025), "فصل غير مقروء"), "اسم فصل غير مقروء: لا شيء يُقبل");
