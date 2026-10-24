@@ -23,7 +23,7 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .wk-leg{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11.5px;color:var(--muted)}
 .wk-leg li{display:inline-flex;align-items:center;gap:5px;min-width:0}
 .wk-leg i{flex:none;width:10px;height:10px;border-radius:3px;background:var(--c)}
-.wk-key{display:flex;flex-wrap:wrap;gap:4px 12px;margin:6px 0 0;font-size:11px;color:var(--muted2)}
+.wk-key{display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 10px;font-size:11px;color:var(--muted2)}
 .wk-key span{display:inline-flex;align-items:center;gap:5px}
 .wk-key i{flex:none;width:12px;height:12px;border-radius:3px;background:#86a898}
 .wk-key i[data-k=ghost]{background:transparent;border:1.5px dashed #6f7a74}
@@ -88,6 +88,21 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .more-time label.time{margin-top:8px}
 .ends{margin-inline:2px!important}
 
+.auto-note,.hint-pro,.shape-lead,.ends{display:flex;align-items:center;gap:7px}
+.auto-note .sk-gi,.hint-pro .sk-gi,.shape-lead .sk-gi,.ends .sk-gi,.vshort .sk-gi{flex:none;width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ends-src{margin-inline-start:auto;color:var(--muted2);display:inline-grid}
+.vshort{display:inline-flex;align-items:center;gap:6px;font-weight:700}
+.why{margin-top:4px;font-size:12px;color:var(--muted)}
+.why summary{display:inline-block;cursor:pointer;list-style:none;color:var(--muted2);text-decoration:underline dotted;min-block-size:28px;line-height:28px}
+.why summary::-webkit-details-marker{display:none}
+.why p{margin:4px 0 0;line-height:1.7}
+
+.alts.shapes button{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;min-block-size:44px}
+.sp{display:inline-flex;flex-direction:column;align-items:center;gap:2px}
+.sp u{text-decoration:none;display:grid;place-items:center;width:22px;height:22px;border-radius:7px;font-size:11.5px;font-weight:700;background:var(--ok2);color:var(--ok)}
+.sp b{font:700 11px/1 ui-monospace,monospace;color:var(--muted);direction:ltr}
+.advice .vshort{color:var(--warn)}
+
 /* هيكلُ التحميل. */
 .skel{display:grid;gap:12px;padding:20px 4px}
 .skel i{display:block;block-size:78px;border-radius:18px;background:linear-gradient(100deg,var(--soft) 30%,var(--card) 50%,var(--soft) 70%);background-size:220% 100%;animation:skel 1.3s ease-in-out infinite}
@@ -103,6 +118,27 @@ function skPills(keys){return '<span class="bp-d" aria-hidden="true">'+keys.map(
 function skPillsText(txt){var parts=String(txt||"").split("·").map(function(x){return x.trim()}).filter(Boolean);
  return '<span class="bp-d" aria-hidden="true">'+parts.map(function(n){return '<u>'+(SKDN[n]||esc(n.slice(0,1)))+'</u>'}).join("")+'</span>'}
 function skShort(it){var n=String(courseOf(it)||"").trim().split(/\s+/);var w=n[0]||"";if(w.length<=3&&n[1])w+=" "+n[1];return w}
+var SKSHORT=[
+ [/^تتابع مرتفع على الأستاذ/,"layers","محاضرات متتالية كثيرة"],
+ [/^تكرار شعب المقرر في نفس الوقت/,"layers","شعبة أخرى بالوقت نفسه"],
+ [/^التدوير غير محقق/,"sunrise","كلها في فترة واحدة"],
+ [/^داخل وقت اجتماع القسم/,"cal","وقت اجتماع القسم"],
+ [/^خارج المعتاد تاريخياً/,"clock","وقت غير معتاد · اذكر السبب"],
+ [/^يتقاطع هذا الوقت مع مقرّرٍ يشترك فيه طلبتك/,"alert","يتعارض مع مقرّر طلبتك"]
+];
+/* جملةُ الحكم قصيرةً بأيقونة، وأصلُها كاملاً تحت «التفاصيل» فلا يضيع منه شيء. */
+function skVerdict(it){var n=String(it&&it.note||""),full=verdictText(it),ic="",short="";
+ if(/لا يغطّيها/.test(n)){ic="calplus";short=it.shapes&&it.shapes.length?"الأيام لا تغطي الساعات · اختر نمطاً":"الساعات تحتاج توزيع القسم"}
+ else{for(var k=0;k<SKSHORT.length;k++){if(SKSHORT[k][0].test(n)){ic=SKSHORT[k][1];short=SKSHORT[k][2];break}}}
+ if(!short||short===full)return esc(full);
+ return '<span class="vshort">'+gi(ic==="calplus"?"cal":ic)+esc(short)+'</span><details class="why"><summary>التفاصيل</summary><p>'+esc(full)+'</p></details>'}
+function skAdvice(t){t=String(t||"");var m=/^موعدك الحالي أقصر من ساعات المقرّر \(([^)]+)\)/.exec(t);
+ if(!m)return '<p class="advice" role="note">'+esc(t)+'</p>';
+ return '<p class="advice" role="note"><span class="vshort">'+gi("alert")+'أقصر من ساعات المقرر ('+esc(m[1])+')</span></p><details class="why"><summary>التفاصيل</summary><p>'+esc(t)+'</p></details>'}
+/* «الاثنين 80د · الأربعاء 80د · الخميس 50د» أيامٌ بأحرفها ودقائقها. */
+function skShape(label){var parts=String(label||"").split("·").map(function(x){return x.trim()}).filter(Boolean),out="";
+ parts.forEach(function(p){var m=/^(\S+)\s+([0-9]+)/.exec(p);if(m&&SKDN[m[1]])out+='<span class="sp"><u>'+SKDN[m[1]]+'</u><b>'+m[2]+'</b></span>';else out+='<span class="sp">'+esc(p)+'</span>'});
+ return out||esc(label)}
 function skCid(it){return (it&&(it.courseId||(it.before&&it.before.courseId)||(it.after&&it.after.courseId)))||courseOf(it)}
 function skAssignColors(){SKC.assign(state.map(skCid))}
 function skCourseColor(it){return SKC.color(skCid(it))}
@@ -118,7 +154,8 @@ function skMergeEvents(list){var out=[];list.forEach(function(e){var p=out[out.l
  out.push(e)});return out}
 function skLegend(){var seen={},li=[];state.forEach(function(it){var k=skCid(it);if(seen[k])return;seen[k]=1;li.push('<li style="--c:'+skCourseColor(it)+'"><i></i>'+esc(courseOf(it))+'</li>')});
  return (li.length>1?'<ul class="wk-leg" aria-label="ألوان المقرّرات">'+li.join("")+'</ul>':"")+
-  '<p class="wk-key" aria-hidden="true"><span><i data-k="ghost"></i>قبل التعديل</span><span><i data-k="chg"></i>معدّل</span><span><i data-k="add"></i>جديد/مثبَّت</span><span><i data-k="del"></i>محذوف</span></p>'}
+  ''}
+function skKey(){return '<p class="wk-key" aria-hidden="true"><span><i data-k="ghost"></i>قبل التعديل</span><span><i data-k="chg"></i>معدّل</span><span><i data-k="add"></i>جديد/مثبَّت</span><span><i data-k="del"></i>محذوف</span></p>'}
 /* الرجوع: يبقى الطلبُ المكتوب مسودةً على الجهاز، لكن يُسأل أولاً. */
 function skBackTarget(){try{var r=document.referrer;if(r&&new URL(r).origin===location.origin&&r!==location.href)return r}catch(e){}return ""}
 function skBackIcon(){if(!skBackTarget()&&history.length<2)return "";
