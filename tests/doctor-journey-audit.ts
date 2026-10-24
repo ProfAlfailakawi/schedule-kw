@@ -420,7 +420,7 @@ async function main() {
   /* ── خريطة القسم في بطاقة الأستاذ: أيقونةٌ واحدة بلا نص، وتظهر فقط مع صحيفةٍ منشورة؛ ومؤشرُ التبويب بعدد الظاهر ── */
   {
     const cardPage = server.slice(server.indexOf("function staffCardPage"), server.indexOf("function surveyPage"));
-    check(/<a id="planMap" class="pmap"[^>]*\bhidden\b[^>]*aria-label="خريطة خطة القسم"/.test(cardPage), "بطاقة الأستاذ: أيقونة الخريطة مخفية افتراضيًا وبوسمٍ لقارئ الشاشة");
+    check(/<a id="planMap" class="hbtn"[^>]*\bhidden\b[^>]*aria-label="خريطة خطة القسم"/.test(cardPage), "بطاقة الأستاذ: أيقونة الخريطة مخفية افتراضيًا وبوسمٍ لقارئ الشاشة");
     check(!/id="planMap"[^>]*>[^<]*[\u0600-\u06FF]/.test(cardPage), "بطاقة الأستاذ: الأيقونة بلا نصٍّ ظاهر");
     check(/if\(d\.planMapUrl\)/.test(cardPage), "بطاقة الأستاذ: تُظهرها الواجهة فقط إذا جاء رابطٌ من الخادم");
     const post = server.slice(server.indexOf('app.post("/api/public/staff/:token", '), server.indexOf('app.post("/api/public/staff/:token", ') + 4500);
