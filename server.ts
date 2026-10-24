@@ -18637,6 +18637,7 @@ ${STAFF_CARD_VISUAL_CSS}
       <button type="submit" id="go">عرض</button>
     </form>
     <div class="note" id="note" role="status" aria-live="polite"></div>
+    <div class="skel" id="gateSkel" aria-hidden="true" hidden><i></i><i></i></div>
     <p class="hint">صفحة للقراءة فقط · لا تحتاج حساباً<br>لا تُعرض أرقام هواتف ولا بيانات زملائك.</p>
   </div>
 
@@ -18717,16 +18718,16 @@ ${STAFF_CARD_VISUAL_JS}
     event.preventDefault();
     var value=ascii(civil.value).replace(/[^0-9]/g,"");
     if(value.length!==12){note.textContent="الرقم المدني 12 رقمًا.";return}
-    note.textContent="";go.disabled=true;go.textContent="…";
+    note.textContent="";go.disabled=true;go.textContent="…";document.getElementById("gateSkel").hidden=false;
     fetch("/api/public/staff/"+encodeURIComponent(TOKEN),{
       method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({civil:value})
     }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})})
       .then(function(res){
-        go.disabled=false;go.textContent="عرض";
+        go.disabled=false;go.textContent="عرض";document.getElementById("gateSkel").hidden=true;
         if(!res.ok){note.textContent=res.data&&res.data.error?res.data.error:"تعذر العرض";return}
         render(res.data,value);
       })
-      .catch(function(){go.disabled=false;go.textContent="عرض";note.textContent="تعذر الاتصال. تحقق من الإنترنت."});
+      .catch(function(){go.disabled=false;go.textContent="عرض";document.getElementById("gateSkel").hidden=true;note.textContent="تعذر الاتصال. تحقق من الإنترنت."});
   });
 
   var currentCivil="";
@@ -21462,7 +21463,7 @@ function actionsHtml(it,i){
  return actBtn(i,"keep","undo","تراجع عن الحذف");
 }
 function editHtml(it,i){var h="";h+='<div class="edit"><div class="field-head"><span class="field-title">أيام المحاضرة</span><details class="plib"><summary aria-label="مكتبة الأنماط" title="مكتبة الأنماط">'+PLIB_ICON+'</summary><div class="plib-pop">'+PLIB+'</div></details></div><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
-    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status">'+esc(it.autoNote)+'</p>':'')+bestHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+heatLegend(i)+'<label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(verdictText(it))+'</span>'+(it.advice?'<p class="advice" role="note">'+esc(it.advice)+'</p>':'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+(it.pnote?'<div class="pnote" style="margin:8px 0 0">'+it.pnote+'</div>':'')+notesHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
+    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status">'+esc(it.autoNote)+'</p>':'')+bestHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+heatLegend(i)+'<details class="more-time"'+(skMoreOpen(it,i)?' open':'')+'><summary data-more="'+i+'">'+gi("clock")+'وقت آخر</summary><label class="time"><span class="sr">وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label></details><p class="ends">'+(sameAsBefore(it)?"هذا موعدك الحالي — غيّر اليوم أو الوقت.":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(verdictText(it))+'</span>'+(it.advice?'<p class="advice" role="note">'+esc(it.advice)+'</p>':'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+(it.pnote?'<div class="pnote" style="margin:8px 0 0">'+it.pnote+'</div>':'')+notesHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
 function bodyHtml(it,i,open){var h=decisionBox(it,i,open)+threadBox(it,i);
  if(open){if(it.negotiation==="proposed")h+='<p class="hint-pro">للرد على اقتراح القسم استخدم بطاقة «قرارك» في أعلى الصفحة. وتعديل الموعد من هنا يبدأ طلبًا جديدًا.</p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
  else if(!h)h='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
@@ -21505,7 +21506,7 @@ function planTable(){
    var stat=negShown?'':'<span class="status" data-act="'+esc(act)+'">'+skStat(act)+(act==="keep"?"كما هو":actionName(act))+'</span>';
    var tone=!negShown&&act!=="keep"&&act!=="delete"&&toneText(it)?'<small class="plan-check" data-tone="'+esc(it.tone)+'">'+esc(toneText(it))+'</small>':'';
    var sub=(b.sectionCode?'شعبة '+esc(b.sectionCode):'')+((many||it.action==="add")&&col?(b.sectionCode?' · ':'')+esc(shortCollege(col)):'');
-   return '<div class="appt" role="listitem" id="item-'+i+'" data-act="'+esc(act)+'" data-neg="'+esc(it.negotiation||"")+'" data-open="'+(expanded?"1":"0")+'">'+
+   return '<div class="appt" role="listitem" style="--c:'+skCourseColor(it)+'" id="item-'+i+'" data-act="'+esc(act)+'" data-neg="'+esc(it.negotiation||"")+'" data-open="'+(expanded?"1":"0")+'">'+
     '<button type="button" class="appt-head" data-toggle="'+i+'" aria-expanded="'+expanded+'" aria-controls="item-body-'+i+'" aria-label="'+esc(courseOf(it)+" — "+(act==="keep"?"كما هو":actionName(act))+(expanded?"، اضغط للطيّ":"، اضغط لعرض الخيارات"))+'">'+
      '<span class="ap-ic">'+gi(rowIcon(it))+'</span>'+
      '<span class="ap-main"><b>'+esc(courseOf(it))+reqTag(it)+'</b>'+(sub?'<small>'+sub+'</small>':'')+
@@ -21520,7 +21521,7 @@ function planTable(){
    أعمدةُ الأيام وفيها كتلُ المحاضرات في موضعها من اليوم (٨ صباحاً إلى ٨ مساءً): يرى الأستاذ تعارضَه بعينه قبل أن
    يقوله الفاحص. الموعدُ الحاليّ قبل التعديل ظلٌّ متقطّع، والمطلوبُ كتلةٌ ملوّنة، والمحذوفُ مخطّط. */
 function weekStrip(){
- var today=new Date().getDay(),L=480,R=1200,cols={},ghost=false,counts={};
+ skAssignColors();var today=new Date().getDay(),L=480,R=1200,cols={},ghost=false,counts={};
  DAYS.forEach(function(d){cols[d[0]]=[];counts[d[0]]=0});
  function pos(m){return Math.max(0,Math.min(100,(m-L)/(R-L)*100))}
  var cur=0;
