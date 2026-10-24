@@ -1408,6 +1408,8 @@ export interface InstructorRequestItem {
   nearestTimes?: InstructorRequestSlot[];
   /** التوزيعاتُ المعتمدة لساعات المقرّر حين لا يغطّيها المختار — تُعرض أزراراً تُطبَّق بضغطة. */
   shapes?: Array<{ days: string[]; label: string }>;
+  /** ملاحظةٌ إرشادية لا تمنع (موعدُه الحالي لا يغطّي ساعات المقرّر). */
+  advice?: string;
   /** طولُ اللقاء بالدقائق حين يكون يوماً واحداً بطولٍ غير طول المحاضرة (من الصفّ أو من تاريخ المقرّر). */
   block?: number;
   decision?: {

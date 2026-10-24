@@ -65,6 +65,8 @@ export interface RequestReason {
   text: string;
   /** هل يمنع هذا السببُ الإرسال؟ */
   blocking: boolean;
+  /** `hours`: المشكلةُ في الأيام (لا تغطّي ساعاتِ المقرّر) لا في وقت البداية، فلا يختلف الحكمُ بين الأوقات. */
+  code?: "hours";
 }
 
 /** موضعٌ مقترح: يومٌ وبداية، والنهايةُ محسوبة. */
@@ -107,6 +109,11 @@ export interface RequestVerdict {
   shapes?: Array<{ days: DayKey[]; label: string }>;
   /** طولُ اللقاء الذي حُكم به حين يكون يوماً واحداً بطولٍ غير طول المحاضرة (من الصفّ نفسه أو من تاريخ المقرّر). */
   blockMinutes?: number;
+  /**
+   * ملاحظةٌ إرشاديةٌ لا تمنع ولا تطلب استثناءً: موعدُه الحالي نفسُه لا يغطّي ساعاتِ المقرّر.
+   * تأتي مع `shapes` أزراراً، ويبقى الحكمُ «الوقت متاح».
+   */
+  advice?: string;
   /** جملةٌ واحدةٌ تصف الحكم كله، جاهزةٌ للعرض. */
   headline: string;
 }
@@ -207,6 +214,17 @@ export function blockMinutesOfRow(row: Pick<FSchedule, "fstarttime" | "fendtime"
   const days = DAY_KEYS.filter(day => (row as any)[day]).length;
   const span = toMinutes(row.fendtime) - toMinutes(row.fstarttime);
   return days === 1 && span > LONG_LECTURE_MINUTES ? span : undefined;
+}
+
+/**
+ * طولُ موعدٍ قائمٍ بيومٍ واحدٍ يخالف محاضرةَ ذلك اليوم (٧٥ دقيقةً يومَ خميس مثلاً).
+ * هو طولُه الافتراضي إن نُقلت بدايتُه أو يومُه: الأستاذ لم يطلب تغيير الطول، فلا يُحاسَب عليه.
+ */
+export function singleDayMinutesOfRow(row: Pick<FSchedule, "fstarttime" | "fendtime" | "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday"> | undefined): number | undefined {
+  if (!row) return undefined;
+  const days = DAY_KEYS.filter(day => (row as any)[day]);
+  const span = toMinutes(row.fendtime) - toMinutes(row.fstarttime);
+  return days.length === 1 && span > 0 && span !== expectedMinutesForDay(days[0]) ? span : undefined;
 }
 
 /** الحدُّ الأدنى لدقائق الأسبوع التي تغطّي ساعاتِ المقرّر (٥٠ دقيقةً للساعة). */
@@ -380,7 +398,8 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const reasons: RequestReason[] = [];
   /* اللقاءُ الممتدّ يُعرف من صفّه القائم في الجدول، فلا يُصدَّق ما تقوله الصفحة عنه. */
   /* طولُ اللقاء الممتدّ: من الصفّ نفسه إن كان ممتدّاً، وإلا مما درج عليه المقرّر في فصولٍ سابقة (شعبٌ بيومٍ واحد). */
-  const ownBlock = inbound.rowId == null ? undefined : blockMinutesOfRow(context.allRows.find(row => Number(row.id) === Number(inbound.rowId)));
+  const ownRow = inbound.rowId == null ? undefined : context.allRows.find(row => Number(row.id) === Number(inbound.rowId));
+  const ownBlock = blockMinutesOfRow(ownRow) ?? (inbound.days.length === 1 && inbound.action === "change" ? singleDayMinutesOfRow(ownRow) : undefined);
   const habitBlock = inbound.days.length === 1 && inbound.action !== "delete" && inbound.action !== "keep"
     ? habitualBlockMinutes(context.nature?.get(Number(inbound.AdCourseId)), context.termId) : undefined;
   const request: RequestedRow = { ...inbound, blockMinutes: ownBlock ?? habitBlock };
@@ -433,6 +452,26 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
 
   /* الصفُّ الذي أبقاه الأستاذ كما وضعه القسم ليس طلباً يُحاسَب عليه. */
   if (request.action === "keep") return verdictOf();
+
+  /* «تعديل» دون لمس شيء: الأيامُ والبدايةُ كما في الصفّ، فليس هذا طلباً يُحاسَب عليه ولا مانعَ فيه.
+     الموعدُ القائم قد لا يغطّي ساعاتِ مقرّره (٤ ساعات في ٧٥ دقيقة)؛ هذا إرشادٌ يُقال ويبقى الموعدُ كما هو. */
+  if (request.action === "change" && ownRow && request.days.length
+      && DAY_KEYS.filter(day => (ownRow as any)[day]).sort().join() === [...request.days].sort().join()
+      && toMinutes(ownRow.fstarttime) === toMinutes(request.start)) {
+    const stay = verdictOf();
+    stay.headline = "هذا موعدك الحالي كما هو";
+    const heldHours = Number((context.courses.get(request.AdCourseId) as any)?.CourseHours || (context.courses.get(request.AdCourseId) as any)?.CourseCredit || 0);
+    const heldMinutes = DAY_KEYS.filter(day => (ownRow as any)[day]).length * (toMinutes(ownRow.fendtime) - toMinutes(ownRow.fstarttime));
+    if (heldHours > 0 && heldMinutes < minWeeklyMinutesFor(heldHours)) {
+      const wanted = minWeeklyMinutesFor(heldHours);
+      const offered = patternsForHours(heldHours)
+        .filter(pattern => pattern.days.length > 1 && pattern.days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= wanted)
+        .map(pattern => ({ days: [...pattern.days] as DayKey[], label: pattern.label }));
+      stay.shapes = offered.slice(0, 3);
+      stay.advice = `موعدك الحالي أقصر من ساعات المقرّر (${countOf(heldHours, { one: "ساعة", two: "ساعتان", few: "ساعات", many: "ساعةً" })}). يبقى كما هو إن لم تغيّره${stay.shapes.length ? "، أو اختر أحد هذه" : ""}.`;
+    }
+    return stay;
+  }
 
   if (!request.days.length) {
     reasons.push({ source: "shape", text: "اختر يوماً واحداً على الأقل.", blocking: true });
@@ -505,11 +544,13 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       /* ويوم المقرّر الواحد يكفي وحدَه إن اتّسع للبداية المختارة؛ وإلا (تتجاوز نهايتُه اليوم الدراسي) تبقى معه أنماطُ اللائحة بديلاً قابلاً للتطبيق. */
       const keepFits = keepOneDay.length > 0 && toMinutes(request.start) + Number(blockLength || 0) <= SCHEDULE_DAY_END;
       const suggested = keepOneDay.length ? (keepFits ? keepOneDay : [...keepOneDay, ...regulationShapes]) : usualShapes.length ? usualShapes : regulationShapes;
-      const shapes = (keepOneDay.length || usualShapes.length ? suggested : patternsForHours(courseHours)).map(shape => shape.label).slice(0, 3).join(" أو ");
+      /* النصُّ يُبنى من القائمة نفسها التي تُعرض أزراراً: لا يُذكر نمطٌ لا زرَّ له. */
+      const shapes = suggested.slice(0, 3).map(shape => shape.label).join(" أو ");
       reasons.push({
         source: "shape",
         text: `هذا المقرّر ${countOf(courseHours, { one: "ساعة", two: "ساعتان", few: "ساعات", many: "ساعةً" })} أسبوعياً، والمختار لا يغطّيها${shapes ? ` — جرّب ${shapes}` : ""}.`,
         blocking: true,
+        code: "hours",
       });
       const result = verdictOf();
       result.shapes = suggested.slice(0, 3);

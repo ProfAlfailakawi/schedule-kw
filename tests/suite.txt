@@ -41,6 +41,7 @@ test:print-attestation
 test:request-handoff
 test:request-signature
 test:teacher-card
+test:teacher-card-2
 test:voice-input
 test:study-proposal-page
 test:publish-requests
