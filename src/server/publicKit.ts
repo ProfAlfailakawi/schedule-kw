@@ -90,7 +90,7 @@ export const DEMO_COPY_SCRIPT = String.raw`
 (function(){if(window.__demoCopy)return;window.__demoCopy=1;
 /* النسخُ الأقدم أولاً وداخل الضغطة نفسها: على الآيفون (وفي متصفّحات التطبيقات) يُرفض الحافظةُ الحديثةُ أو يتأخّر ردُّه،
    فيُستدعى النسخُ القديم بعد انقضاء الضغطة فيفشل بصمت. فيُجرَّب هنا أولاً مباشرةً، ثم الحافظةُ الحديثة. */
-function legacy(t){var ok=false,a=document.createElement("textarea"),prev=document.activeElement;
+function legacy(t){var ok=false,a=document.createElement("textarea"),prev=document.activeElement;a.setAttribute("dir","ltr");
  try{a.value=t;a.setAttribute("readonly","");a.contentEditable="true";a.style.cssText="position:fixed;top:0;inset-inline-start:0;opacity:0;font-size:16px;inline-size:1px;block-size:1px;padding:0;border:0";
   document.body.appendChild(a);a.focus({preventScroll:true});
   var r=document.createRange();r.selectNodeContents(a);var g=window.getSelection();if(g){g.removeAllRanges();g.addRange(r)}
@@ -105,6 +105,18 @@ var t=b.getAttribute("data-demo-copy")||"";
 function done(){b.setAttribute("data-copied","1");clearTimeout(b.__t);b.__t=setTimeout(function(){b.removeAttribute("data-copied")},1800)}
 if(legacy(t)){done();return}
 if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,function(){pick(b)})}else pick(b)})})();
+/* اللصقُ في خانات الأرقام: الآيفون وواتساب يضيفان علاماتِ اتجاهٍ مخفيةً حول الرقم المنسوخ من نصٍّ عربي، فتحسبها
+   الخانةُ (maxlength) حروفاً ويسقط آخرُ الرقم. فيُنظَّف الملصوقُ إلى أرقامٍ فقط قبل أن يدخل الخانة. */
+(function(){if(window.__digitPaste)return;window.__digitPaste=1;
+document.addEventListener("paste",function(e){var f=e.target;if(!f||f.tagName!=="INPUT"||f.getAttribute("inputmode")!=="numeric")return;
+ var raw="";try{raw=(e.clipboardData||window.clipboardData).getData("text")}catch(_){return}
+ var d=String(raw||"").replace(/[\u0660-\u0669]/g,function(c){return String(c.charCodeAt(0)-0x0660)}).replace(/[\u06F0-\u06F9]/g,function(c){return String(c.charCodeAt(0)-0x06F0)}).replace(/[^0-9]/g,"");
+ if(!d)return;e.preventDefault();
+ var v=f.value||"",st=f.selectionStart==null?v.length:f.selectionStart,en=f.selectionEnd==null?v.length:f.selectionEnd;
+ var max=Number(f.getAttribute("maxlength")||0);if(max>0)d=d.slice(0,Math.max(0,max-(v.length-(en-st))));
+ var next=v.slice(0,st)+d+v.slice(en);
+ f.value=next;try{var at=Math.min(next.length,st+d.length);f.setSelectionRange(at,at)}catch(_){}
+ try{f.dispatchEvent(new Event("input",{bubbles:true}))}catch(_){}},true)})();
 `;
 
 export const PUBLIC_KIT_SCRIPT = String.raw`
