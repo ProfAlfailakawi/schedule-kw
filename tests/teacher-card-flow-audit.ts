@@ -251,6 +251,40 @@ async function main() {
     check(noLink.status >= 400 && noLink.status < 500, "رابطٌ غير صالح لا يعيد شيئاً");
   }
 
+  /* ═══ الجولة الثانية: التعديل بلا لمسة، والخريطة، ومانعُ الأيام ═══════════ */
+  {
+    const draft = rows.find(r => r.AdInstructorId === 5);
+    if (!draft) check(false, "يوجد أستاذٌ في مسودّته أربعةُ مواعيد للاختبار");
+    else {
+      const link = encodeURIComponent(draft.linkId);
+      const items = ((await http("GET", `/api/public/request/${link}`)).json.request?.items || []) as any[];
+      const thursday = items.find(i => String(i.before?.days) === "الخميس");
+      const monWed = items.find(i => String(i.before?.days) === "الاثنين · الأربعاء");
+      check(!!thursday && !!monWed, "مواعيدُ عضو ٥ كما في وصف العيب");
+      const keeps = items.map(i => ({ rowId: i.rowId, action: "keep", days: [], start: "" }));
+      const at = (item: any) => items.indexOf(item);
+      const asChange = (item: any, days: string[], start: string) => keeps.map((k, n) => n === at(item) ? { rowId: item.rowId, action: "change", days, start } : k);
+
+      /* ١) «تعديل» بلا لمسة: لا مانع، والنهايةُ الأصلية، والإرشادُ لا يمنع. */
+      const same = await http("POST", `/api/public/request/${link}/check`, { itemIndex: at(thursday), rowId: thursday.rowId, action: "change", days: ["fthursday"], start: "14:00", items: asChange(thursday, ["fthursday"], "14:00") });
+      check(same.status === 200 && same.json.kind === "clear", "تعديل الخميس ١٤:٠٠ بلا لمسة: «الوقت متاح» لا مانع", same.json);
+      check(/أقصر من ساعات المقرّر/.test(same.json.advice || "") && (same.json.shapes || []).length > 0, "ومعه إرشادٌ وأزرارُ أنماطٍ لا مانع", same.json);
+      check(same.json.block === 75, "والطولُ الأصلي ٧٥ دقيقة يُمرَّر للصفحة", same.json.block);
+      const later = await http("POST", `/api/public/request/${link}/check`, { itemIndex: at(thursday), rowId: thursday.rowId, action: "change", days: ["fthursday"], start: "15:00", items: asChange(thursday, ["fthursday"], "15:00") });
+      check(later.json.kind === "clear" && later.json.computedEnd === "16:15", "بدايةٌ ١٥:٠٠ في اليوم نفسه: ١٥:٠٠–١٦:١٥ بلا مانع", later.json);
+
+      /* ٢) الخريطةُ: مشكلةُ الأيام لا تُلوّن الأوقات كلَّها حمراء. */
+      const heatShape = await http("POST", `/api/public/request/${link}/check-times`, { itemIndex: at(monWed), items: asChange(monWed, ["fsunday", "ftuesday"], "09:30"), starts: ["08:00", "09:00", "10:00"] });
+      check(heatShape.json.problem === "shape" && Object.keys(heatShape.json.times || {}).length === 0, "الأيامُ لا تغطّي الساعات: check-times يعيد problem=shape بدل bad لكل وقت", heatShape.json);
+      const heatOk = await http("POST", `/api/public/request/${link}/check-times`, { itemIndex: at(thursday), items: asChange(thursday, ["fthursday"], "14:00"), starts: ["09:00", "10:00"] });
+      check(!heatOk.json.problem && Object.values(heatOk.json.times || {}).every(v => v !== "bad"), "ومعها لا يتلوّن وقتٌ بالأحمر في الخميس الأصلي", heatOk.json);
+
+      /* ٣) مسارُ الإرسال: بندٌ لم يُلمس يصل إبقاءً، ولا تتغيّر المسودّة. */
+      const noEdit = await http("POST", `/api/public/request/${link}/check`, { itemIndex: at(monWed), rowId: monWed.rowId, action: "change", days: ["fmonday", "fwednesday"], start: "09:30", items: asChange(monWed, ["fmonday", "fwednesday"], "09:30") });
+      check(noEdit.json.kind === "clear" && !(noEdit.json.nearestTimes || []).length, "٠١ بلا لمسة (١٠:٤٥ تبقى ١٠:٤٥): لا تغييرَ ولا مانع", noEdit.json);
+    }
+  }
+
   /* ورمزٌ بتوقيعٍ قديمٍ بلا بنود: يُقال ذلك ولا يُخترع. */
   console.log(`\nTeacher card flow audit: ${passed} passed, ${failed} failed`);
   stopServer();

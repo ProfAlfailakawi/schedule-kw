@@ -455,7 +455,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
 
   /* «تعديل» دون لمس شيء: الأيامُ والبدايةُ كما في الصفّ، فليس هذا طلباً يُحاسَب عليه ولا مانعَ فيه.
      الموعدُ القائم قد لا يغطّي ساعاتِ مقرّره (٤ ساعات في ٧٥ دقيقة)؛ هذا إرشادٌ يُقال ويبقى الموعدُ كما هو. */
-  if (request.action === "change" && ownRow && request.days.length
+  if (request.action === "change" && ownRow && request.days.length && /^\d{1,2}:\d{2}$/.test(String(request.start || ""))
       && DAY_KEYS.filter(day => (ownRow as any)[day]).sort().join() === [...request.days].sort().join()
       && toMinutes(ownRow.fstarttime) === toMinutes(request.start)) {
     const stay = verdictOf();

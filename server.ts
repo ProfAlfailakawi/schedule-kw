@@ -20809,7 +20809,7 @@ textarea[data-show="1"]{display:block}
 .add-start{width:100%;min-height:50px;border:0;border-radius:13px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}
 .course-chooser{display:grid;gap:10px}.course-college{display:grid;gap:6px}.course-college span{font-size:12px;font-weight:700;color:var(--muted)}.course-college select,.course-search{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font:inherit}.course-search:disabled{opacity:.55;cursor:not-allowed;background:var(--soft)}
 .course-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:340px;overflow:auto;padding:2px}.course-option{display:grid;gap:2px;min-height:62px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);text-align:start;cursor:pointer}.course-option:hover,.course-option:focus{border-color:var(--accent);background:var(--soft);outline:none}.course-option b{font-size:13px}.course-option small{color:var(--muted);font-size:11.5px;direction:ltr;text-align:start}.chooser-close{justify-self:start;border:0;background:transparent;color:var(--muted);cursor:pointer;padding:4px 0;min-height:44px}
-body{padding-bottom:calc(92px + env(safe-area-inset-bottom))}.advice{flex:1 1 100%;margin:6px 0 0;padding:8px 10px;border-radius:10px;background:var(--soft);color:var(--muted);font-size:12.5px;line-height:1.7}.heat-key[role=status]{color:var(--muted)}
+body{padding-bottom:calc(92px + env(safe-area-inset-bottom))}.best{margin:10px 0 4px}.best-row{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.best-row button{display:grid;gap:3px;justify-items:center;padding:9px 6px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:inherit;font-size:12.5px;cursor:pointer;min-height:44px}.best-row small{color:var(--muted);font-size:11px}.deadline{margin:0 0 10px;font-size:12.5px;color:var(--muted)}.deadline[data-urgent="1"]{color:#8a5a00;background:#fbf0d6;border-radius:10px;padding:5px 10px;display:inline-block}button.wb{border:0;padding:0;cursor:pointer;font:inherit}.note-add{display:block;width:100%;margin:12px 0;padding:12px;border:1px dashed var(--line-strong);border-radius:14px;background:transparent;color:var(--muted);font:inherit;font-size:13px;cursor:pointer;min-height:44px}.advice{flex:1 1 100%;margin:6px 0 0;padding:8px 10px;border-radius:10px;background:var(--soft);color:var(--muted);font-size:12.5px;line-height:1.7}.heat-key[role=status]{color:var(--muted)}
 .send{position:sticky;bottom:0;z-index:4;margin:18px -4px 0;padding:20px 4px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 18%)}
 .sendbox{padding:13px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.96);box-shadow:0 -8px 28px rgba(22,57,40,.08)}
 .send button{width:100%;padding:14px;border-radius:13px;border:0;background:var(--accent);color:#fff;font-size:15px;font-weight:700;cursor:pointer}
@@ -20971,7 +20971,7 @@ function decisionBox(it,i,open){var d=it.decision;if(!d||!d.state||d.state==="pe
  /* وحين يصير الرفضُ ببدائل حواراً، تُعرض البدائلُ في الحوار بزرّ «أوافق» (threadBox). */
  var alts=it.negotiation==="proposed"?[]:(d.alternatives||[]);
  var askedAt=it.slots&&it.slots.length?fmtDays(it.slots.map(function(sl){return sl.day}))+" "+it.slots[0].start:"";
- var reasonTxt=d.reasonCode==="room"&&askedAt?"لا قاعة للموعد الذي طلبتَه ("+askedAt+")":(d.reasonCode&&REASONS[d.reasonCode]?REASONS[d.reasonCode]:"");
+ var reasonTxt=d.reasonCode==="room"&&askedAt?"لا تتوفّر قاعة في هذا الوقت للموعد الذي طلبتَه ("+askedAt+")":(d.reasonCode&&REASONS[d.reasonCode]?REASONS[d.reasonCode]:"");
  var noteTxt=d.reasonCode==="room"&&alts.length&&/اختر أحد/.test(d.note||"")?"القسم يقترح عليك البدائل التالية.":(d.note||"");
  return '<div class="dept" data-state="rejected"><b><i aria-hidden="true">✕</i>رفضه القسم'+(reasonTxt?' · '+esc(reasonTxt):'')+'</b>'+(noteTxt?'<p>'+esc(noteTxt)+'</p>':'')+
   (alts.length&&open?'<p>بدائل القسم:</p><div class="alts">'+alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-dept-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+
@@ -21044,8 +21044,10 @@ function deckHtml(){var list=pendingList(),n=list.length;if(!n)return "";
  if(deckAt>=n)deckAt=n-1;if(deckAt<0)deckAt=0;
  var i=list[deckAt],it=state[i],offers=offeredOf(it),pk=deckPick[i]||0;if(pk>=offers.length)pk=0;
  var o=offers[pk],cur=curSlot(it),b=it.before||{},d=it.decision||{},th=it.thread||[],last=th[th.length-1];
- var why=d.state==="rejected"?(REASONS[d.reasonCode]||"رفض القسم الموعد الذي طلبتَه"):"اقترح عليك القسم موعدًا مناسبًا";
- var note=d.state==="rejected"?(d.note||""):(last&&last.from==="department"?(last.text||""):"");
+ /* سببُ المكان يُربط بالموعد الذي يقصده: موعدُه الحالي، لا اقتراحُ القسم الذي تحته. */
+ var roomNo=d.state==="rejected"&&d.reasonCode==="room"&&cur;
+ var why=d.state==="rejected"?(roomNo?"موعدك الحالي ("+fmtDays(cur.d)+" "+hh(cur.s)+"): لا تتوفّر قاعة في هذا الوقت؛ القسم يقترح موعداً بديلاً.":(REASONS[d.reasonCode]||"رفض القسم الموعد الذي طلبتَه")):"اقترح عليك القسم موعدًا مناسبًا";
+ var note=d.state==="rejected"?(roomNo&&/اختر أحد/.test(d.note||"")?"":(d.note||"")):(last&&last.from==="department"?(last.text||""):"");
  var nav=n>1?'<span class="dk-nav"><button type="button" data-deck="-1" aria-label="القرار السابق"'+(deckAt===0?' disabled':'')+'>'+gi("arR")+'</button><button type="button" data-deck="1" aria-label="القرار التالي"'+(deckAt===n-1?' disabled':'')+'>'+gi("arL")+'</button></span>':'';
  var dots=n>1?'<div class="dk-dots" aria-hidden="true">'+list.map(function(_,k){return '<i'+(k===deckAt?' data-on="1"':'')+'></i>'}).join("")+'</div>':'';
  var h='<section class="deck" id="deck" aria-label="قرارك على اقتراح القسم"><div class="dk-top"><span class="dk-ct">'+gi("you")+(n>1?'قراراتك: <b>'+(deckAt+1)+'</b> من <b>'+n+'</b>':'قرارك')+'</span>'+nav+'</div>'+dots+
@@ -21154,7 +21156,7 @@ function actionsHtml(it,i){
  return actBtn(i,"keep","undo","تراجع عن الحذف");
 }
 function editHtml(it,i){var h="";h+='<div class="edit"><div class="field-head"><span class="field-title">أيام المحاضرة</span><details class="plib"><summary aria-label="مكتبة الأنماط" title="مكتبة الأنماط">'+PLIB_ICON+'</summary><div class="plib-pop">'+PLIB+'</div></details></div><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
-    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status">'+esc(it.autoNote)+'</p>':'')+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+heatLegend(i)+'<label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(verdictText(it))+'</span>'+(it.advice?'<p class="advice" role="note">'+esc(it.advice)+'</p>':'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+notesHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="1" placeholder="'+(it.tone==="warn"?"سبب الاستثناء — إلزامي":"ملاحظة للقسم — اختياري")+'">'+esc(it.excuse||"")+'</textarea>'+VI.html("ex-"+i)+'</div>';return h}
+    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status">'+esc(it.autoNote)+'</p>':'')+bestHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+heatLegend(i)+'<label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(verdictText(it))+'</span>'+(it.advice?'<p class="advice" role="note">'+esc(it.advice)+'</p>':'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+notesHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="1" placeholder="'+(it.tone==="warn"?"سبب الاستثناء — إلزامي":"ملاحظة للقسم — اختياري")+'">'+esc(it.excuse||"")+'</textarea>'+VI.html("ex-"+i)+'</div>';return h}
 function bodyHtml(it,i,open){var h=decisionBox(it,i,open)+threadBox(it,i);
  if(open){if(it.negotiation==="proposed")h+='<p class="hint-pro">للرد على اقتراح القسم استخدم بطاقة «قرارك» في أعلى الصفحة. وتعديل الموعد من هنا يبدأ طلبًا جديدًا.</p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
  else if(!h)h='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
@@ -21191,13 +21193,14 @@ function planTable(){
    /* ما ينتظر قرارَه يُقرأ في بطاقة «قرارك» أعلى الصفحة، فيبقى صفُّه مطويّاً. */
    var expanded=openCards[i]!==undefined?!!openCards[i]:(!proposed&&!decidedHere&&((!data.request.submittedAt&&(it.action==="change"||it.action==="add"))||it.tone==="bad"));
    var negShown=!!(it.negotiation&&((it.thread||[]).length||decidedHere));
+   var act=unchangedEdit(it)?"keep":it.action;
    var neg=negShown?'<span class="neg" data-neg="'+esc(it.negotiation)+'">'+esc(NEG[it.negotiation]||"")+'</span>':'';
    /* وحين يكون للبند حوارٌ تكفي حالةُ الحوار: «معدّل» و«الوقت متاح» و«رفضه القسم» معاً تتناقض. */
-   var stat=negShown?'':'<span class="status" data-act="'+esc(it.action)+'">'+(it.action==="keep"?"كما هو":actionName(it.action))+'</span>';
-   var tone=!negShown&&it.action!=="keep"&&it.action!=="delete"&&toneText(it)?'<small class="plan-check" data-tone="'+esc(it.tone)+'">'+esc(toneText(it))+'</small>':'';
+   var stat=negShown?'':'<span class="status" data-act="'+esc(act)+'">'+(act==="keep"?"كما هو":actionName(act))+'</span>';
+   var tone=!negShown&&act!=="keep"&&act!=="delete"&&toneText(it)?'<small class="plan-check" data-tone="'+esc(it.tone)+'">'+esc(toneText(it))+'</small>':'';
    var sub=(b.sectionCode?'شعبة '+esc(b.sectionCode):'')+((many||it.action==="add")&&col?(b.sectionCode?' · ':'')+esc(shortCollege(col)):'');
-   return '<div class="appt" role="listitem" id="item-'+i+'" data-act="'+esc(it.action)+'" data-neg="'+esc(it.negotiation||"")+'" data-open="'+(expanded?"1":"0")+'">'+
-    '<button type="button" class="appt-head" data-toggle="'+i+'" aria-expanded="'+expanded+'" aria-controls="item-body-'+i+'" aria-label="'+esc(courseOf(it)+" — "+(it.action==="keep"?"كما هو":actionName(it.action))+(expanded?"، اضغط للطيّ":"، اضغط لعرض الخيارات"))+'">'+
+   return '<div class="appt" role="listitem" id="item-'+i+'" data-act="'+esc(act)+'" data-neg="'+esc(it.negotiation||"")+'" data-open="'+(expanded?"1":"0")+'">'+
+    '<button type="button" class="appt-head" data-toggle="'+i+'" aria-expanded="'+expanded+'" aria-controls="item-body-'+i+'" aria-label="'+esc(courseOf(it)+" — "+(act==="keep"?"كما هو":actionName(act))+(expanded?"، اضغط للطيّ":"، اضغط لعرض الخيارات"))+'">'+
      '<span class="ap-ic">'+gi(rowIcon(it))+'</span>'+
      '<span class="ap-main"><b>'+esc(courseOf(it))+'</b>'+(sub?'<small>'+sub+'</small>':'')+
       '<span class="ap-when">'+pipsHtml(dset)+'<span class="sr">'+esc(days)+'</span><bdi dir="ltr" class="num">'+esc(time)+'</bdi>'+(moved&&b.time&&rangeText(b.time)!==newTime?'<s><bdi dir="ltr">'+esc(rangeText(b.time))+'</bdi></s>':'')+'</span></span>'+
@@ -21214,9 +21217,10 @@ function weekStrip(){
  var today=new Date().getDay(),L=480,R=1200,cols={},ghost=false,counts={};
  DAYS.forEach(function(d){cols[d[0]]=[];counts[d[0]]=0});
  function pos(m){return Math.max(0,Math.min(100,(m-L)/(R-L)*100))}
- function put(slot,kind){if(!slot)return;slot.d.forEach(function(d){if(!cols[d])return;cols[d].push({s:slot.s,e:slot.e,k:kind});if(kind!=="ghost"&&kind!=="del")counts[d]++})}
- state.forEach(function(it){var o=curSlot(it),off=proposed0(it);
-  if(it.action==="keep"){put(o,"keep");return}
+ var cur=0;
+ function put(slot,kind){if(!slot)return;slot.d.forEach(function(d){if(!cols[d])return;cols[d].push({s:slot.s,e:slot.e,k:kind,i:cur});if(kind!=="ghost"&&kind!=="del")counts[d]++})}
+ state.forEach(function(it,idx){cur=idx;var o=curSlot(it),off=proposed0(it);
+  if(it.action==="keep"||unchangedEdit(it)){put(o,"keep");return}
   if(it.action==="delete"){put(o,"del");return}
   if(it.action==="add"){put(askSlot(it),"add");return}
   if(it.decision&&it.decision.state==="rejected"&&it.negotiation!=="proposed"){put(o,"keep");return}
@@ -21224,8 +21228,8 @@ function weekStrip(){
   if(off){put({d:off.d,s:off.s,e:off.e},"prop");return}
   put(askSlot(it),it.decision&&it.decision.state==="fixed"?"fix":"chg")});
  var label="أسبوعك: "+DAYS.map(function(d){return d[1]+" "+counts[d[0]]}).join("، ");
- return '<div class="wk" role="img" aria-label="'+esc(label)+'"><div class="wk-body"><div class="wk-axis" aria-hidden="true"><span>8 ص</span><span>12</span><span>4 م</span><span>8 م</span></div><div class="wk-grid">'+DAYS.map(function(d,k){
-  var blocks=cols[d[0]].map(function(b){return '<i class="wb" data-k="'+b.k+'" style="inset-block-start:'+pos(b.s)+'%;block-size:'+Math.max(5,pos(b.e)-pos(b.s))+'%"></i>'}).join("");
+ return '<div class="wk" role="group" aria-label="'+esc(label)+'"><div class="wk-body"><div class="wk-axis" aria-hidden="true"><span>8 ص</span><span>12</span><span>4 م</span><span>8 م</span></div><div class="wk-grid">'+DAYS.map(function(d,k){
+  var blocks=cols[d[0]].map(function(b){return '<button type="button" class="wb" data-wk="'+b.i+'" data-k="'+b.k+'" aria-label="'+esc(courseOf(state[b.i])+"، "+d[1]+" "+clock(b.s))+'" style="inset-block-start:'+pos(b.s)+'%;block-size:'+Math.max(5,pos(b.e)-pos(b.s))+'%"></button>'}).join("");
   return '<div class="wc" data-today="'+(k===today?1:0)+'" data-n="'+counts[d[0]]+'"><div class="wc-t">'+blocks+'</div><span class="wc-n">'+d[1]+'</span></div>'}).join("")+
   '</div></div>'+(ghost?'<p class="wk-note">الكتل المتقطّعة: موعدك الحالي قبل التعديل.</p>':'')+'</div>'
 }
@@ -21236,6 +21240,17 @@ var heat={},heatKey={},heatTimer=null,heatShape={};
 function heatAttr(i,t){var h=heat[i]&&heat[i][t];if(!h)return "";
  return ' data-heat="'+h+'" aria-label="'+t+(h==="ok"?" · متاح":h==="warn"?" · يحتاج سبب استثناء":" · غير ممكن")+'"'}
 function heatLegend(i){if(heatShape[i])return '<p class="heat-key" role="status">المشكلة في الأيام لا في الوقت — اختر نمطاً من الأزرار.</p>';return heat[i]&&Object.keys(heat[i]).length?'<p class="heat-key" aria-hidden="true"><span data-heat="ok"></span>متاح <span data-heat="warn"></span>يحتاج سبباً <span data-heat="bad"></span>غير ممكن</p>':""}
+/* أفضل ثلاثة مواعيد: من الأوقات التي حكم الخادمُ بأنها متاحة، مرتّبةً بقربها من محاضراته الأخرى. لا تظهر إن لم توجد ثلاثة صالحة. */
+function bestTimes(it,i){var h=heat[i];if(!h||heatShape[i]||!it.days.length)return [];
+ var os=othersFor(i).filter(function(o){return o.d.some(function(x){return it.days.indexOf(x)>=0})});
+ var out=startList(it).filter(function(t){return h[t]==="ok"&&t!==it.start&&!ownClash(it,i,t)}).map(function(t){var s=mins(t),why="وقتٌ متاح",score=2;
+  if(!os.length){why="يوم فارغ عندك";score=1}
+  os.forEach(function(o){var gap=s-o.e;if(gap>=0&&gap<=20){why="بعد محاضرتك مباشرة";score=0}});
+  return{t:t,why:why,score:score,gapKey:os.reduce(function(m,o){return Math.min(m,Math.abs(s-o.e))},9999)}});
+ out.sort(function(a,b){return a.score-b.score||a.gapKey-b.gapKey||(a.t<b.t?-1:1)});
+ return out.length>=3?out.slice(0,3):[]}
+function bestHtml(it,i){var best=bestTimes(it,i);if(!best.length)return "";
+ return '<div class="best" role="group" aria-label="أفضل ثلاثة مواعيد لك"><p class="shape-lead">أفضل ٣ مواعيد لك:</p><div class="best-row">'+best.map(function(b){return '<button type="button" data-i="'+i+'" data-quick="'+b.t+'"><b>'+esc(fmtDays(it.days))+' '+ltr(b.t)+'</b><small>'+esc(b.why)+'</small></button>'}).join("")+'</div></div>'}
 function startList(it){return startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60})}
 function heatSig(i){return state[i].days.join()+"|"+state[i].blk+"|"+JSON.stringify(payloadWith(i).map(function(p,k){return k===i?{rowId:p.rowId,action:p.action,courseId:p.courseId,collegeId:p.collegeId,sectionId:p.sectionId,days:p.days}:p}))}
 function ensureHeat(){state.forEach(function(it,i){
@@ -21328,7 +21343,7 @@ function verifyHtml(code,linkOnly){if(!code)return "";
 var openCards={};
 var restoredDraft=false,dirty=false,DRAFT_KEY="req-draft:"+TOKEN;
 /* ملاحظةٌ عامة للقسم عن بناء جدوله كله، لا عن موعدٍ بعينه: تظهر من أول فتح الصفحة. */
-var genNote=null;
+var genNote=null,noteOpen=false;
 function noteNow(){return genNote!==null?genNote:String((data&&data.request&&data.request.note)||"")}
 function saveDraft(){try{localStorage.setItem(DRAFT_KEY,JSON.stringify({at:Date.now(),note:noteNow(),items:payloadItems(),names:state.map(function(it){return{collegeName:it.collegeName||"",before:it.before||null}})}))}catch(e){}}
 function clearDraft(){try{localStorage.removeItem(DRAFT_KEY)}catch(e){}}
@@ -21350,11 +21365,12 @@ function paint(){
  var readySub=incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
  var h=proposalBanner+(freshNote?'<div class="fresh-note" role="status">'+gi("eye")+'<span>وصل ردّ من القسم. احفظ تعديلك أو أرسله ثم حدّث الصفحة.</span></div>':'')+
   '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open?"":" · انتهت مدّة الطلبات، والصفحة للقراءة")+'</p>'+
-  '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div></div></div>'+
+  '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+
   (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
  h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(deckHtml()||calmHtml())+replayHtml()+memoryHtml()+planTable();
- if(open&&!sent)h+='<div class="card note-card"><header><b>ملاحظة للقسم</b> <small>اختياري — اكتب ما تريد توضيحه عن بناء جدولك، مثل: «أرغب بالتدريس صباحاً» أو «عندي التزام يوم الأحد».</small></header>'+
+ if(open&&!sent&&!noteOpen&&!String(noteNow()).trim())h+='<button type="button" class="note-add" id="noteAdd">＋ أضف ملاحظة للقسم</button>';
+ else if(open&&!sent)h+='<div class="card note-card"><header><b>ملاحظة للقسم</b> <small>اختياري — اكتب ما تريد توضيحه عن بناء جدولك، مثل: «أرغب بالتدريس صباحاً» أو «عندي التزام يوم الأحد».</small></header>'+
   '<textarea id="genNote" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-vi-field="gen" data-show="1" placeholder="اكتب ملاحظتك للقسم…">'+esc(noteNow())+'</textarea>'+VI.html("gen")+'</div>';
  else if(sent&&r.note)h+='<div class="card note-card"><header><b>ملاحظتك للقسم</b></header><p class="note-sent">'+esc(r.note)+'</p></div>';
  if(open&&data.courses&&data.courses.length){
@@ -21423,6 +21439,7 @@ function wire(){
   paint();recheckAll()}});
  host.querySelectorAll("[data-day]").forEach(function(el){el.onclick=function(){
   var i=+el.dataset.i,it=state[i];tapDay(it,el.dataset.day);paint();recheckAll(i)}});
+ host.querySelectorAll("[data-wk]").forEach(function(el){el.onclick=function(){focusItem(+el.dataset.wk)}});
  host.querySelectorAll("[data-toggle]").forEach(function(el){el.onclick=function(){var i=+el.dataset.toggle;openCards[i]=!(el.getAttribute("aria-expanded")==="true");paint();var row=document.getElementById("item-"+i),head=row&&row.querySelector(".appt-head");if(head)head.focus({preventScroll:true})}});
  host.querySelectorAll("[data-dept-alt]").forEach(function(el){el.onclick=function(){
   var i=+el.dataset.i,it=state[i],p=el.dataset.deptAlt.split("|");if(!it)return;
@@ -21443,6 +21460,7 @@ function wire(){
  var send=document.getElementById("send");if(send)send.onclick=submit;
  var replay=document.getElementById("replay");if(replay)replay.onclick=replayPrevious;
  VI.wire(function(key,value){if(key.indexOf("ex-")===0&&state[+key.slice(3)])state[+key.slice(3)].excuse=value;if(key==="gen"){genNote=value;dirty=true;saveDraft()}});
+ var na=document.getElementById("noteAdd");if(na)na.onclick=function(){noteOpen=true;paint();var g=document.getElementById("genNote");if(g)g.focus()};
  var gn=document.getElementById("genNote");if(gn)gn.oninput=function(){genNote=gn.value;dirty=true;saveDraft()};
  host.querySelectorAll("[data-accept]").forEach(function(el){el.onclick=function(){askAccept(+el.dataset.i,+el.dataset.accept)}});
  host.querySelectorAll("[data-accept-all]").forEach(function(el){el.onclick=askAcceptAll});
@@ -21494,6 +21512,17 @@ function originalOf(it){var b=it.before||{},names=String(b.days||"").split("·")
  var start=(String(b.time||"").match(/\\d{1,2}:\\d{2}/)||[""])[0];return{days:days,start:start}}
 function sameAsBefore(it){if(it.action!=="change")return false;var o=originalOf(it);if(!o.days.length||!o.start)return false;
  return o.days.slice().sort().join()===it.days.slice().sort().join()&&o.start===it.start}
+/* ما سيصل القسم بجملةٍ بشرية: نقلٌ من كذا إلى كذا، أو حذف، أو إضافة. تظهر كاملةً قبل التوقيع. */
+function receiptLine(it){var c='<b>'+esc(courseOf(it))+'</b>',b=it.before||{},col=collegeOf(it);
+ var where=col?' · '+esc(col):'',to=it.days.length&&it.start?esc(fmtDays(it.days))+' · '+ltr(it.start):'';
+ if(it.action==="delete")return 'حذف '+c+where+(b.days||b.time?' <small>('+esc(b.days||"")+(b.time?' · ':'')+ltr(rangeText(b.time||""))+')</small>':'');
+ if(it.action==="add")return 'إضافة '+c+where+(to?' — '+to:'');
+ return 'نقل '+c+where+' من '+esc(b.days||"")+(b.time?' · '+ltr(rangeText(b.time)):'')+' إلى '+to}
+/* باقٍ كم على إغلاق الطلبات؟ كهرمانياً في آخر يومين، ويختفي بعد الإغلاق. */
+function deadlineHtml(r,open){if(!open||!r.window||!r.window.closesAt)return "";
+ var end=new Date(r.window.closesAt);if(isNaN(end))return "";var left=Math.ceil((end.getTime()-Date.now())/864e5);if(left<0)return "";
+ var when=end.toLocaleDateString("ar",{weekday:"long",day:"numeric",month:"long"});
+ return '<p class="deadline" data-urgent="'+(left<=2?1:0)+'">'+(left===0?"يُغلق استقبال الطلبات اليوم":"باقٍ "+countOf(left,AR.day)+" على إغلاق الطلبات")+' · '+esc(when)+'</p>'}
 function focusItem(i,msg){openCards[i]=true;activeTab="schedule";paint();if(msg)document.getElementById("err").innerHTML='<div class="err">'+esc(msg)+'</div>';
  var card=document.getElementById("item-"+i);if(card)card.scrollIntoView({behavior:"smooth",block:"center"})}
 function submit(){
@@ -21504,9 +21533,9 @@ function submit(){
  var blocked=state.findIndex(function(it){return !unchangedEdit(it)&&(it.tone==="bad"||it.tone==="checking")});
  if(blocked>=0){openCards[blocked]=true;activeTab="schedule";paint();var card=document.getElementById("item-"+blocked);if(card)card.scrollIntoView({behavior:"smooth",block:"center"});return}
  var chg=state.filter(function(it){return it.action!=="keep"&&!unchangedEdit(it)}),sent=!!data.request.submittedAt;
- var lines=chg.slice(0,5).map(function(it){return '<li><span>'+esc(actionName(it.action))+' · <b>'+esc(courseOf(it))+'</b>'+(it.action==="delete"?'':' — <bdi>'+requestedHtml(it)+'</bdi>')+'</span></li>'}).join("");
+ var lines=chg.map(function(it){return '<li><span>'+receiptLine(it)+'</span></li>'}).join("");
  signSheet({
-  what:'<div>'+gi("send")+'<span>'+(chg.length?countOf(chg.length,AR.change)+' ستصل القسم':'جدولك كما هو سيصل القسم')+'</span></div>'+replacedWarn()+(lines?'<ul class="sk-list">'+lines+(chg.length>5?'<li><span>و'+countOf(chg.length-5,AR.change)+' أخرى</span></li>':'')+'</ul>':''),
+  what:'<div>'+gi("send")+'<span>'+(chg.length?countOf(chg.length,AR.change)+' ستصل القسم':'جدولك كما هو سيصل القسم')+'</span></div>'+replacedWarn()+(lines?'<ul class="sk-list" aria-label="ما سيصل القسم">'+lines+'</ul>':''),
   run:function(civil,done){postSubmit(civil,done)}})
 }
 /* الإرسالُ نفسُه كما كان: الخادمُ يعيد الحكمَ ويتحقق من التوقيع، والصفحةُ تعرض ما يقوله. */

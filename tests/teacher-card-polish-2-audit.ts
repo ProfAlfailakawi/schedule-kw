@@ -73,5 +73,20 @@ check(page.includes("payloadWith(i)") && page.includes('problem==="shape"') && p
 check(server.includes('if (problemIsShape) { res.json({ times: {}, problem: "shape" }); return; }'), "P4 والخادمُ هو من يحكم (لا bad لكل وقت)");
 check(server.includes('note.kind !== "balance" && note.courseIds') && page.includes('n.kind!=="balance"'), "P4 شريطُ نسب الصباح والمساء غائبٌ عن صفحة الأستاذ");
 
+/* P5: التحسينات */
+check(page.includes('var act=unchangedEdit(it)?"keep":it.action;') && page.includes('data-act="\'+esc(act)+\'">\'+(act==="keep"?"كما هو":actionName(act))'), "P5 بطاقة التعديل بلا لمسة تقرأ «كما هو» لا «معدّل»");
+check(page.includes("function receiptLine(it)") && page.includes("chg.map(function(it){return '<li><span>'+receiptLine(it)") && !page.includes("chg.slice(0,5)"), "P5 إيصال ما قبل التوقيع: كلُّ تغيير بجملة بشرية، بلا اختصار");
+check(page.includes("'نقل '+c+where+' من '") && page.includes("'حذف '+c") && page.includes("'إضافة '+c"), "P5 صيغُ الإيصال: نقل وحذف وإضافة");
+check(page.includes("function bestTimes(it,i)") && page.includes("out.length>=3?out.slice(0,3):[]") && page.includes('h[t]==="ok"'), "P5 «أفضل ٣ مواعيد» من أوقاتٍ حكم الخادمُ بأنها متاحة، ولا تظهر إن قلّت عن ثلاثة");
+check(page.includes("function deadlineHtml(r,open)") && page.includes('data-urgent="\'+(left<=2?1:0)+\'"'), "P5 عدّاد المهلة، كهرمانيٌّ في آخر يومين");
+check(page.includes('<button type="button" class="wb" data-wk="') && page.includes("aria-label=\"'+esc(courseOf(state[b.i])+\"، \"+d[1]+\" \"+clock(b.s))") && page.includes('[data-wk]'), "P5 مخطط الأسبوع: كتلٌ أزرارٌ بـaria-label تفتح بنودَها");
+check(page.includes('id="noteAdd">＋ أضف ملاحظة للقسم') && page.includes("!noteOpen&&!String(noteNow()).trim()"), "P5 ملاحظة القسم مطوية، وتُفتح تلقائياً إن كان فيها نص");
+check(page.includes('"فتحتَ الرابط "+countOf(e.count,AR.visit)+" · آخرها "+clockOf(e.at)') && page.includes('e.kind!=="link-opened"&&e.kind!=="link-created"'), "P6 فتحاتُ اليوم الواحد في سطر، والرقم لا يعدّ الفتح");
+check(page.includes("<b>ملاحظة للقسم</b> <small>"), "P7 مسافةٌ بين «ملاحظة للقسم» و«اختياري»");
+check(page.includes("!data.request.submittedAt&&(it.action===\"change\"||it.action===\"add\")") && page.includes('if(act==="change")openCards[i]=true;'), "P7 «القسم يراجع»: البند المعدّل مطوي ويُفتح بالضغط");
+check(page.includes('"موعدك الحالي ("+fmtDays(cur.d)+" "+hh(cur.s)+"): لا تتوفّر قاعة في هذا الوقت؛ القسم يقترح موعداً بديلاً."'), "P7 بطاقة «قرارك»: عدمُ توفّر القاعة مربوطٌ بموعدك الحالي لا باقتراح القسم");
+check(judgeRequest({ rowId: 1, action: "change", AdCourseId: COURSE, days: ["fthursday"], start: "14" as any }, ctx([thursday])).sendable === false, "P2 وقتٌ بلا دقائق لا يُعدّ «كما هو»");
+check(page.includes("القسم يقترح عليك البدائل التالية.") && page.includes("لا تتوفّر قاعة في هذا الوقت للموعد الذي طلبتَه ("), "P7 رفضُ القاعة مربوطٌ بالموعد الذي طلبه الأستاذ");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

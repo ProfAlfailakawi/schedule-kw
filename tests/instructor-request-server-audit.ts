@@ -161,7 +161,7 @@ check(page.includes('data-tab="schedule"') && page.includes('data-tab="activity"
 check(page.includes('actionName(it.action)') && page.includes('requestedText(it)')
   && page.includes('decision.state==="fixed"') && page.includes('decision.state==="rejected"'),
   "وسجل الحركة يشرح الإضافة والتعديل والحذف وقرار القسم على كل بند");
-check(page.includes('var blocked=state.filter(function(it){return it.tone==="bad"||it.tone==="checking"}).length')
+check(page.includes('var blocked=state.filter(function(it){return !unchangedEdit(it)&&!incompleteItem(it)&&(it.tone==="bad"||it.tone==="checking")}).length')
   && page.includes("عالج الموانع قبل الإرسال"),
   "ومؤشر الجاهزية يمنع الإرسال المرئي ما دام الفحص جارياً أو وجد مانعاً");
 check(page.includes('days:(it.action==="change"||it.action==="add")?(it.slots||[]).map(function(s){return s.day}):[]')
