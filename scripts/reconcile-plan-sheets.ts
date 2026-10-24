@@ -20,7 +20,7 @@ import type { AdCourse, CurriculumPlan } from "../src/types";
 import { extractPlanItems } from "../src/server/planPdfExtract";
 import { parsePlanItems, type ParsedPlan } from "../src/utils/planPdfParser";
 import { correctCourseName } from "../src/utils/courseNameCorrection";
-import { createReconciler, CODE_ALIAS, isCombinedSheet, isSheetHome, PRINTED_NAME_FIXES, trackProgramOf } from "../src/server/sheetReconcile";
+import { createReconciler, CODE_ALIAS, sectionDigits, isSpecialEducationSheet } from "../src/server/sheetReconcile";
 
 const argv = process.argv.slice(2);
 const arg = (name: string) => { const at = argv.indexOf(name); return at >= 0 ? argv[at + 1] : undefined; };
@@ -39,7 +39,7 @@ for (const [era, dir] of [["new", newDir], ["old", oldDir]] as const) {
   for (const file of readdirSync(dir).filter(name => name.toLowerCase().endsWith(".pdf")).sort()) {
     const parsed = parsePlanItems(await extractPlanItems(readFileSync(join(dir, file))));
     /* ملفٌّ يجمع عدة صحائف (وحدات تخرجه فوق أي صحيفة) لا يُطابَق: مساراته مرفوعةٌ كلٌّ بملفه. */
-    if (isCombinedSheet(parsed)) { console.log(`تخطّي ${file}: ليس صحيفةً واحدة (${parsed.degreeUnits} وحدة).`); continue; }
+    if (parsed.degreeUnits > 160) { console.log(`تخطّي ${file}: ليس صحيفةً واحدة (${parsed.degreeUnits} وحدة).`); continue; }
     sheets.push({ ...parsed, era, file });
   }
 }
@@ -69,6 +69,14 @@ for (const era of ["new", "old"] as const) {
   }
 }
 
+/* أسماءٌ يكسرها نصُّ الـPDF (مسافةٌ وسط الكلمة، أو اسمٌ قُطع عند حافة العمود): تُكتب كما تعنيها الصحيفة. */
+const PRINTED_NAME_FIXES: Record<string, string> = {
+  "0102116": "النحو والصرف (1)", "0102227": "النحو والصرف (2)", "0102249": "القصة",
+  "0102129": "علم العروض والقافية (1)", "0102257": "علم العروض والقافية (2)",
+  "0103288": "التغيير الاجتماعي والتنمية في الوطن العربي", "0114464": "الإدارة التربوية التعليمية",
+  "0106113": "مدخل إلى مبادئ الفيزياء محاضرة", "0105304": "مبادئ في الإحصاء والاحتمال", "0105391": "مقدمة في التحليل العددي",
+  "0113202": "بيانو وأناشيد (3)", "0113262": "موشحات وفنون شعبية", "0113312": "تحليل شرقي وفنون شعبية", "0108197": "اللياقة البدنية والرياضة",
+};
 for (const [code, name] of Object.entries(PRINTED_NAME_FIXES)) if (truth.has(code)) truth.set(code, { ...truth.get(code)!, name });
 
 /* ── 2) قاعدة البيانات ─────────────────────────────────────────────────────── */
@@ -94,7 +102,11 @@ for (const cid of collegeIds) {
   const { sectionsWithCode } = reconciler;
   /* الصحائف التي تقابل كل صحيفة مطبوعة في هذه الكلية. */
   const allPlans = (await Promise.all(collegeSections.map(row => Repository.getCurriculumPlans(Number(row.AdSectionId))))).flat().filter(plan => !plan.virtual && plan.status !== "archived");
-  /* أقسامُ صحيفة: صحيفة المسار لصاحبها وحده (القاعدة نفسها في الرفع)، والرئيسية للقسم الأكثر مقرراتٍ في التخصص. */
+  const trackOf = (sheet: Sheet): string => {
+    if (/^BA-\d{6}$/.test(sheet.program)) return sheet.program;
+    if (sheet.program === "BA-0119" || sheet.program === "BA-0110") return sheet.program;
+    return "";
+  };
   const homeDeptOf = (sheet: Sheet) => {
     const counts = new Map<string, number>();
     for (const course of sheet.courses.filter(row => row.sectionNo === 2)) { const dept = CODE_ALIAS[course.dept] || course.dept; counts.set(dept, (counts.get(dept) || 0) + 1); }
@@ -103,7 +115,7 @@ for (const cid of collegeIds) {
 
   for (const sheet of plansToMatch) {
     const status = sheet.era === "new" ? "active" : "transition";
-    const track = trackProgramOf(sheet);
+    const track = trackOf(sheet);
     /* رياض الأطفال للبنات وحدهن: لا قسم لها ولا صحيفة في كلية البنين. */
     if (sheet.program === "BA-0110" && !girlsCollege(cid)) continue;
     const list = sheet.courses.filter(course => !(course.girlsOnly && !girlsCollege(cid)));
@@ -111,7 +123,10 @@ for (const cid of collegeIds) {
     if (track) {
       /* صحيفةُ المسار لأقسام برنامجها وحدها: مسارات التربية الخاصة لقسم التربية الخاصة وحده، والتخصص المزدوج لقسمه،
          والإنجليزية للمتوسط والثانوي لقسم اللغة الإنجليزية، ورياض الأطفال لقسمها. القسمُ الذي يمدّها بمقرراتٍ فقط (علم النفس…) لا يحمل نسخةً منها. */
-      const homes: any[] = collegeSections.filter(row => isSheetHome(sheet, row));
+      const homes: any[] = track === "BA-0110" ? collegeSections.filter(row => String(row.AdSectionCode) === "KG")
+        : track === "BA-0119" ? sectionsWithCode("18")
+        : isSpecialEducationSheet(sheet) ? sectionsWithCode("19")
+        : sectionsWithCode(homeDeptOf(sheet));
       const homeIds = new Set(homes.map(row => Number(row.AdSectionId)));
       for (const plan of allPlans.filter(row => row.track === track && !homeIds.has(Number(row.AdSectionId)))) {
         log(cid, "حذف نسخة في قسم ليس من أقسام البرنامج", { planId: plan.id, plan: plan.name, section: sections.find(row => Number(row.AdSectionId) === Number(plan.AdSectionId))?.AdSectionName });
