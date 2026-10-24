@@ -18646,6 +18646,7 @@ ${STAFF_CARD_VISUAL_CSS}
       <div>
         <div class="mark arabic">بطاقتي</div>
         <h1 id="name"></h1>
+        <p class="welcome" id="welcome">هذا جدولك للفصل</p>
         <small id="scope"></small>
       </div>
       <div class="head-tools">
@@ -18873,6 +18874,7 @@ ${STAFF_CARD_VISUAL_JS}
       soon.removeAttribute("hidden");
     } else { soon.innerHTML=""; soon.setAttribute("hidden",""); }
     var nouns=d.countNouns||{};
+    
     var statItems=[
       ["ساعات تدريس أسبوعية",hours(d.weeklyMinutes)],
       [(nouns.units||"وحدات")+" نصاب",ar(d.loadUnits||0)],
@@ -21678,7 +21680,7 @@ function paint(){
  var h=skBackIcon()+proposalBanner+(freshNote?'<div class="fresh-note" role="status">'+gi("eye")+'<span>وصل ردّ من القسم. احفظ تعديلك أو أرسله ثم حدّث الصفحة.</span></div>':'')+
   '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open?"":" · انتهت مدّة الطلبات، والصفحة للقراءة")+'</p>'+
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+
-  (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+
+  (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+skNext(open,sent,edited)+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
  h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(deckHtml()||calmHtml())+replayHtml()+memoryHtml()+planTable();
  if(open&&!sent&&!noteOpen&&!String(noteNow()).trim())h+='<button type="button" class="note-add" id="noteAdd">＋ أضف ملاحظة للقسم</button>';
