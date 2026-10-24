@@ -481,14 +481,20 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       const keepOneDay = blockDay && blockLength
         ? [{ days: [blockDay] as DayKey[], label: `${request.blockMinutes && original ? "يوم واحد كما هو الآن" : "يوم واحد كما دُرّس سابقاً"}: ${DAY_NAMES[DAY_KEYS.indexOf(blockDay)]} ${blockLength}د` }]
         : [];
+      /* ما يُقترح يمرّ من الفاحص نفسه بلا استثناء: نمطٌ يجمع أيام الخمسين والثمانين خارج الأنماط المعتمدة لساعات المقرّر
+         يطلب سبباً إن طُبّق، فلا يُقترح. */
+      const approvedFor = (days: DayKey[]) => patternsForHours(courseHours).some(pattern => pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
+      const mixedWithoutApproval = (days: DayKey[]) => days.some(day => expectedMinutesForDay(day) === 50) && days.some(day => expectedMinutesForDay(day) !== 50) && !approvedFor(days);
       const usual = historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId);
       const usualShapes = keepOneDay.length || !usual ? [] : usual.patterns
-        .filter(days => days.length > 1 && days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold)
+        .filter(days => days.length > 1 && days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold && !mixedWithoutApproval(days))
         .map(days => ({ days, label: `المعتاد: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
-      const suggested = keepOneDay.length ? keepOneDay : usualShapes.length ? usualShapes : patternsForHours(courseHours)
+      const regulationShapes = patternsForHours(courseHours)
         .filter(pattern => pattern.days.length > 1 && pattern.days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold)
         .map(pattern => ({ days: [...pattern.days] as DayKey[], label: pattern.label }));
-      /* نصُّ «جرّب» يتبع التاريخ حين يكون له نمط، وبلا تاريخٍ يبقى حرفياً كما كان (أول ثلاثة من أنماط اللائحة). */
+      /* ويوم المقرّر الواحد يكفي وحدَه إن اتّسع للبداية المختارة؛ وإلا (تتجاوز نهايتُه اليوم الدراسي) تبقى معه أنماطُ اللائحة بديلاً قابلاً للتطبيق. */
+      const keepFits = keepOneDay.length > 0 && toMinutes(request.start) + Number(blockLength || 0) <= SCHEDULE_DAY_END;
+      const suggested = keepOneDay.length ? (keepFits ? keepOneDay : [...keepOneDay, ...regulationShapes]) : usualShapes.length ? usualShapes : regulationShapes;
       const shapes = (keepOneDay.length || usualShapes.length ? suggested : patternsForHours(courseHours)).map(shape => shape.label).slice(0, 3).join(" أو ");
       reasons.push({
         source: "shape",

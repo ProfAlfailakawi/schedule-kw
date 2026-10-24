@@ -97,6 +97,18 @@ const appliedUsual = judgeRequest(ask({ days: blockedOneDay.shapes?.[0]?.days as
 check(appliedUsual.sendable && !appliedUsual.reasons.some(reason => reason.source === "shape"), "وتطبيقُ المقترح يمرّ من الفاحص نفسه بلا منع");
 const noHistoryAsk = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows({ ...context(3), nature: null }));
 check(!noHistoryAsk.sendable && noHistoryAsk.shapes?.[0]?.days.join() === "fsunday,ftuesday,fthursday" && !/المعتاد/.test(noHistoryAsk.shapes?.[0]?.label || ""), "ومقرّرٌ بلا تاريخ: أنماطُ اللائحة كما كانت");
+/* مقرّرٌ ساعتان درج اثنين+خميس (٨٠+٥٠ خارج أنماط الساعتين): لا يُقترح لأن تطبيقه يطلب استثناءً — يُقترح ما يمرّ بلا استثناء. */
+const monThuNature = natureOf(100, [16, 17, 18], { fmonday: true, fwednesday: false, fthursday: true, fstarttime: "09:00", fendtime: "10:20" });
+const mixedHistory = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
+check(!mixedHistory.sendable && mixedHistory.shapes?.length && !mixedHistory.shapes.some(shape => shape.days.join() === "fmonday,fthursday"), "ونمطٌ معتادٌ مختلط خارج المعتمد (اثنين+خميس لمقرّر ساعتين) لا يُقترح");
+const mixedApplied = judgeRequest(ask({ days: mixedHistory.shapes?.[0]?.days as any || [], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
+check(mixedApplied.sendable && !mixedApplied.needsExcuse, "وما يُقترح بدلاً منه يمرّ بلا منعٍ ولا استثناء");
+/* مختبرٌ أربع ساعات يوماً واحداً: طلبُ اثنين+أربعاء عند ١٧:٠٠ — اليوم الواحد لا يتّسع (ينتهي بعد ٢٠:٠٠) فتبقى معه أنماطُ اللائحة القابلة للتطبيق. */
+const lateLab = judgeRequest(ask({ days: ["fmonday", "fwednesday"], start: "17:00" }), labContext);
+check(!lateLab.sendable && lateLab.shapes?.[0]?.days.join() === "fwednesday" && (lateLab.shapes?.length || 0) > 1, "ومختبرٌ طلب بداية مسائية لا يتّسع لها يومُه الواحد: يبقى يومُه أولاً ومعه بدائل");
+const lateAlt = lateLab.shapes?.find(shape => shape.days.length > 1);
+const lateApplied = judgeRequest(ask({ days: lateAlt?.days as any || [], start: "17:00" }), labContext);
+check(Boolean(lateAlt) && lateApplied.sendable, "والبديل يمرّ عند البداية نفسها");
 const labShapes = judgeRequest(ask({ days: ["fmonday", "fwednesday"] }), labContext);
 check(labShapes.shapes?.length === 1 && labShapes.shapes?.[0]?.days.join() === "fwednesday", "ومقرّرٌ درج يوماً واحداً: يُقترح يومُه وحدَه، بلا نمط محاضرات");
 check(/suggestNature: priorHabits/.test(fs.readFileSync("server.ts", "utf8")) && /Number\(row\.AdTermId\) < beforeTermId/.test(fs.readFileSync("server.ts", "utf8")), "والمعتاد المقترَح يُتعلَّم من الفصول السابقة للفصل الجاري وحدها");
