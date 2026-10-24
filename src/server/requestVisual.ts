@@ -105,7 +105,17 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .why p{margin:4px 0 0;line-height:1.7}
 
 .alts.shapes button{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;min-block-size:44px}
-.sp{display:inline-flex;flex-direction:column;align-items:center;gap:2px}
+.sp{display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:0 4px}
+.sp b{font-size:13px;color:var(--ink)}
+.sp small{font:700 11.5px/1.2 "Plex Arabic",Tahoma,sans-serif!important;color:var(--muted);letter-spacing:0!important}
+.alts.shapes button{flex-direction:row!important;gap:10px!important;font-family:inherit}
+.alts button .alt-d,.sp b{font-family:"Plex Arabic",-apple-system,"Segoe UI",Tahoma,sans-serif!important;letter-spacing:0!important}
+.dname{text-decoration:none;display:inline-block;padding:2px 8px;border-radius:7px;font-size:11.5px;font-weight:700;background:var(--soft);color:var(--ink)}
+.alt-d{font-size:11.5px;color:var(--muted);font-weight:600}
+.own-msg{display:flex;gap:8px;align-items:flex-start;margin:8px 0 0;padding:10px 12px;border-radius:12px;background:var(--bad2);color:var(--bad);font-size:13px}
+.own-msg>.sk-gi{flex:none;width:16px;height:16px;margin-top:2px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.own-msg>span{display:flex;flex-direction:column;gap:6px}
+.starts button[data-own-clash]{opacity:.45;text-decoration:line-through;cursor:not-allowed}
 .sp u{text-decoration:none;display:grid;place-items:center;width:22px;height:22px;border-radius:7px;font-size:11.5px;font-weight:700;background:var(--ok2);color:var(--ok)}
 .sp b{font:700 11px/1 ui-monospace,monospace;color:var(--muted);direction:ltr}
 .advice .vshort{color:var(--warn)}
@@ -155,7 +165,7 @@ var SKCAT=[
  [/^يتجاوز هذا نصابك/,"layers","يتجاوز نصابك"],
  [/^لديك محاضرةٌ أخرى في هذا الوقت/,"alert","تعارض مع محاضرتك"]
 ];
-function skDayPill(label){var l=String(label||"").trim();return SKDN[l]?'<u>'+SKDN[l]+'</u>':""}
+function skDayPill(label){var l=String(label||"").trim();return l?'<u class="dname">'+esc(l)+'</u>':""}
 /* ما يُرسم لا يُكتب: محاضرتُك المتعارضة بطاقةً (اسمٌ ويومٌ ووقت)، والنصابُ رقمين، والمادةُ شارةً. */
 function skExtra(n){var m;
  if((m=/^لديك محاضرةٌ أخرى في هذا الوقت: (.+?) — (\S*)\s*(\d\d?:\d\d)[–-](\d\d?:\d\d)/.exec(n)))
@@ -170,20 +180,25 @@ function skAlertParts(n){n=String(n||"");
  return null}
 /* جملةُ الحكم قصيرةً بأيقونة، وأصلُها كاملاً تحت «التفاصيل» فلا يضيع منه شيء. */
 function skVerdict(it){var n=String(it&&it.note||""),full=verdictText(it),ic="",short="",extra="";
- if(/لا يغطّيها/.test(n)){ic="cal";short=it.shapes&&it.shapes.length?"الأيام لا تغطي الساعات · اختر نمطاً":"الساعات تحتاج توزيع القسم"}
+ if(/لا يغطّيها/.test(n)){ic="cal";var hrs=/هذا المقرّر (.+?) أسبوعياً/.exec(n);short=(hrs?"المقرر "+hrs[1]+" أسبوعياً · ":"")+(it.shapes&&it.shapes.length?"اختر أياماً تغطيها:":"توزيعها يحدّده القسم")}
  else{var p=skAlertParts(n);if(p){ic=p.ic;short=p.short;extra=p.extra}}
  if(!short||(short===full&&!extra))return esc(full);
  return '<span class="vshort">'+gi(ic)+esc(short)+'</span>'+extra+'<details class="why"><summary>التفاصيل</summary><p>'+esc(full)+'</p></details>'}
 /* قرارُ القسم: سببُ الرفض رمزاً وكلمات قليلة. */
 var SKREASON={room:["door","لا قاعة في الوقت المطلوب"],instructor:["alert","تعارض مع أستاذ آخر"],regulation:["shield","مخالفة للائحة"],cohort:["alert","تقاطع مع طلبة مشتركين"],load:["layers","النصاب"],department:["cal","قرار القسم"],other:["alert","سبب آخر"]};
 function skReason(code,askedAt){var r=SKREASON[code];if(!r)return "";return '<span class="vshort">'+gi(r[0])+esc(r[1])+'</span>'+(askedAt?'<span class="vrow"><bdi dir="ltr">'+esc(askedAt)+'</bdi></span>':"")}
-function skAltBtn(ds,start){return skPills(ds)+'<b class="bp-t">'+esc(start)+'</b>'}
+function skAltBtn(ds,start){return '<small class="alt-d">'+esc(fmtDays(ds))+'</small><b class="bp-t">'+esc(start)+'</b>'}
+/* «عندك محاضرة في هذا الوقت»: أيُّها، وفي أيّ يومٍ ووقت. */
+function skOwnClash(it,i,t){var d=it.days||[],s=mins(t),e=mins(endOf(d,t,it.blk));
+ var o=othersFor(i).filter(function(o){return o.d.some(function(x){return d.indexOf(x)>=0})&&s<o.e&&o.s<e})[0];
+ if(!o)return "";var day=o.d.filter(function(x){return d.indexOf(x)>=0}).map(function(x){var f=DAYS.filter(function(y){return y[0]===x})[0];return f?f[1]:x}).join(" · ");
+ return '<div class="own-msg" role="status">'+gi("alert")+'<span><b>'+esc(t)+' غير متاح لك</b><span class="vcard"><b>'+esc(o.n)+'</b><span class="vrow"><u class="dname">'+esc(day)+'</u><bdi dir="ltr">'+clock(o.s)+' – '+clock(o.e)+'</bdi></span></span></span></div>'}
 function skAdvice(t){t=String(t||"");var m=/^موعدك الحالي أقصر من ساعات المقرّر \(([^)]+)\)/.exec(t);
  if(!m)return '<p class="advice" role="note">'+esc(t)+'</p>';
  return '<p class="advice" role="note"><span class="vshort">'+gi("alert")+'أقصر من ساعات المقرر ('+esc(m[1])+')</span></p><details class="why"><summary>التفاصيل</summary><p>'+esc(t)+'</p></details>'}
 /* «الاثنين 80د · الأربعاء 80د · الخميس 50د» أيامٌ بأحرفها ودقائقها. */
 function skShape(label){var parts=String(label||"").split("·").map(function(x){return x.trim()}).filter(Boolean),out="";
- parts.forEach(function(p){var m=/^(\S+)\s+([0-9]+)/.exec(p);if(m&&SKDN[m[1]])out+='<span class="sp"><u>'+SKDN[m[1]]+'</u><b>'+m[2]+'</b></span>';else out+='<span class="sp">'+esc(p)+'</span>'});
+ parts.forEach(function(p){var m=/^(\S+)\s+([0-9]+)/.exec(p);if(m)out+='<span class="sp"><b>'+esc(m[1])+'</b><small>'+m[2]+' د</small></span>';else out+='<span class="sp">'+esc(p)+'</span>'});
  return out||esc(label)}
 function skCid(it){return (it&&(it.courseId||(it.before&&it.before.courseId)||(it.after&&it.after.courseId)))||courseOf(it)}
 function skAssignColors(){SKC.assign(state.map(skCid))}

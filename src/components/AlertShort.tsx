@@ -33,8 +33,6 @@ const CATALOG: Array<[RegExp, Icon, string]> = [
   [/^الأستاذ .+ لديه محاضرة متداخلة/, UserX, "تعارض مع محاضرة للأستاذ"],
 ];
 
-const DAY_LETTER: Record<string, string> = { "الأحد": "ح", "الاثنين": "ن", "الثلاثاء": "ث", "الأربعاء": "ر", "الخميس": "خ" };
-
 /** جملةٌ قصيرة بأيقونة، وشارةُ المادة أو بطاقةُ الموعد المتعارض إن وُجدت، والأصلُ تحت «التفاصيل». */
 export default function AlertShort({ text, detail, fallbackIcon = AlertTriangle }: { text: string; detail?: string; fallbackIcon?: Icon }) {
   const full = String(text || "");
@@ -54,7 +52,7 @@ export default function AlertShort({ text, detail, fallbackIcon = AlertTriangle 
     <span className="alert-short">
       <b className="as-head"><IconOf aria-hidden="true" />{short}</b>
       {clash ? (
-        <span className="as-card"><b>{clash[1]}</b><span className="as-row">{DAY_LETTER[clash[2]] ? <u>{DAY_LETTER[clash[2]]}</u> : null}<bdi dir="ltr">{clash[3]} – {clash[4]}</bdi></span></span>
+        <span className="as-card"><b>{clash[1]}</b><span className="as-row">{clash[2] ? <u>{clash[2]}</u> : null}<bdi dir="ltr">{clash[3]} – {clash[4]}</bdi></span></span>
       ) : null}
       {load ? (
         <span className="as-stat"><b>{load[1]}</b><em>{load[2]}</em><i aria-hidden="true">/</i><small>{load[3]}<br />النصاب</small></span>
@@ -63,7 +61,7 @@ export default function AlertShort({ text, detail, fallbackIcon = AlertTriangle 
       {detailClash ? (
         <span className="as-card"><b>{detailClash[1]}</b><span className="as-row"><Clock3 aria-hidden="true" /><bdi dir="ltr">{detailClash[2]} – {detailClash[3]}</bdi></span></span>
       ) : rhythm ? (
-        <span className="as-stat">{DAY_LETTER[rhythm[1]] ? <u className="as-day">{DAY_LETTER[rhythm[1]]}</u> : null}<small>المعتاد</small><b>{rhythm[2]}</b><i aria-hidden="true">←</i><small>هذا</small><b>{rhythm[3]}</b><small>د</small></span>
+        <span className="as-stat"><u className="as-day">{rhythm[1]}</u><small>المعتاد</small><b>{rhythm[2]}</b><i aria-hidden="true">←</i><small>هذا</small><b>{rhythm[3]}</b><small>د</small></span>
       ) : detail ? <small className="as-detail">{detail}</small> : null}
       {shortened ? <details className="as-why"><summary>التفاصيل</summary><p>{full}{detail ? <><br />{detail}</> : null}</p></details> : null}
     </span>
