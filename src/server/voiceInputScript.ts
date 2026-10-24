@@ -41,7 +41,7 @@ function viJoin(base,chunk,limit){
  return (base+sep+add).slice(0,limit)}
 
 /* ── المتحكّم ───────────────────────────────────────────────────────────── */
-var VI={active:null,limit:__VI_LIMIT__,seconds:__VI_SECONDS__,onText:null,restarts:0};
+var VI={active:null,closing:null,pending:null,limit:__VI_LIMIT__,seconds:__VI_SECONDS__,onText:null,restarts:0};
 VI.Rec=function(){return window.SpeechRecognition||window.webkitSpeechRecognition||null};
 VI.ok=function(){return !!VI.Rec()};
 VI.RING='<svg class="vi-ring" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle class="vi-track" cx="24" cy="24" r="21"/><circle class="vi-arc" cx="24" cy="24" r="21" pathLength="100"/></svg>';
@@ -77,13 +77,18 @@ VI.write=function(key,value){var f=VI.field(key);if(f){f.value=value}
  if(VI.onText)VI.onText(key,value);VI.count(key)};
 VI.apply=function(){var a=VI.active;if(!a)return;VI.write(a.key,viJoin(a.base,a.final+" "+a.interim,VI.limit))};
 VI.stop=function(why){var a=VI.active;if(!a)return;VI.active=null;clearInterval(a.timer);
- try{a.rec.onend=null;a.rec.onerror=null;a.rec.onresult=null;a.rec.stop()}catch(e){}
- /* ما استقرّ يُثبَّت بلا الجزء المؤقّت الذي لم يُحسم. */
- VI.write(a.key,viJoin(a.base,a.final,VI.limit));
+ /* الآيفون يُبقي الكلامَ «مؤقّتاً» حتى آخره، فما ظهر للأستاذ يُثبَّت كلُّه (النهائيُّ والمؤقّت)، لا يُرمى المؤقّتُ فيُمحى ما رآه. */
+ VI.write(a.key,viJoin(a.base,a.final+" "+a.interim,VI.limit));
+ /* والمتصفّحُ لا يُغلق التسجيلَ فوراً: يُنتظر انتهاؤه قبل أن يبدأ تسجيلٌ جديد، وإلا رُفض الجديدُ بصمت. */
+ var rec=a.rec;VI.closing=rec;
+ try{rec.onresult=null;rec.onerror=function(){};rec.onend=function(){VI.afterClose(rec)};rec.stop()}catch(e){VI.afterClose(rec)}
+ setTimeout(function(){VI.afterClose(rec)},1200);
  VI.say(a.key,why||"");VI.paintActive()};
+VI.afterClose=function(rec){if(VI.closing!==rec)return;VI.closing=null;var k=VI.pending;VI.pending=null;if(k&&document.visibilityState!=="hidden")VI.start(k)};
 VI.start=function(key){
  var Rec=VI.Rec(),f=VI.field(key);if(!Rec||!f)return;
  if(VI.active){var same=VI.active.key===key;VI.stop();if(same)return}
+ if(VI.closing){VI.pending=key;VI.say(key,"لحظة…");return}
  var rec=new Rec();rec.lang="ar";rec.interimResults=true;rec.continuous=true;rec.maxAlternatives=1;
  var a=VI.active={key:key,rec:rec,base:f.value,final:"",interim:"",until:Date.now()+VI.seconds*1000,timer:0};
  VI.restarts=0;VI.say(key,"");
@@ -95,7 +100,7 @@ VI.start=function(key){
   /* انتهى قبل الوقت (صمتٌ طويل في بعض الهواتف): نُكمل إن بقي وقتٌ، بحدٍّ لا يدور بلا نهاية. */
   if(VI.active!==a)return;
   if(Date.now()<a.until-1500&&VI.restarts<3){VI.restarts++;
-   a.base=viJoin(a.base,a.final,VI.limit);a.final="";a.interim="";
+   a.base=viJoin(a.base,a.final+" "+a.interim,VI.limit);a.final="";a.interim="";
    try{rec.start();return}catch(err){}}
   VI.stop("")};
  try{rec.start()}catch(err){VI.active=null;VI.say(key,"تعذّر بدء الإملاء. اكتب بيدك.");return}
@@ -112,7 +117,7 @@ VI.wire=function(onText){VI.onText=onText||VI.onText;
  if(VI.active&&!VI.field(VI.active.key))VI.stop("");
  VI.paintActive()};
 document.addEventListener("input",function(e){var t=e.target,k=t&&t.getAttribute&&t.getAttribute("data-vi-field");if(k)VI.count(k)});
-document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden"&&VI.active)VI.stop("")});
+document.addEventListener("visibilitychange",function(){if(document.visibilityState!=="hidden")return;VI.pending=null;if(VI.active)VI.stop("")});
 `;
 
 /** الأنماط: حلقةٌ تُفرَغ حول الزرّ ونبضٌ خفيف أثناء الإملاء، ويُوقَف النبضُ لمن طلب تقليل الحركة. */
