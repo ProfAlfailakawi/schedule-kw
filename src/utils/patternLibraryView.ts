@@ -32,7 +32,7 @@ const nf = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
 export function patternLibraryHtml(input: PatternLibraryInput): string {
   const groups = input.groups.map(group => {
     const cards = group.patterns.map(pattern => {
-      const label = `${pattern.days.map(day => DAY_FULL[day]).join("، ")} — ${pattern.minutesPerDay.map(nf).join(" + ")} دقيقة`;
+      const label = `${pattern.days.map(day => DAY_FULL[day]).join("، ")} — ${pattern.minutesPerDay.map(nf).join(" + ")} د`;
       const week = DAY_KEYS.map(day => {
         const at = pattern.days.indexOf(day);
         if (at < 0) return `<span class="plib-d"><i class="plib-bar is-off"></i><u>${DAY_INITIAL[day]}</u></span>`;
