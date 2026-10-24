@@ -32,16 +32,18 @@ import {
 } from "./ui";
 
 type Mode = "index" | "create" | "edit";
-type PlanFilter = "all" | "new" | "old";
+type PlanFilter = "all" | "new" | "old" | "service";
 /** Which generation a course belongs to, from the live plans the server tagged it with. */
-const planTagOf = (course: any): { key: "new" | "old" | "shared"; label: string } | null => {
+const planTagOf = (course: any): { key: "new" | "old" | "shared" | "service"; label: string } | null => {
   const plans: Array<{ status: string; name: string }> = Array.isArray(course?.curriculum) ? course.curriculum : [];
-  if (!plans.length) return null;
+  if (!plans.length) return serviceOf(course).length ? { key: "service", label: "متطلب لأقسام أخرى" } : null;
   const isNew = plans.some(plan => plan.status === "active"), isOld = plans.some(plan => plan.status === "transition");
   if (isNew && isOld) return { key: "shared", label: "مشترك بين الصحيفتين" };
   if (isNew) return { key: "new", label: plans.find(plan => plan.status === "active")?.name || "الصحيفة الجديدة" };
   return { key: "old", label: plans.find(plan => plan.status === "transition")?.name || "الصحيفة السابقة" };
 };
+/** Departments whose live sheets require this course although it is in none of its own department's sheets. */
+const serviceOf = (course: any): string[] => Array.isArray(course?.serviceFor) ? course.serviceFor : [];
 type CurriculumTarget = {
   loading: boolean;
   bootstrap: boolean;
@@ -401,7 +403,9 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       if (listSection) list = list.filter((x) => x.AdSectionId === listSection);
       if (listPlan !== "all") list = list.filter((x) => {
         const tag = planTagOf(x);
-        return tag && (tag.key === "shared" || tag.key === listPlan);
+        if (listPlan === "service") return serviceOf(x).length > 0;
+        // A service course is current teaching load whichever sheet the filter names.
+        return tag && (tag.key === "shared" || tag.key === "service" || tag.key === listPlan);
       });
       const base = q
         ? list.filter((x) =>
@@ -636,6 +640,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                 <option value="all">كل الصحائف</option>
                 <option value="new">الصحيفة الجديدة</option>
                 <option value="old">الصحيفة السابقة</option>
+                <option value="service">متطلب لأقسام أخرى</option>
               </select>
             ) : null}
           </ListToolbar>
@@ -650,7 +655,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                   className={activeId === x.AdCourseId ? "selected" : ""}
                   icon={<BookOpen />}
                   title={<span className="course-room-type-line"><span>{x.CourseName}<PlanBadge courseId={x.AdCourseId} /></span><CourseRoomTypeBadge type={x.CourseRoomType}/></span>}
-                  subtitle={<span className="record-path"><Building2 />{sec(x.AdSectionId)} <i className="record-path-dot" aria-hidden="true" /> {coll(x.AdCollegeId)}</span>}
+                  subtitle={<span className="record-path"><Building2 />{sec(x.AdSectionId)} <i className="record-path-dot" aria-hidden="true" /> {coll(x.AdCollegeId)}{serviceOf(x).length ? <> <i className="record-path-dot" aria-hidden="true" /> متطلب لأقسام أخرى</> : null}</span>}
                   meta={<><MetaPill label="الرقم الأكاديمي" value={x.CourseCode} /><MetaPill label="الوحدات" value={x.CourseCredit} /><MetaPill label="الساعات" value={x.CourseHours} /></>}
                 />
               ))}
@@ -673,6 +678,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
               <span className="surface-kicker">تفاصيل المقرر</span>
               <h2 className="course-room-type-line"><span>{selected.CourseName}<PlanBadge courseId={selected.AdCourseId} /></span><CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
               <p>{sec(selected.AdSectionId)} · {coll(selected.AdCollegeId)}</p>
+              {serviceOf(selected).length ? <p className="course-service-for">متطلب في صحائف: {serviceOf(selected).join("، ")}</p> : null}
               <div className="inspector-facts inspector-facts-pairs">
                 <article><span>الوحدات</span><b>{selected.CourseCredit}</b></article>
                 <article><span>الساعات</span><b>{selected.CourseHours}</b></article>
