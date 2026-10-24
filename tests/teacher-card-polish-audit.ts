@@ -86,6 +86,33 @@ check(habitualBlockMinutes(natureOf(100, [16, 17, 18]).get(100), 17) === undefin
 const hour = withHistory(natureOf(100, [16, 17, 18], { fwednesday: false, fmonday: true, fstarttime: "09:00", fendtime: "09:50" }), 1);
 const hourMoved = judgeRequest(ask({ days: ["fmonday"], start: "10:00" }), hour);
 check(hourMoved.sendable && hourMoved.computedEnd === "10:50", "ومقرّرٌ بساعةٍ واحدة اعتاد خمسين دقيقة لا يصير ثمانين لأن اليوم اثنين");
+/* ── الأنماطُ المقترحة تُبنى من نمط المقرّر نفسه أولاً — والمنعُ كما هو ───────────── */
+const noRows = (ctx: any) => ({ ...ctx, allRows: [] as any[], instructorRowsAfter: [] as any[] });
+const monWedNature = natureOf(100, [16, 17, 18], { fmonday: true, fwednesday: true, fstarttime: "09:00", fendtime: "10:20" });
+const blockedOneDay = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
+check(!blockedOneDay.sendable && blockedOneDay.reasons.some(reason => reason.source === "shape" && reason.blocking), "ثلاثُ ساعاتٍ في يومٍ واحد يبقى ممنوعاً كما كان (المنعُ لم يتغيّر)");
+check(blockedOneDay.shapes?.[0]?.days.join() === "fmonday,fwednesday" && /^المعتاد/.test(blockedOneDay.shapes?.[0]?.label || ""), "وأولُ ما يُقترح نمطُ المقرّر المعتاد (اثنين+أربعاء) لا نمطُ اللائحة الأول (أحد+ثلاثاء+خميس)");
+check(/المعتاد: الاثنين 80د/.test(blockedOneDay.reasons.find(reason => reason.source === "shape")?.text || ""), "ونصُّ «جرّب» يذكر المعتاد نفسَه");
+const appliedUsual = judgeRequest(ask({ days: blockedOneDay.shapes?.[0]?.days as any || [], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
+check(appliedUsual.sendable && !appliedUsual.reasons.some(reason => reason.source === "shape"), "وتطبيقُ المقترح يمرّ من الفاحص نفسه بلا منع");
+const noHistoryAsk = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows({ ...context(3), nature: null }));
+check(!noHistoryAsk.sendable && noHistoryAsk.shapes?.[0]?.days.join() === "fsunday,ftuesday,fthursday" && !/المعتاد/.test(noHistoryAsk.shapes?.[0]?.label || ""), "ومقرّرٌ بلا تاريخ: أنماطُ اللائحة كما كانت");
+/* مقرّرٌ ساعتان درج اثنين+خميس (٨٠+٥٠ خارج أنماط الساعتين): لا يُقترح لأن تطبيقه يطلب استثناءً — يُقترح ما يمرّ بلا استثناء. */
+const monThuNature = natureOf(100, [16, 17, 18], { fmonday: true, fwednesday: false, fthursday: true, fstarttime: "09:00", fendtime: "10:20" });
+const mixedHistory = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
+check(!mixedHistory.sendable && mixedHistory.shapes?.length && !mixedHistory.shapes.some(shape => shape.days.join() === "fmonday,fthursday"), "ونمطٌ معتادٌ مختلط خارج المعتمد (اثنين+خميس لمقرّر ساعتين) لا يُقترح");
+const mixedApplied = judgeRequest(ask({ days: mixedHistory.shapes?.[0]?.days as any || [], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
+check(mixedApplied.sendable && !mixedApplied.needsExcuse, "وما يُقترح بدلاً منه يمرّ بلا منعٍ ولا استثناء");
+/* مختبرٌ أربع ساعات يوماً واحداً: طلبُ اثنين+أربعاء عند ١٧:٠٠ — اليوم الواحد لا يتّسع (ينتهي بعد ٢٠:٠٠) فتبقى معه أنماطُ اللائحة القابلة للتطبيق. */
+const lateLab = judgeRequest(ask({ days: ["fmonday", "fwednesday"], start: "17:00" }), labContext);
+check(!lateLab.sendable && lateLab.shapes?.[0]?.days.join() === "fwednesday" && (lateLab.shapes?.length || 0) > 1, "ومختبرٌ طلب بداية مسائية لا يتّسع لها يومُه الواحد: يبقى يومُه أولاً ومعه بدائل");
+const lateAlt = lateLab.shapes?.find(shape => shape.days.length > 1);
+const lateApplied = judgeRequest(ask({ days: lateAlt?.days as any || [], start: "17:00" }), labContext);
+check(Boolean(lateAlt) && lateApplied.sendable, "والبديل يمرّ عند البداية نفسها");
+const labShapes = judgeRequest(ask({ days: ["fmonday", "fwednesday"] }), labContext);
+check(labShapes.shapes?.length === 1 && labShapes.shapes?.[0]?.days.join() === "fwednesday", "ومقرّرٌ درج يوماً واحداً: يُقترح يومُه وحدَه، بلا نمط محاضرات");
+check(/suggestNature: priorHabits/.test(fs.readFileSync("server.ts", "utf8")) && /Number\(row\.AdTermId\) < beforeTermId/.test(fs.readFileSync("server.ts", "utf8")), "والمعتاد المقترَح يُتعلَّم من الفصول السابقة للفصل الجاري وحدها");
+
 const multi = withHistory(new Map([[100, learnCourseNature(100, [16, 17, 18].flatMap((term, k) => [
   row({ id: 800 + k * 2, AdTermId: term, fmonday: true, fwednesday: true, fthursday: false, fsunday: false, fstarttime: "09:00", fendtime: "10:20" }),
 ])) ! ]]));

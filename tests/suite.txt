@@ -140,5 +140,6 @@ test:visiting-badge-g1
 test:visiting-badge-g2
 test:visiting-badge-g3
 test:visiting-badge-g4
+test:visiting-status
 audit:guide
 test:lecture-length

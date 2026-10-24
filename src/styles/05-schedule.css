@@ -8690,3 +8690,10 @@ html[data-schedule-workspace="presentation"] .schedule-status{padding:0;border:0
 
 /* شارة «منتدب» في كتالوج الأساتذة: غلافٌ يحمل تلميح قسم الانتداب دون أن يغيّر شكل الشارة الموحّدة. */
 .instructor-delegate-mark{display:inline-flex;align-items:center}
+
+/* سببُ التعارض تحت رقائق الموعد: يقول ما هو ولا يكتفي بعدّه. */
+.context-conflict-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.context-conflict-list li { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--danger, #b3402f) 8%, var(--surface, #fff)); border: 1px solid color-mix(in srgb, var(--danger, #b3402f) 22%, transparent); font-size: var(--t-sm); line-height: 1.6; }
+.context-conflict-list li > svg { flex: none; width: 16px; height: 16px; margin-top: 3px; color: var(--danger, #b3402f); }
+.context-conflict-list li > span { display: grid; gap: 2px; min-width: 0; }
+.context-conflict-list li small { color: var(--muted); }

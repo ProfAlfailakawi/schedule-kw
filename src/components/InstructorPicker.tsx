@@ -38,6 +38,8 @@ interface Props {
   departmentIds: number[];
   /** Delegates explicitly selected to teach in the open term. */
   visitingIds?: Iterable<number>;
+  /** من يُدرِّس هذا الفصل من المنتدبين: وحدهم يدخلون قائمة الاختيار. `visitingIds` للشارة فقط (الصفة دائمة). */
+  visitingRosterIds?: Iterable<number>;
   /** شاشات القراءة والتقارير تختار أستاذاً ولا تُنشئ واحداً: تُخفي الزر بدل
       أن تقود المستخدم إلى نموذج سيرفضه الخادم. الافتراضي هو السماح، فشاشات
       بناء الجدول لا تتغير. */
@@ -64,7 +66,7 @@ const withoutTitles = instructorCleanName;
 /** والمسافات نفسها لا تحجب: «عبد العزيز» يجد «عبدالعزيز». */
 const spaceless = (value: string) => value.replace(/ /g, "");
 
-export default function InstructorPicker({ value, onChange, instructors, departmentIds, visitingIds, canCreate = true, suggestedName = "", onCreated, onSelected, collegeId = 0, sectionId = 0, termId = 0, disabled, strictDepartmentOnly = false }: Props) {
+export default function InstructorPicker({ value, onChange, instructors, departmentIds, visitingIds, visitingRosterIds, canCreate = true, suggestedName = "", onCreated, onSelected, collegeId = 0, sectionId = 0, termId = 0, disabled, strictDepartmentOnly = false }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
@@ -134,6 +136,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
   }, [departmentIds, departmentRoster]);
   const departmentRank = useMemo(() => new Map(effectiveDepartmentIds.map((id, index) => [id, index])), [effectiveDepartmentIds]);
   const visitingSet = useMemo(() => new Set(Array.from(visitingIds || [], Number).filter(Boolean)), [visitingIds]);
+  const rosterSet = useMemo(() => visitingRosterIds ? new Set(Array.from(visitingRosterIds, Number).filter(Boolean)) : visitingSet, [visitingRosterIds, visitingSet]);
 
   // A retired or sabbatical teacher keeps their existing appointments but is not
   // offered for new ones, so their name stops appearing where it should not (Note 2).
@@ -151,7 +154,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
       return sectionId ? [] : sortByName<Instructor>(knownInstructors.filter(p => !isHidden(p)), person => person.AdInstructorName);
     }
     const pool = strictDepartmentOnly
-      ? knownInstructors.filter(person => departmentRank.has(person.AdInstructorId) || visitingSet.has(person.AdInstructorId))
+      ? knownInstructors.filter(person => departmentRank.has(person.AdInstructorId) || rosterSet.has(person.AdInstructorId))
       : [...new Map([...knownInstructors, ...wider].map(person => [person.AdInstructorId, person])).values()];
     const scored = pool
       .map(person => {
@@ -177,7 +180,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
         byArabic(a.person.AdInstructorName, b.person.AdInstructorName))
       .slice(0, 40)
       .map(x => x.person);
-  }, [query, knownInstructors, wider, effectiveDepartmentIds, byId, departmentRank, sectionId, strictDepartmentOnly, visitingSet]);
+  }, [query, knownInstructors, wider, effectiveDepartmentIds, byId, departmentRank, sectionId, strictDepartmentOnly, rosterSet]);
 
   useEffect(() => {
     if (!open) return;
