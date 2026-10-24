@@ -464,7 +464,14 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     const heldMinutes = DAY_KEYS.filter(day => (ownRow as any)[day]).length * (toMinutes(ownRow.fendtime) - toMinutes(ownRow.fstarttime));
     if (heldHours > 0 && heldMinutes < minWeeklyMinutesFor(heldHours)) {
       const wanted = minWeeklyMinutesFor(heldHours);
-      const offered = patternsForHours(heldHours)
+      /* الاقتراحُ يبدأ من تاريخ القسم مع هذا المقرر، ثم من أنماط اللائحة إن لم يكن له تاريخٌ يصلح (القاعدةُ نفسُها في الاقتراح عند المنع). */
+      const approvedFor = (days: DayKey[]) => patternsForHours(heldHours).some(pattern => pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
+      const mixedWithoutApproval = (days: DayKey[]) => days.some(day => expectedMinutesForDay(day) === 50) && days.some(day => expectedMinutesForDay(day) !== 50) && !approvedFor(days);
+      const usual = historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId);
+      const usualShapes = (usual?.patterns || [])
+        .filter(days => days.length > 1 && days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= wanted && !mixedWithoutApproval(days))
+        .map(days => ({ days, label: `المعتاد: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
+      const offered = usualShapes.length ? usualShapes : patternsForHours(heldHours)
         .filter(pattern => pattern.days.length > 1 && pattern.days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= wanted)
         .map(pattern => ({ days: [...pattern.days] as DayKey[], label: pattern.label }));
       stay.shapes = offered.slice(0, 3);
