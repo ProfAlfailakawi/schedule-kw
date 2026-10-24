@@ -127,9 +127,9 @@ export function createReconciler(input: ReconcilerInput) {
       if (twin && twin !== row) { log("ربط بالسجل المدرَّس", { code, name: t.name, twin: twin.AdCourseId, twinCode: twin.CourseCode, replaces: row?.AdCourseId }); row = twin; }
     }
     let distinct = false;
-    /* سجلٌّ باسم مقررٍ آخر تماماً لا يُعاد تسميته أبداً (مستعمَلاً أو لا): يُنشأ للصحيفة مقررٌ مستقل برمزه الكامل.
-       كان يُعاد تسمية غير المستعمَل، فتختلف النتيجة بحسب ترتيب الرفع (يصير مستعمَلاً بعد صحيفةٍ أخرى). */
-    if (row && nameRelation(row.CourseName, t.name) === "different") {
+    /* سجلٌّ باسم مقررٍ آخر تماماً ودُرِّس لا يُعاد تسميته: يُنشأ للصحيفة مقررٌ مستقل برمزه الكامل. الحكم بالتدريس وحده
+       (تاريخٌ ثابت) لا بالربط بصحيفةٍ أخرى، فلا تختلف النتيجة بحسب ترتيب الرفع. */
+    if (row && nameRelation(row.CourseName, t.name) === "different" && taught.has(Number(row.AdCourseId))) {
       const full = coursesIn(sid).find(item => academicDigits(item.CourseCode) === code);
       log("رقم لمقرر آخر", { code, catalog: row.CourseName, sheet: t.name, resolved: full ? "مقرر مستقل قائم" : "يُنشأ مقرر مستقل" });
       row = full; distinct = true;
@@ -286,6 +286,16 @@ export function sheetHomeCode(sheet: { program: string; programName?: string; co
   const counts = new Map<string, number>();
   for (const course of sheet.courses.filter(row => row.sectionNo === 2)) { const dept = CODE_ALIAS[course.dept] || course.dept; counts.set(dept, (counts.get(dept) || 0) + 1); }
   return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+}
+
+/** صاحبُ الصحيفة بين أقسام النظام: صحيفة المسار لصاحبها برمزه وحده؛ والرئيسية تُقبل لقسمٍ رمزه خطأٌ يدوي (يُصحَّح إليها)،
+ *  ولا تُقبل لوحدةٍ أو برنامجٍ في كليةٍ فيها قسمٌ رمزُه رمزُ الصحيفة («وحدة اللغة الإنجليزية» 30 والقسم 18 قائم). */
+export function ownsSheet(sheet: Parameters<typeof sheetHomeCode>[0], section: { AdCollegeId?: unknown; AdSectionCode?: unknown; AdSectionName?: unknown }, all: ReadonlyArray<{ AdCollegeId?: unknown; AdSectionCode?: unknown }>): boolean {
+  if (isSheetHome(sheet, section)) return true;
+  if (trackProgramOf(sheet)) return false;
+  /* «قسمٌ» برمزٍ خطأ يُقبل ويُصحَّح؛ «وحدةٌ» أو «برنامجٌ» يشبه اسمُه القسمَ لا يحمل صحيفته ما دام القسم قائماً. */
+  if (/^قسم/.test(String(section.AdSectionName || "").trim())) return true;
+  return !all.some(row => Number(row.AdCollegeId) === Number(section.AdCollegeId) && isSheetHome(sheet, row));
 }
 
 /** هل القسمُ صاحبُ الصحيفة؟ القسمُ الذي يمدّها بمقرراتٍ فقط (علم النفس، المناهج، وحدة اللغة…) لا يحمل نسخةً منها. */

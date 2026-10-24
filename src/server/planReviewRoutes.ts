@@ -37,7 +37,7 @@ import { academicDigits, authorityDepartmentCode } from "../utils/authorityAcade
 import { branchAudience } from "../utils/referenceApply";
 import { correctCourseName } from "../utils/courseNameCorrection";
 import { courseNameRelation } from "../utils/courseNameRelation";
-import { PRINTED_NAME_FIXES, createReconciler, isCombinedSheet, isSpecialEducationSheet, isSheetHome, trackProgramOf, type SheetTruth } from "./sheetReconcile";
+import { PRINTED_NAME_FIXES, createReconciler, isCombinedSheet, isSpecialEducationSheet, isSheetHome, ownsSheet, trackProgramOf, type SheetTruth } from "./sheetReconcile";
 import { blockingWarnings, checkSheetScope, correctedNames, isNewSheet, sheetKey, sheetNameMatches, sheetOwnKey, sheetSectionCode, sheetSectionName, ownCourses, sheetToReference, storedCode } from "../utils/planSheetImport";
 import { parsePlanItems } from "../utils/planPdfParser";
 import { extractPlanItems, PLAN_PDF_MAX_BYTES } from "./planPdfExtract";
@@ -1091,7 +1091,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     let sheet;
     try { sheet = parsePlanItems(await extractPlanItems(body)); }
     catch (error) { reject("unreadable", error instanceof Error && /[؀-ۿ]/.test(error.message) ? error.message : "تعذّرت قراءة الملف. ارفع «الخطة الدراسية» PDF كما تطبعها SWRCAPP."); return; }
-    if (isCombinedSheet(sheet)) { reject("combined", `الملف يجمع عدة صحائف (${sheet.degreeUnits} وحدة). ارفع كل مسارٍ بملفه.`); return; }
+    if (isCombinedSheet(sheet)) { reject("combined", `الملف يجمع عدة صحائف (${countOf(sheet.degreeUnits, AR.unit)}). ارفع كل مسارٍ بملفه.`); return; }
     const by = deps.actorName(req);
     const scopeOf = (section: any) => {
       const college = (colleges as any[]).find(row => Number(row.AdCollegeId) === Number(section.AdCollegeId));
@@ -1104,7 +1104,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       const rejectWith = (kind: string, message: string, extra: Record<string, unknown> = {}) => ({ status: 422, json: { error: message, rejection: { kind, message, ...extra } } });
       const sectionId = Number(target.AdSectionId);
       const scope = scopeOf(target);
-      const rejection = checkSheetScope(sheet, scope, { force: (force && sectionId === Number(req.query.sectionId)) || Boolean(trackProgramOf(sheet) && programHome(sheet, target)) });
+      const rejection = checkSheetScope(sheet, scope, { force: (force && sectionId === Number(req.query.sectionId)) || Boolean(trackProgramOf(sheet) && ownsSheet(sheet, target, sections as any[])) });
       if (rejection) return { status: 422, json: { error: rejection.message, rejection } };
       /* القديمة تدخل «الصحيفة السابقة» وحدها: لا تسمّي القسم ولا تغيّر رمزه، وتصحّح اسم المقرر ووحداته وساعاته إلا مقرراً في صحيفة فعّالة (الكتالوج مشترك مع الجديدة). */
       const isNew = isNewSheet(sheet);
@@ -1113,7 +1113,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
 
       /* الصحيفةُ لمسارٍ كامل: بناتُ القسم (الرئيسي والجهراء والفحيحيل) صحيفةٌ واحدة، وللبنين مسارُهم. */
       const track = groupDeptTracks(sections as any[], colleges as any[]).find(item => [item.canonical, ...item.mirrors].some(row => Number(row.AdSectionId) === sectionId));
-      const targets = (track ? [track.canonical, ...track.mirrors] : [target]).map(row => (sections as any[]).find(item => Number(item.AdSectionId) === Number(row.AdSectionId))).filter(row => row && programHome(sheet, row)) as any[];
+      const targets = (track ? [track.canonical, ...track.mirrors] : [target]).map(row => (sections as any[]).find(item => Number(item.AdSectionId) === Number(row.AdSectionId))).filter(row => row && ownsSheet(sheet, row, sections as any[])) as any[];
       if (!targets.length) return rejectWith("department", "هذه صحيفة مسار لقسمٍ آخر: تُرفع لقسم برنامجها وحده.");
       const livePlansOf = (id: number) => Repository.getCurriculumPlans(id).then(rows => rows.filter(item => !item.virtual && item.status !== "archived"));
       /* الثنائية الرئيسية (الجديدة/السابقة) بلا صحائف المسارات، فهي لا تُزيحها ولا تُحسب فيها. */
@@ -1319,7 +1319,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       /* الاسم، أو رمز الهيئة الكامل (كلية+قسم) المطابق لرمز الصحيفة: «معلم الحاسب» و«حاسوب» برمزٍ واحد هو القسم نفسه. */
       const sameAuthorityCode = /^\d{4}$/.test(scope.departmentKey) && scope.departmentKey === sheetKey(sheet);
       /* صاحبُ الصحيفة برمزه وحده: «وحدة اللغة الإنجليزية» يطابق اسمُها صحيفةَ القسم ولا تحمل نسختها. */
-      if (!programHome(sheet, section)) return false;
+      if (!ownsSheet(sheet, section, list)) return false;
       /* صحيفة المسار تُطبع باسم القسم الإداري («علم التربية» لرياض الأطفال): صاحبُها برمزه يكفي. */
       if (trackProgramOf(sheet)) return checkSheetScope(sheet, scope, { force: true }) === null;
       return checkSheetScope(sheet, scope) === null && (sheetNameMatches(sheet, scope.sectionName) || sameAuthorityCode || sheetOwnKey(sheet, scope).umbrella);
