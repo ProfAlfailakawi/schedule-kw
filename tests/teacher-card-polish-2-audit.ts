@@ -90,5 +90,17 @@ check(page.includes("القسم يقترح عليك البدائل التالي�
 
 check(server.includes("keyGenerator: requestTokenKey") && server.includes('app.use("/api/public/request/:token", requestLinkLimit);') && server.includes('if (req.originalUrl.startsWith("/api/public/request/")) { next(); return; }'), "P8 حدودُ بطاقة الأستاذ لكل رابطٍ وسقفٌ لكل عنوان، لا عدّادٌ عامٌّ واحدٌ لكل عنوان");
 
+/* P9: «متطلب» بجانب المقرر في قوائم الإضافة والتعديل (القسم والأستاذ) */
+const schedules = readFileSync("src/components/Schedules.tsx", "utf8"), quick = readFileSync("src/components/QuickCreatePopover.tsx", "utf8");
+const badges = readFileSync("src/utils/planBadges.ts", "utf8"), shared = readFileSync("src/server/planBadgeShared.ts", "utf8"), reviewRoutes = readFileSync("src/server/planReviewRoutes.ts", "utf8");
+check(schedules.includes("badge: courseOptionBadge(formCourses.filter((c) => c.CourseName === name).map((c) => Number(c.AdCourseId)), planBadges)"), "P9 نافذة «إضافة موعد دراسي» وتعديله: «متطلب» بجانب المقرر");
+check(quick.includes("badge: courseOptionBadge([Number(c.AdCourseId)], planBadges)"), "P9 والإضافة السريعة من فراغ الجدول");
+check(badges.includes('const required = courseIds.some(id => serviceDepartmentsOf(id).length > 0) ? "متطلب" : "";') && badges.includes('[plan, required].filter(Boolean).join(" · ")'), "P9 الوسم «متطلب» يُضاف إلى شارة الصحيفة ولا يستبدلها");
+check(shared.includes("export async function serviceCourseKeys") && reviewRoutes.includes("setServiceSource(serviceRows);"), "P9 مصدرُ مقررات الخدمة مشتركٌ مع بطاقة الأستاذ (النمط نفسه لشارة الصحيفة)");
+check(reviewRoutes.includes('const serviceKey = createDataContextKey(() => Repository.currentDemoSessionId());') && reviewRoutes.includes("serviceCache.key === key"), "P9 ذاكرةُ مقررات الخدمة تحمل عالَمَها (dataContextCacheKey)");
+check(server.includes("...(services.has(`${Number(row.AdCourseId || 0)}:${scope.sectionId}`) ? { service: true } : {})"), "P9 خيارات الإضافة عند الأستاذ تحمل service للمقرر الخدمي وحده");
+check(page.includes("(c.service?'<i class=\"req-tag\">متطلب</i>':'')") && page.includes(".req-tag{"), "P9 قائمة «موعد جديد» عند الأستاذ: «متطلب» بجانب اسم المقرر");
+check(!page.includes("c.service?'hidden'") && page.includes("hidden><b>'+esc(c.name||c.code)+(c.service"), "P9 لا يُخفى مقرر ولا يتغيّر ترتيبه: وسمٌ فقط");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

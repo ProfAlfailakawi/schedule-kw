@@ -12,7 +12,7 @@ import {
 import { sortByName } from "../utils/sorting";
 import { toEnglishDigits } from "../utils/digits";
 import { isAssignableInstructor } from "../utils/instructorStatus";
-import { usePlanBadges } from "../utils/planBadges";
+import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 
@@ -228,7 +228,7 @@ export default function QuickCreatePopover({
             triggerRef={firstField}
             value={draft.courseId || ""}
             onChange={(picked) => chooseCourse(Number(picked) || 0)}
-            options={orderedCourses.map((c) => ({ value: c.AdCourseId, label: c.CourseName, badge: planBadges[Number(c.AdCourseId)] || undefined, hint: c.CourseCode || undefined, keywords: String(c.CourseCode || "") }))}
+            options={orderedCourses.map((c) => ({ value: c.AdCourseId, label: c.CourseName, badge: courseOptionBadge([Number(c.AdCourseId)], planBadges), hint: c.CourseCode || undefined, keywords: String(c.CourseCode || "") }))}
             placeholder="اختر المقرر…"
             ariaLabel="المقرر"
             searchPlaceholder="اكتب اسم المقرر أو رمزه"

@@ -12,3 +12,15 @@ export async function planBadgeFor(courseId: unknown, sectionId: unknown): Promi
     return row?.label || "";
   } catch { return ""; }
 }
+
+/** مقرراتُ الخدمة (تطلبها صحائفُ أقسامٍ أخرى): «رقم المقرر:رقم قسمه المالك». تضعها مسارات مراجعة الصحف وتقرؤها بطاقةُ الأستاذ. */
+type ServiceSource = () => Promise<Map<number, { sectionId: number }>>;
+let serviceSource: ServiceSource | null = null;
+export const setServiceSource = (next: ServiceSource) => { serviceSource = next; };
+export async function serviceCourseKeys(): Promise<Set<string>> {
+  if (!serviceSource) return new Set();
+  try {
+    const rows = await serviceSource();
+    return new Set([...rows].map(([courseId, row]) => `${courseId}:${row.sectionId}`));
+  } catch { return new Set(); }
+}
