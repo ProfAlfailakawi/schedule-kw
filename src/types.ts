@@ -198,7 +198,8 @@ export interface AdCourse {
   /** Optional room category that best fits this course (planner guidance only). */
   CourseRoomType?: string;
   /** Teaching mode used by regulation review; undefined means not yet classified. */
-  CourseTeachingMode?: "theoretical" | "practical" | "mixed";
+  /** mixed is retained only to read legacy records; new editor choices use the four explicit modes. */
+  CourseTeachingMode?: "theoretical" | "applied" | "practical" | "field_training" | "mixed";
 }
 
 /** Academic curriculum version for one scientific section. */

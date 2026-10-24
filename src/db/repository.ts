@@ -5311,6 +5311,18 @@ export const Repository = {
     return (db.scheduleShareLinks || []).find(row => row.id === id);
   },
 
+  /** Read a card's request links in one Firestore RPC instead of one round-trip per request. */
+  getShareLinksByIds: async (ids: string[]): Promise<ScheduleShareLink[]> => {
+    const unique = [...new Set(ids.map(String).filter(Boolean))].filter(id => !isDemoLinkToken(id) || demoSandboxContext.getStore());
+    if (!unique.length) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const docs = await firestoreDb.getAll(...unique.map(id => firestoreDb!.collection("scheduleShareLinks").doc(id)));
+      return docs.filter(doc => doc.exists).map(doc => doc.data() as ScheduleShareLink);
+    }
+    const byId = new Map((db.scheduleShareLinks || []).map(row => [row.id, row]));
+    return unique.map(id => byId.get(id)).filter((row): row is ScheduleShareLink => Boolean(row));
+  },
+
   revokeShareLink: async (id: string): Promise<void> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       await firestoreDb.collection("scheduleShareLinks").doc(id).set({ revoked: true }, { merge: true });

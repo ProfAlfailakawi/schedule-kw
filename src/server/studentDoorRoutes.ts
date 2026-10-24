@@ -605,7 +605,8 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       available: availableIds.filter(id => !prior.availableIds.includes(id)),
     } : null;
     if (termId && profile.visitSnapshot?.day !== day) {
-      await Repository.updateStudentProfile(fingerprint, current => current ? { ...current, visitSnapshot: snapshot } : undefined);
+      /* خريطة الطالب محسوبة؛ لا نؤخر عرضها على كتابة لقطة الزيارة. */
+      void Repository.updateStudentProfile(fingerprint, current => current ? { ...current, visitSnapshot: snapshot } : undefined).catch(() => undefined);
     }
     res.json({ ready: true, hasRules: Boolean(rules?.rules.length), model, changes });
   });

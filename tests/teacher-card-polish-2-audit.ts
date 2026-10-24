@@ -93,22 +93,22 @@ check(server.includes("keyGenerator: requestTokenKey") && server.includes('app.u
 /* P9: «متطلب» بجانب المقرر في قوائم الإضافة والتعديل (القسم والأستاذ) */
 const schedules = readFileSync("src/components/Schedules.tsx", "utf8"), quick = readFileSync("src/components/QuickCreatePopover.tsx", "utf8");
 const badges = readFileSync("src/utils/planBadges.ts", "utf8"), shared = readFileSync("src/server/planBadgeShared.ts", "utf8"), reviewRoutes = readFileSync("src/server/planReviewRoutes.ts", "utf8");
-check(schedules.includes("badge: courseOptionBadge(formCourses.filter((c) => c.CourseName === name).map((c) => Number(c.AdCourseId)), planBadges)"), "P9 نافذة «إضافة موعد دراسي» وتعديله: «متطلب» بجانب المقرر");
+check(schedules.includes("badge: courseOptionBadge(formCourses.filter((c) => c.CourseName === name).map((c) => Number(c.AdCourseId)), planBadges)"), "P9 نافذة «إضافة موعد دراسي» وتعديله: «متطلب كلية» بجانب المقرر");
 check(quick.includes("badge: courseOptionBadge([Number(c.AdCourseId)], planBadges)"), "P9 والإضافة السريعة من فراغ الجدول");
-check(badges.includes('const required = courseIds.some(id => serviceDepartmentsOf(id).length > 0) ? "متطلب" : "";') && badges.includes('[plan, required].filter(Boolean).join(" · ")'), "P9 الوسم «متطلب» يُضاف إلى شارة الصحيفة ولا يستبدلها");
+check(badges.includes('const required = courseIds.some(id => serviceDepartmentsOf(id).length > 0) ? "متطلب كلية" : "";') && badges.includes('[plan, required].filter(Boolean).join(" · ")'), "P9 الوسم «متطلب كلية» يُضاف إلى شارة الصحيفة ولا يستبدلها");
 check(shared.includes("export async function serviceCourseKeys") && reviewRoutes.includes("setServiceSource(serviceRows);"), "P9 مصدرُ مقررات الخدمة مشتركٌ مع بطاقة الأستاذ (النمط نفسه لشارة الصحيفة)");
 check(reviewRoutes.includes('const serviceKey = createDataContextKey(() => Repository.currentDemoSessionId());') && reviewRoutes.includes("serviceCache.key === key"), "P9 ذاكرةُ مقررات الخدمة تحمل عالَمَها (dataContextCacheKey)");
 check(server.includes("...(services.has(`${Number(row.AdCourseId || 0)}:${scope.sectionId}`) ? { service: true } : {})"), "P9 خيارات الإضافة عند الأستاذ تحمل service للمقرر الخدمي وحده");
-check(page.includes("(c.service?'<i class=\"req-tag\">متطلب</i>':'')") && page.includes(".req-tag{"), "P9 قائمة «موعد جديد» عند الأستاذ: «متطلب» بجانب اسم المقرر");
+check(page.includes("(c.service?'<i class=\"req-tag\">متطلب كلية</i>':'')") && page.includes(".req-tag{"), "P9 قائمة «موعد جديد» عند الأستاذ: «متطلب كلية» بجانب اسم المقرر");
 check(!page.includes("c.service?'hidden'") && page.includes("hidden><b>'+esc(c.name||c.code)+(c.service"), "P9 لا يُخفى مقرر ولا يتغيّر ترتيبه: وسمٌ فقط");
 
 /* P10: «متطلب» في بقية الأماكن المناسبة */
 const importTable = readFileSync("src/components/ImportPreviewTable.tsx", "utf8"), reports = readFileSync("src/components/Reports.tsx", "utf8");
 const proposalRoutes = readFileSync("src/server/studyProposalRoutes.ts", "utf8"), proposalPage = readFileSync("src/server/studyProposalPage.ts", "utf8");
-check(page.includes('function reqTag(it)') && page.includes("esc(courseOf(it))+reqTag(it)+'</b>'"), "P10 بطاقةُ الموعد القائم عند الأستاذ: «متطلب» بجانب اسم المقرر");
+check(page.includes('function reqTag(it)') && page.includes("esc(courseOf(it))+reqTag(it)+'</b>'"), "P10 بطاقةُ الموعد القائم عند الأستاذ: «متطلب كلية» بجانب اسم المقرر");
 check(page.includes("<h2>هل يناسبك هذا الموعد؟</h2><p>'+esc(courseOf(it))+reqTag(it)+"), "P10 وبطاقة «قرارك»");
 check(server.includes("serviceCourses,") && server.includes("serviceCourseKeys(),"), "P10 الخادمُ يرسل مقرراتِ الخدمة مع الطلب (وسمٌ فقط)");
-check(proposalRoutes.includes("service: serviceKeys.has(") && proposalPage.includes("(t.service?'<span class=\"plan-badge\">متطلب</span>':'')"), "P10 صفحةُ المقترح الدراسي العامة: «متطلب» بجانب المقرر");
+check(proposalRoutes.includes("service: serviceKeys.has(") && proposalPage.includes("(t.service?'<span class=\"plan-badge\">متطلب كلية</span>':'')"), "P10 صفحةُ المقترح الدراسي العامة: «متطلب كلية» بجانب المقرر");
 check(importTable.includes("badge: courseOptionBadge([Number(item.AdCourseId)], planBadges)") && reports.includes("badge: courseOptionBadge([Number(row.AdCourseId)], planBadges)"), "P10 قائمتا اختيار المقرر في معاينة الاستيراد والتقارير");
 
 /* P11: قراءاتٌ متوازية بلا تغيير في الردود */
