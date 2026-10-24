@@ -104,7 +104,7 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     check(first.json.otherDepartments === 37, `مقررات الأقسام الأخرى لم تُؤخذ (${first.json.otherDepartments})`);
     check(Array.isArray(first.json.noDepartment) && first.json.noDepartment.every((item: string) => /^\d{4}×\d+$/.test(item)), "قسمٌ غير موجود بالنظام يُذكر برمزه في التقرير", first.json.noDepartment);
     const plans = await Repository.getCurriculumPlans(21);
-    check(plans.some(plan => plan.status === "active") && plans.some(plan => plan.code === "LEGACY"), "صحيفة فعّالة جديدة و«السابقة» محفوظة");
+    check(plans.some(plan => plan.status === "active") && !plans.some(plan => plan.code === "LEGACY"), "صحيفة فعّالة جديدة وحدها: لا «سابقة» من نسخة الكتالوج (مقررات القسم خارجها تبقى في الجدول)");
     const links = (await Repository.getCurriculumPlanCourses(21)).filter(link => link.planId === first.json.planId);
     check(links.length === 27, `٢٧ مقرراً في الصحيفة (${links.length})`);
     const draft = await Repository.getRuleSet(first.json.planId).catch(() => undefined);
@@ -114,7 +114,7 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     void draft;
     /* مقررات الأقسام الأخرى في المجموعة الاختيارية: الموجود في الكتالوج يدخلها خارجياً بلا أي كتابة في قسمه، وغير الموجود وحداتٌ معلّقة. */
     const foreignGroup = mine?.groups.find(group => group.id === "y2026-s1g3");
-    check(!!foreignGroup && foreignGroup.courseIds.includes(302) && foreignGroup.pendingUnits === 30, "المجموعة الاختيارية تضمّ مقرر القسم الآخر الموجود وتحصي الباقي وحداتٍ معلّقة", foreignGroup);
+    check(!!foreignGroup && foreignGroup.courseIds.includes(302) && foreignGroup.courseIds.length === 5 && foreignGroup.pendingUnits === 18, "المجموعة الاختيارية تضمّ مقرر القسم الآخر الموجود، ويُنشأ الناقص عند القسم الذي رمزُه رمزُه، ويُحصى ما لا قسم له وحداتٍ معلّقة", foreignGroup);
     check(!!mine?.externals?.includes(302) && (await Repository.getCourses()).filter(row => Number(row.AdSectionId) === 11 && String(row.CourseCode) === "120").length === 1, "المقرر الخارجي القائم متطلبٌ عام بسجله نفسه (لا نسخة ثانية عند قسمه)");
     check(!(await Repository.listRuleDrafts()).find(row => row.planId === first.json.planId)!.groups.some(group => group.courseIds.some(id => (mine!.groups.filter(other => other.id !== group.id).some(other => other.courseIds.includes(id))))), "لا مقرر في مجموعتين");
 
@@ -151,11 +151,11 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const oldFirst = await upload("root", 16, oldPdf);
     check(oldFirst.status === 200 && oldFirst.json.era === "old" && oldFirst.json.planName === "الصحيفة السابقة", "قسم بلا صحائف: القديمة أولاً تدخل «السابقة»", oldFirst.json);
     const newAfter = await upload("root", 16);
-    check(newAfter.status === 200 && newAfter.json.era === "new" && newAfter.json.planId !== oldFirst.json.planId && newAfter.json.planCreated === false, "ثم الجديدة تدخل الفعّالة (أُنشئت مع السابقة)", newAfter.json);
+    check(newAfter.status === 200 && newAfter.json.era === "new" && newAfter.json.planId !== oldFirst.json.planId && newAfter.json.planCreated === true, "ثم الجديدة تُنشئ الفعّالة بجانب السابقة (لا صحيفة فارغة تُنشأ مسبقاً)", newAfter.json);
     const plans16 = (await Repository.getCurriculumPlans(16)).filter(plan => !plan.virtual);
     check(plans16.length === 2 && plans16.some(plan => plan.status === "active") && plans16.some(plan => plan.status === "transition"), "صحيفتان للقسم: فعّالة وسابقة");
     const orderless = await upload("root", 15, oldPdf);
-    check(orderless.status === 422 && orderless.json.rejection?.kind === "order", "قسم فعّالته وحدها: القديمة تُرفض (ارفع القديمة قبل الجديدة)", orderless.json);
+    check(orderless.status === 200 && orderless.json.era === "old" && orderless.json.planName === "الصحيفة السابقة" && orderless.json.planCreated === true, "قسم فعّالته وحدها: القديمة تُقبل في «السابقة» (ترتيب الرفع لا يغيّر النتيجة)", orderless.json);
 
     /* بلا قسمٍ مختار: تُوجَّه الصحيفة إلى الأقسام التي يطابق اسمُها قسمَها، ولا قسمَ بالاسم: رفضٌ بلا كتابة */
     const auto = await upload("root", 0, pdf);
@@ -170,14 +170,14 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const trackB = await upload("root", 41, fs.readFileSync("tests/fixtures/plans/graduation-old/ba-012402-2010.pdf"));
     check(trackB.status === 200 && trackB.json.planId !== trackA.json.planId, "المسار الثاني صحيفةٌ أخرى", trackB.json);
     const plans41 = await Repository.getCurriculumPlans(41);
-    check(plans41.length === 4 && plans41.every(plan => plan.track) && new Set(plans41.map(plan => plan.track)).size === 2 && plans41.filter(plan => plan.status === "active").length === 2 && plans41.filter(plan => plan.status === "transition").length === 2, "لكل مسارٍ جديدةٌ وسابقة", plans41.map(plan => `${plan.track}/${plan.status}`));
+    check(plans41.length === 2 && plans41.every(plan => plan.track && plan.status === "transition") && new Set(plans41.map(plan => plan.track)).size === 2, "لكل مسارٍ صحيفتُه السابقة وحدها: لا «جديدة» فارغة", plans41.map(plan => `${plan.track}/${plan.status}`));
     const courses41 = (await Repository.getCourses()).filter(row => Number(row.AdSectionId) === 41);
     check(new Set(courses41.map(row => Number(row.CourseCode))).size === courses41.length, "مقررات القسم مشتركة بلا تكرار رقم");
     const links41 = await Repository.getCurriculumPlanCourses(41);
     const linked = (planId: string) => links41.filter(link => link.planId === planId).length;
     check(linked(trackA.json.planId) === 17 && linked(trackB.json.planId) === 17 && courses41.length < 34, `مسارٌ بـ١٧ مقرراً ومشتركٌ بينهما (${courses41.length} مقرراً للقسم)`, [linked(trackA.json.planId), linked(trackB.json.planId), courses41.length]);
     await upload("root", 41, fs.readFileSync("tests/fixtures/plans/graduation-old/ba-012102-2010.pdf"));
-    check((await Repository.getCurriculumPlans(41)).length === 4, "إعادة رفع المسار لا تنشئ صحائف");
+    check((await Repository.getCurriculumPlans(41)).length === 2, "إعادة رفع المسار لا تنشئ صحائف");
     await Repository.createCurriculumPlan({ collegeId: 1, sectionId: 41, name: "الصحيفة الجديدة", by: "test" });
     const after41 = await Repository.getCurriculumPlans(41);
     check(after41.filter(plan => plan.track).every(plan => plans41.find(old => old.id === plan.id)?.status === plan.status) && after41.filter(plan => !plan.track).length === 2, "صحيفةٌ رئيسية جديدة للقسم لا تزيح المسارات", after41.map(plan => `${plan.track || "-"}/${plan.status}`));
@@ -189,15 +189,16 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
     const beforeIds = new Set((await Repository.getCourses()).map(row => Number(row.AdCourseId)));
     const firstEnglish = await upload("root", 51, english);
     const perSection = (rows: Array<{ AdSectionId: number }>) => { const map = new Map<number, number>(); for (const row of rows) map.set(Number(row.AdSectionId), (map.get(Number(row.AdSectionId)) || 0) + 1); return map; };
-    check(firstEnglish.status === 200 && firstEnglish.json.addedOther === 0 && firstEnglish.json.unlinked === 2 && firstEnglish.json.unresolved.length === 2, "مقررات الأقسام الأخرى لا تُضاف تلقائياً: مسبقاتها تُعدّ ولا تُربط", firstEnglish.json);
+    check(firstEnglish.status === 200 && firstEnglish.json.addedOther === 0 && firstEnglish.json.unlinked === 1 && firstEnglish.json.unresolved.length === 1 && firstEnglish.json.unresolved[0].startsWith("0114"), "مسبقٌ لرمزٍ لا قسم له في النظام يُعدّ ولا يُربط؛ وما له قسمٌ برمزه يُنشأ عنده", firstEnglish.json);
     check(Array.isArray(firstEnglish.json.foreignNotAdded) && firstEnglish.json.foreignNotAdded.length > 0, "رموز الأقسام الأخرى المطبوعة تُذكر في التقرير ولا يُكتب فيها شيء", firstEnglish.json.foreignNotAdded);
     const afterEnglish = perSection(await Repository.getCourses() as any);
     const codeOfSection = new Map((await Repository.getSections()).map(row => [Number(row.AdSectionId), String(row.AdSectionCode)] as const));
     const createdNow = (await Repository.getCourses()).filter(row => !beforeIds.has(Number(row.AdCourseId)) && Number(row.AdSectionId) !== 51);
     check(createdNow.every(row => ["09", "19", "21", "18"].includes(String(codeOfSection.get(Number(row.AdSectionId))))), "مقرر قسمٍ آخر يُنشأ عند القسم الذي يدل عليه رمزه وحده (وحدة الكهرباء لم تتلقَّ مقررات أصول التربية)", [...afterEnglish]);
-    await Repository.createCourse(1, 52, "322", "مقرر المناهج", 3, 3, 0, false);
+    /* المناهج (21) قسمٌ برمز المقرر: أنشأ الرفعُ «322» عنده؛ يُضاف يدوياً فقط إن غاب. */
+    if (!(await Repository.getCourses()).some(row => Number(row.AdSectionId) === 52 && String(row.CourseCode).endsWith("322"))) await Repository.createCourse(1, 52, "322", "مقرر المناهج", 3, 3, 0, false);
     await Repository.createCourse(1, 53, "425", "مقرر آخر", 3, 3, 0, false);
-    const depA = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 52 && String(row.CourseCode) === "322");
+    const depA = (await Repository.getCourses()).find(row => Number(row.AdSectionId) === 52 && String(row.CourseCode).endsWith("322"));
     /* «425» (0109425) أُنشئ في الرفع الأول عند أول قسمٍ برمز 09 يملك مقرراته؛ النسخة اليدوية في القسم 53 لا تحلّ محله. */
     const depB = (await Repository.getCourses()).find(row => String(row.CourseCode) === "425" && ["09"].includes(String((codeOfSection.get(Number(row.AdSectionId)))) ) && !beforeIds.has(Number(row.AdCourseId)) && Number(row.AdSectionId) !== 53);
     const secondEnglish = await upload("root", 51, english);
