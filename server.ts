@@ -2309,6 +2309,48 @@ function scheduleDemoExtras(sessionId: string): void {
   demoSeedJobs.set(sessionId, tracked);
 }
 
+/** مقرّراتٌ إضافيةٌ لأستاذ التجربة في جدول البيئة التجريبية وحدها: ثلاثةُ مقرّراتٍ يدرّسها غيرُه في القسم،
+ *  كلٌّ بشعبةٍ جديدة في وقتٍ خالٍ له ولقاعته. */
+async function seedDemoTeacherCourses(instructorId: number, scopeRows: FSchedule[], termRows: FSchedule[]): Promise<FSchedule[]> {
+  if (!Repository.isDemoRequest()) return [];
+  const DAYS = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
+  const toMin = (value: string) => { const [h, m] = String(value || "").split(":").map(Number); return h * 60 + m; };
+  const overlaps = (row: any, days: readonly string[], start: number, end: number) =>
+    days.some(day => row[day]) && toMin(row.fstarttime) < end && start < toMin(row.fendtime);
+  const ownCourses = new Set(termRows.filter(row => Number(row.AdInstructorId) === instructorId).map(row => Number(row.AdCourseId)));
+  const templates = [...new Map(scopeRows.filter(row => !ownCourses.has(Number(row.AdCourseId)) && row.roomId)
+    .map(row => [Number(row.AdCourseId), row] as [number, FSchedule])).values()].slice(0, 3);
+  const slots: Array<{ days: readonly string[]; start: string; end: string }> = [
+    { days: ["fsunday", "ftuesday", "fthursday"], start: "08:00", end: "08:50" },
+    { days: ["fmonday", "fwednesday"], start: "09:30", end: "10:50" },
+    { days: ["fsunday", "ftuesday", "fthursday"], start: "13:00", end: "13:50" },
+    { days: ["fmonday", "fwednesday"], start: "12:30", end: "13:50" },
+    { days: ["fsunday", "ftuesday", "fthursday"], start: "09:00", end: "09:50" },
+    { days: ["fmonday", "fwednesday"], start: "14:00", end: "15:20" },
+  ];
+  const rooms = [...new Map(scopeRows.filter(row => row.roomId).map(row => [String(row.roomId), row] as [string, FSchedule])).values()];
+  const universe: any[] = [...termRows];
+  const made: FSchedule[] = [];
+  for (const template of templates) {
+    for (const slot of slots) {
+      const start = toMin(slot.start), end = toMin(slot.end);
+      if (universe.some(row => Number(row.AdInstructorId) === instructorId && overlaps(row, slot.days, start, end))) continue;
+      const room = rooms.find(candidate => !universe.some(row => String(row.roomId || "") === String(candidate.roomId) && overlaps(row, slot.days, start, end)));
+      if (!room) continue;
+      const codes = scopeRows.filter(row => Number(row.AdCourseId) === Number(template.AdCourseId)).map(row => Number(row.SCode) || 0);
+      const { id: _id, rev: _rev, ...base } = template as any;
+      const row = await Repository.createSchedule({
+        ...base, AdInstructorId: instructorId, SCode: String(Math.max(0, ...codes) + 1).padStart(2, "0"),
+        ...Object.fromEntries(DAYS.map(day => [day, slot.days.includes(day)])), fstarttime: slot.start, fendtime: slot.end,
+        AdRoomCode: room.AdRoomCode, AdRoomHall: room.AdRoomHall, buildingId: (room as any).buildingId, roomId: room.roomId, locationStatus: (room as any).locationStatus,
+      } as any);
+      universe.push(row); made.push(row);
+      break;
+    }
+  }
+  return made;
+}
+
 async function seedDemoStories(): Promise<void> {
   if (!Repository.isDemoRequest()) return;
   const { collegeId, sectionId, termId } = DEMO_STORY_SCOPE;
@@ -2403,6 +2445,9 @@ async function seedDemoStories(): Promise<void> {
   for (const [index, instructorId] of teachers.entries()) {
     const person = instructors.find(row => Number(row.AdInstructorId) === instructorId);
     if (!person) continue;
+    /* أستاذُ التجربة (من فتح رابطه ولم يرسل): أربعةُ مواعيد لا موعدٌ واحد، فيُرى أثرُ التعارض حين يحرّك أحدها
+       فوق آخر أو فوق قاعةٍ مشغولة. تُبنى في أوقاتٍ خاليةٍ له ولقاعاتها، بأطوال اللائحة. */
+    if (index === 2) termRows.push(...await seedDemoTeacherCourses(instructorId, scopeRows, termRows));
     const own = termRows.filter(row => Number(row.AdInstructorId) === instructorId);
     const link = await Repository.createShareLink({
       ...linkBase, kind: "request", AdInstructorId: instructorId, label: `طلب جدول — ${instructorId}`,
@@ -21671,14 +21716,14 @@ function wire(){
  host.querySelectorAll("[data-alt]").forEach(function(el){el.onclick=function(){
   var i=+el.dataset.i,p=el.dataset.alt.split("|");state[i].days=p[0].split(",").filter(Boolean);state[i].start=p[1];paint();recheckAll(i)}});
  host.querySelectorAll("[data-excuse]").forEach(function(el){el.oninput=function(){
-  state[+el.dataset.i].excuse=el.value}});
+  state[+el.dataset.i].excuse=el.value;dirty=true;saveDraft()}});
  /* ويُحفظ ما كُتب لحظةَ كتابته: كلُّ تعديلٍ على الجدول يعيد الرسم، وكذلك
     جوابُ الحكم حين يصل متأخّراً — والحقلُ يُبنى من حالة الصفحة، فما كُتب ولم
     يُحفظ يُمحى تحت يده ويُردّ إرسالُه بلا سبب. */
  var drop=document.getElementById("dropDraft");if(drop)drop.onclick=function(){clearDraft();dirty=false;location.reload()};
  var send=document.getElementById("send");if(send)send.onclick=submit;
  var replay=document.getElementById("replay");if(replay)replay.onclick=replayPrevious;
- VI.wire(function(key,value){if(key.indexOf("ex-")===0&&state[+key.slice(3)])state[+key.slice(3)].excuse=value;if(key==="gen"){genNote=value;dirty=true;saveDraft()}});
+ VI.wire(function(key,value){if(key.indexOf("ex-")===0&&state[+key.slice(3)]){state[+key.slice(3)].excuse=value;dirty=true;saveDraft()}if(key==="gen"){genNote=value;dirty=true;saveDraft()}});
  var na=document.getElementById("noteAdd");if(na)na.onclick=function(){noteOpen=true;paint();var g=document.getElementById("genNote");if(g)g.focus()};
  var gn=document.getElementById("genNote");if(gn)gn.oninput=function(){genNote=gn.value;dirty=true;saveDraft()};
  host.querySelectorAll("[data-accept]").forEach(function(el){el.onclick=function(){askAccept(+el.dataset.i,+el.dataset.accept)}});
