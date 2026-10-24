@@ -20466,10 +20466,17 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
   ]);
   const person = (instructors as any[]).find(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
   const term = (terms as any[]).find(row => Number(row.AdTermId) === Number(request.AdTermId));
+  /* مقرراتُ الخدمة في هذا الطلب (موعدٌ قائم أو مضاف): يظهر بجانب اسمها «متطلب». وسمٌ فقط. */
+  const serviceKeys = await serviceCourseKeys();
+  const serviceCourses = [...new Set([
+    ...(request.items || []).map(item => Number(item.before?.courseId || item.after?.courseId || 0)).filter(id => id && serviceKeys.has(`${id}:${Number(request.AdSectionId)}`)),
+    ...(courses as any[]).filter(option => option.service).map(option => Number(option.id)),
+  ])];
 
   res.setHeader("Cache-Control", "no-store");
   res.json({
     request: stripForInstructor(await judgeRequestItems(request)),
+    serviceCourses,
     instructorName: String(person?.AdInstructorName || ""),
     termName: String(term?.AdTermName || ""),
     windowOpen: requestWindowOpen(request),
@@ -21106,7 +21113,7 @@ function deckHtml(){var list=pendingList(),n=list.length;if(!n)return "";
  var nav=n>1?'<span class="dk-nav"><button type="button" data-deck="-1" aria-label="القرار السابق"'+(deckAt===0?' disabled':'')+'>'+gi("arR")+'</button><button type="button" data-deck="1" aria-label="القرار التالي"'+(deckAt===n-1?' disabled':'')+'>'+gi("arL")+'</button></span>':'';
  var dots=n>1?'<div class="dk-dots" aria-hidden="true">'+list.map(function(_,k){return '<i'+(k===deckAt?' data-on="1"':'')+'></i>'}).join("")+'</div>':'';
  var h='<section class="deck" id="deck" aria-label="قرارك على اقتراح القسم"><div class="dk-top"><span class="dk-ct">'+gi("you")+(n>1?'قراراتك: <b>'+(deckAt+1)+'</b> من <b>'+n+'</b>':'قرارك')+'</span>'+nav+'</div>'+dots+
-  '<div class="dk-h"><h2>هل يناسبك هذا الموعد؟</h2><p>'+esc(courseOf(it))+(b.sectionCode?' · شعبة '+esc(b.sectionCode):'')+'</p></div>'+
+  '<div class="dk-h"><h2>هل يناسبك هذا الموعد؟</h2><p>'+esc(courseOf(it))+reqTag(it)+(b.sectionCode?' · شعبة '+esc(b.sectionCode):'')+'</p></div>'+
   '<div class="dk-why"><span class="b">'+gi(d.reasonCode==="room"?"door":"clock")+'</span><div>'+esc(why)+(note?'<small>'+esc(note)+'</small>':'')+'</div></div>';
  if(offers.length>1)h+='<div class="offers" role="group" aria-label="اقتراحات القسم">'+offers.map(function(a,k){return '<button type="button" data-offer="'+k+'" data-i="'+i+'" aria-pressed="'+(k===pk)+'">'+esc(fmtDays(a.d))+' <span class="num">'+hh(a.s)+'</span></button>'}).join("")+'</div>';
  h+=slotCard(o,"new",cur,"مقترح القسم")+factsHtml(o,i)+
@@ -21257,7 +21264,7 @@ function planTable(){
    return '<div class="appt" role="listitem" id="item-'+i+'" data-act="'+esc(act)+'" data-neg="'+esc(it.negotiation||"")+'" data-open="'+(expanded?"1":"0")+'">'+
     '<button type="button" class="appt-head" data-toggle="'+i+'" aria-expanded="'+expanded+'" aria-controls="item-body-'+i+'" aria-label="'+esc(courseOf(it)+" — "+(act==="keep"?"كما هو":actionName(act))+(expanded?"، اضغط للطيّ":"، اضغط لعرض الخيارات"))+'">'+
      '<span class="ap-ic">'+gi(rowIcon(it))+'</span>'+
-     '<span class="ap-main"><b>'+esc(courseOf(it))+'</b>'+(sub?'<small>'+sub+'</small>':'')+
+     '<span class="ap-main"><b>'+esc(courseOf(it))+reqTag(it)+'</b>'+(sub?'<small>'+sub+'</small>':'')+
       '<span class="ap-when">'+pipsHtml(dset)+'<span class="sr">'+esc(days)+'</span><bdi dir="ltr" class="num">'+esc(time)+'</bdi>'+(moved&&b.time&&rangeText(b.time)!==newTime?'<s><bdi dir="ltr">'+esc(rangeText(b.time))+'</bdi></s>':'')+'</span></span>'+
      '<span class="ap-st">'+stat+neg+tone+'</span>'+
      '<span class="appt-chev">'+ic("chev")+'</span></button>'+
@@ -21532,6 +21539,8 @@ var pending={};
    يُطلب مرّةً لكل مقرّر ويُحفظ في الصفحة: يضغط الأستاذُ يوماً فتكتمل أيامُ المقرّر المعتادة. */
 var HAB={},habAsked={};
 function courseIdOf(it){return Number(it.courseId||(it.after&&it.after.courseId)||(it.before&&it.before.courseId)||0)}
+/* وسمُ «متطلب» بجانب اسم المقرر الذي تطلبه أقسامٌ أخرى؛ لا يغيّر شيئاً غيره. */
+function reqTag(it){var l=(data&&data.serviceCourses)||[];return l.indexOf(courseIdOf(it))>=0?'<i class="req-tag">متطلب</i>':""}
 function loadHabits(ids){var need=ids.filter(function(id){return id>0&&!habAsked[id]});if(!need.length)return;
  need.forEach(function(id){habAsked[id]=1});
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/day-habits?courses="+need.join(","),{cache:"no-store"}).then(function(r){return r.ok?r.json():{habits:{}}})

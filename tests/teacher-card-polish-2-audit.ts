@@ -102,5 +102,14 @@ check(server.includes("...(services.has(`${Number(row.AdCourseId || 0)}:${scope.
 check(page.includes("(c.service?'<i class=\"req-tag\">متطلب</i>':'')") && page.includes(".req-tag{"), "P9 قائمة «موعد جديد» عند الأستاذ: «متطلب» بجانب اسم المقرر");
 check(!page.includes("c.service?'hidden'") && page.includes("hidden><b>'+esc(c.name||c.code)+(c.service"), "P9 لا يُخفى مقرر ولا يتغيّر ترتيبه: وسمٌ فقط");
 
+/* P10: «متطلب» في بقية الأماكن المناسبة */
+const importTable = readFileSync("src/components/ImportPreviewTable.tsx", "utf8"), reports = readFileSync("src/components/Reports.tsx", "utf8");
+const proposalRoutes = readFileSync("src/server/studyProposalRoutes.ts", "utf8"), proposalPage = readFileSync("src/server/studyProposalPage.ts", "utf8");
+check(page.includes('function reqTag(it)') && page.includes("esc(courseOf(it))+reqTag(it)+'</b>'"), "P10 بطاقةُ الموعد القائم عند الأستاذ: «متطلب» بجانب اسم المقرر");
+check(page.includes("<h2>هل يناسبك هذا الموعد؟</h2><p>'+esc(courseOf(it))+reqTag(it)+"), "P10 وبطاقة «قرارك»");
+check(server.includes("serviceCourses,") && server.includes("const serviceKeys = await serviceCourseKeys();"), "P10 الخادمُ يرسل مقرراتِ الخدمة مع الطلب (وسمٌ فقط)");
+check(proposalRoutes.includes("service: serviceKeys.has(") && proposalPage.includes("(t.service?'<span class=\"plan-badge\">متطلب</span>':'')"), "P10 صفحةُ المقترح الدراسي العامة: «متطلب» بجانب المقرر");
+check(importTable.includes("badge: courseOptionBadge([Number(item.AdCourseId)], planBadges)") && reports.includes("badge: courseOptionBadge([Number(row.AdCourseId)], planBadges)"), "P10 قائمتا اختيار المقرر في معاينة الاستيراد والتقارير");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
