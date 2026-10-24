@@ -1,9 +1,9 @@
 /**
  * Which term's authority PDF may be copied into the chosen term.
  *
- * The same season of the PREVIOUS academic year, or the chosen term itself:
- * «الثاني 2026/2027» takes «الثاني 2025/2026» and «الثاني 2026/2027» — not the
- * other season of its own year, not an older year, not a later one.
+ * The same season of the PREVIOUS academic year; the second term also takes the
+ * first term of its own year. «الثاني 2026/2027» takes «الثاني 2025/2026» and
+ * «الأول 2026/2027» and nothing else. The summer term takes only last year's summer.
  */
 export type PdfHeaderTerm = { season: "first" | "second" | "summer"; years: number[]; label?: string };
 
@@ -18,11 +18,15 @@ export function acceptedPdfSourceTerm(targetName: string): { season: PdfHeaderTe
   return { season, years: years.map(year => year - 1) };
 }
 
-/** المصدران المقبولان: فصل السنة السابقة، والفصل المختار نفسه. */
+/**
+ * المصادر المقبولة: نفس موسم السنة السابقة دائماً؛ والفصل الثاني يقبل أيضاً الفصل الأول من سنته نفسها.
+ * الصيفي لا يقبل إلا صيفي العام الماضي، والفصل الأول لا يقبل إلا أوله من العام الماضي.
+ */
 function acceptedSources(targetName: string) {
   const previous = acceptedPdfSourceTerm(targetName);
   if (!previous) return [];
-  return [previous, { season: previous.season, years: previous.years.map(year => year + 1) }];
+  const own = previous.years.map(year => year + 1);
+  return previous.season === "second" ? [previous, { season: "first" as const, years: own }] : [previous];
 }
 
 export function pdfTermAccepted(header: PdfHeaderTerm, targetName: string): boolean {
