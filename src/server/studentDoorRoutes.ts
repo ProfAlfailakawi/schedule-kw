@@ -255,10 +255,13 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
   /* الهويةُ تُسأل كثيراً (كل طالبٍ مرة)، فيُعدّ كل سؤالٍ بحدٍّ سخيّ؛ أما الرمز فيُعدّ خطؤه وحده.
      والحدّان على العنوان، وشبكةُ الجامعة (أو مشغّلُ الجوال خلف NAT) عنوانٌ واحدٌ لألوف الطلبة: كان
      الافتراضيُّ ٢٤٠ سؤالاً و٤٠ خطأً في عشر دقائق، فحُجب ٩٦٪ من ستمئة طالبٍ دخلوا من عنوانٍ واحد في
-     دقيقتين (scripts/loadtest، 2026-10-24). صار ستةَ آلاف سؤالٍ (≈ ستمئة طالبٍ في الدقيقة من عنوانٍ
+     دقيقتين (scripts/loadtest، 2026-10-24). صار أربعةً وعشرين ألف سؤالٍ (≈ ألفين وأربعمئة طالبٍ في الدقيقة من عنوانٍ
      واحد) وستمئةَ خطأ؛ وكلُّ ملفٍّ يُقفل بعد خمسة أخطاءٍ عليه هو (CODE_MAX_FAILURES)، فالرمزُ لا يُخمَّن. */
-  const identityLimiter = createAttemptLimiter({ maxFailures: intFromEnv("STUDENT_DOOR_IDENTITY_MAX", 6000), windowMs: 10 * 60_000, capacity: 20_000 });
-  const codeLimiter = createAttemptLimiter({ maxFailures: intFromEnv("STUDENT_DOOR_CODE_MAX_FAILURES", 600), windowMs: 10 * 60_000, capacity: 20_000 });
+  const identityLimiter = createAttemptLimiter({ maxFailures: intFromEnv("STUDENT_DOOR_IDENTITY_MAX", 24_000), windowMs: 10 * 60_000, capacity: 20_000 });
+  /* الراجعون يدخلون برمزهم، ونسبةٌ منهم تخطئ؛ ولا يُحجب العنوان إلا إذا غلبت أخطاؤه نجاحاته (creditSuccesses)،
+     وفوق ذلك سقفٌ مطلقٌ خمسةُ أضعاف. ولا يُحسب على العنوان إلا تخمينٌ فعلي: رمزٌ خطأ لملفٍّ موجود. */
+  const codeMax = intFromEnv("STUDENT_DOOR_CODE_MAX_FAILURES", 600);
+  const codeLimiter = createAttemptLimiter({ maxFailures: codeMax, hardMaxFailures: codeMax * 5, creditSuccesses: true, windowMs: 10 * 60_000, capacity: 20_000 });
   const ip = (req: Request) => req.ip || "unknown";
   const secure = deps.isProduction();
   const noStore = (res: Response) => { res.setHeader("Cache-Control", "no-store"); };
@@ -384,20 +387,23 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const attempt = codeLimiter.reserve(ip(req));
     if (!attempt) { fail(res, 429, "أخطأت في الرمز مراتٍ كثيرة من هذا الاتصال. انتظر دقائق ثم أعد المحاولة.", "rate"); return; }
     const done = () => attempt.release();
+    /* لا يُحسب على العنوان إلا تخمينُ رمزٍ لملفٍّ موجود. غيرُه (رقمٌ خطأ، لا ملف، ملفٌّ موجود، ملفٌّ مقفول،
+       إنشاءٌ ناقص) يُرجَع بلا رصيد: قفلُ الملف يحمي الرمز، وسؤالُ الوجود يُعدّ في حدّ الهوية. */
+    const notGuess = () => attempt.release(false);
     try {
       const civil = civilOf(req.body);
-      if (!civil) { fail(res, 400, "الرقم المدني غير صحيح. راجع الأرقام كما هي في بطاقتك.", "bad-civil"); return; }
+      if (!civil) { notGuess(); fail(res, 400, "الرقم المدني غير صحيح. راجع الأرقام كما هي في بطاقتك.", "bad-civil"); return; }
       const code = toEnglishDigits(req.body?.code).replace(/\D/g, "");
       const remember = req.body?.remember === true;
       const fingerprint = await deps.surveyFingerprint(civil);
       const now = Date.now();
 
       if (req.body?.create === true) {
-        if (req.body?.agree !== true) { fail(res, 400, "وافق على حفظ ملفك أولاً.", "no-consent"); return; }
+        if (req.body?.agree !== true) { notGuess(); fail(res, 400, "وافق على حفظ ملفك أولاً.", "no-consent"); return; }
         const problem = codeProblem(code);
-        if (problem) { fail(res, 400, problem, "weak-code"); return; }
+        if (problem) { notGuess(); fail(res, 400, problem, "weak-code"); return; }
         const name = cleanName(req.body?.name);
-        if (!name) { fail(res, 400, "اكتب اسمك الثلاثي كما في الجامعة.", "bad-name"); return; }
+        if (!name) { notGuess(); fail(res, 400, "اكتب اسمك الثلاثي كما في الجامعة.", "bad-name"); return; }
         const { hash, salt } = await hashCode(code);
         const nameCipher = await deps.sealIdentity(name), civilCipher = await deps.sealIdentity(civil);
         let existed = false;
@@ -410,7 +416,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
             codeHash: hash, codeSalt: salt, nameCipher, civilCipher, updatedAt: iso, ...base, ...profileLifetime(base, new Date(now)),
           };
         });
-        if (existed || !created) { fail(res, 409, "لهذا الرقم المدني ملفٌّ بالفعل — أدخل رمزك.", "exists"); return; }
+        if (existed || !created) { notGuess(); fail(res, 409, "لهذا الرقم المدني ملفٌّ بالفعل — أدخل رمزك.", "exists"); return; }
         done();
         await issueSession(res, created, remember);
         noStore(res); res.status(201).json({ ok: true, profile: await summaryOf(created) });
@@ -418,9 +424,10 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       }
 
       const profile = await Repository.getStudentProfile(fingerprint);
-      if (!profile) { fail(res, 404, "لا ملف لهذا الرقم المدني. أنشئ ملفك أولاً.", "no-profile"); return; }
+      if (!profile) { notGuess(); identityLimiter.fail(ip(req)); fail(res, 404, "لا ملف لهذا الرقم المدني. أنشئ ملفك أولاً.", "no-profile"); return; }
       const lock = lockState(profile, now);
       if (lock.locked) {
+        notGuess();
         fail(res, 423, `أخطأت في الرمز مراتٍ كثيرة. جرّب بعد ${countOf(Math.ceil(lock.retryInMs / 60_000), AR.minute)}.`, "locked", { retryInSeconds: Math.ceil(lock.retryInMs / 1000) });
         return;
       }

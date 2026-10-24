@@ -10,11 +10,13 @@
  *   N2  الحدُّ لكل طالبٍ باقٍ: طالبٌ واحدٌ يكرّر الكتابة يُوقَف هو وحده.
  *   N3  سقفُ العنوان باقٍ: من يدور على أرقامٍ مدنيةٍ كثيرة يُوقَف عند السقف.
  *   N4  عدّادُ الرغبات يقرأ القسمَ وحده، لا ملفاتِ الكلية كلّها.
+ *   R1–R6  الطالبُ الراجع: أخطاءُ غيره على العنوان نفسه لا تحجبه، والتخمينُ يبقى موقوفاً.
  */
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { spawn, type ChildProcess } from "child_process";
+import { createAttemptLimiter } from "../src/server/publicAttemptLimiter";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -33,6 +35,57 @@ const DAY = 86_400_000;
   check(bySection.includes('.where("AdSectionId", "==", sectionId)') && bySection.includes('.select("AdSectionId", "AdCollegeId", "wishes")'), "N4 الاستعلام بالقسم، وبالحقول التي يحتاجها العدّاد وحدها");
   check(routes.includes('keyGenerator: studentWriteKey') && routes.includes('"STUDENT_DOOR_WRITES_PER_IP_PER_MINUTE", 1200'), "N1 حدّ الكتابة لكل طالب وفوقه سقفٌ لكل عنوان");
   check(!/studentWriteKey[\s\S]{0,400}return civil[^;]*;/.test(routes) && routes.includes("keyHash(civil)"), "N1 مفتاح الحدّ بصمةٌ لا الرقمُ المدني نفسه");
+}
+
+
+/* ── R1–R6: محدِّد أخطاء الرمز على عنوانٍ تقف خلفه شبكةُ جامعة ───────────────
+   ساعةٌ كاملة بساعةٍ مزيّفة: يدخل الراجعون بمعدّلٍ ثابت، ونسبةٌ منهم تخطئ في رمزها. */
+{
+  const simulate = (rate: number, wrong: number, tweak: Record<string, unknown> = {}) => {
+    let t = 0;
+    const limiter = createAttemptLimiter({ maxFailures: 600, hardMaxFailures: 3000, creditSuccesses: true, windowMs: 600_000, capacity: 20_000, now: () => t, ...tweak });
+    let seed = 7; const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    let goodBlocked = 0, goodOk = 0;
+    for (let s = 0; s < 3600 * rate; s += 1) {
+      t = Math.floor((s / rate) * 1000);
+      const good = rnd() >= wrong;
+      const attempt = limiter.reserve("nat");
+      if (!attempt) { if (good) goodBlocked += 1; continue; }
+      if (good) { attempt.release(); goodOk += 1; }
+    }
+    return { goodBlocked, goodOk };
+  };
+  for (const [rate, wrong] of [[5, 0.1], [5, 0.2], [8, 0.15], [15, 0.2]] as const) {
+    const after = simulate(rate, wrong), before = simulate(rate, wrong, { creditSuccesses: false });
+    check(after.goodBlocked === 0, `R1 ${rate} دخولٍ/ث وخطأ ${wrong * 100}٪ من عنوانٍ واحد: لا يُحجب صاحبُ رمزٍ صحيح`, after);
+    if (rate >= 8 || wrong >= 0.2) check(before.goodBlocked > 0, `R1 (شاهد) المحدِّد القديم كان يحجبهم عند ${rate}/ث و${wrong * 100}٪`, before);
+  }
+
+  let t = 0;
+  const strict = createAttemptLimiter({ maxFailures: 600, hardMaxFailures: 3000, creditSuccesses: true, windowMs: 600_000, capacity: 20_000, now: () => t });
+  for (let i = 0; i < 600; i += 1) strict.fail("bot");
+  check(strict.blocked("bot"), "R2 ستمئة تخمينٍ بلا نجاحٍ واحد: العنوان يُوقَف");
+  const mixed = createAttemptLimiter({ maxFailures: 600, hardMaxFailures: 3000, creditSuccesses: true, windowMs: 600_000, capacity: 20_000, now: () => t });
+  for (let i = 0; i < 3000; i += 1) { mixed.fail("bot"); if (i % 2) { const a = mixed.reserve("bot"); a?.release(); } }
+  check(mixed.blocked("bot"), "R3 تخمينٌ وسط نجاحاتٍ مصطنعة يقف عند السقف المطلق");
+
+  const free = createAttemptLimiter({ maxFailures: 600, hardMaxFailures: 3000, creditSuccesses: true, windowMs: 600_000, capacity: 20_000, now: () => t });
+  for (let i = 0; i < 2000; i += 1) free.reserve("nat")?.release(false);
+  check(!free.blocked("nat"), "R4 ألفا محاولةٍ لم تكن تخميناً (release(false)) لا تُحسب على العنوان");
+
+  const small = createAttemptLimiter({ maxFailures: 3, windowMs: 600_000, capacity: 100, now: () => t });
+  for (let i = 0; i < 3; i += 1) small.fail("guesser");
+  for (let i = 0; i < 500; i += 1) small.fail(`other-${i}`);
+  check(small.blocked("guesser"), "R5 امتلاءُ الخريطة لا يمسح أخطاءَ من يخمّن (كان يُفرَّغ كلُّها)");
+
+  const old = createAttemptLimiter({ maxFailures: 2, now: () => t });
+  old.fail("a"); old.fail("a");
+  check(old.blocked("a"), "R6 الوضع الافتراضي بلا رصيدٍ كما كان (بقيّة الأبواب العامة)");
+
+  const routes = fs.readFileSync(path.join(process.cwd(), "src/server/studentDoorRoutes.ts"), "utf8");
+  const enter = routes.slice(routes.indexOf('"/api/public/me/enter"'), routes.indexOf('"/api/public/me/exit"'));
+  check((enter.match(/notGuess\(\)/g) || []).length >= 7, "R2 مسار الدخول يُرجع المحاولة غير التخمينية (400/404/409/423) بلا رصيد");
+  check(enter.includes("identityLimiter.fail(ip(req))"), "R2 سؤالُ الوجود عبر 404 يُعدّ في حدّ الهوية");
 }
 
 /* ── N1–N3: خادمٌ حقيقي ببياناتٍ مزروعة ────────────────────────────────── */

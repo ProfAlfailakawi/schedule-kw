@@ -19,15 +19,26 @@ import { getFirestore } from "firebase-admin/firestore";
 import { createDemoSandboxState } from "../../src/db/demoSandbox";
 
 const host = String(process.env.FIRESTORE_EMULATOR_HOST || "");
-if (!/^(localhost|127\.0\.0\.1|\[::1\]):\d+$/.test(host)) {
+const realAt = process.argv.indexOf("--real-database");
+const realDb = realAt >= 0 ? process.argv[realAt + 1] : "";
+if (realAt >= 0) {
+  if (realDb !== "loadtest" || process.env.FIREBASE_DATABASE_ID !== "loadtest" || process.env.FIREBASE_PROJECT_ID !== "gen-lang-client-0379571946" || host) {
+    console.error("يرفض: --real-database يتطلب loadtest حرفياً والمشروع gen-lang-client-0379571946 وبلا محاكٍ.");
+    process.exit(1);
+  }
+} else if (!/^(localhost|127\.0\.0\.1|\[::1\]):\d+$/.test(host)) {
   console.error("يرفض السكربت العمل: FIRESTORE_EMULATOR_HOST يجب أن يشير إلى محاكٍ محلي (127.0.0.1:PORT).");
   process.exit(1);
 }
 const projectId = process.env.FIREBASE_PROJECT_ID || "schedule-loadtest";
 initializeApp({ projectId });
-const databaseId = process.env.FIREBASE_DATABASE_ID || "loadtest";
+const databaseId = realAt >= 0 ? "loadtest" : (process.env.FIREBASE_DATABASE_ID || "loadtest");
 const db = getFirestore(databaseId);
 db.settings({ ignoreUndefinedProperties: true });
+if (realAt >= 0 && !(await db.collection("users").limit(1).get()).empty) {
+  console.error("يرفض: قاعدة loadtest ليست فارغة.");
+  process.exit(1);
+}
 
 const state = createDemoSandboxState();
 const today = new Date();
