@@ -153,6 +153,9 @@ export interface VerdictContext {
   roomAliases?: Record<string, string>;
   /** سُلّمُ البدايات الذي يدرّس به القسم فعلاً. حين يغيب لا تُقترح أوقات. */
   startLadder?: string[];
+  /** أوقاتُ دوام القسم كما يضبطها المشرف (بالدقائق من منتصف الليل). حين تغيب يُؤخذ الافتراضيّ. */
+  dayStart?: number;
+  dayEnd?: number;
   nature?: Map<number, CourseNature> | null;
   /** الفصلُ الذي يُحكم فيه: «السابقُ» في التاريخ ما قبله. */
   termId?: number;
@@ -185,9 +188,9 @@ const dayLabel = (day: DayKey) => DAY_NAMES[DAY_KEYS.indexOf(day)];
  * أيامٌ مختلطة (أحدٌ مع اثنين مثلاً) ليست لها مدّةٌ واحدة، واللائحةُ لا تعطيها
  * واحدة. تُؤخذ الأطول، ويُقال ذلك سبباً يستحقّ نظرةً — لا يُخترع رقمٌ وسط.
  */
-export function endForRequest(days: DayKey[], start: string, blockMinutes?: number): string {
+export function endForRequest(days: DayKey[], start: string, blockMinutes?: number, dayEnd: number = SCHEDULE_DAY_END): string {
   if (!days.length || !start) return "";
-  return minutesToTime(Math.min(SCHEDULE_DAY_END, toMinutes(start) + requestMinutes(days, blockMinutes)));
+  return minutesToTime(Math.min(dayEnd, toMinutes(start) + requestMinutes(days, blockMinutes)));
 }
 
 /** طولُ اللقاء بالدقائق: الممتدُّ يبقى طولَه في يومٍ واحد، وغيرُه على لائحة اليوم. */
@@ -283,6 +286,7 @@ function nearestFree(request: RequestedRow, context: VerdictContext, roomKeys: s
      فلا ينفد البديلُ لأن بداياتِ القسم المعتادة امتلأت كلُّها. */
   if (!learned.length || !request.days.length) return [];
   const days = [...request.days];
+  const dayStart = context.dayStart ?? SCHEDULE_DAY_START, dayEnd = context.dayEnd ?? SCHEDULE_DAY_END;
   const current = toMinutes(request.start);
   const ladder = [...new Set([...learned, ...regulationLadder(days)])]
     .sort((a, b) => toMinutes(a) - toMinutes(b));
@@ -293,9 +297,9 @@ function nearestFree(request: RequestedRow, context: VerdictContext, roomKeys: s
      بضغطةٍ لم يقصدها. */
   for (const start of ladder) {
     const minutes = toMinutes(start);
-    if (minutes === current || minutes < SCHEDULE_DAY_START || minutes >= SCHEDULE_DAY_END) continue;
-    const end = endForRequest(days, start, request.blockMinutes);
-    if (!end || toMinutes(end) > SCHEDULE_DAY_END) continue;
+    if (minutes === current || minutes < dayStart || minutes >= dayEnd) continue;
+    const end = endForRequest(days, start, request.blockMinutes, dayEnd);
+    if (!end || toMinutes(end) > dayEnd) continue;
     if (!instructorFree(context.instructorId, days, start, end, week, identity)) continue;
     if (roomKeys.length && !roomKeys.some(roomKey => roomFree(roomKey, days, start, end, week, identity, context.roomAliases))) continue;
     if (cohortClash(request.AdCourseId, days, start, end, week, context.cohortPairs, identity)) continue;
@@ -378,7 +382,8 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const habitBlock = inbound.days.length === 1 && inbound.action !== "delete" && inbound.action !== "keep"
     ? habitualBlockMinutes(context.nature?.get(Number(inbound.AdCourseId)), context.termId) : undefined;
   const request: RequestedRow = { ...inbound, blockMinutes: ownBlock ?? habitBlock };
-  const computedEnd = endForRequest(request.days, request.start, request.blockMinutes);
+  const dayStart = context.dayStart ?? SCHEDULE_DAY_START, dayEnd = context.dayEnd ?? SCHEDULE_DAY_END;
+  const computedEnd = endForRequest(request.days, request.start, request.blockMinutes, dayEnd);
   /* هويّةُ الصفّ: معرّفُه إن كان قائماً، وإلا هويّتُه المؤقّتة. تُستعمل لتخطّي
      الصفِّ نفسِه في كل فحص، فلا يتعارض مع ذاته حين يُنقل. */
   const identity = request.rowId ?? request.tempId ?? -1;
@@ -444,7 +449,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   /* واليومُ الدراسيُّ له أوّلٌ كما له آخِر. الفحصُ كان يحرس آخِرَه وحده، فموعدٌ
      السابعةَ صباحاً يمرّ سليماً — ثم لا يجد البحثُ عن البدائل موضعاً له، لأن
      سُلّمَ البدايات يبدأ من الثامنة. حَدٌّ واحدٌ يُحرَس من طرفيه. */
-  if (toMinutes(request.start) < SCHEDULE_DAY_START) {
+  if (toMinutes(request.start) < dayStart) {
     reasons.push({ source: "shape", text: "تبدأ المحاضرة قبل بداية اليوم الدراسي.", blocking: true });
     return verdictOf();
   }
@@ -453,7 +458,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
      يفحصه بعدها — فمحاضرةٌ تبدأ السابعةَ والنصف مساءً يومَ اثنين تنتهي على
      الورق الثامنةَ تماماً وتبدو سليمة. الطولُ غيرُ المقصوص هو الذي يُسأل. */
   const uncut = toMinutes(request.start) + requestMinutes(request.days, request.blockMinutes);
-  if (uncut > SCHEDULE_DAY_END) {
+  if (uncut > dayEnd) {
     reasons.push({ source: "shape", text: "تتجاوز المحاضرة نهاية اليوم الدراسي.", blocking: true });
     return verdictOf();
   }

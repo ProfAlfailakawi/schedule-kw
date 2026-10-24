@@ -10,3 +10,11 @@ assert.equal(lectureLengthProblem({ fmonday: true, fwednesday: true, fstarttime:
 assert.ok(lectureLengthProblem({ fmonday: true, fwednesday: true, fstarttime: "08:00", fendtime: "09:00" }, 3));
 assert.equal(lectureLengthProblem({ fwednesday: true, fstarttime: "16:00", fendtime: "19:50" }, 3, 230), null, "التاريخ يقدَّم");
 console.log("lecture-length-audit ok");
+
+import { maxWeeklyMinutesFor, weeklyLectureMinutes } from "../src/utils/scheduleRegulations";
+assert.equal(weeklyLectureMinutes({ ...sut, fstarttime: "08:00", fendtime: "08:50" }), 150);
+assert.equal(weeklyLectureMinutes({ fmonday: true, fwednesday: true, fstarttime: "08:00", fendtime: "09:20" }), 160);
+assert.ok(160 <= maxWeeklyMinutesFor(3), "٣ ساعات = ثمانون ثمانون");
+assert.ok(210 <= maxWeeklyMinutesFor(4), "٤ ساعات = ٨٠/٨٠/٥٠");
+assert.ok(weeklyLectureMinutes({ ...sut, fstarttime: "08:00", fendtime: "09:50" }) > maxWeeklyMinutesFor(3), "ست محاضرات لمقرر ٣ ساعات تزيد");
+console.log("weekly-cap ok");

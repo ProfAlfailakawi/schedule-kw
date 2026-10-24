@@ -652,5 +652,20 @@ export function lectureLengthProblem(
   });
   if (fits) return null;
   const family = days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${expectedMinutesForDay(day)}د`);
-  return `مدة المحاضرة ${arabicNumber(length)} دقيقة لا توافق اللائحة (${[...new Set(family)].join("، ")} مع فاصل ${arabicNumber(requiredGapForDays(days))}د بين المحاضرتين المتتاليتين)`;
+  return `مدة المحاضرة ${countOf(length, AR.minute)} لا توافق اللائحة (${[...new Set(family)].join("، ")} مع فاصل ${arabicNumber(requiredGapForDays(days))}د بين المحاضرتين المتتاليتين)`;
 }
+
+/** دقائقُ المحاضرة الفعلية في الأسبوع لصفٍّ واحد: الفواصل بين المحاضرات المتتالية لا تُحسب منها. */
+export function weeklyLectureMinutes(row: Partial<Record<DayKey, unknown>> & { fstarttime?: unknown; fendtime?: unknown }): number {
+  const toMin = (value: unknown) => { const [h, m] = String(value || "").split(":").map(Number); return h * 60 + m; };
+  const length = toMin(row.fendtime) - toMin(row.fstarttime);
+  if (!Number.isFinite(length) || length <= 0) return 0;
+  return DAY_KEYS.filter(day => Boolean(row[day])).reduce((sum, day) => {
+    const lecture = expectedMinutesForDay(day), gap = requiredGapForDay(day);
+    const periods = Math.round((length + gap) / (lecture + gap));
+    return sum + (periods >= 1 && periods * lecture + (periods - 1) * gap === length ? periods * lecture : length);
+  }, 0);
+}
+
+/** الحدُّ الأعلى لدقائق الأسبوع لمقرّرٍ بهذه الساعات: لا يزيد على ما اعتُمد (هامشُ ١٠٪ لفرق ٥٠/٨٠). */
+export const maxWeeklyMinutesFor = (hours: number) => Math.round(Math.round(hours) * 50 * 1.1);
