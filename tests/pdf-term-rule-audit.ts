@@ -3,7 +3,7 @@
  * الثاني 2026/2027 ← الثاني 2025/2026 فقط، وكل ما عداه يُرفض.
  */
 import fs from "fs";
-import { acceptedPdfSourceLabel, pdfTermAccepted } from "../src/utils/pdfTermRule";
+import { acceptedPdfSourceLabel, parseTermName, pdfTermAccepted } from "../src/utils/pdfTermRule";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -37,6 +37,13 @@ check((server.match(/pdfTermAccepted\(/g) || []).length === 2, "المسار ا�
 const ui = fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8");
 check(server.includes("acceptedTerm:acceptedPdfSourceLabel(targetName)"), "الخادم يرسل الفصل المقبول مع رمز الرفض");
 check(ui.includes('problem?.code!=="PDF_TERM_MISMATCH"') && ui.includes("transfer-term-card"), "الواجهة تعرض رفض الفصل بطاقةً مصوّرة");
+
+const xfer = fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8");
+check(parseTermName("الفصل الثاني 2025/2026")?.season === "second" && parseTermName("الفصل الثاني 2025/2026")?.years.join() === "2025,2026", "قراءة اسم الفصل: الموسم والسنتان");
+check(parseTermName("جدول_علوم_الفصل الأول ٢٠٢٥-٢٠٢٦.xlsx")?.season === "first", "قراءة الفصل من اسم الملف بالأرقام العربية");
+check(parseTermName("نموذج-استيراد-الجدول.xlsx") === null, "اسم ملف بلا فصل لا يُفسَّر فصلاً");
+check(/pdfTermAccepted\(header, target\)/.test(xfer) && /declaredTermOf/.test(xfer) && /sourceTermAsk/.test(xfer), "الإكسل وJSON يمرّان بقاعدة الفصل نفسها ويُسأل المستخدم إن لم يذكر الملف فصله");
+check(/معلومات الملف/.test(xfer), "تصدير الإكسل يكتب فصله فيعاد رفعه بلا سؤال");
 
 console.log(`\nPDF term rule audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

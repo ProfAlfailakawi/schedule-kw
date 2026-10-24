@@ -21,6 +21,7 @@ import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { assignAuthoritySections, authoritySectionCodeLooksPlausible, withoutImportEvidence } from "../utils/authorityAcademicCodes";
 import { applySmartFills, isPlaceholderValue, proposeSmartFills, type SmartFill } from "../utils/geminiScheduleLayer";
 import { campusOf } from "../utils/campusTravel";
+import { acceptedPdfSourceLabel, parseTermName, pdfTermAccepted } from "../utils/pdfTermRule";
 import { interruptedImportMessage } from "../utils/importStreamFailure";
 import { pageReviewIssues, pagesAwaitingReview, pagesWithUnreadCells, pagesLabel } from "../utils/importPageReview";
 import { IMPORT_STAGES, importStageStates, noteImportPhase } from "../utils/importStages";
@@ -111,6 +112,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
   const [importSectionId, setImportSectionId] = useState(0);
   const [pdfScopeFix, setPdfScopeFix] = useState<any>(null);
   /* ملف PDF لفصلٍ لا يقبله الفصل المختار: يُعرض بطاقةً مصوّرة لا جملةً طويلة. */
+  /* ملف إكسل/JSON لا يذكر فصله: يُسأل المستخدم من أي فصلٍ أُخذ، ثم تُطبَّق قاعدة الـPDF نفسها. */
+  const [sourceTermAsk, setSourceTermAsk] = useState<{ file: File; choice: string } | null>(null);
   const [termMismatch, setTermMismatch] = useState<{ source: string; accepted: string; target: string } | null>(null);
   /* The quick-edit course picker needs the department's catalogue; fetched once
      the first time a PDF preview opens, never on plain Excel imports. */
@@ -627,6 +630,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
         (sheet as any)["!cols"] = [{ wch: 12 }, { wch: 30 }, { wch: 8 }, { wch: 22 }, { wch: 15 }, { wch: 22 }, { wch: 14 }, { wch: 9 }, { wch: 9 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, sheet, "الجدول الدراسي");
+        /* فصل الملف مكتوبٌ فيه، فيُقرأ تلقائياً عند إعادة رفعه ولا يُسأل عنه. */
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["الفصل", data.scope?.term || ""]]), "معلومات الملف");
         const fileName = `جدول_${data.scope?.section || "القسم"}_${data.scope?.term || "الفصل"}.xlsx`.replace(/[\\/*?:"<>|]/g, "_");
         XLSX.writeFile(wb, fileName);
       } else {
@@ -1080,13 +1085,42 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     }
   };
 
-  const readFile = async (file: File) => {
+  /** الفصل الذي يذكره الملف: JSON من scope.term، وإكسل من ورقة «معلومات الملف» ثم من اسمه. */
+  const declaredTermOf = async (file: File): Promise<string> => {
+    try {
+      if (/\.xlsx?$/i.test(file.name)) {
+        const XLSX = await import("xlsx");
+        const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+        const info = wb.Sheets["معلومات الملف"];
+        const cell = info ? XLSX.utils.sheet_to_json(info, { header: 1, defval: "" }) as any[][] : [];
+        const found = cell.find(row => String(row?.[0] || "").trim() === "الفصل");
+        if (found && parseTermName(String(found[1] || ""))) return String(found[1]);
+        return file.name;
+      }
+      const data = JSON.parse(await file.text());
+      return String(data?.scope?.term || "");
+    } catch { return ""; }
+  };
+  const readFile = async (file: File, declaredName?: string) => {
     /* A new file starts a new review. Anything the sharper reading proposed for
        the previous file would otherwise still be on screen, offering cells that
        belong to a table that is no longer here. */
     setImportSectionId(0); setPdfScopeFix(null); setTermMismatch(null);
     setSmartProposal(null); setSmartPicked(new Set()); setSmartFile(null); setPublishReceipt(null);
     if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") { await readPdf(file); return; }
+    /* كل ما يُرفع يمرّ بقاعدة الفصل نفسها (الفصل السابق/القريب فقط). الفصل يُقرأ من الملف إن ذكره، وإلا يُسأل عنه المستخدم. */
+    const sourceName = declaredName ?? await declaredTermOf(file);
+    const target = String(terms.find(term => Number(term.AdTermId) === Number(termId))?.AdTermName || "");
+    if (acceptedPdfSourceLabel(target)) {
+      const header = parseTermName(sourceName);
+      if (!header) { setSourceTermAsk({ file, choice: "" }); return; }
+      if (!pdfTermAccepted(header, target)) {
+        setTermMismatch({ source: sourceName, accepted: acceptedPdfSourceLabel(target), target });
+        setError(null); setSourceTermAsk(null);
+        return;
+      }
+    }
+    setSourceTermAsk(null);
     if (/\.xlsx?$/i.test(file.name)) { await readExcel(file); return; }
     setError(null); setPreview(null); setPayload(null);
     try {
@@ -1260,6 +1294,16 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
             <strong>دوّر صفحات الجدول للوضع الأفقي ثم أعد الرفع</strong>
           </div>
         ) : <p className="transfer-error"><AlertTriangle />{error}</p> : null}
+        {tab==="import"&&sourceTermAsk?
+          <div className="transfer-term-card" role="group" aria-label="فصل الملف">
+            <header><AlertTriangle aria-hidden="true" /><strong>من أي فصلٍ أُخذ هذا الملف؟</strong></header>
+            <p className="transfer-note">الملف لا يذكر فصله. اختر فصله ليُطبَّق عليه شرط الفصل المقبول نفسه المطبَّق على PDF.</p>
+            <select value={sourceTermAsk.choice} onChange={event => setSourceTermAsk({ ...sourceTermAsk, choice: event.target.value })}>
+              <option value="">اختر الفصل…</option>
+              {sortedTerms.map(term => <option key={term.AdTermId} value={term.AdTermName}>{term.AdTermName}</option>)}
+            </select>
+            <SecondaryButton type="button" data-guide-ignore="اختيار فصل الملف قبل قراءته؛ لا يغيّر بيانات الجدول" disabled={!sourceTermAsk.choice || busy} onClick={() => void readFile(sourceTermAsk.file, sourceTermAsk.choice)}>متابعة</SecondaryButton>
+          </div>:null}
         {tab==="import"&&termMismatch?
           <div className="transfer-term-card" role="alert">
             <header><Ban aria-hidden="true" /><strong>فصل غير مقبول</strong></header>
