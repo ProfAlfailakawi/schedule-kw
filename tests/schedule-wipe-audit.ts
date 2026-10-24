@@ -26,6 +26,19 @@ check(!wipeDecision({ ...base, approvalStatus: "committee", signatureCount: 1 })
 check(wipeDecision({ ...base, isAdmin: true, approvalStatus: "head", signatureCount: 2 }).allowed, "وبعد التوقيع يمسحه الأدمن وحده");
 check(scheduleIsSigned("drafting", 1) && scheduleIsSigned("submitted", 0) && !scheduleIsSigned("drafting", 0) && !scheduleIsSigned(undefined, 0), "التوقيع: توقيعٌ واحد أو حالةٌ بعد الإعداد");
 
+/* ── ما لا يكشفه وضع العرض (Firestore وتزامن الكتابة) ───────────────────────── */
+{
+  const fs = await import("node:fs");
+  const server = fs.readFileSync("server.ts", "utf8");
+  const restore = server.slice(server.indexOf('app.post("/api/schedules/wipe-scope/restore"'), server.indexOf("// --- SMART SCHEDULE WORKSPACE"));
+  check(restore.includes("Repository.getScheduleVersionById("), "الإرجاع يقرأ النسخة كاملةً بصفوفها (قائمة Firestore بلا صفوف)");
+  check(restore.includes("expectCurrentCount: 0"), "والفراغ يُفحص داخل قفل الكتابة نفسه");
+  const wipe = server.slice(server.indexOf('app.post("/api/schedules/wipe-scope"'), server.indexOf('app.post("/api/schedules/wipe-scope/restore"'));
+  check(wipe.includes("expectCurrentCount: state.rows.length") && wipe.includes("WIPE_MAX_ROWS"), "والمسح مشروطٌ بالعدد داخل القفل وبحدّ ما يُرجَع");
+  const repo = fs.readFileSync("src/db/repository.ts", "utf8");
+  check((repo.match(/throw new ScopeChangedError/g) || []).length === 2, "والشرط في المسارين (Firestore والذاكرة)");
+}
+
 /* ── الخادم ──────────────────────────────────────────────────────────────── */
 const BASE = process.env.WIPE_TEST_BASE || "http://localhost:3000";
 type Res = { status: number; json: any; cookie?: string };

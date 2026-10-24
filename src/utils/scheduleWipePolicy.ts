@@ -31,6 +31,8 @@ export interface WipeDecision { allowed: boolean; reason: string }
 export const WIPE_CONFIRM_TOKEN = "wipe-scope";
 export const WIPE_RESTORE_TOKEN = "wipe-restore";
 /** وسمُ النسخة الاحتياطية التي تُلتقط قبل المسح: بها يُعرف «آخر مسح» للإرجاع. */
+/** أكبرُ جدولٍ يُمسح: ما يقبله الإرجاع (حدّ المسودة الآمن). */
+export const WIPE_MAX_ROWS = 450;
 export const WIPE_VERSION_LABEL = "قبل مسح الجدول بالكامل";
 
 export function scheduleIsSigned(approvalStatus?: string | null, signatureCount = 0): boolean {
