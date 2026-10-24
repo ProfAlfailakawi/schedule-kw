@@ -71,14 +71,20 @@ html[data-device="phone"] .app{margin-block:20px;min-block-size:calc(100dvh - 40
 ${W} .app[data-view="home"]{max-inline-size:1160px;padding-inline:28px}
 ${W} .app[data-view="home"] header.top{min-block-size:68px;padding-block:10px}
 ${W} .app[data-view="home"] .hero.me{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:center;gap:28px;padding:26px 32px;border-radius:30px}
-${W} .app[data-view="home"] .hero.me .kpis b{font-size:26px}
+${W} .app[data-view="home"] .hero.me .kpis>div:not(:last-child) b{font-size:34px}
+${W} .app[data-view="home"] .hero.me .hl{font-size:24px}
+${W} .app[data-view="home"] .hero.me>.row,${W} .app[data-view="home"] .hero.me>.hl,${W} .app[data-view="home"] .hero.me>.rn{grid-column:1}
+${W} .app[data-view="home"] .hero.me>.kpis{grid-column:2;grid-row:1/span 3;align-self:center}
+${W} .app[data-view="home"] .hero.me{padding-block-end:48px}
+${W} .pane[data-pane="now"]>#nextStep{grid-column:1/-1;grid-row:1;margin-block-start:-40px;margin-inline:24px;grid-template-columns:auto minmax(0,1fr) auto}
+${W} .pane[data-pane="now"]>#nextStep .btn{grid-column:auto;inline-size:auto;padding-inline:26px}
 ${W} .app[data-view="home"] .hero.me .kpis small{font-size:12.5px}
 ${W} .app[data-view="home"] .pane[data-pane="now"]{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px;align-items:start;margin-block-start:18px}
 ${W} .pane[data-pane="now"] .card{margin-block-start:0}
 ${W} .pane[data-pane="now"]>#visitChanges{grid-column:1}
 ${W} .pane[data-pane="now"]>#noticesTop{grid-column:1}
 ${W} .pane[data-pane="now"]>#primarySlot{grid-column:1}
-${W} .pane[data-pane="now"]>#later{grid-column:2;grid-row:1/span 6;margin-block-start:0}
+${W} .pane[data-pane="now"]>#later{grid-column:2;grid-row:2/span 6;margin-block-start:0}
 ${W} .pane[data-pane="now"]>#adx-me-box{grid-column:1/-1}
 ${W} .pane[data-pane="now"] #primarySlot{display:grid;gap:18px}
 ${W} .pane[data-pane="now"] #laterBody{display:grid;gap:18px}
@@ -364,7 +370,21 @@ details.more[open]>summary .i{transform:rotate(180deg)}
 .kpis>div{display:grid;justify-items:center;gap:1px;padding:10px 4px;text-align:center}
 .kpis>div+div{border-inline-start:1px solid rgba(255,255,255,.14)}
 .kpis b{font-size:18px;line-height:1.3;font-variant-numeric:tabular-nums}
-.kpis b.w{font-size:14px;font-weight:700;line-height:1.5}
+.kpis b.w{font-size:14px;font-weight:700;line-height:1.5;color:rgba(255,255,255,.92)}
+.hero.me .kpis>div:not(:last-child) b{font-size:30px;font-weight:800;line-height:1.2}
+.hero.me{padding-block-end:34px}
+.hero.me .hl{margin:0;font-size:21px;font-weight:700;line-height:1.5;color:#fff;position:relative;z-index:1}
+.hero.me .hl b{color:#e7c590;font-size:26px;font-variant-numeric:tabular-nums}
+.hero.me .rn{font-size:12px;line-height:1.7;color:rgba(255,255,255,.88);position:relative;z-index:1}
+.next{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px 14px;margin-block-start:-22px;margin-inline:10px;padding:14px 16px;border-radius:22px;background:linear-gradient(180deg,var(--gold-soft),var(--card) 70%);border:1px solid var(--line);border-block-start:3px solid var(--brass);box-shadow:var(--shadow);position:relative;z-index:2}
+.next[hidden]{display:none}
+.next .nb{inline-size:42px;block-size:42px;border-radius:14px;display:grid;place-items:center;background:var(--card);color:var(--accent);border:1px solid var(--line)}
+.next .nb .i{inline-size:22px;block-size:22px}
+.next .nt{display:grid;gap:1px;min-inline-size:0}
+.next .nt small{font-size:12px;font-weight:700;color:var(--gold)}
+.next .nt b{font-size:17px;line-height:1.5}
+.next .nt span{font-size:13px;color:var(--muted);line-height:1.6}
+.next .btn{grid-column:1/-1;inline-size:100%}
 .kpis small{font-size:12px;color:rgba(255,255,255,.88)}
 .pane>.card:first-child,.pane>div:first-child>.card{margin-block-start:14px}
 details.how{margin:10px 4px 0}
@@ -701,15 +721,35 @@ function homePart(key,fresh){
   if(fresh)return api("GET","/api/public/me/"+key);
   if(!homeP)homeP=api("GET","/api/public/me/home");
   return homeP.then(function(r){var p=r.ok&&r.d&&r.d.parts&&r.d.parts[key];return p&&p.status<500?p:api("GET","/api/public/me/"+key)})}
+function heroHeadline(pr){var pc=Math.max(0,Math.min(100,Math.round(Number(pr.percent)||0)));
+  if(pc>=100||!(pr.remainingUnits>0))return"أكملتَ خطتك كاملة";
+  if(pc===0)return"ابدأ بتسجيل ما أنجزت لتعرف أين أنت";
+  return'أنجزتَ <b>'+pc+'٪</b> من خطتك'}
+/* الخطوة التالية: واحدةٌ فقط، تتبع مرحلة الفصل ووضع الطالب؛ تُعاد رسمها حين يتغيّر شيءٌ منها. */
+function nextStepInfo(){var s=S.state,p=s&&s.profile;if(!p)return null;var ph=s.phase||{},pr=p.progress||{},w=p.wishes;if(w&&s.term&&w.termId!==s.term.id)w=null;
+  var hasW=!!(w&&w.courseIds&&w.courseIds.length),rem=Number(pr.remainingUnits)||0;
+  if(ph.mode==="wishes"&&ph.canEditWishes)return hasW?{ic:"heart",t:"راجع رغباتك",d:ph.nextAt?"تعدّلها حتى "+fmtShort(ph.nextAt):"تعدّلها متى شئت",go:"عدّل رغباتي",to:"wishes"}:{ic:"heart",t:"سجّل رغباتك لهذا الفصل",d:"تأخذ دقيقة، ويُبنى جدولك المقترح عليها",go:"سجّل رغباتي",to:"wishes"};
+  if(ph.mode==="report"||ph.mode==="frozen")return{ic:"ticket",t:"تابع جدولك المقترح",d:ph.mode==="report"?"إن وجدتَ ما يعيقك فأبلغ القسم من هنا":"جاهزٌ لمراجعتك",go:"افتح جدولي",to:"ticket"};
+  if(rem<=0)return null;
+  if(!(Number(pr.passedUnits)>0))return{ic:"edit",t:"أكمل خطتك",d:"سجّل ما أنجزت ليحسب مساري ما بقي عليك",go:"سجّل ما أنجزت",to:"setup"};
+  return{ic:"layers",t:"راجع خطتك وفصولك",d:"اطّلع على ما يمكنك تسجيله وما يلزمك أولاً",go:"افتح خطتي",to:"plan"}}
+function nextStepPaint(){var host=document.getElementById("nextStep");if(!host)return;var n=nextStepInfo();if(!n){host.hidden=true;host.innerHTML="";return}
+  host.hidden=false;host.innerHTML='<span class="nb">'+ic(n.ic)+'</span><div class="nt"><small>خطوتك الآن</small><b>'+esc(n.t)+'</b><span>'+esc(n.d)+'</span></div><button type="button" class="btn small" id="nextGo">'+esc(n.go)+ic("back","")+'</button>';
+  document.getElementById("nextGo").addEventListener("click",function(){
+    if(n.to==="setup"){var d=startDraft();d.step=3;setView("setup");return}
+    if(n.to==="plan"){showTab("plan");return}
+    var el=document.getElementById(n.to);if(el)reveal(el)})}
 function viewHome(){
   homeP=null;S.tab="now";dockEl.innerHTML="";S.tkOverrides={};S.tkRemoved={};S.tkAdded={};S.tkSel=0;S.tkErr="";S.wDraft=null;S.wEdit=false;S.wStep=0;S.wCount=null;var s=S.state,p=s.profile,ph=s.phase,pr=p.progress||{percent:0,passedUnits:0,totalUnits:0,remainingUnits:0};
   var first=p.identity&&p.identity.name?String(p.identity.name).split(" ")[0]:"";
   var terms=termsLeft(pr.remainingUnits);
   /* ── الواجهة: بطاقةٌ واحدة تقول «أين أنا» — حلقةٌ ورقمان — والباقي في ثلاثة ألسنة. ── */
   var h='<section class="hero me fade"><div class="row" style="gap:16px">'+ring(pr.percent)+'<div class="who"><small>'+(first?"أهلاً، "+esc(first):"مساري")+'</small><h1>'+esc(p.sectionName)+'</h1><span>'+(p.planName?esc(p.planName)+" · ":"")+countOf(p.passedUnits,AR.unit)+' مجتازة</span></div><button class="ghost" id="edp" aria-label="عدّل ما أنجزت">'+ic("edit")+'</button></div>'
-   +'<div class="kpis"><div><b>'+(pr.remainingUnits||0)+'</b><small>الوحدات المتبقية</small></div><div><b id="kt">'+(terms||"✓")+'</b><small id="kts">'+(terms?"فصول للتخرّج":"أكملت الصحيفة")+'</small></div><div><b class="w">'+esc(ph.label)+'</b><small>'+(ph.nextAt?esc(fmtShort(ph.nextAt)):"المرحلة الآن")+'</small></div></div></section>';
+   +'<p class="hl">'+heroHeadline(pr)+'</p>'
+   +'<div class="kpis"><div><b>'+(pr.remainingUnits||0)+'</b><small>الوحدات المتبقية</small></div><div><b id="kt">'+(terms||"✓")+'</b><small id="kts">'+(terms?"فصول للتخرّج":"أكملت الصحيفة")+'</small></div><div><b class="w">'+esc(ph.label)+'</b><small>'+(ph.nextAt?esc(fmtShort(ph.nextAt)):"المرحلة الآن")+'</small></div></div>'
+   +'<small class="rn">النسبة: ما اجتزته من مجموع وحدات خطتك. وعدد الفصول تقدير بمعدّل '+countOf(defaultUnits(),AR.unit)+' للفصل.</small></section>';
   /* لسان «الآن»: بطاقةٌ واحدة فوق الطيّة تحسبها المرحلة، والباقي مطويٌّ تحت «المزيد». تُنقل المضيفات بين الموضعين ولا يتغيّر معرّفها. */
-  h+='<div class="pane" data-pane="now"><div id="visitChanges"></div><div id="noticesTop"></div><div id="primarySlot"></div><div id="adx-me-box"></div>'
+  h+='<div class="pane" data-pane="now"><section class="next fade" id="nextStep" hidden></section><div id="visitChanges"></div><div id="noticesTop"></div><div id="primarySlot"></div><div id="adx-me-box"></div>'
    +'<details class="more later" id="later" hidden><summary id="laterSum"></summary><div id="laterBody">'
    +'<div id="notices" data-o="0"></div><div id="cases" data-o="1"></div><div id="ticket" data-o="2"></div><div id="report" data-o="3"></div><div id="wishes" data-o="4"></div><div id="caseRequest" data-o="5"></div>'
    +'<section class="card fade" id="journey" data-o="6"><h2><span class="b">'+ic("clock")+'</span>رحلة الفصل</h2>'+track()+(ph.nextAt?'<button type="button" class="btn alt small" id="icsNext">'+ic("cal")+'ذكّرني بـ«'+esc(ph.nextLabel||"الموعد القادم")+'» '+esc(fmtShort(ph.nextAt))+'</button>':'')+'</section>'
@@ -722,7 +762,7 @@ function viewHome(){
   app.innerHTML=h;wireWhatIf(pr.remainingUnits);animateRings();markOverflow();adxMountLater("adx-me-box","me",adxCtx({}));
   dockEl.innerHTML='<nav class="tabs" role="tablist" aria-label="أقسام مساري"><button type="button" role="tab" data-tab="now" aria-selected="true">'+ic("home")+'<span>الآن</span><i class="dot" id="nowdot" hidden></i></button><button type="button" role="tab" data-tab="plan" aria-selected="false">'+ic("layers")+'<span>خطتي</span></button><button type="button" role="tab" data-tab="me" aria-selected="false">'+ic("user")+'<span>ملفي</span></button></nav>';
   dockEl.querySelectorAll("[data-tab]").forEach(function(b){b.addEventListener("click",function(){showTab(b.getAttribute("data-tab"))})});
-  placeTabs();
+  placeTabs();nextStepPaint();
   document.getElementById("edp").addEventListener("click",function(){var d=startDraft();d.step=3;setView("setup")});
   document.getElementById("out").addEventListener("click",function(){api("POST","/api/public/me/exit",{}).then(function(){S.state.signedIn=false;S.state.profile=null;S.civil="";S.remember=false;S.draft=null;S.offered=null;setView("gate")})});
   document.getElementById("chg").addEventListener("click",sheetCode);
@@ -1144,7 +1184,7 @@ function wishesDone(host,w,edit){var ph=S.state.phase;
   if(edit){var put=function(c){var el=document.getElementById("wcnt");if(el)el.innerHTML=c}
     if(S.wCount)put(S.wCount);
     else api("GET","/api/public/me/wishes-count").then(function(r){if(!r.ok||!r.d.ready||!r.d.mine)return;S.wCount=r.d.show?ic("user","")+' أنت واحدٌ من '+countOf(r.d.n,AR.student)+' أرسلوا رغباتهم في قسمك.':ic("shield","")+' رغباتك تغذّي رادار التسجيل لقسمك.';put(S.wCount)})}}
-function renderWishes(){var host=document.getElementById("wishes"),s=S.state,ph=s.phase,w=s.profile.wishes;if(w&&s.term&&w.termId!==s.term.id)w=null;if(!host)return;
+function renderWishes(){nextStepPaint();var host=document.getElementById("wishes"),s=S.state,ph=s.phase,w=s.profile.wishes;if(w&&s.term&&w.termId!==s.term.id)w=null;if(!host)return;
   if(ph.mode!=="wishes"&&!(w&&ph.mode==="frozen")){host.innerHTML="";return}
   var edit=ph.mode==="wishes";
   if(!edit||(w&&!S.wEdit)){wishesDone(host,w,edit);return}
