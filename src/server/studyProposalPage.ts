@@ -455,7 +455,7 @@ function opResultHtml(o){var d=D.decision||{},s="";
 function opsHtml(){var ops=D.ops||[];if(!ops.length)return '<div class="card empty">لا مواد في هذا المقترح.</div>';
  return '<div class="ops">'+ops.map(function(o,i){var t=o.target;
   return '<article class="op" aria-label="'+esc(KIND[o.kind]+": "+opName(o))+'"><div class="op-head"><span class="kind" data-k="'+o.kind+'">'+ic(KIND_IC[o.kind])+esc(KIND[o.kind]||o.kind)+'</span><span class="hint">المادة '+(i+1)+' من '+ops.length+'</span></div>'+
-  '<h3>'+esc(t.courseName||t.courseCode||"المقرر")+(t.planBadge?'<span class="plan-badge">'+esc(t.planBadge)+'</span>':'')+'<small>'+esc(t.courseCode||"")+(t.SCode?' · شعبة '+esc(t.SCode):'')+(t.collegeName?' · '+esc(t.collegeName):'')+'</small></h3>'+
+  '<h3>'+esc(t.courseName||t.courseCode||"المقرر")+(t.planBadge?'<span class="plan-badge">'+esc(t.planBadge)+'</span>':'')+(t.service?'<span class="plan-badge">متطلب</span>':'')+'<small>'+esc(t.courseCode||"")+(t.SCode?' · شعبة '+esc(t.SCode):'')+(t.collegeName?' · '+esc(t.collegeName):'')+'</small></h3>'+
   factsHtml(t)+whatChanges(o)+opResultHtml(o)+'</article>'}).join("")+'</div>'}
 
 /* ── الأثر ───────────────────────────────────────────────────────────────── */

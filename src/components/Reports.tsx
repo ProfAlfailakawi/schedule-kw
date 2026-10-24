@@ -52,7 +52,7 @@ import MeetingSlots from "./MeetingSlots";
 import { instructorCourseLoad } from "../utils/instructorCourseLoad";
 import { ApprovalDnaStepper, DeadlineDnaRing } from "./dna/scheduleDna";
 import PlanBadge from "./PlanBadge";
-import { usePlanBadges } from "../utils/planBadges";
+import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 
 /**
  * One question, seven lenses.
@@ -2191,7 +2191,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 value={filters.courseId || ""}
                 onChange={picked => set("courseId", Number(picked) || 0)}
                 title={selectedCourse ? cleanOptionText(selectedCourse.CourseName) : "كل المقررات"}
-                options={[{ value: "", label: "الكل" }, ...courseOptions.map(row => ({ value: row.AdCourseId, label: cleanOptionText(row.CourseName), badge: planBadges[Number(row.AdCourseId)] || undefined, hint: row.CourseCode || undefined, keywords: String(row.CourseCode || "") }))]}
+                options={[{ value: "", label: "الكل" }, ...courseOptions.map(row => ({ value: row.AdCourseId, label: cleanOptionText(row.CourseName), badge: courseOptionBadge([Number(row.AdCourseId)], planBadges), hint: row.CourseCode || undefined, keywords: String(row.CourseCode || "") }))]}
                 placeholder="الكل"
                 ariaLabel="المقرر"
                 searchPlaceholder="اكتب اسم المقرر أو رمزه"
