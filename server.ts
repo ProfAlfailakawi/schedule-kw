@@ -18263,8 +18263,8 @@ async function demoPageHint(link: ScheduleShareLink, page: "staff" | "survey" | 
     const digits = String(value).replace(/[^0-9A-Z]/gi, "");
     return `<span class="demo-num"><bdi dir="ltr" style="font-weight:700;user-select:all;-webkit-user-select:all">${digits}</bdi>`
       + `<button type="button" class="demo-copy" data-demo-copy="${digits}" aria-live="polite" title="نسخ الرقم" aria-label="نسخ الرقم ${digits}">`
-      + `<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg>`
-      + `<span data-demo-copy-label>نسخ الرقم</span></button></span>`;
+      + `<svg class="ic-copy" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg>`
+      + `<svg class="ic-ok" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button></span>`;
   };
   const lines: string[] = [];
   if (page === "staff" || page === "request") {
@@ -18291,8 +18291,8 @@ async function demoPageHint(link: ScheduleShareLink, page: "staff" | "survey" | 
   }
   if (!lines.length) return "";
   const copyCss = `<style>.demo-num{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap;vertical-align:middle}`
-    + `.demo-copy{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:2px 10px;border-radius:999px;border:1px solid #c79b5f;background:#fffdf7;color:#5b4520;font:inherit;font-size:11.5px;font-weight:700;line-height:1.4;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s ease,color .15s ease,border-color .15s ease}`
-    + `.demo-copy svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}`
+    + `.demo-copy{display:inline-grid;place-items:center;inline-size:34px;block-size:34px;padding:0;border-radius:50%;border:1px solid #c79b5f;background:#fffdf7;color:#5b4520;font:inherit;font-size:11.5px;font-weight:700;line-height:1.4;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s ease,color .15s ease,border-color .15s ease}`
+    + `.demo-copy svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;grid-area:1/1}.demo-copy .ic-ok{display:none}.demo-copy[data-copied] .ic-copy{display:none}.demo-copy[data-copied] .ic-ok{display:block}`
     + `.demo-copy:hover{background:#f6e7c6}.demo-copy:focus-visible{outline:2px solid #5b4520;outline-offset:2px}.demo-copy:active{transform:scale(.97)}`
     + `.demo-copy[data-copied]{background:#e8f5ee;border-color:#8fc7a9;color:#1f6b46}</style>`;
   return `${copyCss}<div class="demo-hint" role="note" style="margin:10px 0;padding:8px 11px;border-radius:10px;background:#fff7e6;border:1px dashed #c79b5f;color:#5b4520;font-size:12px;line-height:1.65;text-align:start"><b>بيئة تجريبية</b> — الأرقام وهمية.<br>${lines.join("<br>")}</div>`;

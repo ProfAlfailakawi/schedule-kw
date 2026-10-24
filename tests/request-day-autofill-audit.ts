@@ -61,31 +61,48 @@ check(server.includes('app.get("/api/public/request/:token/day-habits"') && serv
 check(server.includes("loadHabits(state.map(courseIdOf))") && server.includes("loadHabits([cid])"), "النمطُ يُجلب لمقرّرات الطلب عند الفتح وللمقرّر المضاف عند اختياره");
 check(server.includes('class="auto-note"') && server.includes("أُكمل النمط المعتاد لهذا المقرّر"), "تُقال للأستاذ ملاحظةٌ قصيرة أن الأيام أُكملت وأنه يستطيع التبديل");
 
-/* 6) زرُّ «نسخ الرقم» في تلميح الديمو. */
-const copyBox: any = { listeners: {} };
-const clicks: any[] = [];
-const button: any = {
-  attrs: { "data-demo-copy": "289012345678", }, flags: {} as Record<string, string>,
-  getAttribute(name: string) { return this.attrs[name] ?? null; }, setAttribute(name: string, value: string) { this.flags[name] = value; }, removeAttribute(name: string) { delete this.flags[name]; },
-  querySelector() { return label; },
+/* 6) زرُّ النسخ (أيقونةٌ بلا كلام) في تلميح الديمو. */
+const makeCtx = (legacyWorks: boolean, withClipboard: boolean) => {
+  const listeners: any = {}, timers: Array<() => void> = [], log = { copied: "", picked: false, legacyValue: "" };
+  const button: any = {
+    attrs: { "data-demo-copy": "289012345678" }, flags: {} as Record<string, string>, parentNode: { querySelector: () => ({}) },
+    getAttribute(name: string) { return this.attrs[name] ?? null; }, setAttribute(name: string, value: string) { this.flags[name] = value; }, removeAttribute(name: string) { delete this.flags[name]; },
+  };
+  const focusLog: string[] = [];
+  const area: any = { style: {}, setAttribute() {}, focus() { focusLog.push("area"); }, setSelectionRange() {}, get value() { return this._v; }, set value(v: string) { this._v = v; log.legacyValue = v; } };
+  const ctx: any = {
+    window: { getSelection: () => ({ removeAllRanges() { log.picked = true; }, addRange() {} }) }, clearTimeout() {}, setTimeout: (fn: () => void) => { timers.push(fn); return 1; },
+    navigator: withClipboard ? { clipboard: { writeText: (text: string) => { log.copied = text; return { then: (ok: () => void) => { ok(); } }; } } } : {},
+    document: {
+      activeElement: { focus: () => { focusLog.push("button"); } },
+      addEventListener: (type: string, fn: any) => { listeners[type] = fn; },
+      createElement: () => area, body: { appendChild() {}, removeChild() {} }, createRange: () => ({ selectNodeContents() {} }),
+      execCommand: () => legacyWorks,
+    },
+  };
+  vm.runInNewContext(DEMO_COPY_SCRIPT, ctx, { timeout: 1000 });
+  const click = () => listeners.click({ target: { closest: (sel: string) => sel === "[data-demo-copy]" ? button : null }, preventDefault() {} });
+  return { ctx, listeners, timers, button, log, click, focusLog };
 };
-const label: any = { textContent: "نسخ الرقم" };
-let copied = "";
-const ctx: any = {
-  window: {}, clearTimeout() {}, setTimeout: (fn: () => void) => { clicks.push(fn); return 1; },
-  navigator: { clipboard: { writeText: (text: string) => { copied = text; return { then: (ok: () => void) => { ok(); } }; } } },
-  document: { addEventListener: (type: string, fn: any) => { copyBox.listeners[type] = fn; } },
-};
-vm.runInNewContext(DEMO_COPY_SCRIPT, ctx, { timeout: 1000 });
-copyBox.listeners.click({ target: { closest: (sel: string) => sel === "[data-demo-copy]" ? button : null }, preventDefault() {} });
-check(copied === "289012345678", "الزرُّ ينسخ الرقم كاملاً (data-demo-copy)");
-check(label.textContent === "تم النسخ" && button.flags["data-copied"] === "1", "ويقول «تم النسخ» ثم يعود");
-clicks.forEach(fn => fn());
-check(label.textContent === "نسخ الرقم" && !("data-copied" in button.flags), "بعد لحظةٍ يعود إلى «نسخ الرقم»");
-const before = Object.keys(copyBox.listeners).length;
-vm.runInNewContext(DEMO_COPY_SCRIPT, ctx, { timeout: 1000 });
-check(Object.keys(copyBox.listeners).length === before, "الحشوُ المزدوج لا يضيف مستمعاً ثانياً");
-check(server.includes('data-demo-copy="${digits}"') && (server.match(/\$\{DEMO_COPY_SCRIPT\}/g) || []).length >= 3 && fs.readFileSync(path.join(process.cwd(), "src/server/publicKit.ts"), "utf8").includes("+ DEMO_COPY_SCRIPT"), "الزرّ في تلميح الديمو ومعالجُه في صفحات الأستاذ والطالب كلِّها");
+{
+  /* الآيفون: النسخُ القديم داخل الضغطة نفسها أولاً، فلا يتأخّر بعد انقضائها. */
+  const a = makeCtx(true, true); a.click();
+  check(a.log.legacyValue === "289012345678" && a.log.copied === "", "الرقمُ كاملاً يُنسخ داخل الضغطة نفسها (دون انتظار الحافظة الحديثة)");
+  check(a.focusLog.join() === "area,button", "ويعود التركيزُ إلى الزرّ بعد إزالة الحقل المؤقّت");
+  check(a.button.flags["data-copied"] === "1", "وتتبدّل الأيقونةُ إلى علامة الصحّ (بلا كلام)");
+  a.timers.forEach(fn => fn());
+  check(!("data-copied" in a.button.flags), "وتعود الأيقونةُ بعد لحظة");
+  /* حين يفشل القديم تُجرَّب الحافظةُ الحديثة. */
+  const b = makeCtx(false, true); b.click();
+  check(b.log.copied === "289012345678" && b.button.flags["data-copied"] === "1", "وإن فشل القديمُ نُسخ بالحافظة الحديثة");
+  /* وإن فشل الاثنان يُحدَّد الرقم ليكمل المستخدم بنسخ النظام. */
+  const c = makeCtx(false, false); c.click();
+  check(c.log.picked && !("data-copied" in c.button.flags), "وإن فشلا يُحدَّد الرقمُ كاملاً بدل صمتٍ كاذب");
+  const before = Object.keys(a.listeners).length;
+  vm.runInNewContext(DEMO_COPY_SCRIPT, a.ctx, { timeout: 1000 });
+  check(Object.keys(a.listeners).length === before, "الحشوُ المزدوج لا يضيف مستمعاً ثانياً");
+}
+check(server.includes('data-demo-copy="${digits}"') && !server.includes('data-demo-copy-label') && (server.match(/\$\{DEMO_COPY_SCRIPT\}/g) || []).length >= 3 && fs.readFileSync(path.join(process.cwd(), "src/server/publicKit.ts"), "utf8").includes("+ DEMO_COPY_SCRIPT"), "الزرّ في تلميح الديمو ومعالجُه في صفحات الأستاذ والطالب كلِّها");
 
 /* 7) «جرّب كأستاذ» تحت «جرّب كطالب» في شريط الديمو. */
 const app = fs.readFileSync(path.join(process.cwd(), "src/App.tsx"), "utf8");
