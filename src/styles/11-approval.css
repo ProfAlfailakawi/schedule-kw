@@ -1256,6 +1256,27 @@
   .request-issues li[data-severity="high"] svg{color:var(--danger)}
   .request-issues li span{overflow-wrap:anywhere}
   .request-issues li small{display:block;color:var(--ink-2);font-size:12px;margin-top:2px}
+  /* التنبيه مختصراً بأيقونة (AlertShort): الأيقونة داخل العنوان، فلا عمودَ لها. */
+  .request-issues li:has(.alert-short){display:block}
+  .alert-short{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+  .alert-short .as-head{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:13px}
+  .alert-short .as-head svg{margin:0;flex:none}
+  .alert-short .as-card,.alert-short .as-stat{display:inline-flex;gap:8px;padding:7px 11px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+  .alert-short .as-card{flex-direction:column;gap:3px}
+  .alert-short .as-row{display:inline-flex;align-items:center;gap:7px;color:var(--ink-2)}
+  .alert-short .as-row u{text-decoration:none;display:grid;place-items:center;width:20px;height:20px;border-radius:6px;font-size:11px;font-weight:700;background:var(--surface-2)}
+  .alert-short .as-stat{align-items:center}
+  .alert-short .as-stat b{font:800 18px/1 ui-monospace,monospace;color:var(--danger)}
+  .alert-short .as-stat em{font-style:normal;font-weight:700;color:var(--danger)}
+  .alert-short .as-row svg{width:13px;height:13px;margin:0;color:var(--ink-2)}
+  .alert-short .as-day{text-decoration:none;display:grid;place-items:center;width:22px;height:22px;border-radius:7px;font-size:11.5px;font-weight:700;background:var(--surface-2)}
+  .alert-short .as-stat i{font-style:normal;color:var(--ink-2)}
+  .alert-short .as-stat small{font-size:11px;line-height:1.3;color:var(--ink-2)}
+  .alert-short .as-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:11.5px;color:var(--ink-2)}
+  .alert-short .as-chip svg{width:12px;height:12px;margin:0}
+  .alert-short .as-why{font-size:12px;color:var(--ink-2)}
+  .alert-short .as-why summary{cursor:pointer;text-decoration:underline dotted}
+  .alert-short .as-why p{margin:4px 0 0;line-height:1.7}
   .request-issue-note{margin:8px 0 0;font-size:12.5px;color:var(--danger)}
   .request-row-error{display:flex;gap:6px;align-items:flex-start;margin:8px 0 0;padding:8px 10px;border-radius:10px;background:var(--danger-soft);color:var(--danger);font-size:12.5px;line-height:1.6}
   .request-row-error svg{width:14px;height:14px;flex:none;margin-top:3px}
