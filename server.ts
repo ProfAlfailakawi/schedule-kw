@@ -18724,7 +18724,7 @@ ${STAFF_CARD_VISUAL_JS}
     }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})})
       .then(function(res){
         go.disabled=false;go.textContent="عرض";document.getElementById("gateSkel").hidden=true;
-        if(!res.ok){note.textContent=res.data&&res.data.error?res.data.error:"تعذر العرض";return}
+        if(!res.ok){try{sessionStorage.removeItem("sk-civil:"+TOKEN)}catch(e){}note.textContent=res.data&&res.data.error?res.data.error:"تعذر العرض";return}
         render(res.data,value);
       })
       .catch(function(){go.disabled=false;go.textContent="عرض";document.getElementById("gateSkel").hidden=true;note.textContent="تعذر الاتصال. تحقق من الإنترنت."});
@@ -18747,7 +18747,7 @@ ${STAFF_CARD_VISUAL_JS}
     /* رابطُ القسم العام لا يحمل طلباتٍ ولا قرارات: تُقال أين تجدها. */
     var privateNote=d.personal?'':'<div class="pastnote">طلباتك وقرارات القسم فيها تظهر في رابطك الشخصي الذي يرسله إليك القسم، لا في رابط القسم العام.</div>';
     if(!list.length){
-      host.innerHTML=privateNote+'<h3 class="movement-head">حركة جدولك الرسمية</h3><div class="pub-empty">لم يتغيّر شيء في جدولك الرسمي هذا الفصل'+(d.personal?'، ولم تُرسل طلب تعديل.':'.')+'</div>';
+      host.innerHTML=privateNote+'<h3 class="movement-head">حركة جدولك الرسمية</h3><div class="pub-empty"><span class="pe-ic">'+skSvg("sync")+'</span>لم يتغيّر شيء في جدولك الرسمي هذا الفصل'+(d.personal?'، ولم تُرسل طلب تعديل.':'.')+'</div>';
       return;
     }
     /* قسمان كما في صفحة الطلب تماماً: طلباتُك وقرارُ القسم فيها، ثم حركةُ
@@ -18844,6 +18844,7 @@ ${STAFF_CARD_VISUAL_JS}
   function render(d,value){
     if(visitSince===null){visitSince=d.lastSeenAt||"";visitChanged=Boolean(d.changedSinceLastVisit);}
     currentCivil=value;
+    try{sessionStorage.setItem("sk-civil:"+TOKEN,value)}catch(e){}
     var currentTerm = { termId: Number(d.termId || 0) };
     var phase = d.termPhase || ((Boolean(d.liveTermId) && Number(d.termId) === Number(d.liveTermId)) ? "current" : "past");
     var live = phase === "current";
@@ -18868,7 +18869,7 @@ ${STAFF_CARD_VISUAL_JS}
     var soon=document.getElementById("soon"),upcoming=d.upcomingExceptions||[];
     if(upcoming.length){
       soon.innerHTML='<b>خلال الأسبوعين القادمين</b><ul>'+upcoming.map(function(x){
-        return '<li data-kind="'+esc(x.kind)+'"><time dir="ltr">'+esc(x.date)+'</time> · '+esc(x.day)+' — <strong>'+esc(x.course)+'</strong> '+(x.timeRange?'<span>'+esc(x.timeRange)+'</span> ':'')+'· '+esc(x.text)+'</li>'}).join("")+'</ul>';
+        return '<li data-kind="'+esc(x.kind)+'"><time dir="ltr">'+esc(x.date)+'</time> · '+esc(x.day)+' — <strong>'+esc(x.course)+'</strong> '+(x.timeRange?'<span style="white-space:nowrap">'+esc(x.timeRange)+'</span> ':'')+'· '+esc(x.text)+'</li>'}).join("")+'</ul>';
       soon.removeAttribute("hidden");
     } else { soon.innerHTML=""; soon.setAttribute("hidden",""); }
     var nouns=d.countNouns||{};
@@ -18879,7 +18880,7 @@ ${STAFF_CARD_VISUAL_JS}
       [nouns.days||"أيام",ar(d.dayCount)],
       [nouns.rooms||"قاعات",ar(d.rooms.length)]
     ];
-    document.getElementById("stats").innerHTML=skStats(statItems);
+    document.getElementById("stats").innerHTML=d.lectureCount?skStats(statItems):"";
 
     var starts=[];d.byDay.forEach(function(day){day.rows.forEach(function(r){if(starts.indexOf(r.start)<0)starts.push(r.start)})});starts.sort();
     var weekTable='<table class="pub-week"><colgroup><col style="width:52px">'+d.byDay.map(function(){return '<col>'}).join("")+
@@ -18901,7 +18902,7 @@ ${STAFF_CARD_VISUAL_JS}
     skWeekWire(document.getElementById("days"));
     if(visitChanged&&visitSince&&d.lectureCount) document.getElementById("days").insertAdjacentHTML("afterbegin",
       '<div class="pastnote">تغيّر جدولك منذ زيارتك الأخيرة (<bdi>'+esc(friendlyDate(visitSince,true))+'</bdi>) — التفاصيل في «حركة الجدول».</div>');
-    if(!d.lectureCount) document.getElementById("days").innerHTML='<div class="pub-empty">لا محاضرات لك في هذا الفصل'+((d.movementHistory||[]).length?' — ما تغيّر في جدولك تجده في «حركة الجدول».':' — جرّب فصلاً آخر من الأعلى.')+'</div>';
+    if(!d.lectureCount) document.getElementById("days").innerHTML='<div class="pub-empty"><span class="pe-ic">'+skSvg("days")+'</span>لا محاضرات لك في هذا الفصل'+((d.movementHistory||[]).length?' — ما تغيّر في جدولك تجده في «حركة الجدول».':' — جرّب فصلاً آخر من الأعلى.')+'</div>';
     else if(phase === "past") document.getElementById("days").insertAdjacentHTML("afterbegin",
       '<div class="pastnote">فصل سابق — للاطلاع فقط. الإبلاغ وإضافة التقويم متاحان في الفصل الحالي.</div>');
     else if(phase === "upcoming") document.getElementById("days").insertAdjacentHTML("afterbegin",
@@ -18961,6 +18962,9 @@ ${STAFF_CARD_VISUAL_JS}
     gate.style.display="none";card.style.display="block";
     window.scrollTo(0,0);
   }
+  /* العودةُ من صفحة الطلب لا تطلب الرقم ثانيةً: يُحفظ في هذه الجلسة وحدها (يزول بإغلاق التبويب). */
+  try{var saved=sessionStorage.getItem("sk-civil:"+TOKEN);
+    if(saved&&/^[0-9]{12}$/.test(saved)){civil.value=saved;var fm=document.getElementById("form");if(fm.requestSubmit)fm.requestSubmit();else go.click()}}catch(e){}
 })();
 </script>
 </body>
@@ -21536,9 +21540,9 @@ function weekStrip(){
   put(askSlot(it),it.decision&&it.decision.state==="fixed"?"fix":"chg")});
  var label="أسبوعك: "+DAYS.map(function(d){return d[1]+" "+counts[d[0]]}).join("، ");
  return '<div class="wk" role="group" aria-label="'+esc(label)+'"><div class="wk-body"><div class="wk-axis" aria-hidden="true"><span>8 ص</span><span>12</span><span>4 م</span><span>8 م</span></div><div class="wk-grid">'+DAYS.map(function(d,k){
-  var blocks=cols[d[0]].map(function(b){return '<button type="button" class="wb" data-wk="'+b.i+'" data-k="'+b.k+'" aria-label="'+esc(courseOf(state[b.i])+"، "+d[1]+" "+clock(b.s))+'" style="--c:'+skCourseColor(state[b.i])+';inset-block-start:'+pos(b.s)+'%;block-size:'+Math.max(5,pos(b.e)-pos(b.s))+'%"></button>'}).join("");
+  var blocks=cols[d[0]].map(function(b){return '<button type="button" class="wb" data-wk="'+b.i+'" data-k="'+b.k+'" aria-label="'+esc(courseOf(state[b.i])+"، "+d[1]+" "+clock(b.s))+'" style="--c:'+skCourseColor(state[b.i])+';inset-block-start:'+pos(b.s)+'%;block-size:'+Math.max(5,pos(b.e)-pos(b.s))+'%"><span>'+esc(skShort(state[b.i]))+'</span></button>'}).join("");
   return '<div class="wc" data-today="'+(k===today?1:0)+'" data-n="'+counts[d[0]]+'"><div class="wc-t">'+blocks+'</div><span class="wc-n">'+d[1]+'</span></div>'}).join("")+
-  '</div></div>'+skLegend()+(ghost?'<p class="wk-note">الكتل المتقطّعة: موعدك الحالي قبل التعديل.</p>':'')+'</div>'
+  '</div></div>'+skLegend()+'</div>'
 }
 /* ── خريطةُ الأوقات ───────────────────────────────────────────────────────────
    بعد اختيار الأيام يُسأل الخادمُ عن كل وقتِ بدايةٍ بالحكم نفسِه، ويُرسم على الزرّ شريطٌ: أخضر يمرّ، أصفر يحتاج سبب

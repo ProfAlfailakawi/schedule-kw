@@ -25,6 +25,9 @@ var SKC={
 export const STAFF_CARD_VISUAL_CSS = String.raw`
 /* ── مظهر «بطاقتي» ───────────────────────────────────────────────────────── */
 .head-tools{display:flex;gap:8px;flex:none}
+.head h1{text-wrap:balance}
+.pub-empty .pe-ic{display:grid;place-items:center;width:44px;height:44px;margin:0 auto 10px;border-radius:14px;background:color-mix(in srgb,var(--jade) 12%,transparent);color:var(--jade)}
+.pub-empty .pe-ic svg{width:22px;height:22px}
 .hbtn{flex:none;display:inline-grid;place-items:center;width:44px;height:44px;padding:0;border:1px solid var(--line);border-radius:13px;background:var(--card);color:var(--dim);cursor:pointer;text-decoration:none;transition:color .15s,border-color .15s,transform .12s}
 .hbtn:hover,.hbtn:focus-visible{color:var(--jade);border-color:var(--jade);outline:none}
 .hbtn:active{transform:scale(.95)}
@@ -33,9 +36,10 @@ export const STAFF_CARD_VISUAL_CSS = String.raw`
 .ico{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* مربّعاتٌ رقمية بأيقونات: صفٌّ واحدٌ يُمرَّر. */
-.stats{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 6px;margin-inline:-2px;scrollbar-width:none}
-.stats::-webkit-scrollbar{display:none}
-.stats .stat{flex:1 0 92px;grid-column:auto;scroll-snap-align:start;display:grid;justify-items:center;gap:2px;padding:12px 8px 10px;text-align:center}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.stats .stat{grid-column:span 2;display:grid;justify-items:center;gap:2px;padding:12px 6px 10px;text-align:center}
+.stats .stat:nth-child(n+4){grid-column:span 3}
+@media (min-width:560px){.stats{grid-template-columns:repeat(5,1fr)}.stats .stat,.stats .stat:nth-child(n+4){grid-column:auto}}
 .stat i{display:grid;place-items:center;width:30px;height:30px;margin-bottom:2px;border-radius:10px;background:color-mix(in srgb,var(--jade) 12%,transparent);color:var(--jade)}
 .stat i svg{width:17px;height:17px}
 .stats .stat b{font-size:22px}
@@ -56,6 +60,8 @@ export const STAFF_CARD_VISUAL_CSS = String.raw`
 .wk-b.on{background:var(--c);color:#fff;box-shadow:0 4px 12px color-mix(in srgb,var(--c) 40%,transparent)}
 .wk-b span{font-size:10.5px;font-weight:700;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;word-break:break-word}
 .wk-b.is-short span{-webkit-line-clamp:1;font-size:9.5px}
+@media (max-width:360px){.wk-b.is-short span{display:none}}
+@media (max-width:420px){.card-tab{font-size:12px;padding:8px 4px;white-space:nowrap}}
 
 /* قائمةُ المقرّرات: لونُ المقرّر وأيامُه ووقتُه وقاعتُه. */
 .wk-list{display:grid;gap:8px;margin:0 0 18px}
@@ -84,7 +90,7 @@ body.sk-lock{overflow:hidden}
 .sheet-top .mk{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:color-mix(in srgb,var(--jade) 13%,transparent);color:var(--jade)}
 .sheet-top .mk svg{width:21px;height:21px}
 .sheet-top b{flex:1;font-size:16px}
-.sheet-top .hbtn{width:36px;height:36px;border-radius:11px}
+.sheet-top .hbtn{width:44px;height:44px;border-radius:13px}
 .opt{display:flex;align-items:center;gap:12px;width:100%;height:auto;min-height:58px;padding:0 14px;border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);font:inherit;font-size:14.5px;font-weight:600;text-decoration:none;text-align:start;cursor:pointer;transition:border-color .15s,background .15s}
 .opt:hover,.opt:focus-visible{border-color:var(--jade);outline:none}
 .opt:active{background:color-mix(in srgb,var(--jade) 6%,var(--card))}
@@ -114,7 +120,7 @@ body.sk-lock{overflow:hidden}
 .skel i:first-child{height:44px;width:70%}
 @keyframes skel{from{background-position:120% 0}to{background-position:-120% 0}}
 @media (prefers-reduced-motion:reduce){.skel i{animation:none}}
-@media print{.head-tools,.sheet,.wk,.wk-list{display:none!important}.pub-week{display:table!important}.stats{display:grid!important;overflow:visible}.stat i{display:none}}
+@media print{.head-tools,.sheet,.wk,.wk-list{display:none!important}.pub-week{display:table!important}.stats{display:grid!important;overflow:visible;grid-template-columns:repeat(5,1fr)!important}.stats .stat,.stats .stat:nth-child(n+4){grid-column:auto!important}.stat i{display:none}}
 `;
 
 export const STAFF_CARD_VISUAL_JS = String.raw`
