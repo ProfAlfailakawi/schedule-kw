@@ -1,12 +1,12 @@
 import { compareIntelligenceTerms, rowsForIntelligenceScope } from "./src/utils/intelligenceReadingScope";
 import express, { Request, Response, NextFunction } from "express";
-import { rateLimit } from "express-rate-limit";
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import compression from "compression";
 import path from "path";
 import fs from "fs";
 import { configureRuntimeEnvironment } from "./src/server/runtimeEnv";
 import { BUILD_STAMP } from "./src/generated/buildStamp";
-import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import { createGunzip } from "zlib";
 import { activeDataMode, ApprovalRevisionConflict, DuplicateResourceError, initDatabase, Repository, ScheduleRevisionConflict, StudentCourseStateConflict, withSerialLock , caseRefFor } from "./src/db/repository";
 import { roomTypeSiblingIds } from "./src/utils/courseRoomTypeSync";
@@ -654,11 +654,24 @@ const rateLimitHeavyReport = rateLimit({
   message: { error: "طلباتٌ كثيرة لهذا التقرير في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
 });
 
+/* ── بطاقةُ الأستاذ: الحدُّ لكل رابطٍ شخصيّ، وسقفٌ لكل عنوان ─────────────────────
+   كانت كلُّ حدودها (٦٠ طلباً عامّاً، و٣٠ إرسالاً وردّاً، و٩٠ فحصَ أوقات، و١٢٠ بثّاً في الدقيقة) على العنوان، وبطاقةٌ
+   واحدةٌ تنادي نحو عشرة طلبات: فشبكةُ الجامعة (أو مشغّلُ الجوال خلف NAT) عنوانٌ واحدٌ لعشرات الأساتذة، وفي اختبار
+   التحمّل (scripts/loadtest/teacher-card.mjs) رُدّ ١٥ من ١٦ توقيعاً بـ٤٢٩ من عنوانٍ واحد. صار الحدُّ لكل رابطٍ
+   (الرابطُ مفتاحٌ شخصيٌّ طويلٌ لا يُخمَّن)، وفوقه سقفٌ لكل عنوانٍ يتّسع لنحو ثلاثين بطاقةً في الدقيقة.
+   المفتاحُ بصمةٌ (sha256) لا الرابطُ نفسُه: الذاكرةُ لا تحمل رابطاً. */
+const requestTokenKey = (req: Request): string => {
+  const token = String(req.params?.token || "");
+  return token ? `req:${createHash("sha256").update(token).digest("hex").slice(0, 32)}` : `ip:${ipKeyGenerator(req.ip || "unknown")}`;
+};
+const REQUEST_IP_CEILING = (() => { const n = Number(process.env.PUBLIC_REQUEST_PER_IP_PER_MINUTE); return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1500; })();
+const REQUEST_TOKEN_CEILING = (() => { const n = Number(process.env.PUBLIC_REQUEST_PER_LINK_PER_MINUTE); return Number.isFinite(n) && n > 0 ? Math.floor(n) : 240; })();
 /* طلبُ الأستاذ وردُّه من رابطه العام: حدٌّ سخيٌّ لإنسانٍ يكتب، فوق عدّاد
    المحاولات الموقّعة (publicAttempts) لا بدلاً منه. */
 const rateLimitPublicRequest = rateLimit({
   windowMs: 60_000,
   limit: 30,
+  keyGenerator: requestTokenKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
@@ -668,6 +681,7 @@ const rateLimitPublicRequest = rateLimit({
 const rateLimitCardEvents = rateLimit({
   windowMs: 60_000,
   limit: 120,
+  keyGenerator: requestTokenKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
@@ -727,6 +741,8 @@ function rateLimitPublic(req: Request, res: Response, next: NextFunction) {
      ولا يصحّ أن يزاحمه عدّادٌ واحدٌ لكل عنوان: شبكةُ الجامعة عنوانٌ واحد لآلاف الطلبة، وصفحةُ الباب
      الواحدة تنادي خمسَ مراتٍ — فيُحجب الطالبُ التاسعُ في الدقيقة ويومُ التسجيل هو يومُه. */
   if (req.originalUrl.startsWith("/api/public/me/")) { next(); return; }
+  /* وبطاقةُ الأستاذ (/api/public/request/:token/*) حدُّها لكل رابطٍ وسقفٌ لكل عنوانٍ أوسع (requestLinkLimit). */
+  if (req.originalUrl.startsWith("/api/public/request/")) { next(); return; }
   const now = Date.now();
   // Expired windows are dropped once per window, so a long-lived instance that
   // has served many addresses does not keep a row for every one of them.
@@ -753,6 +769,13 @@ function rateLimitPublic(req: Request, res: Response, next: NextFunction) {
   next();
 }
 app.use("/api/public", rateLimitPublic);
+const requestLinkLimit = [
+  rateLimit({ windowMs: 60_000, limit: REQUEST_IP_CEILING, keyGenerator: req => `ip:${ipKeyGenerator(req.ip || "unknown")}`, standardHeaders: true, legacyHeaders: false,
+    message: { error: "طلباتٌ كثيرة من هذه الشبكة في وقتٍ قصير. انتظر دقيقةً ثم أعد المحاولة." } }),
+  rateLimit({ windowMs: 60_000, limit: REQUEST_TOKEN_CEILING, keyGenerator: requestTokenKey, standardHeaders: true, legacyHeaders: false,
+    message: { error: "طلباتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." } }),
+];
+app.use("/api/public/request/:token", requestLinkLimit);
 /* نبضُ الزوار والإعلانُ يُحقنان في الصفحات العامة وحدها (انظر server/adsRoutes). */
 app.use(adInjection());
 
@@ -21897,6 +21920,7 @@ app.get("/api/public/request/:token/events", rateLimitCardEvents, async (req: Re
 const rateLimitCheckTimes = rateLimit({
   windowMs: 60_000,
   limit: 90,
+  keyGenerator: requestTokenKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },

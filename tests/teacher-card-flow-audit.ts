@@ -285,6 +285,18 @@ async function main() {
     }
   }
 
+  /* ═══ حدودُ البطاقة لكل رابطٍ لا لكل عنوان: شبكةُ الجامعة عنوانٌ واحدٌ لعشرات الأساتذة ═══ */
+  {
+    const tokens = rows.map(r => r.linkId).filter(Boolean).slice(0, 4);
+    const codes: number[] = [];
+    for (let i = 0; i < 130; i += 1) codes.push((await http("GET", `/api/public/request/${encodeURIComponent(tokens[i % tokens.length])}?live=1`)).status);
+    check(codes.every(c => c === 200), "١٣٠ طلباً على أربعة روابط من عنوانٍ واحد في دقيقة: لا حجب (كان يُحجب بعد ٦٠)", codes.filter(c => c !== 200).slice(0, 3));
+    const solo = encodeURIComponent(tokens[0]);
+    const flood: number[] = [];
+    for (let i = 0; i < 260; i += 1) flood.push((await http("GET", `/api/public/request/${solo}?live=1`)).status);
+    check(flood.includes(429), "ورابطٌ واحدٌ يكرّر بلا توقف يقف عند حدّه الشخصيّ", flood.slice(-3));
+  }
+
   /* ورمزٌ بتوقيعٍ قديمٍ بلا بنود: يُقال ذلك ولا يُخترع. */
   console.log(`\nTeacher card flow audit: ${passed} passed, ${failed} failed`);
   stopServer();

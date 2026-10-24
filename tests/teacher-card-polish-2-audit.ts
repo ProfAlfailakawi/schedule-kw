@@ -88,5 +88,7 @@ check(page.includes('"موعدك الحالي ("+fmtDays(cur.d)+" "+hh(cur.s)+")
 check(judgeRequest({ rowId: 1, action: "change", AdCourseId: COURSE, days: ["fthursday"], start: "14" as any }, ctx([thursday])).sendable === false, "P2 وقتٌ بلا دقائق لا يُعدّ «كما هو»");
 check(page.includes("القسم يقترح عليك البدائل التالية.") && page.includes("لا تتوفّر قاعة في هذا الوقت للموعد الذي طلبتَه ("), "P7 رفضُ القاعة مربوطٌ بالموعد الذي طلبه الأستاذ");
 
+check(server.includes("keyGenerator: requestTokenKey") && server.includes('app.use("/api/public/request/:token", requestLinkLimit);') && server.includes('if (req.originalUrl.startsWith("/api/public/request/")) { next(); return; }'), "P8 حدودُ بطاقة الأستاذ لكل رابطٍ وسقفٌ لكل عنوان، لا عدّادٌ عامٌّ واحدٌ لكل عنوان");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
