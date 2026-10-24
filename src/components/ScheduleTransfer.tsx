@@ -1302,7 +1302,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               <option value="">اختر الفصل…</option>
               {sortedTerms.map(term => <option key={term.AdTermId} value={term.AdTermName}>{term.AdTermName}</option>)}
             </select>
-            <SecondaryButton type="button" disabled={!sourceTermAsk.choice || busy} onClick={() => void readFile(sourceTermAsk.file, sourceTermAsk.choice)}>متابعة</SecondaryButton>
+            <SecondaryButton type="button" data-guide-ignore="اختيار فصل الملف قبل قراءته؛ لا يغيّر بيانات الجدول" disabled={!sourceTermAsk.choice || busy} onClick={() => void readFile(sourceTermAsk.file, sourceTermAsk.choice)}>متابعة</SecondaryButton>
           </div>:null}
         {tab==="import"&&termMismatch?
           <div className="transfer-term-card" role="alert">
