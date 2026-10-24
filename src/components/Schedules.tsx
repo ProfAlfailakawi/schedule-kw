@@ -8753,6 +8753,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     instructors={instructors as any}
                     departmentIds={departmentInstructorIds}
                     visitingIds={visitingIds}
+                    visitingRosterIds={visitingRosterIds}
                     onCreated={(person) =>
                       setInstructors((current: any[]) =>
                         sortByName([...current, person], (row: any) => row.AdInstructorName))

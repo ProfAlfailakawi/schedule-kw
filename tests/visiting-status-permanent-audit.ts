@@ -27,5 +27,9 @@ const client = read("src/components/Schedules.tsx");
 check(/data\?\.visitingStatusIds/.test(client) && /\[\.\.\.scheduled, \.\.\.scopedRoster, \.\.\.visitingRosterIds\]/.test(client), "الشارةُ من الصفة، ومنتقي الأساتذة من روستر الفصل وحده");
 check(/context-conflict-list/.test(client) && /conflict\.message/.test(client) && /conflict\.detail/.test(client), "لوحة الموعد تكتب سبب التعارض (لا عدَّه فقط)");
 
+const picker = read("src/components/InstructorPicker.tsx");
+check(/visitingRosterIds/.test(picker) && /rosterSet\.has\(person\.AdInstructorId\)/.test(picker) && /visitingSet\.has\(person\.AdInstructorId\) \? <VisitingBadge/.test(picker), "منتقي الأستاذ: القائمةُ من روستر الفصل والشارةُ من الصفة الدائمة");
+check(/visitingRosterIds=\{visitingRosterIds\}/.test(client), "شاشة الجدول تمرّر روستر الفصل للمنتقي (فلا يظهر منتدبُ فصلٍ آخر في «موعد جديد»)");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
