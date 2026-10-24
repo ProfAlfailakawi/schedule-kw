@@ -20616,9 +20616,12 @@ sectionId: allowedOption.sectionId,
     const chosen = chosenAlternativeIndex(stored.decision.alternatives as any, Array.isArray(entry?.days) ? entry.days.map(String) : [], String(entry?.start || ""));
     return chosen >= 0 ? [{ kind: "alternative-chosen" as InstructorRequestEventKind, at, itemIndex: index, detail: String(chosen + 1) }] : [];
   });
+  /* ملاحظةُ الأستاذ العامة للقسم عن بناء جدوله: نصٌّ حرٌّ اختياري، لا يدخل في الحكم على البنود. */
+  const generalNote = String(req.body?.note || "").trim().slice(0, 400);
   const saved = await Repository.saveInstructorRequest({
     ...resolved.request,
     items: judged.items,
+    note: generalNote || undefined,
     status: "submitted",
     submittedAt: at,
     signature,
@@ -21293,7 +21296,10 @@ function verifyHtml(code,linkOnly){if(!code)return "";
    يعود فيجد ما كتبه. ولا يُحفظ الرقمُ المدني أبداً. */
 var openCards={};
 var restoredDraft=false,dirty=false,DRAFT_KEY="req-draft:"+TOKEN;
-function saveDraft(){try{localStorage.setItem(DRAFT_KEY,JSON.stringify({at:Date.now(),items:payloadItems(),names:state.map(function(it){return{collegeName:it.collegeName||"",before:it.before||null}})}))}catch(e){}}
+/* ملاحظةٌ عامة للقسم عن بناء جدوله كله، لا عن موعدٍ بعينه: تظهر من أول فتح الصفحة. */
+var genNote=null;
+function noteNow(){return genNote!==null?genNote:String((data&&data.request&&data.request.note)||"")}
+function saveDraft(){try{localStorage.setItem(DRAFT_KEY,JSON.stringify({at:Date.now(),note:noteNow(),items:payloadItems(),names:state.map(function(it){return{collegeName:it.collegeName||"",before:it.before||null}})}))}catch(e){}}
 function clearDraft(){try{localStorage.removeItem(DRAFT_KEY)}catch(e){}}
 function readDraft(){try{var d=JSON.parse(localStorage.getItem(DRAFT_KEY)||"null");return d&&Date.now()-d.at<14*864e5?d:null}catch(e){return null}}
 window.addEventListener("beforeunload",function(e){if(dirty){e.preventDefault();e.returnValue=""}});
@@ -21316,6 +21322,9 @@ function paint(){
   (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
  h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(deckHtml()||calmHtml())+replayHtml()+memoryHtml()+planTable();
+ if(open&&!sent)h+='<div class="card note-card"><header><b>ملاحظة للقسم</b><small>اختياري — اكتب ما تريد توضيحه عن بناء جدولك، مثل: «أرغب بالتدريس صباحاً» أو «عندي التزام يوم الأحد».</small></header>'+
+  '<textarea id="genNote" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-vi-field="gen" data-show="1" placeholder="اكتب ملاحظتك للقسم…">'+esc(noteNow())+'</textarea>'+VI.html("gen")+'</div>';
+ else if(sent&&r.note)h+='<div class="card note-card"><header><b>ملاحظتك للقسم</b></header><p class="note-sent">'+esc(r.note)+'</p></div>';
  if(open&&data.courses&&data.courses.length){
   var collegeMap={};data.courses.forEach(function(c){if(c.collegeId&&!collegeMap[c.collegeId])collegeMap[c.collegeId]=c.collegeName||("كلية "+c.collegeId)});
   var collegeOptions=Object.keys(collegeMap).map(function(id){return{id:Number(id),name:collegeMap[id]}});
@@ -21400,7 +21409,8 @@ function wire(){
  var drop=document.getElementById("dropDraft");if(drop)drop.onclick=function(){clearDraft();dirty=false;location.reload()};
  var send=document.getElementById("send");if(send)send.onclick=submit;
  var replay=document.getElementById("replay");if(replay)replay.onclick=replayPrevious;
- VI.wire(function(key,value){if(key.indexOf("ex-")===0&&state[+key.slice(3)])state[+key.slice(3)].excuse=value});
+ VI.wire(function(key,value){if(key.indexOf("ex-")===0&&state[+key.slice(3)])state[+key.slice(3)].excuse=value;if(key==="gen"){genNote=value;dirty=true;saveDraft()}});
+ var gn=document.getElementById("genNote");if(gn)gn.oninput=function(){genNote=gn.value;dirty=true;saveDraft()};
  host.querySelectorAll("[data-accept]").forEach(function(el){el.onclick=function(){askAccept(+el.dataset.i,+el.dataset.accept)}});
  host.querySelectorAll("[data-accept-all]").forEach(function(el){el.onclick=askAcceptAll});
  host.querySelectorAll("[data-counter]").forEach(function(el){el.onclick=function(){openCounter(+el.dataset.counter)}});
@@ -21473,7 +21483,7 @@ function postSubmit(civil,done){
  sendingNow=true;
  fetch("/api/public/request/"+encodeURIComponent(TOKEN),{method:"POST",
   headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({civil:civil,items:payloadItems()})})
+  body:JSON.stringify({civil:civil,items:payloadItems(),note:noteNow()})})
  .then(function(r){return r.json().then(function(d){return{ok:r.ok,status:r.status,d:d}})})
  .then(function(x){
   if(!x.ok){
@@ -21553,6 +21563,7 @@ fetch("/api/public/request/"+encodeURIComponent(TOKEN)).then(function(r){
  rankState();
  baseItems=JSON.parse(JSON.stringify(payloadItems()));
  var draft=data.windowOpen?readDraft():null;
+ if(draft&&typeof draft.note==="string"&&genNote===null&&!(data.request&&data.request.submittedAt))genNote=draft.note;
  if(draft&&Array.isArray(draft.items)){var byRow={};state.forEach(function(it){if(it.rowId!=null)byRow[it.rowId]=it});var adds=[];
   draft.items.forEach(function(d,k){var nm=(draft.names||[])[k]||{};if(d.rowId!=null&&byRow[d.rowId]){var it=byRow[d.rowId];if(d.action!==it.action||(d.action==="change"&&(String(d.days)!==String(it.days)||d.start!==it.start))){it.action=d.action;it.days=d.days||[];it.start=d.start||"";it.excuse=d.excuse||"";it.tone="";it.note=""}}
    else if(d.action==="add"&&d.courseId&&(data.courses||[]).some(function(c){return c.id===d.courseId&&Number(c.collegeId)===Number(d.collegeId)&&Number(c.sectionId)===Number(d.sectionId)})&&!state.some(function(it){return it.action==="add"&&it.courseId===d.courseId&&String(it.days)===String(d.days)&&it.start===d.start})){

@@ -1485,6 +1485,8 @@ export interface InstructorRequest {
   source: "draft" | "previous-term";
   status: InstructorRequestStatus;
   items: InstructorRequestItem[];
+  /** ملاحظةُ الأستاذ العامة للقسم عن بناء جدوله (اختيارية، حتى ٤٠٠ حرف). */
+  note?: string;
   timeline: InstructorRequestEvent[];
   createdAt: string;
   submittedAt?: string;
