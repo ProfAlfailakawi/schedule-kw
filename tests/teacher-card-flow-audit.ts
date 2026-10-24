@@ -30,9 +30,16 @@ async function http(method: string, path: string, body?: unknown, cookie?: strin
 async function serverUp() { try { return (await fetch(BASE + "/api/demo/config")).ok; } catch { return false; } }
 
 let child: ChildProcess | null = null;
+
+/* `npx` يلد tsx ثم الخادم؛ وقتلُ npx وحده كان يترك الخادمَ حيّاً على المنفذ، فيتخطّى
+   كلُّ اختبارٍ حيٍّ بعده نفسَه ويخرج ناجحاً. فيُقتل الفوجُ كلُّه. */
+function stopServer() {
+  if (!child?.pid) return;
+  try { process.kill(-child.pid, "SIGKILL"); } catch { child.kill("SIGKILL"); }
+}
 async function ensureServer() {
   if (await serverUp()) return;
-  child = spawn("npx", ["tsx", "server.ts"], { env: { ...process.env, DATA_MODE: "demo", NODE_ENV: "development" }, stdio: "ignore" });
+  child = spawn("npx", ["tsx", "server.ts"], { env: { ...process.env, DATA_MODE: "demo", NODE_ENV: "development" }, stdio: "ignore", detached: true });
   for (let i = 0; i < 90; i++) { if (await serverUp()) return; await new Promise(r => setTimeout(r, 1000)); }
   throw new Error("الخادم لم يبدأ");
 }
@@ -246,7 +253,7 @@ async function main() {
 
   /* ورمزٌ بتوقيعٍ قديمٍ بلا بنود: يُقال ذلك ولا يُخترع. */
   console.log(`\nTeacher card flow audit: ${passed} passed, ${failed} failed`);
-  child?.kill();
+  stopServer();
   process.exit(failed ? 1 : 0);
 }
-main().catch(error => { console.error(error); child?.kill(); process.exit(1); });
+main().catch(error => { console.error(error); stopServer(); process.exit(1); });

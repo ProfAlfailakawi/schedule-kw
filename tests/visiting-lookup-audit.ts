@@ -39,8 +39,9 @@ const legacy: any[] = [{ collegeId: 1, sectionId: 3, instructorIds: [12], kind: 
 check(visitingByScope(legacy, 5, known, scopes, familyOf)["1:3"]?.join() === "12", "قسمٌ بلا دليلٍ محفوظ: دليلُه كلُّ من مرّ في روستره فيظهر منتدبُ الفصل (والفصلُ الآخر لا يدخل)");
 check(JSON.stringify(lookup["1:3"]) === "[12]" && !lookup["1:3"].includes(999), "والمعرّفُ المجهول لا يُحسب منتدباً");
 check(!visitingByScope(legacy, 5, known, scopes, familyOf, [{ collegeId: 1, sectionId: 3 }])["1:3"], "ودليلٌ محفوظٌ فارغٌ عمداً (أُزيل آخرُ منتدب) لا يُزرع من التاريخ فلا يظهر المحوَّلون منتدبين");
-check(!visitingByScope(affiliations, 7, known, scopes, familyOf)["1:1"], "فصلٌ بلا روستر: لا منتدبين (الدليلُ وحده لا يكفي)");
-check(visitingByScope(affiliations, 6, known, scopes, familyOf)["1:1"]?.join() === "11", "وروستر فصلٍ آخر لا يختلط: الفصل 6 فيه 11 وحده");
+check(visitingByScope(affiliations, 7, known, scopes, familyOf)["1:1"]?.slice().sort().join() === "10,11", "فصلٌ بلا روستر: الصفةُ دائمةٌ من الدليل فتبقى الشارةُ (والروسترُ لمن يُدرِّس)");
+check(visitingByScope(affiliations, 6, known, scopes, familyOf)["1:1"]?.slice().sort().join() === "10,11", "ولا يتغيّر بتغيّر الفصل: منتدبو الدليل أنفسهم في الفصل 6");
+check(!visitingByScope([{ collegeId: 1, sectionId: 3, instructorIds: [12], kind: "roster", termId: 4 }] as any, 5, known, scopes, familyOf)["1:3"], "وقسمٌ بلا دليلٍ لا يجعل من مرّ في روستر فصلٍ قديم منتدباً في فصلٍ آخر");
 
 check(isVisitingIn({ termId: 5, scopes: lookup }, 12, 1, 3) && !isVisitingIn({ termId: 5, scopes: lookup }, 12, 1, 1), "المنتدبُ يُعرف بقسمه: 12 منتدبٌ في قسم التصميم لا في تكنولوجيا التعليم");
 check(!isVisitingIn(null, 10, 1, 1) && !isVisitingIn({ termId: 5, scopes: lookup }, "x", 1, 1), "بلا قراءة أو معرّفٍ فاسد: لا شارة");

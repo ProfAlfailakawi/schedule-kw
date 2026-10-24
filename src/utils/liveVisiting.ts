@@ -50,8 +50,8 @@ export function directoryVisitingIds(affiliations: Affiliation[], known: (id: nu
 }
 
 /**
- * مفتاحُ «كلية:قسم» ← منتدبو القسم في الفصل، للأقسام المعطاة. القاعدةُ هي قاعدةُ
- * `liveVisitingIds` لكل عائلة: دليلُ العائلة كلِّها مع روسترِ الفصل. وما لا منتدب فيه لا يُذكر.
+ * مفتاحُ «كلية:قسم» ← منتدبو القسم، للأقسام المعطاة. الصفةُ دائمةٌ: دليلُ العائلة كلِّها،
+ * أيّاً كان الفصل (والروسترُ يحدد من يُدرِّس لا من هو منتدب). وما لا منتدب فيه لا يُذكر.
  */
 export function visitingByScope(
   affiliations: Affiliation[], termId: number, known: (id: number) => boolean,
@@ -61,24 +61,23 @@ export function visitingByScope(
   explicitDirectories: ReadonlyArray<{ collegeId: number; sectionId: number }> = [],
 ): Record<string, number[]> {
   const explicitFamilies = new Set(explicitDirectories.map(scope => familyOf(scope.collegeId, scope.sectionId)));
-  const rosters = new Map<string, number[]>();
   const directories = new Map<string, number[]>();
   const everRostered = new Map<string, number[]>();
   for (const row of affiliations) {
     const family = familyOf(row.collegeId, row.sectionId);
     if (row.kind === "directory") directories.set(family, [...(directories.get(family) || []), ...row.instructorIds]);
-    else {
+    else if (Number(row.termId) === Number(termId)) {
       everRostered.set(family, [...(everRostered.get(family) || []), ...row.instructorIds]);
-      if (Number(row.termId) === Number(termId)) rosters.set(family, [...(rosters.get(family) || []), ...row.instructorIds]);
     }
   }
-  /* قسمٌ لم يحفظ دليلاً قطّ: دليلُه كلُّ من مرّ في روستر فصوله (كما يزرعه المستودعُ عند أول قراءة). */
+  /* قسمٌ لم يحفظ دليلاً قطّ: يُقرأ له روسترُ هذا الفصل وحده، فلا يصير منتدباً في كل الفصول بلا قرارٍ من المالك. */
   for (const [family, ids] of everRostered) if (!directories.has(family) && !explicitFamilies.has(family)) directories.set(family, ids);
   const byFamily = new Map<string, number[]>();
   const out: Record<string, number[]> = {};
   for (const section of sections) {
     const family = familyOf(section.collegeId, section.sectionId);
-    if (!byFamily.has(family)) byFamily.set(family, liveVisitingIds(rosters.get(family) || [], directories.get(family) || [], known));
+    /* الصفةُ دائمةٌ من دليل العائلة، لا من روستر فصلٍ بعينه (قرار المالك ٢٠٢٦/١٠/٢٣). */
+    if (!byFamily.has(family)) byFamily.set(family, [...new Set((directories.get(family) || []).map(Number).filter(id => Number.isFinite(id) && id > 0 && known(id)))]);
     const ids = byFamily.get(family)!;
     if (ids.length) out[`${section.collegeId}:${section.sectionId}`] = ids;
   }

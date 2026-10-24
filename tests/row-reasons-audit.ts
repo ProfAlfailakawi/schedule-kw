@@ -47,6 +47,7 @@ check(!kinds({ row: plain, history: [old(8, { AdInstructorId: 99 })] }).includes
 const req: any = { AdInstructorId: 7, status: "submitted", items: [{ rowId: 1, action: "change" }] };
 check(Boolean(buildRowReasons({ row: plain, requests: [req] }).find(r => r.kind === "request")?.label.includes("تعديل")), "طلب مفتوح يمسّ الصف");
 check(!kinds({ row: plain, requests: [{ ...req, status: "settled" }] }).includes("request"), "طلب منتهٍ لا يظهر");
+check(!kinds({ row: plain, requests: [{ ...req, status: "sent" }] }).includes("request"), "بطاقةٌ صدرت بمسوّدتها ولم يرسل الأستاذ شيئاً: لا «رغبته» تظهر");
 check(!kinds({ row: plain, requests: [{ ...req, items: [{ rowId: 1, action: "change", decision: { state: "fixed" } }] }] }).includes("request"), "بند مقرَّر لا يظهر");
 check(!kinds({ row: plain, requests: [{ ...req, items: [{ rowId: 2, action: "change" }] }] }).includes("request"), "طلب لصفٍّ آخر لا يظهر");
 const prop: any = { AdInstructorId: 7, status: "sent", ops: [{ source: { id: 1 } }] };

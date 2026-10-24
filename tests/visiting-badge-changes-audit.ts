@@ -18,7 +18,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
 
 const server = read("server.ts");
 const display = server.slice(server.indexOf("const asDisplayRow = (row: any) => ({"), server.indexOf("const asDisplayRow = (row: any) => ({") + 400);
-check(/readLiveVisitingRoster\(collegeId, sectionId, termId\)/.test(server.slice(server.indexOf("visitingIdsForReport") - 20, server.indexOf("visitingIdsForReport") + 200)), "الخادم يقرأ دفتر المنتدبين الحيّ لنطاق التقرير");
+check(/readVisitingStatus\(collegeId, sectionId, termId\)/.test(server.slice(server.indexOf("visitingIdsForReport") - 20, server.indexOf("visitingIdsForReport") + 200)), "الخادم يقرأ دفتر المنتدبين الحيّ لنطاق التقرير");
 check(/visiting: visitingIdsForReport\.has\(Number\(row\.AdInstructorId\)\)/.test(display), "ويحمل علمَ المنتدب مع كل صفٍّ يعرضه");
 check(/\{row\.visiting \? <VisitingBadge compact \/> : null\}/.test(read("src/components/ScheduleChanges.tsx")), "وصفُّ التقرير يرسم الشارة بجانب الأستاذ");
 check(/rows\.some\(row => row\.visiting\)/.test(read("src/components/ScheduleChanges.tsx")), "وملاحظاتُ المراجعة تُظهرها بجانب اسم الأستاذ");
