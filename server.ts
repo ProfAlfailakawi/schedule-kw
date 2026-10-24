@@ -19394,11 +19394,16 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
 
 /** يقرأ الرابط ويعيد السجلّ، أو الخطأَ بحالته. */
 async function resolveRequestLink(token: string) {
-  const link = await Repository.getShareLink(String(token || ""));
+  const wanted = String(token || "");
+  /* الرابطُ وطلبُه يُقرآن معاً: معرّفُ الرابط هو الرمز نفسُه، فلا حاجة لانتظار الأول قبل سؤال الثاني (رحلةٌ أقلّ في كل نداء). */
+  const [link, early] = await Promise.all([
+    Repository.getShareLink(wanted),
+    wanted ? Repository.getInstructorRequestByLink(wanted).catch(() => undefined) : Promise.resolve(undefined),
+  ]) as [Awaited<ReturnType<typeof Repository.getShareLink>>, InstructorRequest | undefined | null];
   if (!link || link.revoked) return { error: "الرابط غير موجود أو تم إيقافه", status: 404 } as const;
   if (link.kind !== "request") return { error: "هذا الرابط ليس طلبَ جدول", status: 404 } as const;
   if (!await shareLinkStillReadable(link)) return { error: "انتهت صلاحية هذا الرابط", status: 410 } as const;
-  const request = await Repository.getInstructorRequestByLink(link.id);
+  const request: InstructorRequest | undefined | null = link.id === wanted && early ? early : await Repository.getInstructorRequestByLink(link.id);
   if (!request) return { error: "لا يوجد طلبٌ مرتبطٌ بهذا الرابط", status: 404 } as const;
   return { link, request } as const;
 }
@@ -19607,6 +19612,16 @@ async function requestRulesForScope(
  * متاحاً يومَ فُتح الرابط قد يكون أُخذ قبل أن يضغط الأستاذ إرسال، وحُكمٌ
  * محفوظٌ من أمس يكذب بصمت.
  */
+/** يحسب قيمةً لمفتاحٍ مرةً واحدة ولو سأل عنها كثيرون معاً: النتيجةُ تُحفظ في الخريطة، والرحلةُ الجارية تُشارَك. */
+const rulesInflight = new WeakMap<Map<string, any>, Map<string, Promise<any>>>();
+async function rulesOnce<T>(cache: Map<string, T>, key: string, make: () => Promise<T>): Promise<T> {
+  if (cache.has(key)) return cache.get(key) as T;
+  let flights = rulesInflight.get(cache);
+  if (!flights) { flights = new Map(); rulesInflight.set(cache, flights); }
+  let flight = flights.get(key);
+  if (!flight) { flight = make().then(value => { cache.set(key, value); flights!.delete(key); return value; }, error => { flights!.delete(key); throw error; }); flights.set(key, flight); }
+  return flight;
+}
 async function judgeRequestItems(request: InstructorRequest, options: {
   forDepartment?: boolean;
   /** سياقٌ بُني مرّةً لحزمةِ أحكامٍ متتابعة (خريطة الأوقات): لا يُعاد بناؤه ولا تُعاد قراءةُ قواعد النطاق لكل وقت. */
@@ -19660,25 +19675,27 @@ async function judgeRequestItems(request: InstructorRequest, options: {
   }
 
   const rulesByScope: Map<string, Awaited<ReturnType<typeof requestRulesForScope>>> = options.rulesCache || new Map();
+  /* نطاقاتُ البنود المختلفة تُقرأ معاً لا واحداً بعد واحد، ونطاقٌ يسأل عنه عشراتُ الطلبات في آنٍ واحد (شاشة القسم) يُحسب مرةً واحدة. */
+  const scopesNeeded = new Map<string, { collegeId: number; sectionId: number }>();
   for (const item of (request.items || [])) {
     const original = item.rowId == null ? undefined : instructorRows.find(row => Number(row.id) === Number(item.rowId));
     const selectedCourse = context.courses.get(Number(item.after?.courseId || item.before?.courseId || 0));
     const collegeId = Number(item.after?.collegeId || selectedCourse?.AdCollegeId || original?.AdCollegeId || request.AdCollegeId);
     const sectionId = Number(item.after?.sectionId || selectedCourse?.AdSectionId || original?.AdSectionId || request.AdSectionId);
-    const key = `${collegeId}:${sectionId}`;
-    if (!rulesByScope.has(key)) rulesByScope.set(key, await requestRulesForScope(context, collegeId, sectionId, Number(request.AdTermId)));
+    scopesNeeded.set(`${collegeId}:${sectionId}`, { collegeId, sectionId });
   }
+  await Promise.all([...scopesNeeded].map(([key, scope]) =>
+    rulesOnce(rulesByScope, key, () => requestRulesForScope(context, scope.collegeId, scope.sectionId, Number(request.AdTermId)))));
 
   /* تاريخُ المقرّرات التي يمسّها الطلب: يقرأ منه الحكمُ طولَ لقاء الشعب ذات اليوم الواحد. */
   const habits = new Map<number, CourseNature>();
   const priorHabits = new Map<number, CourseNature>();
-  for (const courseId of new Set((request.items || []).filter(item => item.action === "change" || item.action === "add")
-    .map(item => Number(item.after?.courseId || item.before?.courseId || 0)).filter(Boolean))) {
-    const nature = await courseHabit(courseId);
+  await Promise.all([...new Set((request.items || []).filter(item => item.action === "change" || item.action === "add")
+    .map(item => Number(item.after?.courseId || item.before?.courseId || 0)).filter(Boolean))].map(async courseId => {
+    const [nature, prior] = await Promise.all([courseHabit(courseId), courseHabit(courseId, Number(request.AdTermId))]);
     if (nature) habits.set(courseId, nature);
-    const prior = await courseHabit(courseId, Number(request.AdTermId));
     if (prior) priorHabits.set(courseId, prior);
-  }
+  }));
 
   const items = (request.items || []).map((item, index) => {
     const slot = item.slots?.[0];
@@ -19949,7 +19966,14 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
   const nameOf = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
   const mobileOf = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorMobile || "")]));
 
-  const judged = await Promise.all(stored.map(row => judgeRequestItems(row, { forDepartment: true })));
+  /* السياقُ لا يعتمد على الأستاذ بل على الفصل والكلية والقسم: يُبنى مرةً لكل نطاق، لا مرةً لكل طلب (٣٤٠ طلباً كانت تقرأ الفصلَ ٣٤٠ مرة). */
+  const contexts = new Map<string, Promise<Awaited<ReturnType<typeof buildRequestContext>>>>();
+  const sharedRules = new Map<string, any>();
+  const judged = await Promise.all(stored.map(row => {
+    const key = `${row.AdTermId}:${row.AdCollegeId}:${row.AdSectionId}`;
+    if (!contexts.has(key)) contexts.set(key, buildRequestContext(row));
+    return contexts.get(key)!.then(context => judgeRequestItems(row, { forDepartment: true, context, rulesCache: sharedRules }));
+  }));
   const scopeRowsById = new Map((scopeRowsAll as any[]).map(row => [Number(row.id), row] as [number, any]));
   const rows = judged.map(full => {
     /* حذفٌ هنا ينتظره قسمٌ آخر ليُكمل الطلب: يُقال ذلك على البند، بلا تفاصيل
@@ -20450,24 +20474,29 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
   const openedAt = new Date().toISOString();
   /* إعادةُ الجلب الصامتة (عودةٌ إلى الصفحة، أو بثٌّ من القسم) ليست «فتحاً»: لو عُدّت لانتفخ عدّادُ الفتح بلا أن يفتح أحد. */
   const silent = String(req.query.live || "") === "1";
-  const opened = silent ? null : await Repository.recordInstructorRequestOpen(request.id, openedAt);
-  if (opened) {
-    /* نُحدّث نسخة العرض المحلية فقط؛ المخزَّن حُدّثت حقول العدّ فيه وحدها. */
-    request = {
-      ...request, ...opened.fields,
-      ...(opened.first ? { timeline: [...(request.timeline || []), { kind: "link-opened" as const, at: openedAt }] } : {}),
-    };
-  }
   if (!silent) void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
 
-  const [instructors, terms, courses] = await Promise.all([
-    Repository.getInstructors(), Repository.getTerms(),
-    instructorRequestCourseOptions(request),
+  /* تسجيلُ الفتح وقوائمُ الصفحة والحكمُ على البنود لا يعتمد أحدُها على الآخر: تُقرأ معاً، ثم يُدمج الفتحُ في النتيجة (حقولُ العدّ والحركة وحدها). */
+  const [opened, [instructors, terms, courses, serviceKeys, calendarToken], judgedBeforeOpen] = await Promise.all([
+    silent ? Promise.resolve(null) : Repository.recordInstructorRequestOpen(request.id, openedAt),
+    Promise.all([
+      Repository.getInstructors(), Repository.getTerms(),
+      instructorRequestCourseOptions(request),
+      serviceCourseKeys(),
+      calendarKey(resolved.link.id, Number(request.AdInstructorId)),
+    ]),
+    judgeRequestItems(request),
   ]);
+  const judgedRequest = opened
+    ? {
+        ...judgedBeforeOpen, ...opened.fields,
+        ...(opened.first ? { timeline: [...(request.timeline || []), { kind: "link-opened" as const, at: openedAt }] } : {}),
+      } as typeof judgedBeforeOpen
+    : judgedBeforeOpen;
+  if (opened) request = { ...request, ...opened.fields, ...(opened.first ? { timeline: [...(request.timeline || []), { kind: "link-opened" as const, at: openedAt }] } : {}) };
   const person = (instructors as any[]).find(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
   const term = (terms as any[]).find(row => Number(row.AdTermId) === Number(request.AdTermId));
   /* مقرراتُ الخدمة في هذا الطلب (موعدٌ قائم أو مضاف): يظهر بجانب اسمها «متطلب». وسمٌ فقط. */
-  const serviceKeys = await serviceCourseKeys();
   const serviceCourses = [...new Set([
     ...(request.items || []).map(item => Number(item.before?.courseId || item.after?.courseId || 0)).filter(id => id && serviceKeys.has(`${id}:${Number(request.AdSectionId)}`)),
     ...(courses as any[]).filter(option => option.service).map(option => Number(option.id)),
@@ -20475,14 +20504,14 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
 
   res.setHeader("Cache-Control", "no-store");
   res.json({
-    request: stripForInstructor(await judgeRequestItems(request)),
+    request: stripForInstructor(judgedRequest),
     serviceCourses,
     instructorName: String(person?.AdInstructorName || ""),
     termName: String(term?.AdTermName || ""),
     windowOpen: requestWindowOpen(request),
     /* اشتراكُ التقويم هو نفسُه المبنيّ لبطاقة الأستاذ (/m): الرابطُ الشخصيّ مفتاحُه، فلا بابَ ثانٍ ولا خلاصةَ ثانية.
        يقرأ جدولَه الرسميَّ وحدَه — ما ثبّته القسم — لا ما يُطلب ولا المسودة، ويتحدّث من نفسه عند كل تثبيت. */
-    calendarFeed: `/api/public/ics/${encodeURIComponent(resolved.link.id)}/${encodeURIComponent(await calendarKey(resolved.link.id, Number(request.AdInstructorId)))}?term=${Number(request.AdTermId)}`,
+    calendarFeed: `/api/public/ics/${encodeURIComponent(resolved.link.id)}/${encodeURIComponent(calendarToken)}?term=${Number(request.AdTermId)}`,
     /* مقررات هذا القسم العلمي في كل كليةٍ يوجد فيها؛ الكلية تُختار صراحةً قبل المقرر. */
     courses,
   });
