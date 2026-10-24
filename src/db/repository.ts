@@ -3392,7 +3392,8 @@ export const Repository = {
     maxStudent: number,
     /** false: كتالوجٌ فحسب — لا يُربط بالصحيفة الفعالة (التطبيق المرجعي يربط ما يشاء صراحةً). */
     attachToActive = true,
-    courseRoomType = ""
+    courseRoomType = "",
+    courseTeachingMode?: AdCourse["CourseTeachingMode"] | null
   ): Promise<AdCourse> => {
     /* اسمٌ منسوخٌ من PDF يُحفظ حروفاً عادية لا «أشكال عرض» — لكل طريق كتابة. */
     name = normalizeArabicText(name);
@@ -3408,7 +3409,8 @@ export const Repository = {
         CourseCredit: credit,
         CourseHours: hours,
         MaxStudent: maxStudent,
-        ...(courseRoomType.trim() ? { CourseRoomType: courseRoomType.trim() } : {})
+        ...(courseRoomType.trim() ? { CourseRoomType: courseRoomType.trim() } : {}),
+        ...(courseTeachingMode ? { CourseTeachingMode: courseTeachingMode } : {})
       };
       /* The course code is unique within its department, and that uniqueness is
          claimed in the same transaction that writes the record. Two identical
@@ -3453,7 +3455,8 @@ export const Repository = {
       CourseCredit: credit,
       CourseHours: hours,
       MaxStudent: maxStudent,
-      ...(courseRoomType.trim() ? { CourseRoomType: courseRoomType.trim() } : {})
+      ...(courseRoomType.trim() ? { CourseRoomType: courseRoomType.trim() } : {}),
+      ...(courseTeachingMode ? { CourseTeachingMode: courseTeachingMode } : {})
     };
     db.courses.push(newCourse);
     saveDatabase();
@@ -3471,7 +3474,8 @@ export const Repository = {
     credit: number,
     hours: number,
     maxStudent: number,
-    courseRoomType?: string
+    courseRoomType?: string,
+    courseTeachingMode?: AdCourse["CourseTeachingMode"]
   ): Promise<AdCourse> => {
     /* اسمٌ منسوخٌ من PDF يُحفظ حروفاً عادية لا «أشكال عرض» — لكل طريق كتابة. */
     name = normalizeArabicText(name);
@@ -3489,7 +3493,8 @@ export const Repository = {
         CourseCredit: credit,
         CourseHours: hours,
         MaxStudent: maxStudent,
-        ...((courseRoomType===undefined?String(doc.data()?.CourseRoomType||""):courseRoomType).trim() ? { CourseRoomType: (courseRoomType===undefined?String(doc.data()?.CourseRoomType||""):courseRoomType).trim() } : {})
+        ...((courseRoomType===undefined?String(doc.data()?.CourseRoomType||""):courseRoomType).trim() ? { CourseRoomType: (courseRoomType===undefined?String(doc.data()?.CourseRoomType||""):courseRoomType).trim() } : {}),
+        ...((courseTeachingMode===undefined?doc.data()?.CourseTeachingMode:courseTeachingMode) ? { CourseTeachingMode: courseTeachingMode===undefined?doc.data()?.CourseTeachingMode:courseTeachingMode } : {})
       };
       await docRef.set(updated);
       invalidateScheduleRelationCache();
@@ -3508,7 +3513,8 @@ export const Repository = {
       CourseCredit: credit,
       CourseHours: hours,
       MaxStudent: maxStudent,
-      ...((courseRoomType===undefined?previousRoomType:courseRoomType).trim() ? { CourseRoomType: (courseRoomType===undefined?previousRoomType:courseRoomType).trim() } : {})
+      ...((courseRoomType===undefined?previousRoomType:courseRoomType).trim() ? { CourseRoomType: (courseRoomType===undefined?previousRoomType:courseRoomType).trim() } : {}),
+      ...((courseTeachingMode===undefined?db.courses[idx].CourseTeachingMode:courseTeachingMode) ? { CourseTeachingMode: courseTeachingMode===undefined?db.courses[idx].CourseTeachingMode:courseTeachingMode } : {})
     };
     saveDatabase();
     await markRegistrationRunsStale();

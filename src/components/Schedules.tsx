@@ -3414,7 +3414,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     form.fstarttime, form.fendtime, form.AdRoomCode, form.AdRoomHall,
     form.fsunday, form.fmonday, form.ftuesday, form.fwednesday, form.fthursday,
   ]);
-  const editorRegulation = useMemo(() => editorReviewFindings.filter(isDecision1912Finding), [editorReviewFindings]);
+  const editorRegulation = useMemo(() => editorReviewFindings.filter(finding => isDecision1912Finding(finding) && finding.approvalEffect === "block"), [editorReviewFindings]);
   const editorSupplementalReview = useMemo(() => editorReviewFindings.filter(finding => !isDecision1912Finding(finding)), [editorReviewFindings]);
   const timeRangeInvalid = Boolean(form.fstarttime&&form.fendtime)&&mins(form.fendtime)<=mins(form.fstarttime);
   const outsideTeachingDay = Boolean(form.fstarttime && form.fendtime) && !timeRangeInvalid &&
@@ -9267,8 +9267,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 {editorRegulation.length ? (
                   <details className="decision-accordion decision-accordion--regulation">
                     <summary className="decision-accordion-summary">
-                      <span className="decision-accordion-title"><ClipboardCheck /> ملاحظات اللائحة · {DECISION_1912_LABEL}</span>
-                      <em>{countOf(editorRegulation.length, AR.note)}</em>
+                      <span className="decision-accordion-title"><ClipboardCheck /> موانع اللائحة · {DECISION_1912_LABEL}</span>
+                      <em>{countOf(editorRegulation.length, AR.approvalBlocker)}</em>
                     </summary>
                     <div className="decision-accordion-body">
                       <section className="decision-section decision-section--regulation" role="status" aria-label={`ملاحظات اللائحة · ${DECISION_1912_LABEL}`}>
@@ -9276,7 +9276,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           {editorRegulationCards.map((finding) => (
                             <article key={finding.rule} className={`decision-note decision-note--${finding.severity} decision-note--feature`}>
                               <div className="decision-feature-topline">
-                                <span className="decision-card-kicker">ملاحظات اللائحة · {DECISION_1912_LABEL}</span>
+                                <span className="decision-card-kicker">مانع اعتماد · {DECISION_1912_LABEL}</span>
                                 <em className="decision-card-flag">{finding.article || "معلومة"}</em>
                               </div>
                               <div className="decision-feature-hero">

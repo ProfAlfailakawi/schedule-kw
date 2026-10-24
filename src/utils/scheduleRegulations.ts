@@ -448,6 +448,64 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     byCourse.set(row.AdCourseId, [...(byCourse.get(row.AdCourseId) || []), row]);
   });
 
+  // --- م.7/8 — theoretical weekly patterns stated explicitly in the decision.
+  for (const [courseId, list] of byCourse) {
+    const course = courses.get(courseId);
+    if (course?.CourseTeachingMode !== "theoretical") continue;
+    const hours = Number(course.CourseHours || course.CourseCredit || 0);
+    if (hours !== 3 && hours !== 4) continue;
+    const bySection = new Map<string, FSchedule[]>();
+    for (const row of list) bySection.set(String(row.SCode || ""), [...(bySection.get(String(row.SCode || "")) || []), row]);
+    const invalid: FSchedule[] = [];
+    for (const sectionRows of bySection.values()) {
+      const meetings = sectionRows.flatMap(row => daysOf(row).map(day => ({ day, minutes: duration(row) })));
+      const actual = meetings.slice().sort((a, b) => DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day));
+      const matches = (expected: Array<{ day: DayKey; minutes: number }>) => actual.length === expected.length && expected.every((item, index) => actual[index]?.day === item.day && actual[index]?.minutes === item.minutes);
+      const valid = hours === 3
+        ? matches([{ day: "fsunday", minutes: 60 }, { day: "ftuesday", minutes: 60 }, { day: "fthursday", minutes: 60 }])
+          || matches([{ day: "fmonday", minutes: 90 }, { day: "fwednesday", minutes: 90 }])
+        : matches([{ day: "fmonday", minutes: 90 }, { day: "fwednesday", minutes: 90 }, { day: "fthursday", minutes: 60 }])
+          || matches([{ day: "ftuesday", minutes: 120 }, { day: "fthursday", minutes: 120 }]);
+      if (!valid) invalid.push(...sectionRows);
+    }
+    if (invalid.length) findings.push({
+      rule: "theoretical-pattern",
+      article: "م.7/8",
+      severity: "high",
+      source: "decision-1912",
+      approvalEffect: "block",
+      title: `توزيع مقرر نظري لا يطابق نمط ${arabicNumber(hours)} ساعات`,
+      detail: hours === 3
+        ? "المطلوب: ساعة في الأحد والثلاثاء والخميس، أو ساعة ونصف في الاثنين والأربعاء."
+        : "المطلوب: ساعة ونصف في الاثنين والأربعاء وساعة في الخميس، أو ساعتان في الثلاثاء والخميس.",
+      subjectKey: `course:${courseId}`,
+      subjectLabel: course.CourseCode || course.CourseName,
+      rowIds: [...new Set(invalid.map(row => row.id))],
+    });
+  }
+
+  // --- م.7/9 — a course section keeps one start time across its teaching days.
+  for (const [courseId, list] of byCourse) {
+    const bySection = new Map<string, FSchedule[]>();
+    for (const row of list) bySection.set(String(row.SCode || ""), [...(bySection.get(String(row.SCode || "")) || []), row]);
+    for (const [sectionCode, sectionRows] of bySection) {
+      const starts = new Set(sectionRows.map(row => String(row.fstarttime || "")).filter(Boolean));
+      if (starts.size < 2) continue;
+      findings.push({
+        rule: "fixed-course-time",
+        article: "م.7/9",
+        severity: "high",
+        source: "decision-1912",
+        approvalEffect: "block",
+        title: `وقت شعبة المقرر غير ثابت (${name(sectionRows[0])} · ${sectionCode})`,
+        detail: `تبدأ لقاءات هذه الشعبة في أوقات مختلفة: ${[...starts].sort().join("، ")}.`,
+        subjectKey: `course:${courseId}:${sectionCode}`,
+        subjectLabel: `${name(sectionRows[0])} · شعبة ${sectionCode}`,
+        rowIds: sectionRows.map(row => row.id),
+      });
+    }
+  }
+
   // --- م.7/5 — sections of one course spread over hours and days -----------
   const clashing: FSchedule[] = [];
   const courseNames: string[] = [];
@@ -480,9 +538,10 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     });
   }
 
-  // --- م.6/2،3 — how many sections an instructor may teach back to back ----
-  const runsOver: string[] = [];
-  const runRows: number[] = [];
+  // --- م.6/2،3 — count successive sections for the instructor across courses.
+  // A negative gap is an overlap, never a consecutive teaching sequence.
+  const runsOverLong: Array<{ instructorId: number; day: DayKey; rows: FSchedule[] }> = [];
+  const runsOverOneHour: Array<{ instructorId: number; day: DayKey; rows: FSchedule[] }> = [];
   const byInstructor = new Map<number, FSchedule[]>();
   rows.forEach(row => {
     if (!row.AdInstructorId) return;
@@ -495,41 +554,36 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
         .sort((a, b) => toMinutes(a.fstarttime) - toMinutes(b.fstarttime));
       if (onDay.length < 3) continue;
       let run: FSchedule[] = [];
-      const flush = () => {
-        if (run.length < 3) { run = []; return; }
-        // The allowance depends on how long the lectures in the run are.
-        const longest = Math.max(...run.map(duration));
-        const allowed = longest > 60 ? 2 : 3;
-        if (run.length > allowed) {
-          runsOver.push(
-            `${who(instructorId)} · ${DAY_NAMES[DAY_KEYS.indexOf(day)]} · ${arabicNumber(run.length)} متتالية`
-          );
-          runRows.push(...run.map(row => row.id));
-        }
-        run = [];
+      const record = () => {
+        if (run.length > 2 && run.some(row => duration(row) > 60)) runsOverLong.push({ instructorId, day, rows: [...run] });
+        else if (run.length > 3) runsOverOneHour.push({ instructorId, day, rows: [...run] });
       };
       for (const row of onDay) {
         if (!run.length) { run = [row]; continue; }
         const previousEnd = toMinutes(run[run.length - 1].fendtime);
-        if (toMinutes(row.fstarttime) - previousEnd <= CONSECUTIVE_GAP) { run.push(row); continue; }
-        flush();
+        const gap = toMinutes(row.fstarttime) - previousEnd;
+        if (gap >= 0 && gap <= CONSECUTIVE_GAP) { run.push(row); continue; }
+        record();
         run = [row];
       }
-      flush();
+      record();
     }
   }
-  if (runsOver.length) {
+  const appendConsecutiveFinding = (cases: typeof runsOverLong, article: string, title: string, rule: string) => {
+    if (!cases.length) return;
     findings.push({
-      rule: "consecutive-sections",
-      article: "م.6/2،3",
-      severity: "medium",
+      rule,
+      article,
+      severity: "high",
       source: "decision-1912",
-      approvalEffect: "review",
-      title: `تتابع مرتفع على الأستاذ (${arabicNumber(runsOver.length)})`,
-      detail: `تحذير تشغيلي للتتابع اليومي حسب اللائحة. ${runsOver.slice(0, 4).join(" — ")}`,
-      rowIds: [...new Set(runRows)]
+      approvalEffect: "block",
+      title: `${title} (${arabicNumber(cases.length)})`,
+      detail: cases.slice(0, 4).map(item => `${who(item.instructorId)} · ${DAY_NAMES[DAY_KEYS.indexOf(item.day)]} · ${item.rows.map(row => `${name(row)} شعبة ${row.SCode}`).join(" ← ")}`).join(" — "),
+      rowIds: [...new Set(cases.flatMap(item => item.rows.map(row => row.id)))],
     });
-  }
+  };
+  appendConsecutiveFinding(runsOverLong, "م.6/2", "أكثر من شعبتين متتاليتين لمقرر تتجاوز محاضرته ساعة", "consecutive-long-lecture");
+  appendConsecutiveFinding(runsOverOneHour, "م.6/3", "أكثر من ثلاث شعب متتالية لمقرر محاضرته ساعة", "consecutive-one-hour");
 
   // --- م.6/4 — rotation of single-section courses -------------------------
   if (context.previousRows?.length) {

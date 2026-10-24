@@ -102,7 +102,7 @@ interface DiffEntry {
 interface FullRow extends DisplayRow { changed: boolean; changeKind?: DiffEntry["kind"] }
 interface RegulationNotice {
   rule: string; article: string; source: string;
-  approvalEffect: "note" | "review";
+  approvalEffect: "note" | "review" | "block";
   title: string; detail: string; rowIds: number[];
   data?: PeriodBalanceData;
 }
@@ -605,7 +605,7 @@ function RegulationReview({ notices, onJump, rowsById }: { notices: RegulationNo
   const [open, setOpen] = useState(false);
   const [openNotice, setOpenNotice] = useState<string | null>(null);
   if (!notices.length) return null;
-  const preview = notices.slice(0, 3).map(item => item.title).join(" · ");
+  const preview = notices.slice(0, 2).map(item => item.title).join(" · ");
   return (
     <section className={`review-quiet changes-regulation-review ${open ? "open" : ""}`}>
       <button
@@ -615,10 +615,10 @@ function RegulationReview({ notices, onJump, rowsById }: { notices: RegulationNo
         onClick={() => setOpen(value => !value)}
         aria-expanded={open}
       >
-        <span className="review-mark" aria-hidden="true"><CheckCircle2 /></span>
+        <span className="review-mark" aria-hidden="true"><AlertTriangle /></span>
         <span className="review-copy">
-          <strong>{countOf(notices.length, AR.note)} لا {nounFor(notices.length, AR.blockFemVerb)} الاعتماد</strong>
-          <small>{preview}{notices.length > 3 ? ` · و${(notices.length - 3).toLocaleString("ar-KW-u-nu-latn")} غيرها` : ""}</small>
+          <strong>{countOf(notices.length, AR.approvalBlocker)} لائحية</strong>
+          <small>{preview}{notices.length > 2 ? ` · +${(notices.length - 2).toLocaleString("ar-KW-u-nu-latn")}` : ""}</small>
         </span>
         <i>{countOf(new Set(notices.flatMap(item => item.rowIds)).size, AR.appointment)}</i>
         <ChevronDown aria-hidden="true" />
@@ -627,22 +627,21 @@ function RegulationReview({ notices, onJump, rowsById }: { notices: RegulationNo
         <div className="review-quiet-list">
           {notices.map((notice, index) => {
             const key = `${notice.rule}:${index}`;
-            const medium = notice.approvalEffect === "review";
             return (
-              <article key={key} className={`review-finding severity-${medium ? "medium" : "low"} ${openNotice === key ? "open" : ""}`}>
+              <article key={key} className={`review-finding severity-high ${openNotice === key ? "open" : ""}`}>
                 <button
                   type="button"
                   data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط"
                   onClick={() => setOpenNotice(current => current === key ? null : key)}
                   aria-expanded={openNotice === key}
                 >
-                  <span className="review-mark" aria-hidden="true">{medium ? <Info /> : <CheckCircle2 />}</span>
+                  <span className="review-mark" aria-hidden="true"><AlertTriangle /></span>
                   <span className="review-copy">
                     <strong>{notice.title}</strong>
                     <small>{notice.rowIds.length ? `${countOf(notice.rowIds.length, AR.appointment)} ${nounFor(notice.rowIds.length, AR.affectedAdj)}` : "تنبيه لائحي"}</small>
                   </span>
                   <em>{notice.article}</em>
-                  <i>{medium ? "مراجعة لائحية" : "ملاحظة لائحية"}</i>
+                  <i>مانع اعتماد</i>
                 </button>
                 {openNotice === key ? (
                   <>
@@ -687,7 +686,7 @@ function ChangesReviewOverview({ report, scopeLine, onJump }: { report: ChangeRe
     .map(item => ({
       rule: item.rule,
       article: item.article,
-      severity: item.approvalEffect === "review" ? "medium" : "low",
+      severity: item.approvalEffect === "block" ? "high" : item.approvalEffect === "review" ? "medium" : "low",
       source: "decision-1912",
       approvalEffect: item.approvalEffect,
       title: item.title,
@@ -709,14 +708,14 @@ function ChangesReviewOverview({ report, scopeLine, onJump }: { report: ChangeRe
       }
     };
     blockers.forEach(item => mark(item.rowIds, "high"));
-    notices.forEach(item => mark(item.rowIds, item.approvalEffect === "review" ? "medium" : "low"));
+    notices.forEach(item => mark(item.rowIds, item.approvalEffect === "block" ? "high" : item.approvalEffect === "review" ? "medium" : "low"));
     const counts = { high: 0, medium: 0, low: 0 };
     state.forEach(level => { counts[level] += 1; });
     const flagged = counts.high + counts.medium + counts.low;
     return { ...counts, clean: Math.max(0, rowCount - flagged), total: Math.max(1, rowCount) };
   }, [blockers, notices, rowCount]);
   const share = (value: number) => `${(value / spread.total) * 100}%`;
-  const blockedCount = Math.max(blockers.length, report.blockingConflicts || 0);
+  const blockedCount = Math.max(blockers.length, report.blockingConflicts || 0) + notices.filter(item => item.approvalEffect === "block").length;
   const tone = blockedCount ? "danger" : score >= 85 ? "good" : "warn";
   const ringLength = 2 * Math.PI * 26;
   const hasFindings = blockers.length > 0 || notices.length > 0;
