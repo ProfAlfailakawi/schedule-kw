@@ -132,7 +132,8 @@ function skStats(items,ar){
 }
 
 /* الأسبوعُ مرسوماً: كتلٌ ملوّنةٌ بالدقائق، ومعها قائمةُ المقرّرات (لونُها وأيامُها ووقتُها وقاعتُها). */
-function skWeek(d,esc){
+function skWeek(d,esc,cl){
+ var dn=function(r){return (r.days||[]).map(function(i){return d.byDay[i]?d.byDay[i].name:""}).filter(Boolean).join("، ")};
  var rows={},order=[];
  d.byDay.forEach(function(day){day.rows.forEach(function(r){var k=String(r.id);if(!rows[k]){rows[k]=r;order.push(k)}})});
  if(!order.length)return "";
@@ -144,7 +145,7 @@ function skWeek(d,esc){
  var cols=d.byDay.map(function(day,di){
   var blocks=day.rows.map(function(r){
    var t=Math.round((skMin(r.start)-base)*per),h=Math.max(22,Math.round((skMin(r.end)-skMin(r.start))*per));
-   return '<button type="button" class="wk-b'+(h<44?' is-short':'')+'" data-k="'+esc(r.id)+'" style="--c:'+colorOf(r)+';top:'+t+'px;height:'+h+'px" aria-label="'+esc(r.name||r.code)+" "+esc(r.timeRange||"")+'"><span>'+esc(r.name||r.code)+'</span></button>';
+   return '<button type="button" class="wk-b'+(h<44?' is-short':'')+'" data-k="'+esc(r.id)+'" style="--c:'+colorOf(r)+';top:'+t+'px;height:'+h+'px" aria-label="'+esc(r.name||r.code)+" — "+esc(dn(r))+" "+esc(r.timeRange||"")+'"><span>'+esc(r.name||r.code)+'</span></button>';
   }).join("");
   return '<div class="wk-col" style="height:'+total+'px;--hh:'+hh+'px">'+blocks+'</div>';
  }).join("");
@@ -155,9 +156,9 @@ function skWeek(d,esc){
  var list='<div class="wk-list">'+order.map(function(k){
   var r=rows[k];
   var days=SKD.map(function(n,i){return '<u class="'+((r.days||[]).indexOf(i)>=0?'on':'')+'">'+n+'</u>'}).join("");
-  var sec=r.section?'شعبة '+esc(r.section):"";
+  var sec=[r.section?'شعبة '+esc(r.section):"",cl?esc(cl(r)):""].filter(Boolean).join(" · ");
   var place=(r.room||r.hall)?'<span class="wk-room">'+skSvg("door")+esc(r.room||"")+"/"+esc(r.hall||"")+'</span>':"";
-  return '<article class="wk-row" id="wkr-'+esc(k)+'" style="--c:'+colorOf(r)+'"><div class="wk-main"><b>'+esc(r.name||r.code)+'</b>'+(sec?'<small>'+sec+'</small>':'')+'<div class="wk-days" aria-hidden="true">'+days+'</div></div><div class="wk-side"><time>'+esc(r.timeRange||"")+'</time>'+place+'</div></article>';
+  return '<article class="wk-row" id="wkr-'+esc(k)+'" style="--c:'+colorOf(r)+'"><div class="wk-main"><b>'+esc(r.name||r.code)+'</b>'+(sec?'<small>'+sec+'</small>':'')+'<div class="wk-days" role="img" aria-label="'+esc(dn(r))+'">'+days+'</div></div><div class="wk-side"><time>'+esc(r.timeRange||"")+'</time>'+place+'</div></article>';
  }).join("")+'</div>';
  return week+list;
 }

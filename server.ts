@@ -18895,7 +18895,7 @@ ${STAFF_CARD_VISUAL_JS}
           }).join("")+'</td>';
         }).join("")+'</tr>';
       }).join("")+'</tbody></table>';
-    document.getElementById("days").innerHTML=skWeek(d,esc)+weekTable;
+    document.getElementById("days").innerHTML=skWeek(d,esc,function(r){return shortCardCollege(visibleCardCollege(r.college))})+weekTable;
     skWeekWire(document.getElementById("days"));
     if(visitChanged&&visitSince&&d.lectureCount) document.getElementById("days").insertAdjacentHTML("afterbegin",
       '<div class="pastnote">تغيّر جدولك منذ زيارتك الأخيرة (<bdi>'+esc(friendlyDate(visitSince,true))+'</bdi>) — التفاصيل في «حركة الجدول».</div>');
