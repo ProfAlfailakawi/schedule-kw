@@ -12550,10 +12550,9 @@ app.get("/api/notifications", requireAuth, async (req: AuthenticatedRequest, res
   const explicit = Number(req.query.termId || 0);
   const termId = explicit || currentTermId(terms as any);
   if (!termId) { res.json({ termId: 0, items: [] }); return; }
-  const current = await notificationItemsForTerm(req, termId);
+  const [current, planning] = await Promise.all([notificationItemsForTerm(req, termId), explicit ? Promise.resolve(0) : bellPlanningTermId(terms as any[])]);
   const termName = String((current.term as any)?.AdTermName || "");
   let items = current.items.map(item => ({ ...item, termId, termName }));
-  const planning = explicit ? 0 : await bellPlanningTermId(terms as any[]);
   let planningName = "";
   if (planning && planning !== termId) {
     const next = await notificationItemsForTerm(req, planning);
@@ -12586,12 +12585,11 @@ app.get("/api/notifications", requireAuth, async (req: AuthenticatedRequest, res
     if (["standard", "committeeChair", "departmentHead"].includes(role) && !isPowerUser(req)) {
       const gapTerm = planning || termId;
       const mine = ((await Repository.getSections()) as any[]).filter(sec => isScopeAllowed(req, Number(sec.AdCollegeId), Number(sec.AdSectionId))).slice(0, 30);
-      const found = [];
-      for (const sec of mine) {
+      const found = (await Promise.all(mine.map(async sec => {
         const data = await cachedSectionGap(Number(sec.AdCollegeId), Number(sec.AdSectionId), gapTerm);
         const courses = studentGaps(data.courses).length;
-        if (courses) found.push({ collegeId: Number(sec.AdCollegeId), sectionId: Number(sec.AdSectionId), sectionName: String(sec.AdSectionName || ""), courses });
-      }
+        return courses ? { collegeId: Number(sec.AdCollegeId), sectionId: Number(sec.AdSectionId), sectionName: String(sec.AdSectionName || ""), courses } : null;
+      }))).filter((row): row is NonNullable<typeof row> => row !== null);
       const extra = buildMasariGapNotifications(found, gapTerm, gapTerm === termId ? termName : planningName);
       if (extra.length) {
         const rank: Record<string, number> = { alert: 0, action: 1, waiting: 2, done: 3 };
@@ -12647,6 +12645,10 @@ async function approvalBadgeForTerm(req: AuthenticatedRequest, termId: number): 
        - الإضافاتُ التي تنتظر إقراره.
        - ملاحظاتُ التسجيل المفتوحة في أي حال — لا في «أُرجع» وحده: ملاحظةٌ
          كُتبت والجدول قيد الإعداد أو بعد اعتماده ملاحظةٌ تنتظر ردّاً أيضاً. */
+    /* ملاحظاتُ كل جدولٍ تُقرأ معاً لا واحداً بعد واحد؛ والعدُّ بعدها كما كان. */
+    const notesOf = new Map<ScheduleApproval, Awaited<ReturnType<typeof notesWithState>>>(await Promise.all(
+      approvals.filter(approval => approval.status !== "submitted")
+        .map(async approval => [approval, await notesWithState(approval.AdCollegeId, approval.AdSectionId, termId)] as const)));
     let open = 0;
     for (const approval of approvals) {
       if (stage === "head" && awaitsHeadSignature(approval)) open += 1;
@@ -12655,8 +12657,7 @@ async function approvalBadgeForTerm(req: AuthenticatedRequest, termId: number): 
       if (stage === "head") open += additionsAwaitingHead(approval);
       /* والجدولُ عند التسجيل ملاحظاتُه مراجعةٌ جارية لا يملك القسم فيها فعلاً. */
       if (approval.status === "submitted") continue;
-      const notes = await notesWithState(approval.AdCollegeId, approval.AdSectionId, termId);
-      open += countOpenRegistrarNotes(notes);
+      open += countOpenRegistrarNotes(notesOf.get(approval) || []);
     }
     return { count: open, kind: "notes" };
   }
@@ -12668,8 +12669,7 @@ app.get("/api/approvals/badge", requireAuth, async (req: AuthenticatedRequest, r
   const explicit = Number(req.query.termId || 0);
   const termId = explicit || currentTermId(terms as any);
   if (!termId) { res.json({ count: 0 }); return; }
-  const current = await approvalBadgeForTerm(req, termId);
-  const planning = explicit ? 0 : await bellPlanningTermId(terms as any[]);
+  const [current, planning] = await Promise.all([approvalBadgeForTerm(req, termId), explicit ? Promise.resolve(0) : bellPlanningTermId(terms as any[])]);
   if (!planning || planning === termId) { res.json(current); return; }
   const next = await approvalBadgeForTerm(req, planning);
   res.json({ count: current.count + next.count, kind: current.kind || next.kind, planningTermId: planning });
