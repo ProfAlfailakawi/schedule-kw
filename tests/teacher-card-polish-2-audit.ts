@@ -69,7 +69,7 @@ check(page.includes("function unchangedEdit(it)") && page.includes('return{rowId
 check(/var changed=state\.filter\(function\(it\)\{return it\.action!=="keep"&&!unchangedEdit\(it\)&&!incompleteItem\(it\)\}\)/.test(page), "P4 ولا يُعدّ في «جاهز»، ولا الموعدُ الناقص");
 check(page.includes('"أكمل الموعد الجديد"') && page.includes("gi(\"arrow\")+'أكمله'"), "P4 الشريط يقول «أكمل الموعد الجديد» بزرّ «أكمله»");
 check(page.includes('"أكمل الأيام ووقت البداية لـ«"+courseOf(state[incomplete])+"» قبل الإرسال."'), "P4 رسالةُ النقص تذكر اسم المقرر لا رقماً");
-check(page.includes("payloadWith(i)") && page.includes('problem==="shape"') && page.includes("المشكلة في الأيام لا في الوقت — اختر نمطاً من الأزرار."), "P4 مشكلةُ الأيام لا تُلوّن الأوقات، وسطرٌ واحد يقول ذلك");
+check(page.includes("payloadWith(i)") && page.includes('problem==="shape"') && page.includes("المشكلة في الأيام لا في الوقت"), "P4 مشكلةُ الأيام لا تُلوّن الأوقات، وسطرٌ واحد يقول ذلك");
 check(server.includes('if (problemIsShape) { res.json({ times: {}, problem: "shape" }); return; }'), "P4 والخادمُ هو من يحكم (لا bad لكل وقت)");
 check(server.includes('note.kind !== "balance" && note.courseIds') && page.includes('n.kind!=="balance"'), "P4 شريطُ نسب الصباح والمساء غائبٌ عن صفحة الأستاذ");
 

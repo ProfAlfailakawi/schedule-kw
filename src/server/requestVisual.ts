@@ -9,6 +9,10 @@
 export const REQUEST_VISUAL_CSS = String.raw`
 /* ── مظهرٌ بصري ──────────────────────────────────────────────────────────── */
 .wc-t,.wk-axis{block-size:260px}
+/* أسماءُ الأيام فوق الرسم لا تحته. */
+.wc{display:flex;flex-direction:column}
+.wc-n{order:-1;margin-bottom:6px;line-height:16px}
+.wk-axis{margin-top:22px}
 .wb{overflow:hidden}
 .wb span{display:block;padding:2px 2px 0;font-size:9px;line-height:1.15;font-weight:700;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:clip}
 .wb[data-k=ghost] span{color:var(--c)}
@@ -23,7 +27,7 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .wk-leg{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11.5px;color:var(--muted)}
 .wk-leg li{display:inline-flex;align-items:center;gap:5px;min-width:0}
 .wk-leg i{flex:none;width:10px;height:10px;border-radius:3px;background:var(--c)}
-.wk-key{display:flex;flex-wrap:wrap;gap:4px 12px;margin:6px 0 0;font-size:11px;color:var(--muted2)}
+.wk-key{display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 10px;font-size:11px;color:var(--muted2)}
 .wk-key span{display:inline-flex;align-items:center;gap:5px}
 .wk-key i{flex:none;width:12px;height:12px;border-radius:3px;background:#86a898}
 .wk-key i[data-k=ghost]{background:transparent;border:1.5px dashed #6f7a74}
@@ -85,8 +89,37 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .more-time summary::-webkit-details-marker{display:none}
 .more-time summary .sk-gi{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .more-time[open] summary{border-style:solid;color:var(--ok);border-color:var(--ok)}
-.more-time label.time{margin-top:8px}
+.more-time label.time{margin-top:8px;grid-template-columns:minmax(0,170px)}
+.more-time label.time input{min-block-size:48px;font-size:17px;font-weight:700}
+.heat-key[role=status]{display:flex;align-items:center;gap:7px}
+.heat-key[role=status] .sk-gi{flex:none;width:15px;height:15px;color:var(--warn);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .ends{margin-inline:2px!important}
+
+.auto-note,.hint-pro,.shape-lead,.ends{display:flex;align-items:center;gap:7px}
+.auto-note .sk-gi,.hint-pro .sk-gi,.shape-lead .sk-gi,.ends .sk-gi,.vshort .sk-gi{flex:none;width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ends-src{margin-inline-start:auto;color:var(--muted2);display:inline-grid}
+.vshort{display:inline-flex;align-items:center;gap:6px;font-weight:700}
+.why{margin-top:4px;font-size:12px;color:var(--muted)}
+.why summary{display:inline-block;cursor:pointer;list-style:none;color:var(--muted2);text-decoration:underline dotted;min-block-size:28px;line-height:28px}
+.why summary::-webkit-details-marker{display:none}
+.why p{margin:4px 0 0;line-height:1.7}
+
+.alts.shapes button{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;min-block-size:44px}
+.sp{display:inline-flex;flex-direction:column;align-items:center;gap:2px}
+.sp u{text-decoration:none;display:grid;place-items:center;width:22px;height:22px;border-radius:7px;font-size:11.5px;font-weight:700;background:var(--ok2);color:var(--ok)}
+.sp b{font:700 11px/1 ui-monospace,monospace;color:var(--muted);direction:ltr}
+.advice .vshort{color:var(--warn)}
+.vwrap{display:flex;flex-direction:column;align-items:flex-start;gap:4px;flex:1;min-inline-size:0}
+.vcard{display:flex;flex-direction:column;gap:5px;margin:8px 0 2px;padding:9px 12px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:13px}
+.vcard .vrow,.dept .vrow{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.vstat{display:inline-flex;align-items:center;gap:8px;margin:8px 0 2px;padding:8px 14px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.vstat b{font:800 20px/1 ui-monospace,monospace;color:var(--bad)}
+.vstat i{color:var(--muted2);font-style:normal;font-size:18px}
+.vstat small{font-size:11px;color:var(--muted);line-height:1.3}
+.vart{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:4px 10px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:11.5px;color:var(--muted)}
+.vart .sk-gi{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.dept .vshort{margin-inline-start:6px}
+.alts button{display:inline-flex;flex-direction:column;align-items:center;gap:4px;min-block-size:56px;padding:8px 14px}
 
 /* هيكلُ التحميل. */
 .skel{display:grid;gap:12px;padding:20px 4px}
@@ -103,6 +136,54 @@ function skPills(keys){return '<span class="bp-d" aria-hidden="true">'+keys.map(
 function skPillsText(txt){var parts=String(txt||"").split("·").map(function(x){return x.trim()}).filter(Boolean);
  return '<span class="bp-d" aria-hidden="true">'+parts.map(function(n){return '<u>'+(SKDN[n]||esc(n.slice(0,1)))+'</u>'}).join("")+'</span>'}
 function skShort(it){var n=String(courseOf(it)||"").trim().split(/\s+/);var w=n[0]||"";if(w.length<=3&&n[1])w+=" "+n[1];return w}
+var SKCAT=[
+ [/^انتهت مدّة استقبال/,"lock","انتهت مدة الطلبات"],
+ [/^اختر يوماً واحداً/,"cal","اختر يوماً"],
+ [/^اكتب وقت البداية/,"clock","اكتب وقت البداية"],
+ [/^تبدأ المحاضرة قبل بداية/,"sunrise","قبل بداية الدوام"],
+ [/^تتجاوز المحاضرة نهاية/,"sunset","بعد نهاية الدوام"],
+ [/^لا يُخلط بين أيام/,"layers","خلط 50 و80 دقيقة غير معتمد"],
+ [/^تتابع مرتفع على الأستاذ/,"layers","محاضرات متتالية كثيرة"],
+ [/^تكرار شعب المقرر في نفس الوقت/,"layers","شعبة أخرى بالوقت نفسه"],
+ [/^التدوير غير محقق/,"sunrise","كلها في فترة واحدة"],
+ [/^داخل وقت اجتماع القسم/,"cal","وقت اجتماع القسم"],
+ [/^خارج المعتاد تاريخياً/,"clock","وقت غير معتاد · اذكر السبب"],
+ [/^بيانات غير مكتملة/,"alert","بيانات ناقصة"],
+ [/^يتقاطع هذا الوقت مع مقرّرٍ يشترك فيه طلبتك/,"alert","يتعارض مع مقرّر طلبتك"],
+ [/^لا تتوفّر قاعةٌ في هذا الوقت/,"door","لا قاعة في هذا الوقت"],
+ [/^يتجاوز هذا نصابك/,"scale","يتجاوز نصابك"],
+ [/^لديك محاضرةٌ أخرى في هذا الوقت/,"alert","تعارض مع محاضرتك"]
+];
+function skDayPill(label){var l=String(label||"").trim();return SKDN[l]?'<u>'+SKDN[l]+'</u>':""}
+/* ما يُرسم لا يُكتب: محاضرتُك المتعارضة بطاقةً (اسمٌ ويومٌ ووقت)، والنصابُ رقمين، والمادةُ شارةً. */
+function skExtra(n){var m;
+ if((m=/^لديك محاضرةٌ أخرى في هذا الوقت: (.+?) — (\S*)\s*(\d\d?:\d\d)[–-](\d\d?:\d\d)/.exec(n)))
+  return '<span class="vcard"><b>'+esc(m[1])+'</b><span class="vrow"><span class="bp-d">'+skDayPill(m[2])+'</span><bdi dir="ltr">'+esc(m[3])+' – '+esc(m[4])+'</bdi></span></span>';
+ if((m=/^يتجاوز هذا نصابك: (.+?) مقابل (.+?) مسجّلة/.exec(n)))
+  return '<span class="vstat"><b>'+esc(m[1])+'</b><i aria-hidden="true">/</i><small>'+esc(m[2])+'<br>نصابك</small></span>';
+ return ""}
+function skAlertParts(n){n=String(n||"");
+ for(var k=0;k<SKCAT.length;k++){if(SKCAT[k][0].test(n)){var ex=skExtra(n),art=/ — (م\.[^ ]+.*)$/.exec(n);return{ic:SKCAT[k][1],short:SKCAT[k][2],extra:ex||(art?'<span class="vart">'+gi("shield")+esc(art[1])+'</span>':"")}}}
+ var m=/^(.+?) — (.+)$/.exec(n);
+ if(m)return{ic:"shield",short:m[1].replace(/\s*\([^)]*\)\s*$/,""),extra:'<span class="vart">'+gi("shield")+esc(m[2])+'</span>'};
+ return null}
+/* جملةُ الحكم قصيرةً بأيقونة، وأصلُها كاملاً تحت «التفاصيل» فلا يضيع منه شيء. */
+function skVerdict(it){var n=String(it&&it.note||""),full=verdictText(it),ic="",short="",extra="";
+ if(/لا يغطّيها/.test(n)){ic="cal";short=it.shapes&&it.shapes.length?"الأيام لا تغطي الساعات · اختر نمطاً":"الساعات تحتاج توزيع القسم"}
+ else{var p=skAlertParts(n);if(p){ic=p.ic;short=p.short;extra=p.extra}}
+ if(!short||(short===full&&!extra))return esc(full);
+ return '<span class="vshort">'+gi(ic)+esc(short)+'</span>'+extra+'<details class="why"><summary>التفاصيل</summary><p>'+esc(full)+'</p></details>'}
+/* قرارُ القسم: سببُ الرفض رمزاً وكلمات قليلة. */
+var SKREASON={room:["door","لا قاعة في الوقت المطلوب"],instructor:["alert","تعارض مع أستاذ آخر"],regulation:["shield","مخالفة للائحة"],cohort:["alert","تقاطع مع طلبة مشتركين"],load:["scale","النصاب"],department:["cal","قرار القسم"],other:["alert","سبب آخر"]};
+function skReason(code,askedAt){var r=SKREASON[code];if(!r)return "";return '<span class="vshort">'+gi(r[0])+esc(r[1])+'</span>'+(askedAt?'<span class="vrow"><bdi dir="ltr">'+esc(askedAt)+'</bdi></span>':"")}
+function skAltBtn(ds,start){return skPills(ds)+'<b class="bp-t">'+esc(start)+'</b>'}
+function skAdvice(t){t=String(t||"");var m=/^موعدك الحالي أقصر من ساعات المقرّر \(([^)]+)\)/.exec(t);
+ if(!m)return '<p class="advice" role="note">'+esc(t)+'</p>';
+ return '<p class="advice" role="note"><span class="vshort">'+gi("alert")+'أقصر من ساعات المقرر ('+esc(m[1])+')</span></p><details class="why"><summary>التفاصيل</summary><p>'+esc(t)+'</p></details>'}
+/* «الاثنين 80د · الأربعاء 80د · الخميس 50د» أيامٌ بأحرفها ودقائقها. */
+function skShape(label){var parts=String(label||"").split("·").map(function(x){return x.trim()}).filter(Boolean),out="";
+ parts.forEach(function(p){var m=/^(\S+)\s+([0-9]+)/.exec(p);if(m&&SKDN[m[1]])out+='<span class="sp"><u>'+SKDN[m[1]]+'</u><b>'+m[2]+'</b></span>';else out+='<span class="sp">'+esc(p)+'</span>'});
+ return out||esc(label)}
 function skCid(it){return (it&&(it.courseId||(it.before&&it.before.courseId)||(it.after&&it.after.courseId)))||courseOf(it)}
 function skAssignColors(){SKC.assign(state.map(skCid))}
 function skCourseColor(it){return SKC.color(skCid(it))}
@@ -118,7 +199,8 @@ function skMergeEvents(list){var out=[];list.forEach(function(e){var p=out[out.l
  out.push(e)});return out}
 function skLegend(){var seen={},li=[];state.forEach(function(it){var k=skCid(it);if(seen[k])return;seen[k]=1;li.push('<li style="--c:'+skCourseColor(it)+'"><i></i>'+esc(courseOf(it))+'</li>')});
  return (li.length>1?'<ul class="wk-leg" aria-label="ألوان المقرّرات">'+li.join("")+'</ul>':"")+
-  '<p class="wk-key" aria-hidden="true"><span><i data-k="ghost"></i>قبل التعديل</span><span><i data-k="chg"></i>معدّل</span><span><i data-k="add"></i>جديد/مثبَّت</span><span><i data-k="del"></i>محذوف</span></p>'}
+  ''}
+function skKey(){return '<p class="wk-key" aria-hidden="true"><span><i data-k="ghost"></i>قبل التعديل</span><span><i data-k="chg"></i>معدّل</span><span><i data-k="add"></i>جديد/مثبَّت</span><span><i data-k="del"></i>محذوف</span></p>'}
 /* الرجوع: يبقى الطلبُ المكتوب مسودةً على الجهاز، لكن يُسأل أولاً. */
 function skBackTarget(){try{var r=document.referrer;if(r&&new URL(r).origin===location.origin&&r!==location.href)return r}catch(e){}return ""}
 function skBackIcon(){if(!skBackTarget()&&history.length<2)return "";

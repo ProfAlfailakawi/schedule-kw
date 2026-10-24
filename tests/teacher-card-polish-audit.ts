@@ -5,6 +5,7 @@
  * وصفٌّ يقفز من مكانه، ورقمٌ عارٍ في الحركة، وجملةٌ تدّعي استلاماً بشرياً.
  * الحكمُ سلوكيّ حيث أمكن، وعقدُ المصدر حيث السلوكُ داخل قالبٍ نصّيٍّ في الخادم.
  */
+import { REQUEST_VISUAL_JS } from "../src/server/requestVisual";
 import fs from "fs";
 import vm from "vm";
 import { judgeRequest, type RequestedRow, type VerdictContext } from "../src/utils/instructorRequestVerdict";
@@ -165,7 +166,7 @@ if (vBox.verdictText) {
   check(/يحدّده القسم/.test(noShapes) && /أبقِ موعدك/.test(noShapes) && !/جرّب/.test(noShapes), "وحين لا يوجد ما يُختار من هنا يُقال له أن يُبقي موعده أو يكتب للقسم");
   check(vBox.verdictText({ note: "تتابع مرتفع على الأستاذ (2)" }) === "FRIENDLY:تتابع مرتفع على الأستاذ (2)", "وبقيةُ الرسائل تمرّ بمترجم اللغة نفسه");
 }
-check(/<span>'\+esc\(verdictText\(it\)\)\+'<\/span>/.test(page), "مربّعُ الحكم يعرض النصّ المترجَم");
+check(/<span class="vwrap">'\+skVerdict\(it\)\+'<\/span>/.test(page) && /full=verdictText\(it\)/.test(REQUEST_VISUAL_JS), "مربّعُ الحكم يعرض النصّ المترجَم (مختصراً بأيقونة، وكاملاً تحت «التفاصيل»)");
 
 /* ── شاشةُ «وصل طلبك» لا يمحوها البثّ ────────────────────────────────────── */
 check(/dirty=false;clearDraft\(\);[\s\S]{0,300}liveOff=true;closeLive\(\);/.test(page), "بعد الإرسال يُوقَف البثّ وإعادةُ القراءة فتبقى شاشة «وصل طلبك» ورمزُ التوقيع");
