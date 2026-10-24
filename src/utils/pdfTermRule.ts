@@ -11,6 +11,14 @@ export type PdfHeaderTerm = { season: "first" | "second" | "summer"; years: numb
 const seasonOf = (name: string): PdfHeaderTerm["season"] | "" =>
   /الاول|الأول/.test(name) ? "first" : /الثاني|الثانى/.test(name) ? "second" : /صيفي|صيفى/.test(name) ? "summer" : "";
 
+/** «الفصل الثاني 2025/2026» → موسم وسنوات؛ null إن لم يُقرأ الموسم أو السنة. لقبول ملفات الإكسل وJSON بالقاعدة نفسها. */
+export function parseTermName(name: string): PdfHeaderTerm | null {
+  const text = String(name || "").normalize("NFKC").replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+  const season = seasonOf(text);
+  const years = (text.match(/(?:19|20)\d{2}/g) || []).map(Number);
+  return season && years.length ? { season, years, label: text.trim() } : null;
+}
+
 /** The one source term a target accepts, or null when its name cannot be read. */
 export function acceptedPdfSourceTerm(targetName: string): { season: PdfHeaderTerm["season"]; years: number[] } | null {
   const season = seasonOf(targetName);
