@@ -84,4 +84,26 @@ const unset = readStudentPhase(undefined);
 check(!unset.line.includes("لم تُحدَّد") && unset.label.includes("لم تُحدَّد"), "المرحلة غير المحدَّدة: العنوانُ يقول والسطرُ لا يكرّر");
 check(DEFAULT_TERM_UNITS === 14 && Math.round(TYPICAL_TERM_UNITS) === DEFAULT_TERM_UNITS, "الاقتراح في الخادم يبني على ١٤ وحدةً لمن لم يكتب رغباته، كالصفحة");
 
+/* لوحة الإنجاز والخطوة التالية: عنوانٌ مباشر، وخطوةٌ واحدة تتبع المرحلة ووضع الطالب */
+const nctx: Record<string, any> = { S: { state: null }, fmtShort: (d: string) => d };
+runInNewContext([fn("heroHeadline", "nextStepInfo"), fn("nextStepInfo", "nextStepPaint"), "this.heroHeadline=heroHeadline;this.nextStepInfo=nextStepInfo;"].join("\n"), nctx);
+check(nctx.heroHeadline({ percent: 22, remainingUnits: 128 }).includes("22٪") && nctx.heroHeadline({ percent: 22, remainingUnits: 128 }).includes("من خطتك"), "العنوان: «أنجزتَ ٢٢٪ من خطتك»");
+check(nctx.heroHeadline({ percent: 0, remainingUnits: 150 }).includes("ابدأ") && nctx.heroHeadline({ percent: 100, remainingUnits: 0 }).includes("أكملتَ"), "العنوان عند الصفر وعند الإكمال");
+const st = (mode: string, over: any = {}) => { nctx.S.state = { term: { id: 7 }, phase: { mode, canEditWishes: mode === "wishes", nextAt: "2026-11-06" }, profile: { progress: { passedUnits: 36, remainingUnits: 128 }, wishes: null, ...over } }; return nctx.nextStepInfo(); };
+check(st("wishes").to === "wishes" && st("wishes").go.includes("سجّل"), "رغباتٌ مفتوحة ولم يسجّل: «سجّل رغباتي»");
+check(st("wishes", { wishes: { termId: 7, courseIds: [1, 2] } }).go.includes("عدّل"), "سجّل رغباته: «عدّل رغباتي»");
+check(st("wishes", { wishes: { termId: 6, courseIds: [1, 2] } }).go.includes("سجّل"), "رغباتُ فصلٍ سابق لا تُحسب لهذا الفصل");
+check(st("wishes", { wishes: { termId: 7, courseIds: [], targetUnits: 14 } }).go.includes("عدّل"), "رغباتٌ محفوظة بلا مقررات (وحدات وقيود فقط) تُعدّ مسجَّلة");
+nctx.S.tkReady = true;
+check(st("frozen").to === "ticket" && st("report").to === "ticket", "مراجعة الجدول أو الإبلاغ مع تذكرةٍ جاهزة: «افتح جدولي»");
+nctx.S.tkReady = false;
+check(st("frozen").to === "plan" && st("report").to === "plan", "لا تذكرةَ جاهزة: لا يُعرض «افتح جدولي» ويُرجَع إلى الخطة");
+nctx.S.tkReady = null;
+check(st("frozen") === null, "قبل أن يُعرف وجود التذكرة: لا بطاقة (فلا تومض ثم تتبدّل)");
+nctx.S.tkReady = true;
+check(st("none").to === "plan", "خارج المراحل ومعه إنجاز: خطتي");
+check(st("none", { progress: { passedUnits: 0, remainingUnits: 150 } }).to === "setup", "لا إنجازَ مسجَّل: «أكمل خطتك»");
+check(st("none", { progress: { passedUnits: 164, remainingUnits: 0 } }) === null, "أكمل الصحيفة: لا خطوة");
+check(/\.next\{[^}]*margin-block-start:-22px/.test(STUDENT_HOME_CSS) && /\.hero\.me \.rn\{/.test(STUDENT_HOME_CSS), "البطاقة تتداخل مع الخضراء، وسطرُ شرح النسبة ثابت");
+
 console.log(`\n${passed} passed, 0 failed`);
