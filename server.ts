@@ -53,6 +53,7 @@ import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from "./src/server/studyPro
 import { REQUEST_V3_CSS, REQUEST_V4_CSS } from "./src/server/requestPageStyles";
 import { PATTERN_LIBRARY_CSS, PATTERN_LIBRARY_ICON, patternLibraryHtml, patternNoticeHtml } from "./src/utils/patternLibraryView";
 import { patternLibraryInput } from "./src/utils/patternLibraryInput";
+import { COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS } from "./src/server/staffCardVisual";
 import { DEMO_COPY_SCRIPT, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "./src/server/publicKit";
 import { cleanSeenIds, seenKey } from "./src/utils/notificationSeen";
 import { calendarFeedKey, createCalendarSecretResolver } from "./src/server/calendarSecret";
@@ -15449,6 +15450,7 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
   const shaped = rows
     .map(row => ({
       id: row.id,
+      courseId: row.AdCourseId ?? null,
       code: courseById.get(row.AdCourseId)?.CourseCode || "",
       name: row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "",
       section: row.SCode || "",
@@ -18619,6 +18621,7 @@ input:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--jade) 20%,transparent)}
   .pub-week{background:#fff;border-radius:0;break-inside:avoid}.pub-week th{color:#111;background:#f0f0ec;border-color:#9aa3a0}
   .pub-week td{border-color:#9aa3a0}.pub-week .wslot b,.pub-week .wslot time{color:#111}.pub-week .wslot small{color:#444}
 }
+${STAFF_CARD_VISUAL_CSS}
 </style>
 </head>
 <body>
@@ -18643,7 +18646,11 @@ input:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--jade) 20%,transparent)}
         <h1 id="name"></h1>
         <small id="scope"></small>
       </div>
-      <a id="planMap" class="pmap" href="#" target="_blank" rel="noopener" hidden aria-label="خريطة خطة القسم" title="خريطة خطة القسم"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6.5v13L9 17l6 3 6-2.5v-13L15 7 9 4z"/><path d="M9 4v13M15 7v13"/></svg></a>
+      <div class="head-tools">
+        <a id="planMap" class="hbtn" href="#" target="_blank" rel="noopener" hidden aria-label="خريطة خطة القسم" title="خريطة خطة القسم"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6.5v13L9 17l6 3 6-2.5v-13L15 7 9 4z"/><path d="M9 4v13M15 7v13"/></svg></a>
+        <button type="button" id="ics" class="hbtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="sub" aria-label="إضافة إلى التقويم" title="إضافة إلى التقويم"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4M12 13v5M9.5 15.5h5"/></svg></button>
+        <button type="button" id="print" class="hbtn" aria-label="طباعة" title="طباعة"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V4h10v5"/><rect x="5" y="9" width="14" height="8" rx="2"/><path d="M8 14h8v6H8z"/></svg></button>
+      </div>
     </div>
     <div class="term-switch">
       <label for="termPick">الفصل الدراسي</label>
@@ -18668,22 +18675,27 @@ input:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--jade) 20%,transparent)}
     <div id="panel-requests" hidden>
       <div id="requests"></div>
     </div>
-    <div class="tools">
-      <a id="ics" href="#" role="button" aria-expanded="false" aria-controls="sub">إضافة إلى التقويم</a>
-      <a href="#" id="print">طباعة</a>
-    </div>
-    <div class="sub" id="sub" hidden>
-      <p id="subLife">اشتراك يتابع جدولك من نفسه حتى نهاية الفصل، ولا يحتاج إعادة إضافة بعد كل تعديل.</p>
-      <label class="subalarm"><input type="checkbox" id="subAlarm"> ذكّرني قبل كل محاضرة بربع ساعة</label>
-      <a id="subNow" href="#">اشتراك الآن · آيفون · ماك · أوتلوك</a>
-      <button type="button" id="subCopy">نسخ الرابط لتقويم جوجل</button>
-      <small id="subNote">في تقويم جوجل: «تقويمات أخرى ← من رابط».</small>
+    <div class="sheet" id="sub" hidden>
+      <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="subTitle">
+        <div class="sheet-grab"></div>
+        <div class="sheet-top">
+          <span class="mk"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4M12 13v5M9.5 15.5h5"/></svg></span>
+          <b id="subTitle">جدولك في تقويمك</b>
+          <button type="button" id="subClose" class="hbtn" aria-label="إغلاق"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <p class="sheet-note"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2"/><path d="M20 4v5h-5M4 20v-5h5"/></svg><span id="subLife">اشتراك يتابع جدولك من نفسه حتى نهاية الفصل، ولا يحتاج إعادة إضافة بعد كل تعديل.</span></p>
+        <a class="opt primary" id="subNow" href="#"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></span><span class="t">آيفون · ماك · أوتلوك</span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+        <button type="button" class="opt" id="subCopy"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1"/></svg></span><span class="t">جوجل · نسخ الرابط<small id="subNote">في تقويم جوجل: «تقويمات أخرى ← من رابط».</small></span></button>
+        <label class="opt subalarm"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21h4"/></svg></span><span class="t">تنبيه قبل المحاضرة بربع ساعة</span><input type="checkbox" id="subAlarm"><span class="switch"></span></label>
+      </div>
     </div>
     <div class="foot" id="foot"></div>
   </div>
 </div>
 <script nonce="${nonce}">
 ${DEMO_COPY_SCRIPT}
+${COURSE_COLOR_JS}
+${STAFF_CARD_VISUAL_JS}
 (function(){
   var TOKEN=${JSON.stringify(token)};
   var gate=document.getElementById("gate"),card=document.getElementById("card");
@@ -18858,13 +18870,14 @@ ${DEMO_COPY_SCRIPT}
       soon.removeAttribute("hidden");
     } else { soon.innerHTML=""; soon.setAttribute("hidden",""); }
     var nouns=d.countNouns||{};
-    document.getElementById("stats").innerHTML=[
+    var statItems=[
       ["ساعات تدريس أسبوعية",hours(d.weeklyMinutes)],
       [(nouns.units||"وحدات")+" نصاب",ar(d.loadUnits||0)],
       [nouns.lectures||"محاضرات",ar(d.lectureCount)],
       [nouns.days||"أيام",ar(d.dayCount)],
       [nouns.rooms||"قاعات",ar(d.rooms.length)]
-    ].map(function(x){return '<div class="stat"><b>'+x[1]+'</b><span>'+x[0]+'</span></div>'}).join("");
+    ];
+    document.getElementById("stats").innerHTML=skStats(statItems);
 
     var starts=[];d.byDay.forEach(function(day){day.rows.forEach(function(r){if(starts.indexOf(r.start)<0)starts.push(r.start)})});starts.sort();
     var weekTable='<table class="pub-week"><colgroup><col style="width:52px">'+d.byDay.map(function(){return '<col>'}).join("")+
@@ -18882,7 +18895,8 @@ ${DEMO_COPY_SCRIPT}
           }).join("")+'</td>';
         }).join("")+'</tr>';
       }).join("")+'</tbody></table>';
-    document.getElementById("days").innerHTML=weekTable;
+    document.getElementById("days").innerHTML=skWeek(d,esc,function(r){return shortCardCollege(visibleCardCollege(r.college))})+weekTable;
+    skWeekWire(document.getElementById("days"));
     if(visitChanged&&visitSince&&d.lectureCount) document.getElementById("days").insertAdjacentHTML("afterbegin",
       '<div class="pastnote">تغيّر جدولك منذ زيارتك الأخيرة (<bdi>'+esc(friendlyDate(visitSince,true))+'</bdi>) — التفاصيل في «حركة الجدول».</div>');
     if(!d.lectureCount) document.getElementById("days").innerHTML='<div class="pub-empty">لا محاضرات لك في هذا الفصل'+((d.movementHistory||[]).length?' — ما تغيّر في جدولك تجده في «حركة الجدول».':' — جرّب فصلاً آخر من الأعلى.')+'</div>';
@@ -18911,13 +18925,16 @@ ${DEMO_COPY_SCRIPT}
     alarmBox.onchange = retune;
     var ics = document.getElementById("ics"), panel = document.getElementById("sub");
     retune();
-    ics.onclick = function(e){
-      e.preventDefault();
-      var open = panel.hasAttribute("hidden");
+    function sheet(open){
       if(open) panel.removeAttribute("hidden"); else panel.setAttribute("hidden","");
       ics.setAttribute("aria-expanded", open ? "true" : "false");
-      if(open) panel.scrollIntoView({block:"nearest",behavior:"smooth"});
-    };
+      document.body.classList.toggle("sk-lock", open);
+      if(open){var f=document.getElementById("subNow");if(f)f.focus()} else ics.focus();
+    }
+    ics.onclick = function(e){ e.preventDefault(); sheet(panel.hasAttribute("hidden")); };
+    document.getElementById("subClose").onclick = function(){ sheet(false); };
+    panel.onclick = function(e){ if(e.target===panel) sheet(false); };
+    document.onkeydown = function(e){ if(e.key==="Escape" && !panel.hasAttribute("hidden")) sheet(false); };
 
     document.getElementById("subCopy").onclick = function(){
       var note = document.getElementById("subNote"), said = "تم نسخ الرابط.";

@@ -15,6 +15,7 @@ import vm from "node:vm";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "../src/server/publicTheme";
 import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from "../src/server/studyProposalAlert";
 import { DEMO_COPY_SCRIPT } from "../src/server/publicKit";
+import { COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS } from "../src/server/staffCardVisual";
 import { judgeRequest, type RequestedRow, type VerdictContext } from "../src/utils/instructorRequestVerdict";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import { NEGOTIATION_LABEL, negotiationState, parseOfferedSlots } from "../src/utils/instructorRequestThread";
@@ -105,7 +106,7 @@ check(eaten === 0, "لا تعبيرَ نمطيَّ في صفحةٍ عامة يف
 
 const staffSrc = server.slice(server.indexOf("function staffCardPage"), server.indexOf("</html>`", server.indexOf("function staffCardPage")) + 9) + ";}";
 const staffHtml = (() => {
-  const sb: any = { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, DEMO_COPY_SCRIPT };
+  const sb: any = { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, DEMO_COPY_SCRIPT, COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS };
   vm.runInNewContext(staffSrc.replace("function staffCardPage(token: string, label: string, nonce: string, demoHint = \"\"): string {", "function staffCardPage(token, label, nonce, demoHint = \"\") {")
     + "\nthis.html = staffCardPage('t','قسم','n');", sb);
   return String(sb.html);
