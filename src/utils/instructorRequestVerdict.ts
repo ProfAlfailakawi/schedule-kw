@@ -461,8 +461,13 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   /* ساعاتُ المقرّر تُؤخذ من المقرّر نفسه: أيامٌ لا تكفي لإتمامها ليست طلباً صالحاً. */
   const hoursCourse = context.courses.get(request.AdCourseId);
   const courseHours = Number(hoursCourse?.CourseHours || hoursCourse?.CourseCredit || 0);
-  if (courseHours > 0 && request.action === "change") {
-    const weekly = request.days.length === 1 ? requestMinutes(request.days, request.blockMinutes) : request.days.reduce((sum, day) => sum + requestMinutes([day]), 0);
+  if (courseHours > 0 && (request.action === "change" || request.action === "add")) {
+    /* الإضافةُ تُحسب مع ما للمقرّر نفسه عند الأستاذ نفسه من صفوف، فإتمامُ مقرّرٍ بصفّين لا يُمنع. */
+    const alreadyHeld = request.action === "add"
+      ? context.allRows.filter(row => Number(row.AdCourseId) === Number(request.AdCourseId) && Number(row.AdInstructorId) === Number(context.instructorId))
+          .reduce((sum, row) => sum + DAY_KEYS.filter(day => (row as any)[day]).length * (toMinutes(row.fendtime) - toMinutes(row.fstarttime)), 0)
+      : 0;
+    const weekly = alreadyHeld + (request.days.length === 1 ? requestMinutes(request.days, request.blockMinutes) : request.days.reduce((sum, day) => sum + requestMinutes([day]), 0));
     /* لا يُطلب ما يقلّ عن ساعات المقرّر، ولا عمّا كان عليه الصفّ نفسُه: صفوفٌ قائمةٌ
        بنمطٍ غير مثالي لا تُمنع من النقل ما دام مجموعُها لم ينقص. */
     const original = request.rowId == null ? undefined : context.allRows.find(row => Number(row.id) === Number(request.rowId));

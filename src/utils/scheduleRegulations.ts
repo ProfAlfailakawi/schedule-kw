@@ -624,3 +624,33 @@ export function regulationScore(findings: RegulationFinding[], rowCount: number)
   const wide = findings.filter(finding => isDecision1912Finding(finding) && !finding.rowIds.length).length * 0.02 * rowCount;
   return Math.max(0, Math.min(100, Math.round(100 - ((implicated + wide) / rowCount) * 100)));
 }
+
+/**
+ * Is this appointment's length one the regulation (or the course's own history) allows?
+ *
+ * A row has a single start and end for all of its days, so the length is one number: it must be
+ * `k` lectures of the day's length with the day's break between them (50 + 10 + 50 on Sun/Tue/Thu,
+ * 80 + 15 + 80 on Mon/Wed), and `k` can never exceed the course's weekly hours. A length the course
+ * has habitually used (a lab, a workshop) is accepted as it is — history outranks the regulation.
+ * Returns the message to refuse with, or null.
+ */
+export function lectureLengthProblem(
+  row: Partial<Record<DayKey, unknown>> & { fstarttime?: unknown; fendtime?: unknown },
+  courseHours: number,
+  habitualMinutes?: number
+): string | null {
+  const days = DAY_KEYS.filter(day => Boolean(row[day]));
+  const toMin = (value: unknown) => { const [h, m] = String(value || "").split(":").map(Number); return h * 60 + m; };
+  const length = toMin(row.fendtime) - toMin(row.fstarttime);
+  if (!days.length || !Number.isFinite(length) || length <= 0) return null;
+  if (habitualMinutes && Math.abs(length - habitualMinutes) <= 5) return null;
+  const maxPeriods = Math.max(1, Math.ceil(courseHours || 1));
+  const fits = days.some(day => {
+    const lecture = expectedMinutesForDay(day), gap = requiredGapForDay(day);
+    for (let periods = 1; periods <= maxPeriods; periods++) if (length === periods * lecture + (periods - 1) * gap) return true;
+    return false;
+  });
+  if (fits) return null;
+  const family = days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${expectedMinutesForDay(day)}د`);
+  return `مدة المحاضرة ${arabicNumber(length)} دقيقة لا توافق اللائحة (${[...new Set(family)].join("، ")} مع فاصل ${arabicNumber(requiredGapForDays(days))}د بين المحاضرتين المتتاليتين)`;
+}

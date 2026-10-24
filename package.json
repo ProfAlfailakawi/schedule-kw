@@ -19,6 +19,7 @@
     "test:teacher-card-flow": "tsx tests/teacher-card-flow-audit.ts",
     "test:day-autofill": "tsx tests/request-day-autofill-audit.ts",
     "test:teacher-card": "tsx tests/teacher-card-polish-audit.ts",
+    "test:lecture-length": "tsx tests/lecture-length-audit.ts",
     "test:repo-hygiene": "node tests/repo-hygiene-guard.mjs",
     "test:firestore-target": "tsx tests/firestore-target-audit.ts",
     "test:ads": "tsx tests/ads-audit.ts && tsx tests/ads-preview-audit.ts",

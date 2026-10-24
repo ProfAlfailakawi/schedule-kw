@@ -94,7 +94,7 @@ import { chooseCaptureBaseline } from "./src/utils/changesBaseline";
 import { approvalScopeKey, authorityRowsForScope } from "./src/utils/approvalScope";
 import { buildNotifications } from "./src/utils/notificationCenter";
 import { awaitedItemIndexes } from "./src/utils/linkedRequestItems";
-import { periodBalanceFinding, reviewSchedule } from "./src/utils/scheduleRegulations";
+import { lectureLengthProblem, periodBalanceFinding, reviewSchedule } from "./src/utils/scheduleRegulations";
 import {
   ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, canManageDeadline, canReviewSubmissions,
   canAnnotateCells, isAcademicRole, isAdvisorRole, isReadOnlyRole, isRegistrarRole, isViewerOnlyRole, roleDefinition, roleLabel,
@@ -4311,6 +4311,12 @@ async function sectionScheduleWindow(sectionId:number){
   const section=await Repository.getSectionById(sectionId),bounds=scheduleDayWindowMinutes(section);
   const value={expiresAt:Date.now()+30_000,startTime:bounds.startTime,endTime:bounds.endTime};sectionScheduleWindowCache.set(cacheKey,value);return value;
 }
+async function scheduleLengthIssue(row:any){
+  const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
+  const course=await Repository.getCourseById(courseId);
+  const nature=await courseHabit(courseId);
+  return lectureLengthProblem(row,Number(course?.CourseHours||0),nature&&nature.confidence!=="low"?nature.meetingMinutes:undefined);
+}
 async function schedulePayloadIssues(row:any){const issues:string[]=[];if(!SCHEDULE_DAY_KEYS.some(k=>Boolean(row?.[k])))issues.push("يجب اختيار يوم واحد على الأقل للمحاضرة");if(row?.fstarttime&&row?.fendtime){
   /* An impossible clock is refused before it is measured. `timeToMinutes` answers
      with a number for anything — "10:76" becomes 676, i.e. 11:16 — so without
@@ -8118,6 +8124,8 @@ const createScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
   }
   const payloadIssues=await schedulePayloadIssues(req.body);
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
+  {const lengthIssue=await scheduleLengthIssue(req.body);
+  if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
   if (!isScopeAllowed(req, collegeId, sectionId) && !req.user.IsAdminUser) {
@@ -8243,6 +8251,9 @@ const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
   }
   const payloadIssues=await schedulePayloadIssues(req.body);
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
+  {const unchangedShape=existing&&existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime&&SCHEDULE_DAY_KEYS.every(k=>Boolean((existing as any)[k])===Boolean(req.body?.[k]));
+  const lengthIssue=unchangedShape?null:await scheduleLengthIssue(req.body);
+  if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
   if (existing.sourceOrder !== undefined && Number(existing.sourceOrder) < 1_000_000 && Number(existing.AdCourseId) !== courseId) {
