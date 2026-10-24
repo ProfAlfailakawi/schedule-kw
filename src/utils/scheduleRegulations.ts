@@ -264,6 +264,16 @@ export function patternsForHoursOnDay(weeklyHours: number, preferredDay?: DayKey
 
 const dayLabel = (day: DayKey) => DAY_NAMES[DAY_KEYS.indexOf(day)];
 
+/** مكتبةُ الأنماط كلُّها مجمَّعةً بساعات المقرّر الأسبوعية، للعرض. */
+export interface PatternLibraryEntry { id: string; days: DayKey[]; minutesPerDay: number[]; weeklyMinutes: number; note: string }
+export function patternLibraryByHours(): Array<{ hours: number; patterns: PatternLibraryEntry[] }> {
+  const hours = [...new Set(PATTERN_LIBRARY.map(pattern => pattern.hours))].sort((a, b) => a - b);
+  return hours.map(value => ({
+    hours: value,
+    patterns: PATTERN_LIBRARY.filter(pattern => pattern.hours === value).map(({ id, days, minutesPerDay, weeklyMinutes, note }) => ({ id, days: [...days], minutesPerDay: [...minutesPerDay], weeklyMinutes, note })),
+  }));
+}
+
 /** The approved shapes for a course with this many weekly hours. */
 export function patternsForHours(weeklyHours: number): WeeklyPattern[] {
   const hours = Math.round(Number(weeklyHours) || 0);

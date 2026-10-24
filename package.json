@@ -149,6 +149,7 @@
     "test:section-schedule-hours": "tsx tests/section-schedule-hours-audit.ts",
     "test:section-planning-import": "tsx tests/section-planning-import-audit.ts",
     "test:swrs136-real": "tsx tests/swrs136-real-photos-audit.ts",
+    "test:pattern-library": "tsx tests/pattern-library-audit.ts",
     "test:request-browser-syntax": "node tests/request-page-browser-syntax-audit.mjs",
     "test:visiting-family": "tsx tests/visiting-family-audit.ts",
     "test:visiting-teaching": "tsx tests/visiting-teaching-audit.ts",
