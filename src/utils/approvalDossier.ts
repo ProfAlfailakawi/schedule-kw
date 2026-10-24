@@ -386,13 +386,16 @@ export function buildApprovalDossier(input: DossierInput): ApprovalDossierModel 
   const trim = (item: DossierBlocker): DossierBlockerLine => ({ title: String(item.title || ""), ...(item.detail ? { detail: String(item.detail) } : {}) });
   const fromReadiness = Array.isArray(readiness?.blockers);
   const fromReport = !fromReadiness && Array.isArray(report?.reviewBlockers);
-  const blockingAll = (fromReadiness ? readiness!.blockers! : fromReport ? report!.reviewBlockers! : []).map(trim);
+  const blockingAll = [
+    ...(fromReadiness ? readiness!.blockers! : fromReport ? report!.reviewBlockers! : []),
+    ...(Array.isArray(report?.regulationNotices) ? report!.regulationNotices!.filter(item => item.approvalEffect === "block") : []),
+  ].map(trim);
   const available = fromReadiness || fromReport;
   const notes = Array.isArray(report?.notes) ? report!.notes! : null;
   const openNotes = notes ? notes.filter(note => note.origin === "registrar" && note.state === "open").length : null;
   const regulationReview = Array.isArray(report?.regulationNotices) ? report!.regulationNotices!.filter(n => n.approvalEffect === "review").length : null;
   const warningsAll = Array.isArray(readiness?.warnings) ? readiness!.warnings!.map(trim) : null;
-  const blockingCount = available ? (asCount(readiness?.blockingConflicts) ?? blockingAll.length) : 0;
+  const blockingCount = available ? Math.max(asCount(readiness?.blockingConflicts) ?? 0, blockingAll.length) : 0;
   const clear = available && blockingAll.length === 0 && blockingCount === 0 && !pendingAdditions && !(openNotes || 0);
   const summaryParts: string[] = [];
   if (available && blockingCount) summaryParts.push(`${countOf(blockingCount, AR.approvalBlocker)} ${nounFor(blockingCount, AR.blockVerb)}`);

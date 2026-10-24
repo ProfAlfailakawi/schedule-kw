@@ -197,6 +197,8 @@ export interface AdCourse {
   MaxStudent: number;
   /** Optional room category that best fits this course (planner guidance only). */
   CourseRoomType?: string;
+  /** Teaching mode used by regulation review; undefined means not yet classified. */
+  CourseTeachingMode?: "theoretical" | "practical" | "mixed";
 }
 
 /** Academic curriculum version for one scientific section. */

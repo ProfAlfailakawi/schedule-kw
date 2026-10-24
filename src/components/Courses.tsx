@@ -74,6 +74,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     [hours, setHours] = useState(""),
     [capacity, setCapacity] = useState(""),
     [courseRoomType, setCourseRoomType] = useState(""),
+    [courseTeachingMode, setCourseTeachingMode] = useState(""),
     [roomTypeOptions, setRoomTypeOptions] = useState<string[]>(["تدريسية", "مختبر", "مختبر حاسوب"]),
     [query, setQuery] = useState(""),
     [error, setError] = useState<string | null>(null),
@@ -197,6 +198,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setHours("");
       setCapacity("");
       setCourseRoomType("");
+      setCourseTeachingMode("");
       setError(null);
       setCurriculumTarget(null);
       setBootstrapOk(false);
@@ -230,6 +232,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setHours(String(x.CourseHours ?? ""));
       setCapacity(String(x.MaxStudent ?? ""));
       setCourseRoomType(String(x.CourseRoomType || ""));
+      setCourseTeachingMode(String(x.CourseTeachingMode || ""));
       setError(null);
       setCurriculumTarget(null);
       setMode("edit");
@@ -262,6 +265,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     setHours(String(intent.hours ?? ""));
     setCapacity("");
     setCourseRoomType("");
+      setCourseTeachingMode("");
     setMode("create");
   }, [items, sections, colleges]);
 
@@ -326,6 +330,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
               CourseHours: Number(hours),
               MaxStudent: Number(capacity || 0),
               CourseRoomType: courseRoomType,
+              CourseTeachingMode: courseTeachingMode,
             }),
           },
         ),
@@ -576,6 +581,14 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                 <option value="">بلا تفضيل</option>
                 {courseRoomType&&!roomTypeOptions.includes(courseRoomType)?<option value={courseRoomType}>{courseRoomType}</option>:null}
                 {roomTypeOptions.map(type => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </Field>
+            <Field label="طبيعة التدريس (للمراجعة اللائحية)">
+              <select value={courseTeachingMode} onChange={event => setCourseTeachingMode(event.target.value)} aria-label="طبيعة تدريس المقرر">
+                <option value="">غير محددة</option>
+                <option value="theoretical">نظري</option>
+                <option value="practical">عملي</option>
+                <option value="mixed">نظري وعملي</option>
               </select>
             </Field>
           </div>

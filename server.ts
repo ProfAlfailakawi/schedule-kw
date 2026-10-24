@@ -4198,6 +4198,8 @@ app.post("/api/courses", requirePermission(6), async (req: AuthenticatedRequest,
   const CourseHours = boundedDecimal(req.body?.CourseHours, COURSE_LIMIT.hours[0], COURSE_LIMIT.hours[1]);
   const MaxStudent = boundedInt(req.body?.MaxStudent, COURSE_LIMIT.students[0], COURSE_LIMIT.students[1], 0);
   const CourseRoomType=String(req.body?.CourseRoomType||"").normalize("NFKC").trim();if(CourseRoomType.length>60){res.status(400).json({error:"نوع القاعة المناسب لا يتجاوز 60 حرفًا."});return;}
+  const CourseTeachingMode=String(req.body?.CourseTeachingMode||"").trim() as AdCourse["CourseTeachingMode"] | "";
+  if(CourseTeachingMode&&!['theoretical','practical','mixed'].includes(CourseTeachingMode)){res.status(400).json({error:"طبيعة تدريس المقرر غير معروفة."});return;}
   const numberIssue = courseNumberIssue(CourseCredit, CourseHours, MaxStudent);
   if (numberIssue) { res.status(400).json({ error: numberIssue }); return; }
 
@@ -4231,7 +4233,8 @@ app.post("/api/courses", requirePermission(6), async (req: AuthenticatedRequest,
       CourseHours!,
       MaxStudent!,
       true,
-      CourseRoomType
+      CourseRoomType,
+      CourseTeachingMode || undefined
     );
     res.status(201).json(newC);
   } catch (error) {
@@ -4255,6 +4258,8 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
   const CourseHours = boundedDecimal(req.body?.CourseHours, COURSE_LIMIT.hours[0], COURSE_LIMIT.hours[1]);
   const MaxStudent = boundedInt(req.body?.MaxStudent, COURSE_LIMIT.students[0], COURSE_LIMIT.students[1], 0);
   const CourseRoomType=String(req.body?.CourseRoomType||"").normalize("NFKC").trim();if(CourseRoomType.length>60){res.status(400).json({error:"نوع القاعة المناسب لا يتجاوز 60 حرفًا."});return;}
+  const CourseTeachingMode=req.body?.CourseTeachingMode === undefined ? undefined : String(req.body.CourseTeachingMode).trim() as AdCourse["CourseTeachingMode"] | "";
+  if(CourseTeachingMode&&!['theoretical','practical','mixed'].includes(CourseTeachingMode)){res.status(400).json({error:"طبيعة تدريس المقرر غير معروفة."});return;}
   const numberIssue = courseNumberIssue(CourseCredit, CourseHours, MaxStudent);
   if (numberIssue) { res.status(400).json({ error: numberIssue }); return; }
 
@@ -4353,7 +4358,8 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
       CourseCredit!,
       CourseHours!,
       MaxStudent!,
-      CourseRoomType
+      CourseRoomType,
+      CourseTeachingMode === "" ? null : CourseTeachingMode
     );
     res.json({ ...updated, roomTypeSynced, roomTypeAligned, roomTypeChanged, roomTypeEvaluated, roomTypeSkipped: roomTypeSkipped.slice(0, 8) });
   } catch (e: any) {
@@ -11342,47 +11348,51 @@ async function blockingSummaryFor(collegeId: number, sectionId: number, termId: 
   return approvalBlockerSummary(scopeRows, termRows, options);
 }
 
-/** الملاحظات اللائحية الظاهرة وقت التوقيع — تُسجَّل ولا تمنع. */
+/** موانع اللائحة الظاهرة وقت التوقيع والإرسال. */
 async function regulationNoticesForScope(collegeId: number, sectionId: number, termId: number) {
   try {
-    const [rows, courses, instructors] = await Promise.all([
-      Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
+    const [sections, courses, instructors] = await Promise.all([
+      Repository.getSections(),
       Repository.getCourses(),
       Repository.getInstructors(),
     ]);
-    const scopeFindings = reviewSchedule({
+    const family = departmentFamily(sections as any[], collegeId, sectionId);
+    const [rows, scopeRows] = await Promise.all([
+      Promise.all(family.map(member => Repository.getSchedulesByScope({ collegeId: member.collegeId, sectionId: member.sectionId, termId }))).then(groups => groups.flat()),
+      Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
+    ]);
+    const findings = reviewSchedule({
       rows: rows as any,
       courses: new Map(courses.map((row: any) => [Number(row.AdCourseId), row])),
       instructors: new Map(instructors.map((row: any) => [Number(row.AdInstructorId), row])),
     });
-    /* نسبةُ الفترتين (م.7/2) للقسم كلِّه عبر كلياته: عائلةُ القسم مجتمعةً في الفصل نفسه،
-       لا الكليةُ المفتوحة وحدها. وباقي ملاحظات اللائحة تبقى على النطاق. */
-    const familyRows = (await Promise.all(
-      departmentFamily(await Repository.getSections(), collegeId, sectionId)
-        .map(member => Repository.getSchedulesByScope({ collegeId: member.collegeId, sectionId: member.sectionId, termId })),
-    )).flat();
+    const familyRows = rows;
     const familyBalance = periodBalanceFinding(familyRows as any);
-    const findings = [
-      ...scopeFindings.filter(item => item.rule !== "period-balance"),
-      ...(familyBalance ? [familyBalance] : []),
-    ];
-    const ownIds = new Set(rows.map((row: any) => Number(row.id)));
-    return findings
-      .filter(item => item.approvalEffect !== "block")
+    const allFindings = [...findings, ...(familyBalance ? [familyBalance] : [])];
+    const ownIds = new Set(scopeRows.map((row: any) => Number(row.id)));
+    return allFindings
+      .filter(item => item.approvalEffect === "block" && item.source === "decision-1912")
       .map(item => ({
         rule: String(item.rule || ""),
         article: String(item.article || ""),
         source: item.source,
         approvalEffect: item.approvalEffect,
-        title: String(item.title || "ملاحظة لائحية"),
+        title: String(item.title || "مانع لائحي"),
         detail: String(item.detail || ""),
         rowIds: item.rowIds.map(Number).filter(id => ownIds.has(id)),
         ...(item.data ? { data: item.data } : {}),
       }));
   } catch {
-    /* اللائحة معيارٌ يُعرض، لا شرطُ حفظ. فإن تعذّر حسابها لا يُمنع التوقيع —
-       يُسجَّل صفراً، ويبقى القرار لمن يوقّع. */
-    return [];
+    /* فشلُ الفحص لا يُعامل كأن الجدول سليم؛ أعد المحاولة قبل الاعتماد. */
+    return [{
+      rule: "regulation-review-unavailable",
+      article: "مراجعة الاعتماد",
+      source: "decision-1912",
+      approvalEffect: "block",
+      title: "تعذر فحص موانع اللائحة",
+      detail: "أعد المحاولة قبل الاعتماد.",
+      rowIds: [],
+    }];
   }
 }
 
@@ -11612,6 +11622,8 @@ app.post("/api/approvals/sign", requireAuth, async (req: AuthenticatedRequest, r
        وسعةُ المقرر غير المسجّلة (طلب المالك) — وحدها من النواقص. */
     const blocking = await blockingSummaryFor(collegeId, sectionId, termId);
     const readiness = await scheduleDataReadiness(collegeId, sectionId, termId, rows);
+    const regulationBlockers = await regulationNoticeCount(collegeId, sectionId, termId);
+    if (regulationBlockers) { res.status(409).json({ error: `توجد ${countOf(regulationBlockers, AR.approvalBlocker)} لائحية. عالجها قبل التوقيع.`, code: "regulation-blockers" }); return; }
     const verdict = canSign(approval, stage, { blockingConflicts: blocking.conflicts, blockingDuplicates: blocking.duplicates, rowCount: rows.length, missingCapacity: capacityGapItems(readiness.items).length });
     if (verdict.ok !== true) { res.status(409).json({ error: verdict.message, code: verdict.code }); return; }
 
@@ -11757,6 +11769,8 @@ async function submitToRegistrar(req: AuthenticatedRequest, collegeId: number, s
   const openNotes = countOpenRegistrarNotes(await notesWithState(collegeId, sectionId, termId));
   /* والتعارضُ المادّي يمنع الإرسال كما يمنع التوقيع والقبول (R3). */
   const blocking = await blockingSummaryFor(collegeId, sectionId, termId);
+  const regulationBlockers = await regulationNoticeCount(collegeId, sectionId, termId);
+  if (regulationBlockers) return { ok: false as const, error: `توجد ${countOf(regulationBlockers, AR.approvalBlocker)} لائحية. عالجها قبل الإرسال.`, code: "regulation-blockers" };
   const verdict = canSubmit(approval, { openNoteCount: openNotes, deadlineState: deadline, blockingConflicts: blocking.conflicts, blockingDuplicates: blocking.duplicates });
   if (verdict.ok !== true) return { ok: false as const, error: verdict.message, code: verdict.code };
 
