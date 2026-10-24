@@ -2257,3 +2257,4 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .pb-gauge--off .pb-gauge-pin{background:var(--danger)}
 .pb-gauge-foot{font-size:var(--t-xs,.75rem);color:var(--ink-2)}
 @media (max-width:480px){.period-balance-rule{grid-template-columns:1fr;gap:10px}.pb-rule-ref{justify-self:center}}
+.pattern-notice-box{margin:10px 0}

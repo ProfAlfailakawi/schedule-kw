@@ -19,9 +19,17 @@ assert.ok(210 <= maxWeeklyMinutesFor(4), "٤ ساعات = ٨٠/٨٠/٥٠");
 assert.ok(weeklyLectureMinutes({ ...sut, fstarttime: "08:00", fendtime: "09:50" }) > maxWeeklyMinutesFor(3), "ست محاضرات لمقرر ٣ ساعات تزيد");
 console.log("weekly-cap ok");
 
-/* الجدول الدراسي: لا خلطَ بين أيام الـ50 والـ80 في موعدٍ واحد إلا بنمطٍ معتمد أو تاريخي. */
+/* الجدول الدراسي عند القسم: الخلطُ تنبيهٌ برسم النمط المعتمد ولا يُمنع الحفظ. */
 import fs from "node:fs";
+import { patternNoticeHtml } from "../src/utils/patternLibraryView";
+import { patternLibraryInput } from "../src/utils/patternLibraryInput";
 const serverSrc = fs.readFileSync("server.ts", "utf8");
 const lengthFn = serverSrc.slice(serverSrc.indexOf("async function scheduleLengthIssue("), serverSrc.indexOf("async function schedulePayloadIssues("));
-assert.ok(/shortDays\.length&&longDays\.length/.test(lengthFn) && /historicalOrigin\(nature/.test(lengthFn) && /patternsForHours\(hours\)\.some/.test(lengthFn) && /لا يُخلط/.test(lengthFn), "الخلط يُرفض في الحفظ إلا بنمطٍ معتمد أو تاريخي");
+assert.ok(/mixedPatternNotice\(/.test(lengthFn) && !/return `لا يُخلط/.test(lengthFn), "الخلط عند القسم لا يُرفض في الحفظ");
+const notice = serverSrc.slice(serverSrc.indexOf("async function mixedPatternNotice("), serverSrc.indexOf("async function scheduleLengthIssue("));
+assert.ok(/patternsForHours\(hours\)\.some/.test(notice) && /historicalOrigin\(/.test(notice), "والتنبيه لا يظهر لنمطٍ معتمد في المكتبة أو تاريخيٍّ للمقرّر");
+assert.ok(/patternNotice/.test(serverSrc.slice(serverSrc.indexOf('app.post("/api/schedules/check-conflicts"'), serverSrc.indexOf('app.post("/api/schedules/check-conflicts"') + 900)), "ويصل رسمُه شاشةَ الموعد مع فحص التعارض");
+const drawn = patternNoticeHtml(patternLibraryInput(), 3, ["fsunday", "fmonday"], [50, 80], true);
+assert.ok(drawn.includes("النمط غير معتمد") && drawn.includes("is-bad") && (drawn.match(/plib-pat/g) || []).length >= 3 && drawn.includes("is-block"), "الرسم: المختار مشطوباً وبجانبه المعتمد");
+assert.ok(!patternNoticeHtml(patternLibraryInput(), 3, ["fsunday", "fmonday"], [50, 80], false).includes("is-block"), "وعند القسم بلون التنبيه لا المنع");
 console.log("mixed-days ok");

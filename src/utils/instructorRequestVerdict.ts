@@ -577,11 +577,10 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const historyShape = Boolean(historicalOrigin(context.nature?.get(Number(request.AdCourseId)), context.termId)?.patterns
     .some(pattern => pattern.length === request.days.length && pattern.every(day => request.days.includes(day))));
   if (short && long && !approvedShape && !historyShape) {
-    const allowed = courseHours > 0 ? patternsForHours(courseHours).map(pattern => pattern.label).slice(0, 3).join(" أو ") : "";
     reasons.push({
       source: "shape",
       article: DECISION_1912_LABEL,
-      text: `لا يُخلط بين أيام الـ50 دقيقة (الأحد والثلاثاء والخميس) وأيام الـ80 دقيقة (الاثنين والأربعاء) إلا بنمطٍ معتمد في مكتبة الأنماط.${allowed ? ` المعتمد لهذا المقرّر: ${allowed}.` : " اختر أياماً من مجموعةٍ واحدة."}`,
+      text: "لا يُخلط بين أيام الـ50 والـ80 دقيقة إلا بنمطٍ معتمد في مكتبة الأنماط.",
       blocking: true,
     });
   }
@@ -676,7 +675,14 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const verdict = verdictOf();
   verdict.roomAvailable = roomAvailable;
   verdict.roomCandidates = candidates;
-  verdict.nearestTimes = verdict.sendable && !context.offerAlternatives ? [] : nearestFree(request, context, roomKeys, week, identity);
+  /* البديلُ ينقل الموعدَ بأيامه نفسِها، فلا يعالج خلطاً ممنوعاً: لا يُعرض وقتٌ سيُمنع هو الآخر، ويكفي رسمُ النمط المعتمد. */
+  const mixedBlocked = reasons.some(reason => reason.blocking && reason.source === "shape" && /لا يُخلط/.test(reason.text));
+  verdict.nearestTimes = (verdict.sendable && !context.offerAlternatives) || mixedBlocked ? [] : nearestFree(request, context, roomKeys, week, identity);
+  /* وبدلَه أزرارُ الأنماط المعتمدة لساعات المقرّر (متعدّدةُ الأيام، فاليومُ الواحد الممتدّ لا يُعبَّر عنه بالأيام وحدها). */
+  if (mixedBlocked && courseHours > 0 && !(verdict.shapes || []).length) {
+    verdict.shapes = patternsForHours(courseHours).filter(pattern => pattern.days.length > 1).slice(0, 3)
+      .map(pattern => ({ days: [...pattern.days] as DayKey[], label: pattern.label }));
+  }
   if (!verdict.sendable && verdict.nearestTimes.length) {
     verdict.headline = `${verdict.headline} أقربُ الأوقات المتاحة: ${verdict.nearestTimes.map(slot => `${slot.dayLabel} ${slot.start}`).join(" · ")}`;
   }

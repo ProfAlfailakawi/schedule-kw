@@ -29,19 +29,21 @@ const CLOCK = svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
 
 const nf = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
 
+function patternFigure(pattern: { days: DayKey[]; minutesPerDay: number[]; weeklyMinutes: number }, extraClass = ""): string {
+  const label = `${pattern.days.map(day => DAY_FULL[day]).join("، ")} — ${pattern.minutesPerDay.map(nf).join(" + ")} د`;
+  const week = DAY_KEYS.map(day => {
+    const at = pattern.days.indexOf(day);
+    if (at < 0) return `<span class="plib-d"><i class="plib-bar is-off"></i><u>${DAY_INITIAL[day]}</u></span>`;
+    const minutes = pattern.minutesPerDay[at];
+    const height = Math.max(22, Math.round((minutes / MAX_MINUTES) * 100));
+    return `<span class="plib-d"><i class="plib-bar ${LONG_DAYS.includes(day) ? "is-long" : "is-short"}" style="height:${height}%"><em>${nf(minutes)}</em></i><u>${DAY_INITIAL[day]}</u></span>`;
+  }).join("");
+  return `<figure class="plib-pat${extraClass ? ` ${extraClass}` : ""}" role="img" aria-label="${label}" title="${label}"><div class="plib-week">${week}</div><figcaption><b>${nf(pattern.weeklyMinutes)}</b><small>د</small></figcaption></figure>`;
+}
+
 export function patternLibraryHtml(input: PatternLibraryInput): string {
   const groups = input.groups.map(group => {
-    const cards = group.patterns.map(pattern => {
-      const label = `${pattern.days.map(day => DAY_FULL[day]).join("، ")} — ${pattern.minutesPerDay.map(nf).join(" + ")} د`;
-      const week = DAY_KEYS.map(day => {
-        const at = pattern.days.indexOf(day);
-        if (at < 0) return `<span class="plib-d"><i class="plib-bar is-off"></i><u>${DAY_INITIAL[day]}</u></span>`;
-        const minutes = pattern.minutesPerDay[at];
-        const height = Math.max(22, Math.round((minutes / MAX_MINUTES) * 100));
-        return `<span class="plib-d"><i class="plib-bar ${LONG_DAYS.includes(day) ? "is-long" : "is-short"}" style="height:${height}%"><em>${nf(minutes)}</em></i><u>${DAY_INITIAL[day]}</u></span>`;
-      }).join("");
-      return `<figure class="plib-pat" role="img" aria-label="${label}" title="${label}"><div class="plib-week">${week}</div><figcaption><b>${nf(pattern.weeklyMinutes)}</b><small>د</small></figcaption></figure>`;
-    }).join("");
+    const cards = group.patterns.map(pattern => patternFigure(pattern)).join("");
     return `<div class="plib-group"><h4><b>${nf(group.hours)}</b><small>${HOUR_WORDS[group.hours] || "ساعات"}</small></h4><div class="plib-row">${cards}</div></div>`;
   }).join("");
   return `<section class="plib-sheet" dir="rtl" aria-label="مكتبة الأنماط">`
@@ -49,6 +51,21 @@ export function patternLibraryHtml(input: PatternLibraryInput): string {
     + `<div class="plib-key"><span class="is-short"><i></i>${nf(input.shortMinutes)}د<small>ح ث خ</small><em>${CLOCK}${nf(input.shortGap)}د</em></span>`
     + `<span class="is-long"><i></i>${nf(input.longMinutes)}د<small>ن ر</small><em>${CLOCK}${nf(input.longGap)}د</em></span></div>`
     + groups
+    + `</section>`;
+}
+
+/**
+ * تنبيهُ «النمط غير معتمد»: ما اختاره صاحبُه مرسوماً بعلامةٍ حمراء، وبجانبه الأنماطُ المعتمدة لساعات المقرّر
+ * بالرسم نفسه الذي في المكتبة. كلامٌ قليل: عنوانٌ واحدٌ وسهم.
+ */
+const WARN = svg('<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>');
+const ARROW = svg('<path d="M15 6l-6 6 6 6"/>');
+export function patternNoticeHtml(input: PatternLibraryInput, hours: number, days: DayKey[], minutesPerDay: number[], blocking: boolean): string {
+  const chosen = patternFigure({ days, minutesPerDay, weeklyMinutes: minutesPerDay.reduce((sum, value) => sum + value, 0) }, "is-bad");
+  const approved = (input.groups.find(group => group.hours === hours)?.patterns || []).slice(0, 4).map(pattern => patternFigure(pattern)).join("");
+  return `<section class="plib-sheet plib-notice${blocking ? " is-block" : ""}" dir="rtl" role="note" aria-label="النمط غير معتمد في مكتبة الأنماط">`
+    + `<header class="plib-head"><span class="plib-mark is-warn">${WARN}</span><div><b>النمط غير معتمد</b><small>${PATTERN_LIBRARY_ICON}مكتبة الأنماط · ${nf(hours)} ${HOUR_WORDS[hours] || "ساعات"}</small></div></header>`
+    + `<div class="plib-row plib-compare">${chosen}${approved ? `<span class="plib-arrow" aria-hidden="true">${ARROW}</span>${approved}` : ""}</div>`
     + `</section>`;
 }
 
@@ -83,4 +100,17 @@ export const PATTERN_LIBRARY_CSS = `
 .plib-pat figcaption{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-block-start:7px;color:var(--pl-ink)}
 .plib-pat figcaption b{font-size:13px;font-variant-numeric:tabular-nums}
 .plib-pat figcaption small{color:var(--pl-mut);font-size:10.5px}
+.plib-notice{padding:10px 11px;border:1px solid color-mix(in srgb,var(--pl-b) 45%,transparent);border-radius:16px;background:color-mix(in srgb,var(--pl-b) 7%,var(--pl-card));gap:9px}
+.plib-notice.is-block{border-color:color-mix(in srgb,#b3261e 45%,transparent);background:color-mix(in srgb,#b3261e 6%,var(--pl-card))}
+.plib-notice .plib-head b{font-size:14px}
+.plib-notice .plib-head small{display:inline-flex;align-items:center;gap:4px}
+.plib-notice .plib-head small .plib-i{inline-size:12px;block-size:12px}
+.plib-mark.is-warn{background:color-mix(in srgb,var(--pl-b) 16%,transparent);color:var(--pl-b)}
+.plib-notice.is-block .plib-mark.is-warn{background:color-mix(in srgb,#b3261e 14%,transparent);color:#b3261e}
+.plib-compare{align-items:center}
+.plib-compare .plib-pat{flex:0 1 112px}
+.plib-pat.is-bad{border-color:#d9a19c;background:repeating-linear-gradient(135deg,transparent 0 6px,color-mix(in srgb,#b3261e 6%,transparent) 6px 12px),var(--pl-card)}
+.plib-pat.is-bad figcaption b{color:#b3261e;text-decoration:line-through}
+.plib-arrow{display:grid;place-items:center;color:var(--pl-mut)}
+
 `;
