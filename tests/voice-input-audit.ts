@@ -156,6 +156,7 @@ check(/maxlength="'\+\$\{VOICE_INPUT_LIMIT\}\+'"/.test(page), "وحدُّ الح
 check(/VI\.wire\(function\(key,value\)\{if\(key\.indexOf\("ex-"\)===0/.test(page), "وما يُملى في سبب الاستثناء يصل حالةَ الصفحة فيُرسَل مع الطلب");
 check(!/صوتي|voice|dictat/i.test(server.slice(server.indexOf('app.post("/api/public/request/:token/reply"'), server.indexOf("function instructorRequestPage"))), "ولا يُسجَّل في الخادم أنّ الرسالة كانت صوتية");
 check(/prefers-reduced-motion/.test(VOICE_INPUT_CSS) && /\.vi-arc/.test(VOICE_INPUT_CSS) && /var\(--accent\)/.test(VOICE_INPUT_CSS), "الحلقةُ بلون الهوية والنبضُ يحترم تقليل الحركة");
+check(/data-show="1" placeholder="'\+\(it\.tone==="warn"\?"سبب الاستثناء — إلزامي":"ملاحظة للقسم — اختياري"\)\+'">/.test(page) && !/\(it\.tone==="warn"\?VI\.html\("ex-"\+i\)/.test(page), "خانةُ الملاحظة والميكروفون على كل موعدٍ يُعدَّل (والإلزام للاستثناء وحده)، لا حين يُطلب استثناءٌ فقط");
 
 console.log(`\nVoice input audit: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
