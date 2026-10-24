@@ -320,7 +320,7 @@ const fourRows = [
   row({ id: -1, AdCourseId: 400, SCode: "01", fstarttime: "12:00", fendtime: "12:50" }),
 ];
 const addAsk = (): RequestedRow =>
-  ({ rowId: null, tempId: -1, action: "add", AdCourseId: 400, days: ["fsunday"], start: "12:00" });
+  ({ rowId: null, tempId: -1, action: "add", AdCourseId: 400, days: ["fsunday", "ftuesday", "fthursday"], start: "12:00" });
 
 check(weeklyLoadOf(fourRows, threeHourCourses) === 12, "النصابُ مجموعُ الساعات المعتمدة لما يُدرَّس");
 /* والشعبةُ الواحدة تُعدّ مرّةً: مقرّرٌ له صفّان بالشعبة نفسها ساعاتُه ساعاتُه. */

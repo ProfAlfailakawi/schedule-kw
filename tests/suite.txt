@@ -143,3 +143,4 @@ test:visiting-badge-g4
 test:visiting-status
 audit:guide
 test:pattern-library
+test:lecture-length
