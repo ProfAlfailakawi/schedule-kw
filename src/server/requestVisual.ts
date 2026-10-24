@@ -8,7 +8,13 @@
 
 export const REQUEST_VISUAL_CSS = String.raw`
 /* ── مظهرٌ بصري ──────────────────────────────────────────────────────────── */
-.wc-t,.wk-axis{block-size:176px}
+.wc-t,.wk-axis{block-size:260px}
+.wb{overflow:hidden}
+.wb span{display:block;padding:2px 2px 0;font-size:9px;line-height:1.15;font-weight:700;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:clip}
+.wb[data-k=ghost] span{color:var(--c)}
+.wb[data-k=del] span{color:#fff;text-shadow:0 0 3px rgba(0,0,0,.6)}
+.wb::after{content:"";position:absolute;inset:-14px -3px}
+.plib summary{min-inline-size:44px;min-block-size:44px}
 .wb{background:var(--c,#86a898);min-block-size:9px}
 .wb[data-k=ghost]{background:transparent;border:1.5px dashed var(--c,#6f7a74)}
 .wb[data-k=chg],.wb[data-k=prop]{background:var(--c,#b57f10);box-shadow:0 0 0 2px var(--warn2),0 0 0 3.5px #b57f10}
@@ -96,6 +102,7 @@ var SKDN={"الأحد":"ح","الاثنين":"ن","الثلاثاء":"ث","ال�
 function skPills(keys){return '<span class="bp-d" aria-hidden="true">'+keys.map(function(k){return '<u>'+(SKDI[k]||"")+'</u>'}).join("")+'</span>'}
 function skPillsText(txt){var parts=String(txt||"").split("·").map(function(x){return x.trim()}).filter(Boolean);
  return '<span class="bp-d" aria-hidden="true">'+parts.map(function(n){return '<u>'+(SKDN[n]||esc(n.slice(0,1)))+'</u>'}).join("")+'</span>'}
+function skShort(it){var n=String(courseOf(it)||"").trim().split(/\s+/);var w=n[0]||"";if(w.length<=3&&n[1])w+=" "+n[1];return w}
 function skCid(it){return (it&&(it.courseId||(it.before&&it.before.courseId)||(it.after&&it.after.courseId)))||courseOf(it)}
 function skAssignColors(){SKC.assign(state.map(skCid))}
 function skCourseColor(it){return SKC.color(skCid(it))}
@@ -111,7 +118,7 @@ function skMergeEvents(list){var out=[];list.forEach(function(e){var p=out[out.l
  out.push(e)});return out}
 function skLegend(){var seen={},li=[];state.forEach(function(it){var k=skCid(it);if(seen[k])return;seen[k]=1;li.push('<li style="--c:'+skCourseColor(it)+'"><i></i>'+esc(courseOf(it))+'</li>')});
  return (li.length>1?'<ul class="wk-leg" aria-label="ألوان المقرّرات">'+li.join("")+'</ul>':"")+
-  '<p class="wk-key" aria-hidden="true"><span><i data-k="ghost"></i>قبل التعديل</span><span><i data-k="chg"></i>معدّل</span><span><i data-k="add"></i>جديد</span><span><i data-k="del"></i>محذوف</span></p>'}
+  '<p class="wk-key" aria-hidden="true"><span><i data-k="ghost"></i>قبل التعديل</span><span><i data-k="chg"></i>معدّل</span><span><i data-k="add"></i>جديد/مثبَّت</span><span><i data-k="del"></i>محذوف</span></p>'}
 /* الرجوع: يبقى الطلبُ المكتوب مسودةً على الجهاز، لكن يُسأل أولاً. */
 function skBackTarget(){try{var r=document.referrer;if(r&&new URL(r).origin===location.origin&&r!==location.href)return r}catch(e){}return ""}
 function skBackIcon(){if(!skBackTarget()&&history.length<2)return "";
