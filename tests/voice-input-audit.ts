@@ -64,6 +64,7 @@ function makeWorld(withApi: boolean) {
     window: win, document, Date: { now: () => now }, String, Math, Array, Number, Object, RegExp,
     setInterval: (fn: () => void, every: number) => { const id = ++timerId; timers.push({ fn, every, at: now, id }); return id; },
     clearInterval: (id: number) => { const i = timers.findIndex(t => t.id === id); if (i >= 0) timers.splice(i, 1); },
+    setTimeout: (fn: () => void, ms: number) => { const id = ++timerId; const due = now + ms; const t: any = { id, every: ms, at: now, fn: () => { if (now >= due) { const i = timers.indexOf(t); if (i >= 0) timers.splice(i, 1); fn(); } } }; timers.push(t); return id; },
     fetch: () => { throw new Error("لا شبكةَ في الإملاء"); },
     XMLHttpRequest: function () { throw new Error("لا شبكةَ في الإملاء"); },
   };
@@ -118,6 +119,37 @@ check(w.sandbox.VI.active === null && rec.stopped >= 1, "عند الصفر يت�
 check(w.field.value === "بدأتُ بيدي الساعة 09:30 مناسبة" || w.field.value.startsWith("بدأتُ بيدي الساعة 09:30 مناسبة"), "وما لم يُحسم من الكلام لا يُثبَّت", w.field.value);
 check(w.btn.getAttribute("aria-pressed") === "false" && w.sec.text === "", "ويعود الزرّ إلى حاله");
 
+/* ── الآيفون: كلامٌ مؤقّتٌ كلُّه، وإيقافٌ باليد، ثم إملاءٌ ثانٍ ─────────────── */
+{
+  const i = makeWorld(true);
+  i.sandbox.VI.wire(() => {});
+  i.field.value = "";
+  i.btn.onclick();
+  const first = i.recs[0];
+  i.say(first, [{ t: "أرغب بالصباح", final: false }]);
+  i.btn.onclick(); // إيقافٌ باليد قبل أن يُحسم شيء
+  check(i.field.value === "أرغب بالصباح", "الإيقافُ باليد لا يمحو ما ظهر (المؤقّتُ يُثبَّت)", i.field.value);
+  i.btn.onclick(); // ضغطةٌ ثالثة والتسجيلُ الأول لم يُغلق بعد
+  check(i.recs.length === 1, "ولا يبدأ تسجيلٌ جديد قبل أن يُغلق المتصفّحُ السابق");
+  first.onend && first.onend();
+  const second = i.recs[1];
+  check(Boolean(second) && second.started === 1, "فإذا أُغلق بدأ الإملاءُ الثاني وحده");
+  i.say(second, [{ t: "ويوم الأحد", final: false }]);
+  check(i.field.value === "أرغب بالصباح ويوم الأحد", "والثاني يُضاف إلى الأول ولا يمحوه", i.field.value);
+  i.btn.onclick();
+  check(i.field.value === "أرغب بالصباح ويوم الأحد", "وإيقافُ الثاني يُبقي النصّ كله", i.field.value);
+  /* وإن لم يُبلغ المتصفّحُ بالإغلاق أبداً لا يُحبس الزرّ: يُفتح بعد مهلة. */
+  i.btn.onclick();
+  i.advance(1500);
+  check(i.recs.length === 3 && i.recs[2].started === 1, "وإن تأخّر إغلاقُ المتصفّح يبدأ الجديدُ بعد مهلةٍ قصيرة");
+  /* إملاءٌ ينتظر ثم تُخفى الصفحة (قفلُ الهاتف): لا يبدأ في الخلفية. */
+  i.btn.onclick(); i.btn.onclick();
+  i.document.visibilityState = "hidden";
+  (i.listeners.visibilitychange || []).forEach(fn => fn({}));
+  i.advance(1500);
+  check(i.recs.length === 3, "وإملاءٌ ينتظر لا يبدأ إن أُخفيت الصفحة");
+}
+
 /* ضغطةٌ ثانية أثناء الإملاء توقفه */
 const t2 = makeWorld(true); t2.sandbox.VI.wire();
 t2.btn.onclick(); t2.btn.onclick();
@@ -156,7 +188,7 @@ check(/maxlength="'\+\$\{VOICE_INPUT_LIMIT\}\+'"/.test(page), "وحدُّ الح
 check(/VI\.wire\(function\(key,value\)\{if\(key\.indexOf\("ex-"\)===0/.test(page), "وما يُملى في سبب الاستثناء يصل حالةَ الصفحة فيُرسَل مع الطلب");
 check(!/صوتي|voice|dictat/i.test(server.slice(server.indexOf('app.post("/api/public/request/:token/reply"'), server.indexOf("function instructorRequestPage"))), "ولا يُسجَّل في الخادم أنّ الرسالة كانت صوتية");
 check(/prefers-reduced-motion/.test(VOICE_INPUT_CSS) && /\.vi-arc/.test(VOICE_INPUT_CSS) && /var\(--accent\)/.test(VOICE_INPUT_CSS), "الحلقةُ بلون الهوية والنبضُ يحترم تقليل الحركة");
-check(/data-show="1" placeholder="'\+\(it\.tone==="warn"\?"سبب الاستثناء — إلزامي":"ملاحظة للقسم — اختياري"\)\+'">/.test(page) && !/\(it\.tone==="warn"\?VI\.html\("ex-"\+i\)/.test(page), "خانةُ الملاحظة والميكروفون على كل موعدٍ يُعدَّل (والإلزام للاستثناء وحده)، لا حين يُطلب استثناءٌ فقط");
+check(/data-show="'\+\(it\.tone==="warn"\?"1":"0"\)\+'" placeholder="سبب الاستثناء — إلزامي">/.test(page) && /\(it\.tone==="warn"\?VI\.html\("ex-"\+i\):""\)/.test(page) && !page.includes("ملاحظة للقسم — اختياري"), "لا ملاحظةَ على كل موعد: الملاحظةُ عامةٌ للجدول كله، وخانةُ الموعد لسبب الاستثناء الإلزامي وحده");
 
 /* ملاحظةٌ عامة للقسم من أول فتح الصفحة، لا مرتبطة ببندٍ ولا بردّ القسم. */
 check(/data-vi-field="gen"/.test(page) && /VI\.html\("gen"\)/.test(page) && /id="genNote"/.test(page), "خانةُ ملاحظةٍ عامة بميكروفونها على الصفحة من البداية");
