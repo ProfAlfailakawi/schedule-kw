@@ -102,6 +102,19 @@ const makeCtx = (legacyWorks: boolean, withClipboard: boolean) => {
   vm.runInNewContext(DEMO_COPY_SCRIPT, a.ctx, { timeout: 1000 });
   check(Object.keys(a.listeners).length === before, "الحشوُ المزدوج لا يضيف مستمعاً ثانياً");
 }
+/* اللصق في خانة الرقم المدني: علاماتُ الاتجاه المخفية لا تُسقط آخرَ الرقم. */
+{
+  const listeners: any = {};
+  const field: any = { tagName: "INPUT", value: "", selectionStart: 0, selectionEnd: 0, getAttribute: (n: string) => n === "inputmode" ? "numeric" : n === "maxlength" ? "12" : null, setSelectionRange() {}, dispatchEvent() {} };
+  const ctx: any = { window: {}, Event: function () {}, document: { addEventListener: (type: string, fn: any) => { listeners[type] = fn; } } };
+  vm.runInNewContext(DEMO_COPY_SCRIPT, ctx, { timeout: 1000 });
+  for (const text of ["\u200e292455904513\u200e", "\u202a292455904513\u202c", " 292455904513 ", "٢٩٢٤٥٥٩٠٤٥١٣"]) {
+    field.value = ""; field.selectionStart = field.selectionEnd = 0;
+    let prevented = false;
+    listeners.paste({ target: field, clipboardData: { getData: () => text }, preventDefault() { prevented = true; } });
+    check(prevented && field.value === "292455904513", `الرقم الملصوق يدخل كاملاً ١٢ رقماً (${JSON.stringify(text)})`);
+  }
+}
 check(server.includes('data-demo-copy="${digits}"') && !server.includes('data-demo-copy-label') && (server.match(/\$\{DEMO_COPY_SCRIPT\}/g) || []).length >= 3 && fs.readFileSync(path.join(process.cwd(), "src/server/publicKit.ts"), "utf8").includes("+ DEMO_COPY_SCRIPT"), "الزرّ في تلميح الديمو ومعالجُه في صفحات الأستاذ والطالب كلِّها");
 
 /* 7) «جرّب كأستاذ» تحت «جرّب كطالب» في شريط الديمو. */
