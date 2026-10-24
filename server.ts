@@ -18692,6 +18692,7 @@ ${STAFF_CARD_VISUAL_CSS}
         <label class="opt subalarm"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21h4"/></svg></span><span class="t">تنبيه قبل المحاضرة بربع ساعة</span><input type="checkbox" id="subAlarm"><span class="switch"></span></label>
       </div>
     </div>
+    <div class="print-foot" id="printFoot"></div>
     <div class="foot" id="foot"></div>
   </div>
 </div>
@@ -18900,7 +18901,7 @@ ${STAFF_CARD_VISUAL_JS}
           }).join("")+'</td>';
         }).join("")+'</tr>';
       }).join("")+'</tbody></table>';
-    document.getElementById("days").innerHTML=skWeek(d,esc,function(r){return shortCardCollege(visibleCardCollege(r.college))})+weekTable;
+    document.getElementById("days").innerHTML=skWeek(d,esc,function(r){return shortCardCollege(visibleCardCollege(r.college))})+skPrintList(d,esc,d.college==="كل مواقعك"?function(r){return shortCardCollege(visibleCardCollege(r.college))}:null)+weekTable;
     skWeekWire(document.getElementById("days"));
     if(visitChanged&&visitSince&&d.lectureCount) document.getElementById("days").insertAdjacentHTML("afterbegin",
       '<div class="pastnote">تغيّر جدولك منذ زيارتك الأخيرة (<bdi>'+esc(friendlyDate(visitSince,true))+'</bdi>) — التفاصيل في «حركة الجدول».</div>');
@@ -18957,6 +18958,7 @@ ${STAFF_CARD_VISUAL_JS}
         var deadlineDate=new Intl.DateTimeFormat("ar-KW-u-nu-latn",{day:"numeric",month:"long",year:"numeric",timeZone:"Asia/Kuwait"}).format(new Date(d.requestsCloseAt));
         deadlineNode.textContent="آخر موعد لإرسال الرغبات: "+deadlineDate+(Date.parse(d.requestsCloseAt)<Date.now()?" — انتهى استقبال الرغبات":"");
       }
+      var pf=document.getElementById("printFoot");if(pf)pf.textContent="طُبع من SCHEDULE بتاريخ "+friendlyDate(new Date().toISOString(),false)+" · جدولٌ للقراءة، والمرجع جدولُ القسم المعتمد";
       document.getElementById("foot").textContent="قراءة الجدول متاحة حتى نهاية الفصل ("+until+") · للقراءة فقط";
       var life=document.getElementById("subLife");
       if(life) life.textContent="اشتراك يتابع جدولك من نفسه حتى "+until+" (نهاية الفصل)، ولا يحتاج إعادة إضافة بعد كل تعديل.";

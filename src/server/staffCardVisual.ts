@@ -130,7 +130,21 @@ body.sk-lock{overflow:hidden}
 .skel i:first-child{height:44px;width:70%}
 @keyframes skel{from{background-position:120% 0}to{background-position:-120% 0}}
 @media (prefers-reduced-motion:reduce){.skel i{animation:none}}
-@media print{.head-tools,.sheet,.wk,.wk-list{display:none!important}.pub-week{display:table!important}.stats{display:grid!important;overflow:visible;grid-template-columns:repeat(5,1fr)!important}.stats .stat,.stats .stat:nth-child(n+4){grid-column:auto!important}.stat i{display:none}}
+@media screen{.print-list,.print-foot{display:none}}
+.print-list{width:100%;border-collapse:collapse;margin:14px 0 8px;font-size:12px}
+.print-list th{padding:7px 6px;text-align:start;font-weight:700;border:1px solid #777;background:#eee;color:#111}
+.print-list td{padding:7px 6px;border:1px solid #999;vertical-align:top;color:#111}
+.print-list td b{display:block;font-size:12.5px}
+.print-list td small{display:block;color:#444;font-size:10.5px;direction:ltr;text-align:start}
+.print-list .pl-n{width:24px;text-align:center;font-weight:700}
+.print-list .pl-t{white-space:nowrap}
+.print-foot{margin-top:12px;font-size:10.5px;color:#444;border-top:1px solid #999;padding-top:6px}
+@media print{#wishesDeadline,.since,.soon{display:none!important}
+.stats .stat:nth-child(n){grid-column:auto!important;padding:7px 8px!important;background:#fff!important;border:1px solid #888!important;box-shadow:none!important}
+.stats .stat:nth-child(n) b{font-size:17px!important;color:#111!important}
+.stats .stat:nth-child(n) span{font-size:10.5px!important;color:#333!important;font-weight:600!important}
+.stats .stat:nth-child(n) i{display:none!important}
+.print-list tr{break-inside:avoid}.print-list{display:table}.print-foot{display:block}.pub-week{display:none!important}.head-tools,.sheet,.wk,.wk-list{display:none!important}.stats{display:grid!important;overflow:visible;grid-template-columns:repeat(5,1fr)!important}.stats .stat,.stats .stat:nth-child(n+4){grid-column:auto!important}.stat i{display:none}}
 `;
 
 export const STAFF_CARD_VISUAL_JS = String.raw`
@@ -192,6 +206,14 @@ function skWeek(d,esc,cl){
  }).join("")+'</div>';
  return week+list;
 }
+/* ورقةُ الطباعة: جدولٌ بالمقرّرات (رمزٌ واسمٌ وشعبةٌ وأيامٌ ووقتٌ وقاعة) يُقرأ بالأبيض والأسود، وتحته ذيلٌ بتاريخ الطباعة. */
+function skPrintList(d,esc,cl){var rows={},order=[];d.byDay.forEach(function(day){day.rows.forEach(function(r){var k=String(r.id);if(!rows[k]){rows[k]=r;order.push(k)}})});
+ if(!order.length)return "";
+ order.sort(function(a,b){var ra=rows[a],rb=rows[b];return (ra.days[0]-rb.days[0])||skMin(ra.start)-skMin(rb.start)});
+ var DN=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس"];
+ var tr=order.map(function(k,n){var r=rows[k];var days=(r.days||[]).map(function(i){return DN[i]||""}).filter(Boolean).join(" · ");
+  return '<tr><td class="pl-n">'+(n+1)+'</td><td><b>'+esc(r.name||r.code)+'</b>'+(r.code?'<small>'+esc(r.code)+'</small>':'')+'</td><td>'+esc(r.section||"")+'</td><td>'+esc(days)+'</td><td dir="ltr" class="pl-t">'+esc(r.timeRange||"")+'</td><td dir="ltr">'+esc([r.room,r.hall].filter(Boolean).join("/"))+'</td>'+(cl?'<td>'+esc(cl(r))+'</td>':'')+'</tr>'}).join("");
+ return '<table class="print-list"><thead><tr><th>#</th><th>المقرّر</th><th>الشعبة</th><th>الأيام</th><th>الوقت</th><th>القاعة</th>'+(cl?'<th>الكلية</th>':'')+'</tr></thead><tbody>'+tr+'</tbody></table>'}
 /* لمسُ كتلةٍ يضيء مقرّرَها في القائمة ويمرّر إليه. */
 function skWeekWire(host){
  host.onclick=function(e){
