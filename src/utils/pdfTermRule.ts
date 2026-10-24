@@ -1,10 +1,9 @@
 /**
  * Which term's authority PDF may be copied into the chosen term.
  *
- * Only the same season of the PREVIOUS academic year: «الثاني 2026/2027» takes
- * «الثاني 2025/2026» and nothing else — not the first term of its own year, not
- * an older year, not a later one. The chosen term has no official table of its
- * own yet (that is what is being built), so its own season is refused too.
+ * The same season of the PREVIOUS academic year, or the chosen term itself:
+ * «الثاني 2026/2027» takes «الثاني 2025/2026» and «الثاني 2026/2027» — not the
+ * other season of its own year, not an older year, not a later one.
  */
 export type PdfHeaderTerm = { season: "first" | "second" | "summer"; years: number[]; label?: string };
 
@@ -19,20 +18,27 @@ export function acceptedPdfSourceTerm(targetName: string): { season: PdfHeaderTe
   return { season, years: years.map(year => year - 1) };
 }
 
+/** المصدران المقبولان: فصل السنة السابقة، والفصل المختار نفسه. */
+function acceptedSources(targetName: string) {
+  const previous = acceptedPdfSourceTerm(targetName);
+  if (!previous) return [];
+  return [previous, { season: previous.season, years: previous.years.map(year => year + 1) }];
+}
+
 export function pdfTermAccepted(header: PdfHeaderTerm, targetName: string): boolean {
-  const accepted = acceptedPdfSourceTerm(targetName);
-  if (!accepted) return false;
   const years = [...header.years].map(Number).sort((a, b) => a - b);
-  const want = [...accepted.years].sort((a, b) => a - b);
-  return header.season === accepted.season && years.length === want.length && years.every((year, i) => year === want[i]);
+  return acceptedSources(targetName).some(accepted => {
+    const want = [...accepted.years].sort((a, b) => a - b);
+    return header.season === accepted.season && years.length === want.length && years.every((year, i) => year === want[i]);
+  });
 }
 
 const SEASON_WORD = { first: "الأول", second: "الثاني", summer: "الصيفي" } as const;
 
-/** «الفصل الثاني 2025/2026» — the name shown in the refusal. */
+/** «الفصل الثاني 2025/2026 أو الفصل الثاني 2026/2027» — the names shown in the refusal. */
 export function acceptedPdfSourceLabel(targetName: string): string {
-  const accepted = acceptedPdfSourceTerm(targetName);
-  if (!accepted) return "";
-  const years = [...accepted.years].sort((a, b) => a - b);
-  return `الفصل ${SEASON_WORD[accepted.season]} ${years[0]}${years[1] ? `/${years[1]}` : ""}`;
+  return acceptedSources(targetName).map(accepted => {
+    const years = [...accepted.years].sort((a, b) => a - b);
+    return `الفصل ${SEASON_WORD[accepted.season]} ${years[0]}${years[1] ? `/${years[1]}` : ""}`;
+  }).join(" أو ");
 }
