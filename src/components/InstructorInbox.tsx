@@ -109,7 +109,7 @@ const REJECT_REASONS: Array<[InstructorRequestRejectReason, string]> = [
   ["instructor", "يتعارض مع أستاذ آخر"],
   ["regulation", "مخالفة للائحة"],
   ["cohort", "يتقاطع مع مقرّر يشترك طلبتُه"],
-  ["load", "النصاب"],
+  ["load", "النصاب التدريسي"],
   ["department", "قرار القسم"],
   ["other", "سبب آخر"],
 ];

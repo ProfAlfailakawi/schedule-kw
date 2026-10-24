@@ -586,9 +586,11 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             <Field label="طبيعة التدريس (للمراجعة اللائحية)">
               <select value={courseTeachingMode} onChange={event => setCourseTeachingMode(event.target.value)} aria-label="طبيعة تدريس المقرر">
                 <option value="">غير محددة</option>
+                {courseTeachingMode === "mixed" ? <option value="mixed">نظري وعملي · تصنيف سابق</option> : null}
                 <option value="theoretical">نظري</option>
+                <option value="applied">تطبيقي</option>
                 <option value="practical">عملي</option>
-                <option value="mixed">نظري وعملي</option>
+                <option value="field_training">التدريب الميداني</option>
               </select>
             </Field>
           </div>

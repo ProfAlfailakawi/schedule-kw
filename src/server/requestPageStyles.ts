@@ -11,7 +11,7 @@ export const REQUEST_V3_CSS = `:root{--ok-ink:#16523a;--on:#fff;--amber:#b07d00;
 /* ── v3: مسارُ التفاوض ───────────────────────────────────────────────────────
    طبقةٌ فوق الأنماط القديمة: تعيد رسمَ الرأس والمسار وبطاقة القرار والمواعيد
    وورقة التوقيع، وتترك منطقَ الصفحة كما هو. الألوانُ كلُّها من متغيّرات الصفحة. */
-.wrap{max-width:560px;padding-inline:16px}
+.wrap{width:100%;max-width:none;padding-inline:clamp(16px,3vw,48px)}
 .gi{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.25em}
 .num{direction:ltr;unicode-bidi:isolate;display:inline-block;font-variant-numeric:tabular-nums}
 .statusline{margin:0;gap:6px}
@@ -133,8 +133,8 @@ export const REQUEST_V3_CSS = `:root{--ok-ink:#16523a;--on:#fff;--amber:#b07d00;
 .thread-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
 .msgs{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .msgs li{max-inline-size:90%;padding:8px 12px;border-radius:16px;background:var(--raise);font-size:13.5px;line-height:1.6}
-.msgs li[data-from=instructor]{justify-self:start;background:var(--ok2);border-end-start-radius:5px}
-.msgs li[data-from=department]{justify-self:end;border-end-end-radius:5px}
+.msgs li[data-from=instructor]{justify-self:end;background:var(--ok2);border-end-start-radius:5px}
+.msgs li[data-from=department]{justify-self:start;border-end-end-radius:5px}
 .msgs small{display:block;font-size:11px;color:var(--muted2);font-weight:600}
 .msgs p{margin:0}
 .slots{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
@@ -144,7 +144,7 @@ export const REQUEST_V3_CSS = `:root{--ok-ink:#16523a;--on:#fff;--amber:#b07d00;
 .thread-act button.pri{background:var(--ok);border-color:var(--ok);color:var(--on)}
 /* شريط الإرسال */
 .send{position:fixed;inset-inline:0;bottom:0;margin:0;padding:8px 12px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,var(--bg) 30%);z-index:6;pointer-events:none}
-.sendbar{pointer-events:auto;max-inline-size:560px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 12px;border-radius:22px;background:color-mix(in srgb,var(--raise) 97%,transparent);border:1px solid var(--line);box-shadow:0 -6px 30px rgba(22,57,40,.12)}
+.sendbar{pointer-events:auto;max-inline-size:1100px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 12px;border-radius:22px;background:color-mix(in srgb,var(--raise) 97%,transparent);border:1px solid var(--line);box-shadow:0 -6px 30px rgba(22,57,40,.12)}
 .sb-t{flex:1;min-inline-size:0;line-height:1.35}
 .sb-t b{display:block;font-size:14px}.sb-t small{display:block;font-size:11.5px;color:var(--muted)}
 .sendbar #send[data-blocked]{background:var(--amber);box-shadow:none}
@@ -193,7 +193,7 @@ export const REQUEST_V4_CSS = `
 @media screen{:root{--muted2:#56625b;--warn:#7a5400}}
 .neg{color:#6f4b00}
 /* ── العرض ── */
-@media (min-width:1000px){.wrap{max-width:820px}}
+@media (min-width:1000px){.wrap{max-width:none}}
 /* ── أسبوعه في رسمٍ واحد ── */
 .wk{padding:12px 14px 8px}
 .wk-body{display:flex;gap:9px;align-items:flex-start}

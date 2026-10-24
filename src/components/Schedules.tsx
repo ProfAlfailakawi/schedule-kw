@@ -3454,7 +3454,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   }, [hallOptions, hallAvailabilityReady, rows, editId, form.AdRoomCode, form.AdTermId, form.fstarttime, form.fendtime, selectedFormDays]);
   const availableHallCount = hallAvailability.filter(item => !item.occupied).length;
   const busyHallCount = hallAvailability.filter(item => item.occupied).length;
-  const editorConflictCards = useMemo(() => conflicts.map((conflict: any, index: number) => {
+  const editorConflictCards = useMemo(() => {
+    const seenTurnarounds = new Set<string>();
+    const uniqueConflicts = conflicts.filter((conflict: any) => {
+      if (conflict.type !== "doorway") return true;
+      const key = `${String(conflict.message || "").trim()}|${String(conflict.detail || "").replace(/\s+/g, " ").trim()}`;
+      if (seenTurnarounds.has(key)) return false;
+      seenTurnarounds.add(key);
+      return true;
+    });
+    return uniqueConflicts.map((conflict: any, index: number) => {
     const other = rows.find(row => Number(row.id) === Number(conflict.otherId || conflict.rowId || -1));
     const detail = String(conflict?.detail || "").replace(/\s+/g, " ").trim();
     const isScope = conflict.type === "roomScope";
@@ -3589,7 +3598,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       overlap,
       lines,
     };
-  }), [conflicts, rows, form.fstarttime, form.fendtime, currentInstructorName, currentRoomLabel, selectedDaySummary, courseById, visitingIds, visitingLookupData, form.AdInstructorId, form.AdCollegeId, form.AdSectionId, form.AdTermId]);
+    });
+  }, [conflicts, rows, form.fstarttime, form.fendtime, currentInstructorName, currentRoomLabel, selectedDaySummary, courseById, visitingIds, visitingLookupData, form.AdInstructorId, form.AdCollegeId, form.AdSectionId, form.AdTermId]);
   const editorTimingVisualDays = useMemo(() => {
     const startMinute = String(form.fstarttime || "").match(/^(\d{1,2}):(\d{2})$/) ? Number(String(form.fstarttime || "").split(":")[1]) : null;
     return days.map(day => {

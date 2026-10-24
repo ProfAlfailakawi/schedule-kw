@@ -148,8 +148,9 @@ check(!/قاعة|AdRoomCode|AdRoomHall|roomCandidates/.test(page
   "ولا اسمَ قاعةٍ في الصفحة كلها");
 check(page.includes("ينتهي ") && page.includes("مدّةُ المحاضرة من اللائحة"),
   "والنهايةُ تُعرض محسوبةً ولا تُسأل");
-check(page.includes('fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check"'),
-  "والحكمُ يُسأل عنه الخادمُ عند كل تغيير");
+check(page.includes('fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-batch"')
+  && page.includes("items:payloadItems()"),
+  "والحكمُ يُسأل عنه الخادمُ عند كل تغيير بحزمةٍ واحدة");
 check(page.includes('id="openChooser"') && page.includes('id="courseSearch"')
   && page.includes("data.courses.map(function(c)"),
   "والإضافةُ تبدأ بزرٍ واضح ثم قائمة مقرّرات القسم القابلة للبحث");
@@ -167,9 +168,10 @@ check(page.includes('var blocked=state.filter(function(it){return !unchangedEdit
 check(page.includes('days:(it.action==="change"||it.action==="add")?(it.slots||[]).map(function(s){return s.day}):[]')
   && page.includes('decision:it.decision||null'),
   "والطلب المحفوظ يعود بأيامه ووقته وقراراته، فلا يختفي تفصيل الحركة عند إعادة فتح الرابط");
-check(page.includes('it.action!=="change"&&it.action!=="add"')
-  && page.includes('courseId:it.action==="add"?it.courseId:undefined'),
-  "والإضافةُ تُفحص كتعديل الوقت نفسه وتُرسل بهوية المقرر");
+check(page.includes("function rawItem(it)")
+  && page.includes('courseId:it.action==="add"?it.courseId:undefined')
+  && page.includes('collegeId:it.action==="add"?it.collegeId:undefined'),
+  "والإضافةُ تُفحص ضمن الحزمة وتُرسل بهوية المقرر ونطاقه");
 check(server.includes('const action = req.body?.action === "add" ? "add" : "change"')
   && server.includes("const candidate = rowFromRequest(requested, base as any)"),
   "وفحصُ الإضافة في الخادم يبني الصفَّ المطلوب ويفحصه، لا يغيّر اسم العملية فقط");

@@ -319,8 +319,8 @@ var API="/api/public/request/"+encodeURIComponent(TOKEN)+"/proposals/"+encodeURI
 var DAYS=[["fsunday","الأحد"],["fmonday","الاثنين"],["ftuesday","الثلاثاء"],["fwednesday","الأربعاء"],["fthursday","الخميس"]];
 var KIND={create:"شعبة جديدة",assign:"إسناد شعبة",edit:"تعديل موعد",replace:"استبدال"};
 var KIND_IC={create:"plus",assign:"inflow",edit:"pen",replace:"swap"};
-var REASONS=[["time","الوقت"],["place","المكان"],["days","الأيام"],["load","النصاب"],["other","سبب آخر"]];
-var REASON_TXT={time:"الوقت",place:"المكان",days:"الأيام",load:"النصاب",other:"سبب آخر"};
+var REASONS=[["time","الوقت"],["place","المكان"],["days","الأيام"],["load","النصاب التدريسي"],["other","سبب آخر"]];
+var REASON_TXT={time:"الوقت",place:"المكان",days:"الأيام",load:"النصاب التدريسي",other:"سبب آخر"};
 var D=null,META={term:"",who:""},LOADING=true,LOADERR=null,LOADCODE=0;
 var UI={mode:"after",view:window.innerWidth<640?"agenda":"grid",ghosts:true,day:"",choice:{},linked:"",reason:"",note:"",start:"",sdays:[],fold:{tt:false,im:false},editing:false,sending:false,err:"",errCode:"",open:null,lastFocus:null,barHide:false};
 var CRED={one:"ساعة معتمدة",two:"ساعتان معتمدتان",few:"ساعات معتمدة",many:"ساعة معتمدة"};
@@ -455,7 +455,7 @@ function opResultHtml(o){var d=D.decision||{},s="";
 function opsHtml(){var ops=D.ops||[];if(!ops.length)return '<div class="card empty">لا مواد في هذا المقترح.</div>';
  return '<div class="ops">'+ops.map(function(o,i){var t=o.target;
   return '<article class="op" aria-label="'+esc(KIND[o.kind]+": "+opName(o))+'"><div class="op-head"><span class="kind" data-k="'+o.kind+'">'+ic(KIND_IC[o.kind])+esc(KIND[o.kind]||o.kind)+'</span><span class="hint">المادة '+(i+1)+' من '+ops.length+'</span></div>'+
-  '<h3>'+esc(t.courseName||t.courseCode||"المقرر")+(t.planBadge?'<span class="plan-badge">'+esc(t.planBadge)+'</span>':'')+(t.service?'<span class="plan-badge">متطلب</span>':'')+'<small>'+esc(t.courseCode||"")+(t.SCode?' · شعبة '+esc(t.SCode):'')+(t.collegeName?' · '+esc(t.collegeName):'')+'</small></h3>'+
+  '<h3>'+esc(t.courseName||t.courseCode||"المقرر")+(t.planBadge?'<span class="plan-badge">'+esc(t.planBadge)+'</span>':'')+(t.service?'<span class="plan-badge">متطلب كلية</span>':'')+'<small>'+esc(t.courseCode||"")+(t.SCode?' · شعبة '+esc(t.SCode):'')+(t.collegeName?' · '+esc(t.collegeName):'')+'</small></h3>'+
   factsHtml(t)+whatChanges(o)+opResultHtml(o)+'</article>'}).join("")+'</div>'}
 
 /* ── الأثر ───────────────────────────────────────────────────────────────── */
@@ -470,9 +470,9 @@ function metricCard(o){var b=o.b,a=o.a,known=(b!=null&&a!=null),same=known&&Math
   if(o.warn)h+=o.warn}
  return h+'</div>'}
 function impactHtml(){var S=D.schedule;if(!S)return "";var b=S.before.metrics,a=S.after.metrics,cap=S.loadCap,u=function(n){return countOf(n,CRED)};
- var warn="";if(cap&&a.loadUnits!=null&&a.loadUnits>cap)warn='<div class="warn">'+ic("alert")+'يتجاوز النصاب المسجّل ('+esc(cap)+') بمقدار '+esc(countOf(a.loadUnits-cap,CRED))+'</div>';
+ var warn="";if(cap&&a.loadUnits!=null&&a.loadUnits>cap)warn='<div class="warn">'+ic("alert")+'يتجاوز النصاب التدريسي المسجّل ('+esc(cap)+') بمقدار '+esc(countOf(a.loadUnits-cap,CRED))+'</div>';
  var cards=[
- {icon:"book",label:"النصاب",b:b.loadUnits,a:a.loadUnits,fmt:function(v){return esc(u(v))},delta:function(v){return esc(u(v))},sub:cap?"النصاب المسجّل: "+esc(countOf(cap,AR.hour)):"",missing:"ساعات مقرراتك غير مسجّلة لدى القسم بعد.",warn:warn},
+ {icon:"book",label:"النصاب التدريسي",b:b.loadUnits,a:a.loadUnits,fmt:function(v){return esc(u(v))},delta:function(v){return esc(u(v))},sub:cap?"النصاب التدريسي المسجّل: "+esc(countOf(cap,AR.hour)):"",missing:"ساعات مقرراتك غير مسجّلة لدى القسم بعد.",warn:warn},
  {icon:"grid",label:"عدد الشعب",b:b.sections,a:a.sections,fmt:function(v){return esc(countOf(v,AR.section))},delta:function(v){return esc(countOf(v,AR.section))}},
  {icon:"cal",label:"أيام الحضور",b:b.attendanceDays,a:a.attendanceDays,fmt:function(v){return esc(countOf(v,AR.day,"لا أيام"))},delta:function(v){return esc(countOf(v,AR.day))},sub:esc((a.dayKeys||[]).map(dayName).join(" · "))},
  {icon:"user",label:"ساعات الحضور",b:b.presenceMinutes,a:a.presenceMinutes,fmt:function(v){return esc(hm(v))},delta:function(v){return esc(hm(v))},sub:"من أول محاضرة إلى آخر محاضرة في كل يوم"},
