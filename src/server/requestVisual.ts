@@ -132,6 +132,21 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .dept .vshort{margin-inline-start:6px}
 .alts button{display:inline-flex;flex-direction:column;align-items:center;gap:4px;min-block-size:56px;padding:8px 14px}
 
+.nextnow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;margin:0 0 14px;padding:14px;border:1.5px solid var(--line);border-radius:18px;background:var(--card)}
+.nextnow[data-tone=act]{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,var(--card));box-shadow:0 6px 18px color-mix(in srgb,var(--ok) 14%,transparent)}
+.nextnow[data-tone=done]{background:var(--soft)}
+.nx-ic{display:grid;place-items:center;width:46px;height:46px;border-radius:15px;background:var(--soft);color:var(--muted)}
+.nextnow[data-tone=act] .nx-ic{background:var(--ok);color:#fff}
+.nx-ic .sk-gi{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.nx-tx{display:flex;flex-direction:column;gap:2px;min-inline-size:0}
+.nx-tx small{font-size:11px;font-weight:700;color:var(--muted2)}
+.nx-tx b{font-size:16px;line-height:1.3}
+.nx-tx em{font-style:normal;font-size:12.5px;color:var(--muted)}
+.nx-btn{display:inline-flex;align-items:center;gap:6px;min-block-size:44px;padding:0 14px;border:0;border-radius:13px;background:var(--ok);color:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.nx-btn .sk-gi{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+@media (max-width:420px){.nextnow{grid-template-columns:auto minmax(0,1fr)}.nx-btn{grid-column:1/-1;justify-content:center}}
+@media (prefers-reduced-motion:no-preference){.nextnow[data-tone=act] .nx-ic{animation:nxp 2.4s ease-in-out infinite}@keyframes nxp{50%{transform:scale(1.07)}}}
+
 /* هيكلُ التحميل. */
 .skel{display:grid;gap:12px;padding:20px 4px}
 .skel i{display:block;block-size:78px;border-radius:18px;background:linear-gradient(100deg,var(--soft) 30%,var(--card) 50%,var(--soft) 70%);background-size:220% 100%;animation:skel 1.3s ease-in-out infinite}
@@ -200,6 +215,21 @@ function skAdvice(t){t=String(t||"");var m=/^موعدك الحالي أقصر م
 function skShape(label){var parts=String(label||"").split("·").map(function(x){return x.trim()}).filter(Boolean),out="";
  parts.forEach(function(p){var m=/^(\S+)\s+([0-9]+)/.exec(p);if(m)out+='<span class="sp"><b>'+esc(m[1])+'</b><small>'+m[2]+' د</small></span>';else out+='<span class="sp">'+esc(p)+'</span>'});
  return out||esc(label)}
+/* «ماذا أحتاج منك الآن؟»: خطوةٌ واحدةٌ كبيرة تتغيّر بمرحلة الطلب، فلا يحتاج الأستاذ أن يقرأ المسار ليعرف. */
+function skNext(open,sent,edited){var s=stageIdx(),pend=pendingList().length,ic="eye",tone="wait",t="",sub="",btn="";
+ if(!open&&!sent){ic="lock";tone="done";t="انتهت مدة استقبال الطلبات";sub="جدولك كما هو، ولا شيء مطلوب منك."}
+ else if(!sent){ic=edited>0?"send":"pen";tone="act";
+  t=edited>0?"طلبك جاهز للإرسال":"راجع مواعيدك";
+  sub=edited>0?countOf(edited,AR.edit)+" · اضغط «أرسل» حين تنتهي":"غيّر ما يلزم، أو أرسلها كما هي";
+  btn=edited>0?'<button type="button" class="nx-btn" data-nx="send">'+gi("arrow")+'إلى الإرسال</button>':""}
+ else if(s===2||pend>0){ic="you";tone="act";t="قرارك مطلوب الآن";sub=countOf(pend||1,AR.item)+" ينتظر ردّك من القسم";btn='<button type="button" class="nx-btn" data-nx="decide">'+gi("arrow")+'اذهب إلى القرار</button>'}
+ else if(s===1){ic="eye";tone="wait";t="القسم يراجع طلبك";sub="لا شيء مطلوب منك الآن"}
+ else if(s===3){ic="shield";tone="wait";t="بانتظار تثبيت القسم";sub="لا شيء مطلوب منك الآن"}
+ else{ic="check";tone="done";t="اكتمل طلبك";sub="ثُبّت ما اتُّفق عليه في جدولك"}
+ return '<div class="nextnow" data-tone="'+tone+'" role="status"><span class="nx-ic">'+gi(ic)+'</span><span class="nx-tx"><small>ماذا أحتاج منك الآن؟</small><b>'+esc(t)+'</b><em>'+esc(sub)+'</em></span>'+btn+'</div>'}
+document.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("[data-nx]"):null;if(!b)return;
+ var k=b.getAttribute("data-nx"),t=k==="send"?document.querySelector(".send"):(document.querySelector(".deck")||document.querySelector("[data-panel=schedule]"));
+ if(t&&t.scrollIntoView)t.scrollIntoView({block:"center",behavior:"smooth"})});
 function skCid(it){return (it&&(it.courseId||(it.before&&it.before.courseId)||(it.after&&it.after.courseId)))||courseOf(it)}
 function skAssignColors(){SKC.assign(state.map(skCid))}
 function skCourseColor(it){return SKC.color(skCid(it))}

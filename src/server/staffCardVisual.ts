@@ -37,9 +37,17 @@ export const STAFF_CARD_VISUAL_CSS = String.raw`
 
 /* مربّعاتٌ رقمية بأيقونات: صفٌّ واحدٌ يُمرَّر. */
 .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
-.stats .stat{grid-column:span 2;display:grid;justify-items:center;gap:2px;padding:12px 6px 10px;text-align:center}
-.stats .stat:nth-child(n+4){grid-column:span 3}
-@media (min-width:560px){.stats{grid-template-columns:repeat(5,1fr)}.stats .stat,.stats .stat:nth-child(n+4){grid-column:auto}}
+.stats .stat{grid-column:span 2;display:grid;justify-items:center;gap:2px;padding:10px 6px 9px;text-align:center}
+.stats .stat:nth-child(-n+2){grid-column:span 3;padding:14px 8px 12px;background:color-mix(in srgb,var(--jade) 7%,var(--card));border-color:color-mix(in srgb,var(--jade) 28%,var(--line))}
+.stats .stat:nth-child(-n+2) b{font-size:30px}
+.stats .stat:nth-child(-n+2) i{width:36px;height:36px}
+.stats .stat:nth-child(-n+2) span{font-size:12px;font-weight:600;color:var(--ink)}
+.stats .stat:nth-child(n+3){grid-column:span 2!important}
+.stats .stat:nth-child(n+3) b{font-size:18px;color:var(--dim)}
+.stats .stat:nth-child(n+3) i{width:24px;height:24px}
+.stats .stat:nth-child(n+3) i svg{width:13px;height:13px}
+@media (min-width:560px){.stats{grid-template-columns:repeat(7,1fr)}.stats .stat:nth-child(-n+2){grid-column:span 2}.stats .stat:nth-child(n+3){grid-column:span 1!important}}
+.welcome{margin:8px 0 0;font-size:13px;color:var(--dim)}
 .stat i{display:grid;place-items:center;width:30px;height:30px;margin-bottom:2px;border-radius:10px;background:color-mix(in srgb,var(--jade) 12%,transparent);color:var(--jade)}
 .stat i svg{width:17px;height:17px}
 .stats .stat b{font-size:22px}
@@ -59,6 +67,8 @@ export const STAFF_CARD_VISUAL_CSS = String.raw`
 .wk-b:active{transform:scale(.96)}
 .wk-b.on{background:var(--c);color:#fff;box-shadow:0 4px 12px color-mix(in srgb,var(--c) 40%,transparent)}
 .wk-b span{font-size:10.5px;font-weight:700;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;word-break:break-word}
+.wk-b{flex-direction:column;align-items:center;gap:2px}
+.wk-b em{font:700 9.5px/1 ui-monospace,monospace;font-style:normal;opacity:.85;direction:ltr}
 .wk-b.is-short span{-webkit-line-clamp:1;font-size:9.5px}
 @media (max-width:360px){.wk-b.is-short span{display:none}}
 @media (max-width:420px){.card-tab{font-size:12px;padding:8px 4px;white-space:nowrap}}
@@ -120,7 +130,21 @@ body.sk-lock{overflow:hidden}
 .skel i:first-child{height:44px;width:70%}
 @keyframes skel{from{background-position:120% 0}to{background-position:-120% 0}}
 @media (prefers-reduced-motion:reduce){.skel i{animation:none}}
-@media print{.head-tools,.sheet,.wk,.wk-list{display:none!important}.pub-week{display:table!important}.stats{display:grid!important;overflow:visible;grid-template-columns:repeat(5,1fr)!important}.stats .stat,.stats .stat:nth-child(n+4){grid-column:auto!important}.stat i{display:none}}
+@media screen{.print-list,.print-foot{display:none}}
+.print-list{width:100%;border-collapse:collapse;margin:14px 0 8px;font-size:12px}
+.print-list th{padding:7px 6px;text-align:start;font-weight:700;border:1px solid #777;background:#eee;color:#111}
+.print-list td{padding:7px 6px;border:1px solid #999;vertical-align:top;color:#111}
+.print-list td b{display:block;font-size:12.5px}
+.print-list td small{display:block;color:#444;font-size:10.5px;direction:ltr;text-align:start}
+.print-list .pl-n{width:24px;text-align:center;font-weight:700}
+.print-list .pl-t{white-space:nowrap}
+.print-foot{margin-top:12px;font-size:10.5px;color:#444;border-top:1px solid #999;padding-top:6px}
+@media print{#wishesDeadline,.since,.soon{display:none!important}
+.stats .stat:nth-child(n){grid-column:auto!important;padding:7px 8px!important;background:#fff!important;border:1px solid #888!important;box-shadow:none!important}
+.stats .stat:nth-child(n) b{font-size:17px!important;color:#111!important}
+.stats .stat:nth-child(n) span{font-size:10.5px!important;color:#333!important;font-weight:600!important}
+.stats .stat:nth-child(n) i{display:none!important}
+.print-list tr{break-inside:avoid}.print-list{display:table}.print-foot{display:block}.pub-week{display:none!important}.head-tools,.sheet,.wk,.wk-list{display:none!important}.stats{display:grid!important;overflow:visible;grid-template-columns:repeat(5,1fr)!important}.stats .stat,.stats .stat:nth-child(n+4){grid-column:auto!important}.stat i{display:none}}
 `;
 
 export const STAFF_CARD_VISUAL_JS = String.raw`
@@ -165,7 +189,7 @@ function skWeek(d,esc,cl){
  var cols=d.byDay.map(function(day,di){
   var blocks=day.rows.map(function(r){
    var t=Math.round((skMin(r.start)-base)*per),h=Math.max(22,Math.round((skMin(r.end)-skMin(r.start))*per));
-   return '<button type="button" class="wk-b'+(h<44?' is-short':'')+'" data-k="'+esc(r.id)+'" style="--c:'+colorOf(r)+';top:'+t+'px;height:'+h+'px" aria-label="'+esc(r.name||r.code)+" — "+esc(dn(r))+" "+esc(r.timeRange||"")+'"><span>'+esc(r.name||r.code)+'</span></button>';
+   return '<button type="button" class="wk-b'+(h<44?' is-short':'')+'" data-k="'+esc(r.id)+'" style="--c:'+colorOf(r)+';top:'+t+'px;height:'+h+'px" aria-label="'+esc(r.name||r.code)+" — "+esc(dn(r))+" "+esc(r.timeRange||"")+'"><span>'+esc(r.name||r.code)+'</span>'+(h>=44?'<em>'+esc(r.start)+'</em>':'')+'</button>';
   }).join("");
   return '<div class="wk-col" style="height:'+total+'px;--hh:'+hh+'px">'+blocks+'</div>';
  }).join("");
@@ -182,6 +206,14 @@ function skWeek(d,esc,cl){
  }).join("")+'</div>';
  return week+list;
 }
+/* ورقةُ الطباعة: جدولٌ بالمقرّرات (رمزٌ واسمٌ وشعبةٌ وأيامٌ ووقتٌ وقاعة) يُقرأ بالأبيض والأسود، وتحته ذيلٌ بتاريخ الطباعة. */
+function skPrintList(d,esc,cl){var rows={},order=[];d.byDay.forEach(function(day){day.rows.forEach(function(r){var k=String(r.id);if(!rows[k]){rows[k]=r;order.push(k)}})});
+ if(!order.length)return "";
+ order.sort(function(a,b){var ra=rows[a],rb=rows[b];return (ra.days[0]-rb.days[0])||skMin(ra.start)-skMin(rb.start)});
+ var DN=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس"];
+ var tr=order.map(function(k,n){var r=rows[k];var days=(r.days||[]).map(function(i){return DN[i]||""}).filter(Boolean).join(" · ");
+  return '<tr><td class="pl-n">'+(n+1)+'</td><td><b>'+esc(r.name||r.code)+'</b>'+(r.code?'<small>'+esc(r.code)+'</small>':'')+'</td><td>'+esc(r.section||"")+'</td><td>'+esc(days)+'</td><td dir="ltr" class="pl-t">'+esc(r.timeRange||"")+'</td><td dir="ltr">'+esc([r.room,r.hall].filter(Boolean).join("/"))+'</td>'+(cl?'<td>'+esc(cl(r))+'</td>':'')+'</tr>'}).join("");
+ return '<table class="print-list"><thead><tr><th>#</th><th>المقرّر</th><th>الشعبة</th><th>الأيام</th><th>الوقت</th><th>القاعة</th>'+(cl?'<th>الكلية</th>':'')+'</tr></thead><tbody>'+tr+'</tbody></table>'}
 /* لمسُ كتلةٍ يضيء مقرّرَها في القائمة ويمرّر إليه. */
 function skWeekWire(host){
  host.onclick=function(e){
