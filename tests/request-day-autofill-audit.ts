@@ -114,6 +114,13 @@ const makeCtx = (legacyWorks: boolean, withClipboard: boolean) => {
     listeners.paste({ target: field, clipboardData: { getData: () => text }, preventDefault() { prevented = true; } });
     check(prevented && field.value === "292455904513", `الرقم الملصوق يدخل كاملاً ١٢ رقماً (${JSON.stringify(text)})`);
   }
+  /* لصقٌ في وسط رقمٍ كامل لا يحذف من بقيّته: يُقصّ الملصوق وحده بقدر المتّسع. */
+  field.value = "292455904513"; field.selectionStart = field.selectionEnd = 0;
+  listeners.paste({ target: field, clipboardData: { getData: () => "1" }, preventDefault() {} });
+  check(field.value === "292455904513", "لصقٌ في رقمٍ مكتمل لا يُسقط من آخره");
+  field.value = "2924"; field.selectionStart = field.selectionEnd = 4;
+  listeners.paste({ target: field, clipboardData: { getData: () => "55904513999" } , preventDefault() {} });
+  check(field.value === "292455904513", "ويُقصّ الملصوق وحده بقدر ما بقي");
 }
 check(server.includes('data-demo-copy="${digits}"') && !server.includes('data-demo-copy-label') && (server.match(/\$\{DEMO_COPY_SCRIPT\}/g) || []).length >= 3 && fs.readFileSync(path.join(process.cwd(), "src/server/publicKit.ts"), "utf8").includes("+ DEMO_COPY_SCRIPT"), "الزرّ في تلميح الديمو ومعالجُه في صفحات الأستاذ والطالب كلِّها");
 

@@ -113,7 +113,8 @@ document.addEventListener("paste",function(e){var f=e.target;if(!f||f.tagName!==
  var d=String(raw||"").replace(/[\u0660-\u0669]/g,function(c){return String(c.charCodeAt(0)-0x0660)}).replace(/[\u06F0-\u06F9]/g,function(c){return String(c.charCodeAt(0)-0x06F0)}).replace(/[^0-9]/g,"");
  if(!d)return;e.preventDefault();
  var v=f.value||"",st=f.selectionStart==null?v.length:f.selectionStart,en=f.selectionEnd==null?v.length:f.selectionEnd;
- var next=v.slice(0,st)+d+v.slice(en),max=Number(f.getAttribute("maxlength")||0);if(max>0)next=next.slice(0,max);
+ var max=Number(f.getAttribute("maxlength")||0);if(max>0)d=d.slice(0,Math.max(0,max-(v.length-(en-st))));
+ var next=v.slice(0,st)+d+v.slice(en);
  f.value=next;try{var at=Math.min(next.length,st+d.length);f.setSelectionRange(at,at)}catch(_){}
  try{f.dispatchEvent(new Event("input",{bubbles:true}))}catch(_){}},true)})();
 `;
