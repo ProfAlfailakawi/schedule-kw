@@ -3438,12 +3438,11 @@ app.get("/api/terms/scoped", requireAuth, async (req: AuthenticatedRequest, res:
   const current = Number(currentTermId(terms as any) || terms[0]?.AdTermId || 0);
   const readScopes = analysisScope === "department" ? await intelligenceReadScopes(req, collegeId, sectionId) : [{ collegeId, sectionId }];
   const counts = new Map<number, number>();
-  for (let at = 0; at < terms.length; at += 6) {
-    await Promise.all(terms.slice(at, at + 6).map(async term => {
-      const rows = await Promise.all(readScopes.map(scope => readLiveSchedulesForRequest(req, scope.collegeId, scope.sectionId, Number(term.AdTermId))));
-      counts.set(Number(term.AdTermId), rows.reduce((total, group) => total + group.length, 0));
-    }));
-  }
+  /* الفصولُ كلُّها تُقرأ معاً لا ستّةً ستّة: النتيجةُ نفسها، بانتظارٍ واحد بدل خمسة. */
+  await Promise.all(terms.map(async term => {
+    const rows = await Promise.all(readScopes.map(scope => readLiveSchedulesForRequest(req, scope.collegeId, scope.sectionId, Number(term.AdTermId))));
+    counts.set(Number(term.AdTermId), rows.reduce((total, group) => total + group.length, 0));
+  }));
   const newest = Number(terms[0]?.AdTermId || 0);
   const data = { termIds: visibleTermIds(terms.map(term => Number(term.AdTermId)), counts, newest), currentTermId: current, newestTermId: newest };
   if (scopedTermsCache.size > 200) scopedTermsCache.clear();
