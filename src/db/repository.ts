@@ -1057,6 +1057,11 @@ const registrationFactsChanged = (before?: StudentProfile, after?: StudentProfil
  * It carries the row as it actually stands, so the screen above can show the
  * reader what changed and who has to decide — rather than a bare failure.
  */
+/** تغيّر عددُ صفوف النطاق عمّا قرّرت عليه العملية: لا يُكتب شيء. */
+export class ScopeChangedError extends Error {
+  constructor(public readonly count: number) { super("تغيّر الجدول أثناء العملية"); this.name = "ScopeChangedError"; }
+}
+
 export class ScheduleRevisionConflict extends Error {
   constructor(public current: FSchedule) {
     super("تغيّر هذا الموعد أثناء عملك.");
@@ -6866,7 +6871,7 @@ export const Repository = {
     saveDatabase(); return row;
   },
 
-  replaceScheduleScope: async (collegeId:number, sectionId:number, termId:number, rows:FSchedule[]): Promise<FSchedule[]> => {
+  replaceScheduleScope: async (collegeId:number, sectionId:number, termId:number, rows:FSchedule[], options: { expectCurrentCount?: number } = {}): Promise<FSchedule[]> => {
     /* The widest write in the system — publishing a draft, restoring a version,
        undoing a safety net — and the only one that used to change nothing as far
        as anyone else could tell. Every other write path invalidates, which is
@@ -6886,6 +6891,8 @@ export const Repository = {
     const normalizedInput = rows.map(row => ({ ...row, AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId }));
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const current = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
+      /* شرطٌ يُفحص داخل القفل نفسه، على ما قُرئ للحذف: مسحٌ أو إرجاعٌ قرّر على عددٍ بعينه لا يكتب فوق ما تغيّر. */
+      if (options.expectCurrentCount !== undefined && current.length !== options.expectCurrentCount) throw new ScopeChangedError(current.length);
       const currentIds = new Set(current.map(row=>row.id));
       const needsId = normalizedInput.filter(row=>!Number.isInteger(row.id)||row.id<=0||!currentIds.has(row.id));
       const firstNewId = needsId.length ? await reserveFirestoreIds("schedules", needsId.length) : 0;
@@ -6901,6 +6908,7 @@ export const Repository = {
     }
     const hydrated=hydrateSchedules(db.schedules,db.courses,db.sections);
     const current=hydrated.filter(row=>row.AdCollegeId===collegeId&&row.AdSectionId===sectionId&&row.AdTermId===termId);
+    if (options.expectCurrentCount !== undefined && current.length !== options.expectCurrentCount) throw new ScopeChangedError(current.length);
     const currentIds=new Set(current.map(row=>row.id));
     let nextId=db.schedules.length?Math.max(...db.schedules.map(row=>row.id))+1:1;
     const normalized=normalizedInput.map(row=>currentIds.has(row.id)&&row.id>0?row:{...row,id:nextId++});

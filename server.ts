@@ -8,7 +8,7 @@ import { configureRuntimeEnvironment } from "./src/server/runtimeEnv";
 import { BUILD_STAMP } from "./src/generated/buildStamp";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import { createGunzip } from "zlib";
-import { activeDataMode, ApprovalRevisionConflict, DuplicateResourceError, initDatabase, Repository, ScheduleRevisionConflict, StudentCourseStateConflict, withSerialLock , caseRefFor } from "./src/db/repository";
+import { activeDataMode, ApprovalRevisionConflict, DuplicateResourceError, initDatabase, Repository, ScheduleRevisionConflict, StudentCourseStateConflict, withSerialLock , caseRefFor, ScopeChangedError } from "./src/db/repository";
 import { roomTypeSiblingIds } from "./src/utils/courseRoomTypeSync";
 import { DEMO_SWITCH_ACCOUNTS, demoActiveRoleKey } from "./src/db/demoSandbox";
 import { clearScheduleCacheQuietly, onSchedulesInvalidated } from "./src/db/referenceCache";
@@ -23,6 +23,7 @@ import { buildScheduleGenome, buildWarRoom, evaluateScheduleConstraints, forecas
 import { describeRollover, readTermRollover } from "./src/utils/termRollover";
 import { visibleTermIds } from "./src/utils/scopedTerms";
 import { currentTermId, planningTermCandidates, termHasEnded, termIsArchive } from "./src/utils/termSequence";
+import { WIPE_CONFIRM_TOKEN, WIPE_MAX_ROWS, WIPE_RESTORE_TOKEN, WIPE_VERSION_LABEL, wipeDecision } from "./src/utils/scheduleWipePolicy";
 import { acceptedPdfSourceLabel, pdfTermAccepted } from "./src/utils/pdfTermRule";
 import { applyVisitingToFaculty, recoverRetiredFromPrintedName, retiredOrSabbaticalIds } from "./src/utils/visitingToFaculty";
 import { ensureSectionFaculty } from "./src/server/sectionFaculty";
@@ -8735,6 +8736,134 @@ app.post("/api/schedules/copy", requireAuth, requirePowerAdmin, async (req: Auth
   await recordVersionAfter(undoVersion, written as any[]);
   await noteScheduleMutation(req, collegeId, sectionId, targetTermId, { kind: "add", rows: written as any[] });
   res.json({ success: true, count: written.length, message: "تم نسخ الفصل الدراسي بالقيم الرسمية للمباني والقاعات", undoVersion: undoVersion ? { id: undoVersion.id, label: undoVersion.label } : null });
+});
+
+/* ── مسحُ جدول القسم كاملاً، وإرجاعُه ──────────────────────────────────────
+ *
+ * القرار من `wipeDecision` وحدها (الأدمن ورئيس لجنة الجدول، الفصل الذي يُعَدّ،
+ * والموقَّع للأدمن وحده). والمسحُ صفوفُ المواعيد لهذا القسم في هذا الفصل فقط،
+ * بعد نسخةٍ احتياطيةٍ كاملة، ولا يمرّ إلا بتأكيدٍ صريح وعددٍ يطابق ما رآه صاحبه
+ * واسمِ القسم مكتوباً بيده. */
+async function wipeScopeState(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number) {
+  const [terms, approval, section, rows, versions] = await Promise.all([
+    Repository.getTerms(),
+    Repository.getScheduleApproval(collegeId, sectionId, termId),
+    Repository.getSectionById(sectionId),
+    Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
+    Repository.getScheduleVersions(collegeId, sectionId, termId, 80),
+  ]);
+  const term = (terms as any[]).find(row => Number(row.AdTermId) === termId);
+  const decision = wipeDecision({
+    isAdmin: isPowerUser(req),
+    role: req.user?.Role,
+    termId,
+    currentTermId: currentTermId(terms as any),
+    planningTermIds: planningTermCandidates(terms as any),
+    termClosed: term?.AdTermClosed === true,
+    approvalStatus: approval?.status,
+    signatureCount: approval?.signatures?.length || 0,
+  });
+  const lastWipe = (versions as any[]).filter(version => version.label === WIPE_VERSION_LABEL)
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0];
+  return {
+    decision, rows, section, term,
+    sectionName: String(section?.AdSectionName || ""),
+    termName: String(term?.AdTermName || ""),
+    lastWipe: lastWipe ? { id: String(lastWipe.id), at: String(lastWipe.createdAt || ""), by: String(lastWipe.userName || ""), count: Number(lastWipe.rowCount ?? lastWipe.rows?.length ?? 0) } : null,
+    lastWipeVersion: lastWipe,
+  };
+}
+const wipeScopeOf = (source: any) => ({ collegeId: Number(source?.collegeId || 0), sectionId: Number(source?.sectionId || 0), termId: Number(source?.termId || 0) });
+
+app.get("/api/schedules/wipe-scope", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const { collegeId, sectionId, termId } = wipeScopeOf(req.query);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId) && !isPowerUser(req)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  const state = await wipeScopeState(req, collegeId, sectionId, termId);
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    canWipe: state.decision.allowed, reason: state.decision.allowed ? "" : state.decision.reason,
+    count: state.rows.length, sectionName: state.sectionName, termName: state.termName,
+    lastWipe: state.lastWipe,
+    canRestore: state.decision.allowed && Boolean(state.lastWipe) && state.rows.length === 0,
+  });
+});
+
+app.post("/api/schedules/wipe-scope", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const { collegeId, sectionId, termId } = wipeScopeOf(req.body);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId) && !isPowerUser(req)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  if (!confirmTokens(req).has(WIPE_CONFIRM_TOKEN)) { res.status(409).json({ error: "مسح الجدول بالكامل يتطلب تأكيداً صريحاً." }); return; }
+  await withSerialLock(`wipe:${collegeId}:${sectionId}:${termId}`, async () => {
+    const state = await wipeScopeState(req, collegeId, sectionId, termId);
+    if (!state.decision.allowed) { res.status(403).json({ error: state.decision.reason, code: "wipe-refused" }); return; }
+    /* اسمُ القسم مكتوباً بيد صاحبه: البرهانُ أنه يمسح القسمَ الذي يقصده. */
+    const typed = String(req.body?.confirmName || "").trim().replace(/\s+/g, " ");
+    if (!state.sectionName || typed !== state.sectionName.trim().replace(/\s+/g, " ")) {
+      res.status(409).json({ error: "اسم القسم المكتوب لا يطابق اسم القسم المفتوح.", code: "wipe-name" }); return;
+    }
+    /* والعددُ الذي رآه في التحذير: إن تغيّر الجدول بينهما يُعاد التأكيد. */
+    if (Number(req.body?.expectedCount) !== state.rows.length) {
+      res.status(409).json({ error: `تغيّر الجدول أثناء التأكيد: فيه الآن ${countOf(state.rows.length, AR.appointment)}. أعد المحاولة.`, code: "wipe-count", count: state.rows.length }); return;
+    }
+    if (!state.rows.length) { res.status(409).json({ error: "الجدول فارغ أصلاً.", code: "wipe-empty" }); return; }
+    /* ما لا يُرجَع لا يُمسح: الإرجاعُ يمرّ بحدّ المسودة الآمن (450 صفاً). */
+    if (state.rows.length > WIPE_MAX_ROWS) { res.status(409).json({ error: `الجدول أكبر من حدّ المسح الآمن (${countOf(WIPE_MAX_ROWS, AR.appointment)})، فلا يُمسح دفعةً واحدة.`, code: "wipe-too-large" }); return; }
+    if (!isPowerUser(req)) {
+      const lock = await scheduleLockRefusal(req, collegeId, sectionId, termId);
+      if (lock) { res.status(409).json({ error: lock, code: "schedule-locked" }); return; }
+      const late = await wholesaleRefusal(collegeId, sectionId, termId, { kind: "bulk-delete", deleting: state.rows.length, total: state.rows.length });
+      if (late) { res.status(409).json({ error: late, code: "deadline-wholesale" }); return; }
+    }
+    const backup = await captureScopeVersion(req, collegeId, sectionId, termId, WIPE_VERSION_LABEL, "manual");
+    if (!backup) { res.status(500).json({ error: "تعذّر حفظ النسخة الاحتياطية، فلم يُمسح شيء." }); return; }
+    try {
+      await Repository.replaceScheduleScope(collegeId, sectionId, termId, [], { expectCurrentCount: state.rows.length });
+    } catch (error) {
+      if (error instanceof ScopeChangedError) { res.status(409).json({ error: `تغيّر الجدول أثناء المسح: فيه الآن ${countOf(error.count, AR.appointment)}. لم يُمسح شيء، أعد المحاولة.`, code: "wipe-count", count: error.count }); return; }
+      throw error;
+    }
+    await recordVersionAfter(backup, []);
+    await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "delete", rows: state.rows as any[] });
+    res.locals.auditChanges = `مسح الجدول بالكامل: ${state.sectionName} · ${state.termName} · ${countOf(state.rows.length, AR.appointment)} (نسخة احتياطية ${backup.id})`;
+    res.json({ success: true, deleted: state.rows.length, backupId: backup.id });
+  });
+});
+
+app.post("/api/schedules/wipe-scope/restore", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const { collegeId, sectionId, termId } = wipeScopeOf(req.body);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId) && !isPowerUser(req)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  if (!confirmTokens(req).has(WIPE_RESTORE_TOKEN)) { res.status(409).json({ error: "الإرجاع يتطلب تأكيداً صريحاً." }); return; }
+  await withSerialLock(`wipe:${collegeId}:${sectionId}:${termId}`, async () => {
+    const state = await wipeScopeState(req, collegeId, sectionId, termId);
+    if (!state.decision.allowed) { res.status(403).json({ error: state.decision.reason, code: "wipe-refused" }); return; }
+    /* القائمةُ تحمل وصف النسخ بلا صفوفها (Firestore): الصفوف من النسخة نفسها. */
+    const version = state.lastWipeVersion ? await Repository.getScheduleVersionById(String(state.lastWipeVersion.id)) : undefined;
+    if (!version) { res.status(404).json({ error: "لا يوجد مسحٌ سابق لهذا الجدول يُرجَع." }); return; }
+    if (String(req.body?.versionId || "") !== String(version.id)) { res.status(409).json({ error: "تغيّرت نسخة الإرجاع. حدّث الشاشة وأعد المحاولة.", code: "wipe-version" }); return; }
+    /* الإرجاعُ يكتب فوق الجدول كله: إن أُضيف بعد المسح شيءٌ لا يُمحى بصمت. */
+    if (state.rows.length) { res.status(409).json({ error: `أُضيف إلى الجدول بعد المسح ${countOf(state.rows.length, AR.appointment)}. احذفها أولاً أو استعمل سجلّ النسخ.`, code: "wipe-not-empty" }); return; }
+    if (!Array.isArray(version.rows) || !version.rows.length || version.rows.length !== Number(state.lastWipe?.count ?? version.rows.length)) {
+      res.status(409).json({ error: "النسخة الاحتياطية لا تحمل صفوفها كاملة، فلم يُرجَع شيء.", code: "wipe-backup-incomplete" }); return;
+    }
+    const restored = safeDraftRows(version.rows, collegeId, sectionId, termId);
+    const issues = await validateSmartRows(restored, collegeId, sectionId, { resolveHistorical: true });
+    if (issues.length) { res.status(400).json({ error: "تعذّر الإرجاع: في النسخة بياناتٌ لا تمرّ من الفحص.", issues }); return; }
+    const undo = await captureScopeVersion(req, collegeId, sectionId, termId, `قبل إرجاع: ${WIPE_VERSION_LABEL}`, "undo");
+    let rows: FSchedule[];
+    try {
+      /* الفراغُ يُفحص من جديد داخل قفل الكتابة: ما أُضيف بعد قراءتنا لا يُمحى. */
+      rows = await Repository.replaceScheduleScope(collegeId, sectionId, termId, restored as FSchedule[], { expectCurrentCount: 0 });
+    } catch (error) {
+      if (error instanceof ScopeChangedError) { res.status(409).json({ error: `أُضيف إلى الجدول ${countOf(error.count, AR.appointment)} أثناء الإرجاع، فلم يُرجَع شيء.`, code: "wipe-not-empty" }); return; }
+      throw error;
+    }
+    await recordVersionAfter(undo, rows as any[]);
+    await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "add", rows: rows as any[] });
+    res.locals.auditChanges = `إرجاع الجدول بعد المسح: ${state.sectionName} · ${state.termName} · ${countOf(rows.length, AR.appointment)}`;
+    res.json({ success: true, restored: rows.length });
+  });
 });
 
 // --- SMART SCHEDULE WORKSPACE (additive; legacy schedule endpoints remain unchanged) ---

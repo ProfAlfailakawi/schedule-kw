@@ -454,8 +454,8 @@ async function revisionBehaviour() {
       const callers = [...server.matchAll(/captureScopeVersion\(req,[^\n]*/g)].map(match => match[0]);
       const unchanged = callers.filter(line => line.includes("{ unchanged: true }"));
       check(unchanged.length === 5, "R7-review قراراتُ الاعتماد الخمسة بلا كتابة صفوف");
-      check(callers.length - unchanged.length === 9 && (server.match(/await recordVersionAfter\(/g) || []).length === 10,
-        "R7-review كلُّ عمليةٍ تكتب صفوفاً تسجّل ما صار من صفوفها (الإضافة، التعديل ونقله، الحذف، الاستبدال، النسخ، النشر، الاسترجاع، التراجع)");
+      check(callers.length - unchanged.length === 11 && (server.match(/await recordVersionAfter\(/g) || []).length === 12,
+        "R7-review كلُّ عمليةٍ تكتب صفوفاً تسجّل ما صار من صفوفها (الإضافة، التعديل ونقله، الحذف، الاستبدال، النسخ، النشر، الاسترجاع، التراجع، مسح الجدول بالكامل وإرجاعه)");
       /* إضافةُ الموعد معالجٌ مسمّى (يستعمله «اعتماد الاقتراح» أيضاً): الجسمُ عند تعريفه لا عند تسجيل المسار. */
       const add = route("const createScheduleHandler = async");
       check(add.indexOf("recordVersionAfter(addVersion, before => [...before, newSched])") > add.indexOf("Repository.createSchedule(")
