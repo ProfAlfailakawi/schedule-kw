@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 
 type Badges = Record<number, string>;
 let current: Badges = {};
+/** مقررات الخدمة: رقم المقرر ← أسماء الأقسام التي تطلبه صحائفها. */
+let services: Record<number, string[]> = {};
 let loaded = false;
 let inflight: Promise<void> | null = null;
 const listeners = new Set<(badges: Badges) => void>();
@@ -18,6 +20,7 @@ async function load(fresh = false): Promise<void> {
       if (!response.ok) return;
       const data = await response.json().catch(() => ({} as any));
       current = (data && typeof data.badges === "object" && data.badges) || {};
+      services = (data && typeof data.services === "object" && data.services) || {};
       loaded = true;
       listeners.forEach(listener => listener(current));
     } catch { /* الشارة زينة: غيابُها لا يكسر شاشة */ }
@@ -44,3 +47,6 @@ export function usePlanBadges(): Badges {
 }
 
 export const planBadgeOf = (badges: Badges, courseId: unknown): string => badges[Number(courseId)] || "";
+
+/** الأقسام التي تطلب المقرر خدمةً (فارغ إن لم يكن مقرر خدمة). يُقرأ مع usePlanBadges ليُعاد الرسم بعد الجلب. */
+export const serviceDepartmentsOf = (courseId: unknown): string[] => services[Number(courseId)] || [];
