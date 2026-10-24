@@ -403,7 +403,8 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
 
   const { isVisiting } = useVisitingLookup(row.AdTermId);
 
-  if (!items.length) return null;
+  /* ملاحظةٌ عامة بلا بنودٍ مغيَّرة تبقى طلباً يُقرأ: الأستاذ أراد أن يوضح شيئاً عن جدوله. */
+  if (!items.length && !row.note) return null;
 
   return (
     <article className="request-card">
@@ -411,7 +412,7 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
         <div>
           <strong className="schedule-instructor-with-badge">{row.instructorName}{isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId) ? <VisitingBadge compact /> : null}</strong>
           {row.sectionName ? <span className="request-card-section">قسم {row.sectionName.replace(/^قسم\s+/, "")}</span> : null}
-          <small>{countOf(items.length, AR.change)}{row.submittedAt ? ` · ${arabicDate(row.submittedAt)}` : ""}</small>
+          <small>{items.length ? countOf(items.length, AR.change) : "ملاحظة بلا تغييرات"}{row.submittedAt ? ` · ${arabicDate(row.submittedAt)}` : ""}</small>
         </div>
         {/* ── من وقّعه ────────────────────────────────────────────────────
             الرابطُ يصل في واتساب ويُعاد توجيهه، فضغطةُ «أرسل» وحدَها لا تُثبت
@@ -471,12 +472,14 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
         <ProposalStrip requestId={row.id} proposals={proposals} onOpen={onOpenProposal} compact />
       </header>
 
+      {row.note ? <p className="request-note"><MessageSquare aria-hidden="true" /><span>{row.note}</span></p> : null}
+
       {/* ── جدولٌ لا كومةُ بطاقات ─────────────────────────────────────────
           كلُّ بندٍ صفٌّ واحد بأعمدةٍ ثابتة: ما هو، وأيُّ مقرّر، وكان، والمطلوب،
           والفحص، والقرار. فيُقرأ الطلبُ كلُّه بنظرة كما يُقرأ تقريرُ
           الاستعلامات، وتلوّن الحالةُ الصفَّ كلَّه: أخضرُ مضاف، وأصفرُ معدّل،
           وأحمرُ محذوف. وعلى الهاتف ينقلب كلُّ صفٍّ بطاقةً بعناوين أعمدتها. */}
-      <div className="request-table-wrap">
+      {items.length ? <div className="request-table-wrap">
         <table className="request-table">
           <thead>
             <tr>
@@ -505,7 +508,7 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
         ))}
           </tbody>
         </table>
-      </div>
+      </div> : null}
     </article>
   );
 }
@@ -997,10 +1000,12 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     };
   }, [rows]);
 
-  const changed = visible.filter(row => row.changedCount > 0
-    && (!deptFilter || Number(row.AdSectionId) === deptFilter)
-    && (row.items || []).some(item => item.action !== "keep" && !(item as any).hidden && itemFilter(item)));
-  const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0);
+  const changed = visible.filter(row => (!deptFilter || Number(row.AdSectionId) === deptFilter)
+    && (row.changedCount > 0
+      ? (row.items || []).some(item => item.action !== "keep" && !(item as any).hidden && itemFilter(item))
+      /* ملاحظةٌ عامة بلا بنودٍ مغيَّرة: تُقرأ بطاقةً، لا تُدفن في «الجدول كما هو». */
+      : Boolean(row.note) && row.status !== "sent"));
+  const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note);
   const silent = visible.filter(row => !row.linkOpenedAt);
 
   /**
