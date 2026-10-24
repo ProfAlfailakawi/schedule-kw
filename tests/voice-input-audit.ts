@@ -156,6 +156,16 @@ check(/maxlength="'\+\$\{VOICE_INPUT_LIMIT\}\+'"/.test(page), "وحدُّ الح
 check(/VI\.wire\(function\(key,value\)\{if\(key\.indexOf\("ex-"\)===0/.test(page), "وما يُملى في سبب الاستثناء يصل حالةَ الصفحة فيُرسَل مع الطلب");
 check(!/صوتي|voice|dictat/i.test(server.slice(server.indexOf('app.post("/api/public/request/:token/reply"'), server.indexOf("function instructorRequestPage"))), "ولا يُسجَّل في الخادم أنّ الرسالة كانت صوتية");
 check(/prefers-reduced-motion/.test(VOICE_INPUT_CSS) && /\.vi-arc/.test(VOICE_INPUT_CSS) && /var\(--accent\)/.test(VOICE_INPUT_CSS), "الحلقةُ بلون الهوية والنبضُ يحترم تقليل الحركة");
+check(/data-show="1" placeholder="'\+\(it\.tone==="warn"\?"سبب الاستثناء — إلزامي":"ملاحظة للقسم — اختياري"\)\+'">/.test(page) && !/\(it\.tone==="warn"\?VI\.html\("ex-"\+i\)/.test(page), "خانةُ الملاحظة والميكروفون على كل موعدٍ يُعدَّل (والإلزام للاستثناء وحده)، لا حين يُطلب استثناءٌ فقط");
+
+/* ملاحظةٌ عامة للقسم من أول فتح الصفحة، لا مرتبطة ببندٍ ولا بردّ القسم. */
+check(/data-vi-field="gen"/.test(page) && /VI\.html\("gen"\)/.test(page) && /id="genNote"/.test(page), "خانةُ ملاحظةٍ عامة بميكروفونها على الصفحة من البداية");
+check(/body:JSON\.stringify\(\{civil:civil,items:payloadItems\(\),note:noteNow\(\)\}\)/.test(page), "والملاحظةُ تُرسل مع الطلب");
+check(/if\(key==="gen"\)\{genNote=value/.test(page) && /note:noteNow\(\),items:payloadItems\(\)/.test(page), "وما يُملى فيها يصل الحالةَ والمسودّة فلا يضيع عند إعادة الرسم");
+const submitHandler = server.slice(server.indexOf('app.post("/api/public/request/:token"'), server.indexOf("ردُّ الأستاذ في حوار البند"));
+check(/String\(req\.body\?\.note \|\| ""\)\.trim\(\)\.slice\(0, 400\)/.test(submitHandler) && /note: generalNote \|\| undefined/.test(submitHandler), "الخادم يحفظها نصاً حتى ٤٠٠ حرف، ولا تدخل في الحكم على البنود");
+const inbox = fs.readFileSync("src/components/InstructorInbox.tsx", "utf8");
+check(/row\.note \? <p className="request-note">/.test(inbox) && /!items\.length && !row\.note/.test(inbox) && /Boolean\(row\.note\) && row\.status !== "sent"/.test(inbox), "والوارد يعرضها، وملاحظةٌ بلا بنودٍ مغيَّرة تبقى بطاقةً لا تُدفن في «الجدول كما هو»");
 
 console.log(`\nVoice input audit: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
