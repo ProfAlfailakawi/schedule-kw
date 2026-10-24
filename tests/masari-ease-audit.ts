@@ -93,7 +93,14 @@ const st = (mode: string, over: any = {}) => { nctx.S.state = { term: { id: 7 },
 check(st("wishes").to === "wishes" && st("wishes").go.includes("سجّل"), "رغباتٌ مفتوحة ولم يسجّل: «سجّل رغباتي»");
 check(st("wishes", { wishes: { termId: 7, courseIds: [1, 2] } }).go.includes("عدّل"), "سجّل رغباته: «عدّل رغباتي»");
 check(st("wishes", { wishes: { termId: 6, courseIds: [1, 2] } }).go.includes("سجّل"), "رغباتُ فصلٍ سابق لا تُحسب لهذا الفصل");
-check(st("frozen").to === "ticket" && st("report").to === "ticket", "مراجعة الجدول أو الإبلاغ: «افتح جدولي»");
+check(st("wishes", { wishes: { termId: 7, courseIds: [], targetUnits: 14 } }).go.includes("عدّل"), "رغباتٌ محفوظة بلا مقررات (وحدات وقيود فقط) تُعدّ مسجَّلة");
+nctx.S.tkReady = true;
+check(st("frozen").to === "ticket" && st("report").to === "ticket", "مراجعة الجدول أو الإبلاغ مع تذكرةٍ جاهزة: «افتح جدولي»");
+nctx.S.tkReady = false;
+check(st("frozen").to === "plan" && st("report").to === "plan", "لا تذكرةَ جاهزة: لا يُعرض «افتح جدولي» ويُرجَع إلى الخطة");
+nctx.S.tkReady = null;
+check(st("frozen") === null, "قبل أن يُعرف وجود التذكرة: لا بطاقة (فلا تومض ثم تتبدّل)");
+nctx.S.tkReady = true;
 check(st("none").to === "plan", "خارج المراحل ومعه إنجاز: خطتي");
 check(st("none", { progress: { passedUnits: 0, remainingUnits: 150 } }).to === "setup", "لا إنجازَ مسجَّل: «أكمل خطتك»");
 check(st("none", { progress: { passedUnits: 164, remainingUnits: 0 } }) === null, "أكمل الصحيفة: لا خطوة");

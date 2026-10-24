@@ -727,9 +727,9 @@ function heroHeadline(pr){var pc=Math.max(0,Math.min(100,Math.round(Number(pr.pe
   return'أنجزتَ <b>'+pc+'٪</b> من خطتك'}
 /* الخطوة التالية: واحدةٌ فقط، تتبع مرحلة الفصل ووضع الطالب؛ تُعاد رسمها حين يتغيّر شيءٌ منها. */
 function nextStepInfo(){var s=S.state,p=s&&s.profile;if(!p)return null;var ph=s.phase||{},pr=p.progress||{},w=p.wishes;if(w&&s.term&&w.termId!==s.term.id)w=null;
-  var hasW=!!(w&&w.courseIds&&w.courseIds.length),rem=Number(pr.remainingUnits)||0;
+  var hasW=!!w,rem=Number(pr.remainingUnits)||0;
   if(ph.mode==="wishes"&&ph.canEditWishes)return hasW?{ic:"heart",t:"راجع رغباتك",d:ph.nextAt?"تعدّلها حتى "+fmtShort(ph.nextAt):"تعدّلها متى شئت",go:"عدّل رغباتي",to:"wishes"}:{ic:"heart",t:"سجّل رغباتك لهذا الفصل",d:"تأخذ دقيقة، ويُبنى جدولك المقترح عليها",go:"سجّل رغباتي",to:"wishes"};
-  if(ph.mode==="report"||ph.mode==="frozen")return{ic:"ticket",t:"تابع جدولك المقترح",d:ph.mode==="report"?"إن وجدتَ ما يعيقك فأبلغ القسم من هنا":"جاهزٌ لمراجعتك",go:"افتح جدولي",to:"ticket"};
+  if(ph.mode==="report"||ph.mode==="frozen"){if(S.tkReady==null)return null;if(S.tkReady)return{ic:"ticket",t:"تابع جدولك المقترح",d:ph.mode==="report"?"إن وجدتَ ما يعيقك فأبلغ القسم من هنا":"جاهزٌ لمراجعتك",go:"افتح جدولي",to:"ticket"}}
   if(rem<=0)return null;
   if(!(Number(pr.passedUnits)>0))return{ic:"edit",t:"أكمل خطتك",d:"سجّل ما أنجزت ليحسب مساري ما بقي عليك",go:"سجّل ما أنجزت",to:"setup"};
   return{ic:"layers",t:"راجع خطتك وفصولك",d:"اطّلع على ما يمكنك تسجيله وما يلزمك أولاً",go:"افتح خطتي",to:"plan"}}
@@ -740,7 +740,7 @@ function nextStepPaint(){var host=document.getElementById("nextStep");if(!host)r
     if(n.to==="plan"){showTab("plan");return}
     var el=document.getElementById(n.to);if(el)reveal(el)})}
 function viewHome(){
-  homeP=null;S.tab="now";dockEl.innerHTML="";S.tkOverrides={};S.tkRemoved={};S.tkAdded={};S.tkSel=0;S.tkErr="";S.wDraft=null;S.wEdit=false;S.wStep=0;S.wCount=null;var s=S.state,p=s.profile,ph=s.phase,pr=p.progress||{percent:0,passedUnits:0,totalUnits:0,remainingUnits:0};
+  homeP=null;S.tkReady=null;S.tab="now";dockEl.innerHTML="";S.tkOverrides={};S.tkRemoved={};S.tkAdded={};S.tkSel=0;S.tkErr="";S.wDraft=null;S.wEdit=false;S.wStep=0;S.wCount=null;var s=S.state,p=s.profile,ph=s.phase,pr=p.progress||{percent:0,passedUnits:0,totalUnits:0,remainingUnits:0};
   var first=p.identity&&p.identity.name?String(p.identity.name).split(" ")[0]:"";
   var terms=termsLeft(pr.remainingUnits);
   /* ── الواجهة: بطاقةٌ واحدة تقول «أين أنا» — حلقةٌ ورقمان — والباقي في ثلاثة ألسنة. ── */
@@ -888,7 +888,7 @@ function reqGrad(g){
     api("POST","/api/public/me/request",{requestType:"graduate",graduateReason:reason,details:document.getElementById("crdetails").value,proofToken:proof,consent:true}).then(function(r){
       if(!r.ok){send.disabled=false;if(r.d.code==="proof-expired"||r.d.code==="proof-required"){proof="";upf.value="";st.innerHTML='<div class="err">'+esc(r.d.error)+'</div>'}else showErr("crerr",r.d.error||"تعذّر إرسال الطلب");return}reqDone(r)})})}
 function loadTicket(){var host=document.getElementById("ticket");if(!host)return;
-  homePart("ticket").then(function(r){if(!r.ok||!r.d.ready){host.innerHTML="";return}var t=r.d;S.ticket=t;S.tkPlan=S.tkPlan||"A";paintTicket(host)})}
+  homePart("ticket").then(function(r){S.tkReady=!!(r.ok&&r.d.ready);nextStepPaint();if(!r.ok||!r.d.ready){host.innerHTML="";return}var t=r.d;S.ticket=t;S.tkPlan=S.tkPlan||"A";paintTicket(host)})}
 /* ── التذكرة: أسبوعُه على شبكة. المس مقرراً: شعبُه البديلة أشباحٌ على الشبكة (الأحمر يتعارض)، وبدّله بمقررٍ آخر أو أزِله.
    كلُّه معاينةٌ شخصية — لا يغيّر جدول القسم — وزرٌّ واحد يحوّل ما اخترتَه إلى رغباتك. ── */
 var PAL=["#1f6b5c","#8d6423","#3b6ea5","#a0522d","#6b4e9b","#2f7f8f","#9a4a6a","#5a7d2a"];
