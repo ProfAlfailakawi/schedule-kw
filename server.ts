@@ -97,7 +97,7 @@ import { chooseCaptureBaseline } from "./src/utils/changesBaseline";
 import { approvalScopeKey, authorityRowsForScope } from "./src/utils/approvalScope";
 import { buildNotifications } from "./src/utils/notificationCenter";
 import { awaitedItemIndexes } from "./src/utils/linkedRequestItems";
-import { DAY_KEYS, DAY_NAMES, expectedMinutesForDay, lectureLengthProblem, maxWeeklyMinutesFor, periodBalanceFinding, reviewSchedule, weeklyLectureMinutes } from "./src/utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, expectedMinutesForDay, lectureLengthProblem, maxWeeklyMinutesFor, patternsForHours, periodBalanceFinding, reviewSchedule, weeklyLectureMinutes } from "./src/utils/scheduleRegulations";
 import {
   ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, canManageDeadline, canReviewSubmissions,
   canAnnotateCells, isAcademicRole, isAdvisorRole, isReadOnlyRole, isRegistrarRole, isViewerOnlyRole, roleDefinition, roleLabel,
@@ -144,7 +144,7 @@ import { courseLevelFromCode } from "./src/utils/curriculumRules";
 import { reasonForMove } from "./src/utils/appointmentStory";
 import { buildCalendar, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "./src/utils/icalendar";
 import { withVisitingSuffix } from "./src/utils/visitingText";
-import { dayHabitOf, learnAll, learnCourseNature, habitualBlockMinutes, type CourseNature } from "./src/utils/courseNature";
+import { dayHabitOf, learnAll, learnCourseNature, habitualBlockMinutes, historicalOrigin, type CourseNature } from "./src/utils/courseNature";
 import { firstLast } from "./src/utils/weekVisual";
 import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, campusOf, interCampusMinutes } from "./src/utils/campusTravel";
 import {
@@ -4415,6 +4415,18 @@ async function scheduleLengthIssue(row:any){
   const course=await Repository.getCourseById(courseId);
   const nature=await courseHabit(courseId);
   const hours=Number(course?.CourseHours||0),habitual=nature&&nature.confidence!=="low"?nature.meetingMinutes:undefined;
+  /* لا خلطَ بين أيام الـ50 وأيام الـ80 في موعدٍ واحد إلا بنمطٍ معتمد في المكتبة أو بنمطٍ درج عليه المقرّر نفسُه. */
+  const rowDays=SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k]));
+  const shortDays=rowDays.filter(d=>d==="fsunday"||d==="ftuesday"||d==="fthursday"),longDays=rowDays.filter(d=>d==="fmonday"||d==="fwednesday");
+  if(shortDays.length&&longDays.length){
+    const sameDays=(days:readonly string[])=>days.length===rowDays.length&&days.every(d=>rowDays.includes(d as any));
+    const fromHistory=Boolean(historicalOrigin(nature,Number(row?.AdTermId||0))?.patterns.some(p=>sameDays(p)));
+    const fromLibrary=hours>0&&patternsForHours(hours).some(p=>sameDays(p.days));
+    if(!fromHistory&&!fromLibrary){
+      const allowed=hours>0?patternsForHours(hours).map(p=>p.label).slice(0,3).join(" أو "):"";
+      return `لا يُخلط بين أيام الـ50 دقيقة (الأحد والثلاثاء والخميس) وأيام الـ80 دقيقة (الاثنين والأربعاء) في موعدٍ واحد إلا بنمطٍ معتمد في مكتبة الأنماط.${allowed?` المعتمد لهذا المقرّر: ${allowed}.`:" اختر أياماً من مجموعةٍ واحدة."}`;
+    }
+  }
   const lengthProblem=lectureLengthProblem(row,hours,habitual);if(lengthProblem)return lengthProblem;
   /* مقرّرٌ لا يزيد على ساعاته المعتمدة في أي مكان يُنشأ منه: صفوفُه الأخرى في الفصل والشعبة نفسيهما تُحسب معه. */
   if(hours>0&&Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){

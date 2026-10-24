@@ -573,12 +573,16 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
      واحدة: ما كان من أنماط المقرّر المعتمدة يمرّ، وما سواه يُحذَّر منه. */
   const approvedShape = courseHours > 0 && patternsForHours(courseHours).some(pattern =>
     pattern.days.length === request.days.length && pattern.days.every(day => request.days.includes(day)));
-  if (short && long && !approvedShape) {
+  /* والنمطُ الذي درج عليه المقرّر نفسُه في فصولٍ سابقة يُقدَّم على اللائحة، كما في الاقتراح. */
+  const historyShape = Boolean(historicalOrigin(context.nature?.get(Number(request.AdCourseId)), context.termId)?.patterns
+    .some(pattern => pattern.length === request.days.length && pattern.every(day => request.days.includes(day))));
+  if (short && long && !approvedShape && !historyShape) {
+    const allowed = courseHours > 0 ? patternsForHours(courseHours).map(pattern => pattern.label).slice(0, 3).join(" أو ") : "";
     reasons.push({
       source: "shape",
       article: DECISION_1912_LABEL,
-      text: "أيام مختلطة: الأحد والثلاثاء والخميس مدّتها 50 دقيقة، والاثنين والأربعاء 80 دقيقة. راجع التوزيع.",
-      blocking: false,
+      text: `لا يُخلط بين أيام الـ50 دقيقة (الأحد والثلاثاء والخميس) وأيام الـ80 دقيقة (الاثنين والأربعاء) إلا بنمطٍ معتمد في مكتبة الأنماط.${allowed ? ` المعتمد لهذا المقرّر: ${allowed}.` : " اختر أياماً من مجموعةٍ واحدة."}`,
+      blocking: true,
     });
   }
 
