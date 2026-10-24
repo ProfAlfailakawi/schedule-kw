@@ -36,7 +36,7 @@ type PlanFilter = "all" | "new" | "old" | "service";
 /** Which generation a course belongs to, from the live plans the server tagged it with. */
 const planTagOf = (course: any): { key: "new" | "old" | "shared" | "service"; label: string } | null => {
   const plans: Array<{ status: string; name: string }> = Array.isArray(course?.curriculum) ? course.curriculum : [];
-  if (!plans.length) return serviceOf(course).length ? { key: "service", label: "متطلب لأقسام أخرى" } : null;
+  if (!plans.length) return serviceOf(course).length ? { key: "service", label: "متطلب كلية" } : null;
   const isNew = plans.some(plan => plan.status === "active"), isOld = plans.some(plan => plan.status === "transition");
   if (isNew && isOld) return { key: "shared", label: "مشترك بين الصحيفتين" };
   if (isNew) return { key: "new", label: plans.find(plan => plan.status === "active")?.name || "الصحيفة الجديدة" };
@@ -640,7 +640,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                 <option value="all">كل الصحائف</option>
                 <option value="new">الصحيفة الجديدة</option>
                 <option value="old">الصحيفة السابقة</option>
-                <option value="service">متطلب لأقسام أخرى</option>
+                <option value="service">متطلب كلية</option>
               </select>
             ) : null}
           </ListToolbar>

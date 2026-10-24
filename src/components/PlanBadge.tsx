@@ -8,6 +8,6 @@ export default function PlanBadge({ courseId, text }: { courseId?: unknown; text
   const service = text === undefined ? serviceDepartmentsOf(courseId) : [];
   return <>
     {label ? <span className="plan-badge" title="مقرر الصحيفة الجديدة">{label}</span> : null}
-    {service.length ? <span className="course-service-badge" title={`متطلب في صحائف: ${service.join("، ")}`}>متطلب لأقسام أخرى</span> : null}
+    {service.length ? <span className="course-service-badge" title={`متطلب في صحائف: ${service.join("، ")}`}>متطلب كلية</span> : null}
   </>;
 }
