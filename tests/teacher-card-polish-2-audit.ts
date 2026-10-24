@@ -74,7 +74,7 @@ check(server.includes('if (problemIsShape) { res.json({ times: {}, problem: "sha
 check(server.includes('note.kind !== "balance" && note.courseIds') && page.includes('n.kind!=="balance"'), "P4 شريطُ نسب الصباح والمساء غائبٌ عن صفحة الأستاذ");
 
 /* P5: التحسينات */
-check(page.includes('var act=unchangedEdit(it)?"keep":it.action;') && page.includes('data-act="\'+esc(act)+\'">\'+(act==="keep"?"كما هو":actionName(act))'), "P5 بطاقة التعديل بلا لمسة تقرأ «كما هو» لا «معدّل»");
+check(page.includes('var act=unchangedEdit(it)?"keep":it.action;') && page.includes('data-act="\'+esc(act)+\'">\'+skStat(act)+(act==="keep"?"كما هو":actionName(act))'), "P5 بطاقة التعديل بلا لمسة تقرأ «كما هو» لا «معدّل»");
 check(page.includes("function receiptLine(it)") && page.includes("chg.map(function(it){return '<li><span>'+receiptLine(it)") && !page.includes("chg.slice(0,5)"), "P5 إيصال ما قبل التوقيع: كلُّ تغيير بجملة بشرية، بلا اختصار");
 check(page.includes("'نقل '+c+where+' من '") && page.includes("'حذف '+c") && page.includes("'إضافة '+c"), "P5 صيغُ الإيصال: نقل وحذف وإضافة");
 check(page.includes("function bestTimes(it,i)") && page.includes("out.length>=3?out.slice(0,3):[]") && page.includes('h[t]==="ok"'), "P5 «أفضل ٣ مواعيد» من أوقاتٍ حكم الخادمُ بأنها متاحة، ولا تظهر إن قلّت عن ثلاثة");
