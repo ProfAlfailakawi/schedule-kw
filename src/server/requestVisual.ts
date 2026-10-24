@@ -9,6 +9,10 @@
 export const REQUEST_VISUAL_CSS = String.raw`
 /* ── مظهرٌ بصري ──────────────────────────────────────────────────────────── */
 .wc-t,.wk-axis{block-size:260px}
+/* أسماءُ الأيام فوق الرسم لا تحته. */
+.wc{display:flex;flex-direction:column}
+.wc-n{order:-1;margin-bottom:6px;line-height:16px}
+.wk-axis{margin-top:22px}
 .wb{overflow:hidden}
 .wb span{display:block;padding:2px 2px 0;font-size:9px;line-height:1.15;font-weight:700;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:clip}
 .wb[data-k=ghost] span{color:var(--c)}
