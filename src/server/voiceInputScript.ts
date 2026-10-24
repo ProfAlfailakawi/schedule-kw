@@ -84,7 +84,7 @@ VI.stop=function(why){var a=VI.active;if(!a)return;VI.active=null;clearInterval(
  try{rec.onresult=null;rec.onerror=function(){};rec.onend=function(){VI.afterClose(rec)};rec.stop()}catch(e){VI.afterClose(rec)}
  setTimeout(function(){VI.afterClose(rec)},1200);
  VI.say(a.key,why||"");VI.paintActive()};
-VI.afterClose=function(rec){if(VI.closing!==rec)return;VI.closing=null;var k=VI.pending;VI.pending=null;if(k)VI.start(k)};
+VI.afterClose=function(rec){if(VI.closing!==rec)return;VI.closing=null;var k=VI.pending;VI.pending=null;if(k&&document.visibilityState!=="hidden")VI.start(k)};
 VI.start=function(key){
  var Rec=VI.Rec(),f=VI.field(key);if(!Rec||!f)return;
  if(VI.active){var same=VI.active.key===key;VI.stop();if(same)return}
@@ -117,7 +117,7 @@ VI.wire=function(onText){VI.onText=onText||VI.onText;
  if(VI.active&&!VI.field(VI.active.key))VI.stop("");
  VI.paintActive()};
 document.addEventListener("input",function(e){var t=e.target,k=t&&t.getAttribute&&t.getAttribute("data-vi-field");if(k)VI.count(k)});
-document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden"&&VI.active)VI.stop("")});
+document.addEventListener("visibilitychange",function(){if(document.visibilityState!=="hidden")return;VI.pending=null;if(VI.active)VI.stop("")});
 `;
 
 /** الأنماط: حلقةٌ تُفرَغ حول الزرّ ونبضٌ خفيف أثناء الإملاء، ويُوقَف النبضُ لمن طلب تقليل الحركة. */

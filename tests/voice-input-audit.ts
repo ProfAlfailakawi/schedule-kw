@@ -142,6 +142,12 @@ check(w.btn.getAttribute("aria-pressed") === "false" && w.sec.text === "", "وي
   i.btn.onclick();
   i.advance(1500);
   check(i.recs.length === 3 && i.recs[2].started === 1, "وإن تأخّر إغلاقُ المتصفّح يبدأ الجديدُ بعد مهلةٍ قصيرة");
+  /* إملاءٌ ينتظر ثم تُخفى الصفحة (قفلُ الهاتف): لا يبدأ في الخلفية. */
+  i.btn.onclick(); i.btn.onclick();
+  i.document.visibilityState = "hidden";
+  (i.listeners.visibilitychange || []).forEach(fn => fn({}));
+  i.advance(1500);
+  check(i.recs.length === 3, "وإملاءٌ ينتظر لا يبدأ إن أُخفيت الصفحة");
 }
 
 /* ضغطةٌ ثانية أثناء الإملاء توقفه */
