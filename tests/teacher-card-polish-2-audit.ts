@@ -117,5 +117,17 @@ check(server.includes("const [opened, [instructors, terms, courses, serviceKeys,
 check(server.includes("async function rulesOnce<T>(") && server.includes("await Promise.all([...scopesNeeded].map(([key, scope]) =>"), "P11 نطاقاتُ القواعد معاً، ونطاقٌ واحدٌ يُحسب مرةً ولو سأل عنه كثيرون");
 check(server.includes("contexts.set(key, buildRequestContext(row))") && server.includes("rulesCache: sharedRules"), "P11 شاشةُ القسم: سياقٌ واحد لكل نطاق لا لكل طلب");
 
+/* P12: تاريخُ القسم أولاً ثم اللائحة، حتى في إرشاد «تعديل بلا لمسة» */
+{
+  const nature: any = { courseId: COURSE, terms: 3, observations: 6, meetingsPerWeek: 3, meetingMinutes: 70, weeklyMinutes: 210, confidence: "high", seenInTerms: [-1, -2, -3],
+    dayPatterns: [{ days: ["fmonday", "fwednesday", "fthursday"], label: "", count: 5, share: 0.8 }], starts: [], instructors: [], buildings: [], rooms: [], sectionsPerTerm: 1, period: "morning" };
+  const withHistory = judgeRequest({ rowId: 1, action: "change", AdCourseId: COURSE, days: ["fthursday"] as any, start: "14:00" }, { ...ctx([thursday]), suggestNature: new Map([[COURSE, nature]]), termId: 5 });
+  check((withHistory.shapes || [])[0]?.label?.startsWith("المعتاد: ") && (withHistory.shapes || [])[0]?.days.join() === "fmonday,fwednesday,fthursday", "P12 إرشادُ «تعديل بلا لمسة» يبدأ بالمعتاد في القسم («المعتاد: …»)", withHistory.shapes);
+  const asApplied = judge(["fmonday", "fwednesday", "fthursday"], "09:00", thursday);
+  check(!asApplied.reasons.some(r => r.code === "hours"), "P12 والمعتادُ المقترح يمرّ من الفاحص نفسه", asApplied.reasons);
+  const noHistory = judgeRequest({ rowId: 1, action: "change", AdCourseId: COURSE, days: ["fthursday"] as any, start: "14:00" }, ctx([thursday]));
+  check(!(noHistory.shapes || []).some(s => s.label.startsWith("المعتاد")) && (noHistory.shapes || []).length > 0, "P12 وبلا تاريخٍ تُقترح أنماطُ اللائحة", noHistory.shapes);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
