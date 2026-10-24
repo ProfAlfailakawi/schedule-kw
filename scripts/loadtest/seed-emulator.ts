@@ -35,6 +35,12 @@ current.AdTermStudentPhases = {
   requestsClose: day(30), updatedAt: today.toISOString(), updatedBy: "اختبار التحمّل",
 };
 
+/* «/api/public/me/catalog» لا يعرض قسماً إلا من كليةٍ في اسمها «بنين» أو «بنات» (مسار الطالب):
+   فتُسمّى الكليةُ المصطنعة على مسار البنين، ليمرّ الطالبُ المصطنع بخطوة اختيار القسم كما يمرّ الحقيقي. */
+for (const college of state.colleges) {
+  if (!/بنين|بنات/.test(college.AdCollegeName)) college.AdCollegeName = `${college.AdCollegeName} - بنين`;
+}
+
 const collections: Array<[string, any[], (row: any) => string]> = [
   ["users", state.users, row => `user_${row.SystemUserId}`],
   ["terms", state.terms, row => `term_${row.AdTermId}`],
