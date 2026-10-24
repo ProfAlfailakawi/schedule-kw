@@ -1,4 +1,5 @@
 import PatternLibraryButton from "./PatternLibraryButton";
+import WipeScheduleButton from "./WipeScheduleButton";
 import TermSelect from "./TermSelect";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import RowHistory from "./RowHistory";
@@ -10247,6 +10248,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 toolbar when the quick search answers the same question by name
                 and the query centre covers the structured cases in full. */}
             <PatternLibraryButton data-guide-ignore="يفتح مكتبة الأنماط للعرض فقط؛ لا يغير بيانات الجدول" />
+            <WipeScheduleButton data-guide-ignore="زر مسح الجدول بالكامل وإرجاعه؛ يفتح تحذيرات ولا يمسح بنفسه" rowCount={rows.length} collegeId={Number(filterCollege)} sectionId={Number(filterSection)} termId={Number(filterTerm)} onChanged={() => { void loadRows(); }} />
             <GhostButton
               type="button"
               className={workspaceToolsOpen ? "schedule-tools-toggle is-close" : "schedule-tools-toggle"}
