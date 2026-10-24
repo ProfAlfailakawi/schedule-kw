@@ -15,8 +15,8 @@
  *   · ما يراه الطالبُ من الجدول أعدادٌ لا مواعيد: المسودةُ للأقسام والعمادة.
  */
 import express from "express";
-import rateLimit from "express-rate-limit";
-import { randomUUID } from "crypto";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { createHash, randomUUID } from "crypto";
 import type { Express, Request, Response, NextFunction } from "express";
 import { Repository } from "../db/repository";
 import type { AdCourse, StudentNeed, StudentProfile, StudentWishes } from "../types";
@@ -252,16 +252,15 @@ function cleanName(value: unknown): string {
 
 export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): void {
   identityOpener = deps.openIdentity || null;
-  /* الهويةُ تُسأل كثيراً (كل طالبٍ مرة)، فيُعدّ كل سؤالٍ بحدٍّ سخيّ؛ أما الرمز فيُعدّ خطؤه وحده. */
-  const identityLimiter = createAttemptLimiter({ maxFailures: intFromEnv("STUDENT_DOOR_IDENTITY_MAX", 240), windowMs: 10 * 60_000, capacity: 20_000 });
-  const codeLimiter = createAttemptLimiter({ maxFailures: intFromEnv("STUDENT_DOOR_CODE_MAX_FAILURES", 40), windowMs: 10 * 60_000, capacity: 20_000 });
+  /* الهويةُ تُسأل كثيراً (كل طالبٍ مرة)، فيُعدّ كل سؤالٍ بحدٍّ سخيّ؛ أما الرمز فيُعدّ خطؤه وحده.
+     والحدّان على العنوان، وشبكةُ الجامعة (أو مشغّلُ الجوال خلف NAT) عنوانٌ واحدٌ لألوف الطلبة: كان
+     الافتراضيُّ ٢٤٠ سؤالاً و٤٠ خطأً في عشر دقائق، فحُجب ٩٦٪ من ستمئة طالبٍ دخلوا من عنوانٍ واحد في
+     دقيقتين (scripts/loadtest، 2026-10-24). صار ستةَ آلاف سؤالٍ (≈ ستمئة طالبٍ في الدقيقة من عنوانٍ
+     واحد) وستمئةَ خطأ؛ وكلُّ ملفٍّ يُقفل بعد خمسة أخطاءٍ عليه هو (CODE_MAX_FAILURES)، فالرمزُ لا يُخمَّن. */
+  const identityLimiter = createAttemptLimiter({ maxFailures: intFromEnv("STUDENT_DOOR_IDENTITY_MAX", 6000), windowMs: 10 * 60_000, capacity: 20_000 });
+  const codeLimiter = createAttemptLimiter({ maxFailures: intFromEnv("STUDENT_DOOR_CODE_MAX_FAILURES", 600), windowMs: 10 * 60_000, capacity: 20_000 });
   const ip = (req: Request) => req.ip || "unknown";
   const secure = deps.isProduction();
-
-  const writeLimit = rateLimit({
-    windowMs: 60_000, limit: intFromEnv("STUDENT_DOOR_WRITES_PER_MINUTE", 60), standardHeaders: true, legacyHeaders: false,
-    message: { error: "طلباتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
-  });
   const noStore = (res: Response) => { res.setHeader("Cache-Control", "no-store"); };
   const fail = (res: Response, status: number, error: string, code?: string, extra: Record<string, unknown> = {}) => {
     noStore(res); res.status(status).json({ error, ...(code ? { code } : {}), ...extra });
@@ -270,6 +269,32 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const civil = toEnglishDigits(body?.civil).replace(/\D/g, "");
     return civil.length === 12 && validateCivilId(civil).isValid ? civil : null;
   };
+
+  /* ── حدُّ الكتابة: لكل طالب، وسقفٌ عالٍ لكل عنوان ─────────────────────────
+     كان الحدُّ ستين كتابةً في الدقيقة لكل عنوان، والطالبُ في أول زيارةٍ يكتب ثلاثاً (الدخول والقسم
+     والرغبات): فعشرون طالباً في الدقيقة من شبكة الجامعة، والباقون «طلباتٌ كثيرة». صار الحدُّ نفسُه
+     (ستين) لكل طالب — رقمُه المدني في الدخول، وكوكي جلسته بعده — وفوقه سقفٌ لكل عنوانٍ يتّسع لنحو
+     أربعمئة طالبٍ في الدقيقة من عنوانٍ واحد، ويبقى حدّاً لمن يدور على أرقامٍ مدنيةٍ مختلفة. والمفتاحُ
+     بصمةٌ (sha256) لا الرقمُ نفسُه: الذاكرةُ لا تحمل رقماً مدنياً. */
+  const keyHash = (value: string) => createHash("sha256").update(value).digest("hex").slice(0, 32);
+  const studentWriteKey = (req: Request): string => {
+    const civil = civilOf(req.body);
+    if (civil) return `civil:${keyHash(civil)}`;
+    const session = readCookie(req.headers.cookie, DOOR_COOKIE);
+    if (session) return `door:${keyHash(session)}`;
+    return `ip:${ipKeyGenerator(ip(req))}`;
+  };
+  const writeLimit = [
+    rateLimit({
+      windowMs: 60_000, limit: intFromEnv("STUDENT_DOOR_WRITES_PER_IP_PER_MINUTE", 1200), standardHeaders: true, legacyHeaders: false,
+      message: { error: "طلباتٌ كثيرة من هذه الشبكة في وقتٍ قصير. انتظر دقيقةً ثم أعد المحاولة." },
+    }),
+    rateLimit({
+      windowMs: 60_000, limit: intFromEnv("STUDENT_DOOR_WRITES_PER_MINUTE", 60), standardHeaders: true, legacyHeaders: false,
+      keyGenerator: studentWriteKey,
+      message: { error: "طلباتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
+    }),
+  ];
 
   const issueSession = async (res: Response, profile: StudentProfile, remember: boolean) => {
     const maxAgeSeconds = remember ? REMEMBER_DAYS * 86_400 : SESSION_HOURS * 3600;
@@ -700,7 +725,9 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const mine = Boolean(profile.wishes && profile.wishes.termId === Number(term.AdTermId));
     const termId = Number(term.AdTermId), sectionId = profile.AdSectionId;
     const stat = await wishCountMemo.get(`${termId}:${sectionId}`, async () => {
-      const list = (await Repository.getStudentProfilesByCollege(Number(profile.AdCollegeId))).filter(row => Number(row.AdSectionId) === sectionId && row.AdSectionId > 0);
+      /* القسمُ وحده لا الكليةُ كلُّها: كان كلُّ قسمٍ يقرأ ملفاتِ كليته جميعاً ثم يرشّح، فتُدفع قراءةُ
+         الكلية مرةً لكل قسمٍ في كل نافذة (القراءاتُ هي ما يُحسب على المشروع). */
+      const list = (await Repository.getStudentProfilesBySection(sectionId)).filter(row => Number(row.AdCollegeId) === Number(profile.AdCollegeId));
       const wishers = list.filter(row => row.wishes && row.wishes.termId === termId);
       return { of: list.length, n: wishers.length, byCourse: peerCourseCounts(wishers.map(row => row.wishes!)) };
     });

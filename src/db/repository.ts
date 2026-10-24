@@ -5788,6 +5788,28 @@ export const Repository = {
     return [...(db.studentProfiles || [])].slice(0, limit);
   },
   /**
+   * ملفاتُ قسمٍ واحد، بالحقول التي يقرؤها عدّادُ الرغبات وحدها (القسم والكلية والرغبات): استعلامٌ
+   * بالمساواة على حقلٍ واحد يكفيه الفهرسُ التلقائي، ولا تُقرأ ملفاتُ الأقسام الأخرى في الكلية.
+   */
+  getStudentProfilesBySection: async (sectionId: number, limit = 60000): Promise<StudentProfile[]> => {
+    if (!Number.isInteger(sectionId) || sectionId <= 0) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const out: StudentProfile[] = [];
+      let last: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+      while (out.length < limit) {
+        let query: FirebaseFirestore.Query = firestoreDb.collection("studentProfiles")
+          .where("AdSectionId", "==", sectionId).orderBy(FieldPath.documentId()).select("AdSectionId", "AdCollegeId", "wishes").limit(1000);
+        if (last) query = query.startAfter(last);
+        const snap = await query.get();
+        for (const doc of snap.docs) out.push(doc.data() as StudentProfile);
+        if (snap.size < 1000) break;
+        last = snap.docs[snap.docs.length - 1];
+      }
+      return out.slice(0, limit);
+    }
+    return (db.studentProfiles || []).filter(profile => Number(profile.AdSectionId) === sectionId).slice(0, limit);
+  },
+  /**
    * Profiles for one college's demand analysis. The query scopes the Firestore
    * scan before pagination; section and term are filtered by the pure merge
    * helper so this uses the ordinary college index without a new composite

@@ -8,7 +8,11 @@
  * لا يعمل إلا على محاكٍ محلي: يرفض إن لم يُضبط FIRESTORE_EMULATOR_HOST على
  * localhost/127.0.0.1، فلا يمكن أن يكتب في قاعدة الجامعة ولو ضُبطت متغيراتها.
  *
- *   FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 FIREBASE_PROJECT_ID=schedule-loadtest npx tsx scripts/loadtest/seed-emulator.ts
+ *   FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 FIREBASE_PROJECT_ID=schedule-loadtest FIREBASE_DATABASE_ID=loadtest \
+ *     npx tsx scripts/loadtest/seed-emulator.ts
+ *
+ * ويُشغَّل الخادمُ بالمتغيرات نفسها (FIREBASE_DATABASE_ID خاصةً: بدونه يأخذ الخادمُ
+ * معرّفَ القاعدة من firebase-applet-config.json فيقرأ قاعدةً فارغة في المحاكي).
  */
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
@@ -21,7 +25,8 @@ if (!/^(localhost|127\.0\.0\.1|\[::1\]):\d+$/.test(host)) {
 }
 const projectId = process.env.FIREBASE_PROJECT_ID || "schedule-loadtest";
 initializeApp({ projectId });
-const db = getFirestore();
+const databaseId = process.env.FIREBASE_DATABASE_ID || "loadtest";
+const db = getFirestore(databaseId);
 db.settings({ ignoreUndefinedProperties: true });
 
 const state = createDemoSandboxState();
