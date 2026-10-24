@@ -5463,6 +5463,27 @@ async function readLiveVisitingRoster(collegeId: number, sectionId: number, term
 }
 
 /**
+ * صفةُ «منتدب» دائمةٌ: اسمٌ في دليل منتدبي القسم (عائلته)، له سجلٌّ في الأساتذة. لا يشترط
+ * أن يكون في روستر فصلٍ بعينه، ولا يزول إلا حين يُحوَّل من بطاقة الأستاذ إلى معيّن.
+ * روسترُ الفصل يحدد من يُدرِّس فيه (`readLiveVisitingRoster`)، لا من يُسمّى منتدباً.
+ */
+async function readVisitingStatus(collegeId: number, sectionId: number, termId = 0) {
+  if (!collegeId || !sectionId) return { instructorIds: [] as number[] };
+  const [directory, instructors, explicit, family] = await Promise.all([
+    Repository.getDepartmentDelegates(collegeId, sectionId),
+    Repository.getInstructors(),
+    Repository.getExplicitDirectoryScopes(),
+    Repository.familyOf(collegeId, sectionId),
+  ]);
+  const known = new Set(instructors.map(person => Number(person.AdInstructorId)));
+  const saved = family.some(member => explicit.some(scope => Number(scope.collegeId) === Number(member.collegeId) && Number(scope.sectionId) === Number(member.sectionId)));
+  /* قسمٌ لم يحفظ دليلاً قطّ: «دليلُه» المقروء من الأرشيف يضم كل من مرّ في أي فصل، فيُقرأ له روسترُ هذا الفصل وحده
+     (القاعدةُ نفسها في visitingByScope) كي لا يصير منتدباً في كل الفصول بلا قرار. */
+  const live = saved || !termId ? directory : liveVisitingIds(await Repository.getVisitingRoster(collegeId, sectionId, termId), directory, id => known.has(id));
+  return { instructorIds: [...new Set([...live].map(Number).filter(id => Number.isFinite(id) && id > 0 && known.has(id)))] };
+}
+
+/**
  * «منتدب» لكل صفٍّ بقسمه هو: يقرأ دفتر المنتدبين مرةً لكل (كلية، قسم) متميّز في الفصل ثم
  * يجيب عن أي صف. المنتدب منتدبٌ في قسمٍ لا في كل الأقسام، فالقرار دائماً بنطاق الصف نفسه.
  * للمخرجات التي لا طلب مستخدم خلفها (الصفحات العامة، التقويم، الإكسل).
@@ -5475,7 +5496,7 @@ async function visitingChecker(termId: number, scopes: Iterable<{ collegeId: unk
     if (collegeId && sectionId) wanted.set(`${collegeId}:${sectionId}`, { collegeId, sectionId });
   }
   await Promise.all([...wanted].map(async ([key, scope]) => {
-    byScope.set(key, new Set((await readLiveVisitingRoster(scope.collegeId, scope.sectionId, termId)).instructorIds.map(Number)));
+    byScope.set(key, new Set((await readVisitingStatus(scope.collegeId, scope.sectionId, termId)).instructorIds.map(Number)));
   }));
   return (instructorId: unknown, collegeId: unknown, sectionId: unknown) =>
     byScope.get(`${Number(collegeId) || 0}:${Number(sectionId) || 0}`)?.has(Number(instructorId)) === true;
@@ -5536,6 +5557,7 @@ app.get("/api/schedules/workspace", requirePermission(7), async (req: Authentica
     readLiveVisitingRoster(collegeId, sectionId, termId),
   ]);
   const visitingInstructorIds = visitingRoster.instructorIds;
+  const visitingStatusIds = (await readVisitingStatus(collegeId, sectionId, termId)).instructorIds;
   const visitingPeople = visitingRoster.instructors;
   const instructors = [...new Map([...historicalDepartmentInstructors, ...scopedInstructors, ...visitingPeople].map(person => [Number(person.AdInstructorId), person])).values()]
     .sort((a,b)=>byArabic(a.AdInstructorName,b.AdInstructorName));
@@ -5545,6 +5567,7 @@ app.get("/api/schedules/workspace", requirePermission(7), async (req: Authentica
     colleges, sections, terms,
     rows, instructors, courses,
     visitingInstructorIds,
+    visitingStatusIds,
   });
 });
 
@@ -9199,7 +9222,7 @@ app.post("/api/intelligence/war-room", requirePermission(7), async (req: Authent
   const room:any=buildWarRoom(base,universe,courses,instructors,constraints,Number(req.body?.rowId||0)||undefined);
   /* أثر الأستاذ في كل خيار يحمل علمَ المنتدب (بقسم الشاشة وفصلها) ليرسم العنوانُ شارتَه. */
   if(Array.isArray(room?.options)){
-    const visitingIds=new Set((await readLiveVisitingRoster(collegeId,sectionId,termId)).instructorIds.map(Number));
+    const visitingIds=new Set((await readVisitingStatus(collegeId,sectionId,termId)).instructorIds.map(Number));
     room.options=room.options.map((option:any)=>{
       if(!option?.professorImpact)return option;
       const person=instructors.find(item=>item.AdInstructorName===option.professorImpact.name);
@@ -12780,7 +12803,7 @@ app.get("/api/reports/schedule-changes", rateLimitHeavyReport, requireAuth, asyn
     return index < 0 ? 99 : index;
   };
   /* المنتدبون يُعرفون في كل شاشةٍ بشارتهم: يُحمل علمُ المنتدب مع كل صفٍّ يعرضه التقرير. */
-  const visitingIdsForReport = new Set((await readLiveVisitingRoster(collegeId, sectionId, termId)).instructorIds.map(Number));
+  const visitingIdsForReport = new Set((await readVisitingStatus(collegeId, sectionId, termId)).instructorIds.map(Number));
   const asDisplayRow = (row: any) => ({
     scheduleId: Number(row.id),
     visiting: visitingIdsForReport.has(Number(row.AdInstructorId)),
@@ -13230,7 +13253,7 @@ app.get("/api/intelligence/compare-terms", requirePermission(7), async (req: Aut
   /* المنتدب يُعرف بقسمه وفصله: قبل/بعد يُقرآن من فصليهما، لا من فصلٍ واحد. */
   const compareVisiting=new Map<string,Set<number>>();
   for(const termSide of [fromTermId,toTermId])for(const scope of readScopes){
-    compareVisiting.set(`${termSide}:${scope.collegeId}:${scope.sectionId}`,new Set((await readLiveVisitingRoster(scope.collegeId,scope.sectionId,termSide)).instructorIds.map(Number)));
+    compareVisiting.set(`${termSide}:${scope.collegeId}:${scope.sectionId}`,new Set((await readVisitingStatus(scope.collegeId,scope.sectionId,termSide)).instructorIds.map(Number)));
   }
   const isVisitingAt=(termSide:number,collegeId:unknown,sectionId:unknown,instructorId:unknown)=>Boolean(compareVisiting.get(`${termSide}:${Number(collegeId)}:${Number(sectionId)}`)?.has(Number(instructorId)));
   // Rows are shaped for reading, not for editing: code, section, and the
@@ -13730,7 +13753,7 @@ app.post("/api/intelligence/genesis", requirePermission(7), async (req: Authenti
   const universe=external.concat(rows); const analysis=analyzeSchedule(rows,universe,courses,instructors,await approvalBlockerOptions()); const rules=evaluateScheduleConstraints(rows,constraints); const draft=await Repository.createScheduleDraft({SystemUserId:req.user.SystemUserId,userName:req.user.Name,AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:targetTermId,...scopeBase(targetUniverse.filter(r=>Number(r.AdCollegeId)===collegeId&&Number(r.AdSectionId)===sectionId)),name:`بداية الفصل · ${terms.find(t=>t.AdTermId===sourceTermId)?.AdTermName||sourceTermId} → ${terms.find(t=>t.AdTermId===targetTermId)?.AdTermName||targetTermId}`,source:"auto",rows});
   const courseById=new Map(courses.map(course=>[Number(course.AdCourseId),course]));
   const instructorById=new Map(instructors.map(instructor=>[Number(instructor.AdInstructorId),instructor]));
-  const genesisVisiting=new Set((await readLiveVisitingRoster(collegeId,sectionId,targetTermId)).instructorIds.map(Number));
+  const genesisVisiting=new Set((await readVisitingStatus(collegeId,sectionId,targetTermId)).instructorIds.map(Number));
   const previewRows=draft.rows.map((row,index)=>({
     index:index+1,id:row.id,courseId:Number(row.AdCourseId)||0,courseCode:courseById.get(Number(row.AdCourseId))?.CourseCode||"",courseName:row.AdCourseName||courseById.get(Number(row.AdCourseId))?.CourseName||"مقرر",
     section:row.SCode||"",instructor:instructorById.get(Number(row.AdInstructorId))?.AdInstructorName||"بدون أستاذ",
