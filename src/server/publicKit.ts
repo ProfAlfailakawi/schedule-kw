@@ -90,12 +90,14 @@ export const DEMO_COPY_SCRIPT = String.raw`
 (function(){if(window.__demoCopy)return;window.__demoCopy=1;
 /* النسخُ الأقدم أولاً وداخل الضغطة نفسها: على الآيفون (وفي متصفّحات التطبيقات) يُرفض الحافظةُ الحديثةُ أو يتأخّر ردُّه،
    فيُستدعى النسخُ القديم بعد انقضاء الضغطة فيفشل بصمت. فيُجرَّب هنا أولاً مباشرةً، ثم الحافظةُ الحديثة. */
-function legacy(t){var ok=false,a=document.createElement("textarea");
+function legacy(t){var ok=false,a=document.createElement("textarea"),prev=document.activeElement;
  try{a.value=t;a.setAttribute("readonly","");a.contentEditable="true";a.style.cssText="position:fixed;top:0;inset-inline-start:0;opacity:0;font-size:16px;inline-size:1px;block-size:1px;padding:0;border:0";
   document.body.appendChild(a);a.focus({preventScroll:true});
   var r=document.createRange();r.selectNodeContents(a);var g=window.getSelection();if(g){g.removeAllRanges();g.addRange(r)}
   a.setSelectionRange(0,t.length);ok=document.execCommand("copy")}catch(_){ok=false}
  try{document.body.removeChild(a)}catch(_){}
+ /* من يتنقّل بلوحة المفاتيح يعود إلى الزرّ الذي ضغطه، لا إلى الفراغ. */
+ try{if(prev&&prev.focus)prev.focus({preventScroll:true})}catch(_){}
  return ok}
 function pick(b){try{var n=b.parentNode&&b.parentNode.querySelector("bdi");if(!n)return;var r=document.createRange();r.selectNodeContents(n);var g=window.getSelection();if(g){g.removeAllRanges();g.addRange(r)}}catch(_){}}
 document.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("[data-demo-copy]"):null;if(!b)return;e.preventDefault();

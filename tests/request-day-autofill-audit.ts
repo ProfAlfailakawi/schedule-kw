@@ -68,11 +68,13 @@ const makeCtx = (legacyWorks: boolean, withClipboard: boolean) => {
     attrs: { "data-demo-copy": "289012345678" }, flags: {} as Record<string, string>, parentNode: { querySelector: () => ({}) },
     getAttribute(name: string) { return this.attrs[name] ?? null; }, setAttribute(name: string, value: string) { this.flags[name] = value; }, removeAttribute(name: string) { delete this.flags[name]; },
   };
-  const area: any = { style: {}, setAttribute() {}, focus() {}, setSelectionRange() {}, get value() { return this._v; }, set value(v: string) { this._v = v; log.legacyValue = v; } };
+  const focusLog: string[] = [];
+  const area: any = { style: {}, setAttribute() {}, focus() { focusLog.push("area"); }, setSelectionRange() {}, get value() { return this._v; }, set value(v: string) { this._v = v; log.legacyValue = v; } };
   const ctx: any = {
     window: { getSelection: () => ({ removeAllRanges() { log.picked = true; }, addRange() {} }) }, clearTimeout() {}, setTimeout: (fn: () => void) => { timers.push(fn); return 1; },
     navigator: withClipboard ? { clipboard: { writeText: (text: string) => { log.copied = text; return { then: (ok: () => void) => { ok(); } }; } } } : {},
     document: {
+      activeElement: { focus: () => { focusLog.push("button"); } },
       addEventListener: (type: string, fn: any) => { listeners[type] = fn; },
       createElement: () => area, body: { appendChild() {}, removeChild() {} }, createRange: () => ({ selectNodeContents() {} }),
       execCommand: () => legacyWorks,
@@ -80,12 +82,13 @@ const makeCtx = (legacyWorks: boolean, withClipboard: boolean) => {
   };
   vm.runInNewContext(DEMO_COPY_SCRIPT, ctx, { timeout: 1000 });
   const click = () => listeners.click({ target: { closest: (sel: string) => sel === "[data-demo-copy]" ? button : null }, preventDefault() {} });
-  return { ctx, listeners, timers, button, log, click };
+  return { ctx, listeners, timers, button, log, click, focusLog };
 };
 {
   /* الآيفون: النسخُ القديم داخل الضغطة نفسها أولاً، فلا يتأخّر بعد انقضائها. */
   const a = makeCtx(true, true); a.click();
   check(a.log.legacyValue === "289012345678" && a.log.copied === "", "الرقمُ كاملاً يُنسخ داخل الضغطة نفسها (دون انتظار الحافظة الحديثة)");
+  check(a.focusLog.join() === "area,button", "ويعود التركيزُ إلى الزرّ بعد إزالة الحقل المؤقّت");
   check(a.button.flags["data-copied"] === "1", "وتتبدّل الأيقونةُ إلى علامة الصحّ (بلا كلام)");
   a.timers.forEach(fn => fn());
   check(!("data-copied" in a.button.flags), "وتعود الأيقونةُ بعد لحظة");
