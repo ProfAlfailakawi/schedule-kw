@@ -10,20 +10,27 @@
 /** لونُ المقرّر من رقمه: الزاويةُ الذهبية تُبعد المقرّراتِ المتتالية بعضَها عن بعض. */
 export const COURSE_COLOR_JS = String.raw`
 var SKC={
- hue:function(id){var n=Math.abs(parseInt(id,10)||0);if(!n){var s=String(id||"");for(var i=0;i<s.length;i++)n=(n*31+s.charCodeAt(i))%100003}n=n>>>0;n^=n>>>16;n=Math.imul(n,0x85ebca6b);n^=n>>>13;n=Math.imul(n,0xc2b2ae35);n^=n>>>16;return (n>>>0)%360},
- color:function(id){return "hsl("+SKC.hue(id)+" 46% 36%)"}
+ pal:[352,24,48,96,146,172,198,222,252,280,312,336],
+ map:{},
+ hash:function(id){var s=String(id==null?"":id),n=Math.abs(parseInt(s,10)||0);if(!n){for(var i=0;i<s.length;i++)n=(n*31+s.charCodeAt(i))%100003}n=n>>>0;n^=n>>>16;n=Math.imul(n,0x85ebca6b);n^=n>>>13;n=Math.imul(n,0xc2b2ae35);n^=n>>>16;return n>>>0},
+ hue:function(id){var k=String(id==null?"":id);if(SKC.map[k]!=null)return SKC.map[k];return SKC.pal[SKC.hash(k)%SKC.pal.length]},
+ /* في الصفحة الواحدة لا يتشارك مقرّران اللونَ ما دامت الألوانُ تكفي: الاصطدامُ يزيحه إلى أقرب لونٍ خالٍ، بترتيب الرقم فيبقى ثابتاً. */
+ assign:function(ids){var seen={},list=[];ids.forEach(function(x){var k=String(x==null?"":x);if(!seen[k]){seen[k]=1;list.push(k)}});
+  list.sort(function(a,b){return (parseInt(a,10)||0)-(parseInt(b,10)||0)||(a<b?-1:1)});
+  var used={},m={};list.forEach(function(k){var i=SKC.hash(k)%SKC.pal.length,t=0;while(used[i]&&t<SKC.pal.length){i=(i+1)%SKC.pal.length;t++}used[i]=1;m[k]=SKC.pal[i]});SKC.map=m},
+ color:function(id){return "hsl("+SKC.hue(id)+" 50% 36%)"}
 };
 `;
 
 export const STAFF_CARD_VISUAL_CSS = String.raw`
 /* ── مظهر «بطاقتي» ───────────────────────────────────────────────────────── */
 .head-tools{display:flex;gap:8px;flex:none}
-.hbtn{flex:none;display:inline-grid;place-items:center;width:42px;height:42px;padding:0;border:1px solid var(--line);border-radius:13px;background:var(--card);color:var(--dim);cursor:pointer;text-decoration:none;transition:color .15s,border-color .15s,transform .12s}
+.hbtn{flex:none;display:inline-grid;place-items:center;width:44px;height:44px;padding:0;border:1px solid var(--line);border-radius:13px;background:var(--card);color:var(--dim);cursor:pointer;text-decoration:none;transition:color .15s,border-color .15s,transform .12s}
 .hbtn:hover,.hbtn:focus-visible{color:var(--jade);border-color:var(--jade);outline:none}
 .hbtn:active{transform:scale(.95)}
 .hbtn[hidden]{display:none}
 .hbtn svg{width:20px;height:20px}
-.ico{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ico{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* مربّعاتٌ رقمية بأيقونات: صفٌّ واحدٌ يُمرَّر. */
 .stats{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 6px;margin-inline:-2px;scrollbar-width:none}
@@ -100,6 +107,13 @@ body.sk-lock{overflow:hidden}
 @keyframes sheet-fade{from{opacity:0}to{opacity:1}}
 @keyframes sheet-up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.sheet,.sheet-card,.wk-b,.wk-row{animation:none;transition:none}}
+/* هيكلُ انتظارٍ هادئ بعد إدخال الرقم. */
+.skel{display:grid;gap:10px;max-width:380px;margin:18px auto 0}
+.skel[hidden]{display:none}
+.skel i{display:block;height:64px;border-radius:16px;background:linear-gradient(100deg,var(--soft) 30%,var(--card) 50%,var(--soft) 70%);background-size:220% 100%;animation:skel 1.3s ease-in-out infinite}
+.skel i:first-child{height:44px;width:70%}
+@keyframes skel{from{background-position:120% 0}to{background-position:-120% 0}}
+@media (prefers-reduced-motion:reduce){.skel i{animation:none}}
 @media print{.head-tools,.sheet,.wk,.wk-list{display:none!important}.pub-week{display:table!important}.stats{display:grid!important;overflow:visible}.stat i{display:none}}
 `;
 
@@ -134,7 +148,7 @@ function skStats(items,ar){
 /* الأسبوعُ مرسوماً: كتلٌ ملوّنةٌ بالدقائق، ومعها قائمةُ المقرّرات (لونُها وأيامُها ووقتُها وقاعتُها). */
 function skWeek(d,esc,cl){
  var dn=function(r){return (r.days||[]).map(function(i){return d.byDay[i]?d.byDay[i].name:""}).filter(Boolean).join("، ")};
- var rows={},order=[];
+ var rows={},order=[];SKC.assign(d.byDay.reduce(function(a,day){return a.concat(day.rows.map(function(r){return r.courseId||r.code||r.name}))},[]));
  d.byDay.forEach(function(day){day.rows.forEach(function(r){var k=String(r.id);if(!rows[k]){rows[k]=r;order.push(k)}})});
  if(!order.length)return "";
  var lo=1440,hi=0;

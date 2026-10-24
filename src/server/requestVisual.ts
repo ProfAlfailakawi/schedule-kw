@@ -71,6 +71,17 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .ev-was .bp-d u{background:var(--soft);color:var(--muted)}
 .ev-was .sk-gi{inline-size:14px;block-size:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
+.appt{position:relative}
+.appt::before{content:"";position:absolute;inset-block:10px;inset-inline-start:0;inline-size:4px;border-radius:0 4px 4px 0;background:var(--c)}
+/* «وقت آخر» مطويّ حتى يُطلب. */
+.more-time{margin:8px 0 2px}
+.more-time summary{display:inline-flex;align-items:center;gap:6px;min-block-size:44px;padding:0 14px;border:1px dashed var(--line2);border-radius:12px;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;list-style:none}
+.more-time summary::-webkit-details-marker{display:none}
+.more-time summary .sk-gi{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.more-time[open] summary{border-style:solid;color:var(--ok);border-color:var(--ok)}
+.more-time label.time{margin-top:8px}
+.ends{margin-inline:2px!important}
+
 /* هيكلُ التحميل. */
 .skel{display:grid;gap:12px;padding:20px 4px}
 .skel i{display:block;block-size:78px;border-radius:18px;background:linear-gradient(100deg,var(--soft) 30%,var(--card) 50%,var(--soft) 70%);background-size:220% 100%;animation:skel 1.3s ease-in-out infinite}
@@ -85,7 +96,9 @@ var SKDN={"الأحد":"ح","الاثنين":"ن","الثلاثاء":"ث","ال�
 function skPills(keys){return '<span class="bp-d" aria-hidden="true">'+keys.map(function(k){return '<u>'+(SKDI[k]||"")+'</u>'}).join("")+'</span>'}
 function skPillsText(txt){var parts=String(txt||"").split("·").map(function(x){return x.trim()}).filter(Boolean);
  return '<span class="bp-d" aria-hidden="true">'+parts.map(function(n){return '<u>'+(SKDN[n]||esc(n.slice(0,1)))+'</u>'}).join("")+'</span>'}
-function skCourseColor(it){return SKC.color(it&&it.courseId?it.courseId:courseOf(it))}
+function skCid(it){return (it&&(it.courseId||(it.before&&it.before.courseId)||(it.after&&it.after.courseId)))||courseOf(it)}
+function skAssignColors(){SKC.assign(state.map(skCid))}
+function skCourseColor(it){return SKC.color(skCid(it))}
 var SKSTAT={keep:"check",change:"pen",add:"plus",delete:"trash"};
 function skStat(act){return gi(SKSTAT[act]||"check")}
 var SKEV={"link-created":"plus","link-opened":"eye","submitted":"send","received":"check","item-fixed":"check","item-rejected":"x","alternative-offered":"swap","alternative-chosen":"check","settled":"lock","schedule-approved":"shield","department-replied":"chat","instructor-replied":"chat","proposal-accepted":"check","rejected-alt":"swap"};
@@ -96,7 +109,7 @@ function skActIcon(a){return '<i class="activity-dot" aria-hidden="true">'+gi(SK
 function skMergeEvents(list){var out=[];list.forEach(function(e){var p=out[out.length-1];
  if(e.kind==="alternative-offered"&&p&&p.kind==="item-rejected"&&typeof e.itemIndex==="number"&&p.itemIndex===e.itemIndex){out[out.length-1]={kind:"rejected-alt",at:e.at,itemIndex:e.itemIndex,detail:e.detail,by:e.by||p.by};return}
  out.push(e)});return out}
-function skLegend(){var seen={},li=[];state.forEach(function(it){var k=it.courseId||courseOf(it);if(seen[k])return;seen[k]=1;li.push('<li style="--c:'+skCourseColor(it)+'"><i></i>'+esc(courseOf(it))+'</li>')});
+function skLegend(){var seen={},li=[];state.forEach(function(it){var k=skCid(it);if(seen[k])return;seen[k]=1;li.push('<li style="--c:'+skCourseColor(it)+'"><i></i>'+esc(courseOf(it))+'</li>')});
  return (li.length>1?'<ul class="wk-leg" aria-label="ألوان المقرّرات">'+li.join("")+'</ul>':"")+
   '<p class="wk-key" aria-hidden="true"><span><i data-k="ghost"></i>قبل التعديل</span><span><i data-k="chg"></i>معدّل</span><span><i data-k="add"></i>جديد</span><span><i data-k="del"></i>محذوف</span></p>'}
 /* الرجوع: يبقى الطلبُ المكتوب مسودةً على الجهاز، لكن يُسأل أولاً. */
@@ -111,6 +124,9 @@ function skLeaveAsk(){var m=document.getElementById("leaveAsk");
   m.onclick=function(e){var t=e.target;if(t===m||(t.closest&&t.closest("[data-stay]"))){m.hidden=true;return}if(t.closest&&t.closest("[data-leave]")){m.hidden=true;skLeaving=true;skGoBack()}}}
  m.hidden=false;var b=m.querySelector("[data-stay]");if(b)b.focus()}
 var skLeaving=false;
+var skMore={};
+function skMoreOpen(it,i){if(skMore[i])return true;return !!(it.start&&startChoices(it.days).indexOf(it.start)<0)}
+host.addEventListener("click",function(e){var sm=e.target&&e.target.closest?e.target.closest("summary[data-more]"):null;if(!sm)return;var d=sm.parentNode;skMore[sm.getAttribute("data-more")]=!d.open});
 host.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("#backIc"):null;if(!b)return;
  if(dirty)skLeaveAsk();else skGoBack()});
 document.addEventListener("keydown",function(e){var m=document.getElementById("leaveAsk");if(e.key==="Escape"&&m&&!m.hidden)m.hidden=true});
