@@ -140,8 +140,14 @@ export default function InstructorPicker({ value, onChange, instructors, departm
 
   // A retired or sabbatical teacher keeps their existing appointments but is not
   // offered for new ones, so their name stops appearing where it should not (Note 2).
+  /* منتدبٌ (صفته دائمة) لم يُختَر لهذا الفصل لا يُعرض لموعدٍ جديد، أياً كان مصدر اسمه: أرشيف القسم،
+     أو قراءة /api/instructors، أو البحث الأوسع. الأستاذ المختار حالياً يبقى ظاهراً كي لا يختفي من صفٍّ قائم. */
+  const outsideTermRoster = (person: any) => {
+    const id = Number(person?.AdInstructorId);
+    return Boolean(visitingRosterIds) && id !== Number(value) && visitingSet.has(id) && !rosterSet.has(id);
+  };
   const isHidden = (person: any) =>
-    person?.AdInstructorStatus === "retired" || person?.AdInstructorStatus === "sabbatical";
+    person?.AdInstructorStatus === "retired" || person?.AdInstructorStatus === "sabbatical" || outsideTermRoster(person);
   const results = useMemo(() => {
     const needle = withoutTitles(query);
     if (!needle) {
@@ -180,7 +186,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
         byArabic(a.person.AdInstructorName, b.person.AdInstructorName))
       .slice(0, 40)
       .map(x => x.person);
-  }, [query, knownInstructors, wider, effectiveDepartmentIds, byId, departmentRank, sectionId, strictDepartmentOnly, rosterSet]);
+  }, [query, knownInstructors, wider, effectiveDepartmentIds, byId, departmentRank, sectionId, strictDepartmentOnly, rosterSet, visitingSet, visitingRosterIds, value]);
 
   useEffect(() => {
     if (!open) return;
