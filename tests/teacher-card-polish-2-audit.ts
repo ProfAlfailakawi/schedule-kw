@@ -107,9 +107,15 @@ const importTable = readFileSync("src/components/ImportPreviewTable.tsx", "utf8"
 const proposalRoutes = readFileSync("src/server/studyProposalRoutes.ts", "utf8"), proposalPage = readFileSync("src/server/studyProposalPage.ts", "utf8");
 check(page.includes('function reqTag(it)') && page.includes("esc(courseOf(it))+reqTag(it)+'</b>'"), "P10 بطاقةُ الموعد القائم عند الأستاذ: «متطلب» بجانب اسم المقرر");
 check(page.includes("<h2>هل يناسبك هذا الموعد؟</h2><p>'+esc(courseOf(it))+reqTag(it)+"), "P10 وبطاقة «قرارك»");
-check(server.includes("serviceCourses,") && server.includes("const serviceKeys = await serviceCourseKeys();"), "P10 الخادمُ يرسل مقرراتِ الخدمة مع الطلب (وسمٌ فقط)");
+check(server.includes("serviceCourses,") && server.includes("serviceCourseKeys(),"), "P10 الخادمُ يرسل مقرراتِ الخدمة مع الطلب (وسمٌ فقط)");
 check(proposalRoutes.includes("service: serviceKeys.has(") && proposalPage.includes("(t.service?'<span class=\"plan-badge\">متطلب</span>':'')"), "P10 صفحةُ المقترح الدراسي العامة: «متطلب» بجانب المقرر");
 check(importTable.includes("badge: courseOptionBadge([Number(item.AdCourseId)], planBadges)") && reports.includes("badge: courseOptionBadge([Number(row.AdCourseId)], planBadges)"), "P10 قائمتا اختيار المقرر في معاينة الاستيراد والتقارير");
+
+/* P11: قراءاتٌ متوازية بلا تغيير في الردود */
+check(server.includes("const [link, early] = await Promise.all([") && server.includes("link.id === wanted && early ? early"), "P11 الرابطُ وطلبُه يُقرآن معاً، ويُعاد السؤالُ إن اختلف المعرّف");
+check(server.includes("const [opened, [instructors, terms, courses, serviceKeys, calendarToken], judgedBeforeOpen] = await Promise.all(["), "P11 فتحُ الكرت: التسجيل والقوائم والحكم معاً");
+check(server.includes("async function rulesOnce<T>(") && server.includes("await Promise.all([...scopesNeeded].map(([key, scope]) =>"), "P11 نطاقاتُ القواعد معاً، ونطاقٌ واحدٌ يُحسب مرةً ولو سأل عنه كثيرون");
+check(server.includes("contexts.set(key, buildRequestContext(row))") && server.includes("rulesCache: sharedRules"), "P11 شاشةُ القسم: سياقٌ واحد لكل نطاق لا لكل طلب");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
