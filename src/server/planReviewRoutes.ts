@@ -292,13 +292,38 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     return rows;
   };
   setPlanBadgeSource(planBadgeRows);
+  /* مقررُ خدمة: تطلبه صحائفُ أقسامٍ أخرى جارية. يحمل شارة «متطلب لأقسام أخرى» عند قسمه المالك في كل شاشة. */
+  let serviceCache: { at: number; rows: Map<number, { names: Set<string>; collegeId: number; sectionId: number }> } | null = null;
+  const serviceRows = async () => {
+    if (serviceCache && Date.now() - serviceCache.at < 15_000) return serviceCache.rows;
+    const [ruleSets, courses, sections] = await Promise.all([Repository.listRuleSets(), Repository.getCourses(), Repository.getSections()]);
+    const owner = new Map((courses as any[]).map(course => [Number(course.AdCourseId), course]));
+    const names = new Map((sections as any[]).map(section => [Number(section.AdSectionId), String(section.AdSectionName || "")]));
+    const live = new Map<number, Set<string>>();
+    const rows = new Map<number, { names: Set<string>; collegeId: number; sectionId: number }>();
+    for (const rule of ruleSets) {
+      const sid = Number(rule.AdSectionId);
+      if (!live.has(sid)) live.set(sid, new Set((await Repository.getCurriculumPlans(sid) as any[]).filter(plan => plan.status !== "archived").map(plan => plan.id)));
+      if (!live.get(sid)!.has(rule.planId)) continue;
+      for (const id of (rule.externals || []).map(Number)) {
+        const course = owner.get(id), name = names.get(sid);
+        if (!course || !name || Number(course.AdSectionId) === sid) continue;
+        const row = rows.get(id) || { names: new Set<string>(), collegeId: Number(course.AdCollegeId), sectionId: Number(course.AdSectionId) };
+        row.names.add(name); rows.set(id, row);
+      }
+    }
+    serviceCache = { at: Date.now(), rows };
+    return rows;
+  };
   app.get("/api/plan-badges", deps.requireAuth, async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
-    if (req.query.fresh === "1") badgeCache = null;
+    if (req.query.fresh === "1") { badgeCache = null; serviceCache = null; }
     /* لكل حسابٍ نطاقُه كما في المقررات: لا شارة لمقررٍ خارج ما يراه. */
     const badges: Record<number, string> = {};
     for (const row of await planBadgeRows()) if (deps.isPowerUser(req) || deps.isScopeAllowed(req, row.collegeId, row.sectionId)) badges[row.courseId] = row.label;
-    res.json({ ok: true, badges });
+    const services: Record<number, string[]> = {};
+    for (const [id, row] of await serviceRows()) if (deps.isPowerUser(req) || deps.isScopeAllowed(req, row.collegeId, row.sectionId)) services[id] = [...row.names].sort((a, b) => a.localeCompare(b, "ar"));
+    res.json({ ok: true, badges, services });
   });
 
   app.get("/api/plan-review/status", deps.requireAuth, async (req: Request, res: Response) => {
