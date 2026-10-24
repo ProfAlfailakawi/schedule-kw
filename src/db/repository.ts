@@ -3543,6 +3543,23 @@ export const Repository = {
       .sort((a,b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
   },
 
+  /** كلُّ صحائف الأقسام بقراءةٍ واحدة — للقراءة وحدها (شارات وحالة المراجعة)، بدل نداءٍ لكل قسم. */
+  getAllCurriculumPlans: async (): Promise<CurriculumPlan[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      return (await firestoreDb.collection("curriculumPlans").get()).docs.map(doc => doc.data() as CurriculumPlan);
+    }
+    if (!Array.isArray(db.curriculumPlans)) db.curriculumPlans = [];
+    return [...db.curriculumPlans];
+  },
+  /** كلُّ روابط الصحائف بالمقررات بقراءةٍ واحدة — للقراءة وحدها. */
+  getAllCurriculumPlanCourses: async (): Promise<CurriculumPlanCourse[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      return (await firestoreDb.collection("curriculumPlanCourses").get()).docs.map(doc => doc.data() as CurriculumPlanCourse);
+    }
+    if (!Array.isArray(db.curriculumPlanCourses)) db.curriculumPlanCourses = [];
+    return [...db.curriculumPlanCourses];
+  },
+
   getCurriculumPlanCourses: async (sectionId: number): Promise<CurriculumPlanCourse[]> => {
   const sid = Number(sectionId || 0);
   if (!sid) return [];

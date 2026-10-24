@@ -67,6 +67,18 @@ const READERS = new Set(["committeeChair", "departmentHead", "standard"]);
 const WORKSPACE_FORM = 7;
 
 /** صحائفُ قيد المراجعة التي يراها هذا الحساب: لجرس الإشعارات. نفسُ حارس النطاق والصفة في الشاشة. */
+/** صحائفُ كل الأقسام مجموعةً بقسمها وبترتيب getCurriculumPlans نفسه، بقراءةٍ واحدة. */
+async function plansBySection(): Promise<Map<number, any[]>> {
+  const bySection = new Map<number, any[]>();
+  for (const plan of await Repository.getAllCurriculumPlans() as any[]) {
+    const sid = Number(plan.AdSectionId);
+    const list = bySection.get(sid);
+    if (list) list.push(plan); else bySection.set(sid, [plan]);
+  }
+  for (const list of bySection.values()) list.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  return bySection;
+}
+
 export async function pendingPlanReviews(req: any, deps: Pick<PlanReviewDeps, "isScopeAllowed" | "isPowerUser">): Promise<Array<{ planId: string; planName: string; sectionId: number; collegeId: number; sectionName: string; groupKey: string; groupLabel: string; unitKey: string; updatedAt: string }>> {
   const role = roleDefinition(req.user?.Role).id;
   const drafts = (await Repository.listRuleDrafts()).filter(draft => draft.status === "review");
@@ -79,8 +91,9 @@ export async function pendingPlanReviews(req: any, deps: Pick<PlanReviewDeps, "i
   const allTracks = groupDeptTracks(sectionRows as any[], collegeRows as any[]), labels = trackLabels(allTracks);
   for (const track of allTracks) for (const section of [track.canonical, ...track.mirrors]) trackOfSection.set(Number(section.AdSectionId), track);
   const out = [];
+  const plansOf = await plansBySection();
   for (const draft of visible) {
-    const plan = (await Repository.getCurriculumPlans(draft.AdSectionId)).find(row => row.id === draft.planId);
+    const plan = (plansOf.get(Number(draft.AdSectionId)) || []).find(row => row.id === draft.planId);
     out.push({ planId: draft.planId, planName: plan?.name || "الصحيفة", sectionId: draft.AdSectionId, collegeId: draft.AdCollegeId, sectionName: sections.get(draft.AdSectionId) || "",
       /* إشعارٌ واحد لكل قسم (باسمه) مهما تعدّدت كلياتُه ومساراتُه؛ والصحيفةُ تُعدّ بمسارها وكليتها وسنتها (unitKey). */
       groupKey: trackOfSection.get(draft.AdSectionId)?.deptName || `${draft.AdCollegeId}:${draft.AdSectionId}`,
@@ -270,24 +283,24 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   };
   const planBadgeRows = async () => {
     if (badgeCache && Date.now() - badgeCache.at < 15_000) return badgeCache.rows;
-    const sections = await Repository.getSections() as any[];
+    const [sections, plansOf, allLinks] = await Promise.all([Repository.getSections() as Promise<any[]>, plansBySection(), Repository.getAllCurriculumPlanCourses() as Promise<any[]>]);
+    const linksOf = new Map<number, any[]>();
+    for (const link of allLinks) { const sid = Number(link.AdSectionId); const list = linksOf.get(sid); if (list) list.push(link); else linksOf.set(sid, [link]); }
     const rows: Array<{ courseId: number; label: string; collegeId: number; sectionId: number }> = [];
-    for (let at = 0; at < sections.length; at += 10) {
-      await Promise.all(sections.slice(at, at + 10).map(async section => {
-        const sid = Number(section.AdSectionId), cid = Number(section.AdCollegeId);
-        const plans = (await Repository.getCurriculumPlans(sid) as any[]).filter(plan => !plan.virtual && plan.status !== "archived");
-        if (plans.length < 2) return;
-        const links = await Repository.getCurriculumPlanCourses(sid) as any[];
-        const byTrack = new Map<string, any[]>();
-        for (const plan of plans) byTrack.set(String(plan.track || ""), [...(byTrack.get(String(plan.track || "")) || []), plan]);
-        for (const group of byTrack.values()) {
-          const fresh = group.find(plan => plan.status === "active"), previous = group.filter(plan => plan.status === "transition");
-          if (!fresh || !previous.length) continue;
-          const inPrevious = new Set(links.filter(link => previous.some(plan => plan.id === link.planId)).map(link => Number(link.AdCourseId)));
-          const label = badgeLabel(fresh);
-          for (const link of links) if (link.planId === fresh.id && !inPrevious.has(Number(link.AdCourseId))) rows.push({ courseId: Number(link.AdCourseId), label, collegeId: cid, sectionId: sid });
-        }
-      }));
+    for (const section of sections) {
+      const sid = Number(section.AdSectionId), cid = Number(section.AdCollegeId);
+      const plans = (plansOf.get(sid) || []).filter(plan => !plan.virtual && plan.status !== "archived");
+      if (plans.length < 2) continue;
+      const links = linksOf.get(sid) || [];
+      const byTrack = new Map<string, any[]>();
+      for (const plan of plans) byTrack.set(String(plan.track || ""), [...(byTrack.get(String(plan.track || "")) || []), plan]);
+      for (const group of byTrack.values()) {
+        const fresh = group.find(plan => plan.status === "active"), previous = group.filter(plan => plan.status === "transition");
+        if (!fresh || !previous.length) continue;
+        const inPrevious = new Set(links.filter(link => previous.some(plan => plan.id === link.planId)).map(link => Number(link.AdCourseId)));
+        const label = badgeLabel(fresh);
+        for (const link of links) if (link.planId === fresh.id && !inPrevious.has(Number(link.AdCourseId))) rows.push({ courseId: Number(link.AdCourseId), label, collegeId: cid, sectionId: sid });
+      }
     }
     badgeCache = { at: Date.now(), rows };
     return rows;
@@ -303,11 +316,12 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     const [ruleSets, courses, sections] = await Promise.all([Repository.listRuleSets(), Repository.getCourses(), Repository.getSections()]);
     const owner = new Map((courses as any[]).map(course => [Number(course.AdCourseId), course]));
     const names = new Map((sections as any[]).map(section => [Number(section.AdSectionId), String(section.AdSectionName || "")]));
+    const plansOf = await plansBySection();
     const live = new Map<number, Set<string>>();
     const rows = new Map<number, { names: Set<string>; collegeId: number; sectionId: number }>();
     for (const rule of ruleSets) {
       const sid = Number(rule.AdSectionId);
-      if (!live.has(sid)) live.set(sid, new Set((await Repository.getCurriculumPlans(sid) as any[]).filter(plan => plan.status !== "archived").map(plan => plan.id)));
+      if (!live.has(sid)) live.set(sid, new Set((plansOf.get(sid) || []).filter(plan => plan.status !== "archived").map(plan => plan.id)));
       if (!live.get(sid)!.has(rule.planId)) continue;
       for (const id of (rule.externals || []).map(Number)) {
         const course = owner.get(id), name = names.get(sid);
@@ -349,10 +363,11 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     /* الصحائفُ التي يُفتح عليها: أقسامُ هذا الحساب وحدها، بلا المؤرشفة. */
     const reachable: Array<{ sectionId: number; sectionName: string; plans: Array<{ id: string; name: string; status: string; pending: boolean }> }> = [];
     const pendingIds = new Set(rows.filter(row => row.state === "review").map(row => row.planId));
+    const plansOf = await plansBySection();
     for (const section of sectionRows as any[]) {
       const collegeId = Number(section.AdCollegeId), sectionId = Number(section.AdSectionId);
       if (!canSee(req, { id: "", AdCollegeId: collegeId, AdSectionId: sectionId, name: "", status: "" })) continue;
-      const plans = (await Repository.getCurriculumPlans(sectionId)).filter(plan => plan.status !== "archived" && !plan.virtual);
+      const plans = (plansOf.get(sectionId) || []).filter(plan => plan.status !== "archived" && !plan.virtual);
       if (plans.length || isTechnologyEducation(section.AdSectionName) || deps.isRootAdmin(req)) reachable.push({ sectionId, sectionName: sections.get(sectionId) || String(section.AdSectionName || ""), plans: [...plans].sort((x, y) => Number(pendingIds.has(y.id)) - Number(pendingIds.has(x.id)) || Number(y.status === "active") - Number(x.status === "active")).map(plan => ({ id: plan.id, name: plan.name, status: plan.status, pending: pendingIds.has(plan.id) })) });
     }
     /* وجهات رفع الصحيفة: مساراتُ الأقسام (بنات بموقعيها، وبنين) لا مواقعُ مفردة. */
