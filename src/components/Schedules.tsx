@@ -144,7 +144,7 @@ import {
 } from "../utils/scheduleViews";
 import ScheduleTransfer from "./ScheduleTransfer";
 import SearchableSelect from "./SearchableSelect";
-import { usePlanBadges } from "../utils/planBadges";
+import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import PlanBadge from "./PlanBadge";
 import type { GapItem as SectionGapItem } from "../utils/sectionGap";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
@@ -8695,7 +8695,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       setCourseName(String(name));
                       setForm((p) => ({ ...p, AdCourseId: 0 }));
                     }}
-                    options={courseNames.map((name) => ({ value: name, label: name, badge: formCourses.filter((c) => c.CourseName === name).map((c) => planBadges[Number(c.AdCourseId)]).find(Boolean) || undefined }))}
+                    options={courseNames.map((name) => ({ value: name, label: name, badge: courseOptionBadge(formCourses.filter((c) => c.CourseName === name).map((c) => Number(c.AdCourseId)), planBadges) }))}
                     searchPlaceholder="اكتب اسم المقرر"
                     required
                   />

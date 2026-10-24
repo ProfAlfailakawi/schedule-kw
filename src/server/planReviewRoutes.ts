@@ -14,7 +14,8 @@
  *   · كلُّ تعديلٍ في سجلّ التدقيق.
  */
 import { ensureSectionFaculty } from "./sectionFaculty";
-import { setPlanBadgeSource } from "./planBadgeShared";
+import { setPlanBadgeSource, setServiceSource } from "./planBadgeShared";
+import { createDataContextKey } from "./dataContextCache";
 import { groupDeptTracks, planMatchKey, trackLabels, type DeptTrack } from "../utils/collegeTrack";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
 import { compareCurriculumReference, isTechnologyEducation, referenceCodeKey } from "../utils/curriculumReference";
@@ -293,9 +294,12 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   };
   setPlanBadgeSource(planBadgeRows);
   /* مقررُ خدمة: تطلبه صحائفُ أقسامٍ أخرى جارية. يحمل شارة «متطلب لأقسام أخرى» عند قسمه المالك في كل شاشة. */
-  let serviceCache: { at: number; rows: Map<number, { names: Set<string>; collegeId: number; sectionId: number }> } | null = null;
+  let serviceCache: { key: string; at: number; rows: Map<number, { names: Set<string>; collegeId: number; sectionId: number }> } | null = null;
+  /* الصندوقُ التجريبي له عالَمُه: ما حُفظ في طلبٍ تجريبيٍّ لا يقرؤه الحقيقيّ (بطاقةُ الأستاذ العامة تقرأ هذا الآن). */
+  const serviceKey = createDataContextKey(() => Repository.currentDemoSessionId());
   const serviceRows = async () => {
-    if (serviceCache && Date.now() - serviceCache.at < 15_000) return serviceCache.rows;
+    const key = serviceKey("service");
+    if (serviceCache && serviceCache.key === key && Date.now() - serviceCache.at < 15_000) return serviceCache.rows;
     const [ruleSets, courses, sections] = await Promise.all([Repository.listRuleSets(), Repository.getCourses(), Repository.getSections()]);
     const owner = new Map((courses as any[]).map(course => [Number(course.AdCourseId), course]));
     const names = new Map((sections as any[]).map(section => [Number(section.AdSectionId), String(section.AdSectionName || "")]));
@@ -312,9 +316,10 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         row.names.add(name); rows.set(id, row);
       }
     }
-    serviceCache = { at: Date.now(), rows };
+    serviceCache = { key, at: Date.now(), rows };
     return rows;
   };
+  setServiceSource(serviceRows);
   app.get("/api/plan-badges", deps.requireAuth, async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     if (req.query.fresh === "1") { badgeCache = null; serviceCache = null; }

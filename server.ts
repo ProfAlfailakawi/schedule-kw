@@ -120,6 +120,7 @@ import { adInjection, adNotifications, registerAdsRoutes } from "./src/server/ad
 import { registerStudentDoorRoutes, scheduleStudentProfilePurge } from "./src/server/studentDoorRoutes";
 import { registerStudentShowcase } from "./src/server/studentShowcase";
 import { pendingPlanReviews, registerPlanReviewRoutes } from "./src/server/planReviewRoutes";
+import { serviceCourseKeys } from "./src/server/planBadgeShared";
 import { registerPlanSheetRoutes } from "./src/server/planSheetRoutes";
 import { buildFeatureNotifications, buildMasariGapNotifications } from "./src/utils/featureNotifications";
 import { studentGaps } from "./src/utils/sectionGap";
@@ -19467,6 +19468,8 @@ type InstructorRequestCourseOption = {
   collegeId: number;
   collegeName: string;
   sectionId: number;
+  /** مقررُ خدمةٍ تطلبه أقسامٌ أخرى: يظهر بجانبه «متطلب». */
+  service?: boolean;
 };
 
 /**
@@ -19506,7 +19509,7 @@ async function instructorRequestCourseOptions(request: InstructorRequest): Promi
      * is already the source of truth for additions; rebuilding historical
      * authority baselines for every sibling college made the public page wait
      * on heavyweight history reads before it could paint. */
-    const catalogue = await instructorRequestSectionCourses(scope.sectionId);
+    const [catalogue, services] = await Promise.all([instructorRequestSectionCourses(scope.sectionId), serviceCourseKeys()]);
     return (catalogue as any[]).map(row => ({
       id: Number(row.AdCourseId || 0),
       name: String(row.CourseName || row.AdCourseName || "").trim(),
@@ -19514,6 +19517,7 @@ async function instructorRequestCourseOptions(request: InstructorRequest): Promi
       collegeId: scope.collegeId,
       collegeName: scope.collegeName,
       sectionId: scope.sectionId,
+      ...(services.has(`${Number(row.AdCourseId || 0)}:${scope.sectionId}`) ? { service: true } : {}),
     })).filter(option => option.id && option.name);
   }));
   const options = new Map<string, InstructorRequestCourseOption>();
@@ -20859,7 +20863,7 @@ textarea[data-show="1"]{display:block}
 .add-card{border-style:dashed;border-color:#9fc8b5;background:rgba(255,255,255,.72)}.add-card header{margin-bottom:10px}.add-card header b{display:block}.add-card header small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .add-start{width:100%;min-height:50px;border:0;border-radius:13px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}
 .course-chooser{display:grid;gap:10px}.course-college{display:grid;gap:6px}.course-college span{font-size:12px;font-weight:700;color:var(--muted)}.course-college select,.course-search{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font:inherit}.course-search:disabled{opacity:.55;cursor:not-allowed;background:var(--soft)}
-.course-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:340px;overflow:auto;padding:2px}.course-option{display:grid;gap:2px;min-height:62px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);text-align:start;cursor:pointer}.course-option:hover,.course-option:focus{border-color:var(--accent);background:var(--soft);outline:none}.course-option b{font-size:13px}.course-option small{color:var(--muted);font-size:11.5px;direction:ltr;text-align:start}.chooser-close{justify-self:start;border:0;background:transparent;color:var(--muted);cursor:pointer;padding:4px 0;min-height:44px}
+.req-tag{display:inline-block;margin-inline-start:7px;padding:1px 8px;border-radius:999px;background:var(--soft);color:var(--muted);font-size:10.5px;font-style:normal;font-weight:600;vertical-align:middle}.course-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:340px;overflow:auto;padding:2px}.course-option{display:grid;gap:2px;min-height:62px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);text-align:start;cursor:pointer}.course-option:hover,.course-option:focus{border-color:var(--accent);background:var(--soft);outline:none}.course-option b{font-size:13px}.course-option small{color:var(--muted);font-size:11.5px;direction:ltr;text-align:start}.chooser-close{justify-self:start;border:0;background:transparent;color:var(--muted);cursor:pointer;padding:4px 0;min-height:44px}
 body{padding-bottom:calc(92px + env(safe-area-inset-bottom))}.best{margin:10px 0 4px}.best-row{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.best-row button{display:grid;gap:3px;justify-items:center;padding:9px 6px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:inherit;font-size:12.5px;cursor:pointer;min-height:44px}.best-row small{color:var(--muted);font-size:11px}.deadline{margin:0 0 10px;font-size:12.5px;color:var(--muted)}.deadline[data-urgent="1"]{color:#8a5a00;background:#fbf0d6;border-radius:10px;padding:5px 10px;display:inline-block}button.wb{border:0;padding:0;cursor:pointer;font:inherit}.note-add{display:block;width:100%;margin:12px 0;padding:12px;border:1px dashed var(--line-strong);border-radius:14px;background:transparent;color:var(--muted);font:inherit;font-size:13px;cursor:pointer;min-height:44px}.advice{flex:1 1 100%;margin:6px 0 0;padding:8px 10px;border-radius:10px;background:var(--soft);color:var(--muted);font-size:12.5px;line-height:1.7}.heat-key[role=status]{color:var(--muted)}
 .send{position:sticky;bottom:0;z-index:4;margin:18px -4px 0;padding:20px 4px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 18%)}
 .sendbox{padding:13px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.96);box-shadow:0 -8px 28px rgba(22,57,40,.08)}
@@ -21430,7 +21434,7 @@ function paint(){
   h+='<div class="card add-card"><header><b>تريد إضافة موعد جديد؟</b><small>اختر الكلية أولًا، ثم المقرر والأيام والوقت. القسم والفصل معروفان تلقائيًا.</small></header>'+(chooserOpen?'<div class="course-chooser">'+
    '<label class="course-college"><span>الكلية</span><select id="courseCollege"><option value="">اختر الكلية أولًا</option>'+collegeOptions.map(function(c){return '<option value="'+c.id+'">'+esc(c.name)+'</option>'}).join("")+'</select></label>'+
    '<input class="course-search" id="courseSearch" type="search" placeholder="اكتب اسم المقرر أو رمزه…" autocomplete="off" disabled>'+
-   '<p class="course-none" id="courseNone" hidden>لا يوجد مقرر بهذا الاسم في هذه الكلية. جرّب كلمةً أقصر أو رمز المقرر.</p><div class="course-options">'+data.courses.map(function(c){return '<button type="button" class="course-option" data-course="'+c.id+'" data-college="'+c.collegeId+'" data-section="'+c.sectionId+'" data-search="'+esc((c.name+" "+c.code).toLowerCase())+'" hidden><b>'+esc(c.name||c.code)+'</b><small>'+esc([c.code,c.collegeName].filter(Boolean).join(" · "))+(state.some(function(it){return it.action==="add"&&it.courseId===c.id&&Number(it.collegeId)===Number(c.collegeId)})?" · أضفتَه في هذا الطلب":"")+'</small></button>'}).join("")+'</div>'+
+   '<p class="course-none" id="courseNone" hidden>لا يوجد مقرر بهذا الاسم في هذه الكلية. جرّب كلمةً أقصر أو رمز المقرر.</p><div class="course-options">'+data.courses.map(function(c){return '<button type="button" class="course-option" data-course="'+c.id+'" data-college="'+c.collegeId+'" data-section="'+c.sectionId+'" data-search="'+esc((c.name+" "+c.code).toLowerCase())+'" hidden><b>'+esc(c.name||c.code)+(c.service?'<i class="req-tag">متطلب</i>':'')+'</b><small>'+esc([c.code,c.collegeName].filter(Boolean).join(" · "))+(state.some(function(it){return it.action==="add"&&it.courseId===c.id&&Number(it.collegeId)===Number(c.collegeId)})?" · أضفتَه في هذا الطلب":"")+'</small></button>'}).join("")+'</div>'+
    '<button type="button" class="chooser-close" id="closeChooser">إغلاق القائمة</button></div>':'<button type="button" class="add-start" id="openChooser">+ اختر كلية ومقررًا وأضف موعدًا</button>')+'</div>'
  }
 
