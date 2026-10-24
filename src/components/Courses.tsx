@@ -44,6 +44,12 @@ const planTagOf = (course: any): { key: "new" | "old" | "shared" | "service"; la
 };
 /** Departments whose live sheets require this course although it is in none of its own department's sheets. */
 const serviceOf = (course: any): string[] => Array.isArray(course?.serviceFor) ? course.serviceFor : [];
+/** A thin badge beside the name; the tooltip names the departments that require it. */
+const ServiceBadge = ({ course }: { course: any }) => {
+  const names = serviceOf(course);
+  if (!names.length) return null;
+  return <small className="course-service-badge" title={`متطلب في صحائف: ${names.join("، ")}`}>متطلب لأقسام أخرى</small>;
+};
 type CurriculumTarget = {
   loading: boolean;
   bootstrap: boolean;
@@ -654,8 +660,8 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                   onClick={() => setSelectedId(x.AdCourseId)}
                   className={activeId === x.AdCourseId ? "selected" : ""}
                   icon={<BookOpen />}
-                  title={<span className="course-room-type-line"><span>{x.CourseName}<PlanBadge courseId={x.AdCourseId} /></span><CourseRoomTypeBadge type={x.CourseRoomType}/></span>}
-                  subtitle={<span className="record-path"><Building2 />{sec(x.AdSectionId)} <i className="record-path-dot" aria-hidden="true" /> {coll(x.AdCollegeId)}{serviceOf(x).length ? <> <i className="record-path-dot" aria-hidden="true" /> متطلب لأقسام أخرى</> : null}</span>}
+                  title={<span className="course-room-type-line"><span>{x.CourseName}<PlanBadge courseId={x.AdCourseId} /><ServiceBadge course={x} /></span><CourseRoomTypeBadge type={x.CourseRoomType}/></span>}
+                  subtitle={<span className="record-path"><Building2 />{sec(x.AdSectionId)} <i className="record-path-dot" aria-hidden="true" /> {coll(x.AdCollegeId)}</span>}
                   meta={<><MetaPill label="الرقم الأكاديمي" value={x.CourseCode} /><MetaPill label="الوحدات" value={x.CourseCredit} /><MetaPill label="الساعات" value={x.CourseHours} /></>}
                 />
               ))}
@@ -676,7 +682,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             <>
               <div className="academic-inspector-icon"><BookOpen /></div>
               <span className="surface-kicker">تفاصيل المقرر</span>
-              <h2 className="course-room-type-line"><span>{selected.CourseName}<PlanBadge courseId={selected.AdCourseId} /></span><CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
+              <h2 className="course-room-type-line"><span>{selected.CourseName}<PlanBadge courseId={selected.AdCourseId} /><ServiceBadge course={selected} /></span><CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
               <p>{sec(selected.AdSectionId)} · {coll(selected.AdCollegeId)}</p>
               {serviceOf(selected).length ? <p className="course-service-for">متطلب في صحائف: {serviceOf(selected).join("، ")}</p> : null}
               <div className="inspector-facts inspector-facts-pairs">
