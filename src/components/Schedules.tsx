@@ -1,5 +1,6 @@
 import PatternLibraryButton from "./PatternLibraryButton";
 import WipeScheduleButton from "./WipeScheduleButton";
+import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
 import TermSelect from "./TermSelect";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import RowHistory from "./RowHistory";
@@ -932,6 +933,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       isPhoneDevice() ? "list" : savedPrefs.viewMode === "week" ? "week" : savedPrefs.viewMode === "rooms" ? "rooms" : "list",
     ),
     [conflicts, setConflicts] = useState<any[]>([]),
+    /* «النمط غير معتمد»: رسمٌ من الخادم (مكتبة الأنماط)، تنبيهٌ لا يمنع الحفظ. */
+    [patternNotice, setPatternNotice] = useState(""),
     [checking, setChecking] = useState(false),
     [solutions, setSolutions] = useState<any[]>([]),
     [solving, setSolving] = useState(false),
@@ -4377,6 +4380,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       !days.some((d) => form[d.key])
     ) {
       setConflicts([]);
+      setPatternNotice("");
       return;
     }
     // The board already in memory answers first: a same-department collision
@@ -4397,6 +4401,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             signal: controller.signal,
           });
           setConflicts(data.conflicts || []);
+          setPatternNotice(typeof data.patternNotice === "string" ? data.patternNotice : "");
         } catch (e: any) {
           if (e?.name !== "AbortError") { setError(friendlyError(e)); }
         } finally {
@@ -9358,6 +9363,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               </div>
               )
             )}
+            {patternNotice ? (
+              <div className="pattern-notice-box">
+                <style>{PATTERN_LIBRARY_CSS}</style>
+                <div dangerouslySetInnerHTML={{ __html: patternNotice }} />
+              </div>
+            ) : null}
             {conflicts.length ? (
               <div className="solver-box">
                 <SecondaryButton

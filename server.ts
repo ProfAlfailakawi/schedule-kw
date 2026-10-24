@@ -51,7 +51,7 @@ import { REQUEST_DAY_AUTOFILL_SCRIPT } from "./src/server/requestDayAutofillScri
 import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT } from "./src/server/voiceInputScript";
 import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from "./src/server/studyProposalAlert";
 import { REQUEST_V3_CSS, REQUEST_V4_CSS } from "./src/server/requestPageStyles";
-import { PATTERN_LIBRARY_CSS, PATTERN_LIBRARY_ICON, patternLibraryHtml } from "./src/utils/patternLibraryView";
+import { PATTERN_LIBRARY_CSS, PATTERN_LIBRARY_ICON, patternLibraryHtml, patternNoticeHtml } from "./src/utils/patternLibraryView";
 import { patternLibraryInput } from "./src/utils/patternLibraryInput";
 import { DEMO_COPY_SCRIPT, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "./src/server/publicKit";
 import { cleanSeenIds, seenKey } from "./src/utils/notificationSeen";
@@ -97,7 +97,7 @@ import { chooseCaptureBaseline } from "./src/utils/changesBaseline";
 import { approvalScopeKey, authorityRowsForScope } from "./src/utils/approvalScope";
 import { buildNotifications } from "./src/utils/notificationCenter";
 import { awaitedItemIndexes } from "./src/utils/linkedRequestItems";
-import { DAY_KEYS, DAY_NAMES, expectedMinutesForDay, lectureLengthProblem, maxWeeklyMinutesFor, periodBalanceFinding, reviewSchedule, weeklyLectureMinutes } from "./src/utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, expectedMinutesForDay, lectureLengthProblem, maxWeeklyMinutesFor, patternsForHours, periodBalanceFinding, reviewSchedule, weeklyLectureMinutes } from "./src/utils/scheduleRegulations";
 import {
   ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, canManageDeadline, canReviewSubmissions,
   canAnnotateCells, isAcademicRole, isAdvisorRole, isReadOnlyRole, isRegistrarRole, isViewerOnlyRole, roleDefinition, roleLabel,
@@ -144,7 +144,7 @@ import { courseLevelFromCode } from "./src/utils/curriculumRules";
 import { reasonForMove } from "./src/utils/appointmentStory";
 import { buildCalendar, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "./src/utils/icalendar";
 import { withVisitingSuffix } from "./src/utils/visitingText";
-import { dayHabitOf, learnAll, learnCourseNature, habitualBlockMinutes, type CourseNature } from "./src/utils/courseNature";
+import { dayHabitOf, learnAll, learnCourseNature, habitualBlockMinutes, historicalOrigin, type CourseNature } from "./src/utils/courseNature";
 import { firstLast } from "./src/utils/weekVisual";
 import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, campusOf, interCampusMinutes } from "./src/utils/campusTravel";
 import {
@@ -4410,12 +4410,31 @@ async function sectionScheduleWindow(sectionId:number){
   const section=await Repository.getSectionById(sectionId),bounds=scheduleDayWindowMinutes(section);
   const value={expiresAt:Date.now()+30_000,startTime:bounds.startTime,endTime:bounds.endTime};sectionScheduleWindowCache.set(cacheKey,value);return value;
 }
+/**
+ * تنبيهُ «النمط غير معتمد»: أيامٌ تخلط الـ50 بالـ80 وليست نمطاً معتمداً في مكتبة الأنماط لساعات المقرّر ولا نمطاً درج
+ * عليه المقرّرُ نفسُه في فصولٍ سابقة. يعيد رسمَ التنبيه (النمطُ المختار بجانب المعتمد) أو null. صفحةُ الأستاذ تمنع به،
+ * والجدولُ الدراسي عند القسم ينبّه به ولا يمنع.
+ */
+async function mixedPatternNotice(courseId:number,days:RequestDayKey[],termId:number,minutes?:number,blocking=false):Promise<string|null>{
+  const shortDays=days.filter(d=>d==="fsunday"||d==="ftuesday"||d==="fthursday"),longDays=days.filter(d=>d==="fmonday"||d==="fwednesday");
+  if(!courseId||!shortDays.length||!longDays.length)return null;
+  const course=await Repository.getCourseById(courseId);const hours=Number(course?.CourseHours||course?.CourseCredit||0);
+  const sameDays=(list:readonly string[])=>list.length===days.length&&list.every(d=>days.includes(d as RequestDayKey));
+  if(hours>0&&patternsForHours(hours).some(p=>sameDays(p.days)))return null;
+  /* التاريخ من الفصول السابقة وحدها: نمطُ الفصل الجاري لا يُعفي نفسَه. */
+  if(historicalOrigin(await courseHabit(courseId,termId),termId)?.patterns.some(p=>sameDays(p)))return null;
+  const ordered=DAY_KEYS.filter(d=>days.includes(d));
+  return patternNoticeHtml(patternLibraryInput(),Math.round(hours)||0,ordered,ordered.map(d=>minutes&&minutes>0?minutes:expectedMinutesForDay(d)),blocking);
+}
 async function scheduleLengthIssue(row:any){
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
   const course=await Repository.getCourseById(courseId);
   const nature=await courseHabit(courseId);
   const hours=Number(course?.CourseHours||0),habitual=nature&&nature.confidence!=="low"?nature.meetingMinutes:undefined;
-  const lengthProblem=lectureLengthProblem(row,hours,habitual);if(lengthProblem)return lengthProblem;
+  /* موعدٌ يخلط أيام الـ50 بأيام الـ80 لا يُمنع عند القسم: تنبيهٌ برسم النمط المعتمد (mixedPatternNotice). وطولُه
+     لا يُحاسَب بمقياس اللائحة لأنه نمطٌ خارجها أصلاً. */
+  const mixedOutside=Boolean(await mixedPatternNotice(courseId,SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row?.AdTermId||0)));
+  const lengthProblem=mixedOutside?null:lectureLengthProblem(row,hours,habitual);if(lengthProblem)return lengthProblem;
   /* مقرّرٌ لا يزيد على ساعاته المعتمدة في أي مكان يُنشأ منه: صفوفُه الأخرى في الفصل والشعبة نفسيهما تُحسب معه. */
   if(hours>0&&Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
     const siblings=(await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
@@ -6050,7 +6069,10 @@ app.post("/api/schedules/import-preflight", requirePermission(7), async (req: Au
   }))});
 });
 
-app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => { const row=req.body||{}; res.json({conflicts:await scheduleConflicts(req,row,Number(row.excludeId||0))}); });
+app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => { const row=req.body||{};
+  const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
+  const patternNotice=await mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null);
+  res.json({conflicts:await scheduleConflicts(req,row,Number(row.excludeId||0)),...(patternNotice?{patternNotice}:{})}); });
 
 
 /**
@@ -21420,7 +21442,7 @@ function actionsHtml(it,i){
  return actBtn(i,"keep","undo","تراجع عن الحذف");
 }
 function editHtml(it,i){var h="";h+='<div class="edit"><div class="field-head"><span class="field-title">أيام المحاضرة</span><details class="plib"><summary aria-label="مكتبة الأنماط" title="مكتبة الأنماط">'+PLIB_ICON+'</summary><div class="plib-pop">'+PLIB+'</div></details></div><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
-    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status">'+esc(it.autoNote)+'</p>':'')+bestHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+heatLegend(i)+'<label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(verdictText(it))+'</span>'+(it.advice?'<p class="advice" role="note">'+esc(it.advice)+'</p>':'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+notesHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
+    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status">'+esc(it.autoNote)+'</p>':'')+bestHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' disabled title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+heatLegend(i)+'<label class="time"><span>وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label><p class="ends">'+(sameAsBefore(it)?"هذا هو موعدك الحالي نفسه — اختر يوماً أو وقتاً مختلفاً، أو اضغط «إلغاء التعديل».":it.days.length&&it.start?"ينتهي "+endOf(it.days,it.start,it.blk)+" — مدّةُ المحاضرة من اللائحة":"اختر اليوم ثم وقت البداية")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span>'+esc(verdictText(it))+'</span>'+(it.advice?'<p class="advice" role="note">'+esc(it.advice)+'</p>':'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><p class="shape-lead">اضغط لتطبيقه:</p><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'">'+esc(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'">'+fmtDays(ds)+" "+esc(a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+(it.pnote?'<div class="pnote" style="margin:8px 0 0">'+it.pnote+'</div>':'')+notesHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
 function bodyHtml(it,i,open){var h=decisionBox(it,i,open)+threadBox(it,i);
  if(open){if(it.negotiation==="proposed")h+='<p class="hint-pro">للرد على اقتراح القسم استخدم بطاقة «قرارك» في أعلى الصفحة. وتعديل الموعد من هنا يبدأ طلبًا جديدًا.</p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
  else if(!h)h='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
@@ -21761,14 +21783,14 @@ function recheckAll(first){
 }
 function check(i){
  var it=state[i];if(!it||it.action!=="change"&&it.action!=="add"||!it.days.length||!it.start){if(it){it.tone="";it.note="";it.alts=[];it.advice="";paint()}return}
- var seq=(pending[i]||0)+1;pending[i]=seq;it.tone="checking";it.note="يفحص التعارض والموانع على جدولك…";it.alts=[];it.shapes=[];it.notes=[];it.advice="";heatShape[i]=false;paint();
+ var seq=(pending[i]||0)+1;pending[i]=seq;it.tone="checking";it.note="يفحص التعارض والموانع على جدولك…";it.alts=[];it.shapes=[];it.notes=[];it.advice="";it.pnote="";heatShape[i]=false;paint();
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check",{method:"POST",
   headers:{"Content-Type":"application/json"},
   body:JSON.stringify({itemIndex:i,rowId:it.rowId,action:it.action,courseId:it.action==="add"?it.courseId:undefined,collegeId:it.action==="add"?it.collegeId:undefined,sectionId:it.action==="add"?it.sectionId:undefined,days:it.days,start:it.start,items:payloadWith(i)})})
  .then(function(r){return r.json()}).then(function(d){
   if(seq!==pending[i]||!state[i])return;
   it.tone=d.kind==="clear"?"ok":d.kind==="exception"?"warn":"bad";
-  it.note=d.headline||"";it.alts=d.nearestTimes||[];it.shapes=d.shapes||[];it.notes=d.notes||[];it.advice=d.advice||"";if(d.block)it.blk=d.block;paint()})
+  it.note=d.headline||"";it.alts=d.nearestTimes||[];it.shapes=d.shapes||[];it.notes=d.notes||[];it.advice=d.advice||"";it.pnote=d.patternNotice||"";if(d.block)it.blk=d.block;paint()})
  .catch(function(){if(seq!==pending[i]||!state[i])return;it.tone="bad";it.note="تعذّر فحص الموعد الآن. أعد المحاولة قبل الإرسال.";paint()});
 }
 /* «كان» يُقرأ من لقطة الموعد الأصلي، لا من slots: بعد الإرسال تحمل slots ما
@@ -21986,6 +22008,10 @@ app.post("/api/public/request/:token/check", async (req: Request, res: Response)
     shapes: item.shapes || [],
     advice: item.advice || "",
     block: item.block || 0,
+    /* الخلطُ الممنوع يُرسم: النمطُ المختار بجانب المعتمد من مكتبة الأنماط. */
+    ...((item.reasons || []).some((reason: any) => reason.blocking && /لا يُخلط/.test(String(reason.text || "")))
+      ? { patternNotice: await mixedPatternNotice(Number(item.after?.courseId || item.before?.courseId || 0), (item.slots || []).map(slot => slot.day as RequestDayKey), Number(resolved.request.AdTermId), undefined, true).catch(() => null) }
+      : {}),
     notes: ((judged as any).notes || [])
       /* نسبةُ الصباح والمساء حالُ القسم كلِّه ولا يملك الأستاذ تغييرها: تبقى في شاشة القسم ولا تُعرض له. */
       .filter((note: any) => note.kind !== "balance" && note.courseIds.includes(Number(item.after?.courseId || item.before?.courseId || 0)))
@@ -22181,7 +22207,7 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
     const judged = await judgeRequestItems({ ...resolved.request, items: variant }, { context, rulesCache });
     const verdict = judged.items[index]?.verdict;
     times[start] = verdict === "conflict" ? "bad" : verdict === "exception" ? "warn" : "ok";
-    if ((judged.items[index]?.reasons || []).some((reason: any) => reason.code === "hours")) problemIsShape = true;
+    if ((judged.items[index]?.reasons || []).some((reason: any) => reason.code === "hours" || (reason.blocking && reason.source === "shape" && /لا يُخلط/.test(String(reason.text || ""))))) problemIsShape = true;
   }
   /* الأيامُ لا تغطّي ساعاتِ المقرّر: الحكمُ نفسُه لكل الأوقات، فلا تُلوَّن كلُّها حمراء كأن الوقتَ هو الخطأ. */
   if (problemIsShape) { res.json({ times: {}, problem: "shape" }); return; }

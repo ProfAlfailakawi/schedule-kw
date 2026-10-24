@@ -103,8 +103,8 @@ check(!judgeRequest(ask({ start: "" }), context()).sendable, "بلا بداية�
 check(!judgeRequest(ask({ days: ["fmonday"], start: "19:30" }), context()).sendable,
   "محاضرةٌ تتجاوز نهاية اليوم الدراسي تُمنع");
 const mixedDays = judgeRequest(ask({ days: ["fsunday", "fmonday"] }), context());
-check(mixedDays.kind === "exception" && mixedDays.sendable,
-  "الأيام المختلطة تُنبّه ولا تمنع — قد يكون توزيعاً مقصوداً");
+check(mixedDays.kind === "conflict" && !mixedDays.sendable && mixedDays.reasons.some(reason => reason.blocking && /لا يُخلط/.test(reason.text)),
+  "الأيام المختلطة تُمنع صراحةً ما لم تكن نمطاً معتمداً أو تاريخياً للمقرّر");
 
 /* ── الأستاذ لا يكون في مكانين ─────────────────────────────────────────── */
 
@@ -237,7 +237,7 @@ check(rowFromRequest(ask({ rowId: null, action: "add" }), {}).id === -1,
 /* ── سطر الحزمة ────────────────────────────────────────────────────────── */
 
 check(describeRequest([]).includes("لا تعديلات"), "حزمةٌ بلا تعديلاتٍ تُقال صراحة");
-const line = describeRequest([free, taken, mixedDays]);
+const line = describeRequest([free, taken, { ...free, kind: "exception" } as typeof free]);
 check(line.includes("بلا تعارض") && line.includes("يحتاج استثناءً") && line.includes("متعارض"),
   "والسطرُ يفصل الأصنافَ الثلاثة");
 check(/^\S*\s*3|ثلاث/.test(line) || line.includes("3"), "ويبدأ بالعدد الكلّي، فلا رقمَ بلا قاعدته");

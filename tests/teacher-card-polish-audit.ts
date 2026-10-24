@@ -119,7 +119,17 @@ const multi = withHistory(new Map([[100, learnCourseNature(100, [16, 17, 18].fla
 check(judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), multi).blockMinutes === undefined, "ومقرّرٌ اعتاد لقاءين لا يأخذ طولَ يومٍ واحد");
 
 const stillMixed = judgeRequest(ask({ days: ["fsunday", "fmonday"] }), context(1));
-check(stillMixed.reasons.some(reason => /أيام مختلطة/.test(reason.text)), "ويبقى التحذير لما ليس نمطاً معتمداً لمقرّره");
+check(stillMixed.reasons.some(reason => reason.blocking && /لا يُخلط/.test(reason.text)) && !stillMixed.sendable, "والخلطُ الذي ليس نمطاً معتمداً لمقرّره يُمنع صراحةً");
+const mixed3 = judgeRequest(ask({ days: ["fsunday", "fmonday", "ftuesday"] }), context(3));
+check(!mixed3.sendable && mixed3.nearestTimes.length === 0 && (mixed3.shapes || []).length > 0 && (mixed3.shapes || []).every(shape => shape.days.length > 1), "ولا تُقترح أوقاتٌ بالأيام المختلطة نفسها، بل أزرارُ الأنماط المعتمدة");
+/* ونمطٌ مختلطٌ درج عليه المقرّر نفسُه في فصولٍ سابقة يُقدَّم على اللائحة فيمرّ. */
+const mixedHabit = withHistory(new Map([[100, learnCourseNature(100, [16, 17, 18].map((term, k) =>
+  row({ id: 900 + k, AdTermId: term, fsunday: true, fmonday: true, ftuesday: false, fwednesday: false, fthursday: false, fstarttime: "09:00", fendtime: "10:20" }),
+)) ! ]]));
+check(!judgeRequest(ask({ days: ["fsunday", "fmonday"] }), mixedHabit).reasons.some(reason => /لا يُخلط/.test(reason.text)), "والنمطُ المختلط المعتاد تاريخياً لا يُمنع");
+/* والتاريخُ من الفصول السابقة وحدها: خلطٌ ظهر في الفصل الجاري لا يُعفي نفسَه (suggestNature تُبنى من السابق). */
+const priorOnly = learnCourseNature(100, [16, 17].map((term, k) => row({ id: 950 + k, AdTermId: term, fsunday: true, ftuesday: true, fmonday: false, fwednesday: false, fthursday: false, fstarttime: "09:00", fendtime: "09:50" })));
+check(judgeRequest(ask({ days: ["fsunday", "fmonday"] }), { ...mixedHabit, suggestNature: new Map([[100, priorOnly!]]) } as any).reasons.some(reason => reason.blocking && /لا يُخلط/.test(reason.text)), "وخلطٌ لم يظهر إلا في الفصل الجاري يبقى ممنوعاً");
 
 /* ── ٢–٧. عقودُ المصدر ───────────────────────────────────────────────────── */
 const server = fs.readFileSync("server.ts", "utf8");

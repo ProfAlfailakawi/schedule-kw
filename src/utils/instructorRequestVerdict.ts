@@ -573,12 +573,15 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
      واحدة: ما كان من أنماط المقرّر المعتمدة يمرّ، وما سواه يُحذَّر منه. */
   const approvedShape = courseHours > 0 && patternsForHours(courseHours).some(pattern =>
     pattern.days.length === request.days.length && pattern.days.every(day => request.days.includes(day)));
-  if (short && long && !approvedShape) {
+  /* والنمطُ الذي درج عليه المقرّر نفسُه في فصولٍ سابقة يُقدَّم على اللائحة، كما في الاقتراح. */
+  const historyShape = Boolean(historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId)?.patterns
+    .some(pattern => pattern.length === request.days.length && pattern.every(day => request.days.includes(day))));
+  if (short && long && !approvedShape && !historyShape) {
     reasons.push({
       source: "shape",
       article: DECISION_1912_LABEL,
-      text: "أيام مختلطة: الأحد والثلاثاء والخميس مدّتها 50 دقيقة، والاثنين والأربعاء 80 دقيقة. راجع التوزيع.",
-      blocking: false,
+      text: "لا يُخلط بين أيام الـ50 والـ80 دقيقة إلا بنمطٍ معتمد في مكتبة الأنماط.",
+      blocking: true,
     });
   }
 
@@ -672,7 +675,14 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const verdict = verdictOf();
   verdict.roomAvailable = roomAvailable;
   verdict.roomCandidates = candidates;
-  verdict.nearestTimes = verdict.sendable && !context.offerAlternatives ? [] : nearestFree(request, context, roomKeys, week, identity);
+  /* البديلُ ينقل الموعدَ بأيامه نفسِها، فلا يعالج خلطاً ممنوعاً: لا يُعرض وقتٌ سيُمنع هو الآخر، ويكفي رسمُ النمط المعتمد. */
+  const mixedBlocked = reasons.some(reason => reason.blocking && reason.source === "shape" && /لا يُخلط/.test(reason.text));
+  verdict.nearestTimes = (verdict.sendable && !context.offerAlternatives) || mixedBlocked ? [] : nearestFree(request, context, roomKeys, week, identity);
+  /* وبدلَه أزرارُ الأنماط المعتمدة لساعات المقرّر (متعدّدةُ الأيام، فاليومُ الواحد الممتدّ لا يُعبَّر عنه بالأيام وحدها). */
+  if (mixedBlocked && courseHours > 0 && !(verdict.shapes || []).length) {
+    verdict.shapes = patternsForHours(courseHours).filter(pattern => pattern.days.length > 1).slice(0, 3)
+      .map(pattern => ({ days: [...pattern.days] as DayKey[], label: pattern.label }));
+  }
   if (!verdict.sendable && verdict.nearestTimes.length) {
     verdict.headline = `${verdict.headline} أقربُ الأوقات المتاحة: ${verdict.nearestTimes.map(slot => `${slot.dayLabel} ${slot.start}`).join(" · ")}`;
   }
