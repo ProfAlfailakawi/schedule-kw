@@ -209,7 +209,7 @@ async function main() {
   ev = await evaluate(salem, [editOp]);
   check(ev.after.metrics.sections === ev.before.metrics.sections, "التعديل: عدد الشعب بعده = قبله (القديم لا يُحسب مع الجديد)", [ev.before.metrics.sections, ev.after.metrics.sections]);
   check(ev.after.ghosts.some((g: any) => g.state === "out") && ev.after.items.some((i: any) => i.state === "modified"), "معاينة التعديل تُظهر الموضع القديم (ghost) والجديد (معدّل)");
-  const f3 = await makeFaculty("0109454", "603", "M", "17:00", "17:50");
+  const f3 = await makeFaculty("0109454", "603", "M", "17:00", "18:20");
   const swapOut = salemRows.find(r => r.id !== movable.id && r.id !== fac1.id)!;
   const replaceOp = { id: "r1", kind: "replace", incoming: "assign", source: { id: f3.id }, out: { snapshot: { id: swapOut.id }, action: "unassign" }, target: targetOf(f3.AdCourseId, f3.SCode, daysOfRow(f3), f3.fstarttime, f3.fendtime, ownRoom(f3)) };
   ev = await evaluate(salem, [replaceOp]);

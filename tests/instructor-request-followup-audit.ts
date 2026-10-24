@@ -47,11 +47,11 @@ const context: VerdictContext = {
   courses: new Map([[100, course(100)], [200, course(200)], [300, course(300)]]),
   instructors: new Map([[TEACHER, teacher]]), knownRoomKeys: [], startLadder: ["08:00", "11:00"],
 };
-const ask: RequestedRow = { rowId: null, action: "add", AdCourseId: 300, days: ["fsunday", "ftuesday"], start: "08:00" };
-const verdict = judgeRequest(ask, { ...context, instructorRowsAfter: [...busy, row({ id: -1, AdCourseId: 300 })] });
+const ask: RequestedRow = { rowId: null, action: "add", AdCourseId: 300, days: ["fsunday", "ftuesday", "fthursday"], start: "08:00" };
+const verdict = judgeRequest(ask, { ...context, instructorRowsAfter: [...busy, row({ id: -1, AdCourseId: 300, fthursday: true })] });
 check(verdict.kind === "conflict", "إضافةٌ فوق محاضرةٍ قائمة تُمنع");
 check(verdict.nearestTimes.length > 0, "وحين تمتلئ بداياتُ القسم المعروفة يُكمَّل البديلُ من شبكة اللائحة");
-check(verdict.nearestTimes.every(slot => slot.days.join() === "fsunday,ftuesday"),
+check(verdict.nearestTimes.every(slot => slot.days.join() === "fsunday,ftuesday,fthursday"),
   "وكلُّ بديلٍ يحمل أيامَ المحاضرة كلها، لا يوماً منها");
 check(verdict.nearestTimes.every(slot => slot.start !== "08:00" && slot.start !== "11:00"),
   "ولا يُقترح وقتٌ الأستاذُ مشغولٌ فيه");
@@ -233,5 +233,14 @@ check(formatScheduleTimeRange("08:00", "09:20") === "⁦08:00 – 09:20⁩",
 /* تصادمٌ مع محاضرةٍ أخرى لنفس الأستاذ: يُقال بأخصّ عبارة، ولا تُختلق «لا قاعة». */
 check(server.includes("headline: headlineReasonOf(item.reasons)?.text") && server.includes('reason.source === "room"') && !server.includes('roomAvailable: item.verdict === "conflict" ? false : true'),
   "فحص الموعد: العنوان بأخصّ سبب مانع (محاضرتك الأخرى قبل «تتابع مرتفع») ولا قاعةَ مفقودة إلا بسبب قاعة فعلي");
+/* أوقاتُ دوام القسم (شاشة المشرف) هي الحدّ، لا الثامنة والثامنة مساءً الثابتتان. */
+{
+  const late: RequestedRow = { rowId: null, action: "add", AdCourseId: 300, days: ["fsunday", "ftuesday", "fthursday"], start: "16:30" };
+  const withRow = (extra: Partial<VerdictContext>) => judgeRequest(late, { ...context, ...extra, startLadder: [], instructorRowsAfter: [...busy, row({ id: -1, AdCourseId: 300, fthursday: true, fstarttime: "16:30", fendtime: "17:20" })] });
+  check(!withRow({}).reasons.some(reason => reason.text.includes("نهاية اليوم")), "الافتراضيُّ يقبل ١٦:٣٠");
+  check(withRow({ dayEnd: 17 * 60 }).reasons.some(reason => reason.text.includes("نهاية اليوم")), "ونهايةُ دوام القسم تمنع ما بعدها");
+  check(withRow({ dayStart: 17 * 60 }).reasons.some(reason => reason.text.includes("قبل بداية")), "وبدايةُ دوامه كذلك");
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
