@@ -474,7 +474,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       severity: "high",
       source: "decision-1912",
       approvalEffect: "block",
-      title: `توزيع مقرر نظري لا يطابق نمط ${arabicNumber(hours)} ساعات`,
+      title: `توزيع مقرر نظري لا يطابق نمط ${countOf(hours, AR.hour)}`,
       detail: hours === 3
         ? "المطلوب: ساعة في الأحد والثلاثاء والخميس، أو ساعة ونصف في الاثنين والأربعاء."
         : "المطلوب: ساعة ونصف في الاثنين والأربعاء وساعة في الخميس، أو ساعتان في الثلاثاء والخميس.",
@@ -578,7 +578,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       source: "decision-1912",
       approvalEffect: "block",
       title: `${title} (${arabicNumber(cases.length)})`,
-      detail: cases.slice(0, 4).map(item => `${who(item.instructorId)} · ${DAY_NAMES[DAY_KEYS.indexOf(item.day)]} · ${item.rows.map(row => `${name(row)} شعبة ${row.SCode}`).join(" ← ")}`).join(" — "),
+      detail: cases.slice(0, 4).map(item => `${who(item.instructorId)} · ${DAY_NAMES[DAY_KEYS.indexOf(item.day)]} · ${item.rows.map(row => `${name(row)} · رقم الشعبة ${row.SCode}`).join(" ← ")}`).join(" — "),
       rowIds: [...new Set(cases.flatMap(item => item.rows.map(row => row.id)))],
     });
   };

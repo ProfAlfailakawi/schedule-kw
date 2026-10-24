@@ -101,8 +101,9 @@ check(roleDefinition("dean").readOnly && seed.includes("if (!Repository.isDemoRe
   });
   const rules = new Set(findings.map(item => item.rule));
   check(reg?.status === "returned", "الفصل ذو المخالفات مُرجَعٌ — تُرى ملاحظاتُ اللائحة في عمل اللجنة");
-  check(rules.has("consecutive-sections") && rules.has("sections-same-hour"), `مخالفتا م.6/3 و م.7/5 تظهران في مراجعة اللائحة (${[...rules].join("، ")})`);
-  check(findings.filter(item => item.approvalEffect !== "block").length >= 2, "ومراجعةُ اللائحة تكشف المخالفتين المقصودتين («وقّع مع علمه بـ…»)");
+  check(rules.has("consecutive-one-hour") && rules.has("sections-same-hour"), `المحرّك يميّز مانع م.6/3 ومراجعة م.7/5 (${[...rules].join("، ")})`);
+  check(findings.some(item => item.rule === "consecutive-one-hour" && item.approvalEffect === "block")
+    && findings.some(item => item.rule === "sections-same-hour" && item.approvalEffect === "review"), "م.6/3 مانع اعتماد، وم.7/5 تبقى مراجعة غير حاجبة");
   check(approvalBlockerCount(regRows as any, state.schedules as any, opts) <= 2, "والمخالفاتُ مراجعةٌ لا مانع: لا مانعَ سوى التعارضين المقصودين");
   const run = regRows.filter(row => row.AdInstructorId === DEMO_REGULATION_RUN_INSTRUCTOR_ID && row.fthursday);
   check(run.length === 4 && run.every(row => String(row.fdetail).includes("حالة تجريبية مقصودة")), "كلُّ صفٍّ مخالفٍ مشروحٌ في ملاحظته بأنه مقصود");

@@ -11366,8 +11366,11 @@ async function regulationNoticesForScope(collegeId: number, sectionId: number, t
       courses: new Map(courses.map((row: any) => [Number(row.AdCourseId), row])),
       instructors: new Map(instructors.map((row: any) => [Number(row.AdInstructorId), row])),
     });
+    const familyRows = rows;
+    const familyBalance = periodBalanceFinding(familyRows as any);
+    const allFindings = [...findings, ...(familyBalance ? [familyBalance] : [])];
     const ownIds = new Set(scopeRows.map((row: any) => Number(row.id)));
-    return findings
+    return allFindings
       .filter(item => item.approvalEffect === "block" && item.source === "decision-1912")
       .map(item => ({
         rule: String(item.rule || ""),
