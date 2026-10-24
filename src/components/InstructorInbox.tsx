@@ -1,4 +1,5 @@
 import PlanBadge from "./PlanBadge";
+import AlertShort from "./AlertShort";
 import { buildInboxHeat } from "../utils/inboxHeat";
 import { byArabic } from "../utils/sorting";
 /**
@@ -605,14 +606,12 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
             <ul className="request-issues">
               {reasons.map((reason, at) => (
                 <li key={`r${at}`} data-severity={reason.blocking ? "high" : "medium"}>
-                  {reason.blocking ? <ShieldAlert aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}
-                  <span>{reason.text}</span>
+                  <AlertShort text={reason.text} fallbackIcon={reason.blocking ? ShieldAlert : AlertTriangle} />
                 </li>
               ))}
               {liveIssues.map((issue, at) => (
                 <li key={`l${at}`} data-severity={issue.severity}>
-                  {issue.severity === "high" ? <ShieldAlert aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}
-                  <span>{issue.message}{issue.detail ? <small>{issue.detail}</small> : null}</span>
+                  <AlertShort text={issue.message} detail={issue.detail} fallbackIcon={issue.severity === "high" ? ShieldAlert : AlertTriangle} />
                 </li>
               ))}
             </ul>
