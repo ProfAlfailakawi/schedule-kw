@@ -21585,7 +21585,7 @@ function activityHtml(r){
   var decisionText=decision.state==="fixed"?"قرار القسم: ثُبّت":decision.state==="rejected"?"قرار القسم: رُفض"+(decision.note?" · "+decision.note:""):submitted?"قرار القسم: بانتظار المراجعة":"لم يُرسل بعد — مسودة";
   return '<li class="activity-item" data-kind="'+esc(it.action)+'">'+skActIcon(it.action)+'<div class="activity-main"><b>'+esc(actionName(it.action))+" · "+esc(courseOf(it))+'</b>'+
    (college?'<p class="activity-meta">الكلية: '+esc(college)+'</p>':'')+
-   (was?'<div class="ev-was"><span>كان</span>'+skPillsText((it.before||{}).days||"")+'<bdi>'+ltr(rangeText((it.before||{}).time||""))+'</bdi></div>':'')+
+   (was?'<div class="ev-was"><span>كان</span>'+skPillsText((it.before||{}).days||"")+'<span class="sr">'+esc((it.before||{}).days||"")+'</span><bdi>'+ltr(rangeText((it.before||{}).time||""))+'</bdi></div>':'')+
    '<p>'+(it.action==="delete"?'':'المطلوب: ')+requestedHtml(it)+'</p>'+
    (status&&it.action!=="delete"&&!decision.state?'<p class="activity-meta" data-tone="'+esc(it.tone)+'">الفحص: '+esc(status)+'</p>':'')+
    '<div class="decision" data-state="'+esc(decision.state||"pending")+'">'+esc(decisionText)+'</div></div><time>البند '+(x.i+1)+'</time></li>'}).join("");
@@ -21654,7 +21654,7 @@ function noteNow(){return genNote!==null?genNote:String((data&&data.request&&dat
 function saveDraft(){try{localStorage.setItem(DRAFT_KEY,JSON.stringify({at:Date.now(),note:noteNow(),items:payloadItems(),names:state.map(function(it){return{collegeName:it.collegeName||"",before:it.before||null}})}))}catch(e){}}
 function clearDraft(){try{localStorage.removeItem(DRAFT_KEY)}catch(e){}}
 function readDraft(){try{var d=JSON.parse(localStorage.getItem(DRAFT_KEY)||"null");return d&&Date.now()-d.at<14*864e5?d:null}catch(e){return null}}
-window.addEventListener("beforeunload",function(e){if(dirty){e.preventDefault();e.returnValue=""}});
+window.addEventListener("beforeunload",function(e){if(dirty&&!skLeaving){e.preventDefault();e.returnValue=""}});
 function paint(){
  if(data&&data.windowOpen&&state.length){var sig=JSON.stringify(payloadItems());if(paint.last!==undefined&&paint.last!==sig){dirty=true;saveDraft()}paint.last=sig}
  if(!data){host.innerHTML='<div class="err">تعذّر فتح الرابط.</div>';return}
