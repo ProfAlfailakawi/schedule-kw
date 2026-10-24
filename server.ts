@@ -4421,7 +4421,8 @@ async function mixedPatternNotice(courseId:number,days:RequestDayKey[],termId:nu
   const course=await Repository.getCourseById(courseId);const hours=Number(course?.CourseHours||course?.CourseCredit||0);
   const sameDays=(list:readonly string[])=>list.length===days.length&&list.every(d=>days.includes(d as RequestDayKey));
   if(hours>0&&patternsForHours(hours).some(p=>sameDays(p.days)))return null;
-  if(historicalOrigin(await courseHabit(courseId),termId)?.patterns.some(p=>sameDays(p)))return null;
+  /* التاريخ من الفصول السابقة وحدها: نمطُ الفصل الجاري لا يُعفي نفسَه. */
+  if(historicalOrigin(await courseHabit(courseId,termId),termId)?.patterns.some(p=>sameDays(p)))return null;
   const ordered=DAY_KEYS.filter(d=>days.includes(d));
   return patternNoticeHtml(patternLibraryInput(),Math.round(hours)||0,ordered,ordered.map(d=>minutes&&minutes>0?minutes:expectedMinutesForDay(d)),blocking);
 }

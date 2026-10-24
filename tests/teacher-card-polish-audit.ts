@@ -127,6 +127,9 @@ const mixedHabit = withHistory(new Map([[100, learnCourseNature(100, [16, 17, 18
   row({ id: 900 + k, AdTermId: term, fsunday: true, fmonday: true, ftuesday: false, fwednesday: false, fthursday: false, fstarttime: "09:00", fendtime: "10:20" }),
 )) ! ]]));
 check(!judgeRequest(ask({ days: ["fsunday", "fmonday"] }), mixedHabit).reasons.some(reason => /لا يُخلط/.test(reason.text)), "والنمطُ المختلط المعتاد تاريخياً لا يُمنع");
+/* والتاريخُ من الفصول السابقة وحدها: خلطٌ ظهر في الفصل الجاري لا يُعفي نفسَه (suggestNature تُبنى من السابق). */
+const priorOnly = learnCourseNature(100, [16, 17].map((term, k) => row({ id: 950 + k, AdTermId: term, fsunday: true, ftuesday: true, fmonday: false, fwednesday: false, fthursday: false, fstarttime: "09:00", fendtime: "09:50" })));
+check(judgeRequest(ask({ days: ["fsunday", "fmonday"] }), { ...mixedHabit, suggestNature: new Map([[100, priorOnly!]]) } as any).reasons.some(reason => reason.blocking && /لا يُخلط/.test(reason.text)), "وخلطٌ لم يظهر إلا في الفصل الجاري يبقى ممنوعاً");
 
 /* ── ٢–٧. عقودُ المصدر ───────────────────────────────────────────────────── */
 const server = fs.readFileSync("server.ts", "utf8");

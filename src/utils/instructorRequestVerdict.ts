@@ -574,7 +574,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const approvedShape = courseHours > 0 && patternsForHours(courseHours).some(pattern =>
     pattern.days.length === request.days.length && pattern.days.every(day => request.days.includes(day)));
   /* والنمطُ الذي درج عليه المقرّر نفسُه في فصولٍ سابقة يُقدَّم على اللائحة، كما في الاقتراح. */
-  const historyShape = Boolean(historicalOrigin(context.nature?.get(Number(request.AdCourseId)), context.termId)?.patterns
+  const historyShape = Boolean(historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId)?.patterns
     .some(pattern => pattern.length === request.days.length && pattern.every(day => request.days.includes(day))));
   if (short && long && !approvedShape && !historyShape) {
     reasons.push({
