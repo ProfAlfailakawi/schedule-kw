@@ -85,7 +85,10 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .more-time summary::-webkit-details-marker{display:none}
 .more-time summary .sk-gi{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .more-time[open] summary{border-style:solid;color:var(--ok);border-color:var(--ok)}
-.more-time label.time{margin-top:8px}
+.more-time label.time{margin-top:8px;grid-template-columns:minmax(0,170px)}
+.more-time label.time input{min-block-size:48px;font-size:17px;font-weight:700}
+.heat-key[role=status]{display:flex;align-items:center;gap:7px}
+.heat-key[role=status] .sk-gi{flex:none;width:15px;height:15px;color:var(--warn);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .ends{margin-inline:2px!important}
 
 .auto-note,.hint-pro,.shape-lead,.ends{display:flex;align-items:center;gap:7px}
@@ -102,6 +105,17 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .sp u{text-decoration:none;display:grid;place-items:center;width:22px;height:22px;border-radius:7px;font-size:11.5px;font-weight:700;background:var(--ok2);color:var(--ok)}
 .sp b{font:700 11px/1 ui-monospace,monospace;color:var(--muted);direction:ltr}
 .advice .vshort{color:var(--warn)}
+.vwrap{display:flex;flex-direction:column;align-items:flex-start;gap:4px;flex:1;min-inline-size:0}
+.vcard{display:flex;flex-direction:column;gap:5px;margin:8px 0 2px;padding:9px 12px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:13px}
+.vcard .vrow,.dept .vrow{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.vstat{display:inline-flex;align-items:center;gap:8px;margin:8px 0 2px;padding:8px 14px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.vstat b{font:800 20px/1 ui-monospace,monospace;color:var(--bad)}
+.vstat i{color:var(--muted2);font-style:normal;font-size:18px}
+.vstat small{font-size:11px;color:var(--muted);line-height:1.3}
+.vart{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:4px 10px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:11.5px;color:var(--muted)}
+.vart .sk-gi{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.dept .vshort{margin-inline-start:6px}
+.alts button{display:inline-flex;flex-direction:column;align-items:center;gap:4px;min-block-size:56px;padding:8px 14px}
 
 /* هيكلُ التحميل. */
 .skel{display:grid;gap:12px;padding:20px 4px}
@@ -118,20 +132,47 @@ function skPills(keys){return '<span class="bp-d" aria-hidden="true">'+keys.map(
 function skPillsText(txt){var parts=String(txt||"").split("·").map(function(x){return x.trim()}).filter(Boolean);
  return '<span class="bp-d" aria-hidden="true">'+parts.map(function(n){return '<u>'+(SKDN[n]||esc(n.slice(0,1)))+'</u>'}).join("")+'</span>'}
 function skShort(it){var n=String(courseOf(it)||"").trim().split(/\s+/);var w=n[0]||"";if(w.length<=3&&n[1])w+=" "+n[1];return w}
-var SKSHORT=[
+var SKCAT=[
+ [/^انتهت مدّة استقبال/,"lock","انتهت مدة الطلبات"],
+ [/^اختر يوماً واحداً/,"cal","اختر يوماً"],
+ [/^اكتب وقت البداية/,"clock","اكتب وقت البداية"],
+ [/^تبدأ المحاضرة قبل بداية/,"sunrise","قبل بداية الدوام"],
+ [/^تتجاوز المحاضرة نهاية/,"sunset","بعد نهاية الدوام"],
+ [/^لا يُخلط بين أيام/,"layers","خلط 50 و80 دقيقة غير معتمد"],
  [/^تتابع مرتفع على الأستاذ/,"layers","محاضرات متتالية كثيرة"],
  [/^تكرار شعب المقرر في نفس الوقت/,"layers","شعبة أخرى بالوقت نفسه"],
  [/^التدوير غير محقق/,"sunrise","كلها في فترة واحدة"],
  [/^داخل وقت اجتماع القسم/,"cal","وقت اجتماع القسم"],
  [/^خارج المعتاد تاريخياً/,"clock","وقت غير معتاد · اذكر السبب"],
- [/^يتقاطع هذا الوقت مع مقرّرٍ يشترك فيه طلبتك/,"alert","يتعارض مع مقرّر طلبتك"]
+ [/^بيانات غير مكتملة/,"alert","بيانات ناقصة"],
+ [/^يتقاطع هذا الوقت مع مقرّرٍ يشترك فيه طلبتك/,"alert","يتعارض مع مقرّر طلبتك"],
+ [/^لا تتوفّر قاعةٌ في هذا الوقت/,"door","لا قاعة في هذا الوقت"],
+ [/^يتجاوز هذا نصابك/,"scale","يتجاوز نصابك"],
+ [/^لديك محاضرةٌ أخرى في هذا الوقت/,"alert","تعارض مع محاضرتك"]
 ];
+function skDayPill(label){var l=String(label||"").trim();return SKDN[l]?'<u>'+SKDN[l]+'</u>':""}
+/* ما يُرسم لا يُكتب: محاضرتُك المتعارضة بطاقةً (اسمٌ ويومٌ ووقت)، والنصابُ رقمين، والمادةُ شارةً. */
+function skExtra(n){var m;
+ if((m=/^لديك محاضرةٌ أخرى في هذا الوقت: (.+?) — (\S*)\s*(\d\d?:\d\d)[–-](\d\d?:\d\d)/.exec(n)))
+  return '<span class="vcard"><b>'+esc(m[1])+'</b><span class="vrow"><span class="bp-d">'+skDayPill(m[2])+'</span><bdi dir="ltr">'+esc(m[3])+' – '+esc(m[4])+'</bdi></span></span>';
+ if((m=/^يتجاوز هذا نصابك: (.+?) مقابل (.+?) مسجّلة/.exec(n)))
+  return '<span class="vstat"><b>'+esc(m[1])+'</b><i aria-hidden="true">/</i><small>'+esc(m[2])+'<br>نصابك</small></span>';
+ return ""}
+function skAlertParts(n){n=String(n||"");
+ for(var k=0;k<SKCAT.length;k++){if(SKCAT[k][0].test(n)){var ex=skExtra(n),art=/ — (م\.[^ ]+.*)$/.exec(n);return{ic:SKCAT[k][1],short:SKCAT[k][2],extra:ex||(art?'<span class="vart">'+gi("shield")+esc(art[1])+'</span>':"")}}}
+ var m=/^(.+?) — (.+)$/.exec(n);
+ if(m)return{ic:"shield",short:m[1].replace(/\s*\([^)]*\)\s*$/,""),extra:'<span class="vart">'+gi("shield")+esc(m[2])+'</span>'};
+ return null}
 /* جملةُ الحكم قصيرةً بأيقونة، وأصلُها كاملاً تحت «التفاصيل» فلا يضيع منه شيء. */
-function skVerdict(it){var n=String(it&&it.note||""),full=verdictText(it),ic="",short="";
- if(/لا يغطّيها/.test(n)){ic="calplus";short=it.shapes&&it.shapes.length?"الأيام لا تغطي الساعات · اختر نمطاً":"الساعات تحتاج توزيع القسم"}
- else{for(var k=0;k<SKSHORT.length;k++){if(SKSHORT[k][0].test(n)){ic=SKSHORT[k][1];short=SKSHORT[k][2];break}}}
- if(!short||short===full)return esc(full);
- return '<span class="vshort">'+gi(ic==="calplus"?"cal":ic)+esc(short)+'</span><details class="why"><summary>التفاصيل</summary><p>'+esc(full)+'</p></details>'}
+function skVerdict(it){var n=String(it&&it.note||""),full=verdictText(it),ic="",short="",extra="";
+ if(/لا يغطّيها/.test(n)){ic="cal";short=it.shapes&&it.shapes.length?"الأيام لا تغطي الساعات · اختر نمطاً":"الساعات تحتاج توزيع القسم"}
+ else{var p=skAlertParts(n);if(p){ic=p.ic;short=p.short;extra=p.extra}}
+ if(!short||(short===full&&!extra))return esc(full);
+ return '<span class="vshort">'+gi(ic)+esc(short)+'</span>'+extra+'<details class="why"><summary>التفاصيل</summary><p>'+esc(full)+'</p></details>'}
+/* قرارُ القسم: سببُ الرفض رمزاً وكلمات قليلة. */
+var SKREASON={room:["door","لا قاعة في الوقت المطلوب"],instructor:["alert","تعارض مع أستاذ آخر"],regulation:["shield","مخالفة للائحة"],cohort:["alert","تقاطع مع طلبة مشتركين"],load:["scale","النصاب"],department:["cal","قرار القسم"],other:["alert","سبب آخر"]};
+function skReason(code,askedAt){var r=SKREASON[code];if(!r)return "";return '<span class="vshort">'+gi(r[0])+esc(r[1])+'</span>'+(askedAt?'<span class="vrow"><bdi dir="ltr">'+esc(askedAt)+'</bdi></span>':"")}
+function skAltBtn(ds,start){return skPills(ds)+'<b class="bp-t">'+esc(start)+'</b>'}
 function skAdvice(t){t=String(t||"");var m=/^موعدك الحالي أقصر من ساعات المقرّر \(([^)]+)\)/.exec(t);
  if(!m)return '<p class="advice" role="note">'+esc(t)+'</p>';
  return '<p class="advice" role="note"><span class="vshort">'+gi("alert")+'أقصر من ساعات المقرر ('+esc(m[1])+')</span></p><details class="why"><summary>التفاصيل</summary><p>'+esc(t)+'</p></details>'}
