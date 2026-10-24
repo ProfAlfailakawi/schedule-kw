@@ -29,7 +29,9 @@ check(/context-conflict-list/.test(client) && /conflict\.message/.test(client) &
 
 const picker = read("src/components/InstructorPicker.tsx");
 check(/visitingRosterIds/.test(picker) && /rosterSet\.has\(person\.AdInstructorId\)/.test(picker) && /visitingSet\.has\(person\.AdInstructorId\) \? <VisitingBadge/.test(picker), "منتقي الأستاذ: القائمةُ من روستر الفصل والشارةُ من الصفة الدائمة");
-check(/visitingRosterIds=\{visitingRosterIds\}/.test(client), "شاشة الجدول تمرّر روستر الفصل للمنتقي (فلا يظهر منتدبُ فصلٍ آخر في «موعد جديد»)");
+check(/visitingRosterIds=\{pickerVisitingRosterIds\}/.test(client), "شاشة الجدول تمرّر روستر الفصل للمنتقي (فلا يظهر منتدبُ فصلٍ آخر في «موعد جديد»)");
+
+check(/outsideTermRoster\(person\)/.test(picker) && /visitingSet\.has\(id\) && !rosterSet\.has\(id\)/.test(picker), "منتدبٌ غير مختار للفصل يُخفى من المنتقي أياً كان مصدر اسمه (الأرشيف/البحث)");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

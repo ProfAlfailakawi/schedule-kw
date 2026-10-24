@@ -1560,6 +1560,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (visitingOnly && !scheduledVisitingIds.size) setVisitingOnly(false);
   }, [visitingOnly, scheduledVisitingIds]);
 
+  /* منتدبو هذا الفصل في المنتقي: من اختيروا له، ومن له فيه موعدٌ قائم فعلاً. */
+  const pickerVisitingRosterIds = useMemo(() => new Set([...visitingRosterIds, ...scheduledVisitingIds]), [visitingRosterIds, scheduledVisitingIds]);
+
   /** The department's own staff, ordered by how much of it they carry. */
   const departmentInstructorIds = useMemo(() => {
     const load = new Map<number, number>();
@@ -8753,7 +8756,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     instructors={instructors as any}
                     departmentIds={departmentInstructorIds}
                     visitingIds={visitingIds}
-                    visitingRosterIds={visitingRosterIds}
+                    visitingRosterIds={pickerVisitingRosterIds}
                     onCreated={(person) =>
                       setInstructors((current: any[]) =>
                         sortByName([...current, person], (row: any) => row.AdInstructorName))
