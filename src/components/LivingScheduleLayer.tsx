@@ -10,12 +10,14 @@ import {
   AlertTriangle,
   ArrowLeft,
   BrainCircuit,
+  BookOpen,
   Building2,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
   CircleHelp,
   Dna,
+  DoorOpen,
   FileClock,
   Fingerprint,
   Gauge,
@@ -1043,14 +1045,13 @@ export default function LivingScheduleLayer({
                   </div>
                   {rollover && rollover.sourceRows ? (
                     <div className="genesis-reading">
-                      <strong>{rollover.sentence}</strong>
                       <div className="genesis-reading-grid">
-                        <span><b className="num">{rollover.confident}</b> يمكن نقلها بثقة</span>
-                        {rollover.newCourses?.length ? <span><b className="num">{rollover.newCourses.length}</b> {nounFor(rollover.newCourses.length, AR.course)} {nounFor(rollover.newCourses.length, AR.newAdj)}</span> : null}
-                        {rollover.unavailableInstructors?.length ? <span><b className="num">{rollover.unavailableInstructors.length}</b> {nounFor(rollover.unavailableInstructors.length, AR.instructor)} {nounFor(rollover.unavailableInstructors.length, AR.unavailableAdj)}</span> : null}
-                        {rollover.changedCourses?.length ? <span><b className="num">{rollover.changedCourses.length}</b> {nounFor(rollover.changedCourses.length, AR.course)} {nounFor(rollover.changedCourses.length, AR.shiftedVerb)}</span> : null}
-                        {rollover.retiredRooms?.length ? <span><b className="num">{rollover.retiredRooms.length}</b> {nounFor(rollover.retiredRooms.length, AR.room)} {nounFor(rollover.retiredRooms.length, AR.stoppedFemAdj)}</span> : null}
-                        {rollover.concernCount ? <span className="is-concern"><b className="num">{rollover.concernCount}</b> {nounFor(rollover.concernCount, AR.decision)} {nounFor(rollover.concernCount, AR.deservesVerb)} المراجعة</span> : null}
+                        <span className="is-confident"><CheckCircle2 aria-hidden="true"/><b className="num">{rollover.confident}</b><span>يمكن نقلها بثقة</span></span>
+                        {rollover.newCourses?.length ? <span><BookOpen aria-hidden="true"/><b className="num">{rollover.newCourses.length}</b><span>{nounFor(rollover.newCourses.length, AR.course)} {nounFor(rollover.newCourses.length, AR.newAdj)}</span></span> : null}
+                        {rollover.unavailableInstructors?.length ? <span><UsersRound aria-hidden="true"/><b className="num">{rollover.unavailableInstructors.length}</b><span>{nounFor(rollover.unavailableInstructors.length, AR.instructor)} {nounFor(rollover.unavailableInstructors.length, AR.unavailableAdj)}</span></span> : null}
+                        {rollover.changedCourses?.length ? <span><RotateCcw aria-hidden="true"/><b className="num">{rollover.changedCourses.length}</b><span>{nounFor(rollover.changedCourses.length, AR.course)} {nounFor(rollover.changedCourses.length, AR.shiftedVerb)}</span></span> : null}
+                        {rollover.retiredRooms?.length ? <span><DoorOpen aria-hidden="true"/><b className="num">{rollover.retiredRooms.length}</b><span>{nounFor(rollover.retiredRooms.length, AR.room)} {nounFor(rollover.retiredRooms.length, AR.stoppedFemAdj)}</span></span> : null}
+                        {rollover.concernCount ? <span className="is-concern"><AlertTriangle aria-hidden="true"/><b className="num">{rollover.concernCount}</b><span>{nounFor(rollover.concernCount, AR.decision)} {nounFor(rollover.concernCount, AR.deservesVerb)} المراجعة</span></span> : null}
                       </div>
                       {/* ── وهل سيبدو كجدولك؟ ─────────────────────────────────
                           The counts above say what survives the copy. This says
@@ -1062,8 +1063,10 @@ export default function LivingScheduleLayer({
                           style to be measured against. */}
                       {rollover.style ? (
                         <div className="genesis-style">
-                          <div className="genesis-style-dial" style={{ ["--share" as any]: `${rollover.style.share}%` }}>
-                            <b className="num">{rollover.style.share}٪</b>
+                          <div className="genesis-style-score">
+                            <div className="genesis-style-dial" style={{ ["--share" as any]: `${rollover.style.share}%` }}>
+                              <b className="num">{rollover.style.share}٪</b>
+                            </div>
                             <small>بأسلوب قسمك</small>
                           </div>
                           <div className="genesis-style-read">
