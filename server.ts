@@ -106,7 +106,7 @@ import {
   signatureStage, watchesInbox,
   type AcademicRole,
 } from "./src/utils/academicRoles";
-import { capacityGapItems, computeScheduleDataReadiness } from "./src/utils/scheduleDataReadiness";
+import { capacityGapItems, teachingModeGapItems, computeScheduleDataReadiness } from "./src/utils/scheduleDataReadiness";
 import { AR, ARABIC_COUNT_SCRIPT, countOf, nounFor, oblique } from "./src/utils/arabicCount";
 import { readSettledDrift, settledTerm } from "./src/utils/settledDrift";
 import { learnRhythm, offRhythm, describeRhythm, type RhythmReading } from "./src/utils/departmentRhythm";
@@ -11575,6 +11575,7 @@ app.get("/api/approvals", requireAuth, async (req: AuthenticatedRequest, res: Re
     blockingDuplicates: blocking.duplicates,
     /* مقرراتُ الجدول التي سعتُها غير مسجّلة: تمنع التوقيع كالتعارض (طلب المالك). */
     missingCapacity: capacityGapItems(readiness.items).length,
+    missingTeachingMode: teachingModeGapItems(readiness.items).length,
     regulationNotices: notices,
     /* ── ما يمنع الإرسال يُقال قبل الضغط ────────────────────────────────────
      * من العدّاد الواحد نفسه الذي يقرؤه الإرسالُ والإرجاعُ والوارد (R4). */
@@ -11680,7 +11681,7 @@ app.post("/api/approvals/sign", requireAuth, async (req: AuthenticatedRequest, r
     const readiness = await scheduleDataReadiness(collegeId, sectionId, termId, rows);
     const regulationBlockers = await regulationNoticeCount(collegeId, sectionId, termId);
     if (regulationBlockers) { res.status(409).json({ error: `توجد ${countOf(regulationBlockers, AR.approvalBlocker)} لائحية. عالجها قبل التوقيع.`, code: "regulation-blockers" }); return; }
-    const verdict = canSign(approval, stage, { blockingConflicts: blocking.conflicts, blockingDuplicates: blocking.duplicates, rowCount: rows.length, missingCapacity: capacityGapItems(readiness.items).length });
+    const verdict = canSign(approval, stage, { blockingConflicts: blocking.conflicts, blockingDuplicates: blocking.duplicates, rowCount: rows.length, missingCapacity: capacityGapItems(readiness.items).length, missingTeachingMode: teachingModeGapItems(readiness.items).length });
     if (verdict.ok !== true) { res.status(409).json({ error: verdict.message, code: verdict.code }); return; }
 
     const notices = await regulationNoticeCount(collegeId, sectionId, termId);

@@ -30,7 +30,7 @@ import {
   APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, additionsAwaitingHead, awaitsHeadSignature, blockingSummaryPhrase, deadlinePassed,
 } from "../utils/approvalWorkflow";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
-import { CAPACITY_GAP_FIELD } from "../utils/scheduleDataReadiness";
+import { CAPACITY_GAP_FIELD, TEACHING_MODE_GAP_FIELD } from "../utils/scheduleDataReadiness";
 import { approvalBarPresence } from "../utils/approvalBarPresence";
 import { approvalScopeKey, createScopeGuard } from "../utils/approvalScope";
 import { journeyAlreadyPlayed, markPlayed, reducedMotion } from "./dna/useJourneyReveal";
@@ -38,7 +38,7 @@ import { deadlineDateLong, departmentDeadlineLine, lastExtensionRejection } from
 import type { ScheduleApproval, ScheduleApprovalStatus } from "../types";
 import { BuildingPicker, RoomPicker } from "./LocationPicker";
 import {
-  buildCourseUpdateBody, buildRoomLinkBody, courseFixFieldsOf, isPermissionDenial, readinessFixMode, validateCourseFix,
+  buildCourseUpdateBody, buildRoomLinkBody, courseFixFieldsOf, isPermissionDenial, readinessFixMode, TEACHING_MODE_OPTIONS, validateCourseFix,
   type CourseFixKey,
 } from "../utils/readinessFix";
 
@@ -53,6 +53,7 @@ interface Payload {
   blockingConflicts: number;
   /** مقرراتُ الجدول التي سعتُها غير مسجّلة: تمنع التوقيع كالتعارض. */
   missingCapacity?: number;
+  missingTeachingMode?: number;
   /** المواعيدُ التي تقف في تلك التعارضات (approvalBlockerSummary على الخادم). */
   blockingRows?: number;
   /** كم منها موعدٌ مكرّر لا تعارضٌ مادّي — فتقول العبارةُ ما تعدّه. */
@@ -330,7 +331,12 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   /* سعةُ المقرر شرطٌ للتوقيع كما يقرؤه الخادم (`canSign`): مقررٌ في الجدول بلا
      سعةٍ مسجّلة يُوقَف عنده الزرّ، وتُفتح قائمةُ إدخال السعة من الشارة. */
   const missingCapacity = Number(state.missingCapacity || 0);
-  const capacityBlocksSign = canSignNow && missingCapacity > 0;
+  const missingTeachingMode = Number(state.missingTeachingMode || 0);
+  const courseDataBlocksSign = canSignNow && (missingCapacity > 0 || missingTeachingMode > 0);
+  const courseBlockerText = [missingCapacity > 0 && "السعة", missingTeachingMode > 0 && "طبيعة التدريس"].filter(Boolean).join(" و");
+  const courseBlockerCount = state.dataReadiness?.items.filter(item => item.kind === "course" &&
+    (item.fields.includes(CAPACITY_GAP_FIELD) || item.fields.includes(TEACHING_MODE_GAP_FIELD))).length
+    ?? Math.max(missingCapacity, missingTeachingMode);
   /* شرطُ الإرسال كما يقرؤه الخادم حرفاً بحرف: توقيعان، ولا إضافةً تنتظر
      إقراراً، ولا ملاحظةً من التسجيل بلا معالجةٍ ولا ردّ. فلا يُعرض زرٌّ
      يُرفض، ولا يُخفى زرٌّ يُقبل. */
@@ -550,7 +556,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
     <section className="apb-data-readiness" data-ready={state.dataReadiness.ready || undefined} aria-label="بيانات تحتاج استكمالاً">
       <header>
         <span className="apb-dr-ic">{state.dataReadiness.ready ? <Check aria-hidden="true" /> : <ListChecks aria-hidden="true" />}</span>
-        <strong>{state.dataReadiness.ready ? (state.dataReadiness.roomFit?.count ? "ملاحظات تخطيطية · لا تمنع التوقيع" : "البيانات مكتملة") : `${countOf(state.dataReadiness.count, AR.item)} ناقصة · ${missingCapacity > 0 ? `السعة تمنع التوقيع (${missingCapacity.toLocaleString("ar-KW-u-nu-latn")})` : "لا تمنع التوقيع"}`}</strong>
+        <strong>{state.dataReadiness.ready ? (state.dataReadiness.roomFit?.count ? "ملاحظات تخطيطية · لا تمنع التوقيع" : "البيانات مكتملة") : `${countOf(state.dataReadiness.count, AR.item)} ناقصة · ${courseBlockerText ? `${courseBlockerText} تمنع التوقيع` : "لا تمنع التوقيع"}`}</strong>
         <button type="button" className="apb-dr-close" aria-label="إغلاق القائمة" onClick={() => setReadinessOpen(false)} data-guide-ignore="إغلاق قائمة البيانات الناقصة"><X aria-hidden="true" /></button>
       </header>
       {!state.dataReadiness.ready ? (() => {
@@ -572,7 +578,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
                 const lockedTip = coursesLocked || "لا تملك صلاحية تعديل المقررات";
                 const FIELD_ICON: Record<string, LucideIcon> = { CourseCredit: Layers, CourseHours: Clock, MaxStudent: Users };
                 return (
-                  <li key={itemKey} data-kind={item.kind} data-fix={mode} data-blocks-sign={item.kind === "course" && item.fields.includes(CAPACITY_GAP_FIELD) ? "true" : undefined}>
+                  <li key={itemKey} data-kind={item.kind} data-fix={mode} data-blocks-sign={item.kind === "course" && (item.fields.includes(CAPACITY_GAP_FIELD) || item.fields.includes(TEACHING_MODE_GAP_FIELD)) ? "true" : undefined}>
                     <span className="apb-dr-ic" aria-hidden="true"><ItemIcon /></span>
                     <span className="apb-dr-txt"><b>{item.label}</b>{item.fields.length ? <small>{item.fields.join("، ")}</small> : null}{fixErrors[itemKey] ? <small className="apb-dr-err" role="alert">{fixErrors[itemKey]}</small> : null}</span>
                     {mode === "course-fields" ? (
@@ -583,11 +589,15 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
                           return (
                             <label key={field.key} className="apb-dr-cap" data-text={text || undefined}>
                               <FieldIcon aria-hidden="true" /><span className="sr-only">{field.label}</span>
-                              <input data-course-input={`${item.id}:${field.key}`} dir={text ? "ltr" : undefined} inputMode={text ? "text" : field.type === "decimal" ? "decimal" : "numeric"}
+                              {field.type === "select" ? <select data-course-input={`${item.id}:${field.key}`} aria-label={`${field.label} — ${item.label}`} disabled={courseLocked}
+                                value={courseDrafts[`${item.id}:${field.key}`] ?? ""}
+                                onChange={event => setCourseDrafts(current => ({ ...current, [`${item.id}:${field.key}`]: event.target.value }))}>
+                                <option value="">اختر طبيعة التدريس</option>{TEACHING_MODE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                              </select> : <input data-course-input={`${item.id}:${field.key}`} dir={text ? "ltr" : undefined} inputMode={text ? "text" : field.type === "decimal" ? "decimal" : "numeric"}
                                 placeholder={field.label} aria-label={`${field.label} — ${item.label}`} disabled={courseLocked}
                                 value={courseDrafts[`${item.id}:${field.key}`] ?? ""}
                                 onChange={event => { const v = event.target.value; setCourseDrafts(current => ({ ...current, [`${item.id}:${field.key}`]: text ? v : v.replace(field.type === "decimal" ? /[^0-9.]/g : /[^0-9]/g, "") })); }}
-                                onKeyDown={event => { if (event.key === "Enter" && courseDirty) { event.preventDefault(); void saveCourseFix(itemKey, item.id); } }} />
+                                onKeyDown={event => { if (event.key === "Enter" && courseDirty) { event.preventDefault(); void saveCourseFix(itemKey, item.id); } }} />}
                             </label>
                           );
                         })}
@@ -673,7 +683,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
             الضغط يفتح قائمتها وفي كل بندٍ فعلٌ يقفز إلى مكان إصلاحه. */}
         {state.dataReadiness && (!state.dataReadiness.ready || Boolean(state.dataReadiness.roomFit?.count)) ? (
           <button type="button" className="apb-badge apb-data-btn" data-tone="warning" aria-expanded={readinessOpen}
-            title={`${state.dataReadiness.roomFit?.count ? `${countOf(state.dataReadiness.roomFit.count, AR.appointment)} ملاحظات ملاءمة` : `${countOf(state.dataReadiness.count, AR.item)} بيانات ناقصة`} · ${missingCapacity > 0 ? "السعة تمنع التوقيع" : "لا تمنع التوقيع"}. اضغط للتفاصيل.`}
+            title={`${state.dataReadiness.roomFit?.count ? `${countOf(state.dataReadiness.roomFit.count, AR.appointment)} ملاحظات ملاءمة` : `${countOf(state.dataReadiness.count, AR.item)} بيانات ناقصة`} · ${courseBlockerText ? `${courseBlockerText} تمنع التوقيع` : "لا تمنع التوقيع"}. اضغط للتفاصيل.`}
             onClick={() => setReadinessOpen(open => !open)}
             data-guide-ignore="قائمة البيانات الناقصة قبل التوقيع — تفتح قائمةً بكل بندٍ وفعلُه">
             <ListChecks aria-hidden="true" />
@@ -692,7 +702,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
           </button>
         ) : null}
         {planSheet ? <QuickPlanSheet collegeId={collegeId} sectionId={sectionId} termId={termId} gap={gap} demoMode={demoMode} onClose={() => setPlanSheet(false)} /> : null}
-        {canSignNow && blockingConflicts === 0 && missingCapacity === 0 ? (
+        {canSignNow && blockingConflicts === 0 && !courseDataBlocksSign ? (
           <span className="apb-badge apb-ready" data-tone="success" data-guide-ignore="شارة جاهزية التوقيع — عرضٌ لا فعل">
             <ShieldCheck aria-hidden="true" /><span>جاهز للتوقيع</span>
           </span>
@@ -715,12 +725,12 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
         ) : null}
 
         {/* المانعُ شارةٌ بعدده في مكان الزرّ، وسببُه كاملاً في تلميحها. */}
-        {capacityBlocksSign ? (
+        {courseDataBlocksSign ? (
           <button type="button" className="apb-badge apb-blocked apb-capacity-btn" data-tone="danger" aria-expanded={readinessOpen}
-            title={`${countOf(missingCapacity, AR.course)} بلا سعةٍ مسجّلة · تمنع التوقيع. اضغط لإدخالها.`}
+            title={`${missingCapacity ? `${countOf(missingCapacity, AR.course)} بلا سعة` : ""}${missingCapacity && missingTeachingMode ? " · " : ""}${missingTeachingMode ? `${countOf(missingTeachingMode, AR.course)} بلا طبيعة تدريس` : ""} · تمنع التوقيع. اضغط لاستكمالها.`}
             onClick={() => setReadinessOpen(true)}
             data-guide-ignore="شارة مانع التوقيع بسبب سعةٍ ناقصة — تفتح قائمة إدخال السعة">
-            <Users aria-hidden="true" /><span>السعة ناقصة</span><b>{missingCapacity.toLocaleString("ar-KW-u-nu-latn")}</b>
+            <Users aria-hidden="true" /><span>{courseBlockerText} ناقصة</span><b>{courseBlockerCount.toLocaleString("ar-KW-u-nu-latn")}</b>
           </button>
         ) : null}
         {canSignNow && blockingConflicts > 0 ? (
@@ -810,9 +820,9 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
         ) : null}
 
         {canSignNow ? (
-          <PrimaryButton type="button" className="apb-primary" data-guide-target="approval.action.sign" disabled={busy || blockingConflicts > 0 || capacityBlocksSign}
+          <PrimaryButton type="button" className="apb-primary" data-guide-target="approval.action.sign" disabled={busy || blockingConflicts > 0 || courseDataBlocksSign}
             aria-label={signatureStage === "head" ? "اعتماد وإرسال للتسجيل" : "توقيع لجنة الجدول"}
-            title={capacityBlocksSign ? "سجّل السعة لكل مقرر قبل التوقيع" : signatureStage === "head" ? "اعتماد وإرسال للتسجيل" : "توقيع لجنة الجدول"}
+            title={courseDataBlocksSign ? `استكمل ${courseBlockerText} لكل مقرر قبل التوقيع` : signatureStage === "head" ? "اعتماد وإرسال للتسجيل" : "توقيع لجنة الجدول"}
             onClick={() => void act("/api/approvals/sign")}>
             {signatureStage === "head" ? <BadgeCheck aria-hidden="true" /> : <PenLine aria-hidden="true" />}
             {busy ? "يوقّع…" : signatureStage === "head" ? "اعتماد وإرسال" : "توقيع"}
