@@ -21285,8 +21285,12 @@ function unchangedEdit(it){return it.action==="change"&&sameAsBefore(it)}
 /* موعدٌ جديدٌ ناقص (بلا أيامٍ أو وقت): لا يُعدّ جاهزاً. */
 function incompleteItem(it){return(it.action==="change"||it.action==="add")&&(!it.days.length||!it.start)}
 function payloadItems(){return state.filter(function(it){return !it.removedByDepartment}).map(function(it){if(unchangedEdit(it))return{rowId:it.rowId,action:"keep",days:[],start:"",excuse:it.excuse};return rawItem(it)})}
+/* موضع البند في المسودة المرسلة للخادم يختلف عن موضعه على الشاشة بعد إظهار
+   بند حذفه القسم؛ لا يُرسل هذا البند، ولا يجوز أن تُنسب نتيجةُ جاره إليه. */
+function payloadIndex(i){var at=0;for(var k=0;k<i;k++)if(!state[k].removedByDepartment)at++;return at}
+function stateIndex(i){var at=-1;for(var k=0;k<state.length;k++){if(state[k].removedByDepartment)continue;if(++at===i)return k}return -1}
 /* الفحصُ يرى بندَه نفسَه كما هو عليه الآن (ولو لم يتغيّر)، وغيرَه كما سيُرسل. */
-function payloadWith(i){var list=payloadItems();if(state[i])list[i]=rawItem(state[i]);return list}
+function payloadWith(i){var list=payloadItems();if(state[i]&&!state[i].removedByDepartment)list[payloadIndex(i)]=rawItem(state[i]);return list}
 function courseOf(it){var b=it.before||{},a=it.after||{};return b.courseName||a.courseName||"المقرر"}
 /* الكليةُ تُكتب على المحاضرة حين يدرّس الأستاذ في أكثر من كلية: بلا ذلك
    تبدو محاضرتان بالاسم نفسه كأنهما واحدة. */
@@ -21608,7 +21612,7 @@ function weekStrip(){
 /* ── خريطةُ الأوقات ───────────────────────────────────────────────────────────
    بعد اختيار الأيام يُسأل الخادمُ عن كل وقتِ بدايةٍ بالحكم نفسِه، ويُرسم على الزرّ شريطٌ: أخضر يمرّ، أصفر يحتاج سبب
    استثناء، أحمر لا يمكن. والزرُّ لا يُعطَّل بها (القرارُ للخادم عند الإرسال)، وإنما يُرى. */
-var heat={},heatKey={},heatTimer=null,heatShape={};
+var heat={},heatKey={},heatTimer={},heatShape={};
 function heatAttr(i,t){var h=heat[i]&&heat[i][t];if(!h)return "";
  return ' data-heat="'+h+'" aria-label="'+t+(h==="ok"?" · متاح":h==="warn"?" · يحتاج سبب استثناء":" · غير ممكن")+'"'}
 function heatLegend(i){if(heatShape[i])return '<p class="heat-key" role="status">'+gi("alert")+'المشكلة في الأيام لا في الوقت</p>';return heat[i]&&Object.keys(heat[i]).length?'<p class="heat-key" aria-hidden="true"><span data-heat="ok"></span>متاح <span data-heat="warn"></span>يحتاج سبباً <span data-heat="bad"></span>غير ممكن</p>':""}
@@ -21624,14 +21628,14 @@ function bestTimes(it,i){var h=heat[i];if(!h||heatShape[i]||!it.days.length)retu
 function bestHtml(it,i){var best=bestTimes(it,i);if(!best.length)return "";
  return '<div class="best" role="group" aria-label="أفضل ثلاثة مواعيد لك"><p class="shape-lead">أفضل ٣ مواعيد لك:</p><div class="best-row">'+best.map(function(b){return '<button type="button" data-i="'+i+'" data-quick="'+b.t+'" aria-label="'+esc(fmtDays(it.days)+" "+b.t+" — "+b.why)+'">'+skPills(it.days)+'<b class="bp-t">'+ltr(b.t)+'</b><small>'+gi(b.why==="بعد محاضرتك مباشرة"?"clock":"check")+esc(b.why)+'</small></button>'}).join("")+'</div></div>'}
 function startList(it){return startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60})}
-function heatSig(i){return state[i].days.join()+"|"+state[i].blk+"|"+JSON.stringify(payloadWith(i).map(function(p,k){return k===i?{rowId:p.rowId,action:p.action,courseId:p.courseId,collegeId:p.collegeId,sectionId:p.sectionId,days:p.days}:p}))}
+function heatSig(i){var at=payloadIndex(i);return state[i].days.join()+"|"+state[i].blk+"|"+JSON.stringify(payloadWith(i).map(function(p,k){return k===at?{rowId:p.rowId,action:p.action,courseId:p.courseId,collegeId:p.collegeId,sectionId:p.sectionId,days:p.days}:p}))}
 function ensureHeat(){state.forEach(function(it,i){
  if(!(it.action==="change"||it.action==="add")||!it.days.length||!openCards[i])return;
  var sig=heatSig(i);if(heatKey[i]===sig)return;heatKey[i]=sig;heat[i]=null;
- clearTimeout(heatTimer);heatTimer=setTimeout(function(){loadHeat(i,sig)},300)})}
+ clearTimeout(heatTimer[i]);heatTimer[i]=setTimeout(function(){loadHeat(i,sig)},300)})}
 function loadHeat(i,sig){var it=state[i];if(!it||heatKey[i]!==sig)return;
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-times",{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({itemIndex:i,items:payloadWith(i),starts:startList(it)})})
+  body:JSON.stringify({itemIndex:payloadIndex(i),items:payloadWith(i),starts:startList(it)})})
  .then(function(r){return r.ok?r.json():null}).then(function(d){if(!d||heatKey[i]!==sig)return;heat[i]=d.problem==="shape"?{}:(d.times||{});heatShape[i]=d.problem==="shape";paint()}).catch(function(){})}
 function planDays(it){return it.action==="add"||it.action==="change"?it.days:(it.slots||[]).map(function(s){return s.day})}
 function planStart(it){return it.action==="add"||it.action==="change"?it.start:((it.slots||[])[0]||{}).start||""}
@@ -21880,7 +21884,7 @@ function recheckAll(){
  checkTimer=setTimeout(function(){checkController=new AbortController();
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-batch",{method:"POST",headers:{"Content-Type":"application/json"},signal:checkController.signal,body:JSON.stringify({items:payloadItems()})})
  .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||"تعذر الفحص");return d})})
- .then(function(d){if(seq!==checkSeq)return;(d.items||[]).forEach(function(result){var i=Number(result.itemIndex),it=state[i];if(!it||active.indexOf(i)<0)return;it.tone=result.kind==="clear"?"ok":result.kind==="exception"?"warn":"bad";it.note=result.headline||"";it.alts=result.nearestTimes||[];it.shapes=result.shapes||[];it.notes=result.notes||[];it.advice=result.advice||"";it.pnote=result.patternNotice||"";if(result.block)it.blk=result.block});paint()})
+ .then(function(d){if(seq!==checkSeq)return;(d.items||[]).forEach(function(result){var i=stateIndex(Number(result.itemIndex)),it=state[i];if(!it||active.indexOf(i)<0)return;it.tone=result.kind==="clear"?"ok":result.kind==="exception"?"warn":"bad";it.note=result.headline||"";it.alts=result.nearestTimes||[];it.shapes=result.shapes||[];it.notes=result.notes||[];it.advice=result.advice||"";it.pnote=result.patternNotice||"";if(result.block)it.blk=result.block});paint()})
  .catch(function(error){if(seq!==checkSeq||error&&error.name==="AbortError")return;active.forEach(function(i){var it=state[i];if(it){it.tone="bad";it.note="تعذّر فحص الموعد الآن. أعد المحاولة قبل الإرسال."}});paint()});
  },140);
 }
@@ -22335,7 +22339,12 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
   const rulesCache = new Map<string, any>();
   const times: Record<string, "ok" | "warn" | "bad"> = {};
   let problemIsShape = false;
-  for (const start of starts) {
+  /* الأوقات مستقلة، والسياق وقواعد النطاق مشتركة. أربع فحوص متزامنة تقلّل
+     الانتظار على الهاتف من دون إطلاق أربعة عشر فحصاً دفعةً واحدة على الخادم. */
+  let nextStart = 0;
+  async function checkNextStart() {
+    while (nextStart < starts.length) {
+      const start = starts[nextStart++];
     const end = endForRequest(days, start, block && block > 0 ? block : undefined);
     const variant = base.map((item, k) => k !== index ? item : {
       ...item,
@@ -22346,7 +22355,9 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
     const verdict = judged.items[index]?.verdict;
     times[start] = verdict === "conflict" ? "bad" : verdict === "exception" ? "warn" : "ok";
     if ((judged.items[index]?.reasons || []).some((reason: any) => reason.code === "hours" || (reason.blocking && reason.source === "shape" && /لا يُخلط/.test(String(reason.text || ""))))) problemIsShape = true;
+    }
   }
+  await Promise.all(Array.from({ length: Math.min(4, starts.length) }, () => checkNextStart()));
   /* الأيامُ لا تغطّي ساعاتِ المقرّر: الحكمُ نفسُه لكل الأوقات، فلا تُلوَّن كلُّها حمراء كأن الوقتَ هو الخطأ. */
   if (problemIsShape) { res.json({ times: {}, problem: "shape" }); return; }
   res.json({ times });
