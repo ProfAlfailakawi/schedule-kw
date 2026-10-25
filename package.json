@@ -169,6 +169,7 @@
     "audit:tech-ed-curricula": "tsx scripts/audit-tech-education-curricula.ts",
     "test:instructor-course-load": "tsx tests/instructor-course-load-audit.ts",
     "test:course-room-type-sync": "tsx tests/course-room-type-sync-audit.ts",
+    "test:course-teaching-mode-sync": "tsx tests/course-teaching-mode-sync-audit.ts",
     "test:instructor-status": "tsx tests/instructor-status-audit.ts",
     "test:teaching-load": "tsx tests/teaching-load-audit.ts",
     "test:demo-fill": "tsx tests/demo-fill-audit.ts",

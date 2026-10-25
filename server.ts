@@ -4317,16 +4317,24 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
      * لصار «لم يتغيّر» ولما أعادت المحاولةُ ما فات من النسخ. والكتابةُ
      * متساويةُ الأثر عند التكرار. */
     let roomTypeSynced = 0;
+    let teachingModeSynced = 0;
     /* ما لم يُطابَق يُقال للمسؤول بسببه — من نسخ المقرر نفسه وحدها (القسمُ نفسُه في أحرامه).
        رقمُ المقرر يتكرر بين الأقسام العلمية لمقرراتٍ مختلفة، فمقررُ قسمٍ آخر بالرقم نفسه ليس نسخةً
        ولا يُذكر أصلاً: ذكرُه كان يوحي بأنه كان يجب أن يتغيّر. */
-    let roomTypeSkipped: Array<{ college: string; section: string; reason: string }> = [];
+    const syncSkipped: Array<{ college: string; section: string; reason: string }> = [];
     const roomTypeChanged = String(currentCourse.CourseRoomType || "").normalize("NFKC").trim() !== CourseRoomType;
     /* النوعُ الجديد يسري عند كل حفظٍ بنوعٍ غير فارغ، لا عند تغييره وحده: نسخةٌ كان نوعُها محفوظاً من قبل
        فأُعيد حفظها بلا تغيير كانت لا توحّد البقية. والفارغ لا يُمحى به غيرُه إلا حين يُمحى عمداً (تغيير). */
     const roomTypeEvaluated = roomTypeChanged || CourseRoomType !== "";
+    const teachingModeChanged = CourseTeachingMode !== undefined
+      && String(currentCourse.CourseTeachingMode || "") !== CourseTeachingMode;
+    /* كنوع القاعة: القيمةُ المعيّنة تُوحّد النسخ عند كل حفظ، والفارغة لا تمحو
+       غيرَها إلا عند إزالتها قصداً من النسخة المفتوحة. */
+    const teachingModeEvaluated = CourseTeachingMode !== undefined
+      && (teachingModeChanged || CourseTeachingMode !== "");
     let roomTypeAligned = 0;
-    if (roomTypeEvaluated) {
+    let teachingModeAligned = 0;
+    if (roomTypeEvaluated || teachingModeEvaluated) {
       const [allCourses, allSections, allColleges] = await Promise.all([Repository.getCourses(), Repository.getSections(), Repository.getColleges()]);
       const candidates = roomTypeSiblingIds({ ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId, CourseCode }, allCourses as any, allSections as any, allColleges as any);
       const siblings: number[] = [];
@@ -4335,19 +4343,27 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
         const collegeName = String(allColleges.find(college => Number(college.AdCollegeId) === Number(other.AdCollegeId))?.AdCollegeName || "");
         const sectionName = String(allSections.find(section => Number(section.AdSectionId) === Number(other.AdSectionId))?.AdSectionName || "");
         if (!req.user.IsAdminUser && !isScopeAllowed(req, Number(other.AdCollegeId), Number(other.AdSectionId))) {
-          roomTypeSkipped.push({ college: collegeName, section: sectionName, reason: "خارج صلاحياتك" });
+          syncSkipped.push({ college: collegeName, section: sectionName, reason: "خارج صلاحياتك" });
           continue;
         }
         if (!await committeeCatalogEditAllowed(req, Number(other.AdSectionId))) {
-          roomTypeSkipped.push({ college: collegeName, section: sectionName, reason: "تعديل بيانات هذا القسم مقيَّد الآن" });
+          syncSkipped.push({ college: collegeName, section: sectionName, reason: "تعديل بيانات هذا القسم مقيَّد الآن" });
           continue;
         }
         siblings.push(siblingId);
       }
-      const typeOf = (courseId: number) => String(allCourses.find(course => Number(course.AdCourseId) === courseId)?.CourseRoomType || "").normalize("NFKC").trim();
-      const differing = siblings.filter(siblingId => typeOf(siblingId) !== CourseRoomType);
-      roomTypeAligned = siblings.length - differing.length;
-      roomTypeSynced = await Repository.setCourseRoomTypeForIds(differing, CourseRoomType);
+      if (roomTypeEvaluated) {
+        const typeOf = (courseId: number) => String(allCourses.find(course => Number(course.AdCourseId) === courseId)?.CourseRoomType || "").normalize("NFKC").trim();
+        const differing = siblings.filter(siblingId => typeOf(siblingId) !== CourseRoomType);
+        roomTypeAligned = siblings.length - differing.length;
+        roomTypeSynced = await Repository.setCourseRoomTypeForIds(differing, CourseRoomType);
+      }
+      if (teachingModeEvaluated) {
+        const modeOf = (courseId: number) => String(allCourses.find(course => Number(course.AdCourseId) === courseId)?.CourseTeachingMode || "");
+        const differing = siblings.filter(siblingId => modeOf(siblingId) !== CourseTeachingMode);
+        teachingModeAligned = siblings.length - differing.length;
+        teachingModeSynced = await Repository.setCourseTeachingModeForIds(differing, CourseTeachingMode || "");
+      }
     }
     const updated = await Repository.updateCourse(
       id,
@@ -4361,7 +4377,10 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
       CourseRoomType,
       CourseTeachingMode === "" ? null : CourseTeachingMode
     );
-    res.json({ ...updated, roomTypeSynced, roomTypeAligned, roomTypeChanged, roomTypeEvaluated, roomTypeSkipped: roomTypeSkipped.slice(0, 8) });
+    res.json({ ...updated, roomTypeSynced, roomTypeAligned, roomTypeChanged, roomTypeEvaluated,
+      roomTypeSkipped: roomTypeEvaluated ? syncSkipped.slice(0, 8) : [],
+      teachingModeSynced, teachingModeAligned, teachingModeChanged, teachingModeEvaluated,
+      teachingModeSkipped: teachingModeEvaluated ? syncSkipped.slice(0, 8) : [] });
   } catch (e: any) {
     res.status(404).json({ error: e.message });
   }
