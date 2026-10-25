@@ -4779,7 +4779,7 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
   };
 
   const collegeRooms=registry.rooms.filter(room=>{
-    if(!room.active||room.confidence!=="CONFIRMED")return false;
+    if(!room.active||room.confidence!=="CONFIRMED"||(room.bookingPolicy&&room.bookingPolicy!=="normal"))return false;
     const building=buildingById.get(room.buildingId);
     if(!building||!building.active||building.confidence!=="CONFIRMED")return false;
     const roomColleges=[...new Set([...(room.collegeIds||[]),...(building.collegeIds||[])].map(Number).filter(Boolean))];
@@ -4957,7 +4957,7 @@ function spatialBurnoutAnalysis(scopeRows:any[],termRows:any[],profile:any,instr
 function roomIsFreeForRow(room:{code:string;hall:string;buildingId?:string;roomId?:string},target:any,termRows:any[],ignoreIds:Set<number>){
   return termRows.every((other:any)=>{
     if(ignoreIds.has(Number(other.id)))return true;
-    const sameRoom=room.roomId&&other.roomId?String(room.roomId)===String(other.roomId):normalizedBuilding(other.AdRoomCode).toLocaleLowerCase()===normalizedBuilding(room.code).toLocaleLowerCase()&&String(other.AdRoomHall||"").trim().toLocaleLowerCase()===String(room.hall||"").trim().toLocaleLowerCase();
+    const sameRoom=rowOccupiesRoom(other,room.roomId||"",room.code,room.hall);
     if(!sameRoom)return true;
     return !["fsunday","fmonday","ftuesday","fwednesday","fthursday"].some(day=>Boolean(target[day]&&other[day])&&scheduleOverlap(target.fstarttime,target.fendtime,other.fstarttime,other.fendtime));
   });
