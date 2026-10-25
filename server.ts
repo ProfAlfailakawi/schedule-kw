@@ -15965,10 +15965,16 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     }
     history[key] = similar.map((past, index) => {
       const term = perTerm[index];
-      const sections = family.reduce((sum, member) => sum + (term.sectionsOf.get(member)?.size || 0), 0);
-      const known = family.filter(member => term.remaining[String(member)] != null);
+      /* المقررات السابقة في عائلة إعادة الترقيم بدائل تاريخية، وليست شعباً
+         تُجمع فوق بعضها. إذا لم يُطرح المقرر الحالي في هذا الفصل، خذ أقرب
+         سلفٍ مطروح فقط؛ جمعُ كل الأسلاف كان يرفع تاريخ المقرر إلى أرقام لم
+         يفتحها القسم قط. */
+      const source = family.find(member => (term.sectionsOf.get(member)?.size || 0) > 0)
+        ?? family.find(member => term.remaining[String(member)] != null);
+      const sections = source == null ? 0 : term.sectionsOf.get(source)?.size || 0;
+      const remaining = source == null ? undefined : term.remaining[String(source)];
       return { termName: past.AdTermName, similar: past.similar, sections,
-        ...(known.length ? { remaining: known.reduce((sum, member) => sum + Number(term.remaining[String(member)] || 0), 0) } : {}) };
+        ...(remaining != null ? { remaining } : {}) };
     });
   }
   res.json({
