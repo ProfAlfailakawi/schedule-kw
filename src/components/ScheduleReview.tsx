@@ -100,7 +100,6 @@ const byWeekTime = (a: FSchedule, b: FSchedule) =>
   firstDayIndex(a) - firstDayIndex(b) || String(a.fstarttime || "").localeCompare(String(b.fstarttime || "")) || String(a.SCode || "").localeCompare(String(b.SCode || ""));
 
 function ReviewPersonGroup({ group, courses, visitingIds }: { group: { who: string; rows: FSchedule[] }; courses: Map<number, AdCourse>; visitingIds: Set<number> }) {
-  const [open, setOpen] = React.useState(false);
   const who = group.who;
   const rows = React.useMemo(() => [...group.rows].sort(byWeekTime), [group.rows]);
   const visiting = rows.some(row => visitingIds.has(Number(row.AdInstructorId)));
@@ -126,9 +125,8 @@ function ReviewPersonGroup({ group, courses, visitingIds }: { group: { who: stri
     });
   }, [rows, courses]);
   return (
-    <section className={`review-person ${open ? "open" : ""}`}>
-      <button type="button" className="review-person-head" data-guide-ignore="طيّ شعب أستاذ داخل ملاحظة مراجعة — عرض فقط، لا يغيّر الجدول"
-        onClick={() => setOpen(value => !value)} aria-expanded={open}>
+    <details className="review-person">
+      <summary className="review-person-head" data-guide-ignore="طيّ شعب أستاذ داخل ملاحظة مراجعة — عرض فقط، لا يغيّر الجدول">
         <span className="review-person-avatar" aria-hidden="true"><UserRound /></span>
         <span className="review-person-identity">
           <strong className="schedule-instructor-with-badge">{who}{visiting ? <VisitingBadge compact /> : null}</strong>
@@ -136,9 +134,8 @@ function ReviewPersonGroup({ group, courses, visitingIds }: { group: { who: stri
         </span>
         <span className="review-person-count">{countOf(sectionCount, AR.section)}</span>
         <ChevronDown className="review-person-chevron" aria-hidden="true" />
-      </button>
-      {open ? (
-        <div className="review-person-rows review-course-deck">
+      </summary>
+      <div className="review-person-rows review-course-deck">
           {courseGroups.map(course => (
             <section key={course.courseId} className="review-course-card" aria-label={course.name}>
               <header className="review-course-heading">
@@ -172,9 +169,8 @@ function ReviewPersonGroup({ group, courses, visitingIds }: { group: { who: stri
               </div>
             </section>
           ))}
-        </div>
-      ) : null}
-    </section>
+      </div>
+    </details>
   );
 }
 
@@ -252,7 +248,6 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
   const sawChecking = useRef(false);
   if (!readinessChecked) sawChecking.current = true;
   const [readinessError, setReadinessError] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
   const [quietOpen, setQuietOpen] = useState(false);
   const [periodOpen, setPeriodOpen] = useState(false);
   useDialogDismiss(true, onClose);
@@ -626,8 +621,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
   };
 
   const renderFinding = (finding: ReviewFindingGroup) => (
-            <article key={finding.groupKey} className={`review-finding severity-${findingTone(finding)} ${open === finding.groupKey ? "open" : ""}`}>
-              <button type="button" data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط" onClick={() => setOpen(current => (current === finding.groupKey ? null : finding.groupKey))}>
+            <details key={finding.groupKey} className={`review-finding severity-${findingTone(finding)}`}>
+              <summary data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط">
                 <span className="review-mark" aria-hidden="true">{findingIcon(finding)}</span>
                 <span className="review-copy">
                   <strong>{markVisitingNames(finding.title, finding.rowIds)}</strong>
@@ -648,9 +643,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
                 </span>
                 <em>{finding.article}</em>
                 <i>{findingStatus(finding)}</i>
-              </button>
-              {open === finding.groupKey ? (
-                <div className="review-rows">
+              </summary>
+              <div className="review-rows">
                   <div className="review-finding-detail">
                       {finding.data && finding.groupedCount === 1 ? <PeriodBalanceInfographic {...finding.data} /> : (
                         <details className="review-rule-explainer">
@@ -679,9 +673,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
                       ) : null}
                     </>
                   ) : null}
-                </div>
-              ) : null}
-            </article>
+              </div>
+            </details>
   );
 
 
