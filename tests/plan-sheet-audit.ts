@@ -45,6 +45,9 @@ const model: SheetModel = {
   check(["المستوى 100", "المستوى 200", "المستوى 300", "المستوى 400"].every(label => html.includes(label)) && !html.includes("السنة الأولى") && !html.includes("فصل 1"), "S1 الأعمدةُ مستوياتٌ لا سنواتٌ ولا فصول");
   check((html.match(/class="card"/g) || []).length === 7, "S1 بطاقةٌ لكل مقررٍ (٥ في الخريطة + ٢ اختياري)");
   check((html.match(/class="edge"/g) || []).length === 6, "S1 سهمٌ لكل مسبق (٥ في الخريطة وواحدٌ للاختياري)");
+  const electiveRoute = html.match(/<g class="edge" data-s="105" data-t="226">([\s\S]*?)<\/g>/)?.[1] || "";
+  check(electiveRoute.includes("stroke-width=\"5.5\"") && /<path d="M[^\"]+ [^\"]+ [^\"]+/.test(electiveRoute)
+    && !electiveRoute.includes("<text"), "S1 سهمُ الاختياري مسارٌ متصلٌ من البطاقة السابقة إلى بطاقة الاختياري");
   check(html.includes("اختياري تخصصي - اختر مقررين") && html.includes("ملاحظات") && html.includes("من قسم آخر"), "S1 شريطُ الاختياري بعنوانه، وملاحظةُ المتطلب الخارجي لا بطاقةً ولا سهماً");
   check(!html.includes('data-c="150"') && !html.includes('data-s="150"'), "S1 المقررُ الخارجي لا بطاقةَ له ولا سهم");
   check(html.includes("{{") === false && html.includes("const D=") && html.includes('"LV"'), "S1 القالبُ مملوءٌ بلا علاماتٍ متروكة، وبيانات التفاعل مضمّنة");
@@ -85,6 +88,9 @@ const model: SheetModel = {
     "plan.addEventListener('mouseover'",
   ];
   check(motions.every(needle => reference.includes(needle) && html.includes(needle)), "S1 تأثيرات التكبير والتوهج والأسهم والاسم في الصحيفة المولّدة مطابقة للمرجع");
+  check(reference.includes("const A=new Set([...up(c)].map(Number)),B=new Set([...dn(c)].map(Number)),S=new Set([...A,...B,Number(c)])")
+    && html.includes("const A=new Set([...up(c)].map(Number)),B=new Set([...dn(c)].map(Number)),S=new Set([...A,...B,Number(c)])"),
+    "S1 اختيار المقرر يطابق أنواع رموز المتطلبات لتفعيل الأسهم المتحركة في الصحيفة والخريطة");
   check(!/^\s*#tag\{display:none!important\}/m.test(template) && html.includes("function placeTag()") && html.includes("tag.classList.add('on')"), "S1 ظهور الاسم العائم على الهاتف كما في المرجع");
   check(template.includes("const htmlText=v=>") && template.includes("htmlText(name(c))")
     && template.includes("tag.innerHTML=`<b>${sel}</b>${htmlText(name(sel))}`")
@@ -118,9 +124,8 @@ const model: SheetModel = {
     && referenceCards.every(sameLabel),
     "S1 أسماء البطاقات الـ28 مطابقة لأسطرها وأحجام خطوطها في index");
 
-  // Reference-mode regression: the published sheet must recreate the exact
-  // positions/arrows/year-and-semester artwork for the original department
-  // while excluding any unapproved external course from its course cards.
+  // The index remains a visual reference, but its plan-specific geometry must
+  // never override approved data in the shared generator.
   const artwork = [...reference.matchAll(/<g class="card" data-c="([^"]+)"[\s\S]*?<\/g>/g)].map(match => {
     const rect = match[0].match(/<rect x="(\d+)" y="(\d+)" width="(\d+)"/);
     const label = match[0].match(/aria-label="[^"]+? (.*?)"/)?.[1] || "";
@@ -138,20 +143,19 @@ const model: SheetModel = {
     edges: realEdges, notes: [], layout: "levels",
   };
   const visualHtml = buildPlanSheet(visualModel, { template });
-  check(visualHtml.includes('viewBox="0 0 1754 1240"') && visualHtml.includes("السنة الأولى")
-    && visualHtml.includes("السنة الرابعة") && visualHtml.includes("فصل 1") && visualHtml.includes("فصل 2")
-    && !visualHtml.includes("المستوى 100"),
-    "S1 تخطيط صحيفة تكنولوجيا التعليم يطابق المرجع: المقاس والأعمدة والسنوات والفصول");
+  check(visualHtml.includes('viewBox="0 0 1754 ')
+    && visualHtml.includes("المستوى 100") && visualHtml.includes("المستوى 400")
+    && !visualHtml.includes("السنة الأولى") && !visualHtml.includes("فصل 1"),
+    "S1 خطة تكنولوجيا التعليم تستخدم التوزيع العام بالمستويات الفعلية لا تخطيط المرجع المخصص");
   check(eligibleMain.length === 23 && eligibleOptions.length === 4
     && artwork.filter(c => c.id !== "150").every(c => visualHtml.includes(
-      '<g class="card" data-c="' + c.id + '"') && visualHtml.includes(
-      '<rect x="' + c.x + '" y="' + c.y + '" width="' + c.w + '" height="60"'))
+      '<g class="card" data-c="' + c.id + '"'))
     && !visualHtml.includes('data-c="150"') && !visualHtml.includes('data-s="150"'),
-    "S1 مواقع البطاقات من index حرفياً، دون اختراع بطاقة المتطلب الخارجي");
+    "S1 جميع مقررات الخطة الفعلية تظهر، ولا تُضاف بطاقة لمتطلب خارجي");
   const refEdge = reference.match(/<g class="edge" data-s="105" data-t="121">[\s\S]*?<path d="([^"]+)"/)?.[1] || "";
-  check(refEdge.length > 40 && visualHtml.includes(refEdge) && visualHtml.includes('data-s="105" data-t="121"')
+  check(refEdge.length > 40 && visualHtml.includes('data-s="105" data-t="121"')
     && realEdges.every(([a, b]) => visualHtml.includes('data-s="' + a + '" data-t="' + b + '"')),
-    "S1 الأسهم الأصلية المنحنية محفوظة لكل متطلب موجود فعلاً في الصحيفة المنشورة");
+    "S1 جميع علاقات المتطلبات الفعلية مرسومة دون استيراد مسارات المرجع");
   const extraCourse = { code: "999", name: "مقرر حقيقي إضافي", level: 500, credit: 3 };
   const changedPlan = buildPlanSheet({ ...visualModel, courses: [...visualModel.courses, extraCourse] }, { template });
   check(changedPlan.includes('data-c="999"') && changedPlan.includes("المستوى 500")
@@ -187,10 +191,9 @@ const model: SheetModel = {
     const expected = new Set([...syntheticCourses.map(c => c.code.slice(-3)),String(99000 + di)]);
     const allRealCourses = tags.length === expected.size && tags.every(x => expected.has(x));
     check(rendered.includes(department) && rendered.includes('viewBox="0 0 1754 ')
-      && rendered.includes('x="1392" y="180" width="322" height=')
-      && rendered.includes('x="42" y="180" width="322" height=')
-      && capsules.length === 8 && rendered.includes("مجموعة 1") && rendered.includes("مجموعة 2"),
-      `S1 تصميم المرجع لكل الأقسام: الأعمدة والمسافات والكبسولات — ${department}`);
+      && rendered.includes("المستوى 100") && rendered.includes("المستوى 400")
+      && capsules.length >= 4 && !rendered.includes("مجموعة 1") && !rendered.includes("مجموعة 2"),
+      `S1 التصميم العام المتكيف للأقسام بمجموعات شكلية غير مضللة — ${department}`);
     check(allRealCourses && (rendered.match(/class="edge"/g) || []).length === realLinks.length
       && rendered.includes('data-t="' + syntheticCourses[11].code.slice(-3) + '"')
       && rendered.includes(`ملاحظة القسم ${di + 1}`),
@@ -212,6 +215,15 @@ const model: SheetModel = {
     && (unbalanced.match(/class="card"/g) || []).length === 8
     && (unbalanced.match(/class="edge"/g) || []).length === 1,
     "S1 الستة مستويات تتمدد بلا قص أو إخفاء بطاقات أو أسهم");
+
+  const oneLevel = buildPlanSheet({ ...model, title: "قسم الخطة الصغيرة", courses: [
+    { code: "701", name: "مقدمة طويلة باللغة العربية للتصميم التعليمي", credit: 3, level: 700 },
+    { code: "702", name: "مدخل English and Arabic", credit: 2, level: 700 },
+  ], groups: [], edges: [["701", "702"]], notes: [] }, { template });
+  check(oneLevel.includes("المستوى 700") && !oneLevel.includes("المستوى 100")
+    && (oneLevel.match(/class="card"/g) || []).length === 2
+    && (oneLevel.match(/class="edge"/g) || []).length === 1,
+    "S1 مستوى واحد وأسماء عربية طويلة ومختلطة تحافظ على بياناتها وعلاقتها");
   check(wide.includes('width="230" height="28" rx="14"') && wide.includes("ثقافة عامة") && wide.includes("مهنية")
     && wide.includes("وحدة") && !wide.includes("مجموعة 1"),
     "S1 الأقسام المساندة ذات العرض الكامل تحصل على كبسولات عدد المقررات والوحدات");
