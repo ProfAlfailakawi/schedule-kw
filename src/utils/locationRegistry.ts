@@ -403,7 +403,7 @@ export const eligibleHallsForSection = (
   sectionId: number,
   borrowedRoomIds: ReadonlySet<string> = new Set(),
 ): EligibleHall[] => {
-  const rooms = registry.rooms.filter(room => room.active && room.confidence === "CONFIRMED"
+  const rooms = registry.rooms.filter(room => room.active && room.confidence === "CONFIRMED" && (!room.bookingPolicy || room.bookingPolicy === "normal")
     && ((room.sectionIds || []).includes(sectionId) || borrowedRoomIds.has(room.id)));
   const buildings = new Map(registry.buildings
     .filter(building => building.active && building.confidence === "CONFIRMED" && rooms.some(room => room.buildingId === building.id))
@@ -417,6 +417,16 @@ export const eligibleHallsForSection = (
   }));
 };
 
+/** Both physical rooms are occupied for the entire academic appointment. */
+export const roomIdentityKeys = (row: Partial<FSchedule>): string[] => {
+  const primary=roomIdentityKey(row);
+  const companion=String(row.companionRoomId||"").trim();
+  return [...new Set([primary,companion?`id:${companion}`:""].filter(Boolean))];
+};
+export const sharePhysicalRoom = (a: Partial<FSchedule>, b: Partial<FSchedule>): boolean => {
+  const keys=new Set(roomIdentityKeys(a));
+  return roomIdentityKeys(b).some(key=>keys.has(key));
+};
 export const roomIdentityKey = (row: Partial<FSchedule>): string => {
   if(row.locationStatus==="PENDING_ROOM") return "";
   return roomKeyOf(row.roomId, row.AdRoomCode, row.AdRoomHall);
@@ -430,9 +440,8 @@ export const roomIdentityKey = (row: Partial<FSchedule>): string => {
  * hall empty because its occupant was typed rather than linked.
  */
 export const rowOccupiesRoom = (row: Partial<FSchedule>, roomId: unknown, roomCode: unknown, roomHall: unknown): boolean => {
-  const key = roomIdentityKey(row);
-  if (!key) return false;
-  return key === roomKeyOf(roomId, roomCode, roomHall) || key === roomKeyOf("", roomCode, roomHall);
+  const keys=roomIdentityKeys(row);
+  return keys.some(key=>key===roomKeyOf(roomId,roomCode,roomHall)||key===roomKeyOf("",roomCode,roomHall));
 };
 
 export const buildingIdentityKey = (row: Partial<FSchedule>): string => row.buildingId ? `id:${row.buildingId}` : normalizeLocationToken(row.AdRoomCode);
