@@ -118,6 +118,46 @@ const model: SheetModel = {
     && referenceCards.every(sameLabel),
     "S1 أسماء البطاقات الـ28 مطابقة لأسطرها وأحجام خطوطها في index");
 
+  // Reference-mode regression: the published sheet must recreate the exact
+  // positions/arrows/year-and-semester artwork for the original department
+  // while excluding any unapproved external course from its course cards.
+  const artwork = [...reference.matchAll(/<g class="card" data-c="([^"]+)"[\s\S]*?<\/g>/g)].map(match => {
+    const rect = match[0].match(/<rect x="(\d+)" y="(\d+)" width="(\d+)"/);
+    const label = match[0].match(/aria-label="[^"]+? (.*?)"/)?.[1] || "";
+    return { id: match[1], name: label, x: Number(rect?.[1]), y: Number(rect?.[2]), w: Number(rect?.[3]) };
+  });
+  const eligibleMain = artwork.filter(card => card.w === 262 && card.id !== "150");
+  const eligibleOptions = artwork.filter(card => card.w === 350);
+  const realEdges = [...reference.matchAll(/<g class="edge" data-s="([^"]+)" data-t="([^"]+)"/g)]
+    .filter(match => match[1] !== "150" && match[2] !== "150")
+    .map(match => [match[1], match[2]] as [string, string]);
+  const visualModel: SheetModel = {
+    ...model, title: "قسم تكنولوجيا التعليم", planLabel: "2026/2027",
+    courses: eligibleMain.map(c => ({ code: c.id, name: c.name, level: 100 * (Math.round((1440 - c.x) / 450) + 1), credit: 3 })),
+    groups: [{ title: "اختياري تخصصي", pick: 2, courses: eligibleOptions.map(c => ({ code: c.id, name: c.name, credit: 3 })) }],
+    edges: realEdges, notes: [], layout: "levels",
+  };
+  const visualHtml = buildPlanSheet(visualModel, { template });
+  check(visualHtml.includes('viewBox="0 0 1754 1240"') && visualHtml.includes("السنة الأولى")
+    && visualHtml.includes("السنة الرابعة") && visualHtml.includes("فصل 1") && visualHtml.includes("فصل 2")
+    && !visualHtml.includes("المستوى 100"),
+    "S1 تخطيط صحيفة تكنولوجيا التعليم يطابق المرجع: المقاس والأعمدة والسنوات والفصول");
+  check(eligibleMain.length === 23 && eligibleOptions.length === 4
+    && artwork.filter(c => c.id !== "150").every(c => visualHtml.includes(
+      '<g class="card" data-c="' + c.id + '"') && visualHtml.includes(
+      '<rect x="' + c.x + '" y="' + c.y + '" width="' + c.w + '" height="60"'))
+    && !visualHtml.includes('data-c="150"') && !visualHtml.includes('data-s="150"'),
+    "S1 مواقع البطاقات من index حرفياً، دون اختراع بطاقة المتطلب الخارجي");
+  const refEdge = reference.match(/<g class="edge" data-s="105" data-t="121">[\s\S]*?<path d="([^"]+)"/)?.[1] || "";
+  check(refEdge.length > 40 && visualHtml.includes(refEdge) && visualHtml.includes('data-s="105" data-t="121"')
+    && realEdges.every(([a, b]) => visualHtml.includes('data-s="' + a + '" data-t="' + b + '"')),
+    "S1 الأسهم الأصلية المنحنية محفوظة لكل متطلب موجود فعلاً في الصحيفة المنشورة");
+  const extraCourse = { code: "999", name: "مقرر حقيقي إضافي", level: 500, credit: 3 };
+  const changedPlan = buildPlanSheet({ ...visualModel, courses: [...visualModel.courses, extraCourse] }, { template });
+  check(changedPlan.includes('data-c="999"') && changedPlan.includes("المستوى 500")
+    && !changedPlan.includes("السنة الرابعة"),
+    "S1 الخطة المختلفة لا تستخدم هندسة مرجعية تُسقط مقرراً جديداً أو تخلط بيانات الخطط");
+
   const arabicLabel = buildPlanSheet({ ...model, planLabel: "الصحيفة السابقة" }, { template });
   const labelTag = arabicLabel.match(/<text[^>]*>الصحيفة السابقة<\/text>/)?.[0] || "";
   check(labelTag.includes('direction="rtl"') && labelTag.includes('text-anchor="start"') && !labelTag.includes("letter-spacing"), "S1 عنوانُ الصحيفة العربي: اتجاهٌ يمينيّ ومرساةٌ عند الحافة اليمنى (لا يُقطع) وبلا تباعد حروف", labelTag);
