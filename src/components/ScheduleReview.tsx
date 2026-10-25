@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { AlertTriangle, Building2, CalendarDays, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, History, Info, Printer, X } from "lucide-react";
+import { AlertTriangle, BookOpen, Building2, CalendarDays, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, History, Info, Printer, UserRound, X } from "lucide-react";
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { PrintLetterhead, PrintPortal, PrimaryButton, SecondaryButton, useDialogDismiss } from "./ui";
 import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
@@ -103,43 +103,78 @@ function ReviewPersonGroup({ group, courses, visitingIds }: { group: { who: stri
   const [open, setOpen] = React.useState(false);
   const who = group.who;
   const rows = React.useMemo(() => [...group.rows].sort(byWeekTime), [group.rows]);
-  const single = rows.length === 1;
   const visiting = rows.some(row => visitingIds.has(Number(row.AdInstructorId)));
-  /* The chip is labelled «شعب», so it counts sections. It used to count rows,
-     and a section that meets in two separate blocks is two rows — which is how
-     an instructor with a handful of sections was announced as having eleven. */
   const sectionCount = new Set(rows.map(row => `${row.AdCourseId}:${row.SCode}`)).size;
+  // Presentation-only grouping: same rows, same finding, grouped for reading.
+  const courseGroups = React.useMemo(() => {
+    const grouped = new Map<number, FSchedule[]>();
+    rows.forEach(row => grouped.set(Number(row.AdCourseId), [...(grouped.get(Number(row.AdCourseId)) || []), row]));
+    return [...grouped.entries()].map(([courseId, items]) => {
+      const course = courses.get(courseId);
+      return {
+        courseId,
+        code: course?.CourseCode || items[0]?.AdCourseName || "—",
+        name: course?.CourseName || items[0]?.AdCourseName || "مقرر غير مسمى",
+        sectionCount: new Set(items.map(row => String(row.SCode))).size,
+        days: DAY_KEYS.map((key, index) => ({
+          key, title: DAY_NAMES[index],
+          appointments: items.filter(row => Boolean((row as any)[key]))
+            .sort((a, b) => String(a.fstarttime || "").localeCompare(String(b.fstarttime || ""))),
+        })).filter(item => item.appointments.length > 0),
+        withoutDay: items.filter(row => !DAY_KEYS.some(day => Boolean((row as any)[day]))),
+      };
+    });
+  }, [rows, courses]);
   return (
-    <div className={`review-person ${open ? "open" : ""}`}>
-      <button type="button" className="review-person-head" data-guide-ignore="طيّ شعب أستاذ داخل ملاحظة مراجعة — عرض فقط، لا يغيّر الجدول" onClick={() => !single && setOpen(v => !v)} aria-expanded={single ? undefined : open}>
-        <strong className="schedule-instructor-with-badge">{who}{visiting ? <VisitingBadge compact /> : null}</strong>
-        {single ? (
-          <small dir="ltr">{courses.get(rows[0].AdCourseId)?.CourseCode || rows[0].AdCourseName || "—"} · شعبة {rows[0].SCode}</small>
-        ) : (
-          <>
-            <span className="review-person-count" title={countOf(rows.length, AR.appointment)}>{countOf(sectionCount, AR.section)}</span>
-            <ChevronDown className="review-person-chevron" aria-hidden="true" />
-          </>
-        )}
+    <section className={`review-person ${open ? "open" : ""}`}>
+      <button type="button" className="review-person-head" data-guide-ignore="طيّ شعب أستاذ داخل ملاحظة مراجعة — عرض فقط، لا يغيّر الجدول"
+        onClick={() => setOpen(value => !value)} aria-expanded={open}>
+        <span className="review-person-avatar" aria-hidden="true"><UserRound /></span>
+        <span className="review-person-identity">
+          <strong className="schedule-instructor-with-badge">{who}{visiting ? <VisitingBadge compact /> : null}</strong>
+          <small><BookOpen aria-hidden="true" /> {countOf(courseGroups.length, AR.course)} <span aria-hidden="true">·</span> {countOf(sectionCount, AR.section)}</small>
+        </span>
+        <span className="review-person-count">{countOf(sectionCount, AR.section)}</span>
+        <ChevronDown className="review-person-chevron" aria-hidden="true" />
       </button>
-      {(open || single) ? (
-        <div className="review-person-rows">
-          {rows.map(row => {
-            const days = DAY_KEYS.filter(key => (row as any)[key]).map(key => DAY_NAMES[DAY_KEYS.indexOf(key)]).join("، ");
-            const code = courses.get(row.AdCourseId)?.CourseCode || row.AdCourseName || "";
-            return (
-              <article key={row.id} className="review-row-card">
-                <span className="rrc-code" dir="ltr">{code || "—"}</span>
-                <div className="rrc-main">
-                  <small>شعبة {row.SCode} · {days || "بلا أيام"}</small>
-                </div>
-                <time className="rrc-time" dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
-              </article>
-            );
-          })}
+      {open ? (
+        <div className="review-person-rows review-course-deck">
+          {courseGroups.map(course => (
+            <section key={course.courseId} className="review-course-card" aria-label={course.name}>
+              <header className="review-course-heading">
+                <span className="review-course-glyph" aria-hidden="true"><BookOpen /></span>
+                <span className="review-course-identity">
+                  <strong>{course.name}</strong>
+                  <small dir="ltr">{course.code}</small>
+                </span>
+                <span className="review-course-count">{countOf(course.sectionCount, AR.section)}</span>
+              </header>
+              <div className="review-course-days">
+                {course.days.map(day => (
+                  <div className="review-course-day" key={day.key}>
+                    <span className="review-day-label"><CalendarDays aria-hidden="true" /> {day.title}</span>
+                    <div className="review-slot-flow" role="list" aria-label={`مواعيد ${day.title}`}>
+                      {day.appointments.map(row => (
+                        <span className="review-slot" role="listitem" key={row.id}>
+                          <b>شعبة {row.SCode || "—"}</b>
+                          <time dir="ltr"><Clock3 aria-hidden="true" />{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {course.withoutDay.map(row => (
+                  <div className="review-course-day" key={row.id}>
+                    <span className="review-day-label">بلا أيام</span>
+                    <span className="review-slot"><b>شعبة {row.SCode || "—"}</b></span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -454,20 +489,22 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
     /* When every row belongs to the same person, the heading above has already
        said so — repeating the name on each line is the same word six times and
        pushes the thing that actually differs (section, days, hour) aside. */
-    const oneOwner = new Set(uniqueRows.map(row => row.AdInstructorId)).size === 1;
     return (
       <>
         <div className="review-subject-rows">
           {uniqueRows.map(row => {
             const days = DAY_KEYS.filter(key => (row as any)[key]).map(key => DAY_NAMES[DAY_KEYS.indexOf(key)]).join("، ");
-            const code = courses.get(row.AdCourseId)?.CourseCode || row.AdCourseName || "—";
+            const course = courses.get(row.AdCourseId);
+            const code = course?.CourseCode || row.AdCourseName || "—";
+            const courseName = course?.CourseName || row.AdCourseName || "مقرر غير مسمى";
             const who = instructors.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ";
             return (
-              <article key={`subject-row-${row.id}`} className="review-row-card compact">
+              <article key={`subject-row-${row.id}`} className="review-row-card compact review-identity-row">
                 <span className="rrc-code" dir="ltr">{code}</span>
                 <div className="rrc-main">
-                  {oneOwner ? null : <strong className="schedule-instructor-with-badge">{who}{visitingIdSet.has(Number(row.AdInstructorId)) ? <VisitingBadge compact /> : null}</strong>}
-                  <small>شعبة {row.SCode} · {days || "بلا أيام"}</small>
+                  <strong className="review-row-course-name">{courseName}</strong>
+                  <small className="review-row-owner"><UserRound aria-hidden="true" />{who}{visitingIdSet.has(Number(row.AdInstructorId)) ? <VisitingBadge compact /> : null}</small>
+                  <small className="review-row-days"><CalendarDays aria-hidden="true" />شعبة {row.SCode} · {days || "بلا أيام"}</small>
                 </div>
                 <time className="rrc-time" dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
               </article>
@@ -615,10 +652,15 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
               {open === finding.groupKey ? (
                 <div className="review-rows">
                   <div className="review-finding-detail">
-                      {finding.data && finding.groupedCount === 1 ? <PeriodBalanceInfographic {...finding.data} /> : <p><strong>{finding.article}</strong> · {markVisitingNames(finding.detail, finding.rowIds)}</p>}
+                      {finding.data && finding.groupedCount === 1 ? <PeriodBalanceInfographic {...finding.data} /> : (
+                        <details className="review-rule-explainer">
+                          <summary><Info aria-hidden="true" /> شرح الملاحظة <ChevronDown aria-hidden="true" /></summary>
+                          <p><strong>{finding.article}</strong> · {markVisitingNames(finding.detail, finding.rowIds)}</p>
+                        </details>
+                      )}
                       <div className="review-finding-meta">
                         <span>{finding.article}</span>
-                        <span>مانع اعتماد</span>
+                        <span>{findingStatus(finding)}</span>
                       </div>
                   </div>
                   {finding.rowIds.length ? (
