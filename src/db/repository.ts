@@ -3393,7 +3393,8 @@ export const Repository = {
     /** false: كتالوجٌ فحسب — لا يُربط بالصحيفة الفعالة (التطبيق المرجعي يربط ما يشاء صراحةً). */
     attachToActive = true,
     courseRoomType = "",
-    courseTeachingMode?: AdCourse["CourseTeachingMode"] | null
+    courseTeachingMode?: AdCourse["CourseTeachingMode"] | null,
+    courseCompanionRoomType = ""
   ): Promise<AdCourse> => {
     /* اسمٌ منسوخٌ من PDF يُحفظ حروفاً عادية لا «أشكال عرض» — لكل طريق كتابة. */
     name = normalizeArabicText(name);
@@ -3410,7 +3411,8 @@ export const Repository = {
         CourseHours: hours,
         MaxStudent: maxStudent,
         ...(courseRoomType.trim() ? { CourseRoomType: courseRoomType.trim() } : {}),
-        ...(courseTeachingMode ? { CourseTeachingMode: courseTeachingMode } : {})
+        ...(courseTeachingMode ? { CourseTeachingMode: courseTeachingMode } : {}),
+        ...(courseCompanionRoomType ? { CourseCompanionRoomType: courseCompanionRoomType } : {})
       };
       /* The course code is unique within its department, and that uniqueness is
          claimed in the same transaction that writes the record. Two identical
@@ -3456,7 +3458,8 @@ export const Repository = {
       CourseHours: hours,
       MaxStudent: maxStudent,
       ...(courseRoomType.trim() ? { CourseRoomType: courseRoomType.trim() } : {}),
-      ...(courseTeachingMode ? { CourseTeachingMode: courseTeachingMode } : {})
+      ...(courseTeachingMode ? { CourseTeachingMode: courseTeachingMode } : {}),
+        ...(courseCompanionRoomType ? { CourseCompanionRoomType: courseCompanionRoomType } : {})
     };
     db.courses.push(newCourse);
     saveDatabase();
@@ -3475,7 +3478,8 @@ export const Repository = {
     hours: number,
     maxStudent: number,
     courseRoomType?: string,
-    courseTeachingMode?: AdCourse["CourseTeachingMode"]
+    courseTeachingMode?: AdCourse["CourseTeachingMode"],
+    courseCompanionRoomType?: string
   ): Promise<AdCourse> => {
     /* اسمٌ منسوخٌ من PDF يُحفظ حروفاً عادية لا «أشكال عرض» — لكل طريق كتابة. */
     name = normalizeArabicText(name);
@@ -3494,7 +3498,8 @@ export const Repository = {
         CourseHours: hours,
         MaxStudent: maxStudent,
         ...((courseRoomType===undefined?String(doc.data()?.CourseRoomType||""):courseRoomType).trim() ? { CourseRoomType: (courseRoomType===undefined?String(doc.data()?.CourseRoomType||""):courseRoomType).trim() } : {}),
-        ...((courseTeachingMode===undefined?doc.data()?.CourseTeachingMode:courseTeachingMode) ? { CourseTeachingMode: courseTeachingMode===undefined?doc.data()?.CourseTeachingMode:courseTeachingMode } : {})
+        ...((courseTeachingMode===undefined?doc.data()?.CourseTeachingMode:courseTeachingMode) ? { CourseTeachingMode: courseTeachingMode===undefined?doc.data()?.CourseTeachingMode:courseTeachingMode } : {}),
+        CourseCompanionRoomType: courseCompanionRoomType === undefined ? String(doc.data()?.CourseCompanionRoomType || "") : courseCompanionRoomType
       };
       await docRef.set(updated);
       invalidateScheduleRelationCache();
@@ -3514,7 +3519,8 @@ export const Repository = {
       CourseHours: hours,
       MaxStudent: maxStudent,
       ...((courseRoomType===undefined?previousRoomType:courseRoomType).trim() ? { CourseRoomType: (courseRoomType===undefined?previousRoomType:courseRoomType).trim() } : {}),
-      ...((courseTeachingMode===undefined?db.courses[idx].CourseTeachingMode:courseTeachingMode) ? { CourseTeachingMode: courseTeachingMode===undefined?db.courses[idx].CourseTeachingMode:courseTeachingMode } : {})
+      ...((courseTeachingMode===undefined?db.courses[idx].CourseTeachingMode:courseTeachingMode) ? { CourseTeachingMode: courseTeachingMode===undefined?db.courses[idx].CourseTeachingMode:courseTeachingMode } : {}),
+      CourseCompanionRoomType: courseCompanionRoomType === undefined ? String(db.courses[idx].CourseCompanionRoomType || "") : courseCompanionRoomType
     };
     saveDatabase();
     await markRegistrationRunsStale();
@@ -7028,6 +7034,28 @@ export const Repository = {
     db.courses=(db.courses||[]).map(course=>{
       if(!wanted.has(Number(course.AdCourseId))||String(course.CourseRoomType||"").normalize("NFKC").trim()===type)return course;
       count++;return {...course,CourseRoomType:type};
+    });
+    if(count){saveDatabase();await markRegistrationRunsStale();}
+    return count;
+  },
+  /** Propagate mandatory companion type to matching department course copies. */
+  setCourseCompanionRoomTypeForIds: async (ids:number[],type:string): Promise<number> => {
+    const wanted=new Set(ids.map(Number).filter(Boolean)); if(!wanted.size)return 0;
+    invalidateReference(REFERENCE_KEYS.courses);
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      const list=[...wanted];
+      for(let i=0;i<list.length;i+=400){
+        const batch=firestoreDb.batch();
+        for(const id of list.slice(i,i+400))batch.set(firestoreDb.collection("courses").doc(`course_${id}`),{CourseCompanionRoomType:type},{merge:true});
+        await batch.commit();
+      }
+      await markRegistrationRunsStale();
+      return list.length;
+    }
+    let count=0;
+    db.courses=(db.courses||[]).map(course=>{
+      if(!wanted.has(Number(course.AdCourseId))||String(course.CourseCompanionRoomType||"")===type)return course;
+      count++;return {...course,CourseCompanionRoomType:type};
     });
     if(count){saveDatabase();await markRegistrationRunsStale();}
     return count;
