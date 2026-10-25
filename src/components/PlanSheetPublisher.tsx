@@ -10,7 +10,7 @@ import { AR, countOf } from "../utils/arabicCount";
  * قسم تكنولوجيا التعليم نفسه). الصفحةُ المنشورة لقطةٌ مستقلة: مسحُ الخطة بعد الاعتماد لا يُسقطها.
  * رمز QR يُرسم في المتصفح بالمولّد الموجود، فلا خدمةَ خارجية.
  */
-interface SheetRow { planId: string; name: string; status: "active" | "transition" | "archived"; track?: string; ruleVersion: number; published: boolean; publishedAt: string; stale: boolean; url: string }
+interface SheetRow { planId: string; name: string; ruleVersion: number; published: boolean; publishedAt: string; stale: boolean; url: string }
 interface SectionRow { sectionId: number; sectionName: string; collegeName?: string; label?: string; family?: string; track?: string; trackLabel?: string; members?: number[]; campuses?: number; sheets: SheetRow[]; deptUrl: string; indexUrl: string }
 interface State { sections: SectionRow[]; canPublish: boolean }
 type QrFactory = (t: number, e: "L" | "M" | "Q" | "H") => { addData(s: string): void; make(): void; createSvgTag(o?: { cellSize?: number; margin?: number; scalable?: boolean }): string };
@@ -31,7 +31,6 @@ export default function PlanSheetPublisher({ onChanged, focusSectionId = 0, isAd
   const [note, setNote] = useState("");
   const [qr, setQr] = useState<{ title: string; url: string; svg: string } | null>(null);
   const [copied, setCopied] = useState("");
-  const [previewPlanId, setPreviewPlanId] = useState("");
 
   const load = useCallback(async () => {
     try { setState(await call(focusSectionId ? `/api/plan-sheets?section=${focusSectionId}` : "/api/plan-sheets")); setError(""); }
@@ -44,9 +43,6 @@ export default function PlanSheetPublisher({ onChanged, focusSectionId = 0, isAd
   const labelOf = (row: SectionRow) => row.label || (row.trackLabel ? `${row.sectionName} — ${row.trackLabel}` : row.sectionName);
   const isFocus = (row: SectionRow) => row.sectionId === focusSectionId || Boolean(row.members?.includes(focusSectionId));
   const focus = state?.sections.find(isFocus);
-  const previewPlans = (focus?.sheets || []).filter(sheet => sheet.status === "active" && sheet.ruleVersion > 0);
-  const mapPlans = previewPlans.length ? previewPlans : (focus?.sheets || []).filter(sheet => sheet.ruleVersion > 0);
-  const mapPlan = mapPlans.find(sheet => sheet.planId === previewPlanId) || mapPlans[0];
   const focusPublished = Boolean(focus?.sheets.some(x => x.published));
   /* قسمٌ بالاسم نفسه في كليةٍ أخرى له صحائف معتمدة: سببُ «لا صحيفة» الشائع حين يُعتمد في كلية ويُختار نطاقُ كليةٍ أخرى. */
   const sibling = focus && !focus.sheets.length ? state?.sections.find(row => row.sectionId !== focus.sectionId && row.sectionName === focus.sectionName && row.family === focus.family && row.sheets.length > 0) : undefined;
@@ -126,25 +122,6 @@ p{margin:0;font-size:22px;font-weight:700}small{font-size:14px;color:#64748B;dir
 
   return (
     <div className="psh" dir="rtl">
-      {mapPlan && focus ? (
-        <section className="psh-map" aria-label="المخطط التفاعلي للصحيفة">
-          <header className="psh-map-head">
-            <strong>مخطط الصحيفة</strong>
-            {mapPlans.length > 1 ? <label>الصحيفة
-              <select value={mapPlan.planId} onChange={event => setPreviewPlanId(event.target.value)} aria-label="اختر الصحيفة المعروضة في المخطط">
-                {mapPlans.map(sheet => <option key={sheet.planId} value={sheet.planId}>{sheet.name || "الخطة الدراسية"}{sheet.track ? ` · ${sheet.track}` : ""}</option>)}
-              </select>
-            </label> : <span>{mapPlan.name || "الخطة الدراسية"}</span>}
-          </header>
-          <iframe
-            key={`${focus.sectionId}:${mapPlan.planId}`}
-            className="psh-map-frame"
-            title={`مخطط صحيفة ${mapPlan.name || focus.sectionName}`}
-            src={`/api/plan-sheets/preview?${new URLSearchParams({ sectionId: String(focus.sectionId), planId: mapPlan.planId })}`}
-            loading="lazy"
-          />
-        </section>
-      ) : null}
       <header className="psh-head">
         <span className="psh-ic" aria-hidden="true"><Workflow /></span>
         <div><strong>انشر الصحيفة للجميع</strong><small>رابطٌ تفاعلي وQR وPDF بلا حساب · {publishedCount} من {total} منشورة</small></div>
