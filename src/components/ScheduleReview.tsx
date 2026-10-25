@@ -219,6 +219,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
   const [readinessError, setReadinessError] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [quietOpen, setQuietOpen] = useState(false);
+  const [periodOpen, setPeriodOpen] = useState(false);
   useDialogDismiss(true, onClose);
 
   useEffect(() => {
@@ -689,12 +690,18 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
           </div>
         </div>
 
-        <section className="review-period-rule" aria-labelledby="review-period-title">
-          <header><span><Clock3 aria-hidden="true"/><b id="review-period-title">توزيع الفترتين</b></span><em>قرار 1913/2016 · م.7/2</em></header>
-          <div className="review-period-hours"><span><b>الصباحي</b><small>08:00–14:00</small><strong>50–70٪</strong></span><i aria-hidden="true"/><span><b>المسائي</b><small>14:00–20:00</small><strong>30–50٪</strong></span></div>
-          {periodBalance && periodBalance.sections >= PERIOD_BALANCE_MIN_SECTIONS
-            ? <PeriodBalanceInfographic {...periodBalance} />
-            : <p>{periodBalance ? `قراءة التوزيع بعد ${countOf(PERIOD_BALANCE_MIN_SECTIONS, AR.appointment)}: الصباحي ${periodBalance.morning}٪ · المسائي ${periodBalance.evening}٪ (${countOf(periodBalance.sections, AR.appointment)}).` : "لا توجد مواعيد ضمن الفترتين حالياً."}</p>}
+        <section className="review-period-rule" aria-labelledby="review-period-title" data-open={periodOpen || undefined}>
+          <button type="button" className="review-period-toggle" aria-expanded={periodOpen} aria-controls="review-period-content" onClick={() => setPeriodOpen(value => !value)} data-guide-ignore="طيّ أو فتح تفاصيل توزيع الصباحي والمسائي داخل المراجعة">
+            <span><Clock3 aria-hidden="true"/><b id="review-period-title">توزيع الفترتين</b><em>قرار 1913/2016 · م.7/2</em></span>
+            {periodBalance ? <small>صباحي {periodBalance.morning}٪ · مسائي {periodBalance.evening}٪</small> : null}
+            <ChevronDown aria-hidden="true"/>
+          </button>
+          {periodOpen ? <div id="review-period-content" className="review-period-content">
+            <div className="review-period-hours"><span><b>الصباحي</b><small>08:00–14:00</small><strong>50–70٪</strong></span><i aria-hidden="true"/><span><b>المسائي</b><small>14:00–20:00</small><strong>30–50٪</strong></span></div>
+            {periodBalance && periodBalance.sections >= PERIOD_BALANCE_MIN_SECTIONS
+              ? <PeriodBalanceInfographic {...periodBalance} />
+              : <p>{periodBalance ? `قراءة التوزيع بعد ${countOf(PERIOD_BALANCE_MIN_SECTIONS, AR.appointment)}: الصباحي ${periodBalance.morning}٪ · المسائي ${periodBalance.evening}٪ (${countOf(periodBalance.sections, AR.appointment)}).` : "لا توجد مواعيد ضمن الفترتين حالياً."}</p>}
+          </div> : null}
         </section>
 
         <div className="review-body">

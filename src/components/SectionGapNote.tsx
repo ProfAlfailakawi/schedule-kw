@@ -175,7 +175,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
                 : item.demand > 0 ? <span className="apb-gap-why">المتبقي {num(item.demand)}</span> : null}
               <span className="apb-gap-pill" data-surplus={item.surplus ? "true" : undefined} title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
                 <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
-                {item.surplus ? <small><UserMinus aria-hidden="true" />راجع {countOf(item.surplus, AR.section)}</small> : null}
+                {item.surplus ? <small className="apb-gap-surplus"><UserMinus aria-hidden="true" /><b>راجع حذف {countOf(item.surplus, AR.section)}</b></small> : null}
               </span>
               {row ? <ChevronDown aria-hidden="true" className="apb-gap-chev" /> : null}
             </>

@@ -8954,7 +8954,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   collegeId={Number(form.AdCollegeId||0)}
                   sectionId={Number(form.AdSectionId||0)}
                   termId={Number(form.AdTermId||0)}
-                  showDepartmentHistory={editor !== "create"}
+                  showDepartmentHistory={false}
                   value={form}
                   courseRoomType={String(courseById.get(Number(form.AdCourseId||0))?.CourseRoomType||"")}
                   courseTeachingMode={String(courseById.get(Number(form.AdCourseId||0))?.CourseTeachingMode||"")}
