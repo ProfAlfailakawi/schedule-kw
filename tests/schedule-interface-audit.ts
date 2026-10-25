@@ -24,11 +24,11 @@ assert.match(roomSuggestions, /room-suggest-card-facts[^]*room-suggest-fact/,
   "ملاءمة القاعة تظهر كملصقات قصيرة بدلاً من سطر نص طويل");
 assert.match(roomSuggestions, /label: "نوع مناسب"[^]*label: "سعة مناسبة"/,
   "أسباب ملاءمة النوع والسعة تختصر إلى مؤشرات بصرية واضحة");
-assert.match(schedule, /showDepartmentHistory=\{editor === "edit"\}/,
-  "سجل القاعات التاريخي يظهر عند تعديل موعد فقط، لا عند إنشاء موعد");
+assert.match(schedule, /showDepartmentHistory=\{false\}/,
+  "اقتراحات سجل القاعات التاريخي مخفية عند إنشاء الموعد وتعديله");
 assert.match(location, /showDepartmentHistory&&restrictedHistoricalRooms\.length/,
   "اقتراحات الاستعارة التاريخية نفسها تظل مرتبطة بعرض التاريخ");
 assert.match(location, /showDepartmentHistory=false/,
-  "منتقي القاعة يخفي السجل التاريخي افتراضياً في نماذج الإنشاء");
+  "منتقي القاعة يخفي السجل التاريخي افتراضياً في نماذج المواعيد");
 
 console.log("schedule-interface-audit ok");

@@ -184,9 +184,14 @@
 /* Reliable disclosures: native <details>/<summary> handles pointer, touch and
    keyboard activation without depending on JavaScript click-state. */
 @media screen {
-  .review-sheet { overflow:hidden; }
-  .review-body { min-height:0; overflow-y:auto; overscroll-behavior:contain; align-content:start; }
-  .review-finding { min-width:0; }
+  /* Keep the disclosure cards in normal flow. On short/narrow viewports the
+     flex sheet used to shrink the period panel and finding rows to a few px,
+     clipping their text while leaving their borders visible. Let the sheet
+     scroll when its full content is taller than the viewport. */
+  .review-sheet { overflow-x:hidden; overflow-y:auto; }
+  .review-period-rule { flex:none; }
+  .review-body { flex:0 0 auto; min-height:auto; overflow:visible; overscroll-behavior:contain; align-content:start; }
+  .review-finding { min-width:0; flex:none; }
   .review-finding>summary {
     position:relative;z-index:1;pointer-events:auto;
     list-style:none; cursor:pointer; width:100%;
