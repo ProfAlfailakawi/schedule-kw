@@ -3,14 +3,21 @@
  * منطقٌ صرف لقائمة «بيانات ناقصة» في شريط الاعتماد: أيُّ نوعٍ يُصلَح في مكانه،
  * وكيف يُبنى جسمُ تعديل المقرر (PUT يطلب الجسم كاملاً)، وماذا يُرفض قبل الإرسال.
  */
-export type CourseFixKey = "CourseCredit" | "CourseHours" | "MaxStudent";
-export interface CourseFixField { key: CourseFixKey; label: string; type: "int" | "decimal" | "text"; max: number }
+export type CourseFixKey = "CourseCredit" | "CourseHours" | "MaxStudent" | "CourseTeachingMode";
+export interface CourseFixField { key: CourseFixKey; label: string; type: "int" | "decimal" | "text" | "select"; max: number }
+
+export const TEACHING_MODE_OPTIONS = [
+  { value: "theoretical", label: "نظري" }, { value: "applied", label: "تطبيقي" },
+  { value: "practical", label: "عملي" }, { value: "field_training", label: "التدريب الميداني" },
+  { value: "mixed", label: "نظري وعملي" },
+] as const;
 
 /** تسمية الحقل الناقص كما يكتبها `scheduleDataReadiness` ← حقل المقرر. */
 export const COURSE_FIX_FIELDS: Record<string, CourseFixField> = {
   "الوحدات": { key: "CourseCredit", label: "الوحدات", type: "int", max: 20 },
   "الساعات": { key: "CourseHours", label: "الساعات", type: "decimal", max: 40 },
   "سعة الشعبة": { key: "MaxStudent", label: "السعة", type: "int", max: 2000 },
+  "طبيعة التدريس": { key: "CourseTeachingMode", label: "طبيعة التدريس", type: "select", max: 0 },
 };
 
 export type ReadinessFixMode = "course-fields" | "room-link" | "open-row" | "jump";
@@ -29,6 +36,7 @@ export const courseFixFieldsOf = (item: ReadinessItemLike): CourseFixField[] =>
 /** يُرجع نصّ الخطأ، أو null إن صحّت القيمة. */
 export function validateCourseFix(field: CourseFixField, raw: string): string | null {
   const text = String(raw ?? "").trim();
+  if (field.type === "select") return TEACHING_MODE_OPTIONS.some(option => option.value === text) ? null : "اختر طبيعة التدريس";
   if (field.type === "text") return text && text.length <= field.max ? null : `${field.label} مطلوب`;
   const n = Number(text);
   if (!text || !Number.isFinite(n) || n <= 0) return `${field.label}: أدخل رقماً أكبر من صفر`;
@@ -47,11 +55,13 @@ export function buildCourseUpdateBody(course: any, patch: Partial<Record<CourseF
     CourseCredit: Number(course.CourseCredit) || 0,
     CourseHours: Number(course.CourseHours) || 0,
     MaxStudent: Number(course.MaxStudent) || 0,
+    CourseRoomType: String(course.CourseRoomType || ""),
+    CourseTeachingMode: String(course.CourseTeachingMode || ""),
   };
   for (const [key, value] of Object.entries(patch) as [CourseFixKey, string][]) {
     const def = Object.values(COURSE_FIX_FIELDS).find(f => f.key === key);
     if (!def) continue;
-    (body as any)[key] = def.type === "text" ? String(value).trim() : Number(value);
+    (body as any)[key] = def.type === "text" || def.type === "select" ? String(value).trim() : Number(value);
   }
   return body;
 }

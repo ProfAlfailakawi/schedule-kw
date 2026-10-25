@@ -133,6 +133,7 @@ export function verificationCode(versionId: string, userId: number, at: string):
 export type SignRefusal =
   | { ok: false; code: "blocking-conflicts"; message: string }
   | { ok: false; code: "missing-capacity"; message: string }
+  | { ok: false; code: "missing-teaching-mode"; message: string }
   | { ok: false; code: "wrong-order"; message: string }
   | { ok: false; code: "already-signed"; message: string }
   | { ok: false; code: "locked"; message: string }
@@ -145,12 +146,13 @@ export type SignVerdict = { ok: true } | SignRefusal;
  *
  * التعارض المادّي يمنع — لأنه ليس مخالفةً لقاعدة، بل استحالةٌ في الواقع:
  * أستاذٌ في قاعتين في اللحظة نفسها لا يحدث، مهما وقّع عليه أحد. وكذلك سعةٌ
- * غير مسجّلة لمقررٍ في الجدول (طلب المالك): بقية النواقص إشعارٌ لا مانع.
+ * غير مسجّلة أو طبيعةُ تدريسٍ غير محددة لمقررٍ في الجدول (طلب المالك):
+ * بقية النواقص إشعارٌ لا مانع.
  */
 export function canSign(
   approval: ScheduleApproval,
   stage: "committee" | "head",
-  context: { blockingConflicts: number; rowCount: number; blockingDuplicates?: number; missingCapacity?: number },
+  context: { blockingConflicts: number; rowCount: number; blockingDuplicates?: number; missingCapacity?: number; missingTeachingMode?: number },
 ): SignVerdict {
   if (approval.status === "submitted") {
     return { ok: false, code: "locked", message: "الجدول عند التسجيل الآن. لا توقيع حتى يُقبل أو يُرجَع." };
@@ -170,6 +172,13 @@ export function canSign(
     return {
       ok: false, code: "missing-capacity",
       message: `${countOf(missingCapacity, AR.course)} بلا سعةٍ مسجّلة — سجّل السعة ثم وقّع.`,
+    };
+  }
+  const missingTeachingMode = Number(context.missingTeachingMode || 0);
+  if (missingTeachingMode > 0) {
+    return {
+      ok: false, code: "missing-teaching-mode",
+      message: `${countOf(missingTeachingMode, AR.course)} بلا طبيعة تدريس محددة — حدّدها ثم وقّع.`,
     };
   }
   if (signatureOf(approval, stage)) {

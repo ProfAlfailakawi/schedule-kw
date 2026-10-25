@@ -1,9 +1,9 @@
 /**
- * ── بياناتٌ ناقصة في الجدول — إشعارٌ لا مانع، إلا السعة ───────────────────
+ * ── بياناتٌ ناقصة في الجدول — السعة وطبيعة التدريس تمنعان التوقيع ─────────
  *
  * قاعدة المالك (2026-09-27): «التوقيع لا يمنعه إلا تعارض ماديّ». فهذه القائمة
  * تُعرض وتُستكمل، ولا يتوقف عليها توقيعٌ ولا إرسال — باستثناءٍ واحد أضافه
- * المالك: سعة الشعبة. مقررٌ بلا سعةٍ مسجّلة يمنع التوقيع (`capacityGapItems`)
+ * المالك: سعة الشعبة وطبيعة التدريس. نقصُ أيٍّ منهما لمقررٍ مجدول يمنع التوقيع
  * لأن اقتراح الشعب وملاءمة القاعات وسقف التسجيل كلُّها تُبنى عليها. والصفوف تُقرأ بعد التطبيع
  * نفسه الذي تُعدّ به الموانع (`normalizeRow`)، فقاعةٌ مكتوبةٌ نصّاً تطابق
  * سجلّ المواقع ليست ناقصة.
@@ -42,6 +42,7 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
         !(Number(course.CourseCredit) > 0) && "الوحدات",
         !(Number(course.CourseHours) > 0) && "الساعات",
         !(Number(course.MaxStudent) > 0) && "سعة الشعبة",
+        !String(course.CourseTeachingMode || "").trim() && "طبيعة التدريس",
         !String(course.CourseCode || "").trim() && "رمز المقرر",
         !String(course.CourseName || "").trim() && "اسم المقرر",
       ].filter(Boolean) as string[];
@@ -79,8 +80,14 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
 
 /** تسمية حقل السعة كما تكتبها قائمة النواقص أعلاه — مصدرٌ واحد للخادم والواجهة. */
 export const CAPACITY_GAP_FIELD = "سعة الشعبة";
+export const TEACHING_MODE_GAP_FIELD = "طبيعة التدريس";
 
 /** المقرراتُ التي في الجدول وسعتُها غير مسجّلة — هي وحدها ما يمنع التوقيع من النواقص. */
 export function capacityGapItems(items: DataGapItem[] | undefined | null): DataGapItem[] {
   return (items || []).filter(item => item.kind === "course" && item.fields.includes(CAPACITY_GAP_FIELD));
+}
+
+/** مقررات الجدول بلا طبيعة تدريس محددة؛ كل مقرر يُحسب مرة ولو تعددت شعبه. */
+export function teachingModeGapItems(items: DataGapItem[] | undefined | null): DataGapItem[] {
+  return (items || []).filter(item => item.kind === "course" && item.fields.includes(TEACHING_MODE_GAP_FIELD));
 }
