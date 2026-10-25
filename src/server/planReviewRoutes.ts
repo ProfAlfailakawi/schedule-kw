@@ -1168,7 +1168,10 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         }
         return mainCache.get(sid)!;
       };
-      const mayCorrect = async (row: AdCourse, newEra: boolean) => !(trackProgram && (await mainIdsOf(Number(row.AdSectionId))).has(Number(row.AdCourseId))) && (newEra || (!(await activeIdsOf(Number(row.AdSectionId))).has(Number(row.AdCourseId)) && !(await activeExternalIds()).has(Number(row.AdCourseId))));
+      /* القديمة لا تغيّر مقرراً لقسمٍ آخر: الصحائف القديمة تختلف فيه («تربية عملية» 23 ساعة في أغلبها و16 في بعضها)، فيبقى كما هو
+         ولا يتبدّل بترتيب الرفع. تصحّحه الجديدة وحدها. */
+      const siteIds = new Set(targets.map(row => Number(row.AdSectionId)));
+      const mayCorrect = async (row: AdCourse, newEra: boolean) => (newEra || siteIds.has(Number(row.AdSectionId))) && !(trackProgram && (await mainIdsOf(Number(row.AdSectionId))).has(Number(row.AdCourseId))) && (newEra || (!(await activeIdsOf(Number(row.AdSectionId))).has(Number(row.AdCourseId)) && !(await activeExternalIds()).has(Number(row.AdCourseId))));
 
       const applyTo = async (site: any) => {
         const cid = Number(site.AdCollegeId), sid = Number(site.AdSectionId);
