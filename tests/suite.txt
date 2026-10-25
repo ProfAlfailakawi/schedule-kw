@@ -19,6 +19,7 @@ test:demo-cases
 test:roles
 test:approval
 test:changes
+test:authority-net-diff
 test:blockers
 test:blocker-oracle
 test:one-blocker-number
