@@ -28,15 +28,18 @@ function FindingCard({ ws, finding }: { key?: React.Key; ws: Workspace; finding:
   const op = ws.ops.find(o => o.id === finding.opId);
   const focused = ws.focusFindingId === finding.id;
   const timeBits = [finding.day ? PROPOSAL_DAY_NAMES[finding.day] : "", finding.start && finding.end ? timeRange(finding.start, finding.end) : ""].filter(Boolean);
+  /* بعض المحركات تضع الجملة نفسها في detail وreason؛ اعرضها مرة واحدة. */
+  const detail = finding.detail?.trim();
+  const reason = finding.reason?.trim();
   return (
     <li className="sp-finding" data-kind={finding.kind} data-focus={focused || undefined}>
       <div className="sp-finding-head">
         <b>{finding.title}</b>
         {op ? <small>{op.target.courseName}<PlanBadge courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</small> : null}
       </div>
-      {finding.detail ? <p className="sp-finding-detail">{finding.detail}</p> : null}
+      {detail && detail !== reason ? <p className="sp-finding-detail">{detail}</p> : null}
       {timeBits.length ? <p className="sp-finding-when"><span>{timeBits[0]}</span>{timeBits[1] ? <bdi className="sp-time">{timeBits[1]}</bdi> : null}</p> : null}
-      {finding.reason ? <p className="sp-finding-why"><Info aria-hidden="true" /><span><b>السبب:</b> {finding.reason}</span></p> : null}
+      {reason ? <p className="sp-finding-why"><Info aria-hidden="true" /><span>{detail === reason ? reason : <><b>السبب:</b> {reason}</>}</span></p> : null}
       {finding.fix ? <p className="sp-finding-fix"><Lightbulb aria-hidden="true" /><span><b>ما يمكن فعله:</b> {finding.fix}</span></p> : null}
       <div className="sp-finding-actions">
         {finding.gridKeys?.length ? (

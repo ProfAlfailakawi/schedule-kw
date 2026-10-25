@@ -73,6 +73,9 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
   const [dialog, setDialog] = useState<Dialog>(null);
   const [now, setNow] = useState(Date.now());
   const [notice, setNotice] = useState("");
+  /* «أوقات بديلة» يمكن فتحها من بطاقة المادة أو من نتيجة الفحص. على الهاتف
+     اعرض تبويب الفحص تلقائياً بعد بدء الطلب، وإلا تُحمّل البدائل خارج الشاشة. */
+  useEffect(() => { if (ws.alts && !wide) setTab("checks"); }, [ws.alts, wide]);
   const dialogRef = useRef<Dialog>(null);
   dialogRef.current = dialog;
   const wsRef = useRef(ws);

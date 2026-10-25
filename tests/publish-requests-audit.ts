@@ -47,6 +47,11 @@ check(publish.includes('<label className="share-closes">') && publish.includes('
   "وللرغبات تاريخُ إغلاقٍ يُكتب، لا مدّةٌ بالأيام");
 check(publish.includes('disabled={busy || (withRequests && !closesAt)}'),
   "ولا يُصدَر بلا موعدٍ مكتوب");
+check(publish.includes('<CalendarDays aria-hidden="true" /> أُنشئ') && publish.includes('dateTime={link.createdAt}'),
+  "كل رابط منشور يعرض تاريخ إنشائه بأيقونة تقويم");
+check(server.includes('createdAt: String(requestLink.createdAt || request.submittedAt || "")')
+  && server.includes('.sort(function(a,b){return Date.parse(b.createdAt||"")-Date.parse(a.createdAt||"")}).slice(0,1)'),
+  "بطاقة الأستاذ تعرض أحدث نافذة رغبات مفتوحة وحدها");
 
 /* ── ويُقال ما وقع ────────────────────────────────────────────────────── */
 

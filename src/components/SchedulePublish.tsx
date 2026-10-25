@@ -1,7 +1,7 @@
 import { DnaStepper } from "./dna";
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarPlus, Check, Copy, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, Users, X } from "lucide-react";
+import { CalendarDays, CalendarPlus, Check, Copy, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, Users, X } from "lucide-react";
 import MasariQrButton from "./MasariQrButton";
 import { reachAboutCard, unreachable, whatsappNumber } from "../utils/reachInstructor";
 import type { AdInstructor } from "../types";
@@ -611,6 +611,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                           <span>
                             <i aria-hidden="true" />
                             <strong className="share-status">{status}</strong>
+                            <time className="share-created-at" dateTime={link.createdAt}>
+                              <CalendarDays aria-hidden="true" /> أُنشئ {new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kuwait" }).format(new Date(link.createdAt))}
+                            </time>
                             {!dead && link.kind === "staff" && link.requestsCloseAt ? (
                               <time className="share-expiry" dateTime={link.requestsCloseAt} style={{ display: "block", fontWeight: 700 }}>
                                 آخر موعد لإرسال الرغبات: {new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kuwait" }).format(new Date(link.requestsCloseAt))}

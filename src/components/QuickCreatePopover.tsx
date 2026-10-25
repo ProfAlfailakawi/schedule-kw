@@ -265,7 +265,14 @@ export default function QuickCreatePopover({
             sectionId={sectionId}
             termId={termId}
             value={{AdRoomCode:draft.room,AdRoomHall:draft.hall,buildingId:draft.buildingId,roomId:draft.roomId,locationStatus:draft.locationStatus}}
-            onChange={(location)=>patch({room:String(location.AdRoomCode||""),hall:String(location.AdRoomHall||""),buildingId:location.buildingId,roomId:location.roomId,locationStatus:location.locationStatus as any})}
+            onChange={(location)=>setDraft((prev)=>({
+              ...prev,
+              room: location.AdRoomCode ?? prev.room,
+              hall: location.AdRoomHall ?? prev.hall,
+              buildingId: "buildingId" in location ? location.buildingId : prev.buildingId,
+              roomId: "roomId" in location ? location.roomId : prev.roomId,
+              locationStatus: "locationStatus" in location ? location.locationStatus as any : prev.locationStatus,
+            }))}
           />
         </div>
       </div>
