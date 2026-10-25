@@ -45,6 +45,13 @@
   .review-finding .review-rows {padding:16px clamp(12px,2.5vw,25px) 22px;background:color-mix(in srgb,var(--surface-2,#f6f8f5) 65%,var(--surface,#fff));border-top:1px solid var(--av-line)}
   .review-finding-detail {border:1px solid var(--av-line);background:var(--surface,#fff);border-radius:15px;padding:13px 16px;margin-bottom:14px}
   .review-finding-detail>p {font-size:.85rem;color:var(--av-mute);line-height:1.8;max-width:82ch}
+  .review-rule-explainer {border-radius:11px;background:var(--surface,#fff);overflow:hidden}
+  .review-rule-explainer>summary {display:flex;align-items:center;gap:8px;min-height:40px;padding:8px 12px;border-radius:11px;cursor:pointer;font-size:.8rem;font-weight:800;color:var(--av-ink);list-style:none}
+  .review-rule-explainer>summary::-webkit-details-marker {display:none}
+  .review-rule-explainer>summary>svg {width:15px;height:15px;flex:none}
+  .review-rule-explainer>summary>svg:last-child {margin-inline-start:auto;transition:transform .2s ease}
+  .review-rule-explainer[open]>summary>svg:last-child {transform:rotate(180deg)}
+  .review-rule-explainer>p {margin:0;padding:10px 13px 14px;border-top:1px solid var(--av-line);font-size:.82rem;line-height:1.8;color:var(--av-mute);overflow-wrap:anywhere}
   .review-finding-meta {gap:6px;flex-wrap:wrap}
   .review-finding-meta>span {font-size:.72rem;padding:4px 8px;border-radius:999px;background:var(--av-mint)}
   .review-quiet {border:1px dashed var(--av-line);border-radius:17px;overflow:hidden}
