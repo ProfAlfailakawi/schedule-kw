@@ -5057,6 +5057,7 @@ function describeScheduleChange(before: any, after: any, instructorName?: (id: n
   const beforeRoom = `${before?.AdRoomCode || ""}/${before?.AdRoomHall || ""}`;
   const afterRoom = `${after?.AdRoomCode || ""}/${after?.AdRoomHall || ""}`;
   if (beforeRoom !== afterRoom) parts.push(`القاعة ${beforeRoom} ← ${afterRoom}`);
+  if(String(before?.companionRoomId||"")!==String(after?.companionRoomId||""))parts.push(`المرفق المرافق ${before?.companionRoomLabel||"بدون"} ← ${after?.companionRoomLabel||"بدون"}`);
   if (Number(before?.AdInstructorId || 0) !== Number(after?.AdInstructorId || 0))
     parts.push(`الأستاذ ${instructorName?.(Number(before?.AdInstructorId || 0)) || before?.AdInstructorId} ← ${instructorName?.(Number(after?.AdInstructorId || 0)) || after?.AdInstructorId}`);
   if (String(before?.SCode || "") !== String(after?.SCode || "")) parts.push(`الشعبة ${before?.SCode} ← ${after?.SCode}`);
