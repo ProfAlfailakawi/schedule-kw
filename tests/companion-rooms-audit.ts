@@ -2,6 +2,8 @@ import { strict as assert } from "node:assert";
 import { roomIdentityKeys, rowOccupiesRoom, sharePhysicalRoom, eligibleHallsForSection } from "../src/utils/locationRegistry";
 import { findConflicts, findConflictsExhaustive, fastConflictScan } from "../src/utils/scheduleIntelligence";
 import type { FSchedule, MasterRoom, MasterBuilding } from "../src/types";
+import { diffSchedules } from "../src/utils/scheduleDiff";
+import { instructorScheduleFingerprint } from "../src/utils/scheduleFingerprint";
 
 const base = {
   AdCollegeId:1,AdSectionId:1,AdTermId:1,AdCourseId:1,AdCourseName:"Test",
@@ -23,6 +25,11 @@ assert.ok(findConflicts([a],[b]).some(c=>c.reasons.includes("room")),"optimized 
 assert.deepEqual(findConflicts([a],[b]).map(c=>c.type),findConflictsExhaustive([a],[b]).map(c=>c.type),"both engines agree");
 assert.ok(fastConflictScan([a,b]).roomPairs>0,"live board catches shared studio");
 assert.equal(findConflicts([a],[d]).some(c=>c.reasons.includes("room")),false,"nonoverlapping appointment allowed");
+const withoutStudio:FSchedule={...a,companionRoomId:undefined,companionRoomLabel:undefined};
+assert.equal(diffSchedules([withoutStudio],[a]).counts.changed,1,"studio assignment appears in review changes");
+assert.ok(diffSchedules([withoutStudio],[a]).entries[0]?.changes.some(change=>change.field==="room"));
+assert.notEqual(instructorScheduleFingerprint([withoutStudio]),instructorScheduleFingerprint([a]),"studio change affects instructor notification fingerprint");
+
 const building:MasterBuilding={
   id:"b1",officialCode:"012B01",sitePrefix:"012B",collegeIds:[1],sectionIds:[1],active:true,confidence:"CONFIRMED",
   aliases:[],roomCount:2,historicalUsageCount:0,source:"ADMIN",adminVerified:true,evidence:[],auditHistory:[]
