@@ -51,20 +51,28 @@
 }
 
 /* ── حالة الاعتماد: شارةٌ واحدة تُستعمل في كل مكان ───────────────────── */
-.review-period-rule{display:grid;gap:10px;margin:0 18px 14px;padding:14px 16px;border:1px solid var(--line);border-radius:18px;background:var(--surface-2)}
-.review-period-rule>header,.review-period-rule>header>span{display:flex;align-items:center;gap:8px}
-.review-period-rule>header{justify-content:space-between;flex-wrap:wrap}
-.review-period-rule>header>span svg{inline-size:18px;block-size:18px;color:var(--accent);flex:none}
-.review-period-rule>header>span b{font-size:.92rem}
-.review-period-rule>header>em{font-size:.76rem;font-style:normal;color:var(--muted);padding:4px 9px;border:1px solid var(--line);border-radius:var(--r-full);background:var(--surface)}
+.review-period-rule{display:grid;gap:10px;margin:0 18px 14px;padding:8px 12px;border:1px solid var(--line);border-radius:18px;background:var(--surface-2)}
+.review-period-toggle,.review-period-toggle>span{display:flex;align-items:center;gap:8px}
+.review-period-toggle{width:100%;min-height:40px;justify-content:space-between;flex-wrap:wrap;padding:3px 4px;border:0;background:transparent;color:inherit;font:inherit;text-align:start;cursor:pointer}
+.review-period-toggle>span{flex-wrap:wrap}
+.review-period-toggle>span>svg{inline-size:18px;block-size:18px;color:var(--accent);flex:none}
+.review-period-toggle>span>b{font-size:.92rem}
+.review-period-toggle em{font-size:.76rem;font-style:normal;color:var(--muted);padding:4px 9px;border:1px solid var(--line);border-radius:var(--r-full);background:var(--surface)}
+.review-period-toggle>small{font-size:.76rem;color:var(--muted);margin-inline-start:auto}
+.review-period-toggle>svg:last-child{inline-size:18px;block-size:18px;color:var(--muted);transition:transform .18s ease}
+.review-period-rule[data-open] .review-period-toggle>svg:last-child{transform:rotate(180deg)}
+.review-period-toggle:focus-visible{outline:none;box-shadow:var(--ring);border-radius:12px}
+.review-period-content{display:grid;gap:10px;padding-top:8px;border-top:1px dashed var(--line)}
 .review-period-hours{display:grid;grid-template-columns:1fr 1px 1fr;align-items:center;gap:12px}
 .review-period-hours>span{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:2px 8px;min-width:0}
 .review-period-hours>span b{grid-column:1/-1;font-size:.78rem;color:var(--muted)}
 .review-period-hours>span small{font-size:.75rem;color:var(--muted)}
 .review-period-hours>span strong{justify-self:start;padding:3px 8px;border-radius:var(--r-full);background:var(--surface);color:var(--ink);font-size:.78rem;font-variant-numeric:tabular-nums}
 .review-period-hours>i{height:35px;background:var(--line-strong)}
-.review-period-rule>p{margin:0;color:var(--muted);font-size:.8rem;line-height:1.55}
-.review-period-rule .period-balance{padding-top:8px;border-top:1px dashed var(--line)}
+.review-period-content>p{margin:0;color:var(--muted);font-size:.8rem;line-height:1.55}
+.review-period-content .period-balance{padding-top:8px;border-top:1px dashed var(--line)}
+.apb-gap-pill>small.apb-gap-surplus{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:4px;padding:3px 8px;border-radius:999px;background:color-mix(in srgb,var(--brass-soft) 70%,white);color:var(--brass);font-size:.7rem;white-space:nowrap}
+.apb-gap-pill>small.apb-gap-surplus svg{inline-size:14px;block-size:14px}
 @media(max-width:560px){.review-period-rule{margin-inline:10px;padding:12px}.review-period-hours{gap:8px}.review-period-hours>span{grid-template-columns:1fr;gap:3px}.review-period-hours>span b{grid-column:1}.review-period-hours>span strong{justify-self:start}}
 
 .approval-chip{

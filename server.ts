@@ -99,7 +99,7 @@ import { chooseCaptureBaseline } from "./src/utils/changesBaseline";
 import { approvalScopeKey, authorityRowsForScope } from "./src/utils/approvalScope";
 import { buildNotifications } from "./src/utils/notificationCenter";
 import { awaitedItemIndexes } from "./src/utils/linkedRequestItems";
-import { DAY_KEYS, DAY_NAMES, expectedMinutesForDay, lectureLengthProblem, maxWeeklyMinutesFor, patternsForHours, periodBalanceFinding, reviewSchedule, weeklyLectureMinutes } from "./src/utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, effectiveCourseHours, expectedMinutesForDay, lectureLengthProblem, maxWeeklyMinutesFor, patternsForHours, periodBalanceFinding, reviewSchedule, weeklyLectureMinutes } from "./src/utils/scheduleRegulations";
 import {
   ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, canManageDeadline, canReviewSubmissions,
   canAnnotateCells, isAcademicRole, isAdvisorRole, isReadOnlyRole, isRegistrarRole, isViewerOnlyRole, roleDefinition, roleLabel,
@@ -4455,7 +4455,7 @@ async function sectionScheduleWindow(sectionId:number){
 async function mixedPatternNotice(courseId:number,days:RequestDayKey[],termId:number,minutes?:number,blocking=false):Promise<string|null>{
   const shortDays=days.filter(d=>d==="fsunday"||d==="ftuesday"||d==="fthursday"),longDays=days.filter(d=>d==="fmonday"||d==="fwednesday");
   if(!courseId||!shortDays.length||!longDays.length)return null;
-  const course=await Repository.getCourseById(courseId);const hours=Number(course?.CourseHours||course?.CourseCredit||0);
+  const course=await Repository.getCourseById(courseId);const hours=effectiveCourseHours(course);
   const sameDays=(list:readonly string[])=>list.length===days.length&&list.every(d=>days.includes(d as RequestDayKey));
   if(hours>0&&patternsForHours(hours).some(p=>sameDays(p.days)))return null;
   /* التاريخ من الفصول السابقة وحدها: نمطُ الفصل الجاري لا يُعفي نفسَه. */
@@ -4467,7 +4467,8 @@ async function scheduleLengthIssue(row:any){
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
   const course=await Repository.getCourseById(courseId);
   const nature=await courseHabit(courseId);
-  const hours=Number(course?.CourseHours||0),habitual=nature&&nature.confidence!=="low"?nature.meetingMinutes:undefined;
+  /* بياناتٌ قديمةٌ قد تسجل الوحدات ولا تملأ حقل الساعات؛ لا تُعامل حينها كأن المقرر ساعة واحدة. */
+  const hours=effectiveCourseHours(course),habitual=nature&&nature.confidence!=="low"?nature.meetingMinutes:undefined;
   /* موعدٌ يخلط أيام الـ50 بأيام الـ80 لا يُمنع عند القسم: تنبيهٌ برسم النمط المعتمد (mixedPatternNotice). وطولُه
      لا يُحاسَب بمقياس اللائحة لأنه نمطٌ خارجها أصلاً. */
   const mixedOutside=Boolean(await mixedPatternNotice(courseId,SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row?.AdTermId||0)));

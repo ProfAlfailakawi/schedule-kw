@@ -112,7 +112,7 @@ export function RoomPicker({collegeId,sectionId,termId,buildingId,roomId,locatio
   </select>;
 }
 
-export default function LocationPicker({collegeId,sectionId,termId,value,onChange,disabled=false,showRaw=false,allowPending=true,hallAction,courseRoomType="",courseTeachingMode="",seatsNeeded=0,showDepartmentHistory=true}:{collegeId:number;sectionId:number;termId?:number;value:Partial<LocationValue>;onChange:(patch:Partial<LocationValue>)=>void;disabled?:boolean;showRaw?:boolean;allowPending?:boolean;hallAction?:React.ReactNode;courseRoomType?:string;courseTeachingMode?:string;seatsNeeded?:number;showDepartmentHistory?:boolean}){
+export default function LocationPicker({collegeId,sectionId,termId,value,onChange,disabled=false,showRaw=false,allowPending=true,hallAction,courseRoomType="",courseTeachingMode="",seatsNeeded=0,showDepartmentHistory=false}:{collegeId:number;sectionId:number;termId?:number;value:Partial<LocationValue>;onChange:(patch:Partial<LocationValue>)=>void;disabled?:boolean;showRaw?:boolean;allowPending?:boolean;hallAction?:React.ReactNode;courseRoomType?:string;courseTeachingMode?:string;seatsNeeded?:number;showDepartmentHistory?:boolean}){
   /* Existing schedule edits can consult the department history. New appointments
      pass showDepartmentHistory=false and use only active, approved room sources. */
   const {buildings,rooms,borrowedRoomIds,loading}=useRegistry(collegeId,sectionId,termId,false,showDepartmentHistory);

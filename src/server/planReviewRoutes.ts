@@ -19,6 +19,7 @@ import { createDataContextKey } from "./dataContextCache";
 import { groupDeptTracks, planMatchKey, trackLabels, type DeptTrack } from "../utils/collegeTrack";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
 import { compareCurriculumReference, isTechnologyEducation, referenceCodeKey } from "../utils/curriculumReference";
+import { arabicMatchKey } from "../utils/arabicText";
 import { AR, countOf } from "../utils/arabicCount";
 import express from "express";
 import { rateLimit } from "express-rate-limit";
@@ -306,7 +307,8 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
              For Technology Education, only the courses printed in the current
              2026 reference sheet may carry its badge; this excludes old-only
              courses such as «أسس التصوير الضوئي» even if an old link remains. */
-          if (isTechnologyEducation(section.AdSectionName)) {
+          const sectionNameKey = arabicMatchKey(section.AdSectionName).replace(/^قسم\s+/, "");
+          if (isTechnologyEducation(section.AdSectionName) || sectionNameKey.includes(arabicMatchKey("تكنولوجيا التعليم"))) {
             const course = catalog.get(courseId);
             if (!course) continue;
             const key = referenceCodeKey(course.CourseCode), owner = sectionCodes.get(Number(course.AdSectionId)) || "";

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { lectureLengthProblem, periodBalanceSnapshot } from "../src/utils/scheduleRegulations";
+import { effectiveCourseHours, lectureLengthProblem, periodBalanceSnapshot } from "../src/utils/scheduleRegulations";
 
 const sut = { fsunday: true, ftuesday: true, fthursday: true };
 assert.ok(lectureLengthProblem({ ...sut, fstarttime: "08:00", fendtime: "08:40" }, 3), "40 دقيقة أحد/ثلاثاء/خميس تُرفض");
@@ -10,6 +10,10 @@ assert.equal(lectureLengthProblem({ fmonday: true, fwednesday: true, fstarttime:
 assert.ok(lectureLengthProblem({ fmonday: true, fwednesday: true, fstarttime: "08:00", fendtime: "09:00" }, 3));
 assert.equal(lectureLengthProblem({ fwednesday: true, fstarttime: "16:00", fendtime: "19:50" }, 3, 230), null, "التاريخ يقدَّم");
 assert.equal(lectureLengthProblem({ fmonday: true, fstarttime: "08:00", fendtime: "10:50" }, 3), null, "الكتلة التاريخية ذات المحاضرتين الطويلتين تقبل فرق عبور خمس دقائق");
+assert.equal(lectureLengthProblem({ ftuesday: true, fstarttime: "12:00", fendtime: "14:50" }, 3), null, "ثلاث محاضرات × 50 دقيقة وفاصلان × 10 دقائق = 170 دقيقة");
+assert.ok(lectureLengthProblem({ ftuesday: true, fstarttime: "12:00", fendtime: "14:50" }, 2), "لا تُقبل 170 دقيقة إذا لم تسمح ساعات المقرر بثلاث محاضرات");
+assert.equal(effectiveCourseHours({ CourseHours: 0, CourseCredit: 3 }), 3, "إذا غابت ساعات المقرر يُستخدم عبء الوحدات المسجل");
+assert.equal(effectiveCourseHours({ CourseHours: 2, CourseCredit: 3 }), 2, "ساعات المقرر الصريحة تتقدم على الوحدات");
 assert.ok(lectureLengthProblem({ fmonday: true, fstarttime: "08:00", fendtime: "11:00" }, 3), "لا يُقبل فرقٌ عشوائي يتجاوز كتلة 170/175 دقيقة المعتمدة");
 assert.deepEqual(periodBalanceSnapshot(Array.from({ length: 10 }, (_, i) => ({ fstarttime: i < 6 ? "08:00" : "14:00" } as any))), { morning: 60, evening: 40, sections: 10, morningCount: 6 }, "توزيع الفترتين يُقرأ حتى دون وجود مخالفة");
 console.log("lecture-length-audit ok");

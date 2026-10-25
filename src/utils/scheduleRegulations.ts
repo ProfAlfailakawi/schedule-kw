@@ -55,6 +55,14 @@ export interface PeriodBalanceData { morning: number; evening: number; sections:
 
 export const isDecision1912Finding = (finding: RegulationFinding) => finding.source === "decision-1912";
 
+/** The catalogue may leave CourseHours empty while storing the course's weekly load in CourseCredit. */
+export function effectiveCourseHours(course: { CourseHours?: unknown; CourseCredit?: unknown } | null | undefined): number {
+  const hours = Number(course?.CourseHours);
+  if (Number.isFinite(hours) && hours > 0) return hours;
+  const credit = Number(course?.CourseCredit);
+  return Number.isFinite(credit) && credit > 0 ? credit : 0;
+}
+
 export const DAY_KEYS = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
 export const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
 export type DayKey = (typeof DAY_KEYS)[number];

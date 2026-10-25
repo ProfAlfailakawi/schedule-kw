@@ -37,6 +37,10 @@ const TEACHING_MODE_LABEL: Record<string, string> = {
   theoretical: "نظري", applied: "تطبيقي", practical: "عملي",
   field_training: "التدريب الميداني",
 };
+const teachingModeBadge = (course: any) => {
+  const label = TEACHING_MODE_LABEL[String(course?.CourseTeachingMode || "")];
+  return label ? <span className="course-teaching-mode-badge" title="طبيعة التدريس"><GraduationCap aria-hidden="true"/>{label}</span> : null;
+};
 /** Which generation a course belongs to, from the live plans the server tagged it with. */
 const planTagOf = (course: any): { key: "new" | "old" | "shared" | "service"; label: string } | null => {
   const plans: Array<{ status: string; name: string }> = Array.isArray(course?.curriculum) ? course.curriculum : [];
@@ -671,7 +675,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                   onClick={() => setSelectedId(x.AdCourseId)}
                   className={activeId === x.AdCourseId ? "selected" : ""}
                   icon={<BookOpen />}
-                  title={<span className="course-room-type-line"><span>{x.CourseName}<PlanBadge courseId={x.AdCourseId} /></span><CourseRoomTypeBadge type={x.CourseRoomType}/></span>}
+                  title={<span className="course-room-type-line"><span>{x.CourseName}<PlanBadge courseId={x.AdCourseId} /></span>{teachingModeBadge(x)}<CourseRoomTypeBadge type={x.CourseRoomType}/></span>}
                   subtitle={<span className="record-path"><Building2 />{sec(x.AdSectionId)} <i className="record-path-dot" aria-hidden="true" /> {coll(x.AdCollegeId)}</span>}
                   meta={<><MetaPill label="الرقم الأكاديمي" value={x.CourseCode} /><MetaPill label="الوحدات" value={x.CourseCredit} /><MetaPill label="الساعات" value={x.CourseHours} /></>}
                 />
@@ -693,7 +697,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             <>
               <div className="academic-inspector-icon"><BookOpen /></div>
               <span className="surface-kicker">تفاصيل المقرر</span>
-              <h2 className="course-room-type-line"><span>{selected.CourseName}<PlanBadge courseId={selected.AdCourseId} /></span><CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
+              <h2 className="course-room-type-line"><span>{selected.CourseName}<PlanBadge courseId={selected.AdCourseId} /></span>{teachingModeBadge(selected)}<CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
               <p>{sec(selected.AdSectionId)} · {coll(selected.AdCollegeId)}</p>
               {serviceOf(selected).length ? <p className="course-service-for">متطلب في صحائف: {serviceOf(selected).join("، ")}</p> : null}
               <div className="inspector-facts inspector-facts-pairs">

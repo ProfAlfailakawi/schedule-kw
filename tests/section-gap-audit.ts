@@ -69,7 +69,7 @@ check(html.includes("شعبٌ يطلبها الطلبة في «مساري»") &&
 const planHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: planned, kind: "plan", onClose: () => {} }));
 check(planHtml.includes("بحسب تخطيطك") && !planHtml.includes("مساري") && planHtml.includes("المتبقي"), "قائمة التخطيط: عنوانٌ مستقل ولا ذكر لـ«مساري» فيها");
 const surplusHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: surplus, kind: "plan", onClose: () => {} }));
-check(surplusHtml.includes("راجع 11") && surplusHtml.includes("هذا الفصل فقط") && surplusHtml.includes("الفصول السابقة للمقارنة لا للتجميع"), "تُشرح الزيادة ومصدر العدد وحدود التاريخ في لوحة التخطيط");
+check(surplusHtml.includes("راجع حذف") && surplusHtml.includes("11") && surplusHtml.includes("هذا الفصل فقط") && surplusHtml.includes("الفصول السابقة للمقارنة لا للتجميع"), "تُشرح الشعب الزائدة وعددها ومصدر العدد وحدود التاريخ في لوحة التخطيط");
 check(!html.includes("<a ") && !html.includes("<input") && !html.includes("<form") && !html.includes("قارن") && !html.includes("كشف المتبقي"), "العرض: بلا رابطٍ ولا حقلٍ ولا دعوةٍ إلى شاشة التخطيط");
 const shownRows = (html.match(/<li/g) || []).length;
 check(shownRows === 5 && html.includes("الكل ("), "العرض: خمسة أسطر ثم «الكل»", { shownRows });
