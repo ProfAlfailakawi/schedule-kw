@@ -1,9 +1,9 @@
 /**
- * ── بياناتٌ ناقصة في الجدول — السعة وطبيعة التدريس تمنعان التوقيع ─────────
+ * ── بياناتٌ ناقصة في الجدول — إشعارٌ لا مانع، إلا السعة ───────────────────
  *
  * قاعدة المالك (2026-09-27): «التوقيع لا يمنعه إلا تعارض ماديّ». فهذه القائمة
  * تُعرض وتُستكمل، ولا يتوقف عليها توقيعٌ ولا إرسال — باستثناءٍ واحد أضافه
- * المالك: سعة الشعبة وطبيعة التدريس. نقصُ أيٍّ منهما لمقررٍ مجدول يمنع التوقيع
+ * المالك: سعة الشعبة. مقررٌ بلا سعةٍ مسجّلة يمنع التوقيع (`capacityGapItems`)
  * لأن اقتراح الشعب وملاءمة القاعات وسقف التسجيل كلُّها تُبنى عليها. والصفوف تُقرأ بعد التطبيع
  * نفسه الذي تُعدّ به الموانع (`normalizeRow`)، فقاعةٌ مكتوبةٌ نصّاً تطابق
  * سجلّ المواقع ليست ناقصة.
@@ -29,7 +29,7 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
   const missing = new Map<string, DataGapItem>();
   const sectionsByCourse=new Map<number,Set<string>>();
   for(const row of scheduleRows){const id=Number(row.AdCourseId||0);if(!id)continue;const set=sectionsByCourse.get(id)||new Set<string>();set.add(String(row.SCode||row.id));sectionsByCourse.set(id,set);}
-  const fitIssues:Array<{kind:"capacity"|"room-type";scheduleId:string;label:string;room:string;detail:string;courseName:string}> = [];
+  const fitIssues:Array<{kind:"capacity"|"room-type";scheduleId:string;label:string;room:string;detail:string;courseName:string;preferredType?:string;actualType?:string;capacity?:number;requiredSeats?:number}> = [];
   let unknownRoomCapacity=0;
   for (const row of scheduleRows) {
     const courseId = Number(row.AdCourseId || 0), course = courseById.get(courseId);
@@ -42,7 +42,6 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
         !(Number(course.CourseCredit) > 0) && "الوحدات",
         !(Number(course.CourseHours) > 0) && "الساعات",
         !(Number(course.MaxStudent) > 0) && "سعة الشعبة",
-        !String(course.CourseTeachingMode || "").trim() && "طبيعة التدريس",
         !String(course.CourseCode || "").trim() && "رمز المقرر",
         !String(course.CourseName || "").trim() && "اسم المقرر",
       ].filter(Boolean) as string[];
@@ -67,10 +66,10 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
       else if(course){
         const sectionCount=Math.max(1,sectionsByCourse.get(courseId)?.size||1);
         const estimatedSeats=Number(course.MaxStudent)>0?Math.ceil(Number(course.MaxStudent)/sectionCount):0;
-        if(estimatedSeats>0&&Number(room.capacity)>0&&estimatedSeats>Number(room.capacity))fitIssues.push({kind:"capacity",scheduleId:String(row.id),label,room:`${row.AdRoomCode||room.buildingCode}/${row.AdRoomHall||room.canonicalCode}`,detail:`تقديريًا ${countOf(estimatedSeats,AR.seat)} مقابل سعة ${countOf(Number(room.capacity),AR.seat)}.`,courseName:String(course.CourseName||row.AdCourseName||"")});
+        if(estimatedSeats>0&&Number(room.capacity)>0&&estimatedSeats>Number(room.capacity))fitIssues.push({kind:"capacity",scheduleId:String(row.id),label,room:`${row.AdRoomCode||room.buildingCode}/${row.AdRoomHall||room.canonicalCode}`,capacity:Number(room.capacity),requiredSeats:estimatedSeats,detail:`تقديريًا ${countOf(estimatedSeats,AR.seat)} مقابل سعة ${countOf(Number(room.capacity),AR.seat)}.`,courseName:String(course.CourseName||row.AdCourseName||"")});
         else if(estimatedSeats>0&&!Number(room.capacity))unknownRoomCapacity++;
         const requiredType=String(course.CourseRoomType||"").trim(),actualType=String(room.roomType||"").trim();
-        if(requiredType&&actualType&&requiredType!==actualType)fitIssues.push({kind:"room-type",scheduleId:String(row.id),label,room:`${row.AdRoomCode||room.buildingCode}/${row.AdRoomHall||room.canonicalCode}`,detail:`المقرر يفضّل ${requiredType} والقاعة من نوع ${actualType}.`,courseName:String(course.CourseName||row.AdCourseName||"")});
+        if(requiredType&&actualType&&requiredType!==actualType)fitIssues.push({kind:"room-type",scheduleId:String(row.id),label,room:`${row.AdRoomCode||room.buildingCode}/${row.AdRoomHall||room.canonicalCode}`,preferredType:requiredType,actualType,detail:`المقرر يفضّل ${requiredType} والقاعة من نوع ${actualType}.`,courseName:String(course.CourseName||row.AdCourseName||"")});
       }
     }
   }
@@ -80,14 +79,8 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
 
 /** تسمية حقل السعة كما تكتبها قائمة النواقص أعلاه — مصدرٌ واحد للخادم والواجهة. */
 export const CAPACITY_GAP_FIELD = "سعة الشعبة";
-export const TEACHING_MODE_GAP_FIELD = "طبيعة التدريس";
 
 /** المقرراتُ التي في الجدول وسعتُها غير مسجّلة — هي وحدها ما يمنع التوقيع من النواقص. */
 export function capacityGapItems(items: DataGapItem[] | undefined | null): DataGapItem[] {
   return (items || []).filter(item => item.kind === "course" && item.fields.includes(CAPACITY_GAP_FIELD));
-}
-
-/** مقررات الجدول بلا طبيعة تدريس محددة؛ كل مقرر يُحسب مرة ولو تعددت شعبه. */
-export function teachingModeGapItems(items: DataGapItem[] | undefined | null): DataGapItem[] {
-  return (items || []).filter(item => item.kind === "course" && item.fields.includes(TEACHING_MODE_GAP_FIELD));
 }

@@ -60,7 +60,7 @@ export function rangeLabel(min: number, max: number): string {
   return min === max ? `يُقترح هذا الفصل ${countOf(min, AR.section)}` : `يُقترح هذا الفصل ${min} إلى ${countOf(max, AR.section)}`;
 }
 
-/* متوسطٌ عادي للفصول المطابقة للموسم وحده: كلُّ فصلٍ بوزنٍ واحد. */
+/* متوسطٌ عادي للفصول المماثلة وحدها: كلُّ فصلٍ بوزنٍ واحد. */
 function weighted<T>(items: readonly T[], value: (item: T) => number | null): number | null {
   let sum = 0, count = 0;
   for (const item of items) {
@@ -81,7 +81,7 @@ const known = (value: unknown): value is number => value != null && Number.isFin
 /** خطّ الأساس من التاريخ: الشعب المعتادة، ووصفُ مصدرها، والمتبقي المعتاد إن عُرف. */
 export function historicalBaseline(history: readonly SimilarTermHistory[]): { sections: number; label: string; remaining: number | null } | null {
   const opened = history.filter(item => item.sections > 0);
-  /* لا يُخلط موسمٌ بآخر. إذا لم يوجد فصلٌ مطابق، لا يُصطنع خطّ أساس من موسم مختلف. */
+  /* لا يدخل الحسابَ إلا موسمُ هذا الفصل، حتى إن خلا ذلك الموسم من تاريخ. */
   const similar = opened.filter(item => item.similar !== false);
   if (!similar.length) return null;
   const avg = weighted(similar, item => item.sections)!;
@@ -174,11 +174,11 @@ export function suggestSectionCount(
 /** ما شغّله القسم كله في فصلٍ سابق. */
 export interface DepartmentTermLoad { termName: string; similar?: boolean; sections: number; instructors: number; halls: number }
 
-/** ما شغّله القسم عادةً في الفصول المطابقة للموسم فقط، أو null إن لم يوجد تاريخ مماثل. */
+/** ما شغّله القسم عادةً في الفصول المماثلة وحدها، أو null بلا فصل مماثل. */
 export function departmentTypicalTotal(history: readonly DepartmentTermLoad[]): number | null {
   const ran = history.filter(item => item.sections > 0);
   const similar = ran.filter(item => item.similar !== false);
-  const avg = similar.length ? weighted(similar, item => item.sections) : null;
+  const avg = weighted(similar, item => item.sections);
   return avg == null ? null : Math.round(avg);
 }
 

@@ -280,7 +280,10 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   };
   const planBadgeRows = async () => {
     if (badgeCache && Date.now() - badgeCache.at < 15_000) return badgeCache.rows;
-    const [sections, plansOf, allLinks] = await Promise.all([Repository.getSections() as Promise<any[]>, plansBySection(), Repository.getAllCurriculumPlanCourses() as Promise<any[]>]);
+    const [sections, plansOf, allLinks, courses] = await Promise.all([Repository.getSections() as Promise<any[]>, plansBySection(), Repository.getAllCurriculumPlanCourses() as Promise<any[]>, Repository.getCourses() as Promise<AdCourse[]>]);
+    const catalog = new Map(courses.map(course => [Number(course.AdCourseId), course]));
+    const sectionCodes = new Map(sections.map(section => [Number(section.AdSectionId), referenceCodeKey(section.AdSectionCode).padStart(2, "0")]));
+    const newTechnologyCodes = new Set(TECHNOLOGY_EDUCATION_CURRICULA.find(reference => reference.id === "new")?.groups.flatMap(group => group.courses.map(course => course.code)) || []);
     const linksOf = new Map<number, any[]>();
     for (const link of allLinks) { const sid = Number(link.AdSectionId); const list = linksOf.get(sid); if (list) list.push(link); else linksOf.set(sid, [link]); }
     const rows: Array<{ courseId: number; label: string; collegeId: number; sectionId: number }> = [];
@@ -296,7 +299,22 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         if (!fresh || !previous.length) continue;
         const inPrevious = new Set(links.filter(link => previous.some(plan => plan.id === link.planId)).map(link => Number(link.AdCourseId)));
         const label = badgeLabel(fresh);
-        for (const link of links) if (link.planId === fresh.id && !inPrevious.has(Number(link.AdCourseId))) rows.push({ courseId: Number(link.AdCourseId), label, collegeId: cid, sectionId: sid });
+        for (const link of links) {
+          const courseId = Number(link.AdCourseId);
+          if (link.planId !== fresh.id || inPrevious.has(courseId)) continue;
+          /* The admin catalog can contain a stale or mistaken membership link.
+             For Technology Education, only the courses printed in the current
+             2026 reference sheet may carry its badge; this excludes old-only
+             courses such as «أسس التصوير الضوئي» even if an old link remains. */
+          if (isTechnologyEducation(section.AdSectionName)) {
+            const course = catalog.get(courseId);
+            if (!course) continue;
+            const key = referenceCodeKey(course.CourseCode), owner = sectionCodes.get(Number(course.AdSectionId)) || "";
+            const canonicalCode = /^\d{1,3}$/.test(key) && /^\d{2}$/.test(owner) ? `01${owner}${key.padStart(3, "0")}` : key;
+            if (!newTechnologyCodes.has(canonicalCode)) continue;
+          }
+          rows.push({ courseId, label, collegeId: cid, sectionId: sid });
+        }
       }
     }
     badgeCache = { at: Date.now(), rows };
@@ -1168,10 +1186,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         }
         return mainCache.get(sid)!;
       };
-      /* القديمة لا تغيّر مقرراً لقسمٍ آخر: الصحائف القديمة تختلف فيه («تربية عملية» 23 ساعة في أغلبها و16 في بعضها)، فيبقى كما هو
-         ولا يتبدّل بترتيب الرفع. تصحّحه الجديدة وحدها. */
-      const siteIds = new Set(targets.map(row => Number(row.AdSectionId)));
-      const mayCorrect = async (row: AdCourse, newEra: boolean) => (newEra || siteIds.has(Number(row.AdSectionId))) && !(trackProgram && (await mainIdsOf(Number(row.AdSectionId))).has(Number(row.AdCourseId))) && (newEra || (!(await activeIdsOf(Number(row.AdSectionId))).has(Number(row.AdCourseId)) && !(await activeExternalIds()).has(Number(row.AdCourseId))));
+      const mayCorrect = async (row: AdCourse, newEra: boolean) => !(trackProgram && (await mainIdsOf(Number(row.AdSectionId))).has(Number(row.AdCourseId))) && (newEra || (!(await activeIdsOf(Number(row.AdSectionId))).has(Number(row.AdCourseId)) && !(await activeExternalIds()).has(Number(row.AdCourseId))));
 
       const applyTo = async (site: any) => {
         const cid = Number(site.AdCollegeId), sid = Number(site.AdSectionId);

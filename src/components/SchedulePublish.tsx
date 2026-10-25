@@ -1,7 +1,7 @@
 import { DnaStepper } from "./dna";
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, CalendarPlus, Check, Copy, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, Users, X } from "lucide-react";
+import { CalendarPlus, Check, Copy, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, Users, X } from "lucide-react";
 import MasariQrButton from "./MasariQrButton";
 import { reachAboutCard, unreachable, whatsappNumber } from "../utils/reachInstructor";
 import type { AdInstructor } from "../types";
@@ -468,18 +468,6 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                   <span>مساري</span>
                 </button>
               </div>
-              {active.length ? (
-                <div className="share-existing" role="status" aria-label="الروابط الفعالة حاليًا">
-                  <div className="share-existing-head"><CalendarDays aria-hidden="true" /><strong>منشور الآن</strong><button type="button" data-guide-ignore="يعرض الروابط المنشورة حاليًا داخل نافذة النشر" onClick={() => setStep("links")}>إدارة الروابط</button></div>
-                  <ul>{active.map(link => (
-                    <li key={link.id}>
-                      <span>{link.kind === "staff" ? <IdCard aria-hidden="true" /> : link.kind === "survey" ? <GraduationCap aria-hidden="true" /> : <Users aria-hidden="true" />}{link.kind === "staff" ? "بطاقة الأستاذ" : link.kind === "survey" ? "مساري" : "جدول القسم"}</span>
-                      <time dateTime={link.createdAt}><CalendarPlus aria-hidden="true" />نُشر {new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kuwait" }).format(new Date(link.createdAt))}</time>
-                      <time dateTime={link.expiresAt}><CalendarDays aria-hidden="true" />حتى {new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kuwait" }).format(new Date(link.expiresAt))}</time>
-                    </li>
-                  ))}</ul>
-                </div>
-              ) : null}
               {kind === "survey" ? (
                 <>
                   <p className="share-kind-note">بوابةُ الطالب الواحدة: جدولُه المتوقع، رغباتُه، تذكرتُه، وطلبُ الحالة (مقرر لم يُفتح · تعارض · خريج/متوقع تخرّجه). رمزٌ واحد للجامعة؛ والروابط القديمة تفتح مساري تلقائياً.</p>
@@ -623,9 +611,6 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                           <span>
                             <i aria-hidden="true" />
                             <strong className="share-status">{status}</strong>
-                            <time className="share-created-at" dateTime={link.createdAt}>
-                              <CalendarDays aria-hidden="true" /> أُنشئ {new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kuwait" }).format(new Date(link.createdAt))}
-                            </time>
                             {!dead && link.kind === "staff" && link.requestsCloseAt ? (
                               <time className="share-expiry" dateTime={link.requestsCloseAt} style={{ display: "block", fontWeight: 700 }}>
                                 آخر موعد لإرسال الرغبات: {new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kuwait" }).format(new Date(link.requestsCloseAt))}

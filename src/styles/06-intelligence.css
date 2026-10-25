@@ -2317,8 +2317,10 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
    ========================================================================== */
 
 /* ==========================================================================
-   بداية الفصل — موجز بصري للمسودة
-   Counts appear once as compact facts, not again in a duplicate sentence.
+   بداية الفصل — القراءة قبل النسخ
+   The copy was always safe; it was never informative. This is the sentence that
+   belongs before the button: what carries over by itself, and what carries a
+   decision inside it.
    ========================================================================== */
 
 .genesis-reading{
@@ -2327,18 +2329,13 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
   border:1px solid var(--line);border-radius:var(--r-lg);
   background:var(--surface-2);
 }
+.genesis-reading>strong{font-size:var(--t-h4);font-weight:600;color:var(--ink);line-height:1.7}
 .genesis-reading-grid{
   display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);
-  font-size:var(--t-sm);color:var(--muted);align-items:stretch;
+  font-size:var(--t-sm);color:var(--muted);
 }
-.genesis-reading-grid>span{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:7px 11px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink-2);line-height:1.35}
-.genesis-reading-grid>span>span{min-width:0}
-.genesis-reading-grid>span>svg{width:16px;height:16px;flex:none;color:var(--accent)}
-.genesis-reading-grid b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
-.genesis-reading-grid .is-confident{border-color:color-mix(in srgb,var(--success) 24%,var(--line));background:color-mix(in srgb,var(--success) 5%,var(--surface))}
-.genesis-reading-grid .is-confident>svg{color:var(--success)}
-.genesis-reading-grid .is-concern{border-color:color-mix(in srgb,var(--brass) 30%,var(--line));background:color-mix(in srgb,var(--brass) 7%,var(--surface));color:var(--brass)}
-.genesis-reading-grid .is-concern>svg{color:var(--brass)}
+.genesis-reading-grid b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+.genesis-reading-grid .is-concern{color:var(--brass)}
 .genesis-reading-grid .is-concern b{color:var(--brass)}
 .genesis-concerns{
   list-style:none;margin:0;padding:0;display:grid;gap:var(--s1);
@@ -4228,8 +4225,6 @@ button.twin-delta{width:100%}
   border-radius:var(--r-md);
   background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 6%,var(--surface)),var(--surface));
 }
-.genesis-style-score{display:grid;justify-items:center;align-content:center;gap:5px;min-width:100px}
-.genesis-style-score>small{color:var(--muted)!important;font-size:12px!important;font-weight:600!important;letter-spacing:0!important;white-space:nowrap}
 .genesis-style-dial{
   width:74px;height:74px;display:grid;place-items:center;align-content:center;gap:1px;
   border-radius:50%;
@@ -4241,6 +4236,7 @@ button.twin-delta{width:100%}
 }
 .genesis-style-dial>*{position:relative}
 .genesis-style-dial b{font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.02em}
+.genesis-style-dial small{font-size:12px;color:var(--muted)}
 .genesis-style-read{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2) var(--s3);min-width:0}
 .genesis-style-read span{display:inline-flex;align-items:center;gap:6px;font-size:var(--t-xs);font-weight:600;color:var(--ink-2)}
 .genesis-style-read svg{width:14px;height:14px}

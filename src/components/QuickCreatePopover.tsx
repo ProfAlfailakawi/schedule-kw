@@ -192,6 +192,7 @@ export default function QuickCreatePopover({
   const clash = ready && digitsOk ? conflictOf(draft, seed.day) : null;
 
   const orderedCourses = useMemo(() => sortByName(courses, (course: AdCourse) => course.CourseName), [courses]);
+  const selectedCourse = courses.find(course => Number(course.AdCourseId) === Number(draft.courseId));
 
   return (
     <div
@@ -264,15 +265,12 @@ export default function QuickCreatePopover({
             collegeId={collegeId}
             sectionId={sectionId}
             termId={termId}
+            showDepartmentHistory={false}
+            courseRoomType={String(selectedCourse?.CourseRoomType || "")}
+            courseTeachingMode={String(selectedCourse?.CourseTeachingMode || "")}
+            seatsNeeded={Number(selectedCourse?.MaxStudent || 0)}
             value={{AdRoomCode:draft.room,AdRoomHall:draft.hall,buildingId:draft.buildingId,roomId:draft.roomId,locationStatus:draft.locationStatus}}
-            onChange={(location)=>setDraft((prev)=>({
-              ...prev,
-              room: location.AdRoomCode ?? prev.room,
-              hall: location.AdRoomHall ?? prev.hall,
-              buildingId: "buildingId" in location ? location.buildingId : prev.buildingId,
-              roomId: "roomId" in location ? location.roomId : prev.roomId,
-              locationStatus: "locationStatus" in location ? location.locationStatus as any : prev.locationStatus,
-            }))}
+            onChange={(location)=>patch({room:String(location.AdRoomCode||""),hall:String(location.AdRoomHall||""),buildingId:location.buildingId,roomId:location.roomId,locationStatus:location.locationStatus as any})}
           />
         </div>
       </div>

@@ -199,7 +199,6 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
         style={{ insetBlockStart: entry.top, blockSize: entry.height, insetInlineStart: overlay ? 0 : `${entry.lane * width}%`, inlineSize: `calc(${width}% - 3px)` }}
         data-overlay={overlay || undefined}
         aria-pressed={selectedKey === item.key}
-        title={`${item.courseName || "موعد"}${item.SCode ? ` · شعبة ${item.SCode}` : ""} · ${PROPOSAL_DAY_NAMES[entry.day]} · ${timeRange(item.start, item.end)}`}
         aria-label={`${item.outside ? "التزام خارج القسم" : `${item.courseName}${item.SCode ? ` شعبة ${item.SCode}` : ""}`}، ${PROPOSAL_DAY_NAMES[entry.day]}، ${item.start} إلى ${item.end}${tag ? `، ${tag.text}` : ""}`}
         onClick={event => { event.stopPropagation(); pick(item.key); }}
       >
@@ -207,7 +206,7 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
           <span className="sp-ev-title"><Lock aria-hidden="true" /> التزام خارج القسم</span>
         ) : (
           <>
-            <span className="sp-ev-title" dir="auto">{item.courseName || "موعد"}</span>
+            <span className="sp-ev-title">{item.courseName || "موعد"}</span>
             {!tiny && <span className="sp-ev-meta">{item.SCode ? <bdi>شعبة {item.SCode}</bdi> : null}<bdi className="sp-time">{timeRange(item.start, item.end)}</bdi></span>}
             {!compact && item.place ? <span className="sp-ev-place"><Building2 aria-hidden="true" />{item.place}</span> : null}
           </>

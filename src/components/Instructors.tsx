@@ -302,7 +302,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
 
                   ويبقى اختيارياً: أستاذٌ بلا نصابٍ مسجّل لا يُفرض عليه رقمٌ
                   مخترع، ويُترك القيدُ صامتاً كما كان. */}
-              <Field label="النصاب التدريسي" hint="اختياري — ساعاتٌ معتمدة. يُترك فارغاً فلا يُقيَّد به أحد.">
+              <Field label="النصاب" hint="اختياري — ساعاتٌ معتمدة. يُترك فارغاً فلا يُقيَّد به أحد.">
                 <input
                   inputMode="numeric"
                   value={teachingLoad}

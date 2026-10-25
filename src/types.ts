@@ -198,7 +198,8 @@ export interface AdCourse {
   /** Optional room category that best fits this course (planner guidance only). */
   CourseRoomType?: string;
   /** Teaching mode used by regulation review; undefined means not yet classified. */
-  CourseTeachingMode?: "theoretical" | "applied" | "practical" | "field_training";
+  /** mixed is retained only to read legacy records; new editor choices use the four explicit modes. */
+  CourseTeachingMode?: "theoretical" | "applied" | "practical" | "field_training" | "mixed";
 }
 
 /** Academic curriculum version for one scientific section. */
@@ -1393,8 +1394,6 @@ export interface InstructorRequestItem {
   /** الصفُّ الأصلي، و`null` في الإضافة. */
   rowId: number | null;
   action: InstructorRequestAction;
-  /** موعد كان في مسودة الأستاذ ثم حذفه القسم قبل إرسال طلبه؛ يُعرض للعلم ولا يرسله الأستاذ كطلب حذف. */
-  removedByDepartment?: boolean;
   before?: InstructorRequestSnapshot;
   /** ما طلبه الأستاذ. **لا يحمل قاعةً أبداً.** */
   after?: InstructorRequestSnapshot;

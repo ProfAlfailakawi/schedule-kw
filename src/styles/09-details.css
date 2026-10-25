@@ -455,8 +455,6 @@ button.disabled,.disabled{opacity:.45;pointer-events:none}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .share-row-lead span{display:flex;align-items:center;gap:var(--s2);margin-top:2px;color:var(--muted);font-size:var(--t-xs)}
-.share-row-lead .share-created-at{display:inline-flex;align-items:center;gap:5px;color:var(--ink-2);font-weight:600}
-.share-row-lead .share-created-at svg{width:14px;height:14px;color:var(--accent);flex:none}
 .share-row-lead .share-link-kind{width:max-content;max-width:100%;margin:0 0 7px;padding:5px 9px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink-2);font-weight:700;white-space:normal}
 .share-row-lead .share-link-kind svg{width:14px;height:14px;flex:none}.share-row-lead .share-link-kind.kind-staff{border-color:color-mix(in srgb,var(--brass) 34%,var(--line));color:var(--brass)}.share-row-lead .share-link-kind.kind-department{border-color:color-mix(in srgb,var(--accent) 30%,var(--line));color:var(--accent)}
 .share-row-lead i{width:6px;height:6px;border-radius:50%;background:var(--success)}

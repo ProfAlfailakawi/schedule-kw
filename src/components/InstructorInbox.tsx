@@ -535,8 +535,7 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
   const hasThread = Boolean((item.thread || []).length);
   const candidate = useMemo(() => proposedRow(row, item, current), [row, item, current]);
   const live = useLiveCheck(candidate, !decided && item.action !== "delete");
-  const reasons = (item.reasons || []).filter((reason, index, all) =>
-    all.findIndex(other => other.text === reason.text) === index);
+  const reasons = item.reasons || [];
   const seen = new Set(reasons.map(reason => reason.text));
   /* ── ما يُفرغه الطلبُ نفسُه ─────────────────────────────────────────────
      أستاذٌ نقل محاضرةً من الثامنة وأضاف أخرى في الثامنة: في الجدول الحاليّ
@@ -552,8 +551,7 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
       name: elsewhere ? "محاضرته في قسمٍ آخر" : String(other.before?.courseName || other.after?.courseName || "محاضرة"),
     });
   });
-  const allLive = (live.issues || []).filter((issue, index, all) => !seen.has(issue.message)
-    && all.findIndex(other => other.message === issue.message && other.detail === issue.detail) === index);
+  const allLive = (live.issues || []).filter(issue => !seen.has(issue.message));
   const dependsOn: Array<{ index: number; name: string; elsewhere?: boolean }> = [...new Map<number, { index: number; name: string; elsewhere?: boolean }>(allLive
     .filter(issue => issue.otherId && siblings.has(issue.otherId))
     .map(issue => [issue.otherId!, siblings.get(issue.otherId!)!] as [number, { index: number; name: string; elsewhere?: boolean }])).values()];

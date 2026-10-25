@@ -70,7 +70,7 @@ check(share.includes('if (kind === "staff") {') && share.includes("await Reposit
   "بطاقةٌ جديدةٌ تُوقف بطاقاتِ القسم السابقة في الفصل نفسه");
 check(share.includes("if (isPersonalStaffLink(old)) {") && share.includes("Repository.setShareLinkRequestsCloseAt(old.id, requestsCloseAt)"),
   "والروابطُ الشخصيةُ لا تُوقف — وصلت الأساتذة — بل تأخذ الموعدَ الجديد");
-check(share.includes("res.status(201).json({ ...published.link, replaced: published.replaced });"), "ويُقال كم بطاقةً حلّت محلّها بعد النشر المتسلسل");
+check(share.includes("res.status(201).json({ ...link, replaced });"), "ويُقال كم بطاقةً حلّت محلّها");
 check(repo.includes("setShareLinkRequestsCloseAt: async (id: string, requestsCloseAt: string)"), "وللمستودع طريقٌ لتحديث الموعد");
 
 /* ── اللوحة: بلا تلوّثٍ بصري ────────────────────────────────────────────── */

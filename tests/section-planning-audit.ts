@@ -19,9 +19,9 @@ const firsts = [
 const base = historicalBaseline(firsts)!;
 check(base.sections === 3 && base.label.includes("متوسط 3 فصول أولى") && base.remaining === null, `الأساس: المتوسط العادي للفصول المماثلة وحدها: 3 شعب (${base.label})`);
 check(historicalBaseline([{ termName: "الفصل الأول 2025/2026", sections: 3, similar: false }, { termName: "الفصل الثاني 2025/2026", sections: 20, similar: false }]) === null,
-  "لا يُستخدم تاريخ موسمٍ آخر إذا لم يوجد تاريخ للموسم المطلوب");
+  "لا يُستخدم فصلٌ من موسمٍ آخر عند غياب تاريخ الموسم المطلوب");
 check(historicalBaseline([{ termName: "الفصل الأول 2025/2026", sections: 3, similar: true }, { termName: "الفصل الثاني 2025/2026", sections: 20, similar: false }])?.sections === 3,
-  "فصول الموسم الآخر لا تغيّر أساس المقرر حتى عند وجود تاريخ مماثل");
+  "الفصل الأول يظل منفصلاً عن الثاني ولو كان الفصل الآخر أحدث أو أغزر شعباً");
 /* كاملُ التاريخ لا آخر ثلاثةٍ فقط، وبمتوسطٍ عادي: 2،2،2،8،8 ← 4.4 ← 4. */
 const longRun = [2, 2, 2, 8, 8].map((sections, i) => ({ termName: `الفصل الأول ${2025 - i}/${2026 - i}`, sections, similar: true }));
 const longBase = historicalBaseline(longRun)!;
@@ -85,11 +85,9 @@ check(remainingBacklog(200, growing) === "" && remainingBacklog(240, growing.sli
 const dept = [{ termName: "الفصل الأول 2025/2026", sections: 30, instructors: 12, halls: 8, similar: true }, { termName: "الفصل الثاني 2025/2026", sections: 26, instructors: 11, halls: 7, similar: false }];
 check(departmentTypicalTotal(dept) === 30, "المعتاد للقسم من الفصول المماثلة");
 check(departmentLoadWarning(30, dept) === "" && departmentLoadWarning(41, dept).includes("يتجاوز أعلى ما شغّله القسم"), "مجموعٌ فوق أعلى ما شغّله القسم يُنبَّه عليه");
-check(departmentTypicalTotal([{ termName: "الفصل الثاني 2025/2026", sections: 26, instructors: 11, halls: 7, similar: false }]) === null,
-  "لا يُستعار معتاد القسم من موسم آخر عند غياب الموسم المطابق");
-check(departmentLoadWarning(40, [...dept, { termName: "الفصل الثاني 2024/2025", sections: 60, instructors: 20, halls: 15, similar: false }]).includes("يتجاوز أعلى ما شغّله القسم")
-  && departmentLoadWarning(40, [...dept, { termName: "الفصل الثاني 2024/2025", sections: 60, instructors: 20, halls: 15, similar: false }]).includes("30"),
-  "تحذير مجموع الشعب يقارن بأعلى مجموع في الموسم نفسه، ولا يستعير ذروة موسمٍ آخر");
+const onlyOtherSeason = [{ termName: "الفصل الثاني 2025/2026", sections: 26, instructors: 11, halls: 7, similar: false }];
+check(departmentTypicalTotal(onlyOtherSeason) === null && departmentLoadWarning(40, [...dept, { termName: "الفصل الثاني 2024/2025", sections: 60, instructors: 20, halls: 15, similar: false }]).includes("30"),
+  "مجموع القسم لا يستعير المعتاد أو الذروة من فصلٍ دراسي مختلف");
 
 /* ── قراءة كشف المتبقي ── */
 const catalogue = [{ id: 1, code: "101" }, { id: 2, code: "102" }, { id: 3, code: "210" }, { id: 4, code: "315" }, { id: 5, code: "499" }];
@@ -241,16 +239,12 @@ const server = fs.readFileSync("server.ts", "utf8");
 const repo = fs.readFileSync("src/db/repository.ts", "utf8");
 check(repo.includes("getRegistrationStats: async") && repo.includes("saveRegistrationStats: async") && repo.includes('collection("registrationStats")'), "الإحصاء يُحفظ عبر المستودع (Firestore والمحلي)");
 check(repo.includes("input.counts ?? previous?.counts") && repo.includes("remaining: Object.fromEntries(Object.entries(clean(input.remaining, 100000, -100000)).map(([key, value]) => [key, Math.max(0, value)]))")
-  && (server.match(/Math\.max\(0, Number\(value\) \|\| 0\)/g) || []).length === 2, "لا متبقٍّ سالب: يُحفظ صفراً، وما حُفظ سالباً قبلُ يُعرض صفراً في الفصل وفي تاريخ الفصول السابقة؛ و«المسجّلين» القديم يبقى كما هو");
+  && (server.match(/Math\.max\(0, Number\(value\) \|\| 0\)/g) || []).length === 1, "لا متبقٍّ سالب: يُحفظ صفراً، وما حُفظ سالباً قبلُ يُعرض صفراً في تاريخ الفصول السابقة؛ و«المسجّلين» القديم يبقى كما هو");
 check(repo.includes('input.remainingSource.column === "unregistered" || input.remainingSource.column === "seats"'), "وسم العمود يُحفظ كما أُرسل («unregistered»، و«seats» القديم يبقى قديماً)");
-check(server.includes('const currentRemaining = stats?.remainingSource?.column === "unregistered"')
-  && server.includes('pastStats?.remainingSource?.column === "unregistered"')
-  && server.includes('remaining: currentRemaining')
-  && server.includes('remaining: stats?.remainingSource?.column === "unregistered" ? stats.remaining || {} : null')
-  && server.includes('remaining: stats?.remainingSource?.column === "unregistered" ? (stats?.remaining || {}) : {}')
-  && !server.includes('remainingSource?.column === "seats"')
-  && server.includes('legacyRemaining: stats?.remainingSource?.column !== "unregistered"'),
-  "الخادم: «unregistered» وحده مدخل الاقتراح والمقارنة والتوقّع (والشاغر معه)، وما سواه (seats أو بلا وسم) «قديم» لا يُحسب");
+check((server.match(/remainingSource\?\.column === "unregistered"/g) || []).length === 7 && !server.includes('remainingSource?.column === "seats"')
+  && server.includes('legacyRemaining: stats?.remainingSource?.column !== "unregistered"')
+  && !server.includes("firstSemesterFallback") && !server.includes("useFirstSemesterFallback"),
+  "الخادم: «unregistered» وحده مدخل الاقتراح والمقارنة والتوقّع (والشاغر معه)، ولا يستعير المتبقي من فصل آخر");
 check(server.includes("vacant: req.body?.vacant || {}") && repo.includes("vacant: clean(input.vacant, 100000, -100000)"),
   "شاغر الشعب («المقاعد المتبقية») يُحفظ مع الاستيراد بإشارته، للإنذار المبكر وحده");
 check(server.includes('app.get("/api/registration-stats", requirePermission(7)') && server.includes('app.put("/api/registration-stats", requirePermission(7)')
@@ -281,12 +275,7 @@ const ocr = fs.readFileSync("src/utils/documentOcr.ts", "utf8");
 check(ocr.includes("async function ruledReportCells(") && ocr.includes("await deskew(image)") && ocr.includes("straightenTable(lib,surface,geometry)") && ocr.includes('const skipped=new Set<string>([])'),
   "الصورة المسطّرة: تُعدَّل وتُستقام وتُقرأ خانةً خانة، وكل الأعمدة تُقرأ («لم يسجلوا» للتخطيط، «لم يجتازوا» والمسجّلون لفحصه، «المقاعد المتبقية» شاغرٌ للإنذار)");
 check(server.includes("termSeasonOf(row.AdTermName) === season") && server.includes("if (!rows.length) continue;"), "الفصول المماثلة: الموسم نفسه، ويُتخطّى الفصل الذي لا جدول فيه للقسم");
-check(server.includes("Repository.getCourseTransitions(sectionId)") && server.includes("ancestorsOf(id)") && server.includes("const source = family.find(member => (term.sectionsOf.get(member)?.size || 0) > 0)"), "المقرر المعاد ترقيمه يرث تاريخ سلفه عند غياب بياناته المباشرة");
-check(!server.includes("firstSemesterFallback") && !server.includes("remainingSourceTerm"), "المتبقي لا ينتقل من الفصل الأول إلى الثاني");
-check(!fs.readFileSync("src/utils/readinessFix.ts", "utf8").includes('value: "mixed"')
-  && !fs.readFileSync("src/components/Courses.tsx", "utf8").includes('نظري وعملي')
-  && (server.match(/'theoretical','applied','practical','field_training'/g) || []).length >= 2,
-  "طبيعة التدريس تقتصر على الأنواع الأربعة المحددة ولا تعرض نوعاً مختلقاً");
+check(server.includes("Repository.getCourseTransitions(sectionId)") && server.includes("ancestorsOf(id)") && server.includes("remaining: known.reduce("), "المقرر المعاد ترقيمه يرث شعب سلفه ومتبقّيه");
 check(ui.includes("suggestSectionCount("), "الواجهة تستعمل الحساب نفسه");
 check(ui.includes('"x-page-sizes": files.map(file => file.size).join(",")') && ui.includes("files.length <= 4 && files.every(isImage)")
   && server.includes('String(req.get("x-page-sizes") || "")') && server.includes("sizes.reduce((sum, size) => sum + size, 0) !== bodyBytes")

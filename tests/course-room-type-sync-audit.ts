@@ -46,14 +46,15 @@ check(roomTypeSiblingIds({ ...courses[0], CourseCode: "" }, courses, sections, c
 check(roomTypeSiblingIds({ ...courses[0], AdSectionId: 99 }, courses, sections, colleges).length === 0, "قسمٌ مجهول لا يطابق شيئاً");
 check(roomTypeSiblingIds({ ...courses[0], AdCollegeId: 99 }, courses, sections, colleges).length === 0, "كليةٌ مجهولة لا تطابق شيئاً");
 
-/* المصدر والنسخ في عملية واحدة حتى يبقى تغيير الرمز ذرياً. */
+/* ترتيبُ الكتابة في المسار: النسخُ قبل المقرر المعدَّل، فتعيد المحاولةُ ما فات. */
 const server = fs.readFileSync("server.ts", "utf8");
 const route = server.slice(server.indexOf('app.put("/api/courses/:id"'), server.indexOf('app.delete("/api/courses/:id"'));
-check(route.includes("Repository.updateCourseFamily("), "المصدر والنسخ تُحفظ معاً عند تعديل البيانات");
+const syncAt = route.indexOf("setCourseRoomTypeForIds"), updateAt = route.indexOf("Repository.updateCourse(");
+check(syncAt > 0 && updateAt > syncAt, "مزامنة النسخ تُكتب قبل المقرر المعدَّل ليبقى إعادةُ المحاولة ممكنةً");
 
 /* النوع الجديد يسري عند كل حفظٍ بنوعٍ غير فارغ لا عند تغييره وحده؛ ولا يُكتب إلا في نسخةٍ نوعُها يختلف. */
 check(/roomTypeEvaluated\s*=\s*roomTypeChanged\s*\|\|\s*CourseRoomType\s*!==\s*""/.test(route), "المزامنة تعمل عند كل حفظٍ بنوعٍ غير فارغ ولو لم يتغيّر نوعُ النسخة المحفوظة");
-check(route.includes("const differing = siblings.filter(siblingId => typeOf(siblingId) !== CourseRoomType)"), "يُحسب عدد النسخ مختلفة النوع بدقة");
+check(route.includes("differing") && route.includes("setCourseRoomTypeForIds(differing"), "تُكتب النسخُ المختلفةُ النوع وحدها");
 
 /* رقم المقرر يتكرر بين الأقسام العلمية لمقررات مختلفة: مقررُ قسمٍ آخر بالرقم نفسه لا يُمسّ ولا يُذكر في الإفادة. */
 check(!route.includes("NearMiss") && !route.includes("اسم القسم يختلف"), "إفادة المزامنة لا تذكر مقررات الأقسام الأخرى ذات الرقم نفسه");
