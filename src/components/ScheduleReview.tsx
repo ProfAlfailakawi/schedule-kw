@@ -203,7 +203,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
     () => reviewSchedule({ rows, courses, instructors, previousRows, meeting, nature }),
     [rows, courses, instructors, previousRows, meeting, nature]
   );
-  const decisionFindings = useMemo(() => baseFindings.filter(isDecision1912Finding), [baseFindings]);
+  const decisionFindings = useMemo(() => baseFindings.filter(finding => isDecision1912Finding(finding) && finding.approvalEffect === "block"), [baseFindings]);
   const score = useMemo(() => regulationScore(decisionFindings, rows.length), [decisionFindings, rows.length]);
   const [serverBlockers, setServerBlockers] = useState<Array<{id:string;type:string;title:string;detail:string;rowIds:number[];subjectKey?:string;subjectLabel?:string}>>([]);
   /* What the same reading says without counting it: the same section in two

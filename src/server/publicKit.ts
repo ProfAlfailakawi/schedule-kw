@@ -39,6 +39,10 @@ export const PUBLIC_KIT_CSS = `/* ── عدّة الصفحات العامة �
 .sk-what>div{display:flex;align-items:center;gap:10px}.sk-what .sk-gi{color:var(--sk-ok)}
 .sk-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:13px;color:var(--sk-muted)}
 .sk-list li{display:flex;gap:8px;align-items:baseline}.sk-list li::before{content:"";flex:none;inline-size:6px;block-size:6px;border-radius:50%;background:var(--sk-ok);transform:translateY(-2px)}
+.sk-flow{grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:9px;color:var(--sk-ink)}
+.sk-flow li{align-items:center;padding:11px 13px;border:1px solid var(--sk-line);border-radius:14px;background:var(--sk-card);line-height:1.5}
+.sk-flow li::before{display:none}.sk-flow li>.sk-gi{color:var(--sk-ok);inline-size:22px;block-size:22px}
+.sk-flow li span{display:grid;gap:2px;min-inline-size:0}.sk-flow li small{color:var(--sk-muted);font-size:12px}.sk-flow li em{margin-inline-start:auto;font-style:normal;font-weight:700;color:var(--sk-ok);white-space:nowrap}
 .sk-warn{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:var(--sk-warn-s,#fff4d6);color:var(--sk-warn,#85580a);font-size:13px;line-height:1.6}
 .sk-warn .sk-gi{margin-top:2px}
 .sk-known{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;background:var(--sk-ok-s);color:var(--sk-ok-ink);font-size:13px;line-height:1.5}

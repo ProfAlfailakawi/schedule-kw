@@ -127,7 +127,10 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
           {kind === "create" ? (
             <>
               <label className="qc-field qc-wide"><span>المقرر</span>
-                <select autoFocus value={draft.courseId ?? ""} onChange={e => ws.patchDraft({ courseId: Number(e.target.value) || null })}>
+                <select autoFocus value={draft.courseId ?? ""} onChange={e => {
+                  const courseId = Number(e.target.value) || null;
+                  ws.patchDraft({ courseId, scode: suggestSectionCode(courseId, ctx?.usedCodes || {}, ws.ops, draft.editingOpId) });
+                }}>
                   <option value="">اختر المقرر…</option>
                   {courses.map(c => <option key={c.id} value={c.id}>{c.code ? `${c.code} · ` : ""}{c.name}</option>)}
                 </select>
@@ -166,7 +169,7 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
         <button type="button" className="qc-expand" onClick={onMore} data-guide-ignore="جزء من بطاقة الإضافة السريعة للمقترح — لا يكتب في الجدول"><Maximize2 aria-hidden="true" />تفاصيل أكثر</button>
         <button type="button" className="qc-cancel" onClick={onClose} data-guide-ignore="جزء من بطاقة الإضافة السريعة للمقترح — لا يكتب في الجدول">إلغاء</button>
         <button type="button" className="qc-create" disabled={!ready} onClick={submit} data-guide-ignore="يضيف المادة إلى مسودة المقترح — لا يكتب في الجدول"
-          title={ready ? "أضف إلى المقترح" : kind === "assign" ? "اختر شعبة" : "أكمل المقرر والوقت"}>
+          title={ready ? "أضف إلى المقترح" : kind === "assign" ? "اختر شعبة" : kind === "create" ? "أكمل المقرر ورقم الشعبة واليوم والوقت" : "أكمل اليوم والوقت"}>
           <Check aria-hidden="true" />{kind === "assign" ? "أسند" : kind === "edit" ? "حفظ التعديل" : "أضف"}
         </button>
       </footer>

@@ -659,7 +659,7 @@ function fail(msg,code,focusId){UI.err=msg;UI.errCode=code||"";paintResp();var e
  if(focusId){var f=document.getElementById(focusId);if(f)f.focus()}}
 /* التوقيعُ في الورقة السفلية المشتركة: تقول ما سيُوقَّع عليه، ولا يُحفظ الرقمُ في UI ولا في المتصفح. */
 function signWhat(){var ch=wantsChange(),h='<div>'+SK.gi(ch?"pen":"check")+'<span>'+(ch?"تطلب تعديلاً على المقترح":"توافق على المقترح")+'</span></div>';
- if(D.responseMode!=="linked"){var li=(D.ops||[]).filter(function(o){return UI.choice[o.id]}).map(function(o){return '<li><span><b>'+esc(o.target.courseName||o.target.courseCode)+'</b> — '+(UI.choice[o.id]==="approve"?"أوافق":"أحتاج تعديلاً")+'</span></li>'}).join("");if(li)h+='<ul class="sk-list">'+li+'</ul>'}
+ if(D.responseMode!=="linked"){var li=(D.ops||[]).filter(function(o){return UI.choice[o.id]}).map(function(o){var ok=UI.choice[o.id]==="approve";return '<li>'+SK.gi(ok?"check":"pen")+'<span><b>'+esc(o.target.courseName||o.target.courseCode)+'</b><small>'+esc(o.target.SCode?"شعبة "+o.target.SCode:"")+'</small></span><em>'+(ok?"أوافق":"أحتاج تعديلاً")+'</em></li>'}).join("");if(li)h+='<ul class="sk-list sk-flow">'+li+'</ul>'}
  return h}
 function send(){if(UI.sending||!D)return;UI.err="";UI.errCode="";
  if(!anyChoice()){fail("اختر ردّك أولاً: أوافق أو أحتاج تعديلاً.");return}

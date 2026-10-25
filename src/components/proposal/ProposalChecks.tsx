@@ -31,15 +31,18 @@ function FindingCard({ ws, finding }: { key?: React.Key; ws: Workspace; finding:
   /* بعض المحركات تضع الجملة نفسها في detail وreason؛ اعرضها مرة واحدة. */
   const detail = finding.detail?.trim();
   const reason = finding.reason?.trim();
+  const same = (a?: string, b?: string) => Boolean(a && b && a.replace(/[.،\s]/g, "") === b.replace(/[.،\s]/g, ""));
+  const showDetail = detail && !same(detail, finding.title);
+  const showReason = reason && !same(reason, finding.title) && !same(reason, detail);
   return (
     <li className="sp-finding" data-kind={finding.kind} data-focus={focused || undefined}>
       <div className="sp-finding-head">
         <b>{finding.title}</b>
         {op ? <small>{op.target.courseName}<PlanBadge courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</small> : null}
       </div>
-      {detail && detail !== reason ? <p className="sp-finding-detail">{detail}</p> : null}
+      {showDetail ? <p className="sp-finding-detail">{detail}</p> : null}
       {timeBits.length ? <p className="sp-finding-when"><span>{timeBits[0]}</span>{timeBits[1] ? <bdi className="sp-time">{timeBits[1]}</bdi> : null}</p> : null}
-      {reason ? <p className="sp-finding-why"><Info aria-hidden="true" /><span>{detail === reason ? reason : <><b>السبب:</b> {reason}</>}</span></p> : null}
+      {showReason ? <p className="sp-finding-why"><Info aria-hidden="true" /><span>{reason}</span></p> : null}
       {finding.fix ? <p className="sp-finding-fix"><Lightbulb aria-hidden="true" /><span><b>ما يمكن فعله:</b> {finding.fix}</span></p> : null}
       <div className="sp-finding-actions">
         {finding.gridKeys?.length ? (
@@ -111,6 +114,13 @@ export default function ProposalChecks({ ws, compact = false }: { ws: Workspace;
     info: ev?.findings.filter(f => f.kind === "info") || [],
   }), [ev]);
   const [open, setOpen] = useState(false);
+  const alternativesRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    if (!ws.alts) return;
+    setOpen(true);
+    const frame = window.requestAnimationFrame(() => alternativesRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [ws.alts?.opId]);
 
   const status = ws.terminal ? "closed" : !ws.ops.length ? "empty" : ws.evalState === "failed" ? "failed" : !checked ? "checking"
     : ev!.status === "partial" ? "partial" : groups.blocker.length ? "blocked" : "clear";
@@ -157,7 +167,7 @@ export default function ProposalChecks({ ws, compact = false }: { ws: Workspace;
           ) : null}
           {status === "clear" ? <p className="sp-clear"><Check aria-hidden="true" />لا يوجد ما يمنع إرسال المقترح{groups.review.length ? "، لكن راجع الملاحظات أدناه." : "."}</p> : null}
           <Group ws={ws} kind="blocker" items={groups.blocker} open />
-          <Alternatives ws={ws} />
+          <div ref={alternativesRef}><Alternatives ws={ws} /></div>
           {ws.undo ? <p className="sp-undo"><Check aria-hidden="true" />{ws.undo.label}. <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="sp-link" onClick={ws.undoRetarget}><Undo2 aria-hidden="true" />تراجع</button></p> : null}
           <Group ws={ws} kind="review" items={groups.review} open={!groups.blocker.length} />
           <Group ws={ws} kind="info" items={groups.info} open={false} />

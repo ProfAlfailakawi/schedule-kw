@@ -114,7 +114,7 @@ export function SendDialog({ ws, onClose, onSent }: { ws: Workspace; onClose: ()
 
   const before = evaluation?.before.metrics, after = evaluation?.after.metrics;
   const rows: Array<[string, string, string]> = before && after ? [
-    ["النصاب", before.loadUnits === null ? "غير متوفر" : countOf(before.loadUnits, AR.hour), after.loadUnits === null ? "غير متوفر" : countOf(after.loadUnits, AR.hour)],
+    ["النصاب التدريسي", before.loadUnits === null ? "غير متوفر" : countOf(before.loadUnits, AR.hour), after.loadUnits === null ? "غير متوفر" : countOf(after.loadUnits, AR.hour)],
     ["عدد الشعب", num(before.sections), num(after.sections)],
     ["أيام الحضور", countOf(before.attendanceDays, AR.day), countOf(after.attendanceDays, AR.day)],
     ["ساعات الحضور", countOf(Number(hoursShort(before.presenceMinutes).replace(",", ".")), AR.hour), countOf(Number(hoursShort(after.presenceMinutes).replace(",", ".")), AR.hour)],
@@ -345,7 +345,7 @@ export function CommitDialog({ ws, onClose, onDone }: { ws: Workspace; onClose: 
 
 /* ═══════════════ ردود الأستاذ وسجل المقترح ═══════════════ */
 
-const REASON_TEXT: Record<string, string> = { time: "الوقت", place: "المكان", days: "الأيام", load: "النصاب", other: "سببٌ آخر" };
+const REASON_TEXT: Record<string, string> = { time: "الوقت", place: "المكان", days: "الأيام", load: "النصاب التدريسي", other: "سببٌ آخر" };
 
 export function ProposalResponses({ ws }: { ws: Workspace }) {
   const { proposal, view } = ws;

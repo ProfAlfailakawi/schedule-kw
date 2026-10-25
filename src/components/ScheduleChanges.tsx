@@ -676,7 +676,7 @@ function ChangesReviewOverview({ report, scopeLine, onJump }: { report: ChangeRe
     return map;
   }, [report.fullSchedule, report.diff.entries]);
   const blockers = report.reviewBlockers || [];
-  const notices = report.regulationNotices || [];
+  const notices = (report.regulationNotices || []).filter(item => item.approvalEffect === "block");
   const rowCount = Math.max(0, report.diff.counts.added + report.diff.counts.changed + report.diff.counts.unchanged);
 
   /* الحلقة تخص قرار 1913/2016 كما في ScheduleReview بالضبط؛ موانع الحفظ

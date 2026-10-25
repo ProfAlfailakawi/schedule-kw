@@ -114,7 +114,7 @@ export default function ProposalHeader(props: {
       </div>
 
       <div className="sp-tiles" role="group" aria-label="مقارنة الوضع الحالي بالمتوقع بعد المقترح">
-        <Tile label="النصاب" Icon={Scale} unit="ساعة" checking={checking}
+        <Tile label="النصاب التدريسي" Icon={Scale} unit="ساعة" checking={checking}
           before={loadBefore === null ? null : num(loadBefore)} after={loadAfter === null ? null : num(loadAfter)}
           delta={diff(loadBefore, loadAfter)} direction={0} tone={overCap ? "bad" : undefined}
           note={loadCap ? `المسجّل ${countOf(loadCap, AR.hour)}${overCap ? " — يتجاوزه" : ""}` : "لا سقف مسجّل"} unknownText="غير متوفر" />

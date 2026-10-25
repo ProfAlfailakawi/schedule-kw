@@ -34,6 +34,7 @@ test:instructor-request
 test:instructor-request-server
 test:instructor-request-followup
 test:request-browser-syntax
+test:request-deleted-index
 test:student-case-status
 test:student-registration
 test:student-journey
@@ -82,6 +83,7 @@ test:visiting-conversion
 test:paged-findings
 test:study-proposal
 test:study-proposal-flow
+test:shared-course-planning
 test:teacher-card-flow
 test:day-autofill
 test:approval-scope

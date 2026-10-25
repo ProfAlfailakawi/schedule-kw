@@ -155,7 +155,11 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
   const openCreate = (seed: Partial<QuickSeed> = {}, fill?: { day: any; start: number; end: number }) => {
     if (terminal) return;
     ws.chooseMode("create");
-    if (fill) ws.patchDraft({ days: [fill.day], start: hhmm(fill.start), end: hhmm(fill.end), endTouched: true });
+    /* العجلات تعرض 08:00–08:50 افتراضياً؛ يجب أن تكون القيمة في المسودة
+       نفسها حتى لا يبقى «أضف» معطلاً مع أن الوقت يبدو مكتملاً. */
+    ws.patchDraft(fill
+      ? { days: [fill.day], start: hhmm(fill.start), end: hhmm(fill.end), endTouched: true }
+      : { start: "08:00", end: "08:50", endTouched: false });
     setCard({ kind: "create", ...seed });
   };
   const openAssign = () => { if (terminal) return; ws.chooseMode("assign"); setCard({ kind: "assign" }); };

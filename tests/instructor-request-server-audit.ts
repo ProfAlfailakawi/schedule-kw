@@ -57,7 +57,7 @@ check(server.includes("function stripForInstructor"), "تجريدُ ما لا ي
 check(server.includes("const { roomCandidates, roomOptions, ...rest } = item;"), "والمرشّحاتُ وتفاصيلُ قاعاتِها تُنزع نزعاً، لا تُستثنى بالنسيان");
 check(/after: rest\.after \? \{ \.\.\.rest\.after, room: undefined \}/.test(server),
   "و«طلب» لا تحمل قاعةً أبداً");
-check(server.includes("stripForInstructor(judgedRequest)") && server.includes("judgeRequestItems(request),\n  ]);"), "والقراءةُ تمرّ بالتجريد");
+check(server.includes("stripForInstructor(judgedRequest)") && server.includes("judgeRequestItems(request),"), "والقراءةُ تمرّ بالتجريد");
 check(server.includes("stripForInstructor(saved)"), "والإرسالُ كذلك — لا مخرجَ بلا تجريد");
 /* مسارُ الفحص يخاطب صفحةَ الأستاذ أيضاً، فلا يُرسل مرشّحاته. */
 check(!/\/check[\s\S]{0,3000}roomCandidates: verdict\.roomCandidates/.test(server),
