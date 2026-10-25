@@ -65,6 +65,8 @@ check(requestPage.includes("${PUBLIC_KIT_SCRIPT}") && requestPage.includes("${PU
   "صفحةُ الطلب تحمل العدّة والخطوط");
 check(proposal.includes("var SK=(function()") && proposal.includes("plex-arabic-latin-400.woff2") && proposal.includes(".sk-sheet"),
   "وصفحةُ المقترح كذلك");
+check(PUBLIC_KIT_CSS.includes(".sk-sheet{inline-size:100%;block-size:100%") && PUBLIC_KIT_SCRIPT.includes('id="skClose"') && PUBLIC_KIT_SCRIPT.includes('closeButton.onclick=close'),
+  "ورقة التوقيع تملأ الشاشة مع زر إغلاق ظاهر");
 check(PUBLIC_FONT_FACES.includes("plex-arabic-latin-700.woff2") && /U\+0000-00FF/.test(PUBLIC_FONT_FACES),
   "الوجهُ اللاتيني يغطي الأرقام (U+0000–00FF) بكل الأوزان");
 check(!/localStorage|sessionStorage|indexedDB|document\.cookie/.test(PUBLIC_KIT_SCRIPT) && !/console\./.test(PUBLIC_KIT_SCRIPT),

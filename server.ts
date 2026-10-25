@@ -15441,6 +15441,7 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
     const windowOpen = requestWindowOpen(request);
     return {
       linkId: request.linkId,
+      createdAt: String(requestLink.createdAt || request.submittedAt || ""),
       sectionId: Number(request.AdSectionId),
       sectionName: sections.find(row => Number(row.AdSectionId) === Number(request.AdSectionId))?.AdSectionName || "القسم",
       collegeName: colleges.find(item => Number(item.AdCollegeId) === Number((request as any).AdCollegeId))?.AdCollegeName || "",
@@ -18808,7 +18809,7 @@ ${STAFF_CARD_VISUAL_JS}
     var links=(d.requestLinks||[]).filter(function(l){
       if(!l.windowOpen||seen[l.linkId])return false;
       seen[l.linkId]=1;return true;
-    });
+    }).sort(function(a,b){return Date.parse(b.createdAt||"")-Date.parse(a.createdAt||"")}).slice(0,1);
     requestLinksNow=links;
     pbRefresh(d.requestLinks||[]);
     var tab=document.getElementById("tab-requests");
@@ -21811,7 +21812,7 @@ function wire(){
  host.querySelectorAll("[data-msg]").forEach(function(el){el.onclick=function(){openMsg(+el.dataset.msg)}});
  host.querySelectorAll("[data-offer]").forEach(function(el){el.onclick=function(){deckPick[+el.dataset.i]=+el.dataset.offer;paint()}});
  host.querySelectorAll("[data-deck]").forEach(function(el){el.onclick=function(){deckAt+=+el.dataset.deck;paint()}});
- host.querySelectorAll("[data-focus]").forEach(function(el){el.onclick=function(){var i=+el.dataset.focus,at=pendingList().indexOf(i);if(at>=0){deckAt=at;activeTab="schedule";paint();var d=document.getElementById("deck");if(d)d.scrollIntoView({behavior:"smooth",block:"start"})}else{focusItem(i);var card=document.getElementById("item-"+i);if(card)card.scrollIntoView({behavior:"smooth",block:"center"})}}});
+  host.querySelectorAll("[data-focus]").forEach(function(el){el.onclick=function(e){e.preventDefault();e.stopPropagation();var i=+el.dataset.focus,at=pendingList().indexOf(i);if(at>=0){var offers=offeredOf(state[i]);if(offers.length===1){askAccept(i,0);return}deckAt=at;activeTab="schedule";paint();window.requestAnimationFrame(function(){var d=document.getElementById("deck");if(d)d.scrollIntoView({behavior:"smooth",block:"start"})})}else{focusItem(i);var card=document.getElementById("item-"+i);if(card)card.scrollIntoView({behavior:"smooth",block:"center"})}}});
 }
 /* الحكمُ يُسأل عنه الخادمُ عند كل تغيير: هو وحده يرى الجدول كاملاً، والصفحةُ
    ترى جدولَ صاحبها. وهي تعرض ما يقوله ولا تقرّر شيئاً بنفسها. */

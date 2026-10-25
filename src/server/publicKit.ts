@@ -26,12 +26,12 @@ export const PUBLIC_KIT_CSS = `/* ── عدّة الصفحات العامة �
 :root{--sk-ok:var(--ok,var(--accent));--sk-ok-s:var(--ok2,var(--accent-soft));--sk-ok-ink:var(--ok-ink,var(--accent-d,var(--ok)));--sk-bad:var(--bad);--sk-bad-s:var(--bad2,var(--bad-soft));--sk-soft:var(--soft);--sk-card:var(--card);--sk-ink:var(--ink);--sk-muted:var(--muted);--sk-line:var(--line);--sk-line2:var(--line2);--sk-warn-s:var(--warn2,var(--amber-soft,#fff4d6));--sk-warn:var(--warn,var(--amber,#85580a))}
 .sk-gi{inline-size:20px;block-size:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.25em}
 .sk-lock{overflow:hidden}
-.sk-scrim{position:fixed;inset:0;z-index:60;background:rgba(10,24,17,.5);display:flex;align-items:flex-end;justify-content:center}
+.sk-scrim{position:fixed;inset:0;z-index:60;background:rgba(10,24,17,.5);display:flex;align-items:stretch;justify-content:stretch}
 .sk-scrim[hidden]{display:none!important}
-.sk-sheet{inline-size:min(100%,520px);max-block-size:90dvh;overflow:auto;background:var(--sk-card);color:var(--sk-ink);border-radius:28px 28px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:14px;animation:skup .3s cubic-bezier(.2,.8,.2,1)}
+.sk-sheet{inline-size:100%;block-size:100%;max-block-size:100dvh;overflow:auto;background:var(--sk-card);color:var(--sk-ink);border-radius:0;padding:clamp(18px,4vh,42px) clamp(18px,5vw,64px) calc(24px + env(safe-area-inset-bottom,0px));display:grid;align-content:center;gap:clamp(12px,2.4vh,24px);animation:skup .2s ease-out}
 @keyframes skup{from{transform:translateY(48px);opacity:.6}to{transform:none;opacity:1}}
 .sk-grab{inline-size:42px;block-size:5px;border-radius:5px;background:var(--sk-line);margin:0 auto}
-.sk-h{display:flex;align-items:center;gap:12px}
+.sk-h{display:flex;align-items:center;gap:12px}.sk-h>div{flex:1;min-inline-size:0}.sk-close{display:grid;place-items:center;inline-size:44px;block-size:44px;flex:none;border:1px solid var(--sk-line);border-radius:14px;background:var(--sk-soft);color:var(--sk-muted);cursor:pointer}.sk-close .sk-gi{inline-size:20px;block-size:20px}
 .sk-b{inline-size:46px;block-size:46px;border-radius:15px;display:grid;place-items:center;background:var(--sk-ok-s);color:var(--sk-ok);flex:none}
 .sk-b .sk-gi{inline-size:24px;block-size:24px}
 .sk-h h3{margin:0;font-size:18px;line-height:1.4}.sk-h p{margin:0;font-size:13px;color:var(--sk-muted)}
@@ -75,6 +75,7 @@ export const PUBLIC_KIT_CSS = `/* ── عدّة الصفحات العامة �
 .sk-tf[data-bad="1"]{border-color:var(--sk-bad);background:var(--sk-bad-s)}
 .sk-tf:focus{outline:none;border-color:var(--sk-ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--sk-ok) 22%,transparent)}
 .sk-sr{position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (min-width:760px){.sk-sheet{padding-inline:clamp(64px,12vw,220px)}.sk-what{font-size:16px;padding:18px 20px}.sk-btn{max-inline-size:720px;justify-self:center}}
 @media (prefers-reduced-motion:reduce){.sk-sheet,.sk-toast{animation:none}}
 @media print{.sk-scrim,.sk-toast{display:none!important}}
 `;
@@ -170,7 +171,7 @@ window.addEventListener("pagehide",function(){civil=""});
 /* o: {what: html, ok: toast, hint: sentence, run: function(civil, done(msg,status))} */
 function sign(o){var again=false;
  function draw(initErr){var kn=known()&&!again;
-  sheet('<div class="sk-h"><span class="sk-b">'+gi("finger")+'</span><div><h3>وقّع برقمك المدني</h3></div></div>'+
+  sheet('<div class="sk-h"><span class="sk-b">'+gi("finger")+'</span><div><h3>وقّع برقمك المدني</h3></div><button type="button" class="sk-close" id="skClose" aria-label="إغلاق">'+gi("x")+'</button></div>'+
    '<div class="sk-what">'+o.what+'</div>'+
    (kn?'<div class="sk-known">'+gi("lock")+'<span>رقمك محفوظ لدقائق · ينتهي بـ <b>'+esc(civil.slice(-4))+'</b></span><button type="button" class="sk-link" id="skOther">رقم آخر</button></div>'
     :'<div class="sk-otpw"><div class="sk-otp" id="skOtp" aria-hidden="true"></div><input id="civil" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="12 رقمًا" aria-label="اكتب رقمك المدني كاملاً — 12 رقمًا — فهو توقيعك"></div>')+
@@ -180,6 +181,7 @@ function sign(o){var again=false;
   var go=document.getElementById("skGo"),err=document.getElementById("skErr"),inp=document.getElementById("civil"),otp=document.getElementById("skOtp"),v="";
   function paintOtp(){if(!otp)return;otp.innerHTML=Array.apply(null,{length:12}).map(function(_,k){return '<i class="'+(k===v.length?"on":k<v.length?"fill":"")+'">'+(v.charAt(k)||"")+'</i>'}).join("");go.disabled=v.length<12}
   if(initErr){err.textContent=initErr;err.hidden=false}
+  var closeButton=document.getElementById("skClose");if(closeButton)closeButton.onclick=close;
   if(inp){paintOtp();inp.oninput=function(){v=digits(inp.value).slice(0,12);inp.value=v;paintOtp()};setTimeout(function(){inp.focus()},120)}
   var other=document.getElementById("skOther");if(other)other.onclick=function(){again=true;civil="";draw()};
   go.onclick=function(){var c=kn?civil:v;if(c.length!==12)return;
