@@ -761,6 +761,13 @@ const condenseRefusalReasons = (items: Array<{ message?: string; detail?: string
 
 const scheduleLegendScrollMemory = new Map<string, number>();
 
+function lectureAdvisoryFacts(message: string) {
+  const match = message.match(/مدة المحاضرة\s+(.+?)\s+لا توافق اللائحة\s*\((.+?)\s+مع فاصل\s+(.+?)\s+بين المحاضرتين المتتاليتين\)/u);
+  return match
+    ? { actual: match[1], expected: match[2], gap: match[3] }
+    : { actual: "مدة غير معتادة", expected: "راجع اللائحة", gap: "—" };
+}
+
 /**
  * A legend ribbon is a persistent control, not disposable render furniture.
  *
@@ -8987,22 +8994,42 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       {roomIdeas ? (
                         roomIdeas.length ? (
                           <div className="room-suggest-list">
-                            {roomIdeas.map((slot: any) => (
-                              <button
-                                type="button"
-                                key={slot.roomId || `${slot.room}-${slot.hall}`}
-                                onClick={() => takeSlot(slot)}
-                                aria-label={`استخدم القاعة ${slot.room}/${slot.hall}`}
-                                data-guide-ignore="يثبّت القاعة المقترحة في النموذج دون حفظ"
-                              >
-                                <span className="room-suggest-card-icon" aria-hidden="true"><DoorOpen /></span>
-                                <span className="room-suggest-card-copy">
-                                  <bdi dir="ltr">{slot.room}/{slot.hall}</bdi>
-                                  <small>{(slot.reasons || []).slice(0, 2).join(" · ") || "متاحة في هذا الوقت"}</small>
-                                </span>
-                                <span className="room-suggest-card-action"><CheckCircle2 aria-hidden="true" /><small>اختيار</small></span>
-                              </button>
-                            ))}
+                            {roomIdeas.map((slot: any) => {
+                              const reasons: string[] = Array.isArray(slot.reasons) ? slot.reasons : [];
+                              const facts = reasons.map((reason) => {
+                                if (reason.startsWith("يلائم نوع المقرر")) return { label: "نوع مناسب", Icon: CheckCircle2, tone: "good" };
+                                if (reason.includes("نوع القاعة") && reason.includes("مختلف")) return { label: "نوع مختلف", Icon: DoorOpen, tone: "warn" };
+                                if (reason.includes("نوع القاعة غير مسجل")) return { label: "النوع غير مسجل", Icon: CircleAlert, tone: "muted" };
+                                if (reason.includes("السعة المسجلة مناسبة")) return { label: "سعة مناسبة", Icon: UsersRound, tone: "good" };
+                                if (reason.includes("السعة المسجلة أقل")) return { label: "سعة أقل", Icon: AlertTriangle, tone: "warn" };
+                                if (reason.includes("سعة القاعة غير مسجلة")) return { label: "السعة غير مسجلة", Icon: CircleAlert, tone: "muted" };
+                                if (reason.includes("لا يترك فراغاً للأستاذ")) return { label: "دون فراغ", Icon: CheckCircle2, tone: "good" };
+                                if (reason.startsWith("فراغ ")) return { label: reason.replace(" دقيقة", " د"), Icon: Clock3, tone: "muted" };
+                                if (reason.includes("بلا انتقال بين المباني")) return { label: "دون تنقّل", Icon: CheckCircle2, tone: "good" };
+                                if (reason.startsWith("انتقال ")) return { label: reason.replace(" دقيقة", " د"), Icon: MapPin, tone: "muted" };
+                                if (reason.includes("داخل يوم القسم الحالي")) return { label: "ضمن يوم القسم", Icon: CalendarDays, tone: "good" };
+                                return null;
+                              }).filter(Boolean).slice(0, 2) as Array<{ label: string; Icon: React.ComponentType<any>; tone: string }>;
+                              return (
+                                <button
+                                  type="button"
+                                  key={slot.roomId || `${slot.room}-${slot.hall}`}
+                                  onClick={() => takeSlot(slot)}
+                                  aria-label={`اختر القاعة ${slot.room}/${slot.hall}${reasons.length ? `؛ ${reasons.join("، ")}` : ""}`}
+                                  title={reasons.join(" · ") || "متاحة في هذا الوقت"}
+                                  data-guide-ignore="يثبّت القاعة المقترحة في النموذج دون حفظ"
+                                >
+                                  <span className="room-suggest-card-icon" aria-hidden="true"><DoorOpen /></span>
+                                  <span className="room-suggest-card-copy">
+                                    <bdi dir="ltr">{slot.room}/{slot.hall}</bdi>
+                                    <span className="room-suggest-card-facts">
+                                      {facts.length ? facts.map(({ label, Icon, tone }, index) => <small className={`room-suggest-fact ${tone}`} key={`${label}-${index}`} title={reasons.join(" · ")}><Icon aria-hidden="true" />{label}</small>) : <small className="room-suggest-fact good"><CheckCircle2 aria-hidden="true" />متاحة</small>}
+                                    </span>
+                                  </span>
+                                  <span className="room-suggest-card-action" aria-hidden="true"><CheckCircle2 /><small>اختيار</small></span>
+                                </button>
+                              );
+                            })}
                           </div>
                         ) : (
                           <p className="room-suggest-empty">لا توجد قاعة خالية من قاعات القسم في هذا الوقت.</p>
@@ -9399,9 +9426,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               </div>
             ) : null}
             {lectureNotice ? (
-              <div className="schedule-lecture-advisory" role="status">
-                <AlertTriangle aria-hidden="true" />
-                <span><b>ملاحظة استرشادية</b>{lectureNotice}</span>
+              <div className="schedule-lecture-advisory" role="status" aria-label={`ملاحظة استرشادية، لا تمنع الحفظ: ${lectureNotice}`} title={lectureNotice}>
+                <span className="schedule-lecture-advisory__icon" aria-hidden="true"><AlertTriangle /></span>
+                <div className="schedule-lecture-advisory__body">
+                  <div className="schedule-lecture-advisory__head"><b>مدة اللقاء</b><span>ملاحظة فقط · لا تمنع الحفظ</span></div>
+                  <div className="schedule-lecture-advisory__facts">
+                    <span><small>المحدد</small><strong><Clock3 aria-hidden="true" />{lectureAdvisoryFacts(lectureNotice).actual}</strong></span>
+                    <ArrowLeftRight aria-hidden="true" className="schedule-lecture-advisory__arrow" />
+                    <span><small>المعتاد</small><strong><CalendarDays aria-hidden="true" />{lectureAdvisoryFacts(lectureNotice).expected}</strong></span>
+                    <span><small>الفاصل</small><strong><Timer aria-hidden="true" />{lectureAdvisoryFacts(lectureNotice).gap}</strong></span>
+                  </div>
+                </div>
               </div>
             ) : null}
             {conflicts.length ? (

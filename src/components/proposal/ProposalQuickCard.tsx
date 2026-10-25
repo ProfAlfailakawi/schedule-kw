@@ -149,7 +149,7 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
             ))}
           </div>
           <div className="qc-location">
-            <LocationPicker collegeId={scope.collegeId} sectionId={scope.sectionId} termId={ctx?.term.id}
+            <LocationPicker collegeId={scope.collegeId} sectionId={scope.sectionId} termId={ctx?.term.id} showDepartmentHistory={false}
               value={{ AdRoomCode: draft.location.AdRoomCode, AdRoomHall: draft.location.AdRoomHall, buildingId: draft.location.buildingId, roomId: draft.location.roomId, locationStatus: draft.location.locationStatus }}
               onChange={patch => ws.patchDraft(cur => ({ location: {
                 AdRoomCode: String(patch.AdRoomCode ?? cur.location.AdRoomCode ?? ""), AdRoomHall: String(patch.AdRoomHall ?? cur.location.AdRoomHall ?? ""),

@@ -45,6 +45,9 @@ assert.ok(/patternNotice/.test(serverSrc.slice(serverSrc.indexOf('app.post("/api
 assert.ok(/lectureNotice/.test(serverSrc.slice(serverSrc.indexOf('app.post("/api/schedules/check-conflicts"'), serverSrc.indexOf('app.post("/api/schedules/check-conflicts"') + 1000)), "الملاحظة اللائحية تصل للفحص الحي");
 const scheduleUi = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 assert.ok(scheduleUi.includes("schedule-lecture-advisory") && scheduleUi.includes('role="status"'), "ملاحظة المدة تظهر في الواجهة كتنبيه استرشادي غير مانع");
+assert.ok(scheduleUi.includes("ملاحظة فقط · لا تمنع الحفظ") && scheduleUi.includes("lectureAdvisoryFacts(lectureNotice)"), "الملاحظة تعرض المدة واللائحة والفاصل بمؤشرات مختصرة وتوضح أنها لا تمنع الحفظ");
+const lectureStyles = fs.readFileSync("src/styles/09-details.css", "utf8");
+assert.ok(lectureStyles.includes(".schedule-lecture-advisory__facts") && lectureStyles.includes(".schedule-lecture-advisory__icon"), "الملاحظة لها عرض بصري بأيقونات ومقاييس قصيرة");
 const drawn = patternNoticeHtml(patternLibraryInput(), 3, ["fsunday", "fmonday"], [50, 80], true);
 assert.ok(drawn.includes("النمط غير معتمد") && drawn.includes("is-bad") && (drawn.match(/plib-pat/g) || []).length >= 3 && drawn.includes("is-block"), "الرسم: المختار مشطوباً وبجانبه المعتمد");
 assert.ok(!patternNoticeHtml(patternLibraryInput(), 3, ["fsunday", "fmonday"], [50, 80], false).includes("is-block"), "وعند القسم بلون التنبيه لا المنع");
