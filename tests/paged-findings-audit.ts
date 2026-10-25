@@ -68,8 +68,10 @@ check(/<details className="review-person">/.test(review)
 const approvalCss = fs.readFileSync("src/styles/31-approval-atlas.css", "utf8");
 check(/\.review-finding>summary\s*\{/.test(approvalCss)
   && /\.review-person-head::-webkit-details-marker/.test(approvalCss)
-  && /\.review-body\s*\{[^}]*overflow-y:auto/.test(approvalCss),
-  "تنسيق التوسعة والتمرير متاح بلا طبقة تمنع التفاعل");
+  && /\.review-sheet\s*\{[^}]*overflow-x:hidden;\s*overflow-y:auto/.test(approvalCss)
+  && /\.review-period-rule\s*\{\s*flex:none;\s*\}/.test(approvalCss)
+  && /\.review-body\s*\{[^}]*flex:0 0 auto;[^}]*overflow:visible/.test(approvalCss),
+  "البطاقات لا تنكمش في الارتفاع المحدود والنافذة تمرّر المحتوى كاملاً");
 const css = fs.readFileSync("src/styles/09-details.css", "utf8");
 check(/@media print\{[^}]*\.pfl-item\[hidden\]\{display:contents!important\}/.test(css), "الطباعة تُظهر كل الصفحات");
 
