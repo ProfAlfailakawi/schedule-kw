@@ -86,6 +86,12 @@ const model: SheetModel = {
   ];
   check(motions.every(needle => reference.includes(needle) && html.includes(needle)), "S1 تأثيرات التكبير والتوهج والأسهم والاسم في الصحيفة المولّدة مطابقة للمرجع");
   check(!/^\s*#tag\{display:none!important\}/m.test(template) && html.includes("function placeTag()") && html.includes("tag.classList.add('on')"), "S1 ظهور الاسم العائم على الهاتف كما في المرجع");
+  check(template.includes("const htmlText=v=>") && template.includes("htmlText(name(c))")
+    && template.includes("tag.innerHTML=`<b>${sel}</b>${htmlText(name(sel))}`")
+    && template.includes("<h3>${htmlText(name(sel))}</h3>") && template.includes("${htmlText(where(sel))}")
+    && template.includes("htmlText(window.__st(sel))"),
+    "S1 أسماء المقررات وتصنيفاتها وحالة الطالب نصوص آمنة بلا حقن HTML في اللوحة أو الاسم العائم");
+
   /* Compare all 28 approved SVG course labels, fonts and line breaks. */
   const referenceCards = [...reference.matchAll(/<g class="card" data-c="([^"]+)"[\s\S]*?<\/g>/g)].map(match => {
     const markup = match[0], label = markup.match(/aria-label="[^"]+? (.*?)"/)?.[1] || "";
