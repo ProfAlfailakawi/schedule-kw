@@ -15880,7 +15880,9 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     Repository.getCourseTransitions(sectionId).catch(() => []),
   ]);
   const term = terms.find(row => Number(row.AdTermId) === termId);
-  const currentRemaining = stats?.remainingSource?.column === "unregistered" ? stats.remaining || {} : {};
+  const currentRemaining = stats?.remainingSource?.column === "unregistered"
+    ? Object.fromEntries(Object.entries(stats.remaining || {}).map(([key, value]) => [key, Math.max(0, Number(value) || 0)]))
+    : {};
   /* تاريخُ الفصل مستقلٌّ عن المواسم الأخرى: الأول يقارن بالأول فقط، والثاني
      بالثاني، والصيفي بالصيفي. لا نستبدل غياب تاريخ الموسم بمقرر من موسم مختلف؛
      عندها يعتمد الاقتراح على المتبقي والسعة حتى يتكوّن تاريخ مماثل. */
