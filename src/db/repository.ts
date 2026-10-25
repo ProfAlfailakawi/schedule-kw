@@ -3521,6 +3521,65 @@ export const Repository = {
     return db.courses[idx];
   },
 
+  /* Save every academic copy with the source in one commit. This matters when the
+     course code changes: after a partial write the old-code matcher cannot find
+     copies already written with the new code on retry. */
+  updateCourseFamily: async (source: AdCourse, siblingIds: number[], academicPatch: Partial<Pick<AdCourse, "CourseCode" | "CourseName" | "CourseCredit" | "CourseHours" | "MaxStudent">>, syncRoomType: boolean, syncTeachingMode: boolean): Promise<AdCourse> => {
+    const ids = [...new Set([Number(source.AdCourseId), ...siblingIds.map(Number)])];
+    if (ids.length > 400) throw new Error("عدد نسخ المقرر يتجاوز حد الحفظ الذري؛ لم يُحفظ أي تغيير.");
+    const academic = {
+      CourseCode: source.CourseCode,
+      CourseName: normalizeArabicText(source.CourseName),
+      CourseCredit: source.CourseCredit,
+      CourseHours: source.CourseHours,
+      MaxStudent: source.MaxStudent,
+    };
+    const siblingFields = {
+      ...academicPatch,
+      ...(syncRoomType ? { CourseRoomType: source.CourseRoomType || FieldValue.delete() } : {}),
+      ...(syncTeachingMode ? { CourseTeachingMode: source.CourseTeachingMode || FieldValue.delete() } : {}),
+    };
+    invalidateReference(REFERENCE_KEYS.courses);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const batch = firestoreDb.batch();
+      for (const id of ids) {
+        const ref = firestoreDb.collection("courses").doc(`course_${id}`);
+        batch.set(ref, id === Number(source.AdCourseId) ? {
+          ...academic, AdCollegeId: source.AdCollegeId, AdSectionId: source.AdSectionId,
+          CourseRoomType: source.CourseRoomType || FieldValue.delete(),
+          CourseTeachingMode: source.CourseTeachingMode || FieldValue.delete(),
+        } : siblingFields, { merge: true });
+      }
+      await batch.commit();
+    } else {
+      if (ids.some(id => !db.courses.some(course => Number(course.AdCourseId) === id))) throw new Error("إحدى نسخ المقرر غير موجودة؛ لم يُحفظ أي تغيير.");
+      const wanted = new Set(ids);
+      db.courses = db.courses.map(course => {
+        if (!wanted.has(Number(course.AdCourseId))) return course;
+        if (Number(course.AdCourseId) !== Number(source.AdCourseId)) {
+          const updated = { ...course, ...academicPatch };
+          if (syncRoomType) {
+            if (source.CourseRoomType) updated.CourseRoomType = source.CourseRoomType;
+            else delete updated.CourseRoomType;
+          }
+          if (syncTeachingMode) {
+            if (source.CourseTeachingMode) updated.CourseTeachingMode = source.CourseTeachingMode;
+            else delete updated.CourseTeachingMode;
+          }
+          return updated;
+        }
+        const updated = { ...course, ...source, ...academic };
+        if (!source.CourseRoomType) delete updated.CourseRoomType;
+        if (!source.CourseTeachingMode) delete updated.CourseTeachingMode;
+        return updated;
+      });
+      saveDatabase();
+    }
+    invalidateScheduleRelationCache();
+    await markRegistrationRunsStale();
+    return { ...source, ...academic };
+  },
+
   deleteCourse: async (id: number): Promise<void> => {
     invalidateReference(REFERENCE_KEYS.courses);
     if (firestoreDb && !demoSandboxContext.getStore()) {

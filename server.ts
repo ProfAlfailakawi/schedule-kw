@@ -4306,18 +4306,17 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
   }
 
   try {
-    /* ── نوعُ القاعة يسري على نسخ المقرر في كل أحرام القسم ──────────────────
+    /* ── بيانات المقرر تسري على نسخه في كل أحرام القسم ──────────────────────
      * القسمُ الواحد له نسخةٌ من مقرره في كل حرم (الجهراء · الفحيحيل · بنات ·
      * بنين)، ورمزُ المقرر لا يتكرر داخل القسم. فمن اختار «مختبر» لنسخةٍ لا
      * يُطلب منه أن يكرّرها في البقية: تُطابَق بالرمز وباسم القسم الأكاديمي،
      * ولا تُمسّ إلا نسخةٌ يملك المستخدمُ نطاقَها.
      *
-     * وتُكتب النسخُ قبل المقرر المعدَّل لا بعده: إن تعثّرت كتابةٌ بقيت المصدرُ
-     * على نوعه القديم فتعيد المحاولةُ المزامنةَ كاملةً؛ لو كُتب المصدرُ أولاً
-     * لصار «لم يتغيّر» ولما أعادت المحاولةُ ما فات من النسخ. والكتابةُ
-     * متساويةُ الأثر عند التكرار. */
+     * ويُحفظ المصدر ونسخه معاً في عملية ذرية، كي لا يؤدي تغيير الرمز إلى
+     * انفصال بعض النسخ عن قاعدة المطابقة إذا تعثّر الحفظ. */
     let roomTypeSynced = 0;
     let teachingModeSynced = 0;
+    let academicSynced = 0;
     /* ما لم يُطابَق يُقال للمسؤول بسببه — من نسخ المقرر نفسه وحدها (القسمُ نفسُه في أحرامه).
        رقمُ المقرر يتكرر بين الأقسام العلمية لمقرراتٍ مختلفة، فمقررُ قسمٍ آخر بالرقم نفسه ليس نسخةً
        ولا يُذكر أصلاً: ذكرُه كان يوحي بأنه كان يجب أن يتغيّر. */
@@ -4334,9 +4333,9 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
       && (teachingModeChanged || CourseTeachingMode !== "");
     let roomTypeAligned = 0;
     let teachingModeAligned = 0;
-    if (roomTypeEvaluated || teachingModeEvaluated) {
+    {
       const [allCourses, allSections, allColleges] = await Promise.all([Repository.getCourses(), Repository.getSections(), Repository.getColleges()]);
-      const candidates = roomTypeSiblingIds({ ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId, CourseCode }, allCourses as any, allSections as any, allColleges as any);
+      const candidates = roomTypeSiblingIds({ ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId }, allCourses as any, allSections as any, allColleges as any);
       const siblings: number[] = [];
       for (const siblingId of candidates) {
         const other = allCourses.find(course => Number(course.AdCourseId) === siblingId)!;
@@ -4352,35 +4351,73 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
         }
         siblings.push(siblingId);
       }
+      if (currentCourse.CourseCode !== CourseCode && syncSkipped.length) {
+        res.status(409).json({ error: "تعذّر تغيير رمز المقرر لأن بعض نسخه خارج صلاحياتك أو مقيّدة حالياً؛ لم يُحفظ أي تغيير." });
+        return;
+      }
+      const academicPatch: Partial<Pick<AdCourse, "CourseCode" | "CourseName" | "CourseCredit" | "CourseHours" | "MaxStudent">> = {
+        ...(currentCourse.CourseCode !== CourseCode ? { CourseCode } : {}),
+        ...(normalizeArabicText(currentCourse.CourseName) !== normalizeArabicText(CourseName) ? { CourseName: normalizeArabicText(CourseName) } : {}),
+        ...(Number(currentCourse.CourseCredit) !== CourseCredit ? { CourseCredit: CourseCredit! } : {}),
+        ...(Number(currentCourse.CourseHours) !== CourseHours ? { CourseHours: CourseHours! } : {}),
+        ...(Number(currentCourse.MaxStudent || 0) !== MaxStudent ? { MaxStudent: MaxStudent! } : {}),
+      };
+      const academicDiffers = (course: AdCourse) => Object.entries(academicPatch).some(([field, value]) =>
+        field === "CourseName"
+          ? normalizeArabicText(course.CourseName) !== value
+          : course[field as keyof AdCourse] !== value);
+      const differingAcademic = siblings.filter(siblingId => academicDiffers(allCourses.find(course => Number(course.AdCourseId) === siblingId)!));
+      for (const siblingId of differingAcademic) {
+        const sibling = allCourses.find(course => Number(course.AdCourseId) === siblingId)!;
+        const siblingIdentityChanges = (academicPatch.CourseCode !== undefined && sibling.CourseCode !== CourseCode)
+          || (academicPatch.CourseName !== undefined && normalizeArabicText(sibling.CourseName) !== normalizeArabicText(CourseName));
+        if (!siblingIdentityChanges) continue;
+        const [plans, memberships, hasHistory] = await Promise.all([
+          Repository.getCurriculumPlans(Number(sibling.AdSectionId)),
+          Repository.getCurriculumPlanCourses(Number(sibling.AdSectionId)),
+          Repository.hasSchedulesForCourse(siblingId),
+        ]);
+        const frozen = plans.some(plan => plan.status !== "active" && memberships.some(row => Number(row.AdCourseId) === siblingId && row.planId === plan.id));
+        if (frozen || hasHistory) {
+          res.status(409).json({ error: `تعذّر توحيد رمز المقرر أو اسمه: نسخة في ${String(allSections.find(section => Number(section.AdSectionId) === Number(sibling.AdSectionId))?.AdSectionName || "القسم")} مرتبطة بصحيفة مجمّدة أو سجل تدريسي. لم يُحفظ أي تغيير.` });
+          return;
+        }
+        const collision = academicPatch.CourseCode !== undefined && allCourses.some(other => Number(other.AdSectionId) === Number(sibling.AdSectionId)
+          && Number(other.AdCourseId) !== siblingId && other.CourseCode === CourseCode);
+        if (collision) {
+          res.status(409).json({ error: "رمز المقرر الجديد مسجّل في إحدى نسخ القسم؛ لم يُحفظ أي تغيير." });
+          return;
+        }
+      }
+      const writeIds = new Set(differingAcademic);
       if (roomTypeEvaluated) {
         const typeOf = (courseId: number) => String(allCourses.find(course => Number(course.AdCourseId) === courseId)?.CourseRoomType || "").normalize("NFKC").trim();
         const differing = siblings.filter(siblingId => typeOf(siblingId) !== CourseRoomType);
         roomTypeAligned = siblings.length - differing.length;
-        roomTypeSynced = await Repository.setCourseRoomTypeForIds(differing, CourseRoomType);
+        roomTypeSynced = differing.length;
+        differing.forEach(siblingId => writeIds.add(siblingId));
       }
       if (teachingModeEvaluated) {
         const modeOf = (courseId: number) => String(allCourses.find(course => Number(course.AdCourseId) === courseId)?.CourseTeachingMode || "");
         const differing = siblings.filter(siblingId => modeOf(siblingId) !== CourseTeachingMode);
         teachingModeAligned = siblings.length - differing.length;
-        teachingModeSynced = await Repository.setCourseTeachingModeForIds(differing, CourseTeachingMode || "");
+        teachingModeSynced = differing.length;
+        differing.forEach(siblingId => writeIds.add(siblingId));
       }
+      const updated = await Repository.updateCourseFamily({
+        ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId,
+        CourseCode, CourseName, CourseCredit: CourseCredit!, CourseHours: CourseHours!, MaxStudent: MaxStudent!,
+        CourseRoomType, CourseTeachingMode: CourseTeachingMode === undefined ? currentCourse.CourseTeachingMode : CourseTeachingMode || undefined,
+      }, [...writeIds], academicPatch, roomTypeEvaluated, teachingModeEvaluated);
+      academicSynced = differingAcademic.length;
+      res.json({ ...updated, academicSynced, academicAligned: siblings.length - differingAcademic.length,
+        academicEvaluated: Object.keys(academicPatch).length > 0,
+        roomTypeSynced, roomTypeAligned, roomTypeChanged, roomTypeEvaluated,
+        roomTypeSkipped: roomTypeEvaluated ? syncSkipped.slice(0, 8) : [],
+        teachingModeSynced, teachingModeAligned, teachingModeChanged, teachingModeEvaluated,
+        teachingModeSkipped: teachingModeEvaluated ? syncSkipped.slice(0, 8) : [],
+        academicSkipped: syncSkipped.slice(0, 8) });
     }
-    const updated = await Repository.updateCourse(
-      id,
-      collegeId,
-      sectionId,
-      CourseCode,
-      CourseName,
-      CourseCredit!,
-      CourseHours!,
-      MaxStudent!,
-      CourseRoomType,
-      CourseTeachingMode === "" ? null : CourseTeachingMode
-    );
-    res.json({ ...updated, roomTypeSynced, roomTypeAligned, roomTypeChanged, roomTypeEvaluated,
-      roomTypeSkipped: roomTypeEvaluated ? syncSkipped.slice(0, 8) : [],
-      teachingModeSynced, teachingModeAligned, teachingModeChanged, teachingModeEvaluated,
-      teachingModeSkipped: teachingModeEvaluated ? syncSkipped.slice(0, 8) : [] });
   } catch (e: any) {
     res.status(404).json({ error: e.message });
   }

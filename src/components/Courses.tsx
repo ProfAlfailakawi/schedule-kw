@@ -362,13 +362,16 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
         const modeCopies = (Number(d.teachingModeSynced) || 0) + (Number(d.teachingModeAligned) || 0);
         const roomSkipped = Array.isArray(d.roomTypeSkipped) ? d.roomTypeSkipped.length : 0;
         const modeSkipped = Array.isArray(d.teachingModeSkipped) ? d.teachingModeSkipped.length : 0;
+        const academicCopies = (Number(d.academicSynced) || 0) + (Number(d.academicAligned) || 0);
+        const academicSkipped = Array.isArray(d.academicSkipped) ? d.academicSkipped.length : 0;
+        if (d.academicEvaluated && (academicCopies || academicSkipped)) notices.push(`بيانات المقرر · ${countOf(academicCopies + 1, AR.site)}`);
         if (d.roomTypeEvaluated && (roomCopies || roomSkipped)) notices.push(
           `${courseRoomType ? `نوع القاعة «${courseRoomType}»` : "أُزيل نوع القاعة"} · ${countOf(roomCopies + 1, AR.site)}`);
         if (d.teachingModeEvaluated && (modeCopies || modeSkipped)) notices.push(
           `${courseTeachingMode ? `طبيعة التدريس «${TEACHING_MODE_LABEL[courseTeachingMode] || courseTeachingMode}»` : "أُزيلت طبيعة التدريس"} · ${countOf(modeCopies + 1, AR.site)}`);
-        if (Number(d.roomTypeSynced) > 0 || Number(d.teachingModeSynced) > 0) await load();
+        if (Number(d.academicSynced) > 0 || Number(d.roomTypeSynced) > 0 || Number(d.teachingModeSynced) > 0) await load();
         if (notices.length) setReceipt(notices.join(" · ")
-          + (Math.max(roomSkipped, modeSkipped) ? ` · تعذّر ${countOf(Math.max(roomSkipped, modeSkipped), AR.site)}` : ""));
+          + (Math.max(roomSkipped, modeSkipped, academicSkipped) ? ` · تعذّر ${countOf(Math.max(roomSkipped, modeSkipped, academicSkipped), AR.site)}` : ""));
       }
       if (mode === "create" && targetPlan) {
         setReceipt(`تمت إضافة ${savedCode} — ${savedName} إلى ${targetPlan.name} بنجاح.`);
