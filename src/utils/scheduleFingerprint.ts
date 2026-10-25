@@ -17,6 +17,7 @@ export interface FingerprintRow {
   fendtime?: string;
   AdRoomCode?: string;
   AdRoomHall?: string;
+  companionRoomId?: string;
   [key: string]: unknown;
 }
 
@@ -35,7 +36,7 @@ export function instructorScheduleFingerprint(rows: ReadonlyArray<FingerprintRow
     String(row.id ?? ""), String(row.AdCourseId ?? ""), String(row.SCode ?? "").trim(),
     DAY_KEYS.filter(key => Boolean(row[key])).join(","),
     String(row.fstarttime ?? ""), String(row.fendtime ?? ""),
-    String(row.AdRoomCode ?? "").trim(), String(row.AdRoomHall ?? "").trim(),
+    String(row.AdRoomCode ?? "").trim(), String(row.AdRoomHall ?? "").trim() + (row.companionRoomId ? ` + ${row.companionRoomId}` : ""),
   ].join("|")).sort();
   return `${rows.length}:${fnv1a(lines.join("\n"))}`;
 }
