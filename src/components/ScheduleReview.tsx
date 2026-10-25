@@ -103,7 +103,6 @@ function ReviewPersonGroup({ group, courses, visitingIds }: { group: { who: stri
   const [open, setOpen] = React.useState(false);
   const who = group.who;
   const rows = React.useMemo(() => [...group.rows].sort(byWeekTime), [group.rows]);
-  const single = rows.length === 1;
   const visiting = rows.some(row => visitingIds.has(Number(row.AdInstructorId)));
   const sectionCount = new Set(rows.map(row => `${row.AdCourseId}:${row.SCode}`)).size;
   // Presentation-only grouping: same rows, same finding, grouped for reading.
@@ -129,16 +128,16 @@ function ReviewPersonGroup({ group, courses, visitingIds }: { group: { who: stri
   return (
     <section className={`review-person ${open ? "open" : ""}`}>
       <button type="button" className="review-person-head" data-guide-ignore="طيّ شعب أستاذ داخل ملاحظة مراجعة — عرض فقط، لا يغيّر الجدول"
-        onClick={() => !single && setOpen(value => !value)} aria-expanded={single ? undefined : open}>
+        onClick={() => setOpen(value => !value)} aria-expanded={open}>
         <span className="review-person-avatar" aria-hidden="true"><UserRound /></span>
         <span className="review-person-identity">
           <strong className="schedule-instructor-with-badge">{who}{visiting ? <VisitingBadge compact /> : null}</strong>
           <small><BookOpen aria-hidden="true" /> {countOf(courseGroups.length, AR.course)} <span aria-hidden="true">·</span> {countOf(sectionCount, AR.section)}</small>
         </span>
         <span className="review-person-count">{countOf(sectionCount, AR.section)}</span>
-        {!single ? <ChevronDown className="review-person-chevron" aria-hidden="true" /> : null}
+        <ChevronDown className="review-person-chevron" aria-hidden="true" />
       </button>
-      {(open || single) ? (
+      {open ? (
         <div className="review-person-rows review-course-deck">
           {courseGroups.map(course => (
             <section key={course.courseId} className="review-course-card" aria-label={course.name}>
