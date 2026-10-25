@@ -177,6 +177,7 @@ import {
 import { canAccessGuideFeature, featureById, featureIdForGuideIntentGoal, parseStructuredGuideIntent } from "./src/guide/smartGuide";
 import { displayInstructorText, instructorCleanName, foldInstructorText, instructorIdentityTokens, readableInstructorName, registryCandidatesFor } from "./src/utils/instructorIdentity";
 import { isAssignableInstructor } from "./src/utils/instructorStatus";
+import { authorityFieldMatchesOriginal } from "./src/utils/authorityNetChange";
 import { ocrDocument, ocrGraduationSheetDocument, parseScheduleTable, instructorRegistryOutcome, graduationSheetFacts, cleanBuildingCode, cleanHallCode, readAuthorityPdfHeader, renderPdfPagesForSmartRead, cropRowStripsForSmartRead, SCAN_READING_BUSY_MESSAGE, ScanReadingBusyError, GREY_PHOTO_REFUSAL, readReportCells } from "./src/utils/documentOcr";
 import { assessRemainingImport, blankSpots, columnKind, imageOrientationRefusal, readRemainingReport, readReportHeader, remainingReportTermRelation } from "./src/utils/remainingReport";
 import { computeTermForecast } from "./src/utils/termForecast";
@@ -1813,6 +1814,8 @@ function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],options:{i
 
     const changedFields=AUTHORITY_PDF_COMPARE_FIELDS.filter(field=>{
       if(field==="AdInstructorId"&&sameInstructorIdentity())return false;
+      /* Same original academic value after one or more edits is NOT a change. */
+      if(authorityFieldMatchesOriginal(field,source,next))return false;
       return comparable(field,source[field])!==comparable(field,next[field]);
     });
     /* Section identity is source-owned. Older drafts may still carry a
