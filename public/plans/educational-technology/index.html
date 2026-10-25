@@ -108,7 +108,9 @@ const sh=document.getElementById('sheet'),hint=document.getElementById('hint');
 let hov=null;
 function paint(c){
  if(c==null){document.querySelectorAll('#plan .card,#plan .edge').forEach(e=>e.classList.remove('dim','sel','on'));return}
- const A=up(c),B=dn(c),S=new Set([...A,...B,c]);
+ // Course ids enter through numeric data attributes but prerequisite ids are
+ // serialized as strings. Normalize the graph sets before highlighting paths.
+ const A=new Set([...up(c)].map(Number)),B=new Set([...dn(c)].map(Number)),S=new Set([...A,...B,Number(c)]);
  document.querySelectorAll('#plan .card').forEach(g=>{const k=+g.dataset.c;g.classList.toggle('dim',!S.has(k));g.classList.toggle('sel',k==c)});
  document.querySelectorAll('#plan .edge').forEach(g=>{const s=+g.dataset.s,t=+g.dataset.t;const on=((t==c||A.has(t))&&A.has(s))||((s==c||B.has(s))&&B.has(t));g.classList.toggle('dim',!on);g.classList.toggle('on',on)});
 }

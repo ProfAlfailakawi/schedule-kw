@@ -11,7 +11,7 @@
  * في public/plans/_template/sheet.html ويُمرَّر هنا نصّاً، فلا قراءةَ ملفاتٍ داخل الطلب.
  */
 import qrFactory from "../utils/qrcodeGenerator";
-import { REFERENCE_CARDS, REFERENCE_CARD_LABELS, REFERENCE_EDGES, REFERENCE_HUES, REFERENCE_SEMESTERS } from "./planSheetReferenceLayout";
+import { REFERENCE_CARD_LABELS } from "./planSheetReferenceLayout";
 import { AR, countOf } from "../utils/arabicCount";
 import type { SheetCourse, SheetElective, SheetGroup, SheetModel } from "../types";
 
@@ -21,7 +21,7 @@ export interface SheetTemplateParts { template: string }
 
 const W_MIN = 1754;
 const COL_W = 322, COL_GAP = 128, CARD_W = 262, CARD_H = 60, ROW = 72, PAD_L = 48;
-const SECTION_BADGE_H = 28, SECTION_GAP = 52;
+const SECTION_BADGE_H = 28;
 const LEVEL_PALETTE: Array<[string, string]> = [
   ["#2563EB", "#DBEAFE"], ["#059669", "#D1FAE5"], ["#7C3AED", "#EDE9FE"], ["#EA580C", "#FFEDD5"], ["#475569", "#E2E8F0"],
 ];
@@ -73,19 +73,23 @@ const AR_PICK: Record<number, string> = { 1: "مقرراً واحداً", 2: "م
 const levelLabel = (level: number) => level ? `المستوى ${level}` : "بلا مستوى";
 
 /** اسمُ المقرر في بطاقة: سطرٌ واحد بخطٍّ أصغر عند الضرورة، وإلا سطران متوازنان. */
-function nameLines(name: string, avail: number, referenceCode?: string): { lines: string[]; size: number } {
-  const measured = referenceCode ? REFERENCE_CARD_LABELS[referenceCode] : undefined;
+function nameLines(name: string, avail: number): { lines: string[]; size: number } {
+  // Reuse approved typography measurements by label only; never bind geometry to a course code.
+  const measured = Object.values(REFERENCE_CARD_LABELS).find(item => item.name === name);
   if (measured?.name === name) return { lines: measured.lines, size: measured.size };
   const width = (s: string, fs: number) => s.length * fs * 0.5;
   for (const fs of [16, 15, 14]) if (width(name, fs) <= avail) return { lines: [name], size: fs };
-  const words = name.split(" ");
+  const words = name.trim().split(/\s+/u);
   let best: string[] = [name], bestW = Infinity;
   for (let i = 1; i < words.length; i++) {
     const a = words.slice(0, i).join(" "), b = words.slice(i).join(" ");
     const w = Math.max(a.length, b.length);
     if (w < bestW) { bestW = w; best = [a, b]; }
   }
-  const fs = best.every(line => width(line, 14) <= avail) ? 14 : 13;
+  if (best.some(line => width(line, 13) > avail)) {
+    best = [name.slice(0, Math.max(1, Math.floor(avail / 6.5))), name.slice(Math.max(1, Math.floor(avail / 6.5)))].filter(Boolean);
+  }
+  const fs = best.every(line => width(line, 13) <= avail) ? 13 : 12;
   return { lines: best, size: fs };
 }
 
@@ -110,14 +114,6 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
   for (const code of all) tails.set(tail(code), (tails.get(tail(code)) || 0) + 1);
   for (const code of all) shortOf.set(code, (tails.get(tail(code)) || 0) > 1 ? code : tail(code));
   const idOf = (code: string) => shortOf.get(code) || code;
-  // Reference artwork is layout-only: never invent courses, credits or prerequisites.
-  // A different department or unmatched plan uses the original dynamic layout.
-  const referenceMode = !wide && model.title.replace(/^قسم\s+/, "").trim() === "تكنولوجيا التعليم"
-    && model.courses.length >= 18 && model.groups.length === 1 && model.groups[0].courses.length === 4
-    && new Set(all.map(idOf)).size === all.length
-    && model.courses.every(c => REFERENCE_CARDS[idOf(c.code)]?.w === CARD_W)
-    && model.groups[0].courses.every(c => REFERENCE_CARDS[idOf(c.code)]?.w === 350);
-
   const levels = [...new Set(model.courses.map(c => c.level))].sort((a, b) => (a || 9e9) - (b || 9e9));
   const colOf = new Map(levels.map((l, i) => [l, i]));
   const n = Math.max(1, levels.length);
@@ -132,20 +128,41 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
   const byCol: SheetCourse[][] = levels.map(l => model.courses.filter(c => c.level === l).sort((a, b) => a.code.localeCompare(b.code)));
   const known = new Set(all);
   const edges = model.edges.filter(([s, t]) => known.has(s) && known.has(t) && s !== t);
+  const courseByCode = new Map(model.courses.map(course => [course.code, course]));
+  const mapEdges = edges.filter(([, t]) => courseByCode.has(t));
+  const colIdx = (code: string) => colOf.get(courseByCode.get(code)?.level ?? -1) ?? -1;
+  // Barycentric sweeps improve relationship readability while keeping every
+  // course in its approved level. Code order breaks ties deterministically.
+  const order = new Map<string, number>();
+  const refreshOrder = () => byCol.forEach(list => list.forEach((course, i) => order.set(course.code, i)));
+  refreshOrder();
+  for (let pass = 0; pass < 6; pass++) {
+    const columns = pass % 2 === 0 ? levels.map((_, i) => i) : levels.map((_, i) => levels.length - i - 1);
+    for (const col of columns) {
+      const list = byCol[col];
+      const candidates = list.map((course, original) => {
+        const adjacent = mapEdges.flatMap(([source, target]) => {
+          if (target === course.code && colIdx(source) !== col) return [order.get(source)];
+          if (source === course.code && colIdx(target) !== col) return [order.get(target)];
+          return [];
+        }).filter((value): value is number => value !== undefined);
+        return { course, original, barycenter: adjacent.length ? adjacent.reduce((sum, value) => sum + value, 0) / adjacent.length : original };
+      });
+      candidates.sort((a, b) => a.barycenter - b.barycenter || a.course.code.localeCompare(b.course.code));
+      byCol[col] = candidates.map(item => item.course);
+      refreshOrder();
+    }
+  }
   const hues = new Map<string, string>();
-  [...new Set(edges.map(e => e[0]))].sort((a, b) => Number(idOf(a)) - Number(idOf(b)) || a.localeCompare(b)).forEach((code, i) => hues.set(code, referenceMode && REFERENCE_HUES[idOf(code)] ? REFERENCE_HUES[idOf(code)] : HUES[i % HUES.length]));
+  [...new Set(edges.map(e => e[0]))].sort((a, b) => Number(idOf(a)) - Number(idOf(b)) || a.localeCompare(b)).forEach((code, i) => hues.set(code, HUES[i % HUES.length]));
 
   const placed = new Map<string, Placed>();
-  const mapEdges = edges.filter(([, t]) => model.courses.some(c => c.code === t));
-  const colIdx = (code: string) => colOf.get(model.courses.find(c => c.code === code)?.level ?? -1) ?? -1;
   const skipCount = mapEdges.filter(([s, t]) => Math.abs(colIdx(s) - colIdx(t)) > 1 && colIdx(s) >= 0 && colIdx(t) >= 0).length;
-  // The same light semester-style badges/airiness as the reference artwork,
-  // adapted to EVERY department's real groups (not invented academic terms).
-  const cardsTop = 294 + Math.max(0, skipCount * 6 - 20);
-  const breaks = byCol.map(list => list.length >= 4 ? Math.ceil(list.length / 2) : 0);
+  // Each long jump gets a dedicated routing channel above the cards.
+  const cardsTop = 280 + skipCount * 6;
   byCol.forEach((list, col) => list.forEach((c, row) => placed.set(c.code, {
     c, id: idOf(c.code), col, row, x: colX(col) + PAD_L,
-    y: cardsTop + row * ROW + (breaks[col] && row >= breaks[col] ? SECTION_GAP : 0),
+    y: cardsTop + row * ROW,
   })));
   const maxRows = Math.max(1, ...byCol.map(l => l.length));
 
@@ -200,7 +217,7 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
         ? [[A.x, ys], [lx, ys], [lx, yt], [B.x + CARD_W, yt]]
         : [[A.x + CARD_W, ys], [lx, ys], [lx, yt], [B.x, yt]] });
     } else {
-      const west = ct > cs, yc = 250 + chan * 6; chan++;
+      const west = ct > cs, yc = cardsTop - 18 - chan * 7; chan++;
       const g1 = west ? gutterKey(cs, cs + 1) : gutterKey(cs, cs - 1), g2 = west ? gutterKey(ct - 1, ct) : gutterKey(ct + 1, ct);
       const k1 = `${s}#${g1}#c`, k2 = `${s}>${t}#${g2}#c`;
       touch(k1, g1, ys, yc); touch(k2, g2, yc, yt);
@@ -277,56 +294,12 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
   /* ── أعمدةُ المستويات ─────────────────────────────────────────────────── */
   const cardSvg = (code: string, label: string, credit: number, x: number, y: number, w: number, stroke: string, tint: string, numColor: string, dashed = false, referenceCode?: string) => {
     const cy = y + CARD_H / 2, avail = w - 112;
-    const nl = nameLines(label, avail, idOf(code));
+    const nl = nameLines(label, avail);
     const textY = nl.lines.length === 2 ? [cy - 3, cy + 14] : [cy + (nl.size >= 16 ? 5 : 5)];
     return `<g class="card" data-c="${esc(idOf(code))}" tabindex="0" role="button" aria-label="${esc(`${idOf(code)} ${label}`)}"><rect x="${x}" y="${y}" width="${w}" height="${CARD_H}" rx="15" fill="${tint}" stroke="${stroke}" stroke-opacity=".5" stroke-width="1.5"${dashed ? ' stroke-dasharray="6 4"' : ""} filter="url(#sh)"/><circle cx="${x + w - 24}" cy="${cy}" r="14" fill="${stroke}"/><text x="${x + w - 24}" y="${cy + 5}" text-anchor="middle" font-size="15" font-weight="900" fill="#fff">${credit}</text>${nl.lines.map((line, k) => `<text x="${x + w - 46}" y="${textY[k]}" text-anchor="start" font-size="${nl.size}" font-weight="700" fill="#1E293B">${esc(line)}</text>`).join("")}<text x="${x + 13}" y="${cy + 9}" text-anchor="end" font-size="25" font-weight="900" fill="${numColor}">${esc(idOf(code))}</text></g>`;
   };
 
-  if (referenceMode) {
-    // Four original year-columns and two semester dividers per year.
-    // Amounts are calculated from approved live credits, not copied from artwork.
-    const years = ["السنة الأولى", "السنة الثانية", "السنة الثالثة", "السنة الرابعة"];
-    const columnX = [1392, 942, 492, 42];
-    const referenceColumn = (code: string) => Math.round((1440 - REFERENCE_CARDS[idOf(code)].x) / 450);
-    columnX.forEach((x, i) => {
-      const [stroke, tint] = LEVEL_PALETTE[i];
-      out.push(`<rect x="${x}" y="180" width="322" height="756" rx="28" fill="${tint}" fill-opacity=".55" stroke="${stroke}" stroke-opacity=".5" stroke-width="1.5"/>`);
-      out.push(`<rect x="${x + 10}" y="190" width="302" height="50" rx="20" fill="${stroke}"/><text x="${x + 161}" y="225" text-anchor="middle" font-size="26" font-weight="900" fill="#fff">${years[i]}</text>`);
-      REFERENCE_SEMESTERS[i].forEach(({ y: sy, end }, si) => {
-        const cards = model.courses.filter(c => referenceColumn(c.code) === i && REFERENCE_CARDS[idOf(c.code)].y >= sy + 28 && REFERENCE_CARDS[idOf(c.code)].y < end);
-        if (!cards.length) return;
-        const credits = cards.reduce((sum, c) => sum + (Number(c.credit) || 0), 0);
-        out.push(`<rect x="${x + 78}" y="${sy}" width="190" height="28" rx="14" fill="#fff" stroke="${stroke}" stroke-opacity=".5"/><text x="${x + 173}" y="${sy + 20}" text-anchor="middle" font-size="14.5" font-weight="800" fill="#1E293B">فصل ${si + 1} <tspan fill="${stroke}" font-weight="700">(${credits} ${credits >= 11 || credits === 1 ? "وحدة" : "وحدات"})</tspan></text>`);
-      });
-    });
-    // Draw only real approved edges. For matching ones, use the reference's
-    // EXACT curved paths, layering and arrowheads; no fabricated dependencies.
-    for (const [source, target] of edges) {
-      const sid = idOf(source), tid = idOf(target);
-      const A = REFERENCE_CARDS[sid], B = REFERENCE_CARDS[tid];
-      if (!A || !B || B.w !== CARD_W) continue;
-      const original = REFERENCE_EDGES[`${sid}>${tid}`];
-      const hue = hues.get(source) || GRAY;
-      if (original) {
-        const body = optional.has(`${source}>${target}`) ? original.body.replace(/stroke-width="2\.2"(?=\s)/, 'stroke-width="2.2" stroke-dasharray="6 4"') : original.body;
-        out.push(`<g class="edge" data-s="${esc(sid)}" data-t="${esc(tid)}">${body}</g>`);
-      } else {
-        // An extra genuine prerequisite needs its own unobtrusive path.
-        const west = A.x > B.x, ax = west ? A.x : A.x + A.w, bx = west ? B.x + B.w : B.x;
-        const gutter = A.x === B.x ? A.x - 34 : (ax + bx) / 2;
-        const d = rounded([[ax, A.y + 48], [gutter, A.y + 48], [gutter, B.y + 12], [bx, B.y + 12]]);
-        out.push(`<g class="edge" data-s="${esc(sid)}" data-t="${esc(tid)}"><path d="${d}" fill="none" stroke="#fff" stroke-width="5.5" stroke-opacity=".9"/><path d="${d}" fill="none" stroke="${hue}" stroke-width="2.2"${optional.has(`${source}>${target}`) ? ' stroke-dasharray="6 4"' : ""} stroke-linecap="round" stroke-linejoin="round" marker-end="url(#m${esc(sid)})"/></g>`);
-      }
-    }
-    for (const course of model.courses) {
-      const p = REFERENCE_CARDS[idOf(course.code)];
-      const i = referenceColumn(course.code), [stroke] = LEVEL_PALETTE[i];
-      out.push(cardSvg(course.code, course.name, course.credit, p.x, p.y, CARD_W, stroke, "#fff", hues.get(course.code) || GRAY, false, referenceMode ? idOf(course.code) : undefined));
-    }
-    if (mapEdges.length) {
-      out.push(`<g><rect x="62" y="806" width="282" height="112" rx="18" fill="#fff" stroke="#EA580C" stroke-opacity=".35" stroke-dasharray="5 4"/>${["السهم يبدأ من المتطلب", "وينتهي عند المقرر الذي يفتحه", "ولون الرقم هو لون أسهمه"].map((line, k) => `<text x="203" y="${840 + k * 28}" text-anchor="middle" font-size="16" font-weight="700" fill="#334155">${line}</text>`).join("")}</g>`);
-    }
-  } else if (wide) {
+  if (wide) {
     /* قسمٌ مساند بلا تخصص: أشرطةٌ بالعرض بحسب التصنيف، في كلٍّ بطاقاتٌ في صفوف. */
     const buckets = new Map<string, SheetCourse[]>();
     for (const c of model.courses) (buckets.get(c.category || "المقررات") || buckets.set(c.category || "المقررات", []).get(c.category || "المقررات")!).push(c);
@@ -342,7 +315,7 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
       list.forEach((c, i) => {
         const r = Math.floor(i / perRow), k = i % perRow, inRow = Math.min(perRow, list.length - r * perRow);
         const rowW = inRow * 350 + (inRow - 1) * 60, startX = cx + rowW / 2 - 350;
-        out.push(cardSvg(c.code, c.name, c.credit, startX - k * 410, y + 102 + r * 80, 350, stroke, "#fff", GRAY, false, referenceMode ? idOf(c.code) : undefined));
+        out.push(cardSvg(c.code, c.name, c.credit, startX - k * 410, y + 102 + r * 80, 350, stroke, "#fff", GRAY, false));
       });
       y += h + 24;
     });
@@ -352,19 +325,10 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
       const [stroke, tint] = LEVEL_PALETTE[Math.min(i, LEVEL_PALETTE.length - 1)], cxx = colX(i);
       out.push(`<rect x="${cxx}" y="180" width="${COL_W}" height="${colH}" rx="28" fill="${tint}" fill-opacity=".55" stroke="${stroke}" stroke-opacity=".5" stroke-width="1.5"/>`);
       out.push(`<rect x="${cxx + 10}" y="190" width="${COL_W - 20}" height="50" rx="20" fill="${stroke}"/><text x="${cxx + COL_W / 2}" y="225" text-anchor="middle" font-size="26" font-weight="900" fill="#fff">${esc(levelLabel(level))}</text>`);
-      // Reference-style floating capsules distinguish visual groups only.
-      // Academic semester membership is not stored here, so do not label
-      // these invented halves "فصل 1/2".
-      const courses = byCol[i], split = breaks[i];
-      const sections = split ? [courses.slice(0, split), courses.slice(split)] : [courses];
-      sections.forEach((part, partIndex) => {
-        if (!part.length) return;
-        const first = placed.get(part[0].code);
-        if (!first) return;
-        const badgeY = first.y - 38, totalCredits = part.reduce((sum, c) => sum + (Number(c.credit) || 0), 0);
-        const heading = split ? `مجموعة ${partIndex + 1}` : "المقررات";
-        out.push(`<rect x="${cxx + 78}" y="${badgeY}" width="190" height="${SECTION_BADGE_H}" rx="14" fill="#fff" stroke="${stroke}" stroke-opacity=".5"/><text x="${cxx + 173}" y="${badgeY + 20}" text-anchor="middle" font-size="14.5" font-weight="800" fill="#1E293B">${heading} <tspan fill="${stroke}" font-weight="700">(${countOf(totalCredits, AR.unit)})</tspan></text>`);
-      });
+      // One factual capsule per level; no invented academic semester/group.
+      const courses = byCol[i];
+      const totalCredits = courses.reduce((sum, c) => sum + (Number(c.credit) || 0), 0);
+      out.push(`<rect x="${cxx + 78}" y="246" width="190" height="${SECTION_BADGE_H}" rx="14" fill="#fff" stroke="${stroke}" stroke-opacity=".5"/><text x="${cxx + 173}" y="266" text-anchor="middle" font-size="14.5" font-weight="800" fill="#1E293B">${countOf(courses.length, AR.course)} <tspan fill="${stroke}" font-weight="700">· ${countOf(totalCredits, AR.unit)}</tspan></text>`);
     });
     out.push(...edgeSvg);
     for (const p of placed.values()) {
@@ -378,30 +342,41 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
   }
 
   /* ── أشرطةُ الاختياري ─────────────────────────────────────────────────── */
-  let y = referenceMode ? 960 : wide ? Number(out.pop()!.replace("@WIDE_END@", "")) : colBottom + 24;
+  let y = wide ? Number(out.pop()!.replace("@WIDE_END@", "")) : colBottom + 24;
   const bandSvg: string[] = [];
   for (const group of model.groups) {
     const perRow = Math.max(1, Math.min(4, Math.floor((W - 84 - 88 + 60) / 410)));
     const rows = Math.ceil(group.courses.length / perRow);
     const prereqOf = (code: string) => edges.filter(([, t]) => t === code).map(([s]) => s);
     const hasArrows = group.courses.some(c => prereqOf(c.code).length);
-    const rowH = hasArrows ? 170 : 80, h = 58 + (rows - 1) * rowH + (hasArrows ? 148 : 90);
+    const routeCount = group.courses.reduce((sum, c) => sum + prereqOf(c.code).filter(s => placed.has(s)).length, 0);
+    const lastRouteY = Math.max(bodyBottom + 12, y + 44) + Math.max(0, routeCount - 1) * 5;
+    const routeLift = Math.max(0, lastRouteY + 14 - (y + 58));
+    const rowH = hasArrows ? 170 : 80, h = 58 + routeLift + (rows - 1) * rowH + (hasArrows ? 148 : 90);
     bandSvg.push(`<rect x="42" y="${y}" width="${W - 84}" height="${h}" rx="28" fill="#FEF3C7" fill-opacity=".6" stroke="#D97706" stroke-opacity=".5" stroke-width="1.5"/>`);
-    bandSvg.push(`<text x="${cx}" y="${y + 41}" text-anchor="middle" font-size="24" font-weight="900" fill="#92400E">${esc(group.title)}${group.pick ? ` - اختر ${AR_PICK[group.pick] || countOf(group.pick, AR.course)}` : ""}${group.minUnits ? ` (${countOf(group.minUnits, AR.unit)} على الأقل)` : ""}</text>`);
+    bandSvg.push(`<text x="${cx}" y="${y + 30}" text-anchor="middle" font-size="24" font-weight="900" fill="#92400E">${esc(group.title)}${group.pick ? ` - اختر ${AR_PICK[group.pick] || countOf(group.pick, AR.course)}` : ""}${group.minUnits ? ` (${countOf(group.minUnits, AR.unit)} على الأقل)` : ""}</text>`);
     group.courses.forEach((c, i) => {
       const r = Math.floor(i / perRow), k = i % perRow, inRow = Math.min(perRow, group.courses.length - r * perRow);
-      const rowW = inRow * 350 + (inRow - 1) * 60, cxx = referenceMode ? REFERENCE_CARDS[idOf(c.code)].x : cx + rowW / 2 - 350 - k * 410, top = referenceMode ? REFERENCE_CARDS[idOf(c.code)].y : y + 58 + r * rowH;
+      const rowW = inRow * 350 + (inRow - 1) * 60, cxx = cx + rowW / 2 - 350 - k * 410, top = y + 58 + routeLift + r * rowH;
       const pre = prereqOf(c.code);
       pre.forEach((s, j) => {
-        const approved = referenceMode ? REFERENCE_EDGES[`${idOf(s)}>${idOf(c.code)}`] : undefined;
-        if (approved && !optional.has(`${s}>${c.code}`)) {
-          bandSvg.push(`<g class="edge" data-s="${esc(idOf(s))}" data-t="${esc(idOf(c.code))}">${approved.body}</g>`);
-          return;
+        const source = placed.get(s), hue = hues.get(s) || GRAY;
+        if (source) {
+          // Leave the source through its own column's clear side margin, then
+          // route below the matrix and enter the elective card from above.
+          // This keeps the long connector out of unrelated course cards.
+          const edgeIndex = bandSvg.filter(svg => svg.includes('class="edge"')).length;
+          const xSide = colX(source.col) + COL_W - 5;
+          const sx = source.x + CARD_W, sy = source.y + CARD_H / 2;
+          const tx = cxx + 175 + (pre.length === 1 ? 0 : (j === 0 ? 45 : -45)), ty = top + 2;
+          const trackY = Math.max(bodyBottom + 12, y + 44) + edgeIndex * 5;
+          const d = rounded([[sx, sy], [xSide, sy], [xSide, trackY], [tx, trackY], [tx, ty]], 7);
+          const groupSvg = `<g class="edge" data-s="${esc(idOf(s))}" data-t="${esc(idOf(c.code))}"><path d="${d}" fill="none" stroke="#fff" stroke-width="5.5" stroke-opacity=".9" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${hue}" stroke-width="2.2"${optional.has(`${s}>${c.code}`) ? ' stroke-dasharray="6 4"' : ""} stroke-linecap="round" stroke-linejoin="round" marker-end="url(#m${esc(idOf(s))})"/></g>`;
+          bandSvg.push(groupSvg);
         }
-        const ax = cxx + 175 + (pre.length === 1 ? 0 : (j === 0 ? 45 : -45)), hue = hues.get(s) || GRAY;
-        bandSvg.push(`<g class="edge" data-s="${esc(idOf(s))}" data-t="${esc(idOf(c.code))}"><path d="M${ax} ${top + 112} L${ax} ${top + 72}" stroke="${hue}" stroke-width="2.4"${optional.has(`${s}>${c.code}`) ? ' stroke-dasharray="6 4"' : ""} stroke-linecap="round" marker-end="url(#m${esc(idOf(s))})"/><text x="${ax}" y="${top + 138}" text-anchor="middle" font-size="22" font-weight="900" fill="${hue}">${esc(idOf(s))}</text></g>`);
+        const ax = cxx + 175 + (pre.length === 1 ? 0 : (j === 0 ? 45 : -45));
       });
-      if (pre.length === 2 && !(referenceMode && pre.every(s => REFERENCE_EDGES[`${idOf(s)}>${idOf(c.code)}`] && !optional.has(`${s}>${c.code}`)))) bandSvg.push(`<text x="${cxx + 175}" y="${top + 138}" text-anchor="middle" font-size="${pre.some(s => optional.has(`${s}>${c.code}`)) ? 17 : 22}" font-weight="900" fill="#475569">${pre.some(s => optional.has(`${s}>${c.code}`)) ? "أو" : "+"}</text>`);
+      if (pre.length > 1) bandSvg.push(`<text x="${cxx + 175}" y="${top + 138}" text-anchor="middle" font-size="${pre.some(s => optional.has(`${s}>${c.code}`)) ? 17 : 22}" font-weight="900" fill="#475569">${pre.some(s => optional.has(`${s}>${c.code}`)) ? "أو" : "+"}</text>`);
       bandSvg.push(cardSvg(c.code, c.name, c.credit, cxx, top, 350, "#D97706", "#fff", GRAY));
     });
     y += h + 24;
@@ -421,13 +396,13 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
   /* ── بياناتُ التفاعل ───────────────────────────────────────────────────── */
   const C: Record<string, [number, string, number, string]> = {};
   const levelIndex = (level: number) => (colOf.get(level) ?? 0) + 1;
-  for (const c of model.courses) C[idOf(c.code)] = [referenceMode ? Math.round((1440 - REFERENCE_CARDS[idOf(c.code)].x) / 450) + 1 : levelIndex(c.level), c.name, c.credit, c.category || ""];
+  for (const c of model.courses) C[idOf(c.code)] = [levelIndex(c.level), c.name, c.credit, c.category || ""];
   const EL: Record<string, [string, number]> = {};
   for (const g of model.groups) for (const c of g.courses) EL[idOf(c.code)] = [c.name, c.credit];
   const H_: Record<string, string> = {};
   for (const [code, hue] of hues) H_[idOf(code)] = hue;
   const LV: Record<string, [string, string, string]> = {};
-  (referenceMode ? [100, 200, 300, 400] : levels).forEach((level, i) => { LV[String(i + 1)] = [LEVEL_PALETTE[Math.min(i, LEVEL_PALETTE.length - 1)][0], LEVEL_PALETTE[Math.min(i, LEVEL_PALETTE.length - 1)][1], referenceMode ? ["السنة الأولى", "السنة الثانية", "السنة الثالثة", "السنة الرابعة"][i] : levelLabel(level)]; });
+  levels.forEach((level, i) => { LV[String(i + 1)] = [LEVEL_PALETTE[Math.min(i, LEVEL_PALETTE.length - 1)][0], LEVEL_PALETTE[Math.min(i, LEVEL_PALETTE.length - 1)][1], levelLabel(level)]; });
   const OR = (model.anyOf || []).map(([t, alts]) => [idOf(t), alts.map(idOf)]);
   const U: Record<string, number> = {};
   for (const [code, n] of Object.entries(model.minUnits || {})) U[idOf(code)] = n;
