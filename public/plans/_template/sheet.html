@@ -45,8 +45,6 @@ html.fit #plan{min-width:0}
 #tag.side-l::after,#tag.side-r::after{bottom:auto;top:var(--ty,50%)}
 #tag.side-l::after{left:auto;right:-8px;transform:translateY(-50%) rotate(-45deg)}
 #tag.side-r::after{left:-8px;transform:translateY(-50%) rotate(135deg)}
-/* الاسمُ يظهر في البطاقة المضيئة وفي عنوان اللوحة؛ ثالثٌ فوقها تكرار. */
-#tag{display:none!important}
 /* اللوحةُ المفتوحة تغطي أسفل الشاشة: لا أزرارَ ثابتة ولا شريطَ فوقها. */
 html.sheet-open #stbar,html.sheet-open #fitbtn,html.sheet-open #pdfbtn,html.sheet-open #stbtn,html.sheet-open #hint{display:none!important}
 @keyframes pop{0%{transform:scale(1)}60%{transform:scale(calc(var(--pop) * 1.08))}100%{transform:scale(var(--pop))}}

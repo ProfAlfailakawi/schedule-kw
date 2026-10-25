@@ -71,8 +71,15 @@ const levelLabel = (level: number) => level ? `المستوى ${level}` : "بل�
 
 /** اسمُ المقرر في بطاقة: سطرٌ واحد بخطٍّ أصغر عند الضرورة، وإلا سطران متوازنان. */
 function nameLines(name: string, avail: number): { lines: string[]; size: number } {
+  // Typography calibrated against all 28 course cards in the approved
+  // educational-technology/index.html, including the 350px elective cards.
+  // Keep the reference's line breaks and Cairo font sizes, not an estimated
+  // one-line fit that crowds the course number.
+  const wide = avail >= 200;
+  if (wide && name.length <= 29) return { lines: [name], size: 16 };
+  if (!wide && name.length <= 18) return { lines: [name], size: 15 };
+  if (!wide && name.length <= 20) return { lines: [name], size: 14 };
   const width = (s: string, fs: number) => s.length * fs * 0.5;
-  for (const fs of [16, 15, 14]) if (width(name, fs) <= avail) return { lines: [name], size: fs };
   const words = name.split(" ");
   let best: string[] = [name], bestW = Infinity;
   for (let i = 1; i < words.length; i++) {
