@@ -28,7 +28,7 @@ assert.equal(findConflicts([a],[d]).some(c=>c.reasons.includes("room")),false,"n
 const withoutStudio:FSchedule={...a,companionRoomId:undefined,companionRoomLabel:undefined};
 assert.equal(diffSchedules([withoutStudio],[a]).counts.changed,1,"studio assignment appears in review changes");
 assert.ok(diffSchedules([withoutStudio],[a]).entries[0]?.changes.some(change=>change.field==="room"));
-assert.notEqual(instructorScheduleFingerprint([withoutStudio]),instructorScheduleFingerprint([a]),"studio change affects instructor notification fingerprint");
+assert.notEqual(instructorScheduleFingerprint([withoutStudio as any]),instructorScheduleFingerprint([a as any]),"studio change affects instructor notification fingerprint");
 
 const building:MasterBuilding={
   id:"b1",officialCode:"012B01",sitePrefix:"012B",collegeIds:[1],sectionIds:[1],active:true,confidence:"CONFIRMED",
