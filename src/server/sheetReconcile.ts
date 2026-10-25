@@ -114,6 +114,16 @@ export function createReconciler(input: ReconcilerInput) {
     return best.length && (best.length === 1 || rank(best[0]) < rank(best[1])) ? best[0] : undefined;
   };
 
+  /** مقررُ قسم التربية القديم (14) عند وارثه (المناهج 21، الأصول 20، علم النفس 15) بالرقم والاسم وإن لم يُدرَّس بعد:
+   *  «المناهج 284» سجلُّه عند المناهج، فلا يُنشأ له سجلٌّ ثانٍ عند الأصول. سجلٌّ واحدٌ مطابق، وإلا فلا شيء. */
+  const inheritedTwin = (code: string, name: string): AdCourse | undefined => {
+    if (deptOf(code) !== "14") return undefined;
+    const homes = new Set(["21", "20", "15"].flatMap(dept => sectionsWithCode(dept).map(row => Number(row.AdSectionId))));
+    const found = courses.filter(row => Number(row.AdCollegeId) === cid && homes.has(Number(row.AdSectionId))
+      && shortNumber(row) === numOf(code) && ["same", "spelling"].includes(nameRelation(row.CourseName, name)));
+    return found.length === 1 ? found[0] : undefined;
+  };
+
   /** يجد المقرر (سجلَّه المدرَّس أولاً) أو يُنشئه عند قسمه، ويصحّح ما خالف الصحيفة. */
   /** سجلٌّ مستعمَل: دُرِّس، أو مربوطٌ بصحيفةٍ غير هذه. لا يُعاد تسمية سجلٍّ مستعمَلٍ باسم مقررٍ آخر. */
   const inUse = async (row: AdCourse, planId?: string) => taught.has(Number(row.AdCourseId))
@@ -123,7 +133,7 @@ export function createReconciler(input: ReconcilerInput) {
     if (!t) return undefined;
     let row = findIn(sid, code);
     if (!row || !taught.has(Number(row.AdCourseId))) {
-      const twin = taughtTwin(code, t.name);
+      const twin = taughtTwin(code, t.name) || inheritedTwin(code, t.name);
       if (twin && twin !== row) { log("ربط بالسجل المدرَّس", { code, name: t.name, twin: twin.AdCourseId, twinCode: twin.CourseCode, replaces: row?.AdCourseId }); row = twin; }
     }
     let distinct = false;
@@ -149,7 +159,9 @@ export function createReconciler(input: ReconcilerInput) {
     if (siblings.length > 1) { log("مقرر بمكوّنات", { code, ids: siblings.map(item => item.AdCourseId) }); return row; }
     if (input.mayCorrect && !(await input.mayCorrect(row))) return row;
     const relation = nameRelation(row.CourseName, t.name);
-    const nameDiffers = relation === "related" || relation === "different" || (input.exactNames?.has(code) && row.CourseName.trim() !== t.name);
+    /* «ﻣﻬﺎﺭﺍﺕ» (حروف عرض الـPDF) أو مسافةٌ مكرّرة: الاسم نفسه بكتابةٍ أخرى يُكتب كما في الصحيفة. */
+    const sameButEncoded = row.CourseName !== t.name && row.CourseName.normalize("NFKC").replace(/ـ/g, "").replace(/\s+/g, " ").trim() === t.name;
+    const nameDiffers = relation === "related" || relation === "different" || sameButEncoded || (input.exactNames?.has(code) && row.CourseName.trim() !== t.name);
     const units = input.keepUnits?.has(code) ? Number(row.CourseCredit) : t.units;
     if (nameDiffers || Number(row.CourseCredit) !== units || Number(row.CourseHours) !== t.hours) {
       const name = nameDiffers ? t.name : row.CourseName;
@@ -209,6 +221,13 @@ export function createReconciler(input: ReconcilerInput) {
     const { reference } = sheetToReference(sheet as ParsedPlan, inScope, names, []);
     const scope = new Map([...memberIdByCode, ...externalIdByCode]);
     const known = new Map<string, number>(courses.filter(row => Number(row.AdCollegeId) === cid).map(row => [keyOf(row), Number(row.AdCourseId)] as const));
+    /* مسبقٌ برمز قسم التربية القديم (0114104) لا اسم له في الصحيفة: يُربط بسجلٍّ وحيد بالرقم عند وارثيه (21، 20، 15). */
+    const heirs = new Set(["21", "20", "15"].flatMap(dept => sectionsWithCode(dept).map(row => Number(row.AdSectionId))));
+    for (const code of new Set(list.flatMap(course => [...course.prereqAll, ...course.prereqAny.flat()]))) {
+      if (deptOf(code) !== "14" || known.has(code) || scope.has(code)) continue;
+      const found = courses.filter(row => Number(row.AdCollegeId) === cid && heirs.has(Number(row.AdSectionId)) && shortNumber(row) === numOf(code));
+      if (found.length === 1) known.set(code, Number(found[0].AdCourseId));
+    }
     const built = buildReferenceRules(reference, scope, new Map([...known, ...scope]), new Set());
     const stamp = (id: string) => `y${sheet.startYear || 0}-${id.replace(/^new-/, "")}`;
     const creditOf = (id: number) => Number(courses.find(row => Number(row.AdCourseId) === id)?.CourseCredit) || 0;
