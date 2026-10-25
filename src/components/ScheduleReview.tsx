@@ -653,10 +653,15 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
               {open === finding.groupKey ? (
                 <div className="review-rows">
                   <div className="review-finding-detail">
-                      {finding.data && finding.groupedCount === 1 ? <PeriodBalanceInfographic {...finding.data} /> : <p><strong>{finding.article}</strong> · {markVisitingNames(finding.detail, finding.rowIds)}</p>}
+                      {finding.data && finding.groupedCount === 1 ? <PeriodBalanceInfographic {...finding.data} /> : (
+                        <details className="review-rule-explainer">
+                          <summary><Info aria-hidden="true" /> شرح الملاحظة <ChevronDown aria-hidden="true" /></summary>
+                          <p><strong>{finding.article}</strong> · {markVisitingNames(finding.detail, finding.rowIds)}</p>
+                        </details>
+                      )}
                       <div className="review-finding-meta">
                         <span>{finding.article}</span>
-                        <span>مانع اعتماد</span>
+                        <span>{findingStatus(finding)}</span>
                       </div>
                   </div>
                   {finding.rowIds.length ? (
