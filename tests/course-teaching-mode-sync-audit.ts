@@ -46,7 +46,7 @@ assert.equal(saved.find(course => course.AdCourseId === 11)?.CourseTeachingMode,
 
 const server = fs.readFileSync("server.ts", "utf8");
 const route = server.slice(server.indexOf('app.put("/api/courses/:id"'), server.indexOf('app.delete("/api/courses/:id"'));
-assert.ok(route.indexOf("setCourseTeachingModeForIds") < route.indexOf("Repository.updateCourse("), "siblings are written before source");
+assert.match(route, /Repository\.updateCourseFamily\(/, "source and siblings are saved together");
 assert.match(route, /const candidates = roomTypeSiblingIds\(/, "teaching mode uses the same sibling matcher");
 assert.match(route, /isScopeAllowed\(req, Number\(other.AdCollegeId\), Number\(other.AdSectionId\)\)/);
 assert.match(route, /committeeCatalogEditAllowed\(req, Number\(other.AdSectionId\)\)/);
