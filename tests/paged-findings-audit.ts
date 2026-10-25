@@ -54,6 +54,22 @@ check(!/slice\(0,\s*12\)/.test(review) && !/slice\(0,\s*12\)/.test(changes), "ل
 check(!/غيرها…|غيرهم…/.test(review) && !/غيرهم…/.test(changes), "لا «و… غيرها» في قوائم الملاحظات");
 check(!/printRowPreviewLimit/.test(review), "الورقة لا تقتطع المواعيد");
 check(/أظهرها على الجدول/.test(review), "«أظهرها على الجدول» باقٍ");
+/* The whole category and each instructor must expand without React click-state. */
+check(/<details key={finding\.groupKey} className=/.test(review)
+  && /<summary data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط"/.test(review)
+  && /<div className="review-rows">/.test(review)
+  && !/setOpen\(current => \(current === finding\.groupKey/.test(review),
+  "بطاقات الموانع تستخدم فتحاً أصلياً من المتصفح مع الحفاظ على كل التفاصيل");
+check(/<details className="review-person">/.test(review)
+  && /<summary className="review-person-head"/.test(review)
+  && /review-course-deck/.test(review)
+  && /review-slot-flow/.test(review),
+  "الأستاذ يفتح المواد والأيام والشعب بتوسعة أصلية");
+const approvalCss = fs.readFileSync("src/styles/31-approval-atlas.css", "utf8");
+check(/\.review-finding>summary\s*\{/.test(approvalCss)
+  && /\.review-person-head::-webkit-details-marker/.test(approvalCss)
+  && /\.review-body\s*\{[^}]*overflow-y:auto/.test(approvalCss),
+  "تنسيق التوسعة والتمرير متاح بلا طبقة تمنع التفاعل");
 const css = fs.readFileSync("src/styles/09-details.css", "utf8");
 check(/@media print\{[^}]*\.pfl-item\[hidden\]\{display:contents!important\}/.test(css), "الطباعة تُظهر كل الصفحات");
 

@@ -179,3 +179,43 @@
 @media (prefers-reduced-motion:reduce) {
   .review-person-head .review-person-chevron,.review-finding>button {transition:none}
 }
+
+
+/* Reliable disclosures: native <details>/<summary> handles pointer, touch and
+   keyboard activation without depending on JavaScript click-state. */
+@media screen {
+  .review-sheet { overflow:hidden; }
+  .review-body { min-height:0; overflow-y:auto; overscroll-behavior:contain; align-content:start; }
+  .review-finding { min-width:0; }
+  .review-finding>summary {
+    position:relative;z-index:1;pointer-events:auto;
+    list-style:none; cursor:pointer; width:100%;
+    display:grid; grid-template-columns:46px minmax(0,1fr) auto auto;
+    align-items:start; gap:14px; min-height:96px;
+    padding:17px clamp(14px,2vw,24px);
+    background:transparent; color:var(--ink,#172722); text-align:start;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .review-finding>summary::-webkit-details-marker,
+  .review-person-head::-webkit-details-marker { display:none; }
+  .review-finding>summary::marker,
+  .review-person-head::marker { content:""; }
+  .review-finding>summary:hover,
+  .review-finding>summary:focus-visible,
+  .review-finding[open]>summary { background:var(--av-mint); }
+  .review-finding>summary:focus-visible,
+  .review-person-head:focus-visible { outline:3px solid var(--accent,#176d59);outline-offset:-3px; }
+  .review-finding>summary>em,
+  .review-finding>summary>i { margin-top:5px;font-size:.72rem;border-radius:999px;padding:5px 10px;font-style:normal; }
+  .review-finding[open] { border-color:color-mix(in srgb,var(--accent,#176d59) 25%,var(--av-line)); }
+  .review-finding[open]>.review-rows { display:flex; min-height:0; }
+  .review-person-head { position:relative;z-index:1;pointer-events:auto;list-style:none;cursor:pointer; }
+  .review-person[open]>.review-person-head,
+  .review-person-head:hover { background:var(--av-mint); }
+  .review-person[open] .review-person-chevron { transform:rotate(180deg); }
+  .review-person[open]>.review-person-rows { display:grid; min-width:0; }
+}
+@media screen and (max-width:720px) {
+  .review-finding>summary { grid-template-columns:36px minmax(0,1fr);padding:13px;min-height:78px;gap:9px; }
+  .review-finding>summary>em,.review-finding>summary>i { grid-column:2;margin-top:0;justify-self:start; }
+}
