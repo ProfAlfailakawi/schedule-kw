@@ -70,6 +70,48 @@ const model: SheetModel = {
     && !html.includes('window.print()'),
     "S1 زر PDF: صفحة A4 بالعرض مع مخطط كامل بصفحة واحدة وبدون عناصر متحركة أو هوامش الهاتف");
   check(html.includes('prefers-reduced-motion:reduce'), "S1 خريطة الصحيفة لا تفقد تفضيل تقليل الحركة عند العرض");
+
+  /* S1: All reference motion signatures must stay in the published sheet. */
+  const reference = read("public/plans/educational-technology/index.html");
+  const motions = [
+    ".card.pick{transform:scale(var(--pop));animation:pop .34s ease-out}",
+    "@keyframes pop{0%{transform:scale(1)}60%{transform:scale(calc(var(--pop) * 1.08))}100%{transform:scale(var(--pop))}}",
+    "@keyframes glow{50%{filter:drop-shadow(0 0 26px var(--glow,rgba(11,37,69,.45)))}}",
+    ".edge.on path[marker-end]{stroke-width:3.4;stroke-dasharray:9 6;animation:flow .9s linear infinite}",
+    "@keyframes flow{to{stroke-dashoffset:-15}}",
+    "#tag.on{opacity:1;transform:none}",
+    "g.parentNode.appendChild(g);if(f)g.focus({preventScroll:true});placePop(g);g.classList.add('pick')",
+    "const best=spots.map((p,i)=>({...p,c:cover(p)+i}))",
+    "plan.addEventListener('mouseover'",
+  ];
+  check(motions.every(needle => reference.includes(needle) && html.includes(needle)), "S1 تأثيرات التكبير والتوهج والأسهم والاسم في الصحيفة المولّدة مطابقة للمرجع");
+  check(!template.includes("#tag{display:none!important}") && html.includes("function placeTag()") && html.includes("tag.classList.add('on')"), "S1 ظهور الاسم العائم على الهاتف كما في المرجع");
+  /* Compare all 28 approved SVG course labels, fonts and line breaks. */
+  const referenceCards = [...reference.matchAll(/<g class="card" data-c="([^"]+)"[\s\S]*?<\/g>/g)].map(match => {
+    const markup = match[0], label = markup.match(/aria-label="[^"]+? (.*?)"/)?.[1] || "";
+    const width = Number(markup.match(/<rect[^>]*width="(\d+)"/)?.[1] || 0);
+    const words = [...markup.matchAll(/<text[^>]*font-size="(\d+)"[^>]*>([^<]*)<\/text>/g)]
+      .map(text => [Number(text[1]), text[2]]).slice(1, -1);
+    return { id: match[1], name: label, width, words };
+  });
+  const mainCards = referenceCards.filter(card => card.width === 262);
+  const optionalCards = referenceCards.filter(card => card.width === 350);
+  const parityHtml = buildPlanSheet({
+    ...model,
+    courses: mainCards.map(card => ({ code: card.id, name: card.name, credit: 3, level: 100 })),
+    groups: [{ title: "اختياري تخصصي", pick: 1, courses: optionalCards.map(card => ({ code: card.id, name: card.name, credit: 3 })) }],
+    edges: [], notes: [], layout: "levels",
+  }, { template });
+  const sameLabel = (card: typeof referenceCards[number]) => {
+    const markup = parityHtml.match(new RegExp('<g class="card" data-c="' + card.id + '"[\\s\\S]*?<\\/g>'))?.[0] || "";
+    const words = [...markup.matchAll(/<text[^>]*font-size="(\d+)"[^>]*>([^<]*)<\/text>/g)]
+      .map(text => [Number(text[1]), text[2]]).slice(1, -1);
+    return JSON.stringify(words) === JSON.stringify(card.words);
+  };
+  check(referenceCards.length === 28 && mainCards.length === 24 && optionalCards.length === 4
+    && referenceCards.every(sameLabel),
+    "S1 أسماء البطاقات الـ28 مطابقة لأسطرها وأحجام خطوطها في index");
+
   const arabicLabel = buildPlanSheet({ ...model, planLabel: "الصحيفة السابقة" }, { template });
   const labelTag = arabicLabel.match(/<text[^>]*>الصحيفة السابقة<\/text>/)?.[0] || "";
   check(labelTag.includes('direction="rtl"') && labelTag.includes('text-anchor="start"') && !labelTag.includes("letter-spacing"), "S1 عنوانُ الصحيفة العربي: اتجاهٌ يمينيّ ومرساةٌ عند الحافة اليمنى (لا يُقطع) وبلا تباعد حروف", labelTag);
