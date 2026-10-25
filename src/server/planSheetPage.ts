@@ -125,7 +125,7 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
   const colOf = new Map(levels.map((l, i) => [l, i]));
   const n = Math.max(1, levels.length);
   const colsTotal = n * COL_W + (n - 1) * COL_GAP;
-  const W = Math.max(W_MIN, 84 + colsTotal);
+  const W = referenceMode ? W_MIN : Math.max(W_MIN, 84 + colsTotal);
   const x0 = (W - colsTotal) / 2;
   const colX = (i: number) => x0 + (n - 1 - i) * (COL_W + COL_GAP);
 
