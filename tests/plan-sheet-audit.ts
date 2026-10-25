@@ -165,6 +165,57 @@ const model: SheetModel = {
   check(buildPlanSheet({ ...model, title: "قسم <x>&" }, { template }).includes("قسم &lt;x&gt;&amp;") && !buildPlanSheet({ ...model, title: "</script><b>" }, { template }).includes("</script><b>"), "S1 النصوصُ تُهرَّب في الصفحة والبيانات");
   const wide = buildPlanSheet({ ...model, edges: [], groups: [], notes: [], layout: "wide", courses: model.courses.map(c => ({ ...c, category: c.level < 300 ? "ثقافة عامة" : "مهنية" })) }, { template });
   check(wide.includes("ثقافة عامة") && wide.includes("مهنية") && !wide.includes("السهم يبدأ من المتطلب"), "S1 القسمُ المساند بلا أسهم: أشرطةٌ بالعرض بحسب التصنيف، بلا مفتاح الأسهم");
+  // Universal artwork: every department uses the same colored columns,
+  // spacious layout and credit capsules, not only Technology Education.
+  const departments = ["قسم الرياضيات", "قسم اللغة العربية", "قسم التربية الفنية", "قسم العلوم"];
+  for (const [di, department] of departments.entries()) {
+    const syntheticCourses = Array.from({ length: 16 }, (_, j) => ({
+      code: String(2000000 + di * 100 + j), name: `المقرر المعتمد ${di + 1} - ${j + 1}`,
+      credit: 2 + j % 2, level: (Math.floor(j / 4) + 1) * 100,
+    }));
+    const realLinks: Array<[string, string]> = [
+      [syntheticCourses[0].code, syntheticCourses[5].code],
+      [syntheticCourses[5].code, syntheticCourses[11].code],
+    ];
+    const rendered = buildPlanSheet({
+      ...model, title: department, courses: syntheticCourses,
+      groups: [{ title: "اختياري", pick: 1, courses: [{ code: String(99000 + di), name: "اختياري حقيقي", credit: 3 }] }],
+      edges: realLinks, notes: [`ملاحظة القسم ${di + 1}`], layout: "levels",
+    }, { template });
+    const capsules = [...rendered.matchAll(/<rect x="\d+" y="\d+" width="190" height="28" rx="14"/g)];
+    const tags = [...rendered.matchAll(/<g class="card" data-c="([^"]+)"/g)].map(x => x[1]);
+    const expected = new Set([...syntheticCourses.map(c => c.code.slice(-3)),String(99000 + di)]);
+    const allRealCourses = tags.length === expected.size && tags.every(x => expected.has(x));
+    check(rendered.includes(department) && rendered.includes('viewBox="0 0 1754 ')
+      && rendered.includes('x="1392" y="180" width="322" height=')
+      && rendered.includes('x="42" y="180" width="322" height=')
+      && capsules.length === 8 && rendered.includes("مجموعة 1") && rendered.includes("مجموعة 2"),
+      `S1 تصميم المرجع لكل الأقسام: الأعمدة والمسافات والكبسولات — ${department}`);
+    check(allRealCourses && (rendered.match(/class="edge"/g) || []).length === realLinks.length
+      && rendered.includes('data-t="' + syntheticCourses[11].code.slice(-3) + '"')
+      && rendered.includes(`ملاحظة القسم ${di + 1}`),
+      `S1 لا اختراع للمقررات ولا للمسبقات — ${department}`);
+  }
+  const unbalanced = buildPlanSheet({
+    ...model, title: "قسم الإعلام", courses: [
+      { code: "601", name: "مدخل", credit: 2, level: 100 },
+      { code: "602", name: "برنامج متعدد الفصول", credit: 3, level: 100 },
+      { code: "603", name: "الاستوديو", credit: 2, level: 100 },
+      { code: "604", name: "الإنتاج الإعلامي", credit: 2, level: 200 },
+      { code: "605", name: "إدارة المشاريع", credit: 2, level: 300 },
+      { code: "606", name: "الممارسة التطبيقية", credit: 2, level: 400 },
+      { code: "607", name: "رسالة طويلة", credit: 2, level: 500 },
+      { code: "608", name: "تطبيق", credit: 2, level: 600 },
+    ], groups: [], edges: [["601", "607"]], notes: [], layout: "levels",
+  }, { template });
+  check(unbalanced.includes('viewBox="0 0 2654 ') && unbalanced.includes("المستوى 600")
+    && (unbalanced.match(/class="card"/g) || []).length === 8
+    && (unbalanced.match(/class="edge"/g) || []).length === 1,
+    "S1 الستة مستويات تتمدد بلا قص أو إخفاء بطاقات أو أسهم");
+  check(wide.includes('width="230" height="28" rx="14"') && wide.includes("ثقافة عامة") && wide.includes("مهنية")
+    && wide.includes("وحدة") && !wide.includes("مجموعة 1"),
+    "S1 الأقسام المساندة ذات العرض الكامل تحصل على كبسولات عدد المقررات والوحدات");
+
   const many = buildPlanSheet({ ...model, courses: Array.from({ length: 30 }, (_, i) => ({ code: `01090${String(i + 100).padStart(2, "0")}`, name: `مقرر ${i}`, credit: 3, level: 100 + (i % 5) * 0 })), groups: [], edges: [], notes: [], layout: "levels" }, { template });
   check(many.includes('viewBox="0 0 1754'), "S1 ثلاثون مقرراً في مستوىً واحدٍ لا تكسر الرسم");
   const alt = buildPlanSheet({ ...model, anyOf: [["0109343", ["0109220", "0109105"]]], minUnits: { "0109455": 60 }, otherUnits: 9, groups: [{ ...model.groups[0], minUnits: 9 }] }, { template });

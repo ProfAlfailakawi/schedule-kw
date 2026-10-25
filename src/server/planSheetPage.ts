@@ -4,7 +4,8 @@
  * تولّد صفحةَ الخطة بالتصميم نفسه الذي اعتمده المالك لقسم تكنولوجيا التعليم
  * (public/plans/educational-technology): أعمدةٌ بألوانها، بطاقاتٌ خفيفة، أسهمٌ متعامدةٌ
  * بلون المقرر السابق، وشريطُ اختياري ذهبي، ورمزُ QR للرابط الرسمي — بلا شعار قسمٍ.
- * الأعمدةُ هنا «مستويات» (١٠٠…٤٠٠) كما في شاشة الصحيفة داخل البرنامج، لا سنواتٍ وفصول.
+ * الأعمدةُ هنا «مستويات» (١٠٠…٤٠٠) لا سنواتٍ وفصول، والمجموعات المرئية
+ * داخلها مشتقة من المقررات الفعلية، ولا تُدّعي جدول فصولٍ غير معتمد.
  *
  * الدالة نقيّة: نموذجٌ (بيانات الصحيفة المعتمدة) ← نصُّ HTML. القالبُ (الخطوط والتفاعل والطباعة)
  * في public/plans/_template/sheet.html ويُمرَّر هنا نصّاً، فلا قراءةَ ملفاتٍ داخل الطلب.
@@ -20,6 +21,7 @@ export interface SheetTemplateParts { template: string }
 
 const W_MIN = 1754;
 const COL_W = 322, COL_GAP = 128, CARD_W = 262, CARD_H = 60, ROW = 72, PAD_L = 48;
+const SECTION_BADGE_H = 28, SECTION_GAP = 52;
 const LEVEL_PALETTE: Array<[string, string]> = [
   ["#2563EB", "#DBEAFE"], ["#059669", "#D1FAE5"], ["#7C3AED", "#EDE9FE"], ["#EA580C", "#FFEDD5"], ["#475569", "#E2E8F0"],
 ];
@@ -120,8 +122,10 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
   const colOf = new Map(levels.map((l, i) => [l, i]));
   const n = Math.max(1, levels.length);
   const colsTotal = n * COL_W + (n - 1) * COL_GAP;
-  const W = referenceMode ? W_MIN : Math.max(W_MIN, 84 + colsTotal);
-  const x0 = (W - colsTotal) / 2;
+  // The four-column canvas now uses the exact 1754 × reference coordinate grid.
+  // Extra levels expand rather than squeezing cards or losing prerequisites.
+  const W = Math.max(W_MIN, 82 + colsTotal);
+  const x0 = (W - colsTotal) / 2 + 1;
   const colX = (i: number) => x0 + (n - 1 - i) * (COL_W + COL_GAP);
 
   /* ── الأعمدة والبطاقات ──────────────────────────────────────────────── */
@@ -135,8 +139,14 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
   const mapEdges = edges.filter(([, t]) => model.courses.some(c => c.code === t));
   const colIdx = (code: string) => colOf.get(model.courses.find(c => c.code === code)?.level ?? -1) ?? -1;
   const skipCount = mapEdges.filter(([s, t]) => Math.abs(colIdx(s) - colIdx(t)) > 1 && colIdx(s) >= 0 && colIdx(t) >= 0).length;
-  const cardsTop = 270 + Math.max(0, skipCount * 6 - 20);
-  byCol.forEach((list, col) => list.forEach((c, row) => placed.set(c.code, { c, id: idOf(c.code), col, row, x: colX(col) + PAD_L, y: cardsTop + row * ROW })));
+  // The same light semester-style badges/airiness as the reference artwork,
+  // adapted to EVERY department's real groups (not invented academic terms).
+  const cardsTop = 294 + Math.max(0, skipCount * 6 - 20);
+  const breaks = byCol.map(list => list.length >= 4 ? Math.ceil(list.length / 2) : 0);
+  byCol.forEach((list, col) => list.forEach((c, row) => placed.set(c.code, {
+    c, id: idOf(c.code), col, row, x: colX(col) + PAD_L,
+    y: cardsTop + row * ROW + (breaks[col] && row >= breaks[col] ? SECTION_GAP : 0),
+  })));
   const maxRows = Math.max(1, ...byCol.map(l => l.length));
 
   /* ── الأسهم: مسارٌ لكل جذعٍ (مقرر سابق ← ممرّ) بتلوين فترات ───────────── */
@@ -221,12 +231,13 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
   }
 
   /* ── ارتفاعُ الأعمدة ومفتاحُ الأسهم ───────────────────────────────────── */
-  const bodyBottom = cardsTop + maxRows * ROW + 8;
+  const maxPlacedEnd = Math.max(cardsTop + 60, ...[...placed.values()].map(p => p.y + CARD_H));
+  const bodyBottom = Math.max(cardsTop + 4 * ROW + 30, maxPlacedEnd + 30);
   const lastCol = byCol[n - 1] || [];
-  const freeLeft = bodyBottom - (cardsTop + lastCol.length * ROW);
+  const lastEnd = Math.max(cardsTop, ...lastCol.map(c => (placed.get(c.code)?.y || cardsTop) + CARD_H));
   const keyBox = !wide && mapEdges.length > 0;
-  const needExtra = keyBox && freeLeft < 130;
-  const colBottom = bodyBottom + (needExtra ? 130 : 0);
+  const freeLeft = bodyBottom - lastEnd;
+  const colBottom = bodyBottom + (keyBox ? Math.max(0, 130 - freeLeft) : 0);
   const colH = colBottom - 180;
 
   const out: string[] = [];
@@ -322,14 +333,16 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
     let y = 190;
     [...buckets].forEach(([label, list], bi) => {
       list.sort((a, b) => a.code.localeCompare(b.code));
-      const perRow = Math.max(1, Math.floor((W - 84 - 88 + 60) / 410)), rows = Math.ceil(list.length / perRow), h = 78 + rows * 80;
+      const perRow = Math.max(1, Math.floor((W - 84 - 88 + 60) / 410)), rows = Math.ceil(list.length / perRow), h = 108 + rows * 80;
       const [stroke, tint] = LEVEL_PALETTE[bi % LEVEL_PALETTE.length];
       out.push(`<rect x="42" y="${y}" width="${W - 84}" height="${h}" rx="28" fill="${tint}" fill-opacity=".55" stroke="${stroke}" stroke-opacity=".5" stroke-width="1.5"/>`);
       out.push(`<rect x="52" y="${y + 10}" width="${W - 104}" height="46" rx="20" fill="${stroke}"/><text x="${cx}" y="${y + 41}" text-anchor="middle" font-size="24" font-weight="900" fill="#fff">${esc(label)}</text>`);
+      const catCredits = list.reduce((sum, c) => sum + (Number(c.credit) || 0), 0);
+      out.push(`<rect x="${W - 320}" y="${y + 62}" width="230" height="${SECTION_BADGE_H}" rx="14" fill="#fff" stroke="${stroke}" stroke-opacity=".5"/><text x="${W - 205}" y="${y + 82}" text-anchor="middle" font-size="14.5" font-weight="800" fill="#1E293B">${countOf(list.length, AR.course)} <tspan fill="${stroke}" font-weight="700">· ${countOf(catCredits, AR.unit)}</tspan></text>`);
       list.forEach((c, i) => {
         const r = Math.floor(i / perRow), k = i % perRow, inRow = Math.min(perRow, list.length - r * perRow);
         const rowW = inRow * 350 + (inRow - 1) * 60, startX = cx + rowW / 2 - 350;
-        out.push(cardSvg(c.code, c.name, c.credit, startX - k * 410, y + 70 + r * 80, 350, stroke, "#fff", GRAY, false, referenceMode ? idOf(c.code) : undefined));
+        out.push(cardSvg(c.code, c.name, c.credit, startX - k * 410, y + 102 + r * 80, 350, stroke, "#fff", GRAY, false, referenceMode ? idOf(c.code) : undefined));
       });
       y += h + 24;
     });
@@ -339,6 +352,19 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
       const [stroke, tint] = LEVEL_PALETTE[Math.min(i, LEVEL_PALETTE.length - 1)], cxx = colX(i);
       out.push(`<rect x="${cxx}" y="180" width="${COL_W}" height="${colH}" rx="28" fill="${tint}" fill-opacity=".55" stroke="${stroke}" stroke-opacity=".5" stroke-width="1.5"/>`);
       out.push(`<rect x="${cxx + 10}" y="190" width="${COL_W - 20}" height="50" rx="20" fill="${stroke}"/><text x="${cxx + COL_W / 2}" y="225" text-anchor="middle" font-size="26" font-weight="900" fill="#fff">${esc(levelLabel(level))}</text>`);
+      // Reference-style floating capsules distinguish visual groups only.
+      // Academic semester membership is not stored here, so do not label
+      // these invented halves "فصل 1/2".
+      const courses = byCol[i], split = breaks[i];
+      const sections = split ? [courses.slice(0, split), courses.slice(split)] : [courses];
+      sections.forEach((part, partIndex) => {
+        if (!part.length) return;
+        const first = placed.get(part[0].code);
+        if (!first) return;
+        const badgeY = first.y - 38, totalCredits = part.reduce((sum, c) => sum + (Number(c.credit) || 0), 0);
+        const heading = split ? `مجموعة ${partIndex + 1}` : "المقررات";
+        out.push(`<rect x="${cxx + 78}" y="${badgeY}" width="190" height="${SECTION_BADGE_H}" rx="14" fill="#fff" stroke="${stroke}" stroke-opacity=".5"/><text x="${cxx + 173}" y="${badgeY + 20}" text-anchor="middle" font-size="14.5" font-weight="800" fill="#1E293B">${heading} <tspan fill="${stroke}" font-weight="700">(${countOf(totalCredits, AR.unit)})</tspan></text>`);
+      });
     });
     out.push(...edgeSvg);
     for (const p of placed.values()) {
