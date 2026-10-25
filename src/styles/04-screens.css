@@ -2582,6 +2582,13 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .forecast-more{justify-self:start;display:inline-flex;align-items:center;gap:4px;background:none;border:0;padding:0;color:var(--muted);font:inherit;font-size:var(--t-xs);cursor:pointer}
 .forecast-more svg{width:14px;height:14px;transition:transform .2s}
 .forecast-more[aria-expanded="true"] svg{transform:rotate(180deg)}
+.term-forecast>header .forecast-count{margin-inline-start:auto;padding:3px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+.forecast-highlights{grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr))!important;gap:8px!important}
+.forecast-risk{min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);font-weight:600;line-height:1.45}
+.forecast-risk span{min-width:0}
+.forecast-risk.tone-danger{border-color:color-mix(in srgb,var(--danger) 25%,var(--line))}
+.forecast-risk.tone-warning{border-color:color-mix(in srgb,var(--warning) 25%,var(--line))}
+.forecast-more{padding:5px 0}
 
 /* ── Dashboard calm pass (display only) ─────────────────────────────────────
    One place for every bar's figure: at the end of the row, outside the track,

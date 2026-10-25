@@ -22,26 +22,39 @@ function check(condition: boolean, name: string) {
   else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`); }
 }
 
-const course = { AdCourseId: 5, CourseCode: "C101", CourseName: "مقرر", CourseCredit: 3, CourseHours: 3, MaxStudent: 30 };
-const room = (id: string, capacity: number | null) => ({ id, buildingCode: "012", canonicalCode: id.toUpperCase(), capacity });
+const course = { AdCourseId: 5, CourseCode: "C101", CourseName: "مقرر", CourseCredit: 3, CourseHours: 3, MaxStudent: 30, CourseRoomType:"تدريسية",CourseTeachingMode:"theoretical" };
+const room = (id: string, capacity: number | null) => ({ id, buildingCode: "012", canonicalCode: id.toUpperCase(), capacity,roomType:"تدريسية" });
 const row = (id: number, o: Record<string, unknown> = {}) => ({
   id, AdCollegeId: 1, AdSectionId: 1, AdTermId: 1, AdCourseId: 5, AdInstructorId: 7, SCode: String(id),
   fsunday: true, ftuesday: true, fstarttime: "08:00", fendtime: "09:15", roomId: "f13", buildingId: "012", AdRoomCode: "012", AdRoomHall: "F13", ...o,
 }) as any;
 const base = { courses: [course], instructorIds: new Set([7, 8]) };
 
+/* متطلبا المقرر إلزاميان في سياق الجدول، وخياراتهما قيم النظام المعروفة. */
+{
+  const rows=[row(1)];
+  const missing=computeScheduleDataReadiness({...base,courses:[{...course,CourseRoomType:"",CourseTeachingMode:""}],rows,rooms:[room("f13",40)],roomTypeOptions:["تدريسية","مختبر"]});
+  const item=missing.items.find(entry=>entry.kind==="course");
+  check(item?.fields.includes("نوع القاعة المناسب")&&item.fields.includes("طبيعة التدريس"),"يعرض اسم المقرر والحقلين الناقصين لاستكمالهما من شريط الاعتماد");
+  check(item?.choices?.["نوع القاعة المناسب"].join("|")==="تدريسية|مختبر"&&item?.choices?.["طبيعة التدريس"].includes("field_training"),"قوائم الاستكمال محصورة بالقيم المسجلة وأنواع التدريس المعروفة");
+  const wrong=computeScheduleDataReadiness({...base,courses:[{...course,CourseRoomType:"قاعة مخترعة",CourseTeachingMode:"invented"}],rows,rooms:[room("f13",40)],roomTypeOptions:["تدريسية"]});
+  check(wrong.items.some(entry=>entry.kind==="course"&&entry.fields.includes("نوع القاعة المناسب")&&entry.fields.includes("طبيعة التدريس")),"القيم غير المسجلة لا تُعدّ استكمالاً صالحاً للتوقيع");
+  const retired=computeScheduleDataReadiness({...base,courses:[{...course,CourseRoomType:"قديم"}],rows,rooms:[{...room("f13",40),roomType:"قديم",active:false,confidence:"CONFIRMED"}]});
+  check(retired.items.some(entry=>entry.kind==="course"&&entry.fields.includes("نوع القاعة المناسب")&&!entry.choices?.["نوع القاعة المناسب"].includes("قديم")),"القاعات غير النشطة لا تضيف خيارات قديمة لاختيار نوع القاعة");
+}
+
 /* 0) ملاءمة القاعة مراجعة تخطيطية لا مانع اعتماد، والسعة المجهولة تبقى مجهولة. */
 {
   const rows=[row(1,{SCode:"1"}),row(2,{SCode:"2",ftuesday:false,fwednesday:true})];
   const configuredCourse={...course,MaxStudent:100,CourseRoomType:"مختبر حاسوب"};
-  const review=computeScheduleDataReadiness({courses:[configuredCourse],instructorIds:new Set([7]),rows,rooms:[{...room("f13",40),roomType:"تدريسية"}]});
+  const review=computeScheduleDataReadiness({courses:[configuredCourse],instructorIds:new Set([7]),rows,rooms:[{...room("f13",40),roomType:"تدريسية"}],roomTypeOptions:["مختبر حاسوب","تدريسية"]});
   check(review.roomFit.count===4&&review.roomFit.items.some(item=>item.kind==="capacity")&&review.roomFit.items.some(item=>item.kind==="room-type"),"يعرض تقدير التكدس واختلاف نوع القاعة للمخطط دون منع الجدول");
   const alphabetical=computeScheduleDataReadiness({
     courses:[{...course,AdCourseId:6,CourseCode:"212",CourseName:"ورشة انتاج",CourseRoomType:"مختبر"},{...course,AdCourseId:7,CourseCode:"112",CourseName:"التدريب الميداني",CourseRoomType:"مختبر"}],
-    instructorIds:new Set([7]),rows:[row(1,{AdCourseId:6}),row(2,{AdCourseId:7})],rooms:[{...room("f13",10),roomType:"تدريسية"}],
+    instructorIds:new Set([7]),rows:[row(1,{AdCourseId:6}),row(2,{AdCourseId:7})],rooms:[{...room("f13",10),roomType:"تدريسية"}],roomTypeOptions:["مختبر","تدريسية"],
   });
   check(alphabetical.roomFit.items.map(item=>item.courseName).join("|")==="التدريب الميداني|التدريب الميداني|ورشة انتاج|ورشة انتاج","ملاحظات ملاءمة القاعات مرتبة أبجدياً باسم المقرر");
-  const unknown=computeScheduleDataReadiness({courses:[configuredCourse],instructorIds:new Set([7]),rows,rooms:[room("f13",null)]});
+  const unknown=computeScheduleDataReadiness({courses:[configuredCourse],instructorIds:new Set([7]),rows,rooms:[room("f13",null)],roomTypeOptions:["مختبر حاسوب","تدريسية"]});
   check(unknown.roomFit.unknownRoomCapacity===2&&!unknown.roomFit.items.some(item=>item.kind==="capacity"),"السعة غير المسجلة تُترك بلا حكم ولا تحذير زائف");
 }
 
@@ -49,7 +62,7 @@ const base = { courses: [course], instructorIds: new Set([7, 8]) };
 {
   const demo=createDemoSandboxState();
   const rows=demo.schedules.filter(item=>Number(item.AdTermId)===1&&Number(item.AdSectionId)===1);
-  const review=computeScheduleDataReadiness({courses:demo.courses,instructorIds:new Set(demo.instructors.map(item=>Number(item.AdInstructorId))),rows,rooms:demo.locationRooms});
+  const review=computeScheduleDataReadiness({courses:demo.courses,instructorIds:new Set(demo.instructors.map(item=>Number(item.AdInstructorId))),rows,rooms:demo.locationRooms,roomTypeOptions:["تدريسية","مختبر","مختبر حاسوب"]});
   check(rows.some(item=>{const c=demo.courses.find(course=>Number(course.AdCourseId)===Number(item.AdCourseId));const r=demo.locationRooms.find(room=>room.id===item.roomId);return c?.CourseRoomType==="مختبر حاسوب"&&r?.roomType==="تدريسية";}),"الديمو يجهّز في الجدول مقرراً مختبرياً بقاعة تدريسية لشرح التنبيه الترويجي");
   check(review.roomFit.items.some(item=>item.kind==="room-type")&&review.roomFit.items.some(item=>item.kind==="capacity"),"مشهد الديمو يعرض ملاحظتي النوع والتكدس للمخطط قبل الاعتماد");
 }
@@ -110,12 +123,13 @@ const base = { courses: [course], instructorIds: new Set([7, 8]) };
 {
   const server = readFileSync(join(ROOT, "server.ts"), "utf8");
   const sign = server.slice(server.indexOf('app.post("/api/approvals/sign"'), server.indexOf('app.post("/api/approvals/withdraw"'));
-  check(!sign.includes("data-readiness") && sign.includes("capacityGapItems(readiness.items)") && sign.includes("missingCapacity"), "مسار التوقيع بلا بوابة نواقص عامة — السعةُ وحدها تُسأل");
+  check(sign.includes("requiredCourseGaps") && sign.includes("course-requirements-missing") && sign.includes("capacityGapItems(readiness.items)"), "مسار التوقيع يمنع حقلي متطلبات المقرر والسعة من خلال فحوصهما المحددة");
   const fn = server.slice(server.indexOf("async function scheduleDataReadiness"), server.indexOf('app.get("/api/approvals"'));
   check(fn.includes("normalizeRow: (row: any) => canonicalizeHistoricalLocationForRuntime(row as FSchedule, registry)"), "عدّ النواقص يطبّع الصفوف بمطبّع الموانع نفسه");
+  check(fn.includes('room.confidence!=="CONFIRMED"||!room.sectionIds.includes(sectionId)'), "خيارات نوع القاعة في التوقيع تطابق الأنواع المهيأة والقاعات النشطة المؤكدة للقسم");
   const bar = readFileSync(join(ROOT, "src/components/ApprovalBar.tsx"), "utf8");
-  check(bar.includes("disabled={busy || blockingConflicts > 0 || capacityBlocksSign}") && !bar.includes("تمنع التوقيع حتى") && bar.includes("لا تمنع التوقيع"), "زرّ التوقيع لا يُعطَّل إلا بالمانع المادّي أو بنقص السعة، وبقية النواقص نصُّها غير مانع");
-  check(bar.includes("canSignNow && blockingConflicts === 0 && missingCapacity === 0 ?"), "شارة «جاهز للتوقيع» تظهر مع غياب الموانع والسعةُ كاملة ولو بقيت نواقص أخرى");
+  check(bar.includes("requiredCourseFieldsBlocksSign") && bar.includes("capacityBlocksSign") && !bar.includes("تمنع التوقيع حتى"), "زرّ التوقيع يتوقف على السعة ومتطلبات المقررات ولا يغيّر قواعد بقية النواقص");
+  check(bar.includes("canSignNow && blockingConflicts === 0 && missingCapacity === 0 && !requiredCourseFieldsBlocksSign ?"), "شارة «جاهز للتوقيع» لا تظهر قبل اكتمال متطلبات المقررات الإلزامية");
   check(bar.includes("capacityBlocksSign ? (") && bar.includes("السعة ناقصة"), "شارةٌ حمراء «السعة ناقصة» تفتح قائمة الإدخال");
   check(server.slice(server.indexOf('app.get("/api/approvals"'), server.indexOf('app.get("/api/approvals/term"')).includes("missingCapacity: capacityGapItems(readiness.items).length"), "حالةُ الاعتماد تحمل عدد المقرّرات بلا سعة للشريط");
   check(!bar.includes('className="apb-room-capacities"'), "لا بطاقات سعةٍ مكرّرة تحت القائمة");

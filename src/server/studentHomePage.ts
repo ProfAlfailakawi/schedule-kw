@@ -254,7 +254,7 @@ header.top{flex-wrap:wrap}
 .stp b{inline-size:100%;max-inline-size:118px;font-size:12px;font-weight:700;line-height:1.4;overflow-wrap:normal;word-break:keep-all;hyphens:none;text-wrap:balance}
 .stp.unset b{color:var(--muted);font-weight:500}
 .stp small{font-size:12px;color:var(--muted);line-height:1.4}
-@media(max-width:760px){
+@media(max-width:1100px){
   .track{grid-auto-flow:row;grid-template-columns:minmax(0,1fr);grid-auto-rows:min-content;grid-auto-columns:auto;gap:0;overflow:visible;padding:4px 0 8px;scroll-snap-type:none;mask-image:none;-webkit-mask-image:none}
   .stp{inline-size:100%;box-sizing:border-box;grid-template-columns:34px minmax(0,1fr);grid-template-rows:auto auto;justify-items:start;align-items:center;column-gap:12px;row-gap:2px;padding:8px 2px;text-align:start;scroll-snap-align:none;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important}
   .stp::before{inset-block-start:42px;inset-block-end:-8px;inset-inline-start:18px;inset-inline-end:auto;inline-size:2px;block-size:auto}
@@ -262,6 +262,7 @@ header.top{flex-wrap:wrap}
   .stp b{grid-column:2;grid-row:1;max-inline-size:none;font-size:13px}
   .stp small{grid-column:2;grid-row:2}
 }
+/* Timeline stages fit the narrow student card as complete labels; no sideways scroll. */
 
 /* ── حلقة التقدم ── */
 .ring{position:relative;inline-size:76px;block-size:76px;flex:none}

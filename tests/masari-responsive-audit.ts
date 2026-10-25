@@ -13,7 +13,7 @@ assert.match(STUDENT_HOME_CSS, /\.app\{max-inline-size:520px/);
 /* الشريط العلوي يلتفّ على الهاتف الضيق (شارة التجربة + الفصل + «الرحلة») فلا يُنتج تمريراً أفقياً. */
 assert.match(STUDENT_HOME_CSS, /\.topr\{[^}]*flex-wrap:wrap[^}]*min-inline-size:0/);
 assert.match(STUDENT_HOME_CSS, /header\.top\{flex-wrap:wrap\}/);
-assert.match(STUDENT_HOME_CSS, /@media\(max-width:760px\)\{[\s\S]*?\.track\{grid-auto-flow:row;grid-template-columns:minmax\(0,1fr\);grid-auto-rows:min-content;grid-auto-columns:auto;gap:0;overflow:visible/);
+assert.match(STUDENT_HOME_CSS, /@media\(max-width:1100px\)\{[\s\S]*?\.track\{grid-auto-flow:row;grid-template-columns:minmax\(0,1fr\);grid-auto-rows:min-content;grid-auto-columns:auto;gap:0;overflow:visible/);
 assert.match(STUDENT_HOME_CSS, /\.stp::before\{inset-block-start:42px;inset-block-end:-8px;inset-inline-start:18px;inset-inline-end:auto;inline-size:2px;block-size:auto\}/);
 assert.match(STUDENT_HOME_CSS, /\.stp\{inline-size:100%;box-sizing:border-box;[\s\S]*?background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important\}/);
 assert.doesNotMatch(STUDENT_MAP_CSS, /\.app\.km-on\{max-inline-size:1180px/);
