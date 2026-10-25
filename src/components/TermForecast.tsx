@@ -3,6 +3,7 @@ import { AlertTriangle, ChevronDown, DoorClosed, Gauge, Users } from "lucide-rea
 import MiniRing from "./MiniRing";
 import { createScopeGuard, approvalScopeKey } from "../utils/approvalScope";
 import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
+import { AR, countOf } from "../utils/arabicCount";
 import type { ForecastRisk, ForecastRiskKind, TermForecast as Forecast } from "../utils/termForecast";
 
 /**
@@ -40,9 +41,10 @@ export default function TermForecast({ scopes, isAdmin, onImport }: { scopes: an
 
   if (!single || !forecast) return null;
   const percent = forecast.coverage.percent;
+  const alertCount=forecast.highlights.length+forecast.more.length;
   const tone = percent == null ? "idle" : percent >= 90 ? "good" : percent >= 70 ? "warn" : "bad";
   return <section className="term-forecast" aria-label="الإنذار المبكر للفصل">
-    <header><Gauge aria-hidden="true" /><span>الإنذار المبكر</span></header>
+    <header><Gauge aria-hidden="true" /><span>الإنذار المبكر</span>{alertCount>0?<span className="forecast-count" aria-label={countOf(alertCount,AR.alert)}>{countOf(alertCount,AR.alert)}</span>:null}</header>
     <div className="term-forecast-body">
       {forecast.status === "ready" && percent != null ? <div className={`forecast-gauge tone-${tone}`}>
         <MiniRing value={percent} size={64} decorative>{""}</MiniRing>
@@ -53,11 +55,11 @@ export default function TermForecast({ scopes, isAdmin, onImport }: { scopes: an
         {forecast.status === "no-remaining" ? <p className="forecast-note">
           لم يُستورد كشف المتبقي لهذا الفصل — <button type="button" className="editorial-text-action" data-guide-ignore="رابطٌ نصيٌّ يفتح شاشة الجدول حيث يُستورد الكشف؛ لا إجراء جديد" onClick={() => onImport?.()}>استورده من شاشة الجدول</button>
         </p> : null}
-        {forecast.highlights.length ? <ul>{forecast.highlights.map(risk => <Line key={risk.text} risk={risk} />)}</ul>
+        {forecast.highlights.length ? <ul className="forecast-highlights">{forecast.highlights.map(risk => <Line key={risk.text} risk={risk} />)}</ul>
           : forecast.status === "ready" ? <p className="forecast-calm">لا مخاطر ظاهرة في بيانات هذا الفصل.</p> : null}
         {forecast.more.length ? <>
           <button type="button" className="forecast-more" aria-expanded={open} data-guide-ignore="طيّ وبسط تفاصيل البطاقة فقط" onClick={() => setOpen(value => !value)}>
-            كل التفاصيل<ChevronDown aria-hidden="true" />
+            {open ? "إخفاء التفاصيل" : `كل التفاصيل · ${forecast.more.length.toLocaleString("ar-KW-u-nu-latn")}`}<ChevronDown aria-hidden="true" />
           </button>
           {open ? <ul>{forecast.more.map(risk => <Line key={risk.text} risk={risk} />)}</ul> : null}
         </> : null}

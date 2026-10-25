@@ -13,19 +13,21 @@ import { isPendingRoom } from "./locationRegistry";
 import { AR, countOf } from "./arabicCount";
 import { sortByName } from "./sorting";
 
-export interface DataGapItem { kind: string; id: string; label: string; fields: string[] }
+export interface DataGapItem { kind: string; id: string; label: string; fields: string[]; choices?: Record<string,string[]> }
 export interface DataReadinessInput {
   rows: any[];
   courses: any[];
   instructorIds: Set<number>;
   rooms: any[];
   normalizeRow?: (row: any) => any;
+  roomTypeOptions?: string[];
 }
 
-export function computeScheduleDataReadiness({ rows, courses, instructorIds, rooms: registryRooms, normalizeRow }: DataReadinessInput) {
+export function computeScheduleDataReadiness({ rows, courses, instructorIds, rooms: registryRooms, normalizeRow, roomTypeOptions=[] }: DataReadinessInput) {
   const scheduleRows = normalizeRow ? rows.map(row => normalizeRow(row)) : rows;
   const courseById = new Map(courses.map(course => [Number(course.AdCourseId), course]));
   const roomById = new Map(registryRooms.map(room => [String(room.id), room]));
+  const registeredRoomTypes=[...new Set((roomTypeOptions.length?roomTypeOptions:registryRooms.filter(room=>room.active!==false&&room.confidence!=="UNVERIFIED").map(room=>String(room.roomType||""))).map(type=>String(type||"").normalize("NFKC").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));
   const missing = new Map<string, DataGapItem>();
   const sectionsByCourse=new Map<number,Set<string>>();
   for(const row of scheduleRows){const id=Number(row.AdCourseId||0);if(!id)continue;const set=sectionsByCourse.get(id)||new Set<string>();set.add(String(row.SCode||row.id));sectionsByCourse.set(id,set);}
@@ -39,13 +41,17 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
     }
     if (course) {
       const fields = [
+        (!String(course.CourseRoomType || "").normalize("NFKC").trim()||!registeredRoomTypes.includes(String(course.CourseRoomType||"").normalize("NFKC").trim())) && "نوع القاعة المناسب",
+        (!String(course.CourseTeachingMode || "").trim()||!(["theoretical","applied","practical","field_training",...(courses.some(item=>item.CourseTeachingMode==="mixed")?["mixed"]:[]) ] as string[]).includes(String(course.CourseTeachingMode||""))) && "طبيعة التدريس",
         !(Number(course.CourseCredit) > 0) && "الوحدات",
         !(Number(course.CourseHours) > 0) && "الساعات",
         !(Number(course.MaxStudent) > 0) && "سعة الشعبة",
         !String(course.CourseCode || "").trim() && "رمز المقرر",
         !String(course.CourseName || "").trim() && "اسم المقرر",
       ].filter(Boolean) as string[];
-      if (fields.length) missing.set(`course:${courseId}`, { kind: "course", id: String(courseId), label: `${course.CourseCode || "مقرر"} · ${course.CourseName || courseId}`, fields });
+      if (fields.length) {
+        missing.set(`course:${courseId}`, { kind: "course", id: String(courseId), label: `${course.CourseCode || "مقرر"} · ${course.CourseName || courseId}`, fields, choices:{"نوع القاعة المناسب":registeredRoomTypes,"طبيعة التدريس":["theoretical","applied","practical","field_training"]} });
+      }
     }
     const rowFields: string[] = [];
     if (!String(row.SCode || "").trim()) rowFields.push("رمز الشعبة");

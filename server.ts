@@ -11512,16 +11512,23 @@ function refuseIfStale(req: AuthenticatedRequest, res: Response, current: { roun
 
 /** قراءة حالة الاعتماد لقسمٍ واحد، بالموعد والملاحظات والتعارضات معه. */
 async function scheduleDataReadiness(collegeId: number, sectionId: number, termId: number, rows?: FSchedule[]) {
-  const [scheduleRows, courses, registry, instructors] = await Promise.all([
+  const [scheduleRows, courses, registry, instructors, configuredRoomTypes] = await Promise.all([
     rows ? Promise.resolve(rows) : Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
-    Repository.getCourses(), readLocationRegistry(), Repository.getInstructors(),
+    Repository.getCourses(), readLocationRegistry(), Repository.getInstructors(), Repository.getLocationRoomTypes(),
   ]);
+  const roomTypes=new Set(configuredRoomTypes.length?configuredRoomTypes:["تدريسية","مختبر","مختبر حاسوب"]);
+  for(const room of registry.rooms){
+    if(!room.active||room.confidence!=="CONFIRMED"||!room.sectionIds.includes(sectionId))continue;
+    const type=String(room.roomType||"").normalize("NFKC").trim();if(type)roomTypes.add(type);
+  }
+  const registeredRoomTypes=[...roomTypes].sort((a,b)=>a.localeCompare(b,"ar"));
   /* التطبيعُ نفسه الذي يعدّ به `approvalBlockerOptions` الموانع — قاعدةٌ واحدة. */
   return computeScheduleDataReadiness({
     rows: scheduleRows as any[],
     courses: courses as any[],
     instructorIds: new Set((instructors as any[]).map(instructor => Number(instructor.AdInstructorId))),
     rooms: registry.rooms,
+    roomTypeOptions:registeredRoomTypes,
     normalizeRow: (row: any) => canonicalizeHistoricalLocationForRuntime(row as FSchedule, registry),
   });
 }
@@ -11658,6 +11665,11 @@ app.post("/api/approvals/sign", requireAuth, async (req: AuthenticatedRequest, r
        وسعةُ المقرر غير المسجّلة (طلب المالك) — وحدها من النواقص. */
     const blocking = await blockingSummaryFor(collegeId, sectionId, termId);
     const readiness = await scheduleDataReadiness(collegeId, sectionId, termId, rows);
+    const requiredCourseGaps=readiness.items.filter(item=>item.kind==="course"&&item.fields.some(field=>field==="نوع القاعة المناسب"||field==="طبيعة التدريس"));
+    if(requiredCourseGaps.length){
+      const summary=requiredCourseGaps.map(item=>`${item.label}: ${item.fields.filter(field=>field==="نوع القاعة المناسب"||field==="طبيعة التدريس").join("، ")}`).join("؛ ");
+      res.status(409).json({error:`لا يمكن توقيع الجدول قبل استكمال نوع القاعة المناسب وطبيعة التدريس لكل مقرر. ${summary}`,code:"course-requirements-missing",items:requiredCourseGaps});return;
+    }
     const regulationBlockers = await regulationNoticeCount(collegeId, sectionId, termId);
     if (regulationBlockers) { res.status(409).json({ error: `توجد ${countOf(regulationBlockers, AR.approvalBlocker)} لائحية. عالجها قبل التوقيع.`, code: "regulation-blockers" }); return; }
     const verdict = canSign(approval, stage, { blockingConflicts: blocking.conflicts, blockingDuplicates: blocking.duplicates, rowCount: rows.length, missingCapacity: capacityGapItems(readiness.items).length });
