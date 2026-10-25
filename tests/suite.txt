@@ -137,6 +137,7 @@ test:masari-integrity
 test:instructor-apply
 test:instructor-course-load
 test:course-room-type-sync
+test:course-teaching-mode-sync
 test:decision-1913
 test:visiting-badge-changes
 test:visiting-lookup

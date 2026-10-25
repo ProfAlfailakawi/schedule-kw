@@ -33,6 +33,10 @@ import {
 
 type Mode = "index" | "create" | "edit";
 type PlanFilter = "all" | "new" | "old" | "service";
+const TEACHING_MODE_LABEL: Record<string, string> = {
+  theoretical: "نظري", applied: "تطبيقي", practical: "عملي",
+  field_training: "التدريب الميداني", mixed: "نظري وعملي",
+};
 /** Which generation a course belongs to, from the live plans the server tagged it with. */
 const planTagOf = (course: any): { key: "new" | "old" | "shared" | "service"; label: string } | null => {
   const plans: Array<{ status: string; name: string }> = Array.isArray(course?.curriculum) ? course.curriculum : [];
@@ -352,17 +356,19 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       } else {
         await load();
       }
-      if (mode === "edit" && d?.roomTypeEvaluated) {
-        /* سطرٌ واحد: النوعُ وعددُ مواقع المقرر التي صار عليها (مع هذا الموقع). لا شيء إن لم يكن له نسخٌ أخرى. */
-        const synced = Number(d.roomTypeSynced) || 0;
-        const copies = synced + (Number(d.roomTypeAligned) || 0);
-        const skipped = Array.isArray(d.roomTypeSkipped) ? d.roomTypeSkipped.length : 0;
-        if (copies > 0 || skipped > 0) {
-          if (synced > 0) await load();
-          const sites = countOf(copies + 1, AR.site);
-          setReceipt((courseRoomType ? `نوع القاعة «${courseRoomType}» · ${sites}` : `أُزيل نوع القاعة · ${sites}`)
-            + (skipped ? ` · تعذّر ${countOf(skipped, AR.site)}` : ""));
-        }
+      if (mode === "edit") {
+        const notices: string[] = [];
+        const roomCopies = (Number(d.roomTypeSynced) || 0) + (Number(d.roomTypeAligned) || 0);
+        const modeCopies = (Number(d.teachingModeSynced) || 0) + (Number(d.teachingModeAligned) || 0);
+        const roomSkipped = Array.isArray(d.roomTypeSkipped) ? d.roomTypeSkipped.length : 0;
+        const modeSkipped = Array.isArray(d.teachingModeSkipped) ? d.teachingModeSkipped.length : 0;
+        if (d.roomTypeEvaluated && (roomCopies || roomSkipped)) notices.push(
+          `${courseRoomType ? `نوع القاعة «${courseRoomType}»` : "أُزيل نوع القاعة"} · ${countOf(roomCopies + 1, AR.site)}`);
+        if (d.teachingModeEvaluated && (modeCopies || modeSkipped)) notices.push(
+          `${courseTeachingMode ? `طبيعة التدريس «${TEACHING_MODE_LABEL[courseTeachingMode] || courseTeachingMode}»` : "أُزيلت طبيعة التدريس"} · ${countOf(modeCopies + 1, AR.site)}`);
+        if (Number(d.roomTypeSynced) > 0 || Number(d.teachingModeSynced) > 0) await load();
+        if (notices.length) setReceipt(notices.join(" · ")
+          + (Math.max(roomSkipped, modeSkipped) ? ` · تعذّر ${countOf(Math.max(roomSkipped, modeSkipped), AR.site)}` : ""));
       }
       if (mode === "create" && targetPlan) {
         setReceipt(`تمت إضافة ${savedCode} — ${savedName} إلى ${targetPlan.name} بنجاح.`);
@@ -691,7 +697,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             <>
               <div className="academic-inspector-icon"><BookOpen /></div>
               <span className="surface-kicker">تفاصيل المقرر</span>
-              <h2 className="course-room-type-line"><span>{selected.CourseName}<PlanBadge courseId={selected.AdCourseId} /></span><CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
+              <h2>{selected.CourseName}<PlanBadge courseId={selected.AdCourseId} /></h2>
               <p>{sec(selected.AdSectionId)} · {coll(selected.AdCollegeId)}</p>
               {serviceOf(selected).length ? <p className="course-service-for">متطلب في صحائف: {serviceOf(selected).join("، ")}</p> : null}
               <div className="inspector-facts inspector-facts-pairs">
@@ -699,6 +705,8 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                 <article><span>الساعات</span><b>{selected.CourseHours}</b></article>
                 <article><span>السعة</span><b>{selected.MaxStudent || 0}</b></article>
                 <article><span>رمز المقرر</span><b>{selected.CourseCode || "—"}</b></article>
+                <article><span>نوع القاعة</span><b>{selected.CourseRoomType || "غير محدد"}</b></article>
+                <article><span>طبيعة التدريس</span><b>{TEACHING_MODE_LABEL[selected.CourseTeachingMode] || "غير محددة"}</b></article>
               </div>
               <div className="inspector-actions">
                 <PrimaryButton onClick={() => edit(selected)}>تعديل</PrimaryButton>
