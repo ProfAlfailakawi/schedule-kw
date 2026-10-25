@@ -73,9 +73,6 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
   const [dialog, setDialog] = useState<Dialog>(null);
   const [now, setNow] = useState(Date.now());
   const [notice, setNotice] = useState("");
-  /* «أوقات بديلة» يمكن فتحها من بطاقة المادة أو من نتيجة الفحص. على الهاتف
-     اعرض تبويب الفحص تلقائياً بعد بدء الطلب، وإلا تُحمّل البدائل خارج الشاشة. */
-  useEffect(() => { if (ws.alts && !wide) setTab("checks"); }, [ws.alts, wide]);
   const dialogRef = useRef<Dialog>(null);
   dialogRef.current = dialog;
   const wsRef = useRef(ws);
@@ -155,11 +152,7 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
   const openCreate = (seed: Partial<QuickSeed> = {}, fill?: { day: any; start: number; end: number }) => {
     if (terminal) return;
     ws.chooseMode("create");
-    /* العجلات تعرض 08:00–08:50 افتراضياً؛ يجب أن تكون القيمة في المسودة
-       نفسها حتى لا يبقى «أضف» معطلاً مع أن الوقت يبدو مكتملاً. */
-    ws.patchDraft(fill
-      ? { days: [fill.day], start: hhmm(fill.start), end: hhmm(fill.end), endTouched: true }
-      : { start: "08:00", end: "08:50", endTouched: false });
+    if (fill) ws.patchDraft({ days: [fill.day], start: hhmm(fill.start), end: hhmm(fill.end), endTouched: true });
     setCard({ kind: "create", ...seed });
   };
   const openAssign = () => { if (terminal) return; ws.chooseMode("assign"); setCard({ kind: "assign" }); };

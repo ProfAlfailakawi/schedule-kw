@@ -52,11 +52,11 @@ export const planBadgeOf = (badges: Badges, courseId: unknown): string => badges
 export const serviceDepartmentsOf = (courseId: unknown): string[] => services[Number(courseId)] || [];
 
 /**
- * الشارةُ بجانب المقرر في قوائم اختيار المقرر (إضافة موعد وتعديله): شارةُ الصحيفة إن وُجدت، ومعها «متطلب كلية» لمقرر
+ * الشارةُ بجانب المقرر في قوائم اختيار المقرر (إضافة موعد وتعديله): شارةُ الصحيفة إن وُجدت، ومعها «متطلب» لمقرر
  * تطلبه صحائفُ أقسامٍ أخرى. لا يُغيَّر ما يظهر في القائمة ولا ترتيبه: وسمٌ بجانب الاسم فقط.
  */
 export function courseOptionBadge(courseIds: number[], badges: Badges): string | undefined {
   const plan = courseIds.map(id => badges[Number(id)]).find(Boolean) || "";
-  const required = courseIds.some(id => serviceDepartmentsOf(id).length > 0) ? "متطلب كلية" : "";
+  const required = courseIds.some(id => serviceDepartmentsOf(id).length > 0) ? "متطلب" : "";
   return [plan, required].filter(Boolean).join(" · ") || undefined;
 }

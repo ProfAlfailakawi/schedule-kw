@@ -8954,6 +8954,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   collegeId={Number(form.AdCollegeId||0)}
                   sectionId={Number(form.AdSectionId||0)}
                   termId={Number(form.AdTermId||0)}
+                  showDepartmentHistory={editor !== "create"}
                   value={form}
                   courseRoomType={String(courseById.get(Number(form.AdCourseId||0))?.CourseRoomType||"")}
                   courseTeachingMode={String(courseById.get(Number(form.AdCourseId||0))?.CourseTeachingMode||"")}
@@ -9278,8 +9279,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 {editorRegulation.length ? (
                   <details className="decision-accordion decision-accordion--regulation">
                     <summary className="decision-accordion-summary">
-                      <span className="decision-accordion-title"><ClipboardCheck /> موانع اللائحة · {DECISION_1912_LABEL}</span>
-                      <em>{countOf(editorRegulation.length, AR.approvalBlocker)}</em>
+                      <span className="decision-accordion-title decision-regulation-title">
+                        <ClipboardCheck />
+                        <span><strong>موانع اللائحة</strong><small>{DECISION_1912_LABEL}</small></span>
+                      </span>
+                      <em className="decision-regulation-count">{countOf(editorRegulation.length, AR.approvalBlocker)}</em>
                     </summary>
                     <div className="decision-accordion-body">
                       <section className="decision-section decision-section--regulation" role="status" aria-label={`ملاحظات اللائحة · ${DECISION_1912_LABEL}`}>

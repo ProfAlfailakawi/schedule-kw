@@ -163,15 +163,8 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
   const appliedErrors = new Map(applied.errors.map(e => [e.opId, e]));
 
   const findings: ProposalFinding[] = [];
-  const findingIds = new Map<string, string>();
   const addFinding = (finding: Omit<ProposalFinding, "id">) => {
-    // The conflict gate may report the same room/day warning through more than
-    // one matching row. One actionable finding is enough for each operation.
-    const key = [finding.opId, finding.kind, finding.code, finding.title, finding.detail, finding.day].join("|");
-    const existing = findingIds.get(key);
-    if (existing) return existing;
     const id = makeId([finding.code, finding.opId || "-", findings.length]);
-    findingIds.set(key, id);
     findings.push({ ...finding, id });
     return id;
   };
@@ -316,9 +309,7 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
   }
 
   /* ── المواد المقترحة نفسُها لأكثر من أستاذ ───────────────────────────── */
-  // A new unsaved proposal must be checked against other proposals too. Waiting
-  // for its first autosave made blockers appear only after the user saved.
-  {
+  if (input.proposalId !== undefined) {
     const others = (await Repository.getStudyProposalsByTerm(input.termId))
       .filter(p => p.id !== input.proposalId && p.sentVersion > 0 && !["withdrawn", "committed", "expired"].includes(p.status));
     for (const op of validOps) {

@@ -6,11 +6,9 @@
  * فيصل الحدثُ في ثانيتين. كلُّ قسمٍ هنا يُضاف مع مرحلته (بثٌّ، تحقّق، تقويم، ذاكرة).
  */
 import { spawn, type ChildProcess } from "child_process";
-import fs from "fs";
 import { waitForDemoSeed } from "./helpers/demoSeed";
 
 const BASE = process.env.TEACHER_CARD_TEST_BASE || "http://localhost:3000";
-const cardSource = fs.readFileSync("server.ts", "utf8");
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
   if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); }
@@ -82,7 +80,6 @@ async function listen(token: string) {
 }
 
 async function main() {
-  check(cardSource.includes('var d=document.getElementById("deck")') && cardSource.includes('accept.focus({preventScroll:true})'), "زر «قرّر الآن» يُظهر بطاقة القرار ويركّز زر الموافقة");
   await ensureServer();
   const cookie = await login();
   const A = (method: string, path: string, body?: unknown) => http(method, path, body, cookie);

@@ -239,10 +239,10 @@ header.top{flex-wrap:wrap}
 .tag .i{inline-size:18px;block-size:18px}
 
 /* ── رحلة الفصل ── */
-.track{list-style:none;margin:0;padding:8px 4px 4px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(100px,1fr);min-inline-size:0;overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+.track{list-style:none;margin:0;padding:4px 2px 8px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(90px,1fr);overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;scrollbar-width:thin;direction:rtl}
 .track.ov{-webkit-mask-image:linear-gradient(to left,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(to left,#000 calc(100% - 22px),transparent)}
 .track::-webkit-scrollbar{display:none}
-.stp{position:relative;display:grid;min-inline-size:0;justify-items:center;align-content:start;gap:5px;padding-inline:5px;text-align:center}
+.stp{position:relative;display:grid;justify-items:center;align-content:start;gap:5px;padding-inline:4px;text-align:center;min-inline-size:0;scroll-snap-align:center}
 .stp::before{content:"";position:absolute;inset-block-start:17px;inset-inline-start:50%;inset-inline-end:-50%;block-size:2px;background:var(--line-strong)}
 .stp:last-child::before{display:none}
 .stp.done::before{background:var(--accent)}
@@ -251,7 +251,7 @@ header.top{flex-wrap:wrap}
 .stp.done .d{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .stp.now .d{background:var(--gold-soft);border-color:var(--brass);color:var(--gold);box-shadow:0 0 0 4px color-mix(in srgb,var(--brass) 16%,transparent)}
 .stp.unset .d{border-style:dashed;background:transparent}
-.stp b{max-inline-size:100%;font-size:12px;font-weight:700;line-height:1.35;overflow-wrap:anywhere;word-break:normal}
+.stp b{max-inline-size:92px;font-size:12px;font-weight:700;line-height:1.4;overflow-wrap:normal;word-break:normal;hyphens:none;text-wrap:balance}
 .stp.unset b{color:var(--muted);font-weight:500}
 .stp small{font-size:12px;color:var(--muted);line-height:1.4}
 

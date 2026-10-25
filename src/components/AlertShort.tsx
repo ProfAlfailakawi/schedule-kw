@@ -44,10 +44,8 @@ export default function AlertShort({ text, detail, fallbackIcon = AlertTriangle 
   const clash = /^لديك محاضرةٌ أخرى في هذا الوقت: (.+?) — (\S*)\s*(\d\d?:\d\d)[–-](\d\d?:\d\d)/.exec(full);
   const load = /^يتجاوز هذا نصاب\S*: (\d+)\s*(.*?) مقابل (.+?) مسجّلة/.exec(full);
   const chip = article || regulation?.[2];
+  const shortened = short !== full || Boolean(detail);
   const plainDetail = String(detail || "").replace(/[\u2066-\u2069\u200e\u200f]/g, "");
-  const sameText = (a: string, b: string) => a.replace(/[.،\s]/g, "") === b.replace(/[.،\s]/g, "");
-  const extraDetail = plainDetail && !sameText(plainDetail, full) && !sameText(plainDetail, short) ? plainDetail : "";
-  const shortened = short !== full;
   const detailClash = /^(.+?) — (\d\d?:\d\d)\s*[–-]\s*(\d\d?:\d\d)/.exec(plainDetail);
   const rhythm = /مدة محاضرات (\S+) في قسمك (\d+) دقيقة، ومدة هذا الموعد (\d+) دقيقة/.exec(plainDetail);
   return (
@@ -57,15 +55,15 @@ export default function AlertShort({ text, detail, fallbackIcon = AlertTriangle 
         <span className="as-card"><b>{clash[1]}</b><span className="as-row">{clash[2] ? <u>{clash[2]}</u> : null}<bdi dir="ltr">{clash[3]} – {clash[4]}</bdi></span></span>
       ) : null}
       {load ? (
-        <span className="as-stat"><b>{load[1]}</b><em>{load[2]}</em><i aria-hidden="true">/</i><small>{load[3]}<br />النصاب التدريسي</small></span>
+        <span className="as-stat"><b>{load[1]}</b><em>{load[2]}</em><i aria-hidden="true">/</i><small>{load[3]}<br />النصاب</small></span>
       ) : null}
       {chip && !clash && !load ? <span className="as-chip"><ShieldAlert aria-hidden="true" />{chip}</span> : null}
       {detailClash ? (
         <span className="as-card"><b>{detailClash[1]}</b><span className="as-row"><Clock3 aria-hidden="true" /><bdi dir="ltr">{detailClash[2]} – {detailClash[3]}</bdi></span></span>
       ) : rhythm ? (
         <span className="as-stat"><u className="as-day">{rhythm[1]}</u><small>المعتاد</small><b>{rhythm[2]}</b><i aria-hidden="true">←</i><small>هذا</small><b>{rhythm[3]}</b><small>د</small></span>
-      ) : extraDetail ? <small className="as-detail">{extraDetail}</small> : null}
-      {shortened ? <details className="as-why"><summary>التفاصيل</summary><p>{full}{extraDetail && !sameText(extraDetail, full) ? <><br />{extraDetail}</> : null}</p></details> : null}
+      ) : detail ? <small className="as-detail">{detail}</small> : null}
+      {shortened ? <details className="as-why"><summary>التفاصيل</summary><p>{full}{detail ? <><br />{detail}</> : null}</p></details> : null}
     </span>
   );
 }

@@ -106,7 +106,7 @@ import {
   signatureStage, watchesInbox,
   type AcademicRole,
 } from "./src/utils/academicRoles";
-import { capacityGapItems, teachingModeGapItems, computeScheduleDataReadiness } from "./src/utils/scheduleDataReadiness";
+import { capacityGapItems, computeScheduleDataReadiness } from "./src/utils/scheduleDataReadiness";
 import { AR, ARABIC_COUNT_SCRIPT, countOf, nounFor, oblique } from "./src/utils/arabicCount";
 import { readSettledDrift, settledTerm } from "./src/utils/settledDrift";
 import { learnRhythm, offRhythm, describeRhythm, type RhythmReading } from "./src/utils/departmentRhythm";
@@ -4259,7 +4259,10 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
   const MaxStudent = boundedInt(req.body?.MaxStudent, COURSE_LIMIT.students[0], COURSE_LIMIT.students[1], 0);
   const CourseRoomType=String(req.body?.CourseRoomType||"").normalize("NFKC").trim();if(CourseRoomType.length>60){res.status(400).json({error:"نوع القاعة المناسب لا يتجاوز 60 حرفًا."});return;}
   const CourseTeachingMode=req.body?.CourseTeachingMode === undefined ? undefined : String(req.body.CourseTeachingMode).trim() as AdCourse["CourseTeachingMode"] | "";
-  if(CourseTeachingMode&&!['theoretical','applied','practical','field_training'].includes(CourseTeachingMode)){res.status(400).json({error:"طبيعة تدريس المقرر غير معروفة."});return;}
+  if(CourseTeachingMode&&!['theoretical','applied','practical','field_training'].includes(CourseTeachingMode)
+    && !(CourseTeachingMode==="mixed"&&String((await Repository.getCourseById(id))?.CourseTeachingMode||"")==="mixed")){
+    res.status(400).json({error:"طبيعة تدريس المقرر غير معروفة."});return;
+  }
   const numberIssue = courseNumberIssue(CourseCredit, CourseHours, MaxStudent);
   if (numberIssue) { res.status(400).json({ error: numberIssue }); return; }
 
@@ -4306,118 +4309,88 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
   }
 
   try {
-    /* ── بيانات المقرر تسري على نسخه في كل أحرام القسم ──────────────────────
+    /* ── نوعُ القاعة يسري على نسخ المقرر في كل أحرام القسم ──────────────────
      * القسمُ الواحد له نسخةٌ من مقرره في كل حرم (الجهراء · الفحيحيل · بنات ·
      * بنين)، ورمزُ المقرر لا يتكرر داخل القسم. فمن اختار «مختبر» لنسخةٍ لا
      * يُطلب منه أن يكرّرها في البقية: تُطابَق بالرمز وباسم القسم الأكاديمي،
      * ولا تُمسّ إلا نسخةٌ يملك المستخدمُ نطاقَها.
      *
-     * ويُحفظ المصدر ونسخه معاً في عملية ذرية، كي لا يؤدي تغيير الرمز إلى
-     * انفصال بعض النسخ عن قاعدة المطابقة إذا تعثّر الحفظ. */
+     * وتُكتب النسخُ قبل المقرر المعدَّل لا بعده: إن تعثّرت كتابةٌ بقيت المصدرُ
+     * على نوعه القديم فتعيد المحاولةُ المزامنةَ كاملةً؛ لو كُتب المصدرُ أولاً
+     * لصار «لم يتغيّر» ولما أعادت المحاولةُ ما فات من النسخ. والكتابةُ
+     * متساويةُ الأثر عند التكرار. */
     let roomTypeSynced = 0;
-    let teachingModeSynced = 0;
-    let academicSynced = 0;
     /* ما لم يُطابَق يُقال للمسؤول بسببه — من نسخ المقرر نفسه وحدها (القسمُ نفسُه في أحرامه).
        رقمُ المقرر يتكرر بين الأقسام العلمية لمقرراتٍ مختلفة، فمقررُ قسمٍ آخر بالرقم نفسه ليس نسخةً
        ولا يُذكر أصلاً: ذكرُه كان يوحي بأنه كان يجب أن يتغيّر. */
-    const syncSkipped: Array<{ college: string; section: string; reason: string }> = [];
+    let roomTypeSkipped: Array<{ college: string; section: string; reason: string }> = [];
     const roomTypeChanged = String(currentCourse.CourseRoomType || "").normalize("NFKC").trim() !== CourseRoomType;
     /* النوعُ الجديد يسري عند كل حفظٍ بنوعٍ غير فارغ، لا عند تغييره وحده: نسخةٌ كان نوعُها محفوظاً من قبل
        فأُعيد حفظها بلا تغيير كانت لا توحّد البقية. والفارغ لا يُمحى به غيرُه إلا حين يُمحى عمداً (تغيير). */
     const roomTypeEvaluated = roomTypeChanged || CourseRoomType !== "";
-    const teachingModeChanged = CourseTeachingMode !== undefined
-      && String(currentCourse.CourseTeachingMode || "") !== CourseTeachingMode;
-    /* كنوع القاعة: القيمةُ المعيّنة تُوحّد النسخ عند كل حفظ، والفارغة لا تمحو
-       غيرَها إلا عند إزالتها قصداً من النسخة المفتوحة. */
-    const teachingModeEvaluated = CourseTeachingMode !== undefined
-      && (teachingModeChanged || CourseTeachingMode !== "");
     let roomTypeAligned = 0;
-    let teachingModeAligned = 0;
-    {
+    if (roomTypeEvaluated) {
       const [allCourses, allSections, allColleges] = await Promise.all([Repository.getCourses(), Repository.getSections(), Repository.getColleges()]);
-      const candidates = roomTypeSiblingIds({ ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId }, allCourses as any, allSections as any, allColleges as any);
+      const candidates = roomTypeSiblingIds({ ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId, CourseCode }, allCourses as any, allSections as any, allColleges as any);
       const siblings: number[] = [];
       for (const siblingId of candidates) {
         const other = allCourses.find(course => Number(course.AdCourseId) === siblingId)!;
         const collegeName = String(allColleges.find(college => Number(college.AdCollegeId) === Number(other.AdCollegeId))?.AdCollegeName || "");
         const sectionName = String(allSections.find(section => Number(section.AdSectionId) === Number(other.AdSectionId))?.AdSectionName || "");
         if (!req.user.IsAdminUser && !isScopeAllowed(req, Number(other.AdCollegeId), Number(other.AdSectionId))) {
-          syncSkipped.push({ college: collegeName, section: sectionName, reason: "خارج صلاحياتك" });
+          roomTypeSkipped.push({ college: collegeName, section: sectionName, reason: "خارج صلاحياتك" });
           continue;
         }
         if (!await committeeCatalogEditAllowed(req, Number(other.AdSectionId))) {
-          syncSkipped.push({ college: collegeName, section: sectionName, reason: "تعديل بيانات هذا القسم مقيَّد الآن" });
+          roomTypeSkipped.push({ college: collegeName, section: sectionName, reason: "تعديل بيانات هذا القسم مقيَّد الآن" });
           continue;
         }
         siblings.push(siblingId);
       }
-      if (currentCourse.CourseCode !== CourseCode && syncSkipped.length) {
-        res.status(409).json({ error: "تعذّر تغيير رمز المقرر لأن بعض نسخه خارج صلاحياتك أو مقيّدة حالياً؛ لم يُحفظ أي تغيير." });
-        return;
-      }
-      const academicPatch: Partial<Pick<AdCourse, "CourseCode" | "CourseName" | "CourseCredit" | "CourseHours" | "MaxStudent">> = {
-        ...(currentCourse.CourseCode !== CourseCode ? { CourseCode } : {}),
-        ...(normalizeArabicText(currentCourse.CourseName) !== normalizeArabicText(CourseName) ? { CourseName: normalizeArabicText(CourseName) } : {}),
-        ...(Number(currentCourse.CourseCredit) !== CourseCredit ? { CourseCredit: CourseCredit! } : {}),
-        ...(Number(currentCourse.CourseHours) !== CourseHours ? { CourseHours: CourseHours! } : {}),
-        ...(Number(currentCourse.MaxStudent || 0) !== MaxStudent ? { MaxStudent: MaxStudent! } : {}),
-      };
-      const academicDiffers = (course: AdCourse) => Object.entries(academicPatch).some(([field, value]) =>
-        field === "CourseName"
-          ? normalizeArabicText(course.CourseName) !== value
-          : course[field as keyof AdCourse] !== value);
-      const differingAcademic = siblings.filter(siblingId => academicDiffers(allCourses.find(course => Number(course.AdCourseId) === siblingId)!));
-      for (const siblingId of differingAcademic) {
-        const sibling = allCourses.find(course => Number(course.AdCourseId) === siblingId)!;
-        const siblingIdentityChanges = (academicPatch.CourseCode !== undefined && sibling.CourseCode !== CourseCode)
-          || (academicPatch.CourseName !== undefined && normalizeArabicText(sibling.CourseName) !== normalizeArabicText(CourseName));
-        if (!siblingIdentityChanges) continue;
-        const [plans, memberships, hasHistory] = await Promise.all([
-          Repository.getCurriculumPlans(Number(sibling.AdSectionId)),
-          Repository.getCurriculumPlanCourses(Number(sibling.AdSectionId)),
-          Repository.hasSchedulesForCourse(siblingId),
-        ]);
-        const frozen = plans.some(plan => plan.status !== "active" && memberships.some(row => Number(row.AdCourseId) === siblingId && row.planId === plan.id));
-        if (frozen || hasHistory) {
-          res.status(409).json({ error: `تعذّر توحيد رمز المقرر أو اسمه: نسخة في ${String(allSections.find(section => Number(section.AdSectionId) === Number(sibling.AdSectionId))?.AdSectionName || "القسم")} مرتبطة بصحيفة مجمّدة أو سجل تدريسي. لم يُحفظ أي تغيير.` });
-          return;
-        }
-        const collision = academicPatch.CourseCode !== undefined && allCourses.some(other => Number(other.AdSectionId) === Number(sibling.AdSectionId)
-          && Number(other.AdCourseId) !== siblingId && other.CourseCode === CourseCode);
-        if (collision) {
-          res.status(409).json({ error: "رمز المقرر الجديد مسجّل في إحدى نسخ القسم؛ لم يُحفظ أي تغيير." });
-          return;
-        }
-      }
-      const writeIds = new Set(differingAcademic);
-      if (roomTypeEvaluated) {
-        const typeOf = (courseId: number) => String(allCourses.find(course => Number(course.AdCourseId) === courseId)?.CourseRoomType || "").normalize("NFKC").trim();
-        const differing = siblings.filter(siblingId => typeOf(siblingId) !== CourseRoomType);
-        roomTypeAligned = siblings.length - differing.length;
-        roomTypeSynced = differing.length;
-        differing.forEach(siblingId => writeIds.add(siblingId));
-      }
-      if (teachingModeEvaluated) {
-        const modeOf = (courseId: number) => String(allCourses.find(course => Number(course.AdCourseId) === courseId)?.CourseTeachingMode || "");
-        const differing = siblings.filter(siblingId => modeOf(siblingId) !== CourseTeachingMode);
-        teachingModeAligned = siblings.length - differing.length;
-        teachingModeSynced = differing.length;
-        differing.forEach(siblingId => writeIds.add(siblingId));
-      }
-      const updated = await Repository.updateCourseFamily({
-        ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId,
-        CourseCode, CourseName, CourseCredit: CourseCredit!, CourseHours: CourseHours!, MaxStudent: MaxStudent!,
-        CourseRoomType, CourseTeachingMode: CourseTeachingMode === undefined ? currentCourse.CourseTeachingMode : CourseTeachingMode || undefined,
-      }, [...writeIds], academicPatch, roomTypeEvaluated, teachingModeEvaluated);
-      academicSynced = differingAcademic.length;
-      res.json({ ...updated, academicSynced, academicAligned: siblings.length - differingAcademic.length,
-        academicEvaluated: Object.keys(academicPatch).length > 0,
-        roomTypeSynced, roomTypeAligned, roomTypeChanged, roomTypeEvaluated,
-        roomTypeSkipped: roomTypeEvaluated ? syncSkipped.slice(0, 8) : [],
-        teachingModeSynced, teachingModeAligned, teachingModeChanged, teachingModeEvaluated,
-        teachingModeSkipped: teachingModeEvaluated ? syncSkipped.slice(0, 8) : [],
-        academicSkipped: syncSkipped.slice(0, 8) });
+      const typeOf = (courseId: number) => String(allCourses.find(course => Number(course.AdCourseId) === courseId)?.CourseRoomType || "").normalize("NFKC").trim();
+      const differing = siblings.filter(siblingId => typeOf(siblingId) !== CourseRoomType);
+      roomTypeAligned = siblings.length - differing.length;
+      roomTypeSynced = await Repository.setCourseRoomTypeForIds(differing, CourseRoomType);
     }
+    /* طبيعةُ التدريس تسري على النسخ المطابقة نفسها: القسم ورقم المقرر نفسيهما
+       عبر حُرُم القسم، مع احترام النطاق والصلاحيات كما في نوع القاعة. */
+    let teachingModeSynced = 0, teachingModeAligned = 0;
+    const teachingModeSkipped: Array<{ college: string; section: string; reason: string }> = [];
+    const desiredTeachingMode = CourseTeachingMode === undefined ? String(currentCourse.CourseTeachingMode || "") : String(CourseTeachingMode || "");
+    const teachingModeChanged = String(currentCourse.CourseTeachingMode || "") !== desiredTeachingMode;
+    const teachingModeEvaluated = CourseTeachingMode !== undefined && (teachingModeChanged || desiredTeachingMode !== "");
+    if (teachingModeEvaluated) {
+      const [allCourses, allSections, allColleges] = await Promise.all([Repository.getCourses(), Repository.getSections(), Repository.getColleges()]);
+      const candidates = roomTypeSiblingIds({ ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId, CourseCode }, allCourses as any, allSections as any, allColleges as any);
+      const siblings: number[] = [];
+      for (const siblingId of candidates) {
+        const other = allCourses.find(course => Number(course.AdCourseId) === siblingId)!;
+        const collegeName = String(allColleges.find(college => Number(college.AdCollegeId) === Number(other.AdCollegeId))?.AdCollegeName || "");
+        const sectionName = String(allSections.find(section => Number(section.AdSectionId) === Number(other.AdSectionId))?.AdSectionName || "");
+        if (!req.user.IsAdminUser && (!isScopeAllowed(req, Number(other.AdCollegeId), Number(other.AdSectionId)) || !await committeeCatalogEditAllowed(req, Number(other.AdSectionId)))) {
+          teachingModeSkipped.push({ college: collegeName, section: sectionName, reason: !isScopeAllowed(req, Number(other.AdCollegeId), Number(other.AdSectionId)) ? "خارج صلاحياتك" : "تعديل بيانات هذا القسم مقيَّد الآن" });
+          continue;
+        }
+        siblings.push(siblingId);
+      }
+      const modeOf = (courseId: number) => String(allCourses.find(course => Number(course.AdCourseId) === courseId)?.CourseTeachingMode || "");
+      const differing = siblings.filter(siblingId => modeOf(siblingId) !== desiredTeachingMode);
+      teachingModeAligned = siblings.length - differing.length;
+      teachingModeSynced = await Repository.setCourseTeachingModeForIds(differing, desiredTeachingMode as AdCourse["CourseTeachingMode"] | "");
+    }
+    const updated = await Repository.updateCourse(
+      id,
+      collegeId,
+      sectionId,
+      CourseCode,
+      CourseName,
+      CourseCredit!,
+      CourseHours!,
+      MaxStudent!,
+      CourseRoomType,
+      CourseTeachingMode === "" ? null : CourseTeachingMode
+    );
+    res.json({ ...updated, roomTypeSynced, roomTypeAligned, roomTypeChanged, roomTypeEvaluated, roomTypeSkipped: roomTypeSkipped.slice(0, 8), teachingModeSynced, teachingModeAligned, teachingModeChanged, teachingModeEvaluated, teachingModeSkipped: teachingModeSkipped.slice(0, 8) });
   } catch (e: any) {
     res.status(404).json({ error: e.message });
   }
@@ -11575,7 +11548,6 @@ app.get("/api/approvals", requireAuth, async (req: AuthenticatedRequest, res: Re
     blockingDuplicates: blocking.duplicates,
     /* مقرراتُ الجدول التي سعتُها غير مسجّلة: تمنع التوقيع كالتعارض (طلب المالك). */
     missingCapacity: capacityGapItems(readiness.items).length,
-    missingTeachingMode: teachingModeGapItems(readiness.items).length,
     regulationNotices: notices,
     /* ── ما يمنع الإرسال يُقال قبل الضغط ────────────────────────────────────
      * من العدّاد الواحد نفسه الذي يقرؤه الإرسالُ والإرجاعُ والوارد (R4). */
@@ -11681,7 +11653,7 @@ app.post("/api/approvals/sign", requireAuth, async (req: AuthenticatedRequest, r
     const readiness = await scheduleDataReadiness(collegeId, sectionId, termId, rows);
     const regulationBlockers = await regulationNoticeCount(collegeId, sectionId, termId);
     if (regulationBlockers) { res.status(409).json({ error: `توجد ${countOf(regulationBlockers, AR.approvalBlocker)} لائحية. عالجها قبل التوقيع.`, code: "regulation-blockers" }); return; }
-    const verdict = canSign(approval, stage, { blockingConflicts: blocking.conflicts, blockingDuplicates: blocking.duplicates, rowCount: rows.length, missingCapacity: capacityGapItems(readiness.items).length, missingTeachingMode: teachingModeGapItems(readiness.items).length });
+    const verdict = canSign(approval, stage, { blockingConflicts: blocking.conflicts, blockingDuplicates: blocking.duplicates, rowCount: rows.length, missingCapacity: capacityGapItems(readiness.items).length });
     if (verdict.ok !== true) { res.status(409).json({ error: verdict.message, code: verdict.code }); return; }
 
     const notices = await regulationNoticeCount(collegeId, sectionId, termId);
@@ -15498,7 +15470,6 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
     const windowOpen = requestWindowOpen(request);
     return {
       linkId: request.linkId,
-      createdAt: String(requestLink.createdAt || request.submittedAt || ""),
       sectionId: Number(request.AdSectionId),
       sectionName: sections.find(row => Number(row.AdSectionId) === Number(request.AdSectionId))?.AdSectionName || "القسم",
       collegeName: colleges.find(item => Number(item.AdCollegeId) === Number((request as any).AdCollegeId))?.AdCollegeName || "",
@@ -15868,8 +15839,8 @@ app.get("/api/share-personal", requirePermission(7), async (req: AuthenticatedRe
 /* ── «المتبقي» واقتراحُ عدد الشعب ───────────────────────────────────────────
  *
  * القسم يستورد قبل بناء الجدول كشفَ «المتبقي» من عمادة التسجيل (طلبةٌ لم
- * يسجّلوا المقرر بعد)؛ ويُعاد معه تاريخُ الفصول السابقة المطابقة للموسم:
- * الشعبُ المفتوحة فعلاً في الجدول، والمتبقي إن استُورد يومها.
+ * يسجّلوا المقرر بعد)؛ ويُعاد معه تاريخُ الفصول المماثلة كلها (الموسم نفسه،
+ * سنواتٌ سابقة): الشعبُ المفتوحة فعلاً في الجدول، والمتبقي إن استُورد يومها.
  * الحسابُ نفسه في المتصفح والاختبار: src/utils/sectionCountSuggestion.ts. */
 app.get("/api/registration-stats", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
@@ -15880,18 +15851,13 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     Repository.getCourseTransitions(sectionId).catch(() => []),
   ]);
   const term = terms.find(row => Number(row.AdTermId) === termId);
-  const currentRemaining = stats?.remainingSource?.column === "unregistered"
-    ? Object.fromEntries(Object.entries(stats.remaining || {}).map(([key, value]) => [key, Math.max(0, Number(value) || 0)]))
-    : {};
-  /* تاريخُ الفصل مستقلٌّ عن المواسم الأخرى: الأول يقارن بالأول فقط، والثاني
-     بالثاني، والصيفي بالصيفي. لا نستبدل غياب تاريخ الموسم بمقرر من موسم مختلف؛
-     عندها يعتمد الاقتراح على المتبقي والسعة حتى يتكوّن تاريخ مماثل. */
+  const currentRemaining = stats?.remainingSource?.column === "unregistered" ? stats.remaining || {} : null;
+  /* لكل موسم خطُّ تاريخ مستقلّ: الفصل الأول لا يستعير شعباً أو كشف متبقٍّ من
+     الثاني، والثاني لا يستعير من الأول. نقرأ كامل تاريخ الموسم نفسه فقط. */
   const targetRank = termChronologyServer(term);
   const season = termSeasonOf(term?.AdTermName);
   const similar: Array<{ AdTermId: number; AdTermName: string; similar: boolean; rows: FSchedule[] }> = [];
-  for (const row of sortTermsNewestServer(terms).filter(row => Boolean(season)
-    && termSeasonOf(row.AdTermName) === season
-    && termChronologyServer(row) < targetRank)) {
+  for (const row of sortTermsNewestServer(terms).filter(row => termChronologyServer(row) < targetRank && Boolean(season) && termSeasonOf(row.AdTermName) === season)) {
     const rows = await Repository.getSchedulesByScope({ collegeId, sectionId, termId: Number(row.AdTermId) });
     if (!rows.length) continue;
     similar.push({ AdTermId: Number(row.AdTermId), AdTermName: String(row.AdTermName), similar: true, rows });
@@ -15947,16 +15913,10 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     }
     history[key] = similar.map((past, index) => {
       const term = perTerm[index];
-      /* المقررات السابقة في عائلة إعادة الترقيم بدائل تاريخية، وليست شعباً
-         تُجمع فوق بعضها. إذا لم يُطرح المقرر الحالي في هذا الفصل، خذ أقرب
-         سلفٍ مطروح فقط؛ جمعُ كل الأسلاف كان يرفع تاريخ المقرر إلى أرقام لم
-         يفتحها القسم قط. */
-      const source = family.find(member => (term.sectionsOf.get(member)?.size || 0) > 0)
-        ?? family.find(member => term.remaining[String(member)] != null);
-      const sections = source == null ? 0 : term.sectionsOf.get(source)?.size || 0;
-      const remaining = source == null ? undefined : term.remaining[String(source)];
+      const sections = family.reduce((sum, member) => sum + (term.sectionsOf.get(member)?.size || 0), 0);
+      const known = family.filter(member => term.remaining[String(member)] != null);
       return { termName: past.AdTermName, similar: past.similar, sections,
-        ...(remaining != null ? { remaining } : {}) };
+        ...(known.length ? { remaining: known.reduce((sum, member) => sum + Number(term.remaining[String(member)] || 0), 0) } : {}) };
     });
   }
   res.json({
@@ -15966,9 +15926,10 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     courses: courses.map(course => ({ id: course.AdCourseId, code: course.CourseCode || "", name: course.CourseName || "", capacity: Number(course.MaxStudent || 0) })),
     /* «الذين لم يسجلوا» (المتبقي الإجمالي) وحده مدخلُ التخطيط؛ ما حُفظ بعمودٍ آخر («المقاعد المتبقية» أو بلا وسم) يُعاد منفصلاً موسوماً «قديماً» ولا يُحسب به. */
     /* لا متبقٍّ سالب (ما حُفظ سالباً قبل اعتماد الصفر يُعرض صفراً). */
-    remaining: currentRemaining,
+    remaining: currentRemaining ?? {},
     vacant: stats?.remainingSource?.column === "unregistered" ? stats.vacant || {} : {},
     remainingSource: stats?.remainingSource?.column === "unregistered" ? stats.remainingSource : null,
+    remainingSourceTerm: "",
     legacyRemaining: stats?.remainingSource?.column !== "unregistered" && Object.keys(stats?.remaining || {}).length
       ? { values: stats!.remaining, fileName: stats!.remainingSource?.fileName || "", importedAt: stats!.remainingSource?.importedAt || "" } : null,
     accepted: stats?.accepted || {},
@@ -18845,13 +18806,13 @@ ${STAFF_CARD_VISUAL_JS}
   }
   function renderRequests(d){
     var host=document.getElementById("requests");
-    /* بعد إرسال الطلب يبقى بابُ الحوار متاحاً ولو أُغلق استقبال الطلبات؛
-       ردُّ القسم و«قرّر الآن» قد يصلان بعد الموعد النهائي للإرسال. */
+    /* نافذةٌ مغلقة لا بابَ لها: لا تبويبَ ولا بطاقةَ «انتهت فترة الطلبات».
+       ويُكتفى بنافذةٍ واحدة لكل رابط، مع اسم الكلية حين يتشابه اسما القسمين. */
     var seen={};
     var links=(d.requestLinks||[]).filter(function(l){
-      if((!l.windowOpen&&l.status==="sent")||seen[l.linkId])return false;
+      if(!l.windowOpen||seen[l.linkId])return false;
       seen[l.linkId]=1;return true;
-    }).sort(function(a,b){return Date.parse(b.createdAt||"")-Date.parse(a.createdAt||"")}).slice(0,1);
+    });
     requestLinksNow=links;
     pbRefresh(d.requestLinks||[]);
     var tab=document.getElementById("tab-requests");
@@ -18865,7 +18826,7 @@ ${STAFF_CARD_VISUAL_JS}
     host.innerHTML='<div class="requests-panel"><h3>طلب تعديل الجدول</h3>'+
       links.map(function(l){
         var where=l.collegeName?shortCardCollege(l.collegeName):"";
-        return '<div class="req-item"><b>'+esc(l.sectionName)+'</b>'+(where?' · '+esc(where):'')+' — '+(l.windowOpen?'نافذة الطلبات مفتوحة حتى <bdi>'+esc(friendlyDate(l.closesAt,false))+'</bdi>':'تابع ردّ القسم على طلبك')+
+        return '<div class="req-item"><b>'+esc(l.sectionName)+'</b>'+(where?' · '+esc(where):'')+' — نافذة الطلبات مفتوحة حتى <bdi>'+esc(friendlyDate(l.closesAt,false))+'</bdi>'+
           (l.proposed?'<br><span class="req-proposed">مقترح من القسم ينتظر ردّك · '+ar(l.proposed)+'</span>':'')+
           '<br><a class="req-link" href="/r/'+encodeURIComponent(l.linkId)+'" target="_blank">فتح نموذج رغبات الجدول ←</a></div>';
       }).join("")+'</div>';
@@ -18927,11 +18888,7 @@ ${STAFF_CARD_VISUAL_JS}
       if(d.availableTerms.length<2&&d.term)document.getElementById("scope").textContent=(d.college?d.college+" · ":"")+d.term;
     }
     /* حالةُ اعتماد كل قسمٍ يدرّس فيه — للقراءة فقط. */
-    var approvalSeen={};
-    document.getElementById("approvals").innerHTML=(d.departmentApprovals||[]).filter(function(a){
-      var key=[a.department,a.college,a.status,a.label].join("|");
-      if(approvalSeen[key])return false;approvalSeen[key]=1;return true;
-    }).map(function(a){
+    document.getElementById("approvals").innerHTML=(d.departmentApprovals||[]).map(function(a){
       return '<span data-status="'+esc(a.status)+'">'+esc(a.department)+(a.college?' · '+esc(a.college):'')+' · '+esc(a.label)+'</span>'}).join("");
     /* ما يقع في أسبوعيه القادمين: إلغاءٌ، أو تغطيةٌ له أو منه. */
     var soon=document.getElementById("soon"),upcoming=d.upcomingExceptions||[];
@@ -19618,7 +19575,6 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
     const rowId = entry?.rowId == null ? null : Number(entry.rowId);
     const stored = rowId == null ? undefined : before.get(String(rowId));
     if (rowId != null && !stored) throw new Error("أحد المواعيد ليس ضمن جدولك.");
-    if (stored?.removedByDepartment) continue;
 
     const courseId = action === "add" ? Number(entry?.courseId || 0) : Number(stored?.before?.courseId || 0);
     const selectedCollegeId = action === "add" ? Number(entry?.collegeId || 0) : Number(request.AdCollegeId);
@@ -19678,7 +19634,7 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
         : decisionStillApplies(stored, action, days, start) ? stored?.decision : undefined,
     });
   }
-  return [...items, ...(request.items || []).filter(item => item.removedByDepartment)];
+  return items;
 }
 
 /** يقرأ الرابط ويعيد السجلّ، أو الخطأَ بحالته. */
@@ -19741,15 +19697,8 @@ async function refreshUnsubmittedInstructorRequest(request: InstructorRequest): 
   const collegeNameById = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
   const nextItems: InstructorRequestItem[] = own.map(row =>
     requestItemFromRow(row, courseName.get(Number(row.AdCourseId)) || String(row.AdCourseName || ""), collegeNameById));
-  const liveIds = new Set(own.map(row => Number(row.id)));
-  for (const old of request.items || []) {
-    if (!old.rowId || liveIds.has(Number(old.rowId)) || !old.before) continue;
-    nextItems.push({ ...old, action: "delete", after: undefined, slots: [], removedByDepartment: true,
-      decision: { state: "fixed", note: "حذفه القسم من الجدول" } });
-  }
   const shape = (items: InstructorRequestItem[]) => items.map(item => [
     Number(item.rowId || 0), item.before?.courseId, item.before?.sectionCode, item.before?.collegeId || 0,
-    item.removedByDepartment ? "removed" : "live",
     item.slots?.map(slot => `${slot.day}:${slot.start}:${slot.end}`).join("|"),
   ].join("~")).sort().join("||");
   if (shape(nextItems) === shape(request.items || [])) return request;
@@ -20205,13 +20154,6 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
         requestItemFromRow(row, courseName.get(Number(row.AdCourseId)) || String(row.AdCourseName || ""), collegeNameById)),
       timeline: [{ kind: "link-created", at: opensAt, by: "القسم" }],
     });
-    /* رابطُ جولةٍ جديدة يُنهي روابطَ الجولات السابقة للأستاذ نفسه في هذا
-       القسم والفصل. إبقاءُ الرابط القديم حيّاً كان يُظهر نافذتين متنافستين
-       في بطاقته، حتى حين لا تُعرض في الواجهة إلا الأحدث. */
-    for (const older of existing.filter(row => Number(row.AdInstructorId) === instructorId && row.linkId !== link.id)) {
-      const olderLink = await Repository.getShareLink(older.linkId);
-      if (olderLink && !olderLink.revoked) await Repository.revokeShareLink(older.linkId);
-    }
     issued.push({ instructorId, linkId: link.id, reissued: false });
   }
 
@@ -20264,7 +20206,7 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
   } as any);
   const stored = storedAll.filter(request =>
     inScope(Number(request.AdCollegeId), Number(request.AdSectionId))
-    || (request.items || []).some(item => !item.removedByDepartment && item.action !== "keep" && inSelection(requestItemScope(request, item))));
+    || (request.items || []).some(item => item.action !== "keep" && inSelection(requestItemScope(request, item))));
   const scopeRows = (scopeRowsAll as any[]).filter(row => inScope(Number(row.AdCollegeId ?? collegeId), Number(row.AdSectionId)));
   const sectionNameOf = new Map((sections as any[]).map(row => [Number(row.AdSectionId), String(row.AdSectionName || "")]));
   const nameOf = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
@@ -20285,7 +20227,7 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
     const awaited = awaitedItemIndexes(full.items || [], scopeRowsById, item => requestItemScope(full, item));
     const request = {
       ...full,
-      items: (full.items || []).map((item, index) => !item.removedByDepartment && inSelection(requestItemScope(full, item))
+      items: (full.items || []).map((item, index) => inSelection(requestItemScope(full, item))
         ? (awaited.has(index) ? { ...item, awaitedElsewhere: true } : item)
         : hiddenItem(item)),
     };
@@ -20301,7 +20243,7 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
       .map(id => sectionNameOf.get(id) || "").filter(Boolean).join(" · "),
     /* البنودُ التي تحمل قراراً هي ما يُنظر إليه؛ وما أبقاه الأستاذ كما هو
        يُعدّ ولا يُفتح. */
-    changedCount: (request.items || []).filter(item => !item.removedByDepartment && item.action !== "keep" && !(item as any).hidden).length,
+    changedCount: (request.items || []).filter(item => item.action !== "keep" && !(item as any).hidden).length,
     };
   });
 
@@ -20781,7 +20723,7 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
   if (!silent) void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
 
   /* تسجيلُ الفتح وقوائمُ الصفحة والحكمُ على البنود لا يعتمد أحدُها على الآخر: تُقرأ معاً، ثم يُدمج الفتحُ في النتيجة (حقولُ العدّ والحركة وحدها). */
-  const [opened, [instructors, terms, courses, serviceKeys, calendarToken], judgedBeforeOpen, currentRows] = await Promise.all([
+  const [opened, [instructors, terms, courses, serviceKeys, calendarToken], judgedBeforeOpen] = await Promise.all([
     silent ? Promise.resolve(null) : Repository.recordInstructorRequestOpen(request.id, openedAt),
     Promise.all([
       Repository.getInstructors(), Repository.getTerms(),
@@ -20790,7 +20732,6 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
       calendarKey(resolved.link.id, Number(request.AdInstructorId)),
     ]),
     judgeRequestItems(request),
-    request.status === "sent" ? Promise.resolve([]) : Repository.getSchedulesByScope({ termId: Number(request.AdTermId) }),
   ]);
   const judgedRequest = opened
     ? {
@@ -20801,10 +20742,6 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
   if (opened) request = { ...request, ...opened.fields, ...(opened.first ? { timeline: [...(request.timeline || []), { kind: "link-opened" as const, at: openedAt }] } : {}) };
   const person = (instructors as any[]).find(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
   const term = (terms as any[]).find(row => Number(row.AdTermId) === Number(request.AdTermId));
-  const currentIds = new Set((currentRows as any[]).map(row => Number(row.id)));
-  const departmentRemoved = request.status === "sent" ? [] : (request.items || [])
-    .filter(item => item.rowId && !item.removedByDepartment && item.action !== "delete" && !currentIds.has(Number(item.rowId)))
-    .map(item => item.before).filter(Boolean);
   /* مقرراتُ الخدمة في هذا الطلب (موعدٌ قائم أو مضاف): يظهر بجانب اسمها «متطلب». وسمٌ فقط. */
   const serviceCourses = [...new Set([
     ...(request.items || []).map(item => {
@@ -20818,7 +20755,6 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
   res.json({
     request: stripForInstructor(judgedRequest),
-    departmentRemoved,
     serviceCourses,
     instructorName: String(person?.AdInstructorName || ""),
     termName: String(term?.AdTermName || ""),
@@ -21306,7 +21242,6 @@ var EVENTS={"link-created":"أُنشئ الرابط","link-opened":"فُتح ا�
 var NEG=${JSON.stringify(NEGOTIATION_LABEL)};
 function actionName(action){return action==="add"?"مضاف":action==="change"?"معدّل":action==="delete"?"محذوف":"كما هو"}
 function requestedText(it){
- if(it.removedByDepartment)return "حذفه القسم من الجدول";
  if(it.action==="delete")return "حذف المقرر من الجدول";
  if(it.action==="change"||it.action==="add")return (it.days.length?fmtDays(it.days):"لم تُحدّد الأيام")+" · "+(it.start?(it.start+" – "+endOf(it.days,it.start,it.blk)):"لم يُحدّد الوقت");
  var base=it.before||it.after||{};return (base.days||"")+" · "+(base.time||"")
@@ -21314,7 +21249,6 @@ function requestedText(it){
 /* النطاقُ الزمنيّ جزيرةٌ يسارية: «14:00 – 15:20» تُقرأ هكذا في كل موضعٍ من الصفحة، لا معكوسةً داخل سطرٍ عربي. */
 function ltr(t){return t?'<bdi dir="ltr" class="num">'+esc(t)+'</bdi>':""}
 function requestedHtml(it){
- if(it.removedByDepartment)return "حذفه القسم من الجدول";
  if(it.action==="delete")return "حذف المقرر من الجدول";
  if(it.action==="change"||it.action==="add")return esc(it.days.length?fmtDays(it.days):"لم تُحدّد الأيام")+" · "+(it.start?ltr(it.start+" – "+endOf(it.days,it.start,it.blk)):"لم يُحدّد الوقت");
  var base=it.before||it.after||{};return esc(base.days||"")+" · "+ltr(rangeText(base.time||""))}
@@ -21326,13 +21260,9 @@ function rawItem(it){return{rowId:it.rowId,action:it.action,
 function unchangedEdit(it){return it.action==="change"&&sameAsBefore(it)}
 /* موعدٌ جديدٌ ناقص (بلا أيامٍ أو وقت): لا يُعدّ جاهزاً. */
 function incompleteItem(it){return(it.action==="change"||it.action==="add")&&(!it.days.length||!it.start)}
-function payloadItems(){return state.filter(function(it){return !it.removedByDepartment}).map(function(it){if(unchangedEdit(it))return{rowId:it.rowId,action:"keep",days:[],start:"",excuse:it.excuse};return rawItem(it)})}
-/* موضع البند في المسودة المرسلة للخادم يختلف عن موضعه على الشاشة بعد إظهار
-   بند حذفه القسم؛ لا يُرسل هذا البند، ولا يجوز أن تُنسب نتيجةُ جاره إليه. */
-function payloadIndex(i){var at=0;for(var k=0;k<i;k++)if(!state[k].removedByDepartment)at++;return at}
-function stateIndex(i){var at=-1;for(var k=0;k<state.length;k++){if(state[k].removedByDepartment)continue;if(++at===i)return k}return -1}
+function payloadItems(){return state.map(function(it){if(unchangedEdit(it))return{rowId:it.rowId,action:"keep",days:[],start:"",excuse:it.excuse};return rawItem(it)})}
 /* الفحصُ يرى بندَه نفسَه كما هو عليه الآن (ولو لم يتغيّر)، وغيرَه كما سيُرسل. */
-function payloadWith(i){var list=payloadItems();if(state[i]&&!state[i].removedByDepartment)list[payloadIndex(i)]=rawItem(state[i]);return list}
+function payloadWith(i){var list=payloadItems();if(state[i])list[i]=rawItem(state[i]);return list}
 function courseOf(it){var b=it.before||{},a=it.after||{};return b.courseName||a.courseName||"المقرر"}
 /* الكليةُ تُكتب على المحاضرة حين يدرّس الأستاذ في أكثر من كلية: بلا ذلك
    تبدو محاضرتان بالاسم نفسه كأنهما واحدة. */
@@ -21374,11 +21304,10 @@ var proposalBanner="";
 function loadProposalBanner(){pbLoad([TOKEN],function(items){var h=pbHtml(items);if(h!==proposalBanner){proposalBanner=h;if(data)paint()}})}
 function toneText(it){return it.tone==="ok"?"الوقت متاح":it.tone==="warn"?"يحتاج سبب استثناء":it.tone==="bad"?"يوجد مانع":it.tone==="checking"?"يُفحص الآن…":""}
 function wasText(it){var b=it.before||{};return it.action==="add"?"":((b.days||"")+(b.time?" · "+b.time:""))}
-var REASONS={room:"لا تتوفّر قاعة في هذا الوقت",instructor:"يتعارض مع أستاذ آخر",regulation:"مخالفة للائحة",cohort:"يتقاطع مع مقرّر يشترك طلبتُه",load:"النصاب التدريسي",department:"قرار القسم",other:"سبب آخر"};
+var REASONS={room:"لا تتوفّر قاعة في هذا الوقت",instructor:"يتعارض مع أستاذ آخر",regulation:"مخالفة للائحة",cohort:"يتقاطع مع مقرّر يشترك طلبتُه",load:"النصاب",department:"قرار القسم",other:"سبب آخر"};
 /* قرارُ القسم يُقرأ في البطاقة نفسها، لا في تبويبٍ آخر: من رُفض بندُه يرى
    السببَ والبدائلَ حيث يعدّل، ويطبّق البديلَ بضغطة. */
 function decisionBox(it,i,open){var d=it.decision;if(!d||!d.state||d.state==="pending")return "";
- if(it.removedByDepartment)return '<div class="dept" data-state="rejected"><b>'+gi("trash")+'حذفه القسم من جدولك</b></div>';
  if(d.state==="fixed")return '<div class="dept" data-state="fixed"><i aria-hidden="true">✓</i>ثبّته القسم'+(d.note?' · '+esc(d.note):'')+'</div>';
  /* وحين يصير الرفضُ ببدائل حواراً، تُعرض البدائلُ في الحوار بزرّ «أوافق» (threadBox). */
  var alts=it.negotiation==="proposed"?[]:(d.alternatives||[]);
@@ -21565,7 +21494,6 @@ function actBtn(i,a,icon,label,tone){return '<button type="button" class="act" d
 /* «15:30–16:50» و«15:30 – 16:50» صيغةٌ واحدة، والنطاقُ كلُّه في عزلٍ LTR حيث يُعرض. */
 function rangeText(t){return String(t||"").split("–").map(function(x){return x.trim()}).filter(Boolean).join(" – ")}
 function actionsHtml(it,i){
- if(it.removedByDepartment)return "";
  if(it.action==="add")return actBtn(i,"cancel-add","x","إلغاء الإضافة","bad");
  if(it.action==="keep")return actBtn(i,"change","clock","غيّر الموعد")+actBtn(i,"delete","trash","احذف الموعد","bad");
  if(it.action==="change")return actBtn(i,"keep","undo","إلغاء التعديل")+actBtn(i,"delete","trash","احذفه بدلًا منه","bad");
@@ -21592,14 +21520,13 @@ function pipsHtml(days){return '<span class="pips" aria-hidden="true">'+DAYS.map
 function rowIcon(it){var neg=it.negotiation,fixed=it.decision&&it.decision.state==="fixed";
  return neg==="proposed"?"you":neg==="rejected"?"x":neg==="agreed"?(fixed?"shield":"check"):it.action==="add"?"plus":it.action==="delete"?"trash":it.action==="change"?"pen":"cal"}
 function planTable(){
- var removed=(data&&data.departmentRemoved)||[];
- if(!state.length&&!removed.length)return "";
+ if(!state.length)return "";
  var many=manyColleges(),open=data.windowOpen;
  var order=state.map(function(it,i){return{it:it,i:i}}).sort(function(a,b){
   /* الترتيبُ يُثبَّت عند التحميل ولا يُعاد حسابُه: موعدٌ يغيّر الأستاذ يومَه كان يقفز
      إلى موضعٍ آخر تحت إصبعه فيضيع منه. والمضافُ الجديد يأتي في الآخر. */
   return (a.it.ord==null?1e6+a.i:a.it.ord)-(b.it.ord==null?1e6+b.i:b.it.ord)});
- return '<div class="plan"><div class="plan-head"><div><b>جدولك</b><small>'+countOf(state.length+removed.length,AR.appointment)+(open?' · اضغط الموعد لتغييره أو حذفه':'')+'</small></div></div>'+weekStrip()+'<div class="appts" role="list">'+
+ return '<div class="plan"><div class="plan-head"><div><b>جدولك</b><small>'+countOf(state.length,AR.appointment)+(open?' · اضغط الموعد لتغييره أو حذفه':'')+'</small></div></div>'+weekStrip()+'<div class="appts" role="list">'+
   order.map(function(x){var it=x.it,i=x.i,b=it.before||{},moved=it.action==="change";
    var newDays=it.days.length?fmtDays(it.days):"—",newTime=it.start?(it.start+" – "+endOf(it.days,it.start,it.blk)):"—";
    var days=it.action==="add"||moved?newDays:(b.days||"—"),time=it.action==="add"||moved?newTime:rangeText(b.time||"—");
@@ -21613,7 +21540,7 @@ function planTable(){
    var act=unchangedEdit(it)?"keep":it.action;
    var neg=negShown?'<span class="neg" data-neg="'+esc(it.negotiation)+'">'+esc(NEG[it.negotiation]||"")+'</span>':'';
    /* وحين يكون للبند حوارٌ تكفي حالةُ الحوار: «معدّل» و«الوقت متاح» و«رفضه القسم» معاً تتناقض. */
-   var stat=negShown?'':'<span class="status" data-act="'+esc(act)+'">'+skStat(act)+(it.removedByDepartment?"حذفه القسم":act==="keep"?"كما هو":actionName(act))+'</span>';
+   var stat=negShown?'':'<span class="status" data-act="'+esc(act)+'">'+skStat(act)+(act==="keep"?"كما هو":actionName(act))+'</span>';
    var tone=!negShown&&act!=="keep"&&act!=="delete"&&toneText(it)?'<small class="plan-check" data-tone="'+esc(it.tone)+'">'+esc(toneText(it))+'</small>':'';
    var sub=(b.sectionCode?'شعبة '+esc(b.sectionCode):'')+((many||it.action==="add")&&col?(b.sectionCode?' · ':'')+esc(shortCollege(col)):'');
    return '<div class="appt" role="listitem" style="--c:'+skCourseColor(it)+'" id="item-'+i+'" data-act="'+esc(act)+'" data-neg="'+esc(it.negotiation||"")+'" data-open="'+(expanded?"1":"0")+'">'+
@@ -21624,7 +21551,6 @@ function planTable(){
      '<span class="ap-st">'+stat+neg+tone+'</span>'+
      '<span class="appt-chev">'+ic("chev")+'</span></button>'+
     '<div class="appt-body" id="item-body-'+i+'"'+(expanded?'':' hidden')+'>'+(expanded?bodyHtml(it,i,open):'')+'</div></div>'}).join("")+
-   removed.map(function(item){return '<div class="appt" role="listitem" data-act="delete"><div class="appt-head" style="cursor:default"><span class="ap-ic">'+gi("trash")+'</span><span class="ap-main"><b>'+esc(item.courseName||"مقرر")+'</b><small>'+(item.sectionCode?'شعبة '+esc(item.sectionCode):'')+'</small><span class="ap-when">'+esc(item.days||"")+' <bdi dir="ltr">'+esc(rangeText(item.time||""))+'</bdi></span></span><span class="ap-st"><span class="status" data-act="delete">حذفه القسم</span></span></div></div>'}).join("")+
   '</div></div>'
 }
 /* شريط الأسبوع: عرضٌ فقط، من البنود التي تحملها الصفحة أصلاً (state). المحذوف لا يُعدّ. */
@@ -21654,7 +21580,7 @@ function weekStrip(){
 /* ── خريطةُ الأوقات ───────────────────────────────────────────────────────────
    بعد اختيار الأيام يُسأل الخادمُ عن كل وقتِ بدايةٍ بالحكم نفسِه، ويُرسم على الزرّ شريطٌ: أخضر يمرّ، أصفر يحتاج سبب
    استثناء، أحمر لا يمكن. والزرُّ لا يُعطَّل بها (القرارُ للخادم عند الإرسال)، وإنما يُرى. */
-var heat={},heatKey={},heatTimer={},heatShape={};
+var heat={},heatKey={},heatTimer=null,heatShape={};
 function heatAttr(i,t){var h=heat[i]&&heat[i][t];if(!h)return "";
  return ' data-heat="'+h+'" aria-label="'+t+(h==="ok"?" · متاح":h==="warn"?" · يحتاج سبب استثناء":" · غير ممكن")+'"'}
 function heatLegend(i){if(heatShape[i])return '<p class="heat-key" role="status">'+gi("alert")+'المشكلة في الأيام لا في الوقت</p>';return heat[i]&&Object.keys(heat[i]).length?'<p class="heat-key" aria-hidden="true"><span data-heat="ok"></span>متاح <span data-heat="warn"></span>يحتاج سبباً <span data-heat="bad"></span>غير ممكن</p>':""}
@@ -21670,14 +21596,14 @@ function bestTimes(it,i){var h=heat[i];if(!h||heatShape[i]||!it.days.length)retu
 function bestHtml(it,i){var best=bestTimes(it,i);if(!best.length)return "";
  return '<div class="best" role="group" aria-label="أفضل ثلاثة مواعيد لك"><p class="shape-lead">أفضل ٣ مواعيد لك:</p><div class="best-row">'+best.map(function(b){return '<button type="button" data-i="'+i+'" data-quick="'+b.t+'" aria-label="'+esc(fmtDays(it.days)+" "+b.t+" — "+b.why)+'">'+skPills(it.days)+'<b class="bp-t">'+ltr(b.t)+'</b><small>'+gi(b.why==="بعد محاضرتك مباشرة"?"clock":"check")+esc(b.why)+'</small></button>'}).join("")+'</div></div>'}
 function startList(it){return startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60})}
-function heatSig(i){var at=payloadIndex(i);return state[i].days.join()+"|"+state[i].blk+"|"+JSON.stringify(payloadWith(i).map(function(p,k){return k===at?{rowId:p.rowId,action:p.action,courseId:p.courseId,collegeId:p.collegeId,sectionId:p.sectionId,days:p.days}:p}))}
+function heatSig(i){return state[i].days.join()+"|"+state[i].blk+"|"+JSON.stringify(payloadWith(i).map(function(p,k){return k===i?{rowId:p.rowId,action:p.action,courseId:p.courseId,collegeId:p.collegeId,sectionId:p.sectionId,days:p.days}:p}))}
 function ensureHeat(){state.forEach(function(it,i){
  if(!(it.action==="change"||it.action==="add")||!it.days.length||!openCards[i])return;
  var sig=heatSig(i);if(heatKey[i]===sig)return;heatKey[i]=sig;heat[i]=null;
- clearTimeout(heatTimer[i]);heatTimer[i]=setTimeout(function(){loadHeat(i,sig)},300)})}
+ clearTimeout(heatTimer);heatTimer=setTimeout(function(){loadHeat(i,sig)},300)})}
 function loadHeat(i,sig){var it=state[i];if(!it||heatKey[i]!==sig)return;
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-times",{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({itemIndex:payloadIndex(i),items:payloadWith(i),starts:startList(it)})})
+  body:JSON.stringify({itemIndex:i,items:payloadWith(i),starts:startList(it)})})
  .then(function(r){return r.ok?r.json():null}).then(function(d){if(!d||heatKey[i]!==sig)return;heat[i]=d.problem==="shape"?{}:(d.times||{});heatShape[i]=d.problem==="shape";paint()}).catch(function(){})}
 function planDays(it){return it.action==="add"||it.action==="change"?it.days:(it.slots||[]).map(function(s){return s.day})}
 function planStart(it){return it.action==="add"||it.action==="change"?it.start:((it.slots||[])[0]||{}).start||""}
@@ -21889,7 +21815,7 @@ function wire(){
  host.querySelectorAll("[data-msg]").forEach(function(el){el.onclick=function(){openMsg(+el.dataset.msg)}});
  host.querySelectorAll("[data-offer]").forEach(function(el){el.onclick=function(){deckPick[+el.dataset.i]=+el.dataset.offer;paint()}});
  host.querySelectorAll("[data-deck]").forEach(function(el){el.onclick=function(){deckAt+=+el.dataset.deck;paint()}});
-  host.querySelectorAll("[data-focus]").forEach(function(el){el.onclick=function(e){e.preventDefault();e.stopPropagation();var i=+el.dataset.focus,at=pendingList().indexOf(i);if(at>=0){deckAt=at;activeTab="schedule";paint();window.requestAnimationFrame(function(){var d=document.getElementById("deck");if(d){d.scrollIntoView({behavior:"smooth",block:"start"});var accept=d.querySelector("[data-accept]");if(accept)accept.focus({preventScroll:true})}})}else{focusItem(i);var card=document.getElementById("item-"+i);if(card)card.scrollIntoView({behavior:"smooth",block:"center"})}}});
+ host.querySelectorAll("[data-focus]").forEach(function(el){el.onclick=function(){var i=+el.dataset.focus,at=pendingList().indexOf(i);if(at>=0){deckAt=at;activeTab="schedule";paint();var d=document.getElementById("deck");if(d)d.scrollIntoView({behavior:"smooth",block:"start"})}else{focusItem(i);var card=document.getElementById("item-"+i);if(card)card.scrollIntoView({behavior:"smooth",block:"center"})}}});
 }
 /* الحكمُ يُسأل عنه الخادمُ عند كل تغيير: هو وحده يرى الجدول كاملاً، والصفحةُ
    ترى جدولَ صاحبها. وهي تعرض ما يقوله ولا تقرّر شيئاً بنفسها. */
@@ -21911,10 +21837,8 @@ function tapDay(it,d){var at=it.days.indexOf(d);
  if(filled){it.days=filled;it.autoNote=filled.length>1?"أُكمل النمط المعتاد لهذا المقرّر: "+fmtDays(filled):""}
  else{it.days.push(d);it.autoNote=""}}
 /* الحكمُ على المسودة كلها بنداءٍ واحد: يبني الخادم سياقَ الجدول والقواعد مرةً للحزمة، لا مرةً لكل بند. */
-var checkSeq=0,checkTimer=null,checkController=null;
+var checkSeq=0;
 function recheckAll(){
- if(checkTimer)clearTimeout(checkTimer);
- if(checkController)checkController.abort();
  var active=[];
  state.forEach(function(it,i){
   if((it.action==="change"||it.action==="add")&&it.days.length&&it.start)active.push(i);
@@ -21923,12 +21847,10 @@ function recheckAll(){
  if(!active.length){paint();return}
  var seq=++checkSeq;
  active.forEach(function(i){var it=state[i];it.tone="checking";it.note="يفحص التعارض والموانع على جدولك…";it.alts=[];it.shapes=[];it.notes=[];it.advice="";it.pnote="";heatShape[i]=false});paint();
- checkTimer=setTimeout(function(){checkController=new AbortController();
- fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-batch",{method:"POST",headers:{"Content-Type":"application/json"},signal:checkController.signal,body:JSON.stringify({items:payloadItems()})})
+ fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:payloadItems()})})
  .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||"تعذر الفحص");return d})})
- .then(function(d){if(seq!==checkSeq)return;(d.items||[]).forEach(function(result){var i=stateIndex(Number(result.itemIndex)),it=state[i];if(!it||active.indexOf(i)<0)return;it.tone=result.kind==="clear"?"ok":result.kind==="exception"?"warn":"bad";it.note=result.headline||"";it.alts=result.nearestTimes||[];it.shapes=result.shapes||[];it.notes=result.notes||[];it.advice=result.advice||"";it.pnote=result.patternNotice||"";if(result.block)it.blk=result.block});paint()})
- .catch(function(error){if(seq!==checkSeq||error&&error.name==="AbortError")return;active.forEach(function(i){var it=state[i];if(it){it.tone="bad";it.note="تعذّر فحص الموعد الآن. أعد المحاولة قبل الإرسال."}});paint()});
- },140);
+ .then(function(d){if(seq!==checkSeq)return;(d.items||[]).forEach(function(result){var i=Number(result.itemIndex),it=state[i];if(!it||active.indexOf(i)<0)return;it.tone=result.kind==="clear"?"ok":result.kind==="exception"?"warn":"bad";it.note=result.headline||"";it.alts=result.nearestTimes||[];it.shapes=result.shapes||[];it.notes=result.notes||[];it.advice=result.advice||"";it.pnote=result.patternNotice||"";if(result.block)it.blk=result.block});paint()})
+ .catch(function(){if(seq!==checkSeq)return;active.forEach(function(i){var it=state[i];if(it){it.tone="bad";it.note="تعذّر فحص الموعد الآن. أعد المحاولة قبل الإرسال."}});paint()});
 }
 /* «كان» يُقرأ من لقطة الموعد الأصلي، لا من slots: بعد الإرسال تحمل slots ما
    طُلب، فكانت المقارنةُ بها تقول لكل تعديلٍ مُرسَل «هذا موعدك الحالي نفسه». */
@@ -21943,11 +21865,6 @@ function receiptLine(it){var c='<b>'+esc(courseOf(it))+'</b>',b=it.before||{},co
  if(it.action==="delete")return 'حذف '+c+where+(b.days||b.time?' <small>('+esc(b.days||"")+(b.time?' · ':'')+ltr(rangeText(b.time||""))+')</small>':'');
  if(it.action==="add")return 'إضافة '+c+where+(to?' — '+to:'');
  return 'نقل '+c+where+' من '+esc(b.days||"")+(b.time?' · '+ltr(rangeText(b.time)):'')+' إلى '+to}
-function receiptCard(it){var b=it.before||{},col=collegeOf(it),kind=it.action==="delete"?"حذف":it.action==="add"?"إضافة":"نقل";
- var old=(b.days||b.time)?esc(b.days||"")+(b.time?' · '+ltr(rangeText(b.time)):''):"";
- var next=it.days.length&&it.start?esc(fmtDays(it.days))+' · '+ltr(it.start):"";
- var when=it.action==="delete"?old:it.action==="add"?next:old+' ← '+next;
- return '<li>'+gi(it.action==="delete"?"trash":it.action==="add"?"plus":"swap")+'<span><b>'+esc(courseOf(it))+'</b><small>'+when+(col?' · '+esc(col):'')+'</small></span><em>'+kind+'</em></li>'}
 /* باقٍ كم على إغلاق الطلبات؟ كهرمانياً في آخر يومين، ويختفي بعد الإغلاق. */
 function deadlineHtml(r,open){if(!open||!r.window||!r.window.closesAt)return "";
  var end=new Date(r.window.closesAt);if(isNaN(end))return "";var left=Math.ceil((end.getTime()-Date.now())/864e5);if(left<0)return "";
@@ -21962,10 +21879,10 @@ function submit(){
  if(excuse>=0){focusItem(excuse,"اكتب سبب الاستثناء للموعد "+(excuse+1)+".");return}
  var blocked=state.findIndex(function(it){return !unchangedEdit(it)&&(it.tone==="bad"||it.tone==="checking")});
  if(blocked>=0){openCards[blocked]=true;activeTab="schedule";paint();var card=document.getElementById("item-"+blocked);if(card)card.scrollIntoView({behavior:"smooth",block:"center"});return}
- var chg=state.filter(function(it){return !it.removedByDepartment&&it.action!=="keep"&&!unchangedEdit(it)}),sent=!!data.request.submittedAt;
- var lines=chg.map(receiptCard).join("");
+ var chg=state.filter(function(it){return it.action!=="keep"&&!unchangedEdit(it)}),sent=!!data.request.submittedAt;
+ var lines=chg.map(function(it){return '<li><span>'+receiptLine(it)+'</span></li>'}).join("");
  signSheet({
-  what:'<div>'+gi("send")+'<span>'+(chg.length?countOf(chg.length,AR.change)+' ستصل القسم':'جدولك كما هو سيصل القسم')+'</span></div>'+replacedWarn()+(lines?'<ul class="sk-list sk-flow" aria-label="ما سيصل القسم">'+lines+'</ul>':''),
+  what:'<div>'+gi("send")+'<span>'+(chg.length?countOf(chg.length,AR.change)+' ستصل القسم':'جدولك كما هو سيصل القسم')+'</span></div>'+replacedWarn()+(lines?'<ul class="sk-list" aria-label="ما سيصل القسم">'+lines+'</ul>':''),
   run:function(civil,done){postSubmit(civil,done)}})
 }
 /* الإرسالُ نفسُه كما كان: الخادمُ يعيد الحكمَ ويتحقق من التوقيع، والصفحةُ تعرض ما يقوله. */
@@ -22002,7 +21919,7 @@ function postSubmit(civil,done){
 function mapItems(d){return (d.request.items||[]).map(function(it){var a=it.after||{};return{rowId:it.rowId,action:it.action||"keep",
   courseId:it.action==="add"?Number(a.courseId||0):undefined,collegeId:it.action==="add"?Number(a.collegeId||0):undefined,
   sectionId:it.action==="add"?Number(a.sectionId||0):undefined,collegeName:it.action==="add"?(a.collegeName||""):"",
-  before:it.before||it.after,removedByDepartment:!!it.removedByDepartment,blk:(it.block||blockOf(it.before||it.after)),after:it.after,slots:it.slots||[],days:(it.action==="change"||it.action==="add")?(it.slots||[]).map(function(s){return s.day}):[],
+  before:it.before||it.after,blk:(it.block||blockOf(it.before||it.after)),after:it.after,slots:it.slots||[],days:(it.action==="change"||it.action==="add")?(it.slots||[]).map(function(s){return s.day}):[],
   start:(it.action==="change"||it.action==="add")&&it.slots&&it.slots[0]?it.slots[0].start:"",excuse:it.excuse||"",
   decision:it.decision||null,thread:it.thread||[],negotiation:it.negotiation||"",tone:it.verdict==="clear"?"ok":it.verdict==="exception"?"warn":it.verdict==="conflict"?"bad":"",
   note:it.reasons&&it.reasons.length?it.reasons[0].text:(it.verdict==="clear"?"الوقت متاح":""),alts:it.nearestTimes||[]}})}
@@ -22381,12 +22298,7 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
   const rulesCache = new Map<string, any>();
   const times: Record<string, "ok" | "warn" | "bad"> = {};
   let problemIsShape = false;
-  /* الأوقات مستقلة، والسياق وقواعد النطاق مشتركة. أربع فحوص متزامنة تقلّل
-     الانتظار على الهاتف من دون إطلاق أربعة عشر فحصاً دفعةً واحدة على الخادم. */
-  let nextStart = 0;
-  async function checkNextStart() {
-    while (nextStart < starts.length) {
-      const start = starts[nextStart++];
+  for (const start of starts) {
     const end = endForRequest(days, start, block && block > 0 ? block : undefined);
     const variant = base.map((item, k) => k !== index ? item : {
       ...item,
@@ -22397,9 +22309,7 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
     const verdict = judged.items[index]?.verdict;
     times[start] = verdict === "conflict" ? "bad" : verdict === "exception" ? "warn" : "ok";
     if ((judged.items[index]?.reasons || []).some((reason: any) => reason.code === "hours" || (reason.blocking && reason.source === "shape" && /لا يُخلط/.test(String(reason.text || ""))))) problemIsShape = true;
-    }
   }
-  await Promise.all(Array.from({ length: Math.min(4, starts.length) }, () => checkNextStart()));
   /* الأيامُ لا تغطّي ساعاتِ المقرّر: الحكمُ نفسُه لكل الأوقات، فلا تُلوَّن كلُّها حمراء كأن الوقتَ هو الخطأ. */
   if (problemIsShape) { res.json({ times: {}, problem: "shape" }); return; }
   res.json({ times });

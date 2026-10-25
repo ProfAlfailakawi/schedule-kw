@@ -5029,6 +5029,10 @@ html.schedule-physics-active .rooms-slot:hover::after{content:none}
 .decision-accordion-summary::-webkit-details-marker{display:none}
 .decision-accordion-title{display:inline-flex;align-items:center;gap:9px;font-size:.92rem;line-height:1.3}
 .decision-accordion-title svg{inline-size:18px;block-size:18px;color:var(--accent);flex:none}
+.decision-regulation-title>span{display:grid;gap:2px;min-width:0}
+.decision-regulation-title strong{font-size:.9rem;white-space:nowrap}
+.decision-regulation-title small{font-size:.72rem;font-weight:600;color:var(--muted);white-space:nowrap}
+.decision-accordion-summary>.decision-regulation-count{flex:none;white-space:nowrap;word-break:keep-all}
 .decision-accordion-summary em{
   display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;
   border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:999px;
@@ -8686,8 +8690,7 @@ html[data-schedule-workspace="presentation"] .schedule-status{padding:0;border:0
   .qc-wheel-track{height:150px;padding-block:52px}
   .qc-wheel-cell{min-height:44px}
 }
-.room-fit-note{display:flex;align-items:flex-start;gap:.45rem;margin:.45rem 0 0;padding:.55rem .7rem;border:1px solid #e8d6a9;border-radius:12px;background:#fbf6e9;color:#70551a;font-size:.82rem;line-height:1.55}.room-fit-note svg{width:1rem;height:1rem;flex:none;margin-top:.15rem}
-.room-fit-confirm{display:flex;align-items:flex-start;gap:.65rem;margin:.55rem 0 0;padding:.75rem .85rem;border:1px solid #e8d6a9;border-radius:14px;background:linear-gradient(135deg,#fff8e8,#fbf6e9);color:#614b1a}.room-fit-confirm>svg{width:20px;height:20px;flex:none;margin-top:2px}.room-fit-confirm>div{display:grid;gap:.25rem;min-width:0}.room-fit-confirm strong{line-height:1.45}.room-fit-confirm small{color:#756d5c;line-height:1.45}.room-fit-confirm span{display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.35rem}.room-fit-confirm button{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;min-height:40px;padding:0 .75rem;border:1px solid #d8c79c;border-radius:11px;background:#fff;color:#58451a;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}.room-fit-confirm button:first-child{background:#216c5e;border-color:#216c5e;color:#fff}.room-fit-confirm button svg{width:16px;height:16px}
+.room-fit-note{display:grid;grid-template-columns:32px minmax(0,1fr);align-items:start;gap:.45rem .6rem;margin:.45rem 0 0;padding:.65rem .75rem;border:1px solid #e8d6a9;border-radius:15px;background:linear-gradient(145deg,#fbf6e9,#fffdf8);color:#70551a;font-size:.82rem;line-height:1.5}.room-fit-note__icon{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:#f3e8ca}.room-fit-note__icon svg{width:17px;height:17px}.room-fit-note__content{display:grid;gap:.35rem;min-width:0}.room-fit-note__content>strong{font-size:.84rem}.room-fit-note__content>small{color:#82765e;font-size:.72rem}.room-fit-note__pair{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}.room-fit-note__pair span,.room-fit-note__capacity{display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .5rem;border-radius:999px;background:#fff;border:1px solid #eee4ca;font-size:.75rem;font-weight:700}.room-fit-note__pair svg,.room-fit-note__capacity svg{width:14px;height:14px;flex:none}.room-fit-note__pair>svg{border:0;background:transparent;padding:0;color:#957333}.room-fit-note__capacity{justify-self:start}
 
 /* شارة «منتدب» في كتالوج الأساتذة: غلافٌ يحمل تلميح قسم الانتداب دون أن يغيّر شكل الشارة الموحّدة. */
 .instructor-delegate-mark{display:inline-flex;align-items:center}

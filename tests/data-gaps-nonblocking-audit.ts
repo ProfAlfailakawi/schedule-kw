@@ -12,7 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canSign, emptyApproval } from "../src/utils/approvalWorkflow";
 import { approvalBlockerSummary } from "../src/utils/scheduleBlockers";
-import { capacityGapItems, teachingModeGapItems, computeScheduleDataReadiness } from "../src/utils/scheduleDataReadiness";
+import { capacityGapItems, computeScheduleDataReadiness } from "../src/utils/scheduleDataReadiness";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,7 +22,7 @@ function check(condition: boolean, name: string) {
   else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`); }
 }
 
-const course = { AdCourseId: 5, CourseCode: "C101", CourseName: "مقرر", CourseCredit: 3, CourseHours: 3, MaxStudent: 30, CourseTeachingMode: "theoretical" };
+const course = { AdCourseId: 5, CourseCode: "C101", CourseName: "مقرر", CourseCredit: 3, CourseHours: 3, MaxStudent: 30 };
 const room = (id: string, capacity: number | null) => ({ id, buildingCode: "012", canonicalCode: id.toUpperCase(), capacity });
 const row = (id: number, o: Record<string, unknown> = {}) => ({
   id, AdCollegeId: 1, AdSectionId: 1, AdTermId: 1, AdCourseId: 5, AdInstructorId: 7, SCode: String(id),
@@ -79,17 +79,6 @@ const base = { courses: [course], instructorIds: new Set([7, 8]) };
   const many = canSign(emptyApproval(1, 5, 20), "committee", { blockingConflicts: 0, rowCount: 3, missingCapacity: 3 });
   check(many.ok === false && many.message.includes("3 مقررات"), "الرسالةُ تعدّ المقرّرات الناقصة");
 }
-/* 1د) طبيعة التدريس مثل السعة: تخص المقرر المجدول فقط، وتمنع التوقيع حتى تحديدها. */
-{
-  const noMode = computeScheduleDataReadiness({ ...base, courses: [{ ...course, CourseTeachingMode: "" }], rows: [row(1), row(2, { SCode: "2" })], rooms: [room("f13", 40)] });
-  check(teachingModeGapItems(noMode.items).length === 1, "مقرر مجدول بشعبتين وبلا طبيعة تدريس يُعد مرة واحدة");
-  const noRows = computeScheduleDataReadiness({ ...base, courses: [{ ...course, CourseTeachingMode: "" }], rows: [], rooms: [] });
-  check(teachingModeGapItems(noRows.items).length === 0, "مقرر غير مجدول لا يمنع التوقيع");
-  const blocked = canSign(emptyApproval(1, 5, 20), "committee", { blockingConflicts: 0, rowCount: 2, missingTeachingMode: teachingModeGapItems(noMode.items).length });
-  check(blocked.ok === false && (blocked as any).code === "missing-teaching-mode", "نقص طبيعة التدريس يمنع التوقيع");
-  const allowed = canSign(emptyApproval(1, 5, 20), "committee", { blockingConflicts: 0, rowCount: 2, missingTeachingMode: 0 });
-  check(allowed.ok === true, "بعد تحديد طبيعة التدريس يُسمح بالتوقيع");
-}
 /* 1ب) «بانتظار تثبيت القاعة» (مبنى بلا قاعة مثبّتة) حالةٌ مقصودة لا بندٌ ناقص؛ وبلا مبنى تبقى ناقصة. */
 {
   const pending = computeScheduleDataReadiness({ ...base, rows: [row(1, { roomId: "", buildingId: "b8", locationStatus: "PENDING_ROOM" })], rooms: [] });
@@ -121,15 +110,14 @@ const base = { courses: [course], instructorIds: new Set([7, 8]) };
 {
   const server = readFileSync(join(ROOT, "server.ts"), "utf8");
   const sign = server.slice(server.indexOf('app.post("/api/approvals/sign"'), server.indexOf('app.post("/api/approvals/withdraw"'));
-  check(!sign.includes("data-readiness") && sign.includes("capacityGapItems(readiness.items)") && sign.includes("teachingModeGapItems(readiness.items)"), "مسار التوقيع يسأل عن السعة وطبيعة التدريس فقط من نواقص المقرر");
+  check(!sign.includes("data-readiness") && sign.includes("capacityGapItems(readiness.items)") && sign.includes("missingCapacity"), "مسار التوقيع بلا بوابة نواقص عامة — السعةُ وحدها تُسأل");
   const fn = server.slice(server.indexOf("async function scheduleDataReadiness"), server.indexOf('app.get("/api/approvals"'));
   check(fn.includes("normalizeRow: (row: any) => canonicalizeHistoricalLocationForRuntime(row as FSchedule, registry)"), "عدّ النواقص يطبّع الصفوف بمطبّع الموانع نفسه");
   const bar = readFileSync(join(ROOT, "src/components/ApprovalBar.tsx"), "utf8");
-  check(bar.includes("disabled={busy || blockingConflicts > 0 || courseDataBlocksSign}") && bar.includes("لا تمنع التوقيع"), "زرّ التوقيع يُعطَّل بنقص السعة أو طبيعة التدريس");
-  check(bar.includes("canSignNow && blockingConflicts === 0 && !courseDataBlocksSign ?"), "شارة «جاهز للتوقيع» تتطلب اكتمال الحقلين");
-  check(bar.includes("courseDataBlocksSign ? (") && bar.includes("courseBlockerText"), "شارةٌ حمراء تفتح استكمال الحقول الناقصة");
+  check(bar.includes("disabled={busy || blockingConflicts > 0 || capacityBlocksSign}") && !bar.includes("تمنع التوقيع حتى") && bar.includes("لا تمنع التوقيع"), "زرّ التوقيع لا يُعطَّل إلا بالمانع المادّي أو بنقص السعة، وبقية النواقص نصُّها غير مانع");
+  check(bar.includes("canSignNow && blockingConflicts === 0 && missingCapacity === 0 ?"), "شارة «جاهز للتوقيع» تظهر مع غياب الموانع والسعةُ كاملة ولو بقيت نواقص أخرى");
+  check(bar.includes("capacityBlocksSign ? (") && bar.includes("السعة ناقصة"), "شارةٌ حمراء «السعة ناقصة» تفتح قائمة الإدخال");
   check(server.slice(server.indexOf('app.get("/api/approvals"'), server.indexOf('app.get("/api/approvals/term"')).includes("missingCapacity: capacityGapItems(readiness.items).length"), "حالةُ الاعتماد تحمل عدد المقرّرات بلا سعة للشريط");
-  check(server.slice(server.indexOf('app.get("/api/approvals"'), server.indexOf('app.get("/api/approvals/term"')).includes("missingTeachingMode: teachingModeGapItems(readiness.items).length"), "حالةُ الاعتماد تحمل عدد المقرّرات بلا طبيعة تدريس للشريط");
   check(!bar.includes('className="apb-room-capacities"'), "لا بطاقات سعةٍ مكرّرة تحت القائمة");
 }
 console.log(`\n${passed} passed, ${failed} failed`);

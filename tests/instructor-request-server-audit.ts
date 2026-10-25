@@ -57,7 +57,7 @@ check(server.includes("function stripForInstructor"), "تجريدُ ما لا ي
 check(server.includes("const { roomCandidates, roomOptions, ...rest } = item;"), "والمرشّحاتُ وتفاصيلُ قاعاتِها تُنزع نزعاً، لا تُستثنى بالنسيان");
 check(/after: rest\.after \? \{ \.\.\.rest\.after, room: undefined \}/.test(server),
   "و«طلب» لا تحمل قاعةً أبداً");
-check(server.includes("stripForInstructor(judgedRequest)") && server.includes("judgeRequestItems(request),"), "والقراءةُ تمرّ بالتجريد");
+check(server.includes("stripForInstructor(judgedRequest)") && server.includes("judgeRequestItems(request),\n  ]);"), "والقراءةُ تمرّ بالتجريد");
 check(server.includes("stripForInstructor(saved)"), "والإرسالُ كذلك — لا مخرجَ بلا تجريد");
 /* مسارُ الفحص يخاطب صفحةَ الأستاذ أيضاً، فلا يُرسل مرشّحاته. */
 check(!/\/check[\s\S]{0,3000}roomCandidates: verdict\.roomCandidates/.test(server),
@@ -149,8 +149,8 @@ check(!/قاعة|AdRoomCode|AdRoomHall|roomCandidates/.test(page
 check(page.includes("ينتهي ") && page.includes("مدّةُ المحاضرة من اللائحة"),
   "والنهايةُ تُعرض محسوبةً ولا تُسأل");
 check(page.includes('fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-batch"')
-  && page.includes("items:payloadItems()"),
-  "والحكمُ يُسأل عنه الخادمُ عند كل تغيير بحزمةٍ واحدة");
+  && page.includes("body:JSON.stringify({items:payloadItems()})"),
+  "والحكمُ يُسأل عنه الخادمُ لكل المسودة بنداءٍ دفعي واحد عند كل تغيير");
 check(page.includes('id="openChooser"') && page.includes('id="courseSearch"')
   && page.includes("data.courses.map(function(c)"),
   "والإضافةُ تبدأ بزرٍ واضح ثم قائمة مقرّرات القسم القابلة للبحث");
@@ -168,10 +168,11 @@ check(page.includes('var blocked=state.filter(function(it){return !unchangedEdit
 check(page.includes('days:(it.action==="change"||it.action==="add")?(it.slots||[]).map(function(s){return s.day}):[]')
   && page.includes('decision:it.decision||null'),
   "والطلب المحفوظ يعود بأيامه ووقته وقراراته، فلا يختفي تفصيل الحركة عند إعادة فتح الرابط");
-check(page.includes("function rawItem(it)")
+check(page.includes('(it.action==="change"||it.action==="add")&&it.days.length&&it.start')
   && page.includes('courseId:it.action==="add"?it.courseId:undefined')
-  && page.includes('collegeId:it.action==="add"?it.collegeId:undefined'),
-  "والإضافةُ تُفحص ضمن الحزمة وتُرسل بهوية المقرر ونطاقه");
+  && page.includes('collegeId:it.action==="add"?it.collegeId:undefined')
+  && page.includes('sectionId:it.action==="add"?it.sectionId:undefined'),
+  "والإضافةُ تُفحص مع التعديلات في الطلب الدفعي وتُرسل بهوية المقرر والكلية والقسم");
 check(server.includes('const action = req.body?.action === "add" ? "add" : "change"')
   && server.includes("const candidate = rowFromRequest(requested, base as any)"),
   "وفحصُ الإضافة في الخادم يبني الصفَّ المطلوب ويفحصه، لا يغيّر اسم العملية فقط");

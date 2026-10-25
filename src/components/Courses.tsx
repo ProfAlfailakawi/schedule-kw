@@ -236,7 +236,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setHours(String(x.CourseHours ?? ""));
       setCapacity(String(x.MaxStudent ?? ""));
       setCourseRoomType(String(x.CourseRoomType || ""));
-      setCourseTeachingMode(["theoretical", "applied", "practical", "field_training"].includes(String(x.CourseTeachingMode || "")) ? String(x.CourseTeachingMode) : "");
+      setCourseTeachingMode(String(x.CourseTeachingMode || ""));
       setError(null);
       setCurriculumTarget(null);
       setMode("edit");
@@ -356,22 +356,15 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       } else {
         await load();
       }
-      if (mode === "edit") {
-        const notices: string[] = [];
+      if (mode === "edit" && (d?.roomTypeEvaluated || d?.teachingModeEvaluated)) {
         const roomCopies = (Number(d.roomTypeSynced) || 0) + (Number(d.roomTypeAligned) || 0);
         const modeCopies = (Number(d.teachingModeSynced) || 0) + (Number(d.teachingModeAligned) || 0);
-        const roomSkipped = Array.isArray(d.roomTypeSkipped) ? d.roomTypeSkipped.length : 0;
-        const modeSkipped = Array.isArray(d.teachingModeSkipped) ? d.teachingModeSkipped.length : 0;
-        const academicCopies = (Number(d.academicSynced) || 0) + (Number(d.academicAligned) || 0);
-        const academicSkipped = Array.isArray(d.academicSkipped) ? d.academicSkipped.length : 0;
-        if (d.academicEvaluated && (academicCopies || academicSkipped)) notices.push(`بيانات المقرر · ${countOf(academicCopies + 1, AR.site)}`);
-        if (d.roomTypeEvaluated && (roomCopies || roomSkipped)) notices.push(
-          `${courseRoomType ? `نوع القاعة «${courseRoomType}»` : "أُزيل نوع القاعة"} · ${countOf(roomCopies + 1, AR.site)}`);
-        if (d.teachingModeEvaluated && (modeCopies || modeSkipped)) notices.push(
-          `${courseTeachingMode ? `طبيعة التدريس «${TEACHING_MODE_LABEL[courseTeachingMode] || courseTeachingMode}»` : "أُزيلت طبيعة التدريس"} · ${countOf(modeCopies + 1, AR.site)}`);
-        if (Number(d.academicSynced) > 0 || Number(d.roomTypeSynced) > 0 || Number(d.teachingModeSynced) > 0) await load();
-        if (notices.length) setReceipt(notices.join(" · ")
-          + (Math.max(roomSkipped, modeSkipped, academicSkipped) ? ` · تعذّر ${countOf(Math.max(roomSkipped, modeSkipped, academicSkipped), AR.site)}` : ""));
+        const skipped = Math.max(Array.isArray(d.roomTypeSkipped) ? d.roomTypeSkipped.length : 0, Array.isArray(d.teachingModeSkipped) ? d.teachingModeSkipped.length : 0);
+        if (Number(d.roomTypeSynced) > 0 || Number(d.teachingModeSynced) > 0) await load();
+        const lines: string[] = [];
+        if (d.roomTypeEvaluated && (roomCopies || d.roomTypeSkipped?.length)) lines.push(`${courseRoomType ? `نوع القاعة «${courseRoomType}»` : "أُزيل نوع القاعة"} · ${countOf(roomCopies + 1, AR.site)}`);
+        if (d.teachingModeEvaluated && (modeCopies || d.teachingModeSkipped?.length)) lines.push(`${courseTeachingMode ? `طبيعة التدريس «${TEACHING_MODE_LABEL[courseTeachingMode] || courseTeachingMode}»` : "أُزيلت طبيعة التدريس"} · ${countOf(modeCopies + 1, AR.site)}`);
+        if (lines.length) setReceipt(lines.join(" · ") + (skipped ? ` · تعذّر ${countOf(skipped, AR.site)}` : ""));
       }
       if (mode === "create" && targetPlan) {
         setReceipt(`تمت إضافة ${savedCode} — ${savedName} إلى ${targetPlan.name} بنجاح.`);
@@ -595,6 +588,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             <Field label="طبيعة التدريس (للمراجعة اللائحية)">
               <select value={courseTeachingMode} onChange={event => setCourseTeachingMode(event.target.value)} aria-label="طبيعة تدريس المقرر">
                 <option value="">غير محددة</option>
+                {courseTeachingMode === "mixed" ? <option value="mixed">mixed</option> : null}
                 <option value="theoretical">نظري</option>
                 <option value="applied">تطبيقي</option>
                 <option value="practical">عملي</option>
@@ -699,7 +693,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             <>
               <div className="academic-inspector-icon"><BookOpen /></div>
               <span className="surface-kicker">تفاصيل المقرر</span>
-              <h2>{selected.CourseName}<PlanBadge courseId={selected.AdCourseId} /></h2>
+              <h2 className="course-room-type-line"><span>{selected.CourseName}<PlanBadge courseId={selected.AdCourseId} /></span><CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
               <p>{sec(selected.AdSectionId)} · {coll(selected.AdCollegeId)}</p>
               {serviceOf(selected).length ? <p className="course-service-for">متطلب في صحائف: {serviceOf(selected).join("، ")}</p> : null}
               <div className="inspector-facts inspector-facts-pairs">
@@ -707,8 +701,6 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                 <article><span>الساعات</span><b>{selected.CourseHours}</b></article>
                 <article><span>السعة</span><b>{selected.MaxStudent || 0}</b></article>
                 <article><span>رمز المقرر</span><b>{selected.CourseCode || "—"}</b></article>
-                <article><span>نوع القاعة</span><b>{selected.CourseRoomType || "غير محدد"}</b></article>
-                <article><span>طبيعة التدريس</span><b>{TEACHING_MODE_LABEL[selected.CourseTeachingMode] || "غير محددة"}</b></article>
               </div>
               <div className="inspector-actions">
                 <PrimaryButton onClick={() => edit(selected)}>تعديل</PrimaryButton>

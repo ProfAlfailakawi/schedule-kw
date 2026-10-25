@@ -331,7 +331,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
     <>
       <div className="section-plan-report-stats">
         <div><span>مجموع الشعب المختارة</span><b>{total}</b></div>
-        <div><span>ما شغّله القسم عادةً (الموسم نفسه فقط)</span><b>{typical ?? "—"}</b></div>
+        <div><span>مجموع الشعب المعتاد في الفصل نفسه</span><b>{typical ?? "—"}</b></div>
         <div><span>المقررات المخطّطة</span><b>{planned.length}</b></div>
       </div>
       <p className="section-plan-source">{sourceLine}</p>
@@ -544,7 +544,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
                     {history.filter(item => item.similar !== false && item.sections > 0).slice(0, 3).length
                       ? <span className="spw-chips">{history.filter(item => item.similar !== false && item.sections > 0).slice(0, 3).map(item => <i key={item.termName}><b>{item.sections}</b><em>{item.termName.replace("الفصل ", "")}</em></i>)}</span>
                       : <b>—</b>}
-                    <small>آخر الفصول{lineage ? ` · من ${lineage}` : ""}</small>
+                    <small>الفصول المماثلة{lineage ? ` · من ${lineage}` : ""}</small>
                   </div>
                 </div>
                 <p className="spw-verdict" title={suggestion.reason}><Lightbulb aria-hidden="true" /><span>{suggestion.headline}</span><span className="sr-only"> — {suggestion.reason}</span></p>

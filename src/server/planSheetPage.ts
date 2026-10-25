@@ -10,7 +10,7 @@
  * في public/plans/_template/sheet.html ويُمرَّر هنا نصّاً، فلا قراءةَ ملفاتٍ داخل الطلب.
  */
 import qrFactory from "../utils/qrcodeGenerator";
-import { REFERENCE_CARDS, REFERENCE_EDGES, REFERENCE_HUES, REFERENCE_SEMESTERS } from "./planSheetReferenceLayout";
+import { REFERENCE_CARDS, REFERENCE_CARD_LABELS, REFERENCE_EDGES, REFERENCE_HUES, REFERENCE_SEMESTERS } from "./planSheetReferenceLayout";
 import { AR, countOf } from "../utils/arabicCount";
 import type { SheetCourse, SheetElective, SheetGroup, SheetModel } from "../types";
 
@@ -71,16 +71,11 @@ const AR_PICK: Record<number, string> = { 1: "مقرراً واحداً", 2: "م
 const levelLabel = (level: number) => level ? `المستوى ${level}` : "بلا مستوى";
 
 /** اسمُ المقرر في بطاقة: سطرٌ واحد بخطٍّ أصغر عند الضرورة، وإلا سطران متوازنان. */
-function nameLines(name: string, avail: number): { lines: string[]; size: number } {
-  // Typography calibrated against all 28 course cards in the approved
-  // educational-technology/index.html, including the 350px elective cards.
-  // Keep the reference's line breaks and Cairo font sizes, not an estimated
-  // one-line fit that crowds the course number.
-  const wide = avail >= 200;
-  if (wide && name.length <= 29) return { lines: [name], size: 16 };
-  if (!wide && name.length <= 18) return { lines: [name], size: 15 };
-  if (!wide && name.length <= 20) return { lines: [name], size: 14 };
+function nameLines(name: string, avail: number, referenceCode?: string): { lines: string[]; size: number } {
+  const measured = referenceCode ? REFERENCE_CARD_LABELS[referenceCode] : undefined;
+  if (measured?.name === name) return { lines: measured.lines, size: measured.size };
   const width = (s: string, fs: number) => s.length * fs * 0.5;
+  for (const fs of [16, 15, 14]) if (width(name, fs) <= avail) return { lines: [name], size: fs };
   const words = name.split(" ");
   let best: string[] = [name], bestW = Infinity;
   for (let i = 1; i < words.length; i++) {
@@ -269,9 +264,9 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
   });
 
   /* ── أعمدةُ المستويات ─────────────────────────────────────────────────── */
-  const cardSvg = (code: string, label: string, credit: number, x: number, y: number, w: number, stroke: string, tint: string, numColor: string, dashed = false) => {
+  const cardSvg = (code: string, label: string, credit: number, x: number, y: number, w: number, stroke: string, tint: string, numColor: string, dashed = false, referenceCode?: string) => {
     const cy = y + CARD_H / 2, avail = w - 112;
-    const nl = nameLines(label, avail);
+    const nl = nameLines(label, avail, idOf(code));
     const textY = nl.lines.length === 2 ? [cy - 3, cy + 14] : [cy + (nl.size >= 16 ? 5 : 5)];
     return `<g class="card" data-c="${esc(idOf(code))}" tabindex="0" role="button" aria-label="${esc(`${idOf(code)} ${label}`)}"><rect x="${x}" y="${y}" width="${w}" height="${CARD_H}" rx="15" fill="${tint}" stroke="${stroke}" stroke-opacity=".5" stroke-width="1.5"${dashed ? ' stroke-dasharray="6 4"' : ""} filter="url(#sh)"/><circle cx="${x + w - 24}" cy="${cy}" r="14" fill="${stroke}"/><text x="${x + w - 24}" y="${cy + 5}" text-anchor="middle" font-size="15" font-weight="900" fill="#fff">${credit}</text>${nl.lines.map((line, k) => `<text x="${x + w - 46}" y="${textY[k]}" text-anchor="start" font-size="${nl.size}" font-weight="700" fill="#1E293B">${esc(line)}</text>`).join("")}<text x="${x + 13}" y="${cy + 9}" text-anchor="end" font-size="25" font-weight="900" fill="${numColor}">${esc(idOf(code))}</text></g>`;
   };
@@ -315,7 +310,7 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
     for (const course of model.courses) {
       const p = REFERENCE_CARDS[idOf(course.code)];
       const i = referenceColumn(course.code), [stroke] = LEVEL_PALETTE[i];
-      out.push(cardSvg(course.code, course.name, course.credit, p.x, p.y, CARD_W, stroke, "#fff", hues.get(course.code) || GRAY));
+      out.push(cardSvg(course.code, course.name, course.credit, p.x, p.y, CARD_W, stroke, "#fff", hues.get(course.code) || GRAY, false, referenceMode ? idOf(course.code) : undefined));
     }
     if (mapEdges.length) {
       out.push(`<g><rect x="62" y="806" width="282" height="112" rx="18" fill="#fff" stroke="#EA580C" stroke-opacity=".35" stroke-dasharray="5 4"/>${["السهم يبدأ من المتطلب", "وينتهي عند المقرر الذي يفتحه", "ولون الرقم هو لون أسهمه"].map((line, k) => `<text x="203" y="${840 + k * 28}" text-anchor="middle" font-size="16" font-weight="700" fill="#334155">${line}</text>`).join("")}</g>`);
@@ -334,7 +329,7 @@ export function buildPlanSheet(model: SheetModel, parts: SheetTemplateParts, emb
       list.forEach((c, i) => {
         const r = Math.floor(i / perRow), k = i % perRow, inRow = Math.min(perRow, list.length - r * perRow);
         const rowW = inRow * 350 + (inRow - 1) * 60, startX = cx + rowW / 2 - 350;
-        out.push(cardSvg(c.code, c.name, c.credit, startX - k * 410, y + 70 + r * 80, 350, stroke, "#fff", GRAY));
+        out.push(cardSvg(c.code, c.name, c.credit, startX - k * 410, y + 70 + r * 80, 350, stroke, "#fff", GRAY, false, referenceMode ? idOf(c.code) : undefined));
       });
       y += h + 24;
     });

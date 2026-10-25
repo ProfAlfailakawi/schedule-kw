@@ -455,7 +455,7 @@ function opResultHtml(o){var d=D.decision||{},s="";
 function opsHtml(){var ops=D.ops||[];if(!ops.length)return '<div class="card empty">لا مواد في هذا المقترح.</div>';
  return '<div class="ops">'+ops.map(function(o,i){var t=o.target;
   return '<article class="op" aria-label="'+esc(KIND[o.kind]+": "+opName(o))+'"><div class="op-head"><span class="kind" data-k="'+o.kind+'">'+ic(KIND_IC[o.kind])+esc(KIND[o.kind]||o.kind)+'</span><span class="hint">المادة '+(i+1)+' من '+ops.length+'</span></div>'+
-  '<h3>'+esc(t.courseName||t.courseCode||"المقرر")+(t.planBadge?'<span class="plan-badge">'+esc(t.planBadge)+'</span>':'')+(t.service?'<span class="plan-badge">متطلب كلية</span>':'')+'<small>'+esc(t.courseCode||"")+(t.SCode?' · شعبة '+esc(t.SCode):'')+(t.collegeName?' · '+esc(t.collegeName):'')+'</small></h3>'+
+  '<h3>'+esc(t.courseName||t.courseCode||"المقرر")+(t.planBadge?'<span class="plan-badge">'+esc(t.planBadge)+'</span>':'')+(t.service?'<span class="plan-badge">متطلب</span>':'')+'<small>'+esc(t.courseCode||"")+(t.SCode?' · شعبة '+esc(t.SCode):'')+(t.collegeName?' · '+esc(t.collegeName):'')+'</small></h3>'+
   factsHtml(t)+whatChanges(o)+opResultHtml(o)+'</article>'}).join("")+'</div>'}
 
 /* ── الأثر ───────────────────────────────────────────────────────────────── */
@@ -659,7 +659,7 @@ function fail(msg,code,focusId){UI.err=msg;UI.errCode=code||"";paintResp();var e
  if(focusId){var f=document.getElementById(focusId);if(f)f.focus()}}
 /* التوقيعُ في الورقة السفلية المشتركة: تقول ما سيُوقَّع عليه، ولا يُحفظ الرقمُ في UI ولا في المتصفح. */
 function signWhat(){var ch=wantsChange(),h='<div>'+SK.gi(ch?"pen":"check")+'<span>'+(ch?"تطلب تعديلاً على المقترح":"توافق على المقترح")+'</span></div>';
- if(D.responseMode!=="linked"){var li=(D.ops||[]).filter(function(o){return UI.choice[o.id]}).map(function(o){var ok=UI.choice[o.id]==="approve";return '<li>'+SK.gi(ok?"check":"pen")+'<span><b>'+esc(o.target.courseName||o.target.courseCode)+'</b><small>'+esc(o.target.SCode?"شعبة "+o.target.SCode:"")+'</small></span><em>'+(ok?"أوافق":"أحتاج تعديلاً")+'</em></li>'}).join("");if(li)h+='<ul class="sk-list sk-flow">'+li+'</ul>'}
+ if(D.responseMode!=="linked"){var li=(D.ops||[]).filter(function(o){return UI.choice[o.id]}).map(function(o){return '<li><span><b>'+esc(o.target.courseName||o.target.courseCode)+'</b> — '+(UI.choice[o.id]==="approve"?"أوافق":"أحتاج تعديلاً")+'</span></li>'}).join("");if(li)h+='<ul class="sk-list">'+li+'</ul>'}
  return h}
 function send(){if(UI.sending||!D)return;UI.err="";UI.errCode="";
  if(!anyChoice()){fail("اختر ردّك أولاً: أوافق أو أحتاج تعديلاً.");return}

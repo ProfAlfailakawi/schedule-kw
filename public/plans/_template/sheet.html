@@ -246,8 +246,7 @@ async function downloadPlanPdf(){
 const C=D.C,EL=D.EL,E=D.E,H=D.H;
 let sel=null;
 const name=c=>C[c]?C[c][1]:EL[c]?EL[c][0]:'';
-// The course catalog supplies text, not HTML. The panel and floating tag
-// are built with innerHTML, so encode every catalog field inserted into them.
+// بياناتُ المقرر تُعامل كنص؛ نهربها قبل إدخالها في لوحة التفاصيل أو الاسم العائم.
 const htmlText=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const up=(c,s=new Set())=>{E.forEach(([a,b])=>{if(b==c&&!s.has(a)){s.add(a);up(a,s)}});return s};
 const dn=(c,s=new Set())=>{E.forEach(([a,b])=>{if(a==c&&!s.has(b)){s.add(b);dn(b,s)}});return s};
