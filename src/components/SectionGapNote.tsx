@@ -9,7 +9,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DEMO_SEEDED_EVENT } from "../utils/demoSeedEvent";
 import { Armchair, ChevronDown, ClipboardList, History, Layers, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { planGaps, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
+import { planGaps, planSurpluses, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
 import { sortByName } from "../utils/sorting";
 import { VISITOR_MAX_SECTIONS, visitingNeed, type CourseStaffing } from "../utils/visitingNeed";
 
@@ -76,17 +76,17 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
   }, [collegeId, sectionId, termId, stamp, scope]);
   const historyReady = Boolean(stamp) && past?.scope === scope && past.stamp === stamp;
   /* مصدران منفصلان: التخطيط (المختار أو كشف المتبقي) ورغبات الطلبة في «مساري». لا يدخل أحدهما في الآخر. */
-  const planItems = useMemo(() => {
-    if (!data) return [];
+  const plan = useMemo(() => {
+    if (!data) return { gaps: [], surpluses: [] };
     /* المتبقي بلا تاريخه يقترح «شعبةً واحدة» فيُخفي النقص؛ فلا يُعتدّ به حتى يصل التاريخ. */
     const plan: GapPlan = { accepted: data.accepted || {}, remaining: historyReady ? data.remaining || {} : {}, history: historyReady ? past!.history : {} };
-    return planGaps(data.courses, plan);
+    return { gaps: planGaps(data.courses, plan), surpluses: planSurpluses(data.courses, plan) };
   }, [data, historyReady, past]);
   const studentItems = useMemo(() => (data ? studentGaps(data.courses) : []), [data]);
   const reload = useCallback(() => setBump(value => value + 1), []);
   /* مع كشفٍ مرفوع لا تكتمل حسبة التخطيط قبل أن يصل تاريخ الفصول (وإلا اقترح «شعبةً واحدة» فأخفى النقص). */
   const ready = data !== null && (!data.planImported || historyReady);
-  return { planItems, studentItems, staffing: staffed && staffed.scope === scope ? staffed.payload.staffing : null, freeSlots: staffed && staffed.scope === scope ? staffed.payload.visitorFreeSlots : 0, courses: data?.courses || [], planImported: Boolean(data?.planImported), loaded: data !== null, ready, source: data?.planSource?.fileName || "", reload };
+  return { planItems: plan.gaps, planSurplusItems: plan.surpluses, studentItems, staffing: staffed && staffed.scope === scope ? staffed.payload.staffing : null, freeSlots: staffed && staffed.scope === scope ? staffed.payload.visitorFreeSlots : 0, courses: data?.courses || [], planImported: Boolean(data?.planImported), loaded: data !== null, ready, source: data?.planSource?.fileName || "", reload };
 }
 
 export type Gap = ReturnType<typeof useSectionGap>;
@@ -94,13 +94,13 @@ export type Gap = ReturnType<typeof useSectionGap>;
 /** The quick comparison duplicates planning's entry point whenever its badge is shown.
  * Keep the decision tied to the very same planItems used by SectionGapBadge,
  * not only to whether a remaining-students file has been uploaded. */
-export function showQuickCompareBadge(gap: Pick<Gap, "loaded" | "planImported" | "planItems">): boolean {
-  return gap.loaded && !gap.planImported && gap.planItems.length === 0;
+export function showQuickCompareBadge(gap: { loaded: boolean; planImported: boolean; planItems: GapItem[]; planSurplusItems?: GapItem[] }): boolean {
+  return gap.loaded && !gap.planImported && gap.planItems.length === 0 && (gap.planSurplusItems?.length || 0) === 0;
 }
 
 export type GapKind = "plan" | "students";
 const KIND = {
-  plan: { Icon: ClipboardList, word: "التخطيط", title: "شعبٌ يُفضَّل زيادتها بحسب تخطيطك", hint: "من تخطيط الشعب: المختار أو كشف المتبقي · اختياري ولا يمنع التوقيع" },
+  plan: { Icon: ClipboardList, word: "التخطيط", title: "مراجعة عدد الشعب بحسب تخطيطك", hint: "المطلوب من اختيار القسم أو كشف المتبقي ومتوسط الفصول المماثلة · الموجود من هذا الفصل فقط · لا تجميع بين الفصول" },
   students: { Icon: Users, word: "مساري", title: "شعبٌ يطلبها الطلبة في «مساري»", hint: "من رغبات الطلبة في «مساري» · اختياري ولا يمنع التوقيع" },
 } as const;
 
@@ -151,7 +151,8 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
   const ordered = useMemo(() => sortByName(items, item => item.name), [items]);
   const list = all ? ordered : ordered.slice(0, SHOWN);
   const { Icon, title } = KIND[kind];
-  const need = useMemo(() => (staffing ? visitingNeed(items, staffing, freeSlots) : null), [items, staffing, freeSlots]);
+  const staffingItems = useMemo(() => items.filter(item => !item.surplus && item.extra > 0), [items]);
+  const need = useMemo(() => (staffing && kind === "plan" ? visitingNeed(staffingItems, staffing, freeSlots) : null), [staffingItems, staffing, freeSlots, kind]);
   const rowOf = (id: number) => need?.rows.find(row => row.id === id);
   return (
     <section className="apb-gap" aria-label={title}>
@@ -161,6 +162,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
         <small>اختياري</small>
         <button type="button" className="apb-dr-close" aria-label="إغلاق" onClick={onClose} data-guide-ignore="إغلاق قائمة الشعب المقترحة"><X aria-hidden="true" /></button>
       </header>
+      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />المطلوب من اختيار القسم أو كشف المتبقي ومتوسط الفصول المماثلة؛ الموجود من هذا الفصل فقط، والفصول السابقة للمقارنة لا للتجميع.</p> : null}
       <ul className="apb-gap-list">
         {list.map(item => {
           const row = rowOf(item.id);
@@ -171,8 +173,9 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
               {kind === "students"
                 ? <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
                 : item.demand > 0 ? <span className="apb-gap-why">المتبقي {num(item.demand)}</span> : null}
-              <span className="apb-gap-pill" title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
+              <span className="apb-gap-pill" data-surplus={item.surplus ? "true" : undefined} title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
                 <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
+                {item.surplus ? <small><UserMinus aria-hidden="true" />راجع {countOf(item.surplus, AR.section)}</small> : null}
               </span>
               {row ? <ChevronDown aria-hidden="true" className="apb-gap-chev" /> : null}
             </>

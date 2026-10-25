@@ -19,6 +19,8 @@ export interface GapPlan {
 export interface GapItem {
   id: number; code: string; name: string;
   existing: number; required: number; extra: number;
+  /** Present only when the current scheduled count exceeds the plan. */
+  surplus?: number;
   basis: "plan" | "students";
   /** الرقم الذي بُني عليه المطلوب: المتبقي من الكشف، أو عدد الطلبة. */
   demand: number;
@@ -30,6 +32,16 @@ const byNeed = (a: GapItem, b: GapItem) => b.extra - a.extra || b.demand - a.dem
 
 /** من التخطيط وحده. بلا تخطيط (لا مختار ولا كشف) لا شيء. */
 export function planGaps(courses: readonly GapCourse[], plan: GapPlan | null): GapItem[] {
+  return planComparisons(courses, plan).filter(item => item.extra > 0);
+}
+
+/** مقرراتٌ زاد جدول الفصل فيها عن العدد المختار/الموصى به؛ إشارة مراجعة لا أمر حذف. */
+export function planSurpluses(courses: readonly GapCourse[], plan: GapPlan | null): GapItem[] {
+  return planComparisons(courses, plan).filter(item => item.extra < 0).map(item => ({ ...item, extra: 0, surplus: -item.extra }))
+    .sort((a, b) => (b.surplus || 0) - (a.surplus || 0) || a.code.localeCompare(b.code, "en"));
+}
+
+function planComparisons(courses: readonly GapCourse[], plan: GapPlan | null): GapItem[] {
   const items: GapItem[] = [];
   if (!plan) return items;
   for (const course of courses) {
@@ -44,7 +56,7 @@ export function planGaps(courses: readonly GapCourse[], plan: GapPlan | null): G
     }
     if (required === null) continue;
     const extra = required - course.existing;
-    if (extra > 0) items.push({ id: course.id, code: course.code, name: course.name, existing: course.existing, required, extra, basis: "plan", demand });
+    if (extra !== 0) items.push({ id: course.id, code: course.code, name: course.name, existing: course.existing, required, extra, basis: "plan", demand });
   }
   return items.sort(byNeed);
 }

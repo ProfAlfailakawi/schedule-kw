@@ -72,7 +72,7 @@ const MORNING_END = 14 * 60;
 const EVENING_END = 20 * 60;
 
 /** Below this many appointments a morning/evening share is noise, not a department. */
-const PERIOD_BALANCE_MIN_SECTIONS = 10;
+export const PERIOD_BALANCE_MIN_SECTIONS = 10;
 
 export const toMinutes = (value: string) => {
   const [h, m] = String(value || "0:0").split(":").map(Number);
@@ -381,11 +381,11 @@ const CONSECUTIVE_GAP = 15;
  * is not a department.
  */
 export function periodBalanceFinding(rows: readonly FSchedule[]): RegulationFinding | null {
-  const starts = rows.map(row => toMinutes(row.fstarttime)).filter((start, index) => rows[index].fstarttime && start >= MORNING_START && start < EVENING_END);
-  if (starts.length < PERIOD_BALANCE_MIN_SECTIONS) return null;
-  const morning = starts.filter(start => start < MORNING_END).length;
-  const morningShare = Math.round((morning / starts.length) * 100);
-  const eveningShare = 100 - morningShare;
+  const data = periodBalanceSnapshot(rows);
+  if (!data || data.sections < PERIOD_BALANCE_MIN_SECTIONS) return null;
+  const { morning, evening, sections, morningCount } = data;
+  const morningShare = morning;
+  const eveningShare = evening;
   if (morningShare >= 50 && morningShare <= 70) return null;
   return {
     rule: "period-balance",
@@ -394,10 +394,19 @@ export function periodBalanceFinding(rows: readonly FSchedule[]): RegulationFind
     source: "decision-1912",
     approvalEffect: "note",
     title: "توزيع الفترتين الصباحية والمسائية",
-    detail: `الصباحية (8–14) ${arabicNumber(morningShare)}% والمسائية (14–20) ${arabicNumber(eveningShare)}% من ${countOf(starts.length, AR.appointment)}. اللائحة: الصباحية بين 50% و70%، والمسائية بين 30% و50%.`,
+    detail: `الصباحية (8–14) ${arabicNumber(morningShare)}% والمسائية (14–20) ${arabicNumber(eveningShare)}% من ${countOf(sections, AR.appointment)}. اللائحة: الصباحية بين 50% و70%، والمسائية بين 30% و50%.`,
     rowIds: [],
-    data: { morning: morningShare, evening: eveningShare, sections: starts.length, morningCount: morning },
+    data,
   };
+}
+
+/** قراءةُ توزيع الفترتين نفسها دون أن تقرر وجود مخالفة؛ تُستعمل لعرض اللائحة حتى عند المطابقة. */
+export function periodBalanceSnapshot(rows: readonly FSchedule[]): PeriodBalanceData | null {
+  const starts = rows.map(row => toMinutes(row.fstarttime)).filter((start, index) => rows[index].fstarttime && start >= MORNING_START && start < EVENING_END);
+  if (!starts.length) return null;
+  const morningCount = starts.filter(start => start < MORNING_END).length;
+  const morning = Math.round((morningCount / starts.length) * 100);
+  return { morning, evening: 100 - morning, sections: starts.length, morningCount };
 }
 
 export function reviewSchedule(context: RegulationContext): RegulationFinding[] {
@@ -694,7 +703,9 @@ export function regulationScore(findings: RegulationFinding[], rowCount: number)
  *
  * A row has a single start and end for all of its days, so the length is one number: it must be
  * `k` lectures of the day's length with the day's break between them (50 + 10 + 50 on Sun/Tue/Thu,
- * 80 + 15 + 80 on Mon/Wed), and `k` can never exceed the course's weekly hours. A length the course
+ * 80 + 15 + 80 on Mon/Wed), and `k` can never exceed the course's weekly hours. A combined two-period
+ * block may differ by five minutes because legacy timetable slots encode the passing interval differently;
+ * the separate room-turnover rule still checks the full required gap between appointments. A length the course
  * has habitually used (a lab, a workshop) is accepted as it is — history outranks the regulation.
  * Returns the message to refuse with, or null.
  */
@@ -711,7 +722,13 @@ export function lectureLengthProblem(
   const maxPeriods = Math.max(1, Math.ceil(courseHours || 1));
   const fits = days.some(day => {
     const lecture = expectedMinutesForDay(day), gap = requiredGapForDay(day);
-    for (let periods = 1; periods <= maxPeriods; periods++) if (length === periods * lecture + (periods - 1) * gap) return true;
+    for (let periods = 1; periods <= maxPeriods; periods++) {
+      const expected = periods * lecture + (periods - 1) * gap;
+      /* Monday/Wednesday's established timetable block is 08:00–10:50:
+         two 80-minute lectures with a 10-minute passing interval. Keep the
+         15-minute regulatory room-turnover check independent of this block. */
+      if (length === expected || (periods === 2 && lecture === 80 && length === expected - 5)) return true;
+    }
     return false;
   });
   if (fits) return null;
@@ -727,7 +744,9 @@ export function weeklyLectureMinutes(row: Partial<Record<DayKey, unknown>> & { f
   return DAY_KEYS.filter(day => Boolean(row[day])).reduce((sum, day) => {
     const lecture = expectedMinutesForDay(day), gap = requiredGapForDay(day);
     const periods = Math.round((length + gap) / (lecture + gap));
-    return sum + (periods >= 1 && periods * lecture + (periods - 1) * gap === length ? periods * lecture : length);
+    const expected = periods * lecture + (periods - 1) * gap;
+    const fits = periods >= 1 && (expected === length || (periods === 2 && lecture === 80 && length === expected - 5));
+    return sum + (fits ? periods * lecture : length);
   }, 0);
 }
 

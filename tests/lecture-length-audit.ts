@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { lectureLengthProblem } from "../src/utils/scheduleRegulations";
+import { lectureLengthProblem, periodBalanceSnapshot } from "../src/utils/scheduleRegulations";
 
 const sut = { fsunday: true, ftuesday: true, fthursday: true };
 assert.ok(lectureLengthProblem({ ...sut, fstarttime: "08:00", fendtime: "08:40" }, 3), "40 دقيقة أحد/ثلاثاء/خميس تُرفض");
@@ -9,11 +9,15 @@ assert.ok(lectureLengthProblem({ ...sut, fstarttime: "08:00", fendtime: "09:50" 
 assert.equal(lectureLengthProblem({ fmonday: true, fwednesday: true, fstarttime: "08:00", fendtime: "09:20" }, 3), null);
 assert.ok(lectureLengthProblem({ fmonday: true, fwednesday: true, fstarttime: "08:00", fendtime: "09:00" }, 3));
 assert.equal(lectureLengthProblem({ fwednesday: true, fstarttime: "16:00", fendtime: "19:50" }, 3, 230), null, "التاريخ يقدَّم");
+assert.equal(lectureLengthProblem({ fmonday: true, fstarttime: "08:00", fendtime: "10:50" }, 3), null, "الكتلة التاريخية ذات المحاضرتين الطويلتين تقبل فرق عبور خمس دقائق");
+assert.ok(lectureLengthProblem({ fmonday: true, fstarttime: "08:00", fendtime: "11:00" }, 3), "لا يُقبل فرقٌ عشوائي يتجاوز كتلة 170/175 دقيقة المعتمدة");
+assert.deepEqual(periodBalanceSnapshot(Array.from({ length: 10 }, (_, i) => ({ fstarttime: i < 6 ? "08:00" : "14:00" } as any))), { morning: 60, evening: 40, sections: 10, morningCount: 6 }, "توزيع الفترتين يُقرأ حتى دون وجود مخالفة");
 console.log("lecture-length-audit ok");
 
 import { maxWeeklyMinutesFor, weeklyLectureMinutes } from "../src/utils/scheduleRegulations";
 assert.equal(weeklyLectureMinutes({ ...sut, fstarttime: "08:00", fendtime: "08:50" }), 150);
 assert.equal(weeklyLectureMinutes({ fmonday: true, fwednesday: true, fstarttime: "08:00", fendtime: "09:20" }), 160);
+assert.equal(weeklyLectureMinutes({ fmonday: true, fstarttime: "08:00", fendtime: "10:50" }), 160, "العبور ذو الخمس دقائق لا يضخم دقائق التدريس الأسبوعية");
 assert.ok(160 <= maxWeeklyMinutesFor(3), "٣ ساعات = ثمانون ثمانون");
 assert.ok(210 <= maxWeeklyMinutesFor(4), "٤ ساعات = ٨٠/٨٠/٥٠");
 assert.ok(weeklyLectureMinutes({ ...sut, fstarttime: "08:00", fendtime: "09:50" }) > maxWeeklyMinutesFor(3), "ست محاضرات لمقرر ٣ ساعات تزيد");

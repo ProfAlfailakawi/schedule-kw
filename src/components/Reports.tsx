@@ -53,6 +53,7 @@ import { instructorCourseLoad } from "../utils/instructorCourseLoad";
 import { ApprovalDnaStepper, DeadlineDnaRing } from "./dna/scheduleDna";
 import PlanBadge from "./PlanBadge";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
+import { teachingHoursByInstructor } from "../utils/teachingLoad";
 
 /**
  * One question, seven lenses.
@@ -4151,7 +4152,10 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
       <div className="print-report print-wide print-query-report print-query-groups-report">
         {pages.length ? pages.map((page, pageIndex) => {
           const instructor = instructorOf(page.group.rows[0]);
-          const load = page.group.rows.reduce((total, row) => total + duration(row) * Math.max(1, dayFlags(row).length), 0);
+          const instructorId = Number(page.group.rows[0]?.AdInstructorId || 0);
+          const courseHours = new Map([...courseById.values()].map(course => [Number(course.AdCourseId), Number(course.CourseHours || course.CourseCredit || 0)]));
+          /* التقرير يعلن النصاب المعتمد (ساعات المقررات الفريدة)، لا مجموع دقائق الاتصال؛ صفّا المقرر/شعبته لا يضاعفان الساعات. */
+          const load = teachingHoursByInstructor(page.group.rows, courseHours).get(instructorId) || 0;
           const days = new Set(page.group.rows.flatMap(row => dayFlags(row).map(day => day.key))).size;
           return (
             <section className="print-explicit-page" key={`${page.group.key}-${pageIndex}`}>
@@ -4159,7 +4163,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
               <section className="print-query-group">
                 <header>
                   <div><strong>{withVisitingSuffix(page.group.key, visitingIds.has(Number(page.group.rows[0]?.AdInstructorId)))}</strong>{instructor?.AdInstructorCivil ? <small className="print-ltr">{instructor.AdInstructorCivil}</small> : null}</div>
-                  <span><b>{page.group.rows.length}</b> {nounFor(page.group.rows.length, AR.appointment)}</span><span><b>{Math.round(load / 60)}</b> س</span><span><b>{days}</b> {nounFor(days, AR.day)}</span>
+                  <span><b>{page.group.rows.length}</b> {nounFor(page.group.rows.length, AR.appointment)}</span><span><b>{Number.isInteger(load) ? load : num(load)}</b> س نصاب تدريسي</span><span><b>{days}</b> {nounFor(days, AR.day)}</span>
                 </header>
                 <table>
                   <colgroup><col style={{ width: "38%" }} /><col style={{ width: "10%" }} /><col style={{ width: "20%" }} /><col style={{ width: "19%" }} /><col style={{ width: "13%" }} /></colgroup>

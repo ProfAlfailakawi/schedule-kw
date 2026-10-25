@@ -7,7 +7,7 @@ import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBa
 import PagedFindingList from "./PagedFindingList";
 import { packPrintFindings, type PrintFindingPiece } from "../utils/printFindingPages";
 import {
-  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, isDecision1912Finding, regulationScore, reviewSchedule,
+  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, isDecision1912Finding, periodBalanceSnapshot, PERIOD_BALANCE_MIN_SECTIONS, regulationScore, reviewSchedule,
   type DayKey, type RegulationFinding
 } from "../utils/scheduleRegulations";
 import type { CourseNature } from "../utils/courseNature";
@@ -205,6 +205,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
   );
   const decisionFindings = useMemo(() => baseFindings.filter(isDecision1912Finding), [baseFindings]);
   const score = useMemo(() => regulationScore(decisionFindings, rows.length), [decisionFindings, rows.length]);
+  const periodBalance = useMemo(() => periodBalanceSnapshot(rows), [rows]);
   const [serverBlockers, setServerBlockers] = useState<Array<{id:string;type:string;title:string;detail:string;rowIds:number[];subjectKey?:string;subjectLabel?:string}>>([]);
   /* What the same reading says without counting it: the same section in two
      halls or with two teachers (قاعدة المالك 2026-09-27). */
@@ -687,6 +688,14 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
             {spread.clean ? <span className="seg-clean"><CheckCircle2 aria-hidden="true" /><b>{countOf(spread.clean, AR.appointment)}</b><small>{nounFor(spread.clean, AR.soundAdj)}</small></span> : null}
           </div>
         </div>
+
+        <section className="review-period-rule" aria-labelledby="review-period-title">
+          <header><span><Clock3 aria-hidden="true"/><b id="review-period-title">توزيع الفترتين</b></span><em>قرار 1913/2016 · م.7/2</em></header>
+          <div className="review-period-hours"><span><b>الصباحي</b><small>08:00–14:00</small><strong>50–70٪</strong></span><i aria-hidden="true"/><span><b>المسائي</b><small>14:00–20:00</small><strong>30–50٪</strong></span></div>
+          {periodBalance && periodBalance.sections >= PERIOD_BALANCE_MIN_SECTIONS
+            ? <PeriodBalanceInfographic {...periodBalance} />
+            : <p>{periodBalance ? `قراءة التوزيع بعد ${countOf(PERIOD_BALANCE_MIN_SECTIONS, AR.appointment)}: الصباحي ${periodBalance.morning}٪ · المسائي ${periodBalance.evening}٪ (${countOf(periodBalance.sections, AR.appointment)}).` : "لا توجد مواعيد ضمن الفترتين حالياً."}</p>}
+        </section>
 
         <div className="review-body">
           {groupedFindings.length ? (

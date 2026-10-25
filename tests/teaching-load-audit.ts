@@ -31,6 +31,12 @@ const hours = teachingHoursByInstructor([
 ] as any, courseHours);
 check(hours.get(1) === 13, "العبء: الشعبة (مقرر+رمز) مرةً واحدة مهما تعدّدت صفوفها — 3+3+3+4 = 13");
 check(hours.get(2) === 3 && !hours.has(0) && !hours.has(5), "بلا أستاذ أو بمقررٍ بلا ساعات: لا يُحسب");
+const branchHours = teachingHoursByInstructor([
+  { AdInstructorId: 9, AdCourseId: 10, SCode: "01", AdCollegeId: 1, AdSectionId: 3 },
+  { AdInstructorId: 9, AdCourseId: 10, SCode: "01", AdCollegeId: 2, AdSectionId: 3 },
+  { AdInstructorId: 9, AdCourseId: 10, SCode: "01", AdCollegeId: 1, AdSectionId: 3 },
+] as any, courseHours);
+check(branchHours.get(9) === 6, "الشعبة 01 في فرعين تُحسب شعبتين، وصفوف الموعد المكررة لا تضاعفها");
 
 check(evaluateTeachingLoad(config, 1, 13).state === "over" && evaluateTeachingLoad(config, 1, 13).excess === 1, "13 من 12 ← تجاوز ساعةٍ واحدة");
 check(evaluateTeachingLoad(config, 1, 12).state === "within", "12 من 12 ← ضمن النصاب (الحدّ نفسُه ليس تجاوزاً)");
