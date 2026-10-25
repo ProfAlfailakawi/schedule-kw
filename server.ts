@@ -1590,6 +1590,8 @@ function safeDraftRows(input: unknown, collegeId: number, sectionId: number, ter
     fstarttime: normalizeClock(raw?.fstarttime), fendtime: normalizeClock(raw?.fendtime),
     AdRoomCode: String(raw?.AdRoomCode || ""), AdRoomHall: String(raw?.AdRoomHall || ""),
     buildingId: String(raw?.buildingId || "") || undefined, roomId: String(raw?.roomId || "") || undefined,
+    companionRoomId: String(raw?.companionRoomId || "").trim() || undefined,
+    companionRoomLabel: String(raw?.companionRoomLabel || "").slice(0,100) || undefined,
     locationStatus: raw?.locationStatus, sourceBuildingText: String(raw?.sourceBuildingText || raw?.AdRoomCode || "").slice(0,80) || undefined,
     sourceRoomText: String(raw?.sourceRoomText || raw?.AdRoomHall || "").slice(0,80) || undefined,
     sourceSitePrefix: String(raw?.sourceSitePrefix || "").slice(0,12) || undefined,
@@ -1973,7 +1975,7 @@ async function departmentInstructorIdSet(
   return ids;
 }
 
-async function validateSmartRows(rows: any[], collegeId: number, sectionId: number, options: { checkConflicts?: boolean; resolveHistorical?: boolean; requireDepartmentInstructor?:boolean; departmentInstructorIds?:Set<number> } = {}) {
+async function validateSmartRows(rows: any[], collegeId: number, sectionId: number, options: { checkConflicts?: boolean; resolveHistorical?: boolean; requireDepartmentInstructor?:boolean; departmentInstructorIds?:Set<number>; requireCompanion?:boolean } = {}) {
   const termId = Number(rows[0]?.AdTermId || 0);
   const checkConflicts = options.checkConflicts !== false;
   /* القسم الواحد يُدرَّس في مواقع الفرع الثلاثة، ومن يدرّس في الجهراء عضو في
@@ -2053,6 +2055,14 @@ async function validateSmartRows(rows: any[], collegeId: number, sectionId: numb
     }
     if(!location.ok) location.issues.filter(issue=>issue.severity==="high").forEach(issue=>errors.push(`السطر ${index + 1}: ${issue.message}`));
     else if(location.canonical) Object.assign(row,location.canonical);
+    /* Preserve real companion reservations when copying or applying a draft;
+       force new-term copies to meet the current catalog requirement. Historic PDFs
+       without companion metadata remain readable through their existing import path. */
+    if(course && location.ok && (options.requireCompanion || row.companionRoomId)){
+      const companion=await companionBookingFor(course,row,row);
+      if(companion.issue)errors.push(`السطر ${index + 1}: ${companion.issue}`);
+      else { row.companionRoomId=companion.id;row.companionRoomLabel=companion.label; }
+    }
     /* Imported rows are exactly where an impossible clock arrives — a spreadsheet
        cell or an OCR'd page, neither of which is bounded by a time picker. */
     if (!isValidClock(row.fstarttime) || !isValidClock(row.fendtime)) errors.push(`السطر ${index + 1}: وقت غير صالح (الساعة بين 0 و23 والدقيقة بين 0 و59)`);
@@ -8914,7 +8924,7 @@ app.post("/api/schedules/copy", requireAuth, requirePowerAdmin, async (req: Auth
   const {archived:archivedRows}=await splitArchivedCourseRows(sourceRows,sectionId);
   if(archivedRows.length){res.status(409).json({error:`لا يمكن نسخ الفصل كما هو: ${countOf(archivedRows.length, AR.appointment)} ${nounFor(archivedRows.length, AR.linkedAdj)} بمقررات مؤرشفة أكاديمياً. أضف بدائلها الحالية يدوياً حتى يبقى الجدول الجديد صحيحاً.`,code:"archived-curriculum-courses"});return;}
   const copiedRows = safeDraftRows(sourceRows, collegeId, sectionId, targetTermId);
-  const copyIssues = await validateSmartRows(copiedRows, collegeId, sectionId, { resolveHistorical: true });
+  const copyIssues = await validateSmartRows(copiedRows, collegeId, sectionId, { resolveHistorical: true, requireCompanion: true });
   if (copyIssues.length) {
     res.status(400).json({ error: "لا يمكن نسخ الجدول قبل معالجة بياناته", issues: copyIssues });
     return;
