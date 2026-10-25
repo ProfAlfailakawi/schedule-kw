@@ -2703,6 +2703,9 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .course-service-for{font-size:.86em;font-weight:300;opacity:.75}
 .course-room-type-badge.is-compact{gap:3px;padding:2px 5px;font-size:.62em;line-height:1.2}
 .course-room-type-line{max-width:100%;min-width:0}
+.inspector-facts .course-detail-fact small{display:flex;align-items:center;gap:6px}
+.inspector-facts .course-detail-fact small svg{inline-size:15px;block-size:15px;color:var(--accent);flex:none}
+.inspector-facts .course-detail-fact b{font-size:.9rem}
 .week-course-title-wrap{display:flex;align-items:center;gap:4px;min-width:0;max-width:100%;overflow:hidden}
 .week-course-title-wrap .week-title{flex:1;min-width:0}
 .location-type-manager-heading{display:flex;align-items:center;gap:12px}

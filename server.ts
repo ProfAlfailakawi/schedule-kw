@@ -4469,10 +4469,8 @@ async function scheduleLengthIssue(row:any){
   const nature=await courseHabit(courseId);
   /* بياناتٌ قديمةٌ قد تسجل الوحدات ولا تملأ حقل الساعات؛ لا تُعامل حينها كأن المقرر ساعة واحدة. */
   const hours=effectiveCourseHours(course),habitual=nature&&nature.confidence!=="low"?nature.meetingMinutes:undefined;
-  /* موعدٌ يخلط أيام الـ50 بأيام الـ80 لا يُمنع عند القسم: تنبيهٌ برسم النمط المعتمد (mixedPatternNotice). وطولُه
-     لا يُحاسَب بمقياس اللائحة لأنه نمطٌ خارجها أصلاً. */
-  const mixedOutside=Boolean(await mixedPatternNotice(courseId,SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row?.AdTermId||0)));
-  const lengthProblem=mixedOutside?null:lectureLengthProblem(row,hours,habitual);if(lengthProblem)return lengthProblem;
+  /* توافقُ طول الموعد مع نمط اللائحة ملاحظة استرشادية، ولا يمنع الحفظ.
+     المنعُ هنا محصورٌ في تجاوز مجموع العبء الأسبوعي لساعات المقرر. */
   /* مقرّرٌ لا يزيد على ساعاته المعتمدة في أي مكان يُنشأ منه: صفوفُه الأخرى في الفصل والشعبة نفسيهما تُحسب معه. */
   if(hours>0&&Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
     const siblings=(await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
@@ -4481,6 +4479,13 @@ async function scheduleLengthIssue(row:any){
     if(!habitual&&total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`;
   }
   return null;
+}
+async function scheduleLengthNotice(row:any):Promise<string|null>{
+  const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
+  const course=await Repository.getCourseById(courseId),nature=await courseHabit(courseId);
+  const hours=effectiveCourseHours(course),habitual=nature&&nature.confidence!=="low"?nature.meetingMinutes:undefined;
+  const mixedOutside=Boolean(await mixedPatternNotice(courseId,SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row?.AdTermId||0)));
+  return mixedOutside?null:lectureLengthProblem(row,hours,habitual);
 }
 async function schedulePayloadIssues(row:any){const issues:string[]=[];if(!SCHEDULE_DAY_KEYS.some(k=>Boolean(row?.[k])))issues.push("يجب اختيار يوم واحد على الأقل للمحاضرة");if(row?.fstarttime&&row?.fendtime){
   /* An impossible clock is refused before it is measured. `timeToMinutes` answers
@@ -6110,7 +6115,8 @@ app.post("/api/schedules/import-preflight", requirePermission(7), async (req: Au
 app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => { const row=req.body||{};
   const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
   const patternNotice=await mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null);
-  res.json({conflicts:await scheduleConflicts(req,row,Number(row.excludeId||0)),...(patternNotice?{patternNotice}:{})}); });
+  const lectureNotice=await scheduleLengthNotice(row).catch(()=>null);
+  res.json({conflicts:await scheduleConflicts(req,row,Number(row.excludeId||0)),...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{})}); });
 
 
 /**

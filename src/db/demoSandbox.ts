@@ -843,17 +843,24 @@ export function createDemoSandboxState(): DemoSandboxState {
   const now = new Date().toISOString();
   const extras = seedIntelligenceExtras(schedules, courses);
   /* شارة «التخطيط» في جدول الديمو تحتاج قرارات تخطيط محفوظة، لا مجرد
-     نافذة الرفع. ثلاثة مقررات مفتوحة تُظهر القائمة نفسها التي يراها القسم
-     بعد رفع كشف المتبقي واختيار عدد الشعب. هذه الأرقام وهمية وفي الصندوق فقط. */
+     نافذة الرفع. قراراتٌ متعددة تُظهر العجز والزيادة معاً في القائمة نفسها
+     التي يراها القسم بعد رفع كشف المتبقي واختيار عدد الشعب. هذه الأرقام وهمية
+     وفي الصندوق فقط؛ كلُّ فصلٍ مستقل، والزيادة تُعرض كتوصية مراجعة لا أمر حذف. */
   const sectionsByCourse = new Map<number, Set<string>>();
   for (const row of schedules.filter(row => Number(row.AdTermId) === DEMO_TERM_CURRENT)) {
     const id = Number(row.AdCourseId);
     if (!sectionsByCourse.has(id)) sectionsByCourse.set(id, new Set());
     sectionsByCourse.get(id)!.add(String(row.SCode));
   }
-  const plannedCourses = [...sectionsByCourse].filter(([, sections]) => sections.size > 0).slice(0, 3);
-  const accepted = Object.fromEntries(plannedCourses.map(([id, sections], index) => [String(id), sections.size + (index === 0 ? 2 : 1)]));
-  const remaining = Object.fromEntries(plannedCourses.map(([id], index) => [String(id), [1315, 3, 268][index]]));
+  const withSections = [...sectionsByCourse].filter(([, sections]) => sections.size > 0)
+    .sort((a, b) => b[1].size - a[1].size || a[0] - b[0]);
+  const surplusCourses = withSections.filter(([, sections]) => sections.size > 1).slice(0, 2);
+  const deficitCourses = withSections.filter(([id]) => !surplusCourses.some(([surplusId]) => surplusId === id)).slice(0, 8);
+  const plannedCourses = [...surplusCourses, ...deficitCourses];
+  const accepted = Object.fromEntries(plannedCourses.map(([id, sections], index) => [
+    String(id), index < surplusCourses.length ? sections.size - 1 : sections.size + 1,
+  ]));
+  const remaining = Object.fromEntries(plannedCourses.map(([id], index) => [String(id), [1315, 3, 268, 159, 35, 163, 8, 134, 1428, 244][index] || 0]));
   const planScope = `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${DEMO_TERM_CURRENT}`;
   /* «الباقي/الشاغر» لكل فصلٍ سابق: من تعذّر عليه التسجيل (يتصاعد حيث زاد الطلب)، والمقاعد التي بقيت
      فارغة (حيث تراجع). بالعمود نفسه الذي يقرؤه التنبّؤ (`unregistered`). */

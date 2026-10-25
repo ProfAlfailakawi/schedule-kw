@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { runInNewContext } from "node:vm";
 import { STUDENT_HOME_CSS, STUDENT_HOME_SCRIPT, studentHomePage } from "../src/server/studentHomePage";
 import { STUDENT_MAP_CSS } from "../src/server/studentMapUi";
+import fs from "node:fs";
 
 assert.match(STUDENT_HOME_CSS, /\.app\{max-inline-size:520px/);
 /* الشريط العلوي يلتفّ على الهاتف الضيق (شارة التجربة + الفصل + «الرحلة») فلا يُنتج تمريراً أفقياً. */
@@ -18,6 +19,8 @@ assert.match(STUDENT_MAP_CSS, /@media\s*\(min-width:0px\)/);
 assert.match(STUDENT_MAP_CSS, /\.kchbr>\.ln\{display:block;inline-size:14px/);
 assert.doesNotMatch(STUDENT_MAP_CSS, /(?:^|\})\.ln\{display:block;inline-size:14px/m);
 assert.match(STUDENT_MAP_CSS, /\.tk \.ln \.tx b[^\n]*overflow-wrap:anywhere/);
+const timelineCss = fs.readFileSync("src/styles/12-deadlines.css", "utf8");
+assert.match(timelineCss, /@media\s*\(max-width:1100px\)[\s\S]*?\.sp-track\{[^}]*grid-template-columns:minmax\(0,1fr\)[^}]*grid-auto-flow:row/);
 
 const html = studentHomePage("audit-nonce", "girls");
 assert.match(html, /name="viewport" content="width=device-width,initial-scale=1/);
