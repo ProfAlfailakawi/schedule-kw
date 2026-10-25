@@ -87,8 +87,9 @@ check(departmentTypicalTotal(dept) === 30, "المعتاد للقسم من ال�
 check(departmentLoadWarning(30, dept) === "" && departmentLoadWarning(41, dept).includes("يتجاوز أعلى ما شغّله القسم"), "مجموعٌ فوق أعلى ما شغّله القسم يُنبَّه عليه");
 check(departmentTypicalTotal([{ termName: "الفصل الثاني 2025/2026", sections: 26, instructors: 11, halls: 7, similar: false }]) === null,
   "لا يُستعار معتاد القسم من موسم آخر عند غياب الموسم المطابق");
-check(departmentLoadWarning(40, [...dept, { termName: "الفصل الثاني 2024/2025", sections: 60, instructors: 20, halls: 15, similar: false }]) === "",
-  "تحذير مجموع الشعب يقارن بالقسم في الموسم نفسه فقط");
+check(departmentLoadWarning(40, [...dept, { termName: "الفصل الثاني 2024/2025", sections: 60, instructors: 20, halls: 15, similar: false }]).includes("يتجاوز أعلى ما شغّله القسم")
+  && departmentLoadWarning(40, [...dept, { termName: "الفصل الثاني 2024/2025", sections: 60, instructors: 20, halls: 15, similar: false }]).includes("30"),
+  "تحذير مجموع الشعب يقارن بأعلى مجموع في الموسم نفسه، ولا يستعير ذروة موسمٍ آخر");
 
 /* ── قراءة كشف المتبقي ── */
 const catalogue = [{ id: 1, code: "101" }, { id: 2, code: "102" }, { id: 3, code: "210" }, { id: 4, code: "315" }, { id: 5, code: "499" }];
@@ -242,7 +243,12 @@ check(repo.includes("getRegistrationStats: async") && repo.includes("saveRegistr
 check(repo.includes("input.counts ?? previous?.counts") && repo.includes("remaining: Object.fromEntries(Object.entries(clean(input.remaining, 100000, -100000)).map(([key, value]) => [key, Math.max(0, value)]))")
   && (server.match(/Math\.max\(0, Number\(value\) \|\| 0\)/g) || []).length === 2, "لا متبقٍّ سالب: يُحفظ صفراً، وما حُفظ سالباً قبلُ يُعرض صفراً في الفصل وفي تاريخ الفصول السابقة؛ و«المسجّلين» القديم يبقى كما هو");
 check(repo.includes('input.remainingSource.column === "unregistered" || input.remainingSource.column === "seats"'), "وسم العمود يُحفظ كما أُرسل («unregistered»، و«seats» القديم يبقى قديماً)");
-check((server.match(/remainingSource\?\.column === "unregistered"/g) || []).length === 8 && !server.includes('remainingSource?.column === "seats"')
+check(server.includes('const currentRemaining = stats?.remainingSource?.column === "unregistered"')
+  && server.includes('pastStats?.remainingSource?.column === "unregistered"')
+  && server.includes('remaining: currentRemaining')
+  && server.includes('remaining: stats?.remainingSource?.column === "unregistered" ? stats.remaining || {} : null')
+  && server.includes('remaining: stats?.remainingSource?.column === "unregistered" ? (stats?.remaining || {}) : {}')
+  && !server.includes('remainingSource?.column === "seats"')
   && server.includes('legacyRemaining: stats?.remainingSource?.column !== "unregistered"'),
   "الخادم: «unregistered» وحده مدخل الاقتراح والمقارنة والتوقّع (والشاغر معه)، وما سواه (seats أو بلا وسم) «قديم» لا يُحسب");
 check(server.includes("vacant: req.body?.vacant || {}") && repo.includes("vacant: clean(input.vacant, 100000, -100000)"),
