@@ -3870,6 +3870,7 @@ app.get("/api/admin/location-room-types",requirePermission(7),requireRootAdmin,a
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
   registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   res.json({types:[...types].sort((a,b)=>a.localeCompare(b,"ar"))});
 });
 app.post("/api/admin/location-room-types",requirePermission(7),requireRootAdmin,async(req:AuthenticatedRequest,res:Response)=>{
@@ -3879,6 +3880,7 @@ app.post("/api/admin/location-room-types",requirePermission(7),requireRootAdmin,
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
   registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   if([...types].some(type=>type.toLocaleLowerCase("ar")===name.toLocaleLowerCase("ar"))){res.status(409).json({error:"هذا النوع موجود مسبقًا."});return;}
   types.add(name);await Repository.setLocationRoomTypes([...types]);
   res.status(201).json({types:[...types].sort((a,b)=>a.localeCompare(b,"ar"))});
@@ -3890,6 +3892,7 @@ app.put("/api/admin/location-room-types/:type",requirePermission(7),requireRootA
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
   registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   if(!types.has(oldName)){res.status(404).json({error:"نوع القاعة غير موجود."});return;}
   if([...types].some(type=>type!==oldName&&type.toLocaleLowerCase("ar")===newName.toLocaleLowerCase("ar"))){res.status(409).json({error:"يوجد نوع آخر بهذا الاسم."});return;}
   if(oldName===newName){res.json({types:[...types].sort((a,b)=>a.localeCompare(b,"ar")),updatedRooms:0,updatedCourses:0});return;}
@@ -3908,9 +3911,10 @@ app.delete("/api/admin/location-room-types/:type",requirePermission(7),requireRo
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
   registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   if(!types.has(name)){res.status(404).json({error:"نوع القاعة غير موجود."});return;}
   const linkedRooms=registry.rooms.filter(room=>String(room.roomType||"").normalize("NFKC").trim()===name).length;
-  const linkedCourses=courses.filter(course=>String(course.CourseRoomType||"").normalize("NFKC").trim()===name).length;
+  const linkedCourses=courses.filter(course=>[course.CourseRoomType,course.CourseCompanionRoomType].some(type=>String(type||"").normalize("NFKC").trim()===name)).length;
   if(linkedRooms||linkedCourses){res.status(409).json({error:`لا يمكن حذف «${name}» لأنه مرتبط بـ ${countOf(linkedRooms,AR.room)} و${countOf(linkedCourses,AR.course)}. غيّر ارتباطاتها أولاً.`});return;}
   if(types.size<=1){res.status(409).json({error:"أبقِ نوعًا واحدًا على الأقل للقاعات."});return;}
   types.delete(name);await Repository.setLocationRoomTypes([...types]);
