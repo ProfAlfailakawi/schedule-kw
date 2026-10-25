@@ -8491,14 +8491,20 @@ html[data-schedule-workspace="presentation"] .schedule-status{padding:0;border:0
 .room-suggest-ask svg{width:15px;height:15px}
 .room-suggest-ask:hover:not(:disabled),.room-suggest-ask.open{background:color-mix(in srgb,var(--brass) 14%,transparent)}
 .room-suggest-ask:disabled{opacity:.5;cursor:default}
-.room-suggest-list{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.room-suggest-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:8px;min-width:0}
 .room-suggest-list>button{
-  display:grid;gap:2px;text-align:start;padding:var(--s2) var(--s3);
-  border:1px solid var(--line);border-radius:12px;background:var(--surface,transparent);color:inherit;font:inherit;cursor:pointer
+  display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:9px;text-align:start;padding:9px 11px;
+  border:1px solid var(--line);border-radius:15px;background:var(--surface,transparent);color:inherit;font:inherit;cursor:pointer;min-width:0;transition:border-color .16s ease,background .16s ease,transform .16s ease
 }
-.room-suggest-list>button:hover{border-color:var(--accent)}
-.room-suggest-list>button bdi{font-weight:800}
-.room-suggest-list>button small{color:var(--muted);font-size:var(--t-xs)}
+.room-suggest-list>button:hover{border-color:var(--accent);background:var(--accent-softer);transform:translateY(-1px)}
+.room-suggest-card-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:var(--accent-softer);color:var(--accent)}
+.room-suggest-card-icon svg{width:18px;height:18px}
+.room-suggest-card-copy{display:grid;gap:2px;min-width:0}
+.room-suggest-list>button bdi{font-weight:800;justify-self:start}
+.room-suggest-list>button small{color:var(--muted);font-size:var(--t-xs);line-height:1.5}
+.room-suggest-card-action{display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-size:var(--t-xs);font-weight:700;white-space:nowrap}
+.room-suggest-card-action svg{width:16px;height:16px}
+.room-suggest-list>button:focus-visible{outline:none;box-shadow:var(--ring)}
 .room-suggest-empty{margin:0;color:var(--muted);font-size:var(--t-sm)}
 /* === Light floating controls (owner decision, Oct 2026) ====================
    The schedule dock, the undo toast and the day's-log button borrowed the dark

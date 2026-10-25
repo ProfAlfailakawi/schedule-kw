@@ -3,6 +3,7 @@
  * ولا مقرّرٌ في صحيفة القسم بلا فصلٍ سابقٍ طُرح فيه — فلا تُفتح شاشةٌ على «لا يوجد».
  */
 import { createDemoSandboxState, DEMO_HISTORY_TERMS, DEMO_OTHER_DEPARTMENTS, DEMO_VISITING_INSTRUCTOR_IDS } from "../src/db/demoSandbox";
+import { planGaps, planSurpluses } from "../src/utils/sectionGap";
 
 let passed = 0, failed = 0;
 function check(ok: boolean, label: string) {
@@ -11,6 +12,20 @@ function check(ok: boolean, label: string) {
 
 const demo = createDemoSandboxState() as any;
 const rowsOf = (term: number, section?: number) => demo.schedules.filter((r: any) => r.AdTermId === term && (section === undefined || r.AdSectionId === section));
+const currentPlan = demo.registrationStats.find((row: any) => row.termId === 1 && row.sectionId === 1);
+const currentCounts = new Map<number, Set<string>>();
+for (const row of rowsOf(1, 1)) {
+  const courseId = Number(row.AdCourseId);
+  if (!currentCounts.has(courseId)) currentCounts.set(courseId, new Set());
+  currentCounts.get(courseId)!.add(String(row.SCode));
+}
+const planCourses = demo.courses.filter((course: any) => course.AdSectionId === 1).map((course: any) => ({
+  id: Number(course.AdCourseId), code: String(course.CourseCode), name: String(course.CourseName), capacity: Number(course.MaxStudent) || 0,
+  existing: currentCounts.get(Number(course.AdCourseId))?.size || 0, students: 0,
+}));
+const planItems = planGaps(planCourses, { accepted: currentPlan?.accepted || {}, remaining: {}, history: {} });
+const surplusItems = planSurpluses(planCourses, { accepted: currentPlan?.accepted || {}, remaining: {}, history: {} });
+check(planItems.length >= 6 && surplusItems.length >= 2 && planItems.length + surplusItems.length >= 8, `تخطيط الديمو يعرض اقتراحات متعددة للزيادة والنقص (${planItems.length} نقص، ${surplusItems.length} زيادة)`);
 
 /* ── الأقسام الثلاثة ── */
 for (const sectionId of [1, 2, 3]) check(rowsOf(1, sectionId).length >= 10, `قسم ${sectionId}: جدولٌ للفصل الجاري (${rowsOf(1, sectionId).length} موعداً)`);

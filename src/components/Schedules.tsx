@@ -935,6 +935,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     [conflicts, setConflicts] = useState<any[]>([]),
     /* «النمط غير معتمد»: رسمٌ من الخادم (مكتبة الأنماط)، تنبيهٌ لا يمنع الحفظ. */
     [patternNotice, setPatternNotice] = useState(""),
+    [lectureNotice, setLectureNotice] = useState(""),
     [checking, setChecking] = useState(false),
     [solutions, setSolutions] = useState<any[]>([]),
     [solving, setSolving] = useState(false),
@@ -3743,9 +3744,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   },[rows,deferredSearch,courseById,instructorById,pendingOnly,visitingOnly,scheduledVisitingIds,user?.AdInstructorId]);
 
   /**
-   * The legend is a real shared filter, not three unrelated paint effects.
-   * Keep the legend itself built from `filteredRows` so another identity can
-   * still be added, but every projection renders from this exact same set.
+   * The legend is a shared filter, not three unrelated paint effects.
+   * Every projection renders from the same filtered set.
    */
   const displayRows = useMemo(() => filteredRows.filter(row => {
     const key = hueKeyForRow(row);
@@ -4391,6 +4391,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     ) {
       setConflicts([]);
       setPatternNotice("");
+      setLectureNotice("");
       return;
     }
     // The board already in memory answers first: a same-department collision
@@ -4400,6 +4401,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const candidate: any = { ...form, id: editId || -900001 };
     /* «هيئة تدريسية» ليست شخصاً هنا أيضاً: الحكم نفسه الذي يقوله الخادم بعد لحظة. */
     setConflicts(findConflicts([candidate], editId ? rows.filter(row => row.id !== editId) : rows, { placeholderInstructorIds: placeholderInstructorIds(instructorById.values()) }));
+    setPatternNotice("");
+    setLectureNotice("");
     const controller = new AbortController(),
       timer = window.setTimeout(async () => {
         setChecking(true);
@@ -4412,6 +4415,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           });
           setConflicts(data.conflicts || []);
           setPatternNotice(typeof data.patternNotice === "string" ? data.patternNotice : "");
+          setLectureNotice(typeof data.lectureNotice === "string" ? data.lectureNotice : "");
         } catch (e: any) {
           if (e?.name !== "AbortError") { setError(friendlyError(e)); }
         } finally {
@@ -6103,7 +6107,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setExpandedDay((view.display.expandedDay as DayKey) || null);
     setMatrixDay((view.display.matrixDay as any) || "week");
     setQuickSearch(view.filters.quickSearch);
-    setHueFocus(new Set(view.filters.hueFocus));
+    setHueFocus(new Set(view.filters.hueFocus.slice(0, 1)));
     setHueHidden(new Set(view.filters.hueHidden));
     setMatrixBuildings(new Set(view.filters.matrixBuildings || []));
     setMatrixRooms(new Set(view.filters.matrixRooms));
@@ -6852,14 +6856,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       return next;
     });
 
-  /* Toggling one identity in or out of the lit set. */
+  /* A single identity is the active visual filter. Choosing a different
+     instructor, course, or room replaces the previous choice; choosing it
+     again clears the filter. */
   const toggleHueFocus = (key: string) =>
-    setHueFocus(current => {
-      const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setHueFocus(current => current.has(key) ? new Set() : new Set([key]));
+
+  /* Changing the identity family (professor/course/room) invalidates the
+     selected key from the previous family. Start the new filter cleanly. */
+  const changeHueBasis = (basis: "course" | "instructor" | "room") => {
+    if (basis === hueBy) return;
+    setHueBy(basis);
+    setHueFocus(new Set());
+  };
 
   /**
    * Arrows, because not every desk has a trackpad.
@@ -7978,9 +7987,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       { id: "schedule.review", group: "الجدول", label: "مراجعة الاعتماد", keywords: ["review", "اعتماد", "مراجعة"], icon: <ClipboardCheck />, execute: () => setReviewOpen(true) },
       { id: "schedule.focus", group: "العرض", label: focusMode ? "إنهاء التركيز" : "وضع التركيز", keywords: ["focus", "تركيز"], icon: <Focus />, execute: () => { physics.cancel(); setFocusMode(!focusMode); setPresentationMode(false); } },
       { id: "schedule.present", group: "العرض", label: presentationMode ? "إنهاء العرض" : "وضع العرض", keywords: ["present", "عرض", "شاشة"], icon: <Expand />, execute: () => { setPresentationMode(!presentationMode); setFocusMode(false); if (!presentationMode) changeView("week"); } },
-      { id: "hue.course", group: "العرض", label: "التلوين حسب المقرر", keywords: ["colour", "color", "لون", "مقرر"], icon: <Palette />, enabled: hueBy !== "course", execute: () => setHueBy("course") },
-      { id: "hue.instructor", group: "العرض", label: "التلوين حسب الأستاذ", keywords: ["colour", "color", "لون", "استاذ"], icon: <Palette />, enabled: hueBy !== "instructor", execute: () => setHueBy("instructor") },
-      { id: "hue.room", group: "العرض", label: "التلوين حسب القاعة", keywords: ["colour", "color", "لون", "قاعة"], icon: <Palette />, enabled: hueBy !== "room", execute: () => setHueBy("room") },
+      { id: "hue.course", group: "العرض", label: "التلوين حسب المقرر", keywords: ["colour", "color", "لون", "مقرر"], icon: <Palette />, enabled: hueBy !== "course", execute: () => changeHueBasis("course") },
+      { id: "hue.instructor", group: "العرض", label: "التلوين حسب الأستاذ", keywords: ["colour", "color", "لون", "استاذ"], icon: <Palette />, enabled: hueBy !== "instructor", execute: () => changeHueBasis("instructor") },
+      { id: "hue.room", group: "العرض", label: "التلوين حسب القاعة", keywords: ["colour", "color", "لون", "قاعة"], icon: <Palette />, enabled: hueBy !== "room", execute: () => changeHueBasis("room") },
       { id: "hue.reset", group: "العرض", label: "إظهار كل الطبقات", keywords: ["reset", "اظهار", "طبقات"], icon: <Eye />, enabled: hueHidden.size > 0 || hueFocus.size > 0, execute: () => { setHueHidden(new Set()); setHueFocus(new Set()); } },
       { id: "views.save", group: "العروض المحفوظة", label: "حفظ العرض الحالي", keywords: ["save", "view", "حفظ", "عرض"], icon: <Bookmark />, execute: () => setViewDialog({ mode: "create" }) },
     ];
@@ -8954,7 +8963,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   collegeId={Number(form.AdCollegeId||0)}
                   sectionId={Number(form.AdSectionId||0)}
                   termId={Number(form.AdTermId||0)}
-                  showDepartmentHistory={editor !== "create"}
+                  showDepartmentHistory={editor === "edit"}
                   value={form}
                   courseRoomType={String(courseById.get(Number(form.AdCourseId||0))?.CourseRoomType||"")}
                   courseTeachingMode={String(courseById.get(Number(form.AdCourseId||0))?.CourseTeachingMode||"")}
@@ -8983,10 +8992,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                                 type="button"
                                 key={slot.roomId || `${slot.room}-${slot.hall}`}
                                 onClick={() => takeSlot(slot)}
+                                aria-label={`استخدم القاعة ${slot.room}/${slot.hall}`}
                                 data-guide-ignore="يثبّت القاعة المقترحة في النموذج دون حفظ"
                               >
-                                <bdi dir="ltr">{slot.room}/{slot.hall}</bdi>
-                                <small>{(slot.reasons || []).slice(0, 2).join(" · ")}</small>
+                                <span className="room-suggest-card-icon" aria-hidden="true"><DoorOpen /></span>
+                                <span className="room-suggest-card-copy">
+                                  <bdi dir="ltr">{slot.room}/{slot.hall}</bdi>
+                                  <small>{(slot.reasons || []).slice(0, 2).join(" · ") || "متاحة في هذا الوقت"}</small>
+                                </span>
+                                <span className="room-suggest-card-action"><CheckCircle2 aria-hidden="true" /><small>اختيار</small></span>
                               </button>
                             ))}
                           </div>
@@ -9382,6 +9396,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <div className="pattern-notice-box">
                 <style>{PATTERN_LIBRARY_CSS}</style>
                 <div dangerouslySetInnerHTML={{ __html: patternNotice }} />
+              </div>
+            ) : null}
+            {lectureNotice ? (
+              <div className="schedule-lecture-advisory" role="status">
+                <AlertTriangle aria-hidden="true" />
+                <span><b>ملاحظة استرشادية</b>{lectureNotice}</span>
               </div>
             ) : null}
             {conflicts.length ? (
@@ -10414,7 +10434,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     data-guide-ignore="تغيير أساس ألوان القائمة عرض بصري فقط"
                     className={hueBy === basis.key ? "is-on" : ""}
                     aria-pressed={hueBy === basis.key}
-                    onClick={() => setHueBy(basis.key)}
+                    onClick={() => changeHueBasis(basis.key)}
                     title={`لوّن القائمة حسب ${basis.label}`}
                   >
                     {basis.label}
@@ -10455,7 +10475,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         className={`week-legend-chip ${hueFocus.has(item.key) ? "is-on" : ""}`}
                         aria-pressed={hueFocus.has(item.key)}
                         disabled={folded}
-                        title={`${legendText(item)} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية القائمة عليه`}
+                        title={`${legendText(item)} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية القائمة عليه؛ اختيار غيره يمسح هذا الفلتر`}
                         onClick={() => toggleHueFocus(item.key)}
                       >
                         <i aria-hidden="true" /><span>{item.label}{item.visiting ? <VisitingBadge compact /> : null}</span><em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
@@ -10482,8 +10502,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </button>
               ) : null}
               {hueFocus.size ? (
-                <button type="button" className="week-legend-clear" onClick={() => setHueFocus(new Set())}>
-                  <X aria-hidden="true" />عرض الكل {hueFocus.size > 1 ? <b className="num">{hueFocus.size.toLocaleString("ar-KW-u-nu-latn")}</b> : null}
+                <button type="button" className="week-legend-clear" data-guide-ignore="مسح المرشح البصري لمفتاح الألوان فقط" onClick={() => setHueFocus(new Set())}>
+                  <X aria-hidden="true" />عرض الكل
                 </button>
               ) : null}
             </div>
@@ -10992,9 +11012,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         <button
                           key={basis.key}
                           type="button"
+                          data-guide-ignore="تغيير أساس ألوان المباني والقاعات عرض بصري فقط"
                           className={hueBy === basis.key ? "is-on" : ""}
                           aria-pressed={hueBy === basis.key}
-                          onClick={() => setHueBy(basis.key)}
+                          onClick={() => changeHueBasis(basis.key)}
                           title={`لوّن المباني والقاعات حسب ${basis.label}`}
                         >
                           {basis.label}
@@ -11031,7 +11052,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                               className={`week-legend-chip ${hueFocus.has(item.key) ? "is-on" : ""}`}
                               aria-pressed={hueFocus.has(item.key)}
                               disabled={folded}
-                              title={`${legendText(item)} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية المباني والقاعات عليه`}
+                        title={`${legendText(item)} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية المباني والقاعات عليه؛ اختيار غيره يمسح هذا الفلتر`}
                               onClick={() => toggleHueFocus(item.key)}
                             >
                               <i aria-hidden="true" /><span>{item.label}{item.visiting ? <VisitingBadge compact /> : null}</span><em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
@@ -11058,8 +11079,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       </button>
                     ) : null}
                     {hueFocus.size ? (
-                      <button type="button" className="week-legend-clear" onClick={() => setHueFocus(new Set())}>
-                        <X aria-hidden="true" />عرض الكل {hueFocus.size > 1 ? <b className="num">{hueFocus.size.toLocaleString("ar-KW-u-nu-latn")}</b> : null}
+                      <button type="button" className="week-legend-clear" data-guide-ignore="مسح المرشح البصري لمفتاح الألوان فقط" onClick={() => setHueFocus(new Set())}>
+                        <X aria-hidden="true" />عرض الكل
                       </button>
                     ) : null}
                   </div>
@@ -11383,9 +11404,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <button
                       key={basis.key}
                       type="button"
+                      data-guide-ignore="تغيير أساس ألوان الأسبوع عرض بصري فقط"
                       className={hueBy === basis.key ? "is-on" : ""}
                       aria-pressed={hueBy === basis.key}
-                      onClick={() => setHueBy(basis.key)}
+                      onClick={() => changeHueBasis(basis.key)}
                       title={`لوّن الأسبوع حسب ${basis.label}`}
                     >
                       {basis.label}
@@ -11428,7 +11450,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           className={`week-legend-chip ${hueFocus.has(item.key) ? "is-on" : ""}`}
                           aria-pressed={hueFocus.has(item.key)}
                           disabled={folded}
-                          title={`${legendText(item)} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية الأسبوع عليه، واضغط غيره لإضافته للمقارنة`}
+                          title={`${legendText(item)} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية الأسبوع عليه؛ اختيار غيره يمسح هذا الفلتر`}
                           onClick={() => toggleHueFocus(item.key)}
                         >
                           <i aria-hidden="true" />
@@ -11469,11 +11491,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <button
                     type="button"
                     className="week-legend-clear"
+                    data-guide-ignore="مسح المرشح البصري لمفتاح الألوان فقط"
                     onClick={() => setHueFocus(new Set())}
                     title={`${hueFocus.size} مُبرَز — أعد إظهار الجدول كاملاً`}
                   >
                     <X aria-hidden="true" />عرض الكل
-                    {hueFocus.size > 1 ? <b className="num">{hueFocus.size.toLocaleString("ar-KW-u-nu-latn")}</b> : null}
                   </button>
                 ) : null}
                 {/* The «نقش» texture toggle was removed at the reader's request;

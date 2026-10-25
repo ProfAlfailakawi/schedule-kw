@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { hidesCollege, hidesSection, scopeShape } from "../utils/scopeShape";
 import { resolveScopeSelection, singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeContext";
-import { BookOpen, Building2, GraduationCap, Trash2 } from "lucide-react";
+import { BookOpen, Building2, DoorOpen, GraduationCap, Trash2 } from "lucide-react";
 import { sortByName, byArabic } from "../utils/sorting";
 import CurriculumPlans from "./CurriculumPlans";
 import PlanBadge from "./PlanBadge";
@@ -40,6 +40,10 @@ const TEACHING_MODE_LABEL: Record<string, string> = {
 const teachingModeBadge = (course: any) => {
   const label = TEACHING_MODE_LABEL[String(course?.CourseTeachingMode || "")];
   return label ? <span className="course-teaching-mode-badge" title="طبيعة التدريس"><GraduationCap aria-hidden="true"/>{label}</span> : null;
+};
+const teachingModeValue = (course: any) => {
+  const value = String(course?.CourseTeachingMode || "").trim();
+  return TEACHING_MODE_LABEL[value] || value || "غير محدد";
 };
 /** Which generation a course belongs to, from the live plans the server tagged it with. */
 const planTagOf = (course: any): { key: "new" | "old" | "shared" | "service"; label: string } | null => {
@@ -705,6 +709,8 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                 <article><span>الساعات</span><b>{selected.CourseHours}</b></article>
                 <article><span>السعة</span><b>{selected.MaxStudent || 0}</b></article>
                 <article><span>رمز المقرر</span><b>{selected.CourseCode || "—"}</b></article>
+                <article className="course-detail-fact"><small><DoorOpen aria-hidden="true"/>نوع القاعة</small><b>{String(selected.CourseRoomType || "").trim() || "غير محدد"}</b></article>
+                <article className="course-detail-fact"><small><GraduationCap aria-hidden="true"/>طبيعة التدريس</small><b>{teachingModeValue(selected)}</b></article>
               </div>
               <div className="inspector-actions">
                 <PrimaryButton onClick={() => edit(selected)}>تعديل</PrimaryButton>

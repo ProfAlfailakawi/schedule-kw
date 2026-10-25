@@ -48,6 +48,8 @@ check(roomTypeSiblingIds({ ...courses[0], AdCollegeId: 99 }, courses, sections, 
 
 /* ترتيبُ الكتابة في المسار: النسخُ قبل المقرر المعدَّل، فتعيد المحاولةُ ما فات. */
 const server = fs.readFileSync("server.ts", "utf8");
+const courseUi = fs.readFileSync("src/components/Courses.tsx", "utf8");
+check(courseUi.includes("course-detail-fact") && courseUi.includes("نوع القاعة") && courseUi.includes("طبيعة التدريس") && courseUi.includes("teachingModeValue(selected)"), "تفاصيل المقرر تعرض نوع القاعة وطبيعة التدريس المخزّنة");
 const route = server.slice(server.indexOf('app.put("/api/courses/:id"'), server.indexOf('app.delete("/api/courses/:id"'));
 const syncAt = route.indexOf("setCourseRoomTypeForIds"), updateAt = route.indexOf("Repository.updateCourse(");
 check(syncAt > 0 && updateAt > syncAt, "مزامنة النسخ تُكتب قبل المقرر المعدَّل ليبقى إعادةُ المحاولة ممكنةً");

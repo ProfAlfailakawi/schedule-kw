@@ -22,6 +22,7 @@
     "test:teacher-card": "tsx tests/teacher-card-polish-audit.ts",
     "test:teacher-card-2": "tsx tests/teacher-card-polish-2-audit.ts",
     "test:lecture-length": "tsx tests/lecture-length-audit.ts",
+    "test:schedule-interface": "tsx tests/schedule-interface-audit.ts",
     "test:schedule-wipe": "tsx tests/schedule-wipe-audit.ts",
     "test:repo-hygiene": "node tests/repo-hygiene-guard.mjs",
     "test:firestore-target": "tsx tests/firestore-target-audit.ts",

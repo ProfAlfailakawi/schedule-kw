@@ -2260,3 +2260,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .pb-gauge-foot{font-size:var(--t-xs,.75rem);color:var(--ink-2)}
 @media (max-width:480px){.period-balance-rule{grid-template-columns:1fr;gap:10px}.pb-rule-ref{justify-self:center}}
 .pattern-notice-box{margin:10px 0}
+.schedule-lecture-advisory{display:flex;align-items:flex-start;gap:9px;margin:10px 0;padding:10px 12px;border:1px solid color-mix(in srgb,var(--brass) 30%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--brass-soft) 60%,var(--surface));color:var(--ink-2);font-size:.82rem;line-height:1.65}
+.schedule-lecture-advisory>svg{inline-size:18px;block-size:18px;flex:none;margin-block-start:2px;color:var(--brass)}
+.schedule-lecture-advisory>span{display:flex;flex-wrap:wrap;gap:4px 8px}
+.schedule-lecture-advisory b{color:var(--brass);white-space:nowrap}
