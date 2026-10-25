@@ -4199,7 +4199,7 @@ app.post("/api/courses", requirePermission(6), async (req: AuthenticatedRequest,
   const MaxStudent = boundedInt(req.body?.MaxStudent, COURSE_LIMIT.students[0], COURSE_LIMIT.students[1], 0);
   const CourseRoomType=String(req.body?.CourseRoomType||"").normalize("NFKC").trim();if(CourseRoomType.length>60){res.status(400).json({error:"نوع القاعة المناسب لا يتجاوز 60 حرفًا."});return;}
   const CourseTeachingMode=String(req.body?.CourseTeachingMode||"").trim() as AdCourse["CourseTeachingMode"] | "";
-  if(CourseTeachingMode&&!['theoretical','applied','practical','field_training','mixed'].includes(CourseTeachingMode)){res.status(400).json({error:"طبيعة تدريس المقرر غير معروفة."});return;}
+  if(CourseTeachingMode&&!['theoretical','applied','practical','field_training'].includes(CourseTeachingMode)){res.status(400).json({error:"طبيعة تدريس المقرر غير معروفة."});return;}
   const numberIssue = courseNumberIssue(CourseCredit, CourseHours, MaxStudent);
   if (numberIssue) { res.status(400).json({ error: numberIssue }); return; }
 
@@ -4259,7 +4259,7 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
   const MaxStudent = boundedInt(req.body?.MaxStudent, COURSE_LIMIT.students[0], COURSE_LIMIT.students[1], 0);
   const CourseRoomType=String(req.body?.CourseRoomType||"").normalize("NFKC").trim();if(CourseRoomType.length>60){res.status(400).json({error:"نوع القاعة المناسب لا يتجاوز 60 حرفًا."});return;}
   const CourseTeachingMode=req.body?.CourseTeachingMode === undefined ? undefined : String(req.body.CourseTeachingMode).trim() as AdCourse["CourseTeachingMode"] | "";
-  if(CourseTeachingMode&&!['theoretical','applied','practical','field_training','mixed'].includes(CourseTeachingMode)){res.status(400).json({error:"طبيعة تدريس المقرر غير معروفة."});return;}
+  if(CourseTeachingMode&&!['theoretical','applied','practical','field_training'].includes(CourseTeachingMode)){res.status(400).json({error:"طبيعة تدريس المقرر غير معروفة."});return;}
   const numberIssue = courseNumberIssue(CourseCredit, CourseHours, MaxStudent);
   if (numberIssue) { res.status(400).json({ error: numberIssue }); return; }
 
@@ -15868,8 +15868,8 @@ app.get("/api/share-personal", requirePermission(7), async (req: AuthenticatedRe
 /* ── «المتبقي» واقتراحُ عدد الشعب ───────────────────────────────────────────
  *
  * القسم يستورد قبل بناء الجدول كشفَ «المتبقي» من عمادة التسجيل (طلبةٌ لم
- * يسجّلوا المقرر بعد)؛ ويُعاد معه تاريخُ أقرب ثلاثة فصولٍ مماثلة (الموسم نفسه،
- * سنواتٌ سابقة): الشعبُ المفتوحة فعلاً في الجدول، والمتبقي إن استُورد يومها.
+ * يسجّلوا المقرر بعد)؛ ويُعاد معه تاريخُ الفصول السابقة المطابقة للموسم:
+ * الشعبُ المفتوحة فعلاً في الجدول، والمتبقي إن استُورد يومها.
  * الحسابُ نفسه في المتصفح والاختبار: src/utils/sectionCountSuggestion.ts. */
 app.get("/api/registration-stats", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
@@ -15880,39 +15880,19 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     Repository.getCourseTransitions(sectionId).catch(() => []),
   ]);
   const term = terms.find(row => Number(row.AdTermId) === termId);
-  const currentRemaining = stats?.remainingSource?.column === "unregistered" ? stats.remaining || {} : null;
-  /* إن كان الفصل الثاني جارياً ولم يصل كشفه بعد، يستفيد التخطيط من كشف
-     الفصل الأول من السنة الدراسية نفسها. لا تُنسخ أرقام الشعب المختارة أو
-     الشواغر، ولا يُحفظ كشف الفصل الأول في سجل الفصل الثاني. */
-  const firstSemesterFallback = currentRemaining == null
-    ? (() => {
-        const name = String(term?.AdTermName || "");
-        const years = name.match(/(\d{4})\s*\/\s*(\d{4})/);
-        if (!years || termSeasonOf(name) !== "الثاني") return null;
-        const year = `${years[1]}/${years[2]}`;
-        const firstTerm = terms.find(candidate => Number(candidate.AdTermId) !== termId
-          && termSeasonOf(candidate.AdTermName) === "الأول"
-          && String(candidate.AdTermName || "").match(/\d{4}\s*\/\s*\d{4}/)?.[0]?.replace(/\s/g, "") === year);
-        return firstTerm ? { term: firstTerm, promise: Repository.getRegistrationStats(collegeId, sectionId, Number(firstTerm.AdTermId)) } : null;
-      })()
-    : null;
-  const firstSemesterStats = firstSemesterFallback ? await firstSemesterFallback.promise : null;
-  const useFirstSemesterFallback = Boolean(firstSemesterFallback && firstSemesterStats?.remainingSource?.column === "unregistered");
-  /* التاريخ الحقيقي لا تقويمٌ مفترض: يُرجَع في الفصول السابقة من الأحدث حتى
-     يُوجد ٣ فصولٍ من الموسم نفسه فيها جدولٌ للقسم، و٣ فصولٍ أخرى بوزنٍ أخفّ.
-     كانت النافذة «٣ سنوات» فتقع على فصولٍ بلا بيانات (٢٠٢٢–٢٠٢٦) فتقول «لا
-     تاريخ» ولمقررٍ فُتح ١٥ فصلاً منذ ٢٠١٦. الحساب في sectionCountSuggestion.ts. */
+  const currentRemaining = stats?.remainingSource?.column === "unregistered" ? stats.remaining || {} : {};
+  /* تاريخُ الفصل مستقلٌّ عن المواسم الأخرى: الأول يقارن بالأول فقط، والثاني
+     بالثاني، والصيفي بالصيفي. لا نستبدل غياب تاريخ الموسم بمقرر من موسم مختلف؛
+     عندها يعتمد الاقتراح على المتبقي والسعة حتى يتكوّن تاريخ مماثل. */
   const targetRank = termChronologyServer(term);
   const season = termSeasonOf(term?.AdTermName);
   const similar: Array<{ AdTermId: number; AdTermName: string; similar: boolean; rows: FSchedule[] }> = [];
-  let sameCount = 0, otherCount = 0;
-  for (const row of sortTermsNewestServer(terms).filter(row => termChronologyServer(row) < targetRank)) {
-    const same = Boolean(season) && termSeasonOf(row.AdTermName) === season;
-    if (!same && otherCount >= 3) continue;
+  for (const row of sortTermsNewestServer(terms).filter(row => Boolean(season)
+    && termSeasonOf(row.AdTermName) === season
+    && termChronologyServer(row) < targetRank)) {
     const rows = await Repository.getSchedulesByScope({ collegeId, sectionId, termId: Number(row.AdTermId) });
     if (!rows.length) continue;
-    similar.push({ AdTermId: Number(row.AdTermId), AdTermName: String(row.AdTermName), similar: same, rows });
-    if (same) sameCount++; else otherCount++;
+    similar.push({ AdTermId: Number(row.AdTermId), AdTermName: String(row.AdTermName), similar: true, rows });
   }
   /* مقررٌ أُعيد ترقيمه أو استُبدل في صحيفةٍ جديدة هو نفسُه في التاريخ: يرث
      شعبَ سلفه ومتبقّيه — إن لم يُفتح هو بعدُ في تلك الفصول — بدل «لا تاريخ». */
@@ -15984,12 +15964,9 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     courses: courses.map(course => ({ id: course.AdCourseId, code: course.CourseCode || "", name: course.CourseName || "", capacity: Number(course.MaxStudent || 0) })),
     /* «الذين لم يسجلوا» (المتبقي الإجمالي) وحده مدخلُ التخطيط؛ ما حُفظ بعمودٍ آخر («المقاعد المتبقية» أو بلا وسم) يُعاد منفصلاً موسوماً «قديماً» ولا يُحسب به. */
     /* لا متبقٍّ سالب (ما حُفظ سالباً قبل اعتماد الصفر يُعرض صفراً). */
-    remaining: currentRemaining ?? (useFirstSemesterFallback
-      ? Object.fromEntries(Object.entries(firstSemesterStats!.remaining || {}).map(([key, value]) => [key, Math.max(0, Number(value) || 0)])) : {}),
+    remaining: currentRemaining,
     vacant: stats?.remainingSource?.column === "unregistered" ? stats.vacant || {} : {},
-    remainingSource: stats?.remainingSource?.column === "unregistered" ? stats.remainingSource
-      : useFirstSemesterFallback ? firstSemesterStats!.remainingSource : null,
-    remainingSourceTerm: useFirstSemesterFallback ? String(firstSemesterFallback!.term.AdTermName || "") : "",
+    remainingSource: stats?.remainingSource?.column === "unregistered" ? stats.remainingSource : null,
     legacyRemaining: stats?.remainingSource?.column !== "unregistered" && Object.keys(stats?.remaining || {}).length
       ? { values: stats!.remaining, fileName: stats!.remainingSource?.fileName || "", importedAt: stats!.remainingSource?.importedAt || "" } : null,
     accepted: stats?.accepted || {},

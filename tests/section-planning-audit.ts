@@ -18,6 +18,10 @@ const firsts = [
 ];
 const base = historicalBaseline(firsts)!;
 check(base.sections === 3 && base.label.includes("متوسط 3 فصول أولى") && base.remaining === null, `الأساس: المتوسط العادي للفصول المماثلة وحدها: 3 شعب (${base.label})`);
+check(historicalBaseline([{ termName: "الفصل الأول 2025/2026", sections: 3, similar: false }, { termName: "الفصل الثاني 2025/2026", sections: 20, similar: false }]) === null,
+  "لا يُستخدم تاريخ موسمٍ آخر إذا لم يوجد تاريخ للموسم المطلوب");
+check(historicalBaseline([{ termName: "الفصل الأول 2025/2026", sections: 3, similar: true }, { termName: "الفصل الثاني 2025/2026", sections: 20, similar: false }])?.sections === 3,
+  "فصول الموسم الآخر لا تغيّر أساس المقرر حتى عند وجود تاريخ مماثل");
 /* كاملُ التاريخ لا آخر ثلاثةٍ فقط، وبمتوسطٍ عادي: 2،2،2،8،8 ← 4.4 ← 4. */
 const longRun = [2, 2, 2, 8, 8].map((sections, i) => ({ termName: `الفصل الأول ${2025 - i}/${2026 - i}`, sections, similar: true }));
 const longBase = historicalBaseline(longRun)!;
@@ -81,6 +85,10 @@ check(remainingBacklog(200, growing) === "" && remainingBacklog(240, growing.sli
 const dept = [{ termName: "الفصل الأول 2025/2026", sections: 30, instructors: 12, halls: 8, similar: true }, { termName: "الفصل الثاني 2025/2026", sections: 26, instructors: 11, halls: 7, similar: false }];
 check(departmentTypicalTotal(dept) === 30, "المعتاد للقسم من الفصول المماثلة");
 check(departmentLoadWarning(30, dept) === "" && departmentLoadWarning(41, dept).includes("يتجاوز أعلى ما شغّله القسم"), "مجموعٌ فوق أعلى ما شغّله القسم يُنبَّه عليه");
+check(departmentTypicalTotal([{ termName: "الفصل الثاني 2025/2026", sections: 26, instructors: 11, halls: 7, similar: false }]) === null,
+  "لا يُستعار معتاد القسم من موسم آخر عند غياب الموسم المطابق");
+check(departmentLoadWarning(40, [...dept, { termName: "الفصل الثاني 2024/2025", sections: 60, instructors: 20, halls: 15, similar: false }]) === "",
+  "تحذير مجموع الشعب يقارن بالقسم في الموسم نفسه فقط");
 
 /* ── قراءة كشف المتبقي ── */
 const catalogue = [{ id: 1, code: "101" }, { id: 2, code: "102" }, { id: 3, code: "210" }, { id: 4, code: "315" }, { id: 5, code: "499" }];
@@ -267,7 +275,12 @@ const ocr = fs.readFileSync("src/utils/documentOcr.ts", "utf8");
 check(ocr.includes("async function ruledReportCells(") && ocr.includes("await deskew(image)") && ocr.includes("straightenTable(lib,surface,geometry)") && ocr.includes('const skipped=new Set<string>([])'),
   "الصورة المسطّرة: تُعدَّل وتُستقام وتُقرأ خانةً خانة، وكل الأعمدة تُقرأ («لم يسجلوا» للتخطيط، «لم يجتازوا» والمسجّلون لفحصه، «المقاعد المتبقية» شاغرٌ للإنذار)");
 check(server.includes("termSeasonOf(row.AdTermName) === season") && server.includes("if (!rows.length) continue;"), "الفصول المماثلة: الموسم نفسه، ويُتخطّى الفصل الذي لا جدول فيه للقسم");
-check(server.includes("Repository.getCourseTransitions(sectionId)") && server.includes("ancestorsOf(id)") && server.includes("remaining: known.reduce("), "المقرر المعاد ترقيمه يرث شعب سلفه ومتبقّيه");
+check(server.includes("Repository.getCourseTransitions(sectionId)") && server.includes("ancestorsOf(id)") && server.includes("const source = family.find(member => (term.sectionsOf.get(member)?.size || 0) > 0)"), "المقرر المعاد ترقيمه يرث تاريخ سلفه عند غياب بياناته المباشرة");
+check(!server.includes("firstSemesterFallback") && !server.includes("remainingSourceTerm"), "المتبقي لا ينتقل من الفصل الأول إلى الثاني");
+check(!fs.readFileSync("src/utils/readinessFix.ts", "utf8").includes('value: "mixed"')
+  && !fs.readFileSync("src/components/Courses.tsx", "utf8").includes('نظري وعملي')
+  && (server.match(/'theoretical','applied','practical','field_training'/g) || []).length >= 2,
+  "طبيعة التدريس تقتصر على الأنواع الأربعة المحددة ولا تعرض نوعاً مختلقاً");
 check(ui.includes("suggestSectionCount("), "الواجهة تستعمل الحساب نفسه");
 check(ui.includes('"x-page-sizes": files.map(file => file.size).join(",")') && ui.includes("files.length <= 4 && files.every(isImage)")
   && server.includes('String(req.get("x-page-sizes") || "")') && server.includes("sizes.reduce((sum, size) => sum + size, 0) !== bodyBytes")
