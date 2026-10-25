@@ -625,9 +625,9 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
         );
       })() : null}
       {state.dataReadiness.roomFit?.count ? <div className="apb-room-fit-review" aria-label="مراجعة ملاءمة القاعات للمخطط">
-        <header><AlertTriangle aria-hidden="true"/><b>{countOf(state.dataReadiness.roomFit.count, AR.appointment)} تحتاج مراجعة ملاءمة</b><small>للمخطط فقط · لا تمنع الاعتماد</small></header>
-        <ul>{state.dataReadiness.roomFit.items.map((item,index)=><li key={`${item.kind}:${item.label}:${index}`}><span><b>{item.label}</b><small>{item.room} · {item.detail}</small></span></li>)}</ul>
-        {state.dataReadiness.roomFit.unknownRoomCapacity ? <small className="apb-room-fit-unknown">سعة {countOf(state.dataReadiness.roomFit.unknownRoomCapacity, AR.room)} غير مسجلة؛ تُركت بلا حكم.</small> : null}
+        <header><span className="apb-fit-head-icon"><AlertTriangle aria-hidden="true"/></span><span className="apb-fit-head-copy"><b>{countOf(state.dataReadiness.roomFit.count, AR.appointment)} تحتاج مراجعة ملاءمة</b><small>مطابقة القاعة والسعة</small></span><span className="apb-fit-scope">استرشادي</span></header>
+        <ul>{state.dataReadiness.roomFit.items.map((item,index)=><li key={`${item.kind}:${item.label}:${index}`}><span className="apb-fit-item-icon"><DoorOpen aria-hidden="true"/></span><span><b>{item.label}</b><small><bdi dir="ltr">{item.room}</bdi> · {item.detail}</small></span></li>)}</ul>
+        {state.dataReadiness.roomFit.unknownRoomCapacity ? <small className="apb-room-fit-unknown"><Landmark aria-hidden="true"/> سعة {countOf(state.dataReadiness.roomFit.unknownRoomCapacity, AR.room)} غير مسجلة؛ تُركت بلا حكم.</small> : null}
       </div> : null}
     </section>
   ) : null;

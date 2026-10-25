@@ -1954,7 +1954,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     }
     return [...byCourse.values()].sort((a, b) => b.items.length - a.items.length || byArabic(a.name, b.name));
   }, [roomTypeMismatches, courseById]);
-  const roomTeacherIndex = useMemo(() => () => roomInstructorDirectory(results, instructorById), [results, instructorById]);
+  const roomTeacherIndex = useMemo(() => roomInstructorDirectory(results, instructorById), [results, instructorById]);
   const maxLoad = Math.max(1, ...byInstructor.map(group => group.load));
   const maxSlot = Math.max(1, ...byTime.map(slot => slot.count));
   const selectedResult = selectedResultId === null ? null : results.find(row => row.id === selectedResultId) || null;

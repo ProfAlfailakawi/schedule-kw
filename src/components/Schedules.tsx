@@ -8956,6 +8956,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   termId={Number(form.AdTermId||0)}
                   value={form}
                   courseRoomType={String(courseById.get(Number(form.AdCourseId||0))?.CourseRoomType||"")}
+                  courseTeachingMode={String(courseById.get(Number(form.AdCourseId||0))?.CourseTeachingMode||"")}
                   seatsNeeded={Number(courseById.get(Number(form.AdCourseId||0))?.MaxStudent||0)}
                   onChange={(patch)=>{setScheduleTouched(true);setForm(current=>({...current,...patch}));}}
                   showRaw={editor==="edit"}
