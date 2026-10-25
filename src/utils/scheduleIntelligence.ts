@@ -1,4 +1,4 @@
-import { roomIdentityKey } from "./locationRegistry";
+import { roomIdentityKey, roomIdentityKeys, sharePhysicalRoom } from "./locationRegistry";
 import { requiredGapForDays } from "./scheduleRegulations";
 import { AR, countOf, nounFor } from "./arabicCount";
 import { placeholderInstructorIds as placeholderIdsOf } from "./instructorIdentity";
@@ -319,11 +319,11 @@ export function findConflicts(targetRows:FSchedule[], allRows:FSchedule[], optio
   const byCourseSection=new Map<string,number[]>();
   for(let at=0;at<allRows.length;at++){
     const other=allRows[at];
-    const place=roomKey(other);
+    const places=roomIdentityKeys(other);
     for(const day of dayKeys){
       if(!other[day]) continue;
       if(personalInstructor(other)) push(byDayInstructor,`${String(day)}|${Number(other.AdInstructorId)}`,at);
-      if(place) push(byDayRoom,`${String(day)}|${place}`,at);
+      for(const place of places) push(byDayRoom,`${String(day)}|${place}`,at);
       if(wantCohort) push(byDayCourse,`${String(day)}|${Number(other.AdCourseId)}`,at);
     }
     push(byCourseSection,`${other.AdCourseId}|${String(other.SCode)}`,at);
@@ -332,11 +332,11 @@ export function findConflicts(targetRows:FSchedule[], allRows:FSchedule[], optio
   for(const row of targetRows){
     const candidates=new Set<number>();
     const take=(bucket:number[]|undefined)=>{ if(bucket) for(const at of bucket) candidates.add(at); };
-    const place=roomKey(row);
+    const places=roomIdentityKeys(row);
     for(const day of dayKeys){
       if(!row[day]) continue;
       if(personalInstructor(row)) take(byDayInstructor.get(`${String(day)}|${Number(row.AdInstructorId)}`));
-      if(place) take(byDayRoom.get(`${String(day)}|${place}`));
+      for(const place of places) take(byDayRoom.get(`${String(day)}|${place}`));
       if(wantCohort) for(const partner of partners.get(Number(row.AdCourseId))||[]) take(byDayCourse.get(`${String(day)}|${partner}`));
     }
     take(byCourseSection.get(`${row.AdCourseId}|${String(row.SCode)}`));
@@ -347,7 +347,7 @@ export function findConflicts(targetRows:FSchedule[], allRows:FSchedule[], optio
       const other=allRows[at];
       if(row.id===other.id || row.AdTermId!==other.AdTermId) continue;
       const clashing=overlaps(row,other);
-      const sameRoom=Boolean(roomKey(row)) && roomKey(row)===roomKey(other);
+      const sameRoom=sharePhysicalRoom(row,other);
       /* A turnaround too short to empty the hall. Only meaningful when the two
          do not already overlap — an overlap is the louder problem, and naming
          one pair twice would double every count in the product. */
@@ -503,7 +503,7 @@ export function findConflictsExhaustive(targetRows:FSchedule[], allRows:FSchedul
     for(const other of allRows){
       if(row.id===other.id || row.AdTermId!==other.AdTermId) continue;
       const clashing=overlaps(row,other);
-      const sameRoom=Boolean(roomKey(row)) && roomKey(row)===roomKey(other);
+      const sameRoom=sharePhysicalRoom(row,other);
       /* A turnaround too short to empty the hall. Only meaningful when the two
          do not already overlap — an overlap is the louder problem, and naming
          one pair twice would double every count in the product. */
@@ -657,12 +657,12 @@ export function fastConflictScan(rows:FSchedule[], options?:{placeholderInstruct
     }
   };
   let instructorPairs=0,roomPairs=0,duplicatePairs=0,sectionTwicePairs=0;
-  type Meta={row:FSchedule;start:number;end:number;room:string};
+  type Meta={row:FSchedule;start:number;end:number;rooms:string[]};
   const metas:Meta[]=rows.map(row=>({
     row,
     start:timeToMinutes(String(row.fstarttime||"")),
     end:timeToMinutes(String(row.fendtime||"")),
-    room:roomKey(row),
+    rooms:roomIdentityKeys(row),
   }));
   for(const day of SCHEDULE_DAYS){
     const todays=metas
@@ -675,7 +675,7 @@ export function fastConflictScan(rows:FSchedule[], options?:{placeholderInstruct
         const a=meta.row,b=other.row;
         if(a.id===b.id||a.AdTermId!==b.AdTermId) continue;
         const sameInstructor=Boolean(person(a))&&person(a)===person(b);
-        const sameRoom=Boolean(meta.room)&&meta.room===other.room;
+        const sameRoom=meta.rooms.some(key=>other.rooms.includes(key));
         if(!sameInstructor&&!sameRoom) continue;
         const key=a.id<b.id?`${a.id}:${b.id}`:`${b.id}:${a.id}`;
         if(seen.has(key)) continue;
@@ -831,7 +831,7 @@ function candidateConflictCount(candidate:FSchedule, allRows:FSchedule[], exclud
   for(const other of allRows){
     if(other.id===excludeId||other.AdTermId!==candidate.AdTermId||!overlaps(candidate,other))continue;
     if(Number(candidate.AdInstructorId)===Number(other.AdInstructorId))count++;
-    if(roomKey(candidate)&&roomKey(candidate)===roomKey(other))count++;
+    if(sharePhysicalRoom(candidate,other))count++;
   }
   return count;
 }
