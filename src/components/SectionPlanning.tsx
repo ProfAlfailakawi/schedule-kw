@@ -320,7 +320,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
 
   const courseName = new Map<number, Payload["courses"][number]>(data.courses.map(course => [course.id, course]));
   const rangeText = (s: { min: number | null; max: number | null }) => s.min == null ? "—" : s.min === s.max ? String(s.min) : `${s.min} إلى ${s.max}`;
-  const lastTerms = (history: SimilarTermHistory[]) => history.filter(item => item.sections > 0).slice(0, 3)
+  const lastTerms = (history: SimilarTermHistory[]) => history.filter(item => item.similar !== false && item.sections > 0).slice(0, 3)
     .map(item => `${item.sections} (${item.termName.replace("الفصل ", "")})`).join(" · ") || "—";
   /* اسم الملف لاتينيٌّ غالباً: يُعزل اتجاهه كي لا تنقلب الأقواس حوله. */
   const sourceLine = source ? `المتبقي (لم يسجلوا) من «\u2068${source.fileName}\u2069» — استُورد ${fmtDate(source.importedAt)} ${fmtTime(source.importedAt)}` : "لم يُستورد كشف المتبقي (لم يسجلوا) لهذا الفصل بعد";
@@ -331,7 +331,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
     <>
       <div className="section-plan-report-stats">
         <div><span>مجموع الشعب المختارة</span><b>{total}</b></div>
-        <div><span>ما شغّله القسم عادةً (الفصول المماثلة، وإلا الأحدث)</span><b>{typical ?? "—"}</b></div>
+        <div><span>ما شغّله القسم عادةً (الموسم نفسه فقط)</span><b>{typical ?? "—"}</b></div>
         <div><span>المقررات المخطّطة</span><b>{planned.length}</b></div>
       </div>
       <p className="section-plan-source">{sourceLine}</p>
@@ -541,8 +541,8 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
                   </div>
                   <div className="spw-tile spw-history">
                     <History aria-hidden="true" />
-                    {history.filter(item => item.sections > 0).slice(0, 3).length
-                      ? <span className="spw-chips">{history.filter(item => item.sections > 0).slice(0, 3).map(item => <i key={item.termName}><b>{item.sections}</b><em>{item.termName.replace("الفصل ", "")}</em></i>)}</span>
+                    {history.filter(item => item.similar !== false && item.sections > 0).slice(0, 3).length
+                      ? <span className="spw-chips">{history.filter(item => item.similar !== false && item.sections > 0).slice(0, 3).map(item => <i key={item.termName}><b>{item.sections}</b><em>{item.termName.replace("الفصل ", "")}</em></i>)}</span>
                       : <b>—</b>}
                     <small>آخر الفصول{lineage ? ` · من ${lineage}` : ""}</small>
                   </div>

@@ -10,7 +10,7 @@
  * كل مقرر). بل:
  *
  *   1) الأساس = المتوسط العادي لشعب المقرر في كامل الفصول المماثلة (الموسم
- *      نفسه)، كلُّ فصلٍ بوزنٍ واحد. بلا مماثل يُكتفى بأحدث الفصول الأخرى.
+ *      نفسه)، كلُّ فصلٍ بوزنٍ واحد. لا يُستعار تاريخ موسمٍ آخر عند غياب المماثل.
  *   2) المتبقي يُقارن بنفسه في تلك الفصول: أعلى بـ٢٠٪ ← الشعب أعلى بقدره،
  *      داخل نطاقٍ واقعي فقط: ±١ (و±٢ إن كان الأساس ٤ فأكثر). أول فصلٍ يُستورد
  *      فيه المتبقي لا مقارنة له، فيبقى الأساس ويُقال ذلك.
@@ -60,20 +60,15 @@ export function rangeLabel(min: number, max: number): string {
   return min === max ? `يُقترح هذا الفصل ${countOf(min, AR.section)}` : `يُقترح هذا الفصل ${min} إلى ${countOf(max, AR.section)}`;
 }
 
-/* متوسطٌ عادي لكل الفصول المماثلة: كلُّ فصلٍ بوزنٍ واحد. */
-const SIMILAR_WEIGHT = 1;
-const OTHER_WEIGHT = 1;
-
+/* متوسطٌ عادي للفصول المطابقة للموسم وحده: كلُّ فصلٍ بوزنٍ واحد. */
 function weighted<T>(items: readonly T[], value: (item: T) => number | null): number | null {
-  let sum = 0, weight = 0, other = 0;
-  for (const item of items as Array<T & { similar?: boolean }>) {
-    const isSimilar = item.similar !== false;
-    const w = isSimilar ? SIMILAR_WEIGHT : (other++ < 3 ? OTHER_WEIGHT : 0);
+  let sum = 0, count = 0;
+  for (const item of items) {
     const v = value(item);
-    if (!w || v == null) continue;
-    sum += w * v; weight += w;
+    if (v == null) continue;
+    sum += v; count++;
   }
-  return weight ? sum / weight : null;
+  return count ? sum / count : null;
 }
 
 /** «فصول أولى/ثانية/صيفية» من اسم فصل. */
@@ -86,16 +81,12 @@ const known = (value: unknown): value is number => value != null && Number.isFin
 /** خطّ الأساس من التاريخ: الشعب المعتادة، ووصفُ مصدرها، والمتبقي المعتاد إن عُرف. */
 export function historicalBaseline(history: readonly SimilarTermHistory[]): { sections: number; label: string; remaining: number | null } | null {
   const opened = history.filter(item => item.sections > 0);
-  /* كاملُ التاريخ في الفصول المماثلة؛ غيرُ المماثلة احتياطٌ لا يدخل إلا إن لم يوجد مماثل. */
+  /* لا يُخلط موسمٌ بآخر. إذا لم يوجد فصلٌ مطابق، لا يُصطنع خطّ أساس من موسم مختلف. */
   const similar = opened.filter(item => item.similar !== false);
-  const others = similar.length ? [] : opened.filter(item => item.similar === false).slice(0, 3);
-  const used = [...similar, ...others];
-  if (!used.length) return null;
-  const avg = weighted(used, item => item.sections)!;
-  const remaining = weighted(used, item => known(item.remaining) && Number(item.remaining) > 0 ? Number(item.remaining) : null);
-  const label = similar.length
-    ? `متوسط ${similar.length === 1 ? "فصل مماثل" : similar.length === 2 ? "فصلين مماثلين" : `${similar.length} ${seasonPlural(similar[0].termName)}`}`
-    : (others.length === 1 ? "أحدث فصل" : "أحدث الفصول");
+  if (!similar.length) return null;
+  const avg = weighted(similar, item => item.sections)!;
+  const remaining = weighted(similar, item => known(item.remaining) && Number(item.remaining) > 0 ? Number(item.remaining) : null);
+  const label = `متوسط ${similar.length === 1 ? "فصل مماثل" : similar.length === 2 ? "فصلين مماثلين" : `${similar.length} ${seasonPlural(similar[0].termName)}`}`;
   return { sections: Math.max(1, Math.round(avg)), label, remaining };
 }
 
@@ -183,17 +174,17 @@ export function suggestSectionCount(
 /** ما شغّله القسم كله في فصلٍ سابق. */
 export interface DepartmentTermLoad { termName: string; similar?: boolean; sections: number; instructors: number; halls: number }
 
-/** ما شغّله القسم عادةً في الفصول المماثلة (متوسط موزون، وإلا الأحدث)، أو null. */
+/** ما شغّله القسم عادةً في الفصول المطابقة للموسم فقط، أو null إن لم يوجد تاريخ مماثل. */
 export function departmentTypicalTotal(history: readonly DepartmentTermLoad[]): number | null {
   const ran = history.filter(item => item.sections > 0);
   const similar = ran.filter(item => item.similar !== false);
-  const avg = weighted(similar.length ? similar : ran.map(item => ({ ...item, similar: true })), item => item.sections);
+  const avg = similar.length ? weighted(similar, item => item.sections) : null;
   return avg == null ? null : Math.round(avg);
 }
 
 /** تحذيرٌ إن تجاوز مجموعُ المقترح أعلى ما شغّله القسم تاريخياً، وإلا "". */
 export function departmentLoadWarning(totalSuggested: number, history: readonly DepartmentTermLoad[]): string {
-  const ran = history.filter(item => item.sections > 0);
+  const ran = history.filter(item => item.sections > 0 && item.similar !== false);
   if (!ran.length || totalSuggested <= 0) return "";
   const peak = ran.reduce((best, item) => item.sections > best.sections ? item : best, ran[0]);
   if (totalSuggested <= peak.sections) return "";

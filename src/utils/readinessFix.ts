@@ -9,7 +9,6 @@ export interface CourseFixField { key: CourseFixKey; label: string; type: "int" 
 export const TEACHING_MODE_OPTIONS = [
   { value: "theoretical", label: "نظري" }, { value: "applied", label: "تطبيقي" },
   { value: "practical", label: "عملي" }, { value: "field_training", label: "التدريب الميداني" },
-  { value: "mixed", label: "نظري وعملي" },
 ] as const;
 
 /** تسمية الحقل الناقص كما يكتبها `scheduleDataReadiness` ← حقل المقرر. */

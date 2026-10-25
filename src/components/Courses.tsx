@@ -35,7 +35,7 @@ type Mode = "index" | "create" | "edit";
 type PlanFilter = "all" | "new" | "old" | "service";
 const TEACHING_MODE_LABEL: Record<string, string> = {
   theoretical: "نظري", applied: "تطبيقي", practical: "عملي",
-  field_training: "التدريب الميداني", mixed: "نظري وعملي",
+  field_training: "التدريب الميداني",
 };
 /** Which generation a course belongs to, from the live plans the server tagged it with. */
 const planTagOf = (course: any): { key: "new" | "old" | "shared" | "service"; label: string } | null => {
@@ -236,7 +236,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setHours(String(x.CourseHours ?? ""));
       setCapacity(String(x.MaxStudent ?? ""));
       setCourseRoomType(String(x.CourseRoomType || ""));
-      setCourseTeachingMode(String(x.CourseTeachingMode || ""));
+      setCourseTeachingMode(["theoretical", "applied", "practical", "field_training"].includes(String(x.CourseTeachingMode || "")) ? String(x.CourseTeachingMode) : "");
       setError(null);
       setCurriculumTarget(null);
       setMode("edit");
@@ -595,7 +595,6 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             <Field label="طبيعة التدريس (للمراجعة اللائحية)">
               <select value={courseTeachingMode} onChange={event => setCourseTeachingMode(event.target.value)} aria-label="طبيعة تدريس المقرر">
                 <option value="">غير محددة</option>
-                {courseTeachingMode === "mixed" ? <option value="mixed">نظري وعملي · تصنيف سابق</option> : null}
                 <option value="theoretical">نظري</option>
                 <option value="applied">تطبيقي</option>
                 <option value="practical">عملي</option>
