@@ -65,6 +65,7 @@
     "test:searchable-select": "tsx tests/searchable-select-audit.ts",
     "test:section-gap-live": "tsx tests/section-gap-live-audit.ts",
     "test:public-kit": "tsx tests/public-kit-audit.ts",
+    "test:companion-rooms":"tsx tests/companion-rooms-audit.ts",
     "test:room-occupancy": "tsx tests/room-occupancy-audit.ts && tsx tests/instructor-request-room-universe-audit.ts",
     "test:behavior": "tsx tests/run-tests.ts",
     "test:shared-scope": "tsx tests/shared-scope-audit.ts",
