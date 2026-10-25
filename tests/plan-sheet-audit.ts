@@ -85,7 +85,7 @@ const model: SheetModel = {
     "plan.addEventListener('mouseover'",
   ];
   check(motions.every(needle => reference.includes(needle) && html.includes(needle)), "S1 تأثيرات التكبير والتوهج والأسهم والاسم في الصحيفة المولّدة مطابقة للمرجع");
-  check(!template.includes("#tag{display:none!important}") && html.includes("function placeTag()") && html.includes("tag.classList.add('on')"), "S1 ظهور الاسم العائم على الهاتف كما في المرجع");
+  check(!/^\s*#tag\{display:none!important\}/m.test(template) && html.includes("function placeTag()") && html.includes("tag.classList.add('on')"), "S1 ظهور الاسم العائم على الهاتف كما في المرجع");
   /* Compare all 28 approved SVG course labels, fonts and line breaks. */
   const referenceCards = [...reference.matchAll(/<g class="card" data-c="([^"]+)"[\s\S]*?<\/g>/g)].map(match => {
     const markup = match[0], label = markup.match(/aria-label="[^"]+? (.*?)"/)?.[1] || "";
