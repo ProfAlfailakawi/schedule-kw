@@ -60,12 +60,13 @@ export default function CompanionFacilityPicker({ course, form, excludeId, onCha
         required
       >
         <option value="">{loading ? "جارٍ فحص المرافق…" : "اختر المرفق المتاح طوال الموعد"}</option>
-        {rooms.map(room => <option key={room.id} value={room.id} disabled={!room.available && room.id !== chosen}>
-          {room.label}{room.available ? " · متاح" : room.id === chosen ? " · محجوز لهذا الموعد" : " · مشغول"}
+        {rooms.map(room => <option key={room.id} value={room.id} disabled={!room.available}>
+          {room.label}{room.available ? " · متاح" : " · مشغول في هذا الوقت"}
         </option>)}
       </select>
     </label>
     <small>يُحجز هذا المرفق مع القاعة الأساسية طوال مدة الموعد، دون إنشاء موعد آخر.</small>
+    {!loading && chosen && rooms.some(room=>room.id===chosen&&!room.available) ? <small role="alert">المرفق الذي اخترته أصبح مشغولًا في هذا الوقت. اختر مرفقًا متاحًا.</small> : null}
     {!loading && !error && !rooms.length && form.buildingId ? <small role="status">لا توجد مرافق من نوع «{requiredType}» مخصصة للمرافقة في هذا الموقع. راجع أنواع القاعات وسياسة الحجز.</small> : null}
     {error ? <small role="alert">{error}</small> : null}
   </div>;
