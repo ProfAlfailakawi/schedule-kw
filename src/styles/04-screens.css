@@ -2745,3 +2745,12 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .section-schedule-hours .form-actions{display:flex;justify-content:flex-start;margin-top:0;padding-top:18px;border-top:1px solid var(--line)}
 @media(max-width:760px){.section-hours-time-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.section-hours-time-grid>.field:first-child{grid-column:1/-1}.section-hours-intro{grid-template-columns:42px minmax(0,1fr)}.section-hours-clock{width:42px;height:42px}.section-hours-intro>.btn{grid-column:1/-1;justify-self:start}}
 @media(max-width:480px){.section-schedule-hours>.form-card{gap:18px;padding:16px}.section-hours-time-grid{grid-template-columns:1fr}.section-hours-time-grid>.field:first-child{grid-column:auto}.section-hours-intro{grid-template-columns:38px minmax(0,1fr);gap:10px;padding:13px}.section-hours-clock{width:38px;height:38px}.section-hours-list{grid-template-columns:1fr}.section-hours-row{min-height:56px;padding:9px 11px}.section-schedule-hours .form-actions>.btn{width:100%;justify-content:center}}
+.share-existing{margin-block:20px;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--surface-2)}
+.share-existing-head{display:flex;align-items:center;gap:9px;color:var(--accent-ink)}
+.share-existing-head svg{inline-size:18px;block-size:18px}
+.share-existing-head button{margin-inline-start:auto;border:0;background:none;color:var(--accent-ink);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+.share-existing ul{list-style:none;display:grid;gap:8px;margin:10px 0 0;padding:0}
+.share-existing li{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;padding:8px 12px;border-radius:12px;background:var(--surface)}
+.share-existing li span{font-weight:700;display:inline-flex;align-items:center;gap:6px}
+.share-existing time{color:var(--muted);font-size:13px;display:inline-flex;align-items:center;gap:5px}
+.share-existing li svg{inline-size:16px;block-size:16px;flex:none}

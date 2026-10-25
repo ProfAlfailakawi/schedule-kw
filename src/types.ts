@@ -1394,6 +1394,8 @@ export interface InstructorRequestItem {
   /** الصفُّ الأصلي، و`null` في الإضافة. */
   rowId: number | null;
   action: InstructorRequestAction;
+  /** موعد كان في مسودة الأستاذ ثم حذفه القسم قبل إرسال طلبه؛ يُعرض للعلم ولا يرسله الأستاذ كطلب حذف. */
+  removedByDepartment?: boolean;
   before?: InstructorRequestSnapshot;
   /** ما طلبه الأستاذ. **لا يحمل قاعةً أبداً.** */
   after?: InstructorRequestSnapshot;

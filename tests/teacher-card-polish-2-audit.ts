@@ -74,8 +74,8 @@ check(server.includes('if (problemIsShape) { res.json({ times: {}, problem: "sha
 check(server.includes('note.kind !== "balance" && note.courseIds') && page.includes('n.kind!=="balance"'), "P4 شريطُ نسب الصباح والمساء غائبٌ عن صفحة الأستاذ");
 
 /* P5: التحسينات */
-check(page.includes('var act=unchangedEdit(it)?"keep":it.action;') && page.includes('data-act="\'+esc(act)+\'">\'+skStat(act)+(act==="keep"?"كما هو":actionName(act))'), "P5 بطاقة التعديل بلا لمسة تقرأ «كما هو» لا «معدّل»");
-check(page.includes("function receiptLine(it)") && page.includes("chg.map(function(it){return '<li><span>'+receiptLine(it)") && !page.includes("chg.slice(0,5)"), "P5 إيصال ما قبل التوقيع: كلُّ تغيير بجملة بشرية، بلا اختصار");
+check(page.includes('var act=unchangedEdit(it)?"keep":it.action;') && page.includes('act==="keep"?"كما هو":actionName(act)'), "P5 بطاقة التعديل بلا لمسة تقرأ «كما هو» لا «معدّل»");
+check(page.includes("function receiptCard(it)") && page.includes("chg.map(receiptCard)") && !page.includes("chg.slice(0,5)"), "P5 إيصال ما قبل التوقيع: كلُّ تغيير ببطاقة موجزة، بلا اختصار للعدد");
 check(page.includes("'نقل '+c+where+' من '") && page.includes("'حذف '+c") && page.includes("'إضافة '+c"), "P5 صيغُ الإيصال: نقل وحذف وإضافة");
 check(page.includes("function bestTimes(it,i)") && page.includes("out.length>=3?out.slice(0,3):[]") && page.includes('h[t]==="ok"'), "P5 «أفضل ٣ مواعيد» من أوقاتٍ حكم الخادمُ بأنها متاحة، ولا تظهر إن قلّت عن ثلاثة");
 check(page.includes("function deadlineHtml(r,open)") && page.includes('data-urgent="\'+(left<=2?1:0)+\'"'), "P5 عدّاد المهلة، كهرمانيٌّ في آخر يومين");
@@ -113,7 +113,7 @@ check(importTable.includes("badge: courseOptionBadge([Number(item.AdCourseId)], 
 
 /* P11: قراءاتٌ متوازية بلا تغيير في الردود */
 check(server.includes("const [link, early] = await Promise.all([") && server.includes("link.id === wanted && early ? early"), "P11 الرابطُ وطلبُه يُقرآن معاً، ويُعاد السؤالُ إن اختلف المعرّف");
-check(server.includes("const [opened, [instructors, terms, courses, serviceKeys, calendarToken], judgedBeforeOpen] = await Promise.all(["), "P11 فتحُ الكرت: التسجيل والقوائم والحكم معاً");
+check(server.includes("const [opened, [instructors, terms, courses, serviceKeys, calendarToken], judgedBeforeOpen, currentRows] = await Promise.all(["), "P11 فتحُ الكرت: التسجيل والقوائم والحكم والجدول الحالي معاً");
 check(server.includes("async function rulesOnce<T>(") && server.includes("await Promise.all([...scopesNeeded].map(([key, scope]) =>"), "P11 نطاقاتُ القواعد معاً، ونطاقٌ واحدٌ يُحسب مرةً ولو سأل عنه كثيرون");
 check(server.includes("contexts.set(key, buildRequestContext(row))") && server.includes("rulesCache: sharedRules"), "P11 شاشةُ القسم: سياقٌ واحد لكل نطاق لا لكل طلب");
 

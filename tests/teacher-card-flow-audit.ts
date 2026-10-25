@@ -82,7 +82,7 @@ async function listen(token: string) {
 }
 
 async function main() {
-  check(cardSource.includes('if(offers.length===1){askAccept(i,0);return}'), "زر «قرّر الآن» يفتح إجراء القرار مباشرةً عند وجود اقتراح واحد");
+  check(cardSource.includes('var d=document.getElementById("deck")') && cardSource.includes('accept.focus({preventScroll:true})'), "زر «قرّر الآن» يُظهر بطاقة القرار ويركّز زر الموافقة");
   await ensureServer();
   const cookie = await login();
   const A = (method: string, path: string, body?: unknown) => http(method, path, body, cookie);

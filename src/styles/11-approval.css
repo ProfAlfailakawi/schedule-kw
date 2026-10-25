@@ -1357,7 +1357,7 @@
 .request-negotiation[data-negotiation="agreed"]{background:color-mix(in srgb,var(--ok,#2e7d5b) 14%,transparent);color:var(--ok,#2e7d5b)}
 .request-negotiation[data-negotiation="rejected"]{background:color-mix(in srgb,var(--bad,#b3261e) 12%,transparent);color:var(--bad,#b3261e)}
 .request-thread-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.request-thread-list li{max-inline-size:min(560px,92%);padding:8px 11px;border-radius:12px;border:1px solid var(--line);background:var(--card,transparent);font-size:var(--t-sm);line-height:1.7}
+.request-thread-list li{max-inline-size:min(960px,92%);padding:8px 11px;border-radius:12px;border:1px solid var(--line);background:var(--card,transparent);font-size:var(--t-sm);line-height:1.7}
 .request-thread-list li[data-from="instructor"]{margin-inline-start:auto;background:color-mix(in srgb,var(--ok,#2e7d5b) 8%,transparent)}
 .request-thread-list li small{display:block;color:var(--muted);font-size:var(--t-xs)}
 .request-thread-list li p{margin:2px 0 0;display:flex;gap:6px;align-items:center}
