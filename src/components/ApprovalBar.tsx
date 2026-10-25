@@ -544,7 +544,8 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   };
   const ITEM_ICON: Record<string, LucideIcon> = { course: Landmark, schedule: CalendarClock, location: DoorOpen, room: DoorOpen };
   const ITEM_ACTION: Record<string, string> = { course: "افتح المقررات", schedule: "اذهب للموعد", location: "اذهب للموعد", room: "اذهب للموعد" };
-  const gapList = gapOpen === "plan" ? gap.planItems : gapOpen === "students" ? gap.studentItems : [];
+  const planAdjustments = [...gap.planItems, ...gap.planSurplusItems];
+  const gapList = gapOpen === "plan" ? planAdjustments : gapOpen === "students" ? gap.studentItems : [];
   const gapPanel = gapOpen && gapList.length ? <SectionGapPanel items={gapList} kind={gapOpen} onClose={() => setGapOpen(null)} staffing={gap.staffing} freeSlots={gap.freeSlots} /> : null;
   const readinessPanel = state.dataReadiness ? (
     <section className="apb-data-readiness" data-ready={state.dataReadiness.ready || undefined} aria-label="بيانات تحتاج استكمالاً">
@@ -619,7 +620,8 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
         <ul>{state.dataReadiness.roomFit.items.map((item,index)=><li key={`${item.kind}:${item.label}:${index}`} className={`apb-room-fit-item apb-room-fit-item--${item.kind}`}>
           <div className="apb-room-fit-course"><DoorOpen aria-hidden="true"/><b title={item.label}>{item.label}</b><bdi dir="ltr">{item.room}</bdi></div>
           {item.kind === "room-type" && item.preferredType && item.actualType ? <div className="apb-room-fit-types"><span>{item.preferredType}</span><ArrowLeft aria-hidden="true"/><span>{item.actualType}</span></div>
-            : <small>{item.kind === "capacity" && item.capacity && item.requiredSeats ? `سعة ${countOf(item.capacity, AR.seat)} · المطلوب ${countOf(item.requiredSeats, AR.seat)}` : item.detail}</small>}
+            : item.kind === "capacity" && item.capacity && item.requiredSeats ? <div className="apb-room-capacity" aria-label={`سعة القاعة: ${countOf(item.capacity, AR.seat)}، المطلوب: ${countOf(item.requiredSeats, AR.seat)}`}><span><Users aria-hidden="true"/><small>متاح</small><b>{countOf(item.capacity, AR.seat)}</b></span><i aria-hidden="true"><b style={{ width: `${Math.min(100, item.capacity / item.requiredSeats * 100)}%` }} /></i><span><small>مطلوب</small><b>{countOf(item.requiredSeats, AR.seat)}</b></span></div>
+              : <small>{item.detail}</small>}
         </li>)}</ul>
         {state.dataReadiness.roomFit.unknownRoomCapacity ? <small className="apb-room-fit-unknown">سعة {countOf(state.dataReadiness.roomFit.unknownRoomCapacity, AR.room)} غير مسجلة؛ تُركت بلا حكم.</small> : null}
       </div> : null}
@@ -686,7 +688,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
             <ChevronDown aria-hidden="true" className="apb-data-chev" />
           </button>
         ) : null}
-        <SectionGapBadge items={gap.planItems} kind="plan" open={gapOpen === "plan"} onToggle={() => setGapOpen(open => open === "plan" ? null : "plan")} />
+        <SectionGapBadge items={planAdjustments} kind="plan" open={gapOpen === "plan"} onToggle={() => setGapOpen(open => open === "plan" ? null : "plan")} />
         <SectionGapBadge items={gap.studentItems} kind="students" open={gapOpen === "students"} onToggle={() => setGapOpen(open => open === "students" ? null : "students")} />
         {showQuickCompareBadge(gap) ? (
           <button type="button" className="apb-badge apb-gap-ghost" onClick={() => setPlanSheet(true)} aria-haspopup="dialog"

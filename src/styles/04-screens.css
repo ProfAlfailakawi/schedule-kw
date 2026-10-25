@@ -2680,12 +2680,14 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .location-quick-directory{padding:18px}
 .location-quick-directory>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .location-quick-room-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:9px}
-.location-quick-room-list article{min-inline-size:0;overflow-wrap:anywhere;display:grid;grid-template-columns:20px minmax(0,auto) auto;align-items:center;gap:8px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
-.location-quick-room-list article>svg{inline-size:18px;color:var(--lqs-accent)}
-.location-quick-room-list article>strong{font-size:1rem;color:var(--lqs-ink)}
-.location-quick-room-list article>.location-room-full-code{white-space:nowrap;overflow-wrap:normal;word-break:keep-all;unicode-bidi:isolate;font-variant-numeric:tabular-nums;letter-spacing:.01em}
-.location-quick-room-list article>small{grid-column:2/-1;color:var(--muted);line-height:1.4}
-.location-quick-room-list article>.location-quick-item-actions{grid-column:2/-1;justify-content:flex-start;margin-top:2px}
+.location-quick-room-list article{min-inline-size:0;overflow-wrap:anywhere;display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:8px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.location-room-code-line{display:flex;align-items:center;gap:8px;min-width:0}
+.location-room-code-line>svg{inline-size:19px;block-size:19px;color:var(--lqs-accent);flex:none}
+.location-quick-room-list article>strong,.location-room-code-line>strong{font-size:1rem;color:var(--lqs-ink)}
+.location-quick-room-list article>.location-room-full-code{white-space:nowrap;overflow-wrap:normal;word-break:keep-all;unicode-bidi:isolate;font-variant-numeric:tabular-nums;letter-spacing:.01em;min-width:0}
+.location-room-code-line .location-room-full-code{margin-inline-start:auto}
+.location-quick-room-list article>small{color:var(--muted);line-height:1.4}
+.location-quick-room-list article>.location-quick-item-actions{justify-content:flex-start;margin-top:2px}
 .location-quick-empty{display:grid;justify-items:center;gap:7px;padding:34px 12px;color:var(--muted);text-align:center}
 .location-quick-empty svg{inline-size:28px;block-size:28px;color:var(--lqs-accent)}
 .location-quick-empty strong{color:var(--lqs-ink)}

@@ -92,7 +92,7 @@ export function teachingLoadProblem(raw: any): string | null {
 
 /** عبءُ كل عضو في الفصل: شعبةٌ (مقرر + رمز) تُحسب مرّةً لأستاذها، بساعات مقرّرها. */
 export function teachingHoursByInstructor(
-  rows: readonly Pick<FSchedule, "AdInstructorId" | "AdCourseId" | "SCode">[],
+  rows: readonly Pick<FSchedule, "AdInstructorId" | "AdCourseId" | "SCode" | "AdCollegeId" | "AdSectionId">[],
   courseHours: ReadonlyMap<number, number>,
 ): Map<number, number> {
   const counted = new Set<string>();
@@ -100,7 +100,8 @@ export function teachingHoursByInstructor(
   for (const row of rows) {
     const instructorId = Number(row.AdInstructorId || 0), courseId = Number(row.AdCourseId || 0);
     if (!instructorId || !courseId) continue;
-    const key = `${instructorId}|${courseId}|${String(row.SCode ?? "")}`;
+    /* «01» يتكرر بين فروع القسم؛ نعدّ شعبة المقرر في نطاقها الأكاديمي، لا كل صف موعد ولا كل رمز شعبة متشابه. */
+    const key = `${instructorId}|${Number(row.AdCollegeId || 0)}|${Number(row.AdSectionId || 0)}|${courseId}|${String(row.SCode ?? "")}`;
     if (counted.has(key)) continue;
     counted.add(key);
     const hours = Number(courseHours.get(courseId) || 0);
