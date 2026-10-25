@@ -8493,19 +8493,26 @@ html[data-schedule-workspace="presentation"] .schedule-status{padding:0;border:0
 .room-suggest-ask:disabled{opacity:.5;cursor:default}
 .room-suggest-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:8px;min-width:0}
 .room-suggest-list>button{
-  display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:9px;text-align:start;padding:9px 11px;
-  border:1px solid var(--line);border-radius:15px;background:var(--surface,transparent);color:inherit;font:inherit;cursor:pointer;min-width:0;transition:border-color .16s ease,background .16s ease,transform .16s ease
+  display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:11px;text-align:start;padding:11px 13px;
+  border:1px solid var(--line);border-radius:16px;background:var(--card);color:inherit;font:inherit;cursor:pointer;min-width:0;transition:border-color .16s ease,background .16s ease,transform .16s ease
 }
 .room-suggest-list>button:hover{border-color:var(--accent);background:var(--accent-softer);transform:translateY(-1px)}
-.room-suggest-card-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:var(--accent-softer);color:var(--accent)}
+.room-suggest-card-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:13px;background:var(--accent-softer);color:var(--accent)}
 .room-suggest-card-icon svg{width:18px;height:18px}
-.room-suggest-card-copy{display:grid;gap:2px;min-width:0}
-.room-suggest-list>button bdi{font-weight:800;justify-self:start}
-.room-suggest-list>button small{color:var(--muted);font-size:var(--t-xs);line-height:1.5}
+.room-suggest-card-copy{display:grid;gap:6px;min-width:0}
+.room-suggest-list>button bdi{font-size:var(--t-md);font-weight:800;justify-self:start;letter-spacing:.015em}
+.room-suggest-card-facts{display:flex;flex-wrap:wrap;gap:5px;min-width:0}
+.room-suggest-list>button small{color:var(--muted);font-size:var(--t-xs);line-height:1.35}
+.room-suggest-fact{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;background:var(--soft);white-space:nowrap}
+.room-suggest-fact svg{width:13px;height:13px;flex:none}
+.room-suggest-fact.good{background:color-mix(in srgb,var(--ok) 10%,var(--card));color:var(--ok)}
+.room-suggest-fact.warn{background:color-mix(in srgb,var(--brass) 13%,var(--card));color:var(--gold)}
+.room-suggest-fact.muted{color:var(--muted)}
 .room-suggest-card-action{display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-size:var(--t-xs);font-weight:700;white-space:nowrap}
 .room-suggest-card-action svg{width:16px;height:16px}
 .room-suggest-list>button:focus-visible{outline:none;box-shadow:var(--ring)}
 .room-suggest-empty{margin:0;color:var(--muted);font-size:var(--t-sm)}
+@media(max-width:760px){.room-suggest-list{grid-template-columns:minmax(0,1fr)}.room-suggest-list>button{grid-template-columns:36px minmax(0,1fr) auto;gap:9px;padding:10px}.room-suggest-card-icon{width:36px;height:36px}.room-suggest-card-action small{display:none}.room-suggest-card-facts{gap:4px}.room-suggest-fact{padding:3px 6px}}
 /* === Light floating controls (owner decision, Oct 2026) ====================
    The schedule dock, the undo toast and the day's-log button borrowed the dark
    rail's --nav palette. With the rail now light (03-shell), they wear the same

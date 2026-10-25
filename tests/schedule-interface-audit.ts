@@ -16,13 +16,19 @@ assert.doesNotMatch(schedule, /اضغط غيره لإضافته للمقارنة
 assert.match(schedule, /room-suggest-card-icon[^]*<DoorOpen \/>/,
   "اقتراح القاعة يعرض رمز القاعة");
 const roomSuggestions = schedule.slice(schedule.indexOf('className="room-suggest-list"'), schedule.indexOf('className="room-suggest-empty"'));
-assert.match(roomSuggestions, /room-suggest-card-action[^]*<CheckCircle2 aria-hidden="true"\s*\/>/,
+assert.match(roomSuggestions, /room-suggest-card-action[^]*<CheckCircle2\s*\/>/,
   "اقتراح القاعة يوضح فعل الاختيار بأيقونة");
-assert.match(styles, /\.room-suggest-list>button\{[^}]*grid-template-columns:34px minmax\(0,1fr\) auto/,
-  "بطاقات القاعات المقترحة تحافظ على محاذاة الاسم والشرح والفعل");
+assert.match(styles, /\.room-suggest-list>button\{[^}]*grid-template-columns:40px minmax\(0,1fr\) auto/,
+  "بطاقات القاعات المقترحة تعرض الرمز والبيانات والفعل بترتيب واضح");
+assert.match(roomSuggestions, /room-suggest-card-facts[^]*room-suggest-fact/,
+  "ملاءمة القاعة تظهر كملصقات قصيرة بدلاً من سطر نص طويل");
+assert.match(roomSuggestions, /label: "نوع مناسب"[^]*label: "سعة مناسبة"/,
+  "أسباب ملاءمة النوع والسعة تختصر إلى مؤشرات بصرية واضحة");
 assert.match(schedule, /showDepartmentHistory=\{editor === "edit"\}/,
   "سجل القاعات التاريخي يظهر عند تعديل موعد فقط، لا عند إنشاء موعد");
 assert.match(location, /showDepartmentHistory&&restrictedHistoricalRooms\.length/,
   "اقتراحات الاستعارة التاريخية نفسها تظل مرتبطة بعرض التاريخ");
+assert.match(location, /showDepartmentHistory=false/,
+  "منتقي القاعة يخفي السجل التاريخي افتراضياً في نماذج الإنشاء");
 
 console.log("schedule-interface-audit ok");
