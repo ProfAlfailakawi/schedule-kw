@@ -224,7 +224,7 @@ export function registerPlanSheetRoutes(app: Express, deps: PlanSheetDeps): void
         const live = await Repository.getRuleSet(plan.id);
         if (!live) continue;
         const pub = publishedById.get(plan.id);
-        sheets.push({ planId: plan.id, name: plan.name, status: plan.status, track: plan.track || "", ruleVersion: live.version, published: Boolean(pub), publishedAt: pub?.publishedAt || "", stale: Boolean(pub && pub.ruleVersion !== live.version), url: pub ? sheetUrl(sectionId, plan.id) : "" });
+        sheets.push({ planId: plan.id, name: plan.name, ruleVersion: live.version, published: Boolean(pub), publishedAt: pub?.publishedAt || "", stale: Boolean(pub && pub.ruleVersion !== live.version), url: pub ? sheetUrl(sectionId, plan.id) : "" });
       }
       if (sheets.length || members.includes(focusId)) rows.push({
         sectionId, sectionName: String(section.AdSectionName || ""), label: labels.get(track.key) || String(section.AdSectionName || ""), family: track.family, track: track.track, trackLabel: track.track ? TRACK_LABEL[track.track] : "", collegeName: track.collegeName,
@@ -232,30 +232,6 @@ export function registerPlanSheetRoutes(app: Express, deps: PlanSheetDeps): void
       });
     }
     res.json({ sections: rows, canPublish: rows.length > 0 || deps.isPowerUser(req) });
-  });
-
-  /* معاينةُ الخريطة التفاعلية داخل البرنامج: نفسُ صفحة الصحيفة العامة، لكن من قواعد الصحيفة المعتمدة
-     مباشرةً لا من لقطة النشر؛ لذلك يراها القسم قبل النشر ولا تُسرّب مسودةَ مراجعةٍ غير معتمدة. */
-  app.get("/api/plan-sheets/preview", deps.requireAuth, async (req: Request, res: Response) => {
-    const sectionId = Number(req.query.sectionId) || 0;
-    const requestedPlanId = String(req.query.planId || "");
-    if (!sectionId) return fail(res, 400, "اختر القسم أولاً.");
-    const plans = (await Repository.getCurriculumPlans(sectionId)).filter(plan => !plan.virtual && plan.status !== "archived");
-    const plan = requestedPlanId
-      ? plans.find(row => row.id === requestedPlanId)
-      : plans.find(row => row.status === "active") || plans[0];
-    if (!plan) return fail(res, 404, "لا توجد صحيفة لهذا القسم.");
-    if (!canPublish(req, Number(plan.AdCollegeId), sectionId)) return fail(res, 403, "معاينة الصحيفة خارج نطاق صلاحيتك.");
-    const live = await Repository.getRuleSet(plan.id);
-    if (!live) return fail(res, 409, "لا توجد صحيفة معتمدة لعرض مخططها بعد.");
-    const { model } = await buildSheetModel(plan, live);
-    if (!model.courses.length && !model.groups.length) return fail(res, 409, "لا توجد مقررات في الصحيفة لعرض مخططها.");
-
-    /* تُعرض الخريطة داخل لوحة مركز الذكاء في إطارٍ من الموقع نفسه فقط. */
-    res.setHeader("X-Frame-Options", "SAMEORIGIN");
-    res.setHeader("Content-Security-Policy", "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
-    res.setHeader("Cache-Control", "no-store");
-    res.type("html").send(buildPlanSheet(model, { template: deps.template }));
   });
 
   /* نشرُ صحيفةٍ واحدة، أو كلِّ صحائف قسمٍ، أو كلِّ ما يملكه الحساب من صحائفَ معتمدة. */
