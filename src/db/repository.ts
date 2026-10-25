@@ -7095,15 +7095,32 @@ export const Repository = {
   renameCourseRoomType: async (oldName:string,newName:string): Promise<number> => {
     invalidateReference(REFERENCE_KEYS.courses);
     if(firestoreDb&&!demoSandboxContext.getStore()){
-      const snap=await firestoreDb.collection("courses").where("CourseRoomType","==",oldName).get();
-      for(let i=0;i<snap.docs.length;i+=400){const batch=firestoreDb.batch();snap.docs.slice(i,i+400).forEach(doc=>batch.set(doc.ref,{CourseRoomType:newName},{merge:true}));await batch.commit();}
-      if(snap.size)await markRegistrationRunsStale();
-      return snap.size;
+      const [primary,companion]=await Promise.all([
+        firestoreDb.collection("courses").where("CourseRoomType","==",oldName).get(),
+        firestoreDb.collection("courses").where("CourseCompanionRoomType","==",oldName).get()
+      ]);
+      const patches=new Map<string,{ref:any;patch:Record<string,string>}>();
+      for(const doc of primary.docs)patches.set(doc.id,{ref:doc.ref,patch:{CourseRoomType:newName}});
+      for(const doc of companion.docs){
+        const current=patches.get(doc.id);
+        if(current)current.patch.CourseCompanionRoomType=newName;
+        else patches.set(doc.id,{ref:doc.ref,patch:{CourseCompanionRoomType:newName}});
+      }
+      const updates=[...patches.values()];
+      for(let i=0;i<updates.length;i+=400){
+        const batch=firestoreDb.batch();
+        for(const item of updates.slice(i,i+400))batch.set(item.ref,item.patch,{merge:true});
+        await batch.commit();
+      }
+      if(updates.length)await markRegistrationRunsStale();
+      return updates.length;
     }
     let count=0;
     db.courses=(db.courses||[]).map(course=>{
-      if(String(course.CourseRoomType||"").normalize("NFKC").trim()!==oldName)return course;
-      count++;return {...course,CourseRoomType:newName};
+      const primary=String(course.CourseRoomType||"").normalize("NFKC").trim()===oldName;
+      const companion=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim()===oldName;
+      if(!primary&&!companion)return course;
+      count++;return {...course,...(primary?{CourseRoomType:newName}:{}),...(companion?{CourseCompanionRoomType:newName}:{})};
     });
     if(count){saveDatabase();await markRegistrationRunsStale();}
     return count;
