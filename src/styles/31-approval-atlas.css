@@ -188,6 +188,7 @@
   .review-body { min-height:0; overflow-y:auto; overscroll-behavior:contain; align-content:start; }
   .review-finding { min-width:0; }
   .review-finding>summary {
+    position:relative;z-index:1;pointer-events:auto;
     list-style:none; cursor:pointer; width:100%;
     display:grid; grid-template-columns:46px minmax(0,1fr) auto auto;
     align-items:start; gap:14px; min-height:96px;
@@ -208,7 +209,7 @@
   .review-finding>summary>i { margin-top:5px;font-size:.72rem;border-radius:999px;padding:5px 10px;font-style:normal; }
   .review-finding[open] { border-color:color-mix(in srgb,var(--accent,#176d59) 25%,var(--av-line)); }
   .review-finding[open]>.review-rows { display:flex; min-height:0; }
-  .review-person-head { list-style:none; }
+  .review-person-head { position:relative;z-index:1;pointer-events:auto;list-style:none;cursor:pointer; }
   .review-person[open]>.review-person-head,
   .review-person-head:hover { background:var(--av-mint); }
   .review-person[open] .review-person-chevron { transform:rotate(180deg); }
