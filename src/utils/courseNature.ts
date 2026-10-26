@@ -22,6 +22,7 @@ import { AR, countOf } from "./arabicCount";
 export interface Habit<T> { value: T; count: number; share: number }
 
 export interface CourseNature {
+  termRanks?: Record<string, number>;
   courseId: number;
   /** How many terms this was observed in. Below two, treat as a hint only. */
   terms: number;
@@ -106,9 +107,16 @@ export function learnCourseNature(courseId: number, rows: FSchedule[]): CourseNa
   const meetingLengths = history.map(row => Math.max(0, minutes(row.fendtime) - minutes(row.fstarttime))).filter(Boolean);
   const dayCounts = history.map(row => daysOf(row).length).filter(Boolean);
 
+  const offerings = new Map<string, FSchedule[]>();
+  for (const row of history) {
+    const key = `${row.AdTermId}:${row.AdCollegeId}:${row.AdSectionId}:${row.SCode}:${row.AdInstructorId}`;
+    offerings.set(key, [...(offerings.get(key) || []), row]);
+  }
   const patternCounts = new Map<string, { days: DayKey[]; count: number }>();
-  history.forEach(row => {
-    const days = daysOf(row);
+  const weeklyLengths: number[] = [];
+  offerings.forEach(list => {
+    const days = DAY_KEYS.filter(day => list.some(row => Boolean(row[day])));
+    weeklyLengths.push(list.reduce((sum, row) => sum + daysOf(row).length * Math.max(0, minutes(row.fendtime) - minutes(row.fstarttime)), 0));
     if (!days.length) return;
     const key = days.join("+");
     const entry = patternCounts.get(key) || { days, count: 0 };
@@ -122,7 +130,7 @@ export function learnCourseNature(courseId: number, rows: FSchedule[]): CourseNa
       days: entry.days,
       label: labelOf(entry.days),
       count: entry.count,
-      share: Math.round((entry.count / Math.max(1, history.length)) * 100)
+      share: Math.round((entry.count / Math.max(1, offerings.size)) * 100)
     }));
 
   const starts = habits(history.map(row => row.fstarttime).filter(Boolean));
@@ -132,7 +140,7 @@ export function learnCourseNature(courseId: number, rows: FSchedule[]): CourseNa
   // common day-count separately produced summaries like "two meetings ·
   // Thursday", which is a sentence that argues with itself.
   const meetingsPerWeek = dayPatterns[0]?.days.length || commonest(dayCounts) || 1;
-  const weeklyMinutes = meetingMinutes * meetingsPerWeek;
+  const weeklyMinutes = commonest(weeklyLengths) || meetingMinutes * meetingsPerWeek;
   const singleBlock = meetingsPerWeek === 1 && meetingMinutes >= 150;
 
   // Who, where and when — the rest of the course's character.
@@ -140,7 +148,7 @@ export function learnCourseNature(courseId: number, rows: FSchedule[]): CourseNa
   const buildings = habits(history.map(row => String(row.AdRoomCode || "").trim()).filter(Boolean));
   const rooms = habits(history.map(row => `${row.AdRoomCode || ""}/${row.AdRoomHall || ""}`).filter(value => value !== "/"));
   const sectionsPerTerm = terms
-    ? Math.max(1, Math.round(history.length / terms))
+    ? Math.max(1, Math.round(offerings.size / terms))
     : history.length;
 
   const morningCount = history.filter(row => minutes(row.fstarttime) < 14 * 60).length;
@@ -220,6 +228,8 @@ export function dayHabitOf(nature: CourseNature | null | undefined): { perWeek: 
 }
 
 const MIN_PRIOR_TERMS = 2;
+const isPrior = (nature: CourseNature, term: number, before?: number) => !before ||
+  (nature.termRanks?.[String(term)] ?? term) < (nature.termRanks?.[String(before)] ?? before);
 
 /**
  * طولُ اللقاء الذي اعتاده المقرّر حين يُدرَّس يوماً واحداً في الأسبوع.
@@ -231,7 +241,7 @@ const MIN_PRIOR_TERMS = 2;
  */
 export function habitualBlockMinutes(nature: CourseNature | null | undefined, termId?: number): number | undefined {
   if (!nature || nature.confidence === "low") return undefined;
-  const prior = nature.seenInTerms.filter(term => !termId || term < termId);
+  const prior = nature.seenInTerms.filter(term => isPrior(nature, term, termId));
   if (prior.length < MIN_PRIOR_TERMS) return undefined;
   if (nature.meetingsPerWeek !== 1) return undefined;
   const length = Math.round(nature.meetingMinutes);
@@ -245,7 +255,7 @@ export function habitualBlockMinutes(nature: CourseNature | null | undefined, te
  */
 export function historicalOrigin(nature: CourseNature | null | undefined, termId?: number): { meetings: number; weeklyMinutes: number; patterns: DayKey[][] } | undefined {
   if (!nature || nature.confidence === "low" || nature.meetingsPerWeek < 1) return undefined;
-  if (nature.seenInTerms.filter(term => !termId || term < termId).length < MIN_PRIOR_TERMS) return undefined;
+  if (nature.seenInTerms.filter(term => isPrior(nature, term, termId)).length < MIN_PRIOR_TERMS) return undefined;
   const weeklyMinutes = Math.round(nature.weeklyMinutes);
   if (weeklyMinutes < 40 || weeklyMinutes > 600) return undefined;
   const patterns = nature.dayPatterns.filter(pattern => pattern.days.length === nature.meetingsPerWeek).slice(0, 3).map(pattern => [...pattern.days]);

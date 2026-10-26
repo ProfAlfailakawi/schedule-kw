@@ -3,6 +3,17 @@ import type { AdCourse, AdInstructor, AdTerm, FSchedule, ScheduleVersion } from 
 import { SCHEDULE_DAYS, timeToMinutes, minutesToTime, type DayKey } from "./scheduleIntelligence";
 import { roomIdentityKey } from "./locationRegistry";
 import { AR, countOf, oblique } from "./arabicCount";
+import { expectedMinutesForDay } from "./scheduleRegulations";
+
+/** The same evidence threshold is used by the official editor and public requests. */
+export function historicalLectureMinutes(model: HistoricalTimeModel | null | undefined, row: Partial<FSchedule>, day: DayKey, fallback?: number): number {
+  return historicalDurationMinutes(pickHistoricalDayModel(model, row, day).data, day, fallback);
+}
+
+export function historicalDurationMinutes(learned: HistoricalDayModel | null | undefined, day: DayKey, fallback?: number): number {
+  return learned && learned.durationMinutes > 0 && learned.durationSamples >= 3 && learned.durationShare >= 0.5
+    ? Number(learned.durationMinutes) : fallback || expectedMinutesForDay(day);
+}
 
 export type HistoricalDayModel = {
   minute: number;

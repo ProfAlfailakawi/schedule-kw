@@ -9,7 +9,7 @@
  * تحمل أوقاتاً مقترحة. وحالةُ البند تُقرأ من آخر دورٍ فيه — رسالةً كان أو
  * قراراً — في هذا الموضع وحده، فلا تقول صفحةُ الأستاذ شيئاً ويقول الواردُ غيره.
  */
-import type { InstructorRequestSlot } from "../types";
+import type { InstructorRequestSlot, InstructorRequestItem, InstructorRequestMessage } from "../types";
 
 export type RequestNegotiationState = "awaiting" | "proposed" | "agreed" | "rejected";
 
@@ -29,6 +29,13 @@ export const THREAD_LIMIT = 40;
  */
 export function capThread<T>(thread: readonly T[]): T[] {
   return thread.length <= THREAD_LIMIT ? [...thread] : [thread[0], ...thread.slice(-(THREAD_LIMIT - 1))];
+}
+
+/** Keep the compact active conversation without deleting older correspondence. */
+export function appendRequestThread(item: InstructorRequestItem, message: InstructorRequestMessage) {
+  const all = [...(item.thread || []), message];
+  const archived = all.length > THREAD_LIMIT ? all.slice(1, all.length - (THREAD_LIMIT - 1)) : [];
+  return { thread: capThread(all), threadHistory: [...(item.threadHistory || []), ...archived] };
 }
 
 export const THREAD_TEXT_LIMIT = 400;

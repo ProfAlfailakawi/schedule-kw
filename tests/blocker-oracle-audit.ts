@@ -179,8 +179,10 @@ check(copies.length === 1 && copies[0] === "src/utils/scheduleIntelligence.ts",
   `شرط المانع مكتوبٌ مرةً واحدة فقط — isBlockingConflict (${copies.join(", ")})`);
 
 const server = readFileSync(join(ROOT, "server.ts"), "utf8");
-/* Every raw sweep left in the server, and why it is not a blocking decision. */
+/* Full readings include advisory findings; blocking decisions still use the central predicate. */
 const ALLOWED_RAW: Array<[string, string]> = [
+  ["findConflicts(assigned, week,", "offering discovery: suppress alternatives with shared-student overlap, even when an explicit request may seek an exception"],
+  ["findConflicts(targets, week).some(conflict => conflict.type === \"room\")", "existing offering: verify its fixed room as well as the professor verdict; no room selection by professor"],
   ["const raw=findConflicts([candidateCanonical]", "save gate: the full reading of one candidate incl. soft advice; already canonicalised and placeholder-exempt; callers decide with isBlockingConflict"],
   ["const externalConflicts=findConflicts([selected]", "row explanation panel: lists every finding (advice too), placeholder-exempt; decides nothing"],
   ["const conflicts=findConflicts([r],v.rows).length", "timeline of past versions: a historical reading, not an approval decision"],

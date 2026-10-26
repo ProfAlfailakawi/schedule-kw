@@ -52,7 +52,7 @@ check(!later.reasons.some(r => r.blocking && r.source === "shape"), "P2 بداي
 check(later.blockMinutes === 75 && later.computedEnd === "16:15", "P2 المدةُ مدةُ الموعد الحالي (٧٥ دقيقة): ينتهي 16:15", { block: later.blockMinutes, end: later.computedEnd });
 
 /* P3: النصُّ يساوي الأزرار، وكلُّ زرٍّ يمرّ من الفاحص */
-const bad = judge(["fsunday", "ftuesday"], "09:00", full);
+const bad = judge(["fsunday", "fwednesday"], "09:00", full);
 const hours = bad.reasons.find(r => r.code === "hours");
 check(!!hours && hours.blocking, "P3 أيامٌ لا تغطّي الساعات: مانعٌ برمز hours", bad.reasons);
 const buttons = (bad.shapes || []).map(s => s.label);

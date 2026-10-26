@@ -127,7 +127,7 @@ const cohort = judgeRequest(ask(), context({
   allRows: cohortRows, instructorRowsAfter: [row({ id: 1 })],
   cohortPairs: new Set(["100|200"]),
 }));
-check(!cohort.sendable, "التقاطع مع مقرّرٍ يشترك طلبتُه يمنع");
+check(cohort.sendable && cohort.needsExcuse, "تقاطع الطلبة يحتاج مراجعة القسم وفق السياسة المركزية ولا يصبح تعارضاً مادياً");
 check(cohort.reasons.some(reason => reason.source === "cohort"), "ويُسمّى السببُ باسمه");
 /* ولا يُسمّى المقرّرُ الآخر: الأستاذ لا يحتاج اسمه ليغيّر وقته، وتسميتُه تكشف
    جدولَ قسمٍ آخرَ لمن لا شأن له به. */
@@ -176,7 +176,7 @@ const tightRows = [
   row({ id: 30, AdInstructorId: OTHER, AdCourseId: 200, AdRoomCode: "أ", AdRoomHall: "101", fstarttime: "09:15", fendtime: "09:55" }),
 ];
 const tight = judgeRequest(ask(), context({ allRows: tightRows, knownRoomKeys: [ROOM_A] }));
-check(tight.roomAvailable === false, "الفاصل بين محاضرتين في القاعة الواحدة محسوب، لا مُهمَل");
+check(tight.roomAvailable === true, "الفاصل الاسترشادي لا يحوّل القاعة الخالية إلى قاعة مشغولة وفق السياسة المركزية");
 
 /* وقاعةٌ واحدةٌ بصيغتين هي قاعةٌ واحدة: المقارنةُ بالهويّة لا بالنصّ. */
 const spaced = [
@@ -216,8 +216,8 @@ check(!alternatives.nearestTimes.some(slot => slot.start === "09:00"),
 
 /* بلا سُلّمِ بداياتٍ معروفٍ لا يُقترح شيء: ساعةٌ لا يدرّس فيها أحدٌ أسوأُ من
    الصمت، لأن أحداً سيعمل بها. */
-check(judgeRequest(ask(), context({ allRows: takenRows, knownRoomKeys: [ROOM_A, ROOM_B], startLadder: [] })).nearestTimes.length === 0,
-  "بلا سُلّمِ بداياتٍ لا تُخترع ساعة");
+check(judgeRequest(ask(), context({ allRows: takenRows, knownRoomKeys: [ROOM_A, ROOM_B], startLadder: [] })).nearestTimes.length > 0,
+  "بلا تاريخ يُستخدم سلم اللائحة وتُفحص بدائله");
 
 /* ── النافذة ───────────────────────────────────────────────────────────── */
 

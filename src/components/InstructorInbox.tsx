@@ -1,3 +1,4 @@
+import { isBlockingConflict } from "../utils/scheduleIntelligence";
 import PlanBadge from "./PlanBadge";
 import AlertShort from "./AlertShort";
 import { buildInboxHeat } from "../utils/inboxHeat";
@@ -223,6 +224,7 @@ export interface LiveIssue { severity: "high" | "medium" | "low"; message: strin
 export const proposedRow = (row: InboxRequest, item: InstructorRequestItem, current?: FSchedule): any | null => {
   if (item.action === "delete" || item.action === "keep") return null;
   const slots = item.slots || [];
+  if (item.offeringRowIds?.length || new Set(slots.map(slot => `${slot.start}|${slot.end}`)).size > 1) return null;
   if (!slots.length || !slots[0]?.start || !slots[0]?.end) return null;
   const days = new Set(slots.map(slot => slot.day));
   const base: any = item.action === "change"
@@ -237,6 +239,7 @@ export const proposedRow = (row: InboxRequest, item: InstructorRequestItem, curr
   if (!base) return null;
   return {
     ...base,
+    instructorRequestId: row.id,
     fsunday: days.has("fsunday"), fmonday: days.has("fmonday"), ftuesday: days.has("ftuesday"),
     fwednesday: days.has("fwednesday"), fthursday: days.has("fthursday"),
     fstarttime: slots[0].start, fendtime: slots[0].end,
@@ -256,17 +259,17 @@ function useLiveCheck(candidate: any | null, enabled: boolean) {
       headers: { "Content-Type": "application/json" },
       body: key,
     })
-      .then(response => (response.ok ? response.json() : { conflicts: [] }))
+      .then(async response => { if (!response.ok) throw new Error("تعذّر فحص الموعد. أعد المحاولة."); return response.json(); })
       .then(data => setState({
         loading: false,
-        issues: (data.conflicts || []).map((conflict: any) => ({
-          severity: conflict.severity === "high" ? "high" : conflict.severity === "medium" ? "medium" : "low",
+        issues: [...(data.validationIssues || []).map((message: string) => ({ message, severity: "high" })), ...(data.conflicts || [])].map((conflict: any) => ({
+          severity: isBlockingConflict(conflict) ? "high" : conflict.severity === "medium" ? "medium" : "low",
           message: String(conflict.message || "تعارض"),
           detail: conflict.detail ? String(conflict.detail) : undefined,
           otherId: Number(conflict.rowId || conflict.otherId || 0) || undefined,
         })),
       }))
-      .catch(error => { if (error?.name !== "AbortError") setState({ loading: false, issues: null }); });
+      .catch(error => { if (error?.name !== "AbortError") setState({ loading: false, issues: [{ severity: "high", message: "تعذّر فحص الموعد. أعد المحاولة قبل الاعتماد." }] }); });
     return () => controller.abort();
   }, [key, enabled]);
   return state;
@@ -1025,7 +1028,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     const after: number[] = state === "fixed" && Array.isArray(extra?.after) ? (extra.after as number[]) : [];
     /* الإضافةُ تُفتح بطاقةً سريعة في مكانها — كبطاقة «الجدول الدراسي» —
        بالمقرّر والأيام والوقت من طلب الأستاذ، والشعبةُ والقاعةُ قرارُ القسم. */
-    if (state === "fixed" && row.items[index]?.action === "add") {
+    if (state === "fixed" && row.items[index]?.action === "add" && !row.items[index]?.offeringRowIds?.length) {
       const item = row.items[index];
       const slots = item.slots || [];
       const dayNames = slots.map(slot => INBOX_DAY_NAMES[slot.day] || slot.day).join(" · ");
@@ -1033,6 +1036,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       setQuick({
         row, index, after,
         seed: {
+          instructorRequestId: row.id,
           day: (slots[0]?.day || "fsunday") as any,
           dayLabel: dayNames,
           days: [...new Set(slots.map(slot => slot.day))] as any,
@@ -1047,7 +1051,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           /* أولُ قاعةٍ يثبت النظامُ أنها خاليةٌ في هذا الوقت: تُملأ سلفاً فيكفي المنسّقَ أن يحفظ. */
           suggestion: (() => {
             const first = (item.roomOptions || [])[0];
-            return first ? { room: first.room, hall: first.hall, buildingId: first.buildingId, roomId: first.roomId, locationStatus: "VERIFIED" as const } : undefined;
+            return first ? { room: first.room, hall: first.hall, buildingId: first.buildingId, roomId: first.roomId, companionRoomId: first.companionRoomId, companionRoomLabel: first.companionRoomLabel, locationStatus: "VERIFIED" as const } : undefined;
           })(),
         },
       });
@@ -1059,7 +1063,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     try {
       if (state === "fixed") {
         const item = row.items[index];
-        if (item.action === "add") {
+        if (item.action === "add" && !item.offeringRowIds?.length) {
           /* لا يُتوقّع هنا (الإضافة تفتح بطاقتها أعلاه)؛ يبقى طريقُ الورشة إن وصل. */
           const slots = item.slots || [];
           putHandoff({
@@ -1071,7 +1075,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           onNavigate?.("schedules");
           return true;
         }
-        const payload = { itemIndex: index, after, revs: revsFor(row, [...after, index]) };
+        const payload = { itemIndex: index, after, requestRevision: row.requestRevision || 0, revs: revsFor(row, [...after, index]) };
         if (!(await previewAndConfirm(row, payload))) return false;
         const result = await request(`/api/instructor-requests/${row.id}/apply`, {
           method: "POST",
@@ -1129,10 +1133,10 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       /* الإضافةُ وقرارُها نداءٌ واحد: لا صفَّ يتيماً إن تعذّر القرار، ولا صفَّ ثانياً عند الإعادة. */
       const after = quick.after || [];
       const payload = {
-        itemIndex: index, after, revs: revsFor(row, after),
+        itemIndex: index, after, requestRevision: row.requestRevision || 0, revs: revsFor(row, after),
         add: {
           courseId: expectedCourse, scode: draft.scode, start: draft.start, end: draft.end,
-          room: draft.room, hall: draft.hall, buildingId: draft.buildingId, roomId: draft.roomId, locationStatus: draft.locationStatus,
+          room: draft.room, hall: draft.hall, buildingId: draft.buildingId, roomId: draft.roomId, locationStatus: draft.locationStatus, companionRoomId: draft.companionRoomId,
         },
       };
       if (!(await previewAndConfirm(row, payload))) return;
@@ -1442,7 +1446,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
         return (
           <QuickCreatePopover
             seed={quick.seed}
-            courses={[{ AdCourseId: Number(item.after?.courseId || 0), CourseName: String(item.after?.courseName || "مقرر"), CourseCode: "" } as any]}
+            courses={[{ AdCourseId: Number(item.after?.courseId || 0), CourseName: String(item.after?.courseName || "مقرر"), CourseCode: "", ...item.courseRequirements } as any]}
             instructors={[{ AdInstructorId: Number(quick.row.AdInstructorId), AdInstructorName: quick.row.instructorName } as any]}
             collegeId={Number(item.after?.collegeId || quick.row.AdCollegeId)}
             sectionId={Number(item.after?.sectionId || quick.row.AdSectionId)}

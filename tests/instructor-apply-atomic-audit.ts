@@ -36,7 +36,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
 /* ── الربط ── */
 {
   const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
-  const srv = read("server.ts"), inbox = read("src/components/InstructorInbox.tsx");
+  const srv = read("server.ts"), inbox = read("src/components/InstructorInbox.tsx"), repository = read("src/db/repository.ts");
   const route = srv.slice(srv.indexOf('app.post("/api/instructor-requests/:id/apply"'), srv.indexOf("/* ── حوارُ البند"));
   check(route.length > 500 && !/Repository\.(createSchedule|updateSchedule|deleteSchedule)\b/.test(route), "L1 مسار التثبيت لا يكتب في المستودع مباشرة: يمرّ بمعالجات الحفظ نفسها");
   check(/dryRun: true/.test(route) && /reverted/.test(route), "L2 فحصٌ جافّ لكل خطوة قبل الكتابة، وتراجعٌ إن تعذّرت خطوة");
@@ -45,11 +45,11 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   check(/!stored\.items\[i\]\.decision\?\.state\)/.test(route), "L5 البنود المترابطة تُقبل معلّقة فقط (لا يُكتب بندٌ رُفض)");
   check(/liveRowRefusal\(live, revs\)[\s\S]{0,200}kind: "delete"/.test(route), "L6 الحذف يخضع لختم الإصدار ولملكية الأستاذ كالنقل");
   check(/Number\(live\.AdInstructorId\) !== Number\(stored\.AdInstructorId\) \|\| Number\(live\.AdTermId\) !== termId/.test(route), "L7 الصف الحيّ يجب أن يكون للأستاذ نفسه في الفصل نفسه");
-  check(/hypotheticalWeek: originalWeek/.test(route), "L8 التراجع يُفحص على الأسبوع الأصلي فلا يتعثر بتبديلٍ داخل السلسلة");
+  check(route.includes("Repository.commitInstructorRequestPlan") && repository.includes("const finalWeek = [...week.filter"), "L8 جميع عمليات الحزمة تُحفظ معاً بلا حالة وسطية تحتاج تراجعاً");
   check(/acquireScheduleApplyLease\(applyLock/.test(route) && /releaseScheduleApplyLease\(applyLock/.test(route), "L9 قفل التثبيت في قاعدة البيانات (يراه كل خادم في كل منطقة)، ويُفكّ دائماً");
   check(/renewScheduleApplyLease\(applyLock/.test(route) && /clearInterval\(leaseRenewal\)/.test(route), "L9 ويُمدّ أجلُه ما دام التثبيت جارياً");
-  check(/termRows = await Repository\.getSchedulesByScope\(\{ termId \}\);\s*finalWeek = buildWeek\(termRows\)/.test(route), "L10 الأسبوع يُعاد بناؤه من الجدول الحيّ لحظة الكتابة");
-  check(/decision-save-failed/.test(route) && /await rollback\(\)/.test(route), "L11 تعذّر حفظ القرار يردّ الجدول (لا صفّ بلا قرار)");
+  check(repository.includes("tx.get(firestoreDb!.collection(\"schedules\").where(\"AdTermId\", \"in\"") && repository.includes("findConflicts(written.map(normalize), finalWeek.map(normalize)"), "L10 الأسبوع الحي يعاد فحصه داخل معاملة الكتابة نفسها");
+  check(repository.includes("tx.set(requestRef, planned.request)") && repository.includes("planned.rows.forEach(row => tx.set") && route.includes("request-commit-failed"), "L11 القرار والمواعيد في المعاملة نفسها: فشلها لا يترك صفاً بلا قرار");
 }
 
 const BASE = "http://localhost:3000";
