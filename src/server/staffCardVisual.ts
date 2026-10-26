@@ -88,6 +88,12 @@ export const STAFF_CARD_VISUAL_CSS = String.raw`
 .wk-side time{font:700 13px/1.2 ui-monospace,monospace;color:var(--c);direction:ltr;white-space:nowrap}
 .wk-room{display:inline-flex;align-items:center;gap:4px;font:600 11px/1 ui-monospace,monospace;color:var(--dim);direction:ltr;white-space:nowrap}
 .wk-room svg{width:13px;height:13px}
+.sk-companion-badge{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:3px 8px;border-radius:99px;border:1px solid color-mix(in srgb,var(--jade) 32%,var(--line));background:color-mix(in srgb,var(--jade) 9%,var(--card));color:var(--jade);font-size:10.5px;font-weight:700;line-height:1.5;direction:rtl;white-space:normal}
+.sk-companion-badge bdi{font:650 10.5px/1.4 ui-monospace,monospace;unicode-bidi:isolate;overflow-wrap:anywhere}
+.wk-side .sk-companion-badge{justify-self:end}
+.print-list .sk-companion-badge{margin-top:5px;padding:2px 5px;font-size:9px;white-space:normal}
+@media print{.sk-companion-badge{background:#fff!important;border:1px solid #777!important;color:#222!important;break-inside:avoid}}
+
 @media screen{.pub-week{display:none}}
 
 /* ورقةُ التقويم السفلية. */
@@ -175,6 +181,8 @@ function skStats(items,ar){
  return items.map(function(x,i){return '<div class="stat"><i>'+skSvg(ic[i]||"book")+'</i><b>'+x[1]+'</b><span>'+x[0]+'</span></div>'}).join("");
 }
 
+/* Linked companions share the appointment, not the primary-room field. */
+function skCompanion(r,esc){var label=String(r.companionRoomLabel||"").trim();if(!label&&!r.companionRoomId)return "";return '<span class="sk-companion-badge" title="المرفق المرافق"><span>مرفق</span>'+(label?'<bdi dir="ltr">'+esc(label)+'</bdi>':"")+'</span>'}
 /* الأسبوعُ مرسوماً: كتلٌ ملوّنةٌ بالدقائق، ومعها قائمةُ المقرّرات (لونُها وأيامُها ووقتُها وقاعتُها). */
 function skWeek(d,esc,cl){
  var dn=function(r){return (r.days||[]).map(function(i){return d.byDay[i]?d.byDay[i].name:""}).filter(Boolean).join("، ")};
@@ -202,7 +210,7 @@ function skWeek(d,esc,cl){
   var days=SKD.map(function(n,i){return '<u class="'+((r.days||[]).indexOf(i)>=0?'on':'')+'">'+n+'</u>'}).join("");
   var sec=[r.section?'شعبة '+esc(r.section):"",cl?esc(cl(r)):""].filter(Boolean).join(" · ");
   var place=(r.room||r.hall)?'<span class="wk-room">'+skSvg("door")+esc(r.room||"")+"/"+esc(r.hall||"")+'</span>':"";
-  return '<article class="wk-row" id="wkr-'+esc(k)+'" style="--c:'+colorOf(r)+'"><div class="wk-main"><b>'+esc(r.name||r.code)+'</b>'+(sec?'<small>'+sec+'</small>':'')+'<div class="wk-days" role="img" aria-label="'+esc(dn(r))+'">'+days+'</div></div><div class="wk-side"><time>'+esc(r.timeRange||"")+'</time>'+place+'</div></article>';
+  return '<article class="wk-row" id="wkr-'+esc(k)+'" style="--c:'+colorOf(r)+'"><div class="wk-main"><b>'+esc(r.name||r.code)+'</b>'+(sec?'<small>'+sec+'</small>':'')+'<div class="wk-days" role="img" aria-label="'+esc(dn(r))+'">'+days+'</div></div><div class="wk-side"><time>'+esc(r.timeRange||"")+'</time>'+place+skCompanion(r,esc)+'</div></article>';
  }).join("")+'</div>';
  return week+list;
 }
@@ -212,7 +220,7 @@ function skPrintList(d,esc,cl){var rows={},order=[];d.byDay.forEach(function(day
  order.sort(function(a,b){var ra=rows[a],rb=rows[b];return (ra.days[0]-rb.days[0])||skMin(ra.start)-skMin(rb.start)});
  var DN=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس"];
  var tr=order.map(function(k,n){var r=rows[k];var days=(r.days||[]).map(function(i){return DN[i]||""}).filter(Boolean).join(" · ");
-  return '<tr><td class="pl-n">'+(n+1)+'</td><td><b>'+esc(r.name||r.code)+'</b>'+(r.code?'<small>'+esc(r.code)+'</small>':'')+'</td><td>'+esc(r.section||"")+'</td><td>'+esc(days)+'</td><td dir="ltr" class="pl-t">'+esc(r.timeRange||"")+'</td><td dir="ltr">'+esc([r.room,r.hall].filter(Boolean).join("/"))+'</td>'+(cl?'<td>'+esc(cl(r))+'</td>':'')+'</tr>'}).join("");
+  return '<tr><td class="pl-n">'+(n+1)+'</td><td><b>'+esc(r.name||r.code)+'</b>'+(r.code?'<small>'+esc(r.code)+'</small>':'')+'</td><td>'+esc(r.section||"")+'</td><td>'+esc(days)+'</td><td dir="ltr" class="pl-t">'+esc(r.timeRange||"")+'</td><td><bdi dir="ltr">'+esc([r.room,r.hall].filter(Boolean).join("/"))+'</bdi>'+skCompanion(r,esc)+'</td>'+(cl?'<td>'+esc(cl(r))+'</td>':'')+'</tr>'}).join("");
  return '<table class="print-list"><thead><tr><th>#</th><th>المقرّر</th><th>الشعبة</th><th>الأيام</th><th>الوقت</th><th>القاعة</th>'+(cl?'<th>الكلية</th>':'')+'</tr></thead><tbody>'+tr+'</tbody></table>'}
 /* لمسُ كتلةٍ يضيء مقرّرَها في القائمة ويمرّر إليه. */
 function skWeekWire(host){

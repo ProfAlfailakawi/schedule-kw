@@ -15659,7 +15659,8 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
          ‎formatScheduleTimeRange‎، لا بترتيبٍ تكتبه الصفحةُ بنفسها. */
       timeRange: formatScheduleTimeRange(row.fstarttime, row.fendtime),
       days: shareDayIndexes(row),
-      room: row.AdRoomCode || "", hall: row.AdRoomHall || ""
+      room: row.AdRoomCode || "", hall: row.AdRoomHall || "",
+      companionRoomId: row.companionRoomId || "", companionRoomLabel: row.companionRoomLabel || ""
     }))
     .sort((a, b) => String(a.start).localeCompare(String(b.start)));
 

@@ -66,4 +66,16 @@ assert.ok(quickSetup.includes('...roomDraft, capacity:'),"room editor passes act
 assert.ok(editRoomRoute.includes('typeof req.body?.active==="boolean"?req.body.active:current.active'),"room editing API persists activation in the official registry");
 
 
-console.log("Companion facility booking audit passed");
+// A second location is a small badge, never a second academic appointment.
+const scheduleScreen = readFileSync(new URL("../src/components/Schedules.tsx", import.meta.url),"utf8");
+const reportScreen = readFileSync(new URL("../src/components/Reports.tsx", import.meta.url),"utf8");
+const staffVisual = readFileSync(new URL("../src/server/staffCardVisual.ts", import.meta.url),"utf8");
+const badgeScreen = readFileSync(new URL("../src/components/CompanionFacilityBadge.tsx", import.meta.url),"utf8");
+assert.ok(scheduleScreen.includes('<CompanionFacilityBadge row={s} compact />'),"appointment agenda shows the companion venue");
+assert.ok(reportScreen.includes('<CompanionFacilityBadge row={row} compact />'),"instructor queries and list show the companion venue");
+assert.ok(reportScreen.includes('<CompanionFacilityBadge row={selectedResult} compact />'),"query detail shows the companion venue");
+assert.ok(reportScreen.includes('<bdi dir="ltr">{placeOfRow(row)}</bdi><CompanionFacilityBadge row={row} compact />'),"printed instructor schedule and query list show both rooms");
+assert.ok(staffVisual.includes("skCompanion(r,esc)"),"teacher card week and print include the badge");
+assert.ok(server.includes("companionRoomId: row.companionRoomId || \"\"") && server.includes("companionRoomLabel: row.companionRoomLabel || \"\""),"staff card endpoint sends the real saved companion room");
+assert.ok(badgeScreen.includes('if (!row.companionRoomId && !label) return null'),"ordinary appointments have no empty badge");
+console.log("Companion facility booking and display audit passed");

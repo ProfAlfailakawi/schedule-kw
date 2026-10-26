@@ -43,6 +43,7 @@ import AuthorityPdfReport, { AuthorityReport } from "./AuthorityPdfReport";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
+import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import SubmissionDeadlines, { type DeadlineRow } from "./SubmissionDeadlines";
 import { inboxAudience } from "../utils/inboxAudience";
 import { usePageAwake } from "../utils/pageAwake";
@@ -1986,7 +1987,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           <article>
             <strong>{pickedCourse?.CourseCode || "بدون رمز"}</strong>
             <span>{collegeById.get(selectedResult.AdCollegeId)?.AdCollegeName || "بدون كلية"}</span>
-            <em>{[selectedResult.AdRoomCode, selectedResult.AdRoomHall].filter(Boolean).join("/") || "بدون قاعة"}</em>
+            <em>{[selectedResult.AdRoomCode, selectedResult.AdRoomHall].filter(Boolean).join("/") || "بدون قاعة"}</em><CompanionFacilityBadge row={selectedResult} compact />
             <span>{selectedResult.fdetail || "لا توجد ملاحظات"}</span>
           </article>
         </div>
@@ -2465,7 +2466,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                     </div>
                   </div>
                   <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
-                  <span className="lens-room"><Building2 aria-hidden="true" />{row.AdRoomCode || "—"}/{row.AdRoomHall || "—"}</span>
+                  <span className="lens-room"><Building2 aria-hidden="true" />{row.AdRoomCode || "—"}/{row.AdRoomHall || "—"}<CompanionFacilityBadge row={row} compact /></span>
                   <span className="lens-days">
                     {dayFlags(row).length
                       ? dayFlags(row).map(day => <i key={day.key} title={day.label}>{day.label}</i>)
@@ -3063,7 +3064,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                         <span className="code-chip">{row.CourseCodeSnapshot || courseById.get(row.AdCourseId)?.CourseCode || "—"}</span>
                         <span>{row.AdCourseName}</span>
                         <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
-                        <small>{dayText(row)}</small>
+                        <small>{dayText(row)} <CompanionFacilityBadge row={row} compact /></small>
                       </div>
                     ))}
                   </div>
@@ -4095,7 +4096,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                       <span><bdi className="print-ltr">{row.CourseCodeSnapshot || course?.CourseCode || "—"}</bdi><i>شعبة {row.SCode || "—"}</i><em>{instructorPrintName(row)}</em></span>
                     </div>
                     <time className="print-ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
-                    <span className="print-ltr print-list-room">{placeOfRow(row)}</span>
+                    <span className="print-list-room"><bdi dir="ltr">{placeOfRow(row)}</bdi><CompanionFacilityBadge row={row} compact /></span>
                     <span className="print-days print-list-days">{dayCell(row)}</span>
                   </article>
                 );
@@ -4173,7 +4174,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                     <td className="print-ltr">{row.SCode || "—"}{showCollegeOnInstructorRows ? <small dir="rtl" className="print-visiting-place">{collegeById.get(Number(row.AdCollegeId))?.AdCollegeName || "كلية غير مسماة"}</small> : null}</td>
                     <td className="print-days">{dayCell(row)}</td>
                     <td className="print-ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</td>
-                    <td className="print-ltr">{placeOfRow(row)}</td>
+                    <td className="print-ltr"><bdi dir="ltr">{placeOfRow(row)}</bdi><CompanionFacilityBadge row={row} compact /></td>
                   </tr>)}</tbody>
                 </table>
               </section>
