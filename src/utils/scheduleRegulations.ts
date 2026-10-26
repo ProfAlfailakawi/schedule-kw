@@ -493,7 +493,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       source: "decision-1912",
       approvalEffect: "block",
       title: `توزيع مقرر نظري لا يطابق نمط ${countOf(hours, AR.hour)}`,
-      detail: `المطلوب: ${patternsForHours(hours).filter(pattern => pattern.days.length > 1).map(pattern => pattern.days.map((day, index) => `${pattern.minutesPerDay[index]} دقيقة يوم ${dayLabel(day)}`).join("، ")).join("؛ أو ")}.`,
+      detail: `المطلوب: ${patternsForHours(hours).filter(pattern => pattern.days.length > 1).map(pattern => pattern.days.map((day, index) => `${countOf(pattern.minutesPerDay[index], AR.minute)} يوم ${dayLabel(day)}`).join("، ")).join("؛ أو ")}.`,
       subjectKey: `course:${courseId}`,
       subjectLabel: course.CourseCode || course.CourseName,
       rowIds: [...new Set(invalid.map(row => row.id))],

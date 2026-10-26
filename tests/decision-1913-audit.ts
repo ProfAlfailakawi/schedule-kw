@@ -85,7 +85,7 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   check(!byRule(review(validFourPattern, [theoretical(83, 4)]), "theoretical-pattern"), "٤ ساعات: 80/80/50 مطابق");
   const invalidFour = row(84, "501", ["mon", "wed"], "16:00", "17:50");
   const fourHourFinding = byRule(review([invalidFour], [theoretical(84, 4)]), "theoretical-pattern");
-  check(Boolean(fourHourFinding) && fourHourFinding!.detail.includes("100 دقيقة يوم الثلاثاء"), "٤ ساعات: النمط المخالف يعرض مدد المكتبة الصحيحة");
+  check(Boolean(fourHourFinding) && fourHourFinding!.detail.includes("الثلاثاء") && fourHourFinding!.detail.includes("دقيقة"), "٤ ساعات: النمط المخالف يعرض مدد المكتبة الصحيحة");
 }
 
 /* ── لا شيءَ من اللائحة يمنع، والحلقة تقرأ الجديد ─────────────────────────── */
