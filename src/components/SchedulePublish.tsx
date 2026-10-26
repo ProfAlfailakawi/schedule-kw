@@ -262,11 +262,11 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   const [sent, setSent] = useState<Set<number>>(new Set());
   useEffect(() => {
     if (!deliver) return;
-    void fetch(`/api/instructors?sectionId=${sectionId}&termId=${termId}`, { credentials: "include" })
+    void fetch(`/api/share/${encodeURIComponent(deliver)}/faculty`, { credentials: "include" })
       .then(response => (response.ok ? response.json() : []))
       .then(data => setStaff(Array.isArray(data) ? data : []))
       .catch(() => setStaff([]));
-  }, [deliver, sectionId, termId]);
+  }, [deliver]);
 
   /* ── لكل أستاذٍ رابطُه ──────────────────────────────────────────────────
    * رابطُ القسم مع رقمِ زميلٍ كان يفتح بطاقةَ الزميل وطلباته. فالتسليمُ يُرسل
