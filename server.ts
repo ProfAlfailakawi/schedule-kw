@@ -15965,11 +15965,35 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
   };
 }
 
+/* بطاقة الأستاذ تُنشر لعائلة القسم العلمية الواحدة، لا لكل موقع على حدة. */
+async function staffFamilyScopes(collegeId: number, sectionId: number) {
+  return departmentFamily(await Repository.getSections(), collegeId, sectionId);
+}
+async function staffFamilyShareLinks(collegeId: number, sectionId: number, termId: number): Promise<ScheduleShareLink[]> {
+  const family = await staffFamilyScopes(collegeId, sectionId);
+  return (await Promise.all(family.map(scope => Repository.getShareLinks(scope.collegeId, scope.sectionId, termId))))
+    .flat().filter(link => link.kind === "staff");
+}
+const liveStaffPublication = (link: ScheduleShareLink): boolean =>
+  link.kind === "staff" && !link.revoked && !Number(link.AdInstructorId || 0)
+  && Date.parse(String(link.expiresAt || "")) > Date.now();
+
 app.get("/api/share", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
-  res.json(await Repository.getShareLinks(collegeId, sectionId, termId));
+  const [ownLinks, familyStaff] = await Promise.all([
+    Repository.getShareLinks(collegeId, sectionId, termId),
+    staffFamilyShareLinks(collegeId, sectionId, termId),
+  ]);
+  /* قبل توحيد العائلة كانت لكل موقع بطاقةٌ منشورة؛ يظهر أحدث رابط حيّ
+     واحد فقط، دون تعديل تاريخ الروابط المخزّن أثناء عملية القراءة. */
+  const latest = familyStaff.filter(liveStaffPublication)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const visibleStaff = familyStaff.filter(link =>
+    !liveStaffPublication(link) || link.id === latest?.id);
+  res.json([...ownLinks.filter(link => link.kind !== "staff"), ...visibleStaff]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
 });
 
 /** عنوانُ الرابط كما يُعرض في لوحة النشر وعلى الصفحة — لكل نوعٍ صيغتُه. */
@@ -16018,7 +16042,9 @@ app.post("/api/share", requirePermission(7), async (req: AuthenticatedRequest, r
   const expiresAt = kind === "staff"
     ? termLinkExpiresAt(terms.find(row => row.AdTermId === termId))
     : new Date(Date.now() + (kind === "students" ? STUDENT_QR_DAYS : days) * 86400000).toISOString();
-  const published = await withSerialLock(`share-publish:${kind}:${collegeId}:${sectionId}:${termId}`, async () => {
+  const family = kind === "staff" ? departmentFamily(sections, collegeId, sectionId) : [{ collegeId, sectionId }];
+  const familyKey = family.map(scope => `${scope.collegeId}:${scope.sectionId}`).sort().join("|");
+  const published = await withSerialLock(`share-publish:${kind}:${familyKey}:${termId}`, async () => {
     const link = await Repository.createShareLink({
       AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
       label,
@@ -16036,7 +16062,8 @@ app.post("/api/share", requirePermission(7), async (req: AuthenticatedRequest, r
    * الأساتذةَ في واتساب — موعدَها الجديد بدل أن تُوقف. */
     let replaced = 0;
     if (kind === "staff") {
-      const scopeLinks = await Repository.getShareLinks(collegeId, sectionId, termId);
+      const scopeLinks = (await Promise.all(family.map(scope =>
+         Repository.getShareLinks(scope.collegeId, scope.sectionId, termId)))).flat();
       for (const old of scopeLinks) {
         if (old.id === link.id || old.kind !== "staff" || old.revoked) continue;
         if (isPersonalStaffLink(old)) {
