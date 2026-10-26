@@ -233,7 +233,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     try {
       const response = await fetch(`/api/share/${encodeURIComponent(id)}`, { method: "DELETE" });
       await readReply(response, "تعذر إيقاف الرابط");
-      setLinks(current => current.map(item => (item.id === id ? { ...item, revoked: true } : item)));
+      /* إلغاء بطاقة الأستاذ يلغي نشر العائلة؛ حدّث السجل من الخادم بدل
+         إيقاف صفٍّ محلي وإبقاء صفوف المواقع الشقيقة ظاهرةً كأنها حيّة. */
+      await load();
     } catch (e: any) {
       setError(e.message);
     } finally {
