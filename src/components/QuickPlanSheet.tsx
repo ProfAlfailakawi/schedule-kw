@@ -44,6 +44,7 @@ export function Result({ gap, onClose, skipped = 0 }: { gap: Gap; onClose: () =>
   const top = gap.planItems.slice(0, TOP);
   const toReview = gap.planSurplusItems || [];
   const closeTotal = toReview.reduce((sum, item) => sum + (item.surplus || 0), 0);
+  const capacityWarning = toReview.some(item => item.closureCapacityWarning);
   return (
     <div className="gap-result" role="status">
       {total ? (
@@ -65,18 +66,18 @@ export function Result({ gap, onClose, skipped = 0 }: { gap: Gap; onClose: () =>
       )}
       {closeTotal > 0 ? (
         <>
-          <p className="gap-result-head"><Layers aria-hidden="true" /><b>{countOf(closeTotal, AR.section)}</b> فائضة بحسب التخطيط — راجع الإغلاق</p>
+          <p className="gap-result-head"><Layers aria-hidden="true" /><b>{countOf(closeTotal, AR.section)}</b> {capacityWarning ? "تختلف عن العدد المخطط — راجع الإغلاق" : "فائضة بحسب التخطيط — راجع الإغلاق"}</p>
           <ul>
             {toReview.slice(0, TOP).map(item => (
               <li key={item.id} title={`الموجود ${num(item.existing)} والمقترح ${num(item.required)} — الإغلاق يحتاج التحقق من المسجلين`}>
                 <span className="gap-result-name"><b>{item.name}</b><small>{item.code}</small></span>
                 <Cells existing={item.required} required={item.existing} />
-                <span className="gap-result-plus">−{num(item.surplus || 0)}</span>
+                <span className="gap-result-plus" title={item.closureCapacityWarning ? "الاحتياج أعلى من سعة الشعب المقترحة؛ مراجعة فقط" : "فرق العدد المخطط عن الموجود"}>−{num(item.surplus || 0)}</span>
               </li>
             ))}
           </ul>
           {toReview.length > TOP ? <small className="gap-result-more">و{countOf(toReview.length - TOP, AR.course)} أخرى</small> : null}
-          <small className="gap-result-more">اقتراح للمراجعة فقط؛ لا تُغلق أي شعبة تلقائياً. تأكد من المسجلين وسعة الشعب قبل القرار.</small>
+          <small className="gap-result-more">{capacityWarning ? "الاحتياج أعلى من المقاعد المتاحة في بعض الأعداد المقترحة؛ لا تعتبرها شعباً شاغرة. " : ""}اقتراح للمراجعة فقط؛ لا تُغلق أي شعبة تلقائياً. تأكد من المسجلين وسعة الشعب قبل القرار.</small>
         </>
       ) : null}
       {/* قراءةٌ جزئية لا تُقدَّم نتيجةً كاملة: ما لم يتّضح لم يُحسب، ويُقال ذلك بسطرٍ خافت. */}
