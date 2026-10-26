@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { eligibleSuggestionEditId } from "../src/utils/slotSuggestionScope";
+import { eligibleSuggestionEditId, instructorRowsForSuggestion } from "../src/utils/slotSuggestionScope";
 
 const rows = [
   { id: 17, AdCollegeId: 2, AdSectionId: 3, AdTermId: 9, AdCourseId: 5, SCode: "101" },
@@ -30,4 +30,23 @@ assert.match(editor, /roomIdeasNote \|\| "لا توجد قاعة/);
 assert.match(editor, /slotIdeasNote \|\| "لا توجد خانة/);
 assert.match(editor, /currentSuggestionKey\.current !== requestedKey/);
 assert.match(quick, /latestIdeasKey\.current !== requestedKey/);
-console.log("Room/time suggestion regression: edit exclusion, safe scope, feedback and stale replies passed");
+
+// A placeholder is shared across a department; its other classes are NOT this instructor's conflicts.
+const occupancyRows = [
+  { AdInstructorId: 950, roomId: "r-1", fstarttime: "08:00", fendtime: "09:00", fsunday: true },
+  { AdInstructorId: 950, roomId: "r-2", fstarttime: "08:00", fendtime: "09:00", fsunday: true },
+  { AdInstructorId: 21, roomId: "r-3", fstarttime: "08:00", fendtime: "09:00", fsunday: true },
+];
+const faculty = { AdInstructorId: 950, AdInstructorName: "هيئة تدريسية" };
+const person = { AdInstructorId: 21, AdInstructorName: "أحمد الأستاذ" };
+assert.deepEqual(instructorRowsForSuggestion(occupancyRows, 950, faculty), [], "Shared faculty placeholder cannot block rooms or every time in a term.");
+assert.equal(instructorRowsForSuggestion(occupancyRows, 21, person).length, 1, "Real instructor conflicts remain enforced.");
+assert.equal(instructorRowsForSuggestion(occupancyRows, 950, null).length, 2, "Missing identity never bypasses a real instructor booking.");
+assert.equal(instructorRowsForSuggestion(occupancyRows, 950, person).length, 2, "A mismatched identity never grants a bypass.");
+assert.equal(instructorRowsForSuggestion(occupancyRows, 0, null).length, 0, "New appointments without a teacher do not inherit another person's bookings.");
+
+const advisorRoute = server.slice(server.indexOf('app.post("/api/schedules/suggest-slots"'), server.indexOf("/* ── استثناءات الأسبوع"));
+assert.match(advisorRoute, /instructorRowsForSuggestion\(live, instructorId, instructor\)/);
+assert.match(advisorRoute, /instructorId \? Repository\.getInstructorById\(instructorId\)/);
+
+console.log("Room/time suggestion regression: edit scope, faculty placeholders, real conflicts, feedback and stale replies passed");
