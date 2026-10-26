@@ -465,7 +465,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     byCourse.set(row.AdCourseId, [...(byCourse.get(row.AdCourseId) || []), row]);
   });
 
-  // --- م.7/8 — theoretical weekly patterns stated explicitly in the decision.
+  // --- م.7/8 — theoretical patterns must stay in sync with the pattern library.
   for (const [courseId, list] of byCourse) {
     const course = courses.get(courseId);
     if (course?.CourseTeachingMode !== "theoretical") continue;
@@ -478,11 +478,12 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       const meetings = sectionRows.flatMap(row => daysOf(row).map(day => ({ day, minutes: duration(row) })));
       const actual = meetings.slice().sort((a, b) => DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day));
       const matches = (expected: Array<{ day: DayKey; minutes: number }>) => actual.length === expected.length && expected.every((item, index) => actual[index]?.day === item.day && actual[index]?.minutes === item.minutes);
-      const valid = hours === 3
-        ? matches([{ day: "fsunday", minutes: 60 }, { day: "ftuesday", minutes: 60 }, { day: "fthursday", minutes: 60 }])
-          || matches([{ day: "fmonday", minutes: 90 }, { day: "fwednesday", minutes: 90 }])
-        : matches([{ day: "fmonday", minutes: 90 }, { day: "fwednesday", minutes: 90 }, { day: "fthursday", minutes: 60 }])
-          || matches([{ day: "ftuesday", minutes: 120 }, { day: "fthursday", minutes: 120 }]);
+      // The library is the source of truth (50/80-minute teaching periods).
+      // Single-day block patterns are for labs/workshops, not theoretical courses.
+      const approvedPatterns = patternsForHours(hours).filter(pattern => pattern.days.length > 1);
+      const valid = approvedPatterns.some(pattern => matches(
+        pattern.days.map((day, index) => ({ day, minutes: pattern.minutesPerDay[index] }))
+      ));
       if (!valid) invalid.push(...sectionRows);
     }
     if (invalid.length) findings.push({
@@ -492,9 +493,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       source: "decision-1912",
       approvalEffect: "block",
       title: `توزيع مقرر نظري لا يطابق نمط ${countOf(hours, AR.hour)}`,
-      detail: hours === 3
-        ? "المطلوب: ساعة في الأحد والثلاثاء والخميس، أو ساعة ونصف في الاثنين والأربعاء."
-        : "المطلوب: ساعة ونصف في الاثنين والأربعاء وساعة في الخميس، أو ساعتان في الثلاثاء والخميس.",
+      detail: `المطلوب: ${patternsForHours(hours).filter(pattern => pattern.days.length > 1).map(pattern => pattern.days.map((day, index) => `${pattern.minutesPerDay[index]} دقيقة يوم ${dayLabel(day)}`).join("، ")).join("؛ أو ")}.`,
       subjectKey: `course:${courseId}`,
       subjectLabel: course.CourseCode || course.CourseName,
       rowIds: [...new Set(invalid.map(row => row.id))],
