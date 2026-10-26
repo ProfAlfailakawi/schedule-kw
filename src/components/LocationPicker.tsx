@@ -145,7 +145,7 @@ export default function LocationPicker({collegeId,sectionId,termId,value,onChang
   const practicalRoom=/مختبر|عملي|عملية|تطبيقي|تطبيقية/.test(roomType);
   const teachingRoom=/تدريس|محاضرة|نظر/.test(roomType);
   const roomTypeMismatch=Boolean(selectedRoom&&courseRoomType&&selectedRoom.roomType&&selectedRoom.roomType!==courseRoomType);
-  const modeMismatch=Boolean(selectedRoom&&((theoretical&&practicalRoom)||(practical&&teachingRoom)));
+  const modeMismatch=Boolean(selectedRoom&&!String(courseRoomType||"").trim()&&((theoretical&&practicalRoom)||(practical&&teachingRoom)));
   const typeMismatch=roomTypeMismatch||modeMismatch;
   const capacityMismatch=Boolean(selectedRoom&&seatsNeeded>0&&Number(selectedRoom.capacity)>0&&Number(selectedRoom.capacity)<seatsNeeded);
   const locationPending=value.locationStatus==="PENDING_ROOM";
