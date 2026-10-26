@@ -574,6 +574,30 @@ export function vacantValues(reading: Pick<RemainingReading, "rows" | "columns">
   return out;
 }
 
+/** رقم «الذين لم يسجلوا» يُحفظ للتوقّع القديم منفصلاً عن احتياج التخطيط الرسمي.
+ *  لا يُؤخذ إلا من الخانة المقروءة والمتّسقة مع (لم يجتازوا − المسجلين)،
+ *  والمقرر ذو صفر شعب وبدون مسجلين يعامل كل طالبيه كغير مسجلين. */
+export function reportUnregisteredValues(reading: Pick<RemainingReading, "rows" | "columns">, only?: Iterable<number>): Record<string, number> {
+  const ofKind = (kind: ColumnKind) => reading.columns.find(column => column.kind === kind)?.id;
+  const unregistered = ofKind("unregistered"), notPassed = ofKind("notPassed"), registered = ofKind("registered"), sections = ofKind("sections");
+  const allowed = only ? new Set(only) : null;
+  const out: Record<string, number> = {};
+  for (const row of reading.rows) {
+    if (allowed && !allowed.has(row.courseId)) continue;
+    const raw = unregistered != null ? remainingOf(row, unregistered).value : undefined;
+    const base = notPassed != null ? remainingOf(row, notPassed).value : undefined;
+    const enrolled = registered != null ? row.values[registered] : undefined;
+    if (raw != null) {
+      const value = Math.max(0, raw);
+      if (base != null && enrolled != null && value !== Math.max(0, base - enrolled)) continue;
+      out[String(row.courseId)] = value;
+    } else if (sections != null && row.values[sections] === 0 && base != null && enrolled == null) {
+      out[String(row.courseId)] = base;
+    }
+  }
+  return out;
+}
+
 /** قيم عمود «الذين لم يسجلوا»: رقم المقرر ← العدد، لما قُرئ بوضوحٍ فقط. */
 export function remainingValues(reading: Pick<RemainingReading, "rows">, columnId: number): Record<string, number> {
   return Object.fromEntries(reading.rows
