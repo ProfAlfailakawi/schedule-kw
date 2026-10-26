@@ -24,13 +24,14 @@ const planCourses = demo.courses.filter((course: any) => course.AdSectionId === 
   existing: currentCounts.get(Number(course.AdCourseId))?.size || 0, students: 0,
 }));
 const planItems = planGaps(planCourses, { accepted: currentPlan?.accepted || {}, remaining: {}, history: {} });
-const surplusItems = currentPlan?.remainingSource?.column === "unregistered"
-  ? planSurpluses(planCourses, { accepted: {}, remaining: currentPlan.remaining || {}, history: {} })
-  : [];
-check(planItems.length >= 6 && surplusItems.length >= 2 && planItems.length + surplusItems.length >= 8,
-  `تخطيط الديمو يعرض فتحاً من المختار وتخفيضاً من كشف الفصل الحالي فقط (${planItems.length} نقص، ${surplusItems.length} فائض)`);
-check(surplusItems.every(item => item.required === Math.ceil(item.demand / (planCourses.find(c => c.id === item.id)?.capacity || 1))),
-  "توصيات تخفيض شعب الديمو من إحصائية الفصل الحالي ÷ سعة المقرر، دون المختار أو تاريخ سابق");
+const reviewPlan = { accepted: currentPlan?.accepted || {}, remaining: currentPlan?.remainingSource?.column === "notPassed" ? currentPlan.remaining || {} : {}, history: {} };
+const surplusItems = planSurpluses(planCourses, reviewPlan);
+check(planItems.length >= 6 && surplusItems.every(item => item.surplus! > 0) &&
+  new Set(planItems.map(item => item.id)).size === planItems.length,
+  `الديمو يعرض نقص الشعب ويفصل عنه الإغلاق للمراجعة فقط (${planItems.length} فتح، ${surplusItems.length} إغلاق)`);
+check(surplusItems.every(item => item.required === reviewPlan.accepted[String(item.id)] &&
+  item.surplus === item.existing - item.required && item.closureSource === "chosen"),
+  "التخفيض من العدد المختار نفسه (لا «لم يسجلوا» ولا حذف آلي)");
 
 /* ── الأقسام الثلاثة ── */
 for (const sectionId of [1, 2, 3]) check(rowsOf(1, sectionId).length >= 10, `قسم ${sectionId}: جدولٌ للفصل الجاري (${rowsOf(1, sectionId).length} موعداً)`);
