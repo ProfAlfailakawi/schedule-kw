@@ -3856,7 +3856,8 @@ app.put("/api/instructors/:id", requirePermission(3), async (req: Request, res: 
   const AdInstructorCivil = normalizeCivilId(req.body?.AdInstructorCivil);
   const statusRaw = req.body?.AdInstructorStatus;
   const status = statusRaw === "retired" || statusRaw === "sabbatical" ? statusRaw : null;
-  const category = req.body?.AdInstructorCategory === "ta" ? "ta" : null;
+  const category = !Object.prototype.hasOwnProperty.call(req.body || {}, "AdInstructorCategory")
+    ? undefined : req.body.AdInstructorCategory === "ta" ? "ta" : null;
   /* النصابُ رقمٌ موجبٌ معقول، أو لا شيء. وحدُّه الأعلى ليس تجميلاً: نصابٌ
      مكتوبٌ خطأً بأربعة أرقام يجعل القيدَ صامتاً إلى الأبد بلا أن يعرف أحد. */
   const loadRaw = Number(req.body?.AdInstructorLoad);
@@ -7878,8 +7879,8 @@ async function taConversionState(req: AuthenticatedRequest, collegeId: number, s
     Repository.getSectionById(sectionId),
     Repository.getDepartmentFaculty(collegeId, sectionId),
   ]);
-  const plan = planTaConversion(rows, instructors);
   const placeholders = placeholderInstructorIds(instructors);
+  const plan = planTaConversion(rows, instructors.filter(person => !placeholders.has(Number(person.AdInstructorId))));
   const mine = [...new Set(facultyIds.map(Number))].filter(id => placeholders.has(id));
   const previewKey = createHash("sha256").update(JSON.stringify({
     scope: [collegeId, sectionId, termId],
@@ -7889,11 +7890,13 @@ async function taConversionState(req: AuthenticatedRequest, collegeId: number, s
   })).digest("hex");
   const frozen = termIsFrozen(termId, terms as any);
   const lock = frozen ? TERM_FROZEN_MESSAGE : await scheduleLockRefusal(req, collegeId, sectionId, termId);
-  const allowed = !lock && mine.length <= 1;
+  const tooMany = plan.affected.length > 400;
+  const allowed = !lock && mine.length <= 1 && !tooMany;
   return {
     rows, plan, mine,
     previewKey, allowed,
-    reason: lock || (mine.length > 1 ? "يوجد أكثر من سجل «هيئة تدريسية» في القسم؛ راجع السجل قبل التحويل." : ""),
+    reason: lock || (mine.length > 1 ? "يوجد أكثر من سجل «هيئة تدريسية» في القسم؛ راجع السجل قبل التحويل." : "")
+      || (tooMany ? "عدد المواعيد أكبر من الحد الآمن للتحويل دفعة واحدة (400)." : ""),
     termName: terms.find(t => Number(t.AdTermId) === termId)?.AdTermName || "",
     sectionName: section?.AdSectionName || "",
   };
