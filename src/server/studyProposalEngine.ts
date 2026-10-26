@@ -18,7 +18,7 @@ import { isBlockingConflict, timeToMinutes, minutesToTime } from "../utils/sched
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { reviewSchedule, effectiveCourseHours, weeklyLectureMinutes, maxWeeklyMinutesFor } from "../utils/scheduleRegulations";
 import { learnCourseNature } from "../utils/courseNature";
-import { eligibleHallsForSection, rowOccupiesRoom } from "../utils/locationRegistry";
+import { confirmedDepartmentRoomIds, eligibleHallsForSection, rowOccupiesRoom } from "../utils/locationRegistry";
 import { mergeRegistryWithSeed } from "./locationRegistryEngine";
 import {
   applyProposalOps, daysLabel, daysOf, durationOf, GridItem, placeLabel, ProposalEvaluation, ProposalFinding,
@@ -527,9 +527,10 @@ export async function suggestAlternatives(
   const ignoreIds = new Set([op.source?.id, op.out?.snapshot.id].filter((id): id is number => typeof id === "number"));
   const others = without.rows.filter(row => !ignoreIds.has(Number(row.id)));
 
-  const [storedBuildings, storedRooms, requests, section] = await Promise.all([
+  const [storedBuildings, storedRooms, requests, section, pinnedRooms] = await Promise.all([
     Repository.getLocationBuildings(), Repository.getLocationRooms(),
     Repository.getHallBarterRequests(input.termId), Repository.getSectionById(op.target.AdSectionId),
+    Repository.getPinnedDepartmentRooms(op.target.AdCollegeId, op.target.AdSectionId),
   ]);
   const registry = Repository.isDemoRequest()
     ? { buildings: storedBuildings, rooms: storedRooms }
@@ -538,7 +539,8 @@ export async function suggestAlternatives(
     && Number(request.requesterCollegeId) === op.target.AdCollegeId
     && Number(request.requesterSectionId) === op.target.AdSectionId && request.roomId)
     .map(request => String(request.roomId)));
-  const official = eligibleHallsForSection(registry, op.target.AdSectionId, borrowIds);
+  const pinnedRoomIds = confirmedDepartmentRoomIds(registry, pinnedRooms, op.target.AdCollegeId);
+  const official = eligibleHallsForSection(registry, op.target.AdSectionId, borrowIds, pinnedRoomIds);
   type Room = NonNullable<AlternativeSuggestion["room"]>;
   const rooms: Room[] = official.map(hall => ({
     buildingId: hall.buildingId, roomId: hall.roomId, AdRoomCode: hall.room, AdRoomHall: hall.hall, locationStatus: "VERIFIED",

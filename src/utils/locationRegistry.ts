@@ -402,9 +402,10 @@ export const eligibleHallsForSection = (
   registry: LocationRegistry,
   sectionId: number,
   borrowedRoomIds: ReadonlySet<string> = new Set(),
+  pinnedRoomIds: ReadonlySet<string> = new Set(),
 ): EligibleHall[] => {
   const rooms = registry.rooms.filter(room => room.active && room.confidence === "CONFIRMED" && (!room.bookingPolicy || room.bookingPolicy === "normal")
-    && ((room.sectionIds || []).includes(sectionId) || borrowedRoomIds.has(room.id)));
+    && ((room.sectionIds || []).includes(sectionId) || borrowedRoomIds.has(room.id) || pinnedRoomIds.has(room.id)));
   const buildings = new Map(registry.buildings
     .filter(building => building.active && building.confidence === "CONFIRMED" && rooms.some(room => room.buildingId === building.id))
     .map(building => [building.id, building]));
@@ -415,6 +416,28 @@ export const eligibleHallsForSection = (
     roomId: room.id,
     shared: (room.sectionIds || []).length > 1,
   }));
+};
+
+/**
+ * A department's explicit room directory may retain a room whose section
+ * assignment was never migrated. Resolve both labels against the confirmed
+ * master registry before treating that pin as booking authority; text alone
+ * never creates a physical room identity.
+ */
+export const confirmedDepartmentRoomIds = (
+  registry: LocationRegistry,
+  entries: readonly { building: string; hall: string }[],
+  collegeId: number,
+): Set<string> => {
+  const ids = new Set<string>();
+  for (const entry of entries) {
+    const building = resolveBuilding(registry, entry.building, { collegeId });
+    if (building.status !== "CONFIRMED" || !building.value || building.value.active === false || building.value.confidence !== "CONFIRMED") continue;
+    const room = resolveRoom(registry, entry.hall, building.value.id, { collegeId });
+    if (room.status !== "CONFIRMED" || !room.value || room.value.active === false || room.value.confidence !== "CONFIRMED") continue;
+    ids.add(room.value.id);
+  }
+  return ids;
 };
 
 /** Both physical rooms are occupied for the entire academic appointment. */
