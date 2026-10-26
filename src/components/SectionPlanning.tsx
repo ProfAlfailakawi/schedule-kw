@@ -337,7 +337,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
       <p className="section-plan-source">{sourceLine}</p>
       {loadWarning ? <p className="section-plan-warning">{loadWarning}</p> : null}
       <table className="section-plan-report-table">
-        <thead><tr><th>رقم المقرر</th><th>اسم المقرر</th><th>الاحتياج (لم يجتازوا في بداية التسجيل)</th><th>المختار</th><th>المدى المقترح</th><th>آخر الفصول</th></tr></thead>
+        <thead><tr><th>رقم المقرر</th><th>اسم المقرر</th><th>الاحتياج</th><th>المختار</th><th>المدى المقترح</th><th>آخر الفصول</th></tr></thead>
         <tbody>
           {planned.map(row => (
             <tr key={row.key} className={row.outside ? "is-outside" : undefined}>
@@ -411,7 +411,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
         : <p className="sb-hint"><Layers aria-hidden="true" /> {importError ? "عالج رفض الكشف أولاً، فتظهر «نزّل الشعب»." : saveState === "error" ? "تعذّر حفظ الخطة؛ أعد المحاولة لتظهر «نزّل الشعب»." : "تظهر «نزّل الشعب» بعد استيراد كشف المتبقي وحفظ خطةٍ فيها شعب."}</p>}
       <div className="section-plan-import">
         <PrimaryButton data-guide-feature-id="schedule.tool.data" type="button" className="section-plan-save" onClick={() => fileInput.current?.click()} disabled={reading}>
-          <FileUp aria-hidden="true" /> {reading ? (readingNote || "يقرأ الكشف…") : source ? "استيراد كشف أحدث" : "استيراد كشف الاحتياج (لم يجتازوا في بداية التسجيل)"}
+          <FileUp aria-hidden="true" /> {reading ? (readingNote || "يقرأ الكشف…") : source ? "استيراد كشف أحدث" : "استيراد كشف الاحتياج"}
         </PrimaryButton>
         {/* الزر ظاهرٌ دائماً في مكانه: معطّلٌ حين لا متبقٍّ محفوظ لهذا الفصل، فيُعرف أن لا شيء دخل لا أن الزر غائب. */}
         {/* لا تلميحٌ على الزر المعطّل (لا يُبلغ بالفأرة ولا بلوحة المفاتيح): عبارته المرئية هي الشرح. */}
@@ -470,7 +470,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
           <AlertTriangle aria-hidden="true" />
           <div>
             <strong>بياناتٌ قديمة — أعد استيراد الكشف</strong>
-            <p>حُفظ لهذا الفصل عمودٌ آخر غير «الذين لم يجتازوا في بداية التسجيل» (غالباً «المقاعد المتبقية») ({countOf(Object.keys(legacy.values).length, AR.course)})، ولا يُبنى عليه الاقتراح.</p>
+            <p>حُفظ لهذا الفصل عمودٌ آخر غير «الذين لم يجتازوا في بداية التسجيل» (مثل «الذين لم يسجلوا» أو «المقاعد المتبقية») ({countOf(Object.keys(legacy.values).length, AR.course)})، ولا يُبنى عليه الاقتراح.</p>
             {legacy.fileName ? <code dir="ltr" title={legacy.fileName}>{legacy.fileName}</code> : null}
           </div>
         </div>
@@ -496,14 +496,14 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
       {loadWarning ? <p className="section-plan-warning" role="status">{loadWarning}</p> : null}
       <div className="section-plan-table" role="table" aria-label="الاحتياج (لم يجتازوا في بداية التسجيل) واقتراح الشعب">
         <div className="section-plan-row head" role="row">
-          <span role="columnheader">المقرر</span><span role="columnheader">الاحتياج (لم يجتازوا في بداية التسجيل)</span>
+          <span role="columnheader">المقرر</span><span role="columnheader">الاحتياج</span>
           <span role="columnheader">المقترح</span><span role="columnheader">المختار</span><span role="columnheader"><span className="sr-only">التفاصيل</span></span>
         </div>
         {visible.map(({ course, key, suggestion, outside, lineage, history }) => (
           <React.Fragment key={key}>
             <div className={`section-plan-row${outside ? " is-outside" : ""}`} role="row">
               <span role="cell" className="section-plan-course"><b dir="ltr">{course.code}</b> {course.name}</span>
-              <span role="cell" className="section-plan-left" data-label="الاحتياج (لم يجتازوا في بداية التسجيل)">
+              <span role="cell" className="section-plan-left" data-label="الاحتياج">
                 <input type="number" min={0} max={100000} inputMode="numeric" value={remaining[key] ?? ""} placeholder="—" aria-label={`الاحتياج (لم يجتازوا في بداية التسجيل) في ${course.name}`}
                   title="من كشف عمادة التسجيل؛ يُصحَّح هنا إن أخطأت القراءة"
                   onChange={e => {
@@ -599,7 +599,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
             {preview.foreign.length ? <p className="section-plan-note">{countOf(foreignRows.length, AR.course)} في الكشف ليست من مقررات القسم في النظام — تظهر في الجدول بلونٍ خافت ولا يُعبَّأ منها شيء. إن كانت من مقررات القسم فأضفها في «المقررات» بالرقم نفسه ثم أعد الاستيراد.</p> : null}
             <div className="import-preview-table-wrap">
               <table className="import-preview-table section-plan-import-table">
-                <thead><tr><th>رقم المقرر</th><th>اسم المقرر</th><th>الاحتياج (لم يجتازوا في بداية التسجيل) في الكشف</th><th>الحالة</th><th>الحالي</th></tr></thead>
+                <thead><tr><th>رقم المقرر</th><th>اسم المقرر</th><th>الاحتياج في الكشف</th><th>الحالة</th><th>الحالي</th></tr></thead>
                 <tbody>
                   {previewOrder.map(({ item, foreign }) => {
                     if (!item) return (
