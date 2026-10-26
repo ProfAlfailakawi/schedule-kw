@@ -88,5 +88,7 @@ assert.equal(missingCompanionBookingNotice({ companionRoomId: "room_f17", compan
 assert.equal(missingCompanionBookingNotice({}, requiredStudio), "مرفق مطلوب · استوديو تلفزيون · غير محجوز", "older unmet companion requirements must be visible but not invented");
 assert.equal(missingCompanionBookingNotice({}, { CourseCompanionRoomType: "" }), "", "courses without a requirement have no extra print label");
 assert.ok(reportScreen.includes("missingCompanionBookingNotice(row, courseOf(row))"), "the instructor print evaluates requirements against the actual saved appointment");
-assert.ok(reportScreen.includes('className="print-companion-unbooked"'), "the printed report exposes missing bookings separately from the actual venue badge");
+assert.ok(reportScreen.includes('className="print-companion-unbooked" title={missingCompanion}>مرفق غير محجوز</span>'),"the unassigned companion uses a short and truthful print label");
+assert.ok(reportScreen.includes('<colgroup><col style={{ width: "38%" }} /><col style={{ width: "10%" }} /><col style={{ width: "20%" }} /><col style={{ width: "19%" }} /><col style={{ width: "13%" }} /></colgroup>'),"all five instructor print column widths remain unchanged");
+assert.ok(reportScreen.includes('<thead><tr><th>المقرر ورمزه</th><th>الشعبة</th><th>الأيام</th><th>الوقت</th><th>القاعة</th></tr></thead>'),"instructor printed report keeps its original five headers");
 console.log("Companion facility booking and display audit passed");
