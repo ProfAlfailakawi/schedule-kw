@@ -131,5 +131,38 @@ check(!/\{target:"schedule\.publish",text:"[^"]*«/.test(guide.slice(guide.index
 check(guide.includes("بابان: جدولُ القسم لمن يحمل الرابط، وبطاقةُ الأستاذ يفتحها برقمه المدني — ومنها يطلب تعديل جدوله"),
   "ووصفُ النشر نفسُه يذكر البابين، وأن الطلبَ من البطاقة");
 
+/* ── بطاقةٌ واحدة لعائلة القسم وسجلّ نشر مطابق ──────────────────────── */
+check(server.includes("async function staffFamilyShareLinks") &&
+  server.includes("departmentFamily(await Repository.getSections(), collegeId, sectionId)"),
+  "النشر يقرأ عائلة القسم العلمي نفسها المستخدمة في المنتدبين");
+
+check(server.includes('const family = kind === "staff" ? departmentFamily(sections, collegeId, sectionId)') &&
+  server.includes('const scopeLinks = (await Promise.all(family.map(scope =>'),
+  "إصدار بطاقة جديدة يحل محل بطاقات المواقع الشقيقة");
+
+check(server.includes("const family = await staffFamilyScopes(collegeId, sectionId);") &&
+  server.includes("const existing = familyRequests.flat();") &&
+  server.includes("const rows = familyRows.flat();"),
+  "إصدار طلبات التعديل يجمع محاضرات الأستاذ وطلباته من كل مواقع القسم");
+
+check(server.includes("const unsentTokens = new Set(requests.filter(request =>") &&
+  server.includes('request.status === "sent" && !request.submittedAt && !request.signature') &&
+  server.includes('familyLink.kind === "request" && unsentTokens.has(familyLink.id)'),
+  "إلغاء نشر بطاقة العائلة يبطل الروابط الفارغة ويحفظ الطلبات المرسلة والموقعة");
+
+check(server.includes("const publishedFamilies = new Set<string>();") &&
+  server.includes("const seenUnsent = new Set<string>();") &&
+  server.includes("if (!publishedFamilies.has(familyKey)) continue;"),
+  "كرت الأستاذ لا يعرض روابط الطلبات غير المنشورة ولا يكرر مسودات مواقع القسم");
+
+check(server.includes('app.get("/api/share/:id/faculty"') &&
+  server.includes("AdInstructorMobile: person.AdInstructorMobile ||") &&
+  !server.slice(server.indexOf('app.get("/api/share/:id/faculty"'), server.indexOf('app.post("/api/share/:id/personal"')).includes("AdInstructorCivil"),
+  "تسليم البطاقة لكل أساتذة العائلة بلا كشف بيانات الرقم المدني");
+
+check(publish.includes('/api/share/\u0024{encodeURIComponent(deliver)}/faculty') &&
+  publish.includes("await load();"),
+  "واجهة سجل النشر تتجدد بعد إلغاء رابط العائلة وتقرأ قائمة التسليم الكاملة");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
