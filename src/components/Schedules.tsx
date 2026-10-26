@@ -168,7 +168,7 @@ import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { handoffNotice, takeHandoff, type RequestHandoff } from "../utils/requestHandoff";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
 import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmStart";
-import { pickHistoricalDayModel, type HistoricalTimeModel } from "../utils/advancedIntelligence";
+import { historicalDurationMinutes, pickHistoricalDayModel, type HistoricalTimeModel } from "../utils/advancedIntelligence";
 import { setTelemetryScope, telemetryApi, telemetryBreadcrumb, telemetryError, telemetryGuide, telemetryOffline, telemetryTiming } from "../utils/clientTelemetry";
 import { canQueueScheduleMutation, discardParkedMutation, enqueueScheduleMutation, flushOfflineScheduleQueue, offlineQueueCount, parkedMutations, queuedPseudoResponse, retryParkedMutation, setOfflineQueueOwner, subscribeOfflineQueue, subscribeParkedMutations, type ParkedMutation } from "../utils/offlineScheduleQueue";
 import { GUIDE_ACTIONS, allAllowedGuideFeatures, canRunGuideAction, featureById, loadGuideProfile, masteryScore, recordFeatureEvent, evaluateGuideFriction, classifyGuideReason, ensureGuideJourney, advanceGuideJourney, completeGuideJourney, failGuideJourney, type GuideCommand } from "../guide/smartGuide";
@@ -2798,11 +2798,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * Sun/Tue/Thu immediately become 09:50 without asking for a second value.
    */
   const expectedDurationForDay = useCallback((row: Partial<FSchedule>, day: DayKey) => {
-    const learned = historicalReadingFor(row, day).data;
-    if (learned && learned.durationMinutes > 0 && learned.durationSamples >= 3 && learned.durationShare >= 0.5) {
-      return Number(learned.durationMinutes);
-    }
-    return expectedMinutesForDay(day as RegDayKey);
+    return historicalDurationMinutes(historicalReadingFor(row, day).data, day);
   }, [historicalReadingFor]);
   const expectedDurationForSelection = useCallback((row: Partial<FSchedule>) => {
     const active = days.filter(day => Boolean((row as any)[day.key])).map(day => day.key as DayKey);
@@ -4431,7 +4427,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           const data = await fetchJson("/api/schedules/check-conflicts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...form, excludeId: editId || 0 }),
+            body: JSON.stringify({ ...form, excludeId: editId || 0, instructorRequestId: pendingHandoff.current?.requestId }),
             signal: controller.signal,
           });
           setConflicts(data.conflicts || []);
@@ -4617,7 +4613,22 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           else advanceGuideJourney(trackingUserId, journeyId, "schedule.move.destination.selected");
         });
       }
-      const saved = await fetchJson(url, {
+      const handoffForSave = pendingHandoff.current;
+      const applyingRequest = editor !== "edit" && handoffForSave
+        && Number(form.AdCourseId) === handoffForSave.courseId && Number(form.AdInstructorId) === handoffForSave.instructorId
+        && Number(form.AdTermId) === handoffForSave.termId && Number(form.AdCollegeId) === handoffForSave.collegeId
+        && Number(form.AdSectionId) === handoffForSave.sectionId;
+      const saved = applyingRequest ? await (async () => {
+        const result = await fetchJson(`/api/instructor-requests/${handoffForSave!.requestId}/apply`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+            itemIndex: handoffForSave!.itemIndex, requestRevision: handoffForSave!.requestRevision, add: { courseId: form.AdCourseId, scode: form.SCode,
+              start: form.fstarttime, end: form.fendtime, room: form.AdRoomCode, hall: form.AdRoomHall,
+              buildingId: form.buildingId, roomId: form.roomId, locationStatus: form.locationStatus, companionRoomId: form.companionRoomId || handoffForSave!.companionRoomId } }),
+        });
+        pendingHandoff.current = null;
+        const id = result.items?.[handoffForSave!.itemIndex]?.decision?.scheduleId;
+        return result.appliedRows?.find((row: FSchedule) => Number(row.id) === Number(id)) || null;
+      })() : await fetchJson(url, {
         method: editor === "edit" ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         // The revision this editor opened. The server compares it and refuses
@@ -4665,7 +4676,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ itemIndex: handoff.itemIndex, state: "fixed", scheduleId: createdRowId }),
-        }).catch(() => undefined);
+        }).then(response => { if (!response.ok) throw new Error("حُفظ الموعد لكن تعذّر تسجيل قرار الطلب. راجع الوارد."); }).catch(issue => setError(issue.message));
       }
       rememberSave(form);
       markChanged(editor === "edit" ? editId : Number(saved?.id || 0) || null);

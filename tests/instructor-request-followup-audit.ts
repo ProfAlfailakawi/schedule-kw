@@ -57,8 +57,8 @@ check(verdict.nearestTimes.every(slot => slot.days.join() === "fsunday,ftuesday,
   "وكلُّ بديلٍ يحمل أيامَ المحاضرة كلها، لا يوماً منها");
 check(verdict.nearestTimes.every(slot => slot.start !== "08:00" && slot.start !== "11:00"),
   "ولا يُقترح وقتٌ الأستاذُ مشغولٌ فيه");
-check(judgeRequest(ask, { ...context, startLadder: [] }).nearestTimes.length === 0,
-  "وبلا سُلّمٍ معروفٍ للقسم لا يُقترح شيء");
+check(judgeRequest(ask, { ...context, startLadder: [] }).nearestTimes.length > 0,
+  "وبلا تاريخ للقسم تُفحص بدائل سلم اللائحة نفسه");
 
 const page = server.slice(server.indexOf("function instructorRequestPage"), server.indexOf('app.post("/api/public/request/:token/check"'));
 check(page.includes('data-alt="\'+esc(ds.join(",")+"|"+a.start)') && page.includes('p[0].split(",").filter(Boolean)'),
@@ -68,7 +68,7 @@ check(server.includes("nearestTimes: verdict.nearestTimes.map(entry => ({ day: e
 
 /* ── قرارُ القسم يخصّ ما طُلب يومَ قُرِّر ───────────────────────────────── */
 
-const decideSrc = server.slice(server.indexOf("function decisionStillApplies"), server.indexOf("async function instructorRequestItemsFromPayload"));
+const decideSrc = server.slice(server.indexOf("function decisionStillApplies"), server.indexOf("async function requestSlotsForCourse"));
 const helpers = new vm.Script(decideSrc.replace(/: [A-Za-z<>\[\]| ]+(?=[,)=])/g, "").replace(/\): boolean \{/g, ") {").replace(/\): [A-Za-z| ]+ \{/g, ") {")
   + "\nthis.decisionStillApplies = decisionStillApplies; this.priorAddFor = priorAddFor;");
 const sandbox: any = {};
@@ -90,8 +90,8 @@ check(priorAddFor?.(adds, used, 8, 2, 3, ["fthursday"], "12:00")?.decision?.stat
   "والإضافةُ تستعيد قرارَها بمطابقة المقرّر وموقعه وأيامه وبدايته، وكلُّ سابقةٍ مرّةً واحدة");
 check(priorAddFor?.(adds, new Set(), 8, 2, 3, ["fthursday"], "13:00") === undefined,
   "وإضافةٌ غيّر الأستاذُ وقتَها طلبٌ جديد بلا قرار");
-check((server.match(/decisionStillApplies\(stored, action, days, start\)/g) || []).length === 2
-  && (server.match(/priorAddFor\(/g) || []).length === 3,
+check(server.includes("items = await instructorRequestItemsFromPayload(resolved.request, sent)")
+  && server.includes("draftItems = await instructorRequestItemsFromPayload(resolved.request, sent)"),
   "ومسارا الفحص والإرسال كلاهما يطبّقان القاعدة نفسها");
 
 /* ── قوالبُ الخادم لا تأكل شرطاتِها ──────────────────────────────────────── */
@@ -204,10 +204,10 @@ check(profReply.includes("AdTermClosed === true") && !profReply.includes("reques
   "والحوارُ يبقى بعد إغلاق النافذة، ويُغلقه الفصلُ المجمَّد وحده");
 check(profReply.includes('kind = "proposal-accepted"') && profReply.includes("decision: undefined") && profReply.includes("endForRequest"),
   "والموافقةُ تجعل المقترحَ هو المطلوب بنهايته من اللائحة، وتُسقط القرارَ القديم");
-check(server.includes("...(stored?.thread?.length ? { thread: stored.thread } : {})"), "وإعادةُ إرسال الطلب لا تمحو الحوار");
+check(server.includes("...(prior?.thread?.length ? { thread: prior.thread } : {})"), "وإعادةُ إرسال الطلب لا تمحو الحوار");
 check(profReply.includes("sentDays.length !== baseDays.length") && profReply.includes("req.body?.days"),
   "و«وقتٌ آخر» يقبل أياماً بعدد أيام البند نفسه، ويردّ ما غيّر العدد");
-check((server.match(/capThread\(\[/g) || []).length === 3 && !server.includes(".slice(-THREAD_LIMIT)"),
+check((server.match(/appendRequestThread\(item,/g) || []).length === 3 && !server.includes(".slice(-THREAD_LIMIT)"),
   "والخيطُ عند حدّه يحفظ أولَ رسالةٍ في المسارات الثلاثة (قسمٌ، موافقة، ردّ)");
 check(server.includes("negotiation: negotiationState(rest)"), "وحالةُ الحوار تصل الأستاذَ محسوبةً من الخادم");
 check(page.includes("function threadBox(") && page.includes("data-accept") && page.includes("data-reply=")
@@ -233,7 +233,7 @@ check(formatScheduleTimeRange("08:00", "09:20") === "⁦08:00 – 09:20⁩",
   "«08:00 – 09:20»: البدايةُ أولاً، معزولاً عن اتجاه السطر العربي");
 
 /* تصادمٌ مع محاضرةٍ أخرى لنفس الأستاذ: يُقال بأخصّ عبارة، ولا تُختلق «لا قاعة». */
-check(server.includes("headline: headlineReasonOf(item.reasons)?.text") && server.includes('reason.source === "room"') && !server.includes('roomAvailable: item.verdict === "conflict" ? false : true'),
+check(server.includes("headline: headlineReasonOf(item.reasons)?.text") && server.includes("roomAvailable: item.roomAvailable ?? null") && !server.includes('roomAvailable: item.verdict === "conflict" ? false : true'),
   "فحص الموعد: العنوان بأخصّ سبب مانع (محاضرتك الأخرى قبل «تتابع مرتفع») ولا قاعةَ مفقودة إلا بسبب قاعة فعلي");
 /* أوقاتُ دوام القسم (شاشة المشرف) هي الحدّ، لا الثامنة والثامنة مساءً الثابتتان. */
 {

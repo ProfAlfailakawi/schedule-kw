@@ -1,3 +1,4 @@
+import CompanionFacilityPicker from "./CompanionFacilityPicker";
 import SearchableSelect from "./SearchableSelect";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Check, Clock3, Maximize2, X } from "lucide-react";
@@ -41,6 +42,8 @@ const timeOf = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
 export type QuickDraft = {
+  companionRoomId?: string;
+  companionRoomLabel?: string;
   courseId: number;
   scode: string;
   instructorId: number;
@@ -54,6 +57,7 @@ export type QuickDraft = {
 };
 
 export type QuickSeed = {
+  instructorRequestId?: string;
   day: DayKey;
   dayLabel: string;
   start: string;
@@ -64,7 +68,7 @@ export type QuickSeed = {
   room: string;
   hall: string;
   /** قاعةٌ خاليةٌ في هذا الوقت يقترحها النظامُ (طلبُ أستاذ): تُملأ في البطاقة ويبقى للمنسّق أن يغيّرها. */
-  suggestion?: { room: string; hall: string; buildingId?: string; roomId?: string; locationStatus?: "VERIFIED" | "PENDING_ROOM" };
+  suggestion?: { room: string; hall: string; buildingId?: string; roomId?: string; locationStatus?: "VERIFIED" | "PENDING_ROOM"; companionRoomId?: string; companionRoomLabel?: string };
   /** All weekdays of this appointment, not just the first painted/selected day. */
   days?: DayKey[];
   /** An instructor request may contain different times on different days. */
@@ -129,6 +133,7 @@ export default function QuickCreatePopover({
     room: seed.suggestion?.room || "",
     hall: seed.suggestion?.hall || "",
     buildingId: seed.suggestion?.buildingId, roomId: seed.suggestion?.roomId, locationStatus: seed.suggestion?.locationStatus,
+    companionRoomId: seed.suggestion?.companionRoomId, companionRoomLabel: seed.suggestion?.companionRoomLabel,
     start: timeOf(openedStart),
     end: timeOf(openedEnd),
   });
@@ -214,6 +219,8 @@ export default function QuickCreatePopover({
   const [ideasError, setIdeasError] = useState("");
 
   const payload = {
+    instructorRequestId: seed.instructorRequestId,
+    companionRoomId: draft.companionRoomId,
     AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
     AdCourseId: draft.courseId, SCode: draft.scode.trim(), AdInstructorId: draft.instructorId,
     AdRoomCode: draft.room.trim(), AdRoomHall: draft.hall.trim(),
@@ -378,6 +385,8 @@ export default function QuickCreatePopover({
           />
         </div>
       </div>
+      <CompanionFacilityPicker course={selectedCourse} form={payload}
+        onChange={values => patch({ companionRoomId: values.companionRoomId, companionRoomLabel: values.companionRoomLabel })} />
 
       {!hasDifferentTimes && draft.courseId && draft.instructorId ? (
         <div className="qc-ideas" role="group" aria-label="مقترحات الموعد">

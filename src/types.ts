@@ -1393,13 +1393,21 @@ export interface InstructorRequestSnapshot {
 }
 
 export interface InstructorRequestReason {
-  source: "regulation" | "instructor" | "room" | "cohort" | "window" | "shape";
+  source: "regulation" | "instructor" | "room" | "cohort" | "window" | "shape" | "load";
   article?: string;
   text: string;
   blocking: boolean;
 }
 
 export interface InstructorRequestItem {
+  /** Stable within a request, including additions without an official row yet. */
+  itemId?: string;
+  /** An existing unassigned section; all its meetings are claimed together. */
+  offeringRowIds?: number[];
+  offeringRows?: Array<{ id: number; rev: number; instructorId: number }>;
+  courseRequirements?: Pick<AdCourse, "CourseRoomType" | "CourseTeachingMode" | "CourseCompanionRoomType" | "MaxStudent">;
+  decisionHistory?: Array<NonNullable<InstructorRequestItem["decision"]>>;
+  threadHistory?: InstructorRequestMessage[];
   /** الصفُّ الأصلي، و`null` في الإضافة. */
   rowId: number | null;
   action: InstructorRequestAction;
@@ -1414,8 +1422,9 @@ export interface InstructorRequestItem {
   excuse?: string;
   /** القاعاتُ المرشّحة — **للقسم وحده**، ولا تُرسل إلى صفحة الأستاذ. */
   roomCandidates?: string[];
+  roomAvailable?: boolean | null;
   /** تفاصيلُ أولى القاعات الخالية (مبنى وقاعة) — للقسم وحده — يُملأ بها نموذجُ الإضافة السريع. */
-  roomOptions?: Array<{ key: string; room: string; hall: string; buildingId?: string; roomId?: string }>;
+  roomOptions?: Array<{ key: string; room: string; hall: string; buildingId?: string; roomId?: string; companionRoomId?: string; companionRoomLabel?: string }>;
   /** أقربُ الأوقات المتاحة حين يُمنع الطلب. */
   nearestTimes?: InstructorRequestSlot[];
   /** التوزيعاتُ المعتمدة لساعات المقرّر حين لا يغطّيها المختار — تُعرض أزراراً تُطبَّق بضغطة. */
@@ -1478,6 +1487,10 @@ export interface InstructorRequestEvent {
 export type InstructorRequestStatus = "sent" | "submitted" | "in-review" | "settled";
 
 export interface InstructorRequest {
+  requestRevision?: number;
+  signatureHistory?: InstructorRequestSignature[];
+  /** Submitted additions removed on a later round retain their correspondence internally. */
+  archivedItems?: Array<{ at: string; item: InstructorRequestItem }>;
   id: string;
   AdCollegeId: number;
   AdSectionId: number;

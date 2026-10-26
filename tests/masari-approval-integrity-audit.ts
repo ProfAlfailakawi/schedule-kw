@@ -85,7 +85,7 @@ const inbox = read("src/components/InstructorInbox.tsx");
 check(/decision\?\.state === "fixed"\) return true/.test(inbox), "I1 الشاشة لا تعيد كتابة بند ثُبّت (لا صف مكرر)");
 check(/Number\(draft\.courseId\) !== expectedCourse/.test(inbox) && /add\.courseId && Number\(add\.courseId\) !== courseId/.test(server), "I3 لا يُنشأ صف لمقرر غير مقرر البند (الشاشة والخادم)");
 check(/صفٌّ حُذف من قبل: يكفي تسجيلُ القرار/.test(server), "I4 إعادة تثبيت حذفٍ وقع لا تتعثر");
-check(/after, revs: revsFor/.test(inbox), "I5 سلسلة البنود المترابطة تُرسل مع البند فتُثبَّت معاً أو لا تُثبَّت");
+check(/after, requestRevision: row\.requestRevision \|\| 0, revs: revsFor/.test(inbox), "I5 سلسلة البنود المترابطة تُرسل مع البند فتُثبَّت معاً أو لا تُثبَّت");
 
 console.log(`\n${failed ? "\x1b[31m" : "\x1b[32m"}${passed} نجح، ${failed} فشل\x1b[0m`);
 fs.rmSync(privateDir, { recursive: true, force: true });

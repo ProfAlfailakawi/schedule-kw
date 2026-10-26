@@ -177,7 +177,9 @@
     "test:masari-ease": "tsx tests/masari-ease-audit.ts",
     "test:masari-visual": "tsx tests/masari-visual-audit.ts",
     "test:masari-return": "tsx tests/masari-return-audit.ts",
-    "test:masari-desktop": "tsx tests/masari-desktop-audit.ts"
+    "test:masari-desktop": "tsx tests/masari-desktop-audit.ts",
+    "test:instructor-availability": "tsx tests/instructor-request-availability-audit.ts",
+    "test:instructor-offering-flow": "tsx tests/instructor-offering-flow-audit.ts"
   },
   "dependencies": {
     "@google-cloud/firestore": "^8.7.1",

@@ -27,6 +27,7 @@ const kit = fs.readFileSync(path.join(process.cwd(), "src/server/publicKit.ts"),
 const types = fs.readFileSync(path.join(process.cwd(), "src/types.ts"), "utf8");
 const repo = fs.readFileSync(path.join(process.cwd(), "src/db/repository.ts"), "utf8");
 const inbox = fs.readFileSync(path.join(process.cwd(), "src/components/InstructorInbox.tsx"), "utf8");
+const weekSource = fs.readFileSync(path.join(process.cwd(), "src/utils/instructorRequestWeek.ts"), "utf8");
 const verdictSource = fs.readFileSync(path.join(process.cwd(), "src/utils/instructorRequestVerdict.ts"), "utf8");
 
 /* ── المسارات ───────────────────────────────────────────────────────────── */
@@ -54,7 +55,7 @@ check(!server.includes('app.get("/api/public/request/:token", requireAuth'), "و
 /* ── القاعةُ لا تغادر ──────────────────────────────────────────────────── */
 
 check(server.includes("function stripForInstructor"), "تجريدُ ما لا يخصّ الأستاذ في دالّةٍ واحدة");
-check(server.includes("const { roomCandidates, roomOptions, ...rest } = item;"), "والمرشّحاتُ وتفاصيلُ قاعاتِها تُنزع نزعاً، لا تُستثنى بالنسيان");
+check(server.includes("const { roomCandidates, roomOptions, offeringRows, ...rest } = item;"), "والمرشّحاتُ وتفاصيلُ قاعاتِها تُنزع نزعاً، لا تُستثنى بالنسيان");
 check(/after: rest\.after \? \{ \.\.\.rest\.after, room: undefined \}/.test(server),
   "و«طلب» لا تحمل قاعةً أبداً");
 check(server.includes("stripForInstructor(judgedRequest)") && server.includes("judgeRequestItems(request),\n  ]);"), "والقراءةُ تمرّ بالتجريد");
@@ -222,18 +223,18 @@ check(server.includes("requestLinks,") && server.includes("Repository.getInstruc
    نفسها لا تصطدم إحداهما بالأخرى في الجدول القديم، لأن أيّاً منهما لم تكن
    هناك بعد. فتُبنى صفوفُ الأستاذ بعد الطلب مرّةً واحدةً ثم يُقاس كلُّ بندٍ
    عليها. */
-check(server.includes("const rowsAfter: any[] = instructorRows.filter") && server.includes("instructorRowsAfter: rowsAfter"),
+check(server.includes("const rowsAfter: any[] = instructorWeekAfter(request, context.allRows)") && server.includes("instructorRowsAfter: rowsAfter"),
   "جدولُ الأستاذ بعد الحزمة يُبنى ويُقاس عليه، لا على الجدول القديم");
 check(server.includes("const instructorRows = context.allRows.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));")
-  && verdictSource.includes("rows: context.instructorRowsAfter"),
+  && verdictSource.includes("rows: afterRows"),
   "وقاعدة المحاضرات المتتالية تُقاس على جدول صاحب الرابط وحده، لا على زملائه");
-check(server.includes('if (item.action === "delete") continue;'),
+check(weekSource.includes('item.action === "delete"') && weekSource.includes('item.decision?.state === "rejected"'),
   "والمحذوفُ يغيب عن الأسبوع الجديد");
 /* إضافتان بلا معرّفٍ كانتا صفّاً واحداً في نظر محرّك التعارض، فيتخطّى
    المقارنةَ بينهما ويُجيز الاثنتين على الساعة نفسها. */
 check(server.includes("const tempIdFor = (index: number) => -(index + 1);"),
   "وكلُّ إضافةٍ تأخذ هويّةً مؤقّتةً فريدةً في حزمتها");
-check(server.includes("id: item.rowId ?? tempIdFor(index)") && server.includes("tempId: tempIdFor(index)"),
+check(weekSource.includes("requestIdentity(item, index)") && server.includes("tempId: tempIdFor(index)"),
   "والهويّةُ نفسُها تُستعمل في الصفّ وفي الحكم، فلا يفترقان");
 
 console.log(`\n${passed} passed, ${failed} failed`);

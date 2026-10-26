@@ -1,3 +1,8 @@
+import { roomSuitability } from "./src/utils/roomSuitability";
+import { appendRequestThread } from "./src/utils/instructorRequestThread";
+import { historicalLectureMinutes } from "./src/utils/advancedIntelligence";
+import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "./src/utils/instructorRequestWeek";
+import { reservationRows, RequestReservationConflict, type RequestReservationProposal } from "./src/utils/instructorRequestReservations";
 import { compareIntelligenceTerms, rowsForIntelligenceScope } from "./src/utils/intelligenceReadingScope";
 import express, { Request, Response, NextFunction } from "express";
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
@@ -22,7 +27,7 @@ import { activeDays, analyzeSchedule, autoScheduleProposal, compareTerms, confli
 import { buildScheduleGenome, buildWarRoom, evaluateScheduleConstraints, forecastScheduleMove, runScheduleAutopilot } from "./src/utils/scheduleInnovation";
 import { describeRollover, readTermRollover } from "./src/utils/termRollover";
 import { visibleTermIds } from "./src/utils/scopedTerms";
-import { currentTermId, planningTermCandidates, termHasEnded, termIsArchive } from "./src/utils/termSequence";
+import { termChronology, currentTermId, planningTermCandidates, termHasEnded, termIsArchive } from "./src/utils/termSequence";
 import { WIPE_CONFIRM_TOKEN, WIPE_MAX_ROWS, WIPE_RESTORE_TOKEN, WIPE_VERSION_LABEL, wipeDecision } from "./src/utils/scheduleWipePolicy";
 import { acceptedPdfSourceLabel, pdfTermAccepted } from "./src/utils/pdfTermRule";
 import { applyVisitingToFaculty, recoverRetiredFromPrintedName, retiredOrSabbaticalIds } from "./src/utils/visitingToFaculty";
@@ -4501,7 +4506,7 @@ async function mixedPatternNotice(courseId:number,days:RequestDayKey[],termId:nu
   const ordered=DAY_KEYS.filter(d=>days.includes(d));
   return patternNoticeHtml(patternLibraryInput(),Math.round(hours)||0,ordered,ordered.map(d=>minutes&&minutes>0?minutes:expectedMinutesForDay(d)),blocking);
 }
-async function scheduleLengthIssue(row:any){
+async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
   const course=await Repository.getCourseById(courseId);
   const nature=await courseHabit(courseId);
@@ -4511,8 +4516,10 @@ async function scheduleLengthIssue(row:any){
      المنعُ هنا محصورٌ في تجاوز مجموع العبء الأسبوعي لساعات المقرر. */
   /* مقرّرٌ لا يزيد على ساعاته المعتمدة في أي مكان يُنشأ منه: صفوفُه الأخرى في الفصل والشعبة نفسيهما تُحسب معه. */
   if(hours>0&&Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
-    const siblings=(await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
-      .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")&&Number(other.id)!==Number(row.id||0));
+    const siblings=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
+      .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")
+        &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
+        &&Number(other.id)!==Number(row.id||0));
     const total=siblings.reduce((sum:number,other:any)=>sum+weeklyLectureMinutes(other,hours),0)+weeklyLectureMinutes(row,hours);
     if(!habitual&&total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`;
   }
@@ -5182,8 +5189,16 @@ async function scheduleConflicts(req:AuthenticatedRequest,row:any,excludeId=0,hy
     Repository.getHallBarterRequests(termId),
     readLocationRegistry(),
   ]);
+  let reservationOwner = String((req as any).__requestReservationOwner || "");
+  if (!reservationOwner && row.instructorRequestId && req.path?.includes("check-conflicts")) {
+    const request = await Repository.getInstructorRequest(String(row.instructorRequestId));
+    if (request && Number(request.AdInstructorId) === Number(row.AdInstructorId) && Number(request.AdTermId) === termId
+      && isScopeAllowed(req, Number(row.AdCollegeId), Number(row.AdSectionId))) reservationOwner = request.id;
+  }
+  const heldRows = reservationRows((await Repository.getInstructorRequestReservations(termId)).filter(entry => entry.requestId !== reservationOwner), termId);
+  const rowsWithReservations = [...termRowsRaw, ...heldRows];
   const candidateCanonical=canonicalizeHistoricalLocationForRuntime(candidate as FSchedule,registry);
-  const all=termRowsRaw.map(item=>canonicalizeHistoricalLocationForRuntime(item,registry)).filter(item=>item.id!==excludeId);
+  const all=rowsWithReservations.map(item=>canonicalizeHistoricalLocationForRuntime(item,registry)).filter(item=>item.id!==excludeId);
   const style=await departmentStyle(candidate);
   const raw=findConflicts([candidateCanonical],all,{doorwayMinutes:style.doorway,
     cohortPairs:style.cohort,cohortSize:style.cohortSize,
@@ -6171,6 +6186,11 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
     const authorityRoomId=oldRow?.importEvidence && oldRow.roomId ? String(oldRow.roomId) : "";
     const location=await canonicalizeLocationForWrite(row,Number(row.AdCollegeId),Number(row.AdSectionId),authorityRoomId);
     validationIssues.push(...location.check.issues.filter(issue=>issue.severity==="high").map(issue=>issue.message));
+    const course = await Repository.getCourseById(Number(row.AdCourseId));
+    if (course && location.check.ok) {
+      const companion = await companionBookingFor(course, row, { ...row, ...location.check.canonical }, oldRow || undefined);
+      if (companion.issue) validationIssues.push(companion.issue);
+    }
   }
   res.json({conflicts:await scheduleConflicts(req,row,Number(row.excludeId||0)),validationIssues,...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{})}); });
 
@@ -7947,7 +7967,13 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
     Repository.getHallBarterRequests(termId),
     Repository.getCourseById(Number(body.AdCourseId||0)),
   ]);
-  const live = universe.filter(row => Number(row.id) !== excludeId);
+  let owner = "";
+  if (body.instructorRequestId) {
+    const request = await Repository.getInstructorRequest(String(body.instructorRequestId));
+    if (request && Number(request.AdInstructorId) === instructorId && Number(request.AdTermId) === termId) owner = request.id;
+  }
+  const held = reservationRows((await Repository.getInstructorRequestReservations(termId)).filter(entry => entry.requestId !== owner), termId);
+  const live = [...universe, ...held].filter(row => Number(row.id) !== excludeId);
   const sectionRows = live.filter(row => row.AdCollegeId === collegeId && row.AdSectionId === sectionId);
 
   // Suggestions use exactly the same permission surface as the picker: rooms
@@ -8046,17 +8072,8 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
       if (spread === 0) reasons.push("داخل يوم القسم الحالي");
 
       const roomRecord=roomById.get(String(hall.roomId));
-      let fitAdjustment=0;
-      const fitReasons:string[]=[];
-      if(expectedRoomType){
-        if(roomRecord?.roomType===expectedRoomType){fitAdjustment+=12;fitReasons.push(`يلائم نوع المقرر · ${expectedRoomType}`);}
-        else if(roomRecord?.roomType){fitAdjustment-=18;fitReasons.push(`نوع القاعة ${roomRecord.roomType} مختلف عن ${expectedRoomType}`);}
-        else fitReasons.push("نوع القاعة غير مسجّل");
-      }
-      if(seatsNeeded>0&&Number(roomRecord?.capacity)>0){
-        if(Number(roomRecord!.capacity)>=seatsNeeded){fitAdjustment+=8;fitReasons.push("السعة المسجلة مناسبة");}
-        else {fitAdjustment-=24;fitReasons.push("السعة المسجلة أقل من سعة المقرر");}
-      }else if(seatsNeeded>0){fitReasons.push("سعة القاعة غير مسجلة");}
+      const fit = roomSuitability(course, roomRecord);
+      const fitAdjustment = fit.adjustment, fitReasons = fit.reasons;
 
       candidates.push({
         start: clock(start), end: clock(end),
@@ -8444,7 +8461,7 @@ const createScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
   }
   const payloadIssues=await schedulePayloadIssues(req.body);
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
-  {const lengthIssue=await scheduleLengthIssue(req.body);
+  {const lengthIssue=await scheduleLengthIssue(req.body,(req as any).__hypotheticalWeek);
   if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
@@ -8483,11 +8500,10 @@ const createScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
   const addLock = await scheduleLockRefusal(req,collegeId, sectionId, termId);
   if (addLock) { res.status(409).json({ error: addLock, code: "schedule-locked" }); return; }
   /* فحصٌ جافّ كما في التعديل: كلُّ التحقّق مرّ ولا كتابة (للتثبيت الذرّي لبنود الأساتذة). */
-  if ((req as any).__dryRun) { res.json({ ok: true, dryRun: true, warnings: conflicts.filter((c:any)=>c.soft) }); return; }
 
-  const addVersion = await captureScopeVersion(req, collegeId, sectionId, termId, "قبل إضافة موعد دراسي", "manual");
 
-  const newSched = await Repository.createSchedule({
+
+  const writeRow = {
     AdCollegeId: collegeId,
     AdSectionId: sectionId,
     AdTermId: termId,
@@ -8521,7 +8537,10 @@ const createScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
     sourceOrder: Math.max(1_000_000, Date.now()),
     fdetail: legacyFDetail({ fsunday, fmonday, ftuesday, fwednesday, fthursday }),
     ...(scheduleOriginOf(req) ? { origin: scheduleOriginOf(req) } : {}),
-  });
+  };
+  if ((req as any).__dryRun) { res.json({ ok: true, dryRun: true, row: writeRow, warnings: conflicts.filter((c:any)=>c.soft) }); return; }
+  const addVersion = await captureScopeVersion(req, collegeId, sectionId, termId, "قبل إضافة موعد دراسي", "manual");
+  const newSched = await Repository.createSchedule(writeRow, (req as any).__requestReservationOwner || "");
 
   await recordVersionAfter(addVersion, before => [...before, newSched]);
   await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "add", row: newSched });
@@ -8577,7 +8596,7 @@ const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
   const payloadIssues=await schedulePayloadIssues(req.body);
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
   {const unchangedShape=existing&&existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime&&SCHEDULE_DAY_KEYS.every(k=>Boolean((existing as any)[k])===Boolean(req.body?.[k]));
-  const lengthIssue=unchangedShape?null:await scheduleLengthIssue({...req.body,id});
+  const lengthIssue=unchangedShape?null:await scheduleLengthIssue({...req.body,id},(req as any).__hypotheticalWeek);
   if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
@@ -8624,13 +8643,7 @@ const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
   if (editLock) { res.status(409).json({ error: editLock, code: "schedule-locked" }); return; }
 
   /* فحصٌ جافّ: كلُّ التحقّق (نطاق، قفل، تعارض) مرّ ولا كتابة. يستعمله «اعتماد الاقتراح» قبل أي خطوة. */
-  if ((req as any).__dryRun) { res.json({ ok: true, dryRun: true, warnings: conflicts.filter((c:any)=>c.soft) }); return; }
-  try {
-    const editVersion = await captureScopeVersion(req, existing.AdCollegeId, existing.AdSectionId, existing.AdTermId, "قبل تعديل موعد دراسي", "manual");
-    const arrivalVersion = existing.AdCollegeId !== collegeId || existing.AdSectionId !== sectionId || existing.AdTermId !== termId
-      ? await captureScopeVersion(req, collegeId, sectionId, termId, "قبل نقل موعد إلى هذا الجدول", "manual")
-      : undefined;
-    const updated = await Repository.updateSchedule(id, {
+  const writeFields = {
       AdCollegeId: collegeId,
       AdSectionId: sectionId,
       AdTermId: termId,
@@ -8659,10 +8672,15 @@ const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
       sourceRoomText: req.body?.sourceRoomText,
       fdetail: legacyFDetail({ fsunday, fmonday, ftuesday, fwednesday, fthursday }),
       ...((req as any).__restoreOrigin ? { origin: (req as any).__restoreOrigin.value } : scheduleOriginOf(req) ? { origin: scheduleOriginOf(req) } : {}),
-    },
-    // The revision the editor was looking at, when they sent one. An older
-    // client that sends nothing keeps the previous behaviour exactly.
-    req.body?.rev === undefined || req.body?.rev === null ? undefined : Number(req.body.rev));
+    };
+  if ((req as any).__dryRun) { res.json({ ok: true, dryRun: true, row: writeFields, warnings: conflicts.filter((c:any)=>c.soft) }); return; }
+  try {
+    const editVersion = await captureScopeVersion(req, existing.AdCollegeId, existing.AdSectionId, existing.AdTermId, "قبل تعديل موعد دراسي", "manual");
+    const arrivalVersion = existing.AdCollegeId !== collegeId || existing.AdSectionId !== sectionId || existing.AdTermId !== termId
+      ? await captureScopeVersion(req, collegeId, sectionId, termId, "قبل نقل موعد إلى هذا الجدول", "manual")
+      : undefined;
+    const updated = await Repository.updateSchedule(id, writeFields,
+      req.body?.rev == null ? undefined : Number(req.body.rev), (req as any).__requestReservationOwner || "");
     // Hand the audit trail the sentence describing what actually moved.
     res.locals.auditChanges = describeScheduleChange(existing, updated) || undefined;
     const movedScope = existing.AdCollegeId !== collegeId || existing.AdSectionId !== sectionId || existing.AdTermId !== termId;
@@ -8684,6 +8702,7 @@ const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
     }
     res.json(updated);
   } catch (e: any) {
+    if (e instanceof RequestReservationConflict) { res.status(409).json({ error: e.message, code: e.code }); return; }
     if (e instanceof ScheduleRevisionConflict) {
       /* Not a failure to write — a refusal to overwrite. Both versions go back
          so the interface can show the reader what changed and let them decide,
@@ -8721,7 +8740,7 @@ const deleteScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
     // A deletion has no "after", so the record keeps what was standing there.
     res.locals.auditChanges = `حُذف: ${sched.AdCourseName || "موعد"} · شعبة ${sched.SCode} · ${formatScheduleTimeRange(sched.fstarttime, sched.fendtime)} · ${sched.AdRoomCode}/${sched.AdRoomHall}`;
   }
-  await Repository.deleteSchedule(id);
+  await Repository.deleteSchedule(id, (req as any).__requestReservationOwner || "");
   await recordVersionAfter(deleteVersion, before => before.filter(row => Number(row.id) !== Number(id)));
   if (sched) await noteScheduleMutation(req, sched.AdCollegeId, sched.AdSectionId, sched.AdTermId, { kind: "delete", row: sched });
   res.json({ success: true });
@@ -8802,6 +8821,7 @@ function editBodyFor(row: any, to: { day: string; start: string; end: string }, 
     AdRoomCode: row.AdRoomCode, AdRoomHall: row.AdRoomHall,
     buildingId: row.buildingId, roomId: row.roomId, locationStatus: row.locationStatus,
     sourceBuildingText: row.sourceBuildingText, sourceRoomText: row.sourceRoomText,
+  companionRoomId: row.companionRoomId, companionRoomLabel: row.companionRoomLabel,
     rev: row.rev, origin,
   };
 }
@@ -19630,16 +19650,36 @@ function requestItemScope(request: InstructorRequest, item: InstructorRequestIte
  * موضعٌ واحدٌ لهذا التجريد عن قصد: لو تكرّر في كل مسارٍ لنسيه أحدُها يوماً،
  * وكشفُ قاعةٍ خطأٌ لا يُكتشف بالنظر إلى الشاشة.
  */
+/** Mutation replies obey the same item-scope boundary as the inbox listing. */
+function requestForDepartment(req: AuthenticatedRequest, request: InstructorRequest) {
+  const visible = (item: InstructorRequestItem) => {
+    const scope = requestItemScope(request, item);
+    return isScopeAllowed(req, scope.collegeId, scope.sectionId);
+  };
+  const allVisible = request.items.every(visible);
+  return { ...request, signatureHistory: undefined, archivedItems: undefined,
+    signature: request.signature ? { ...request.signature, signedItems: allVisible ? request.signature.signedItems : undefined } : undefined,
+    notes: allVisible ? (request as any).notes : [],
+    items: request.items.map(item => visible(item) ? item : ({
+      rowId: item.action === "delete" || item.action === "change" ? item.rowId ?? null : null,
+      action: item.action === "delete" || item.action === "change" ? item.action : "keep",
+      slots: [], hidden: true, decision: item.decision?.state ? { state: item.decision.state } : undefined,
+    } as InstructorRequestItem)),
+  };
+}
+
 function stripForInstructor(request: InstructorRequest) {
   return {
     ...request,
     /* والتوقيعُ يصل بتاريخه ورمزه، لا ببصمته: البصمةُ تُطابَق في الخادم ولا
        تُعرض، وإرسالُها إلى المتصفّح يجعلها رقماً يُجرَّب عليه. */
+    signatureHistory: undefined,
+    archivedItems: undefined,
     signature: request.signature
       ? { at: request.signature.at, verifyCode: request.signature.verifyCode, fingerprint: "" }
       : undefined,
     items: (request.items || []).map(item => {
-      const { roomCandidates, roomOptions, ...rest } = item;
+      const { roomCandidates, roomOptions, offeringRows, ...rest } = item;
       return {
         ...rest,
         /* «كان» تحمل قاعتَه هو — وهي قاعتُه يعرفها — و«طلب» لا تحملها أبداً. */
@@ -19659,6 +19699,7 @@ function stripForInstructor(request: InstructorRequest) {
  * لكل مقرّر، لا مع كل نقرة: الحكمُ يتكرّر عند كل تعديلٍ في الصفحة.
  */
 const courseHabitMemo = new Map<string, { at: number; nature: CourseNature | null }>();
+onSchedulesInvalidated(() => courseHabitMemo.clear());
 /* `beforeTermId` يحصر التعلّمَ في الفصول التي سبقته: يُستعمل لبناء الأنماط المقترحة وحدها. بلا قيمةٍ يبقى كما كان. */
 async function courseHabit(courseId: number, beforeTermId = 0): Promise<CourseNature | null> {
   if (!courseId) return null;
@@ -19666,7 +19707,12 @@ async function courseHabit(courseId: number, beforeTermId = 0): Promise<CourseNa
   const held = courseHabitMemo.get(key);
   if (held && Date.now() - held.at < 10 * 60_000) return held.nature;
   let nature: CourseNature | null = null;
-  try { nature = learnCourseNature(courseId, (await Repository.getScheduleHistoryForCourses([courseId])).filter(row => !beforeTermId || Number(row.AdTermId) < beforeTermId)); } catch { nature = null; }
+  try {
+    const [history, terms] = await Promise.all([Repository.getScheduleHistoryForCourses([courseId]), Repository.getTerms()]);
+    const ranks = Object.fromEntries(terms.map(term => [Number(term.AdTermId), termChronology(term)]));
+    nature = learnCourseNature(courseId, history.filter(row => !beforeTermId || (ranks[Number(row.AdTermId)] ?? Number(row.AdTermId)) < (ranks[beforeTermId] ?? beforeTermId)));
+    if (nature) nature.termRanks = ranks;
+  } catch { nature = null; }
   if (courseHabitMemo.size > 800) courseHabitMemo.clear();
   courseHabitMemo.set(key, { at: Date.now(), nature });
   return nature;
@@ -19713,6 +19759,18 @@ function priorAddFor(previous: InstructorRequestItem[] | undefined, used: Set<nu
   return (previous || [])[index];
 }
 
+async function requestSlotsForCourse(request: InstructorRequest, courseId: number, days: RequestDayKey[], start: string, block?: number) {
+  const [history, terms, course] = await Promise.all([Repository.getScheduleHistoryForCourses([courseId]), Repository.getTerms(), Repository.getCourseById(courseId)]);
+  const model = buildHistoricalTimeModel(history, terms, 10, Number(request.AdTermId));
+  const flags = Object.fromEntries(DAY_KEYS.map(day => [day, days.includes(day)]));
+  const approved = patternsForHours(effectiveCourseHours(course)).find(pattern => days.length === 1
+    ? pattern.days.length === 1 : pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
+  return days.map(day => {
+    const length = days.length === 1 && block ? block : historicalLectureMinutes(model, { ...flags, AdCourseId: courseId }, day, approved?.minutesPerDay[days.length === 1 ? 0 : approved.days.indexOf(day)]);
+    return { day, start, end: minutesToTime(timeToMinutes(start) + length) };
+  });
+}
+
 async function instructorRequestItemsFromPayload(request: InstructorRequest, sent: any[]): Promise<InstructorRequestItem[]> {
   const before = new Map((request.items || []).map(item => [String(item.rowId ?? `add:${item.action}`), item]));
   const [courses, allowedCourseOptions] = await Promise.all([
@@ -19725,12 +19783,37 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
 
   const items: InstructorRequestItem[] = [];
   const usedPriorAdds = new Set<number>();
+  const termRows = sent.some(entry => entry?.offeringId) ? await Repository.getSchedulesByScope({ termId: Number(request.AdTermId) }) : [];
+  const placeholders = sent.some(entry => entry?.offeringId) ? placeholderInstructorIds(await Repository.getInstructors()) : new Set<number>();
+  const seenRows = new Set<number>();
+  const seenOfferings = new Set<number>();
   for (const entry of sent) {
     const action = ["keep", "change", "delete", "add"].includes(String(entry?.action)) ? String(entry.action) : "keep";
     const rowId = entry?.rowId == null ? null : Number(entry.rowId);
     const stored = rowId == null ? undefined : before.get(String(rowId));
     if (rowId != null && !stored) throw new Error("أحد المواعيد ليس ضمن جدولك.");
 
+    if (rowId != null && seenRows.has(rowId)) throw new Error("الموعد مكرر في الطلب.");
+    if (rowId != null) seenRows.add(rowId);
+    const priorById = entry?.itemId ? request.items.find(item => item.itemId === entry.itemId) : undefined;
+    if (entry?.offeringId) {
+      const prior = request.items.find(item => item.offeringRowIds?.includes(Number(entry.offeringId)));
+      if (prior?.decision?.state === "fixed" || (prior?.decision?.state === "rejected" && !entry.retryOffering)) { items.push(prior); continue; }
+      const first = termRows.find(row => Number(row.id) === Number(entry.offeringId));
+      const option = first && allowedCourseMap.get(`${first.AdCollegeId}:${first.AdSectionId}:${first.AdCourseId}`);
+      if (!first || !option) throw new Error("الشعبة المختارة خارج مقررات قسمك.");
+      const group = termRows.filter(row => Number(row.AdCourseId) === Number(first.AdCourseId) && Number(row.AdSectionId) === Number(first.AdSectionId) && String(row.SCode) === String(first.SCode));
+      if (!group.every(row => placeholders.has(Number(row.AdInstructorId)) && !seenOfferings.has(Number(row.id)))) throw new Error("لم تعد الشعبة متاحة للاختيار.");
+      group.forEach(row => seenOfferings.add(Number(row.id)));
+      const slots = group.flatMap(row => dayKeysOf(row).map(day => ({ day, start: row.fstarttime, end: row.fendtime })));
+      items.push({ itemId: prior?.itemId || randomUUID(), rowId: null, action: "add", offeringRowIds: group.map(row => Number(row.id)),
+        offeringRows: group.map(row => ({ id: Number(row.id), rev: Number(row.rev || 0), instructorId: Number(row.AdInstructorId) })),
+        after: { courseId: option.id, courseName: option.name, collegeId: option.collegeId, sectionId: option.sectionId, collegeName: option.collegeName,
+          sectionCode: String(first.SCode), days: [...new Set(slots.map(slot => DAY_LETTERS[slot.day]))].join(" · "), time: slots.map(slot => `${slot.start} – ${slot.end}`).filter((time, at, all) => all.indexOf(time) === at).join(" / ") },
+        slots, excuse: String(entry.excuse || "").slice(0, 400) || undefined, thread: prior?.thread, threadHistory: prior?.threadHistory,
+        decisionHistory: [...(prior?.decisionHistory || []), ...(prior?.decision ? [prior.decision] : [])], decision: undefined });
+      continue;
+    }
     const courseId = action === "add" ? Number(entry?.courseId || 0) : Number(stored?.before?.courseId || 0);
     const selectedCollegeId = action === "add" ? Number(entry?.collegeId || 0) : Number(request.AdCollegeId);
     const selectedSectionId = action === "add" ? Number(entry?.sectionId || 0) : Number(request.AdSectionId);
@@ -19746,14 +19829,28 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
     } : {};
 
     const days = Array.isArray(entry?.days)
-      ? (entry.days as any[]).map(String).filter((day): day is RequestDayKey =>
+      ? [...new Set((entry.days as any[]).map(String))].filter((day): day is RequestDayKey =>
           ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].includes(day))
       : [];
-    const start = /^\d{1,2}:\d{2}$/.test(String(entry?.start || "")) ? String(entry.start) : "";
+    const start = isValidClock(entry?.start) ? normalizeClock(entry.start) : "";
     const blockMin = blockMinutesOfItem(stored) ?? (days.length === 1 && action !== "keep" && action !== "delete" ? await habitBlockFor(courseId, Number(request.AdTermId)) : undefined);
-    const end = start && days.length ? endForRequest(days, start, blockMin) : "";
+    const originalClocks = String(stored?.before?.time || "").match(/\d{1,2}:\d{2}/g) || [];
+    const originalDays = String(stored?.before?.days || "").split("·").map(day => day.trim()).sort().join("|");
+    const unchanged = action === "change" && originalClocks[0] === start && days.map(day => DAY_LETTERS[day]).sort().join("|") === originalDays;
+    const slots = unchanged && originalClocks[1] ? days.map(day => ({ day, start, end: originalClocks[1] }))
+      : start && days.length ? await requestSlotsForCourse(request, courseId, days, start, blockMin) : [];
+    const end = slots[0]?.end || "";
 
+    const prior = action === "add" ? (priorById || priorAddFor(request.items, usedPriorAdds, courseId, selectedCollegeId, selectedSectionId, days, start)) : stored;
+    if (prior?.decision?.state === "fixed") {
+      if (!decisionStillApplies(prior, action, days, start)) throw new Error("سبق تثبيت هذا البند. اطلب جولة تعديل جديدة من القسم.");
+      items.push(prior); continue;
+    }
     items.push({
+      itemId: prior?.itemId || randomUUID(),
+      ...(prior?.thread?.length ? { thread: prior.thread } : {}),
+      threadHistory: prior?.threadHistory,
+      decisionHistory: [...(prior?.decisionHistory || []), ...(prior?.decision && !decisionStillApplies(prior, action, days, start) ? [prior.decision] : [])],
       rowId,
       action: action as any,
       before: action === "add"
@@ -19782,13 +19879,14 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
         days: days.map(day => DAY_LETTERS[day]).join(" · "),
         time: `${start} – ${end}`,
       },
-      slots: days.map(day => ({ day, start, end: endForRequest([day], start, blockMin) })),
+      slots,
       excuse: String(entry?.excuse || "").trim().slice(0, 400) || undefined,
       decision: action === "add"
-        ? priorAddFor(request.items, usedPriorAdds, courseId, selectedCollegeId, selectedSectionId, days, start)?.decision
+        ? (decisionStillApplies(prior, action, days, start) ? prior?.decision : undefined)
         : decisionStillApplies(stored, action, days, start) ? stored?.decision : undefined,
     });
   }
+  for (const item of request.items) if (item.decision?.state === "fixed" && !items.some(next => next.itemId === item.itemId || (item.rowId != null && next.rowId === item.rowId))) items.push(item);
   return items;
 }
 
@@ -19850,6 +19948,7 @@ async function refreshUnsubmittedInstructorRequest(request: InstructorRequest): 
   const courseName = new Map((courses as any[]).map(row =>
     [Number(row.AdCourseId), String(row.CourseName || row.CourseCode || "")]));
   const collegeNameById = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
+  if (request.source === "previous-term" && !own.length) return request;
   const nextItems: InstructorRequestItem[] = own.map(row =>
     requestItemFromRow(row, courseName.get(Number(row.AdCourseId)) || String(row.AdCourseName || ""), collegeNameById));
   const shape = (items: InstructorRequestItem[]) => items.map(item => [
@@ -19934,6 +20033,60 @@ async function instructorRequestCourseOptions(request: InstructorRequest): Promi
       : arabicUiCollator.compare(a.collegeName, b.collegeName));
 }
 
+function originalOffering(item: InstructorRequestItem, rows: FSchedule[]) {
+  return rows.find(row => item.offeringRowIds?.includes(Number(row.id)));
+}
+
+/** Only a public placeholder section is exposed, never another professor's timetable. */
+async function availableInstructorOfferings(request: InstructorRequest, context?: Awaited<ReturnType<typeof buildRequestContext>>) {
+  const ctx = context || await buildRequestContext(request);
+  const allowed = await instructorRequestCourseOptions(request);
+  const scopeKeys = new Set(allowed.map(course => `${course.collegeId}:${course.sectionId}:${course.id}`));
+  const placeholders = placeholderInstructorIds([...ctx.instructors.values()]);
+  const claimed = new Set(ctx.reservations.flatMap(entry => entry.offeringRowIds));
+  const selected = new Set(request.items.filter(item => item.decision?.state !== "rejected").flatMap(item => item.offeringRowIds || []));
+  const groups = new Map<string, FSchedule[]>();
+  for (const row of ctx.officialRows) {
+    if (!scopeKeys.has(`${row.AdCollegeId}:${row.AdSectionId}:${row.AdCourseId}`)) continue;
+    const key = `${row.AdCollegeId}:${row.AdSectionId}:${row.AdCourseId}:${row.SCode}`;
+    groups.set(key, [...(groups.get(key) || []), row]);
+  }
+  const mine = instructorWeekAfter(request, ctx.allRows);
+  const load = Number(ctx.instructors.get(Number(request.AdInstructorId))?.AdInstructorLoad || 0);
+  const result: Array<{ id: number; courseId: number; courseName: string; sectionCode: string; collegeId: number; sectionId: number; collegeName: string; slots: Array<{ day: RequestDayKey; start: string; end: string }> }> = [];
+  const rulesCache = new Map<string, Awaited<ReturnType<typeof requestRulesForScope>>>();
+  for (const list of groups.values()) {
+    if (!list.every(row => placeholders.has(Number(row.AdInstructorId)) && !claimed.has(Number(row.id)) && !selected.has(Number(row.id)))) continue;
+    const first = list[0], course = ctx.courses.get(Number(first.AdCourseId));
+    if (load > 0 && weeklyLoadOf(mine, ctx.courses as any) + effectiveCourseHours(course) > load) continue;
+    const key = `${first.AdCollegeId}:${first.AdSectionId}`;
+    if (!rulesCache.has(key)) rulesCache.set(key, await requestRulesForScope(ctx, Number(first.AdCollegeId), Number(first.AdSectionId), Number(request.AdTermId)));
+    const rules = rulesCache.get(key)!;
+    const assigned = list.map(row => ({ ...row, AdInstructorId: Number(request.AdInstructorId) }));
+    const ids = new Set(list.map(row => Number(row.id)));
+    const week = [...ctx.allRows.filter(row => !ids.has(Number(row.id)) && Number(row.AdInstructorId) !== Number(request.AdInstructorId)), ...mine];
+    if (findConflicts(assigned, week, { cohortPairs: rules.cohortPairs, placeholderInstructorIds: placeholders }).some(conflict => conflict.type === "instructor" || conflict.type === "room" || conflict.type === "cohort")) continue;
+    const option = allowed.find(option => option.id === Number(first.AdCourseId) && option.sectionId === Number(first.AdSectionId));
+    result.push({ id: Number(first.id), courseId: Number(first.AdCourseId), courseName: String(course?.CourseName || ""), sectionCode: String(first.SCode || ""),
+      collegeId: Number(first.AdCollegeId), sectionId: Number(first.AdSectionId), collegeName: option?.collegeName || "",
+      slots: list.flatMap(row => dayKeysOf(row).map(day => ({ day, start: row.fstarttime, end: row.fendtime }))) });
+  }
+  return result.sort((a, b) => courseNameCollator.compare(a.courseName, b.courseName) || a.sectionCode.localeCompare(b.sectionCode));
+}
+
+async function requestReservationProposals(request: InstructorRequest): Promise<RequestReservationProposal[]> {
+  const official = await Repository.getSchedulesByScope({ termId: Number(request.AdTermId) });
+  return request.items.filter(item => item.action !== "keep" && item.action !== "delete" && item.decision?.state !== "fixed" && item.decision?.state !== "rejected").map(item => {
+    const scope = requestItemScope(request, item);
+    const existing = originalOffering(item, official);
+    const rooms = existing ? []
+      : (item.roomOptions || []).map(room => ({ roomId: room.roomId, buildingId: room.buildingId, room: room.room, hall: room.hall, companionRoomId: room.companionRoomId, companionRoomLabel: room.companionRoomLabel }));
+    return { itemId: item.itemId!, instructorId: Number(request.AdInstructorId), collegeId: scope.collegeId, sectionId: scope.sectionId,
+      courseId: Number(item.after?.courseId || item.before?.courseId), slots: item.slots || [], rooms,
+      offeringRowIds: item.offeringRowIds || [], offeringRows: item.offeringRows };
+  });
+}
+
 /**
  * يبني سياقَ الحكم من الجدول الحقيقي.
  *
@@ -19947,6 +20100,9 @@ async function buildRequestContext(request: InstructorRequest) {
     Repository.getInstructors(),
     Repository.getStudentNeeds(Number(request.AdCollegeId), Number(request.AdSectionId), Number(request.AdTermId)).catch(() => []),
   ]);
+  const reservations = (await Repository.getInstructorRequestReservations(Number(request.AdTermId))).filter(entry => entry.requestId !== request.id);
+  const officialRows = allRows as FSchedule[];
+  const occupiedRows = [...officialRows, ...reservationRows(reservations, Number(request.AdTermId))];
   const scopeRows = (allRows as any[]).filter(row =>
     Number(row.AdCollegeId) === Number(request.AdCollegeId) && Number(row.AdSectionId) === Number(request.AdSectionId));
   const demand = readStudentDemand(needs as any[], courses as any[]);
@@ -19957,7 +20113,8 @@ async function buildRequestContext(request: InstructorRequest) {
   const ladder = [...new Set(rhythm.patterns.flatMap(pattern => pattern.ladder))];
   const roomKeys = [...new Set((scopeRows as any[]).map(row => roomKeyOf(row.roomId, row.AdRoomCode, row.AdRoomHall)).filter(Boolean))];
   return {
-    allRows: allRows as any[],
+    allRows: occupiedRows as any[],
+    officialRows, reservations,
     scopeRows,
     courses: new Map((courses as any[]).map(row => [Number(row.AdCourseId), row])),
     instructors: new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), row])),
@@ -20000,11 +20157,24 @@ async function requestRulesForScope(
   const knownRoomKeys = [...new Set(registryKeys.length ? registryKeys : rowKeys)];
   /* تفاصيلُ القاعة (مبنى وقاعة ومعرّفاها) لكل مفتاحٍ من السجلّ: قاعةٌ خاليةٌ لم تظهر يوماً في صفوف القسم لا تُوجد في scopeRows،
      فكانت خياراتُ نموذج الإضافة السريع تخرج فارغةً مع أن الحكم وجد لها قاعة. */
-  const hallByKey = new Map<string, { room: string; hall: string; buildingId: unknown; roomId: unknown }>();
+  const hallByKey = new Map<string, { room: string; hall: string; buildingId: any; roomId: any }>();
   halls.forEach((hall, index) => hallByKey.set(registryKeys[index], { room: String(hall.room || ""), hall: String(hall.hall || ""), buildingId: hall.buildingId, roomId: hall.roomId }));
   /* أوقاتُ دوام القسم من شاشة المشرف («أوقات الدوام للأقسام»)، لا حدٌّ عامٌّ واحد. */
   const dayWindow = scheduleDayWindowMinutes(await Repository.getSectionById(sectionId).catch(() => null));
-  return { scopeRows, cohortPairs: cohortPairs(demand), startLadder, knownRoomKeys, roomAliases, hallByKey, dayStart: dayWindow.start, dayEnd: dayWindow.end };
+  const roomEligible = (key: string, day: RequestDayKey, start: string, end: string) => {
+    const hall = hallByKey.get(key);
+    const record = registry.rooms.find(room => room.id === hall?.roomId);
+    if (!record || record.sectionIds.includes(sectionId)) return true;
+    return (barter as any[]).some(item => item.status === "approved" && String(item.roomId) === String(record.id)
+      && Number(item.requesterCollegeId) === collegeId && Number(item.requesterSectionId) === sectionId && item.day === day
+      && timeToMinutes(item.startTime) <= timeToMinutes(start) && timeToMinutes(item.endTime) >= timeToMinutes(end));
+  };
+  const selectedCourseFit = (key: string, courseId: number) => {
+    const hall = hallByKey.get(key), room = registry.rooms.find(room => room.id === hall?.roomId), course = context.courses.get(courseId);
+    const fit = roomSuitability(course, room);
+    return fit.typeRank * 1000 + fit.adjustment;
+  };
+  return { scopeRows, cohortPairs: cohortPairs(demand), startLadder, knownRoomKeys, roomAliases, hallByKey, registry, roomEligible, selectedCourseFit, dayStart: dayWindow.start, dayEnd: dayWindow.end };
 }
 /**
  * يُعيد حساب حُكم كل بند من الجدول الحقيقي.
@@ -20049,31 +20219,7 @@ async function judgeRequestItems(request: InstructorRequest, options: {
    */
   const tempIdFor = (index: number) => -(index + 1);
   const requestRowIds = new Set((request.items || []).map(item => Number(item.rowId || 0)).filter(Boolean));
-  const rowsAfter: any[] = instructorRows.filter(row => !requestRowIds.has(Number(row.id)));
-  for (const [index, item] of (request.items || []).entries()) {
-    if (item.action === "delete") continue;
-    const original = instructorRows.find(row => Number(row.id) === Number(item.rowId));
-    if (item.action === "keep") { if (original) rowsAfter.push(original); continue; }
-    const slots = item.slots || [];
-    const days = new Set(slots.map(slot => String(slot.day)));
-    const selectedCourse = context.courses.get(Number(item.after?.courseId || item.before?.courseId || 0));
-    const targetCollegeId = Number(item.after?.collegeId || selectedCourse?.AdCollegeId || original?.AdCollegeId || request.AdCollegeId);
-    const targetSectionId = Number(item.after?.sectionId || selectedCourse?.AdSectionId || original?.AdSectionId || request.AdSectionId);
-    const base = original || {
-      AdInstructorId: Number(request.AdInstructorId),
-      AdCollegeId: targetCollegeId,
-      AdSectionId: targetSectionId,
-      AdTermId: Number(request.AdTermId),
-    };
-    rowsAfter.push({
-      ...base,
-      id: item.rowId ?? tempIdFor(index),
-      AdCourseId: Number(item.after?.courseId || item.before?.courseId || 0),
-      fsunday: days.has("fsunday"), fmonday: days.has("fmonday"), ftuesday: days.has("ftuesday"),
-      fwednesday: days.has("fwednesday"), fthursday: days.has("fthursday"),
-      fstarttime: slots[0]?.start || "", fendtime: slots[0]?.end || "",
-    });
-  }
+  const rowsAfter: any[] = instructorWeekAfter(request, context.allRows);
 
   const rulesByScope: Map<string, Awaited<ReturnType<typeof requestRulesForScope>>> = options.rulesCache || new Map();
   /* نطاقاتُ البنود المختلفة تُقرأ معاً لا واحداً بعد واحد، ونطاقٌ يسأل عنه عشراتُ الطلبات في آنٍ واحد (شاشة القسم) يُحسب مرةً واحدة. */
@@ -20106,9 +20252,27 @@ async function judgeRequestItems(request: InstructorRequest, options: {
     const targetCollegeId = Number(item.after?.collegeId || selectedCourse?.AdCollegeId || original?.AdCollegeId || request.AdCollegeId);
     const targetSectionId = Number(item.after?.sectionId || selectedCourse?.AdSectionId || original?.AdSectionId || request.AdSectionId);
     const rules = rulesByScope.get(`${targetCollegeId}:${targetSectionId}`)!;
+    if (item.decision?.state === "fixed" || item.decision?.state === "rejected") return item;
+    const companionType = String(selectedCourse?.CourseCompanionRoomType || "");
+    const candidateIds = new Set(rowsForRequestSlots(item.slots || [], {}, requestIdentity(item, index)).map(row => Number(row.id)));
+    const facilityWeek = [...context.allRows.filter(row => Number(row.AdInstructorId) !== Number(request.AdInstructorId)), ...rowsAfter]
+      .filter(row => !candidateIds.has(Number(row.id)));
+    const facilityFor = (key: string, slots: Array<{ day: string; start: string; end: string }>) => {
+      const primary = rules.hallByKey.get(key);
+      const building = rules.registry.buildings.find(building => building.id === primary?.buildingId);
+      return rules.registry.rooms.find(room => {
+        const place = rules.registry.buildings.find(building => building.id === room.buildingId);
+        return room.active && room.confidence === "CONFIRMED" && room.bookingPolicy === "companion_only" && room.roomType === companionType
+          && place?.active && place.confidence === "CONFIRMED" && building && place.officialCode.slice(0, 4) === building.officialCode.slice(0, 4)
+          && !facilityWeek.some(row => rowOccupiesRoom(row, room.id, place.officialCode, room.canonicalCode)
+            && slots.some(slot => Boolean((row as any)[slot.day]) && scheduleOverlap(slot.start, slot.end, row.fstarttime, row.fendtime)));
+      });
+    };
     const verdict = judgeRequest({
-      rowId: item.rowId,
+      rowId: item.offeringRowIds?.[0] ?? item.rowId,
       tempId: tempIdFor(index),
+      slots: item.slots as any,
+      relatedRowIds: item.offeringRowIds,
       action: item.action,
       AdCourseId: Number(item.after?.courseId || item.before?.courseId || 0),
       days: days.length ? days : [],
@@ -20120,7 +20284,12 @@ async function judgeRequestItems(request: InstructorRequest, options: {
       courses: context.courses,
       instructors: context.instructors,
       cohortPairs: rules.cohortPairs,
-      knownRoomKeys: rules.knownRoomKeys,
+      knownRoomKeys: item.offeringRowIds?.length
+        ? []
+        : [...rules.knownRoomKeys].sort((a, b) => rules.selectedCourseFit(b, Number(item.after?.courseId || item.before?.courseId)) - rules.selectedCourseFit(a, Number(item.after?.courseId || item.before?.courseId)) || compareLocationCodes(a, b)),
+      roomEligible: rules.roomEligible,
+      roomSlotsEligible: companionType && !item.offeringRowIds?.length ? (key, slots) => Boolean(facilityFor(key, slots)) : undefined,
+      placeholderInstructorIds: placeholderInstructorIds([...context.instructors.values()]),
       roomAliases: rules.roomAliases,
       startLadder: rules.startLadder,
       dayStart: rules.dayStart,
@@ -20133,22 +20302,50 @@ async function judgeRequestItems(request: InstructorRequest, options: {
       suggestNature: priorHabits,
       termId: Number(request.AdTermId),
     });
+    if (item.offeringRowIds?.length) {
+      verdict.nearestTimes = [];
+      const ids = new Set(item.offeringRowIds);
+      const targets = rowsAfter.filter(row => ids.has(Number(row.id)));
+      const week = [...context.allRows.filter(row => !ids.has(Number(row.id)) && Number(row.AdInstructorId) !== Number(request.AdInstructorId)), ...rowsAfter.filter(row => !ids.has(Number(row.id)))];
+      if (findConflicts(targets, week).some(conflict => conflict.type === "room")) {
+        verdict.kind = "conflict"; verdict.reasons.push({ source: "room", text: "قاعة الشعبة مشغولة في موعدها؛ يحتاج القسم معالجة الموعد.", blocking: true });
+      }
+    }
+    const withFacility = new Map<string, { companionRoomId: string; companionRoomLabel: string }>();
+    if (companionType && !item.offeringRowIds?.length) {
+      for (const key of verdict.roomCandidates) {
+        const facility = facilityFor(key, item.slots || []);
+        if (facility) withFacility.set(key, { companionRoomId: facility.id, companionRoomLabel: `${rules.registry.buildings.find(building => building.id === facility.buildingId)?.officialCode} / ${facility.canonicalCode}` });
+      }
+      verdict.roomCandidates = verdict.roomCandidates.filter(key => withFacility.has(key));
+      if (!verdict.roomCandidates.length) {
+        verdict.kind = "conflict";
+        verdict.reasons.push({ source: "room", text: "لا يتوفر المرفق المرافق المطلوب طوال الموعد. جرّب وقتاً آخر أو راجع القسم.", blocking: true });
+      }
+    }
     return {
       ...item,
+      courseRequirements: selectedCourse ? { CourseRoomType: selectedCourse.CourseRoomType, CourseTeachingMode: selectedCourse.CourseTeachingMode,
+        CourseCompanionRoomType: selectedCourse.CourseCompanionRoomType, MaxStudent: selectedCourse.MaxStudent } : undefined,
       verdict: verdict.kind,
       reasons: verdict.reasons,
       roomCandidates: verdict.roomCandidates,
+      roomAvailable: verdict.roomAvailable,
       /* تفاصيلُ أولى القاعات الخالية (مبنى وقاعة) ليُملأ بها نموذجُ الإضافة السريع: للقسم وحده. */
-      roomOptions: verdict.roomCandidates.slice(0, 3).map(key => {
+      roomOptions: verdict.roomCandidates.map(key => {
         const registered = rules.hallByKey.get(key);
-        if (registered) return { key, room: registered.room, hall: registered.hall, buildingId: registered.buildingId, roomId: registered.roomId };
+        if (registered) return { key, room: registered.room, hall: registered.hall, buildingId: registered.buildingId, roomId: registered.roomId, ...withFacility.get(key) };
         const known: any = rules.scopeRows.find(row => row.roomId && roomKeyOf(row.roomId, row.AdRoomCode, row.AdRoomHall) === key);
         return known ? { key, room: String(known.AdRoomCode || ""), hall: String(known.AdRoomHall || ""), buildingId: known.buildingId, roomId: known.roomId } : null;
       }).filter(Boolean) as any,
       nearestTimes: verdict.nearestTimes.map(entry => ({ day: entry.day, days: entry.days, start: entry.start, end: entry.end })),
       shapes: verdict.shapes,
-      advice: verdict.advice,
-      block: verdict.blockMinutes,
+      advice: verdict.advice || (!item.offeringRowIds?.length && !rules.knownRoomKeys.length
+        ? "يحتاج القسم التحقق من القاعة قبل الاعتماد؛ بيانات القاعات المتاحة غير مكتملة."
+        : (() => { const hall = rules.hallByKey.get(verdict.roomCandidates[0]); const room = rules.registry.rooms.find(room => room.id === hall?.roomId);
+          const fit = roomSuitability(selectedCourse, room);
+          return fit.reasons.some(reason => /مختلف|أقل/.test(reason)) ? "يمكن تقديم الطلب؛ ملاءمة نوع القاعة أو سعتها تحتاج مراجعة القسم." : undefined; })()),
+      block: verdict.blockMinutes || (item.slots?.length === 1 ? timeToMinutes(item.slots[0].end) - timeToMinutes(item.slots[0].start) : undefined),
     } as InstructorRequestItem;
   });
 
@@ -20382,6 +20579,9 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
     const awaited = awaitedItemIndexes(full.items || [], scopeRowsById, item => requestItemScope(full, item));
     const request = {
       ...full,
+      signature: full.signature ? { ...full.signature, signedItems: full.items.every(item => inSelection(requestItemScope(full, item))) ? full.signature.signedItems : undefined } : undefined,
+      signatureHistory: undefined,
+    archivedItems: undefined,
       items: (full.items || []).map((item, index) => inSelection(requestItemScope(full, item))
         ? (awaited.has(index) ? { ...item, awaitedElsewhere: true } : item)
         : hiddenItem(item)),
@@ -20531,6 +20731,7 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
   const items = [...(stored.items || [])];
   items[index] = {
     ...item,
+    decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [item.decision] : [])],
     decision: {
       state,
       ...(state === "rejected" ? { reasonCode: reasonCode as any } : {}),
@@ -20559,7 +20760,7 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
     ...stored, items, timeline,
     status: decided ? "settled" : "in-review",
   });
-  res.json(await judgeRequestItems(saved, { forDepartment: true }));
+  res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });
 
 /* ══ تثبيتُ بندٍ في الجدول بنداءٍ واحد (ذرّي) ══════════════════════════════════
@@ -20571,8 +20772,8 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
  *   1. يُبنى أسبوعُ الفصل كما سيصير بعد كل البنود، ويُفحص كلُّ صفٍّ عليه فحصاً جافّاً
  *      بالمسار نفسه الذي تمرّ منه ورشة الجدول (نطاق، قفل، تعارض قاعةٍ وأستاذٍ ودفعة).
  *      فلا يُكتب شيءٌ إن تعذّر شيء.
- *   2. يُكتب، ولو أخفقت خطوةٌ لتغيّرٍ في اللحظة نفسها رُدّ ما كُتب.
- *   3. يُسجَّل القرارُ لكل البنود معاً.
+ *   2. تُفحص الإصدارات والتعارضات الحية داخل معاملة قاعدة البيانات.
+ *   3. تُكتب كل المواعيد والقرارات وفك الحجوزات معاً، أو لا يُكتب شيء.
  * والبندُ بأوقاتٍ مختلفة بين الأيام يصير صفّاً لكل وقت، لا وقتَ الأول على الكل.
  * وختمُ الإصدار (`revs`) يمنع الكتابة فوق تعديلِ زميلٍ وقع بعد أن فُتحت الشاشة.
  * و`preview` يُرجع الخطة والتنبيهات بلا كتابة.
@@ -20591,10 +20792,11 @@ const rowBodyOf = (row: any) => ({
   AdRoomCode: row.AdRoomCode, AdRoomHall: row.AdRoomHall,
   buildingId: row.buildingId, roomId: row.roomId, locationStatus: row.locationStatus,
   sourceBuildingText: row.sourceBuildingText, sourceRoomText: row.sourceRoomText,
+  companionRoomId: row.companionRoomId, companionRoomLabel: row.companionRoomLabel,
 });
 
 app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
-  const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
+  let stored = await Repository.getInstructorRequest(String(req.params.id || ""));
   if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
   const termId = Number(stored.AdTermId || 0);
   if (await refuseIfTermFrozen(res, termId)) return;
@@ -20625,6 +20827,14 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   /* يُمدّ القفلُ كل ٤٠ ثانية ما دام التثبيتُ جارياً، فلا ينتهي أجلُه في منتصف سلسلةٍ طويلة. */
   const leaseRenewal = setInterval(() => { void Repository.renewScheduleApplyLease(applyLock, applyHolder).catch(() => undefined); }, 40_000);
   try {
+  const latest = await Repository.getInstructorRequest(String(stored.id));
+  if (!latest || Number(latest.requestRevision || 0) !== Number(stored.requestRevision || 0)
+      || (req.body?.requestRevision != null && Number(req.body.requestRevision) !== Number(latest.requestRevision || 0))) {
+    res.status(409).json({ error: "تغيّر الطلب. حدّث الوارد قبل الاعتماد." }); return;
+  }
+  stored = latest;
+  (req as any).__requestReservationOwner = stored.id;
+  const holds = (await Repository.getInstructorRequestReservations(termId)).filter(entry => entry.requestId === stored!.id);
 
   const instructor = await Repository.getInstructorById(Number(stored.AdInstructorId));
   const origin = { kind: "instructor-request", refId: String(stored.id), note: `رغبة ${String(instructor?.AdInstructorName || "أستاذ")}`.slice(0, 160) };
@@ -20669,15 +20879,34 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
       const refusal = liveRowRefusal(live, revs);
       if (refusal) { failItem(409, i, refusal.error, refusal.code); return; }
       const [first, ...rest] = groups;
+      const held = holds.find(entry => entry.itemId === item.itemId)?.room;
+      const place = held ? { AdRoomCode: held.room, AdRoomHall: held.hall, buildingId: held.buildingId, roomId: held.roomId,
+        companionRoomId: held.companionRoomId || live.companionRoomId, companionRoomLabel: held.companionRoomLabel || live.companionRoomLabel, locationStatus: "VERIFIED" } : {};
       ops.push({ kind: "update", itemIndex: i, rowId: Number(live.id), original: live,
-        body: { ...rowBodyOf(live), ...daysFlags(first.days), fstarttime: first.start, fendtime: first.end, rev: live.rev, origin } });
+        body: { ...rowBodyOf(live), ...place, ...daysFlags(first.days), fstarttime: first.start, fendtime: first.end, rev: live.rev, origin } });
       for (const group of rest) {
         ops.push({ kind: "create", itemIndex: i, tempId: tempSeq--,
-          body: { ...rowBodyOf(live), ...daysFlags(group.days), fstarttime: group.start, fendtime: group.end, origin } });
+          body: { ...rowBodyOf(live), ...place, ...daysFlags(group.days), fstarttime: group.start, fendtime: group.end, origin } });
       }
       continue;
     }
 
+    if (item.action === "add" && item.offeringRowIds?.length) {
+      const placeholders = placeholderInstructorIds(await Repository.getInstructors());
+      const hold = holds.find(entry => entry.itemId === item.itemId);
+      if (!hold || !item.offeringRowIds.every(id => hold.offeringRowIds.includes(id))) { failItem(409, i, "لم يعد اختيار الشعبة قائماً. حدّث الطلب."); return; }
+      for (const id of item.offeringRowIds) {
+        const live = await Repository.getScheduleById(id);
+        const expected = item.offeringRows?.find(row => row.id === id);
+        if (!live || !placeholders.has(Number(live.AdInstructorId)) || Number(live.AdTermId) !== termId
+          || Number(live.AdCourseId) !== Number(item.after?.courseId) || !expected || Number(live.rev || 0) !== expected.rev) {
+          failItem(409, i, "تغيّرت الشعبة المختارة. حدّث الوارد قبل الموافقة.", "stale"); return;
+        }
+        ops.push({ kind: "update", itemIndex: i, rowId: id, original: live,
+          body: { ...rowBodyOf(live), AdInstructorId: Number(stored.AdInstructorId), rev: live.rev, origin } });
+      }
+      continue;
+    }
     if (item.action === "add") {
       if (i !== index) { failItem(400, i, "بندُ الإضافة يُثبَّت من بطاقته."); return; }
       const courseId = Number(item.after?.courseId || 0);
@@ -20685,7 +20914,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
       const base = {
         AdCollegeId: Number(item.after?.collegeId || stored.AdCollegeId), AdSectionId: Number(item.after?.sectionId || stored.AdSectionId),
         AdTermId: termId, AdCourseId: courseId, SCode: add.scode, AdInstructorId: Number(stored.AdInstructorId),
-        AdRoomCode: add.room, AdRoomHall: add.hall, buildingId: add.buildingId, roomId: add.roomId, locationStatus: add.locationStatus, origin,
+        AdRoomCode: add.room, AdRoomHall: add.hall, buildingId: add.buildingId, roomId: add.roomId, locationStatus: add.locationStatus, companionRoomId: add.companionRoomId, origin,
       };
       const single = groups.length === 1;
       for (const group of groups) {
@@ -20729,6 +20958,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
       res.status(dry.status).json({ ...(dry.body && typeof dry.body === "object" ? dry.body : { error: "تعذّر التثبيت." }), itemIndex: op.itemIndex, applied: [], reverted: true });
       return;
     }
+    op.body = dry.body.row;
     for (const w of (dry.body?.warnings || [])) warnings.push({ ...w, itemIndex: op.itemIndex });
   }
 
@@ -20742,77 +20972,54 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   });
   if (preview) { res.json({ ok: true, preview: true, plan, warnings }); return; }
 
-  /* ── الكتابة، والتراجعُ إن تغيّر شيءٌ في اللحظة نفسها ─────────────────────── */
-  /* يُعاد بناءُ الأسبوع من الجدول الحيّ لحظةَ الكتابة: موعدٌ أضافه زميلٌ أثناء الفحص يُرى. */
-  termRows = await Repository.getSchedulesByScope({ termId });
-  finalWeek = buildWeek(termRows);
-  const ordered = [...ops.filter(op => op.kind === "update"), ...ops.filter(op => op.kind === "create"), ...ops.filter(op => op.kind === "delete")];
-  const done: Array<{ op: ApplyOp; row?: any }> = [];
-  const scheduleIdOf = new Map<number, number>();
-  for (const op of ordered) {
-    const result = op.kind === "update"
-      ? await runScheduleHandler(updateScheduleHandler, req, { params: { id: String(op.rowId) }, body: op.body, hypotheticalWeek: weekFor(op) })
-      : op.kind === "create"
-        ? await runScheduleHandler(createScheduleHandler, req, { body: op.body, hypotheticalWeek: weekFor(op) })
-        : await runScheduleHandler(deleteScheduleHandler, req, { params: { id: String(op.rowId) }, body: {} });
-    if (result.status >= 400) {
-      const reverted = await rollback();
-      res.status(result.status).json({
-        ...(result.body && typeof result.body === "object" ? result.body : { error: "تعذّر التثبيت." }),
-        itemIndex: op.itemIndex, applied: [], reverted,
-        ...(reverted ? {} : { error: "تعذّر إتمام التثبيت ولم يمكن ردّ كل خطواته. راجع مواعيد الأستاذ في الجدول." }),
-      });
-      return;
-    }
-    done.push({ op, row: result.body });
-    const rowId = op.kind === "delete" ? op.rowId : Number(result.body?.id);
-    if (rowId && !scheduleIdOf.has(op.itemIndex)) scheduleIdOf.set(op.itemIndex, rowId);
-  }
-  async function rollback(): Promise<boolean> {
-      let reverted = true;
-      for (let j = done.length - 1; j >= 0; j -= 1) {
-        const step = done[j];
-        /* التراجعُ يُحكم عليه على الأسبوع الأصلي (قبل التثبيت)، لا على الجدول الحيّ وهو نصفُ
-           منقول: وإلا رُدّ إرجاعُ موعدٍ إلى وقته لأن شقيقه ما زال فيه، فبقي الجدولُ نصفَ مطبّق. */
-        const originalWeek = termRows.filter(row => Number(row.id) !== Number(step.op.kind === "delete" ? step.op.rowId : -1));
-        const back = step.op.kind === "update"
-          ? await runScheduleHandler(updateScheduleHandler, req, { params: { id: String(step.op.rowId) }, body: { ...rowBodyOf(step.op.original), rev: step.row?.rev }, hypotheticalWeek: originalWeek, restoreOrigin: { value: step.op.original.origin } })
-          : step.op.kind === "create"
-            ? await runScheduleHandler(deleteScheduleHandler, req, { params: { id: String(step.row?.id) }, body: {} })
-            : await runScheduleHandler(createScheduleHandler, req, { body: { ...rowBodyOf(step.op.original), origin: step.op.original.origin }, hypotheticalWeek: originalWeek });
-        if (back.status >= 400) reverted = false;
-      }
-      return reverted;
-  }
-
-  /* ── القرارُ لكل البنود معاً ─────────────────────────────────────────────── */
   const now = new Date().toISOString();
   const by = roleLabel(req.user?.Role) || "القسم";
-  const fresh = (await Repository.getInstructorRequest(String(stored.id))) || stored;
-  const items = [...(fresh.items || [])];
-  const timeline = [...(fresh.timeline || [])];
-  for (const i of chain) {
-    if (!items[i] || items[i].decision?.state === "fixed") continue;
-    const id = scheduleIdOf.get(i) ?? (items[i].rowId != null ? Number(items[i].rowId) : undefined);
-    items[i] = { ...items[i], decision: { state: "fixed", decidedBy: by, decidedAt: now, ...(id ? { scheduleId: id } : {}) } };
-    timeline.push({ kind: "item-fixed" as InstructorRequestEventKind, at: now, by, itemIndex: i });
+  const versions = new Map<string, Awaited<ReturnType<typeof captureScopeVersion>>>();
+  for (const op of ops) {
+    const row = op.kind === "delete" ? op.original : op.body;
+    const key = `${row.AdCollegeId}:${row.AdSectionId}`;
+    if (!versions.has(key)) versions.set(key, await captureScopeVersion(req, Number(row.AdCollegeId), Number(row.AdSectionId), termId, "قبل تثبيت طلب أستاذ", "manual"));
   }
-  const decided = requestFullySettled(items);
-  if (decided) timeline.push({ kind: "settled" as InstructorRequestEventKind, at: now, by });
-  let saved: Awaited<ReturnType<typeof Repository.saveInstructorRequest>>;
+  const registry = await readLocationRegistry();
+  let committed: Awaited<ReturnType<typeof Repository.commitInstructorRequestPlan>>;
   try {
-    saved = await Repository.saveInstructorRequest({ ...fresh, items, timeline, status: decided ? "settled" : "in-review" });
-  } catch {
-    /* كُتب الجدولُ وتعذّر حفظُ القرار: يُردّ الجدول، فلا يبقى صفٌّ بلا قرار تُكرّره الإعادة. */
-    const reverted = await rollback();
-    res.status(503).json({ error: reverted ? "تعذّر حفظ القرار، فأُعيد الجدول كما كان. أعد المحاولة." : "تعذّر حفظ القرار ولم يمكن ردّ كل خطوات الجدول. راجع مواعيد الأستاذ.", code: "decision-save-failed", reverted });
+    committed = await Repository.commitInstructorRequestPlan(stored, ops, scheduleIds => {
+      const items = stored!.items.map((item, i) => chain.includes(i) ? { ...item,
+        decision: { state: "fixed" as const, decidedBy: by, decidedAt: now, ...(scheduleIds.has(i) ? { scheduleId: scheduleIds.get(i) } : {}) } } : item);
+      const timeline = [...stored!.timeline, ...chain.map(itemIndex => ({ kind: "item-fixed" as const, at: now, by, itemIndex }))];
+      const settled = requestFullySettled(items);
+      if (settled) timeline.push({ kind: "settled" as any, at: now, by } as any);
+      return { ...stored!, items, timeline, status: settled ? "settled" : "in-review" };
+    }, row => canonicalizeHistoricalLocationForRuntime(row, registry), placeholderInstructorIds(await Repository.getInstructors()), async (rows, week) => {
+      // Repeat the existing weekly-hours authority against the transaction's live week.
+      for (const row of rows) {
+        const issue = await scheduleLengthIssue(row, week);
+        if (issue) throw new RequestReservationConflict(issue);
+      }
+    });
+  } catch (error: any) {
+    res.status(error instanceof ScheduleRevisionConflict || error instanceof RequestReservationConflict ? 409 : 503)
+      .json({ error: error.message || "تعذّر تثبيت الطلب. لم يُحفظ أي تغيير.", code: "request-commit-failed", applied: [], reverted: true });
     return;
   }
-
+  // The official rows and decision are already committed atomically. Ancillary
+  // history/notifications must not pretend that a successful assignment failed.
+  for (const [key, version] of versions) {
+    const [collegeId, sectionId] = key.split(":").map(Number);
+    try {
+      await recordVersionAfter(version, before => {
+        const changedIds = new Set(ops.filter(op => op.kind !== "create").map(op => Number(op.rowId)));
+        return [...before.filter(row => !changedIds.has(Number(row.id))),
+          ...committed.rows.filter(row => Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId)];
+      });
+      await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "add", rows: committed.rows.filter(row => Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId) });
+    } catch { warnings.push({ message: "ثُبّت الطلب؛ تعذّر تحديث سجل النسخة أو الإشعار. راجع حركة الجدول." }); }
+  }
+  const saved = committed.request;
   res.locals.auditChanges = `تثبيت رغبة أستاذ (${String(instructor?.AdInstructorName || "")}): ` + plan.map(step =>
     `${step.action === "delete" ? "حذف" : step.action === "create" ? "إضافة" : "نقل"} ${step.days.map(dayLabelOf).join(" و")} ${formatScheduleTimeRange(step.start, step.end)}`).join(" · ");
-  res.locals.auditRowIds = done.map(step => Number(step.op.kind === "delete" ? step.op.rowId : step.row?.id)).filter(Number.isFinite);
-  res.json({ ...(await judgeRequestItems(saved, { forDepartment: true })), applied: plan, warnings });
+  res.locals.auditRowIds = [...committed.rows.map(row => row.id), ...ops.filter(op => op.kind === "delete").map(op => (op as any).rowId)];
+  res.json({ ...requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })), applied: plan, appliedRows: committed.rows, warnings });
   } finally {
     clearInterval(leaseRenewal);
     await Repository.releaseScheduleApplyLease(applyLock, applyHolder).catch(() => undefined);
@@ -20846,6 +21053,7 @@ app.post("/api/instructor-requests/:id/reply", requirePermission(7), async (req:
   }
   const text = String(req.body?.text || "").trim().slice(0, THREAD_TEXT_LIMIT);
   const slots = parseOfferedSlots(req.body?.slots);
+  if (item.offeringRowIds?.length && slots.length) { res.status(400).json({ error: "موعد الشعبة المختارة ثابت. ارفض الاختيار ليختار الأستاذ شعبة أخرى، أو عدّل الموعد رسمياً أولاً." }); return; }
   if (!text && !slots.length) { res.status(400).json({ error: "اكتب رداً أو اقترح وقتاً." }); return; }
 
   const now = new Date().toISOString();
@@ -20853,14 +21061,14 @@ app.post("/api/instructor-requests/:id/reply", requirePermission(7), async (req:
   const items = [...(stored.items || [])];
   items[index] = {
     ...item,
-    thread: capThread([...(item.thread || []), { from: "department" as const, at: now, by, ...(text ? { text } : {}), ...(slots.length ? { slots } : {}) }]),
+    ...appendRequestThread(item, { from: "department" as const, at: now, by, ...(text ? { text } : {}), ...(slots.length ? { slots } : {}) }),
   };
   const saved = await Repository.saveInstructorRequest({
     ...stored, items, status: "in-review",
     timeline: [...(stored.timeline || []), { kind: "department-replied" as InstructorRequestEventKind, at: now, by, itemIndex: index }],
   });
   broadcastNotify(Repository.currentDemoSessionId());
-  res.json(await judgeRequestItems(saved, { forDepartment: true }));
+  res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });
 
 /* ── بابُ الأستاذ ────────────────────────────────────────────────────────── */
@@ -20891,10 +21099,10 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
   const judgedRequest = opened
     ? {
         ...judgedBeforeOpen, ...opened.fields,
-        ...(opened.first ? { timeline: [...(request.timeline || []), { kind: "link-opened" as const, at: openedAt }] } : {}),
+        ...(opened.first && !(request.timeline || []).some(event => event.kind === "link-opened" && event.at === openedAt) ? { timeline: [...(request.timeline || []), { kind: "link-opened" as const, at: openedAt }] } : {}),
       } as typeof judgedBeforeOpen
     : judgedBeforeOpen;
-  if (opened) request = { ...request, ...opened.fields, ...(opened.first ? { timeline: [...(request.timeline || []), { kind: "link-opened" as const, at: openedAt }] } : {}) };
+  if (opened) request = { ...request, ...opened.fields, ...(opened.first && !(request.timeline || []).some(event => event.kind === "link-opened" && event.at === openedAt) ? { timeline: [...(request.timeline || []), { kind: "link-opened" as const, at: openedAt }] } : {}) };
   const person = (instructors as any[]).find(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
   const term = (terms as any[]).find(row => Number(row.AdTermId) === Number(request.AdTermId));
   /* مقرراتُ الخدمة في هذا الطلب (موعدٌ قائم أو مضاف): يظهر بجانب اسمها «متطلب». وسمٌ فقط. */
@@ -20914,6 +21122,7 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
     instructorName: String(person?.AdInstructorName || ""),
     termName: String(term?.AdTermName || ""),
     windowOpen: requestWindowOpen(request),
+    availableOfferings: requestWindowOpen(request) ? await availableInstructorOfferings(request) : [],
     /* اشتراكُ التقويم هو نفسُه المبنيّ لبطاقة الأستاذ (/m): الرابطُ الشخصيّ مفتاحُه، فلا بابَ ثانٍ ولا خلاصةَ ثانية.
        يقرأ جدولَه الرسميَّ وحدَه — ما ثبّته القسم — لا ما يُطلب ولا المسودة، ويتحدّث من نفسه عند كل تثبيت. */
     calendarFeed: `/api/public/ics/${encodeURIComponent(resolved.link.id)}/${encodeURIComponent(calendarToken)}?term=${Number(request.AdTermId)}`,
@@ -21002,70 +21211,13 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   /* البنودُ تُعاد بناؤها من المخزون لا من المُرسَل: ما يُقبل من الصفحة أربعةُ
      حقولٍ لا غير — ما طُلب، وأيُّ مقرّر، وأيُّ أيام، وأيُّ بداية. ولو قُبل
      الباقي لأرسل من يعرف كيف يُعدّل الطلبَ لقطةً تقول ما لم يكن. */
-  const before = new Map((resolved.request.items || []).map(item => [String(item.rowId ?? `add:${item.action}`), item]));
-  const [courses, allowedCourseOptions] = await Promise.all([
-    Repository.getCourses(),
-    instructorRequestCourseOptions(resolved.request),
-  ]);
-  const courseName = new Map((courses as any[]).map(row => [Number(row.AdCourseId), String(row.CourseName || "")]));
-  const allowedCourseMap = new Map(allowedCourseOptions.map(option =>
-    [`${option.collegeId}:${option.sectionId}:${option.id}`, option]));
-
-  const items: InstructorRequestItem[] = [];
-  const usedPriorAdds = new Set<number>();
-  for (const entry of sent) {
-    const action = ["keep", "change", "delete", "add"].includes(String(entry?.action)) ? String(entry.action) : "keep";
-    const rowId = entry?.rowId == null ? null : Number(entry.rowId);
-    const stored = rowId == null ? undefined : before.get(String(rowId));
-    /* صفٌّ لا يخصّ هذا الطلب لا يُقبل ولو أُرسل معرّفُه: البابُ يفتح على جدول
-       صاحبه، لا على كل جدولٍ يعرف رقمه. */
-    if (rowId != null && !stored) { res.status(400).json({ error: "أحد المواعيد ليس ضمن جدولك." }); return; }
-
-    const courseId = action === "add" ? Number(entry?.courseId || 0) : Number(stored?.before?.courseId || 0);
-    const selectedCollegeId = action === "add" ? Number(entry?.collegeId || 0) : Number(resolved.request.AdCollegeId);
-    const selectedSectionId = action === "add" ? Number(entry?.sectionId || 0) : Number(resolved.request.AdSectionId);
-    const allowedOption = action === "add"
-      ? allowedCourseMap.get(`${selectedCollegeId}:${selectedSectionId}:${courseId}`)
-      : undefined;
-    if (action === "add" && !allowedOption) {
-      res.status(400).json({ error: "المقرّر المضاف ليس من كتالوج قسمك في الكلية المختارة." });
-      return;
-    }
-
-    const days = Array.isArray(entry?.days)
-      ? (entry.days as any[]).map(String).filter((day): day is RequestDayKey =>
-          ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].includes(day))
-      : [];
-    const start = /^\d{1,2}:\d{2}$/.test(String(entry?.start || "")) ? String(entry.start) : "";
-    const blockMin = blockMinutesOfItem(stored) ?? (days.length === 1 && action !== "keep" && action !== "delete" ? await habitBlockFor(courseId, Number(resolved.request.AdTermId)) : undefined);
-    const end = start && days.length ? endForRequest(days, start, blockMin) : "";
-
-    items.push({
-      rowId,
-      action: action as any,
-      before: stored?.before,
-      after: action === "keep" || action === "delete" ? stored?.before : {
-        courseId,
-        courseName: allowedOption?.name || courseName.get(courseId) || "",
-        ...(action === "add" && allowedOption ? {
-collegeId: allowedOption.collegeId,
-collegeName: allowedOption.collegeName,
-sectionId: allowedOption.sectionId,
-        } : {}),
-        sectionCode: String(stored?.before?.sectionCode || ""),
-        days: days.map(day => DAY_LETTERS[day]).join(" · "),
-        time: `${start} – ${end}`,
-      },
-      slots: days.map(day => ({ day, start, end: endForRequest([day], start, blockMin) })),
-      excuse: String(entry?.excuse || "").trim().slice(0, 400) || undefined,
-      /* القرارُ السابق يُحفظ: أستاذٌ يعيد الإرسال لا يمحو ما ثبّته القسم. */
-      decision: action === "add"
-        ? priorAddFor(resolved.request.items, usedPriorAdds, courseId, selectedCollegeId, selectedSectionId, days, start)?.decision
-        : decisionStillApplies(stored, action, days, start) ? stored?.decision : undefined,
-      /* والحوارُ لا يُمحى بإعادة الإرسال: هو ما قيل، لا ما يُطلب. */
-      ...(stored?.thread?.length ? { thread: stored.thread } : {}),
-    });
+  if (req.body?.requestRevision != null && Number(req.body.requestRevision) !== Number(resolved.request.requestRevision || 0)) {
+    res.status(409).json({ error: "وصل تحديث من القسم. حدّث الصفحة؛ مسودتك محفوظة على جهازك." }); return;
   }
+  const before = new Map((resolved.request.items || []).map(item => [String(item.rowId), item]));
+  let items: InstructorRequestItem[];
+  try { items = await instructorRequestItemsFromPayload(resolved.request, sent); }
+  catch (error: any) { res.status(400).json({ error: error.message || "تعذّر قراءة الطلب." }); return; }
 
   const judged = await judgeRequestItems({ ...resolved.request, items });
 
@@ -21121,18 +21273,20 @@ sectionId: allowedOption.sectionId,
   const generalNote = String(req.body?.note || "").trim().slice(0, 400);
   const saved = await Repository.saveInstructorRequest({
     ...resolved.request,
+    archivedItems: [...(resolved.request.archivedItems || []), ...(resolved.request.submittedAt ? resolved.request.items.filter(old => old.action === "add" && !judged.items.some(next => next.itemId && next.itemId === old.itemId)).map(item => ({ at, item })) : [])],
     items: judged.items,
     note: generalNote || undefined,
     status: "submitted",
     submittedAt: at,
     signature,
+    signatureHistory: [...(resolved.request.signatureHistory || []), ...(resolved.request.signature ? [resolved.request.signature] : [])],
     timeline: [
       ...(resolved.request.timeline || []),
       ...alternativeEvents,
       { kind: "submitted", at, detail: String(changed) },
       { kind: "received", at, by: "القسم" },
     ],
-  });
+  }, await requestReservationProposals(judged));
 
   res.setHeader("Cache-Control", "no-store");
   broadcastNotify(Repository.currentDemoSessionId());
@@ -21176,17 +21330,19 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
     const chosen = offered[acceptAt];
     if (!chosen) { res.status(400).json({ error: "هذا المقترح لم يعد قائماً. حدّث الصفحة." }); return; }
     const days = (chosen.days?.length ? chosen.days : [chosen.day]) as RequestDayKey[];
-    const end = endForRequest(days, chosen.start, blockMinutesOfItem(item));
+    const slots = await requestSlotsForCourse(resolved.request, Number((item.after || item.before)?.courseId), days, chosen.start, blockMinutesOfItem(item));
+    const end = slots[0]?.end || chosen.end;
     next = {
       ...item,
       action: item.action === "keep" ? "change" : item.action,
       after: { ...(item.after || item.before || { courseId: 0, courseName: "", sectionCode: "", days: "", time: "" }),
         days: days.map(day => DAY_LETTERS[day]).join(" · "), time: `${chosen.start} – ${end}` },
-      slots: days.map(day => ({ day, start: chosen.start, end: endForRequest([day], chosen.start, blockMinutesOfItem(item)) })),
+      slots,
       chosenAlternative: chosen,
       /* قرارٌ سابقٌ على ما كان يُطلب لا يبقى على ما اتُّفق عليه الآن. */
       decision: undefined,
-      thread: capThread([...(item.thread || []), { from: "instructor" as const, at: now, accepted: true, slots: [chosen], ...(text ? { text } : {}) }]),
+      decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [item.decision] : [])],
+      ...appendRequestThread(item, { from: "instructor" as const, at: now, accepted: true, slots: [chosen], ...(text ? { text } : {}) }),
     };
     kind = "proposal-accepted";
   } else {
@@ -21207,15 +21363,24 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
     if (!text && !proposal.length) { res.status(400).json({ error: "اكتب ردّك أو اقترح وقتاً." }); return; }
     next = {
       ...item,
-      thread: capThread([...(item.thread || []), { from: "instructor" as const, at: now, ...(text ? { text } : {}), ...(proposal.length ? { slots: proposal } : {}) }]),
+      ...appendRequestThread(item, { from: "instructor" as const, at: now, ...(text ? { text } : {}), ...(proposal.length ? { slots: proposal } : {}) }),
     };
   }
   const items = [...(resolved.request.items || [])];
   items[index] = next;
+  const judged = await judgeRequestItems({ ...resolved.request, items }, { forDepartment: true });
+  if (acceptAt >= 0 && judged.items[index]?.verdict === "conflict") {
+    res.status(409).json({ error: judged.items[index].reasons?.find(reason => reason.blocking)?.text || "المقترح لم يعد متاحاً. راجع القسم." }); return;
+  }
+  const signature: InstructorRequestSignature = { at: now, fingerprint: await surveyFingerprint(civil),
+    verifyCode: verificationCode(resolved.request.id, Number(resolved.request.AdInstructorId), now), keptCount: 0,
+    signedItems: [{ action: acceptAt >= 0 ? "accept" : "reply", courseName: String((next.after || next.before)?.courseName || ""),
+      asked: acceptAt >= 0 ? String(next.after?.days || "") + " · " + String(next.after?.time || "") : text || String(req.body?.start || "") }] };
   const saved = await Repository.saveInstructorRequest({
-    ...resolved.request, items, status: "in-review",
+    ...resolved.request, items: judged.items, status: "in-review", signature,
+    signatureHistory: [...(resolved.request.signatureHistory || []), ...(resolved.request.signature ? [resolved.request.signature] : [])],
     timeline: [...(resolved.request.timeline || []), { kind, at: now, itemIndex: index, ...(acceptAt >= 0 ? { detail: String(acceptAt + 1) } : {}) }],
-  });
+  }, acceptAt >= 0 ? await requestReservationProposals(judged) : undefined);
   res.setHeader("Cache-Control", "no-store");
   broadcastNotify(Repository.currentDemoSessionId());
   res.json({ request: stripForInstructor(await judgeRequestItems(saved)) });
@@ -21404,10 +21569,11 @@ function requestedText(it){
 /* النطاقُ الزمنيّ جزيرةٌ يسارية: «14:00 – 15:20» تُقرأ هكذا في كل موضعٍ من الصفحة، لا معكوسةً داخل سطرٍ عربي. */
 function ltr(t){return t?'<bdi dir="ltr" class="num">'+esc(t)+'</bdi>':""}
 function requestedHtml(it){
+ if(it.offeringId||it.computedSlots&&it.computedSlots.length)return (it.computedSlots||it.slots||[]).map(function(sl){return esc(fmtDays([sl.day]))+" · "+ltr(sl.start+" – "+sl.end)}).join(" · ");
  if(it.action==="delete")return "حذف المقرر من الجدول";
  if(it.action==="change"||it.action==="add")return esc(it.days.length?fmtDays(it.days):"لم تُحدّد الأيام")+" · "+(it.start?ltr(it.start+" – "+endOf(it.days,it.start,it.blk)):"لم يُحدّد الوقت");
  var base=it.before||it.after||{};return esc(base.days||"")+" · "+ltr(rangeText(base.time||""))}
-function rawItem(it){return{rowId:it.rowId,action:it.action,
+function rawItem(it){return{itemId:it.itemId,offeringId:it.offeringId,retryOffering:it.retryOffering,rowId:it.rowId,action:it.action,
  courseId:it.action==="add"?it.courseId:undefined,
  collegeId:it.action==="add"?it.collegeId:undefined,sectionId:it.action==="add"?it.sectionId:undefined,
  days:(it.action==="change"||it.action==="add")?it.days:[],start:(it.action==="change"||it.action==="add")?it.start:"",excuse:it.excuse}}
@@ -21654,8 +21820,11 @@ function actionsHtml(it,i){
  if(it.action==="change")return actBtn(i,"keep","undo","إلغاء التعديل")+actBtn(i,"delete","trash","احذفه بدلًا منه","bad");
  return actBtn(i,"keep","undo","تراجع عن الحذف");
 }
-function editHtml(it,i){var h="";h+='<div class="edit"><div class="field-head"><span class="field-title">أيام المحاضرة</span><details class="plib"><summary aria-label="مكتبة الأنماط" title="مكتبة الأنماط">'+PLIB_ICON+'</summary><div class="plib-pop">'+PLIB+'</div></details></div><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
-    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status" title="اضغط أيَّ يوم لتبديله">'+gi("star")+'<span>'+esc(it.autoNote)+'</span></p>':'')+bestHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' aria-disabled="true" title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+(it.ownT&&it.ownT!==it.start&&ownClash(it,i,it.ownT)?skOwnClash(it,i,it.ownT):'')+heatLegend(i)+'<details class="more-time"'+(skMoreOpen(it,i)?' open':'')+'><summary data-more="'+i+'">'+gi("clock")+'وقت آخر</summary><label class="time"><span class="sr">وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label></details><p class="ends">'+(sameAsBefore(it)?gi("swap")+"هذا موعدك الحالي — غيّر اليوم أو الوقت.":it.days.length&&it.start?gi("clock")+"ينتهي "+endOf(it.days,it.start,it.blk)+'<span class="ends-src" title="مدّةُ المحاضرة من اللائحة">'+gi("shield")+'</span>':gi("cal")+"اختر اليوم ثم الوقت")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span class="vwrap">'+skVerdict(it)+'</span>'+(it.advice?skAdvice(it.advice):'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'" aria-label="'+esc(sh.label)+'">'+skShape(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'" aria-label="'+esc(fmtDays(ds)+" "+a.start)+'">'+skAltBtn(ds,a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+(it.pnote?'<div class="pnote" style="margin:8px 0 0">'+it.pnote+'</div>':'')+notesHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
+function offeringsHtml(){var list=(data.availableOfferings||[]).filter(function(o){return !state.some(function(it){return it.offeringId===o.id&&!(it.decision&&it.decision.state==="rejected")})});
+ if(!data.windowOpen||!list.length)return "";
+ return '<details class="memory"><summary>شعب متاحة تناسب جدولك <span class="chip">'+list.length+'</span></summary><p class="sub">اختر الشعبة، ثم أرسل طلبك لمراجعة القسم.</p><div class="alts">'+list.map(function(o){return '<button type="button" data-offering="'+o.id+'"><b>'+esc(o.courseName)+'</b> · شعبة '+esc(o.sectionCode)+'<small>'+esc(o.collegeName)+' · '+o.slots.map(function(sl){return esc(fmtDays([sl.day]))+' '+ltr(sl.start+' – '+sl.end)}).join(' · ')+'</small></button>'}).join("")+'</div></details>'}
+function editHtml(it,i){if(it.offeringId)return '<p class="sub">'+gi("check")+'اخترت شعبة قائمة بموعدها. تُسند إليك بعد موافقة القسم.</p>';var h="";h+='<div class="edit"><div class="field-head"><span class="field-title">أيام المحاضرة</span><details class="plib"><summary aria-label="مكتبة الأنماط" title="مكتبة الأنماط">'+PLIB_ICON+'</summary><div class="plib-pop">'+PLIB+'</div></details></div><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
+    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status" title="اضغط أيَّ يوم لتبديله">'+gi("star")+'<span>'+esc(it.autoNote)+'</span></p>':'')+bestHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' aria-disabled="true" title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+(it.ownT&&it.ownT!==it.start&&ownClash(it,i,it.ownT)?skOwnClash(it,i,it.ownT):'')+heatLegend(i)+'<details class="more-time"'+(skMoreOpen(it,i)?' open':'')+'><summary data-more="'+i+'">'+gi("clock")+'وقت آخر</summary><label class="time"><span class="sr">وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label></details><p class="ends">'+(sameAsBefore(it)?gi("swap")+"هذا موعدك الحالي — غيّر اليوم أو الوقت.":it.days.length&&it.start?gi("clock")+"ينتهي "+(it.computedSlots&&it.computedSlots.length?it.computedSlots.map(function(sl){return fmtDays([sl.day])+" "+sl.end}).join(" · "):endOf(it.days,it.start,it.blk))+'<span class="ends-src" title="مدّةُ المحاضرة من اللائحة">'+gi("shield")+'</span>':gi("cal")+"اختر اليوم ثم الوقت")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span class="vwrap">'+skVerdict(it)+'</span>'+(it.advice?skAdvice(it.advice):'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'" aria-label="'+esc(sh.label)+'">'+skShape(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'" aria-label="'+esc(fmtDays(ds)+" "+a.start)+'">'+skAltBtn(ds,a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+(it.pnote?'<div class="pnote" style="margin:8px 0 0">'+it.pnote+'</div>':'')+notesHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
 function bodyHtml(it,i,open){var h=decisionBox(it,i,open)+threadBox(it,i);
  if(open){if(it.negotiation==="proposed")h+='<p class="hint-pro" title="تعديل الموعد من هنا يبدأ طلبًا جديدًا">'+gi("star")+'<span>للرد على اقتراح القسم: بطاقة «قرارك» أعلاه</span></p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
  else if(!h)h='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
@@ -21735,7 +21904,7 @@ function weekStrip(){
 /* ── خريطةُ الأوقات ───────────────────────────────────────────────────────────
    بعد اختيار الأيام يُسأل الخادمُ عن كل وقتِ بدايةٍ بالحكم نفسِه، ويُرسم على الزرّ شريطٌ: أخضر يمرّ، أصفر يحتاج سبب
    استثناء، أحمر لا يمكن. والزرُّ لا يُعطَّل بها (القرارُ للخادم عند الإرسال)، وإنما يُرى. */
-var heat={},heatKey={},heatTimer=null,heatShape={};
+var heat={},heatKey={},heatTimer={},heatShape={};
 function heatAttr(i,t){var h=heat[i]&&heat[i][t];if(!h)return "";
  return ' data-heat="'+h+'" aria-label="'+t+(h==="ok"?" · متاح":h==="warn"?" · يحتاج سبب استثناء":" · غير ممكن")+'"'}
 function heatLegend(i){if(heatShape[i])return '<p class="heat-key" role="status">'+gi("alert")+'المشكلة في الأيام لا في الوقت</p>';return heat[i]&&Object.keys(heat[i]).length?'<p class="heat-key" aria-hidden="true"><span data-heat="ok"></span>متاح <span data-heat="warn"></span>يحتاج سبباً <span data-heat="bad"></span>غير ممكن</p>':""}
@@ -21755,7 +21924,7 @@ function heatSig(i){return state[i].days.join()+"|"+state[i].blk+"|"+JSON.string
 function ensureHeat(){state.forEach(function(it,i){
  if(!(it.action==="change"||it.action==="add")||!it.days.length||!openCards[i])return;
  var sig=heatSig(i);if(heatKey[i]===sig)return;heatKey[i]=sig;heat[i]=null;
- clearTimeout(heatTimer);heatTimer=setTimeout(function(){loadHeat(i,sig)},300)})}
+ clearTimeout(heatTimer[i]);heatTimer[i]=setTimeout(function(){loadHeat(i,sig)},300)})}
 function loadHeat(i,sig){var it=state[i];if(!it||heatKey[i]!==sig)return;
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-times",{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({itemIndex:i,items:payloadWith(i),starts:startList(it)})})
@@ -21867,7 +22036,7 @@ function paint(){
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+
   (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+skNext(open,sent,edited)+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
- h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(deckHtml()||calmHtml())+replayHtml()+memoryHtml()+planTable();
+ h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(deckHtml()||calmHtml())+offeringsHtml()+replayHtml()+memoryHtml()+planTable();
  if(open&&data.courses&&data.courses.length){
   var collegeMap={};data.courses.forEach(function(c){if(c.collegeId&&!collegeMap[c.collegeId])collegeMap[c.collegeId]=c.collegeName||("كلية "+c.collegeId)});
   var collegeOptions=Object.keys(collegeMap).map(function(id){return{id:Number(id),name:collegeMap[id]}});
@@ -21905,6 +22074,11 @@ function digitsOf(v){return String(v||"")
  .replace(/[۰-۹]/g,function(d){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))})
  .replace(/\\D/g,"")}
 function wire(){
+ host.querySelectorAll("[data-offering]").forEach(function(el){el.onclick=function(){var o=(data.availableOfferings||[]).filter(function(o){return o.id===Number(el.dataset.offering)})[0];if(!o||state.some(function(it){return it.offeringId===o.id&&!(it.decision&&it.decision.state==="rejected")}))return;
+ var old=state.findIndex(function(it){return it.offeringId===o.id});var selectedOffering={rowId:null,action:"add",retryOffering:true,offeringId:o.id,courseId:o.courseId,collegeId:o.collegeId,sectionId:o.sectionId,collegeName:o.collegeName,
+ before:{courseName:o.courseName,sectionCode:o.sectionCode},after:{courseId:o.courseId,courseName:o.courseName,collegeId:o.collegeId,sectionId:o.sectionId,collegeName:o.collegeName,sectionCode:o.sectionCode},
+ slots:o.slots,days:o.slots.map(function(sl){return sl.day}),start:o.slots[0].start,excuse:"",tone:"",note:"",alts:[],decision:null};if(old>=0)state[old]=selectedOffering;else state.push(selectedOffering);paint();recheckAll()}});
+
  host.querySelectorAll("[data-tab]").forEach(function(el){el.onclick=function(){activeTab=el.dataset.tab||"schedule";paint()}});
  var openChooser=document.getElementById("openChooser");if(openChooser)openChooser.onclick=function(){chooserOpen=true;paint();var search=document.getElementById("courseSearch");if(search)search.focus()};
  var closeChooser=document.getElementById("closeChooser");if(closeChooser)closeChooser.onclick=function(){chooserOpen=false;paint()};
@@ -21999,12 +22173,12 @@ function recheckAll(){
   if((it.action==="change"||it.action==="add")&&it.days.length&&it.start)active.push(i);
   else if(it){it.tone="";it.note="";it.alts=[];it.shapes=[];it.notes=[];it.advice="";it.pnote=""}
  });
- if(!active.length){paint();return}
+ if(!active.length){paint()}
  var seq=++checkSeq;
  active.forEach(function(i){var it=state[i];it.tone="checking";it.note="يفحص التعارض والموانع على جدولك…";it.alts=[];it.shapes=[];it.notes=[];it.advice="";it.pnote="";heatShape[i]=false});paint();
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:payloadItems()})})
  .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||"تعذر الفحص");return d})})
- .then(function(d){if(seq!==checkSeq)return;(d.items||[]).forEach(function(result){var i=Number(result.itemIndex),it=state[i];if(!it||active.indexOf(i)<0)return;it.tone=result.kind==="clear"?"ok":result.kind==="exception"?"warn":"bad";it.note=result.headline||"";it.alts=result.nearestTimes||[];it.shapes=result.shapes||[];it.notes=result.notes||[];it.advice=result.advice||"";it.pnote=result.patternNotice||"";if(result.block)it.blk=result.block});paint()})
+ .then(function(d){if(seq!==checkSeq)return;if(d.availableOfferings)data.availableOfferings=d.availableOfferings;(d.items||[]).forEach(function(result){var i=Number(result.itemIndex),it=state[i];if(!it||active.indexOf(i)<0)return;it.tone=result.kind==="clear"?"ok":result.kind==="exception"?"warn":"bad";it.note=result.headline||"";it.alts=result.nearestTimes||[];it.shapes=result.shapes||[];it.notes=result.notes||[];it.advice=result.advice||"";it.pnote=result.patternNotice||"";it.computedSlots=result.slots||[];if(result.block)it.blk=result.block});paint()})
  .catch(function(){if(seq!==checkSeq)return;active.forEach(function(i){var it=state[i];if(it){it.tone="bad";it.note="تعذّر فحص الموعد الآن. أعد المحاولة قبل الإرسال."}});paint()});
 }
 /* «كان» يُقرأ من لقطة الموعد الأصلي، لا من slots: بعد الإرسال تحمل slots ما
@@ -22047,7 +22221,7 @@ function postSubmit(civil,done){
  sendingNow=true;
  fetch("/api/public/request/"+encodeURIComponent(TOKEN),{method:"POST",
   headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({civil:civil,items:payloadItems(),note:noteNow()})})
+  body:JSON.stringify({civil:civil,items:payloadItems(),note:noteNow(),requestRevision:data.request.requestRevision||0})})
  .then(function(r){return r.json().then(function(d){return{ok:r.ok,status:r.status,d:d}})})
  .then(function(x){
   if(!x.ok){
@@ -22071,13 +22245,13 @@ function postSubmit(civil,done){
  .catch(function(){sendingNow=false;done("تعذّر الاتصال. تحقّق من الإنترنت.")});
 }
 
-function mapItems(d){return (d.request.items||[]).map(function(it){var a=it.after||{};return{rowId:it.rowId,action:it.action||"keep",
+function mapItems(d){return (d.request.items||[]).map(function(it){var a=it.after||{};return{itemId:it.itemId,offeringId:it.offeringRowIds&&it.offeringRowIds[0],rowId:it.rowId,action:it.action||"keep",
   courseId:it.action==="add"?Number(a.courseId||0):undefined,collegeId:it.action==="add"?Number(a.collegeId||0):undefined,
   sectionId:it.action==="add"?Number(a.sectionId||0):undefined,collegeName:it.action==="add"?(a.collegeName||""):"",
   before:it.before||it.after,blk:(it.block||blockOf(it.before||it.after)),after:it.after,slots:it.slots||[],days:(it.action==="change"||it.action==="add")?(it.slots||[]).map(function(s){return s.day}):[],
   start:(it.action==="change"||it.action==="add")&&it.slots&&it.slots[0]?it.slots[0].start:"",excuse:it.excuse||"",
   decision:it.decision||null,thread:it.thread||[],negotiation:it.negotiation||"",tone:it.verdict==="clear"?"ok":it.verdict==="exception"?"warn":it.verdict==="conflict"?"bad":"",
-  note:it.reasons&&it.reasons.length?it.reasons[0].text:(it.verdict==="clear"?"الوقت متاح":""),alts:it.nearestTimes||[]}})}
+  advice:it.advice||"",shapes:it.shapes||[],note:it.reasons&&it.reasons.length?it.reasons[0].text:(it.verdict==="clear"?"الوقت متاح":""),alts:it.nearestTimes||[]}})}
 /* ترتيبُ العرض: بحسب الموعد الرسمي عند التحميل، ثم لا يتغيّر في هذه الجلسة. */
 function rankState(){state.map(function(it,i){return{it:it,i:i}}).sort(function(a,b){
   var da=planDays(a.it),db=planDays(b.it);var ka=DAYS.map(function(d){return d[0]}).indexOf(da[0]),kb=DAYS.map(function(d){return d[0]}).indexOf(db[0]);
@@ -22127,12 +22301,12 @@ fetch("/api/public/request/"+encodeURIComponent(TOKEN)).then(function(r){
  rankState();
  baseItems=JSON.parse(JSON.stringify(payloadItems()));
  var draft=data.windowOpen?readDraft():null;
- if(draft&&typeof draft.note==="string"&&genNote===null&&!(data.request&&data.request.submittedAt))genNote=draft.note;
+ if(draft&&typeof draft.note==="string"&&genNote===null)genNote=draft.note;
  if(draft&&Array.isArray(draft.items)){var byRow={};state.forEach(function(it){if(it.rowId!=null)byRow[it.rowId]=it});var adds=[];
-  draft.items.forEach(function(d,k){var nm=(draft.names||[])[k]||{};if(d.rowId!=null&&byRow[d.rowId]){var it=byRow[d.rowId];if(d.action!==it.action||(d.action==="change"&&(String(d.days)!==String(it.days)||d.start!==it.start))){it.action=d.action;it.days=d.days||[];it.start=d.start||"";it.excuse=d.excuse||"";it.tone="";it.note=""}}
+  draft.items.forEach(function(d,k){var nm=(draft.names||[])[k]||{};if(d.rowId!=null&&byRow[d.rowId]){var it=byRow[d.rowId];if(d.action!==it.action||d.excuse!==it.excuse||(d.action==="change"&&(String(d.days)!==String(it.days)||d.start!==it.start))){it.action=d.action;it.days=d.days||[];it.start=d.start||"";it.excuse=d.excuse||"";it.tone="";it.note=""}}
    else if(d.action==="add"&&d.courseId&&(data.courses||[]).some(function(c){return c.id===d.courseId&&Number(c.collegeId)===Number(d.collegeId)&&Number(c.sectionId)===Number(d.sectionId)})&&!state.some(function(it){return it.action==="add"&&it.courseId===d.courseId&&String(it.days)===String(d.days)&&it.start===d.start})){
     var c=(data.courses||[]).filter(function(c){return c.id===d.courseId&&Number(c.collegeId)===Number(d.collegeId)})[0];
-    adds.push({rowId:null,action:"add",courseId:d.courseId,collegeId:d.collegeId,sectionId:d.sectionId,collegeName:c.collegeName||nm.collegeName||"",before:{courseName:c.name,sectionCode:""},after:{courseId:d.courseId,courseName:c.name,collegeId:d.collegeId,collegeName:c.collegeName,sectionId:d.sectionId},decision:null,slots:[],days:d.days||[],start:d.start||"",excuse:d.excuse||"",tone:"",note:"",alts:[]})}});
+    adds.push({rowId:null,action:"add",offeringId:d.offeringId,courseId:d.courseId,collegeId:d.collegeId,sectionId:d.sectionId,collegeName:c.collegeName||nm.collegeName||"",before:{courseName:c.name,sectionCode:""},after:{courseId:d.courseId,courseName:c.name,collegeId:d.collegeId,collegeName:c.collegeName,sectionId:d.sectionId},decision:null,slots:d.offeringId?((data.availableOfferings||[]).filter(function(o){return o.id===d.offeringId})[0]||{}).slots||[]:[],days:d.days||[],start:d.start||"",excuse:d.excuse||"",tone:"",note:"",alts:[]})}});
   state=state.concat(adds);restoredDraft=true;dirty=true}
  paint();
  loadProposalBanner();
@@ -22217,7 +22391,7 @@ app.post("/api/public/request/:token/check", async (req: Request, res: Response)
     kind: item.verdict || "clear",
     headline: headlineReasonOf(item.reasons)?.text || (item.verdict === "conflict" ? "هذا الموعد غير متاح." : item.verdict === "exception" ? "يحتاج سبب استثناء." : "الوقت متاح"),
     computedEnd: item.slots?.[0]?.end || "",
-    roomAvailable: !(item.reasons || []).some((reason: any) => reason.source === "room"),
+    roomAvailable: item.roomAvailable ?? null,
     nearestTimes: (item.nearestTimes || []).map(slot => ({ day: slot.day, days: slot.days, start: slot.start, end: slot.end })),
     shapes: item.shapes || [],
     advice: item.advice || "",
@@ -22261,7 +22435,7 @@ app.post("/api/public/request/:token/check-batch", async (req: Request, res: Res
       return {
         itemIndex, kind: item.verdict || "clear",
         headline: headlineReasonOf(item.reasons)?.text || (item.verdict === "conflict" ? "هذا الموعد غير متاح." : item.verdict === "exception" ? "يحتاج سبب استثناء." : "الوقت متاح"),
-        computedEnd: item.slots?.[0]?.end || "", roomAvailable: !(item.reasons || []).some((reason: any) => reason.source === "room"),
+        slots: item.slots || [], computedEnd: item.slots?.[0]?.end || "", roomAvailable: item.roomAvailable ?? null,
         nearestTimes: (item.nearestTimes || []).map(slot => ({ day: slot.day, days: slot.days, start: slot.start, end: slot.end })),
         shapes: item.shapes || [], advice: item.advice || "", block: item.block || 0,
         ...(mixed ? { patternNotice: await mixedPatternNotice(courseId, (item.slots || []).map(slot => slot.day as RequestDayKey), Number(resolved.request.AdTermId), undefined, true).catch(() => null) } : {}),
@@ -22269,7 +22443,7 @@ app.post("/api/public/request/:token/check-batch", async (req: Request, res: Res
       };
     }));
     res.setHeader("Cache-Control", "no-store");
-    res.json({ items: results.filter(Boolean) });
+    res.json({ items: results.filter(Boolean), availableOfferings: await availableInstructorOfferings({ ...resolved.request, items: draftItems }) });
   } catch (error: any) {
     res.status(400).json({ error: error?.message || "تعذر فحص المسودة." });
   }
@@ -22458,7 +22632,7 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
     const variant = base.map((item, k) => k !== index ? item : {
       ...item,
       after: { ...(item.after as any), time: `${start} – ${end}` },
-      slots: days.map(day => ({ day, start, end: endForRequest([day], start, block && block > 0 ? block : undefined) })),
+      slots: target.slots!.map(slot => ({ day: slot.day, start, end: minutesToTime(timeToMinutes(start) + timeToMinutes(slot.end) - timeToMinutes(slot.start)) })),
     });
     const judged = await judgeRequestItems({ ...resolved.request, items: variant }, { context, rulesCache });
     const verdict = judged.items[index]?.verdict;
@@ -22592,20 +22766,20 @@ app.post("/api/public/verify", rateLimitVerifySignature, async (req: Request, re
       .slice(0, 20);
     if (!found.length) return null;
     const [instructors, terms] = await Promise.all([Repository.getInstructors(), Repository.getTerms()]);
-    const signatures = found.map(row => {
+    const signatures = found.flatMap(row => [...(row.signatureHistory || []), row.signature!].map(signature => {
       const person = (instructors as any[]).find(item => Number(item.AdInstructorId) === Number(row.AdInstructorId));
       const term = (terms as any[]).find(item => Number(item.AdTermId) === Number(row.AdTermId));
-      const signed = row.signature!.signedItems;
+      const signed = signature.signedItems;
       return {
-        code: String(row.signature!.verifyCode || ""),
+        code: String(signature.verifyCode || ""),
         instructorName: String(person?.AdInstructorName || ""),
         termName: String(term?.AdTermName || ""),
-        signedAt: row.signature!.at,
+        signedAt: signature.at,
         hasItems: Array.isArray(signed),
         items: Array.isArray(signed) ? signed : [],
-        keptCount: Number(row.signature!.keptCount || 0),
+        keptCount: Number(signature.keptCount || 0),
       };
-    });
+    }));
     /* الرمزُ إن كُتب وطابق يتقدّم؛ وإن لم يطابق لا يُسقط البابَ: تُعرض توقيعاتُه ويُقال إنه لا يطابق. */
     const hit = code ? signatures.findIndex(item => item.code === code) : -1;
     if (hit > 0) signatures.unshift(...signatures.splice(hit, 1));
@@ -23868,6 +24042,7 @@ async function startServer() {
     // swallow the error itself and the log would lose what it was written for.
     console.error("[api-error] %s %s:", req.method, req.originalUrl, error?.stack || error?.message || error);
     if (res.headersSent) { try { res.end(); } catch { /* the socket is already gone */ } return; }
+    if (error instanceof RequestReservationConflict) { res.status(409).json({ error: error.message, code: error.code }); return; }
     /* «حاول مرة أخرى» كذبٌ على طلبٍ أكبر من الحد: سيُرفض في كل مرة. */
     if (error?.type === "entity.too.large") {
       res.status(413).json({ error: "البيانات المرسلة أكبر من الحد المسموح، ولم يُحفظ شيء. أبلغ إدارة النظام بهذه الرسالة.", code: "PAYLOAD_TOO_LARGE" });

@@ -274,8 +274,8 @@ async function main() {
       check(later.json.kind === "clear" && later.json.computedEnd === "16:15", "بدايةٌ ١٥:٠٠ في اليوم نفسه: ١٥:٠٠–١٦:١٥ بلا مانع", later.json);
 
       /* ٢) الخريطةُ: مشكلةُ الأيام لا تُلوّن الأوقات كلَّها حمراء. */
-      const heatShape = await http("POST", `/api/public/request/${link}/check-times`, { itemIndex: at(monWed), items: asChange(monWed, ["fsunday", "ftuesday"], "09:30"), starts: ["08:00", "09:00", "10:00"] });
-      check(heatShape.json.problem === "shape" && Object.keys(heatShape.json.times || {}).length === 0, "الأيامُ لا تغطّي الساعات: check-times يعيد problem=shape بدل bad لكل وقت", heatShape.json);
+      const heatShape = await http("POST", `/api/public/request/${link}/check-times`, { itemIndex: at(monWed), items: asChange(monWed, ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"], "09:30"), starts: ["08:00", "09:00", "10:00"] });
+      check(heatShape.json.problem === "shape" && Object.keys(heatShape.json.times || {}).length === 0, "توزيع غير معتمد: check-times يعيد problem=shape بدل bad لكل وقت", heatShape.json);
       const heatOk = await http("POST", `/api/public/request/${link}/check-times`, { itemIndex: at(thursday), items: asChange(thursday, ["fthursday"], "14:00"), starts: ["09:00", "10:00"] });
       check(!heatOk.json.problem && Object.values(heatOk.json.times || {}).every(v => v !== "bad"), "ومعها لا يتلوّن وقتٌ بالأحمر في الخميس الأصلي", heatOk.json);
 

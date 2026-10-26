@@ -417,7 +417,8 @@ async function main() {
 
   /* ── A6: المسارات الحقيقية على خادمٍ مصغَّر ── */
   const express = (await import("express")).default;
-  const { Repository } = await import("../src/db/repository");
+  const { Repository, initDatabase } = await import("../src/db/repository");
+  await initDatabase();
   const app = express();
   app.use(express.json({ limit: "1mb" }));
   const allow = (_q: any, _r: any, next: any) => next();

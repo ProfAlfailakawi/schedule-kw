@@ -26,6 +26,8 @@ export type HandoffDayKey = "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | 
 export interface RequestHandoff {
   /** الطلبُ والبندُ، ليُعاد المنسّقُ إليهما بعد الحفظ. */
   requestId: string;
+  requestRevision?: number;
+  companionRoomId?: string;
   itemIndex: number;
   instructorId: number;
   instructorName: string;
@@ -75,6 +77,8 @@ export function takeHandoff(): RequestHandoff | null {
     if (!/^\d{1,2}:\d{2}$/.test(String(value.start || ""))) return null;
     return {
       requestId: String(value.requestId),
+      requestRevision: value.requestRevision == null ? undefined : Number(value.requestRevision),
+      companionRoomId: typeof value.companionRoomId === "string" ? value.companionRoomId : undefined,
       itemIndex: Number(value.itemIndex) || 0,
       instructorId: Number(value.instructorId) || 0,
       instructorName: String(value.instructorName || ""),

@@ -192,7 +192,7 @@ check(/data-show="'\+\(it\.tone==="warn"\?"1":"0"\)\+'" placeholder="سبب ال
 
 /* ملاحظةٌ عامة للقسم من أول فتح الصفحة، لا مرتبطة ببندٍ ولا بردّ القسم. */
 check(/data-vi-field="gen"/.test(page) && /VI\.html\("gen"\)/.test(page) && /id="genNote"/.test(page), "خانةُ ملاحظةٍ عامة بميكروفونها على الصفحة من البداية");
-check(/body:JSON\.stringify\(\{civil:civil,items:payloadItems\(\),note:noteNow\(\)\}\)/.test(page), "والملاحظةُ تُرسل مع الطلب");
+check(/body:JSON\.stringify\(\{civil:civil,items:payloadItems\(\),note:noteNow\(\),requestRevision:[^}]+\}\)/.test(page), "والملاحظةُ تُرسل مع الطلب");
 check(/if\(key==="gen"\)\{genNote=value/.test(page) && /note:noteNow\(\),items:payloadItems\(\)/.test(page), "وما يُملى فيها يصل الحالةَ والمسودّة فلا يضيع عند إعادة الرسم");
 const submitHandler = server.slice(server.indexOf('app.post("/api/public/request/:token"'), server.indexOf("ردُّ الأستاذ في حوار البند"));
 check(/String\(req\.body\?\.note \|\| ""\)\.trim\(\)\.slice\(0, 400\)/.test(submitHandler) && /note: generalNote \|\| undefined/.test(submitHandler), "الخادم يحفظها نصاً حتى ٤٠٠ حرف، ولا تدخل في الحكم على البنود");

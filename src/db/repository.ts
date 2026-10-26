@@ -1,4 +1,10 @@
 import { departmentFamily } from "../utils/sectionLabel";
+import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict,
+  type RequestReservation, type RequestReservationProposal, type RequestScheduleOperation } from "../utils/instructorRequestReservations";
+import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
+import { instructorWeekAfter } from "../utils/instructorRequestWeek";
+import { reservationRows } from "../utils/instructorRequestReservations";
+import { findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { TEACHING_LOAD_DOC_ID, normalizeTeachingLoadConfig } from "../utils/teachingLoad";
 import { normalizeArabicText } from "../utils/arabicText";
 import fs from "fs";
@@ -251,6 +257,7 @@ interface DBState {
   adCouponUses?: Array<{ campaignId: string; code: string; day: string; at: string }>;
   scheduleComments?: ScheduleComment[];
   instructorRequests?: InstructorRequest[];
+  instructorRequestReservationLedgers?: Record<string, RequestReservation[]>;
   studyProposals?: StudyProposal[];
   studentNeeds?: StudentNeed[];
   studentProfiles?: StudentProfile[];
@@ -4054,18 +4061,25 @@ export const Repository = {
     return schedule ? hydrateSchedules([schedule], db.courses, db.sections)[0] : undefined;
   },
 
-  createSchedule: async (schedule: Omit<FSchedule, "id">): Promise<FSchedule> => {
+  createSchedule: async (schedule: Omit<FSchedule, "id">, reservationOwner = ""): Promise<FSchedule> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const nextId = await reserveFirestoreIds("schedules");
       const newSched = { ...schedule, id: nextId, rev: 1 };
-      await firestoreDb.collection("schedules").doc(`schedule_${nextId}`).set(newSched);
+      await firestoreDb.runTransaction(async tx => {
+        const ref = firestoreDb!.collection("instructorRequestReservations").doc(String(schedule.AdTermId));
+        const ledger = await tx.get(ref);
+        assertRequestReservationWrite(newSched, ledger.data()?.entries || [], reservationOwner);
+        tx.set(firestoreDb!.collection("schedules").doc(`schedule_${nextId}`), newSched);
+        tx.set(ref, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
+      });
       await markRegistrationRunsStale(Number(schedule.AdTermId));
       return newSched;
     }
     const nextId = db.schedules.length > 0 ? Math.max(...db.schedules.map(s => s.id)) + 1 : 1;
     const newSched = { ...schedule, id: nextId, rev: 1 };
+    assertRequestReservationWrite(newSched, db.instructorRequestReservationLedgers?.[String(schedule.AdTermId)] || [], reservationOwner);
     db.schedules.push(newSched);
     saveDatabase();
     await markRegistrationRunsStale(Number(schedule.AdTermId));
@@ -4084,7 +4098,7 @@ export const Repository = {
    * The read and the write happen inside one Firestore transaction, so the
    * comparison cannot be overtaken between them.
    */
-  updateSchedule: async (id: number, fields: Partial<FSchedule>, expectedRev?: number): Promise<FSchedule> => {
+  updateSchedule: async (id: number, fields: Partial<FSchedule>, expectedRev?: number, reservationOwner = ""): Promise<FSchedule> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -4096,7 +4110,16 @@ export const Repository = {
         if (expectedRev !== undefined && Number(current.rev || 0) !== expectedRev)
           throw new ScheduleRevisionConflict(current);
         const updated = { ...current, ...fields, rev: Number(current.rev || 0) + 1 };
+        const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(updated.AdTermId));
+        const ledger = await transaction.get(ledgerRef);
+        const sourceLedgerRef = Number(current.AdTermId) !== Number(updated.AdTermId)
+          ? firestoreDb!.collection("instructorRequestReservations").doc(String(current.AdTermId)) : null;
+        const sourceLedger = sourceLedgerRef ? await transaction.get(sourceLedgerRef) : null;
+        if (sourceLedger) assertRequestReservationWrite(current, (sourceLedger.data()?.entries || []).filter((entry: RequestReservation) => entry.offeringRowIds.includes(id)), reservationOwner);
+        assertRequestReservationWrite(updated, ledger.data()?.entries || [], reservationOwner);
         transaction.set(docRef, updated);
+        if (sourceLedgerRef && sourceLedger) transaction.set(sourceLedgerRef, { entries: sourceLedger.data()?.entries || [], serial: Number(sourceLedger.data()?.serial || 0) + 1 });
+        transaction.set(ledgerRef, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
         return updated;
       });
       await markRegistrationRunsStale(Number(updated.AdTermId));
@@ -4106,6 +4129,8 @@ export const Repository = {
     if (idx === -1) throw new Error("الجدول غير موجود");
     if (expectedRev !== undefined && Number(db.schedules[idx].rev || 0) !== expectedRev)
       throw new ScheduleRevisionConflict(db.schedules[idx]);
+    assertRequestReservationWrite(db.schedules[idx], (db.instructorRequestReservationLedgers?.[String(db.schedules[idx].AdTermId)] || []).filter(entry => entry.offeringRowIds.includes(id)), reservationOwner);
+    assertRequestReservationWrite({ ...db.schedules[idx], ...fields }, db.instructorRequestReservationLedgers?.[String(fields.AdTermId || db.schedules[idx].AdTermId)] || [], reservationOwner);
     db.schedules[idx] = { ...db.schedules[idx], ...fields, rev: Number(db.schedules[idx].rev || 0) + 1 };
     saveDatabase();
     await markRegistrationRunsStale(Number(db.schedules[idx].AdTermId));
@@ -4141,7 +4166,16 @@ export const Repository = {
             throw new ScheduleRevisionConflict(current);
           updated.push({ ...current, ...moves[index].fields, rev: Number(current.rev || 0) + 1 });
         });
+        const termIds = [...new Set([...updated.map(row => Number(row.AdTermId)), ...docs.map(doc => Number(doc.data()!.AdTermId))])];
+        const ledgers = await Promise.all(termIds.map(termId => transaction.get(firestoreDb!.collection("instructorRequestReservations").doc(String(termId)))));
+        docs.forEach(doc => {
+          const current = doc.data() as FSchedule;
+          assertRequestReservationWrite(current, (ledgers[termIds.indexOf(Number(current.AdTermId))].data()?.entries || []).filter((entry: RequestReservation) => entry.offeringRowIds.includes(Number(current.id))));
+        });
+        updated.forEach(row => assertRequestReservationWrite(row, ledgers[termIds.indexOf(Number(row.AdTermId))].data()?.entries || []));
         updated.forEach((next, index) => transaction.set(refs[index], next));
+        ledgers.forEach((ledger, at) => transaction.set(firestoreDb!.collection("instructorRequestReservations").doc(String(termIds[at])),
+          { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 }));
         return updated;
       });
       await Promise.all([...new Set(updated.map(row => Number(row.AdTermId)))].map(id => markRegistrationRunsStale(id)));
@@ -4155,6 +4189,11 @@ export const Repository = {
       if (move.expectedRev !== undefined && Number(db.schedules[idx].rev || 0) !== move.expectedRev)
         throw new ScheduleRevisionConflict(db.schedules[idx]);
     }
+    for (const move of moves) {
+      const current = db.schedules.find(row => row.id === move.id)!;
+      assertRequestReservationWrite(current, (db.instructorRequestReservationLedgers?.[String(current.AdTermId)] || []).filter(entry => entry.offeringRowIds.includes(Number(current.id))));
+      assertRequestReservationWrite({ ...current, ...move.fields }, db.instructorRequestReservationLedgers?.[String(move.fields.AdTermId || current.AdTermId)] || []);
+    }
     const updated: FSchedule[] = [];
     for (const move of moves) {
       const idx = db.schedules.findIndex(s => s.id === move.id);
@@ -4166,17 +4205,29 @@ export const Repository = {
     return updated;
   },
 
-  deleteSchedule: async (id: number): Promise<void> => {
+  deleteSchedule: async (id: number, reservationOwner = ""): Promise<void> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const old = await firestoreDb.collection("schedules").doc(`schedule_${id}`).get();
       const termId = old.exists ? Number((old.data() as FSchedule).AdTermId) : undefined;
-      await firestoreDb.collection("schedules").doc(`schedule_${id}`).delete();
+      await firestoreDb.runTransaction(async tx => {
+        const ref = firestoreDb!.collection("schedules").doc(`schedule_${id}`);
+        const live = await tx.get(ref);
+        if (!live.exists) return;
+        const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(live.data()!.AdTermId));
+        const ledger = await tx.get(ledgerRef);
+        // Deleting an unrelated booking is safe; claiming a section is a reviewable decision.
+        const offeringHolds = (ledger.data()?.entries || []).filter((entry: RequestReservation) => entry.offeringRowIds.includes(id));
+        assertRequestReservationWrite(live.data() as FSchedule, offeringHolds, reservationOwner);
+        tx.delete(ref);
+        tx.set(ledgerRef, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
+      });
       await markRegistrationRunsStale(termId);
       return;
     }
     const old = db.schedules.find(s => s.id === id);
+    if (old) assertRequestReservationWrite(old, (db.instructorRequestReservationLedgers?.[String(old.AdTermId)] || []).filter(entry => entry.offeringRowIds.includes(id)), reservationOwner);
     db.schedules = db.schedules.filter(s => s.id !== id);
     saveDatabase();
     await markRegistrationRunsStale(old ? Number(old.AdTermId) : undefined);
@@ -4196,9 +4247,12 @@ export const Repository = {
       if (source.length === 0) return 0;
 
       // Keep the legacy transfer all-or-nothing. A single Firestore batch supports 500 writes.
-      if (source.length > 500) throw new Error("تعذر نسخ الجدول دفعة واحدة");
+      if (source.length > 499) throw new Error("تعذر نسخ الجدول دفعة واحدة");
       const firstId = await reserveFirestoreIds("schedules", source.length);
-      const batch = firestoreDb.batch();
+      await firestoreDb.runTransaction(async batch => {
+      const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(toTermId));
+      const ledger = await batch.get(ledgerRef);
+      source.forEach(row => assertRequestReservationWrite({ ...row, id: undefined, AdTermId: toTermId }, ledger.data()?.entries || []));
       source.forEach((row, index) => {
         const nextId = firstId + index;
         batch.set(firestoreDb!.collection("schedules").doc(`schedule_${nextId}`), {
@@ -4207,7 +4261,8 @@ export const Repository = {
           AdTermId: toTermId
         });
       });
-      await batch.commit();
+      batch.set(ledgerRef, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
+      });
       await markRegistrationRunsStale(toTermId);
       return source.length;
     }
@@ -4221,6 +4276,7 @@ export const Repository = {
     );
     if (source.length === 0) return 0;
 
+    source.forEach(row => assertRequestReservationWrite({ ...row, id: undefined, AdTermId: toTermId }, db.instructorRequestReservationLedgers?.[String(toTermId)] || []));
     let nextId = db.schedules.length > 0 ? Math.max(...db.schedules.map(row => row.id)) + 1 : 1;
     for (const row of source) db.schedules.push({ ...row, id: nextId++, AdTermId: toTermId });
     saveDatabase();
@@ -4927,17 +4983,147 @@ export const Repository = {
     return row;
   },
 
-  saveInstructorRequest: async (row: InstructorRequest): Promise<InstructorRequest> => {
-    const next: InstructorRequest = { ...row, updatedAt: new Date().toISOString() };
+  /** Canonical rows come from the ordinary save handlers' dry-run. The final
+   * physical check, all schedule rows, the decision and released holds commit
+   * together. No compensation window, even if the process dies mid-request. */
+  commitInstructorRequestPlan: async (request: InstructorRequest, operations: RequestScheduleOperation[],
+    buildRequest: (scheduleIds: Map<number, number>) => InstructorRequest,
+    normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
+    validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>): Promise<{ request: InstructorRequest; rows: FSchedule[] }> => {
+    const termId = Number(request.AdTermId);
+    const [loadPerson, loadCourses] = await Promise.all([Repository.getInstructorById(Number(request.AdInstructorId)), Repository.getCourses()]);
+    const courseMap = new Map(loadCourses.map(course => [Number(course.AdCourseId), course]));
+    const adding = operations.some(op => request.items[op.itemIndex]?.action === "add");
+    const count = operations.filter(op => op.kind === "create").length;
+    const firstId = firestoreDb && !demoSandboxContext.getStore() && count ? await reserveFirestoreIds("schedules", count) : 0;
+    const compute = async (week: FSchedule[], current: InstructorRequest, entries: RequestReservation[], startId: number) => {
+      if (Number(current.requestRevision || 0) !== Number(request.requestRevision || 0))
+        throw new RequestReservationConflict("تغيّر الطلب أثناء الاعتماد. حدّث الوارد قبل الموافقة.");
+      const changed = new Set<number>();
+      const written: FSchedule[] = [];
+      const ids = new Map<number, number>();
+      let nextId = startId;
+      for (const op of operations) {
+        if (op.kind === "create") {
+          const row = { ...op.body, id: nextId++, rev: 1 } as FSchedule;
+          assertRequestReservationWrite(row, entries, request.id);
+          written.push(row); if (!ids.has(op.itemIndex)) ids.set(op.itemIndex, row.id);
+        } else {
+          const live = week.find(row => Number(row.id) === op.rowId);
+          if (!live || Number(live.rev || 0) !== Number(op.original.rev || 0)) throw new ScheduleRevisionConflict(live || op.original);
+          changed.add(op.rowId);
+          if (op.kind === "update") {
+            const row = { ...live, ...op.body, id: live.id, rev: Number(live.rev || 0) + 1 } as FSchedule;
+            assertRequestReservationWrite(row, entries, request.id); written.push(row);
+          } else assertRequestReservationWrite(live, entries.filter(entry => entry.offeringRowIds.includes(op.rowId)), request.id);
+          if (!ids.has(op.itemIndex)) ids.set(op.itemIndex, op.rowId);
+        }
+      }
+      const finalWeek = [...week.filter(row => !changed.has(Number(row.id))), ...written];
+      const clashes = findConflicts(written.map(normalize), finalWeek.map(normalize), { placeholderInstructorIds: placeholders }).filter(isBlockingConflict);
+      if (clashes.length) throw new RequestReservationConflict("تغيّر الجدول وظهر تعارض أثناء الاعتماد. حدّث الوارد وراجع الموعد.");
+      if (validateFinalWeek) await validateFinalWeek(written, finalWeek);
+      const next = { ...buildRequest(ids), requestRevision: Number(current.requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
+      const remaining = retainRequestReservations(entries, next);
+      const loadWeek = [...finalWeek.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId)),
+        ...reservationRows(remaining.filter(entry => entry.instructorId === Number(request.AdInstructorId)), termId)];
+      if (adding && Number(loadPerson?.AdInstructorLoad) > 0 && weeklyLoadOf(loadWeek, courseMap) > Number(loadPerson!.AdInstructorLoad))
+        throw new RequestReservationConflict("تغيّر نصاب الأستاذ أثناء الاعتماد. راجع الطلب والجدول.");
+      return { request: next, rows: written, entries: remaining, finalWeek };
+    };
+    let result: { request: InstructorRequest; rows: FSchedule[] };
     if (firestoreDb && !demoSandboxContext.getStore()) {
-      await firestoreDb.collection("instructorRequests").doc(next.id).set(next);
-      announceInstructorRequestSaved(next);
-      return next;
+      const requestRef = firestoreDb.collection("instructorRequests").doc(request.id);
+      const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
+      result = await firestoreDb.runTransaction(async tx => {
+        const [stored, ledger, schedules] = await Promise.all([tx.get(requestRef), tx.get(ledgerRef),
+          tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)]))]);
+        if (!stored.exists) throw new RequestReservationConflict();
+        const planned = await compute(schedules.docs.map(doc => doc.data() as FSchedule), stored.data() as InstructorRequest, ledger.data()?.entries || [], firstId);
+        operations.filter(op => op.kind === "delete").forEach(op => tx.delete(firestoreDb!.collection("schedules").doc(`schedule_${(op as any).rowId}`)));
+        planned.rows.forEach(row => tx.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`), row));
+        tx.set(requestRef, planned.request);
+        tx.set(ledgerRef, { entries: planned.entries, serial: Number(ledger.data()?.serial || 0) + 1 });
+        return { request: planned.request, rows: planned.rows };
+      }, { maxAttempts: 40 });
+    } else {
+      result = await withSerialLock(`request-reservations:${termId}`, async () => {
+        const at = (db.instructorRequests || []).findIndex(row => row.id === request.id);
+        if (at < 0) throw new RequestReservationConflict();
+        const planned = await compute(db.schedules.filter(row => Number(row.AdTermId) === termId), db.instructorRequests![at],
+          db.instructorRequestReservationLedgers?.[String(termId)] || [], Math.max(0, ...db.schedules.map(row => Number(row.id))) + 1);
+        db.schedules = [...db.schedules.filter(row => Number(row.AdTermId) !== termId), ...planned.finalWeek];
+        db.instructorRequests![at] = planned.request;
+        (db.instructorRequestReservationLedgers ||= {})[String(termId)] = planned.entries;
+        saveDatabase();
+        return { request: planned.request, rows: planned.rows };
+      });
     }
-    if (!Array.isArray(db.instructorRequests)) db.instructorRequests = [];
-    const at = db.instructorRequests.findIndex(item => item.id === next.id);
-    if (at >= 0) db.instructorRequests[at] = next; else db.instructorRequests.unshift(next);
-    saveDatabase();
+    invalidateSchedules(); invalidateReference(REFERENCE_KEYS.scheduleCount);
+    await markRegistrationRunsStale(termId);
+    announceInstructorRequestSaved(result.request);
+    return result;
+  },
+
+  getInstructorRequestReservations: async (termId: number): Promise<RequestReservation[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("instructorRequestReservations").doc(String(termId)).get();
+      return snap.exists ? (snap.data()?.entries || []) : [];
+    }
+    return db.instructorRequestReservationLedgers?.[String(termId)] || [];
+  },
+
+  saveInstructorRequest: async (row: InstructorRequest, proposals?: RequestReservationProposal[]): Promise<InstructorRequest> => {
+    const now = new Date().toISOString();
+    const termId = Number(row.AdTermId);
+    const next: InstructorRequest = { ...row, updatedAt: now, requestRevision: Number(row.requestRevision || 0) + 1 };
+    const checkingLoad = proposals && next.items.some(item => item.action === "add" && item.decision?.state !== "fixed" && item.decision?.state !== "rejected");
+    const [loadPerson, loadCourses] = checkingLoad
+      ? await Promise.all([Repository.getInstructorById(Number(next.AdInstructorId)), Repository.getCourses()]) : [undefined, []];
+    const courseMap = new Map(loadCourses.map(course => [Number(course.AdCourseId), course]));
+    const checkLoad = (week: FSchedule[], entries: RequestReservation[]) => {
+      if (!(Number(loadPerson?.AdInstructorLoad) > 0)) return;
+      const projected = instructorWeekAfter(next, week);
+      const others = reservationRows(entries.filter(entry => entry.requestId !== next.id && entry.instructorId === Number(next.AdInstructorId)), termId);
+      if (weeklyLoadOf([...projected, ...others], courseMap) > Number(loadPerson!.AdInstructorLoad))
+        throw new RequestReservationConflict("تجاوز مجموع الطلبات والجدول نصابك المسجّل. راجع اختياراتك.");
+    };
+    const checkRevision = (current?: InstructorRequest) => {
+      if (current && Number(current.requestRevision || 0) !== Number(row.requestRevision || 0))
+        throw new RequestReservationConflict("تغيّر الطلب بعد فتحه. حدّث الصفحة؛ مسودتك تبقى محفوظة على جهازك.");
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const requestRef = firestoreDb.collection("instructorRequests").doc(row.id);
+      const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
+      await firestoreDb.runTransaction(async tx => {
+        const [stored, ledger] = await Promise.all([tx.get(requestRef), tx.get(ledgerRef)]);
+        checkRevision(stored.exists ? stored.data() as InstructorRequest : undefined);
+        let entries: RequestReservation[] = ledger.data()?.entries || [];
+        if (proposals) {
+          // Read the live official week INSIDE the same transaction as the claim.
+          const week = await tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)]));
+          const rows = week.docs.map(doc => doc.data() as FSchedule);
+          entries = allocateRequestReservations(entries, next, proposals, rows);
+          checkLoad(rows, entries);
+        } else entries = retainRequestReservations(entries, next);
+        tx.set(requestRef, next);
+        tx.set(ledgerRef, { entries, serial: Number(ledger.data()?.serial || 0) + 1 });
+      }, { maxAttempts: 40 });
+    } else {
+      await withSerialLock(`request-reservations:${termId}`, async () => {
+        if (!Array.isArray(db.instructorRequests)) db.instructorRequests = [];
+        const at = db.instructorRequests.findIndex(item => item.id === next.id);
+        checkRevision(at >= 0 ? db.instructorRequests[at] : undefined);
+        const ledgers = db.instructorRequestReservationLedgers ||= {};
+        const entries = ledgers[String(termId)] || [];
+        const week = db.schedules.filter(item => Number(item.AdTermId) === termId);
+        const allocated = proposals ? allocateRequestReservations(entries, next, proposals, week) : retainRequestReservations(entries, next);
+        if (proposals) checkLoad(week, allocated);
+        ledgers[String(termId)] = allocated;
+        if (at >= 0) db.instructorRequests[at] = next; else db.instructorRequests.unshift(next);
+        saveDatabase();
+      });
+    }
     announceInstructorRequestSaved(next);
     return next;
   },
@@ -5168,6 +5354,16 @@ export const Repository = {
           if (index < plan.updates.length) updated.push({ ...row, ...plan.updates[index].fields, rev: Number(row.rev || 0) + 1 });
         });
         const created: FSchedule[] = plan.creates.map((row, index) => ({ ...row, id: firstId + index, rev: 1 }));
+        const termId = Number(plan.termId || current.AdTermId);
+        const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(termId));
+        const ledger = await transaction.get(ledgerRef);
+        const entries: RequestReservation[] = ledger.data()?.entries || [];
+        [...created, ...updated].forEach(row => assertRequestReservationWrite(row, entries, current.requestId));
+        for (const item of plan.deletes) {
+          const row = docs.find(doc => Number(doc.data()?.id) === item.id)?.data() as FSchedule;
+          if (row) assertRequestReservationWrite(row, entries.filter(entry => entry.offeringRowIds.includes(item.id)), current.requestId);
+        }
+        transaction.set(ledgerRef, { entries, serial: Number(ledger.data()?.serial || 0) + 1 });
         updated.forEach((row, index) => transaction.set(updateRefs[index], row));
         deleteRefs.forEach(ref => transaction.delete(ref));
         created.forEach(row => transaction.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`), row));
@@ -5193,6 +5389,10 @@ export const Repository = {
       if (!row) throw new Error("الجدول غير موجود");
       if (Number(row.rev || 0) !== item.expectedRev) throw new ScheduleRevisionConflict(row);
     }
+    const held = db.instructorRequestReservationLedgers?.[String(plan.termId || current.AdTermId)] || [];
+    plan.creates.forEach(row => assertRequestReservationWrite(row, held, current.requestId));
+    plan.updates.forEach(item => assertRequestReservationWrite({ ...db.schedules.find(row => row.id === item.id), ...item.fields }, held, current.requestId));
+    plan.deletes.forEach(item => { const row = db.schedules.find(row => row.id === item.id); if (row) assertRequestReservationWrite(row, held.filter(entry => entry.offeringRowIds.includes(item.id)), current.requestId); });
     const updated: FSchedule[] = [];
     for (const item of plan.updates) {
       const idx = db.schedules.findIndex(r => r.id === item.id);
@@ -6940,10 +7140,16 @@ export const Repository = {
       let cursor=0;
       const normalized = normalizedInput.map(row=>currentIds.has(row.id)&&row.id>0 ? row : ({...row,id:firstNewId+cursor++}));
       if (current.length + normalized.length > 480) throw new Error("حجم الجدول كبير جداً للاستبدال الآمن دفعة واحدة");
-      const batch=firestoreDb.batch();
+      await firestoreDb.runTransaction(async batch => {
+      const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(termId));
+      const ledger = await batch.get(ledgerRef);
+      const entries: RequestReservation[] = ledger.data()?.entries || [];
+      current.forEach(row => assertRequestReservationWrite(row, entries.filter(entry => entry.offeringRowIds.includes(Number(row.id)))));
+      normalized.forEach(row => assertRequestReservationWrite(row, entries));
       current.forEach(row=>batch.delete(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`)));
       normalized.forEach(row=>batch.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`),row));
-      await batch.commit();
+      batch.set(ledgerRef, { entries, serial: Number(ledger.data()?.serial || 0) + 1 });
+      });
       await markRegistrationRunsStale(termId);
       return normalized;
     }
@@ -6953,6 +7159,9 @@ export const Repository = {
     const currentIds=new Set(current.map(row=>row.id));
     let nextId=db.schedules.length?Math.max(...db.schedules.map(row=>row.id))+1:1;
     const normalized=normalizedInput.map(row=>currentIds.has(row.id)&&row.id>0?row:{...row,id:nextId++});
+    const held = db.instructorRequestReservationLedgers?.[String(termId)] || [];
+    current.forEach(row => assertRequestReservationWrite(row, held.filter(entry => entry.offeringRowIds.includes(Number(row.id)))));
+    normalized.forEach(row => assertRequestReservationWrite(row, held));
     const idsToRemove=new Set(current.map(row=>row.id));
     db.schedules=db.schedules.filter(row=>!idsToRemove.has(row.id));
     db.schedules.push(...normalized.map(row=>({...row})));

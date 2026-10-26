@@ -38,10 +38,11 @@ import { AR, countOf } from "./arabicCount";
 import {
   DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding,
   LONG_LECTURE_MINUTES, SHORT_LECTURE_MINUTES, patternsForHours, requiredGapForDays, reviewSchedule, toMinutes,
-  type DayKey, type RegulationFinding,
+  weeklyLectureMinutes, maxWeeklyMinutesFor, effectiveCourseHours, type DayKey, type RegulationFinding,
 } from "./scheduleRegulations";
 import { findConflicts, minutesToTime } from "./scheduleIntelligence";
-import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
+import { rowsForRequestSlots } from "./instructorRequestWeek";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_START, isValidClock } from "./scheduleTime";
 import { roomIdentityKey } from "./locationRegistry";
 import { habitualBlockMinutes, historicalOrigin, type CourseNature } from "./courseNature";
 
@@ -122,6 +123,8 @@ export interface RequestVerdict {
 export interface RequestedRow {
   /** الصفُّ الأصلي حين يكون تعديلاً أو حذفاً، و`null` حين يكون إضافة. */
   rowId: number | null;
+  slots?: Array<{ day: DayKey; start: string; end: string }>;
+  relatedRowIds?: number[];
   /**
    * هويّةٌ مؤقّتةٌ للإضافة، سالبةٌ وفريدةٌ داخل الحزمة الواحدة.
    *
@@ -142,6 +145,9 @@ export interface RequestedRow {
 }
 
 export interface VerdictContext {
+  roomEligible?: (key: string, day: DayKey, start: string, end: string) => boolean;
+  roomSlotsEligible?: (key: string, slots: Array<{ day: DayKey; start: string; end: string }>) => boolean;
+  disableAlternatives?: boolean;
   /** الأستاذ صاحب الطلب. */
   instructorId: number;
   /** كلُّ صفوف الفصل — للقسم وما حوله، فالقاعة تُشغل من كلِّ مكان. */
@@ -255,7 +261,7 @@ export function rowFromRequest(request: RequestedRow, base: Partial<FSchedule>):
  */
 function roomFree(roomKey: string, days: DayKey[], start: string, end: string, rows: FSchedule[], ignoreRowId: number | null, aliases?: Record<string, string>): boolean {
   const alias = aliases?.[roomKey];
-  const gap = requiredGapForDays(days);
+  const gap = 0; // Turnaround is advisory in the central save policy, not physical occupancy.
   const from = toMinutes(start), to = toMinutes(end);
   for (const row of rows) {
     if (ignoreRowId != null && Number(row.id) === ignoreRowId) continue;
@@ -302,9 +308,9 @@ function regulationLadder(days: DayKey[]): string[] {
 
 function nearestFree(request: RequestedRow, context: VerdictContext, roomKeys: string[], week: FSchedule[], identity: number): RequestSlot[] {
   const learned = (context.startLadder || []).filter(Boolean);
-  /* بلا سُلّمٍ معروفٍ للقسم لا يُقترح شيء. وحين يُعرف، يُكمَّل بشبكة اللائحة
-     فلا ينفد البديلُ لأن بداياتِ القسم المعتادة امتلأت كلُّها. */
-  if (!learned.length || !request.days.length) return [];
+  /* يُقدَّم سلّم القسم وتكمّله شبكة اللائحة. كل بديل يمر بالفحص الدقيق
+     لكل يوم، فلا تُستعمل أطول مدة لرفض اليوم القصير خطأً. */
+  if (!request.days.length || context.disableAlternatives) return [];
   const days = [...request.days];
   const dayStart = context.dayStart ?? SCHEDULE_DAY_START, dayEnd = context.dayEnd ?? SCHEDULE_DAY_END;
   const current = toMinutes(request.start);
@@ -318,11 +324,16 @@ function nearestFree(request: RequestedRow, context: VerdictContext, roomKeys: s
   for (const start of ladder) {
     const minutes = toMinutes(start);
     if (minutes === current || minutes < dayStart || minutes >= dayEnd) continue;
-    const end = endForRequest(days, start, request.blockMinutes, dayEnd);
+    if (minutes + (request.slots?.length ? Math.max(...request.slots.map(slot => toMinutes(slot.end) - toMinutes(slot.start))) : requestMinutes(days, request.blockMinutes)) > dayEnd) continue;
+    const end = request.slots?.length ? minutesToTime(minutes + Math.max(...request.slots.map(slot => toMinutes(slot.end) - toMinutes(slot.start)))) : endForRequest(days, start, request.blockMinutes, dayEnd);
     if (!end || toMinutes(end) > dayEnd) continue;
-    if (!instructorFree(context.instructorId, days, start, end, week, identity)) continue;
-    if (roomKeys.length && !roomKeys.some(roomKey => roomFree(roomKey, days, start, end, week, identity, context.roomAliases))) continue;
-    if (cohortClash(request.AdCourseId, days, start, end, week, context.cohortPairs, identity)) continue;
+    const movedSlots = request.slots?.map(slot => ({ ...slot, start: minutesToTime(toMinutes(slot.start) + minutes - current), end: minutesToTime(toMinutes(slot.end) + minutes - current) }));
+    const movedRows = rowsForRequestSlots(movedSlots || days.map(day => ({ day, start, end })),
+      context.instructorRowsAfter.find(row => Number(row.id) === identity) || { AdInstructorId: context.instructorId }, identity);
+    const ids = new Set(rowsForRequestSlots(request.slots || days.map(day => ({ day, start: request.start, end: endForRequest([day], request.start, request.blockMinutes) })), {}, identity).map(row => row.id));
+    const checked = judgeRequest({ ...request, start, slots: movedSlots }, { ...context, disableAlternatives: true,
+      instructorRowsAfter: [...context.instructorRowsAfter.filter(row => !ids.has(row.id)), ...movedRows] });
+    if (!checked.sendable || checked.reasons.some(reason => reason.source === "cohort")) continue;
     found.push({ day: days[0], days, dayLabel: days.map(dayLabel).join(" · "), start, end, distance: Math.abs(minutes - current) });
   }
 
@@ -371,7 +382,7 @@ export function weeklyLoadOf(rows: FSchedule[], courses: Map<number, AdCourse>):
     if (seen.has(key)) continue;
     seen.add(key);
     const course = courses.get(courseId);
-    hours += Number(course?.CourseHours || course?.CourseCredit || 0);
+    hours += effectiveCourseHours(course);
   }
   return hours;
 }
@@ -402,9 +413,15 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const ownBlock = blockMinutesOfRow(ownRow) ?? (inbound.days.length === 1 && inbound.action === "change" ? singleDayMinutesOfRow(ownRow) : undefined);
   const habitBlock = inbound.days.length === 1 && inbound.action !== "delete" && inbound.action !== "keep"
     ? habitualBlockMinutes(context.nature?.get(Number(inbound.AdCourseId)), context.termId) : undefined;
-  const request: RequestedRow = { ...inbound, blockMinutes: ownBlock ?? habitBlock };
+  const hours = effectiveCourseHours(context.courses.get(inbound.AdCourseId));
+  const approved = patternsForHours(hours).find(pattern => pattern.days.length === inbound.days.length && pattern.days.every(day => inbound.days.includes(day)));
+  const implicit = !inbound.slots?.length && inbound.days.length > 1 && approved?.minutesPerDay.some((length, at) => length !== expectedMinutesForDay(approved.days[at]))
+    ? inbound.days.map(day => ({ day, start: inbound.start, end: minutesToTime(toMinutes(inbound.start) + approved!.minutesPerDay[approved!.days.indexOf(day)]) })) : undefined;
+  const request: RequestedRow = { ...inbound, slots: inbound.slots || implicit, blockMinutes: ownBlock ?? habitBlock };
   const dayStart = context.dayStart ?? SCHEDULE_DAY_START, dayEnd = context.dayEnd ?? SCHEDULE_DAY_END;
-  const computedEnd = endForRequest(request.days, request.start, request.blockMinutes, dayEnd);
+  const slots = request.slots?.length ? request.slots : request.days.map(day =>
+    ({ day, start: request.start, end: endForRequest([day], request.start, request.days.length === 1 ? request.blockMinutes : undefined, dayEnd) }));
+  const computedEnd = request.slots?.length ? slots[0].end : endForRequest(request.days, request.start, request.blockMinutes, dayEnd);
   /* هويّةُ الصفّ: معرّفُه إن كان قائماً، وإلا هويّتُه المؤقّتة. تُستعمل لتخطّي
      الصفِّ نفسِه في كل فحص، فلا يتعارض مع ذاته حين يُنقل. */
   const identity = request.rowId ?? request.tempId ?? -1;
@@ -420,7 +437,15 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
    * فتُستبدل صفوفُ هذا الأستاذ بصفوفه بعد الطلب، ويبقى ما لغيره كما هو —
    * لأن القاعةَ تُشغل من كل مكان، والزميلُ لم يطلب شيئاً.
    */
-  const afterRows = context.instructorRowsAfter || [];
+  const currentIds = new Set(rowsForRequestSlots(slots, {}, identity).map(row => row.id));
+  for (const id of request.relatedRowIds || []) currentIds.add(id);
+  const suppliedAfter = context.instructorRowsAfter || [];
+  const base = suppliedAfter.find(row => Number(row.id) === identity) || ownRow || {
+    AdInstructorId: context.instructorId, AdTermId: context.termId || context.allRows[0]?.AdTermId,
+    AdCollegeId: context.allRows[0]?.AdCollegeId, AdSectionId: context.allRows[0]?.AdSectionId,
+  };
+  const afterRows = request.action === "change" || request.action === "add"
+    ? [...suppliedAfter.filter(row => !currentIds.has(Number(row.id))), ...rowsForRequestSlots(slots, { ...base, AdCourseId: request.AdCourseId }, identity)] : suppliedAfter;
   const afterIds = new Set(afterRows.map(row => Number(row.id)));
   const week: FSchedule[] = [
     ...context.allRows.filter(row =>
@@ -459,6 +484,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       && DAY_KEYS.filter(day => (ownRow as any)[day]).sort().join() === [...request.days].sort().join()
       && toMinutes(ownRow.fstarttime) === toMinutes(request.start)) {
     const stay = verdictOf();
+    stay.computedEnd = ownRow.fendtime;
     stay.headline = "هذا موعدك الحالي كما هو";
     const heldHours = Number((context.courses.get(request.AdCourseId) as any)?.CourseHours || (context.courses.get(request.AdCourseId) as any)?.CourseCredit || 0);
     const heldMinutes = DAY_KEYS.filter(day => (ownRow as any)[day]).length * (toMinutes(ownRow.fendtime) - toMinutes(ownRow.fstarttime));
@@ -472,7 +498,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
         .filter(days => days.length > 1 && days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= wanted && !mixedWithoutApproval(days))
         .map(days => ({ days, label: `المعتاد: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
       const offered = usualShapes.length ? usualShapes : patternsForHours(heldHours)
-        .filter(pattern => pattern.days.length > 1 && pattern.days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= wanted)
+        .filter(pattern => pattern.days.length > 1 && pattern.weeklyMinutes >= wanted)
         .map(pattern => ({ days: [...pattern.days] as DayKey[], label: pattern.label }));
       stay.shapes = offered.slice(0, 3);
       stay.advice = `موعدك الحالي أقصر من ساعات المقرّر (${countOf(heldHours, { one: "ساعة", two: "ساعتان", few: "ساعات", many: "ساعةً" })}). يبقى كما هو إن لم تغيّره${stay.shapes.length ? "، أو اختر أحد هذه" : ""}.`;
@@ -486,7 +512,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   }
   /* الصيغةُ تُتحقَّق قبل القياس: `toMinutes` تقرأ ما ليس وقتاً صفراً، فـ«صباحاً»
      كانت تصير منتصفَ الليل وتمرّ بقيّةَ الفحوص كأنها موعدٌ صحيح. */
-  if (!/^\d{1,2}:\d{2}$/.test(String(request.start || ""))) {
+  if (!isValidClock(request.start) || slots.some(slot => !isValidClock(slot.start) || !isValidClock(slot.end))) {
     reasons.push({ source: "shape", text: "اكتب وقت البداية بصيغة الساعة والدقيقة.", blocking: true });
     return verdictOf();
   }
@@ -497,7 +523,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   /* واليومُ الدراسيُّ له أوّلٌ كما له آخِر. الفحصُ كان يحرس آخِرَه وحده، فموعدٌ
      السابعةَ صباحاً يمرّ سليماً — ثم لا يجد البحثُ عن البدائل موضعاً له، لأن
      سُلّمَ البدايات يبدأ من الثامنة. حَدٌّ واحدٌ يُحرَس من طرفيه. */
-  if (toMinutes(request.start) < dayStart) {
+  if (slots.some(slot => toMinutes(slot.start) < dayStart)) {
     reasons.push({ source: "shape", text: "تبدأ المحاضرة قبل بداية اليوم الدراسي.", blocking: true });
     return verdictOf();
   }
@@ -506,21 +532,31 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
      يفحصه بعدها — فمحاضرةٌ تبدأ السابعةَ والنصف مساءً يومَ اثنين تنتهي على
      الورق الثامنةَ تماماً وتبدو سليمة. الطولُ غيرُ المقصوص هو الذي يُسأل. */
   const uncut = toMinutes(request.start) + requestMinutes(request.days, request.blockMinutes);
-  if (uncut > dayEnd) {
+  if (request.slots?.length ? slots.some(slot => toMinutes(slot.end) > dayEnd || toMinutes(slot.end) <= toMinutes(slot.start)) : uncut > dayEnd) {
     reasons.push({ source: "shape", text: "تتجاوز المحاضرة نهاية اليوم الدراسي.", blocking: true });
     return verdictOf();
   }
 
   /* ساعاتُ المقرّر تُؤخذ من المقرّر نفسه: أيامٌ لا تكفي لإتمامها ليست طلباً صالحاً. */
   const hoursCourse = context.courses.get(request.AdCourseId);
-  const courseHours = Number(hoursCourse?.CourseHours || hoursCourse?.CourseCredit || 0);
+  const courseHours = effectiveCourseHours(hoursCourse);
   if (courseHours > 0 && (request.action === "change" || request.action === "add")) {
     /* الإضافةُ تُحسب مع ما للمقرّر نفسه عند الأستاذ نفسه من صفوف، فإتمامُ مقرّرٍ بصفّين لا يُمنع. */
     const alreadyHeld = request.action === "add"
       ? context.allRows.filter(row => Number(row.AdCourseId) === Number(request.AdCourseId) && Number(row.AdInstructorId) === Number(context.instructorId))
           .reduce((sum, row) => sum + DAY_KEYS.filter(day => (row as any)[day]).length * (toMinutes(row.fendtime) - toMinutes(row.fstarttime)), 0)
       : 0;
-    const weekly = alreadyHeld + (request.days.length === 1 ? requestMinutes(request.days, request.blockMinutes) : request.days.reduce((sum, day) => sum + requestMinutes([day]), 0));
+    const legacyWeekly = alreadyHeld + (request.days.length === 1 ? requestMinutes(request.days, request.blockMinutes) : request.days.reduce((sum, day) => sum + requestMinutes([day]), 0));
+    const targetSection = afterRows.find(row => Number(row.id) === identity)?.SCode || "";
+    const projected = afterRows.filter(row => Number(row.AdCourseId) === Number(request.AdCourseId) && String(row.SCode || "") === String(targetSection));
+    const weekly = request.slots?.length
+      ? projected.reduce((sum, row) => sum + weeklyLectureMinutes(row, courseHours), 0) : legacyWeekly;
+    const knownNature = context.nature?.get(request.AdCourseId);
+    if (request.slots?.length && !(knownNature && knownNature.confidence !== "low" && knownNature.meetingMinutes)
+      && weekly > maxWeeklyMinutesFor(courseHours)) {
+      reasons.push({ source: "shape", code: "hours", blocking: true, text: "مجموع مواعيد المقرر يتجاوز ساعاته الأسبوعية المعتمدة. راجع توزيع المواعيد." });
+      return verdictOf();
+    }
     /* لا يُطلب ما يقلّ عن ساعات المقرّر، ولا عمّا كان عليه الصفّ نفسُه: صفوفٌ قائمةٌ
        بنمطٍ غير مثالي لا تُمنع من النقل ما دام مجموعُها لم ينقص. */
     const original = request.rowId == null ? undefined : context.allRows.find(row => Number(row.id) === Number(request.rowId));
@@ -546,7 +582,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
         .filter(days => days.length > 1 && days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold && !mixedWithoutApproval(days))
         .map(days => ({ days, label: `المعتاد: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
       const regulationShapes = patternsForHours(courseHours)
-        .filter(pattern => pattern.days.length > 1 && pattern.days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold)
+        .filter(pattern => pattern.days.length > 1 && pattern.weeklyMinutes >= threshold)
         .map(pattern => ({ days: [...pattern.days] as DayKey[], label: pattern.label }));
       /* ويوم المقرّر الواحد يكفي وحدَه إن اتّسع للبداية المختارة؛ وإلا (تتجاوز نهايتُه اليوم الدراسي) تبقى معه أنماطُ اللائحة بديلاً قابلاً للتطبيق. */
       const keepFits = keepOneDay.length > 0 && toMinutes(request.start) + Number(blockLength || 0) <= SCHEDULE_DAY_END;
@@ -589,7 +625,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   /* ملاحظاتُ اللائحة من درجة «note» (م.7/2) تبقى تنبيهاً في شاشات القسم
      ولا تُدخل الطلبَ في «يحتاج استثناءً»: هي تنبيهٌ لا قيد. */
   const findings = reviewSchedule({
-    rows: context.instructorRowsAfter,
+    rows: afterRows,
     courses: context.courses,
     instructors: context.instructors,
     previousRows: context.previousRows,
@@ -599,7 +635,8 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   /* الملاحظةُ تُنسب إلى الصفّ المطلوب وحدَه، لا إلى كل صفٍّ يشاركه رقمَ
      المقرّر: أستاذٌ يدرّس شعبتين من مقرّرٍ واحد كانت ملاحظةٌ تخصّ شعبةً لم
      يمسّها تُعلَّق على الشعبة التي عدّلها، فيُطلب منه استثناءٌ عن غير ذنب. */
-  const touched = new Set<number>([identity]);
+  const candidateRows = rowsForRequestSlots(slots, afterRows.find(row => Number(row.id) === identity) || { AdInstructorId: context.instructorId }, identity);
+  const touched = new Set<number>([...candidateRows.map(row => row.id), ...(request.relatedRowIds || [])]);
 
   for (const finding of findings as RegulationFinding[]) {
     /* ملاحظةٌ لا تمسّ هذا الصفَّ ليست حكماً عليه: جدولُ الأستاذ يُراجَع كاملاً
@@ -616,8 +653,8 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
 
   /* ── الأستاذ نفسه ─────────────────────────────────────────────────────── */
   const clashes = findConflicts(
-    [rowFromRequest(request, afterRows.find(row => Number(row.id) === identity) || { AdInstructorId: context.instructorId })],
-    week,
+    candidateRows,
+    week.filter(row => !touched.has(row.id)),
     { cohortPairs: context.cohortPairs, placeholderInstructorIds: context.placeholderInstructorIds },
   );
   if (clashes.some(clash => clash.reasons?.includes("instructor") || clash.type === "instructor")) {
@@ -641,10 +678,10 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   }
 
   /* ── طلبةٌ مشتركون ────────────────────────────────────────────────────── */
-  if (cohortClash(request.AdCourseId, request.days, request.start, computedEnd, week, context.cohortPairs, identity)) {
+  if (slots.some(slot => cohortClash(request.AdCourseId, [slot.day], slot.start, slot.end, week.filter(row => !touched.has(row.id)), context.cohortPairs, identity))) {
     /* لا يُسمّى المقرّرُ الآخر: الأستاذ لا يحتاج اسمه ليغيّر وقته، وتسميتُه
        تكشف جدولَ قسمٍ آخر لمن لا شأن له به. */
-    reasons.push({ source: "cohort", text: "يتقاطع هذا الوقت مع مقرّرٍ يشترك فيه طلبتك.", blocking: true });
+    reasons.push({ source: "cohort", text: "يتقاطع هذا الوقت مع مقرّرٍ يشترك فيه طلبتك؛ يحتاج مراجعة القسم.", blocking: false });
   }
 
   /* ── النصاب ───────────────────────────────────────────────────────────── */
@@ -666,7 +703,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
 
   /* ── القاعة ───────────────────────────────────────────────────────────── */
   const roomKeys = (context.knownRoomKeys || []).filter(Boolean);
-  const candidates = roomKeys.filter(key => roomFree(key, request.days, request.start, computedEnd, week, identity, context.roomAliases));
+  const candidates = roomKeys.filter(key => (!context.roomSlotsEligible || context.roomSlotsEligible(key, slots)) && slots.every(slot => (!context.roomEligible || context.roomEligible(key, slot.day, slot.start, slot.end)) && roomFree(key, [slot.day], slot.start, slot.end, week.filter(row => !touched.has(row.id)), identity, context.roomAliases)));
   const roomAvailable = roomKeys.length ? candidates.length > 0 : null;
   if (roomAvailable === false) {
     reasons.push({ source: "room", text: "لا تتوفّر قاعةٌ في هذا الوقت.", blocking: true });
@@ -677,7 +714,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   verdict.roomCandidates = candidates;
   /* البديلُ ينقل الموعدَ بأيامه نفسِها، فلا يعالج خلطاً ممنوعاً: لا يُعرض وقتٌ سيُمنع هو الآخر، ويكفي رسمُ النمط المعتمد. */
   const mixedBlocked = reasons.some(reason => reason.blocking && reason.source === "shape" && /لا يُخلط/.test(reason.text));
-  verdict.nearestTimes = (verdict.sendable && !context.offerAlternatives) || mixedBlocked ? [] : nearestFree(request, context, roomKeys, week, identity);
+  verdict.nearestTimes = context.disableAlternatives ? [] : (verdict.sendable && !context.offerAlternatives) || mixedBlocked ? [] : nearestFree({ ...request, slots }, context, roomKeys, week, identity);
   /* وبدلَه أزرارُ الأنماط المعتمدة لساعات المقرّر (متعدّدةُ الأيام، فاليومُ الواحد الممتدّ لا يُعبَّر عنه بالأيام وحدها). */
   if (mixedBlocked && courseHours > 0 && !(verdict.shapes || []).length) {
     verdict.shapes = patternsForHours(courseHours).filter(pattern => pattern.days.length > 1).slice(0, 3)
