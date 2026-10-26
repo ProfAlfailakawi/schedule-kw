@@ -24,7 +24,7 @@ import type { LucideIcon } from "lucide-react";
 import { safeStorage } from "../utils/safeStorage";
 import { Notice, PrimaryButton, SecondaryButton } from "./ui";
 import { SectionGapBadge, SectionGapPanel, showQuickCompareBadge, useSectionGap, type GapKind } from "./SectionGapNote";
-import type { GapItem } from "../utils/sectionGap";
+import { reconcilePlanAdjustments, type GapItem } from "../utils/sectionGap";
 import QuickPlanSheet from "./QuickPlanSheet";
 import {
   APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, additionsAwaitingHead, awaitsHeadSignature, blockingSummaryPhrase, deadlinePassed,
@@ -545,7 +545,9 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   };
   const ITEM_ICON: Record<string, LucideIcon> = { course: Landmark, schedule: CalendarClock, location: DoorOpen, room: DoorOpen };
   const ITEM_ACTION: Record<string, string> = { course: "افتح المقررات", schedule: "اذهب للموعد", location: "اذهب للموعد", room: "اذهب للموعد" };
-  const planAdjustments = [...gap.planItems, ...gap.planSurplusItems];
+  /* Use one decision per course. While the report history is loading,
+     do not flash provisional recommendations from incomplete data. */
+  const planAdjustments = gap.ready ? reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems) : [];
   const gapList = gapOpen === "plan" ? planAdjustments : gapOpen === "students" ? gap.studentItems : [];
   const gapPanel = gapOpen && gapList.length ? <SectionGapPanel items={gapList} kind={gapOpen} onClose={() => setGapOpen(null)} staffing={gap.staffing} freeSlots={gap.freeSlots} /> : null;
   const readinessPanel = state.dataReadiness ? (
