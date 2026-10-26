@@ -68,6 +68,26 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   check(Boolean(found) && found!.article === "م.7/5" && found!.approvalEffect === "review", `م.7/5 كما كانت: «${found?.article}»`);
 }
 
+/* ── م.7/8: فحص الاعتماد يطابق مكتبة الأنماط ذات فترات 50/80 دقيقة ───────── */
+{
+  const theoretical = (id: number, hours: number) => ({ ...course(id, hours), CourseTeachingMode: "theoretical" } as AdCourse);
+  const threeHour = theoretical(80, 3);
+  const valid80Pattern = row(80, "501", ["mon", "wed"], "11:00", "12:20");
+  const threeHourFinding = byRule(review([valid80Pattern], [threeHour]), "theoretical-pattern");
+  check(!threeHourFinding, "٣ ساعات: 80 دقيقة الاثنين والأربعاء مطابق لمكتبة الأنماط (160 أسبوعياً)");
+
+  const valid50Pattern = row(81, "501", ["sun", "tue", "thu"], "08:00", "08:50");
+  check(!byRule(review([valid50Pattern], [theoretical(81, 3)]), "theoretical-pattern"), "٣ ساعات: 50 دقيقة الأحد والثلاثاء والخميس مطابق");
+  const invalidThree = row(82, "501", ["mon", "wed"], "11:00", "12:10");
+  check(Boolean(byRule(review([invalidThree], [theoretical(82, 3)]), "theoretical-pattern")), "٣ ساعات: 70 دقيقة الاثنين والأربعاء لا تطابق المكتبة");
+
+  const validFourPattern = [row(83, "501", ["mon", "wed"], "08:00", "09:20"), row(83, "501", ["thu"], "08:00", "08:50")];
+  check(!byRule(review(validFourPattern, [theoretical(83, 4)]), "theoretical-pattern"), "٤ ساعات: 80/80/50 مطابق");
+  const invalidFour = row(84, "501", ["mon", "wed"], "16:00", "17:50");
+  const fourHourFinding = byRule(review([invalidFour], [theoretical(84, 4)]), "theoretical-pattern");
+  check(Boolean(fourHourFinding) && fourHourFinding!.detail.includes("الثلاثاء") && fourHourFinding!.detail.includes("دقيقة"), "٤ ساعات: النمط المخالف يعرض مدد المكتبة الصحيحة");
+}
+
 /* ── لا شيءَ من اللائحة يمنع، والحلقة تقرأ الجديد ─────────────────────────── */
 {
   const courses = Array.from({ length: 12 }, (_, i) => course(200 + i, 3));
