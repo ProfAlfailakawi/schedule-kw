@@ -442,6 +442,13 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     return entity;
   };
 
+  const findingExplanation = (finding: ReviewFindingGroup) => {
+    if (finding.rule === "consecutive-long-lecture" || finding.rule === "consecutive-one-hour") {
+      return "تجاوزت مواعيد العضو الحد المسموح به من الشعب المتتالية في اليوم نفسه. راجع الشعب والمواعيد أدناه.";
+    }
+    return finding.detail;
+  };
+
   const printReview = React.useCallback(() => {
     if (typeof window === "undefined") return;
     if (showPwaPrintHelp()) return;
@@ -652,13 +659,9 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                       {finding.data && finding.groupedCount === 1 ? <PeriodBalanceInfographic {...finding.data} /> : (
                         <details className="review-rule-explainer">
                           <summary><Info aria-hidden="true" /> شرح الملاحظة <ChevronDown aria-hidden="true" /></summary>
-                          <p><strong>{finding.article}</strong> · {markVisitingNames(finding.detail, finding.rowIds)}</p>
+                          <p>{markVisitingNames(findingExplanation(finding), finding.rowIds)}</p>
                         </details>
                       )}
-                      <div className="review-finding-meta">
-                        <span>{finding.article}</span>
-                        <span>{findingStatus(finding)}</span>
-                      </div>
                   </div>
                   {finding.rowIds.length ? (
                     <>
