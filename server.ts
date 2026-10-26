@@ -1,5 +1,5 @@
 import { roomSuitability } from "./src/utils/roomSuitability";
-import { eligibleSuggestionEditId } from "./src/utils/slotSuggestionScope";
+import { eligibleSuggestionEditId, instructorRowsForSuggestion } from "./src/utils/slotSuggestionScope";
 import { appendRequestThread } from "./src/utils/instructorRequestThread";
 import { historicalLectureMinutes } from "./src/utils/advancedIntelligence";
 import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "./src/utils/instructorRequestWeek";
@@ -8098,13 +8098,14 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   if (!dayKeys.length) { res.status(400).json({ error: "اختر يوماً واحداً على الأقل" }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
 
-  const [universe, mobility, registry, barterRequests, pinnedRooms, course] = await Promise.all([
+  const [universe, mobility, registry, barterRequests, pinnedRooms, course, instructor] = await Promise.all([
     Repository.getSchedulesByScope({ termId }),
     Repository.getCampusMobilityProfile(collegeId),
     readLocationRegistry(),
     Repository.getHallBarterRequests(termId),
     Repository.getPinnedDepartmentRooms(collegeId, sectionId),
     Repository.getCourseById(Number(body.AdCourseId||0)),
+    instructorId ? Repository.getInstructorById(instructorId) : Promise.resolve(null),
   ]);
   let owner = "";
   if (body.instructorRequestId) {
@@ -8147,7 +8148,9 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
     },universe);
     if(hoursIssue){res.json({slots:[],note:hoursIssue});return;}
   }
-  const instructorRows = instructorId ? live.filter(row => Number(row.AdInstructorId) === instructorId) : [];
+  // A faculty placeholder is not a person: the save/conflict engine already exempts it.
+  // Keep genuine instructors and physical hall occupancy fully enforced.
+  const instructorRows = instructorRowsForSuggestion(live, instructorId, instructor);
 
   const candidates: any[] = [];
   const starts: number[] = [];
