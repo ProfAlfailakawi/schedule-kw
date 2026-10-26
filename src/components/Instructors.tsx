@@ -316,8 +316,8 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
               </Field>
               <Field label="الصفة" hint="تصنيف يدوي، لا يغيّر المواعيد السابقة.">
                 <div className="status-choice" role="radiogroup" aria-label="الصفة الأكاديمية">
-                  <button type="button" role="radio" aria-checked={!category} className={!category ? "on" : ""} onClick={() => setCategory("")}>عضو تدريس</button>
-                  <button type="button" role="radio" aria-checked={category === "ta"} className={category === "ta" ? "on" : ""} onClick={() => setCategory("ta")}><GraduationCap aria-hidden="true" /> هيئة تدريب · TA</button>
+                  <button type="button" role="radio" data-guide-ignore="تعيين صفة الأستاذ من داخل نموذج تحرير بطاقته فقط" aria-checked={!category} className={!category ? "on" : ""} onClick={() => setCategory("")}>عضو تدريس</button>
+                  <button type="button" role="radio" data-guide-ignore="تعيين صفة الأستاذ من داخل نموذج تحرير بطاقته فقط" aria-checked={category === "ta"} className={category === "ta" ? "on" : ""} onClick={() => setCategory("ta")}><GraduationCap aria-hidden="true" /> هيئة تدريب · TA</button>
                 </div>
               </Field>
               <Field label="الحالة">
@@ -444,7 +444,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
                 <UserRound />
               </div>
               <span className="surface-kicker">تفاصيل الأستاذ</span>
-              <h2>{selected.AdInstructorName}{selected.AdInstructorCategory === "ta" ? <span className="staff-badge ta-category-badge">TA · هيئة تدريب</span> : null}{delegateIds.has(selected.AdInstructorId) ? <VisitingBadge compact /> : null}</h2>
+              <h2>{selected.AdInstructorName}{delegateIds.has(selected.AdInstructorId) ? <VisitingBadge compact /> : null}{selected.AdInstructorCategory === "ta" ? <span className="staff-badge ta-category-badge">TA · هيئة تدريب</span> : null}</h2>
               <p>يظهر في الجدول والتقارير.</p>
               <div className="inspector-facts inspector-facts-pairs">
                 <article>

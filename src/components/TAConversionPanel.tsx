@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ArrowLeftRight, CalendarDays, Check, CheckCircle2, History, RotateCcw, ShieldCheck, UsersRound, X } from "lucide-react";
 import { PrimaryButton, SecondaryButton, visualConfirm, useDialogDismiss } from "./ui";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
+import { AR, countOf, nounFor } from "../utils/arabicCount";
 import "./ta-conversion.css";
 
 type Summary = { id: number; name: string; appointments: number; sections: number };
@@ -52,7 +53,7 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
     if (!preview?.affected || !preview.allowed || busy) return;
     const accepted = await visualConfirm({
       title: "تحويل هيئة التدريب",
-      message: "سيُستبدل اسم الأستاذ فقط في " + preview.affected + " موعداً من هذا الفصل. المقررات والشعب والقاعات والأوقات لا تتغيّر.",
+      message: "سيُستبدل اسم الأستاذ فقط في " + countOf(preview.affected, AR.appointment) + " من هذا الفصل. المقررات والشعب والقاعات والأوقات لا تتغيّر.",
       confirmLabel: "تأكيد التحويل",
     });
     if (!accepted) return;
@@ -105,7 +106,7 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
               <small>TA <ArrowLeftRight aria-hidden="true" /> هيئة تدريسية</small>
             </div>
           </div>
-          <button type="button" className="drawer-close" onClick={onClose} disabled={busy} aria-label="إغلاق"><X /></button>
+          <button type="button" data-guide-ignore="إغلاق معاينة تحويل هيئة التدريب دون تغيير" className="drawer-close" onClick={onClose} disabled={busy} aria-label="إغلاق"><X /></button>
         </header>
         <div className="ta-conversion-content">
           {!preview && !error ? <p className="ta-conversion-loading">جارٍ قراءة أسماء هيئة التدريب…</p> : null}
@@ -114,8 +115,8 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
               <div className="ta-conversion-scope"><CalendarDays size={15} aria-hidden="true" /><span>{preview.termName}</span><span className="ta-conversion-dot">·</span><span>{preview.sectionName}</span></div>
               <div className="ta-conversion-numbers" role="group" aria-label="ملخص التحويل">
                 <div><UsersRound aria-hidden="true" /><strong>{preview.people.length}</strong><small>أعضاء TA</small></div>
-                <div><CalendarDays aria-hidden="true" /><strong>{preview.affected}</strong><small>مواعيد</small></div>
-                <div><CheckCircle2 aria-hidden="true" /><strong>{preview.sections}</strong><small>شعب</small></div>
+                <div><CalendarDays aria-hidden="true" /><strong>{preview.affected}</strong><small>{nounFor(preview.affected, AR.appointment)}</small></div>
+                <div><CheckCircle2 aria-hidden="true" /><strong>{preview.sections}</strong><small>{nounFor(preview.sections, AR.section)}</small></div>
               </div>
               {preview.people.length ? (
                 <div className="ta-conversion-people">
@@ -123,7 +124,7 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
                     <div className="ta-conversion-person" key={person.id}>
                       <span className="ta-conversion-avatar"><UsersRound aria-hidden="true" /></span>
                       <strong>{person.name}</strong>
-                      <small>{person.appointments} موعد</small>
+                      <small>{countOf(person.appointments, AR.appointment)}</small>
                     </div>
                   ))}
                 </div>
@@ -132,12 +133,12 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
               {!preview.allowed ? <p className="ta-conversion-error"><AlertTriangle aria-hidden="true" /> {preview.reason || "هذا الفصل غير قابل للتعديل"}</p> : null}
             </>
           ) : null}
-          {result ? <div className="ta-conversion-done" role="status"><Check aria-hidden="true" /><span>تم تحويل {result.changed} موعداً بنجاح.</span></div> : null}
+          {result ? <div className="ta-conversion-done" role="status"><Check aria-hidden="true" /><span>تم تحويل {countOf(result.changed, AR.appointment)} بنجاح.</span></div> : null}
           {error ? <p role="alert" className="ta-conversion-error"><AlertTriangle aria-hidden="true" /> {error}</p> : null}
           <div className="ta-conversion-actions">
-            <SecondaryButton type="button" disabled={busy} onClick={onClose}>إغلاق</SecondaryButton>
-            {result?.undoVersionId ? <SecondaryButton type="button" disabled={busy} onClick={() => void undo()}><RotateCcw aria-hidden="true" /> تراجع</SecondaryButton> : null}
-            <PrimaryButton type="button" disabled={busy || !preview?.allowed || !preview?.affected} onClick={() => void convert()}>
+            <SecondaryButton type="button" data-guide-ignore="إغلاق معاينة هيئة التدريب" disabled={busy} onClick={onClose}>إغلاق</SecondaryButton>
+            {result?.undoVersionId ? <SecondaryButton type="button" data-guide-ignore="التراجع المراجع عن عملية تحويل هيئة التدريب بعد تأكيد مستقل" disabled={busy} onClick={() => void undo()}><RotateCcw aria-hidden="true" /> تراجع</SecondaryButton> : null}
+            <PrimaryButton type="button" data-guide-ignore="تحويل هيئة التدريب بعد معاينة صريحة وتأكيد مع حفظ نسخة للتراجع" disabled={busy || !preview?.allowed || !preview?.affected} onClick={() => void convert()}>
               <Check aria-hidden="true" /> {busy ? "جارٍ التنفيذ…" : "تحويل الأسماء"}
             </PrimaryButton>
           </div>

@@ -7945,7 +7945,7 @@ app.post("/api/schedules/ta-conversion", requirePermission(7), async (req: Authe
     }
     const byId = new Map(updated.map(row => [Number(row.id), row]));
     await recordVersionAfter(before, current => current.map(row => byId.get(Number(row.id)) || row));
-    res.locals.auditChanges = "تحويل أسماء " + state.plan.people.length + " من هيئة التدريب في " + updated.length + " موعداً إلى هيئة تدريسية.";
+    res.locals.auditChanges = "تحويل أسماء " + state.plan.people.length + " من هيئة التدريب في " + countOf(updated.length, AR.appointment) + " إلى هيئة تدريسية.";
     res.locals.auditRowIds = updated.map(row => Number(row.id)).slice(0, 10);
     await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "edit" });
     res.json({ changed: updated.length, undoVersionId: before?.id });
