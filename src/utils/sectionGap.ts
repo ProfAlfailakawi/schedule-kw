@@ -23,6 +23,8 @@ export interface GapItem {
   surplus?: number;
   /** Suggested closure is a review, not an authorized cancellation. */
   closureSource?: "chosen" | "history";
+  /** Target sections may not cover the full registrar demand: review capacity before cancelling. */
+  closureCapacityWarning?: boolean;
   /** Two opposing estimates for the same course. Review-only; never an action. */
   conflict?: { openingRequired: number; reportRequired: number };
   basis: "plan" | "students";
@@ -45,8 +47,10 @@ export function planGaps(courses: readonly GapCourse[], plan: GapPlan | null): G
  *
  * The registrar not-passed figure is an upper planning-demand reference, not
  * evidence that currently enrolled students fit after cancellation.
- * Never suggest reducing to fewer seats than the stated demand, and never
- * automatically close timetable sections. Verify live registrations first.
+ * Do not hide a real planning reduction merely because unmet demand exceeds
+ * operational supply (many departments cannot cover the entire backlog).
+ * Instead flag the unresolved demand visibly; never treat it as proof of
+ * empty seats or automatically close any section. Verify live registrations first.
  */
 export function planSurpluses(courses: readonly GapCourse[], plan: GapPlan | null): GapItem[] {
   if (!plan) return [];
@@ -64,11 +68,12 @@ export function planSurpluses(courses: readonly GapCourse[], plan: GapPlan | nul
     // An absent/zero estimate without an explicit departmental decision is
     // not sufficient evidence that existing sections should be cancelled.
     if (!manuallyChosen && (!hasSimilarHistory || !known(demand) || demand <= 0)) continue;
-    // A smaller section count must still have enough nominal seats for the
-    // current planning-demand figure; otherwise its reduction is contradictory.
-    if (known(demand) && demand > item.required * course.capacity) continue;
+    // Not-passed-at-registration is a demand pool, NOT actual enrolment.
+    // An operationally limited department may choose fewer seats than this
+    // pool. Show that discrepancy explicitly, not as a safe cancellation.
+    const closureCapacityWarning = known(demand) && demand > item.required * course.capacity;
     results.push({ ...item, extra: 0, surplus: course.existing - item.required,
-      closureSource: manuallyChosen ? "chosen" : "history" });
+      closureSource: manuallyChosen ? "chosen" : "history", closureCapacityWarning });
   }
   return results.sort((a, b) => (b.surplus || 0) - (a.surplus || 0) || a.code.localeCompare(b.code, "en"));
 }
