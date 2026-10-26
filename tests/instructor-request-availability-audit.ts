@@ -33,6 +33,27 @@ const context = (allRows: FSchedule[], after: FSchedule[]) => ({ instructorId: 7
   instructorRowsAfter: after, courses, instructors: new Map(), knownRoomKeys: ["id:availability-test-room"],
   startLadder: ["08:00", "09:00", "09:30"], termId: 900001 });
 
+// Selecting an existing placeholder section projects that same official row
+// onto the professor. Its identity must remain stable: it is not a second
+// class and cannot conflict with itself.
+const selectedOfficialOffering = row({ id: 120, AdInstructorId: 99990, AdCourseId: 2, fmonday: true,
+  fsunday: false, fstarttime: "10:00", fendtime: "11:20", SCode: "120" });
+const offeringCourses = new Map(courses).set(2, { AdCourseId: 2, CourseHours: 4, CourseTeachingMode: "practical" } as any);
+const offeringRequest = request([{ ...add("selected", "fmonday", 2, "10:00", "11:20"),
+  offeringRowIds: [selectedOfficialOffering.id], slots: [{ day: "fmonday", start: "10:00", end: "11:20" }] as any }], 7);
+const offeringAfter = instructorWeekAfter(offeringRequest, [selectedOfficialOffering]);
+assert.equal(offeringAfter.filter(item => item.id === selectedOfficialOffering.id).length, 1,
+  "the selected offering is represented once with its official row identity");
+const selectedVerdict = judgeRequest({ rowId: selectedOfficialOffering.id, tempId: -1, relatedRowIds: [selectedOfficialOffering.id], action: "add",
+  AdCourseId: 2, days: ["fmonday"], start: "10:00", slots: [{ day: "fmonday", start: "10:00", end: "11:20" }] },
+  { ...context([selectedOfficialOffering], offeringAfter), courses: offeringCourses, instructorId: 7, placeholderInstructorIds: new Set([99990]) });
+assert.equal(selectedVerdict.sendable, true, "claiming an available section does not conflict with its own official placeholder row");
+const heldByDifferentRequest = row({ ...selectedOfficialOffering, id: 121, AdInstructorId: 8, AdCollegeId: 2, AdSectionId: 9, AdRoomHall: "2" });
+const otherClaimVerdict = judgeRequest({ rowId: selectedOfficialOffering.id, tempId: -1, relatedRowIds: [selectedOfficialOffering.id], action: "add",
+  AdCourseId: 2, days: ["fmonday"], start: "10:00", slots: [{ day: "fmonday", start: "10:00", end: "11:20" }] },
+  { ...context([selectedOfficialOffering, heldByDifferentRequest], offeringAfter), courses: offeringCourses, instructorId: 7, placeholderInstructorIds: new Set([99990]) });
+assert.equal(otherClaimVerdict.sendable, false, "a real concurrent instructor hold at the same time remains blocking");
+
 // Table-driven parity: identical physical rows go through both real engines.
 for (const scenario of [
   { name: "free", occupied: row({ id: 90, AdInstructorId: 8, fstarttime: "09:00", fendtime: "09:50" }) },

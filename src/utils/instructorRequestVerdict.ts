@@ -424,7 +424,10 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const computedEnd = request.slots?.length ? slots[0].end : endForRequest(request.days, request.start, request.blockMinutes, dayEnd);
   /* هويّةُ الصفّ: معرّفُه إن كان قائماً، وإلا هويّتُه المؤقّتة. تُستعمل لتخطّي
      الصفِّ نفسِه في كل فحص، فلا يتعارض مع ذاته حين يُنقل. */
-  const identity = request.rowId ?? request.tempId ?? -1;
+  /* A claimed section is still an add-to-my-week proposal, not an edit of the
+   * placeholder's official row. Its row ids are related rows to exclude from
+   * the baseline; the candidate itself keeps its distinct temporary identity. */
+  const identity = request.action === "add" ? request.tempId ?? -1 : request.rowId ?? request.tempId ?? -1;
 
   /* ── الأسبوع الذي يُقاس عليه ───────────────────────────────────────────
    *
