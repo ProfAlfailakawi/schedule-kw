@@ -79,6 +79,7 @@ export interface ProposalContext {
 }
 export interface AlternativeSuggestion {
   days: StudyProposalDayKey[]; start: string; end: string; reasons: string[]; blockers: number; reviews: number; gapDelta: number;
+  room?: { buildingId: string; roomId: string; AdRoomCode: string; AdRoomHall: string; locationStatus: "VERIFIED" };
 }
 
 export const proposalApi = {

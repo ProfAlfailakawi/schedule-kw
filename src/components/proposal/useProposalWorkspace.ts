@@ -289,7 +289,7 @@ export function useProposalWorkspace(options: { requestId: string; proposalId?: 
   }, [requestId, proposal?.id, ops]);
 
   const applyAlternative = useCallback((opId: string, alt: AlternativeSuggestion) => {
-    retargetOp(opId, { days: alt.days, fstarttime: alt.start, fendtime: alt.end }, "جُرّب وقتٌ بديل");
+    retargetOp(opId, { days: alt.days, fstarttime: alt.start, fendtime: alt.end, ...(alt.room || {}) }, alt.room ? "جُرّب موعدٌ وقاعة بديلان" : "جُرّب وقتٌ بديل");
     setAlts(null);
   }, [retargetOp]);
 
@@ -417,8 +417,8 @@ export function useProposalWorkspace(options: { requestId: string; proposalId?: 
     const ignore = new Set<string>();
     if (draft.rowId != null) ignore.add(`row:${draft.rowId}`);
     if (draft.mode === "replace" && draft.rowId != null) ignore.add(`row:${draft.rowId}`);
-    return quickOverlap(draftItem, currentItems.filter(i => !i.outside || true), ignore);
-  }, [draftItem, currentItems, draft.rowId, draft.mode]);
+    return quickOverlap(draftItem, afterItems.filter(item => item.opId !== draft.editingOpId), ignore);
+  }, [draftItem, afterItems, draft.rowId, draft.mode, draft.editingOpId]);
 
   return {
     ctx, loading, loadError, view, proposal, ops, setOps, message, setMessage, title, setTitle, responseMode, setResponseMode,

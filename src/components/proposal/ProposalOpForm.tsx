@@ -60,7 +60,7 @@ function FacultyPicker({ ws }: { ws: Workspace }) {
   const [limit, setLimit] = useState(24);
   const usedIds = useMemo(() => new Set(ops.filter(op => op.id !== draft.editingOpId && op.source).map(op => op.source!.id)), [ops, draft.editingOpId]);
   const multiScope = useMemo(() => new Set((ctx?.faculty || []).map(f => `${f.snapshot.AdCollegeId}:${f.snapshot.AdSectionId}`)).size > 1, [ctx]);
-  const instructorRows = ws.currentItems;
+  const instructorRows = ws.afterItems;
 
   const decorated = useMemo(() => (ctx?.faculty || []).map(entry => {
     const clash = quickOverlap({ days: entry.snapshot.days, start: entry.snapshot.fstarttime, end: entry.snapshot.fendtime }, instructorRows);
