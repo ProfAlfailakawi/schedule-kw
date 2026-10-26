@@ -941,6 +941,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       isPhoneDevice() ? "list" : savedPrefs.viewMode === "week" ? "week" : savedPrefs.viewMode === "rooms" ? "rooms" : "list",
     ),
     [conflicts, setConflicts] = useState<any[]>([]),
+    [serverValidationIssues, setServerValidationIssues] = useState<string[]>([]),
     /* «النمط غير معتمد»: رسمٌ من الخادم (مكتبة الأنماط)، تنبيهٌ لا يمنع الحفظ. */
     [patternNotice, setPatternNotice] = useState(""),
     [lectureNotice, setLectureNotice] = useState(""),
@@ -3427,6 +3428,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     !selectedFormDays.length?"يجب اختيار يوم واحد على الأقل للمحاضرة.":"",
     timeRangeInvalid?"وقت النهاية يجب أن يكون بعد وقت البداية.":"",
     outsideTeachingDay?`وقت المحاضرة يجب أن يكون بين ${scheduleClockForDisplay(activeScheduleWindow.startTime)} و${scheduleClockForDisplay(activeScheduleWindow.endTime)}.`:"",
+    ...serverValidationIssues,
   ].filter(Boolean);
   const blockingConflicts=conflicts.filter(isBlockingConflict);
   const editorTimingNote = historicalTimingNote(form);
@@ -4405,6 +4407,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       !days.some((d) => form[d.key])
     ) {
       setConflicts([]);
+      setServerValidationIssues([]);
       setPatternNotice("");
       setLectureNotice("");
       return;
@@ -4416,6 +4419,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const candidate: any = { ...form, id: editId || -900001 };
     /* «هيئة تدريسية» ليست شخصاً هنا أيضاً: الحكم نفسه الذي يقوله الخادم بعد لحظة. */
     setConflicts(findConflicts([candidate], editId ? rows.filter(row => row.id !== editId) : rows, { placeholderInstructorIds: placeholderInstructorIds(instructorById.values()) }));
+    setServerValidationIssues([]);
     setPatternNotice("");
     setLectureNotice("");
     const controller = new AbortController(),
@@ -4429,6 +4433,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             signal: controller.signal,
           });
           setConflicts(data.conflicts || []);
+          setServerValidationIssues(Array.isArray(data.validationIssues) ? data.validationIssues : []);
           setPatternNotice(typeof data.patternNotice === "string" ? data.patternNotice : "");
           setLectureNotice(typeof data.lectureNotice === "string" ? data.lectureNotice : "");
         } catch (e: any) {
