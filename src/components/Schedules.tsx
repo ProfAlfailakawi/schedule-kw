@@ -3325,11 +3325,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [form.AdRoomCode, form.AdRoomHall, form.AdCollegeId, form.AdSectionId]);
 
+  const roomIdeasKey = `${form.AdTermId}|${form.AdCollegeId}|${form.AdSectionId}|${form.AdCourseId}|${form.fstarttime}|${form.fendtime}|${days.map(d => (form as any)[d.key] ? 1 : 0).join("")}|${form.AdInstructorId}`;
+  const currentSuggestionKey = useRef(roomIdeasKey);
+  currentSuggestionKey.current = roomIdeasKey;
   const [slotIdeas, setSlotIdeas] = useState<any[] | null>(null);
+  const [slotIdeasNote, setSlotIdeasNote] = useState("");
   const [slotBusy, setSlotBusy] = useState(false);
   const askForSlots = async () => {
+    const requestedKey=roomIdeasKey;
     setSlotBusy(true);
     setSlotIdeas(null);
+    setSlotIdeasNote("");
     try {
       const duration = form.fstarttime && form.fendtime && mins(form.fendtime) > mins(form.fstarttime)
         ? mins(form.fendtime) - mins(form.fstarttime)
@@ -3341,6 +3347,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "تعذر اقتراح الأوقات");
+      if(currentSuggestionKey.current!==requestedKey)return;
+      setSlotIdeasNote(String(data.note || ""));
       setSlotIdeas(Array.isArray(data.slots) ? data.slots : []);
     } catch (e: any) {
       setError(friendlyError(e));
@@ -3354,11 +3362,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      القسم كلها (في كل مبانيه، والمستعارة المعتمدة) الخالية فيها. يظهر حتى
      والقاعة «بانتظار التثبيت» أو مختارة، فهو بالضبط ما يحتاجه صفٌّ مستورد. */
   const [roomIdeas, setRoomIdeas] = useState<any[] | null>(null);
+  const [roomIdeasNote, setRoomIdeasNote] = useState("");
   const [roomIdeasBusy, setRoomIdeasBusy] = useState(false);
-  const roomIdeasKey = `${form.AdTermId}|${form.AdSectionId}|${form.fstarttime}|${form.fendtime}|${days.map(d => (form as any)[d.key] ? 1 : 0).join("")}|${form.AdInstructorId}`;
-  useEffect(() => { setRoomIdeas(null); }, [roomIdeasKey]);
+  useEffect(() => { setRoomIdeas(null); setSlotIdeas(null); setRoomIdeasNote(""); setSlotIdeasNote(""); }, [roomIdeasKey]);
   const askForRooms = async () => {
     if (roomIdeas) { setRoomIdeas(null); return; }
+    const requestedKey=roomIdeasKey;
+    setRoomIdeasNote("");
     setRoomIdeasBusy(true);
     try {
       const response = await fetch("/api/schedules/suggest-slots", {
@@ -3368,6 +3378,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "تعذر اقتراح القاعات");
+      if(currentSuggestionKey.current!==requestedKey)return;
+      setRoomIdeasNote(String(data.note || ""));
       setRoomIdeas(Array.isArray(data.slots) ? data.slots : []);
     } catch (e: any) {
       setError(friendlyError(e));
@@ -9011,6 +9023,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                             {roomIdeas.map((slot: any) => {
                               const reasons: string[] = Array.isArray(slot.reasons) ? slot.reasons : [];
                               const facts = reasons.map((reason) => {
+                                if (reason.startsWith("مطابقة لنوع القاعة")) return { label: "نوع مطابق", Icon: CheckCircle2, tone: "good" };
+                                if (reason.startsWith("مطابقة لطبيعة المقرر")) return { label: "طبيعة مطابقة", Icon: CheckCircle2, tone: "good" };
                                 if (reason.startsWith("يلائم نوع المقرر")) return { label: "نوع مناسب", Icon: CheckCircle2, tone: "good" };
                                 if (reason.includes("نوع القاعة") && reason.includes("مختلف")) return { label: "نوع مختلف", Icon: DoorOpen, tone: "warn" };
                                 if (reason.includes("نوع القاعة غير مسجل")) return { label: "النوع غير مسجل", Icon: CircleAlert, tone: "muted" };
@@ -9046,7 +9060,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                             })}
                           </div>
                         ) : (
-                          <p className="room-suggest-empty">لا توجد قاعة خالية من قاعات القسم في هذا الوقت.</p>
+                          <p className="room-suggest-empty">{roomIdeasNote || "لا توجد قاعة خالية من قاعات القسم في هذا الوقت."}</p>
                         )
                       ) : null}
                     </div>
@@ -9224,7 +9238,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           ))}
                         </div>
                       ) : (
-                        <p className="slot-empty">لا توجد خانة خالية بهذه الأيام والمدة.</p>
+                        <p className="slot-empty">{slotIdeasNote || "لا توجد خانة خالية بهذه الأيام والمدة."}</p>
                       )
                     ) : null}
                   </div>

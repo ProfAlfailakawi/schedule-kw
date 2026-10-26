@@ -10,6 +10,7 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 import { createGunzip } from "zlib";
 import { activeDataMode, ApprovalRevisionConflict, DuplicateResourceError, initDatabase, Repository, ScheduleRevisionConflict, StudentCourseStateConflict, withSerialLock , caseRefFor, ScopeChangedError } from "./src/db/repository";
 import { roomTypeSiblingIds } from "./src/utils/courseRoomTypeSync";
+import { roomMatchesCourseSuggestion } from "./src/utils/roomSuggestionFit";
 import { DEMO_SWITCH_ACCOUNTS, demoActiveRoleKey } from "./src/db/demoSandbox";
 import { clearScheduleCacheQuietly, onSchedulesInvalidated } from "./src/db/referenceCache";
 import { isCloudRunRuntime } from "./src/db/snapshot";
@@ -7955,6 +7956,10 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   const expectedRoomType=String(course?.CourseRoomType||"").trim();
   const seatsNeeded=Number(course?.MaxStudent||0);
   if (!halls.length) { res.json({ slots: [], note: "لا توجد قاعات رسمية متاحة لهذا القسم في سجل المباني والقاعات" }); return; }
+  // Catalog room type and teaching nature are requirements, not score preferences.
+  // With an explicit choice, suggesting a different or unclassified room is misleading.
+  const matchingHalls=halls.filter(hall=>roomMatchesCourseSuggestion(course,roomById.get(String(hall.roomId))));
+  if (!matchingHalls.length) { res.json({ slots: [], note: "لا توجد قاعات مطابقة لطبيعة المقرر ونوع القاعة المحددين في هذا القسم. راجع تصنيف القاعات أو إعدادات المقرر." }); return; }
 
   const sectionWindow = await sectionScheduleWindow(sectionId);
   const bounds = scheduleDayWindowMinutes(sectionWindow);
@@ -7984,7 +7989,7 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   else for (let start = DAY_START; start + duration <= DAY_END; start += STEP) starts.push(start);
   for (const start of starts) {
     const end = start + duration;
-    for (const hall of halls) {
+    for (const hall of matchingHalls) {
       const hallRecord=roomById.get(String(hall.roomId));
       const borrowingRequired=borrowedRoomIds.has(String(hall.roomId)) &&
         !hallRecord?.shared && !hallRecord?.sectionIds?.includes(sectionId);
@@ -8044,10 +8049,9 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
       const roomRecord=roomById.get(String(hall.roomId));
       let fitAdjustment=0;
       const fitReasons:string[]=[];
-      if(expectedRoomType){
-        if(roomRecord?.roomType===expectedRoomType){fitAdjustment+=12;fitReasons.push(`يلائم نوع المقرر · ${expectedRoomType}`);}
-        else if(roomRecord?.roomType){fitAdjustment-=18;fitReasons.push(`نوع القاعة ${roomRecord.roomType} مختلف عن ${expectedRoomType}`);}
-        else fitReasons.push("نوع القاعة غير مسجّل");
+      if(expectedRoomType){fitAdjustment+=12;fitReasons.push(`مطابقة لنوع القاعة · ${expectedRoomType}`);}
+      if(course?.CourseTeachingMode&&course.CourseTeachingMode!=="mixed"){
+        fitReasons.push("مطابقة لطبيعة المقرر");
       }
       if(seatsNeeded>0&&Number(roomRecord?.capacity)>0){
         if(Number(roomRecord!.capacity)>=seatsNeeded){fitAdjustment+=8;fitReasons.push("السعة المسجلة مناسبة");}

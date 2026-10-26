@@ -66,7 +66,7 @@
     "test:searchable-select": "tsx tests/searchable-select-audit.ts",
     "test:section-gap-live": "tsx tests/section-gap-live-audit.ts",
     "test:public-kit": "tsx tests/public-kit-audit.ts",
-    "test:companion-rooms":"tsx tests/companion-rooms-audit.ts",
+    "test:companion-rooms": "tsx tests/companion-rooms-audit.ts",
     "test:room-occupancy": "tsx tests/room-occupancy-audit.ts && tsx tests/instructor-request-room-universe-audit.ts",
     "test:behavior": "tsx tests/run-tests.ts",
     "test:shared-scope": "tsx tests/shared-scope-audit.ts",
@@ -177,7 +177,8 @@
     "test:masari-ease": "tsx tests/masari-ease-audit.ts",
     "test:masari-visual": "tsx tests/masari-visual-audit.ts",
     "test:masari-return": "tsx tests/masari-return-audit.ts",
-    "test:masari-desktop": "tsx tests/masari-desktop-audit.ts"
+    "test:masari-desktop": "tsx tests/masari-desktop-audit.ts",
+    "test:room-suggestion-fit": "tsx tests/room-suggestion-fit-audit.ts"
   },
   "dependencies": {
     "@google-cloud/firestore": "^8.7.1",
