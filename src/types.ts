@@ -1607,7 +1607,7 @@ export interface RegistrationStats {
   /** AdCourseId → «المقاعد المتبقية» من الكشف نفسه: شاغر الشعب المفتوحة (للإنذار المبكر). */
   vacant?: Record<string, number>;
   /** من أين جاء المتبقي: الملف ومتى استُورد، وأيّ عمودٍ هو ("unregistered" = الذين لم يسجلوا؛ "seats" قديم). */
-  remainingSource?: { fileName: string; importedAt: string; column?: "unregistered" | "seats" };
+  remainingSource?: { fileName: string; importedAt: string; column?: "notPassed" | "unregistered" | "seats"; reportTerm?: string };
   /** AdCourseId → عدد الشعب الذي قبله القسم (اختياري) */
   accepted?: Record<string, number>;
   updatedAt: string;
