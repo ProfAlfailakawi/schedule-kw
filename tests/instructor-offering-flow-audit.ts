@@ -46,6 +46,8 @@ try {
   cookie = login.headers.getSetCookie().map(value => value.split(";")[0]).join("; ");
   assert.equal(login.status, 200);
   await waitForDemoSeed(base, cookie);
+  const teacherCardEntry = await fetch(base + "/api/demo/teacher-card", { headers: { cookie }, redirect: "manual" });
+  assert.equal(teacherCardEntry.status, 302, "opening the demo teacher card prepares its multi-course choices");
   const terms = await call("GET", "/api/terms");
   const term = terms.body.find((term: any) => Number(term.AdTermId) === 1);
   assert.ok(term && !term.AdTermClosed);
