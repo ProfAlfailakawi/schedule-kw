@@ -181,7 +181,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
                 <span
                   className="apb-surplus"
                   role="group"
-                  aria-label={`فائض ${countOf(item.surplus, AR.section)}: الموجود ${num(item.existing)}، والمطلوب ${num(item.required)} بحسب إحصائية الفصل الحالي: المتبقي ${num(item.demand)} طالباً. راجع الإلغاء؛ لا تُحذف الشعب تلقائياً.`}
+                  aria-label={`فائض ${countOf(item.surplus, AR.section)}: الموجود ${num(item.existing)}، والمطلوب ${num(item.required)} بحسب إحصائية الفصل الحالي: المتبقي ${countOf(item.demand, AR.student)}. راجع الإلغاء؛ لا تُحذف الشعب تلقائياً.`}
                 >
                   <span className="apb-surplus-label">
                     <span className="apb-surplus-icon" aria-hidden="true"><Layers /><Minus /></span>
