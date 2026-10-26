@@ -6901,7 +6901,7 @@ export const Repository = {
   },
 
   saveRegistrationStats: async (collegeId: number, sectionId: number, termId: number,
-    input: { counts?: Record<string, number>; remaining?: Record<string, number>; vacant?: Record<string, number>; accepted?: Record<string, number>; remainingSource?: { fileName?: unknown; importedAt?: unknown; column?: unknown; reportTerm?: unknown } | null },
+    input: { counts?: Record<string, number>; remaining?: Record<string, number>; unregistered?: Record<string, number>; vacant?: Record<string, number>; accepted?: Record<string, number>; remainingSource?: { fileName?: unknown; importedAt?: unknown; column?: unknown; reportTerm?: unknown } | null },
     updatedBy = ""): Promise<RegistrationStats> => {
     const scopeKey = `${collegeId}:${sectionId}:${termId}`;
     const clean = (map: Record<string, unknown> | undefined, max: number, min = 0) => Object.fromEntries(
@@ -6918,7 +6918,7 @@ export const Repository = {
     const row: RegistrationStats = {
       id: scopeKey, scopeKey, collegeId, sectionId, termId,
       counts: clean(input.counts ?? previous?.counts, 100000), remaining: Object.fromEntries(Object.entries(clean(input.remaining, 100000, -100000)).map(([key, value]) => [key, Math.max(0, value)])) /* لا متبقٍّ سالب: «الذين لم يسجلوا» السالب (طلبةٌ جدد) = لا متأخرين = صفر */,
-      vacant: clean(input.vacant, 100000, -100000) /* «المقاعد المتبقية» سالبةٌ إن زاد المسجّلون على السعة */, accepted: clean(input.accepted, 500),
+      unregistered: clean(input.unregistered, 100000), vacant: clean(input.vacant, 100000, -100000) /* «المقاعد المتبقية» سالبةٌ إن زاد المسجّلون على السعة */, accepted: clean(input.accepted, 500),
       ...(source ? { remainingSource: source } : {}),
       updatedAt: new Date().toISOString(), updatedBy: String(updatedBy || "").slice(0, 120),
     };
