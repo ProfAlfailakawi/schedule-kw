@@ -100,6 +100,7 @@ async function readReply(response: Response, fallback: string) {
 export default function SchedulePublish({ collegeId, sectionId, termId, scopeLabel, appearance = "ghost" }: Props) {
   const [open, setOpen] = useState(false),
     [links, setLinks] = useState<ShareLink[]>([]),
+    [loadingLinks, setLoadingLinks] = useState(false),
     [busy, setBusy] = useState(false),
     [kind, setKind] = useState<Kind>("department"),
     [days, setDays] = useState(30),
@@ -136,6 +137,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   const load = async () => {
     if (!scoped) return;
     setError(null);
+    setLinks([]);
+    setPersonalLinks([]);
+    setLoadingLinks(true);
     try {
       const response = await fetch(`/api/share?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`);
       const data = await readReply(response, "تعذر قراءة الروابط");
@@ -143,6 +147,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       await loadPersonal();
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setLoadingLinks(false);
     }
   };
 
@@ -342,6 +348,13 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     setOpen(true);
   };
 
+  const openPublicationHistory = () => {
+    setCreatedId(null);
+    setShowPast(false);
+    setStep("links");
+    void load();
+  };
+
   return (
     <>
       {appearance === "primary" ? (
@@ -419,6 +432,19 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 }))}
               />
             </nav>
+
+            {step !== "links" ? (
+              <button
+                type="button"
+                className="share-history-shortcut"
+                onClick={openPublicationHistory}
+                aria-label={`فتح سجل النشر والروابط المنشورة${active.length ? `، ${active.length} فعّال` : ""}`}
+              >
+                <Link2 aria-hidden="true" />
+                <span>سجل النشر</span>
+                <small>{active.length ? `${active.length.toLocaleString("ar-KW-u-nu-latn")} فعّال` : "عرض الروابط السابقة"}</small>
+              </button>
+            ) : null}
 
             {/* Two kinds of link, one sheet: the whole department's timetable,
                 or a card each instructor opens with their own civil ID. */}
@@ -586,7 +612,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 </p>
               ) : null}
               <div className="share-list" role="list" aria-live="polite">
-                {shownLinks.length ? (
+                {loadingLinks ? (
+                  <p className="share-empty" role="status">جارٍ تحميل سجل النشر لهذا القسم والفصل…</p>
+                ) : shownLinks.length ? (
                   shownLinks.map(link => {
                     const expired = new Date(link.expiresAt).getTime() <= Date.now();
                     const dead = expired || Boolean(link.revoked);
@@ -786,7 +814,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                     );
                   })
                 ) : (
-                  <p className="share-empty">{pastLinks.length ? "لا رابط فعّال الآن." : "لا روابط بعد. ابدأ باختيار نوع الرابط."}</p>
+                  <p className="share-empty">{pastLinks.length ? "لا رابط فعّال الآن." : "لا توجد روابط منشورة لهذا القسم والفصل المحددين بعد."}</p>
                 )}
               </div>
               {pastLinks.length ? (

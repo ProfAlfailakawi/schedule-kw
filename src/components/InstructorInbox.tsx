@@ -792,8 +792,27 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const [quick, setQuick] = useState<{ row: InboxRequest; index: number; after?: number[]; seed: QuickSeed } | null>(null);
   /* تنبيهاتٌ لا تمنع (انتقالٌ ضيّق بين مبنيين…) بعد تثبيتٍ نجح. */
   const [notice, setNotice] = useState<string | null>(null);
+  const openStudyProposal = (target: OpenWorkspace) => {
+    if (typeof window !== "undefined" && !window.matchMedia("(min-width: 900px)").matches) {
+      setNotice("إعداد المقترح الدراسي متاح من الكمبيوتر. افتح وارد الأساتذة على الكمبيوتر للمتابعة.");
+      return;
+    }
+    setWorkspace(target);
+  };
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickError, setQuickError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!workspace) return;
+    const desktop = window.matchMedia("(min-width: 900px)");
+    const closeOnSmallScreen = () => {
+      if (desktop.matches) return;
+      setWorkspace(null);
+      setNotice("إعداد المقترح الدراسي متاح من الكمبيوتر. افتح وارد الأساتذة على الكمبيوتر للمتابعة.");
+    };
+    desktop.addEventListener("change", closeOnSmallScreen);
+    return () => desktop.removeEventListener("change", closeOnSmallScreen);
+  }, [workspace]);
   /* ── ما يراه صاحبُ الصلاحية الكاملة ──────────────────────────────────────
    *
    * قوائمُ الكلية والقسم كانت تُبنى من نطاق الحساب وحدَه. وهو صوابٌ لمن له
@@ -1208,7 +1227,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     <TermFrozenContext.Provider value={frozen}>
     <div className="content-stack changes-screen visual-minimal" data-term-frozen-scope={frozen || undefined}>
       <PageTitle
-        action={rows && rows.length ? <ProposalLauncherBar rows={rows.map(row => ({ id: row.id, instructorName: row.instructorName, visiting: rowVisiting(row) }))} proposals={proposals} onOpen={setWorkspace} /> : undefined}
+        action={rows && rows.length ? <ProposalLauncherBar rows={rows.map(row => ({ id: row.id, instructorName: row.instructorName, visiting: rowVisiting(row) }))} proposals={proposals} onOpen={openStudyProposal} /> : undefined}
         eyebrow={<><Inbox aria-hidden="true" /> رغبات الأساتذة</>}
         subtitle="ما طلبه الأساتذة على مسوّداتهم، لا الجدول كله"
       >
@@ -1426,7 +1445,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                   filter={itemFilter}
                   rowErrors={rowErrors}
                   proposals={proposals.filter(view => view.proposal.requestId === row.id)}
-                  onOpenProposal={setWorkspace}
+                  onOpenProposal={openStudyProposal}
                   onDecide={(index, state, extra) => void decide(row, index, state, extra)}
                   onReply={(index, text, slots) => void reply(row, index, text, slots)}
                 />
