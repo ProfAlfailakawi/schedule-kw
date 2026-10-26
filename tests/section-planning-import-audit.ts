@@ -5,7 +5,7 @@
 import fs from "fs";
 import {
   assessRemainingImport, detectReportDepartment, imageOrientationRefusal, imageSize,
-  confirmReportDepartment, HEADER_DIGITS_MARK, manualRemainingValue, planRemainingApply, readRemainingReport, remainingOf, remainingValues, remainingReportTermRelation, type ReportCell,
+  confirmReportDepartment, HEADER_DIGITS_MARK, manualRemainingValue, planRemainingApply, readRemainingReport, remainingOf, remainingValues, reportUnregisteredValues, remainingReportTermRelation, type ReportCell,
 } from "../src/utils/remainingReport";
 import { readReportCells } from "../src/utils/documentOcr";
 import { suggestSectionCount } from "../src/utils/sectionCountSuggestion";
@@ -317,11 +317,14 @@ check(Boolean(a.reject?.includes("0202") && a.reject.includes("0101")), "وال�
   const values = remainingValues(selected, selected.column!);
   check(selected.columns[selected.column!]?.kind === "notPassed" && values["1"] === 330 && values["3"] === 51,
     "الاحتياج من «لم يجتازوا في بداية التسجيل» لا من عمود «الذين لم يسجلوا»");
+  const registeredSeparately = reportUnregisteredValues(selected);
+  check(registeredSeparately["1"] === 268 && registeredSeparately["3"] === 3,
+    "التوقع التشغيلي يحتفظ بالذين لم يسجلوا منفصلين عن احتياج التخطيط المعتمد من العميد");
   const newPlan = planRemainingApply(selected, selected.column!, {}, {});
   check(newPlan.next["1"] === 330 && newPlan.next["3"] === 51 && !("7" in newPlan.next),
     "كشفٌ جديد لا يصنع احتياجاً لمقرر غير وارد ولا ينقل 82 محفوظة قديماً");
   const unopened = readRemainingReport([page(0, [["0101120", [297, null, null, null, 0, null]]])], [{ id: 2, code: "0101120" }], "0101", "notPassed");
-  check(remainingValues(unopened, unopened.column!)["2"] === 297,
+  check(remainingValues(unopened, unopened.column!)["2"] === 297 && reportUnregisteredValues(unopened)["2"] === 297,
     "مقررٌ بلا شعب وله طلبة لم يجتازوا: احتياجه يُقرأ ولا يسقط");
 }
 
