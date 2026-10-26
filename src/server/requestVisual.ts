@@ -130,8 +130,7 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .vart{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:4px 10px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:11.5px;color:var(--muted)}
 .vart .sk-gi{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .sk-rule-tag{font:inherit;cursor:pointer}
-.sk-plan-tag{display:inline-block;margin-inline-start:7px;padding:1px 8px;border:1px solid var(--ok);border-radius:999px;background:var(--ok2);color:var(--ok);font-size:10.5px;font-weight:700;vertical-align:middle;cursor:pointer}
-.req-tag{cursor:pointer}
+.sk-plan-tag{display:inline-block;margin-inline-start:7px;padding:1px 8px;border:1px solid var(--ok);border-radius:999px;background:var(--ok2);color:var(--ok);font-size:10.5px;font-weight:700;vertical-align:middle}
 .sk-badge-toast{position:fixed;z-index:1000;inset-inline:18px;bottom:calc(20px + env(safe-area-inset-bottom));max-width:430px;margin-inline:auto;padding:13px 17px;border:1px solid var(--line);border-radius:14px;background:var(--ink);color:#fff;box-shadow:0 12px 32px rgba(0,0,0,.22);font-size:13px;line-height:1.7;text-align:center}
 .dept .vshort{margin-inline-start:6px}
 .alts button{display:inline-flex;flex-direction:column;align-items:center;gap:4px;min-block-size:56px;padding:8px 14px}
@@ -232,20 +231,19 @@ function skNext(open,sent,edited){var s=stageIdx(),pend=pendingList().length,ic=
  else if(s===3){ic="shield";tone="wait";t="بانتظار تثبيت القسم";sub="لا شيء مطلوب منك الآن"}
  else{ic="check";tone="done";t="اكتمل طلبك";sub="ثُبّت ما اتُّفق عليه في جدولك"}
  return '<div class="nextnow" data-tone="'+tone+'" role="status"><span class="nx-ic">'+gi(ic)+'</span><span class="nx-tx"><small>ماذا أحتاج منك الآن؟</small><b>'+esc(t)+'</b><em>'+esc(sub)+'</em></span>'+btn+'</div>'}
-/* شاراتٌ قابلة للشرح عند الضغط، من دون فتح البطاقة أو اختيار المقرر خلفها. */
+/* شارة المادة النظامية وحدها تُشرح عند الضغط؛ شارات المقرر وصفية فقط. */
 var skBadgeTimer=null;
 function skBadgeExplain(el){var message="",rule=el.getAttribute("data-sk-rule");
  if(rule)message=/م\.6\/2/.test(rule)?"م.6/2: لا يجوز تجاوز شعبتين متتاليتين لمقرر تزيد محاضرته على ساعة.":"المرجع التنظيمي: "+rule;
- else if(el.classList.contains("req-tag"))message="متطلب كلية: مقرر تطلبه أقسام أخرى ضمن صحائفها.";
- else message="مقرر وارد في "+el.textContent.trim()+".";
+
  var note=document.getElementById("skBadgeToast");
  if(!note){note=document.createElement("div");note.id="skBadgeToast";note.className="sk-badge-toast";note.setAttribute("role","status");document.body.appendChild(note)}
  note.textContent=message;note.hidden=false;
  if(skBadgeTimer)clearTimeout(skBadgeTimer);
  skBadgeTimer=setTimeout(function(){note.hidden=true},4500);
 }
-document.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest(".sk-plan-tag,.req-tag,[data-sk-rule]"):null;if(!b)return;e.preventDefault();e.stopPropagation();skBadgeExplain(b)},true);
-document.addEventListener("keydown",function(e){if(e.key!=="Enter"&&e.key!==" ")return;var b=e.target&&e.target.closest?e.target.closest(".sk-plan-tag,.req-tag,[data-sk-rule]"):null;if(!b)return;e.preventDefault();e.stopPropagation();skBadgeExplain(b)},true);
+document.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("[data-sk-rule]"):null;if(!b)return;e.preventDefault();e.stopPropagation();skBadgeExplain(b)},true);
+document.addEventListener("keydown",function(e){if(e.key!=="Enter"&&e.key!==" ")return;var b=e.target&&e.target.closest?e.target.closest("[data-sk-rule]"):null;if(!b)return;e.preventDefault();e.stopPropagation();skBadgeExplain(b)},true);
 document.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("[data-nx]"):null;if(!b)return;
  var k=b.getAttribute("data-nx"),t=k==="send"?document.getElementById("send"):(document.querySelector(".deck")||document.querySelector("[data-panel=schedule]"));
  if(t&&t.scrollIntoView){t.scrollIntoView({block:"center",behavior:"smooth"});if(k==="send"&&t.focus)t.focus({preventScroll:true})}});
@@ -262,7 +260,7 @@ function skActIcon(a){return '<i class="activity-dot" aria-hidden="true">'+gi(SK
 function skMergeEvents(list){var out=[];list.forEach(function(e){var p=out[out.length-1];
  if(e.kind==="alternative-offered"&&p&&p.kind==="item-rejected"&&typeof e.itemIndex==="number"&&p.itemIndex===e.itemIndex){out[out.length-1]={kind:"rejected-alt",at:e.at,itemIndex:e.itemIndex,detail:e.detail,by:e.by||p.by};return}
  out.push(e)});return out}
-function skLegend(){var seen={},li=[];state.forEach(function(it){var k=skCid(it);if(seen[k])return;seen[k]=1;li.push('<li style="--c:'+skCourseColor(it)+'"><i></i>'+esc(courseOf(it))+reqTag(it)+'</li>')});
+function skLegend(){var seen={},li=[];state.forEach(function(it){var k=skCid(it);if(seen[k])return;seen[k]=1;li.push('<li style="--c:'+skCourseColor(it)+'"><i></i>'+esc(courseOf(it))+'</li>')});
  return (li.length>1?'<ul class="wk-leg" aria-label="ألوان المقرّرات">'+li.join("")+'</ul>':"")+
   ''}
 function skKey(){return '<p class="wk-key" aria-hidden="true"><span><i data-k="ghost"></i>قبل التعديل</span><span><i data-k="chg"></i>معدّل</span><span><i data-k="add"></i>جديد/مثبَّت</span><span><i data-k="del"></i>محذوف</span></p>'}
