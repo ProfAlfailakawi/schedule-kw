@@ -1,7 +1,7 @@
 /** شعبٌ يُفضَّل زيادتها: حسابٌ حتميّ (طلب الطلبة، تخطيط القسم، كشف المتبقي) + عرضٌ هادئ بلا كتابة. */
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { planGaps, planSurpluses, studentGaps, type GapCourse, type GapPlan } from "../src/utils/sectionGap";
+import { planGaps, planSurpluses, reconcilePlanAdjustments, studentGaps, type GapCourse, type GapPlan } from "../src/utils/sectionGap";
 import { SectionGapPanel, showQuickCompareBadge } from "../src/components/SectionGapNote";
 import { createDemoSandboxState, DEMO_TERM_CURRENT } from "../src/db/demoSandbox";
 
@@ -67,6 +67,28 @@ check(automaticZero.length === 0, "صفر لم يسجلوا لا يثبت أن �
 const explicitZero = planSurpluses([c(9, "105", 30, 2, 0)], { accepted: { "9": 0 }, remaining: { "9": 0 }, history: {} });
 check(explicitZero.length === 0, "الصفر المختار يدوياً لا يتدخل في حساب الحذف المبني حصرياً على إحصائية الفصل");
 
+/* Same course, two incompatible recommendations: one neutral review.
+   In the screenshot: field training, 2 sections, opening target 3,
+   current-term report 8 students at capacity 30 -> estimate 1. */
+const training = c(491, "491", 30, 2, 0);
+const openTraining = planGaps([training], { accepted: { "491": 3 }, remaining: { "491": 8 }, history: {} });
+const reduceTraining = planSurpluses([training], { accepted: { "491": 3 }, remaining: { "491": 8 }, history: {} });
+const resolvedTraining = reconcilePlanAdjustments(openTraining, reduceTraining);
+check(openTraining.length === 1 && openTraining[0].required === 3 && reduceTraining.length === 1 && reduceTraining[0].required === 1, "مصادر التقدير تبقى مستقلة، وفي الأصل تتضاد ٣ مقابل ١");
+check(resolvedTraining.length === 1 && resolvedTraining[0].conflict?.openingRequired === 3 && resolvedTraining[0].conflict?.reportRequired === 1 &&
+  resolvedTraining[0].extra === 0 && !resolvedTraining[0].surplus, "التدريب الميداني: بطاقة مراجعة واحدة لا فتح ولا حذف");
+const reviewHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: resolvedTraining, kind: "plan", onClose: () => {} }));
+check((reviewHtml.match(/<li\b/g) || []).length === 1 && reviewHtml.includes("تعارض التقدير") &&
+  reviewHtml.includes("كشف المتبقي") && reviewHtml.includes("راجع قبل التغيير") &&
+  !reviewHtml.includes("راجع الإلغاء") && !reviewHtml.includes("فائض شعبة"), "العرض: مقرر واحد، تقديران، ولا توصيتان متناقضتان");
+check(reconcilePlanAdjustments(openTraining, []).length === 1 &&
+  reconcilePlanAdjustments([], reduceTraining).length === 1, "بدون تعارض: حساب الفتح والحذف لا يتغير");
+const distinctAdjustments = reconcilePlanAdjustments(openTraining, planSurpluses([c(492, "492", 30, 6, 0)], { accepted: {}, remaining: { "492": 120 }, history: {} }));
+check(distinctAdjustments.length === 2 && distinctAdjustments.every(item => !item.conflict), "مقرران مختلفان: يظهر كل تنبيه مرة مستقلة");
+check(reconcilePlanAdjustments(openTraining.concat(openTraining), reduceTraining.concat(reduceTraining)).length === 1,
+  "حتى إن تكرر إدخال المقرر، قائمة قرارات التخطيط لا تكرر البطاقة");
+check(planGaps([training], { accepted: { "491": 3 }, remaining: { "491": 8 }, history: {} }).length === 1 &&
+  studentGaps([c(3, "3", 30, 1, 120)]).length === 1, "منطق فتح الشعب ومساري لم يتغير");
 /* بلا تاريخ يبدأ التخطيط بشعبة واحدة (قاعدته)، فلا نقول «زِد» لمقررٍ فيه شعبة. */
 check(planGaps([c(1, "101", 30, 1, 0)], { remaining: { "1": 90 }, accepted: {}, history: {} }).length === 0, "بلا تاريخ: مقترح التخطيط شعبةٌ واحدة، فلا «زِد» لمقررٍ فيه شعبة");
 /* مقررٌ لا ذكر له في التخطيط لا يظهر في نتيجته ولو طلبه الطلبة. */
@@ -81,7 +103,7 @@ check(html.includes("شعبٌ يطلبها الطلبة في «مساري»") &&
 const planHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: planned, kind: "plan", onClose: () => {} }));
 check(planHtml.includes("بحسب تخطيطك") && !planHtml.includes("مساري") && planHtml.includes("المتبقي"), "قائمة التخطيط: عنوانٌ مستقل ولا ذكر لـ«مساري» فيها");
 const surplusHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: surplus, kind: "plan", onClose: () => {} }));
-check(surplusHtml.includes("فائض") && surplusHtml.includes("18") && surplusHtml.includes("الموجود") && surplusHtml.includes("المطلوب") && surplusHtml.includes("راجع الإلغاء") && surplusHtml.includes("هذا الفصل وسعة الشعبة فقط") && !surplusHtml.includes("الفصول السابقة للمقارنة"), "تظهر الشعب الزائدة بشكل بصري مختصر دون أمر حذف، مع مقارنة الموجود بالمطلوب");
+check(surplusHtml.includes("فائض") && surplusHtml.includes("18") && surplusHtml.includes("الموجود") && surplusHtml.includes("المطلوب") && surplusHtml.includes("راجع الإلغاء") && surplusHtml.includes("الفائض من كشف هذا الفصل فقط") && !surplusHtml.includes("الفصول السابقة للمقارنة"), "تظهر الشعب الزائدة بشكل بصري مختصر دون أمر حذف، مع مقارنة الموجود بالمطلوب");
 check(!html.includes("<a ") && !html.includes("<input") && !html.includes("<form") && !html.includes("قارن") && !html.includes("كشف المتبقي"), "العرض: بلا رابطٍ ولا حقلٍ ولا دعوةٍ إلى شاشة التخطيط");
 const shownRows = (html.match(/<li/g) || []).length;
 check(shownRows === 5 && html.includes("الكل ("), "العرض: خمسة أسطر ثم «الكل»", { shownRows });
@@ -90,6 +112,8 @@ check(!renderToStaticMarkup(React.createElement(SectionGapPanel, { items: byStud
 /* شاشة الرفع المختصرة: تُفتح من الأيقونة وتعيد استعمال استيراد «تخطيط الشعب» نفسه (وضع importOnly) فلا مسارَ ثانياً ولا جدولَ تخطيط. */
 import fs from "fs";
 const bar = fs.readFileSync("src/components/ApprovalBar.tsx", "utf8"), sheet = fs.readFileSync("src/components/QuickPlanSheet.tsx", "utf8"), planning = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8"), gapSource = fs.readFileSync("src/components/SectionGapNote.tsx", "utf8");
+check(bar.includes("const planAdjustments = reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems)") &&
+  !bar.includes("gap.ready ? reconcilePlanAdjustments"), "توصية الحذف مستقلة عن وصول التاريخ، مع تسوية تمنع تضارب القرارين");
 check(gapSource.includes("data.planImported && data.planSource?.fileName") && gapSource.includes('data.planSource.fileName !== "إدخال يدوي"') && gapSource.includes("surpluses: planSurpluses(data.courses, currentReport)"), "قائمة التخفيض لا تعتمد إلا على كشف الفصل المرفوع وتُعرض بمعزل عن تاريخ الفصول");
 
 check(bar.includes("setPlanSheet(true)") && bar.includes("<QuickPlanSheet") && !bar.includes("onOpenPlanning") && !bar.includes("initialTab"), "الأيقونة تفتح شاشة الرفع المختصرة ولا تنقل إلى تخطيط الشعب");

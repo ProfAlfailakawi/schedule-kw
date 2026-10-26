@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DEMO_SEEDED_EVENT } from "../utils/demoSeedEvent";
-import { Armchair, ArrowLeft, ChevronDown, ClipboardList, History, Layers, Minus, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { AlertTriangle, Armchair, ArrowLeft, ChevronDown, ClipboardList, History, Layers, Minus, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { planGaps, planSurpluses, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
 import { sortByName } from "../utils/sorting";
@@ -104,7 +104,7 @@ export function showQuickCompareBadge(gap: { loaded: boolean; planImported: bool
 
 export type GapKind = "plan" | "students";
 const KIND = {
-  plan: { Icon: ClipboardList, word: "التخطيط", title: "مراجعة عدد الشعب بحسب تخطيطك", hint: "الفائض: إحصائية الفصل الحالي وسعة الشعبة فقط · دون الرجوع للفصول السابقة · الفتح مستقل" },
+  plan: { Icon: ClipboardList, word: "التخطيط", title: "مراجعة عدد الشعب بحسب تخطيطك", hint: "الفتح من التخطيط؛ الفائض من إحصائية الفصل الحالي فقط. التقديرات المتعارضة تظهر كمراجعة واحدة" },
   students: { Icon: Users, word: "مساري", title: "شعبٌ يطلبها الطلبة في «مساري»", hint: "من رغبات الطلبة في «مساري» · اختياري ولا يمنع التوقيع" },
 } as const;
 
@@ -166,7 +166,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
         <small>اختياري</small>
         <button type="button" className="apb-dr-close" aria-label="إغلاق" onClick={onClose} data-guide-ignore="إغلاق قائمة الشعب المقترحة"><X aria-hidden="true" /></button>
       </header>
-      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />الفائض من إحصائية هذا الفصل وسعة الشعبة فقط؛ فتح الشعب مستقل.</p> : null}
+      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />الفتح من التخطيط، والفائض من كشف هذا الفصل فقط؛ عند التعارض راجع التقدير.</p> : null}
       <ul className="apb-gap-list">
         {list.map(item => {
           const row = rowOf(item.id);
@@ -177,7 +177,17 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
               {kind === "students"
                 ? <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
                 : !item.surplus && item.demand > 0 ? <span className="apb-gap-why">المتبقي {num(item.demand)}</span> : null}
-              {item.surplus ? (
+              {item.conflict ? (
+                <span className="apb-conflict" role="group"
+                  aria-label={`تعارض التقدير في ${item.name}: الموجود ${num(item.existing)}، التخطيط يطلب ${num(item.conflict.openingRequired)}، وكشف هذا الفصل يقدّر ${num(item.conflict.reportRequired)} لاستيعاب ${countOf(item.demand, AR.student)} لم يسجلوا. راجع البيانات قبل فتح أو إلغاء أي شعبة.`}>
+                  <span className="apb-conflict-title"><AlertTriangle aria-hidden="true" /><span><strong>تعارض التقدير</strong><small>راجع قبل التغيير</small></span></span>
+                  <span className="apb-conflict-numbers" aria-hidden="true">
+                    <span><b>{num(item.existing)}</b><small>الموجود</small></span>
+                    <span><b>{num(item.conflict.openingRequired)}</b><small>التخطيط</small></span>
+                    <span><b>{num(item.conflict.reportRequired)}</b><small>كشف المتبقي</small></span>
+                  </span>
+                </span>
+              ) : item.surplus ? (
                 <span
                   className="apb-surplus"
                   role="group"
@@ -205,8 +215,8 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
           return (
             <li key={item.id} data-open={open || undefined}>
               {row
-                ? <button type="button" className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : ""}`} aria-expanded={open} onClick={() => setOpenId(open ? null : item.id)} data-guide-ignore="فتح تفاصيل من يدرّس المقرر وعدد المنتدبين">{body}</button>
-                : <div className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : ""}`}>{body}</div>}
+                ? <button type="button" className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : item.conflict ? " apb-gap-row-conflict" : ""}`} aria-expanded={open} onClick={() => setOpenId(open ? null : item.id)} data-guide-ignore="فتح تفاصيل من يدرّس المقرر وعدد المنتدبين">{body}</button>
+                : <div className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : item.conflict ? " apb-gap-row-conflict" : ""}`}>{body}</div>}
               {open && row ? <Staffing staffing={row.staffing} visitors={row.visitors} /> : null}
             </li>
           );

@@ -21,6 +21,8 @@ export interface GapItem {
   existing: number; required: number; extra: number;
   /** Present only when the current scheduled count exceeds the plan. */
   surplus?: number;
+  /** Two opposing estimates for the same course. Review-only; never an action. */
+  conflict?: { openingRequired: number; reportRequired: number };
   basis: "plan" | "students";
   /** الرقم الذي بُني عليه المطلوب: المتبقي من الكشف، أو عدد الطلبة. */
   demand: number;
@@ -55,6 +57,31 @@ export function planSurpluses(courses: readonly GapCourse[], plan: GapPlan | nul
     });
   }
   return results.sort((a, b) => (b.surplus || 0) - (a.surplus || 0) || a.code.localeCompare(b.code, "en"));
+}
+
+/** Combine the independent opening and current-term surplus signals into one
+ * non-contradictory planning list. A simultaneous opening and reduction becomes
+ * one neutral conflict review; neither underlying calculation is changed.
+ */
+export function reconcilePlanAdjustments(openings: readonly GapItem[], surpluses: readonly GapItem[]): GapItem[] {
+  const byCourse = new Map<number, GapItem>();
+  for (const item of openings) {
+    if (!byCourse.has(item.id)) byCourse.set(item.id, item);
+  }
+  for (const item of surpluses) {
+    const opened = byCourse.get(item.id);
+    if (opened?.extra && opened.extra > 0 && (item.surplus || 0) > 0) {
+      byCourse.set(item.id, {
+        id: item.id, code: item.code, name: item.name,
+        existing: item.existing, required: item.existing, extra: 0,
+        basis: "plan", demand: item.demand,
+        conflict: { openingRequired: opened.required, reportRequired: item.required },
+      });
+    } else if (!opened) {
+      byCourse.set(item.id, item);
+    }
+  }
+  return [...byCourse.values()];
 }
 
 function planComparisons(courses: readonly GapCourse[], plan: GapPlan | null): GapItem[] {

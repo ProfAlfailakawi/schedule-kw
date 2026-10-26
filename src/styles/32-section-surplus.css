@@ -74,3 +74,38 @@
   .apb-surplus-icon{inline-size:28px;block-size:28px}
   .apb-surplus-flow{gap:4px}
 }
+
+/* Conflicting sources: a review, not two opposed actionable suggestions. */
+.apb-gap-row-conflict{align-items:center;flex-wrap:wrap;gap:10px}
+.apb-conflict{
+  display:inline-flex;direction:rtl;align-items:center;justify-content:space-between;
+  box-sizing:border-box;gap:14px;max-inline-size:100%;min-inline-size:0;
+  padding:9px 12px;border-radius:17px;
+  border:1px solid color-mix(in srgb,var(--warning,#aa7518) 35%,var(--line,#ddd));
+  background:color-mix(in srgb,var(--warning-soft,#fbefdb) 75%,var(--surface,#fff));
+  color:var(--warning,#906219);font-variant-numeric:tabular-nums;
+}
+.apb-conflict-title{display:inline-flex;gap:8px;align-items:center;min-inline-size:0}
+.apb-conflict-title>svg{inline-size:20px;block-size:20px;flex:none}
+.apb-conflict-title>span{display:grid;gap:2px;line-height:1.28}
+.apb-conflict-title strong{font-size:.86rem;white-space:nowrap}
+.apb-conflict-title small{font-size:.7rem;white-space:nowrap;opacity:.85}
+.apb-conflict-numbers{display:inline-flex;gap:6px;align-items:center;min-inline-size:0}
+.apb-conflict-numbers>span{display:grid;justify-items:center;gap:4px;min-inline-size:51px}
+.apb-conflict-numbers b{display:grid;place-items:center;inline-size:42px;min-block-size:28px;border-radius:11px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);background:var(--surface,#fff);font-size:.96rem}
+.apb-conflict-numbers small{font-size:.63rem;white-space:nowrap}
+@media(max-width:620px){
+  .apb-gap-row-conflict .apb-gap-name{flex:1 1 100%}
+  .apb-gap-row-conflict .apb-conflict{inline-size:100%;flex:1 1 100%;justify-content:space-between}
+  .apb-gap-row-conflict .apb-gap-chev{margin-inline-start:auto}
+}
+@media(max-width:355px){
+  .apb-conflict{gap:5px;padding:7px 8px}
+  .apb-conflict-title{gap:5px}
+  .apb-conflict-title strong{font-size:.73rem}
+  .apb-conflict-title small{font-size:.61rem}
+  .apb-conflict-numbers{gap:3px}
+  .apb-conflict-numbers>span{min-inline-size:37px}
+  .apb-conflict-numbers b{inline-size:35px}
+  .apb-conflict-numbers small{font-size:.56rem}
+}
