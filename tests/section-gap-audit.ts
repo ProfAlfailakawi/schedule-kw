@@ -114,7 +114,7 @@ import fs from "fs";
 const bar = fs.readFileSync("src/components/ApprovalBar.tsx", "utf8"), sheet = fs.readFileSync("src/components/QuickPlanSheet.tsx", "utf8"), planning = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8"), gapSource = fs.readFileSync("src/components/SectionGapNote.tsx", "utf8");
 check(bar.includes("const planAdjustments = reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems)") &&
   !bar.includes("gap.ready ? reconcilePlanAdjustments"), "توصية الحذف مستقلة عن وصول التاريخ، مع تسوية تمنع تضارب القرارين");
-check(gapSource.includes("data.planImported && data.planSource?.fileName") && gapSource.includes('data.planSource.fileName !== "إدخال يدوي"') && gapSource.includes("surpluses: planSurpluses(data.courses, currentReport)"), "قائمة التخفيض لا تعتمد إلا على كشف الفصل المرفوع وتُعرض بمعزل عن تاريخ الفصول");
+check(gapSource.includes("const currentReport: GapPlan | null = null") && gapSource.includes("surpluses: planSurpluses(data.courses, currentReport)"), "التخفيض غير الآمن موقوف حتى تتوفر بيانات إشغال فصل التخطيط");
 
 check(bar.includes("setPlanSheet(true)") && bar.includes("<QuickPlanSheet") && !bar.includes("onOpenPlanning") && !bar.includes("initialTab"), "الأيقونة تفتح شاشة الرفع المختصرة ولا تنقل إلى تخطيط الشعب");
 check(sheet.includes("<SectionPlanning") && sheet.includes("importOnly") && sheet.includes("gap.reload()") && sheet.includes("<Result"), "الشاشة: استيرادٌ بالمسار نفسه ثم عرض المقترح بعد الحفظ");
