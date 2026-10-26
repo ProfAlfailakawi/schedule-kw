@@ -16153,6 +16153,7 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     /* لا متبقٍّ سالب (ما حُفظ سالباً قبل اعتماد الصفر يُعرض صفراً). */
     remaining: currentRemaining ?? {},
     vacant: stats?.remainingSource?.column === "notPassed" ? stats.vacant || {} : {},
+    unregistered: stats?.remainingSource?.column === "notPassed" ? stats.unregistered || {} : {},
     remainingSource: stats?.remainingSource?.column === "notPassed" ? stats.remainingSource : null,
     remainingSourceTerm: stats?.remainingSource?.column === "notPassed" ? stats.remainingSource?.reportTerm || "" : "",
     legacyRemaining: stats?.remainingSource?.column !== "notPassed" && Object.keys(stats?.remaining || {}).length
@@ -16423,7 +16424,7 @@ app.get("/api/forecast/term", requirePermission(7), async (req: AuthenticatedReq
   const forecast = computeTermForecast({
     rows: scoped, courses,
     instructors: instructors.filter(item => mine.has(Number(item.AdInstructorId))),
-    remaining: stats?.remainingSource?.column === "notPassed" ? stats.remaining || {} : null,
+    remaining: stats?.remainingSource?.column === "notPassed" ? stats.unregistered || null : stats?.remainingSource?.column === "unregistered" ? stats.remaining || {} : null,
     /* شاغرُ الشعب من الكشف نفسه: يُحفظ مع الاستيراد؛ إدخالٌ يدوي بلا كشف لا شاغر له. */
     vacant: stats?.remainingSource?.column === "notPassed" && stats.vacant && Object.keys(stats.vacant).length ? stats.vacant : null,
   });
@@ -16435,7 +16436,7 @@ app.put("/api/registration-stats", requirePermission(7), async (req: Authenticat
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   const saved = await Repository.saveRegistrationStats(collegeId, sectionId, termId,
-    { remaining: req.body?.remaining || {}, vacant: req.body?.vacant || {}, accepted: req.body?.accepted || {}, remainingSource: req.body?.remainingSource || null }, String(req.user?.Name || ""));
+    { remaining: req.body?.remaining || {}, unregistered: req.body?.unregistered || {}, vacant: req.body?.vacant || {}, accepted: req.body?.accepted || {}, remainingSource: req.body?.remainingSource || null }, String(req.user?.Name || ""));
   res.json(saved);
 });
 
