@@ -21,6 +21,8 @@ export interface GapItem {
   existing: number; required: number; extra: number;
   /** Present only when the current scheduled count exceeds the plan. */
   surplus?: number;
+  /** Suggested closure is a review, not an authorized cancellation. */
+  closureSource?: "chosen" | "history";
   /** Two opposing estimates for the same course. Review-only; never an action. */
   conflict?: { openingRequired: number; reportRequired: number };
   basis: "plan" | "students";
@@ -37,24 +39,36 @@ export function planGaps(courses: readonly GapCourse[], plan: GapPlan | null): G
   return planComparisons(courses, plan).filter(item => item.extra > 0);
 }
 
-/** تخفيض الشعب: من كشف «لم يسجلوا» المرفوع للفصل الحالي والسعة فقط.
- * لا يدخل المختار أو تاريخ الفصول السابقة في الحساب إطلاقاً. صفر المتبقي
- * لا يثبت أن الشعب خالية من المسجلين، لذلك لا ينتج توصية حذف كلي مضللة.
- * تُعرض النتيجة للمراجعة فقط دون تنفيذ حذف.
+/** Review-only section reductions use the SAME target as the opening proposal.
+ * An explicit departmental choice takes priority; otherwise the historical
+ * same-season suggestion is used only when comparable history exists.
+ *
+ * The registrar not-passed figure is an upper planning-demand reference, not
+ * evidence that currently enrolled students fit after cancellation.
+ * Never suggest reducing to fewer seats than the stated demand, and never
+ * automatically close timetable sections. Verify live registrations first.
  */
 export function planSurpluses(courses: readonly GapCourse[], plan: GapPlan | null): GapItem[] {
   if (!plan) return [];
+  const comparisons = planComparisons(courses, plan);
+  const byCourse = new Map(courses.map(course => [course.id, course]));
   const results: GapItem[] = [];
-  for (const course of courses) {
-    const remaining = plan.remaining[String(course.id)];
-    if (!(course.existing > 0) || !(course.capacity > 0) || !known(remaining) || remaining <= 0) continue;
-    const required = Math.ceil(remaining / course.capacity);
-    if (required >= course.existing) continue;
-    results.push({
-      id: course.id, code: course.code, name: course.name,
-      existing: course.existing, required, extra: 0,
-      surplus: course.existing - required, basis: "plan", demand: remaining,
-    });
+  for (const item of comparisons) {
+    if (item.extra >= 0) continue;
+    const course = byCourse.get(item.id);
+    if (!course || course.existing <= 0 || !(course.capacity > 0)) continue;
+    const key = String(course.id);
+    const demand = plan.remaining[key];
+    const manuallyChosen = known(plan.accepted[key]);
+    const hasSimilarHistory = (plan.history[key] || []).some(term => term.similar !== false && term.sections > 0);
+    // An absent/zero estimate without an explicit departmental decision is
+    // not sufficient evidence that existing sections should be cancelled.
+    if (!manuallyChosen && (!hasSimilarHistory || !known(demand) || demand <= 0)) continue;
+    // A smaller section count must still have enough nominal seats for the
+    // current planning-demand figure; otherwise its reduction is contradictory.
+    if (known(demand) && demand > item.required * course.capacity) continue;
+    results.push({ ...item, extra: 0, surplus: course.existing - item.required,
+      closureSource: manuallyChosen ? "chosen" : "history" });
   }
   return results.sort((a, b) => (b.surplus || 0) - (a.surplus || 0) || a.code.localeCompare(b.code, "en"));
 }

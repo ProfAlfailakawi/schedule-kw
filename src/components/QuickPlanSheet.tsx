@@ -42,6 +42,8 @@ export function Result({ gap, onClose, skipped = 0 }: { gap: Gap; onClose: () =>
   /* من التخطيط وحده: «مساري» لا شأن له بنتيجة رفع الكشف. */
   const total = gap.planItems.length;
   const top = gap.planItems.slice(0, TOP);
+  const toReview = gap.planSurplusItems || [];
+  const closeTotal = toReview.reduce((sum, item) => sum + (item.surplus || 0), 0);
   return (
     <div className="gap-result" role="status">
       {total ? (
@@ -59,8 +61,24 @@ export function Result({ gap, onClose, skipped = 0 }: { gap: Gap; onClose: () =>
           {total > TOP ? <small className="gap-result-more">و{countOf(total - TOP, AR.course)} أخرى</small> : null}
         </>
       ) : (
-        <p className="gap-sheet-ok"><CheckCircle2 aria-hidden="true" />{skipped ? "لا زيادة فيما قُرئ من الكشف." : "شعبك تكفي المتبقي، لا زيادة مقترحة."}</p>
+        <p className="gap-sheet-ok"><CheckCircle2 aria-hidden="true" />{skipped ? "لا زيادة فيما قُرئ من الكشف." : "لا زيادة في الشعب مقترحة."}</p>
       )}
+      {closeTotal > 0 ? (
+        <>
+          <p className="gap-result-head"><Layers aria-hidden="true" /><b>{countOf(closeTotal, AR.section)}</b> فائضة بحسب التخطيط — راجع الإغلاق</p>
+          <ul>
+            {toReview.slice(0, TOP).map(item => (
+              <li key={item.id} title={`الموجود ${num(item.existing)} والمقترح ${num(item.required)} — الإغلاق يحتاج التحقق من المسجلين`}>
+                <span className="gap-result-name"><b>{item.name}</b><small>{item.code}</small></span>
+                <Cells existing={item.required} required={item.existing} />
+                <span className="gap-result-plus">−{num(item.surplus || 0)}</span>
+              </li>
+            ))}
+          </ul>
+          {toReview.length > TOP ? <small className="gap-result-more">و{countOf(toReview.length - TOP, AR.course)} أخرى</small> : null}
+          <small className="gap-result-more">اقتراح للمراجعة فقط؛ لا تُغلق أي شعبة تلقائياً. تأكد من المسجلين وسعة الشعب قبل القرار.</small>
+        </>
+      ) : null}
       {/* قراءةٌ جزئية لا تُقدَّم نتيجةً كاملة: ما لم يتّضح لم يُحسب، ويُقال ذلك بسطرٍ خافت. */}
       {skipped ? <small className="gap-result-more">{countOf(skipped, AR.course)} لم تتّضح في الكشف فلم تُحسب</small> : null}
       <footer>
