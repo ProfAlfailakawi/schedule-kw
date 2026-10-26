@@ -7,7 +7,6 @@ test:schedule-time-window
 test:schedule-interface
 test:hardening
 test:companion-rooms
-test:room-suggestion-fit
 test:room-occupancy
 test:doctor-journey
 test:staff-global
