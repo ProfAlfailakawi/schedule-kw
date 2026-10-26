@@ -93,6 +93,9 @@ interface Totals {
   changed: number; unopened: number; settled: number;
 }
 
+const requestItemId = (item: InstructorRequestItem) => String(item.itemId
+  || (item.rowId != null ? `row:${item.rowId}` : `add:${(item.offeringRowIds || []).join(",")}`));
+
 const request = async (url: string, init?: RequestInit) => {
   const response = await fetch(url, init);
   const body = await response.text();
@@ -1094,7 +1097,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           onNavigate?.("schedules");
           return true;
         }
-        const payload = { itemIndex: index, after, requestRevision: row.requestRevision || 0, revs: revsFor(row, [...after, index]) };
+        const payload = { itemIndex: index, itemId: requestItemId(item), after, requestRevision: row.requestRevision || 0, revs: revsFor(row, [...after, index]) };
         if (!(await previewAndConfirm(row, payload))) return false;
         const result = await request(`/api/instructor-requests/${row.id}/apply`, {
           method: "POST",
@@ -1108,7 +1111,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       await request(`/api/instructor-requests/${row.id}/decide`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemIndex: index, state, ...extra, current: undefined, after: undefined }),
+        body: JSON.stringify({ itemIndex: index, itemId: requestItemId(row.items[index]), requestRevision: row.requestRevision || 0, state, ...extra, current: undefined, after: undefined }),
       });
       await load();
       return true;
@@ -1127,7 +1130,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       await request(`/api/instructor-requests/${row.id}/reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemIndex: index, text, slots }),
+        body: JSON.stringify({ itemIndex: index, itemId: requestItemId(row.items[index]), requestRevision: row.requestRevision || 0, text, slots }),
       });
       await load();
     } catch (e: any) { setRowErrors(prev => ({ ...prev, [key]: inboxMessage(e.message) })); }

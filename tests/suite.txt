@@ -136,6 +136,7 @@ test:demo-fill
 test:ads
 test:masari-integrity
 test:instructor-apply
+test:instructor-request-review
 test:instructor-course-load
 test:course-room-type-sync
 test:decision-1913
