@@ -85,8 +85,9 @@ const printCss = readFileSync(new URL("../src/styles/08-print.css", import.meta.
 assert.ok(printCss.includes(".print-query-groups-report .print-instructor-venue .companion-facility-badge"),"print media style explicitly preserves legibility of the companion room");
 const requiredStudio = { CourseCompanionRoomType: "استوديو تلفزيون" };
 assert.equal(missingCompanionBookingNotice({ companionRoomId: "room_f17", companionRoomLabel: "012B08/F17" }, requiredStudio), "", "real companion bookings must show the actual assigned venue, not the missing warning");
-assert.equal(missingCompanionBookingNotice({}, requiredStudio), "مرفق مطلوب · استوديو تلفزيون · غير محجوز", "older unmet companion requirements must be visible but not invented");
+assert.equal(missingCompanionBookingNotice({}, requiredStudio), "مرفق غير محجوز", "older unmet companion requirements get a compact, truthful print badge");
 assert.equal(missingCompanionBookingNotice({}, { CourseCompanionRoomType: "" }), "", "courses without a requirement have no extra print label");
 assert.ok(reportScreen.includes("missingCompanionBookingNotice(row, courseOf(row))"), "the instructor print evaluates requirements against the actual saved appointment");
 assert.ok(reportScreen.includes('className="print-companion-unbooked"'), "the printed report exposes missing bookings separately from the actual venue badge");
+assert.ok(printCss.includes("white-space:nowrap!important;overflow-wrap:normal!important"), "the small unbooked badge stays on one line in the narrow room column");
 console.log("Companion facility booking and display audit passed");

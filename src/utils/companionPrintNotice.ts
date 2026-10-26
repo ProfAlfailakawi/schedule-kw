@@ -7,5 +7,5 @@ export function missingCompanionBookingNotice(
 ): string {
   if (String(row.companionRoomId || "").trim() || String(row.companionRoomLabel || "").trim()) return "";
   const requiredType = String(course?.CourseCompanionRoomType || "").trim();
-  return requiredType ? `مرفق مطلوب · ${requiredType} · غير محجوز` : "";
+  return requiredType ? "مرفق غير محجوز" : "";
 }

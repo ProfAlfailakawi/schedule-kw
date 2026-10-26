@@ -2761,9 +2761,9 @@
     padding:.5mm 1mm!important;margin-top:.4mm!important;
     border:1px dashed #a38c62!important;border-radius:2mm!important;
     background:#fff!important;color:#775933!important;
-    font-size:6.6pt!important;font-weight:700!important;line-height:1.35!important;
+    font-size:6pt!important;font-weight:700!important;line-height:1.2!important;
     text-align:center!important;direction:rtl!important;
-    white-space:normal!important;overflow-wrap:anywhere!important;
+    white-space:nowrap!important;overflow-wrap:normal!important;
     break-inside:avoid!important
   }
 }
