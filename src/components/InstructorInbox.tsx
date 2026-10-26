@@ -1037,6 +1037,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           dayLabel: dayNames,
           days: [...new Set(slots.map(slot => slot.day))] as any,
           fixedSlots: slots.map(slot => ({ day: INBOX_DAY_NAMES[slot.day] || slot.day, start: slot.start, end: slot.end })),
+          deferLiveCheck: after.length > 0,
           start: slots[0]?.start || "08:00",
           end: slots[0]?.end || "08:50",
           x: Number(extra?.anchor?.x || window.innerWidth / 2),
