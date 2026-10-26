@@ -199,8 +199,8 @@ check(!/Repository\.(save|update|delete)Schedule/.test(deptReply), "وردُّ �
 check(server.includes("const alternatives = parseOfferedSlots(req.body?.alternatives);"), "وبدائلُ الرفض تمرّ بالمطهِّر نفسه");
 const profReply = server.slice(server.indexOf('app.post("/api/public/request/:token/reply"'), server.indexOf("function instructorRequestPage"));
 check(profReply.includes("await verifyRequestSigner(resolved.request, req, res)")
-  && (server.match(/await verifyRequestSigner\(resolved\.request, req, res\)/g) || []).length === 2,
-  "ردُّ الأستاذ توقيعٌ بالرقم المدني — بالمساعد نفسه الذي يوقّع الإرسال");
+  && (server.match(/await verifyRequestSigner\(resolved\.request, req, res\)/g) || []).length === 3,
+  "ردُّ الأستاذ الفردي والجماعي توقيعٌ بالرقم المدني — بالمساعد نفسه الذي يوقّع الإرسال");
 check(profReply.includes("AdTermClosed === true") && !profReply.includes("requestWindowOpen"),
   "والحوارُ يبقى بعد إغلاق النافذة، ويُغلقه الفصلُ المجمَّد وحده");
 check(profReply.includes('kind = "proposal-accepted"') && profReply.includes("decision: undefined") && profReply.includes("endForRequest"),
@@ -208,8 +208,8 @@ check(profReply.includes('kind = "proposal-accepted"') && profReply.includes("de
 check(server.includes("...(prior?.thread?.length ? { thread: prior.thread } : {})"), "وإعادةُ إرسال الطلب لا تمحو الحوار");
 check(profReply.includes("sentDays.length !== baseDays.length") && profReply.includes("req.body?.days"),
   "و«وقتٌ آخر» يقبل أياماً بعدد أيام البند نفسه، ويردّ ما غيّر العدد");
-check((server.match(/appendRequestThread\(item,/g) || []).length === 3 && !server.includes(".slice(-THREAD_LIMIT)"),
-  "والخيطُ عند حدّه يحفظ أولَ رسالةٍ في المسارات الثلاثة (قسمٌ، موافقة، ردّ)");
+check((server.match(/appendRequestThread\(item,/g) || []).length === 4 && !server.includes(".slice(-THREAD_LIMIT)"),
+  "والخيطُ عند حدّه يحفظ أولَ رسالةٍ في المسارات الأربعة (قسمٌ، موافقة، ردّ فردي وجماعي)");
 check(server.includes("negotiation: negotiationState(rest)"), "وحالةُ الحوار تصل الأستاذَ محسوبةً من الخادم");
 check(page.includes("function threadBox(") && page.includes("data-accept") && page.includes("data-reply=")
   && page.includes("var NEG=${JSON.stringify(NEGOTIATION_LABEL)}"),
