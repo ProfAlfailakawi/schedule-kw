@@ -1,0 +1,76 @@
+/* Surplus-only review badge. The existing opening/shortage UI is unchanged. */
+.apb-gap-row-surplus{
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.apb-surplus{
+  --surplus-ink:var(--brass,#946516);
+  box-sizing:border-box;
+  display:inline-flex;
+  direction:rtl;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  min-inline-size:0;
+  max-inline-size:100%;
+  padding:8px 12px;
+  border:1px solid color-mix(in srgb,var(--surplus-ink) 24%,transparent);
+  border-radius:18px;
+  background:linear-gradient(125deg,color-mix(in srgb,var(--brass-soft,#faefd7) 85%,var(--surface,#fff)),var(--brass-soft,#faefd7));
+  box-shadow:0 5px 18px color-mix(in srgb,var(--surplus-ink) 6%,transparent);
+  color:var(--surplus-ink);
+  font-variant-numeric:tabular-nums;
+}
+.apb-surplus-label{display:inline-flex;align-items:center;gap:9px;min-inline-size:0;flex:none}
+.apb-surplus-icon{
+  position:relative;
+  inline-size:34px;
+  block-size:34px;
+  flex:none;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  background:color-mix(in srgb,var(--surplus-ink) 10%,transparent);
+}
+.apb-surplus-icon svg:first-child{inline-size:21px;block-size:21px}
+.apb-surplus-icon svg:last-child{
+  position:absolute;
+  inline-size:13px;block-size:13px;
+  inset-inline-end:0;inset-block-end:0;
+  border:2px solid var(--brass-soft,#faefd7);
+  border-radius:50%;
+  background:var(--surplus-ink);
+  color:var(--surface,#fff);
+}
+.apb-surplus-heading{display:grid;gap:2px;text-align:start;line-height:1.2}
+.apb-surplus-heading strong{font-size:.86rem;font-weight:800;white-space:nowrap}
+.apb-surplus-heading small{font-size:.67rem;font-weight:700;opacity:.82;white-space:nowrap}
+.apb-surplus-divider{align-self:stretch;inline-size:1px;min-block-size:31px;background:color-mix(in srgb,var(--surplus-ink) 22%,transparent);flex:none}
+.apb-surplus-flow{display:inline-flex;direction:rtl;align-items:center;gap:6px;flex:none}
+.apb-surplus-stat{display:grid;place-items:center;gap:3px;min-inline-size:46px;text-align:center}
+.apb-surplus-stat b{
+  display:grid;place-items:center;
+  inline-size:45px;min-block-size:26px;
+  padding-inline:7px;border-radius:999px;
+  font-size:.96rem;font-weight:800;line-height:1;
+}
+.apb-surplus-stat small{font-size:.64rem;font-weight:700;white-space:nowrap}
+.apb-surplus-stat-existing b{background:var(--surplus-ink);color:var(--surface,#fff)}
+.apb-surplus-stat-required b{border:1px solid color-mix(in srgb,var(--surplus-ink) 38%,transparent);background:color-mix(in srgb,var(--surface,#fff) 65%,transparent);color:var(--surplus-ink)}
+.apb-surplus-arrow{inline-size:16px;block-size:16px;flex:none;opacity:.72}
+@media(max-width:620px){
+  .apb-gap-row-surplus .apb-gap-name{flex:1 1 100%}
+  .apb-gap-row-surplus .apb-surplus{flex:1 1 100%;inline-size:100%;justify-content:space-between}
+  .apb-gap-row-surplus .apb-gap-chev{margin-inline-start:auto}
+}
+@media(max-width:355px){
+  .apb-surplus{gap:7px;padding:7px 8px;border-radius:14px}
+  .apb-surplus-label{gap:5px}
+  .apb-surplus-heading strong{font-size:.75rem}
+  .apb-surplus-heading small{font-size:.61rem}
+  .apb-surplus-stat{min-inline-size:37px}
+  .apb-surplus-stat b{inline-size:37px}
+  .apb-surplus-icon{inline-size:28px;block-size:28px}
+  .apb-surplus-flow{gap:4px}
+}
