@@ -171,7 +171,9 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
   const GUARDS = ["isScopeAllowed", "filterByScope", "readScopedTermRows", "readSchedulesForRequest", "readLiveSchedulesForRequest",
     "scopeSectionIdsFor", "expandScopeSections", "approvalScopeFromBody", "scheduleConflicts", "readScheduleForException",
     "notificationItemsForTerm", "approvalBadgeForTerm", "owningSectionsInScopeFor", "requirePowerAdmin", "requireRootAdmin",
-    "requirePermission(11)", "requirePermission(12)", "requirePermission(15)", "requireAnyPermission([11, 15])", "isPowerUser"];
+    "requirePermission(11)", "requirePermission(12)", "requirePermission(15)", "requireAnyPermission([11, 15])", "isPowerUser",
+    /* بطاقة الأستاذ لعائلة القسم: حارسٌ مركزيّ يستدعي isScopeAllowed لكل موقع. */
+    "staffLinkFamilyAllowed"];
   const REVIEWED: Record<string, string> = {
     "POST /api/schedules/apply-proposal": "يمرّ من معالجَي الحفظ نفسيهما (createScheduleHandler/updateScheduleHandler: isScopeAllowed + قفل + تعارض)، وللنقل يسأل applyProposalCore النطاقَ صراحةً",
     "GET /api/version": "رقم الإصدار — لا بيانات",

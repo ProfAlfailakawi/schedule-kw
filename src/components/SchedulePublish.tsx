@@ -233,7 +233,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     try {
       const response = await fetch(`/api/share/${encodeURIComponent(id)}`, { method: "DELETE" });
       await readReply(response, "تعذر إيقاف الرابط");
-      setLinks(current => current.map(item => (item.id === id ? { ...item, revoked: true } : item)));
+      /* إلغاء بطاقة الأستاذ يلغي نشر العائلة؛ حدّث السجل من الخادم بدل
+         إيقاف صفٍّ محلي وإبقاء صفوف المواقع الشقيقة ظاهرةً كأنها حيّة. */
+      await load();
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -260,11 +262,11 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   const [sent, setSent] = useState<Set<number>>(new Set());
   useEffect(() => {
     if (!deliver) return;
-    void fetch(`/api/instructors?sectionId=${sectionId}&termId=${termId}`, { credentials: "include" })
+    void fetch(`/api/share/${encodeURIComponent(deliver)}/faculty`, { credentials: "include" })
       .then(response => (response.ok ? response.json() : []))
       .then(data => setStaff(Array.isArray(data) ? data : []))
       .catch(() => setStaff([]));
-  }, [deliver, sectionId, termId]);
+  }, [deliver]);
 
   /* ── لكل أستاذٍ رابطُه ──────────────────────────────────────────────────
    * رابطُ القسم مع رقمِ زميلٍ كان يفتح بطاقةَ الزميل وطلباته. فالتسليمُ يُرسل
