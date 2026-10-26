@@ -146,6 +146,7 @@ export interface RequestedRow {
 
 export interface VerdictContext {
   roomEligible?: (key: string, day: DayKey, start: string, end: string) => boolean;
+  roomSlotsEligible?: (key: string, slots: Array<{ day: DayKey; start: string; end: string }>) => boolean;
   disableAlternatives?: boolean;
   /** الأستاذ صاحب الطلب. */
   instructorId: number;
@@ -307,8 +308,8 @@ function regulationLadder(days: DayKey[]): string[] {
 
 function nearestFree(request: RequestedRow, context: VerdictContext, roomKeys: string[], week: FSchedule[], identity: number): RequestSlot[] {
   const learned = (context.startLadder || []).filter(Boolean);
-  /* بلا سُلّمٍ معروفٍ للقسم لا يُقترح شيء. وحين يُعرف، يُكمَّل بشبكة اللائحة
-     فلا ينفد البديلُ لأن بداياتِ القسم المعتادة امتلأت كلُّها. */
+  /* يُقدَّم سلّم القسم وتكمّله شبكة اللائحة. كل بديل يمر بالفحص الدقيق
+     لكل يوم، فلا تُستعمل أطول مدة لرفض اليوم القصير خطأً. */
   if (!request.days.length || context.disableAlternatives) return [];
   const days = [...request.days];
   const dayStart = context.dayStart ?? SCHEDULE_DAY_START, dayEnd = context.dayEnd ?? SCHEDULE_DAY_END;
@@ -326,16 +327,13 @@ function nearestFree(request: RequestedRow, context: VerdictContext, roomKeys: s
     if (minutes + (request.slots?.length ? Math.max(...request.slots.map(slot => toMinutes(slot.end) - toMinutes(slot.start))) : requestMinutes(days, request.blockMinutes)) > dayEnd) continue;
     const end = request.slots?.length ? minutesToTime(minutes + Math.max(...request.slots.map(slot => toMinutes(slot.end) - toMinutes(slot.start)))) : endForRequest(days, start, request.blockMinutes, dayEnd);
     if (!end || toMinutes(end) > dayEnd) continue;
-    if (!instructorFree(context.instructorId, days, start, end, week, identity)) continue;
-    if (roomKeys.length && !roomKeys.some(roomKey => roomFree(roomKey, days, start, end, week, identity, context.roomAliases))) continue;
-    if (cohortClash(request.AdCourseId, days, start, end, week, context.cohortPairs, identity)) continue;
     const movedSlots = request.slots?.map(slot => ({ ...slot, start: minutesToTime(toMinutes(slot.start) + minutes - current), end: minutesToTime(toMinutes(slot.end) + minutes - current) }));
     const movedRows = rowsForRequestSlots(movedSlots || days.map(day => ({ day, start, end })),
       context.instructorRowsAfter.find(row => Number(row.id) === identity) || { AdInstructorId: context.instructorId }, identity);
     const ids = new Set(rowsForRequestSlots(request.slots || days.map(day => ({ day, start: request.start, end: endForRequest([day], request.start, request.blockMinutes) })), {}, identity).map(row => row.id));
     const checked = judgeRequest({ ...request, start, slots: movedSlots }, { ...context, disableAlternatives: true,
       instructorRowsAfter: [...context.instructorRowsAfter.filter(row => !ids.has(row.id)), ...movedRows] });
-    if (!checked.sendable) continue;
+    if (!checked.sendable || checked.reasons.some(reason => reason.source === "cohort")) continue;
     found.push({ day: days[0], days, dayLabel: days.map(dayLabel).join(" · "), start, end, distance: Math.abs(minutes - current) });
   }
 
@@ -705,7 +703,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
 
   /* ── القاعة ───────────────────────────────────────────────────────────── */
   const roomKeys = (context.knownRoomKeys || []).filter(Boolean);
-  const candidates = roomKeys.filter(key => slots.every(slot => (!context.roomEligible || context.roomEligible(key, slot.day, slot.start, slot.end)) && roomFree(key, [slot.day], slot.start, slot.end, week.filter(row => !touched.has(row.id)), identity, context.roomAliases)));
+  const candidates = roomKeys.filter(key => (!context.roomSlotsEligible || context.roomSlotsEligible(key, slots)) && slots.every(slot => (!context.roomEligible || context.roomEligible(key, slot.day, slot.start, slot.end)) && roomFree(key, [slot.day], slot.start, slot.end, week.filter(row => !touched.has(row.id)), identity, context.roomAliases)));
   const roomAvailable = roomKeys.length ? candidates.length > 0 : null;
   if (roomAvailable === false) {
     reasons.push({ source: "room", text: "لا تتوفّر قاعةٌ في هذا الوقت.", blocking: true });
@@ -716,7 +714,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   verdict.roomCandidates = candidates;
   /* البديلُ ينقل الموعدَ بأيامه نفسِها، فلا يعالج خلطاً ممنوعاً: لا يُعرض وقتٌ سيُمنع هو الآخر، ويكفي رسمُ النمط المعتمد. */
   const mixedBlocked = reasons.some(reason => reason.blocking && reason.source === "shape" && /لا يُخلط/.test(reason.text));
-  verdict.nearestTimes = context.disableAlternatives ? [] : (verdict.sendable && !context.offerAlternatives) || mixedBlocked ? [] : nearestFree(request, context, roomKeys, week, identity);
+  verdict.nearestTimes = context.disableAlternatives ? [] : (verdict.sendable && !context.offerAlternatives) || mixedBlocked ? [] : nearestFree({ ...request, slots }, context, roomKeys, week, identity);
   /* وبدلَه أزرارُ الأنماط المعتمدة لساعات المقرّر (متعدّدةُ الأيام، فاليومُ الواحد الممتدّ لا يُعبَّر عنه بالأيام وحدها). */
   if (mixedBlocked && courseHours > 0 && !(verdict.shapes || []).length) {
     verdict.shapes = patternsForHours(courseHours).filter(pattern => pattern.days.length > 1).slice(0, 3)

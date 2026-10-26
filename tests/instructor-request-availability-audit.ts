@@ -9,6 +9,7 @@ import { findConflicts, isBlockingConflict } from "../src/utils/scheduleIntellig
 import { RequestReservationConflict, type RequestReservationProposal } from "../src/utils/instructorRequestReservations";
 import { roomSuitability } from "../src/utils/roomSuitability";
 import { appendRequestThread } from "../src/utils/instructorRequestThread";
+import { generateSyntheticCivilId } from "../src/utils/civilId";
 import { learnCourseNature } from "../src/utils/courseNature";
 
 const row = (patch: Partial<FSchedule> = {}) => ({
@@ -68,6 +69,20 @@ const verdict = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseI
   days: mixed.slots!.map(slot => slot.day), start: "08:00", slots: mixed.slots }, context([other], after));
 assert.equal(findConflicts(after.filter(item => item.id !== 99), [other]).filter(isBlockingConflict).length, 0);
 assert.equal(verdict.sendable, true, "different per-day lengths must not invent a Thursday overlap");
+
+const alternativeItem = { ...mixed, slots: mixed.slots!.map(slot => ({ ...slot, start: "10:00", end: slot.day === "fthursday" ? "10:50" : "11:20" })) };
+const alternativeWeek = instructorWeekAfter(request([alternativeItem]), [other]);
+const preciseAlternatives = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 2,
+  days: alternativeItem.slots.map(slot => slot.day), start: "10:00", slots: alternativeItem.slots },
+  { ...context([other], alternativeWeek), offerAlternatives: true });
+assert.ok(preciseAlternatives.nearestTimes.some(slot => slot.start === "08:00"),
+  "a short Thursday ending 08:50 must remain a valid alternative before the 09:00 meeting");
+const facilityAlternatives = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 1,
+  days: ["fsunday"], start: "08:00" }, { ...context([], [row({ id: -1 })]),
+  roomSlotsEligible: (_key, slots) => slots.every(slot => slot.start >= "09:00") });
+assert.equal(facilityAlternatives.roomAvailable, false);
+assert.ok(facilityAlternatives.nearestTimes.length > 0 && facilityAlternatives.nearestTimes.every(slot => slot.start >= "09:00"),
+  "alternatives must satisfy the same whole-meeting companion facility check as submission");
 
 const additions = [add("a", "fsunday", 3), add("b", "ftuesday", 3)];
 const completed = instructorWeekAfter(request(additions), []);
@@ -185,7 +200,7 @@ assert.equal((await Repository.getScheduleById(b.id))!.fstarttime, "10:00");
 assert.equal((await Repository.getInstructorRequest(planRequest.id))!.status, "settled");
 // Non-overlapping simultaneous requests must still share the professor's load ceiling.
 const loadCourse = await Repository.createCourse(1, 1, "LOADTEST", "اختبار النصاب المتزامن", 1, 1, 20, false);
-const loadPerson = await Repository.createInstructor("290010100011", "اختبار النصاب", "55000001");
+const loadPerson = await Repository.createInstructor(generateSyntheticCivilId(), "اختبار النصاب", "55000001");
 await Repository.updateInstructor(loadPerson.AdInstructorId, loadPerson.AdInstructorCivil, loadPerson.AdInstructorName, loadPerson.AdInstructorMobile, null, 1);
 const loadRequests = await Promise.all(["fsunday", "ftuesday"].map(async (day, at) => {
   const entry = { ...request([add(`load-${at}`, day, loadCourse.AdCourseId)], loadPerson.AdInstructorId), AdTermId: 900005 };

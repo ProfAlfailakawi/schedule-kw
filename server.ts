@@ -20253,6 +20253,21 @@ async function judgeRequestItems(request: InstructorRequest, options: {
     const targetSectionId = Number(item.after?.sectionId || selectedCourse?.AdSectionId || original?.AdSectionId || request.AdSectionId);
     const rules = rulesByScope.get(`${targetCollegeId}:${targetSectionId}`)!;
     if (item.decision?.state === "fixed" || item.decision?.state === "rejected") return item;
+    const companionType = String(selectedCourse?.CourseCompanionRoomType || "");
+    const candidateIds = new Set(rowsForRequestSlots(item.slots || [], {}, requestIdentity(item, index)).map(row => Number(row.id)));
+    const facilityWeek = [...context.allRows.filter(row => Number(row.AdInstructorId) !== Number(request.AdInstructorId)), ...rowsAfter]
+      .filter(row => !candidateIds.has(Number(row.id)));
+    const facilityFor = (key: string, slots: Array<{ day: string; start: string; end: string }>) => {
+      const primary = rules.hallByKey.get(key);
+      const building = rules.registry.buildings.find(building => building.id === primary?.buildingId);
+      return rules.registry.rooms.find(room => {
+        const place = rules.registry.buildings.find(building => building.id === room.buildingId);
+        return room.active && room.confidence === "CONFIRMED" && room.bookingPolicy === "companion_only" && room.roomType === companionType
+          && place?.active && place.confidence === "CONFIRMED" && building && place.officialCode.slice(0, 4) === building.officialCode.slice(0, 4)
+          && !facilityWeek.some(row => rowOccupiesRoom(row, room.id, place.officialCode, room.canonicalCode)
+            && slots.some(slot => Boolean((row as any)[slot.day]) && scheduleOverlap(slot.start, slot.end, row.fstarttime, row.fendtime)));
+      });
+    };
     const verdict = judgeRequest({
       rowId: item.offeringRowIds?.[0] ?? item.rowId,
       tempId: tempIdFor(index),
@@ -20273,6 +20288,7 @@ async function judgeRequestItems(request: InstructorRequest, options: {
         ? []
         : [...rules.knownRoomKeys].sort((a, b) => rules.selectedCourseFit(b, Number(item.after?.courseId || item.before?.courseId)) - rules.selectedCourseFit(a, Number(item.after?.courseId || item.before?.courseId)) || compareLocationCodes(a, b)),
       roomEligible: rules.roomEligible,
+      roomSlotsEligible: companionType && !item.offeringRowIds?.length ? (key, slots) => Boolean(facilityFor(key, slots)) : undefined,
       placeholderInstructorIds: placeholderInstructorIds([...context.instructors.values()]),
       roomAliases: rules.roomAliases,
       startLadder: rules.startLadder,
@@ -20295,19 +20311,10 @@ async function judgeRequestItems(request: InstructorRequest, options: {
         verdict.kind = "conflict"; verdict.reasons.push({ source: "room", text: "قاعة الشعبة مشغولة في موعدها؛ يحتاج القسم معالجة الموعد.", blocking: true });
       }
     }
-    const companionType = String(selectedCourse?.CourseCompanionRoomType || "");
     const withFacility = new Map<string, { companionRoomId: string; companionRoomLabel: string }>();
     if (companionType && !item.offeringRowIds?.length) {
       for (const key of verdict.roomCandidates) {
-        const primary = rules.hallByKey.get(key);
-        const building = rules.registry.buildings.find(building => building.id === primary?.buildingId);
-        const facility = rules.registry.rooms.find(room => {
-          const place = rules.registry.buildings.find(building => building.id === room.buildingId);
-          return room.active && room.confidence === "CONFIRMED" && room.bookingPolicy === "companion_only" && room.roomType === companionType
-            && place?.active && place.confidence === "CONFIRMED" && building && place.officialCode.slice(0, 4) === building.officialCode.slice(0, 4)
-            && ![...context.allRows.filter(row => Number(row.AdInstructorId) !== Number(request.AdInstructorId)), ...rowsAfter].some(row => !rowsForRequestSlots(item.slots || [], {}, requestIdentity(item, index)).some(candidate => Number(candidate.id) === Number(row.id)) && rowOccupiesRoom(row, room.id, place.officialCode, room.canonicalCode)
-              && (item.slots || []).some(slot => Boolean((row as any)[slot.day]) && scheduleOverlap(slot.start, slot.end, row.fstarttime, row.fendtime)));
-        });
+        const facility = facilityFor(key, item.slots || []);
         if (facility) withFacility.set(key, { companionRoomId: facility.id, companionRoomLabel: `${rules.registry.buildings.find(building => building.id === facility.buildingId)?.officialCode} / ${facility.canonicalCode}` });
       }
       verdict.roomCandidates = verdict.roomCandidates.filter(key => withFacility.has(key));
