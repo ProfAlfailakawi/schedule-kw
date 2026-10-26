@@ -4512,7 +4512,7 @@ async function scheduleLengthIssue(row:any){
   if(hours>0&&Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
     const siblings=(await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
       .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")&&Number(other.id)!==Number(row.id||0));
-    const total=siblings.reduce((sum:number,other:any)=>sum+weeklyLectureMinutes(other),0)+weeklyLectureMinutes(row);
+    const total=siblings.reduce((sum:number,other:any)=>sum+weeklyLectureMinutes(other,hours),0)+weeklyLectureMinutes(row,hours);
     if(!habitual&&total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`;
   }
   return null;

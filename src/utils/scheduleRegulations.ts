@@ -213,8 +213,8 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
     note: "فترتان: 50 دقيقة في الأحد و50 دقيقة في الثلاثاء."
   },
   {
-    hours: 2, id: "2h-one-block", days: ["ftuesday"], minutesPerDay: [100], weeklyMinutes: 100,
-    note: "فترتان أكاديميتان متصلتان في لقاء واحد (100 دقيقة)."
+    hours: 2, id: "2h-one-block", days: ["ftuesday"], minutesPerDay: [110], weeklyMinutes: 100,
+    note: `فترتان تدريسيّتان من ${countOf(50, AR.minute)} بينهما فاصل ${countOf(10, AR.minute)} (${countOf(110, AR.minute)} زمنية).`
   },
   {
     hours: 3, id: "3h-three-days", days: ["fsunday", "ftuesday", "fthursday"], minutesPerDay: [50, 50, 50], weeklyMinutes: 150,
@@ -237,20 +237,20 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
   // large part of an applied-education timetable is actually taught, so they
   // belong in the library rather than in the warnings.
   {
-    hours: 3, id: "3h-block", days: ["fwednesday"], minutesPerDay: [180], weeklyMinutes: 180,
-    note: "ثلاث ساعات في يوم واحد — المعتاد للمختبرات والورش."
+    hours: 3, id: "3h-block", days: ["fwednesday"], minutesPerDay: [170], weeklyMinutes: 150,
+    note: `ثلاث فترات تدريسية من ${countOf(50, AR.minute)}، وبينها فاصلان من ${countOf(10, AR.minute)} (${countOf(170, AR.minute)} زمنية) — للمختبرات والورش.`
   },
   {
-    hours: 4, id: "4h-block", days: ["fwednesday"], minutesPerDay: [240], weeklyMinutes: 240,
-    note: "أربع ساعات في يوم واحد — المعتاد للمختبرات والتدريب."
+    hours: 4, id: "4h-block", days: ["fwednesday"], minutesPerDay: [230], weeklyMinutes: 200,
+    note: `أربع فترات تدريسية من ${countOf(50, AR.minute)}، وبينها ثلاثة فواصل من ${countOf(10, AR.minute)} (${countOf(230, AR.minute)} زمنية) — للمختبرات والتدريب.`
   },
   {
-    hours: 5, id: "5h-block", days: ["fwednesday"], minutesPerDay: [300], weeklyMinutes: 300,
-    note: "خمس ساعات في يوم واحد — المعتاد للتدريب الميداني والعملي."
+    hours: 5, id: "5h-block", days: ["fwednesday"], minutesPerDay: [290], weeklyMinutes: 250,
+    note: `خمس فترات تدريسية من ${countOf(50, AR.minute)}، وبينها أربعة فواصل من ${countOf(10, AR.minute)} (${countOf(290, AR.minute)} زمنية) — للتدريب الميداني والعملي.`
   },
   {
-    hours: 5, id: "5h-split", days: ["fmonday", "fwednesday"], minutesPerDay: [180, 120], weeklyMinutes: 300,
-    note: "خمس ساعات: 180+120 على يومين."
+    hours: 5, id: "5h-split", days: ["fmonday", "fwednesday"], minutesPerDay: [170, 110], weeklyMinutes: 250,
+    note: `خمس فترات تدريسية: ثلاث فترات (${countOf(170, AR.minute)} زمنية) وفترتان (${countOf(110, AR.minute)} زمنية) على يومين.`
   }
 ];
 
@@ -479,11 +479,12 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       const actual = meetings.slice().sort((a, b) => DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day));
       const matches = (expected: Array<{ day: DayKey; minutes: number }>) => actual.length === expected.length && expected.every((item, index) => actual[index]?.day === item.day && actual[index]?.minutes === item.minutes);
       // The library is the source of truth (50/80-minute teaching periods).
-      // Single-day block patterns are for labs/workshops, not theoretical courses.
-      const approvedPatterns = patternsForHours(hours).filter(pattern => pattern.days.length > 1);
-      const valid = approvedPatterns.some(pattern => matches(
-        pattern.days.map((day, index) => ({ day, minutes: pattern.minutesPerDay[index] }))
-      ));
+      // A practical single-day block is an approved shape regardless of which
+      // day it lands on; compare its length and not the example day in the library.
+      const approvedPatterns = patternsForHours(hours);
+      const valid = approvedPatterns.some(pattern => pattern.days.length === 1
+        ? actual.length === 1 && actual[0].minutes === pattern.minutesPerDay[0]
+        : matches(pattern.days.map((day, index) => ({ day, minutes: pattern.minutesPerDay[index] }))));
       if (!valid) invalid.push(...sectionRows);
     }
     if (invalid.length) findings.push({
@@ -493,7 +494,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       source: "decision-1912",
       approvalEffect: "block",
       title: `توزيع مقرر نظري لا يطابق نمط ${countOf(hours, AR.hour)}`,
-      detail: `المطلوب: ${patternsForHours(hours).filter(pattern => pattern.days.length > 1).map(pattern => pattern.days.map((day, index) => `${countOf(pattern.minutesPerDay[index], AR.minute)} يوم ${dayLabel(day)}`).join("، ")).join("؛ أو ")}.`,
+      detail: `المطلوب: ${patternsForHours(hours).map(pattern => pattern.days.map((day, index) => `${countOf(pattern.minutesPerDay[index], AR.minute)} يوم ${dayLabel(day)}`).join("، ")).join("؛ أو ")}.`,
       subjectKey: `course:${courseId}`,
       subjectLabel: course.CourseCode || course.CourseName,
       rowIds: [...new Set(invalid.map(row => row.id))],
@@ -726,6 +727,9 @@ export function lectureLengthProblem(
   const length = toMin(row.fendtime) - toMin(row.fstarttime);
   if (!days.length || !Number.isFinite(length) || length <= 0) return null;
   if (habitualMinutes && Math.abs(length - habitualMinutes) <= 5) return null;
+  // One-day applied blocks include the 10-minute changeovers between 50-minute
+  // teaching periods. Their approved elapsed length comes from the same library.
+  if (days.length === 1 && patternsForHours(courseHours).some(pattern => pattern.days.length === 1 && pattern.minutesPerDay[0] === length)) return null;
   const maxPeriods = Math.max(1, Math.ceil(courseHours || 1));
   const fits = days.some(day => {
     const lecture = expectedMinutesForDay(day), gap = requiredGapForDay(day);
@@ -743,12 +747,17 @@ export function lectureLengthProblem(
   return `مدة المحاضرة ${countOf(length, AR.minute)} لا توافق اللائحة (${[...new Set(family)].join("، ")} مع فاصل ${arabicNumber(requiredGapForDays(days))}د بين المحاضرتين المتتاليتين)`;
 }
 
-/** دقائقُ المحاضرة الفعلية في الأسبوع لصفٍّ واحد: الفواصل بين المحاضرات المتتالية لا تُحسب منها. */
-export function weeklyLectureMinutes(row: Partial<Record<DayKey, unknown>> & { fstarttime?: unknown; fendtime?: unknown }): number {
+/** دقائقُ التدريس الفعلية أسبوعياً؛ تُطرح فواصل الكتل العملية المسجلة في المكتبة. */
+export function weeklyLectureMinutes(row: Partial<Record<DayKey, unknown>> & { fstarttime?: unknown; fendtime?: unknown }, courseHours = 0): number {
   const toMin = (value: unknown) => { const [h, m] = String(value || "").split(":").map(Number); return h * 60 + m; };
   const length = toMin(row.fendtime) - toMin(row.fstarttime);
   if (!Number.isFinite(length) || length <= 0) return 0;
-  return DAY_KEYS.filter(day => Boolean(row[day])).reduce((sum, day) => {
+  const days = DAY_KEYS.filter(day => Boolean(row[day]));
+  if (days.length === 1) {
+    const appliedBlock = patternsForHours(courseHours).find(pattern => pattern.days.length === 1 && pattern.minutesPerDay[0] === length);
+    if (appliedBlock) return appliedBlock.weeklyMinutes;
+  }
+  return days.reduce((sum, day) => {
     const lecture = expectedMinutesForDay(day), gap = requiredGapForDay(day);
     const periods = Math.round((length + gap) / (lecture + gap));
     const expected = periods * lecture + (periods - 1) * gap;
