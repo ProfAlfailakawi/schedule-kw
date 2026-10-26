@@ -223,7 +223,9 @@ ok('71 time-column proof tolerates one ruled-border digit while rejecting buildi
 ok('72 academic key searches the bounded right table edge instead of the last physical band', 'const keySearchFrom=Math.max(0,columnBands.length-7)' in doc_ocr and 'for(let end=lastBand;end>=keySearchFrom;end--)' in doc_ocr)
 ok('73 full Authority course keys resolve by number inside the selected document department', 'authorityCourseCodeMatches(source,item.digits,authorityDepartment)' in doc_ocr and 'Course NAMES are display evidence only' in doc_ocr)
 schedules_src=(ROOT/'src/components/Schedules.tsx').read_text()
-ok('74 section numbering starts at 501 and ignores legacy/broken lower values when suggesting next section', 'return "501"' in schedules_src and 'value >= 501 && value <= 999' in schedules_src and 'Sections of one course run 501, 502, 503' in schedules_src)
+section_code_src=(ROOT/'src/utils/nextCourseSectionCode.ts').read_text()
+inbox_src=(ROOT/'src/components/InstructorInbox.tsx').read_text()
+ok('74 section numbering starts at 501 and ignores legacy/broken lower values when suggesting next section', 'maximum = 500' in section_code_src and 'section >= 501 && section <= 999' in section_code_src and 'nextCourseSectionCode(rows, courseId, termId, excludeId)' in schedules_src and 'nextCourseSectionCode(currentRows.values(), courseId, Number(termId))' in inbox_src)
 
 ok('75 narrow room cells are re-read in isolation after geometry proves the room column, and blank cells are ink-gated instead of OCRed', 'Rooms are the narrowest identity cells in SWRSCHA' in doc_ocr and 'readCell(surface,columnBands[hallIndex],bands[at],LOCATION_ALNUM,worker)' in doc_ocr and 'if(stripPatterns.hall.test(value))next[row]=value' in doc_ocr and 'const cellHasInk=' in doc_ocr and 'cellHasInk(columnBands[hallIndex],row)' in doc_ocr)
 ok('76 scan clock border artefacts use a same-page dominant tail rather than a hard-coded time guess', 'const clockTailCounts=new Map<string,number>()' in doc_ocr and 'pageClockTail' in doc_ocr and 'one-character tail correction' in doc_ocr)

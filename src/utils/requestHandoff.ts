@@ -36,6 +36,13 @@ export interface RequestHandoff {
   days: HandoffDayKey[];
   start: string;
   end: string;
+  /** A quick card's explicit choices must survive expansion into the full editor. */
+  scode?: string;
+  buildingId?: string;
+  roomId?: string;
+  room?: string;
+  hall?: string;
+  locationStatus?: "VERIFIED" | "PENDING_ROOM";
 }
 
 const KEY = "schedule.requestHandoff";
@@ -78,6 +85,12 @@ export function takeHandoff(): RequestHandoff | null {
       days,
       start: String(value.start),
       end: String(value.end || ""),
+      scode: /^\d{1,6}$/.test(String(value.scode || "")) ? String(value.scode) : undefined,
+      buildingId: typeof value.buildingId === "string" ? value.buildingId.slice(0,120) : undefined,
+      roomId: typeof value.roomId === "string" ? value.roomId.slice(0,120) : undefined,
+      room: typeof value.room === "string" ? value.room.slice(0,120) : undefined,
+      hall: typeof value.hall === "string" ? value.hall.slice(0,120) : undefined,
+      locationStatus: value.locationStatus === "VERIFIED" || value.locationStatus === "PENDING_ROOM" ? value.locationStatus : undefined,
     };
   } catch { return null; }
 }

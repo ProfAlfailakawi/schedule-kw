@@ -12,6 +12,7 @@ import {
 import { sortByName } from "../utils/sorting";
 import { toEnglishDigits } from "../utils/digits";
 import { isAssignableInstructor } from "../utils/instructorStatus";
+import { isBlockingConflict } from "../utils/scheduleIntelligence";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
@@ -64,6 +65,12 @@ export type QuickSeed = {
   hall: string;
   /** قاعةٌ خاليةٌ في هذا الوقت يقترحها النظامُ (طلبُ أستاذ): تُملأ في البطاقة ويبقى للمنسّق أن يغيّرها. */
   suggestion?: { room: string; hall: string; buildingId?: string; roomId?: string; locationStatus?: "VERIFIED" | "PENDING_ROOM" };
+  /** All weekdays of this appointment, not just the first painted/selected day. */
+  days?: DayKey[];
+  /** An instructor request may contain different times on different days. */
+  fixedSlots?: Array<{ day: string; start: string; end: string }>;
+  /** Related request moves are checked atomically against the final week. */
+  deferLiveCheck?: boolean;
 };
 
 export default function QuickCreatePopover({
@@ -111,6 +118,8 @@ export default function QuickCreatePopover({
   const ref = useRef<HTMLDivElement | null>(null);
   const firstField = useRef<HTMLButtonElement | null>(null);
   const [box, setBox] = useState<{ left: number; top: number } | null>(null);
+  const chosenDays = seed.days?.length ? seed.days : [seed.day];
+  const hasDifferentTimes = new Set((seed.fixedSlots || []).map(slot => `${slot.start}|${slot.end}`)).size > 1;
   const openedStart = minutesOf(seed.start);
   const openedEnd = Math.max(openedStart + 30, minutesOf(seed.end));
   const [draft, setDraft] = useState<QuickDraft>({
@@ -136,7 +145,13 @@ export default function QuickCreatePopover({
     patch(next);
   };
 
+  // A freshly mounted card may use the department's usual length exactly once.
+  // Re-renders must never overwrite the duration the coordinator picked.
+  const learnedForDay = useRef<string | null>(null);
+  const timeEdited = useRef(false);
   useEffect(() => {
+    if (learnedForDay.current === seed.day || timeEdited.current || hasDifferentTimes) return;
+    learnedForDay.current = seed.day;
     const learned = Number(durationForDay?.(seed.day) || 0);
     if (!learned) return;
     setDraft(current => {
@@ -144,7 +159,7 @@ export default function QuickCreatePopover({
       const end = timeOf(Math.min(SCHEDULE_DAY_END, from + learned));
       return current.end === end ? current : { ...current, end };
     });
-  }, [durationForDay, seed.day]);
+  }, [durationForDay, seed.day, hasDifferentTimes]);
 
   // Measured against the window, never against the column: a card that explains
   // an hour must not be clipped by the day that hour belongs to.
@@ -189,7 +204,86 @@ export default function QuickCreatePopover({
 
   const ready = Boolean(draft.courseId && draft.scode.trim() && draft.instructorId && draft.buildingId && (draft.roomId || draft.locationStatus === "PENDING_ROOM"));
   const digitsOk = /^\d*$/.test(toEnglishDigits(draft.scode));
-  const clash = ready && digitsOk ? conflictOf(draft, seed.day) : null;
+  const clash = ready && digitsOk && !hasDifferentTimes ? conflictOf(draft, seed.day) : null;
+  const [liveCheck, setLiveCheck] = useState<{ key: string; checking: boolean; blockers: string[]; warnings: string[]; error: string }>({
+    key: "", checking: false, blockers: [], warnings: [], error: "",
+  });
+  const [ideas, setIdeas] = useState<Array<{ start: string; end: string; room: string; hall: string; buildingId: string; roomId: string; score: number; reasons?: string[] }> | null>(null);
+  const [ideaKind, setIdeaKind] = useState<"room" | "time" | null>(null);
+  const [ideasBusy, setIdeasBusy] = useState(false);
+  const [ideasError, setIdeasError] = useState("");
+
+  const payload = {
+    AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
+    AdCourseId: draft.courseId, SCode: draft.scode.trim(), AdInstructorId: draft.instructorId,
+    AdRoomCode: draft.room.trim(), AdRoomHall: draft.hall.trim(),
+    buildingId: draft.buildingId, roomId: draft.roomId, locationStatus: draft.locationStatus,
+    fstarttime: draft.start, fendtime: draft.end,
+    fsunday: chosenDays.includes("fsunday"), fmonday: chosenDays.includes("fmonday"),
+    ftuesday: chosenDays.includes("ftuesday"), fwednesday: chosenDays.includes("fwednesday"),
+    fthursday: chosenDays.includes("fthursday"),
+  };
+  const checkKey = JSON.stringify(payload);
+  useEffect(() => {
+    if (!ready || !digitsOk || hasDifferentTimes || seed.deferLiveCheck) {
+      setLiveCheck({ key: "", checking: false, blockers: [], warnings: [], error: "" });
+      return;
+    }
+    const controller = new AbortController();
+    setLiveCheck({ key: checkKey, checking: true, blockers: [], warnings: [], error: "" });
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/schedules/check-conflicts", {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: checkKey, signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("تعذّر فحص الموعد. أعد المحاولة.");
+        const result = await response.json();
+        const conflicts: any[] = Array.isArray(result.conflicts) ? result.conflicts : [];
+        const validation: string[] = Array.isArray(result.validationIssues) ? result.validationIssues : [];
+        const describe = (item: any) => [String(item?.message || ""), String(item?.detail || "")].filter(Boolean).join(" — ");
+        setLiveCheck({
+          key: checkKey, checking: false,
+          blockers: [...new Set([...validation, ...conflicts.filter(isBlockingConflict).map(describe)].filter(Boolean))],
+          warnings: [...new Set([
+            ...conflicts.filter(item => !isBlockingConflict(item)).map(describe).filter(Boolean),
+            ...(result.patternNotice ? ["نمط الأيام المختار غير معتمد لهذا المقرر؛ راجع الأنماط المعتادة."] : []),
+            ...(result.lectureNotice ? ["مدة المحاضرة تختلف عن النمط المعتاد للمقرر."] : []),
+          ])],
+          error: "",
+        });
+      } catch (issue: any) {
+        if (issue?.name !== "AbortError") {
+          setLiveCheck({ key: checkKey, checking: false, blockers: [], warnings: [], error: issue?.message || "تعذّر فحص الموعد." });
+        }
+      }
+    }, 320);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [checkKey, ready, digitsOk, hasDifferentTimes, seed.deferLiveCheck]);
+
+  const previewCurrent = liveCheck.key === checkKey;
+  const pendingCheck = ready && digitsOk && !hasDifferentTimes && !seed.deferLiveCheck && (!previewCurrent || liveCheck.checking);
+  const blocked = previewCurrent && liveCheck.blockers.length > 0;
+  const checkFailed = previewCurrent && Boolean(liveCheck.error);
+
+  useEffect(() => { setIdeas(null); setIdeasError(""); }, [checkKey]);
+  const requestIdeas = async (roomOnly: boolean) => {
+    if (!draft.courseId || !draft.instructorId || hasDifferentTimes) return;
+    setIdeaKind(roomOnly ? "room" : "time");
+    setIdeas(null); setIdeasError(""); setIdeasBusy(true);
+    try {
+      const response = await fetch("/api/schedules/suggest-slots", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, roomOnly, durationMinutes: minutesOf(draft.end) - minutesOf(draft.start) }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "تعذّر اقتراح المواعيد");
+      setIdeas(Array.isArray(result.slots) ? result.slots : []);
+      if (!result.slots?.length && result.note) setIdeasError(String(result.note));
+    } catch (issue: any) { setIdeasError(issue?.message || "تعذّر إيجاد المقترحات."); }
+    finally { setIdeasBusy(false); }
+  };
 
   const orderedCourses = useMemo(() => sortByName(courses, (course: AdCourse) => course.CourseName), [courses]);
   const selectedCourse = courses.find(course => Number(course.AdCourseId) === Number(draft.courseId));
@@ -215,12 +309,22 @@ export default function QuickCreatePopover({
         </button>
       </header>
 
-      <TimeWheels
-        start={draft.start}
-        end={draft.end}
-        onChange={(next) => patch({ start: next.start, end: next.end })}
-        preferredDuration={Number(durationForDay?.(seed.day) || 0)}
-      />
+      {hasDifferentTimes ? (
+        <div className="qc-warn" role="status">
+          <strong>أوقات مختلفة في طلب الأستاذ — تُحفظ كل مجموعة حسب وقتها الأصلي</strong>
+          {(seed.fixedSlots || []).map((slot, index) => (
+            <small key={index} style={{ display: "block" }}>{slot.day} · {formatScheduleTimeRange(slot.start, slot.end)}</small>
+          ))}
+          <small>لم نُظهر عدّاداً يغيّر موعداً واحداً ثم يهمل بقية المواعيد.</small>
+        </div>
+      ) : (
+        <TimeWheels
+          start={draft.start}
+          end={draft.end}
+          onChange={(next) => { timeEdited.current = true; patch({ start: next.start, end: next.end }); }}
+          preferredDuration={Number(durationForDay?.(seed.day) || 0)}
+        />
+      )}
 
       <div className="qc-fields">
         <label className="qc-field qc-wide">
@@ -275,23 +379,70 @@ export default function QuickCreatePopover({
         </div>
       </div>
 
+      {!hasDifferentTimes && draft.courseId && draft.instructorId ? (
+        <div className="qc-ideas" role="group" aria-label="مقترحات الموعد">
+          <div className="slot-advisor">
+            <button type="button" className="slot-advisor-ask" data-guide-ignore="يقترح أوقاتاً وقاعات دون حفظ" disabled={ideasBusy} onClick={() => void requestIdeas(false)}>اقترح لي وقتاً وقاعة</button>
+            <button type="button" className="room-suggest-ask" data-guide-ignore="يقترح قاعات دون حجز" disabled={ideasBusy} onClick={() => void requestIdeas(true)}>اقترح قاعة متاحة</button>
+          </div>
+          {ideasBusy ? <small role="status">أبحث عن خيارات مناسبة…</small> : null}
+          {ideasError ? <p className="qc-warn">{ideasError}</p> : null}
+          {ideas && !ideas.length && !ideasError ? <small>لا توجد اقتراحات متاحة ضمن الشروط المختارة.</small> : null}
+          {ideas?.length ? (
+            <div className={ideaKind === "time" ? "slot-ideas" : "room-suggest-list"}>
+              {ideas.map((idea, index) => (
+                <button key={`${index}-${idea.roomId}-${idea.start}`} type="button"
+                  data-guide-ignore="اختيار المقترح يملأ النموذج فقط ولا يحفظه"
+                  onClick={() => { timeEdited.current = true; patch({
+                    start: idea.start, end: idea.end, room: idea.room, hall: idea.hall,
+                    buildingId: idea.buildingId, roomId: idea.roomId, locationStatus: "VERIFIED",
+                  }); setIdeas(null); }}
+                  title={(idea.reasons || []).join(" · ")}>
+                  {ideaKind === "time" ? <b className="slot-rank">{index + 1}</b> : null}
+                  <span className={ideaKind === "time" ? "slot-when" : "room-suggest-card-copy"}>
+                    <time dir="ltr">{formatScheduleTimeRange(idea.start, idea.end)}</time>
+                    <small>{idea.room}/{idea.hall}</small>
+                  </span>
+                  <span className={ideaKind === "time" ? "slot-why" : "room-suggest-card-facts"}>
+                    {(idea.reasons || []).slice(0, 3).map((reason, i) => <i key={i}>{reason}</i>)}
+                  </span>
+                  {ideaKind === "time" ? <span className="slot-score" style={{ "--score": `${idea.score}%` } as React.CSSProperties}><i /><em>{idea.score}</em></span> : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {error ? (
         <p className="qc-warn qc-warn-hard"><AlertTriangle aria-hidden="true" />{error}</p>
       ) : !digitsOk ? (
         <p className="qc-warn"><AlertTriangle aria-hidden="true" />الرجاء كتابة رقم الشعبة بالأرقام الإنجليزية.</p>
-      ) : clash ? (
+      ) : blocked || checkFailed ? (
+        <p className="qc-warn qc-warn-hard"><AlertTriangle aria-hidden="true" />{liveCheck.blockers[0] || liveCheck.error}</p>
+      ) : pendingCheck ? (
+        <p className="qc-warn" role="status">جارٍ فحص الموعد قبل الحفظ…</p>
+      ) : clash && !previewCurrent ? (
         <p className="qc-warn"><AlertTriangle aria-hidden="true" />{clash}</p>
+      ) : null}
+      {seed.deferLiveCheck ? <p className="qc-warn" role="status">الأوقات المرتبطة تُفحص معاً على الجدول النهائي قبل تثبيت طلب الأستاذ.</p> : null}
+      {previewCurrent && liveCheck.warnings.length ? (
+        <div className="qc-warn" role="status">{liveCheck.warnings.slice(0, 3).map((warning, index) => (
+          <p key={index}><AlertTriangle aria-hidden="true" />{warning}</p>
+        ))}</div>
       ) : null}
 
       <footer className="qc-foot">
-        <button type="button" className="qc-expand" onClick={() => onExpand(draft)}>
+        <button type="button" className="qc-expand" data-guide-ignore="التوسيع ينقل مسودة الموعد إلى المحرر الكامل" disabled={hasDifferentTimes}
+          title={hasDifferentTimes ? "الأوقات المختلفة تُراجع وتُعتمد معاً من وارد الأساتذة" : undefined}
+          onClick={() => onExpand(draft)}>
           <Maximize2 aria-hidden="true" />تفاصيل أكثر
         </button>
         <button type="button" className="qc-cancel" onClick={onCancel}>إلغاء</button>
         <button
           type="button"
           className="qc-create"
-          disabled={!ready || !digitsOk || saving}
+          data-guide-ignore="زر الحفظ الأساسي للموعد يخضع للفحص الكامل"
+          disabled={!ready || !digitsOk || saving || pendingCheck || blocked || checkFailed}
           onClick={() => onCreate(draft)}
           title={ready ? "حفظ الموعد في هذه الخانة" : "أكمل المقرر والشعبة والأستاذ والقاعة"}
         >

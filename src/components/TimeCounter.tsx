@@ -115,9 +115,9 @@ export function TimeWheels({
 
   const setStart = (minutes: number) => {
     const clamped = Math.min(Math.max(minutes, minimum), maximum - 30);
-    const learned = Number(preferredDuration || 0);
-    const duration = learned > 0 ? learned : span;
-    onChange({ start: timeOf(clamped), end: timeOf(Math.min(maximum, clamped + duration)) });
+    // Keep the duration selected by the user when the hour or minute changes.
+    // The caller applies its learned default once when the draft opens.
+    onChange({ start: timeOf(clamped), end: timeOf(Math.min(maximum, clamped + span)) });
   };
   const setSpan = (length: number) =>
     onChange({ start: timeOf(from), end: timeOf(Math.min(maximum, from + length)) });

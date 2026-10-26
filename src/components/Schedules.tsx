@@ -135,6 +135,7 @@ import { isTermClosed, previousYearSameTermName, sameTermName, sortTermsNewest, 
 import ScheduleReview from "./ScheduleReview";
 import InstructorPicker from "./InstructorPicker";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
+import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
 import { TimeCounterPopover } from "./TimeCounter";
 import CommandPalette, { type ScheduleCommand } from "./CommandPalette";
 import ScheduleViewsMenu, { SaveViewDialog } from "./ScheduleViewsMenu";
@@ -941,6 +942,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       isPhoneDevice() ? "list" : savedPrefs.viewMode === "week" ? "week" : savedPrefs.viewMode === "rooms" ? "rooms" : "list",
     ),
     [conflicts, setConflicts] = useState<any[]>([]),
+    [serverValidationIssues, setServerValidationIssues] = useState<string[]>([]),
     /* «النمط غير معتمد»: رسمٌ من الخادم (مكتبة الأنماط)، تنبيهٌ لا يمنع الحفظ. */
     [patternNotice, setPatternNotice] = useState(""),
     [lectureNotice, setLectureNotice] = useState(""),
@@ -1518,14 +1520,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * worse than not guessing — so the number is filled in only while the field
    * is still untouched for this course, and anything typed by hand wins.
    */
-  const nextSectionCode = (courseId: number, termId: number, excludeId?: number | null) => {
-    const used = rows
-      .filter(row => (!excludeId || Number(row.id) !== Number(excludeId)) && Number(row.AdCourseId) === Number(courseId) && Number(row.AdTermId) === Number(termId))
-      .map(row => Number(String(row.SCode || "").trim()))
-      .filter(value => Number.isFinite(value) && value >= 501 && value <= 999);
-    if (!used.length) return "501";
-    return String(Math.max(...used) + 1);
-  };
+  const nextSectionCode = (courseId: number, termId: number, excludeId?: number | null) =>
+    nextCourseSectionCode(rows, courseId, termId, excludeId);
+
   const sectionAutofilled = useRef(false);
   const sectionHint = useMemo(() => {
     const courseId = Number(form.AdCourseId || 0);
@@ -3432,6 +3429,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     !selectedFormDays.length?"يجب اختيار يوم واحد على الأقل للمحاضرة.":"",
     timeRangeInvalid?"وقت النهاية يجب أن يكون بعد وقت البداية.":"",
     outsideTeachingDay?`وقت المحاضرة يجب أن يكون بين ${scheduleClockForDisplay(activeScheduleWindow.startTime)} و${scheduleClockForDisplay(activeScheduleWindow.endTime)}.`:"",
+    ...serverValidationIssues,
   ].filter(Boolean);
   const blockingConflicts=conflicts.filter(isBlockingConflict);
   const editorTimingNote = historicalTimingNote(form);
@@ -4385,6 +4383,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       start: handoff.start,
       end: handoff.end,
     });
+    // Preserve decisions made in the quick card; otherwise "more details"
+    // silently discards the section and selected official location.
+    setForm(current => ({
+      ...current,
+      ...(handoff.scode ? { SCode: handoff.scode } : {}),
+      ...(handoff.buildingId ? { buildingId: handoff.buildingId, AdRoomCode: handoff.room || "" } : {}),
+      ...(handoff.locationStatus === "PENDING_ROOM"
+        ? { roomId: undefined, AdRoomHall: "", locationStatus: "PENDING_ROOM" as const }
+        : handoff.roomId
+          ? { roomId: handoff.roomId, AdRoomHall: handoff.hall || "", locationStatus: "VERIFIED" as const }
+          : {}),
+    }));
     setMessage(handoffNotice(handoff));
   }, [mode, courses.length]);
   useEffect(() => {
@@ -4398,6 +4408,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       !days.some((d) => form[d.key])
     ) {
       setConflicts([]);
+      setServerValidationIssues([]);
       setPatternNotice("");
       setLectureNotice("");
       return;
@@ -4409,6 +4420,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const candidate: any = { ...form, id: editId || -900001 };
     /* «هيئة تدريسية» ليست شخصاً هنا أيضاً: الحكم نفسه الذي يقوله الخادم بعد لحظة. */
     setConflicts(findConflicts([candidate], editId ? rows.filter(row => row.id !== editId) : rows, { placeholderInstructorIds: placeholderInstructorIds(instructorById.values()) }));
+    setServerValidationIssues([]);
     setPatternNotice("");
     setLectureNotice("");
     const controller = new AbortController(),
@@ -4422,6 +4434,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             signal: controller.signal,
           });
           setConflicts(data.conflicts || []);
+          setServerValidationIssues(Array.isArray(data.validationIssues) ? data.validationIssues : []);
           setPatternNotice(typeof data.patternNotice === "string" ? data.patternNotice : "");
           setLectureNotice(typeof data.lectureNotice === "string" ? data.lectureNotice : "");
         } catch (e: any) {
@@ -12248,9 +12261,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           seed={quick}
           courses={quickCourses}
           instructors={instructors}
-          collegeId={Number(filterCollege||0)}
-          sectionId={Number(filterSection||0)}
-          termId={Number(filterTerm||0)}
+          collegeId={quickScope().collegeId}
+          sectionId={quickScope().sectionId}
+          termId={quickScope().termId}
           durationForDay={(day) => expectedDurationForDay({
             AdCollegeId: filterCollege, AdSectionId: filterSection, AdTermId: filterTerm,
           }, day)}
