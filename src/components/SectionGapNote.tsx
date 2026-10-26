@@ -82,8 +82,9 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
     const plan: GapPlan = { accepted: data.accepted || {}, remaining: historyReady ? data.remaining || {} : {}, history: historyReady ? past!.history : {} };
     // التخفيض يعتمد حصرياً على كشف الإحصائيات المرفوع لهذا الفصل؛ الفتح كما كان.
     // إدخال «المتبقي» اليدوي لا يُعامل ككشف مرفوع للتخفيض.
-    const hasCurrentReport = Boolean(data.planImported && data.planSource?.fileName && data.planSource.fileName !== "إدخال يدوي");
-    const currentReport = hasCurrentReport ? { remaining: data.remaining || {}, accepted: {}, history: {} } : null;
+    // The registrar not-passed count (especially from the preceding semester) does not prove unused current-term seats.
+    // Suppress section-cancellation hints until current-term enrollment and actual capacity can be verified.
+    const currentReport: GapPlan | null = null;
     return { gaps: planGaps(data.courses, plan), surpluses: planSurpluses(data.courses, currentReport) };
   }, [data, historyReady, past]);
   const studentItems = useMemo(() => (data ? studentGaps(data.courses) : []), [data]);
