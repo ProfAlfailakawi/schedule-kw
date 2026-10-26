@@ -57,4 +57,13 @@ assert.ok(createRoute.includes('bookingPolicy:bookingPolicy as MasterRoom["booki
 assert.ok(createRoute.includes('"companion_only"'),"quick setup endpoint validates the booking policy");
 assert.ok(editRoomRoute.includes('current.bookingPolicy'),"editing existing studios retains policy when not supplied");
 
+assert.ok(quickSetup.includes('active: room.active'),"quick setup loads the actual activation state when editing a room");
+assert.ok(quickSetup.includes('checked={roomDraft.active}'),"the second icon lets admin activate or deactivate a room");
+assert.ok(quickSetup.includes('value={roomStateFilter}'),"quick setup exposes inactive rooms for reactivation");
+assert.ok(quickSetup.includes('room.active === (roomStateFilter === "active")'),"room filter checks activation state rather than hiding all inactive rooms");
+assert.ok(quickSetup.includes('{room.active?<Badge>فعّالة</Badge>:<Badge>غير فعّالة</Badge>}'),"room card shows live activation status");
+assert.ok(quickSetup.includes('...roomDraft, capacity:'),"room editor passes activation status and booking policy in its write");
+assert.ok(editRoomRoute.includes('typeof req.body?.active==="boolean"?req.body.active:current.active'),"room editing API persists activation in the official registry");
+
+
 console.log("Companion facility booking audit passed");

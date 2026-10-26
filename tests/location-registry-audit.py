@@ -729,8 +729,9 @@ ok('222 the root-admin quick location screen can edit buildings and rooms and so
    and 'onClick={() => startRoomEdit(room)}' in quick_setup
    and 'onClick={() => void deleteRoom(room)}' in quick_setup
    and 'مع الاحتفاظ بسجل المواعيد القديمة' in quick_setup)
-ok('223 soft-deleted rooms disappear immediately and building deletion removes its rooms and building in one saved action',
-   'data.rooms.filter(room => room.active &&' in quick_setup
+ok('223 soft-deleted rooms are excluded from the default active view, remain accessible via inactive filter, and building deletion preserves history',
+   'useState<"active" | "inactive" | "all">("active")' in quick_setup
+   and 'room.active === (roomStateFilter === "active")' in quick_setup
    and 'buildings: current.buildings.filter(item => item.id !== building.id), rooms: current.rooms.filter(room => room.buildingId !== building.id)' in quick_setup
    and 'rooms: current.rooms.filter(item => item.id !== room.id)' in quick_setup
    and 'await Repository.archiveLocationBuilding(inactiveBuilding,inactiveRooms)' in server)
