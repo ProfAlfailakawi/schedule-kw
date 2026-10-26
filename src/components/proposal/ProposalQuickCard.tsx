@@ -67,9 +67,10 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
   }, [onClose]);
 
   const scope = scopeOfDraft(ws);
+  const dayWindow = ctx?.sectionWindows?.[String(scope.sectionId)];
   const courses = useMemo(() => [...(ctx?.courses || [])].sort((a, b) => a.name.localeCompare(b.name, "ar")), [ctx]);
   const suggestion = suggestSectionCode(draft.courseId, ctx?.usedCodes || {}, ws.ops, draft.editingOpId);
-  const clash = draft.start && draft.end && draft.days.length ? quickOverlap({ days: draft.days, start: draft.start, end: draft.end }, ws.currentItems.filter(i => i.rowId !== draft.rowId)) : null;
+  const clash = draft.start && draft.end && draft.days.length ? quickOverlap({ days: draft.days, start: draft.start, end: draft.end }, ws.afterItems.filter(i => i.rowId !== draft.rowId && i.opId !== draft.editingOpId)) : null;
   const toggleDay = (day: StudyProposalDayKey) => ws.patchDraft(cur => ({ days: cur.days.includes(day) ? cur.days.filter(d => d !== day) : [...cur.days, day] }));
   const editingRow = draft.rowId != null ? ws.currentItems.find(i => i.rowId === draft.rowId) : undefined;
 
@@ -84,9 +85,9 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
     const used = new Set(ws.ops.filter(op => op.id !== draft.editingOpId && op.source).map(op => op.source!.id));
     return (ctx?.faculty || [])
       .filter(entry => !q || `${entry.snapshot.courseName} ${entry.snapshot.courseCode} ${entry.snapshot.SCode}`.toLowerCase().includes(q))
-      .map(entry => ({ entry, used: used.has(entry.snapshot.id), clash: quickOverlap({ days: entry.snapshot.days, start: entry.snapshot.fstarttime, end: entry.snapshot.fendtime }, ws.currentItems) }))
+      .map(entry => ({ entry, used: used.has(entry.snapshot.id), clash: quickOverlap({ days: entry.snapshot.days, start: entry.snapshot.fstarttime, end: entry.snapshot.fendtime }, ws.afterItems) }))
       .slice(0, 40);
-  }, [kind, query, ctx, ws.ops, ws.currentItems, draft.editingOpId]);
+  }, [kind, query, ctx, ws.ops, ws.afterItems, draft.editingOpId]);
 
   const Mark = kind === "assign" ? UserRoundPlus : kind === "edit" ? Pencil : FilePlus2;
   return (
@@ -141,7 +142,7 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
             <p className="sp-quick-course"><b>{editingRow?.courseName || "الموعد"}</b>{editingRow?.SCode ? <small> · شعبة {editingRow.SCode}</small> : null}</p>
           )}
           <CourseHistoryNote ws={ws} scope={scope} compact />
-          <TimeWheels start={draft.start || "08:00"} end={draft.end || "08:50"} preferredDuration={draft.block || undefined}
+          <TimeWheels start={draft.start || dayWindow?.startTime || "08:00"} end={draft.end || "08:50"} minTime={dayWindow?.startTime} maxTime={dayWindow?.endTime} preferredDuration={draft.block || undefined}
             onChange={next => ws.patchDraft({ start: next.start, end: next.end, endTouched: true })} />
           <div className="sp-quick-days" role="group" aria-label="الأيام">
             {PROPOSAL_DAY_KEYS.map(day => (

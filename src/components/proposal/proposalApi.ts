@@ -69,6 +69,8 @@ export interface ProposalContext {
   term: { id: number; name: string; closed: boolean; /** فصلٌ سابق: للعرض فقط */ frozen?: boolean };
   scope: { collegeId: number; collegeName: string; sectionId: number; sectionName: string };
   courses: ContextCourse[];
+  /** Department teaching-day bounds, sourced from the Add/Edit window policy. */
+  sectionWindows?: Record<string, { startTime: string; endTime: string }>;
   usedCodes: Record<string, number[]>;
   faculty: FacultyEntry[];
   current: { items: GridItem[]; metrics: StudyProposalMetrics };
@@ -79,6 +81,7 @@ export interface ProposalContext {
 }
 export interface AlternativeSuggestion {
   days: StudyProposalDayKey[]; start: string; end: string; reasons: string[]; blockers: number; reviews: number; gapDelta: number;
+  room?: { buildingId: string; roomId: string; AdRoomCode: string; AdRoomHall: string; locationStatus: "VERIFIED" };
 }
 
 export const proposalApi = {

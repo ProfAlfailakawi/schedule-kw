@@ -153,7 +153,8 @@ const replace: StudyProposalOp = {
   check(validateOps([{ ...create, target: { ...create.target, SCode: "ab" } }]).some(i => i.field === "SCode"), "رقم الشعبة أرقامٌ فقط");
   check(validateOps([{ ...create, target: { ...create.target, days: [] } }]).some(i => i.field === "days"), "يومٌ واحد على الأقل");
   check(validateOps([{ ...create, target: { ...create.target, fstarttime: "10:00", fendtime: "09:00" } }]).some(i => i.field === "time"), "النهاية بعد البداية");
-  check(validateOps([{ ...create, target: { ...create.target, fstarttime: "06:00", fendtime: "07:00" } }]).some(i => i.field === "time"), "الوقت داخل ساعات اليوم الدراسي");
+  check(!validateOps([{ ...create, target: { ...create.target, fstarttime: "06:00", fendtime: "07:00" } }]).some(i => i.field === "time"), "الوقت يُفحص حسب نافذة القسم في الخادم بدلاً من رفضه بنافذة ثابتة");
+  check(validateOps([{ ...create, target: { ...create.target, fstarttime: "10:76", fendtime: "12:00" } }]).some(i => i.field === "time"), "دقائق غير صالحة تُرفض");
   check(validateOps([{ ...create, target: { ...create.target, buildingId: undefined } }]).some(i => i.field === "location"), "المكان مطلوب (أو «القاعة لم تُحدد»)");
   check(!validateOps([{ ...create, target: { ...create.target, roomId: undefined, locationStatus: "PENDING_ROOM" } }]).some(i => i.field === "location"), "«القاعة لم تُحدد» مقبولةٌ مع المبنى");
   check(validateOps([create, { ...create, id: "c2" }]).some(i => i.field === "SCode"), "رقمٌ مكرر لشعبتين جديدتين لمقررٍ واحد");

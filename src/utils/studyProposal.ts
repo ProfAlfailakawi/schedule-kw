@@ -17,6 +17,7 @@ import type {
   StudyProposalRowSpec, StudyProposalStatus,
 } from "../types";
 import { instructorGapStats, timeToMinutes } from "./scheduleIntelligence";
+import { isValidClock } from "./scheduleTime";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
 
@@ -347,9 +348,10 @@ export function validateOp(op: StudyProposalOp): OpIssue[] {
   if (!/^\d+$/.test(String(t.SCode || ""))) add("SCode", "رقم الشعبة أرقامٌ فقط.");
   if (!t.days?.length) add("days", "اختر يوماً واحداً على الأقل.");
   const s = timeToMinutes(t.fstarttime), e = timeToMinutes(t.fendtime);
-  if (!/^\d{1,2}:\d{2}$/.test(clock(t.fstarttime)) || !/^\d{1,2}:\d{2}$/.test(clock(t.fendtime))) add("time", "اكتب وقت البداية والنهاية.");
+  if (!isValidClock(clock(t.fstarttime)) || !isValidClock(clock(t.fendtime))) add("time", "اكتب وقتاً صحيحاً (الساعات 0–23 والدقائق 0–59).");
   else if (e <= s) add("time", "وقت النهاية يجب أن يكون بعد البداية.");
-  else if (s < SCHEDULE_DAY_START || e > SCHEDULE_DAY_END) add("time", "الوقت خارج ساعات اليوم الدراسي (08:00 – 20:00).");
+  // The section-specific teaching window is verified by the server against
+  // the same departmental hours used for Add/Edit, not a hard-coded 08–20.
   if (!t.buildingId || (!t.roomId && t.locationStatus !== "PENDING_ROOM")) add("location", "اختر المبنى والقاعة، أو «القاعة لم تُحدد».");
   if (op.kind === "replace" && op.out && op.incoming === "assign" && op.source && op.out.snapshot.id === op.source.id)
     add("source", "لا يمكن أن يخرج الموعد ويدخل نفسه.");

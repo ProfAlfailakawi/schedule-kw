@@ -32,10 +32,10 @@ const TAGS: Record<string, { text: string; Icon: React.ComponentType<any> }> = {
 
 export function tagFor(item: GridItem, marks: { blocker: ReadonlySet<string>; review: ReadonlySet<string> }) {
   if (marks.blocker.has(item.key)) return { text: "تعارض", Icon: AlertTriangle, kind: "conflict" as const };
+  if (marks.review.has(item.key)) return { text: "للمراجعة", Icon: Sparkles, kind: "review" as const };
   const tag = TAGS[item.state === "out" && item.outAction === "delete" ? "out" : item.state];
   if (item.state === "out" && item.outAction === "delete") return { text: "سيُحذف", Icon: Trash2, kind: "out" as const };
   if (tag) return { text: tag.text, Icon: tag.Icon, kind: item.state };
-  if (marks.review.has(item.key)) return { text: "للمراجعة", Icon: Sparkles, kind: "review" as const };
   return null;
 }
 

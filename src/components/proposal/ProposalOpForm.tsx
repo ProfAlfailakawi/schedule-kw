@@ -60,7 +60,7 @@ function FacultyPicker({ ws }: { ws: Workspace }) {
   const [limit, setLimit] = useState(24);
   const usedIds = useMemo(() => new Set(ops.filter(op => op.id !== draft.editingOpId && op.source).map(op => op.source!.id)), [ops, draft.editingOpId]);
   const multiScope = useMemo(() => new Set((ctx?.faculty || []).map(f => `${f.snapshot.AdCollegeId}:${f.snapshot.AdSectionId}`)).size > 1, [ctx]);
-  const instructorRows = ws.currentItems;
+  const instructorRows = ws.afterItems;
 
   const decorated = useMemo(() => (ctx?.faculty || []).map(entry => {
     const clash = quickOverlap({ days: entry.snapshot.days, start: entry.snapshot.fstarttime, end: entry.snapshot.fendtime }, instructorRows);
@@ -223,6 +223,8 @@ function ScheduleFields({ ws, locked }: { ws: Workspace; locked?: boolean }) {
   const { draft, ctx } = ws;
   const advice = useMemo(() => draft.days.length && draft.start && draft.end ? adviseDayPattern(draft.days as DayKey[], draft.start, draft.end) : null, [draft.days, draft.start, draft.end]);
   const scope = scopeOfDraft(ws);
+  const dayWindow = ctx?.sectionWindows?.[String(scope.sectionId)];
+  const from = dayWindow?.startTime || SCHEDULE_DAY_START_TIME, until = dayWindow?.endTime || SCHEDULE_DAY_END_TIME;
   const invalidTime = Boolean(draft.start && draft.end) && timeToMinutes(draft.end) <= timeToMinutes(draft.start);
   const toggleDay = (day: StudyProposalDayKey) => ws.patchDraft(cur => ({ days: cur.days.includes(day) ? cur.days.filter(d => d !== day) : [...cur.days, day] }));
 
@@ -254,11 +256,11 @@ function ScheduleFields({ ws, locked }: { ws: Workspace; locked?: boolean }) {
       </div>
       <div className="sp-two">
         <Field label="بداية الوقت" required>
-          <TimeField value={draft.start} min={SCHEDULE_DAY_START_TIME} max={SCHEDULE_DAY_END_TIME} dir="ltr"
+          <TimeField value={draft.start} min={from} max={until} dir="ltr"
             onChange={e => ws.patchDraft({ start: e.target.value })} aria-invalid={invalidTime || undefined} />
         </Field>
         <Field label="نهاية الوقت" required>
-          <TimeField value={draft.end} min={SCHEDULE_DAY_START_TIME} max={SCHEDULE_DAY_END_TIME} dir="ltr"
+          <TimeField value={draft.end} min={from} max={until} dir="ltr"
             onChange={e => ws.patchDraft({ end: e.target.value, endTouched: true })} aria-invalid={invalidTime || undefined} />
         </Field>
       </div>
