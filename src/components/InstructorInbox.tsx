@@ -1067,7 +1067,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           /* لا يُتوقّع هنا (الإضافة تفتح بطاقتها أعلاه)؛ يبقى طريقُ الورشة إن وصل. */
           const slots = item.slots || [];
           putHandoff({
-            requestId: row.id, itemIndex: index, instructorId: Number(row.AdInstructorId), instructorName: row.instructorName,
+            requestId: row.id, requestRevision: row.requestRevision || 0, itemIndex: index, instructorId: Number(row.AdInstructorId), instructorName: row.instructorName,
             courseId: Number(item.after?.courseId || 0), collegeId: Number(item.after?.collegeId || row.AdCollegeId),
             sectionId: Number(item.after?.sectionId || row.AdSectionId), termId: Number(row.AdTermId),
             days: slots.map(slot => slot.day) as any, start: slots[0]?.start || "", end: slots[0]?.end || "",
@@ -1470,7 +1470,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                 return;
               }
               putHandoff({
-                requestId: quick.row.id, itemIndex: quick.index,
+                requestId: quick.row.id, requestRevision: quick.row.requestRevision || 0, itemIndex: quick.index, companionRoomId: draft.companionRoomId,
                 instructorId: Number(quick.row.AdInstructorId), instructorName: quick.row.instructorName,
                 courseId: Number(item.after?.courseId || 0),
                 collegeId: Number(item.after?.collegeId || quick.row.AdCollegeId),

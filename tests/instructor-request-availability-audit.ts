@@ -127,6 +127,8 @@ const offerClaim = { ...proposal("offering", 7), slots: [{ day: "fsunday", start
 const pending = await Repository.saveInstructorRequest(offerRequest, [offerClaim]);
 assert.equal((await Repository.getScheduleById(offered.id))!.AdInstructorId, 99990);
 await assert.rejects(() => Repository.updateSchedule(offered.id, { AdInstructorId: 8 }, offered.rev), RequestReservationConflict);
+await assert.rejects(() => Repository.updateSchedule(offered.id, { AdTermId: 900004 }, offered.rev), RequestReservationConflict,
+  "moving a claimed offering to another term cannot bypass its source-term hold");
 await Repository.updateSchedule(offered.id, { AdInstructorId: 7 }, offered.rev, offerRequest.id);
 await Repository.saveInstructorRequest({ ...pending, items: pending.items.map(item => ({ ...item, decision: { state: "fixed", scheduleId: offered.id } })) });
 assert.equal((await Repository.getScheduleById(offered.id))!.AdInstructorId, 7);
@@ -146,9 +148,29 @@ await assert.rejects(() => Repository.commitInstructorRequestPlan(planRequest,
   [operations[0], { ...operations[1], original: { ...b, rev: 999 } }], decided, row => row, new Set()));
 assert.equal((await Repository.getScheduleById(a.id))!.fstarttime, "08:00", "failure in the second operation cannot apply the first");
 assert.ok(!(await Repository.getInstructorRequest(planRequest.id))!.items[0].decision);
+await assert.rejects(() => Repository.commitInstructorRequestPlan(planRequest, operations, decided, row => row, new Set(), async () => {
+  throw new RequestReservationConflict("weekly hours changed");
+}));
+assert.equal((await Repository.getScheduleById(a.id))!.fstarttime, "08:00", "final academic validation failure must leave the whole bundle unchanged");
 await Repository.commitInstructorRequestPlan(planRequest, operations, decided, row => row, new Set());
 assert.equal((await Repository.getScheduleById(a.id))!.fstarttime, "10:00");
 assert.equal((await Repository.getScheduleById(b.id))!.fstarttime, "10:00");
 assert.equal((await Repository.getInstructorRequest(planRequest.id))!.status, "settled");
+// Non-overlapping simultaneous requests must still share the professor's load ceiling.
+const loadCourse = await Repository.createCourse(1, 1, "LOADTEST", "اختبار النصاب المتزامن", 1, 1, 20, false);
+const loadPerson = await Repository.createInstructor("290010100011", "اختبار النصاب", "55000001");
+await Repository.updateInstructor(loadPerson.AdInstructorId, loadPerson.AdInstructorCivil, loadPerson.AdInstructorName, loadPerson.AdInstructorMobile, null, 1);
+const loadRequests = await Promise.all(["fsunday", "ftuesday"].map(async (day, at) => {
+  const entry = { ...request([add(`load-${at}`, day, loadCourse.AdCourseId)], loadPerson.AdInstructorId), AdTermId: 900005 };
+  const { id: _id, createdAt: _at, updatedAt: _updated, ...input } = entry;
+  return Repository.createInstructorRequest(input);
+}));
+const loadResults = await Promise.allSettled(loadRequests.map((entry, at) => Repository.saveInstructorRequest(entry, [{
+  ...proposal(`load-${at}`, loadPerson.AdInstructorId), courseId: loadCourse.AdCourseId, rooms: [],
+  slots: entry.items[0].slots!,
+}])));
+assert.equal(loadResults.filter(result => result.status === "fulfilled").length, 1,
+  "a second concurrent request at a different time cannot exceed the shared teaching load");
+for (const result of loadResults) if (result.status === "rejected") assert.ok(result.reason instanceof RequestReservationConflict);
 if (emulator) { const { getFirestore } = await import("firebase-admin/firestore"); await getFirestore().terminate(); }
 console.log("Instructor availability: precise parity, final bundles, 40 concurrent reservations, stale decisions, release and official assignment passed");

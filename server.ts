@@ -4517,7 +4517,9 @@ async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
   /* مقرّرٌ لا يزيد على ساعاته المعتمدة في أي مكان يُنشأ منه: صفوفُه الأخرى في الفصل والشعبة نفسيهما تُحسب معه. */
   if(hours>0&&Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
     const siblings=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
-      .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")&&Number(other.id)!==Number(row.id||0));
+      .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")
+        &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
+        &&Number(other.id)!==Number(row.id||0));
     const total=siblings.reduce((sum:number,other:any)=>sum+weeklyLectureMinutes(other,hours),0)+weeklyLectureMinutes(row,hours);
     if(!habitual&&total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`;
   }
@@ -19648,6 +19650,24 @@ function requestItemScope(request: InstructorRequest, item: InstructorRequestIte
  * موضعٌ واحدٌ لهذا التجريد عن قصد: لو تكرّر في كل مسارٍ لنسيه أحدُها يوماً،
  * وكشفُ قاعةٍ خطأٌ لا يُكتشف بالنظر إلى الشاشة.
  */
+/** Mutation replies obey the same item-scope boundary as the inbox listing. */
+function requestForDepartment(req: AuthenticatedRequest, request: InstructorRequest) {
+  const visible = (item: InstructorRequestItem) => {
+    const scope = requestItemScope(request, item);
+    return isScopeAllowed(req, scope.collegeId, scope.sectionId);
+  };
+  const allVisible = request.items.every(visible);
+  return { ...request, signatureHistory: undefined, archivedItems: undefined,
+    signature: request.signature ? { ...request.signature, signedItems: allVisible ? request.signature.signedItems : undefined } : undefined,
+    notes: allVisible ? (request as any).notes : [],
+    items: request.items.map(item => visible(item) ? item : ({
+      rowId: item.action === "delete" || item.action === "change" ? item.rowId ?? null : null,
+      action: item.action === "delete" || item.action === "change" ? item.action : "keep",
+      slots: [], hidden: true, decision: item.decision?.state ? { state: item.decision.state } : undefined,
+    } as InstructorRequestItem)),
+  };
+}
+
 function stripForInstructor(request: InstructorRequest) {
   return {
     ...request,
@@ -20733,7 +20753,7 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
     ...stored, items, timeline,
     status: decided ? "settled" : "in-review",
   });
-  res.json(await judgeRequestItems(saved, { forDepartment: true }));
+  res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });
 
 /* ══ تثبيتُ بندٍ في الجدول بنداءٍ واحد (ذرّي) ══════════════════════════════════
@@ -20745,8 +20765,8 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
  *   1. يُبنى أسبوعُ الفصل كما سيصير بعد كل البنود، ويُفحص كلُّ صفٍّ عليه فحصاً جافّاً
  *      بالمسار نفسه الذي تمرّ منه ورشة الجدول (نطاق، قفل، تعارض قاعةٍ وأستاذٍ ودفعة).
  *      فلا يُكتب شيءٌ إن تعذّر شيء.
- *   2. يُكتب، ولو أخفقت خطوةٌ لتغيّرٍ في اللحظة نفسها رُدّ ما كُتب.
- *   3. يُسجَّل القرارُ لكل البنود معاً.
+ *   2. تُفحص الإصدارات والتعارضات الحية داخل معاملة قاعدة البيانات.
+ *   3. تُكتب كل المواعيد والقرارات وفك الحجوزات معاً، أو لا يُكتب شيء.
  * والبندُ بأوقاتٍ مختلفة بين الأيام يصير صفّاً لكل وقت، لا وقتَ الأول على الكل.
  * وختمُ الإصدار (`revs`) يمنع الكتابة فوق تعديلِ زميلٍ وقع بعد أن فُتحت الشاشة.
  * و`preview` يُرجع الخطة والتنبيهات بلا كتابة.
@@ -20765,6 +20785,7 @@ const rowBodyOf = (row: any) => ({
   AdRoomCode: row.AdRoomCode, AdRoomHall: row.AdRoomHall,
   buildingId: row.buildingId, roomId: row.roomId, locationStatus: row.locationStatus,
   sourceBuildingText: row.sourceBuildingText, sourceRoomText: row.sourceRoomText,
+  companionRoomId: row.companionRoomId, companionRoomLabel: row.companionRoomLabel,
 });
 
 app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
@@ -20851,12 +20872,14 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
       const refusal = liveRowRefusal(live, revs);
       if (refusal) { failItem(409, i, refusal.error, refusal.code); return; }
       const [first, ...rest] = groups;
+      const held = holds.find(entry => entry.itemId === item.itemId)?.room;
+      const place = held ? { AdRoomCode: held.room, AdRoomHall: held.hall, buildingId: held.buildingId, roomId: held.roomId,
+        companionRoomId: held.companionRoomId || live.companionRoomId, companionRoomLabel: held.companionRoomLabel || live.companionRoomLabel, locationStatus: "VERIFIED" } : {};
       ops.push({ kind: "update", itemIndex: i, rowId: Number(live.id), original: live,
-        body: { ...rowBodyOf(live), ...(() => { const held = holds.find(entry => entry.itemId === item.itemId)?.room;
-          return held ? { AdRoomCode: held.room, AdRoomHall: held.hall, buildingId: held.buildingId, roomId: held.roomId, companionRoomId: held.companionRoomId || live.companionRoomId, companionRoomLabel: held.companionRoomLabel || live.companionRoomLabel, locationStatus: "VERIFIED" } : {}; })(), ...daysFlags(first.days), fstarttime: first.start, fendtime: first.end, rev: live.rev, origin } });
+        body: { ...rowBodyOf(live), ...place, ...daysFlags(first.days), fstarttime: first.start, fendtime: first.end, rev: live.rev, origin } });
       for (const group of rest) {
         ops.push({ kind: "create", itemIndex: i, tempId: tempSeq--,
-          body: { ...rowBodyOf(live), ...daysFlags(group.days), fstarttime: group.start, fendtime: group.end, origin } });
+          body: { ...rowBodyOf(live), ...place, ...daysFlags(group.days), fstarttime: group.start, fendtime: group.end, origin } });
       }
       continue;
     }
@@ -20960,7 +20983,13 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
       const settled = requestFullySettled(items);
       if (settled) timeline.push({ kind: "settled" as any, at: now, by } as any);
       return { ...stored!, items, timeline, status: settled ? "settled" : "in-review" };
-    }, row => canonicalizeHistoricalLocationForRuntime(row, registry), placeholderInstructorIds(await Repository.getInstructors()));
+    }, row => canonicalizeHistoricalLocationForRuntime(row, registry), placeholderInstructorIds(await Repository.getInstructors()), async (rows, week) => {
+      // Repeat the existing weekly-hours authority against the transaction's live week.
+      for (const row of rows) {
+        const issue = await scheduleLengthIssue(row, week);
+        if (issue) throw new RequestReservationConflict(issue);
+      }
+    });
   } catch (error: any) {
     res.status(error instanceof ScheduleRevisionConflict || error instanceof RequestReservationConflict ? 409 : 503)
       .json({ error: error.message || "تعذّر تثبيت الطلب. لم يُحفظ أي تغيير.", code: "request-commit-failed", applied: [], reverted: true });
@@ -20983,7 +21012,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   res.locals.auditChanges = `تثبيت رغبة أستاذ (${String(instructor?.AdInstructorName || "")}): ` + plan.map(step =>
     `${step.action === "delete" ? "حذف" : step.action === "create" ? "إضافة" : "نقل"} ${step.days.map(dayLabelOf).join(" و")} ${formatScheduleTimeRange(step.start, step.end)}`).join(" · ");
   res.locals.auditRowIds = [...committed.rows.map(row => row.id), ...ops.filter(op => op.kind === "delete").map(op => (op as any).rowId)];
-  res.json({ ...(await judgeRequestItems(saved, { forDepartment: true })), applied: plan, appliedRows: committed.rows, warnings });
+  res.json({ ...requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })), applied: plan, appliedRows: committed.rows, warnings });
   } finally {
     clearInterval(leaseRenewal);
     await Repository.releaseScheduleApplyLease(applyLock, applyHolder).catch(() => undefined);
@@ -21032,7 +21061,7 @@ app.post("/api/instructor-requests/:id/reply", requirePermission(7), async (req:
     timeline: [...(stored.timeline || []), { kind: "department-replied" as InstructorRequestEventKind, at: now, by, itemIndex: index }],
   });
   broadcastNotify(Repository.currentDemoSessionId());
-  res.json(await judgeRequestItems(saved, { forDepartment: true }));
+  res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });
 
 /* ── بابُ الأستاذ ────────────────────────────────────────────────────────── */

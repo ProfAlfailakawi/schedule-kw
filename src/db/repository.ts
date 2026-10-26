@@ -1,6 +1,9 @@
 import { departmentFamily } from "../utils/sectionLabel";
 import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict,
   type RequestReservation, type RequestReservationProposal, type RequestScheduleOperation } from "../utils/instructorRequestReservations";
+import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
+import { instructorWeekAfter } from "../utils/instructorRequestWeek";
+import { reservationRows } from "../utils/instructorRequestReservations";
 import { findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { TEACHING_LOAD_DOC_ID, normalizeTeachingLoadConfig } from "../utils/teachingLoad";
 import { normalizeArabicText } from "../utils/arabicText";
@@ -4109,8 +4112,13 @@ export const Repository = {
         const updated = { ...current, ...fields, rev: Number(current.rev || 0) + 1 };
         const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(updated.AdTermId));
         const ledger = await transaction.get(ledgerRef);
+        const sourceLedgerRef = Number(current.AdTermId) !== Number(updated.AdTermId)
+          ? firestoreDb!.collection("instructorRequestReservations").doc(String(current.AdTermId)) : null;
+        const sourceLedger = sourceLedgerRef ? await transaction.get(sourceLedgerRef) : null;
+        if (sourceLedger) assertRequestReservationWrite(current, (sourceLedger.data()?.entries || []).filter((entry: RequestReservation) => entry.offeringRowIds.includes(id)), reservationOwner);
         assertRequestReservationWrite(updated, ledger.data()?.entries || [], reservationOwner);
         transaction.set(docRef, updated);
+        if (sourceLedgerRef && sourceLedger) transaction.set(sourceLedgerRef, { entries: sourceLedger.data()?.entries || [], serial: Number(sourceLedger.data()?.serial || 0) + 1 });
         transaction.set(ledgerRef, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
         return updated;
       });
@@ -4121,6 +4129,7 @@ export const Repository = {
     if (idx === -1) throw new Error("الجدول غير موجود");
     if (expectedRev !== undefined && Number(db.schedules[idx].rev || 0) !== expectedRev)
       throw new ScheduleRevisionConflict(db.schedules[idx]);
+    assertRequestReservationWrite(db.schedules[idx], (db.instructorRequestReservationLedgers?.[String(db.schedules[idx].AdTermId)] || []).filter(entry => entry.offeringRowIds.includes(id)), reservationOwner);
     assertRequestReservationWrite({ ...db.schedules[idx], ...fields }, db.instructorRequestReservationLedgers?.[String(fields.AdTermId || db.schedules[idx].AdTermId)] || [], reservationOwner);
     db.schedules[idx] = { ...db.schedules[idx], ...fields, rev: Number(db.schedules[idx].rev || 0) + 1 };
     saveDatabase();
@@ -4157,8 +4166,12 @@ export const Repository = {
             throw new ScheduleRevisionConflict(current);
           updated.push({ ...current, ...moves[index].fields, rev: Number(current.rev || 0) + 1 });
         });
-        const termIds = [...new Set(updated.map(row => Number(row.AdTermId)))];
+        const termIds = [...new Set([...updated.map(row => Number(row.AdTermId)), ...docs.map(doc => Number(doc.data()!.AdTermId))])];
         const ledgers = await Promise.all(termIds.map(termId => transaction.get(firestoreDb!.collection("instructorRequestReservations").doc(String(termId)))));
+        docs.forEach(doc => {
+          const current = doc.data() as FSchedule;
+          assertRequestReservationWrite(current, (ledgers[termIds.indexOf(Number(current.AdTermId))].data()?.entries || []).filter((entry: RequestReservation) => entry.offeringRowIds.includes(Number(current.id))));
+        });
         updated.forEach(row => assertRequestReservationWrite(row, ledgers[termIds.indexOf(Number(row.AdTermId))].data()?.entries || []));
         updated.forEach((next, index) => transaction.set(refs[index], next));
         ledgers.forEach((ledger, at) => transaction.set(firestoreDb!.collection("instructorRequestReservations").doc(String(termIds[at])),
@@ -4178,6 +4191,7 @@ export const Repository = {
     }
     for (const move of moves) {
       const current = db.schedules.find(row => row.id === move.id)!;
+      assertRequestReservationWrite(current, (db.instructorRequestReservationLedgers?.[String(current.AdTermId)] || []).filter(entry => entry.offeringRowIds.includes(Number(current.id))));
       assertRequestReservationWrite({ ...current, ...move.fields }, db.instructorRequestReservationLedgers?.[String(move.fields.AdTermId || current.AdTermId)] || []);
     }
     const updated: FSchedule[] = [];
@@ -4974,11 +4988,15 @@ export const Repository = {
    * together. No compensation window, even if the process dies mid-request. */
   commitInstructorRequestPlan: async (request: InstructorRequest, operations: RequestScheduleOperation[],
     buildRequest: (scheduleIds: Map<number, number>) => InstructorRequest,
-    normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>): Promise<{ request: InstructorRequest; rows: FSchedule[] }> => {
+    normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
+    validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>): Promise<{ request: InstructorRequest; rows: FSchedule[] }> => {
     const termId = Number(request.AdTermId);
+    const [loadPerson, loadCourses] = await Promise.all([Repository.getInstructorById(Number(request.AdInstructorId)), Repository.getCourses()]);
+    const courseMap = new Map(loadCourses.map(course => [Number(course.AdCourseId), course]));
+    const adding = operations.some(op => request.items[op.itemIndex]?.action === "add");
     const count = operations.filter(op => op.kind === "create").length;
     const firstId = firestoreDb && !demoSandboxContext.getStore() && count ? await reserveFirestoreIds("schedules", count) : 0;
-    const compute = (week: FSchedule[], current: InstructorRequest, entries: RequestReservation[], startId: number) => {
+    const compute = async (week: FSchedule[], current: InstructorRequest, entries: RequestReservation[], startId: number) => {
       if (Number(current.requestRevision || 0) !== Number(request.requestRevision || 0))
         throw new RequestReservationConflict("تغيّر الطلب أثناء الاعتماد. حدّث الوارد قبل الموافقة.");
       const changed = new Set<number>();
@@ -5004,8 +5022,14 @@ export const Repository = {
       const finalWeek = [...week.filter(row => !changed.has(Number(row.id))), ...written];
       const clashes = findConflicts(written.map(normalize), finalWeek.map(normalize), { placeholderInstructorIds: placeholders }).filter(isBlockingConflict);
       if (clashes.length) throw new RequestReservationConflict("تغيّر الجدول وظهر تعارض أثناء الاعتماد. حدّث الوارد وراجع الموعد.");
+      if (validateFinalWeek) await validateFinalWeek(written, finalWeek);
       const next = { ...buildRequest(ids), requestRevision: Number(current.requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
-      return { request: next, rows: written, entries: retainRequestReservations(entries, next), finalWeek };
+      const remaining = retainRequestReservations(entries, next);
+      const loadWeek = [...finalWeek.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId)),
+        ...reservationRows(remaining.filter(entry => entry.instructorId === Number(request.AdInstructorId)), termId)];
+      if (adding && Number(loadPerson?.AdInstructorLoad) > 0 && weeklyLoadOf(loadWeek, courseMap) > Number(loadPerson!.AdInstructorLoad))
+        throw new RequestReservationConflict("تغيّر نصاب الأستاذ أثناء الاعتماد. راجع الطلب والجدول.");
+      return { request: next, rows: written, entries: remaining, finalWeek };
     };
     let result: { request: InstructorRequest; rows: FSchedule[] };
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -5015,7 +5039,7 @@ export const Repository = {
         const [stored, ledger, schedules] = await Promise.all([tx.get(requestRef), tx.get(ledgerRef),
           tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)]))]);
         if (!stored.exists) throw new RequestReservationConflict();
-        const planned = compute(schedules.docs.map(doc => doc.data() as FSchedule), stored.data() as InstructorRequest, ledger.data()?.entries || [], firstId);
+        const planned = await compute(schedules.docs.map(doc => doc.data() as FSchedule), stored.data() as InstructorRequest, ledger.data()?.entries || [], firstId);
         operations.filter(op => op.kind === "delete").forEach(op => tx.delete(firestoreDb!.collection("schedules").doc(`schedule_${(op as any).rowId}`)));
         planned.rows.forEach(row => tx.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`), row));
         tx.set(requestRef, planned.request);
@@ -5026,7 +5050,7 @@ export const Repository = {
       result = await withSerialLock(`request-reservations:${termId}`, async () => {
         const at = (db.instructorRequests || []).findIndex(row => row.id === request.id);
         if (at < 0) throw new RequestReservationConflict();
-        const planned = compute(db.schedules.filter(row => Number(row.AdTermId) === termId), db.instructorRequests![at],
+        const planned = await compute(db.schedules.filter(row => Number(row.AdTermId) === termId), db.instructorRequests![at],
           db.instructorRequestReservationLedgers?.[String(termId)] || [], Math.max(0, ...db.schedules.map(row => Number(row.id))) + 1);
         db.schedules = [...db.schedules.filter(row => Number(row.AdTermId) !== termId), ...planned.finalWeek];
         db.instructorRequests![at] = planned.request;
@@ -5053,6 +5077,17 @@ export const Repository = {
     const now = new Date().toISOString();
     const termId = Number(row.AdTermId);
     const next: InstructorRequest = { ...row, updatedAt: now, requestRevision: Number(row.requestRevision || 0) + 1 };
+    const checkingLoad = proposals && next.items.some(item => item.action === "add" && item.decision?.state !== "fixed" && item.decision?.state !== "rejected");
+    const [loadPerson, loadCourses] = checkingLoad
+      ? await Promise.all([Repository.getInstructorById(Number(next.AdInstructorId)), Repository.getCourses()]) : [undefined, []];
+    const courseMap = new Map(loadCourses.map(course => [Number(course.AdCourseId), course]));
+    const checkLoad = (week: FSchedule[], entries: RequestReservation[]) => {
+      if (!(Number(loadPerson?.AdInstructorLoad) > 0)) return;
+      const projected = instructorWeekAfter(next, week);
+      const others = reservationRows(entries.filter(entry => entry.requestId !== next.id && entry.instructorId === Number(next.AdInstructorId)), termId);
+      if (weeklyLoadOf([...projected, ...others], courseMap) > Number(loadPerson!.AdInstructorLoad))
+        throw new RequestReservationConflict("تجاوز مجموع الطلبات والجدول نصابك المسجّل. راجع اختياراتك.");
+    };
     const checkRevision = (current?: InstructorRequest) => {
       if (current && Number(current.requestRevision || 0) !== Number(row.requestRevision || 0))
         throw new RequestReservationConflict("تغيّر الطلب بعد فتحه. حدّث الصفحة؛ مسودتك تبقى محفوظة على جهازك.");
@@ -5067,7 +5102,9 @@ export const Repository = {
         if (proposals) {
           // Read the live official week INSIDE the same transaction as the claim.
           const week = await tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)]));
-          entries = allocateRequestReservations(entries, next, proposals, week.docs.map(doc => doc.data() as FSchedule));
+          const rows = week.docs.map(doc => doc.data() as FSchedule);
+          entries = allocateRequestReservations(entries, next, proposals, rows);
+          checkLoad(rows, entries);
         } else entries = retainRequestReservations(entries, next);
         tx.set(requestRef, next);
         tx.set(ledgerRef, { entries, serial: Number(ledger.data()?.serial || 0) + 1 });
@@ -5079,9 +5116,10 @@ export const Repository = {
         checkRevision(at >= 0 ? db.instructorRequests[at] : undefined);
         const ledgers = db.instructorRequestReservationLedgers ||= {};
         const entries = ledgers[String(termId)] || [];
-        ledgers[String(termId)] = proposals
-          ? allocateRequestReservations(entries, next, proposals, db.schedules.filter(item => Number(item.AdTermId) === termId))
-          : retainRequestReservations(entries, next);
+        const week = db.schedules.filter(item => Number(item.AdTermId) === termId);
+        const allocated = proposals ? allocateRequestReservations(entries, next, proposals, week) : retainRequestReservations(entries, next);
+        if (proposals) checkLoad(week, allocated);
+        ledgers[String(termId)] = allocated;
         if (at >= 0) db.instructorRequests[at] = next; else db.instructorRequests.unshift(next);
         saveDatabase();
       });

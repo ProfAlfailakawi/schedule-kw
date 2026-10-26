@@ -4621,9 +4621,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       const saved = applyingRequest ? await (async () => {
         const result = await fetchJson(`/api/instructor-requests/${handoffForSave!.requestId}/apply`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-            itemIndex: handoffForSave!.itemIndex, add: { courseId: form.AdCourseId, scode: form.SCode,
+            itemIndex: handoffForSave!.itemIndex, requestRevision: handoffForSave!.requestRevision, add: { courseId: form.AdCourseId, scode: form.SCode,
               start: form.fstarttime, end: form.fendtime, room: form.AdRoomCode, hall: form.AdRoomHall,
-              buildingId: form.buildingId, roomId: form.roomId, locationStatus: form.locationStatus, companionRoomId: form.companionRoomId } }),
+              buildingId: form.buildingId, roomId: form.roomId, locationStatus: form.locationStatus, companionRoomId: form.companionRoomId || handoffForSave!.companionRoomId } }),
         });
         pendingHandoff.current = null;
         const id = result.items?.[handoffForSave!.itemIndex]?.decision?.scheduleId;

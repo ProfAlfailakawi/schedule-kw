@@ -51,7 +51,8 @@ nothing. Official write paths also consult the ledger, including batch operation
 
 Approval dry-runs the existing schedule save handlers against the final bundle.
 `commitInstructorRequestPlan` then rechecks live revisions and physical conflicts
-and commits all official row operations, the decision and hold release in one
+and repeats the existing weekly-hours authority against the live transaction week.
+It commits all official row operations, the decision and hold release in one
 transaction. A stale second operation cannot leave the first written. The term
 apply lease is retained; the database transaction supplies the final guarantee.
 
@@ -72,7 +73,7 @@ cannot reveal hidden signed items. Historical signature verification still works
 
 - `npm run test:instructor-availability`: exact per-day clock parity, final bundles,
   rejected/fixed items, delete/reuse, weekly minutes, alternatives, advisory ranking,
-  correspondence preservation, 40 contenders, stale revisions, release and atomic
+  correspondence preservation, 40 contenders, stale revisions, concurrent load limits, release and atomic
   all-or-none approval.
 - The same test with `--emulator` exercises real Firestore transactions. It refuses
   any emulator host other than loopback and requires a `demo-instructor-*` project.
