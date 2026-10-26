@@ -2525,10 +2525,7 @@ async function seedDemoStories(): Promise<void> {
     if (!person) continue;
     /* أستاذُ التجربة (من فتح رابطه ولم يرسل): أربعةُ مواعيد لا موعدٌ واحد، فيُرى أثرُ التعارض حين يحرّك أحدها
        فوق آخر أو فوق قاعةٍ مشغولة. تُبنى في أوقاتٍ خاليةٍ له ولقاعاتها، بأطوال اللائحة. */
-    if (index === 2) {
-      termRows.push(...await seedDemoTeacherCourses(instructorId, scopeRows, termRows));
-      termRows.push(...await seedDemoAvailableCourses(instructorId, scopeRows, termRows));
-    }
+    if (index === 2) termRows.push(...await seedDemoTeacherCourses(instructorId, scopeRows, termRows));
     const own = termRows.filter(row => Number(row.AdInstructorId) === instructorId);
     const link = await Repository.createShareLink({
       ...linkBase, kind: "request", AdInstructorId: instructorId, label: `طلب جدول — ${instructorId}`,
@@ -2850,7 +2847,14 @@ app.get("/api/demo/teacher-card", requireAuth, async (req: AuthenticatedRequest,
   /* يدخل الزائرُ من بطاقة الأستاذ (الصفحة التي تطلب رقمه المدني) ثم يصل منها إلى طلب تعديل الجدول،
      كما يفعل الأستاذ الحقيقي — لا مباشرةً إلى نموذج الطلب. */
   const staff = preparing ? undefined : (await Repository.getShareLinks(collegeId, sectionId, termId)).find(link => link.kind === "staff");
-  if (staff?.id && await demoTeacherRequest()) { res.redirect(302, `/s/${encodeURIComponent(staff.id)}`); return; }
+  const request = staff?.id ? await demoTeacherRequest() : undefined;
+  if (staff?.id && request) {
+    const [scopeRows, termRows] = await Promise.all([
+      Repository.getSchedulesByScope({ collegeId, sectionId, termId }), Repository.getSchedulesByScope({ termId }),
+    ]);
+    await seedDemoAvailableCourses(Number(request.AdInstructorId), scopeRows, termRows);
+    res.redirect(302, `/s/${encodeURIComponent(staff.id)}`); return;
+  }
   res.status(demoSeedStatus.get(String(sessionId || "")) === "failed" ? 503 : 202).type("text/html; charset=utf-8").send(
     `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="2"><title>كرت الأستاذ · SCHEDULE</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.7 system-ui,"Noto Sans Arabic",Tahoma,sans-serif;color:#2f3a36;background:#f6f4ee;text-align:center}</style></head><body><p>يُجهَّز كرت الأستاذ في العرض…<br><small>ينفتح تلقائياً بعد لحظات.</small></p></body></html>`);
 });
