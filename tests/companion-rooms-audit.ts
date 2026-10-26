@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
 import { roomIdentityKeys, rowOccupiesRoom, sharePhysicalRoom, eligibleHallsForSection } from "../src/utils/locationRegistry";
 import { findConflicts, findConflictsExhaustive, fastConflictScan } from "../src/utils/scheduleIntelligence";
 import type { FSchedule, MasterRoom, MasterBuilding } from "../src/types";
@@ -41,4 +42,19 @@ const mk=(id:string,policy:MasterRoom["bookingPolicy"]):MasterRoom=>({
 });
 const eligible=eligibleHallsForSection({buildings:[building],rooms:[mk("open","normal"),mk("studio","companion_only"),mk("closed","blocked")]},1);
 assert.deepEqual(eligible.map(r=>r.roomId),["open"],"advisors never propose studio-only or blocked rooms");
+// The root admin uses LocationQuickSetup (second icon), not LocationRegistryAdmin.
+// Both must be able to mark an existing studio as companion-only, and the batch
+// creation API must persist this policy rather than silently assuming "normal".
+const quickSetup = readFileSync(new URL("../src/components/LocationQuickSetup.tsx", import.meta.url),"utf8");
+const server = readFileSync(new URL("../server.ts", import.meta.url),"utf8");
+const createRoute = server.split('app.post("/api/admin/location-setup/rooms"')[1]?.split('app.delete("/api/admin/location-setup/rooms/')[0] || "";
+const editRoomRoute = server.split('app.put("/api/admin/location-registry/rooms/:id"')[1]?.split("\\napp.")[0] || "";
+assert.ok(quickSetup.includes('bookingPolicy: roomBookingPolicy'),"quick setup submits booking policy when creating studios");
+assert.ok(quickSetup.includes('bookingPolicy: room.bookingPolicy || "normal"'),"quick setup editor loads the saved room policy");
+assert.ok(quickSetup.includes('roomDraft.bookingPolicy'),"quick setup lets admins edit the policy");
+assert.ok(quickSetup.includes('value="companion_only"'),"the actual setup screen offers companion-only policy");
+assert.ok(createRoute.includes('bookingPolicy:bookingPolicy as MasterRoom["bookingPolicy"]'),"quick setup endpoint persists the booking policy");
+assert.ok(createRoute.includes('"companion_only"'),"quick setup endpoint validates the booking policy");
+assert.ok(editRoomRoute.includes('current.bookingPolicy'),"editing existing studios retains policy when not supplied");
+
 console.log("Companion facility booking audit passed");
