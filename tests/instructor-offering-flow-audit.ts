@@ -126,6 +126,11 @@ try {
     assert.ok(card.body.availableOfferings.some((option: any) => option.id === offered.id), JSON.stringify({ requestedInstructor: person.AdInstructorId, request: card.body.request, options: card.body.availableOfferings, allowedCourse: card.body.courses?.find((c: any) => c.id === courseId), offered }));
     return { ...person, token: link.linkId, card: card.body };
   }));
+  const fixtureCourseIds = new Set([courseId, ...offerings.slice(1).map(option => Number(option.AdCourseId))]);
+  assert.ok(cards.some(entry => new Set(entry.card.availableOfferings
+    .filter((option: any) => !fixtureCourseIds.has(Number(option.courseId)))
+    .map((option: any) => Number(option.courseId))).size > 1),
+  "the demo teacher card presents available sections from more than one demo course");
   assert.ok(offerings.every(option => cards[0].card.availableOfferings.some((available: any) => available.id === option.id)),
     "all fifteen seeded sections appear in the real public card before any claim");
   const fixtureOfferingIds = new Set(offerings.slice(1).map(option => Number(option.id)));

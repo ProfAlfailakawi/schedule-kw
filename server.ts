@@ -2372,6 +2372,63 @@ async function seedDemoTeacherCourses(instructorId: number, scopeRows: FSchedule
   return made;
 }
 
+/** شعبٌ غيرُ مسندةٍ لبطاقة أستاذ الديمو كي تعرض خياراتٍ من مقرراتٍ متعددة. */
+async function seedDemoAvailableCourses(instructorId: number, scopeRows: FSchedule[], termRows: FSchedule[]): Promise<FSchedule[]> {
+  if (!Repository.isDemoRequest()) return [];
+  const days = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
+  const toMin = (value: string) => { const [h, m] = String(value || "").split(":").map(Number); return h * 60 + m; };
+  const overlaps = (row: any, selectedDays: readonly string[], start: number, end: number) =>
+    selectedDays.some(day => row[day]) && toMin(row.fstarttime) < end && start < toMin(row.fendtime);
+  const [faculty, courses, instructors] = await Promise.all([
+    ensureSectionFaculty(Repository, DEMO_STORY_SCOPE.collegeId, DEMO_STORY_SCOPE.sectionId),
+    Repository.getCourses(), Repository.getInstructors(),
+  ]);
+  const placeholderIds = placeholderInstructorIds(instructors as any);
+  const existing = await Repository.getSchedulesByScope(DEMO_STORY_SCOPE);
+  const existingGroups = new Set(existing.filter(row => placeholderIds.has(Number(row.AdInstructorId)))
+    .map(row => Number(row.AdCourseId)));
+  const ownRows = termRows.filter(row => Number(row.AdInstructorId) === instructorId);
+  const courseById = new Map((courses as any[]).map(course => [Number(course.AdCourseId), course]));
+  const load = Number(instructors.find(person => Number(person.AdInstructorId) === instructorId)?.AdInstructorLoad || 0);
+  let usedLoad = weeklyLoadOf(ownRows, courseById as any);
+  const roomRows = [...new Map(scopeRows.filter(row => row.roomId).map(row => [String(row.roomId), row] as [string, FSchedule])).values()];
+  const templates = [...new Map(scopeRows.filter(row => row.roomId && !dayKeysOf(row).includes("fsunday")
+    && !existingGroups.has(Number(row.AdCourseId))
+    && Number(row.AdInstructorId) !== instructorId)
+    .map(row => [Number(row.AdCourseId), row] as [number, FSchedule])).values()]
+    .sort((a, b) => effectiveCourseHours(courseById.get(Number(a.AdCourseId))) - effectiveCourseHours(courseById.get(Number(b.AdCourseId))));
+  const made: FSchedule[] = [];
+  const universe: any[] = [...termRows, ...existing];
+  for (const template of templates) {
+    if (made.length >= 3) break;
+    const course = courseById.get(Number(template.AdCourseId));
+    const hours = effectiveCourseHours(course);
+    if (!course || (load > 0 && usedLoad + hours > load)) continue;
+    const duration = Math.max(30, toMin(template.fendtime) - toMin(template.fstarttime));
+    let placed = false;
+    for (let start = 17 * 60; start + duration <= 20 * 60 && !placed; start += 30) {
+      const end = start + duration;
+      const selectedDays = dayKeysOf(template);
+      if (!selectedDays.length || universe.some(row => overlaps(row, selectedDays, start, end))) continue;
+      const room = roomRows.find(candidate => !universe.some(row => String(row.roomId || "") === String(candidate.roomId)
+        && overlaps(row, selectedDays, start, end)));
+      if (!room) continue;
+      const sectionCodes = [...existing, ...scopeRows].filter(row => Number(row.AdCourseId) === Number(template.AdCourseId)).map(row => Number(row.SCode) || 0);
+      const { id: _id, rev: _rev, ...base } = template as any;
+      const row = await Repository.createSchedule({
+        ...base, AdInstructorId: faculty.instructorId, SCode: String(Math.max(0, ...sectionCodes) + 1).padStart(2, "0"),
+        ...Object.fromEntries(days.map(day => [day, selectedDays.includes(day)])),
+        fstarttime: `${String(Math.floor(start / 60)).padStart(2, "0")}:${String(start % 60).padStart(2, "0")}`,
+        fendtime: `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`,
+        AdRoomCode: room.AdRoomCode, AdRoomHall: room.AdRoomHall, buildingId: (room as any).buildingId,
+        roomId: room.roomId, locationStatus: (room as any).locationStatus,
+      } as any);
+      universe.push(row); made.push(row); usedLoad += hours; placed = true;
+    }
+  }
+  return made;
+}
+
 async function seedDemoStories(): Promise<void> {
   if (!Repository.isDemoRequest()) return;
   const { collegeId, sectionId, termId } = DEMO_STORY_SCOPE;
@@ -2468,7 +2525,10 @@ async function seedDemoStories(): Promise<void> {
     if (!person) continue;
     /* أستاذُ التجربة (من فتح رابطه ولم يرسل): أربعةُ مواعيد لا موعدٌ واحد، فيُرى أثرُ التعارض حين يحرّك أحدها
        فوق آخر أو فوق قاعةٍ مشغولة. تُبنى في أوقاتٍ خاليةٍ له ولقاعاتها، بأطوال اللائحة. */
-    if (index === 2) termRows.push(...await seedDemoTeacherCourses(instructorId, scopeRows, termRows));
+    if (index === 2) {
+      termRows.push(...await seedDemoTeacherCourses(instructorId, scopeRows, termRows));
+      termRows.push(...await seedDemoAvailableCourses(instructorId, scopeRows, termRows));
+    }
     const own = termRows.filter(row => Number(row.AdInstructorId) === instructorId);
     const link = await Repository.createShareLink({
       ...linkBase, kind: "request", AdInstructorId: instructorId, label: `طلب جدول — ${instructorId}`,
