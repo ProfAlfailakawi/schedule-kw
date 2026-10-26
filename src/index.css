@@ -35,6 +35,7 @@
 @import "./styles/29-teaching-load.css";
 @import "./styles/30-motion.css";
 @import "./styles/31-approval-atlas.css";
+@import "./styles/32-section-surplus.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the
    render-blocking path. They were the LAST two imports, so loading them after
    everything else preserves the cascade order exactly as it stands here. */
