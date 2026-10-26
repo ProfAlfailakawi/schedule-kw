@@ -382,8 +382,8 @@ export default function QuickCreatePopover({
       {!hasDifferentTimes && draft.courseId && draft.instructorId ? (
         <div className="qc-ideas" role="group" aria-label="مقترحات الموعد">
           <div className="slot-advisor">
-            <button type="button" className="slot-advisor-ask" disabled={ideasBusy} onClick={() => void requestIdeas(false)}>اقترح لي وقتاً وقاعة</button>
-            <button type="button" className="room-suggest-ask" disabled={ideasBusy} onClick={() => void requestIdeas(true)}>اقترح قاعة متاحة</button>
+            <button type="button" className="slot-advisor-ask" data-guide-ignore="يقترح أوقاتاً وقاعات دون حفظ" disabled={ideasBusy} onClick={() => void requestIdeas(false)}>اقترح لي وقتاً وقاعة</button>
+            <button type="button" className="room-suggest-ask" data-guide-ignore="يقترح قاعات دون حجز" disabled={ideasBusy} onClick={() => void requestIdeas(true)}>اقترح قاعة متاحة</button>
           </div>
           {ideasBusy ? <small role="status">أبحث عن خيارات مناسبة…</small> : null}
           {ideasError ? <p className="qc-warn">{ideasError}</p> : null}
@@ -392,6 +392,7 @@ export default function QuickCreatePopover({
             <div className={ideaKind === "time" ? "slot-ideas" : "room-suggest-list"}>
               {ideas.map((idea, index) => (
                 <button key={`${index}-${idea.roomId}-${idea.start}`} type="button"
+                  data-guide-ignore="اختيار المقترح يملأ النموذج فقط ولا يحفظه"
                   onClick={() => { timeEdited.current = true; patch({
                     start: idea.start, end: idea.end, room: idea.room, hall: idea.hall,
                     buildingId: idea.buildingId, roomId: idea.roomId, locationStatus: "VERIFIED",
@@ -431,7 +432,7 @@ export default function QuickCreatePopover({
       ) : null}
 
       <footer className="qc-foot">
-        <button type="button" className="qc-expand" disabled={hasDifferentTimes}
+        <button type="button" className="qc-expand" data-guide-ignore="التوسيع ينقل مسودة الموعد إلى المحرر الكامل" disabled={hasDifferentTimes}
           title={hasDifferentTimes ? "الأوقات المختلفة تُراجع وتُعتمد معاً من وارد الأساتذة" : undefined}
           onClick={() => onExpand(draft)}>
           <Maximize2 aria-hidden="true" />تفاصيل أكثر
@@ -440,6 +441,7 @@ export default function QuickCreatePopover({
         <button
           type="button"
           className="qc-create"
+          data-guide-ignore="زر الحفظ الأساسي للموعد يخضع للفحص الكامل"
           disabled={!ready || !digitsOk || saving || pendingCheck || blocked || checkFailed}
           onClick={() => onCreate(draft)}
           title={ready ? "حفظ الموعد في هذه الخانة" : "أكمل المقرر والشعبة والأستاذ والقاعة"}
