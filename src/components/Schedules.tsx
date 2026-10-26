@@ -134,6 +134,7 @@ import { isTermClosed, previousYearSameTermName, sameTermName, sortTermsNewest, 
 import ScheduleReview from "./ScheduleReview";
 import InstructorPicker from "./InstructorPicker";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
+import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
 import { TimeCounterPopover } from "./TimeCounter";
 import CommandPalette, { type ScheduleCommand } from "./CommandPalette";
 import ScheduleViewsMenu, { SaveViewDialog } from "./ScheduleViewsMenu";
@@ -1517,14 +1518,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * worse than not guessing — so the number is filled in only while the field
    * is still untouched for this course, and anything typed by hand wins.
    */
-  const nextSectionCode = (courseId: number, termId: number, excludeId?: number | null) => {
-    const used = rows
-      .filter(row => (!excludeId || Number(row.id) !== Number(excludeId)) && Number(row.AdCourseId) === Number(courseId) && Number(row.AdTermId) === Number(termId))
-      .map(row => Number(String(row.SCode || "").trim()))
-      .filter(value => Number.isFinite(value) && value >= 501 && value <= 999);
-    if (!used.length) return "501";
-    return String(Math.max(...used) + 1);
-  };
+  const nextSectionCode = (courseId: number, termId: number, excludeId?: number | null) =>
+    nextCourseSectionCode(rows, courseId, termId, excludeId);
+
   const sectionAutofilled = useRef(false);
   const sectionHint = useMemo(() => {
     const courseId = Number(form.AdCourseId || 0);
