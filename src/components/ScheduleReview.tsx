@@ -7,7 +7,7 @@ import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBa
 import PagedFindingList from "./PagedFindingList";
 import { packPrintFindings, type PrintFindingPiece } from "../utils/printFindingPages";
 import {
-  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, isDecision1912Finding, periodBalanceSnapshot, PERIOD_BALANCE_MIN_SECTIONS, regulationScore, reviewSchedule,
+  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, isDecision1912Finding, periodBalanceSnapshot, PERIOD_BALANCE_MIN_SECTIONS, appointmentCoverageScore, reviewSchedule,
   type DayKey, type RegulationFinding
 } from "../utils/scheduleRegulations";
 import type { CourseNature } from "../utils/courseNature";
@@ -238,7 +238,6 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     [rows, courses, instructors, previousRows, meeting, nature]
   );
   const decisionFindings = useMemo(() => baseFindings.filter(isDecision1912Finding), [baseFindings]);
-  const score = useMemo(() => regulationScore(decisionFindings, rows.length), [decisionFindings, rows.length]);
   const periodBalance = useMemo(() => periodBalanceSnapshot(rows), [rows]);
   const [serverBlockers, setServerBlockers] = useState<Array<{id:string;type:string;title:string;detail:string;rowIds:number[];subjectKey?:string;subjectLabel?:string}>>([]);
   /* What the same reading says without counting it: the same section in two
@@ -385,6 +384,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     const flagged = counts.high + counts.medium + counts.low;
     return { ...counts, clean: Math.max(0, rows.length - flagged), total: Math.max(1, rows.length) };
   }, [findings, rows.length]);
+  const score = appointmentCoverageScore(spread.clean, rows.length);
   const share = (value: number) => `${(value / spread.total) * 100}%`;
   const spreadLabel = {
     high: `${countOf(spread.high, AR.appointment)} ${nounFor(spread.high, AR.blockVerb)} الاعتماد`,
