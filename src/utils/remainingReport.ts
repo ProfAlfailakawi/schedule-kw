@@ -750,7 +750,7 @@ export function assessRemainingImport(
       : "لم أجد في الملف أرقام مقررات هذا القسم — تأكد أنه كشف «الذين لم يسجلوا» من عمادة التسجيل، وأن الصورة واضحة." };
   }
   if (reading.column == null) {
-    return { ...base, rejectKind: "noColumn", reject: "لم أجد في الكشف عمود «${planningColumnLabel}» — وهو وحده ما تُبنى عليه خطة الشعب، فلا يؤخذ عمودٌ آخر بدله. ارفع صورةً أوضح تظهر فيها عناوين الأعمدة، أو الكشف PDF." };
+    return { ...base, rejectKind: "noColumn", reject: `لم أجد في الكشف عمود «${planningColumnLabel}» — وهو وحده ما تُبنى عليه خطة الشعب، فلا يؤخذ عمودٌ آخر بدله. ارفع صورةً أوضح تظهر فيها عناوين الأعمدة، أو الكشف PDF.` };
   }
   const states = reading.rows.map(row => ({ id: row.courseId, ...remainingOf(row, reading.column!) }));
   const unread = states.filter(item => item.state !== "read" && item.state !== "noSections").map(item => item.id);
