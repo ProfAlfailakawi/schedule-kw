@@ -69,6 +69,8 @@ export type QuickSeed = {
   days?: DayKey[];
   /** An instructor request may contain different times on different days. */
   fixedSlots?: Array<{ day: string; start: string; end: string }>;
+  /** Related request moves are checked atomically against the final week. */
+  deferLiveCheck?: boolean;
 };
 
 export default function QuickCreatePopover({
@@ -223,7 +225,7 @@ export default function QuickCreatePopover({
   };
   const checkKey = JSON.stringify(payload);
   useEffect(() => {
-    if (!ready || !digitsOk || hasDifferentTimes) {
+    if (!ready || !digitsOk || hasDifferentTimes || seed.deferLiveCheck) {
       setLiveCheck({ key: "", checking: false, blockers: [], warnings: [], error: "" });
       return;
     }
@@ -258,10 +260,10 @@ export default function QuickCreatePopover({
       }
     }, 320);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [checkKey, ready, digitsOk, hasDifferentTimes]);
+  }, [checkKey, ready, digitsOk, hasDifferentTimes, seed.deferLiveCheck]);
 
   const previewCurrent = liveCheck.key === checkKey;
-  const pendingCheck = ready && digitsOk && !hasDifferentTimes && (!previewCurrent || liveCheck.checking);
+  const pendingCheck = ready && digitsOk && !hasDifferentTimes && !seed.deferLiveCheck && (!previewCurrent || liveCheck.checking);
   const blocked = previewCurrent && liveCheck.blockers.length > 0;
   const checkFailed = previewCurrent && Boolean(liveCheck.error);
 
@@ -421,6 +423,7 @@ export default function QuickCreatePopover({
       ) : clash && !previewCurrent ? (
         <p className="qc-warn"><AlertTriangle aria-hidden="true" />{clash}</p>
       ) : null}
+      {seed.deferLiveCheck ? <p className="qc-warn" role="status">الأوقات المرتبطة تُفحص معاً على الجدول النهائي قبل تثبيت طلب الأستاذ.</p> : null}
       {previewCurrent && liveCheck.warnings.length ? (
         <div className="qc-warn" role="status">{liveCheck.warnings.slice(0, 3).map((warning, index) => (
           <p key={index}><AlertTriangle aria-hidden="true" />{warning}</p>
