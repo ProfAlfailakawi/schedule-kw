@@ -790,7 +790,6 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const [notice, setNotice] = useState<string | null>(null);
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickError, setQuickError] = useState<string | null>(null);
-  const [quickClash, setQuickClash] = useState<Record<string, string | null>>({});
   /* ── ما يراه صاحبُ الصلاحية الكاملة ──────────────────────────────────────
    *
    * قوائمُ الكلية والقسم كانت تُبنى من نطاق الحساب وحدَه. وهو صوابٌ لمن له
@@ -1035,6 +1034,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
         seed: {
           day: (slots[0]?.day || "fsunday") as any,
           dayLabel: dayNames,
+          days: [...new Set(slots.map(slot => slot.day))] as any,
+          fixedSlots: slots.map(slot => ({ day: INBOX_DAY_NAMES[slot.day] || slot.day, start: slot.start, end: slot.end })),
           start: slots[0]?.start || "08:00",
           end: slots[0]?.end || "08:50",
           x: Number(extra?.anchor?.x || window.innerWidth / 2),
@@ -1184,40 +1185,14 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
 
   /* فحصُ البطاقة: السؤالُ نفسُه للخادم بالقاعة والشعبة المختارتين. يُحفظ الجوابُ
      بمفتاح المسوّدة، فتقرؤه البطاقةُ متى وصل. */
-  const quickConflictOf = (draft: QuickDraft) => {
-    if (!quick) return null;
-    const { row, index } = quick;
-    const item = row.items[index];
-    const days = new Set((item.slots || []).map(slot => slot.day));
-    const body = {
-      AdCollegeId: Number(item.after?.collegeId || row.AdCollegeId), AdSectionId: Number(item.after?.sectionId || row.AdSectionId),
-      AdTermId: Number(row.AdTermId), AdCourseId: Number(draft.courseId || item.after?.courseId || 0), SCode: draft.scode,
-      AdInstructorId: Number(row.AdInstructorId), fstarttime: draft.start, fendtime: draft.end,
-      fsunday: days.has("fsunday"), fmonday: days.has("fmonday"), ftuesday: days.has("ftuesday"),
-      fwednesday: days.has("fwednesday"), fthursday: days.has("fthursday"),
-      AdRoomCode: draft.room, AdRoomHall: draft.hall, buildingId: draft.buildingId, roomId: draft.roomId, locationStatus: draft.locationStatus,
-    };
-    const key = JSON.stringify(body);
-    if (key in quickClash) return quickClash[key];
-    setQuickClash(prev => (key in prev ? prev : { ...prev, [key]: null }));
-    void fetch("/api/schedules/check-conflicts", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: key })
-      .then(response => (response.ok ? response.json() : { conflicts: [] }))
-      .then(data => {
-        const hard = (data.conflicts || []).find((conflict: any) => conflict.severity === "high");
-        const soft = (data.conflicts || [])[0];
-        const pick = hard || soft;
-        setQuickClash(prev => ({ ...prev, [key]: pick ? `${pick.message}${pick.detail ? ` — ${pick.detail}` : ""}` : null }));
-      })
-      .catch(() => undefined);
-    return null;
-  };
-
+  // The card now owns one server-backed conflict and validation check.
   const nextSectionFor = (courseId: number) => {
+    // Same 501–999 sequence as the timetable editor, within this term.
     const used = [...currentRows.values()]
-      .filter(row => Number(row.AdCourseId) === Number(courseId))
-      .map(row => Number(String(row.SCode || "").replace(/\D/g, "")) || 0);
-    const next = (used.length ? Math.max(...used) : 0) + 1;
-    return String(next).padStart(2, "0");
+      .filter(row => Number(row.AdCourseId) === Number(courseId) && Number(row.AdTermId) === Number(termId))
+      .map(row => Number(String(row.SCode || "").trim()))
+      .filter(number => Number.isFinite(number) && number >= 501 && number <= 999);
+    return used.length ? String(Math.max(...used) + 1) : "501";
   };
 
   const selects: ScopeAskSelect[] = [
@@ -1481,14 +1456,19 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
               const [sh, sm] = quick.seed.start.split(":").map(Number), [eh, em] = quick.seed.end.split(":").map(Number);
               return (eh * 60 + em) - (sh * 60 + sm);
             }}
-            conflictOf={(draft) => quickConflictOf(draft)}
+            conflictOf={() => null}
             nextSectionCode={nextSectionFor}
             saving={quickSaving}
             error={quickError}
             onCancel={() => setQuick(null)}
-            onExpand={() => {
-              /* «تفاصيل أكثر»: الطريقُ القديم إلى النموذج الكامل، لمن أراده. */
+            onExpand={(draft) => {
+              // Carry the coordinator's actual choices into the full editor.
+              // Distinct time groups cannot be represented by one editor row.
               const slots = item.slots || [];
+              if (new Set(slots.map(slot => `${slot.start}|${slot.end}`)).size > 1) {
+                setQuickError("هذا الطلب يتضمن أوقاتاً مختلفة. اعتمد المجموعات من الوارد حتى لا يفقد أي موعد وقته.");
+                return;
+              }
               putHandoff({
                 requestId: quick.row.id, itemIndex: quick.index,
                 instructorId: Number(quick.row.AdInstructorId), instructorName: quick.row.instructorName,
@@ -1496,7 +1476,10 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                 collegeId: Number(item.after?.collegeId || quick.row.AdCollegeId),
                 sectionId: Number(item.after?.sectionId || quick.row.AdSectionId),
                 termId: Number(quick.row.AdTermId),
-                days: slots.map(slot => slot.day) as any, start: slots[0]?.start || "", end: slots[0]?.end || "",
+                days: slots.map(slot => slot.day) as any,
+                start: draft.start, end: draft.end,
+                scode: draft.scode, buildingId: draft.buildingId, roomId: draft.roomId,
+                room: draft.room, hall: draft.hall, locationStatus: draft.locationStatus,
               });
               setQuick(null);
               onNavigate?.("schedules");
