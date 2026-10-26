@@ -153,7 +153,9 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
   const ordered = useMemo(() => sortByName(items, item => item.name), [items]);
   const list = all ? ordered : ordered.slice(0, SHOWN);
   const { Icon, title } = KIND[kind];
-  const hasClosureReview = kind === "plan" && items.some(item => (item.surplus || 0) > 0);
+  const openingTotal = kind === "plan" ? items.reduce((total, item) => total + Math.max(0, item.extra), 0) : 0;
+  const closureTotal = kind === "plan" ? items.reduce((total, item) => total + Math.max(0, item.surplus || 0), 0) : 0;
+  const hasClosureReview = closureTotal > 0;
   const staffingItems = useMemo(() => items.filter(item => !item.surplus && item.extra > 0), [items]);
   const need = useMemo(() => (staffing && kind === "plan" ? visitingNeed(staffingItems, staffing, freeSlots) : null), [staffingItems, staffing, freeSlots, kind]);
   const rowOf = (id: number) => need?.rows.find(row => row.id === id);
@@ -165,7 +167,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
         <small>اختياري</small>
         <button type="button" className="apb-dr-close" aria-label="إغلاق" onClick={onClose} data-guide-ignore="إغلاق قائمة الشعب المقترحة"><X aria-hidden="true" /></button>
       </header>
-      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />الفتح والإغلاق المقترح من التخطيط؛ راجع المسجلين والمقاعد قبل إغلاق أي شعبة.{!hasClosureReview ? " لا تظهر شعب للإغلاق ما لم يكن العدد المختار أو التقدير التاريخي أقل من الموجود." : ""}</p> : null}
+      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />فتح +{num(openingTotal)} · مراجعة إغلاق −{num(closureTotal)}. لا حذف تلقائي؛ راجع المسجلين والسعة.{!hasClosureReview ? " لا فرق للإغلاق دون عدد مختار أو تقدير تاريخي أقل من الموجود." : ""}</p> : null}
       <ul className="apb-gap-list">
         {list.map(item => {
           const row = rowOf(item.id);
