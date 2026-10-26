@@ -9,7 +9,7 @@
 import {
   DECISION_1912_LABEL, isDecision1912Finding, periodBalanceFinding, regulationScore, reviewSchedule,
 } from "../src/utils/scheduleRegulations";
-import type { AdCourse, FSchedule } from "../src/types";
+import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -66,6 +66,27 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   const clash = [row(9, "1", ["sun"], "08:00", "08:50"), row(9, "2", ["sun"], "08:00", "08:50")];
   const found = byRule(review(clash, courses), "sections-same-hour");
   check(Boolean(found) && found!.article === "م.7/5" && found!.approvalEffect === "review", `م.7/5 كما كانت: «${found?.article}»`);
+}
+
+/* ── المعلّم العام ليس شخصاً واحداً في قاعدة التتابع ──────────────────────── */
+{
+  const c = course(10, 3);
+  const threeMeetings = [
+    row(10, "501", ["mon"], "08:00", "09:50", 700),
+    row(10, "502", ["mon"], "10:00", "11:50", 700),
+    row(10, "504", ["mon"], "12:00", "13:50", 700),
+  ];
+  const placeholder = {
+    AdInstructorId: 700, AdInstructorCivil: "", AdInstructorName: "هيئة تدريسية", AdInstructorMobile: "",
+  } as AdInstructor;
+  const realInstructor = {
+    ...placeholder, AdInstructorName: "د. أحمد العتيبي",
+  } as AdInstructor;
+  const reviewFor = (instructor: AdInstructor) => reviewSchedule({
+    rows: threeMeetings, courses: new Map([[10, c]]), instructors: new Map([[700, instructor]]),
+  });
+  check(!byRule(reviewFor(placeholder), "consecutive-long-lecture"), "الشعب المسندة إلى هيئة تدريسية عامة لا تُعامل كأستاذ واحد في فحص التتابع");
+  check(Boolean(byRule(reviewFor(realInstructor), "consecutive-long-lecture")), "يبقى مانع التتابع قائماً عند وجود أستاذ فعلي مشترك بين الشعب");
 }
 
 /* ── م.7/8: فحص الاعتماد يطابق مكتبة الأنماط ذات فترات 50/80 دقيقة ───────── */

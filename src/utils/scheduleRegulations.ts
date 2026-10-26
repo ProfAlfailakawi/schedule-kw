@@ -2,6 +2,7 @@ import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { departsFromNature, type CourseNature } from "./courseNature";
 import { SCHEDULE_DAY_END , formatScheduleTimeRange } from "./scheduleTime";
 import { AR, countOf, oblique } from "./arabicCount";
+import { placeholderInstructorIds } from "./instructorIdentity";
 
 /**
  * The timetable rules of PAAET decision 1913/2016, written as code.
@@ -564,8 +565,9 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   const runsOverLong: Array<{ instructorId: number; day: DayKey; rows: FSchedule[] }> = [];
   const runsOverOneHour: Array<{ instructorId: number; day: DayKey; rows: FSchedule[] }> = [];
   const byInstructor = new Map<number, FSchedule[]>();
+  const placeholders = placeholderInstructorIds(instructors.values());
   rows.forEach(row => {
-    if (!row.AdInstructorId) return;
+    if (!row.AdInstructorId || placeholders.has(Number(row.AdInstructorId))) return;
     byInstructor.set(row.AdInstructorId, [...(byInstructor.get(row.AdInstructorId) || []), row]);
   });
   for (const [instructorId, list] of byInstructor) {
