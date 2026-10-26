@@ -16156,17 +16156,49 @@ app.delete("/api/share/:id", requirePermission(7), async (req: AuthenticatedRequ
 const isPersonalStaffLink = (link: ScheduleShareLink) => link.kind === "staff" && Number(link.AdInstructorId || 0) > 0;
 
 async function personalLinkEligibleIds(collegeId: number, sectionId: number, termId: number): Promise<Set<number>> {
-  const [rows, delegates] = await Promise.all([
-    Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
-    Promise.all([Repository.getDepartmentDelegates(collegeId, sectionId), Repository.getDepartmentFaculty(collegeId, sectionId)]).then(lists => lists.flat()).catch(() => [] as number[]),
-  ]);
-  return new Set([...rows.map(row => Number(row.AdInstructorId)), ...delegates.map(Number)].filter(id => id > 0));
+  const family = await staffFamilyScopes(collegeId, sectionId);
+  const members = await Promise.all(family.map(async scope => {
+    const [rows, delegates] = await Promise.all([
+      Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId }),
+      Promise.all([
+        Repository.getDepartmentDelegates(scope.collegeId, scope.sectionId),
+        Repository.getDepartmentFaculty(scope.collegeId, scope.sectionId),
+      ]).then(lists => lists.flat()).catch(() => [] as number[]),
+    ]);
+    return [...rows.map(row => Number(row.AdInstructorId)), ...delegates.map(Number)];
+  }));
+  return new Set(members.flat().filter(id => id > 0));
 }
+const staffLinkFamilyAllowed = async (req: AuthenticatedRequest, link: ScheduleShareLink): Promise<boolean> =>
+  (await staffFamilyScopes(link.AdCollegeId, link.AdSectionId))
+    .some(scope => isScopeAllowed(req, scope.collegeId, scope.sectionId));
+
+/* قائمة التسليم كاملة لعائلة القسم من البطاقة نفسها، مع أقل الحقول
+   اللازمة لإعداد الرسالة؛ لا يُعاد الرقم المدني ولا سجل الموظف الكامل. */
+app.get("/api/share/:id/faculty", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const parent = await Repository.getShareLink(String(req.params.id || ""));
+  if (!parent || parent.revoked || parent.kind !== "staff" || Number(parent.AdInstructorId || 0)) {
+    res.status(404).json({ error: "بطاقة القسم غير موجودة أو موقوفة" }); return;
+  }
+  if (!await staffLinkFamilyAllowed(req, parent)) {
+    res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return;
+  }
+  const [eligible, people] = await Promise.all([
+    personalLinkEligibleIds(parent.AdCollegeId, parent.AdSectionId, parent.AdTermId),
+    Repository.getInstructors(),
+  ]);
+  res.setHeader("Cache-Control", "no-store");
+  res.json(people.filter(person => eligible.has(Number(person.AdInstructorId))).map(person => ({
+    AdInstructorId: person.AdInstructorId,
+    AdInstructorName: person.AdInstructorName,
+    AdInstructorMobile: person.AdInstructorMobile || "",
+  })));
+});
 
 app.post("/api/share/:id/personal", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const parent = await Repository.getShareLink(String(req.params.id || ""));
   if (!parent || parent.revoked || parent.kind !== "staff" || isPersonalStaffLink(parent)) { res.status(404).json({ error: "بطاقة القسم غير موجودة أو موقوفة" }); return; }
-  if (!isScopeAllowed(req, parent.AdCollegeId, parent.AdSectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  if (!await staffLinkFamilyAllowed(req, parent)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   const wanted = [...new Set((Array.isArray(req.body?.instructorIds) ? req.body.instructorIds : []).map(Number).filter((id: number) => id > 0))].slice(0, 300) as number[];
   if (!wanted.length) { res.json({ links: [] }); return; }
   const [eligible, existing, instructors, terms] = await Promise.all([
@@ -16207,7 +16239,7 @@ app.post("/api/share/:id/personal", requirePermission(7), async (req: Authentica
 app.post("/api/share/:id/sent", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const link = await Repository.getShareLink(String(req.params.id || ""));
   if (!link || !isPersonalStaffLink(link)) { res.status(404).json({ error: "الرابط الشخصي غير موجود" }); return; }
-  if (!isScopeAllowed(req, link.AdCollegeId, link.AdSectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  if (!await staffLinkFamilyAllowed(req, link)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   const rows = (await Repository.getSchedulesByScope({ termId: link.AdTermId }))
     .filter(row => Number(row.AdInstructorId) === Number(link.AdInstructorId));
   const sentAt = new Date().toISOString();
