@@ -6763,7 +6763,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   );
   /** One switch decides what colour answers: "which course?" or "whose?" */
   /** «مبنى/قاعة», or the honest absence of one — one spelling, used everywhere. */
-  const placeOf = (r: FSchedule) => { const primary=roomIdentity(r.AdRoomCode,r.AdRoomHall).label || "بدون قاعة"; return r.companionRoomId ? `${primary} · مرافق: ${r.companionRoomLabel||"استوديو"}` : primary; };
+  const placeOf = (r: FSchedule) => { const primary=roomIdentity(r.AdRoomCode,r.AdRoomHall).label || "بدون قاعة"; return r.companionRoomId && r.companionRoomLabel ? `${primary} · ${r.companionRoomType || "مرفق"}: ${r.companionRoomLabel}` : primary; };
   const hueFor = (code: string, title: string, instructorName?: string, room?: string) =>
     hueBy === "instructor"
       ? courseHue(instructorName || "بدون أستاذ", "")
