@@ -2743,3 +2743,13 @@
     padding-top:1.2mm !important;
   }
 }
+
+/* Explicit two-line companion venue in the instructor's printable schedule.
+   The existing five columns and the primary location remain unchanged. */
+@media print{
+  .print-query-groups-report .print-instructor-venue-cell{direction:rtl!important;text-align:center!important;white-space:normal!important}
+  .print-query-groups-report .print-instructor-venue{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:.8mm!important;min-width:0!important}
+  .print-query-groups-report .print-instructor-venue>bdi{display:block!important;font-weight:700!important;direction:ltr!important;unicode-bidi:isolate!important;white-space:nowrap!important}
+  .print-query-groups-report .print-instructor-venue .companion-facility-badge{display:inline-flex!important;flex-wrap:wrap!important;justify-content:center!important;max-width:100%!important;white-space:normal!important;font-size:6.8pt!important;line-height:1.35!important;border:1px solid #7c8c87!important;border-radius:5mm!important;padding:.45mm 1.1mm!important;overflow-wrap:anywhere!important}
+  .print-query-groups-report .print-instructor-venue .companion-facility-badge bdi{font-size:6.8pt!important;white-space:normal!important;overflow-wrap:anywhere!important}
+}
