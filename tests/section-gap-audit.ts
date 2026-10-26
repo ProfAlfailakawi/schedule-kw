@@ -120,9 +120,10 @@ const planHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { ite
 check(planHtml.includes("بحسب تخطيطك") && !planHtml.includes("مساري") && planHtml.includes("الاحتياج"), "قائمة التخطيط: عنوانٌ مستقل ولا ذكر لـ«مساري» فيها");
 const surplusHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: surplus, kind: "plan", onClose: () => {} }));
 const riskyHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: research, kind: "plan", onClose: () => {} }));
+check(riskyHtml.includes("فتح +0") && riskyHtml.includes("مراجعة إغلاق −1"), "أعداد الفتح والإغلاق تظهر دائماً أعلى القائمة حتى لو كانت بطاقة الإغلاق أسفلها");
 check(riskyHtml.includes("الاحتياج أعلى من السعة") && riskyHtml.includes("راجع الإغلاق") && riskyHtml.includes("فرق") && !riskyHtml.includes("فائض شعبة"),
   "العدد المقرر مراجعة إغلاقه يظهر حتى مع الطلب الكبير، لكن لا يوصف بأنه فائض مثبت");
-check(surplusHtml.includes("فائض") && surplusHtml.includes("11") && surplusHtml.includes("الموجود") && surplusHtml.includes("المطلوب") && surplusHtml.includes("راجع الإغلاق") && surplusHtml.includes("الفتح والإغلاق المقترح من التخطيط") && !surplusHtml.includes("الفصول السابقة للمقارنة"), "تظهر الشعب الزائدة بشكل بصري مختصر دون أمر حذف، مع مقارنة الموجود بالمطلوب");
+check(surplusHtml.includes("فائض") && surplusHtml.includes("11") && surplusHtml.includes("الموجود") && surplusHtml.includes("المطلوب") && surplusHtml.includes("راجع الإغلاق") && surplusHtml.includes("مراجعة إغلاق −11") && !surplusHtml.includes("الفصول السابقة للمقارنة"), "تظهر الشعب الزائدة بشكل بصري مختصر دون أمر حذف، مع مقارنة الموجود بالمطلوب");
 check(!html.includes("<a ") && !html.includes("<input") && !html.includes("<form") && !html.includes("قارن") && !html.includes("كشف المتبقي"), "العرض: بلا رابطٍ ولا حقلٍ ولا دعوةٍ إلى شاشة التخطيط");
 const shownRows = (html.match(/<li/g) || []).length;
 check(shownRows === 5 && html.includes("الكل ("), "العرض: خمسة أسطر ثم «الكل»", { shownRows });
