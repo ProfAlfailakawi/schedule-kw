@@ -200,6 +200,8 @@ export interface AdCourse {
   /** Teaching mode used by regulation review; undefined means not yet classified. */
   /** mixed is retained only to read legacy records; new editor choices use the four explicit modes. */
   CourseTeachingMode?: "theoretical" | "applied" | "practical" | "field_training" | "mixed";
+  /** A required companion facility for every appointment, distinct from the primary room type. */
+  CourseCompanionRoomType?: string;
 }
 
 /** Academic curriculum version for one scientific section. */
@@ -300,6 +302,9 @@ export interface FSchedule {
   /** Stable canonical location references. Raw legacy strings remain for historical display/audit only. */
   buildingId?: string;
   roomId?: string;
+  /** Companion facility occupies the entire appointment, alongside the primary room. */
+  companionRoomId?: string;
+  companionRoomLabel?: string;
   locationStatus?: "VERIFIED" | "PENDING_ROOM" | "LOCATION_REVIEW_REQUIRED" | "INVALID_HISTORICAL";
   sourceBuildingText?: string;
   sourceRoomText?: string;
@@ -423,6 +428,8 @@ export interface MasterRoom {
   capacity?: number | null;
   /** Optional private planning category, such as classroom, lab, or computer lab. */
   roomType?: string;
+  /** Independent booking is separate from activation and physical room type. */
+  bookingPolicy?: "normal" | "companion_only" | "blocked";
   active: boolean;
   aliases: LocationRegistryAlias[];
   collegeIds: number[];

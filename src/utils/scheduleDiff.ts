@@ -74,7 +74,9 @@ export function fieldValue(row: any, field: DiffFieldKey, names?: DiffNames): st
     case "room": {
       const code = String(row?.AdRoomCode || "").trim();
       const hall = String(row?.AdRoomHall || "").trim();
-      return [code, hall].filter(Boolean).join(" / ") || "—";
+      const primary=[code,hall].filter(Boolean).join(" / ") || "—";
+      const companion=String(row?.companionRoomId||"").trim();
+      return companion ? `${primary} + ${String(row?.companionRoomLabel||companion).trim()}` : primary;
     }
     case "instructor": {
       const id = Number(row?.AdInstructorId || 0);

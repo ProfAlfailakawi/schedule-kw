@@ -1590,6 +1590,8 @@ function safeDraftRows(input: unknown, collegeId: number, sectionId: number, ter
     fstarttime: normalizeClock(raw?.fstarttime), fendtime: normalizeClock(raw?.fendtime),
     AdRoomCode: String(raw?.AdRoomCode || ""), AdRoomHall: String(raw?.AdRoomHall || ""),
     buildingId: String(raw?.buildingId || "") || undefined, roomId: String(raw?.roomId || "") || undefined,
+    companionRoomId: String(raw?.companionRoomId || "").trim() || undefined,
+    companionRoomLabel: String(raw?.companionRoomLabel || "").slice(0,100) || undefined,
     locationStatus: raw?.locationStatus, sourceBuildingText: String(raw?.sourceBuildingText || raw?.AdRoomCode || "").slice(0,80) || undefined,
     sourceRoomText: String(raw?.sourceRoomText || raw?.AdRoomHall || "").slice(0,80) || undefined,
     sourceSitePrefix: String(raw?.sourceSitePrefix || "").slice(0,12) || undefined,
@@ -1973,7 +1975,7 @@ async function departmentInstructorIdSet(
   return ids;
 }
 
-async function validateSmartRows(rows: any[], collegeId: number, sectionId: number, options: { checkConflicts?: boolean; resolveHistorical?: boolean; requireDepartmentInstructor?:boolean; departmentInstructorIds?:Set<number> } = {}) {
+async function validateSmartRows(rows: any[], collegeId: number, sectionId: number, options: { checkConflicts?: boolean; resolveHistorical?: boolean; requireDepartmentInstructor?:boolean; departmentInstructorIds?:Set<number>; requireCompanion?:boolean } = {}) {
   const termId = Number(rows[0]?.AdTermId || 0);
   const checkConflicts = options.checkConflicts !== false;
   /* القسم الواحد يُدرَّس في مواقع الفرع الثلاثة، ومن يدرّس في الجهراء عضو في
@@ -2053,6 +2055,14 @@ async function validateSmartRows(rows: any[], collegeId: number, sectionId: numb
     }
     if(!location.ok) location.issues.filter(issue=>issue.severity==="high").forEach(issue=>errors.push(`السطر ${index + 1}: ${issue.message}`));
     else if(location.canonical) Object.assign(row,location.canonical);
+    /* Preserve real companion reservations when copying or applying a draft;
+       force new-term copies to meet the current catalog requirement. Historic PDFs
+       without companion metadata remain readable through their existing import path. */
+    if(course && location.ok && (options.requireCompanion || row.companionRoomId)){
+      const companion=await companionBookingFor(course,row,row);
+      if(companion.issue)errors.push(`السطر ${index + 1}: ${companion.issue}`);
+      else { row.companionRoomId=companion.id;row.companionRoomLabel=companion.label; }
+    }
     /* Imported rows are exactly where an impossible clock arrives — a spreadsheet
        cell or an OCR'd page, neither of which is bounded by a time picker. */
     if (!isValidClock(row.fstarttime) || !isValidClock(row.fendtime)) errors.push(`السطر ${index + 1}: وقت غير صالح (الساعة بين 0 و23 والدقيقة بين 0 و59)`);
@@ -3870,6 +3880,7 @@ app.get("/api/admin/location-room-types",requirePermission(7),requireRootAdmin,a
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
   registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   res.json({types:[...types].sort((a,b)=>a.localeCompare(b,"ar"))});
 });
 app.post("/api/admin/location-room-types",requirePermission(7),requireRootAdmin,async(req:AuthenticatedRequest,res:Response)=>{
@@ -3879,6 +3890,7 @@ app.post("/api/admin/location-room-types",requirePermission(7),requireRootAdmin,
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
   registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   if([...types].some(type=>type.toLocaleLowerCase("ar")===name.toLocaleLowerCase("ar"))){res.status(409).json({error:"هذا النوع موجود مسبقًا."});return;}
   types.add(name);await Repository.setLocationRoomTypes([...types]);
   res.status(201).json({types:[...types].sort((a,b)=>a.localeCompare(b,"ar"))});
@@ -3890,6 +3902,7 @@ app.put("/api/admin/location-room-types/:type",requirePermission(7),requireRootA
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
   registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   if(!types.has(oldName)){res.status(404).json({error:"نوع القاعة غير موجود."});return;}
   if([...types].some(type=>type!==oldName&&type.toLocaleLowerCase("ar")===newName.toLocaleLowerCase("ar"))){res.status(409).json({error:"يوجد نوع آخر بهذا الاسم."});return;}
   if(oldName===newName){res.json({types:[...types].sort((a,b)=>a.localeCompare(b,"ar")),updatedRooms:0,updatedCourses:0});return;}
@@ -3908,9 +3921,10 @@ app.delete("/api/admin/location-room-types/:type",requirePermission(7),requireRo
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
   registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   if(!types.has(name)){res.status(404).json({error:"نوع القاعة غير موجود."});return;}
   const linkedRooms=registry.rooms.filter(room=>String(room.roomType||"").normalize("NFKC").trim()===name).length;
-  const linkedCourses=courses.filter(course=>String(course.CourseRoomType||"").normalize("NFKC").trim()===name).length;
+  const linkedCourses=courses.filter(course=>[course.CourseRoomType,course.CourseCompanionRoomType].some(type=>String(type||"").normalize("NFKC").trim()===name)).length;
   if(linkedRooms||linkedCourses){res.status(409).json({error:`لا يمكن حذف «${name}» لأنه مرتبط بـ ${countOf(linkedRooms,AR.room)} و${countOf(linkedCourses,AR.course)}. غيّر ارتباطاتها أولاً.`});return;}
   if(types.size<=1){res.status(409).json({error:"أبقِ نوعًا واحدًا على الأقل للقاعات."});return;}
   types.delete(name);await Repository.setLocationRoomTypes([...types]);
@@ -4201,6 +4215,8 @@ app.post("/api/courses", requirePermission(6), async (req: AuthenticatedRequest,
   const CourseHours = boundedDecimal(req.body?.CourseHours, COURSE_LIMIT.hours[0], COURSE_LIMIT.hours[1]);
   const MaxStudent = boundedInt(req.body?.MaxStudent, COURSE_LIMIT.students[0], COURSE_LIMIT.students[1], 0);
   const CourseRoomType=String(req.body?.CourseRoomType||"").normalize("NFKC").trim();if(CourseRoomType.length>60){res.status(400).json({error:"نوع القاعة المناسب لا يتجاوز 60 حرفًا."});return;}
+  const CourseCompanionRoomType=String(req.body?.CourseCompanionRoomType||"").normalize("NFKC").trim();
+  if(CourseCompanionRoomType.length>60){res.status(400).json({error:"نوع المرفق المرافق لا يتجاوز 60 حرفًا."});return;}
   const CourseTeachingMode=String(req.body?.CourseTeachingMode||"").trim() as AdCourse["CourseTeachingMode"] | "";
   if(CourseTeachingMode&&!['theoretical','applied','practical','field_training'].includes(CourseTeachingMode)){res.status(400).json({error:"طبيعة تدريس المقرر غير معروفة."});return;}
   const numberIssue = courseNumberIssue(CourseCredit, CourseHours, MaxStudent);
@@ -4237,7 +4253,8 @@ app.post("/api/courses", requirePermission(6), async (req: AuthenticatedRequest,
       MaxStudent!,
       true,
       CourseRoomType,
-      CourseTeachingMode || undefined
+      CourseTeachingMode || undefined,
+      CourseCompanionRoomType
     );
     res.status(201).json(newC);
   } catch (error) {
@@ -4261,6 +4278,8 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
   const CourseHours = boundedDecimal(req.body?.CourseHours, COURSE_LIMIT.hours[0], COURSE_LIMIT.hours[1]);
   const MaxStudent = boundedInt(req.body?.MaxStudent, COURSE_LIMIT.students[0], COURSE_LIMIT.students[1], 0);
   const CourseRoomType=String(req.body?.CourseRoomType||"").normalize("NFKC").trim();if(CourseRoomType.length>60){res.status(400).json({error:"نوع القاعة المناسب لا يتجاوز 60 حرفًا."});return;}
+  const CourseCompanionRoomType=req.body?.CourseCompanionRoomType===undefined?undefined:String(req.body.CourseCompanionRoomType||"").normalize("NFKC").trim();
+  if(CourseCompanionRoomType!==undefined&&CourseCompanionRoomType.length>60){res.status(400).json({error:"نوع المرفق المرافق لا يتجاوز 60 حرفًا."});return;}
   const CourseTeachingMode=req.body?.CourseTeachingMode === undefined ? undefined : String(req.body.CourseTeachingMode).trim() as AdCourse["CourseTeachingMode"] | "";
   if(CourseTeachingMode&&!['theoretical','applied','practical','field_training'].includes(CourseTeachingMode)
     && !(CourseTeachingMode==="mixed"&&String((await Repository.getCourseById(id))?.CourseTeachingMode||"")==="mixed")){
@@ -4381,6 +4400,20 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
       teachingModeAligned = siblings.length - differing.length;
       teachingModeSynced = await Repository.setCourseTeachingModeForIds(differing, desiredTeachingMode as AdCourse["CourseTeachingMode"] | "");
     }
+    /* Companion requirement follows the course, never a fixed room id across campuses. */
+    let companionSynced=0;
+    if(CourseCompanionRoomType!==undefined){
+      const [allCourses,allSections,allColleges]=await Promise.all([Repository.getCourses(),Repository.getSections(),Repository.getColleges()]);
+      const candidates=roomTypeSiblingIds({...currentCourse,AdCollegeId:collegeId,AdSectionId:sectionId,CourseCode},allCourses as any,allSections as any,allColleges as any);
+      const allowed:number[]=[];
+      for(const siblingId of candidates){
+        const other=allCourses.find(c=>Number(c.AdCourseId)===siblingId)!;
+        if(!req.user.IsAdminUser&&!isScopeAllowed(req,Number(other.AdCollegeId),Number(other.AdSectionId)))continue;
+        if(!await committeeCatalogEditAllowed(req,Number(other.AdSectionId)))continue;
+        if(String(other.CourseCompanionRoomType||"")!==CourseCompanionRoomType)allowed.push(siblingId);
+      }
+      companionSynced=await Repository.setCourseCompanionRoomTypeForIds(allowed,CourseCompanionRoomType);
+    }
     const updated = await Repository.updateCourse(
       id,
       collegeId,
@@ -4391,9 +4424,10 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
       CourseHours!,
       MaxStudent!,
       CourseRoomType,
-      CourseTeachingMode === "" ? null : CourseTeachingMode
+      CourseTeachingMode === "" ? null : CourseTeachingMode,
+      CourseCompanionRoomType
     );
-    res.json({ ...updated, roomTypeSynced, roomTypeAligned, roomTypeChanged, roomTypeEvaluated, roomTypeSkipped: roomTypeSkipped.slice(0, 8), teachingModeSynced, teachingModeAligned, teachingModeChanged, teachingModeEvaluated, teachingModeSkipped: teachingModeSkipped.slice(0, 8) });
+    res.json({ ...updated, companionSynced, roomTypeSynced, roomTypeAligned, roomTypeChanged, roomTypeEvaluated, roomTypeSkipped: roomTypeSkipped.slice(0, 8), teachingModeSynced, teachingModeAligned, teachingModeChanged, teachingModeEvaluated, teachingModeSkipped: teachingModeSkipped.slice(0, 8) });
   } catch (e: any) {
     res.status(404).json({ error: e.message });
   }
@@ -4759,7 +4793,7 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
   };
 
   const collegeRooms=registry.rooms.filter(room=>{
-    if(!room.active||room.confidence!=="CONFIRMED")return false;
+    if(!room.active||room.confidence!=="CONFIRMED"||(room.bookingPolicy&&room.bookingPolicy!=="normal"))return false;
     const building=buildingById.get(room.buildingId);
     if(!building||!building.active||building.confidence!=="CONFIRMED")return false;
     const roomColleges=[...new Set([...(room.collegeIds||[]),...(building.collegeIds||[])].map(Number).filter(Boolean))];
@@ -4937,7 +4971,7 @@ function spatialBurnoutAnalysis(scopeRows:any[],termRows:any[],profile:any,instr
 function roomIsFreeForRow(room:{code:string;hall:string;buildingId?:string;roomId?:string},target:any,termRows:any[],ignoreIds:Set<number>){
   return termRows.every((other:any)=>{
     if(ignoreIds.has(Number(other.id)))return true;
-    const sameRoom=room.roomId&&other.roomId?String(room.roomId)===String(other.roomId):normalizedBuilding(other.AdRoomCode).toLocaleLowerCase()===normalizedBuilding(room.code).toLocaleLowerCase()&&String(other.AdRoomHall||"").trim().toLocaleLowerCase()===String(room.hall||"").trim().toLocaleLowerCase();
+    const sameRoom=rowOccupiesRoom(other,room.roomId||"",room.code,room.hall);
     if(!sameRoom)return true;
     return !["fsunday","fmonday","ftuesday","fwednesday","fthursday"].some(day=>Boolean(target[day]&&other[day])&&scheduleOverlap(target.fstarttime,target.fendtime,other.fstarttime,other.fendtime));
   });
@@ -5037,6 +5071,7 @@ function describeScheduleChange(before: any, after: any, instructorName?: (id: n
   const beforeRoom = `${before?.AdRoomCode || ""}/${before?.AdRoomHall || ""}`;
   const afterRoom = `${after?.AdRoomCode || ""}/${after?.AdRoomHall || ""}`;
   if (beforeRoom !== afterRoom) parts.push(`القاعة ${beforeRoom} ← ${afterRoom}`);
+  if(String(before?.companionRoomId||"")!==String(after?.companionRoomId||""))parts.push(`المرفق المرافق ${before?.companionRoomLabel||"بدون"} ← ${after?.companionRoomLabel||"بدون"}`);
   if (Number(before?.AdInstructorId || 0) !== Number(after?.AdInstructorId || 0))
     parts.push(`الأستاذ ${instructorName?.(Number(before?.AdInstructorId || 0)) || before?.AdInstructorId} ← ${instructorName?.(Number(after?.AdInstructorId || 0)) || after?.AdInstructorId}`);
   if (String(before?.SCode || "") !== String(after?.SCode || "")) parts.push(`الشعبة ${before?.SCode} ← ${after?.SCode}`);
@@ -7460,6 +7495,31 @@ app.get("/api/location-registry", requireAuth, async (req:AuthenticatedRequest,r
   });
   res.json({version:LOCATION_MIGRATION_VERSION,buildings:openBuildings,rooms,borrowedRoomIds,pendingRoomCode:PENDING_ROOM});
 });
+
+/** Shared studios are campus resources, not permanently attached to teaching rooms or sections. */
+app.get("/api/companion-rooms",requirePermission(7),async(req:AuthenticatedRequest,res:Response)=>{
+  const collegeId=Number(req.query.collegeId||0),sectionId=Number(req.query.sectionId||0),termId=Number(req.query.termId||0);
+  const buildingId=String(req.query.buildingId||""),courseId=Number(req.query.courseId||0),excludeId=Number(req.query.excludeId||0);
+  if(!collegeId||!sectionId||!buildingId||!courseId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"النطاق غير مسموح."});return;}
+  const [registry,course,rows]=await Promise.all([readLocationRegistry(),Repository.getCourseById(courseId),termId?Repository.getSchedulesByScope({termId}):Promise.resolve([] as FSchedule[])]);
+  if(!course||Number(course.AdCollegeId)!==collegeId||Number(course.AdSectionId)!==sectionId){res.status(400).json({error:"المقرر غير صالح."});return;}
+  const primary=registry.buildings.find(b=>b.id===buildingId&&b.active&&b.confidence==="CONFIRMED");
+  if(!primary){res.json({rooms:[]});return;}
+  const site=String(primary.officialCode||"").slice(0,4);
+  const type=String(course.CourseCompanionRoomType||"").trim();
+  const days=new Set(String(req.query.days||"").split(",").filter(Boolean));
+  const from=String(req.query.start||""),to=String(req.query.end||"");
+  const dayKeys=["fsunday","fmonday","ftuesday","fwednesday","fthursday"];
+  const roomOptions=registry.rooms.filter(room=>room.active&&room.confidence==="CONFIRMED"&&room.bookingPolicy==="companion_only"&&room.roomType===type&&type)
+    .map(room=>({room,building:registry.buildings.find(b=>b.id===room.buildingId)}))
+    .filter(({building})=>building?.active&&building.confidence==="CONFIRMED"&&String(building.officialCode||"").slice(0,4)===site)
+    .map(({room,building})=>{
+      const busy=Boolean(termId&&days.size&&from&&to&&rows.some(row=>Number(row.id)!==excludeId&&dayKeys.some(day=>days.has(day)&&Boolean((row as any)[day]))&&timeToMinutes(row.fstarttime)<timeToMinutes(to)&&timeToMinutes(row.fendtime)>timeToMinutes(from)&&rowOccupiesRoom(row,room.id,building!.officialCode,room.canonicalCode)));
+      return {id:room.id,label:`${building!.officialCode} / ${room.canonicalCode}`,available:!busy};
+    });
+  res.json({rooms:roomOptions});
+});
+
 app.get("/api/location-registry/pending", requirePermission(7), async (req:AuthenticatedRequest,res:Response)=>{
   const termId=Number(req.query.termId||0);if(!termId){res.status(400).json({error:"حدد الفصل الدراسي"});return;}
   let rows=await Repository.getSchedulesByScope({termId});
@@ -7597,6 +7657,7 @@ app.post("/api/admin/location-registry/rooms", requirePermission(7), requirePowe
   const code=String(req.body?.canonicalCode||"").trim().toUpperCase().replace(/\s+/g,"");if(!code||code===PENDING_ROOM||isInvalidLocationToken(code)||!/^[A-Z0-9]{1,12}$/.test(code)||!/\d/.test(code)){res.status(400).json({error:"رمز القاعة غير صالح ولا يمكن أن يكون Placeholder"});return;}
   const capacityRaw=req.body?.capacity;const capacity=capacityRaw===undefined||capacityRaw===null||String(capacityRaw).trim()===""?undefined:Number(capacityRaw);if(capacity!==undefined&&(!Number.isInteger(capacity)||capacity<1||capacity>5000)){res.status(400).json({error:"سعة القاعة يجب أن تكون عددًا صحيحًا بين 1 و5000، أو تُترك فارغة."});return;}
   const roomType=String(req.body?.roomType||"").normalize("NFKC").trim();if(roomType.length>60){res.status(400).json({error:"اسم نوع القاعة لا يتجاوز 60 حرفًا."});return;}
+  const bookingPolicy=String(req.body?.bookingPolicy||"normal");if(!["normal","companion_only","blocked"].includes(bookingPolicy)){res.status(400).json({error:"سياسة حجز القاعة غير صالحة."});return;}
   const id=`room_${building.officialCode}_${code.replace(/[^A-Z0-9]/g,"_")}`;if(registry.rooms.some(x=>x.id===id||(x.buildingId===building.id&&x.canonicalCode===code))){res.status(409).json({error:"القاعة موجودة في هذا المبنى"});return;}
   const officialCollegeIds=officialBuildingCollegeIds(building,colleges);
   const requestedRoomCollegeIds=req.body?.collegeIds===undefined?[...officialCollegeIds]:locationIdList(req.body?.collegeIds);
@@ -7604,7 +7665,7 @@ app.post("/api/admin/location-registry/rooms", requirePermission(7), requirePowe
   const roomCollegeIds=officialCollegeIds.length?[...officialCollegeIds]:requestedRoomCollegeIds;
   const now=new Date().toISOString();const sectionIds=locationIdList(req.body?.sectionIds),primarySectionIds=locationIdList(req.body?.primarySectionIds).filter(id=>sectionIds.includes(id));
   const shared=sectionIds.length>1;
-  const row:MasterRoom={id,buildingId:building.id,buildingCode:building.officialCode,canonicalCode:code,...(capacity===undefined?{}:{capacity}),...(roomType?{roomType}:{}),active:true,aliases:[],collegeIds:roomCollegeIds,sectionIds,primarySectionIds,shared,sharedConfidence:"CONFIRMED",historicalUsageCount:0,confidence:"CONFIRMED",source:"ADMIN",adminVerified:true,evidence:[shared?"اعتماد إداري؛ مصنفة مشتركة تلقائيًا لارتباطها بأكثر من قسم.":"اعتماد يدوي من مدير النظام."],auditHistory:[{at:now,byUserId:req.user.SystemUserId,action:"CREATE"}],createdAt:now,updatedAt:now,lastVerifiedAt:now};
+  const row:MasterRoom={id,buildingId:building.id,buildingCode:building.officialCode,canonicalCode:code,...(capacity===undefined?{}:{capacity}),...(roomType?{roomType}:{}),bookingPolicy:bookingPolicy as MasterRoom["bookingPolicy"],active:true,aliases:[],collegeIds:roomCollegeIds,sectionIds,primarySectionIds,shared,sharedConfidence:"CONFIRMED",historicalUsageCount:0,confidence:"CONFIRMED",source:"ADMIN",adminVerified:true,evidence:[shared?"اعتماد إداري؛ مصنفة مشتركة تلقائيًا لارتباطها بأكثر من قسم.":"اعتماد يدوي من مدير النظام."],auditHistory:[{at:now,byUserId:req.user.SystemUserId,action:"CREATE"}],createdAt:now,updatedAt:now,lastVerifiedAt:now};
   await Repository.upsertLocationRooms([row]);invalidateLocationRegistry();res.status(201).json(row);
 });
 app.put("/api/admin/location-registry/rooms/:id", requirePermission(7), requirePowerAdmin, async (req:AuthenticatedRequest,res:Response)=>{
@@ -7615,6 +7676,7 @@ app.put("/api/admin/location-registry/rooms/:id", requirePermission(7), requireP
   const roomCodeChanged=requestedCode!==current.canonicalCode;
   const capacityRaw=req.body?.capacity;const roomCapacity=capacityRaw===undefined?current.capacity:capacityRaw===null||String(capacityRaw).trim()===""?undefined:Number(capacityRaw);if(roomCapacity!==undefined&&(!Number.isInteger(roomCapacity)||roomCapacity<1||roomCapacity>5000)){res.status(400).json({error:"سعة القاعة يجب أن تكون عددًا صحيحًا بين 1 و5000، أو تُترك فارغة."});return;}
   const roomType=String(req.body?.roomType===undefined?current.roomType||"":req.body?.roomType||"").normalize("NFKC").trim();if(roomType.length>60){res.status(400).json({error:"اسم نوع القاعة لا يتجاوز 60 حرفًا."});return;}
+  const bookingPolicy=String(req.body?.bookingPolicy??current.bookingPolicy??"normal");if(!["normal","companion_only","blocked"].includes(bookingPolicy)){res.status(400).json({error:"سياسة حجز القاعة غير صالحة."});return;}
   if(registry.rooms.some(x=>x.id!==current.id&&x.buildingId===targetBuildingId&&x.canonicalCode===requestedCode)){res.status(409).json({error:"يوجد رقم القاعة نفسه في هذا المبنى."});return;}
   const sectionIds=req.body?.sectionIds===undefined?current.sectionIds:locationIdList(req.body.sectionIds);const primarySectionIds=(req.body?.primarySectionIds===undefined?(current.primarySectionIds||[]):locationIdList(req.body.primarySectionIds)).filter(id=>sectionIds.includes(id));
   /* Compatibility/audit contract: the room metadata still follows the canonical target building.
@@ -7630,7 +7692,7 @@ app.put("/api/admin/location-registry/rooms/:id", requirePermission(7), requireP
     ...(current.aliases||[]),
     ...(roomCodeChanged?[{value:current.canonicalCode,evidence:[`رمز القاعة السابق قبل تغييره إلى ${requestedCode}.`]}]:[]),
   ]:req.body.aliases);
-  const next={active:typeof req.body?.active==="boolean"?req.body.active:current.active,shared,collegeIds:roomCollegeIds,sectionIds,primarySectionIds,aliases,buildingId:targetBuilding.id,buildingCode:targetBuilding.officialCode,canonicalCode:requestedCode,capacity:roomCapacity??null,roomType:roomType};
+  const next={active:typeof req.body?.active==="boolean"?req.body.active:current.active,shared,collegeIds:roomCollegeIds,sectionIds,primarySectionIds,aliases,buildingId:targetBuilding.id,buildingCode:targetBuilding.officialCode,canonicalCode:requestedCode,capacity:roomCapacity??null,roomType:roomType,bookingPolicy:bookingPolicy as MasterRoom["bookingPolicy"]};
   const row:MasterRoom={...current,...next,id:current.id,confidence:"CONFIRMED",sharedConfidence:"CONFIRMED",adminVerified:true,updatedAt:now,lastVerifiedAt:now,auditHistory:[...(current.auditHistory||[]),{at:now,byUserId:req.user.SystemUserId,action:targetBuildingId!==current.buildingId?"MOVE_BUILDING":roomCodeChanged?"RENAME_ROOM":"UPDATE",before:{buildingId:current.buildingId,buildingCode:current.buildingCode,canonicalCode:current.canonicalCode,active:current.active,shared:current.shared,collegeIds:current.collegeIds,sectionIds:current.sectionIds,primarySectionIds:current.primarySectionIds},after:next}]};
   /* ── لا نسخة كاملة للنظام قبل نقل قاعة ──────────────────────────────────
    * Moving a room between buildings used to copy the ENTIRE database first:
@@ -8295,6 +8357,26 @@ function scheduleOriginOf(req: AuthenticatedRequest): import("./src/types").Sche
   };
 }
 
+
+/** The course owns the requirement; the appointment holds the physical facility. */
+async function companionBookingFor(course:AdCourse,body:any,canonical:any,existing?:FSchedule):Promise<{issue?:string;id:string;label:string}>{
+  const required=String(course.CourseCompanionRoomType||"").trim();
+  const requested=String(body?.companionRoomId||"").trim();
+  const registry=await readLocationRegistry();
+  const primary=registry.rooms.find(room=>room.id===canonical.roomId);
+  const previousPrimary=existing&&String(existing.roomId||"")===String(canonical.roomId||"");
+  if(primary?.bookingPolicy&&primary.bookingPolicy!=="normal"&&!previousPrimary)return {issue:"هذه القاعة لا تقبل الحجز المستقل. اختر قاعة تدريسية أخرى.",id:"",label:""};
+  if(!required)return requested?{issue:"هذا المقرر لا يحتاج مرفقًا مرافقًا؛ أزل اختياره.",id:"",label:""}:{id:"",label:""};
+  if(!requested)return {issue:`المقرر يتطلب مرفقًا مرافقًا من نوع «${required}» طوال الموعد.`,id:"",label:""};
+  const room=registry.rooms.find(item=>item.id===requested);
+  const primaryBuilding=registry.buildings.find(item=>item.id===canonical.buildingId);
+  const building=room&&registry.buildings.find(item=>item.id===room.buildingId);
+  if(!room||!building||!primaryBuilding||!room.active||room.confidence!=="CONFIRMED"||!building.active||building.confidence!=="CONFIRMED")return {issue:"المرفق المرافق غير متاح أو غير معتمد.",id:"",label:""};
+  if(room.id===canonical.roomId||room.bookingPolicy!=="companion_only"||String(room.roomType||"").trim()!==required)return {issue:"المرفق المختار غير مخصص لمرافقة هذا المقرر.",id:"",label:""};
+  if(String(building.officialCode||"").slice(0,4)!==String(primaryBuilding.officialCode||"").slice(0,4))return {issue:"الاستوديو والقاعة الأساسية يجب أن يكونا في الموقع الدراسي نفسه.",id:"",label:""};
+  return {id:room.id,label:`${building.officialCode} / ${room.canonicalCode}`};
+}
+
 const createScheduleHandler = async (req: AuthenticatedRequest, res: Response) => {
   const {
     AdCollegeId,
@@ -8348,6 +8430,10 @@ const createScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
   const locationResult=await canonicalizeLocationForWrite({...req.body,AdCollegeId:collegeId,AdSectionId:sectionId},collegeId,sectionId);
   if(!locationResult.check.ok){res.status(400).json({error:locationResult.check.issues[0]?.message||"المكان غير صالح",issues:locationResult.check.issues});return;}
   const canonicalBody={...req.body,...locationResult.check.canonical,AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:courseId,AdInstructorId:instructorId};
+  const companion=await companionBookingFor(course,req.body,canonicalBody);
+  if(companion.issue){res.status(400).json({error:companion.issue});return;}
+  canonicalBody.companionRoomId=companion.id;
+  canonicalBody.companionRoomLabel=companion.label;
   const conflicts=await scheduleConflicts(req,canonicalBody,0,(req as any).__hypotheticalWeek);
   // Soft warnings (e.g. a tight inter-campus transfer, Note 38) are surfaced by
   // the live check but never block the save.
@@ -8387,6 +8473,7 @@ const createScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
     AdRoomHall: String(canonicalBody.AdRoomHall || ""),
     buildingId: canonicalBody.buildingId,
     roomId: canonicalBody.roomId,
+    ...(companion.id?{companionRoomId:companion.id,companionRoomLabel:companion.label}:{}),
     locationStatus: canonicalBody.locationStatus,
     sourceBuildingText: req.body?.sourceBuildingText,
     sourceRoomText: req.body?.sourceRoomText,
@@ -8483,6 +8570,10 @@ const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
   const locationResult=await canonicalizeLocationForWrite({...req.body,AdCollegeId:collegeId,AdSectionId:sectionId},collegeId,sectionId,importedRoomId);
   if(!locationResult.check.ok){res.status(400).json({error:locationResult.check.issues[0]?.message||"المكان غير صالح",issues:locationResult.check.issues});return;}
   const canonicalBody={...req.body,...locationResult.check.canonical,AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:courseId,AdInstructorId:instructorId};
+  const companion=await companionBookingFor(course,req.body,canonicalBody,existing);
+  if(companion.issue){res.status(400).json({error:companion.issue});return;}
+  canonicalBody.companionRoomId=companion.id;
+  canonicalBody.companionRoomLabel=companion.label;
   const conflicts=await scheduleConflicts(req,canonicalBody,id,(req as any).__hypotheticalWeek);
   const blockingEdit=conflicts.filter((c:any)=>!c.soft);
   if(blockingEdit.length){res.status(409).json({error:blockingEdit[0].message||"يوجد تعارض يمنع التعديل",issues:blockingEdit});return;}
@@ -8523,6 +8614,8 @@ const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
       AdRoomHall: String(canonicalBody.AdRoomHall || ""),
       buildingId: canonicalBody.buildingId,
       roomId: canonicalBody.roomId,
+      companionRoomId: companion.id,
+      companionRoomLabel: companion.label,
       locationStatus: canonicalBody.locationStatus,
       sourceBuildingText: req.body?.sourceBuildingText,
       sourceRoomText: req.body?.sourceRoomText,
@@ -8831,7 +8924,7 @@ app.post("/api/schedules/copy", requireAuth, requirePowerAdmin, async (req: Auth
   const {archived:archivedRows}=await splitArchivedCourseRows(sourceRows,sectionId);
   if(archivedRows.length){res.status(409).json({error:`لا يمكن نسخ الفصل كما هو: ${countOf(archivedRows.length, AR.appointment)} ${nounFor(archivedRows.length, AR.linkedAdj)} بمقررات مؤرشفة أكاديمياً. أضف بدائلها الحالية يدوياً حتى يبقى الجدول الجديد صحيحاً.`,code:"archived-curriculum-courses"});return;}
   const copiedRows = safeDraftRows(sourceRows, collegeId, sectionId, targetTermId);
-  const copyIssues = await validateSmartRows(copiedRows, collegeId, sectionId, { resolveHistorical: true });
+  const copyIssues = await validateSmartRows(copiedRows, collegeId, sectionId, { resolveHistorical: true, requireCompanion: true });
   if (copyIssues.length) {
     res.status(400).json({ error: "لا يمكن نسخ الجدول قبل معالجة بياناته", issues: copyIssues });
     return;

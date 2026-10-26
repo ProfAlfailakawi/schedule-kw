@@ -87,6 +87,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     [capacity, setCapacity] = useState(""),
     [courseRoomType, setCourseRoomType] = useState(""),
     [courseTeachingMode, setCourseTeachingMode] = useState(""),
+    [courseCompanionRoomType, setCourseCompanionRoomType] = useState(""),
     [roomTypeOptions, setRoomTypeOptions] = useState<string[]>(["تدريسية", "مختبر", "مختبر حاسوب"]),
     [query, setQuery] = useState(""),
     [error, setError] = useState<string | null>(null),
@@ -210,7 +211,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setHours("");
       setCapacity("");
       setCourseRoomType("");
-      setCourseTeachingMode("");
+      setCourseTeachingMode("");setCourseCompanionRoomType("");
       setError(null);
       setCurriculumTarget(null);
       setBootstrapOk(false);
@@ -245,6 +246,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setCapacity(String(x.MaxStudent ?? ""));
       setCourseRoomType(String(x.CourseRoomType || ""));
       setCourseTeachingMode(String(x.CourseTeachingMode || ""));
+    setCourseCompanionRoomType(String(x.CourseCompanionRoomType || ""));
       setError(null);
       setCurriculumTarget(null);
       setMode("edit");
@@ -277,7 +279,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     setHours(String(intent.hours ?? ""));
     setCapacity("");
     setCourseRoomType("");
-      setCourseTeachingMode("");
+      setCourseTeachingMode("");setCourseCompanionRoomType("");
     setMode("create");
   }, [items, sections, colleges]);
 
@@ -343,6 +345,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
               MaxStudent: Number(capacity || 0),
               CourseRoomType: courseRoomType,
               CourseTeachingMode: courseTeachingMode,
+              CourseCompanionRoomType: courseCompanionRoomType,
             }),
           },
         ),
@@ -593,6 +596,14 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                 {roomTypeOptions.map(type => <option key={type} value={type}>{type}</option>)}
               </select>
             </Field>
+            <Field label="مرفق مرافق إلزامي (اختياري)">
+              <select aria-label="نوع المرفق المرافق المطلوب" value={courseCompanionRoomType} onChange={event=>setCourseCompanionRoomType(event.target.value)}>
+                <option value="">لا يحتاج مرفقًا مرافقًا</option>
+                {courseCompanionRoomType&&!roomTypeOptions.includes(courseCompanionRoomType)?<option value={courseCompanionRoomType}>{courseCompanionRoomType}</option>:null}
+                {roomTypeOptions.map(type=><option key={type} value={type}>{type}</option>)}
+              </select>
+              <small>إذا حُدد، يجب حجز مرفق من هذا النوع مع كل موعد طوال مدته.</small>
+            </Field>
             <Field label="طبيعة التدريس (للمراجعة اللائحية)">
               <select value={courseTeachingMode} onChange={event => setCourseTeachingMode(event.target.value)} aria-label="طبيعة تدريس المقرر">
                 <option value="">غير محددة</option>
@@ -710,7 +721,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                 <article><span>السعة</span><b>{selected.MaxStudent || 0}</b></article>
                 <article><span>رمز المقرر</span><b>{selected.CourseCode || "—"}</b></article>
                 <article className="course-detail-fact"><small><DoorOpen aria-hidden="true"/>نوع القاعة</small><b>{String(selected.CourseRoomType || "").trim() || "غير محدد"}</b></article>
-                <article className="course-detail-fact"><small><GraduationCap aria-hidden="true"/>طبيعة التدريس</small><b>{teachingModeValue(selected)}</b></article>
+                <article className="course-detail-fact"><small><GraduationCap aria-hidden="true"/>طبيعة التدريس</small><b>{teachingModeValue(selected)}</b></article>{selected.CourseCompanionRoomType?<article className="course-detail-fact"><small><DoorOpen aria-hidden="true"/>مرفق مرافق إلزامي</small><b>{selected.CourseCompanionRoomType}</b></article>:null}
               </div>
               <div className="inspector-actions">
                 <PrimaryButton onClick={() => edit(selected)}>تعديل</PrimaryButton>

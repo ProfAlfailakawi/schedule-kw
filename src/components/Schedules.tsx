@@ -95,6 +95,7 @@ import HallBarterBoard, { type HallBarterReservationView } from "./HallBarterBoa
 import TeachingLoadNotice from "./TeachingLoadNotice";
 import ApprovalBar from "./ApprovalBar";
 import LocationPicker from "./LocationPicker";
+import CompanionFacilityPicker from "./CompanionFacilityPicker";
 import DaySubstitute from "./DaySubstitute";
 import MeetingSlots from "./MeetingSlots";
 import ScheduleExperienceLayer, {
@@ -6748,7 +6749,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   );
   /** One switch decides what colour answers: "which course?" or "whose?" */
   /** «مبنى/قاعة», or the honest absence of one — one spelling, used everywhere. */
-  const placeOf = (r: FSchedule) => roomIdentity(r.AdRoomCode, r.AdRoomHall).label || "بدون قاعة";
+  const placeOf = (r: FSchedule) => { const primary=roomIdentity(r.AdRoomCode,r.AdRoomHall).label || "بدون قاعة"; return r.companionRoomId ? `${primary} · مرافق: ${r.companionRoomLabel||"استوديو"}` : primary; };
   const hueFor = (code: string, title: string, instructorName?: string, room?: string) =>
     hueBy === "instructor"
       ? courseHue(instructorName || "بدون أستاذ", "")
@@ -8725,7 +8726,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     disabled={!form.AdSectionId}
                     onChange={(name) => {
                       setCourseName(String(name));
-                      setForm((p) => ({ ...p, AdCourseId: 0 }));
+                      setForm((p) => ({ ...p, AdCourseId: 0, companionRoomId:"", companionRoomLabel:"" }));
                     }}
                     options={courseNames.map((name) => ({ value: name, label: name, badge: courseOptionBadge(formCourses.filter((c) => c.CourseName === name).map((c) => Number(c.AdCourseId)), planBadges) }))}
                     searchPlaceholder="اكتب اسم المقرر"
@@ -8743,7 +8744,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       const courseId = Number(picked) || 0;
                       setForm((p) => {
                         const previousCourseId = Number(p.AdCourseId) || 0;
-                        const next = { ...p, AdCourseId: courseId };
+                        const next = { ...p, AdCourseId: courseId, ...(courseId!==Number(p.AdCourseId||0)?{companionRoomId:"",companionRoomLabel:""}:{}) };
                         // The same assistance applies while editing. Opening an
                         // existing appointment keeps its saved section number;
                         // changing the course (or fixing an empty section) fills
@@ -8975,7 +8976,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   courseRoomType={String(courseById.get(Number(form.AdCourseId||0))?.CourseRoomType||"")}
                   courseTeachingMode={String(courseById.get(Number(form.AdCourseId||0))?.CourseTeachingMode||"")}
                   seatsNeeded={Number(courseById.get(Number(form.AdCourseId||0))?.MaxStudent||0)}
-                  onChange={(patch)=>{setScheduleTouched(true);setForm(current=>({...current,...patch}));}}
+                  onChange={(patch)=>{setScheduleTouched(true);setForm(current=>({...current,...patch,companionRoomId:"",companionRoomLabel:""}));}}
                   showRaw={editor==="edit"}
                   hallAction={hallAvailabilityReady && Number(form.AdSectionId||0) ? (
                     <div className="room-suggest">
@@ -9037,6 +9038,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       ) : null}
                     </div>
                   ) : null}
+                />
+                <CompanionFacilityPicker
+                  course={courseById.get(Number(form.AdCourseId||0))}
+                  form={form}
+                  excludeId={editor==="edit"?Number(editId||0):undefined}
+                  onChange={patch=>{setScheduleTouched(true);setForm(current=>({...current,...patch}));}}
                 />
                 {/* ── جسرٌ إلى الاستعارة، حين تكون عالقاً وحده ────────────────
                     حدّدتَ اليوم والوقت ولم تجد قاعةً تختارها؟ سطرٌ هادئ واحد
