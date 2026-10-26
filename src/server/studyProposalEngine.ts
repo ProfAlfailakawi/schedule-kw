@@ -16,13 +16,14 @@ import type {
 } from "../types";
 import { isBlockingConflict, timeToMinutes, minutesToTime } from "../utils/scheduleIntelligence";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
-import { reviewSchedule } from "../utils/scheduleRegulations";
+import { reviewSchedule, effectiveCourseHours, weeklyLectureMinutes, maxWeeklyMinutesFor } from "../utils/scheduleRegulations";
+import { learnCourseNature } from "../utils/courseNature";
 import {
   applyProposalOps, daysLabel, daysOf, durationOf, GridItem, placeLabel, ProposalEvaluation, ProposalFinding,
   proposalDrift, proposalMetrics, snapshotOf, validateOps, PROPOSAL_DAY_KEYS, PROPOSAL_DAY_NAMES, type ProposalCatalog,
   type OpIssue,
 } from "../utils/studyProposal";
-import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "../utils/scheduleTime";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_START, isValidClock, scheduleDayWindowMinutes, withinScheduleDay } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
 
 export interface EngineDeps {
@@ -143,6 +144,53 @@ function makeId(parts: Array<string | number>): string {
   return parts.join(":");
 }
 
+/** Same clock, section hours and weekly course load as the Add/Edit save routes.
+ * Read the proposed final timetable, not the pre-edit rows, for weekly load.
+ */
+export async function proposalSchedulePreflight(
+  row: FSchedule, provisional: readonly FSchedule[], world: LoadedWorld,
+): Promise<string[]> {
+  const issues: string[] = [];
+  if (!PROPOSAL_DAY_KEYS.some(day => Boolean((row as any)[day]))) issues.push("يجب اختيار يوم واحد على الأقل للمحاضرة");
+  if (!isValidClock(row.fstarttime) || !isValidClock(row.fendtime)) {
+    issues.push("وقت المحاضرة غير صالح: الساعة بين 0 و23 والدقيقة بين 0 و59");
+    return issues;
+  }
+  const section = await Repository.getSectionById(Number(row.AdSectionId));
+  const bounds = scheduleDayWindowMinutes(section);
+  if (!withinScheduleDay(timeToMinutes(row.fstarttime), timeToMinutes(row.fendtime), bounds)) {
+    issues.push(`وقت المحاضرة يجب أن يكون بين ${bounds.startTime} و${bounds.endTime}`);
+  }
+
+  // An unchanged inherited lecture shape must not newly reject existing data.
+  const original = world.termRows.find(item => Number(item.id) === Number(row.id));
+  const unchangedShape = original
+    && String(original.fstarttime) === String(row.fstarttime)
+    && String(original.fendtime) === String(row.fendtime)
+    && PROPOSAL_DAY_KEYS.every(day => Boolean((original as any)[day]) === Boolean((row as any)[day]));
+  if (unchangedShape) return issues;
+  const courseId = Number(row.AdCourseId);
+  const course = world.catalog.courseById.get(courseId);
+  const hours = effectiveCourseHours(course as any);
+  if (hours > 0) {
+    const siblings = provisional.filter(item =>
+      Number(item.id) !== Number(row.id)
+      && Number(item.AdCourseId) === courseId && String(item.SCode || "") === String(row.SCode || "")
+      && Number(item.AdCollegeId) === Number(row.AdCollegeId)
+      && Number(item.AdSectionId) === Number(row.AdSectionId)
+      && Number(item.AdTermId) === Number(row.AdTermId));
+    const total = siblings.reduce((sum, item) => sum + weeklyLectureMinutes(item), 0) + weeklyLectureMinutes(row);
+    if (total > maxWeeklyMinutesFor(hours)) {
+      // Add/Edit makes the identical historical-nature exception.
+      const history = await Repository.getScheduleHistoryForCourses([courseId]);
+      const nature = learnCourseNature(courseId, history as FSchedule[]);
+      const habitual = nature && nature.confidence !== "low" ? nature.meetingMinutes : undefined;
+      if (!habitual) issues.push(`ساعات هذا المقرر المعتمدة ${countOf(hours, AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total / 50), AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`);
+    }
+  }
+  return issues;
+}
+
 export async function evaluateProposal(deps: EngineDeps, req: any, input: EvaluateInput, preloaded?: LoadedWorld): Promise<ProposalEvaluation> {
   const world = preloaded || await loadWorld(input.termId, input.instructorId);
   const incompleteReasons: string[] = [];
@@ -255,6 +303,21 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
         }
         candidate = { ...row, ...(located.canonical || {}) } as FSchedule;
       } catch { /* the gate below still speaks for the raw hall */ }
+    }
+    try {
+      const issues = await proposalSchedulePreflight(candidate, applied.rows, world);
+      if (issues.length) {
+        for (const issue of issues) addFinding({
+          kind: "blocker", code: "schedule-validation", title: "قواعد موعد جديد تمنع الموعد",
+          detail: issue, opId: op.id, gridKeys: [gridKeyOf(op.id)].filter(Boolean),
+          reason: "هذا الشرط يطبّق أيضاً عند حفظ الموعد من الجدول الدراسي.",
+          fix: "راجع التوقيت أو الأيام أو الساعات الأسبوعية للمقرر.",
+        });
+        continue;
+      }
+    } catch (error) {
+      incompleteReasons.push(`تعذّر فحص قواعد حفظ ${op.target.courseName || "مادة"}: ${(error as Error)?.message || "خطأ غير متوقع"}.`);
+      continue;
     }
     try {
       raw = await deps.scheduleConflicts(req, { ...candidate, AdTermId: input.termId }, Number(row.id), applied.rows);
@@ -375,8 +438,9 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
   /* ── حالة كل مادة والجاهزية للإرسال ──────────────────────────────────── */
   const perOp: ProposalEvaluation["perOp"] = {};
   for (const op of ops) {
-    const own = findings.filter(f => f.opId === op.id);
-    const ids = own.map(f => f.id);
+    const opKey = gridKeyOf(op.id);
+    const own = findings.filter(f => f.opId === op.id || (opKey && f.gridKeys?.includes(opKey)));
+    const ids = [...new Set(own.map(f => f.id))];
     const unchecked = invalidOps.has(op.id) || (!applied.incoming.has(op.id) && !driftOps.has(op.id) && !appliedErrors.has(op.id));
     perOp[op.id] = {
       state: own.some(f => f.kind === "blocker") ? "blocked" : unchecked ? "unchecked" : own.some(f => f.kind === "review") ? "review" : "ok",
