@@ -16076,7 +16076,7 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     Repository.getCourseTransitions(sectionId).catch(() => []),
   ]);
   const term = terms.find(row => Number(row.AdTermId) === termId);
-  const currentRemaining = stats?.remainingSource?.column === "unregistered" ? stats.remaining || {} : null;
+  const currentRemaining = stats?.remainingSource?.column === "notPassed" ? stats.remaining || {} : null;
   /* لكل موسم خطُّ تاريخ مستقلّ: الفصل الأول لا يستعير شعباً أو كشف متبقٍّ من
      الثاني، والثاني لا يستعير من الأول. نقرأ كامل تاريخ الموسم نفسه فقط. */
   const targetRank = termChronologyServer(term);
@@ -16116,7 +16116,7 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     }
     /* متبقّي فصلٍ سابق يدخل المقارنة إن كان «الذين لم يسجلوا» نفسه؛ ما حُفظ بعمودٍ آخر لا يُخلط به. */
     /* لا متبقٍّ سالب في التاريخ أيضاً: ما حُفظ سالباً قبل اعتماد الصفر لا يُنقص متبقّي سلفٍ آخر في عائلة المقرر. */
-    perTerm.push({ sectionsOf, remaining: pastStats?.remainingSource?.column === "unregistered"
+    perTerm.push({ sectionsOf, remaining: pastStats?.remainingSource?.column === "notPassed"
       ? Object.fromEntries(Object.entries(pastStats.remaining || {}).map(([key, value]) => [key, Math.max(0, Number(value) || 0)])) : {} });
     department.push({
       termName: past.AdTermName, similar: past.similar,
@@ -16152,10 +16152,10 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     /* «الذين لم يسجلوا» (المتبقي الإجمالي) وحده مدخلُ التخطيط؛ ما حُفظ بعمودٍ آخر («المقاعد المتبقية» أو بلا وسم) يُعاد منفصلاً موسوماً «قديماً» ولا يُحسب به. */
     /* لا متبقٍّ سالب (ما حُفظ سالباً قبل اعتماد الصفر يُعرض صفراً). */
     remaining: currentRemaining ?? {},
-    vacant: stats?.remainingSource?.column === "unregistered" ? stats.vacant || {} : {},
-    remainingSource: stats?.remainingSource?.column === "unregistered" ? stats.remainingSource : null,
-    remainingSourceTerm: "",
-    legacyRemaining: stats?.remainingSource?.column !== "unregistered" && Object.keys(stats?.remaining || {}).length
+    vacant: stats?.remainingSource?.column === "notPassed" ? stats.vacant || {} : {},
+    remainingSource: stats?.remainingSource?.column === "notPassed" ? stats.remainingSource : null,
+    remainingSourceTerm: stats?.remainingSource?.column === "notPassed" ? stats.remainingSource?.reportTerm || "" : "",
+    legacyRemaining: stats?.remainingSource?.column !== "notPassed" && Object.keys(stats?.remaining || {}).length
       ? { values: stats!.remaining, fileName: stats!.remainingSource?.fileName || "", importedAt: stats!.remainingSource?.importedAt || "" } : null,
     accepted: stats?.accepted || {},
     updatedAt: stats?.updatedAt || "",
@@ -16423,9 +16423,9 @@ app.get("/api/forecast/term", requirePermission(7), async (req: AuthenticatedReq
   const forecast = computeTermForecast({
     rows: scoped, courses,
     instructors: instructors.filter(item => mine.has(Number(item.AdInstructorId))),
-    remaining: stats?.remainingSource?.column === "unregistered" ? stats.remaining || {} : null,
+    remaining: stats?.remainingSource?.column === "notPassed" ? stats.remaining || {} : null,
     /* شاغرُ الشعب من الكشف نفسه: يُحفظ مع الاستيراد؛ إدخالٌ يدوي بلا كشف لا شاغر له. */
-    vacant: stats?.remainingSource?.column === "unregistered" && stats.vacant && Object.keys(stats.vacant).length ? stats.vacant : null,
+    vacant: stats?.remainingSource?.column === "notPassed" && stats.vacant && Object.keys(stats.vacant).length ? stats.vacant : null,
   });
   res.json({ scopeKey: approvalScopeKey({ collegeId, sectionId, termId }), collegeId, sectionId, termId, ...forecast });
 });
@@ -16484,6 +16484,10 @@ function remainingTermRefusal(headerText: string, termName: string): { error: st
   return null;
 }
 /* لا يبقى تنبيهٌ يُعبَّأ بعده: المخالفة رفضٌ (أعلاه)، فالقائمة فارغةٌ دائماً وتبقى للتوافق مع واجهة المعاينة. */
+function reportTermLabelOf(headerText: string): string {
+  const { season, years } = readReportHeader(headerText);
+  return season && years ? `الفصل ${REMAINING_SEASON_NAMES[season]} ${years[0]}/${years[1]}` : "";
+}
 function remainingWarnings(headerText: string, departmentCode: string, termName: string): string[] {
   const refusal = remainingTermRefusal(headerText, termName);
   return refusal ? [refusal.error] : [];
@@ -16530,12 +16534,12 @@ app.post("/api/registration-stats/remaining-pdf", rateLimitDocumentRead, require
   const { departmentCode, departmentName, branch, catalogue, termName } = await remainingContext(collegeId, sectionId, termId);
   try {
     const cells = await readReportCells(input, mime, pages => blankSpots(pages, catalogue, departmentCode), template);
-    const reading = readRemainingReport(cells.pages, catalogue, departmentCode);
+    const reading = readRemainingReport(cells.pages, catalogue, departmentCode, "notPassed");
     const assessment = remainingAssessment(reading, departmentCode, departmentName, cells.headerText, branch);
     if (assessment.reject) { res.status(422).json({ error: assessment.reject, rejectKind: assessment.rejectKind || null, mismatch: assessment.mismatch || null, detectedDepartment: assessment.detectedDepartment || null }); return; }
     const termRefusal = remainingTermRefusal(cells.headerText, termName);
     if (termRefusal) { res.status(422).json({ error: termRefusal.error, rejectKind: "wrongTerm", termMismatch: termRefusal.termMismatch }); return; }
-    res.json({ ...reading, assessment, departmentName, source: cells.source, pageCount: cells.pageCount, fileName: fileName.slice(0, 200),
+    res.json({ ...reading, assessment, departmentName, source: cells.source, pageCount: cells.pageCount, fileName: fileName.slice(0, 200), reportTerm: reportTermLabelOf(cells.headerText),
       warnings: remainingWarnings(cells.headerText, departmentCode, termName),
       cells: cells.pages, headerText: cells.headerText.slice(0, 4000), template: cells.template || null });
   } catch (error: any) {
@@ -16557,13 +16561,13 @@ app.post("/api/registration-stats/remaining-cells", rateLimitDocumentRead, requi
     })));
   if (!pages.length) { res.status(400).json({ error: "لا صفحات تُقرأ" }); return; }
   const { departmentCode, departmentName, branch, catalogue, termName } = await remainingContext(collegeId, sectionId, termId);
-  const reading = readRemainingReport(pages, catalogue, departmentCode);
+  const reading = readRemainingReport(pages, catalogue, departmentCode, "notPassed");
   const headerText = String(req.body?.headerText || "").slice(0, 4000);
   const assessment = remainingAssessment(reading, departmentCode, departmentName, headerText, branch);
   if (assessment.reject) { res.status(422).json({ error: assessment.reject, rejectKind: assessment.rejectKind || null, mismatch: assessment.mismatch || null, detectedDepartment: assessment.detectedDepartment || null }); return; }
   const termRefusal = remainingTermRefusal(headerText, termName);
   if (termRefusal) { res.status(422).json({ error: termRefusal.error, rejectKind: "wrongTerm", termMismatch: termRefusal.termMismatch }); return; }
-  res.json({ ...reading, assessment, departmentName, warnings: remainingWarnings(headerText, departmentCode, termName) });
+  res.json({ ...reading, assessment, departmentName, reportTerm: reportTermLabelOf(headerText), warnings: remainingWarnings(headerText, departmentCode, termName) });
 });
 
 // --- Public surface (no account) --------------------------------------------
@@ -17653,15 +17657,15 @@ async function sectionGapData(collegeId: number, sectionId: number, termId: numb
   for (const row of termWeek as any[]) {
     const id = Number(row.AdCourseId);
     if (!sectionsOf.has(id)) sectionsOf.set(id, new Set());
-    sectionsOf.get(id)!.add(String(row.SCode));
+    sectionsOf.get(id)!.add(String(row.SCode || row.id));
   }
   return {
     respondents: reading.respondents,
-    planImported: Boolean(stats?.remainingSource?.fileName),
-    planSource: stats?.remainingSource ? { fileName: stats.remainingSource.fileName, importedAt: stats.remainingSource.importedAt } : null,
+    planImported: Boolean(stats?.remainingSource?.column === "notPassed" && stats?.remainingSource?.fileName && stats.remainingSource.fileName !== "إدخال يدوي"),
+    planSource: stats?.remainingSource?.column === "notPassed" ? { fileName: stats.remainingSource.fileName, importedAt: stats.remainingSource.importedAt } : null,
     /* «المختار» يُكتب بيد القسم ولو لم يُرفع كشف؛ والمتبقي لا يُعتدّ به إلا من كشفٍ مرفوع (الحالُ القديم المحفوظ بعمودٍ آخر لا يُحسب). */
     accepted: stats?.accepted || {},
-    remaining: stats?.remainingSource?.column === "unregistered" ? (stats?.remaining || {}) : {},
+    remaining: stats?.remainingSource?.column === "notPassed" ? (stats?.remaining || {}) : {},
     courses: (courses as any[]).map(course => ({
       id: Number(course.AdCourseId), code: String(course.CourseCode || ""), name: String(course.CourseName || ""),
       capacity: Number(course.MaxStudent) || 0,
