@@ -439,6 +439,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 className="share-history-shortcut"
                 onClick={openPublicationHistory}
                 aria-label={`فتح سجل النشر والروابط المنشورة${active.length ? `، ${active.length} فعّال` : ""}`}
+                data-guide-ignore="اختصار سجل النشر يفتح الروابط السابقة للعرض فقط ولا يغيّر حالة النشر"
               >
                 <Link2 aria-hidden="true" />
                 <span>سجل النشر</span>
