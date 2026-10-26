@@ -244,7 +244,11 @@ export default function QuickCreatePopover({
         setLiveCheck({
           key: checkKey, checking: false,
           blockers: [...new Set([...validation, ...conflicts.filter(isBlockingConflict).map(describe)].filter(Boolean))],
-          warnings: [...new Set(conflicts.filter(item => !isBlockingConflict(item)).map(describe).filter(Boolean))],
+          warnings: [...new Set([
+            ...conflicts.filter(item => !isBlockingConflict(item)).map(describe).filter(Boolean),
+            ...(result.patternNotice ? ["نمط الأيام المختار غير معتمد لهذا المقرر؛ راجع الأنماط المعتادة."] : []),
+            ...(result.lectureNotice ? ["مدة المحاضرة تختلف عن النمط المعتاد للمقرر."] : []),
+          ])],
           error: "",
         });
       } catch (issue: any) {
@@ -274,6 +278,7 @@ export default function QuickCreatePopover({
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "تعذّر اقتراح المواعيد");
       setIdeas(Array.isArray(result.slots) ? result.slots : []);
+      if (!result.slots?.length && result.note) setIdeasError(String(result.note));
     } catch (issue: any) { setIdeasError(issue?.message || "تعذّر إيجاد المقترحات."); }
     finally { setIdeasBusy(false); }
   };
@@ -374,21 +379,35 @@ export default function QuickCreatePopover({
 
       {!hasDifferentTimes && draft.courseId && draft.instructorId ? (
         <div className="qc-ideas" role="group" aria-label="مقترحات الموعد">
-          <button type="button" className="qc-expand" disabled={ideasBusy} onClick={() => void requestIdeas(true)}>اقترح قاعة</button>
-          <button type="button" className="qc-expand" disabled={ideasBusy} onClick={() => void requestIdeas(false)}>اقترح وقتاً</button>
+          <div className="slot-advisor">
+            <button type="button" className="slot-advisor-ask" disabled={ideasBusy} onClick={() => void requestIdeas(false)}>اقترح لي وقتاً وقاعة</button>
+            <button type="button" className="room-suggest-ask" disabled={ideasBusy} onClick={() => void requestIdeas(true)}>اقترح قاعة متاحة</button>
+          </div>
           {ideasBusy ? <small role="status">أبحث عن خيارات مناسبة…</small> : null}
           {ideasError ? <p className="qc-warn">{ideasError}</p> : null}
-          {ideas && !ideas.length ? <small>لا توجد اقتراحات متاحة ضمن الشروط المختارة.</small> : null}
-          {ideas?.map((idea, index) => (
-            <button key={`${index}-${idea.roomId}-${idea.start}`} type="button" className="qc-expand"
-              onClick={() => { timeEdited.current = true; patch({
-                start: idea.start, end: idea.end, room: idea.room, hall: idea.hall,
-                buildingId: idea.buildingId, roomId: idea.roomId, locationStatus: "VERIFIED",
-              }); setIdeas(null); }}
-              title={(idea.reasons || []).join(" · ")}>
-              {ideaKind === "room" ? "قاعة" : "وقت"} {idea.room}/{idea.hall} · {formatScheduleTimeRange(idea.start, idea.end)} · {idea.score}%
-            </button>
-          ))}
+          {ideas && !ideas.length && !ideasError ? <small>لا توجد اقتراحات متاحة ضمن الشروط المختارة.</small> : null}
+          {ideas?.length ? (
+            <div className={ideaKind === "time" ? "slot-ideas" : "room-suggest-list"}>
+              {ideas.map((idea, index) => (
+                <button key={`${index}-${idea.roomId}-${idea.start}`} type="button"
+                  onClick={() => { timeEdited.current = true; patch({
+                    start: idea.start, end: idea.end, room: idea.room, hall: idea.hall,
+                    buildingId: idea.buildingId, roomId: idea.roomId, locationStatus: "VERIFIED",
+                  }); setIdeas(null); }}
+                  title={(idea.reasons || []).join(" · ")}>
+                  {ideaKind === "time" ? <b className="slot-rank">{index + 1}</b> : null}
+                  <span className={ideaKind === "time" ? "slot-when" : "room-suggest-card-copy"}>
+                    <time dir="ltr">{formatScheduleTimeRange(idea.start, idea.end)}</time>
+                    <small>{idea.room}/{idea.hall}</small>
+                  </span>
+                  <span className={ideaKind === "time" ? "slot-why" : "room-suggest-card-facts"}>
+                    {(idea.reasons || []).slice(0, 3).map((reason, i) => <i key={i}>{reason}</i>)}
+                  </span>
+                  {ideaKind === "time" ? <span className="slot-score" style={{ "--score": `${idea.score}%` } as React.CSSProperties}><i /><em>{idea.score}</em></span> : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {error ? (
