@@ -1143,6 +1143,29 @@ html[data-schedule-workspace="presentation"] .cinema-day-track time b{font-size:
 
 .schedule-editor-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,.5fr);gap:var(--s5)}
 .schedule-editor .form-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:var(--s5) var(--s4)}
+.schedule-editor .form-grid>.location-registry-picker{
+  /* The picker is one logical section, not a third form field. Spanning the
+     time grid keeps its warning and room suggestion out of neighboring time
+     columns, while its own two columns pair building and room controls. */
+  grid-column:1/-1;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:start;
+  gap:var(--s3) var(--s4);
+  min-width:0;
+}
+.schedule-editor .form-grid>.location-registry-picker>label{display:grid;gap:7px;min-width:0}
+.schedule-editor .form-grid>.location-registry-picker>label>span{color:var(--muted);font-size:var(--t-sm);font-weight:650}
+.schedule-editor .form-grid>.location-registry-picker>label>span>b{color:var(--danger);font-weight:700}
+.schedule-editor .form-grid>.location-registry-picker>label>select{width:100%;min-width:0}
+.schedule-editor .location-registry-picker>.location-hall-action,
+.schedule-editor .location-registry-picker>.room-fit-note,
+.schedule-editor .location-registry-picker>.location-history-badge,
+.schedule-editor .location-registry-picker>.location-history-review-badge,
+.schedule-editor .location-registry-picker>.location-pending-badge,
+.schedule-editor .location-registry-picker>.location-source-value{grid-column:1/-1}
+.schedule-editor .location-registry-picker>.room-fit-note{width:min(100%,620px);justify-self:start}
+@media(max-width:560px){.schedule-editor .form-grid>.location-registry-picker{grid-template-columns:minmax(0,1fr)}}
 .schedule-editor .conflict-panel{position:sticky;top:var(--s5)}
 .schedule-form-sections{display:flex;flex-direction:column;gap:var(--s7);margin-top:var(--s2)}
 .schedule-form-section{display:flex;flex-direction:column;gap:var(--s5)}
