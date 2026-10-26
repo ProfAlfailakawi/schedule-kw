@@ -73,7 +73,7 @@ try {
       collegeId: 1, sectionId: 1, termId: 1,
       remaining: { [cs101.id]: 120, [cs315.id]: 200, [cs220.id]: 60 },
       accepted: { [cs101.id]: cs101.existing + 3, [cs315.id]: cs315.existing + 2, [cs220.id]: cs220.existing },
-      remainingSource: { fileName: "المتبقي.pdf", importedAt: new Date().toISOString(), column: "unregistered" },
+      remainingSource: { fileName: "المتبقي.pdf", importedAt: new Date().toISOString(), column: "notPassed" },
     });
     check(saved.status === 200, "حفظ تخطيطٍ محاكى يمرّ بالباب المعتاد", saved.body);
 
