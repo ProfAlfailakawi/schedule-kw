@@ -62,6 +62,7 @@ import {
 } from "lucide-react";
 import { DnaCount, DnaStatusHeader } from "./dna";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
+import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import {
   Badge,
   EmptyState,
@@ -10659,6 +10660,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <div className={`agenda-place${roomDisplay(s) || historicalLocationNeedsReview(s) ? "" : " is-empty"}`} title="المكان">
                       <MapPin aria-hidden="true" />
                       <strong className={roomDisplay(s) ? undefined : "place-dash"}>{roomDisplay(s) || "—"}</strong>
+                      <CompanionFacilityBadge row={s} compact />
                       {historicalLocationNeedsReview(s)?<Badge tone="neutral">بيانات مكان تاريخية غير موثقة</Badge>:null}
                     </div>
                     <div className="agenda-meta">
