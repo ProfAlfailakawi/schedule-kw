@@ -1,4 +1,5 @@
 import { roomSuitability } from "./src/utils/roomSuitability";
+import { eligibleSuggestionEditId } from "./src/utils/slotSuggestionScope";
 import { appendRequestThread } from "./src/utils/instructorRequestThread";
 import { historicalLectureMinutes } from "./src/utils/advancedIntelligence";
 import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "./src/utils/instructorRequestWeek";
@@ -8021,8 +8022,9 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
     const request = await Repository.getInstructorRequest(String(body.instructorRequestId));
     if (request && Number(request.AdInstructorId) === instructorId && Number(request.AdTermId) === termId) owner = request.id;
   }
+  const editedRowId = eligibleSuggestionEditId(universe, excludeId, collegeId, sectionId, termId);
   const held = reservationRows((await Repository.getInstructorRequestReservations(termId)).filter(entry => entry.requestId !== owner), termId);
-  const live = [...universe, ...held].filter(row => Number(row.id) !== excludeId);
+  const live = [...universe, ...held].filter(row => Number(row.id) !== editedRowId);
   const sectionRows = live.filter(row => row.AdCollegeId === collegeId && row.AdSectionId === sectionId);
 
   // Suggestions use the same permission surface as the picker: assigned,
@@ -8052,8 +8054,8 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   if(Number(body.AdCourseId||0) && String(body.SCode||"").trim()){
     const sampleStart=roomOnly ? fixedStart : DAY_START;
     const hoursIssue=await scheduleLengthIssue({
-      ...body, fstarttime:clock(sampleStart), fendtime:clock(sampleStart+duration),
-    });
+      ...body, id:editedRowId, fstarttime:clock(sampleStart), fendtime:clock(sampleStart+duration),
+    },universe);
     if(hoursIssue){res.json({slots:[],note:hoursIssue});return;}
   }
   const instructorRows = instructorId ? live.filter(row => Number(row.AdInstructorId) === instructorId) : [];
