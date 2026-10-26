@@ -12,11 +12,14 @@
  * names the real blocker: the instructor's own lecture, not the rooms.
  */
 import { judgeRequest, type RequestedRow, type VerdictContext } from "../src/utils/instructorRequestVerdict";
-import { eligibleHallsForSection, roomKeyOf, type LocationRegistry } from "../src/utils/locationRegistry";
+import { confirmedDepartmentRoomIds, eligibleHallsForSection, roomKeyOf, type LocationRegistry } from "../src/utils/locationRegistry";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
+import fs from "node:fs";
+import path from "node:path";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, name: string) => { if (ok) { passed++; console.log(`✓ ${name}`); } else { failed++; console.log(`✗ ${name}`); } };
+const serverSource = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
 
 const TEACHER = 7, SECTION = 5;
 const row = (over: Partial<FSchedule> = {}): FSchedule => ({
@@ -29,13 +32,17 @@ const row = (over: Partial<FSchedule> = {}): FSchedule => ({
 const course = (id: number): AdCourse => ({ AdCourseId: id, AdCollegeId: 1, AdSectionId: SECTION, CourseCode: `C${id}`, CourseName: `مقرر ${id}`, CourseCredit: 1, CourseHours: 1, MaxStudent: 25 } as AdCourse);
 const person = (id: number): AdInstructor => ({ AdInstructorId: id, AdInstructorName: `د. ${id}`, AdInstructorCivil: String(id).padStart(12, "0"), AdInstructorMobile: "5" } as AdInstructor);
 
-const building = { id: "b1", officialCode: "B1", active: true, confidence: "CONFIRMED" } as any;
-const room = (id: string, code: string) => ({ id, buildingId: "b1", buildingCode: "B1", canonicalCode: code, active: true, confidence: "CONFIRMED", sectionIds: [SECTION] }) as any;
-const registry: LocationRegistry = { buildings: [building], rooms: [room("r1", "101"), room("r2", "102"), room("r3", "103")] };
+const building = { id: "b1", officialCode: "B1", aliases: [], collegeIds: [1], active: true, confidence: "CONFIRMED", evidence: [] } as any;
+const room = (id: string, code: string, sectionIds: number[] = [SECTION]) => ({ id, buildingId: "b1", buildingCode: "B1", canonicalCode: code, aliases: [], active: true, confidence: "CONFIRMED", collegeIds: [1], sectionIds, evidence: [] }) as any;
+const registry: LocationRegistry = { buildings: [{ ...building, collegeIds: [1] } as any], rooms: [room("r1", "101"), room("r2", "102"), room("r3", "103"), room("pinned", "104", [99])] };
 
 const halls = eligibleHallsForSection(registry, SECTION);
 check(halls.length === 3, "السجلّ يعطي قاعات القسم الثلاث لا قاعةَ الصف الوحيد");
-check(eligibleHallsForSection(registry, 99).length === 0, "قسمٌ بلا قاعات مسجّلة لا يرث قاعات غيره");
+check(eligibleHallsForSection(registry, 77).length === 0, "قسمٌ بلا قاعات مسجّلة لا يرث قاعات غيره");
+const pinnedIds = confirmedDepartmentRoomIds(registry, [{ building: "B1", hall: "104" }, { building: "B1", hall: "999" }], 1);
+check(pinnedIds.has("pinned") && !pinnedIds.has("999"), "الدليل يوسّع الأهلية بهوية مؤكدة فقط، ولا يحوّل النص القديم إلى قاعة");
+check(eligibleHallsForSection(registry, SECTION, new Set(), pinnedIds).some(hall => hall.roomId === "pinned"), "القاعة المثبّتة في دليل القسم تدخل مجموعة القاعات القابلة للحجز");
+check(serverSource.includes("eligibleHallsForSection(registry, Number(sectionId), borrowed, pinned)") && serverSource.includes("const knownRoomKeys = [...new Set(registryKeys)];") && !serverSource.includes("registryKeys.length ? registryKeys : rowKeys"), "حكم بطاقة الأستاذ يستخدم قاعات الدليل المؤكدة فقط، فلا يحسب السجل النصي قاعةً قابلة للحجز");
 
 const existing = row();
 const registryKeys = halls.map(h => roomKeyOf(h.roomId, h.room, h.hall));
@@ -73,6 +80,8 @@ check(legacy.reasons.some(r => r.source === "room"), "المدخلات القد�
 // 3) A free hour: sendable, no instructor/room complaint.
 const free = judgeRequest(addAt("13:00"), ctx({ instructorRowsAfter: withAdd("13:00") }));
 check(free.sendable && free.kind === "clear", "ساعةٌ خالية تمرّ بلا مانع");
+const legacyOnly = judgeRequest(addAt("13:00"), ctx({ instructorRowsAfter: withAdd("13:00"), knownRoomKeys: [] }));
+check(!legacyOnly.sendable && legacyOnly.roomAvailable === null && legacyOnly.reasons.some(reason => reason.source === "room" && reason.blocking), "وجود سجلّ قديم بلا هوية مسجلة لا يظهر كتوفّر مبكر مضلل");
 
 // 4) Another instructor's lecture occupies r1 at that hour: still free rooms r2/r3 → sendable.
 const colleague = row({ id: 2, AdInstructorId: 8, AdCourseId: 300 });

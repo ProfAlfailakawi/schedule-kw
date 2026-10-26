@@ -198,7 +198,7 @@ import {
   normalizeAuthoritySectionCode,
 } from "./src/utils/authorityAcademicCodes";
 import { buildRowReasons, instructorLoadUnits } from "./src/utils/rowReasons";
-import { PENDING_ROOM, eligibleHallsForSection, buildingIdentityKey, compareLocationCodes, isInvalidLocationToken, isSharedRoom, normalizeLocationToken, roomIdentityKey, roomKeyOf, rowOccupiesRoom, resolveAuthorityLocation, resolveBuilding, resolveRoom } from "./src/utils/locationRegistry";
+import { PENDING_ROOM, confirmedDepartmentRoomIds as confirmedDepartmentRoomIdsFromRegistry, eligibleHallsForSection, buildingIdentityKey, compareLocationCodes, isInvalidLocationToken, isSharedRoom, normalizeLocationToken, roomIdentityKey, roomKeyOf, rowOccupiesRoom, resolveAuthorityLocation, resolveBuilding, resolveRoom } from "./src/utils/locationRegistry";
 import { officialBuildingCode, officialCollegeSitePrefix, officialSiteLabel, parseOfficialBuildingCode } from "./src/utils/locationCollegePrefixes";
 import { collegeBranchRoot, collegeSitePrefix, resolveBranchScope, siblingBranchScopes, splitRowsByBranch } from "./src/utils/branchScope";
 import { fairShareByOwner } from "./src/utils/hallBarterFairness";
@@ -398,28 +398,8 @@ async function provisionBranchSiteLocationsFromAuthority(
   if(newBuildings.length||newRooms.length)invalidateLocationRegistry();
   return {buildings:newBuildings.map(item=>item.officialCode),rooms:newRooms.map(item=>`${item.buildingCode}/${item.canonicalCode}`)};
 }
+const confirmedDepartmentRoomIds=confirmedDepartmentRoomIdsFromRegistry;
 type DepartmentRoomReference={building:string;hall:string};
-
-/**
- * A department-history string becomes usable only after BOTH halves resolve to
- * one active, confirmed Master Registry pair. History may widen a department's
- * picker, but it never creates a building/room or accepts an ambiguous alias.
- */
-function confirmedDepartmentRoomIds(
-  registry:{buildings:MasterBuilding[];rooms:MasterRoom[]},
-  entries:readonly DepartmentRoomReference[],
-  collegeId:number,
-){
-  const ids=new Set<string>();
-  for(const entry of entries){
-    const building=resolveBuilding(registry,entry.building,{collegeId});
-    if(building.status!=="CONFIRMED"||!building.value||building.value.active===false||building.value.confidence!=="CONFIRMED")continue;
-    const room=resolveRoom(registry,entry.hall,building.value.id,{collegeId});
-    if(room.status!=="CONFIRMED"||!room.value||room.value.active===false||room.value.confidence!=="CONFIRMED")continue;
-    ids.add(room.value.id);
-  }
-  return ids;
-}
 
 async function canonicalizeLocationForWrite(row:any,collegeId:number,sectionId:number,authorityRoomId=""){
   const [registry,colleges,pinnedDepartmentRooms]=await Promise.all([readLocationRegistry(),Repository.getColleges(),Repository.getPinnedDepartmentRooms(collegeId,sectionId)]);
@@ -8024,11 +8004,12 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   if (!dayKeys.length) { res.status(400).json({ error: "اختر يوماً واحداً على الأقل" }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
 
-  const [universe, mobility, registry, barterRequests, course] = await Promise.all([
+  const [universe, mobility, registry, barterRequests, pinnedRooms, course] = await Promise.all([
     Repository.getSchedulesByScope({ termId }),
     Repository.getCampusMobilityProfile(collegeId),
     readLocationRegistry(),
     Repository.getHallBarterRequests(termId),
+    Repository.getPinnedDepartmentRooms(collegeId, sectionId),
     Repository.getCourseById(Number(body.AdCourseId||0)),
   ]);
   let owner = "";
@@ -8040,11 +8021,12 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   const live = [...universe, ...held].filter(row => Number(row.id) !== excludeId);
   const sectionRows = live.filter(row => row.AdCollegeId === collegeId && row.AdSectionId === sectionId);
 
-  // Suggestions use exactly the same permission surface as the picker: rooms
-  // assigned to this department plus rooms explicitly borrowed for this term.
+  // Suggestions use the same permission surface as the picker: assigned,
+  // explicitly pinned, or approved borrowed rooms.
   const approvedBorrows=barterRequests.filter(request=>request.status==="approved"&&Number(request.requesterCollegeId)===collegeId&&Number(request.requesterSectionId)===sectionId&&request.roomId);
   const borrowedRoomIds=new Set(approvedBorrows.map(request=>String(request.roomId)));
-  const halls=eligibleHallsForSection(registry,sectionId,borrowedRoomIds);
+  const pinnedRoomIds=confirmedDepartmentRoomIds(registry,pinnedRooms,collegeId);
+  const halls=eligibleHallsForSection(registry,sectionId,borrowedRoomIds,pinnedRoomIds);
   const roomById=new Map(registry.rooms.map(room=>[String(room.id),room]));
   const expectedRoomType=String(course?.CourseRoomType||"").trim();
   const seatsNeeded=Number(course?.MaxStudent||0);
@@ -20211,18 +20193,21 @@ async function requestRulesForScope(
      نفسُها التي تستعملها شاشةُ الجدول («اقترح قاعة»)، لا قاعاتُ صفوفه القائمة:
      قسمٌ بشعبةٍ واحدةٍ له قاعةٌ واحدةٌ معروفة، فإن شغلتها محاضرةٌ أخرى لأستاذه
      قال النموذجُ «لا قاعة» والسجلُّ مليءٌ بالخالية. */
-  const [registry, barter] = await Promise.all([readLocationRegistry(), Repository.getHallBarterRequests(termId).catch(() => [] as any[])]);
+  const [registry, barter, pinnedRooms] = await Promise.all([readLocationRegistry(), Repository.getHallBarterRequests(termId).catch(() => [] as any[]), Repository.getPinnedDepartmentRooms(collegeId, sectionId)]);
   const borrowed = new Set((barter as any[]).filter(item => item.status === "approved" && Number(item.requesterCollegeId) === Number(collegeId)
     && Number(item.requesterSectionId) === Number(sectionId) && item.roomId).map(item => String(item.roomId)));
-  const halls = eligibleHallsForSection(registry, Number(sectionId), borrowed);
+  const pinned = confirmedDepartmentRoomIds(registry, pinnedRooms, Number(collegeId));
+  const halls = eligibleHallsForSection(registry, Number(sectionId), borrowed, pinned);
   const roomAliases: Record<string, string> = {};
   const registryKeys = halls.map(hall => {
     const key = roomKeyOf(hall.roomId, hall.room, hall.hall);
     roomAliases[key] = roomKeyOf("", hall.room, hall.hall);
     return key;
   });
-  const rowKeys = scopeRows.map(row => roomKeyOf(row.roomId, row.AdRoomCode, row.AdRoomHall)).filter(Boolean);
-  const knownRoomKeys = [...new Set(registryKeys.length ? registryKeys : rowKeys)];
+  /* Historical text-only rows are evidence for display, not reservable room
+     identities. Never let them make the early verdict say "available" when
+     submission cannot create a physical reservation from the same room set. */
+  const knownRoomKeys = [...new Set(registryKeys)];
   /* تفاصيلُ القاعة (مبنى وقاعة ومعرّفاها) لكل مفتاحٍ من السجلّ: قاعةٌ خاليةٌ لم تظهر يوماً في صفوف القسم لا تُوجد في scopeRows،
      فكانت خياراتُ نموذج الإضافة السريع تخرج فارغةً مع أن الحكم وجد لها قاعة. */
   const hallByKey = new Map<string, { room: string; hall: string; buildingId: any; roomId: any }>();
@@ -20232,7 +20217,7 @@ async function requestRulesForScope(
   const roomEligible = (key: string, day: RequestDayKey, start: string, end: string) => {
     const hall = hallByKey.get(key);
     const record = registry.rooms.find(room => room.id === hall?.roomId);
-    if (!record || record.sectionIds.includes(sectionId)) return true;
+    if (!record || record.sectionIds.includes(sectionId) || pinned.has(record.id)) return true;
     return (barter as any[]).some(item => item.status === "approved" && String(item.roomId) === String(record.id)
       && Number(item.requesterCollegeId) === collegeId && Number(item.requesterSectionId) === sectionId && item.day === day
       && timeToMinutes(item.startTime) <= timeToMinutes(start) && timeToMinutes(item.endTime) >= timeToMinutes(end));
