@@ -3325,9 +3325,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [form.AdRoomCode, form.AdRoomHall, form.AdCollegeId, form.AdSectionId]);
 
+  const roomIdeasKey = `${form.AdTermId}|${form.AdCollegeId}|${form.AdSectionId}|${form.AdCourseId}|${form.fstarttime}|${form.fendtime}|${days.map(d => (form as any)[d.key] ? 1 : 0).join("")}|${form.AdInstructorId}`;
+  const currentSuggestionKey = useRef(roomIdeasKey);
+  currentSuggestionKey.current = roomIdeasKey;
   const [slotIdeas, setSlotIdeas] = useState<any[] | null>(null);
   const [slotBusy, setSlotBusy] = useState(false);
   const askForSlots = async () => {
+    const requestedKey=roomIdeasKey;
     setSlotBusy(true);
     setSlotIdeas(null);
     try {
@@ -3341,6 +3345,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "تعذر اقتراح الأوقات");
+      if(currentSuggestionKey.current!==requestedKey)return;
       setSlotIdeas(Array.isArray(data.slots) ? data.slots : []);
     } catch (e: any) {
       setError(friendlyError(e));
@@ -3355,10 +3360,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      والقاعة «بانتظار التثبيت» أو مختارة، فهو بالضبط ما يحتاجه صفٌّ مستورد. */
   const [roomIdeas, setRoomIdeas] = useState<any[] | null>(null);
   const [roomIdeasBusy, setRoomIdeasBusy] = useState(false);
-  const roomIdeasKey = `${form.AdTermId}|${form.AdSectionId}|${form.fstarttime}|${form.fendtime}|${days.map(d => (form as any)[d.key] ? 1 : 0).join("")}|${form.AdInstructorId}`;
-  useEffect(() => { setRoomIdeas(null); }, [roomIdeasKey]);
+  useEffect(() => { setRoomIdeas(null); setSlotIdeas(null); }, [roomIdeasKey]);
   const askForRooms = async () => {
     if (roomIdeas) { setRoomIdeas(null); return; }
+    const requestedKey=roomIdeasKey;
     setRoomIdeasBusy(true);
     try {
       const response = await fetch("/api/schedules/suggest-slots", {
@@ -3368,6 +3373,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "تعذر اقتراح القاعات");
+      if(currentSuggestionKey.current!==requestedKey)return;
       setRoomIdeas(Array.isArray(data.slots) ? data.slots : []);
     } catch (e: any) {
       setError(friendlyError(e));
