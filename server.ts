@@ -55,6 +55,7 @@ import { PATTERN_LIBRARY_CSS, PATTERN_LIBRARY_ICON, patternLibraryHtml, patternN
 import { patternLibraryInput } from "./src/utils/patternLibraryInput";
 import { REQUEST_VISUAL_CSS, REQUEST_VISUAL_JS } from "./src/server/requestVisual";
 import { COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS } from "./src/server/staffCardVisual";
+import { enrichCompanionRoomTypes } from "./src/utils/companionRoomDisplay";
 import { DEMO_COPY_SCRIPT, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "./src/server/publicKit";
 import { cleanSeenIds, seenKey } from "./src/utils/notificationSeen";
 import { calendarFeedKey, createCalendarSecretResolver } from "./src/server/calendarSecret";
@@ -5958,7 +5959,10 @@ app.get("/api/schedules", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), async
   ].filter(Boolean) as ("fsunday"|"fmonday"|"ftuesday"|"fwednesday"|"fthursday")[];
   if (requestedDays.length) list = list.filter(s => requestedDays.some(day => Boolean(s[day])));
 
-  res.json(list);
+  // Use only actual bookings and their registered room types, not the catalog requirement.
+  res.json(list.some(row => Boolean(row.companionRoomId))
+    ? enrichCompanionRoomTypes(list, (await readLocationRegistry()).rooms)
+    : list);
 });
 
 // ============================================================================
@@ -15641,7 +15645,7 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
     }),
   ], requestRows).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const toMinutes = (value: string) => { const [h, m] = String(value || "0:0").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
-  const shaped = rows
+  const shaped = enrichCompanionRoomTypes(rows, rows.some(row => Boolean(row.companionRoomId)) ? (await readLocationRegistry()).rooms : [])
     .map(row => ({
       id: row.id,
       courseId: row.AdCourseId ?? null,
@@ -15656,7 +15660,8 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
       timeRange: formatScheduleTimeRange(row.fstarttime, row.fendtime),
       days: shareDayIndexes(row),
       room: row.AdRoomCode || "", hall: row.AdRoomHall || "",
-      companionRoomId: row.companionRoomId || "", companionRoomLabel: row.companionRoomLabel || ""
+      companionRoomId: row.companionRoomId || "", companionRoomLabel: row.companionRoomLabel || "",
+      companionRoomType: row.companionRoomType || ""
     }))
     .sort((a, b) => String(a.start).localeCompare(String(b.start)));
 

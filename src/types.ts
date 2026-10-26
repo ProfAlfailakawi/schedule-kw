@@ -305,6 +305,8 @@ export interface FSchedule {
   /** Companion facility occupies the entire appointment, alongside the primary room. */
   companionRoomId?: string;
   companionRoomLabel?: string;
+  /** Read-only label from the actual companion facility registry record. */
+  companionRoomType?: string;
   locationStatus?: "VERIFIED" | "PENDING_ROOM" | "LOCATION_REVIEW_REQUIRED" | "INVALID_HISTORICAL";
   sourceBuildingText?: string;
   sourceRoomText?: string;
