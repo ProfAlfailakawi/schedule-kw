@@ -22603,7 +22603,7 @@ var pending={};
 var HAB={},habAsked={};
 function courseIdOf(it){return Number(it.courseId||(it.after&&it.after.courseId)||(it.before&&it.before.courseId)||0)}
 /* وسمُ «متطلب كلية» خاصٌّ بالمقرر في قسمه؛ لا يعبر المقررُ إلى أقسامٍ أخرى. */
-function skPlanTag(cid,sid){var all=(data&&data.planBadges)||{},label=all[Number(sid)+":"+Number(cid)]||"";return label?'<span class="sk-plan-tag" data-sk-badge="plan" tabindex="0" role="button" title="اضغط لمعرفة معنى الشارة">'+esc(label)+'</span>':""}
+function skPlanTag(cid,sid){var all=(data&&data.planBadges)||{},label=all[Number(sid)+":"+Number(cid)]||"";return label?'<span class="sk-plan-tag">'+esc(label)+'</span>':""}
 function reqTag(it){var l=(data&&data.serviceCourses)||[],sid=Number(it.sectionId||(it.after&&it.after.sectionId)||(it.before&&it.before.sectionId)||(data&&data.request&&data.request.AdSectionId)||0);return skPlanTag(courseIdOf(it),sid)+(l.indexOf(sid+":"+courseIdOf(it))>=0?'<i class="req-tag">متطلب كلية</i>':"")}
 function loadHabits(ids){var need=ids.filter(function(id){return id>0&&!habAsked[id]});if(!need.length)return;
  need.forEach(function(id){habAsked[id]=1});

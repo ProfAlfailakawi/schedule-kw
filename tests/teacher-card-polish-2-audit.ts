@@ -151,9 +151,14 @@ check(visual13.includes("function skRuleTag(label)") &&
   "P13 المادة ٦/٢ قابلة للضغط بلا تفاصيل متكررة");
 check(visual13.includes("function skBadgeExplain(el)") &&
   visual13.includes("م.6/2: لا يجوز تجاوز شعبتين") &&
-  visual13.includes("متطلب كلية:") &&
-  page.includes('data-sk-badge="plan"'),
-  "P13 الضغط على شارة اللائحة أو الصحيفة أو متطلب كلية يعرض شرحاً مختصراً");
+  visual13.includes('closest("[data-sk-rule]")') &&
+  !visual13.includes(".sk-plan-tag,.req-tag,[data-sk-rule]") &&
+  !visual13.includes('else if(el.classList.contains("req-tag"))') &&
+  !visual13.includes(".req-tag{cursor:pointer}") &&
+  page.includes('<span class="sk-plan-tag">') &&
+  !page.includes('data-sk-badge="plan"') &&
+  !page.includes('tabindex="0" role="button" title="اضغط لمعرفة معنى الشارة"'),
+  "P13 شارتا الصحيفة ومتطلب الكلية للعرض فقط؛ مواد اللائحة وحدها قابلة للضغط");
 check(!visual13.includes('data-nx="send"') &&
   page.includes('<button type="button" id="send"'),
   "P13 اختصار إلى الإرسال المحذوف لا يمسّ زر الإرسال الأصلي");
