@@ -310,5 +310,20 @@ check(Boolean(a.reject?.includes("0202") && a.reject.includes("0101")), "وال�
     "متبقٍّ موجب أقل من المعتاد (30 ÷ 40 ← شعبة): المدى ينزل إليه ويُقال «المتبقي 30 تكفيه»");
 }
 
+/* تخطيط الفصل المختار يأخذ «لم يجتازوا»؛ ولا يورث أرقام كشفٍ سابق. */
+{
+  const own = [{ id: 1, code: "0101102" }, { id: 3, code: "0101201" }, { id: 7, code: "0101323" }];
+  const selected = readRemainingReport([page(0, [["0101102", [330, 40, 62, -22, 1, 268]], ["0101201", [51, 60, 48, 12, 1, 3]]])], own, "0101", "notPassed");
+  const values = remainingValues(selected, selected.column!);
+  check(selected.columns[selected.column!]?.kind === "notPassed" && values["1"] === 330 && values["3"] === 51,
+    "الاحتياج من «لم يجتازوا في بداية التسجيل» لا من عمود «الذين لم يسجلوا»");
+  const newPlan = planRemainingApply(selected, selected.column!, {}, {});
+  check(newPlan.next["1"] === 330 && newPlan.next["3"] === 51 && !("7" in newPlan.next),
+    "كشفٌ جديد لا يصنع احتياجاً لمقرر غير وارد ولا ينقل 82 محفوظة قديماً");
+  const unopened = readRemainingReport([page(0, [["0101120", [297, null, null, null, 0, null]]])], [{ id: 2, code: "0101120" }], "0101", "notPassed");
+  check(remainingValues(unopened, unopened.column!)["2"] === 297,
+    "مقررٌ بلا شعب وله طلبة لم يجتازوا: احتياجه يُقرأ ولا يسقط");
+}
+
 console.log(`\nSection planning import audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
