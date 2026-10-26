@@ -564,7 +564,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     });
   }
 
-  // --- م.6/2،3 — count successive sections for the instructor across courses.
+  // --- م.6/2،3 — apply each strict limit to consecutive appointments of that duration class.
   // A negative gap is an overlap, never a consecutive teaching sequence.
   const runsOverLong: Array<{ instructorId: number; day: DayKey; rows: FSchedule[] }> = [];
   const runsOverOneHour: Array<{ instructorId: number; day: DayKey; rows: FSchedule[] }> = [];
@@ -580,20 +580,36 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
         .filter(row => (row as any)[day])
         .sort((a, b) => toMinutes(a.fstarttime) - toMinutes(b.fstarttime));
       if (onDay.length < 3) continue;
-      let run: FSchedule[] = [];
-      const record = () => {
-        if (run.length > 2 && run.some(row => duration(row) > 60)) runsOverLong.push({ instructorId, day, rows: [...run] });
-        else if (run.length > 3) runsOverOneHour.push({ instructorId, day, rows: [...run] });
+      let longRun: FSchedule[] = [];
+      let oneHourRun: FSchedule[] = [];
+      let previous: FSchedule | null = null;
+      const recordLong = () => {
+        if (longRun.length > 2) runsOverLong.push({ instructorId, day, rows: [...longRun] });
+        longRun = [];
+      };
+      const recordOneHour = () => {
+        if (oneHourRun.length > 3) runsOverOneHour.push({ instructorId, day, rows: [...oneHourRun] });
+        oneHourRun = [];
       };
       for (const row of onDay) {
-        if (!run.length) { run = [row]; continue; }
-        const previousEnd = toMinutes(run[run.length - 1].fendtime);
-        const gap = toMinutes(row.fstarttime) - previousEnd;
-        if (gap >= 0 && gap <= CONSECUTIVE_GAP) { run.push(row); continue; }
-        record();
-        run = [row];
+        if (previous) {
+          const gap = toMinutes(row.fstarttime) - toMinutes(previous.fendtime);
+          if (gap < 0 || gap > CONSECUTIVE_GAP) {
+            recordLong();
+            recordOneHour();
+          }
+        }
+        if (duration(row) > 60) {
+          recordOneHour();
+          longRun.push(row);
+        } else {
+          recordLong();
+          oneHourRun.push(row);
+        }
+        previous = row;
       }
-      record();
+      recordLong();
+      recordOneHour();
     }
   }
   const appendConsecutiveFinding = (cases: typeof runsOverLong, article: string, title: string, rule: string) => {
