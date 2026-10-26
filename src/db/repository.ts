@@ -4,7 +4,7 @@ import { allocateRequestReservations, retainRequestReservations, assertRequestRe
 import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
 import { instructorWeekAfter } from "../utils/instructorRequestWeek";
 import { reservationRows } from "../utils/instructorRequestReservations";
-import { approvedBarterReservation, borrowerOutsideApprovedWindow, approvedHallWindows, scheduleViolatesApprovedBarterWindow, scheduleOccupiesApprovedBarterWindow, approvedBarterWindowMatchesSchedule, type ApprovedHallWindow } from "../utils/hallBarterWindow";
+import { approvedBarterReservation, borrowerOutsideApprovedWindow, hallBarterWindows, scheduleViolatesApprovedBarterWindow, scheduleOccupiesApprovedBarterWindow, approvedBarterWindowMatchesSchedule, type ApprovedHallWindow } from "../utils/hallBarterWindow";
 import { clockRangesOverlap } from "../utils/scheduleTime";
 import { findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { TEACHING_LOAD_DOC_ID, normalizeTeachingLoadConfig } from "../utils/teachingLoad";
@@ -4075,7 +4075,7 @@ export const Repository = {
       await firestoreDb.runTransaction(async tx => {
         const ref = firestoreDb!.collection("instructorRequestReservations").doc(String(schedule.AdTermId));
         const [ledger, barterSnapshot] = await Promise.all([tx.get(ref), tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [Number(schedule.AdTermId), String(schedule.AdTermId)]))]);
-        const windows = approvedHallWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
+        const windows = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
         if (scheduleViolatesApprovedBarterWindow(newSched, windows)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
         assertRequestReservationWrite(newSched, ledger.data()?.entries || [], reservationOwner);
         tx.set(firestoreDb!.collection("schedules").doc(`schedule_${nextId}`), newSched);
@@ -4087,7 +4087,7 @@ export const Repository = {
     return withSerialLock(`request-reservations:${Number(schedule.AdTermId)}`, async () => {
       const nextId = db.schedules.length > 0 ? Math.max(...db.schedules.map(s => s.id)) + 1 : 1;
       const newSched = { ...schedule, id: nextId, rev: 1 };
-      const windows = approvedHallWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(schedule.AdTermId)));
+      const windows = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(schedule.AdTermId)));
       if (scheduleViolatesApprovedBarterWindow(newSched, windows)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
       assertRequestReservationWrite(newSched, db.instructorRequestReservationLedgers?.[String(schedule.AdTermId)] || [], reservationOwner);
       db.schedules.push(newSched); saveDatabase();
@@ -4121,7 +4121,7 @@ export const Repository = {
         const updated = { ...current, ...fields, rev: Number(current.rev || 0) + 1 };
         const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(updated.AdTermId));
         const [ledger, barterSnapshot] = await Promise.all([transaction.get(ledgerRef), transaction.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [Number(updated.AdTermId), String(updated.AdTermId)]))]);
-        const windows = approvedHallWindows(barterSnapshot.docs.map(item => item.data() as HallBarterRequest));
+        const windows = hallBarterWindows(barterSnapshot.docs.map(item => item.data() as HallBarterRequest));
         if (scheduleViolatesApprovedBarterWindow(updated, windows)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
         const sourceLedgerRef = Number(current.AdTermId) !== Number(updated.AdTermId)
           ? firestoreDb!.collection("instructorRequestReservations").doc(String(current.AdTermId)) : null;
@@ -4144,7 +4144,7 @@ export const Repository = {
       const current = db.schedules.find(s => s.id === id); if (!current) throw new Error("الجدول غير موجود");
       if (expectedRev !== undefined && Number(current.rev || 0) !== expectedRev) throw new ScheduleRevisionConflict(current);
       const next = { ...current, ...fields, rev: Number(current.rev || 0) + 1 };
-      const windows = approvedHallWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(next.AdTermId)));
+      const windows = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(next.AdTermId)));
       if (scheduleViolatesApprovedBarterWindow(next, windows)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
       assertRequestReservationWrite(current, (db.instructorRequestReservationLedgers?.[String(current.AdTermId)] || []).filter(entry => entry.offeringRowIds.includes(id)), reservationOwner);
       assertRequestReservationWrite(next, db.instructorRequestReservationLedgers?.[String(next.AdTermId)] || [], reservationOwner);
@@ -4185,7 +4185,7 @@ export const Repository = {
         const termIds = [...new Set([...updated.map(row => Number(row.AdTermId)), ...docs.map(doc => Number(doc.data()!.AdTermId))])];
         const [ledgers, barterSnaps] = await Promise.all([Promise.all(termIds.map(termId => transaction.get(firestoreDb!.collection("instructorRequestReservations").doc(String(termId))))),
           Promise.all(termIds.map(termId => transaction.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)]))))]);
-        const windowsByTerm = new Map(termIds.map((termId, index) => [termId, approvedHallWindows(barterSnaps[index].docs.map(doc => doc.data() as HallBarterRequest))]));
+        const windowsByTerm = new Map(termIds.map((termId, index) => [termId, hallBarterWindows(barterSnaps[index].docs.map(doc => doc.data() as HallBarterRequest))]));
         docs.forEach(doc => {
           const current = doc.data() as FSchedule;
           assertRequestReservationWrite(current, (ledgers[termIds.indexOf(Number(current.AdTermId))].data()?.entries || []).filter((entry: RequestReservation) => entry.offeringRowIds.includes(Number(current.id))));
@@ -4213,7 +4213,7 @@ export const Repository = {
     for (const move of moves) {
       const current = db.schedules.find(row => row.id === move.id)!;
       const next = { ...current, ...move.fields };
-      const windows = approvedHallWindows((db.hallBarterRequests || []).filter(item => Number(item.AdTermId) === Number(next.AdTermId)));
+      const windows = hallBarterWindows((db.hallBarterRequests || []).filter(item => Number(item.AdTermId) === Number(next.AdTermId)));
       if (scheduleViolatesApprovedBarterWindow(next, windows)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
       assertRequestReservationWrite(current, (db.instructorRequestReservationLedgers?.[String(current.AdTermId)] || []).filter(entry => entry.offeringRowIds.includes(Number(current.id))));
       assertRequestReservationWrite(next, db.instructorRequestReservationLedgers?.[String(move.fields.AdTermId || current.AdTermId)] || []);
@@ -4276,7 +4276,7 @@ export const Repository = {
       await firestoreDb.runTransaction(async batch => {
       const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(toTermId));
       const [ledger, barterSnapshot] = await Promise.all([batch.get(ledgerRef), batch.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [Number(toTermId), String(toTermId)]))]);
-      const windows = approvedHallWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
+      const windows = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
       source.forEach(row => { const next = { ...row, id: undefined, AdTermId: toTermId }; if (scheduleViolatesApprovedBarterWindow(next, windows)) throw new RequestReservationConflict("يتعذر نسخ موعد إلى نافذة استعارة قاعة معتمدة."); assertRequestReservationWrite(next, ledger.data()?.entries || []); });
       source.forEach((row, index) => {
         const nextId = firstId + index;
@@ -4301,7 +4301,7 @@ export const Repository = {
     );
     if (source.length === 0) return 0;
 
-    const windows = approvedHallWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(toTermId)));
+    const windows = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(toTermId)));
     source.forEach(row => { const next = { ...row, id: undefined, AdTermId: toTermId }; if (scheduleViolatesApprovedBarterWindow(next, windows)) throw new RequestReservationConflict("يتعذر نسخ موعد إلى نافذة استعارة قاعة معتمدة."); assertRequestReservationWrite(next, db.instructorRequestReservationLedgers?.[String(toTermId)] || []); });
     let nextId = db.schedules.length > 0 ? Math.max(...db.schedules.map(row => row.id)) + 1 : 1;
     for (const row of source) db.schedules.push({ ...row, id: nextId++, AdTermId: toTermId });
@@ -4926,7 +4926,9 @@ export const Repository = {
         const schedules = scheduleDocs.docs.map(item => item.data() as FSchedule);
         const conflict = conflictForApproval(current, all, reservations, schedules);
         if (conflict) throw new RequestReservationConflict(conflict);
-        const next = { ...current, ...fields, updatedAt } as HallBarterRequest;
+        const next = { ...current, ...fields,
+          ...(current.status === "approved" && fields.status === "cancelled" ? { revokedApprovedWindow: true } : {}),
+          updatedAt } as HallBarterRequest;
         tx.set(ref, next);
         tx.set(ledgerRef, { entries: reservations, serial: Number(ledger.data()?.serial || 0) + 1 });
         return next;
@@ -4946,7 +4948,9 @@ export const Repository = {
       const schedules = db.schedules.filter(row => Number(row.AdTermId) === Number(current.AdTermId));
       const conflict = conflictForApproval(current, all, reservations, schedules);
       if (conflict) throw new RequestReservationConflict(conflict);
-      db.hallBarterRequests[index] = { ...current, ...fields, updatedAt };
+      db.hallBarterRequests[index] = { ...current, ...fields,
+        ...(current.status === "approved" && fields.status === "cancelled" ? { revokedApprovedWindow: true } : {}),
+        updatedAt };
       const ledgers = db.instructorRequestReservationLedgers ||= {};
       // Touch the shared per-term ledger so a concurrent claim and approval serialize.
       ledgers[String(current.AdTermId)] = reservations;
@@ -5118,7 +5122,7 @@ export const Repository = {
           tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])),
           tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)]))]);
         if (!stored.exists) throw new RequestReservationConflict();
-        const windows = approvedHallWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
+        const windows = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
         const planned = await compute(schedules.docs.map(doc => doc.data() as FSchedule), stored.data() as InstructorRequest, ledger.data()?.entries || [], firstId, windows);
         operations.filter(op => op.kind === "delete").forEach(op => tx.delete(firestoreDb!.collection("schedules").doc(`schedule_${(op as any).rowId}`)));
         planned.rows.forEach(row => tx.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`), row));
@@ -5130,7 +5134,7 @@ export const Repository = {
       result = await withSerialLock(`request-reservations:${termId}`, async () => {
         const at = (db.instructorRequests || []).findIndex(row => row.id === request.id);
         if (at < 0) throw new RequestReservationConflict();
-        const windows = approvedHallWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === termId));
+        const windows = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === termId));
         const planned = await compute(db.schedules.filter(row => Number(row.AdTermId) === termId), db.instructorRequests![at],
           db.instructorRequestReservationLedgers?.[String(termId)] || [], Math.max(0, ...db.schedules.map(row => Number(row.id))) + 1, windows);
         db.schedules = [...db.schedules.filter(row => Number(row.AdTermId) !== termId), ...planned.finalWeek];
@@ -5452,7 +5456,7 @@ export const Repository = {
         const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(termId));
         const [ledger, barterSnapshot] = await Promise.all([transaction.get(ledgerRef), transaction.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)]))]);
         const entries: RequestReservation[] = ledger.data()?.entries || [];
-        const approved = approvedHallWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
+        const approved = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
         [...created, ...updated].forEach(row => {
           if (scheduleViolatesApprovedBarterWindow(row, approved)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
           assertRequestReservationWrite(row, entries, current.requestId);
@@ -5488,7 +5492,7 @@ export const Repository = {
       if (Number(row.rev || 0) !== item.expectedRev) throw new ScheduleRevisionConflict(row);
     }
     const held = db.instructorRequestReservationLedgers?.[String(plan.termId || current.AdTermId)] || [];
-    const approved = approvedHallWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(plan.termId || current.AdTermId)));
+    const approved = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(plan.termId || current.AdTermId)));
     plan.creates.forEach(row => { if (scheduleViolatesApprovedBarterWindow(row, approved)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت."); assertRequestReservationWrite(row, held, current.requestId); });
     plan.updates.forEach(item => { const row = { ...db.schedules.find(row => row.id === item.id), ...item.fields } as FSchedule; if (scheduleViolatesApprovedBarterWindow(row, approved)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت."); assertRequestReservationWrite(row, held, current.requestId); });
     plan.deletes.forEach(item => { const row = db.schedules.find(row => row.id === item.id); if (row) assertRequestReservationWrite(row, held.filter(entry => entry.offeringRowIds.includes(item.id)), current.requestId); });
@@ -7244,7 +7248,7 @@ export const Repository = {
       const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(termId));
       const [ledger, barterSnapshot] = await Promise.all([batch.get(ledgerRef), batch.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [Number(termId), String(termId)]))]);
       const entries: RequestReservation[] = ledger.data()?.entries || [];
-      const windows = approvedHallWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
+      const windows = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
       current.forEach(row => assertRequestReservationWrite(row, entries.filter(entry => entry.offeringRowIds.includes(Number(row.id)))));
       normalized.forEach(row => { if (scheduleViolatesApprovedBarterWindow(row, windows)) throw new RequestReservationConflict("يتعذر نشر صف داخل نافذة استعارة قاعة معتمدة."); assertRequestReservationWrite(row, entries); });
       current.forEach(row=>batch.delete(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`)));
@@ -7261,7 +7265,7 @@ export const Repository = {
     let nextId=db.schedules.length?Math.max(...db.schedules.map(row=>row.id))+1:1;
     const normalized=normalizedInput.map(row=>currentIds.has(row.id)&&row.id>0?row:{...row,id:nextId++});
     const held = db.instructorRequestReservationLedgers?.[String(termId)] || [];
-    const windows = approvedHallWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(termId)));
+    const windows = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(termId)));
     current.forEach(row => assertRequestReservationWrite(row, held.filter(entry => entry.offeringRowIds.includes(Number(row.id)))));
     normalized.forEach(row => { if (scheduleViolatesApprovedBarterWindow(row, windows)) throw new RequestReservationConflict("يتعذر نشر صف داخل نافذة استعارة قاعة معتمدة."); assertRequestReservationWrite(row, held); });
     const idsToRemove=new Set(current.map(row=>row.id));

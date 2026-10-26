@@ -326,6 +326,52 @@ if (emulator) {
   assert.equal(decisions.filter(result => result.status === "fulfilled").length, 1,
     "competing approval/rejection decisions cannot overwrite the first terminal decision");
   assert.notEqual((await Repository.getHallBarterRequestById(decisionRace.id))?.status, "pending");
+
+  const companionWindows = await Promise.all([
+    Repository.createHallBarterRequest({ AdTermId: 900013, buildingId: "test-building", roomId: "borrowed-primary",
+      roomCode: "012B08", roomHall: "P", day: "fmonday", startTime: "08:00", endTime: "09:00",
+      requesterCollegeId: 2, requesterSectionId: 9, requesterUserId: 92, requesterName: "synthetic borrower",
+      ownerCollegeId: 1, ownerSectionId: 1, confidence: 1, historyTerms: 1 }),
+    Repository.createHallBarterRequest({ AdTermId: 900013, buildingId: "test-building", roomId: "borrowed-companion",
+      roomCode: "012B08", roomHall: "Q", day: "ftuesday", startTime: "08:00", endTime: "09:00",
+      requesterCollegeId: 2, requesterSectionId: 9, requesterUserId: 92, requesterName: "synthetic borrower",
+      ownerCollegeId: 1, ownerSectionId: 1, confidence: 1, historyTerms: 1 }),
+  ]);
+  for (const window of companionWindows) await Repository.updateHallBarterRequest(window.id, { status: "approved" }, "pending");
+  await assert.rejects(() => Repository.createSchedule({ ...row({ id: undefined, AdTermId: 900013,
+    AdCollegeId: 2, AdSectionId: 9, AdInstructorId: 92, roomId: "borrowed-primary", companionRoomId: "borrowed-companion",
+    AdRoomCode: "012B08", AdRoomHall: "P", fsunday: false, fmonday: true, ftuesday: false,
+    fstarttime: "08:00", fendtime: "08:50" }) } as any), RequestReservationConflict,
+  "the primary room's Monday approval cannot authorize a companion room borrowed for Tuesday only");
+
+  for (let at = 0; at < 10; at++) {
+    const termId = 900020 + at, roomHall = `G${30 + at}`;
+    const leaseRace = await Repository.createHallBarterRequest({
+      AdTermId: termId, buildingId: "test-building", roomCode: "012B08", roomHall,
+      day: "fmonday", startTime: "08:00", endTime: "09:00",
+      requesterCollegeId: 2, requesterSectionId: 9, requesterUserId: 92, requesterName: "synthetic borrower",
+      ownerCollegeId: 1, ownerSectionId: 1, confidence: 1, historyTerms: 1,
+    });
+    await Repository.updateHallBarterRequest(leaseRace.id, { status: "approved" }, "pending");
+    const borrowedSchedule = { ...row({ id: undefined, AdTermId: termId, AdCollegeId: 2, AdSectionId: 9,
+      AdInstructorId: 92, roomId: undefined, AdRoomCode: "012B08", AdRoomHall: roomHall,
+      fsunday: false, fmonday: true, fstarttime: "08:00", fendtime: "08:50" }) } as any;
+    const [borrowedWrite, revoke] = await Promise.allSettled([
+      Repository.createSchedule(borrowedSchedule),
+      Repository.updateHallBarterRequest(leaseRace.id, { status: "cancelled" }, "approved"),
+    ]);
+    assert.equal([borrowedWrite, revoke].filter(result => result.status === "fulfilled").length, 1,
+      "an approved borrow and its cancellation cannot both race through an official schedule write");
+    const leaseAfterRace = await Repository.getHallBarterRequestById(leaseRace.id);
+    if (leaseAfterRace?.status === "cancelled") {
+      assert.equal(leaseAfterRace.revokedApprovedWindow, true, "cancellation preserves an explicit revocation tombstone");
+      await assert.rejects(() => Repository.createSchedule({ ...borrowedSchedule, AdInstructorId: 93 }), RequestReservationConflict,
+        "a post-cancellation retry cannot reuse the stale approved window");
+    } else {
+      assert.equal(leaseAfterRace?.status, "approved", "a committed borrowed class prevents cancellation from revoking its live room");
+      assert.equal(borrowedWrite.status, "fulfilled");
+    }
+  }
 }
 if (emulator) { const { getFirestore } = await import("firebase-admin/firestore"); await getFirestore().terminate(); }
-console.log(`Instructor availability: precise parity, final bundles, 40 concurrent reservations, stale decisions, release and official assignment${emulator ? ", legacy-room barter races and compare-and-set barter decisions" : ""} passed`);
+console.log(`Instructor availability: precise parity, final bundles, 40 concurrent reservations, stale decisions, release and official assignment${emulator ? ", legacy-room barter races, per-room companion windows and 10 cancellation/write races" : ""} passed`);

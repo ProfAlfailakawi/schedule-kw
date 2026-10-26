@@ -1097,6 +1097,9 @@ export interface HallBarterRequest {
   /** Number of historical terms used to compute confidence. */
   historyTerms: number;
   status: "pending" | "approved" | "rejected" | "cancelled";
+  /** Kept as a revocation tombstone so an in-flight schedule write cannot
+   * treat a cancelled approval as if the borrowed room had never existed. */
+  revokedApprovedWindow?: boolean;
   respondedAt?: string;
   responderUserId?: number;
   responderName?: string;
