@@ -860,7 +860,16 @@ export function createDemoSandboxState(): DemoSandboxState {
   const accepted = Object.fromEntries(plannedCourses.map(([id, sections], index) => [
     String(id), index < surplusCourses.length ? sections.size - 1 : sections.size + 1,
   ]));
-  const remaining = Object.fromEntries(plannedCourses.map(([id], index) => [String(id), [1315, 3, 268, 159, 35, 163, 8, 134, 1428, 244][index] || 0]));
+  /* بيانات كشف الفصل الحالي التجريبي: فائض شعبة واحدة لكل مقرر من
+     surplusCourses محسوب حصراً من السعة وعدد «لم يسجلوا»، بلا أثر للمختار
+     أو تاريخ الفصول. بقيّة القيم للاقتراحات الأخرى كما كانت. */
+  const remaining = Object.fromEntries(plannedCourses.map(([id, sections], index) => {
+    if (index < surplusCourses.length) {
+      const capacity = Number(courses.find(course => Number(course.AdCourseId) === id)?.MaxStudent) || 0;
+      return [String(id), capacity > 0 ? (sections.size - 1) * capacity : 0];
+    }
+    return [String(id), [1315, 3, 268, 159, 35, 163, 8, 134, 1428, 244][index] || 0];
+  }));
   const planScope = `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${DEMO_TERM_CURRENT}`;
   /* «الباقي/الشاغر» لكل فصلٍ سابق: من تعذّر عليه التسجيل (يتصاعد حيث زاد الطلب)، والمقاعد التي بقيت
      فارغة (حيث تراجع). بالعمود نفسه الذي يقرؤه التنبّؤ (`unregistered`). */
