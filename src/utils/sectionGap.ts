@@ -35,9 +35,11 @@ export function planGaps(courses: readonly GapCourse[], plan: GapPlan | null): G
   return planComparisons(courses, plan).filter(item => item.extra > 0);
 }
 
-/** مقرراتٌ زاد جدول الفصل فيها عن العدد المختار/الموصى به؛ إشارة مراجعة لا أمر حذف. */
+/** زيادة الشعب عن المستهدف: تنبيه للمراجعة لا حذف آلي. الصفر المحسوب دون تاريخ لا يكفي وحده لتوصية إزالة جميع الشعب؛ أما الصفر الذي اختاره القسم صراحةً فيظل قابلاً للمراجعة. */
 export function planSurpluses(courses: readonly GapCourse[], plan: GapPlan | null): GapItem[] {
-  return planComparisons(courses, plan).filter(item => item.extra < 0).map(item => ({ ...item, extra: 0, surplus: -item.extra }))
+  return planComparisons(courses, plan)
+    .filter(item => item.extra < 0 && (item.required > 0 || known(plan?.accepted[String(item.id)])))
+    .map(item => ({ ...item, extra: 0, surplus: -item.extra }))
     .sort((a, b) => (b.surplus || 0) - (a.surplus || 0) || a.code.localeCompare(b.code, "en"));
 }
 

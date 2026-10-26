@@ -55,6 +55,13 @@ const suggested = planGaps([c(1, "101", 30, 1, 0)], { remaining: { "1": 90 }, ac
 check(suggested.length === 1 && suggested[0].basis === "plan" && suggested[0].required === 3 && suggested[0].extra === 2 && suggested[0].demand === 90, "كشفٌ مرفوع بلا مختار ← مقترح تخطيط الشعب من التاريخ", suggested);
 const surplus = planSurpluses([c(1, "101", 30, 23, 0)], { remaining: { "1": 134 }, accepted: { "1": 12 }, history: {} });
 check(surplus.length === 1 && surplus[0].existing === 23 && surplus[0].required === 12 && surplus[0].surplus === 11, "تجاوز الشعب الحالية للمختار يظهر كعدد مراجعة لا كحذف آلي", surplus);
+/* التخفيض قرار مراجعة منفصل لا يغيّر اقتراحات فتح الشعب. */
+const workshop = planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: { "8": 4 }, remaining: { "8": 120 }, history: {} });
+check(workshop.length === 1 && workshop[0].existing === 6 && workshop[0].required === 4 && workshop[0].surplus === 2, "الورشة: الموجود 6 والمطلوب 4، راجع إلغاء شعبتين", workshop);
+const automaticZero = planSurpluses([c(9, "105", 30, 2, 0)], { accepted: {}, remaining: { "9": 0 }, history: {} });
+check(automaticZero.length === 0, "الصفر المقترح آلياً بلا تاريخ لا يتحول إلى توصية بإلغاء جميع الشعب", automaticZero);
+const explicitZero = planSurpluses([c(9, "105", 30, 2, 0)], { accepted: { "9": 0 }, remaining: { "9": 0 }, history: {} });
+check(explicitZero.length === 1 && explicitZero[0].surplus === 2, "الصفر المختار صراحةً في التخطيط يظهر للمراجعة فقط", explicitZero);
 /* بلا تاريخ يبدأ التخطيط بشعبة واحدة (قاعدته)، فلا نقول «زِد» لمقررٍ فيه شعبة. */
 check(planGaps([c(1, "101", 30, 1, 0)], { remaining: { "1": 90 }, accepted: {}, history: {} }).length === 0, "بلا تاريخ: مقترح التخطيط شعبةٌ واحدة، فلا «زِد» لمقررٍ فيه شعبة");
 /* مقررٌ لا ذكر له في التخطيط لا يظهر في نتيجته ولو طلبه الطلبة. */
@@ -69,7 +76,7 @@ check(html.includes("شعبٌ يطلبها الطلبة في «مساري»") &&
 const planHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: planned, kind: "plan", onClose: () => {} }));
 check(planHtml.includes("بحسب تخطيطك") && !planHtml.includes("مساري") && planHtml.includes("المتبقي"), "قائمة التخطيط: عنوانٌ مستقل ولا ذكر لـ«مساري» فيها");
 const surplusHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: surplus, kind: "plan", onClose: () => {} }));
-check(surplusHtml.includes("راجع حذف") && surplusHtml.includes("11") && surplusHtml.includes("هذا الفصل فقط") && surplusHtml.includes("الفصول السابقة للمقارنة لا للتجميع"), "تُشرح الشعب الزائدة وعددها ومصدر العدد وحدود التاريخ في لوحة التخطيط");
+check(surplusHtml.includes("فائض") && surplusHtml.includes("11") && surplusHtml.includes("الموجود") && surplusHtml.includes("المطلوب") && surplusHtml.includes("راجع الإلغاء") && surplusHtml.includes("هذا الفصل فقط") && surplusHtml.includes("الفصول السابقة للمقارنة لا للتجميع"), "تظهر الشعب الزائدة بشكل بصري مختصر دون أمر حذف، مع مقارنة الموجود بالمطلوب");
 check(!html.includes("<a ") && !html.includes("<input") && !html.includes("<form") && !html.includes("قارن") && !html.includes("كشف المتبقي"), "العرض: بلا رابطٍ ولا حقلٍ ولا دعوةٍ إلى شاشة التخطيط");
 const shownRows = (html.match(/<li/g) || []).length;
 check(shownRows === 5 && html.includes("الكل ("), "العرض: خمسة أسطر ثم «الكل»", { shownRows });

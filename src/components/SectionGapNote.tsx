@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DEMO_SEEDED_EVENT } from "../utils/demoSeedEvent";
-import { Armchair, ChevronDown, ClipboardList, History, Layers, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Armchair, ArrowLeft, ChevronDown, ClipboardList, History, Layers, Minus, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { planGaps, planSurpluses, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
 import { sortByName } from "../utils/sorting";
@@ -172,19 +172,37 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
               <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}</small></span>
               {kind === "students"
                 ? <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
-                : item.demand > 0 ? <span className="apb-gap-why">المتبقي {num(item.demand)}</span> : null}
-              <span className="apb-gap-pill" data-surplus={item.surplus ? "true" : undefined} title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
-                <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
-                {item.surplus ? <small className="apb-gap-surplus"><UserMinus aria-hidden="true" /><b>راجع حذف {countOf(item.surplus, AR.section)}</b></small> : null}
-              </span>
+                : !item.surplus && item.demand > 0 ? <span className="apb-gap-why">المتبقي {num(item.demand)}</span> : null}
+              {item.surplus ? (
+                <span
+                  className="apb-surplus"
+                  role="group"
+                  aria-label={`فائض ${countOf(item.surplus, AR.section)}: الموجود ${num(item.existing)}، والمطلوب بحسب تخطيط الشعب ${num(item.required)}. راجع الإلغاء؛ لا تُحذف الشعب تلقائياً.`}
+                >
+                  <span className="apb-surplus-label">
+                    <span className="apb-surplus-icon" aria-hidden="true"><Layers /><Minus /></span>
+                    <span className="apb-surplus-heading"><strong>فائض {countOf(item.surplus, AR.section)}</strong><small>راجع الإلغاء</small></span>
+                  </span>
+                  <span className="apb-surplus-divider" aria-hidden="true" />
+                  <span className="apb-surplus-flow" aria-hidden="true">
+                    <span className="apb-surplus-stat apb-surplus-stat-existing"><b>{num(item.existing)}</b><small>الموجود</small></span>
+                    <ArrowLeft className="apb-surplus-arrow" />
+                    <span className="apb-surplus-stat apb-surplus-stat-required"><b>{num(item.required)}</b><small>المطلوب</small></span>
+                  </span>
+                </span>
+              ) : (
+                <span className="apb-gap-pill" title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
+                  <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
+                </span>
+              )}
               {row ? <ChevronDown aria-hidden="true" className="apb-gap-chev" /> : null}
             </>
           );
           return (
             <li key={item.id} data-open={open || undefined}>
               {row
-                ? <button type="button" className="apb-gap-row" aria-expanded={open} onClick={() => setOpenId(open ? null : item.id)} data-guide-ignore="فتح تفاصيل من يدرّس المقرر وعدد المنتدبين">{body}</button>
-                : <div className="apb-gap-row">{body}</div>}
+                ? <button type="button" className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : ""}`} aria-expanded={open} onClick={() => setOpenId(open ? null : item.id)} data-guide-ignore="فتح تفاصيل من يدرّس المقرر وعدد المنتدبين">{body}</button>
+                : <div className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : ""}`}>{body}</div>}
               {open && row ? <Staffing staffing={row.staffing} visitors={row.visitors} /> : null}
             </li>
           );
