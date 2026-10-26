@@ -55,13 +55,17 @@ const suggested = planGaps([c(1, "101", 30, 1, 0)], { remaining: { "1": 90 }, ac
 check(suggested.length === 1 && suggested[0].basis === "plan" && suggested[0].required === 3 && suggested[0].extra === 2 && suggested[0].demand === 90, "كشفٌ مرفوع بلا مختار ← مقترح تخطيط الشعب من التاريخ", suggested);
 /* الإغلاق المقترح يُحسب من العدد نفسه الذي يعتمده التخطيط، مع فحص السعة والاحتياج. */
 const surplus = planSurpluses([c(1, "101", 30, 23, 0)], { remaining: { "1": 134 }, accepted: { "1": 12 }, history: {} });
-check(surplus.length === 1 && surplus[0].existing === 23 && surplus[0].required === 12 && surplus[0].surplus === 11 && surplus[0].closureSource === "chosen",
+check(surplus.length === 1 && surplus[0].existing === 23 && surplus[0].required === 12 && surplus[0].surplus === 11 && surplus[0].closureSource === "chosen" && !surplus[0].closureCapacityWarning,
   "الموجود 23 والمختار 12: مراجعة إغلاق 11 شعبة، لا إلغاء مباشر", surplus);
 const workshop = planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: { "8": 4 }, remaining: { "8": 120 }, history: {} });
 check(workshop.length === 1 && workshop[0].required === 4 && workshop[0].surplus === 2,
   "الورشة: 120 طالباً وأربع شعب بسعة 30، الموجود 6 ← مراجعة إغلاق شعبتين", workshop);
-check(planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: { "8": 1 }, remaining: { "8": 120 }, history: {} }).length === 0,
-  "اختيار شعبة لا تستوعب 120 طالباً: لا اقتراح إغلاق مضلّل");
+const underCapacity = planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: { "8": 1 }, remaining: { "8": 120 }, history: {} });
+check(underCapacity.length === 1 && underCapacity[0].surplus === 5 && underCapacity[0].closureCapacityWarning === true,
+  "المختار شعبة واحدة رغم الاحتياج 120: فرق 5 شعب يظهر للمراجعة مع تحذير صريح بأن السعة غير كافية");
+const research = planSurpluses([c(499, "499", 45, 2, 0)], { accepted: { "499": 1 }, remaining: { "499": 51 }, history: {} });
+check(research.length === 1 && research[0].surplus === 1 && research[0].closureCapacityWarning === true,
+  "حلقة البحث: 51 طالباً مقابل سعة 45؛ يظهر فرق شعبة مع التحذير لا كإغلاق آمن");
 check(planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: { "8": 1 }, remaining: {}, history: {} }).length === 1,
   "الاختيار اليدوي الصريح يظهر للمراجعة حتى بلا كشف، ولا ينفّذ الإغلاق");
 check(planSurpluses([c(8, "ورشة", 0, 6, 0)], { accepted: { "8": 4 }, remaining: { "8": 120 }, history: {} }).length === 0,
@@ -71,8 +75,9 @@ check(planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: {}, remaining: { "
 const historicalClosing = planSurpluses([c(8, "ورشة", 30, 8, 0)], { accepted: {}, remaining: { "8": 120 }, history: { "8": [{ termName: "الفصل الثاني 2025/2026", sections: 4, remaining: 120, similar: true }] } });
 check(historicalClosing.length === 1 && historicalClosing[0].surplus === 4 && historicalClosing[0].closureSource === "history",
   "التاريخ المماثل والاحتياج والسعة يشيرون إلى 4 شعب بدلاً من 8؛ تعرض للمراجعة");
-check(planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: { "8": 4 }, remaining: { "8": 180 }, history: {} }).length === 0,
-  "لا تخفيض إذا لم تغط سعة المقترح احتياج الطلبة");
+const unserved = planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: { "8": 4 }, remaining: { "8": 180 }, history: {} });
+check(unserved.length === 1 && unserved[0].surplus === 2 && unserved[0].closureCapacityWarning === true,
+  "إذا القسم لا يستطيع تلبية كل 180 طالباً، يظهر الفرق عن 4 شعب بوضوح مع تحذير من وجود طلب غير مغطى");
 const automaticZero = planSurpluses([c(9, "105", 30, 2, 0)], { accepted: {}, remaining: { "9": 0 }, history: {} });
 check(automaticZero.length === 0, "صفر الاحتياج وحده لا يثبت خلو الشعب، فلا إغلاق تلقائي");
 const explicitZero = planSurpluses([c(9, "105", 30, 2, 0)], { accepted: { "9": 0 }, remaining: { "9": 0 }, history: {} });
@@ -114,6 +119,9 @@ check(html.includes("شعبٌ يطلبها الطلبة في «مساري»") &&
 const planHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: planned, kind: "plan", onClose: () => {} }));
 check(planHtml.includes("بحسب تخطيطك") && !planHtml.includes("مساري") && planHtml.includes("الاحتياج"), "قائمة التخطيط: عنوانٌ مستقل ولا ذكر لـ«مساري» فيها");
 const surplusHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: surplus, kind: "plan", onClose: () => {} }));
+const riskyHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: research, kind: "plan", onClose: () => {} }));
+check(riskyHtml.includes("الاحتياج أعلى من السعة") && riskyHtml.includes("راجع الإغلاق") && riskyHtml.includes("فرق") && !riskyHtml.includes("فائض شعبة"),
+  "العدد المقرر مراجعة إغلاقه يظهر حتى مع الطلب الكبير، لكن لا يوصف بأنه فائض مثبت");
 check(surplusHtml.includes("فائض") && surplusHtml.includes("11") && surplusHtml.includes("الموجود") && surplusHtml.includes("المطلوب") && surplusHtml.includes("راجع الإغلاق") && surplusHtml.includes("الفتح والإغلاق المقترح من التخطيط") && !surplusHtml.includes("الفصول السابقة للمقارنة"), "تظهر الشعب الزائدة بشكل بصري مختصر دون أمر حذف، مع مقارنة الموجود بالمطلوب");
 check(!html.includes("<a ") && !html.includes("<input") && !html.includes("<form") && !html.includes("قارن") && !html.includes("كشف المتبقي"), "العرض: بلا رابطٍ ولا حقلٍ ولا دعوةٍ إلى شاشة التخطيط");
 const shownRows = (html.match(/<li/g) || []).length;
@@ -144,6 +152,9 @@ check(renderToStaticMarkup(React.createElement(Result, { gap: { ...sample, planI
 check(renderToStaticMarkup(React.createElement(Result, { gap: { ...sample, planItems: [], planSurplusItems: surplus }, onClose: () => {} })).includes("فائضة بحسب التخطيط") &&
   renderToStaticMarkup(React.createElement(Result, { gap: { ...sample, planItems: [], planSurplusItems: surplus }, onClose: () => {} })).includes("−11"),
   "النتيجة المختصرة تعرض عدد الشعب المقترح إغلاقها بجانب فتح الشعب وبدون مسّ التنسيق");
+const riskyQuick = renderToStaticMarkup(React.createElement(Result, { gap: { ...sample, planItems: [], planSurplusItems: research }, onClose: () => {} }));
+check(riskyQuick.includes("تختلف عن العدد المخطط") && riskyQuick.includes("الاحتياج أعلى من المقاعد") && riskyQuick.includes("−1"),
+  "المقارنة المختصرة تُظهر فرق الشعبة ولا تخفي نقص الطاقة الاستيعابية");
 check(renderToStaticMarkup(React.createElement(Result, { gap: { ...sample, ready: false }, onClose: () => {} })).includes("يُحسب المقترح"), "النتيجة: قبل اكتمال الحسبة لا اقتراح مضلِّل");
 
 
