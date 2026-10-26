@@ -41,6 +41,7 @@ import { RequestTimelineToggle } from "./dna/requestDna";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
+import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
 import { num } from "./proposal/proposalFormat";
 import { effectiveStatus } from "../utils/studyProposal";
 import { ProposalLauncherBar, ProposalStrip, type OpenWorkspace } from "./proposal/ProposalInboxParts";
@@ -1186,14 +1187,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   /* فحصُ البطاقة: السؤالُ نفسُه للخادم بالقاعة والشعبة المختارتين. يُحفظ الجوابُ
      بمفتاح المسوّدة، فتقرؤه البطاقةُ متى وصل. */
   // The card now owns one server-backed conflict and validation check.
-  const nextSectionFor = (courseId: number) => {
-    // Same 501–999 sequence as the timetable editor, within this term.
-    const used = [...currentRows.values()]
-      .filter(row => Number(row.AdCourseId) === Number(courseId) && Number(row.AdTermId) === Number(termId))
-      .map(row => Number(String(row.SCode || "").trim()))
-      .filter(number => Number.isFinite(number) && number >= 501 && number <= 999);
-    return used.length ? String(Math.max(...used) + 1) : "501";
-  };
+  const nextSectionFor = (courseId: number) =>
+    nextCourseSectionCode(currentRows.values(), courseId, Number(termId));
 
   const selects: ScopeAskSelect[] = [
     { key: "college", label: "الكلية", value: collegeId, placeholder: "اختر الكلية", options: collegeOptions },
