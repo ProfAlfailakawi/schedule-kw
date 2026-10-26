@@ -26,7 +26,7 @@ import type {
 } from "../types";
 import { toEnglishDigits } from "../utils/digits";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "../utils/termSequence";
-import { normalizeClock, withinScheduleDay } from "../utils/scheduleTime";
+import { normalizeClock, withinScheduleDay, scheduleDayWindowMinutes } from "../utils/scheduleTime";
 import { timeToMinutes } from "../utils/scheduleIntelligence";
 import { termChronology } from "../utils/advancedIntelligence";
 import {
@@ -309,6 +309,12 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
         snapshot: snapshotOf(row, world.catalog),
         item: gridItem(row, world, deps, req, { state: "current", key: keyOfRow(Number(row.id)) }),
       }));
+    const relevantSections = [...new Set([...courseRows.map(row => Number(row.sectionId)), Number(request.AdSectionId)])];
+    const sectionWindows = Object.fromEntries(await Promise.all(relevantSections.map(async sectionId => {
+      const section = await Repository.getSectionById(sectionId);
+      const { startTime, endTime } = scheduleDayWindowMinutes(section);
+      return [String(sectionId), { startTime, endTime }];
+    })));
     const instructorRows = world.termRows.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
     const current = instructorRows.map(row => gridItem(row, world, deps, req, { state: "current", key: keyOfRow(Number(row.id)) }));
     const scopeCollege = world.colleges.find(c => Number(c.AdCollegeId) === Number(request.AdCollegeId));
@@ -342,7 +348,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
         collegeId: Number(request.AdCollegeId), collegeName: scopeCollege?.AdCollegeName || "",
         sectionId: Number(request.AdSectionId), sectionName: scopeSection?.AdSectionName || "",
       },
-      courses: courseRows, usedCodes, faculty,
+      courses: courseRows, usedCodes, faculty, sectionWindows,
       current: { items: current, metrics: proposalMetrics(instructorRows, world.catalog.courseById) },
       hasPlaceholder: world.placeholders.size > 0,
       proposals: settled.map(p => ({ ...staffView(p, termClosedOf(world)), proposal: compact(p) })),

@@ -67,6 +67,7 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
   }, [onClose]);
 
   const scope = scopeOfDraft(ws);
+  const window = ctx?.sectionWindows?.[String(scope.sectionId)];
   const courses = useMemo(() => [...(ctx?.courses || [])].sort((a, b) => a.name.localeCompare(b.name, "ar")), [ctx]);
   const suggestion = suggestSectionCode(draft.courseId, ctx?.usedCodes || {}, ws.ops, draft.editingOpId);
   const clash = draft.start && draft.end && draft.days.length ? quickOverlap({ days: draft.days, start: draft.start, end: draft.end }, ws.afterItems.filter(i => i.rowId !== draft.rowId && i.opId !== draft.editingOpId)) : null;
@@ -141,7 +142,7 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
             <p className="sp-quick-course"><b>{editingRow?.courseName || "الموعد"}</b>{editingRow?.SCode ? <small> · شعبة {editingRow.SCode}</small> : null}</p>
           )}
           <CourseHistoryNote ws={ws} scope={scope} compact />
-          <TimeWheels start={draft.start || "08:00"} end={draft.end || "08:50"} preferredDuration={draft.block || undefined}
+          <TimeWheels start={draft.start || window?.startTime || "08:00"} end={draft.end || "08:50"} minTime={window?.startTime} maxTime={window?.endTime} preferredDuration={draft.block || undefined}
             onChange={next => ws.patchDraft({ start: next.start, end: next.end, endTouched: true })} />
           <div className="sp-quick-days" role="group" aria-label="الأيام">
             {PROPOSAL_DAY_KEYS.map(day => (
