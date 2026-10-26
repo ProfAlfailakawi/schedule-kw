@@ -80,12 +80,9 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
     if (!data) return { gaps: [], surpluses: [] };
     /* المتبقي بلا تاريخه يقترح «شعبةً واحدة» فيُخفي النقص؛ فلا يُعتدّ به حتى يصل التاريخ. */
     const plan: GapPlan = { accepted: data.accepted || {}, remaining: historyReady ? data.remaining || {} : {}, history: historyReady ? past!.history : {} };
-    // التخفيض يعتمد حصرياً على كشف الإحصائيات المرفوع لهذا الفصل؛ الفتح كما كان.
-    // إدخال «المتبقي» اليدوي لا يُعامل ككشف مرفوع للتخفيض.
-    // The registrar not-passed count (especially from the preceding semester) does not prove unused current-term seats.
-    // Suppress section-cancellation hints until current-term enrollment and actual capacity can be verified.
-    const currentReport: GapPlan | null = null;
-    return { gaps: planGaps(data.courses, plan), surpluses: planSurpluses(data.courses, currentReport) };
+    // Same planning target for opening and reduction; reduction is review-only.
+    // The registrar reference is never treated as proof of live enrollment or permission to cancel.
+    return { gaps: planGaps(data.courses, plan), surpluses: planSurpluses(data.courses, plan) };
   }, [data, historyReady, past]);
   const studentItems = useMemo(() => (data ? studentGaps(data.courses) : []), [data]);
   const reload = useCallback(() => setBump(value => value + 1), []);
@@ -105,7 +102,7 @@ export function showQuickCompareBadge(gap: { loaded: boolean; planImported: bool
 
 export type GapKind = "plan" | "students";
 const KIND = {
-  plan: { Icon: ClipboardList, word: "التخطيط", title: "مراجعة عدد الشعب بحسب تخطيطك", hint: "الفتح من التخطيط؛ الفائض من إحصائية الفصل الحالي فقط. التقديرات المتعارضة تظهر كمراجعة واحدة" },
+  plan: { Icon: ClipboardList, word: "التخطيط", title: "مراجعة عدد الشعب بحسب تخطيطك", hint: "الفتح والتخفيض من تخطيط القسم والاحتياج والتاريخ؛ الإغلاق للمراجعة بعد التحقق من المسجلين" },
   students: { Icon: Users, word: "مساري", title: "شعبٌ يطلبها الطلبة في «مساري»", hint: "من رغبات الطلبة في «مساري» · اختياري ولا يمنع التوقيع" },
 } as const;
 
@@ -167,7 +164,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
         <small>اختياري</small>
         <button type="button" className="apb-dr-close" aria-label="إغلاق" onClick={onClose} data-guide-ignore="إغلاق قائمة الشعب المقترحة"><X aria-hidden="true" /></button>
       </header>
-      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />الفتح من التخطيط، والفائض من كشف هذا الفصل فقط؛ عند التعارض راجع التقدير.</p> : null}
+      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />الفتح والإغلاق المقترح من التخطيط؛ راجع المسجلين والمقاعد قبل إغلاق أي شعبة.</p> : null}
       <ul className="apb-gap-list">
         {list.map(item => {
           const row = rowOf(item.id);
@@ -177,7 +174,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
               <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}</small></span>
               {kind === "students"
                 ? <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
-                : !item.surplus && item.demand > 0 ? <span className="apb-gap-why">المتبقي {num(item.demand)}</span> : null}
+                : !item.surplus && item.demand > 0 ? <span className="apb-gap-why">الاحتياج {num(item.demand)}</span> : null}
               {item.conflict ? (
                 <span className="apb-conflict" role="group"
                   aria-label={`تعارض التقدير في ${item.name}: الموجود ${num(item.existing)}، التخطيط يطلب ${num(item.conflict.openingRequired)}، وكشف هذا الفصل يقدّر ${num(item.conflict.reportRequired)} لاستيعاب ${countOf(item.demand, AR.student)} لم يسجلوا. راجع البيانات قبل فتح أو إلغاء أي شعبة.`}>
@@ -192,11 +189,11 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
                 <span
                   className="apb-surplus"
                   role="group"
-                  aria-label={`فائض ${countOf(item.surplus, AR.section)}: الموجود ${num(item.existing)}، والمطلوب ${num(item.required)} بحسب إحصائية الفصل الحالي: المتبقي ${countOf(item.demand, AR.student)}. راجع الإلغاء؛ لا تُحذف الشعب تلقائياً.`}
+                  aria-label={`فائض تخطيطي ${countOf(item.surplus, AR.section)}: الموجود ${num(item.existing)}، والمطلوب ${num(item.required)} ${item.closureSource === "chosen" ? "بحسب اختيار القسم" : "بحسب الاحتياج والتاريخ"}. راجع تسجيل الطلبة وسعة الشعب الفعلية قبل الإغلاق؛ لا تُحذف الشعب تلقائياً.`}
                 >
                   <span className="apb-surplus-label">
                     <span className="apb-surplus-icon" aria-hidden="true"><Layers /><Minus /></span>
-                    <span className="apb-surplus-heading"><strong>فائض {countOf(item.surplus, AR.section)}</strong><small>راجع الإلغاء</small></span>
+                    <span className="apb-surplus-heading"><strong>فائض {countOf(item.surplus, AR.section)}</strong><small>راجع الإغلاق</small></span>
                   </span>
                   <span className="apb-surplus-divider" aria-hidden="true" />
                   <span className="apb-surplus-flow" aria-hidden="true">
