@@ -325,5 +325,15 @@ check(Boolean(a.reject?.includes("0202") && a.reject.includes("0101")), "وال�
     "مقررٌ بلا شعب وله طلبة لم يجتازوا: احتياجه يُقرأ ولا يسقط");
 }
 
+/* تقريرٌ ينتقل من القسم العلمي 0101 إلى 0110 في الصفحة نفسها: لا خلطٍ لرمز المقرر 323. */
+{
+  const data = page(0, [["323", [100, 40, 20, 20, 1, 80]], ["323", [200, 40, 20, 20, 1, 180]]]);
+  data.push(at("رمز القسم العلمي 0110", 0.56, 0.265, undefined, 0.3));
+  const separated = readRemainingReport([data], [{ id: 44, code: "0101323" }], "0101", "notPassed");
+  const values = remainingValues(separated, separated.column!);
+  check(values["44"] === 100 && separated.rows.length === 1 && separated.rows[0].occurrences === 1,
+    "نفس رقم المقرر بعد ترويسة قسم آخر لا يُنقل ولا يُجمع على مقررات قسم التخطيط");
+}
+
 console.log(`\nSection planning import audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
