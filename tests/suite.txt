@@ -148,4 +148,5 @@ test:visiting-status
 audit:guide
 test:pattern-library
 test:lecture-length
+test:appointment-entry-parity
 test:schedule-wipe
