@@ -182,7 +182,7 @@ function skStats(items,ar){
 }
 
 /* Linked companions share the appointment, not the primary-room field. */
-function skCompanion(r,esc){var label=String(r.companionRoomLabel||"").trim();if(!label&&!r.companionRoomId)return "";return '<span class="sk-companion-badge" title="المرفق المرافق"><span>مرفق</span>'+(label?'<bdi dir="ltr">'+esc(label)+'</bdi>':"")+'</span>'}
+function skCompanion(r,esc){if(!r.companionRoomId)return "";var label=String(r.companionRoomLabel||"").trim(),type=String(r.companionRoomType||"").trim()||"مرفق";return '<span class="sk-companion-badge" title="المرفق المرافق"><span>'+esc(type)+'</span>'+(label?'<bdi dir="ltr">'+esc(label)+'</bdi>':"")+'</span>'}
 /* الأسبوعُ مرسوماً: كتلٌ ملوّنةٌ بالدقائق، ومعها قائمةُ المقرّرات (لونُها وأيامُها ووقتُها وقاعتُها). */
 function skWeek(d,esc,cl){
  var dn=function(r){return (r.days||[]).map(function(i){return d.byDay[i]?d.byDay[i].name:""}).filter(Boolean).join("، ")};

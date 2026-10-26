@@ -89,6 +89,30 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   check(Boolean(byRule(reviewFor(realInstructor), "consecutive-long-lecture")), "يبقى مانع التتابع قائماً عند وجود أستاذ فعلي مشترك بين الشعب");
 }
 
+/* ── م.6/2،3: تجاوز الحد لا بلوغه، بحسب مدة كل محاضرة ────────────────────── */
+{
+  const consecutive = (durations: number[], day: "mon" | "tue") => {
+    let start = 8 * 60;
+    const courses: AdCourse[] = [];
+    const rows = durations.map((minutes, index) => {
+      const courseId = 20 + index;
+      courses.push(course(courseId, 3));
+      const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+      const item = row(courseId, String(501 + index), [day], clock(start), clock(start + minutes), 701);
+      start += minutes + 10;
+      return item;
+    });
+    return review(rows, courses);
+  };
+  check(!byRule(consecutive([80, 80], "mon"), "consecutive-long-lecture"), "محاضرتان أطول من ساعة: بلوغ حد الشعبتين لا يتجاوزه");
+  check(Boolean(byRule(consecutive([80, 80, 80], "mon"), "consecutive-long-lecture")), "ثلاث محاضرات متتالية أطول من ساعة الاثنين/الأربعاء: تجاوز الحد يظهر");
+  check(!byRule(consecutive([50, 50, 50], "tue"), "consecutive-one-hour"), "ثلاث محاضرات 50 دقيقة الأحد/الثلاثاء/الخميس: بلوغ حد الثلاث لا يتجاوزه");
+  check(Boolean(byRule(consecutive([50, 50, 50, 50], "tue"), "consecutive-one-hour")), "أربع محاضرات 50 دقيقة الأحد/الثلاثاء/الخميس: تجاوز الحد يظهر");
+  check(!byRule(consecutive([60, 60, 60], "mon"), "consecutive-long-lecture"), "مدة 60 دقيقة تساوي ساعة ولا تدخل في فئة ما يزيد على ساعة");
+  check(Boolean(byRule(consecutive([60, 60, 60, 60], "mon"), "consecutive-one-hour")), "أربع محاضرات مدتها ساعة بالضبط تتجاوز حد الثلاث");
+  check(!byRule(consecutive([80, 50, 50], "mon"), "consecutive-long-lecture"), "محاضرة طويلة واحدة داخل سلسلة مختلطة لا تجعل السلسلة كلها مخالفة لفئة الطويلة");
+}
+
 /* ── م.7/8: فحص الاعتماد يطابق مكتبة الأنماط ذات فترات 50/80 دقيقة ───────── */
 {
   const theoretical = (id: number, hours: number) => ({ ...course(id, hours), CourseTeachingMode: "theoretical" } as AdCourse);

@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DEMO_SEEDED_EVENT } from "../utils/demoSeedEvent";
-import { Armchair, ChevronDown, ClipboardList, History, Layers, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Armchair, ArrowLeft, ChevronDown, ClipboardList, History, Layers, Minus, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { planGaps, planSurpluses, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
 import { sortByName } from "../utils/sorting";
@@ -80,7 +80,11 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
     if (!data) return { gaps: [], surpluses: [] };
     /* المتبقي بلا تاريخه يقترح «شعبةً واحدة» فيُخفي النقص؛ فلا يُعتدّ به حتى يصل التاريخ. */
     const plan: GapPlan = { accepted: data.accepted || {}, remaining: historyReady ? data.remaining || {} : {}, history: historyReady ? past!.history : {} };
-    return { gaps: planGaps(data.courses, plan), surpluses: planSurpluses(data.courses, plan) };
+    // التخفيض يعتمد حصرياً على كشف الإحصائيات المرفوع لهذا الفصل؛ الفتح كما كان.
+    // إدخال «المتبقي» اليدوي لا يُعامل ككشف مرفوع للتخفيض.
+    const hasCurrentReport = Boolean(data.planImported && data.planSource?.fileName && data.planSource.fileName !== "إدخال يدوي");
+    const currentReport = hasCurrentReport ? { remaining: data.remaining || {}, accepted: {}, history: {} } : null;
+    return { gaps: planGaps(data.courses, plan), surpluses: planSurpluses(data.courses, currentReport) };
   }, [data, historyReady, past]);
   const studentItems = useMemo(() => (data ? studentGaps(data.courses) : []), [data]);
   const reload = useCallback(() => setBump(value => value + 1), []);
@@ -100,7 +104,7 @@ export function showQuickCompareBadge(gap: { loaded: boolean; planImported: bool
 
 export type GapKind = "plan" | "students";
 const KIND = {
-  plan: { Icon: ClipboardList, word: "التخطيط", title: "مراجعة عدد الشعب بحسب تخطيطك", hint: "المطلوب من اختيار القسم أو كشف المتبقي ومتوسط الفصول المماثلة · الموجود من هذا الفصل فقط · لا تجميع بين الفصول" },
+  plan: { Icon: ClipboardList, word: "التخطيط", title: "مراجعة عدد الشعب بحسب تخطيطك", hint: "الفائض: إحصائية الفصل الحالي وسعة الشعبة فقط · دون الرجوع للفصول السابقة · الفتح مستقل" },
   students: { Icon: Users, word: "مساري", title: "شعبٌ يطلبها الطلبة في «مساري»", hint: "من رغبات الطلبة في «مساري» · اختياري ولا يمنع التوقيع" },
 } as const;
 
@@ -162,7 +166,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
         <small>اختياري</small>
         <button type="button" className="apb-dr-close" aria-label="إغلاق" onClick={onClose} data-guide-ignore="إغلاق قائمة الشعب المقترحة"><X aria-hidden="true" /></button>
       </header>
-      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />المطلوب من اختيار القسم أو كشف المتبقي ومتوسط الفصول المماثلة؛ الموجود من هذا الفصل فقط، والفصول السابقة للمقارنة لا للتجميع.</p> : null}
+      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />الفائض من إحصائية هذا الفصل وسعة الشعبة فقط؛ فتح الشعب مستقل.</p> : null}
       <ul className="apb-gap-list">
         {list.map(item => {
           const row = rowOf(item.id);
@@ -172,19 +176,37 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
               <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}</small></span>
               {kind === "students"
                 ? <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
-                : item.demand > 0 ? <span className="apb-gap-why">المتبقي {num(item.demand)}</span> : null}
-              <span className="apb-gap-pill" data-surplus={item.surplus ? "true" : undefined} title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
-                <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
-                {item.surplus ? <small className="apb-gap-surplus"><UserMinus aria-hidden="true" /><b>راجع حذف {countOf(item.surplus, AR.section)}</b></small> : null}
-              </span>
+                : !item.surplus && item.demand > 0 ? <span className="apb-gap-why">المتبقي {num(item.demand)}</span> : null}
+              {item.surplus ? (
+                <span
+                  className="apb-surplus"
+                  role="group"
+                  aria-label={`فائض ${countOf(item.surplus, AR.section)}: الموجود ${num(item.existing)}، والمطلوب ${num(item.required)} بحسب إحصائية الفصل الحالي: المتبقي ${num(item.demand)} طالباً. راجع الإلغاء؛ لا تُحذف الشعب تلقائياً.`}
+                >
+                  <span className="apb-surplus-label">
+                    <span className="apb-surplus-icon" aria-hidden="true"><Layers /><Minus /></span>
+                    <span className="apb-surplus-heading"><strong>فائض {countOf(item.surplus, AR.section)}</strong><small>راجع الإلغاء</small></span>
+                  </span>
+                  <span className="apb-surplus-divider" aria-hidden="true" />
+                  <span className="apb-surplus-flow" aria-hidden="true">
+                    <span className="apb-surplus-stat apb-surplus-stat-existing"><b>{num(item.existing)}</b><small>الموجود</small></span>
+                    <ArrowLeft className="apb-surplus-arrow" />
+                    <span className="apb-surplus-stat apb-surplus-stat-required"><b>{num(item.required)}</b><small>المطلوب</small></span>
+                  </span>
+                </span>
+              ) : (
+                <span className="apb-gap-pill" title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
+                  <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
+                </span>
+              )}
               {row ? <ChevronDown aria-hidden="true" className="apb-gap-chev" /> : null}
             </>
           );
           return (
             <li key={item.id} data-open={open || undefined}>
               {row
-                ? <button type="button" className="apb-gap-row" aria-expanded={open} onClick={() => setOpenId(open ? null : item.id)} data-guide-ignore="فتح تفاصيل من يدرّس المقرر وعدد المنتدبين">{body}</button>
-                : <div className="apb-gap-row">{body}</div>}
+                ? <button type="button" className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : ""}`} aria-expanded={open} onClick={() => setOpenId(open ? null : item.id)} data-guide-ignore="فتح تفاصيل من يدرّس المقرر وعدد المنتدبين">{body}</button>
+                : <div className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : ""}`}>{body}</div>}
               {open && row ? <Staffing staffing={row.staffing} visitors={row.visitors} /> : null}
             </li>
           );

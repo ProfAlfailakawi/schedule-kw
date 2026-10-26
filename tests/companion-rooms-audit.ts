@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { missingCompanionBookingNotice } from "../src/utils/companionPrintNotice";
+import { enrichCompanionRoomTypes } from "../src/utils/companionRoomDisplay";
 import { readFileSync } from "node:fs";
 import { roomIdentityKeys, rowOccupiesRoom, sharePhysicalRoom, eligibleHallsForSection } from "../src/utils/locationRegistry";
 import { findConflicts, findConflictsExhaustive, fastConflictScan } from "../src/utils/scheduleIntelligence";
@@ -78,17 +78,23 @@ assert.ok(reportScreen.includes('<CompanionFacilityBadge row={selectedResult} co
 assert.ok(reportScreen.includes('<bdi dir="ltr">{placeOfRow(row)}</bdi><CompanionFacilityBadge row={row} compact />'),"printed instructor schedule and query list show both rooms");
 assert.ok(staffVisual.includes("skCompanion(r,esc)"),"teacher card week and print include the badge");
 assert.ok(server.includes("companionRoomId: row.companionRoomId || \"\"") && server.includes("companionRoomLabel: row.companionRoomLabel || \"\""),"staff card endpoint sends the real saved companion room");
-assert.ok(badgeScreen.includes('if (!row.companionRoomId && !label) return null'),"ordinary appointments have no empty badge");
+assert.ok(badgeScreen.includes('if (!String(row.companionRoomId || "").trim()) return null;'),"ordinary appointments have no empty badge");
 assert.ok(reportScreen.includes('className="print-instructor-venue-cell"'),"instructor print keeps the five-column table and uses a dedicated venue cell");
 assert.ok(reportScreen.includes('className="print-instructor-venue"'),"instructor print places the companion directly under the original venue");
 const printCss = readFileSync(new URL("../src/styles/08-print.css", import.meta.url),"utf8");
 assert.ok(printCss.includes(".print-query-groups-report .print-instructor-venue .companion-facility-badge"),"print media style explicitly preserves legibility of the companion room");
-const requiredStudio = { CourseCompanionRoomType: "استوديو تلفزيون" };
-assert.equal(missingCompanionBookingNotice({ companionRoomId: "room_f17", companionRoomLabel: "012B08/F17" }, requiredStudio), "", "real companion bookings must show the actual assigned venue, not the missing warning");
-assert.equal(missingCompanionBookingNotice({}, requiredStudio), "مرفق مطلوب · استوديو تلفزيون · غير محجوز", "older unmet companion requirements must be visible but not invented");
-assert.equal(missingCompanionBookingNotice({}, { CourseCompanionRoomType: "" }), "", "courses without a requirement have no extra print label");
-assert.ok(reportScreen.includes("missingCompanionBookingNotice(row, courseOf(row))"), "the instructor print evaluates requirements against the actual saved appointment");
-assert.ok(reportScreen.includes('className="print-companion-unbooked" title={missingCompanion}>مرفق غير محجوز</span>'),"the unassigned companion uses a short and truthful print label");
-assert.ok(reportScreen.includes('<colgroup><col style={{ width: "38%" }} /><col style={{ width: "10%" }} /><col style={{ width: "20%" }} /><col style={{ width: "19%" }} /><col style={{ width: "13%" }} /></colgroup>'),"all five instructor print column widths remain unchanged");
-assert.ok(reportScreen.includes('<thead><tr><th>المقرر ورمزه</th><th>الشعبة</th><th>الأيام</th><th>الوقت</th><th>القاعة</th></tr></thead>'),"instructor printed report keeps its original five headers");
+const typed = enrichCompanionRoomTypes(
+  [a, {...a,id:8,companionRoomId:"room_lab",companionRoomLabel:"012B01 / L01"}, withoutStudio],
+  [{id:"room_f17",roomType:"استوديو تلفزيون"},{id:"room_lab",roomType:"مختبر الصوت"}],
+);
+assert.deepEqual(typed.map(row=>row.companionRoomType||""),["استوديو تلفزيون","مختبر الصوت",""],"type comes from the actual reserved facility, not a hard-coded studio name");
+assert.equal(enrichCompanionRoomTypes([{companionRoomId:"unknown"}],[])[0].companionRoomType,undefined,"unknown registry entry cannot produce an invented room type");
+assert.ok(badgeScreen.includes('const type = String(row.companionRoomType || "").trim() || "مرفق";'),"the actual registered room type appears on the badge");
+assert.ok(!reportScreen.includes('print-companion-unbooked')&&!reportScreen.includes('missingCompanionBookingNotice'),"the printed instructor report never labels a scheduled meeting as unbooked");
+assert.ok(!scheduleScreen.includes('||"استوديو"'),"the schedule has no hardcoded studio label");
+assert.ok(staffVisual.includes("r.companionRoomType"),"teacher card and print display room type");
+assert.ok(server.includes('enrichCompanionRoomTypes(list, (await readLocationRegistry()).rooms)'),"the API enriches actual saved bookings from the room registry");
+assert.ok(server.includes('companionRoomType: row.companionRoomType || ""'),"teacher card gets the same real type as the other timetables");
+assert.ok(reportScreen.includes('<colgroup><col style={{ width: "38%" }} /><col style={{ width: "10%" }} /><col style={{ width: "20%" }} /><col style={{ width: "19%" }} /><col style={{ width: "13%" }} /></colgroup>'),"all five printed column widths remain unchanged");
+assert.ok(reportScreen.includes('<thead><tr><th>المقرر ورمزه</th><th>الشعبة</th><th>الأيام</th><th>الوقت</th><th>القاعة</th></tr></thead>'),"instructor report keeps all five headers");
 console.log("Companion facility booking and display audit passed");
