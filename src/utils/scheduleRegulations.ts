@@ -230,6 +230,10 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
     note: "النمط الممتد: 80+80+50 دقيقة على الاثنين والأربعاء والخميس."
   },
   {
+    hours: 4, id: "4h-mon-wed", days: ["fmonday", "fwednesday"], minutesPerDay: [110, 110], weeklyMinutes: 200,
+    note: `أربع فترات تدريسية: فترتان من ${countOf(50, AR.minute)} مع فاصل ${countOf(10, AR.minute)} في الاثنين ومثلهما في الأربعاء (${countOf(110, AR.minute)} زمنية لكل لقاء).`
+  },
+  {
     hours: 4, id: "4h-sun-tue", days: ["fsunday", "ftuesday"], minutesPerDay: [110, 110], weeklyMinutes: 200,
     note: `أربع فترات تدريسية من ${countOf(50, AR.minute)} على يومين قصيرين؛ ${countOf(100, AR.minute)} تدريسية مع فاصل ${countOf(10, AR.minute)} لكل لقاء (${countOf(110, AR.minute)} زمنية).`
   },
