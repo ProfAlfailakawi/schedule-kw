@@ -16139,7 +16139,10 @@ app.delete("/api/share/:id", requirePermission(7), async (req: AuthenticatedRequ
       }
     });
   } else {
-    if (!isScopeAllowed(req, link.AdCollegeId, link.AdSectionId)) {
+    /* الرابط الشخصي في سجلّ العائلة يمكن أن يكون قد أُصدر من موقعٍ شقيق.
+       إيقافه مُتاح لمن يملك القسم العلمي من أيٍّ من مواقعه. */
+    if (!isScopeAllowed(req, link.AdCollegeId, link.AdSectionId)
+        && !(link.kind === "staff" && await staffLinkFamilyAllowed(req, link))) {
       res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return;
     }
     await Repository.revokeShareLink(link.id);
