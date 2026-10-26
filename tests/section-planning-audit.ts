@@ -214,11 +214,11 @@ check(values["1"] === 120 && values["2"] === 102 && values["3"] === 50 && values
 /* ── الواجهة ── */
 const ui = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
 check(ui.includes("courseNumber(a.code) - courseNumber(b.code)"), "الجدول مرتّب برقم المقرر تصاعدياً");
-check(ui.includes("استيراد كشف الاحتياج (لم يجتازوا في بداية التسجيل)") && ui.includes("/api/registration-stats/remaining-pdf") && ui.includes("planRemainingApply(preview, preview.column, manual, {}, confirmedSuspects") && ui.includes("تعبئة ${countOf(plan.total, AR.course)}"),
+check(ui.includes("استيراد كشف الاحتياج") && ui.includes("/api/registration-stats/remaining-pdf") && ui.includes("planRemainingApply(preview, preview.column, manual, {}, confirmedSuspects") && ui.includes("تعبئة ${countOf(plan.total, AR.course)}"),
   "«الذين لم يسجلوا» يُستورد ويُراجع قبل التعبئة");
 check(ui.includes('accept="application/pdf,.pdf,image/*,.heic,.heif" multiple') && ui.includes("/api/registration-stats/remaining-cells") && ui.includes('"x-report-template"'),
   "PDF أو صور صفحاته (الهاتف): تُقرأ صورةً صورة وتُجمع صفحاتها");
-check(ui.includes("الخطة تُبنى على عمود «اعداد الطلبة لم يجتازوا في بداية التسجيل» من كشف العمادة — الاحتياج المرجعي") && ui.includes("<th>الاحتياج (لم يجتازوا في بداية التسجيل)</th>")
+check(ui.includes("الخطة تُبنى على عمود «اعداد الطلبة لم يجتازوا في بداية التسجيل» من كشف العمادة — الاحتياج المرجعي") && ui.includes("<th>الاحتياج</th>")
   && !ui.includes("<th>المقاعد المتبقية</th>") && ui.includes("تخالف حساب الكشف (لم يجتازوا − المسجلين)"),
   "الواجهة تقول إن الخطة تُبنى على «اعداد الذين لم يسجلوا» المستورد، وحساب الكشف لم يجتازوا − المسجلين");
 check(ui.includes('setSource({ fileName: preview.fileName, importedAt: new Date().toISOString(), column: "notPassed", reportTerm: preview.reportTerm || "" })')
