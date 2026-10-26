@@ -231,6 +231,8 @@ export default function QuickCreatePopover({
     fthursday: chosenDays.includes("fthursday"),
   };
   const checkKey = JSON.stringify(payload);
+  const latestIdeasKey = useRef(checkKey);
+  latestIdeasKey.current = checkKey;
   useEffect(() => {
     if (!ready || !digitsOk || hasDifferentTimes || seed.deferLiveCheck) {
       setLiveCheck({ key: "", checking: false, blockers: [], warnings: [], error: "" });
@@ -277,6 +279,7 @@ export default function QuickCreatePopover({
   useEffect(() => { setIdeas(null); setIdeasError(""); }, [checkKey]);
   const requestIdeas = async (roomOnly: boolean) => {
     if (!draft.courseId || !draft.instructorId || hasDifferentTimes) return;
+    const requestedKey = checkKey;
     setIdeaKind(roomOnly ? "room" : "time");
     setIdeas(null); setIdeasError(""); setIdeasBusy(true);
     try {
@@ -286,9 +289,10 @@ export default function QuickCreatePopover({
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "تعذّر اقتراح المواعيد");
+      if (latestIdeasKey.current !== requestedKey) return;
       setIdeas(Array.isArray(result.slots) ? result.slots : []);
       if (!result.slots?.length && result.note) setIdeasError(String(result.note));
-    } catch (issue: any) { setIdeasError(issue?.message || "تعذّر إيجاد المقترحات."); }
+    } catch (issue: any) { if (latestIdeasKey.current === requestedKey) setIdeasError(issue?.message || "تعذّر إيجاد المقترحات."); }
     finally { setIdeasBusy(false); }
   };
 
