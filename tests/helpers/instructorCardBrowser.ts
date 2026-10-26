@@ -40,7 +40,7 @@ export async function reviewInstructorCard(base: string, card: {
     assert.equal(await selectedCourse.getAttribute("open"), "", "the selected course opens before choosing its section");
     const pick = page.locator(`[data-offering="${offering.id}"] .offering-pick`);
     assert.equal(await pick.isVisible(), true, "the section action is visible only after opening its course");
-    assert.equal(await pick.innerText(), "اختر الشعبة", "the primary action is plainly labeled");
+    assert.equal(await pick.innerText(), "اخترها", "the primary action is plainly labeled and visually distinct");
     assert.notEqual(await pick.evaluate((node: HTMLElement) => getComputedStyle(node).backgroundColor), await pick.evaluate((node: HTMLElement) => getComputedStyle(node.parentElement!).backgroundColor), "the primary action stands out from its section card");
     await page.screenshot({ path: `${screenshots}/professor-15-courses-mobile.png`, fullPage: true });
 
