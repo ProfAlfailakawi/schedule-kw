@@ -226,7 +226,7 @@ check(staffHtml.includes("tab.hidden=!links.length") && staffHtml.includes("if(!
   "ويُخفى التبويبُ كلُّه حين لا نافذةَ طلباتٍ مفتوحة، ولا بطاقةَ «انتهت فترة الطلبات» ولا زرَّ فتح نموذجٍ لنافذةٍ مغلقة");
 check(!staffHtml.includes('id="edit"') && staffHtml.includes("tabRequests.onclick=function"),
   "لا زرّ «تعديل» مكرر في الأدوات: «طلب تعديل الجدول» هو البابُ الوحيد");
-check(server.includes("const requestLinks = (await Promise.all(requestRows.map(") && !server.includes("(personal ? requestRows : []).map"),
+check(server.includes("const requestLinks = eligibleRequests") && server.includes("const publishedFamilies = new Set<string>();") && !server.includes("(personal ? requestRows : []).map"),
   "وبعد الرقم المدني يفتح النموذجَ من رابط القسم كما من الرابط الشخصي");
 
 /* ── النطاقُ الزمنيّ يُقرأ من بدايته ──────────────────────────────────────── */
