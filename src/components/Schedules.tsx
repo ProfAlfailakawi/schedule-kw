@@ -4384,6 +4384,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       start: handoff.start,
       end: handoff.end,
     });
+    // Preserve decisions made in the quick card; otherwise "more details"
+    // silently discards the section and selected official location.
+    setForm(current => ({
+      ...current,
+      ...(handoff.scode ? { SCode: handoff.scode } : {}),
+      ...(handoff.buildingId ? { buildingId: handoff.buildingId, AdRoomCode: handoff.room || "" } : {}),
+      ...(handoff.locationStatus === "PENDING_ROOM"
+        ? { roomId: undefined, AdRoomHall: "", locationStatus: "PENDING_ROOM" as const }
+        : handoff.roomId
+          ? { roomId: handoff.roomId, AdRoomHall: handoff.hall || "", locationStatus: "VERIFIED" as const }
+          : {}),
+    }));
     setMessage(handoffNotice(handoff));
   }, [mode, courses.length]);
   useEffect(() => {
@@ -12241,9 +12253,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           seed={quick}
           courses={quickCourses}
           instructors={instructors}
-          collegeId={Number(filterCollege||0)}
-          sectionId={Number(filterSection||0)}
-          termId={Number(filterTerm||0)}
+          collegeId={quickScope().collegeId}
+          sectionId={quickScope().sectionId}
+          termId={quickScope().termId}
           durationForDay={(day) => expectedDurationForDay({
             AdCollegeId: filterCollege, AdSectionId: filterSection, AdTermId: filterTerm,
           }, day)}
