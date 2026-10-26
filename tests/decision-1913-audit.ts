@@ -80,9 +80,13 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   check(!byRule(review([valid50Pattern], [theoretical(81, 3)]), "theoretical-pattern"), "٣ ساعات: 50 دقيقة الأحد والثلاثاء والخميس مطابق");
   const invalidThree = row(82, "501", ["mon", "wed"], "11:00", "12:10");
   check(Boolean(byRule(review([invalidThree], [theoretical(82, 3)]), "theoretical-pattern")), "٣ ساعات: 70 دقيقة الاثنين والأربعاء لا تطابق المكتبة");
+  const practicalThreeBlock = row(85, "501", ["mon"], "08:00", "10:50");
+  check(!byRule(review([practicalThreeBlock], [theoretical(85, 3)]), "theoretical-pattern"), "٣ ساعات: كتلة عملية 170 دقيقة (3×50 + فاصلان) مطابقة للمكتبة في أي يوم");
 
   const validFourPattern = [row(83, "501", ["mon", "wed"], "08:00", "09:20"), row(83, "501", ["thu"], "08:00", "08:50")];
   check(!byRule(review(validFourPattern, [theoretical(83, 4)]), "theoretical-pattern"), "٤ ساعات: 80/80/50 مطابق");
+  const practicalFourBlock = row(86, "501", ["wed"], "12:00", "15:50");
+  check(!byRule(review([practicalFourBlock], [theoretical(86, 4)]), "theoretical-pattern"), "٤ ساعات: كتلة عملية 230 دقيقة (4×50 + 3 فواصل) مطابقة للمكتبة");
   const invalidFour = row(84, "501", ["mon", "wed"], "16:00", "17:50");
   const fourHourFinding = byRule(review([invalidFour], [theoretical(84, 4)]), "theoretical-pattern");
   check(Boolean(fourHourFinding) && fourHourFinding!.detail.includes("الثلاثاء") && fourHourFinding!.detail.includes("دقيقة"), "٤ ساعات: النمط المخالف يعرض مدد المكتبة الصحيحة");

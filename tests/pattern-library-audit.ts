@@ -16,6 +16,8 @@ check((html.match(/<figure class="plib-pat"/g) || []).length === total, `كلُ�
 check((html.match(/class="plib-group"/g) || []).length === library.length, "ومجموعةٌ لكل عدد ساعات");
 check(/aria-label="[^"]*80 \+ 80 \+ 50 د"/.test(html), "نمط ٨٠+٨٠+٥٠ المعتمد يظهر بوصفه المقروء");
 check(/50د[\s\S]*10د[\s\S]*80د[\s\S]*15د/.test(html), "ومفتاحٌ بطول المحاضرة والفاصل: ٥٠/١٠ و٨٠/١٥");
+const fourHourBlock = library.find(group => group.hours === 4)?.patterns.find(pattern => pattern.id === "4h-block");
+check(fourHourBlock?.minutesPerDay[0] === 230 && fourHourBlock.weeklyMinutes === 200, "كتلة الأربع ساعات العملية 230 زمنية وتحسب 200 دقيقة تدريس (50×4 + 10×3)");
 check(!/تاريخ/.test(html), "ولا كلمة «تاريخي» في النص");
 check(!html.includes("<script") && !/on\w+=/.test(html), "والرسم نصٌّ ثابت بلا سكربت");
 check(PATTERN_LIBRARY_ICON.includes("<svg") && PATTERN_LIBRARY_CSS.includes(".plib-pat"), "أيقونةٌ وأنماطٌ جاهزة");

@@ -15,6 +15,7 @@ assert.ok(lectureLengthProblem({ ftuesday: true, fstarttime: "12:00", fendtime: 
 assert.equal(effectiveCourseHours({ CourseHours: 0, CourseCredit: 3 }), 3, "إذا غابت ساعات المقرر يُستخدم عبء الوحدات المسجل");
 assert.equal(effectiveCourseHours({ CourseHours: 2, CourseCredit: 3 }), 2, "ساعات المقرر الصريحة تتقدم على الوحدات");
 assert.ok(lectureLengthProblem({ fmonday: true, fstarttime: "08:00", fendtime: "11:00" }, 3), "لا يُقبل فرقٌ عشوائي يتجاوز كتلة 170/175 دقيقة المعتمدة");
+assert.equal(lectureLengthProblem({ fwednesday: true, fstarttime: "12:00", fendtime: "15:50" }, 4), null, "كتلة 4 فترات عملية = 200 دقيقة تدريس + 3 فواصل (230 دقيقة زمنية)");
 assert.deepEqual(periodBalanceSnapshot(Array.from({ length: 10 }, (_, i) => ({ fstarttime: i < 6 ? "08:00" : "14:00" } as any))), { morning: 60, evening: 40, sections: 10, morningCount: 6 }, "توزيع الفترتين يُقرأ حتى دون وجود مخالفة");
 console.log("lecture-length-audit ok");
 
@@ -24,6 +25,8 @@ assert.equal(weeklyLectureMinutes({ fmonday: true, fwednesday: true, fstarttime:
 assert.equal(weeklyLectureMinutes({ fmonday: true, fstarttime: "08:00", fendtime: "10:50" }), 160, "العبور ذو الخمس دقائق لا يضخم دقائق التدريس الأسبوعية");
 assert.ok(160 <= maxWeeklyMinutesFor(3), "٣ ساعات = ثمانون ثمانون");
 assert.ok(210 <= maxWeeklyMinutesFor(4), "٤ ساعات = ٨٠/٨٠/٥٠");
+assert.equal(weeklyLectureMinutes({ fwednesday: true, fstarttime: "12:00", fendtime: "15:50" }, 4), 200, "كتلة الأربعاء العملية 230 دقيقة زمنية تُحسب 200 دقيقة تدريس");
+assert.equal(weeklyLectureMinutes({ fmonday: true, fstarttime: "08:00", fendtime: "10:50" }, 3), 150, "كتلة 3 فترات عملية 170 دقيقة زمنية تُحسب 150 دقيقة تدريس");
 assert.ok(weeklyLectureMinutes({ ...sut, fstarttime: "08:00", fendtime: "09:50" }) > maxWeeklyMinutesFor(3), "ست محاضرات لمقرر ٣ ساعات تزيد");
 console.log("weekly-cap ok");
 
@@ -43,6 +46,7 @@ const notice = serverSrc.slice(serverSrc.indexOf("async function mixedPatternNot
 assert.ok(/patternsForHours\(hours\)\.some/.test(notice) && /historicalOrigin\(/.test(notice), "والتنبيه لا يظهر لنمطٍ معتمد في المكتبة أو تاريخيٍّ للمقرّر");
 assert.ok(/patternNotice/.test(serverSrc.slice(serverSrc.indexOf('app.post("/api/schedules/check-conflicts"'), serverSrc.indexOf('app.post("/api/schedules/check-conflicts"') + 900)), "ويصل رسمُه شاشةَ الموعد مع فحص التعارض");
 assert.ok(/lectureNotice/.test(serverSrc.slice(serverSrc.indexOf('app.post("/api/schedules/check-conflicts"'), serverSrc.indexOf('app.post("/api/schedules/check-conflicts"') + 1000)), "الملاحظة اللائحية تصل للفحص الحي");
+assert.ok(/weeklyLectureMinutes\(other,hours\)/.test(lengthFn) && /weeklyLectureMinutes\(row,hours\)/.test(lengthFn), "حدّ العبء الأسبوعي يحسب أنماط الكتلة الواحدة وفق ساعات المقرر");
 const scheduleUi = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 assert.ok(scheduleUi.includes("schedule-lecture-advisory") && scheduleUi.includes('role="status"'), "ملاحظة المدة تظهر في الواجهة كتنبيه استرشادي غير مانع");
 assert.ok(scheduleUi.includes("ملاحظة فقط · لا تمنع الحفظ") && scheduleUi.includes("lectureAdvisoryFacts(lectureNotice)"), "الملاحظة تعرض المدة واللائحة والفاصل بمؤشرات مختصرة وتوضح أنها لا تمنع الحفظ");
