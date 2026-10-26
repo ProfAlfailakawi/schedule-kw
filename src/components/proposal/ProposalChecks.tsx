@@ -60,18 +60,19 @@ function Alternatives({ ws }: { ws: Workspace }) {
   return (
     <section className="sp-alts" aria-label="أوقات بديلة" aria-live="polite">
       <header>
-        <h4><Wand2 aria-hidden="true" />أوقات بديلة لـ «{op?.target.courseName || "المادة"}»</h4>
+        <h4><Wand2 aria-hidden="true" />أوقات وقاعات بديلة لـ «{op?.target.courseName || "المادة"}»</h4>
         <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="sp-link" onClick={() => ws.setAlts(null)}>إخفاء</button>
       </header>
       {alts.loading ? <p className="sp-alts-state"><LoaderCircle className="sp-spin" aria-hidden="true" />نفحص الأوقات الصالحة على المقترح كله…</p> : null}
       {alts.error ? <p className="sp-alts-state" role="alert">{alts.error}</p> : null}
-      {!alts.loading && !alts.error && !alts.suggestions.length ? <p className="sp-alts-state">{alts.note || "لا يوجد وقتٌ بديل صالح."}</p> : null}
+      {!alts.loading && !alts.error && !alts.suggestions.length ? <p className="sp-alts-state">{alts.note || "لا يوجد وقتٌ أو قاعة بديلة صالحة ضمن النطاق المفحوص."}</p> : null}
       <ul>
         {alts.suggestions.map(alt => (
           <li key={`${alt.days.join()}-${alt.start}`} className="sp-alt">
             <div>
               <b>{daysLabel(alt.days)}</b>
               <bdi className="sp-time">{timeRange(alt.start, alt.end)}</bdi>
+              {alt.room ? <small><b>القاعة:</b> {alt.room.AdRoomCode}/{alt.room.AdRoomHall}</small> : null}
               <span className="sp-alt-ok"><Check aria-hidden="true" />{alt.reviews ? `${alt.reviews} للمراجعة` : "بلا موانع"}</span>
             </div>
             <ul className="sp-alt-why">{alt.reasons.map(r => <li key={r}>{r}</li>)}</ul>
@@ -79,6 +80,7 @@ function Alternatives({ ws }: { ws: Workspace }) {
           </li>
         ))}
       </ul>
+      {alts.note && alts.suggestions.length ? <p className="sp-alts-state">{alts.note}</p> : null}
     </section>
   );
 }
