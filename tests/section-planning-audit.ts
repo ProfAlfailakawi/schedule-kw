@@ -214,15 +214,15 @@ check(values["1"] === 120 && values["2"] === 102 && values["3"] === 50 && values
 /* ── الواجهة ── */
 const ui = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
 check(ui.includes("courseNumber(a.code) - courseNumber(b.code)"), "الجدول مرتّب برقم المقرر تصاعدياً");
-check(ui.includes("استيراد كشف المتبقي (لم يسجلوا)") && ui.includes("/api/registration-stats/remaining-pdf") && ui.includes("planRemainingApply(preview, preview.column, manual, remaining, confirmedSuspects") && ui.includes("تعبئة ${countOf(plan.total, AR.course)}"),
+check(ui.includes("استيراد كشف الاحتياج") && ui.includes("/api/registration-stats/remaining-pdf") && ui.includes("planRemainingApply(preview, preview.column, manual, {}, confirmedSuspects") && ui.includes("تعبئة ${countOf(plan.total, AR.course)}"),
   "«الذين لم يسجلوا» يُستورد ويُراجع قبل التعبئة");
 check(ui.includes('accept="application/pdf,.pdf,image/*,.heic,.heif" multiple') && ui.includes("/api/registration-stats/remaining-cells") && ui.includes('"x-report-template"'),
   "PDF أو صور صفحاته (الهاتف): تُقرأ صورةً صورة وتُجمع صفحاتها");
-check(ui.includes("الخطة تُبنى على عمود «اعداد الذين لم يسجلوا» من كشف العمادة — المتبقي الإجمالي") && ui.includes("<th>المتبقي (لم يسجلوا)</th>")
+check(ui.includes("الخطة تُبنى على عمود «اعداد الطلبة لم يجتازوا في بداية التسجيل» من كشف العمادة — الاحتياج المرجعي") && ui.includes("<th>الاحتياج</th>")
   && !ui.includes("<th>المقاعد المتبقية</th>") && ui.includes("تخالف حساب الكشف (لم يجتازوا − المسجلين)"),
   "الواجهة تقول إن الخطة تُبنى على «اعداد الذين لم يسجلوا» المستورد، وحساب الكشف لم يجتازوا − المسجلين");
-check(ui.includes('setSource({ fileName: preview.fileName, importedAt: new Date().toISOString(), column: "unregistered" })')
-  && ui.includes('if (!source) setSource({ fileName: "إدخال يدوي", importedAt: new Date().toISOString(), column: "unregistered" })') && !ui.includes('column: "seats" })'),
+check(ui.includes('setSource({ fileName: preview.fileName, importedAt: new Date().toISOString(), column: "notPassed", reportTerm: preview.reportTerm || "" })')
+  && ui.includes('if (!source) setSource({ fileName: "إدخال يدوي", importedAt: new Date().toISOString(), column: "notPassed" })') && !ui.includes('column: "seats" })'),
   "التطبيق والإدخال اليدوي بلا كشف يوسمان المصدر «unregistered» — فيُعاد بعد التحميل");
 check(!ui.includes("عدد الطلبة المسجّلين") && !ui.includes("counts:"), "لا خانة «المسجّلين» تُكتب يدوياً");
 check(ui.includes("keepalive: true") && ui.includes('addEventListener("pagehide"') && ui.includes("window.setTimeout(() => { void persistRef.current(); }, 900)"),
@@ -240,9 +240,9 @@ const repo = fs.readFileSync("src/db/repository.ts", "utf8");
 check(repo.includes("getRegistrationStats: async") && repo.includes("saveRegistrationStats: async") && repo.includes('collection("registrationStats")'), "الإحصاء يُحفظ عبر المستودع (Firestore والمحلي)");
 check(repo.includes("input.counts ?? previous?.counts") && repo.includes("remaining: Object.fromEntries(Object.entries(clean(input.remaining, 100000, -100000)).map(([key, value]) => [key, Math.max(0, value)]))")
   && (server.match(/Math\.max\(0, Number\(value\) \|\| 0\)/g) || []).length === 1, "لا متبقٍّ سالب: يُحفظ صفراً، وما حُفظ سالباً قبلُ يُعرض صفراً في تاريخ الفصول السابقة؛ و«المسجّلين» القديم يبقى كما هو");
-check(repo.includes('input.remainingSource.column === "unregistered" || input.remainingSource.column === "seats"'), "وسم العمود يُحفظ كما أُرسل («unregistered»، و«seats» القديم يبقى قديماً)");
-check((server.match(/remainingSource\?\.column === "unregistered"/g) || []).length === 7 && !server.includes('remainingSource?.column === "seats"')
-  && server.includes('legacyRemaining: stats?.remainingSource?.column !== "unregistered"')
+check(repo.includes('input.remainingSource.column === "notPassed" || input.remainingSource.column === "unregistered" || input.remainingSource.column === "seats"'), "وسم العمود يُحفظ كما أُرسل («unregistered»، و«seats» القديم يبقى قديماً)");
+check((server.match(/remainingSource\?\.column === "notPassed"/g) || []).length >= 7 && !server.includes('remainingSource?.column === "seats"')
+  && server.includes('legacyRemaining: stats?.remainingSource?.column !== "notPassed"')
   && !server.includes("firstSemesterFallback") && !server.includes("useFirstSemesterFallback"),
   "الخادم: «unregistered» وحده مدخل الاقتراح والمقارنة والتوقّع (والشاغر معه)، ولا يستعير المتبقي من فصل آخر");
 check(server.includes("vacant: req.body?.vacant || {}") && repo.includes("vacant: clean(input.vacant, 100000, -100000)"),

@@ -5,7 +5,7 @@
 import fs from "fs";
 import {
   assessRemainingImport, detectReportDepartment, imageOrientationRefusal, imageSize,
-  confirmReportDepartment, HEADER_DIGITS_MARK, manualRemainingValue, planRemainingApply, readRemainingReport, remainingOf, remainingValues, remainingReportTermRelation, type ReportCell,
+  confirmReportDepartment, HEADER_DIGITS_MARK, manualRemainingValue, planRemainingApply, readRemainingReport, remainingOf, remainingValues, reportUnregisteredValues, remainingReportTermRelation, type ReportCell,
 } from "../src/utils/remainingReport";
 import { readReportCells } from "../src/utils/documentOcr";
 import { suggestSectionCount } from "../src/utils/sectionCountSuggestion";
@@ -308,6 +308,34 @@ check(Boolean(a.reject?.includes("0202") && a.reject.includes("0101")), "وال�
   const some = suggestSectionCount(30, 40, hist);
   check(some.basis === "history" && some.min === 1 && some.reason.includes("المتبقي 30 تكفيه"),
     "متبقٍّ موجب أقل من المعتاد (30 ÷ 40 ← شعبة): المدى ينزل إليه ويُقال «المتبقي 30 تكفيه»");
+}
+
+/* تخطيط الفصل المختار يأخذ «لم يجتازوا»؛ ولا يورث أرقام كشفٍ سابق. */
+{
+  const own = [{ id: 1, code: "0101102" }, { id: 3, code: "0101201" }, { id: 7, code: "0101323" }];
+  const selected = readRemainingReport([page(0, [["0101102", [330, 40, 62, -22, 1, 268]], ["0101201", [51, 60, 48, 12, 1, 3]]])], own, "0101", "notPassed");
+  const values = remainingValues(selected, selected.column!);
+  check(selected.columns[selected.column!]?.kind === "notPassed" && values["1"] === 330 && values["3"] === 51,
+    "الاحتياج من «لم يجتازوا في بداية التسجيل» لا من عمود «الذين لم يسجلوا»");
+  const registeredSeparately = reportUnregisteredValues(selected);
+  check(registeredSeparately["1"] === 268 && registeredSeparately["3"] === 3,
+    "التوقع التشغيلي يحتفظ بالذين لم يسجلوا منفصلين عن احتياج التخطيط المعتمد من العميد");
+  const newPlan = planRemainingApply(selected, selected.column!, {}, {});
+  check(newPlan.next["1"] === 330 && newPlan.next["3"] === 51 && !("7" in newPlan.next),
+    "كشفٌ جديد لا يصنع احتياجاً لمقرر غير وارد ولا ينقل 82 محفوظة قديماً");
+  const unopened = readRemainingReport(clear, catalogue, "0101", "notPassed");
+  check(remainingValues(unopened, unopened.column!)["2"] === 297 && reportUnregisteredValues(unopened)["2"] === 297,
+    "مقررٌ بلا شعب وله طلبة لم يجتازوا: احتياجه يُقرأ ولا يسقط");
+}
+
+/* تقريرٌ ينتقل من القسم العلمي 0101 إلى 0110 في الصفحة نفسها: لا خلطٍ لرمز المقرر 323. */
+{
+  const data = page(0, [["323", [100, 40, 20, 20, 1, 80]], ["323", [200, 40, 20, 20, 1, 180]]]);
+  data.push(at("رمز القسم العلمي 0110", 0.56, 0.265, undefined, 0.3));
+  const separated = readRemainingReport([data], [{ id: 44, code: "0101323" }], "0101", "notPassed");
+  const values = remainingValues(separated, separated.column!);
+  check(values["44"] === 100 && separated.rows.length === 1 && separated.rows[0].occurrences === 1,
+    "نفس رقم المقرر بعد ترويسة قسم آخر لا يُنقل ولا يُجمع على مقررات قسم التخطيط");
 }
 
 console.log(`\nSection planning import audit: ${passed} passed, ${failed} failed`);

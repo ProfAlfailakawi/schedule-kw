@@ -3850,12 +3850,12 @@ export const Repository = {
         if (sectionId) {
           const [sectionDoc, courseSnap] = await Promise.all([
             firestoreDb.collection("sections").doc(`section_${sectionId}`).get(),
-            firestoreDb.collection("courses").where("AdSectionId", "==", sectionId).get()
+            Repository.getCoursesBySection(sectionId)
           ]);
           if (!sectionDoc.exists) return [];
           const section = sectionDoc.data() as AdSection;
           if (collegeId && Number(section.AdCollegeId) !== collegeId) return [];
-          const courses = courseSnap.docs.map(doc => doc.data() as AdCourse);
+          const courses = courseSnap;
           const rows = await getFirestoreSchedulesForCourseIds(courses.map(course => course.AdCourseId), termId);
           return hydrateSchedules(rows, courses, [section]).sort((a,b)=>a.id-b.id);
         }
@@ -6904,7 +6904,7 @@ export const Repository = {
   },
 
   saveRegistrationStats: async (collegeId: number, sectionId: number, termId: number,
-    input: { counts?: Record<string, number>; remaining?: Record<string, number>; vacant?: Record<string, number>; accepted?: Record<string, number>; remainingSource?: { fileName?: unknown; importedAt?: unknown; column?: unknown } | null },
+    input: { counts?: Record<string, number>; remaining?: Record<string, number>; unregistered?: Record<string, number>; vacant?: Record<string, number>; accepted?: Record<string, number>; remainingSource?: { fileName?: unknown; importedAt?: unknown; column?: unknown; reportTerm?: unknown } | null },
     updatedBy = ""): Promise<RegistrationStats> => {
     const scopeKey = `${collegeId}:${sectionId}:${termId}`;
     const clean = (map: Record<string, unknown> | undefined, max: number, min = 0) => Object.fromEntries(
@@ -6915,12 +6915,13 @@ export const Repository = {
     const previous = input.counts === undefined ? await Repository.getRegistrationStats(collegeId, sectionId, termId) : null;
     const source = input.remainingSource && String(input.remainingSource.fileName || "").trim()
       ? { fileName: String(input.remainingSource.fileName).slice(0, 200), importedAt: String(input.remainingSource.importedAt || new Date().toISOString()).slice(0, 40),
-          ...(input.remainingSource.column === "unregistered" || input.remainingSource.column === "seats" ? { column: input.remainingSource.column as "unregistered" | "seats" } : {}) }
+          ...(input.remainingSource.column === "notPassed" || input.remainingSource.column === "unregistered" || input.remainingSource.column === "seats" ? { column: input.remainingSource.column as "notPassed" | "unregistered" | "seats" } : {}),
+          ...(input.remainingSource.reportTerm ? { reportTerm: String(input.remainingSource.reportTerm).slice(0, 90) } : {}) }
       : undefined;
     const row: RegistrationStats = {
       id: scopeKey, scopeKey, collegeId, sectionId, termId,
       counts: clean(input.counts ?? previous?.counts, 100000), remaining: Object.fromEntries(Object.entries(clean(input.remaining, 100000, -100000)).map(([key, value]) => [key, Math.max(0, value)])) /* لا متبقٍّ سالب: «الذين لم يسجلوا» السالب (طلبةٌ جدد) = لا متأخرين = صفر */,
-      vacant: clean(input.vacant, 100000, -100000) /* «المقاعد المتبقية» سالبةٌ إن زاد المسجّلون على السعة */, accepted: clean(input.accepted, 500),
+      unregistered: clean(input.unregistered, 100000), vacant: clean(input.vacant, 100000, -100000) /* «المقاعد المتبقية» سالبةٌ إن زاد المسجّلون على السعة */, accepted: clean(input.accepted, 500),
       ...(source ? { remainingSource: source } : {}),
       updatedAt: new Date().toISOString(), updatedBy: String(updatedBy || "").slice(0, 120),
     };
