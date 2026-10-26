@@ -203,7 +203,7 @@ function skVerdict(it){var n=String(it&&it.note||""),full=verdictText(it),ic="",
  if(/لا يغطّيها/.test(n)){ic="cal";var hrs=/هذا المقرّر (.+?) أسبوعياً/.exec(n);short=(hrs?"المقرر "+hrs[1]+" أسبوعياً · ":"")+(it.shapes&&it.shapes.length?"اختر أياماً تغطيها:":"توزيعها يحدّده القسم")}
  else{var p=skAlertParts(n);if(p){ic=p.ic;short=p.short;extra=p.extra}}
  if(!short||(short===full&&!extra))return esc(full);
- return '<span class="vshort">'+gi(ic)+esc(short)+'</span>'+extra+(/^أكثر من شعبتين متتاليتين/.test(n)?"":'<details class="why"><summary>التفاصيل</summary><p>'+esc(full)+'</p></details>')
+ return '<span class="vshort">'+gi(ic)+esc(short)+'</span>'+extra+(/^أكثر من شعبتين متتاليتين/.test(n)?"":'<details class="why"><summary>التفاصيل</summary><p>'+esc(full)+'</p></details>')}
 /* قرارُ القسم: سببُ الرفض رمزاً وكلمات قليلة. */
 var SKREASON={room:["door","لا قاعة في الوقت المطلوب"],instructor:["alert","تعارض مع أستاذ آخر"],regulation:["shield","مخالفة للائحة"],cohort:["alert","تقاطع مع طلبة مشتركين"],load:["layers","النصاب التدريسي"],department:["cal","قرار القسم"],other:["alert","سبب آخر"]};
 function skReason(code,askedAt){var r=SKREASON[code];if(!r)return "";return '<span class="vshort">'+gi(r[0])+esc(r[1])+'</span>'+(askedAt?'<span class="vrow"><bdi dir="ltr">'+esc(askedAt)+'</bdi></span>':"")}
