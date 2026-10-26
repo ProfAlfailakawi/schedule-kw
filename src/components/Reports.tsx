@@ -4174,7 +4174,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                     <td className="print-ltr">{row.SCode || "—"}{showCollegeOnInstructorRows ? <small dir="rtl" className="print-visiting-place">{collegeById.get(Number(row.AdCollegeId))?.AdCollegeName || "كلية غير مسماة"}</small> : null}</td>
                     <td className="print-days">{dayCell(row)}</td>
                     <td className="print-ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</td>
-                    <td className="print-ltr"><bdi dir="ltr">{placeOfRow(row)}</bdi><CompanionFacilityBadge row={row} compact /></td>
+                    <td className="print-instructor-venue-cell"><div className="print-instructor-venue"><bdi dir="ltr">{placeOfRow(row)}</bdi><CompanionFacilityBadge row={row} compact /></div></td>
                   </tr>)}</tbody>
                 </table>
               </section>

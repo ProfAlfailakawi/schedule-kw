@@ -78,4 +78,8 @@ assert.ok(reportScreen.includes('<bdi dir="ltr">{placeOfRow(row)}</bdi><Companio
 assert.ok(staffVisual.includes("skCompanion(r,esc)"),"teacher card week and print include the badge");
 assert.ok(server.includes("companionRoomId: row.companionRoomId || \"\"") && server.includes("companionRoomLabel: row.companionRoomLabel || \"\""),"staff card endpoint sends the real saved companion room");
 assert.ok(badgeScreen.includes('if (!row.companionRoomId && !label) return null'),"ordinary appointments have no empty badge");
+assert.ok(reportScreen.includes('className="print-instructor-venue-cell"'),"instructor print keeps the five-column table and uses a dedicated venue cell");
+assert.ok(reportScreen.includes('className="print-instructor-venue"'),"instructor print places the companion directly under the original venue");
+const printCss = readFileSync(new URL("../src/styles/08-print.css", import.meta.url),"utf8");
+assert.ok(printCss.includes(".print-query-groups-report .print-instructor-venue .companion-facility-badge"),"print media style explicitly preserves legibility of the companion room");
 console.log("Companion facility booking and display audit passed");
