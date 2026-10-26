@@ -35,4 +35,6 @@ assert.match(server, /borrowingRequired && dayKeys\.some\(day=>!borrowCovers/);
 assert.match(schedule, /\/api\/schedules\/suggest-slots/g);
 assert.match(quick, /\/api\/schedules\/suggest-slots/);
 assert.match(schedule, /const roomIdeasKey = .+form\.AdCourseId/);
+assert.match(schedule, /roomIdeasNote \|\|/);
+assert.match(schedule, /slotIdeasNote \|\|/);
 console.log("Room suggestion eligibility: exact type + teaching nature across both entry points ✓");
