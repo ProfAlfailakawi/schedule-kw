@@ -18,6 +18,8 @@ import { isBlockingConflict, timeToMinutes, minutesToTime } from "../utils/sched
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { reviewSchedule, effectiveCourseHours, weeklyLectureMinutes, maxWeeklyMinutesFor } from "../utils/scheduleRegulations";
 import { learnCourseNature } from "../utils/courseNature";
+import { eligibleHallsForSection, rowOccupiesRoom } from "../utils/locationRegistry";
+import { mergeRegistryWithSeed } from "./locationRegistryEngine";
 import {
   applyProposalOps, daysLabel, daysOf, durationOf, GridItem, placeLabel, ProposalEvaluation, ProposalFinding,
   proposalDrift, proposalMetrics, snapshotOf, validateOps, PROPOSAL_DAY_KEYS, PROPOSAL_DAY_NAMES, type ProposalCatalog,
@@ -475,6 +477,8 @@ export interface AlternativeSuggestion {
   days: StudyProposalDayKey[];
   start: string;
   end: string;
+  /** Optional real official room: changing room is a first-class repair. */
+  room?: { buildingId: string; roomId: string; AdRoomCode: string; AdRoomHall: string; locationStatus: "VERIFIED" };
   reasons: string[];
   blockers: number;
   reviews: number;
@@ -510,57 +514,115 @@ export async function suggestAlternatives(
   if (!op) return { suggestions: [], note: "المادة غير موجودة في المقترح." };
   const duration = durationOf(op.target);
   const baseStart = timeToMinutes(op.target.fstarttime);
-  if (!duration) return { suggestions: [], note: "حدّد وقت البداية والنهاية أولاً." };
+  if (!(duration > 0) || !Number.isFinite(baseStart)) return { suggestions: [], note: "حدّد وقت البداية والنهاية أولاً." };
 
-  const baseOps = input.ops;
-  const baseEval = await evaluateProposal(deps, req, { ...input, ops: baseOps }, w);
+  const baseEval = await evaluateProposal(deps, req, input, w);
   const baseGap = baseEval.after.metrics.gapMinutes;
   const baseDays = baseEval.after.metrics.attendanceDays;
+  const without = applyProposalOps(w.termRows, input.ops.filter(o => o.id !== opId), {
+    instructorId: input.instructorId, termId: input.termId, placeholderId: [...w.placeholders][0] || null,
+  });
+  // The source row of the operation is being moved/reassigned, so do not count
+  // its old occupancy as a conflict in the quick prefilter.
+  const ignoreIds = new Set([op.source?.id, op.out?.snapshot.id].filter((id): id is number => typeof id === "number"));
+  const others = without.rows.filter(row => !ignoreIds.has(Number(row.id)));
 
+  const [storedBuildings, storedRooms, requests, section] = await Promise.all([
+    Repository.getLocationBuildings(), Repository.getLocationRooms(),
+    Repository.getHallBarterRequests(input.termId), Repository.getSectionById(op.target.AdSectionId),
+  ]);
+  const registry = Repository.isDemoRequest()
+    ? { buildings: storedBuildings, rooms: storedRooms }
+    : mergeRegistryWithSeed({ buildings: storedBuildings, rooms: storedRooms });
+  const borrowIds = new Set(requests.filter(request => request.status === "approved"
+    && Number(request.requesterCollegeId) === op.target.AdCollegeId
+    && Number(request.requesterSectionId) === op.target.AdSectionId && request.roomId)
+    .map(request => String(request.roomId)));
+  const official = eligibleHallsForSection(registry, op.target.AdSectionId, borrowIds);
+  type Room = NonNullable<AlternativeSuggestion["room"]>;
+  const rooms: Room[] = official.map(hall => ({
+    buildingId: hall.buildingId, roomId: hall.roomId, AdRoomCode: hall.room, AdRoomHall: hall.hall, locationStatus: "VERIFIED",
+  }));
+  // Preserve the currently picked room even if historical room rights changed:
+  // the final server verdict will decide whether it remains eligible.
+  if (op.target.buildingId && op.target.roomId && !rooms.some(room => room.roomId === op.target.roomId)) {
+    rooms.push({ buildingId: op.target.buildingId, roomId: op.target.roomId,
+      AdRoomCode: op.target.AdRoomCode, AdRoomHall: op.target.AdRoomHall, locationStatus: "VERIFIED" });
+  }
+  const candidateRooms: Array<Room | null> = rooms.length ? rooms : [null];
+  const bounds = scheduleDayWindowMinutes(section);
   const variants = dayVariants(daysOf(op.target));
-  const pool: Array<{ days: StudyProposalDayKey[]; start: number; score: number }> = [];
+  const course = w.catalog.courseById.get(Number(op.target.AdCourseId)) as any;
+  const expectedType = String(course?.CourseRoomType || "").trim();
+  const neededCapacity = Number(course?.MaxStudent || 0);
+  const masterById = new Map(registry.rooms.map(room => [String(room.id), room]));
+
+  const options: Array<{ days: StudyProposalDayKey[]; start: number; room: Room | null; rank: number }> = [];
   for (const days of variants) {
-    for (let start = SCHEDULE_DAY_START; start + duration <= SCHEDULE_DAY_END; start += 10) {
-      if (days.join() === daysOf(op.target).join() && start === baseStart) continue;
-      const dayShift = days.join() === daysOf(op.target).join() ? 0 : 60;
-      pool.push({ days, start, score: Math.abs(start - baseStart) + dayShift });
+    for (let start = bounds.start; start + duration <= bounds.end; start += 10) {
+      const shifted = start !== baseStart || days.join() !== daysOf(op.target).join();
+      for (const room of candidateRooms) {
+        const roomChanged = room ? String(room.roomId) !== String(op.target.roomId || "") : false;
+        if (!shifted && !roomChanged) continue;
+        const dayShift = days.join() === daysOf(op.target).join() ? 0 : 90;
+        let rank = Math.abs(start - baseStart) + dayShift + (roomChanged ? 14 : 0);
+        const record = room ? masterById.get(room.roomId) : undefined;
+        if (expectedType && record?.roomType && record.roomType !== expectedType) rank += 35;
+        if (neededCapacity > 0 && Number(record?.capacity) > 0 && Number(record?.capacity) < neededCapacity) rank += 45;
+        options.push({ days, start, room, rank });
+      }
     }
   }
-  pool.sort((a, b) => a.score - b.score);
+  options.sort((a, b) => a.rank - b.rank || a.start - b.start);
 
-  const placeholderId = [...w.placeholders].sort((a, b) => a - b)[0] || null;
-  const ownBase = applyProposalOps(w.termRows, input.ops.filter(o => o.id !== opId), { instructorId: input.instructorId, termId: input.termId, placeholderId });
-  const ownRows = ownBase.rows.filter(row => Number(row.AdInstructorId) === input.instructorId);
-  const nonLecturer = (a: { days: StudyProposalDayKey[]; start: number }) => !ownRows.some(row =>
-    a.days.some(d => Boolean((row as any)[d])) && a.start < timeToMinutes(row.fendtime) && timeToMinutes(row.fstarttime) < a.start + duration);
-
-  const survivors = pool.filter(nonLecturer).slice(0, 14);
   const suggestions: AlternativeSuggestion[] = [];
-  for (const candidate of survivors) {
-    if (suggestions.length >= 4) break;
-    const nextOps = input.ops.map(o => o.id !== opId ? o : {
-      ...o, target: { ...o.target, days: candidate.days, fstarttime: minutesToTime(candidate.start), fendtime: minutesToTime(candidate.start + duration) },
-    });
+  let evaluated = 0;
+  const MAX_FULL_CHECKS = 100;
+  for (const candidate of options) {
+    if (suggestions.length >= 4 || evaluated >= MAX_FULL_CHECKS) break;
+    const end = candidate.start + duration;
+    const busyInstructor = others.some(row => Number(row.AdInstructorId) === input.instructorId
+      && candidate.days.some(day => Boolean((row as any)[day]))
+      && candidate.start < timeToMinutes(row.fendtime) && timeToMinutes(row.fstarttime) < end);
+    if (busyInstructor) continue;
+    if (candidate.room && others.some(row =>
+      candidate.days.some(day => Boolean((row as any)[day]))
+      && candidate.start < timeToMinutes(row.fendtime) && timeToMinutes(row.fstarttime) < end
+      && rowOccupiesRoom(row, candidate.room!.roomId, candidate.room!.AdRoomCode, candidate.room!.AdRoomHall))) continue;
+    const nextOps: StudyProposalOp[] = input.ops.map(o => o.id !== opId ? o : ({
+      ...o, target: {
+        ...o.target, days: candidate.days, fstarttime: minutesToTime(candidate.start), fendtime: minutesToTime(end),
+        ...(candidate.room || {}),
+      },
+    }));
+    evaluated++;
     const result = await evaluateProposal(deps, req, { ...input, ops: nextOps }, w);
-    const own = result.findings.filter(f => f.opId === opId);
-    if (own.some(f => f.kind === "blocker")) continue;
+    // Never call an alternative good if any of the other items became blocked.
+    if (!result.readiness.canSend || result.status !== "complete") continue;
+    const changedRoom = candidate.room && String(candidate.room.roomId) !== String(op.target.roomId || "");
     const reasons: string[] = [];
+    if (changedRoom) reasons.push(`قاعة بديلة ${candidate.room!.AdRoomCode}/${candidate.room!.AdRoomHall}`);
+    if (candidate.start === baseStart && candidate.days.join() === daysOf(op.target).join()) reasons.push("يحافظ على الأيام والوقت الأصليين");
     const gapDelta = result.after.metrics.gapMinutes - baseGap;
-    if (gapDelta < 0) reasons.push(`يقلّل الفراغات بين المحاضرات بمقدار ${countOf(Math.abs(gapDelta), AR.minute)}`);
+    if (gapDelta < 0) reasons.push(`يقلّل الفراغات بمقدار ${countOf(-gapDelta, AR.minute)}`);
     else if (gapDelta === 0) reasons.push("لا يزيد الفراغات بين المحاضرات");
-    if (result.after.metrics.attendanceDays <= baseDays) reasons.push(result.after.metrics.attendanceDays < baseDays ? "يقلّل أيام الحضور" : "يُبقي أيام الحضور كما هي");
-    const shift = Math.abs(candidate.start - baseStart);
-    if (shift && candidate.days.join() === daysOf(op.target).join()) reasons.push(`قريب من الوقت الحالي (${countOf(shift, AR.minute)})`);
-    if (candidate.days.join() !== daysOf(op.target).join()) reasons.push(`أيام لقاءٍ مختلفة في النمط نفسه (${daysLabel(candidate.days)})`);
+    if (result.after.metrics.attendanceDays <= baseDays) reasons.push(result.after.metrics.attendanceDays < baseDays ? "يقلّل أيام الحضور" : "يُبقي أيام الحضور");
+    if (candidate.days.join() !== daysOf(op.target).join()) reasons.push(`أيام بديلة من النمط نفسه (${daysLabel(candidate.days)})`);
+    const own = result.findings.filter(f => f.opId === opId);
     suggestions.push({
-      days: candidate.days, start: minutesToTime(candidate.start), end: minutesToTime(candidate.start + duration),
+      days: candidate.days, start: minutesToTime(candidate.start), end: minutesToTime(end),
+      ...(candidate.room ? { room: candidate.room } : {}),
       reasons, blockers: 0, reviews: own.filter(f => f.kind === "review").length, gapDelta,
     });
   }
-  suggestions.sort((a, b) => (a.reviews - b.reviews) || (a.gapDelta - b.gapDelta));
-  return suggestions.length
-    ? { suggestions }
-    : { suggestions: [], note: "لا يوجد وقتٌ بديلٌ صالحٌ يحافظ على نمط اللقاءات ومدتها. جرّب تغيير القاعة أو الأيام." };
+  suggestions.sort((a, b) => a.reviews - b.reviews || a.gapDelta - b.gapDelta);
+  const partial = evaluated >= MAX_FULL_CHECKS && suggestions.length < 4;
+  return {
+    suggestions,
+    ...(!suggestions.length
+      ? { note: partial ? "لم يظهر حل في نطاق البحث الأول. جرّب تغيير الأيام أو القاعة؛ لم يُفحص كل احتمال." : "لم يظهر وقت أو قاعة بديلة صالحة في النطاق المتاح." }
+      : partial ? { note: "النتائج من نطاق البحث الأول؛ قد توجد خيارات أخرى." } : {}),
+  };
 }
 
 export { snapshotOf, PROPOSAL_DAY_NAMES };
