@@ -15784,11 +15784,43 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
      الطلب إلا صاحبَه، ولا يصل قبل التحقق. ويبقى ما حماه a966906 فعلاً: الرابطُ
      الشخصيُّ لا يُفتح برقم زميل، وتاريخُ القرارات خارج رابط القسم العام. */
   const requestLinksById = new Map((await Repository.getShareLinksByIds(requestRows.map(request => request.linkId))).map(requestLink => [requestLink.id, requestLink]));
-  const requestLinks = (await Promise.all(requestRows.map(async request => {
+  const familyOfRequest = departmentFamilyResolver(sections);
+  const familySeeds = new Map<string, { collegeId: number; sectionId: number }>();
+  for (const request of requestRows) {
+    const key = familyOfRequest(Number(request.AdCollegeId), Number(request.AdSectionId));
+    if (!familySeeds.has(key)) familySeeds.set(key, { collegeId: Number(request.AdCollegeId), sectionId: Number(request.AdSectionId) });
+  }
+  /* «طلب تعديل الجدول» يتبع نشرَ بطاقة العائلة، لا روابطَ الطلب التي
+     سُكّت في الماضي: إيقاف النشر يلغي ظهور النوافذ غير المستحقة. */
+  const publishedFamilies = new Set<string>();
+  await Promise.all([...familySeeds].map(async ([key, scope]) => {
+    const links = await staffFamilyShareLinks(scope.collegeId, scope.sectionId, Number(displayTermId));
+    if (links.some(liveStaffPublication)) publishedFamilies.add(key);
+  }));
+  const eligibleRequests: Array<{ request: InstructorRequest; windowOpen: boolean }> = [];
+  for (const request of requestRows) {
+    const familyKey = familyOfRequest(Number(request.AdCollegeId), Number(request.AdSectionId));
+    if (!publishedFamilies.has(familyKey)) continue;
     const requestLink = requestLinksById.get(request.linkId);
-    if (!requestLink || requestLink.revoked || !await shareLinkStillReadable(requestLink, terms as any)) return null;
-    const windowOpen = requestWindowOpen(request);
-    return {
+    if (!requestLink || requestLink.revoked || !await shareLinkStillReadable(requestLink, terms as any)) continue;
+    eligibleRequests.push({ request, windowOpen: requestWindowOpen(request) });
+  }
+  /* إن وصل طلبٌ فعليٌّ فلا نخفيه لصالح مسودة أحدث. أما المسوداتُ
+     المتعددة في مواقع العائلة، فيظهر أحدث رابط صالح واحد فقط. */
+  const respondedFamilies = new Set(eligibleRequests.filter(entry =>
+    entry.windowOpen && entry.request.status !== "sent").map(entry =>
+      familyOfRequest(Number(entry.request.AdCollegeId), Number(entry.request.AdSectionId))));
+  const seenUnsent = new Set<string>();
+  const requestLinks = eligibleRequests
+    .sort((a, b) => String(b.request.createdAt).localeCompare(String(a.request.createdAt)))
+    .filter(({ request, windowOpen }) => {
+      const key = familyOfRequest(Number(request.AdCollegeId), Number(request.AdSectionId));
+      if (!windowOpen || request.status !== "sent") return true;
+      if (respondedFamilies.has(key) || seenUnsent.has(key)) return false;
+      seenUnsent.add(key);
+      return true;
+    })
+    .map(({ request, windowOpen }) => ({
       linkId: request.linkId,
       sectionId: Number(request.AdSectionId),
       sectionName: sections.find(row => Number(row.AdSectionId) === Number(request.AdSectionId))?.AdSectionName || "القسم",
@@ -15796,10 +15828,8 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
       status: request.status,
       windowOpen,
       closesAt: request.window?.closesAt || "",
-      /* بنودٌ اقترح فيها القسمُ وينتظر ردَّه — تُقال على البطاقة ليعرف أن الدور عليه. */
       proposed: (request.items || []).filter(item => negotiationState(item) === "proposed").length,
-    };
-  }))).filter(Boolean);
+    }));
 
   const courseById = new Map(courses.map(row => [row.AdCourseId, row]));
 
