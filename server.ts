@@ -20634,14 +20634,22 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   const sourceTermId = source === "previous-term"
     ? Number(req.body?.previousTermId || 0) || termId
     : termId;
-  const [rows, courses, existing, sourceTermRows, colleges, issueTerms] = await Promise.all([
-    Repository.getSchedulesByScope({ collegeId, sectionId, termId: sourceTermId }),
+  /* إصدارٌ واحدٌ لكل أستاذ في عائلة القسم (بنين/بنات/الفحيحيل وغيرها).
+     جدولُ الأستاذ المطلوب يبقى شاملاً لمحاضراته عبر الكليات كالسابق. */
+  const family = await staffFamilyScopes(collegeId, sectionId);
+  const [familyRows, courses, familyRequests, sourceTermRows, colleges, issueTerms] = await Promise.all([
+    Promise.all(family.map(scope => Repository.getSchedulesByScope({
+      collegeId: scope.collegeId, sectionId: scope.sectionId, termId: sourceTermId,
+    }))),
     Repository.getCourses(),
-    Repository.getInstructorRequests(collegeId, sectionId, termId),
+    Promise.all(family.map(scope =>
+      Repository.getInstructorRequests(scope.collegeId, scope.sectionId, termId))),
     Repository.getSchedulesByScope({ termId: sourceTermId }),
     Repository.getColleges(),
     Repository.getTerms(),
   ]);
+  const rows = familyRows.flat();
+  const existing = familyRequests.flat();
   const issueTerm = issueTerms.find(row => Number(row.AdTermId) === termId);
   const courseName = new Map((courses as any[]).map(row => [Number(row.AdCourseId), String(row.CourseName || "")]));
   const collegeNameById = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
@@ -20651,6 +20659,9 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   /* الأحدثُ لكل أستاذ: القراءةُ مرتّبةٌ من الأحدث، فكان `new Map` يُبقي آخرَ ما
      يمرّ عليه — أي الأقدم — فيحكم طلبٌ قديمٌ على الجديد. */
   const already = latestRequestByInstructor(existing);
+  /* الطلبُ الذي قدّمه الأستاذ يسبق طلباً فارغاً أُنشئ في موقعٍ شقيق. */
+  for (const [instructorId, request] of latestRequestByInstructor(existing.filter(row =>
+    row.status === "submitted" || row.status === "in-review"))) already.set(instructorId, request);
 
   const byInstructor = new Map<number, any[]>();
   for (const row of rows as any[]) {
