@@ -78,7 +78,7 @@ check(openTraining.length === 1 && openTraining[0].required === 3 && reduceTrain
 check(resolvedTraining.length === 1 && resolvedTraining[0].conflict?.openingRequired === 3 && resolvedTraining[0].conflict?.reportRequired === 1 &&
   resolvedTraining[0].extra === 0 && !resolvedTraining[0].surplus, "التدريب الميداني: بطاقة مراجعة واحدة لا فتح ولا حذف");
 const reviewHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: resolvedTraining, kind: "plan", onClose: () => {} }));
-check((reviewHtml.match(/<li\\b/g) || []).length === 1 && reviewHtml.includes("تعارض التقدير") &&
+check((reviewHtml.match(/<li\b/g) || []).length === 1 && reviewHtml.includes("تعارض التقدير") &&
   reviewHtml.includes("كشف المتبقي") && reviewHtml.includes("راجع قبل التغيير") &&
   !reviewHtml.includes("راجع الإلغاء") && !reviewHtml.includes("فائض شعبة"), "العرض: مقرر واحد، تقديران، ولا توصيتان متناقضتان");
 check(reconcilePlanAdjustments(openTraining, []).length === 1 &&
