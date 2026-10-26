@@ -12,6 +12,8 @@ const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(
 const html = patternLibraryHtml(patternLibraryInput());
 const library = patternLibraryByHours();
 const total = library.reduce((sum, group) => sum + group.patterns.length, 0);
+const fourHourPatterns = library.find(group => group.hours === 4)?.patterns || [];
+check(["fsunday,ftuesday", "ftuesday,fthursday"].every(days => fourHourPatterns.some(pattern => pattern.days.join(",") === days && pattern.minutesPerDay.every(minutes => minutes === 110) && pattern.weeklyMinutes === 200)), "٤ ساعات: نمطا الأحد/الثلاثاء والثلاثاء/الخميس يظهران 110 زمنية لكل لقاء و200 دقيقة تدريس أسبوعية");
 check((html.match(/<figure class="plib-pat"/g) || []).length === total, `كلُّ نمطٍ في المكتبة يُرسم (${total})`);
 check((html.match(/class="plib-group"/g) || []).length === library.length, "ومجموعةٌ لكل عدد ساعات");
 check(/aria-label="[^"]*80 \+ 80 \+ 50 د"/.test(html), "نمط ٨٠+٨٠+٥٠ المعتمد يظهر بوصفه المقروء");

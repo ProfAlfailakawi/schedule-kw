@@ -4,6 +4,8 @@ import fs from "node:fs";
 const schedule = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 const location = fs.readFileSync("src/components/LocationPicker.tsx", "utf8");
 const styles = fs.readFileSync("src/styles/05-schedule.css", "utf8");
+const approval = fs.readFileSync("src/components/ScheduleReview.tsx", "utf8");
+const approvalStyles = fs.readFileSync("src/styles/31-approval-atlas.css", "utf8");
 
 assert.match(schedule, /setHueFocus\(current\s*=>\s*current\.has\(key\)\s*\?\s*new Set\(\)\s*:\s*new Set\(\[key\]\)\)/,
   "اختيار هوية جديدة في فلتر الجدول يستبدل السابقة، وإعادة اختيارها يمسح الفلتر");
@@ -30,5 +32,11 @@ assert.match(location, /showDepartmentHistory&&restrictedHistoricalRooms\.length
   "اقتراحات الاستعارة التاريخية نفسها تظل مرتبطة بعرض التاريخ");
 assert.match(location, /showDepartmentHistory=false/,
   "منتقي القاعة يخفي السجل التاريخي افتراضياً في نماذج المواعيد");
+assert.match(schedule, /<ScheduleReview[^]*colleges=\{collegeById\}/,
+  "مراجعة الاعتماد تستقبل أسماء الكليات للسياق الأكاديمي");
+assert.match(approval, /<small className="review-course-college">\{course\.college\}<\/small>/,
+  "اسم الكلية يظهر مع المقرر داخل بطاقة مراجعة الاعتماد");
+assert.match(approvalStyles, /\.review-course-identity \.review-course-college \{[^}]*font-size:\.64rem[^}]*font-weight:400/,
+  "اسم الكلية يظهر بخط صغير وخفيف");
 
 console.log("schedule-interface-audit ok");

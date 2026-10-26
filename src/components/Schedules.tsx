@@ -12702,6 +12702,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         <ScheduleReview
           rows={rows}
           courses={courseById}
+          colleges={collegeById}
           instructors={instructorById}
           visitingIds={visitingIds}
           previousRows={previousTermRows}
