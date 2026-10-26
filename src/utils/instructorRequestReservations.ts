@@ -55,6 +55,12 @@ export function allocateRequestReservations(entries: RequestReservation[], reque
   const changed = new Set(request.items.filter(item => item.rowId != null && item.action !== "keep"
     && item.decision?.state !== "rejected" && item.decision?.state !== "fixed").map(item => Number(item.rowId)));
   for (const proposal of proposals) {
+    /* A new/changed appointment must hold a concrete physical room identity.
+     * Existing offered sections are the exception: their official row ids are
+     * held directly, and the department keeps the existing room assignment. */
+    const roomsWithIdentity = proposal.rooms.filter(candidate => roomKeyOf(candidate.roomId, candidate.room, candidate.hall));
+    if (!proposal.offeringRowIds.length && roomsWithIdentity.length === 0)
+      throw new RequestReservationConflict("لا يمكن حجز هذا الموعد قبل توفر قاعة معروفة في دليل القسم.");
     for (const expected of proposal.offeringRows || []) {
       const live = officialRows.find(row => Number(row.id) === expected.id);
       if (!live || Number(live.rev || 0) !== expected.rev || Number(live.AdInstructorId) !== expected.instructorId)
@@ -67,7 +73,7 @@ export function allocateRequestReservations(entries: RequestReservation[], reque
     if (live.some(row => Number(row.AdInstructorId) === proposal.instructorId && touches(proposal.slots, slotsOf(row)))
       || next.some(entry => entry.instructorId === proposal.instructorId && touches(proposal.slots, entry.slots)))
       throw new RequestReservationConflict("لديك موعد آخر في الوقت المختار. راجع الأيام والأوقات قبل الإرسال.");
-    const room = proposal.rooms.find(candidate => !live.some(row =>
+    const room = roomsWithIdentity.find(candidate => !live.some(row =>
       occupies(row, candidate) && touches(proposal.slots, slotsOf(row)))
       && !next.some(entry => sameRoom(candidate, entry.room) && touches(proposal.slots, entry.slots)));
     if (proposal.rooms.length && !room) throw new RequestReservationConflict();

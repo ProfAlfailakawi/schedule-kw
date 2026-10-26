@@ -214,7 +214,7 @@ function p5Findings() {
   check(requestFullySettled([{ action: "change", decision: { state: "rejected" } }, { action: "keep" }, { action: "delete", decision: { state: "fixed" } }]),
     "رفضٌ بلا بدائل وتثبيتٌ وإبقاء: يُغلق الطلب");
   check(!requestFullySettled([{ action: "change" }]), "بندٌ لم يُقرَّر بعد يُبقي الطلب مفتوحاً");
-  const decide = server.slice(server.indexOf('app.post("/api/instructor-requests/:id/decide"'), server.indexOf('app.get("/api/public/request/:token"'));
+  const decide = server.slice(server.indexOf('app.post("/api/instructor-requests/:id/decide"'), server.indexOf('app.post("/api/instructor-requests/:id/apply"'));
   check(decide.includes("const decided = requestFullySettled(items);"), "مسارُ القرار يسأل القاعدة الواحدة");
   check(!/decision\?\.state === "rejected"\)/.test(decide), "ولا نسخةَ ثانيةً من الشرط فيه");
   /* رئيسُ القسم يوقّع على نسخةٍ فيها الشُّعبُ المضافة؛ فلا يُطلب منه إقرارٌ ثانٍ

@@ -14,11 +14,12 @@ import { REQUEST_REPLAY_SCRIPT } from "../src/server/requestReplayScript";
 import { signatureVerifyPage } from "../src/server/signatureVerifyPage";
 import { learnCourseNature, habitualBlockMinutes } from "../src/utils/courseNature";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
+import { roomKeyOf } from "../src/utils/locationRegistry";
 
 let passed = 0, failed = 0;
-const check = (ok: boolean, label: string) => {
+const check = (ok: boolean, label: string, extra?: unknown) => {
   if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); }
-  else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); }
+  else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`, extra === undefined ? "" : JSON.stringify(extra)); }
 };
 
 const TEACHER = 7;
@@ -35,7 +36,7 @@ const teacher = { AdInstructorId: TEACHER, AdInstructorCivil: "000000000007", Ad
 const context = (hours: number): VerdictContext => ({
   instructorId: TEACHER, allRows: [row()], instructorRowsAfter: [row()],
   courses: new Map([[100, course(hours)]]), instructors: new Map([[TEACHER, teacher]]),
-  knownRoomKeys: [], startLadder: ["08:00", "09:00", "10:00", "11:00"],
+  knownRoomKeys: ["101", "102", "103", "104", "105"].map(hall => roomKeyOf(undefined, "أ", hall)), startLadder: ["08:00", "09:00", "10:00", "11:00"],
 });
 const ask = (over: Partial<RequestedRow> = {}): RequestedRow => ({
   rowId: 1, action: "change", AdCourseId: 100, days: ["fwednesday"], start: "08:00", ...over,
@@ -45,8 +46,9 @@ const ask = (over: Partial<RequestedRow> = {}): RequestedRow => ({
 const short = judgeRequest(ask({ days: ["fwednesday"] }), context(4));
 check(!short.sendable, "يوم واحد لمقرّر أربع ساعات يُمنع");
 check(Array.isArray(short.shapes) && short.shapes.length > 0, "والمنعُ يحمل التوزيعات المعتمدة أزراراً لا نصاً فقط");
-const mixed = judgeRequest(ask({ days: ["fmonday", "fwednesday", "fthursday"] }), context(4));
-check(!mixed.reasons.some(reason => /أيام مختلطة/.test(reason.text)), "٨٠+٨٠+٥٠ المعتمد لمقرّر الأربع ساعات لا يُحذَّر منه");
+const mixed = judgeRequest(ask({ days: ["fmonday", "fwednesday", "fthursday"], start: "09:00" }), context(4));
+check(mixed.reasons.some(reason => reason.blocking && /لا يُخلط/.test(reason.text)), "٨٠+٨٠+٥٠ بلا تاريخٍ موثوق لا يُعامل كنمط تشغيلي معتمد", mixed);
+check(!(short.shapes || []).some(shape => shape.days.join() === "fmonday,fwednesday,fthursday"), "ولا يظهر هذا التوزيع ضمن الأنماط العامة المقترحة");
 let everyShapePasses = true;
 for (const shape of short.shapes || []) {
   const verdict = judgeRequest(ask({ days: shape.days as any }), context(4));
@@ -93,17 +95,17 @@ const monWedNature = natureOf(100, [16, 17, 18], { fmonday: true, fwednesday: tr
 const blockedOneDay = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
 check(!blockedOneDay.sendable && blockedOneDay.reasons.some(reason => reason.source === "shape" && reason.blocking), "ثلاثُ ساعاتٍ في يومٍ واحد يبقى ممنوعاً كما كان (المنعُ لم يتغيّر)");
 check(blockedOneDay.shapes?.[0]?.days.join() === "fmonday,fwednesday" && /^المعتاد/.test(blockedOneDay.shapes?.[0]?.label || ""), "وأولُ ما يُقترح نمطُ المقرّر المعتاد (اثنين+أربعاء) لا نمطُ اللائحة الأول (أحد+ثلاثاء+خميس)");
-check(/المعتاد: الاثنين 80د/.test(blockedOneDay.reasons.find(reason => reason.source === "shape")?.text || ""), "ونصُّ «جرّب» يذكر المعتاد نفسَه");
+check(/المعتاد تاريخياً: الاثنين 80د/.test(blockedOneDay.reasons.find(reason => reason.source === "shape")?.text || ""), "ونصُّ «جرّب» يذكر المعتاد التاريخي بوضوح");
 const appliedUsual = judgeRequest(ask({ days: blockedOneDay.shapes?.[0]?.days as any || [], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
 check(appliedUsual.sendable && !appliedUsual.reasons.some(reason => reason.source === "shape"), "وتطبيقُ المقترح يمرّ من الفاحص نفسه بلا منع");
 const noHistoryAsk = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows({ ...context(3), nature: null }));
 check(!noHistoryAsk.sendable && noHistoryAsk.shapes?.[0]?.days.join() === "fsunday,ftuesday,fthursday" && !/المعتاد/.test(noHistoryAsk.shapes?.[0]?.label || ""), "ومقرّرٌ بلا تاريخ: أنماطُ اللائحة كما كانت");
-/* مقرّرٌ ساعتان درج اثنين+خميس (٨٠+٥٠ خارج أنماط الساعتين): لا يُقترح لأن تطبيقه يطلب استثناءً — يُقترح ما يمرّ بلا استثناء. */
+/* مقررٌ درج عليه تاريخياً توزيع اثنين+خميس: يعرضه النظام كتاريخٍ موثوق لا كنمط لائحة، ويمرّ من الفحص نفسه. */
 const monThuNature = natureOf(100, [16, 17, 18], { fmonday: true, fwednesday: false, fthursday: true, fstarttime: "09:00", fendtime: "10:20" });
 const mixedHistory = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
-check(!mixedHistory.sendable && mixedHistory.shapes?.length && !mixedHistory.shapes.some(shape => shape.days.join() === "fmonday,fthursday"), "ونمطٌ معتادٌ مختلط خارج المعتمد (اثنين+خميس لمقرّر ساعتين) لا يُقترح");
+check(!mixedHistory.sendable && mixedHistory.shapes?.[0]?.days.join() === "fmonday,fthursday" && mixedHistory.shapes[0].label.startsWith("المعتاد تاريخياً:"), "والتاريخُ الموثوق يظهر بوصفه تاريخياً لا نمطاً معتمداً");
 const mixedApplied = judgeRequest(ask({ days: mixedHistory.shapes?.[0]?.days as any || [], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
-check(mixedApplied.sendable && !mixedApplied.needsExcuse, "وما يُقترح بدلاً منه يمرّ بلا منعٍ ولا استثناء");
+check(mixedApplied.sendable && !mixedApplied.needsExcuse, "والتوزيع التاريخي يمرّ من الحكم نفسه بلا تناقض");
 /* مختبرٌ أربع ساعات يوماً واحداً: طلبُ اثنين+أربعاء عند ١٧:٠٠ — اليوم الواحد لا يتّسع (ينتهي بعد ٢٠:٠٠) فتبقى معه أنماطُ اللائحة القابلة للتطبيق. */
 const lateLab = judgeRequest(ask({ days: ["fmonday", "ftuesday"], start: "17:00" }), labContext);
 check(!lateLab.sendable && lateLab.shapes?.[0]?.days.join() === "fwednesday" && (lateLab.shapes?.length || 0) > 1, "ومختبرٌ طلب بداية مسائية لا يتّسع لها يومُه الواحد: يبقى يومُه أولاً ومعه بدائل");

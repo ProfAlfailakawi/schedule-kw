@@ -102,6 +102,20 @@ export async function reviewInstructorCard(base: string, card: {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "draft and selected offering still fit on mobile");
     await page.screenshot({ path: `${screenshots}/professor-draft-mobile.png`, fullPage: true });
 
+    const jumpToSend = page.locator('[data-nx="send"]');
+    if (await jumpToSend.count()) {
+      await jumpToSend.click();
+      const sendButton = page.locator("#send");
+      await page.waitForFunction(() => {
+        const button = document.getElementById("send");
+        if (!button) return false;
+        const rect = button.getBoundingClientRect();
+        return rect.top >= 0 && rect.bottom <= innerHeight;
+      });
+      assert.equal(await sendButton.evaluate((node: HTMLElement) => node === document.activeElement), true,
+        "the 'to send' action focuses the actual send control");
+    }
+
     await page.locator("#send").click();
     const dialog = page.getByRole("dialog");
     await dialog.waitFor({ state: "visible" });

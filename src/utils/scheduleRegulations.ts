@@ -1,5 +1,5 @@
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
-import { departsFromNature, type CourseNature } from "./courseNature";
+import { departsFromNature, historicalOrigin, type CourseNature } from "./courseNature";
 import { SCHEDULE_DAY_END , formatScheduleTimeRange } from "./scheduleTime";
 import { AR, countOf, oblique } from "./arabicCount";
 import { placeholderInstructorIds } from "./instructorIdentity";
@@ -224,10 +224,6 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
   {
     hours: 3, id: "3h-two-days", days: ["fmonday", "fwednesday"], minutesPerDay: [80, 80], weeklyMinutes: 160,
     note: "ثلاث فترات موزعة على لقاءين: 80 دقيقة في الاثنين و80 دقيقة في الأربعاء."
-  },
-  {
-    hours: 4, id: "4h-mon-wed-thu", days: ["fmonday", "fwednesday", "fthursday"], minutesPerDay: [80, 80, 50], weeklyMinutes: 210,
-    note: "النمط الممتد: 80+80+50 دقيقة على الاثنين والأربعاء والخميس."
   },
   {
     hours: 4, id: "4h-mon-wed", days: ["fmonday", "fwednesday"], minutesPerDay: [110, 110], weeklyMinutes: 200,
@@ -491,9 +487,17 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       // A practical single-day block is an approved shape regardless of which
       // day it lands on; compare its length and not the example day in the library.
       const approvedPatterns = patternsForHours(hours);
-      const valid = approvedPatterns.some(pattern => pattern.days.length === 1
+      const approved = approvedPatterns.some(pattern => pattern.days.length === 1
         ? actual.length === 1 && actual[0].minutes === pattern.minutesPerDay[0]
         : matches(pattern.days.map((day, index) => ({ day, minutes: pattern.minutesPerDay[index] }))));
+      /* إزالة نمطٍ تاريخي من المكتبة التشغيلية لا تُحوّل السجلات القديمة إلى
+         مخالفة. يُقبل الشكل غير القياسي هنا فقط إذا كان تاريخ هذا المقرر، قبل
+         الفصل الجاري، موثوقاً ويطابق مجموع دقائقه وأيامه؛ ولا يدخل بذلك في
+         patternsForHours أو المقترحات العامة. */
+      const history = historicalOrigin(context.nature?.get(courseId), Number(sectionRows[0]?.AdTermId));
+      const historical = Boolean(history && history.weeklyMinutes === actual.reduce((sum, item) => sum + item.minutes, 0)
+        && history.patterns.some(days => days.length === actual.length && days.every((day, index) => actual[index]?.day === day)));
+      const valid = approved || historical;
       if (!valid) invalid.push(...sectionRows);
     }
     if (invalid.length) findings.push({

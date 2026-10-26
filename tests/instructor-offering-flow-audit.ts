@@ -142,6 +142,8 @@ try {
   const winnerIndex = submitted.findIndex(result => result.status === 200);
   const winner = contenders[winnerIndex];
   const submittedRequest = submitted[winnerIndex].body.request;
+  const coordinatorRequest = (await call("GET", "/api/instructor-requests?collegeId=1&sectionId=1&termId=1")).body.rows
+    .find((row: any) => row.id === submittedRequest.id);
   const loser = contenders[1 - winnerIndex];
   const browserOffering = browserCard.card.availableOfferings.find((option: any) => fixtureOfferingIds.has(Number(option.id))
     && Number(option.id) !== Number(offered.id));
@@ -155,14 +157,21 @@ try {
   const refreshed = await call("GET", `/api/public/request/${loser.token}`, undefined, true);
   assert.ok(!refreshed.body.availableOfferings.some((option: any) => option.id === offered.id));
   const index = submittedRequest.items.findIndex((item: any) => item.offeringRowIds?.includes(offered.id));
-  const preview = await call("POST", `/api/instructor-requests/${submittedRequest.id}/apply`, { itemIndex: index, preview: true });
+  const offeringItem = coordinatorRequest.items[index];
+  const offeringRevs = Object.fromEntries((offeringItem.offeringRows || []).map((row: any) => [String(row.id), row.rev]));
+  const applyPayload = { itemIndex: index, requestRevision: submittedRequest.requestRevision || 0, revs: offeringRevs };
+  const preview = await call("POST", `/api/instructor-requests/${submittedRequest.id}/apply`, { ...applyPayload, preview: true });
   assert.equal(preview.status, 200, JSON.stringify(preview.body));
   assert.equal((await officialRow(offered.id)).AdInstructorId, placeholder.AdInstructorId);
-  const approval = await call("POST", `/api/instructor-requests/${submittedRequest.id}/apply`, { itemIndex: index });
+  const approval = await call("POST", `/api/instructor-requests/${submittedRequest.id}/apply`, applyPayload);
   assert.equal(approval.status, 200, JSON.stringify(approval.body));
   assert.equal((await officialRow(offered.id)).AdInstructorId, winner.AdInstructorId,
     "department approval assigns the SAME official row immediately");
-  assert.equal((await call("POST", `/api/instructor-requests/${submittedRequest.id}/apply`, { itemIndex: index })).status, 409);
+  const approvedRequest = (await call("GET", `/api/instructor-requests?collegeId=1&sectionId=1&termId=1`)).body.rows
+    .find((row: any) => row.id === submittedRequest.id);
+  assert.equal((await call("POST", `/api/instructor-requests/${submittedRequest.id}/apply`, {
+    ...applyPayload, requestRevision: approvedRequest.requestRevision,
+  })).body.code, "already-fixed");
 
   const secondOffering = await createAt(placeholder.AdInstructorId, "950", "fsunday", "17:00");
   loser.card = (await call("GET", `/api/public/request/${loser.token}`, undefined, true)).body;
@@ -175,6 +184,17 @@ try {
   });
   assert.equal(reject.status, 200, JSON.stringify(reject.body));
   assert.equal((await officialRow(secondOffering.id)).AdInstructorId, placeholder.AdInstructorId);
+  const rejectedRequest = (await call("GET", "/api/instructor-requests?collegeId=1&sectionId=1&termId=1")).body.rows
+    .find((row: any) => row.id === secondRequest.id);
+  const rejectedItem = rejectedRequest.items[secondIndex];
+  const rejectedApply = await call("POST", `/api/instructor-requests/${secondRequest.id}/apply`, {
+    itemIndex: secondIndex, requestRevision: rejectedRequest.requestRevision,
+    revs: Object.fromEntries((rejectedItem.offeringRows || []).map((row: any) => [String(row.id), row.rev])),
+  });
+  assert.equal(rejectedApply.status, 409);
+  assert.equal(rejectedApply.body.code, "rejected-item", "a rejected claim cannot be applied through the approval endpoint");
+  assert.equal((await officialRow(secondOffering.id)).AdInstructorId, placeholder.AdInstructorId,
+    "rejected claim still leaves the official assignment unchanged");
   const round = await call("POST", "/api/instructor-requests/issue", { collegeId: 1, sectionId: 1, termId: 1, closesAt: "2027-12-30" });
   const nextLink = round.body.issued.find((entry: any) => entry.instructorId === winner.AdInstructorId);
   const nextCard = await call("GET", `/api/public/request/${nextLink.linkId}`, undefined, true);

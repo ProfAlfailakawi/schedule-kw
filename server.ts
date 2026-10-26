@@ -20057,6 +20057,9 @@ async function availableInstructorOfferings(request: InstructorRequest, context?
   const rulesCache = new Map<string, Awaited<ReturnType<typeof requestRulesForScope>>>();
   for (const list of groups.values()) {
     if (!list.every(row => placeholders.has(Number(row.AdInstructorId)) && !claimed.has(Number(row.id)) && !selected.has(Number(row.id)))) continue;
+    /* لا نعرض شعبةً كقابلة للحجز إذا لم يكن لموعدها أي معرّف قاعة فعلي؛ وإلا
+       أمكن لطلبين حجز الوقت نفسه بلا مورد مكاني يدخل سجل الحجوزات. */
+    if (!list.every(row => roomKeyOf(row.roomId, row.AdRoomCode, row.AdRoomHall))) continue;
     const first = list[0], course = ctx.courses.get(Number(first.AdCourseId));
     if (load > 0 && weeklyLoadOf(mine, ctx.courses as any) + effectiveCourseHours(course) > load) continue;
     const key = `${first.AdCollegeId}:${first.AdSectionId}`;
@@ -20804,6 +20807,10 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
 
   const index = Number(req.body?.itemIndex);
   if (!Number.isInteger(index) || !(stored.items || [])[index]) { res.status(400).json({ error: "لا يوجد بندٌ بهذا الرقم في الطلب" }); return; }
+  if (stored.items[index].decision?.state === "rejected") {
+    res.status(409).json({ error: "رُفض هذا البند. اطلب من الأستاذ إعادة إرساله أو أعد فتحه بقرارٍ موثّق قبل الاعتماد.", code: "rejected-item" });
+    return;
+  }
   /* البنودُ المترابطة تُقبل معلّقةً فقط: بندٌ رفضه القسم أو ثبّته لا يُكتب لأن شاشةً قديمة أرسلته. */
   const siblings: number[] = (Array.isArray(req.body?.after) ? req.body.after : []).map(Number)
     .filter((i: number) => Number.isInteger(i) && i !== index && (stored.items || [])[i] && !stored.items[i].decision?.state);
@@ -20811,9 +20818,42 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   const preview = req.body?.preview === true;
   const add = req.body?.add && typeof req.body.add === "object" ? req.body.add : {};
   const revs: Record<string, unknown> = req.body?.revs && typeof req.body.revs === "object" ? req.body.revs : {};
+  const submittedRevision = req.body?.requestRevision;
+  if (typeof submittedRevision !== "number" || !Number.isSafeInteger(submittedRevision) || submittedRevision < 0) {
+    res.status(428).json({ error: "حدّث وارد القسم قبل الاعتماد؛ ختم إصدار الطلب مفقود.", code: "request-revision-required" });
+    return;
+  }
+  if (Number(submittedRevision) !== Number(stored.requestRevision || 0)) {
+    res.status(409).json({ error: "تغيّر الطلب. حدّث الوارد قبل الاعتماد.", code: "request-revision" });
+    return;
+  }
   if (stored.items[index].decision?.state === "fixed") {
     res.status(409).json({ error: "سبق تثبيت هذا البند في الجدول.", code: "already-fixed" });
     return;
+  }
+  for (const i of chain) {
+    const item = stored.items[i];
+    const affected = item.action === "change" || item.action === "delete"
+      ? (item.rowId == null ? [] : [Number(item.rowId)])
+      : item.action === "add" ? (item.offeringRowIds || []).map(Number) : [];
+    for (const rowId of affected) {
+      const submitted = revs[String(rowId)];
+      if (typeof submitted !== "number" || !Number.isSafeInteger(submitted) || submitted < 0) {
+        res.status(428).json({ error: "حدّث وارد القسم قبل الاعتماد؛ ختم إصدار أحد المواعيد مفقود.", code: "row-revision-required", rowId });
+        return;
+      }
+      const expected = item.action === "add"
+        ? item.offeringRows?.find(row => Number(row.id) === rowId)?.rev
+        : undefined;
+      if (item.action === "add" && expected == null) {
+        res.status(409).json({ error: "لا يوجد ختم موثوق للشعبة المختارة. أعد إرسال الطلب بعد تحديث الخيارات.", code: "offering-revision-missing", rowId });
+        return;
+      }
+      if (expected != null && Number(submitted) !== Number(expected)) {
+        res.status(409).json({ error: "تغيّرت الشعبة المختارة منذ فتح الوارد. حدّث الصفحة.", code: "revision", rowId });
+        return;
+      }
+    }
   }
   /* تثبيتان متزامنان للطلب نفسه (منسّقان، أو نقرةٌ مزدوجة) كانا يُنشئان صفّين: واحدٌ في كل مرة. */
   /* والقفلُ على الفصل كلِّه: تثبيتان متزامنان في الفصل نفسه قد يحجزان القاعةَ أو الأستاذَ
@@ -20830,7 +20870,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   try {
   const latest = await Repository.getInstructorRequest(String(stored.id));
   if (!latest || Number(latest.requestRevision || 0) !== Number(stored.requestRevision || 0)
-      || (req.body?.requestRevision != null && Number(req.body.requestRevision) !== Number(latest.requestRevision || 0))) {
+      || submittedRevision !== Number(latest.requestRevision || 0)) {
     res.status(409).json({ error: "تغيّر الطلب. حدّث الوارد قبل الاعتماد." }); return;
   }
   stored = latest;
@@ -20848,7 +20888,8 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
       return { error: "هذا الموعد لم يعد للأستاذ نفسه في هذا الفصل. حدّث الصفحة وراجعه.", code: "stale" };
     }
     const seenRev = seen[String(live.id)];
-    if (seenRev !== undefined && seenRev !== null && live.rev !== undefined && Number(seenRev) !== Number(live.rev)) {
+    if (typeof seenRev !== "number" || !Number.isSafeInteger(seenRev) || seenRev < 0
+      || seenRev !== Number(live.rev || 0)) {
       return { error: "تغيّر هذا الموعد في الجدول بعد أن فتحت الشاشة (عدّله زميل). حدّث الصفحة وراجعه قبل التثبيت.", code: "revision" };
     }
     return null;
