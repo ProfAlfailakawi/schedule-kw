@@ -6125,6 +6125,10 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
     const lengthIssue=await scheduleLengthIssue({...row,id:Number(row.excludeId||row.id||0)});
     if(lengthIssue)validationIssues.push(lengthIssue);
   }
+  if(row.buildingId && (row.roomId || row.locationStatus===PENDING_ROOM) && Number(row.AdCollegeId||0) && Number(row.AdSectionId||0)){
+    const location=await canonicalizeLocationForWrite(row,Number(row.AdCollegeId),Number(row.AdSectionId));
+    validationIssues.push(...location.check.issues.filter(issue=>issue.severity==="high").map(issue=>issue.message));
+  }
   res.json({conflicts:await scheduleConflicts(req,row,Number(row.excludeId||0)),validationIssues,...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{})}); });
 
 
@@ -7895,6 +7899,15 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
       timeToMinutes(String(request.startTime))<=from&&timeToMinutes(String(request.endTime))>=to);
 
   const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+  // The advisor must not offer a slot that is already over the course's
+  // weekly-hour ceiling. Its duration is identical for every candidate.
+  if(Number(body.AdCourseId||0) && String(body.SCode||"").trim()){
+    const sampleStart=roomOnly ? fixedStart : DAY_START;
+    const hoursIssue=await scheduleLengthIssue({
+      ...body, fstarttime:clock(sampleStart), fendtime:clock(sampleStart+duration),
+    });
+    if(hoursIssue){res.json({slots:[],note:hoursIssue});return;}
+  }
   const instructorRows = instructorId ? live.filter(row => Number(row.AdInstructorId) === instructorId) : [];
 
   const candidates: any[] = [];
