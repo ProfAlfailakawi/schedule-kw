@@ -6119,7 +6119,13 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
   const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
   const patternNotice=await mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null);
   const lectureNotice=await scheduleLengthNotice(row).catch(()=>null);
-  res.json({conflicts:await scheduleConflicts(req,row,Number(row.excludeId||0)),...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{})}); });
+  // Return the same payload and weekly-hours blockers the save gate uses.
+  const validationIssues=await schedulePayloadIssues(row);
+  if(Number(row.AdCourseId||0)&&String(row.SCode||"").trim()){
+    const lengthIssue=await scheduleLengthIssue({...row,id:Number(row.excludeId||row.id||0)});
+    if(lengthIssue)validationIssues.push(lengthIssue);
+  }
+  res.json({conflicts:await scheduleConflicts(req,row,Number(row.excludeId||0)),validationIssues,...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{})}); });
 
 
 /**
@@ -7870,7 +7876,8 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
 
   // Suggestions use exactly the same permission surface as the picker: rooms
   // assigned to this department plus rooms explicitly borrowed for this term.
-  const borrowedRoomIds=new Set(barterRequests.filter(request=>request.status==="approved"&&Number(request.requesterCollegeId)===collegeId&&Number(request.requesterSectionId)===sectionId&&request.roomId).map(request=>String(request.roomId)));
+  const approvedBorrows=barterRequests.filter(request=>request.status==="approved"&&Number(request.requesterCollegeId)===collegeId&&Number(request.requesterSectionId)===sectionId&&request.roomId);
+  const borrowedRoomIds=new Set(approvedBorrows.map(request=>String(request.roomId)));
   const halls=eligibleHallsForSection(registry,sectionId,borrowedRoomIds);
   const roomById=new Map(registry.rooms.map(room=>[String(room.id),room]));
   const expectedRoomType=String(course?.CourseRoomType||"").trim();
@@ -7882,6 +7889,10 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   const DAY_START = bounds.start, DAY_END = bounds.end, STEP = SCHEDULE_SLOT_MINUTES;
   const busy = (rows: any[], dayKey: string, from: number, to: number) =>
     rows.some(row => Boolean(row[dayKey]) && timeToMinutes(row.fstarttime) < to && timeToMinutes(row.fendtime) > from);
+  // Borrowed rooms are only candidates inside the approved day/time windows.
+  const borrowCovers=(roomId:string,day:string,from:number,to:number)=>
+    approvedBorrows.some(request=>String(request.roomId)===roomId&&request.day===day&&
+      timeToMinutes(String(request.startTime))<=from&&timeToMinutes(String(request.endTime))>=to);
 
   const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
   const instructorRows = instructorId ? live.filter(row => Number(row.AdInstructorId) === instructorId) : [];
@@ -7893,6 +7904,10 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   for (const start of starts) {
     const end = start + duration;
     for (const hall of halls) {
+      const hallRecord=roomById.get(String(hall.roomId));
+      const borrowingRequired=borrowedRoomIds.has(String(hall.roomId)) &&
+        !hallRecord?.shared && !hallRecord?.sectionIds?.includes(sectionId);
+      if(borrowingRequired && dayKeys.some(day=>!borrowCovers(String(hall.roomId),day,start,end))) continue;
       const hallRows = live.filter(row => rowOccupiesRoom(row, hall.roomId, hall.room, hall.hall));
       let blocked = false;
       let idle = 0, walk = 0, spread = 0;
