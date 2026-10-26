@@ -701,6 +701,7 @@ function ChangesReviewOverview({ report, scopeLine, onJump }: { report: ChangeRe
   const share = (value: number) => `${(value / spread.total) * 100}%`;
   const blockedCount = Math.max(blockers.length, report.blockingConflicts || 0) + notices.filter(item => item.approvalEffect === "block").length;
   const tone = blockedCount ? "danger" : score >= 85 ? "good" : "warn";
+  const scoreTone = score >= 85 ? "good" : score >= 70 ? "warn" : "danger";
   const ringLength = 2 * Math.PI * 26;
   const hasFindings = blockers.length > 0 || notices.length > 0;
 
@@ -713,7 +714,7 @@ function ChangesReviewOverview({ report, scopeLine, onJump }: { report: ChangeRe
       </button>
       {open ? <div className="changes-review-panel">
       <header className={`review-head tone-${tone}`}>
-        <svg className="review-ring" viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
+        <svg className={`review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
           <circle className="ring-track" cx="32" cy="32" r="26" />
           <circle className="ring-value" cx="32" cy="32" r="26" strokeDasharray={`${(score / 100) * ringLength} ${ringLength}`} />
           <text x="32" y="34" className="ring-number">{score.toLocaleString("ar-KW-u-nu-latn")}</text>

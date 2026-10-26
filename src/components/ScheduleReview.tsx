@@ -393,6 +393,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     clean: `${countOf(spread.clean, AR.appointment)} ${nounFor(spread.clean, AR.soundAdj)}`,
   };
   const tone = blocking.length ? "danger" : score >= 85 ? "good" : "warn";
+  const scoreTone = score >= 85 ? "good" : score >= 70 ? "warn" : "danger";
   // A ring drawn as a single arc: circumference 100 makes the maths the score.
   const ringLength = 2 * Math.PI * 26;
 
@@ -691,7 +692,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     <div className="review-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="review-sheet no-print visual-minimal" role="dialog" aria-modal="true" aria-label="مراجعة الاعتماد">
         <header className={`review-head tone-${tone}`}>
-          <svg className="review-ring" viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
+          <svg className={`review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
             <circle className="ring-track" cx="32" cy="32" r="26" />
             <circle
               className="ring-value"
@@ -801,7 +802,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
             <section className="print-explicit-page print-review-page">
               <PrintLetterhead title={`مراجعة الاعتماد · ${DECISION_1912_LABEL}`} scope={scopeLabel} />
               <section className={`print-review-hero tone-${tone}`}>
-                <svg className="print-review-ring" viewBox="0 0 64 64" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
+                <svg className={`print-review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
                   <circle className="ring-track" cx="32" cy="32" r="26" />
                   <circle className="ring-value" cx="32" cy="32" r="26" strokeDasharray={`${(score / 100) * ringLength} ${ringLength}`} />
                   <text x="32" y="34" className="ring-number">{score.toLocaleString("ar-KW-u-nu-latn")}</text>
