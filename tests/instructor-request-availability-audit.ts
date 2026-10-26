@@ -32,6 +32,33 @@ const context = (allRows: FSchedule[], after: FSchedule[]) => ({ instructorId: 7
   instructorRowsAfter: after, courses, instructors: new Map(), knownRoomKeys: ["id:availability-test-room"],
   startLadder: ["08:00", "09:00", "09:30"], termId: 900001 });
 
+// Table-driven parity: identical physical rows go through both real engines.
+for (const scenario of [
+  { name: "free", occupied: row({ id: 90, AdInstructorId: 8, fstarttime: "09:00", fendtime: "09:50" }) },
+  { name: "instructor", occupied: row({ id: 90, roomId: "another-room", AdRoomHall: "2" }) },
+  { name: "last room", occupied: row({ id: 90, AdInstructorId: 8 }) },
+  { name: "cross-college instructor", occupied: row({ id: 90, AdCollegeId: 2, AdSectionId: 9, roomId: "another-room", AdRoomHall: "2" }) },
+]) {
+  const candidate = row({ id: -1 });
+  const centralBlocks = findConflicts([candidate], [scenario.occupied]).some(isBlockingConflict);
+  const publicVerdict = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 1,
+    days: ["fsunday"], start: "08:00", slots: [{ day: "fsunday", start: "08:00", end: "08:50" }] },
+    context([scenario.occupied], [...(scenario.occupied.AdInstructorId === 7 ? [scenario.occupied] : []), candidate]));
+  assert.equal(!publicVerdict.sendable, centralBlocks, scenario.name);
+}
+const cohortOther = row({ id: 90, AdInstructorId: 8, AdCourseId: 3, roomId: "another-room", AdRoomHall: "2" });
+const cohortPairs = new Set(["1|3"]);
+const centralCohort = findConflicts([row({ id: -1 })], [cohortOther], { cohortPairs });
+assert.ok(centralCohort.some(conflict => conflict.type === "cohort"));
+assert.equal(centralCohort.some(isBlockingConflict), false);
+const requestCohort = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 1,
+  days: ["fsunday"], start: "08:00" }, { ...context([cohortOther], [row({ id: -1 })]), cohortPairs });
+assert.equal(requestCohort.sendable, true);
+assert.equal(requestCohort.needsExcuse, true, "central advisory remains reviewable with a written request reason");
+const borrowedOutside = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 1,
+  days: ["fsunday"], start: "08:00" }, { ...context([], [row({ id: -1 })]), roomEligible: (_key, _day, start) => start >= "09:00" });
+assert.equal(borrowedOutside.roomAvailable, false, "a known borrowed room outside its approved window is unavailable");
+
 // Same precise data goes into the official physical engine and the public verdict.
 const mixed = add("mixed", "fmonday", 2, "08:00", "09:20");
 mixed.slots!.push({ day: "fwednesday", start: "08:00", end: "09:20" }, { day: "fthursday", start: "08:00", end: "08:50" });
