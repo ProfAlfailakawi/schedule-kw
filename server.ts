@@ -32,6 +32,7 @@ import { WIPE_CONFIRM_TOKEN, WIPE_MAX_ROWS, WIPE_RESTORE_TOKEN, WIPE_VERSION_LAB
 import { acceptedPdfSourceLabel, pdfTermAccepted } from "./src/utils/pdfTermRule";
 import { applyVisitingToFaculty, recoverRetiredFromPrintedName, retiredOrSabbaticalIds } from "./src/utils/visitingToFaculty";
 import { ensureSectionFaculty } from "./src/server/sectionFaculty";
+import { isTrainingAssistant, planTaConversion } from "./src/utils/taConversion";
 import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadProblem } from "./src/utils/teachingLoad";
 import { buildConflictTopology, buildDecisionMemoryInsight, buildFairnessEngine, buildFragilityMap, buildOneMinuteBrief, buildRoomResilience, buildScheduleHealth2, buildSchedulePulse, createEmergencyPlans, explainScheduleDecision } from "./src/utils/livingSchedule";
 import type { AdCourse, AdInstructor, AdSection, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleComment, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestSnapshot, InstructorRequestEventKind, StudentNeed, CurriculumPlan, CurriculumDegreeRule } from "./src/types";
@@ -3843,7 +3844,7 @@ app.post("/api/instructors", requireAnyPermission([3, 7]), async (req: Authentic
     return;
   }
 
-  const newIns = await Repository.createInstructor(AdInstructorCivil, AdInstructorName, AdInstructorMobile || "");
+  const newIns = await Repository.createInstructor(AdInstructorCivil, AdInstructorName, AdInstructorMobile || "", req.body?.AdInstructorCategory === "ta" ? "ta" : null);
   await enrol(Number(newIns.AdInstructorId));
   res.status(201).json(newIns);
 });
@@ -3855,6 +3856,7 @@ app.put("/api/instructors/:id", requirePermission(3), async (req: Request, res: 
   const AdInstructorCivil = normalizeCivilId(req.body?.AdInstructorCivil);
   const statusRaw = req.body?.AdInstructorStatus;
   const status = statusRaw === "retired" || statusRaw === "sabbatical" ? statusRaw : null;
+  const category = req.body?.AdInstructorCategory === "ta" ? "ta" : null;
   /* النصابُ رقمٌ موجبٌ معقول، أو لا شيء. وحدُّه الأعلى ليس تجميلاً: نصابٌ
      مكتوبٌ خطأً بأربعة أرقام يجعل القيدَ صامتاً إلى الأبد بلا أن يعرف أحد. */
   const loadRaw = Number(req.body?.AdInstructorLoad);
@@ -3877,7 +3879,7 @@ app.put("/api/instructors/:id", requirePermission(3), async (req: Request, res: 
   }
 
   try {
-    const updated = await Repository.updateInstructor(id, AdInstructorCivil, AdInstructorName, AdInstructorMobile || "", status, load);
+    const updated = await Repository.updateInstructor(id, AdInstructorCivil, AdInstructorName, AdInstructorMobile || "", status, load, category);
     res.json(updated);
   } catch (e: any) {
     res.status(404).json({ error: e.message });
@@ -7861,6 +7863,90 @@ app.post("/api/admin/location-registry/migration/:id/rollback", requirePermissio
   if(req.get("x-schedule-confirm")!=="rollback-location-registry"){res.status(409).json({error:"يتطلب التراجع تأكيداً صريحاً"});return;}
   const runs=await Repository.getLocationMigrationRuns();const run=runs.find(x=>x.id===req.params.id);if(!run){res.status(404).json({error:"تشغيل المهاجرة غير موجود"});return;}if(run.status==="rolled_back"){res.json({success:true,alreadyRolledBack:true,run});return;}
   const logs=await Repository.getLocationMigrationLogs(run.id);await Repository.applyLocationSchedulePatches(logs.map(log=>({id:log.scheduleId,fields:rollbackPatch(log)})));run.status="rolled_back";run.completedAt=new Date().toISOString();await Repository.saveLocationMigrationRun(run);res.json({success:true,count:logs.length,run});
+});
+
+
+/**
+ * TA conversion: explicit per-instructor classification, never inferred from a course level.
+ * Both the dry preview and confirmed bulk edit are limited to one department and term.
+ */
+async function taConversionState(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number) {
+  const [rows, instructors, terms, section, facultyIds] = await Promise.all([
+    Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
+    Repository.getInstructors(),
+    Repository.getTerms(),
+    Repository.getSectionById(sectionId),
+    Repository.getDepartmentFaculty(collegeId, sectionId),
+  ]);
+  const plan = planTaConversion(rows, instructors);
+  const placeholders = placeholderInstructorIds(instructors);
+  const mine = [...new Set(facultyIds.map(Number))].filter(id => placeholders.has(id));
+  const previewKey = createHash("sha256").update(JSON.stringify({
+    scope: [collegeId, sectionId, termId],
+    rows: rows.map(row => [row.id, Number(row.rev || 0), row.AdInstructorId])
+      .sort((a, b) => Number(a[0]) - Number(b[0])),
+    tagged: instructors.filter(isTrainingAssistant).map(person => person.AdInstructorId).sort((a, b) => a - b),
+  })).digest("hex");
+  const frozen = termIsFrozen(termId, terms as any);
+  const lock = frozen ? TERM_FROZEN_MESSAGE : await scheduleLockRefusal(req, collegeId, sectionId, termId);
+  const allowed = !lock && mine.length <= 1;
+  return {
+    rows, plan, mine,
+    previewKey, allowed,
+    reason: lock || (mine.length > 1 ? "يوجد أكثر من سجل «هيئة تدريسية» في القسم؛ راجع السجل قبل التحويل." : ""),
+    termName: terms.find(t => Number(t.AdTermId) === termId)?.AdTermName || "",
+    sectionName: section?.AdSectionName || "",
+  };
+}
+app.get("/api/schedules/ta-conversion", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحياتك" }); return; }
+  const state = await taConversionState(req, collegeId, sectionId, termId);
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    people: state.plan.people, affected: state.plan.affected.length, sections: state.plan.sections,
+    previewKey: state.previewKey, allowed: state.allowed, reason: state.reason,
+    termName: state.termName, sectionName: state.sectionName,
+  });
+});
+app.post("/api/schedules/ta-conversion", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحياتك" }); return; }
+  if (!confirmTokens(req).has("ta-conversion")) { res.status(409).json({ error: "التحويل يحتاج تأكيداً صريحاً." }); return; }
+  await withSerialLock("ta:" + collegeId + ":" + sectionId + ":" + termId, async () => {
+    const state = await taConversionState(req, collegeId, sectionId, termId);
+    if (!state.allowed) { res.status(409).json({ error: state.reason || "جدول الفصل غير قابل للتعديل." }); return; }
+    if (!req.body.previewKey || req.body.previewKey !== state.previewKey) {
+      res.status(409).json({ error: "تغيّر الجدول أو تصنيف أحد الأساتذة بعد المعاينة؛ افتح المعاينة من جديد." }); return;
+    }
+    const affected = state.plan.affected;
+    if (!affected.length) { res.json({ changed: 0 }); return; }
+    if (affected.length > 400) { res.status(409).json({ error: "عدد المواعيد أكبر من الحد الآمن للتحويل دفعة واحدة (400)." }); return; }
+    const placeholderId = state.mine[0] || (await ensureSectionFaculty(Repository, collegeId, sectionId)).instructorId;
+    if (!placeholderId) { res.status(409).json({ error: "تعذّر تحديد سجل «هيئة تدريسية» الخاص بالقسم." }); return; }
+    const before = await captureScopeVersion(req, collegeId, sectionId, termId, "قبل تحويل هيئة التدريب TA إلى هيئة تدريسية", "manual");
+    let updated: FSchedule[];
+    try {
+      updated = await Repository.moveSchedulesBatch(affected.map(row => ({
+        id: Number(row.id),
+        expectedRev: Number(row.rev || 0),
+        fields: { AdInstructorId: placeholderId },
+      })));
+    } catch (error: any) {
+      if (error instanceof ScheduleRevisionConflict) {
+        res.status(409).json({ error: "تغيّر أحد المواعيد أثناء التحويل؛ أعد المعاينة." }); return;
+      }
+      throw error;
+    }
+    const byId = new Map(updated.map(row => [Number(row.id), row]));
+    await recordVersionAfter(before, current => current.map(row => byId.get(Number(row.id)) || row));
+    res.locals.auditChanges = "تحويل أسماء " + state.plan.people.length + " من هيئة التدريب في " + updated.length + " موعداً إلى هيئة تدريسية.";
+    res.locals.auditRowIds = updated.map(row => Number(row.id)).slice(0, 10);
+    await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "edit" });
+    res.json({ changed: updated.length, undoVersionId: before?.id });
+  });
 });
 
 /**
