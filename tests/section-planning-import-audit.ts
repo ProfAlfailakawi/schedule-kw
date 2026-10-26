@@ -323,7 +323,7 @@ check(Boolean(a.reject?.includes("0202") && a.reject.includes("0101")), "وال�
   const newPlan = planRemainingApply(selected, selected.column!, {}, {});
   check(newPlan.next["1"] === 330 && newPlan.next["3"] === 51 && !("7" in newPlan.next),
     "كشفٌ جديد لا يصنع احتياجاً لمقرر غير وارد ولا ينقل 82 محفوظة قديماً");
-  const unopened = readRemainingReport([page(0, [["0101120", [297, null, null, null, 0, null]]])], [{ id: 2, code: "0101120" }], "0101", "notPassed");
+  const unopened = readRemainingReport(clear, catalogue, "0101", "notPassed");
   check(remainingValues(unopened, unopened.column!)["2"] === 297 && reportUnregisteredValues(unopened)["2"] === 297,
     "مقررٌ بلا شعب وله طلبة لم يجتازوا: احتياجه يُقرأ ولا يسقط");
 }
