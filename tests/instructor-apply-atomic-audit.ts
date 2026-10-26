@@ -152,9 +152,18 @@ try {
         && (candidate.action === "change" || candidate.action === "delete") && !candidate.decision?.state && candidate.rowId != null);
       if (rejectedIndex >= 0) {
         const rejectedItem = currentRequest.items[rejectedIndex];
+        const rejectionRevision = Number(currentRequest.requestRevision || 0);
         const rejectedRow = await rowNow(Number(rejectedItem.rowId));
         const rejection = await call("POST", `/api/instructor-requests/${request.id}/decide`, {
-          itemIndex: rejectedIndex, state: "rejected", reasonCode: "department", note: "اختبار رفض بندٍ قبل الاعتماد",
+          itemIndex: rejectedIndex, itemId: rejectedItem.itemId, requestRevision: rejectionRevision,
+          state: "rejected", reasonCode: "department", note: "اختبار رفض بندٍ قبل الاعتماد",
+        });
+        const staleDecision = await call("POST", `/api/instructor-requests/${request.id}/decide`, {
+          itemIndex: rejectedIndex, itemId: rejectedItem.itemId, requestRevision: rejectionRevision,
+          state: "rejected", reasonCode: "other", note: "قرار قديم مكرر",
+        });
+        const missingDecisionRevision = await call("POST", `/api/instructor-requests/${request.id}/decide`, {
+          itemIndex: rejectedIndex, itemId: rejectedItem.itemId, state: "rejected", reasonCode: "other",
         });
         const afterRejection = await inbox();
         currentRequest = afterRejection.rows.find((row: any) => row.id === request.id);
@@ -162,6 +171,9 @@ try {
           revs: { [rejectedItem.rowId]: rejectedRow.rev || 0 } });
         check(rejection.status === 200 && rejectedApply.status === 409 && rejectedApply.body?.code === "rejected-item",
           "B6a بندٌ رُفض فعلياً لا يمكن تطبيقه بعد ذلك", { rejection: rejection.status, rejectedApply });
+        check(staleDecision.status === 409 && staleDecision.body?.code === "request-revision"
+          && missingDecisionRevision.status === 428 && currentRequest.items[rejectedIndex].decision.note === "اختبار رفض بندٍ قبل الاعتماد",
+          "B6b قرارٌ قديم أو بلا ختم لا يغيّر الرفض ولا سببه أو توقيعه", { staleDecision, missingDecisionRevision });
       } else {
         check(true, "B6a (لا يوجد بندٌ ثانٍ معلّق في بيانات التجربة)");
       }

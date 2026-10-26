@@ -4,6 +4,8 @@ import { allocateRequestReservations, retainRequestReservations, assertRequestRe
 import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
 import { instructorWeekAfter } from "../utils/instructorRequestWeek";
 import { reservationRows } from "../utils/instructorRequestReservations";
+import { approvedBarterReservation, borrowerOutsideApprovedWindow, type ApprovedHallWindow } from "../utils/hallBarterWindow";
+import { clockRangesOverlap } from "../utils/scheduleTime";
 import { findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { TEACHING_LOAD_DOC_ID, normalizeTeachingLoadConfig } from "../utils/teachingLoad";
 import { normalizeArabicText } from "../utils/arabicText";
@@ -4862,21 +4864,68 @@ export const Repository = {
 
   updateHallBarterRequest: async (id: string, fields: Partial<Pick<HallBarterRequest, "status" | "respondedAt" | "responderUserId" | "responderName" | "cancelReason">>): Promise<HallBarterRequest> => {
     const updatedAt = new Date().toISOString();
+    const scheduleDays = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
+    const conflictForApproval = (current: HallBarterRequest, all: HallBarterRequest[], reservations: RequestReservation[], schedules: FSchedule[]) => {
+      if (fields.status !== "approved") return "";
+      const sameRoom = (other: HallBarterRequest) => String(other.roomId || "") === String(current.roomId || "");
+      if (reservations.some(entry => String(entry.room?.roomId || "") === String(current.roomId || "")
+        && (entry.collegeId !== Number(current.requesterCollegeId) || entry.sectionId !== Number(current.requesterSectionId))
+        && entry.slots.some(slot => slot.day === current.day && clockRangesOverlap(slot.start, slot.end, current.startTime, current.endTime))))
+        return "توجد رغبة أستاذ حجزت القاعة في هذه النافذة؛ لا يمكن اعتماد الاستعارة الآن.";
+      if (all.some(other => other.id !== current.id && other.status === "approved" && sameRoom(other)
+        && other.day === current.day && clockRangesOverlap(other.startTime, other.endTime, current.startTime, current.endTime)))
+        return "تم اعتماد استعارة أخرى متداخلة لهذه القاعة. اختر نافذة مختلفة.";
+      if (schedules.some(row => String(row.roomId || "") === String(current.roomId || "") && Boolean((row as any)[current.day])
+        && clockRangesOverlap(row.fstarttime, row.fendtime, current.startTime, current.endTime)))
+        return "القاعة أصبحت مشغولة في هذه النافذة؛ لم تتم الموافقة حتى لا ينشأ تضارب.";
+      return "";
+    };
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const ref = firestoreDb.collection("hallBarterRequests").doc(id);
       const doc = await ref.get();
       if (!doc.exists) throw new Error("طلب استعارة القاعة غير موجود");
-      const current = doc.data() as HallBarterRequest;
-      const next = { ...current, ...fields, updatedAt } as HallBarterRequest;
-      await ref.set(next, { merge: false });
-      return next;
+      const termId = Number((doc.data() as HallBarterRequest).AdTermId);
+      const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
+      return firestoreDb.runTransaction(async tx => {
+        const [stored, ledger, barterDocs, scheduleDocs] = await Promise.all([
+          tx.get(ref), tx.get(ledgerRef),
+          tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)])),
+          tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])),
+        ]);
+        if (!stored.exists) throw new Error("طلب استعارة القاعة غير موجود");
+        const current = stored.data() as HallBarterRequest;
+        if (fields.status === "approved" && current.status !== "pending") throw new Error("تمت معالجة هذا الطلب مسبقاً");
+        const all = barterDocs.docs.map(item => item.data() as HallBarterRequest);
+        const reservations: RequestReservation[] = ledger.data()?.entries || [];
+        const schedules = scheduleDocs.docs.map(item => item.data() as FSchedule);
+        const conflict = conflictForApproval(current, all, reservations, schedules);
+        if (conflict) throw new RequestReservationConflict(conflict);
+        const next = { ...current, ...fields, updatedAt } as HallBarterRequest;
+        tx.set(ref, next);
+        tx.set(ledgerRef, { entries: reservations, serial: Number(ledger.data()?.serial || 0) + 1 });
+        return next;
+      }, { maxAttempts: 40 });
     }
-    if (!Array.isArray(db.hallBarterRequests)) db.hallBarterRequests = [];
-    const index = db.hallBarterRequests.findIndex(row => row.id === id);
-    if (index < 0) throw new Error("طلب استعارة القاعة غير موجود");
-    db.hallBarterRequests[index] = { ...db.hallBarterRequests[index], ...fields, updatedAt };
-    saveDatabase();
-    return db.hallBarterRequests[index];
+    const preview = (db.hallBarterRequests || []).find(row => row.id === id);
+    if (!preview) throw new Error("طلب استعارة القاعة غير موجود");
+    return withSerialLock(`request-reservations:${Number(preview.AdTermId)}`, async () => {
+      if (!Array.isArray(db.hallBarterRequests)) db.hallBarterRequests = [];
+      const index = db.hallBarterRequests.findIndex(row => row.id === id);
+      if (index < 0) throw new Error("طلب استعارة القاعة غير موجود");
+      const current = db.hallBarterRequests[index];
+      if (fields.status === "approved" && current.status !== "pending") throw new Error("تمت معالجة هذا الطلب مسبقاً");
+      const all = db.hallBarterRequests.filter(row => Number(row.AdTermId) === Number(current.AdTermId));
+      const reservations = db.instructorRequestReservationLedgers?.[String(current.AdTermId)] || [];
+      const schedules = db.schedules.filter(row => Number(row.AdTermId) === Number(current.AdTermId));
+      const conflict = conflictForApproval(current, all, reservations, schedules);
+      if (conflict) throw new RequestReservationConflict(conflict);
+      db.hallBarterRequests[index] = { ...current, ...fields, updatedAt };
+      const ledgers = db.instructorRequestReservationLedgers ||= {};
+      // Touch the shared per-term ledger so a concurrent claim and approval serialize.
+      ledgers[String(current.AdTermId)] = reservations;
+      saveDatabase();
+      return db.hallBarterRequests[index];
+    });
   },
 
   // --- Week exceptions (dated facts over an appointment) ---------------------
@@ -5096,14 +5145,21 @@ export const Repository = {
       const requestRef = firestoreDb.collection("instructorRequests").doc(row.id);
       const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
       await firestoreDb.runTransaction(async tx => {
-        const [stored, ledger] = await Promise.all([tx.get(requestRef), tx.get(ledgerRef)]);
+        const [stored, ledger, barterSnapshot] = await Promise.all([tx.get(requestRef), tx.get(ledgerRef),
+          proposals ? tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)])) : Promise.resolve(null)]);
         checkRevision(stored.exists ? stored.data() as InstructorRequest : undefined);
         let entries: RequestReservation[] = ledger.data()?.entries || [];
         if (proposals) {
           // Read the live official week INSIDE the same transaction as the claim.
-          const week = await tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)]));
+          const [week, _barter] = await Promise.all([tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])), Promise.resolve(barterSnapshot)]);
           const rows = week.docs.map(doc => doc.data() as FSchedule);
-          entries = allocateRequestReservations(entries, next, proposals, rows);
+          const approved = (_barter?.docs || []).map(doc => doc.data() as HallBarterRequest).filter(item => item.status === "approved");
+          const eligibleProposals = proposals.map(proposal => ({ ...proposal, rooms: proposal.rooms.filter(room => {
+            const roomWindows = approved.filter(item => String(item.roomId || "") === String(room.roomId || ""));
+            return !proposal.slots.some(slot => approvedBarterReservation(roomWindows, slot.day, slot.start, slot.end, proposal.collegeId, proposal.sectionId)
+              || borrowerOutsideApprovedWindow(roomWindows, slot.day, slot.start, slot.end, proposal.collegeId, proposal.sectionId));
+          }) }));
+          entries = allocateRequestReservations(entries, next, eligibleProposals, rows);
           checkLoad(rows, entries);
         } else entries = retainRequestReservations(entries, next);
         tx.set(requestRef, next);
@@ -5117,7 +5173,13 @@ export const Repository = {
         const ledgers = db.instructorRequestReservationLedgers ||= {};
         const entries = ledgers[String(termId)] || [];
         const week = db.schedules.filter(item => Number(item.AdTermId) === termId);
-        const allocated = proposals ? allocateRequestReservations(entries, next, proposals, week) : retainRequestReservations(entries, next);
+        const approved = (db.hallBarterRequests || []).filter(item => Number(item.AdTermId) === termId && item.status === "approved");
+        const eligibleProposals = proposals?.map(proposal => ({ ...proposal, rooms: proposal.rooms.filter(room => {
+          const roomWindows = approved.filter(item => String(item.roomId || "") === String(room.roomId || ""));
+          return !proposal.slots.some(slot => approvedBarterReservation(roomWindows, slot.day, slot.start, slot.end, proposal.collegeId, proposal.sectionId)
+            || borrowerOutsideApprovedWindow(roomWindows, slot.day, slot.start, slot.end, proposal.collegeId, proposal.sectionId));
+        }) }));
+        const allocated = proposals ? allocateRequestReservations(entries, next, eligibleProposals!, week) : retainRequestReservations(entries, next);
         if (proposals) checkLoad(week, allocated);
         ledgers[String(termId)] = allocated;
         if (at >= 0) db.instructorRequests[at] = next; else db.instructorRequests.unshift(next);

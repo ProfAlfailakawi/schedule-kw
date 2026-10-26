@@ -202,6 +202,7 @@ import { PENDING_ROOM, confirmedDepartmentRoomIds as confirmedDepartmentRoomIdsF
 import { officialBuildingCode, officialCollegeSitePrefix, officialSiteLabel, parseOfficialBuildingCode } from "./src/utils/locationCollegePrefixes";
 import { collegeBranchRoot, collegeSitePrefix, resolveBranchScope, siblingBranchScopes, splitRowsByBranch } from "./src/utils/branchScope";
 import { fairShareByOwner } from "./src/utils/hallBarterFairness";
+import { approvedBarterReservation, borrowerOutsideApprovedWindow } from "./src/utils/hallBarterWindow";
 import { scanRefusalMessage, unresolvedDaysReason, restoredDaysReason } from "./src/utils/documentOcr";
 import { pageReviewWaitLine, pagesAwaitingReview, unconfirmedReviewPages } from "./src/utils/importPageReview";
 import type { BranchScope } from "./src/utils/branchScope";
@@ -5351,23 +5352,20 @@ async function scheduleConflicts(req:AuthenticatedRequest,row:any,excludeId=0,hy
           :detailFor(other,visible)};
   });
   const sameBarterRoom=(request:any)=>barterRequestMatchesRow(request,candidate);
-  const barterReservation = hallBarterRequests.find((request:any) => {
-    if(request.status!=="approved"||!sameBarterRoom(request))return false;
-    if(Number(request.requesterCollegeId)===Number(candidate.AdCollegeId)&&Number(request.requesterSectionId)===Number(candidate.AdSectionId))return false;
-    return SCHEDULE_DAY_KEYS.some(day=>Boolean(candidate[day])&&request.day===day&&
-      scheduleOverlap(String(candidate.fstarttime||""),String(candidate.fendtime||""),String(request.startTime||""),String(request.endTime||"")));
-  });
+  const sameRoomBarterWindows=hallBarterRequests.filter(sameBarterRoom);
+  const barterReservation = SCHEDULE_DAY_KEYS.map(day=>Boolean(candidate[day])
+    ? approvedBarterReservation(sameRoomBarterWindows, day, String(candidate.fstarttime||""), String(candidate.fendtime||""), Number(candidate.AdCollegeId), Number(candidate.AdSectionId))
+    : undefined).find(Boolean);
   const myApprovedWindows=hallBarterRequests.filter((request:any)=>request.status==="approved"&&sameBarterRoom(request)&&
     Number(request.requesterCollegeId)===Number(candidate.AdCollegeId)&&Number(request.requesterSectionId)===Number(candidate.AdSectionId));
   const selectedBarterDays=SCHEDULE_DAY_KEYS.filter(day=>Boolean(candidate[day]));
-  const borrowerWindowViolation=myApprovedWindows.length>0&&selectedBarterDays.some(day=>!myApprovedWindows.some((request:any)=>
-    request.day===day&&timeToMinutes(String(candidate.fstarttime||""))>=timeToMinutes(String(request.startTime||""))&&
-    timeToMinutes(String(candidate.fendtime||""))<=timeToMinutes(String(request.endTime||""))));
+  const borrowerWindowViolation=selectedBarterDays.some(day=>borrowerOutsideApprovedWindow(sameRoomBarterWindows, day,
+    String(candidate.fstarttime||""), String(candidate.fendtime||""), Number(candidate.AdCollegeId), Number(candidate.AdSectionId)));
   const barterNotes:any[] = [];
   if(barterReservation)barterNotes.push({
     type:"hallBarter",severity:"high",soft:false,rowId:0,otherId:0,
     message:`القاعة ${candidate.AdRoomCode}/${candidate.AdRoomHall} محجوزة رقمياً عبر استعارة القاعات`,
-    detail:`نافذة الاستعارة المعتمدة ${HALL_BARTER_DAY_LABEL.get(barterReservation.day)||""} ${formatScheduleTimeRange(barterReservation.startTime, barterReservation.endTime)}.`
+    detail:`نافذة الاستعارة المعتمدة ${HALL_BARTER_DAY_LABEL.get(barterReservation.day as typeof SCHEDULE_DAY_KEYS[number])||""} ${formatScheduleTimeRange(barterReservation.startTime, barterReservation.endTime)}.`
   });
   if(borrowerWindowViolation)barterNotes.push({
     type:"hallBarterWindow",severity:"high",soft:false,rowId:0,otherId:0,
@@ -6099,10 +6097,16 @@ app.post("/api/hall-barter/requests/:id/respond", requirePermission(7), async (r
     if(reserved){res.status(409).json({error:"تم اعتماد استعارة أخرى متداخلة لهذه القاعة. اختر نافذة مختلفة."});return;}
   }
   const now=new Date().toISOString();
-  const updated=await Repository.updateHallBarterRequest(request.id,{
-    status:decision==="approve"?"approved":"rejected",respondedAt:now,
-    responderUserId:Number(req.user.SystemUserId||0),responderName:String(req.user.Name||""),
-  });
+  let updated: HallBarterRequest;
+  try {
+    updated=await Repository.updateHallBarterRequest(request.id,{
+      status:decision==="approve"?"approved":"rejected",respondedAt:now,
+      responderUserId:Number(req.user.SystemUserId||0),responderName:String(req.user.Name||""),
+    });
+  } catch(error:any) {
+    if(error instanceof RequestReservationConflict){res.status(409).json({error:error.message,code:error.code});return;}
+    throw error;
+  }
   hallBarterSerial++;hallBarterBoardCache.clear();
   broadcastScheduleChange();void Repository.markSchedulesChanged();
   res.json({request:updated,message:decision==="approve"?"تم اعتماد الاستعارة. أصبحت النافذة محجوزة رقمياً للقسم الطالب وتظهر للطرفين.":"تم رفض الطلب دون أي تغيير على الجدول."});
@@ -19892,13 +19896,14 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
       if (!decisionStillApplies(prior, action, days, start)) throw new Error("سبق تثبيت هذا البند. اطلب جولة تعديل جديدة من القسم.");
       items.push(prior); continue;
     }
+    const normalizedAction = unchanged ? "keep" : action;
     items.push({
       itemId: prior?.itemId || randomUUID(),
       ...(prior?.thread?.length ? { thread: prior.thread } : {}),
       threadHistory: prior?.threadHistory,
       decisionHistory: [...(prior?.decisionHistory || []), ...(prior?.decision && !decisionStillApplies(prior, action, days, start) ? [prior.decision] : [])],
       rowId,
-      action: action as any,
+      action: normalizedAction as any,
       before: action === "add"
         ? {
             courseId,
@@ -19912,7 +19917,7 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
             time: "",
           }
         : stored?.before,
-      after: action === "keep" || action === "delete" ? stored?.before : {
+      after: normalizedAction === "keep" || action === "delete" ? stored?.before : {
         courseId,
         courseName: allowedOption?.name || courseName.get(courseId) || stored?.before?.courseName || "",
         ...(action === "add" && allowedOption ? {
@@ -20217,9 +20222,13 @@ async function requestRulesForScope(
   const roomEligible = (key: string, day: RequestDayKey, start: string, end: string) => {
     const hall = hallByKey.get(key);
     const record = registry.rooms.find(room => room.id === hall?.roomId);
-    if (!record || record.sectionIds.includes(sectionId) || pinned.has(record.id)) return true;
-    return (barter as any[]).some(item => item.status === "approved" && String(item.roomId) === String(record.id)
-      && Number(item.requesterCollegeId) === collegeId && Number(item.requesterSectionId) === sectionId && item.day === day
+    if (!record) return false;
+    const windows = (barter as any[]).filter(item => String(item.roomId) === String(record.id));
+    if (approvedBarterReservation(windows, day, start, end, collegeId, sectionId)
+      || borrowerOutsideApprovedWindow(windows, day, start, end, collegeId, sectionId)) return false;
+    if (record.sectionIds.includes(sectionId) || pinned.has(record.id)) return true;
+    return windows.some(item => item.status === "approved" && Number(item.requesterCollegeId) === collegeId
+      && Number(item.requesterSectionId) === sectionId && item.day === day
       && timeToMinutes(item.startTime) <= timeToMinutes(start) && timeToMinutes(item.endTime) >= timeToMinutes(end));
   };
   const selectedCourseFit = (key: string, courseId: number) => {
@@ -20675,9 +20684,30 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
 
 /* ── قرارُ القسم على بند ─────────────────────────────────────────────────── */
 
+function requireInstructorRequestRevision(req: Request, res: Response, request: InstructorRequest) {
+  const raw = (req.body as any)?.requestRevision;
+  if (raw == null || String(raw).trim() === "" || !Number.isSafeInteger(Number(raw)) || Number(raw) < 0) {
+    res.status(428).json({ error: "حدّث الطلب وأعد المحاولة؛ رقم النسخة مطلوب.", code: "request-revision-required" });
+    return false;
+  }
+  if (Number(raw) !== Number(request.requestRevision || 0)) {
+    res.status(409).json({ error: "تغيّر الطلب بعد فتحه. حدّث البيانات؛ مسودتك محفوظة.", code: "request-revision" });
+    return false;
+  }
+  return true;
+}
+function instructorRequestItemIdentity(item: InstructorRequestItem) {
+  return String(item.itemId || (item.rowId != null ? `row:${item.rowId}` : `add:${(item.offeringRowIds || []).join(",")}`));
+}
+function requestOfferIdentity(itemId: string, offer: any) {
+  const days = [...new Set((Array.isArray(offer?.days) && offer.days.length ? offer.days : [offer?.day]).map(String))].sort();
+  return `${itemId}|${days.join(",")}|${String(offer?.start || "")}|${String(offer?.end || "")}`;
+}
+
 app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
   if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  if (!requireInstructorRequestRevision(req, res, stored)) return;
   if (await refuseIfTermFrozen(res, Number(stored.AdTermId || 0))) return;
 
   const index = Number(req.body?.itemIndex);
@@ -20697,6 +20727,7 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
     res.status(403).json({ error: "هذا القسم خارج نطاقك." });
     return;
   }
+  if (String(req.body?.itemId || "") !== instructorRequestItemIdentity(item)) { res.status(409).json({ error: "تغيّر ترتيب البنود. حدّث الطلب.", code: "request-item" }); return; }
 
   /* والقرارُ في فصلٍ مجمَّدٍ لا يقع: «ثُبّت» يحتاج كتابةً في الجدول وهي
      ممنوعة، و«رُفض» يُغلق بابَ أستاذٍ على حالٍ لا يملك القسمُ تغييرَها. */
@@ -21126,6 +21157,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
 app.post("/api/instructor-requests/:id/reply", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
   if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  if (!requireInstructorRequestRevision(req, res, stored)) return;
   if (await refuseIfTermFrozen(res, Number(stored.AdTermId || 0))) return;
   const index = Number(req.body?.itemIndex);
   const item = (stored.items || [])[index];
@@ -21135,6 +21167,7 @@ app.post("/api/instructor-requests/:id/reply", requirePermission(7), async (req:
     res.status(403).json({ error: "هذا القسم خارج نطاقك." });
     return;
   }
+  if (String(req.body?.itemId || "") !== instructorRequestItemIdentity(item)) { res.status(409).json({ error: "تغيّر ترتيب البنود. حدّث الطلب.", code: "request-item" }); return; }
   const replyLock = await scheduleLockRefusal(
     req, itemScope.collegeId, itemScope.sectionId, Number(stored.AdTermId), { registrarLock: false });
   if (replyLock) { res.status(409).json({ error: replyLock, code: "schedule-locked" }); return; }
@@ -21260,6 +21293,7 @@ async function verifyRequestSigner(request: InstructorRequest, req: Request, res
 app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Request, res: Response) => {
   const resolved = await resolveRequestLink(String(req.params.token || ""));
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
+  if (!requireInstructorRequestRevision(req, res, resolved.request)) return;
   if (!requestWindowOpen(resolved.request)) {
     res.status(403).json({ error: "انتهت مدّة استقبال الطلبات لهذا الفصل." });
     return;
@@ -21302,9 +21336,6 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   /* البنودُ تُعاد بناؤها من المخزون لا من المُرسَل: ما يُقبل من الصفحة أربعةُ
      حقولٍ لا غير — ما طُلب، وأيُّ مقرّر، وأيُّ أيام، وأيُّ بداية. ولو قُبل
      الباقي لأرسل من يعرف كيف يُعدّل الطلبَ لقطةً تقول ما لم يكن. */
-  if (req.body?.requestRevision != null && Number(req.body.requestRevision) !== Number(resolved.request.requestRevision || 0)) {
-    res.status(409).json({ error: "وصل تحديث من القسم. حدّث الصفحة؛ مسودتك محفوظة على جهازك." }); return;
-  }
   const before = new Map((resolved.request.items || []).map(item => [String(item.rowId), item]));
   let items: InstructorRequestItem[];
   try { items = await instructorRequestItemsFromPayload(resolved.request, sent); }
@@ -21395,6 +21426,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
 app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req: Request, res: Response) => {
   const resolved = await resolveRequestLink(String(req.params.token || ""));
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
+  if (!requireInstructorRequestRevision(req, res, resolved.request)) return;
   if (!resolved.request.submittedAt) { res.status(409).json({ error: "أرسل طلبك أولاً، ثم يبدأ الحوار مع القسم." }); return; }
   const term = (await Repository.getTerms()).find(row => Number(row.AdTermId) === Number(resolved.request.AdTermId));
   if (term?.AdTermClosed === true) {
@@ -21404,6 +21436,8 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
   const index = Number(req.body?.itemIndex);
   const item = (resolved.request.items || [])[index];
   if (!item) { res.status(400).json({ error: "لا يوجد بندٌ بهذا الرقم في طلبك." }); return; }
+  const itemIdentity = instructorRequestItemIdentity(item);
+  if (String(req.body?.itemId || "") !== itemIdentity) { res.status(409).json({ error: "تغيّر ترتيب البنود أو محتواها. حدّث الصفحة؛ مسودتك محفوظة.", code: "request-item" }); return; }
   const civil = await verifyRequestSigner(resolved.request, req, res);
   if (!civil) return;
 
@@ -21420,6 +21454,9 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
   if (acceptAt >= 0) {
     const chosen = offered[acceptAt];
     if (!chosen) { res.status(400).json({ error: "هذا المقترح لم يعد قائماً. حدّث الصفحة." }); return; }
+    if (String(req.body?.proposalId || "") !== requestOfferIdentity(itemIdentity, chosen)) {
+      res.status(409).json({ error: "تغيّر المقترح بعد فتح الصفحة. حدّث البيانات قبل الموافقة.", code: "request-proposal" }); return;
+    }
     const days = (chosen.days?.length ? chosen.days : [chosen.day]) as RequestDayKey[];
     const slots = await requestSlotsForCourse(resolved.request, Number((item.after || item.before)?.courseId), days, chosen.start, blockMinutesOfItem(item));
     const end = slots[0]?.end || chosen.end;
@@ -21824,9 +21861,11 @@ var openSheet=SK.sheet,closeSheet=SK.close,toast=SK.toast,signSheet=SK.sign;
 /* حقلُ «وقت آخر»: يكتب 930 فيصير 09:30 بأرقامٍ إنجليزية، ولا يُؤخذ إلا إن كان كاملاً وداخل الدوام. */
 SK.onTime(function(el,val){if(el.getAttribute("data-start")==null||!val)return;var i=+el.getAttribute("data-i");
  if(!state[i]||state[i].start===val)return;state[i].start=val;paint();recheckAll(i)});
+function publicItemId(it){return it.itemId||(it.rowId!=null?"row:"+it.rowId:"add:"+(it.offeringRowIds||[]).join(","))}
+function publicProposalId(it,o){return publicItemId(it)+"|"+o.d.slice().sort().join(",")+"|"+hh(o.s)+"|"+hh(o.e)}
 function sendReply(i,accept,civil,text,start,cb,days){var it=state[i];if(!it){cb("تعذّر إرسال الرد");return}
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/reply",{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({civil:civil,itemIndex:i,accept:accept,text:text||"",start:accept===null?(start||""):"",days:accept===null&&days&&days.length?days:undefined})})
+  body:JSON.stringify({civil:civil,itemIndex:i,itemId:publicItemId(it),requestRevision:data.request.requestRevision||0,accept:accept,proposalId:accept===null?undefined:publicProposalId(it,offeredOf(it)[accept]),text:text||"",start:accept===null?(start||""):"",days:accept===null&&days&&days.length?days:undefined})})
  .then(function(r){return r.json().then(function(x){return{ok:r.ok,status:r.status,d:x}})}).then(function(x){
   if(!x.ok){cb(x.d.error||"تعذّر إرسال الرد",x.status);return}
   var fresh=(x.d.request.items||[])[i]||{};data.request=x.d.request;

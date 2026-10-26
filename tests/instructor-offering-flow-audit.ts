@@ -187,7 +187,8 @@ try {
   const secondRequest = secondSubmission.body.request;
   const secondIndex = secondRequest.items.findIndex((item: any) => item.offeringRowIds?.includes(secondOffering.id));
   const reject = await call("POST", `/api/instructor-requests/${secondRequest.id}/decide`, {
-    itemIndex: secondIndex, state: "rejected", reasonCode: "department", note: "اختبار تحرير الاختيار",
+    itemIndex: secondIndex, itemId: secondRequest.items[secondIndex].itemId, requestRevision: secondRequest.requestRevision,
+    state: "rejected", reasonCode: "department", note: "اختبار تحرير الاختيار",
   });
   assert.equal(reject.status, 200, JSON.stringify(reject.body));
   assert.equal((await officialRow(secondOffering.id)).AdInstructorId, placeholder.AdInstructorId);

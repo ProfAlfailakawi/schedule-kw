@@ -296,8 +296,9 @@ async function main() {
   check(noAuth.status === 401 || noAuth.status === 403, "بلا جلسةٍ لا يعمل أيُّ مسارٍ للقسم", noAuth.status);
 
   /* ═══ ٩) الحوارُ القديم ما زال يعمل ═════════════════════════════════════ */
-  const item = (salem.items as any[]).findIndex(i => i.action !== "keep");
-  const reply = await A("POST", `/api/instructor-requests/${salem.id}/reply`, { itemIndex: item, text: "هل يناسبك الاثنين والأربعاء؟" });
+  const liveSalem = (await A("GET", `/api/instructor-requests?${SCOPE}`)).json.rows.find((r: any) => r.id === salem.id);
+  const item = (liveSalem.items as any[]).findIndex(i => i.action !== "keep");
+  const reply = await A("POST", `/api/instructor-requests/${salem.id}/reply`, { itemIndex: item, itemId: liveSalem.items[item].itemId || `row:${liveSalem.items[item].rowId}`, requestRevision: liveSalem.requestRevision, text: "هل يناسبك الاثنين والأربعاء؟" });
   check(reply.status === 200, "رسالةٌ نصّية بسيطة في الحوار دون فتح محرر المقترح", reply.json.error);
   const tl = (await A("GET", `/api/instructor-requests?${SCOPE}`)).json.rows.find((r: any) => r.id === salem.id).timeline.map((e: any) => e.kind);
   check(tl.includes("study-proposal-sent") && tl.includes("study-proposal-approved") && tl.includes("study-proposal-committed"), "أحداث المقترح تُسجَّل في سجل الحوار نفسه", tl);

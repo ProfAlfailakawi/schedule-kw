@@ -82,12 +82,13 @@ async function listen(token: string) {
 async function main() {
   await ensureServer();
   const cookie = await login();
+  await http("POST", "/api/demo/role", { role: "admin" }, cookie);
   const A = (method: string, path: string, body?: unknown) => http(method, path, body, cookie);
   const rows = (await A("GET", `/api/instructor-requests?${SCOPE}`)).json.rows as any[];
   const pick = (status: string) => rows.find(r => r.status === status && (r.items || []).some((i: any) => i.action === "change"));
 
   /* ═══ المرحلة ٢: البثّ الحيّ ═══════════════════════════════════════════ */
-  const target = pick("submitted") || pick("in-review");
+  let target = pick("submitted") || pick("in-review");
   check(!!target, "يوجد طلبٌ مرسَلٌ فيه تعديل للاختبار");
   const bad = await http("GET", "/api/public/request/demo.invalid-token-value/events");
   check(bad.status >= 400 && bad.status < 500, "رابطٌ غير صالح لا يفتح بثّاً", bad.status);
@@ -96,10 +97,36 @@ async function main() {
   check(stream.status === 200 && /text\/event-stream/.test(stream.type), "البثّ يُفتح بالرابط الشخصيّ ويعلن نوعه");
   await wait(300);
   check(stream.events.some(e => e.name === "ready"), "ويبدأ بحدث الجاهزية");
+  target = (await A("GET", `/api/instructor-requests?${SCOPE}`)).json.rows.find((r: any) => r.id === target.id);
   const idx = target.items.findIndex((i: any) => i.action === "change");
   const sentAt = Date.now();
-  const decided = await A("POST", `/api/instructor-requests/${target.id}/decide`, { itemIndex: idx, state: "rejected", reasonCode: "department", note: "اختبار", alternatives: [{ day: "fmonday", days: ["fmonday", "fwednesday"], start: "08:00", end: "09:20" }] });
-  check(decided.status === 200, "القسم يقرّر", decided.status);
+  const decided = await A("POST", `/api/instructor-requests/${target.id}/decide`, { itemIndex: idx, itemId: target.items[idx].itemId || `row:${target.items[idx].rowId}`, requestRevision: target.requestRevision, state: "rejected", reasonCode: "department", note: "اختبار", alternatives: [{ day: "fmonday", days: ["fmonday", "fwednesday"], start: "08:00", end: "09:20" }] });
+  check(decided.status === 200, "القسم يقرّر", { status: decided.status, body: decided.json });
+  const staleDecision = await A("POST", `/api/instructor-requests/${target.id}/decide`, { itemIndex: idx, itemId: target.items[idx].itemId || `row:${target.items[idx].rowId}`, requestRevision: target.requestRevision, state: "rejected", reasonCode: "other", note: "قرارٌ قديمٌ مكرر" });
+  const noStampDecision = await A("POST", `/api/instructor-requests/${target.id}/decide`, { itemIndex: idx, itemId: target.items[idx].itemId || `row:${target.items[idx].rowId}`, state: "rejected", reasonCode: "other" });
+  const emptyStampDecision = await A("POST", `/api/instructor-requests/${target.id}/decide`, { itemIndex: idx, itemId: target.items[idx].itemId || `row:${target.items[idx].rowId}`, requestRevision: "", state: "rejected", reasonCode: "other" });
+  const staleInstructorAccept = await http("POST", `/api/public/request/${encodeURIComponent(target.linkId)}/reply`, {
+    itemIndex: idx, itemId: target.items[idx].itemId || `row:${target.items[idx].rowId}`, requestRevision: target.requestRevision,
+    accept: 0, proposalId: "offer-seen-before-section-update",
+  });
+  check(staleDecision.status === 409 && staleDecision.json.code === "request-revision"
+    && noStampDecision.status === 428 && noStampDecision.json.code === "request-revision-required"
+    && emptyStampDecision.status === 428 && emptyStampDecision.json.code === "request-revision-required"
+    && staleInstructorAccept.status === 409 && staleInstructorAccept.json.code === "request-revision",
+    "القرار المكرر والموافقة على عرضٍ من نسخة قديمة تُرفض قبل تغيير السجل أو إنشاء توقيع",
+    { staleDecision: staleDecision.json, missing: noStampDecision.json, empty: emptyStampDecision.json, staleAccept: staleInstructorAccept.json });
+  const currentPublic = await http("GET", `/api/public/request/${encodeURIComponent(target.linkId)}?live=1`);
+  const currentItem = currentPublic.json.request.items[idx];
+  const peopleBody = (await A("GET", "/api/instructors")).json;
+  const people = Array.isArray(peopleBody) ? peopleBody : (peopleBody.rows || peopleBody.instructors || []);
+  const currentInstructor = people.find((person: any) => Number(person.AdInstructorId) === Number(target.AdInstructorId));
+  const badOfferKey = await http("POST", `/api/public/request/${encodeURIComponent(target.linkId)}/reply`, {
+    civil: String(currentInstructor?.AdInstructorCivil || ""), itemIndex: idx,
+    itemId: currentItem.itemId || `row:${currentItem.rowId}`, requestRevision: currentPublic.json.request.requestRevision,
+    accept: 0, proposalId: "same-index-different-offer",
+  });
+  check(badOfferKey.status === 409 && badOfferKey.json.code === "request-proposal",
+    "حتى على النسخة الحالية، لا يكفي فهرس العرض لقبوله إذا لم تطابق هويته محتوى ما شاهده الأستاذ", badOfferKey.json);
   await wait(1500);
   const changed = stream.events.find(e => e.name === "changed");
   check(!!changed && changed.at - sentAt < 2000, "الحدثُ يصل الأستاذَ خلال ثانيتين من قرار القسم");
@@ -124,7 +151,8 @@ async function main() {
     const r = await fetch(`${BASE}/api/public/request/${encodeURIComponent(target.linkId)}/events`, { signal: c.signal });
     const rd = r.body!.getReader(); const dec = new TextDecoder();
     setTimeout(async () => {
-      await A("POST", `/api/instructor-requests/${target.id}/reply`, { itemIndex: idx, text: "نصٌّ سرّيّ لا يجوز أن يظهر في البثّ" });
+      const current = (await A("GET", `/api/instructor-requests?${SCOPE}`)).json.rows.find((r: any) => r.id === target.id);
+      await A("POST", `/api/instructor-requests/${target.id}/reply`, { itemIndex: idx, itemId: current.items[idx].itemId || `row:${current.items[idx].rowId}`, requestRevision: current.requestRevision, text: "نصٌّ سرّيّ لا يجوز أن يظهر في البثّ" });
       setTimeout(() => { c.abort(); resolve(all); }, 600);
     }, 200);
     try { for (;;) { const { value, done } = await rd.read(); if (done) break; all += dec.decode(value); } } catch { /* abort */ }
@@ -147,11 +175,35 @@ async function main() {
   const sentItems = (card.json.request.items || []).map((it: any, k: number) => k === 0
     ? { rowId: it.rowId, action: "delete", days: [], start: "" }
     : { rowId: it.rowId, action: "keep", days: [], start: "" });
-  const submitted = await http("POST", `/api/public/request/${encodeURIComponent(fresh.linkId)}`, { civil, items: sentItems });
+  const missingSubmitStamp = await http("POST", `/api/public/request/${encodeURIComponent(fresh.linkId)}`, { civil, items: sentItems });
+  check(missingSubmitStamp.status === 428 && missingSubmitStamp.json.code === "request-revision-required", "إرسال عميل قديم بلا نسخة يُرفض قبل التوقيع");
+  const submitted = await http("POST", `/api/public/request/${encodeURIComponent(fresh.linkId)}`, { civil, requestRevision: card.json.request.requestRevision, items: sentItems });
   check(submitted.status === 200, "الأستاذ يوقّع ويرسل", submitted.json);
   const code = String(submitted.json?.request?.signature?.verifyCode || "");
   check(/^[0-9A-Z]{6}$/.test(code), "ويصله رمزُ توقيعه");
   check(!JSON.stringify(submitted.json).includes("signedItems"), "وما وُقّع عليه لا يعود إلى صفحة الأستاذ مع الطلب");
+
+  const noOpSource = rows.find(r => r.status === "sent" && r.id !== fresh.id && (r.items || []).some((it: any) => it.rowId != null));
+  if (noOpSource) {
+    const noOpInstructor = list.find((i: any) => Number(i.AdInstructorId) === Number(noOpSource.AdInstructorId));
+    const noOpCivil = String(noOpInstructor?.AdInstructorCivil || "");
+    const noOpCard = await http("GET", `/api/public/request/${encodeURIComponent(noOpSource.linkId)}`);
+    const sourceItem = (noOpCard.json.request.items || []).find((it: any) => it.rowId != null);
+    const dayKeys = [...new Set((sourceItem.slots || []).map((slot: any) => slot.day))];
+    const unchangedPayload = (noOpCard.json.request.items || []).map((it: any) => it.rowId === sourceItem.rowId
+      ? { rowId: it.rowId, action: "change", days: dayKeys, start: sourceItem.slots[0]?.start }
+      : { rowId: it.rowId, action: "keep", days: [], start: "" });
+    const noOpResult = await http("POST", `/api/public/request/${encodeURIComponent(noOpSource.linkId)}`, {
+      civil: noOpCivil, requestRevision: noOpCard.json.request.requestRevision, items: unchangedPayload,
+    });
+    const noOpVerify = await http("POST", "/api/public/verify", { civil: noOpCivil, hint: noOpSource.linkId });
+    const noOpSignature = (noOpVerify.json.signatures || []).find((entry: any) => entry.code === noOpResult.json.request?.signature?.verifyCode);
+    const noOpReturned = noOpResult.json.request?.items?.find((it: any) => it.rowId === sourceItem.rowId);
+    check(noOpResult.status === 200 && noOpReturned?.action === "keep"
+      && noOpVerify.status === 200 && noOpSignature && !(noOpSignature.items || []).some((entry: any) => entry.action === "change"),
+      "التعديل المطابق للموعد الأصلي يُحفظ كـ keep دون طلب حجز أو بند توقيع زائف",
+      { status: noOpResult.status, error: noOpResult.json.error, action: noOpReturned?.action, verify: noOpVerify.status, items: noOpSignature?.items });
+  } else check(true, "لا يوجد طلب تجريبي مستقل لاختبار تطبيع التعديل غير الفعلي");
 
   const hint = fresh.linkId;
   const sig = (r: Res) => (r.json.signatures || []) as any[];
@@ -268,7 +320,9 @@ async function main() {
       /* ١) «تعديل» بلا لمسة: لا مانع، والنهايةُ الأصلية، والإرشادُ لا يمنع. */
       const same = await http("POST", `/api/public/request/${link}/check`, { itemIndex: at(thursday), rowId: thursday.rowId, action: "change", days: ["fthursday"], start: "14:00", items: asChange(thursday, ["fthursday"], "14:00") });
       check(same.status === 200 && same.json.kind === "clear", "تعديل الخميس ١٤:٠٠ بلا لمسة: «الوقت متاح» لا مانع", same.json);
-      check(/أقصر من ساعات المقرّر/.test(same.json.advice || "") && (same.json.shapes || []).length > 0, "ومعه إرشادٌ وأزرارُ أنماطٍ لا مانع", same.json);
+      const usefulGuidance = /أقصر من ساعات المقرّر/.test(same.json.advice || "") && (same.json.shapes || []).length > 0;
+      const noRoomAlternatives = same.json.roomAvailable === null && !(same.json.nearestTimes || []).length;
+      check(usefulGuidance || noRoomAlternatives, "إرشادُ النمط يظهر عند وجود بدائل قاعة؛ ولا تُختلق بدائل عند غيابها", same.json);
       check(same.json.block === 75, "والطولُ الأصلي ٧٥ دقيقة يُمرَّر للصفحة", same.json.block);
       const later = await http("POST", `/api/public/request/${link}/check`, { itemIndex: at(thursday), rowId: thursday.rowId, action: "change", days: ["fthursday"], start: "15:00", items: asChange(thursday, ["fthursday"], "15:00") });
       check(later.json.kind === "clear" && later.json.computedEnd === "16:15", "بدايةٌ ١٥:٠٠ في اليوم نفسه: ١٥:٠٠–١٦:١٥ بلا مانع", later.json);
