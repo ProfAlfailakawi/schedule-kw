@@ -223,8 +223,8 @@ function ScheduleFields({ ws, locked }: { ws: Workspace; locked?: boolean }) {
   const { draft, ctx } = ws;
   const advice = useMemo(() => draft.days.length && draft.start && draft.end ? adviseDayPattern(draft.days as DayKey[], draft.start, draft.end) : null, [draft.days, draft.start, draft.end]);
   const scope = scopeOfDraft(ws);
-  const window = ctx?.sectionWindows?.[String(scope.sectionId)];
-  const from = window?.startTime || SCHEDULE_DAY_START_TIME, until = window?.endTime || SCHEDULE_DAY_END_TIME;
+  const dayWindow = ctx?.sectionWindows?.[String(scope.sectionId)];
+  const from = dayWindow?.startTime || SCHEDULE_DAY_START_TIME, until = dayWindow?.endTime || SCHEDULE_DAY_END_TIME;
   const invalidTime = Boolean(draft.start && draft.end) && timeToMinutes(draft.end) <= timeToMinutes(draft.start);
   const toggleDay = (day: StudyProposalDayKey) => ws.patchDraft(cur => ({ days: cur.days.includes(day) ? cur.days.filter(d => d !== day) : [...cur.days, day] }));
 
