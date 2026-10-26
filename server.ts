@@ -6126,7 +6126,11 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
     if(lengthIssue)validationIssues.push(lengthIssue);
   }
   if(row.buildingId && (row.roomId || row.locationStatus===PENDING_ROOM) && Number(row.AdCollegeId||0) && Number(row.AdSectionId||0)){
-    const location=await canonicalizeLocationForWrite(row,Number(row.AdCollegeId),Number(row.AdSectionId));
+    const editedId=Number(row.excludeId||0);
+    const oldRow=editedId ? await Repository.getScheduleById(editedId) : null;
+    // Imported authority locations remain editable when the official room is unchanged.
+    const authorityRoomId=oldRow?.importEvidence && oldRow.roomId ? String(oldRow.roomId) : "";
+    const location=await canonicalizeLocationForWrite(row,Number(row.AdCollegeId),Number(row.AdSectionId),authorityRoomId);
     validationIssues.push(...location.check.issues.filter(issue=>issue.severity==="high").map(issue=>issue.message));
   }
   res.json({conflicts:await scheduleConflicts(req,row,Number(row.excludeId||0)),validationIssues,...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{})}); });
