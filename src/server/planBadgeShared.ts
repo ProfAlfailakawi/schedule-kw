@@ -17,6 +17,20 @@ export async function planBadgeFor(courseId: unknown, sectionId: unknown): Promi
 type ServiceSource = () => Promise<Map<number, { sectionId: number }>>;
 let serviceSource: ServiceSource | null = null;
 export const setServiceSource = (next: ServiceSource) => { serviceSource = next; };
+/** شارات الصحيفة للمقررات المطلوبة في كرت الأستاذ من المصدر المشترك، بقراءة واحدة. */
+export async function planBadgesFor(pairs: Array<{ courseId: unknown; sectionId: unknown }>): Promise<Record<string, string>> {
+  if (!source) return {};
+  const wanted = new Set(pairs.map(pair => `${Number(pair.sectionId)}:${Number(pair.courseId)}`));
+  try {
+    const badges: Record<string, string> = {};
+    for (const row of await source()) {
+      const key = `${row.sectionId}:${row.courseId}`;
+      if (wanted.has(key) && row.label) badges[key] = row.label;
+    }
+    return badges;
+  } catch { return {}; }
+}
+
 export async function serviceCourseKeys(): Promise<Set<string>> {
   if (!serviceSource) return new Set();
   try {

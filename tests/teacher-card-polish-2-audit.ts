@@ -129,5 +129,34 @@ check(server.includes("contexts.set(key, buildRequestContext(row))") && server.i
   check(!(noHistory.shapes || []).some(s => s.label.startsWith("المعتاد")) && (noHistory.shapes || []).length > 0, "P12 وبلا تاريخٍ تُقترح أنماطُ اللائحة", noHistory.shapes);
 }
 
+/* P13: عناصر كرت الأستاذ المطلوبة، بلا تغييرٍ في التحقق أو الإرسال. */
+const visual13 = readFileSync("src/server/requestVisual.ts", "utf8");
+const source13 = readFileSync("src/server/planBadgeShared.ts", "utf8");
+check(server.includes('import { planBadgesFor, serviceCourseKeys }') &&
+  server.includes("const planBadges = await planBadgesFor(") &&
+  server.includes("    planBadges,"), "P13 مصدر شارات الصحيفة نفسه يُرسل إلى كرت الأستاذ");
+check(source13.includes("export async function planBadgesFor") && source13.includes("if (wanted.has(key) && row.label)"),
+  "P13 الشارة مرتبطة بالمقرر وقسمه، ولا يختلق الكرت تصنيفاً");
+check(page.includes("function skPlanTag(cid,sid)") &&
+  page.includes("skPlanTag(c.id,c.sectionId)") &&
+  page.includes("skPlanTag(courseIdOf(it),sid)") &&
+  page.includes("reqTag({courseId:group.courseId,sectionId:group.sectionId})"),
+  "P13 الشارة في موعد جديد والموعد الحالي والقرار والشعب المتاحة");
+check(page.includes("function receiptLine(it){var c='<b>'+esc(courseOf(it))+reqTag(it)"),
+  "P13 شارات المقرر في إيصال الطلب");
+check(visual13.includes("function skRuleTag(label)") &&
+  visual13.includes("skRuleTag(art[1])") &&
+  visual13.includes("skRuleTag(m[2])") &&
+  visual13.includes('(/^أكثر من شعبتين متتاليتين/.test(n)?"":'),
+  "P13 المادة ٦/٢ قابلة للضغط بلا تفاصيل متكررة");
+check(visual13.includes("function skBadgeExplain(el)") &&
+  visual13.includes("م.6/2: لا يجوز تجاوز شعبتين") &&
+  visual13.includes("متطلب كلية:") &&
+  page.includes('data-sk-badge="plan"'),
+  "P13 الضغط على شارة اللائحة أو الصحيفة أو متطلب كلية يعرض شرحاً مختصراً");
+check(!visual13.includes('data-nx="send"') &&
+  page.includes('<button type="button" id="send"'),
+  "P13 اختصار إلى الإرسال المحذوف لا يمسّ زر الإرسال الأصلي");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
