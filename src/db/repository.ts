@@ -3289,22 +3289,22 @@ export const Repository = {
     return db.instructors.find(i => i.AdInstructorCivil === civil);
   },
 
-  createInstructor: async (civil: string, name: string, mobile: string): Promise<AdInstructor> => {
+  createInstructor: async (civil: string, name: string, mobile: string, category?: "ta" | null): Promise<AdInstructor> => {
     invalidateReference(REFERENCE_KEYS.instructors);
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const nextId = await reserveFirestoreIds("instructors");
-      const newIns = { AdInstructorId: nextId, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile };
+      const newIns: AdInstructor = { AdInstructorId: nextId, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile, ...(category === "ta" ? { AdInstructorCategory: "ta" as const } : {}) };
       await firestoreDb.collection("instructors").doc(`instructor_${nextId}`).set(newIns);
       return newIns;
     }
     const nextId = db.instructors.length > 0 ? Math.max(...db.instructors.map(i => i.AdInstructorId)) + 1 : 1;
-    const newIns = { AdInstructorId: nextId, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile };
+    const newIns: AdInstructor = { AdInstructorId: nextId, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile, ...(category === "ta" ? { AdInstructorCategory: "ta" as const } : {}) };
     db.instructors.push(newIns);
     saveDatabase();
     return newIns;
   },
 
-  updateInstructor: async (id: number, civil: string, name: string, mobile: string, status?: "retired" | "sabbatical" | null, load?: number | null): Promise<AdInstructor> => {
+  updateInstructor: async (id: number, civil: string, name: string, mobile: string, status?: "retired" | "sabbatical" | null, load?: number | null, category?: "ta" | null): Promise<AdInstructor> => {
     invalidateReference(REFERENCE_KEYS.instructors);
     // Only a real status is stored; anything else clears the field so the record
     // stays clean and an active teacher carries no status at all (Note 2).
@@ -3318,13 +3318,16 @@ export const Repository = {
       const docRef = firestoreDb.collection("instructors").doc(`instructor_${id}`);
       const doc = await docRef.get();
       if (!doc.exists) throw new Error("الأستاذ غير موجود");
-      const updated: AdInstructor = { AdInstructorId: id, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile, ...statusField, ...loadField };
+      const previous = doc.data() as AdInstructor;
+      const nextCategory = category === undefined ? previous.AdInstructorCategory : category;
+      const updated: AdInstructor = { AdInstructorId: id, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile, ...statusField, ...loadField, ...(nextCategory === "ta" ? { AdInstructorCategory: "ta" as const } : {}) };
       await docRef.set(updated);
       return updated;
     }
     const idx = db.instructors.findIndex(i => i.AdInstructorId === id);
     if (idx === -1) throw new Error("الأستاذ غير موجود");
-    db.instructors[idx] = { AdInstructorId: id, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile, ...statusField, ...loadField };
+    const nextCategory = category === undefined ? db.instructors[idx].AdInstructorCategory : category;
+    db.instructors[idx] = { AdInstructorId: id, AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: mobile, ...statusField, ...loadField, ...(nextCategory === "ta" ? { AdInstructorCategory: "ta" as const } : {}) };
     saveDatabase();
     return db.instructors[idx];
   },

@@ -132,6 +132,8 @@ export interface AdInstructor {
   AdInstructorCivil: string;
   AdInstructorName: string;
   AdInstructorMobile: string;
+  /** Explicit TA classification chosen in the professor card. */
+  AdInstructorCategory?: "ta";
   /**
    * Additive, optional. Absent means an ordinary active teacher. A retired or
    * sabbatical member keeps every historical appointment but is hidden from new

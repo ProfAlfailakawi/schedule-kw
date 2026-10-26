@@ -154,3 +154,4 @@ test:appointment-entry-parity
 test:schedule-wipe
 test:instructor-availability
 test:instructor-offering-flow
+test:ta-conversion

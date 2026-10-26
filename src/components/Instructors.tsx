@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Phone, Trash2, UserRound } from "lucide-react";
+import { Phone, Trash2, UserRound, GraduationCap } from "lucide-react";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
 import { sortByName } from "../utils/sorting";
@@ -42,6 +42,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
     [visibleLimit, setVisibleLimit] = useState(160),
     // Note 2: retired / sabbatical status. Note 1: which instructors are delegates.
     [status, setStatus] = useState<"" | "retired" | "sabbatical">(""),
+    [category, setCategory] = useState<"" | "ta">(""),
     [delegateIds, setDelegateIds] = useState<Set<number>>(new Set());
   type Affiliation = { collegeId: number; sectionId: number; section: string; college: string };
   const [affiliations, setAffiliations] = useState<Record<string, { delegate: Affiliation[]; teaching: Affiliation[] }>>({});
@@ -89,6 +90,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
       setName("");
       setMobile("");
       setStatus("");
+      setCategory("");
       setTeachingLoad("");
       setMode("create");
       setError(null);
@@ -99,6 +101,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
       setName(x.AdInstructorName || "");
       setMobile(x.AdInstructorMobile || "");
       setStatus(x.AdInstructorStatus === "retired" || x.AdInstructorStatus === "sabbatical" ? x.AdInstructorStatus : "");
+      setCategory(x.AdInstructorCategory === "ta" ? "ta" : "");
       setTeachingLoad(Number(x.AdInstructorLoad) > 0 ? String(x.AdInstructorLoad) : "");
       setMode("edit");
       setError(null);
@@ -154,6 +157,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
               AdInstructorName: name.trim(),
               AdInstructorMobile: mobile.trim(),
               AdInstructorStatus: status || null,
+              AdInstructorCategory: category || null,
               AdInstructorLoad: teachingLoad.trim() ? Number(teachingLoad) : null,
             }),
           },
@@ -310,6 +314,12 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
                   onChange={(e) => setTeachingLoad(numericText(e.target.value).slice(0, 2))}
                 />
               </Field>
+              <Field label="الصفة" hint="تصنيف يدوي، لا يغيّر المواعيد السابقة.">
+                <div className="status-choice" role="radiogroup" aria-label="الصفة الأكاديمية">
+                  <button type="button" role="radio" data-guide-ignore="تعيين صفة الأستاذ من داخل نموذج تحرير بطاقته فقط" aria-checked={!category} className={!category ? "on" : ""} onClick={() => setCategory("")}>عضو تدريس</button>
+                  <button type="button" role="radio" data-guide-ignore="تعيين صفة الأستاذ من داخل نموذج تحرير بطاقته فقط" aria-checked={category === "ta"} className={category === "ta" ? "on" : ""} onClick={() => setCategory("ta")}><GraduationCap aria-hidden="true" /> هيئة تدريب · TA</button>
+                </div>
+              </Field>
               <Field label="الحالة">
                 <div className="status-choice" role="radiogroup" aria-label="حالة الأستاذ">
                   {[
@@ -349,6 +359,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
     ) : null;
   return (
     <div className={`content-stack library-page catalog-inspector-page visual-minimal ${embedded ? "embedded-catalog" : ""}`}>
+      <style>{".ta-category-badge{display:inline-flex;align-items:center;vertical-align:middle;margin-inline-start:7px;padding:2px 7px;border:1px solid currentColor;border-radius:8px;background:transparent;color:inherit;opacity:.74;font-size:10px;font-weight:600}"}</style>
       {embedded ? (
         <EmbeddedAction slot={actionSlot}>
           <AddButton onClick={create}>إضافة أستاذ</AddButton>
@@ -385,6 +396,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
                   title={(
                     <>
                       {x.AdInstructorName}
+                      {x.AdInstructorCategory === "ta" ? <span className="staff-badge ta-category-badge">TA · هيئة تدريب</span> : null}
                       {x.AdInstructorStatus === "retired" ? <span className="staff-badge is-retired">متقاعد</span>
                         : x.AdInstructorStatus === "sabbatical" ? <span className="staff-badge is-sabbatical">متفرّغ</span> : null}
                       {delegateIds.has(x.AdInstructorId) ? <span className="instructor-delegate-mark" title={affiliationLabel(affiliationOf(x.AdInstructorId).delegate).join(" ، ") || "قسم الانتداب غير مسجّل"}><VisitingBadge compact /></span> : null}
@@ -432,7 +444,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
                 <UserRound />
               </div>
               <span className="surface-kicker">تفاصيل الأستاذ</span>
-              <h2>{selected.AdInstructorName}{delegateIds.has(selected.AdInstructorId) ? <VisitingBadge compact /> : null}</h2>
+              <h2>{selected.AdInstructorName}{delegateIds.has(selected.AdInstructorId) ? <VisitingBadge compact /> : null}{selected.AdInstructorCategory === "ta" ? <span className="staff-badge ta-category-badge">TA · هيئة تدريب</span> : null}</h2>
               <p>يظهر في الجدول والتقارير.</p>
               <div className="inspector-facts inspector-facts-pairs">
                 <article>

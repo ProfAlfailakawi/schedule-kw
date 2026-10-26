@@ -1,0 +1,37 @@
+.ta-conversion-sheet{max-width:520px;width:min(94vw,520px);overflow:hidden}
+.ta-conversion-heading{display:flex;align-items:center;gap:13px;min-width:0}
+.ta-conversion-heading h2{font-size:20px;margin:3px 0}
+.ta-conversion-heading small{display:flex;align-items:center;gap:7px;opacity:.68}
+.ta-conversion-heading small svg{width:14px;height:14px}
+.ta-conversion-symbol{display:grid;place-items:center;width:42px;height:42px;border-radius:14px;background:color-mix(in srgb,currentColor 7%,transparent)}
+.ta-conversion-symbol svg{width:23px;height:23px}
+.ta-conversion-header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.ta-conversion-content{padding:20px 24px 24px;display:grid;gap:16px}
+.ta-conversion-loading{text-align:center;opacity:.65;padding:16px}
+.ta-conversion-scope{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;opacity:.8}
+.ta-conversion-dot{opacity:.45}
+.ta-conversion-numbers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.ta-conversion-numbers>div{border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:14px;padding:12px;display:grid;justify-items:center;gap:5px}
+.ta-conversion-numbers svg{width:17px;height:17px;opacity:.55}
+.ta-conversion-numbers strong{font-size:26px;font-weight:750;line-height:1.1;font-variant-numeric:tabular-nums}
+.ta-conversion-numbers small{opacity:.65;font-size:11px}
+.ta-conversion-people{display:grid;gap:0;max-height:220px;overflow-y:auto;border-block:1px solid color-mix(in srgb,currentColor 10%,transparent)}
+.ta-conversion-person{display:flex;align-items:center;gap:10px;padding:10px 3px}
+.ta-conversion-person+.ta-conversion-person{border-top:1px solid color-mix(in srgb,currentColor 8%,transparent)}
+.ta-conversion-avatar{display:grid;place-items:center;width:28px;height:28px;flex-shrink:0;border-radius:9px;background:color-mix(in srgb,currentColor 6%,transparent)}
+.ta-conversion-avatar svg{width:15px;height:15px;opacity:.7}
+.ta-conversion-person strong{font-size:13px;font-weight:600;flex:1;min-width:0}
+.ta-conversion-person small{font-size:11px;opacity:.66;white-space:nowrap}
+.ta-conversion-protection,.ta-conversion-undo-hint{display:flex;align-items:center;gap:8px;font-size:12px;opacity:.72;margin:0}
+.ta-conversion-protection svg,.ta-conversion-undo-hint svg{width:17px;height:17px;flex-shrink:0}
+.ta-conversion-empty{text-align:center;display:grid;justify-items:center;gap:8px;padding:18px 6px}
+.ta-conversion-empty svg{opacity:.6;width:27px;height:27px}
+.ta-conversion-empty strong{font-size:14px}
+.ta-conversion-empty small{font-size:12px;opacity:.66}
+.ta-conversion-error{display:flex;align-items:center;gap:8px;color:#a33d32;font-size:12px;margin:0}
+.ta-conversion-error svg{width:17px;height:17px;flex-shrink:0}
+.ta-conversion-done{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.ta-conversion-done svg{width:18px;height:18px}
+.ta-conversion-actions{display:flex;justify-content:flex-end;gap:8px;align-items:center;flex-wrap:wrap}
+.ta-conversion-actions button{min-height:38px}
+@media(max-width:520px){.ta-conversion-content{padding:16px}.ta-conversion-numbers>div{padding:10px 5px}.ta-conversion-heading h2{font-size:17px}}

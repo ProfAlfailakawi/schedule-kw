@@ -1,5 +1,6 @@
 import PatternLibraryButton from "./PatternLibraryButton";
 import WipeScheduleButton from "./WipeScheduleButton";
+import TAConversionPanel from "./TAConversionPanel";
 import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
 import TermSelect from "./TermSelect";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
@@ -1941,6 +1942,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      يصل من شريط الاعتماد (`onLockChange`)، فتعرف الورشةُ أن الجدول عند
      التسجيل قبل أن تفتح محرّراً يقول «صالح للحفظ» ثم يرفضه الخادم. */
   const [approvalLock, setApprovalLock] = useState<string | null>(null);
+  const [taConversionOpen, setTaConversionOpen] = useState(false);
   /* ضغطُ بطاقةٍ والجدولُ مقفل: السحبُ لا يبدأ، ويُقال لماذا بدل أن يبدو معطَّلاً. */
   const explainApprovalLock = () => { if (approvalLock) setPhysicsNotice(approvalLock); };
   useEffect(() => () => presence.dispose(), [presence]);
@@ -10419,6 +10421,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             </GhostButton> : null}
             {workspaceToolsOpen ? <GhostButton
               type="button"
+              data-guide-ignore="معاينة تحويل أسماء TA داخل القسم والفصل دون تعديل إلا بعد التأكيد"
+              onClick={() => setTaConversionOpen(true)}
+              disabled={!filterCollege || !filterSection || !filterTerm}
+              title="تحويل مواعيد أعضاء هيئة التدريب إلى هيئة تدريسية"
+            >
+              <UsersRound aria-hidden="true" /> تحويل هيئة التدريب
+            </GhostButton> : null}
+            {workspaceToolsOpen ? <GhostButton
+              type="button"
               data-guide-target="schedule.tool.data"
               onClick={() => { if (!showMobileReadOnlyGate()) setTransferOpen(true); }}
               title="استيراد وتصدير واستبدال أستاذ والمنتدبون"
@@ -10445,6 +10456,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           </div>
         </div>
       </Surface>
+      {taConversionOpen ? <TAConversionPanel
+        collegeId={Number(filterCollege)} sectionId={Number(filterSection)} termId={Number(filterTerm)}
+        onClose={() => setTaConversionOpen(false)}
+        onChanged={() => { void loadRows(); setLiveFeedSerial(value => value + 1); }}
+      /> : null}
       {/* ── شريط الاعتماد ───────────────────────────────────────────────────
           يقف تحت أدوات الجدول وفوقه: أوّل ما تقع عليه العين بعد اختيار
           القسم، وآخرُ ما يُقرأ قبل النظر في المواعيد. ولا يرسم شيئاً حين

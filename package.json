@@ -14,6 +14,7 @@
     "test:visiting-badge-g4": "tsx tests/visiting-badge-group4-audit.ts",
     "test:visiting-badge-changes": "tsx tests/visiting-badge-changes-audit.ts",
     "test:visiting-lookup": "tsx tests/visiting-lookup-audit.ts",
+    "test:ta-conversion": "tsx tests/ta-conversion-audit.ts",
     "test:visiting-status": "tsx tests/visiting-status-permanent-audit.ts",
     "test:decision-1913": "tsx tests/decision-1913-audit.ts",
     "test:voice-input": "tsx tests/voice-input-audit.ts",
