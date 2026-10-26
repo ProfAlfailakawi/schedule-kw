@@ -51,4 +51,19 @@ const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
 assert.match(server, /authorityFieldMatchesOriginal\(field,source,next\)/);
 assert.match(server, /const visibleChangedFields=changedFields\.filter\(field=>field!=="SCode"\)/);
 assert.match(server, /baselineRows=importLayout==="authority-pdf"/);
+
+
+// Both added and deleted appointments must tint EVERY cell, regardless of
+// odd/even position. The comprehensive report's zebra rule must never win.
+const printCss = fs.readFileSync(path.join(process.cwd(), "src/styles/08-print.css"), "utf8");
+const zebraSelector = '.print-comprehensive-grid-body .print-comprehensive-grid-row:nth-child(even)>[role="cell"]';
+assert.ok(printCss.includes(zebraSelector), "Keep the existing unchanged-row zebra stripes");
+const cssWeight = (selector: string) => (selector.match(/\.[\w-]+|:[\w-]+|\[[^\]]+\]/g) || []).length;
+for (const [kind, fill] of [["added", "#e8f6ed"], ["deleted", "#fbe8e8"]] as const) {
+  const selector = `.authority-pdf-grid .print-comprehensive-grid-body .authority-pdf-row.authority-pdf-row-${kind}>[role="cell"]`;
+  assert.ok(printCss.includes(`${selector}{background:${fill}!important`), `${kind}: preserve the original full-row colour`);
+  assert.ok(cssWeight(selector) > cssWeight(zebraSelector), `${kind}: row status must override even-row zebra stripes`);
+}
+assert.match(printCss, /\.authority-pdf-grid \.authority-pdf-row-changed>\[role="cell"\]\.authority-pdf-cell-changed\{background:#fff2bf!important/);
+
 console.log("Authority PDF net-difference/revert regression checks passed.");
