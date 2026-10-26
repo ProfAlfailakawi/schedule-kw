@@ -44,6 +44,8 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   check(/revs: revsFor\(/.test(inbox), "L4 الشاشة ترسل ختم إصدار كل صف");
   check(/!stored\.items\[i\]\.decision\?\.state\)/.test(route), "L5 البنود المترابطة تُقبل معلّقة فقط (لا يُكتب بندٌ رُفض)");
   check(/liveRowRefusal\(live, revs\)[\s\S]{0,200}kind: "delete"/.test(route), "L6 الحذف يخضع لختم الإصدار ولملكية الأستاذ كالنقل");
+  check(/decision\?\.state === "rejected"[\s\S]{0,180}code: "rejected-item"/.test(route), "L6a بندٌ مرفوض لا يمرّ إلى الاعتماد دون إعادة فتح موثّقة");
+  check(route.includes("request-revision-required") && route.includes("row-revision-required"), "L6b ختم الطلب وكل صف متأثر إلزاميان عند الاعتماد");
   check(/Number\(live\.AdInstructorId\) !== Number\(stored\.AdInstructorId\) \|\| Number\(live\.AdTermId\) !== termId/.test(route), "L7 الصف الحيّ يجب أن يكون للأستاذ نفسه في الفصل نفسه");
   check(route.includes("Repository.commitInstructorRequestPlan") && repository.includes("const finalWeek = [...week.filter"), "L8 جميع عمليات الحزمة تُحفظ معاً بلا حالة وسطية تحتاج تراجعاً");
   check(/acquireScheduleApplyLease\(applyLock/.test(route) && /releaseScheduleApplyLease\(applyLock/.test(route), "L9 قفل التثبيت في قاعدة البيانات (يراه كل خادم في كل منطقة)، ويُفكّ دائماً");
@@ -85,6 +87,7 @@ try {
       const before = await rowNow(Number(item.rowId));
       const want = slotTimeGroups(item.slots)[0];
       const url = `/api/instructor-requests/${request.id}/apply`;
+      const requestRevision = Number(request.requestRevision || 0);
       /* بياناتُ التجربة تتغيّر: يُفرَّغ الوقتُ المطلوب من مواعيد الأستاذ نفسه وقاعته (في البيئة المؤقتة)
          كي يقيس الاختبارُ التثبيتَ لا مصادفةَ البيانات. والرفضُ عند التعارض يقيسه B3. */
       const toMin = (t: string) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + m; };
@@ -94,12 +97,30 @@ try {
       for (const row of clash) await call("DELETE", `/api/schedules/${row.id}`);
       before.rev = (await rowNow(before.id)).rev;
 
-      const preview = await call("POST", url, { itemIndex: index, preview: true, revs: { [item.rowId]: before.rev } });
+      const missingRequestStamp = await call("POST", url, { itemIndex: index, preview: true, revs: { [item.rowId]: before.rev } });
+      check(missingRequestStamp.status === 428 && missingRequestStamp.body?.code === "request-revision-required",
+        "B0 ختم إصدار الطلب مفقود: الاعتماد يُرفض قبل المعاينة أو الكتابة", missingRequestStamp.body);
+      const emptyRequestStamp = await call("POST", url, { itemIndex: index, preview: true, requestRevision: "",
+        revs: { [item.rowId]: before.rev } });
+      check(emptyRequestStamp.status === 428 && emptyRequestStamp.body?.code === "request-revision-required",
+        "B0 ختم فارغ لا يُعامل كأنه الإصدار صفر", emptyRequestStamp.body);
+      const missingRowStamp = await call("POST", url, { itemIndex: index, preview: true, requestRevision });
+      check(missingRowStamp.status === 428 && missingRowStamp.body?.code === "row-revision-required",
+        "B0a ختم إصدار الموعد مفقود: الاعتماد يُرفض", missingRowStamp.body);
+      const emptyRowStamp = await call("POST", url, { itemIndex: index, preview: true, requestRevision,
+        revs: { [item.rowId]: "" } });
+      check(emptyRowStamp.status === 428 && emptyRowStamp.body?.code === "row-revision-required",
+        "B0c ختم صف فارغ لا يُعامل كأنه الإصدار صفر", emptyRowStamp.body);
+      const oldRequestStamp = await call("POST", url, { itemIndex: index, preview: true, requestRevision: requestRevision + 1,
+        revs: { [item.rowId]: before.rev } });
+      check(oldRequestStamp.status === 409 && oldRequestStamp.body?.code === "request-revision",
+        "B0b ختم طلب قديم يُرفض", oldRequestStamp.body);
+      const preview = await call("POST", url, { itemIndex: index, preview: true, requestRevision, revs: { [item.rowId]: before.rev } });
       const untouched = await rowNow(before.id);
       check(preview.status === 200 && preview.body?.preview && preview.body.plan?.[0]?.start === want.start
         && untouched.fstarttime === before.fstarttime && days(untouched) === days(before), "B1 المعاينة تُرجع الخطة ولا تكتب", preview.body);
 
-      const stale = await call("POST", url, { itemIndex: index, revs: { [item.rowId]: Number(before.rev || 0) - 1 } });
+      const stale = await call("POST", url, { itemIndex: index, requestRevision, revs: { [item.rowId]: Number(before.rev || 0) + 1 } });
       check(stale.status === 409 && stale.body?.code === "revision", "B2 ختمُ إصدارٍ قديم يُرفض (لا يكتب فوق تعديل زميل)", stale.body);
 
       /* صفٌّ يشغل الأستاذَ نفسَه في الوقت المطلوب: التثبيتُ يُرفض كلُّه ولا يُكتب شيء. */
@@ -111,7 +132,7 @@ try {
         AdRoomCode: before.AdRoomCode, AdRoomHall: before.AdRoomHall, buildingId: before.buildingId, roomId: before.roomId, locationStatus: before.locationStatus,
       });
       if (blocker.status === 201) {
-        const refused = await call("POST", url, { itemIndex: index });
+        const refused = await call("POST", url, { itemIndex: index, requestRevision, revs: { [item.rowId]: before.rev } });
         const still = await rowNow(before.id);
         const afterRefuse = (await inbox()).rows.find((row: any) => row.id === request.id);
         check(refused.status === 409 && still.fstarttime === before.fstarttime && days(still) === days(before) && !afterRefuse.items[index].decision?.state,
@@ -119,13 +140,35 @@ try {
         await call("DELETE", `/api/schedules/${blocker.body.id}`);
       } else check(true, "B3 (تعذّر بناء صفٍّ معارِض في بيانات التجربة)");
 
-      const applied = await call("POST", url, { itemIndex: index, revs: { [item.rowId]: (await rowNow(before.id)).rev } });
+      const applied = await call("POST", url, { itemIndex: index, requestRevision, revs: { [item.rowId]: (await rowNow(before.id)).rev } });
       const after = await rowNow(before.id);
       check(applied.status === 200 && after.fstarttime === want.start && days(after) === want.days.join(), "B4 التثبيت يكتب الصفّ كما طلب الأستاذ", { status: applied.status, body: applied.body?.error, after });
       check(after.origin?.kind === "instructor-request" && after.origin?.refId === String(request.id), "B5 ومصدرُه في سجلّ الجدول: رغبة الأستاذ برقم طلبه", after.origin);
       const decided = (await inbox()).rows.find((row: any) => row.id === request.id).items[index].decision;
       check(decided?.state === "fixed" && Number(decided?.scheduleId) === before.id, "B6 والقرارُ مسجّلٌ معه بمعرّف الصف", decided);
-      const again = await call("POST", url, { itemIndex: index });
+      let afterFixedInbox = await inbox();
+      let currentRequest = afterFixedInbox.rows.find((row: any) => row.id === request.id);
+      const rejectedIndex = currentRequest.items.findIndex((candidate: any, at: number) => at !== index
+        && (candidate.action === "change" || candidate.action === "delete") && !candidate.decision?.state && candidate.rowId != null);
+      if (rejectedIndex >= 0) {
+        const rejectedItem = currentRequest.items[rejectedIndex];
+        const rejectedRow = await rowNow(Number(rejectedItem.rowId));
+        const rejection = await call("POST", `/api/instructor-requests/${request.id}/decide`, {
+          itemIndex: rejectedIndex, state: "rejected", reasonCode: "department", note: "اختبار رفض بندٍ قبل الاعتماد",
+        });
+        const afterRejection = await inbox();
+        currentRequest = afterRejection.rows.find((row: any) => row.id === request.id);
+        const rejectedApply = await call("POST", url, { itemIndex: rejectedIndex, requestRevision: currentRequest.requestRevision,
+          revs: { [rejectedItem.rowId]: rejectedRow.rev || 0 } });
+        check(rejection.status === 200 && rejectedApply.status === 409 && rejectedApply.body?.code === "rejected-item",
+          "B6a بندٌ رُفض فعلياً لا يمكن تطبيقه بعد ذلك", { rejection: rejection.status, rejectedApply });
+      } else {
+        check(true, "B6a (لا يوجد بندٌ ثانٍ معلّق في بيانات التجربة)");
+      }
+      afterFixedInbox = await inbox();
+      currentRequest = afterFixedInbox.rows.find((row: any) => row.id === request.id);
+      const again = await call("POST", url, { itemIndex: index, requestRevision: currentRequest.requestRevision,
+        revs: { [item.rowId]: after.rev } });
       check(again.status === 409 && again.body?.code === "already-fixed", "B7 ولا يُعاد على بندٍ ثُبّت (لا صفّ مكرر)", again.body);
     }
   }

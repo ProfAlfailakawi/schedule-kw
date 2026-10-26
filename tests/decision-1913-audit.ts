@@ -129,7 +129,11 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   check(!byRule(review([practicalThreeBlock], [theoretical(85, 3)]), "theoretical-pattern"), "٣ ساعات: كتلة عملية 170 دقيقة (3×50 + فاصلان) مطابقة للمكتبة في أي يوم");
 
   const validFourPattern = [row(83, "501", ["mon", "wed"], "08:00", "09:20"), row(83, "501", ["thu"], "08:00", "08:50")];
-  check(!byRule(review(validFourPattern, [theoretical(83, 4)]), "theoretical-pattern"), "٤ ساعات: 80/80/50 مطابق");
+  check(Boolean(byRule(review(validFourPattern, [theoretical(83, 4)]), "theoretical-pattern")), "٤ ساعات: 80/80/50 ليس نمطاً تشغيلياً معتمداً حالياً");
+  const historicNature: any = { confidence: "high", meetingsPerWeek: 3, weeklyMinutes: 210, meetingMinutes: 70,
+    seenInTerms: [1, 2], dayPatterns: [{ days: ["fmonday", "fwednesday", "fthursday"], count: 4, share: 1 }] };
+  const preserved = reviewSchedule({ rows: validFourPattern.map(item => ({ ...item, AdTermId: 3 })), courses: new Map([[83, theoretical(83, 4)]]), instructors: new Map(), nature: new Map([[83, historicNature]]) });
+  check(!byRule(preserved, "theoretical-pattern"), "والشكل نفسه يبقى صالحاً لسجلٍ تاريخي موثوق سابق للفصل، دون اعتماده كنمط جديد");
   const validFourLongMonWed = row(88, "504", ["mon", "wed"], "18:00", "19:50");
   check(!byRule(review([validFourLongMonWed], [theoretical(88, 4)]), "theoretical-pattern"), "٤ ساعات: لقاءان 110 دقائق الاثنين والأربعاء (ساعتان تدريسيّتان لكل لقاء) مطابق");
   const validFourShortDayPatterns = [row(87, "501", ["sun", "tue"], "12:00", "13:50"), row(87, "502", ["tue", "thu"], "10:00", "11:50")];

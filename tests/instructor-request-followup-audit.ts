@@ -22,6 +22,7 @@ import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import { NEGOTIATION_LABEL, negotiationState, parseOfferedSlots } from "../src/utils/instructorRequestThread";
 import { requestFullySettled } from "../src/utils/instructorRequestVerdict";
 import { formatScheduleTimeRange } from "../src/utils/scheduleTime";
+import { roomKeyOf } from "../src/utils/locationRegistry";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -47,7 +48,7 @@ const busy = [row({ id: 1 }), row({ id: 2, AdCourseId: 200, fstarttime: "11:00",
 const context: VerdictContext = {
   instructorId: TEACHER, allRows: busy, instructorRowsAfter: busy,
   courses: new Map([[100, course(100)], [200, course(200)], [300, course(300)]]),
-  instructors: new Map([[TEACHER, teacher]]), knownRoomKeys: [], startLadder: ["08:00", "11:00"],
+  instructors: new Map([[TEACHER, teacher]]), knownRoomKeys: ["101", "102", "103", "104", "105"].map(hall => roomKeyOf(undefined, "أ", hall)), startLadder: ["08:00", "11:00"],
 };
 const ask: RequestedRow = { rowId: null, action: "add", AdCourseId: 300, days: ["fsunday", "ftuesday", "fthursday"], start: "08:00" };
 const verdict = judgeRequest(ask, { ...context, instructorRowsAfter: [...busy, row({ id: -1, AdCourseId: 300, fthursday: true })] });

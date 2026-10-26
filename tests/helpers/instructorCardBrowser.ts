@@ -40,7 +40,7 @@ export async function reviewInstructorCard(base: string, card: {
     assert.equal(await selectedCourse.getAttribute("open"), "", "the selected course opens before choosing its section");
     const pick = page.locator(`[data-offering="${offering.id}"] .offering-pick`);
     assert.equal(await pick.isVisible(), true, "the section action is visible only after opening its course");
-    assert.equal(await pick.innerText(), "اختر الشعبة", "the primary action is plainly labeled");
+    assert.equal(await pick.innerText(), "اخترها", "the primary action is plainly labeled and visually distinct");
     assert.notEqual(await pick.evaluate((node: HTMLElement) => getComputedStyle(node).backgroundColor), await pick.evaluate((node: HTMLElement) => getComputedStyle(node.parentElement!).backgroundColor), "the primary action stands out from its section card");
     await page.screenshot({ path: `${screenshots}/professor-15-courses-mobile.png`, fullPage: true });
 
@@ -101,6 +101,20 @@ export async function reviewInstructorCard(base: string, card: {
     }, offering.id), "selected section survives reload in the local draft");
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "draft and selected offering still fit on mobile");
     await page.screenshot({ path: `${screenshots}/professor-draft-mobile.png`, fullPage: true });
+
+    const jumpToSend = page.locator('[data-nx="send"]');
+    if (await jumpToSend.count()) {
+      await jumpToSend.click();
+      const sendButton = page.locator("#send");
+      await page.waitForFunction(() => {
+        const button = document.getElementById("send");
+        if (!button) return false;
+        const rect = button.getBoundingClientRect();
+        return rect.top >= 0 && rect.bottom <= innerHeight;
+      });
+      assert.equal(await sendButton.evaluate((node: HTMLElement) => node === document.activeElement), true,
+        "the 'to send' action focuses the actual send control");
+    }
 
     await page.locator("#send").click();
     const dialog = page.getByRole("dialog");

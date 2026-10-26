@@ -498,8 +498,9 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       const mixedWithoutApproval = (days: DayKey[]) => days.some(day => expectedMinutesForDay(day) === 50) && days.some(day => expectedMinutesForDay(day) !== 50) && !approvedFor(days);
       const usual = historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId);
       const usualShapes = (usual?.patterns || [])
-        .filter(days => days.length > 1 && days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= wanted && !mixedWithoutApproval(days))
-        .map(days => ({ days, label: `المعتاد: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
+        .filter(days => days.length > 1 && days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= wanted
+          && (!mixedWithoutApproval(days) || (usual?.weeklyMinutes || 0) >= wanted))
+        .map(days => ({ days, label: `المعتاد تاريخياً: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
       const offered = usualShapes.length ? usualShapes : patternsForHours(heldHours)
         .filter(pattern => pattern.days.length > 1 && pattern.weeklyMinutes >= wanted)
         .map(pattern => ({ days: [...pattern.days] as DayKey[], label: pattern.label }));
@@ -582,8 +583,9 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       const mixedWithoutApproval = (days: DayKey[]) => days.some(day => expectedMinutesForDay(day) === 50) && days.some(day => expectedMinutesForDay(day) !== 50) && !approvedFor(days);
       const usual = historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId);
       const usualShapes = keepOneDay.length || !usual ? [] : usual.patterns
-        .filter(days => days.length > 1 && days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold && !mixedWithoutApproval(days))
-        .map(days => ({ days, label: `المعتاد: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
+        .filter(days => days.length > 1 && days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold
+          && (!mixedWithoutApproval(days) || usual.weeklyMinutes >= threshold))
+        .map(days => ({ days, label: `المعتاد تاريخياً: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
       const regulationShapes = patternsForHours(courseHours)
         .filter(pattern => pattern.days.length > 1 && pattern.weeklyMinutes >= threshold)
         .map(pattern => ({ days: [...pattern.days] as DayKey[], label: pattern.label }));
@@ -710,6 +712,8 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const roomAvailable = roomKeys.length ? candidates.length > 0 : null;
   if (roomAvailable === false) {
     reasons.push({ source: "room", text: "لا تتوفّر قاعةٌ في هذا الوقت.", blocking: true });
+  } else if (roomAvailable === null && !request.relatedRowIds?.length) {
+    reasons.push({ source: "room", text: "لا يمكن حجز هذا الموعد قبل توثيق قاعة فعلية في دليل القسم.", blocking: true });
   }
 
   const verdict = verdictOf();

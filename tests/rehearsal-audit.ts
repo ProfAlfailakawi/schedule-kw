@@ -16,6 +16,7 @@ import { judgeRequest, type VerdictContext } from "../src/utils/instructorReques
 import { movementAttribution } from "../src/utils/movementAttribution";
 import { firstInstructorEditAt, movementAfterInstructorEdit } from "../src/utils/instructorMovementWindow";
 import type { AdCourse, AdInstructor, FSchedule, ScheduleApproval } from "../src/types";
+import { roomKeyOf } from "../src/utils/locationRegistry";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -199,7 +200,7 @@ const block = (source: string, start: string, end = "\napp.") => {
   const context: VerdictContext = {
     instructorId: TEACHER, allRows: [row()], instructorRowsAfter: [moved],
     courses: new Map([[17, course]]), instructors: new Map([[TEACHER, teacher]]),
-    knownRoomKeys: [], startLadder: ["08:00", "09:30", "11:00", "12:30", "14:00"],
+    knownRoomKeys: ["L01", "L02", "L03", "L04", "L05"].map(hall => roomKeyOf(undefined, "901A02", hall)), startLadder: ["08:00", "09:30", "11:00", "12:30", "14:00"],
   };
   const ask = { rowId: 17, action: "change" as const, AdCourseId: 17, days: ["fsunday", "ftuesday"] as any, start: "11:00" };
   const forTeacher = judgeRequest(ask, context);

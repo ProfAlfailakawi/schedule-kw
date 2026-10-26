@@ -4,7 +4,7 @@
 import fs from "fs";
 import { PATTERN_LIBRARY_CSS, PATTERN_LIBRARY_ICON, patternLibraryHtml } from "../src/utils/patternLibraryView";
 import { patternLibraryInput } from "../src/utils/patternLibraryInput";
-import { patternLibraryByHours } from "../src/utils/scheduleRegulations";
+import { patternLibraryByHours, patternsForHours } from "../src/utils/scheduleRegulations";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -16,7 +16,8 @@ const fourHourPatterns = library.find(group => group.hours === 4)?.patterns || [
 check(["fsunday,ftuesday", "ftuesday,fthursday"].every(days => fourHourPatterns.some(pattern => pattern.days.join(",") === days && pattern.minutesPerDay.every(minutes => minutes === 110) && pattern.weeklyMinutes === 200)), "٤ ساعات: نمطا الأحد/الثلاثاء والثلاثاء/الخميس يظهران 110 زمنية لكل لقاء و200 دقيقة تدريس أسبوعية");
 check((html.match(/<figure class="plib-pat"/g) || []).length === total, `كلُّ نمطٍ في المكتبة يُرسم (${total})`);
 check((html.match(/class="plib-group"/g) || []).length === library.length, "ومجموعةٌ لكل عدد ساعات");
-check(/aria-label="[^"]*80 \+ 80 \+ 50 د"/.test(html), "نمط ٨٠+٨٠+٥٠ المعتمد يظهر بوصفه المقروء");
+check(!/80 \+ 80 \+ 50/.test(html) && !patternsForHours(4).some(pattern => pattern.id === "4h-mon-wed-thu"),
+  "نمط ٨٠+٨٠+٥٠ غير معروض ولا مقترح كنمط تشغيلي معتمد حالياً");
 check(/50د[\s\S]*10د[\s\S]*80د[\s\S]*15د/.test(html), "ومفتاحٌ بطول المحاضرة والفاصل: ٥٠/١٠ و٨٠/١٥");
 const fourHourBlock = library.find(group => group.hours === 4)?.patterns.find(pattern => pattern.id === "4h-block");
 check(fourHourBlock?.minutesPerDay[0] === 230 && fourHourBlock.weeklyMinutes === 200, "كتلة الأربع ساعات العملية 230 زمنية وتحسب 200 دقيقة تدريس (50×4 + 10×3)");

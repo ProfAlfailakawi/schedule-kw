@@ -1173,9 +1173,14 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
 
   /* ختمُ الإصدار: رقمُ كل صفٍّ كما رآه المنسّق، فلا يكتب التثبيتُ فوق تعديلِ زميلٍ أحدث. */
   const revsFor = (row: InboxRequest, indexes: number[]) => Object.fromEntries(indexes
-    .map(i => row.items[i]?.rowId).filter(id => id != null)
-    .map(id => [String(id), (currentRows.get(Number(id)) as any)?.rev] as const)
-    .filter(([, rev]) => rev !== undefined));
+    .flatMap(i => {
+      const item = row.items[i];
+      const offeringIds = new Set((item?.offeringRows || []).map(offering => Number(offering.id)));
+      return [item?.rowId, ...(item?.offeringRowIds || [])]
+        .filter(id => id != null).map(id => [Number(id), item?.offeringRows?.find(offering => Number(offering.id) === Number(id))?.rev
+          ?? (currentRows.get(Number(id)) as any)?.rev ?? (offeringIds.has(Number(id)) ? undefined : 0)] as const)
+        .filter(([, rev]) => rev !== undefined);
+    }));
 
   /* ── المعاينة قبل الكتابة ─────────────────────────────────────────────────
      الخادمُ يفحص الجدول كما سيصير (بلا كتابة). فإن كان التثبيتُ صفّاً واحداً بلا

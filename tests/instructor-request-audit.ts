@@ -19,9 +19,9 @@ import { roomKeyOf } from "../src/utils/locationRegistry";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 
 let passed = 0, failed = 0;
-function check(condition: boolean, name: string) {
+function check(condition: boolean, name: string, extra?: unknown) {
   if (condition) { passed++; console.log(`\x1b[32m✓ ${name}\x1b[0m`); }
-  else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`); }
+  else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`, extra === undefined ? "" : JSON.stringify(extra)); }
 }
 
 const TEACHER = 7, OTHER = 8;
@@ -51,7 +51,10 @@ const context = (over: Partial<VerdictContext> = {}): VerdictContext => ({
   instructorRowsAfter: [row()],
   courses: new Map([[100, course(100)], [200, course(200)]]),
   instructors: new Map([[TEACHER, teacher(TEACHER)], [OTHER, teacher(OTHER)]]),
-  knownRoomKeys: [],
+  /* معظم هذه الحالات تعزل تعارضات الطلبة/الأستاذ/النصاب؛ وفّر قاعةً فعلية
+     لكي لا تختلط نتيجة ذلك بفحص هوية المورد. اختبار القاعات المفقودة أدناه
+     يمرّر [] صراحةً ويتحقق من منع الحجز بلا مورد. */
+  knownRoomKeys: [roomKeyOf(undefined, "أ", "101"), roomKeyOf(undefined, "أ", "102")],
   startLadder: ["08:00", "09:00", "10:00", "11:00"],
   ...over,
 });
@@ -127,7 +130,7 @@ const cohort = judgeRequest(ask(), context({
   allRows: cohortRows, instructorRowsAfter: [row({ id: 1 })],
   cohortPairs: new Set(["100|200"]),
 }));
-check(cohort.sendable && cohort.needsExcuse, "تقاطع الطلبة يحتاج مراجعة القسم وفق السياسة المركزية ولا يصبح تعارضاً مادياً");
+check(cohort.sendable && cohort.needsExcuse, "تقاطع الطلبة يحتاج مراجعة القسم وفق السياسة المركزية ولا يصبح تعارضاً مادياً", cohort.reasons);
 check(cohort.reasons.some(reason => reason.source === "cohort"), "ويُسمّى السببُ باسمه");
 /* ولا يُسمّى المقرّرُ الآخر: الأستاذ لا يحتاج اسمه ليغيّر وقته، وتسميتُه تكشف
    جدولَ قسمٍ آخرَ لمن لا شأن له به. */
@@ -135,7 +138,7 @@ check(!cohort.reasons.some(reason => reason.text.includes("200") || reason.text.
   "ولا يُكشف اسمُ المقرّر الآخر ولا رقمه");
 
 const noSurvey = judgeRequest(ask(), context({ allRows: cohortRows, instructorRowsAfter: [row({ id: 1 })] }));
-check(noSurvey.sendable, "قسمٌ بلا استبيانٍ يرى ما كان يراه تماماً — لا قيدَ مخترع");
+check(noSurvey.sendable, "قسمٌ بلا استبيانٍ يرى ما كان يراه تماماً — لا قيدَ مخترع", noSurvey.reasons);
 
 /* ── القاعة: كلمةٌ واحدةٌ للأستاذ، ومرشّحاتٌ للقسم ──────────────────────── */
 
@@ -187,8 +190,11 @@ check(judgeRequest(ask(), context({ allRows: spaced, knownRoomKeys: [ROOM_A] }))
   "«أ/101» و« أ / 101 » قاعةٌ واحدة، فلا تُعلن حرّيةُ قاعةٍ مشغولة");
 
 /* قسمٌ لم يسجّل قاعاتِه لا يُدّعى له جواب. */
-check(judgeRequest(ask(), context({ knownRoomKeys: [] })).roomAvailable === null,
+const unregisteredRoom = judgeRequest(ask(), context({ knownRoomKeys: [] }));
+check(unregisteredRoom.roomAvailable === null,
   "بلا قاعاتٍ مسجّلة لا يُقال «متاح» ولا «غير متاح»");
+check(!unregisteredRoom.sendable && unregisteredRoom.reasons.some(reason => reason.source === "room" && reason.blocking),
+  "وبلا هوية قاعة فعلية لا يُحجز المورد تخميناً");
 
 /* ── البدائل ───────────────────────────────────────────────────────────── */
 

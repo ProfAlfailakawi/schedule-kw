@@ -6,7 +6,7 @@ import type { FSchedule, InstructorRequest } from "../src/types";
 import { instructorWeekAfter } from "../src/utils/instructorRequestWeek";
 import { judgeRequest } from "../src/utils/instructorRequestVerdict";
 import { findConflicts, isBlockingConflict } from "../src/utils/scheduleIntelligence";
-import { RequestReservationConflict, type RequestReservationProposal } from "../src/utils/instructorRequestReservations";
+import { allocateRequestReservations, RequestReservationConflict, type RequestReservationProposal } from "../src/utils/instructorRequestReservations";
 import { roomSuitability } from "../src/utils/roomSuitability";
 import { appendRequestThread } from "../src/utils/instructorRequestThread";
 import { generateSyntheticCivilId } from "../src/utils/civilId";
@@ -80,22 +80,33 @@ assert.equal(requestCohort.needsExcuse, true, "central advisory remains reviewab
 const borrowedOutside = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 1,
   days: ["fsunday"], start: "08:00" }, { ...context([], [row({ id: -1 })]), roomEligible: (_key, _day, start) => start >= "09:00" });
 assert.equal(borrowedOutside.roomAvailable, false, "a known borrowed room outside its approved window is unavailable");
+const unknownRoom = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 1,
+  days: ["fsunday"], start: "08:00" }, { ...context([], [row({ id: -1 })]), knownRoomKeys: [] });
+assert.equal(unknownRoom.sendable, false, "a new request cannot be submitted when no physical room identity can be reserved");
+assert.ok(unknownRoom.reasons.some(reason => reason.source === "room" && reason.blocking));
+const historicalFourHourNature = { courseId: 2, terms: 4, observations: 4, meetingsPerWeek: 3, meetingMinutes: 70,
+  weeklyMinutes: 210, dayPatterns: [{ days: ["fmonday", "fwednesday", "fthursday"], label: "legacy", count: 4, share: 1 }], starts: [], instructors: [],
+  buildings: [], rooms: [], sectionsPerTerm: 1, period: "morning", seenInTerms: [900000, 899999], singleBlock: false,
+  confidence: "high", summary: "historical", suggestion: null } as any;
 
 // Same precise data goes into the official physical engine and the public verdict.
 const mixed = add("mixed", "fmonday", 2, "08:00", "09:20");
 mixed.slots!.push({ day: "fwednesday", start: "08:00", end: "09:20" }, { day: "fthursday", start: "08:00", end: "08:50" });
 const other = row({ id: 99, AdCourseId: 1, fsunday: false, fthursday: true, fstarttime: "09:00", fendtime: "09:50" });
 const after = instructorWeekAfter(request([mixed]), [other]);
+const historicalPracticalCourses = new Map(courses).set(2, { AdCourseId: 2, CourseHours: 4, CourseTeachingMode: "practical" } as any);
 const verdict = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 2,
-  days: mixed.slots!.map(slot => slot.day), start: "08:00", slots: mixed.slots }, context([other], after));
+  days: mixed.slots!.map(slot => slot.day), start: "08:00", slots: mixed.slots },
+  { ...context([other], after), courses: historicalPracticalCourses, nature: new Map([[2, historicalFourHourNature]]) as any });
 assert.equal(findConflicts(after.filter(item => item.id !== 99), [other]).filter(isBlockingConflict).length, 0);
-assert.equal(verdict.sendable, true, "different per-day lengths must not invent a Thursday overlap");
+assert.equal(verdict.sendable, true, "historical per-day lengths remain valid and must not invent a Thursday overlap");
 
 const alternativeItem = { ...mixed, slots: mixed.slots!.map(slot => ({ ...slot, start: "10:00", end: slot.day === "fthursday" ? "10:50" : "11:20" })) };
 const alternativeWeek = instructorWeekAfter(request([alternativeItem]), [other]);
 const preciseAlternatives = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 2,
   days: alternativeItem.slots.map(slot => slot.day), start: "10:00", slots: alternativeItem.slots },
-  { ...context([other], alternativeWeek), offerAlternatives: true });
+  { ...context([other], alternativeWeek), courses: historicalPracticalCourses, offerAlternatives: true,
+    nature: new Map([[2, historicalFourHourNature]]) as any });
 assert.ok(preciseAlternatives.nearestTimes.some(slot => slot.start === "08:00"),
   "a short Thursday ending 08:50 must remain a valid alternative before the 09:00 meeting");
 const facilityAlternatives = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 1,
@@ -133,6 +144,49 @@ const history = [1, 2, 3, 4].flatMap(term => [
 ]);
 assert.equal(learnCourseNature(2, history)!.meetingsPerWeek, 3);
 assert.equal(learnCourseNature(2, history)!.weeklyMinutes, 210);
+const extendedDays = ["fmonday", "fwednesday", "fthursday"] as Array<"fmonday" | "fwednesday" | "fthursday">;
+const extendedSlots: Array<{ day: typeof extendedDays[number]; start: string; end: string }> = [
+  { day: "fmonday", start: "10:00", end: "11:20" },
+  { day: "fwednesday", start: "10:00", end: "11:20" }, { day: "fthursday", start: "10:00", end: "10:50" }];
+const extendedWeek = extendedSlots.map(slot => row({ id: -1, AdCourseId: 2, AdInstructorId: 7,
+  fsunday: false, fmonday: slot.day === "fmonday", ftuesday: false, fwednesday: slot.day === "fwednesday",
+  fthursday: slot.day === "fthursday", fstarttime: slot.start, fendtime: slot.end }));
+const extendedRequest = { rowId: null, tempId: -1, action: "add" as const, AdCourseId: 2, days: extendedDays,
+  start: "10:00", slots: extendedSlots };
+const currentFourHourVerdict = judgeRequest(extendedRequest, { ...context([], extendedWeek) });
+assert.equal(currentFourHourVerdict.sendable, false,
+  "the retired 80+80+50 split cannot be newly submitted without supporting course history");
+const currentFourHourShapes = currentFourHourVerdict.shapes || [];
+assert.ok(!currentFourHourShapes.some(shape => shape.days.join(",") === extendedDays.join(",")),
+  "the retired 80+80+50 split is not offered automatically without matching course history");
+const historicallyKnownSplit = judgeRequest(extendedRequest, { ...context([], extendedWeek), courses: historicalPracticalCourses,
+  nature: new Map([[2, historicalFourHourNature]]) as any });
+assert.equal(historicallyKnownSplit.sendable, true,
+  `a course historically taught as 80+80+50 remains compatible with its recorded past without making it a current standard: ${JSON.stringify(historicallyKnownSplit)}`);
+
+// Legacy text-only room rows must collide with centrally identified rooms.
+const proposalWithRoom = (itemId: string, instructorId: number, rooms: Array<{ roomId?: string; room: string; hall: string }>) => ({
+  itemId, instructorId, courseId: 1, collegeId: 1, sectionId: 1, offeringRowIds: [],
+  slots: [{ day: "fmonday", start: "08:00", end: "09:20" }], rooms,
+});
+const legacyTextRoom = { ...row({ id: 501, AdInstructorId: 81, roomId: undefined, AdRoomCode: "TEST", AdRoomHall: "1",
+  fsunday: false, fmonday: true, fstarttime: "08:00", fendtime: "09:20" }) };
+const physicalCandidate = { roomId: "central-test-room", room: "TEST", hall: "1" };
+assert.throws(() => allocateRequestReservations([], request([add("legacy-blocked", "fmonday")], 82), [{
+  ...proposalWithRoom("legacy-blocked", 82, [physicalCandidate]),
+}], [legacyTextRoom]), RequestReservationConflict,
+"a legacy text-only official room row blocks the same central registry room");
+const textHeld = allocateRequestReservations([], request([add("text-held", "fmonday")], 83), [{
+  ...proposalWithRoom("text-held", 83, [{ room: " test ", hall: " 1 " }]),
+}], []);
+assert.equal(textHeld.length, 1);
+assert.throws(() => allocateRequestReservations(textHeld, request([add("text-racer", "fmonday")], 84), [{
+  ...proposalWithRoom("text-racer", 84, [{ roomId: "central-test-room", room: "TEST", hall: "1" }]),
+}], []), RequestReservationConflict,
+"normalized legacy text and registry id cannot reserve one physical hall twice");
+assert.throws(() => allocateRequestReservations([], request([add("roomless")], 85), [{
+  ...proposalWithRoom("roomless", 85, []),
+}], []), RequestReservationConflict, "new appointment reservations require an identifiable physical room");
 
 const suitable = roomSuitability({ CourseRoomType: "مختبر", MaxStudent: 25 }, { roomType: "مختبر", capacity: 30 });
 const imperfect = roomSuitability({ CourseRoomType: "مختبر", MaxStudent: 25 }, { roomType: "قاعة", capacity: 20 });
@@ -229,7 +283,7 @@ const loadRequests = await Promise.all(["fsunday", "ftuesday"].map(async (day, a
   return Repository.createInstructorRequest(input);
 }));
 const loadResults = await Promise.allSettled(loadRequests.map((entry, at) => Repository.saveInstructorRequest(entry, [{
-  ...proposal(`load-${at}`, loadPerson.AdInstructorId), courseId: loadCourse.AdCourseId, rooms: [],
+  ...proposal(`load-${at}`, loadPerson.AdInstructorId), courseId: loadCourse.AdCourseId,
   slots: entry.items[0].slots!,
 }])));
 assert.equal(loadResults.filter(result => result.status === "fulfilled").length, 1,

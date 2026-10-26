@@ -228,8 +228,8 @@ function skNext(open,sent,edited){var s=stageIdx(),pend=pendingList().length,ic=
  else{ic="check";tone="done";t="اكتمل طلبك";sub="ثُبّت ما اتُّفق عليه في جدولك"}
  return '<div class="nextnow" data-tone="'+tone+'" role="status"><span class="nx-ic">'+gi(ic)+'</span><span class="nx-tx"><small>ماذا أحتاج منك الآن؟</small><b>'+esc(t)+'</b><em>'+esc(sub)+'</em></span>'+btn+'</div>'}
 document.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("[data-nx]"):null;if(!b)return;
- var k=b.getAttribute("data-nx"),t=k==="send"?document.querySelector(".send"):(document.querySelector(".deck")||document.querySelector("[data-panel=schedule]"));
- if(t&&t.scrollIntoView)t.scrollIntoView({block:"center",behavior:"smooth"})});
+ var k=b.getAttribute("data-nx"),t=k==="send"?document.getElementById("send"):(document.querySelector(".deck")||document.querySelector("[data-panel=schedule]"));
+ if(t&&t.scrollIntoView){t.scrollIntoView({block:"center",behavior:"smooth"});if(k==="send"&&t.focus)t.focus({preventScroll:true})}});
 function skCid(it){return (it&&(it.courseId||(it.before&&it.before.courseId)||(it.after&&it.after.courseId)))||courseOf(it)}
 function skAssignColors(){SKC.assign(state.map(skCid))}
 function skCourseColor(it){return SKC.color(skCid(it))}
