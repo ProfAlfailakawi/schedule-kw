@@ -18,12 +18,20 @@ export function instructorWeekAfter(request: InstructorRequest, allRows: FSchedu
   const mine = allRows.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
   const touched = new Set(request.items.filter(item => item.rowId != null && item.action !== "keep"
     && item.decision?.state !== "rejected" && item.decision?.state !== "fixed").map(item => Number(item.rowId)));
-  const result = mine.filter(row => !touched.has(Number(row.id)));
+  const claimedOfferings = new Set(request.items.filter(item => item.action !== "keep"
+    && item.decision?.state !== "rejected" && item.decision?.state !== "fixed")
+    .flatMap(item => item.offeringRowIds || []).map(Number));
+  const result = mine.filter(row => !touched.has(Number(row.id)) && !claimedOfferings.has(Number(row.id)));
   request.items.forEach((item, index) => {
     if (item.action === "keep" || item.action === "delete" || item.decision?.state === "rejected" || item.decision?.state === "fixed") return;
     if (item.offeringRowIds?.length) {
       for (const id of item.offeringRowIds) {
         const row = allRows.find(row => Number(row.id) === id);
+        /* The requested offering is already an official row. Keep its identity
+         * when projecting the proposed assignment so conflict checks can
+         * exclude that row from the baseline; replacing its id with the
+         * request identity makes it appear twice and falsely conflicts with
+         * the professor's own claimed slot. */
         if (row) result.push({ ...row, AdInstructorId: Number(request.AdInstructorId) });
       }
       return;
