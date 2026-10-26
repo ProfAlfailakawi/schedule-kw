@@ -197,6 +197,17 @@ const nearest = (centers: number[], x: number, gap = 0.02) => {
 /** الصفوف التي فيها مقررٌ من مقررات القسم، وأعمدةُ أرقامها. */
 function tableOf(pages: readonly ReportCell[][], courses: ReadonlyArray<{ id: number; code: string }>, departmentCode: string) {
   const lines = linesOf(pages);
+  /* A report may begin in our department and continue with the next one on the SAME page.
+     Honor each printed scientific-department heading before matching three-digit course numbers. */
+  let printedDepartment = "";
+  const inDepartment = lines.map(line => {
+    const label = line.cells.map(cell => normalize(cell.text)).join(" ");
+    if (/القسم\s*العلمي/.test(label)) {
+      const code = line.tokens.find(token => token.code.length === 4)?.code;
+      if (code) printedDepartment = code;
+    }
+    return !printedDepartment || printedDepartment === departmentCode;
+  });
   /* «MATH101» لا يطابق «CS101» وإن اتفقت الأرقام: الحروف إن طُبعت في الطرفين جزءٌ من الرمز. */
   const lettersOf = (value: string) => normalize(value).replace(/[^A-Za-z]/g, "").toUpperCase();
   const matchOf = (token: Token) => {
@@ -207,10 +218,10 @@ function tableOf(pages: readonly ReportCell[][], courses: ReadonlyArray<{ id: nu
   };
 
   /* 1) المرشّحون لرمز المقرر في كل صف: الطويلة أولاً، والثلاثية إن لم يطبع الكشف غيرها. */
-  const long = lines.map(line => line.tokens.filter(token => token.code.length >= 4).map(token => ({ token, courseId: matchOf(token) })).filter(item => item.courseId));
+  const long = lines.map((line, index) => inDepartment[index] ? line.tokens.filter(token => token.code.length >= 4).map(token => ({ token, courseId: matchOf(token) })).filter(item => item.courseId) : []);
   const useLong = long.some(items => items.length);
   const candidates = useLong ? long
-    : lines.map(line => line.tokens.filter(token => token.code.length === 3).map(token => ({ token, courseId: matchOf(token) })).filter(item => item.courseId));
+    : lines.map((line, index) => inDepartment[index] ? line.tokens.filter(token => token.code.length === 3).map(token => ({ token, courseId: matchOf(token) })).filter(item => item.courseId) : []);
   /* عمودُ الرمز حيث تتجمّع المطابقات — في كل صفحةٍ وحدها، فصورتا هاتفٍ لا
      تتطابق حدودهما — ومنه وحده يُؤخذ رمزُ كل صف. */
   const pageList = [...new Set(lines.map(line => line.page))];
