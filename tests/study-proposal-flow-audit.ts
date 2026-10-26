@@ -194,7 +194,7 @@ async function main() {
   ev = await evaluate(salem, [opCreate("x4", ds.AdCourseId, "705", ["fthursday"], "19:00", "18:00")]);
   check(ev.status === "partial" && ev.incompleteReasons.length > 0 && !ev.readiness.canSend, "بيانات ناقصة: الفحص «غير مكتمل» ولا يُعرض «لا تعارضات»");
   ev = await evaluate(salem, [opCreate("x5", ds.AdCourseId, "706", ["fthursday"], "20:00", "20:50")]);
-  check(ev.status === "partial" || ev.incompleteReasons.length > 0, "وقتٌ خارج ساعات اليوم الدراسي لا يُفحص كأنه صحيح");
+  check(ev.findings.some(f => f.kind === "blocker" && f.code === "schedule-validation" && /وقت المحاضرة/.test(f.detail)) && !ev.readiness.canSend, "وقتٌ خارج نافذة القسم يُرفض بمانع واضح ولا يمكن إرسال المقترح", ev.findings);
   const f2 = await makeFaculty("0109401", "602", "S", "08:30", "09:20");
   ev = await evaluate(salem, [opAssign("a9", f2)]);
   check(ev.findings.some(f => f.kind === "blocker" && f.code === "instructor"), "تُفحص الشعبة المُسندة بهوية الأستاذ المستهدف لا بهوية «هيئة تدريسية»", ev.findings.map(f => f.code));
