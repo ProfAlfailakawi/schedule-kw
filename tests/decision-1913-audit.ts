@@ -85,6 +85,8 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
 
   const validFourPattern = [row(83, "501", ["mon", "wed"], "08:00", "09:20"), row(83, "501", ["thu"], "08:00", "08:50")];
   check(!byRule(review(validFourPattern, [theoretical(83, 4)]), "theoretical-pattern"), "٤ ساعات: 80/80/50 مطابق");
+  const validFourShortDayPatterns = [row(87, "501", ["sun", "tue"], "12:00", "13:50"), row(87, "502", ["tue", "thu"], "10:00", "11:50")];
+  check(!byRule(review(validFourShortDayPatterns, [theoretical(87, 4)]), "theoretical-pattern"), "٤ ساعات: لقاءان 110 دقائق على يومين قصيرين يساويان 200 دقيقة تدريسية");
   const practicalFourBlock = row(86, "501", ["wed"], "12:00", "15:50");
   check(!byRule(review([practicalFourBlock], [theoretical(86, 4)]), "theoretical-pattern"), "٤ ساعات: كتلة عملية 230 دقيقة (4×50 + 3 فواصل) مطابقة للمكتبة");
   const invalidFour = row(84, "501", ["mon", "wed"], "16:00", "17:50");

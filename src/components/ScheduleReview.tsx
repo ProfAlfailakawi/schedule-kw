@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { AlertTriangle, BookOpen, Building2, CalendarDays, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, History, Info, Printer, UserRound, X } from "lucide-react";
-import type { AdCourse, AdInstructor, FSchedule } from "../types";
+import type { AdCollege, AdCourse, AdInstructor, FSchedule } from "../types";
 import { PrintLetterhead, PrintPortal, PrimaryButton, SecondaryButton, useDialogDismiss } from "./ui";
 import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
 import PagedFindingList from "./PagedFindingList";
@@ -35,6 +35,7 @@ import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 interface Props {
   rows: FSchedule[];
   courses: Map<number, AdCourse>;
+  colleges: Map<number, AdCollege>;
   instructors: Map<number, AdInstructor>;
   visitingIds?: Iterable<number>;
   previousRows?: FSchedule[];
@@ -99,7 +100,7 @@ const firstDayIndex = (row: FSchedule) => { const i = DAY_KEYS.findIndex(key => 
 const byWeekTime = (a: FSchedule, b: FSchedule) =>
   firstDayIndex(a) - firstDayIndex(b) || String(a.fstarttime || "").localeCompare(String(b.fstarttime || "")) || String(a.SCode || "").localeCompare(String(b.SCode || ""));
 
-function ReviewPersonGroup({ group, courses, visitingIds }: { group: { who: string; rows: FSchedule[] }; courses: Map<number, AdCourse>; visitingIds: Set<number> }) {
+function ReviewPersonGroup({ group, courses, colleges, visitingIds }: { group: { who: string; rows: FSchedule[] }; courses: Map<number, AdCourse>; colleges: Map<number, AdCollege>; visitingIds: Set<number> }) {
   const who = group.who;
   const rows = React.useMemo(() => [...group.rows].sort(byWeekTime), [group.rows]);
   const visiting = rows.some(row => visitingIds.has(Number(row.AdInstructorId)));
@@ -114,6 +115,7 @@ function ReviewPersonGroup({ group, courses, visitingIds }: { group: { who: stri
         courseId,
         code: course?.CourseCode || items[0]?.AdCourseName || "—",
         name: course?.CourseName || items[0]?.AdCourseName || "مقرر غير مسمى",
+        college: course ? colleges.get(Number(course.AdCollegeId))?.AdCollegeName || "" : "",
         sectionCount: new Set(items.map(row => String(row.SCode))).size,
         days: DAY_KEYS.map((key, index) => ({
           key, title: DAY_NAMES[index],
@@ -123,7 +125,7 @@ function ReviewPersonGroup({ group, courses, visitingIds }: { group: { who: stri
         withoutDay: items.filter(row => !DAY_KEYS.some(day => Boolean((row as any)[day]))),
       };
     });
-  }, [rows, courses]);
+  }, [rows, courses, colleges]);
   return (
     <details className="review-person">
       <summary className="review-person-head" data-guide-ignore="طيّ شعب أستاذ داخل ملاحظة مراجعة — عرض فقط، لا يغيّر الجدول">
@@ -143,6 +145,7 @@ function ReviewPersonGroup({ group, courses, visitingIds }: { group: { who: stri
                 <span className="review-course-identity">
                   <strong>{course.name}</strong>
                   <small dir="ltr">{course.code}</small>
+                  {course.college ? <small className="review-course-college">{course.college}</small> : null}
                 </span>
                 <span className="review-course-count">{countOf(course.sectionCount, AR.section)}</span>
               </header>
@@ -198,7 +201,7 @@ interface FamilyReading {
   members?: Array<{ collegeId: number; sectionId: number }>;
 }
 
-export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, instructors: instructorsProp, visitingIds, previousRows: previousRowsProp, nature: natureProp, scopeLine, collegeId, sectionId, termId, meeting, onClose, onFocusRows }: Props) {
+export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, colleges, instructors: instructorsProp, visitingIds, previousRows: previousRowsProp, nature: natureProp, scopeLine, collegeId, sectionId, termId, meeting, onClose, onFocusRows }: Props) {
   /* ── القسمُ واحدٌ في كلياته ────────────────────────────────────────────────
      «تكنولوجيا التعليم» بنين وبنات قسمٌ واحد، وأساتذته يدرّسون فيهما معاً. فمن
      فتح أيَّ العضوين رأى التقريرَ نفسه: مواعيدُ العائلة كلها وحِملُ الأستاذ
@@ -576,7 +579,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, i
         summary={<><b>{countOf(people.length, AR.instructor)}</b><span>{countOf(sectionsOf(allRows), AR.section)}</span></>}
         getKey={([key]) => key}
         searchText={([, group]) => `${group.who} ${group.rows.map(rowSearchText).join(" ")}`}
-        renderItem={([, group]) => <ReviewPersonGroup group={group} courses={courses} visitingIds={visitingIdSet} />}
+        renderItem={([, group]) => <ReviewPersonGroup group={group} courses={courses} colleges={colleges} visitingIds={visitingIdSet} />}
       />
     );
   };
