@@ -35,12 +35,26 @@ export function planGaps(courses: readonly GapCourse[], plan: GapPlan | null): G
   return planComparisons(courses, plan).filter(item => item.extra > 0);
 }
 
-/** زيادة الشعب عن المستهدف: تنبيه للمراجعة لا حذف آلي. الصفر المحسوب دون تاريخ لا يكفي وحده لتوصية إزالة جميع الشعب؛ أما الصفر الذي اختاره القسم صراحةً فيظل قابلاً للمراجعة. */
+/** تخفيض الشعب: من كشف «لم يسجلوا» المرفوع للفصل الحالي والسعة فقط.
+ * لا يدخل المختار أو تاريخ الفصول السابقة في الحساب إطلاقاً. صفر المتبقي
+ * لا يثبت أن الشعب خالية من المسجلين، لذلك لا ينتج توصية حذف كلي مضللة.
+ * تُعرض النتيجة للمراجعة فقط دون تنفيذ حذف.
+ */
 export function planSurpluses(courses: readonly GapCourse[], plan: GapPlan | null): GapItem[] {
-  return planComparisons(courses, plan)
-    .filter(item => item.extra < 0 && (item.required > 0 || known(plan?.accepted[String(item.id)])))
-    .map(item => ({ ...item, extra: 0, surplus: -item.extra }))
-    .sort((a, b) => (b.surplus || 0) - (a.surplus || 0) || a.code.localeCompare(b.code, "en"));
+  if (!plan) return [];
+  const results: GapItem[] = [];
+  for (const course of courses) {
+    const remaining = plan.remaining[String(course.id)];
+    if (!(course.existing > 0) || !(course.capacity > 0) || !known(remaining) || remaining <= 0) continue;
+    const required = Math.ceil(remaining / course.capacity);
+    if (required >= course.existing) continue;
+    results.push({
+      id: course.id, code: course.code, name: course.name,
+      existing: course.existing, required, extra: 0,
+      surplus: course.existing - required, basis: "plan", demand: remaining,
+    });
+  }
+  return results.sort((a, b) => (b.surplus || 0) - (a.surplus || 0) || a.code.localeCompare(b.code, "en"));
 }
 
 function planComparisons(courses: readonly GapCourse[], plan: GapPlan | null): GapItem[] {

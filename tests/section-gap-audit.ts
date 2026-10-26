@@ -54,14 +54,19 @@ const history = { "1": [{ termName: "الفصل الأول 2025/2026", sections:
 const suggested = planGaps([c(1, "101", 30, 1, 0)], { remaining: { "1": 90 }, accepted: {}, history });
 check(suggested.length === 1 && suggested[0].basis === "plan" && suggested[0].required === 3 && suggested[0].extra === 2 && suggested[0].demand === 90, "كشفٌ مرفوع بلا مختار ← مقترح تخطيط الشعب من التاريخ", suggested);
 const surplus = planSurpluses([c(1, "101", 30, 23, 0)], { remaining: { "1": 134 }, accepted: { "1": 12 }, history: {} });
-check(surplus.length === 1 && surplus[0].existing === 23 && surplus[0].required === 12 && surplus[0].surplus === 11, "تجاوز الشعب الحالية للمختار يظهر كعدد مراجعة لا كحذف آلي", surplus);
-/* التخفيض قرار مراجعة منفصل لا يغيّر اقتراحات فتح الشعب. */
-const workshop = planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: { "8": 4 }, remaining: { "8": 120 }, history: {} });
-check(workshop.length === 1 && workshop[0].existing === 6 && workshop[0].required === 4 && workshop[0].surplus === 2, "الورشة: الموجود 6 والمطلوب 4، راجع إلغاء شعبتين", workshop);
+check(surplus.length === 1 && surplus[0].existing === 23 && surplus[0].required === 5 && surplus[0].surplus === 18, "التخفيض يعتمد إحصائية الفصل وسعة الشعبة (134 ÷ 30)، ولا يأخذ المختار 12", surplus);
+/* التخفيض من إحصائية الفصل الحالي وسعة الشعبة فقط؛ لا المختار ولا التاريخ. */
+const workshop = planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: { "8": 1 }, remaining: { "8": 120 }, history: { "8": [{ termName: "الفصل الأول 2024", sections: 40, similar: true }] } });
+check(workshop.length === 1 && workshop[0].existing === 6 && workshop[0].required === 4 && workshop[0].surplus === 2, "الورشة: 120 من كشف الفصل ÷ سعة 30 = 4، الموجود 6، فائض شعبتين رغم اختيار 1 وتاريخ 40", workshop);
+check(planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: { "8": 1 }, remaining: {}, history: {} }).length === 0, "بلا إحصائية حالية لا تخفيض حتى لو كان المختار 1");
+check(planSurpluses([c(8, "ورشة", 0, 6, 0)], { accepted: {}, remaining: { "8": 120 }, history: {} }).length === 0, "سعة غير معروفة: لا تخفيض تخميني");
+check(planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: {}, remaining: { "8": 180 }, history: {} }).length === 0, "180 طالباً بسعة 30 والشعب 6: لا فائض");
+check(planSurpluses([c(8, "ورشة", 30, 6, 0)], { accepted: {}, remaining: { "8": 210 }, history: {} }).length === 0, "النقص لا يتحول إلى تنبيه حذف");
 const automaticZero = planSurpluses([c(9, "105", 30, 2, 0)], { accepted: {}, remaining: { "9": 0 }, history: {} });
-check(automaticZero.length === 0, "الصفر المقترح آلياً بلا تاريخ لا يتحول إلى توصية بإلغاء جميع الشعب", automaticZero);
+check(automaticZero.length === 0, "صفر لم يسجلوا لا يثبت أن الشعب خالية من المسجلين فلا توصية بحذفها");
 const explicitZero = planSurpluses([c(9, "105", 30, 2, 0)], { accepted: { "9": 0 }, remaining: { "9": 0 }, history: {} });
-check(explicitZero.length === 1 && explicitZero[0].surplus === 2, "الصفر المختار صراحةً في التخطيط يظهر للمراجعة فقط", explicitZero);
+check(explicitZero.length === 0, "الصفر المختار يدوياً لا يتدخل في حساب الحذف المبني حصرياً على إحصائية الفصل");
+
 /* بلا تاريخ يبدأ التخطيط بشعبة واحدة (قاعدته)، فلا نقول «زِد» لمقررٍ فيه شعبة. */
 check(planGaps([c(1, "101", 30, 1, 0)], { remaining: { "1": 90 }, accepted: {}, history: {} }).length === 0, "بلا تاريخ: مقترح التخطيط شعبةٌ واحدة، فلا «زِد» لمقررٍ فيه شعبة");
 /* مقررٌ لا ذكر له في التخطيط لا يظهر في نتيجته ولو طلبه الطلبة. */
@@ -76,7 +81,7 @@ check(html.includes("شعبٌ يطلبها الطلبة في «مساري»") &&
 const planHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: planned, kind: "plan", onClose: () => {} }));
 check(planHtml.includes("بحسب تخطيطك") && !planHtml.includes("مساري") && planHtml.includes("المتبقي"), "قائمة التخطيط: عنوانٌ مستقل ولا ذكر لـ«مساري» فيها");
 const surplusHtml = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: surplus, kind: "plan", onClose: () => {} }));
-check(surplusHtml.includes("فائض") && surplusHtml.includes("11") && surplusHtml.includes("الموجود") && surplusHtml.includes("المطلوب") && surplusHtml.includes("راجع الإلغاء") && surplusHtml.includes("هذا الفصل فقط") && surplusHtml.includes("الفصول السابقة للمقارنة لا للتجميع"), "تظهر الشعب الزائدة بشكل بصري مختصر دون أمر حذف، مع مقارنة الموجود بالمطلوب");
+check(surplusHtml.includes("فائض") && surplusHtml.includes("11") && surplusHtml.includes("الموجود") && surplusHtml.includes("المطلوب") && surplusHtml.includes("راجع الإلغاء") && surplusHtml.includes("هذا الفصل وسعة الشعبة فقط") && !surplusHtml.includes("الفصول السابقة للمقارنة"), "تظهر الشعب الزائدة بشكل بصري مختصر دون أمر حذف، مع مقارنة الموجود بالمطلوب");
 check(!html.includes("<a ") && !html.includes("<input") && !html.includes("<form") && !html.includes("قارن") && !html.includes("كشف المتبقي"), "العرض: بلا رابطٍ ولا حقلٍ ولا دعوةٍ إلى شاشة التخطيط");
 const shownRows = (html.match(/<li/g) || []).length;
 check(shownRows === 5 && html.includes("الكل ("), "العرض: خمسة أسطر ثم «الكل»", { shownRows });
@@ -84,7 +89,9 @@ check(!renderToStaticMarkup(React.createElement(SectionGapPanel, { items: byStud
 
 /* شاشة الرفع المختصرة: تُفتح من الأيقونة وتعيد استعمال استيراد «تخطيط الشعب» نفسه (وضع importOnly) فلا مسارَ ثانياً ولا جدولَ تخطيط. */
 import fs from "fs";
-const bar = fs.readFileSync("src/components/ApprovalBar.tsx", "utf8"), sheet = fs.readFileSync("src/components/QuickPlanSheet.tsx", "utf8"), planning = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
+const bar = fs.readFileSync("src/components/ApprovalBar.tsx", "utf8"), sheet = fs.readFileSync("src/components/QuickPlanSheet.tsx", "utf8"), planning = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8"), gapSource = fs.readFileSync("src/components/SectionGapNote.tsx", "utf8");
+check(gapSource.includes("data.planImported && data.planSource?.fileName") && gapSource.includes('data.planSource.fileName !== "إدخال يدوي"') && gapSource.includes("surpluses: planSurpluses(data.courses, currentReport)"), "قائمة التخفيض لا تعتمد إلا على كشف الفصل المرفوع وتُعرض بمعزل عن تاريخ الفصول");
+
 check(bar.includes("setPlanSheet(true)") && bar.includes("<QuickPlanSheet") && !bar.includes("onOpenPlanning") && !bar.includes("initialTab"), "الأيقونة تفتح شاشة الرفع المختصرة ولا تنقل إلى تخطيط الشعب");
 check(sheet.includes("<SectionPlanning") && sheet.includes("importOnly") && sheet.includes("gap.reload()") && sheet.includes("<Result"), "الشاشة: استيرادٌ بالمسار نفسه ثم عرض المقترح بعد الحفظ");
 check(planning.includes("importOnly ? null : buildReady") && (planning.match(/importOnly \? null : \(<>/g) || []).length === 2 && planning.includes("{!importOnly && legacy"), "وضع importOnly يُخفي الجدول والتقرير والبناء ويُبقي الرفع والمراجعة");
