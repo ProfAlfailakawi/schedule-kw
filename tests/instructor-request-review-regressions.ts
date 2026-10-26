@@ -36,10 +36,23 @@ check(borrowerOutsideApprovedWindow(windows, "fsunday", "08:00", "08:50", 2, 8) 
 check(borrowerOutsideApprovedWindow(windows, "fmonday", "08:00", "08:50", 2, 8), "المستعير ممنوع في يوم غير معتمد");
 const ownerRow = { roomId: "room-1", AdCollegeId: 1, AdSectionId: 4, fsunday: true, fstarttime: "08:00", fendtime: "08:50" } as any;
 const textOnlyOwnerRow = { AdRoomCode: "012B08", AdRoomHall: "G20", AdCollegeId: 1, AdSectionId: 4, fsunday: true, fstarttime: "08:00", fendtime: "08:50" } as any;
-const roomWindows = [{ ...windows[0], roomId: "room-1", roomCode: "012B08", roomHall: "G20" }];
+const roomWindows = [{ ...windows[0], roomId: "room-1", roomCode: "012B08", roomHall: "G20", ownerCollegeId: 1, ownerSectionId: 4 }];
 check(scheduleViolatesApprovedBarterWindow(ownerRow, roomWindows), "معاملة الجدول تمنع المالك داخل نافذة الاستعارة المعتمدة");
 check(scheduleViolatesApprovedBarterWindow(textOnlyOwnerRow, roomWindows), "الحارس يطابق القاعة القديمة بالنص حتى دون roomId");
 check(!scheduleViolatesApprovedBarterWindow({ ...ownerRow, fstarttime: "09:00", fendtime: "09:50" }, roomWindows), "الحارس يسمح للمالك خارج نافذة الاستعارة");
+const borrowerRow = { ...ownerRow, AdCollegeId: 2, AdSectionId: 8, fsunday: false };
+const borrowedP = { status: "approved", requesterCollegeId: 2, requesterSectionId: 8, ownerCollegeId: 1, ownerSectionId: 4,
+  roomId: "room-p", roomCode: "012B08", roomHall: "P", day: "fmonday", startTime: "08:00", endTime: "09:00" };
+const borrowedQ = { ...borrowedP, roomId: "room-q", roomHall: "Q", day: "ftuesday" };
+check(scheduleViolatesApprovedBarterWindow({ ...borrowerRow, roomId: "room-p", companionRoomId: "room-q", AdRoomHall: "P", fmonday: true }, [borrowedP, borrowedQ]),
+  "نافذة القاعة الأساسية لا تمنح القاعة المصاحبة إذناً في يوم مختلف");
+const revoked = { ...borrowedP, status: "cancelled", revokedApprovedWindow: true };
+check(scheduleViolatesApprovedBarterWindow({ ...borrowerRow, roomId: "room-p", AdRoomHall: "P", fmonday: true }, [revoked]),
+  "إلغاء إذن الاستعارة بعد الفحص يبقى مانعاً داخل معاملة الكتابة");
+check(!scheduleViolatesApprovedBarterWindow({ ...borrowerRow, roomId: "room-p", AdRoomHall: "P", fmonday: true },
+  [revoked, { ...borrowedP, startTime: "08:00", endTime: "09:00" }]), "إذن جديد صالح يعيد فتح النافذة نفسها بعد الإلغاء");
+check(!scheduleViolatesApprovedBarterWindow({ ...ownerRow, roomId: "room-p", AdRoomHall: "P", fmonday: true }, [revoked]),
+  "سجل استعارة القسم الآخر لا يمنع القسم المالك من استخدام قاعته");
 check(server.includes("approvedBarterReservation(sameRoomBarterWindows") && server.includes("approvedBarterReservation(windows, day"), "الحكم المركزي وحكم البطاقة يستخدمان قاعدة نافذة الاستعارة المشتركة");
 check(repository.includes('collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)])')
   && repository.includes("eligibleProposals") && repository.includes("borrowerOutsideApprovedWindow"), "حجز الطلب يعيد فحص نوافذ الاستعارة داخل معاملة الحجز قبل اختيار القاعة");
