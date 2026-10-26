@@ -205,6 +205,7 @@ import { officialBuildingCode, officialCollegeSitePrefix, officialSiteLabel, par
 import { collegeBranchRoot, collegeSitePrefix, resolveBranchScope, siblingBranchScopes, splitRowsByBranch } from "./src/utils/branchScope";
 import { fairShareByOwner } from "./src/utils/hallBarterFairness";
 import { approvedBarterReservation, borrowerOutsideApprovedWindow } from "./src/utils/hallBarterWindow";
+import { instructorRequestProposalIdentity } from "./src/utils/instructorRequestProposalIdentity";
 import { scanRefusalMessage, unresolvedDaysReason, restoredDaysReason } from "./src/utils/documentOcr";
 import { pageReviewWaitLine, pagesAwaitingReview, unconfirmedReviewPages } from "./src/utils/importPageReview";
 import type { BranchScope } from "./src/utils/branchScope";
@@ -4657,8 +4658,8 @@ async function sweepStaleHallBarter(requests:HallBarterRequest[]):Promise<HallBa
   if(!stale.length)return requests;
   const updatedById=new Map<string,HallBarterRequest>();
   for(const request of stale){
-    const updated=await Repository.updateHallBarterRequest(request.id,{status:"cancelled",cancelReason:HALL_BARTER_STALE_REASON});
-    if(updated)updatedById.set(String(request.id),updated);
+    try { const updated=await Repository.updateHallBarterRequest(request.id,{status:"cancelled",cancelReason:HALL_BARTER_STALE_REASON},"pending"); if(updated)updatedById.set(String(request.id),updated); }
+    catch(error){ if(!(error instanceof RequestReservationConflict))throw error; }
   }
   if(updatedById.size){hallBarterSerial++;hallBarterBoardCache.clear();}
   return requests.map(request=>updatedById.get(String(request.id))||request);
@@ -6106,7 +6107,7 @@ app.post("/api/hall-barter/requests/:id/respond", requirePermission(7), async (r
     updated=await Repository.updateHallBarterRequest(request.id,{
       status:decision==="approve"?"approved":"rejected",respondedAt:now,
       responderUserId:Number(req.user.SystemUserId||0),responderName:String(req.user.Name||""),
-    });
+    },"pending");
   } catch(error:any) {
     if(error instanceof RequestReservationConflict){res.status(409).json({error:error.message,code:error.code});return;}
     throw error;
@@ -6127,7 +6128,9 @@ app.post("/api/hall-barter/requests/:id/cancel", requirePermission(7), async (re
     const inUse=rows.some(row=>barterRequestMatchesRow(request,row)&&rowOccupiesWindow(row,request.day,request.startTime,request.endTime));
     if(inUse){res.status(409).json({error:"لا يمكن إلغاء الاستعارة لأن جدول قسمك يستخدم القاعة فعلياً في هذه النافذة. انقل الموعد أولاً."});return;}
   }
-  const updated=await Repository.updateHallBarterRequest(request.id,{status:"cancelled"});
+  let updated: HallBarterRequest;
+  try { updated=await Repository.updateHallBarterRequest(request.id,{status:"cancelled"},request.status); }
+  catch(error:any){if(error instanceof RequestReservationConflict){res.status(409).json({error:error.message,code:error.code});return;}throw error;}
   hallBarterSerial++;hallBarterBoardCache.clear();
   broadcastScheduleChange();void Repository.markSchedulesChanged();
   res.json({request:updated,message:"تم إلغاء طلب الاستعارة وتحرير النافذة."});
@@ -19829,8 +19832,15 @@ function stripForInstructor(request: InstructorRequest) {
       : undefined,
     items: (request.items || []).map(item => {
       const { roomCandidates, roomOptions, offeringRows, ...rest } = item;
+      const itemId = instructorRequestItemIdentity(item);
+      const identify = (slot: any) => ({ ...slot,
+        proposalId: instructorRequestProposalIdentity(itemId, slot) });
       return {
         ...rest,
+        ...(rest.decision ? { decision: { ...rest.decision,
+          ...(rest.decision.alternatives ? { alternatives: rest.decision.alternatives.map(identify) } : {}) } } : {}),
+        ...(rest.thread ? { thread: rest.thread.map(message => ({ ...message,
+          ...(message.slots ? { slots: message.slots.map(identify) } : {}) })) } : {}),
         /* «كان» تحمل قاعتَه هو — وهي قاعتُه يعرفها — و«طلب» لا تحملها أبداً. */
         after: rest.after ? { ...rest.after, room: undefined } : rest.after,
         /* حالةُ الحوار تُحسب هنا بالقاعدة الواحدة، والصفحةُ تعرضها ولا تستنتجها. */
@@ -20798,11 +20808,6 @@ function requireInstructorRequestRevision(req: Request, res: Response, request: 
 function instructorRequestItemIdentity(item: InstructorRequestItem) {
   return String(item.itemId || (item.rowId != null ? `row:${item.rowId}` : `add:${(item.offeringRowIds || []).join(",")}`));
 }
-function requestOfferIdentity(itemId: string, offer: any) {
-  const days = [...new Set((Array.isArray(offer?.days) && offer.days.length ? offer.days : [offer?.day]).map(String))].sort();
-  return `${itemId}|${days.join(",")}|${String(offer?.start || "")}|${String(offer?.end || "")}`;
-}
-
 app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
   if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
@@ -21553,7 +21558,7 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
   if (acceptAt >= 0) {
     const chosen = offered[acceptAt];
     if (!chosen) { res.status(400).json({ error: "هذا المقترح لم يعد قائماً. حدّث الصفحة." }); return; }
-    if (String(req.body?.proposalId || "") !== requestOfferIdentity(itemIdentity, chosen)) {
+    if (String(req.body?.proposalId || "") !== instructorRequestProposalIdentity(itemIdentity, chosen)) {
       res.status(409).json({ error: "تغيّر المقترح بعد فتح الصفحة. حدّث البيانات قبل الموافقة.", code: "request-proposal" }); return;
     }
     const days = (chosen.days?.length ? chosen.days : [chosen.day]) as RequestDayKey[];
@@ -21610,6 +21615,65 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
   }, acceptAt >= 0 ? await requestReservationProposals(judged) : undefined);
   res.setHeader("Cache-Control", "no-store");
   broadcastNotify(Repository.currentDemoSessionId());
+  res.json({ request: stripForInstructor(await judgeRequestItems(saved)) });
+});
+
+/** One signature and one request revision for the exact set of offers shown by
+ * the "accept all" sheet. Sequential replies would advance the revision after
+ * the first item and make later accepts bind to a different page state. */
+app.post("/api/public/request/:token/reply-batch", rateLimitPublicRequest, async (req: Request, res: Response) => {
+  const resolved = await resolveRequestLink(String(req.params.token || ""));
+  if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
+  if (!requireInstructorRequestRevision(req, res, resolved.request)) return;
+  if (!resolved.request.submittedAt) { res.status(409).json({ error: "أرسل طلبك أولاً، ثم يبدأ الحوار مع القسم." }); return; }
+  const term = (await Repository.getTerms()).find(row => Number(row.AdTermId) === Number(resolved.request.AdTermId));
+  if (term?.AdTermClosed === true) { res.status(409).json({ error: "انتهى هذا الفصل الدراسي، ولم يعد جدولُه يقبل التعديل." }); return; }
+  const accepts = Array.isArray(req.body?.accepts) ? req.body.accepts : [];
+  if (!accepts.length || accepts.length > 100) { res.status(400).json({ error: "لا توجد قرارات صالحة لإرسالها." }); return; }
+  const indexes = new Set<number>();
+  const items = [...resolved.request.items];
+  const now = new Date().toISOString();
+  const signedItems: InstructorRequestSignature["signedItems"] = [];
+  for (const accepted of accepts) {
+    const index = Number(accepted?.itemIndex);
+    const item = items[index];
+    if (!item || indexes.has(index)) { res.status(409).json({ error: "تغيّرت قائمة القرارات. حدّث الصفحة قبل الموافقة.", code: "request-item" }); return; }
+    indexes.add(index);
+    const itemId = instructorRequestItemIdentity(item);
+    if (String(accepted?.itemId || "") !== itemId) { res.status(409).json({ error: "تغيّر ترتيب البنود أو محتواها. حدّث الصفحة؛ مسودتك محفوظة.", code: "request-item" }); return; }
+    const last = (item.thread || []).at(-1);
+    const offered = negotiationState(item) !== "proposed" ? []
+      : last?.from === "department" && (last.slots || []).length ? last.slots || [] : item.decision?.alternatives || [];
+    const proposalId = String(accepted?.proposalId || "");
+    const chosen = offered.find(slot => instructorRequestProposalIdentity(itemId, slot) === proposalId);
+    if (!chosen) { res.status(409).json({ error: "تغيّر أحد المقترحات بعد فتح صفحة الموافقة. حدّث البيانات قبل التوقيع.", code: "request-proposal" }); return; }
+    const days = (chosen.days?.length ? chosen.days : [chosen.day]) as RequestDayKey[];
+    const slots = await requestSlotsForCourse(resolved.request, Number((item.after || item.before)?.courseId), days, chosen.start, blockMinutesOfItem(item));
+    const end = slots[0]?.end || chosen.end;
+    items[index] = {
+      ...item,
+      action: item.action === "keep" ? "change" : item.action,
+      after: { ...(item.after || item.before || { courseId: 0, courseName: "", sectionCode: "", days: "", time: "" }),
+        days: days.map(day => DAY_LETTERS[day]).join(" · "), time: `${chosen.start} – ${end}` },
+      slots, chosenAlternative: chosen, decision: undefined,
+      decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [item.decision] : [])],
+      ...appendRequestThread(item, { from: "instructor" as const, at: now, accepted: true, slots: [chosen] }),
+    };
+    signedItems.push({ action: "accept", courseName: String((items[index].after || items[index].before)?.courseName || ""),
+      asked: String(items[index].after?.days || "") + " · " + String(items[index].after?.time || "") });
+  }
+  const civil = await verifyRequestSigner(resolved.request, req, res);
+  if (!civil) return;
+  const judged = await judgeRequestItems({ ...resolved.request, items }, { forDepartment: true });
+  const conflict = [...indexes].map(index => judged.items[index]).find(item => item.verdict === "conflict");
+  if (conflict) { res.status(409).json({ error: conflict.reasons?.find(reason => reason.blocking)?.text || "أحد المواعيد لم يعد متاحاً. راجع القسم." }); return; }
+  const signature: InstructorRequestSignature = { at: now, fingerprint: await surveyFingerprint(civil),
+    verifyCode: verificationCode(resolved.request.id, Number(resolved.request.AdInstructorId), now), keptCount: 0, signedItems };
+  const saved = await Repository.saveInstructorRequest({ ...resolved.request, items: judged.items, status: "in-review", signature,
+    signatureHistory: [...(resolved.request.signatureHistory || []), ...(resolved.request.signature ? [resolved.request.signature] : [])],
+    timeline: [...(resolved.request.timeline || []), ...[...indexes].map(itemIndex => ({ kind: "proposal-accepted" as const, at: now, itemIndex }))],
+  }, await requestReservationProposals(judged));
+  res.setHeader("Cache-Control", "no-store"); broadcastNotify(Repository.currentDemoSessionId());
   res.json({ request: stripForInstructor(await judgeRequestItems(saved)) });
 });
 
@@ -21886,7 +21950,7 @@ function askSlot(it){var d=planDays(it),st=planStart(it);if(!d.length||!st)retur
  return{d:d,s:mins(st),e:e}}
 function offeredOf(it){var th=it.thread||[],last=th[th.length-1];
  var list=it.negotiation!=="proposed"?[]:(last&&last.from==="department"&&(last.slots||[]).length?last.slots:((it.decision&&it.decision.alternatives)||[]));
- return list.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return{d:ds,s:mins(a.start),e:a.end?mins(a.end):mins(endOf(ds,a.start,it.blk))}})}
+ return list.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return{d:ds,s:mins(a.start),e:a.end?mins(a.end):mins(endOf(ds,a.start,it.blk)),id:a.proposalId||""}})}
 function proposed0(it){var o=it.negotiation==='proposed'?offeredOf(it):[];return o.length?o[0]:null}
 function pendingList(){var out=[];if(!data||!data.request.submittedAt)return out;state.forEach(function(it,i){if(it.negotiation==="proposed"&&offeredOf(it).length)out.push(i)});return out}
 /* بقيةُ محاضراته كما هي الآن: ما رُفض طلبُه لا يُحسب، فموعدُه الرسمي هو القائم. */
@@ -21961,22 +22025,23 @@ var openSheet=SK.sheet,closeSheet=SK.close,toast=SK.toast,signSheet=SK.sign;
 SK.onTime(function(el,val){if(el.getAttribute("data-start")==null||!val)return;var i=+el.getAttribute("data-i");
  if(!state[i]||state[i].start===val)return;state[i].start=val;paint();recheckAll(i)});
 function publicItemId(it){return it.itemId||(it.rowId!=null?"row:"+it.rowId:"add:"+(it.offeringRowIds||[]).join(","))}
-function publicProposalId(it,o){return publicItemId(it)+"|"+o.d.slice().sort().join(",")+"|"+hh(o.s)+"|"+hh(o.e)}
-function sendReply(i,accept,civil,text,start,cb,days){var it=state[i];if(!it){cb("تعذّر إرسال الرد");return}
+function publicProposalId(it,o){return o.id||""}
+function replySnapshot(i,accept,text,start,days){var it=state[i];if(!it)return null;var offer=accept===null?null:offeredOf(it)[accept];return{itemIndex:i,itemId:publicItemId(it),requestRevision:Number(data.request.requestRevision||0),proposalId:offer?offer.id:"",text:text||"",start:accept===null?(start||""):"",days:accept===null&&days&&days.length?days.slice():undefined}}
+function sendReply(snapshot,accept,civil,cb){if(!snapshot){cb("تعذّر إرسال الرد");return}
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/reply",{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({civil:civil,itemIndex:i,itemId:publicItemId(it),requestRevision:data.request.requestRevision||0,accept:accept,proposalId:accept===null?undefined:publicProposalId(it,offeredOf(it)[accept]),text:text||"",start:accept===null?(start||""):"",days:accept===null&&days&&days.length?days:undefined})})
+  body:JSON.stringify({civil:civil,itemIndex:snapshot.itemIndex,itemId:snapshot.itemId,requestRevision:snapshot.requestRevision,accept:accept,proposalId:accept===null?undefined:snapshot.proposalId,text:snapshot.text,start:snapshot.start,days:snapshot.days})})
  .then(function(r){return r.json().then(function(x){return{ok:r.ok,status:r.status,d:x}})}).then(function(x){
   if(!x.ok){cb(x.d.error||"تعذّر إرسال الرد",x.status);return}
-  var fresh=(x.d.request.items||[])[i]||{};data.request=x.d.request;
+  var i=snapshot.itemIndex,it=state[i],fresh=(x.d.request.items||[])[i]||{};data.request=x.d.request;
   it.thread=fresh.thread||[];it.negotiation=fresh.negotiation||"";it.decision=fresh.decision||null;
   if(accept!==null){it.action=fresh.action||it.action;it.after=fresh.after||it.after;it.slots=fresh.slots||[];
    it.days=it.slots.map(function(s){return s.day});it.start=it.slots[0]?it.slots[0].start:"";it.tone="";it.note=""}
   rebase(i);openCards[i]=false;paint();cb(null)})
  .catch(function(){cb("تعذّر الاتصال. تحقّق من الإنترنت.")})}
-function askAccept(i,k){var it=state[i],o=offeredOf(it)[k];if(!o)return;
+function askAccept(i,k){var it=state[i],o=offeredOf(it)[k];if(!o)return;var snapshot=replySnapshot(i,k,"","",undefined);
  signSheet({ok:"سُجّلت موافقتك · بانتظار تثبيت القسم",
   what:'<div>'+gi("check")+'<span>توافق على: <b>'+esc(courseOf(it))+'</b></span></div><div>'+gi(periodIc(o.s))+'<span>'+esc(fmtDays(o.d))+' · <span class="num">'+hh(o.s)+' – '+hh(o.e)+'</span></span></div>',
-  run:function(civil,done){sendReply(i,k,civil,"","",done)}})}
+  run:function(civil,done){sendReply(snapshot,k,civil,done)}})}
 /* أنماطُ الأيام التي يعرضها «وقت آخر»: بعدد أيام البند نفسه، فالقسمُ يقرّر توزيعَ ساعات المقرّر لا الأستاذ. */
 var DPATS={1:[["fsunday"],["fmonday"],["ftuesday"],["fwednesday"],["fthursday"]],2:[["fsunday","ftuesday"],["fmonday","fwednesday"]],3:[["fsunday","ftuesday","fthursday"],["fmonday","fwednesday","fthursday"]]};
 function patsFor(days){var base=days.slice().sort().join(),list=(DPATS[days.length]||[]).map(function(p){return p.slice()});
@@ -21995,26 +22060,27 @@ function openCounter(i){var it=state[i],days0=(it.slots||[]).map(function(s){ret
   document.querySelectorAll(".sk-sheet button[data-t]").forEach(function(b){b.onclick=function(){choice=b.dataset.t;draw()}});
   document.querySelectorAll(".sk-sheet button[data-pat]").forEach(function(b){b.onclick=function(){pat=+b.dataset.pat;draw()}});
   var go=document.getElementById("ctrGo");if(go)go.onclick=function(){
-   signSheet({ok:"وصل اقتراحك إلى القسم",
+   var snapshot=replySnapshot(i,null,"",choice,days);signSheet({ok:"وصل اقتراحك إلى القسم",
     what:'<div>'+gi("swap")+'<span>تقترح على القسم: <b>'+esc(courseOf(it))+'</b></span></div><div>'+gi(periodIc(x.s))+'<span>'+esc(fmtDays(days))+' · <span class="num">'+hh(x.s)+' – '+hh(x.e)+'</span></span></div>',
-    run:function(civil,done){sendReply(i,null,civil,"",choice,done,days)}})}}
+    run:function(civil,done){sendReply(snapshot,null,civil,done)}})}}
  draw()}
 /* «وافق على الكل»: كلُّ قرارٍ معلّق على الاقتراح الذي اخترتَه فيه (الأول إن لم تختر)، بتوقيعٍ واحد. */
 function askAcceptAll(){var rows=pendingList().map(function(i){var it=state[i],offers=offeredOf(it),pk=deckPick[i]||0;if(pk>=offers.length)pk=0;return{i:i,k:pk,it:it,o:offers[pk]}});
  if(!rows.length)return;
  var lines=rows.map(function(r){return '<li><span><b>'+esc(courseOf(r.it))+'</b> — '+esc(fmtDays(r.o.d))+' <span class="num">'+hh(r.o.s)+'</span></span></li>'}).join("");
+ var snapshots=rows.map(function(r){return replySnapshot(r.i,r.k,"","",undefined)});
  signSheet({ok:"سُجّلت موافقتك على "+countOf(rows.length,AR.decision),
   what:'<ul class="sk-list">'+lines+'</ul>',
-  run:function(civil,done){var n=0;(function next(){if(n>=rows.length){done(null);return}
-   var r=rows[n];sendReply(r.i,r.k,civil,"","",function(msg,status){if(msg){done(n?"تعذّر إكمال الموافقة على الباقي: "+msg:msg,status);return}n++;next()})})()}})}
+  run:function(civil,done){var payload={civil:civil,requestRevision:snapshots[0].requestRevision,accepts:snapshots.map(function(s){return{itemIndex:s.itemIndex,itemId:s.itemId,proposalId:s.proposalId}})};
+   fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/reply-batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(function(r){return r.json().then(function(x){return{ok:r.ok,status:r.status,d:x}})}).then(function(x){if(!x.ok){done(x.d.error||"تعذّر إرسال الرد",x.status);return}data.request=x.d.request;rows.forEach(function(row){var fresh=data.request.items[row.i]||{},it=state[row.i];it.thread=fresh.thread||[];it.negotiation=fresh.negotiation||"";it.decision=fresh.decision||null;it.action=fresh.action||it.action;it.after=fresh.after||it.after;it.slots=fresh.slots||[];it.days=it.slots.map(function(s){return s.day});it.start=it.slots[0]?it.slots[0].start:"";it.tone="";it.note="";rebase(row.i);openCards[row.i]=false});paint();done(null)}).catch(function(){done("تعذّر الاتصال. تحقّق من الإنترنت.")})}})}
 function openMsg(i){var it=state[i];
  openSheet('<div class="sk-h"><span class="sk-b">'+gi("chat")+'</span><div><h3>اكتب للقسم</h3><p>'+esc(courseOf(it))+'</p></div></div>'+
   '<textarea id="msgText" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-vi-field="msg" data-show="1" placeholder="اكتب ردّك للقسم…" style="display:block"></textarea>'+VI.html("msg")+
   '<button type="button" class="sk-btn" id="msgGo" data-reply="'+i+'">'+gi("finger")+'التالي: التوقيع</button>');
  var ta=document.getElementById("msgText");VI.wire();setTimeout(function(){ta.focus()},120);
- document.getElementById("msgGo").onclick=function(){var t=ta.value.trim();if(!t){ta.focus();return}
+ document.getElementById("msgGo").onclick=function(){var t=ta.value.trim();if(!t){ta.focus();return}var snapshot=replySnapshot(i,null,t,"",undefined);
   signSheet({ok:"وصلت رسالتك إلى القسم",what:'<div>'+gi("chat")+'<span>'+esc(t.length>160?t.slice(0,160)+"…":t)+'</span></div>',
-   run:function(civil,done){sendReply(i,null,civil,t,"",done)}})}}
+   run:function(civil,done){sendReply(snapshot,null,civil,done)}})}}
 /* خيطُ البند: التاريخُ فقط. أمّا الردّ فمن بطاقة «قرارك» أو من زرّ الرسالة. */
 function threadBox(it,i){var r=data.request,th=it.thread||[],neg=it.negotiation||"";
  if(!r.submittedAt||!neg||it.action==="keep"&&!th.length)return "";

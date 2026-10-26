@@ -7,7 +7,9 @@ export async function reviewInstructorCard(base: string, card: {
 }, offering: { id: number; courseName: string; courseCode: string }, cookie: string, otherName: string) {
   const modulePath = process.env.INSTRUCTOR_BROWSER_MODULE;
   if (!modulePath) return;
-  const { chromium } = await import(modulePath);
+  const playwrightModule = await import(modulePath);
+  const chromium = playwrightModule.chromium || playwrightModule.default?.chromium;
+  assert.ok(chromium, `Playwright module must export chromium: ${modulePath}`);
   const browser = await chromium.launch({ executablePath: process.env.INSTRUCTOR_CHROMIUM || "/usr/bin/chromium", headless: true, args: ["--no-sandbox"] });
   const errors: string[] = [];
   const screenshots = "/tmp/instructor-deep-audit";
@@ -137,6 +139,40 @@ export async function reviewInstructorCard(base: string, card: {
     const officialBefore = await page.request.get(`${base}/api/schedules?collegeId=1&sectionId=1&termId=1`, { headers: { cookie } }).then((response: any) => response.json());
     assert.notEqual(officialBefore.find((row: any) => row.id === offering.id)?.AdInstructorId, card.instructorId, "submission leaves the official instructor assignment unchanged");
 
+    /* Reopen the submitted request, then reproduce a coordinator replacing an
+       offer while its old details remain visible in the signature sheet. */
+    const beforeProposal = await page.request.get(`${base}/api/instructor-requests?collegeId=1&sectionId=1&termId=1`, { headers: { cookie } }).then((response: any) => response.json());
+    const requestBeforeProposal = beforeProposal.rows.find((row: any) => row.instructorName === card.name);
+    const proposalIndex = requestBeforeProposal.items.findIndex((item: any) => item.action === "keep" && item.rowId != null);
+    assert.ok(proposalIndex >= 0, "the request includes an existing appointment for the live proposal race");
+    const proposalItem = requestBeforeProposal.items[proposalIndex];
+    const firstOfferResponse = await page.request.post(`${base}/api/instructor-requests/${requestBeforeProposal.id}/reply`, {
+      headers: { cookie }, data: { itemIndex: proposalIndex, itemId: proposalItem.itemId, requestRevision: requestBeforeProposal.requestRevision,
+        slots: [{ day: "fmonday", days: ["fmonday"], start: "16:00", end: "16:50" }] },
+    });
+    assert.equal(firstOfferResponse.status(), 200, await firstOfferResponse.text());
+    const firstOffer = await firstOfferResponse.json();
+    await page.locator("#again").click();
+    await page.locator("#deck [data-accept]").waitFor({ state: "visible", timeout: 15000 });
+    await page.locator("#deck [data-accept]").first().click();
+    await page.getByRole("dialog").waitFor({ state: "visible" });
+    assert.match(await page.locator(".sk-what").innerText(), /16:00/, "the signature sheet shows the original proposal");
+    const updateArrived = page.waitForResponse((response: any) => response.url().includes(`/api/public/request/${card.token}?live=1`) && response.status() === 200, { timeout: 15000 });
+    const secondOfferResponse = await page.request.post(`${base}/api/instructor-requests/${requestBeforeProposal.id}/reply`, {
+      headers: { cookie }, data: { itemIndex: proposalIndex, itemId: proposalItem.itemId, requestRevision: firstOffer.requestRevision,
+        slots: [{ day: "fmonday", days: ["fmonday"], start: "17:00", end: "17:50" }] },
+    });
+    assert.equal(secondOfferResponse.status(), 200, await secondOfferResponse.text());
+    await updateArrived;
+    assert.match(await page.locator(".sk-what").innerText(), /16:00/, "silent refresh leaves the signed sheet visibly bound to the old offer");
+    await page.locator("#civil").fill(card.civil);
+    const staleReply = page.waitForResponse((response: any) => response.url().includes(`/api/public/request/${card.token}/reply`) && response.request().method() === "POST");
+    await page.locator("#skGo").click();
+    const staleReplyResponse = await staleReply;
+    assert.equal(staleReplyResponse.status(), 409, await staleReplyResponse.text());
+    assert.equal((await staleReplyResponse.json()).code, "request-revision", "the old visible proposal is not silently signed as the replacement");
+    await page.keyboard.press("Escape");
+
     const coordinator = await context.newPage();
     coordinator.on("pageerror", (error: Error) => errors.push(error.message));
     await coordinator.setViewportSize({ width: 1280, height: 900 });
@@ -175,7 +211,7 @@ export async function reviewInstructorCard(base: string, card: {
     await coordinator.screenshot({ path: `${screenshots}/coordinator-inbox-after-approval.png`, fullPage: true });
     assert.deepEqual(errors, [], "both public and coordinator screens have no uncaught browser errors");
     assert.deepEqual(failedRequests, [], "the public request UI has no failed server responses");
-    console.log("Chromium journey passed: 15-course discovery/search, selection, add/change/delete/undo/cancel, tabs, offline draft recovery, signature validation, request visibility, and coordinator approval");
+    console.log("Chromium journey passed: 15-course discovery/search, selection, add/change/delete/undo/cancel, tabs, offline draft recovery, signature validation, stale proposal signature rejection, request visibility, and coordinator approval");
     console.log(`Screenshots: ${screenshots}`);
   } finally { await browser.close(); }
 }

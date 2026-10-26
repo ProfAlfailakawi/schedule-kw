@@ -289,5 +289,43 @@ const loadResults = await Promise.allSettled(loadRequests.map((entry, at) => Rep
 assert.equal(loadResults.filter(result => result.status === "fulfilled").length, 1,
   "a second concurrent request at a different time cannot exceed the shared teaching load");
 for (const result of loadResults) if (result.status === "rejected") assert.ok(result.reason instanceof RequestReservationConflict);
+if (emulator) {
+  const barter = await Repository.createHallBarterRequest({
+    AdTermId: 900010, buildingId: "test-building", roomCode: "012B08", roomHall: "G20",
+    day: "fsunday", startTime: "08:00", endTime: "09:00",
+    requesterCollegeId: 2, requesterSectionId: 9, requesterUserId: 92, requesterName: "synthetic borrower",
+    ownerCollegeId: 1, ownerSectionId: 1, confidence: 1, historyTerms: 1,
+  });
+  const legacyTextRoom = { ...row({ id: undefined, AdTermId: 900010, AdCollegeId: 1, AdSectionId: 1,
+    AdInstructorId: 91, roomId: undefined, AdRoomCode: "012B08", AdRoomHall: "G20",
+    fsunday: true, fmonday: false, fstarttime: "08:00", fendtime: "08:50" }) } as any;
+  const [officialWrite, barterApproval] = await Promise.allSettled([
+    Repository.createSchedule(legacyTextRoom),
+    Repository.updateHallBarterRequest(barter.id, { status: "approved" }, "pending"),
+  ]);
+  assert.equal([officialWrite, barterApproval].filter(result => result.status === "fulfilled").length, 1,
+    "a legacy text-only official schedule and an approval for its borrowed window cannot both commit");
+  const storedBarter = await Repository.getHallBarterRequestById(barter.id);
+  if (storedBarter?.status === "approved") {
+    assert.equal(officialWrite.status, "rejected", "official schedule creation retries against the newly approved window");
+  } else {
+    assert.equal(storedBarter?.status, "pending", "approval retries against the committed legacy text-only schedule");
+    assert.equal(officialWrite.status, "fulfilled");
+  }
+
+  const decisionRace = await Repository.createHallBarterRequest({
+    AdTermId: 900011, buildingId: "test-building", roomCode: "012B08", roomHall: "G21",
+    day: "fmonday", startTime: "08:00", endTime: "09:00",
+    requesterCollegeId: 2, requesterSectionId: 9, requesterUserId: 92, requesterName: "synthetic borrower",
+    ownerCollegeId: 1, ownerSectionId: 1, confidence: 1, historyTerms: 1,
+  });
+  const decisions = await Promise.allSettled([
+    Repository.updateHallBarterRequest(decisionRace.id, { status: "approved" }, "pending"),
+    Repository.updateHallBarterRequest(decisionRace.id, { status: "rejected" }, "pending"),
+  ]);
+  assert.equal(decisions.filter(result => result.status === "fulfilled").length, 1,
+    "competing approval/rejection decisions cannot overwrite the first terminal decision");
+  assert.notEqual((await Repository.getHallBarterRequestById(decisionRace.id))?.status, "pending");
+}
 if (emulator) { const { getFirestore } = await import("firebase-admin/firestore"); await getFirestore().terminate(); }
-console.log("Instructor availability: precise parity, final bundles, 40 concurrent reservations, stale decisions, release and official assignment passed");
+console.log(`Instructor availability: precise parity, final bundles, 40 concurrent reservations, stale decisions, release and official assignment${emulator ? ", legacy-room barter races and compare-and-set barter decisions" : ""} passed`);
