@@ -556,6 +556,7 @@
 .sp-launch-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .sp-launch-actions .btn{display:inline-flex;gap:8px;align-items:center}
 .sp-launch-pick select{min-inline-size:200px;min-block-size:40px;padding:6px 12px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);color:inherit;font:inherit}
+.sp-desktop-only-note{display:none}
 .sp-pcard-actions .btn{display:inline-flex;gap:8px;align-items:center}
 .sp-pcard .sp-status{padding:2px 10px;font-size:12px}
 .sp-pcard p svg{inline-size:14px;block-size:14px;vertical-align:-2px;margin-inline-end:4px}
@@ -605,6 +606,12 @@ body:has(.sp-root) .smart-guide-fab{visibility:hidden}
 .sp-pcard{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px}
 .sp-pcard-title{flex:1 1 160px;font-size:13px;font-weight:600;min-inline-size:0}
 .sp-pcard .btn{min-block-size:34px;padding-block:4px}
+
+/* إعداد المقترح يحتاج مساحة الكمبيوتر؛ نُبقي الوارد مقروءاً على الهاتف ونشرح مكان فتح الأداة. */
+@media (max-width:899px){
+  .sp-launch .btn,.sp-launch-pick,.sp-pcard>.btn,.sp-start-btn,.request-propose,.request-thread-proposal{display:none!important}
+  .sp-desktop-only-note{display:block;inline-size:100%;padding:8px 11px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2);color:var(--muted);font-size:12.5px;line-height:1.5}
+}
 
 /* ── الجوال: الأهمّ فقط. ثلاثُ بطاقات مقارنة، وشريطٌ سفليٌّ بزرّين، بلا شروحٍ مكرّرة ── */
 @media (max-width:639px){
