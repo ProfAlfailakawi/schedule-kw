@@ -704,32 +704,10 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   return findings.sort((a, b) => order[a.severity] - order[b.severity]);
 }
 
-/**
- * How much of this schedule the regulation would question.
- *
- * Not a penalty count — a proportion. Every appointment a finding names is
- * weighed by how serious that finding is, and measured against the size of the
- * schedule, so a department with three problems in four hundred appointments
- * reads as healthy and one with three problems in ten does not. A row named by
- * several findings is still one row: the same appointment cannot be wrong twice
- * over.
- */
-export function regulationScore(findings: RegulationFinding[], rowCount: number): number {
+/** Percentage of appointments shown as clean in the adjacent schedule summary. */
+export function appointmentCoverageScore(cleanAppointments: number, rowCount: number): number {
   if (!rowCount) return 100;
-  const weight: Record<RegulationSeverity, number> = { high: 1, medium: 0.5, low: 0.2 };
-  const worst = new Map<number, number>();
-  for (const finding of findings) {
-    if (!isDecision1912Finding(finding)) continue;
-    const cost = weight[finding.severity];
-    // A finding with no specific rows (a balance ratio, say) counts as a light
-    // touch on the whole schedule rather than on nothing.
-    const targets = finding.rowIds.length ? finding.rowIds : [];
-    if (!targets.length) continue;
-    for (const id of targets) worst.set(id, Math.max(worst.get(id) || 0, cost));
-  }
-  const implicated = [...worst.values()].reduce((total, cost) => total + cost, 0);
-  const wide = findings.filter(finding => isDecision1912Finding(finding) && !finding.rowIds.length).length * 0.02 * rowCount;
-  return Math.max(0, Math.min(100, Math.round(100 - ((implicated + wide) / rowCount) * 100)));
+  return Math.max(0, Math.min(100, Math.round((cleanAppointments / rowCount) * 100)));
 }
 
 /**

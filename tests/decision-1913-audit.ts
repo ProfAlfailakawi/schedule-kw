@@ -7,7 +7,7 @@
  * number, and the existing checks are untouched.
  */
 import {
-  DECISION_1912_LABEL, isDecision1912Finding, periodBalanceFinding, regulationScore, reviewSchedule,
+  appointmentCoverageScore, DECISION_1912_LABEL, isDecision1912Finding, periodBalanceFinding, reviewSchedule,
 } from "../src/utils/scheduleRegulations";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
@@ -147,7 +147,7 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   const rows = courses.map(c => row(c.AdCourseId, "1", ["sun", "tue", "thu"], "09:00", "09:50"));
   const findings = review(rows, courses);
   check(findings.filter(isDecision1912Finding).every(f => f.approvalEffect !== "block"), "لا ملاحظة من اللائحة تمنع الاعتماد");
-  check(regulationScore(findings, rows.length) < 100, "ودرجة المطابقة تحسب ملاحظة النسبة");
+  check(appointmentCoverageScore(31, 38) === 82, "درجة المطابقة تطابق نسبة المواعيد السليمة المعروضة");
   check(!findings.some(f => f.rule === "lecture-period" || f.rule === "fixed-time"), "ولا قاعدةَ غير م.7/2 أُضيفت");
 }
 

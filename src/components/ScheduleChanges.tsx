@@ -37,7 +37,7 @@ import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import VisitingBadge from "./VisitingBadge";
 import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 import { DIFF_FIELD_LABEL, type DiffFieldKey } from "../utils/scheduleDiff";
-import { DECISION_1912_LABEL, regulationScore, type PeriodBalanceData, type RegulationFinding } from "../utils/scheduleRegulations";
+import { appointmentCoverageScore, DECISION_1912_LABEL, type PeriodBalanceData } from "../utils/scheduleRegulations";
 import { currentTermId, termIsArchive } from "../utils/termSequence";
 import type { AdTerm, ScheduleApprovalStatus } from "../types";
 import { singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeContext";
@@ -679,23 +679,6 @@ function ChangesReviewOverview({ report, scopeLine, onJump }: { report: ChangeRe
   const notices = report.regulationNotices || [];
   const rowCount = Math.max(0, report.diff.counts.added + report.diff.counts.changed + report.diff.counts.unchanged);
 
-  /* الحلقة تخص قرار 1913/2016 كما في ScheduleReview بالضبط؛ موانع الحفظ
-     منفصلةٌ عنها لأنها ليست درجةً لائحية. */
-  const decisionFindings = useMemo<RegulationFinding[]>(() => notices
-    .filter(item => item.source === "decision-1912")
-    .map(item => ({
-      rule: item.rule,
-      article: item.article,
-      severity: item.approvalEffect === "block" ? "high" : item.approvalEffect === "review" ? "medium" : "low",
-      source: "decision-1912",
-      approvalEffect: item.approvalEffect,
-      title: item.title,
-      detail: item.detail,
-      rowIds: item.rowIds,
-      data: item.data,
-    })), [notices]);
-  const score = useMemo(() => regulationScore(decisionFindings, rowCount), [decisionFindings, rowCount]);
-
   const spread = useMemo(() => {
     const state = new Map<number, "high" | "medium" | "low">();
     const rank = { high: 3, medium: 2, low: 1 } as const;
@@ -714,6 +697,7 @@ function ChangesReviewOverview({ report, scopeLine, onJump }: { report: ChangeRe
     const flagged = counts.high + counts.medium + counts.low;
     return { ...counts, clean: Math.max(0, rowCount - flagged), total: Math.max(1, rowCount) };
   }, [blockers, notices, rowCount]);
+  const score = appointmentCoverageScore(spread.clean, rowCount);
   const share = (value: number) => `${(value / spread.total) * 100}%`;
   const blockedCount = Math.max(blockers.length, report.blockingConflicts || 0) + notices.filter(item => item.approvalEffect === "block").length;
   const tone = blockedCount ? "danger" : score >= 85 ? "good" : "warn";
