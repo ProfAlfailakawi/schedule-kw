@@ -16082,8 +16082,38 @@ app.post("/api/share", requirePermission(7), async (req: AuthenticatedRequest, r
 app.delete("/api/share/:id", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const link = await Repository.getShareLink(String(req.params.id));
   if (!link) { res.status(404).json({ error: "الرابط غير موجود" }); return; }
-  if (!isScopeAllowed(req, link.AdCollegeId, link.AdSectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
-  await Repository.revokeShareLink(link.id);
+  /* إلغاء بطاقة القسم يوقف نشر عائلة القسم بالكامل والطلبات غير المرسلة.
+     طلبات الأساتذة التي أُرسلت أو وُقّعت تبقى سجلاتها وروابط قراءتها بلا مساس. */
+  if (link.kind === "staff" && !Number(link.AdInstructorId || 0)) {
+    const family = await staffFamilyScopes(link.AdCollegeId, link.AdSectionId);
+    if (!family.some(scope => isScopeAllowed(req, scope.collegeId, scope.sectionId))) {
+      res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return;
+    }
+    const familyKey = family.map(scope => `${scope.collegeId}:${scope.sectionId}`).sort().join("|");
+    await withSerialLock(`share-publish:staff:${familyKey}:${link.AdTermId}`, async () => {
+      const [links, requests] = await Promise.all([
+        Promise.all(family.map(scope =>
+          Repository.getShareLinks(scope.collegeId, scope.sectionId, link.AdTermId))).then(groups => groups.flat()),
+        Promise.all(family.map(scope =>
+          Repository.getInstructorRequests(scope.collegeId, scope.sectionId, link.AdTermId))).then(groups => groups.flat()),
+      ]);
+      const unsentTokens = new Set(requests.filter(request =>
+        request.status === "sent" && !request.submittedAt && !request.signature)
+        .map(request => request.linkId));
+      for (const familyLink of links) {
+        if (familyLink.revoked) continue;
+        if (familyLink.kind === "staff"
+            || (familyLink.kind === "request" && unsentTokens.has(familyLink.id))) {
+          await Repository.revokeShareLink(familyLink.id);
+        }
+      }
+    });
+  } else {
+    if (!isScopeAllowed(req, link.AdCollegeId, link.AdSectionId)) {
+      res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return;
+    }
+    await Repository.revokeShareLink(link.id);
+  }
   res.json({ ok: true });
 });
 
@@ -16111,7 +16141,7 @@ app.post("/api/share/:id/personal", requirePermission(7), async (req: Authentica
   if (!wanted.length) { res.json({ links: [] }); return; }
   const [eligible, existing, instructors, terms] = await Promise.all([
     personalLinkEligibleIds(parent.AdCollegeId, parent.AdSectionId, parent.AdTermId),
-    Repository.getShareLinks(parent.AdCollegeId, parent.AdSectionId, parent.AdTermId),
+    staffFamilyShareLinks(parent.AdCollegeId, parent.AdSectionId, parent.AdTermId),
     Repository.getInstructors(),
     Repository.getTerms(),
   ]);
@@ -16161,7 +16191,7 @@ app.get("/api/share-personal", requirePermission(7), async (req: AuthenticatedRe
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   const [links, termRows, instructors] = await Promise.all([
-    Repository.getShareLinks(collegeId, sectionId, termId),
+    staffFamilyShareLinks(collegeId, sectionId, termId),
     Repository.getSchedulesByScope({ termId }),
     Repository.getInstructors(),
   ]);
