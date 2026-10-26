@@ -2,6 +2,7 @@ import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { departsFromNature, type CourseNature } from "./courseNature";
 import { SCHEDULE_DAY_END , formatScheduleTimeRange } from "./scheduleTime";
 import { AR, countOf, oblique } from "./arabicCount";
+import { placeholderInstructorIds } from "./instructorIdentity";
 
 /**
  * The timetable rules of PAAET decision 1913/2016, written as code.
@@ -227,6 +228,10 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
   {
     hours: 4, id: "4h-mon-wed-thu", days: ["fmonday", "fwednesday", "fthursday"], minutesPerDay: [80, 80, 50], weeklyMinutes: 210,
     note: "النمط الممتد: 80+80+50 دقيقة على الاثنين والأربعاء والخميس."
+  },
+  {
+    hours: 4, id: "4h-mon-wed", days: ["fmonday", "fwednesday"], minutesPerDay: [110, 110], weeklyMinutes: 200,
+    note: `أربع فترات تدريسية: فترتان من ${countOf(50, AR.minute)} مع فاصل ${countOf(10, AR.minute)} في الاثنين ومثلهما في الأربعاء (${countOf(110, AR.minute)} زمنية لكل لقاء).`
   },
   {
     hours: 4, id: "4h-sun-tue", days: ["fsunday", "ftuesday"], minutesPerDay: [110, 110], weeklyMinutes: 200,
@@ -564,8 +569,9 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   const runsOverLong: Array<{ instructorId: number; day: DayKey; rows: FSchedule[] }> = [];
   const runsOverOneHour: Array<{ instructorId: number; day: DayKey; rows: FSchedule[] }> = [];
   const byInstructor = new Map<number, FSchedule[]>();
+  const placeholders = placeholderInstructorIds(instructors.values());
   rows.forEach(row => {
-    if (!row.AdInstructorId) return;
+    if (!row.AdInstructorId || placeholders.has(Number(row.AdInstructorId))) return;
     byInstructor.set(row.AdInstructorId, [...(byInstructor.get(row.AdInstructorId) || []), row]);
   });
   for (const [instructorId, list] of byInstructor) {

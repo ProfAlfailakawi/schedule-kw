@@ -9,7 +9,7 @@
 import {
   DECISION_1912_LABEL, isDecision1912Finding, periodBalanceFinding, regulationScore, reviewSchedule,
 } from "../src/utils/scheduleRegulations";
-import type { AdCourse, FSchedule } from "../src/types";
+import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -68,6 +68,27 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   check(Boolean(found) && found!.article === "م.7/5" && found!.approvalEffect === "review", `م.7/5 كما كانت: «${found?.article}»`);
 }
 
+/* ── المعلّم العام ليس شخصاً واحداً في قاعدة التتابع ──────────────────────── */
+{
+  const c = course(10, 3);
+  const threeMeetings = [
+    row(10, "501", ["mon"], "08:00", "09:50", 700),
+    row(10, "502", ["mon"], "10:00", "11:50", 700),
+    row(10, "504", ["mon"], "12:00", "13:50", 700),
+  ];
+  const placeholder = {
+    AdInstructorId: 700, AdInstructorCivil: "", AdInstructorName: "هيئة تدريسية", AdInstructorMobile: "",
+  } as AdInstructor;
+  const realInstructor = {
+    ...placeholder, AdInstructorName: "د. أحمد العتيبي",
+  } as AdInstructor;
+  const reviewFor = (instructor: AdInstructor) => reviewSchedule({
+    rows: threeMeetings, courses: new Map([[10, c]]), instructors: new Map([[700, instructor]]),
+  });
+  check(!byRule(reviewFor(placeholder), "consecutive-long-lecture"), "الشعب المسندة إلى هيئة تدريسية عامة لا تُعامل كأستاذ واحد في فحص التتابع");
+  check(Boolean(byRule(reviewFor(realInstructor), "consecutive-long-lecture")), "يبقى مانع التتابع قائماً عند وجود أستاذ فعلي مشترك بين الشعب");
+}
+
 /* ── م.7/8: فحص الاعتماد يطابق مكتبة الأنماط ذات فترات 50/80 دقيقة ───────── */
 {
   const theoretical = (id: number, hours: number) => ({ ...course(id, hours), CourseTeachingMode: "theoretical" } as AdCourse);
@@ -85,13 +106,15 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
 
   const validFourPattern = [row(83, "501", ["mon", "wed"], "08:00", "09:20"), row(83, "501", ["thu"], "08:00", "08:50")];
   check(!byRule(review(validFourPattern, [theoretical(83, 4)]), "theoretical-pattern"), "٤ ساعات: 80/80/50 مطابق");
+  const validFourLongMonWed = row(88, "504", ["mon", "wed"], "18:00", "19:50");
+  check(!byRule(review([validFourLongMonWed], [theoretical(88, 4)]), "theoretical-pattern"), "٤ ساعات: لقاءان 110 دقائق الاثنين والأربعاء (ساعتان تدريسيّتان لكل لقاء) مطابق");
   const validFourShortDayPatterns = [row(87, "501", ["sun", "tue"], "12:00", "13:50"), row(87, "502", ["tue", "thu"], "10:00", "11:50")];
   check(!byRule(review(validFourShortDayPatterns, [theoretical(87, 4)]), "theoretical-pattern"), "٤ ساعات: لقاءان 110 دقائق على يومين قصيرين يساويان 200 دقيقة تدريسية");
   const practicalFourBlock = row(86, "501", ["wed"], "12:00", "15:50");
   check(!byRule(review([practicalFourBlock], [theoretical(86, 4)]), "theoretical-pattern"), "٤ ساعات: كتلة عملية 230 دقيقة (4×50 + 3 فواصل) مطابقة للمكتبة");
-  const invalidFour = row(84, "501", ["mon", "wed"], "16:00", "17:50");
+  const invalidFour = row(84, "501", ["mon", "wed"], "16:00", "17:40");
   const fourHourFinding = byRule(review([invalidFour], [theoretical(84, 4)]), "theoretical-pattern");
-  check(Boolean(fourHourFinding) && fourHourFinding!.detail.includes("الثلاثاء") && fourHourFinding!.detail.includes("دقيقة"), "٤ ساعات: النمط المخالف يعرض مدد المكتبة الصحيحة");
+  check(Boolean(fourHourFinding) && fourHourFinding!.detail.includes("الأربعاء") && fourHourFinding!.detail.includes("دقيقة"), "٤ ساعات: 100 دقيقة الاثنين والأربعاء لا تطابق نمط 110 دقيقة");
 }
 
 /* ── لا شيءَ من اللائحة يمنع، والحلقة تقرأ الجديد ─────────────────────────── */
