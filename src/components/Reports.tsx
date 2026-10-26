@@ -44,6 +44,7 @@ import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
+import { missingCompanionBookingNotice } from "../utils/companionPrintNotice";
 import SubmissionDeadlines, { type DeadlineRow } from "./SubmissionDeadlines";
 import { inboxAudience } from "../utils/inboxAudience";
 import { usePageAwake } from "../utils/pageAwake";
@@ -4169,13 +4170,16 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                 <table>
                   <colgroup><col style={{ width: "38%" }} /><col style={{ width: "10%" }} /><col style={{ width: "20%" }} /><col style={{ width: "19%" }} /><col style={{ width: "13%" }} /></colgroup>
                   <thead><tr><th>المقرر ورمزه</th><th>الشعبة</th><th>الأيام</th><th>الوقت</th><th>القاعة</th></tr></thead>
-                  <tbody>{page.rows.map(row => <tr key={row.id}>
+                  <tbody>{page.rows.map(row => {
+                    const missingCompanion = missingCompanionBookingNotice(row, courseOf(row));
+                    return <tr key={row.id}>
                     <td className="print-course-block"><strong>{courseOf(row)?.CourseName || row.AdCourseName || "—"}</strong><span><bdi className="print-ltr">{courseOf(row)?.CourseCode || "—"}</bdi></span></td>
                     <td className="print-ltr">{row.SCode || "—"}{showCollegeOnInstructorRows ? <small dir="rtl" className="print-visiting-place">{collegeById.get(Number(row.AdCollegeId))?.AdCollegeName || "كلية غير مسماة"}</small> : null}</td>
                     <td className="print-days">{dayCell(row)}</td>
                     <td className="print-ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</td>
-                    <td className="print-instructor-venue-cell"><div className="print-instructor-venue"><bdi dir="ltr">{placeOfRow(row)}</bdi><CompanionFacilityBadge row={row} compact /></div></td>
-                  </tr>)}</tbody>
+                    <td className="print-instructor-venue-cell"><div className="print-instructor-venue"><bdi dir="ltr">{placeOfRow(row)}</bdi><CompanionFacilityBadge row={row} compact />{missingCompanion ? <span className="print-companion-unbooked">{missingCompanion}</span> : null}</div></td>
+                  </tr>;
+                  })}</tbody>
                 </table>
               </section>
               <PrintPageMeta page={pageIndex + 1} total={pages.length} college={collegeName} date={issueDate} />
