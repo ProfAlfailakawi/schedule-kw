@@ -63,6 +63,8 @@ export interface RemainingReading {
   columns: ReportColumn[];
   /** عمود «الذين لم يسجلوا» (أو عنوانٌ «المتبقي» وحده)؛ null إن لم يوجد — ولا يُستبدل به عمودٌ آخر. */
   column: number | null;
+  /** Selected planning metric; legacy reports keep their default. */
+  demandKind?: "unregistered" | "notPassed";
   /** لا بديل: أُبقي للتوافق، وهو null دائماً. */
   fallback: null;
   rows: ReportRow[];
@@ -439,6 +441,7 @@ export function readRemainingReport(
   pages: readonly ReportCell[][],
   courses: ReadonlyArray<{ id: number; code: string }>,
   departmentCode: string,
+  demandKind: "unregistered" | "notPassed" = "unregistered",
 ): RemainingReading {
   const { matched, foreign, foreignLines, assigned, kept, suspected, suspectAssigned } = tableOf(pages, courses, departmentCode);
   const columns: ReportColumn[] = kept.map((column, id) => {
@@ -452,7 +455,7 @@ export function readRemainingReport(
   /* مدخل التخطيط «اعداد الذين لم يسجلوا» = المتبقي الإجمالي: طلبةٌ يحتاجون المقرر ولم
      يسجّلوه (لم يجتازوا − المسجلين). وإلا عمودٌ عنوانه «المتبقي» وحده. ولا يُستبدل بها
      «المقاعد المتبقية» (كراسي فارغة في الشعب المفتوحة، لا طلبة) ولا «لم يجتازوا». */
-  const column = ofKind("unregistered") ?? ofKind("remaining");
+  const column = demandKind === "notPassed" ? ofKind("notPassed") : (ofKind("unregistered") ?? ofKind("remaining"));
 
   /* 4) الصفوف: المقرر المكرّر يُجمع. */
   const rowsOf = new Map<number, ReportRow>();
@@ -486,7 +489,7 @@ export function readRemainingReport(
 
   /* 6) حسابُ الكشف يفحص القراءة: «الذين لم يسجلوا» = «لم يجتازوا» − «عدد المسجلين».
      يُفحص حين تُقرأ الثلاثة؛ وخلافُها قراءةٌ أخطأت — لا يُعتمد الرقم، ويُطلب أوضح. */
-  if (column != null && registered != null && notPassed != null) for (const row of [...rows, ...suspects]) {
+  if (demandKind === "unregistered" && column != null && registered != null && notPassed != null) for (const row of [...rows, ...suspects]) {
     const read = row.values[column], base = row.values[notPassed], enrolled = row.values[registered];
     if (read == null || base == null || enrolled == null) continue;
     /* الكشف يطبع الفرق كما هو (سالباً إن زاد المسجّلون على من لم يجتازوا — طلبةٌ جدد)؛ ويُقبل الصفر عنه إن طبعه مقصوصاً. */
@@ -498,7 +501,7 @@ export function readRemainingReport(
   }
   /* 6ب) لا متبقٍّ سالب: الكشف يطبع «الذين لم يسجلوا» سالباً حين يزيد المسجّلون على من لم
      يجتازوا (طلبةٌ جدد) — ومعناه «لا متأخرين»، فيُقرأ صفراً. يُفحص بحساب الكشف أولاً (أعلاه). */
-  if (column != null) for (const row of [...rows, ...suspects]) if ((row.values[column] ?? 0) < 0) row.values[column] = 0;
+  if (demandKind === "unregistered" && column != null) for (const row of [...rows, ...suspects]) if ((row.values[column] ?? 0) < 0) row.values[column] = 0;
   const seen = new Set([...rows, ...suspects].map(row => row.courseId));
   const suspectCodes = new Set(suspects.map(row => row.read));
   /* 7) سطرٌ ضاع رقم مقرره (القراءة الضوئية أسقطته) يترك فجوةً بين جارَيه بقدر
@@ -522,7 +525,7 @@ export function readRemainingReport(
       });
     });
   }
-  return { columns, column, fallback: null, rows, foreign: foreign.filter(code => !suspectCodes.has(code)), missing: courses.filter(course => !seen.has(course.id)).map(course => course.id), gaps, ...(suspects.length ? { suspects } : {}) };
+  return { columns, column, demandKind, fallback: null, rows, foreign: foreign.filter(code => !suspectCodes.has(code)), missing: courses.filter(course => !seen.has(course.id)).map(course => course.id), gaps, ...(suspects.length ? { suspects } : {}) };
 }
 
 export type CellState = "read" | "unread" | "noSections" | "mismatch" | "lowConfidence";
@@ -644,6 +647,7 @@ export function assessRemainingImport(
     branch?: { code?: string; collegeName?: string };
   },
 ): ImportAssessment {
+  const planningColumnLabel = reading.demandKind === "notPassed" ? "لم يجتازوا في بداية التسجيل" : "الذين لم يسجلوا";
   const printed = [...reading.rows.map(row => row.printed), ...reading.foreign];
   const detected = detectReportDepartment(context.headerText || "", printed);
   const selected = context.departmentName ? `«${context.departmentName}» (${context.departmentCode})` : context.departmentCode;
@@ -711,14 +715,14 @@ export function assessRemainingImport(
       : "لم أجد في الملف أرقام مقررات هذا القسم — تأكد أنه كشف «الذين لم يسجلوا» من عمادة التسجيل، وأن الصورة واضحة." };
   }
   if (reading.column == null) {
-    return { ...base, rejectKind: "noColumn", reject: "لم أجد في الكشف عمود «الذين لم يسجلوا» — وهو وحده ما تُبنى عليه خطة الشعب، فلا يؤخذ عمودٌ آخر بدله. ارفع صورةً أوضح تظهر فيها عناوين الأعمدة، أو الكشف PDF." };
+    return { ...base, rejectKind: "noColumn", reject: "لم أجد في الكشف عمود «${planningColumnLabel}» — وهو وحده ما تُبنى عليه خطة الشعب، فلا يؤخذ عمودٌ آخر بدله. ارفع صورةً أوضح تظهر فيها عناوين الأعمدة، أو الكشف PDF." };
   }
   const states = reading.rows.map(row => ({ id: row.courseId, ...remainingOf(row, reading.column!) }));
   const unread = states.filter(item => item.state !== "read" && item.state !== "noSections").map(item => item.id);
   const noSections = states.filter(item => item.state === "noSections").map(item => item.id);
   const read = states.filter(item => item.state === "read").length;
   if (!read) {
-    return { ...base, unread, noSections, read, rejectKind: "unread", reject: `لم تُقرأ خانة «الذين لم يسجلوا» لأي مقرر — لا شيء يُعرض للمراجعة. ارفع صورةً أوضح (مستقيمة، بإضاءةٍ جيدة، وتظهر الأعمدة كاملة) أو الكشف PDF.` };
+    return { ...base, unread, noSections, read, rejectKind: "unread", reject: `لم تُقرأ خانة «${planningColumnLabel}» لأي مقرر — لا شيء يُعرض للمراجعة. ارفع صورةً أوضح (مستقيمة، بإضاءةٍ جيدة، وتظهر الأعمدة كاملة) أو الكشف PDF.` };
   }
   const notes = (reading.gaps || []).map(gap => `سطرٌ لم يُقرأ رقم مقرره بين المقرر ${gap.after} والمقرر ${gap.before} (الصفحة ${gap.page}) — قد يكون مقرراً من مقرراتك؛ أضف قيمته يدوياً إن وُجد.`);
   return { ...base, unread, noSections, read, notes, reject: null };
