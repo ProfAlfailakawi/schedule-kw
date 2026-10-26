@@ -80,7 +80,11 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
     if (!data) return { gaps: [], surpluses: [] };
     /* المتبقي بلا تاريخه يقترح «شعبةً واحدة» فيُخفي النقص؛ فلا يُعتدّ به حتى يصل التاريخ. */
     const plan: GapPlan = { accepted: data.accepted || {}, remaining: historyReady ? data.remaining || {} : {}, history: historyReady ? past!.history : {} };
-    return { gaps: planGaps(data.courses, plan), surpluses: planSurpluses(data.courses, plan) };
+    // التخفيض يعتمد حصرياً على كشف الإحصائيات المرفوع لهذا الفصل؛ الفتح كما كان.
+    // إدخال «المتبقي» اليدوي لا يُعامل ككشف مرفوع للتخفيض.
+    const hasCurrentReport = Boolean(data.planImported && data.planSource?.fileName && data.planSource.fileName !== "إدخال يدوي");
+    const currentReport = hasCurrentReport ? { remaining: data.remaining || {}, accepted: {}, history: {} } : null;
+    return { gaps: planGaps(data.courses, plan), surpluses: planSurpluses(data.courses, currentReport) };
   }, [data, historyReady, past]);
   const studentItems = useMemo(() => (data ? studentGaps(data.courses) : []), [data]);
   const reload = useCallback(() => setBump(value => value + 1), []);
@@ -100,7 +104,7 @@ export function showQuickCompareBadge(gap: { loaded: boolean; planImported: bool
 
 export type GapKind = "plan" | "students";
 const KIND = {
-  plan: { Icon: ClipboardList, word: "التخطيط", title: "مراجعة عدد الشعب بحسب تخطيطك", hint: "المطلوب من اختيار القسم أو كشف المتبقي ومتوسط الفصول المماثلة · الموجود من هذا الفصل فقط · لا تجميع بين الفصول" },
+  plan: { Icon: ClipboardList, word: "التخطيط", title: "مراجعة عدد الشعب بحسب تخطيطك", hint: "الفائض: إحصائية الفصل الحالي وسعة الشعبة فقط · دون الرجوع للفصول السابقة · الفتح مستقل" },
   students: { Icon: Users, word: "مساري", title: "شعبٌ يطلبها الطلبة في «مساري»", hint: "من رغبات الطلبة في «مساري» · اختياري ولا يمنع التوقيع" },
 } as const;
 
@@ -162,7 +166,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
         <small>اختياري</small>
         <button type="button" className="apb-dr-close" aria-label="إغلاق" onClick={onClose} data-guide-ignore="إغلاق قائمة الشعب المقترحة"><X aria-hidden="true" /></button>
       </header>
-      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />المطلوب من اختيار القسم أو كشف المتبقي ومتوسط الفصول المماثلة؛ الموجود من هذا الفصل فقط، والفصول السابقة للمقارنة لا للتجميع.</p> : null}
+      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />الفائض من إحصائية هذا الفصل وسعة الشعبة فقط؛ فتح الشعب مستقل.</p> : null}
       <ul className="apb-gap-list">
         {list.map(item => {
           const row = rowOf(item.id);
@@ -177,7 +181,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
                 <span
                   className="apb-surplus"
                   role="group"
-                  aria-label={`فائض ${countOf(item.surplus, AR.section)}: الموجود ${num(item.existing)}، والمطلوب بحسب تخطيط الشعب ${num(item.required)}. راجع الإلغاء؛ لا تُحذف الشعب تلقائياً.`}
+                  aria-label={`فائض ${countOf(item.surplus, AR.section)}: الموجود ${num(item.existing)}، والمطلوب ${num(item.required)} بحسب إحصائية الفصل الحالي: المتبقي ${num(item.demand)} طالباً. راجع الإلغاء؛ لا تُحذف الشعب تلقائياً.`}
                 >
                   <span className="apb-surplus-label">
                     <span className="apb-surplus-icon" aria-hidden="true"><Layers /><Minus /></span>
