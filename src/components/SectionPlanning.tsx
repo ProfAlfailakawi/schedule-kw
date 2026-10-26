@@ -8,7 +8,7 @@ import {
   departmentLoadWarning, departmentTypicalTotal, suggestSectionCount,
   type DepartmentTermLoad, type SimilarTermHistory,
 } from "../utils/sectionCountSuggestion";
-import { manualRemainingValue, planRemainingApply, remainingOf, vacantValues, type RejectKind, type RejectMismatch, type CellState, type ImportAssessment, type RemainingReading, type ReportRow, type ReportSuspect } from "../utils/remainingReport";
+import { manualRemainingValue, planRemainingApply, remainingOf, reportUnregisteredValues, vacantValues, type RejectKind, type RejectMismatch, type CellState, type ImportAssessment, type RemainingReading, type ReportRow, type ReportSuspect } from "../utils/remainingReport";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import SectionBuild from "./SectionBuild";
 import { PLAN_SAVED_EVENT } from "./SectionGapNote";
@@ -29,6 +29,7 @@ interface Payload {
   remaining: Record<string, number>;
   /** «المقاعد المتبقية» من الكشف نفسه (شاغر الشعب المفتوحة) — للإنذار المبكر، لا للاقتراح. */
   vacant?: Record<string, number>;
+  unregistered?: Record<string, number>;
   remainingSource: { fileName: string; importedAt: string; column?: "notPassed" | "unregistered" | "seats"; reportTerm?: string } | null;
   /** ما حُفظ بعمودٍ غير «الذين لم يجتازوا في بداية التسجيل» (مثل «المقاعد المتبقية»): يُعرض موسوماً ولا يُحسب به. */
   legacyRemaining?: { values: Record<string, number>; fileName: string; importedAt: string } | null;
@@ -85,6 +86,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
   const [chosen, setChosen] = useState<Record<string, string>>({});
   const [source, setSource] = useState<Payload["remainingSource"]>(null);
   const [vacant, setVacant] = useState<Record<string, number>>({});
+  const [unregistered, setUnregistered] = useState<Record<string, number>>({});
   /* «بيانات قديمة» أُزيلت بالزر: تُخفى حتى يُعاد التحميل (الحفظ يمحوها من الخادم). */
   const [legacyCleared, setLegacyCleared] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -138,6 +140,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
         setChosen(asText(body.accepted));
         setSource(body.remainingSource || null);
         setVacant(body.vacant || {});
+        setUnregistered(body.unregistered || {});
         setLegacyCleared(false);
         setSavedAt(body.updatedAt || ""); setSavedBy(body.updatedBy || "");
       })
@@ -150,11 +153,11 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
      أغلق النافذة قبله. الآن كلُّ تعديلٍ يُحفظ بعد لحظة، وما بقي معلّقاً حين
      تُغلق الشاشة يُرسل وهي تُغلق. «المختار» المحفوظ هو ما كتبه القسم بيده
      فقط؛ الخانة الفارغة تتبع المقترح وإن تغيّر المتبقي. */
-  const latest = useRef({ remaining, chosen, source, vacant });
-  latest.current = { remaining, chosen, source, vacant };
+  const latest = useRef({ remaining, chosen, source, vacant, unregistered });
+  latest.current = { remaining, chosen, source, vacant, unregistered };
   const body = useCallback(() => JSON.stringify({
     collegeId, sectionId, termId,
-    remaining: asNumbers(latest.current.remaining, 0), accepted: asNumbers(latest.current.chosen), remainingSource: latest.current.source, vacant: latest.current.vacant,
+    remaining: asNumbers(latest.current.remaining, 0), accepted: asNumbers(latest.current.chosen), remainingSource: latest.current.source, vacant: latest.current.vacant, unregistered: latest.current.unregistered,
   }), [collegeId, sectionId, termId]);
   const persist = useCallback(async () => {
     if (timer.current) { window.clearTimeout(timer.current); timer.current = null; }
@@ -278,6 +281,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
     setRemaining(asText(plan.next));
     /* الشاغر من الكشف نفسه؛ والمصوَّر منه لما أكّده المستخدم وحده. */
     setVacant(vacantValues(preview, preview.source === "scan" ? confirmedScan : undefined));
+    setUnregistered(reportUnregisteredValues(preview, preview.source === "scan" ? confirmedScan : undefined));
     setSource({ fileName: preview.fileName, importedAt: new Date().toISOString(), column: "notPassed", reportTerm: preview.reportTerm || "" });
     skipped.current = nReview;
     setPreview(null);
@@ -297,7 +301,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
       confirmLabel: "نعم، أزِل", cancelLabel: "لا", tone: "danger",
     });
     if (!sure) return;
-    setRemaining({}); setChosen({}); setVacant({}); setSource(null); setPreview(null); setLegacyCleared(true);
+    setRemaining({}); setChosen({}); setVacant({}); setSource(null); setUnregistered({}); setPreview(null); setLegacyCleared(true);
     setEdits(n => n + 1);
   };
 
