@@ -7959,7 +7959,7 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   // Catalog room type and teaching nature are requirements, not score preferences.
   // With an explicit choice, suggesting a different or unclassified room is misleading.
   const matchingHalls=halls.filter(hall=>roomMatchesCourseSuggestion(course,roomById.get(String(hall.roomId))));
-  if (!matchingHalls.length) { res.json({ slots: [], note: "لا توجد قاعات مطابقة لطبيعة المقرر ونوع القاعة المحددين في هذا القسم. راجع تصنيف القاعات أو إعدادات المقرر." }); return; }
+  if (!matchingHalls.length) { res.json({ slots: [], note: `لا توجد قاعات مسجلة من نوع «${expectedRoomType}» في هذا القسم. راجع نوع القاعات المسجل.` }); return; }
 
   const sectionWindow = await sectionScheduleWindow(sectionId);
   const bounds = scheduleDayWindowMinutes(sectionWindow);
@@ -8050,9 +8050,6 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
       let fitAdjustment=0;
       const fitReasons:string[]=[];
       if(expectedRoomType){fitAdjustment+=12;fitReasons.push(`مطابقة لنوع القاعة · ${expectedRoomType}`);}
-      if(course?.CourseTeachingMode&&course.CourseTeachingMode!=="mixed"){
-        fitReasons.push("مطابقة لطبيعة المقرر");
-      }
       if(seatsNeeded>0&&Number(roomRecord?.capacity)>0){
         if(Number(roomRecord!.capacity)>=seatsNeeded){fitAdjustment+=8;fitReasons.push("السعة المسجلة مناسبة");}
         else {fitAdjustment-=24;fitReasons.push("السعة المسجلة أقل من سعة المقرر");}

@@ -11,15 +11,18 @@ assert.equal(fits(course("مختبر حاسوب", "applied"), room("مختبر")
 assert.equal(fits(course("مختبر حاسوب", "applied"), room()), false);
 assert.equal(fits(course("تدريسية", "theoretical"), room("تدريسية")), true);
 assert.equal(fits(course("تدريسية", "theoretical"), room("مختبر")), false);
-assert.equal(fits(course(undefined, "theoretical"), room("مختبر")), false);
-assert.equal(fits(course(undefined, "theoretical"), room("قاعة تدريسية")), true);
-assert.equal(fits(course(undefined, "applied"), room("قاعة تدريسية")), false);
-assert.equal(fits(course(undefined, "practical"), room("ورشة عملية")), true);
-assert.equal(fits(course(undefined, "field_training"), room("قاعة التدريب الميداني")), true);
-assert.equal(fits(course(undefined, "field_training"), room("قاعة تدريسية")), false);
-assert.equal(fits(course("مختبر", "theoretical"), room("مختبر")), false);
+// A declared room type wins even when a workshop's teaching nature is theoretical.
+assert.equal(fits(course("مختبر", "theoretical"), room("مختبر")), true);
+assert.equal(fits(course("مختبر", "theoretical"), room("تدريسية")), false);
+assert.equal(fits(course("مختبر", "practical"), room("مختبر")), true);
+assert.equal(fits(course("تدريسية", "applied"), room("تدريسية")), true);
+assert.equal(fits(course("استوديو التلفزيون", "theoretical"), room("استوديو التلفزيون")), true);
 assert.equal(fits(course("استوديو التلفزيون", "practical"), room("استوديو التلفزيون")), true);
-assert.equal(fits(course("استوديو التلفزيون", "theoretical"), room("استوديو التلفزيون")), false);
+// No explicit type: stay flexible, don't silently turn teaching nature into an exclusion.
+assert.equal(fits(course(undefined, "theoretical"), room("مختبر")), true);
+assert.equal(fits(course(undefined, "applied"), room("قاعة تدريسية")), true);
+assert.equal(fits(course(undefined, "practical"), room()), true);
+assert.equal(fits(course(undefined, "field_training"), room("قاعة تدريسية")), true);
 assert.equal(fits(course("مختبر حاسوب", "applied"), room("  مختبر  حاسوب  ")), true);
 assert.equal(fits(course(undefined, undefined), room()), true);
 assert.equal(fits(null, room("مختبر")), true);
@@ -37,4 +40,8 @@ assert.match(quick, /\/api\/schedules\/suggest-slots/);
 assert.match(schedule, /const roomIdeasKey = .+form\.AdCourseId/);
 assert.match(schedule, /roomIdeasNote \|\|/);
 assert.match(schedule, /slotIdeasNote \|\|/);
-console.log("Room suggestion eligibility: exact type + teaching nature across both entry points ✓");
+const picker = readFileSync("src/components/LocationPicker.tsx", "utf8");
+assert.match(picker, /modeMismatch=Boolean\(selectedRoom&&!String\(courseRoomType\|\|""\)\.trim\(\)/);
+assert.match(server, /if\(expectedRoomType\)\{fitAdjustment\+=12;fitReasons\.push/);
+assert.doesNotMatch(server, /fitReasons\.push\("مطابقة لطبيعة المقرر"\)/);
+console.log("Room suggestion eligibility: selected room type wins, teaching nature never blocks ✓");
