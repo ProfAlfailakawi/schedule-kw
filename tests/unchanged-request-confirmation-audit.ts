@@ -49,8 +49,8 @@ expect(!isUnchangedConfirmed({ status: "settled", timeline: [{ kind: "settled", 
 
 const server = fs.readFileSync("server.ts", "utf8");
 expect(server.includes('status: unchangedConfirmed ? "settled" : "submitted"'), "The server finalizes only confirmed unchanged submissions");
-expect(server.includes('request.status !== "superseded" && !isUnchangedConfirmed(request) && (')
-  && server.includes("\n    inScope(Number(request.AdCollegeId)"), "Superseded rounds and completed unchanged submissions do not enter department inbox");
+expect(server.includes('request.status !== "superseded" && (')
+  && server.includes("\n    inScope(Number(request.AdCollegeId)"), "Superseded rounds stay excluded while completed unchanged submissions remain visible within scope");
 expect(server.includes('if (!unchangedConfirmed) broadcastNotify(Repository.currentDemoSessionId());'), "Automatic confirmation does not ping the department inbox");
 expect(server.includes('kind: unchangedConfirmationKind, at') && server.includes('kind: "received" as const'), "Confirmed requests have no false department-received event");
 expect(server.includes('if(confirmedRequest(r)){dirty=false;clearDraft();host.innerHTML=confirmedHtml(r);return}'), "Reload remains on the visual final card");
