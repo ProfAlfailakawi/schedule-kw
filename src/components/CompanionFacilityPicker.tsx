@@ -38,11 +38,23 @@ export default function CompanionFacilityPicker({ course, form, excludeId, onCha
         if (!response.ok) throw new Error(data.error || "تعذر فحص الاستوديوهات");
         return data;
       })
-      .then(data => { if (!controller.signal.aborted) setRooms(Array.isArray(data.rooms) ? data.rooms : []); })
+      .then(data => {
+        if (controller.signal.aborted) return;
+        const nextRooms = Array.isArray(data.rooms) ? data.rooms : [];
+        setRooms(nextRooms);
+        const current = String(form.companionRoomId || "");
+        const currentOption = nextRooms.find((room: Option) => room.id === current);
+        /* يجري ربط المرِفق تلقائياً بأول خيارٍ متاح طوال الموعد؛ وإن بقي
+           الاختيار الحالي صالحاً نحافظ عليه. الخادم يعيد التحقق عند الحفظ. */
+        if (!currentOption?.available) {
+          const firstAvailable = nextRooms.find((room: Option) => room.available);
+          onChange({ companionRoomId: firstAvailable?.id || "", companionRoomLabel: firstAvailable?.label || "" });
+        }
+      })
       .catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "تعذر جلب الاستوديوهات"); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [requiredType, form.AdCollegeId, form.AdSectionId, form.AdTermId, form.AdCourseId, form.buildingId, form.fstarttime, form.fendtime, days, excludeId]);
+  }, [requiredType, form.AdCollegeId, form.AdSectionId, form.AdTermId, form.AdCourseId, form.buildingId, form.fstarttime, form.fendtime, days, excludeId, form.companionRoomId]);
   if (!requiredType) return null;
   const chosen = String(form.companionRoomId || "");
   const listed = rooms.some(room => room.id === chosen);
@@ -66,6 +78,7 @@ export default function CompanionFacilityPicker({ course, form, excludeId, onCha
       </select>
     </label>
     <small>يُحجز هذا المرفق مع القاعة الأساسية طوال مدة الموعد، دون إنشاء موعد آخر.</small>
+    {!loading && listed && rooms.find(room=>room.id===chosen)?.available ? <small role="status">رُبط المرفق المتاح بالموعد تلقائياً.</small> : null}
     {!loading && chosen && rooms.some(room=>room.id===chosen&&!room.available) ? <small role="alert">المرفق الذي اخترته أصبح مشغولًا في هذا الوقت. اختر مرفقًا متاحًا.</small> : null}
     {!loading && !error && !rooms.length && form.buildingId ? <small role="status">لا توجد مرافق من نوع «{requiredType}» مخصصة للمرافقة في هذا الموقع. راجع أنواع القاعات وسياسة الحجز.</small> : null}
     {error ? <small role="alert">{error}</small> : null}

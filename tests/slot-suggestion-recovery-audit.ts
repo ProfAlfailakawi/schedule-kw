@@ -26,6 +26,7 @@ assert.match(route, /if \(busy\(hallRows, dayKey, start, end\)\)/);
 assert.match(route, /if \(instructorId && busy\(instructorRows, dayKey, start, end\)\)/);
 const editor = readFileSync("src/components/Schedules.tsx", "utf8");
 const quick = readFileSync("src/components/QuickCreatePopover.tsx", "utf8");
+const styles = readFileSync("src/styles/05-schedule.css", "utf8");
 assert.match(editor, /roomIdeasNote \|\| "لا توجد قاعة/);
 assert.match(editor, /slotIdeasNote \|\| "لا توجد خانة/);
 assert.match(editor, /currentSuggestionKey\.current !== requestedKey/);
@@ -48,5 +49,10 @@ assert.equal(instructorRowsForSuggestion(occupancyRows, 0, null).length, 0, "New
 const advisorRoute = server.slice(server.indexOf('app.post("/api/schedules/suggest-slots"'), server.indexOf("/* ── استثناءات الأسبوع"));
 assert.match(advisorRoute, /instructorRowsForSuggestion\(live, instructorId, instructor\)/);
 assert.match(advisorRoute, /instructorId \? Repository\.getInstructorById\(instructorId\)/);
+assert.match(advisorRoute, /scheduleConflicts\(conflictReq, \{ \.\.\.candidate, \.\.\.location\.check\.canonical \}, editedRowId\)/,
+  "Suggestions must pass the same central conflict gate used by appointment saves.");
+assert.match(editor, /<RoomSuggestionCards suggestions=\{roomIdeas\}/);
+assert.match(quick, /ideaKind === "room" \? <RoomSuggestionCards/);
+assert.match(styles, /\.quick-create\{[^}]*max-height:calc\(100dvh - 24px\);overflow-y:auto/);
 
 console.log("Room/time suggestion regression: edit scope, faculty placeholders, real conflicts, feedback and stale replies passed");

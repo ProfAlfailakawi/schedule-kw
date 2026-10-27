@@ -103,7 +103,7 @@ export function reconcilePlanAdjustments(openings: readonly GapItem[], surpluses
   return [...byCourse.values()];
 }
 
-function planComparisons(courses: readonly GapCourse[], plan: GapPlan | null): GapItem[] {
+export function planTargets(courses: readonly GapCourse[], plan: GapPlan | null): GapItem[] {
   const items: GapItem[] = [];
   if (!plan) return items;
   for (const course of courses) {
@@ -118,10 +118,14 @@ function planComparisons(courses: readonly GapCourse[], plan: GapPlan | null): G
     }
     if (required === null) continue;
     const extra = required - course.existing;
-    if (extra !== 0) items.push({ id: course.id, code: course.code, name: course.name, existing: course.existing, required, extra, basis: "plan", demand });
+    // Keep zero-difference targets too: appointment creation needs the target
+    // even when the course is currently exactly at its planned section count.
+    items.push({ id: course.id, code: course.code, name: course.name, existing: course.existing, required, extra, basis: "plan", demand });
   }
   return items.sort(byNeed);
 }
+
+const planComparisons = planTargets;
 
 /** من رغبات الطلبة وحدها: ⌈الطلبة ÷ السعة⌉. سعةٌ مجهولة أو طلبٌ صفر ← لا اقتراح. */
 export function studentGaps(courses: readonly GapCourse[]): GapItem[] {

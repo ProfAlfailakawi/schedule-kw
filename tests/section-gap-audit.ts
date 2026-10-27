@@ -1,7 +1,7 @@
 /** شعبٌ يُفضَّل زيادتها: حسابٌ حتميّ (طلب الطلبة، تخطيط القسم، كشف المتبقي) + عرضٌ هادئ بلا كتابة. */
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { planGaps, planSurpluses, reconcilePlanAdjustments, studentGaps, type GapCourse, type GapPlan } from "../src/utils/sectionGap";
+import { planGaps, planSurpluses, planTargets, reconcilePlanAdjustments, studentGaps, type GapCourse, type GapPlan } from "../src/utils/sectionGap";
 import { SectionGapPanel, showQuickCompareBadge } from "../src/components/SectionGapNote";
 import { createDemoSandboxState, DEMO_TERM_CURRENT } from "../src/db/demoSandbox";
 
@@ -48,6 +48,9 @@ check(planGaps([c(1, "101", 30, 1, 5000)], null).length === 0 && planGaps([c(1, 
 const plan: GapPlan = { remaining: { "1": 100 }, accepted: { "1": 7, "2": 1 }, history: {} };
 const planned = planGaps([c(1, "101", 30, 5, 10), c(2, "102", 30, 3, 900)], plan);
 check(planned.length === 1 && planned[0].id === 1 && planned[0].required === 7 && planned[0].extra === 2 && planned[0].basis === "plan", "المختار 7 والموجود 5 ← «زِد ٢»؛ (‎102: المختار 1 ≤ الموجود 3 فلا تُقترح ولو طلبه 900 في «مساري»)", planned);
+const matchedTarget = planTargets([c(3, "103", 30, 3, 0)], { accepted: { "3": 3 }, remaining: {}, history: {} });
+check(matchedTarget.length === 1 && matchedTarget[0].required === 3 && matchedTarget[0].extra === 0 && planGaps([c(3, "103", 30, 3, 0)], { accepted: { "3": 3 }, remaining: {}, history: {} }).length === 0,
+  "يُحفظ هدف التخطيط حتى عند تطابقه مع الموجود كي يكشف الموعد الجديد تجاوز العدد، دون إظهار نقص زائف", matchedTarget);
 
 /* كشف المتبقي بلا «مختار»: يقترح حسابُ تخطيط الشعب من التاريخ. فُتحت عادةً 3 شعب بمتبقٍّ 90، والمتبقي الآن 90 ← 3، والموجود 1 ← ينقص 2. */
 const history = { "1": [{ termName: "الفصل الأول 2025/2026", sections: 3, remaining: 90, similar: true }] };
@@ -132,9 +135,9 @@ check(!renderToStaticMarkup(React.createElement(SectionGapPanel, { items: byStud
 /* شاشة الرفع المختصرة: تُفتح من الأيقونة وتعيد استعمال استيراد «تخطيط الشعب» نفسه (وضع importOnly) فلا مسارَ ثانياً ولا جدولَ تخطيط. */
 import fs from "fs";
 const bar = fs.readFileSync("src/components/ApprovalBar.tsx", "utf8"), sheet = fs.readFileSync("src/components/QuickPlanSheet.tsx", "utf8"), planning = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8"), gapSource = fs.readFileSync("src/components/SectionGapNote.tsx", "utf8");
-check(bar.includes("const planAdjustments = reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems)") &&
+check(bar.includes("useMemo(() => reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems)") &&
   !bar.includes("gap.ready ? reconcilePlanAdjustments"), "توصية الحذف مستقلة عن وصول التاريخ، مع تسوية تمنع تضارب القرارين");
-check(gapSource.includes("surpluses: planSurpluses(data.courses, plan)") && !gapSource.includes("const currentReport: GapPlan | null = null"), "الفتح والتخفيض من هدف التخطيط نفسه، والإغلاق عرض للمراجعة فقط");
+check(gapSource.includes("surpluses: planSurpluses(data.courses, plan)") && gapSource.includes("targets: planTargets(data.courses, plan)") && !gapSource.includes("const currentReport: GapPlan | null = null"), "الفتح والتخفيض والهدف من تخطيط واحد، والإغلاق عرض للمراجعة فقط");
 
 check(bar.includes("setPlanSheet(true)") && bar.includes("<QuickPlanSheet") && !bar.includes("onOpenPlanning") && !bar.includes("initialTab"), "الأيقونة تفتح شاشة الرفع المختصرة ولا تنقل إلى تخطيط الشعب");
 check(sheet.includes("<SectionPlanning") && sheet.includes("importOnly") && sheet.includes("gap.reload()") && sheet.includes("<Result"), "الشاشة: استيرادٌ بالمسار نفسه ثم عرض المقترح بعد الحفظ");

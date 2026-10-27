@@ -8246,12 +8246,36 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
 
   // One suggestion per time: three options that differ only by hall is not a choice.
   const seen = new Set<string>();
-  const slots = candidates
+  const ranked = candidates
     .sort((a, b) => b.score - a.score || a.start.localeCompare(b.start))
     .filter(slot => { if (roomOnly) return true; if (seen.has(slot.start)) return false; seen.add(slot.start); return true; })
-    .slice(0, roomOnly ? 6 : 3);
+    .slice(0, 18);
+  /* الاقتراح للعرض فقط، لكنه يجب أن يمرّ من بوابة التعارض نفسها التي تمنع
+     حفظ الموعد. فحص الفراغ والقاعة أعلاه ترتيبٌ سريع، ثم تحسم scheduleConflicts
+     التعارضات الأكاديمية والقاعة وفق منطق موعد جديد حرفياً قبل إظهار أي خيار. */
+  const conflictReq = Object.create(req) as AuthenticatedRequest;
+  if (owner) (conflictReq as any).__requestReservationOwner = owner;
+  const slots: typeof ranked = [];
+  let rejectedByScheduleGate = 0;
+  for (const slot of ranked) {
+    const candidate = {
+      ...body,
+      AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
+      AdCourseId: Number(body.AdCourseId || 0), AdInstructorId: instructorId,
+      AdRoomCode: slot.room, AdRoomHall: slot.hall,
+      buildingId: slot.buildingId, roomId: slot.roomId, locationStatus: "VERIFIED",
+      fstarttime: slot.start, fendtime: slot.end,
+      ...Object.fromEntries(SCHEDULE_DAY_KEYS.map(key => [key, dayKeys.includes(key)])),
+    };
+    const location = await canonicalizeLocationForWrite(candidate, collegeId, sectionId);
+    if (!location.check.ok) { rejectedByScheduleGate++; continue; }
+    const conflicts = await scheduleConflicts(conflictReq, { ...candidate, ...location.check.canonical }, editedRowId);
+    if (conflicts.some((conflict: any) => !conflict.soft)) { rejectedByScheduleGate++; continue; }
+    slots.push(slot);
+    if (slots.length >= (roomOnly ? 6 : 3)) break;
+  }
 
-  res.json({ slots, considered: candidates.length });
+  res.json({ slots, considered: candidates.length, rejectedByScheduleGate });
 });
 
 /* ── استثناءات الأسبوع ────────────────────────────────────────────────────────
@@ -8829,7 +8853,7 @@ const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
       sourceBuildingText: req.body?.sourceBuildingText,
       sourceRoomText: req.body?.sourceRoomText,
       fdetail: legacyFDetail({ fsunday, fmonday, ftuesday, fwednesday, fthursday }),
-      ...((req as any).__restoreOrigin ? { origin: (req as any).__restoreOrigin.value } : scheduleOriginOf(req) ? { origin: scheduleOriginOf(req) } : {}),
+      ...((req as any).__restoreOrigin ? { origin: (req as any).__restoreOrigin.value } : scheduleOriginOf(req) ? { origin: scheduleOriginOf(req) } : existing.origin ? { origin: existing.origin } : {}),
     };
   if ((req as any).__dryRun) { res.json({ ok: true, dryRun: true, row: writeFields, warnings: conflicts.filter((c:any)=>c.soft) }); return; }
   try {
@@ -8839,6 +8863,19 @@ const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) =
       : undefined;
     const updated = await Repository.updateSchedule(id, writeFields,
       req.body?.rev == null ? undefined : Number(req.body.rev), (req as any).__requestReservationOwner || "");
+    /* يظلّ تعديلُ الموعد من الجدول مرتبطاً برغبة الأستاذ الأصلية، فيظهر في
+       سجلّها للقسم وللأستاذ بدلاً من أن يختفي أثر التعديل خارج الوارد. */
+    if (existing.origin?.kind === "instructor-request" && existing.origin.refId) {
+      const linked = await Repository.getInstructorRequest(existing.origin.refId);
+      const change = describeScheduleChange(existing, updated);
+      if (linked && change) {
+        const at = new Date().toISOString();
+        await Repository.saveInstructorRequest({
+          ...linked,
+          timeline: [...(linked.timeline || []), { kind: "schedule-edited" as const, at, by: req.user.Name || "القسم", detail: change }].slice(-300),
+        });
+      }
+    }
     // Hand the audit trail the sentence describing what actually moved.
     res.locals.auditChanges = describeScheduleChange(existing, updated) || undefined;
     const movedScope = existing.AdCollegeId !== collegeId || existing.AdSectionId !== sectionId || existing.AdTermId !== termId;
@@ -20848,16 +20885,32 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
   /* الطلباتُ تُقرأ للفصل كلِّه: طلبٌ أصدرته كليةٌ أخرى قد يحمل بنداً على
      محاضرةٍ في هذه الكلية، لأن الأستاذ يرى جدولَه كلَّه. ثم يُصفّى كلُّ بندٍ
      بموقعه هو، لا بموقع الرابط. */
-  const [storedAll, instructors, scopeRowsAll, sections] = await Promise.all([
+  const [storedAll, instructors, scopeRowsAll, sections, colleges] = await Promise.all([
     Repository.getInstructorRequests(0, 0, termId),
     Repository.getInstructors(),
-    Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
+    Repository.getSchedulesByScope({ termId }),
     Repository.getSections(),
+    Repository.getColleges(),
   ]);
+  /* تجمع الرغبات حسب عائلة القسم عبر مواقع وكليات بنين/بنات والجهراء؛ رمز
+     القسم الأكاديمي هو هوية العائلة، أما الفرع الجغرافي وحده فضيقٌ على هذا
+     الوارد. ونظلّ نفلتر كل نطاق بصلاحيات المستخدم قبل إظهار أي طلب. */
+  const baseSection = (sections as any[]).find(row => Number(row.AdSectionId) === sectionId);
+  const familyCode = String(baseSection?.AdSectionCode || "").trim().toLocaleLowerCase();
+  const familyName = String(baseSection?.AdSectionName || "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+  const familySectionIds = new Set((sections as any[]).filter(row =>
+    (familyCode && String(row.AdSectionCode || "").trim().toLocaleLowerCase() === familyCode)
+    || (!familyCode && familyName && String(row.AdSectionName || "").replace(/\s+/g, " ").trim().toLocaleLowerCase() === familyName),
+  ).map(row => Number(row.AdSectionId)));
+  familySectionIds.add(sectionId);
+  const familyCollegeBySection = new Map((sections as any[]).filter(row => familySectionIds.has(Number(row.AdSectionId)))
+    .map(row => [Number(row.AdSectionId), Number(row.AdCollegeId)]));
+  const collegeNameOf = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
   /* في المختار، وفي نطاق الحساب — قسماً قسماً حين يُترك القسمُ فارغاً. */
   const inSelection = (scope: { collegeId: number; sectionId: number }) =>
-    scope.collegeId === collegeId
-    && (!sectionId || scope.sectionId === sectionId)
+    (!sectionId || (familySectionIds.has(scope.sectionId) && familyCollegeBySection.get(scope.sectionId) === scope.collegeId))
+    && (!sectionId || isScopeAllowed(req, scope.collegeId, Number(scope.sectionId) || -1))
+    && (sectionId || scope.collegeId === collegeId)
     && isScopeAllowed(req, scope.collegeId, Number(scope.sectionId) || -1);
   const inScope = (rowCollegeId: number, rowSectionId: number) =>
     inSelection({ collegeId: rowCollegeId, sectionId: Number(rowSectionId) });
@@ -20913,6 +20966,7 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
     ...request,
     instructorName: nameOf.get(Number(request.AdInstructorId)) || `أستاذ ${request.AdInstructorId}`,
     instructorMobile: mobileOf.get(Number(request.AdInstructorId)) || "",
+    requestCollegeName: collegeNameOf.get(Number(request.AdCollegeId)) || "كلية أخرى",
     sectionName: (shownSections.length ? shownSections : [Number(request.AdSectionId)])
       .map(id => sectionNameOf.get(id) || "").filter(Boolean).join(" · "),
     /* البنودُ التي تحمل قراراً هي ما يُنظر إليه؛ وما أبقاه الأستاذ كما هو
@@ -20936,7 +20990,10 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
      وتقريرِ تغييراته — فلا يُكتب في الجدول من هنا، ولا يُعاد بناءُ صفٍّ من
      لقطةٍ نصّية قد تكون شاخت. */
   res.setHeader("Cache-Control", "no-store");
-  res.json({ rows, totals, currentRows: scopeRows });
+  const familyScopes = [...familyCollegeBySection.entries()].filter(([sid, cid]) => isScopeAllowed(req, cid, sid))
+    .map(([sectionId, collegeId]) => ({ sectionId, collegeId, collegeName: collegeNameOf.get(collegeId) || `كلية ${collegeId}` }));
+  const familyColleges = [...new Set(familyScopes.map(scope => scope.collegeId))].map(id => ({ id, name: collegeNameOf.get(id) || `كلية ${id}` }));
+  res.json({ rows, totals, currentRows: scopeRows, familyColleges, familyScopes });
 });
 
 /* ── قرارُ القسم على بند ─────────────────────────────────────────────────── */
@@ -22041,7 +22098,7 @@ var f=DAYS.filter(function(x){return x[0]===d})[0];return f?f[1]:d}).join(" · "
 function dt(iso){if(!iso)return "";var d=new Date(iso);return isNaN(d)?"":
 d.toLocaleDateString("ar-KW-u-nu-latn",{month:"long",day:"numeric"})+" "+d.toLocaleTimeString("ar-KW-u-nu-latn",{hour:"2-digit",minute:"2-digit"})}
 function clockOf(iso){var d=new Date(iso);return isNaN(d)?"":("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)}
-var EVENTS={"link-created":"أُنشئ الرابط","link-opened":"فُتح الرابط","submitted":"أرسلتَ طلبك","unchanged-confirmed":"ثُبّت جدولك كما هو",
+var EVENTS={"link-created":"أُنشئ الرابط","link-opened":"فُتح الرابط","submitted":"أرسلتَ طلبك","unchanged-confirmed":"ثُبّت جدولك كما هو","schedule-edited":"عُدّل الموعد المرتبط بطلبك",
 "received":"وصل إلى صندوق القسم","item-fixed":"ثُبّت بند","item-rejected":"رُفض بند",
 "alternative-offered":"عُرض عليك بديل","alternative-chosen":"اخترتَ بديلاً","settled":"أُغلق الطلب",
 "schedule-approved":"اعتُمد الجدول","department-replied":"ردّ القسم واقترح","instructor-replied":"رددتَ على القسم","proposal-accepted":"وافقتَ على مقترح القسم","rejected-alt":"رُفض بندٌ وعُرض عليك بديل"};
@@ -22530,13 +22587,13 @@ function paint(){
  var incompleteN=state.filter(incompleteItem).length;
  var changed=state.filter(function(it){return it.action!=="keep"&&!unchangedEdit(it)&&!incompleteItem(it)}).length;
  var blocked=state.filter(function(it){return !unchangedEdit(it)&&!incompleteItem(it)&&(it.tone==="bad"||it.tone==="checking")}).length;
- var ready=incompleteN&&!blocked?"أكمل الموعد الجديد":blocked?"راجع الموانع":changed?countOf(changed,AR.change)+" "+nounFor(changed,AR.readyAdj):"لم تغيّر شيئاً";
+ var ready=incompleteN&&!blocked?"أكمل الموعد الجديد":blocked?"راجع الموانع":changed?countOf(changed,AR.change)+" "+nounFor(changed,AR.readyAdj):"الجدول لم يتغير";
  var edited=editedCount(),pend=pendingList().length,events=(r.timeline||[]).filter(function(e){return e.kind!=="link-opened"&&e.kind!=="link-created"}).length;
  /* الشارةُ تقول الحقيقة في كل حال: مسودة قبل الإرسال، ومرسَلٌ غير معتمدٍ بعده، وهي باقيةٌ في اللقطة والطباعة. */
  var stateTxt=approved?"انتهت مراجعة القسم لطلبك":sent?"مرسَل · غير معتمد بعد · لا يُعتبر تكليفاً":"مسودة · غير معتمدة · لا تُعتبر تكليفاً";
  var showReady=open&&(!sent||edited>0);
  var readyTxt=sent&&!blocked?countOf(edited,AR.edit):ready;
- var readySub=incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
+ var readySub=incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(edited===0?"تأكيدك يثبّت الجدول كما هو":sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
  var h=skBackIcon()+proposalBanner+(freshNote?'<div class="fresh-note" role="status">'+gi("eye")+'<span>وصل ردّ من القسم. احفظ تعديلك أو أرسله ثم حدّث الصفحة.</span></div>':'')+
   '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open?"":" · انتهت مدّة الطلبات، والصفحة للقراءة")+'</p>'+
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+
@@ -22560,7 +22617,7 @@ function paint(){
  h+='</section><section data-panel="activity" '+(activeTab==="activity"?'':'hidden')+'>'+activityHtml(r)+'</section>';
  /* الإرسالُ شريطٌ صغير لا يظهر إلا حين يكون عند الأستاذ ما يُرسل. والتوقيعُ في ورقةٍ تقول ما سيُوقَّع عليه. */
  if(open&&!chooserOpen&&(!sent||edited>0))h+='<div class="send"><div class="sendbar"><div class="sb-t"><b>'+esc(readyTxt)+'</b><small>'+readySub+'</small></div>'+
-  '<button type="button" id="send" '+(blocked||incompleteN?'data-blocked="1"':'')+'>'+(incompleteN&&!blocked?gi("arrow")+'أكمله':blocked?gi("arrow")+'عالج الموانع قبل الإرسال':gi("finger")+(sent?'أرسل التعديلات':'أرسل الطلب'))+'</button></div></div>';
+  '<button type="button" id="send" '+(blocked||incompleteN?'data-blocked="1"':'')+'>'+(incompleteN&&!blocked?gi("arrow")+'أكمله':blocked?gi("arrow")+'عالج الموانع قبل الإرسال':edited===0?gi("check")+(String(noteNow()).trim()?"ثبّت الجدول وأرسل الملاحظة":"ثبّت الجدول"):gi("finger")+(sent?'أرسل التعديلات':'أرسل الطلب'))+'</button></div></div>';
  host.innerHTML=h;
  var slot=document.getElementById("demoSlot");
  if(demoNode&&slot){var det=document.createElement("details");det.className="demo";det.open=demoOpen;

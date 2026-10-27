@@ -9,7 +9,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DEMO_SEEDED_EVENT } from "../utils/demoSeedEvent";
 import { AlertTriangle, Armchair, ArrowLeft, ChevronDown, ClipboardList, History, Layers, Minus, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { planGaps, planSurpluses, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
+import { planGaps, planSurpluses, planTargets, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
 import { sortByName } from "../utils/sorting";
 import { VISITOR_MAX_SECTIONS, visitingNeed, type CourseStaffing } from "../utils/visitingNeed";
 
@@ -77,18 +77,18 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
   const historyReady = Boolean(stamp) && past?.scope === scope && past.stamp === stamp;
   /* مصدران منفصلان: التخطيط (المختار أو كشف المتبقي) ورغبات الطلبة في «مساري». لا يدخل أحدهما في الآخر. */
   const plan = useMemo(() => {
-    if (!data) return { gaps: [], surpluses: [] };
+    if (!data) return { targets: [], gaps: [], surpluses: [] };
     /* المتبقي بلا تاريخه يقترح «شعبةً واحدة» فيُخفي النقص؛ فلا يُعتدّ به حتى يصل التاريخ. */
     const plan: GapPlan = { accepted: data.accepted || {}, remaining: historyReady ? data.remaining || {} : {}, history: historyReady ? past!.history : {} };
     // Same planning target for opening and reduction; reduction is review-only.
     // The registrar reference is never treated as proof of live enrollment or permission to cancel.
-    return { gaps: planGaps(data.courses, plan), surpluses: planSurpluses(data.courses, plan) };
+    return { targets: planTargets(data.courses, plan), gaps: planGaps(data.courses, plan), surpluses: planSurpluses(data.courses, plan) };
   }, [data, historyReady, past]);
   const studentItems = useMemo(() => (data ? studentGaps(data.courses) : []), [data]);
   const reload = useCallback(() => setBump(value => value + 1), []);
   /* مع كشفٍ مرفوع لا تكتمل حسبة التخطيط قبل أن يصل تاريخ الفصول (وإلا اقترح «شعبةً واحدة» فأخفى النقص). */
   const ready = data !== null && (!data.planImported || historyReady);
-  return { planItems: plan.gaps, planSurplusItems: plan.surpluses, studentItems, staffing: staffed && staffed.scope === scope ? staffed.payload.staffing : null, freeSlots: staffed && staffed.scope === scope ? staffed.payload.visitorFreeSlots : 0, courses: data?.courses || [], planImported: Boolean(data?.planImported), loaded: data !== null, ready, source: data?.planSource?.fileName || "", reload };
+  return { planItems: plan.gaps, planTargets: plan.targets, planSurplusItems: plan.surpluses, studentItems, staffing: staffed && staffed.scope === scope ? staffed.payload.staffing : null, freeSlots: staffed && staffed.scope === scope ? staffed.payload.visitorFreeSlots : 0, courses: data?.courses || [], planImported: Boolean(data?.planImported), loaded: data !== null, ready, source: data?.planSource?.fileName || "", reload };
 }
 
 export type Gap = ReturnType<typeof useSectionGap>;

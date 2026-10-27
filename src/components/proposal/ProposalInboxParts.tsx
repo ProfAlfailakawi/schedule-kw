@@ -44,9 +44,9 @@ function ProposalCard({ view, onOpen }: { key?: React.Key; view: StaffProposalVi
       <span className="sp-status" data-status={status}><i aria-hidden="true" /><Icon aria-hidden="true" />{STATUS_LABEL[status]}</span>
       <span className="sp-pcard-title">{p.title}{p.version > 1 ? ` · النسخة ${num(p.version)}` : ""}</span>
       <button type="button" className={ready ? "btn btn-primary" : "btn btn-secondary"}
-        onClick={() => onOpen({ requestId: p.requestId, proposalId: p.id, startWith: ready ? "commit" : null })}
+        onClick={() => onOpen({ requestId: p.requestId, proposalId: p.id, startWith: null })}
         data-guide-ignore="يفتح مساحة المقترح — لا يكتب قبل التأكيد">
-        {ready ? "مراجعة وتثبيت" : status === "draft" ? "متابعة" : "فتح"}
+        {status === "draft" ? "متابعة وتعديل" : "فتح التفاصيل والتعديل"}
       </button>
     </li>
   );

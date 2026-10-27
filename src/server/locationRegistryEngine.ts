@@ -37,7 +37,9 @@ export function locationPreflight(row: Partial<FSchedule>, registry: LocationReg
   const buildingBranchRoot=String(building.officialCode||"").replace(/\D/g,"").slice(0,3);
   const allowedBranchRoot=String(opts.branchRoot||"").replace(/\D/g,"").slice(0,3);
   const sameBranch=Boolean(allowedBranchRoot&&buildingBranchRoot&&allowedBranchRoot===buildingBranchRoot);
-  if(opts.collegeId && !sameBranch && building.collegeIds.length && !building.collegeIds.includes(Number(opts.collegeId)))issues.push({type:"building_scope",severity:"high",message:"المبنى غير مرتبط بالكلية المختارة."});
+  const selectedRoomForScope = registry.rooms.find(room => room.id === row.roomId && room.buildingId === building.id);
+  const roomBelongsToSelectedSection = Boolean(opts.sectionId && selectedRoomForScope?.sectionIds.includes(Number(opts.sectionId)));
+  if(opts.collegeId && !sameBranch && !roomBelongsToSelectedSection && building.collegeIds.length && !building.collegeIds.includes(Number(opts.collegeId)))issues.push({type:"building_scope",severity:"high",message:"المبنى غير مرتبط بالكلية المختارة."});
   if(row.locationStatus==="PENDING_ROOM" || row.roomId===PENDING_ROOM){
     return {ok:!issues.some(x=>x.severity==="high"),issues:[...issues,{type:"pending_room",severity:"warning",message:"القاعة بانتظار التثبيت."}],canonical:{...row,buildingId:building.id,roomId:undefined,AdRoomCode:building.officialCode,AdRoomHall:"",locationStatus:"PENDING_ROOM"}};
   }
