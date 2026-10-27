@@ -62,7 +62,6 @@ const ALLOW: Array<{ file: string; contains: string; why: string }> = [
   { file: "server.ts", contains: "\"موعد آخر\")} شعبة ${String(other.SCode", why: "اسم مقرر ثم «شعبة 01» — رمز الشعبة بعد اسمها" },
   { file: "server.ts", contains: "${movementName(now)} تغيّر موعدها", why: "«تغيّر» هنا فعلٌ بعد اسم المقرر، لا معدود" },
   { file: "server.ts", contains: "${movementName(now)} تغيّر مكانُ محاضرتها", why: "«تغيّر» فعلٌ بعد اسم المقرر" },
-  { file: "server.ts", contains: "<h3 class=\"movement-head\">حركة جدولك الرسمية", why: "عنوان «حركة جدولك» بعد وصلة نصّية، لا عدد" },
   { file: "server.ts", contains: "<h1>${label}</h1><p class=\"lead\">طلب واضح", why: "جملة تبدأ بـ«طلب» بعد عنوان الصفحة" },
   { file: "server.ts", contains: "font-weight:700\">حالة طلبي</a>", why: "نصّ الرابط «حالة طلبي» بعد عنوانه" },
   { file: "src/components/ImportPreviewTable.tsx", contains: "</bdi> قاعة {roomOwner.section", why: "«12/3 قاعة القسم …» — رقم القاعة ثم نسبتها" },
