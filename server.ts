@@ -20897,10 +20897,8 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
      الوارد. ونظلّ نفلتر كل نطاق بصلاحيات المستخدم قبل إظهار أي طلب. */
   const baseSection = (sections as any[]).find(row => Number(row.AdSectionId) === sectionId);
   const familyCode = String(baseSection?.AdSectionCode || "").trim().toLocaleLowerCase();
-  const familyName = String(baseSection?.AdSectionName || "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
   const familySectionIds = new Set((sections as any[]).filter(row =>
-    (familyCode && String(row.AdSectionCode || "").trim().toLocaleLowerCase() === familyCode)
-    || (!familyCode && familyName && String(row.AdSectionName || "").replace(/\s+/g, " ").trim().toLocaleLowerCase() === familyName),
+    familyCode && String(row.AdSectionCode || "").trim().toLocaleLowerCase() === familyCode,
   ).map(row => Number(row.AdSectionId)));
   familySectionIds.add(sectionId);
   const familyCollegeBySection = new Map((sections as any[]).filter(row => familySectionIds.has(Number(row.AdSectionId)))

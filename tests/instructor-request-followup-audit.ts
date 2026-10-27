@@ -135,6 +135,10 @@ check(staffHtml.includes('if(pick){window.location.href="/r/"+encodeURIComponent
 /* ── الوارد على مستوى الكلية ──────────────────────────────────────────────── */
 
 const inboxRoute = server.slice(server.indexOf('app.get("/api/instructor-requests"'), server.indexOf('app.post("/api/instructor-requests/:id/decide"'));
+check(inboxRoute.includes('const familyCode = String(baseSection?.AdSectionCode || "").trim().toLocaleLowerCase();')
+  && inboxRoute.includes('familyCode && String(row.AdSectionCode || "").trim().toLocaleLowerCase() === familyCode,')
+  && !inboxRoute.includes("familyName"),
+  "وعائلةُ الوارد تُطابق رمزَ القسم الأكاديمي نفسه حصراً، بلا تخمينٍ من الاسم");
 check(inboxRoute.includes('if (!collegeId || !termId)') && !inboxRoute.includes("!collegeId || !sectionId || !termId"),
   "القسمُ اختياري في الوارد");
 check(inboxRoute.includes("&& isScopeAllowed(req, scope.collegeId, Number(scope.sectionId) || -1);")
