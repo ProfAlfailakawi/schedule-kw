@@ -207,11 +207,20 @@ if (emulator) {
   assert.match(String(process.env.FIRESTORE_EMULATOR_HOST), /^(127\.0\.0\.1|localhost):\d+$/);
   assert.match(String(process.env.FIREBASE_PROJECT_ID), /^demo-instructor-/);
   process.env.AUTO_IMPORT_LEGACY_DATA = "false";
+  process.env.FIREBASE_DATABASE_ID = "(default)";
+  process.env.FIREBASE_SERVICE_ACCOUNT_KEY = "";
 }
 process.env.DATA_MODE = emulator ? "firestore" : "demo";
 process.env.SCHEDULE_PRIVATE_DIR = privateDir;
 const { Repository, initDatabase } = await import("../src/db/repository");
 await initDatabase();
+const emulatorAdmin = emulator ? await import("firebase-admin/firestore") : null;
+const emulatorDb = emulatorAdmin ? emulatorAdmin.getFirestore() : null;
+if (emulatorDb) {
+  await emulatorDb.collection("sections").doc("section_1").set({ AdSectionId: 1, AdCollegeId: 1, AdSectionCode: "01", AdSectionName: "test" });
+  await emulatorDb.collection("courses").doc("course_1").set({ AdCourseId: 1, AdSectionId: 1, AdCollegeId: 1,
+    CourseName: "Confirmation test", CourseHours: 1 });
+}
 const proposal = (itemId: string, instructorId: number): RequestReservationProposal => ({ itemId, instructorId,
   courseId: 1, collegeId: 1, sectionId: 1, offeringRowIds: [],
   slots: [{ day: "fmonday", start: "08:00", end: "09:20" }, { day: "fwednesday", start: "08:00", end: "09:20" }],
@@ -233,7 +242,17 @@ const normalConfirmation = await Repository.createInstructorRequest({ AdTermId: 
   AdInstructorId: 880017, linkId: "confirm-normal", source: "draft", status: "sent", window: { opensAt: "", closesAt: "" }, items: [confirmationItem], timeline: [],
   signature: { at: "before", fingerprint: "preserved", verifyCode: "123456", signedItems: [], keptCount: 1 } as any,
   signatureHistory: [{ at: "older", fingerprint: "history", verifyCode: "654321", signedItems: [], keptCount: 1 } as any] });
+if (emulatorDb) await emulatorDb.collection("schedules").doc(`schedule_${confirmationRow.id}`).update({
+  AdCollegeId: emulatorAdmin!.FieldValue.delete(), AdSectionId: emulatorAdmin!.FieldValue.delete(),
+});
 const liveForNormal = await Repository.getSchedulesByScope({ termId: confirmationTerm });
+if (emulatorDb) {
+  const rawLegacy = (await emulatorDb.collection("schedules").doc(`schedule_${confirmationRow.id}`).get()).data() as any;
+  assert.equal(rawLegacy.AdCollegeId, undefined, "Firestore emulator fixture reproduces a legacy row without denormalized college id");
+  assert.equal(rawLegacy.AdSectionId, undefined, "Firestore emulator fixture reproduces a legacy row without denormalized section id");
+  assert.equal(liveForNormal.find(item => item.id === confirmationRow.id)?.AdCollegeId, 1, "ordinary schedule reading hydrates legacy college id through relations");
+  assert.equal(liveForNormal.find(item => item.id === confirmationRow.id)?.AdSectionId, 1, "ordinary schedule reading hydrates legacy section id through relations");
+}
 const normalStamp = unchangedScheduleFingerprint(liveForNormal, 880017);
 const officialBeforeConfirmation = await Repository.getScheduleById(confirmationRow.id);
 const normalSaved = await Repository.saveInstructorRequest({ ...normalConfirmation, status: "settled",

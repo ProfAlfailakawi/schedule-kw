@@ -5254,8 +5254,23 @@ export const Repository = {
           proposals ? tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)])) : Promise.resolve(null),
           unchangedConfirmationGuard ? tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])) : Promise.resolve(null)]);
         checkRevision(stored.exists ? stored.data() as InstructorRequest : undefined);
-        if (unchangedConfirmationGuard && unchangedScheduleFingerprint((guardedWeek?.docs || []).map(doc => doc.data() as FSchedule), Number(next.AdInstructorId)) !== unchangedConfirmationGuard.scheduleFingerprint)
-          throw new RequestReservationConflict("تغيّر جدولك بعد فتح التأكيد. راجع الجدول الجديد ثم أعد التوقيع؛ بقيت مسودتك محفوظة.");
+        if (unchangedConfirmationGuard) {
+          const rawRows = (guardedWeek?.docs || []).map(doc => doc.data() as FSchedule);
+          const instructorRows = rawRows.filter(schedule => Number(schedule.AdInstructorId) === Number(next.AdInstructorId));
+          // Match getSchedulesByScope's relational hydration for legacy rows
+          // whose college/section fields exist only through course → section.
+          // These reads stay in this transaction so relationship moves also
+          // invalidate the confirmation snapshot before it is persisted.
+          const courseIds = [...new Set(instructorRows.map(schedule => Number(schedule.AdCourseId)).filter(Boolean))];
+          const courseDocs = await Promise.all(courseIds.map(id => tx.get(firestoreDb!.collection("courses").doc(`course_${id}`))));
+          const courses = courseDocs.filter(doc => doc.exists).map(doc => doc.data() as AdCourse);
+          const sectionIds = [...new Set(courses.map(course => Number(course.AdSectionId)).filter(Boolean))];
+          const sectionDocs = await Promise.all(sectionIds.map(id => tx.get(firestoreDb!.collection("sections").doc(`section_${id}`))));
+          const sections = sectionDocs.filter(doc => doc.exists).map(doc => doc.data() as AdSection);
+          const normalizedRows = hydrateSchedules(instructorRows, courses, sections);
+          if (unchangedScheduleFingerprint(normalizedRows, Number(next.AdInstructorId)) !== unchangedConfirmationGuard.scheduleFingerprint)
+            throw new RequestReservationConflict("تغيّر جدولك بعد فتح التأكيد. راجع الجدول الجديد ثم أعد التوقيع؛ بقيت مسودتك محفوظة.");
+        }
         let entries: RequestReservation[] = ledger.data()?.entries || [];
         if (proposals) {
           // Read the live official week INSIDE the same transaction as the claim.
@@ -5281,7 +5296,10 @@ export const Repository = {
         const ledgers = db.instructorRequestReservationLedgers ||= {};
         const entries = ledgers[String(termId)] || [];
         const week = db.schedules.filter(item => Number(item.AdTermId) === termId);
-        if (unchangedConfirmationGuard && unchangedScheduleFingerprint(week, Number(next.AdInstructorId)) !== unchangedConfirmationGuard.scheduleFingerprint)
+        if (unchangedConfirmationGuard && unchangedScheduleFingerprint(
+          hydrateSchedules(week.filter(item => Number(item.AdInstructorId) === Number(next.AdInstructorId)), db.courses, db.sections),
+          Number(next.AdInstructorId),
+        ) !== unchangedConfirmationGuard.scheduleFingerprint)
           throw new RequestReservationConflict("تغيّر جدولك بعد فتح التأكيد. راجع الجدول الجديد ثم أعد التوقيع؛ بقيت مسودتك محفوظة.");
         const approved = (db.hallBarterRequests || []).filter(item => Number(item.AdTermId) === termId && item.status === "approved");
         const eligibleProposals = proposals?.map(proposal => ({ ...proposal, rooms: proposal.rooms.filter(room => {
