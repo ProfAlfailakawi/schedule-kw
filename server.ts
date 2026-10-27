@@ -82,7 +82,7 @@ import { instructorScheduleFingerprint } from "./src/utils/scheduleFingerprint";
 import { coversWholeCollege, expandScopeSections, resolveSmartScope } from "./src/server/readScope";
 import { finalSourceFor, type Finality } from "./src/utils/finality";
 import { movementAttribution } from "./src/utils/movementAttribution";
-import { movementAfterInstructorEdit } from "./src/utils/instructorMovementWindow";
+import { firstInstructorEditAt, movementAfterInstructorEdit } from "./src/utils/instructorMovementWindow";
 import { isLate } from "./src/utils/lateness";
 import {
   decideException, exceptionRefusal, normalizeExceptionDays, resolveExceptionTargets, withException, withoutException,
@@ -15835,12 +15835,6 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
 
   /* الحركةُ تُبنى في موضعٍ واحد لبطاقتي ولصفحة الطلب معاً، فلا تقول إحداهما
      غير ما تقوله الأخرى. */
-  const movementHistory = movementAfterInstructorEdit([
-    ...(personal ? requestMovementEntries(requestRows) : []),
-    ...await scheduleMovementEntries(Number(person.AdInstructorId), Number(displayTermId), rows, courseById, {
-      historyScopes: displayTermId === link.AdTermId ? linkHistoryScopes : movementHistoryScopes(requestRows),
-    }),
-  ], requestRows).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const toMinutes = (value: string) => { const [h, m] = String(value || "0:0").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
   const shaped = enrichCompanionRoomTypes(rows, rows.some(row => Boolean(row.companionRoomId)) ? (await readLocationRegistry()).rooms : [])
     .map(row => ({
@@ -15991,7 +15985,6 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
     upcomingExceptions,
     departmentApprovals,
     requestLinks,
-    movementHistory: movementHistory.slice(0, 100),
   };
 }
 
@@ -19058,10 +19051,9 @@ ${PROPOSAL_ALERT_CSS}
 @keyframes ring{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--jade) 32%,transparent)}70%,100%{box-shadow:0 0 0 14px transparent}}
 input:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--jade) 20%,transparent)}
 .card-tabs{position:relative;padding:4px;border:1px solid var(--line);border-radius:14px;background:var(--soft);gap:4px}
-.card-tabs::before{content:"";position:absolute;inset-block:4px;inset-inline-start:4px;width:calc((100% - 12px)/2);border-radius:10px;background:var(--jade);transition:transform .32s cubic-bezier(.2,.8,.2,1);pointer-events:none}
-.card-tabs:has(#tab-requests:not([hidden]))::before{width:calc((100% - 16px)/3)}
-.card-tabs:has(#tab-movement[aria-selected=true])::before{transform:translateX(calc(-100% - 4px))}
-.card-tabs:has(#tab-requests[aria-selected=true])::before{transform:translateX(calc(-200% - 8px))}
+.card-tabs::before{content:"";position:absolute;inset-block:4px;inset-inline-start:4px;width:calc(100% - 8px);border-radius:10px;background:var(--jade);transition:transform .32s cubic-bezier(.2,.8,.2,1);pointer-events:none}
+.card-tabs:has(#tab-requests:not([hidden]))::before{width:calc((100% - 12px)/2)}
+.card-tabs:has(#tab-requests[aria-selected=true])::before{transform:translateX(calc(-100% - 4px))}
 .card-tab{position:relative;border-color:transparent;transition:color .25s}
 .card-tab[hidden]{display:none}
 .card-tab[aria-selected=true]{background:transparent;border-color:transparent}
@@ -19123,7 +19115,7 @@ ${STAFF_CARD_VISUAL_CSS}
       </div>
       <div class="head-tools">
         <a id="planMap" class="hbtn" href="#" target="_blank" rel="noopener" hidden aria-label="خريطة خطة القسم" title="خريطة خطة القسم"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6.5v13L9 17l6 3 6-2.5v-13L15 7 9 4z"/><path d="M9 4v13M15 7v13"/></svg></a>
-        <button type="button" id="ics" class="hbtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="sub" aria-label="إضافة إلى التقويم" title="إضافة إلى التقويم"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4M12 13v5M9.5 15.5h5"/></svg></button>
+        <button type="button" id="ics" class="hbtn" hidden aria-haspopup="dialog" aria-expanded="false" aria-controls="sub" aria-label="إضافة إلى التقويم" title="إضافة إلى التقويم"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4M12 13v5M9.5 15.5h5"/></svg></button>
         <button type="button" id="print" class="hbtn" aria-label="طباعة" title="طباعة"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V4h10v5"/><rect x="5" y="9" width="14" height="8" rx="2"/><path d="M8 14h8v6H8z"/></svg></button>
       </div>
     </div>
@@ -19138,14 +19130,10 @@ ${STAFF_CARD_VISUAL_CSS}
     <div id="proposalAlerts" aria-live="polite"></div>
     <div class="card-tabs" role="tablist">
       <button type="button" class="card-tab" id="tab-week" role="tab" aria-selected="true">الجدول الأسبوعي</button>
-      <button type="button" class="card-tab" id="tab-movement" role="tab" aria-selected="false">حركة الجدول</button>
       <button type="button" class="card-tab" id="tab-requests" role="tab" aria-selected="false" hidden>طلب تعديل الجدول</button>
     </div>
     <div id="panel-week">
       <div id="days"></div>
-    </div>
-    <div id="panel-movement" hidden>
-      <div id="movement"></div>
     </div>
     <div id="panel-requests" hidden>
       <div id="requests"></div>
@@ -19214,30 +19202,6 @@ ${STAFF_CARD_VISUAL_JS}
       .catch(function(){if(pick)pick.disabled=false});
   }
 
-  function renderMovement(d){
-    var host=document.getElementById("movement");
-    if(!host)return;
-    var list=d.movementHistory||[];
-    /* رابطُ القسم العام لا يحمل طلباتٍ ولا قرارات: تُقال أين تجدها. */
-    var privateNote=d.personal?'':'<div class="pastnote">طلباتك وقرارات القسم فيها تظهر في رابطك الشخصي الذي يرسله إليك القسم، لا في رابط القسم العام.</div>';
-    if(!list.length){
-      host.innerHTML=privateNote+'<h3 class="movement-head">حركة جدولك الرسمية</h3><div class="pub-empty"><span class="pe-ic">'+skSvg("sync")+'</span>لم يتغيّر شيء في جدولك الرسمي هذا الفصل'+(d.personal?'، ولم تُرسل طلب تعديل.':'.')+'</div>';
-      return;
-    }
-    /* قسمان كما في صفحة الطلب تماماً: طلباتُك وقرارُ القسم فيها، ثم حركةُ
-       جدولك الرسمية. */
-    var mine=list.filter(function(m){return m.source==="request"}),official=list.filter(function(m){return m.source!=="request"});
-    var since=Date.parse(visitSince||"")||0;
-    var item=function(m){
-      /* حركةُ الجدول الرسمية «جديدة» فقط إن تغيّرت بصمةُ جدوله فعلاً — آخرُ فرقٍ
-         بين نسخةٍ والجدول الحالي يحمل وقتَ الآن دائماً. وقرارُ القسم يحمل وقتَه. */
-      var fresh=since&&Date.parse(m.at)>since&&(m.source==="request"||visitChanged);
-      return '<li class="movement-item t-'+esc(m.tone)+'">'+(fresh?'<span class="movement-new">جديد منذ زيارتك الأخيرة</span> ':'')+(m.day?'<b>'+esc(m.day)+'</b>: ':'')+esc(m.text)+' <small class="movement-meta"'+(m.decision?' data-decision="'+esc(m.decision)+'"':'')+'>'+esc(m.label)+' · <bdi>'+esc(friendlyDate(m.at,true))+'</bdi></small></li>';
-    };
-    host.innerHTML=privateNote+(mine.length?'<h3 class="movement-head">طلباتك</h3><ul class="movement-list">'+mine.map(item).join("")+'</ul>':'')+
-      '<h3 class="movement-head">حركة جدولك الرسمية</h3>'+(official.length?'<ul class="movement-list">'+official.map(item).join("")+'</ul>':'<div class="pub-empty">لم يتغيّر شيء في جدولك الرسمي هذا الفصل.</div>');
-  }
-
   /* ── «تعديل» و«طلب تعديل الجدول» ──────────────────────────────────────
      كان التبويبُ يختفي كلَّه حين لا يحمل الرابطُ نافذةَ طلبات — وهذا حالُ
      رابط القسم العام دائماً منذ صار شخصياً (a966906) — فلا يجد الأستاذُ بابَ
@@ -19282,23 +19246,18 @@ ${STAFF_CARD_VISUAL_JS}
   }
 
   var tabWeek=document.getElementById("tab-week");
-  var tabMovement=document.getElementById("tab-movement");
   var tabRequests=document.getElementById("tab-requests");
   var pWeek=document.getElementById("panel-week");
-  var pMovement=document.getElementById("panel-movement");
   var pRequests=document.getElementById("panel-requests");
 
   function selectTab(which){
     if(tabWeek)tabWeek.setAttribute("aria-selected",which==="week"?"true":"false");
-    if(tabMovement)tabMovement.setAttribute("aria-selected",which==="movement"?"true":"false");
     if(tabRequests)tabRequests.setAttribute("aria-selected",which==="requests"?"true":"false");
     if(pWeek){if(which==="week")pWeek.removeAttribute("hidden");else pWeek.setAttribute("hidden","");}
-    if(pMovement){if(which==="movement")pMovement.removeAttribute("hidden");else pMovement.setAttribute("hidden","");}
     if(pRequests){if(which==="requests")pRequests.removeAttribute("hidden");else pRequests.setAttribute("hidden","");}
   }
 
   if(tabWeek)tabWeek.onclick=function(){selectTab("week");};
-  if(tabMovement)tabMovement.onclick=function(){selectTab("movement");};
   /* «طلب تعديل الجدول» يفتح النموذج مباشرةً: لا شاشةَ وسيطةً فيها شرحٌ وزرّ.
      وإن كان للأستاذ أكثرُ من نافذة، تُعرض قائمتُها ليختار. */
   var requestLinksNow=[];
@@ -19376,19 +19335,19 @@ ${STAFF_CARD_VISUAL_JS}
     document.getElementById("days").innerHTML=skWeek(d,esc,function(r){return shortCardCollege(visibleCardCollege(r.college))})+skPrintList(d,esc,d.college==="كل مواقعك"?function(r){return shortCardCollege(visibleCardCollege(r.college))}:null)+weekTable;
     skWeekWire(document.getElementById("days"));
     if(visitChanged&&visitSince&&d.lectureCount) document.getElementById("days").insertAdjacentHTML("afterbegin",
-      '<div class="pastnote">تغيّر جدولك منذ زيارتك الأخيرة (<bdi>'+esc(friendlyDate(visitSince,true))+'</bdi>) — التفاصيل في «حركة الجدول».</div>');
-    if(!d.lectureCount) document.getElementById("days").innerHTML='<div class="pub-empty"><span class="pe-ic">'+skSvg("days")+'</span>لا محاضرات لك في هذا الفصل'+((d.movementHistory||[]).length?' — ما تغيّر في جدولك تجده في «حركة الجدول».':' — جرّب فصلاً آخر من الأعلى.')+'</div>';
+      '<div class="pastnote">تغيّر جدولك منذ زيارتك الأخيرة (<bdi>'+esc(friendlyDate(visitSince,true))+'</bdi>) — راجع جدولك الأسبوعي.</div>');
+    if(!d.lectureCount) document.getElementById("days").innerHTML='<div class="pub-empty"><span class="pe-ic">'+skSvg("days")+'</span>لا محاضرات لك في هذا الفصل — جرّب فصلاً آخر من الأعلى.</div>';
     else if(phase === "past") document.getElementById("days").insertAdjacentHTML("afterbegin",
       '<div class="pastnote">فصل سابق — للاطلاع فقط. الإبلاغ وإضافة التقويم متاحان في الفصل الحالي.</div>');
     else if(phase === "upcoming") document.getElementById("days").insertAdjacentHTML("afterbegin",
       '<div class="pastnote">فصل قادم — يمكنك إضافة تقويمه الآن. الإبلاغ عن محاضرة يُتاح حين يبدأ الفصل.</div>');
 
-    renderMovement(d);
     renderRequests(d);
-    selectTab(!d.lectureCount && (d.movementHistory||[]).length ? "movement" : "week");
+    selectTab("week");
 
-    document.getElementById("ics").style.display = calendarOpen ? "" : "none";
-    if(!calendarOpen) document.getElementById("sub").setAttribute("hidden","");
+    /* إخفاء التقويم مؤقتاً إلى حين التحقق من عمل الاشتراك على الهواتف. */
+    document.getElementById("ics").style.display = "none";
+    document.getElementById("sub").setAttribute("hidden","");
 
     var base = "/api/public/ics/"+encodeURIComponent(TOKEN)+"/"+encodeURIComponent(d.calendarKey||"");
     var query = phase === "upcoming" ? ["term="+encodeURIComponent(String(d.termId||""))] : [];
@@ -22381,14 +22340,14 @@ function loadHeat(i,sig){var it=state[i];if(!it||heatKey[i]!==sig)return;
  .then(function(r){return r.ok?r.json():null}).then(function(d){if(!d||heatKey[i]!==sig)return;heat[i]=d.problem==="shape"?{}:(d.times||{});heatShape[i]=d.problem==="shape";paint()}).catch(function(){})}
 function planDays(it){return it.action==="add"||it.action==="change"?it.days:(it.slots||[]).map(function(s){return s.day})}
 function planStart(it){return it.action==="add"||it.action==="change"?it.start:((it.slots||[])[0]||{}).start||""}
-var movement=null,movementLoading=false;
+var movement=null,movementLoading=false,movementSince=null;
 function loadMovement(){if(movement||movementLoading)return;movementLoading=true;
- fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/movement").then(function(r){return r.json()}).then(function(d){movement=d.movementHistory||[];movementLoading=false;if(activeTab==="activity")paint()}).catch(function(){movement=[];movementLoading=false;if(activeTab==="activity")paint()})}
+ fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/movement").then(function(r){return r.json()}).then(function(d){movement=d.movementHistory||[];movementSince=d.movementSince||null;movementLoading=false;if(activeTab==="activity")paint()}).catch(function(){movement=[];movementLoading=false;if(activeTab==="activity")paint()})}
 var MOVE_TONE={add:"أُضيف",move:"نُقل",room:"تغيّرت القاعة",gone:"حُذف"};
 function officialHtml(){
  if(!movement)return '<div class="section-head"><b>حركة جدولك الرسمية</b><small>ما تغيّر فعلاً في جدولك</small></div><div class="activity-empty">يقرأ الحركة…</div>';
  return '<div class="section-head"><b>حركة جدولك الرسمية</b><small>ما تغيّر فعلاً في جدولك — كما في بطاقتي</small></div>'+(movement.length?'<ul class="activity-list">'+movement.map(function(m){
-  return '<li class="activity-item" data-kind="'+esc(m.tone==="gone"?"delete":m.tone==="add"?"add":"change")+'">'+skActIcon(m.tone==="gone"?"delete":m.tone==="add"?"add":"change")+'<div class="activity-main"><b>'+esc(MOVE_TONE[m.tone]||"تغيير")+(m.day?' · '+esc(m.day):'')+'</b><p>'+esc(m.text)+'</p><div class="decision">'+esc(m.label||"")+'</div></div><time>'+esc(dt(m.at))+'</time></li>'}).join("")+'</ul>':'<div class="activity-empty">لم يتغيّر شيء في جدولك الرسمي هذا الفصل.</div>')
+  return '<li class="activity-item" data-kind="'+esc(m.tone==="gone"?"delete":m.tone==="add"?"add":"change")+'">'+skActIcon(m.tone==="gone"?"delete":m.tone==="add"?"add":"change")+'<div class="activity-main"><b>'+esc(MOVE_TONE[m.tone]||"تغيير")+(m.day?' · '+esc(m.day):'')+'</b><p>'+esc(m.text)+'</p><div class="decision">'+esc(m.label||"")+'</div></div><time>'+esc(dt(m.at))+'</time></li>'}).join("")+'</ul>':'<div class="activity-empty">'+(movementSince?'لم يتغيّر شيء في جدولك الرسمي منذ أول إرسال لطلبك.':'تبدأ حركة جدولك الرسمية بعد إرسال أول طلب تعديل.')+'</div>')
 }
 function activityHtml(r){
  var changed=state.map(function(it,i){return{it:it,i:i}}).filter(function(x){return x.it.action!=="keep"});
@@ -22447,9 +22406,7 @@ function replayPrevious(){if(!prev||!data||!data.windowOpen)return;
 /* ── «أضف جدولك إلى تقويم هاتفك» ───────────────────────────────────────────
    الاشتراكُ واحدٌ بُني لبطاقة الأستاذ: يعرض ما ثبّته القسم في جدوله الرسمي لا غير،
    ويتحدّث من نفسه عند كل تثبيتٍ جديد. فلا يُكتب هنا ما لم يثبّته أحد. */
-function calendarHtml(compact){if(!data||!data.calendarFeed)return "";
- return '<div class="cal-line'+(compact?' compact':'')+'"><a class="cal-btn" href="webcal://'+esc(location.host)+esc(data.calendarFeed)+'">'+gi("cal")+'أضف جدولك إلى تقويم هاتفك</a>'+
-  '<p>يتحدّث تلقائياً عند أي تثبيتٍ جديد من القسم، ولا يحمل إلا ما ثُبّت في جدولك الرسمي.</p></div>'}
+function calendarHtml(compact){return ""} /* مخفي مؤقتاً: الاشتراك لا يفتح على بعض الهواتف. */
 function anyFixed(){return state.some(function(it){return it.decision&&it.decision.state==="fixed"})||(data&&data.request&&data.request.status==="settled")}
 /* رمزُ التوقيع له مكانٌ يُطابَق فيه: يُعرض مع رابطٍ يفتح التحقّق جاهزاً بالرمز. */
 function verifyHtml(code,linkOnly){if(!code)return "";
@@ -23111,20 +23068,26 @@ app.get("/api/public/request/:token/movement", async (req: Request, res: Respons
   const resolved = await resolveRequestLink(String(req.params.token || ""));
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
   const request = resolved.request;
-  const [termRows, courses] = await Promise.all([
+  const [termRows, courses, termRequests] = await Promise.all([
     Repository.getSchedulesByScope({ termId: Number(request.AdTermId) }),
     Repository.getCourses(),
+    Repository.getInstructorRequests(0, 0, Number(request.AdTermId)),
   ]);
+  const ownRequests = termRequests.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
+  const firstSentAt = firstInstructorEditAt(ownRequests);
+  /* سجل الحركة الرسمي يبدأ من أول إرسال. شمول أقسام الطلبات القديمة يحفظ
+     عرض الحذف إذا لم يبق للأستاذ أي موعد في القسم. */
   const own = (termRows as any[]).filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
   const courseById = new Map((courses as any[]).map(row => [Number(row.AdCourseId), row]));
-  const entries = (await scheduleMovementEntries(Number(request.AdInstructorId), Number(request.AdTermId), own, courseById, {
+  const history = firstSentAt === null ? [] : await scheduleMovementEntries(Number(request.AdInstructorId), Number(request.AdTermId), own, courseById, {
     withRooms: false,
-    historyScopes: movementHistoryScopes([request]),
-  }))
+    historyScopes: movementHistoryScopes(ownRequests, { collegeId: Number(request.AdCollegeId), sectionId: Number(request.AdSectionId) }),
+  });
+  const entries = movementAfterInstructorEdit(history, ownRequests)
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
     .slice(0, 100);
   res.setHeader("Cache-Control", "no-store");
-  res.json({ movementHistory: entries });
+  res.json({ movementHistory: entries, movementSince: firstSentAt === null ? null : new Date(firstSentAt).toISOString() });
 });
 
 /* ── المقترح الدراسي: ما يعدّه القسم للأستاذ من عدة مواد ─────────────────────
