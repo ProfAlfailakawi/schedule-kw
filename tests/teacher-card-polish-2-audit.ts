@@ -159,13 +159,13 @@ check(visual13.includes("function skBadgeExplain(el)") &&
   !page.includes('data-sk-badge="plan"') &&
   !page.includes('tabindex="0" role="button" title="اضغط لمعرفة معنى الشارة"'),
   "P13 شارتا الصحيفة ومتطلب الكلية للعرض فقط؛ مواد اللائحة وحدها قابلة للضغط");
-/* P14: مفتاح الألوان ليس موضع شارات الصحيفة أو متطلب الكلية؛ البطاقات تبقى كما هي. */
+/* P14: مفتاح الألوان يعرض اسم المقرر ولونه وحدهما. */
 const colorLegend14 = visual13.split("\n").find(line => line.startsWith("function skLegend()")) || "";
 check(colorLegend14.includes("esc(courseOf(it))+'</li>'") &&
   !colorLegend14.includes("reqTag(it)") &&
   page.includes("skPlanTag(courseIdOf(it),sid)") &&
-  page.includes("(c.service?'<i class=\\\"req-tag\\\">متطلب كلية</i>':'')"),
-  "P14 أسماء المقررات في مفتاح الألوان بلا شارات؛ تبقى الشارات في البطاقات");
+  page.includes("skPlanTag(c.id,c.sectionId)"),
+  "P14 لا شارات في مفتاح الألوان وتبقى في البطاقات");
 check(!visual13.includes('data-nx="send"') &&
   page.includes('<button type="button" id="send"'),
   "P13 اختصار إلى الإرسال المحذوف لا يمسّ زر الإرسال الأصلي");
