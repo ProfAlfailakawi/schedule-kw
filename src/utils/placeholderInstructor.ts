@@ -9,6 +9,7 @@
  * القاعدة هنا وحدها؛ الخادم والواجهة ومحرّك العدالة يسألونها.
  */
 export { placeholderInstructorIds as placeholderInstructorIdsOf } from "./instructorIdentity";
+import { placeholderInstructorIds as placeholderInstructorIdsOf } from "./instructorIdentity";
 
 
 /** A faculty placeholder is a section-scoped scheduling identity, not a person. */
