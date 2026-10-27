@@ -15833,8 +15833,6 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
 
   const courseById = new Map(courses.map(row => [row.AdCourseId, row]));
 
-  /* الحركةُ تُبنى في موضعٍ واحد لبطاقتي ولصفحة الطلب معاً، فلا تقول إحداهما
-     غير ما تقوله الأخرى. */
   const toMinutes = (value: string) => { const [h, m] = String(value || "0:0").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
   const shaped = enrichCompanionRoomTypes(rows, rows.some(row => Boolean(row.companionRoomId)) ? (await readLocationRegistry()).rooms : [])
     .map(row => ({
@@ -19338,9 +19336,9 @@ ${STAFF_CARD_VISUAL_JS}
       '<div class="pastnote">تغيّر جدولك منذ زيارتك الأخيرة (<bdi>'+esc(friendlyDate(visitSince,true))+'</bdi>) — راجع جدولك الأسبوعي.</div>');
     if(!d.lectureCount) document.getElementById("days").innerHTML='<div class="pub-empty"><span class="pe-ic">'+skSvg("days")+'</span>لا محاضرات لك في هذا الفصل — جرّب فصلاً آخر من الأعلى.</div>';
     else if(phase === "past") document.getElementById("days").insertAdjacentHTML("afterbegin",
-      '<div class="pastnote">فصل سابق — للاطلاع فقط. الإبلاغ وإضافة التقويم متاحان في الفصل الحالي.</div>');
+      '<div class="pastnote">فصل سابق — للاطلاع فقط. الإبلاغ متاح في الفصل الحالي.</div>');
     else if(phase === "upcoming") document.getElementById("days").insertAdjacentHTML("afterbegin",
-      '<div class="pastnote">فصل قادم — يمكنك إضافة تقويمه الآن. الإبلاغ عن محاضرة يُتاح حين يبدأ الفصل.</div>');
+      '<div class="pastnote">فصل قادم — الإبلاغ عن محاضرة يُتاح حين يبدأ الفصل.</div>');
 
     renderRequests(d);
     selectTab("week");
@@ -22340,11 +22338,12 @@ function loadHeat(i,sig){var it=state[i];if(!it||heatKey[i]!==sig)return;
  .then(function(r){return r.ok?r.json():null}).then(function(d){if(!d||heatKey[i]!==sig)return;heat[i]=d.problem==="shape"?{}:(d.times||{});heatShape[i]=d.problem==="shape";paint()}).catch(function(){})}
 function planDays(it){return it.action==="add"||it.action==="change"?it.days:(it.slots||[]).map(function(s){return s.day})}
 function planStart(it){return it.action==="add"||it.action==="change"?it.start:((it.slots||[])[0]||{}).start||""}
-var movement=null,movementLoading=false,movementSince=null;
-function loadMovement(){if(movement||movementLoading)return;movementLoading=true;
- fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/movement").then(function(r){return r.json()}).then(function(d){movement=d.movementHistory||[];movementSince=d.movementSince||null;movementLoading=false;if(activeTab==="activity")paint()}).catch(function(){movement=[];movementLoading=false;if(activeTab==="activity")paint()})}
+var movement=null,movementLoading=false,movementSince=null,movementError=false;
+function loadMovement(){if(movement||movementLoading)return;movementLoading=true;movementError=false;
+ fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/movement",{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("movement unavailable");return r.json()}).then(function(d){movement=d.movementHistory||[];movementSince=d.movementSince||null;movementLoading=false;if(activeTab==="activity")paint()}).catch(function(){movement=[];movementError=true;movementLoading=false;if(activeTab==="activity")paint()})}
 var MOVE_TONE={add:"أُضيف",move:"نُقل",room:"تغيّرت القاعة",gone:"حُذف"};
 function officialHtml(){
+ if(movementError)return '<div class="section-head"><b>حركة جدولك الرسمية</b></div><div class="activity-empty">تعذّر قراءة حركة جدولك. افتح التبويب مرة أخرى للمحاولة.</div>';
  if(!movement)return '<div class="section-head"><b>حركة جدولك الرسمية</b><small>ما تغيّر فعلاً في جدولك</small></div><div class="activity-empty">يقرأ الحركة…</div>';
  return '<div class="section-head"><b>حركة جدولك الرسمية</b><small>ما تغيّر فعلاً في جدولك الرسمي</small></div>'+(movement.length?'<ul class="activity-list">'+movement.map(function(m){
   return '<li class="activity-item" data-kind="'+esc(m.tone==="gone"?"delete":m.tone==="add"?"add":"change")+'">'+skActIcon(m.tone==="gone"?"delete":m.tone==="add"?"add":"change")+'<div class="activity-main"><b>'+esc(MOVE_TONE[m.tone]||"تغيير")+(m.day?' · '+esc(m.day):'')+'</b><p>'+esc(m.text)+'</p><div class="decision">'+esc(m.label||"")+'</div></div><time>'+esc(dt(m.at))+'</time></li>'}).join("")+'</ul>':'<div class="activity-empty">'+(movementSince?'لم يتغيّر شيء في جدولك الرسمي منذ أول إرسال لطلبك.':'تبدأ حركة جدولك الرسمية بعد إرسال أول طلب تعديل.')+'</div>')
@@ -22403,10 +22402,8 @@ function replayPrevious(){if(!prev||!data||!data.windowOpen)return;
  replayNote=(plan.ops.length?'<b>ملأنا مسودتك: '+esc(countOf(plan.ops.length,AR.request))+'.</b> راجعها، والفحص المباشر يقول ما لا يصلح، ثم وقّع وأرسل.':'<b>لم نجد ما يُعاد.</b>')+
   (skipped.length?'<p>لم يُعَد:</p><ul>'+skipped.join("")+'</ul>':'');
  activeTab="schedule";paint();recheckAll()}
-/* ── «أضف جدولك إلى تقويم هاتفك» ───────────────────────────────────────────
-   الاشتراكُ واحدٌ بُني لبطاقة الأستاذ: يعرض ما ثبّته القسم في جدوله الرسمي لا غير،
-   ويتحدّث من نفسه عند كل تثبيتٍ جديد. فلا يُكتب هنا ما لم يثبّته أحد. */
-function calendarHtml(compact){return ""} /* مخفي مؤقتاً: الاشتراك لا يفتح على بعض الهواتف. */
+/* لا نعرض زر الاشتراك ما دام لا يعمل على بعض الهواتف؛ خدمة ICS بقيت كما هي. */
+function calendarHtml(compact){return ""}
 function anyFixed(){return state.some(function(it){return it.decision&&it.decision.state==="fixed"})||(data&&data.request&&data.request.status==="settled")}
 /* رمزُ التوقيع له مكانٌ يُطابَق فيه: يُعرض مع رابطٍ يفتح التحقّق جاهزاً بالرمز. */
 function verifyHtml(code,linkOnly){if(!code)return "";
