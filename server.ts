@@ -22089,7 +22089,7 @@ ${PUBLIC_KIT_SCRIPT}
 var PLIB=${JSON.stringify(patternLibraryHtml(patternLibraryInput()))},PLIB_ICON=${JSON.stringify(PATTERN_LIBRARY_ICON)};
 document.addEventListener("click",function(e){var d=document.querySelector(".plib[open]");if(d&&!d.contains(e.target))d.removeAttribute("open")});
 var TOKEN=${JSON.stringify(token)},host=document.getElementById("host"),demoNode=document.querySelector("#demoTop .demo-hint"),demoOpen=false,data=null,state=[],activeTab="schedule",chooserOpen=false,offeringsOpen=false,offeringSearch="";
-${typeof ACADEMIC_ADVICE_SCRIPT !== "undefined" ? ACADEMIC_ADVICE_SCRIPT : ""}
+${typeof ACADEMIC_ADVICE_SCRIPT !== "undefined" ? ACADEMIC_ADVICE_SCRIPT : "function academicCardHtml(){return \"\";} function academicClashCount(){return 0;}"}
 var DAYS=[["fsunday","الأحد"],["fmonday","الاثنين"],["ftuesday","الثلاثاء"],["fwednesday","الأربعاء"],["fthursday","الخميس"]];
 var LONG={fmonday:80,fwednesday:80},SHORT=50;
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){
