@@ -22346,7 +22346,7 @@ function loadMovement(){if(movement||movementLoading)return;movementLoading=true
 var MOVE_TONE={add:"أُضيف",move:"نُقل",room:"تغيّرت القاعة",gone:"حُذف"};
 function officialHtml(){
  if(!movement)return '<div class="section-head"><b>حركة جدولك الرسمية</b><small>ما تغيّر فعلاً في جدولك</small></div><div class="activity-empty">يقرأ الحركة…</div>';
- return '<div class="section-head"><b>حركة جدولك الرسمية</b><small>ما تغيّر فعلاً في جدولك — كما في بطاقتي</small></div>'+(movement.length?'<ul class="activity-list">'+movement.map(function(m){
+ return '<div class="section-head"><b>حركة جدولك الرسمية</b><small>ما تغيّر فعلاً في جدولك الرسمي</small></div>'+(movement.length?'<ul class="activity-list">'+movement.map(function(m){
   return '<li class="activity-item" data-kind="'+esc(m.tone==="gone"?"delete":m.tone==="add"?"add":"change")+'">'+skActIcon(m.tone==="gone"?"delete":m.tone==="add"?"add":"change")+'<div class="activity-main"><b>'+esc(MOVE_TONE[m.tone]||"تغيير")+(m.day?' · '+esc(m.day):'')+'</b><p>'+esc(m.text)+'</p><div class="decision">'+esc(m.label||"")+'</div></div><time>'+esc(dt(m.at))+'</time></li>'}).join("")+'</ul>':'<div class="activity-empty">'+(movementSince?'لم يتغيّر شيء في جدولك الرسمي منذ أول إرسال لطلبك.':'تبدأ حركة جدولك الرسمية بعد إرسال أول طلب تعديل.')+'</div>')
 }
 function activityHtml(r){
@@ -22493,7 +22493,7 @@ function wire(){
  before:{courseName:o.courseName,sectionCode:o.sectionCode},after:{courseId:o.courseId,courseName:o.courseName,collegeId:o.collegeId,sectionId:o.sectionId,collegeName:o.collegeName,sectionCode:o.sectionCode},
  slots:o.slots,days:o.slots.map(function(sl){return sl.day}),start:o.slots[0].start,excuse:"",tone:"",note:"",alts:[],decision:null};if(old>=0)state[old]=selectedOffering;else state.push(selectedOffering);paint();recheckAll()}});
 
- host.querySelectorAll("[data-tab]").forEach(function(el){el.onclick=function(){activeTab=el.dataset.tab||"schedule";paint()}});
+ host.querySelectorAll("[data-tab]").forEach(function(el){el.onclick=function(){if(el.dataset.tab==="activity"){movement=null;movementSince=null}activeTab=el.dataset.tab||"schedule";paint()}});
  var openChooser=document.getElementById("openChooser");if(openChooser)openChooser.onclick=function(){chooserOpen=true;paint();var search=document.getElementById("courseSearch");if(search)search.focus()};
  var closeChooser=document.getElementById("closeChooser");if(closeChooser)closeChooser.onclick=function(){chooserOpen=false;paint()};
  var courseSearch=document.getElementById("courseSearch"),courseCollege=document.getElementById("courseCollege");
@@ -22688,7 +22688,7 @@ function refresh(){
   if(dirty){if(!freshNote){freshNote=true;paint()}return}
   var ords={};state.forEach(function(it){if(it.rowId!=null)ords[it.rowId]=it.ord});
   var nowPending=pendingList().length;
-  data=x.d;state=mapItems(x.d);rankState();state.forEach(function(it){if(it.rowId!=null&&ords[it.rowId]!=null)it.ord=ords[it.rowId]});
+  movement=null;movementSince=null;data=x.d;state=mapItems(x.d);rankState();state.forEach(function(it){if(it.rowId!=null&&ords[it.rowId]!=null)it.ord=ords[it.rowId]});
   baseItems=JSON.parse(JSON.stringify(payloadItems()));paint.last=JSON.stringify(payloadItems());dirty=false;freshNote=false;paint();
   onDecisionArrived(pendingList().length>nowPending)}).catch(function(){refreshing=false})}
 function onDecisionArrived(newDecision){try{if(navigator.vibrate)navigator.vibrate(30)}catch(e){}
