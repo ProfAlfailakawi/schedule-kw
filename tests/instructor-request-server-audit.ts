@@ -217,6 +217,11 @@ check(staffPage.includes('ar-KW-u-nu-latn') && staffPage.includes('friendlyDate(
   "التاريخ في بطاقة الأستاذ واضح بأرقام إنجليزية، حتى بعد إزالة الحركة الخارجية");
 check(server.includes("requestLinks,") && server.includes("Repository.getInstructorRequests"),
   "وبطاقةُ الأستاذ تصل إلى دورة الطلب الموجودة أصلاً، لا نموذجٍ موازٍ جديد");
+check(server.includes("async function currentInstructorRequestGeneration")
+  && server.includes("await currentInstructorRequestGeneration(familyRequests.flat())")
+  && server.includes("currentGenerationIds.has(request.id)")
+  && server.includes("isInstructorRequestInCurrentGeneration(request)"),
+  "الوارد وبطاقة الأستاذ والرابط العام لا تعرض جولات أجيال الجداول السابقة");
 
 
 /* ── الحركة والتقويم: سياجٌ ثابت حتى لا يعود العطل ──────────────────────── */

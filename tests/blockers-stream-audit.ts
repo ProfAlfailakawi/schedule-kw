@@ -186,7 +186,8 @@ await (async () => {
   check(/async function hydrateVersionRows[\s\S]{0,700}Repository\.getScheduleVersionById\(version\.id\)/.test(server), "B14 اللقطة تُطلب بمعرّفها");
   check(/async function briefChangedSince[\s\S]{0,300}hydrateVersionRows\(await Repository\.getScheduleVersions/.test(server), "B14 الملخص لا يرى كل موعد «تغيّر»");
   const movement = server.slice(server.indexOf("async function scheduleMovementEntries"), server.indexOf("async function buildStaffCard"));
-  check(movement.includes("await hydrateVersionRows(await Repository.getScheduleVersions(scope.collegeId, scope.sectionId, termId, 30))"),
+  check(movement.includes("Repository.getScheduleVersions(scope.collegeId, scope.sectionId, termId, 100)")
+    && movement.includes("await hydrateVersionRows(currentVersions)"),
     "B14 سجلّ الأستاذ لا يقول عن كل محاضرة «أُضيفت»");
   const repo = read("src/db/repository.ts");
   check(/\.select\("id", "scopeKey"[^)]*"rowCount"\)/.test(repo), "B14 (القائمة ما زالت خفيفة عمداً — الإصلاح عند القارئ)");
