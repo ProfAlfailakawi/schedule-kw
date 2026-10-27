@@ -29,6 +29,14 @@ export const PUBLIC_KIT_CSS = `/* ── عدّة الصفحات العامة �
 .sk-scrim{position:fixed;inset:0;z-index:60;background:rgba(10,24,17,.5);display:flex;align-items:flex-end;justify-content:center}
 .sk-scrim[hidden]{display:none!important}
 .sk-sheet{inline-size:min(100%,520px);max-block-size:90dvh;overflow:auto;background:var(--sk-card);color:var(--sk-ink);border-radius:28px 28px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:14px;animation:skup .3s cubic-bezier(.2,.8,.2,1)}
+/* Signing only: keep the bottom sheet inside the iOS visual viewport above its numeric keyboard. */
+.sk-scrim.sk-sign-open{top:var(--sk-vv-top,0px);bottom:auto;block-size:var(--sk-vv-height,100dvh)}
+.sk-sign-open .sk-sheet{max-block-size:calc(var(--sk-vv-height,100dvh) - 8px);min-block-size:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scroll-padding-block-end:12px}
+.sk-sign-open.sk-keyboard .sk-sheet{gap:9px;padding-block:8px 12px}
+.sk-sign-open.sk-keyboard .sk-what{gap:5px;padding:9px 12px}
+.sk-sign-open.sk-keyboard .sk-otp i{block-size:42px}
+.sk-sign-open.sk-keyboard .sk-btn{position:sticky;bottom:0;z-index:1;min-block-size:48px;box-shadow:0 5px 18px color-mix(in srgb,var(--sk-ok) 26%,transparent)}
+.sk-sign-open.sk-keyboard .sk-hint{font-size:11px;line-height:1.45}
 @keyframes skup{from{transform:translateY(48px);opacity:.6}to{transform:none;opacity:1}}
 .sk-grab{inline-size:42px;block-size:5px;border-radius:5px;background:var(--sk-line);margin:0 auto}
 .sk-h{display:flex;align-items:center;gap:12px}
@@ -157,12 +165,23 @@ function digits(v){return String(v||"")
  .replace(/[۰-۹]/g,function(d){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))})
  .replace(/\D/g,"")}
 var TTL=600000,civil="",at=0,scrim=null,toastEl=null,tt=0;
+/* Layout only: iOS keeps fixed sheets under the keyboard unless they follow the visual viewport. */
+function signViewport(){
+ if(!scrim||scrim.hidden||!scrim.classList.contains("sk-sign-open"))return;
+ var vp=window.visualViewport;
+ if(!vp)return;
+ scrim.style.setProperty("--sk-vv-top",Math.max(0,vp.offsetTop)+"px");
+ scrim.style.setProperty("--sk-vv-height",Math.max(0,vp.height)+"px");
+ scrim.classList.toggle("sk-keyboard",window.innerHeight-vp.height-vp.offsetTop>140);
+}
 function ensure(){if(scrim)return;
  scrim=document.createElement("div");scrim.className="sk-scrim";scrim.hidden=true;document.body.appendChild(scrim);
  scrim.onclick=function(e){if(e.target===scrim)close()};
- toastEl=document.createElement("div");toastEl.className="sk-toast";toastEl.setAttribute("role","status");toastEl.hidden=true;document.body.appendChild(toastEl)}
-function sheet(html){ensure();toastEl.hidden=true;scrim.innerHTML='<div class="sk-sheet" role="dialog" aria-modal="true"><div class="sk-grab"></div>'+html+'</div>';scrim.hidden=false;document.body.classList.add("sk-lock")}
-function close(){if(!scrim)return;scrim.hidden=true;scrim.innerHTML="";document.body.classList.remove("sk-lock")}
+ toastEl=document.createElement("div");toastEl.className="sk-toast";toastEl.setAttribute("role","status");toastEl.hidden=true;document.body.appendChild(toastEl);
+ if(window.visualViewport){window.visualViewport.addEventListener("resize",signViewport);window.visualViewport.addEventListener("scroll",signViewport)}
+ window.addEventListener("resize",signViewport)}
+function sheet(html,signView){ensure();toastEl.hidden=true;scrim.innerHTML='<div class="sk-sheet" role="dialog" aria-modal="true"><div class="sk-grab"></div>'+html+'</div>';scrim.classList.toggle("sk-sign-open",!!signView);scrim.classList.remove("sk-keyboard");scrim.hidden=false;document.body.classList.add("sk-lock");if(signView)signViewport()}
+function close(){if(!scrim)return;scrim.hidden=true;scrim.innerHTML="";scrim.classList.remove("sk-sign-open","sk-keyboard");scrim.style.removeProperty("--sk-vv-top");scrim.style.removeProperty("--sk-vv-height");document.body.classList.remove("sk-lock")}
 function toast(icon,text){ensure();toastEl.innerHTML=gi(icon)+'<span>'+esc(text)+'</span>';toastEl.hidden=false;clearTimeout(tt);tt=setTimeout(function(){toastEl.hidden=true},3200)}
 function known(){return civil.length===12&&Date.now()-at<TTL}
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&scrim&&!scrim.hidden)close()});
@@ -176,7 +195,7 @@ function sign(o){var again=false;
     :'<div class="sk-otpw"><div class="sk-otp" id="skOtp" aria-hidden="true"></div><input id="civil" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="12 رقمًا" aria-label="اكتب رقمك المدني كاملاً — 12 رقمًا — فهو توقيعك"></div>')+
    '<div class="sk-err" id="skErr" role="alert" hidden></div>'+
    '<button type="button" class="sk-btn" id="skGo"'+(kn?'':' disabled')+'>'+gi("send")+'وقّع وأرسل</button>'+
-   '<p class="sk-hint">'+esc(o.hint||"بإدخال رقمك المدني والضغط على «أرسل» فأنت توقّع هذا الطلب باسمك.")+'</p>');
+   '<p class="sk-hint">'+esc(o.hint||"بإدخال رقمك المدني والضغط على «أرسل» فأنت توقّع هذا الطلب باسمك.")+'</p>',true);
   var go=document.getElementById("skGo"),err=document.getElementById("skErr"),inp=document.getElementById("civil"),otp=document.getElementById("skOtp"),v="";
   function paintOtp(){if(!otp)return;otp.innerHTML=Array.apply(null,{length:12}).map(function(_,k){return '<i class="'+(k===v.length?"on":k<v.length?"fill":"")+'">'+(v.charAt(k)||"")+'</i>'}).join("");go.disabled=v.length<12}
   if(initErr){err.textContent=initErr;err.hidden=false}
