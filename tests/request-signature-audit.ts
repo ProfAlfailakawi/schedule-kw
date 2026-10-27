@@ -74,7 +74,7 @@ check(route.includes("fingerprint: await surveyFingerprint(civil)"),
    ورمزُه. وما بينها موضعُ الرقم لو أُقحم. */
 const signatureLiteral = server.slice(
   server.indexOf("const signature: InstructorRequestSignature = {"),
-  server.indexOf("const changed = items.filter"));
+  server.indexOf("const changed = judged.items.filter"));
 check(signatureLiteral.length > 60
   && /at,/.test(signatureLiteral) && /fingerprint:/.test(signatureLiteral) && /verifyCode:/.test(signatureLiteral)
   && !/\bcivil\s*[,:}]/.test(signatureLiteral.replace("surveyFingerprint(civil)", "")),

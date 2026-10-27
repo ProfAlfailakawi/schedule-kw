@@ -1472,7 +1472,7 @@ export interface InstructorRequestMessage {
 
 /** حدثٌ في حياة الطلب. الأستاذ يراها كلَّها عن طلبه هو، ولا يرى طلبَ غيره. */
 export type InstructorRequestEventKind =
-  | "link-created" | "link-opened" | "submitted" | "received"
+  | "link-created" | "link-opened" | "submitted" | "received" | "unchanged-confirmed"
   | "item-fixed" | "item-rejected" | "alternative-offered" | "alternative-chosen"
   | "settled" | "schedule-approved"
   | "department-replied" | "instructor-replied" | "proposal-accepted"
