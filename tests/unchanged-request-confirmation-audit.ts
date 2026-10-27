@@ -1,7 +1,7 @@
 /** Regression: unchanged teacher submissions are final without department review. */
 import fs from "node:fs";
 import type { InstructorRequest } from "../src/types";
-import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind } from "../src/utils/instructorRequestConfirmation";
+import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind, unchangedScheduleFingerprint } from "../src/utils/instructorRequestConfirmation";
 
 let checks = 0;
 function expect(ok: boolean, label: string) {
@@ -39,6 +39,10 @@ expect(!canConfirmUnchanged(sent, [row, { ...row, id: 102 }], "", original), "Ex
 expect(!canConfirmUnchanged(sent, [], "", original), "Missing live lecture prevents false confirmation");
 expect(!canConfirmUnchanged(sent, [{ ...row, AdInstructorId: 8 }], "", original), "Another professor's timetable cannot satisfy the signer's request");
 expect(!canConfirmUnchanged(sent, [row], "", { ...original, items: [{ ...item, action: "change" }] }), "The server-stored original must also be unchanged");
+const tableStamp = unchangedScheduleFingerprint([row], 7);
+expect(tableStamp === unchangedScheduleFingerprint([{ ...row }], 7), "The same live timetable has a stable confirmation fingerprint");
+expect(tableStamp !== unchangedScheduleFingerprint([{ ...row, fstarttime: "10:00" }], 7), "Changing a signed timetable row changes its confirmation fingerprint");
+expect(tableStamp !== unchangedScheduleFingerprint([{ ...row, AdInstructorId: 8 }], 7), "Rows outside the signer do not satisfy the signer fingerprint");
 expect(isUnchangedConfirmed({ status: "settled", timeline: [{ kind: unchangedConfirmationKind, at: "2026-01-02" }] }), "Persisted status and event identify final confirmation");
 expect(!isUnchangedConfirmed({ status: "submitted", timeline: [{ kind: unchangedConfirmationKind, at: "2026-01-02" }] }), "An incomplete request is never treated as confirmed");
 expect(!isUnchangedConfirmed({ status: "settled", timeline: [{ kind: "settled", at: "2026-01-02" }] }), "Old department settlements do not appear as automatic confirmations");

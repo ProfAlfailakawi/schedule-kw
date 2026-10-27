@@ -91,6 +91,7 @@ import { caseRefFromId, mergeStudentResubmission } from "../utils/studentNeedMer
 import { cleanSeenIds, mergeSeenIds, seenUnchanged } from "../utils/notificationSeen";
 import { termChronology } from "../utils/termSequence";
 import { kuwaitDayOfIso, recordLinkOpen } from "../utils/linkOpens";
+import { unchangedScheduleFingerprint } from "../utils/instructorRequestConfirmation";
 
 // Runtime state must not live inside the replaceable application release. A number of
 // deployment/upload tools synchronize an archive by deleting destination files that are
@@ -5158,7 +5159,7 @@ export const Repository = {
     return db.instructorRequestReservationLedgers?.[String(termId)] || [];
   },
 
-  saveInstructorRequest: async (row: InstructorRequest, proposals?: RequestReservationProposal[]): Promise<InstructorRequest> => {
+  saveInstructorRequest: async (row: InstructorRequest, proposals?: RequestReservationProposal[], unchangedConfirmationGuard?: { scheduleFingerprint: string }): Promise<InstructorRequest> => {
     const now = new Date().toISOString();
     const termId = Number(row.AdTermId);
     const next: InstructorRequest = { ...row, updatedAt: now, requestRevision: Number(row.requestRevision || 0) + 1 };
@@ -5181,13 +5182,16 @@ export const Repository = {
       const requestRef = firestoreDb.collection("instructorRequests").doc(row.id);
       const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
       await firestoreDb.runTransaction(async tx => {
-        const [stored, ledger, barterSnapshot] = await Promise.all([tx.get(requestRef), tx.get(ledgerRef),
-          proposals ? tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)])) : Promise.resolve(null)]);
+        const [stored, ledger, barterSnapshot, guardedWeek] = await Promise.all([tx.get(requestRef), tx.get(ledgerRef),
+          proposals ? tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)])) : Promise.resolve(null),
+          unchangedConfirmationGuard ? tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])) : Promise.resolve(null)]);
         checkRevision(stored.exists ? stored.data() as InstructorRequest : undefined);
+        if (unchangedConfirmationGuard && unchangedScheduleFingerprint((guardedWeek?.docs || []).map(doc => doc.data() as FSchedule), Number(next.AdInstructorId)) !== unchangedConfirmationGuard.scheduleFingerprint)
+          throw new RequestReservationConflict("تغيّر جدولك بعد فتح التأكيد. راجع الجدول الجديد ثم أعد التوقيع؛ بقيت مسودتك محفوظة.");
         let entries: RequestReservation[] = ledger.data()?.entries || [];
         if (proposals) {
           // Read the live official week INSIDE the same transaction as the claim.
-          const [week, _barter] = await Promise.all([tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])), Promise.resolve(barterSnapshot)]);
+          const [week, _barter] = await Promise.all([guardedWeek || tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])), Promise.resolve(barterSnapshot)]);
           const rows = week.docs.map(doc => doc.data() as FSchedule);
           const approved = (_barter?.docs || []).map(doc => doc.data() as HallBarterRequest).filter(item => item.status === "approved");
           const eligibleProposals = proposals.map(proposal => ({ ...proposal, rooms: proposal.rooms.filter(room => {
@@ -5209,6 +5213,8 @@ export const Repository = {
         const ledgers = db.instructorRequestReservationLedgers ||= {};
         const entries = ledgers[String(termId)] || [];
         const week = db.schedules.filter(item => Number(item.AdTermId) === termId);
+        if (unchangedConfirmationGuard && unchangedScheduleFingerprint(week, Number(next.AdInstructorId)) !== unchangedConfirmationGuard.scheduleFingerprint)
+          throw new RequestReservationConflict("تغيّر جدولك بعد فتح التأكيد. راجع الجدول الجديد ثم أعد التوقيع؛ بقيت مسودتك محفوظة.");
         const approved = (db.hallBarterRequests || []).filter(item => Number(item.AdTermId) === termId && item.status === "approved");
         const eligibleProposals = proposals?.map(proposal => ({ ...proposal, rooms: proposal.rooms.filter(room => {
           const roomWindows = approved.filter(item => String(item.roomId || "") === String(room.roomId || ""));
