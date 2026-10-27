@@ -61,6 +61,7 @@ const EVENT: Record<InstructorRequestEventKind, { title: string; icon: ReactElem
   "link-created": { title: "أُنشئ الرابط", icon: <Link2 />, tone: "neutral" },
   "link-opened": { title: "فُتح الرابط", icon: <Eye />, tone: "sky" },
   "submitted": { title: "أرسل الأستاذ طلبه", icon: <Send />, tone: "accent" },
+  "unchanged-confirmed": { title: "ثبّت الأستاذ جدوله دون تعديلات", icon: <ShieldCheck />, tone: "mint" },
   "received": { title: "استلمه القسم", icon: <Inbox />, tone: "indigo" },
   "item-fixed": { title: "ثُبّت", icon: <Wrench />, tone: "mint" },
   "item-rejected": { title: "رُفض", icon: <CircleX />, tone: "coral" },
