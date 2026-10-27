@@ -159,6 +159,10 @@ check(visual13.includes("function skBadgeExplain(el)") &&
   !page.includes('data-sk-badge="plan"') &&
   !page.includes('tabindex="0" role="button" title="اضغط لمعرفة معنى الشارة"'),
   "P13 شارتا الصحيفة ومتطلب الكلية للعرض فقط؛ مواد اللائحة وحدها قابلة للضغط");
+check(visual13.includes("function skLegend()") &&
+  visual13.includes("esc(courseOf(it))+'</li>'") &&
+  !visual13.includes("esc(courseOf(it))+reqTag(it)+'</li>'"),
+  "P14 مفتاح ألوان المقررات لا يعرض شارات صحيفة أو متطلب كلية");
 check(!visual13.includes('data-nx="send"') &&
   page.includes('<button type="button" id="send"'),
   "P13 اختصار إلى الإرسال المحذوف لا يمسّ زر الإرسال الأصلي");
