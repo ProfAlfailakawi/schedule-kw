@@ -2594,21 +2594,25 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const requested = value === "week" ? "week" : value === "rooms" ? "rooms" : "list";
     const next = phoneReadOnly ? "list" : requested;
 
-    // View-local state never leaks into another projection. A room comparison
-    // belongs to the rooms canvas only; an expanded/focused day belongs to the
-    // week only. Shared filters (course/instructor/colour/search) intentionally
-    // survive because the reader expects the same question to follow them.
-    if (viewMode === "rooms" && next !== "rooms") {
+    // Any move between list / week / rooms starts clean: every filter from the
+    // previous view is dropped so the next board never opens partially filtered.
+    if (next !== viewMode) {
       setMatrixDay("week");
       setMatrixBuildings(new Set());
       setMatrixRooms(new Set());
-    }
-    if (viewMode === "week" && next !== "week") {
+      setRoomFilterQuery("");
+      setHueFocus(new Set());
+      setHueHidden(new Set());
+      setLegendQuery("");
+      setQuickSearch("");
+      setVisitingOnly(false);
+      setPendingOnly(false);
       setExpandedDay(null);
       setReviewFocus(new Set());
       setPicking(false);
       setMultiSelect(new Set());
       setPaint(null);
+      setActiveViewId(null);
     }
 
     startTransition(() => setViewMode(next));
