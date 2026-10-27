@@ -4,7 +4,7 @@ import { analyseAcademicAdvice, type AcademicReading, type AcademicPlanView } fr
 import type { AdCourse, CurriculumPlan, FSchedule, StudentProfile } from "../types";
 
 export async function academicAdviceForScope(collegeId: number, sectionId: number, termId: number): Promise<AcademicReading> {
-  const empty: AcademicReading = { pairs: [], assessed: 0, source: "approved-plans-and-wishes", nonBlocking: true };
+  const empty: AcademicReading = { pairs: [], timePreferences: [], assessed: 0, source: "approved-plans-and-wishes", nonBlocking: true };
   if (![collegeId, sectionId, termId].every(n => Number.isSafeInteger(n) && n > 0)) return empty;
   const [plans, links, profiles, courses, rows] = await Promise.all([
     Repository.getCurriculumPlans(sectionId),

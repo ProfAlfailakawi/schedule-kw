@@ -27,7 +27,8 @@ export interface AcademicPair {
   aOfferings: AcademicOffering[];
   bOfferings: AcademicOffering[];
 }
-export interface AcademicReading { pairs: AcademicPair[]; assessed: number; source: "approved-plans-and-wishes"; nonBlocking: true }
+export interface AcademicTimePreference { courseId: number; name: string; wanted: number; period: "afternoon" }
+export interface AcademicReading { pairs: AcademicPair[]; timePreferences: AcademicTimePreference[]; assessed: number; source: "approved-plans-and-wishes"; nonBlocking: true }
 export interface AcademicInput {
   collegeId: number; sectionId: number; termId: number;
   plans: AcademicPlanView[];
@@ -63,6 +64,7 @@ export function analyseAcademicAdvice(input: AcademicInput): AcademicReading {
   const courseById = new Map(input.courses.map(c => [Number(c.AdCourseId), c]));
   const byPlan = new Map(input.plans.map(p => [p.planId, p]));
   const eligibleCount = new Map<string, number>();
+  const afternoonDemand = new Map<number, number>();
   let assessed = 0;
 
   for (const person of input.profiles) {
@@ -79,6 +81,8 @@ export function analyseAcademicAdvice(input: AcademicInput): AcademicReading {
       prereqMet(rules.get(id)?.prereq, passed, units) &&
       coreqMet(rules.get(id)?.coreq, passed, registering)).sort((a, b) => a - b);
     assessed++;
+    if (person.wishes?.constraints?.noMorning === true) for (const id of candidates)
+      afternoonDemand.set(id, (afternoonDemand.get(id) || 0) + 1);
     for (let i = 0; i < candidates.length; i++) for (let j = i + 1; j < candidates.length; j++) {
       const a = candidates[i], b = candidates[j];
       if (mandatoryPrecedes(plan.rules, a, b) || mandatoryPrecedes(plan.rules, b, a)) continue;
@@ -139,7 +143,12 @@ export function analyseAcademicAdvice(input: AcademicInput): AcademicReading {
       aOfferings: ao, bOfferings: bo,
     });
   }
+  const timePreferences: AcademicTimePreference[] = [...afternoonDemand].filter(([, n]) => n >= 3).flatMap(([id, wanted]) => {
+    const offered = [...(offerings.get(id)?.values() || [])];
+    if (!offered.length || offered.some(o => o.slots.some(slot => minutes(slot.start) >= 14 * 60))) return [];
+    return [{ courseId: id, name: String(courseById.get(id)?.CourseName || ""), wanted, period: "afternoon" as const }];
+  }).sort((a, b) => b.wanted - a.wanted).slice(0, 10);
   pairs.sort((a, b) => Number(b.overlap) - Number(a.overlap) || b.shared - a.shared ||
     a.nameA.localeCompare(b.nameA, "ar"));
-  return { pairs: pairs.slice(0, 30), assessed, source: "approved-plans-and-wishes", nonBlocking: true };
+  return { pairs: pairs.slice(0, 30), timePreferences, assessed, source: "approved-plans-and-wishes", nonBlocking: true };
 }

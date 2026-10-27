@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { BookOpenCheck, CalendarClock, CheckCheck, GraduationCap, Lightbulb, Users } from "lucide-react";
-import type { AcademicPair, AcademicSlot } from "../utils/academicAdvisory";
+import type { AcademicPair, AcademicSlot, AcademicTimePreference } from "../utils/academicAdvisory";
 
 interface Props {
   collegeId: number; sectionId: number; termId: number;
@@ -22,13 +22,14 @@ const chip: CSSProperties = { display: "inline-flex", alignItems: "center", gap:
  */
 export default function AcademicAdvicePanel({ collegeId, sectionId, termId, courseId, candidate, compact = false }: Props) {
   const [pairs, setPairs] = useState<AcademicPair[]>([]);
+  const [timePreferences, setTimePreferences] = useState<AcademicTimePreference[]>([]);
   useEffect(() => {
-    setPairs([]);
+    setPairs([]); setTimePreferences([]);
     if (!collegeId || !sectionId || !termId) return;
     const controller = new AbortController();
     fetch("/api/schedules/academic-advice?collegeId=" + collegeId + "&sectionId=" + sectionId + "&termId=" + termId, { signal: controller.signal })
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (!controller.signal.aborted) setPairs(Array.isArray(data?.pairs) ? data.pairs : []); })
+      .then(data => { if (!controller.signal.aborted) { setPairs(Array.isArray(data?.pairs) ? data.pairs : []); setTimePreferences(Array.isArray(data?.timePreferences) ? data.timePreferences : []); } })
       .catch(() => { if (!controller.signal.aborted) setPairs([]); });
     return () => controller.abort();
   }, [collegeId, sectionId, termId]);
@@ -40,7 +41,8 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
     return other.some(section => section.slots.some(slot =>
       candidate.days.some(day => intersects({ day, start: candidate.start, end: candidate.end }, slot))));
   }).slice(0, compact ? 2 : 5), [pairs, courseId, candidate?.days?.join(","), candidate?.start, candidate?.end, compact]);
-  if (!relevant.length) return null;
+  const periods = timePreferences.filter(p => (!courseId || p.courseId === courseId) && (!candidate || minute(candidate.start) < 14 * 60)).slice(0, 2);
+  if (!relevant.length && !periods.length) return null;
   return (
     <section role="note" aria-label="اقتراحات أكاديمية غير ملزمة" style={{
       border: "1px solid color-mix(in srgb, var(--accent, #247756) 26%, var(--line, #dce5df))",
@@ -53,6 +55,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
         <span style={{ ...chip, marginInlineStart: "auto", color: "var(--muted, #627269)" }}>اقتراح · لا يمنع</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(185px, 1fr))", gap: 8 }}>
+        {periods.map(p => <div key={"afternoon-" + p.courseId} style={{ display: "grid", gap: 7, minWidth: 0, borderRadius: 12, border: "1px solid var(--line, #dce5df)", background: "var(--card, #fff)", padding: 11 }}><strong style={{ fontSize: 12.5 }}><CalendarClock size={15} aria-hidden="true" style={{ verticalAlign: "middle", marginInlineEnd: 5 }} />{p.name}</strong><span style={chip}>فرصة لمجموعة عصر · {p.wanted.toLocaleString("ar-KW-u-nu-latn")} رغبات</span></div>)}
         {relevant.map(pair => {
           const name = courseId ? (pair.a === courseId ? pair.nameB : pair.nameA) : pair.nameA + " × " + pair.nameB;
           return <div key={pair.a + "-" + pair.b} style={{ display: "grid", gap: 7, minWidth: 0, borderRadius: 12, border: "1px solid var(--line, #dce5df)", background: "var(--card, #fff)", padding: 11 }}>

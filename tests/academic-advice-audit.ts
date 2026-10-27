@@ -42,6 +42,8 @@ assert.ok(!noEarlyRegistration.pairs.some(p => p.a === 1 && p.b === 2), "prerequ
 const small = analyseAcademicAdvice({ ...base, profiles: [profile(1,[2,3],[1])] });
 assert.equal(small.pairs.find(p => p.a === 2 && p.b === 3)?.shared, 0, "small cohort never disclosed");
 assert.equal(small.pairs.find(p => p.a === 2 && p.b === 3)?.basis, "curriculum", "sibling is not invented count");
+const afternoon = analyseAcademicAdvice({ ...base, profiles: [1,2,3].map(i => ({ ...profile(i,[2,3],[1]), wishes: { ...profile(i,[2,3],[1]).wishes!, constraints: { noMorning: true } } })) });
+assert.ok(afternoon.timePreferences.some(p => p.courseId === 2 && p.wanted === 3), "afternoon grouping suggestion from verified eligible student preferences");
 const unknown = analyseAcademicAdvice({ ...base, plans: [], profiles: [1,2,3].map(i => profile(i,[2,3],[1])) });
 assert.equal(unknown.pairs.length, 0, "no approved plan means no advice");
 const excludedCo = analyseAcademicAdvice({ ...base, profiles: [1,2,3].map(i => profile(i,[5,6],[])), rows: [...base.rows,slot(5,"501","08:00","09:00"),slot(6,"501","08:00","09:00")] });
