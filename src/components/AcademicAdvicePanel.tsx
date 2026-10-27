@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { BookOpenCheck, CalendarClock, CheckCheck, GraduationCap, Lightbulb, Users } from "lucide-react";
 import type { AcademicPair, AcademicSlot, AcademicTimePreference } from "../utils/academicAdvisory";
+import { AR, countOf } from "../utils/arabicCount";
 
 interface Props {
   collegeId: number; sectionId: number; termId: number;
@@ -55,7 +56,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
         <span style={{ ...chip, marginInlineStart: "auto", color: "var(--muted, #627269)" }}>اقتراح · لا يمنع</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(185px, 1fr))", gap: 8 }}>
-        {periods.map(p => <div key={"afternoon-" + p.courseId} style={{ display: "grid", gap: 7, minWidth: 0, borderRadius: 12, border: "1px solid var(--line, #dce5df)", background: "var(--card, #fff)", padding: 11 }}><strong style={{ fontSize: 12.5 }}><CalendarClock size={15} aria-hidden="true" style={{ verticalAlign: "middle", marginInlineEnd: 5 }} />{p.name}</strong><span style={chip}>فرصة لمجموعة عصر · {p.wanted.toLocaleString("ar-KW-u-nu-latn")} رغبات</span></div>)}
+        {periods.map(p => <div key={"afternoon-" + p.courseId} style={{ display: "grid", gap: 7, minWidth: 0, borderRadius: 12, border: "1px solid var(--line, #dce5df)", background: "var(--card, #fff)", padding: 11 }}><strong style={{ fontSize: 12.5 }}><CalendarClock size={15} aria-hidden="true" style={{ verticalAlign: "middle", marginInlineEnd: 5 }} />{p.name}</strong><span style={chip}>فرصة لمجموعة عصر · {countOf(p.wanted, AR.student)} يفضّلون العصر</span></div>)}
         {relevant.map(pair => {
           const name = courseId ? (pair.a === courseId ? pair.nameB : pair.nameA) : pair.nameA + " × " + pair.nameB;
           return <div key={pair.a + "-" + pair.b} style={{ display: "grid", gap: 7, minWidth: 0, borderRadius: 12, border: "1px solid var(--line, #dce5df)", background: "var(--card, #fff)", padding: 11 }}>
@@ -65,7 +66,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
             </div>
             <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, color: "var(--muted, #627269)" }}>
               {pair.basis === "wishes"
-                ? <span style={chip}><Users size={13} />{pair.shared.toLocaleString("ar-KW-u-nu-latn")} طلب مشترك</span>
+                ? <span style={chip}><Users size={13} />{countOf(pair.shared, AR.student)} · احتياج مشترك</span>
                 : <span style={chip}><GraduationCap size={13} />مسبقات مشتركة</span>}
               {pair.hasAlternative && !candidate ? <span style={chip}><CheckCheck size={13} />شعب بديلة</span> : <span style={chip}><CalendarClock size={13} />راجع التوقيت</span>}
             </div>

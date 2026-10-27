@@ -21948,7 +21948,7 @@ function instructorRequestPage(token: string, nonce: string, demoHint = ""): str
 <title>جدولي — طلب تعديل</title>
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/schedule-icon-192.png">
 <style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}
-${ACADEMIC_ADVICE_CSS}
+${typeof ACADEMIC_ADVICE_CSS !== "undefined" ? ACADEMIC_ADVICE_CSS : ""}
 :root{color-scheme:light dark;--ink:#15251d;--muted:#627269;--muted2:#8b9991;--line:#dce5df;--line2:#cbd8d0;--bg:#fff;--card:#fff;
 --soft:#edf5f0;--ok:#247756;--ok2:#dff2e8;--warn:#9a6a00;--warn2:#fff5d9;--bad:#ad2f28;--bad2:#fdecea;--accent:#247756;--shadow:0 12px 34px rgba(22,57,40,.07)}
 /* لوحةُ الصفحات العامة الموحّدة — للشاشة فقط؛ الطباعةُ تبقى كما كانت. */
@@ -22089,7 +22089,7 @@ ${PUBLIC_KIT_SCRIPT}
 var PLIB=${JSON.stringify(patternLibraryHtml(patternLibraryInput()))},PLIB_ICON=${JSON.stringify(PATTERN_LIBRARY_ICON)};
 document.addEventListener("click",function(e){var d=document.querySelector(".plib[open]");if(d&&!d.contains(e.target))d.removeAttribute("open")});
 var TOKEN=${JSON.stringify(token)},host=document.getElementById("host"),demoNode=document.querySelector("#demoTop .demo-hint"),demoOpen=false,data=null,state=[],activeTab="schedule",chooserOpen=false,offeringsOpen=false,offeringSearch="";
-${ACADEMIC_ADVICE_SCRIPT}
+${typeof ACADEMIC_ADVICE_SCRIPT !== "undefined" ? ACADEMIC_ADVICE_SCRIPT : ""}
 var DAYS=[["fsunday","الأحد"],["fmonday","الاثنين"],["ftuesday","الثلاثاء"],["fwednesday","الأربعاء"],["fthursday","الخميس"]];
 var LONG={fmonday:80,fwednesday:80},SHORT=50;
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){
