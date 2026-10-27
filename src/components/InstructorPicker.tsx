@@ -4,6 +4,7 @@ import { byArabic, sortByName } from "../utils/sorting";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
 import { instructorCleanName } from "../utils/instructorIdentity";
+import { isFacultyPlaceholder, singleFacultyPlaceholder } from "../utils/placeholderInstructor";
 import VisitingBadge from "./VisitingBadge";
 
 /**
@@ -135,6 +136,11 @@ export default function InstructorPicker({ value, onChange, instructors, departm
     return [...new Set([...departmentIds.map(Number).filter(Boolean), ...rosterIds])];
   }, [departmentIds, departmentRoster]);
   const departmentRank = useMemo(() => new Map(effectiveDepartmentIds.map((id, index) => [id, index])), [effectiveDepartmentIds]);
+  // The open section's roster is authoritative over university-wide duplicates.
+  const placeholderPreference = useMemo(() => [
+    ...departmentRoster.filter(isFacultyPlaceholder).map(person => Number(person.AdInstructorId)),
+    ...effectiveDepartmentIds,
+  ], [departmentRoster, effectiveDepartmentIds]);
   const visitingSet = useMemo(() => new Set(Array.from(visitingIds || [], Number).filter(Boolean)), [visitingIds]);
   const rosterSet = useMemo(() => visitingRosterIds ? new Set(Array.from(visitingRosterIds, Number).filter(Boolean)) : visitingSet, [visitingRosterIds, visitingSet]);
 
@@ -154,10 +160,10 @@ export default function InstructorPicker({ value, onChange, instructors, departm
       // Nothing typed: show the department and ONLY the department. Wider
       // university search starts after the user types, exactly as the hint says.
       const deptList = effectiveDepartmentIds.map(id => byId.get(id)).filter(p => p && !isHidden(p)) as Instructor[];
-      if (deptList.length) return sortByName(deptList, person => person.AdInstructorName);
+      if (deptList.length) return singleFacultyPlaceholder(sortByName(deptList, person => person.AdInstructorName), placeholderPreference);
       // Older screens that do not know a section still pass an already-scoped
       // instructor list; keep that compatibility without widening a known section.
-      return sectionId ? [] : sortByName<Instructor>(knownInstructors.filter(p => !isHidden(p)), person => person.AdInstructorName);
+      return sectionId ? [] : singleFacultyPlaceholder(sortByName<Instructor>(knownInstructors.filter(p => !isHidden(p)), person => person.AdInstructorName), placeholderPreference);
     }
     const pool = strictDepartmentOnly
       ? knownInstructors.filter(person => departmentRank.has(person.AdInstructorId) || rosterSet.has(person.AdInstructorId))
@@ -166,7 +172,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
       .map(person => {
         if (isHidden(person)) return null;
         const name = withoutTitles(person.AdInstructorName);
-        const civil = String(person.AdInstructorCivil || "");
+        const civil = isFacultyPlaceholder(person) ? "" : String(person.AdInstructorCivil || "");
         let score = -1;
         if (name.startsWith(needle)) score = 0;
         else if (name.includes(needle)) score = 1;
@@ -179,14 +185,13 @@ export default function InstructorPicker({ value, onChange, instructors, departm
         return { person, score, inDepartment, rank: departmentRank.get(person.AdInstructorId) ?? 9999 };
       })
       .filter(Boolean) as Array<{ person: Instructor; score: number; inDepartment: number; rank: number }>;
-    return scored
+    return singleFacultyPlaceholder(scored
       .sort((a, b) =>
         a.inDepartment - b.inDepartment ||
         a.score - b.score ||
         byArabic(a.person.AdInstructorName, b.person.AdInstructorName))
-      .slice(0, 40)
-      .map(x => x.person);
-  }, [query, knownInstructors, wider, effectiveDepartmentIds, byId, departmentRank, sectionId, strictDepartmentOnly, rosterSet, visitingSet, visitingRosterIds, value]);
+      .map(x => x.person), placeholderPreference).slice(0, 40);
+  }, [query, knownInstructors, wider, effectiveDepartmentIds, byId, departmentRank, sectionId, strictDepartmentOnly, rosterSet, visitingSet, visitingRosterIds, value, placeholderPreference]);
 
   useEffect(() => {
     if (!open) return;
@@ -252,7 +257,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
         <UserRound aria-hidden="true" />
         <span className="instructor-identity">
           <b>{selected ? <>{selected.AdInstructorName}{visitingSet.has(selected.AdInstructorId) ? <VisitingBadge compact /> : null}</> : "اختر أستاذ المقرر"}</b>
-          {selected?.AdInstructorCivil ? <small dir="ltr">{selected.AdInstructorCivil}</small> : null}
+          {selected?.AdInstructorCivil && !isFacultyPlaceholder(selected) ? <small dir="ltr">{selected.AdInstructorCivil}</small> : null}
         </span>
       </button>
 
@@ -290,7 +295,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
                     truncated to a single letter. */}
                 <span className="instructor-identity">
                   <b>{person.AdInstructorName}{visitingSet.has(person.AdInstructorId) ? <VisitingBadge compact /> : null}</b>
-                  <small dir="ltr">{person.AdInstructorCivil || "—"}</small>
+                  {!isFacultyPlaceholder(person) ? <small dir="ltr">{person.AdInstructorCivil || "—"}</small> : null}
                 </span>
                 {departmentRank.has(person.AdInstructorId) ? <i className="instructor-department-mark" title={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"} aria-label={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"}><CircleDot aria-hidden="true" /></i> : null}
                 {person.AdInstructorId === value ? <Check aria-hidden="true" /> : null}
