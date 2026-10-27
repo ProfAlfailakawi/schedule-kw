@@ -5,6 +5,7 @@ import { numericText } from "../utils/digits";
 import { sortByName } from "../utils/sorting";
 import VisitingConversionPanel from "./VisitingConversionPanel";
 import VisitingBadge from "./VisitingBadge";
+import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import {
   AddButton,
   EmbeddedAction,
@@ -225,8 +226,11 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
   };
   const filtered = useMemo(() => {
       const q = query.trim().toLowerCase();
+      // Only real people belong in the instructors directory. Placeholders
+      // remain available in the section's schedule picker, never with civil IDs.
+      const realInstructors = items.filter(x => !isFacultyPlaceholder(x));
       const base = q
-        ? items.filter((x) =>
+        ? realInstructors.filter((x) =>
             [
               x.AdInstructorCivil,
               x.AdInstructorName,
@@ -237,7 +241,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
                 .includes(q),
             ),
           )
-        : items;
+        : realInstructors;
       return sortByName(base, (x: any) => x.AdInstructorName);
     }, [items, query]),
     selected =

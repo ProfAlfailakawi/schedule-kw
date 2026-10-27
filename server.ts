@@ -88,7 +88,7 @@ import {
   decideException, exceptionRefusal, normalizeExceptionDays, resolveExceptionTargets, withException, withoutException,
   type ExceptionAction, type ExceptionAmount, type ExceptionOutcome,
 } from "./src/utils/submissionDeadlines";
-import { placeholderInstructorIdsOf } from "./src/utils/placeholderInstructor";
+import { placeholderInstructorIdsOf, isFacultyPlaceholder, singleFacultyPlaceholder, withoutFacultyPlaceholderCivil } from "./src/utils/placeholderInstructor";
 import {
   APPROVAL_STATUS_LABEL, blockingConflictPhrase, canSign, canSubmit, describeWholesaleRefusal, emptyApproval, inboxPriority,
   isFullySigned, isWholesaleChange, lastReviewedVersionId, readDeadline, statusAfterSignature, verificationCode,
@@ -3683,7 +3683,7 @@ function maskCivilTail(civil: unknown): string {
 }
 
 async function instructorsForScope<T extends { AdInstructorId: number; AdInstructorCivil?: string; AdInstructorMobile?: string }>(req: AuthenticatedRequest, list: T[], exactCivil = ""): Promise<T[]> {
-  const readable = instructorsForReader(req, list);
+  const readable = instructorsForReader(req, list).map(withoutFacultyPlaceholderCivil);
   const circle = await instructorCircleFor(req);
   if (!circle) return readable;
   return readable.map(person => circle.has(Number(person.AdInstructorId)) || (exactCivil && String(person.AdInstructorCivil || "").trim() === exactCivil)
@@ -3727,6 +3727,7 @@ app.get("/api/instructors", requireAnyPermission([3, 7, 8, 9, 10, 14, 16, 17]), 
     const digits = needle.replace(/\D/g, "");
     const allInstructors = await Repository.getInstructors();
     const filtered = allInstructors.filter(person => {
+      if (isFacultyPlaceholder(person)) return false; // university search is for real people
       const name = fold(person.AdInstructorName);
       if (name.includes(needle)) return true;
       if (needleSpaceless.length >= 4 && name.replace(/ /g, "").includes(needleSpaceless)) return true;
@@ -3749,8 +3750,9 @@ app.get("/api/instructors", requireAnyPermission([3, 7, 8, 9, 10, 14, 16, 17]), 
     const rosterIds = collegeId && termId ? await Repository.getVisitingRoster(collegeId, sectionId, termId) : [];
     /* دليل القسم اليدوي جزء من «أساتذة القسم» قبل أول جدول يُنشر: من سجّله
        المنسّق عضواً يجب أن يظهر هنا فوراً، لا بعد أول نشر يشتقّ منه التاريخ. */
+    const sectionFacultyIds = collegeId ? await Repository.getDepartmentFaculty(collegeId, sectionId) : [];
     const directoryIds = collegeId
-      ? [...await Repository.getDepartmentDelegates(collegeId, sectionId), ...await Repository.getDepartmentFaculty(collegeId, sectionId)]
+      ? [...await Repository.getDepartmentDelegates(collegeId, sectionId), ...sectionFacultyIds]
       : [];
     const manualIds = [...new Set([...rosterIds, ...directoryIds].map(Number).filter(Boolean))];
     const manualPeople = manualIds.length
@@ -3767,9 +3769,11 @@ app.get("/api/instructors", requireAnyPermission([3, 7, 8, 9, 10, 14, 16, 17]), 
       const placeholders = (allPeople as any[]).filter(person => placeholderIds.has(Number(person.AdInstructorId)));
       const collegeIds = new Set(await collegeFallbackInstructorIds(Number(sectionRow?.AdCollegeId || 0)));
       const sameCollege = placeholders.filter(person => collegeIds.has(Number(person.AdInstructorId)));
-      for (const person of sameCollege.length ? sameCollege : placeholders) merged.push(person as any);
+      // Legacy fallback must not put several foreign placeholders in one selector.
+      const fallback = (sameCollege.length ? sameCollege : placeholders)[0];
+      if (fallback) merged.push(fallback as any);
     }
-    await send(sortArabicNamed(merged, row => row.AdInstructorName));
+    await send(singleFacultyPlaceholder(sortArabicNamed(merged, row => row.AdInstructorName), sectionFacultyIds));
     return;
   }
 
@@ -3818,6 +3822,11 @@ app.post("/api/instructors", requireAnyPermission([3, 7]), async (req: Authentic
     return;
   }
 
+  // Do not let a person manually register another faculty placeholder.
+  if (isFacultyPlaceholder({ AdInstructorId: 1, AdInstructorName })) {
+    res.status(400).json({ error: "«هيئة تدريسية» سجل افتراضي ينشئه النظام للقسم، وليس أستاذاً جديداً." });
+    return;
+  }
   // Validate Civil ID
   const valResult = validateCivilId(AdInstructorCivil);
   if (!valResult.isValid) {
@@ -15738,7 +15747,10 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
     Repository.getInstructors(), Repository.getCourses(), Repository.getColleges(), Repository.getTerms(), Repository.getSections()
   ]);
   const person = instructors.find(row => sameCivilId(row.AdInstructorCivil, digits));
-  if (!person) return null;
+  // A demo sandbox deliberately includes fictitious civil IDs: let its
+  // instructor card keep working. Production must never authenticate an
+  // artificial "هيئة تدريسية" identity as a real professor.
+  if (!person || (!Repository.isDemoRequest() && isFacultyPlaceholder(person))) return null;
   /* ── الرابطُ الشخصي لا يُفتح إلا لصاحبه ────────────────────────────────────
    * رابطُ القسم مع رقمِ زميلٍ مدنيّ كان يفتح بطاقةَ الزميل وتاريخَ طلباته
    * وقراراتِ القسم فيها. فالرابطُ الذي يرسله القسم لكل أستاذٍ مقيّدٌ برقمه:
@@ -18816,7 +18828,7 @@ async function demoPageHint(link: ScheduleShareLink, page: "staff" | "survey" | 
     const demoOwner = page === "staff" && !ownerId ? Number((await demoTeacherRequest())?.AdInstructorId || 0) : 0;
     const instructors = await Repository.getInstructors();
     const person = (demoOwner ? instructors.find(row => Number(row.AdInstructorId) === demoOwner && normalizeCivilId(row.AdInstructorCivil)) : undefined)
-      || instructors.find(row => ids.includes(Number(row.AdInstructorId)) && normalizeCivilId(row.AdInstructorCivil));
+      || instructors.find(row => !isFacultyPlaceholder(row) && ids.includes(Number(row.AdInstructorId)) && normalizeCivilId(row.AdInstructorCivil));
     if (person) lines.push(page === "request"
       ? `رقمُ صاحب هذا الرابط المدني (وهمي) للتوقيع عند الإرسال: ${num(normalizeCivilId(person.AdInstructorCivil))}`
       : `جرّب الرقم المدني ${num(normalizeCivilId(person.AdInstructorCivil))} — أستاذٌ وهمي في هذا القسم.`);
