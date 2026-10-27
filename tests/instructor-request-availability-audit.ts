@@ -11,6 +11,8 @@ import { roomSuitability } from "../src/utils/roomSuitability";
 import { appendRequestThread } from "../src/utils/instructorRequestThread";
 import { generateSyntheticCivilId } from "../src/utils/civilId";
 import { learnCourseNature } from "../src/utils/courseNature";
+import { unchangedScheduleFingerprint } from "../src/utils/instructorRequestConfirmation";
+import { unchangedConfirmationKind } from "../src/utils/instructorRequestConfirmation";
 
 const row = (patch: Partial<FSchedule> = {}) => ({
   id: 1, AdTermId: 900001, AdCollegeId: 1, AdSectionId: 1, AdCourseId: 1,
@@ -214,6 +216,54 @@ const proposal = (itemId: string, instructorId: number): RequestReservationPropo
   courseId: 1, collegeId: 1, sectionId: 1, offeringRowIds: [],
   slots: [{ day: "fmonday", start: "08:00", end: "09:20" }, { day: "fwednesday", start: "08:00", end: "09:20" }],
   rooms: [{ roomId: "last-room", room: "TEST", hall: "LAST" }] });
+
+// The direct unchanged-signature route must compare its earlier timetable
+// snapshot inside the same repository transaction that settles the request.
+const confirmationTerm = 900017;
+const { id: _confirmationId, ...confirmationSchedule } = row({ id: -1, AdTermId: confirmationTerm,
+  AdInstructorId: 880017, AdCourseId: 1, AdCollegeId: 1, AdSectionId: 1, SCode: "CONFIRM", fsunday: true,
+  fmonday: false, ftuesday: false, fwednesday: false, fthursday: false, fstarttime: "18:00", fendtime: "18:50",
+  roomId: "confirm-room", AdRoomCode: "TEST", AdRoomHall: "CONFIRM" });
+const confirmationRow = await Repository.createSchedule(confirmationSchedule);
+const confirmationItem: InstructorRequest["items"][number] = { rowId: confirmationRow.id, action: "keep",
+  before: { courseId: confirmationRow.AdCourseId, courseName: "Confirmation test", collegeId: confirmationRow.AdCollegeId, sectionId: confirmationRow.AdSectionId,
+    sectionCode: confirmationRow.SCode, days: "الأحد", time: "18:00 – 18:50" },
+  slots: [{ day: "fsunday", start: "18:00", end: "18:50" }] };
+const normalConfirmation = await Repository.createInstructorRequest({ AdTermId: confirmationTerm, AdCollegeId: 1, AdSectionId: 1,
+  AdInstructorId: 880017, linkId: "confirm-normal", source: "draft", status: "sent", window: { opensAt: "", closesAt: "" }, items: [confirmationItem], timeline: [],
+  signature: { at: "before", fingerprint: "preserved", verifyCode: "123456", signedItems: [], keptCount: 1 } as any,
+  signatureHistory: [{ at: "older", fingerprint: "history", verifyCode: "654321", signedItems: [], keptCount: 1 } as any] });
+const liveForNormal = await Repository.getSchedulesByScope({ termId: confirmationTerm });
+const normalStamp = unchangedScheduleFingerprint(liveForNormal, 880017);
+const officialBeforeConfirmation = await Repository.getScheduleById(confirmationRow.id);
+const normalSaved = await Repository.saveInstructorRequest({ ...normalConfirmation, status: "settled",
+  timeline: [{ kind: unchangedConfirmationKind, at: new Date().toISOString() }] }, undefined, { scheduleFingerprint: normalStamp });
+assert.equal(normalSaved.status, "settled", "a normal unchanged signature settles when its atomic timetable guard matches");
+assert.equal(normalSaved.signature?.fingerprint, "preserved", "successful confirmation retains its signature");
+assert.equal((await Repository.getScheduleById(confirmationRow.id))?.fstarttime, officialBeforeConfirmation?.fstarttime,
+  "confirming an unchanged timetable never writes official schedule rows");
+
+const { id: _staleId, ...staleSchedule } = row({ id: -1, AdTermId: confirmationTerm,
+  AdInstructorId: 880018, AdCourseId: 1, AdCollegeId: 1, AdSectionId: 1, SCode: "STALE", fsunday: true,
+  fmonday: false, ftuesday: false, fwednesday: false, fthursday: false, fstarttime: "18:00", fendtime: "18:50",
+  roomId: "stale-confirm-room", AdRoomCode: "TEST", AdRoomHall: "STALE" });
+const staleRow = await Repository.createSchedule(staleSchedule);
+const staleItem: InstructorRequest["items"][number] = { ...confirmationItem, rowId: staleRow.id };
+const staleRequest = await Repository.createInstructorRequest({ AdTermId: confirmationTerm, AdCollegeId: 1, AdSectionId: 1,
+  AdInstructorId: 880018, linkId: "confirm-stale", source: "draft", status: "sent", window: { opensAt: "", closesAt: "" }, items: [staleItem], timeline: [],
+  signature: { at: "before", fingerprint: "stale-signature", verifyCode: "222222", signedItems: [], keptCount: 1 } as any,
+  signatureHistory: [{ at: "older", fingerprint: "stale-history", verifyCode: "333333", signedItems: [], keptCount: 1 } as any] });
+const staleLive = await Repository.getSchedulesByScope({ termId: confirmationTerm });
+const staleStamp = unchangedScheduleFingerprint(staleLive, 880018);
+const staleOfficial = await Repository.getScheduleById(staleRow.id);
+await Repository.updateSchedule(staleRow.id, { fstarttime: "17:00", fendtime: "17:50" }, Number(staleOfficial?.rev || 1));
+await assert.rejects(() => Repository.saveInstructorRequest({ ...staleRequest, status: "settled" }, undefined,
+  { scheduleFingerprint: staleStamp }), /تغيّر جدولك بعد فتح التأكيد/,
+  "a moved official row between initial read and atomic confirmation is rejected");
+const staleStored = await Repository.getInstructorRequest(staleRequest.id);
+assert.equal(staleStored?.status, "sent", "a stale confirmation does not settle or remove the request");
+assert.equal(staleStored?.signature?.fingerprint, "stale-signature", "a rejected stale confirmation preserves signature history");
+assert.equal((await Repository.getScheduleById(staleRow.id))?.fstarttime, "17:00", "the department's newer official timetable remains untouched");
 const contenders = await Promise.all(Array.from({ length: 40 }, async (_, at) => {
   const payload = request([add(`item-${at}`)], 80000 + at);
   const { id: _id, createdAt: _created, updatedAt: _updated, ...input } = payload;

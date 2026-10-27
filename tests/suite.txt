@@ -156,3 +156,4 @@ test:instructor-availability
 test:instructor-offering-flow
 test:ta-conversion
 test:unchanged-request
+test:unchanged-request-http

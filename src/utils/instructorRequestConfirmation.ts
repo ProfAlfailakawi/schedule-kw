@@ -9,12 +9,24 @@ import { dayKeysOf } from "./instructorRequestItems";
 
 export const unchangedConfirmationKind = "unchanged-confirmed" as const;
 
+/** Stable snapshot of the signer's complete live timetable for atomic confirmation. */
+export function unchangedScheduleFingerprint(rows: LiveRow[], instructorId: number): string {
+  return JSON.stringify(rows
+    .filter(row => Number(row.AdInstructorId) === Number(instructorId))
+    .map(row => [Number(row.id), Number(row.AdTermId || 0), Number(row.AdInstructorId), Number(row.AdCourseId),
+      Number(row.AdCollegeId), Number(row.AdSectionId), String(row.SCode || ""),
+      ...dayKeysOf(row).sort(), String(row.fstarttime || ""), String(row.fendtime || ""),
+      String((row as any).roomId || ""), String((row as any).AdRoomCode || ""), String((row as any).AdRoomHall || ""),
+      Number((row as any).rev || 0)])
+    .sort((a, b) => Number(a[0]) - Number(b[0])));
+}
+
 export function isUnchangedConfirmed(request: Pick<InstructorRequest, "status" | "timeline">): boolean {
   return request.status === "settled" && (request.timeline || []).some(event => event.kind === unchangedConfirmationKind);
 }
 
 type LiveRow = {
-  id: number; AdInstructorId: number; AdCourseId: number; AdCollegeId: number;
+  id: number; AdTermId?: number; AdInstructorId: number; AdCourseId: number; AdCollegeId: number;
   AdSectionId: number; SCode?: string; fstarttime: string; fendtime: string;
   fsunday?: boolean; fmonday?: boolean; ftuesday?: boolean; fwednesday?: boolean; fthursday?: boolean;
 };

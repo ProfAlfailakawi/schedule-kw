@@ -83,7 +83,7 @@ import { coversWholeCollege, expandScopeSections, resolveSmartScope } from "./sr
 import { finalSourceFor, type Finality } from "./src/utils/finality";
 import { movementAttribution } from "./src/utils/movementAttribution";
 import { firstInstructorEditAt, movementAfterInstructorEdit } from "./src/utils/instructorMovementWindow";
-import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind } from "./src/utils/instructorRequestConfirmation";
+import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind, unchangedScheduleFingerprint } from "./src/utils/instructorRequestConfirmation";
 import { isLate } from "./src/utils/lateness";
 import {
   decideException, exceptionRefusal, normalizeExceptionDays, resolveExceptionTargets, withException, withoutException,
@@ -21624,10 +21624,14 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   /* ملاحظةُ الأستاذ العامة للقسم عن بناء جدوله: نصٌّ حرٌّ اختياري، لا يدخل في الحكم على البنود. */
   const generalNote = String(req.body?.note || "").trim().slice(0, 400);
   // Only a genuine LIVE unmodified timetable can be confirmed immediately.
-  const unchangedConfirmed = changed === 0 && canConfirmUnchanged(
-    judged, await Repository.getSchedulesByScope({ termId: Number(resolved.request.AdTermId) }), generalNote, resolved.request,
-  );
-  const saved = await Repository.saveInstructorRequest({
+  let liveRows: FSchedule[] = [];
+  let unchangedConfirmed = false;
+  if (changed === 0) {
+    liveRows = await Repository.getSchedulesByScope({ termId: Number(resolved.request.AdTermId) });
+    unchangedConfirmed = canConfirmUnchanged(judged, liveRows, generalNote, resolved.request);
+  }
+  let saved: InstructorRequest;
+  try { saved = await Repository.saveInstructorRequest({
     ...resolved.request,
     archivedItems: [...(resolved.request.archivedItems || []), ...(resolved.request.submittedAt ? resolved.request.items.filter(old => old.action === "add" && !judged.items.some(next => next.itemId && next.itemId === old.itemId)).map(item => ({ at, item })) : [])],
     items: judged.items,
@@ -21642,7 +21646,13 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
       { kind: "submitted", at, detail: String(changed) },
       ...(unchangedConfirmed ? [{ kind: unchangedConfirmationKind, at }] : [{ kind: "received" as const, at, by: "القسم" }]),
     ],
-  }, await requestReservationProposals(judged));
+  }, await requestReservationProposals(judged), unchangedConfirmed
+    ? { scheduleFingerprint: unchangedScheduleFingerprint(liveRows, Number(resolved.request.AdInstructorId)) }
+    : undefined); }
+  catch (error: any) {
+    if (error instanceof RequestReservationConflict) { res.status(409).json({ error: error.message, code: error.code, draftPreserved: true }); return; }
+    throw error;
+  }
 
   res.setHeader("Cache-Control", "no-store");
   if (!unchangedConfirmed) broadcastNotify(Repository.currentDemoSessionId());
