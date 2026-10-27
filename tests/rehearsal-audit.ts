@@ -246,8 +246,8 @@ const block = (source: string, start: string, end = "\napp.") => {
   check(movementAfterInstructorEdit([{ at: "2026-09-25T17:44:00.000Z", text: "رفع الجدول" }], []).length === 0,
     "R7: لا حركة في البطاقة قبل أن يرسل الأستاذ طلب تعديل");
   const card = block(server, "async function buildStaffCard", 'app.get("/api/share"');
-  check(card.includes("movementAfterInstructorEdit([") && card.includes("], requestRows).sort("),
-    "R7: قيد البداية مطبّق في بطاقة الأستاذ وحدها");
+  check(server.includes("movementAfterInstructorEdit(history, ownRequests)") && !card.includes("movementHistory:"),
+    "R7: قيد بداية الحركة مطبّق في الصفحة الداخلية دون تبويب خارجي");
 }
 
 /* ══ R8: الجلسةُ التجريبية المفقودة تُسمّى باسمها ═════════════════════════════════

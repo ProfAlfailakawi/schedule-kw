@@ -276,11 +276,11 @@ async function main() {
     const card = server.slice(server.indexOf("async function buildStaffCard"), server.indexOf('app.get("/api/share"'));
     check(card.includes('if (!trace.some(entry => entry.tone === "gone")) return null;'), "D8 من فقد كل صفوفه تُفتح بطاقته، ومن لم يدرّس قطّ يبقى 404");
     check(!/if \(!linkRows\.length\) return null;/.test(card), "D8 لا بوابة «لا صفوف ← 404» بلا نظرٍ في التاريخ");
-    check(card.includes("historyScopes: displayTermId === link.AdTermId ? linkHistoryScopes"), "D8 حركة البطاقة تقرأ أقسام التاريخ");
-    check(server.includes("historyScopes: movementHistoryScopes([request])"), "D8 حركة صفحة الطلب تقرأ قسم الطلب");
+    check(card.includes("historyScopes: linkHistoryScopes"), "D8 تاريخ الأقسام يبقى لحماية وصول من حُذفت جميع محاضراته");
+    check(server.includes("historyScopes: movementHistoryScopes(ownRequests"), "D8 حركة صفحة الطلب تقرأ جميع أقسام الطلبات السابقة");
     const page = server.slice(server.indexOf("function staffCardPage"), server.indexOf("function surveyPage"));
-    check(page.includes('selectTab(!d.lectureCount && (d.movementHistory||[]).length ? "movement" : "week")') && page.includes("لا محاضرات لك في هذا الفصل"),
-      "D8 البطاقة الفارغة تقول «لا محاضرات لك» وتفتح على الحركة");
+    check(page.includes('selectTab("week")') && page.includes("لا محاضرات لك في هذا الفصل") && !page.includes('id="tab-movement"'),
+      "D8 البطاقة الفارغة تقول «لا محاضرات» دون تبويب حركة خارجي");
   }
 
 
@@ -378,7 +378,7 @@ async function main() {
     /* بابُ الطلب يصل بعد مطابقة الرقم المدني في الرابطين (طلبُ المالك 2026-10-01)؛
        والتاريخُ وقراراتُ القسم يبقيان خارج رابط القسم العام. */
     check(card.includes("const eligibleRequests: Array<{ request: InstructorRequest; windowOpen: boolean }>") && card.includes("const requestLinks = eligibleRequests") && card.indexOf("sameCivilId(row.AdInstructorCivil, digits)") < card.indexOf("const requestLinks")
-      && card.includes("...(personal ? requestMovementEntries(requestRows) : [])"), "D12 بابُ الطلب بعد الرقم المدني، والتاريخ خارج رابط القسم");
+      && !card.includes("movementHistory:") && card.includes("requestLinks,"), "D12 بابُ الطلب بعد الرقم المدني، ولا تاريخ حركة في البطاقة الخارجية");
     const minting = server.slice(server.indexOf('app.post("/api/share/:id/personal"'), server.indexOf("// --- Public surface (no account)"));
     check(minting.includes('app.post("/api/share/:id/personal", requirePermission(7)') && minting.includes("staffLinkFamilyAllowed(req, parent)"), "D12 سكّ الروابط الشخصية للشاشة ٧ ضمن النطاق");
     check(minting.includes("if (!eligible.has(instructorId)) continue;") && minting.includes("live.get(instructorId)"), "D12 لأساتذة القسم وحدهم، ويُعاد استعمال الرابط القائم");
@@ -390,7 +390,7 @@ async function main() {
     check(publish.includes("share-personal-revoke") && publish.includes("data-guide-ignore=\"إيقاف الرابط الشخصي"), "D12 إيقاف رابطٍ شخصيٍّ لكل أستاذ، بسمة المرشد");
     check(publish.includes('!(link.kind === "staff" && Number(link.AdInstructorId || 0) > 0)'), "D12 الروابط الشخصية لا تختلط بقائمة روابط النشر");
     const page = server.slice(server.indexOf("function staffCardPage"), server.indexOf("function surveyPage"));
-    check(page.includes("طلباتك وقرارات القسم فيها تظهر في رابطك الشخصي"), "D12 رابط القسم يقول أين تُقرأ الطلبات");
+    check(page.includes('id="tab-requests"') && page.includes("function renderRequests(d)"), "D12 باب الطلب موجود بعد التحقق، دون تبويب حركة خارجي");
   }
 
   /* ── D14: «من تغيّر جدولهم» و«منذ زيارتك الأخيرة» ─────────────────────────── */
@@ -414,7 +414,7 @@ async function main() {
     check(staffPost.includes("markShareLinkInstructor(resolved.link.id, cardInstructorId, { seenAt:") && staffPost.includes("lastSeenAt: previousVisit?.seenAt"), "D14 البطاقة تسجّل الزيارة وتعيد السابقة");
     check(staffPost.includes("const { instructorId: cardInstructorId, fingerprint: cardFingerprint, ...visible } = card;"), "D14 البصمة ورقم الأستاذ لا يُرسلان للصفحة");
     const page = server.slice(server.indexOf("function staffCardPage"), server.indexOf("function surveyPage"));
-    check(page.includes("تغيّر جدولك منذ زيارتك الأخيرة") && page.includes("جديد منذ زيارتك الأخيرة"), "D14 البطاقة تقول ما تغيّر منذ الزيارة الأخيرة");
+    check(page.includes("تغيّر جدولك منذ زيارتك الأخيرة") && page.includes("راجع جدولك الأسبوعي."), "D14 البطاقة تعلن تغيّر الجدول دون إحالة إلى حركة خارجية محذوفة");
   }
 
   /* ── خريطة القسم في بطاقة الأستاذ: أيقونةٌ واحدة بلا نص، وتظهر فقط مع صحيفةٍ منشورة؛ ومؤشرُ التبويب بعدد الظاهر ── */
@@ -425,7 +425,7 @@ async function main() {
     check(/if\(d\.planMapUrl\)/.test(cardPage), "بطاقة الأستاذ: تُظهرها الواجهة فقط إذا جاء رابطٌ من الخادم");
     const post = server.slice(server.indexOf('app.post("/api/public/staff/:token", '), server.indexOf('app.post("/api/public/staff/:token", ') + 4500);
     check(post.includes("listPublishedSheets()") && post.includes("planMapUrl") && post.includes(': "";'), "الخادم يرسل رابط الخريطة لقسمٍ له صحيفةٌ منشورة وإلا فارغًا");
-    check(cardPage.includes(".card-tabs:has(#tab-requests:not([hidden]))::before{width:calc((100% - 16px)/3)}") && cardPage.includes("width:calc((100% - 12px)/2)"), "مؤشر التبويب: نصف العرض لتبويبين وثلثه لثلاثة");
+    check(cardPage.includes(".card-tabs:has(#tab-requests:not([hidden]))::before{width:calc((100% - 12px)/2)}") && cardPage.includes("width:calc(100% - 8px)") && !cardPage.includes("#tab-movement[aria-selected=true]"), "مؤشر التبويب: كامل العرض لتبويب واحد ونصفه لتبويبين");
   }
 
   console.log(`\nDoctor journey audit: ${passed} passed, ${failed} failed`);

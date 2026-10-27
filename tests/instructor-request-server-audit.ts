@@ -14,6 +14,7 @@
 
 import fs from "fs";
 import path from "path";
+import { firstInstructorEditAt, movementAfterInstructorEdit } from "../src/utils/instructorMovementWindow";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -209,13 +210,51 @@ check(kit.includes('placeholder="12 رقمًا"') && kit.includes("— 12 رقم
 const staffPage = server.slice(server.indexOf("function staffCardPage"), server.indexOf("function surveyPage"));
 check(!staffPage.includes("أبلغ القسم") && !staffPage.includes("فهمت التغييرات"),
   "بطاقةُ الأستاذ خاليةٌ من زر الإبلاغ ومن إقرار «فهمت» المتكرر");
-check(staffPage.includes("حركة الجدول") && staffPage.includes("function renderRequests(d)"),
-  "وفيها تبويبُ حركة الجدول وبابُ طلب التعديل الكامل");
-check(staffPage.includes('ar-KW-u-nu-latn') && staffPage.includes("friendlyDate(m.at,true)"),
-  "وتواريخ الحركة تُعرض مفهومة وبأرقام إنجليزية، لا كسلسلة ISO خام");
+check(!staffPage.includes('id="tab-movement"') && !staffPage.includes('id="panel-movement"')
+  && staffPage.includes('function renderRequests(d)') && staffPage.includes('id="tab-week"'),
+  "أُزيل تبويب الحركة الخارجي فقط، وبقي الجدول الأسبوعي وباب طلب التعديل");
+check(staffPage.includes('ar-KW-u-nu-latn') && staffPage.includes('friendlyDate(new Date().toISOString(),false)'),
+  "التاريخ في بطاقة الأستاذ واضح بأرقام إنجليزية، حتى بعد إزالة الحركة الخارجية");
 check(server.includes("requestLinks,") && server.includes("Repository.getInstructorRequests"),
   "وبطاقةُ الأستاذ تصل إلى دورة الطلب الموجودة أصلاً، لا نموذجٍ موازٍ جديد");
 
+
+/* ── الحركة والتقويم: سياجٌ ثابت حتى لا يعود العطل ──────────────────────── */
+check(server.includes("firstInstructorEditAt(ownRequests)") && server.includes("movementAfterInstructorEdit(history, ownRequests)")
+  && server.includes("movementHistoryScopes(ownRequests") && server.includes("firstSentAt === null ? []"),
+  "الحركة الداخلية تُقرأ بعد أول إرسال فقط، وتشمل نطاقات طلبات الأستاذ القديمة");
+check(page.includes("movementSince=d.movementSince||null")
+  && page.includes("تبدأ حركة جدولك الرسمية بعد إرسال أول طلب تعديل.")
+  && page.includes("function activityHtml(r)"),
+  "الصفحة الداخلية توضّح بداية الحركة وتحافظ على سجل الطلب والردود");
+check(staffPage.includes('document.getElementById("ics").style.display = "none"')
+  && page.includes('function calendarHtml(compact){return ""}'),
+  "إخفاء زر التقويم المتعطل من الخارج والداخل دون حذف مسارات الاشتراك بالخادم");
+check(server.includes('app.get("/api/public/ics/:token/:key"'),
+  "رابط التقويم الخلفي محفوظ دون تغيير");
+
+const first = { submittedAt: "2026-10-27T12:00:00.000Z", timeline: [
+  { kind: "submitted", at: "2026-10-22T08:00:00.000Z" },
+  { kind: "received", at: "2026-10-22T08:01:00.000Z" },
+  { kind: "submitted", at: "2026-10-27T12:00:00.000Z" },
+] };
+check(firstInstructorEditAt([first]) === Date.parse("2026-10-22T08:00:00.000Z"),
+  "إعادة إرسال الطلب لا تغيّر تاريخ أول إرسال");
+check(firstInstructorEditAt([{ submittedAt: "2026-10-23T09:00:00.000Z" }, first]) === Date.parse("2026-10-22T08:00:00.000Z"),
+  "أول إرسال يُحسب عبر جميع طلبات الأستاذ في الفصل");
+check(firstInstructorEditAt([{ submittedAt: "2026-10-21T10:00:00.000Z" }]) === Date.parse("2026-10-21T10:00:00.000Z"),
+  "الطلبات القديمة من دون timeline تستعمل تاريخ الإرسال المحفوظ");
+check(firstInstructorEditAt([{ submittedAt: null, timeline: [{ kind: "link-opened", at: "2026-10-20T08:00:00Z" }] }]) === null
+  && movementAfterInstructorEdit([{ at: "2026-10-27T16:00:00Z" }], [{ submittedAt: null }]).length === 0,
+  "قبل أول إرسال لا تظهر أي حركة رسمية");
+const displayed = movementAfterInstructorEdit([
+  { at: "2026-10-20T16:00:00Z", id: 1 },
+  { at: "2026-10-22T08:00:00Z", id: 2 },
+  { at: "2026-10-25T16:00:00Z", id: 3 },
+  { at: "invalid", id: 4 },
+], [first]).map(row => row.id);
+check(JSON.stringify(displayed) === JSON.stringify([2, 3]),
+  "التغييرات من لحظة أول إرسال فصاعداً فقط، والتواريخ الفاسدة لا تظهر");
 
 /* ── الحزمةُ تُقاس على نفسها ────────────────────────────────────────────── */
 

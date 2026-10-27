@@ -208,9 +208,9 @@ check(/verifyHtml\(r\.signature&&r\.signature\.verifyCode\)/.test(page) && /تح
 
 /* ── المرحلة ٤: اشتراك التقويم (عقودٌ ساكنة) ───────────────────────────── */
 check(/calendarFeed: `\/api\/public\/ics\/\$\{encodeURIComponent\(resolved\.link\.id\)\}\/\$\{encodeURIComponent\(calendarToken\)\}/.test(server) && server.includes("calendarKey(resolved.link.id, Number(request.AdInstructorId))"), "الكرت يعيد استعمال مفتاح اشتراك بطاقة الأستاذ نفسه");
-check(/webcal:\/\/'\+esc\(location\.host\)\+esc\(data\.calendarFeed\)/.test(page) && /أضف جدولك إلى تقويم هاتفك/.test(page), "زرّ «أضف جدولك إلى تقويم هاتفك» برابط webcal");
+check(page.includes('function calendarHtml(compact){return ""}'), "زر التقويم معطّل العرض مؤقتاً وفق الملاحظة");
 check(/anyFixed\(\)\?calendarHtml\(true\)/.test(page) && /calendarHtml\(false\)\+'<button type="button" class="btn-main" id="again">/.test(page), "في رأس الكرت بعد التثبيت وفي شاشة «وصل طلبك»");
-check(/يتحدّث تلقائياً عند أي تثبيتٍ جديد/.test(page), "ويشرح أنه يتحدّث من نفسه");
+check(server.includes('app.get("/api/public/ics/:token/:key"'), "اشتراك التقويم على الخادم محفوظ");
 
 /* ── المرحلة ٥: «أعد الطلب نفسه» (سلوكٌ بمحرّك V8 نفسه) ──────────────── */
 const replaySandbox: any = {};
@@ -286,7 +286,7 @@ check(!/prefers-color-scheme:\s*dark/.test(css4), "لا وضعَ داكن: ال�
 check(css4.includes(".verdict[data-tone=warn]>i{background:#8a6100}"), "أيقونة التنبيه بتباينٍ كافٍ في الفاتح");
 check(kit4.includes("وقّع برقمك المدني"), "عنوانُ ورقة التوقيع الجديد");
 check(server.includes("memoryHtml()+planTable()") || server.includes("replayHtml()+memoryHtml()"), "بطاقةُ الذاكرة أعلى الجدول");
-check(server.includes("calmHtml") && server.includes("calendarHtml"), "التقويمُ داخل البطاقة الهادئة");
+check(server.includes("calmHtml") && page.includes('function calendarHtml(compact){return ""}'), "زر التقويم لا يظهر في البطاقة الهادئة");
 
 /* السكربت المولَّد يُجمَّع كما هو. */
 const html = server.includes("function instructorRequestPage") ? "ok" : "";
