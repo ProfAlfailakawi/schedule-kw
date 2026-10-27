@@ -21641,7 +21641,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   }, await requestReservationProposals(judged));
 
   res.setHeader("Cache-Control", "no-store");
-  broadcastNotify(Repository.currentDemoSessionId());
+  if (!unchangedConfirmed) broadcastNotify(Repository.currentDemoSessionId());
   res.json({ request: stripForInstructor(saved), changed, unchangedConfirmed });
 });
 
@@ -22133,7 +22133,7 @@ function confirmedHtml(r){
  '<p class="confirm-name">'+esc(data.instructorName)+' · '+esc(data.termName)+'</p>'+
  '<div class="confirm-facts" aria-label="حالة جدولك">'+
  '<div class="confirm-fact">'+gi("cal")+'<span>دون تعديلات</span></div>'+
- '<div class="confirm-fact">'+gi("finger")+'<span>توقيع محفوظ</span></div>'+
+ '<div class="confirm-fact">'+gi("finger")+'<span>التوقيع محفوظ</span></div>'+
  '<div class="confirm-fact">'+gi("shield")+'<span>مكتمل</span></div></div>'+
  (code?'<details class="confirm-code"><summary>'+gi("check")+'تفاصيل التوقيع</summary>'+verifyHtml(code)+'</details>':'')+
  '</div></section>'

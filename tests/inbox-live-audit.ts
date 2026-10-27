@@ -22,8 +22,10 @@ check(inbox.includes('onNavigate?.("schedules")') && inbox.includes("onExpand"),
 check(inbox.includes('className="request-filters"') && inbox.includes('useState<"pending" | "fixed" | "rejected" | "all">("pending")'),
   "مرشّحات، والافتراضيُّ ما ينتظر القرار");
 check(inbox.includes("setRowErrors(prev => ({ ...prev, [key]: inboxMessage(e.message) }))"), "رفضُ الخادم يُقال على صفّه، لا في أعلى الصفحة");
-check(server.includes('function broadcastNotify(demoSessionId = "")') && /broadcastNotify\(Repository\.currentDemoSessionId\(\)\);\n\s*res\.json\(\{ request: stripForInstructor\(saved\), changed \}\);/.test(server),
-  "طلبُ الأستاذ يُنبّه الشاشات المفتوحة في لحظته (وفي صندوق العرض شاشاتِ صندوقه وحدها)");
+check(server.includes('function broadcastNotify(demoSessionId = "")')
+  && server.includes('if (!unchangedConfirmed) broadcastNotify(Repository.currentDemoSessionId());')
+  && server.includes('res.json({ request: stripForInstructor(saved), changed, unchangedConfirmed });'),
+  "الطلبات التي تحتاج القسم تُنبّه وارده فوراً، والتثبيت المباشر لا يولّد تنبيه مراجعة");
 
 check(inbox.includes("siblings.set(Number(other.rowId)") && inbox.includes("extra.after"),
   "الحذفُ ثم الإضافة في الطلب نفسه ترتيبٌ لا تعارض: يُثبَّت الشقيقُ أولاً");
