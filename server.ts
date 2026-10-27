@@ -23003,11 +23003,12 @@ app.get("/api/public/request/:token/academic-advice", async (req: Request, res: 
     const lists = await Promise.all([...scopes.values()].slice(0, 12).map(scope =>
       academicAdviceForScope(scope.collegeId, scope.sectionId, Number(request.AdTermId))));
     const pairs = lists.flatMap(reading => reading.pairs).filter(pair => owned.has(pair.a) || owned.has(pair.b));
+    const timePreferences = lists.flatMap(reading => reading.timePreferences || []).filter(item => owned.has(item.courseId));
     res.setHeader("Cache-Control", "no-store");
-    res.json({ pairs, nonBlocking: true });
+    res.json({ pairs, timePreferences, nonBlocking: true });
   } catch {
     res.setHeader("Cache-Control", "no-store");
-    res.json({ pairs: [], nonBlocking: true }); // advisory outage never blocks the teacher
+    res.json({ pairs: [], timePreferences: [], nonBlocking: true }); // advisory outage never blocks the teacher
   }
 });
 
