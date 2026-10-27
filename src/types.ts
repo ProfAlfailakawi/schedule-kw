@@ -1473,6 +1473,7 @@ export interface InstructorRequestMessage {
 /** حدثٌ في حياة الطلب. الأستاذ يراها كلَّها عن طلبه هو، ولا يرى طلبَ غيره. */
 export type InstructorRequestEventKind =
   | "link-created" | "link-opened" | "submitted" | "received" | "unchanged-confirmed"
+  | "schedule-replaced"
   | "item-fixed" | "item-rejected" | "alternative-offered" | "alternative-chosen"
   | "settled" | "schedule-approved"
   | "department-replied" | "instructor-replied" | "proposal-accepted"
@@ -1489,7 +1490,7 @@ export interface InstructorRequestEvent {
   detail?: string;
 }
 
-export type InstructorRequestStatus = "sent" | "submitted" | "in-review" | "settled";
+export type InstructorRequestStatus = "sent" | "submitted" | "in-review" | "settled" | "superseded";
 
 export interface InstructorRequest {
   requestRevision?: number;

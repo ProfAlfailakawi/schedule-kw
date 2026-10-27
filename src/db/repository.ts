@@ -5334,6 +5334,24 @@ export const Repository = {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
 
+  /** إقفال جولات رغبات الأستاذ التي بُنيت على جدولٍ مُسح لاستبداله.
+   * تبقى الطلبات كسجلّ محفوظ، لكن لا تبقى قابلةً للتقديم أو تُعرض كأنها تخصّ الجدول الجديد. */
+  supersedeInstructorRequestsForScope: async (collegeId: number, sectionId: number, termId: number, at = new Date().toISOString()): Promise<number> => {
+    const requests = (await Repository.getInstructorRequests(collegeId, sectionId, termId))
+      .filter(row => row.status !== "superseded");
+    let count = 0;
+    for (const row of requests) {
+      await Repository.saveInstructorRequest({
+        ...row,
+        status: "superseded",
+        timeline: [...(row.timeline || []), { kind: "schedule-replaced", at, by: "القسم", detail: "استُبدل جدول القسم، وأُغلقت جولة الرغبات السابقة." }],
+      });
+      await Repository.revokeShareLink(row.linkId);
+      count++;
+    }
+    return count;
+  },
+
 
   /* ══════════════════════════════════════════════════════════════════════
      المقترحات الدراسية

@@ -58,6 +58,7 @@ export function RequestStatusStepper({ row }: { row: Pick<InstructorRequest, "st
 }
 
 const EVENT: Record<InstructorRequestEventKind, { title: string; icon: ReactElement; tone: DnaTone }> = {
+  "schedule-replaced": { title: "استُبدل الجدول", icon: <History />, tone: "neutral" },
   "link-created": { title: "أُنشئ الرابط", icon: <Link2 />, tone: "neutral" },
   "link-opened": { title: "فُتح الرابط", icon: <Eye />, tone: "sky" },
   "submitted": { title: "أرسل الأستاذ طلبه", icon: <Send />, tone: "accent" },
