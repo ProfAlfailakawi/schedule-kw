@@ -1,4 +1,6 @@
 import { roomSuitability } from "./src/utils/roomSuitability";
+import { academicAdviceForScope } from "./src/server/academicAdvisoryData";
+import { ACADEMIC_ADVICE_CSS, ACADEMIC_ADVICE_SCRIPT } from "./src/server/academicAdvisoryVisual";
 import { eligibleSuggestionEditId, instructorRowsForSuggestion } from "./src/utils/slotSuggestionScope";
 import { appendRequestThread } from "./src/utils/instructorRequestThread";
 import { historicalLectureMinutes } from "./src/utils/advancedIntelligence";
@@ -18046,6 +18048,20 @@ app.get("/api/schedules/openings-preview", requirePermission(7), async (req: Aut
   res.json({ openings, forecast: true, count });
 });
 
+/** Academic enrolment coordination: read only. Never used by save/sign/approval gates. */
+app.get("/api/schedules/academic-advice", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) {
+    res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return;
+  }
+  try {
+    const reading = await academicAdviceForScope(collegeId, sectionId, termId);
+    res.setHeader("Cache-Control", "no-store"); res.json(reading);
+  } catch {
+    res.status(503).json({ error: "التوصيات غير متاحة الآن؛ لا يؤثر ذلك على الجدول." });
+  }
+});
+
 app.get("/api/schedules/demand", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0);
   const sectionId = Number(req.query.sectionId || 0);
@@ -21932,6 +21948,7 @@ function instructorRequestPage(token: string, nonce: string, demoHint = ""): str
 <title>جدولي — طلب تعديل</title>
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/schedule-icon-192.png">
 <style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}
+${ACADEMIC_ADVICE_CSS}
 :root{color-scheme:light dark;--ink:#15251d;--muted:#627269;--muted2:#8b9991;--line:#dce5df;--line2:#cbd8d0;--bg:#fff;--card:#fff;
 --soft:#edf5f0;--ok:#247756;--ok2:#dff2e8;--warn:#9a6a00;--warn2:#fff5d9;--bad:#ad2f28;--bad2:#fdecea;--accent:#247756;--shadow:0 12px 34px rgba(22,57,40,.07)}
 /* لوحةُ الصفحات العامة الموحّدة — للشاشة فقط؛ الطباعةُ تبقى كما كانت. */
@@ -22072,6 +22089,7 @@ ${PUBLIC_KIT_SCRIPT}
 var PLIB=${JSON.stringify(patternLibraryHtml(patternLibraryInput()))},PLIB_ICON=${JSON.stringify(PATTERN_LIBRARY_ICON)};
 document.addEventListener("click",function(e){var d=document.querySelector(".plib[open]");if(d&&!d.contains(e.target))d.removeAttribute("open")});
 var TOKEN=${JSON.stringify(token)},host=document.getElementById("host"),demoNode=document.querySelector("#demoTop .demo-hint"),demoOpen=false,data=null,state=[],activeTab="schedule",chooserOpen=false,offeringsOpen=false,offeringSearch="";
+${ACADEMIC_ADVICE_SCRIPT}
 var DAYS=[["fsunday","الأحد"],["fmonday","الاثنين"],["ftuesday","الثلاثاء"],["fwednesday","الأربعاء"],["fthursday","الخميس"]];
 var LONG={fmonday:80,fwednesday:80},SHORT=50;
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){
@@ -22386,7 +22404,7 @@ function offeringsHtml(){var list=(data.availableOfferings||[]).filter(function(
  var searchable=ordered.map(function(group){return '<details class="offering-course" data-offering-course="'+esc(group.id)+'"><summary><span><b>'+esc(group.name)+reqTag({courseId:group.courseId,sectionId:group.sectionId})+'</b><small>'+esc([group.code,group.college].filter(Boolean).join(" · "))+'</small></span><span class="chip">'+group.options.length+' '+(group.options.length===1?"شعبة":"شعب")+'</span></summary><div class="offering-options">'+group.options.map(function(o){var slots=o.slots.map(function(sl){return '<span class="offering-slot">'+ic("calendar")+'<b>'+esc(fmtDays([sl.day]))+'</b><time>'+esc(sl.start)+' – '+esc(sl.end)+'</time></span>'}).join("");var times=o.slots.map(function(sl){return fmtDays([sl.day])+' '+sl.start+' – '+sl.end}).join('، ');return '<button type="button" class="offering-option" data-offering="'+o.id+'" aria-label="'+esc(o.courseName+'، شعبة '+o.sectionCode+'، '+times)+'"><span class="offering-section"><small>شعبة</small><b>'+esc(o.sectionCode)+'</b></span><span class="offering-schedule">'+slots+'</span><span class="offering-pick">'+ic("check")+'<span>اخترها</span></span></button>'}).join("")+'</div></details>'}).join("");
  return '<details class="memory offerings" id="offerings"'+(offeringsOpen?' open':'')+'><summary aria-label="الشعب المتاحة التي تناسب جدولك، '+countOf(list.length, AR.section)+' في '+countOf(ordered.length, AR.course)+'"><span class="offerings-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 10h18M8 14h3M8 17h7"/></svg></span><span class="offering-title">شعب متاحة تناسب جدولك</span><span class="chip">'+countOf(list.length, AR.section)+'</span><small>'+countOf(ordered.length, AR.course)+' · اختر الشعبة المناسبة</small></summary><div class="offering-body"><label class="offering-search-label"><span class="sr">ابحث في المقررات والشعب المتاحة</span><input class="offering-search" id="offeringSearch" type="search" placeholder="ابحث بالمقرر أو الرمز أو الشعبة…" value="'+esc(offeringSearch)+'" autocomplete="off"></label><p class="offering-empty" id="offeringEmpty" hidden>لا توجد شعبة تطابق بحثك.</p><div class="offering-groups">'+searchable+'</div></div></details>'}
 function editHtml(it,i){if(it.offeringId)return '<p class="sub">'+gi("check")+'اخترت شعبة قائمة بموعدها. تُسند إليك بعد موافقة القسم.</p>';var h="";h+='<div class="edit"><div class="field-head"><span class="field-title">أيام المحاضرة</span><details class="plib"><summary aria-label="مكتبة الأنماط" title="مكتبة الأنماط">'+PLIB_ICON+'</summary><div class="plib-pop">'+PLIB+'</div></details></div><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
-    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status" title="اضغط أيَّ يوم لتبديله">'+gi("star")+'<span>'+esc(it.autoNote)+'</span></p>':'')+bestHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' aria-disabled="true" title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+(it.ownT&&it.ownT!==it.start&&ownClash(it,i,it.ownT)?skOwnClash(it,i,it.ownT):'')+heatLegend(i)+'<details class="more-time"'+(skMoreOpen(it,i)?' open':'')+'><summary data-more="'+i+'">'+gi("clock")+'وقت آخر</summary><label class="time"><span class="sr">وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label></details><p class="ends">'+(sameAsBefore(it)?gi("swap")+"هذا موعدك الحالي — غيّر اليوم أو الوقت.":it.days.length&&it.start?gi("clock")+"ينتهي "+(it.computedSlots&&it.computedSlots.length?it.computedSlots.map(function(sl){return fmtDays([sl.day])+" "+sl.end}).join(" · "):endOf(it.days,it.start,it.blk))+'<span class="ends-src" title="مدّةُ المحاضرة من اللائحة">'+gi("shield")+'</span>':gi("cal")+"اختر اليوم ثم الوقت")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span class="vwrap">'+skVerdict(it)+'</span>'+(it.advice?skAdvice(it.advice):'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'" aria-label="'+esc(sh.label)+'">'+skShape(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'" aria-label="'+esc(fmtDays(ds)+" "+a.start)+'">'+skAltBtn(ds,a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+(it.pnote?'<div class="pnote" style="margin:8px 0 0">'+it.pnote+'</div>':'')+notesHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
+    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status" title="اضغط أيَّ يوم لتبديله">'+gi("star")+'<span>'+esc(it.autoNote)+'</span></p>':'')+bestHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' aria-disabled="true" title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+(it.ownT&&it.ownT!==it.start&&ownClash(it,i,it.ownT)?skOwnClash(it,i,it.ownT):'')+heatLegend(i)+'<details class="more-time"'+(skMoreOpen(it,i)?' open':'')+'><summary data-more="'+i+'">'+gi("clock")+'وقت آخر</summary><label class="time"><span class="sr">وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label></details><p class="ends">'+(sameAsBefore(it)?gi("swap")+"هذا موعدك الحالي — غيّر اليوم أو الوقت.":it.days.length&&it.start?gi("clock")+"ينتهي "+(it.computedSlots&&it.computedSlots.length?it.computedSlots.map(function(sl){return fmtDays([sl.day])+" "+sl.end}).join(" · "):endOf(it.days,it.start,it.blk))+'<span class="ends-src" title="مدّةُ المحاضرة من اللائحة">'+gi("shield")+'</span>':gi("cal")+"اختر اليوم ثم الوقت")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span class="vwrap">'+skVerdict(it)+'</span>'+(it.advice?skAdvice(it.advice):'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'" aria-label="'+esc(sh.label)+'">'+skShape(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'" aria-label="'+esc(fmtDays(ds)+" "+a.start)+'">'+skAltBtn(ds,a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+(it.pnote?'<div class="pnote" style="margin:8px 0 0">'+it.pnote+'</div>':'')+notesHtml(it)+academicCardHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
 function bodyHtml(it,i,open){var h=decisionBox(it,i,open)+threadBox(it,i);
  if(open){if(it.negotiation==="proposed")h+='<p class="hint-pro" title="تعديل الموعد من هنا يبدأ طلبًا جديدًا">'+gi("star")+'<span>للرد على اقتراح القسم: بطاقة «قرارك» أعلاه</span></p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
  else if(!h)h='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
@@ -22869,6 +22887,7 @@ fetch("/api/public/request/"+encodeURIComponent(TOKEN)).then(function(r){
  paint();
  loadProposalBanner();
  loadPrevious();
+ loadAcademicAdvice();
  openLive();
  if(restoredDraft)recheckAll();
  }).catch(function(){host.innerHTML='<div class="err">تعذّر الاتصال. تحقّق من الإنترنت.</div>'});
@@ -22963,6 +22982,33 @@ app.post("/api/public/request/:token/check", async (req: Request, res: Response)
       .filter((note: any) => note.kind !== "balance" && note.courseIds.includes(Number(item.after?.courseId || item.before?.courseId || 0)))
       .map((note: any) => ({ kind: note.kind, article: note.article, ...(note.data ? { data: note.data } : {}) })),
   });
+});
+
+/** Professor card: only aggregate, course-relevant suggestions for scopes on this link. */
+app.get("/api/public/request/:token/academic-advice", async (req: Request, res: Response) => {
+  const resolved = await resolveRequestLink(String(req.params.token || ""));
+  if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
+  const request = resolved.request;
+  const scopes = new Map<string, { collegeId: number; sectionId: number }>();
+  const put = (collegeId: number, sectionId: number) => {
+    if (collegeId > 0 && sectionId > 0) scopes.set(collegeId + ":" + sectionId, { collegeId, sectionId });
+  };
+  put(Number(request.AdCollegeId), Number(request.AdSectionId));
+  for (const item of request.items || []) {
+    const scope = requestItemScope(request, item);
+    put(Number(scope.collegeId), Number(scope.sectionId));
+  }
+  const owned = new Set((request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0)).filter(Boolean));
+  try {
+    const lists = await Promise.all([...scopes.values()].slice(0, 12).map(scope =>
+      academicAdviceForScope(scope.collegeId, scope.sectionId, Number(request.AdTermId))));
+    const pairs = lists.flatMap(reading => reading.pairs).filter(pair => owned.has(pair.a) || owned.has(pair.b));
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ pairs, nonBlocking: true });
+  } catch {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ pairs: [], nonBlocking: true }); // advisory outage never blocks the teacher
+  }
 });
 
 /** فحصٌ دفعي لمسودة الأستاذ: سياق الجدول وقواعد كل قسم يُبنيان مرةً واحدةً للحزمة. */
