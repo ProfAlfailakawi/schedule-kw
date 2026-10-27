@@ -21,6 +21,7 @@
     "test:teacher-card-flow": "tsx tests/teacher-card-flow-audit.ts",
     "test:day-autofill": "tsx tests/request-day-autofill-audit.ts",
     "test:teacher-card": "tsx tests/teacher-card-polish-audit.ts",
+    "test:unchanged-request": "tsx tests/unchanged-request-confirmation-audit.ts",
     "test:teacher-card-2": "tsx tests/teacher-card-polish-2-audit.ts",
     "test:lecture-length": "tsx tests/lecture-length-audit.ts",
     "test:appointment-entry-parity": "tsx tests/appointment-entry-parity-audit.ts",

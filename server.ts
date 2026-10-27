@@ -83,6 +83,7 @@ import { coversWholeCollege, expandScopeSections, resolveSmartScope } from "./sr
 import { finalSourceFor, type Finality } from "./src/utils/finality";
 import { movementAttribution } from "./src/utils/movementAttribution";
 import { firstInstructorEditAt, movementAfterInstructorEdit } from "./src/utils/instructorMovementWindow";
+import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind } from "./src/utils/instructorRequestConfirmation";
 import { isLate } from "./src/utils/lateness";
 import {
   decideException, exceptionRefusal, normalizeExceptionDays, resolveExceptionTargets, withException, withoutException,
@@ -20838,8 +20839,8 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
     decision: item?.decision?.state ? { state: item.decision.state } : undefined,
   } as any);
   const stored = storedAll.filter(request =>
-    inScope(Number(request.AdCollegeId), Number(request.AdSectionId))
-    || (request.items || []).some(item => item.action !== "keep" && inSelection(requestItemScope(request, item))));
+    !isUnchangedConfirmed(request) && (inScope(Number(request.AdCollegeId), Number(request.AdSectionId))
+    || (request.items || []).some(item => item.action !== "keep" && inSelection(requestItemScope(request, item)))));
   const scopeRows = (scopeRowsAll as any[]).filter(row => inScope(Number(row.AdCollegeId ?? collegeId), Number(row.AdSectionId)));
   const sectionNameOf = new Map((sections as any[]).map(row => [Number(row.AdSectionId), String(row.AdSectionName || "")]));
   const nameOf = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
@@ -21518,6 +21519,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   const resolved = await resolveRequestLink(String(req.params.token || ""));
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
   if (!requireInstructorRequestRevision(req, res, resolved.request)) return;
+  if (isUnchangedConfirmed(resolved.request)) { res.status(409).json({ error: "تم تثبيت جدولك مسبقاً دون تعديلات." }); return; }
   if (!requestWindowOpen(resolved.request)) {
     res.status(403).json({ error: "انتهت مدّة استقبال الطلبات لهذا الفصل." });
     return;
@@ -21602,7 +21604,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
     })),
     keptCount: judged.items.filter(item => item.action === "keep").length,
   };
-  const changed = items.filter(item => item.action !== "keep").length;
+  const changed = judged.items.filter(item => item.action !== "keep").length;
   /* «اخترتَ بديلاً» يُسجَّل حين يطابق ما أرسله بندٌ مرفوضٌ أحدَ بدائل القسم —
      فيقرأ القسمُ في الخط الزمني أن ما عرضه قُبل، لا أنه طلبٌ جديد. */
   const alternativeEvents = sent.flatMap((entry, index) => {
@@ -21617,12 +21619,16 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   });
   /* ملاحظةُ الأستاذ العامة للقسم عن بناء جدوله: نصٌّ حرٌّ اختياري، لا يدخل في الحكم على البنود. */
   const generalNote = String(req.body?.note || "").trim().slice(0, 400);
+  // Only a genuine LIVE unmodified timetable can be confirmed immediately.
+  const unchangedConfirmed = changed === 0 && canConfirmUnchanged(
+    judged, await Repository.getSchedulesByScope({ termId: Number(resolved.request.AdTermId) }), generalNote, resolved.request,
+  );
   const saved = await Repository.saveInstructorRequest({
     ...resolved.request,
     archivedItems: [...(resolved.request.archivedItems || []), ...(resolved.request.submittedAt ? resolved.request.items.filter(old => old.action === "add" && !judged.items.some(next => next.itemId && next.itemId === old.itemId)).map(item => ({ at, item })) : [])],
     items: judged.items,
     note: generalNote || undefined,
-    status: "submitted",
+    status: unchangedConfirmed ? "settled" : "submitted",
     submittedAt: at,
     signature,
     signatureHistory: [...(resolved.request.signatureHistory || []), ...(resolved.request.signature ? [resolved.request.signature] : [])],
@@ -21630,13 +21636,13 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
       ...(resolved.request.timeline || []),
       ...alternativeEvents,
       { kind: "submitted", at, detail: String(changed) },
-      { kind: "received", at, by: "القسم" },
+      ...(unchangedConfirmed ? [{ kind: unchangedConfirmationKind, at }] : [{ kind: "received" as const, at, by: "القسم" }]),
     ],
   }, await requestReservationProposals(judged));
 
   res.setHeader("Cache-Control", "no-store");
   broadcastNotify(Repository.currentDemoSessionId());
-  res.json({ request: stripForInstructor(saved), changed });
+  res.json({ request: stripForInstructor(saved), changed, unchangedConfirmed });
 });
 
 /**
@@ -21936,7 +21942,26 @@ ${PATTERN_LIBRARY_CSS}
 .plib>summary:focus-visible{outline:3px solid rgba(36,119,86,.18)}
 .plib[open]>summary{color:var(--accent);border-color:var(--accent);background:var(--soft)}
 .plib-pop{position:fixed;inset-inline:12px;inset-block-start:9vh;z-index:60;margin-inline:auto;inline-size:auto;max-inline-size:440px;max-block-size:80vh;overflow:auto;padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:0 24px 60px rgba(22,57,40,.25)}
-${REQUEST_VISUAL_CSS}</style></head><body>${demoHint?`<div id="demoTop" style="max-width:760px;margin:0 auto;padding:12px 16px 0">${demoHint}</div>`:""}<div class="wrap" id="host"><div class="skel" role="status" aria-busy="true"><span class="sr">يفتح جدولك…</span><i></i><i></i><i></i></div></div>
+${REQUEST_VISUAL_CSS}
+/* Completed unchanged request: minimal signed confirmation, no review pathway. */
+.confirm-wrap{max-width:570px;margin:clamp(32px,9vh,82px) auto 20px;text-align:center}
+.confirm-card{position:relative;overflow:hidden;padding:clamp(24px,6vw,44px) 22px 27px;border:1px solid #cde4d7;border-radius:28px;background:linear-gradient(155deg,#f0f8f3 0%,#fff 58%,#f6f9f5 100%);box-shadow:0 18px 55px rgba(31,107,92,.09)}
+.confirm-card::before{content:"";position:absolute;inset:0 0 auto;block-size:5px;background:linear-gradient(90deg,#bddfd0,#247756,#bddfd0)}
+.confirm-check{display:grid;place-items:center;inline-size:82px;block-size:82px;margin:0 auto 19px;border-radius:26px;background:#e0f2e8;border:1px solid #bee2d1;color:#166b50;box-shadow:0 10px 25px #176a4d19}
+.confirm-check svg{inline-size:42px;block-size:42px;stroke-width:2.25}
+.confirm-card h1{font-size:clamp(24px,5.5vw,31px);letter-spacing:-.03em;margin:0 0 7px;color:#174f3c;font-weight:700}
+.confirm-sub{margin:0 auto;color:#537466;font-size:14px;line-height:1.9}
+.confirm-name{margin:10px auto 25px;color:#70857b;font-size:12.5px}
+.confirm-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;max-width:460px;margin:0 auto}
+.confirm-fact{display:flex;flex-direction:column;align-items:center;gap:8px;min-height:104px;padding:16px 6px 10px;background:#fff;border:1px solid #e3ece6;border-radius:17px;color:#325c4b;font-size:12px;font-weight:600}
+.confirm-fact svg{inline-size:23px;block-size:23px}
+.confirm-code{margin-top:20px;font-size:12px;color:#6b8476}
+.confirm-code summary{cursor:pointer;list-style:none;display:inline-flex;gap:6px;align-items:center;color:#366c57}
+.confirm-code summary::-webkit-details-marker{display:none}
+.confirm-code a{color:#246b55}
+@media(max-width:400px){.confirm-card{padding-inline:15px}.confirm-facts{gap:6px}.confirm-fact{font-size:11.5px}}
+@media(prefers-reduced-motion:reduce){.confirm-card *{animation:none!important;transition:none!important}}
+</style></head><body>${demoHint?`<div id="demoTop" style="max-width:760px;margin:0 auto;padding:12px 16px 0">${demoHint}</div>`:""}<div class="wrap" id="host"><div class="skel" role="status" aria-busy="true"><span class="sr">يفتح جدولك…</span><i></i><i></i><i></i></div></div>
 <script nonce="${nonce}">(function(){
 ${PUBLIC_KIT_SCRIPT}
 var PLIB=${JSON.stringify(patternLibraryHtml(patternLibraryInput()))},PLIB_ICON=${JSON.stringify(PATTERN_LIBRARY_ICON)};
@@ -21966,7 +21991,7 @@ var f=DAYS.filter(function(x){return x[0]===d})[0];return f?f[1]:d}).join(" · "
 function dt(iso){if(!iso)return "";var d=new Date(iso);return isNaN(d)?"":
 d.toLocaleDateString("ar-KW-u-nu-latn",{month:"long",day:"numeric"})+" "+d.toLocaleTimeString("ar-KW-u-nu-latn",{hour:"2-digit",minute:"2-digit"})}
 function clockOf(iso){var d=new Date(iso);return isNaN(d)?"":("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)}
-var EVENTS={"link-created":"أُنشئ الرابط","link-opened":"فُتح الرابط","submitted":"أرسلتَ طلبك",
+var EVENTS={"link-created":"أُنشئ الرابط","link-opened":"فُتح الرابط","submitted":"أرسلتَ طلبك","unchanged-confirmed":"ثُبّت جدولك كما هو",
 "received":"وصل إلى صندوق القسم","item-fixed":"ثُبّت بند","item-rejected":"رُفض بند",
 "alternative-offered":"عُرض عليك بديل","alternative-chosen":"اخترتَ بديلاً","settled":"أُغلق الطلب",
 "schedule-approved":"اعتُمد الجدول","department-replied":"ردّ القسم واقترح","instructor-replied":"رددتَ على القسم","proposal-accepted":"وافقتَ على مقترح القسم","rejected-alt":"رُفض بندٌ وعُرض عليك بديل"};
@@ -22100,6 +22125,19 @@ function stageIdx(){var r=data.request;if(!r.submittedAt)return 0;
  if(act.every(function(it){return closed(it)||it.negotiation==="agreed"}))return 3;
  return 1}
 var PATH=[["send","أرسلتَ"],["eye","القسم يراجع"],["you","قرارك"],["shield","التثبيت"]];
+function confirmedHtml(r){
+ var code=r.signature&&r.signature.verifyCode||"";
+ return skBackIcon()+'<section class="confirm-wrap" role="status" aria-label="تم تثبيت جدولك"><div class="confirm-card">'+
+ '<span class="confirm-check" aria-hidden="true">'+gi("check")+'</span>'+
+ '<h1>تم تثبيت جدولك</h1><p class="confirm-sub">جدولك كما هو · لا يلزمك أي إجراء آخر</p>'+
+ '<p class="confirm-name">'+esc(data.instructorName)+' · '+esc(data.termName)+'</p>'+
+ '<div class="confirm-facts" aria-label="حالة جدولك">'+
+ '<div class="confirm-fact">'+gi("calendar")+'<span>دون تعديلات</span></div>'+
+ '<div class="confirm-fact">'+gi("finger")+'<span>توقيع محفوظ</span></div>'+
+ '<div class="confirm-fact">'+gi("shield")+'<span>مكتمل</span></div></div>'+
+ (code?'<details class="confirm-code"><summary>'+gi("check")+'تفاصيل التوقيع</summary>'+verifyHtml(code)+'</details>':'')+
+ '</div></section>'
+}
 function pathHtml(s){if(s===undefined)s=stageIdx();var w=Math.min(s,3)/3*75;
  return '<nav class="path" aria-label="مسار طلبك"><i class="fill" style="inline-size:'+w+'%"></i>'+PATH.map(function(p,k){
   var st=s>=4||k<s?"done":k===s?"now":"next",label=k===0&&s===0?"أرسِل":k===3&&s>=4?"ثُبّت":p[1];
@@ -22433,10 +22471,12 @@ function saveDraft(){try{localStorage.setItem(DRAFT_KEY,JSON.stringify({at:Date.
 function clearDraft(){try{localStorage.removeItem(DRAFT_KEY)}catch(e){}}
 function readDraft(){try{var d=JSON.parse(localStorage.getItem(DRAFT_KEY)||"null");return d&&Date.now()-d.at<14*864e5?d:null}catch(e){return null}}
 window.addEventListener("beforeunload",function(e){if(dirty&&!skLeaving){e.preventDefault();e.returnValue=""}});
+function confirmedRequest(r){return !!(r&&r.status==="settled"&&(r.timeline||[]).some(function(e){return e.kind==="unchanged-confirmed"}))}
 function paint(){
  if(data&&data.windowOpen&&state.length){var sig=JSON.stringify(payloadItems());if(paint.last!==undefined&&paint.last!==sig){dirty=true;saveDraft()}paint.last=sig}
  if(!data){host.innerHTML='<div class="err">تعذّر فتح الرابط.</div>';return}
  var r=data.request,open=data.windowOpen,approved=r.status==="settled",sent=!!r.submittedAt;
+ if(confirmedRequest(r)){dirty=false;clearDraft();host.innerHTML=confirmedHtml(r);return}
  var incompleteN=state.filter(incompleteItem).length;
  var changed=state.filter(function(it){return it.action!=="keep"&&!unchangedEdit(it)&&!incompleteItem(it)}).length;
  var blocked=state.filter(function(it){return !unchangedEdit(it)&&!incompleteItem(it)&&(it.tone==="bad"||it.tone==="checking")}).length;
@@ -22635,7 +22675,7 @@ function submit(){
  var chg=state.filter(function(it){return it.action!=="keep"&&!unchangedEdit(it)}),sent=!!data.request.submittedAt;
  var lines=chg.map(function(it){return '<li><span>'+receiptLine(it)+'</span></li>'}).join("");
  signSheet({
-  what:'<div>'+gi("send")+'<span>'+(chg.length?countOf(chg.length,AR.change)+' ستصل القسم':'جدولك كما هو سيصل القسم')+'</span></div>'+replacedWarn()+(lines?'<ul class="sk-list" aria-label="ما سيصل القسم">'+lines+'</ul>':''),
+  what:'<div>'+gi(chg.length?"send":"check")+'<span>'+(chg.length?countOf(chg.length,AR.change)+' ستصل القسم':String(noteNow()).trim()?"ملاحظتك ستصل القسم":data.request.source==="previous-term"?"جدولك المبدئي سيصل القسم":"تأكيد جدولك كما هو")+'</span></div>'+replacedWarn()+(lines?'<ul class="sk-list" aria-label="ما سيصل القسم">'+lines+'</ul>':''),
   run:function(civil,done){postSubmit(civil,done)}})
 }
 /* الإرسالُ نفسُه كما كان: الخادمُ يعيد الحكمَ ويتحقق من التوقيع، والصفحةُ تعرض ما يقوله. */
@@ -22658,6 +22698,7 @@ function postSubmit(civil,done){
   liveOff=true;closeLive();
   var code=x.d.request&&x.d.request.signature&&x.d.request.signature.verifyCode||"";
   done();
+  if(x.d.unchangedConfirmed){data.request=x.d.request;host.innerHTML=confirmedHtml(x.d.request);window.scrollTo(0,0);return}
   host.innerHTML='<div class="done"><div class="tick">'+gi("check")+'</div><h1>وصل طلبك إلى القسم</h1><div class="done-path">'+pathHtml(pendingList().length?2:1)+'</div>'+
    '<p class="sub">'+esc(countOf(x.d.changed,AR.edit,"بلا تعديلات"))+
    ' · يمكنك فتح الرابط نفسه لمتابعة ما ثُبّت وما رُفض.</p>'+
