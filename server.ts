@@ -22132,7 +22132,7 @@ function confirmedHtml(r){
  '<h1>تم تثبيت جدولك</h1><p class="confirm-sub">جدولك كما هو · لا يلزمك أي إجراء آخر</p>'+
  '<p class="confirm-name">'+esc(data.instructorName)+' · '+esc(data.termName)+'</p>'+
  '<div class="confirm-facts" aria-label="حالة جدولك">'+
- '<div class="confirm-fact">'+gi("calendar")+'<span>دون تعديلات</span></div>'+
+ '<div class="confirm-fact">'+gi("cal")+'<span>دون تعديلات</span></div>'+
  '<div class="confirm-fact">'+gi("finger")+'<span>توقيع محفوظ</span></div>'+
  '<div class="confirm-fact">'+gi("shield")+'<span>مكتمل</span></div></div>'+
  (code?'<details class="confirm-code"><summary>'+gi("check")+'تفاصيل التوقيع</summary>'+verifyHtml(code)+'</details>':'')+
