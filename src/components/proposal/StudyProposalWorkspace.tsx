@@ -18,6 +18,7 @@ import { commitReadiness, effectiveStatus, type GridItem } from "../../utils/stu
 import { proposalApi, ProposalApiError } from "./proposalApi";
 import { useProposalWorkspace } from "./useProposalWorkspace";
 import ProposalHeader, { summaryLine } from "./ProposalHeader";
+import AcademicAdvicePanel from "../AcademicAdvicePanel";
 import ProposalWeekGrid, { type GridMode } from "./ProposalWeekGrid";
 import ProposalOpForm from "./ProposalOpForm";
 import ProposalQuickCard, { type QuickSeed } from "./ProposalQuickCard";
@@ -280,6 +281,7 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
           evalError={ws.evalError} hasOps={ws.ops.length > 0 && !ws.terminal} onRetry={ws.retryEvaluation} onClose={requestClose} />
 
         {toolbar}
+        {ws.ops.filter(op => Boolean(op.target?.AdCourseId)).slice(0, 3).map(op => <AcademicAdvicePanel key={op.id} compact collegeId={ctx.scope.collegeId} sectionId={ctx.scope.sectionId} termId={ctx.term.id} courseId={Number(op.target.AdCourseId)} candidate={{ days: (["fsunday","fmonday","ftuesday","fwednesday","fthursday"] as const).filter(day => Boolean((op.target as any)[day])), start: String(op.target.fstarttime || ""), end: String(op.target.fendtime || "") }} />)}
 
         {!wide ? (
           <nav className="sp-tabs" role="tablist" aria-label="أقسام المساحة">

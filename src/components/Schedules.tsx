@@ -1,4 +1,5 @@
 import PatternLibraryButton from "./PatternLibraryButton";
+import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import WipeScheduleButton from "./WipeScheduleButton";
 import TAConversionPanel from "./TAConversionPanel";
 import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
@@ -8745,6 +8746,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             </div>
             {formScopeLabel?<div className="scope-inline-note"><strong>النطاق الجاهز</strong><span>{formScopeLabel}</span></div>:null}
             {(scheduleTouched||outsideTeachingDay)&&validationIssues.length?<div className="editor-validation-strip"><AlertTriangle/><div><strong>صحّح قبل الحفظ</strong>{validationIssues.map(x=><span key={x}>{x}</span>)}</div></div>:null}
+            {Boolean(form.AdCourseId && form.AdCollegeId && form.AdSectionId && form.AdTermId) && <AcademicAdvicePanel compact collegeId={Number(form.AdCollegeId)} sectionId={Number(form.AdSectionId)} termId={Number(form.AdTermId)} courseId={Number(form.AdCourseId)} candidate={{ days: (["fsunday","fmonday","ftuesday","fwednesday","fthursday"] as const).filter(day => Boolean(form[day])), start: String(form.fstarttime || ""), end: String(form.fendtime || "") }} />}
             <form onSubmit={save}>
               <div className="schedule-form-sections">
                 <section className="schedule-form-section">

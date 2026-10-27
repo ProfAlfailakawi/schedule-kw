@@ -1,4 +1,5 @@
 import PlanBadge from "./PlanBadge";
+import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import TermSelect from "./TermSelect";
@@ -2652,6 +2653,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         مركز الذكاء
       </PageTitle>
       {contextBar}
+      {Boolean(collegeId && sectionId && termId) && <AcademicAdvicePanel collegeId={collegeId} sectionId={sectionId} termId={termId} />}
       {collegeId && sectionId && termId && (tab === "twin" || hasMultipleDepartmentColleges) ? <div className="intelligence-reading-toolbar no-print">
         {tab === "twin" ? <span className="intelligence-working-scope">{ownScope.collegeName}</span>
           : <IntelligenceScopeSwitch value={analysisScope} onChange={value => {pendingReadingAction.current = null; setAnalysisScope(value);}} />}
