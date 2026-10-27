@@ -20417,7 +20417,7 @@ async function availableInstructorOfferings(request: InstructorRequest, context?
     const assigned = list.map(row => ({ ...row, AdInstructorId: Number(request.AdInstructorId) }));
     const ids = new Set(list.map(row => Number(row.id)));
     const week = [...ctx.allRows.filter(row => !ids.has(Number(row.id)) && Number(row.AdInstructorId) !== Number(request.AdInstructorId)), ...mine];
-    if (findConflicts(assigned, week, { cohortPairs: rules.cohortPairs, placeholderInstructorIds: placeholders }).some(conflict => conflict.type === "instructor" || conflict.type === "room" || conflict.type === "cohort")) continue;
+    if (findConflicts(assigned, week, { cohortPairs: rules.cohortPairs, placeholderInstructorIds: placeholders }).some(conflict => conflict.type === "instructor" || conflict.type === "room")) continue;
     const option = allowed.find(option => option.id === Number(first.AdCourseId) && option.sectionId === Number(first.AdSectionId));
     result.push({ id: Number(first.id), courseId: Number(first.AdCourseId), courseName: String(course?.CourseName || ""), sectionCode: String(first.SCode || ""),
       collegeId: Number(first.AdCollegeId), sectionId: Number(first.AdSectionId), collegeName: option?.collegeName || "",
@@ -23000,7 +23000,13 @@ app.get("/api/public/request/:token/academic-advice", async (req: Request, res: 
     const scope = requestItemScope(request, item);
     put(Number(scope.collegeId), Number(scope.sectionId));
   }
-  const owned = new Set((request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0)).filter(Boolean));
+  /* A professor can ADD any permitted department course, not only change the ones already on their card. */
+  const allowedOptions = await instructorRequestCourseOptions(request);
+  for (const option of allowedOptions) put(Number(option.collegeId), Number(option.sectionId));
+  const owned = new Set([
+    ...(request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0)),
+    ...allowedOptions.map(option => Number(option.id)),
+  ].filter(Boolean));
   try {
     const lists = await Promise.all([...scopes.values()].slice(0, 12).map(scope =>
       academicAdviceForScope(scope.collegeId, scope.sectionId, Number(request.AdTermId))));

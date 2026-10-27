@@ -59,4 +59,6 @@ const visual = fs.readFileSync("src/server/academicAdvisoryVisual.ts","utf8");
 assert.ok(visual.includes("academicCardHtml") && !visual.includes("it.tone=") && !visual.includes("it.verdict="), "decorative only");
 assert.ok(visual.includes("academicClashCount"), "reusable academic suggestion scoring in professor best times");
 assert.ok(code.includes("var currentAcademic=academicClashCount(it,it.start)"), "best professor times account for academic clashes without changing send gate");
+assert.ok(!code.includes('conflict.type === "room" || conflict.type === "cohort")) continue;'), "academic cohort overlap cannot hide otherwise available offered sections from the professor");
+assert.ok(code.includes("const allowedOptions = await instructorRequestCourseOptions(request);"), "add-new-course card may also show relevant recommendations");
 console.log("academic advice: prerequisites, cohorts, section alternatives, scope, privacy & non-blocking UI passed");
