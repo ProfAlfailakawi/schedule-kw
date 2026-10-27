@@ -44,6 +44,7 @@ const occupies = (row: Partial<FSchedule>, room: RequestReservationRoom) =>
  * Pending requests deliberately have no short timer: the department owns their outcome.
  */
 export function retainRequestReservations(entries: RequestReservation[], request: InstructorRequest): RequestReservation[] {
+  if (request.status === "superseded") return entries.filter(entry => entry.requestId !== request.id);
   const active = new Set(request.items.filter(item => item.action !== "keep" && item.action !== "delete"
     && (!item.decision?.state || item.decision.state === "pending")).map(item => item.itemId));
   return entries.filter(entry => entry.requestId !== request.id || active.has(entry.itemId));

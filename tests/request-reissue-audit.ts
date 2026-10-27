@@ -11,6 +11,7 @@
 import fs from "fs";
 import path from "path";
 import { latestRequestByInstructor, reissueMove, requestLinkNeedsReplacing } from "../src/utils/requestReissue";
+import { retainRequestReservations } from "../src/utils/instructorRequestReservations";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -25,6 +26,11 @@ check(reissueMove({ status: "sent" }) === "extend", "أُرسل ولم يردّ 
 check(reissueMove({ status: "submitted" }) === "keep", "أرسله الأستاذ ← يبقى، القرارُ عند القسم");
 check(reissueMove({ status: "in-review" }) === "keep", "قيد المراجعة ← يبقى");
 check(reissueMove({ status: "settled" }) === "fresh", "ثُبّت ← جولةٌ جديدة بطلبٍ جديد");
+check(reissueMove({ status: "superseded" }) === "fresh", "استُبدل الجدول ← جولة رغبات جديدة مستقلة");
+check(retainRequestReservations([{ requestId: "old", itemId: "item", instructorId: 1, collegeId: 1, sectionId: 1,
+  courseId: 1, slots: [{ day: "fmonday", start: "09:00", end: "10:00" }], offeringRowIds: [] }],
+  { id: "old", status: "superseded", items: [{ itemId: "item", action: "add", rowId: null }] } as any).length === 0,
+"استبدال الجدول يحرّر حجوزات جولة الرغبات القديمة");
 
 /* ── الأحدثُ يحكم ───────────────────────────────────────────────────────── */
 

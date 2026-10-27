@@ -18,7 +18,7 @@ import type { InstructorRequestStatus } from "../types";
 export type ReissueMove = "keep" | "extend" | "fresh";
 
 export function reissueMove(request: { status: InstructorRequestStatus } | null | undefined): ReissueMove {
-  if (!request || request.status === "settled") return "fresh";
+  if (!request || request.status === "settled" || request.status === "superseded") return "fresh";
   if (request.status === "submitted" || request.status === "in-review") return "keep";
   return "extend";
 }

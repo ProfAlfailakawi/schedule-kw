@@ -2820,7 +2820,8 @@ app.post("/api/demo/reset", requireAuth, async (req: AuthenticatedRequest, res: 
 async function demoTeacherRequest(): Promise<InstructorRequest | undefined> {
   const { collegeId, sectionId, termId } = DEMO_STORY_SCOPE;
   const requests = await Repository.getInstructorRequests(collegeId, sectionId, termId);
-  return requests.find(row => !row.submittedAt && row.linkOpenedAt) || requests.find(row => !row.submittedAt) || requests[0];
+  const active = requests.filter(row => row.status !== "superseded");
+  return active.find(row => !row.submittedAt && row.linkOpenedAt) || active.find(row => !row.submittedAt) || active[0];
 }
 
 app.get("/api/demo/teacher-card", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
@@ -9245,9 +9246,12 @@ app.post("/api/schedules/wipe-scope", requirePermission(7), async (req: Authenti
       throw error;
     }
     await recordVersionAfter(backup, []);
+    /* طلباتُ الأستاذ تشير إلى صفوف الجدول الذي مُسح. نُبقيها كسجلّ محفوظ،
+       ونغلق روابطها ونحرّر حجوزاتها حتى لا تعود رغبات التجارب مع الجدول الجديد. */
+    const supersededRequests = await Repository.supersedeInstructorRequestsForScope(collegeId, sectionId, termId);
     await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "delete", rows: state.rows as any[] });
-    res.locals.auditChanges = `مسح الجدول بالكامل: ${state.sectionName} · ${state.termName} · ${countOf(state.rows.length, AR.appointment)} (نسخة احتياطية ${backup.id})`;
-    res.json({ success: true, deleted: state.rows.length, backupId: backup.id });
+    res.locals.auditChanges = `مسح الجدول بالكامل: ${state.sectionName} · ${state.termName} · ${countOf(state.rows.length, AR.appointment)} · إغلاق ${countOf(supersededRequests, AR.round)} رغبات قديمة (نسخة احتياطية ${backup.id})`;
+    res.json({ success: true, deleted: state.rows.length, backupId: backup.id, supersededRequests });
   });
 });
 
@@ -19875,7 +19879,7 @@ const requestWindowOpen = (request: InstructorRequest): boolean => {
   const closes = Date.parse(request.window?.closesAt || "");
   if (Number.isFinite(opens) && now < opens) return false;
   if (Number.isFinite(closes) && now > closes) return false;
-  return request.status !== "settled";
+  return request.status !== "settled" && request.status !== "superseded";
 };
 
 /** موقعُ البند: الإضافةُ حيث اختار الأستاذ، والتعديلُ والحذفُ حيث يقع الصفُّ نفسُه.
@@ -20838,8 +20842,8 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
     hidden: true,
     decision: item?.decision?.state ? { state: item.decision.state } : undefined,
   } as any);
-  const stored = storedAll.filter(request =>
-    !isUnchangedConfirmed(request) && (inScope(Number(request.AdCollegeId), Number(request.AdSectionId))
+  const stored = storedAll.filter(request => request.status !== "superseded" && !isUnchangedConfirmed(request) && (
+    inScope(Number(request.AdCollegeId), Number(request.AdSectionId))
     || (request.items || []).some(item => item.action !== "keep" && inSelection(requestItemScope(request, item)))));
   const scopeRows = (scopeRowsAll as any[]).filter(row => inScope(Number(row.AdCollegeId ?? collegeId), Number(row.AdSectionId)));
   const sectionNameOf = new Map((sections as any[]).map(row => [Number(row.AdSectionId), String(row.AdSectionName || "")]));
