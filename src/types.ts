@@ -1494,6 +1494,8 @@ export type InstructorRequestStatus = "sent" | "submitted" | "in-review" | "sett
 
 export interface InstructorRequest {
   requestRevision?: number;
+  /** The schedule generation this request was created from. Missing legacy values mean generation zero. */
+  scheduleGeneration?: number;
   signatureHistory?: InstructorRequestSignature[];
   /** Submitted additions removed on a later round retain their correspondence internally. */
   archivedItems?: Array<{ at: string; item: InstructorRequestItem }>;

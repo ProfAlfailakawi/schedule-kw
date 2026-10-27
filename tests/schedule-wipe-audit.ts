@@ -34,9 +34,11 @@ check(scheduleIsSigned("drafting", 1) && scheduleIsSigned("submitted", 0) && !sc
   check(restore.includes("Repository.getScheduleVersionById("), "الإرجاع يقرأ النسخة كاملةً بصفوفها (قائمة Firestore بلا صفوف)");
   check(restore.includes("expectCurrentCount: 0"), "والفراغ يُفحص داخل قفل الكتابة نفسه");
   const wipe = server.slice(server.indexOf('app.post("/api/schedules/wipe-scope"'), server.indexOf('app.post("/api/schedules/wipe-scope/restore"'));
-  check(wipe.includes("expectCurrentCount: state.rows.length") && wipe.includes("WIPE_MAX_ROWS"), "والمسح مشروطٌ بالعدد داخل القفل وبحدّ ما يُرجَع");
   const repo = fs.readFileSync("src/db/repository.ts", "utf8");
+  check(wipe.includes("expectCurrentCount: state.rows.length") && wipe.includes("WIPE_MAX_ROWS"), "والمسح مشروطٌ بالعدد داخل القفل وبحدّ ما يُرجَع");
+  check(wipe.includes("advanceInstructorRequestGeneration") && repoHasGenerationReset(), "والمسح يبدأ جيلاً جديداً للرغبات من دون حذف أرشيف الجولات السابقة");
   check((repo.match(/throw new ScopeChangedError/g) || []).length === 2, "والشرط في المسارين (Firestore والذاكرة)");
+  function repoHasGenerationReset() { return repo.includes("advanceInstructorRequestGeneration") && repo.includes("scheduleGeneration: current.generation"); }
 }
 
 /* ── الخادم ──────────────────────────────────────────────────────────────── */
@@ -128,7 +130,7 @@ async function main() {
   const otherRowsBefore = (await rowsOf(Number(current.t.AdTermId))).length;
 
   const wiped = await A("POST", "/api/schedules/wipe-scope", body, { "x-schedule-confirm": "wipe-scope" });
-  check(wiped.status === 200 && wiped.json.deleted === rows.length && Boolean(wiped.json.backupId), "المسح ينجح ويحفظ نسخة احتياطية", wiped);
+  check(wiped.status === 200 && wiped.json.deleted === rows.length && Boolean(wiped.json.backupId) && Number(wiped.json.scheduleGeneration) > 0, "المسح ينجح ويحفظ نسخة احتياطية ويبدأ جيلاً جديداً", wiped);
   check((await rowsOf(termId)).length === 0, "والجدول صار فارغاً");
   check((await rowsOf(Number(current.t.AdTermId))).length === otherRowsBefore, "وجدول الفصل الجاري لم يُمس");
 

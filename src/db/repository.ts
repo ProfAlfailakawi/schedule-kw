@@ -259,6 +259,8 @@ interface DBState {
   adCouponUses?: Array<{ campaignId: string; code: string; day: string; at: string }>;
   scheduleComments?: ScheduleComment[];
   instructorRequests?: InstructorRequest[];
+  /** Monotonic reset generation for each college/section/term schedule scope. */
+  instructorRequestGenerations?: Record<string, { generation: number; startedAt: string }>;
   instructorRequestReservationLedgers?: Record<string, RequestReservation[]>;
   studyProposals?: StudyProposal[];
   studentNeeds?: StudentNeed[];
@@ -312,7 +314,7 @@ interface LegacySnapshot extends DBState {
 let baseDb: DBState = {
   users: [], formNames: [], formSecurity: [], collegeUserAssign: [], terms: [], colleges: [], sections: [], instructors: [],
   courses: [], curriculumPlans: [], curriculumPlanCourses: [], courseTransitions: [], schedules: [], rooms: [], auditLogs: [], scheduleVersions: [], scheduleDrafts: [], scheduleOpenDecisions: [],
-  clientTelemetry: [], scheduleComments: [], instructorRequests: [], studyProposals: [], studentNeeds: [], schedulePublications: [], scheduleConstraints: [], degreeRules: [], visitingRosters: [], departmentDelegates: [], departmentRooms: [],
+  clientTelemetry: [], scheduleComments: [], instructorRequests: [], instructorRequestGenerations: {}, studyProposals: [], studentNeeds: [], schedulePublications: [], scheduleConstraints: [], degreeRules: [], visitingRosters: [], departmentDelegates: [], departmentRooms: [],
   scheduleDecisionMemories: [], campusMobilityProfiles: [], scheduleShareLinks: [], scheduleApprovals: [], hallBarterRequests: [], scheduleWeekExceptions: [], studentProfiles: [], curriculumRuleSets: [], curriculumRuleDrafts: [], publishedPlanSheets: [], registrationTickets: [], registrationRuns: [], registrationOutcomes: [],
   locationBuildings: [], locationRooms: [], locationRoomTypes: [], locationReviewCases: [], locationMigrationLogs: [], locationMigrationRuns: []
 };
@@ -2352,7 +2354,7 @@ async function resetSystemKeepingRoot(rootAdminId: number): Promise<void> {
     const formSecurity = db.formSecurity.filter(item => item.SystemUserId === rootAdminId);
     replaceCurrentDb({
       users: [root], formNames, formSecurity, collegeUserAssign: [], terms: [], colleges: [], sections: [], instructors: [], courses: [], schedules: [], rooms: [],
-      auditLogs: [], scheduleVersions: [], scheduleDrafts: [], scheduleOpenDecisions: [], clientTelemetry: [], scheduleComments: [], instructorRequests: [], studyProposals: [], studentNeeds: [], schedulePublications: [], scheduleConstraints: [], degreeRules: [], visitingRosters: [], departmentDelegates: [], departmentRooms: [], scheduleDecisionMemories: [], campusMobilityProfiles: [], scheduleShareLinks: [], hallBarterRequests: [], scheduleWeekExceptions: []
+      auditLogs: [], scheduleVersions: [], scheduleDrafts: [], scheduleOpenDecisions: [], clientTelemetry: [], scheduleComments: [], instructorRequests: [], instructorRequestGenerations: {}, studyProposals: [], studentNeeds: [], schedulePublications: [], scheduleConstraints: [], degreeRules: [], visitingRosters: [], departmentDelegates: [], departmentRooms: [], scheduleDecisionMemories: [], campusMobilityProfiles: [], scheduleShareLinks: [], hallBarterRequests: [], scheduleWeekExceptions: []
     });
     saveDatabase();
   }
@@ -5050,9 +5052,75 @@ export const Repository = {
      ليس مخزناً موازياً للجدول: التثبيتُ منه يمرّ بمسار الحفظ نفسه، فما يظهر
      في الجدول وفي تقرير التغييرات يأتي من هناك لا من هنا.                   */
 
+  /** جيلُ الجدول الحالي في نطاقٍ واحد. البياناتُ القديمة بلا جيلٍ تُعدّ من الجيل صفر. */
+  getInstructorRequestGeneration: async (collegeId: number, sectionId: number, termId: number): Promise<{ generation: number; startedAt: string }> => {
+    const key = `${Number(collegeId)}:${Number(sectionId)}:${Number(termId)}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequestGenerations").doc(key.replace(/:/g, "_"));
+      const doc = await ref.get();
+      if (doc.exists) {
+        const value = doc.data() as { generation?: number; startedAt?: string };
+        return { generation: Math.max(0, Number(value.generation || 0)), startedAt: String(value.startedAt || "") };
+      }
+      /* تهيئةٌ للبيانات السابقة: مسحٌ وقع قبل إضافة عدّاد الأجيال يظلّ حدّاً
+         فاصلاً. نقرأ علامة المسح الأخيرة مرةً واحدة ونثبت جيلها في وثيقة النطاق. */
+      const priorWipe = (await Repository.getScheduleVersions(collegeId, sectionId, termId, 100))
+        .find(version => version.label === "قبل مسح الجدول بالكامل");
+      const initial = priorWipe
+        ? { generation: 1, startedAt: new Date(Date.parse(priorWipe.createdAt) + 1).toISOString() }
+        : { generation: 0, startedAt: "" };
+      return firestoreDb.runTransaction(async transaction => {
+        const current = await transaction.get(ref);
+        if (current.exists) {
+          const value = current.data() as { generation?: number; startedAt?: string };
+          return { generation: Math.max(0, Number(value.generation || 0)), startedAt: String(value.startedAt || "") };
+        }
+        transaction.set(ref, initial);
+        return initial;
+      });
+    }
+    const generations = db.instructorRequestGenerations ||= {};
+    if (!generations[key]) {
+      const priorWipe = (db.scheduleVersions || [])
+        .filter(version => version.scopeKey === key && version.label === "قبل مسح الجدول بالكامل")
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+      generations[key] = priorWipe
+        ? { generation: 1, startedAt: new Date(Date.parse(priorWipe.createdAt) + 1).toISOString() }
+        : { generation: 0, startedAt: "" };
+    }
+    const value = generations[key];
+    return { generation: Math.max(0, Number(value?.generation || 0)), startedAt: String(value?.startedAt || "") };
+  },
+
+  /** بدءُ جيلٍ جديد بعد نجاح مسح الجدول. لا تمسح السجلاتَ السابقة ولا تغيّر محتواها. */
+  advanceInstructorRequestGeneration: async (collegeId: number, sectionId: number, termId: number, at = new Date().toISOString()): Promise<{ generation: number; startedAt: string }> => {
+    const key = `${Number(collegeId)}:${Number(sectionId)}:${Number(termId)}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequestGenerations").doc(key.replace(/:/g, "_"));
+      return firestoreDb.runTransaction(async transaction => {
+        const doc = await transaction.get(ref);
+        const previous = doc.exists ? doc.data() as { generation?: number } : undefined;
+        const next = { generation: Math.max(0, Number(previous?.generation || 0)) + 1, startedAt: at };
+        transaction.set(ref, next);
+        return next;
+      });
+    }
+    const generations = db.instructorRequestGenerations ||= {};
+    const next = { generation: Math.max(0, Number(generations[key]?.generation || 0)) + 1, startedAt: at };
+    generations[key] = next;
+    saveDatabase();
+    return next;
+  },
+
+  isInstructorRequestInCurrentGeneration: async (request: InstructorRequest): Promise<boolean> => {
+    const current = await Repository.getInstructorRequestGeneration(Number(request.AdCollegeId), Number(request.AdSectionId), Number(request.AdTermId));
+    return Number(request.scheduleGeneration || 0) === current.generation;
+  },
+
   createInstructorRequest: async (entry: Omit<InstructorRequest, "id" | "createdAt" | "updatedAt">): Promise<InstructorRequest> => {
     const now = new Date().toISOString();
-    const row: InstructorRequest = { ...entry, id: randomUUID(), createdAt: now, updatedAt: now };
+    const current = await Repository.getInstructorRequestGeneration(Number(entry.AdCollegeId), Number(entry.AdSectionId), Number(entry.AdTermId));
+    const row: InstructorRequest = { ...entry, scheduleGeneration: current.generation, id: randomUUID(), createdAt: now, updatedAt: now };
     if (firestoreDb && !demoSandboxContext.getStore()) {
       await firestoreDb.collection("instructorRequests").doc(row.id).set(row);
       return row;

@@ -141,9 +141,9 @@ check(server.includes('const family = kind === "staff" ? departmentFamily(sectio
   "إصدار بطاقة جديدة يحل محل بطاقات المواقع الشقيقة");
 
 check(server.includes("const family = await staffFamilyScopes(collegeId, sectionId);") &&
-  server.includes("const existing = familyRequests.flat();") &&
+  server.includes("const existing = await currentInstructorRequestGeneration(familyRequests.flat());") &&
   server.includes("const rows = familyRows.flat();"),
-  "إصدار طلبات التعديل يجمع محاضرات الأستاذ وطلباته من كل مواقع القسم");
+  "إصدار طلبات التعديل يجمع مواقع القسم مع استبعاد جولات أجيال الجداول السابقة");
 
 check(server.includes("const unsentTokens = new Set(requests.filter(request =>") &&
   server.includes('request.status === "sent" && !request.submittedAt && !request.signature') &&

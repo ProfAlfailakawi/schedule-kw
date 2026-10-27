@@ -2820,7 +2820,7 @@ app.post("/api/demo/reset", requireAuth, async (req: AuthenticatedRequest, res: 
 async function demoTeacherRequest(): Promise<InstructorRequest | undefined> {
   const { collegeId, sectionId, termId } = DEMO_STORY_SCOPE;
   const requests = await Repository.getInstructorRequests(collegeId, sectionId, termId);
-  const active = requests.filter(row => row.status !== "superseded");
+  const active = (await currentInstructorRequestGeneration(requests)).filter(row => row.status !== "superseded");
   return active.find(row => !row.submittedAt && row.linkOpenedAt) || active.find(row => !row.submittedAt) || active[0];
 }
 
@@ -9246,12 +9246,15 @@ app.post("/api/schedules/wipe-scope", requirePermission(7), async (req: Authenti
       throw error;
     }
     await recordVersionAfter(backup, []);
+    /* رقمُ جيل الجدول هو حدّ العرض الموحّد: كل طلبٍ سابق يبقى محفوظاً في
+       الأرشيف، لكن الوارد وبطاقة الأستاذ لا يخلطان طلبات الجدول المحذوف بالجديد. */
+    const requestGeneration = await Repository.advanceInstructorRequestGeneration(collegeId, sectionId, termId);
     /* طلباتُ الأستاذ تشير إلى صفوف الجدول الذي مُسح. نُبقيها كسجلّ محفوظ،
        ونغلق روابطها ونحرّر حجوزاتها حتى لا تعود رغبات التجارب مع الجدول الجديد. */
     const supersededRequests = await Repository.supersedeInstructorRequestsForScope(collegeId, sectionId, termId);
     await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "delete", rows: state.rows as any[] });
     res.locals.auditChanges = `مسح الجدول بالكامل: ${state.sectionName} · ${state.termName} · ${countOf(state.rows.length, AR.appointment)} · إغلاق ${countOf(supersededRequests, AR.round)} رغبات قديمة (نسخة احتياطية ${backup.id})`;
-    res.json({ success: true, deleted: state.rows.length, backupId: backup.id, supersededRequests });
+    res.json({ success: true, deleted: state.rows.length, backupId: backup.id, supersededRequests, scheduleGeneration: requestGeneration.generation });
   });
 });
 
@@ -12879,7 +12882,7 @@ async function notificationItemsForTerm(req: AuthenticatedRequest, termId: numbe
    * يُنسب إلى قسمه هو، ويصل كلَّ من يملك شاشة الجدول (٧) في ذلك القسم. */
   const granted = req.permissions ?? [];
   const handlesRequests = Boolean(req.user?.IsAdminUser) || granted.includes(7) || department;
-  const requests = handlesRequests ? await Repository.getInstructorRequests(0, 0, termId) : [];
+  const requests = handlesRequests ? await currentInstructorRequestGeneration(await Repository.getInstructorRequests(0, 0, termId)) : [];
   const instructorNames = handlesRequests
     ? new Map((await Repository.getInstructors() as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]))
     : new Map<number, string>();
@@ -15720,7 +15723,12 @@ async function scheduleMovementEntries(instructorId: number, termId: number, row
   const movementRoom = (row:any) => [row?.AdRoomCode,row?.AdRoomHall].filter(Boolean).join("/") || "—";
   const movementShape = (list:any[]) => new Map(list.filter(row => Number(row.AdInstructorId) === instructorId).map(row => [Number(row.id),row]));
   for (const scope of movementScopeMap.values()) {
-    const versions = await hydrateVersionRows(await Repository.getScheduleVersions(scope.collegeId, scope.sectionId, termId, 30));
+    const [rawVersions, generation] = await Promise.all([
+      Repository.getScheduleVersions(scope.collegeId, scope.sectionId, termId, 100),
+      Repository.getInstructorRequestGeneration(scope.collegeId, scope.sectionId, termId),
+    ]);
+    const currentVersions = generation.startedAt ? rawVersions.filter(version => version.createdAt >= generation.startedAt) : rawVersions;
+    const versions = await hydrateVersionRows(currentVersions);
     const ordered = [...versions].sort((a,b) => Date.parse(a.createdAt)-Date.parse(b.createdAt));
     const liveSection = rows.filter(row => Number(row.AdCollegeId) === scope.collegeId && Number(row.AdSectionId) === scope.sectionId);
     const states = ordered.map(version => ({ at:version.createdAt,label:version.label || "تعديل الجدول",rows:version.rows || [] }));
@@ -15769,8 +15777,8 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
   // door. Only after passing may they pin another term (Idea 2).
   const linkRows = (await Repository.getSchedulesByScope({ termId: link.AdTermId }))
     .filter(row => row.AdInstructorId === person.AdInstructorId);
-  const linkTermRequests = (await Repository.getInstructorRequests(0, 0, Number(link.AdTermId)))
-    .filter(request => Number(request.AdInstructorId) === Number(person.AdInstructorId));
+  const linkTermRequests = await currentInstructorRequestGeneration((await Repository.getInstructorRequests(0, 0, Number(link.AdTermId)))
+    .filter(request => Number(request.AdInstructorId) === Number(person.AdInstructorId)));
   const linkHistoryScopes = movementHistoryScopes(linkTermRequests, { collegeId: Number(link.AdCollegeId), sectionId: Number(link.AdSectionId) });
   /* ومن حُذف كلُّ ما يدرّسه في هذا الفصل بعد أن كان له فيه جدول، تُفتح بطاقتُه
      فارغةً مع حركته — ليرى ما حدث لا «لا توجد بطاقة». ومن لم يدرّس هنا قطّ
@@ -15792,8 +15800,8 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
 // A link issued by one campus must never hide requests from another campus.
   /* طلباتُه في الفصل كلِّه: الطلبُ يحمل جدولَه بكل كلياته، فلا يُبحث عنه
      بكليةٍ بعينها. */
-  const requestRows = displayTermId === link.AdTermId ? linkTermRequests : (await Repository.getInstructorRequests(0, 0, Number(displayTermId)))
-    .filter(request => Number(request.AdInstructorId) === Number(person.AdInstructorId));
+  const requestRows = displayTermId === link.AdTermId ? linkTermRequests : await currentInstructorRequestGeneration((await Repository.getInstructorRequests(0, 0, Number(displayTermId)))
+    .filter(request => Number(request.AdInstructorId) === Number(person.AdInstructorId)));
   /* ── بابُ الطلب بعد الرقم المدني، في الرابطين ─────────────────────────────
      a966906 حجب روابطَ الطلب عن رابط القسم، فاختفى بابُ التعديل من بطاقة كل
      أستاذٍ فتحها من رابط القسم — وهو الطريق الذي ينشره القسم. والرقمُ المدنيُّ
@@ -19882,6 +19890,27 @@ const requestWindowOpen = (request: InstructorRequest): boolean => {
   return request.status !== "settled" && request.status !== "superseded";
 };
 
+/** Requests from earlier schedule generations remain in history, never in active views. */
+async function currentInstructorRequestGeneration<T extends InstructorRequest>(requests: readonly T[]): Promise<T[]> {
+  const scopes = new Map<string, { collegeId: number; sectionId: number; termId: number }>();
+  for (const row of requests) {
+    const scope = { collegeId: Number(row.AdCollegeId), sectionId: Number(row.AdSectionId), termId: Number(row.AdTermId) };
+    scopes.set(`${scope.collegeId}:${scope.sectionId}:${scope.termId}`, scope);
+  }
+  const generations = new Map<string, number>();
+  await Promise.all([...scopes].map(async ([key, scope]) => {
+    const value = await Repository.getInstructorRequestGeneration(scope.collegeId, scope.sectionId, scope.termId);
+    generations.set(key, value.generation);
+  }));
+  return requests.filter(row => Number(row.scheduleGeneration || 0) === generations.get(`${Number(row.AdCollegeId)}:${Number(row.AdSectionId)}:${Number(row.AdTermId)}`));
+}
+
+async function requireCurrentInstructorRequestGeneration(request: InstructorRequest, res: Response): Promise<boolean> {
+  if (await Repository.isInstructorRequestInCurrentGeneration(request)) return true;
+  res.status(410).json({ error: "أُغلقت هذه الجولة بعد استبدال الجدول. حدّث الوارد لعرض الجولة الحالية.", code: "request-schedule-replaced" });
+  return false;
+}
+
 /** موقعُ البند: الإضافةُ حيث اختار الأستاذ، والتعديلُ والحذفُ حيث يقع الصفُّ نفسُه.
  *  والطلباتُ القديمة التي لا تحمل موقعاً تعود إلى موقع الرابط، كما كانت. */
 function requestItemScope(request: InstructorRequest, item: InstructorRequestItem): { collegeId: number; sectionId: number } {
@@ -19919,6 +19948,7 @@ function requestForDepartment(req: AuthenticatedRequest, request: InstructorRequ
 function stripForInstructor(request: InstructorRequest) {
   return {
     ...request,
+    scheduleGeneration: undefined,
     /* والتوقيعُ يصل بتاريخه ورمزه، لا ببصمته: البصمةُ تُطابَق في الخادم ولا
        تُعرض، وإرسالُها إلى المتصفّح يجعلها رقماً يُجرَّب عليه. */
     signatureHistory: undefined,
@@ -20159,6 +20189,8 @@ async function resolveRequestLink(token: string) {
   if (!await shareLinkStillReadable(link)) return { error: "انتهت صلاحية هذا الرابط", status: 410 } as const;
   const request: InstructorRequest | undefined | null = link.id === wanted && early ? early : await Repository.getInstructorRequestByLink(link.id);
   if (!request) return { error: "لا يوجد طلبٌ مرتبطٌ بهذا الرابط", status: 404 } as const;
+  if (!(await Repository.isInstructorRequestInCurrentGeneration(request)))
+    return { error: "أُغلقت هذه الجولة بعد استبدال الجدول. استخدم رابط الجولة الحالية.", status: 410 } as const;
   return { link, request } as const;
 }
 
@@ -20696,7 +20728,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     Repository.getTerms(),
   ]);
   const rows = familyRows.flat();
-  const existing = familyRequests.flat();
+  const existing = await currentInstructorRequestGeneration(familyRequests.flat());
   const issueTerm = issueTerms.find(row => Number(row.AdTermId) === termId);
   const courseName = new Map((courses as any[]).map(row => [Number(row.AdCourseId), String(row.CourseName || "")]));
   const collegeNameById = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
@@ -20842,7 +20874,8 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
     hidden: true,
     decision: item?.decision?.state ? { state: item.decision.state } : undefined,
   } as any);
-  const stored = storedAll.filter(request => request.status !== "superseded" && !isUnchangedConfirmed(request) && (
+  const currentGenerationIds = new Set((await currentInstructorRequestGeneration(storedAll)).map(request => request.id));
+  const stored = storedAll.filter(request => currentGenerationIds.has(request.id) && request.status !== "superseded" && !isUnchangedConfirmed(request) && (
     inScope(Number(request.AdCollegeId), Number(request.AdSectionId))
     || (request.items || []).some(item => item.action !== "keep" && inSelection(requestItemScope(request, item)))));
   const scopeRows = (scopeRowsAll as any[]).filter(row => inScope(Number(row.AdCollegeId ?? collegeId), Number(row.AdSectionId)));
@@ -20926,6 +20959,7 @@ function instructorRequestItemIdentity(item: InstructorRequestItem) {
 app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
   if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  if (!(await requireCurrentInstructorRequestGeneration(stored, res))) return;
   if (!requireInstructorRequestRevision(req, res, stored)) return;
   if (await refuseIfTermFrozen(res, Number(stored.AdTermId || 0))) return;
 
@@ -21101,6 +21135,7 @@ const rowBodyOf = (row: any) => ({
 app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   let stored = await Repository.getInstructorRequest(String(req.params.id || ""));
   if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  if (!(await requireCurrentInstructorRequestGeneration(stored, res))) return;
   const termId = Number(stored.AdTermId || 0);
   if (await refuseIfTermFrozen(res, termId)) return;
 
@@ -21376,6 +21411,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
 app.post("/api/instructor-requests/:id/reply", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
   if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  if (!(await requireCurrentInstructorRequestGeneration(stored, res))) return;
   if (!requireInstructorRequestRevision(req, res, stored)) return;
   if (await refuseIfTermFrozen(res, Number(stored.AdTermId || 0))) return;
   const index = Number(req.body?.itemIndex);
@@ -22967,7 +23003,7 @@ app.get("/api/public/request/:token/previous", async (req: Request, res: Respons
   /* طلباتُ هذا الأستاذ وحده، لا طلباتُ كلّ من في الفصل: بضعةُ مستنداتٍ بدل المئات.
      و«السابق» بالتسلسل الزمنيّ للفصول لا بمعرّفاتها (src/utils/previousTermRequest.ts). */
   const found = pickPreviousRequest(
-    await Repository.getInstructorRequestsByInstructor(Number(request.AdInstructorId)),
+    await currentInstructorRequestGeneration(await Repository.getInstructorRequestsByInstructor(Number(request.AdInstructorId))),
     await Repository.getTerms() as any[],
     request,
   );
@@ -23127,7 +23163,7 @@ app.get("/api/public/request/:token/movement", async (req: Request, res: Respons
     Repository.getCourses(),
     Repository.getInstructorRequests(0, 0, Number(request.AdTermId)),
   ]);
-  const ownRequests = termRequests.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
+  const ownRequests = await currentInstructorRequestGeneration(termRequests.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId)));
   const firstSentAt = firstInstructorEditAt(ownRequests);
   /* سجل الحركة الرسمي يبدأ من أول إرسال. شمول أقسام الطلبات القديمة يحفظ
      عرض الحذف إذا لم يبق للأستاذ أي موعد في القسم. */
