@@ -19,8 +19,9 @@ check(inbox.includes('fetch("/api/schedules/check-conflicts"'), "الفحصُ ا
 check(inbox.includes('disabled={busy || blocked || readiness === "checking"}'), "لا يُثبَّت ما منعه الفحص الحيّ أو المحفوظ");
 check(inbox.includes("<QuickCreatePopover") && inbox.includes("saveQuick"), "الإضافة تُفتح بطاقةً سريعة في مكانها");
 check(inbox.includes('onNavigate?.("schedules")') && inbox.includes("onExpand"), "و«تفاصيل أكثر» ما زالت تفتح النموذج الكامل");
-check(inbox.includes('className="request-filters"') && inbox.includes('useState<"pending" | "fixed" | "rejected" | "all">("pending")'),
-  "مرشّحات، والافتراضيُّ ما ينتظر القرار");
+check(inbox.includes('className="request-filters"') && inbox.includes('useState<"pending" | "fixed" | "rejected" | "all" | "confirmed-unchanged">("pending")')
+  && inbox.includes("ثبّتوا جداولهم كما هي") && inbox.includes("للمعلومية فقط · لا يلزم أي إجراء من القسم"),
+  "المرشّحات تشمل من ثبّتوا جداولهم للعلم فقط، والافتراضيُّ ما ينتظر القرار");
 check(inbox.includes("setRowErrors(prev => ({ ...prev, [key]: inboxMessage(e.message) }))"), "رفضُ الخادم يُقال على صفّه، لا في أعلى الصفحة");
 check(server.includes('function broadcastNotify(demoSessionId = "")')
   && server.includes('if (!unchangedConfirmed) broadcastNotify(Repository.currentDemoSessionId());')
