@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { BookOpenCheck, CalendarClock, CheckCheck, GraduationCap, Lightbulb, Users } from "lucide-react";
 import type { AcademicPair, AcademicSlot } from "../utils/academicAdvisory";
 
@@ -15,7 +15,7 @@ const minute = (value: string) => {
 const intersects = (a: AcademicSlot, b: AcademicSlot) =>
   a.day === b.day && minute(a.start) >= 0 && minute(b.start) >= 0 &&
   minute(a.start) < minute(b.end) && minute(b.start) < minute(a.end);
-const chip: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", borderRadius: 999, border: "1px solid var(--line, #dce5df)", fontSize: 11, fontWeight: 700 };
+const chip: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", borderRadius: 999, border: "1px solid var(--line, #dce5df)", fontSize: 11, fontWeight: 700 };
 /**
  * Optional visual guidance. Contains no write controls and never changes
  * validation / approval / proposal readiness. Absence of evidence stays quiet.

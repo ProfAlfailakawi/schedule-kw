@@ -281,7 +281,7 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
           evalError={ws.evalError} hasOps={ws.ops.length > 0 && !ws.terminal} onRetry={ws.retryEvaluation} onClose={requestClose} />
 
         {toolbar}
-        {ws.ops.filter(op => Boolean(op.target?.AdCourseId)).slice(0, 3).map(op => <AcademicAdvicePanel key={op.id} compact collegeId={ctx.scope.collegeId} sectionId={ctx.scope.sectionId} termId={ctx.term.id} courseId={Number(op.target.AdCourseId)} candidate={{ days: (["fsunday","fmonday","ftuesday","fwednesday","fthursday"] as const).filter(day => Boolean((op.target as any)[day])), start: String(op.target.fstarttime || ""), end: String(op.target.fendtime || "") }} />)}
+        {ws.ops.filter(op => Boolean(op.target?.AdCourseId)).slice(0, 3).map(op => <div key={op.id}><AcademicAdvicePanel compact collegeId={ctx.scope.collegeId} sectionId={ctx.scope.sectionId} termId={ctx.term.id} courseId={Number(op.target.AdCourseId)} candidate={{ days: (["fsunday","fmonday","ftuesday","fwednesday","fthursday"] as const).filter(day => Boolean((op.target as any)[day])), start: String(op.target.fstarttime || ""), end: String(op.target.fendtime || "") }} /></div>)}
 
         {!wide ? (
           <nav className="sp-tabs" role="tablist" aria-label="أقسام المساحة">
