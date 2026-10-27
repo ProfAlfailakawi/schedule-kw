@@ -20875,7 +20875,7 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
     decision: item?.decision?.state ? { state: item.decision.state } : undefined,
   } as any);
   const currentGenerationIds = new Set((await currentInstructorRequestGeneration(storedAll)).map(request => request.id));
-  const stored = storedAll.filter(request => currentGenerationIds.has(request.id) && request.status !== "superseded" && !isUnchangedConfirmed(request) && (
+  const stored = storedAll.filter(request => currentGenerationIds.has(request.id) && request.status !== "superseded" && (
     inScope(Number(request.AdCollegeId), Number(request.AdSectionId))
     || (request.items || []).some(item => item.action !== "keep" && inSelection(requestItemScope(request, item)))));
   const scopeRows = (scopeRowsAll as any[]).filter(row => inScope(Number(row.AdCollegeId ?? collegeId), Number(row.AdSectionId)));

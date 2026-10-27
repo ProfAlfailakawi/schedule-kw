@@ -62,6 +62,7 @@ import { singleDepartmentOf } from "../utils/scopeContext";
 import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
 import { takeNotifyFocus } from "../utils/notifyFocus";
 import { NEGOTIATION_LABEL, THREAD_TEXT_LIMIT, negotiationState } from "../utils/instructorRequestThread";
+import { isUnchangedConfirmed, unchangedConfirmationKind } from "../utils/instructorRequestConfirmation";
 import type {
   AdTerm, FSchedule, InstructorRequest, InstructorRequestItem, InstructorRequestRejectReason,
 } from "../types";
@@ -95,6 +96,8 @@ interface Totals {
 
 const requestItemId = (item: InstructorRequestItem) => String(item.itemId
   || (item.rowId != null ? `row:${item.rowId}` : `add:${(item.offeringRowIds || []).join(",")}`));
+const unchangedConfirmedAt = (row: InstructorRequest) => [...(row.timeline || [])]
+  .reverse().find(event => event.kind === unchangedConfirmationKind)?.at || row.submittedAt || "";
 
 const request = async (url: string, init?: RequestInit) => {
   const response = await fetch(url, init);
@@ -131,6 +134,10 @@ const arabicDate = (iso?: string) => {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString("ar-KW-u-nu-latn", { year: "numeric", month: "long", day: "numeric" });
+};
+const unchangedConfirmedDateTime = (iso: string) => {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("ar-KW-u-nu-latn", { dateStyle: "medium", timeStyle: "short" });
 };
 
 /* ── ورقةُ الرفض ────────────────────────────────────────────────────────── */
@@ -786,7 +793,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   /* ── المرشّحات ──────────────────────────────────────────────────────────
      أربعةُ أسئلةٍ يسألها المنسّق فعلاً: ما الذي ينتظرني؟ أيُّ نوع؟ ما الجاهزُ
      منه؟ وفي أيّ قسم؟ وكلٌّ منها زرٌّ واحد، لا قائمةٌ منسدلة. */
-  const [stateFilter, setStateFilter] = useState<"pending" | "fixed" | "rejected" | "all">("pending");
+  const [stateFilter, setStateFilter] = useState<"pending" | "fixed" | "rejected" | "all" | "confirmed-unchanged">("pending");
   const [actionFilter, setActionFilter] = useState<"all" | "change" | "add" | "delete">("all");
   const [verdictFilter, setVerdictFilter] = useState<"all" | "clear" | "exception" | "conflict">("all");
   const [deptFilter, setDeptFilter] = useState(0);
@@ -986,6 +993,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   }, [rows, visitingLookup]);
 
   const itemFilter = useCallback((item: InstructorRequestItem) => {
+    if (stateFilter === "confirmed-unchanged") return false;
     const state = item.decision?.state;
     if (stateFilter === "pending" && state) return false;
     if (stateFilter === "fixed" && state !== "fixed") return false;
@@ -999,7 +1007,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const departments = useMemo(() => {
     const seen = new Map<number, { name: string; count: number }>();
     for (const row of rows || []) {
-      if (!row.changedCount) continue;
+      if (!row.changedCount && !isUnchangedConfirmed(row)) continue;
       const id = Number(row.AdSectionId);
       const entry = seen.get(id) || { name: String(row.sectionName || `قسم ${id}`), count: 0 };
       entry.count += 1;
@@ -1021,15 +1029,18 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       clear: all.filter(item => (item.verdict || "clear") === "clear").length,
       exception: all.filter(item => item.verdict === "exception").length,
       conflict: all.filter(item => item.verdict === "conflict").length,
+      confirmedUnchanged: (rows || []).filter(row => isUnchangedConfirmed(row)).length,
     };
   }, [rows]);
 
-  const changed = visible.filter(row => (!deptFilter || Number(row.AdSectionId) === deptFilter)
+  const visibleConfirmedUnchanged = visible.filter(row => isUnchangedConfirmed(row)
+    && (!deptFilter || Number(row.AdSectionId) === deptFilter));
+  const changed = stateFilter === "confirmed-unchanged" ? [] : visible.filter(row => (!deptFilter || Number(row.AdSectionId) === deptFilter)
     && (row.changedCount > 0
       ? (row.items || []).some(item => item.action !== "keep" && !(item as any).hidden && itemFilter(item))
       /* ملاحظةٌ عامة بلا بنودٍ مغيَّرة: تُقرأ بطاقةً، لا تُدفن في «الجدول كما هو». */
       : Boolean(row.note) && row.status !== "sent"));
-  const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note);
+  const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note && !isUnchangedConfirmed(row));
   const silent = visible.filter(row => !row.linkOpenedAt);
 
   /**
@@ -1418,13 +1429,28 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
               : [];
             const filtered = stateFilter !== "pending" || actionFilter !== "all" || verdictFilter !== "all" || Boolean(deptFilter);
             const any = filtered
-              || visibleFilterOptions(stateOptions, stateFilter).length || visibleFilterOptions(actionOptions, actionFilter).length
+              || counts.confirmedUnchanged > 0
+              || visibleFilterOptions(stateOptions, stateFilter === "confirmed-unchanged" ? "all" : stateFilter).length || visibleFilterOptions(actionOptions, actionFilter).length
               || visibleFilterOptions(verdictOptions, verdictFilter).length || visibleFilterOptions(deptOptions, String(deptFilter)).length;
             if (!any) return null;
             return (
           <div className="request-filters" role="toolbar" aria-label="تصفية الوارد">
             <span className="request-filters-mark" aria-hidden="true"><SlidersHorizontal /></span>
-            <FilterGroup label="الحالة" value={stateFilter} onChange={value => setStateFilter(value as any)} options={stateOptions} />
+            <FilterGroup label="الحالة" value={stateFilter === "confirmed-unchanged" ? "all" : stateFilter} onChange={value => setStateFilter(value as any)} options={stateOptions} />
+            {counts.confirmedUnchanged ? (
+              <button
+                type="button"
+                className={`request-confirmed-filter${stateFilter === "confirmed-unchanged" ? " active" : ""}`}
+                aria-pressed={stateFilter === "confirmed-unchanged"}
+                data-guide-ignore="فلتر من ثبّت جدوله كما هو — عرضٌ للمعلومية فقط"
+                onClick={() => {
+                  setStateFilter(current => current === "confirmed-unchanged" ? "pending" : "confirmed-unchanged");
+                  setActionFilter("all"); setVerdictFilter("all");
+                }}
+              >
+                <ShieldCheck aria-hidden="true" /> ثبّتوا جداولهم كما هي <b>{num(counts.confirmedUnchanged)}</b>
+              </button>
+            ) : null}
             <details className="request-filters-more" open={actionFilter !== "all" || verdictFilter !== "all" || Boolean(deptFilter)}>
               <summary data-guide-ignore="مرشّحاتٌ إضافية — عرضٌ لا فعل">أكثر</summary>
               <FilterGroup label="النوع" value={actionFilter} onChange={value => setActionFilter(value as any)} options={actionOptions} />
@@ -1442,7 +1468,23 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             );
           })()}
 
-          {changed.length ? (
+          {stateFilter === "confirmed-unchanged" ? (visibleConfirmedUnchanged.length ? (
+            <section className="request-confirmed-list" aria-label="أساتذة ثبّتوا جداولهم دون تعديل">
+              {visibleConfirmedUnchanged.map(row => (
+                <article className="request-confirmed-row" key={row.id}>
+                  <span className="request-confirmed-icon"><ShieldCheck aria-hidden="true" /></span>
+                  <span className="request-confirmed-copy">
+                    <strong>{withVisitingSuffix(row.instructorName, rowVisiting(row))}</strong>
+                    <small>ثبّت جدوله كما هو</small>
+                  </span>
+                  <time dateTime={unchangedConfirmedAt(row)}>{unchangedConfirmedDateTime(unchangedConfirmedAt(row))}</time>
+                </article>
+              ))}
+              <p>للمعلومية فقط · لا يلزم أي إجراء من القسم</p>
+            </section>
+          ) : (
+            <EmptyState title="لا توجد تثبيتات كما هي" detail="لا يوجد أستاذ ضمن هذا النطاق ثبّت جدوله دون تعديل." />
+          )) : changed.length ? (
             <div className="request-deck">
               {changed.map(row => (
                 <RequestCard
