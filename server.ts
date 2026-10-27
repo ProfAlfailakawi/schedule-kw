@@ -20269,8 +20269,12 @@ async function instructorRequestDepartmentScopes(request: InstructorRequest) {
   const base = (sections as any[]).find(row => Number(row.AdSectionId) === Number(request.AdSectionId));
   if (!base) return [] as Array<{ collegeId: number; collegeName: string; sectionId: number }>;
   const collegeNameById = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
+  /* Restrict additions to the exact scientific department family used by
+     publication and reviews. Fuzzy matching is only suitable for imports. */
+  const family = departmentFamily(sections as any[], Number(base.AdCollegeId), Number(base.AdSectionId));
+  const familyKeys = new Set(family.map(scope => `${scope.collegeId}:${scope.sectionId}`));
   const scopes = (sections as any[])
-    .filter(row => academicSectionNameMatches(String(row.AdSectionName || ""), String(base.AdSectionName || "")))
+    .filter(row => familyKeys.has(`${Number(row.AdCollegeId)}:${Number(row.AdSectionId)}`))
     .map(row => ({
       collegeId: Number(row.AdCollegeId || 0),
       collegeName: collegeNameById.get(Number(row.AdCollegeId || 0)) || "",
@@ -20297,7 +20301,11 @@ async function instructorRequestCourseOptions(request: InstructorRequest): Promi
      * authority baselines for every sibling college made the public page wait
      * on heavyweight history reads before it could paint. */
     const catalogue = await instructorRequestSectionCourses(scope.sectionId);
-    return (catalogue as any[]).map(row => ({
+    /* A course required by another college remains owned by its department;
+       a service label cannot expand the professor's allowed course scope. */
+    return (catalogue as any[])
+      .filter(row => Number(row.AdSectionId) === scope.sectionId && Number(row.AdCollegeId) === scope.collegeId)
+      .map(row => ({
       id: Number(row.AdCourseId || 0),
       name: String(row.CourseName || row.AdCourseName || "").trim(),
       code: String(row.CourseCode || row.AdCourseCode || "").trim(),

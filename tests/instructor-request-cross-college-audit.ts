@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { departmentFamily } from "../src/utils/sectionLabel";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -15,7 +16,12 @@ const requestPage = server.slice(server.indexOf("function instructorRequestPage"
 const staffPage = server.slice(server.indexOf("function staffCardPage"), server.indexOf("function surveyPage"));
 
 check(types.includes("collegeId?: number;") && types.includes("collegeName?: string;") && types.includes("sectionId?: number;"), "طلب الإضافة يحمل نطاق الكلية والقسم الهدف");
-check(server.includes("async function instructorRequestDepartmentScopes") && server.includes("academicSectionNameMatches"), "النطاقات تُجمع من نفس القسم العلمي عبر الكليات فقط");
+const familyScopeCode = server.slice(server.indexOf("async function instructorRequestDepartmentScopes"), server.indexOf("async function instructorRequestCourseOptions"));
+check(familyScopeCode.includes("departmentFamily(sections as any[]") && !familyScopeCode.includes("academicSectionNameMatches("),
+  "تطابق العائلة العلمي الصارم وليس تشابه أسماء أقسام الاستيراد");
+check(familyScopeCode.includes("familyKeys.has(") &&
+      server.includes("Number(row.AdSectionId) === scope.sectionId && Number(row.AdCollegeId) === scope.collegeId"),
+  "كل مقرر ينتمي للقسم والكلية المستهدفين، ولا يُستثنى متطلب كلية");
 check(server.includes("instructorRequestSectionCourses(scope.sectionId)") && server.includes("collegeName: scope.collegeName"), "خيارات المقرر تحمل الكلية والقسم لكل كتالوج");
 check(requestPage.includes('id="courseCollege"') && requestPage.includes("اختر الكلية أولًا"), "واجهة الإضافة تطلب الكلية قبل المقرر");
 check(!requestPage.includes('id="courseSection"') && !requestPage.includes('id="courseTerm"'), "لا تضيف الواجهة اختيار قسم أو فصل زائد");
@@ -40,6 +46,20 @@ check(!courseOptionBlock.includes("authorityDraftForScope") && !courseOptionBloc
   "فتح رابط الأستاذ لا يعيد بناء تاريخ الجداول لكل كلية قبل عرض الصفحة");
 check(courseOptionBlock.includes("instructorRequestSectionCourses(scope.sectionId)"),
   "خيارات الإضافة تأتي مباشرة من الكتالوج التشغيلي لكل كلية");
+
+/* Similar department names, and external-service requirements, do not widen a family. */
+const candidates = [
+  { AdCollegeId: 1, AdSectionId: 11, AdSectionName: "قسم تكنولوجيا التعليم" },
+  { AdCollegeId: 2, AdSectionId: 12, AdSectionName: "تكنولوجيا التعليم" },
+  { AdCollegeId: 2, AdSectionId: 13, AdSectionName: "قسم تكنولوجيا" },
+  { AdCollegeId: 3, AdSectionId: 14, AdSectionName: "قسم تكنولوجيا التعليم المساعد" },
+  { AdCollegeId: 1, AdSectionId: 15, AdSectionName: "قسم التربية الفنية" },
+];
+const strictFamily = departmentFamily(candidates as any, 1, 11);
+check(strictFamily.length === 2 && [11, 12].every(id => strictFamily.some(row => row.sectionId === id)),
+  "القسم العلمي ذاته عبر بنين وبنات ضمن العائلة");
+check(!strictFamily.some(row => [13, 14, 15].includes(row.sectionId)),
+  "الأسماء المتشابهة أو متطلبات الكلية من خارج العائلة مستبعدة");
 
 console.log(`\nCross-college instructor request audit: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
