@@ -130,7 +130,7 @@ const cohort = judgeRequest(ask(), context({
   allRows: cohortRows, instructorRowsAfter: [row({ id: 1 })],
   cohortPairs: new Set(["100|200"]),
 }));
-check(cohort.sendable && cohort.needsExcuse, "تقاطع الطلبة يحتاج مراجعة القسم وفق السياسة المركزية ولا يصبح تعارضاً مادياً", cohort.reasons);
+check(cohort.sendable && !cohort.needsExcuse && cohort.kind === "clear", "تقاطع الطلبة اقتراحٌ اختياري؛ لا يمنع ولا يتطلب سبب استثناء", cohort.reasons);
 check(cohort.reasons.some(reason => reason.source === "cohort"), "ويُسمّى السببُ باسمه");
 /* ولا يُسمّى المقرّرُ الآخر: الأستاذ لا يحتاج اسمه ليغيّر وقته، وتسميتُه تكشف
    جدولَ قسمٍ آخرَ لمن لا شأن له به. */

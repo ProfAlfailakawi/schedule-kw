@@ -37,6 +37,8 @@ assert.equal(eligible.pairs.find(p => p.a === 2 && p.b === 3)?.shared, 3, "eligi
 assert.equal(eligible.pairs.find(p => p.a === 2 && p.b === 3)?.hasAlternative, true, "alternative sections reported");
 assert.equal(eligible.pairs.find(p => p.a === 2 && p.b === 3)?.overlap, true, "only some pairings overlap");
 assert.equal(eligible.nonBlocking, true);
+const verdictSource = fs.readFileSync("src/utils/instructorRequestVerdict.ts", "utf8");
+assert.match(verdictSource, /exceptionReasons = reasons\.filter\(reason => reason\.source !== "cohort"\)/, "faculty demand warning never requires an exception");
 const noEarlyRegistration = analyseAcademicAdvice({ ...base, profiles: [1,2,3].map(i => profile(i,[1,2],[])) });
 assert.ok(!noEarlyRegistration.pairs.some(p => p.a === 1 && p.b === 2), "prerequisite is NOT simultaneous demand");
 const small = analyseAcademicAdvice({ ...base, profiles: [profile(1,[2,3],[1])] });

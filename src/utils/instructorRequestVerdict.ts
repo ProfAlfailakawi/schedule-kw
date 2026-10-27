@@ -458,13 +458,15 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
 
   const verdictOf = (): RequestVerdict => {
     const blocking = reasons.some(reason => reason.blocking);
-    const kind: RequestVerdictKind = blocking ? "conflict" : reasons.length ? "exception" : "clear";
+    /* Shared-student demand is advice, not an exception requiring a signed justification. */
+    const exceptionReasons = reasons.filter(reason => reason.source !== "cohort");
+    const kind: RequestVerdictKind = blocking ? "conflict" : exceptionReasons.length ? "exception" : "clear";
     return {
       kind, reasons, sendable: !blocking, needsExcuse: kind === "exception",
       roomAvailable: null, roomCandidates: [], nearestTimes: [], computedEnd, blockMinutes: request.blockMinutes,
       headline: blocking
         ? headlineReasonOf(reasons)!.text
-        : reasons.length ? "يحتاج استثناءً من القسم" : "الوقت متاح",
+        : exceptionReasons.length ? "يحتاج استثناءً من القسم" : "الوقت متاح",
     };
   };
 
@@ -686,7 +688,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   if (slots.some(slot => cohortClash(request.AdCourseId, [slot.day], slot.start, slot.end, week.filter(row => !touched.has(row.id)), context.cohortPairs, identity))) {
     /* لا يُسمّى المقرّرُ الآخر: الأستاذ لا يحتاج اسمه ليغيّر وقته، وتسميتُه
        تكشف جدولَ قسمٍ آخر لمن لا شأن له به. */
-    reasons.push({ source: "cohort", text: "يتقاطع هذا الوقت مع مقرّرٍ يشترك فيه طلبتك؛ يحتاج مراجعة القسم.", blocking: false });
+    reasons.push({ source: "cohort", text: "اقتراح أكاديمي: قد يتقاطع الموعد مع مقرر يحتاجه طلبة مشتركون؛ لك حرية اختيار الوقت.", blocking: false });
   }
 
   /* ── النصاب ───────────────────────────────────────────────────────────── */
