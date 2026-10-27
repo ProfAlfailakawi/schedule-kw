@@ -113,6 +113,7 @@ test:masari-visual
 test:masari-return
 test:masari-desktop
 test:registration-sim
+test:academic-advice
 test:registration-flow
 test:section-opening
 test:feature-notifications

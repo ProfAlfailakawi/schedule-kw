@@ -11,7 +11,7 @@ export async function academicAdviceForScope(collegeId: number, sectionId: numbe
     Repository.getCurriculumPlanCourses(sectionId),
     Repository.getStudentProfilesBySection(sectionId),
     Repository.getCourses(),
-    Repository.getSchedulesByScope({ termId }),
+    Repository.getSchedulesByScope({ termId, collegeId }),
   ]);
   const approved = await Promise.all((plans as CurriculumPlan[])
     .filter(p => p.status !== "archived" && Number(p.AdCollegeId) === collegeId && Number(p.AdSectionId) === sectionId)

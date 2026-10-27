@@ -59,6 +59,7 @@
     "test:student-showcase": "tsx tests/student-showcase-audit.ts",
     "test:masari-responsive": "tsx tests/masari-responsive-audit.ts",
     "test:registration-sim": "tsx tests/registration-sim-audit.ts",
+    "test:academic-advice": "tsx tests/academic-advice-audit.ts",
     "test:section-build": "tsx tests/section-build-audit.ts && tsx tests/section-build-live-audit.ts",
     "test:section-opening": "tsx tests/section-opening-feasibility-audit.ts",
     "test:demand-repair-simulation": "tsx tests/demand-repair-simulation-audit.ts",
