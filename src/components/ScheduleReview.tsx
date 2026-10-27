@@ -19,6 +19,7 @@ import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { rowsInApprovalScope } from "../utils/approvalScope";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import PlanBadge from "./PlanBadge";
+import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 
 /**
@@ -712,6 +713,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
           </div>
           <button type="button" className="drawer-close" onClick={onClose} aria-label="إغلاق"><X /></button>
         </header>
+
+        <AcademicAdvicePanel collegeId={collegeId} sectionId={sectionId} termId={termId} />
 
         {/* The whole term as one bar: every appointment counted once. */}
         <div className="review-spread" role="img" aria-label="توزيع المواعيد حسب الملاحظات">

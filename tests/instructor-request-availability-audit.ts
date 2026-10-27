@@ -78,7 +78,7 @@ assert.equal(centralCohort.some(isBlockingConflict), false);
 const requestCohort = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 1,
   days: ["fsunday"], start: "08:00" }, { ...context([cohortOther], [row({ id: -1 })]), cohortPairs });
 assert.equal(requestCohort.sendable, true);
-assert.equal(requestCohort.needsExcuse, true, "central advisory remains reviewable with a written request reason");
+assert.equal(requestCohort.needsExcuse, false, "academic cohort advice never requires a written teacher exception");
 const borrowedOutside = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 1,
   days: ["fsunday"], start: "08:00" }, { ...context([], [row({ id: -1 })]), roomEligible: (_key, _day, start) => start >= "09:00" });
 assert.equal(borrowedOutside.roomAvailable, false, "a known borrowed room outside its approved window is unavailable");

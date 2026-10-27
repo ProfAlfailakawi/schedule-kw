@@ -1,4 +1,5 @@
 import { byArabic } from "../utils/sorting";
+import AcademicAdvicePanel from "./AcademicAdvicePanel";
 /**
  * ── كشفُ التسجيل ────────────────────────────────────────────────────────────
  *
@@ -781,6 +782,8 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
       >
         كشف التسجيل
       </PageTitle>
+
+      {Boolean(collegeId && sectionId && termId) && <AcademicAdvicePanel collegeId={collegeId} sectionId={sectionId} termId={termId} compact />}
 
       <ScopeAskBar
         idPrefix="registration"

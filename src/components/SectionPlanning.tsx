@@ -1,4 +1,5 @@
 import PlanBadge from "./PlanBadge";
+import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Building2, CheckCircle2, ChevronDown, FileQuestion, FileText, FileUp, Hash, History, Layers, Lightbulb, MinusCircle, MousePointerClick, PencilLine, Printer, RotateCcw, ScanLine, Trash2, Users, X } from "lucide-react";
@@ -410,6 +411,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
 
   return (
     <div className="section-plan">
+      {!importOnly && <AcademicAdvicePanel collegeId={collegeId} sectionId={sectionId} termId={termId} compact />}
       {importOnly ? null : buildReady
         ? <SectionBuild collegeId={collegeId} sectionId={sectionId} termId={termId} targets={buildTargets} onReview={onReviewRows} />
         : <p className="sb-hint"><Layers aria-hidden="true" /> {importError ? "عالج رفض الكشف أولاً، فتظهر «نزّل الشعب»." : saveState === "error" ? "تعذّر حفظ الخطة؛ أعد المحاولة لتظهر «نزّل الشعب»." : "تظهر «نزّل الشعب» بعد استيراد كشف المتبقي وحفظ خطةٍ فيها شعب."}</p>}
