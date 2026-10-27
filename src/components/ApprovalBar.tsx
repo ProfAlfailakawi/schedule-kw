@@ -14,7 +14,7 @@
  *   ٥) عند التسجيل — خبرٌ لا فعل، فيُقال بهدوء.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, BadgeCheck, CalendarClock, CalendarPlus, CalendarX, Check, ChevronDown, CornerUpLeft, DoorOpen, FilePenLine, Flag, History,
   Hourglass, Users, Landmark, GraduationCap, ListChecks, ListPlus, Lock, MessageSquareText, PenLine, Quote, Send, ShieldCheck, Undo2, X,
@@ -97,6 +97,8 @@ interface Props {
   onOpenCourses?: () => void;
   /** مقرراتُ القسم التي يطلبها الطلبة وشعبها أقل: يقرؤها مفتاحُ الألوان في الجدول فيضع علامةً صغيرة. */
   onStudentGaps?: (items: GapItem[]) => void;
+  /** عدد الشعب المستهدف كما حدّده التخطيط الدراسي، مستقلّاً عن استبيان الطلبة. */
+  onPlanningGaps?: (items: GapItem[]) => void;
 }
 
 /** مثل request، لكن يُبقي رمز الحالة ليميّز الصلاحية من الخطأ. */
@@ -123,7 +125,7 @@ const arabicDate = (iso?: string) => {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString("ar-KW-u-nu-latn", { year: "numeric", month: "long", day: "numeric" });
 };
 
-export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, powerAdmin = false, demoMode = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onLockChange, onOpenNotes, onOpenCourses, onStudentGaps }: Props) {
+export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, powerAdmin = false, demoMode = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onLockChange, onOpenNotes, onOpenCourses, onStudentGaps, onPlanningGaps }: Props) {
   const [state, setState] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -160,9 +162,12 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   const [gapOpen, setGapOpen] = useState<GapKind | null>(null);
   const [planSheet, setPlanSheet] = useState(false);
   const gap = useSectionGap(collegeId, sectionId, termId, refreshSignal, gapOpen !== null);
+  const planAdjustments = useMemo(() => reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems), [gap.planItems, gap.planSurplusItems]);
   useEffect(() => { onStudentGaps?.(gap.studentItems); }, [gap.studentItems, onStudentGaps]);
+  useEffect(() => { onPlanningGaps?.(gap.planTargets); }, [gap.planTargets, onPlanningGaps]);
   /* الشريط يزول (كل الأقسام، أو فصلٌ مؤرشف): تزول علاماتُه من مفتاح الألوان معه. */
   useEffect(() => () => onStudentGaps?.([]), [onStudentGaps]);
+  useEffect(() => () => onPlanningGaps?.([]), [onPlanningGaps]);
   const [readinessAll, setReadinessAll] = useState(false);
   const revealTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(revealTimer.current), []);
@@ -548,7 +553,6 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   /* Merge both independently computed decisions by course. Reduction advice
      must remain visible from this term's report even if historical opening
      suggestions have not finished loading. */
-  const planAdjustments = reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems);
   const gapList = gapOpen === "plan" ? planAdjustments : gapOpen === "students" ? gap.studentItems : [];
   const gapPanel = gapOpen && gapList.length ? <SectionGapPanel items={gapList} kind={gapOpen} onClose={() => setGapOpen(null)} staffing={gap.staffing} freeSlots={gap.freeSlots} /> : null;
   const readinessPanel = state.dataReadiness ? (

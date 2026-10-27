@@ -223,8 +223,8 @@ function skShape(label){var parts=String(label||"").split("·").map(function(x){
 function skNext(open,sent,edited){var s=stageIdx(),pend=pendingList().length,ic="eye",tone="wait",t="",sub="",btn="";
  if(!open&&!sent){ic="lock";tone="done";t="انتهت مدة استقبال الطلبات";sub="جدولك كما هو، ولا شيء مطلوب منك."}
  else if(!sent){ic=edited>0?"send":"pen";tone="act";
-  t=edited>0?"طلبك جاهز للإرسال":"راجع مواعيدك";
-  sub=edited>0?countOf(edited,AR.edit)+" · اضغط «أرسل» حين تنتهي":"غيّر ما يلزم، أو أرسلها كما هي";
+  t=edited>0?"طلبك جاهز للإرسال":"جدولك لم يتغير";
+  sub=edited>0?countOf(edited,AR.edit)+" · اضغط «أرسل التعديلات» حين تنتهي":"إذا كان جدولك صحيحاً، اضغط «ثبّت الجدول»";
   btn=""; /* زرُّ الإرسال الحقيقي موجود في شريط الإرسال؛ لا اختصار يعجز عن الوصول إليه */ }
  else if(s===2||pend>0){ic="you";tone="act";t="قرارك مطلوب الآن";sub=countOf(pend||1,AR.item)+" ينتظر ردّك من القسم";btn='<button type="button" class="nx-btn" data-nx="decide">'+gi("arrow")+'اذهب إلى القرار</button>'}
  else if(s===1){ic="eye";tone="wait";t="القسم يراجع طلبك";sub="لا شيء مطلوب منك الآن"}

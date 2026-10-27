@@ -64,6 +64,7 @@ import {
 import { DnaCount, DnaStatusHeader } from "./dna";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
+import RoomSuggestionCards from "./RoomSuggestionCards";
 import {
   Badge,
   EmptyState,
@@ -887,6 +888,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* ما يطلبه طلبة «مساري» ولا تكفيه شعبه، بحسب رمز المقرر: علامةٌ صغيرة على شارة المقرر في مفتاح الألوان. */
   const [studentGaps, setStudentGaps] = useState<SectionGapItem[]>([]);
   const gapByCode = useMemo(() => new Map(studentGaps.map(item => [item.code, item])), [studentGaps]);
+  const [planningGaps, setPlanningGaps] = useState<SectionGapItem[]>([]);
+  const planGapByCode = useMemo(() => new Map(planningGaps.map(item => [item.code, item])), [planningGaps]);
   /* علامةُ «+N» لشارة المقرر في مفتاح الألوان (القائمة والأسبوع والقاعات): للمقررات وحدها، ولا شيء إن لم يكن نقص. */
   const needMark = (key: string) => {
     const need = key.startsWith("c:") ? gapByCode.get(key.slice(2).split("·")[0]) : undefined;
@@ -3446,6 +3449,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   ].filter(Boolean);
   const blockingConflicts=conflicts.filter(isBlockingConflict);
   const editorTimingNote = historicalTimingNote(form);
+  const planningSectionCountNotice = (() => {
+    const course = courseById.get(Number(form.AdCourseId || 0));
+    if (!course) return "";
+    const target = planGapByCode.get(String(course.CourseCode || "").trim());
+    if (!target || target.required < 1) return "";
+    const alreadyScheduled = rows.filter(row => Number(row.AdCourseId) === Number(course.AdCourseId)
+      && Number(row.AdTermId) === Number(form.AdTermId)
+      && Number(row.id) !== Number(editor === "edit" ? editId || 0 : 0)).length;
+    const projected = alreadyScheduled + 1;
+    return projected > target.required
+      ? `تنبيه تخطيطي: بعد هذا الموعد يصبح للمقرر ${countOf(projected, AR.section)}، بينما العدد المطلوب في التخطيط ${countOf(target.required, AR.section)}. يمكنك الحفظ، لكن راجع الحاجة قبل الاعتماد.`
+      : "";
+  })();
   const formDurationMinutes = form.fstarttime && form.fendtime ? Math.max(0, mins(form.fendtime) - mins(form.fstarttime)) : 0;
   const currentInstructorName = instructorById.get(Number(form.AdInstructorId || 0))?.AdInstructorName || "";
   const currentRoomLabel = form.AdRoomCode && form.AdRoomHall ? `${form.AdRoomCode}/${form.AdRoomHall}` : "";
@@ -8707,7 +8723,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         >
           {editor === "create" ? "إضافة موعد دراسي" : "تعديل موعد دراسي"}
         </PageTitle>
-        {error ? <Notice>{error}</Notice> : null}
+        {error ? <div className="schedule-editor-error" role="alert"><AlertTriangle aria-hidden="true" />{error}</div> : null}
         {/* The editor no longer closes after a creation, so the confirmation has
             to be readable where the person is still standing. It clears itself
             on the shared 5-second timer, like every other success line. */}
@@ -9035,44 +9051,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       </button>
                       {roomIdeas ? (
                         roomIdeas.length ? (
-                          <div className="room-suggest-list">
-                            {roomIdeas.map((slot: any) => {
-                              const reasons: string[] = Array.isArray(slot.reasons) ? slot.reasons : [];
-                              const facts = reasons.map((reason) => {
-                                if (reason.startsWith("يلائم نوع المقرر")) return { label: "نوع مناسب", Icon: CheckCircle2, tone: "good" };
-                                if (reason.includes("نوع القاعة") && reason.includes("مختلف")) return { label: "نوع مختلف", Icon: DoorOpen, tone: "warn" };
-                                if (reason.includes("نوع القاعة غير مسجل")) return { label: "النوع غير مسجل", Icon: CircleAlert, tone: "muted" };
-                                if (reason.includes("السعة المسجلة مناسبة")) return { label: "سعة مناسبة", Icon: UsersRound, tone: "good" };
-                                if (reason.includes("السعة المسجلة أقل")) return { label: "سعة أقل", Icon: AlertTriangle, tone: "warn" };
-                                if (reason.includes("سعة القاعة غير مسجلة")) return { label: "السعة غير مسجلة", Icon: CircleAlert, tone: "muted" };
-                                if (reason.includes("لا يترك فراغاً للأستاذ")) return { label: "دون فراغ", Icon: CheckCircle2, tone: "good" };
-                                if (reason.startsWith("فراغ ")) return { label: reason.replace(" دقيقة", " د"), Icon: Clock3, tone: "muted" };
-                                if (reason.includes("بلا انتقال بين المباني")) return { label: "دون تنقّل", Icon: CheckCircle2, tone: "good" };
-                                if (reason.startsWith("انتقال ")) return { label: reason.replace(" دقيقة", " د"), Icon: MapPin, tone: "muted" };
-                                if (reason.includes("داخل يوم القسم الحالي")) return { label: "ضمن يوم القسم", Icon: CalendarDays, tone: "good" };
-                                return null;
-                              }).filter(Boolean).slice(0, 2) as Array<{ label: string; Icon: React.ComponentType<any>; tone: string }>;
-                              return (
-                                <button
-                                  type="button"
-                                  key={slot.roomId || `${slot.room}-${slot.hall}`}
-                                  onClick={() => takeSlot(slot)}
-                                  aria-label={`اختر القاعة ${slot.room}/${slot.hall}${reasons.length ? `؛ ${reasons.join("، ")}` : ""}`}
-                                  title={reasons.join(" · ") || "متاحة في هذا الوقت"}
-                                  data-guide-ignore="يثبّت القاعة المقترحة في النموذج دون حفظ"
-                                >
-                                  <span className="room-suggest-card-icon" aria-hidden="true"><DoorOpen /></span>
-                                  <span className="room-suggest-card-copy">
-                                    <bdi dir="ltr">{slot.room}/{slot.hall}</bdi>
-                                    <span className="room-suggest-card-facts">
-                                      {facts.length ? facts.map(({ label, Icon, tone }, index) => <small className={`room-suggest-fact ${tone}`} key={`${label}-${index}`} title={reasons.join(" · ")}><Icon aria-hidden="true" />{label}</small>) : <small className="room-suggest-fact good"><CheckCircle2 aria-hidden="true" />متاحة</small>}
-                                    </span>
-                                  </span>
-                                  <span className="room-suggest-card-action" aria-hidden="true"><CheckCircle2 /><small>اختيار</small></span>
-                                </button>
-                              );
-                            })}
-                          </div>
+                          <RoomSuggestionCards suggestions={roomIdeas} onSelect={takeSlot} label="قاعات متاحة في هذا الوقت" />
                         ) : (
                           <p className="room-suggest-empty">{roomIdeasNote || "لا توجد قاعة خالية من قاعات القسم في هذا الوقت."}</p>
                         )
@@ -9484,6 +9463,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <span><small>المعتاد</small><strong><CalendarDays aria-hidden="true" />{lectureAdvisoryFacts(lectureNotice).expected}</strong></span>
                     <span><small>الفاصل</small><strong><Timer aria-hidden="true" />{lectureAdvisoryFacts(lectureNotice).gap}</strong></span>
                   </div>
+                </div>
+              </div>
+            ) : null}
+            {planningSectionCountNotice ? (
+              <div className="schedule-lecture-advisory schedule-planning-count-advisory" role="status">
+                <span className="schedule-lecture-advisory__icon" aria-hidden="true"><AlertTriangle /></span>
+                <div className="schedule-lecture-advisory__body">
+                  <div className="schedule-lecture-advisory__head"><b>عدد الشعب أعلى من التخطيط</b><span>تنبيه فقط · لا يمنع الحفظ</span></div>
+                  <p>{planningSectionCountNotice}</p>
                 </div>
               </div>
             ) : null}
@@ -10487,6 +10475,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           onOpenNotes={onNavigate ? () => onNavigate("scheduleChanges") : undefined}
           onOpenCourses={onNavigate ? () => onNavigate("courses") : undefined}
           onStudentGaps={setStudentGaps}
+          onPlanningGaps={setPlanningGaps}
         />
       ) : null}
       {/* تنبيه النصاب: شارةٌ صغيرة تظهر فقط إن فعّل المسؤول الميزة وتجاوز عضوٌ نصابه؛ قراءةٌ فقط ولا تمنع تعديلاً. */}

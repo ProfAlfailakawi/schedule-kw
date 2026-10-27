@@ -87,6 +87,7 @@ interface InboxRequest extends InstructorRequest {
   instructorMobile: string;
   changedCount: number;
   sectionName?: string;
+  requestCollegeName?: string;
 }
 
 interface Totals {
@@ -488,6 +489,10 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
       </header>
 
       {row.note ? <p className="request-note"><MessageSquare aria-hidden="true" /><span>{row.note}</span></p> : null}
+      {(() => {
+        const edit = [...(row.timeline || [])].reverse().find(event => event.kind === "schedule-edited");
+        return edit ? <p className="request-schedule-edited" role="status"><History aria-hidden="true" /><span><b>تعدّل الجدول المرتبط بهذا الطلب</b>{edit.detail ? ` · ${edit.detail}` : ""}</span></p> : null;
+      })()}
 
       {/* ── جدولٌ لا كومةُ بطاقات ─────────────────────────────────────────
           كلُّ بندٍ صفٌّ واحد بأعمدةٍ ثابتة: ما هو، وأيُّ مقرّر، وكان، والمطلوب،
@@ -572,8 +577,11 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
   /* ما يُفرغه قسمٌ آخر لا يُثبَّت من هنا: ينتظر قرارَ ذلك القسم. */
   const waitsElsewhere = dependsOn.some(entry => entry.elsewhere);
   const liveIssues = allLive.filter(issue => !(issue.otherId && siblings.has(issue.otherId)));
+  /* كل تعارضٍ حيّ يوقف التثبيت، لا الموانع الحمراء وحدها. فاختيار الأستاذ
+     يجب أن يمرّ من فحص الموعد نفسه الذي يراه القسم، مع استثناء البنود الشقيقة
+     التي ستُفرغها هذه الجولة كما عولجت أعلاه. */
   const blocked = waitsElsewhere || item.verdict === "conflict" || reasons.some(reason => reason.blocking)
-    || liveIssues.some(issue => issue.severity === "high") || (item.action === "change" && !current);
+    || liveIssues.length > 0 || (item.action === "change" && !current);
   const readiness: Readiness = decided ? "ready"
     : item.action === "delete" ? "ready"
     : waitsElsewhere && !liveIssues.some(issue => issue.severity === "high") && !reasons.some(reason => reason.blocking) ? "waiting"
@@ -780,6 +788,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const [sectionId, setSectionId] = useState(() => resolveSharedScope(readSharedScope(), { scopes, isAdmin: powerAdmin }).sectionId);
   const [rows, setRows] = useState<InboxRequest[] | null>(null);
   const [totals, setTotals] = useState<Totals | null>(null);
+  const [familyColleges, setFamilyColleges] = useState<Array<{ id: number; name: string }>>([]);
   /* النطاق مطويٌّ على الجوال: سطرٌ يقول أين أنت، والتغيير بضغطة. */
   const [scopeOpen, setScopeOpen] = useState(false);
   const [currentRows, setCurrentRows] = useState<Map<number, FSchedule>>(new Map());
@@ -911,10 +920,12 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       const data = await request(`/api/instructor-requests?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`);
       setRows((data.rows || []).slice().sort((a: any, b: any) => byArabic(a.instructorName, b.instructorName)));
       setTotals(data.totals || null);
+      setFamilyColleges(Array.isArray(data.familyColleges) ? data.familyColleges : []);
+      const scopesInFamily = Array.isArray(data.familyScopes) ? data.familyScopes : [{ collegeId, sectionId, collegeName: "" }];
       setCurrentRows(new Map((data.currentRows || []).map((row: FSchedule) => [Number(row.id), row])));
       /* المقترحات تأتي بعد الطلبات ولا تُوقف عرضها إن تعذّرت. */
-      proposalApi.list(collegeId, sectionId, termId)
-        .then(result => setProposals(result.proposals || []))
+      Promise.all(scopesInFamily.map((scope: any) => proposalApi.list(Number(scope.collegeId), Number(scope.sectionId), termId)))
+        .then(results => setProposals([...new Map(results.flatMap(result => result.proposals || []).map(view => [view.proposal.id, view])).values()]))
         .catch(() => undefined);
     } catch (e: any) { setError(e.message); setRows([]); }
   }, [collegeId, sectionId, termId]);
@@ -1040,6 +1051,14 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       ? (row.items || []).some(item => item.action !== "keep" && !(item as any).hidden && itemFilter(item))
       /* ملاحظةٌ عامة بلا بنودٍ مغيَّرة: تُقرأ بطاقةً، لا تُدفن في «الجدول كما هو». */
       : Boolean(row.note) && row.status !== "sent"));
+  const changedGroups = useMemo(() => {
+    const groups = new Map<string, InboxRequest[]>();
+    changed.forEach(row => {
+      const name = String(row.requestCollegeName || "موقع غير محدد");
+      groups.set(name, [...(groups.get(name) || []), row]);
+    });
+    return [...groups.entries()].sort(([a], [b]) => byArabic(a, b));
+  }, [changed]);
   const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note && !isUnchangedConfirmed(row));
   const silent = visible.filter(row => !row.linkOpenedAt);
 
@@ -1485,21 +1504,27 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           ) : (
             <EmptyState title="لا توجد تثبيتات كما هي" detail="لا يوجد أستاذ ضمن هذا النطاق ثبّت جدوله دون تعديل." />
           )) : changed.length ? (
-            <div className="request-deck">
-              {changed.map(row => (
-                <RequestCard
-                  key={row.id}
-                  row={row}
-                  currentRows={currentRows}
-                  busyKey={busyKey}
-                  filter={itemFilter}
-                  rowErrors={rowErrors}
-                  proposals={proposals.filter(view => view.proposal.requestId === row.id)}
-                  onOpenProposal={openStudyProposal}
-                  onDecide={(index, state, extra) => void decide(row, index, state, extra)}
-                  onReply={(index, text, slots) => void reply(row, index, text, slots)}
-                />
-              ))}
+            <div className="request-family">
+              {familyColleges.length > 1 ? <div className="request-family-banner"><strong>رغبات عائلة القسم</strong><span>{familyColleges.map(item => item.name).join(" · ")}</span></div> : null}
+              {changedGroups.map(([collegeName, groupRows]) => <section className="request-family-group" key={collegeName} aria-label={`رغبات ${collegeName}`}>
+                <header><h3>{collegeName}</h3><span>{countOf(groupRows.length, AR.instructor)}</span></header>
+                <div className="request-deck">
+                  {groupRows.map(row => (
+                    <RequestCard
+                      key={row.id}
+                      row={row}
+                      currentRows={currentRows}
+                      busyKey={busyKey}
+                      filter={itemFilter}
+                      rowErrors={rowErrors}
+                      proposals={proposals.filter(view => view.proposal.requestId === row.id)}
+                      onOpenProposal={openStudyProposal}
+                      onDecide={(index, state, extra) => void decide(row, index, state, extra)}
+                      onReply={(index, text, slots) => void reply(row, index, text, slots)}
+                    />
+                  ))}
+                </div>
+              </section>)}
             </div>
           ) : (
             <EmptyState

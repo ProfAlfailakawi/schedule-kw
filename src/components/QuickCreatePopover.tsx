@@ -17,6 +17,7 @@ import { isBlockingConflict } from "../utils/scheduleIntelligence";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
+import RoomSuggestionCards from "./RoomSuggestionCards";
 
 /**
  * The appointment written where it was drawn.
@@ -402,7 +403,11 @@ export default function QuickCreatePopover({
           {ideasError ? <p className="qc-warn">{ideasError}</p> : null}
           {ideas && !ideas.length && !ideasError ? <small>لا توجد اقتراحات متاحة ضمن الشروط المختارة.</small> : null}
           {ideas?.length ? (
-            <div className={ideaKind === "time" ? "slot-ideas" : "room-suggest-list"}>
+            ideaKind === "room" ? <RoomSuggestionCards suggestions={ideas} label="قاعات مناسبة للموعد" onSelect={idea => {
+              timeEdited.current = true;
+              patch({ room: idea.room, hall: idea.hall, buildingId: idea.buildingId, roomId: idea.roomId, locationStatus: "VERIFIED" });
+              setIdeas(null);
+            }} /> : <div className="slot-ideas">
               {ideas.map((idea, index) => (
                 <button key={`${index}-${idea.roomId}-${idea.start}`} type="button"
                   data-guide-ignore="اختيار المقترح يملأ النموذج فقط ولا يحفظه"
@@ -412,14 +417,14 @@ export default function QuickCreatePopover({
                   }); setIdeas(null); }}
                   title={(idea.reasons || []).join(" · ")}>
                   {ideaKind === "time" ? <b className="slot-rank">{index + 1}</b> : null}
-                  <span className={ideaKind === "time" ? "slot-when" : "room-suggest-card-copy"}>
+                  <span className="slot-when">
                     <time dir="ltr">{formatScheduleTimeRange(idea.start, idea.end)}</time>
                     <small>{idea.room}/{idea.hall}</small>
                   </span>
-                  <span className={ideaKind === "time" ? "slot-why" : "room-suggest-card-facts"}>
+                  <span className="slot-why">
                     {(idea.reasons || []).slice(0, 3).map((reason, i) => <i key={i}>{reason}</i>)}
                   </span>
-                  {ideaKind === "time" ? <span className="slot-score" style={{ "--score": `${idea.score}%` } as React.CSSProperties}><i /><em>{idea.score}</em></span> : null}
+                  <span className="slot-score" style={{ "--score": `${idea.score}%` } as React.CSSProperties}><i /><em>{idea.score}</em></span>
                 </button>
               ))}
             </div>
