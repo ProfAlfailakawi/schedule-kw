@@ -155,7 +155,7 @@ import { courseLevelFromCode } from "./src/utils/curriculumRules";
 import { reasonForMove } from "./src/utils/appointmentStory";
 import { buildCalendar, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "./src/utils/icalendar";
 import { withVisitingSuffix } from "./src/utils/visitingText";
-import { dayHabitOf, learnAll, learnCourseNature, habitualBlockMinutes, historicalOrigin, type CourseNature } from "./src/utils/courseNature";
+import { learnAll, learnCourseNature, habitualBlockMinutes, historicalOrigin, type CourseNature } from "./src/utils/courseNature";
 import { firstLast } from "./src/utils/weekVisual";
 import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, campusOf, interCampusMinutes } from "./src/utils/campusTravel";
 import {
@@ -20897,10 +20897,8 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
      الوارد. ونظلّ نفلتر كل نطاق بصلاحيات المستخدم قبل إظهار أي طلب. */
   const baseSection = (sections as any[]).find(row => Number(row.AdSectionId) === sectionId);
   const familyCode = String(baseSection?.AdSectionCode || "").trim().toLocaleLowerCase();
-  const familyName = String(baseSection?.AdSectionName || "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
   const familySectionIds = new Set((sections as any[]).filter(row =>
-    (familyCode && String(row.AdSectionCode || "").trim().toLocaleLowerCase() === familyCode)
-    || (!familyCode && familyName && String(row.AdSectionName || "").replace(/\s+/g, " ").trim().toLocaleLowerCase() === familyName),
+    familyCode && String(row.AdSectionCode || "").trim().toLocaleLowerCase() === familyCode,
   ).map(row => Number(row.AdSectionId)));
   familySectionIds.add(sectionId);
   const familyCollegeBySection = new Map((sections as any[]).filter(row => familySectionIds.has(Number(row.AdSectionId)))
@@ -22669,7 +22667,7 @@ function wire(){
     before:{courseName:found.name||"مقرر",sectionCode:""},after:{courseId:cid,courseName:found.name||"مقرر",collegeId:collegeId,collegeName:found.collegeName||"",sectionId:sectionId,sectionCode:"",days:"",time:""},decision:null,
     slots:[],days:[],start:"",excuse:"",tone:"",note:"",alts:[]
    });
-   loadHabits([cid]);chooserOpen=false;paint();var card=document.getElementById("item-"+(state.length-1));if(card)card.scrollIntoView({behavior:"smooth",block:"center"})
+   chooserOpen=false;paint();var card=document.getElementById("item-"+(state.length-1));if(card)card.scrollIntoView({behavior:"smooth",block:"center"})
  }});
  host.querySelectorAll("[data-a]").forEach(function(el){el.onclick=function(){
   var i=+el.dataset.i,it=state[i],act=el.dataset.a;
@@ -22719,23 +22717,12 @@ function wire(){
 /* الحكمُ يُسأل عنه الخادمُ عند كل تغيير: هو وحده يرى الجدول كاملاً، والصفحةُ
    ترى جدولَ صاحبها. وهي تعرض ما يقوله ولا تقرّر شيئاً بنفسها. */
 var pending={};
-/* ── نمطُ أيام المقرّر من تاريخ القسم ──────────────────────────────────────
-   يُطلب مرّةً لكل مقرّر ويُحفظ في الصفحة: يضغط الأستاذُ يوماً فتكتمل أيامُ المقرّر المعتادة. */
-var HAB={},habAsked={};
 function courseIdOf(it){return Number(it.courseId||(it.after&&it.after.courseId)||(it.before&&it.before.courseId)||0)}
 /* وسمُ «متطلب كلية» خاصٌّ بالمقرر في قسمه؛ لا يعبر المقررُ إلى أقسامٍ أخرى. */
 function skPlanTag(cid,sid){var all=(data&&data.planBadges)||{},label=all[Number(sid)+":"+Number(cid)]||"";return label?'<span class="sk-plan-tag">'+esc(label)+'</span>':""}
 function reqTag(it){var l=(data&&data.serviceCourses)||[],sid=Number(it.sectionId||(it.after&&it.after.sectionId)||(it.before&&it.before.sectionId)||(data&&data.request&&data.request.AdSectionId)||0);return skPlanTag(courseIdOf(it),sid)+(l.indexOf(sid+":"+courseIdOf(it))>=0?'<i class="req-tag">متطلب كلية</i>':"")}
-function loadHabits(ids){var need=ids.filter(function(id){return id>0&&!habAsked[id]});if(!need.length)return;
- need.forEach(function(id){habAsked[id]=1});
- fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/day-habits?courses="+need.join(","),{cache:"no-store"}).then(function(r){return r.ok?r.json():{habits:{}}})
- .then(function(d){var h=d.habits||{};Object.keys(h).forEach(function(k){HAB[k]=h[k]})}).catch(function(){need.forEach(function(id){delete habAsked[id]})})}
-/* الضغطةُ على يوم: يُكمل النظام نمطَه إن عُرف (autofillDays)، وإلا تبديلٌ عاديّ. */
-function tapDay(it,d){var at=it.days.indexOf(d);
- if(at>=0){it.days.splice(at,1);it.autoNote="";return}
- var filled=autofillDays(d,it.days,HAB[courseIdOf(it)],originalOf(it).days.length,DAYS.map(function(x){return x[0]}));
- if(filled){it.days=filled;it.autoNote=filled.length>1?"أُكمل النمط المعتاد لهذا المقرّر: "+fmtDays(filled):""}
- else{it.days.push(d);it.autoNote=""}}
+/* لا يختار النظامُ أياماً نيابةً عن الأستاذ؛ كلُّ ضغطةٍ تضيف يومها أو تزيله فقط. */
+function tapDay(it,d){it.days=toggleRequestDay(d,it.days);it.autoNote=""}
 /* الحكمُ على المسودة كلها بنداءٍ واحد: يبني الخادم سياقَ الجدول والقواعد مرةً للحزمة، لا مرةً لكل بند. */
 var checkSeq=0;
 function recheckAll(){
@@ -22869,7 +22856,6 @@ fetch("/api/public/request/"+encodeURIComponent(TOKEN)).then(function(r){
  if(!x.ok){host.innerHTML='<div class="err">'+esc(x.d.error||"تعذّر فتح الرابط")+'</div>';return}
  data=x.d;lastFetch=Date.now();
  state=mapItems(data);
- loadHabits(state.map(courseIdOf));
  rankState();
  baseItems=JSON.parse(JSON.stringify(payloadItems()));
  var draft=data.windowOpen?readDraft():null;
@@ -23019,34 +23005,6 @@ app.post("/api/public/request/:token/check-batch", async (req: Request, res: Res
   } catch (error: any) {
     res.status(400).json({ error: error?.message || "تعذر فحص المسودة." });
   }
-});
-
-/**
- * ── نمطُ أيام المقرّرات (إكمالُ الأيام تلقائياً) ─────────────────────────────
- *
- * يضغط الأستاذ يوماً فيكمل الصفحةُ باقي أيام المقرّر المعتادة في قسمه. عددُ لقاءاته وتوزيعاتُه
- * من تاريخ المقرّر نفسه (`dayHabitOf`). لا يُسأل إلا عن مقرّراتٍ في طلب هذا الأستاذ أو في
- * مقرّرات الإضافة المتاحة له، فلا يُقرأ بهذا الرابط تاريخُ مقرّرٍ لا شأن له به.
- */
-app.get("/api/public/request/:token/day-habits", async (req: Request, res: Response) => {
-  const resolved = await resolveRequestLink(String(req.params.token || ""));
-  if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
-  res.setHeader("Cache-Control", "no-store");
-  const asked = [...new Set(String(req.query.courses || "").split(",").map(value => Number(value)).filter(value => Number.isInteger(value) && value > 0))].slice(0, 40);
-  if (!asked.length) { res.json({ habits: {} }); return; }
-  const allowed = new Set<number>();
-  for (const item of (resolved.request.items || [])) {
-    for (const id of [item.before?.courseId, item.after?.courseId]) if (Number(id) > 0) allowed.add(Number(id));
-  }
-  if (asked.some(id => !allowed.has(id))) {
-    for (const option of (await instructorRequestCourseOptions(resolved.request)) as Array<{ id?: unknown }>) allowed.add(Number(option.id));
-  }
-  const habits: Record<string, { perWeek: number; patterns: string[][] }> = {};
-  for (const id of asked.filter(value => allowed.has(value))) {
-    const habit = dayHabitOf(await courseHabit(id));
-    if (habit) habits[String(id)] = habit;
-  }
-  res.json({ habits });
 });
 
 /**
