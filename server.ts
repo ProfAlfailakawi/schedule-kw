@@ -19331,7 +19331,7 @@ ${STAFF_CARD_VISUAL_JS}
     var nouns=d.countNouns||{};
     
     var statItems=[
-      ["ساعات تدريس أسبوعية",hours(d.weeklyMinutes)],
+      ["ساعات المقررات أسبوعياً",ar(d.loadUnits||0)],
       [(nouns.units||"وحدات")+" نصاب",ar(d.loadUnits||0)],
       [nouns.lectures||"محاضرات",ar(d.lectureCount)],
       [nouns.days||"أيام",ar(d.dayCount)],
