@@ -22490,12 +22490,14 @@ function heatAttr(i,t){var h=heat[i]&&heat[i][t];if(!h)return "";
 function heatLegend(i){if(heatShape[i])return '<p class="heat-key" role="status">'+gi("alert")+'المشكلة في الأيام لا في الوقت</p>';return heat[i]&&Object.keys(heat[i]).length?'<p class="heat-key" aria-hidden="true"><span data-heat="ok"></span>متاح <span data-heat="warn"></span>يحتاج سبباً <span data-heat="bad"></span>غير ممكن</p>':""}
 /* أفضل ثلاثة مواعيد: من الأوقات التي حكم الخادمُ بأنها متاحة، مرتّبةً بقربها من محاضراته الأخرى. لا تظهر إن لم توجد ثلاثة صالحة. */
 function bestTimes(it,i){var h=heat[i];if(!h||heatShape[i]||!it.days.length)return [];
+  var currentAcademic=academicClashCount(it,it.start);
  var os=othersFor(i).filter(function(o){return o.d.some(function(x){return it.days.indexOf(x)>=0})});
  var out=startList(it).filter(function(t){return h[t]==="ok"&&t!==it.start&&!ownClash(it,i,t)}).map(function(t){var s=mins(t),why="وقتٌ متاح",score=2;
   if(!os.length){why="يوم فارغ عندك";score=1}
   os.forEach(function(o){var gap=s-o.e;if(gap>=0&&gap<=20){why="بعد محاضرتك مباشرة";score=0}});
-  return{t:t,why:why,score:score,gapKey:os.reduce(function(m,o){return Math.min(m,Math.abs(s-o.e))},9999)}});
- out.sort(function(a,b){return a.score-b.score||a.gapKey-b.gapKey||(a.t<b.t?-1:1)});
+  var acad=academicClashCount(it,t);if(acad<currentAcademic)why="أنسب للطلبة";
+  return{t:t,why:why,score:score,acad:acad,gapKey:os.reduce(function(m,o){return Math.min(m,Math.abs(s-o.e))},9999)}});
+ out.sort(function(a,b){return a.acad-b.acad||a.score-b.score||a.gapKey-b.gapKey||(a.t<b.t?-1:1)});
  return out.length>=3?out.slice(0,3):[]}
 function bestHtml(it,i){var best=bestTimes(it,i);if(!best.length)return "";
  return '<div class="best" role="group" aria-label="أفضل ثلاثة مواعيد لك"><p class="shape-lead">أفضل ٣ مواعيد لك:</p><div class="best-row">'+best.map(function(b){return '<button type="button" data-i="'+i+'" data-quick="'+b.t+'" aria-label="'+esc(fmtDays(it.days)+" "+b.t+" — "+b.why)+'">'+skPills(it.days)+'<b class="bp-t">'+ltr(b.t)+'</b><small>'+gi(b.why==="بعد محاضرتك مباشرة"?"clock":"check")+esc(b.why)+'</small></button>'}).join("")+'</div></div>'}

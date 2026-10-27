@@ -57,4 +57,6 @@ assert.ok(code.includes('app.get("/api/schedules/academic-advice", requirePermis
 assert.ok(code.includes('app.get("/api/public/request/:token/academic-advice"'), "professor link authenticated separately");
 const visual = fs.readFileSync("src/server/academicAdvisoryVisual.ts","utf8");
 assert.ok(visual.includes("academicCardHtml") && !visual.includes("it.tone=") && !visual.includes("it.verdict="), "decorative only");
+assert.ok(visual.includes("academicClashCount"), "reusable academic suggestion scoring in professor best times");
+assert.ok(code.includes("var currentAcademic=academicClashCount(it,it.start)"), "best professor times account for academic clashes without changing send gate");
 console.log("academic advice: prerequisites, cohorts, section alternatives, scope, privacy & non-blocking UI passed");
