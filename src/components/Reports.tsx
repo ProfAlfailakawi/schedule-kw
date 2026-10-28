@@ -55,6 +55,7 @@ import { ApprovalDnaStepper, DeadlineDnaRing } from "./dna/scheduleDna";
 import PlanBadge from "./PlanBadge";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { teachingHoursByInstructor } from "../utils/teachingLoad";
+import { effectiveCourseHours } from "../utils/scheduleRegulations";
 
 /**
  * One question, seven lenses.
@@ -491,6 +492,10 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
    */
   const [branchRows, setBranchRows] = useState<Record<string, FSchedule[]>>({});
   const [branchCourses, setBranchCourses] = useState<AdCourse[]>([]);
+  /* J1: courses of sister colleges that the read rows carry but the chosen
+     department's catalogue does not — fetched once per section, gaps only. */
+  const [scopeGapCourses, setScopeGapCourses] = useState<AdCourse[]>([]);
+  const scopeGapSectionsTried = useRef<Set<number>>(new Set());
   const [branchDenied, setBranchDenied] = useState<string[]>([]);
   const [branchBusy, setBranchBusy] = useState(false);
   /* نطاق التقارير: الموقع المفتوح وحده (الافتراضي) أو مواقع الفرع كلها. */
@@ -1028,7 +1033,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const rowMatchesBuilding = useCallback((row: FSchedule, buildingId: string) => !buildingId || rowLocation(row).building?.id === buildingId, [rowLocation]);
   const rowMatchesRoom = useCallback((row: FSchedule, roomId: string) => !roomId || rowLocation(row).room?.id === roomId, [rowLocation]);
   const instructorById = useMemo(() => new Map(instructors.map(x => [x.AdInstructorId, x])), [instructors]);
-  const courseById = useMemo(() => new Map(courses.map(x => [x.AdCourseId, x])), [courses]);
+  /* ── J1: «—» مكان رمز المقرر و«6 س» لخمسة مقررات ─────────────────────────
+     When a department is chosen its own courses replace the catalogue (below),
+     but «كل الكليات» reads the sister colleges' rows too — and each college's
+     department has its own course ids. Those rows found no course: their code
+     printed «—» and their hours counted 0 in the load. The gaps are filled from
+     the sections the rows actually belong to; the department's own entry wins. */
+  const courseById = useMemo(() => new Map([...scopeGapCourses, ...courses].map(x => [x.AdCourseId, x])), [courses, scopeGapCourses]);
   /* وثيقة تضم مواقع الفرع تحتاج كتالوج كل موقع: المقرر نفسه له رقم مستقل في
      كل قسم، فبغير هذا الدمج تخرج أعمدة الوحدات والساعات والسعة فارغة. */
   const bookCourseById = useMemo(
@@ -1930,6 +1941,23 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
 
   const groups = lens === "instructor" ? byInstructor : [];
   const courseLoadRows = siteLoadRead?.termId === filters.termId && !siteLoadRead.loading ? siteLoadRead.rows : [];
+  useEffect(() => {
+    const missingSections = new Set<number>();
+    for (const row of [...all, ...(printRowsOverride || []), ...courseLoadRows]) {
+      const courseId = Number(row.AdCourseId || 0), sectionId = Number(row.AdSectionId || 0);
+      if (courseId && sectionId && !courseById.has(courseId) && !scopeGapSectionsTried.current.has(sectionId)) missingSections.add(sectionId);
+    }
+    if (!missingSections.size) return;
+    /* Each section is asked once (the ref), so no request is cancelled half-way. */
+    missingSections.forEach(id => scopeGapSectionsTried.current.add(id));
+    void Promise.all([...missingSections].map(id => fetch(`/api/courses?sectionId=${id}`, { credentials: "include" })
+      .then(response => (response.ok ? response.json() : []))
+      .catch(() => [])))
+      .then(lists => {
+        const found = lists.flat().filter((course: any) => course && Number(course.AdCourseId));
+        if (found.length) setScopeGapCourses(previous => [...previous, ...found]);
+      });
+  }, [all, printRowsOverride, courseLoadRows, courseById]);
   const courseLoads = useMemo(() => instructorCourseLoad(courseLoadRows, instructorById, courseById, collegeById)
     .filter(person => (!filters.instructorId || person.instructorId === filters.instructorId)
       && (!filters.instructorQuery.trim() || sortKey(person.instructorName).toLowerCase().includes(sortKey(filters.instructorQuery.trim()).toLowerCase()))
@@ -1956,7 +1984,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     }
     return [...byCourse.values()].sort((a, b) => b.items.length - a.items.length || byArabic(a.name, b.name));
   }, [roomTypeMismatches, courseById]);
-  const roomTeacherIndex = useMemo(() => () => roomInstructorDirectory(results, instructorById), [results, instructorById]);
+  const roomTeacherIndex = useMemo(() => roomInstructorDirectory(results, instructorById), [results, instructorById]);
   const maxLoad = Math.max(1, ...byInstructor.map(group => group.load));
   const maxSlot = Math.max(1, ...byTime.map(slot => slot.count));
   const selectedResult = selectedResultId === null ? null : results.find(row => row.id === selectedResultId) || null;
@@ -4147,14 +4175,20 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
   }
 
   if (kind === "instructor") {
-    const groups = groupRows(rows, row => instructorOf(row)?.AdInstructorName || "بدون أستاذ").sort((a, b) => byArabic(a.key, b.key));
+    /* One person = one id (J1): two instructors sharing a name used to merge into
+       one page, and their load into one number. The visible key stays the name. */
+    const nameOf = (row: FSchedule) => instructorOf(row)?.AdInstructorName || "بدون أستاذ";
+    const groups = groupRows(rows, row => `${Number(row.AdInstructorId) || 0}\u0000${nameOf(row)}`)
+      .map(group => ({ ...group, key: nameOf(group.rows[0]) }))
+      .sort((a, b) => byArabic(a.key, b.key));
+    /* النصاب بمعنى weeklyLoadOf/effectiveCourseHours: ساعات المقرر المعتمدة، والشعبة مرة واحدة في كليتها. */
+    const courseHours = new Map([...courseById.values()].map(course => [Number(course.AdCourseId), effectiveCourseHours(course)]));
     const pages = groups.flatMap(group => paginateItems(group.rows, PAGE_ROWS.instructorRows).map(groupRows => ({ group, rows: groupRows })));
     return (
       <div className="print-report print-wide print-query-report print-query-groups-report">
         {pages.length ? pages.map((page, pageIndex) => {
           const instructor = instructorOf(page.group.rows[0]);
           const instructorId = Number(page.group.rows[0]?.AdInstructorId || 0);
-          const courseHours = new Map([...courseById.values()].map(course => [Number(course.AdCourseId), Number(course.CourseHours || course.CourseCredit || 0)]));
           /* التقرير يعلن النصاب المعتمد (ساعات المقررات الفريدة)، لا مجموع دقائق الاتصال؛ صفّا المقرر/شعبته لا يضاعفان الساعات. */
           const load = teachingHoursByInstructor(page.group.rows, courseHours).get(instructorId) || 0;
           const days = new Set(page.group.rows.flatMap(row => dayFlags(row).map(day => day.key))).size;

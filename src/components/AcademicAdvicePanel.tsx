@@ -37,6 +37,8 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
   const [revision, setRevision] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const demo = isDemoSession();
+  /* `defaultOpen` is not an attribute of <details>: the card never opened by itself (K1). */
+  const [open, setOpen] = useState(demo);
   useEffect(() => {
     setPairs([]); setTimePreferences([]); setLab(undefined); setStatus("loading");
     if (!collegeId || !sectionId || !termId) return;
@@ -73,7 +75,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
   const total = relevant.length + periods.length;
   const shown = relevant.slice(0, compact ? 3 : relevant.length);
   return (
-    <details defaultOpen={demo} aria-label="فرصة لتحسين الجدول" style={{
+    <details open={open} onToggle={event => setOpen((event.currentTarget as HTMLDetailsElement).open)} aria-label="فرصة لتحسين الجدول" style={{
       border: "1px solid color-mix(in srgb, var(--accent, #247756) 24%, var(--line, #dce5df))",
       background: "color-mix(in srgb, var(--accent, #247756) 4%, var(--card, #fff))",
       borderRadius: 16, padding: compact ? "9px 12px" : "12px 15px", marginBlock: 10, direction: "rtl",
