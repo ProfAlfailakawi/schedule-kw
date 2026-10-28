@@ -30,7 +30,7 @@ export interface AcademicPair {
   bOfferings: AcademicOffering[];
 }
 export interface AcademicTimePreference { courseId: number; name: string; wanted: number; period: "morning" | "afternoon" }
-export interface AcademicReading { pairs: AcademicPair[]; timePreferences: AcademicTimePreference[]; assessed: number; source: "approved-plans-and-wishes"; nonBlocking: true }
+export interface AcademicReading { pairs: AcademicPair[]; timePreferences: AcademicTimePreference[]; assessed: number; source: "approved-plans-and-wishes"; nonBlocking: true; decisionLab?: import("./academicDecisionLab").AcademicDecisionLab }
 export interface AcademicInput {
   collegeId: number; sectionId: number; termId: number;
   plans: AcademicPlanView[];

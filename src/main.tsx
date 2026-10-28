@@ -7,6 +7,9 @@ import {safeStorage} from "./utils/safeStorage";
 import {BUILD_STAMP} from "./generated/buildStamp";
 import {toEnglishDigits} from "./utils/digits";
 import "./index.css";
+/* The decision lab is shared by screens and its CSS belongs to the browser entry,
+   not its component: Node-based feature tests import the component directly. */
+import "./components/academic-decision-lab.css";
 /* The journey and print styles, fetched in parallel the instant the app boots
    but never allowed to block the first paint. A visitor landing directly on
    the journey page gets them within the same breath — the SPA cannot render

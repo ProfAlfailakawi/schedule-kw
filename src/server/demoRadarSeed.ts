@@ -319,8 +319,8 @@ export async function seedDemoMasariDemand(): Promise<void> {
       for (const person of selected) await Repository.updateStudentProfile(person.id, current =>
         current && current.wishes ? {
           ...current, wishes: { ...current.wishes,
-            courseIds: [...new Set([a, b, ...current.wishes.courseIds])],
-            constraints: { ...current.wishes.constraints, noMorning: true, noAfternoon: false },
+            courseIds: [a, b], // dedicated, genuinely eligible fictional two-course journey for full-bundle what-if
+            constraints: { ...current.wishes.constraints, noMorning: false, noAfternoon: false },
           },
         } as StudentProfile : current);
       seeded = true;

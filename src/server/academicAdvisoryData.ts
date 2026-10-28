@@ -1,6 +1,7 @@
 /** Bounded, read-only view for academic suggestions. No grades or identities leave the server. */
 import { Repository } from "../db/repository";
 import { analyseAcademicAdvice, type AcademicReading, type AcademicPlanView } from "../utils/academicAdvisory";
+import { buildAcademicDecisionLab } from "../utils/academicDecisionLab";
 import type { AdCourse, CurriculumPlan, FSchedule, StudentProfile } from "../types";
 
 export async function academicAdviceForScope(collegeId: number, sectionId: number, termId: number): Promise<AcademicReading> {
@@ -26,10 +27,20 @@ export async function academicAdviceForScope(collegeId: number, sectionId: numbe
     }));
   const active = approved.filter((p): p is AcademicPlanView => Boolean(p));
   if (!active.length) return empty;
-  return analyseAcademicAdvice({
+  const input = {
     collegeId, sectionId, termId, plans: active,
     profiles: profiles as StudentProfile[],
     courses: courses as AdCourse[],
     rows: rows as FSchedule[],
+  };
+  const reading = analyseAcademicAdvice(input);
+  // Evaluate the heavier what-if only if the authorised schedule API serialises
+  // the whole reading. The professor public-token endpoint selectively returns
+  // pairs and time preferences; it must NOT compute or expose the lab.
+  let decisionLab: ReturnType<typeof buildAcademicDecisionLab> | undefined;
+  Object.defineProperty(reading, "decisionLab", {
+    enumerable: true,
+    get() { return decisionLab ?? (decisionLab = buildAcademicDecisionLab(input, reading)); },
   });
+  return reading;
 }
