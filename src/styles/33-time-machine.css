@@ -125,7 +125,9 @@
 .tm-teacher-card ul{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:var(--t-xs)}
 .tm-teacher-card .is-before{color:var(--danger)}
 .tm-teacher-card .is-after{color:var(--success);font-weight:600}
-.tm-teacher-card .is-after::before{content:"← "}
+.tm-teacher-card .is-before::before{content:"⏪ "}
+.tm-teacher-card .is-after::before{content:"⏩ "}
+.tm-teacher-card li{line-height:1.6}
 
 .tm-saved{padding:14px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line)}
 .tm-saved ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
@@ -231,3 +233,12 @@
 .tm-cards{grid-template-columns:repeat(auto-fill,minmax(min(210px,100%),1fr))}
 .tm-suggest,.tm-publish-cards{grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr))}
 .tm-domino li b,.tm-basket li span{overflow-wrap:anywhere}
+
+/* ── لمسة البطاقات المقترحة: الأيام حروفاً والوقت بارزاً ── */
+.tm-suggest-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tm-suggest-time{font-family:var(--font-mono);font-weight:700;font-size:var(--ix-card);margin-inline-start:auto}
+.tm-suggest-facts{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:var(--t-sm);color:var(--ink-2)}
+.tm-suggest-facts li{display:flex;align-items:center;gap:6px;min-width:0}
+.tm-suggest-facts b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tm-solution-facts li{gap:2px}
+.tm-solution-facts li>b{line-height:1.1}

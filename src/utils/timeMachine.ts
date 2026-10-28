@@ -560,7 +560,9 @@ export function suggestPlacements(board: FSchedule[], courseId: number, context:
   const halls = rankedHalls(context, course, pattern ? rowHall(pattern) : null);
   const demand = context.demand?.[String(courseId)];
   const unmet = demand ? Math.max(0, Number(demand.wanted || 0) - Number(demand.seated || 0)) : null;
-  const served = unmet === null ? null : Math.min(Number(course?.MaxStudent || 0) || unmet, unmet);
+  /* سعةٌ مسجّلة أقل من ٥ ليست سعة شعبة (بيان ناقص): لا يُحدّ بها العدد ولا يُخترع غيرها. */
+  const seatCap = Number(course?.MaxStudent || 0) >= 5 ? Number(course?.MaxStudent) : 0;
+  const served = unmet === null ? null : Math.min(seatCap || unmet, unmet);
   const out: TmPlacement[] = [];
   for (const teacher of candidatesTeachers) {
     for (const set of days) {

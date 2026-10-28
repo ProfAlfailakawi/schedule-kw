@@ -18,6 +18,7 @@ import { useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
 type Assign = "all" | "vacant" | "assigned";
 /* الاختصار الشائع لأيام الدوام: أحد، اثنين، ثلاثاء، أربعاء، خميس. */
 const DAY_LETTER = ["ح", "ن", "ث", "ر", "خ"];
+const plausibleCapacity = (capacity: number) => Number(capacity) >= 5;
 
 export function SectionSimulatorBody({ context, reload }: { context: LoadedContext; reload: () => void }) {
   const [changes, setChanges] = useState<TmChange[]>([]);
@@ -101,9 +102,17 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
         <div className="tm-suggest" aria-label="أفضل المواضع المتاحة">
           {suggestions.length ? suggestions.map((item, index) => (
             <article key={index} className={index === 0 ? "is-best" : ""}>
-              <header>{index === 0 ? "⭐" : "💡"} <b>{item.days.map(dayLabel).join(" ")}</b> <bdi>{item.start}–{item.end}</bdi></header>
-              <p>🏛️ {hallLabel(item.hall)} · 👩‍🏫 {people.get(item.instructorId) || "—"}</p>
-              <p className="tm-tags">{item.reasons.slice(0, 3).map(reason => <span key={reason}>{reason}</span>)}{item.studentsServed !== null ? <span>🎓 ≈{item.studentsServed}</span> : null}</p>
+              <header className="tm-suggest-head">
+                <span aria-hidden="true">{index === 0 ? "⭐" : "💡"}</span>
+                <span className="tm-days">{TM_DAYS.map((day, i) => <i key={day} className={item.days.includes(day) ? "on" : ""} title={dayLabel(day)}>{DAY_LETTER[i]}</i>)}</span>
+                <bdi className="tm-suggest-time">{item.start}–{item.end}</bdi>
+              </header>
+              <ul className="tm-suggest-facts">
+                <li title="القاعة">🏛️ <b>{hallLabel(item.hall)}</b></li>
+                <li title="الأستاذ">👩‍🏫 <b>{people.get(item.instructorId) || "—"}</b></li>
+                {item.studentsServed !== null ? <li title="طلبة يُخدَمون (رادار)">🎓 <b>≈{item.studentsServed}</b></li> : null}
+              </ul>
+              <p className="tm-tags">{item.reasons.slice(0, 2).map(reason => <span key={reason}>{reason}</span>)}</p>
               <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="btn btn-secondary" onClick={() => add(addSectionChange(board, adding, item, context))}><Plus aria-hidden="true" />للسلة</button>
             </article>
           )) : <p className="tm-note">لا موضع خالٍ بلا تعارض لهذا المقرر</p>}
@@ -125,8 +134,10 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
           <ul className="tm-alts" aria-label="أين يذهب الطلبة">
             {impact.alternatives.length ? impact.alternatives.map(alt => (
               <li key={alt.code}><b>ش{alt.code}</b><small>{alt.when}</small>
-                <span className="tm-bar" aria-hidden="true"><i style={{ width: `${alt.capacity ? Math.min(100, (alt.capacity - (alt.freeSeats ?? 0)) / alt.capacity * 100) : 0}%` }} /></span>
-                <em>{alt.freeSeats === null ? `سعة ${alt.capacity}` : `${alt.freeSeats} مقعد شاغر`}</em></li>
+                {plausibleCapacity(alt.capacity) ? <>
+                  <span className="tm-bar" aria-hidden="true"><i style={{ width: `${Math.min(100, (alt.capacity - (alt.freeSeats ?? 0)) / alt.capacity * 100)}%` }} /></span>
+                  <em title="مقاعد شاغرة">🪑 {alt.freeSeats === null ? alt.capacity : alt.freeSeats}</em>
+                </> : <span />}</li>
             )) : <li className="tm-note">لا شعبة أخرى لهذا المقرر — الطلبة بلا بديل</li>}
           </ul>
           <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="btn btn-primary" onClick={() => add(removeSectionChange(impact.card))}><Trash2 aria-hidden="true" />أضف الحذف للسلة</button>
@@ -159,7 +170,10 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
 }
 
 function SectionCardView({ card, active, merging, onInspect, onSplit, onMerge }: { key?: string; card: TmSectionCard; active: boolean; merging: boolean; onInspect: () => void; onSplit: () => void; onMerge: () => void }) {
-  const fill = card.students !== null && card.capacity ? Math.min(100, card.students / card.capacity * 100) : 0;
+  /* سعةٌ مسجّلة أقل من ٥ مقاعد ليست سعة شعبة (بيان ناقص): لا يُرسم شريطٌ عليها. */
+  const plausible = plausibleCapacity(card.capacity);
+  const fill = card.students !== null && plausible ? Math.min(100, card.students / card.capacity * 100) : 0;
+  const seats = plausible ? (card.students !== null ? `🎓 ≈${card.students}/${card.capacity}` : `🪑 ${card.capacity}`) : card.students !== null ? `🎓 ≈${card.students}` : "";
   return (
     <article className={`tm-card ${active ? "is-active" : ""} ${card.vacant ? "is-vacant" : ""} ${card.added ? "is-added" : ""} ${merging ? "is-merge-target" : ""}`}>
       <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="tm-card-main" onClick={merging ? onMerge : onInspect} aria-label={`${card.courseCode} شعبة ${card.code}`}>
@@ -170,7 +184,10 @@ function SectionCardView({ card, active, merging, onInspect, onSplit, onMerge }:
           <bdi>{card.start}–{card.end}</bdi>
         </span>
         <span className="tm-card-meta"><span>🏛️ {card.hall}</span><span>{card.vacant ? "👤 شاغرة" : `👩‍🏫 ${card.instructorName}`}</span></span>
-        <span className="tm-seat"><span className="tm-bar" aria-hidden="true"><i style={{ width: `${fill}%` }} /></span><small>{card.students !== null ? `≈${card.students}/${card.capacity}` : `${card.capacity} مقعد`}</small></span>
+        {seats ? <span className="tm-seat" title={card.students !== null ? "طلبة ≈ / سعة" : "سعة"}>
+          {plausible && card.students !== null ? <span className="tm-bar" aria-hidden="true"><i style={{ width: `${fill}%` }} /></span> : null}
+          <small>{seats}</small>
+        </span> : null}
       </button>
       <span className="tm-card-actions">
         <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={onSplit} title="قسّم" aria-label="قسّم"><Scissors /></button>
