@@ -37,7 +37,7 @@ import { acceptedPdfSourceLabel, pdfTermAccepted } from "./src/utils/pdfTermRule
 import { applyVisitingToFaculty, recoverRetiredFromPrintedName, retiredOrSabbaticalIds } from "./src/utils/visitingToFaculty";
 import { ensureSectionFaculty } from "./src/server/sectionFaculty";
 import { isTrainingAssistant, planTaConversion } from "./src/utils/taConversion";
-import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadProblem } from "./src/utils/teachingLoad";
+import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadLimits, teachingLoadProblem } from "./src/utils/teachingLoad";
 import { buildConflictTopology, buildDecisionMemoryInsight, buildFairnessEngine, buildFragilityMap, buildOneMinuteBrief, buildRoomResilience, buildScheduleHealth2, buildSchedulePulse, createEmergencyPlans, explainScheduleDecision } from "./src/utils/livingSchedule";
 import type { AdCourse, AdInstructor, AdSection, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleComment, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestSnapshot, InstructorRequestEventKind, StudentNeed, CurriculumPlan, CurriculumDegreeRule } from "./src/types";
 import { DAY_FLAGS, DAY_LABELS, parseNaturalQuery } from "./src/utils/naturalQuery";
@@ -144,6 +144,7 @@ import { seedDemoRadar, seedDemoMasariDemand } from "./src/server/demoRadarSeed"
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "./src/utils/instructorRequestItems";
 import { radarNoticeFor, registerSimulationRoutes, scheduleRadarAutoRun } from "./src/server/simulationRoutes";
 import { registerInsightRoutes } from "./src/server/insightRoutes";
+import { registerTimeMachineRoutes } from "./src/server/timeMachineRoutes";
 import { studentHomePage } from "./src/server/studentHomePage";
 import { DEFAULT_INVITATION_PASSWORD } from "./src/utils/invitationLink";
 import { scheduleAutoTermJob } from "./src/server/autoTerms";
@@ -24115,6 +24116,80 @@ registerInsightRoutes(app, {
   requireAuth,
   isScopeAllowed: (req, collegeId, sectionId) => isScopeAllowed(req, collegeId, sectionId),
   isPowerUser: req => isPowerUser(req),
+});
+
+/* ── آلة الزمن ومحاكي الشعب: قراءةٌ ومحاكاة لمن يقرأ الجدول، واعتمادٌ ذرّيّ لمن يكتبه ── */
+registerTimeMachineRoutes(app, {
+  requireRead: requireAnyPermission([7, 8, 9, 10, 14, 16, 17]),
+  requireWrite: requirePermission(7),
+  isScopeAllowed: (req, collegeId, sectionId) => isScopeAllowed(req, collegeId, sectionId),
+  isPowerUser: req => isPowerUser(req),
+  canWrite: async (req: AuthenticatedRequest) => {
+    if (!req.user || isReadOnlyRole(req.user.Role)) return false;
+    const granted = req.permissions ?? (await Repository.getSecurityByUser(req.user.SystemUserId)).map(item => Number(item.FormNameId));
+    return granted.includes(7);
+  },
+  actor: (req: AuthenticatedRequest) => ({ name: String(req.user?.Name || req.user?.SystemUserLogin || ""), role: roleLabel(req.user?.Role) || "" }),
+  resolveScope: async (req: AuthenticatedRequest, collegeId, sectionId, termId) => {
+    const terms = sortTermsNewestServer(await Repository.getTerms());
+    let scope = { collegeId, sectionId };
+    if (!req.user?.IsAdminUser) {
+      /* نطاقُ الكلية كاملةً (العميد) يسمح بأي قسمٍ فيها: يُقبل المطلوب إن أذن به الحَكَم، وإلا أولُ قسمٍ مسموح. */
+      if (!(collegeId && sectionId && isScopeAllowed(req, collegeId, sectionId))) {
+        scope = coerceScopeValues(req.scopes || [], collegeId, sectionId, false);
+        if (!scope.sectionId) {
+          const first = (await Repository.getSections()).find(item => (!scope.collegeId || Number(item.AdCollegeId) === scope.collegeId) && isScopeAllowed(req, Number(item.AdCollegeId), Number(item.AdSectionId)));
+          scope = { collegeId: Number(first?.AdCollegeId || 0), sectionId: Number(first?.AdSectionId || 0) };
+        }
+      }
+    } else if (!sectionId) {
+      const first = (await Repository.getSections()).find(item => !collegeId || Number(item.AdCollegeId) === collegeId);
+      scope = { collegeId: Number(first?.AdCollegeId || collegeId), sectionId: Number(first?.AdSectionId || 0) };
+    }
+    /* بلا فصلٍ مطلوب: أحدثُ فصلٍ فيه جدولٌ لهذا القسم (الفصل الأحدث قد يكون فارغاً بعد). */
+    let term = termId && terms.some(item => Number(item.AdTermId) === termId) ? termId : 0;
+    for (const item of term ? [] : terms) {
+      if ((await Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId: Number(item.AdTermId) })).length) { term = Number(item.AdTermId); break; }
+    }
+    return { collegeId: scope.collegeId, sectionId: scope.sectionId, termId: term || Number(terms[0]?.AdTermId || 0) };
+  },
+  readScopeRows: (req: AuthenticatedRequest, collegeId, sectionId, termId) => readSchedulesForRequest(req, collegeId, sectionId, termId),
+  hallsFor: async (collegeId, sectionId, termId) => {
+    const [registry, barter, pinned] = await Promise.all([readLocationRegistry(), Repository.getHallBarterRequests(termId), Repository.getPinnedDepartmentRooms(collegeId, sectionId)]);
+    const borrowed = new Set(barter.filter(request => request.status === "approved" && Number(request.requesterCollegeId) === collegeId && Number(request.requesterSectionId) === sectionId && request.roomId).map(request => String(request.roomId)));
+    const byId = new Map(registry.rooms.map(room => [String(room.id), room]));
+    return eligibleHallsForSection(registry, sectionId, borrowed, confirmedDepartmentRoomIds(registry, pinned, collegeId)).map(hall => ({
+      code: hall.room, hall: hall.hall, buildingId: hall.buildingId, roomId: hall.roomId,
+      capacity: byId.get(hall.roomId)?.capacity ?? null, roomType: byId.get(hall.roomId)?.roomType || "",
+    }));
+  },
+  instructorsFor: async (collegeId, sectionId, termId) => {
+    const [scoped, historical, visiting] = await Promise.all([
+      Repository.getInstructorsByScope(sectionId, termId), Repository.getInstructorsByScope(sectionId, 0), readLiveVisitingRoster(collegeId, sectionId, termId),
+    ]);
+    return [...new Map([...historical, ...scoped, ...visiting.instructors].map(person => [Number(person.AdInstructorId), person])).values()];
+  },
+  coursesFor: sectionId => Repository.getOperationalCoursesBySection(sectionId),
+  loadLimits: async instructors => {
+    const config = await Repository.getTeachingLoadConfig();
+    return Object.fromEntries(instructors.map(person => {
+      const managed = config.enabled ? teachingLoadLimits(config, Number(person.AdInstructorId)).allowed : null;
+      return [String(person.AdInstructorId), Number(managed ?? person.AdInstructorLoad ?? 0) || 0];
+    }).filter(([, value]) => Number(value) > 0));
+  },
+  /* فصلٌ مجمَّد أو منتهٍ: آلة الزمن تُقرأ وتُحاكى فيه ولا تكتب (كالتخطيط والاستيراد). */
+  termFrozen: async termId => (termIsFrozen(termId, (await Repository.getTerms()) as any) ? TERM_FROZEN_MESSAGE
+    : await termEndedForReading(termId) ? "انتهى هذا الفصل: آلة الزمن للقراءة والمحاكاة فقط." : null),
+  dryRunUpdate: (req: AuthenticatedRequest, rowId, body, week) => runScheduleHandler(updateScheduleHandler, req, { params: { id: String(rowId) }, body, hypotheticalWeek: week, dryRun: true }),
+  dryRunCreate: (req: AuthenticatedRequest, body, week) => runScheduleHandler(createScheduleHandler, req, { body, hypotheticalWeek: week, dryRun: true }),
+  lockRefusal: (req: AuthenticatedRequest, collegeId, sectionId, termId) => scheduleLockRefusal(req, collegeId, sectionId, termId),
+  captureVersion: (req: AuthenticatedRequest, collegeId, sectionId, termId, label) => captureScopeVersion(req, collegeId, sectionId, termId, label, "manual"),
+  /* «ما صار» من صفوف الاعتماد نفسها (R7): يُستدعى بعد المعاملة وقبل الردّ. */
+  recordVersionAfter: async (version, after) => { await recordVersionAfter(version, after); },
+  noteMutation: (req: AuthenticatedRequest, collegeId, sectionId, termId, change) => noteScheduleMutation(req, collegeId, sectionId, termId, change),
+  normalizer: async () => { const registry = await readLocationRegistry(); return row => canonicalizeHistoricalLocationForRuntime(row, registry); },
+  lengthIssue: (row, week) => scheduleLengthIssue(row, week),
+  dataContextKey: dataContextCacheKey,
 });
 
 /* ── مساري: رابطٌ دائمٌ واحدٌ للجامعة كلها ────────────────────────────

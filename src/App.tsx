@@ -37,6 +37,7 @@ import {
   WifiOff,
   Wrench,
   X,
+  Hourglass,
 } from "lucide-react";
 import { controlLabel } from "./utils/controlLabel";
 
@@ -131,6 +132,7 @@ const InstructorInbox = safeLazy(() => import("./components/InstructorInbox"));
 const StudentRegistration = safeLazy(() => import("./components/StudentRegistration"));
 const PlanReview = safeLazy(() => import("./components/PlanReview"));
 const RegistrationRehearsal = safeLazy(() => import("./components/RegistrationRehearsal"));
+const TimeMachine = safeLazy(() => import("./components/TimeMachine"));
 const loadJourney = () => import("./components/ScheduleJourney");
 const ScheduleJourney = safeLazy(loadJourney);
 const IntelligenceWorkspace = safeLazy(loadIntelligence);
@@ -155,6 +157,7 @@ type View =
   | "studentRegistration"
   | "planReview"
   | "simulation"
+  | "timeMachine"
   | "audience"
   | "ads"
   | ReportMode
@@ -316,6 +319,7 @@ const pathByView: Record<View, string> = {
   studentRegistration: "/FSchedule/StudentRegistration",
   planReview: "/FSchedule/PlanReview",
   simulation: "/FSchedule/Rehearsal",
+  timeMachine: "/FSchedule/TimeMachine",
   audience: "/System/Audience",
   ads: "/System/Ads",
   about: "/Public/Aboutus",
@@ -358,6 +362,7 @@ function prefetchView(view: View) {
   else if (view === "studentRegistration") void import("./components/StudentRegistration");
   else if (view === "planReview") void import("./components/PlanReview");
   else if (view === "simulation") void import("./components/RegistrationRehearsal");
+  else if (view === "timeMachine") void import("./components/TimeMachine");
   else if (view === "about") void loadAbout();
 }
 
@@ -1823,6 +1828,9 @@ export default function App() {
         ) : (
           unauthorized()
         );
+      case "timeMachine":
+        /* آلة الزمن: يحاكي فيها من يقرأ الجدول (رئيس القسم والعميد للعرض)، ويعتمد من يكتبه — والحارسُ في الخادم. */
+        return hasPerm(7) || opensChangesScreen(sessionRole) ? <TimeMachine /> : unauthorized();
       case "scheduleChanges":
         /* الشاشة لمن يشارك في الدورة: التسجيل يراجع، والقسم يردّ. أمّا أدوار
            العرض الصرف فيكفيها عمود الاعتماد في ميزان الأقسام — وشاشةٌ لا يفعل
@@ -2488,6 +2496,16 @@ export default function App() {
                 icon={<BrainCircuit />}
                 label="مركز الذكاء"
                 data-guide-ignore="وجهةُ تنقّل مسجّلة في المرشد باسم page.intelligence"
+              />
+            ) : null}
+            {allowed.schedule || opensChangesScreen(sessionRole) ? (
+              <NavButton
+                activeView={activeView}
+                onGo={go}
+                view="timeMachine"
+                icon={<Hourglass />}
+                label="آلة الزمن"
+                data-guide-ignore="سيناريوهاتٌ افتراضية فوق الجدول؛ لا تكتب إلا بالاعتماد الذرّي"
               />
             ) : null}
             {opensChangesScreen(sessionRole) ? (
