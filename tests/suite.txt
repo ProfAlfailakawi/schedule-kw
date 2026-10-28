@@ -153,6 +153,7 @@ audit:guide
 test:pattern-library
 test:lecture-length
 test:appointment-entry-parity
+test:appointment-forms
 test:schedule-wipe
 test:instructor-availability
 test:instructor-offering-flow

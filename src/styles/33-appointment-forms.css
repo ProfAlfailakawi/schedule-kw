@@ -11,7 +11,8 @@
 .checks-ring-seg.is-ok{stroke:var(--success)}
 .checks-ring-seg.is-warn{stroke:var(--warning)}
 .checks-ring-seg.is-block{stroke:var(--danger)}
-.checks-ring text{transform:rotate(90deg);transform-origin:26px 26px;font:800 15px/1 var(--font-mono);fill:var(--ink)}
+.checks-ring text{transform:rotate(90deg);transform-origin:26px 26px;font:800 13px/1 var(--font-mono);fill:var(--ink)}
+.checks-ring text.is-block{fill:var(--danger);font-size:16px}
 .checks-head-copy{display:grid;gap:2px;min-width:0}
 .checks-head-copy strong{font-size:var(--t-sm);color:var(--muted);font-weight:600}
 .checks-head-state{display:inline-flex;align-items:center;gap:6px;font-size:clamp(1.05rem,.8rem + .5vw,1.3rem);font-weight:800;letter-spacing:-.01em}
@@ -65,7 +66,7 @@
 .checks-foot{display:flex;align-items:center;gap:6px;margin:0;color:var(--muted);font-size:var(--t-xs)}
 .checks-foot svg{width:13px;height:13px;flex:none}
 .checks-panel .solver-box{margin:0;padding:0;border:0;background:none}
-@container (max-width:300px){.checks-grid{grid-template-columns:minmax(0,1fr)}}
+@container (max-width:250px){.checks-grid{grid-template-columns:minmax(0,1fr)}}
 
 /* ── بطاقات الاقتراح الموحّدة ───────────────────────────────────────────── */
 .room-suggest-card-title{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0}
@@ -74,6 +75,11 @@
 .room-suggest-best svg{width:11px;height:11px;fill:currentColor}
 .room-suggest-list>button.is-best{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}
 .room-suggest-rank{font:800 var(--t-md)/1 var(--font-mono)}
+.room-suggest-list>button{grid-template-columns:40px minmax(0,1fr) 30px}
+.room-suggest-card-copy{justify-items:start}
+.room-suggest-card-action{display:grid!important;place-items:center;width:30px;height:30px;border-radius:50%;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line))}
+.room-suggest-card-action small{display:none}
+.room-suggest-list>button:hover .room-suggest-card-action,.room-suggest-list>button.is-best .room-suggest-card-action{background:var(--accent);color:var(--accent-contrast)}
 .room-suggest-list>button .room-suggestion-time{display:inline-flex;align-items:center;justify-self:start;gap:4px;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--ink-2)!important;font-weight:700}
 .room-suggest-list>button .room-suggestion-time time{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
 .room-suggest-fact.good{background:color-mix(in srgb,var(--success) 10%,var(--surface));color:var(--success)}
@@ -81,7 +87,7 @@
 /* داخل البطاقة السريعة الضيقة: عمودٌ واحد، والوقائع تلتفّ ولا تتداخل (G1). */
 .quick-create .room-suggestion-panel{padding:9px;border-radius:14px}
 .quick-create .room-suggest-list{grid-template-columns:minmax(0,1fr)}
-.quick-create .room-suggest-list>button{grid-template-columns:34px minmax(0,1fr) auto;gap:8px;padding:9px}
+.quick-create .room-suggest-list>button{grid-template-columns:34px minmax(0,1fr) 30px;gap:8px;padding:9px}
 .quick-create .room-suggest-card-icon{width:34px;height:34px;border-radius:11px}
 .quick-create .room-suggest-card-action small{display:none}
 .quick-create .room-suggest-card-facts small{white-space:nowrap}
@@ -157,6 +163,23 @@
 .ss-option-line{display:flex;align-items:center;gap:2px;min-width:0}
 .ss-option-line>b{min-width:0}
 .ss-trigger>span .plan-badge,.ss-trigger>span .course-service-badge{margin-inline-start:6px}
+
+/* ── G5: إملاءٌ آخر للمقرر نفسه ─────────────────────────────────────────────── */
+.course-twin-hint{display:inline-flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:6px;padding:4px 10px;border-radius:999px;background:var(--warning-soft);color:var(--warning);font-size:var(--t-xs);line-height:1.5}
+.course-twin-hint svg{width:13px;height:13px;flex:none}
+.course-twin-hint b{padding:0 7px;border-radius:999px;background:var(--surface);font-weight:800}
+
+/* ── M1: استيراد PDF بكامل الصفحة ───────────────────────────────────────────── */
+@media (min-width:721px){
+  .transfer-backdrop:has(.transfer-sheet.is-full-page){padding:8px}
+  .transfer-sheet.is-page-wide.is-full-page{
+    width:calc(100vw - 16px);max-width:none;
+    height:calc(100dvh - 16px);max-height:calc(100dvh - 16px);
+    border-radius:20px;
+  }
+  .transfer-sheet.is-full-page .import-preview-table-wrap{overflow-x:auto}
+  .transfer-sheet.is-full-page .import-preview-table{min-width:0}
+}
 
 @media (max-width:760px){
   .checks-head{grid-template-columns:44px minmax(0,1fr) auto}

@@ -42,7 +42,7 @@ function Ring({ verdict }: { verdict: AppointmentVerdict }) {
       offset += length;
       return node;
     })}
-    <text x="26" y="27" textAnchor="middle" dominantBaseline="middle">{block ? block : warn ? warn : counted.length ? ok : "—"}</text>
+    <text x="26" y="27" textAnchor="middle" dominantBaseline="middle" className={block ? "is-block" : "is-ok"}>{block ? block : counted.length ? `${ok}/${counted.length}` : "—"}</text>
   </svg>;
 }
 

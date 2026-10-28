@@ -176,7 +176,7 @@ export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {
       const state: CheckState = details.some(item => item.blocks) ? "block"
         : details.length ? "warn"
           : isChosen ? "ok" : "idle";
-      const word = state === "block" ? "تعارض" : state === "warn" ? "تنبيه" : state === "ok" ? "سليم" : "—";
+      const word = state === "block" ? "تعارض" : state === "warn" ? "تنبيه" : state === "ok" ? "سليم" : "";
       return { kind, label: CHECK_LABELS[kind], state, word, details };
     });
   const all = checks.flatMap(check => check.details);

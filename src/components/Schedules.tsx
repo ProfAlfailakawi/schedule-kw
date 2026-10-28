@@ -71,6 +71,7 @@ import RegulationPatternChips from "./RegulationPatternChips";
 import { appointmentVerdict, type VerdictCheck } from "../utils/appointmentVerdict";
 import { pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
+import { spellingTwinsOf } from "../utils/courseSpellingTwins";
 import {
   Badge,
   EmptyState,
@@ -3920,11 +3921,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      نفسه ما يقرأ به فحص الاعتماد وحكم طلبات الأساتذة. */
   const formCourse = courseById.get(Number(form.AdCourseId) || 0);
   const formDays = daysOfRow(form as any);
+  /* G5: اسمٌ له إملاءٌ آخر في مقررات القسم نفسه → اقتراح دمج (لا حذف). */
+  const courseSpellingTwins = useMemo(() => spellingTwinsOf(courseName, courseNames), [courseName, courseNames]);
   const formRegulationChoice = useMemo(() => regulationChoiceFor(formCourse, formDays), [formCourse, formDays.join("+")]);
   const formRegulationFit = regulationFit(formCourse, formDays, String(form.fstarttime || ""), String(form.fendtime || ""));
   const formRegulationChips = useMemo(() => {
     const pool = [...(formRegulationChoice ? [formRegulationChoice] : []), ...regulationAlternatives,
-      ...formDays.flatMap(day => regulationChoicesForDay(formCourse, day))];
+      ...(formDays.length ? regulationChoicesForDay(formCourse, formDays[0]) : [])];
     const seen = new Set<string>();
     return pool.filter(choice => { const key = choice.days.join("+") + choice.minutes; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 4);
   }, [formRegulationChoice, regulationAlternatives, formCourse, formDays.join("+")]);
@@ -4023,40 +4026,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   }, [filteredRows, lens.building]);
   const weekLensCount = useMemo(() => filteredRows.filter(lensMatches).length, [filteredRows, lens]);
 
-  const solveConflicts = async () => {
-    if (
-      !form.AdCollegeId ||
-      !form.AdSectionId ||
-      !form.AdTermId ||
-      !form.AdCourseId ||
-      !form.AdInstructorId
-    )
-      return;
-    setSolving(true);
-    setSolutions([]);
-    try {
-      const d = await fetchJson("/api/intelligence/conflict-solutions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, id: editId || -1 }),
-      });
-      setSolutions(d.solutions || []);
-    } catch (e: any) {
-      setError(friendlyError(e));
-    } finally {
-      setSolving(false);
-    }
-  };
-  const applySolution = (item: any) => {
-    setForm((p) => ({
-      ...p,
-      fstarttime: item.start,
-      fendtime: item.end,
-      AdRoomCode: item.roomCode,
-      AdRoomHall: item.roomHall,
-    }));
-    setSolutions([]);
-  };
+  /* «اقترح بديلاً آمناً» في المحرر يسأل محرّك الاقتراح الواحد (askAlternatives)؛
+     conflict-solutions يبقى لبطاقة السياق وحدها. */
   const openContext = async (row: FSchedule) => {
     replayAbortRef.current?.abort();
     replayAbortRef.current = null;
@@ -8930,6 +8901,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     searchPlaceholder="اكتب اسم المقرر"
                     required
                   />
+                  {courseSpellingTwins.length ? (
+                    <small className="course-twin-hint" role="status" title="الاسمان إملاءٌ واحد لمقرر واحد غالباً؛ الدمج من «فحص المقررات المكررة» في مراجعة الصحيفة، ولا يُحذف شيء دون تأكيد.">
+                      <AlertTriangle aria-hidden="true" /><span>إملاء آخر: «{courseSpellingTwins[0]}»</span><b>اقتراح دمج</b>
+                    </small>
+                  ) : null}
                   {!courseNames.length && form.AdSectionId ? <small className="field-inline-hint">لا تظهر مقررات لهذا القسم بعد. جرّبتُ الآن الجلب المباشر للقسم الحالي؛ إن استمرت القائمة فارغة فراجع بيانات المقررات في القسم نفسه.</small> : null}
                 </Field>
                 <Field label="رمز المقرر الدراسي" required>

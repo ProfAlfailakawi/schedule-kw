@@ -19,7 +19,6 @@ import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import RoomSuggestionCards, { SuggestionEmpty } from "./RoomSuggestionCards";
 import InstructorPicker from "./InstructorPicker";
 import VisitingBadge from "./VisitingBadge";
-import PlanBadge from "./PlanBadge";
 import RegulationPatternChips from "./RegulationPatternChips";
 import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
 import { pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, type RegulationChoice } from "../utils/appointmentRegulation";
@@ -384,7 +383,7 @@ export default function QuickCreatePopover({
   const regulationChips = useMemo(() => {
     if (daysLocked || !selectedCourse) return [];
     const active = regulationChoiceFor(selectedCourse, chosenDays);
-    const pool = [...(active ? [active] : []), ...dayChoices, ...chosenDays.flatMap(day => regulationChoicesForDay(selectedCourse, day))];
+    const pool = [...(active ? [active] : []), ...dayChoices, ...(chosenDays.length ? regulationChoicesForDay(selectedCourse, chosenDays[0]) : [])];
     const seen = new Set<string>();
     return pool.filter(choice => { const key = choice.days.join("+") + choice.minutes; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 3);
   }, [daysLocked, selectedCourse, chosenDays, dayChoices]);
@@ -508,7 +507,6 @@ export default function QuickCreatePopover({
           />
         </div>
       </div>
-      {selectedCourse ? <p className="qc-course-line"><b>{selectedCourse.CourseName}</b><PlanBadge courseId={selectedCourse.AdCourseId} /></p> : null}
       <CompanionFacilityPicker course={selectedCourse} form={payload}
         onChange={values => patch({ companionRoomId: values.companionRoomId, companionRoomLabel: values.companionRoomLabel })} />
 
