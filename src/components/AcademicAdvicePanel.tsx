@@ -69,7 +69,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
   const periods = timePreferences.filter(p => (!courseId || p.courseId === courseId) && (!candidate ||
     (p.period === "afternoon" ? minute(candidate.start) < 720 : minute(candidate.end) > 720)));
   if (status === "loading" && !demo) return null;
-  if (status === "ready" && !relevant.length && !periods.length && !lab?.scenarios?.some(s => !courseId || s.courseId === courseId) && !demo) return null;
+  if (status === "ready" && !relevant.length && !periods.length && !lab?.scenarios?.some(s => !courseId || s.courseId === courseId) && !lab?.graduationWatch?.some(w => !courseId || w.courseId === courseId) && !demo) return null;
   const total = relevant.length + periods.length;
   const shown = relevant.slice(0, compact ? 3 : 6);
   return (
