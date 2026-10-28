@@ -132,7 +132,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
             {" · " + countOf(w.demand, AR.request) + " مؤهلة"}
             {w.downstream ? " · يفتح " + countOf(w.downstream, AR.course) + " لاحقة" : ""}</small>
         </div>)}</div>
-      <small className="adl-live-foot">هذه مقررات القسم الفعلية، وليست من المثال التدريبي.</small>
+      <small className="adl-live-foot">هذه مقررات القسم الفعلية.</small>
     </div>}
     <div className="adl-view-modes" role="group" aria-label="مصدر نتائج المختبر">
       <button type="button" data-guide-ignore="معاينة المحاكاة الافتراضية المنفصلة عن بيانات القسم"
@@ -144,8 +144,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
     </div>
     {viewingTraining && <div className="adl-training-note" role="note">
       <Info size={17} aria-hidden="true" />
-      <span><strong>تجربة تعليمية محسوبة</strong> · حالة افتراضية منفصلة عن جدول القسم؛
-        النتائج مستخرجة من محرك المحاكاة نفسه، ولا تعبّر عن أعداد أو مواعيد الجامعة.</span>
+      <span><strong>تجربة تعليمية</strong> · حالة افتراضية منفصلة عن جدول القسم.</span>
     </div>}
     <div className="adl-features" role="group" aria-label="اختر إحدى المزايا الست">
       {features.map(item => <button type="button" key={item.id}
@@ -203,8 +202,8 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
           {meter("بعد", active.afterFeasible, active.assessed, "gain")}
         </div>
         <small className="adl-view-caption">{feature === "twin"
-          ? "التوأم يفحص تركيبة الطالب كاملة، وليس تعارض مقررين منفصلين."
-          : "تغيير افتراضي في وقت الشعبة؛ لا تعديل ولا حجز ولا موافقة تلقائية."}</small>
+          ? "يفحص تركيبة الطالب كاملة."
+          : "افتراضي · لا يغيّر الجدول."}</small>
       </> : noEvidence)}
       {feature === "domino" && (shownLab?.chain && (viewingTraining || !courseId) ? <>
         <div className="adl-positive">
@@ -216,13 +215,13 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
           {shownLab.chain.steps.map((step, index) => <div key={step.id}>
             <i>{index + 1}</i><strong>{step.courseName}</strong>
             <span>{step.before} ← {step.after}</span></div>)}
-          <small>الخطوتان محسوبتان معاً، لكنهما غير مطبقتين على الجدول.</small>
+          <small>محسوبتان معاً · غير مطبقتين.</small>
         </div>
       </> : <div className="adl-no-evidence"><GitBranch size={18} aria-hidden="true" />
         <div><strong>لا توجد سلسلة تحسين مؤكّدة</strong>
           <small>تظهر عندما تؤدي خطوتان آمنتان لتحسّن أكبر من كل خطوة بمفردها.</small></div></div>)}
       {feature === "rescue" && <>
-        {viewingTraining && <small className="adl-view-caption">المقررات أدناه من الحالة التدريبية الافتراضية؛ مقررات القسم الفعلية معروضة فوق الأدوات.</small>}
+        {viewingTraining && <small className="adl-view-caption">مقررات تدريبية افتراضية.</small>}
         {watchList}
       </>}
       {feature === "balance" && (active ? <>
@@ -234,8 +233,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
           <div className="adl-impact"><Scale size={17} aria-hidden="true" /><span>حالة الاقتراح</span>
             <strong>غير ملزم · غير مطبق</strong></div>
         </div>
-        <small className="adl-view-caption">التوازن الحالي يقيس إزاحة الوقت وتعارض القاعة والأستاذ فقط؛
-          لا يعني تفضيل الأستاذ أو موافقته أو تحقق العدالة الشاملة.</small>
+        <small className="adl-view-caption">يقيس إزاحة الوقت وتعارض القاعة والأستاذ فقط.</small>
       </> : noEvidence)}
       {feature === "trust" && (active ? <>
         <div className="adl-trust-status"><ShieldCheck size={21} aria-hidden="true" />
