@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { AlertTriangle, Check, X } from "lucide-react";
 import type { AdCourse, FSchedule } from "../types";
 
 type Option = { id: string; label: string; available: boolean };
@@ -81,10 +82,10 @@ export default function CompanionFacilityPicker({ course, form, excludeId, onCha
         </option>)}
       </select>
     </label>
-    <small>يُحجز هذا المرفق مع القاعة الأساسية طوال مدة الموعد، دون إنشاء موعد آخر.</small>
-    {!loading && listed && rooms.find(room=>room.id===chosen)?.available ? <small role="status">رُبط المرفق المتاح بالموعد تلقائياً.</small> : null}
-    {!loading && chosen && rooms.some(room=>room.id===chosen&&!room.available) ? <small role="alert">المرفق الذي اخترته أصبح مشغولًا في هذا الوقت. اختر مرفقًا متاحًا.</small> : null}
-    {!loading && !error && !rooms.length && form.buildingId ? <small role="status">لا توجد مرافق من نوع «{requiredType}» مخصصة للمرافقة في هذا الموقع. راجع أنواع القاعات وسياسة الحجز.</small> : null}
+    {/* سطرٌ واحد بأيقونة بدل ثلاث جمل: مربوط ✓ · مشغول ⚠️ · لا مرفق ⛔ */}
+    {!loading && listed && rooms.find(room=>room.id===chosen)?.available ? <small role="status" className="companion-state is-ok" title="يُحجز المرفق مع القاعة الأساسية طوال الموعد دون موعد آخر"><Check aria-hidden="true" />مربوط ومتاح طوال الموعد</small> : null}
+    {!loading && chosen && rooms.some(room=>room.id===chosen&&!room.available) ? <small role="alert" className="companion-state is-warn"><AlertTriangle aria-hidden="true" />مشغول الآن — اختر غيره</small> : null}
+    {!loading && !error && !rooms.length && form.buildingId ? <small role="status" className="companion-state is-block" title="راجع أنواع القاعات وسياسة الحجز"><X aria-hidden="true" />لا «{requiredType}» للمرافقة في هذا الموقع</small> : null}
     {error ? <small role="alert">{error}</small> : null}
   </div>;
 }

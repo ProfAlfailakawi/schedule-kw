@@ -168,6 +168,13 @@
 .ss-option-line>b{min-width:0}
 .ss-trigger>span .plan-badge,.ss-trigger>span .course-service-badge{margin-inline-start:6px}
 
+/* ── المرفق المرافق: سطرُ حالةٍ واحد ─────────────────────────────────────────── */
+.companion-state{display:inline-flex;align-items:center;gap:5px;margin-top:4px;font-size:var(--t-xs);font-weight:700}
+.companion-state svg{width:13px;height:13px;flex:none}
+.companion-state.is-ok{color:var(--success)}
+.companion-state.is-warn{color:var(--warning)}
+.companion-state.is-block{color:var(--danger)}
+
 /* ── G5: إملاءٌ آخر للمقرر نفسه ─────────────────────────────────────────────── */
 .course-twin-hint{display:inline-flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:6px;padding:4px 10px;border-radius:999px;background:var(--warning-soft);color:var(--warning);font-size:var(--t-xs);line-height:1.5}
 .course-twin-hint svg{width:13px;height:13px;flex:none}
