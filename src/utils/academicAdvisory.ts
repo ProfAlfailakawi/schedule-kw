@@ -5,6 +5,7 @@
  * This module is pure and never changes a save / sign / publish verdict.
  */
 import { prereqMet, coreqMet } from "./curriculumRules";
+import { normalizeClock } from "./scheduleTime";
 import type { AdCourse, CurriculumRuleSet, FSchedule, StudentProfile } from "../types";
 
 export interface AcademicPlanView {
@@ -39,7 +40,8 @@ export interface AcademicInput {
   rows: readonly FSchedule[];
 }
 const DAYS = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
-const minutes = (v: string) => { const x = /^(\d{1,2}):(\d{2})$/.exec(String(v)); return x ? Number(x[1]) * 60 + Number(x[2]) : -1; };
+/* «09:00:00» و«9:00» ساعةٌ كـ«09:00»: كان النمطُ الصارم يُسقط موعداً مخزّناً بالثواني فيختفي تعارضٌ حقيقي. */
+const minutes = (v: string) => { const x = /^(\d{2}):(\d{2})$/.exec(normalizeClock(v)); return x ? Number(x[1]) * 60 + Number(x[2]) : -1; };
 const keyOf = (a: number, b: number) => Math.min(a, b) + "|" + Math.max(a, b);
 const slotsOverlap = (a: AcademicSlot[], b: AcademicSlot[]) =>
   a.some(x => b.some(y => x.day === y.day && minutes(x.start) >= 0 && minutes(y.start) >= 0 &&
@@ -110,8 +112,8 @@ export function analyseAcademicAdvice(input: AcademicInput): AcademicReading {
     const group = offerings.get(cid) || new Map<string, AcademicOffering>();
     const offer = group.get(id) || { section, slots: [] };
     for (const day of DAYS) if (row[day] && minutes(String(row.fstarttime)) >= 0 && minutes(String(row.fendtime)) > minutes(String(row.fstarttime))) {
-      if (!offer.slots.some(s => s.day === day && s.start === row.fstarttime && s.end === row.fendtime))
-        offer.slots.push({ day, start: String(row.fstarttime), end: String(row.fendtime) });
+      if (!offer.slots.some(s => s.day === day && s.start === normalizeClock(row.fstarttime) && s.end === normalizeClock(row.fendtime)))
+        offer.slots.push({ day, start: normalizeClock(row.fstarttime), end: normalizeClock(row.fendtime) });
     }
     group.set(id, offer); offerings.set(cid, group);
   }

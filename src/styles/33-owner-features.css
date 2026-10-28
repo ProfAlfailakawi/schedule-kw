@@ -48,3 +48,13 @@
 .of-table{width:100%;border-collapse:collapse;font-size:.82rem}.of-table th,.of-table td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:start;vertical-align:top}
 .of-diff{display:inline-flex;gap:4px;align-items:center;font-size:.75rem}.of-diff s{opacity:.7}
 @media(max-width:560px){.of-grid{grid-template-columns:1fr}.of-countdown span{min-inline-size:44px}}
+
+/* F3: صفُّ المدرّب — حالة، اسم، مقرراته المسموحة، تذكير واتساب */
+.ta-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:4px 0}
+.ta-state{font-size:16px}
+.ta-mini{display:inline-flex;align-items:center;gap:4px;min-height:32px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface,#fff);font:inherit;font-size:.78rem;color:inherit;text-decoration:none;cursor:pointer}
+.ta-mini svg{inline-size:15px;block-size:15px}
+.ta-mini[aria-expanded=true]{border-color:var(--accent);background:var(--accent-soft)}
+.ta-wa{border-color:color-mix(in srgb,#25d366 55%,var(--line));color:#13804a;font-weight:700}
+.ta-allowed{flex-basis:100%;display:grid;gap:6px;padding:8px;border-radius:12px;background:var(--accent-softer)}
+.ta-allowed-hint{color:var(--muted,#6b7280);font-size:.74rem}

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { normalizeClock } from "../utils/scheduleTime";
 import { BookOpenCheck, CalendarClock, CheckCheck, ChevronDown, GraduationCap, Lightbulb, ShieldCheck, Users, Info, ArrowLeftRight } from "lucide-react";
 import type { AcademicPair, AcademicSlot, AcademicTimePreference } from "../utils/academicAdvisory";
 import { AR, countOf } from "../utils/arabicCount";
@@ -13,7 +14,7 @@ interface Props {
   compact?: boolean;
 }
 const minute = (value: string) => {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || ""));
+  const match = /^(\d{2}):(\d{2})$/.exec(normalizeClock(value));
   return match ? Number(match[1]) * 60 + Number(match[2]) : -1;
 };
 const intersects = (a: AcademicSlot, b: AcademicSlot) =>
@@ -37,6 +38,9 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
   const [revision, setRevision] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const demo = isDemoSession();
+  /* ‎<details defaultOpen>‎ ليست خاصيةً في React (كانت تُسقط وتبقى اللوحة مطويةً دائماً): تُفتح مرّةً بالمرجع. */
+  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+  const openedOnce = useRef(false);
   useEffect(() => {
     setPairs([]); setTimePreferences([]); setLab(undefined); setStatus("loading");
     if (!collegeId || !sectionId || !termId) return;
@@ -73,7 +77,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
   const total = relevant.length + periods.length;
   const shown = relevant.slice(0, compact ? 3 : relevant.length);
   return (
-    <details defaultOpen={demo} aria-label="فرصة لتحسين الجدول" style={{
+    <details ref={node => { detailsRef.current = node; if (node && demo && !openedOnce.current) { node.open = true; openedOnce.current = true; } }} aria-label="فرصة لتحسين الجدول" style={{
       border: "1px solid color-mix(in srgb, var(--accent, #247756) 24%, var(--line, #dce5df))",
       background: "color-mix(in srgb, var(--accent, #247756) 4%, var(--card, #fff))",
       borderRadius: 16, padding: compact ? "9px 12px" : "12px 15px", marginBlock: 10, direction: "rtl",
@@ -83,7 +87,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
         <Lightbulb size={19} aria-hidden="true" style={{ color: "var(--accent, #247756)", flex: "none" }} />
         <strong style={{ fontSize: 13.5 }}>فرصة لتحسين الجدول</strong>
         {demo && <span style={{ ...chip, fontSize: 10 }}>عرض تجريبي</span>}
-        <span style={{ ...chip, marginInlineStart: "auto" }}>{total ? String(total) + (total === 1 ? " فرصة" : " فرص") : "استرشادي"}</span>
+        <span style={{ ...chip, marginInlineStart: "auto" }}>{total ? countOf(total, AR.occurrence) : "استرشادي"}</span>
         <ChevronDown size={17} aria-hidden="true" style={{ color: "var(--muted, #627269)" }} />
       </summary>
       <div style={{ display: "grid", gap: 10, paddingBlockStart: 12 }}>

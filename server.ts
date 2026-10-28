@@ -23755,11 +23755,35 @@ app.get("/api/ta-phase", requirePermission(7), async (req: AuthenticatedRequest,
     facultyPhase: { closesAt: facultyClosesAt, closed: !facultyClosesAt || Date.parse(facultyClosesAt) < Date.now() },
     vacant: vacant.map(row => ({ ...row, courseName: courseName.get(row.courseId) || "" })), summary: vacantSummary(vacant),
     tas: instructors.filter(isTrainingAssistant).filter(row => !isFacultyPlaceholder(row)).map(row => {
-      const own = taRequests.find(r => Number(r.AdInstructorId) === Number(row.AdInstructorId));
+      const own = taRequests.find(r => Number(r.AdInstructorId) === Number(row.AdInstructorId) && (r as any).phase === "ta");
       return { id: Number(row.AdInstructorId), name: String(row.AdInstructorName || ""), load: Number(row.AdInstructorLoad || 0),
-        chosen: (own?.items || []).filter(item => item.offeringRowIds?.length).length, opened: !!(own as any)?.openedAt, sent: !!own };
+        chosen: (own?.items || []).filter(item => item.offeringRowIds?.length).length, opened: !!((own as any)?.linkOpenedAt || (own as any)?.openedAt), sent: !!own,
+        /* للتذكير بواتساب (يضغط المنسّقُ «إرسال»): رابطُه الشخصيّ ورقمُه من سجلّه. */
+        linkId: own?.linkId || "", mobile: String(row.AdInstructorMobile || ""),
+        allowed: (doc?.allowedCourses || {})[String(row.AdInstructorId)] || [] };
     }),
+    /* مقرراتُ القسم لاختيار «المسموح» لكل مدرّب (شرائح). */
+    courses: (await instructorRequestSectionCourses(sectionId) as any[]).filter(row => Number(row.AdCollegeId) === collegeId)
+      .map(row => ({ id: Number(row.AdCourseId), name: String(row.CourseName || ""), code: String(row.CourseCode || "") })).filter(row => row.id),
   });
+});
+
+/** F3: المقررات المسموحة لكل مدرّب — قبل فتح المرحلة أو أثناءها. */
+app.post("/api/ta-phase/allowed", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
+  const instructorId = Number(req.body?.instructorId || 0);
+  const courseIds = [...new Set((Array.isArray(req.body?.courseIds) ? req.body.courseIds : []).map(Number).filter(Boolean))] as number[];
+  if (!instructorId) { res.status(400).json({ error: "اختر المدرّب." }); return; }
+  const id = taPhaseId(collegeId, sectionId, termId);
+  const out = await Repository.updateFeatureDoc<TaPhaseDoc, boolean>("taPhases", id, current => {
+    if (!current) return { refuse: false };
+    const allowed = { ...(current.allowedCourses || {}) };
+    if (courseIds.length) allowed[String(instructorId)] = courseIds; else delete allowed[String(instructorId)];
+    return { next: { ...current, allowedCourses: allowed }, result: true };
+  });
+  res.locals.auditChanges = `مرحلة التدريب: المقررات المسموحة للمدرّب ${instructorId} (${courseIds.length || "الكل"})`;
+  res.json({ ok: out.ok });
 });
 
 app.post("/api/ta-phase/open", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
