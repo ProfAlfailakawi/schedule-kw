@@ -78,7 +78,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
         <Lightbulb size={19} aria-hidden="true" style={{ color: "var(--accent, #247756)", flex: "none" }} />
         <strong style={{ fontSize: 13.5 }}>فرصة لتحسين الجدول</strong>
         {demo && <span style={{ ...chip, fontSize: 10 }}>عرض تجريبي</span>}
-        <span style={{ ...chip, marginInlineStart: "auto" }}>{total ? countOf(total, AR.course) : "استرشادي"}</span>
+        <span style={{ ...chip, marginInlineStart: "auto" }}>{total ? String(total) + (total === 1 ? " فرصة" : " فرص") : "استرشادي"}</span>
         <ChevronDown size={17} aria-hidden="true" style={{ color: "var(--muted, #627269)" }} />
       </summary>
       <div style={{ display: "grid", gap: 10, paddingBlockStart: 12 }}>
