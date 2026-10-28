@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeftRight, BrainCircuit, CalendarClock, ChevronDown, Clock3,
+  ArrowLeftRight, BrainCircuit, CalendarClock, ChevronDown,
   GitBranch, GraduationCap, Info, RefreshCw, Scale, ShieldCheck, Sparkles, Users
 } from "lucide-react";
 import type { AcademicDecisionLab, AcademicDecisionScenario } from "../utils/academicDecisionLab";
@@ -22,7 +22,7 @@ const meter = (label:string, value:number, max:number, detail:string, kind:"base
 export default function AcademicDecisionLabPanel({lab,courseId,compact=false,demo,onRefresh,refreshing}:Props) {
   const [selected,setSelected]=useState<string>("");
   const scenarios=useMemo(()=> (lab?.scenarios||[]).filter(s=>!courseId||s.courseId===courseId),[lab,courseId]);
-  const active:AcademicDecisionScenario|undefined=scenarios.find(s=>s.id===selected)||scenarios[0];
+  const active:AcademicDecisionScenario=scenarios.find(s=>s.id===selected)||scenarios[0]!;
   useEffect(()=>{setSelected("");},[courseId,lab?.sampledAt]);
   if(!lab || !scenarios.length) {
     if(!demo)return null;
