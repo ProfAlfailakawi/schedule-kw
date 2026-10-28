@@ -46,6 +46,33 @@ assert.equal(small.pairs.find(p => p.a === 2 && p.b === 3)?.shared, 0, "small co
 assert.equal(small.pairs.find(p => p.a === 2 && p.b === 3)?.basis, "curriculum", "sibling is not invented count");
 const afternoon = analyseAcademicAdvice({ ...base, profiles: [1,2,3].map(i => ({ ...profile(i,[2,3],[1]), wishes: { ...profile(i,[2,3],[1]).wishes!, constraints: { noMorning: true } } })) });
 assert.ok(afternoon.timePreferences.some(p => p.courseId === 2 && p.wanted === 3), "afternoon grouping suggestion from verified eligible student preferences");
+
+const bothMorning = analyseAcademicAdvice({ ...base, profiles: [1,2,3].map(i => ({
+  ...profile(i,[2,3],[1]), wishes: { ...profile(i,[2,3],[1]).wishes!, constraints: { noAfternoon: true } },
+})), rows: [slot(2, "501", "14:00", "15:00"), slot(3, "501", "14:00", "15:00")] });
+assert.ok(bothMorning.timePreferences.some(p => p.courseId === 2 && p.period === "morning" && p.wanted === 3),
+  "an eligible no-afternoon cohort merits a real morning opportunity");
+const allOverlapping = analyseAcademicAdvice({ ...base,
+  profiles: [1,2,3].map(i => profile(i,[2,3],[1])),
+  rows: [slot(2,"501","08:00","09:00"),slot(3,"501","08:00","09:00")] });
+const critical = allOverlapping.pairs.find(p => p.a === 2 && p.b === 3);
+assert.equal(critical?.unavoidable, true, "no existing non-overlapping section combination");
+assert.equal(critical?.hasAlternative, false);
+assert.equal(eligible.pairs.find(p => p.a === 2 && p.b === 3)?.unavoidable, false,
+  "available non-overlapping sections must be distinguished from unavoidable overlaps");
+const enoughChoice = analyseAcademicAdvice({ ...base,
+  profiles: [1,2,3].map(i => ({ ...profile(i,[2,3],[1]),
+    wishes: { ...profile(i,[2,3],[1]).wishes!, constraints: { noMorning: true } } })),
+  rows: [...base.rows, slot(2, "502", "14:00", "15:00")] });
+assert.ok(!enoughChoice.timePreferences.some(p => p.courseId === 2 && p.period === "afternoon"),
+  "a fully fitting existing section satisfies the constraint (do not recommend extra supply)");
+const adviceUI = fs.readFileSync("src/components/AcademicAdvicePanel.tsx","utf8");
+assert.ok(adviceUI.includes("<details") && adviceUI.includes("defaultOpen={demo}"),
+  "academic opportunities should be condensed dropdown cards and expanded in the demo");
+const demoSeed = fs.readFileSync("src/server/demoRadarSeed.ts", "utf8");
+assert.ok(demoSeed.includes("Academic-opportunity showcase") && demoSeed.includes("Repository.isDemoRequest()"),
+  "demo must use eligible, isolated fictional students rather than invented UI counts");
+
 const unknown = analyseAcademicAdvice({ ...base, plans: [], profiles: [1,2,3].map(i => profile(i,[2,3],[1])) });
 assert.equal(unknown.pairs.length, 0, "no approved plan means no advice");
 const excludedCo = analyseAcademicAdvice({ ...base, profiles: [1,2,3].map(i => profile(i,[5,6],[])), rows: [...base.rows,slot(5,"501","08:00","09:00"),slot(6,"501","08:00","09:00")] });
