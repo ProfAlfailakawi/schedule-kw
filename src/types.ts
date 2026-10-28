@@ -1498,6 +1498,8 @@ export interface InstructorRequestEvent {
 export type InstructorRequestStatus = "sent" | "submitted" | "in-review" | "settled" | "superseded";
 
 export interface InstructorRequest {
+  /** «ta» = طلبُ مرحلة التدريب (src/utils/taPhase.ts): يظهر تحت «🎓 تدريب» في الوارد. */
+  phase?: "ta";
   requestRevision?: number;
   /** The schedule generation this request was created from. Missing legacy values mean generation zero. */
   scheduleGeneration?: number;

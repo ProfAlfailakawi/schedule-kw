@@ -806,6 +806,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const [actionFilter, setActionFilter] = useState<"all" | "change" | "add" | "delete">("all");
   const [verdictFilter, setVerdictFilter] = useState<"all" | "clear" | "exception" | "conflict">("all");
   const [deptFilter, setDeptFilter] = useState(0);
+  /* D2/F3: «🎓 تدريب» — طلباتُ مرحلة التدريب وحدها (‎request.phase === "ta"‎). */
+  const [taOnly, setTaOnly] = useState(false);
   const [instructorFilter, setInstructorFilter] = useState(0);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [quick, setQuick] = useState<{ row: InboxRequest; index: number; after?: number[]; seed: QuickSeed } | null>(null);
@@ -1047,6 +1049,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const visibleConfirmedUnchanged = visible.filter(row => isUnchangedConfirmed(row)
     && (!deptFilter || Number(row.AdSectionId) === deptFilter));
   const changed = stateFilter === "confirmed-unchanged" ? [] : visible.filter(row => (!deptFilter || Number(row.AdSectionId) === deptFilter)
+    && (!taOnly || (row as any).phase === "ta")
     && (row.changedCount > 0
       ? (row.items || []).some(item => item.action !== "keep" && !(item as any).hidden && itemFilter(item))
       /* ملاحظةٌ عامة بلا بنودٍ مغيَّرة: تُقرأ بطاقةً، لا تُدفن في «الجدول كما هو». */
@@ -1468,6 +1471,12 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                 }}
               >
                 <ShieldCheck aria-hidden="true" /> ثبّتوا جداولهم كما هي <b>{num(counts.confirmedUnchanged)}</b>
+              </button>
+            ) : null}
+            {(rows || []).some(row => (row as any).phase === "ta") ? (
+              <button type="button" className={`request-confirmed-filter${taOnly ? " active" : ""}`} aria-pressed={taOnly}
+                data-guide-ignore="فلتر مرحلة التدريب — عرضٌ لا فعل" onClick={() => setTaOnly(on => !on)}>
+                🎓 تدريب <b>{num((rows || []).filter(row => (row as any).phase === "ta").length)}</b>
               </button>
             ) : null}
             <details className="request-filters-more" open={actionFilter !== "all" || verdictFilter !== "all" || Boolean(deptFilter)}>

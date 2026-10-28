@@ -1,4 +1,5 @@
 import { ARABIC_COUNT_SCRIPT } from "../utils/arabicCount";
+import { MASARI_ACK_CSS, MASARI_ACK_JS } from "./masariDisclaimer";
 import { PUBLIC_FONT_FACES } from "./publicKit";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./publicTheme";
 import { STUDENT_MAP_CSS, STUDENT_MAP_SCRIPT } from "./studentMapUi";
@@ -1247,6 +1248,7 @@ function sheetForget(){sheet('<h3>حذف ملفّي</h3><p class="lead">يُحذ
   var a="",fs=document.getElementById("fs");wireOtp("f1",function(v){a=v;fs.disabled=v.length!==6});document.getElementById("fc").addEventListener("click",closeSheet);
   fs.addEventListener("click",function(){fs.disabled=true;api("POST","/api/public/me/forget",{code:a}).then(function(r){fs.disabled=false;if(!r.ok){showErr("ferr",r.d.error||"تعذّر الحذف");return}closeSheet();S.state.signedIn=false;S.state.profile=null;S.civil="";S.draft=null;toast("حُذف ملفّك");setView("gate")})})}
 
+${MASARI_ACK_JS}
 function render(){
   closeSheet();window.scrollTo(0,0);var oldNav=topEl.querySelector("nav.tabs");if(oldNav)oldNav.remove();if(S.view!=="setup")dockEl.innerHTML="";
   var appEl=document.querySelector(".app");if(appEl)appEl.setAttribute("data-view",S.view);
@@ -1256,7 +1258,8 @@ function render(){
   if(v==="code")return viewCode();
   if(v==="create")return viewCreate();
   if(v==="setup")return viewSetup();
-  if(v==="home")return viewHome();
+  /* M2: بطاقة «مقترحات فقط» مرّةً لكل فصل/مسار، ثم شريطٌ ثابت. */
+  if(v==="home"){if(!masariAcked())return viewAck();viewHome();masariRibbon();return}
 }
 function boot(){setView("boot");api("GET","/api/public/me/state").then(function(r){
   if(!r.ok){app.innerHTML='<section class="card"><p class="err">'+esc(r.d.error||"تعذّر فتح الصفحة")+'</p><button class="btn" id="retry">أعد المحاولة</button></section>';document.getElementById("retry").addEventListener("click",function(){location.reload()});return}
@@ -1278,7 +1281,7 @@ export function studentHomePage(nonce: string, track: "boys" | "girls" | "" = ""
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/schedule-icon-192.png">
 <link rel="manifest" href="/me.webmanifest">
-<style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}${STUDENT_HOME_CSS}</style>
+<style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}${STUDENT_HOME_CSS}${MASARI_ACK_CSS}</style>
 </head>
 <body>
 ${SPRITE}

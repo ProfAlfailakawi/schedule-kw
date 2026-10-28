@@ -23669,7 +23669,7 @@ async function sendTaWave(doc: TaPhaseDoc, wave: TaWave, by: { SystemUserId?: nu
     if (held && !held.submittedAt) await Repository.saveInstructorRequest({ ...held, status: "superseded" } as any);
     await Repository.createInstructorRequest({
       AdCollegeId: doc.AdCollegeId, AdSectionId: doc.AdSectionId, AdTermId: doc.AdTermId, AdInstructorId: instructorId,
-      linkId: link.id, window: { opensAt: new Date().toISOString(), closesAt: doc.closesAt }, source: "draft", status: "sent",
+      linkId: link.id, window: { opensAt: new Date().toISOString(), closesAt: doc.closesAt }, source: "draft", status: "sent", phase: "ta",
       items: held?.items?.filter(item => item.action === "keep") || [],
       timeline: [{ kind: "link-created", at: new Date().toISOString(), by: "القسم", detail: `🎓 مرحلة التدريب · موجة ${wave.n}` }],
     } as any);
