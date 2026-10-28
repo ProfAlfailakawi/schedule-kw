@@ -97,7 +97,7 @@ export default function ProposalVacancies({ ws, rows, onAssigned }: { ws: Worksp
       <li key={r.facultyId} className="sp-vac" data-fit={r.fit}>
         <span className="sp-vac-mark" data-fit={r.fit} title={fit.text} aria-hidden="true"><fit.Icon className={r.fit === "checking" ? "sp-spin" : undefined} /></span>
         <button type="button" className="sp-vac-main" onClick={() => ws.setSelectedKey(item.key)}
-          aria-label={`${item.courseName} شعبة ${item.SCode}، ${fit.text}`} data-guide-ignore="يُبرز الشعبة الشاغرة على الجدول — لا يكتب شيئاً">
+          aria-label={`${item.courseName}، الشعبة ${item.SCode}، ${fit.text}`} data-guide-ignore="يُبرز الشعبة الشاغرة على الجدول — لا يكتب شيئاً">
           <b>{item.courseName}<PlanBadge courseId={r.courseId} /></b>
           <span className="sp-vac-slot">
             <bdi className="sp-sec">{item.SCode}</bdi>
@@ -115,7 +115,7 @@ export default function ProposalVacancies({ ws, rows, onAssigned }: { ws: Worksp
         {r.fit === "used" ? <span className="sp-vac-done"><Check aria-hidden="true" /></span> : (
           <button type="button" className="sp-vac-go" disabled={!assignable}
             onClick={() => { if (ws.assignFaculty(r.facultyId)) onAssigned?.(); }}
-            aria-label={`أسند ${item.courseName} شعبة ${item.SCode} لهذا الأستاذ`} title={assignable ? "أسند لهذا الأستاذ" : fit.text}
+            aria-label={`أسند ${item.courseName}، الشعبة ${item.SCode}، لهذا الأستاذ`} title={assignable ? "أسند لهذا الأستاذ" : fit.text}
             data-guide-ignore="يضيف إسناد الشعبة الشاغرة إلى المسودة — لا يكتب في الجدول">
             <Plus aria-hidden="true" /><span>أسند</span>
           </button>

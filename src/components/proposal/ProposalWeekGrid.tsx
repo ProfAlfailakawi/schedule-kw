@@ -286,7 +286,7 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
         {card}
         {props.onAssign && vacancy.fit !== "checking" ? (
           <button type="button" className="sp-ev-assign" data-round="true" onClick={event => { event.stopPropagation(); props.onAssign!(vacancy.facultyId); }}
-            aria-label={`أسند ${item.courseName} شعبة ${item.SCode} لهذا الأستاذ`} title="أسند لهذا الأستاذ" data-guide-ignore="يضيف إسناد الشعبة الشاغرة إلى المسودة — لا يكتب في الجدول">
+            aria-label={`أسند ${item.courseName}، الشعبة ${item.SCode}، لهذا الأستاذ`} title="أسند لهذا الأستاذ" data-guide-ignore="يضيف إسناد الشعبة الشاغرة إلى المسودة — لا يكتب في الجدول">
             <Plus aria-hidden="true" /><span>أسند</span>
           </button>
         ) : null}
@@ -488,7 +488,7 @@ function DayView({ entries, stats, marks, changeOf, selectedKey, focusKeys, dimU
             {change?.after && item.state === "out" ? <span className="sp-ev-from"><ArrowLeft aria-hidden="true" /><bdi>{shortSlot(change.after)}</bdi></span> : null}
           </button>
           {vacancy && onAssign && vacancy.fit !== "checking" ? (
-            <button type="button" className="sp-ev-assign" onClick={() => onAssign(vacancy.facultyId)} aria-label={`أسند ${item.courseName} شعبة ${item.SCode} لهذا الأستاذ`}
+            <button type="button" className="sp-ev-assign" onClick={() => onAssign(vacancy.facultyId)} aria-label={`أسند ${item.courseName}، الشعبة ${item.SCode}، لهذا الأستاذ`}
               data-guide-ignore="يضيف إسناد الشعبة الشاغرة إلى المسودة — لا يكتب في الجدول"><Plus aria-hidden="true" /><span>أسند</span></button>
           ) : null}
         </div>
