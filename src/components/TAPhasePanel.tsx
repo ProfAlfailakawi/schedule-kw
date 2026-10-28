@@ -112,9 +112,9 @@ export default function TAPhasePanel({ collegeId, sectionId, termId }: { college
     <div className="of-section" aria-label="مرحلة التدريب">
       <h4><GraduationCap aria-hidden="true" /> مرحلة التدريب</h4>
       <div className="of-kpis">
-        <div className="of-kpi"><span className="of-ic" aria-hidden="true">🪑</span><b>{phase.summary.sections}</b><span>{nounFor(phase.summary.sections, AR.section)} شاغرة</span></div>
-        <div className="of-kpi"><span className="of-ic" aria-hidden="true">📚</span><b>{phase.summary.courses}</b><span>{nounFor(phase.summary.courses, AR.course)}</span></div>
-        <div className="of-kpi"><span className="of-ic" aria-hidden="true">🎓</span><b>{phase.tas.length}</b><span>TA</span></div>
+        <div className="of-kpi"><span className="of-ic" aria-hidden="true">🪑</span><b>{phase.summary.sections}</b><span>الشعب الشاغرة</span></div>
+        <div className="of-kpi"><span className="of-ic" aria-hidden="true">📚</span><b>{phase.summary.courses}</b><span>المقررات</span></div>
+        <div className="of-kpi"><span className="of-ic" aria-hidden="true">🎓</span><b>{phase.tas.length}</b><span>المدرّبون</span></div>
         <div className="of-kpi"><span className="of-ic" aria-hidden="true">{phase.facultyPhase.closed ? "🔒" : "✏️"}</span><span>{phase.facultyPhase.closed ? "مرحلة الأساتذة مغلقة" : "مرحلة الأساتذة مفتوحة"}</span></div>
       </div>
       {phase.vacant.length ? (

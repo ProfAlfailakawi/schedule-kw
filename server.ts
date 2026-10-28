@@ -23837,7 +23837,7 @@ function coursesWithOffering<T extends { id: number; collegeId: number; sectionI
     if (view.hidden) return [];
     return view.selectable
       ? [{ ...course, offeringNote: `${view.icon} ${view.line}` }]
-      : [{ ...course, offering: { state: view.state, icon: view.icon, line: view.line } }];
+      : [{ ...course, offeringNote: `${view.icon} ${view.line}`, offering: { state: view.state, icon: view.icon, line: view.line } }];
   });
 }
 

@@ -601,7 +601,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
             >
               <header className="share-step-head">
                 <small>الخطوة 2 من 3</small>
-                <h3 id="publish-step-options-title">{kind === "department" ? "مدة الرابط وما سيظهر فيه" : kind === "survey" ? "آخر موعد لاستقبال إجابات الطلبة" : "آخر موعد لاستقبال الطلبات"}</h3>
+                <h3 id="publish-step-options-title">{kind === "department" ? "مدة الرابط وما سيظهر فيه" : kind === "survey" ? "آخر موعد لاستقبال إجابات الطلبة" : sendMode === "edit" ? "نوع الإرسال وآخر موعد" : "نوع الإرسال"}</h3>
                 {kind === "department" ? <p>رابط قراءة عام للجدول ضمن الصلاحية المحددة.</p> : null}
               </header>
               {kind === "staff" ? <SendModePicker value={sendMode} onChange={setSendMode} /> : null}

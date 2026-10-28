@@ -20,9 +20,8 @@ export const MASARI_ACK_CSS = `
 .mack-arrow{align-self:center;color:var(--muted);font-size:18px}
 .mack-ok{min-block-size:56px;min-inline-size:220px;border:0;border-radius:18px;background:var(--accent);color:#fff;font:inherit;font-size:18px;font-weight:800;cursor:pointer;box-shadow:0 10px 24px -12px var(--accent)}
 .mack-ok:focus-visible{outline:3px solid var(--accent-soft);outline-offset:3px}
-.mribbon{position:fixed;inset-block-start:10px;inset-inline-start:50%;transform:translateX(50%);z-index:40;display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:color-mix(in srgb,#f5c542 22%,var(--card));border:1px solid color-mix(in srgb,#8a6100 35%,var(--line));color:var(--ink,inherit);font-size:12px;font-weight:800;box-shadow:0 6px 16px -10px rgba(0,0,0,.4);pointer-events:none}
-[dir=rtl] .mribbon{transform:translateX(50%)}
-@media(max-width:520px){.mack-flow{flex-direction:column}.mack-arrow{transform:rotate(90deg)}.mribbon{inset-block-start:auto;inset-block-end:calc(env(safe-area-inset-bottom,0px) + 74px)}}
+.mribbon{position:fixed;inset-block-end:18px;inset-inline-end:18px;z-index:40;display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:999px;background:color-mix(in srgb,#f5c542 22%,var(--card));border:1px solid color-mix(in srgb,#8a6100 35%,var(--line));color:var(--ink,inherit);font-size:12px;font-weight:800;box-shadow:0 6px 16px -10px rgba(0,0,0,.4);pointer-events:none}
+@media(max-width:520px){.mack{padding:22px 14px}.mack h1{font-size:19px}.mack-flow{gap:4px}.mack-step{padding:12px 4px;border-radius:16px}.mack-step i{font-size:26px}.mack-step small{font-size:10.5px}.mack-arrow{font-size:14px}.mribbon{inset-inline-end:auto;inset-inline-start:50%;transform:translateX(50%);inset-block-end:calc(env(safe-area-inset-bottom,0px) + 92px)}}
 @media print{.mribbon{display:none}}
 `;
 

@@ -23,6 +23,8 @@ export const TEACHER_CARD_EXTRAS_CSS = `
 .tc-ring::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--card)}.tc-ring b{position:relative;z-index:1;font-size:12px;direction:ltr}
 .tc-ring[data-tone=near]{--tc-ring:#c98a00}.tc-ring[data-tone=full]{--tc-ring:#b3261e}
 .tc-remind{margin:6px 0 0;font-weight:700;color:#8a6100}
+body[data-mode=ta] .nextnow,body[data-mode=view] .nextnow{display:none}
+body[data-mode=ta]:not([data-ta-picked="1"]) .send{display:none}
 .course-option[data-locked="1"]{opacity:.55;cursor:default;position:relative}
 .course-option[data-locked="1"] .tc-lock{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
 .tc-star{position:absolute;inset-block-start:6px;inset-inline-end:6px;border:0;background:none;font-size:18px;cursor:pointer;opacity:1;filter:grayscale(1)}
@@ -43,9 +45,12 @@ export const TEACHER_CARD_EXTRAS_JS = `
 function tcDate(iso){try{return new Intl.DateTimeFormat("ar-KW-u-nu-latn",{day:"numeric",month:"long",year:"numeric",hour:"numeric",minute:"2-digit",timeZone:"Asia/Kuwait"}).format(new Date(iso))}catch(e){return ""}}
 function tcStates(r){var f=0,x=0,p=0;(r.items||[]).forEach(function(it){if(it.action==="keep")return;var s=it.decision&&it.decision.state;if(s==="fixed")f++;else if(s==="rejected")x++;else p++});return{f:f,x:x,p:p}}
 function tcRibbon(r,open){if(!data)return "";var mode=data.mode||"edit";
+ /* صفةُ الكرت على <body>: يُخفي ما لا معنى له للمدرّب («ثبّت الجدول» قبل أن يختار شيئاً). */
+ try{document.body.dataset.mode=mode;document.body.dataset.taPicked=state.some(function(it){return it.offeringId})?"1":"0"}catch(e){}
  if(mode==="ta"){var ta=data.ta||{},left=Date.parse(ta.closesAt||"")-Date.now(),ring=data.taLoad;
-  var cd=left>0?(Math.floor(left/864e5)?Math.floor(left/864e5)+"ي ":"")+Math.floor(left%864e5/36e5)+"س "+Math.floor(left%36e5/6e4)+"د":"انتهت";
-  return '<div class="tc-ribbon" data-k="ta" role="status"><span class="tc-ic" aria-hidden="true">🎓</span><div><b>مرحلة التدريب · اختر من الشعب الشاغرة</b><small>⏳ <bdi dir="ltr">'+esc(cd)+'</bdi> · لا وقت ولا شعبة ولا قاعة جديدة</small>'+(ta.remind&&left>0?'<p class="tc-remind">🔔 تذكير: النافذة تُغلق قريباً</p>':'')+'</div>'+
+  var d=Math.floor(left/864e5),h=Math.floor(left%864e5/36e5),m=Math.floor(left%36e5/6e4);
+  var cd=left>0?(d?countOf(d,AR.day)+" · "+countOf(h,AR.hour):h?countOf(h,AR.hour)+" · "+countOf(m,AR.minute):countOf(m,AR.minute)):"انتهت";
+  return '<div class="tc-ribbon" data-k="ta" role="status"><span class="tc-ic" aria-hidden="true">🎓</span><div><b>مرحلة التدريب</b><small>⏳ '+esc(cd)+'</small>'+(ta.remind&&left>0?'<p class="tc-remind">🔔 تُغلق قريباً</p>':'')+'</div>'+
    (ring?'<span class="tc-ring" data-tone="'+esc(ring.tone)+'" style="--p:'+Math.round(ring.ratio*100)+'" title="'+esc(ring.label)+'" aria-label="'+esc(ring.label)+'"><b>'+ring.hours+'/'+ring.load+'</b></span>':'')+'</div>'}
  if(mode==="view")return '<div class="tc-ribbon" data-k="view" role="status"><span class="tc-ic" aria-hidden="true">👁️</span><div><b>للعرض فقط</b><small>جدولك المعتمد وحالة طلباتك</small></div></div>';
  if(open)return "";
@@ -53,7 +58,7 @@ function tcRibbon(r,open){if(!data)return "";var mode=data.mode||"edit";
  return '<div class="tc-ribbon" data-k="closed" role="status"><span class="tc-ic" aria-hidden="true">🔒</span><div><b>انتهت فترة الطلبات</b><small>'+(when?'منذ '+esc(when)+' · ':'')+'جدولك المعتمد أدناه للاطلاع</small>'+
   ((s.f||s.x||s.p)?'<div class="tc-chips">'+(s.f?'<span>✅ ثُبّت <b>'+s.f+'</b></span>':'')+(s.x?'<span>❌ رُفض <b>'+s.x+'</b></span>':'')+(s.p?'<span>⏳ قيد المراجعة <b>'+s.p+'</b></span>':'')+'</div>':'')+'</div></div>'}
 function tcCourseLock(c){if(!c.offering)return "";var o=c.offering,on=(data.interest||[]).indexOf(Number(c.id))>=0;
- return '<span class="tc-lock">'+esc(o.icon+" "+o.line)+'</span><span role="button" tabindex="0" class="tc-star" data-star="'+c.id+'" data-college="'+c.collegeId+'" data-section="'+c.sectionId+'" aria-pressed="'+on+'" aria-label="اهتمام مستقبلي" title="🌟 اهتمام مستقبلي">🌟</span>'}
+ void o;return '<span role="button" tabindex="0" class="tc-star" data-star="'+c.id+'" data-college="'+c.collegeId+'" data-section="'+c.sectionId+'" aria-pressed="'+on+'" aria-label="اهتمام مستقبلي" title="🌟 اهتمام مستقبلي">🌟</span>'}
 function tcStar(option,e){var b=e&&e.target&&e.target.closest?e.target.closest("[data-star]"):null;if(!b)return;var on=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",String(on));
  var id=Number(b.dataset.star);data.interest=(data.interest||[]).filter(function(x){return x!==id});if(on)data.interest.push(id);
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/interest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({courseId:id,collegeId:Number(b.dataset.college),sectionId:Number(b.dataset.section),on:on})}).catch(function(){})}
@@ -83,6 +88,8 @@ function tcStickLoad(i){tcStick[i]={loading:true};paint();
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/stick",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:items,itemIndex:i})})
  .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||"تعذّر الحساب");return d})})
  .then(function(d){tcStick[i]=d;paint()}).catch(function(e){tcStick[i]={error:e.message};paint()})}
-function tcWire(){host.querySelectorAll("[data-stick-open]").forEach(function(b){b.onclick=function(){var i=Number(b.dataset.stickOpen);if(tcStick[i]){delete tcStick[i];paint()}else tcStickLoad(i)}});
+var tcTaOpened=false;
+function tcWire(){if(data&&data.mode==="ta"&&!tcTaOpened){var o=document.getElementById("offerings");if(o){o.open=true;tcTaOpened=true}}
+ host.querySelectorAll("[data-stick-open]").forEach(function(b){b.onclick=function(){var i=Number(b.dataset.stickOpen);if(tcStick[i]){delete tcStick[i];paint()}else tcStickLoad(i)}});
  host.querySelectorAll("[data-stick]").forEach(function(b){b.onclick=function(){if(b.disabled)return;var i=Number(b.dataset.stick),it=state[i];if(!it)return;it.days=String(b.dataset.days||"").split(",").filter(Boolean);it.start=b.dataset.start;it.autoNote="";delete tcStick[i];paint();recheckAll()}})}
 `;

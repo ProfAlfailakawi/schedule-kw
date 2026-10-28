@@ -1588,7 +1588,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                     <>
                       {/* The whole table, red on what the scan could not read,
                           and a quick edit + delete beside EVERY row. */}
-                      {importKind === "authority-pdf" ? (
+                      {/* L4: ملف PDF الرسمي أو ورقة Excel — أيُّ استيرادٍ وصل بلا أسماء. */}
+                      {importKind === "authority-pdf" || importKind === "worksheet" ? (
                         <ImportNameFillPanel
                           rows={xlsxPreview.rows as ImportRow[]}
                           onRows={next => setXlsxPreview((prev: any) => prev ? { ...prev, rows: next } : prev)}

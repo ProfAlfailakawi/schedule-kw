@@ -78,7 +78,7 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId }: { co
     <section className="of-section" aria-label="رصيد مقاعد المرشد">
       <h4><Ticket aria-hidden="true" /> 🎟️ رصيد مقاعد المرشد</h4>
       <div className="of-kpis">
-        <div className="of-kpi"><span className="of-ic">🎟️</span><b>{totals.added}</b><span>{nounFor(totals.added, AR.seat)} من المرشدين</span></div>
+        <div className="of-kpi"><span className="of-ic">🎟️</span><b>{totals.added}</b><span>المقاعد المضافة</span></div>
         <div className="of-kpi"><span className="of-ic">🟡</span><b>{totals.near}</b><span>قريبة من الامتلاء</span></div>
         <div className="of-kpi"><span className="of-ic">🔴</span><b>{totals.full}</b><span>ممتلئة</span></div>
         {data.config.fairSplit ? <div className="of-kpi"><span className="of-ic">⚖️</span><span>توزيع عادل</span></div> : null}

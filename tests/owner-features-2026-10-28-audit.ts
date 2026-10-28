@@ -13,6 +13,7 @@ import { planNameFill, applyNameFill, fillSummary, normalizeArabicName, resolveI
 import { roleWriteDecision } from "../src/server/roleGuard";
 import { MASARI_ACK_TEXT, MASARI_ACK_JS } from "../src/server/masariDisclaimer";
 import { TEACHER_CARD_EXTRAS_JS } from "../src/server/teacherCardExtras";
+import { AR as arNouns, countOf as arCountOf } from "../src/utils/arabicCount";
 
 let checks = 0;
 function ok(condition: unknown, label: string) { if (!condition) throw new Error(`✗ ${label}`); checks++; }
@@ -124,7 +125,7 @@ ok(server.includes('courses: mode === "edit" ? coursesWithOffering(') && server.
 /* ── C4 ── */
 ok(server.includes('const open = mode !== "view" && requestWindowOpen(request);') && server.includes('if (postMode === "view")'), "C4/E1 view-only link never writes");
 ok(server.includes("+tcRibbon(r,open)+") && TEACHER_CARD_EXTRAS_JS.includes("انتهت فترة الطلبات"), "C4 closed ribbon in the card");
-const tc = vm.createContext({ data: { mode: "edit" }, esc: (v: string) => String(v), state: [], TOKEN: "t", fmtDays: (d: string[]) => d.join(","), host: null, paint() {}, recheckAll() {}, payloadItems: () => [], Intl, Date });
+const tc = vm.createContext({ countOf: arCountOf, AR: arNouns, data: { mode: "edit" }, esc: (v: string) => String(v), state: [], TOKEN: "t", fmtDays: (d: string[]) => d.join(","), host: null, paint() {}, recheckAll() {}, payloadItems: () => [], Intl, Date });
 vm.runInContext(TEACHER_CARD_EXTRAS_JS, tc);
 const ribbon = vm.runInContext(`tcRibbon({window:{closesAt:"2026-10-20T20:59:00Z"},items:[{action:"change",decision:{state:"fixed"}},{action:"add",decision:{state:"rejected"}},{action:"add"},{action:"keep"}]},false)`, tc);
 ok(ribbon.includes("🔒") && ribbon.includes("انتهت فترة الطلبات") && ribbon.includes("✅ ثُبّت <b>1") && ribbon.includes("❌ رُفض <b>1") && ribbon.includes("⏳ قيد المراجعة <b>1"), "C4 ribbon: date + previous request states");
