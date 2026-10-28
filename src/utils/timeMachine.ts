@@ -79,7 +79,6 @@ export type TmChange =
   | { id: string; op: "add"; rows: FSchedule[]; label: string; why?: string; cause?: string };
 
 export type TmLevel = "green" | "yellow" | "red";
-export const LEVEL_DOT: Record<TmLevel, string> = { green: "🟢", yellow: "🟡", red: "🔴" };
 
 export interface TmMetrics {
   rows: number;
@@ -287,7 +286,7 @@ export function measure(board: FSchedule[], context: TmContext, options: { regul
   };
 }
 
-/** يقارن جدولين ويعطي مؤشّر الأثر 🟢🟡🔴 مع أسبابه بكلماتٍ قليلة. */
+/** يقارن جدولين ويعطي مؤشّر الأثر (أخضر/أصفر/أحمر) مع أسبابه بكلماتٍ قليلة. */
 export function compareBoards(before: FSchedule[], after: FSchedule[], context: TmContext, beforeMetrics?: TmMetrics): TmDelta {
   const b = beforeMetrics || measure(before, context);
   const a = measure(after, context);
@@ -752,11 +751,11 @@ export interface TmSolution {
 }
 
 export const PHILOSOPHY: Record<Philosophy, { title: string; icon: string }> = {
-  minimal: { title: "أقل تغيير", icon: "🪶" },
-  students: { title: "الطلبة أولاً", icon: "🎓" },
-  teachers: { title: "راحة الأساتذة", icon: "👩‍🏫" },
-  rooms: { title: "قاعات أقل", icon: "🏛️" },
-  flex: { title: "مرونة «هيئة تدريسية»", icon: "🧩" },
+  minimal: { title: "أقل تغيير", icon: "minimal" },
+  students: { title: "الطلبة أولاً", icon: "students" },
+  teachers: { title: "راحة الأساتذة", icon: "teachers" },
+  rooms: { title: "قاعات أقل", icon: "rooms" },
+  flex: { title: "مرونة «هيئة تدريسية»", icon: "flex" },
 };
 
 const moveFromRepair = (move: RepairMove, cause?: string): TmChange => ({
@@ -1049,12 +1048,12 @@ export function compareScenarios(deltas: TmDelta[]): { rows: TmComparisonRow[]; 
     return { key, label, icon, values, best: values.indexOf(target), lowerIsBetter };
   };
   const rows = [
-    pick("تعارضات", "⚠️", "blocking", deltas.map(d => d.after.blocking)),
-    pick("تغييرات", "✏️", "changes", deltas.map(d => d.changedRows)),
-    pick("فجوات (د)", "⏳", "gaps", deltas.map(d => d.after.gapMinutes)),
-    pick("طلبة متأثرون", "🎓", "students", deltas.map(d => d.studentsMoved ?? 0)),
-    pick("أساتذة متأثرون", "👩‍🏫", "teachers", deltas.map(d => d.teachersAffected.length)),
-    pick("قاعات مستعملة", "🏛️", "rooms", deltas.map(d => d.after.roomsUsed)),
+    pick("تعارضات", "conflicts", "blocking", deltas.map(d => d.after.blocking)),
+    pick("تغييرات", "changes", "changes", deltas.map(d => d.changedRows)),
+    pick("فجوات (د)", "gaps", "gaps", deltas.map(d => d.after.gapMinutes)),
+    pick("طلبة متأثرون", "students", "students", deltas.map(d => d.studentsMoved ?? 0)),
+    pick("أساتذة متأثرون", "teachers", "teachers", deltas.map(d => d.teachersAffected.length)),
+    pick("قاعات مستعملة", "rooms", "rooms", deltas.map(d => d.after.roomsUsed)),
   ];
   const score = deltas.map(d => scoreOf(d, true, d.changedRows));
   return { rows, bestIndex: score.indexOf(Math.min(...score)) };

@@ -4,9 +4,14 @@
  * src/utils/timeMachine.ts.
  */
 import React, { useEffect, useMemo, useState } from "react";
+import {
+  Armchair, ArrowLeftRight, Ban, Building2, CalendarX2, CircleCheck, Compass, Copy, Eye, FastForward, Feather, FlaskConical, Folder,
+  GitBranch, GitMerge, GraduationCap, Hourglass, Lightbulb, LoaderCircle, Moon, Pencil, Plus, Puzzle, Rewind, Ruler, Save, Scissors,
+  ShoppingBasket, Siren, Sprout, Star, Sun, Sunrise, Target, Trash2, TriangleAlert, Undo2, UserCheck, UserRound, UserRoundX, type LucideIcon,
+} from "lucide-react";
 import type { FSchedule } from "../types";
 import {
-  LEVEL_DOT, TM_DAYS, dayLabel, sectionKey, type TmContext, type TmDelta, type TmLevel,
+  TM_DAYS, dayLabel, sectionKey, type TmContext, type TmDelta, type TmLevel,
 } from "../utils/timeMachine";
 import { activeDays, timeToMinutes } from "../utils/scheduleIntelligence";
 import { readSharedScope } from "../utils/sharedScope";
@@ -45,20 +50,47 @@ export async function postJson(url: string, body: unknown) {
   return data;
 }
 
+/**
+ * ── أيقونات آلة الزمن ──
+ * lucide بدل الرموز التعبيرية: ترسم الشكل نفسه على iPhone وWindows، وتأخذ ألوان
+ * الرموز (tokens) كبقية البرنامج. الاسم يقول المعنى، والخريطة وحدها تختار الشكل.
+ */
+const ICONS = {
+  teachers: UserRound, students: GraduationCap, conflicts: TriangleAlert, changes: Pencil, rooms: Building2, best: Star,
+  gaps: Hourglass, seats: Armchair, regulation: Ruler, problem: Siren, move: ArrowLeftRight, assign: UserCheck, remove: Trash2,
+  add: Plus, before: Rewind, after: FastForward, sections: Puzzle, vacant: UserRoundX, idea: Lightbulb, clearDay: CalendarX2,
+  branch: GitBranch, saved: Folder, applied: CircleCheck, restored: Undo2, emergency: Siren, goal: Target, lab: FlaskConical,
+  shared: Eye, morning: Sunrise, noon: Sun, evening: Moon, basket: ShoppingBasket, split: Scissors, merge: GitMerge,
+  masari: Compass, reach: Target, created: Sprout, save: Save, copied: Copy, refused: Ban, minimal: Feather, flex: Puzzle,
+  loading: LoaderCircle,
+} satisfies Record<string, LucideIcon>;
+export type IcoName = keyof typeof ICONS;
+export const PHILOSOPHY_ICON: Record<string, IcoName> = { minimal: "minimal", students: "students", teachers: "teachers", rooms: "rooms", flex: "flex" };
+export const COMPARE_ICON: Record<string, IcoName> = { blocking: "conflicts", changes: "changes", gaps: "gaps", students: "students", teachers: "teachers", rooms: "rooms" };
+
+export function Ico({ n, label, className = "" }: { n: IcoName; label?: string; className?: string }) {
+  const Icon = ICONS[n];
+  return <Icon className={`tm-ico tm-ico-${n} ${className}`.trim()} aria-hidden={label ? undefined : true} aria-label={label} role={label ? "img" : undefined} />;
+}
+
+export function Loading() {
+  return <p className="tm-note tm-loading"><Ico n="loading" label="يحمّل" /></p>;
+}
+
 export function LevelDot({ level, label }: { level: TmLevel; label?: string }) {
   const word = level === "green" ? "أثر خفيف" : level === "yellow" ? "انتبه" : "أثر خطِر";
-  return <span className={`tm-level tm-level-${level}`} title={word} aria-label={word}>{LEVEL_DOT[level]}{label ? <b>{label}</b> : null}</span>;
+  return <span className={`tm-level tm-level-${level}`} title={word} role="img" aria-label={word}><i className="tm-dot" />{label ? <b>{label}</b> : null}</span>;
 }
 
 /** أرقام قبل → بعد في سطرٍ من الأيقونات. */
 export function DeltaStrip({ delta, compact = false }: { delta: TmDelta; compact?: boolean }) {
-  const items: Array<{ icon: string; label: string; before: number | null; after: number | null; lowerIsBetter: boolean }> = [
-    { icon: "⚠️", label: "تعارضات", before: delta.before.blocking, after: delta.after.blocking, lowerIsBetter: true },
-    { icon: "⏳", label: "فجوات (ساعة)", before: Math.round(delta.before.gapMinutes / 6) / 10, after: Math.round(delta.after.gapMinutes / 6) / 10, lowerIsBetter: true },
-    { icon: "🏛️", label: "قاعات", before: delta.before.roomsUsed, after: delta.after.roomsUsed, lowerIsBetter: true },
-    { icon: "🪑", label: "مقاعد", before: delta.before.seats, after: delta.after.seats, lowerIsBetter: false },
-    { icon: "🎓", label: "بلا مقعد", before: delta.before.shortfall, after: delta.after.shortfall, lowerIsBetter: true },
-    { icon: "📏", label: "ملاحظات لائحية", before: delta.before.regulation, after: delta.after.regulation, lowerIsBetter: true },
+  const items: Array<{ icon: IcoName; label: string; before: number | null; after: number | null; lowerIsBetter: boolean }> = [
+    { icon: "conflicts", label: "تعارضات", before: delta.before.blocking, after: delta.after.blocking, lowerIsBetter: true },
+    { icon: "gaps", label: "فجوات (ساعة)", before: Math.round(delta.before.gapMinutes / 6) / 10, after: Math.round(delta.after.gapMinutes / 6) / 10, lowerIsBetter: true },
+    { icon: "rooms", label: "قاعات", before: delta.before.roomsUsed, after: delta.after.roomsUsed, lowerIsBetter: true },
+    { icon: "seats", label: "مقاعد", before: delta.before.seats, after: delta.after.seats, lowerIsBetter: false },
+    { icon: "students", label: "بلا مقعد", before: delta.before.shortfall, after: delta.after.shortfall, lowerIsBetter: true },
+    { icon: "regulation", label: "ملاحظات لائحية", before: delta.before.regulation, after: delta.after.regulation, lowerIsBetter: true },
   ];
   return (
     <ul className={`tm-delta ${compact ? "is-compact" : ""}`} aria-label="قبل وبعد">
@@ -66,7 +98,7 @@ export function DeltaStrip({ delta, compact = false }: { delta: TmDelta; compact
         const tone = item.after === item.before ? "same" : (item.after! < item.before!) === item.lowerIsBetter ? "better" : "worse";
         return (
           <li key={item.label} className={`tm-delta-${tone}`} title={item.label}>
-            <span aria-hidden="true">{item.icon}</span>
+            <span className="tm-delta-ico"><Ico n={item.icon} /></span>
             <small>{item.label}</small>
             <b><bdi>{item.before}</bdi>{item.after !== item.before ? <> ← <bdi>{item.after}</bdi></> : null}</b>
           </li>
@@ -132,9 +164,9 @@ export function TimeSlider({ before, after, context, focus }: { before: FSchedul
         ))}
       </div>
       <label className="tm-slider-range">
-        <span>⏪ قبل</span>
+        <span className="tm-slider-end"><Ico n="before" />قبل</span>
         <input data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="range" min={0} max={100} value={value} onChange={event => setValue(Number(event.target.value))} aria-label="من قبل إلى بعد" />
-        <span>بعد ⏩</span>
+        <span className="tm-slider-end">بعد<Ico n="after" /></span>
       </label>
       <figcaption className="tm-legend">
         <span><i className="tm-block-moved" />تحرّك</span><span><i className="tm-block-added" />جديد</span><span><i className="tm-block-removed" />محذوف</span>

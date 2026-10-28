@@ -14,7 +14,7 @@ import {
 } from "../utils/timeMachine";
 import ScenarioWorkbench from "./ScenarioWorkbench";
 import { SectionSimulatorBody } from "./SectionSimulator";
-import { LevelDot, scopeQuery, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
+import { COMPARE_ICON, Ico, LevelDot, Loading, PHILOSOPHY_ICON, scopeQuery, type IcoName, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
 
 type Mode = "emergency" | "lab" | "goal";
 
@@ -29,16 +29,16 @@ function examplesOf(context: LoadedContext): string[] {
   const course = context.courses.find(c => String(c.AdCourseId) === wanted) || context.courses.find(c => context.rows.some(r => r.AdCourseId === c.AdCourseId));
   return [hall ? `قاعة ${hall} تعطلت الأحد` : "", teacher ? `${teacher} معتذر الخميس` : "", course ? `زاد الطلب على ${course.CourseCode}` : ""].filter(Boolean);
 }
-const GOALS: Array<{ icon: string; label: string; problem: TmProblem }> = [
-  { icon: "🗓️", label: "صفّر الخميس", problem: { kind: "clearDay", day: "fthursday" } },
-  { icon: "⏳", label: "قلّل فجوات الأساتذة", problem: { kind: "reduceGaps" } },
-  { icon: "🏛️", label: "وفّر قاعتين", problem: { kind: "freeRooms", count: 2 } },
+const GOALS: Array<{ icon: IcoName; label: string; problem: TmProblem }> = [
+  { icon: "clearDay", label: "صفّر الخميس", problem: { kind: "clearDay", day: "fthursday" } },
+  { icon: "gaps", label: "قلّل فجوات الأساتذة", problem: { kind: "reduceGaps" } },
+  { icon: "rooms", label: "وفّر قاعتين", problem: { kind: "freeRooms", count: 2 } },
 ];
 
 export default function TimeMachine() {
   const { context, error, reload } = useTimeMachineContext();
   if (error) return <div className="tm-page"><p className="tm-note" role="alert">{error}</p></div>;
-  if (!context) return <div className="tm-page"><p className="tm-note">⏳</p></div>;
+  if (!context) return <div className="tm-page"><Loading /></div>;
   return <TimeMachineBody context={context} reload={reload} />;
 }
 
@@ -72,7 +72,7 @@ function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: 
   const onScenario = (record: TmScenarioRecord) => { setScenario(record); void loadSaved(); };
   const openSaved = (record: TmScenarioRecord) => {
     setScenario(record);
-    setChosen({ id: record.id, philosophy: "minimal", title: record.name, icon: "📁", changes: record.changes, why: [], delta: null as any, score: 0, satisfied: true });
+    setChosen({ id: record.id, philosophy: "minimal", title: record.name, icon: "saved", changes: record.changes, why: [], delta: null as any, score: 0, satisfied: true });
     setProblem(null); setSolutions([]);
   };
 
@@ -92,7 +92,7 @@ function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: 
           <h1>آلة الزمن</h1>
           <p><bdi>{context.scope.sectionName}</bdi> · <bdi>{context.scope.termName}</bdi> · {context.rows.length} موعد</p>
         </div>
-        <span className="tm-branch" title="لا شيء يُكتب في الجدول حتى الاعتماد">🌿 فرعٌ افتراضي</span>
+        <span className="tm-branch" title="لا شيء يُكتب في الجدول حتى الاعتماد"><Ico n="branch" />فرعٌ افتراضي</span>
       </header>
 
       <nav className="tm-modes" aria-label="الوضع">
@@ -112,32 +112,34 @@ function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: 
 
       {mode === "goal" ? (
         <div className="tm-goals">
-          {GOALS.map(goal => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={goal.label} type="button" className={problem && JSON.stringify(problem) === JSON.stringify(goal.problem) ? "on" : ""} onClick={() => run(goal.problem)}><span aria-hidden="true">{goal.icon}</span><b>{goal.label}</b></button>)}
+          {GOALS.map(goal => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={goal.label} type="button" className={problem && JSON.stringify(problem) === JSON.stringify(goal.problem) ? "on" : ""} onClick={() => run(goal.problem)}><Ico n={goal.icon} className="tm-goal-ico" /><b>{goal.label}</b></button>)}
         </div>
       ) : null}
 
-      {unknown && mode !== "lab" && text ? <p className="tm-note" role="status">🤔 لم أفهم الجملة. جرّب: «قاعة … تعطلت الأحد»، «د. … معتذر الخميس»، «زاد الطلب على 121»</p> : null}
+      {unknown && mode !== "lab" && text ? <p className="tm-note" role="status"><Ico n="idea" /> لم أفهم الجملة. جرّب: «قاعة … تعطلت الأحد»، «د. … معتذر الخميس»، «زاد الطلب على 121»</p> : null}
 
       {mode === "lab" ? <SectionSimulatorBody context={context} reload={reload} /> : null}
 
       {mode !== "lab" && problem ? (
         <section className="tm-solutions" aria-label="حلول جاهزة">
-          <h2><span aria-hidden="true">🚨</span>{problemLabel}<small>{solutions.length} حل · {elapsed} مللي ثانية</small></h2>
+          <h2><Ico n="problem" className="tm-h-ico" />{problemLabel}<small>{solutions.length} حل · {elapsed} مللي ثانية</small></h2>
           {solutions.length ? (
             <div className="tm-solution-grid">
               {solutions.map(solution => (
                 <article key={solution.id} className={`tm-solution ${solution.best ? "is-best" : ""} ${chosen?.id === solution.id ? "is-chosen" : ""}`}>
                   <header>
-                    <span className="tm-solution-icon" aria-hidden="true">{solution.icon}</span>
+                    <span className="tm-solution-icon"><Ico n={PHILOSOPHY_ICON[solution.philosophy] || "idea"} /></span>
                     <b>{solution.title}</b>
-                    {solution.best ? <span className="tm-star" title="الأفضل">⭐</span> : null}
+                    {solution.best ? <span className="tm-star" title="الأفضل"><Ico n="best" label="الأفضل" /></span> : null}
                     <LevelDot level={solution.delta.level} />
                   </header>
                   <ul className="tm-solution-facts">
-                    <li title="تغييرات">✏️ <b>{solution.changes.length}</b></li>
-                    <li title="أساتذة متأثرون">👩‍🏫 <b>{solution.delta.teachersAffected.length}</b></li>
-                    <li title="طلبة متأثرون (رادار)">🎓 <b>{solution.delta.studentsMoved ?? "—"}</b></li>
-                    <li title="تعارضات بعد">⚠️ <b>{solution.delta.after.blocking}</b></li>
+                    <li title="تغييرات"><Ico n="changes" /><b>{solution.changes.length}</b></li>
+                    <li title="أساتذة متأثرون"><Ico n="teachers" /><b>{solution.delta.teachersAffected.length}</b></li>
+                    <li title="طلبة متأثرون (رادار)"><Ico n="students" /><b>{solution.delta.studentsMoved ?? "—"}</b></li>
+                    <li title="تعارضات باقية" className={solution.delta.after.blocking ? "is-warn" : ""}><Ico n="conflicts" /><b>{solution.delta.after.blocking}</b>
+                      {/* الحلّ لا يُعرض أصلاً إن زاد الموانع؛ فما يبقى منها كان قبله. */}
+                      {solution.delta.after.blocking ? <small className="tm-preexisting" title="موجودة في الجدول قبل الحل؛ لم يُدخلها هذا الحل">سابقة</small> : null}</li>
                   </ul>
                   <p className="tm-why"><b>لماذا؟</b> {solution.why.join(" · ")}{solution.satisfied ? "" : " · يحلّ جزءاً"}</p>
                   <footer>
@@ -156,10 +158,10 @@ function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: 
           <h3><Scale aria-hidden="true" />مقارنة</h3>
           <div className="tm-compare-scroll">
             <table>
-              <thead><tr><th />{comparison.list.map((item, index) => <th key={item.id}>{item.icon} {item.title}{index === comparison.table.bestIndex ? " ⭐" : ""}</th>)}</tr></thead>
+              <thead><tr><th />{comparison.list.map((item, index) => <th key={item.id}><span className="tm-th"><Ico n={PHILOSOPHY_ICON[item.philosophy] || "idea"} />{item.title}{index === comparison.table.bestIndex ? <Ico n="best" label="الأفضل" className="tm-star" /> : null}</span></th>)}</tr></thead>
               <tbody>
                 {comparison.table.rows.map(row => (
-                  <tr key={row.key}><th><span aria-hidden="true">{row.icon}</span> {row.label}</th>
+                  <tr key={row.key}><th><span className="tm-th"><Ico n={COMPARE_ICON[row.key] || "idea"} />{row.label}</span></th>
                     {row.values.map((value, index) => <td key={index} className={index === row.best ? "is-best" : ""}>{value}</td>)}</tr>
                 ))}
               </tbody>
@@ -192,11 +194,11 @@ function SavedScenarios({ list, context, onOpen }: { list: TmScenarioRecord[]; c
           return (
             <li key={record.id}>
               <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={() => onOpen(record)}>
-                <span aria-hidden="true">{record.status === "applied" ? "✅" : record.status === "restored" ? "↩️" : record.mode === "emergency" ? "🚨" : record.mode === "goal" ? "🎯" : "🧪"}</span>
+                <Ico n={record.status === "applied" ? "applied" : record.status === "restored" ? "restored" : record.mode === "emergency" ? "emergency" : record.mode === "goal" ? "goal" : "lab"} />
                 <b>{record.name}</b>
                 <small>{record.changes.length} تغيير · {record.createdBy}</small>
-                {record.shared ? <em title="مشارَك للعرض">👁️</em> : null}
-                {drift ? <em className="tm-drift" title="تغيّر الجدول الحيّ بعده">⚠️ {drift}</em> : null}
+                {record.shared ? <em title="مشارَك للعرض"><Ico n="shared" label="مشارَك للعرض" /></em> : null}
+                {drift ? <em className="tm-drift" title="تغيّر الجدول الحيّ بعده"><Ico n="conflicts" />{drift}</em> : null}
               </button>
             </li>
           );

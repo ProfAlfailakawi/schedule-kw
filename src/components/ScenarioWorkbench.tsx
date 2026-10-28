@@ -12,19 +12,19 @@ import {
   type TmChange, type TmScenarioRecord,
 } from "../utils/timeMachine";
 import { reachAboutCard } from "../utils/reachInstructor";
-import { DeltaStrip, LevelDot, TimeSlider, postJson, scopeQuery, type LoadedContext } from "./timeMachineShared";
+import { DeltaStrip, Ico, LevelDot, TimeSlider, postJson, scopeQuery, type IcoName, type LoadedContext } from "./timeMachineShared";
 
-const OP_ICON: Record<TmChange["op"], string> = { move: "↔️", assign: "👤", remove: "🗑️", add: "➕" };
+const OP_ICON: Record<TmChange["op"], IcoName> = { move: "move", assign: "assign", remove: "remove", add: "add" };
 
 export function DominoGraph({ changes, problem }: { changes: TmChange[]; problem?: string }) {
   const nodes = dominoOf(changes);
   if (!nodes.length) return null;
   return (
     <ol className="tm-domino" aria-label="تأثير الدومينو">
-      {problem ? <li className="tm-domino-root"><span aria-hidden="true">🚨</span><b>{problem}</b></li> : null}
+      {problem ? <li className="tm-domino-root"><Ico n="problem" /><b>{problem}</b></li> : null}
       {nodes.map(node => (
         <li key={node.id} style={{ marginInlineStart: `${Math.min(4, node.depth) * 18}px` }} className={`tm-domino-${node.kind}`}>
-          <span aria-hidden="true">{OP_ICON[node.kind]}</span>
+          <Ico n={OP_ICON[node.kind]} />
           <b>{node.label}</b>
           {node.why ? <small>{node.why}</small> : null}
         </li>
@@ -89,7 +89,7 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
       onApplied?.();
     } catch (e: any) {
       const drifted = e.body?.code === "drift";
-      setMessage({ tone: "error", text: drifted ? "⚠️ تغيّر الجدول الحيّ — أعد الفحص" : e.message });
+      setMessage({ tone: "error", text: drifted ? "تغيّر الجدول الحيّ — أعد الفحص" : e.message });
     } finally { setBusy(""); }
   };
 
@@ -132,13 +132,13 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
       <header className="tm-bench-head">
         <LevelDot level={delta.level} />
         <div className="tm-bench-title">
-          <strong>{point ? "✅ مُعتمد · " : ""}{changes.length ? `${changes.length} تغيير` : "لا تغييرات بعد"}</strong>
+          <strong className="tm-th">{point ? <><Ico n="applied" className="tm-ok" />مُعتمد · </> : null}{changes.length ? `${changes.length} تغيير` : "لا تغييرات بعد"}</strong>
           <small>{delta.reasons.slice(0, 3).join(" · ") || "بلا أثر يُذكر"}</small>
         </div>
         <ul className="tm-bench-chips">
-          <li title="أساتذة متأثرون">👩‍🏫 <b>{delta.teachersAffected.length}</b></li>
-          <li title="طلبة متأثرون (من الرادار)">🎓 <b>{delta.studentsMoved ?? "—"}</b></li>
-          <li title="قاعات تغيّرت">🏛️ <b>{delta.roomsAffected}</b></li>
+          <li title="أساتذة متأثرون"><Ico n="teachers" /><b>{delta.teachersAffected.length}</b></li>
+          <li title="طلبة متأثرون (من الرادار)"><Ico n="students" /><b>{delta.studentsMoved ?? "—"}</b></li>
+          <li title="قاعات تغيّرت"><Ico n="rooms" /><b>{delta.roomsAffected}</b></li>
         </ul>
       </header>
 
@@ -152,12 +152,12 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
         <div className="tm-bench-side">
           <DominoGraph changes={changes} problem={problem} />
           <div className="tm-masari">
-            <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="btn btn-ghost" onClick={() => void measureStudents()} disabled={!changes.length}>🧭 أثره على مساري</button>
+            <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="btn btn-ghost" onClick={() => void measureStudents()} disabled={!changes.length}><Ico n="masari" />أثره على مساري</button>
             {students === "none" ? <small>لا رادار لهذا الفصل</small> : students ? (
               <ul>
                 <li className="tm-delta-better">⬆️ <b>{students.helped}</b><small>تحسّن</small></li>
                 <li className="tm-delta-worse">⬇️ <b>{students.harmed + (students.harmedOutside ? 1 : 0)}</b><small>تضرّر</small></li>
-                <li>🎯 <b><bdi>{students.delta12 > 0 ? `+${students.delta12}` : students.delta12}</bdi></b><small>يبلغ ١٢</small></li>
+                <li><Ico n="reach" /><b><bdi>{students.delta12 > 0 ? `+${students.delta12}` : students.delta12}</bdi></b><small>يبلغ ١٢</small></li>
               </ul>
             ) : null}
           </div>
@@ -187,14 +187,14 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
       {applied && published ? <PublishPanel context={context} scenario={published} /> : null}
       {scenario?.history?.length ? (
         <details className="tm-history"><summary><GitBranch aria-hidden="true" />السجلّ ({scenario.history.length})</summary>
-          <ol>{scenario.history.slice().reverse().map((entry, i) => <li key={i}><b>{HISTORY_LABEL[entry.action] || entry.action}</b> · {entry.by} <small>{entry.role} · {new Date(entry.at).toLocaleString("ar-KW")}</small></li>)}</ol>
+          <ol>{scenario.history.slice().reverse().map((entry, i) => <li key={i}><b className="tm-th">{HISTORY_LABEL[entry.action] ? <><Ico n={HISTORY_LABEL[entry.action][0]} />{HISTORY_LABEL[entry.action][1]}</> : entry.action}</b> · {entry.by} <small>{entry.role} · {new Date(entry.at).toLocaleString("ar-KW")}</small></li>)}</ol>
         </details>
       ) : null}
     </section>
   );
 }
 
-const HISTORY_LABEL: Record<string, string> = { created: "🌱 أُنشئ", saved: "💾 حُفظ", copied: "📄 نُسخ", shared: "👁️ مشاركة", applied: "✅ اعتُمد", restored: "↩️ استُعيد", refused: "⛔ رُفض" };
+const HISTORY_LABEL: Record<string, [IcoName, string]> = { created: ["created", "أُنشئ"], saved: ["save", "حُفظ"], copied: ["copied", "نُسخ"], shared: ["shared", "مشاركة"], applied: ["applied", "اعتُمد"], restored: ["restored", "استُعيد"], refused: ["refused", "رُفض"] };
 
 /**
  * ── النشر للمتأثرين وحدهم ──
@@ -243,7 +243,7 @@ function PublishPanel({ context, scenario }: { context: LoadedContext; scenario:
           const reach = url ? reachAboutCard({ AdInstructorName: card.name, AdInstructorMobile: card.mobile } as AdInstructor, url, "changed", card.after[0] ? `الجديد: ${card.after[0]}` : "") : null;
           return (
             <article key={card.instructorId} className="tm-teacher-card">
-              <strong>👩‍🏫 {card.name}</strong>
+              <strong className="tm-th"><Ico n="teachers" />{card.name}</strong>
               <ul>
                 {card.before.map(line => <li key={`b${line}`} className="is-before"><s>{line}</s></li>)}
                 {card.after.map(line => <li key={`a${line}`} className="is-after">{line}</li>)}

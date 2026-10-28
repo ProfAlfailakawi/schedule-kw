@@ -13,7 +13,7 @@ import {
 } from "../utils/timeMachine";
 import type { DayKey } from "../utils/scheduleIntelligence";
 import ScenarioWorkbench from "./ScenarioWorkbench";
-import { useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
+import { Ico, Loading, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
 
 type Assign = "all" | "vacant" | "assigned";
 /* الاختصار الشائع لأيام الدوام: أحد، اثنين، ثلاثاء، أربعاء، خميس. */
@@ -66,10 +66,10 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
   return (
     <div className="tm-sim">
       <ul className="tm-kpis" aria-label="ملخص الشعب">
-        <li><span aria-hidden="true">🧩</span><b>{totals.sections}</b><small>شعبة</small></li>
-        <li><span aria-hidden="true">🪑</span><b>{totals.seats}</b><small>مقعد</small></li>
-        <li><span aria-hidden="true">🎓</span><b>{totals.students ?? "—"}</b><small>طالب (رادار)</small></li>
-        <li className={totals.vacant ? "is-warn" : ""}><span aria-hidden="true">👤</span><b>{totals.vacant}</b><small>شاغرة</small></li>
+        <li><Ico n="sections" className="tm-kpi-ico" /><b>{totals.sections}</b><small>شعبة</small></li>
+        <li><Ico n="seats" className="tm-kpi-ico" /><b>{totals.seats}</b><small>مقعد</small></li>
+        <li><Ico n="students" className="tm-kpi-ico" /><b>{totals.students ?? "—"}</b><small>طالب (رادار)</small></li>
+        <li className={totals.vacant ? "is-warn" : ""}><Ico n="vacant" className="tm-kpi-ico" /><b>{totals.vacant}</b><small>شاغرة</small></li>
       </ul>
 
       <div className="tm-filters">
@@ -79,20 +79,20 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
           {TM_DAYS.map(day => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={day} type="button" aria-pressed={days.has(day)} className={days.has(day) ? "on" : ""} onClick={() => toggle(days, day, setDays)}>{dayLabel(day)}</button>)}
         </div>
         <div className="tm-chips" role="group" aria-label="الفترة">
-          {(["morning", "noon", "evening"] as TmPeriod[]).map(period => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={period} type="button" aria-pressed={periods.has(period)} className={periods.has(period) ? "on" : ""} onClick={() => toggle(periods, period, setPeriods)}>{period === "morning" ? "🌅" : period === "noon" ? "☀️" : "🌙"} {PERIOD_LABEL[period]}</button>)}
+          {(["morning", "noon", "evening"] as TmPeriod[]).map(period => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={period} type="button" aria-pressed={periods.has(period)} className={periods.has(period) ? "on" : ""} onClick={() => toggle(periods, period, setPeriods)}><Ico n={period} />{PERIOD_LABEL[period]}</button>)}
         </div>
         <div className="tm-chips" role="group" aria-label="نوع المقرر">
           {modeChips.map(mode => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={mode} type="button" aria-pressed={modes.has(mode)} className={modes.has(mode) ? "on" : ""} onClick={() => toggle(modes, mode, setModes)}>{MODE_LABEL[mode] || "غير مصنّف"}</button>)}
         </div>
         <div className="tm-chips" role="group" aria-label="الإسناد">
-          {(["all", "assigned", "vacant"] as Assign[]).map(value => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={value} type="button" aria-pressed={assign === value} className={assign === value ? "on" : ""} onClick={() => setAssign(value)}>{value === "all" ? "الكل" : value === "vacant" ? "👤 شاغرة" : "✅ مُسندة"}</button>)}
+          {(["all", "assigned", "vacant"] as Assign[]).map(value => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={value} type="button" aria-pressed={assign === value} className={assign === value ? "on" : ""} onClick={() => setAssign(value)}>{value === "all" ? "الكل" : value === "vacant" ? <><Ico n="vacant" />شاغرة</> : <><Ico n="assign" />مُسندة</>}</button>)}
         </div>
         <span className="tm-count">{shown.length}/{cards.length}</span>
       </div>
 
       <div className="tm-addbar">
         <select data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" value={adding || ""} onChange={event => { setAdding(Number(event.target.value)); setInspect(null); }} aria-label="أضف شعبة لمقرر">
-          <option value="">➕ ماذا لو أضفنا شعبة…</option>
+          <option value="">+ ماذا لو أضفنا شعبة…</option>
           {courseOptions.map(course => <option key={course.AdCourseId} value={course.AdCourseId}>{course.CourseCode} · {course.CourseName}</option>)}
         </select>
         {mergeFrom ? <span className="tm-hint"><GitMerge aria-hidden="true" />اختر الشعبة التي تستقبل الطلبة <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={() => setMergeFrom(null)}><X aria-label="إلغاء" /></button></span> : null}
@@ -103,14 +103,14 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
           {suggestions.length ? suggestions.map((item, index) => (
             <article key={index} className={index === 0 ? "is-best" : ""}>
               <header className="tm-suggest-head">
-                <span aria-hidden="true">{index === 0 ? "⭐" : "💡"}</span>
+                <Ico n={index === 0 ? "best" : "idea"} className={index === 0 ? "tm-star" : ""} />
                 <span className="tm-days">{TM_DAYS.map((day, i) => <i key={day} className={item.days.includes(day) ? "on" : ""} title={dayLabel(day)}>{DAY_LETTER[i]}</i>)}</span>
                 <bdi className="tm-suggest-time">{item.start}–{item.end}</bdi>
               </header>
               <ul className="tm-suggest-facts">
-                <li title="القاعة">🏛️ <b>{hallLabel(item.hall)}</b></li>
-                <li title="الأستاذ">👩‍🏫 <b>{people.get(item.instructorId) || "—"}</b></li>
-                {item.studentsServed !== null ? <li title="طلبة يُخدَمون (رادار)">🎓 <b>≈{item.studentsServed}</b></li> : null}
+                <li title="القاعة"><Ico n="rooms" /><b>{hallLabel(item.hall)}</b></li>
+                <li title="الأستاذ"><Ico n="teachers" /><b>{people.get(item.instructorId) || "—"}</b></li>
+                {item.studentsServed !== null ? <li title="طلبة يُخدَمون (رادار)"><Ico n="students" /><b>≈{item.studentsServed}</b></li> : null}
               </ul>
               <p className="tm-tags">{item.reasons.slice(0, 2).map(reason => <span key={reason}>{reason}</span>)}</p>
               <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="btn btn-secondary" onClick={() => add(addSectionChange(board, adding, item, context))}><Plus aria-hidden="true" />للسلة</button>
@@ -121,22 +121,22 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
 
       {impact ? (
         <section className="tm-impact" aria-label="لو حُذفت هذه الشعبة">
-          <header><b>🗑️ لو حُذفت {impact.card.courseCode} ش{impact.card.code}</b><button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={() => setInspect(null)} aria-label="إغلاق"><X /></button></header>
+          <header><b className="tm-th"><Ico n="remove" />لو حُذفت {impact.card.courseCode} ش{impact.card.code}</b><button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={() => setInspect(null)} aria-label="إغلاق"><X /></button></header>
           <div className="tm-impact-grid">
-            <div className="tm-impact-tile"><span>🎓</span><b>{impact.students ?? "—"}</b><small>طالب يتأثر</small></div>
-            <div className={`tm-impact-tile ${impact.shortfall ? "is-bad" : "is-good"}`}><span>🪑</span><b>{impact.shortfall ?? "—"}</b><small>بلا مقعد بعدها</small></div>
+            <div className="tm-impact-tile"><Ico n="students" className="tm-tile-ico" /><b>{impact.students ?? "—"}</b><small>طالب يتأثر</small></div>
+            <div className={`tm-impact-tile ${impact.shortfall ? "is-bad" : "is-good"}`}><Ico n="seats" className="tm-tile-ico" /><b>{impact.shortfall ?? "—"}</b><small>بلا مقعد بعدها</small></div>
             {impact.teacher ? (
-              <div className="tm-impact-tile"><span>👩‍🏫</span><b><bdi>{impact.teacher.before}</bdi> ← <bdi>{impact.teacher.after}</bdi></b><small>نصاب {impact.teacher.name}{impact.teacher.limit ? ` / ${impact.teacher.limit}` : ""}</small>
+              <div className="tm-impact-tile"><Ico n="teachers" className="tm-tile-ico" /><b><bdi>{impact.teacher.before}</bdi> ← <bdi>{impact.teacher.after}</bdi></b><small>نصاب {impact.teacher.name}{impact.teacher.limit ? ` / ${impact.teacher.limit}` : ""}</small>
                 {impact.teacher.limit ? <meter min={0} max={impact.teacher.limit} value={impact.teacher.after} aria-label="النصاب بعد" /> : null}</div>
             ) : null}
-            <div className="tm-impact-tile"><span>🏛️</span><b>{impact.freed.length}</b><small>خانة قاعة تتحرّر</small></div>
+            <div className="tm-impact-tile"><Ico n="rooms" className="tm-tile-ico" /><b>{impact.freed.length}</b><small>خانة قاعة تتحرّر</small></div>
           </div>
           <ul className="tm-alts" aria-label="أين يذهب الطلبة">
             {impact.alternatives.length ? impact.alternatives.map(alt => (
               <li key={alt.code}><b>ش{alt.code}</b><small>{alt.when}</small>
                 {plausibleCapacity(alt.capacity) ? <>
                   <span className="tm-bar" aria-hidden="true"><i style={{ width: `${Math.min(100, (alt.capacity - (alt.freeSeats ?? 0)) / alt.capacity * 100)}%` }} /></span>
-                  <em title="مقاعد شاغرة">🪑 {alt.freeSeats === null ? alt.capacity : alt.freeSeats}</em>
+                  <em title="مقاعد شاغرة"><Ico n="seats" />{alt.freeSeats === null ? alt.capacity : alt.freeSeats}</em>
                 </> : <span />}</li>
             )) : <li className="tm-note">لا شعبة أخرى لهذا المقرر — الطلبة بلا بديل</li>}
           </ul>
@@ -157,12 +157,12 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
         {removedKeys.map(card => <article key={`gone-${card.key}`} className="tm-card is-removed"><b>{card.courseCode}</b><small>ش{card.code} · محذوفة في السيناريو</small></article>)}
       </div>
 
-      <h3 className="tm-basket-title">🧺 سلة التغييرات {changes.length ? <span>{changes.length}</span> : null}</h3>
+      <h3 className="tm-basket-title"><Ico n="basket" />سلة التغييرات {changes.length ? <span>{changes.length}</span> : null}</h3>
       {changes.length ? (
         <ul className="tm-basket">
           {changes.map(change => <li key={change.id}><span>{change.label}</span><button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={() => setChanges(list => list.filter(item => item.id !== change.id))} aria-label="أزل من السلة"><X /></button></li>)}
         </ul>
-      ) : <p className="tm-note">اضغط شعبة لترى أثر حذفها، أو أضف شعبة، أو ✂️ قسّم، أو 🔗 ادمج</p>}
+      ) : <p className="tm-note">اضغط شعبة لترى أثر حذفها، أو أضف شعبة، أو <Ico n="split" /> قسّم، أو <Ico n="merge" /> ادمج</p>}
       {changes.length ? <ScenarioWorkbench context={context} changes={changes} mode="sections" scenario={scenario} onScenario={setScenario}
         defaultName="محاكاة الشعب" onDiscard={() => { setChanges([]); setScenario(null); }} onApplied={reload} /> : null}
     </div>
@@ -173,7 +173,8 @@ function SectionCardView({ card, active, merging, onInspect, onSplit, onMerge }:
   /* سعةٌ مسجّلة أقل من ٥ مقاعد ليست سعة شعبة (بيان ناقص): لا يُرسم شريطٌ عليها. */
   const plausible = plausibleCapacity(card.capacity);
   const fill = card.students !== null && plausible ? Math.min(100, card.students / card.capacity * 100) : 0;
-  const seats = plausible ? (card.students !== null ? `🎓 ≈${card.students}/${card.capacity}` : `🪑 ${card.capacity}`) : card.students !== null ? `🎓 ≈${card.students}` : "";
+  const seats = plausible ? (card.students !== null ? `≈${card.students}/${card.capacity}` : `${card.capacity}`) : card.students !== null ? `≈${card.students}` : "";
+  const seatIcon = card.students !== null ? "students" as const : "seats" as const;
   return (
     <article className={`tm-card ${active ? "is-active" : ""} ${card.vacant ? "is-vacant" : ""} ${card.added ? "is-added" : ""} ${merging ? "is-merge-target" : ""}`}>
       <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="tm-card-main" onClick={merging ? onMerge : onInspect} aria-label={`${card.courseCode} شعبة ${card.code}`}>
@@ -183,10 +184,10 @@ function SectionCardView({ card, active, merging, onInspect, onSplit, onMerge }:
           <span className="tm-days">{TM_DAYS.map((day, index) => <i key={day} className={card.days.includes(day) ? "on" : ""} title={dayLabel(day)}>{DAY_LETTER[index]}</i>)}</span>
           <bdi>{card.start}–{card.end}</bdi>
         </span>
-        <span className="tm-card-meta"><span>🏛️ {card.hall}</span><span>{card.vacant ? "👤 شاغرة" : `👩‍🏫 ${card.instructorName}`}</span></span>
+        <span className="tm-card-meta"><span className="tm-th"><Ico n="rooms" />{card.hall}</span><span className="tm-th">{card.vacant ? <><Ico n="vacant" />شاغرة</> : <><Ico n="teachers" />{card.instructorName}</>}</span></span>
         {seats ? <span className="tm-seat" title={card.students !== null ? "طلبة ≈ / سعة" : "سعة"}>
           {plausible && card.students !== null ? <span className="tm-bar" aria-hidden="true"><i style={{ width: `${fill}%` }} /></span> : null}
-          <small>{seats}</small>
+          <small className="tm-th"><Ico n={seatIcon} />{seats}</small>
         </span> : null}
       </button>
       <span className="tm-card-actions">
@@ -201,6 +202,6 @@ function SectionCardView({ card, active, merging, onInspect, onSplit, onMerge }:
 export default function SectionSimulator({ collegeId, sectionId, termId }: { collegeId?: number; sectionId?: number; termId?: number }) {
   const { context, error, reload } = useTimeMachineContext({ collegeId, sectionId, termId });
   if (error) return <p className="tm-note" role="alert">{error}</p>;
-  if (!context) return <p className="tm-note">⏳</p>;
+  if (!context) return <Loading />;
   return <SectionSimulatorBody context={context} reload={reload} />;
 }

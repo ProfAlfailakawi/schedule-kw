@@ -125,8 +125,6 @@
 .tm-teacher-card ul{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:var(--t-xs)}
 .tm-teacher-card .is-before{color:var(--danger)}
 .tm-teacher-card .is-after{color:var(--success);font-weight:600}
-.tm-teacher-card .is-before::before{content:"⏪ "}
-.tm-teacher-card .is-after::before{content:"⏩ "}
 .tm-teacher-card li{line-height:1.6}
 
 .tm-saved{padding:14px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line)}
@@ -242,3 +240,56 @@
 .tm-suggest-facts b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tm-solution-facts li{gap:2px}
 .tm-solution-facts li>b{line-height:1.1}
+
+/* ── أيقونات lucide بألوان الرموز ── */
+.tm-ico{width:16px;height:16px;flex:none;stroke-width:2;vertical-align:-3px;color:var(--muted)}
+.tm-th{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.tm-chips button{display:inline-flex;align-items:center;gap:4px}
+.tm-chips button .tm-ico{width:14px;height:14px}
+.tm-chips button.on .tm-ico{color:currentColor}
+.tm-ico-teachers{color:var(--info)}
+.tm-ico-students,.tm-ico-masari,.tm-ico-reach{color:var(--accent)}
+.tm-ico-conflicts,.tm-ico-problem,.tm-ico-emergency,.tm-ico-remove{color:var(--danger)}
+.tm-ico-rooms,.tm-ico-seats{color:var(--brass)}
+.tm-ico-best{color:var(--brass);fill:var(--brass)}
+.tm-ico-gaps,.tm-ico-regulation{color:var(--warning)}
+.tm-ico-applied,.tm-ico-add,.tm-ico-assign,.tm-ico-created{color:var(--success)}
+.tm-ico-morning,.tm-ico-noon{color:var(--warning)}
+.tm-ico-evening{color:var(--info)}
+.tm-ico-vacant{color:var(--warning)}
+.tm-ico-move{color:var(--accent)}
+.tm-ok{color:var(--success)}
+.tm-kpi-ico{grid-row:1/3;width:30px;height:30px;padding:6px;border-radius:var(--r-md);background:var(--surface-2);box-sizing:content-box}
+.tm-tile-ico{width:22px;height:22px}
+.tm-goal-ico{width:26px;height:26px;color:var(--accent)}
+.tm-h-ico{width:22px;height:22px}
+.tm-solutions h2{align-items:center}
+.tm-solution-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:var(--r-sm);background:var(--accent-softer);font-size:0}
+.tm-solution-icon .tm-ico{width:20px;height:20px;color:var(--accent)}
+.tm-star .tm-ico,.tm-star.tm-ico{width:18px;height:18px}
+.tm-solution-facts li{display:grid;justify-items:center;gap:2px}
+.tm-solution-facts li.is-warn{background:var(--warning-soft)}
+.tm-preexisting{font-size:10px;line-height:1;color:var(--warning);font-weight:600}
+.tm-delta-ico{grid-row:1/3;display:grid;place-items:center;width:32px;height:32px;border-radius:var(--r-sm);background:var(--surface)}
+.tm-delta-ico .tm-ico{width:18px;height:18px}
+.tm-delta.is-compact .tm-delta-ico{width:26px;height:26px}
+.tm-slider-end{display:inline-flex;align-items:center;gap:4px}
+.tm-domino li{grid-template-columns:18px 1fr;align-items:start}
+.tm-domino li>.tm-ico{margin-top:2px}
+.tm-bench-chips li,.tm-masari li{display:inline-flex;align-items:center;gap:6px}
+.tm-masari li{display:grid;justify-items:center}
+.tm-masari .btn,.tm-branch,.tm-drift{display:inline-flex;align-items:center;gap:6px}
+.tm-saved button>.tm-ico{width:18px;height:18px;color:var(--accent)}
+.tm-basket-title .tm-ico{width:20px;height:20px;color:var(--accent)}
+.tm-alts em{display:inline-flex;align-items:center;gap:4px}
+.tm-teacher-card .is-before{opacity:.75}
+.tm-loading{display:grid;place-items:center;padding:40px}
+.tm-loading .tm-ico{width:28px;height:28px;color:var(--accent);animation:tm-spin 1s linear infinite}
+@keyframes tm-spin{to{transform:rotate(360deg)}}
+/* 🟢🟡🔴 نقاطٌ ملوّنة بالرموز، لا رموز تعبيرية. */
+.tm-level{font-size:inherit}
+.tm-dot{display:inline-block;width:14px;height:14px;border-radius:50%;box-shadow:0 0 0 3px color-mix(in srgb,currentColor 18%,transparent);background:currentColor}
+.tm-level-green{color:var(--success)}
+.tm-level-yellow{color:color-mix(in srgb,var(--warning) 35%,#e8b422)}
+.tm-level-red{color:var(--danger)}
+.tm-bench-head .tm-dot{width:20px;height:20px}
