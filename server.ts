@@ -17952,6 +17952,38 @@ async function sectionGapData(collegeId: number, sectionId: number, termId: numb
   };
 }
 
+/* ── K2: قرارات «تم/تجاهل» على بنود التخطيط، مشتركةٌ في النطاق ─────────────
+   الصلاحيات نفسها التي يُحفظ بها التخطيط (registration-stats): الإذن 7 ونطاق
+   الكلية والقسم. القرار يُكتب باسم صاحبه ووقته؛ لا يُقبل «تجاهل» بلا سبب. */
+app.get("/api/schedules/section-gap/decisions", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  res.json({ decisions: await Repository.getPlanTriageDecisions(collegeId, sectionId, termId) });
+});
+app.put("/api/schedules/section-gap/decisions", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
+  const courseId = Number(req.body?.courseId || 0);
+  if (!collegeId || !sectionId || !termId || !courseId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل والمقرر" }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  const raw = req.body?.decision;
+  if (raw === null || raw === undefined) {
+    await Repository.setPlanTriageDecision({ collegeId, sectionId, termId }, courseId, null);
+    res.json({ decision: null });
+    return;
+  }
+  const state = raw?.state === "done" || raw?.state === "ignored" ? raw.state : "";
+  const reason = String(raw?.reason || "").trim().slice(0, 140);
+  const signature = String(raw?.signature || "").trim().slice(0, 200);
+  if (!state || !signature) { res.status(400).json({ error: "قرار غير صالح" }); return; }
+  if (state === "ignored" && !reason) { res.status(400).json({ error: "التجاهل يحتاج سبباً مكتوباً" }); return; }
+  const decision = await Repository.setPlanTriageDecision({ collegeId, sectionId, termId }, courseId, {
+    state, reason, signature, at: new Date().toISOString(),
+    byUserId: Number(req.user?.SystemUserId || 0), byName: String(req.user?.Name || "").slice(0, 80),
+  });
+  res.json({ decision });
+});
+
 app.get("/api/schedules/section-gap", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0);
   const sectionId = Number(req.query.sectionId || 0);
@@ -24712,7 +24744,10 @@ async function startServer() {
     // `originalUrl` is whatever a stranger typed, and the first argument to
     // console.error is a format string — a URL carrying `%s` would otherwise
     // swallow the error itself and the log would lose what it was written for.
-    console.error("[api-error] %s %s:", req.method, req.originalUrl, error?.stack || error?.message || error);
+    /* K3: a short reference ties what the reader sees to this log line, so an
+       administrator can find the real cause instead of a generic sentence. */
+    const ref = `E${Date.now().toString(36).slice(-5).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+    console.error("[api-error] ref=%s %s %s:", ref, req.method, req.originalUrl, error?.stack || error?.message || error);
     if (res.headersSent) { try { res.end(); } catch { /* the socket is already gone */ } return; }
     if (error instanceof RequestReservationConflict) { res.status(409).json({ error: error.message, code: error.code }); return; }
     /* «حاول مرة أخرى» كذبٌ على طلبٍ أكبر من الحد: سيُرفض في كل مرة. */
@@ -24720,7 +24755,7 @@ async function startServer() {
       res.status(413).json({ error: "البيانات المرسلة أكبر من الحد المسموح، ولم يُحفظ شيء. أبلغ إدارة النظام بهذه الرسالة.", code: "PAYLOAD_TOO_LARGE" });
       return;
     }
-    res.status(500).json({ error: "تعذّر إتمام العملية الآن. حاول مرة أخرى، وإذا تكرر الأمر أبلغ إدارة النظام." });
+    res.status(500).json({ error: "تعذّر إتمام العملية الآن. حاول مرة أخرى، وإذا تكرر الأمر أبلغ إدارة النظام برمز المرجع.", code: "INTERNAL", ref });
   });
 
   const isProduction = process.env.NODE_ENV === "production" ||

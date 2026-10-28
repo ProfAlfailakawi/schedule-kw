@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftRight, BrainCircuit, CalendarClock, CheckCheck, ChevronDown,
   GitBranch, GraduationCap, Info, RefreshCw, Scale, ShieldCheck, Sparkles, Users
@@ -42,7 +42,10 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
   // The tutorial is calculated from a completely fictional timetable. It
   // never replaces live course recommendations returned by the API.
   const lesson = useMemo(buildAcademicDecisionLabTrainingPreview, []);
-  const [viewMode, setViewMode] = useState<"training" | "live">("training");
+  /* K1: the department's own reading first whenever it has a confirmed opportunity; otherwise the lesson, with the live funnel one click away. */
+  const [viewMode, setViewMode] = useState<"training" | "live">(lab && !lab.demoShowcase && lab.scenarios.length ? "live" : "training");
+  const pickedMode = useRef(false);
+  useEffect(() => { if (lab && !lab.demoShowcase && lab.scenarios.length && !pickedMode.current) setViewMode("live"); }, [lab]);
   const viewingTraining = viewMode === "training";
   const shownLab = viewingTraining ? lesson : lab;
   const liveWatch = (lab?.graduationWatch || []).filter(w => !courseId || w.courseId === courseId);
@@ -50,10 +53,53 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
   const watched = (shownLab?.graduationWatch || []).filter(w => viewingTraining || !courseId || w.courseId === courseId);
   const active: AcademicDecisionScenario | undefined = scenarios.find(s => s.id === selected) || scenarios[0];
   useEffect(() => { setSelected(""); }, [courseId, viewMode, lab?.sampledAt]);
-  const noEvidence = <div className="adl-no-evidence">
-    <Info size={19} aria-hidden="true" />
-    <div><strong>لا توجد محاكاة مؤكّدة لهذا النطاق</strong>
-      <small>لا نقترح تغييراً دون رغبات مؤهلة وأثر محسوب لثلاثة مستفيدين على الأقل.</small></div>
+  /* ── لماذا لا نتيجة؟ (K1) ───────────────────────────────────────────────
+     The same sentence under four tools told the reader nothing. The funnel is
+     the lab's own count of real records at each stage, so the empty state says
+     exactly where the evidence stops — and what would make the tool speak. */
+  const diagnostics = shownLab?.diagnostics;
+  const funnel = diagnostics ? (() => {
+    const stages = [
+      { key: "profiles", label: "ملفات طلبة القسم", value: diagnostics.profiles, icon: Users },
+      { key: "wishes", label: "رغبات لهذا الفصل", value: diagnostics.withWishes, icon: CalendarClock },
+      { key: "plan", label: "على صحيفة معتمدة", value: diagnostics.withPlan, icon: GraduationCap },
+      { key: "eligible", label: "تركيبة قابلة للفحص", value: diagnostics.eligible, icon: BrainCircuit },
+      { key: "tested", label: "مواعيد بديلة جُرّبت", value: diagnostics.timesTested, icon: RefreshCw },
+      { key: "found", label: "فرص مؤكّدة", value: scenarios.length, icon: Sparkles },
+    ];
+    const top = Math.max(1, ...stages.map(stage => stage.value));
+    const stop = stages.findIndex((stage, index) => index < 4 ? stage.value < diagnostics.minimum : stage.value === 0);
+    const why = stop === 0 ? "لا ملفات طلبة لهذا القسم بعد."
+      : stop === 1 ? "لم يسجّل الطلبة رغباتهم لهذا الفصل بعد."
+      : stop === 2 ? "الطلبة غير مربوطين بصحيفة معتمدة."
+      : stop === 3 ? `أقل من ${countOf(diagnostics.minimum, AR.student)} لديهم مقرران مطروحان مؤهلان أو أكثر.`
+      : stop === 4 ? "لم يُجرَّب موعدٌ بديل: لا مقرر يطلبه ثلاثة طلاب مؤهلين أو أكثر."
+      : stop === 5 ? (diagnostics.resourceConflicts >= diagnostics.timesTested
+          ? `كل بديلٍ مجرَّب يصطدم بأستاذ أو قاعة (${n(diagnostics.resourceConflicts)}).`
+          : [
+            `لا موعد بديل آمن يزيد من يكتمل جدولهم بـ${countOf(diagnostics.minimum, AR.student)} أو أكثر.`,
+            diagnostics.resourceConflicts ? `اصطدم ${n(diagnostics.resourceConflicts)} من ${n(diagnostics.timesTested)} بأستاذ أو قاعة.` : "",
+            diagnostics.belowFloor ? `${n(diagnostics.belowFloor)} يفيد أقل من ذلك فلا يُعرض حمايةً للخصوصية.` : "",
+          ].filter(Boolean).join(" "))
+      : "";
+    return <div className="adl-funnel" data-adl-funnel={stop < 0 ? "complete" : stages[stop]?.key}>
+      <ol>{stages.map((stage, index) => <li key={stage.key}
+        className={index === stop ? "adl-funnel-stop" : stop >= 0 && index > stop ? "adl-funnel-after" : ""}>
+        <stage.icon size={14} aria-hidden="true" />
+        <span>{stage.label}</span>
+        <i aria-hidden="true"><b style={{ width: percent(stage.value, top) + "%" }} /></i>
+        <strong>{n(stage.value)}</strong>
+      </li>)}</ol>
+      {why ? <p><Info size={14} aria-hidden="true" />{why}</p> : null}
+    </div>;
+  })() : null;
+  const noEvidence = <div className="adl-no-evidence-wrap">
+    <div className="adl-no-evidence">
+      <Info size={19} aria-hidden="true" />
+      <div><strong>لا فرصة مؤكّدة لهذا النطاق الآن</strong>
+        <small>لا نقترح تغييراً دون أثر محسوب لثلاثة مستفيدين على الأقل.</small></div>
+    </div>
+    {funnel}
   </div>;
   const watchList = watched.length ? <div className="adl-watch-list">
     {watched.slice(0, compact ? 3 : 6).map(w => <div className="adl-watch-item" key={w.courseId}>
@@ -91,10 +137,10 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
     <div className="adl-view-modes" role="group" aria-label="مصدر نتائج المختبر">
       <button type="button" data-guide-ignore="معاينة المحاكاة الافتراضية المنفصلة عن بيانات القسم"
         className={viewingTraining ? "adl-view-mode adl-view-mode-active" : "adl-view-mode"}
-        aria-pressed={viewingTraining} onClick={() => setViewMode("training")}>تجربة الأدوات الست</button>
+        aria-pressed={viewingTraining} onClick={() => { pickedMode.current = true; setViewMode("training"); }}>تجربة الأدوات الست</button>
       <button type="button" data-guide-ignore="عرض التحليل الحقيقي للنطاق المختار دون حفظ"
         className={!viewingTraining ? "adl-view-mode adl-view-mode-active" : "adl-view-mode"}
-        aria-pressed={!viewingTraining} onClick={() => setViewMode("live")}>بيانات القسم الفعلية</button>
+        aria-pressed={!viewingTraining} onClick={() => { pickedMode.current = true; setViewMode("live"); }}>بيانات القسم الفعلية</button>
     </div>
     {viewingTraining && <div className="adl-training-note" role="note">
       <Info size={17} aria-hidden="true" />
@@ -204,6 +250,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
               "المجتازات والرغبات مدخلة من الطلبة، وليست سجلات قبول وتسجيل معتمدة.",
               "التخرج مسار مقررات، وليس وعداً بالتخرج المبكر.",
               "توازن الأستاذ لا يعبّر عن موافقته أو اختياراته."])}</details>
+          {funnel ? <details open><summary><BrainCircuit size={14} aria-hidden="true" />من أين جاء الرقم؟<ChevronDown size={14} aria-hidden="true" /></summary>{funnel}</details> : null}
         </div>
       </> : noEvidence)}
     </div>

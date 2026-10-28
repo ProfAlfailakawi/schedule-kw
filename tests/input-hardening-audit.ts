@@ -102,7 +102,7 @@ check(readable("") === "", "قيمةٌ فارغة تبقى فارغة");
 
 /* ── ٤) سجلّ الخطأ ──────────────────────────────────────────────────────── */
 
-check(serverSource.includes('console.error("[api-error] %s %s:", req.method, req.originalUrl,'),
+check(serverSource.includes('console.error("[api-error] ref=%s %s %s:", ref, req.method, req.originalUrl,'),
   "عنوانُ الطلب حُجّةٌ بعد نصّ التنسيق، لا جزءٌ منه");
 check(!serverSource.includes("console.error(`[api-error] ${req.method} ${req.originalUrl}"),
   "لا بقيّةَ من العنوان المدموج في نصّ التنسيق");

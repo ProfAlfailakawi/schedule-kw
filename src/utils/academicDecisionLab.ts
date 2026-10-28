@@ -33,8 +33,37 @@ export interface AcademicDecisionChain {
   steps: Array<{ id: string; courseName: string; section: string; before: string; after: string }>;
   beforeFeasible: number; afterFeasible: number; gain: number; assessed: number;
 }
+/**
+ * Why the lab says what it says (K1). Every number is a count of real records at
+ * one stage of the funnel, so an empty result explains itself instead of
+ * repeating «لا توجد محاكاة» under six different tools.
+ */
+export interface AcademicDecisionDiagnostics {
+  /** Student profiles of this college+department. */
+  profiles: number;
+  /** …who registered wishes for this term. */
+  withWishes: number;
+  /** …on an approved curriculum sheet. */
+  withPlan: number;
+  /** …with two or more offered, eligible wished courses (the twin can be built). */
+  eligible: number;
+  /** The privacy floor: no result is shown for fewer people than this. */
+  minimum: number;
+  /** Offered sections whose start time was tried. */
+  sectionsTried: number;
+  /** Alternative start times evaluated in full. */
+  timesTested: number;
+  /** Tested moves that helped someone, but fewer than the floor. */
+  belowFloor: number;
+  /** Tested moves dropped because they collide with a teacher or a room. */
+  resourceConflicts: number;
+  /** Offered sections in this college for the term. */
+  offeredSections: number;
+}
+
 export interface AcademicDecisionLab {
   scenarios: AcademicDecisionScenario[];
+  diagnostics?: AcademicDecisionDiagnostics;
   graduationWatch?: AcademicGraduationWatch[];
   chain?: AcademicDecisionChain;
   sampledAt: string;
@@ -121,14 +150,18 @@ function resourceImpact(candidate: FSchedule[], original: FSchedule[], all: FSch
   }
   return unknown?"review":"checked";
 }
-function eligiblePeople(input: AcademicInput, available: Map<number,Offering[]>): Person[] {
+type Funnel = Pick<AcademicDecisionDiagnostics, "profiles" | "withWishes" | "withPlan" | "eligible">;
+function eligiblePeople(input: AcademicInput, available: Map<number,Offering[]>, funnel?: Funnel): Person[] {
   const byPlan = new Map(input.plans.map(p=>[p.planId,p]));
   const result: Person[] = [];
   for (const p of input.profiles) {
-    if (Number(p.AdCollegeId)!==input.collegeId || Number(p.AdSectionId)!==input.sectionId ||
-      Number(p.wishes?.termId)!==input.termId) continue;
+    if (Number(p.AdCollegeId)!==input.collegeId || Number(p.AdSectionId)!==input.sectionId) continue;
+    if (funnel) funnel.profiles++;
+    if (Number(p.wishes?.termId)!==input.termId || !(p.wishes?.courseIds||[]).length) continue;
+    if (funnel) funnel.withWishes++;
     const plan=byPlan.get(String(p.curriculumPlanId||""));
     if(!plan) continue;
+    if (funnel) funnel.withPlan++;
     const passed=new Set((p.passedCourseIds||[]).map(Number));
     const registering=new Set((p.wishes?.courseIds||[]).map(Number));
     const rules=new Map(plan.rules.map(r=>[r.courseId,r]));
@@ -137,12 +170,17 @@ function eligiblePeople(input: AcademicInput, available: Map<number,Offering[]>)
       coreqMet(rules.get(id)?.coreq,passed,registering));
     const valid=wanted.filter(id=>!wanted.some(other=>other!==id &&
       (mandatoryPrecedes(plan.rules,id,other)||mandatoryPrecedes(plan.rules,other,id))));
-    // Students missing an offered wanted course aren't claimed to have a complete timetable.
-    if(valid.length<2 || valid.length>8 || valid.length!==registering.size) continue;
+    /* The twin is built from the wished courses that are offered and eligible this
+       term (K1). Requiring EVERY wish to be offered emptied the lab whenever one
+       student also wished for an unoffered course (graduation project…), so no
+       tool ever had evidence. The claim stays honest: «يمكنه تركيب كل مقرراته
+       المطروحة», not every wish he ever typed. */
+    if(valid.length<2 || valid.length>8) continue;
     // Bound the complete search tree before scoring. Never treat a timed-out
     // or truncated timetable search as proof of a student's unavailability.
     const combinations=valid.reduce((total,id)=>total*Math.max(1,(available.get(id)||[]).length),1);
     if(combinations>1000) continue;
+    if (funnel) funnel.eligible++;
     result.push({courses:valid,constraints:p.wishes?.constraints||{}});
   }
   return result;
@@ -235,10 +273,11 @@ function combineScenarios(people:Person[],rows:FSchedule[],scenarios:AcademicDec
 export function buildAcademicDecisionLab(input: AcademicInput, reading: AcademicReading): AcademicDecisionLab {
   const current=input.rows.filter(r=>Number(r.AdTermId)===input.termId && Number(r.AdCollegeId)===input.collegeId);
   const offered=buildOffers(current);
-  const people=eligiblePeople(input,offered);
+  const diagnostics:AcademicDecisionDiagnostics={profiles:0,withWishes:0,withPlan:0,eligible:0,minimum:3,sectionsTried:0,timesTested:0,belowFloor:0,resourceConflicts:0,offeredSections:[...offered.values()].reduce((sum,list)=>sum+list.length,0)};
+  const people=eligiblePeople(input,offered,diagnostics);
   const name=new Map(input.courses.map(c=>[Number(c.AdCourseId),String(c.CourseName||c.CourseCode)]));
   const today=new Date().toISOString();
-  const empty:AcademicDecisionLab={scenarios:[],sampledAt:today,basis:"approved-plans-and-student-wishes",nonBlocking:true,
+  const empty:AcademicDecisionLab={scenarios:[],diagnostics,sampledAt:today,basis:"approved-plans-and-student-wishes",nonBlocking:true,
     limitations:["الرغبات والمجتازات مدخلة من الطلبة، وليست قيداً رسمياً.","السعة والموافقات واللائحة لا تُحسم بهذه المحاكاة."]};
   // Refuse costly or incomplete analyses instead of silently sampling students.
   empty.graduationWatch=graduationWatch(input,offered);
@@ -252,6 +291,7 @@ export function buildAcademicDecisionLab(input: AcademicInput, reading: Academic
   for(const [courseId,group] of ranked) {
     for(const offer of (offered.get(courseId)||[]).slice(0,3)) {
       const head=offer.rows[0],start=toMinute(head.fstarttime);
+      diagnostics.sectionsTried++;
       if(start<0)continue;
       const before=group.filter(p=>feasibleAcademicBundle(p,offered)).length;
       if(before>0 && before<3) continue; // do not reveal a small subgroup via comparison
@@ -262,12 +302,13 @@ export function buildAcademicDecisionLab(input: AcademicInput, reading: Academic
         const transformed=shiftRows(offer.rows,delta);
         if(transformed.some(row=>toMinute(row.fstarttime)<480 || toMinute(row.fendtime)>1200))continue;
         const resource=resourceImpact(transformed,offer.rows,current);
-        if(resource==="conflict")continue;
+        diagnostics.timesTested++;
+        if(resource==="conflict"){diagnostics.resourceConflicts++;continue;}
         const changed=current.map(r=>offeringKey(r)===offer.key ? transformed[offer.rows.indexOf(r)]||r : r);
         const options=buildOffers(changed);
         const after=group.filter(p=>feasibleAcademicBundle(p,options)).length;
         const gain=after-before;
-        if(gain<3)continue; // cohort privacy; never expose small differential effect
+        if(gain<3){if(gain>0)diagnostics.belowFloor++;continue;} // cohort privacy; never expose small differential effect
         const nextRipple=collisionPairs(options,reading.pairs,courseId);
         const downstream=downstreamCount(input,courseId);
         const verified=resource==="checked";

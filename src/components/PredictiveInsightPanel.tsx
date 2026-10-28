@@ -8,10 +8,11 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, CalendarClock, CalendarPlus, ChevronDown, GraduationCap, History, Info, Layers, Link2, Lock, Sparkles, TrendingDown, TrendingUp, Users,
+  AlertTriangle, CalendarClock, CalendarPlus, ChevronDown, GraduationCap, HelpCircle, History, Info, Layers, Link2, Lock, Sparkles, TrendingDown, TrendingUp, Users,
 } from "lucide-react";
 import { EmptyState, MicroLoader, SecondaryButton } from "./ui";
 import RadarSchedule, { request } from "./RadarSchedule";
+import PlanBadge from "./PlanBadge";
 import { AR, countOf } from "../utils/arabicCount";
 import { CONFIDENCE_LABEL, type Confidence, type DemandPrediction, type PredictiveAction } from "../utils/predictiveIntelligence";
 import type { PredictiveClientReading } from "../server/predictiveInsight";
@@ -80,8 +81,26 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
 
   const r = reading;
   const termId = r.target.termId;
-  const gap = r.demand.filter(row => row.delta !== 0);
-  const shownDemand = allCourses ? r.demand : gap;
+  /* K4: no evidence, no number. */
+  const insufficient = r.demand.filter(row => row.confidence.level === "insufficient");
+  const evidenced = r.demand.filter(row => row.confidence.level !== "insufficient");
+  const gap = evidenced.filter(row => row.delta !== 0);
+  const shownDemand = allCourses ? evidenced : gap;
+  /* The summary is arithmetic over the rows shown below — nothing estimated here. */
+  /* Tiles count only medium-or-better rows: a low-confidence +12 is a question, not a shortage. */
+  const firm = gap.filter(row => row.confidence.level === "medium" || row.confidence.level === "high");
+  const short = firm.filter(row => row.delta > 0).reduce((sum, row) => sum + row.delta, 0);
+  const surplus = firm.filter(row => row.delta < 0).reduce((sum, row) => sum - row.delta, 0);
+  const wantedTotal = evidenced.reduce((sum, row) => sum + (row.wanted || 0), 0);
+  const hasWanted = evidenced.some(row => row.wanted != null);
+  const kpis = [
+    { key: "short", icon: TrendingUp, value: short, label: "شعب ناقصة", tone: short ? "warn" : "ok" },
+    { key: "surplus", icon: TrendingDown, value: surplus, label: "شعب فائضة للمراجعة", tone: surplus ? "info" : "ok" },
+    ...(hasWanted ? [{ key: "wanted", icon: Users, value: wantedTotal, label: "رغبات طلبة", tone: "info" }] : []),
+    { key: "hot", icon: AlertTriangle, value: r.hotspots.length, label: "ساعات ضغط قاعات", tone: r.hotspots.length ? "warn" : "ok" },
+    { key: "prereq", icon: Lock, value: r.prereq.length, label: "مسبقات تحجز دفعة", tone: r.prereq.length ? "warn" : "ok" },
+    { key: "none", icon: Info, value: insufficient.length, label: "بيانات غير كافية", tone: "muted" },
+  ];
   const g = r.graduation;
   const gradTotal = Math.max(1, g.onTime + g.delayed1 + g.delayed2plus + g.unassessed);
   const seg = (n: number) => `${(n / gradTotal) * 100}%`;
@@ -112,6 +131,9 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
 
       {r.caveats.length ? <ul className="pi-caveats">{r.caveats.map(text => <li key={text}><Info aria-hidden="true" />{text}</li>)}</ul> : null}
 
+      {/* K4: one glance — every tile counts rows of this reading. */}
+      {r.historyTerms > 0 || hasWanted ? <div className="pi-kpis" role="list" aria-label="ملخص التنبّؤ">{kpis.map(item => <div key={item.key} role="listitem" className={`pi-kpi tone-${item.tone}`} data-kpi={item.key}><item.icon aria-hidden="true" /><b>{nf(item.value)}</b><small>{item.label}</small></div>)}</div> : null}
+
       {/* ── أهمُّ ما يُفعل: أثرٌ × ثقة ── */}
       <div className="pi-block">
         <h4><Sparkles aria-hidden="true" /> الإجراءات المقترحة</h4>
@@ -128,22 +150,37 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
         })}</div> : <p className="pi-none">لا إجراءَ مقترحاً الآن: الجدول يطابق التوقّع، أو التاريخُ لا يكفي لاقتراحٍ مسؤول.</p>}
       </div>
 
-      {/* ── الطلب: كم شعبةً لكل مقرر؟ ── */}
+      {/* ── الطلب: كم شعبةً لكل مقرر؟ (K4) ──
+          A number is shown only when the engine has evidence for it. A course
+          without history used to print «0 ← 1 +1» beside «لا يكفي التاريخ» —
+          a guess dressed as a forecast. Those are now one honest group:
+          «بيانات غير كافية», no number. Every shown number carries its range
+          and, on demand, the engine's own reason («ليش؟»). */}
       <div className="pi-block">
-        <h4><Layers aria-hidden="true" /> الشعب المتوقعة <small>{nf(gap.length)} تحتاج نظراً من {nf(r.demand.length)}</small></h4>
+        <h4><Layers aria-hidden="true" /> الشعب المتوقعة <small>{nf(gap.length)} تحتاج نظراً من {nf(evidenced.length)}</small></h4>
         <p className="pi-legend"><i className="k-bar" />فصول سابقة <i className="k-exp" />المتوقع <i className="k-plan" />المخطّط الآن <span className="pi-legend-conf" aria-hidden="true"><i className="k-conf" />الثقة: ثلاثة أعمدة = عالية</span></p>
         {shownDemand.length ? <ul className="pi-rows">{shownDemand.map(row => (
-          <li key={row.courseId} className="pi-row" data-level={row.confidence.level}>
-            <div className="pi-row-name"><b>{row.name}</b><small>{row.code}</small></div>
+          <li key={row.courseId} className="pi-row pi-row-why" data-level={row.confidence.level}>
+            <div className="pi-row-name"><b>{row.name}<PlanBadge courseId={row.courseId} /></b><small>{row.code}{row.wanted != null ? <> · <Users aria-hidden="true" className="pi-inline-ic" />{countOf(row.wanted, AR.student)} يريدونه</> : null}</small></div>
             <SeriesBars row={row} hasHistory={r.historyTerms > 0} />
             <div className="pi-row-num" title={`المدى ${row.low}–${row.high}`}>
               <span>{nf(row.planned)}</span>{row.trend === "up" ? <TrendingUp aria-hidden="true" /> : row.trend === "down" ? <TrendingDown aria-hidden="true" /> : <span aria-hidden="true">←</span>}<b>{nf(row.expected)}</b>
+              {row.low !== row.high ? <small className="pi-range" dir="ltr">{nf(row.low)}–{nf(row.high)}</small> : null}
               {row.delta !== 0 ? <em data-sign={row.delta > 0 ? "plus" : "minus"}><bdi dir="ltr">{row.delta > 0 ? "+" : "−"}{nf(Math.abs(row.delta))}</bdi></em> : null}
             </div>
             <ConfidenceMeter confidence={row.confidence} compact />
+            <details className="pi-why">
+              <summary data-guide-ignore="يشرح مصدر الرقم فقط"><HelpCircle aria-hidden="true" /> ليش؟</summary>
+              <p>{row.reason}</p>
+              <p className="pi-why-basis">{row.confidence.termsUsed ? `من ${countOf(row.confidence.termsUsed, AR.term)}` : "بلا فصول سابقة"}{row.capacity ? ` · سعة الشعبة ${nf(row.capacity)}` : ""}{row.confidence.backtestError != null ? ` · خطأ الاختبار الرجعي ${nf(Math.round(row.confidence.backtestError * 100))}٪` : ""}{row.confidence.caveat ? ` · ${row.confidence.caveat}` : ""}</p>
+            </details>
           </li>
-        ))}</ul> : <p className="pi-none">كل المقررات مطابقةٌ للتوقّع.</p>}
-        {r.demand.length > gap.length ? <button type="button" className="sm-toggle" onClick={() => setAllCourses(v => !v)} data-guide-ignore="عرضٌ فقط">{allCourses ? "ما يحتاج نظراً فقط" : `كل المقررات (${nf(r.demand.length)})`}</button> : null}
+        ))}</ul> : <p className="pi-none">كل المقررات ذات البيانات مطابقةٌ للتوقّع.</p>}
+        {evidenced.length > gap.length ? <button type="button" className="sm-toggle" onClick={() => setAllCourses(v => !v)} data-guide-ignore="عرضٌ فقط">{allCourses ? "ما يحتاج نظراً فقط" : `كل المقررات ذات البيانات (${nf(evidenced.length)})`}</button> : null}
+        {insufficient.length ? <details className="pi-insufficient">
+          <summary data-guide-ignore="يعرض المقررات التي لا يكفي تاريخها للتنبّؤ؛ عرضٌ فقط"><Info aria-hidden="true" /> بيانات غير كافية <b>{nf(insufficient.length)}</b><small>بلا رقم — لا تاريخ يكفي لتوقّعٍ مسؤول</small></summary>
+          <ul className="pi-insufficient-list">{insufficient.map(row => <li key={row.courseId}><span>{row.name}<PlanBadge courseId={row.courseId} /></span><small dir="ltr">{row.code}</small>{row.wanted ? <em><Users aria-hidden="true" />{nf(row.wanted)}</em> : null}</li>)}</ul>
+        </details> : null}
       </div>
 
       {/* ── الاختناقات ── */}

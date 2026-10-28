@@ -151,6 +151,7 @@ import {
   type ScheduleViewDraft,
 } from "../utils/scheduleViews";
 import ScheduleTransfer from "./ScheduleTransfer";
+import { FOCUS_COURSE_EVENT } from "../utils/planTriage";
 import SearchableSelect from "./SearchableSelect";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import PlanBadge from "./PlanBadge";
@@ -2108,6 +2109,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     window.addEventListener("online", up);
     if (navigator.onLine && offlineQueueCount()) void up();
     return () => { window.removeEventListener("offline", down); window.removeEventListener("online", up); };
+  }, []);
+  /* K2: «عالج» in the planning list brings the course's appointments to the
+     surface through the quick search the week already has — no second filter. */
+  useEffect(() => {
+    const focusCourse = (event: Event) => {
+      const code = String((event as CustomEvent<{ code?: string }>).detail?.code || "").trim();
+      if (!code) return;
+      setViewMode("week");
+      setQuickSearch(code);
+    };
+    window.addEventListener(FOCUS_COURSE_EVENT, focusCourse);
+    return () => window.removeEventListener(FOCUS_COURSE_EVENT, focusCourse);
   }, []);
   /*
    * Fast sync pump: a transient campus-network hiccup should not leave the

@@ -12,6 +12,8 @@ import { AR, countOf } from "../utils/arabicCount";
 import { planGaps, planSurpluses, planTargets, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
 import { sortByName } from "../utils/sorting";
 import { VISITOR_MAX_SECTIONS, visitingNeed, type CourseStaffing } from "../utils/visitingNeed";
+import PlanTriageView, { type PlanTriage } from "./PlanTriageView";
+import type { PlanDecision } from "../utils/planTriage";
 
 interface GapPayload {
   respondents: number; planImported: boolean; planSource: { fileName: string; importedAt: string } | null;
@@ -146,7 +148,7 @@ function Staffing({ staffing, visitors }: { staffing: CourseStaffing; visitors: 
 }
 
 /** قائمةٌ قصيرة: اسم المقرر، وما بُني عليه الرقم، و«الموجود ← المطلوب». تفتح البطاقةُ من يدرّسه وكم منتدباً نحتاج. */
-export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 }: { items: GapItem[]; kind: GapKind; onClose: () => void; staffing?: Record<string, CourseStaffing> | null; freeSlots?: number }) {
+export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0, triage, onDecide, triageOffline }: { items: GapItem[]; kind: GapKind; onClose: () => void; staffing?: Record<string, CourseStaffing> | null; freeSlots?: number; triage?: PlanTriage; onDecide?: (id: number, decision: PlanDecision | null) => void; triageOffline?: boolean }) {
   const [all, setAll] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
   const [totalOpen, setTotalOpen] = useState(false);
@@ -159,6 +161,61 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
   const staffingItems = useMemo(() => items.filter(item => !item.surplus && item.extra > 0), [items]);
   const need = useMemo(() => (staffing && kind === "plan" ? visitingNeed(staffingItems, staffing, freeSlots) : null), [staffingItems, staffing, freeSlots, kind]);
   const rowOf = (id: number) => need?.rows.find(row => row.id === id);
+  const renderItem = (item: GapItem, actions?: React.ReactNode) => {
+    const row = rowOf(item.id);
+    const open = openId === item.id && Boolean(row);
+    const body = (
+      <>
+        <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}</small></span>
+        {kind === "students"
+          ? <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
+          : item.surplus && item.closureCapacityWarning ? <span className="apb-gap-why" title="العدد المقترح قد لا يستوعب كل احتياج الطلبة؛ لا تُغلق شعباً قبل التحقق من المسجلين والسعة"><AlertTriangle aria-hidden="true" />الاحتياج أعلى من السعة</span>
+          : !item.surplus && item.demand > 0 ? <span className="apb-gap-why">الاحتياج {num(item.demand)}</span> : null}
+        {item.conflict ? (
+          <span className="apb-conflict" role="group"
+            aria-label={`تعارض التقدير في ${item.name}: الموجود ${num(item.existing)}، التخطيط يطلب ${num(item.conflict.openingRequired)}، وكشف هذا الفصل يقدّر ${num(item.conflict.reportRequired)} لاستيعاب ${countOf(item.demand, AR.student)} لم يسجلوا. راجع البيانات قبل فتح أو إلغاء أي شعبة.`}>
+            <span className="apb-conflict-title"><AlertTriangle aria-hidden="true" /><span><strong>تعارض التقدير</strong><small>راجع قبل التغيير</small></span></span>
+            <span className="apb-conflict-numbers" aria-hidden="true">
+              <span><b>{num(item.existing)}</b><small>الموجود</small></span>
+              <span><b>{num(item.conflict.openingRequired)}</b><small>التخطيط</small></span>
+              <span><b>{num(item.conflict.reportRequired)}</b><small>كشف المتبقي</small></span>
+            </span>
+          </span>
+        ) : item.surplus ? (
+          <span
+            className="apb-surplus"
+            role="group"
+            aria-label={`فرق تخطيطي ${countOf(item.surplus, AR.section)}: الموجود ${num(item.existing)}، والمطلوب ${num(item.required)} ${item.closureSource === "chosen" ? "بحسب اختيار القسم" : "بحسب الاحتياج والتاريخ"}. ${item.closureCapacityWarning ? "الاحتياج المسجل في الكشف أعلى من سعة الشعب المقترحة؛ لا يعني ذلك أن الشعب الزائدة فارغة. " : ""}راجع تسجيل الطلبة وسعة الشعب الفعلية قبل الإغلاق؛ لا تُحذف الشعب تلقائياً.`}
+          >
+            <span className="apb-surplus-label">
+              <span className="apb-surplus-icon" aria-hidden="true"><Layers /><Minus /></span>
+              <span className="apb-surplus-heading"><strong>{item.closureCapacityWarning ? "فرق" : "فائض"} {countOf(item.surplus, AR.section)}</strong><small>راجع الإغلاق</small></span>
+            </span>
+            <span className="apb-surplus-divider" aria-hidden="true" />
+            <span className="apb-surplus-flow" aria-hidden="true">
+              <span className="apb-surplus-stat apb-surplus-stat-existing"><b>{num(item.existing)}</b><small>الموجود</small></span>
+              <ArrowLeft className="apb-surplus-arrow" />
+              <span className="apb-surplus-stat apb-surplus-stat-required"><b>{num(item.required)}</b><small>المطلوب</small></span>
+            </span>
+          </span>
+        ) : (
+          <span className="apb-gap-pill" title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
+            <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
+          </span>
+        )}
+        {row ? <ChevronDown aria-hidden="true" className="apb-gap-chev" /> : null}
+      </>
+    );
+    return (
+      <li key={item.id} data-open={open || undefined}>
+        {row
+          ? <button type="button" className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : item.conflict ? " apb-gap-row-conflict" : ""}`} aria-expanded={open} onClick={() => setOpenId(open ? null : item.id)} data-guide-ignore="فتح تفاصيل من يدرّس المقرر وعدد المنتدبين">{body}</button>
+          : <div className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : item.conflict ? " apb-gap-row-conflict" : ""}`}>{body}</div>}
+        {open && row ? <Staffing staffing={row.staffing} visitors={row.visitors} /> : null}
+      {actions}
+      </li>
+    );
+  };
   return (
     <section className="apb-gap" aria-label={title}>
       <header>
@@ -168,62 +225,9 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
         <button type="button" className="apb-dr-close" aria-label="إغلاق" onClick={onClose} data-guide-ignore="إغلاق قائمة الشعب المقترحة"><X aria-hidden="true" /></button>
       </header>
       {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />فتح +{num(openingTotal)} · مراجعة إغلاق −{num(closureTotal)}. لا حذف تلقائي؛ راجع المسجلين والسعة.{!hasClosureReview ? " لا فرق للإغلاق دون عدد مختار أو تقدير تاريخي أقل من الموجود." : ""}</p> : null}
-      <ul className="apb-gap-list">
-        {list.map(item => {
-          const row = rowOf(item.id);
-          const open = openId === item.id && Boolean(row);
-          const body = (
-            <>
-              <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}</small></span>
-              {kind === "students"
-                ? <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
-                : item.surplus && item.closureCapacityWarning ? <span className="apb-gap-why" title="العدد المقترح قد لا يستوعب كل احتياج الطلبة؛ لا تُغلق شعباً قبل التحقق من المسجلين والسعة"><AlertTriangle aria-hidden="true" />الاحتياج أعلى من السعة</span>
-                : !item.surplus && item.demand > 0 ? <span className="apb-gap-why">الاحتياج {num(item.demand)}</span> : null}
-              {item.conflict ? (
-                <span className="apb-conflict" role="group"
-                  aria-label={`تعارض التقدير في ${item.name}: الموجود ${num(item.existing)}، التخطيط يطلب ${num(item.conflict.openingRequired)}، وكشف هذا الفصل يقدّر ${num(item.conflict.reportRequired)} لاستيعاب ${countOf(item.demand, AR.student)} لم يسجلوا. راجع البيانات قبل فتح أو إلغاء أي شعبة.`}>
-                  <span className="apb-conflict-title"><AlertTriangle aria-hidden="true" /><span><strong>تعارض التقدير</strong><small>راجع قبل التغيير</small></span></span>
-                  <span className="apb-conflict-numbers" aria-hidden="true">
-                    <span><b>{num(item.existing)}</b><small>الموجود</small></span>
-                    <span><b>{num(item.conflict.openingRequired)}</b><small>التخطيط</small></span>
-                    <span><b>{num(item.conflict.reportRequired)}</b><small>كشف المتبقي</small></span>
-                  </span>
-                </span>
-              ) : item.surplus ? (
-                <span
-                  className="apb-surplus"
-                  role="group"
-                  aria-label={`فرق تخطيطي ${countOf(item.surplus, AR.section)}: الموجود ${num(item.existing)}، والمطلوب ${num(item.required)} ${item.closureSource === "chosen" ? "بحسب اختيار القسم" : "بحسب الاحتياج والتاريخ"}. ${item.closureCapacityWarning ? "الاحتياج المسجل في الكشف أعلى من سعة الشعب المقترحة؛ لا يعني ذلك أن الشعب الزائدة فارغة. " : ""}راجع تسجيل الطلبة وسعة الشعب الفعلية قبل الإغلاق؛ لا تُحذف الشعب تلقائياً.`}
-                >
-                  <span className="apb-surplus-label">
-                    <span className="apb-surplus-icon" aria-hidden="true"><Layers /><Minus /></span>
-                    <span className="apb-surplus-heading"><strong>{item.closureCapacityWarning ? "فرق" : "فائض"} {countOf(item.surplus, AR.section)}</strong><small>راجع الإغلاق</small></span>
-                  </span>
-                  <span className="apb-surplus-divider" aria-hidden="true" />
-                  <span className="apb-surplus-flow" aria-hidden="true">
-                    <span className="apb-surplus-stat apb-surplus-stat-existing"><b>{num(item.existing)}</b><small>الموجود</small></span>
-                    <ArrowLeft className="apb-surplus-arrow" />
-                    <span className="apb-surplus-stat apb-surplus-stat-required"><b>{num(item.required)}</b><small>المطلوب</small></span>
-                  </span>
-                </span>
-              ) : (
-                <span className="apb-gap-pill" title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
-                  <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
-                </span>
-              )}
-              {row ? <ChevronDown aria-hidden="true" className="apb-gap-chev" /> : null}
-            </>
-          );
-          return (
-            <li key={item.id} data-open={open || undefined}>
-              {row
-                ? <button type="button" className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : item.conflict ? " apb-gap-row-conflict" : ""}`} aria-expanded={open} onClick={() => setOpenId(open ? null : item.id)} data-guide-ignore="فتح تفاصيل من يدرّس المقرر وعدد المنتدبين">{body}</button>
-                : <div className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : item.conflict ? " apb-gap-row-conflict" : ""}`}>{body}</div>}
-              {open && row ? <Staffing staffing={row.staffing} visitors={row.visitors} /> : null}
-            </li>
-          );
-        })}
-      </ul>
+      {triage ? <PlanTriageView triage={triage} renderItem={renderItem} onDecide={onDecide} onClose={onClose} offline={triageOffline} /> : <ul className="apb-gap-list">
+        {list.map(item => renderItem(item))}
+      </ul>}
       {need ? (
         <footer className="apb-gap-total" data-zero={need.visitors === 0 || undefined} data-open={totalOpen || undefined}>
           <button type="button" className="apb-gap-total-btn" aria-expanded={totalOpen} onClick={() => setTotalOpen(value => !value)} data-guide-ignore="مجموع المنتدبين للقسم: الضغط يبيّن الحساب">
@@ -241,7 +245,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0 
           ) : null}
         </footer>
       ) : null}
-      {items.length > SHOWN ? (
+      {!triage && items.length > SHOWN ? (
         <footer>
           <button type="button" className="apb-gap-link" onClick={() => setAll(value => !value)} data-guide-ignore="عرض كل المقررات المقترحة أو إخفاؤها">
             {all ? "أقل" : `الكل (${num(items.length)})`}

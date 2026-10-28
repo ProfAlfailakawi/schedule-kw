@@ -1,0 +1,124 @@
+/* ── K3: خطأٌ بأيقونة وسبب وإعادة محاولة ─────────────────────────────────── */
+.actionable-error{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:10px;margin:10px 0;padding:10px 12px;
+  border:1px solid color-mix(in srgb,var(--danger) 26%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--danger-soft) 55%,var(--surface));color:var(--text,inherit)}
+.actionable-error.kind-offline,.actionable-error.kind-busy,.actionable-error.kind-missing{border-color:color-mix(in srgb,var(--warning) 30%,var(--line));background:color-mix(in srgb,var(--warning-soft) 60%,var(--surface))}
+.actionable-error.kind-permission{border-color:color-mix(in srgb,var(--info) 30%,var(--line));background:color-mix(in srgb,var(--info-soft) 60%,var(--surface))}
+.actionable-error-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:var(--surface);color:var(--danger)}
+.actionable-error.kind-offline .actionable-error-icon,.actionable-error.kind-busy .actionable-error-icon,.actionable-error.kind-missing .actionable-error-icon{color:var(--warning)}
+.actionable-error.kind-permission .actionable-error-icon{color:var(--info)}
+.actionable-error-icon svg{width:18px;height:18px}
+.actionable-error-copy{display:grid;gap:2px;min-width:0}
+.actionable-error-copy strong{font-size:.9rem}
+.actionable-error-copy small{font-size:.8rem;color:var(--muted);line-height:1.6}
+.actionable-error-copy code{font-size:.7rem;color:var(--muted-2,var(--muted));opacity:.85;overflow-wrap:anywhere}
+.actionable-error-retry{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font:inherit;font-size:.8rem;font-weight:800;color:var(--accent-ink,var(--accent));cursor:pointer}
+.actionable-error-retry svg{width:14px;height:14px}
+.actionable-error-retry .spin{animation:actionable-spin 1s linear infinite}
+.actionable-error-dismiss{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}
+.actionable-error-dismiss svg{width:16px;height:16px}
+@keyframes actionable-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.actionable-error-retry .spin{animation:none}}
+@media (max-width:560px){.actionable-error{grid-template-columns:auto minmax(0,1fr) auto}.actionable-error-retry{grid-column:2/-1;justify-self:start}}
+
+/* ── K2: «التخطيط» ثلاثة رفوف ─────────────────────────────────────────────── */
+.plan-triage{display:grid;gap:10px}
+.plan-triage-summary{display:grid;gap:7px;padding:10px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line)}
+.plan-triage-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.plan-triage-tile{display:grid;justify-items:center;gap:1px;padding:8px 4px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.plan-triage-tile svg{width:18px;height:18px}
+.plan-triage-tile b{font-size:1.3rem;line-height:1.15;font-variant-numeric:tabular-nums}
+.plan-triage-tile small{font-size:.74rem;color:var(--muted);font-weight:700}
+.plan-triage .tier-urgent{--tier:var(--danger);--tier-soft:var(--danger-soft)}
+.plan-triage .tier-important{--tier:var(--warning);--tier-soft:var(--warning-soft)}
+.plan-triage .tier-opportunity{--tier:var(--info);--tier-soft:var(--info-soft)}
+.plan-triage-tile svg,.plan-triage-tile b{color:var(--tier)}
+.plan-triage-bar{display:flex;height:7px;border-radius:99px;overflow:hidden;background:var(--surface-3)}
+.plan-triage-bar i{display:block;height:100%;background:var(--tier)}
+.plan-triage-meta{display:flex;flex-wrap:wrap;gap:10px;color:var(--muted);font-size:.75rem}
+.plan-triage-link{display:inline-flex;align-items:center;gap:4px;border:0;background:none;padding:0;font:inherit;color:var(--accent);cursor:pointer;font-weight:700}
+.plan-triage-link svg{width:13px;height:13px}
+.plan-triage-shelf h5{display:flex;align-items:center;gap:6px;margin:4px 0 6px;font-size:.85rem;color:var(--tier)}
+.plan-triage-shelf h5 svg{width:16px;height:16px}
+.plan-triage-shelf h5 b{margin-inline-start:auto;padding:0 8px;border-radius:99px;background:var(--tier-soft);font-variant-numeric:tabular-nums}
+.plan-triage-shelf .apb-gap-list>li{border-inline-start:3px solid var(--tier);border-radius:10px}
+.plan-triage-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 8px 8px}
+.plan-triage-why{font-size:.72rem;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--tier-soft);color:var(--tier);margin-inline-end:auto}
+.plan-triage-act{display:inline-flex;align-items:center;gap:4px;min-height:30px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font:inherit;font-size:.75rem;font-weight:700;color:var(--text,inherit);cursor:pointer}
+.plan-triage-act svg{width:13px;height:13px}
+.plan-triage-act.is-primary{background:var(--accent-softer);border-color:color-mix(in srgb,var(--accent) 35%,transparent);color:var(--accent-ink,var(--accent))}
+.plan-triage-act[aria-pressed="true"]{outline:2px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+.plan-triage-reason{display:flex;gap:6px;width:100%}
+.plan-triage-reason input{flex:1;min-width:0;min-height:32px;padding:4px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font:inherit;font-size:.8rem}
+.plan-triage-reason button{min-height:32px;padding:3px 12px;border-radius:10px;border:0;background:var(--accent);color:var(--accent-contrast,#fff);font:inherit;font-size:.78rem;font-weight:800;cursor:pointer}
+.plan-triage-reason button:disabled{opacity:.45;cursor:not-allowed}
+.plan-triage-clear{display:flex;align-items:center;gap:6px;margin:0;color:var(--success);font-weight:700;font-size:.85rem}
+.plan-triage-clear svg{width:16px;height:16px}
+.plan-triage-handled{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.plan-triage-handled li{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;background:var(--surface-2);font-size:.8rem}
+.plan-triage-handled li>svg{width:15px;height:15px;color:var(--muted)}
+.plan-triage-handled li span{display:grid;flex:1;min-width:0}
+.plan-triage-handled li small{color:var(--muted)}
+.plan-triage-by{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:var(--muted);white-space:nowrap}
+.plan-triage-by i{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink,var(--accent));font-style:normal;font-weight:800;font-size:.68rem}
+.plan-triage-offline{display:flex;align-items:center;gap:6px;margin:0;padding:6px 10px;border-radius:10px;background:var(--warning-soft);color:var(--warning);font-size:.78rem;font-weight:700}
+.plan-triage-offline svg{width:15px;height:15px;flex:none}
+
+/* ── K5: «لوحة القرار» للقراءة ───────────────────────────────────────────── */
+.decision-board{display:grid;gap:10px}
+.decision-board-scope{display:inline-flex;align-items:center;gap:6px;margin:0;width:max-content;max-width:100%;padding:4px 12px;border-radius:999px;background:var(--info-soft);color:var(--info);font-size:.8rem;font-weight:800}
+.decision-board-scope svg{width:15px;height:15px}
+.decision-board-dept{border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden}
+.decision-board-dept-head{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:0;background:none;font:inherit;text-align:start;cursor:pointer;color:inherit}
+.decision-board-dept-ic{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:var(--accent-softer);color:var(--accent)}
+.decision-board-dept-ic svg{width:17px;height:17px}
+.decision-board-dept-head strong{flex:1;min-width:0;font-size:.95rem}
+.decision-board-counts{display:inline-flex;gap:6px}
+.decision-board-counts span{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;font-size:.78rem;font-weight:800;font-variant-numeric:tabular-nums}
+.decision-board-counts svg{width:13px;height:13px}
+.decision-board-counts .tier-urgent{background:var(--danger-soft);color:var(--danger)}
+.decision-board-counts .tier-important{background:var(--warning-soft);color:var(--warning)}
+.decision-board-counts .tier-opportunity{background:var(--info-soft);color:var(--info)}
+.decision-board-chev{width:16px;height:16px;color:var(--muted);transition:transform .2s}
+.decision-board-dept[data-open] .decision-board-chev{transform:rotate(180deg)}
+.decision-board-body{display:grid;gap:12px;padding:0 14px 14px}
+.decision-board-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--surface-2)}
+.decision-board-card h4{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:.9rem}
+.decision-board-card h4 svg{width:16px;height:16px;color:var(--accent)}
+.decision-board-note{margin:0;color:var(--muted);font-size:.85rem}
+.decision-board-item{list-style:none}
+.decision-board-empty{display:flex;align-items:center;gap:8px;padding:18px;border:1px dashed var(--line);border-radius:14px;color:var(--muted)}
+.decision-board-empty svg{width:18px;height:18px}
+.decision-board-wait{color:var(--muted)}
+
+/* ── K4: التنبّؤ — ملخص بلمحة، مدى، «ليش؟»، و«بيانات غير كافية» بلا رقم ───── */
+.pi-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin:0 0 14px}
+.pi-kpi{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:var(--surface)}
+.pi-kpi svg{grid-row:1/3;width:20px;height:20px;color:var(--success)}
+.pi-kpi b{font-size:1.35rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.pi-kpi small{font-size:.74rem;color:var(--muted)}
+.pi-kpi.tone-warn{background:var(--warning-soft);border-color:color-mix(in srgb,var(--warning) 25%,var(--line))}.pi-kpi.tone-warn svg,.pi-kpi.tone-warn b{color:var(--warning)}
+.pi-kpi.tone-info svg,.pi-kpi.tone-info b{color:var(--info)}
+.pi-kpi.tone-muted{opacity:.8}.pi-kpi.tone-muted svg{color:var(--muted)}
+.pi-row.pi-row-why{grid-template-columns:minmax(0,1.4fr) auto auto auto}
+.pi-row.pi-row-why>.pi-why{grid-column:1/-1}
+.pi-range{font-size:.72rem;color:var(--muted);padding:0 4px;border-inline-start:1px solid var(--line)}
+.pi-inline-ic{width:12px;height:12px;vertical-align:-2px;margin-inline-end:2px}
+.pi-why{font-size:.8rem}
+.pi-why>summary{display:inline-flex;align-items:center;gap:4px;cursor:pointer;color:var(--accent);font-weight:700;list-style:none}
+.pi-why>summary::-webkit-details-marker{display:none}
+.pi-why>summary svg{width:13px;height:13px}
+.pi-why p{margin:6px 0 0;line-height:1.7}
+.pi-why .pi-why-basis{color:var(--muted);font-size:.74rem}
+.pi-insufficient{margin-top:10px;border:1px dashed var(--line);border-radius:12px;padding:8px 12px;background:var(--surface-2)}
+.pi-insufficient>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;font-weight:700}
+.pi-insufficient>summary::-webkit-details-marker{display:none}
+.pi-insufficient>summary svg{width:16px;height:16px;color:var(--muted)}
+.pi-insufficient>summary b{padding:0 8px;border-radius:999px;background:var(--surface-3);font-variant-numeric:tabular-nums}
+.pi-insufficient>summary small{font-weight:400;color:var(--muted);font-size:.75rem}
+.pi-insufficient-list{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px}
+.pi-insufficient-list li{display:flex;align-items:center;gap:6px;font-size:.8rem;padding:5px 8px;border-radius:9px;background:var(--surface)}
+.pi-insufficient-list li span{flex:1;min-width:0}
+.pi-insufficient-list li small{color:var(--muted)}
+.pi-insufficient-list li em{display:inline-flex;align-items:center;gap:3px;font-style:normal;color:var(--info);font-size:.75rem}
+.pi-insufficient-list li em svg{width:12px;height:12px}
+@media (max-width:640px){.pi-row.pi-row-why{grid-template-columns:minmax(0,1fr) auto}}
