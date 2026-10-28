@@ -1,5 +1,8 @@
 import { strict as assert } from "node:assert";
 import fs from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import AcademicDecisionLabPanel from "../src/components/AcademicDecisionLabPanel";
 import { analyseAcademicAdvice, mandatoryPrecedes, type AcademicPlanView } from "../src/utils/academicAdvisory";
 import { buildAcademicDecisionLab, feasibleAcademicBundle } from "../src/utils/academicDecisionLab";
 import { buildAcademicDecisionLabTrainingPreview } from "../src/utils/academicDecisionLabDemo";
@@ -135,6 +138,24 @@ assert.ok(sixUi.includes("setFeature(item.id)") && sixUi.includes("adl-feature")
   "all six tiles really switch visible content, not static placeholder labels");
 assert.ok(sixUi.includes("lab.demoShowcase") && sixUi.includes("حالة افتراضية منفصلة"),
   "fictional training numbers cannot be represented as real university data");
+// Render the actual React component, not merely search for JSX labels.
+const html = renderToStaticMarkup(createElement(AcademicDecisionLabPanel, {
+  lab: training, demo: true, onRefresh: () => {}, refreshing: false,
+}));
+assert.equal((html.match(/class="adl-feature(?: adl-feature-active)?"/g) || []).length, 6,
+  "actual HTML must contain six independently clickable feature buttons");
+assert.ok(html.includes("الموعد الحالي") && html.includes("الموعد المقترح"),
+  "initial visual must render the complete before/after calculation");
+assert.ok(html.includes("حالة افتراضية منفصلة"),
+  "the screenshot must identify fictional instructional results without ambiguity");
+const emptyHtml = renderToStaticMarkup(createElement(AcademicDecisionLabPanel, {
+  lab: privateLabForVisibility(), demo: false, onRefresh: () => {}, refreshing: false,
+}));
+assert.equal((emptyHtml.match(/class="adl-feature(?: adl-feature-active)?"/g) || []).length, 6,
+  "no actual scenarios must never hide the six analysis tools");
+function privateLabForVisibility() {
+  return { ...training, demoShowcase: false, scenarios: [], graduationWatch: [], chain: undefined };
+}
 const apiSource = fs.readFileSync("src/server/academicAdvisoryData.ts","utf8");
 assert.ok(apiSource.includes("decisionLab = demoRequest") &&
   apiSource.includes("Repository.isDemoRequest()"),
