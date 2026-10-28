@@ -134,7 +134,7 @@ console.log("K5 — لوحة القرار للقراءة بحسب الصفة");
   check(admin.kind === "college" && admin.sectionIds.join() === "3", "المدير: الكلية المختارة");
   const board = read("src/components/DecisionBoard.tsx");
   check(board.includes("readOnly") && board.includes("canSchedule={false}") && !board.includes("onDecide"), "اللوحة لا تكتب: لا تم/تجاهل ولا فتح شعبة بضغطة");
-  check(reports.includes('{ id: "decision", label: "لوحة القرار"') && reports.includes('dean:           ["balance", "decision"'), "العدسة في الاستعلامات، وللعميد بعد ميزان الأقسام");
+  check(reports.includes('{ id: "decision", label: "لوحة القرار"') && reports.includes('dean:           ["balance", "list", "week", "decision"'), "العدسة في الاستعلامات، وللعميد بعد ميزان الأقسام والجداول");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

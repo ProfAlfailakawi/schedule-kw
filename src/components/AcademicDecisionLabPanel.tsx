@@ -42,10 +42,10 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
   // The tutorial is calculated from a completely fictional timetable. It
   // never replaces live course recommendations returned by the API.
   const lesson = useMemo(buildAcademicDecisionLabTrainingPreview, []);
-  /* The department's own reading first (K1): the tutorial is one click away, not the default. */
-  const [viewMode, setViewMode] = useState<"training" | "live">(lab ? "live" : "training");
+  /* K1: the department's own reading first whenever it has a confirmed opportunity; otherwise the lesson, with the live funnel one click away. */
+  const [viewMode, setViewMode] = useState<"training" | "live">(lab && !lab.demoShowcase && lab.scenarios.length ? "live" : "training");
   const pickedMode = useRef(false);
-  useEffect(() => { if (lab && !pickedMode.current) setViewMode("live"); }, [lab]);
+  useEffect(() => { if (lab && !lab.demoShowcase && lab.scenarios.length && !pickedMode.current) setViewMode("live"); }, [lab]);
   const viewingTraining = viewMode === "training";
   const shownLab = viewingTraining ? lesson : lab;
   const liveWatch = (lab?.graduationWatch || []).filter(w => !courseId || w.courseId === courseId);

@@ -82,6 +82,6 @@ export function approvalScoreBreakdown(scopeRowIds: readonly number[], categorie
   const n = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
   return {
     total, clean, score, segments,
-    formula: total ? `${n(clean)} سليم ÷ ${n(total)} موعد × 100 = ${n(score)}` : "لا مواعيد في النطاق",
+    formula: total ? `السليم ${n(clean)} ÷ الكل ${n(total)} × 100 = ${n(score)}` : "لا مواعيد في النطاق",
   };
 }

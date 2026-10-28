@@ -194,8 +194,8 @@ const ROLE_LENSES: Record<string, Lens[]> = {
   /* العميدان يفتحان على ميزان الأقسام: «أين وصلت الأقسام؟» سؤالُهما الأول،
      والقائمةُ — المعتمدة وحدها — تكون فارغةً قبل أن يعتمد التسجيل شيئاً، فشاشةٌ
      أولى فارغة لا تجيب أحداً. ثم الجداول نفسها وما يُكمل الصورة. */
-  dean:           ["balance", "decision", "list", "week", "fairness", "courseLoad", "visiting"],
-  viceDean:       ["balance", "decision", "list", "week", "fairness", "courseLoad", "visiting", "instructor", "room", "roomInstructor", "matrix", "courseRoom"],
+  dean:           ["balance", "list", "week", "decision", "fairness", "courseLoad", "visiting"],
+  viceDean:       ["balance", "list", "week", "decision", "fairness", "courseLoad", "visiting", "instructor", "room", "roomInstructor", "matrix", "courseRoom"],
   registrarDean:  ["balance", "list", "room", "roomInstructor", "matrix", "courseRoom"],
   registrarHead:  ["balance", "list", "room", "roomInstructor", "matrix", "courseRoom"],
   registrarStaff: ["balance", "list", "room", "roomInstructor", "courseRoom"],

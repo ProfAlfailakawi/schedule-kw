@@ -72,7 +72,7 @@ const enoughChoice = analyseAcademicAdvice({ ...base,
 assert.ok(!enoughChoice.timePreferences.some(p => p.courseId === 2 && p.period === "afternoon"),
   "a fully fitting existing section satisfies the constraint (do not recommend extra supply)");
 const adviceUI = fs.readFileSync("src/components/AcademicAdvicePanel.tsx","utf8");
-assert.ok(adviceUI.includes("<details") && adviceUI.includes("defaultOpen={demo}"),
+assert.ok(adviceUI.includes("<details") && adviceUI.includes("useState(demo)") && adviceUI.includes("open={open}"),
   "academic opportunities should be condensed dropdown cards and expanded in the demo");
 const demoSeed = fs.readFileSync("src/server/demoRadarSeed.ts", "utf8");
 assert.ok(demoSeed.includes("Academic-opportunity showcase") && demoSeed.includes("Repository.isDemoRequest()"),

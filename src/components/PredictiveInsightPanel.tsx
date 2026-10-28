@@ -132,7 +132,7 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
       {r.caveats.length ? <ul className="pi-caveats">{r.caveats.map(text => <li key={text}><Info aria-hidden="true" />{text}</li>)}</ul> : null}
 
       {/* K4: one glance — every tile counts rows of this reading. */}
-      <div className="pi-kpis" role="list" aria-label="ملخص التنبّؤ">{kpis.map(item => <div key={item.key} role="listitem" className={`pi-kpi tone-${item.tone}`} data-kpi={item.key}><item.icon aria-hidden="true" /><b>{nf(item.value)}</b><small>{item.label}</small></div>)}</div>
+      {r.historyTerms > 0 || hasWanted ? <div className="pi-kpis" role="list" aria-label="ملخص التنبّؤ">{kpis.map(item => <div key={item.key} role="listitem" className={`pi-kpi tone-${item.tone}`} data-kpi={item.key}><item.icon aria-hidden="true" /><b>{nf(item.value)}</b><small>{item.label}</small></div>)}</div> : null}
 
       {/* ── أهمُّ ما يُفعل: أثرٌ × ثقة ── */}
       <div className="pi-block">
