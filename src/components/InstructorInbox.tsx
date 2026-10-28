@@ -860,27 +860,11 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const [quick, setQuick] = useState<{ row: InboxRequest; index: number; after?: number[]; seed: QuickSeed } | null>(null);
   /* تنبيهاتٌ لا تمنع (انتقالٌ ضيّق بين مبنيين…) بعد تثبيتٍ نجح. */
   const [notice, setNotice] = useState<string | null>(null);
-  const openStudyProposal = (target: OpenWorkspace) => {
-    if (typeof window !== "undefined" && !window.matchMedia("(min-width: 900px)").matches) {
-      setNotice("إعداد المقترح الدراسي متاح من الكمبيوتر. افتح وارد الأساتذة على الكمبيوتر للمتابعة.");
-      return;
-    }
-    setWorkspace(target);
-  };
+  /* المساحة تعمل على الجوال أيضاً: الجدول يتحوّل إلى يومٍ واحدٍ بخطٍّ زمني حين يضيق العرض. */
+  const openStudyProposal = (target: OpenWorkspace) => setWorkspace(target);
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickError, setQuickError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!workspace) return;
-    const desktop = window.matchMedia("(min-width: 900px)");
-    const closeOnSmallScreen = () => {
-      if (desktop.matches) return;
-      setWorkspace(null);
-      setNotice("إعداد المقترح الدراسي متاح من الكمبيوتر. افتح وارد الأساتذة على الكمبيوتر للمتابعة.");
-    };
-    desktop.addEventListener("change", closeOnSmallScreen);
-    return () => desktop.removeEventListener("change", closeOnSmallScreen);
-  }, [workspace]);
   /* ── ما يراه صاحبُ الصلاحية الكاملة ──────────────────────────────────────
    *
    * قوائمُ الكلية والقسم كانت تُبنى من نطاق الحساب وحدَه. وهو صوابٌ لمن له

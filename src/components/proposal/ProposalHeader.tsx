@@ -42,17 +42,20 @@ function Tile({ label, Icon, before, after, unit, deltaUnit, delta, direction = 
   const changed = delta !== null && delta !== undefined && delta !== 0;
   const kind: Tone = tone ?? (!changed ? "neutral" : direction === 0 ? "neutral" : (delta! * direction > 0 ? "good" : "warn"));
   return (
-    <div className="sp-tile" data-tone={kind} data-checking={checking || undefined}>
+    <div className="sp-tile" data-tone={kind} data-checking={checking || undefined} data-changed={changed || undefined}>
       <span className="sp-tile-label"><Icon aria-hidden="true" />{label}</span>
       <span className="sp-tile-values" aria-live="polite">
-        {before === null ? <em>{unknownText || "غير متوفر"}</em> : <b className="sp-num" data-long={before.length > 6 || undefined}>{before}</b>}
+        {before === null ? <em>{unknownText || "غير متوفر"}</em> : <b className="sp-num sp-tile-before" data-long={before.length > 6 || undefined}>{before}</b>}
         <ArrowLeft className="sp-arrow" aria-label="إلى" />
         {checking ? <em className="sp-skel">جاري الفحص</em> : after === null ? <em>{unknownText || "غير متوفر"}</em> : <b className="sp-num" data-long={after.length > 6 || undefined} data-changed={changed || undefined}>{after}</b>}
         {unit && before !== null && after !== null && !checking ? <small>{unit}</small> : null}
+        {!checking && changed ? (
+          <span className="sp-delta-badge" data-dir={delta! > 0 ? "up" : "down"} data-tone={kind}>
+            {delta! > 0 ? <ArrowUp aria-hidden="true" /> : <ArrowDown aria-hidden="true" />}<bdi dir="ltr">{delta! > 0 ? "+" : "−"}{num(Math.abs(delta!))}</bdi>
+          </span>
+        ) : null}
       </span>
-      <span className="sp-tile-note">
-        {checking ? "" : changed ? <span data-dir={delta! > 0 ? "up" : "down"}>{delta! > 0 ? <ArrowUp aria-hidden="true" /> : <ArrowDown aria-hidden="true" />} <bdi dir="ltr">{delta! > 0 ? "+" : "−"}{num(Math.abs(delta!))}</bdi>{(deltaUnit ?? unit) ? ` ${deltaUnit ?? unit}` : ""}</span> : note || ""}
-      </span>
+      <span className="sp-tile-note">{checking || changed ? "" : note || ""}</span>
     </div>
   );
 }

@@ -686,3 +686,90 @@ export function courseLayouts(
   const name = (id: number | undefined) => (id === undefined ? "" : termNames.get(id) || "");
   return { courseId, terms: termsSeen.length, firstTerm: name(termsSeen[0]), latestTerm: name(termsSeen[termsSeen.length - 1]), layouts };
 }
+
+/* ── ما الذي تغيّر؟ (مقارنة الجدول الأصلي بالناتج) ───────────────────────────
+ * قراءةٌ لا حكم: تأخذ الجدولَ الناتج و«الأشباح» (ما خرج أو تغيّر موضعُه) كما
+ * أعادها المحرّك — أو المعاينةُ الفورية بالشكل نفسه — وتجمعها مادةً مادة.
+ * كلُّ مادةٍ في المقترح تقع في واحدة: أُضيفت · نُقلت (تعديل موعد) · استُبدلت ·
+ * خرجت. وما بقي على حاله يُعدّ «دون تغيير».
+ */
+export type ProposalChangeKind = "added" | "moved" | "replaced" | "removed";
+export type ProposalChangeField = "days" | "time" | "place";
+
+export interface ProposalChange {
+  kind: ProposalChangeKind;
+  opId?: string;
+  /** الموعد كما كان (للمنقول والمستبدَل والخارج). */
+  before?: GridItem;
+  /** الموعد كما سيكون (للمضاف والمنقول والمستبدَل). */
+  after?: GridItem;
+  /** ما تغيّر بين الموضعين. */
+  fields: ProposalChangeField[];
+}
+
+export interface ProposalChangeSet {
+  added: ProposalChange[];
+  moved: ProposalChange[];
+  replaced: ProposalChange[];
+  removed: ProposalChange[];
+  unchanged: GridItem[];
+  /** بالترتيب: مضاف، منقول، مستبدَل، خارج. */
+  all: ProposalChange[];
+  /** كلُّ مفتاحٍ على الجدول (قبل أو بعد) يشير إلى تغييره. */
+  byKey: Map<string, ProposalChange>;
+}
+
+export function changedFields(
+  before: Pick<GridItem, "days" | "start" | "end" | "place">, after: Pick<GridItem, "days" | "start" | "end" | "place">,
+): ProposalChangeField[] {
+  const out: ProposalChangeField[] = [];
+  const ordered = (days: readonly StudyProposalDayKey[]) => PROPOSAL_DAY_KEYS.filter(day => days.includes(day)).join();
+  if (ordered(before.days) !== ordered(after.days)) out.push("days");
+  if (clock(before.start) !== clock(after.start) || clock(before.end) !== clock(after.end)) out.push("time");
+  if (String(before.place || "") !== String(after.place || "")) out.push("place");
+  return out;
+}
+
+export function proposalChangeSet(after: readonly GridItem[], ghosts: readonly GridItem[]): ProposalChangeSet {
+  const set: ProposalChangeSet = { added: [], moved: [], replaced: [], removed: [], unchanged: [], all: [], byKey: new Map() };
+  const ghostByOp = new Map<string, GridItem>();
+  const orphanGhosts: GridItem[] = [];
+  for (const ghost of ghosts) {
+    if (ghost.opId && !ghostByOp.has(ghost.opId)) ghostByOp.set(ghost.opId, ghost);
+    else orphanGhosts.push(ghost);
+  }
+  const seenOps = new Set<string>();
+  for (const item of after) {
+    if (item.state === "draft") continue;
+    if (item.state !== "proposed" && item.state !== "modified") { set.unchanged.push(item); continue; }
+    const ghost = item.opId ? ghostByOp.get(item.opId) : undefined;
+    if (item.opId) seenOps.add(item.opId);
+    const change: ProposalChange = !ghost
+      ? { kind: "added", opId: item.opId, after: item, fields: [] }
+      : item.state === "modified" || ghost.rowId === item.rowId
+        ? { kind: "moved", opId: item.opId, before: ghost, after: item, fields: changedFields(ghost, item) }
+        : { kind: "replaced", opId: item.opId, before: ghost, after: item, fields: changedFields(ghost, item) };
+    (change.kind === "added" ? set.added : change.kind === "moved" ? set.moved : set.replaced).push(change);
+  }
+  for (const [opId, ghost] of ghostByOp) if (!seenOps.has(opId)) set.removed.push({ kind: "removed", opId, before: ghost, fields: [] });
+  for (const ghost of orphanGhosts) set.removed.push({ kind: "removed", opId: ghost.opId, before: ghost, fields: [] });
+  set.all = [...set.added, ...set.moved, ...set.replaced, ...set.removed];
+  for (const change of set.all) {
+    if (change.before) set.byKey.set(change.before.key, change);
+    if (change.after) set.byKey.set(change.after.key, change);
+  }
+  return set;
+}
+
+/* ── الشعب الشاغرة: حكمُ «هل تُسند كما هي؟» ─────────────────────────────── */
+export type VacancyFit = "ready" | "review" | "blocked" | "clash" | "used" | "unchecked";
+export interface VacancyVerdict {
+  rowId: number;
+  fit: VacancyFit;
+  /** المحاضرة التي تتداخل معها في جدول الأستاذ (للتداخل). */
+  clashWith?: string;
+  /** أول ما قاله الفحص عنها (للمراجعة أو المانع). */
+  notes?: Array<{ kind: FindingKind; title: string }>;
+  /** أثرها لو أُسندت: من حساب المحرّك نفسه. */
+  after?: { loadUnits: number | null; sections: number; attendanceDays: number; gapMinutes: number };
+}

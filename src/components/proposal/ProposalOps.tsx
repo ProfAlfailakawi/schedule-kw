@@ -7,12 +7,12 @@ import PlanBadge from "../PlanBadge";
  */
 import React from "react";
 import {
-  AlertTriangle, ArrowLeftRight, Check, CircleHelp, Clock, FilePlus2, Hourglass, Pencil, Trash2, UserRoundPlus, Wand2, MessageSquareWarning, ThumbsUp,
+  AlertTriangle, ArrowLeft, ArrowLeftRight, Check, LogOut, CircleHelp, Clock, FilePlus2, Hourglass, Pencil, Trash2, UserRoundPlus, Wand2, MessageSquareWarning, ThumbsUp,
 } from "lucide-react";
 import type { StudyProposalOp, StudyProposalOpKind } from "../../types";
-import { OP_KIND_LABEL, daysOf, placeLabel, type ProposalEvaluation } from "../../utils/studyProposal";
+import { OP_KIND_LABEL, daysOf, placeLabel, type GridItem, type ProposalEvaluation } from "../../utils/studyProposal";
+import { SlotPill } from "./ProposalWeekGrid";
 import type { Workspace } from "./useProposalWorkspace";
-import { daysLabel, timeRange } from "./proposalFormat";
 
 const KIND_ICON: Record<StudyProposalOpKind, React.ComponentType<any>> = {
   assign: UserRoundPlus, create: FilePlus2, edit: Pencil, replace: ArrowLeftRight,
@@ -42,7 +42,6 @@ function OpCard({ ws, op, onEdit }: { key?: React.Key; ws: Workspace; op: StudyP
   const decision = ws.view && ws.proposal && ws.proposal.sentVersion === ws.proposal.version ? ws.view.decision : null;
   const answered = decision ? (decision.approved.includes(op.id) ? "approved" : decision.changes.includes(op.id) ? "changes" : "pending") : null;
   const editing = ws.draft.editingOpId === op.id;
-  const targetsModified = op.kind === "edit" && op.source;
   return (
     <article className="sp-op" data-kind={op.kind} data-state={state} data-focus={ws.focusOpId === op.id || undefined} data-editing={editing || undefined}>
       <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="sp-op-main" onClick={() => {
@@ -52,14 +51,22 @@ function OpCard({ ws, op, onEdit }: { key?: React.Key; ws: Workspace; op: StudyP
       }} aria-label={`${OP_KIND_LABEL[op.kind]}: ${t.courseName}، اضغط لإبرازها في الجدول`}>
         <span className="sp-op-kind"><Kind aria-hidden="true" />{OP_KIND_LABEL[op.kind]}</span>
         <span className="sp-op-title"><b>{t.courseName}<PlanBadge courseId={t.AdCourseId} /></b><small>{t.courseCode} · شعبة {t.SCode}</small></span>
-        <span className="sp-op-when"><bdi>{daysLabel(daysOf(t))}</bdi><bdi className="sp-time">{timeRange(t.fstarttime, t.fendtime)}</bdi></span>
-        <span className="sp-op-where">{place.text}</span>
-        {targetsModified ? (
-          <span className="sp-op-diff">كان: <bdi>{daysLabel(op.source!.days)}</bdi> <bdi className="sp-time">{timeRange(op.source!.fstarttime, op.source!.fendtime)}</bdi></span>
-        ) : null}
-        {op.out ? (
-          <span className="sp-op-diff" data-out="1">يخرج: <b>{op.out.snapshot.courseName}</b> · شعبة {op.out.snapshot.SCode} — {op.out.action === "delete" ? "حذف الموعد" : "فك الإسناد"}</span>
-        ) : null}
+        {(() => {
+          /* قبل ← بعد بنظرة: الموضعُ القديم مشطوباً والجديدُ بارزاً، وما تغيّر منهما مُعلَّم. */
+          const change = ws.changes.all.find(c => c.opId === op.id);
+          const after: GridItem = change?.after ?? {
+            key: "", state: "proposed", rowId: 0, courseName: t.courseName, courseCode: t.courseCode, SCode: t.SCode,
+            days: daysOf(t), start: t.fstarttime, end: t.fendtime, place: place.text, placeKnown: place.known,
+          };
+          const before = change?.before;
+          return (
+            <span className="sp-op-flow" data-kind={change?.kind || "added"}>
+              {before ? <><SlotPill item={before} tone="before" fields={change!.fields} />{change!.kind === "replaced" ? <small className="sp-op-out">{before.courseName} · {before.SCode}</small> : null}<ArrowLeft className="sp-compare-arrow" aria-hidden="true" /></> : null}
+              <SlotPill item={after} tone="after" fields={change?.fields || []} />
+            </span>
+          );
+        })()}
+        {op.out ? <span className="sp-op-diff" data-out="1"><LogOut aria-hidden="true" />{op.out.action === "delete" ? "حذف الموعد" : "فك الإسناد"}: {op.out.snapshot.courseName} · {op.out.snapshot.SCode}</span> : null}
         {op.note ? <span className="sp-op-note">«{op.note}»</span> : null}
       </button>
       <div className="sp-op-foot">
@@ -84,7 +91,7 @@ export default function ProposalOps({ ws, onEdit }: { ws: Workspace; onEdit?: (o
   if (!ws.ops.length) {
     return (
       <section className="sp-ops sp-ops-empty" aria-label="مواد المقترح">
-        <p><b>لا مواد في المقترح بعد.</b> اختر نوع الإضافة وأضف أول مادة؛ يظهر أثرها في الجدول فوراً.</p>
+        <p><b>لا تغييرات بعد.</b> أسند شعبةً شاغرة أو أضف شعبة؛ يظهر أثرها على الجدول فوراً.</p>
       </section>
     );
   }
