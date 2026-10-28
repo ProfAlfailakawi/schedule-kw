@@ -92,6 +92,24 @@ assert.equal(win.afterFeasible,4,"full wished bundle becomes feasible, not just 
 assert.equal(win.rippleImproved,1,"unavoidable pairwise overlap is removed");
 assert.equal(win.resources,"checked","both primary resources verified against other term rows");
 assert.deepEqual(labRows.map(row=>row.fstarttime),["08:00","08:00"],"simulation does not mutate source");
+
+// Two independent bottlenecks: the combined plan must improve more distinct
+// student bundles than either move alone (no summing duplicate student counts).
+const secondGroup=[
+  { ...slot(5,"501","08:00","09:00"),AdInstructorId:30,roomId:"room-c" },
+  { ...slot(6,"501","08:00","09:00"),AdInstructorId:40,roomId:"room-d" },
+];
+const chainInput={...labInput,rows:[...labRows,...secondGroup],
+  profiles:[...labInput.profiles,...[5,6,7,8].map(i=>profile(i,[5,6],[]))]};
+const chainLab=buildAcademicDecisionLab(chainInput,analyseAcademicAdvice(chainInput));
+assert.ok(chainLab.chain,"independent bottlenecks produce a genuine two-step domino alternative");
+assert.equal(chainLab.chain?.gain,8,"combined effect counts distinct eligible students, not pairwise overlaps");
+const missingCourseInput={...base,rows:[slot(2,"501","08:00","09:00")],
+  profiles:[1,2,3,4].map(i=>profile(i,[4],[2]))};
+const watchLab=buildAcademicDecisionLab(missingCourseInput,analyseAcademicAdvice(missingCourseInput));
+assert.ok(watchLab.graduationWatch?.some(w=>w.courseId===4 && !w.offered && w.demand===4),
+  "rescue flags a genuinely desired unoffered prerequisite-dependent course without promising graduation dates");
+
 const privateLab=buildAcademicDecisionLab({...labInput,profiles:[profile(1,[2,3],[1])]},
   analyseAcademicAdvice({...labInput,profiles:[profile(1,[2,3],[1])]}));
 assert.equal(privateLab.scenarios.length,0,"do not expose one or two students through what-if comparisons");
