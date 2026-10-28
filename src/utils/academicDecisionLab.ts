@@ -137,6 +137,10 @@ function eligiblePeople(input: AcademicInput, available: Map<number,Offering[]>)
       (mandatoryPrecedes(plan.rules,id,other)||mandatoryPrecedes(plan.rules,other,id))));
     // Students missing an offered wanted course aren't claimed to have a complete timetable.
     if(valid.length<2 || valid.length>8 || valid.length!==registering.size) continue;
+    // Bound the complete search tree before scoring. Never treat a timed-out
+    // or truncated timetable search as proof of a student's unavailability.
+    const combinations=valid.reduce((total,id)=>total*Math.max(1,(available.get(id)||[]).length),1);
+    if(combinations>1000) continue;
     result.push({courses:valid,constraints:p.wishes?.constraints||{}});
   }
   return result;
