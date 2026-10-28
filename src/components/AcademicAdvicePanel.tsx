@@ -71,7 +71,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
   if (status === "loading" && !demo) return null;
   if (status === "ready" && !relevant.length && !periods.length && !lab?.scenarios?.some(s => !courseId || s.courseId === courseId) && !lab?.graduationWatch?.some(w => !courseId || w.courseId === courseId) && !demo) return null;
   const total = relevant.length + periods.length;
-  const shown = relevant.slice(0, compact ? 3 : 6);
+  const shown = relevant.slice(0, compact ? 3 : relevant.length);
   return (
     <details defaultOpen={demo} aria-label="فرصة لتحسين الجدول" style={{
       border: "1px solid color-mix(in srgb, var(--accent, #247756) 24%, var(--line, #dce5df))",
@@ -87,13 +87,16 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
         <ChevronDown size={17} aria-hidden="true" style={{ color: "var(--muted, #627269)" }} />
       </summary>
       <div style={{ display: "grid", gap: 10, paddingBlockStart: 12 }}>
-        {status !== "error" && <AcademicDecisionLabPanel lab={lab} courseId={courseId} compact={compact} demo={demo}
-          onRefresh={() => setRevision(v => v + 1)} refreshing={status === "loading"} />}
         {status === "error" ? <small style={{ color: "var(--muted)" }}><Info size={13} aria-hidden="true" /> التوصيات غير متاحة الآن؛ الجدول يعمل كالمعتاد.</small>
           : !total ? <small style={{ color: "var(--muted)" }}>{status === "loading" ? "جارٍ تحليل الصحائف والرغبات…" : "لا توجد فرصة مدعومة بالبيانات الحالية لهذا النطاق."}</small>
           : <>
+          <div className="acad-opportunities-heading" style={{ display: "flex", alignItems: "center", gap: 7, color: "var(--accent, #247756)", fontSize: 12 }}>
+            <BookOpenCheck size={16} aria-hidden="true" />
+            <strong>فرص المقررات المكتشفة</strong>
+            <span style={{ ...chip, marginInlineStart: "auto" }}>{countOf(total, AR.occurrence)}</span>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(205px, 1fr))", gap: 8 }}>
-            {periods.slice(0, compact ? 2 : 5).map(p => <div key={p.period + "-" + p.courseId} style={card}>
+            {periods.slice(0, compact ? 2 : periods.length).map(p => <div key={p.period + "-" + p.courseId} style={card}>
               <strong style={{ fontSize: 12.5, lineHeight: 1.6 }}><CalendarClock size={15} style={{ verticalAlign: "middle", marginInlineEnd: 5 }} />{p.name}</strong>
               <span style={chip}>{p.period === "morning" ? "فرصة لمجموعة صباحية" : "فرصة لمجموعة بعد الظهر"}</span>
               <small style={{ color: "var(--muted)" }}>{countOf(p.wanted, AR.student)} لديهم قيد زمني · رغبات وليست تسجيلات</small>
@@ -130,6 +133,8 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
           {(relevant.length > shown.length || periods.length > (compact ? 2 : 5)) &&
             <small style={{ color: "var(--muted)" }}>تظهر الفرص الأعلى تأثيراً أولاً. لم تُعرض جميع العلاقات.</small>}
         </>}
+        {status !== "error" && <AcademicDecisionLabPanel lab={lab} courseId={courseId} compact={compact} demo={demo}
+          onRefresh={() => setRevision(v => v + 1)} refreshing={status === "loading"} />}
         <small style={{ color: "var(--muted, #627269)", display: "flex", alignItems: "center", gap: 6, lineHeight: 1.6 }}>
           <ShieldCheck size={14} style={{ flex: "none" }} aria-hidden="true" />
           قراءة استرشادية لصحائف معتمدة ورغبات طلابية؛ لا تغيّر الحفظ أو الإرسال أو الاعتماد.
