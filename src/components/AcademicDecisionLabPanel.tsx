@@ -96,7 +96,7 @@ export default function AcademicDecisionLabPanel({lab,courseId,compact=false,dem
           <div className="adl-watch-list">{watched.slice(0,4).map(w=>
             <div className="adl-watch-item" key={w.courseId}>
               <GraduationCap size={15} aria-hidden="true"/><strong>{w.courseName}</strong>
-              <small>{!w.offered?"مقرر غير مطروح":"يفتح "+countOf(w.downstream, AR.course)+" لاحقة"} · {n(w.demand)} رغبات مؤهلة
+              <small>{!w.offered?"مقرر غير مطروح":"يفتح "+countOf(w.downstream, AR.course)+" لاحقة"} · {countOf(w.demand, AR.request)} مؤهلة
                 {w.nearGraduation?" · "+countOf(w.nearGraduation, AR.student)+" قرب تخرج تقديري":""}</small>
             </div>)}
             <small>مؤشرات أولوية للمراجعة، وليست توقعاً رسمياً بموعد التخرج.</small>
