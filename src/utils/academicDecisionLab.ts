@@ -207,6 +207,15 @@ function combineScenarios(people:Person[],rows:FSchedule[],scenarios:AcademicDec
     // Confirm the two relocated sections do not collide with one another's resources.
     const originals=rows.filter(row=>keys.includes(offeringKey(row)));
     if(resourceImpact(touched,originals,projected)==="conflict")continue;
+    const movedGroups=new Map<string,FSchedule[]>();
+    for(const row of touched) movedGroups.set(offeringKey(row),[...(movedGroups.get(offeringKey(row))||[]),row]);
+    const groups=[...movedGroups.values()];
+    const linkedCollision=groups.length===2 && groups[0].some(a=>groups[1].some(b=>
+      (Number(a.AdInstructorId)>0&&a.AdInstructorId===b.AdInstructorId ||
+        Boolean(a.roomId)&&(a.roomId===b.roomId||a.roomId===b.companionRoomId) ||
+        Boolean(a.companionRoomId)&&(a.companionRoomId===b.roomId||a.companionRoomId===b.companionRoomId)) &&
+      overlaps(slots([a]),slots([b]))));
+    if(linkedCollision)continue;
     const state=buildOffers(projected);
     const after=people.filter(p=>feasibleAcademicBundle(p,state)).length;
     const gain=after-baseline;
