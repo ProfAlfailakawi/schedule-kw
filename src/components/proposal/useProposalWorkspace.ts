@@ -13,7 +13,8 @@ import type {
 import { safeStorage } from "../../utils/safeStorage";
 import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import {
-  daysOf, materialFingerprint, PROPOSAL_DEFAULT_DAYS, PROPOSAL_DEFAULT_MESSAGE, placeLabel, type GridItem, type ProposalEvaluation,
+  daysOf, materialFingerprint, PROPOSAL_DEFAULT_DAYS, PROPOSAL_DEFAULT_MESSAGE, PROPOSAL_MAX_OPS, placeLabel, proposalChangeSet,
+  type GridItem, type ProposalChangeKind, type ProposalEvaluation, type VacancyVerdict,
 } from "../../utils/studyProposal";
 import {
   proposalApi, ProposalApiError, type AlternativeSuggestion, type ProposalContext, type StaffProposalView,
@@ -88,6 +89,8 @@ export function useProposalWorkspace(options: { requestId: string; proposalId?: 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [focusOpId, setFocusOpId] = useState<string | null>(null);
   const [focusFindingId, setFocusFindingId] = useState<string | null>(null);
+  /** إبرازُ صنفٍ كامل من التغييرات على الجدول (من شريط «ما تغيّر»). */
+  const [focusChange, setFocusChange] = useState<ProposalChangeKind | null>(null);
 
   const [alts, setAlts] = useState<{ opId: string; loading: boolean; suggestions: AlternativeSuggestion[]; note?: string; error?: string } | null>(null);
   const [undo, setUndo] = useState<{ opId: string; before: StudyProposalOp["target"]; label: string } | null>(null);
@@ -174,6 +177,24 @@ export function useProposalWorkspace(options: { requestId: string; proposalId?: 
   }, [ctx, ops, opsFingerprint, requestId, proposal?.id, evalTick, terminal]);
 
   const evalCurrent = evaluation !== null && evalFor === opsFingerprint && evalState === "ready";
+
+  /* ── الشعب الشاغرة: حكمُ الخادم على كلٍّ منها لو أُسندت كما هي ────────────
+     يُعاد بعد كل تغييرٍ في المواد (شعبةٌ صارت «جاهزة» قد تتعارض مع مادةٍ أُضيفت للتو). */
+  const [vacancyVerdicts, setVacancyVerdicts] = useState<{ for: string; list: VacancyVerdict[]; partial: boolean } | null>(null);
+  const [vacancyState, setVacancyState] = useState<"idle" | "checking" | "ready" | "failed">("idle");
+  const hasFaculty = Boolean(ctx?.faculty.length);
+  useEffect(() => {
+    if (!ctx || terminal || !hasFaculty) { setVacancyState("idle"); return; }
+    setVacancyState("checking");
+    const controller = new AbortController();
+    const handle = window.setTimeout(() => {
+      proposalApi.vacancies({ requestId, proposalId: proposal?.id, ops }, controller.signal)
+        .then(result => { setVacancyVerdicts({ for: opsFingerprint, list: result.vacancies, partial: result.partial }); setVacancyState("ready"); })
+        .catch(error => { if ((error as any)?.name !== "AbortError") setVacancyState("failed"); });
+    }, 650);
+    return () => { window.clearTimeout(handle); controller.abort(); };
+  }, [ctx, hasFaculty, ops, opsFingerprint, requestId, proposal?.id, terminal]);
+  const vacancyCurrent = vacancyState === "ready" && vacancyVerdicts?.for === opsFingerprint;
   const retryEvaluation = useCallback(() => setEvalTick(t => t + 1), []);
 
   /* ── المواد ────────────────────────────────────────────────────────────── */
@@ -242,6 +263,19 @@ export function useProposalWorkspace(options: { requestId: string; proposalId?: 
     setDraft(opToDraft(op));
     setFocusOpId(opId); setFormIssues([]);
   }, [ops]);
+
+  /** إسنادٌ بضغطةٍ واحدة: الشعبةُ الشاغرة كما هي، بالمسار نفسه الذي يبني به النموذجُ العملية. */
+  const assignFaculty = useCallback((facultyId: number): boolean => {
+    const entry = dctx?.faculty.get(facultyId);
+    if (!dctx || !entry) return false;
+    if (ops.length >= PROPOSAL_MAX_OPS || ops.some(op => op.source?.id === facultyId && op.kind !== "edit")) return false;
+    const { op } = draftToOp(draftFromFaculty(blankDraft("assign"), entry), dctx);
+    if (!op) return false;
+    setOps(current => [...current, op]);
+    setFocusOpId(op.id);
+    setUndo(null);
+    return true;
+  }, [dctx, ops]);
 
   const cancelEdit = useCallback(() => { setDraft(current => blankDraft(current.mode)); setFormIssues([]); }, []);
 
@@ -378,6 +412,7 @@ export function useProposalWorkspace(options: { requestId: string; proposalId?: 
   const optimistic = useMemo(() => localAfter(currentItems, ops), [currentItems, ops]);
   const afterItems = terminal ? currentItems : evalCurrent ? evaluation!.after.items : optimistic.items;
   const ghostItems = terminal ? [] : evalCurrent ? evaluation!.after.ghosts : optimistic.ghosts;
+  const changes = useMemo(() => proposalChangeSet(afterItems, ghostItems), [afterItems, ghostItems]);
 
   /** المحاضرةُ الجاري إعدادها: ما في النموذج الآن، قبل أن تُضاف. */
   const draftItem: GridItem | null = useMemo(() => {
@@ -409,8 +444,12 @@ export function useProposalWorkspace(options: { requestId: string; proposalId?: 
     const keys = new Set<string>();
     if (focusFindingId && evaluation) for (const key of evaluation.findings.find(f => f.id === focusFindingId)?.gridKeys || []) keys.add(key);
     if (focusOpId) for (const item of [...afterItems, ...ghostItems]) if (item.opId === focusOpId) keys.add(item.key);
+    if (focusChange) for (const change of changes.all) if (change.kind === focusChange) {
+      if (change.after) keys.add(change.after.key);
+      if (change.before) keys.add(change.before.key);
+    }
     return keys;
-  }, [focusFindingId, focusOpId, evaluation, afterItems, ghostItems]);
+  }, [focusFindingId, focusOpId, focusChange, changes, evaluation, afterItems, ghostItems]);
 
   const draftFit = useMemo(() => {
     if (!draftItem) return null;
@@ -429,6 +468,7 @@ export function useProposalWorkspace(options: { requestId: string; proposalId?: 
     alts, setAlts, loadAlternatives, applyAlternative, retargetOp, undo, undoRetarget, fillFromCell,
     save, replaceView, hydrate,
     currentItems, afterItems, ghostItems, draftItem, marks, draftFit, itemIndex, terminal,
+    changes, focusChange, setFocusChange, assignFaculty, vacancyVerdicts: vacancyVerdicts?.list ?? null, vacancyPartial: Boolean(vacancyVerdicts?.partial), vacancyState, vacancyCurrent,
   };
 }
 

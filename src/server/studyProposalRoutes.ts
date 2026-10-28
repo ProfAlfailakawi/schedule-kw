@@ -36,7 +36,7 @@ import {
   snapshotOf, STATUS_LABEL, daysOf, courseLayouts, type DecisionState, type GridItem,
 } from "../utils/studyProposal";
 import {
-  evaluateProposal, gridItem, keyOfNew, keyOfRow, loadWorld, suggestAlternatives, type EngineDeps, type LoadedWorld,
+  evaluateProposal, gridItem, keyOfNew, keyOfRow, loadWorld, rankVacancies, suggestAlternatives, type EngineDeps, type LoadedWorld,
 } from "./studyProposalEngine";
 
 export interface StudyProposalRouteDeps extends EngineDeps {
@@ -388,6 +388,27 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
       instructorId: Number(request.AdInstructorId), termId: Number(request.AdTermId),
       collegeId: Number(request.AdCollegeId), sectionId: Number(request.AdSectionId), ops: clean.ops, proposalId: stored?.id ?? "",
     }, opId, world);
+    res.setHeader("Cache-Control", "no-store");
+    res.json(result);
+  });
+
+  /** الشعبُ الشاغرة («هيئة تدريسية») في النطاق، وحكمُ كلٍّ منها لو أُسندت لهذا الأستاذ كما هي — بالفحص نفسه. لا يكتب شيئاً. */
+  app.post("/api/study-proposals/vacancies", staff, heavyLimit, async (req: any, res: Response) => {
+    const request = await loadRequestForStaff(req, res, String(req.body?.requestId || ""));
+    if (!request) return;
+    const world = await loadWorld(Number(request.AdTermId), Number(request.AdInstructorId));
+    const stored = req.body?.proposalId ? await Repository.getStudyProposal(String(req.body.proposalId)) : undefined;
+    const clean = await sanitizeOps(req.body?.ops, world, stored, row => canWriteScope(req, Number(row.AdCollegeId), Number(row.AdSectionId)));
+    if (clean.error) { res.status(400).json({ error: clean.error }); return; }
+    /* القائمة نفسها التي يقرؤها «إسناد شعبة» في السياق: شعبُ «هيئة تدريسية» التي يملك المستخدم الكتابة فيها. */
+    const rows = world.termRows
+      .filter(row => world.placeholders.has(Number(row.AdInstructorId)) && canWriteScope(req, Number(row.AdCollegeId), Number(row.AdSectionId)))
+      .slice(0, 1500);
+    const result = await rankVacancies(deps, req, {
+      instructorId: Number(request.AdInstructorId), termId: Number(request.AdTermId),
+      collegeId: Number(request.AdCollegeId), sectionId: Number(request.AdSectionId),
+      ops: clean.ops, proposalId: stored?.id ?? "",
+    }, rows, world, { preferSectionId: Number(request.AdSectionId) });
     res.setHeader("Cache-Control", "no-store");
     res.json(result);
   });
