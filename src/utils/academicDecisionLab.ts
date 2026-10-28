@@ -26,8 +26,17 @@ export interface AcademicDecisionScenario {
   /** Higher is better; transparent heuristic, not a claim of global optimum. */
   score: number;
 }
+export interface AcademicGraduationWatch {
+  courseId: number; courseName: string; demand: number; downstream: number; offered: boolean; nearGraduation: number;
+}
+export interface AcademicDecisionChain {
+  steps: Array<{ id: string; courseName: string; section: string; before: string; after: string }>;
+  beforeFeasible: number; afterFeasible: number; gain: number; assessed: number;
+}
 export interface AcademicDecisionLab {
   scenarios: AcademicDecisionScenario[];
+  graduationWatch?: AcademicGraduationWatch[];
+  chain?: AcademicDecisionChain;
   sampledAt: string;
   basis: "approved-plans-and-student-wishes";
   nonBlocking: true;
@@ -147,6 +156,67 @@ function collisionPairs(offers:Map<number,Offering[]>, pairs:AcademicReading["pa
   }
   return count;
 }
+
+/** Candidate bottlenecks, not a prediction of a student's graduation date. */
+function graduationWatch(input:AcademicInput,offers:Map<number,Offering[]>):AcademicGraduationWatch[] {
+  const plans=new Map(input.plans.map(p=>[p.planId,p]));
+  const courses=new Map(input.courses.map(c=>[Number(c.AdCourseId),String(c.CourseName||c.CourseCode)]));
+  const counts=new Map<number,{demand:number;near:number}>();
+  const horizon=Date.now()+365*86400000;
+  for(const student of input.profiles) {
+    if(Number(student.AdCollegeId)!==input.collegeId || Number(student.AdSectionId)!==input.sectionId ||
+      Number(student.wishes?.termId)!==input.termId)continue;
+    const plan=plans.get(String(student.curriculumPlanId||""));if(!plan)continue;
+    const passed=new Set((student.passedCourseIds||[]).map(Number));
+    const wants=new Set((student.wishes?.courseIds||[]).map(Number));
+    const rules=new Map(plan.rules.map(r=>[r.courseId,r]));
+    const predicted=Date.parse(student.expectedGraduationAt||"");
+    const near=Number.isFinite(predicted)&&predicted>=Date.now()-30*86400000&&predicted<=horizon;
+    for(const id of wants) {
+      if(!plan.courseIds.includes(id)||passed.has(id)||!courses.has(id)||
+        !prereqMet(rules.get(id)?.prereq,passed,Number(student.passedUnits)||0)||
+        !coreqMet(rules.get(id)?.coreq,passed,wants))continue;
+      const prior=counts.get(id)||{demand:0,near:0};
+      prior.demand++;if(near)prior.near++;counts.set(id,prior);
+    }
+  }
+  return [...counts.entries()].flatMap(([courseId,c])=>{
+    if(c.demand<3)return [];
+    const downstream=downstreamCount(input,courseId),offered=Boolean(offers.get(courseId)?.length);
+    if(offered && !downstream)return [];
+    return [{courseId,courseName:courses.get(courseId)||String(courseId),demand:c.demand,downstream,offered,
+      nearGraduation:c.near>=3?c.near:0}];
+  }).sort((a,b)=>Number(a.offered)-Number(b.offered)||b.nearGraduation-a.nearGraduation||
+    b.demand-a.demand||b.downstream-a.downstream).slice(0,6);
+}
+function combineScenarios(people:Person[],rows:FSchedule[],scenarios:AcademicDecisionScenario[]):AcademicDecisionChain|undefined {
+  const before=buildOffers(rows),baseline=people.filter(p=>feasibleAcademicBundle(p,before)).length;
+  if(baseline>0 && baseline<3)return;
+  for(const first of scenarios.slice(0,5)) for(const second of scenarios.slice(0,5)) {
+    if(first.id===second.id || first.courseId===second.courseId)continue;
+    const chosen=[first,second];
+    const keys=chosen.map(s=>s.id.split("|").slice(0,-1).join("|"));
+    const projected=rows.map(row=>{
+      const at=keys.indexOf(offeringKey(row));
+      if(at<0)return row;
+      const offset=toMinute(chosen[at].after)-toMinute(chosen[at].before);
+      return {...row,fstarttime:clock(toMinute(row.fstarttime)+offset),fendtime:clock(toMinute(row.fendtime)+offset)};
+    });
+    const touched=projected.filter(row=>keys.includes(offeringKey(row)));
+    if(touched.some(row=>toMinute(row.fstarttime)<480 || toMinute(row.fendtime)>1200))continue;
+    // Confirm the two relocated sections do not collide with one another's resources.
+    const originals=rows.filter(row=>keys.includes(offeringKey(row)));
+    if(resourceImpact(touched,originals,projected)==="conflict")continue;
+    const state=buildOffers(projected);
+    const after=people.filter(p=>feasibleAcademicBundle(p,state)).length;
+    const gain=after-baseline;
+    if(gain>=3 && gain>Math.max(first.gain,second.gain))
+      return {steps:chosen.map(s=>({id:s.id,courseName:s.courseName,section:s.section,before:s.before,after:s.after})),
+        beforeFeasible:baseline,afterFeasible:after,gain,assessed:people.length};
+  }
+  return;
+}
+
 export function buildAcademicDecisionLab(input: AcademicInput, reading: AcademicReading): AcademicDecisionLab {
   const current=input.rows.filter(r=>Number(r.AdTermId)===input.termId && Number(r.AdCollegeId)===input.collegeId);
   const offered=buildOffers(current);
@@ -157,6 +227,7 @@ export function buildAcademicDecisionLab(input: AcademicInput, reading: Academic
     limitations:["الرغبات والمجتازات مدخلة من الطلبة، وليست قيداً رسمياً.","السعة والموافقات واللائحة لا تُحسم بهذه المحاكاة."]};
   // Refuse costly or incomplete analyses instead of silently sampling students.
   if(people.length<3 || people.length>800)return empty;
+  empty.graduationWatch=graduationWatch(input,offered);
   const interested=new Map<number,Person[]>();
   for(const person of people) for(const id of person.courses)
     interested.set(id,[...(interested.get(id)||[]),person]);
@@ -204,5 +275,6 @@ export function buildAcademicDecisionLab(input: AcademicInput, reading: Academic
   // One illustrated best option per existing section prevents duplicate carousels.
   const taken=new Set<string>();
   empty.scenarios=scenarios.filter(s=>{const key=s.courseId+"|"+s.section;if(taken.has(key))return false;taken.add(key);return true;}).slice(0,8);
+  empty.chain=combineScenarios(people,current,empty.scenarios);
   return empty;
 }
