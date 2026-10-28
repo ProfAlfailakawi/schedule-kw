@@ -25,11 +25,14 @@ export default function AcademicDecisionLabPanel({lab,courseId,compact=false,dem
   const active:AcademicDecisionScenario=scenarios.find(s=>s.id===selected)||scenarios[0]!;
   useEffect(()=>{setSelected("");},[courseId,lab?.sampledAt]);
   if(!lab || !scenarios.length) {
-    if(!demo)return null;
+    if(!demo && !lab?.graduationWatch?.length)return null;
     return <section className="adl-demo-empty" aria-label="مختبر القرار الأكاديمي">
       <div className="adl-demo-head"><BrainCircuit size={19} aria-hidden="true"/><strong>مختبر القرار الأكاديمي</strong><span>محاكاة حيّة</span></div>
-      <p>ما ظهرت محاكاة مكتملة بعد؛ نعرض النتائج فقط عندما تتوفر رغبات مؤهلة وثلاثة مستفيدين أو أكثر.</p>
-      <small>لا توجد أرقام استعراضية مصطنعة.</small>
+      {lab?.graduationWatch?.length ? <div className="adl-watch-list">{lab.graduationWatch.slice(0,3).map(w=>
+        <div className="adl-watch-item" key={w.courseId}><GraduationCap size={15} aria-hidden="true"/>
+          <strong>{w.courseName}</strong><small>{!w.offered?"غير مطروح":"مسار لاحق"} · {n(w.demand)} رغبات مؤهلة</small></div>)}</div> :
+        <p>ما ظهرت محاكاة مكتملة بعد؛ نعرض النتائج فقط عندما تتوفر رغبات مؤهلة وثلاثة مستفيدين أو أكثر.</p>}
+      <small>استرشادي · بلا أرقام استعراضية مصطنعة.</small>
     </section>;
   }
   return <section className="adl-lab" aria-label="مختبر القرار الأكاديمي">
@@ -79,7 +82,25 @@ export default function AcademicDecisionLabPanel({lab,courseId,compact=false,dem
         <div className="adl-impact"><Scale size={17} aria-hidden="true"/><span>توازن الأستاذ</span><strong>{n(active.facultyShiftMinutes)} دقيقة</strong></div>
         <div className="adl-impact"><ShieldCheck size={17} aria-hidden="true"/><span>الثقة</span><strong>{active.confidence==="qualified"?"مدعومة":"تحتاج تحققاً"}</strong></div>
       </div>
+      {lab.chain && <details className="adl-chain">
+        <summary><GitBranch size={16} aria-hidden="true"/><strong>تأثير الدومينو · خطوتان</strong>
+          <span>+{n(lab.chain.gain)} فرصة</span><ChevronDown size={14} aria-hidden="true"/></summary>
+        <div className="adl-chain-body">
+          {lab.chain.steps.map((step,i)=><div key={step.id}><i>{i+1}</i><strong>{step.courseName}</strong><span>{step.before} ← {step.after}</span></div>)}
+          <small>الأثر المجمع على {n(lab.chain.assessed)} حالة مؤهلة؛ لا يُجمع أثر كل خطوة مرتين ولا يُطبّق أي تعديل.</small>
+        </div>
+      </details>}
       <div className="adl-explain">
+        {Boolean(lab.graduationWatch?.length) && <details><summary><GraduationCap size={14} aria-hidden="true"/> إنقاذ المسار الأكاديمي <ChevronDown size={14} aria-hidden="true"/></summary>
+          <div className="adl-watch-list">{lab.graduationWatch!.slice(0,4).map(w=>
+            <div className="adl-watch-item" key={w.courseId}>
+              <GraduationCap size={15} aria-hidden="true"/><strong>{w.courseName}</strong>
+              <small>{!w.offered?"مقرر غير مطروح":"يفتح "+n(w.downstream)+" مقررات لاحقة"} · {n(w.demand)} رغبات مؤهلة
+                {w.nearGraduation?" · "+n(w.nearGraduation)+" قرب تخرج تقديري":""}</small>
+            </div>)}
+            <small>مؤشرات أولوية للمراجعة، وليست توقعاً رسمياً بموعد التخرج.</small>
+          </div>
+        </details>}
         <details><summary><Info size={14} aria-hidden="true"/> لماذا هذا الموعد؟ <ChevronDown size={14} aria-hidden="true"/></summary>
           <div className="adl-explain-body">{active.reasons.map((r,i)=><p key={i}>{r}</p>)}
             {active.rippleWorsened>0&&<p>قد تنشأ {n(active.rippleWorsened)} علاقة تعارض أخرى؛ تُراجع قبل اتخاذ القرار.</p>}</div>
