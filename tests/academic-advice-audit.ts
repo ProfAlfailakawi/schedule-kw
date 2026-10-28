@@ -136,7 +136,7 @@ for (const name of ["التوأم الأكاديمي", "قبل / بعد", "تأ�
 }
 assert.ok(sixUi.includes("setFeature(item.id)") && sixUi.includes("adl-feature"),
   "all six tiles really switch visible content, not static placeholder labels");
-assert.ok(sixUi.includes("lab.demoShowcase") && sixUi.includes("حالة افتراضية منفصلة"),
+assert.ok(sixUi.includes("viewingTraining &&") && sixUi.includes("حالة افتراضية منفصلة"),
   "fictional training numbers cannot be represented as real university data");
 // Render the actual React component, not merely search for JSX labels.
 const html = renderToStaticMarkup(createElement(AcademicDecisionLabPanel, {
