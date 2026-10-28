@@ -76,7 +76,7 @@ export default function TAPhasePanel({ collegeId, sectionId, termId }: { college
       {phase.vacant.length ? (
         <div className="of-chips" aria-label="الشعب الشاغرة">
           {phase.vacant.slice(0, 24).map(row => (
-            <span className="of-chip" key={row.key}>🪑 {row.courseName} · {row.sectionCode} · {row.days.map(d => DAY[d] || "").join("")} <bdi dir="ltr">{row.start}–{row.end}</bdi>{row.room ? ` · ${row.room}` : ""}</span>
+            <span className="of-chip" key={row.key}>🪑 {row.courseName} · {row.sectionCode} · {row.days.map(d => DAY[d] || "").join("·")} <bdi dir="ltr">{row.start}–{row.end}</bdi>{row.room ? ` · ${row.room}` : ""}</span>
           ))}
           {phase.vacant.length > 24 ? <span className="of-chip">+{phase.vacant.length - 24}</span> : null}
         </div>

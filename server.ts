@@ -23572,7 +23572,20 @@ app.post("/api/public/request/:token/stick", rateLimitCheckTimes, async (req: Re
       days: dayKeysOf(row) as any, start: normalizeClock(row.fstarttime), end: normalizeClock(row.fendtime),
       roomKey: roomKeyOf(row.roomId, row.AdRoomCode, row.AdRoomHall), building: String(row.AdRoomCode || "").trim().toUpperCase(),
     })).filter(anchor => anchor.days.length && anchor.start && anchor.end).slice(0, 12);
-  const durationFor = (days: any[]) => timeToMinutes(endForRequest(days, "08:00")) - timeToMinutes("08:00");
+  /* مدّةُ المقرر المُلصق على أيام المرساة كما يبنيها البند نفسُه (اللقاء الممتدّ وطولُه المعتاد)، لا رقمٌ عام. */
+  const durations = new Map<string, number>();
+  for (const anchor of anchors) {
+    const key = anchor.days.join(",");
+    if (durations.has(key)) continue;
+    let minutes = timeToMinutes(endForRequest(anchor.days as any, "08:00")) - timeToMinutes("08:00");
+    try {
+      const probe = await instructorRequestItemsFromPayload(request, items.map((item, k) => k === index ? { ...item, days: anchor.days, start: "08:00" } : item));
+      const slot = probe[index]?.slots?.[0];
+      if (slot) minutes = timeToMinutes(slot.end) - timeToMinutes(slot.start);
+    } catch { /* يبقى طولُ اللائحة */ }
+    durations.set(key, minutes);
+  }
+  const durationFor = (days: any[]) => durations.get(days.join(",")) || 0;
   const keyBuilding = (key: string) => {
     const legacy = /^legacy:([^|]+)\|/.exec(key); if (legacy) return legacy[1].toUpperCase();
     const row = (context.officialRows as FSchedule[]).find(r => roomKeyOf(r.roomId, r.AdRoomCode, r.AdRoomHall) === key);

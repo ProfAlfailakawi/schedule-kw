@@ -9,7 +9,7 @@
  *   tcCourseLock  🔒/🌱/🎯 على المقرر غير المتاح + 🌟 «اهتمام مستقبلي»
  *   tcStickHtml   🧲 «لاصق بمحاضرتي»: ⬅️ قبلها / ➡️ بعدها لكل محاضرة، شريطٌ زمني، «اقترح أفضل التصاق»
  *
- * يعتمد على ما في الصفحة: esc, gi, data, state, paint, recheckAll, TOKEN, fmtDays, countOf, AR.
+ * يعتمد على ما في الصفحة: esc, gi, data, state, paint, recheckAll, TOKEN, fmtDays, payloadItems, rawItem.
  */
 export const TEACHER_CARD_EXTRAS_CSS = `
 .tc-ribbon{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:12px 14px;border-radius:16px;border:1px solid var(--line);background:var(--soft)}
@@ -78,7 +78,9 @@ function tcStickHtml(it,i){if(!data||data.mode!=="edit"||!data.windowOpen||it.of
    '<div class="tc-anchor-row">'+tcSideBtn(i,b,"⬅️ قبلها")+tcSideBtn(i,f,"➡️ بعدها")+'</div></div>'}).join("");
  return h+'</div></div>'}
 function tcStickLoad(i){tcStick[i]={loading:true};paint();
- fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/stick",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:payloadItems(),itemIndex:i})})
+ /* البندُ نفسُه يُرسل «تعديلاً» ولو لم يتغيّر بعد (payloadItems يرسله «إبقاء»). */
+ var items=payloadItems();items[i]=rawItem(state[i]);
+ fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/stick",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:items,itemIndex:i})})
  .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||"تعذّر الحساب");return d})})
  .then(function(d){tcStick[i]=d;paint()}).catch(function(e){tcStick[i]={error:e.message};paint()})}
 function tcWire(){host.querySelectorAll("[data-stick-open]").forEach(function(b){b.onclick=function(){var i=Number(b.dataset.stickOpen);if(tcStick[i]){delete tcStick[i];paint()}else tcStickLoad(i)}});
