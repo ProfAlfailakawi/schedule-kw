@@ -1314,10 +1314,12 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         id: String(id), name: instructorById.get(id)?.AdInstructorName || "بدون أستاذ",
         rows, count: rows.length,
         load: rows.reduce((total, row) => total + duration(row) * DAYS.filter(day => (row as any)[day.flag]).length, 0),
+        /* J1: the hours beside a name are the teaching load (credit hours, each section once in its college), not contact minutes. */
+        teaching: teachingHoursByInstructor(rows, new Map([...courseById.values()].map(course => [Number(course.AdCourseId), effectiveCourseHours(course)]))).get(Number(id)) || 0,
         days: new Set(rows.flatMap(row => DAYS.filter(day => (row as any)[day.flag]).map(day => day.key))).size
       }))
       .sort((a, b) => byArabic(a.name, b.name));
-  }, [results, instructorById]);
+  }, [results, instructorById, courseById]);
 
   const visitingScopeKey = `${filters.collegeId}:${filters.sectionId}:${filters.termId}`;
   /* بيانات القسم عبر كلياته متى طُلبت للنطاق الظاهر نفسه؛ ومستوى الكلية (بلا
@@ -3082,7 +3084,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   <strong className="report-instructor-with-badge">{group.name}{isVisitingInstructor(Number(group.id)) ? <VisitingBadge compact /> : null}</strong>
                   <span className="group-bar"><i style={{ width: share(group.load, maxLoad) }} /></span>
                   <b>{num(group.count)}</b>
-                  <em>{num(Math.round(group.load / 60))}س</em>
+                  <em title="نصاب تدريسي: ساعات المقررات المعتمدة، والشعبة مرة واحدة">{num(group.teaching)}س</em>
                   <ChevronDown aria-hidden="true" />
                 </button>
                 {openGroup === group.id ? (

@@ -1,0 +1,21 @@
+/* ── K3: خطأٌ بأيقونة وسبب وإعادة محاولة ─────────────────────────────────── */
+.actionable-error{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:10px;margin:10px 0;padding:10px 12px;
+  border:1px solid color-mix(in srgb,var(--danger) 26%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--danger-soft) 55%,var(--surface));color:var(--text,inherit)}
+.actionable-error.kind-offline,.actionable-error.kind-busy,.actionable-error.kind-missing{border-color:color-mix(in srgb,var(--warning) 30%,var(--line));background:color-mix(in srgb,var(--warning-soft) 60%,var(--surface))}
+.actionable-error.kind-permission{border-color:color-mix(in srgb,var(--info) 30%,var(--line));background:color-mix(in srgb,var(--info-soft) 60%,var(--surface))}
+.actionable-error-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:var(--surface);color:var(--danger)}
+.actionable-error.kind-offline .actionable-error-icon,.actionable-error.kind-busy .actionable-error-icon,.actionable-error.kind-missing .actionable-error-icon{color:var(--warning)}
+.actionable-error.kind-permission .actionable-error-icon{color:var(--info)}
+.actionable-error-icon svg{width:18px;height:18px}
+.actionable-error-copy{display:grid;gap:2px;min-width:0}
+.actionable-error-copy strong{font-size:.9rem}
+.actionable-error-copy small{font-size:.8rem;color:var(--muted);line-height:1.6}
+.actionable-error-copy code{font-size:.7rem;color:var(--muted-2,var(--muted));opacity:.85;overflow-wrap:anywhere}
+.actionable-error-retry{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font:inherit;font-size:.8rem;font-weight:800;color:var(--accent-ink,var(--accent));cursor:pointer}
+.actionable-error-retry svg{width:14px;height:14px}
+.actionable-error-retry .spin{animation:actionable-spin 1s linear infinite}
+.actionable-error-dismiss{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}
+.actionable-error-dismiss svg{width:16px;height:16px}
+@keyframes actionable-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.actionable-error-retry .spin{animation:none}}
+@media (max-width:560px){.actionable-error{grid-template-columns:auto minmax(0,1fr) auto}.actionable-error-retry{grid-column:2/-1;justify-self:start}}

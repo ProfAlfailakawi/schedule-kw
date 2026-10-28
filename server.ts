@@ -24712,7 +24712,10 @@ async function startServer() {
     // `originalUrl` is whatever a stranger typed, and the first argument to
     // console.error is a format string — a URL carrying `%s` would otherwise
     // swallow the error itself and the log would lose what it was written for.
-    console.error("[api-error] %s %s:", req.method, req.originalUrl, error?.stack || error?.message || error);
+    /* K3: a short reference ties what the reader sees to this log line, so an
+       administrator can find the real cause instead of a generic sentence. */
+    const ref = `E${Date.now().toString(36).slice(-5).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+    console.error("[api-error] ref=%s %s %s:", ref, req.method, req.originalUrl, error?.stack || error?.message || error);
     if (res.headersSent) { try { res.end(); } catch { /* the socket is already gone */ } return; }
     if (error instanceof RequestReservationConflict) { res.status(409).json({ error: error.message, code: error.code }); return; }
     /* «حاول مرة أخرى» كذبٌ على طلبٍ أكبر من الحد: سيُرفض في كل مرة. */
@@ -24720,7 +24723,7 @@ async function startServer() {
       res.status(413).json({ error: "البيانات المرسلة أكبر من الحد المسموح، ولم يُحفظ شيء. أبلغ إدارة النظام بهذه الرسالة.", code: "PAYLOAD_TOO_LARGE" });
       return;
     }
-    res.status(500).json({ error: "تعذّر إتمام العملية الآن. حاول مرة أخرى، وإذا تكرر الأمر أبلغ إدارة النظام." });
+    res.status(500).json({ error: "تعذّر إتمام العملية الآن. حاول مرة أخرى، وإذا تكرر الأمر أبلغ إدارة النظام برمز المرجع.", code: "INTERNAL", ref });
   });
 
   const isProduction = process.env.NODE_ENV === "production" ||
