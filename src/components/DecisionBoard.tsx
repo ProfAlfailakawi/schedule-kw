@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Building2, ChevronDown, Eye, Lightbulb, OctagonAlert, Sparkles, TriangleAlert } from "lucide-react";
 import type { AdSection } from "../types";
 import { useSectionGap } from "./SectionGapNote";
@@ -6,7 +6,7 @@ import PlanTriageView from "./PlanTriageView";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import { reconcilePlanAdjustments } from "../utils/sectionGap";
-import { triagePlanItems } from "../utils/planTriage";
+import { loadPlanDecisions, triagePlanItems, type PlanDecision } from "../utils/planTriage";
 import { decisionBoardScope, type DecisionBoardReader } from "../utils/decisionBoardScope";
 
 const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
@@ -27,7 +27,14 @@ function DepartmentRow({ collegeId, section, termId, expanded, onToggle }: {
   collegeId: number; section: AdSection; termId: number; expanded: boolean; onToggle: () => void;
 }) {
   const gap = useSectionGap(collegeId, Number(section.AdSectionId), termId);
-  const triage = useMemo(() => triagePlanItems(reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems)), [gap.planItems, gap.planSurplusItems]);
+  /* The department's shared «تم/تجاهل» decisions, read so the counts match what the committee sees. */
+  const [decisions, setDecisions] = useState<Record<string, PlanDecision>>({});
+  useEffect(() => {
+    let alive = true;
+    void loadPlanDecisions(`${collegeId}:${section.AdSectionId}:${termId}`).then(result => { if (alive) setDecisions(result.decisions); });
+    return () => { alive = false; };
+  }, [collegeId, section.AdSectionId, termId]);
+  const triage = useMemo(() => triagePlanItems(reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems), decisions), [gap.planItems, gap.planSurplusItems, decisions]);
   const { counts } = triage;
   return (
     <article className="decision-board-dept" data-open={expanded || undefined}>

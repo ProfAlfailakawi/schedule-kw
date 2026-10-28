@@ -17952,6 +17952,38 @@ async function sectionGapData(collegeId: number, sectionId: number, termId: numb
   };
 }
 
+/* ── K2: قرارات «تم/تجاهل» على بنود التخطيط، مشتركةٌ في النطاق ─────────────
+   الصلاحيات نفسها التي يُحفظ بها التخطيط (registration-stats): الإذن 7 ونطاق
+   الكلية والقسم. القرار يُكتب باسم صاحبه ووقته؛ لا يُقبل «تجاهل» بلا سبب. */
+app.get("/api/schedules/section-gap/decisions", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  res.json({ decisions: await Repository.getPlanTriageDecisions(collegeId, sectionId, termId) });
+});
+app.put("/api/schedules/section-gap/decisions", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
+  const courseId = Number(req.body?.courseId || 0);
+  if (!collegeId || !sectionId || !termId || !courseId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل والمقرر" }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  const raw = req.body?.decision;
+  if (raw === null || raw === undefined) {
+    await Repository.setPlanTriageDecision({ collegeId, sectionId, termId }, courseId, null);
+    res.json({ decision: null });
+    return;
+  }
+  const state = raw?.state === "done" || raw?.state === "ignored" ? raw.state : "";
+  const reason = String(raw?.reason || "").trim().slice(0, 140);
+  const signature = String(raw?.signature || "").trim().slice(0, 200);
+  if (!state || !signature) { res.status(400).json({ error: "قرار غير صالح" }); return; }
+  if (state === "ignored" && !reason) { res.status(400).json({ error: "التجاهل يحتاج سبباً مكتوباً" }); return; }
+  const decision = await Repository.setPlanTriageDecision({ collegeId, sectionId, termId }, courseId, {
+    state, reason, signature, at: new Date().toISOString(),
+    byUserId: Number(req.user?.SystemUserId || 0), byName: String(req.user?.Name || "").slice(0, 80),
+  });
+  res.json({ decision });
+});
+
 app.get("/api/schedules/section-gap", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0);
   const sectionId = Number(req.query.sectionId || 0);

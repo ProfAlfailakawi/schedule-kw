@@ -148,7 +148,7 @@ function Staffing({ staffing, visitors }: { staffing: CourseStaffing; visitors: 
 }
 
 /** قائمةٌ قصيرة: اسم المقرر، وما بُني عليه الرقم، و«الموجود ← المطلوب». تفتح البطاقةُ من يدرّسه وكم منتدباً نحتاج. */
-export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0, triage, onDecide }: { items: GapItem[]; kind: GapKind; onClose: () => void; staffing?: Record<string, CourseStaffing> | null; freeSlots?: number; triage?: PlanTriage; onDecide?: (id: number, decision: PlanDecision | null) => void }) {
+export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0, triage, onDecide, triageOffline }: { items: GapItem[]; kind: GapKind; onClose: () => void; staffing?: Record<string, CourseStaffing> | null; freeSlots?: number; triage?: PlanTriage; onDecide?: (id: number, decision: PlanDecision | null) => void; triageOffline?: boolean }) {
   const [all, setAll] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
   const [totalOpen, setTotalOpen] = useState(false);
@@ -225,7 +225,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0,
         <button type="button" className="apb-dr-close" aria-label="إغلاق" onClick={onClose} data-guide-ignore="إغلاق قائمة الشعب المقترحة"><X aria-hidden="true" /></button>
       </header>
       {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />فتح +{num(openingTotal)} · مراجعة إغلاق −{num(closureTotal)}. لا حذف تلقائي؛ راجع المسجلين والسعة.{!hasClosureReview ? " لا فرق للإغلاق دون عدد مختار أو تقدير تاريخي أقل من الموجود." : ""}</p> : null}
-      {triage ? <PlanTriageView triage={triage} renderItem={renderItem} onDecide={onDecide} onClose={onClose} /> : <ul className="apb-gap-list">
+      {triage ? <PlanTriageView triage={triage} renderItem={renderItem} onDecide={onDecide} onClose={onClose} offline={triageOffline} /> : <ul className="apb-gap-list">
         {list.map(item => renderItem(item))}
       </ul>}
       {need ? (

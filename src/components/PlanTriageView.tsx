@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, CircleSlash, Lightbulb, OctagonAlert, RotateCcw, TriangleAlert, Wrench } from "lucide-react";
+import { Check, CircleSlash, CloudOff, Lightbulb, OctagonAlert, RotateCcw, TriangleAlert, Wrench } from "lucide-react";
 import type { GapItem } from "../utils/sectionGap";
 import { FOCUS_COURSE_EVENT, type PlanDecision, type PlanTier, type triagePlanItems } from "../utils/planTriage";
 import { AR, countOf } from "../utils/arabicCount";
@@ -13,6 +13,29 @@ const TIERS: Array<{ tier: PlanTier; label: string; Icon: typeof OctagonAlert }>
   { tier: "opportunity", label: "فرصة", Icon: Lightbulb },
 ];
 
+/** Two letters for the avatar: «د. أحمد الفيلكاوي» → «أف». Titles are skipped. */
+export function decisionInitials(name: string | undefined): string {
+  const words = String(name || "").replace(/^(د|أ|م|أ\.د)\.\s*/u, "").split(/\s+/).filter(word => word && !/^(د\.|أ\.|م\.)$/.test(word));
+  if (!words.length) return "؟";
+  const first = words[0][0] || "";
+  const last = words.length > 1 ? words[words.length - 1].replace(/^ال/, "")[0] || "" : "";
+  return `${first}${last}`;
+}
+
+/** Who decided and when — shared decisions carry a name, so the shelf says it. */
+function DecidedBy({ decision }: { decision: PlanDecision }) {
+  const date = decision.at ? new Date(decision.at) : null;
+  const when = date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString("ar-KW-u-nu-latn", { day: "numeric", month: "short" }) : "";
+  const who = decision.byName || "";
+  if (!who && !when) return null;
+  return (
+    <span className="plan-triage-by" title={[who, date ? date.toLocaleString("ar-KW-u-nu-latn") : ""].filter(Boolean).join(" · ")}>
+      <i aria-hidden="true">{decisionInitials(who)}</i>
+      {when ? <time dateTime={decision.at}>{when}</time> : null}
+    </span>
+  );
+}
+
 /**
  * «التخطيط» as three shelves (K2): a one-glance summary, then each shelf with
  * its items; every item says why it is there and carries «عالج» (show its
@@ -20,13 +43,15 @@ const TIERS: Array<{ tier: PlanTier; label: string; Icon: typeof OctagonAlert }>
  * A decision is kept with the numbers it was made on; when they change, the item
  * comes back by itself.
  */
-export default function PlanTriageView({ triage, renderItem, onDecide, onClose, readOnly = false }: {
+export default function PlanTriageView({ triage, renderItem, onDecide, onClose, readOnly = false, offline = false }: {
   triage: PlanTriage;
   renderItem: (item: GapItem, actions?: React.ReactNode) => React.ReactNode;
   onDecide?: (id: number, decision: PlanDecision | null) => void;
   onClose: () => void;
   /** K5: the decision board reads; it never acts. */
   readOnly?: boolean;
+  /** Decisions could not reach the server; they are queued in this browser. */
+  offline?: boolean;
 }) {
   const [asking, setAsking] = useState<{ id: number; state: PlanDecision["state"] } | null>(null);
   const [reason, setReason] = useState("");
@@ -69,6 +94,7 @@ export default function PlanTriageView({ triage, renderItem, onDecide, onClose, 
   );
   return (
     <div className="plan-triage">
+      {offline ? <p className="plan-triage-offline" role="status"><CloudOff aria-hidden="true" /> دون اتصال — القرارات محفوظة في هذا المتصفح وتُرسل عند عودة الاتصال.</p> : null}
       {/* One glance: three shelves as tiles and as one bar. */}
       <div className="plan-triage-summary" role="img" aria-label={`عاجل ${counts.urgent} · مهم ${counts.important} · فرصة ${counts.opportunity}`}>
         <div className="plan-triage-tiles">
@@ -107,6 +133,7 @@ export default function PlanTriageView({ triage, renderItem, onDecide, onClose, 
             <li key={entry.item.id}>
               {entry.decision.state === "done" ? <Check aria-hidden="true" /> : <CircleSlash aria-hidden="true" />}
               <span><b>{entry.item.name}</b><small>{entry.decision.state === "done" ? "تم" : "متجاهل"}{entry.decision.reason ? ` · ${entry.decision.reason}` : ""}</small></span>
+              <DecidedBy decision={entry.decision} />
               {onDecide ? <button type="button" className="plan-triage-act" onClick={() => onDecide(entry.item.id, null)} data-guide-ignore="إرجاع البند إلى القائمة المفتوحة"><RotateCcw aria-hidden="true" /> إرجاع</button> : null}
             </li>
           ))}

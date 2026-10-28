@@ -58,6 +58,10 @@
 .plan-triage-handled li>svg{width:15px;height:15px;color:var(--muted)}
 .plan-triage-handled li span{display:grid;flex:1;min-width:0}
 .plan-triage-handled li small{color:var(--muted)}
+.plan-triage-by{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:var(--muted);white-space:nowrap}
+.plan-triage-by i{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink,var(--accent));font-style:normal;font-weight:800;font-size:.68rem}
+.plan-triage-offline{display:flex;align-items:center;gap:6px;margin:0;padding:6px 10px;border-radius:10px;background:var(--warning-soft);color:var(--warning);font-size:.78rem;font-weight:700}
+.plan-triage-offline svg{width:15px;height:15px;flex:none}
 
 /* ── K5: «لوحة القرار» للقراءة ───────────────────────────────────────────── */
 .decision-board{display:grid;gap:10px}

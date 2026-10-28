@@ -274,6 +274,7 @@ interface DBState {
   registrationOutcomes?: RegistrationOutcomeShard[];
   schedulePublications?: SchedulePublication[];
   scheduleConstraints?: ScheduleConstraint[];
+  planTriageDecisions?: PlanTriageDecisionRow[];
   degreeRules?: AdDegreeRule[];
   visitingRosters?: VisitingRoster[];
   departmentDelegates?: DepartmentDelegateDirectory[];
@@ -325,6 +326,13 @@ const demoSandboxContext = new AsyncLocalStorage<{ sessionId: string; state: DBS
 const demoSandboxes = new Map<string, DemoSandboxRecord>();
 function currentDb(): DBState { return demoSandboxContext.getStore()?.state || baseDb; }
 function replaceCurrentDb(next: DBState): void { const context = demoSandboxContext.getStore(); if (context) context.state = next; else baseDb = next; }
+/** K2: one shared «تم/تجاهل» decision on a planning item, per term/college/department/course. */
+export interface PlanTriageDecisionRow {
+  id: string; scopeKey: string; AdCollegeId: number; AdSectionId: number; AdTermId: number; courseId: number;
+  state: "done" | "ignored"; reason: string; signature: string; at: string;
+  byUserId: number; byName: string;
+}
+
 const db = new Proxy({} as DBState, {
   get: (_target, prop) => (currentDb() as any)[prop],
   set: (_target, prop, value) => { (currentDb() as any)[prop] = value; return true; },
@@ -7198,6 +7206,37 @@ export const Repository = {
     if (at >= 0) db.degreeRules[at] = rule; else db.degreeRules.push(rule);
     saveDatabase();
     return rule;
+  },
+
+  /* ── K2: «تم/تجاهل» على بنود التخطيط، مشتركةٌ لكل من في النطاق ─────────────
+     وثيقةٌ لكل مقرر في النطاق (كلية:قسم:فصل:مقرر). القرار يحمل «بصمة» الأرقام التي
+     قُرّر عليها؛ الواجهة تُسقطه حين تتغيّر، فلا يُسكِت وضعاً جديداً. */
+  getPlanTriageDecisions: async (collegeId: number, sectionId: number, termId: number): Promise<PlanTriageDecisionRow[]> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("planTriageDecisions").where("scopeKey", "==", scopeKey).limit(500).get();
+      return snap.docs.map(doc => doc.data() as PlanTriageDecisionRow);
+    }
+    return ((db as any).planTriageDecisions || []).filter((row: PlanTriageDecisionRow) => row.scopeKey === scopeKey);
+  },
+
+  setPlanTriageDecision: async (scope: { collegeId: number; sectionId: number; termId: number }, courseId: number, decision: Omit<PlanTriageDecisionRow, "id" | "scopeKey" | "AdCollegeId" | "AdSectionId" | "AdTermId" | "courseId"> | null): Promise<PlanTriageDecisionRow | null> => {
+    const scopeKey = `${scope.collegeId}:${scope.sectionId}:${scope.termId}`;
+    const id = `${scopeKey}:${courseId}`.replace(/[/]/g, "_");
+    const row: PlanTriageDecisionRow | null = decision ? {
+      ...decision, id, scopeKey, AdCollegeId: scope.collegeId, AdSectionId: scope.sectionId, AdTermId: scope.termId, courseId,
+    } : null;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("planTriageDecisions").doc(id);
+      if (row) await ref.set(row); else await ref.delete();
+      return row;
+    }
+    const list: PlanTriageDecisionRow[] = Array.isArray((db as any).planTriageDecisions) ? (db as any).planTriageDecisions : [];
+    const next = list.filter(item => item.id !== id);
+    if (row) next.push(row);
+    (db as any).planTriageDecisions = next.slice(-5000);
+    saveDatabase();
+    return row;
   },
 
   getScheduleConstraints: async (collegeId: number, sectionId: number, termId: number): Promise<ScheduleConstraint[]> => {

@@ -94,6 +94,40 @@ console.log("K2 — التخطيط: ثلاثة رفوف وقرارات بأسب�
   check(read("src/components/Schedules.tsx").includes("FOCUS_COURSE_EVENT"), "«عالج» يبرز مواعيد المقرر على الأسبوع");
 }
 
+console.log("K2 — قرارات «تم/تجاهل» مشتركة على الخادم");
+{
+  /* المستودع في صندوق تجريبي: الكتابة تُقرأ لكل من في النطاق نفسه، ولا تتسرّب لنطاقٍ آخر. */
+  const { Repository } = await import("../src/db/repository");
+  const session = `demo_plan_triage_${Date.now()}`;
+  Repository.createDemoSandbox(session, 60_000);
+  await Repository.withDemoSandbox(session, async () => {
+    const scope = { collegeId: 1, sectionId: 1, termId: 1 };
+    const saved = await Repository.setPlanTriageDecision(scope, 42, { state: "ignored", reason: "لا قاعة", signature: "42:1:2:1:0:", at: "2026-10-28T10:00:00.000Z", byUserId: 16, byName: "د. رئيس لجنة" });
+    const read = await Repository.getPlanTriageDecisions(1, 1, 1);
+    check(saved?.id === "1:1:1:42" && read.length === 1 && read[0].byName === "د. رئيس لجنة" && read[0].reason === "لا قاعة", "القرار يُحفظ مرة لكل مقرر في النطاق ويحمل من قرّر");
+    check((await Repository.getPlanTriageDecisions(1, 2, 1)).length === 0 && (await Repository.getPlanTriageDecisions(1, 1, 2)).length === 0, "لا يتسرّب إلى قسمٍ أو فصلٍ آخر");
+    await Repository.setPlanTriageDecision(scope, 42, { state: "done", reason: "", signature: "42:1:2:1:0:", at: "2026-10-28T11:00:00.000Z", byUserId: 17, byName: "د. رئيس القسم" });
+    const again = await Repository.getPlanTriageDecisions(1, 1, 1);
+    check(again.length === 1 && again[0].state === "done" && again[0].byUserId === 17, "قرارٌ جديد يحلّ محلّ السابق، لا يتكرر");
+    await Repository.setPlanTriageDecision(scope, 42, null);
+    check((await Repository.getPlanTriageDecisions(1, 1, 1)).length === 0, "«إرجاع» يحذف القرار");
+  });
+  Repository.dropDemoSandbox(session);
+  const server = read("server.ts");
+  const route = server.slice(server.indexOf('app.put("/api/schedules/section-gap/decisions"'), server.indexOf('app.get("/api/schedules/section-gap", '));
+  check(server.includes('app.get("/api/schedules/section-gap/decisions", requirePermission(7)') && route.includes("requirePermission(7)") && route.includes("isScopeAllowed(req, collegeId, sectionId)"), "المساران بصلاحية التخطيط نفسها (الإذن 7 + نطاق الكلية والقسم)");
+  check(route.includes("التجاهل يحتاج سبباً مكتوباً") && route.includes("byName: String(req.user?.Name"), "الخادم يرفض تجاهلاً بلا سبب، ويكتب اسم صاحب القرار ووقته من الجلسة لا من الطلب");
+  const triageSource = read("src/utils/planTriage.ts");
+  check(triageSource.includes("/api/schedules/section-gap/decisions") && triageSource.includes("plan-triage-pending:") && triageSource.includes('if (error?.status) throw error;'), "localStorage احتياطٌ للانقطاع فقط: يُصفّ ما لم يصل ويُرسل عند العودة، والرفض لا يُصفّ");
+  const bar = read("src/components/ApprovalBar.tsx");
+  check(bar.includes("loadPlanDecisions(triageScope)") && bar.includes('window.addEventListener("online", online)') && !bar.includes("writePlanDecisions(triageScope"), "الشريط يقرأ القرارات المشتركة ويُفرغ الطابور عند عودة الاتصال");
+  const { decisionInitials } = await import("../src/components/PlanTriageView");
+  check(decisionInitials("د. أحمد الفيلكاوي") === "أف" && decisionInitials("") === "؟", "الأحرف الأولى لصورة صاحب القرار");
+  const view = read("src/components/PlanTriageView.tsx");
+  check(view.includes("<DecidedBy decision={entry.decision} />") && view.includes("dateTime={decision.at}"), "البند المُعالَج يعرض من قرّر ومتى");
+  check(read("src/components/DecisionBoard.tsx").includes("loadPlanDecisions("), "لوحة القرار تقرأ القرارات المشتركة نفسها");
+}
+
 console.log("K3 — مركز الذكاء: قراءةٌ فاشلة لا تُسقط الصفحة");
 {
   const workspace = read("src/components/IntelligenceWorkspace.tsx");
