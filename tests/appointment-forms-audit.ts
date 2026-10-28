@@ -135,8 +135,15 @@ check(/appointmentVerdict\(\{/.test(quick) && /qc-checks/.test(quick), "A6: ال
 check(/room-suggest-best/.test(cards) && /الأنسب/.test(cards) && /room-suggest-code/.test(cards) && /room-suggestion-time/.test(cards), "G1: رمز القاعة كبير + شريحة وقت + «الأنسب»");
 check(/\.quick-create \.room-suggest-list\{grid-template-columns:minmax\(0,1fr\)\}/.test(css), "G1: عمودٌ واحد داخل البطاقة الضيقة فلا يتداخل النص");
 check(/export function SuggestionEmpty/.test(cards) && /teacher: \{ icon: UserRound, word: "الأستاذ مشغول" \}/.test(cards), "A8: لا خيار → أيقونة وكلمة");
-check(/room-replaceable/.test(cards) && /assignToPlaceholder/.test(editor) && /restoreStep\(target\)/.test(editor) && /placeholderIds\.has\(Number\(row\.AdInstructorId\)\)/.test(route), "G3: 🔄 قابلة للاستبدال — إسناد بتراجع عبر بوابة الحفظ");
-check(/const swapPlaceholder = async/.test(editor) && /const replacePlaceholder = async/.test(editor) && /tone: "danger"/.test(editor.slice(editor.indexOf("const replacePlaceholder"))) && /onReplaceable\?\.\(item, "swap"\)/.test(cards) && /onReplaceable\?\.\(item, "replace"\)/.test(cards), "G3: 🔁 تبديل و🗑️ استبدال بتأكيد وتراجع");
+check(/room-replaceable/.test(cards) && /placeholderIds\.has\(Number\(row\.AdInstructorId\)\)/.test(route), "G3: 🔄 قابلة للاستبدال في نتائج البحث عن قاعة");
+{
+  const phRoute = server.slice(server.indexOf('app.post("/api/schedules/placeholder-action"'), server.indexOf("/* ── استثناءات الأسبوع"));
+  check(/runScheduleHandler\(updateScheduleHandler[\s\S]*?dryRun: true/.test(phRoute) && /runScheduleHandler\(createScheduleHandler[\s\S]*?dryRun: true/.test(phRoute), "G3: كل خطوة تمرّ بمساري الحفظ والتعديل (فحص جافّ على الأسبوع النهائي)");
+  check(/Repository\.commitScheduleChangeSet\(/.test(phRoute) && /scheduleLockRefusal\(/.test(phRoute) && /placeholderRev/.test(phRoute), "G3: تنفيذ ذرّي واحد بقفل الجدول ومراجعة النسخة");
+  check(/const undo:/.test(phRoute) && /res\.locals\.auditChanges/.test(phRoute), "G3: تراجع وسجلّ تدقيق");
+  check(/\/api\/schedules\/placeholder-action/.test(editor) && /offerUndo\([\s\S]{0,200}result\.undo/.test(editor), "G3: الواجهة طلبٌ واحد وتراجع من الخادم");
+  check(/item\.radar \?/.test(cards) && /run && !run\.stale/.test(route), "G3: عدد الطلبة من رادار التسجيل الحالي فقط");
+}
 check(/بدون أستاذ بعد/.test(picker) && /instructor-group-label/.test(picker) && /members: people\.filter\(person => !visitingSet\.has/.test(picker), "G4: «بدون أستاذ بعد» مستقل، الأعضاء ثم المنتدبون بشارة");
 check(/<InstructorPicker/.test(quick) && /visitingRosterIds=\{visitingRosterIds\}/.test(quick), "G4: المنتقي الموحّد في «موعد جديد» السريع");
 check(/<span className="ss-option-line"><b>\{option\.label\}<\/b>\{option\.badge \? <PlanBadge text=\{option\.badge\} \/>/.test(select) && /\.plan-badge,\.course-service-badge\{flex:none;justify-self:start;align-self:center;width:max-content/.test(css), "G6/H1: الشارة الموحّدة بحجمها في القائمة المنسدلة");

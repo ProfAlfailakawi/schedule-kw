@@ -30,6 +30,8 @@ export interface ReplaceableSection {
   courseName?: string;
   scode?: string;
   sameCourse: boolean;
+  /** من رادار التسجيل الحالي فقط: مقاعد المقرر وعدد شعبه (لا رقمَ بلا رادار). */
+  radar?: { seated: number; sections: number };
 }
 
 type Fact = { text: string; icon: typeof CheckCircle2; tone: "good" | "warn" | "muted" };
@@ -137,6 +139,7 @@ export default function RoomSuggestionCards({
         <span className="room-replaceable-copy">
           <bdi dir="ltr" className="room-suggest-code">{item.room}/{item.hall}</bdi>
           <small>{item.courseName || "المقرر نفسه"}{item.scode ? ` · شعبة ${item.scode}` : ""} · <time dir="ltr">{formatScheduleTimeRange(item.start, item.end)}</time></small>
+          {item.radar ? <small className="room-replaceable-radar" title={`رادار التسجيل: ${item.radar.seated} طالباً في المقرر على ${item.radar.sections} شعبة`}><UsersRound aria-hidden="true" /><b>{item.radar.seated}</b>/<span>{item.radar.sections}</span></small> : null}
         </span>
         <span className="room-replaceable-actions">
           {item.sameCourse ? <button type="button" className="room-replaceable-assign is-best" disabled={replaceBusy}

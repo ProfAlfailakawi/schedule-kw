@@ -108,6 +108,8 @@
 .room-replaceable-assign{display:inline-flex;align-items:center;gap:4px;min-height:34px;padding:5px 11px;border:1px solid var(--brass);border-radius:999px;background:var(--surface);color:var(--brass);font-size:var(--t-xs);font-weight:800;cursor:pointer}
 .room-replaceable-assign svg{width:13px;height:13px}
 .room-replaceable-assign:hover:not(:disabled){background:var(--brass);color:var(--surface)}
+.room-replaceable-radar{display:inline-flex;align-items:center;gap:3px;justify-self:start;padding:1px 8px;border-radius:999px;background:var(--warning-soft);color:var(--warning)!important;font-weight:700}
+.room-replaceable-radar svg{width:12px;height:12px}
 .room-replaceable-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
 .room-replaceable-assign.is-best{background:var(--brass);color:var(--surface)}
 .room-replaceable-assign.is-danger{border-color:color-mix(in srgb,var(--danger) 45%,var(--line));color:var(--danger)}

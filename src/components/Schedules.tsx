@@ -3449,105 +3449,59 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* 🔄 إسناد الأستاذ إلى شعبة «هيئة تدريسية» القائمة للمقرر نفسه بدل موعدٍ جديد:
      تعديل صفٍّ واحد عبر بوابة الحفظ نفسها (PUT)، مسجَّل، وبزرّ تراجع. */
   const [replaceBusy, setReplaceBusy] = useState(false);
-  const assignToPlaceholder = async (section: ReplaceableSection) => {
+  /* ── 🔄 «هيئة تدريسية»: إسناد · تبديل · استبدال — طلبٌ واحد ذرّي (G3) ──────
+     الخادم (/api/schedules/placeholder-action) يفحص كل خطوة بمساري الحفظ والتعديل
+     على الأسبوع كما سيصير، ثم يكتب الشعبة والموعد الجديد معاً أو لا شيء، ويعيد
+     خطوات التراجع. هنا: تأكيدٌ بصورة «قبل/بعد»، ثم ضغطة واحدة. */
+  const placeholderAction = async (section: ReplaceableSection, action: "assign" | "swap" | "replace") => {
     const target = rows.find(row => Number(row.id) === Number(section.rowId));
     const teacherId = Number(form.AdInstructorId || 0);
-    if (!target || !teacherId) { setError("تعذّر العثور على الشعبة أو الأستاذ."); return; }
+    if (!target || !teacherId) { setError("اختر الأستاذ أولاً."); return; }
+    if (action !== "assign" && (!form.AdCourseId || !String(form.SCode || "").trim())) { setError("أكمل المقرر والشعبة أولاً."); return; }
     const teacher = instructorById.get(teacherId)?.AdInstructorName || "الأستاذ";
-    const confirmed = await visualConfirm({
-      title: "إسناد بدل موعد جديد",
-      message: `تُسند شعبة ${target.SCode || ""} (${formatScheduleTimeRange(target.fstarttime, target.fendtime)} · ${target.AdRoomCode}/${target.AdRoomHall}) إلى ${teacher} بدل «هيئة تدريسية»، ولا يُنشأ موعد جديد. يمكنك التراجع.`,
-      confirmLabel: "إسناد",
-      compact: true,
-    });
-    if (!confirmed) return;
+    const where = `${target.AdRoomCode}/${target.AdRoomHall} · ${formatScheduleTimeRange(target.fstarttime, target.fendtime)}`;
+    const students = section.radar ? ` في رادار التسجيل ${countOf(section.radar.seated, AR.student)} على ${countOf(section.radar.sections, AR.section)} لهذا المقرر — انقل المتأثرين قبل التغيير.` : "";
     setReplaceBusy(true);
     try {
-      const { id: _id, AdCourseName: _name, ...values } = target as any;
-      const saved = await fetchJson(`/api/schedules/${target.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...values, AdInstructorId: teacherId, rev: (target as any).rev }),
-      });
-      offerUndo(`إسناد ${courseById.get(target.AdCourseId)?.CourseName || "شعبة"} ${target.SCode || ""}`, [restoreStep(target)]);
-      if (saved && typeof saved === "object" && Number((saved as any).id)) {
-        setRows(current => current.map(item => (Number(item.id) === Number((saved as any).id) ? (saved as FSchedule) : item)));
-      } else await loadRows({ silent: true });
-      markChanged(Number(target.id));
-      back();
-      requestAnimationFrame(() => setMessage(`أُسندت الشعبة ${target.SCode || ""} إلى ${teacher} — لم يُنشأ موعد جديد.`));
-    } catch (e: any) {
-      setError(friendlyError(e));
-    } finally {
-      setReplaceBusy(false);
-    }
-  };  /* 🔁 تبديل: تُنقل شعبة «هيئة تدريسية» إلى قاعةٍ حرّة أخرى في الوقت نفسه (المحرّك نفسه يجدها
-     وبوابة الحفظ تقبلها)، وتُعطى قاعتُها لهذا الموعد. 🗑️ استبدال: تُحذف الشعبة الشاغرة (بتأكيدٍ
-     وتحذير الطلبة) وتأخذ هذا الموعد قاعتَها. كلاهما مسجّل وبزرّ تراجع. */
-  const takeFreedRoom = (target: FSchedule) => {
-    setForm(prev => ({ ...prev, buildingId: target.buildingId, roomId: target.roomId, AdRoomCode: target.AdRoomCode, AdRoomHall: target.AdRoomHall, locationStatus: "VERIFIED" as const }));
-    setRoomIdeas(null);
-    setRoomReplaceable([]);
-  };
-  const swapPlaceholder = async (section: ReplaceableSection) => {
-    const target = rows.find(row => Number(row.id) === Number(section.rowId));
-    if (!target) { setError("تعذّر العثور على الشعبة."); return; }
-    setReplaceBusy(true);
-    try {
-      const { id: _id, AdCourseName: _name, ...values } = target as any;
-      const reply = await fetchSuggestions(suggestionBody({ ...values, excludeId: target.id }, "room"));
-      const other = reply.slots.find(slot => !(String(slot.roomId || "") === String(target.roomId || "") || (slot.room === target.AdRoomCode && slot.hall === target.AdRoomHall)));
-      if (!other) { setError(`لا قاعة حرّة لنقل الشعبة ${target.SCode || ""} إليها في الوقت نفسه.`); return; }
+      let swapTo: any = null;
+      if (action === "swap") {
+        const { id: _id, AdCourseName: _name, ...values } = target as any;
+        const reply = await fetchSuggestions(suggestionBody({ ...values, excludeId: target.id }, "room"));
+        const other = reply.slots.find(slot => String(slot.roomId || "") !== String(target.roomId || "") && !(slot.room === target.AdRoomCode && slot.hall === target.AdRoomHall));
+        if (!other) { setError(`لا قاعة حرّة لنقل الشعبة ${target.SCode || ""} إليها في الوقت نفسه.`); return; }
+        swapTo = { buildingId: other.buildingId, roomId: other.roomId, AdRoomCode: other.room, AdRoomHall: other.hall };
+      }
+      const message = action === "assign"
+        ? `قبل: شعبة ${target.SCode || ""} «هيئة تدريسية» · ${where}\nبعد: الشعبة نفسها لـ ${teacher} — لا يُنشأ موعد جديد.`
+        : action === "swap"
+          ? `قبل: شعبة ${target.SCode || ""} «هيئة تدريسية» · ${where}\nبعد: تنتقل إلى ${swapTo.AdRoomCode}/${swapTo.AdRoomHall}، ويُحفظ موعد ${teacher} في قاعتها.`
+          : `قبل: شعبة ${target.SCode || ""} «هيئة تدريسية» · ${where}\nبعد: تُحذف، ويُحفظ موعد ${teacher} في قاعتها.${students}`;
       const confirmed = await visualConfirm({
-        title: "تبديل القاعة",
-        message: `تنتقل شعبة ${target.SCode || ""} («هيئة تدريسية») من ${target.AdRoomCode}/${target.AdRoomHall} إلى ${other.room}/${other.hall} في الوقت نفسه، وتأخذ هذا الموعد قاعتَها. يمكنك التراجع.`,
-        confirmLabel: "تبديل",
+        title: action === "assign" ? "إسناد بدل موعد جديد" : action === "swap" ? "تبديل القاعة" : "استبدال الشعبة الشاغرة",
+        message: message + (action !== "replace" && students ? `\n${students}` : "") + "\nتُنفَّذ الخطوتان معاً أو لا شيء، ويمكنك التراجع.",
+        confirmLabel: action === "assign" ? "إسناد" : action === "swap" ? "تبديل وحفظ" : "استبدال وحفظ",
+        ...(action === "replace" ? { tone: "danger" as const } : {}),
         compact: true,
       });
       if (!confirmed) return;
-      const saved = await fetchJson(`/api/schedules/${target.id}`, {
-        method: "PUT",
+      const result = await fetchJson("/api/schedules/placeholder-action", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...values, buildingId: other.buildingId, roomId: other.roomId, AdRoomCode: other.room, AdRoomHall: other.hall, locationStatus: "VERIFIED", rev: (target as any).rev }),
+        body: JSON.stringify({ action, placeholderId: target.id, placeholderRev: (target as any).rev, appointment: { ...form, AdInstructorId: teacherId }, swapTo }),
       });
-      offerUndo(`تبديل قاعة شعبة ${target.SCode || ""}`, [restoreStep(target)]);
-      if (saved && typeof saved === "object" && Number((saved as any).id)) setRows(current => current.map(item => (Number(item.id) === Number((saved as any).id) ? (saved as FSchedule) : item)));
-      else await loadRows({ silent: true });
+      offerUndo(action === "assign" ? `إسناد شعبة ${target.SCode || ""}` : action === "swap" ? `تبديل قاعة شعبة ${target.SCode || ""}` : `استبدال شعبة ${target.SCode || ""}`, Array.isArray(result?.undo) ? result.undo : []);
       forgetSuggestions();
-      takeFreedRoom(target);
-      setMessage(`نُقلت الشعبة ${target.SCode || ""} إلى ${other.room}/${other.hall} — القاعة ${target.AdRoomCode}/${target.AdRoomHall} لموعدك.`);
+      await loadRows({ silent: true });
+      markChanged(Number(result?.createdId || target.id));
+      back();
+      requestAnimationFrame(() => setMessage(action === "assign" ? `أُسندت الشعبة ${target.SCode || ""} إلى ${teacher} — لم يُنشأ موعد جديد.` : action === "swap" ? `نُقلت الشعبة ${target.SCode || ""} وحُفظ موعد ${teacher} في قاعتها.` : `استُبدلت الشعبة ${target.SCode || ""} بموعد ${teacher}.`));
     } catch (e: any) {
       setError(friendlyError(e));
     } finally {
       setReplaceBusy(false);
     }
   };
-  const replacePlaceholder = async (section: ReplaceableSection) => {
-    const target = rows.find(row => Number(row.id) === Number(section.rowId));
-    if (!target) { setError("تعذّر العثور على الشعبة."); return; }
-    const confirmed = await visualConfirm({
-      title: "استبدال الشعبة الشاغرة",
-      message: `تُحذف شعبة ${target.SCode || ""} («هيئة تدريسية» · ${formatScheduleTimeRange(target.fstarttime, target.fendtime)} · ${target.AdRoomCode}/${target.AdRoomHall}) ويأخذ هذا الموعد قاعتَها. إن كان عليها طلبة مسجّلون فانقلهم أولاً. يمكنك التراجع.`,
-      confirmLabel: "حذف واستبدال",
-      tone: "danger",
-      compact: true,
-    });
-    if (!confirmed) return;
-    setReplaceBusy(true);
-    try {
-      await fetchJson(`/api/schedules/${target.id}`, { method: "DELETE" });
-      const { id: _id, AdCourseName: _name, ...values } = target as any;
-      offerUndo(`استبدال شعبة ${target.SCode || ""}`, [{ method: "POST", url: "/api/schedules", body: values }]);
-      setRows(current => current.filter(item => Number(item.id) !== Number(target.id)));
-      forgetSuggestions();
-      takeFreedRoom(target);
-      setMessage(`حُذفت الشعبة الشاغرة ${target.SCode || ""} — قاعتها لموعدك (يمكنك التراجع).`);
-    } catch (e: any) {
-      setError(friendlyError(e));
-    } finally {
-      setReplaceBusy(false);
-    }
-  };
+
 
   /**
    * What the regulation would say about this appointment, said while it is
@@ -9215,7 +9169,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         roomIdeas.length || roomReplaceable.length ? (
                           <RoomSuggestionCards suggestions={roomIdeas} onSelect={takeSlot} label="قاعات متاحة في هذا الوقت"
                             replaceable={roomReplaceable} replaceBusy={replaceBusy}
-                            onReplaceable={(section, action) => void (action === "assign" ? assignToPlaceholder(section) : action === "swap" ? swapPlaceholder(section) : replacePlaceholder(section))} />
+                            onReplaceable={(section, action) => void placeholderAction(section, action)} />
                         ) : (
                           <SuggestionEmpty reason={roomIdeasReason} note={roomIdeasNote || "لا توجد قاعة خالية من قاعات القسم في هذا الوقت."} />
                         )

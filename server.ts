@@ -8303,12 +8303,131 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
     .sort((a,b)=>Number(b.sameCourse)-Number(a.sameCourse))
     .slice(0,4):[];
 
+  /* عدد الطلبة يُذكر فقط حين يوجد رادار تسجيلٍ حالي للفصل: مجموع مقاعد المقرر وعدد شعبه
+     كما حسبهما الرادار — لا رقمَ مخترعاً لكل شعبة، ولا رقمَ إن لم يوجد رادار. */
+  if (replaceable.length) {
+    const run = await Repository.getRegistrationRun(termId).catch(() => undefined);
+    if (run && !run.stale) {
+      for (const item of replaceable as any[]) {
+        const course = (run.courses || []).find(entry => Number(entry.courseId) === item.courseId && Number(entry.sectionId) === sectionId);
+        if (course) item.radar = { seated: Number(course.seated || 0), sections: Number(course.sections || 0) };
+      }
+    }
+  }
   if (!slots.length) {
     const reason = emptySuggestionReason({ ...stats, gate: rejectedByScheduleGate });
     res.json({ slots, reason, note: SUGGESTION_EMPTY_WORD[reason], replaceable, considered: candidates.length, rejectedByScheduleGate });
     return;
   }
   res.json({ slots, replaceable, considered: candidates.length, rejectedByScheduleGate });
+});
+
+/* ── 🔄 شعبة «هيئة تدريسية» قابلة للاستبدال: تنفيذٌ ذرّي (G3) ────────────────────
+ * assign  — يُسند الأستاذ إلى الشعبة القائمة للمقرر نفسه (لا موعد جديد).
+ * swap    — تنتقل الشعبة إلى قاعةٍ حرّة أخرى (swapTo)، ويُحفظ الموعد الجديد في قاعتها.
+ * replace — تُحذف الشعبة ويُحفظ الموعد الجديد في قاعتها.
+ * كل خطوة تمرّ أولاً من مساري الحفظ والتعديل نفسيهما فحصاً جافّاً على الأسبوع كما سيصير
+ * (النطاق، القفل، المكان، المرفق، الساعات، التعارض)، ثم تُكتب كلها في معاملة واحدة
+ * (Repository.commitScheduleChangeSet) أو لا يُكتب شيء. والردّ يحمل خطوات التراجع. */
+app.post("/api/schedules/placeholder-action", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const action = String(req.body?.action || "");
+  if (!["assign", "swap", "replace"].includes(action)) { res.status(400).json({ error: "إجراءٌ غير معروف." }); return; }
+  const placeholder = await Repository.getScheduleById(Number(req.body?.placeholderId || 0));
+  if (!placeholder) { res.status(404).json({ error: "الشعبة غير موجودة." }); return; }
+  if (!isScopeAllowed(req, placeholder.AdCollegeId, placeholder.AdSectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  if (req.body?.placeholderRev != null && Number(req.body.placeholderRev) !== Number(placeholder.rev || 0)) {
+    res.status(409).json({ error: "تغيّرت هذه الشعبة أثناء عملك؛ لم يُحفظ شيء.", conflict: "revision", current: placeholder }); return;
+  }
+  const instructors = await Repository.getInstructors();
+  const placeholders = placeholderInstructorIds(instructors as any);
+  if (!placeholders.has(Number(placeholder.AdInstructorId))) { res.status(409).json({ error: "هذه الشعبة لم تعد «هيئة تدريسية»." }); return; }
+  const termId = Number(placeholder.AdTermId);
+  const appointment = req.body?.appointment || {};
+  const teacherId = Number(appointment.AdInstructorId || 0);
+  if (!teacherId || placeholders.has(teacherId)) { res.status(400).json({ error: "اختر الأستاذ أولاً." }); return; }
+  if (Number(appointment.AdTermId || termId) !== termId || Number(appointment.AdCollegeId || placeholder.AdCollegeId) !== Number(placeholder.AdCollegeId)
+    || Number(appointment.AdSectionId || placeholder.AdSectionId) !== Number(placeholder.AdSectionId)) {
+    res.status(400).json({ error: "الموعد والشعبة في نطاقين مختلفين." }); return;
+  }
+  const lock = await scheduleLockRefusal(req, placeholder.AdCollegeId, placeholder.AdSectionId, termId);
+  if (lock) { res.status(409).json({ error: lock, code: "schedule-locked" }); return; }
+
+  const rowBody = (row: FSchedule) => {
+    const { id: _id, AdCourseName: _name, ...values } = row as any;
+    return values;
+  };
+  const placeRoom = { buildingId: placeholder.buildingId, roomId: placeholder.roomId, AdRoomCode: placeholder.AdRoomCode, AdRoomHall: placeholder.AdRoomHall, locationStatus: placeholder.locationStatus || "VERIFIED" };
+  type Op = { kind: "create"; body: any; tempId: number } | { kind: "update"; rowId: number; original: FSchedule; body: any } | { kind: "delete"; rowId: number; original: FSchedule };
+  const ops: Op[] = [];
+  if (action === "assign") {
+    if (Number(appointment.AdCourseId || 0) !== Number(placeholder.AdCourseId)) { res.status(400).json({ error: "الإسناد للمقرر نفسه فقط؛ استعمل التبديل أو الاستبدال." }); return; }
+    ops.push({ kind: "update", rowId: placeholder.id, original: placeholder, body: { ...rowBody(placeholder), AdInstructorId: teacherId } });
+  } else {
+    const createBody = { ...appointment, ...placeRoom, AdCollegeId: placeholder.AdCollegeId, AdSectionId: placeholder.AdSectionId, AdTermId: termId };
+    delete createBody.id; delete createBody.excludeId; delete createBody.rev;
+    if (action === "swap") {
+      const to = req.body?.swapTo || {};
+      if (!to.buildingId || !to.roomId) { res.status(400).json({ error: "حدّد القاعة الحرّة التي تنتقل إليها الشعبة." }); return; }
+      ops.push({ kind: "update", rowId: placeholder.id, original: placeholder, body: { ...rowBody(placeholder), buildingId: to.buildingId, roomId: to.roomId, AdRoomCode: to.AdRoomCode, AdRoomHall: to.AdRoomHall, locationStatus: "VERIFIED", companionRoomId: placeholder.companionRoomId } });
+    } else {
+      ops.push({ kind: "delete", rowId: placeholder.id, original: placeholder });
+    }
+    ops.push({ kind: "create", body: createBody, tempId: -900101 });
+  }
+
+  /* ── الأسبوعُ كما سيصير، وفحصٌ جافّ لكل خطوة عليه بمساري الحفظ والتعديل ── */
+  const termRows = await Repository.getSchedulesByScope({ termId });
+  const removed = new Set(ops.filter(op => op.kind === "delete").map(op => (op as any).rowId as number));
+  const updatedBy = new Map(ops.filter(op => op.kind === "update").map(op => [(op as any).rowId as number, op] as const));
+  const created = ops.filter(op => op.kind === "create") as Array<Extract<Op, { kind: "create" }>>;
+  const finalWeek: FSchedule[] = [
+    ...termRows.filter(row => !removed.has(Number(row.id))).map(row => { const op: any = updatedBy.get(Number(row.id)); return op ? ({ ...row, ...op.body } as FSchedule) : row; }),
+    ...created.map(op => ({ ...op.body, id: op.tempId } as FSchedule)),
+  ];
+  const weekFor = (op: Op) => op.kind === "create" ? finalWeek.filter(row => Number(row.id) !== op.tempId) : finalWeek;
+  const warnings: any[] = [];
+  for (const op of ops) {
+    if (op.kind === "delete") continue;
+    const dry = op.kind === "update"
+      ? await runScheduleHandler(updateScheduleHandler, req, { params: { id: String(op.rowId) }, body: { ...op.body, rev: op.original.rev }, hypotheticalWeek: weekFor(op), dryRun: true })
+      : await runScheduleHandler(createScheduleHandler, req, { body: op.body, hypotheticalWeek: weekFor(op), dryRun: true });
+    if (dry.status >= 400) { res.status(dry.status).json({ ...(dry.body && typeof dry.body === "object" ? dry.body : { error: "تعذّر التنفيذ." }), step: op.kind, applied: false }); return; }
+    op.body = dry.body.row;
+    warnings.push(...(dry.body?.warnings || []));
+  }
+
+  const version = await captureScopeVersion(req, placeholder.AdCollegeId, placeholder.AdSectionId, termId,
+    action === "assign" ? "قبل إسناد شعبة «هيئة تدريسية»" : action === "swap" ? "قبل تبديل قاعة شعبة «هيئة تدريسية»" : "قبل استبدال شعبة «هيئة تدريسية»", "manual");
+  const registry = await readLocationRegistry();
+  let committed: { rows: FSchedule[]; deletedIds: number[] };
+  try {
+    committed = await Repository.commitScheduleChangeSet(termId, ops.map(op => op.kind === "create" ? { kind: "create" as const, body: op.body } : op as any),
+      row => canonicalizeHistoricalLocationForRuntime(row, registry), placeholders, async (rows, week) => {
+        for (const row of rows) { const issue = await scheduleLengthIssue(row, week); if (issue) throw new RequestReservationConflict(issue); }
+      });
+  } catch (error: any) {
+    res.status(error instanceof ScheduleRevisionConflict || error instanceof RequestReservationConflict ? 409 : 503)
+      .json({ error: error?.message || "تعذّر التنفيذ. لم يُحفظ أي تغيير.", applied: false });
+    return;
+  }
+  try {
+    await recordVersionAfter(version, before => [...before.filter(row => !removed.has(Number(row.id)) && !committed.rows.some(item => Number(item.id) === Number(row.id))),
+      ...committed.rows.filter(row => Number(row.AdCollegeId) === Number(placeholder.AdCollegeId) && Number(row.AdSectionId) === Number(placeholder.AdSectionId))]);
+    await noteScheduleMutation(req, placeholder.AdCollegeId, placeholder.AdSectionId, termId, { kind: action === "assign" ? "edit" : "add", rows: committed.rows } as any);
+  } catch { warnings.push({ message: "حُفظ التغيير؛ تعذّر تحديث سجل النسخة أو الإشعار." }); }
+  const createdRow = committed.rows.find(row => !updatedBy.has(Number(row.id)) && Number(row.id) !== Number(placeholder.id));
+  const teacherName = instructors.find(person => Number(person.AdInstructorId) === teacherId)?.AdInstructorName || "";
+  const label = `${placeholder.AdCourseName || "مقرر"} · شعبة ${placeholder.SCode} · ${formatScheduleTimeRange(placeholder.fstarttime, placeholder.fendtime)} · ${placeholder.AdRoomCode}/${placeholder.AdRoomHall}`;
+  res.locals.auditChanges = action === "assign" ? `إسناد «هيئة تدريسية» إلى ${teacherName}: ${label}`
+    : action === "swap" ? `تبديل قاعة «هيئة تدريسية» (${label}) إلى ${req.body?.swapTo?.AdRoomCode}/${req.body?.swapTo?.AdRoomHall} وإضافة موعد ${teacherName} مكانها`
+      : `استبدال «هيئة تدريسية» (${label}) بموعد ${teacherName}`;
+  res.locals.auditRowIds = [...committed.rows.map(row => Number(row.id)), ...committed.deletedIds];
+  /* خطوات التراجع بالترتيب: يُزال الجديد أولاً ثم تعود الشعبة كما كانت. */
+  const undo: Array<{ method: "PUT" | "POST" | "DELETE"; url: string; body?: any }> = [];
+  if (createdRow) undo.push({ method: "DELETE", url: `/api/schedules/${createdRow.id}` });
+  if (action === "replace") undo.push({ method: "POST", url: "/api/schedules", body: rowBody(placeholder) });
+  else undo.push({ method: "PUT", url: `/api/schedules/${placeholder.id}`, body: rowBody(placeholder) });
+  res.json({ ok: true, action, rows: committed.rows, deletedIds: committed.deletedIds, createdId: createdRow?.id || 0, undo, warnings });
 });
 
 /* ── استثناءات الأسبوع ────────────────────────────────────────────────────────
