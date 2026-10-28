@@ -320,7 +320,7 @@ export async function seedDemoMasariDemand(): Promise<void> {
         current && current.wishes ? {
           ...current, wishes: { ...current.wishes,
             courseIds: [a, b], // dedicated, genuinely eligible fictional two-course journey for full-bundle what-if
-            constraints: { ...current.wishes.constraints, noMorning: true, noAfternoon: false },
+            constraints: { ...current.wishes.constraints, noMorning: false, noAfternoon: false },
           },
         } as StudentProfile : current);
       seeded = true;
