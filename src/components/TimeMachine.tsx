@@ -16,6 +16,7 @@ import ScenarioWorkbench from "./ScenarioWorkbench";
 import { AR, countOf } from "../utils/arabicCount";
 import { SectionSimulatorBody } from "./SectionSimulator";
 import { COMPARE_ICON, Ico, LevelDot, Loading, PHILOSOPHY_ICON, scopeQuery, type IcoName, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
+import { takeTimeMachineAsk } from "../utils/timeMachineLink";
 
 type Mode = "emergency" | "lab" | "goal";
 
@@ -59,6 +60,13 @@ function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: 
   const loadSaved = () => fetch(`/api/time-machine/scenarios?${scopeQuery(context)}`, { credentials: "include" })
     .then(r => r.json()).then(body => setSaved(Array.isArray(body?.scenarios) ? body.scenarios : [])).catch(() => setSaved([]));
   useEffect(() => { void loadSaved(); }, [context]);
+  /* جملةٌ جاءت من شاشةٍ أخرى (التنبؤ، التخطيط): تُكتب في خانة الطوارئ وتُحلّ فوراً، مرّةً واحدة. */
+  useEffect(() => {
+    const ask = takeTimeMachineAsk();
+    if (!ask) return;
+    setMode("emergency"); setText(ask); run(parseProblem(ask, context));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const run = (next: TmProblem | null) => {
     setChosen(null); setScenario(null);

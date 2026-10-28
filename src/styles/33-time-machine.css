@@ -293,3 +293,9 @@
 .tm-level-yellow{color:color-mix(in srgb,var(--warning) 35%,#e8b422)}
 .tm-level-red{color:var(--danger)}
 .tm-bench-head .tm-dot{width:20px;height:20px}
+
+/* ── روابط آلة الزمن من الشاشات الأخرى (التنبؤ) ── */
+.tm-link-btn{display:inline-grid;place-items:center;inline-size:28px;block-size:28px;padding:0;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--accent);cursor:pointer;flex:none;transition:background .16s,border-color .16s}
+.tm-link-btn:hover{background:var(--accent-softer);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.tm-link-btn:focus-visible{outline:0;box-shadow:var(--ring)}
+.pi-row-num .tm-link-btn svg{inline-size:14px;block-size:14px;color:var(--accent)}
