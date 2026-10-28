@@ -17,6 +17,7 @@
     "test:ta-conversion": "tsx tests/ta-conversion-audit.ts",
     "test:visiting-status": "tsx tests/visiting-status-permanent-audit.ts",
     "test:decision-1913": "tsx tests/decision-1913-audit.ts",
+    "test:approval-review": "tsx tests/approval-review-audit.ts",
     "test:voice-input": "tsx tests/voice-input-audit.ts",
     "test:teacher-card-flow": "tsx tests/teacher-card-flow-audit.ts",
     "test:day-autofill": "tsx tests/request-day-autofill-audit.ts",

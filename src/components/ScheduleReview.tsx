@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { AlertTriangle, BookOpen, Building2, CalendarDays, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, History, Info, Printer, UserRound, X } from "lucide-react";
+import { AlertTriangle, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, History, Info, Printer, TrendingUp, UserRound, Wrench, X } from "lucide-react";
 import type { AdCollege, AdCourse, AdInstructor, FSchedule } from "../types";
 import { PrintLetterhead, PrintPortal, PrimaryButton, SecondaryButton, useDialogDismiss } from "./ui";
 import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
 import PagedFindingList from "./PagedFindingList";
 import { packPrintFindings, type PrintFindingPiece } from "../utils/printFindingPages";
 import {
-  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, isDecision1912Finding, periodBalanceSnapshot, PERIOD_BALANCE_MIN_SECTIONS, appointmentCoverageScore, reviewSchedule,
+  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, isDecision1912Finding, periodBalanceSnapshot, PERIOD_BALANCE_MIN_SECTIONS, reviewSchedule,
   type DayKey, type RegulationFinding
 } from "../utils/scheduleRegulations";
 import type { CourseNature } from "../utils/courseNature";
@@ -17,6 +17,7 @@ import { blockingSummaryPhrase } from "../utils/approvalWorkflow";
 import { roomIdentityKey, roomDisplay } from "../utils/locationRegistry";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { rowsInApprovalScope } from "../utils/approvalScope";
+import { approvalScoreBreakdown } from "../utils/approvalScore";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import PlanBadge from "./PlanBadge";
 import AcademicAdvicePanel from "./AcademicAdvicePanel";
@@ -72,17 +73,28 @@ const findingBaseTitle = (title: string) =>
 const groupFindingKey = (finding: RegulationFinding) =>
   [finding.approvalEffect, finding.source, finding.article, findingBaseTitle(finding.title)].join("::");
 
+/**
+ * A material blocker is what canSign refuses: a teacher or a room in two places
+ * at once, or the same entry twice. Everything else — the decision's articles,
+ * an unfinished row — wants treatment but does not stop a signature, so it is
+ * never listed under «يوجد ما يمنع الاعتماد» (I2).
+ */
+const MATERIAL_BLOCKER_ARTICLE = "موانع الحفظ";
+const isMaterialFinding = (finding: RegulationFinding) =>
+  finding.source === "readiness" && finding.approvalEffect === "block" && finding.article === MATERIAL_BLOCKER_ARTICLE;
+
 const findingStatus = (finding: RegulationFinding) => {
-  if (finding.approvalEffect === "block") return "مانع اعتماد";
+  if (isMaterialFinding(finding)) return "مانع اعتماد";
+  if (finding.approvalEffect === "block") return "يحتاج معالجة";
   if (finding.source === "decision-1912") return finding.approvalEffect === "review" ? "مراجعة لائحية" : "ملاحظة لائحية";
   if (finding.source === "history") return "سياق تاريخي";
   if (finding.source === "department") return "سياسة القسم";
   return "مراجعة";
 };
 
-/** Visual tone follows approval effect, not the rule's analytical severity. */
+/** Visual tone follows what the finding does to a signature, not its analytical severity. */
 const findingTone = (finding: RegulationFinding): "high" | "medium" | "low" =>
-  finding.approvalEffect === "block" ? "high" : finding.approvalEffect === "review" ? "medium" : "low";
+  isMaterialFinding(finding) ? "high" : finding.approvalEffect === "block" || finding.approvalEffect === "review" ? "medium" : "low";
 const findingIcon = (finding: RegulationFinding) => {
   const tone = findingTone(finding);
   return tone === "high" ? <AlertTriangle /> : tone === "medium" ? <Info /> : <CheckCircle2 />;
@@ -223,10 +235,20 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     family.instructors.forEach(person => { if (!merged.has(Number(person.AdInstructorId))) merged.set(Number(person.AdInstructorId), person); });
     return merged;
   }, [family, instructorsProp]);
-  /* الرأس يصف ما قُرئ فعلاً: عائلةٌ بأكثر من عضو، أو الكلية المفتوحة وحدها. */
-  const scopeLabel = family && (family.members?.length || 0) > 1
-    ? `${scopeLine} · مع ${countOf((family.members?.length || 1) - 1, AR.college)} أخرى من القسم`
-    : scopeLine;
+  /* ── لا خلط بين الكليات (I3) ─────────────────────────────────────────────
+     العائلة تُقرأ لسببٍ واحد: حِملُ الأستاذ الذي يدرّس في بنين وبنات معاً
+     (التتابع م.6/2،3). أمّا الدرجة والموانع وملاحظات المقرر والشعبة فتُحسب
+     لمواعيد الكلية المفتوحة وحدها — هي ما يُوقَّع عليه. والرأس يقول ذلك صراحةً. */
+  const scopeRows = useMemo(
+    () => (family ? rows.filter(row => Number(row.AdCollegeId) === Number(collegeId) && Number(row.AdSectionId) === Number(sectionId)) : rows),
+    [family, rows, collegeId, sectionId],
+  );
+  const scopeIds = useMemo(() => new Set(scopeRows.map(row => Number(row.id))), [scopeRows]);
+  const otherColleges = family ? Math.max(0, (family.members?.length || 1) - 1) : 0;
+  const scopeLabel = scopeLine;
+  const familyNote = otherColleges > 0
+    ? `الدرجة والموانع لهذه الكلية وحدها · حِمل الأستاذ المشترك يُقرأ مع ${countOf(otherColleges, AR.college)} أخرى من القسم`
+    : "";
   const loadedIds = useMemo(() => new Set(localRows.map(row => row.id)), [localRows]);
   const previousRows = family?.previousRows ?? previousRowsProp;
   const nature = useMemo(
@@ -292,17 +314,29 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       rowIds: [Number(item.rowId), Number(item.otherId)].filter(Boolean),
     })), [localConflicts]);
   const serverRead = readinessChecked && !readinessError;
-  const activeBlockers = serverRead ? serverBlockers : localBlockers;
+  /* Only the opened college's feet of each conflict: a clash that lives wholly
+     in a sister college is that college's to sign, not this one's (I3). */
+  const activeBlockers = useMemo(() => (serverRead ? serverBlockers : localBlockers)
+    .map(item => ({ ...item, rowIds: (Array.isArray(item.rowIds) ? item.rowIds : []).map(Number).filter(id => scopeIds.has(id)) }))
+    .filter(item => item.rowIds.length > 0), [serverRead, serverBlockers, localBlockers, scopeIds]);
   const activeWarnings = serverRead ? serverWarnings : localWarnings;
+  void activeWarnings;
   /* The headline is the ApprovalBar's: blocking conflicts (pairs), then the
-     appointments they touch — the same `approvalBlockerSummary` reading. */
-  const blockerSummary = serverRead && serverSummary
-    ? serverSummary
-    : { conflicts: localConflicts.length, rows: blockingRowIds(localConflicts, rows).length, duplicates: doubleEntryCount(localConflicts) };
+     appointments they touch — read from the same scoped list as the cards. */
+  const blockerSummary = useMemo(() => {
+    if (!family && serverRead && serverSummary) return serverSummary;
+    if (!family && !serverRead) return { conflicts: localConflicts.length, rows: blockingRowIds(localConflicts, rows).length, duplicates: doubleEntryCount(localConflicts) };
+    const conflicts = activeBlockers.filter(item => !String(item.type || "").startsWith("hallBarter"));
+    return {
+      conflicts: conflicts.length,
+      rows: new Set(conflicts.flatMap(item => item.rowIds)).size,
+      duplicates: conflicts.filter(item => item.type === "duplicate").length,
+    };
+  }, [family, serverRead, serverSummary, localConflicts, rows, activeBlockers]);
 
   const blockerFindings = useMemo<RegulationFinding[]>(() => activeBlockers.map((item, index) => ({
     rule: item.id || `approval-blocker-${index}`,
-    article: "موانع الحفظ",
+    article: MATERIAL_BLOCKER_ARTICLE,
     severity: "high",
     source: "readiness",
     approvalEffect: "block",
@@ -327,20 +361,29 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     subjectLabel: item.subjectLabel,
     rowIds: Array.isArray(item.rowIds) ? item.rowIds.map(Number).filter(Boolean) : [],
   })), [activeWarnings]);
-  const readinessFindings = useMemo(() => baseFindings.filter(finding => finding.source === "readiness"), [baseFindings]);
-  const supplementalFindings = useMemo(() => baseFindings.filter(finding => finding.source !== "readiness" && !isDecision1912Finding(finding)), [baseFindings]);
-  // Approval reads in a predictable order: hard save blockers, decision 1912,
-  // then historical/department context. This keeps different authorities from
-  // being visually mixed under one regulation heading.
+  /* Scoped to the opened college (I3). An instructor-load finding keeps its
+     sister-college feet as context — the same person teaches both — but only
+     appears when this college is one of them. */
+  const inScope = React.useCallback((finding: RegulationFinding): RegulationFinding | null => {
+    const crossCollege = finding.rule.startsWith("consecutive-");
+    const touched = finding.rowIds.filter(id => scopeIds.has(Number(id)));
+    if (!touched.length) return null;
+    return crossCollege ? finding : { ...finding, rowIds: touched };
+  }, [scopeIds]);
+  const readinessFindings = useMemo(() => baseFindings.filter(finding => finding.source === "readiness").map(inScope).filter(Boolean) as RegulationFinding[], [baseFindings, inScope]);
+  const regulationFindings = useMemo(() => decisionFindings.filter(finding => finding.approvalEffect === "block").map(inScope).filter(Boolean) as RegulationFinding[], [decisionFindings, inScope]);
+  // Approval reads in a predictable order: material blockers (what canSign
+  // refuses), then the decision's findings that need treatment. Only the first
+  // shelf is «يوجد ما يمنع الاعتماد» (I2).
   const findings = useMemo(
-    () => [...blockerFindings, ...readinessFindings.filter(finding => finding.approvalEffect === "block"), ...decisionFindings.filter(finding => finding.approvalEffect === "block")],
-    [blockerFindings, readinessFindings, decisionFindings]
+    () => [...blockerFindings, ...readinessFindings.filter(finding => finding.approvalEffect === "block"), ...regulationFindings],
+    [blockerFindings, readinessFindings, regulationFindings]
   );
-  const unclassifiedCourses = useMemo(() => new Set(rows.filter(row => {
+  const unclassifiedCourses = useMemo(() => new Set(scopeRows.filter(row => {
     const course = courses.get(Number(row.AdCourseId));
     const hours = Number(course?.CourseHours || course?.CourseCredit || 0);
     return (hours === 3 || hours === 4) && !course?.CourseTeachingMode;
-  }).map(row => Number(row.AdCourseId))).size, [rows, courses]);
+  }).map(row => Number(row.AdCourseId))).size, [scopeRows, courses]);
   const groupedFindings = useMemo<ReviewFindingGroup[]>(() => {
     const buckets = new Map<string, { base: RegulationFinding; items: RegulationFinding[]; rowIds: Set<number> }>();
     for (const finding of findings) {
@@ -360,36 +403,38 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       detail: bucket.items.length > 1 ? `جُمع هنا ${countOf(bucket.items.length, AR.conflict)} ${nounFor(bucket.items.length, AR.similarAdj)} في بند واحد.` : bucket.base.detail,
     }));
   }, [findings]);
-  const blocking = findings.filter(finding => finding.approvalEffect === "block");
+  /* What actually stops a signature: the material conflicts canSign refuses. */
+  const blocking = findings.filter(isMaterialFinding);
+  const regulationGroups = useMemo(() => groupedFindings.filter(finding => !isMaterialFinding(finding)), [groupedFindings]);
+
+  /**
+   * The score, traceable (I2): one formula, one ring cut by category, and for
+   * each category the score it would leave behind once fixed.
+   */
+  const breakdown = useMemo(() => approvalScoreBreakdown(
+    scopeRows.map(row => Number(row.id)),
+    [
+      ...(blocking.length ? [{ key: "material", label: "تعارض مادّي", tone: "block" as const, rowIds: blocking.flatMap(finding => finding.rowIds) }] : []),
+      ...regulationGroups.map(group => ({ key: group.groupKey, label: group.title, tone: "regulation" as const, rowIds: group.rowIds })),
+    ],
+  ), [scopeRows, blocking, regulationGroups]);
+  const score = breakdown.score;
 
   /**
    * The schedule as a bar rather than a list.
    *
-   * Every appointment is counted once, at the worst thing said about it, so the
-   * bar adds up to the schedule itself: this much is blocked, this much wants a
-   * look, this much is a note, and the rest is clean. Reading it takes no
-   * arithmetic — the clean part is simply the length of the green.
+   * Every appointment of the opened college is counted once, at the worst thing
+   * said about it, so the bar adds up to the schedule itself.
    */
   const spread = useMemo(() => {
-    const state = new Map<number, "high" | "medium" | "low">();
-    const rank = { high: 3, medium: 2, low: 1 } as const;
-    for (const finding of findings) {
-      const level: "high" | "medium" | "low" = finding.approvalEffect === "block" ? "high" : finding.approvalEffect === "review" ? "medium" : "low";
-      for (const id of finding.rowIds) {
-        const current = state.get(id);
-        if (!current || rank[level] > rank[current]) state.set(id, level);
-      }
-    }
-    const counts = { high: 0, medium: 0, low: 0 };
-    for (const level of state.values()) counts[level] += 1;
-    const flagged = counts.high + counts.medium + counts.low;
-    return { ...counts, clean: Math.max(0, rows.length - flagged), total: Math.max(1, rows.length) };
-  }, [findings, rows.length]);
-  const score = appointmentCoverageScore(spread.clean, rows.length);
+    const high = breakdown.segments.filter(segment => segment.tone === "block").reduce((sum, segment) => sum + segment.count, 0);
+    const medium = breakdown.segments.filter(segment => segment.tone === "regulation").reduce((sum, segment) => sum + segment.count, 0);
+    return { high, medium, low: 0, clean: breakdown.clean, total: Math.max(1, breakdown.total) };
+  }, [breakdown]);
   const share = (value: number) => `${(value / spread.total) * 100}%`;
   const spreadLabel = {
     high: `${countOf(spread.high, AR.appointment)} ${nounFor(spread.high, AR.blockVerb)} الاعتماد`,
-    medium: `${countOf(spread.medium, AR.appointment)} للمراجعة`,
+    medium: `${countOf(spread.medium, AR.appointment)} للمعالجة`,
     low: countOf(spread.low, AR.note),
     clean: `${countOf(spread.clean, AR.appointment)} ${nounFor(spread.clean, AR.soundAdj)}`,
   };
@@ -397,6 +442,21 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   const scoreTone = score >= 85 ? "good" : score >= 70 ? "warn" : "danger";
   // A ring drawn as a single arc: circumference 100 makes the maths the score.
   const ringLength = 2 * Math.PI * 26;
+  /* The on-screen ring is cut by category: each slice is the appointments that
+     category is first to touch; the green part is the score itself. */
+  const ringSlices = useMemo(() => {
+    let offset = 0;
+    const slices: Array<{ key: string; tone: string; length: number; offset: number; label: string }> = [];
+    const push = (key: string, toneName: string, count: number, label: string) => {
+      if (!count) return;
+      const length = (count / Math.max(1, breakdown.total)) * ringLength;
+      slices.push({ key, tone: toneName, length, offset, label });
+      offset += length;
+    };
+    push("clean", "clean", breakdown.clean, "سليم");
+    breakdown.segments.forEach((segment, index) => push(segment.key, segment.tone === "block" ? "block" : `reg-${index % 4}`, segment.count, segment.label));
+    return slices;
+  }, [breakdown, ringLength]);
 
   const byId = useMemo(() => new Map(rows.map(row => [row.id, row])), [rows]);
 
@@ -676,7 +736,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                       )}
                       {onFocusRows && finding.rowIds.some(id => loadedIds.has(id)) ? (
                         <SecondaryButton type="button" data-guide-ignore="إبراز مواعيد الملاحظة على الجدول فقط، لا يغيّر شيئاً" onClick={() => { onFocusRows(finding.rowIds.filter(id => loadedIds.has(id))); onClose(); }}>
-                          أظهرها على الجدول
+                          <Wrench aria-hidden="true" /> عالج
                         </SecondaryButton>
                       ) : null}
                     </>
@@ -694,19 +754,28 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       <section className="review-sheet no-print visual-minimal" role="dialog" aria-modal="true" aria-label="مراجعة الاعتماد">
         <header className={`review-head tone-${tone}`}>
           <svg className={`review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
+            <title>{breakdown.formula}</title>
             <circle className="ring-track" cx="32" cy="32" r="26" />
-            <circle
-              className="ring-value"
-              cx="32" cy="32" r="26"
-              strokeDasharray={`${(score / 100) * ringLength} ${ringLength}`}
-            />
+            {/* One slice per category, starting at twelve o'clock: green is the score. */}
+            <g className="ring-slices">
+              {ringSlices.map(slice => (
+                <circle
+                  key={slice.key}
+                  className={`ring-slice ring-slice-${slice.tone}`}
+                  cx="32" cy="32" r="26"
+                  strokeDasharray={`${Math.max(0, slice.length - (ringSlices.length > 1 ? 0.8 : 0))} ${ringLength}`}
+                  strokeDashoffset={-slice.offset}
+                ><title>{slice.label}</title></circle>
+              ))}
+            </g>
             <text x="32" y="34" className="ring-number">{score.toLocaleString("ar-KW-u-nu-latn")}</text>
             <text x="32" y="45" className="ring-unit">/ 100</text>
           </svg>
           <div className="review-title">
             <span className="surface-kicker">مراجعة الاعتماد · {DECISION_1912_LABEL}</span>
-            <h2 data-resolved={readinessChecked && sawChecking.current ? "" : undefined}>{!readinessChecked ? "أتحقق من الموانع…" : blocking.length ? "يوجد ما يمنع الاعتماد" : readinessError ? "تعذر فحص الموانع خارج القسم" : unclassifiedCourses ? "يلزم استكمال بيانات التدريس" : "لا توجد موانع ظاهرة"}</h2>
+            <h2 data-resolved={readinessChecked && sawChecking.current ? "" : undefined}>{!readinessChecked ? "أتحقق من الموانع…" : blocking.length ? "يوجد ما يمنع الاعتماد" : readinessError ? "تعذر فحص الموانع خارج القسم" : regulationGroups.length ? "لا مانع للتوقيع · بنود للمعالجة" : unclassifiedCourses ? "يلزم استكمال بيانات التدريس" : "لا توجد موانع ظاهرة"}</h2>
             <p>{scopeLabel}</p>
+            {familyNote ? <small className="review-scope-note" data-review-scope="college"><Building2 aria-hidden="true" /> {familyNote}</small> : null}
             {readinessChecked && unclassifiedCourses ? <small className="review-data-gap"><Info aria-hidden="true" /> {countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ لم يُفحص نمط المادة 7/8 لها.</small> : null}
             {readinessChecked && blockerSummary.conflicts > 0 ? <strong className="review-blocker-headline" data-review-headline="blocking">يمنع الاعتماد: {blockingSummaryPhrase(blockerSummary.conflicts, blockerSummary.rows, blockerSummary.duplicates)}</strong> : null}
             {readinessError ? <small>تمت مراجعة قرار 1913/2016 محلياً، لكن تعذر التأكد الآن من الحجوزات المتعارضة خارج نطاق القسم.</small> : null}
@@ -729,11 +798,48 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
           <div className="spread-keys">
             {/* مفتاحٌ لكل شريحةٍ لها مواعيد — «لا مواعيد تمنع» لا يُكتب مفتاحاً (قاعدة إخفاء الفارغ). */}
             {spread.high ? <span className="seg-high"><AlertTriangle aria-hidden="true" /><b>{countOf(spread.high, AR.appointment)}</b><small>{nounFor(spread.high, AR.blockVerb)}</small></span> : null}
-            {spread.medium ? <span className="seg-medium"><Info aria-hidden="true" /><b>{countOf(spread.medium, AR.appointment)}</b><small>للمراجعة</small></span> : null}
+            {spread.medium ? <span className="seg-medium"><Wrench aria-hidden="true" /><b>{countOf(spread.medium, AR.appointment)}</b><small>للمعالجة</small></span> : null}
             {spread.low ? <span className="seg-low"><ClipboardCheck aria-hidden="true" /><b>{countOf(spread.low, AR.note)}</b></span> : null}
             {spread.clean ? <span className="seg-clean"><CheckCircle2 aria-hidden="true" /><b>{countOf(spread.clean, AR.appointment)}</b><small>{nounFor(spread.clean, AR.soundAdj)}</small></span> : null}
           </div>
         </div>
+
+        {/* ── من أين جاءت الدرجة، وماذا يرفعها (I2) ─────────────────────── */}
+        {readinessChecked && breakdown.total ? (
+          <section className="review-score-plan" aria-label="معادلة الدرجة وخطة رفعها">
+            <p className="review-score-formula" data-review-formula=""><Calculator aria-hidden="true" /><span dir="rtl">{breakdown.formula}</span></p>
+            {breakdown.segments.length ? (
+              <ol className="review-score-fixes">
+                {breakdown.segments.map((segment, index) => {
+                  const focusable = segment.rowIds.filter(id => loadedIds.has(id));
+                  const gain = segment.projected - score;
+                  return (
+                    <li key={segment.key} className={`review-score-fix tone-${segment.tone === "block" ? "block" : `reg-${index % 4}`}`} data-score-fix={segment.key}>
+                      <span className="review-score-fix-mark" aria-hidden="true">{segment.tone === "block" ? <AlertTriangle /> : <Wrench />}</span>
+                      <span className="review-score-fix-copy">
+                        <strong>{segment.label}</strong>
+                        <small>{countOf(segment.touched, AR.appointment)}</small>
+                      </span>
+                      <span className="review-score-fix-gain" title={`لو عولج هذا البند وحده تصير الدرجة ${segment.projected}`}>
+                        <TrendingUp aria-hidden="true" />
+                        <b>{score.toLocaleString("ar-KW-u-nu-latn")}</b><i aria-hidden="true">←</i><b>{segment.projected.toLocaleString("ar-KW-u-nu-latn")}</b>
+                        {gain > 0 ? <em>+{gain.toLocaleString("ar-KW-u-nu-latn")}</em> : null}
+                      </span>
+                      {onFocusRows ? (
+                        <button type="button" className="review-score-fix-act" disabled={!focusable.length}
+                          data-guide-ignore="يُبرز مواعيد البند على الجدول للمعالجة، لا يغيّر شيئاً"
+                          title={focusable.length ? "أظهر مواعيد هذا البند على الجدول لمعالجتها" : "مواعيد هذا البند في كلية أخرى من القسم"}
+                          onClick={() => { onFocusRows(focusable); onClose(); }}>
+                          <Wrench aria-hidden="true" /> عالج
+                        </button>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="review-period-rule" aria-labelledby="review-period-title" data-open={periodOpen || undefined}>
           <button type="button" className="review-period-toggle" aria-expanded={periodOpen} aria-controls="review-period-content" onClick={() => setPeriodOpen(value => !value)} data-guide-ignore="طيّ أو فتح تفاصيل توزيع الصباحي والمسائي داخل المراجعة">
