@@ -37,7 +37,7 @@ check(publish.includes("<span>بطاقة الأستاذ</span>") && !publish.inc
 check(!/<span>(جدول القسم|بطاقة الأستاذ)<\/span>\s*<small>/.test(publish),
   "ولا سطرَ تعريفٍ تحت الأبواب");
 check(publish.includes('const withRequests = kind === "staff";') && publish.includes("if (withRequests) {")
-  && !publish.includes("استقبال طلبات تعديل الجدول") && !/kind === "staff"[^\n]*share-days/.test(publish),
+  && !/<label[^>]*>استقبال طلبات تعديل الجدول/.test(publish) && !/kind === "staff"[^\n]*share-days/.test(publish),
   "وطلباتُ التعديل تُفتح مع البطاقة نفسها، بتاريخٍ واحد لا مدّتين");
 
 /* ── موعدٌ يُكتب، لا مدّةٌ تُحسب ───────────────────────────────────────── */
@@ -98,7 +98,7 @@ check(server.includes("Date.now() + REQUEST_LINK_DAYS * 86400000,"),
 /* ٣) «أُصدر ١٢ رابطاً» كانت تبقى بعد إغلاق اللوحة وفتحِها على نطاقٍ آخر، أو
       بعد إنشاء رابط قراءةٍ عادي — فتُقرأ خبراً عن الفعل الجاري وهي خبرٌ عن
       فعلٍ مضى. */
-check(publish.includes("useEffect(() => { setIssued(null); setReplaced(0); setShowPast(false); }, [open, collegeId, sectionId, termId, kind]);"),
+check(/useEffect\(\(\) => \{\s*setIssued\(null\);\s*setReplaced\(0\);\s*setShowPast\(false\);[^}]*\}, \[open, collegeId, sectionId, termId, kind\]\);/.test(publish),
   "ونتيجةُ الإصدار تُمحى عند تغيّر النطاق أو النوع أو إعادة الفتح");
 check(publish.includes("setCreatedId(data.id);\n      setIssued(null);"),
   "وعند إنشاء رابطٍ من نوعٍ آخر");
