@@ -34,7 +34,13 @@ export async function academicAdviceForScope(collegeId: number, sectionId: numbe
     rows: rows as FSchedule[],
   };
   const reading = analyseAcademicAdvice(input);
-  // The lab returns only cohort aggregates and a bounded list of hypothetical
-  // schedule shifts. Individual profiles, wishes and identifiers stay on server.
-  return { ...reading, decisionLab: buildAcademicDecisionLab(input, reading) };
+  // Evaluate the heavier what-if only if the authorised schedule API serialises
+  // the whole reading. The professor public-token endpoint selectively returns
+  // pairs and time preferences; it must NOT compute or expose the lab.
+  let decisionLab: ReturnType<typeof buildAcademicDecisionLab> | undefined;
+  Object.defineProperty(reading, "decisionLab", {
+    enumerable: true,
+    get() { return decisionLab ?? (decisionLab = buildAcademicDecisionLab(input, reading)); },
+  });
+  return reading;
 }
