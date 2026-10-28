@@ -9454,7 +9454,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           >
             {editorVerdict.blockers.length ? (
               <div className="solver-box">
-                <SecondaryButton type="button" onClick={() => void askAlternatives()} disabled={altBusy}>
+                <SecondaryButton type="button" onClick={() => void askAlternatives()} disabled={altBusy} data-guide-ignore="يطلب بدائل آمنة (القاعة نفسها في وقت آخر أو قاعة أخرى في الوقت نفسه) من محرك الاقتراح الموحد؛ لا يحفظ شيئاً">
                   <WandSparkles />
                   {altBusy ? "أبحث عن البدائل..." : "اقترح بديلاً آمناً"}
                 </SecondaryButton>
