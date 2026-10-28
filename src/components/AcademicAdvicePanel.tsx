@@ -18,7 +18,6 @@ const intersects = (a: AcademicSlot, b: AcademicSlot) =>
   a.day === b.day && minute(a.start) >= 0 && minute(b.start) >= 0 &&
   minute(a.start) < minute(b.end) && minute(b.start) < minute(a.end);
 const slotsOverlap = (a: AcademicSlot[], b: AcademicSlot[]) => a.some(x => b.some(y => intersects(x, y)));
-const days: Record<string, string> = { fsunday: "الأحد", fmonday: "الاثنين", ftuesday: "الثلاثاء", fwednesday: "الأربعاء", fthursday: "الخميس" };
 const chip: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999,
   border: "1px solid var(--line, #dce5df)", fontSize: 11, fontWeight: 650, lineHeight: 1.5 };
 const card: CSSProperties = { display: "grid", alignContent: "start", gap: 7, minWidth: 0, borderRadius: 12,
