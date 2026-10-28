@@ -359,7 +359,9 @@ check(changes.includes("const canRebut = Boolean(role.signatureStage) && !isView
   check((schedules.match(/disabled=\{Boolean\(approvalLock\)\}/g) || []).length >= 3, "R21 وأزرارُ «إضافة موعد» معطّلةٌ بسببها");
   check(schedules.includes("Boolean(approvalLock) ||") && schedules.includes("if (approvalLock) { e.preventDefault(); setPhysicsNotice(approvalLock); return; }"),
     "R21 والسحبُ لا يبدأ، ويُقال لماذا");
-  check(schedules.includes("<strong>لا يُحفظ الآن</strong>"), "R21 ولوحةُ فحص الحفظ لا تقول «صالح» على جدولٍ مقفل");
+  /* اللوحة صارت مكوّناً واحداً (AppointmentChecksPanel): يأخذ سبب القفل فيقول «لا يُحفظ الآن» بدل «جاهز». */
+  const checksPanel = fs.readFileSync("src/components/AppointmentChecksPanel.tsx", "utf8");
+  check(schedules.includes("lockedReason={approvalLock}") && checksPanel.includes('lockedReason ? "لا يُحفظ الآن"'), "R21 ولوحةُ فحص الحفظ لا تقول «صالح» على جدولٍ مقفل");
 }
 
 /* ── R22: لا وعدَ بتلوينٍ لا يقع ────────────────────────────────────────────── */
