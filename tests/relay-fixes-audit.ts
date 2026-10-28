@@ -456,7 +456,8 @@ async function revisionBehaviour() {
       const callers = [...server.matchAll(/captureScopeVersion\(req,[^\n]*/g)].map(match => match[0]);
       const unchanged = callers.filter(line => line.includes("{ unchanged: true }"));
       check(unchanged.length === 5, "R7-review قراراتُ الاعتماد الخمسة بلا كتابة صفوف");
-      check(callers.length - unchanged.length === 13 && (server.match(/await recordVersionAfter\(/g) || []).length === 14
+      /* +1: استبدال شعبة «هيئة تدريسية» الذرّي (placeholder-action) يلتقط ويسجّل كغيره. */
+      check(callers.length - unchanged.length === 14 && (server.match(/await recordVersionAfter\(/g) || []).length === 15
         && server.includes("recordVersionAfter(before, current => current.map(row => byId.get(Number(row.id)) || row))"),
         "R7-review كلُّ عمليةٍ تكتب صفوفاً تسجّل ما صار من صفوفها (الإضافة، التعديل ونقله، الحذف، الاستبدال، النسخ، النشر، الاسترجاع، التراجع، مسح الجدول بالكامل وإرجاعه)");
       /* إضافةُ الموعد معالجٌ مسمّى (يستعمله «اعتماد الاقتراح» أيضاً): الجسمُ عند تعريفه لا عند تسجيل المسار. */
