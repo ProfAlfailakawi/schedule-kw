@@ -1046,10 +1046,12 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const { lookup: visitingLookup, isVisiting: lookupVisiting } = useVisitingLookup(termId);
   const rowVisiting = (row: InboxRequest) => lookupVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId);
   const instructorOptions = useMemo(() => instructorChoices.map(choice => {
-    const own = (rows || []).filter(row => choice.ids.includes(Number(row.AdInstructorId)));
-    const label = withVisitingSuffix(choice.name, own.some(row => rowVisiting(row)));
-    return { value: choice.ids[0], label: own.some(row => row.changedCount > 0) ? `${label} · طلب تعديلاً` : label };
-  }).sort((a, b) => byArabic(a.label, b.label)), [instructorChoices, rows, visitingLookup]);
+    const own = (rows || []).filter(entry => choice.ids.includes(Number(entry.AdInstructorId)));
+    /* المنتدبُ يُوسم بشارته ولو جاء بسجلّين: يُمثَّل الشخصُ بصفّه المنتدب إن وُجد. */
+    const row = own.find(entry => rowVisiting(entry)) || own[0];
+    return { value: choice.ids[0], changed: own.some(entry => entry.changedCount > 0), label: withVisitingSuffix(row.instructorName, rowVisiting(row)) };
+  }).map(({ changed, ...option }) => changed ? { ...option, label: `${option.label} · طلب تعديلاً` } : option)
+    .sort((a, b) => byArabic(a.label, b.label)), [instructorChoices, rows, visitingLookup]);
 
   const itemFilter = useCallback((item: InstructorRequestItem) => {
     if (stateFilter === "confirmed-unchanged") return false;
