@@ -1513,6 +1513,8 @@ export interface InstructorRequest {
   /** آخر فتحٍ سُجّل في `linkOpenDays`. */
   linkLastOpenAt?: string;
   window: { opensAt: string; closesAt: string };
+  /** استثناءٌ فرديٌّ مؤقت للكتابة، لا يغيّر الموعد العام ولا صلاحية قراءة الجدول. */
+  individualException?: import("./utils/instructorRequestWindows").IndividualRequestException;
   /**
    * من أين جاءت المسوّدة: من جدولٍ منسوخٍ لهذا الفصل، أو من الفصل السابق حين
    * يُرسل الرابطُ قبل النسخ. الصفحةُ واحدةٌ والمصدرُ يختلف، ويُقال للأستاذ.

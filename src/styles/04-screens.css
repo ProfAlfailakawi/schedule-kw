@@ -2765,3 +2765,34 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .section-schedule-hours .form-actions{display:flex;justify-content:flex-start;margin-top:0;padding-top:18px;border-top:1px solid var(--line)}
 @media(max-width:760px){.section-hours-time-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.section-hours-time-grid>.field:first-child{grid-column:1/-1}.section-hours-intro{grid-template-columns:42px minmax(0,1fr)}.section-hours-clock{width:42px;height:42px}.section-hours-intro>.btn{grid-column:1/-1;justify-self:start}}
 @media(max-width:480px){.section-schedule-hours>.form-card{gap:18px;padding:16px}.section-hours-time-grid{grid-template-columns:1fr}.section-hours-time-grid>.field:first-child{grid-column:auto}.section-hours-intro{grid-template-columns:38px minmax(0,1fr);gap:10px;padding:13px}.section-hours-clock{width:38px;height:38px}.section-hours-list{grid-template-columns:1fr}.section-hours-row{min-height:56px;padding:9px 11px}.section-schedule-hours .form-actions>.btn{width:100%;justify-content:center}}
+
+
+/* ── نافذة تعديل الأستاذ: قراءةٌ مستمرة، وتعديلٌ بإذنٍ مؤقت ─────────────── */
+.share-deadline-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;width:100%}
+.share-deadline-fields label{display:grid;gap:6px;min-width:0;font-size:12px;color:var(--muted)}
+.share-deadline-fields input{min-width:0;width:100%;max-width:none}
+.share-window-management{display:grid;gap:12px;margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--surface)}
+.share-window-management header{display:grid;gap:3px}
+.share-window-management header strong{font-size:16px;color:var(--ink)}
+.share-window-management header small{font-size:12px;color:var(--muted);line-height:1.7}
+.share-window-current{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;font-size:13px}
+.share-window-current>span:first-child{color:var(--muted)}
+.share-window-current>b{font-size:13px}
+.share-window-state{font-size:11px;border-radius:30px;padding:3px 9px;background:var(--surface-alt,var(--surface));border:1px solid var(--line)}
+.share-window-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.share-window-actions>button{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;font-weight:600;cursor:pointer;min-height:42px}
+.share-window-actions>button:first-child{border-color:var(--accent,var(--line))}
+.share-window-actions svg{width:17px;height:17px;flex:none}
+.share-window-actions>button:disabled,.share-window-exception button:disabled{opacity:.5;cursor:wait}
+.share-window-form{display:grid;gap:12px;border-top:1px solid var(--line);padding-top:14px}
+.share-window-form>strong{font-size:14px}
+.share-window-form>label{display:grid;gap:6px;font-size:12px;color:var(--muted)}
+.share-window-form input,.share-window-form select{width:100%;min-width:0;max-width:none;min-height:42px;padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px}
+.share-window-exceptions{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.share-window-exceptions>strong{font-size:13px}
+.share-window-exception{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+.share-window-exception>span{min-width:0;display:grid;gap:4px}
+.share-window-exception b{font-size:13px}
+.share-window-exception small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.share-window-exception button{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:transparent;color:var(--ink);font:inherit;font-size:12px;cursor:pointer;flex:none}
+@media(max-width:480px){.share-window-actions>button{flex:1}.share-window-exception{align-items:flex-start;flex-direction:column}.share-window-exception button{align-self:flex-end}}
