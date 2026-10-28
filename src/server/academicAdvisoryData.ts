@@ -1,6 +1,7 @@
 /** Bounded, read-only view for academic suggestions. No grades or identities leave the server. */
 import { Repository } from "../db/repository";
 import { analyseAcademicAdvice, type AcademicReading, type AcademicPlanView } from "../utils/academicAdvisory";
+import { buildAcademicDecisionLab } from "../utils/academicDecisionLab";
 import type { AdCourse, CurriculumPlan, FSchedule, StudentProfile } from "../types";
 
 export async function academicAdviceForScope(collegeId: number, sectionId: number, termId: number): Promise<AcademicReading> {
@@ -26,10 +27,14 @@ export async function academicAdviceForScope(collegeId: number, sectionId: numbe
     }));
   const active = approved.filter((p): p is AcademicPlanView => Boolean(p));
   if (!active.length) return empty;
-  return analyseAcademicAdvice({
+  const input = {
     collegeId, sectionId, termId, plans: active,
     profiles: profiles as StudentProfile[],
     courses: courses as AdCourse[],
     rows: rows as FSchedule[],
-  });
+  };
+  const reading = analyseAcademicAdvice(input);
+  // The lab returns only cohort aggregates and a bounded list of hypothetical
+  // schedule shifts. Individual profiles, wishes and identifiers stay on server.
+  return { ...reading, decisionLab: buildAcademicDecisionLab(input, reading) };
 }
