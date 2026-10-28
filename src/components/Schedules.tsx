@@ -1402,6 +1402,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
          show a wall per line. */
       if (Array.isArray(data?.conflicts) && data.conflicts.length) failure.conflicts = data.conflicts;
       if (data?.code) failure.code = data.code;
+      if (Array.isArray(data?.holds)) failure.holds = data.holds;
       if (Array.isArray(data?.changes)) failure.changes = data.changes;
       if (res.status === 409 && data?.conflict === "revision") {
         failure.revisionConflict = true;
@@ -1412,6 +1413,22 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }
     return data;
   };
+  /**
+   * القسمُ صاحبُ القرار (A2): موعدٌ حجزه طلبُ أستاذٍ ينتظرك لا يقفل عليك — سؤالٌ واحدٌ
+   * ثم تُعاد العمليةُ نفسُها (حفظاً أو حذفاً) متجاوزةً حجزَ ذلك الطلب وحده.
+   */
+  const withRequestHoldPrompt = async <T,>(send: (overrideRequestHolds?: string[]) => Promise<T>, verb = "التعديل"): Promise<T> => {
+    try { return await send(); }
+    catch (failure: any) {
+      if (failure?.code !== "request-hold" || !Array.isArray(failure.holds) || !failure.holds.length) throw failure;
+      const names = failure.holds.map((hold: any) => hold.instructorName).filter(Boolean).join("، ");
+      if (!window.confirm(`⏳ هذا الموعد محجوز لطلب ${names || "أستاذ"} بانتظار قرارك.\nمتابعة ${verb}؟ يبقى الطلب في الوارد.`)) throw new Error("لم يتغيّر شيء: الموعد ما زال محجوزاً للطلب.");
+      return send(failure.holds.map((hold: any) => String(hold.requestId)));
+    }
+  };
+  const deleteScheduleRow = (id: number | string) => withRequestHoldPrompt(overrideRequestHolds => fetchJson(`/api/schedules/${id}`, overrideRequestHolds
+    ? { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ overrideRequestHolds }) }
+    : { method: "DELETE" }), "الحذف");
   /**
    * The department's own courses, not the university's — added, not swapped in.
    *
@@ -4610,7 +4627,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (!remove) return;
       setSaving(true);
       try {
-        await fetchJson(`/api/schedules/${protectedPdfRow.id}`, { method: "DELETE" });
+        await deleteScheduleRow(protectedPdfRow.id);
         setRows(current => current.filter(row => row.id !== protectedPdfRow.id));
         setMessage("تم حذف المادة. يمكنك الآن إضافة المقرر الجديد، وسيظهر في تقرير المقارنة برقمه المرجعي فارغاً.");
         back();
@@ -4678,13 +4695,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         pendingHandoff.current = null;
         const id = result.items?.[handoffForSave!.itemIndex]?.decision?.scheduleId;
         return result.appliedRows?.find((row: FSchedule) => Number(row.id) === Number(id)) || null;
-      })() : await fetchJson(url, {
-        method: editor === "edit" ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        // The revision this editor opened. The server compares it and refuses
-        // rather than overwriting a change someone else made meanwhile.
-        body: JSON.stringify({ ...form, rev: editor === "edit" ? rows.find(row => row.id === editId)?.rev : undefined }),
-      });
+      })() : await (async () => {
+        const send = (overrideRequestHolds?: string[]) => fetchJson(url, {
+          method: editor === "edit" ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          // The revision this editor opened. The server compares it and refuses
+          // rather than overwriting a change someone else made meanwhile.
+          body: JSON.stringify({ ...form, rev: editor === "edit" ? rows.find(row => row.id === editId)?.rev : undefined, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }),
+        });
+        return withRequestHoldPrompt(send);
+      })();
       let guideUndoId = "";
       if (editor === "edit" && before) {
         const { id: _id, AdCourseName: _name, ...previousValues } = before as any;
@@ -4947,7 +4967,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     // follows behind it, and a refusal puts the card back exactly where it was.
     if (before) setRows(current => current.filter(item => item.id !== id));
     try {
-      await fetchJson(`/api/schedules/${id}`, { method: "DELETE" });
+      await deleteScheduleRow(id);
       if (before) {
         const { id: _id, AdCourseName: _name, ...values } = before as any;
         offerUndo(

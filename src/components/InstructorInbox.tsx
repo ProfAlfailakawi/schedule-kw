@@ -36,7 +36,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, Inbox, Link2, Loader2, MailQuestion,
   ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
+  DoorOpen, Wrench, RefreshCw, Home, MapPin, History, Users, Scale, BellRing, UserX,
 } from "lucide-react";
+import type { RequestRoomReason } from "../types";
 import { DnaCount } from "./dna";
 import { RequestTimelineToggle } from "./dna/requestDna";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
@@ -56,6 +58,8 @@ import {
 } from "./ui";
 import { AR, countOf } from "../utils/arabicCount";
 import { reachAboutCard } from "../utils/reachInstructor";
+import { inboxInstructorChoices, isPlaceholderInboxRow } from "../utils/instructorIdentity";
+import { notParticipated } from "../utils/requestParticipation";
 import { putHandoff } from "../utils/requestHandoff";
 import { currentTermId } from "../utils/termSequence";
 import { singleDepartmentOf } from "../utils/scopeContext";
@@ -230,7 +234,11 @@ function RejectSheet({ item, onClose, onSubmit, busy }: {
  * الحفظ (`check-conflicts`): الأستاذُ والقاعةُ والطلبةُ المشتركون والشعبةُ
  * المكرّرة، في كل الكليات. فما يُمنع هناك يُمنع هنا، ويُقال سببُه هنا. */
 
-export interface LiveIssue { severity: "high" | "medium" | "low"; message: string; detail?: string; otherId?: number }
+/* أسبابُ اختيار القاعة أيقوناتٍ (C2) — الكلمةُ في التلميح وحده. */
+const ROOM_WHY_ICON: Record<RequestRoomReason, React.ComponentType<any>> = { dept: Home, near: MapPin, previous: History, capacity: Users, fair: Scale, facility: Wrench };
+const ROOM_WHY_LABEL: Record<RequestRoomReason, string> = { dept: "قاعة القسم", near: "قرب قاعات الأستاذ", previous: "قاعته السابقة", capacity: "سعة مناسبة", fair: "توزيع عادل", facility: "مع المرفق" };
+
+export interface LiveIssue { severity: "high" | "medium" | "low"; message: string; detail?: string; otherId?: number; type?: string }
 
 export const proposedRow = (row: InboxRequest, item: InstructorRequestItem, current?: FSchedule): any | null => {
   if (item.action === "delete" || item.action === "keep") return null;
@@ -248,8 +256,13 @@ export const proposedRow = (row: InboxRequest, item: InstructorRequestItem, curr
         AdTermId: Number(row.AdTermId),
       };
   if (!base) return null;
+  /* القاعةُ التي سيكتبها التثبيت: المحجوزةُ للبند، أو بديلُ القاعة المشغولة (roomSwitch) — لا قاعةُ الصفّ القديمة. */
+  const place = item.action === "change" && item.roomSwitch
+    ? { roomId: item.roomSwitch.to.roomId, buildingId: item.roomSwitch.to.buildingId, AdRoomCode: item.roomSwitch.to.room, AdRoomHall: item.roomSwitch.to.hall, locationStatus: "VERIFIED" }
+    : {};
   return {
     ...base,
+    ...place,
     instructorRequestId: row.id,
     fsunday: days.has("fsunday"), fmonday: days.has("fmonday"), ftuesday: days.has("ftuesday"),
     fwednesday: days.has("fwednesday"), fthursday: days.has("fthursday"),
@@ -278,6 +291,7 @@ function useLiveCheck(candidate: any | null, enabled: boolean) {
           message: String(conflict.message || "تعارض"),
           detail: conflict.detail ? String(conflict.detail) : undefined,
           otherId: Number(conflict.rowId || conflict.otherId || 0) || undefined,
+          type: conflict.type ? String(conflict.type) : undefined,
         })),
       }))
       .catch(error => { if (error?.name !== "AbortError") setState({ loading: false, issues: [{ severity: "high", message: "تعذّر فحص الموعد. أعد المحاولة قبل الاعتماد." }] }); });
@@ -576,12 +590,18 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
     .map(issue => [issue.otherId!, siblings.get(issue.otherId!)!] as [number, { index: number; name: string; elsewhere?: boolean }])).values()];
   /* ما يُفرغه قسمٌ آخر لا يُثبَّت من هنا: ينتظر قرارَ ذلك القسم. */
   const waitsElsewhere = dependsOn.some(entry => entry.elsewhere);
-  const liveIssues = allLive.filter(issue => !(issue.otherId && siblings.has(issue.otherId)));
-  /* كل تعارضٍ حيّ يوقف التثبيت، لا الموانع الحمراء وحدها. فاختيار الأستاذ
-     يجب أن يمرّ من فحص الموعد نفسه الذي يراه القسم، مع استثناء البنود الشقيقة
-     التي ستُفرغها هذه الجولة كما عولجت أعلاه. */
+  /* الفحصُ الحيّ والحكمُ يقولان التعارضَ نفسَه بلفظين: يُعرض مرّةً واحدة. */
+  const judgedSources = new Set(reasons.filter(reason => reason.blocking).map(reason => reason.source));
+  const liveIssues = allLive.filter(issue => !(issue.otherId && siblings.has(issue.otherId))
+    && !(issue.type && judgedSources.has(issue.type as any)));
+  /* كل تعارضٍ حيٍّ يمنع حفظَ الجدول يوقف التثبيت: اختيارُ الأستاذ يمرّ من فحص
+     الموعد نفسه الذي يراه القسم، مع استثناء البنود الشقيقة التي ستُفرغها هذه
+     الجولة كما عولجت أعلاه. (قاعةٌ مشغولة مع بديلٍ خالٍ لا تصل هنا: roomSwitch.) */
   const blocked = waitsElsewhere || item.verdict === "conflict" || reasons.some(reason => reason.blocking)
-    || liveIssues.length > 0 || (item.action === "change" && !current);
+    /* ما يمنعه الحفظُ يمنع التثبيت؛ والتنبيهُ اللين (إيقاع القسم، تنقّل الحرم) يُقرأ ولا يمنع — كما في حفظ الجدول نفسه. */
+    || liveIssues.some(issue => issue.severity === "high") || (item.action === "change" && !current);
+  /* وصل جاهزاً ثم تحرّك الجدول (C7): تنبيهٌ وبديلٌ جاهز، لا «ممنوع». */
+  const changedAfterSubmit = !decided && Boolean(row.submittedAt) && item.verdict === "conflict" && item.action !== "delete";
   const readiness: Readiness = decided ? "ready"
     : item.action === "delete" ? "ready"
     : waitsElsewhere && !liveIssues.some(issue => issue.severity === "high") && !reasons.some(reason => reason.blocking) ? "waiting"
@@ -608,20 +628,34 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
             ) : null}
             {item.before && item.action === "change" ? <ArrowLeft className="request-flow-arrow" aria-hidden="true" /> : null}
             {item.action === "delete" ? <span className="request-none">حذف الموعد</span>
-              : item.after ? <span title="المطلوب">{item.after.days}<br /><bdi dir="ltr">{item.after.time}</bdi></span>
+              : item.after ? <span title="المطلوب">{item.after.days}<br /><bdi dir="ltr">{item.after.time}</bdi>
+                  {/* القاعةُ التي حُجزت للطلب عند إرساله (C1) — أو أنسبُ المرشّحات إن لم يُحجز بعد. */}
+                  {item.action === "change" && item.roomSwitch && !item.reservedRoom ? (
+                    <small className="request-room request-room-switch" data-held="1" title={`القاعة ${item.roomSwitch.from} مشغولة في الوقت الجديد`}>
+                      <RefreshCw aria-hidden="true" /><span>القاعة بُدّلت إلى</span><bdi dir="ltr">{[item.roomSwitch.to.room, item.roomSwitch.to.hall].filter(Boolean).join("/")}</bdi>
+                    </small>
+                  ) : (item.reservedRoom?.label || (item.action === "add" && item.roomOptions?.[0])) ? (
+                    <small className="request-room" data-held={item.reservedRoom ? "1" : undefined} title={item.reservedRoom ? "قاعةٌ محجوزةٌ للطلب" : "الأنسب الآن"}>
+                      <DoorOpen aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.label || [item.roomOptions![0].room, item.roomOptions![0].hall].filter(Boolean).join("/")}</bdi>
+                      {(item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel) ? <><Wrench aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel}</bdi></> : null}
+                      {(item.roomOptions?.[0]?.why || []).map(reason => { const Icon = ROOM_WHY_ICON[reason]; return Icon ? <Icon key={reason} aria-label={ROOM_WHY_LABEL[reason]} className="request-room-why" /> : null; })}
+                    </small>
+                  ) : null}
+                </span>
               : <span className="request-none">—</span>}
           </div>
           {item.excuse ? <small className="request-excuse"><MessageSquare aria-hidden="true" /> {item.excuse}</small> : null}
         </td>
         <td data-label="القرار">
           {!decided ? (
-            <span className="request-readiness" data-readiness={readiness}>
-              {readiness === "checking" ? <Loader2 aria-hidden="true" className="spin" />
+            <span className="request-readiness" data-readiness={changedAfterSubmit ? "review" : readiness}>
+              {changedAfterSubmit ? <RefreshCw aria-hidden="true" />
+                : readiness === "checking" ? <Loader2 aria-hidden="true" className="spin" />
                 : readiness === "waiting" ? <Clock3 aria-hidden="true" />
                 : readiness === "blocked" ? <ShieldAlert aria-hidden="true" />
                 : readiness === "review" ? <AlertTriangle aria-hidden="true" />
                 : <ShieldCheck aria-hidden="true" />}
-              {item.action === "delete" ? "حذفٌ لا يُفحص" : READINESS[readiness]}
+              {item.action === "delete" ? "حذفٌ لا يُفحص" : changedAfterSubmit ? "تغيّر بعد الإرسال" : READINESS[readiness]}
             </span>
           ) : null}
           {item.action !== "delete" && (reasons.length || liveIssues.length) ? (
@@ -651,6 +685,21 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
                 ? "يعتمد على حذف محاضرته في قسمٍ آخر — بانتظار قرار ذلك القسم."
                 : <>يُفرغ هذا الوقتَ طلبُه الآخر: {dependsOn.map(entry => `«${entry.name}»`).join(" و")} — يُثبَّت ذلك أولاً تلقائياً.</>}</span>
             </p>
+          ) : null}
+          {/* ── وصل جاهزاً ثم تغيّر شيء (C7) ── الطلبُ لا يُقبل عند الإرسال وهو ممنوع، فالمنعُ هنا
+              يعني أن الجدول تحرّك بعده: تنبيهٌ واحد وبديلٌ جاهز بضغطة بدل «ممنوع» صامتة. */}
+          {changedAfterSubmit && (item.nearestTimes || []).length ? (
+            <div className="request-changed" role="group" aria-label="بديلٌ جاهز يُقترح على الأستاذ">
+              <Send aria-hidden="true" /><span>بديل جاهز</span>
+              {(item.nearestTimes || []).slice(0, 2).map(slot => (
+                <SecondaryButton key={`${(slot.days || [slot.day]).join(",")}|${slot.start}`} type="button" disabled={busy}
+                  title="يُقترح على الأستاذ فيوافق بضغطة"
+                  data-guide-ignore="اقتراحُ بديلٍ جاهز على الأستاذ — ردٌّ في حوار البند لا يكتب في الجدول"
+                  onClick={() => onReply(index, "", [{ day: slot.day, days: slot.days?.length ? slot.days : [slot.day], start: slot.start, end: slot.end }])}>
+                  {(slot.days?.length ? slot.days : [slot.day]).map(day => INBOX_DAY_NAMES[day as keyof typeof INBOX_DAY_NAMES] || day).join(" · ")} <bdi dir="ltr">{slot.start}</bdi>
+                </SecondaryButton>
+              ))}
+            </div>
           ) : null}
           {item.action === "change" && !current && !decided ? (
             <p className="request-issue-note">لم يعد هذا الموعد في الجدول — ربما حُذف أو نُقل بعد الطلب.</p>
@@ -802,7 +851,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   /* ── المرشّحات ──────────────────────────────────────────────────────────
      أربعةُ أسئلةٍ يسألها المنسّق فعلاً: ما الذي ينتظرني؟ أيُّ نوع؟ ما الجاهزُ
      منه؟ وفي أيّ قسم؟ وكلٌّ منها زرٌّ واحد، لا قائمةٌ منسدلة. */
-  const [stateFilter, setStateFilter] = useState<"pending" | "fixed" | "rejected" | "all" | "confirmed-unchanged">("pending");
+  const [stateFilter, setStateFilter] = useState<"pending" | "fixed" | "rejected" | "all" | "confirmed-unchanged" | "absent">("pending");
   const [actionFilter, setActionFilter] = useState<"all" | "change" | "add" | "delete">("all");
   const [verdictFilter, setVerdictFilter] = useState<"all" | "clear" | "exception" | "conflict">("all");
   const [deptFilter, setDeptFilter] = useState(0);
@@ -975,10 +1024,15 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   }, [scopes, collegeId, catalog]);
 
   const needle = ask.trim();
-  const visible = useMemo(() => (rows || [])
-    .filter(row => !needle || row.instructorName.includes(needle))
-    .filter(row => !instructorFilter || Number(row.AdInstructorId) === instructorFilter),
-    [rows, needle, instructorFilter]);
+  /* شخصٌ واحدٌ مرّةً واحدة، و«هيئة تدريسية» ليست أستاذاً في الوارد (N1). */
+  const instructorChoices = useMemo(() => inboxInstructorChoices(rows || []), [rows]);
+  const visible = useMemo(() => {
+    const chosen = instructorFilter ? instructorChoices.find(choice => choice.ids.includes(instructorFilter)) : undefined;
+    return (rows || [])
+      .filter(row => !isPlaceholderInboxRow(row))
+      .filter(row => !needle || row.instructorName.includes(needle))
+      .filter(row => !instructorFilter || (chosen ? chosen.ids.includes(Number(row.AdInstructorId)) : Number(row.AdInstructorId) === instructorFilter));
+  }, [rows, needle, instructorFilter, instructorChoices]);
 
   /* «تكدّس الطلبات»: كم موعداً مطلوباً يبدأ في كل خليّة (يوم × وقت بداية).
      عدٌّ لا غير، من بنود الطلبات المُجابة المحمَّلة أصلاً في الشاشة — لا
@@ -991,17 +1045,13 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
      «الجدول الدراسي». */
   const { lookup: visitingLookup, isVisiting: lookupVisiting } = useVisitingLookup(termId);
   const rowVisiting = (row: InboxRequest) => lookupVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId);
-  const instructorOptions = useMemo(() => {
-    const seen = new Map<number, { label: string; changed: boolean }>();
-    for (const row of rows || []) {
-      const id = Number(row.AdInstructorId);
-      if (!id || seen.has(id)) continue;
-      seen.set(id, { label: withVisitingSuffix(row.instructorName, rowVisiting(row)), changed: row.changedCount > 0 });
-    }
-    return [...seen]
-      .sort((a, b) => byArabic(a[1].label, b[1].label))
-      .map(([value, entry]) => ({ value, label: entry.changed ? `${entry.label} · طلب تعديلاً` : entry.label }));
-  }, [rows, visitingLookup]);
+  const instructorOptions = useMemo(() => instructorChoices.map(choice => {
+    const own = (rows || []).filter(entry => choice.ids.includes(Number(entry.AdInstructorId)));
+    /* المنتدبُ يُوسم بشارته ولو جاء بسجلّين: يُمثَّل الشخصُ بصفّه المنتدب إن وُجد. */
+    const row = own.find(entry => rowVisiting(entry)) || own[0];
+    return { value: choice.ids[0], changed: own.some(entry => entry.changedCount > 0), label: withVisitingSuffix(row.instructorName, rowVisiting(row)) };
+  }).map(({ changed, ...option }) => changed ? { ...option, label: `${option.label} · طلب تعديلاً` } : option)
+    .sort((a, b) => byArabic(a.label, b.label)), [instructorChoices, rows, visitingLookup]);
 
   const itemFilter = useCallback((item: InstructorRequestItem) => {
     if (stateFilter === "confirmed-unchanged") return false;
@@ -1041,6 +1091,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       exception: all.filter(item => item.verdict === "exception").length,
       conflict: all.filter(item => item.verdict === "conflict").length,
       confirmedUnchanged: (rows || []).filter(row => isUnchangedConfirmed(row)).length,
+      /* «لم يشاركوا» (D1): لم يرسلوا شيئاً — فتحوا أو لم يفتحوا — وروابطُ العرض وحده لا تُعدّ (D2). */
+      absent: notParticipated((rows || []).filter(row => !isPlaceholderInboxRow(row))).length,
     };
   }, [rows]);
 
@@ -1060,7 +1112,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     return [...groups.entries()].sort(([a], [b]) => byArabic(a, b));
   }, [changed]);
   const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note && !isUnchangedConfirmed(row));
-  const silent = visible.filter(row => !row.linkOpenedAt);
+  const silent = visible.filter(row => !row.linkOpenedAt && (row as any).linkMode !== "view");
+  const absentRows: InboxRequest[] = notParticipated<InboxRequest>(visible);
 
   /**
    * التثبيت.
@@ -1430,6 +1483,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
               { value: "fixed", label: "ثُبّت", count: counts.fixed, tone: "ok" },
               { value: "rejected", label: "رُفض", count: counts.rejected, tone: "bad" },
               { value: "all", label: "الكل", count: counts.all },
+              { value: "absent", label: "لم يشاركوا", count: counts.absent, tone: "warn" },
             ];
             const actionOptions: FilterOption[] = [
               { value: "all", label: "الكل" },
@@ -1487,7 +1541,34 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             );
           })()}
 
-          {stateFilter === "confirmed-unchanged" ? (visibleConfirmedUnchanged.length ? (
+          {stateFilter === "absent" ? (absentRows.length ? (
+            <section className="request-absent-list" aria-label="أساتذة لم يشاركوا">
+              {absentRows.map(row => {
+                const reach = reachAboutCard(
+                  { AdInstructorName: row.instructorName, AdInstructorMobile: row.instructorMobile },
+                  `${location.origin}/r/${row.linkId}`,
+                  "reminder",
+                );
+                return (
+                  <article className="request-absent-row" key={row.id} data-opened={row.linkOpenedAt ? "1" : undefined}>
+                    <span className="request-absent-icon" title={row.linkOpenedAt ? "فتح ولم يرسل" : "لم يفتح الرابط"}>
+                      {row.linkOpenedAt ? <MailOpen aria-hidden="true" /> : <UserX aria-hidden="true" />}
+                    </span>
+                    <strong>{withVisitingSuffix(row.instructorName, rowVisiting(row))}</strong>
+                    {reach.href ? (
+                      <a href={reach.href} target="_blank" rel="noreferrer noopener" className="request-remind" aria-label={`ذكّر ${row.instructorName}`}>
+                        <BellRing aria-hidden="true" /> ذكّر
+                      </a>
+                    ) : (
+                      <span className="request-remind" data-blocked="true" title={reach.blocked || ""}><Link2 aria-hidden="true" /></span>
+                    )}
+                  </article>
+                );
+              })}
+            </section>
+          ) : (
+            <EmptyState title="الجميع شارك" detail="لا أستاذَ في هذا النطاق بلا ردّ." />
+          )) : stateFilter === "confirmed-unchanged" ? (visibleConfirmedUnchanged.length ? (
             <section className="request-confirmed-list" aria-label="أساتذة ثبّتوا جداولهم دون تعديل">
               {visibleConfirmedUnchanged.map(row => (
                 <article className="request-confirmed-row" key={row.id}>
