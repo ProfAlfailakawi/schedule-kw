@@ -1413,6 +1413,22 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return data;
   };
   /**
+   * القسمُ صاحبُ القرار (A2): موعدٌ حجزه طلبُ أستاذٍ ينتظرك لا يقفل عليك — سؤالٌ واحدٌ
+   * ثم تُعاد العمليةُ نفسُها (حفظاً أو حذفاً) متجاوزةً حجزَ ذلك الطلب وحده.
+   */
+  const withRequestHoldPrompt = async <T,>(send: (overrideRequestHolds?: string[]) => Promise<T>, verb = "التعديل"): Promise<T> => {
+    try { return await send(); }
+    catch (failure: any) {
+      if (failure?.code !== "request-hold" || !Array.isArray(failure.holds) || !failure.holds.length) throw failure;
+      const names = failure.holds.map((hold: any) => hold.instructorName).filter(Boolean).join("، ");
+      if (!window.confirm(`⏳ هذا الموعد محجوز لطلب ${names || "أستاذ"} بانتظار قرارك.\nمتابعة ${verb}؟ يبقى الطلب في الوارد.`)) throw new Error("لم يتغيّر شيء: الموعد ما زال محجوزاً للطلب.");
+      return send(failure.holds.map((hold: any) => String(hold.requestId)));
+    }
+  };
+  const deleteScheduleRow = (id: number | string) => withRequestHoldPrompt(overrideRequestHolds => fetchJson(`/api/schedules/${id}`, overrideRequestHolds
+    ? { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ overrideRequestHolds }) }
+    : { method: "DELETE" }), "الحذف");
+  /**
    * The department's own courses, not the university's — added, not swapped in.
    *
    * Resolving a course id to a name needed the catalogue, and the catalogue was
@@ -4598,7 +4614,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (!remove) return;
       setSaving(true);
       try {
-        await fetchJson(`/api/schedules/${protectedPdfRow.id}`, { method: "DELETE" });
+        await deleteScheduleRow(protectedPdfRow.id);
         setRows(current => current.filter(row => row.id !== protectedPdfRow.id));
         setMessage("تم حذف المادة. يمكنك الآن إضافة المقرر الجديد، وسيظهر في تقرير المقارنة برقمه المرجعي فارغاً.");
         back();
@@ -4674,14 +4690,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           // rather than overwriting a change someone else made meanwhile.
           body: JSON.stringify({ ...form, rev: editor === "edit" ? rows.find(row => row.id === editId)?.rev : undefined, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }),
         });
-        try { return await send(); }
-        catch (failure: any) {
-          /* القسمُ صاحبُ القرار (A2): موعدٌ حجزه طلبُ أستاذٍ ينتظرك لا يقفل عليك — سؤالٌ واحدٌ ثم يمضي. */
-          if (failure?.code !== "request-hold" || !Array.isArray(failure.holds) || !failure.holds.length) throw failure;
-          const names = failure.holds.map((hold: any) => hold.instructorName).filter(Boolean).join("، ");
-          if (!window.confirm(`⏳ هذا الموعد محجوز لطلب ${names || "أستاذ"} بانتظار قرارك.\nمتابعة التعديل؟ يبقى الطلب في الوارد، ويُثبَّت إن طابق التعديلُ ما طلبه.`)) throw new Error("لم يُحفظ شيء: الموعد ما زال محجوزاً للطلب.");
-          return send(failure.holds.map((hold: any) => String(hold.requestId)));
-        }
+        return withRequestHoldPrompt(send);
       })();
       let guideUndoId = "";
       if (editor === "edit" && before) {
@@ -4945,7 +4954,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     // follows behind it, and a refusal puts the card back exactly where it was.
     if (before) setRows(current => current.filter(item => item.id !== id));
     try {
-      await fetchJson(`/api/schedules/${id}`, { method: "DELETE" });
+      await deleteScheduleRow(id);
       if (before) {
         const { id: _id, AdCourseName: _name, ...values } = before as any;
         offerUndo(

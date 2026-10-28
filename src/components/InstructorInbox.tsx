@@ -238,7 +238,7 @@ function RejectSheet({ item, onClose, onSubmit, busy }: {
 const ROOM_WHY_ICON: Record<RequestRoomReason, React.ComponentType<any>> = { dept: Home, near: MapPin, previous: History, capacity: Users, fair: Scale, facility: Wrench };
 const ROOM_WHY_LABEL: Record<RequestRoomReason, string> = { dept: "قاعة القسم", near: "قرب قاعات الأستاذ", previous: "قاعته السابقة", capacity: "سعة مناسبة", fair: "توزيع عادل", facility: "مع المرفق" };
 
-export interface LiveIssue { severity: "high" | "medium" | "low"; message: string; detail?: string; otherId?: number }
+export interface LiveIssue { severity: "high" | "medium" | "low"; message: string; detail?: string; otherId?: number; type?: string }
 
 export const proposedRow = (row: InboxRequest, item: InstructorRequestItem, current?: FSchedule): any | null => {
   if (item.action === "delete" || item.action === "keep") return null;
@@ -286,6 +286,7 @@ function useLiveCheck(candidate: any | null, enabled: boolean) {
           message: String(conflict.message || "تعارض"),
           detail: conflict.detail ? String(conflict.detail) : undefined,
           otherId: Number(conflict.rowId || conflict.otherId || 0) || undefined,
+          type: conflict.type ? String(conflict.type) : undefined,
         })),
       }))
       .catch(error => { if (error?.name !== "AbortError") setState({ loading: false, issues: [{ severity: "high", message: "تعذّر فحص الموعد. أعد المحاولة قبل الاعتماد." }] }); });
@@ -584,12 +585,17 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
     .map(issue => [issue.otherId!, siblings.get(issue.otherId!)!] as [number, { index: number; name: string; elsewhere?: boolean }])).values()];
   /* ما يُفرغه قسمٌ آخر لا يُثبَّت من هنا: ينتظر قرارَ ذلك القسم. */
   const waitsElsewhere = dependsOn.some(entry => entry.elsewhere);
-  const liveIssues = allLive.filter(issue => !(issue.otherId && siblings.has(issue.otherId)));
+  /* الفحصُ الحيّ والحكمُ يقولان التعارضَ نفسَه بلفظين: يُعرض مرّةً واحدة. */
+  const judgedSources = new Set(reasons.filter(reason => reason.blocking).map(reason => reason.source));
+  const liveIssues = allLive.filter(issue => !(issue.otherId && siblings.has(issue.otherId))
+    && !(issue.type && judgedSources.has(issue.type as any)));
   /* كل تعارضٍ حيّ يوقف التثبيت، لا الموانع الحمراء وحدها. فاختيار الأستاذ
      يجب أن يمرّ من فحص الموعد نفسه الذي يراه القسم، مع استثناء البنود الشقيقة
      التي ستُفرغها هذه الجولة كما عولجت أعلاه. */
   const blocked = waitsElsewhere || item.verdict === "conflict" || reasons.some(reason => reason.blocking)
     || liveIssues.length > 0 || (item.action === "change" && !current);
+  /* وصل جاهزاً ثم تحرّك الجدول (C7): تنبيهٌ وبديلٌ جاهز، لا «ممنوع». */
+  const changedAfterSubmit = !decided && Boolean(row.submittedAt) && item.verdict === "conflict" && item.action !== "delete";
   const readiness: Readiness = decided ? "ready"
     : item.action === "delete" ? "ready"
     : waitsElsewhere && !liveIssues.some(issue => issue.severity === "high") && !reasons.some(reason => reason.blocking) ? "waiting"
@@ -632,13 +638,14 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
         </td>
         <td data-label="القرار">
           {!decided ? (
-            <span className="request-readiness" data-readiness={readiness}>
-              {readiness === "checking" ? <Loader2 aria-hidden="true" className="spin" />
+            <span className="request-readiness" data-readiness={changedAfterSubmit ? "review" : readiness}>
+              {changedAfterSubmit ? <RefreshCw aria-hidden="true" />
+                : readiness === "checking" ? <Loader2 aria-hidden="true" className="spin" />
                 : readiness === "waiting" ? <Clock3 aria-hidden="true" />
                 : readiness === "blocked" ? <ShieldAlert aria-hidden="true" />
                 : readiness === "review" ? <AlertTriangle aria-hidden="true" />
                 : <ShieldCheck aria-hidden="true" />}
-              {item.action === "delete" ? "حذفٌ لا يُفحص" : READINESS[readiness]}
+              {item.action === "delete" ? "حذفٌ لا يُفحص" : changedAfterSubmit ? "تغيّر بعد الإرسال" : READINESS[readiness]}
             </span>
           ) : null}
           {item.action !== "delete" && (reasons.length || liveIssues.length) ? (
@@ -671,15 +678,15 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
           ) : null}
           {/* ── وصل جاهزاً ثم تغيّر شيء (C7) ── الطلبُ لا يُقبل عند الإرسال وهو ممنوع، فالمنعُ هنا
               يعني أن الجدول تحرّك بعده: تنبيهٌ واحد وبديلٌ جاهز بضغطة بدل «ممنوع» صامتة. */}
-          {!decided && row.submittedAt && item.verdict === "conflict" && item.action !== "delete" ? (
-            <div className="request-changed" role="status">
-              <RefreshCw aria-hidden="true" /><span>تغيّر الجدول بعد الإرسال</span>
+          {changedAfterSubmit && (item.nearestTimes || []).length ? (
+            <div className="request-changed" role="group" aria-label="بديلٌ جاهز يُقترح على الأستاذ">
+              <Send aria-hidden="true" /><span>بديل جاهز</span>
               {(item.nearestTimes || []).slice(0, 2).map(slot => (
                 <SecondaryButton key={`${(slot.days || [slot.day]).join(",")}|${slot.start}`} type="button" disabled={busy}
                   title="يُقترح على الأستاذ فيوافق بضغطة"
                   data-guide-ignore="اقتراحُ بديلٍ جاهز على الأستاذ — ردٌّ في حوار البند لا يكتب في الجدول"
                   onClick={() => onReply(index, "", [{ day: slot.day, days: slot.days?.length ? slot.days : [slot.day], start: slot.start, end: slot.end }])}>
-                  <Send aria-hidden="true" /> {(slot.days?.length ? slot.days : [slot.day]).map(day => INBOX_DAY_NAMES[day as keyof typeof INBOX_DAY_NAMES] || day).join(" · ")} <bdi dir="ltr">{slot.start}</bdi>
+                  {(slot.days?.length ? slot.days : [slot.day]).map(day => INBOX_DAY_NAMES[day as keyof typeof INBOX_DAY_NAMES] || day).join(" · ")} <bdi dir="ltr">{slot.start}</bdi>
                 </SecondaryButton>
               ))}
             </div>
