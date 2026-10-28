@@ -44,11 +44,12 @@ export async function academicAdviceForScope(collegeId: number, sectionId: numbe
     enumerable: true,
     get() {
       if (!decisionLab) {
-        const actual = buildAcademicDecisionLab(input, reading);
-        // Demo fallback only: a distinct, explicitly fictional calculated tutorial.
-        // Actual production results are never replaced or inflated.
-        decisionLab = demoRequest && !actual.scenarios.length
-          ? buildAcademicDecisionLabTrainingPreview() : actual;
+        // The demo always presents the complete six-tool training journey.
+        // Live department advice stays in the original pairs/time preferences,
+        // while university scopes always use real decision-lab calculations.
+        decisionLab = demoRequest
+          ? buildAcademicDecisionLabTrainingPreview()
+          : buildAcademicDecisionLab(input, reading);
       }
       return decisionLab;
     },
