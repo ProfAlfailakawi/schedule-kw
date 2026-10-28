@@ -156,7 +156,14 @@ arL:'<path d="M15 6l-6 6 6 6"/>',
 arR:'<path d="M9 6l6 6-6 6"/>',
 arrow:'<path d="M12 5v14"/><path d="m6 13 6 6 6-6"/>',
 alert:'<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
-layers:'<path d="M12 3l9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>'};
+layers:'<path d="M12 3l9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+user:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0 1 16 0v1"/>',
+users:'<circle cx="9" cy="8" r="3.5"/><path d="M2 20v-1a6 6 0 0 1 12 0v1"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6 6 0 0 1 4 5.6V20"/>',
+tool:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
+scale:'<path d="M12 3v18M5 21h14"/><path d="M6 7h12"/><path d="m6 7-3 7a3 3 0 0 0 6 0z"/><path d="m18 7-3 7a3 3 0 0 0 6 0z"/>',
+home:'<path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>',
+pin:'<path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
+history:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>'};
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function gi(n){return '<svg class="sk-gi" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+(G[n]||"")+'</svg>'}
 /* الأرقامُ كما تُكتب على أيّ لوحة — عربيةً أو فارسيةً أو لاتينية — وتُرسَل لاتينيةً دائماً. */

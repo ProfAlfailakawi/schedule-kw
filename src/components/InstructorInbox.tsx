@@ -36,7 +36,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, Inbox, Link2, Loader2, MailQuestion,
   ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
+  DoorOpen, Wrench, RefreshCw, Home, MapPin, History, Users, Scale, BellRing, UserX,
 } from "lucide-react";
+import type { RequestRoomReason } from "../types";
 import { DnaCount } from "./dna";
 import { RequestTimelineToggle } from "./dna/requestDna";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
@@ -56,6 +58,8 @@ import {
 } from "./ui";
 import { AR, countOf } from "../utils/arabicCount";
 import { reachAboutCard } from "../utils/reachInstructor";
+import { inboxInstructorChoices, isPlaceholderInboxRow } from "../utils/instructorIdentity";
+import { notParticipated } from "../utils/requestParticipation";
 import { putHandoff } from "../utils/requestHandoff";
 import { currentTermId } from "../utils/termSequence";
 import { singleDepartmentOf } from "../utils/scopeContext";
@@ -229,6 +233,10 @@ function RejectSheet({ item, onClose, onSubmit, busy }: {
  * «ثبّت» يُسأل الخادمُ بالسؤال نفسِه الذي يسأله نموذجُ الجدول الدراسي قبل
  * الحفظ (`check-conflicts`): الأستاذُ والقاعةُ والطلبةُ المشتركون والشعبةُ
  * المكرّرة، في كل الكليات. فما يُمنع هناك يُمنع هنا، ويُقال سببُه هنا. */
+
+/* أسبابُ اختيار القاعة أيقوناتٍ (C2) — الكلمةُ في التلميح وحده. */
+const ROOM_WHY_ICON: Record<RequestRoomReason, React.ComponentType<any>> = { dept: Home, near: MapPin, previous: History, capacity: Users, fair: Scale, facility: Wrench };
+const ROOM_WHY_LABEL: Record<RequestRoomReason, string> = { dept: "قاعة القسم", near: "قرب قاعات الأستاذ", previous: "قاعته السابقة", capacity: "سعة مناسبة", fair: "توزيع عادل", facility: "مع المرفق" };
 
 export interface LiveIssue { severity: "high" | "medium" | "low"; message: string; detail?: string; otherId?: number }
 
@@ -608,7 +616,16 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
             ) : null}
             {item.before && item.action === "change" ? <ArrowLeft className="request-flow-arrow" aria-hidden="true" /> : null}
             {item.action === "delete" ? <span className="request-none">حذف الموعد</span>
-              : item.after ? <span title="المطلوب">{item.after.days}<br /><bdi dir="ltr">{item.after.time}</bdi></span>
+              : item.after ? <span title="المطلوب">{item.after.days}<br /><bdi dir="ltr">{item.after.time}</bdi>
+                  {/* القاعةُ التي حُجزت للطلب عند إرساله (C1) — أو أنسبُ المرشّحات إن لم يُحجز بعد. */}
+                  {(item.reservedRoom?.label || item.roomOptions?.[0]) ? (
+                    <small className="request-room" data-held={item.reservedRoom ? "1" : undefined} title={item.reservedRoom ? "قاعةٌ محجوزةٌ للطلب" : "الأنسب الآن"}>
+                      <DoorOpen aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.label || [item.roomOptions![0].room, item.roomOptions![0].hall].filter(Boolean).join("/")}</bdi>
+                      {(item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel) ? <><Wrench aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel}</bdi></> : null}
+                      {(item.roomOptions?.[0]?.why || []).map(reason => { const Icon = ROOM_WHY_ICON[reason]; return Icon ? <Icon key={reason} aria-label={ROOM_WHY_LABEL[reason]} className="request-room-why" /> : null; })}
+                    </small>
+                  ) : null}
+                </span>
               : <span className="request-none">—</span>}
           </div>
           {item.excuse ? <small className="request-excuse"><MessageSquare aria-hidden="true" /> {item.excuse}</small> : null}
@@ -651,6 +668,21 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
                 ? "يعتمد على حذف محاضرته في قسمٍ آخر — بانتظار قرار ذلك القسم."
                 : <>يُفرغ هذا الوقتَ طلبُه الآخر: {dependsOn.map(entry => `«${entry.name}»`).join(" و")} — يُثبَّت ذلك أولاً تلقائياً.</>}</span>
             </p>
+          ) : null}
+          {/* ── وصل جاهزاً ثم تغيّر شيء (C7) ── الطلبُ لا يُقبل عند الإرسال وهو ممنوع، فالمنعُ هنا
+              يعني أن الجدول تحرّك بعده: تنبيهٌ واحد وبديلٌ جاهز بضغطة بدل «ممنوع» صامتة. */}
+          {!decided && row.submittedAt && item.verdict === "conflict" && item.action !== "delete" ? (
+            <div className="request-changed" role="status">
+              <RefreshCw aria-hidden="true" /><span>تغيّر الجدول بعد الإرسال</span>
+              {(item.nearestTimes || []).slice(0, 2).map(slot => (
+                <SecondaryButton key={`${(slot.days || [slot.day]).join(",")}|${slot.start}`} type="button" disabled={busy}
+                  title="يُقترح على الأستاذ فيوافق بضغطة"
+                  data-guide-ignore="اقتراحُ بديلٍ جاهز على الأستاذ — ردٌّ في حوار البند لا يكتب في الجدول"
+                  onClick={() => onReply(index, "", [{ day: slot.day, days: slot.days?.length ? slot.days : [slot.day], start: slot.start, end: slot.end }])}>
+                  <Send aria-hidden="true" /> {(slot.days?.length ? slot.days : [slot.day]).map(day => INBOX_DAY_NAMES[day as keyof typeof INBOX_DAY_NAMES] || day).join(" · ")} <bdi dir="ltr">{slot.start}</bdi>
+                </SecondaryButton>
+              ))}
+            </div>
           ) : null}
           {item.action === "change" && !current && !decided ? (
             <p className="request-issue-note">لم يعد هذا الموعد في الجدول — ربما حُذف أو نُقل بعد الطلب.</p>
@@ -802,7 +834,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   /* ── المرشّحات ──────────────────────────────────────────────────────────
      أربعةُ أسئلةٍ يسألها المنسّق فعلاً: ما الذي ينتظرني؟ أيُّ نوع؟ ما الجاهزُ
      منه؟ وفي أيّ قسم؟ وكلٌّ منها زرٌّ واحد، لا قائمةٌ منسدلة. */
-  const [stateFilter, setStateFilter] = useState<"pending" | "fixed" | "rejected" | "all" | "confirmed-unchanged">("pending");
+  const [stateFilter, setStateFilter] = useState<"pending" | "fixed" | "rejected" | "all" | "confirmed-unchanged" | "absent">("pending");
   const [actionFilter, setActionFilter] = useState<"all" | "change" | "add" | "delete">("all");
   const [verdictFilter, setVerdictFilter] = useState<"all" | "clear" | "exception" | "conflict">("all");
   const [deptFilter, setDeptFilter] = useState(0);
@@ -975,10 +1007,15 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   }, [scopes, collegeId, catalog]);
 
   const needle = ask.trim();
-  const visible = useMemo(() => (rows || [])
-    .filter(row => !needle || row.instructorName.includes(needle))
-    .filter(row => !instructorFilter || Number(row.AdInstructorId) === instructorFilter),
-    [rows, needle, instructorFilter]);
+  /* شخصٌ واحدٌ مرّةً واحدة، و«هيئة تدريسية» ليست أستاذاً في الوارد (N1). */
+  const instructorChoices = useMemo(() => inboxInstructorChoices(rows || []), [rows]);
+  const visible = useMemo(() => {
+    const chosen = instructorFilter ? instructorChoices.find(choice => choice.ids.includes(instructorFilter)) : undefined;
+    return (rows || [])
+      .filter(row => !isPlaceholderInboxRow(row))
+      .filter(row => !needle || row.instructorName.includes(needle))
+      .filter(row => !instructorFilter || (chosen ? chosen.ids.includes(Number(row.AdInstructorId)) : Number(row.AdInstructorId) === instructorFilter));
+  }, [rows, needle, instructorFilter, instructorChoices]);
 
   /* «تكدّس الطلبات»: كم موعداً مطلوباً يبدأ في كل خليّة (يوم × وقت بداية).
      عدٌّ لا غير، من بنود الطلبات المُجابة المحمَّلة أصلاً في الشاشة — لا
@@ -991,17 +1028,11 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
      «الجدول الدراسي». */
   const { lookup: visitingLookup, isVisiting: lookupVisiting } = useVisitingLookup(termId);
   const rowVisiting = (row: InboxRequest) => lookupVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId);
-  const instructorOptions = useMemo(() => {
-    const seen = new Map<number, { label: string; changed: boolean }>();
-    for (const row of rows || []) {
-      const id = Number(row.AdInstructorId);
-      if (!id || seen.has(id)) continue;
-      seen.set(id, { label: withVisitingSuffix(row.instructorName, rowVisiting(row)), changed: row.changedCount > 0 });
-    }
-    return [...seen]
-      .sort((a, b) => byArabic(a[1].label, b[1].label))
-      .map(([value, entry]) => ({ value, label: entry.changed ? `${entry.label} · طلب تعديلاً` : entry.label }));
-  }, [rows, visitingLookup]);
+  const instructorOptions = useMemo(() => instructorChoices.map(choice => {
+    const own = (rows || []).filter(row => choice.ids.includes(Number(row.AdInstructorId)));
+    const label = withVisitingSuffix(choice.name, own.some(row => rowVisiting(row)));
+    return { value: choice.ids[0], label: own.some(row => row.changedCount > 0) ? `${label} · طلب تعديلاً` : label };
+  }).sort((a, b) => byArabic(a.label, b.label)), [instructorChoices, rows, visitingLookup]);
 
   const itemFilter = useCallback((item: InstructorRequestItem) => {
     if (stateFilter === "confirmed-unchanged") return false;
@@ -1041,6 +1072,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       exception: all.filter(item => item.verdict === "exception").length,
       conflict: all.filter(item => item.verdict === "conflict").length,
       confirmedUnchanged: (rows || []).filter(row => isUnchangedConfirmed(row)).length,
+      /* «لم يشاركوا» (D1): لم يرسلوا شيئاً — فتحوا أو لم يفتحوا — وروابطُ العرض وحده لا تُعدّ (D2). */
+      absent: notParticipated((rows || []).filter(row => !isPlaceholderInboxRow(row))).length,
     };
   }, [rows]);
 
@@ -1060,7 +1093,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     return [...groups.entries()].sort(([a], [b]) => byArabic(a, b));
   }, [changed]);
   const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note && !isUnchangedConfirmed(row));
-  const silent = visible.filter(row => !row.linkOpenedAt);
+  const silent = visible.filter(row => !row.linkOpenedAt && (row as any).linkMode !== "view");
+  const absentRows: InboxRequest[] = notParticipated<InboxRequest>(visible);
 
   /**
    * التثبيت.
@@ -1430,6 +1464,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
               { value: "fixed", label: "ثُبّت", count: counts.fixed, tone: "ok" },
               { value: "rejected", label: "رُفض", count: counts.rejected, tone: "bad" },
               { value: "all", label: "الكل", count: counts.all },
+              { value: "absent", label: "لم يشاركوا", count: counts.absent, tone: "warn" },
             ];
             const actionOptions: FilterOption[] = [
               { value: "all", label: "الكل" },
@@ -1487,7 +1522,34 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             );
           })()}
 
-          {stateFilter === "confirmed-unchanged" ? (visibleConfirmedUnchanged.length ? (
+          {stateFilter === "absent" ? (absentRows.length ? (
+            <section className="request-absent-list" aria-label="أساتذة لم يشاركوا">
+              {absentRows.map(row => {
+                const reach = reachAboutCard(
+                  { AdInstructorName: row.instructorName, AdInstructorMobile: row.instructorMobile },
+                  `${location.origin}/r/${row.linkId}`,
+                  "reminder",
+                );
+                return (
+                  <article className="request-absent-row" key={row.id} data-opened={row.linkOpenedAt ? "1" : undefined}>
+                    <span className="request-absent-icon" title={row.linkOpenedAt ? "فتح ولم يرسل" : "لم يفتح الرابط"}>
+                      {row.linkOpenedAt ? <MailOpen aria-hidden="true" /> : <UserX aria-hidden="true" />}
+                    </span>
+                    <strong>{withVisitingSuffix(row.instructorName, rowVisiting(row))}</strong>
+                    {reach.href ? (
+                      <a href={reach.href} target="_blank" rel="noreferrer noopener" className="request-remind" aria-label={`ذكّر ${row.instructorName}`}>
+                        <BellRing aria-hidden="true" /> ذكّر
+                      </a>
+                    ) : (
+                      <span className="request-remind" data-blocked="true" title={reach.blocked || ""}><Link2 aria-hidden="true" /></span>
+                    )}
+                  </article>
+                );
+              })}
+            </section>
+          ) : (
+            <EmptyState title="الجميع شارك" detail="لا أستاذَ في هذا النطاق بلا ردّ." />
+          )) : stateFilter === "confirmed-unchanged" ? (visibleConfirmedUnchanged.length ? (
             <section className="request-confirmed-list" aria-label="أساتذة ثبّتوا جداولهم دون تعديل">
               {visibleConfirmedUnchanged.map(row => (
                 <article className="request-confirmed-row" key={row.id}>

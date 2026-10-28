@@ -1404,6 +1404,8 @@ export interface InstructorRequestReason {
   blocking: boolean;
 }
 
+export type RequestRoomReason = "dept" | "near" | "previous" | "capacity" | "fair" | "facility";
+
 export interface InstructorRequestItem {
   /** Stable within a request, including additions without an official row yet. */
   itemId?: string;
@@ -1429,7 +1431,13 @@ export interface InstructorRequestItem {
   roomCandidates?: string[];
   roomAvailable?: boolean | null;
   /** تفاصيلُ أولى القاعات الخالية (مبنى وقاعة) — للقسم وحده — يُملأ بها نموذجُ الإضافة السريع. */
-  roomOptions?: Array<{ key: string; room: string; hall: string; buildingId?: string; roomId?: string; companionRoomId?: string; companionRoomLabel?: string }>;
+  roomOptions?: Array<{ key: string; room: string; hall: string; buildingId?: string; roomId?: string; companionRoomId?: string; companionRoomLabel?: string;
+    /** أسبابُ ترتيب القاعة (C2): رموزٌ تُرسم أيقونات — قسم المقرر، قرب قاعاتك، القاعة السابقة، السعة، التوزيع العادل، المرفق. */
+    why?: RequestRoomReason[] }>;
+  /** القاعةُ التي حُجزت للبند فعلاً عند الإرسال (الأنسب المتاح لحظتها). تُعرض في عمود «التغيير». */
+  reservedRoom?: { roomId?: string; label: string; companionLabel?: string };
+  /** الأنسب وبديلان (للأستاذ، بلا تفاصيل غيره): رمزُ القاعة وأسبابُ اختيارها. */
+  roomPick?: Array<{ label: string; why: RequestRoomReason[] }>;
   /** أقربُ الأوقات المتاحة حين يُمنع الطلب. */
   nearestTimes?: InstructorRequestSlot[];
   /** التوزيعاتُ المعتمدة لساعات المقرّر حين لا يغطّيها المختار — تُعرض أزراراً تُطبَّق بضغطة. */
@@ -1506,6 +1514,11 @@ export interface InstructorRequest {
   AdInstructorId: number;
   /** رابطُ هذا الأستاذ وحده. هو المعرّفُ والبابُ معاً. */
   linkId: string;
+  /**
+   * نوعُ الإرسال (E1/D2): «view» للعرض فقط، «edit» طلبُ تعديل، «ta» مرحلةُ التدريب.
+   * تضبطه أداةُ النشر؛ غيابُه = «edit» (كلُّ الروابط قبل وجوده). رابطُ العرض لا يُعدّ «لم يشارك».
+   */
+  linkMode?: "view" | "edit" | "ta";
   /** أولُ فتحٍ للرابط. غيابُه يعني أنه لم يُفتح، لا أنه لم يصل. */
   linkOpenedAt?: string;
   /** مرّات فتح الرابط لكل يومٍ (توقيت الكويت). تُسجَّل مرةً كل نصف ساعة على الأكثر فلا تُضخّمها إعادة التحميل. */

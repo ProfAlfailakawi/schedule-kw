@@ -1,5 +1,5 @@
 import { departmentFamily } from "../utils/sectionLabel";
-import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict,
+import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict, withReservedRooms, holdRequestReservation, releaseRequestHolds, liveReservations,
   type RequestReservation, type RequestReservationProposal, type RequestScheduleOperation } from "../utils/instructorRequestReservations";
 import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
 import { instructorWeekAfter } from "../utils/instructorRequestWeek";
@@ -4069,7 +4069,7 @@ export const Repository = {
     return schedule ? hydrateSchedules([schedule], db.courses, db.sections)[0] : undefined;
   },
 
-  createSchedule: async (schedule: Omit<FSchedule, "id">, reservationOwner = ""): Promise<FSchedule> => {
+  createSchedule: async (schedule: Omit<FSchedule, "id">, reservationOwner: string | string[] = ""): Promise<FSchedule> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -4110,7 +4110,7 @@ export const Repository = {
    * The read and the write happen inside one Firestore transaction, so the
    * comparison cannot be overtaken between them.
    */
-  updateSchedule: async (id: number, fields: Partial<FSchedule>, expectedRev?: number, reservationOwner = ""): Promise<FSchedule> => {
+  updateSchedule: async (id: number, fields: Partial<FSchedule>, expectedRev?: number, reservationOwner: string | string[] = ""): Promise<FSchedule> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -4232,7 +4232,7 @@ export const Repository = {
     return updated;
   },
 
-  deleteSchedule: async (id: number, reservationOwner = ""): Promise<void> => {
+  deleteSchedule: async (id: number, reservationOwner: string | string[] = ""): Promise<void> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -5222,15 +5222,43 @@ export const Repository = {
   getInstructorRequestReservations: async (termId: number): Promise<RequestReservation[]> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const snap = await firestoreDb.collection("instructorRequestReservations").doc(String(termId)).get();
-      return snap.exists ? (snap.data()?.entries || []) : [];
+      return snap.exists ? liveReservations(snap.data()?.entries || []) : [];
     }
-    return db.instructorRequestReservationLedgers?.[String(termId)] || [];
+    return liveReservations(db.instructorRequestReservationLedgers?.[String(termId)] || []);
+  },
+
+  /**
+   * حجزُ التحرير المؤقّت (C3): أوّلُ من يختار الوقتَ يأخذه داخل معاملة الدفتر نفسها،
+   * ويسقط وحده بعد `ttlMs` إن لم يُرسَل. `proposal = null` يُسقط حجوزَ الطلب المؤقّتة.
+   */
+  holdInstructorRequestSlot: async (request: InstructorRequest, proposal: RequestReservationProposal | null, ttlMs: number): Promise<{ heldUntil: string } | null> => {
+    const termId = Number(request.AdTermId);
+    const heldUntil = new Date(Date.now() + ttlMs).toISOString();
+    const apply = (entries: RequestReservation[], rows: FSchedule[]) => proposal
+      ? holdRequestReservation(entries, request, proposal, rows, heldUntil)
+      : releaseRequestHolds(entries, request.id);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
+      await firestoreDb.runTransaction(async tx => {
+        const [ledger, week] = await Promise.all([tx.get(ledgerRef),
+          proposal ? tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])) : Promise.resolve(null)]);
+        const entries = apply(ledger.data()?.entries || [], (week?.docs || []).map(doc => doc.data() as FSchedule));
+        tx.set(ledgerRef, { entries, serial: Number(ledger.data()?.serial || 0) + 1 });
+      }, { maxAttempts: 40 });
+    } else {
+      await withSerialLock(`request-reservations:${termId}`, async () => {
+        const ledgers = db.instructorRequestReservationLedgers ||= {};
+        ledgers[String(termId)] = apply(ledgers[String(termId)] || [], db.schedules.filter(item => Number(item.AdTermId) === termId));
+        saveDatabase();
+      });
+    }
+    return proposal ? { heldUntil } : null;
   },
 
   saveInstructorRequest: async (row: InstructorRequest, proposals?: RequestReservationProposal[], unchangedConfirmationGuard?: { scheduleFingerprint: string }): Promise<InstructorRequest> => {
     const now = new Date().toISOString();
     const termId = Number(row.AdTermId);
-    const next: InstructorRequest = { ...row, updatedAt: now, requestRevision: Number(row.requestRevision || 0) + 1 };
+    let next: InstructorRequest = { ...row, updatedAt: now, requestRevision: Number(row.requestRevision || 0) + 1 };
     const checkingLoad = proposals && next.items.some(item => item.action === "add" && item.decision?.state !== "fixed" && item.decision?.state !== "rejected");
     const [loadPerson, loadCourses] = checkingLoad
       ? await Promise.all([Repository.getInstructorById(Number(next.AdInstructorId)), Repository.getCourses()]) : [undefined, []];
@@ -5285,6 +5313,8 @@ export const Repository = {
           entries = allocateRequestReservations(entries, next, eligibleProposals, rows);
           checkLoad(rows, entries);
         } else entries = retainRequestReservations(entries, next);
+        /* القاعةُ المحجوزة تُكتب على البند نفسه (C1). */
+        if (proposals) next = withReservedRooms(next, entries);
         tx.set(requestRef, next);
         tx.set(ledgerRef, { entries, serial: Number(ledger.data()?.serial || 0) + 1 });
       }, { maxAttempts: 40 });
@@ -5310,6 +5340,7 @@ export const Repository = {
         const allocated = proposals ? allocateRequestReservations(entries, next, eligibleProposals!, week) : retainRequestReservations(entries, next);
         if (proposals) checkLoad(week, allocated);
         ledgers[String(termId)] = allocated;
+        if (proposals) next = withReservedRooms(next, allocated);
         if (at >= 0) db.instructorRequests[at] = next; else db.instructorRequests.unshift(next);
         saveDatabase();
       });

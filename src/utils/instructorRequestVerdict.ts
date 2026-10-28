@@ -193,6 +193,8 @@ export interface VerdictContext {
    * وصفحةُ الأستاذ لا تمرّره، فلا يُقال له «أقربُ الأوقات» وطلبُه متاح.
    */
   offerAlternatives?: boolean;
+  /** كليةُ الموعد المطلوب: تحصر مطابقةَ القاعات النصّية في كليتها (A4). */
+  roomCollegeId?: number;
 }
 
 const dayLabel = (day: DayKey) => DAY_NAMES[DAY_KEYS.indexOf(day)];
@@ -259,12 +261,16 @@ export function rowFromRequest(request: RequestedRow, base: Partial<FSchedule>):
  * ويُحترم الفاصلُ المقرَّر بين محاضرتين: قاعةٌ تنتهي محاضرتُها الساعةَ التاسعة
  * ليست حرّةً في التاسعة تماماً — بينهما عشرُ دقائق أو ربعُ ساعةٍ بحسب اليوم.
  */
-function roomFree(roomKey: string, days: DayKey[], start: string, end: string, rows: FSchedule[], ignoreRowId: number | null, aliases?: Record<string, string>): boolean {
+function roomFree(roomKey: string, days: DayKey[], start: string, end: string, rows: FSchedule[], ignoreRowId: number | null, aliases?: Record<string, string>, collegeId?: number): boolean {
   const alias = aliases?.[roomKey];
   const gap = 0; // Turnaround is advisory in the central save policy, not physical occupancy.
   const from = toMinutes(start), to = toMinutes(end);
   for (const row of rows) {
     if (ignoreRowId != null && Number(row.id) === ignoreRowId) continue;
+    /* النصُّ وحده («مبنى/قاعة») محلّيٌّ في كليته: بنين وبنات تعيدان رموزَ المباني
+       نفسَها في حرمين مختلفين. فصفٌّ نصّيٌّ من كليةٍ أخرى لا يشغل قاعتنا؛ والقاعةُ
+       المسجّلة بمعرّفها (المشتركةُ فعلاً) تُقاس في كل مكان (A4). */
+    if (collegeId && Number(row.AdCollegeId || 0) > 0 && Number(row.AdCollegeId) !== Number(collegeId) && !String((row as any).roomId || "").trim()) continue;
     const occupant = roomIdentityKey(row);
     if (occupant !== roomKey && !(alias && occupant === alias)) continue;
     if (!days.some(day => Boolean((row as any)[day]))) continue;
@@ -710,7 +716,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
 
   /* ── القاعة ───────────────────────────────────────────────────────────── */
   const roomKeys = (context.knownRoomKeys || []).filter(Boolean);
-  const candidates = roomKeys.filter(key => (!context.roomSlotsEligible || context.roomSlotsEligible(key, slots)) && slots.every(slot => (!context.roomEligible || context.roomEligible(key, slot.day, slot.start, slot.end)) && roomFree(key, [slot.day], slot.start, slot.end, week.filter(row => !touched.has(row.id)), identity, context.roomAliases)));
+  const candidates = roomKeys.filter(key => (!context.roomSlotsEligible || context.roomSlotsEligible(key, slots)) && slots.every(slot => (!context.roomEligible || context.roomEligible(key, slot.day, slot.start, slot.end)) && roomFree(key, [slot.day], slot.start, slot.end, week.filter(row => !touched.has(row.id)), identity, context.roomAliases, context.roomCollegeId)));
   const roomAvailable = roomKeys.length ? candidates.length > 0 : null;
   if (roomAvailable === false) {
     reasons.push({ source: "room", text: "لا تتوفّر قاعةٌ في هذا الوقت.", blocking: true });

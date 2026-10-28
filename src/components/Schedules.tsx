@@ -1401,6 +1401,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
          show a wall per line. */
       if (Array.isArray(data?.conflicts) && data.conflicts.length) failure.conflicts = data.conflicts;
       if (data?.code) failure.code = data.code;
+      if (Array.isArray(data?.holds)) failure.holds = data.holds;
       if (Array.isArray(data?.changes)) failure.changes = data.changes;
       if (res.status === 409 && data?.conflict === "revision") {
         failure.revisionConflict = true;
@@ -4665,13 +4666,23 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         pendingHandoff.current = null;
         const id = result.items?.[handoffForSave!.itemIndex]?.decision?.scheduleId;
         return result.appliedRows?.find((row: FSchedule) => Number(row.id) === Number(id)) || null;
-      })() : await fetchJson(url, {
-        method: editor === "edit" ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        // The revision this editor opened. The server compares it and refuses
-        // rather than overwriting a change someone else made meanwhile.
-        body: JSON.stringify({ ...form, rev: editor === "edit" ? rows.find(row => row.id === editId)?.rev : undefined }),
-      });
+      })() : await (async () => {
+        const send = (overrideRequestHolds?: string[]) => fetchJson(url, {
+          method: editor === "edit" ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          // The revision this editor opened. The server compares it and refuses
+          // rather than overwriting a change someone else made meanwhile.
+          body: JSON.stringify({ ...form, rev: editor === "edit" ? rows.find(row => row.id === editId)?.rev : undefined, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }),
+        });
+        try { return await send(); }
+        catch (failure: any) {
+          /* القسمُ صاحبُ القرار (A2): موعدٌ حجزه طلبُ أستاذٍ ينتظرك لا يقفل عليك — سؤالٌ واحدٌ ثم يمضي. */
+          if (failure?.code !== "request-hold" || !Array.isArray(failure.holds) || !failure.holds.length) throw failure;
+          const names = failure.holds.map((hold: any) => hold.instructorName).filter(Boolean).join("، ");
+          if (!window.confirm(`⏳ هذا الموعد محجوز لطلب ${names || "أستاذ"} بانتظار قرارك.\nمتابعة التعديل؟ يبقى الطلب في الوارد، ويُثبَّت إن طابق التعديلُ ما طلبه.`)) throw new Error("لم يُحفظ شيء: الموعد ما زال محجوزاً للطلب.");
+          return send(failure.holds.map((hold: any) => String(hold.requestId)));
+        }
+      })();
       let guideUndoId = "";
       if (editor === "edit" && before) {
         const { id: _id, AdCourseName: _name, ...previousValues } = before as any;
