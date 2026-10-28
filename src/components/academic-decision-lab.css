@@ -59,3 +59,38 @@
 .adl-watch-list{display:grid;gap:7px;padding:8px 10px}.adl-watch-item{display:grid;grid-template-columns:17px 1fr;gap:2px 7px;padding:8px 9px;border:1px solid var(--adl-line);border-radius:9px;background:var(--adl-card)}
 .adl-watch-item>svg{grid-row:1/3;color:var(--adl-accent)}.adl-watch-item strong{font-size:11px}.adl-watch-item small{font-size:10px;line-height:1.7;color:var(--adl-muted)}
 .adl-watch-list>small{color:var(--adl-muted);font-size:10px;line-height:1.6}
+
+/* Discoverable six-tool cockpit: compact, touch-friendly and honest about demo evidence. */
+.adl-training-note{display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:10px 11px;border:1px dashed color-mix(in srgb,var(--adl-accent) 34%,var(--adl-line));border-radius:11px;background:color-mix(in srgb,var(--adl-accent) 5%,var(--adl-card));font-size:10.5px;line-height:1.8;color:var(--adl-muted)}
+.adl-training-note svg{flex:none;margin-top:2px;color:var(--adl-accent)}
+.adl-training-note strong{color:var(--adl-ink)}
+.adl-features{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:13px 0 11px}
+.adl-feature{appearance:none;position:relative;display:flex;align-items:center;gap:9px;min-width:0;min-height:65px;padding:10px 9px;background:var(--adl-card);color:var(--adl-ink);border:1px solid var(--adl-line);border-radius:12px;cursor:pointer;text-align:start;transition:background .18s,border-color .18s,box-shadow .18s}
+.adl-feature>svg{flex:none;width:31px;height:31px;padding:7px;box-sizing:border-box;border-radius:10px;color:var(--adl-accent);background:color-mix(in srgb,var(--adl-accent) 8%,var(--adl-card))}
+.adl-feature>span:not(.adl-feature-current){display:grid;gap:3px;min-width:0}
+.adl-feature strong{font-size:11.5px;font-weight:800;line-height:1.4;overflow-wrap:anywhere}
+.adl-feature small{font-size:9px;color:var(--adl-muted);line-height:1.4}
+.adl-feature:hover{border-color:color-mix(in srgb,var(--adl-accent) 60%,var(--adl-line))}
+.adl-feature-active{border-color:color-mix(in srgb,var(--adl-accent) 60%,var(--adl-line));background:color-mix(in srgb,var(--adl-accent) 7%,var(--adl-card));box-shadow:0 2px 9px rgba(20,80,60,.045)}
+.adl-feature-current{position:absolute;inset-block-start:4px;inset-inline-end:5px;color:var(--adl-accent)}
+.adl-feature:focus-visible,.adl-scenario:focus-visible,.adl-refresh:focus-visible{outline:2px solid var(--adl-accent);outline-offset:2px}
+.adl-section-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:11px;min-width:0}
+.adl-section-head>span{display:flex;align-items:center;gap:7px;color:var(--adl-accent);font-size:12px}
+.adl-section-head>small{color:var(--adl-muted);font-size:9.5px;white-space:nowrap}
+.adl-stage{border:1px solid var(--adl-line);border-radius:13px;padding:12px;background:color-mix(in srgb,var(--adl-accent) 1.5%,var(--adl-card))}
+.adl-scenarios{padding:2px 1px 11px}
+.adl-no-evidence{display:flex;align-items:flex-start;gap:10px;padding:15px 11px;border-radius:11px;background:var(--adl-card);border:1px dashed var(--adl-line);color:var(--adl-muted)}
+.adl-no-evidence>svg{flex:none;color:var(--adl-accent)}
+.adl-no-evidence>div{display:grid;gap:5px}
+.adl-no-evidence strong{font-size:11px;color:var(--adl-ink)}
+.adl-no-evidence small{font-size:10px;line-height:1.7}
+.adl-view-caption{display:block;font-size:10px;line-height:1.7;color:var(--adl-muted);padding-top:3px}
+.adl-chain-standalone{padding:10px 0 0}
+.adl-balance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:10px}
+.adl-balance-grid .adl-impact{min-height:77px;align-content:center}
+.adl-trust-status{display:flex;align-items:center;gap:10px;border-radius:11px;padding:11px;background:color-mix(in srgb,var(--adl-accent) 8%,var(--adl-card));color:var(--adl-accent)}
+.adl-trust-status>div{display:grid;gap:3px}
+.adl-trust-status strong{font-size:12px;color:var(--adl-ink)}
+.adl-trust-status small{font-size:10px;color:var(--adl-muted);line-height:1.5}
+@media(max-width:650px){.adl-features{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.adl-feature{min-height:60px;padding:8px 7px;gap:7px}.adl-feature strong{font-size:10.5px}.adl-feature small{font-size:9px}.adl-balance-grid{grid-template-columns:1fr}.adl-balance-grid .adl-impact{min-height:0}}
+@media(prefers-reduced-motion:reduce){.adl-feature{transition:none}}
