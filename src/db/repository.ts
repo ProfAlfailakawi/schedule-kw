@@ -1,4 +1,5 @@
 import { departmentFamily } from "../utils/sectionLabel";
+import type { TmScenarioRecord } from "../utils/timeMachine";
 import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict, withReservedRooms, holdRequestReservation, releaseRequestHolds, liveReservations,
   type RequestReservation, type RequestReservationProposal, type RequestScheduleOperation } from "../utils/instructorRequestReservations";
 import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
@@ -298,6 +299,8 @@ interface DBState {
   locationMigrationRuns?: LocationMigrationRun[];
   /** دليلُ البيئة التجريبية وحدها: الأرقامُ الوهمية التي تُقترح على الصفحات العامة. */
   demoGuide?: DemoGuide;
+  /** آلة الزمن: سيناريوهاتٌ افتراضية فوق الجدول الحيّ (src/utils/timeMachine.ts). */
+  timeMachineScenarios?: TmScenarioRecord[];
 }
 
 /** ما تقترحه الصفحاتُ العامة على زائر البيئة التجريبية ليجرّب. كلُّه وهمي. */
@@ -6413,6 +6416,141 @@ export const Repository = {
       return;
     }
     if (localApplyLeases.get(key)?.holder === holder) localApplyLeases.delete(key);
+  },
+
+  /* ── آلة الزمن: سيناريوهاتٌ محفوظة واعتمادٌ ذرّي ───────────────────────── */
+  getTimeMachineScenarios: async (termId: number, collegeId: number, sectionId: number): Promise<TmScenarioRecord[]> => {
+    const mine = (row: TmScenarioRecord) => Number(row.termId) === Number(termId) && Number(row.collegeId) === Number(collegeId) && Number(row.sectionId) === Number(sectionId);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("timeMachineScenarios").where("termId", "==", Number(termId)).get();
+      return snap.docs.map(doc => doc.data() as TmScenarioRecord).filter(mine).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    }
+    return (db.timeMachineScenarios || []).filter(mine).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  },
+  getTimeMachineScenario: async (id: string): Promise<TmScenarioRecord | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("timeMachineScenarios").doc(String(id)).get();
+      return doc.exists ? doc.data() as TmScenarioRecord : undefined;
+    }
+    return (db.timeMachineScenarios || []).find(row => row.id === id);
+  },
+  /** حفظٌ بختم إصدار: `expectedRevision` يمنع الكتابة فوق نسخة زميلٍ أحدث. */
+  saveTimeMachineScenario: async (row: TmScenarioRecord, expectedRevision?: number): Promise<TmScenarioRecord> => {
+    const next = { ...row, revision: Number(row.revision || 0) + 1, updatedAt: new Date().toISOString() };
+    const stale = (current?: TmScenarioRecord) => expectedRevision !== undefined && Number(current?.revision || 0) !== Number(expectedRevision);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("timeMachineScenarios").doc(row.id);
+      await firestoreDb.runTransaction(async tx => {
+        const current = await tx.get(ref);
+        if (stale(current.exists ? current.data() as TmScenarioRecord : undefined)) throw new RequestReservationConflict("تغيّر السيناريو من جهازٍ آخر. أعد فتحه.");
+        tx.set(ref, next);
+      });
+      return next;
+    }
+    const list = db.timeMachineScenarios ||= [];
+    const at = list.findIndex(item => item.id === row.id);
+    if (stale(at >= 0 ? list[at] : undefined)) throw new RequestReservationConflict("تغيّر السيناريو من جهازٍ آخر. أعد فتحه.");
+    if (at >= 0) list[at] = next; else list.unshift(next);
+    saveDatabase();
+    return next;
+  },
+  deleteTimeMachineScenario: async (id: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("timeMachineScenarios").doc(String(id)).delete(); return; }
+    db.timeMachineScenarios = (db.timeMachineScenarios || []).filter(row => row.id !== id);
+    saveDatabase();
+  },
+
+  /**
+   * اعتمادُ سيناريو (أو استعادةُ نقطته) كلُّه أو لا شيء.
+   *
+   * الأجسامُ وصلت من فحص معالجَي الحفظ الجافّ (المسار المركزي). وهنا، داخل معاملةٍ
+   * واحدة، يُعاد قراءةُ الفصل الحيّ: إصدارُ كل صفّ، وحجوزُ الطلبات، ونوافذُ الاستعارة،
+   * والتعارضُ الماديّ على الأسبوع النهائي — ثم تُكتب الصفوف ووثيقةُ السيناريو معاً.
+   * أيُّ اختلافٍ يرمي ولا يُكتب شيء.
+   */
+  commitTimeMachinePlan: async (termId: number, scenarioId: string, expectedScenarioRevision: number,
+    operations: Array<
+      | { kind: "update"; rowId: number; body: Partial<FSchedule>; expectedRev: number }
+      | { kind: "create"; body: Partial<FSchedule>; fixedId?: number }
+      | { kind: "delete"; rowId: number; expectedRev: number }>,
+    finalize: (result: { rows: FSchedule[]; before: FSchedule[]; createdIds: number[]; deletedIds: number[] }, current: TmScenarioRecord) => TmScenarioRecord,
+    normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
+    validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>): Promise<{ scenario: TmScenarioRecord; rows: FSchedule[]; deletedIds: number[] }> => {
+    const needIds = operations.filter(op => op.kind === "create" && !op.fixedId).length;
+    const firstId = firestoreDb && !demoSandboxContext.getStore() && needIds ? await reserveFirestoreIds("schedules", needIds) : 0;
+    const compute = async (week: FSchedule[], current: TmScenarioRecord | undefined, entries: RequestReservation[], startId: number, windows: ApprovedHallWindow[]) => {
+      if (!current || Number(current.revision || 0) !== Number(expectedScenarioRevision))
+        throw new RequestReservationConflict("تغيّر السيناريو أثناء الاعتماد. أعد فتحه.");
+      const byId = new Map(week.map(row => [Number(row.id), row]));
+      const written: FSchedule[] = [], before: FSchedule[] = [], createdIds: number[] = [], deletedIds: number[] = [];
+      const changed = new Set<number>();
+      let nextId = startId;
+      for (const op of operations) {
+        if (op.kind === "create") {
+          const id = op.fixedId || nextId++;
+          if (byId.has(id)) throw new ScheduleRevisionConflict(byId.get(id)!);
+          const row = { ...op.body, id, rev: 1 } as FSchedule;
+          assertRequestReservationWrite(row, entries);
+          written.push(row); createdIds.push(id);
+          continue;
+        }
+        const live = byId.get(op.rowId);
+        if (!live || Number(live.rev || 0) !== Number(op.expectedRev)) throw new ScheduleRevisionConflict(live || ({ id: op.rowId } as FSchedule));
+        changed.add(op.rowId); before.push(live);
+        if (op.kind === "update") {
+          const row = { ...live, ...op.body, id: live.id, rev: Number(live.rev || 0) + 1 } as FSchedule;
+          assertRequestReservationWrite(live, entries.filter(entry => entry.offeringRowIds.includes(op.rowId)));
+          assertRequestReservationWrite(row, entries.filter(entry => !entry.offeringRowIds.includes(op.rowId)));
+          written.push(row);
+        } else {
+          assertRequestReservationWrite(live, entries.filter(entry => entry.offeringRowIds.includes(op.rowId)));
+          deletedIds.push(op.rowId);
+        }
+      }
+      const finalWeek = [...week.filter(row => !changed.has(Number(row.id))), ...written];
+      if (written.some(row => scheduleViolatesApprovedBarterWindow(row, windows)))
+        throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
+      /* لا تعارضَ جديداً: ما يحمله الصفُّ المكتوب من موانع لا يزيد على ما حمله قبل الكتابة. */
+      const blockingOf = (rows: FSchedule[], universe: FSchedule[]) => rows.length
+        ? findConflicts(rows.map(normalize), universe.map(normalize), { placeholderInstructorIds: placeholders }).filter(isBlockingConflict).length : 0;
+      if (blockingOf(written, finalWeek) > blockingOf(before.filter(row => !deletedIds.includes(Number(row.id))), week))
+        throw new RequestReservationConflict("تغيّر الجدول الحيّ وظهر تعارضٌ أثناء الاعتماد. أعد فحص السيناريو.");
+      if (validateFinalWeek) await validateFinalWeek(written, finalWeek);
+      const scenario = finalize({ rows: written, before, createdIds, deletedIds }, current);
+      return { scenario: { ...scenario, revision: Number(current.revision || 0) + 1, updatedAt: new Date().toISOString() }, rows: written, deletedIds, finalWeek };
+    };
+    let result: { scenario: TmScenarioRecord; rows: FSchedule[]; deletedIds: number[] };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const scenarioRef = firestoreDb.collection("timeMachineScenarios").doc(scenarioId);
+      const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
+      result = await firestoreDb.runTransaction(async tx => {
+        const [stored, ledger, schedules, barterSnapshot] = await Promise.all([tx.get(scenarioRef), tx.get(ledgerRef),
+          tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])),
+          tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)]))]);
+        const windows = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
+        const planned = await compute(schedules.docs.map(doc => doc.data() as FSchedule), stored.exists ? stored.data() as TmScenarioRecord : undefined,
+          ledger.data()?.entries || [], firstId, windows);
+        planned.deletedIds.forEach(id => tx.delete(firestoreDb!.collection("schedules").doc(`schedule_${id}`)));
+        planned.rows.forEach(row => tx.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`), row));
+        tx.set(scenarioRef, planned.scenario);
+        return { scenario: planned.scenario, rows: planned.rows, deletedIds: planned.deletedIds };
+      }, { maxAttempts: 20 });
+    } else {
+      result = await withSerialLock(`request-reservations:${termId}`, async () => {
+        const list = db.timeMachineScenarios ||= [];
+        const at = list.findIndex(row => row.id === scenarioId);
+        const windows = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === termId));
+        const planned = await compute(db.schedules.filter(row => Number(row.AdTermId) === termId), at >= 0 ? list[at] : undefined,
+          db.instructorRequestReservationLedgers?.[String(termId)] || [], Math.max(0, ...db.schedules.map(row => Number(row.id))) + 1, windows);
+        db.schedules = [...db.schedules.filter(row => Number(row.AdTermId) !== termId), ...planned.finalWeek];
+        list[at] = planned.scenario;
+        saveDatabase();
+        return { scenario: planned.scenario, rows: planned.rows, deletedIds: planned.deletedIds };
+      });
+    }
+    invalidateSchedules(); invalidateReference(REFERENCE_KEYS.scheduleCount);
+    await markRegistrationRunsStale(termId);
+    return result;
   },
   getRegistrationRun: async (termId: number): Promise<RegistrationRun | undefined> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {

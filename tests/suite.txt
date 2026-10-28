@@ -124,6 +124,7 @@ test:plan-pdf
 test:plan-sheet-import
 test:curriculum-reference-pdf
 test:schedule-apply
+test:time-machine
 test:registration-causes
 test:radar-insight
 test:reference-apply

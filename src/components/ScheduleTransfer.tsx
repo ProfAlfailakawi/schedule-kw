@@ -1,8 +1,8 @@
 import TermSelect from "./TermSelect";
 import { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X } from "lucide-react";
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Puzzle } from "lucide-react";
 import { PrimaryButton, SecondaryButton, useDialogDismiss, visualConfirm } from "./ui";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
@@ -60,7 +60,9 @@ interface Props {
   onClose: () => void;
 }
 
-type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "planning";
+type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "planning" | "simulator";
+/* 🧩 محاكي الشعب بجانب «تخطيط الشعب»: ماذا لو حذفنا/أضفنا/دمجنا/قسّمنا؟ (src/components/SectionSimulator.tsx) */
+const SectionSimulator = lazy(() => import("./SectionSimulator"));
 
 export default function ScheduleTransfer({ collegeId, collegeName, sectionId, termId, instructors, departmentIds, terms, onChanged, onSectionChange, onClose }: Props) {
   useDialogDismiss(true, onClose);
@@ -1248,6 +1250,9 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
           {termEnded ? null : (
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
           )}
+          {termEnded ? null : (
+            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "simulator" ? "active" : ""} onClick={() => goTab("simulator")} title="محاكي الشعب"><Puzzle />محاكي الشعب</button>
+          )}
         </nav>
         )}
 
@@ -1739,6 +1744,12 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               </div>
               {collegeId && sectionId && termId ? <SectionPlanning collegeId={collegeId} sectionId={sectionId} termId={termId} onReviewRows={(rows, meta) => { setTab("import"); void previewWorksheetRows(rows, "تخطيط الشعب", true, meta); }} /> : <p>اختر القسم والفصل أولاً.</p>}
             </>
+          ) : null}
+
+          {tab === "simulator" ? (
+            collegeId && sectionId && termId
+              ? <Suspense fallback={<p>⏳</p>}><SectionSimulator collegeId={collegeId} sectionId={sectionId} termId={termId} /></Suspense>
+              : <p>اختر القسم والفصل أولاً.</p>
           ) : null}
 
           {tab === "visiting" ? (
