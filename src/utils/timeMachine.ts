@@ -33,6 +33,7 @@ import { roomSuitability } from "./roomSuitability";
 import { nextCourseSectionCode } from "./nextCourseSectionCode";
 import { placeholderInstructorIds } from "./instructorIdentity";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
+import { AR, countOf } from "./arabicCount";
 
 /* ── الأشكال ───────────────────────────────────────────────────────────────── */
 
@@ -328,14 +329,14 @@ export function compareBoards(before: FSchedule[], after: FSchedule[], context: 
     for (const key of touched) studentsMoved += estimateSectionStudents(Number(key.split("|")[0]), context) || 0;
   }
   const reasons: string[] = [];
-  if (a.blocking > b.blocking) reasons.push(`+${a.blocking - b.blocking} تعارض`);
-  if (a.blocking < b.blocking) reasons.push(`−${b.blocking - a.blocking} تعارض`);
+  if (a.blocking > b.blocking) reasons.push(`+${countOf(a.blocking - b.blocking, AR.conflict)}`);
+  if (a.blocking < b.blocking) reasons.push(`−${countOf(b.blocking - a.blocking, AR.conflict)}`);
   if (a.overLoad > b.overLoad) reasons.push("تجاوز نصاب");
-  if ((a.shortfall || 0) > (b.shortfall || 0)) reasons.push(`${(a.shortfall || 0) - (b.shortfall || 0)} طالب بلا مقعد`);
+  if ((a.shortfall || 0) > (b.shortfall || 0)) reasons.push(`${countOf((a.shortfall || 0) - (b.shortfall || 0), AR.student)} بلا مقعد`);
   if (a.gapMinutes > b.gapMinutes + 30) reasons.push("فجوات أكثر");
   if (a.gapMinutes + 30 < b.gapMinutes) reasons.push("فجوات أقل");
   if (a.regulation > b.regulation) reasons.push("ملاحظة لائحية");
-  if (teachersAffected.length) reasons.push(`${teachersAffected.length} أستاذ`);
+  if (teachersAffected.length) reasons.push(countOf(teachersAffected.length, AR.instructor));
   const red = a.blocking > b.blocking || a.overLoad > b.overLoad || (a.shortfall || 0) > (b.shortfall || 0);
   const yellow = !red && (changedRows > 0 && (teachersAffected.length > 0 || timeChanges > 0 || a.gapMinutes > b.gapMinutes + 30 || a.regulation > b.regulation));
   return {
@@ -680,7 +681,7 @@ export function describeProblem(problem: TmProblem, context: TmContext): string 
   if (problem.kind === "demandUp") { const c = courses.get(problem.courseId); return `طلبٌ زائد على ${c?.CourseCode || ""} ${c?.CourseName || ""}`.trim(); }
   if (problem.kind === "clearDay") return `تفريغ ${dayLabel(problem.day)}`;
   if (problem.kind === "reduceGaps") return "تقليل فجوات الأساتذة";
-  return `توفير ${problem.count === 1 ? "قاعة" : problem.count === 2 ? "قاعتين" : `${problem.count} قاعات`}`;
+  return `توفير ${countOf(problem.count, AR.room)}`;
 }
 
 /**
@@ -865,7 +866,7 @@ export function solveProblem(problem: TmProblem, base: FSchedule[], context: TmC
       if (chain?.moves.length) {
         const ids: string[] = [];
         const changes = chain.moves.map((move, index) => { const change = moveFromRepair(move, index ? ids[index - 1] : undefined); ids.push(change.id); return change; });
-        drafts.push({ philosophy: "minimal", changes, why: ["أقصر سلسلة دومينو", `${chain.moves.length} حركة`] });
+        drafts.push({ philosophy: "minimal", changes, why: ["أقصر سلسلة دومينو", countOf(chain.moves.length, AR.move)] });
       }
     } catch { /* السلسلة اختيارية */ }
     {
@@ -927,7 +928,7 @@ export function solveProblem(problem: TmProblem, base: FSchedule[], context: TmC
     const flex = [...placeholders][0];
     if (flex && affected.length) drafts.push({
       philosophy: "flex",
-      changes: [{ id: changeId(), op: "assign", rowIds: affected.map(row => Number(row.id)), instructorId: flex, label: `${affected.length} موعد ← هيئة تدريسية`, why: "تبقى الشعبة، ويُسند المدرّس لاحقاً" }],
+      changes: [{ id: changeId(), op: "assign", rowIds: affected.map(row => Number(row.id)), instructorId: flex, label: `${countOf(affected.length, AR.appointment)} ← هيئة تدريسية`, why: "تبقى الشعبة، ويُسند المدرّس لاحقاً" }],
       why: ["لا وقت ولا قاعة يتغيّران", "إسنادٌ مؤجّل"],
     });
   }
@@ -939,7 +940,7 @@ export function solveProblem(problem: TmProblem, base: FSchedule[], context: TmC
       const change = addSectionChange(base, problem.courseId, best, context);
       drafts.push({ philosophy, changes: [{ ...change, why: best.reasons.join(" · ") }], why: [
         `${best.days.map(dayLabel).join(" ")} ${best.start}`, hallLabel(best.hall),
-        best.studentsServed !== null ? `≈${best.studentsServed} طالب يُخدَمون` : "",
+        best.studentsServed !== null ? `≈${countOf(best.studentsServed, AR.student)}` : "",
         people.get(best.instructorId)?.AdInstructorName || "",
       ].filter(Boolean) });
     }
@@ -975,7 +976,7 @@ export function solveProblem(problem: TmProblem, base: FSchedule[], context: TmC
     const gaps = instructorGapStats(scopeRows);
     const worst = new Set([...gaps.entries()].sort((a, b) => b[1].gapMinutes - a[1].gapMinutes).slice(0, 2).map(([id]) => Number(id)));
     const few = all.filter(change => worst.has(Number(byId.get(change.rowId)?.AdInstructorId)));
-    if (few.length && few.length < all.length) drafts.push({ philosophy: "minimal", changes: few, why: ["أكبر فجوتين فقط", `${few.length} حركة`] });
+    if (few.length && few.length < all.length) drafts.push({ philosophy: "minimal", changes: few, why: ["أكبر فجوتين فقط", countOf(few.length, AR.move)] });
   }
 
   if (problem.kind === "freeRooms") {
@@ -1002,7 +1003,7 @@ export function solveProblem(problem: TmProblem, base: FSchedule[], context: TmC
         if (!ok) { local.forEach(change => { const row = rows.find(r => Number(r.id) === (change as any).rowId)!; working.remove(Number(row.id)); working.add(row); }); continue; }
         closed.add(key); freed += 1; changes.push(...local);
       }
-      if (changes.length) drafts.push({ philosophy, changes, why: [`${freed} قاعة تتحرّر`, "الأوقات كما هي"] });
+      if (changes.length) drafts.push({ philosophy, changes, why: [`${countOf(freed, AR.room)} تتحرر`, "الأوقات كما هي"] });
     }
   }
 

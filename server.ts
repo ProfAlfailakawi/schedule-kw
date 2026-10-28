@@ -24177,12 +24177,15 @@ registerTimeMachineRoutes(app, {
       return [String(person.AdInstructorId), Number(managed ?? person.AdInstructorLoad ?? 0) || 0];
     }).filter(([, value]) => Number(value) > 0));
   },
-  termFrozen: async termId => (termIsFrozen(termId, (await Repository.getTerms()) as any) ? TERM_FROZEN_MESSAGE : null),
+  /* فصلٌ مجمَّد أو منتهٍ: آلة الزمن تُقرأ وتُحاكى فيه ولا تكتب (كالتخطيط والاستيراد). */
+  termFrozen: async termId => (termIsFrozen(termId, (await Repository.getTerms()) as any) ? TERM_FROZEN_MESSAGE
+    : await termEndedForReading(termId) ? "انتهى هذا الفصل: آلة الزمن للقراءة والمحاكاة فقط." : null),
   dryRunUpdate: (req: AuthenticatedRequest, rowId, body, week) => runScheduleHandler(updateScheduleHandler, req, { params: { id: String(rowId) }, body, hypotheticalWeek: week, dryRun: true }),
   dryRunCreate: (req: AuthenticatedRequest, body, week) => runScheduleHandler(createScheduleHandler, req, { body, hypotheticalWeek: week, dryRun: true }),
   lockRefusal: (req: AuthenticatedRequest, collegeId, sectionId, termId) => scheduleLockRefusal(req, collegeId, sectionId, termId),
   captureVersion: (req: AuthenticatedRequest, collegeId, sectionId, termId, label) => captureScopeVersion(req, collegeId, sectionId, termId, label, "manual"),
-  recordVersionAfter: (version, after) => recordVersionAfter(version, after),
+  /* «ما صار» من صفوف الاعتماد نفسها (R7): يُستدعى بعد المعاملة وقبل الردّ. */
+  recordVersionAfter: async (version, after) => { await recordVersionAfter(version, after); },
   noteMutation: (req: AuthenticatedRequest, collegeId, sectionId, termId, change) => noteScheduleMutation(req, collegeId, sectionId, termId, change),
   normalizer: async () => { const registry = await readLocationRegistry(); return row => canonicalizeHistoricalLocationForRuntime(row, registry); },
   lengthIssue: (row, week) => scheduleLengthIssue(row, week),

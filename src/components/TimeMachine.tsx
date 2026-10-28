@@ -13,6 +13,7 @@ import {
   type TmProblem, type TmScenarioRecord, type TmSolution,
 } from "../utils/timeMachine";
 import ScenarioWorkbench from "./ScenarioWorkbench";
+import { AR, countOf } from "../utils/arabicCount";
 import { SectionSimulatorBody } from "./SectionSimulator";
 import { COMPARE_ICON, Ico, LevelDot, Loading, PHILOSOPHY_ICON, scopeQuery, type IcoName, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
 
@@ -90,7 +91,7 @@ function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: 
         <span className="tm-hero-mark" aria-hidden="true"><Hourglass /></span>
         <div>
           <h1>آلة الزمن</h1>
-          <p><bdi>{context.scope.sectionName}</bdi> · <bdi>{context.scope.termName}</bdi> · {context.rows.length} موعد</p>
+          <p><bdi>{context.scope.sectionName}</bdi> · <bdi>{context.scope.termName}</bdi> · {countOf(context.rows.length, AR.appointment)}</p>
         </div>
         <span className="tm-branch" title="لا شيء يُكتب في الجدول حتى الاعتماد"><Ico n="branch" />فرعٌ افتراضي</span>
       </header>
@@ -122,7 +123,7 @@ function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: 
 
       {mode !== "lab" && problem ? (
         <section className="tm-solutions" aria-label="حلول جاهزة">
-          <h2><Ico n="problem" className="tm-h-ico" />{problemLabel}<small>{solutions.length} حل · {elapsed} مللي ثانية</small></h2>
+          <h2><Ico n="problem" className="tm-h-ico" />{problemLabel}<small><bdi>{elapsed} ms</bdi></small></h2>
           {solutions.length ? (
             <div className="tm-solution-grid">
               {solutions.map(solution => (
@@ -196,7 +197,7 @@ function SavedScenarios({ list, context, onOpen }: { list: TmScenarioRecord[]; c
               <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={() => onOpen(record)}>
                 <Ico n={record.status === "applied" ? "applied" : record.status === "restored" ? "restored" : record.mode === "emergency" ? "emergency" : record.mode === "goal" ? "goal" : "lab"} />
                 <b>{record.name}</b>
-                <small>{record.changes.length} تغيير · {record.createdBy}</small>
+                <small>{countOf(record.changes.length, AR.change)} · {record.createdBy}</small>
                 {record.shared ? <em title="مشارَك للعرض"><Ico n="shared" label="مشارَك للعرض" /></em> : null}
                 {drift ? <em className="tm-drift" title="تغيّر الجدول الحيّ بعده"><Ico n="conflicts" />{drift}</em> : null}
               </button>

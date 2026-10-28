@@ -14,6 +14,7 @@ import {
 import type { DayKey } from "../utils/scheduleIntelligence";
 import ScenarioWorkbench from "./ScenarioWorkbench";
 import { Ico, Loading, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
+import { AR, nounFor } from "../utils/arabicCount";
 
 type Assign = "all" | "vacant" | "assigned";
 /* الاختصار الشائع لأيام الدوام: أحد، اثنين، ثلاثاء، أربعاء، خميس. */
@@ -66,9 +67,9 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
   return (
     <div className="tm-sim">
       <ul className="tm-kpis" aria-label="ملخص الشعب">
-        <li><Ico n="sections" className="tm-kpi-ico" /><b>{totals.sections}</b><small>شعبة</small></li>
-        <li><Ico n="seats" className="tm-kpi-ico" /><b>{totals.seats}</b><small>مقعد</small></li>
-        <li><Ico n="students" className="tm-kpi-ico" /><b>{totals.students ?? "—"}</b><small>طالب (رادار)</small></li>
+        <li><Ico n="sections" className="tm-kpi-ico" /><b>{totals.sections}</b><small>{nounFor(totals.sections, AR.section)}</small></li>
+        <li><Ico n="seats" className="tm-kpi-ico" /><b>{totals.seats}</b><small>{nounFor(totals.seats, AR.seat)}</small></li>
+        <li><Ico n="students" className="tm-kpi-ico" /><b>{totals.students ?? "—"}</b><small>{nounFor(totals.students ?? 0, AR.student)} · رادار</small></li>
         <li className={totals.vacant ? "is-warn" : ""}><Ico n="vacant" className="tm-kpi-ico" /><b>{totals.vacant}</b><small>شاغرة</small></li>
       </ul>
 
@@ -123,13 +124,13 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
         <section className="tm-impact" aria-label="لو حُذفت هذه الشعبة">
           <header><b className="tm-th"><Ico n="remove" />لو حُذفت {impact.card.courseCode} ش{impact.card.code}</b><button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={() => setInspect(null)} aria-label="إغلاق"><X /></button></header>
           <div className="tm-impact-grid">
-            <div className="tm-impact-tile"><Ico n="students" className="tm-tile-ico" /><b>{impact.students ?? "—"}</b><small>طالب يتأثر</small></div>
+            <div className="tm-impact-tile"><Ico n="students" className="tm-tile-ico" /><b>{impact.students ?? "—"}</b><small>{nounFor(impact.students ?? 0, AR.student)} · يتأثر</small></div>
             <div className={`tm-impact-tile ${impact.shortfall ? "is-bad" : "is-good"}`}><Ico n="seats" className="tm-tile-ico" /><b>{impact.shortfall ?? "—"}</b><small>بلا مقعد بعدها</small></div>
             {impact.teacher ? (
               <div className="tm-impact-tile"><Ico n="teachers" className="tm-tile-ico" /><b><bdi>{impact.teacher.before}</bdi> ← <bdi>{impact.teacher.after}</bdi></b><small>نصاب {impact.teacher.name}{impact.teacher.limit ? ` / ${impact.teacher.limit}` : ""}</small>
                 {impact.teacher.limit ? <meter min={0} max={impact.teacher.limit} value={impact.teacher.after} aria-label="النصاب بعد" /> : null}</div>
             ) : null}
-            <div className="tm-impact-tile"><Ico n="rooms" className="tm-tile-ico" /><b>{impact.freed.length}</b><small>خانة قاعة تتحرّر</small></div>
+            <div className="tm-impact-tile"><Ico n="rooms" className="tm-tile-ico" /><b>{impact.freed.length}</b><small>{nounFor(impact.freed.length, AR.slot)} · تتحرر</small></div>
           </div>
           <ul className="tm-alts" aria-label="أين يذهب الطلبة">
             {impact.alternatives.length ? impact.alternatives.map(alt => (
@@ -177,7 +178,7 @@ function SectionCardView({ card, active, merging, onInspect, onSplit, onMerge }:
   const seatIcon = card.students !== null ? "students" as const : "seats" as const;
   return (
     <article className={`tm-card ${active ? "is-active" : ""} ${card.vacant ? "is-vacant" : ""} ${card.added ? "is-added" : ""} ${merging ? "is-merge-target" : ""}`}>
-      <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="tm-card-main" onClick={merging ? onMerge : onInspect} aria-label={`${card.courseCode} شعبة ${card.code}`}>
+      <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="tm-card-main" onClick={merging ? onMerge : onInspect} aria-label={`${card.courseCode} · ش${card.code}`}>
         <span className="tm-card-code"><b>{card.courseCode}</b><small>ش{card.code}</small></span>
         <span className="tm-card-name">{card.courseName}</span>
         <span className="tm-card-meta">

@@ -23,6 +23,7 @@ import { createTtlMemo } from "./notificationCache";
 import { evaluateScheduleChange, loadSimulationInput } from "./simulationData";
 import { pickDoorTerm } from "../utils/termStudentPhases";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
+import { AR, countOf } from "../utils/arabicCount";
 
 interface InnerResult { status: number; body: any; headers: Record<string, string> }
 
@@ -362,7 +363,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
             ? { ...current, status: "applied", restorePoint: {
                 at: new Date().toISOString(), before: result.before, createdIds: result.createdIds,
                 afterRevs: Object.fromEntries(result.rows.map(row => [String(row.id), Number(row.rev || 0)])),
-              }, history: [...current.history, history(req, "applied", `${ops.length} خطوة`)].slice(-40) }
+              }, history: [...current.history, history(req, "applied", countOf(ops.length, AR.step))].slice(-40) }
             : { ...current, status: "restored", restorePoint: undefined, history: [...current.history, history(req, "restored")].slice(-40) },
           normalize, placeholders,
           async (rows, week) => { for (const row of rows) { const issue = await deps.lengthIssue(row, week); if (issue) throw new Error(issue); } });
@@ -380,7 +381,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
           await deps.noteMutation(req, scope.collegeId, scope.sectionId, termId, { kind: "edit", rows: committed.rows });
         } catch { /* الكتابة تمّت ذرّياً؛ السجلّ الجانبي لا يُبطلها */ }
       }
-      res.locals.auditChanges = `${kind === "apply" ? "اعتماد" : "استعادة"} سيناريو آلة الزمن «${scenario.name}»: ${ops.length} خطوة`;
+      res.locals.auditChanges = `${kind === "apply" ? "اعتماد" : "استعادة"} سيناريو آلة الزمن «${scenario.name}»: ${countOf(ops.length, AR.step)}`;
       res.locals.auditRowIds = [...committed.rows.map(row => row.id), ...committed.deletedIds];
       res.json({ ok: true, scenario: committed.scenario, rows: committed.rows, deletedIds: committed.deletedIds });
     } finally {

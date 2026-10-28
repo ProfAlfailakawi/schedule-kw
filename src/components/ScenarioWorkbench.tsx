@@ -12,6 +12,7 @@ import {
   type TmChange, type TmScenarioRecord,
 } from "../utils/timeMachine";
 import { reachAboutCard } from "../utils/reachInstructor";
+import { AR, countOf } from "../utils/arabicCount";
 import { DeltaStrip, Ico, LevelDot, TimeSlider, postJson, scopeQuery, type IcoName, type LoadedContext } from "./timeMachineShared";
 
 const OP_ICON: Record<TmChange["op"], IcoName> = { move: "move", assign: "assign", remove: "remove", add: "add" };
@@ -132,7 +133,7 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
       <header className="tm-bench-head">
         <LevelDot level={delta.level} />
         <div className="tm-bench-title">
-          <strong className="tm-th">{point ? <><Ico n="applied" className="tm-ok" />مُعتمد · </> : null}{changes.length ? `${changes.length} تغيير` : "لا تغييرات بعد"}</strong>
+          <strong className="tm-th">{point ? <><Ico n="applied" className="tm-ok" />مُعتمد · </> : null}{countOf(changes.length, AR.change, "لا تغييرات بعد")}</strong>
           <small>{delta.reasons.slice(0, 3).join(" · ") || "بلا أثر يُذكر"}</small>
         </div>
         <ul className="tm-bench-chips">
@@ -187,7 +188,7 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
       {applied && published ? <PublishPanel context={context} scenario={published} /> : null}
       {scenario?.history?.length ? (
         <details className="tm-history"><summary><GitBranch aria-hidden="true" />السجلّ ({scenario.history.length})</summary>
-          <ol>{scenario.history.slice().reverse().map((entry, i) => <li key={i}><b className="tm-th">{HISTORY_LABEL[entry.action] ? <><Ico n={HISTORY_LABEL[entry.action][0]} />{HISTORY_LABEL[entry.action][1]}</> : entry.action}</b> · {entry.by} <small>{entry.role} · {new Date(entry.at).toLocaleString("ar-KW")}</small></li>)}</ol>
+          <ol>{scenario.history.slice().reverse().map((entry, i) => <li key={i}><b className="tm-th">{HISTORY_LABEL[entry.action] ? <><Ico n={HISTORY_LABEL[entry.action][0]} />{HISTORY_LABEL[entry.action][1]}</> : entry.action}</b> · {entry.by} <small>{entry.role} · {new Date(entry.at).toLocaleString("ar-KW-u-nu-latn")}</small></li>)}</ol>
         </details>
       ) : null}
     </section>
@@ -234,7 +235,7 @@ function PublishPanel({ context, scenario }: { context: LoadedContext; scenario:
   if (!cards.length) return null;
   return (
     <section className="tm-publish" aria-label="إبلاغ المتأثرين">
-      <h4><Send aria-hidden="true" />أبلغ {cards.length} أستاذ فقط <small><CalendarDays aria-hidden="true" />التقويم المشترَك يتحدّث تلقائياً</small></h4>
+      <h4><Send aria-hidden="true" />أبلغ {countOf(cards.length, AR.instructor)} فقط <small><CalendarDays aria-hidden="true" />التقويم المشترَك يتحدّث تلقائياً</small></h4>
       {note ? <p className="tm-note">{note}</p> : null}
       <div className="tm-publish-cards">
         {cards.map(card => {

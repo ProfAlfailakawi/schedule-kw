@@ -1248,10 +1248,11 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "visiting" ? "active" : ""} onClick={() => goTab("visiting")} title="المنتدبون"><UserPlus />المنتدبون</button>
           )}
           {termEnded ? null : (
+            <>
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
-          )}
-          {termEnded ? null : (
+            {/* 🧩 بجانب التخطيط، وبحكمه: فصلٌ منتهٍ لا محاكاةَ لشعبه. */}
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "simulator" ? "active" : ""} onClick={() => goTab("simulator")} title="محاكي الشعب"><Puzzle />محاكي الشعب</button>
+            </>
           )}
         </nav>
         )}
