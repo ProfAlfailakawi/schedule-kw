@@ -112,6 +112,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     /* بابُ الرغبات لا يُقاس بالأيام بل بتاريخٍ يُكتب: الأستاذُ يقرأ «آخر موعد
        ٢٠٢٦-١٠-٠٥» ولا يقرأ «٣٠ يوماً من متى». */
     [closesAt, setClosesAt] = useState(""),
+    [closeTime, setCloseTime] = useState("23:59"),
     /* ومع البطاقة تُفتح نافذةُ طلبات التعديل ما لم يُطفئها المنسّق. */
     [openRequests, setOpenRequests] = useState(true),
     [issued, setIssued] = useState<{ created: number; reissued: number; renewed?: number; empty?: "no-rows" | "no-instructors" } | null>(null),
@@ -122,7 +123,15 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     [qr, setQr] = useState<{ id: string; svg: string } | null>(null),
     /* الروابطُ الشخصية: رابطٌ لكل أستاذ، يُسكّ عند التسليم ويُدار هنا. */
     [personalLinks, setPersonalLinks] = useState<PersonalLink[]>([]),
-    [personalFor, setPersonalFor] = useState<Map<number, string>>(new Map());
+    [personalFor, setPersonalFor] = useState<Map<number, string>>(new Map()),
+    [manageMode, setManageMode] = useState<"all" | "one" | null>(null),
+    [manageDate, setManageDate] = useState(""),
+    [manageTime, setManageTime] = useState("23:59"),
+    [manageInstructorId, setManageInstructorId] = useState(0),
+    [manageReason, setManageReason] = useState(""),
+    [manageFaculty, setManageFaculty] = useState<AdInstructor[]>([]),
+    [manageSuccess, setManageSuccess] = useState(""),
+    [exceptions, setExceptions] = useState<Array<{ instructorId: number; name: string; closesAt: string; grantedAt: string; reason: string; revokedAt: string; active: boolean }>>([]);
 
   const scoped = Boolean(collegeId && sectionId && termId);
 
@@ -132,6 +141,15 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       const data = await readReply(response, "تعذر قراءة الروابط الشخصية");
       setPersonalLinks(Array.isArray(data) ? data : []);
     } catch { setPersonalLinks([]); }
+  };
+
+  const loadExceptions = async () => {
+    if (!scoped) return;
+    try {
+      const response = await fetch(`/api/instructor-requests/exceptions?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`);
+      const data = await readReply(response, "تعذر قراءة الاستثناءات");
+      setExceptions(Array.isArray(data) ? data : []);
+    } catch { setExceptions([]); }
   };
 
   const load = async () => {
@@ -144,7 +162,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       const response = await fetch(`/api/share?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`);
       const data = await readReply(response, "تعذر قراءة الروابط");
       setLinks(Array.isArray(data) ? data : []);
-      await loadPersonal();
+      await Promise.all([loadPersonal(), loadExceptions()]);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -160,7 +178,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
    * «أُصدر ١٢ رابطاً» كانت تبقى بعد إغلاق اللوحة وفتحِها على نطاقٍ آخر، أو
    * بعد إنشاء رابط قراءةٍ عادي — فتُقرأ خبراً عن الفعل الجاري وهي خبرٌ عن
    * فعلٍ مضى، ويظنّ المنسّقُ أنه أرسل لهذا القسم وقد أرسل لغيره. */
-  useEffect(() => { setIssued(null); setReplaced(0); setShowPast(false); }, [open, collegeId, sectionId, termId, kind]);
+  useEffect(() => { setIssued(null); setReplaced(0); setShowPast(false); setManageMode(null); setManageSuccess(""); }, [open, collegeId, sectionId, termId, kind]);
 
   /**
    * إصدارُ روابط الرغبات.
@@ -169,11 +187,12 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
    * بـ`/api/share` ولا يظهر في قائمة الروابط: يُصدَر ويُتابَع في «وارد
    * الأساتذة»، ويُرسل لكلِّ أستاذٍ رابطُه من هناك.
    */
-  const issueRequests = async (deadline = closesAt) => {
+  const issueRequests = async (deadline = `${closesAt}T${closeTime}`, instructorId = 0, reason = "", reopen = false) => {
     const response = await fetch("/api/instructor-requests/issue", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ collegeId, sectionId, termId, closesAt: deadline, source: "draft" }),
+      body: JSON.stringify({ collegeId, sectionId, termId, closesAt: deadline, source: "draft",
+        ...(instructorId ? { instructorId, reason } : {}), ...(reopen ? { reopen: true } : {}) }),
     });
     const data = await readReply(response, "تعذر فتح طلبات التعديل");
     if (data?.emptyTerm) {
@@ -186,6 +205,49 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     const reissued = rows.filter(row => row.reissued).length;
     const renewed = rows.filter(row => row.renewed).length;
     setIssued({ created: rows.length - reissued - renewed, reissued, renewed });
+    return data;
+  };
+
+  const openManagement = async (mode: "all" | "one", publicationId: string) => {
+    setManageMode(mode); setManageSuccess(""); setError(null);
+    setManageDate(""); setManageTime("23:59"); setManageInstructorId(0); setManageReason("");
+    if (mode === "one") {
+      try {
+        const response = await fetch(`/api/share/${encodeURIComponent(publicationId)}/faculty`);
+        const data = await readReply(response, "تعذر قراءة أساتذة القسم");
+        setManageFaculty(Array.isArray(data) ? data : []);
+      } catch (e: any) { setManageFaculty([]); setError(e.message); }
+    }
+  };
+
+  const applyManagement = async () => {
+    if (!manageDate || !manageTime || (manageMode === "one" && (!manageInstructorId || !manageReason.trim()))) {
+      setError("اختر الموعد، وللاستثناء الفردي اختر الأستاذ واكتب السبب."); return;
+    }
+    setBusy(true); setError(null); setManageSuccess("");
+    try {
+      const data = await issueRequests(`${manageDate}T${manageTime}`,
+        manageMode === "one" ? manageInstructorId : 0, manageReason.trim(), true);
+      if (data?.emptyTerm) throw new Error("لا توجد مواعيد مسندة إلى أساتذة في هذا الفصل.");
+      setManageSuccess(manageMode === "one" ? "فُتح التعديل لهذا الأستاذ فقط، من بطاقته الحالية." : "أُعيد فتح التعديل للجميع دون تبديل روابطهم.");
+      setManageMode(null);
+      await load();
+    } catch (e: any) { setError(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const revokeException = async (instructorId: number) => {
+    setBusy(true); setError(null); setManageSuccess("");
+    try {
+      const response = await fetch("/api/instructor-requests/exception/revoke", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collegeId, sectionId, termId, instructorId }),
+      });
+      await readReply(response, "تعذر إلغاء الاستثناء");
+      setManageSuccess("أُلغي الاستثناء الفردي، وتظل بطاقة الأستاذ متاحة للقراءة.");
+      await loadExceptions();
+    } catch (e: any) { setError(e.message); }
+    finally { setBusy(false); }
   };
 
   /* بطاقة الأستاذ: الموعدُ يحكم استقبالَ الطلبات وحده. الرابطُ نفسه — والتقويم
@@ -205,7 +267,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       const response = await fetch("/api/share", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ collegeId, sectionId, termId, days: linkDays, showInstructors, kind, ...(withRequests ? { requestsCloseAt: closesAt } : {}) })
+        body: JSON.stringify({ collegeId, sectionId, termId, days: linkDays, showInstructors, kind, ...(withRequests ? { requestsCloseAt: `${closesAt}T${closeTime}` } : {}) })
       });
       const data = await readReply(response, "تعذر إنشاء الرابط");
       /* الخادمُ أوقف بطاقاتِ القسم السابقة؛ تُرى هنا موقوفةً بلا إعادة تحميل. */
@@ -341,6 +403,12 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   /* الحيّةُ أولاً، والموقوفةُ والمنتهية خلف سطرٍ واحد «السابقة (n)». */
   const pastLinks = publicationLinks.filter(link => !active.includes(link));
   const shownLinks = showPast ? [...active, ...pastLinks] : active;
+  const staffPublication = active.find(link => link.kind === "staff");
+  const activeExceptions = exceptions.filter(entry => entry.active);
+  const kwTime = (value: string) => new Intl.DateTimeFormat("ar-KW-u-nu-latn", {
+    day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit",
+    timeZone: "Asia/Kuwait",
+  }).format(new Date(value));
 
   const currentStep = PUBLISH_STEPS.findIndex(item => item.id === step);
   const openDialog = () => {
@@ -548,10 +616,18 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                     <span>إظهار أسماء الأساتذة</span>
                   </label>
                 ) : (
-                  <label className="share-closes">
-                    <span className="sr-only">آخر موعد لاستقبال الطلبات</span>
-                    <input type="date" value={closesAt} onChange={event => setClosesAt(event.target.value)} />
-                  </label>
+                  <div className="share-deadline-fields">
+                    <label className="share-closes">
+                      <span className="sr-only">تاريخ آخر موعد لاستقبال الطلبات</span>
+                      <input type="date" value={closesAt} onChange={event => setClosesAt(event.target.value)} />
+                    </label>
+                    {kind === "staff" ? (
+                      <label className="share-closes">
+                        <span>الساعة · الكويت</span>
+                        <input type="time" value={closeTime} onChange={event => setCloseTime(event.target.value)} />
+                      </label>
+                    ) : null}
+                  </div>
                 )}
               </div>
               {kind === "department" ? <dl className="share-choice-summary" aria-label="ملخص إعداد الرابط">
@@ -644,7 +720,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                             <strong className="share-status">{status}</strong>
                             {!dead && link.kind === "staff" && link.requestsCloseAt ? (
                               <time className="share-expiry" dateTime={link.requestsCloseAt} style={{ display: "block", fontWeight: 700 }}>
-                                آخر موعد لإرسال الرغبات: {new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kuwait" }).format(new Date(link.requestsCloseAt))}
+                                آخر موعد لإرسال الرغبات: {kwTime(link.requestsCloseAt)}
                                 {Date.parse(link.requestsCloseAt) < Date.now() ? " — انتهى استقبال الرغبات" : ""}
                               </time>
                             ) : null}
@@ -820,6 +896,66 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                   <p className="share-empty">{pastLinks.length ? "لا رابط فعّال الآن." : "لا توجد روابط منشورة لهذا القسم والفصل المحددين بعد."}</p>
                 )}
               </div>
+              {staffPublication ? (
+                <section className="share-window-management" aria-label="إدارة استقبال طلبات تعديل الجدول">
+                  <header>
+                    <strong>إدارة التعديل</strong>
+                    <small>الجدول يبقى للقراءة حتى نهاية الفصل. الإغلاق والفتح هنا لتقديم طلبات التعديل فقط.</small>
+                  </header>
+                  <div className="share-window-current">
+                    <span>الموعد العام</span>
+                    <b>{staffPublication.requestsCloseAt ? kwTime(staffPublication.requestsCloseAt) : "غير محدد"}</b>
+                    <span className="share-window-state">
+                      {staffPublication.requestsCloseAt && Date.parse(staffPublication.requestsCloseAt) >= Date.now() ? "مفتوح" : "مغلق"}
+                    </span>
+                  </div>
+                  <div className="share-window-actions">
+                    <button type="button" disabled={busy} onClick={() => openManagement("all", staffPublication.id)}>
+                      <Users aria-hidden="true" /> فتح للجميع
+                    </button>
+                    <button type="button" disabled={busy} onClick={() => void openManagement("one", staffPublication.id)}>
+                      <IdCard aria-hidden="true" /> استثناء لأستاذ
+                    </button>
+                  </div>
+                  {manageMode ? (
+                    <div className="share-window-form">
+                      <strong>{manageMode === "one" ? "فتح التعديل لأستاذ واحد" : "إعادة فتح التعديل لجميع الأساتذة"}</strong>
+                      {manageMode === "one" ? (
+                        <>
+                          <label>الأستاذ
+                            <select value={manageInstructorId} onChange={event => setManageInstructorId(Number(event.target.value))}>
+                              <option value={0}>اختر الأستاذ</option>
+                              {manageFaculty.map(person => <option key={person.AdInstructorId} value={person.AdInstructorId}>{person.AdInstructorName}</option>)}
+                            </select>
+                          </label>
+                          <label>سبب الاستثناء
+                            <input type="text" maxLength={400} value={manageReason} onChange={event => setManageReason(event.target.value)} placeholder="مثلاً: ظرف طارئ" />
+                          </label>
+                        </>
+                      ) : null}
+                      <div className="share-deadline-fields">
+                        <label>إلى تاريخ <input type="date" value={manageDate} onChange={event => setManageDate(event.target.value)} /></label>
+                        <label>الساعة (الكويت) <input type="time" value={manageTime} onChange={event => setManageTime(event.target.value)} /></label>
+                      </div>
+                      <div className="share-window-actions">
+                        <button type="button" disabled={busy || !manageDate || !manageTime || (manageMode === "one" && (!manageInstructorId || !manageReason.trim()))}
+                          onClick={() => void applyManagement()}><Check aria-hidden="true" /> تأكيد الفتح</button>
+                        <button type="button" disabled={busy} onClick={() => setManageMode(null)}>إلغاء</button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {manageSuccess ? <p className="share-created" role="status"><Check aria-hidden="true" /> {manageSuccess}</p> : null}
+                  {activeExceptions.length ? (
+                    <div className="share-window-exceptions">
+                      <strong>استثناءات نشطة ({activeExceptions.length})</strong>
+                      {activeExceptions.map(item => <div className="share-window-exception" key={item.instructorId}>
+                        <span><b>{item.name}</b><small>حتى {kwTime(item.closesAt)} · {item.reason}</small></span>
+                        <button type="button" disabled={busy} onClick={() => void revokeException(item.instructorId)}>إلغاء الاستثناء</button>
+                      </div>)}
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
               {pastLinks.length ? (
                 <button type="button" className="share-past-toggle"
                   data-guide-ignore="إظهار الروابط الموقوفة والمنتهية أو طيّها: عرضٌ فقط لا يغيّر شيئاً"

@@ -100,10 +100,10 @@ async function main() {
     check(shareRoute.includes("requestsCloseAt"), "D2 الرابط يحفظ موعد الطلبات منفصلاً");
     const publish = read("src/components/SchedulePublish.tsx");
     check(publish.includes('const linkDays = kind === "survey" && closesAt'), "D2 المتصفح لا يقصّ عمر البطاقة على موعد الطلبات");
-    check(publish.includes("requestsCloseAt: closesAt"), "D2 الموعد يُرسل موعداً للطلبات لا مدّةً للرابط");
+    check(publish.includes("requestsCloseAt: `${closesAt}T${closeTime}`"), "D2 تاريخ وساعة الطلبات منفصلان عن عمر البطاقة");
     check(!server.includes("اشتراك دائم"), "D2 لا تقول البطاقة «اشتراك دائم» وهي تنتهي");
     check(server.includes("حتى نهاية الفصل"), "D2 البطاقة تقول صراحةً إن الاشتراك حتى نهاية الفصل");
-    check(server.includes("const windowClosesAt = requestsCloseAtFromDate(closesAt);") && server.includes("window: { opensAt, closesAt: windowClosesAt }"), "D2 نافذة الطلب تُحسب بالدالة نفسها");
+    check(server.includes("const windowClosesAt = normalizeInstructorDeadline(closesAt);") && server.includes("window: { opensAt, closesAt: baseCloseAt }"), "D2 نافذة الطلب تُحسب بالدالة الموحدة وتسمح بالاستثناء الفردي");
   }
 
 

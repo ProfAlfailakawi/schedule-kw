@@ -89,7 +89,7 @@ check(publish.includes('link => link.kind !== "request"') && publish.includes('?
       أبعدَ منها رأى أساتذتُه «انتهت صلاحية هذا الرابط» قبل الموعد الذي
       وعدهم به، ولا شيءَ في الشاشة يقول لماذا. */
 check(server.includes("expiresAt: new Date(Math.max(")
-  && server.includes("const windowClosesAt = requestsCloseAtFromDate(closesAt);")
+  && server.includes("const windowClosesAt = normalizeInstructorDeadline(closesAt);")
   && server.includes("Date.parse(windowClosesAt) + 86400000,"),
   "وصلاحيةُ الرمز تتبع الموعدَ المُعلَن، فلا يُغلق قبل ما وُعد به");
 check(server.includes("Date.now() + REQUEST_LINK_DAYS * 86400000,"),
