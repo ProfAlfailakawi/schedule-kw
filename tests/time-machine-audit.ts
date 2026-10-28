@@ -147,7 +147,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
 }
 
 /* ══ B) الخادم في وضع التجربة ═══════════════════════════════════════════════ */
-const BASE = "http://localhost:3000";
+const BASE = `http://localhost:${process.env.PORT || "3000"}`;
 const up = async () => { try { return (await fetch(BASE + "/api/public/me/state")).ok; } catch { return false; } };
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "time-machine-"));
 let child: ReturnType<typeof spawn> | null = null;
