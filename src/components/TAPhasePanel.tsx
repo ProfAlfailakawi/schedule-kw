@@ -3,6 +3,7 @@
  * ملخّص الشعب الشاغرة («هيئة تدريسية») ← اختيار المدرّبين في موجات بالأولوية (أو دفعة واحدة)
  * ← نافذة زمنية بعدّاد ← تذكير تلقائي. الإرسال والحجز في الخادم (/api/ta-phase).
  */
+import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { useEffect, useMemo, useState } from "react";
 import { GraduationCap, Plus, Send, Timer, X } from "lucide-react";
 import { PrimaryButton, SecondaryButton } from "./ui";
@@ -68,8 +69,8 @@ export default function TAPhasePanel({ collegeId, sectionId, termId }: { college
     <div className="of-section" aria-label="مرحلة التدريب">
       <h4><GraduationCap aria-hidden="true" /> مرحلة التدريب</h4>
       <div className="of-kpis">
-        <div className="of-kpi"><span className="of-ic" aria-hidden="true">🪑</span><b>{phase.summary.sections}</b><span>شعبة شاغرة</span></div>
-        <div className="of-kpi"><span className="of-ic" aria-hidden="true">📚</span><b>{phase.summary.courses}</b><span>مقرر</span></div>
+        <div className="of-kpi"><span className="of-ic" aria-hidden="true">🪑</span><b>{phase.summary.sections}</b><span>{nounFor(phase.summary.sections, AR.section)} شاغرة</span></div>
+        <div className="of-kpi"><span className="of-ic" aria-hidden="true">📚</span><b>{phase.summary.courses}</b><span>{nounFor(phase.summary.courses, AR.course)}</span></div>
         <div className="of-kpi"><span className="of-ic" aria-hidden="true">🎓</span><b>{phase.tas.length}</b><span>مدرّب</span></div>
         <div className="of-kpi"><span className="of-ic" aria-hidden="true">{phase.facultyPhase.closed ? "🔒" : "✏️"}</span><span>{phase.facultyPhase.closed ? "مرحلة الأساتذة مغلقة" : "مرحلة الأساتذة ما زالت مفتوحة"}</span></div>
       </div>
@@ -87,7 +88,7 @@ export default function TAPhasePanel({ collegeId, sectionId, termId }: { college
           <div className="of-row" style={{ justifyContent: "space-between" }}>
             <b><Timer aria-hidden="true" /> النافذة مفتوحة {cd?.remind ? "· 🔔 وقت التذكير" : ""}</b>
             {cd && !cd.closed ? <div className="of-countdown" aria-label="المتبقي">
-              <span>{cd.days}<small>يوم</small></span><span>{cd.hours}<small>ساعة</small></span><span>{cd.minutes}<small>دقيقة</small></span>
+              <span>{cd.days}<small>{nounFor(cd.days, AR.day)}</small></span><span>{cd.hours}<small>{nounFor(cd.hours, AR.hour)}</small></span><span>{cd.minutes}<small>{nounFor(cd.minutes, AR.minute)}</small></span>
             </div> : <b>انتهت النافذة</b>}
           </div>
           <div className="of-grid" style={{ marginTop: 10 }}>

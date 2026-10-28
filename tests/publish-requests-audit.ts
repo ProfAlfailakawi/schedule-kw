@@ -45,7 +45,8 @@ check(publish.includes('const withRequests = kind === "staff";') && publish.incl
 /* الأستاذُ يقرأ «آخر موعد ٥ أكتوبر»، ولا يقرأ «ثلاثين يوماً من متى». */
 check(publish.includes('<label className="share-closes">') && publish.includes('type="date"'),
   "وللرغبات تاريخُ إغلاقٍ يُكتب، لا مدّةٌ بالأيام");
-check(publish.includes('disabled={busy || (withRequests && !closesAt)}'),
+/* E1: «للعرض فقط» و«التدريب» لا يسألان عن موعد طلبات؛ «طلب تعديل» لا يُصدَر بلا موعد. */
+check(publish.includes('disabled={busy || (withRequests && sendMode === "edit" && !closesAt)}'),
   "ولا يُصدَر بلا موعدٍ مكتوب");
 
 /* ── ويُقال ما وقع ────────────────────────────────────────────────────── */

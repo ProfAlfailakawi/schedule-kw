@@ -51,7 +51,7 @@ function tcRibbon(r,open){if(!data)return "";var mode=data.mode||"edit";
  if(open)return "";
  var s=tcStates(r),when=r.window&&r.window.closesAt?tcDate(r.window.closesAt):"";
  return '<div class="tc-ribbon" data-k="closed" role="status"><span class="tc-ic" aria-hidden="true">🔒</span><div><b>انتهت فترة الطلبات</b><small>'+(when?'منذ '+esc(when)+' · ':'')+'جدولك المعتمد أدناه للاطلاع</small>'+
-  ((s.f||s.x||s.p)?'<div class="tc-chips">'+(s.f?'<span>✅ '+s.f+' ثُبّت</span>':'')+(s.x?'<span>❌ '+s.x+' رُفض</span>':'')+(s.p?'<span>⏳ '+s.p+' قيد المراجعة</span>':'')+'</div>':'')+'</div></div>'}
+  ((s.f||s.x||s.p)?'<div class="tc-chips">'+(s.f?'<span>✅ ثُبّت <b>'+s.f+'</b></span>':'')+(s.x?'<span>❌ رُفض <b>'+s.x+'</b></span>':'')+(s.p?'<span>⏳ قيد المراجعة <b>'+s.p+'</b></span>':'')+'</div>':'')+'</div></div>'}
 function tcCourseLock(c){if(!c.offering)return "";var o=c.offering,on=(data.interest||[]).indexOf(Number(c.id))>=0;
  return '<span class="tc-lock">'+esc(o.icon+" "+o.line)+'</span><span role="button" tabindex="0" class="tc-star" data-star="'+c.id+'" data-college="'+c.collegeId+'" data-section="'+c.sectionId+'" aria-pressed="'+on+'" aria-label="اهتمام مستقبلي" title="🌟 اهتمام مستقبلي">🌟</span>'}
 function tcStar(option,e){var b=e&&e.target&&e.target.closest?e.target.closest("[data-star]"):null;if(!b)return;var on=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",String(on));

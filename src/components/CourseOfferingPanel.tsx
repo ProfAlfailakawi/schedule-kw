@@ -3,6 +3,7 @@
  * إخفاء أو باهت في كرت الأستاذ، واقتراحٌ تلقائي من الصحيفة يؤكّده المسؤول، وقائمة 🌟 الاهتمام المستقبلي.
  * القاعدة: src/utils/courseOffering.ts — يقرؤها الخادم للكرت والإضافة.
  */
+import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Layers } from "lucide-react";
 import { OFFERING_META, type CourseOfferingDoc, type OfferingState } from "../utils/courseOffering";
@@ -62,7 +63,7 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId }: { 
         <input type="search" placeholder="بحث…" value={query} onChange={e => setQuery(e.target.value)} style={{ minHeight: 36, borderRadius: 10, border: "1px solid var(--line)", padding: "4px 10px", font: "inherit" }} />
       </div>
       {data.suggestions.length ? (
-        <div className="of-suggest" role="note">🌱 من الصحيفة: {data.suggestions.length} مقرر لم تصل دفعته (أعلى مستوى مطروح {data.suggestions[0].reachedLevel})
+        <div className="of-suggest" role="note">🌱 من الصحيفة: {countOf(data.suggestions.length, AR.course)} لم تصل دفعته (أعلى مستوى مطروح {data.suggestions[0].reachedLevel})
           <button data-guide-ignore="حالة طرح المقرر — اختيار بصري داخل اللوحة" type="button" className="of-chip" onClick={() => data.suggestions.forEach(s => set(s.courseId, { state: "future", level: s.level }))}><Check aria-hidden="true" /> تأكيد الاقتراح</button>
         </div>
       ) : null}
@@ -73,7 +74,7 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId }: { 
           return (
             <div className="of-card" key={course.id}>
               <header><div><b>{course.name}</b><small> {course.code}</small></div><span aria-hidden="true">{OFFERING_META[state].icon}</span></header>
-              <div className="of-path" aria-label="مسار الصحيفة">{[100, 200, 300, 400].map(l => <i key={l} data-on={level && l <= level ? "1" : "0"} data-at={level === l ? "1" : "0"} title={`مستوى ${l}`} />)}<span>{level ? `م${level}` : "—"} · {course.sections} شعبة</span></div>
+              <div className="of-path" aria-label="مسار الصحيفة">{[100, 200, 300, 400].map(l => <i key={l} data-on={level && l <= level ? "1" : "0"} data-at={level === l ? "1" : "0"} title={`مستوى ${l}`} />)}<span>{level ? `م${level}` : "—"} · {countOf(course.sections, AR.section)}</span></div>
               <div className="of-states" role="group" aria-label={`حالة ${course.name}`}>
                 {STATES.map(s => <button data-guide-ignore="حالة طرح المقرر — اختيار بصري داخل اللوحة" type="button" key={s} aria-pressed={state === s} title={OFFERING_META[s].label} onClick={() => set(course.id, { state: s, ...(s === "future" && !draft[course.id]?.level ? { level: course.level || 0 } : {}) })}>{OFFERING_META[s].icon}</button>)}
               </div>

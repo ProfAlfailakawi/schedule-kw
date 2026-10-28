@@ -4,6 +4,7 @@
  * (المقرر والرمز، الشعبة، الأيام، الوقت، القاعة — والكلية والفصل نطاقُ الاستيراد). ⚠️ الجزئيّ يُعرض فرقُه
  * بالضبط ويقرّر المستخدم، ❌ لا تخمين. معاينة قبل/بعد، اعتماد، تراجع. القاعدة: src/utils/importNameFill.ts.
  */
+import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { useMemo, useRef, useState } from "react";
 import { ClipboardCopy, FileText, RotateCcw, Check } from "lucide-react";
 import { applyNameFill, FILL_FIELD_LABEL, fillSummary, planNameFill, type FillDecision, type SourceRow } from "../utils/importNameFill";
@@ -62,7 +63,7 @@ export default function ImportNameFillPanel({ rows, onRows, people, collegeId, s
 
   return (
     <section className="of-section" aria-label="تعبئة أسماء الأساتذة">
-      <h4>👤 أسماء الأساتذة · {missing} سطر بلا اسم</h4>
+      <h4>👤 أسماء الأساتذة · {countOf(missing, AR.row)} بلا اسم</h4>
       {!plan ? (
         <div className="of-row">
           <SecondaryButton data-guide-ignore="تعبئة أسماء الاستيراد — معاينة ثم اعتماد أو تراجع" type="button" disabled={!!busy} onClick={() => void fromSchedule()}><ClipboardCopy aria-hidden="true" /> 📋 من الجدول الحالي</SecondaryButton>

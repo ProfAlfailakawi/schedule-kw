@@ -153,3 +153,56 @@ export function toggleInterest(doc: CourseInterestDoc | null, id: string, course
   if (set.size) next.byCourse[key] = [...set].sort((a, b) => a - b); else delete next.byCourse[key];
   return next;
 }
+
+/* ── مصدرٌ واحد لكل المحرّكات ─────────────────────────────────────────────────
+ * خريطة الفصل: courseId ← القيد المؤكَّد (من وثائق كل الأقسام في ذلك الفصل). مقررٌ بلا قيد = مطروح. */
+export type TermOfferingStates = Map<number, CourseOfferingEntry>;
+
+export function termOfferingStates(docs: ReadonlyArray<CourseOfferingDoc | null | undefined>): TermOfferingStates {
+  const out: TermOfferingStates = new Map();
+  for (const doc of docs) for (const entry of Object.values(doc?.courses || {})) {
+    if (!entry || entry.suggested || entry.state === "offered") continue;
+    out.set(Number(entry.courseId), entry);
+  }
+  return out;
+}
+
+/** لا يُقترح ولا يُعرض مقررٌ 🔒 أو 🌱. */
+export const offeringBlocked = (states: TermOfferingStates, courseId: number) => {
+  const state = states.get(Number(courseId))?.state;
+  return state === "closed" || state === "future";
+};
+
+/** كم شعبةً جديدةً يُسمح باقتراحها: ∞ بلا قيد، 0 لـ🔒/🌱، والمتبقي لـ🎯. */
+export function newSectionsAllowed(states: TermOfferingStates, courseId: number, existingSections: number): number {
+  const entry = states.get(Number(courseId));
+  if (!entry) return Number.POSITIVE_INFINITY;
+  if (entry.state === "closed" || entry.state === "future") return 0;
+  if (entry.state === "limited") return Math.max(0, Number(entry.maxSections || 0) - Math.max(0, existingSections));
+  return Number.POSITIVE_INFINITY;
+}
+
+/**
+ * يقصّ قراءة «افتح شعبة» (sectionOpening) على حالة الطرح: يحذف 🔒/🌱، ويقصّ 🎯 على المتبقي.
+ * المحرّكُ نفسه لا يتغيّر؛ هذا مرشِّحٌ على ناتجه.
+ */
+export function applyOfferingToOpenings<T extends { proposals: Array<{ courseId: number; openSections: number; needed: number; placements: unknown[] }>; noCeiling: Array<{ courseId: number }> }>(reading: T, states: TermOfferingStates): T {
+  if (!states.size) return reading;
+  const proposals = reading.proposals.flatMap(proposal => {
+    const allowed = newSectionsAllowed(states, proposal.courseId, proposal.openSections);
+    if (allowed <= 0) return [];
+    if (!Number.isFinite(allowed) || proposal.needed <= allowed) return [proposal];
+    return [{ ...proposal, needed: allowed, placements: proposal.placements.slice(0, allowed) }];
+  });
+  return { ...reading, proposals, noCeiling: reading.noCeiling.filter(row => !offeringBlocked(states, row.courseId)) };
+}
+
+/** للعرض في مساري والوارد: أيقونة وسطر لمقررٍ مقيَّد، أو null. */
+export function offeringBadge(states: TermOfferingStates, courseId: number): { state: OfferingState; icon: string; line: string } | null {
+  const entry = states.get(Number(courseId));
+  if (!entry) return null;
+  const meta = OFFERING_META[entry.state];
+  const line = entry.state === "future" ? (entry.level ? `يُطرح عند وصول الدفعة للمستوى ${entry.level}` : "يُطرح عند وصول الدفعة لمستواه")
+    : entry.state === "limited" ? `شعب محدودة (${Number(entry.maxSections || 0)})` : meta.label;
+  return { state: entry.state, icon: meta.icon, line };
+}

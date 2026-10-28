@@ -114,7 +114,7 @@ ok(phaseOpen(phase, now.getTime()) && !phaseOpen({ ...phase, closedAt: "x" }, no
 ok(loadRing(6, 12)?.label === "نصابك 6/12" && loadRing(12, 12)?.tone === "full" && loadRing(3, 0) === null, "F3 load ring «نصابك 6/12», none without a recorded load");
 ok(allowedFor({ allowedCourses: { 7: [5] } }, 7)?.has(5) && allowedFor({}, 7) === null, "F3 allowed courses");
 ok(server.includes('if (postMode === "ta" && ') && server.includes("في مرحلة التدريب تختار من الشعب الشاغرة فقط"), "F3 server refuses free edits in TA mode");
-ok(server.includes('courses: mode === "edit" ? coursesWithOffering(') && server.includes("availableInstructorOfferings(request)).filter(option => !taAllowed"), "F3 TA card locked to vacant offerings");
+ok(server.includes('courses: mode === "edit" ? coursesWithOffering(') && server.includes("availableInstructorOfferings(request)).filter(option => (!taAllowed || taAllowed.has(Number(option.courseId))) && !offeringBlocked(termStates"), "F3 TA card locked to vacant offerings");
 
 /* ── C4 ── */
 ok(server.includes('const open = mode !== "view" && requestWindowOpen(request);') && server.includes('if (postMode === "view")'), "C4/E1 view-only link never writes");
@@ -122,7 +122,7 @@ ok(server.includes("+tcRibbon(r,open)+") && TEACHER_CARD_EXTRAS_JS.includes("ا�
 const tc = vm.createContext({ data: { mode: "edit" }, esc: (v: string) => String(v), state: [], TOKEN: "t", fmtDays: (d: string[]) => d.join(","), host: null, paint() {}, recheckAll() {}, payloadItems: () => [], Intl, Date });
 vm.runInContext(TEACHER_CARD_EXTRAS_JS, tc);
 const ribbon = vm.runInContext(`tcRibbon({window:{closesAt:"2026-10-20T20:59:00Z"},items:[{action:"change",decision:{state:"fixed"}},{action:"add",decision:{state:"rejected"}},{action:"add"},{action:"keep"}]},false)`, tc);
-ok(ribbon.includes("🔒") && ribbon.includes("انتهت فترة الطلبات") && ribbon.includes("✅ 1") && ribbon.includes("❌ 1") && ribbon.includes("⏳ 1"), "C4 ribbon: date + previous request states");
+ok(ribbon.includes("🔒") && ribbon.includes("انتهت فترة الطلبات") && ribbon.includes("✅ ثُبّت <b>1") && ribbon.includes("❌ رُفض <b>1") && ribbon.includes("⏳ قيد المراجعة <b>1"), "C4 ribbon: date + previous request states");
 ok(vm.runInContext(`tcRibbon({items:[]},true)`, tc) === "", "C4 no ribbon while open");
 tc.data = { mode: "view" };
 ok(vm.runInContext(`tcRibbon({items:[]},false)`, tc).includes("👁️"), "E1 view-only ribbon");

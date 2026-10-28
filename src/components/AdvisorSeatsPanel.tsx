@@ -5,6 +5,7 @@
  * المسؤول: السعة الأساسية، والرصيد (عام/مقرر/شعبة)، والتوزيع العادل، ولوحة القريب من الامتلاء.
  * الحساب كلّه: src/utils/advisorSeats.ts.
  */
+import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { useEffect, useMemo, useState } from "react";
 import { Ticket } from "lucide-react";
 import { PrimaryButton, SecondaryButton } from "./ui";
@@ -77,7 +78,7 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId }: { co
     <section className="of-section" aria-label="رصيد مقاعد المرشد">
       <h4><Ticket aria-hidden="true" /> 🎟️ رصيد مقاعد المرشد</h4>
       <div className="of-kpis">
-        <div className="of-kpi"><span className="of-ic">🎟️</span><b>{totals.added}</b><span>مقعد أضافه المرشدون</span></div>
+        <div className="of-kpi"><span className="of-ic">🎟️</span><b>{totals.added}</b><span>{nounFor(totals.added, AR.seat)} من المرشدين</span></div>
         <div className="of-kpi"><span className="of-ic">🟡</span><b>{totals.near}</b><span>قريبة من الامتلاء</span></div>
         <div className="of-kpi"><span className="of-ic">🔴</span><b>{totals.full}</b><span>ممتلئة</span></div>
         {data.config.fairSplit ? <div className="of-kpi"><span className="of-ic">⚖️</span><span>توزيع عادل</span></div> : null}
@@ -103,7 +104,7 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId }: { co
               <span>{s.state.remaining > 0 ? `متبقٍّ ${s.state.remaining}` : "🔴 ممتلئة"}{s.state.fairShare !== undefined ? ` · نصيبك ${s.state.fairShare}` : ""}</span>
             </div>
             {msg[s.key] ? <div className="of-msg" data-tone={msg[s.key].tone} role="status">{msg[s.key].text}</div> : null}
-            {msg[s.key]?.alternatives?.length ? <div className="of-chips">{msg[s.key].alternatives!.map(a => <span className="of-chip" key={a.key}>↪️ شعبة {a.section} · <bdi dir="ltr">{a.time}</bdi> · {a.remaining} مقعد</span>)}</div> : null}
+            {msg[s.key]?.alternatives?.length ? <div className="of-chips">{msg[s.key].alternatives!.map(a => <span className="of-chip" key={a.key}>↪️ شعبة {a.section} · <bdi dir="ltr">{a.time}</bdi> · {countOf(a.remaining, AR.seat)}</span>)}</div> : null}
             {s.state.remaining <= 0 ? <button data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" className="of-chip" disabled={!!busy} onClick={() => void askException(s.key)}>📨 طلب استثناء</button> : null}
           </div>
         ))}

@@ -594,7 +594,7 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
       <tr className="request-row" data-action={item.action} data-verdict={item.verdict || "clear"} data-decided={decided || undefined} data-readiness={readiness}>
         <td data-label="الطلب">
           <span className="request-action" data-action={item.action}>{ACTION_LABEL[item.action] || item.action}</span>
-          <strong>{item.after?.courseName || item.before?.courseName || "—"}<PlanBadge courseId={item.after?.courseId || item.before?.courseId} /></strong>
+          <strong>{item.after?.courseName || item.before?.courseName || "—"}<PlanBadge courseId={item.after?.courseId || item.before?.courseId} />{(item as any).offering ? <span className="badge badge-warning" title={(item as any).offering.line} style={{ marginInlineStart: 6 }}>{(item as any).offering.icon} {(item as any).offering.line}</span> : null}</strong>
           {item.before?.sectionCode ? <small>شعبة {item.before.sectionCode}</small> : null}
           {item.action === "add" && item.after?.collegeName ? <small>{item.after.collegeName}</small> : null}
         </td>

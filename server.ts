@@ -158,10 +158,11 @@ import { courseLevelFromCode } from "./src/utils/curriculumRules";
 import { reasonForMove } from "./src/utils/appointmentStory";
 import { buildCalendar, buildReminder, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "./src/utils/icalendar";
 import { CALENDAR_LINKS_CLIENT_JS } from "./src/utils/calendarLinks";
+import { forgetOfferingStates, offeringStatesForTerm } from "./src/server/offeringStates";
 import { TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS } from "./src/server/teacherCardExtras";
 import { linkMode, linkModeLabel, parseLinkMode } from "./src/utils/linkMode";
 import { bestPerSide, stickCandidates, topSticks, type StickAnchor, type StickJudged } from "./src/utils/lectureStick";
-import { emptyOfferingDoc, normalizeLevel, normalizeOfferingEntry, offeringDocId, offeringView, suggestFutureCourses, toggleInterest, type CourseInterestDoc, type CourseOfferingDoc } from "./src/utils/courseOffering";
+import { applyOfferingToOpenings, offeringBadge, offeringBlocked, emptyOfferingDoc, normalizeLevel, normalizeOfferingEntry, offeringDocId, offeringView, suggestFutureCourses, toggleInterest, type CourseInterestDoc, type CourseOfferingDoc } from "./src/utils/courseOffering";
 import { alternativeSections, baseCapacityFor, nearFull, normalizeQuotaConfig, sectionKey, seatState, tryAddSeats, type SeatLedger, type SeatQuotaConfig } from "./src/utils/advisorSeats";
 import { allowedFor, countdown, dueWaves, loadRing, phaseOpen, planWaves, vacantSections, vacantSummary, type TaPhaseDoc, type TaWave } from "./src/utils/taPhase";
 import { withVisitingSuffix } from "./src/utils/visitingText";
@@ -16448,6 +16449,8 @@ app.get("/api/registration-stats", requirePermission(7), async (req: Authenticat
     updatedBy: stats?.updatedBy || "",
     history,
     lineage,
+    /* C5: حالة الطرح لكل مقرر — التخطيط لا يقترح شعباً لـ🔒/🌱، و🎯 حتى سقفه. */
+    offering: Object.fromEntries([...(await offeringStatesForTerm(termId))].map(([id, entry]) => [String(id), { state: entry.state, maxSections: entry.maxSections || 0, badge: offeringBadge(new Map([[id, entry]]), id) }])),
   });
 });
 
@@ -16477,9 +16480,10 @@ async function readSectionBuild(collegeId: number, sectionId: number, termId: nu
   const ordered = hardestFirst(gaps.filter(row => row.remaining > 0), levelOf);
   const demand = demandFromTargets([...ordered, ...gaps.filter(row => row.remaining === 0 && row.target !== null)], id => Number(courseById.get(id)?.MaxStudent) || 0, levelOf);
   const style = ordered.length ? await departmentStyle({ AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId }) : null;
-  const reading = ordered.length
+  /* C5: لا تُقترح شعبةٌ لمقررٍ 🔒/🌱، و🎯 على المتبقي فقط. */
+  const reading = applyOfferingToOpenings(ordered.length
     ? readSectionOpenings(week, termWeek, courses, people as any[], history, demand, null, style?.reading || null, style?.doorway || 0, 999, registry.rooms, termId)
-    : { proposals: [], noCeiling: [], headline: "" };
+    : { proposals: [], noCeiling: [], headline: "" } as OpeningReading, await offeringStatesForTerm(termId));
   const byCourse = new Map(reading.proposals.map(proposal => [proposal.courseId, proposal]));
 
   /* ما لم تجد له الأولى قاعةً وأستاذاً: وقتٌ من الفصل المماثل وقاعةٌ بانتظار التثبيت وأستاذٌ «هيئة تدريسية».
@@ -18093,9 +18097,9 @@ app.get("/api/schedules/openings-preview", requirePermission(7), async (req: Aut
     respondents: 1, pairs: [], unwanted: [], headline: "",
     courses: [{ courseId, name: String(course.CourseName || ""), code: String(course.CourseCode || ""), students: open * capacity + (count - 1) * capacity + 1, share: 0 }],
   };
-  const openings: OpeningReading = capacity > 0
+  const openings: OpeningReading = applyOfferingToOpenings(capacity > 0
     ? readSectionOpenings(week, termWeek, courses as AdCourse[], people as any[], sectionHistory, demand as any, null, style?.reading || null, style?.doorway || 0, 6, registry.rooms, termId)
-    : { proposals: [], noCeiling: [{ courseId, name: String(course.CourseName || ""), demand: count }], headline: "" };
+    : { proposals: [], noCeiling: [{ courseId, name: String(course.CourseName || ""), demand: count }], headline: "" }, await offeringStatesForTerm(termId));
   res.setHeader("Cache-Control", "no-store");
   res.json({ openings, forecast: true, count });
 });
@@ -18234,6 +18238,7 @@ app.get("/api/schedules/demand", requirePermission(7), async (req: Authenticated
         style?.reading || null, style?.doorway || 0, 6, openingRegistry.rooms,
       )
     : { proposals: [], noCeiling: [], headline: "" };
+  openings = applyOfferingToOpenings(openings, await offeringStatesForTerm(termId));
   let openingSimulationTested = 0;
   let openingSimulationRejected = 0;
   if (reading.respondents && openings.proposals.length) {
@@ -21155,6 +21160,12 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
   const familyScopes = [...familyCollegeBySection.entries()].filter(([sid, cid]) => isScopeAllowed(req, cid, sid))
     .map(([sectionId, collegeId]) => ({ sectionId, collegeId, collegeName: collegeNameOf.get(collegeId) || `كلية ${collegeId}` }));
   const familyColleges = [...new Set(familyScopes.map(scope => scope.collegeId))].map(id => ({ id, name: collegeNameOf.get(id) || `كلية ${id}` }));
+  /* C5: بندٌ يضيف مقرراً 🔒/🌱/🎯 يحمل شارته في الوارد — المصدرُ نفسه الذي يحكم الكرت. */
+  const inboxStates = await offeringStatesForTerm(termId);
+  if (inboxStates.size) for (const row of rows as any[]) for (const item of row.items || []) {
+    const badge = item.action === "add" ? offeringBadge(inboxStates, Number(item.after?.courseId || 0)) : null;
+    if (badge) item.offering = badge;
+  }
   res.json({ rows, totals, currentRows: scopeRows, familyColleges, familyScopes });
 });
 
@@ -21727,7 +21738,8 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
   const open = mode !== "view" && requestWindowOpen(request);
   const taDoc = mode === "ta" ? await taPhaseForRequest(request) : null;
   const taAllowed = allowedFor(taDoc, Number(request.AdInstructorId));
-  const offerings = open ? (await availableInstructorOfferings(request)).filter(option => !taAllowed || taAllowed.has(Number(option.courseId))) : [];
+  const termStates = await offeringStatesForTerm(Number(request.AdTermId));
+  const offerings = open ? (await availableInstructorOfferings(request)).filter(option => (!taAllowed || taAllowed.has(Number(option.courseId))) && !offeringBlocked(termStates, Number(option.courseId))) : [];
   /* C5: حالةُ الطرح على مقررات الإضافة الحرّة (المخفيّ لا يُرسل، والمقفل باهتٌ بنجمة). */
   const offeringViews = mode === "edit" ? await offeringViewsFor(Number(request.AdTermId), courses as any[]) : new Map();
   const interestDocs = mode === "edit" ? await Promise.all([...new Set((courses as any[]).map(c => `${c.collegeId}:${c.sectionId}:${Number(request.AdTermId)}`))]
@@ -23485,6 +23497,16 @@ function publicInvalidLinkPage(message: string): string {
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SCHEDULE</title><link rel="icon" href="/schedule-icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/schedule-icon-192.png"><style>@font-face{font-family:"Plex Arabic";font-style:normal;font-weight:400;font-display:swap;src:url("/fonts/plex-arabic-arabic-400.woff2") format("woff2")}@font-face{font-family:"Plex Arabic";font-style:normal;font-weight:700;font-display:swap;src:url("/fonts/plex-arabic-arabic-700.woff2") format("woff2")}:root{${PUBLIC_LIGHT_VARS}}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:0 24px;box-sizing:border-box;background:var(--bg);color:var(--ink);font:400 16px/1.7 "Plex Arabic",-apple-system,"Segoe UI","Noto Sans Arabic",Tahoma,sans-serif;font-synthesis:none;text-align:center}.brand{font:600 13px/1 system-ui;letter-spacing:.24em;color:var(--brass);margin-bottom:12px}p{margin:0;font-size:15px;color:var(--muted)}</style></head><body><div><div class="brand">SCHEDULE</div><p>${message}</p></div></body></html>`;
 }
 
+app.get("/r/:token", async (req: Request, res: Response) => {
+  const resolved = await resolveRequestLink(String(req.params.token || ""));
+  res.setHeader("Cache-Control", "no-store");
+  if ("error" in resolved) {
+    res.status(resolved.status).type("text/html; charset=utf-8").send(publicInvalidLinkPage(resolved.error));
+    return;
+  }
+  res.type("text/html; charset=utf-8").send(instructorRequestPage(resolved.link.id, publicPageNonce(res), await demoPageHint(resolved.link, "request")));
+});
+
 /* ══════════════════════════════════════════════════════════════════════════════
  * ملاحظات المالك 2026-10-28 — مساراتٌ مضافة في كتلةٍ واحدة (لا تمسّ قلب الكرت):
  *   C5 حالة طرح المقرر + 🌟 الاهتمام المستقبلي · C6 لاصق بمحاضرتي · F1–F3 مرحلة التدريب
@@ -23657,6 +23679,7 @@ app.put("/api/course-offering", requirePermission(7), async (req: AuthenticatedR
     for (const entry of entries) { if (entry.state === "offered" && !entry.suggested) delete next.courses[String(entry.courseId)]; else next.courses[String(entry.courseId)] = entry; }
     return { next, result: entries.length };
   });
+  forgetOfferingStates();
   res.locals.auditChanges = `حالة طرح المقررات: ${entries.map((e: any) => `${e.courseId}=${e.state}`).join("، ")}${req.body?.display ? ` · العرض: ${req.body.display}` : ""}`;
   res.json(saved.ok ? saved.next : {});
 });
@@ -23845,7 +23868,7 @@ app.post("/api/advisor-seats/add", requireAnyPermission([7, 14]), async (req: Au
   const result: any = out.result;
   const alternatives = result.ok ? [] : alternativeSections(sections.map(row => ({ key: row.key, section: row.section, time: row.time, ledger: row.ledger })), target.courseId, target.key, config)
     .slice(0, 3).map(row => ({ key: row.key, section: row.section, time: row.time, remaining: row.state.remaining }));
-  if (out.ok) res.locals.auditChanges = `مرشد: +${result.added} مقعد · ${target.courseName} شعبة ${target.section}`;
+  if (out.ok) res.locals.auditChanges = `مرشد: +${countOf(result.added, AR.seat)} · ${target.courseName} (${target.section})`;
   res.status(out.ok ? 200 : 409).json({ ...result, alternatives, ...(out.ok ? { state: seatState(out.next as SeatLedger, config) } : {}) });
 });
 
@@ -23860,16 +23883,6 @@ app.post("/api/advisor-seats/exception", requireAnyPermission([7, 14]), async (r
   await Repository.saveFeatureDoc("advisorSeatRequests", row.id, row);
   broadcastNotify(Repository.currentDemoSessionId());
   res.json({ ok: true, request: row, hint: "طلبك عند المسؤول · قد يقترح فتح شعبة جديدة" });
-});
-
-app.get("/r/:token", async (req: Request, res: Response) => {
-  const resolved = await resolveRequestLink(String(req.params.token || ""));
-  res.setHeader("Cache-Control", "no-store");
-  if ("error" in resolved) {
-    res.status(resolved.status).type("text/html; charset=utf-8").send(publicInvalidLinkPage(resolved.error));
-    return;
-  }
-  res.type("text/html; charset=utf-8").send(instructorRequestPage(resolved.link.id, publicPageNonce(res), await demoPageHint(resolved.link, "request")));
 });
 
 /** صفحةُ المقترح الدراسي للأستاذ: الرابطُ الشخصيّ نفسُه ثم معرّفُ المقترح. */
