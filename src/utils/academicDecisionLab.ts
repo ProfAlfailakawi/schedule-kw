@@ -239,8 +239,8 @@ export function buildAcademicDecisionLab(input: AcademicInput, reading: Academic
   const empty:AcademicDecisionLab={scenarios:[],sampledAt:today,basis:"approved-plans-and-student-wishes",nonBlocking:true,
     limitations:["الرغبات والمجتازات مدخلة من الطلبة، وليست قيداً رسمياً.","السعة والموافقات واللائحة لا تُحسم بهذه المحاكاة."]};
   // Refuse costly or incomplete analyses instead of silently sampling students.
-  if(people.length<3 || people.length>800)return empty;
   empty.graduationWatch=graduationWatch(input,offered);
+  if(people.length<3 || people.length>800)return empty;
   const interested=new Map<number,Person[]>();
   for(const person of people) for(const id of person.courses)
     interested.set(id,[...(interested.get(id)||[]),person]);
