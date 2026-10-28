@@ -24,10 +24,12 @@ export interface AcademicPair {
   overlap: boolean;
   /** Another EXISTING combination of sections avoids an overlap. */
   hasAlternative: boolean;
+  /** Every existing combination overlaps; higher scheduling priority. */
+  unavoidable: boolean;
   aOfferings: AcademicOffering[];
   bOfferings: AcademicOffering[];
 }
-export interface AcademicTimePreference { courseId: number; name: string; wanted: number; period: "afternoon" }
+export interface AcademicTimePreference { courseId: number; name: string; wanted: number; period: "morning" | "afternoon" }
 export interface AcademicReading { pairs: AcademicPair[]; timePreferences: AcademicTimePreference[]; assessed: number; source: "approved-plans-and-wishes"; nonBlocking: true }
 export interface AcademicInput {
   collegeId: number; sectionId: number; termId: number;
@@ -64,7 +66,7 @@ export function analyseAcademicAdvice(input: AcademicInput): AcademicReading {
   const courseById = new Map(input.courses.map(c => [Number(c.AdCourseId), c]));
   const byPlan = new Map(input.plans.map(p => [p.planId, p]));
   const eligibleCount = new Map<string, number>();
-  const afternoonDemand = new Map<number, number>();
+  const periodDemand = new Map<string, number>();
   let assessed = 0;
 
   for (const person of input.profiles) {
@@ -81,8 +83,13 @@ export function analyseAcademicAdvice(input: AcademicInput): AcademicReading {
       prereqMet(rules.get(id)?.prereq, passed, units) &&
       coreqMet(rules.get(id)?.coreq, passed, registering)).sort((a, b) => a - b);
     assessed++;
-    if (person.wishes?.constraints?.noMorning === true) for (const id of candidates)
-      afternoonDemand.set(id, (afternoonDemand.get(id) || 0) + 1);
+    // Restrictions are distinct from mere preferences. Only eligible requests count.
+    for (const id of candidates) {
+      if (person.wishes?.constraints?.noMorning === true)
+        periodDemand.set(id + "|afternoon", (periodDemand.get(id + "|afternoon") || 0) + 1);
+      if (person.wishes?.constraints?.noAfternoon === true)
+        periodDemand.set(id + "|morning", (periodDemand.get(id + "|morning") || 0) + 1);
+    }
     for (let i = 0; i < candidates.length; i++) for (let j = i + 1; j < candidates.length; j++) {
       const a = candidates[i], b = candidates[j];
       if (mandatoryPrecedes(plan.rules, a, b) || mandatoryPrecedes(plan.rules, b, a)) continue;
@@ -131,7 +138,8 @@ export function analyseAcademicAdvice(input: AcademicInput): AcademicReading {
     if (!ac || !bc || (Number(ac.AdSectionId) !== input.sectionId && Number(bc.AdSectionId) !== input.sectionId)) continue;
     const ao = [...(offerings.get(a)?.values() || [])].filter(o => o.slots.length);
     const bo = [...(offerings.get(b)?.values() || [])].filter(o => o.slots.length);
-    if (!ao.length && !bo.length) continue;
+    // One missing course is an opening/registration issue, not a timetable conflict.
+    if (!ao.length || !bo.length) continue;
     const combinations = ao.flatMap(x => bo.map(y => slotsOverlap(x.slots, y.slots)));
     const overlap = combinations.some(Boolean);
     const basis = (eligibleCount.get(key) || 0) >= 3 ? "wishes" : "curriculum";
@@ -139,16 +147,28 @@ export function analyseAcademicAdvice(input: AcademicInput): AcademicReading {
     pairs.push({
       a, b, nameA: String(ac.CourseName || ac.CourseCode), nameB: String(bc.CourseName || bc.CourseCode),
       shared: basis === "wishes" ? eligibleCount.get(key)! : 0, basis,
-      overlap, hasAlternative: combinations.some(x => !x),
+      overlap, hasAlternative: combinations.some(x => !x), unavoidable: combinations.length > 0 && combinations.every(Boolean),
       aOfferings: ao, bOfferings: bo,
     });
   }
-  const timePreferences: AcademicTimePreference[] = [...afternoonDemand].filter(([, n]) => n >= 3).flatMap(([id, wanted]) => {
-    const offered = [...(offerings.get(id)?.values() || [])];
-    if (!offered.length || offered.some(o => o.slots.some(slot => minutes(slot.start) >= 14 * 60))) return [];
-    return [{ courseId: id, name: String(courseById.get(id)?.CourseName || ""), wanted, period: "afternoon" as const }];
-  }).sort((a, b) => b.wanted - a.wanted).slice(0, 10);
-  pairs.sort((a, b) => Number(b.overlap) - Number(a.overlap) || b.shared - a.shared ||
+  // A course meets a restriction only if an EXISTING full section fits it on every day.
+  // Noon is the boundary; do not call a 12:30 class "morning".
+  const timePreferences: AcademicTimePreference[] = [...periodDemand].flatMap(([key, wanted]) => {
+    if (wanted < 3) return [];
+    const [rawId, rawPeriod] = key.split("|");
+    const courseId = Number(rawId);
+    const period = rawPeriod as AcademicTimePreference["period"];
+    const offered = [...(offerings.get(courseId)?.values() || [])].filter(o => o.slots.length);
+    if (!offered.length) return [];
+    const fits = (slot: AcademicSlot) => period === "afternoon"
+      ? minutes(slot.start) >= 12 * 60
+      : minutes(slot.end) <= 12 * 60;
+    if (offered.some(section => section.slots.every(fits))) return [];
+    return [{ courseId, name: String(courseById.get(courseId)?.CourseName || ""), wanted, period }];
+  }).sort((a, b) => b.wanted - a.wanted || a.name.localeCompare(b.name, "ar")).slice(0, 24);
+  // Priority: students likely affected first, then pairs without any existing alternative.
+  pairs.sort((a, b) => (b.basis === "wishes" ? b.shared : 0) - (a.basis === "wishes" ? a.shared : 0) ||
+    Number(b.unavoidable) - Number(a.unavoidable) || Number(b.overlap) - Number(a.overlap) ||
     a.nameA.localeCompare(b.nameA, "ar"));
-  return { pairs: pairs.slice(0, 30), timePreferences, assessed, source: "approved-plans-and-wishes", nonBlocking: true };
+  return { pairs: pairs.slice(0, 160), timePreferences, assessed, source: "approved-plans-and-wishes", nonBlocking: true };
 }
