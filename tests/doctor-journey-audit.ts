@@ -163,7 +163,7 @@ async function main() {
     const page = server.slice(server.indexOf("function staffCardPage"), server.indexOf("function surveyPage"));
     check(page.includes('phase === "past"') && page.includes("فصل قادم") && page.includes('calendarOpen = phase !== "past"'), "D5 الصفحة تقول «قادم» وتُبقي التقويم");
     check(page.includes('"term="+encodeURIComponent'), "D5 اشتراك الفصل القادم يحمل رقمه");
-    const ics = server.slice(server.indexOf('app.get("/api/public/ics/:token/:key"'), server.indexOf('app.get("/api/public/ics/:token/:key"') + 2000);
+    const ics = server.slice(server.indexOf("async function sendInstructorCalendar"), server.indexOf("async function sendInstructorCalendar") + 2000);
     check(ics.includes('termPhase(pinnedTerm as any, currentTermId(terms as any)) === "upcoming"'), "D5 التقويم يخدم الفصل القادم المثبّت ولا يفتح به فصلاً انقضى");
   }
 

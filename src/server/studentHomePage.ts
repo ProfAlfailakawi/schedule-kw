@@ -1116,7 +1116,11 @@ function icsText(title,iso,note){var stamp=new Date().toISOString().replace(/[-:
   return ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//SCHEDULE//Masari//AR","CALSCALE:GREGORIAN","BEGIN:VEVENT","UID:masari-"+icsDay(iso)+"-"+Math.random().toString(36).slice(2,10)+"@schedule","DTSTAMP:"+stamp,"DTSTART;VALUE=DATE:"+icsDay(iso),"DTEND;VALUE=DATE:"+icsNext(iso),"SUMMARY:"+icsEsc(title),"DESCRIPTION:"+icsEsc(note||""),
     "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(title),"TRIGGER:-PT15H","END:VALARM","BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(title),"TRIGGER:PT8H","END:VALARM","END:VEVENT","END:VCALENDAR"].join("\r\n")}
 function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(url)},1500)}
-function addToCalendar(title,iso,note){if(!iso)return;downloadBlob(new Blob([icsText(title,iso,note)],{type:"text/calendar;charset=utf-8"}),"masari.ics");toast("نُزّل التذكير — افتحه ليُضاف إلى تقويمك")}
+/* M3: آيفون لا يفتح Blob‎ ‎.ics‎ من ‎a.download‎ (يحفظه في «الملفات»، ولا شيء في وضع التطبيق المثبّت)؛
+   الملفُّ يُخدَم من الخادم ‎text/calendar‎ inline فيفتح نافذة «أضف إلى التقويم» على كل جهاز. */
+function addToCalendar(title,iso,note){if(!iso)return;var day=String(iso).slice(0,10);
+  location.href="/api/public/ics-reminder?d="+encodeURIComponent(day)+"&t="+encodeURIComponent(String(title).slice(0,120))+"&n="+encodeURIComponent(String(note||"").slice(0,300));
+  toast("يُفتح التذكير في تقويمك")}
 /* ── شارك جدولك صورة: تُرسم على الجهاز بلا اسمٍ ولا رقم؛ القسمُ وحده. ── */
 function tkShareImage(cur){var items=tkItems(cur).filter(function(i){return i.timesVisible&&(i.slots||[]).length});if(!items.length){toast("لا مواعيد معتمدة لتُشارَك بعد",true);return}
   var lo=1440,hi=0;items.forEach(function(it){it.slots.forEach(function(s){lo=Math.min(lo,s.start);hi=Math.max(hi,s.end)})});lo=Math.floor(lo/60)*60;hi=Math.ceil(hi/60)*60;

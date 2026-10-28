@@ -67,7 +67,7 @@ import { COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS } from "./
 import { enrichCompanionRoomTypes } from "./src/utils/companionRoomDisplay";
 import { DEMO_COPY_SCRIPT, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "./src/server/publicKit";
 import { cleanSeenIds, seenKey } from "./src/utils/notificationSeen";
-import { calendarFeedKey, createCalendarSecretResolver } from "./src/server/calendarSecret";
+import { calendarFeedKey, createCalendarSecretResolver, instructorFromCalendarKey, personCalendarKey } from "./src/server/calendarSecret";
 import { readsUntilTermEnd, requestsCloseAtFromDate, shareLinkReadable, termLinkExpiresAt } from "./src/utils/shareLinkLifetime";
 import { normalizeInstructorDeadline, individualExceptionOpen, requestWindowOpen as requestWindowOpenPolicy } from "./src/utils/instructorRequestWindows";
 import { termPhase, termIsFrozen, TERM_FROZEN_MESSAGE } from "./src/utils/termSequence";
@@ -156,7 +156,8 @@ import { visitorFreeSlots, staffCourse, type CourseStaffing } from "./src/utils/
 import { FACULTY_PLACEHOLDER, facultyPlaceholderOf, placePending, templatesFromHistory, type PendingRoom } from "./src/utils/sectionPending";
 import { courseLevelFromCode } from "./src/utils/curriculumRules";
 import { reasonForMove } from "./src/utils/appointmentStory";
-import { buildCalendar, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "./src/utils/icalendar";
+import { buildCalendar, buildReminder, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "./src/utils/icalendar";
+import { CALENDAR_LINKS_CLIENT_JS } from "./src/utils/calendarLinks";
 import { withVisitingSuffix } from "./src/utils/visitingText";
 import { learnAll, learnCourseNature, habitualBlockMinutes, historicalOrigin, type CourseNature } from "./src/utils/courseNature";
 import { firstLast } from "./src/utils/weekVisual";
@@ -16027,6 +16028,8 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
     // The subscription key. Handed out only here — after the card has already
     // established who is holding it — so the civil ID never reaches a URL.
     calendarKey: await calendarKey(link.id, person.AdInstructorId),
+    /* M3: الاشتراكُ الثابت — يتبع الأستاذ لا هذه البطاقة، فلا يموت بإعادة النشر. */
+    calendarFeed: await stableCalendarPath(link.id, person.AdInstructorId),
     weeklyMinutes,
     loadUnits,
     /* أسماءُ الأعداد تُصاغ هنا بالقاعدة الواحدة (‎nounFor‎)، والصفحة تعرضها. */
@@ -16971,13 +16974,55 @@ app.get("/api/public/ics/:token/:key", async (req: Request, res: Response) => {
   const resolved = await resolveShareToken(token);
   if ("error" in resolved) { res.status(resolved.status).type("text/plain; charset=utf-8").send(resolved.error); return; }
 
-  const [instructors, courses, terms, colleges] = await Promise.all([
-    Repository.getInstructors(), Repository.getCourses(), Repository.getTerms(), Repository.getColleges(),
-  ]);
+  const instructors = await Repository.getInstructors();
   // The key names the instructor: whoever it verifies against is the owner.
   const secret = await calendarSecret();
   const person = instructors.find(row => calendarFeedKey(secret, token, row.AdInstructorId) === String(req.params.key || ""));
   if (!person) { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
+  void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
+  await sendInstructorCalendar(req, res, person);
+});
+
+/**
+ * ── الاشتراكُ الثابت (M3) ────────────────────────────────────────────────────
+ * ‎/api/public/cal/<رمز البطاقة>/p<رقم>-<مفتاح>.ics‎ — المفتاحُ للأستاذ لا للرابط
+ * (src/server/calendarSecret.ts)، فإيقافُ البطاقة أو إعادةُ نشرها لا يقتل
+ * اشتراكاتِ الهواتف. ورمزُ البطاقة في المسار يربط الطلبَ بصندوق الديمو وحده؛
+ * لا يُشترط أن يكون الرابطُ حياً.
+ */
+app.get("/api/public/cal/:token/:key", async (req: Request, res: Response) => {
+  const id = instructorFromCalendarKey(await calendarSecret(), String(req.params.key || ""));
+  const person = id ? (await Repository.getInstructors()).find(row => Number(row.AdInstructorId) === id) : undefined;
+  if (!person) { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
+  await sendInstructorCalendar(req, res, person);
+});
+
+/** رابطُ الاشتراك الثابت لأستاذ، نسبياً للموقع. */
+const stableCalendarPath = async (token: string, instructorId: number) =>
+  `/api/public/cal/${encodeURIComponent(token)}/${personCalendarKey(await calendarSecret(), instructorId)}.ics`;
+
+/**
+ * ── تذكيرٌ ليومٍ واحد (مساري) ──────────────────────────────────────────────
+ * كان يُولَّد Blob في الجهاز ويُنزَّل بـ‎a.download‎ — وسفاري آيفون يحفظه في
+ * «الملفات» (أو لا يفعل شيئاً في وضع التطبيق المثبّت) ولا يفتح التقويم. ملفٌّ
+ * يُخدَم من الخادم بـ‎text/calendar‎ «inline» يفتح نافذة «أضف إلى التقويم».
+ * نصٌّ عامٌّ قصير (موعد دور التسجيل) — لا اسمَ ولا رقمَ في الرابط.
+ */
+app.get("/api/public/ics-reminder", (req: Request, res: Response) => {
+  const date = String(req.query.d || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) { res.status(400).type("text/plain; charset=utf-8").send("bad date"); return; }
+  const body = buildReminder({ title: String(req.query.t || "تذكير").slice(0, 120), date, note: String(req.query.n || "").slice(0, 300) });
+  res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+  res.setHeader("Content-Disposition", req.query.dl ? 'attachment; filename="masari.ics"' : 'inline; filename="masari.ics"');
+  res.setHeader("Cache-Control", "no-store");
+  res.send(body);
+});
+
+/** جدول الأستاذ في الفصل الجاري (أو القادم المثبّت بـ‎?term=‎) ملفَّ تقويم. */
+async function sendInstructorCalendar(req: Request, res: Response, person: { AdInstructorId: number; AdInstructorName?: string }) {
+  const [courses, terms, colleges] = await Promise.all([
+    Repository.getCourses(), Repository.getTerms(), Repository.getColleges(),
+  ]);
 
   /* الاشتراكُ يتبع الفصل الجاري. ومن أضافه من بطاقة فصلٍ قادم يحمل رقمَه في
      الرابط، فيرى ذلك الفصل حتى يصير هو الجاري — ولا يُفتح به فصلٌ انقضى. */
@@ -16990,10 +17035,9 @@ app.get("/api/public/ics/:token/:key", async (req: Request, res: Response) => {
     return;
   }
   const termRows = await Repository.getSchedulesByScope({ termId: liveTermId });
-const rows = termRows.filter(row => row.AdInstructorId === person.AdInstructorId);
-const courseById = new Map(courses.map(row => [row.AdCourseId, row]));
-const collegeById = new Map(colleges.map(row => [Number(row.AdCollegeId), row]));
-  void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
+  const rows = termRows.filter(row => row.AdInstructorId === person.AdInstructorId);
+  const courseById = new Map(courses.map(row => [row.AdCourseId, row]));
+  const collegeById = new Map(colleges.map(row => [Number(row.AdCollegeId), row]));
 
   /* The personal feed follows the person, not the paper: a date they are absent
      from (cancelled, or handed to a colleague) leaves THEIR calendar, and a
@@ -17034,7 +17078,7 @@ const collegeById = new Map(colleges.map(row => [Number(row.AdCollegeId), row]))
       cancelledDates: goneDates.get(Number(row.id)),
     };
   }), coverSingles);
-});
+}
 
 /**
  * ── بطاقة الأستاذ تتكلّم ────────────────────────────────────────────────────
@@ -19225,8 +19269,10 @@ ${STAFF_CARD_VISUAL_CSS}
           <button type="button" id="subClose" class="hbtn" aria-label="إغلاق"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
         <p class="sheet-note"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2"/><path d="M20 4v5h-5M4 20v-5h5"/></svg><span id="subLife">اشتراك يتابع جدولك من نفسه حتى نهاية الفصل، ولا يحتاج إعادة إضافة بعد كل تعديل.</span></p>
-        <a class="opt primary" id="subNow" href="#"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></span><span class="t">آيفون · ماك · أوتلوك</span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
-        <button type="button" class="opt" id="subCopy"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1"/></svg></span><span class="t">جوجل · نسخ الرابط<small id="subNote">في تقويم جوجل: «تقويمات أخرى ← من رابط».</small></span></button>
+        <a class="opt primary" id="subNow" href="#"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3.5c-1 .1-2.2.8-2.8 1.6-.6.7-1.1 1.8-.9 2.8 1.1 0 2.2-.7 2.8-1.5.6-.8 1-1.8.9-2.9z"/><path d="M12 8.5c-1-.1-2.3-.9-3.5-.9C6.6 7.6 5 9.2 5 12.2c0 3.3 2.3 8.3 4.2 8.3 1 0 1.6-.7 2.8-.7s1.7.7 2.8.7c1.5 0 2.8-2.7 3.3-4.1-1.7-.8-2.4-2.4-2.4-3.9 0-1.3.7-2.5 1.8-3.2-.8-1.1-2-1.6-3.1-1.6-1 0-1.6.8-2.4.8z"/></svg></span><span class="t">Apple · آيفون وماك<small>يفتح «اشتراك» في تطبيق التقويم</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+        <a class="opt" id="subGoogle" href="#" target="_blank" rel="noopener"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12.2c0-.6-.1-1.2-.2-1.7H12v3.3h4.5a3.9 3.9 0 0 1-1.7 2.5"/><path d="M12 20a8 8 0 1 1 5.4-13.9"/></svg></span><span class="t">Google Calendar<small>يفتح صفحة الإضافة في جوجل</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+        <a class="opt" id="subOutlook" href="#" target="_blank" rel="noopener"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="12" height="14" rx="2"/><circle cx="9" cy="12" r="2.6"/><path d="M15 8h6v8h-6"/></svg></span><span class="t">Outlook<small>حساب شخصي أو حساب الجامعة</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+        <button type="button" class="opt" id="subCopy"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1"/></svg></span><span class="t">نسخ رابط الاشتراك<small id="subNote">لأي تطبيق تقويم آخر: «إضافة تقويم ← من رابط».</small></span></button>
         <label class="opt subalarm"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21h4"/></svg></span><span class="t">تنبيه قبل المحاضرة بربع ساعة</span><input type="checkbox" id="subAlarm"><span class="switch"></span></label>
       </div>
     </div>
@@ -19238,6 +19284,7 @@ ${STAFF_CARD_VISUAL_CSS}
 ${DEMO_COPY_SCRIPT}
 ${COURSE_COLOR_JS}
 ${STAFF_CARD_VISUAL_JS}
+${CALENDAR_LINKS_CLIENT_JS}
 (function(){
   var TOKEN=${JSON.stringify(token)};
   var gate=document.getElementById("gate"),card=document.getElementById("card");
@@ -19423,11 +19470,14 @@ ${STAFF_CARD_VISUAL_JS}
     renderRequests(d);
     selectTab("week");
 
-    /* إخفاء التقويم مؤقتاً إلى حين التحقق من عمل الاشتراك على الهواتف. */
-    document.getElementById("ics").style.display = "none";
-    document.getElementById("sub").setAttribute("hidden","");
+    /* M3: التقويم يعود — اشتراكٌ ثابتٌ يتبع الأستاذ (لا يموت بإعادة نشر البطاقة)،
+       وثلاثة أزرار: Apple (webcal) وGoogle (cid) وOutlook (addfromweb). */
+    var calendarOn = calendarOpen && !!(d.calendarFeed||d.calendarKey);
+    document.getElementById("ics").hidden = !calendarOn;
+    document.getElementById("ics").style.display = calendarOn ? "" : "none";
+    if(!calendarOn) document.getElementById("sub").setAttribute("hidden","");
 
-    var base = "/api/public/ics/"+encodeURIComponent(TOKEN)+"/"+encodeURIComponent(d.calendarKey||"");
+    var base = d.calendarFeed || ("/api/public/ics/"+encodeURIComponent(TOKEN)+"/"+encodeURIComponent(d.calendarKey||""));
     var query = phase === "upcoming" ? ["term="+encodeURIComponent(String(d.termId||""))] : [];
     var alarmBox = document.getElementById("subAlarm");
     var feed = base, https = location.origin + base;
@@ -19435,7 +19485,10 @@ ${STAFF_CARD_VISUAL_JS}
       var parts = query.concat(alarmBox.checked ? ["alarm=15"] : []);
       feed = base + (parts.length ? "?" + parts.join("&") : "");
       https = location.origin + feed;
-      document.getElementById("subNow").setAttribute("href", "webcal://" + location.host + feed);
+      var links = calLinks(https, "جدولي — SCHEDULE");
+      document.getElementById("subNow").setAttribute("href", links.apple);
+      document.getElementById("subGoogle").setAttribute("href", links.google);
+      document.getElementById("subOutlook").setAttribute("href", links.outlook);
     }
     alarmBox.onchange = retune;
     var ics = document.getElementById("ics"), panel = document.getElementById("sub");
@@ -19454,7 +19507,7 @@ ${STAFF_CARD_VISUAL_JS}
     document.getElementById("subCopy").onclick = function(){
       var note = document.getElementById("subNote"), said = "تم نسخ الرابط.";
       var done = function(){ note.textContent = said; setTimeout(function(){
-        note.textContent = "في تقويم جوجل: «تقويمات أخرى ← من رابط»."; }, 4000); };
+        note.textContent = "لأي تطبيق تقويم آخر: «إضافة تقويم ← من رابط»."; }, 4000); };
       if(navigator.clipboard && navigator.clipboard.writeText){
         navigator.clipboard.writeText(https).then(done, function(){ note.textContent = https; });
       } else { note.textContent = https; }
@@ -21666,7 +21719,8 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
     availableOfferings: requestWindowOpen(request) ? await availableInstructorOfferings(request) : [],
     /* اشتراكُ التقويم هو نفسُه المبنيّ لبطاقة الأستاذ (/m): الرابطُ الشخصيّ مفتاحُه، فلا بابَ ثانٍ ولا خلاصةَ ثانية.
        يقرأ جدولَه الرسميَّ وحدَه — ما ثبّته القسم — لا ما يُطلب ولا المسودة، ويتحدّث من نفسه عند كل تثبيت. */
-    calendarFeed: `/api/public/ics/${encodeURIComponent(resolved.link.id)}/${encodeURIComponent(calendarToken)}?term=${Number(request.AdTermId)}`,
+    calendarFeed: `${await stableCalendarPath(resolved.link.id, Number(request.AdInstructorId))}?term=${Number(request.AdTermId)}`,
+    calendarLegacyKey: calendarToken,
     /* مقررات هذا القسم العلمي في كل كليةٍ يوجد فيها؛ الكلية تُختار صراحةً قبل المقرر. */
     courses,
   });
@@ -22081,6 +22135,7 @@ label.time input:focus,select:focus,textarea:focus,label.sign input:focus{outlin
 .cal-line{margin:10px 2px 14px;text-align:center}.cal-line p{margin:6px 6px 0;font-size:12px;color:var(--muted);line-height:1.7}
 .cal-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:9px 16px;border:1px solid var(--accent);border-radius:13px;background:var(--soft);color:var(--accent);font-weight:700;font-size:14px;text-decoration:none}.cal-btn .sk-gi{inline-size:18px;block-size:18px;flex:none}
 .cal-line.compact{margin:0 0 12px;text-align:start}.cal-line.compact p{margin:4px 2px 0}
+.cal-btns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}.cal-line.compact .cal-btns{justify-content:flex-start}.cal-btns .cal-btn{flex:1 1 90px;min-height:44px}
 .verify-line{margin:14px 2px 0;font-size:13px;color:var(--muted);text-align:center}.verify-line a{display:inline-flex;align-items:center;min-height:44px;padding:0 8px;color:var(--accent);font-weight:700}
 .shape-lead{margin:0;font-size:12px;color:var(--muted)}.auto-note{margin:6px 0 0;padding:6px 10px;border-radius:10px;background:var(--soft);color:var(--muted);font-size:12px;line-height:1.6}.alts.shapes button{border-color:var(--accent);background:var(--soft);color:var(--ink);font-weight:600}
 .alts-ro span{padding:7px 11px;border-radius:999px;border:1px dashed var(--line);background:var(--soft,#f4f6f5);color:var(--ink,#1d2b24);font-size:12px}
@@ -22167,6 +22222,7 @@ ${REQUEST_VISUAL_CSS}
 </style></head><body>${demoHint?`<div id="demoTop" style="max-width:760px;margin:0 auto;padding:12px 16px 0">${demoHint}</div>`:""}<div class="wrap" id="host"><div class="skel" role="status" aria-busy="true"><span class="sr">يفتح جدولك…</span><i></i><i></i><i></i></div></div>
 <script nonce="${nonce}">(function(){
 ${PUBLIC_KIT_SCRIPT}
+${CALENDAR_LINKS_CLIENT_JS}
 var PLIB=${JSON.stringify(patternLibraryHtml(patternLibraryInput()))},PLIB_ICON=${JSON.stringify(PATTERN_LIBRARY_ICON)};
 document.addEventListener("click",function(e){var d=document.querySelector(".plib[open]");if(d&&!d.contains(e.target))d.removeAttribute("open")});
 var TOKEN=${JSON.stringify(token)},host=document.getElementById("host"),demoNode=document.querySelector("#demoTop .demo-hint"),demoOpen=false,data=null,state=[],activeTab="schedule",chooserOpen=false,offeringsOpen=false,offeringSearch="";
@@ -22658,8 +22714,13 @@ function replayPrevious(){if(!prev||!data||!data.windowOpen)return;
  replayNote=(plan.ops.length?'<b>ملأنا مسودتك: '+esc(countOf(plan.ops.length,AR.request))+'.</b> راجعها، والفحص المباشر يقول ما لا يصلح، ثم وقّع وأرسل.':'<b>لم نجد ما يُعاد.</b>')+
   (skipped.length?'<p>لم يُعَد:</p><ul>'+skipped.join("")+'</ul>':'');
  activeTab="schedule";paint();recheckAll()}
-/* لا نعرض زر الاشتراك ما دام لا يعمل على بعض الهواتف؛ خدمة ICS بقيت كما هي. */
-function calendarHtml(compact){return ""}
+/* ── «أضف جدولك إلى تقويمك» (M3) ───────────────────────────────────────────
+   اشتراكٌ ثابتٌ يتبع الأستاذ؛ يعرض جدولَه الرسمي ويتحدّث من نفسه. ثلاثة أزرار:
+   Apple (webcal) · Google · Outlook. */
+function calendarHtml(compact){if(!data||!data.calendarFeed)return "";
+ var L=calLinks(location.origin+data.calendarFeed,"جدولي — SCHEDULE");
+ return '<div class="cal-line'+(compact?' compact':'')+'"><div class="cal-btns"><a class="cal-btn" href="'+esc(L.apple)+'">'+gi("cal")+'Apple</a><a class="cal-btn" target="_blank" rel="noopener" href="'+esc(L.google)+'">'+gi("cal")+'Google</a><a class="cal-btn" target="_blank" rel="noopener" href="'+esc(L.outlook)+'">'+gi("cal")+'Outlook</a></div>'+
+  '<p>جدولك الرسمي في تقويمك · يتحدّث تلقائياً</p></div>'}
 function anyFixed(){return state.some(function(it){return it.decision&&it.decision.state==="fixed"})||(data&&data.request&&data.request.status==="settled")}
 /* رمزُ التوقيع له مكانٌ يُطابَق فيه: يُعرض مع رابطٍ يفتح التحقّق جاهزاً بالرمز. */
 function verifyHtml(code,linkOnly){if(!code)return "";
@@ -24498,9 +24559,12 @@ footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--line);color:v
          week instead of keeping one copy that stops being true after the first
          change. The https address stays as the fallback for anything that does
          not know the scheme. -->
-    <a class="primary" id="icsLink" href="${icsUrl}">إضافة إلى التقويم</a>
-    <script nonce="${nonce}">(function(){var a=document.getElementById("icsLink");
-      if(a) a.href="webcal://"+location.host+"${icsUrl}";})();</script>
+    <a class="primary" id="icsLink" href="${icsUrl}">Apple · إضافة إلى التقويم</a>
+    <a id="icsGoogle" href="${icsUrl}" target="_blank" rel="noopener">Google</a>
+    <a id="icsOutlook" href="${icsUrl}" target="_blank" rel="noopener">Outlook</a>
+    <script nonce="${nonce}">${CALENDAR_LINKS_CLIENT_JS}(function(){var L=calLinks(location.origin+"${icsUrl}",${JSON.stringify(String(payload.section || "الجدول"))});
+      var a=document.getElementById("icsLink"),g=document.getElementById("icsGoogle"),o=document.getElementById("icsOutlook");
+      if(a) a.href=L.apple; if(g) g.href=L.google; if(o) o.href=L.outlook;})();</script>
     <a href="javascript:window.print()">طباعة</a>
   </div>
   ${payload.rows.length ? `<table class="pub-week">

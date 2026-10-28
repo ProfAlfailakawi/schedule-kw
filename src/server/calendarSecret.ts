@@ -51,3 +51,30 @@ export function createCalendarSecretResolver(readEnv: () => string | undefined, 
     return pending;
   };
 }
+
+/**
+ * ── مفتاحُ اشتراكٍ ثابتٌ للأستاذ نفسه، لا للرابط ─────────────────────────────
+ *
+ * كان المفتاح مشتقاً من رمز الرابط؛ وكلُّ نشرٍ جديدٍ لبطاقة الأستاذ يوقف
+ * البطاقة السابقة، فيموت اشتراكُ كل هاتفٍ أضافه (404) — «التقويم لا يتحدّث».
+ * هذا المفتاح يتبع الأستاذ وحده: ‎p<رقم>-<HMAC>‎، فيبقى الرابطُ نفسه فصلاً بعد
+ * فصل ويتبع الجدول. لا يكشف رقماً مدنياً ولا يُخمَّن بلا السرّ، ويُبطَل كلُّه
+ * بتدوير CALENDAR_SECRET.
+ */
+export function personCalendarKey(secret: string, instructorId: number): string {
+  const id = Math.trunc(Number(instructorId));
+  return `p${id}-${createHmac("sha256", secret).update(`calendar-person|${id}`).digest("hex").slice(0, 32)}`;
+}
+
+/** يقرأ رقم الأستاذ من المفتاح ويتحقق منه؛ 0 حين لا يطابق. يقبل لاحقة ".ics". */
+export function instructorFromCalendarKey(secret: string, key: string): number {
+  const clean = String(key || "").replace(/\.ics$/i, "");
+  const match = /^p(\d{1,9})-[0-9a-f]{32}$/.exec(clean);
+  if (!match) return 0;
+  const id = Number(match[1]);
+  const expected = personCalendarKey(secret, id);
+  if (expected.length !== clean.length) return 0;
+  let diff = 0;
+  for (let i = 0; i < clean.length; i++) diff |= expected.charCodeAt(i) ^ clean.charCodeAt(i);
+  return diff === 0 ? id : 0;
+}

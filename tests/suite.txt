@@ -9,6 +9,7 @@ test:hardening
 test:companion-rooms
 test:room-occupancy
 test:doctor-journey
+test:calendar-ics
 test:staff-global
 test:instructor-status
 test:request-cross-college
