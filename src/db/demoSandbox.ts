@@ -71,8 +71,11 @@ export interface DemoSandboxState {
   teachingLoadConfig?: any[];
 }
 
+/** مدرّبان (TA) لمرحلة التدريب: يختاران من الشعب الشاغرة («هيئة تدريسية») فتجري الرحلة كلها في الصندوق. */
+export const DEMO_TA_INSTRUCTOR_IDS = [29, 30] as const;
+
 function syntheticInstructors(): AdInstructor[] {
-  return instructorNames.map((name, index) => ({
+  return [...instructorNames.map((name, index) => ({
     AdInstructorId: index + 1,
     AdInstructorCivil: generateSyntheticCivilId(),
     AdInstructorName: name,
@@ -80,7 +83,14 @@ function syntheticInstructors(): AdInstructor[] {
     /* نصابُ أعضاء القسم (ساعات الفصل): شرطُ أن يُقترح أستاذٌ لشعبةٍ جديدة في رادار التسجيل ومركز الذكاء —
        بلا نصابٍ مسجَّل يبقى الاقتراحُ «بلا أستاذ». للمنتدبين لا نصاب: لا يُسنَد إليهم اقتراح. */
     ...(index < DEPARTMENT_INSTRUCTORS || index >= 16 ? { AdInstructorLoad: 18 } : {}),
-  }));
+  })), ...DEMO_TA_INSTRUCTOR_IDS.map(id => ({
+    AdInstructorId: id,
+    AdInstructorCivil: generateSyntheticCivilId(),
+    AdInstructorName: `عضو هيئة تدريس تجريبي ${id}`,
+    AdInstructorMobile: `5000${String(id).padStart(4, "0")}`,
+    AdInstructorCategory: "ta" as const,
+    AdInstructorLoad: 12,
+  }))];
 }
 
 /* مقرراتُ القسمين الآخرين (أسماءٌ محايدة بلا ارتباطٍ بخطة حقيقية): [الرمز، الاسم، الساعات]. الرمزُ على هيئة رموز الجامعة

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { normalizeClock } from "../utils/scheduleTime";
 import { BookOpenCheck, CalendarClock, CheckCheck, ChevronDown, GraduationCap, Lightbulb, ShieldCheck, Users, Info, ArrowLeftRight } from "lucide-react";
 import type { AcademicPair, AcademicSlot, AcademicTimePreference } from "../utils/academicAdvisory";
 import { AR, countOf } from "../utils/arabicCount";
@@ -13,7 +14,7 @@ interface Props {
   compact?: boolean;
 }
 const minute = (value: string) => {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || ""));
+  const match = /^(\d{2}):(\d{2})$/.exec(normalizeClock(value));
   return match ? Number(match[1]) * 60 + Number(match[2]) : -1;
 };
 const intersects = (a: AcademicSlot, b: AcademicSlot) =>
@@ -85,7 +86,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
         <Lightbulb size={19} aria-hidden="true" style={{ color: "var(--accent, #247756)", flex: "none" }} />
         <strong style={{ fontSize: 13.5 }}>فرصة لتحسين الجدول</strong>
         {demo && <span style={{ ...chip, fontSize: 10 }}>عرض تجريبي</span>}
-        <span style={{ ...chip, marginInlineStart: "auto" }}>{total ? String(total) + (total === 1 ? " فرصة" : " فرص") : "استرشادي"}</span>
+        <span style={{ ...chip, marginInlineStart: "auto" }}>{total ? countOf(total, AR.occurrence) : "استرشادي"}</span>
         <ChevronDown size={17} aria-hidden="true" style={{ color: "var(--muted, #627269)" }} />
       </summary>
       <div style={{ display: "grid", gap: 10, paddingBlockStart: 12 }}>

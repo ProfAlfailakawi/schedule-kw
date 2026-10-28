@@ -126,3 +126,28 @@ export function reachAboutCard(
 export function unreachable(people: AdInstructor[]): AdInstructor[] {
   return people.filter(person => !whatsappNumber(person.AdInstructorMobile));
 }
+
+/**
+ * تذكيرُ مرحلة التدريب (F2) — بالنمط نفسه: رسالةٌ جاهزة في واتساب، والمنسّق يضغط «إرسال».
+ * سطرٌ واحد بما يلزم: ماذا، وحتى متى، والرابط.
+ */
+export function reachAboutTaPhase(
+  person: Pick<AdInstructor, "AdInstructorName" | "AdInstructorMobile">,
+  cardUrl: string,
+  closesAtLabel: string,
+): ReachMessage {
+  const number = whatsappNumber(person.AdInstructorMobile);
+  const name = String(person.AdInstructorName || "").trim();
+  const text = [
+    name ? `${name}،` : "",
+    "تذكير: مرحلة التدريب مفتوحة — اختر شعبك من الشعب الشاغرة.",
+    closesAtLabel ? `تُغلق ${closesAtLabel}.` : "",
+    cardUrl,
+    "الأسبق يحجز أولاً.",
+  ].filter(Boolean).join("\n");
+  return {
+    href: number ? `https://wa.me/${number}?text=${encodeURIComponent(text)}` : null,
+    blocked: number ? null : "لا يوجد رقم جوّال صالح في سجل هذا الأستاذ.",
+    text,
+  };
+}

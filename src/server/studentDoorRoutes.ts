@@ -19,6 +19,8 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { createHash, randomUUID } from "crypto";
 import type { Express, Request, Response, NextFunction } from "express";
 import { Repository } from "../db/repository";
+import { offeringStatesForTerm } from "./offeringStates";
+import { offeringBadge, offeringBlocked } from "../utils/courseOffering";
 import type { AdCourse, StudentNeed, StudentProfile, StudentWishes } from "../types";
 import { validateCivilId } from "../utils/civilId";
 import { toEnglishDigits } from "../utils/digits";
@@ -189,6 +191,12 @@ function allowedFor(catalog: SectionCatalog, planId?: string): number[] {
 
 /** كم شعبةً تُطرح من كل مقرّر في فصل الباب (من المسودة أو المعتمد): أعدادٌ فقط. */
 async function offeringIndex(termId: number): Promise<Map<number, { sections: number }>> {
+  /* C5: مقررٌ 🔒 أو 🌱 ليس مطروحاً لمساري ولو كانت له شعبٌ في المسودة — مصدرٌ واحد (offeringStates). */
+  const [raw, states] = await Promise.all([rawOfferingIndex(termId), offeringStatesForTerm(termId)]);
+  if (!states.size) return raw;
+  return new Map([...raw].filter(([course]) => !offeringBlocked(states, course)));
+}
+async function rawOfferingIndex(termId: number): Promise<Map<number, { sections: number }>> {
   return offeringMemo.get(String(termId), async () => {
     const rows = await Repository.getSchedulesByScope({ termId });
     const seen = new Map<number, Set<string>>();
@@ -238,7 +246,7 @@ async function summaryOf(profile: StudentProfile) {
   return {
     setupDone, collegeId: profile.AdCollegeId || 0, sectionId: profile.AdSectionId, sectionName, planId: profile.curriculumPlanId || "", planName,
     passedCourseIds: profile.passedCourseIds, passedUnits: profile.passedUnits, transfer: profile.transfer === true, equivalentCourseIds: profile.equivalentCourseIds || [],
-    progress, wishes: profile.wishes || null, wishCodes,
+    progress, wishes: profile.wishes || null, wishCodes, masariAck: profile.masariAck || "",
     createdAt: profile.createdAt, keepsUntil: profile.deleteAt, keepsReason: profile.deleteReason, hasIdentity: Boolean(profile.nameCipher && profile.civilCipher),
     identity: await identityOf(profile),
   };
@@ -1021,14 +1029,15 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const terms = await Repository.getTerms();
     const term = pickDoorTerm(terms as any);
     if (!term) { res.json({ ready: false, reason: "no-term" }); return; }
-    const [catalog, index] = await Promise.all([sectionCatalog(profile.AdSectionId), offeringIndex(Number(term.AdTermId))]);
+    const [catalog, index, states] = await Promise.all([sectionCatalog(profile.AdSectionId), offeringIndex(Number(term.AdTermId)), offeringStatesForTerm(Number(term.AdTermId))]);
     const credit = new Map([...catalog.courses].map(([id, course]) => [id, course.credit]));
     const progress = planProgress(allowedFor(catalog, profile.curriculumPlanId), profile.passedCourseIds, credit);
     /* قواعدُ الصحيفة المعتمدة (إن وُجدت): ما ينقص الطالبَ من مسبقاتٍ قبل أن يستطيع أخذ المقرر. */
     const needsOf = await prereqNeeds(profile, catalog);
     const courses = progress.remainingIds.map(id => {
       const info = catalog.courses.get(id) || { code: "", name: `مقرر ${id}`, credit: 0 };
-      return { id, ...info, sections: index.get(id)?.sections || 0, needs: needsOf(id) };
+      const badge = offeringBadge(states, id);
+      return { id, ...info, sections: index.get(id)?.sections || 0, needs: needsOf(id), ...(badge ? { offering: badge } : {}) };
     }).sort((a, b) => b.sections - a.sections || a.code.localeCompare(b.code, "en"));
     const offered = courses.filter(course => course.sections > 0);
     res.json({
@@ -1220,13 +1229,13 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const termId = Number(term.AdTermId);
     const [run, ticket] = await Promise.all([Repository.getRegistrationRun(termId), Repository.getRegistrationTicket(termId, fingerprint)]);
     if (!run || !ticket || ticket.runId !== run.runId) { res.json({ ready: false, reason: profile.AdSectionId > 0 ? "no-run" : "no-setup" }); return; }
-    const [catalog, context] = await Promise.all([sectionCatalog(profile.AdSectionId), ticketContext(termId)]);
+    const [catalog, context, states] = await Promise.all([sectionCatalog(profile.AdSectionId), ticketContext(termId), offeringStatesForTerm(termId)]);
     const info = (id: number) => catalog.courses.get(id) || { code: "", name: `مقرر ${id}`, credit: 0 };
     const alternativesFor = (courseId: number, currentId: string) => {
       const seen = new Set<string>();
       return ticket.plans.flatMap(plan => plan.items.filter(item => Number(item.courseId) === Number(courseId)).map(item => {
         const id = String(item.offeringId || ""), offering = context.offerings.get(id);
-        if (!id || id === currentId || seen.has(id) || !offering?.slots.length
+        if (!id || id === currentId || seen.has(id) || !offering?.slots.length || offeringBlocked(states, Number(courseId))
           || !context.signed.has(`${offering.collegeId}:${offering.sectionId}`)) return null;
         seen.add(id);
         return { offeringId: id, section: offering.code, slots: offering.slots, tight: item.tight };
@@ -1242,7 +1251,8 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       const parts = key.split("|");
       if (parts.length !== 5) continue;
       const courseId = Number(parts[3]);
-      if (!remainingIds.has(courseId) || !offering.slots.length || !context.signed.has(`${offering.collegeId}:${offering.sectionId}`)) continue;
+      /* C5: مخزنُ التبديل لا يعرض مقرراً 🔒/🌱. */
+      if (!remainingIds.has(courseId) || offeringBlocked(states, courseId) || !offering.slots.length || !context.signed.has(`${offering.collegeId}:${offering.sectionId}`)) continue;
       const list = byCourse.get(courseId) || [];
       if (list.length < 8) list.push({ offeringId: key, section: offering.code, slots: offering.slots });
       byCourse.set(courseId, list);
@@ -1278,6 +1288,16 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const saved = await Repository.updateStudentProfile(fingerprint, current => (current ? { ...current, nameCipher } : undefined));
     if (!saved) { fail(res, 401, "انتهت جلستك. أدخل من جديد.", "signed-out"); return; }
     noStore(res); res.json(await summaryOf(saved));
+  });
+
+  /* ── M2: «فهمت ✓» على بطاقة «مقترحات فقط» — مفتاحُ الفصل/المسار في الملف (لا في المتصفح). ── */
+  app.post("/api/public/me/ack", writeLimit, requireDoor, async (req: Request, res: Response) => {
+    const { fingerprint } = doorOf(res);
+    const key = String(req.body?.key || "");
+    if (!/^masari-ack:\d{0,9}:\d{0,9}:[A-Za-z0-9_-]{0,80}$/.test(key)) { fail(res, 400, "مفتاح غير صالح", "bad-ack"); return; }
+    const saved = await Repository.updateStudentProfile(fingerprint, current => (current ? { ...current, masariAck: key } : undefined));
+    if (!saved) { fail(res, 401, "انتهت جلستك. أدخل من جديد.", "signed-out"); return; }
+    noStore(res); res.json({ ok: true, masariAck: key });
   });
 
   /* ── الرمز: تغييرٌ، ونسيانُ الملف كلِّه ──────────────────────────────────── */

@@ -9,6 +9,7 @@ import { numericText } from "../utils/digits";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { importRowKey, type ImportRow } from "./ImportPreviewTable";
 import PagedImportPreview, { PageReviewWait } from "./PagedImportPreview";
+import ImportNameFillPanel from "./ImportNameFillPanel";
 import SchedulePublish from "./SchedulePublish";
 import SectionPlanning from "./SectionPlanning";
 import { blockingConflicts, placeholderInstructorIds } from "../utils/scheduleBlockers";
@@ -1587,6 +1588,17 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                     <>
                       {/* The whole table, red on what the scan could not read,
                           and a quick edit + delete beside EVERY row. */}
+                      {importKind === "authority-pdf" ? (
+                        <ImportNameFillPanel
+                          rows={xlsxPreview.rows as ImportRow[]}
+                          onRows={next => setXlsxPreview((prev: any) => prev ? { ...prev, rows: next } : prev)}
+                          people={[...new Map([...instructors, ...directoryPeople]
+                            .filter(person => departmentIds.includes(Number(person.AdInstructorId)) || roster.includes(Number(person.AdInstructorId)))
+                            .map(person => [Number(person.AdInstructorId), person])).values()] as any}
+                          collegeId={collegeId} sectionId={sectionId} termId={termId}
+                          courseName={id => String(deptCourses.find((course: any) => Number(course.AdCourseId) === id)?.CourseName || "")}
+                        />
+                      ) : null}
                       <PagedImportPreview
                         rows={xlsxPreview.rows as ImportRow[]}
                         pageCount={Number(xlsxPreview.pages||0)}
