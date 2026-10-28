@@ -2,6 +2,7 @@
 import { Repository } from "../db/repository";
 import { analyseAcademicAdvice, type AcademicReading, type AcademicPlanView } from "../utils/academicAdvisory";
 import { buildAcademicDecisionLab } from "../utils/academicDecisionLab";
+import { buildAcademicDecisionLabTrainingPreview } from "../utils/academicDecisionLabDemo";
 import type { AdCourse, CurriculumPlan, FSchedule, StudentProfile } from "../types";
 
 export async function academicAdviceForScope(collegeId: number, sectionId: number, termId: number): Promise<AcademicReading> {
@@ -37,10 +38,20 @@ export async function academicAdviceForScope(collegeId: number, sectionId: numbe
   // Evaluate the heavier what-if only if the authorised schedule API serialises
   // the whole reading. The professor public-token endpoint selectively returns
   // pairs and time preferences; it must NOT compute or expose the lab.
+  const demoRequest = Repository.isDemoRequest();
   let decisionLab: ReturnType<typeof buildAcademicDecisionLab> | undefined;
   Object.defineProperty(reading, "decisionLab", {
     enumerable: true,
-    get() { return decisionLab ?? (decisionLab = buildAcademicDecisionLab(input, reading)); },
+    get() {
+      if (!decisionLab) {
+        const actual = buildAcademicDecisionLab(input, reading);
+        // Demo fallback only: a distinct, explicitly fictional calculated tutorial.
+        // Actual production results are never replaced or inflated.
+        decisionLab = demoRequest && !actual.scenarios.length
+          ? buildAcademicDecisionLabTrainingPreview() : actual;
+      }
+      return decisionLab;
+    },
   });
   return reading;
 }
