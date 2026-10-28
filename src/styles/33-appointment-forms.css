@@ -1,0 +1,167 @@
+/* ══ نماذج المواعيد: فحصٌ واحد، اقتراحٌ واحد، شارةٌ واحدة ══════════════════════
+   لوحة «فحص موانع الحفظ» إنفوجرافيكاً (G2)، بطاقات الاقتراح الموحّدة (G1)،
+   شرائح أنماط اللائحة (B1)، منتقي الأستاذ بمجموعاته (G4)، وشارة المقرر بحجمها (G6). */
+
+/* ── لوحة الفحص ─────────────────────────────────────────────────────────── */
+.checks-panel{display:grid;gap:12px;padding:16px!important}
+.checks-head{display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:12px}
+.checks-ring{width:52px;height:52px;transform:rotate(-90deg)}
+.checks-ring circle{fill:none;stroke-width:6;stroke-linecap:round}
+.checks-ring-track{stroke:color-mix(in srgb,var(--line) 80%,transparent)}
+.checks-ring-seg.is-ok{stroke:var(--success)}
+.checks-ring-seg.is-warn{stroke:var(--warning)}
+.checks-ring-seg.is-block{stroke:var(--danger)}
+.checks-ring text{transform:rotate(90deg);transform-origin:26px 26px;font:800 15px/1 var(--font-mono);fill:var(--ink)}
+.checks-head-copy{display:grid;gap:2px;min-width:0}
+.checks-head-copy strong{font-size:var(--t-sm);color:var(--muted);font-weight:600}
+.checks-head-state{display:inline-flex;align-items:center;gap:6px;font-size:clamp(1.05rem,.8rem + .5vw,1.3rem);font-weight:800;letter-spacing:-.01em}
+.checks-panel.is-ok .checks-head-state{color:var(--success)}
+.checks-panel.is-warn .checks-head-state{color:var(--warning)}
+.checks-panel.is-block .checks-head-state,.checks-panel.is-locked .checks-head-state{color:var(--danger)}
+.checks-panel.is-idle .checks-head-state{color:var(--muted)}
+.checks-panel.is-block{border-color:color-mix(in srgb,var(--danger) 30%,var(--line))!important}
+.checks-panel.is-ok{border-color:color-mix(in srgb,var(--success) 26%,var(--line))!important}
+.checks-spin{width:16px;height:16px;color:var(--muted);animation:checks-spin .9s linear infinite}
+@keyframes checks-spin{to{transform:rotate(360deg)}}
+.checks-tally{display:grid;gap:3px}
+.checks-tally span{display:inline-flex;align-items:center;justify-content:flex-end;gap:4px;font:700 var(--t-xs)/1 var(--font-mono);font-variant-numeric:tabular-nums}
+.checks-tally svg{width:12px;height:12px}
+.checks-tally .is-ok{color:var(--success)}
+.checks-tally .is-warn{color:var(--warning)}
+.checks-tally .is-block{color:var(--danger)}
+.checks-locked{display:flex;align-items:flex-start;gap:6px;margin:0;padding:8px 10px;border-radius:var(--r-md);background:var(--danger-soft);color:var(--danger);font-size:var(--t-xs);line-height:1.6}
+.checks-locked svg{width:14px;height:14px;flex:none;margin-top:2px}
+
+.checks-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0;padding:0;list-style:none}
+.checks-tile{min-width:0;border:1px solid var(--line);border-radius:14px;background:var(--surface);transition:border-color .15s,background .15s}
+.checks-tile>details>summary,.checks-tile-row{display:grid;grid-template-columns:30px minmax(0,1fr);grid-template-rows:auto auto;column-gap:8px;row-gap:1px;align-items:center;padding:9px 10px;list-style:none;cursor:default}
+.checks-tile>details>summary{cursor:pointer}
+.checks-tile>details>summary::-webkit-details-marker{display:none}
+.checks-tile-icon{grid-row:1/3;display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:var(--surface-2);color:var(--muted)}
+.checks-tile-icon svg{width:16px;height:16px}
+.checks-tile-label{font-size:var(--t-xs);color:var(--muted);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.checks-tile-state{display:inline-flex;align-items:center;gap:4px;font-size:var(--t-sm);font-weight:800;line-height:1.25}
+.checks-tile-state svg{width:13px;height:13px;flex:none}
+.checks-tile.is-ok .checks-tile-icon{background:color-mix(in srgb,var(--success) 12%,var(--surface));color:var(--success)}
+.checks-tile.is-ok .checks-tile-state{color:var(--success)}
+.checks-tile.is-warn{border-color:color-mix(in srgb,var(--warning) 30%,var(--line));background:color-mix(in srgb,var(--warning-soft) 40%,var(--surface))}
+.checks-tile.is-warn .checks-tile-icon{background:var(--warning-soft);color:var(--warning)}
+.checks-tile.is-warn .checks-tile-state{color:var(--warning)}
+.checks-tile.is-block{border-color:color-mix(in srgb,var(--danger) 40%,var(--line));background:color-mix(in srgb,var(--danger-soft) 55%,var(--surface))}
+.checks-tile.is-block .checks-tile-icon{background:var(--danger-soft);color:var(--danger)}
+.checks-tile.is-block .checks-tile-state{color:var(--danger)}
+.checks-tile.is-idle{opacity:.62;border-style:dashed}
+.checks-tile:has(details[open]){grid-column:1/-1}
+.checks-details{display:grid;gap:8px;margin:0;padding:0 10px 10px;list-style:none}
+.checks-details>li{display:grid;gap:6px;min-width:0}
+.checks-details>li>p{display:grid;gap:2px;margin:0;padding:8px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:var(--t-xs);line-height:1.6}
+.checks-details>li>p b{font-size:var(--t-sm);font-weight:700}
+.checks-details>li>p small{color:var(--muted)}
+.checks-details .decision-card{margin:0}
+.checks-alt{justify-self:start;display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:5px 12px;border:1px solid var(--accent);border-radius:999px;background:var(--accent);color:var(--accent-contrast);font-size:var(--t-xs);font-weight:800;cursor:pointer}
+.checks-alt svg{width:14px;height:14px}
+.checks-alt:hover:not(:disabled){background:var(--accent-strong)}
+.checks-alt:disabled{opacity:.5;cursor:wait}
+.checks-foot{display:flex;align-items:center;gap:6px;margin:0;color:var(--muted);font-size:var(--t-xs)}
+.checks-foot svg{width:13px;height:13px;flex:none}
+.checks-panel .solver-box{margin:0;padding:0;border:0;background:none}
+@container (max-width:300px){.checks-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ── بطاقات الاقتراح الموحّدة ───────────────────────────────────────────── */
+.room-suggest-card-title{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0}
+.room-suggest-list>button .room-suggest-code{font:800 clamp(1.05rem,.9rem + .4vw,1.3rem)/1.15 var(--font-mono);letter-spacing:.02em;color:var(--ink);overflow-wrap:anywhere}
+.room-suggest-best{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:var(--accent);color:var(--accent-contrast);font:800 10px/1.4 inherit;font-style:normal;white-space:nowrap}
+.room-suggest-best svg{width:11px;height:11px;fill:currentColor}
+.room-suggest-list>button.is-best{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}
+.room-suggest-rank{font:800 var(--t-md)/1 var(--font-mono)}
+.room-suggest-list>button .room-suggestion-time{display:inline-flex;align-items:center;justify-self:start;gap:4px;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--ink-2)!important;font-weight:700}
+.room-suggest-list>button .room-suggestion-time time{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.room-suggest-fact.good{background:color-mix(in srgb,var(--success) 10%,var(--surface));color:var(--success)}
+.room-suggest-fact.warn{background:var(--warning-soft);color:var(--warning)}
+/* داخل البطاقة السريعة الضيقة: عمودٌ واحد، والوقائع تلتفّ ولا تتداخل (G1). */
+.quick-create .room-suggestion-panel{padding:9px;border-radius:14px}
+.quick-create .room-suggest-list{grid-template-columns:minmax(0,1fr)}
+.quick-create .room-suggest-list>button{grid-template-columns:34px minmax(0,1fr) auto;gap:8px;padding:9px}
+.quick-create .room-suggest-card-icon{width:34px;height:34px;border-radius:11px}
+.quick-create .room-suggest-card-action small{display:none}
+.quick-create .room-suggest-card-facts small{white-space:nowrap}
+
+.room-replaceable{display:grid;gap:6px;padding-top:8px;border-top:1px dashed var(--line)}
+.room-replaceable-head{display:flex;align-items:center;gap:6px;margin:0;font-size:var(--t-xs);color:var(--muted)}
+.room-replaceable-head b{color:var(--ink);font-size:var(--t-sm)}
+.room-replaceable-head svg{width:15px;height:15px;color:var(--brass)}
+.room-replaceable-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 10px;border:1px solid color-mix(in srgb,var(--brass) 30%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--brass-soft) 50%,var(--surface))}
+.room-replaceable-swap{display:inline-flex;align-items:center;gap:4px;color:var(--muted)}
+.room-replaceable-swap>svg{width:13px;height:13px}
+.room-replaceable-swap span{display:grid;justify-items:center;gap:1px}
+.room-replaceable-swap span svg{width:16px;height:16px}
+.room-replaceable-swap span small{font-size:9px}
+.room-replaceable-swap .is-after{color:var(--success)}
+.room-replaceable-copy{display:grid;gap:2px;min-width:0}
+.room-replaceable-copy small{color:var(--muted);font-size:var(--t-xs);line-height:1.4}
+.room-replaceable-assign{display:inline-flex;align-items:center;gap:4px;min-height:34px;padding:5px 11px;border:1px solid var(--brass);border-radius:999px;background:var(--surface);color:var(--brass);font-size:var(--t-xs);font-weight:800;cursor:pointer}
+.room-replaceable-assign svg{width:13px;height:13px}
+.room-replaceable-assign:hover:not(:disabled){background:var(--brass);color:var(--surface)}
+
+.suggestion-empty{display:inline-flex;align-items:center;gap:8px;margin:6px 0 0;padding:7px 12px 7px 8px;border:1px dashed var(--line-strong);border-radius:999px;color:var(--muted);font-size:var(--t-sm);justify-self:start}
+.suggestion-empty-icon{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--surface-2);color:var(--warning)}
+.suggestion-empty-icon svg{width:14px;height:14px}
+.suggestion-empty b{font-weight:700;color:var(--ink-2)}
+
+/* ── شرائح أنماط اللائحة ────────────────────────────────────────────────── */
+.regulation-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.regulation-chips-mark{display:grid;place-items:center;width:24px;height:24px;border-radius:8px;background:var(--accent-softer);color:var(--accent)}
+.regulation-chips-mark svg{width:13px;height:13px}
+.regulation-chips>button{display:inline-flex;align-items:center;gap:4px;min-height:28px;padding:3px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink-2);font-size:var(--t-xs);font-weight:700;cursor:pointer;white-space:nowrap}
+.regulation-chips>button svg{width:12px;height:12px}
+.regulation-chips>button:hover{border-color:var(--accent)}
+.regulation-chips>button.is-active{border-color:var(--accent);background:var(--accent-softer);color:var(--accent-ink)}
+.regulation-chips-off{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:var(--warning-soft);color:var(--warning);font-size:var(--t-xs);font-weight:800}
+.regulation-chips-off svg{width:12px;height:12px}
+.regulation-chips.is-compact{margin-top:0}
+
+/* ── البطاقة السريعة ────────────────────────────────────────────────────── */
+.qc-days{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.qc-days>button{min-height:30px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);font-size:var(--t-xs);font-weight:700;cursor:pointer}
+.qc-days>button.is-on{border-color:var(--accent);background:var(--accent-softer);color:var(--accent-ink)}
+.quick-create .qc-fields>.qc-field.qc-wide:first-child{grid-column:span 4}
+.qc-teacher{grid-column:1/-1}
+.qc-teacher .instructor-trigger{min-height:36px}
+.qc-teacher-locked{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2);font-size:var(--t-sm)}
+.qc-teacher-locked svg{width:14px;height:14px;color:var(--muted)}
+.qc-course-line{display:flex;align-items:center;flex-wrap:wrap;gap:2px;margin:-4px 0 0;font-size:var(--t-xs);color:var(--muted)}
+.qc-course-line b{font-weight:600}
+.qc-busy{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}
+.qc-busy svg{width:13px;height:13px;animation:checks-spin .9s linear infinite}
+.qc-ideas .slot-advisor{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;border:0}
+.qc-ideas .slot-advisor>button{display:inline-flex;align-items:center;gap:5px}
+.qc-ideas .slot-advisor svg{width:14px;height:14px}
+.qc-checks{display:flex;flex-wrap:wrap;gap:4px;margin:0;padding:0;list-style:none}
+.qc-checks>li{position:relative;display:inline-flex;align-items:center;gap:3px;padding:3px 8px 3px 6px;border:1px solid var(--line);border-radius:999px;font-size:11px;color:var(--muted)}
+.qc-checks>li svg{width:13px;height:13px}
+.qc-checks>li .qc-check-state{width:11px;height:11px}
+.qc-checks>li.is-ok{border-color:color-mix(in srgb,var(--success) 35%,var(--line));color:var(--success)}
+.qc-checks>li.is-warn{border-color:color-mix(in srgb,var(--warning) 40%,var(--line));background:var(--warning-soft);color:var(--warning)}
+.qc-checks>li.is-block{border-color:color-mix(in srgb,var(--danger) 45%,var(--line));background:var(--danger-soft);color:var(--danger)}
+.qc-checks>li.is-idle{opacity:.55;border-style:dashed}
+.qc-checks>li.is-pending svg{animation:checks-spin .9s linear infinite}
+
+/* ── منتقي الأستاذ: «بدون أستاذ بعد» ومجموعة المنتدبين ─────────────────────── */
+.instructor-placeholder-option{border-bottom:1px dashed var(--line-strong)!important;background:color-mix(in srgb,var(--surface-2) 70%,var(--surface))}
+.instructor-placeholder-option>svg:first-child{width:16px;height:16px;color:var(--muted);flex:none}
+.instructor-placeholder-option .instructor-identity small{font-family:inherit!important}
+.instructor-group-label{margin:0;padding:6px 12px 3px;font-size:10px;font-weight:800;letter-spacing:.02em;color:var(--brass);background:var(--surface-2)}
+
+/* ── شارة المقرر بحجمها، لا ممطوطة (G6/H1) ─────────────────────────────────── */
+.plan-badge,.course-service-badge{flex:none;justify-self:start;align-self:center;width:max-content;max-width:100%}
+.ss-option-line{display:flex;align-items:center;gap:2px;min-width:0}
+.ss-option-line>b{min-width:0}
+.ss-trigger>span .plan-badge,.ss-trigger>span .course-service-badge{margin-inline-start:6px}
+
+@media (max-width:760px){
+  .checks-head{grid-template-columns:44px minmax(0,1fr) auto}
+  .checks-ring{width:44px;height:44px}
+  .quick-create .qc-fields>.qc-field.qc-wide:first-child{grid-column:1/-1}
+  .room-replaceable-card{grid-template-columns:minmax(0,1fr) auto}
+  .room-replaceable-swap{display:none}
+}

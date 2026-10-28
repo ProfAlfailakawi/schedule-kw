@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { AdCourse, FSchedule } from "../types";
 
 type Option = { id: string; label: string; available: boolean };
@@ -15,6 +15,10 @@ export default function CompanionFacilityPicker({ course, form, excludeId, onCha
   const [rooms, setRooms] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  /* الاختيار الحالي يُقرأ من مرجع لا من مفاتيح الجلب: اختيارُ مرفقٍ لا يعيد فحص كل المرافق
+     (كان كل ربطٍ آلي يطلق جلباً ثانياً بلا داعٍ). */
+  const chosenRef = useRef(String(form.companionRoomId || ""));
+  chosenRef.current = String(form.companionRoomId || "");
   const days = (["fsunday","fmonday","ftuesday","fwednesday","fthursday"] as const)
     .filter(day => Boolean(form[day])).join(",");
   useEffect(() => {
@@ -42,19 +46,19 @@ export default function CompanionFacilityPicker({ course, form, excludeId, onCha
         if (controller.signal.aborted) return;
         const nextRooms = Array.isArray(data.rooms) ? data.rooms : [];
         setRooms(nextRooms);
-        const current = String(form.companionRoomId || "");
+        const current = chosenRef.current;
         const currentOption = nextRooms.find((room: Option) => room.id === current);
         /* يجري ربط المرِفق تلقائياً بأول خيارٍ متاح طوال الموعد؛ وإن بقي
            الاختيار الحالي صالحاً نحافظ عليه. الخادم يعيد التحقق عند الحفظ. */
         if (!currentOption?.available) {
           const firstAvailable = nextRooms.find((room: Option) => room.available);
-          onChange({ companionRoomId: firstAvailable?.id || "", companionRoomLabel: firstAvailable?.label || "" });
+          if ((firstAvailable?.id || "") !== current) onChange({ companionRoomId: firstAvailable?.id || "", companionRoomLabel: firstAvailable?.label || "" });
         }
       })
       .catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "تعذر جلب الاستوديوهات"); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [requiredType, form.AdCollegeId, form.AdSectionId, form.AdTermId, form.AdCourseId, form.buildingId, form.fstarttime, form.fendtime, days, excludeId, form.companionRoomId]);
+  }, [requiredType, form.AdCollegeId, form.AdSectionId, form.AdTermId, form.AdCourseId, form.buildingId, form.fstarttime, form.fendtime, days, excludeId]);
   if (!requiredType) return null;
   const chosen = String(form.companionRoomId || "");
   const listed = rooms.some(room => room.id === chosen);

@@ -2,6 +2,7 @@ import { roomSuitability } from "./src/utils/roomSuitability";
 import { academicAdviceForScope } from "./src/server/academicAdvisoryData";
 import { ACADEMIC_ADVICE_CSS, ACADEMIC_ADVICE_SCRIPT } from "./src/server/academicAdvisoryVisual";
 import { eligibleSuggestionEditId, instructorRowsForSuggestion } from "./src/utils/slotSuggestionScope";
+import { emptySuggestionReason, orderSuggestionCandidates, rankSuggestionCandidates, SUGGESTION_EMPTY_WORD, toClock, type SuggestionDayKey, type SuggestionEmptyReason, type SuggestionHall } from "./src/utils/suggestionEngine";
 import { appendRequestThread } from "./src/utils/instructorRequestThread";
 import { historicalLectureMinutes } from "./src/utils/advancedIntelligence";
 import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "./src/utils/instructorRequestWeek";
@@ -5175,16 +5176,36 @@ interface DepartmentStyle {
   cohortSize:(a:number,b:number)=>number;
 }
 const NO_COHORT:Pick<DepartmentStyle,"cohort"|"cohortSize">={cohort:new Set(),cohortSize:()=>0};
-const rhythmCache=new Map<string,{serial:number}&DepartmentStyle>();
+const rhythmCache=new Map<string,{serial:number;at:number}&DepartmentStyle>();
+const rhythmRefreshing=new Map<string,Promise<DepartmentStyle>>();
+/* ── عادةُ القسم لا تتغيّر بحفظة واحدة ──────────────────────────────────────
+ * القراءة أدناه تمرّ على كل فصول القسم (عشر سنوات) — وكانت تُعاد كاملةً بعد
+ * كل حفظ في أي قسم (driftSerial)، فيطول «جاري الفحص» في أول فحص بعد أي حفظ.
+ * وكل ما تُخرجه ملاحظاتٌ لينة لا تمنع الحفظ. فالقراءة السابقة تُجيب فوراً ما
+ * دامت حديثة، وتُحدَّث في الخلفية مرة واحدة. */
+const RHYTHM_STALE_MS=10*60_000;
+const styleOf=(cached:DepartmentStyle):DepartmentStyle=>({reading:cached.reading,doorway:cached.doorway,memory:cached.memory,cohort:cached.cohort,cohortSize:cached.cohortSize});
 
 async function departmentStyle(row:any):Promise<DepartmentStyle>{
-  const collegeId=Number(row?.AdCollegeId||0),sectionId=Number(row?.AdSectionId||0),termId=Number(row?.AdTermId||0);
+  const collegeId=Number(row?.AdCollegeId||0),sectionId=Number(row?.AdSectionId||0);
   if(!collegeId)return{reading:null,doorway:0,memory:null,...NO_COHORT};
   const key=dataContextCacheKey(`${collegeId}:${sectionId}`);
   const cached=rhythmCache.get(key);
-  if(cached&&cached.serial===driftSerial)
-    return{reading:cached.reading,doorway:cached.doorway,memory:cached.memory,
-           cohort:cached.cohort,cohortSize:cached.cohortSize};
+  if(cached&&cached.serial===driftSerial)return styleOf(cached);
+  const refresh=()=>{
+    const running=rhythmRefreshing.get(key);
+    if(running)return running;
+    const job=readDepartmentStyle(row,key).finally(()=>rhythmRefreshing.delete(key));
+    rhythmRefreshing.set(key,job);
+    return job;
+  };
+  if(cached&&Date.now()-cached.at<RHYTHM_STALE_MS){void refresh().catch(()=>undefined);return styleOf(cached);}
+  return refresh();
+}
+
+async function readDepartmentStyle(row:any,key:string):Promise<DepartmentStyle>{
+  const collegeId=Number(row?.AdCollegeId||0),sectionId=Number(row?.AdSectionId||0),termId=Number(row?.AdTermId||0);
+  const serial=driftSerial;
   try{
     // Every term this department has ever run. History is the whole point:
     // a habit is what survives across years, and one term of it is chance.
@@ -5228,7 +5249,7 @@ async function departmentStyle(row:any):Promise<DepartmentStyle>{
         }
       }catch{ /* no survey is the ordinary case */ }
     }
-    rhythmCache.set(key,{serial:driftSerial,reading,doorway,memory,cohort,cohortSize});
+    rhythmCache.set(key,{serial,at:Date.now(),reading,doorway,memory,cohort,cohortSize});
     if(rhythmCache.size>200)rhythmCache.clear();
     return{reading,doorway,memory,cohort,cohortSize};
   }catch{return{reading:null,doorway:0,memory:null,...NO_COHORT};}
@@ -6238,30 +6259,41 @@ app.post("/api/schedules/import-preflight", requirePermission(7), async (req: Au
   }))});
 });
 
+/** موانع المكان (القاعة الرسمية + المرفق المرافق) كما تقرؤها بوابة الحفظ. */
+async function checkLocationIssues(row:any):Promise<string[]>{
+  if(!(row.buildingId && (row.roomId || row.locationStatus===PENDING_ROOM) && Number(row.AdCollegeId||0) && Number(row.AdSectionId||0)))return [];
+  const editedId=Number(row.excludeId||0);
+  const [oldRow,course]=await Promise.all([editedId ? Repository.getScheduleById(editedId) : Promise.resolve(null),Repository.getCourseById(Number(row.AdCourseId))]);
+  // Imported authority locations remain editable when the official room is unchanged.
+  const authorityRoomId=oldRow?.importEvidence && oldRow.roomId ? String(oldRow.roomId) : "";
+  const location=await canonicalizeLocationForWrite(row,Number(row.AdCollegeId),Number(row.AdSectionId),authorityRoomId);
+  const issues=location.check.issues.filter(issue=>issue.severity==="high").map(issue=>issue.message);
+  if (course && location.check.ok) {
+    const companion = await companionBookingFor(course, row, { ...row, ...location.check.canonical }, oldRow || undefined);
+    if (companion.issue) issues.push(companion.issue);
+  }
+  return issues;
+}
+
+/* ── فحصٌ واحد، بخطوات متوازية ─────────────────────────────────────────────
+   كانت الخطوات الست تُنتظر واحدةً بعد واحدة (نمط، مدة، حمولة، ساعات، مكان،
+   تعارض) وكلٌّ منها يقرأ القاعدة بنفسه، فيطول «جاري الفحص». لا تعتمد أيٌّ منها
+   على الأخرى، فتُطلق معاً، والنتيجة نفسها التي تحكم بها بوابة الحفظ. */
 app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => { const row=req.body||{};
   const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
-  const patternNotice=await mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null);
-  const lectureNotice=await scheduleLengthNotice(row).catch(()=>null);
-  // Return the same payload and weekly-hours blockers the save gate uses.
-  const validationIssues=await schedulePayloadIssues(row);
-  if(Number(row.AdCourseId||0)&&String(row.SCode||"").trim()){
-    const lengthIssue=await scheduleLengthIssue({...row,id:Number(row.excludeId||row.id||0)});
-    if(lengthIssue)validationIssues.push(lengthIssue);
-  }
-  if(row.buildingId && (row.roomId || row.locationStatus===PENDING_ROOM) && Number(row.AdCollegeId||0) && Number(row.AdSectionId||0)){
-    const editedId=Number(row.excludeId||0);
-    const oldRow=editedId ? await Repository.getScheduleById(editedId) : null;
-    // Imported authority locations remain editable when the official room is unchanged.
-    const authorityRoomId=oldRow?.importEvidence && oldRow.roomId ? String(oldRow.roomId) : "";
-    const location=await canonicalizeLocationForWrite(row,Number(row.AdCollegeId),Number(row.AdSectionId),authorityRoomId);
-    validationIssues.push(...location.check.issues.filter(issue=>issue.severity==="high").map(issue=>issue.message));
-    const course = await Repository.getCourseById(Number(row.AdCourseId));
-    if (course && location.check.ok) {
-      const companion = await companionBookingFor(course, row, { ...row, ...location.check.canonical }, oldRow || undefined);
-      if (companion.issue) validationIssues.push(companion.issue);
-    }
-  }
-  res.json({conflicts:await scheduleConflicts(req,row,Number(row.excludeId||0)),validationIssues,...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{})}); });
+  const [patternNotice,lectureNotice,payloadIssues,lengthIssue,placeIssues,conflicts]=await Promise.all([
+    mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null),
+    scheduleLengthNotice(row).catch(()=>null),
+    // Return the same payload and weekly-hours blockers the save gate uses.
+    schedulePayloadIssues(row),
+    Number(row.AdCourseId||0)&&String(row.SCode||"").trim()?scheduleLengthIssue({...row,id:Number(row.excludeId||row.id||0)}):Promise.resolve(null),
+    checkLocationIssues(row),
+    scheduleConflicts(req,row,Number(row.excludeId||0)),
+  ]);
+  const validationIssues=[...payloadIssues];
+  if(lengthIssue)validationIssues.push(lengthIssue);
+  validationIssues.push(...placeIssues);
+  res.json({conflicts,validationIssues,...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{})}); });
 
 
 /**
@@ -8102,7 +8134,7 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   const collegeId = Number(body.AdCollegeId || 0), sectionId = Number(body.AdSectionId || 0), termId = Number(body.AdTermId || 0);
   const instructorId = Number(body.AdInstructorId || 0);
   const excludeId = Number(body.excludeId || 0);
-  const dayKeys = SCHEDULE_DAY_KEYS.filter(key => Boolean(body[key]));
+  const dayKeys = SCHEDULE_DAY_KEYS.filter(key => Boolean(body[key])) as SuggestionDayKey[];
   /* «اقترح قاعة»: الوقت محسوم والسؤال عن القاعة وحدها. القاعدة نفسها (قاعات
      القسم + المستعارة المعتمدة، الفراغ، الأستاذ، الانتقال) لكن عند خانة واحدة،
      وتُعاد عدة قاعات بدل عدة أوقات. */
@@ -8110,12 +8142,13 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   const fixedEnd = body.roomOnly && body.fendtime ? timeToMinutes(body.fendtime) : NaN;
   const roomOnly = Number.isFinite(fixedStart) && Number.isFinite(fixedEnd) && fixedEnd > fixedStart;
   const duration = roomOnly ? fixedEnd - fixedStart : Math.max(30, Math.min(300, Number(body.durationMinutes || 60)));
+  const empty = (reason: SuggestionEmptyReason, note?: string) => res.json({ slots: [], reason, note: note || SUGGESTION_EMPTY_WORD[reason], replaceable: [] });
 
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
-  if (!dayKeys.length) { res.status(400).json({ error: "اختر يوماً واحداً على الأقل" }); return; }
+  if (!dayKeys.length) { empty("days"); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
 
-  const [universe, mobility, registry, barterRequests, pinnedRooms, course, instructor] = await Promise.all([
+  const [universe, mobility, registry, barterRequests, pinnedRooms, course, instructor, reservations, sectionWindow, instructorsAll] = await Promise.all([
     Repository.getSchedulesByScope({ termId }),
     Repository.getCampusMobilityProfile(collegeId),
     readLocationRegistry(),
@@ -8123,14 +8156,18 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
     Repository.getPinnedDepartmentRooms(collegeId, sectionId),
     Repository.getCourseById(Number(body.AdCourseId||0)),
     instructorId ? Repository.getInstructorById(instructorId) : Promise.resolve(null),
+    Repository.getInstructorRequestReservations(termId),
+    sectionScheduleWindow(sectionId),
+    Repository.getInstructors(),
   ]);
   let owner = "";
   if (body.instructorRequestId) {
     const request = await Repository.getInstructorRequest(String(body.instructorRequestId));
     if (request && Number(request.AdInstructorId) === instructorId && Number(request.AdTermId) === termId) owner = request.id;
   }
+  /* الموعد المفتوح للتعديل لا يتعارض مع نفسه: يُستثنى من كل قراءة هنا ومن البوابة. */
   const editedRowId = eligibleSuggestionEditId(universe, excludeId, collegeId, sectionId, termId);
-  const held = reservationRows((await Repository.getInstructorRequestReservations(termId)).filter(entry => entry.requestId !== owner), termId);
+  const held = reservationRows(reservations.filter(entry => entry.requestId !== owner), termId);
   const live = [...universe, ...held].filter(row => Number(row.id) !== editedRowId);
   const sectionRows = live.filter(row => row.AdCollegeId === collegeId && row.AdSectionId === sectionId);
 
@@ -8141,144 +8178,122 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   const pinnedRoomIds=confirmedDepartmentRoomIds(registry,pinnedRooms,collegeId);
   const halls=eligibleHallsForSection(registry,sectionId,borrowedRoomIds,pinnedRoomIds);
   const roomById=new Map(registry.rooms.map(room=>[String(room.id),room]));
-  const expectedRoomType=String(course?.CourseRoomType||"").trim();
-  const seatsNeeded=Number(course?.MaxStudent||0);
-  if (!halls.length) { res.json({ slots: [], note: "لا توجد قاعات رسمية متاحة لهذا القسم في سجل المباني والقاعات" }); return; }
+  if (!halls.length) { empty("halls", "لا توجد قاعات رسمية متاحة لهذا القسم في سجل المباني والقاعات"); return; }
 
-  const sectionWindow = await sectionScheduleWindow(sectionId);
   const bounds = scheduleDayWindowMinutes(sectionWindow);
   const DAY_START = bounds.start, DAY_END = bounds.end, STEP = SCHEDULE_SLOT_MINUTES;
-  const busy = (rows: any[], dayKey: string, from: number, to: number) =>
-    rows.some(row => Boolean(row[dayKey]) && timeToMinutes(row.fstarttime) < to && timeToMinutes(row.fendtime) > from);
   // Borrowed rooms are only candidates inside the approved day/time windows.
   const borrowCovers=(roomId:string,day:string,from:number,to:number)=>
     approvedBorrows.some(request=>String(request.roomId)===roomId&&request.day===day&&
       timeToMinutes(String(request.startTime))<=from&&timeToMinutes(String(request.endTime))>=to);
 
-  const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
   // The advisor must not offer a slot that is already over the course's
   // weekly-hour ceiling. Its duration is identical for every candidate.
   if(Number(body.AdCourseId||0) && String(body.SCode||"").trim()){
     const sampleStart=roomOnly ? fixedStart : DAY_START;
     const hoursIssue=await scheduleLengthIssue({
-      ...body, id:editedRowId, fstarttime:clock(sampleStart), fendtime:clock(sampleStart+duration),
+      ...body, id:editedRowId, fstarttime:toClock(sampleStart), fendtime:toClock(sampleStart+duration),
     },universe);
-    if(hoursIssue){res.json({slots:[],note:hoursIssue});return;}
+    if(hoursIssue){empty("hours",hoursIssue);return;}
   }
   // A faculty placeholder is not a person: the save/conflict engine already exempts it.
   // Keep genuine instructors and physical hall occupancy fully enforced.
   const instructorRows = instructorRowsForSuggestion(live, instructorId, instructor);
+  const overlapsSelected=(row:any,from:number,to:number)=>dayKeys.some(day=>Boolean(row[day]))&&timeToMinutes(row.fstarttime)<to&&timeToMinutes(row.fendtime)>from;
 
-  const candidates: any[] = [];
+  /* ── المرفق المرافق داخل الاقتراح نفسه ─────────────────────────────────────
+     مقررٌ يتطلب استوديو لا يُقترح له وقتٌ/قاعة بلا استوديو متاح في الموقع نفسه
+     طوال الموعد؛ والاقتراح يحمل المرفق المختار فيملأ النموذج بالاثنين معاً. */
+  const companionType=String(course?.CourseCompanionRoomType||"").trim();
+  const companionPool=companionType?registry.rooms
+    .filter(room=>room.active&&room.confidence==="CONFIRMED"&&room.bookingPolicy==="companion_only"&&String(room.roomType||"").trim()===companionType)
+    .map(room=>({room,building:registry.buildings.find(item=>item.id===room.buildingId)}))
+    .filter(({building})=>Boolean(building?.active&&building.confidence==="CONFIRMED")):[];
+  const companionFor=companionType?(hall:SuggestionHall,from:number,to:number)=>{
+    const primary=registry.buildings.find(item=>item.id===hall.buildingId);
+    const site=String(primary?.officialCode||"").slice(0,4);
+    for(const {room,building} of companionPool){
+      if(String(building!.officialCode||"").slice(0,4)!==site)continue;
+      const busy=live.some(row=>overlapsSelected(row,from,to)&&rowOccupiesRoom(row,room.id,building!.officialCode,room.canonicalCode));
+      if(!busy)return {id:room.id,label:`${building!.officialCode} / ${room.canonicalCode}`};
+    }
+    return null;
+  }:undefined;
+
   const starts: number[] = [];
   if (roomOnly) starts.push(fixedStart);
   else for (let start = DAY_START; start + duration <= DAY_END; start += STEP) starts.push(start);
-  for (const start of starts) {
-    const end = start + duration;
-    for (const hall of halls) {
-      const hallRecord=roomById.get(String(hall.roomId));
-      const borrowingRequired=borrowedRoomIds.has(String(hall.roomId)) &&
-        !hallRecord?.shared && !hallRecord?.sectionIds?.includes(sectionId);
-      if(borrowingRequired && dayKeys.some(day=>!borrowCovers(String(hall.roomId),day,start,end))) continue;
-      const hallRows = live.filter(row => rowOccupiesRoom(row, hall.roomId, hall.room, hall.hall));
-      let blocked = false;
-      let idle = 0, walk = 0, spread = 0;
-      const reasons: string[] = [];
+  const { candidates, stats } = rankSuggestionCandidates({
+    dayKeys, starts, duration,
+    halls: halls.map(hall=>({room:String(hall.room),hall:String(hall.hall),buildingId:String(hall.buildingId),roomId:String(hall.roomId)})),
+    hallRows: hall => live.filter(row => rowOccupiesRoom(row, hall.roomId, hall.room, hall.hall)),
+    instructorRows, sectionRows,
+    travelMinutes: (from, to) => travelMinutesFor(mobility, from as any, to as any),
+    borrowBlocked: (hall, day, from, to) => {
+      const record=roomById.get(String(hall.roomId));
+      const borrowingRequired=borrowedRoomIds.has(String(hall.roomId)) && !record?.shared && !record?.sectionIds?.includes(sectionId);
+      return borrowingRequired && !borrowCovers(String(hall.roomId),day,from,to);
+    },
+    suitability: hall => roomSuitability(course, roomById.get(String(hall.roomId))),
+    companion: companionFor,
+  });
 
-      for (const dayKey of dayKeys) {
-        if (busy(hallRows, dayKey, start, end)) { blocked = true; break; }
-        if (instructorId && busy(instructorRows, dayKey, start, end)) { blocked = true; break; }
-
-        const dayOfInstructor = instructorRows
-          .filter(row => Boolean(row[dayKey]))
-          .sort((a, b) => timeToMinutes(a.fstarttime) - timeToMinutes(b.fstarttime));
-        const before = [...dayOfInstructor].reverse().find(row => timeToMinutes(row.fendtime) <= start);
-        const after = dayOfInstructor.find(row => timeToMinutes(row.fstarttime) >= end);
-
-        // Idle minutes this placement would create on either side.
-        if (before) idle += Math.max(0, start - timeToMinutes(before.fendtime));
-        if (after) idle += Math.max(0, timeToMinutes(after.fstarttime) - end);
-        if (!before && !after && dayOfInstructor.length === 0) idle += 90; // a lone trip to campus
-
-        // Can they actually get here, and from here to the next one?
-        if (before) {
-          const need = travelMinutesFor(mobility, before.AdRoomCode, hall.room);
-          const have = start - timeToMinutes(before.fendtime);
-          if (have < need) { blocked = true; reasons.push("الانتقال بين المبنيين لا يكفي"); break; }
-          walk += need;
-        }
-        if (after) {
-          const need = travelMinutesFor(mobility, hall.room, after.AdRoomCode);
-          const have = timeToMinutes(after.fstarttime) - end;
-          if (have < need) { blocked = true; reasons.push("الانتقال بين المبنيين لا يكفي"); break; }
-          walk += need;
-        }
-
-        // A students' day that is already running keeps its shape.
-        const dayOfSection = sectionRows.filter(row => Boolean(row[dayKey]));
-        if (dayOfSection.length) {
-          const from = Math.min(...dayOfSection.map(row => timeToMinutes(row.fstarttime)));
-          const to = Math.max(...dayOfSection.map(row => timeToMinutes(row.fendtime)));
-          spread += Math.max(0, from - start) + Math.max(0, end - to);
-        }
-      }
-      if (blocked) continue;
-
-      const perDay = dayKeys.length;
-      const score = Math.round(Math.max(0, 100 - (idle / perDay) / 3 - (walk / perDay) / 2 - (spread / perDay) / 6));
-      if (idle === 0) reasons.push("لا يترك فراغاً للأستاذ");
-      else reasons.push(`فراغ ${countOf(Math.round(idle / perDay), AR.minute)}`);
-      if (walk === 0) reasons.push("بلا انتقال بين المباني");
-      else reasons.push(`انتقال ${countOf(Math.round(walk / perDay), AR.minute)}`);
-      if (spread === 0) reasons.push("داخل يوم القسم الحالي");
-
-      const roomRecord=roomById.get(String(hall.roomId));
-      const fit = roomSuitability(course, roomRecord);
-      const fitAdjustment = fit.adjustment, fitReasons = fit.reasons;
-
-      candidates.push({
-        start: clock(start), end: clock(end),
-        room: hall.room, hall: hall.hall, buildingId: hall.buildingId, roomId: hall.roomId,
-        days: dayKeys, score:Math.max(0,Math.min(100,score+fitAdjustment)),
-        idleMinutes: Math.round(idle / perDay),
-        walkMinutes: Math.round(walk / perDay),
-        reasons: [...fitReasons,...reasons].slice(0, 3)
-      });
-    }
-  }
-
-  // One suggestion per time: three options that differ only by hall is not a choice.
-  const seen = new Set<string>();
-  const ranked = candidates
-    .sort((a, b) => b.score - a.score || a.start.localeCompare(b.start))
-    .filter(slot => { if (roomOnly) return true; if (seen.has(slot.start)) return false; seen.add(slot.start); return true; })
-    .slice(0, 18);
   /* الاقتراح للعرض فقط، لكنه يجب أن يمرّ من بوابة التعارض نفسها التي تمنع
-     حفظ الموعد. فحص الفراغ والقاعة أعلاه ترتيبٌ سريع، ثم تحسم scheduleConflicts
-     التعارضات الأكاديمية والقاعة وفق منطق موعد جديد حرفياً قبل إظهار أي خيار. */
+     حفظ الموعد. الترتيب أعلاه سريع، ثم تحسم scheduleConflicts التعارضات
+     الأكاديمية والقاعة وفق منطق موعد جديد حرفياً قبل إظهار أي خيار. والبوابة
+     تمشي القائمة المرتّبة كلها (بسقف) لا أول 18 فقط: كان رفضُ الأوائل يُفرغ
+     النتيجة رغم وجود خيارات صالحة بعدهم — «يعمل مرة ولا يعمل مرة». */
+  const ranked = orderSuggestionCandidates(candidates, roomOnly);
   const conflictReq = Object.create(req) as AuthenticatedRequest;
   if (owner) (conflictReq as any).__requestReservationOwner = owner;
+  const wanted = roomOnly ? 6 : 3;
+  const GATE_LIMIT = 48;
   const slots: typeof ranked = [];
-  let rejectedByScheduleGate = 0;
+  let rejectedByScheduleGate = 0, gated = 0;
   for (const slot of ranked) {
+    if (slots.length >= wanted || gated >= GATE_LIMIT) break;
+    gated++;
     const candidate = {
       ...body,
       AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
       AdCourseId: Number(body.AdCourseId || 0), AdInstructorId: instructorId,
       AdRoomCode: slot.room, AdRoomHall: slot.hall,
       buildingId: slot.buildingId, roomId: slot.roomId, locationStatus: "VERIFIED",
+      companionRoomId: slot.companionRoomId || "",
       fstarttime: slot.start, fendtime: slot.end,
-      ...Object.fromEntries(SCHEDULE_DAY_KEYS.map(key => [key, dayKeys.includes(key)])),
+      ...Object.fromEntries(SCHEDULE_DAY_KEYS.map(key => [key, dayKeys.includes(key as SuggestionDayKey)])),
     };
     const location = await canonicalizeLocationForWrite(candidate, collegeId, sectionId);
     if (!location.check.ok) { rejectedByScheduleGate++; continue; }
     const conflicts = await scheduleConflicts(conflictReq, { ...candidate, ...location.check.canonical }, editedRowId);
-    if (conflicts.some((conflict: any) => !conflict.soft)) { rejectedByScheduleGate++; continue; }
+    if (conflicts.some((conflict: any) => !conflict.soft && isBlockingConflict(conflict))) { rejectedByScheduleGate++; continue; }
     slots.push(slot);
-    if (slots.length >= (roomOnly ? 6 : 3)) break;
   }
 
-  res.json({ slots, considered: candidates.length, rejectedByScheduleGate });
+  /* ── 🔄 قابلة للاستبدال: قاعةٌ تشغلها في هذا الوقت بالضبط شعبةٌ «هيئة تدريسية»
+     من القسم نفسه. إن كانت للمقرر نفسه فالأفضل إسناد الأستاذ إليها (⭐) بدل موعدٍ
+     جديد. توافق 100%: الأيام والوقت نفسهما، والقاعة مؤهلة للقسم، والأستاذ حرّ. */
+  const placeholderIds=placeholderInstructorIds(instructorsAll as any);
+  const teacherFree=roomOnly&&!instructorRows.some(row=>overlapsSelected(row,fixedStart,fixedEnd));
+  const replaceable=teacherFree?universe
+    .filter(row=>Number(row.id)!==editedRowId&&Number(row.AdCollegeId)===collegeId&&Number(row.AdSectionId)===sectionId&&Number(row.AdTermId)===termId)
+    .filter(row=>placeholderIds.has(Number(row.AdInstructorId)))
+    .filter(row=>timeToMinutes(row.fstarttime)===fixedStart&&timeToMinutes(row.fendtime)===fixedEnd&&SCHEDULE_DAY_KEYS.every(day=>Boolean((row as any)[day])===dayKeys.includes(day as SuggestionDayKey)))
+    .filter(row=>halls.some(hall=>rowOccupiesRoom(row,hall.roomId,hall.room,hall.hall)))
+    .map(row=>({
+      rowId:Number(row.id),room:String(row.AdRoomCode||""),hall:String(row.AdRoomHall||""),buildingId:row.buildingId,roomId:row.roomId,
+      start:row.fstarttime,end:row.fendtime,courseId:Number(row.AdCourseId),scode:String(row.SCode||""),
+      courseName:String(row.AdCourseName||""),sameCourse:Number(row.AdCourseId)===Number(body.AdCourseId||0),
+    }))
+    .sort((a,b)=>Number(b.sameCourse)-Number(a.sameCourse))
+    .slice(0,4):[];
+
+  if (!slots.length) {
+    const reason = emptySuggestionReason({ ...stats, gate: rejectedByScheduleGate });
+    res.json({ slots, reason, note: SUGGESTION_EMPTY_WORD[reason], replaceable, considered: candidates.length, rejectedByScheduleGate });
+    return;
+  }
+  res.json({ slots, replaceable, considered: candidates.length, rejectedByScheduleGate });
 });
 
 /* ── استثناءات الأسبوع ────────────────────────────────────────────────────────

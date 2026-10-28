@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CircleDot, Plus, Search, UserRound, X } from "lucide-react";
+import { Check, CircleDot, Plus, Search, UserRound, UserRoundX, X } from "lucide-react";
 import { byArabic, sortByName } from "../utils/sorting";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
@@ -193,6 +193,17 @@ export default function InstructorPicker({ value, onChange, instructors, departm
       .map(x => x.person), placeholderPreference).slice(0, 40);
   }, [query, knownInstructors, wider, effectiveDepartmentIds, byId, departmentRank, sectionId, strictDepartmentOnly, rosterSet, visitingSet, visitingRosterIds, value, placeholderPreference]);
 
+  /* الأعضاء أولاً ثم المنتدبون (مع الحفاظ على ترتيب البحث داخل كل مجموعة)، و«هيئة تدريسية» وحدها. */
+  const grouped = useMemo(() => {
+    const placeholder = results.find(person => isFacultyPlaceholder(person)) || null;
+    const people = results.filter(person => !isFacultyPlaceholder(person));
+    return {
+      placeholder,
+      members: people.filter(person => !visitingSet.has(person.AdInstructorId)),
+      visiting: people.filter(person => visitingSet.has(person.AdInstructorId)),
+    };
+  }, [results, visitingSet]);
+
   useEffect(() => {
     if (!open) return;
     const away = (event: MouseEvent) => {
@@ -256,7 +267,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
       >
         <UserRound aria-hidden="true" />
         <span className="instructor-identity">
-          <b>{selected ? <>{selected.AdInstructorName}{visitingSet.has(selected.AdInstructorId) ? <VisitingBadge compact /> : null}</> : "اختر أستاذ المقرر"}</b>
+          <b>{selected ? (isFacultyPlaceholder(selected) ? "بدون أستاذ بعد" : <>{selected.AdInstructorName}{visitingSet.has(selected.AdInstructorId) ? <VisitingBadge compact /> : null}</>) : "اختر أستاذ المقرر"}</b>
           {selected?.AdInstructorCivil && !isFacultyPlaceholder(selected) ? <small dir="ltr">{selected.AdInstructorCivil}</small> : null}
         </span>
       </button>
@@ -280,29 +291,49 @@ export default function InstructorPicker({ value, onChange, instructors, departm
           {!query ? <p className="instructor-scope">أساتذة هذا القسم فقط</p> : null}
 
           <div className="instructor-results" hidden={adding}>
-            {results.length ? results.map(person => (
+            {/* ── «بدون أستاذ بعد» خيارٌ مستقل لا اسمٌ بين الأسماء (G4) ───────────
+                «هيئة تدريسية» ليست شخصاً: تُعرض أولاً بصيغتها الحقيقية — الشعبة بلا
+                أستاذ بعد — ثم الأعضاء، ثم المنتدبون بشارتهم في مجموعتهم. */}
+            {grouped.placeholder ? (
               <button
                 type="button"
-                key={person.AdInstructorId}
+                key={grouped.placeholder.AdInstructorId}
                 data-guide-feature-id="schedule.action.change-instructor"
-                className={person.AdInstructorId === value ? "chosen" : ""}
+                className={`instructor-placeholder-option ${grouped.placeholder.AdInstructorId === value ? "chosen" : ""}`}
                 role="option"
-                aria-selected={person.AdInstructorId === value}
-                onClick={() => { onSelected?.(person); onChange(person.AdInstructorId); setOpen(false); }}
+                aria-selected={grouped.placeholder.AdInstructorId === value}
+                onClick={() => { onSelected?.(grouped.placeholder!); onChange(grouped.placeholder!.AdInstructorId); setOpen(false); }}
               >
-                {/* The name gets the width; the civil ID sits beneath it. Side
-                    by side, twelve monospace digits left a department's names
-                    truncated to a single letter. */}
-                <span className="instructor-identity">
-                  <b>{person.AdInstructorName}{visitingSet.has(person.AdInstructorId) ? <VisitingBadge compact /> : null}</b>
-                  {!isFacultyPlaceholder(person) ? <small dir="ltr">{person.AdInstructorCivil || "—"}</small> : null}
-                </span>
-                {departmentRank.has(person.AdInstructorId) ? <i className="instructor-department-mark" title={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"} aria-label={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"}><CircleDot aria-hidden="true" /></i> : null}
-                {person.AdInstructorId === value ? <Check aria-hidden="true" /> : null}
+                <UserRoundX aria-hidden="true" />
+                <span className="instructor-identity"><b>بدون أستاذ بعد</b><small>هيئة تدريسية</small></span>
+                {grouped.placeholder.AdInstructorId === value ? <Check aria-hidden="true" /> : null}
               </button>
-            )) : (
+            ) : null}
+            {grouped.members.length || grouped.visiting.length ? [...grouped.members, ...grouped.visiting].map((person, index) => (
+              <React.Fragment key={person.AdInstructorId}>
+                {index === grouped.members.length && grouped.visiting.length ? <p className="instructor-group-label">منتدبون هذا الفصل</p> : null}
+                <button
+                  type="button"
+                  data-guide-feature-id="schedule.action.change-instructor"
+                  className={person.AdInstructorId === value ? "chosen" : ""}
+                  role="option"
+                  aria-selected={person.AdInstructorId === value}
+                  onClick={() => { onSelected?.(person); onChange(person.AdInstructorId); setOpen(false); }}
+                >
+                  {/* The name gets the width; the civil ID sits beneath it. Side
+                      by side, twelve monospace digits left a department's names
+                      truncated to a single letter. */}
+                  <span className="instructor-identity">
+                    <b>{person.AdInstructorName}{visitingSet.has(person.AdInstructorId) ? <VisitingBadge compact /> : null}</b>
+                    {!isFacultyPlaceholder(person) ? <small dir="ltr">{person.AdInstructorCivil || "—"}</small> : null}
+                  </span>
+                  {departmentRank.has(person.AdInstructorId) ? <i className="instructor-department-mark" title={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"} aria-label={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"}><CircleDot aria-hidden="true" /></i> : null}
+                  {person.AdInstructorId === value ? <Check aria-hidden="true" /> : null}
+                </button>
+              </React.Fragment>
+            )) : !grouped.placeholder ? (
               <p className="instructor-empty">{!query && departmentLoading ? "جارٍ تحميل أساتذة القسم…" : (!query ? "لا يوجد أساتذة مرتبطون بهذا القسم بعد." : `لا نتيجة لـ «${query}»`)}</p>
-            )}
+            ) : null}
           </div>
 
           {!canCreate ? null : adding ? (

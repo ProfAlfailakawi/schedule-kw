@@ -1,7 +1,7 @@
 import CompanionFacilityPicker from "./CompanionFacilityPicker";
 import SearchableSelect from "./SearchableSelect";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, Clock3, Maximize2, X } from "lucide-react";
+import { AlertTriangle, Building2, Check, Clock3, DoorOpen, Loader2, Maximize2, Minus, MonitorPlay, Puzzle, Sparkles, UserRound, X } from "lucide-react";
 import type { AdCourse, AdInstructor } from "../types";
 import LocationPicker from "./LocationPicker";
 import { TimeWheels } from "./TimeCounter";
@@ -15,9 +15,15 @@ import { toEnglishDigits } from "../utils/digits";
 import { isAssignableInstructor } from "../utils/instructorStatus";
 import { isBlockingConflict } from "../utils/scheduleIntelligence";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
-import { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
-import RoomSuggestionCards from "./RoomSuggestionCards";
+import RoomSuggestionCards, { SuggestionEmpty } from "./RoomSuggestionCards";
+import InstructorPicker from "./InstructorPicker";
+import VisitingBadge from "./VisitingBadge";
+import PlanBadge from "./PlanBadge";
+import RegulationPatternChips from "./RegulationPatternChips";
+import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
+import { pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, type RegulationChoice } from "../utils/appointmentRegulation";
+import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 
 /**
  * The appointment written where it was drawn.
@@ -33,6 +39,9 @@ import RoomSuggestionCards from "./RoomSuggestionCards";
  * أكثر» hands the half-filled draft to the full editor without losing a
  * keystroke, so nothing here is a smaller version of anything; it is the same
  * form, entered from the side that was already answered.
+ *
+ * والبطاقة تقرأ ما يقرؤه المحرر الكامل حرفاً: أنماط اللائحة (appointmentRegulation)،
+ * والحكم الواحد (appointmentVerdict)، ومحرّك الاقتراح الواحد (suggestionClient).
  */
 
 const minutesOf = (time: string) => {
@@ -41,6 +50,14 @@ const minutesOf = (time: string) => {
 };
 const timeOf = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+const DAY_ORDER: Array<{ key: DayKey; short: string }> = [
+  { key: "fsunday", short: "أحد" }, { key: "fmonday", short: "اثنين" }, { key: "ftuesday", short: "ثلاثاء" },
+  { key: "fwednesday", short: "أربعاء" }, { key: "fthursday", short: "خميس" },
+];
+const CHECK_ICONS: Record<CheckKind, typeof UserRound> = {
+  teacher: UserRound, room: DoorOpen, section: Puzzle, facility: MonitorPlay, time: Clock3, college: Building2,
+};
 
 export type QuickDraft = {
   companionRoomId?: string;
@@ -55,6 +72,8 @@ export type QuickDraft = {
   locationStatus?: "VERIFIED" | "PENDING_ROOM";
   start: string;
   end: string;
+  /** أيام الموعد بعد إكمال نمط اللائحة (قد تزيد على اليوم المرسوم). */
+  days?: DayKey[];
 };
 
 export type QuickSeed = {
@@ -94,6 +113,9 @@ export default function QuickCreatePopover({
   onExpand,
   onCreate,
   initialCourseId = 0,
+  departmentIds = [],
+  visitingIds,
+  visitingRosterIds,
 }: {
   /** مقرّرٌ معروفٌ سلفاً — كإضافةٍ طلبها أستاذ — فتُفتح البطاقةُ وهو مختار. */
   initialCourseId?: number;
@@ -117,13 +139,20 @@ export default function QuickCreatePopover({
   onCancel: () => void;
   onExpand: (draft: QuickDraft) => void;
   onCreate: (draft: QuickDraft) => void;
+  /** أساتذة القسم (لترتيب المنتقي) — المنتقي الموحّد نفسه في المحرر الكامل. */
+  departmentIds?: number[];
+  visitingIds?: Iterable<number>;
+  visitingRosterIds?: Iterable<number>;
 }) {
   const planBadges = usePlanBadges();
   const { isVisiting } = useVisitingLookup(termId);
   const ref = useRef<HTMLDivElement | null>(null);
   const firstField = useRef<HTMLButtonElement | null>(null);
   const [box, setBox] = useState<{ left: number; top: number } | null>(null);
-  const chosenDays = seed.days?.length ? seed.days : [seed.day];
+  /* طلبُ أستاذٍ يحمل أيامه: لا تُعاد صياغتها هنا (الوارد يقرّر). الرسمُ الحرّ يكمل النمط. */
+  const daysLocked = Boolean(seed.days?.length || seed.fixedSlots?.length || seed.instructorRequestId);
+  const [chosenDays, setChosenDays] = useState<DayKey[]>(seed.days?.length ? seed.days : [seed.day]);
+  const [dayChoices, setDayChoices] = useState<RegulationChoice[]>([]);
   const hasDifferentTimes = new Set((seed.fixedSlots || []).map(slot => `${slot.start}|${slot.end}`)).size > 1;
   const openedStart = minutesOf(seed.start);
   const openedEnd = Math.max(openedStart + 30, minutesOf(seed.end));
@@ -139,22 +168,46 @@ export default function QuickCreatePopover({
     end: timeOf(openedEnd),
   });
   const patch = (values: Partial<QuickDraft>) => setDraft((prev) => ({ ...prev, ...values }));
+  const selectedCourse = courses.find(course => Number(course.AdCourseId) === Number(draft.courseId));
   /* Typing 101, 102, 103 by hand is work nobody should be doing, and the full
      editor already stopped asking for it. Anything typed by hand wins; the
      suggestion only refills while the field is still untouched. */
   const sectionTyped = useRef(false);
+  const timeEdited = useRef(false);
+  /* ── اللائحة عند اختيار المقرر وعند ضغط يوم (B1) ───────────────────────── */
+  const applyDays = (course: AdCourse | undefined, result: { days: DayKey[]; alternatives: RegulationChoice[] }) => {
+    setChosenDays(result.days);
+    setDayChoices(result.alternatives);
+    if (timeEdited.current || hasDifferentTimes) return;
+    setDraft(current => {
+      const end = regulationEnd(course, result.days, current.start);
+      return end && end !== current.end ? { ...current, end } : current;
+    });
+  };
   const chooseCourse = (courseId: number) => {
     const next: Partial<QuickDraft> = { courseId };
     if (courseId && nextSectionCode && (!draft.scode.trim() || !sectionTyped.current)) {
       next.scode = nextSectionCode(courseId);
     }
     patch(next);
+    const course = courses.find(item => Number(item.AdCourseId) === courseId);
+    if (!daysLocked && course) applyDays(course, pickDay(course, [], seed.day, true));
+  };
+  const toggleDay = (day: DayKey) => {
+    if (daysLocked) return;
+    const checked = !chosenDays.includes(day);
+    if (!checked && chosenDays.length === 1) return;
+    applyDays(selectedCourse, pickDay(selectedCourse, chosenDays, day, checked));
+  };
+  const applyChoice = (choice: RegulationChoice) => {
+    if (daysLocked) return;
+    setChosenDays(choice.days as DayKey[]);
+    setDraft(current => ({ ...current, end: timeOf(Math.min(SCHEDULE_DAY_END, minutesOf(current.start) + choice.minutes)) }));
   };
 
   // A freshly mounted card may use the department's usual length exactly once.
   // Re-renders must never overwrite the duration the coordinator picked.
   const learnedForDay = useRef<string | null>(null);
-  const timeEdited = useRef(false);
   useEffect(() => {
     if (learnedForDay.current === seed.day || timeEdited.current || hasDifferentTimes) return;
     learnedForDay.current = seed.day;
@@ -166,6 +219,14 @@ export default function QuickCreatePopover({
       return current.end === end ? current : { ...current, end };
     });
   }, [durationForDay, seed.day, hasDifferentTimes]);
+  /* مقررٌ معروف سلفاً: النمط يُكمل مرة واحدة عند الفتح. */
+  useEffect(() => {
+    if (initialCourseId && !daysLocked) {
+      const course = courses.find(item => Number(item.AdCourseId) === Number(initialCourseId));
+      if (course) applyDays(course, pickDay(course, [], seed.day, true));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Measured against the window, never against the column: a card that explains
   // an hour must not be clipped by the day that hour belongs to.
@@ -191,7 +252,7 @@ export default function QuickCreatePopover({
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       /* قائمةُ مقررٍ مفتوحة داخل البطاقة تأخذ Escape وحدها (تُغلق هي)، فلا تُهمل المسوّدة. */
-      if (e.key === "Escape") { if (ref.current?.querySelector(".ss-pop")) return; e.stopPropagation(); onCancel(); }
+      if (e.key === "Escape") { if (ref.current?.querySelector(".ss-pop") || ref.current?.querySelector(".instructor-pop")) return; e.stopPropagation(); onCancel(); }
     };
     const away = (e: PointerEvent) => {
       if (!ref.current || ref.current.contains(e.target as Node)) return;
@@ -211,10 +272,11 @@ export default function QuickCreatePopover({
   const ready = Boolean(draft.courseId && draft.scode.trim() && draft.instructorId && draft.buildingId && (draft.roomId || draft.locationStatus === "PENDING_ROOM"));
   const digitsOk = /^\d*$/.test(toEnglishDigits(draft.scode));
   const clash = ready && digitsOk && !hasDifferentTimes ? conflictOf(draft, seed.day) : null;
-  const [liveCheck, setLiveCheck] = useState<{ key: string; checking: boolean; blockers: string[]; warnings: string[]; error: string }>({
-    key: "", checking: false, blockers: [], warnings: [], error: "",
+  const [liveCheck, setLiveCheck] = useState<{ key: string; checking: boolean; conflicts: any[]; validation: string[]; notices: string[]; error: string }>({
+    key: "", checking: false, conflicts: [], validation: [], notices: [], error: "",
   });
-  const [ideas, setIdeas] = useState<Array<{ start: string; end: string; room: string; hall: string; buildingId: string; roomId: string; score: number; reasons?: string[] }> | null>(null);
+  const [ideas, setIdeas] = useState<SuggestionReply["slots"] | null>(null);
+  const [ideaReason, setIdeaReason] = useState<SuggestionReply["reason"]>(undefined);
   const [ideaKind, setIdeaKind] = useState<"room" | "time" | null>(null);
   const [ideasBusy, setIdeasBusy] = useState(false);
   const [ideasError, setIdeasError] = useState("");
@@ -234,13 +296,16 @@ export default function QuickCreatePopover({
   const checkKey = JSON.stringify(payload);
   const latestIdeasKey = useRef(checkKey);
   latestIdeasKey.current = checkKey;
+  /* يُفحص ما اختير فقط: المقرر والوقت كافيان لبدء الفحص، ولا يُنتظر اكتمال كل الحقول —
+     فيُعرف تعارض الأستاذ قبل اختيار القاعة، والعكس، دون أن يُفحص حقلٌ فارغ. */
+  const checkable = Boolean(draft.courseId && digitsOk && !hasDifferentTimes && !seed.deferLiveCheck && (draft.instructorId || draft.roomId));
   useEffect(() => {
-    if (!ready || !digitsOk || hasDifferentTimes || seed.deferLiveCheck) {
-      setLiveCheck({ key: "", checking: false, blockers: [], warnings: [], error: "" });
+    if (!checkable) {
+      setLiveCheck({ key: "", checking: false, conflicts: [], validation: [], notices: [], error: "" });
       return;
     }
     const controller = new AbortController();
-    setLiveCheck({ key: checkKey, checking: true, blockers: [], warnings: [], error: "" });
+    setLiveCheck(current => ({ ...current, key: checkKey, checking: true, error: "" }));
     const timer = window.setTimeout(async () => {
       try {
         const response = await fetch("/api/schedules/check-conflicts", {
@@ -252,53 +317,79 @@ export default function QuickCreatePopover({
         const result = await response.json();
         const conflicts: any[] = Array.isArray(result.conflicts) ? result.conflicts : [];
         const validation: string[] = Array.isArray(result.validationIssues) ? result.validationIssues : [];
-        const describe = (item: any) => [String(item?.message || ""), String(item?.detail || "")].filter(Boolean).join(" — ");
         setLiveCheck({
-          key: checkKey, checking: false,
-          blockers: [...new Set([...validation, ...conflicts.filter(isBlockingConflict).map(describe)].filter(Boolean))],
-          warnings: [...new Set([
-            ...conflicts.filter(item => !isBlockingConflict(item)).map(describe).filter(Boolean),
+          key: checkKey, checking: false, conflicts, validation,
+          notices: [
             ...(result.patternNotice ? ["نمط الأيام المختار غير معتمد لهذا المقرر؛ راجع الأنماط المعتادة."] : []),
             ...(result.lectureNotice ? ["مدة المحاضرة تختلف عن النمط المعتاد للمقرر."] : []),
-          ])],
+          ],
           error: "",
         });
       } catch (issue: any) {
         if (issue?.name !== "AbortError") {
-          setLiveCheck({ key: checkKey, checking: false, blockers: [], warnings: [], error: issue?.message || "تعذّر فحص الموعد." });
+          setLiveCheck({ key: checkKey, checking: false, conflicts: [], validation: [], notices: [], error: issue?.message || "تعذّر فحص الموعد." });
         }
       }
-    }, 320);
+    }, 180);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [checkKey, ready, digitsOk, hasDifferentTimes, seed.deferLiveCheck]);
+  }, [checkKey, checkable]);
 
   const previewCurrent = liveCheck.key === checkKey;
-  const pendingCheck = ready && digitsOk && !hasDifferentTimes && !seed.deferLiveCheck && (!previewCurrent || liveCheck.checking);
-  const blocked = previewCurrent && liveCheck.blockers.length > 0;
+  const companionRequired = Boolean(String(selectedCourse?.CourseCompanionRoomType || "").trim());
+  const fit = regulationFit(selectedCourse, chosenDays, draft.start, draft.end);
+  /* الحكم الواحد نفسه الذي يقرؤه المحرر الكامل. */
+  const verdict = appointmentVerdict({
+    form: payload as any,
+    validationIssues: previewCurrent ? liveCheck.validation : [],
+    conflicts: previewCurrent ? liveCheck.conflicts : [],
+    checking: checkable && (!previewCurrent || liveCheck.checking),
+    companionRequired,
+    regulation: fit,
+    notes: (previewCurrent ? liveCheck.notices : []).map(text => ({ kind: "time" as const, text })),
+  });
+  const blockingCount = previewCurrent ? liveCheck.conflicts.filter(isBlockingConflict).length : 0;
+  const pendingCheck = ready && checkable && (!previewCurrent || liveCheck.checking);
+  const blocked = previewCurrent && (verdict.blockers.length > 0 || blockingCount > 0);
   const checkFailed = previewCurrent && Boolean(liveCheck.error);
 
-  useEffect(() => { setIdeas(null); setIdeasError(""); }, [checkKey]);
+  useEffect(() => { setIdeas(null); setIdeasError(""); setIdeaReason(undefined); }, [checkKey]);
   const requestIdeas = async (roomOnly: boolean) => {
-    if (!draft.courseId || !draft.instructorId || hasDifferentTimes) return;
+    if (!draft.courseId || hasDifferentTimes) return;
     const requestedKey = checkKey;
     setIdeaKind(roomOnly ? "room" : "time");
-    setIdeas(null); setIdeasError(""); setIdeasBusy(true);
+    setIdeas(null); setIdeasError(""); setIdeaReason(undefined); setIdeasBusy(true);
     try {
-      const response = await fetch("/api/schedules/suggest-slots", {
-        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, roomOnly, durationMinutes: minutesOf(draft.end) - minutesOf(draft.start) }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "تعذّر اقتراح المواعيد");
+      const result = await fetchSuggestions(suggestionBody(payload, roomOnly ? "room" : "slot", minutesOf(draft.end) - minutesOf(draft.start)));
       if (latestIdeasKey.current !== requestedKey) return;
-      setIdeas(Array.isArray(result.slots) ? result.slots : []);
-      if (!result.slots?.length && result.note) setIdeasError(String(result.note));
+      setIdeas(result.slots);
+      setIdeaReason(result.reason);
+      if (!result.slots.length && result.note) setIdeasError(String(result.note));
     } catch (issue: any) { if (latestIdeasKey.current === requestedKey) setIdeasError(issue?.message || "تعذّر إيجاد المقترحات."); }
     finally { setIdeasBusy(false); }
   };
+  const takeIdea = (idea: SuggestionReply["slots"][number]) => {
+    timeEdited.current = true;
+    patch({
+      ...(idea.start && idea.end ? { start: idea.start, end: idea.end } : {}),
+      room: idea.room, hall: idea.hall, buildingId: idea.buildingId, roomId: idea.roomId, locationStatus: "VERIFIED",
+      ...(idea.companionRoomId ? { companionRoomId: idea.companionRoomId, companionRoomLabel: idea.companionRoomLabel } : {}),
+    });
+    setIdeas(null);
+  };
 
   const orderedCourses = useMemo(() => sortByName(courses, (course: AdCourse) => course.CourseName), [courses]);
-  const selectedCourse = courses.find(course => Number(course.AdCourseId) === Number(draft.courseId));
+  const assignable = useMemo(() => instructors.filter(isAssignableInstructor), [instructors]);
+  const lockedTeacher = Boolean(seed.instructorRequestId);
+  const teacherName = instructors.find(person => Number(person.AdInstructorId) === Number(draft.instructorId))?.AdInstructorName || "";
+  const regulationChips = useMemo(() => {
+    if (daysLocked || !selectedCourse) return [];
+    const active = regulationChoiceFor(selectedCourse, chosenDays);
+    const pool = [...(active ? [active] : []), ...dayChoices, ...chosenDays.flatMap(day => regulationChoicesForDay(selectedCourse, day))];
+    const seen = new Set<string>();
+    return pool.filter(choice => { const key = choice.days.join("+") + choice.minutes; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 3);
+  }, [daysLocked, selectedCourse, chosenDays, dayChoices]);
+  const dayLabel = chosenDays.map(day => DAY_ORDER.find(item => item.key === day)?.short).filter(Boolean).join("·") || seed.dayLabel;
+  const firstBlocker = verdict.blockers[0]?.text;
 
   return (
     <div
@@ -314,7 +405,7 @@ export default function QuickCreatePopover({
         <span className="qc-mark" aria-hidden="true"><Clock3 /></span>
         <div>
           <strong>موعد جديد</strong>
-          <small>{seed.dayLabel} · <time dir="ltr">{formatScheduleTimeRange(draft.start, draft.end)}</time></small>
+          <small>{dayLabel} · <time dir="ltr">{formatScheduleTimeRange(draft.start, draft.end)}</time></small>
         </div>
         <button type="button" className="qc-close" onClick={onCancel} aria-label="إغلاق بدون حفظ">
           <X aria-hidden="true" />
@@ -334,9 +425,23 @@ export default function QuickCreatePopover({
           start={draft.start}
           end={draft.end}
           onChange={(next) => { timeEdited.current = true; patch({ start: next.start, end: next.end }); }}
-          preferredDuration={Number(durationForDay?.(seed.day) || 0)}
+          preferredDuration={regulationChoiceFor(selectedCourse, chosenDays)?.minutes || Number(durationForDay?.(seed.day) || 0)}
         />
       )}
+
+      {!daysLocked ? (
+        <div className="qc-days" role="group" aria-label="أيام الموعد">
+          {DAY_ORDER.map(day => {
+            const on = chosenDays.includes(day.key);
+            return <button type="button" key={day.key} className={on ? "is-on" : ""} aria-pressed={on}
+              data-guide-ignore="ضغط يوم يكمل أيام نمط اللائحة للمقرر؛ لا يحفظ شيئاً"
+              onClick={() => toggleDay(day.key)}>{day.short}</button>;
+          })}
+        </div>
+      ) : null}
+      {regulationChips.length || fit === "off" ? (
+        <RegulationPatternChips compact choices={regulationChips} activeId={regulationChoiceFor(selectedCourse, chosenDays)?.id} fit={fit} onPick={applyChoice} />
+      ) : null}
 
       <div className="qc-fields">
         <label className="qc-field qc-wide">
@@ -362,20 +467,29 @@ export default function QuickCreatePopover({
             onChange={(e) => { sectionTyped.current = true; patch({ scode: toEnglishDigits(e.target.value) }); }}
           />
         </label>
-        <label className="qc-field qc-wide">
+        <div className="qc-field qc-teacher">
           <span>الأستاذ</span>
-          <select
-            value={draft.instructorId || ""}
-            onChange={(e) => patch({ instructorId: Number(e.target.value) || 0 })}
-          >
-            <option value="">اختر الأستاذ…</option>
-            {instructors.filter(isAssignableInstructor).map((i) => (
-              <option key={i.AdInstructorId} value={i.AdInstructorId}>
-                {withVisitingSuffix(i.AdInstructorName, isVisiting(i.AdInstructorId, collegeId, sectionId))}
-              </option>
-            ))}
-          </select>
-        </label>
+          {lockedTeacher ? (
+            <span className="qc-teacher-locked">
+              <UserRound aria-hidden="true" /><b>{teacherName || "أستاذ الطلب"}</b>
+              {isVisiting(draft.instructorId, collegeId, sectionId) ? <VisitingBadge compact /> : null}
+            </span>
+          ) : (
+            <InstructorPicker
+              value={Number(draft.instructorId) || 0}
+              onChange={(id) => patch({ instructorId: id })}
+              instructors={assignable as any}
+              departmentIds={departmentIds}
+              visitingIds={visitingIds}
+              visitingRosterIds={visitingRosterIds}
+              collegeId={collegeId}
+              sectionId={sectionId}
+              termId={termId}
+              canCreate={false}
+              strictDepartmentOnly
+            />
+          )}
+        </div>
         <div className="qc-location">
           <LocationPicker
             collegeId={collegeId}
@@ -386,73 +500,61 @@ export default function QuickCreatePopover({
             courseTeachingMode={String(selectedCourse?.CourseTeachingMode || "")}
             seatsNeeded={Number(selectedCourse?.MaxStudent || 0)}
             value={{AdRoomCode:draft.room,AdRoomHall:draft.hall,buildingId:draft.buildingId,roomId:draft.roomId,locationStatus:draft.locationStatus}}
-            onChange={(location)=>patch({room:String(location.AdRoomCode||""),hall:String(location.AdRoomHall||""),buildingId:location.buildingId,roomId:location.roomId,locationStatus:location.locationStatus as any})}
+            onChange={(location)=>{
+              const buildingChanged = "buildingId" in location && String(location.buildingId || "") !== String(draft.buildingId || "");
+              patch({room:String(location.AdRoomCode||""),hall:String(location.AdRoomHall||""),buildingId:location.buildingId,roomId:location.roomId,locationStatus:location.locationStatus as any,
+                ...(buildingChanged?{companionRoomId:"",companionRoomLabel:""}:{})});
+            }}
           />
         </div>
       </div>
+      {selectedCourse ? <p className="qc-course-line"><b>{selectedCourse.CourseName}</b><PlanBadge courseId={selectedCourse.AdCourseId} /></p> : null}
       <CompanionFacilityPicker course={selectedCourse} form={payload}
         onChange={values => patch({ companionRoomId: values.companionRoomId, companionRoomLabel: values.companionRoomLabel })} />
 
-      {!hasDifferentTimes && draft.courseId && draft.instructorId ? (
+      {!hasDifferentTimes && draft.courseId ? (
         <div className="qc-ideas" role="group" aria-label="مقترحات الموعد">
           <div className="slot-advisor">
-            <button type="button" className="slot-advisor-ask" data-guide-ignore="يقترح أوقاتاً وقاعات دون حفظ" disabled={ideasBusy} onClick={() => void requestIdeas(false)}>اقترح لي وقتاً وقاعة</button>
-            <button type="button" className="room-suggest-ask" data-guide-ignore="يقترح قاعات دون حجز" disabled={ideasBusy} onClick={() => void requestIdeas(true)}>اقترح قاعة متاحة</button>
+            <button type="button" className="slot-advisor-ask" data-guide-ignore="يقترح أوقاتاً وقاعات دون حفظ" disabled={ideasBusy} onClick={() => void requestIdeas(false)}><Sparkles aria-hidden="true" />اقترح لي وقتاً وقاعة</button>
+            <button type="button" className="room-suggest-ask" data-guide-ignore="يقترح قاعات دون حجز" disabled={ideasBusy} onClick={() => void requestIdeas(true)}><DoorOpen aria-hidden="true" />اقترح قاعة متاحة</button>
           </div>
-          {ideasBusy ? <small role="status">أبحث عن خيارات مناسبة…</small> : null}
-          {ideasError ? <p className="qc-warn">{ideasError}</p> : null}
-          {ideas && !ideas.length && !ideasError ? <small>لا توجد اقتراحات متاحة ضمن الشروط المختارة.</small> : null}
+          {ideasBusy ? <small role="status" className="qc-busy"><Loader2 aria-hidden="true" />أبحث…</small> : null}
+          {ideas && !ideas.length ? <SuggestionEmpty reason={ideaReason} note={ideasError || "لا توجد اقتراحات متاحة ضمن الشروط المختارة."} /> : null}
+          {!ideas && ideasError ? <p className="qc-warn">{ideasError}</p> : null}
           {ideas?.length ? (
-            ideaKind === "room" ? <RoomSuggestionCards suggestions={ideas} label="قاعات مناسبة للموعد" onSelect={idea => {
-              timeEdited.current = true;
-              patch({ room: idea.room, hall: idea.hall, buildingId: idea.buildingId, roomId: idea.roomId, locationStatus: "VERIFIED" });
-              setIdeas(null);
-            }} /> : <div className="slot-ideas">
-              {ideas.map((idea, index) => (
-                <button key={`${index}-${idea.roomId}-${idea.start}`} type="button"
-                  data-guide-ignore="اختيار المقترح يملأ النموذج فقط ولا يحفظه"
-                  onClick={() => { timeEdited.current = true; patch({
-                    start: idea.start, end: idea.end, room: idea.room, hall: idea.hall,
-                    buildingId: idea.buildingId, roomId: idea.roomId, locationStatus: "VERIFIED",
-                  }); setIdeas(null); }}
-                  title={(idea.reasons || []).join(" · ")}>
-                  {ideaKind === "time" ? <b className="slot-rank">{index + 1}</b> : null}
-                  <span className="slot-when">
-                    <time dir="ltr">{formatScheduleTimeRange(idea.start, idea.end)}</time>
-                    <small>{idea.room}/{idea.hall}</small>
-                  </span>
-                  <span className="slot-why">
-                    {(idea.reasons || []).slice(0, 3).map((reason, i) => <i key={i}>{reason}</i>)}
-                  </span>
-                  <span className="slot-score" style={{ "--score": `${idea.score}%` } as React.CSSProperties}><i /><em>{idea.score}</em></span>
-                </button>
-              ))}
-            </div>
+            ideaKind === "room" ? <RoomSuggestionCards suggestions={ideas} label="قاعات مناسبة للموعد" onSelect={takeIdea} />
+              : <RoomSuggestionCards variant="slot" suggestions={ideas} label="أفضل الأوقات والقاعات" onSelect={takeIdea} />
           ) : null}
         </div>
+      ) : null}
+
+      {checkable ? (
+        <ul className="qc-checks" aria-label="فحص الموعد">
+          {verdict.checks.map(check => {
+            const Icon = CHECK_ICONS[check.kind];
+            const StateIcon = check.state === "ok" ? Check : check.state === "warn" ? AlertTriangle : check.state === "block" ? X : Minus;
+            return <li key={check.kind} className={`is-${check.state}`} title={check.details.map(detail => detail.text).join(" · ") || `${check.label}: ${check.word}`}>
+              <Icon aria-hidden="true" /><StateIcon aria-hidden="true" className="qc-check-state" /><span>{check.label}</span>
+            </li>;
+          })}
+          {verdict.state === "checking" ? <li className="is-pending"><Loader2 aria-hidden="true" /></li> : null}
+        </ul>
       ) : null}
       {error ? (
         <p className="qc-warn qc-warn-hard"><AlertTriangle aria-hidden="true" />{error}</p>
       ) : !digitsOk ? (
         <p className="qc-warn"><AlertTriangle aria-hidden="true" />الرجاء كتابة رقم الشعبة بالأرقام الإنجليزية.</p>
       ) : blocked || checkFailed ? (
-        <p className="qc-warn qc-warn-hard"><AlertTriangle aria-hidden="true" />{liveCheck.blockers[0] || liveCheck.error}</p>
-      ) : pendingCheck ? (
-        <p className="qc-warn" role="status">جارٍ فحص الموعد قبل الحفظ…</p>
+        <p className="qc-warn qc-warn-hard"><AlertTriangle aria-hidden="true" />{firstBlocker || liveCheck.error}</p>
       ) : clash && !previewCurrent ? (
         <p className="qc-warn"><AlertTriangle aria-hidden="true" />{clash}</p>
       ) : null}
       {seed.deferLiveCheck ? <p className="qc-warn" role="status">الأوقات المرتبطة تُفحص معاً على الجدول النهائي قبل تثبيت طلب الأستاذ.</p> : null}
-      {previewCurrent && liveCheck.warnings.length ? (
-        <div className="qc-warn" role="status">{liveCheck.warnings.slice(0, 3).map((warning, index) => (
-          <p key={index}><AlertTriangle aria-hidden="true" />{warning}</p>
-        ))}</div>
-      ) : null}
 
       <footer className="qc-foot">
         <button type="button" className="qc-expand" data-guide-ignore="التوسيع ينقل مسودة الموعد إلى المحرر الكامل" disabled={hasDifferentTimes}
           title={hasDifferentTimes ? "الأوقات المختلفة تُراجع وتُعتمد معاً من وارد الأساتذة" : undefined}
-          onClick={() => onExpand(draft)}>
+          onClick={() => onExpand({ ...draft, days: chosenDays })}>
           <Maximize2 aria-hidden="true" />تفاصيل أكثر
         </button>
         <button type="button" className="qc-cancel" onClick={onCancel}>إلغاء</button>
@@ -461,7 +563,7 @@ export default function QuickCreatePopover({
           className="qc-create"
           data-guide-ignore="زر الحفظ الأساسي للموعد يخضع للفحص الكامل"
           disabled={!ready || !digitsOk || saving || pendingCheck || blocked || checkFailed}
-          onClick={() => onCreate(draft)}
+          onClick={() => onCreate({ ...draft, days: chosenDays })}
           title={ready ? "حفظ الموعد في هذه الخانة" : "أكمل المقرر والشعبة والأستاذ والقاعة"}
         >
           <Check aria-hidden="true" />{saving ? "أحفظ…" : "إنشاء"}
