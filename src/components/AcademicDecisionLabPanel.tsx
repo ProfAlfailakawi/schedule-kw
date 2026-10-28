@@ -4,6 +4,7 @@ import {
   GitBranch, GraduationCap, Info, RefreshCw, Scale, ShieldCheck, Sparkles, Users
 } from "lucide-react";
 import type { AcademicDecisionLab, AcademicDecisionScenario } from "../utils/academicDecisionLab";
+import { buildAcademicDecisionLabTrainingPreview } from "../utils/academicDecisionLabDemo";
 import { AR, countOf } from "../utils/arabicCount";
 
 type Props = {
@@ -38,16 +39,17 @@ const explain = (items: string[]) => <div className="adl-explain-body">{items.ma
 export default function AcademicDecisionLabPanel({ lab, courseId, compact = false, demo, onRefresh, refreshing }: Props) {
   const [feature, setFeature] = useState<Feature>("whatif");
   const [selected, setSelected] = useState("");
-  const scenarios = useMemo(() => (lab?.scenarios || []).filter(s => !courseId || s.courseId === courseId), [lab, courseId]);
-  const watched = (lab?.graduationWatch || []).filter(w => !courseId || w.courseId === courseId);
+  // The tutorial is calculated from a completely fictional timetable. It
+  // never replaces live course recommendations returned by the API.
+  const lesson = useMemo(buildAcademicDecisionLabTrainingPreview, []);
+  const [viewMode, setViewMode] = useState<"training" | "live">("training");
+  const viewingTraining = viewMode === "training";
+  const shownLab = viewingTraining ? lesson : lab;
+  const liveWatch = (lab?.graduationWatch || []).filter(w => !courseId || w.courseId === courseId);
+  const scenarios = useMemo(() => (shownLab?.scenarios || []).filter(s => viewingTraining || !courseId || s.courseId === courseId), [shownLab, courseId, viewingTraining]);
+  const watched = (shownLab?.graduationWatch || []).filter(w => viewingTraining || !courseId || w.courseId === courseId);
   const active: AcademicDecisionScenario | undefined = scenarios.find(s => s.id === selected) || scenarios[0];
-  useEffect(() => { setSelected(""); }, [courseId, lab?.sampledAt]);
-  if (!lab) {
-    return demo ? <section className="adl-demo-empty" aria-label="مختبر القرار الأكاديمي">
-      <div className="adl-demo-head"><BrainCircuit size={18} aria-hidden="true" /><strong>مختبر القرار الأكاديمي</strong></div>
-      <small>البيانات قيد التحميل؛ لا تُعرض تقديرات غير محسوبة.</small>
-    </section> : null;
-  }
+  useEffect(() => { setSelected(""); }, [courseId, viewMode, lab?.sampledAt]);
   const noEvidence = <div className="adl-no-evidence">
     <Info size={19} aria-hidden="true" />
     <div><strong>لا توجد محاكاة مؤكّدة لهذا النطاق</strong>
@@ -74,7 +76,27 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
         <small>ست أدوات ذكية · اختر الميزة لاستعراض نتيجتها</small></div>
       <span className="adl-tag"><Sparkles size={12} aria-hidden="true" /> ٦ أدوات</span>
     </div>
-    {lab.demoShowcase && <div className="adl-training-note" role="note">
+    {liveWatch.length > 0 && <div className="adl-live-courses">
+      <div className="adl-live-heading"><GraduationCap size={17} aria-hidden="true" />
+        <strong>مقررات المسار الأكاديمي</strong><small>من بيانات القسم · {countOf(liveWatch.length, AR.course)}</small></div>
+      <div className="adl-watch-list">{liveWatch.slice(0, 6).map(w =>
+        <div className="adl-watch-item" key={w.courseId}><GraduationCap size={16} aria-hidden="true" />
+          <strong>{w.courseName}</strong>
+          <small>{!w.offered ? "غير مطروح" : "مسار لاحق"}
+            {" · " + countOf(w.demand, AR.request) + " مؤهلة"}
+            {w.downstream ? " · يفتح " + countOf(w.downstream, AR.course) + " لاحقة" : ""}</small>
+        </div>)}</div>
+      <small className="adl-live-foot">هذه مقررات القسم الفعلية، وليست من المثال التدريبي.</small>
+    </div>}
+    <div className="adl-view-modes" role="group" aria-label="مصدر نتائج المختبر">
+      <button type="button" data-guide-ignore="معاينة المحاكاة الافتراضية المنفصلة عن بيانات القسم"
+        className={viewingTraining ? "adl-view-mode adl-view-mode-active" : "adl-view-mode"}
+        aria-pressed={viewingTraining} onClick={() => setViewMode("training")}>تجربة الأدوات الست</button>
+      <button type="button" data-guide-ignore="عرض التحليل الحقيقي للنطاق المختار دون حفظ"
+        className={!viewingTraining ? "adl-view-mode adl-view-mode-active" : "adl-view-mode"}
+        aria-pressed={!viewingTraining} onClick={() => setViewMode("live")}>بيانات القسم الفعلية</button>
+    </div>
+    {viewingTraining && <div className="adl-training-note" role="note">
       <Info size={17} aria-hidden="true" />
       <span><strong>تجربة تعليمية محسوبة</strong> · حالة افتراضية منفصلة عن جدول القسم؛
         النتائج مستخرجة من محرك المحاكاة نفسه، ولا تعبّر عن أعداد أو مواعيد الجامعة.</span>
@@ -103,7 +125,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
       <div className="adl-section-head">
         {features.filter(x => x.id === feature).map(item =>
           <span key={item.id}><item.icon size={16} aria-hidden="true" /><strong>{item.title}</strong></span>)}
-        <small>{lab.demoShowcase ? "درس افتراضي" : "قراءة استرشادية"}</small>
+        <small>{viewingTraining ? "درس افتراضي محسوب" : "بيانات القسم الفعلية"}</small>
       </div>
       {(feature === "twin" || feature === "whatif") && (active ? <>
         <div className="adl-title-line"><CalendarClock size={15} aria-hidden="true" />
@@ -138,14 +160,14 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
           ? "التوأم يفحص تركيبة الطالب كاملة، وليس تعارض مقررين منفصلين."
           : "تغيير افتراضي في وقت الشعبة؛ لا تعديل ولا حجز ولا موافقة تلقائية."}</small>
       </> : noEvidence)}
-      {feature === "domino" && (lab.chain && !courseId ? <>
+      {feature === "domino" && (shownLab?.chain && (viewingTraining || !courseId) ? <>
         <div className="adl-positive">
-          <span><GitBranch size={17} aria-hidden="true" />+{n(lab.chain.gain)}</span>
+          <span><GitBranch size={17} aria-hidden="true" />+{n(shownLab.chain.gain)}</span>
           <div><strong>تحسّن مجمع من خطوتين مترابطتين</strong>
             <small>عدد مستفيدين مميّز، بلا تكرار الحساب</small></div>
         </div>
         <div className="adl-chain-body adl-chain-standalone">
-          {lab.chain.steps.map((step, index) => <div key={step.id}>
+          {shownLab.chain.steps.map((step, index) => <div key={step.id}>
             <i>{index + 1}</i><strong>{step.courseName}</strong>
             <span>{step.before} ← {step.after}</span></div>)}
           <small>الخطوتان محسوبتان معاً، لكنهما غير مطبقتين على الجدول.</small>
@@ -153,7 +175,10 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
       </> : <div className="adl-no-evidence"><GitBranch size={18} aria-hidden="true" />
         <div><strong>لا توجد سلسلة تحسين مؤكّدة</strong>
           <small>تظهر عندما تؤدي خطوتان آمنتان لتحسّن أكبر من كل خطوة بمفردها.</small></div></div>)}
-      {feature === "rescue" && watchList}
+      {feature === "rescue" && <>
+        {viewingTraining && <small className="adl-view-caption">المقررات أدناه من الحالة التدريبية الافتراضية؛ مقررات القسم الفعلية معروضة فوق الأدوات.</small>}
+        {watchList}
+      </>}
       {feature === "balance" && (active ? <>
         <div className="adl-balance-grid">
           <div className="adl-impact"><CalendarClock size={17} aria-hidden="true" /><span>إزاحة موعد الأستاذ</span>
@@ -175,7 +200,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
             <ChevronDown size={14} aria-hidden="true" /></summary>{explain(active.reasons)}</details>
           <details open><summary><ShieldCheck size={14} aria-hidden="true" />البيانات والحدود
             <ChevronDown size={14} aria-hidden="true" /></summary>
-            {explain([...active.cautions, ...lab.limitations,
+            {explain([...active.cautions, ...(shownLab?.limitations || []),
               "المجتازات والرغبات مدخلة من الطلبة، وليست سجلات قبول وتسجيل معتمدة.",
               "التخرج مسار مقررات، وليس وعداً بالتخرج المبكر.",
               "توازن الأستاذ لا يعبّر عن موافقته أو اختياراته."])}</details>
