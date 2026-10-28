@@ -87,9 +87,9 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId }: { co
         <div className="of-row" style={{ marginBottom: 10 }}>
           <label>🪑 السعة الأساسية<input type="number" min={1} max={500} value={cfg.capacityDefault || ""} onChange={e => setCfg({ ...cfg, capacityDefault: Number(e.target.value) })} /></label>
           <label>🎟️ رصيد المرشدين<input type="number" min={0} max={200} value={cfg.global} onChange={e => setCfg({ ...cfg, global: Number(e.target.value) })} /></label>
-          <button type="button" className="of-chip" aria-pressed={cfg.fairSplit} onClick={() => setCfg({ ...cfg, fairSplit: !cfg.fairSplit })}>⚖️ توزيع عادل</button>
+          <button data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" className="of-chip" aria-pressed={cfg.fairSplit} onClick={() => setCfg({ ...cfg, fairSplit: !cfg.fairSplit })}>⚖️ توزيع عادل</button>
           {cfg.fairSplit ? <label>👥 عدد المرشدين<input type="number" min={1} max={50} value={cfg.advisorCount || ""} onChange={e => setCfg({ ...cfg, advisorCount: Number(e.target.value) })} /></label> : null}
-          <PrimaryButton type="button" disabled={busy === "config"} onClick={() => void saveConfig()}>حفظ</PrimaryButton>
+          <PrimaryButton data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" disabled={busy === "config"} onClick={() => void saveConfig()}>حفظ</PrimaryButton>
         </div>
       ) : null}
       <input type="search" placeholder="بحث عن مقرر…" value={query} onChange={e => setQuery(e.target.value)} style={{ minHeight: 38, borderRadius: 10, border: "1px solid var(--line)", padding: "4px 10px", font: "inherit", marginBottom: 10, width: "100%", maxWidth: 320 }} />
@@ -98,13 +98,13 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId }: { co
           <div className="of-card" key={s.key}>
             <header><div><b>{s.courseName}</b><small> · شعبة {s.section}</small><br /><small><bdi dir="ltr">{s.time}</bdi>{s.state.limitedBy === "room" ? " · 🏫 سقف القاعة" : ""}</small></div><Ring state={s.state} /></header>
             <div className="of-row">
-              <SecondaryButton type="button" disabled={!!busy || s.state.remaining <= 0 || !s.state.capacity} onClick={() => void add(s.key, 1)}>+1</SecondaryButton>
-              <SecondaryButton type="button" disabled={!!busy || s.state.remaining < 3 || !s.state.capacity} onClick={() => void add(s.key, 3)}>+3</SecondaryButton>
+              <SecondaryButton data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" disabled={!!busy || s.state.remaining <= 0 || !s.state.capacity} onClick={() => void add(s.key, 1)}>+1</SecondaryButton>
+              <SecondaryButton data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" disabled={!!busy || s.state.remaining < 3 || !s.state.capacity} onClick={() => void add(s.key, 3)}>+3</SecondaryButton>
               <span>{s.state.remaining > 0 ? `متبقٍّ ${s.state.remaining}` : "🔴 ممتلئة"}{s.state.fairShare !== undefined ? ` · نصيبك ${s.state.fairShare}` : ""}</span>
             </div>
             {msg[s.key] ? <div className="of-msg" data-tone={msg[s.key].tone} role="status">{msg[s.key].text}</div> : null}
             {msg[s.key]?.alternatives?.length ? <div className="of-chips">{msg[s.key].alternatives!.map(a => <span className="of-chip" key={a.key}>↪️ شعبة {a.section} · <bdi dir="ltr">{a.time}</bdi> · {a.remaining} مقعد</span>)}</div> : null}
-            {s.state.remaining <= 0 ? <button type="button" className="of-chip" disabled={!!busy} onClick={() => void askException(s.key)}>📨 طلب استثناء</button> : null}
+            {s.state.remaining <= 0 ? <button data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" className="of-chip" disabled={!!busy} onClick={() => void askException(s.key)}>📨 طلب استثناء</button> : null}
           </div>
         ))}
       </div>

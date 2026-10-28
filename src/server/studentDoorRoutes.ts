@@ -238,7 +238,7 @@ async function summaryOf(profile: StudentProfile) {
   return {
     setupDone, collegeId: profile.AdCollegeId || 0, sectionId: profile.AdSectionId, sectionName, planId: profile.curriculumPlanId || "", planName,
     passedCourseIds: profile.passedCourseIds, passedUnits: profile.passedUnits, transfer: profile.transfer === true, equivalentCourseIds: profile.equivalentCourseIds || [],
-    progress, wishes: profile.wishes || null, wishCodes,
+    progress, wishes: profile.wishes || null, wishCodes, masariAck: profile.masariAck || "",
     createdAt: profile.createdAt, keepsUntil: profile.deleteAt, keepsReason: profile.deleteReason, hasIdentity: Boolean(profile.nameCipher && profile.civilCipher),
     identity: await identityOf(profile),
   };
@@ -1278,6 +1278,16 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const saved = await Repository.updateStudentProfile(fingerprint, current => (current ? { ...current, nameCipher } : undefined));
     if (!saved) { fail(res, 401, "انتهت جلستك. أدخل من جديد.", "signed-out"); return; }
     noStore(res); res.json(await summaryOf(saved));
+  });
+
+  /* ── M2: «فهمت ✓» على بطاقة «مقترحات فقط» — مفتاحُ الفصل/المسار في الملف (لا في المتصفح). ── */
+  app.post("/api/public/me/ack", writeLimit, requireDoor, async (req: Request, res: Response) => {
+    const { fingerprint } = doorOf(res);
+    const key = String(req.body?.key || "");
+    if (!/^masari-ack:\d{0,9}:\d{0,9}:[A-Za-z0-9_-]{0,80}$/.test(key)) { fail(res, 400, "مفتاح غير صالح", "bad-ack"); return; }
+    const saved = await Repository.updateStudentProfile(fingerprint, current => (current ? { ...current, masariAck: key } : undefined));
+    if (!saved) { fail(res, 401, "انتهت جلستك. أدخل من جديد.", "signed-out"); return; }
+    noStore(res); res.json({ ok: true, masariAck: key });
   });
 
   /* ── الرمز: تغييرٌ، ونسيانُ الملف كلِّه ──────────────────────────────────── */

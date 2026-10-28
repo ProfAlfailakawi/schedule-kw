@@ -98,7 +98,7 @@ export default function TAPhasePanel({ collegeId, sectionId, termId }: { college
               </div>
             ))}
           </div>
-          <SecondaryButton type="button" disabled={busy} onClick={() => void close()} style={{ marginTop: 10 }}><X aria-hidden="true" /> إغلاق المرحلة</SecondaryButton>
+          <SecondaryButton data-guide-ignore="مرحلة التدريب — إعداد الموجات والنافذة" type="button" disabled={busy} onClick={() => void close()} style={{ marginTop: 10 }}><X aria-hidden="true" /> إغلاق المرحلة</SecondaryButton>
         </div>
       ) : (
         <div className="of-section">
@@ -108,7 +108,7 @@ export default function TAPhasePanel({ collegeId, sectionId, termId }: { college
               <b>{waves.length > 1 ? `موجة ${index + 1} · أولوية ${index + 1}` : "دفعة واحدة"}</b>
               <div className="of-chips">
                 {phase.tas.filter(ta => list.includes(ta.id) || !placed.has(ta.id)).map(ta => (
-                  <button type="button" className="of-chip" key={ta.id} aria-pressed={list.includes(ta.id)} onClick={() => toggle(index, ta.id)}>
+                  <button data-guide-ignore="مرحلة التدريب — إعداد الموجات والنافذة" type="button" className="of-chip" key={ta.id} aria-pressed={list.includes(ta.id)} onClick={() => toggle(index, ta.id)}>
                     🎓 {ta.name}{ta.load ? ` · ${ta.load}س` : ""}
                   </button>
                 ))}
@@ -116,13 +116,13 @@ export default function TAPhasePanel({ collegeId, sectionId, termId }: { college
             </div>
           ))}
           <div className="of-row" style={{ marginTop: 10 }}>
-            <SecondaryButton type="button" onClick={() => setWaves(current => [...current, []])}><Plus aria-hidden="true" /> موجة</SecondaryButton>
+            <SecondaryButton data-guide-ignore="مرحلة التدريب — إعداد الموجات والنافذة" type="button" onClick={() => setWaves(current => [...current, []])}><Plus aria-hidden="true" /> موجة</SecondaryButton>
             {waves.length > 1 ? <label>⏱️ بين الموجات (ساعة)<input type="number" min={1} max={336} value={delay} onChange={e => setDelay(Number(e.target.value))} /></label> : null}
             <label>📅 الإغلاق<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
             <label>🕐 الساعة<input type="time" value={time} onChange={e => setTime(e.target.value)} /></label>
             <label>🔔 تذكير قبل (ساعة)<input type="number" min={1} max={168} value={reminder} onChange={e => setReminder(Number(e.target.value))} /></label>
           </div>
-          <PrimaryButton type="button" style={{ marginTop: 10 }} disabled={busy || !date || !waves.some(list => list.length)} onClick={() => void open()}>
+          <PrimaryButton data-guide-ignore="مرحلة التدريب — إعداد الموجات والنافذة" type="button" style={{ marginTop: 10 }} disabled={busy || !date || !waves.some(list => list.length)} onClick={() => void open()}>
             <Send aria-hidden="true" /> فتح مرحلة التدريب
           </PrimaryButton>
         </div>

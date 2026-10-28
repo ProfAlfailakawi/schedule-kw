@@ -10,7 +10,7 @@ export default function SendModePicker({ value, onChange, allow = ["view", "edit
   return (
     <div className="send-mode" role="radiogroup" aria-label={label}>
       {LINK_MODES.filter(mode => allow.includes(mode.id)).map(mode => (
-        <button key={mode.id} type="button" role="radio" aria-checked={value === mode.id} aria-pressed={value === mode.id} onClick={() => onChange(mode.id)}>
+        <button data-guide-ignore="نوع الإرسال — اختيار بطاقة من ثلاث" key={mode.id} type="button" role="radio" aria-checked={value === mode.id} aria-pressed={value === mode.id} onClick={() => onChange(mode.id)}>
           <span className="sm-ic" aria-hidden="true">{mode.icon}</span>
           <b>{mode.label}</b>
           <small>{mode.hint}</small>

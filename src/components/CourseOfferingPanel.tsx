@@ -57,13 +57,13 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId }: { 
       </div>
       <div className="of-row">
         <span>في كرت الأستاذ:</span>
-        <button type="button" className="of-chip" aria-pressed={display === "fade"} onClick={() => setDisplay("fade")}>🔒 باهت بقفل</button>
-        <button type="button" className="of-chip" aria-pressed={display === "hide"} onClick={() => setDisplay("hide")}>🙈 مخفي</button>
+        <button data-guide-ignore="حالة طرح المقرر — اختيار بصري داخل اللوحة" type="button" className="of-chip" aria-pressed={display === "fade"} onClick={() => setDisplay("fade")}>🔒 باهت بقفل</button>
+        <button data-guide-ignore="حالة طرح المقرر — اختيار بصري داخل اللوحة" type="button" className="of-chip" aria-pressed={display === "hide"} onClick={() => setDisplay("hide")}>🙈 مخفي</button>
         <input type="search" placeholder="بحث…" value={query} onChange={e => setQuery(e.target.value)} style={{ minHeight: 36, borderRadius: 10, border: "1px solid var(--line)", padding: "4px 10px", font: "inherit" }} />
       </div>
       {data.suggestions.length ? (
         <div className="of-suggest" role="note">🌱 من الصحيفة: {data.suggestions.length} مقرر لم تصل دفعته (أعلى مستوى مطروح {data.suggestions[0].reachedLevel})
-          <button type="button" className="of-chip" onClick={() => data.suggestions.forEach(s => set(s.courseId, { state: "future", level: s.level }))}><Check aria-hidden="true" /> تأكيد الاقتراح</button>
+          <button data-guide-ignore="حالة طرح المقرر — اختيار بصري داخل اللوحة" type="button" className="of-chip" onClick={() => data.suggestions.forEach(s => set(s.courseId, { state: "future", level: s.level }))}><Check aria-hidden="true" /> تأكيد الاقتراح</button>
         </div>
       ) : null}
       <div className="of-grid" style={{ marginTop: 10 }}>
@@ -75,7 +75,7 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId }: { 
               <header><div><b>{course.name}</b><small> {course.code}</small></div><span aria-hidden="true">{OFFERING_META[state].icon}</span></header>
               <div className="of-path" aria-label="مسار الصحيفة">{[100, 200, 300, 400].map(l => <i key={l} data-on={level && l <= level ? "1" : "0"} data-at={level === l ? "1" : "0"} title={`مستوى ${l}`} />)}<span>{level ? `م${level}` : "—"} · {course.sections} شعبة</span></div>
               <div className="of-states" role="group" aria-label={`حالة ${course.name}`}>
-                {STATES.map(s => <button type="button" key={s} aria-pressed={state === s} title={OFFERING_META[s].label} onClick={() => set(course.id, { state: s, ...(s === "future" && !draft[course.id]?.level ? { level: course.level || 0 } : {}) })}>{OFFERING_META[s].icon}</button>)}
+                {STATES.map(s => <button data-guide-ignore="حالة طرح المقرر — اختيار بصري داخل اللوحة" type="button" key={s} aria-pressed={state === s} title={OFFERING_META[s].label} onClick={() => set(course.id, { state: s, ...(s === "future" && !draft[course.id]?.level ? { level: course.level || 0 } : {}) })}>{OFFERING_META[s].icon}</button>)}
               </div>
               {state === "future" ? <div className="of-row"><label>يُطرح عند المستوى<input type="number" step={100} min={100} max={400} value={level || ""} onChange={e => set(course.id, { level: Number(e.target.value) })} /></label></div> : null}
               {state === "limited" ? <div className="of-row"><label>🎯 أقصى شعب<input type="number" min={0} max={99} value={draft[course.id]?.maxSections ?? ""} onChange={e => set(course.id, { maxSections: Number(e.target.value) })} /></label><small>متبقٍّ {Math.max(0, (draft[course.id]?.maxSections || 0) - course.sections)}</small></div> : null}
@@ -89,7 +89,7 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId }: { 
         </div>
       ) : null}
       <div className="of-row" style={{ marginTop: 12 }}>
-        <PrimaryButton type="button" disabled={busy} onClick={() => void save()}><Check aria-hidden="true" /> حفظ</PrimaryButton>
+        <PrimaryButton data-guide-ignore="حالة طرح المقرر — اختيار بصري داخل اللوحة" type="button" disabled={busy} onClick={() => void save()}><Check aria-hidden="true" /> حفظ</PrimaryButton>
         {msg ? <span role="status">{msg}</span> : null}
       </div>
     </div>

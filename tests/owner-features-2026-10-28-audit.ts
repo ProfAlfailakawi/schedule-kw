@@ -77,7 +77,7 @@ ok(first.result.ok && first.result.message === "أضفت 3 · متبقي 7" && f
 const eight = tryAddSeats(first.next!, config, { id: 2, name: "م2" }, 5);
 ok(eight.result.ok && eight.result.message.includes("آخر مقعدين") && eight.result.icon === "⚠️", "L3 «آخر مقعدين»");
 const over = tryAddSeats(eight.next!, config, { id: 3, name: "م3" }, 3);
-ok(!over.result.ok && over.result.reason === "full" && !over.next, "L3 never exceeds the cap, nothing partial");
+ok(!over.result.ok && (over.result as any).reason === "full" && !over.next, "L3 never exceeds the cap, nothing partial");
 const full = tryAddSeats(tryAddSeats(eight.next!, config, { id: 3, name: "م3" }, 2).next!, config, { id: 3, name: "م3" }, 1);
 ok(!full.result.ok && full.result.message === "الشعبة ممتلئة", "L3 «الشعبة ممتلئة»");
 /* محاكاة تزامن: كلُّ محاولةٍ تقرأ آخر ما كُتب (كما في المعاملة الذرّية) — المجموعُ لا يتجاوز السقف. */
@@ -157,11 +157,11 @@ ok(MASARI_ACK_TEXT === "هذه مقترحات فقط، وليست تسجيلاً
 ok(masari.includes('if(v==="home"){if(!masariAcked())return viewAck();viewHome();masariRibbon();return}'), "M2 card required before home, then ribbon");
 ok(MASARI_ACK_JS.includes('"masari-ack:"+(t.id||"")+":"+(p.sectionId||"")+":"+(p.planId'), "M2 once per term, again when the path changes");
 ok(MASARI_ACK_JS.includes("مقترح · غير نهائي") && MASARI_ACK_JS.includes("💡") && MASARI_ACK_JS.includes("👀") && MASARI_ACK_JS.includes("✅"), "M2 infographic + fixed ribbon");
-const store = new Map<string, string>();
-const mctx = vm.createContext({ S: { state: { term: { id: 3 }, profile: { sectionId: 2, planId: "p1" } } }, localStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) } });
+const mctx = vm.createContext({ S: { state: { term: { id: 3 }, profile: { sectionId: 2, planId: "p1" } } } });
 vm.runInContext(MASARI_ACK_JS, mctx);
 ok(vm.runInContext("masariAcked()", mctx) === false, "M2 first visit asks");
-store.set("masari-ack:3:2:p1", "1");
+ok(!/localStorage|sessionStorage/.test(MASARI_ACK_JS) && MASARI_ACK_JS.includes('api("POST","/api/public/me/ack"'), "M2 ack lives on the server profile, not browser storage");
+mctx.S.state.profile.masariAck = "masari-ack:3:2:p1";
 ok(vm.runInContext("masariAcked()", mctx) === true, "M2 acknowledged this term/path");
 mctx.S.state.profile.planId = "p2";
 ok(vm.runInContext("masariAcked()", mctx) === false, "M2 path change asks again");

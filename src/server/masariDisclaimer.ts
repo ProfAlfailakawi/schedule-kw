@@ -5,8 +5,8 @@
  * النظام الرسمي. لا يكمل الطالب قبل «فهمت ✓». تُعرض مرةً لكل فصل، وتعود إن تغيّر
  * مساره (القسم أو الصحيفة). بعدها شريطٌ صغيرٌ ثابت «مقترح · غير نهائي» في كل شاشة.
  *
- * «فهمت» تفضيلٌ على الجهاز (localStorage) — لا تُرسل ولا تُخزَّن عند أحد؛ ومتصفّحٌ
- * بلا تخزين يرى البطاقة كل مرة (الأسلم).
+ * «فهمت» تُحفظ في ملف الطالب على الخادم (‎/api/public/me/ack‎) — لا شيء في تخزين
+ * المتصفح (قاعدة باب الطالب) — فتتبعه على كل أجهزته.
  */
 export const MASARI_ACK_TEXT = "هذه مقترحات فقط، وليست تسجيلاً نهائياً";
 
@@ -28,7 +28,7 @@ export const MASARI_ACK_CSS = `
 
 export const MASARI_ACK_JS = String.raw`
 function masariAckKey(){var s=S.state||{},p=s.profile||{},t=s.term||{};return "masari-ack:"+(t.id||"")+":"+(p.sectionId||"")+":"+(p.planId||p.curriculumPlanId||"")}
-function masariAcked(){try{return localStorage.getItem(masariAckKey())==="1"}catch(e){return false}}
+function masariAcked(){var p=(S.state||{}).profile||{};return p.masariAck===masariAckKey()}
 function masariRibbon(){var r=document.getElementById("mribbon");if(!r){r=document.createElement("div");r.id="mribbon";r.className="mribbon";r.setAttribute("role","note");document.body.appendChild(r)}r.textContent="💡 مقترح · غير نهائي"}
 function viewAck(){var r=document.getElementById("mribbon");if(r)r.remove();
   app.innerHTML='<section class="mack fade" role="dialog" aria-modal="true" aria-labelledby="mackT"><h1 id="mackT">${MASARI_ACK_TEXT}</h1>'+
@@ -36,5 +36,5 @@ function viewAck(){var r=document.getElementById("mribbon");if(r)r.remove();
   '<div class="mack-step"><i>👀</i><b>مراجعة</b><small>أنت ومرشدك</small></div><span class="mack-arrow">←</span>'+
   '<div class="mack-step" data-k="official"><i>✅</i><b>التسجيل الرسمي</b><small>في النظام الرسمي للجامعة</small></div></div>'+
   '<button type="button" class="mack-ok" id="mackOk">فهمت ✓</button></section>';
-  var b=document.getElementById("mackOk");b.focus();b.addEventListener("click",function(){try{localStorage.setItem(masariAckKey(),"1")}catch(e){}viewHome();masariRibbon()})}
+  var b=document.getElementById("mackOk");b.focus();b.addEventListener("click",function(){var k=masariAckKey();if(S.state&&S.state.profile)S.state.profile.masariAck=k;api("POST","/api/public/me/ack",{key:k});viewHome();masariRibbon()})}
 `;

@@ -928,6 +928,8 @@ export interface PublishedPlanSheet {
 export interface StudentProfile {
   /** = fingerprint. وثيقةٌ واحدة لكل طالب. */
   id: string;
+  /** M2: آخر «فهمت ✓» على بطاقة «مقترحات فقط» — ‎masari-ack:<فصل>:<قسم>:<صحيفة>‎. */
+  masariAck?: string;
   fingerprint: string;
   /** قسمُه العلمي. 0 قبل أن يكمل إعداد ملفّه. */
   AdCollegeId: number;
