@@ -910,10 +910,10 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                     </span>
                   </div>
                   <div className="share-window-actions">
-                    <button type="button" disabled={busy} onClick={() => openManagement("all", staffPublication.id)}>
+                    <button data-guide-feature-id="schedule.publish.requests" type="button" disabled={busy} onClick={() => openManagement("all", staffPublication.id)}>
                       <Users aria-hidden="true" /> فتح للجميع
                     </button>
-                    <button type="button" disabled={busy} onClick={() => void openManagement("one", staffPublication.id)}>
+                    <button data-guide-feature-id="schedule.publish.requests" type="button" disabled={busy} onClick={() => void openManagement("one", staffPublication.id)}>
                       <IdCard aria-hidden="true" /> استثناء لأستاذ
                     </button>
                   </div>
@@ -938,9 +938,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                         <label>الساعة (الكويت) <input type="time" value={manageTime} onChange={event => setManageTime(event.target.value)} /></label>
                       </div>
                       <div className="share-window-actions">
-                        <button type="button" disabled={busy || !manageDate || !manageTime || (manageMode === "one" && (!manageInstructorId || !manageReason.trim()))}
+                        <button data-guide-feature-id="schedule.publish.requests" type="button" disabled={busy || !manageDate || !manageTime || (manageMode === "one" && (!manageInstructorId || !manageReason.trim()))}
                           onClick={() => void applyManagement()}><Check aria-hidden="true" /> تأكيد الفتح</button>
-                        <button type="button" disabled={busy} onClick={() => setManageMode(null)}>إلغاء</button>
+                        <button data-guide-feature-id="schedule.publish.requests" type="button" disabled={busy} onClick={() => setManageMode(null)}>إلغاء</button>
                       </div>
                     </div>
                   ) : null}
@@ -950,7 +950,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                       <strong>استثناءات نشطة ({activeExceptions.length})</strong>
                       {activeExceptions.map(item => <div className="share-window-exception" key={item.instructorId}>
                         <span><b>{item.name}</b><small>حتى {kwTime(item.closesAt)} · {item.reason}</small></span>
-                        <button type="button" disabled={busy} onClick={() => void revokeException(item.instructorId)}>إلغاء الاستثناء</button>
+                        <button data-guide-feature-id="schedule.publish.requests" type="button" disabled={busy} onClick={() => void revokeException(item.instructorId)}>إلغاء الاستثناء</button>
                       </div>)}
                     </div>
                   ) : null}
