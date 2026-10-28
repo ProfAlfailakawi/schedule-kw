@@ -136,7 +136,7 @@ for (const name of ["التوأم الأكاديمي", "قبل / بعد", "تأ�
 }
 assert.ok(sixUi.includes("setFeature(item.id)") && sixUi.includes("adl-feature"),
   "all six tiles really switch visible content, not static placeholder labels");
-assert.ok(sixUi.includes("lab.demoShowcase") && sixUi.includes("حالة افتراضية منفصلة"),
+assert.ok(sixUi.includes("viewingTraining &&") && sixUi.includes("حالة افتراضية منفصلة"),
   "fictional training numbers cannot be represented as real university data");
 // Render the actual React component, not merely search for JSX labels.
 const html = renderToStaticMarkup(createElement(AcademicDecisionLabPanel, {
@@ -156,10 +156,37 @@ assert.equal((emptyHtml.match(/class="adl-feature(?: adl-feature-active)?"/g) ||
 function privateLabForVisibility() {
   return { ...training, demoShowcase: false, scenarios: [], graduationWatch: [], chain: undefined };
 }
+// Regression: the previously visible live course list must survive alongside
+// the separate six-feature lesson, even if there are no live what-if scenarios.
+const liveWatchMarkup = renderToStaticMarkup(createElement(AcademicDecisionLabPanel, {
+  lab: { ...training, demoShowcase: false, scenarios: [], chain: undefined,
+    graduationWatch: [{ courseId: 501, courseName: "مقرر أصيل من القسم", offered: false,
+      downstream: 2, demand: 5, nearGraduation: 0 }] },
+  demo: false, onRefresh: () => {}, refreshing: false,
+}));
+assert.ok(liveWatchMarkup.includes("مقررات المسار الأكاديمي") &&
+  liveWatchMarkup.includes("مقرر أصيل من القسم") &&
+  liveWatchMarkup.includes("هذه مقررات القسم الفعلية"),
+  "restored real-course list stays visible even when the calculated preview is selected");
+assert.ok(liveWatchMarkup.includes("تجربة الأدوات الست") &&
+  liveWatchMarkup.includes("بيانات القسم الفعلية") &&
+  liveWatchMarkup.includes("حالة افتراضية منفصلة") &&
+  liveWatchMarkup.includes("الموعد المقترح"),
+  "the six tools must show the separately marked training calculation, not six empty states");
+assert.equal((liveWatchMarkup.match(/class="adl-feature(?: adl-feature-active)?"/g) || []).length, 6,
+  "all six interactive tools stay visible beside the actual course list");
+const adviceOrder = fs.readFileSync("src/components/AcademicAdvicePanel.tsx", "utf8");
+assert.ok(adviceOrder.indexOf("فرص المقررات المكتشفة") < adviceOrder.indexOf("<AcademicDecisionLabPanel"),
+  "course opportunities appear BEFORE the full academic lab, so they are not buried below it");
+assert.ok(adviceOrder.includes("relevant.slice(0, compact ? 3 : relevant.length)") &&
+  adviceOrder.includes("periods.slice(0, compact ? 2 : periods.length)"),
+  "the full view must list all opportunities included in the visible counter");
+
 const apiSource = fs.readFileSync("src/server/academicAdvisoryData.ts","utf8");
-assert.ok(apiSource.includes("decisionLab = demoRequest") &&
-  apiSource.includes("Repository.isDemoRequest()"),
-  "real student data must never use the fictional demo fallback");
+assert.ok(apiSource.includes("decisionLab = buildAcademicDecisionLab(input, reading)") &&
+  !apiSource.includes("decisionLab = demoRequest") &&
+  !apiSource.includes("buildAcademicDecisionLabTrainingPreview"),
+  "scoped API must always return genuine curriculum/watch results, never the fictional tutorial");
 
 const privateLab=buildAcademicDecisionLab({...labInput,profiles:[profile(1,[2,3],[1])]},
   analyseAcademicAdvice({...labInput,profiles:[profile(1,[2,3],[1])]}));
