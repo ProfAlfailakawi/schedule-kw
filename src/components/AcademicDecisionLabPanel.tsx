@@ -22,13 +22,14 @@ const meter = (label:string, value:number, max:number, detail:string, kind:"base
 export default function AcademicDecisionLabPanel({lab,courseId,compact=false,demo,onRefresh,refreshing}:Props) {
   const [selected,setSelected]=useState<string>("");
   const scenarios=useMemo(()=> (lab?.scenarios||[]).filter(s=>!courseId||s.courseId===courseId),[lab,courseId]);
+  const watched=(lab?.graduationWatch||[]).filter(w=>!courseId||w.courseId===courseId);
   const active:AcademicDecisionScenario=scenarios.find(s=>s.id===selected)||scenarios[0]!;
   useEffect(()=>{setSelected("");},[courseId,lab?.sampledAt]);
   if(!lab || !scenarios.length) {
-    if(!demo && !lab?.graduationWatch?.length)return null;
+    if(!demo && !watched.length)return null;
     return <section className="adl-demo-empty" aria-label="مختبر القرار الأكاديمي">
       <div className="adl-demo-head"><BrainCircuit size={19} aria-hidden="true"/><strong>مختبر القرار الأكاديمي</strong><span>محاكاة حيّة</span></div>
-      {lab?.graduationWatch?.length ? <div className="adl-watch-list">{lab.graduationWatch.slice(0,3).map(w=>
+      {watched.length ? <div className="adl-watch-list">{watched.slice(0,3).map(w=>
         <div className="adl-watch-item" key={w.courseId}><GraduationCap size={15} aria-hidden="true"/>
           <strong>{w.courseName}</strong><small>{!w.offered?"غير مطروح":"مسار لاحق"} · {n(w.demand)} رغبات مؤهلة</small></div>)}</div> :
         <p>ما ظهرت محاكاة مكتملة بعد؛ نعرض النتائج فقط عندما تتوفر رغبات مؤهلة وثلاثة مستفيدين أو أكثر.</p>}
@@ -91,8 +92,8 @@ export default function AcademicDecisionLabPanel({lab,courseId,compact=false,dem
         </div>
       </details>}
       <div className="adl-explain">
-        {Boolean(lab.graduationWatch?.length) && <details><summary><GraduationCap size={14} aria-hidden="true"/> إنقاذ المسار الأكاديمي <ChevronDown size={14} aria-hidden="true"/></summary>
-          <div className="adl-watch-list">{lab.graduationWatch!.slice(0,4).map(w=>
+        {Boolean(watched.length) && <details><summary><GraduationCap size={14} aria-hidden="true"/> إنقاذ المسار الأكاديمي <ChevronDown size={14} aria-hidden="true"/></summary>
+          <div className="adl-watch-list">{watched.slice(0,4).map(w=>
             <div className="adl-watch-item" key={w.courseId}>
               <GraduationCap size={15} aria-hidden="true"/><strong>{w.courseName}</strong>
               <small>{!w.offered?"مقرر غير مطروح":"يفتح "+n(w.downstream)+" مقررات لاحقة"} · {n(w.demand)} رغبات مؤهلة
