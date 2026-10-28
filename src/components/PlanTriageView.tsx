@@ -1,0 +1,117 @@
+import React, { useState } from "react";
+import { Check, CircleSlash, Lightbulb, OctagonAlert, RotateCcw, TriangleAlert, Wrench } from "lucide-react";
+import type { GapItem } from "../utils/sectionGap";
+import { FOCUS_COURSE_EVENT, type PlanDecision, type PlanTier, type triagePlanItems } from "../utils/planTriage";
+import { AR, countOf } from "../utils/arabicCount";
+
+export type PlanTriage = ReturnType<typeof triagePlanItems>;
+
+const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
+const TIERS: Array<{ tier: PlanTier; label: string; Icon: typeof OctagonAlert }> = [
+  { tier: "urgent", label: "عاجل", Icon: OctagonAlert },
+  { tier: "important", label: "مهم", Icon: TriangleAlert },
+  { tier: "opportunity", label: "فرصة", Icon: Lightbulb },
+];
+
+/**
+ * «التخطيط» as three shelves (K2): a one-glance summary, then each shelf with
+ * its items; every item says why it is there and carries «عالج» (show its
+ * appointments on the week), «تم» and «تجاهل» — the last one asks for a reason.
+ * A decision is kept with the numbers it was made on; when they change, the item
+ * comes back by itself.
+ */
+export default function PlanTriageView({ triage, renderItem, onDecide, onClose, readOnly = false }: {
+  triage: PlanTriage;
+  renderItem: (item: GapItem, actions?: React.ReactNode) => React.ReactNode;
+  onDecide?: (id: number, decision: PlanDecision | null) => void;
+  onClose: () => void;
+  /** K5: the decision board reads; it never acts. */
+  readOnly?: boolean;
+}) {
+  const [asking, setAsking] = useState<{ id: number; state: PlanDecision["state"] } | null>(null);
+  const [reason, setReason] = useState("");
+  const [showHandled, setShowHandled] = useState(false);
+  const { counts } = triage;
+  const total = Math.max(1, counts.total);
+  const decide = (entry: PlanTriage["live"][number], state: PlanDecision["state"]) => {
+    const text = reason.trim();
+    if (state === "ignored" && !text) return;
+    onDecide?.(entry.item.id, { state, reason: text, at: new Date().toISOString(), signature: entry.signature });
+    setAsking(null); setReason("");
+  };
+  const actionsFor = (entry: PlanTriage["live"][number]) => readOnly ? (
+    <div className="plan-triage-actions"><span className={`plan-triage-why tier-${entry.tier}`}>{entry.reason}</span></div>
+  ) : (
+    <div className="plan-triage-actions">
+      <span className={`plan-triage-why tier-${entry.tier}`}>{entry.reason}</span>
+      <button type="button" className="plan-triage-act is-primary" data-guide-ignore="يُبرز مواعيد المقرر على الأسبوع للمعالجة، لا يغيّر شيئاً"
+        onClick={() => { window.dispatchEvent(new CustomEvent(FOCUS_COURSE_EVENT, { detail: { code: entry.item.code, courseId: entry.item.id } })); onClose(); }}>
+        <Wrench aria-hidden="true" /> عالج
+      </button>
+      {onDecide ? <>
+        <button type="button" className="plan-triage-act" aria-pressed={asking?.id === entry.item.id && asking.state === "done"}
+          data-guide-ignore="يعلّم البند منجزاً في هذا المتصفح" onClick={() => { setAsking({ id: entry.item.id, state: "done" }); setReason(""); }}>
+          <Check aria-hidden="true" /> تم
+        </button>
+        <button type="button" className="plan-triage-act" aria-pressed={asking?.id === entry.item.id && asking.state === "ignored"}
+          data-guide-ignore="يتجاهل البند بسببٍ مكتوب في هذا المتصفح" onClick={() => { setAsking({ id: entry.item.id, state: "ignored" }); setReason(""); }}>
+          <CircleSlash aria-hidden="true" /> تجاهل
+        </button>
+      </> : null}
+      {asking?.id === entry.item.id ? (
+        <form className="plan-triage-reason" onSubmit={event => { event.preventDefault(); decide(entry, asking.state); }}>
+          <input value={reason} onChange={event => setReason(event.target.value)} autoFocus maxLength={140}
+            placeholder={asking.state === "ignored" ? "السبب (مطلوب)" : "ملاحظة (اختياري)"} aria-label="سبب القرار" />
+          <button type="submit" disabled={asking.state === "ignored" && !reason.trim()} data-guide-ignore="حفظ قرار البند في هذا المتصفح">حفظ</button>
+        </form>
+      ) : null}
+    </div>
+  );
+  return (
+    <div className="plan-triage">
+      {/* One glance: three shelves as tiles and as one bar. */}
+      <div className="plan-triage-summary" role="img" aria-label={`عاجل ${counts.urgent} · مهم ${counts.important} · فرصة ${counts.opportunity}`}>
+        <div className="plan-triage-tiles">
+          {TIERS.map(({ tier, label, Icon }) => (
+            <span key={tier} className={`plan-triage-tile tier-${tier}`} data-tier-count={tier}>
+              <Icon aria-hidden="true" /><b>{num(counts[tier])}</b><small>{label}</small>
+            </span>
+          ))}
+        </div>
+        <span className="plan-triage-bar" aria-hidden="true">
+          {TIERS.map(({ tier }) => counts[tier] ? <i key={tier} className={`tier-${tier}`} style={{ width: `${(counts[tier] / total) * 100}%` }} /> : null)}
+        </span>
+        {triage.handled.length || triage.duplicates ? (
+          <small className="plan-triage-meta">
+            {triage.handled.length ? <button type="button" className="plan-triage-link" onClick={() => setShowHandled(value => !value)} data-guide-ignore="عرض البنود المنجزة والمتجاهلة">
+              <Check aria-hidden="true" /> {countOf(triage.handled.length, AR.item)} مُعالَجة
+            </button> : null}
+            {triage.duplicates ? <span>{countOf(triage.duplicates, AR.item)} مكررة بالرمز نفسه دُمجت</span> : null}
+          </small>
+        ) : null}
+      </div>
+      {TIERS.map(({ tier, label, Icon }) => {
+        const shelf = triage.live.filter(entry => entry.tier === tier);
+        if (!shelf.length) return null;
+        return (
+          <section key={tier} className={`plan-triage-shelf tier-${tier}`} aria-label={label}>
+            <h5><Icon aria-hidden="true" />{label}<b>{num(shelf.length)}</b></h5>
+            <ul className="apb-gap-list">{shelf.map(entry => renderItem(entry.item, actionsFor(entry)))}</ul>
+          </section>
+        );
+      })}
+      {!triage.live.length ? <p className="plan-triage-clear"><Check aria-hidden="true" /> لا بنود مفتوحة في التخطيط.</p> : null}
+      {showHandled && triage.handled.length ? (
+        <ul className="plan-triage-handled">
+          {triage.handled.map(entry => (
+            <li key={entry.item.id}>
+              {entry.decision.state === "done" ? <Check aria-hidden="true" /> : <CircleSlash aria-hidden="true" />}
+              <span><b>{entry.item.name}</b><small>{entry.decision.state === "done" ? "تم" : "متجاهل"}{entry.decision.reason ? ` · ${entry.decision.reason}` : ""}</small></span>
+              {onDecide ? <button type="button" className="plan-triage-act" onClick={() => onDecide(entry.item.id, null)} data-guide-ignore="إرجاع البند إلى القائمة المفتوحة"><RotateCcw aria-hidden="true" /> إرجاع</button> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}

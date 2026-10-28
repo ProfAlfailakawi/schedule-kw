@@ -24,6 +24,7 @@ import type { LucideIcon } from "lucide-react";
 import { safeStorage } from "../utils/safeStorage";
 import { Notice, PrimaryButton, SecondaryButton } from "./ui";
 import { SectionGapBadge, SectionGapPanel, showQuickCompareBadge, useSectionGap, type GapKind } from "./SectionGapNote";
+import { readPlanDecisions, triagePlanItems, writePlanDecisions, type PlanDecision } from "../utils/planTriage";
 import { reconcilePlanAdjustments, type GapItem } from "../utils/sectionGap";
 import QuickPlanSheet from "./QuickPlanSheet";
 import {
@@ -163,6 +164,20 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   const [planSheet, setPlanSheet] = useState(false);
   const gap = useSectionGap(collegeId, sectionId, termId, refreshSignal, gapOpen !== null);
   const planAdjustments = useMemo(() => reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems), [gap.planItems, gap.planSurplusItems]);
+  /* K2: three shelves, decisions folded out, duplicates merged — the badge counts what is still open. */
+  const triageScope = `${collegeId}:${sectionId}:${termId}`;
+  const [planDecisions, setPlanDecisions] = useState<Record<string, PlanDecision>>(() => readPlanDecisions(triageScope));
+  useEffect(() => { setPlanDecisions(readPlanDecisions(triageScope)); }, [triageScope]);
+  const planTriage = useMemo(() => triagePlanItems(planAdjustments, planDecisions), [planAdjustments, planDecisions]);
+  const livePlanItems = useMemo(() => planTriage.live.map(entry => entry.item), [planTriage]);
+  const decidePlanItem = (id: number, decision: PlanDecision | null) => {
+    setPlanDecisions(current => {
+      const next = { ...current };
+      if (decision) next[String(id)] = decision; else delete next[String(id)];
+      writePlanDecisions(triageScope, next);
+      return next;
+    });
+  };
   useEffect(() => { onStudentGaps?.(gap.studentItems); }, [gap.studentItems, onStudentGaps]);
   useEffect(() => { onPlanningGaps?.(gap.planTargets); }, [gap.planTargets, onPlanningGaps]);
   /* الشريط يزول (كل الأقسام، أو فصلٌ مؤرشف): تزول علاماتُه من مفتاح الألوان معه. */
@@ -554,7 +569,8 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
      must remain visible from this term's report even if historical opening
      suggestions have not finished loading. */
   const gapList = gapOpen === "plan" ? planAdjustments : gapOpen === "students" ? gap.studentItems : [];
-  const gapPanel = gapOpen && gapList.length ? <SectionGapPanel items={gapList} kind={gapOpen} onClose={() => setGapOpen(null)} staffing={gap.staffing} freeSlots={gap.freeSlots} /> : null;
+  const planPanelOpen = gapOpen === "plan" && (planTriage.live.length > 0 || planTriage.handled.length > 0);
+  const gapPanel = gapOpen && (gapList.length || planPanelOpen) ? <SectionGapPanel items={gapList} kind={gapOpen} onClose={() => setGapOpen(null)} staffing={gap.staffing} freeSlots={gap.freeSlots} triage={gapOpen === "plan" ? planTriage : undefined} onDecide={decidePlanItem} /> : null;
   const readinessPanel = state.dataReadiness ? (
     <section className="apb-data-readiness" data-ready={state.dataReadiness.ready || undefined} aria-label="بيانات تحتاج استكمالاً">
       <header>
@@ -699,7 +715,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
             <ChevronDown aria-hidden="true" className="apb-data-chev" />
           </button>
         ) : null}
-        <SectionGapBadge items={planAdjustments} kind="plan" open={gapOpen === "plan"} onToggle={() => setGapOpen(open => open === "plan" ? null : "plan")} />
+        <SectionGapBadge items={livePlanItems} kind="plan" open={gapOpen === "plan"} onToggle={() => setGapOpen(open => open === "plan" ? null : "plan")} />
         <SectionGapBadge items={gap.studentItems} kind="students" open={gapOpen === "students"} onToggle={() => setGapOpen(open => open === "students" ? null : "students")} />
         {showQuickCompareBadge(gap) ? (
           <button type="button" className="apb-badge apb-gap-ghost" onClick={() => setPlanSheet(true)} aria-haspopup="dialog"

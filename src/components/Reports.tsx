@@ -4,7 +4,7 @@ import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } fr
 import { buildingNumberLabel } from "../utils/locationCollegePrefixes";
 import { flushSync } from "react-dom";
 import {
-  BookOpen, Building2, CalendarDays, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
+  BookOpen, Building2, CalendarDays, Compass, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
   ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert,
 } from "lucide-react";
@@ -56,6 +56,8 @@ import PlanBadge from "./PlanBadge";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { teachingHoursByInstructor } from "../utils/teachingLoad";
 import { effectiveCourseHours } from "../utils/scheduleRegulations";
+import DecisionBoard from "./DecisionBoard";
+import { canSeeDecisionBoard } from "../utils/decisionBoardScope";
 
 /**
  * One question, seven lenses.
@@ -79,8 +81,8 @@ type VisitingTeachingData = {
   instructors: AdInstructor[];
   rows: FSchedule[];
 };
-type Lens = "list" | "week" | "instructor" | "courseLoad" | "room" | "roomInstructor" | "matrix" | "time" | "visiting" | "visitingHistory" | "fairness" | "balance" | "courseRoom";
-type PrintKind = Exclude<Lens, "courseRoom"> | "comprehensive" | "comprehensive-branch" | null;
+type Lens = "list" | "week" | "instructor" | "courseLoad" | "room" | "roomInstructor" | "matrix" | "time" | "visiting" | "visitingHistory" | "fairness" | "balance" | "courseRoom" | "decision";
+type PrintKind = Exclude<Lens, "courseRoom" | "decision"> | "comprehensive" | "comprehensive-branch" | null;
 
 /* Safari is the one printing engine here that ignores `@page size` (so wide
    sheets meet portrait paper) — detected once, and only ever used to OFFER a
@@ -168,7 +170,9 @@ const LENSES: Array<{ id: Lens; label: string; hint: string; icon: React.ReactNo
   { id: "fairness", label: "عدالة الحمل", hint: "تفاوت الحمل الأسبوعي بين الأساتذة", icon: <Scale /> },
   /* Main administrator only — see `shownLenses`. It is the one reading nobody
      else is allowed to see, so it must not appear as a locked door to them. */
-  { id: "balance", label: "ميزان الأقسام", hint: "كل أقسام الفصل، قسمٌ في كل سطر", icon: <Landmark /> }
+  { id: "balance", label: "ميزان الأقسام", hint: "كل أقسام الفصل، قسمٌ في كل سطر", icon: <Landmark /> },
+  /* K5: the planning tools, read-only, for the department head, the dean and above. */
+  { id: "decision", label: "لوحة القرار", hint: "التخطيط والتنبّؤ ومختبر القرار للقراءة: القسم لرئيسه، والكلية لعميدها", icon: <Compass /> }
 ];
 
 /**
@@ -190,8 +194,8 @@ const ROLE_LENSES: Record<string, Lens[]> = {
   /* العميدان يفتحان على ميزان الأقسام: «أين وصلت الأقسام؟» سؤالُهما الأول،
      والقائمةُ — المعتمدة وحدها — تكون فارغةً قبل أن يعتمد التسجيل شيئاً، فشاشةٌ
      أولى فارغة لا تجيب أحداً. ثم الجداول نفسها وما يُكمل الصورة. */
-  dean:           ["balance", "list", "week", "fairness", "courseLoad", "visiting"],
-  viceDean:       ["balance", "list", "week", "fairness", "courseLoad", "visiting", "instructor", "room", "roomInstructor", "matrix", "courseRoom"],
+  dean:           ["balance", "decision", "list", "week", "fairness", "courseLoad", "visiting"],
+  viceDean:       ["balance", "decision", "list", "week", "fairness", "courseLoad", "visiting", "instructor", "room", "roomInstructor", "matrix", "courseRoom"],
   registrarDean:  ["balance", "list", "room", "roomInstructor", "matrix", "courseRoom"],
   registrarHead:  ["balance", "list", "room", "roomInstructor", "matrix", "courseRoom"],
   registrarStaff: ["balance", "list", "room", "roomInstructor", "courseRoom"],
@@ -607,7 +611,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const nextLens = modeSeen.current ? initialLensFor(roleId, mode, undefined) : lens;
     modeSeen.current = true;
     setLens(nextLens);
-    setPrintKind(nextLens);
+    setPrintKind(nextLens === "decision" ? "list" : nextLens);
   }, [mode]);
   useEffect(() => {
     // Persist the whole filter set, not just scope — every active chip
@@ -888,7 +892,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         .map(id => LENSES.find(item => item.id === id))
         .filter((item): item is typeof LENSES[number] => Boolean(item));
     }
-    return LENSES.filter(item => item.id !== "visitingHistory" && (item.id !== "balance" || isPowerAdmin));
+    return LENSES.filter(item => item.id !== "visitingHistory" && (item.id !== "balance" || isPowerAdmin) && (item.id !== "decision" || canSeeDecisionBoard({ roleId, isPowerAdmin })));
   }, [isPowerAdmin, roleId]);
   /* العدسة المختارة قد تكون محفوظةً من صفةٍ سابقة أو من قبل هذه الإضافة:
      تُردّ إلى أول ما هو متاح بدل أن تُعرض شاشةٌ فارغة بلا سبب ظاهر. */
@@ -2051,7 +2055,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     }
     runVisualTransition(() => {
       setLens(next);
-      setPrintKind(next);
+      setPrintKind(next === "decision" ? "list" : next);
       setOpenGroup(null);
       setRoomPick(null);
     });
@@ -3043,6 +3047,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             ))}</div>
             </section> : filters.sectionId && !siteLoadRead?.loading ? <div className="query-empty"><EmptyState title={`لا توجد مواد لقسم ${sectionName || "القسم المحدد"} في المواقع المعنية لهذا الفصل`} /></div> : null}
           </div>
+        ) : lens === "decision" ? (
+          <DecisionBoard
+            reader={{ roleId, isPowerAdmin, scopes }}
+            collegeId={filters.collegeId}
+            sectionId={filters.sectionId}
+            termId={filters.termId}
+            sections={sectionOptions}
+          />
         ) : lens === "roomInstructor" ? (
           <div className="room-teacher-report">
             <div className="room-teacher-switch" role="group" aria-label="اتجاه التقرير">
