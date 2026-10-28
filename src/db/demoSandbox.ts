@@ -149,6 +149,10 @@ const DEMO_BUILDINGS: readonly DemoBuildingSeed[] = [
   ] },
 ];
 const demoBuildingCode = (b: DemoBuildingSeed) => `${b.prefix}${b.siteLetter}${b.number}`;
+/* المرفق المرافق في الديمو: استوديو تصوير لا يُحجز إلا مع قاعة أساسية (bookingPolicy: companion_only). */
+export const DEMO_COMPANION_TYPE = "استوديو التصوير";
+const DEMO_STUDIO_HALL = "ST1";
+export const DEMO_STUDIO_ROOM_ID = "room_901A01_ST1";
 const demoBuildingId = (b: DemoBuildingSeed) => `building_${demoBuildingCode(b)}`;
 const demoRoomId = (b: DemoBuildingSeed, hall: string) => `room_${demoBuildingCode(b)}_${hall}`;
 
@@ -189,6 +193,17 @@ function demoLocationRegistry(schedules: FSchedule[]): { buildings: MasterBuildi
     confidence: "CONFIRMED", source: "DEMO_SANDBOX", adminVerified: true, evidence, auditHistory: [],
     createdAt: at, updatedAt: at, lastVerifiedAt: at,
   }));
+  /* استوديو مرافق (لا يُحجز وحده): يُحجز مع القاعة الأساسية لمقررٍ يتطلبه — مشهد «المرفق المرافق». */
+  const studioBuilding = DEMO_BUILDINGS[0];
+  rooms.push({
+    id: DEMO_STUDIO_ROOM_ID, buildingId: demoBuildingId(studioBuilding), buildingCode: demoBuildingCode(studioBuilding), canonicalCode: DEMO_STUDIO_HALL, active: true, aliases: [],
+    roomType: DEMO_COMPANION_TYPE, capacity: 20, bookingPolicy: "companion_only",
+    collegeIds: [studioBuilding.collegeId], sectionIds: [DEMO_SECTION_ID], primarySectionIds: [DEMO_SECTION_ID],
+    shared: false, sharedConfidence: "CONFIRMED",
+    historicalUsageCount: schedules.filter(row => row.companionRoomId === DEMO_STUDIO_ROOM_ID).length, firstTermId: 1, lastTermId: 1,
+    confidence: "CONFIRMED", source: "DEMO_SANDBOX", adminVerified: true, evidence, auditHistory: [],
+    createdAt: at, updatedAt: at, lastVerifiedAt: at,
+  } as MasterRoom);
   return { buildings, rooms };
 }
 
@@ -756,6 +771,19 @@ export function createDemoSandboxState(): DemoSandboxState {
     const roomsOf = (course: AdCourse) => first.filter(row => Number(row.AdCourseId) === Number(course.AdCourseId));
     const candidates = courses.filter(course => course !== demoFitCourse && !course.CourseRoomType && roomsOf(course).length && roomsOf(course).every(row => hallType(row) === "تدريسية"));
     for (const [at, type] of (["استوديو إنتاج", "مختبر حاسوب"] as const).entries()) if (candidates[at * 2]) candidates[at * 2].CourseRoomType = type;
+  }
+  /* مشهد «المرفق المرافق» (A3): مقررٌ واحد من القسم يتطلب استوديو التصوير، وشعبته القائمة مربوطةٌ
+     به، فيُرى أن فتحها للتعديل لا يقول «صحّح قبل الحفظ»، وأن إضافة شعبةٍ له تربط الاستوديو المتاح تلقائياً. */
+  {
+    const perCourse = new Map<number, FSchedule[]>();
+    for (const row of first) if (Number(row.AdSectionId) === DEMO_SECTION_ID) perCourse.set(Number(row.AdCourseId), [...(perCourse.get(Number(row.AdCourseId)) || []), row]);
+    const companionCourse = courses.find(course => Number(course.AdSectionId) === DEMO_SECTION_ID && !course.CourseRoomType && !course.CourseCompanionRoomType
+      && course !== demoFitCourse && (perCourse.get(Number(course.AdCourseId)) || []).length === 1);
+    if (companionCourse) {
+      companionCourse.CourseCompanionRoomType = DEMO_COMPANION_TYPE;
+      const row = perCourse.get(Number(companionCourse.AdCourseId))![0];
+      Object.assign(row, { companionRoomId: DEMO_STUDIO_ROOM_ID, companionRoomLabel: `${demoBuildingCode(DEMO_BUILDINGS[0])} / ${DEMO_STUDIO_HALL}` });
+    }
   }
   const acceptedFirst = structuredClone(first);
   plantConflicts(first);

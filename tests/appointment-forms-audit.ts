@@ -9,6 +9,7 @@ import { patternsForHours } from "../src/utils/scheduleRegulations";
 import { appointmentVerdict, relevantConflicts } from "../src/utils/appointmentVerdict";
 import { emptySuggestionReason, orderSuggestionCandidates, rankSuggestionCandidates, type SuggestionHall } from "../src/utils/suggestionEngine";
 import { spellingTwinGroups, spellingTwinsOf } from "../src/utils/courseSpellingTwins";
+import { createDemoSandboxState, DEMO_COMPANION_TYPE, DEMO_STUDIO_ROOM_ID } from "../src/db/demoSandbox";
 
 let passed = 0, failed = 0;
 function check(condition: unknown, name: string) {
@@ -95,6 +96,15 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const names = ["اداره مراكز مصادر التعلم", "إدارة مراكز مصادر التعلم", "تكنولوجيا التعليم", "تكنولوجيا التعلم"];
   check(spellingTwinGroups(names).length === 1 && spellingTwinsOf("إدارة مراكز مصادر التعلم", names)[0] === "اداره مراكز مصادر التعلم", "G5: «اداره/إدارة مراكز مصادر التعلم» إملاءٌ واحد");
   check(spellingTwinsOf("تكنولوجيا التعليم", names).length === 0, "G5: «التعلم» ليست «التعليم» — لا اقتراح دمج خاطئ");
+}
+
+/* ── مشهد A3 في الديمو: مقررٌ يتطلب استوديو، واستوديو مرافق، وشعبةٌ مربوطة به ── */
+{
+  const demo = createDemoSandboxState();
+  const course = demo.courses.find(item => item.CourseCompanionRoomType === DEMO_COMPANION_TYPE);
+  const studio = demo.locationRooms.find(room => room.id === DEMO_STUDIO_ROOM_ID);
+  check(course && studio?.bookingPolicy === "companion_only" && studio.roomType === DEMO_COMPANION_TYPE, "A3 (ديمو): مقررٌ يتطلب «استوديو التصوير» واستوديو مرافق لا يُحجز وحده");
+  check(demo.schedules.some(row => row.companionRoomId === DEMO_STUDIO_ROOM_ID && Number(row.AdCourseId) === Number(course?.AdCourseId)), "A3 (ديمو): شعبته القائمة مربوطة بالاستوديو");
 }
 
 /* ── الربط في الواجهة والخادم ─────────────────────────────────────────────── */
