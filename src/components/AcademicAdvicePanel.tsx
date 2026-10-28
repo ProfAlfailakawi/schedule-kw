@@ -3,6 +3,8 @@ import { BookOpenCheck, CalendarClock, CheckCheck, ChevronDown, GraduationCap, L
 import type { AcademicPair, AcademicSlot, AcademicTimePreference } from "../utils/academicAdvisory";
 import { AR, countOf } from "../utils/arabicCount";
 import { isDemoSession } from "../utils/demoSession";
+import AcademicDecisionLabPanel from "./AcademicDecisionLabPanel";
+import type { AcademicDecisionLab } from "../utils/academicDecisionLab";
 
 interface Props {
   collegeId: number; sectionId: number; termId: number;
@@ -31,10 +33,12 @@ const exampleFor = (pair: AcademicPair) => {
 export default function AcademicAdvicePanel({ collegeId, sectionId, termId, courseId, candidate, compact = false }: Props) {
   const [pairs, setPairs] = useState<AcademicPair[]>([]);
   const [timePreferences, setTimePreferences] = useState<AcademicTimePreference[]>([]);
+  const [lab, setLab] = useState<AcademicDecisionLab | undefined>();
+  const [revision, setRevision] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const demo = isDemoSession();
   useEffect(() => {
-    setPairs([]); setTimePreferences([]); setStatus("loading");
+    setPairs([]); setTimePreferences([]); setLab(undefined); setStatus("loading");
     if (!collegeId || !sectionId || !termId) return;
     const controller = new AbortController();
     fetch("/api/schedules/academic-advice?collegeId=" + collegeId + "&sectionId=" + sectionId + "&termId=" + termId, { signal: controller.signal })
@@ -46,12 +50,13 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
         if (!controller.signal.aborted) {
           setPairs(Array.isArray(data?.pairs) ? data.pairs : []);
           setTimePreferences(Array.isArray(data?.timePreferences) ? data.timePreferences : []);
+          setLab(data?.decisionLab && Array.isArray(data.decisionLab.scenarios) ? data.decisionLab : undefined);
           setStatus("ready");
         }
       })
       .catch(() => { if (!controller.signal.aborted) { setPairs([]); setTimePreferences([]); setStatus("error"); } });
     return () => controller.abort();
-  }, [collegeId, sectionId, termId]);
+  }, [collegeId, sectionId, termId, revision]);
   const relevant = useMemo(() => pairs.filter(pair => {
     if (courseId && pair.a !== courseId && pair.b !== courseId) return false;
     if (!candidate || !courseId) return pair.overlap;
@@ -64,7 +69,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
   const periods = timePreferences.filter(p => (!courseId || p.courseId === courseId) && (!candidate ||
     (p.period === "afternoon" ? minute(candidate.start) < 720 : minute(candidate.end) > 720)));
   if (status === "loading" && !demo) return null;
-  if (status === "ready" && !relevant.length && !periods.length && !demo) return null;
+  if (status === "ready" && !relevant.length && !periods.length && !lab?.scenarios?.some(s => !courseId || s.courseId === courseId) && !demo) return null;
   const total = relevant.length + periods.length;
   const shown = relevant.slice(0, compact ? 3 : 6);
   return (
@@ -82,6 +87,8 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
         <ChevronDown size={17} aria-hidden="true" style={{ color: "var(--muted, #627269)" }} />
       </summary>
       <div style={{ display: "grid", gap: 10, paddingBlockStart: 12 }}>
+        {status !== "error" && <AcademicDecisionLabPanel lab={lab} courseId={courseId} compact={compact} demo={demo}
+          onRefresh={() => setRevision(v => v + 1)} refreshing={status === "loading"} />}
         {status === "error" ? <small style={{ color: "var(--muted)" }}><Info size={13} aria-hidden="true" /> التوصيات غير متاحة الآن؛ الجدول يعمل كالمعتاد.</small>
           : !total ? <small style={{ color: "var(--muted)" }}>{status === "loading" ? "جارٍ تحليل الصحائف والرغبات…" : "لا توجد فرصة مدعومة بالبيانات الحالية لهذا النطاق."}</small>
           : <>
