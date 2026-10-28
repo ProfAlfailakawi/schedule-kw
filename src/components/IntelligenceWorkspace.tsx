@@ -124,6 +124,8 @@ import { interruptedImportMessage } from "../utils/importStreamFailure";
 import { pageReviewIssues, pagesAwaitingReview, scanLeftCellUnread, pagesWithUnreadCells, pagesLabel } from "../utils/importPageReview";
 import MiniRing, { ringFromScoreText } from "./MiniRing";
 import ApplyProposal, { postScheduleProposal, postWhatIf } from "./ApplyProposal";
+import ActionableErrorNotice from "./ActionableErrorNotice";
+import { classifyActionableError, type ActionableError } from "../utils/actionableError";
 
 /**
  * A professor's week, laid out where it actually falls.
@@ -507,6 +509,18 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null),
     [message, setMessage] = useState<string | null>(null);
+  /* K3: the classified form of the last thrown error, with the action that can
+     repeat it. Shown only while `error` is still the same message. */
+  const [errorDetail, setErrorDetail] = useState<{ message: string; info: ActionableError; retry?: () => void } | null>(null);
+  /* Secondary readings that did not arrive. The board still paints; only these cards wait. */
+  const [degraded, setDegraded] = useState<{ sources: string[]; info: ActionableError } | null>(null);
+  const fail = (e: unknown, retry?: () => void) => {
+    const text = smartMessage(e);
+    const info = classifyActionableError(e);
+    console.warn("[intelligence]", info.kind, info.technical || "", e);
+    setError(text);
+    setErrorDetail({ message: text, info, retry });
+  };
   /**
    * ── الوصول إلى المشهد، لا تغييره فقط ────────────────────────────────────
    *
@@ -672,7 +686,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       catch { const error=new Error(r.ok ? "وصل رد غير متوقع من الخادم. أعد المحاولة بعد لحظات." : `الخادم مشغول حالياً (${r.status}). أعد المحاولة بعد قليل.`);telemetryError("response.parse",error);throw error; }
     }
     if (!r.ok)
-      throw Object.assign(new Error(d.error || "تعذر تنفيذ العملية"), { issues: d.issues, code: d.code, changes: d.changes });
+      throw Object.assign(new Error(d.error || "تعذر تنفيذ العملية"), { issues: d.issues, code: d.code, changes: d.changes, status: r.status, url, ref: d.ref });
     return d;
   };
   useEffect(() => {
@@ -742,7 +756,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         setCompareTo(sortedTerms[0]?.AdTermId || 0);
         setCompareFrom(sortedTerms[1]?.AdTermId || sortedTerms[0]?.AdTermId || 0);
       } catch (e: any) {
-        setError(smartMessage(e));
+        fail(e);
       } finally {
         setLoading(false);
       }
@@ -866,7 +880,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     const serial = ++reloadSerial.current;
     setLoading(true);
     setOverview(null); setDemand(null); setGenome(null); setOperationsReview(null); setExperienceHealth(null);
-    setDrafts([]); setVersions([]); setDecisionInbox({manual:[],inferred:[],totalOpen:0});
+    setDrafts([]); setVersions([]); setDecisionInbox({manual:[],inferred:[],totalOpen:0}); setDegraded(null);
     setError(null);
     let painted = false;
     try {
@@ -894,17 +908,33 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       // Secondary evidence arrives in parallel and quietly fills only the cards
       // that use it. A slow history query can no longer make «مركز الذكاء» feel
       // blank or make a department think the feature is missing.
-      const [d, v, g, cx, dm, ops, decisions, ux] = await Promise.all([
-        readAcross("/api/intelligence/drafts", readings => scopedReadingList(readings), o.family),
-        readAcross("/api/intelligence/versions", readings => scopedReadingList(readings), o.family),
-        fetchJson(`/api/intelligence/genome?${analysisQuery}`),
-        fetchJson(`/api/intelligence/constraints?${contextQuery}`),
-        readDemand(o.family),
-        readAcross("/api/intelligence/operations-review", mergeOperationsReadings, o.family),
-        readAcross("/api/intelligence/open-decisions", mergeDecisionReadings, o.family),
-        fetchJson(`/api/intelligence/experience-health?${analysisQuery}`),
-      ]);
+      /* ── K3: one failed card is not a failed page ─────────────────────────
+         These eight readings went through Promise.all, so the first one to fail
+         (a cold history read, a sister college outside the reader's scope…)
+         threw away the other seven AND replaced the painted board's context with
+         the server's generic «تعذّر إتمام العملية الآن» — the message the owner
+         saw. Each reading now settles on its own: what arrived is shown, what
+         did not is named, logged, and can be retried. */
+      const sources = [
+        { label: "المسودات", run: () => readAcross("/api/intelligence/drafts", readings => scopedReadingList(readings), o.family) },
+        { label: "النسخ", run: () => readAcross("/api/intelligence/versions", readings => scopedReadingList(readings), o.family) },
+        { label: "بصمة القسم", run: () => fetchJson(`/api/intelligence/genome?${analysisQuery}`) },
+        { label: "القيود", run: () => fetchJson(`/api/intelligence/constraints?${contextQuery}`) },
+        { label: "طلبات الطلاب", run: () => readDemand(o.family) },
+        { label: "مراجعة التشغيل", run: () => readAcross("/api/intelligence/operations-review", mergeOperationsReadings, o.family) },
+        { label: "القرارات المفتوحة", run: () => readAcross("/api/intelligence/open-decisions", mergeDecisionReadings, o.family) },
+        { label: "صحة التجربة", run: () => fetchJson(`/api/intelligence/experience-health?${analysisQuery}`) },
+      ];
+      const settled = await Promise.allSettled(sources.map(source => source.run()));
       if (serial !== reloadSerial.current) return;
+      const valueAt = (index: number) => settled[index].status === "fulfilled" ? (settled[index] as PromiseFulfilledResult<any>).value : null;
+      const failedAt = settled.map((item, index) => item.status === "rejected" ? index : -1).filter(index => index >= 0);
+      failedAt.forEach(index => console.warn("[intelligence] secondary reading failed:", sources[index].label, (settled[index] as PromiseRejectedResult).reason));
+      setDegraded(failedAt.length ? {
+        sources: failedAt.map(index => sources[index].label),
+        info: classifyActionableError((settled[failedAt[0]] as PromiseRejectedResult).reason),
+      } : null);
+      const [d, v, g, cx, dm, ops, decisions, ux] = sources.map((_, index) => valueAt(index));
       setDrafts(Array.isArray(d) ? d : []);
       setOverview((current: any) => current ? {...current, draftCount: Array.isArray(d) ? d.filter((draft:any) => draft.status === "draft").length : 0} : current);
       setVersions(Array.isArray(v) ? v : []);
@@ -916,7 +946,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       setExperienceHealth(ux);
       setVersionScrubIndex(Math.max(0,(Array.isArray(v)?v.length:0)-1));
     } catch (e: any) {
-      if (serial === reloadSerial.current) setError(smartMessage(e));
+      if (serial === reloadSerial.current) fail(e, () => void reload());
     } finally {
       if (!painted && serial === reloadSerial.current) setLoading(false);
     }
@@ -1046,7 +1076,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         });
         setScenarioEval(d);
       } catch (e: any) {
-        setError(smartMessage(e));
+        fail(e);
       }
     }, 650);
     return () => window.clearTimeout(timer);
@@ -1176,7 +1206,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       setChat((p) => [...p, { prompt: q, answer }]);
     } catch (e: any) {
       pendingCopilotAnswer.current = null;
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -1195,7 +1225,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       });
       setChat((p) => p.map((item, i) => (i === index ? ({ ...item, move: { ...(item as any).move, applied: true } } as any) : item)));
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -1213,7 +1243,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         }),
       );
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
       if (e.issues) setMessage(e.issues.slice(0, 3).join(" · "));
     } finally {
       setBusy(false);
@@ -1246,7 +1276,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       setTab("twin");
       setTwinCard("board");
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -1296,7 +1326,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       setMessage("أُوقف استقبال الطلبات من هذا الرابط. متابعة «حالة طلبي» تبقى متاحة لمن أرسل حتى 30 يوماً بعد نهاية الفصل.");
       await reload();
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -1317,7 +1347,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       setMessage(`صدر رابط الاستبيان لهذا القسم — صالح ${countOf(surveyDays, AR.day)}. انسخه أو اعرض رمز QR وعلّقه للطلاب.`);
       await reload();
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -1539,7 +1569,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       setActiveDraftId(null);
       await reload();
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -1560,7 +1590,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       setMessage("تم الاسترجاع، والنسخة التي كانت قبل الاسترجاع محفوظة أيضاً.");
       await reload();
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -1577,7 +1607,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       setVersionCompare(await fetchJson(`/api/intelligence/versions/compare?fromId=${encodeURIComponent(fromId)}&toId=${encodeURIComponent(toId)}`));
       setVersionFrom(fromId); setVersionTo(toId); setTimeTravel(50);
     } catch (e: any) {
-      if (!quiet) setError(smartMessage(e));
+      if (!quiet) fail(e);
     } finally {
       if (!quiet) setBusy(false);
     }
@@ -1601,14 +1631,14 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       await fetchJson("/api/intelligence/open-decisions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId,sectionId,termId,title,priority:"medium",source:"manual"})});
       setDecisionTitle("");setDecisionCompose(false);
       setDecisionInbox(await refreshDecisionInbox());
-    }catch(e:any){setError(smartMessage(e));}finally{setBusy(false);}
+    }catch(e:any){fail(e);}finally{setBusy(false);}
   };
   const closeOpenDecision = async (item:any) => {
     if(!item?.id||String(item.id).startsWith("inferred:"))return;
     try{
       await fetchJson(`/api/intelligence/open-decisions/${encodeURIComponent(item.id)}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId:sourceScope(item).collegeId,sectionId:sourceScope(item).sectionId,termId,status:item.status==="done"?"open":"done"})});
       setDecisionInbox(await refreshDecisionInbox());
-    }catch(e:any){setError(smartMessage(e));}
+    }catch(e:any){fail(e);}
   };
   const proposeUnwrittenRule = async (rule:any) => {
     if (!enterSourceScope(rule, "rule")) return;
@@ -1618,13 +1648,13 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       await fetchJson("/api/intelligence/open-decisions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId,sectionId,termId,title:`قاعدة مقترحة: ${String(rule.title).slice(0,110)}`,detail:`مكتشفة من التاريخ بثقة ${Number(rule.confidence||0)}٪ · ${String(rule.detail||"").slice(0,220)}`,priority:Number(rule.confidence||0)>=90?"high":"medium",source:"assistant"})});
       setDecisionInbox(await refreshDecisionInbox());
       setMessage("أُضيفت القاعدة المقترحة إلى دفتر القرارات للمراجعة.");
-    }catch(e:any){setError(smartMessage(e));}finally{setBusy(false);}
+    }catch(e:any){fail(e);}finally{setBusy(false);}
   };
   const runPolicy = async () => {
     setPolicyBusy(true);setError(null);
     try{
       setPolicyResult(await fetchJson("/api/intelligence/policy-simulate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId,sectionId,termId,...policyDraft,analysisScope:policyDraft.scope === "family" ? "department" : "college",scope:policyDraft.scope === "university" && isPowerAdmin ? "university" : "department"})}));
-    }catch(e:any){setError(smartMessage(e));}finally{setPolicyBusy(false);}
+    }catch(e:any){fail(e);}finally{setPolicyBusy(false);}
   };
   /* قائمتا المقارنة: فصولٌ فيها بيانات في النطاق الذي تقرؤه المقارنة نفسه — وفي قراءة «القسم كله» تقرأ كل مواقعه، فيُسأل عن نطاق القارئ كله. */
   const compareFamily = readingMode === "department";
@@ -1653,7 +1683,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       });
       setTermCompare(await fetchJson(`/api/intelligence/compare-terms?${p}`));
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -1672,7 +1702,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         data: await fetchJson(`/api/intelligence/room?${p}`),
       });
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -1687,7 +1717,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         ),
       });
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -1738,7 +1768,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       const issues=[...(Array.isArray(data.issues)?data.issues:[]),...localIssues];
       setImportPreview({ ...data, rows:normalizedRows, preview:normalizedRows, count:normalizedRows.length, issues, valid:normalizedRows.length>0&&issues.length===0, importLayout:"worksheet", smartFallbackReason:fallbackReason });
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
       setImportProgress(null);
@@ -1775,7 +1805,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       setImportPreview((prev: any) => prev ? { ...prev, rows, preview: rows, count: rows.length, issues: [...(prev.issues || []).filter((issue: string) => !/^السطر/.test(String(issue))), ...localIssues], smartRead: true } : prev);
       setMessage(`القراءة الأدق ملأت ${countOf(proposal.fills.length, AR.cell)} في ${pagesLabel(pages)}؛ راجعها في الجدول قبل الاعتماد.`);
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
       setImportProgress(null);
@@ -1844,7 +1874,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     } catch (e: any) {
       // The Authority PDF stays local. We surface the failure and offer Smart
       // Import as a deliberate, opt-in retry — never an automatic hop to Google.
-      setError(smartMessage(e));
+      fail(e);
       setSmartRetry({ file, reason: smartMessage(e) });
     } finally {
       setBusy(false);
@@ -1894,7 +1924,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         setImportPreview({ ...d, rows:normalizedRows, preview:normalizedRows, count:normalizedRows.length, issues, valid:normalizedRows.length>0&&issues.length===0 });
       } else setImportPreview(d);
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -2034,7 +2064,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         "تمت إضافة القاعدة إلى لوحة القيود. ستدخل فوراً في تقييم النسخة التجريبية وغرفة القرار والتحسين الآلي.",
       );
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -2053,7 +2083,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       });
       await reloadConstraints();
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     }
   };
   const deleteConstraint = async (c: any) => {
@@ -2066,7 +2096,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       });
       await reloadConstraints();
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     }
   };
   const runWarRoom = async () => {
@@ -2086,7 +2116,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       if (room?.empty) { setWarRoom(null); setMessage(room.message); }
       else setWarRoom(room);
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setWarBusy(false);
     }
@@ -2108,7 +2138,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       if (plan?.empty) { setAutopilot(null); setMessage(plan.message); }
       else setAutopilot(plan);
     } catch (e: any) {
-      setError(smartMessage(e));
+      fail(e);
     } finally {
       setAutopilotBusy(false);
     }
@@ -2761,7 +2791,23 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
               the other; the guide points at «أدوات البيانات» for this. */}
         </nav>
       ) : null}
-      {error && collegeId && sectionId && termId ? (
+      {degraded && collegeId && sectionId && termId ? (
+        <ActionableErrorNotice
+          error={{ ...degraded.info, reason: `لم تكتمل: ${degraded.sources.join(" · ")}. ${degraded.info.reason}` }}
+          showTechnical={isPowerAdmin}
+          onRetry={() => void reload()}
+          onDismiss={() => setDegraded(null)}
+        />
+      ) : null}
+      {error && collegeId && sectionId && termId && errorDetail?.message === error && !smartRetry ? (
+        <ActionableErrorNotice
+          error={errorDetail.info}
+          showTechnical={isPowerAdmin}
+          retrying={busy || loading}
+          onRetry={errorDetail.retry ? () => { setError(null); setErrorDetail(null); errorDetail.retry?.(); } : undefined}
+          onDismiss={() => { setError(null); setErrorDetail(null); }}
+        />
+      ) : error && collegeId && sectionId && termId ? (
         <Notice onDismiss={() => setError(null)}>
           {error}
           {smartRetry ? (

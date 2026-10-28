@@ -26,7 +26,9 @@ check(list(toggle("fmonday", ["fsunday", "fmonday", "ftuesday"])) === "fsunday+f
 
 /* 2) الربط في الصفحة والخادم. */
 const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
-check(server.includes("${REQUEST_DAY_AUTOFILL_SCRIPT}") && server.includes("function tapDay(it,d){it.days=toggleRequestDay(d,it.days);it.autoNote=\"\"}") && server.includes("tapDay(it,el.dataset.day)"), "الصفحة تحمّل اختيار اليوم الصريح ولا تكمل أياماً تلقائياً");
+/* قرار المالك 2026-10-28 (B1/B2): أوّلُ يومٍ يكمل نمطَ اللائحة من مصدرٍ واحد (dayPatterns ← patternsForHours)، وما بعده صريح. */
+check(server.includes("${REQUEST_DAY_AUTOFILL_SCRIPT}") && server.includes("it.days=completeRequestDays(d,it.days,((data&&data.dayPatterns)||{})[courseIdOf(it)]||[])") && server.includes("tapDay(it,el.dataset.day)")
+  && server.includes("patternsForHours(effectiveCourseHours(course))"), "الصفحة تكمل أيام نمط اللائحة عند أوّل يوم من مصدرها الواحد، ثم تختار صراحةً");
 check(!server.includes("/api/public/request/:token/day-habits") && !server.includes("loadHabits("), "لا تُحمّل الصفحة عادات المقرر لتختار أياماً عن الأستاذ");
 
 /* 6) زرُّ النسخ (أيقونةٌ بلا كلام) في تلميح الديمو. */

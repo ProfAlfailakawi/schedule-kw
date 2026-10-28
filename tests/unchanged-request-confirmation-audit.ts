@@ -49,7 +49,7 @@ expect(!isUnchangedConfirmed({ status: "settled", timeline: [{ kind: "settled", 
 
 const server = fs.readFileSync("server.ts", "utf8");
 expect(server.includes('status: unchangedConfirmed ? "settled" : "submitted"'), "The server finalizes only confirmed unchanged submissions");
-expect(server.includes('request.status !== "superseded" && (')
+expect(server.includes('request.status !== "superseded" && !placeholderPeople.has(Number(request.AdInstructorId)) && (')
   && server.includes("\n    inScope(Number(request.AdCollegeId)"), "Superseded rounds stay excluded while completed unchanged submissions remain visible within scope");
 expect(server.includes('if (!unchangedConfirmed) broadcastNotify(Repository.currentDemoSessionId());'), "Automatic confirmation does not ping the department inbox");
 expect(server.includes('kind: unchangedConfirmationKind, at') && server.includes('kind: "received" as const'), "Confirmed requests have no false department-received event");

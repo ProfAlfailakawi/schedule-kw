@@ -84,6 +84,22 @@
 .adl-no-evidence>div{display:grid;gap:5px}
 .adl-no-evidence strong{font-size:11px;color:var(--adl-ink)}
 .adl-no-evidence small{font-size:10px;line-height:1.7}
+/* K1 — the funnel: where the evidence stops, counted from real records. */
+.adl-no-evidence-wrap{display:grid;gap:9px}
+.adl-funnel{display:grid;gap:8px;padding:10px 11px;border-radius:11px;background:var(--adl-card);border:1px solid var(--adl-line)}
+.adl-funnel ol{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.adl-funnel li{display:grid;grid-template-columns:16px minmax(96px,150px) minmax(0,1fr) 34px;align-items:center;gap:8px;font-size:11px;color:var(--adl-ink)}
+.adl-funnel li svg{color:var(--adl-accent)}
+.adl-funnel li i{height:7px;border-radius:99px;background:color-mix(in srgb,var(--adl-accent) 9%,var(--adl-card));overflow:hidden}
+.adl-funnel li i b{display:block;height:100%;border-radius:inherit;background:var(--adl-accent);min-width:2px;transition:width .5s var(--ease-out,ease)}
+.adl-funnel li strong{font-variant-numeric:tabular-nums;text-align:end;font-size:12px}
+.adl-funnel li.adl-funnel-stop{color:var(--warning,#8d6413);font-weight:800}
+.adl-funnel li.adl-funnel-stop svg,.adl-funnel li.adl-funnel-stop strong{color:var(--warning,#8d6413)}
+.adl-funnel li.adl-funnel-stop i b{background:var(--warning,#8d6413)}
+.adl-funnel li.adl-funnel-after{opacity:.42}
+.adl-funnel p{display:flex;align-items:flex-start;gap:6px;margin:0;font-size:11px;line-height:1.7;color:var(--adl-muted)}
+.adl-funnel p svg{flex:none;margin-top:3px;color:var(--warning,#8d6413)}
+@media (max-width:520px){.adl-funnel li{grid-template-columns:16px minmax(0,1fr) 34px}.adl-funnel li i{grid-column:2/-1;grid-row:2}}
 .adl-view-caption{display:block;font-size:10px;line-height:1.7;color:var(--adl-muted);padding-top:3px}
 .adl-chain-standalone{padding:10px 0 0}
 .adl-balance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:10px}

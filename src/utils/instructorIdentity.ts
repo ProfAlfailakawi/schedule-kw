@@ -262,3 +262,30 @@ export function placeholderInstructorIds(
   }
   return ids;
 }
+
+/**
+ * أساتذةُ وارد الطلبات للاختيار والقوائم (N1): شخصٌ واحدٌ مرّةً واحدة.
+ *
+ * كان المنتقي يُفرد كلَّ معرّف: سجلّان لاسمٍ واحد («د. أحمد الفيلكاوي» بمعرّفين
+ * في سجلّ الأساتذة، ولكلٍّ منهما طلب) يظهران مرّتين، و«هيئة تدريسية» — اسمٌ لا
+ * شخص — تظهر بعدد سجلاتها لأن روابطَ صدرت لها. فيُجمع بمفتاح الهوية
+ * (instructorIdentityKey) وتُستبعد «هيئة تدريسية»: ليست أستاذاً يُختار ولا يُذكَّر.
+ */
+export function inboxInstructorChoices<T extends { AdInstructorId: number | string; instructorName: string }>(rows: readonly T[]): Array<{ key: string; ids: number[]; name: string }> {
+  const placeholders = placeholderInstructorIds(rows.map(row => ({ AdInstructorId: row.AdInstructorId, AdInstructorName: row.instructorName })));
+  const groups = new Map<string, { key: string; ids: number[]; name: string }>();
+  for (const row of rows) {
+    const id = Number(row.AdInstructorId);
+    if (!id || placeholders.has(id)) continue;
+    const key = instructorIdentityKey(String(row.instructorName || "")) || `id:${id}`;
+    const held = groups.get(key);
+    if (held) { if (!held.ids.includes(id)) held.ids.push(id); }
+    else groups.set(key, { key, ids: [id], name: String(row.instructorName || "").trim() });
+  }
+  return [...groups.values()];
+}
+
+/** هل الصفُّ لـ«هيئة تدريسية» (اسمٌ لا شخص)؟ */
+export function isPlaceholderInboxRow(row: { AdInstructorId: number | string; instructorName: string }): boolean {
+  return placeholderInstructorIds([{ AdInstructorId: row.AdInstructorId, AdInstructorName: row.instructorName }]).size > 0;
+}

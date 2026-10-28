@@ -69,8 +69,9 @@ check(page.includes("function unchangedEdit(it)") && page.includes('return{rowId
 check(/var changed=state\.filter\(function\(it\)\{return it\.action!=="keep"&&!unchangedEdit\(it\)&&!incompleteItem\(it\)\}\)/.test(page), "P4 ولا يُعدّ في «جاهز»، ولا الموعدُ الناقص");
 check(page.includes('"أكمل الموعد الجديد"') && page.includes("gi(\"arrow\")+'أكمله'"), "P4 الشريط يقول «أكمل الموعد الجديد» بزرّ «أكمله»");
 check(page.includes('"أكمل الأيام ووقت البداية لـ«"+courseOf(state[incomplete])+"» قبل الإرسال."'), "P4 رسالةُ النقص تذكر اسم المقرر لا رقماً");
-check(page.includes("payloadWith(i)") && page.includes('problem==="shape"') && page.includes("المشكلة في الأيام لا في الوقت"), "P4 مشكلةُ الأيام لا تُلوّن الأوقات، وسطرٌ واحد يقول ذلك");
-check(server.includes('if (problemIsShape) { res.json({ times: {}, problem: "shape" }); return; }'), "P4 والخادمُ هو من يحكم (لا bad لكل وقت)");
+/* المالك 2026-10-28 (B2): التلميحُ «المشكلة في الأيام لا في الوقت» استُبدل بأنماط اللائحة أزراراً تُكمل الأيام بضغطة. */
+check(page.includes("payloadWith(i)") && page.includes('problem==="shape"') && page.includes("أكمل أيام المقرر") && page.includes("heatShapes[i]"), "P4 مشكلةُ الأيام لا تُلوّن الأوقات، وتُعرض أنماطُ اللائحة لتُكمل بضغطة");
+check(server.includes('if (problemIsShape) { res.json({ times: {}, problem: "shape", shapes: shapes.slice(0, 3) }); return; }'), "P4 والخادمُ هو من يحكم (لا bad لكل وقت)");
 check(server.includes('note.kind !== "balance" && note.courseIds') && page.includes('n.kind!=="balance"'), "P4 شريطُ نسب الصباح والمساء غائبٌ عن صفحة الأستاذ");
 
 /* P5: التحسينات */
@@ -115,7 +116,7 @@ check(importTable.includes("badge: courseOptionBadge([Number(item.AdCourseId)], 
 check(server.includes("const [link, early] = await Promise.all([") && server.includes("link.id === wanted && early ? early"), "P11 الرابطُ وطلبُه يُقرآن معاً، ويُعاد السؤالُ إن اختلف المعرّف");
 check(server.includes("const [opened, [instructors, terms, courses, serviceKeys, calendarToken], judgedBeforeOpen] = await Promise.all(["), "P11 فتحُ الكرت: التسجيل والقوائم والحكم معاً");
 check(server.includes("async function rulesOnce<T>(") && server.includes("await Promise.all([...scopesNeeded].map(([key, scope]) =>"), "P11 نطاقاتُ القواعد معاً، ونطاقٌ واحدٌ يُحسب مرةً ولو سأل عنه كثيرون");
-check(server.includes("contexts.set(key, buildRequestContext(row))") && server.includes("rulesCache: sharedRules"), "P11 شاشةُ القسم: سياقٌ واحد لكل نطاق لا لكل طلب");
+check(server.includes("contexts.set(key, buildSharedRequestContext(row))") && server.includes("rulesCache: sharedRules"), "P11 شاشةُ القسم: سياقٌ واحد لكل نطاق لا لكل طلب (وحجزُ كل طلبٍ يُستثنى له وحده — A1)");
 
 /* P12: تاريخُ القسم أولاً ثم اللائحة، حتى في إرشاد «تعديل بلا لمسة» */
 {

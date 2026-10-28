@@ -1,5 +1,5 @@
 import { departmentFamily } from "../utils/sectionLabel";
-import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict,
+import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict, withReservedRooms, holdRequestReservation, releaseRequestHolds, liveReservations,
   type RequestReservation, type RequestReservationProposal, type RequestScheduleOperation } from "../utils/instructorRequestReservations";
 import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
 import { instructorWeekAfter } from "../utils/instructorRequestWeek";
@@ -274,6 +274,7 @@ interface DBState {
   registrationOutcomes?: RegistrationOutcomeShard[];
   schedulePublications?: SchedulePublication[];
   scheduleConstraints?: ScheduleConstraint[];
+  planTriageDecisions?: PlanTriageDecisionRow[];
   degreeRules?: AdDegreeRule[];
   visitingRosters?: VisitingRoster[];
   departmentDelegates?: DepartmentDelegateDirectory[];
@@ -325,6 +326,13 @@ const demoSandboxContext = new AsyncLocalStorage<{ sessionId: string; state: DBS
 const demoSandboxes = new Map<string, DemoSandboxRecord>();
 function currentDb(): DBState { return demoSandboxContext.getStore()?.state || baseDb; }
 function replaceCurrentDb(next: DBState): void { const context = demoSandboxContext.getStore(); if (context) context.state = next; else baseDb = next; }
+/** K2: one shared «تم/تجاهل» decision on a planning item, per term/college/department/course. */
+export interface PlanTriageDecisionRow {
+  id: string; scopeKey: string; AdCollegeId: number; AdSectionId: number; AdTermId: number; courseId: number;
+  state: "done" | "ignored"; reason: string; signature: string; at: string;
+  byUserId: number; byName: string;
+}
+
 const db = new Proxy({} as DBState, {
   get: (_target, prop) => (currentDb() as any)[prop],
   set: (_target, prop, value) => { (currentDb() as any)[prop] = value; return true; },
@@ -4131,7 +4139,7 @@ export const Repository = {
     return schedule ? hydrateSchedules([schedule], db.courses, db.sections)[0] : undefined;
   },
 
-  createSchedule: async (schedule: Omit<FSchedule, "id">, reservationOwner = ""): Promise<FSchedule> => {
+  createSchedule: async (schedule: Omit<FSchedule, "id">, reservationOwner: string | string[] = ""): Promise<FSchedule> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -4172,7 +4180,7 @@ export const Repository = {
    * The read and the write happen inside one Firestore transaction, so the
    * comparison cannot be overtaken between them.
    */
-  updateSchedule: async (id: number, fields: Partial<FSchedule>, expectedRev?: number, reservationOwner = ""): Promise<FSchedule> => {
+  updateSchedule: async (id: number, fields: Partial<FSchedule>, expectedRev?: number, reservationOwner: string | string[] = ""): Promise<FSchedule> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -4304,7 +4312,9 @@ export const Repository = {
   commitScheduleChangeSet: async (termId: number,
     operations: Array<{ kind: "create"; body: Omit<FSchedule, "id"> } | { kind: "update"; rowId: number; original: FSchedule; body: Partial<FSchedule> } | { kind: "delete"; rowId: number; original: FSchedule }>,
     normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
-    validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>): Promise<{ rows: FSchedule[]; deletedIds: number[] }> => {
+    validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>,
+    /** طلباتٌ أكّد القسمُ تجاوزَ حجزها (overrideRequestHolds) — حجوز بقية الأساتذة تبقى حارسة. */
+    reservationOwner: string | string[] = ""): Promise<{ rows: FSchedule[]; deletedIds: number[] }> => {
     const count = operations.filter(op => op.kind === "create").length;
     const firstId = firestoreDb && !demoSandboxContext.getStore() && count ? await reserveFirestoreIds("schedules", count) : 0;
     const compute = async (week: FSchedule[], entries: RequestReservation[], startId: number, windows: ApprovedHallWindow[]) => {
@@ -4314,17 +4324,17 @@ export const Repository = {
       for (const op of operations) {
         if (op.kind === "create") {
           const row = { ...op.body, id: nextId++, rev: 1 } as FSchedule;
-          assertRequestReservationWrite(row, entries);
+          assertRequestReservationWrite(row, entries, reservationOwner);
           written.push(row);
           continue;
         }
         const live = week.find(row => Number(row.id) === op.rowId);
         if (!live || Number(live.rev || 0) !== Number(op.original.rev || 0)) throw new ScheduleRevisionConflict(live || op.original);
         changed.add(op.rowId);
-        assertRequestReservationWrite(live, entries.filter(entry => entry.offeringRowIds.includes(op.rowId)));
+        assertRequestReservationWrite(live, entries.filter(entry => entry.offeringRowIds.includes(op.rowId)), reservationOwner);
         if (op.kind === "update") {
           const row = { ...live, ...op.body, id: live.id, rev: Number(live.rev || 0) + 1 } as FSchedule;
-          assertRequestReservationWrite(row, entries);
+          assertRequestReservationWrite(row, entries, reservationOwner);
           written.push(row);
         }
       }
@@ -4366,7 +4376,7 @@ export const Repository = {
     return { rows, deletedIds };
   },
 
-  deleteSchedule: async (id: number, reservationOwner = ""): Promise<void> => {
+  deleteSchedule: async (id: number, reservationOwner: string | string[] = ""): Promise<void> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -5356,15 +5366,43 @@ export const Repository = {
   getInstructorRequestReservations: async (termId: number): Promise<RequestReservation[]> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const snap = await firestoreDb.collection("instructorRequestReservations").doc(String(termId)).get();
-      return snap.exists ? (snap.data()?.entries || []) : [];
+      return snap.exists ? liveReservations(snap.data()?.entries || []) : [];
     }
-    return db.instructorRequestReservationLedgers?.[String(termId)] || [];
+    return liveReservations(db.instructorRequestReservationLedgers?.[String(termId)] || []);
+  },
+
+  /**
+   * حجزُ التحرير المؤقّت (C3): أوّلُ من يختار الوقتَ يأخذه داخل معاملة الدفتر نفسها،
+   * ويسقط وحده بعد `ttlMs` إن لم يُرسَل. `proposal = null` يُسقط حجوزَ الطلب المؤقّتة.
+   */
+  holdInstructorRequestSlot: async (request: InstructorRequest, proposal: RequestReservationProposal | null, ttlMs: number): Promise<{ heldUntil: string } | null> => {
+    const termId = Number(request.AdTermId);
+    const heldUntil = new Date(Date.now() + ttlMs).toISOString();
+    const apply = (entries: RequestReservation[], rows: FSchedule[]) => proposal
+      ? holdRequestReservation(entries, request, proposal, rows, heldUntil)
+      : releaseRequestHolds(entries, request.id);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
+      await firestoreDb.runTransaction(async tx => {
+        const [ledger, week] = await Promise.all([tx.get(ledgerRef),
+          proposal ? tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])) : Promise.resolve(null)]);
+        const entries = apply(ledger.data()?.entries || [], (week?.docs || []).map(doc => doc.data() as FSchedule));
+        tx.set(ledgerRef, { entries, serial: Number(ledger.data()?.serial || 0) + 1 });
+      }, { maxAttempts: 40 });
+    } else {
+      await withSerialLock(`request-reservations:${termId}`, async () => {
+        const ledgers = db.instructorRequestReservationLedgers ||= {};
+        ledgers[String(termId)] = apply(ledgers[String(termId)] || [], db.schedules.filter(item => Number(item.AdTermId) === termId));
+        saveDatabase();
+      });
+    }
+    return proposal ? { heldUntil } : null;
   },
 
   saveInstructorRequest: async (row: InstructorRequest, proposals?: RequestReservationProposal[], unchangedConfirmationGuard?: { scheduleFingerprint: string }): Promise<InstructorRequest> => {
     const now = new Date().toISOString();
     const termId = Number(row.AdTermId);
-    const next: InstructorRequest = { ...row, updatedAt: now, requestRevision: Number(row.requestRevision || 0) + 1 };
+    let next: InstructorRequest = { ...row, updatedAt: now, requestRevision: Number(row.requestRevision || 0) + 1 };
     const checkingLoad = proposals && next.items.some(item => item.action === "add" && item.decision?.state !== "fixed" && item.decision?.state !== "rejected");
     const [loadPerson, loadCourses] = checkingLoad
       ? await Promise.all([Repository.getInstructorById(Number(next.AdInstructorId)), Repository.getCourses()]) : [undefined, []];
@@ -5419,6 +5457,8 @@ export const Repository = {
           entries = allocateRequestReservations(entries, next, eligibleProposals, rows);
           checkLoad(rows, entries);
         } else entries = retainRequestReservations(entries, next);
+        /* القاعةُ المحجوزة تُكتب على البند نفسه (C1). */
+        if (proposals) next = withReservedRooms(next, entries);
         tx.set(requestRef, next);
         tx.set(ledgerRef, { entries, serial: Number(ledger.data()?.serial || 0) + 1 });
       }, { maxAttempts: 40 });
@@ -5444,6 +5484,7 @@ export const Repository = {
         const allocated = proposals ? allocateRequestReservations(entries, next, eligibleProposals!, week) : retainRequestReservations(entries, next);
         if (proposals) checkLoad(week, allocated);
         ledgers[String(termId)] = allocated;
+        if (proposals) next = withReservedRooms(next, allocated);
         if (at >= 0) db.instructorRequests[at] = next; else db.instructorRequests.unshift(next);
         saveDatabase();
       });
@@ -7332,6 +7373,37 @@ export const Repository = {
     if (at >= 0) db.degreeRules[at] = rule; else db.degreeRules.push(rule);
     saveDatabase();
     return rule;
+  },
+
+  /* ── K2: «تم/تجاهل» على بنود التخطيط، مشتركةٌ لكل من في النطاق ─────────────
+     وثيقةٌ لكل مقرر في النطاق (كلية:قسم:فصل:مقرر). القرار يحمل «بصمة» الأرقام التي
+     قُرّر عليها؛ الواجهة تُسقطه حين تتغيّر، فلا يُسكِت وضعاً جديداً. */
+  getPlanTriageDecisions: async (collegeId: number, sectionId: number, termId: number): Promise<PlanTriageDecisionRow[]> => {
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("planTriageDecisions").where("scopeKey", "==", scopeKey).limit(500).get();
+      return snap.docs.map(doc => doc.data() as PlanTriageDecisionRow);
+    }
+    return ((db as any).planTriageDecisions || []).filter((row: PlanTriageDecisionRow) => row.scopeKey === scopeKey);
+  },
+
+  setPlanTriageDecision: async (scope: { collegeId: number; sectionId: number; termId: number }, courseId: number, decision: Omit<PlanTriageDecisionRow, "id" | "scopeKey" | "AdCollegeId" | "AdSectionId" | "AdTermId" | "courseId"> | null): Promise<PlanTriageDecisionRow | null> => {
+    const scopeKey = `${scope.collegeId}:${scope.sectionId}:${scope.termId}`;
+    const id = `${scopeKey}:${courseId}`.replace(/[/]/g, "_");
+    const row: PlanTriageDecisionRow | null = decision ? {
+      ...decision, id, scopeKey, AdCollegeId: scope.collegeId, AdSectionId: scope.sectionId, AdTermId: scope.termId, courseId,
+    } : null;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("planTriageDecisions").doc(id);
+      if (row) await ref.set(row); else await ref.delete();
+      return row;
+    }
+    const list: PlanTriageDecisionRow[] = Array.isArray((db as any).planTriageDecisions) ? (db as any).planTriageDecisions : [];
+    const next = list.filter(item => item.id !== id);
+    if (row) next.push(row);
+    (db as any).planTriageDecisions = next.slice(-5000);
+    saveDatabase();
+    return row;
   },
 
   getScheduleConstraints: async (collegeId: number, sectionId: number, termId: number): Promise<ScheduleConstraint[]> => {

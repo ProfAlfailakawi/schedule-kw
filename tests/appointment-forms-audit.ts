@@ -91,6 +91,13 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   check(new Set(orderSuggestionCandidates(many.candidates, false).map(slot => slot.start)).size === orderSuggestionCandidates(many.candidates, false).length, "A8: «وقت وقاعة» خانةٌ واحدة لكل وقت");
 }
 
+/* ── حجز طلب أستاذ (A2) يُسأل عنه ولا يُعدّ مانعاً في الحكم ── */
+{
+  const form = { AdCourseId: 5, AdInstructorId: 9, buildingId: "b", roomId: "r", fsunday: true, fstarttime: "08:00", fendtime: "08:50" };
+  const held = appointmentVerdict({ form, validationIssues: [], conflicts: [{ type: "room", severity: "high", message: "القاعة مشغولة", holdRequestId: "req-1" }] });
+  check(held.blockers.length === 0 && held.notes.length === 1 && held.canSave, "A2: حجز طلبٍ ينتظر القسم تنبيهٌ يُسأل عنه عند الحفظ لا مانع");
+}
+
 /* ── G5: إملاءان لمقرر واحد ───────────────────────────────────────────────── */
 {
   const names = ["اداره مراكز مصادر التعلم", "إدارة مراكز مصادر التعلم", "تكنولوجيا التعليم", "تكنولوجيا التعلم"];
@@ -114,7 +121,7 @@ const server = read("server.ts");
 const picker = read("src/components/InstructorPicker.tsx");
 const cards = read("src/components/RoomSuggestionCards.tsx");
 const select = read("src/components/SearchableSelect.tsx");
-const css = read("src/styles/33-appointment-forms.css");
+const css = read("src/styles/36-appointment-forms.css");
 const companionPicker = read("src/components/CompanionFacilityPicker.tsx");
 const transfer = read("src/components/ScheduleTransfer.tsx");
 
@@ -161,5 +168,10 @@ check(/badge: courseOptionBadge\(\[Number\(c\.AdCourseId\)\], planBadges\)/.test
 check(/course-twin-hint/.test(editor) && /spellingTwinsOf\(courseName, courseNames\)/.test(editor), "G5: اقتراح دمج لإملاءٍ آخر (بلا حذف)");
 check(/importFullPage/.test(transfer) && /is-full-page/.test(css), "M1: استيراد PDF بكامل الصفحة");
 
+{
+  const ph = server.slice(server.indexOf('app.post("/api/schedules/placeholder-action"'), server.indexOf("/* ── استثناءات الأسبوع"));
+  check(/applyRequestHoldOverride\(req\)/.test(ph) && /overrideRequestHolds \? \{ overrideRequestHolds \}/.test(ph) && /\}, owners\);/.test(ph) && /RequestHoldConflict/.test(ph) && /noteRequestHoldOverride\(/.test(ph), "A2/G3: الإجراء الذرّي يحترم حجوز الطلبات ويتجاوزها بتأكيد القسم كالحفظ والحذف");
+  check(/withRequestHoldPrompt\(overrideRequestHolds => fetchJson\("\/api\/schedules\/placeholder-action"/.test(editor) && /withRequestHoldPrompt\(overrideRequestHolds => fetchJson\("\/api\/schedules",/.test(editor), "A2: الإجراء الذرّي والموعد السريع يسألان عن الحجز بالسؤال نفسه");
+}
 console.log(`\nappointment-forms audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

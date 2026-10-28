@@ -1,10 +1,6 @@
 name: Deploy SCHEDULE
 
 on:
-  workflow_run:
-    workflows: [Comprehensive CI]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
 
 permissions:

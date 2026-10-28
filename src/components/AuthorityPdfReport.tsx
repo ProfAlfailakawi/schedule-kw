@@ -3,6 +3,7 @@ import React from "react";
 import { AdCourse, AdInstructor, FSchedule } from "../types";
 import VisitingBadge from "./VisitingBadge";
 import { displayInstructorText } from "../utils/instructorIdentity";
+import { effectiveCourseHours } from "../utils/scheduleRegulations";
 
 export type AuthorityReportEntry = {
   status: "added" | "deleted" | "changed" | "unchanged";
@@ -148,7 +149,7 @@ export default function AuthorityPdfReport({
                   return (
                     <div className={`print-comprehensive-grid-row authority-pdf-row authority-pdf-row-${entry.status}`} role="row" key={`${pageIndex}-${index}-${row.id || row.sourceOrder || index}-${entry.status}`}>
                       {statusLabel ? <span className="authority-pdf-row-marker" aria-hidden="true">{statusLabel}</span> : null}
-                      <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course?.CourseCode || "—"}</div>
+                      <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course?.CourseCode || row.CourseCodeSnapshot || "—"}</div>
                       {/* ── الرقم المرجعي لمقرر لم تُصدره الهيئة بعد ──────────────────
                           A course added after the import has no CRN, because a
                           CRN is the Authority's number and it has not issued one
@@ -175,7 +176,7 @@ export default function AuthorityPdfReport({
                         {showSite && entry.siteLabel ? <span className="print-site-chip">{entry.siteLabel}</span> : null}
                       </div>
                       <div role="cell" className={`num ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course?.CourseCredit ?? "—"}</div>
-                      <div role="cell" className={`num ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course?.CourseHours ?? "—"}</div>
+                      <div role="cell" className={`num ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course ? (effectiveCourseHours(course) || "—") : "—"}</div>
                       <div role="cell" className={`num ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course?.MaxStudent ?? "—"}</div>
                       <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "AdRoomHall"))}`}>{String(row.AdRoomHall || "").trim() || "—"}</div>
                       <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "AdRoomCode"))}`}>{String(row.AdRoomCode || "").trim() || "—"}</div>

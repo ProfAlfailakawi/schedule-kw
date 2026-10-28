@@ -143,11 +143,10 @@ check(page.includes("مسودة · غير معتمدة · لا تُعتبر تك
 check(page.includes("@media print"), "وتبقى الحالةُ في الطباعة");
 /* الكلمةُ العامة مسموحة بطلب صاحب النظام («قاعة وليس مكان»): «لا تتوفّر قاعة»
    و«تغيّرت القاعة» لا تكشفان قاعةً بعينها. أمّا اسمُ القاعة ورمزُها فممنوعان. */
-check(!/قاعة|AdRoomCode|AdRoomHall|roomCandidates/.test(page
-    .replace(/مدّةُ المحاضرة/g, "")
-    .replace(/لا تتوفّر قاعة في هذا الوقت/g, "")
-    .replace(/تغيّرت القاعة/g, "")),
-  "ولا اسمَ قاعةٍ في الصفحة كلها");
+/* المالك 2026-10-28 (C1/C2): القاعةُ تُختار تلقائياً وتُعرض للأستاذ («الأنسب» + بديلان)
+   من roomPick الذي يبنيه الخادم وحده؛ ولا يصل الصفحةَ صفُّ غيره ولا قائمةُ المرشّحين الخام. */
+check(!/AdRoomCode|AdRoomHall|roomCandidates|roomOptions/.test(page) && page.includes("function roomPickHtml(it)") && page.includes("it.roomPick"),
+  "القاعة تُعرض من اختيار الخادم وحده، بلا صفوفٍ ولا مرشّحين خام");
 check(page.includes("ينتهي ") && page.includes("مدّةُ المحاضرة من اللائحة"),
   "والنهايةُ تُعرض محسوبةً ولا تُسأل");
 check(page.includes('fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-batch"')
@@ -165,7 +164,7 @@ check(page.includes('actionName(it.action)') && page.includes('requestedText(it)
   && page.includes('decision.state==="fixed"') && page.includes('decision.state==="rejected"'),
   "وسجل الحركة يشرح الإضافة والتعديل والحذف وقرار القسم على كل بند");
 check(page.includes('var blocked=state.filter(function(it){return !unchangedEdit(it)&&!incompleteItem(it)&&(it.tone==="bad"||it.tone==="checking")}).length')
-  && page.includes("عالج الموانع قبل الإرسال"),
+  && page.includes("اختر وقتاً متاحاً"),
   "ومؤشر الجاهزية يمنع الإرسال المرئي ما دام الفحص جارياً أو وجد مانعاً");
 check(page.includes('days:(it.action==="change"||it.action==="add")?(it.slots||[]).map(function(s){return s.day}):[]')
   && page.includes('decision:it.decision||null'),

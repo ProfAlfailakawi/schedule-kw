@@ -223,6 +223,16 @@ export const REQUEST_V4_CSS = `
 .heat-key span[data-heat=ok]{background:#2f8f69}
 .heat-key span[data-heat=warn]{background:#c58a12}
 .heat-key span[data-heat=bad]{background:#c0392b}
+/* الوقتُ غير المتاح باهتٌ بأيقونة سببه، لا يُضغط (B2). */
+.starts button.start-off{opacity:.5;cursor:not-allowed;background:var(--soft);border-style:dashed;display:inline-flex;align-items:center;justify-content:center;gap:4px}
+.starts button.start-off .why-ic svg{inline-size:13px;block-size:13px}
+.heat-shape{display:grid;gap:6px;color:var(--ink);font-weight:600}.heat-shape>svg{inline-size:16px;block-size:16px;color:var(--accent)}
+/* القاعة: «الأنسب» وبديلان بأيقونات السبب (C2). */
+.room-pick{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0 0}
+.room-pick .rp{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--card);font-size:12px;color:var(--muted)}
+.room-pick .rp b{color:var(--ink);font-weight:700}.room-pick .rp small{font-size:10.5px;padding:1px 7px;border-radius:999px;background:var(--ok2);color:var(--ok)}
+.room-pick .rp-best{border-color:var(--ok);background:var(--ok2)}
+.room-pick svg{inline-size:14px;block-size:14px;flex:none}.room-pick .rp-why{display:inline-grid;color:var(--accent)}
 .calm .cal-line{margin:10px 0 0}
 .verdict[data-tone=warn]>i{background:#8a6100}
 `;

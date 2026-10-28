@@ -346,7 +346,7 @@ export default function QuickCreatePopover({
     regulation: fit,
     notes: (previewCurrent ? liveCheck.notices : []).map(text => ({ kind: "time" as const, text })),
   });
-  const blockingCount = previewCurrent ? liveCheck.conflicts.filter(isBlockingConflict).length : 0;
+  const blockingCount = previewCurrent ? liveCheck.conflicts.filter(isBlockingConflict).filter(item => !item?.holdRequestId).length : 0;
   const pendingCheck = ready && checkable && (!previewCurrent || liveCheck.checking);
   const blocked = previewCurrent && (verdict.blockers.length > 0 || blockingCount > 0);
   const checkFailed = previewCurrent && Boolean(liveCheck.error);

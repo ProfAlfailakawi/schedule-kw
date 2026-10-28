@@ -139,9 +139,12 @@ test:ads
 test:masari-integrity
 test:instructor-apply
 test:instructor-request-review
+test:requests-engine-owner
 test:instructor-course-load
 test:course-room-type-sync
 test:decision-1913
+test:approval-review
+test:decision-surfaces
 test:visiting-badge-changes
 test:visiting-lookup
 test:visiting-badge-g1

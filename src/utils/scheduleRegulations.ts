@@ -422,6 +422,37 @@ export function periodBalanceSnapshot(rows: readonly FSchedule[]): PeriodBalance
   return { morning, evening: 100 - morning, sections: starts.length, morningCount };
 }
 
+/**
+ * ── م.7/8: هل لقاءاتُ الشعبة شكلٌ معتمد؟ ───────────────────────────────────
+ *
+ * The library names an example day for each shape (Mon+Wed for two 80-minute
+ * meetings). What the article fixes is the *shape*: how many meetings, how long
+ * each, and that they are spread over the week. 1913/2016 states the 3-hour
+ * course as two «hour-and-a-half» periods without binding them to Mon/Wed, and
+ * the owner confirmed (2026-10-28) that «نظريات التعلم والتكنولوجيا» on
+ * Sun+Tue 14:00–15:20 complies. So a section passes when:
+ *   • it matches a library pattern exactly (days and minutes), or
+ *   • a single-day block has the library length (any day), or
+ *   • its meeting lengths equal a multi-day library pattern's lengths AND its
+ *     days are pairwise non-adjacent (Sun+Tue, Mon+Wed, Tue+Thu, Sun+Thu…) —
+ *     the same load, spread the way the article intends.
+ * Two meetings on adjacent days, a wrong length, or a missing meeting still fail.
+ */
+export function meetingsMatchApprovedPattern(meetings: ReadonlyArray<{ day: DayKey; minutes: number }>, weeklyHours: number): boolean {
+  const actual = meetings.slice().sort((a, b) => DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day));
+  if (!actual.length) return false;
+  const lengths = (list: readonly number[]) => list.slice().sort((a, b) => a - b).join(",");
+  const actualLengths = lengths(actual.map(item => item.minutes));
+  const indices = actual.map(item => DAY_KEYS.indexOf(item.day));
+  const spread = indices.every((value, index) => index === 0 || value - indices[index - 1] >= 2);
+  return patternsForHours(weeklyHours).some(pattern => {
+    if (pattern.days.length === 1) return actual.length === 1 && actual[0].minutes === pattern.minutesPerDay[0];
+    if (pattern.days.length !== actual.length) return false;
+    const exact = pattern.days.every((day, index) => actual[index]?.day === day && actual[index]?.minutes === pattern.minutesPerDay[index]);
+    return exact || (spread && lengths(pattern.minutesPerDay) === actualLengths);
+  });
+}
+
 export function reviewSchedule(context: RegulationContext): RegulationFinding[] {
   const { rows, courses, instructors } = context;
   const findings: RegulationFinding[] = [];
@@ -469,27 +500,32 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     if (!row.AdCourseId) return;
     byCourse.set(row.AdCourseId, [...(byCourse.get(row.AdCourseId) || []), row]);
   });
+  /* الشعبةُ هويّتُها كليتُها ورقمُها معاً (I3): «501» بنين ليست «501» بنات، فلا
+     تُدمج لقاءاتهما في نمطٍ واحد ولا في «وقتٍ غير ثابت». وصفٌّ بلا رقم شعبة
+     شعبةٌ مستقلة — لا تُجمع الصفوف الفارغة الرقم في شعبةٍ وهمية واحدة. */
+  const sectionsOf = (list: FSchedule[]) => {
+    const bySection = new Map<string, FSchedule[]>();
+    for (const row of list) {
+      const code = String(row.SCode ?? "").trim();
+      const key = `${Number(row.AdCollegeId) || 0}:${code || `row-${row.id}`}`;
+      bySection.set(key, [...(bySection.get(key) || []), row]);
+    }
+    return bySection;
+  };
 
   // --- م.7/8 — theoretical patterns must stay in sync with the pattern library.
   for (const [courseId, list] of byCourse) {
     const course = courses.get(courseId);
     if (course?.CourseTeachingMode !== "theoretical") continue;
-    const hours = Number(course.CourseHours || course.CourseCredit || 0);
+    const hours = effectiveCourseHours(course);
     if (hours !== 3 && hours !== 4) continue;
-    const bySection = new Map<string, FSchedule[]>();
-    for (const row of list) bySection.set(String(row.SCode || ""), [...(bySection.get(String(row.SCode || "")) || []), row]);
     const invalid: FSchedule[] = [];
-    for (const sectionRows of bySection.values()) {
+    for (const sectionRows of sectionsOf(list).values()) {
       const meetings = sectionRows.flatMap(row => daysOf(row).map(day => ({ day, minutes: duration(row) })));
       const actual = meetings.slice().sort((a, b) => DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day));
-      const matches = (expected: Array<{ day: DayKey; minutes: number }>) => actual.length === expected.length && expected.every((item, index) => actual[index]?.day === item.day && actual[index]?.minutes === item.minutes);
-      // The library is the source of truth (50/80-minute teaching periods).
-      // A practical single-day block is an approved shape regardless of which
-      // day it lands on; compare its length and not the example day in the library.
-      const approvedPatterns = patternsForHours(hours);
-      const approved = approvedPatterns.some(pattern => pattern.days.length === 1
-        ? actual.length === 1 && actual[0].minutes === pattern.minutesPerDay[0]
-        : matches(pattern.days.map((day, index) => ({ day, minutes: pattern.minutesPerDay[index] }))));
+      // The library is the source of truth (50/80-minute teaching periods);
+      // meetingsMatchApprovedPattern reads its shapes, not its example days.
+      const approved = meetingsMatchApprovedPattern(actual, hours);
       /* إزالة نمطٍ تاريخي من المكتبة التشغيلية لا تُحوّل السجلات القديمة إلى
          مخالفة. يُقبل الشكل غير القياسي هنا فقط إذا كان تاريخ هذا المقرر، قبل
          الفصل الجاري، موثوقاً ويطابق مجموع دقائقه وأيامه؛ ولا يدخل بذلك في
@@ -507,7 +543,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       source: "decision-1912",
       approvalEffect: "block",
       title: `توزيع مقرر نظري لا يطابق نمط ${countOf(hours, AR.hour)}`,
-      detail: `المطلوب: ${patternsForHours(hours).map(pattern => pattern.days.map((day, index) => `${countOf(pattern.minutesPerDay[index], AR.minute)} يوم ${dayLabel(day)}`).join("، ")).join("؛ أو ")}.`,
+      detail: `المطلوب: ${patternsForHours(hours).map(pattern => pattern.days.map((day, index) => `${countOf(pattern.minutesPerDay[index], AR.minute)} يوم ${dayLabel(day)}`).join("، ")).join("؛ أو ")} — أو الأطوال نفسها على أيام غير متتالية.`,
       subjectKey: `course:${courseId}`,
       subjectLabel: course.CourseCode || course.CourseName,
       rowIds: [...new Set(invalid.map(row => row.id))],
@@ -516,9 +552,8 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
 
   // --- م.7/9 — a course section keeps one start time across its teaching days.
   for (const [courseId, list] of byCourse) {
-    const bySection = new Map<string, FSchedule[]>();
-    for (const row of list) bySection.set(String(row.SCode || ""), [...(bySection.get(String(row.SCode || "")) || []), row]);
-    for (const [sectionCode, sectionRows] of bySection) {
+    for (const sectionRows of sectionsOf(list).values()) {
+      const sectionCode = String(sectionRows[0]?.SCode ?? "").trim() || "—";
       const starts = new Set(sectionRows.map(row => String(row.fstarttime || "")).filter(Boolean));
       if (starts.size < 2) continue;
       findings.push({
@@ -541,8 +576,10 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   const courseNames: string[] = [];
   for (const [courseId, list] of byCourse) {
     if (list.length < 2) continue;
+    /* م.7/5 تخصّ طلبة الكلية الواحدة: شعبتا المقرر في كليتين (بنين/بنات) في
+       الساعة نفسها لا تتنافسان على الطالب نفسه، فلا تُعدّان تكراراً (I3). */
     const starts = new Map<string, FSchedule[]>();
-    list.forEach(row => starts.set(row.fstarttime, [...(starts.get(row.fstarttime) || []), row]));
+    list.forEach(row => { const key = `${Number(row.AdCollegeId) || 0}|${row.fstarttime}`; starts.set(key, [...(starts.get(key) || []), row]); });
     for (const [, sameHour] of starts) {
       // Two sections at the same hour only matter when they also share a day.
       const overlapping = sameHour.filter((row, index) =>
