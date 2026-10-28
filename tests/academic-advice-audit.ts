@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 import fs from "node:fs";
 import { analyseAcademicAdvice, mandatoryPrecedes, type AcademicPlanView } from "../src/utils/academicAdvisory";
 import { buildAcademicDecisionLab, feasibleAcademicBundle } from "../src/utils/academicDecisionLab";
+import { buildAcademicDecisionLabTrainingPreview } from "../src/utils/academicDecisionLabDemo";
 import type { AdCourse, FSchedule, StudentProfile } from "../src/types";
 
 const course = (id: number, section = 9): AdCourse => ({
@@ -109,6 +110,35 @@ const missingCourseInput={...base,rows:[slot(2,"501","08:00","09:00")],
 const watchLab=buildAcademicDecisionLab(missingCourseInput,analyseAcademicAdvice(missingCourseInput));
 assert.ok(watchLab.graduationWatch?.some(w=>w.courseId===4 && !w.offered && w.demand===4),
   "rescue flags a genuinely desired unoffered prerequisite-dependent course without promising graduation dates");
+
+// Demo regression: every showcased output MUST be calculated by the same
+// production engine on isolated fictional courses, never invented UI numbers.
+const training = buildAcademicDecisionLabTrainingPreview();
+assert.equal(training.demoShowcase, true, "demo lesson is prominently distinguished from actual section advice");
+assert.ok(training.scenarios.length >= 2, "the six-tool demo includes interactive what-if scenarios");
+assert.ok(training.scenarios.some(s => s.beforeFeasible === 0 && s.afterFeasible >= 3 && s.gain >= 3),
+  "whole-bundle digital twin and before-after have a genuine calculated improvement");
+assert.ok(training.chain && training.chain.gain > Math.max(...training.scenarios.map(s => s.gain)),
+  "domino tool has a real two-step, non-duplicated calculation");
+assert.ok(training.graduationWatch?.some(w => !w.offered && w.downstream > 0 && w.demand >= 3),
+  "graduation rescue has an actually eligible prerequisite bottleneck");
+assert.ok(training.scenarios.some(s => s.facultyShiftMinutes > 0 && s.resources === "checked"),
+  "teacher and room balance measures are computed rather than decorative labels");
+assert.ok(training.scenarios.every(s => s.reasons.length && s.cautions.length && s.confidence),
+  "every preview carries transparent reasons and confidence");
+const sixUi = fs.readFileSync("src/components/AcademicDecisionLabPanel.tsx", "utf8");
+for (const name of ["التوأم الأكاديمي", "قبل / بعد", "تأثير الدومينو",
+  "إنقاذ المسار", "التوازن العادل", "الثقة والتفسير"]) {
+  assert.ok(sixUi.includes(name), "all six named tools must be discoverable: " + name);
+}
+assert.ok(sixUi.includes("setFeature(item.id)") && sixUi.includes("adl-feature"),
+  "all six tiles really switch visible content, not static placeholder labels");
+assert.ok(sixUi.includes("lab.demoShowcase") && sixUi.includes("حالة افتراضية منفصلة"),
+  "fictional training numbers cannot be represented as real university data");
+const apiSource = fs.readFileSync("src/server/academicAdvisoryData.ts","utf8");
+assert.ok(apiSource.includes("demoRequest && !actual.scenarios.length") &&
+  apiSource.includes("Repository.isDemoRequest()"),
+  "real student data must never use the fictional demo fallback");
 
 const privateLab=buildAcademicDecisionLab({...labInput,profiles:[profile(1,[2,3],[1])]},
   analyseAcademicAdvice({...labInput,profiles:[profile(1,[2,3],[1])]}));
