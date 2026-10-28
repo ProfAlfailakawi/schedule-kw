@@ -136,7 +136,7 @@ assert.ok(sixUi.includes("setFeature(item.id)") && sixUi.includes("adl-feature")
 assert.ok(sixUi.includes("lab.demoShowcase") && sixUi.includes("حالة افتراضية منفصلة"),
   "fictional training numbers cannot be represented as real university data");
 const apiSource = fs.readFileSync("src/server/academicAdvisoryData.ts","utf8");
-assert.ok(apiSource.includes("demoRequest && !actual.scenarios.length") &&
+assert.ok(apiSource.includes("decisionLab = demoRequest") &&
   apiSource.includes("Repository.isDemoRequest()"),
   "real student data must never use the fictional demo fallback");
 
