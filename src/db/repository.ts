@@ -3556,6 +3556,68 @@ export const Repository = {
     await markRegistrationRunsStale();
   },
 
+  /**
+   * ── دمجُ مقررٍ كُتب بإملاءين (G5) — كلُّه أو لا شيء ─────────────────────────
+   * يُعاد ربطُ كل مواعيد المكرّر (كل الفصول) وروابط صحائفه بالمقرر الباقي، ويأخذ الباقي
+   * الاسمَ الذي اختاره المسؤول، ويُؤرشف المكرّر ثم يُحذف — في معاملة واحدة (أو حفظٍ واحد في التجربة).
+   * لا يُستدعى إلا بعد معاينةٍ وتأكيد، والتحقق من الاستعمال (طلبة/قواعد) قبله في المسار.
+   */
+  mergeCourses: async (keeperId: number, mergeIds: number[], canonicalName: string, by = ""): Promise<{ keeper: AdCourse; schedules: number; links: number }> => {
+    const ids = [...new Set(mergeIds.map(Number).filter(id => id && id !== Number(keeperId)))];
+    if (!ids.length) throw new Error("لا مقررات للدمج.");
+    if (ids.length > 9) throw new Error("ادمج تسعة مقررات على الأكثر في المرة الواحدة.");
+    const name = normalizeArabicText(canonicalName);
+    invalidateReference(REFERENCE_KEYS.courses); invalidateSchedules();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const now = new Date().toISOString();
+      const result = await firestoreDb.runTransaction(async tx => {
+        const keeperRef = firestoreDb!.collection("courses").doc(`course_${keeperId}`);
+        const dupRefs = ids.map(id => firestoreDb!.collection("courses").doc(`course_${id}`));
+        const [keeperDoc, dupDocs, scheduleSnap, linkSnap] = await Promise.all([tx.get(keeperRef), Promise.all(dupRefs.map(ref => tx.get(ref))),
+          tx.get(firestoreDb!.collection("schedules").where("AdCourseId", "in", ids)),
+          tx.get(firestoreDb!.collection("curriculumPlanCourses").where("AdCourseId", "in", ids))]);
+        if (!keeperDoc.exists || dupDocs.some(doc => !doc.exists)) throw new Error("تغيّرت المقررات أثناء الدمج؛ أعد الفحص.");
+        const keeper = { ...(keeperDoc.data() as AdCourse), CourseName: name };
+        if (dupDocs.some(doc => Number((doc.data() as AdCourse).AdSectionId) !== Number(keeper.AdSectionId))) throw new Error("الدمج داخل القسم الواحد فقط.");
+        scheduleSnap.docs.forEach(doc => { const row = doc.data() as FSchedule; tx.set(doc.ref, { ...row, AdCourseId: keeperId, rev: Number(row.rev || 0) + 1 }); });
+        linkSnap.docs.forEach(doc => {
+          const link = doc.data() as CurriculumPlanCourse;
+          const id = `${link.planId}_${keeperId}`;
+          tx.set(firestoreDb!.collection("curriculumPlanCourses").doc(id), { ...link, id, AdCourseId: keeperId });
+          tx.delete(doc.ref);
+        });
+        tx.set(keeperRef, keeper);
+        dupDocs.forEach((doc, index) => {
+          tx.set(firestoreDb!.collection("deletedRecords").doc(`courses__course_${ids[index]}`), { collection: "courses", docId: `course_${ids[index]}`, deletedAt: now, reason: `دمج إملاء في ${keeperId}${by ? ` · ${by}` : ""}`, payload: doc.data() });
+          tx.delete(dupRefs[index]);
+        });
+        return { keeper, schedules: scheduleSnap.size, links: linkSnap.size };
+      });
+      invalidateScheduleRelationCache();
+      await markRegistrationRunsStale();
+      return result;
+    }
+    const keeperAt = db.courses.findIndex(course => Number(course.AdCourseId) === Number(keeperId));
+    if (keeperAt < 0 || ids.some(id => !db.courses.some(course => Number(course.AdCourseId) === id))) throw new Error("تغيّرت المقررات أثناء الدمج؛ أعد الفحص.");
+    if (ids.some(id => Number(db.courses.find(course => Number(course.AdCourseId) === id)!.AdSectionId) !== Number(db.courses[keeperAt].AdSectionId))) throw new Error("الدمج داخل القسم الواحد فقط.");
+    const merging = new Set(ids);
+    let schedules = 0, links = 0;
+    db.schedules = db.schedules.map(row => merging.has(Number(row.AdCourseId)) ? (schedules++, { ...row, AdCourseId: keeperId, rev: Number(row.rev || 0) + 1 }) : row);
+    if (!Array.isArray(db.curriculumPlanCourses)) db.curriculumPlanCourses = [];
+    const kept = new Map<string, CurriculumPlanCourse>();
+    for (const link of db.curriculumPlanCourses) {
+      if (merging.has(Number(link.AdCourseId))) { links++; const id = `${link.planId}_${keeperId}`; if (!kept.has(id)) kept.set(id, { ...link, id, AdCourseId: keeperId }); }
+      else kept.set(link.id, link);
+    }
+    db.curriculumPlanCourses = [...kept.values()];
+    db.courses[keeperAt] = { ...db.courses[keeperAt], CourseName: name };
+    const keeper = db.courses[keeperAt];
+    db.courses = db.courses.filter(course => !merging.has(Number(course.AdCourseId)));
+    saveDatabase();
+    await markRegistrationRunsStale();
+    return { keeper, schedules, links };
+  },
+
   // Curriculum plans -------------------------------------------------------
   getCurriculumPlans: async (sectionId: number): Promise<CurriculumPlan[]> => {
     const sid = Number(sectionId || 0);

@@ -182,6 +182,22 @@
 .course-twin-hint svg{width:13px;height:13px;flex:none}
 .course-twin-hint b{padding:0 7px;border-radius:999px;background:var(--surface);font-weight:800}
 
+/* ── G5: دمج الإملاءين ───────────────────────────────────────────────────────── */
+.twins-merge{display:grid;gap:10px}
+.twins-section{display:grid;gap:8px}
+.twins-group{display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.twins-courses{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.twins-courses li{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:6px 8px;border-radius:10px;background:var(--surface-2)}
+.twins-courses li.is-keeper{outline:2px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+.twins-courses label{display:inline-flex;align-items:center;gap:6px}
+.twins-refs{display:inline-flex;gap:6px}
+.twins-refs small{display:inline-flex;align-items:center;gap:3px;font-weight:700;color:var(--muted)}
+.twins-refs small svg{width:13px;height:13px}
+.twins-refs small.is-warn{color:var(--warning)}
+.twins-name{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:var(--t-sm)}
+.twins-name>span{color:var(--muted);font-size:var(--t-xs)}
+.twins-blocked{color:var(--warning)}
+
 /* ── M1: استيراد PDF بكامل الصفحة ───────────────────────────────────────────── */
 @media (min-width:721px){
   .transfer-backdrop:has(.transfer-sheet.is-full-page){padding:8px}
