@@ -19,6 +19,8 @@ import { createHash } from "crypto";
 import { Repository, caseRefFor } from "../db/repository";
 import type { AdCourse, FSchedule, StudentProfile } from "../types";
 import { pickDoorTerm } from "../utils/termStudentPhases";
+import { prereqMet, coreqMet } from "../utils/curriculumRules";
+import { mandatoryPrecedes } from "../utils/academicAdvisory";
 import { runRegistrationSimulation } from "./simulationData";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
 import { buildReferenceRules } from "../utils/referenceApply";
@@ -273,5 +275,55 @@ export async function seedDemoMasariDemand(): Promise<void> {
       ? { ...current, wishes: { ...current.wishes, courseIds: picks } } as StudentProfile
       : current);
     at += 1;
+  }
+
+  /* Academic-opportunity showcase: build a REAL calculated example from fake demo
+     profiles, approved rules and existing timetable. Never change official rows. */
+  const stageSection = 1;
+  const profiles = (await Repository.listStudentProfiles()).filter(p =>
+    Number(p.AdSectionId) === stageSection && Number(p.wishes?.termId) === doorId);
+  const [plans, links, rows] = await Promise.all([
+    Repository.getCurriculumPlans(stageSection),
+    Repository.getCurriculumPlanCourses(stageSection),
+    Repository.getSchedulesByScope({ termId: doorId }),
+  ]);
+  const offerings = (rows as FSchedule[]).filter(row => Number(row.AdSectionId) === stageSection);
+  const overlaps = (a: FSchedule, b: FSchedule) =>
+    ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].some(day =>
+      (a as any)[day] && (b as any)[day] &&
+      String(a.fstarttime) < String(b.fendtime) && String(b.fstarttime) < String(a.fendtime));
+  let seeded = false;
+  for (const plan of plans) {
+    if (seeded || plan.status === "archived") continue;
+    const ruleSet = await Repository.getRuleSet(plan.id);
+    if (!ruleSet || ruleSet.status === "review") continue;
+    const members = new Set(links.filter(link => link.planId === plan.id).map(link => Number(link.AdCourseId)));
+    const rules = new Map(ruleSet.rules.map(rule => [Number(rule.courseId), rule]));
+    const courseIds = [...new Set(offerings.map(row => Number(row.AdCourseId)))].filter(id => members.has(id)).sort((a, b) => a - b);
+    const matching = profiles.filter(p => p.curriculumPlanId === plan.id);
+    for (let i = 0; i < courseIds.length && !seeded; i++) for (let j = i + 1; j < courseIds.length && !seeded; j++) {
+      const a = courseIds[i], b = courseIds[j];
+      if (mandatoryPrecedes(ruleSet.rules, a, b) || mandatoryPrecedes(ruleSet.rules, b, a)) continue;
+      if (!offerings.some(x => Number(x.AdCourseId) === a && offerings.some(y => Number(y.AdCourseId) === b && overlaps(x, y)))) continue;
+      const selected = matching.filter(person => {
+        const passed = new Set((person.passedCourseIds || []).map(Number));
+        const selectedCourses = new Set([a, b]);
+        const units = Number(person.passedUnits) || 0;
+        return !passed.has(a) && !passed.has(b) &&
+          [a, b].every(id => prereqMet(rules.get(id)?.prereq, passed, units) &&
+            coreqMet(rules.get(id)?.coreq, passed, selectedCourses));
+      }).slice(0, 4);
+      if (selected.length < 3) continue;
+      // Matching students deliberately express the same qualifying wishes.
+      // The 4-person group is fictitious and remains confined to the isolated demo sandbox.
+      for (const person of selected) await Repository.updateStudentProfile(person.id, current =>
+        current && current.wishes ? {
+          ...current, wishes: { ...current.wishes,
+            courseIds: [...new Set([a, b, ...current.wishes.courseIds])],
+            constraints: { ...current.wishes.constraints, noMorning: true, noAfternoon: false },
+          },
+        } as StudentProfile : current);
+      seeded = true;
+    }
   }
 }
