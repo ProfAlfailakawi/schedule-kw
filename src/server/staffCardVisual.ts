@@ -61,15 +61,15 @@ export const STAFF_CARD_VISUAL_CSS = String.raw`
 .wk-head span.is-off{color:var(--muted);font-weight:500}
 .wk-body{position:relative;padding-block:10px 12px}
 .wk-axis{position:relative}
-.wk-axis em{position:absolute;inset-inline:0;transform:translateY(-50%);font:600 10px/1 ui-monospace,monospace;color:var(--muted);text-align:center;font-style:normal;direction:ltr}
+.wk-axis em{position:absolute;inset-inline:0;transform:translateY(-50%);font:600 10.5px/1 ui-monospace,monospace;color:var(--muted);text-align:center;font-style:normal;direction:ltr}
 .wk-col{position:relative;border-radius:10px;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--hh) - 1px),var(--line) calc(var(--hh) - 1px),var(--line) var(--hh));background-color:color-mix(in srgb,var(--line) 14%,transparent)}
 .wk-b{position:absolute;inset-inline:2px;display:flex;align-items:flex-start;justify-content:center;padding:4px 3px;border:0;border-radius:9px;background:color-mix(in srgb,var(--c) 17%,var(--card));color:var(--c);cursor:pointer;font:inherit;text-align:center;overflow:hidden;box-shadow:inset 3px 0 0 var(--c);transition:transform .14s,box-shadow .14s}
 .wk-b:active{transform:scale(.96)}
 .wk-b.on{background:var(--c);color:#fff;box-shadow:0 4px 12px color-mix(in srgb,var(--c) 40%,transparent)}
 .wk-b span{font-size:10.5px;font-weight:700;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;word-break:break-word}
 .wk-b{flex-direction:column;align-items:center;gap:2px}
-.wk-b em{font:700 9.5px/1 ui-monospace,monospace;font-style:normal;opacity:.85;direction:ltr}
-.wk-b.is-short span{-webkit-line-clamp:1;font-size:9.5px}
+.wk-b em{font:700 10px/1 ui-monospace,monospace;font-style:normal;opacity:.85;direction:ltr}
+.wk-b.is-short span{-webkit-line-clamp:1;font-size:10.5px}
 @media (max-width:360px){.wk-b.is-short span{display:none}}
 @media (max-width:420px){.card-tab{font-size:12px;padding:8px 4px;white-space:nowrap}}
 
