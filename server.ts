@@ -6259,6 +6259,19 @@ app.post("/api/schedules/import-preflight", requirePermission(7), async (req: Au
   }))});
 });
 
+/** مانع ساعات المقرر كما تقرؤه بوابة التعديل حرفاً: موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت)
+    لا يُرفض كما هو (A6) — updateScheduleHandler يتخطّاه بالقاعدة نفسها (unchangedShape). */
+async function checkLengthIssue(row:any):Promise<string|null>{
+  if(!(Number(row.AdCourseId||0)&&String(row.SCode||"").trim()))return null;
+  const editedId=Number(row.excludeId||0);
+  if(editedId){
+    const existing=await Repository.getScheduleById(editedId);
+    const unchangedShape=existing&&existing.fstarttime===row.fstarttime&&existing.fendtime===row.fendtime&&SCHEDULE_DAY_KEYS.every(k=>Boolean((existing as any)[k])===Boolean(row?.[k]));
+    if(unchangedShape)return null;
+  }
+  return scheduleLengthIssue({...row,id:Number(row.excludeId||row.id||0)});
+}
+
 /** موانع المكان (القاعة الرسمية + المرفق المرافق) كما تقرؤها بوابة الحفظ. */
 async function checkLocationIssues(row:any):Promise<string[]>{
   if(!(row.buildingId && (row.roomId || row.locationStatus===PENDING_ROOM) && Number(row.AdCollegeId||0) && Number(row.AdSectionId||0)))return [];
@@ -6286,7 +6299,7 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
     scheduleLengthNotice(row).catch(()=>null),
     // Return the same payload and weekly-hours blockers the save gate uses.
     schedulePayloadIssues(row),
-    Number(row.AdCourseId||0)&&String(row.SCode||"").trim()?scheduleLengthIssue({...row,id:Number(row.excludeId||row.id||0)}):Promise.resolve(null),
+    checkLengthIssue(row),
     checkLocationIssues(row),
     scheduleConflicts(req,row,Number(row.excludeId||0)),
   ]);

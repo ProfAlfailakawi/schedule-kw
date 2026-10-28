@@ -41,7 +41,8 @@ assert.match(quick, /pendingCheck \|\| blocked \|\| checkFailed/);
 {
   const checkRoute = server.slice(server.indexOf('app.post("/api/schedules/check-conflicts"'), server.indexOf('app.post("/api/schedules/check-conflicts"') + 2200);
   assert.match(checkRoute, /schedulePayloadIssues\(row\)/);
-  assert.match(checkRoute, /scheduleLengthIssue\(\{\.\.\.row/);
+  assert.match(checkRoute, /checkLengthIssue\(row\)/);
+  assert.match(server, /async function checkLengthIssue[\s\S]{0,700}unchangedShape[\s\S]{0,200}scheduleLengthIssue\(\{\.\.\.row/, "the live check skips the hours cap for an unchanged saved row, exactly like the update gate");
   assert.match(checkRoute, /checkLocationIssues\(row\)/);
   assert.match(checkRoute, /await Promise\.all\(\[/, "check-conflicts runs its independent reads in parallel");
 }
