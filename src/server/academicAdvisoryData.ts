@@ -2,7 +2,6 @@
 import { Repository } from "../db/repository";
 import { analyseAcademicAdvice, type AcademicReading, type AcademicPlanView } from "../utils/academicAdvisory";
 import { buildAcademicDecisionLab } from "../utils/academicDecisionLab";
-import { buildAcademicDecisionLabTrainingPreview } from "../utils/academicDecisionLabDemo";
 import type { AdCourse, CurriculumPlan, FSchedule, StudentProfile } from "../types";
 
 export async function academicAdviceForScope(collegeId: number, sectionId: number, termId: number): Promise<AcademicReading> {
@@ -27,12 +26,7 @@ export async function academicAdviceForScope(collegeId: number, sectionId: numbe
       } as AcademicPlanView;
     }));
   const active = approved.filter((p): p is AcademicPlanView => Boolean(p));
-  if (!active.length) {
-    // A demo section with no approved plan still needs the independent six-tool lesson.
-    // Never expose fictional advice in an actual department.
-    if (Repository.isDemoRequest()) empty.decisionLab = buildAcademicDecisionLabTrainingPreview();
-    return empty;
-  }
+  if (!active.length) return empty;
   const input = {
     collegeId, sectionId, termId, plans: active,
     profiles: profiles as StudentProfile[],
@@ -43,18 +37,15 @@ export async function academicAdviceForScope(collegeId: number, sectionId: numbe
   // Evaluate the heavier what-if only if the authorised schedule API serialises
   // the whole reading. The professor public-token endpoint selectively returns
   // pairs and time preferences; it must NOT compute or expose the lab.
-  const demoRequest = Repository.isDemoRequest();
   let decisionLab: ReturnType<typeof buildAcademicDecisionLab> | undefined;
   Object.defineProperty(reading, "decisionLab", {
     enumerable: true,
     get() {
       if (!decisionLab) {
-        // The demo always presents the complete six-tool training journey.
-        // Live department advice stays in the original pairs/time preferences,
-        // while university scopes always use real decision-lab calculations.
-        decisionLab = demoRequest
-          ? buildAcademicDecisionLabTrainingPreview()
-          : buildAcademicDecisionLab(input, reading);
+        // Always return the real academic result, even for demo scopes.
+        // The clearly labelled fictional tutorial is a separate client-side view:
+        // replacing this value with training data hides genuine course watchlists.
+        decisionLab = buildAcademicDecisionLab(input, reading);
       }
       return decisionLab;
     },
