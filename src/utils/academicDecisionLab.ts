@@ -155,18 +155,20 @@ export function buildAcademicDecisionLab(input: AcademicInput, reading: Academic
   const today=new Date().toISOString();
   const empty:AcademicDecisionLab={scenarios:[],sampledAt:today,basis:"approved-plans-and-student-wishes",nonBlocking:true,
     limitations:["الرغبات والمجتازات مدخلة من الطلبة، وليست قيداً رسمياً.","السعة والموافقات واللائحة لا تُحسم بهذه المحاكاة."]};
-  if(people.length<3)return empty;
+  // Refuse costly or incomplete analyses instead of silently sampling students.
+  if(people.length<3 || people.length>800)return empty;
   const interested=new Map<number,Person[]>();
   for(const person of people) for(const id of person.courses)
     interested.set(id,[...(interested.get(id)||[]),person]);
-  const ranked=[...interested.entries()].filter(([,group])=>group.length>=3)
-    .sort((a,b)=>b[1].length-a[1].length).slice(0,16);
+  const ranked=[...interested.entries()].filter(([,group])=>group.length>=3 && group.length<=250)
+    .sort((a,b)=>b[1].length-a[1].length).slice(0,12);
   const scenarios:AcademicDecisionScenario[]=[];
   for(const [courseId,group] of ranked) {
-    for(const offer of (offered.get(courseId)||[]).slice(0,4)) {
+    for(const offer of (offered.get(courseId)||[]).slice(0,3)) {
       const head=offer.rows[0],start=toMinute(head.fstarttime);
       if(start<0)continue;
       const before=group.filter(p=>feasibleAcademicBundle(p,offered)).length;
+      if(before>0 && before<3) continue; // do not reveal a small subgroup via comparison
       const priorRipple=collisionPairs(offered,reading.pairs,courseId);
       for(const newTime of CLOCKS) {
         const delta=toMinute(newTime)-start;
