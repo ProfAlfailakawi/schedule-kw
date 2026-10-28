@@ -20819,8 +20819,26 @@ async function judgeRequestItems(request: InstructorRequest, options: {
         verdict.reasons.push({ source: "room", text: "لا يتوفر المرفق المرافق المطلوب طوال الموعد. جرّب وقتاً آخر أو راجع القسم.", blocking: true });
       }
     }
+    /* ── القاعةُ تتبع الموعدَ المنقول (A2/C7) ─────────────────────────────────
+     * نقلُ موعدٍ قائمٍ يُبقي قاعتَه إن كانت خاليةً في الوقت الجديد — وتُقدَّم على
+     * غيرها فلا تتبدّل بلا سبب. فإن شغلها غيرُه وكانت قاعاتٌ صالحةٌ خالية، فليس
+     * هذا «ممنوعاً»: تُبدَّل إلى الأنسب (rankRequestRooms) ويُقال ذلك سطراً واحداً،
+     * والتثبيتُ يكتب القاعةَ الجديدة. كان الصفُّ يحتفظ بقاعته المشغولة فيقول الفحصُ
+     * الحيّ «القاعة مشغولة» والحكمُ نفسُه يعدّ ثلاث عشرة قاعةً خالية. */
+    const originalKey = item.action === "change" && original ? roomKeyOf((original as any).roomId, original.AdRoomCode, original.AdRoomHall) : "";
+    if (originalKey && verdict.roomCandidates.includes(originalKey))
+      verdict.roomCandidates = [originalKey, ...verdict.roomCandidates.filter(key => key !== originalKey)];
+    const originalTaken = Boolean(originalKey) && !verdict.roomCandidates.includes(originalKey) && context.allRows.some(row =>
+      Number(row.id) !== Number(original!.id) && Number(row.AdInstructorId) !== Number(request.AdInstructorId)
+      && rowOccupiesRoom(row, (original as any).roomId, original!.AdRoomCode, original!.AdRoomHall)
+      && (item.slots || []).some(slot => Boolean((row as any)[slot.day]) && scheduleOverlap(slot.start, slot.end, row.fstarttime, row.fendtime)));
     return {
       ...item,
+      ...(originalTaken && verdict.roomCandidates[0] && rules.hallByKey.get(verdict.roomCandidates[0]) ? (() => {
+        const to = rules.hallByKey.get(verdict.roomCandidates[0])!;
+        return { roomSwitch: { from: [original!.AdRoomCode, original!.AdRoomHall].filter(Boolean).join("/"),
+          to: { roomId: String(to.roomId || ""), buildingId: String(to.buildingId || ""), room: to.room, hall: to.hall, ...withFacility.get(verdict.roomCandidates[0]) } } };
+      })() : { roomSwitch: undefined }),
       courseRequirements: selectedCourse ? { CourseRoomType: selectedCourse.CourseRoomType, CourseTeachingMode: selectedCourse.CourseTeachingMode,
         CourseCompanionRoomType: selectedCourse.CourseCompanionRoomType, MaxStudent: selectedCourse.MaxStudent } : undefined,
       verdict: verdict.kind,
@@ -21557,7 +21575,9 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
       const refusal = liveRowRefusal(live, revs);
       if (refusal) { failItem(409, i, refusal.error, refusal.code); return; }
       const [first, ...rest] = groups;
-      const held = holds.find(entry => entry.itemId === item.itemId)?.room;
+      /* بلا حجزٍ للبند (طلبٌ قديم أو حجزٌ سقط): القاعةُ من الحكم نفسه — تبقى قاعتُه إن خلت، وإلا الأنسبُ الخالي. */
+      const held = holds.find(entry => entry.itemId === item.itemId)?.room
+        || (await judgeRequestItems(stored, { forDepartment: true })).items[i]?.roomSwitch?.to;
       const place = held ? { AdRoomCode: held.room, AdRoomHall: held.hall, buildingId: held.buildingId, roomId: held.roomId,
         companionRoomId: held.companionRoomId || live.companionRoomId, companionRoomLabel: held.companionRoomLabel || live.companionRoomLabel, locationStatus: "VERIFIED" } : {};
       ops.push({ kind: "update", itemIndex: i, rowId: Number(live.id), original: live,

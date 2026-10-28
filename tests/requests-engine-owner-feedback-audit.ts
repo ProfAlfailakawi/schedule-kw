@@ -108,6 +108,17 @@ const verdictFor = (req: InstructorRequest, allRows: FSchedule[]) => {
     "والحذفُ كذلك: يسأل ثم يعيد بالتأكيد");
 }
 
+/* ── القاعةُ تتبع الموعدَ المنقول: مشغولةٌ + بدائلُ خالية ≠ «ممنوع» ─────────── */
+{
+  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const inbox = fs.readFileSync(path.join(process.cwd(), "src/components/InstructorInbox.tsx"), "utf8");
+  check(server.includes("verdict.roomCandidates = [originalKey, ...verdict.roomCandidates.filter(key => key !== originalKey)]")
+    && server.includes("roomSwitch: { from:"), "النقلُ يُبقي قاعتَه إن خلت، وإلا يُبدَّلها إلى الأنسب الخالي (roomSwitch)");
+  check(server.includes("|| (await judgeRequestItems(stored, { forDepartment: true })).items[i]?.roomSwitch?.to;"), "التثبيتُ يكتب القاعةَ المبدَّلة حين لا حجزَ للبند");
+  check(inbox.includes("item.action === \"change\" && item.roomSwitch") && inbox.includes("القاعة بُدّلت إلى") && inbox.includes("...place,"),
+    "الوارد يفحص القاعةَ التي سيكتبها التثبيت ويقول «القاعة بُدّلت إلى» بدل «القاعة مشغولة»");
+}
+
 /* ── A4: النصُّ وحده لا يعبر الكلية ───────────────────────────────────────── */
 {
   const req = request("req-a4", 70, [addItem("i1")]);

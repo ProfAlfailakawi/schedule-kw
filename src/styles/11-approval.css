@@ -1740,3 +1740,5 @@ button.apb-staff-chip,button.apb-staff-need{border:0;font-family:inherit;cursor:
 .request-absent-icon{display:grid;place-items:center;inline-size:30px;block-size:30px;flex:none;border-radius:10px;background:var(--surface);color:var(--muted)}
 .request-absent-row[data-opened] .request-absent-icon{color:var(--warning,#a06b00)}
 .request-absent-icon>svg{inline-size:16px;block-size:16px}
+.request-room-switch{font-family:inherit;color:var(--accent-ink,var(--accent));font-weight:600}
+.request-room-switch{gap:5px}.request-room-switch bdi{font-family:var(--font-mono,ui-monospace,monospace);margin-inline-start:4px}

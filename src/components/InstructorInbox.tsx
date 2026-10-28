@@ -256,8 +256,13 @@ export const proposedRow = (row: InboxRequest, item: InstructorRequestItem, curr
         AdTermId: Number(row.AdTermId),
       };
   if (!base) return null;
+  /* القاعةُ التي سيكتبها التثبيت: المحجوزةُ للبند، أو بديلُ القاعة المشغولة (roomSwitch) — لا قاعةُ الصفّ القديمة. */
+  const place = item.action === "change" && item.roomSwitch
+    ? { roomId: item.roomSwitch.to.roomId, buildingId: item.roomSwitch.to.buildingId, AdRoomCode: item.roomSwitch.to.room, AdRoomHall: item.roomSwitch.to.hall, locationStatus: "VERIFIED" }
+    : {};
   return {
     ...base,
+    ...place,
     instructorRequestId: row.id,
     fsunday: days.has("fsunday"), fmonday: days.has("fmonday"), ftuesday: days.has("ftuesday"),
     fwednesday: days.has("fwednesday"), fthursday: days.has("fthursday"),
@@ -589,11 +594,12 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
   const judgedSources = new Set(reasons.filter(reason => reason.blocking).map(reason => reason.source));
   const liveIssues = allLive.filter(issue => !(issue.otherId && siblings.has(issue.otherId))
     && !(issue.type && judgedSources.has(issue.type as any)));
-  /* كل تعارضٍ حيّ يوقف التثبيت، لا الموانع الحمراء وحدها. فاختيار الأستاذ
-     يجب أن يمرّ من فحص الموعد نفسه الذي يراه القسم، مع استثناء البنود الشقيقة
-     التي ستُفرغها هذه الجولة كما عولجت أعلاه. */
+  /* كل تعارضٍ حيٍّ يمنع حفظَ الجدول يوقف التثبيت: اختيارُ الأستاذ يمرّ من فحص
+     الموعد نفسه الذي يراه القسم، مع استثناء البنود الشقيقة التي ستُفرغها هذه
+     الجولة كما عولجت أعلاه. (قاعةٌ مشغولة مع بديلٍ خالٍ لا تصل هنا: roomSwitch.) */
   const blocked = waitsElsewhere || item.verdict === "conflict" || reasons.some(reason => reason.blocking)
-    || liveIssues.length > 0 || (item.action === "change" && !current);
+    /* ما يمنعه الحفظُ يمنع التثبيت؛ والتنبيهُ اللين (إيقاع القسم، تنقّل الحرم) يُقرأ ولا يمنع — كما في حفظ الجدول نفسه. */
+    || liveIssues.some(issue => issue.severity === "high") || (item.action === "change" && !current);
   /* وصل جاهزاً ثم تحرّك الجدول (C7): تنبيهٌ وبديلٌ جاهز، لا «ممنوع». */
   const changedAfterSubmit = !decided && Boolean(row.submittedAt) && item.verdict === "conflict" && item.action !== "delete";
   const readiness: Readiness = decided ? "ready"
@@ -624,7 +630,11 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
             {item.action === "delete" ? <span className="request-none">حذف الموعد</span>
               : item.after ? <span title="المطلوب">{item.after.days}<br /><bdi dir="ltr">{item.after.time}</bdi>
                   {/* القاعةُ التي حُجزت للطلب عند إرساله (C1) — أو أنسبُ المرشّحات إن لم يُحجز بعد. */}
-                  {(item.reservedRoom?.label || item.roomOptions?.[0]) ? (
+                  {item.action === "change" && item.roomSwitch && !item.reservedRoom ? (
+                    <small className="request-room request-room-switch" data-held="1" title={`القاعة ${item.roomSwitch.from} مشغولة في الوقت الجديد`}>
+                      <RefreshCw aria-hidden="true" /><span>القاعة بُدّلت إلى</span><bdi dir="ltr">{[item.roomSwitch.to.room, item.roomSwitch.to.hall].filter(Boolean).join("/")}</bdi>
+                    </small>
+                  ) : (item.reservedRoom?.label || (item.action === "add" && item.roomOptions?.[0])) ? (
                     <small className="request-room" data-held={item.reservedRoom ? "1" : undefined} title={item.reservedRoom ? "قاعةٌ محجوزةٌ للطلب" : "الأنسب الآن"}>
                       <DoorOpen aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.label || [item.roomOptions![0].room, item.roomOptions![0].hall].filter(Boolean).join("/")}</bdi>
                       {(item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel) ? <><Wrench aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel}</bdi></> : null}
