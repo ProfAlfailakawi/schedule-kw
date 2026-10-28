@@ -162,7 +162,8 @@ import { buildCalendar, buildReminder, calendarSpanForTerm, type CalendarLecture
 import { CALENDAR_LINKS_CLIENT_JS } from "./src/utils/calendarLinks";
 import { forgetOfferingStates, offeringStatesForTerm } from "./src/server/offeringStates";
 import { TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS } from "./src/server/teacherCardExtras";
-import { linkMode, linkModeLabel, parseLinkMode } from "./src/utils/linkMode";
+import { issueLinkMode, linkMode, linkModeLabel, modeAllowsFreeEdit, modeAllowsWrite, taPhaseOwns } from "./src/utils/linkMode";
+import { isTaRequest, notOpened } from "./src/utils/requestParticipation";
 import { bestPerSide, stickCandidates, topSticks, type StickAnchor, type StickJudged } from "./src/utils/lectureStick";
 import { applyOfferingToOpenings, offeringBadge, offeringBlocked, emptyOfferingDoc, normalizeLevel, normalizeOfferingEntry, offeringDocId, offeringView, suggestFutureCourses, toggleInterest, type CourseInterestDoc, type CourseOfferingDoc } from "./src/utils/courseOffering";
 import { alternativeSections, baseCapacityFor, nearFull, normalizeQuotaConfig, sectionKey, seatState, tryAddSeats, type SeatLedger, type SeatQuotaConfig } from "./src/utils/advisorSeats";
@@ -20995,8 +20996,10 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   const reopening = req.body?.reopen === true;
   const selectedInstructorId = individualOnly ? Number(req.body.instructorId) : 0;
   const emergencyReason = String(req.body?.reason || "").trim().slice(0, 400);
-  /* E1: صفةُ الإرسال (👁️ للعرض · ✏️ طلب تعديل · 🎓 تدريب) تُحفظ في الرابط نفسه. */
-  const issueMode = parseLinkMode(req.body?.mode);
+  /* E1: صفةُ الإرسال (👁️ للعرض · ✏️ طلب تعديل) تُكتب على طلب كل أستاذ — `linkMode`، المصدرُ الواحد.
+     و🎓 مرحلةُ التدريب لا تُفتح من هنا: لها مسارُها (/api/ta-phase/open) بموجاته ومقرّراته المسموحة. */
+  const issueMode = issueLinkMode(req.body?.mode);
+  if (!issueMode) { res.status(400).json({ error: "مرحلة التدريب تُفتح من لوحتها في النشر، لا من إرسال بطاقة الأستاذ." }); return; }
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
   if (individualOnly && (!Number.isSafeInteger(selectedInstructorId) || selectedInstructorId <= 0 || !emergencyReason)) {
     res.status(400).json({ error: "اختر أستاذاً واكتب سبب إعادة فتح التعديل له." }); return;
@@ -21130,7 +21133,15 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
        لا يبقى «طلبَه» — يتبع الموعدَ الجديد (src/utils/requestReissue.ts). */
     const held = already.get(instructorId);
     const move = reissueMove(held);
+    /* F3: بطاقةُ مرحلة التدريب القائمة لا يمسّها النشرُ الجماعي — تحكمها مرحلتُها. */
+    if (held && move !== "fresh" && taPhaseOwns(held, individualOnly)) {
+      issued.push({ instructorId, linkId: held.linkId, reissued: true });
+      continue;
+    }
     if (held && move === "keep" && !individualOnly && !reopening) {
+      /* طلبُه ورابطُه كما هما ينتظران قرارَ القسم؛ وصفةُ الإرسال الجديدة هي ما يحكم بطاقتَه (E1).
+         تُكتب الصفةُ وحدها، لا الطلبُ كلُّه: قرارٌ أو ردٌّ يصل بين القراءة والكتابة لا يُمحى. */
+      if (linkMode(held) !== issueMode) await Repository.setInstructorRequestLinkMode(held.id, issueMode);
       issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
@@ -21348,7 +21359,7 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
     unchanged: rows.filter(row => row.status !== "sent" && row.changedCount === 0).length,
     changed: rows.filter(row => row.changedCount > 0).length,
     /* رابطُ «العرض فقط» لا ينتظر جواباً: لا يُعدّ «لم يفتح» (D2). */
-    unopened: rows.filter(row => !row.linkOpenedAt && row.linkMode !== "view").length,
+    unopened: notOpened(rows).length,
     settled: rows.filter(row => row.status === "settled").length,
   };
 
@@ -22358,7 +22369,8 @@ app.post("/api/public/request/:token/reply-batch", rateLimitPublicRequest, async
  *   - شارةُ «مسودة، غير معتمدة» فوق كل شيء، وتبقى في الطباعة وفي لقطة الشاشة،
  *     لأن الصورةَ تُرسل إلى غيره وتُقرأ اعتماداً إن لم تحمل حالتَها.
  *   - يكتب البدايةَ ويختار أيامَه، ولا يُسأل عن النهاية: اللائحةُ تعرفها.
- *   - لا اسمَ قاعةٍ في الصفحة كلها. «الوقت متاح» أو «غير متاح» ومعه بدائل.
+ *   - القاعةُ يختارها الخادمُ وحده ويعرضها («الأنسب» وبديلان من roomPick، طلب المالك C1/C2)؛
+ *     ولا يصل الصفحةَ صفُّ غيره ولا قائمةُ مرشّحين خام. «الوقت متاح» أو «غير متاح» ومعه بدائل.
  *   - خطٌّ زمنيٌّ لطلبه هو: متى أُنشئ الرابط، ومتى فُتح، ومتى أرسل، وما ثُبّت
  *     وما رُفض ولماذا. فلا يُقال بعدها «أنتم ما سويتوا شيئاً»، ولا يُقال له
  *     «أرسلنا» وهو لم يفتح.
@@ -23706,7 +23718,8 @@ app.post("/api/public/request/:token/hold", rateLimitCheckTimes, async (req: Req
   const resolved = await resolveRequestLink(String(req.params.token || ""));
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
   res.setHeader("Cache-Control", "no-store");
-  if (!requestWindowOpen(resolved.request) || isUnchangedConfirmed(resolved.request)) { res.json({ held: false }); return; }
+  /* E1: رابطُ «للعرض فقط» لا يكتب، فلا يحجز وقتاً يسبق به زملاءه. */
+  if (!modeAllowsWrite(linkMode(resolved.request)) || !requestWindowOpen(resolved.request) || isUnchangedConfirmed(resolved.request)) { res.json({ held: false }); return; }
   if (req.body?.release === true) { await Repository.holdInstructorRequestSlot(resolved.request, null, 0); res.json({ held: false }); return; }
   const sent = Array.isArray(req.body?.items) ? (req.body.items as any[]) : null;
   const index = Number(req.body?.itemIndex);
@@ -23852,6 +23865,8 @@ async function taPhaseForRequest(request: InstructorRequest) {
 app.post("/api/public/request/:token/interest", rateLimitPublicRequest, async (req: Request, res: Response) => {
   const resolved = await resolveRequestLink(String(req.params.token || ""));
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
+  /* 🌟 تُعرض في بطاقة «طلب تعديل» وحدها، فلا تُكتب من غيرها. */
+  if (!modeAllowsFreeEdit(linkMode(resolved.request))) { res.status(403).json({ error: "هذا الرابط لا يطلب مقررات." }); return; }
   const courseId = Number(req.body?.courseId || 0), collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0);
   const allowed = (await instructorRequestCourseOptions(resolved.request)).some(option => option.id === courseId && option.collegeId === collegeId && option.sectionId === sectionId);
   if (!allowed) { res.status(400).json({ error: "المقرر ليس من كتالوج قسمك." }); return; }
@@ -23871,7 +23886,7 @@ app.post("/api/public/request/:token/stick", rateLimitCheckTimes, async (req: Re
   const resolved = await resolveRequestLink(String(req.params.token || ""));
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
   res.setHeader("Cache-Control", "no-store");
-  if (linkMode(resolved.request) !== "edit" || !requestWindowOpen(resolved.request)) { res.status(403).json({ error: "التعديل غير متاح في هذا الرابط." }); return; }
+  if (!modeAllowsFreeEdit(linkMode(resolved.request)) || !requestWindowOpen(resolved.request)) { res.status(403).json({ error: "التعديل غير متاح في هذا الرابط." }); return; }
   const items = Array.isArray(req.body?.items) ? (req.body.items as any[]) : null;
   const index = Number(req.body?.itemIndex);
   const entry = items && Number.isInteger(index) ? items[index] : null;
@@ -23991,7 +24006,7 @@ async function sendTaWave(doc: TaPhaseDoc, wave: TaWave, by: { SystemUserId?: nu
   for (const instructorId of wave.instructorIds) {
     const held = existing.find(row => Number(row.AdInstructorId) === instructorId && row.status !== "superseded");
     const heldLink = held ? await Repository.getShareLink(held.linkId) : null;
-    if (held && heldLink && !heldLink.revoked && linkMode(held) === "ta") { sent.push({ instructorId, linkId: held.linkId }); continue; }
+    if (held && heldLink && !heldLink.revoked && isTaRequest(held)) { sent.push({ instructorId, linkId: held.linkId }); continue; }
     const link = await Repository.createShareLink({
       AdCollegeId: doc.AdCollegeId, AdSectionId: doc.AdSectionId, AdTermId: doc.AdTermId,
       label: `مرحلة التدريب — ${instructorId}`,
@@ -24052,7 +24067,7 @@ app.get("/api/ta-phase", requirePermission(7), async (req: AuthenticatedRequest,
     facultyPhase: { closesAt: facultyClosesAt, closed: !facultyClosesAt || Date.parse(facultyClosesAt) < Date.now() },
     vacant: vacant.map(row => ({ ...row, courseName: courseName.get(row.courseId) || "" })), summary: vacantSummary(vacant),
     tas: instructors.filter(isTrainingAssistant).filter(row => !isFacultyPlaceholder(row)).map(row => {
-      const own = taRequests.find(r => Number(r.AdInstructorId) === Number(row.AdInstructorId) && linkMode(r) === "ta");
+      const own = taRequests.find(r => Number(r.AdInstructorId) === Number(row.AdInstructorId) && isTaRequest(r));
       return { id: Number(row.AdInstructorId), name: String(row.AdInstructorName || ""), load: Number(row.AdInstructorLoad || 0),
         chosen: (own?.items || []).filter(item => item.offeringRowIds?.length).length, opened: !!((own as any)?.linkOpenedAt || (own as any)?.openedAt), sent: !!own,
         /* للتذكير بواتساب (يضغط المنسّقُ «إرسال»): رابطُه الشخصيّ ورقمُه من سجلّه. */

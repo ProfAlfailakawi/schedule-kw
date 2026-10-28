@@ -4,7 +4,8 @@
  */
 import fs from "node:fs";
 import vm from "node:vm";
-import { linkMode, parseLinkMode, modeAllowsWrite, modeAllowsFreeEdit, LINK_MODES } from "../src/utils/linkMode";
+import { linkMode, parseLinkMode, issueLinkMode, taPhaseOwns, modeAllowsWrite, modeAllowsFreeEdit, LINK_MODES } from "../src/utils/linkMode";
+import { awaitsAnswer, isTaRequest, notOpened, notParticipated, openedNotAnswered, requestLinkMode } from "../src/utils/requestParticipation";
 import { stickCandidates, bestPerSide, topSticks, shiftLabel, type StickJudged } from "../src/utils/lectureStick";
 import { offeringView, suggestFutureCourses, normalizeOfferingEntry, toggleInterest, normalizeLevel, emptyOfferingDoc } from "../src/utils/courseOffering";
 import { seatState, tryAddSeats, quotaFor, alternativeSections, nearFull, baseCapacityFor, normalizeQuotaConfig, type SeatLedger } from "../src/utils/advisorSeats";
@@ -29,6 +30,48 @@ ok(linkMode({ linkMode: "view" }) === "view" && linkMode({ linkMode: "ta" }) ===
 ok(parseLinkMode("ta") === "ta" && parseLinkMode(7) === "edit", "E1 parse");
 ok(!modeAllowsWrite("view") && modeAllowsWrite("ta") && !modeAllowsFreeEdit("ta") && modeAllowsFreeEdit("edit"), "E1 write rules");
 ok(LINK_MODES.map(m => m.icon).join("") === "👁️✏️🎓", "E1 three visual cards");
+
+/* ── E1 · D1/D2/F3: صفةٌ واحدة يكتبها النشر ويقرؤها الوارد والخادم ── */
+{
+  const at = "2026-10-28T08:00:00Z";
+  const rows = [
+    { id: "a", status: "sent", submittedAt: undefined, linkMode: undefined, linkOpenedAt: undefined },
+    { id: "b", status: "sent", submittedAt: undefined, linkMode: "view", linkOpenedAt: undefined },
+    { id: "c", status: "sent", submittedAt: undefined, linkMode: "view", linkOpenedAt: at },
+    { id: "d", status: "sent", submittedAt: undefined, linkMode: "ta", linkOpenedAt: at },
+    { id: "e", status: "submitted", submittedAt: at, linkMode: "ta", linkOpenedAt: at },
+    { id: "f", status: "sent", submittedAt: undefined, linkMode: "edit", linkOpenedAt: at },
+    { id: "g", status: "sent", submittedAt: undefined, linkMode: "ta", linkOpenedAt: undefined },
+  ] as const;
+  const ids = (list: ReadonlyArray<{ id: string }>) => list.map(row => row.id).join();
+  ok(ids(notParticipated(rows)) === "a,d,f,g", "D1/D2 «لم يشاركوا»: كلُّ صفةٍ إلا «للعرض فقط»");
+  ok(ids(notOpened(rows)) === "a,g", "D2 «لم يفتحوا»: رابطُ العرض فقط لا ينتظر فتحاً");
+  ok(ids(openedNotAnswered(rows)) === "d,f", "D2 «فتحوا ولم يجيبوا» بالقاعدة نفسها");
+  ok(ids(rows.filter(isTaRequest)) === "d,e,g", "F3 «🎓 تدريب» من الصفة نفسها");
+  ok(rows.every(row => requestLinkMode(row) === linkMode(row) && awaitsAnswer(row) === (linkMode(row) !== "view")), "E1 قارئٌ واحد: requestLinkMode هو linkMode");
+}
+ok(issueLinkMode(undefined) === "edit" && issueLinkMode("view") === "view" && issueLinkMode("edit") === "edit" && issueLinkMode("x") === "edit" && issueLinkMode("ta") === null,
+  "E1 إصدارُ البطاقة 👁️ أو ✏️؛ و🎓 تُفتح من مرحلتها");
+ok(taPhaseOwns({ linkMode: "ta" }, false) && !taPhaseOwns({ linkMode: "ta" }, true) && !taPhaseOwns({ linkMode: "view" }, false) && !taPhaseOwns({}, false) && !taPhaseOwns(null, false),
+  "F3 النشرُ الجماعي يترك بطاقةَ التدريب القائمة لمرحلتها؛ والاستثناءُ الفرديُّ يحكم");
+for (const file of ["server.ts", "src/components/InstructorInbox.tsx", "src/components/SchedulePublish.tsx", "src/components/TAPhasePanel.tsx", "src/utils/requestParticipation.ts"]) {
+  ok(!/\.linkMode\s*[!=]==/.test(fs.readFileSync(file, "utf8")), `E1 ${file} يقرأ الصفة بـlinkMode() وحدها`);
+}
+{
+  const server1 = fs.readFileSync("server.ts", "utf8");
+  const issue = server1.slice(server1.indexOf('app.post("/api/instructor-requests/issue"'), server1.indexOf('app.get("/api/instructor-requests/exceptions"'));
+  ok(issue.includes("const issueMode = issueLinkMode(req.body?.mode);") && issue.includes("if (!issueMode) { res.status(400)"), "E1 الإصدارُ يردّ «🎓»");
+  ok(issue.indexOf("taPhaseOwns(held, individualOnly)") > 0 && issue.indexOf("taPhaseOwns(held, individualOnly)") < issue.indexOf('if (held && move === "keep"'), "F3 حارسُ بطاقة التدريب قبل كل تمديدٍ أو كتابة");
+  ok(issue.includes("Repository.setInstructorRequestLinkMode(held.id, issueMode)") && (issue.match(/linkMode: issueMode,/g) || []).length === 2,
+    "E1 النشرُ يكتب صفته على الجديد والممدَّد والذي ينتظر القسم (حقلاً وحده)");
+  ok(server1.includes("unopened: notOpened(rows).length"), "D2 عدّادُ «لم يفتحوا» في الخادم بالقاعدة نفسها");
+  ok(server1.includes("if (!modeAllowsWrite(linkMode(resolved.request)) || !requestWindowOpen(resolved.request)"), "E1 رابطُ العرض لا يحجز وقتاً");
+  const inbox = fs.readFileSync("src/components/InstructorInbox.tsx", "utf8");
+  ok(inbox.includes("notOpened<InboxRequest>(visible)") && inbox.includes("openedNotAnswered(rows || [])") && inbox.includes("(!taOnly || isTaRequest(row))"), "D1/D2/F3 الوارد يفلتر بالمساعدات نفسها");
+  const repo = fs.readFileSync("src/db/repository.ts", "utf8");
+  const setMode = repo.slice(repo.indexOf("setInstructorRequestLinkMode: async"), repo.indexOf("setInstructorRequestLinkMode: async") + 1200);
+  ok(setMode.includes("tx.update(ref, { linkMode: mode, updatedAt: at })") && !setMode.includes("requestRevision"), "E1 الصفةُ تُكتب حقلاً وحده بلا رفع المراجعة");
+}
 
 /* ── C6 ── */
 const dur = (days: string[]) => (days.some(d => d === "fmonday" || d === "fwednesday") ? 75 : 50);

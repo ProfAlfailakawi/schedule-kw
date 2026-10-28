@@ -92,6 +92,7 @@ import { caseRefFromId, mergeStudentResubmission } from "../utils/studentNeedMer
 import { cleanSeenIds, mergeSeenIds, seenUnchanged } from "../utils/notificationSeen";
 import { termChronology } from "../utils/termSequence";
 import { kuwaitDayOfIso, recordLinkOpen } from "../utils/linkOpens";
+import type { LinkMode } from "../utils/linkMode";
 import { unchangedScheduleFingerprint } from "../utils/instructorRequestConfirmation";
 
 // Runtime state must not live inside the replaceable application release. A number of
@@ -5409,6 +5410,33 @@ export const Repository = {
     if (first) row.timeline = [...(row.timeline || []), { kind: "link-opened", at: nowIso }];
     saveDatabase();
     return { fields: rec, first };
+  },
+
+  /**
+   * صفةُ رابط الطلب وحدها (E1) — حقلٌ واحد، لا إعادةُ حفظ الطلب كله: طلبٌ ينتظر قرارَ القسم
+   * قد يصله قرارٌ أو ردٌّ بين قراءة النشر وكتابته، فلا يُمحى. ولا يُرفع رقمُ مراجعته: بنودُه لم
+   * تتغيّر، فلا يُردّ إرسالُ الأستاذ بـ«تغيّر الطلب». ويُبثّ الحفظُ فيُعيد الكرتُ الحيّ رسمَ صفته.
+   */
+  setInstructorRequestLinkMode: async (id: string, mode: LinkMode): Promise<boolean> => {
+    const at = new Date().toISOString();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequests").doc(id);
+      const saved = await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        tx.update(ref, { linkMode: mode, updatedAt: at });
+        return { ...(snap.data() as InstructorRequest), linkMode: mode, updatedAt: at };
+      });
+      if (saved) announceInstructorRequestSaved(saved);
+      return Boolean(saved);
+    }
+    const row = (db.instructorRequests || []).find(item => item.id === id);
+    if (!row) return false;
+    row.linkMode = mode;
+    row.updatedAt = at;
+    saveDatabase();
+    announceInstructorRequestSaved(row);
+    return true;
   },
 
   getInstructorRequest: async (id: string): Promise<InstructorRequest | undefined> => {

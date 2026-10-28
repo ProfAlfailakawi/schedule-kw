@@ -81,7 +81,7 @@ async function main() {
 
   /* ── E1: للعرض فقط ── */
   const rows = (await A("GET", `/api/instructor-requests?${SCOPE}`)).json.rows || [];
-  const someone = rows.find((r: any) => r.phase !== "ta" && r.status === "sent");
+  const someone = rows.find((r: any) => r.linkMode !== "ta" && r.status === "sent");
   if (someone) {
     const issue = await A("POST", "/api/instructor-requests/issue", { collegeId: 1, sectionId: 1, termId: 1, closesAt: tomorrow(), source: "draft", mode: "view", instructorId: someone.AdInstructorId, reason: "اختبار للعرض فقط", reopen: true });
     check(issue.status === 200, "E1 إرسالٌ فرديٌّ بصفة «للعرض فقط»", issue.json);
@@ -95,7 +95,7 @@ async function main() {
   const lock = await A("PUT", "/api/course-offering", { collegeId: 1, sectionId: 1, termId: 1, display: "hide", courses: [{ courseId: vacantCourse, state: "closed" }] });
   check(lock.status === 200, "C5 المسؤول يقفل مقرراً");
   const ta30 = (await A("GET", `/api/ta-phase?${SCOPE}`)).json.tas.find((t: any) => t.id === 30);
-  const anyEdit = rows.find((r: any) => r.phase !== "ta" && r.linkId && r.linkId !== someone?.linkId);
+  const anyEdit = rows.find((r: any) => r.linkMode !== "ta" && r.linkId && r.linkId !== someone?.linkId);
   if (anyEdit) {
     const editCard = await http("GET", `/api/public/request/${encodeURIComponent(anyEdit.linkId)}`);
     check(!(editCard.json.courses || []).some((c: any) => Number(c.id) === vacantCourse), "C5 المقرر المخفيّ لا يظهر في إضافة الكرت");
@@ -108,6 +108,43 @@ async function main() {
     const c = (faded.json.courses || []).find((x: any) => Number(x.id) === vacantCourse);
     check(!c || c.offering?.state === "closed", "C5 «باهت بقفل» يرسله مقفلاً لا قابلاً للاختيار", c);
   }
+
+  /* ── E1: صفةٌ واحدة على الطلب — النشرُ الجماعيُّ يكتبها، والوارد يعدّ بها، وبطاقةُ التدريب لمرحلتها ── */
+  const issueAll = (mode: string) => A("POST", "/api/instructor-requests/issue", { collegeId: 1, sectionId: 1, termId: 1, closesAt: tomorrow(), source: "draft", mode });
+  const taIssue = await issueAll("ta");
+  check(taIssue.status === 400, "E1 «🎓» لا تُفتح من إصدار بطاقة الأستاذ — لها لوحتُها", taIssue.json);
+  const beforeAll: any[] = (await A("GET", `/api/instructor-requests?${SCOPE}`)).json.rows || [];
+  const pendingBefore = beforeAll.filter(r => (r.status === "submitted" || r.status === "in-review") && r.linkMode !== "ta");
+  const taBefore = beforeAll.filter(r => r.linkMode === "ta");
+  const viewAll = await issueAll("view");
+  check(viewAll.status === 200 && (viewAll.json.issued || []).length > 0, "E1 نشرٌ جماعيٌّ «للعرض فقط»", viewAll.json);
+  const inboxView = (await A("GET", `/api/instructor-requests?${SCOPE}`)).json;
+  const viewByLink = new Map<string, any>((inboxView.rows || []).map((r: any) => [String(r.linkId), r]));
+  const reached = (viewAll.json.issued || []).map((r: any) => viewByLink.get(String(r.linkId))).filter(Boolean);
+  check(reached.length === (viewAll.json.issued || []).length && reached.every((r: any) => r.linkMode === "view" || r.linkMode === "ta"),
+    "E1 كلُّ بطاقةٍ أرسلها النشرُ — جديدةً أو ممدَّدةً أو تنتظر القسم — صفتُها «للعرض فقط»", reached.map((r: any) => [r.AdInstructorId, r.status, r.linkMode]));
+  const pendingView = pendingBefore.map(r => ({ was: r, now: viewByLink.get(String(r.linkId)) }));
+  const itemsShape = (r: any) => JSON.stringify((r?.items || []).map((i: any) => [i.action, i.rowId ?? null, i.decision?.state || ""]));
+  check(pendingBefore.length > 0 && pendingView.every(({ was, now }) => now?.linkMode === "view" && now.status === was.status
+      && Number(now.requestRevision || 0) === Number(was.requestRevision || 0) && itemsShape(now) === itemsShape(was)),
+    "E1 والطلبُ الذي ينتظر القسم يأخذ الصفة وحدها: حالتُه وبنودُه ومراجعتُه كما هي", pendingView.map(({ was, now }) => [was.status, now?.status, now?.linkMode, was.requestRevision, now?.requestRevision]));
+  check(taBefore.every(r => viewByLink.get(String(r.linkId))?.linkMode === "ta"), "F3 بطاقةُ مرحلة التدريب لم يمسّها النشرُ الجماعي");
+  check(inboxView.totals?.unopened === (inboxView.rows || []).filter((r: any) => !r.linkOpenedAt && r.linkMode !== "view").length,
+    "D2 «لم يفتحوا» في الخادم يعدّ بالصفة نفسها", inboxView.totals);
+  const pendingLink = String(pendingBefore[0]?.linkId || "");
+  if (pendingLink) {
+    const viewCard = await http("GET", `/api/public/request/${encodeURIComponent(pendingLink)}`);
+    check(viewCard.json.mode === "view" && viewCard.json.windowOpen === false, "E1 كرتُ الطلب المنتظر صار للعرض: حالتُه دون أدوات", { mode: viewCard.json.mode, open: viewCard.json.windowOpen });
+    const hold = await http("POST", `/api/public/request/${encodeURIComponent(pendingLink)}/hold`, { itemIndex: 0, items: [] });
+    check(hold.status === 200 && hold.json.held === false, "E1 ورابطُ العرض لا يحجز وقتاً", hold.json);
+    const star = await http("POST", `/api/public/request/${encodeURIComponent(pendingLink)}/interest`, { courseId: vacantCourse, collegeId: 1, sectionId: 1, on: true });
+    check(star.status === 403, "E1 ولا يكتب 🌟 اهتماماً", star.status);
+  }
+  const editAll = await issueAll("edit");
+  const editByLink = new Map<string, any>((((await A("GET", `/api/instructor-requests?${SCOPE}`)).json.rows) || []).map((r: any) => [String(r.linkId), r]));
+  check(editAll.status === 200 && pendingBefore.every(r => editByLink.get(String(r.linkId))?.linkMode === "edit"),
+    "E1 ونشرٌ «طلب تعديل» بعده يُعيدها: آخرُ نشرٍ يحكم", pendingBefore.map(r => editByLink.get(String(r.linkId))?.linkMode));
+  check(taBefore.every(r => editByLink.get(String(r.linkId))?.linkMode === "ta"), "F3 ولا يحوّل بطاقةَ التدريب إلى تعديلٍ حرّ");
 }
 
 main().catch(error => { failed++; console.error(error); }).finally(() => {
