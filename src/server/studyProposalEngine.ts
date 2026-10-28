@@ -22,8 +22,8 @@ import { confirmedDepartmentRoomIds, eligibleHallsForSection, rowOccupiesRoom } 
 import { mergeRegistryWithSeed } from "./locationRegistryEngine";
 import {
   applyProposalOps, daysLabel, daysOf, durationOf, GridItem, placeLabel, ProposalEvaluation, ProposalFinding,
-  proposalDrift, proposalMetrics, snapshotOf, validateOps, PROPOSAL_DAY_KEYS, PROPOSAL_DAY_NAMES, type ProposalCatalog,
-  type OpIssue,
+  proposalDrift, proposalMetrics, snapshotOf, specOfSnapshot, validateOps, PROPOSAL_DAY_KEYS, PROPOSAL_DAY_NAMES, type ProposalCatalog,
+  type OpIssue, type VacancyFit, type VacancyVerdict,
 } from "../utils/studyProposal";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START, isValidClock, scheduleDayWindowMinutes, withinScheduleDay } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
@@ -625,6 +625,74 @@ export async function suggestAlternatives(
       ? { note: partial ? "لم يظهر حل في نطاق البحث الأول. جرّب تغيير الأيام أو القاعة؛ لم يُفحص كل احتمال." : "لم يظهر وقت أو قاعة بديلة صالحة في النطاق المتاح." }
       : partial ? { note: "النتائج من نطاق البحث الأول؛ قد توجد خيارات أخرى." } : {}),
   };
+}
+
+/* ── الشعب الشاغرة («هيئة تدريسية») ─────────────────────────────────────────
+ * لكل شعبةٍ شاغرةٍ في النطاق: هل تُسند لهذا الأستاذ كما هي بلا أي تعارض؟
+ * لا حكمَ جديد هنا: التداخلُ مع محاضراته يُستبعد أولاً (أرخص سؤال)، ثم يمرّ
+ * المرشّحُ بالفحص الكامل نفسه (`evaluateProposal`) على المقترح كلّه مضافاً إليه
+ * «إسناد الشعبة كما هي». «جاهزة» تعني: لا مانع ولا ملاحظة عليها، والفحص مكتمل،
+ * ولم يزد عددُ الموانع في بقية المقترح.
+ */
+export async function rankVacancies(
+  deps: EngineDeps, req: any, input: EvaluateInput, rows: readonly FSchedule[], world: LoadedWorld,
+  options: { maxChecks?: number; preferSectionId?: number } = {},
+): Promise<{ vacancies: VacancyVerdict[]; checked: number; total: number; partial: boolean }> {
+  const maxChecks = Math.max(0, options.maxChecks ?? 24);
+  const placeholderId = [...world.placeholders].sort((a, b) => a - b)[0] || null;
+  const applied = applyProposalOps(world.termRows, input.ops, { instructorId: input.instructorId, termId: input.termId, placeholderId });
+  const mine = applied.rows.filter(row => Number(row.AdInstructorId) === input.instructorId);
+  const used = new Set(input.ops.map(op => op.source?.id).filter((id): id is number => typeof id === "number"));
+  const nameOf = (row: FSchedule) => String(world.catalog.courseById.get(Number(row.AdCourseId))?.CourseName || row.AdCourseName || "");
+
+  const verdicts: VacancyVerdict[] = [];
+  const candidates: FSchedule[] = [];
+  for (const row of rows) {
+    const id = Number(row.id);
+    if (used.has(id)) { verdicts.push({ rowId: id, fit: "used" }); continue; }
+    const days = daysOf(row as any);
+    const s = timeToMinutes(row.fstarttime), e = timeToMinutes(row.fendtime);
+    const clash = mine.find(other => Number(other.id) !== id && days.some(day => Boolean((other as any)[day]))
+      && s < timeToMinutes(other.fendtime) && timeToMinutes(other.fstarttime) < e);
+    if (clash) { verdicts.push({ rowId: id, fit: "clash", clashWith: nameOf(clash) || "محاضرة" }); continue; }
+    candidates.push(row);
+  }
+  const prefer = Number(options.preferSectionId || 0);
+  candidates.sort((a, b) => (Number(b.AdSectionId) === prefer ? 1 : 0) - (Number(a.AdSectionId) === prefer ? 1 : 0)
+    || timeToMinutes(a.fstarttime) - timeToMinutes(b.fstarttime) || Number(a.id) - Number(b.id));
+
+  const baseBlockers = input.ops.length ? (await evaluateProposal(deps, req, input, world)).counts.blockers : 0;
+  let checked = 0;
+  for (const row of candidates) {
+    const id = Number(row.id);
+    if (checked >= maxChecks) { verdicts.push({ rowId: id, fit: "unchecked" }); continue; }
+    checked++;
+    const source = snapshotOf(row, world.catalog);
+    const opId = `vacancy-${id}`;
+    const op: StudyProposalOp = { id: opId, kind: "assign", source, target: specOfSnapshot(source) };
+    try {
+      const result = await evaluateProposal(deps, req, { ...input, ops: [...input.ops, op] }, world);
+      const own = result.findings.filter(f => f.opId === opId && f.kind !== "info");
+      const state = result.perOp[opId]?.state;
+      const fit: VacancyFit = state === "blocked" || result.counts.blockers > baseBlockers ? "blocked"
+        : state === "unchecked" || result.status !== "complete" ? "unchecked"
+          : state === "review" ? "review" : "ready";
+      verdicts.push({
+        rowId: id, fit,
+        notes: own.slice(0, 2).map(f => ({ kind: f.kind, title: f.title })),
+        after: {
+          loadUnits: result.after.metrics.loadUnits, sections: result.after.metrics.sections,
+          attendanceDays: result.after.metrics.attendanceDays, gapMinutes: result.after.metrics.gapMinutes,
+        },
+      });
+    } catch {
+      verdicts.push({ rowId: id, fit: "unchecked" });
+    }
+  }
+  const rank: Record<VacancyFit, number> = { ready: 0, review: 1, unchecked: 2, blocked: 3, clash: 4, used: 5 };
+  const order = new Map(candidates.map((row, index) => [Number(row.id), index]));
+  verdicts.sort((a, b) => rank[a.fit] - rank[b.fit] || (order.get(a.rowId) ?? 1e6) - (order.get(b.rowId) ?? 1e6) || a.rowId - b.rowId);
+  return { vacancies: verdicts, checked, total: rows.length, partial: candidates.length > checked };
 }
 
 export { snapshotOf, PROPOSAL_DAY_NAMES };

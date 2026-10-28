@@ -177,6 +177,7 @@
     "test:visiting-conversion": "tsx tests/visiting-conversion-audit.ts",
     "test:study-proposal": "tsx tests/study-proposal-audit.ts",
     "test:study-proposal-flow": "tsx tests/study-proposal-flow-audit.ts",
+    "test:study-proposal-studio": "tsx tests/study-proposal-studio-audit.ts",
     "test:intelligence-scope": "tsx tests/intelligence-reading-scope-audit.ts",
     "test:intelligence-api": "node tests/intelligence-scope-api.mjs",
     "test:curriculum-reference": "tsx tests/curriculum-reference-audit.ts",

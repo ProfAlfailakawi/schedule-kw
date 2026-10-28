@@ -114,7 +114,6 @@ export function ProposalLauncherBar({ rows, proposals, onOpen }: {
           <ClipboardPen aria-hidden="true" />مقترح دراسي
         </button>
       )}
-      <small className="sp-desktop-only-note">إعداد المقترح الدراسي متاح من الكمبيوتر.</small>
     </section>
   );
 }

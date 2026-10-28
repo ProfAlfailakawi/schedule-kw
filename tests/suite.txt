@@ -86,6 +86,7 @@ test:visiting-conversion
 test:paged-findings
 test:study-proposal
 test:study-proposal-flow
+test:study-proposal-studio
 test:teacher-card-flow
 test:day-autofill
 test:approval-scope

@@ -53,3 +53,7 @@
   .hall-barter-inbox-copy small{display:none}
   .hall-barter-inbox-mark{width:30px;height:30px}
 }
+
+/* شارة الصحيفة في كشف التسجيل كانت تنكسر لسطرين على الجوال فتتضخّم: سطر واحد، تُختصر إن ضاقت. */
+.student-case-plan{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.student-cases-table td .student-case-plan{display:inline-flex;font-size:11px;padding:2px 8px;border-radius:var(--r-full)}

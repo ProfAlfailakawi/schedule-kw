@@ -5,7 +5,7 @@
 import type {
   AdCourse, StudyProposal, StudyProposalDayKey, StudyProposalMetrics, StudyProposalOp, StudyProposalResponseMode,
 } from "../../types";
-import type { CourseHistory, DecisionState, GridItem, ProposalEvaluation } from "../../utils/studyProposal";
+import type { CourseHistory, DecisionState, GridItem, ProposalEvaluation, VacancyVerdict } from "../../utils/studyProposal";
 
 export class ProposalApiError extends Error {
   status: number;
@@ -95,6 +95,8 @@ export const proposalApi = {
     call<{ evaluation: ProposalEvaluation }>("/api/study-proposals/evaluate", { ...json(body), signal }),
   alternatives: (body: { requestId: string; proposalId?: string; ops: StudyProposalOp[]; opId: string }, signal?: AbortSignal) =>
     call<{ suggestions: AlternativeSuggestion[]; note?: string }>("/api/study-proposals/alternatives", { ...json(body), signal }),
+  vacancies: (body: { requestId: string; proposalId?: string; ops: StudyProposalOp[] }, signal?: AbortSignal) =>
+    call<{ vacancies: VacancyVerdict[]; checked: number; total: number; partial: boolean }>("/api/study-proposals/vacancies", { ...json(body), signal }),
   create: (body: Record<string, unknown>) => call<StaffProposalView>("/api/study-proposals", json(body)),
   save: (id: string, body: Record<string, unknown>) =>
     call<StaffProposalView>(`/api/study-proposals/${encodeURIComponent(id)}`, { ...json(body), method: "PUT" }),
