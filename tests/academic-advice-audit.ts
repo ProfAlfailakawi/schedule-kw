@@ -97,10 +97,10 @@ assert.deepEqual(labRows.map(row=>row.fstarttime),["08:00","08:00"],"simulation 
 // student bundles than either move alone (no summing duplicate student counts).
 const secondGroup=[
   { ...slot(5,"501","08:00","09:00"),AdInstructorId:30,roomId:"room-c" },
-  { ...slot(6,"501","08:00","09:00"),AdInstructorId:40,roomId:"room-d" },
+  { ...slot(7,"501","08:00","09:00"),AdInstructorId:40,roomId:"room-d" },
 ];
 const chainInput={...labInput,rows:[...labRows,...secondGroup],
-  profiles:[...labInput.profiles,...[5,6,7,8].map(i=>profile(i,[5,6],[]))]};
+  profiles:[...labInput.profiles,...[5,6,7,8].map(i=>profile(i,[5,7],[]))]};
 const chainLab=buildAcademicDecisionLab(chainInput,analyseAcademicAdvice(chainInput));
 assert.ok(chainLab.chain,"independent bottlenecks produce a genuine two-step domino alternative");
 assert.equal(chainLab.chain?.gain,8,"combined effect counts distinct eligible students, not pairwise overlaps");
