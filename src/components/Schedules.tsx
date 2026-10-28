@@ -3481,7 +3481,74 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     } finally {
       setReplaceBusy(false);
     }
+  };  /* 🔁 تبديل: تُنقل شعبة «هيئة تدريسية» إلى قاعةٍ حرّة أخرى في الوقت نفسه (المحرّك نفسه يجدها
+     وبوابة الحفظ تقبلها)، وتُعطى قاعتُها لهذا الموعد. 🗑️ استبدال: تُحذف الشعبة الشاغرة (بتأكيدٍ
+     وتحذير الطلبة) وتأخذ هذا الموعد قاعتَها. كلاهما مسجّل وبزرّ تراجع. */
+  const takeFreedRoom = (target: FSchedule) => {
+    setForm(prev => ({ ...prev, buildingId: target.buildingId, roomId: target.roomId, AdRoomCode: target.AdRoomCode, AdRoomHall: target.AdRoomHall, locationStatus: "VERIFIED" as const }));
+    setRoomIdeas(null);
+    setRoomReplaceable([]);
   };
+  const swapPlaceholder = async (section: ReplaceableSection) => {
+    const target = rows.find(row => Number(row.id) === Number(section.rowId));
+    if (!target) { setError("تعذّر العثور على الشعبة."); return; }
+    setReplaceBusy(true);
+    try {
+      const { id: _id, AdCourseName: _name, ...values } = target as any;
+      const reply = await fetchSuggestions(suggestionBody({ ...values, excludeId: target.id }, "room"));
+      const other = reply.slots.find(slot => !(String(slot.roomId || "") === String(target.roomId || "") || (slot.room === target.AdRoomCode && slot.hall === target.AdRoomHall)));
+      if (!other) { setError(`لا قاعة حرّة لنقل الشعبة ${target.SCode || ""} إليها في الوقت نفسه.`); return; }
+      const confirmed = await visualConfirm({
+        title: "تبديل القاعة",
+        message: `تنتقل شعبة ${target.SCode || ""} («هيئة تدريسية») من ${target.AdRoomCode}/${target.AdRoomHall} إلى ${other.room}/${other.hall} في الوقت نفسه، وتأخذ هذا الموعد قاعتَها. يمكنك التراجع.`,
+        confirmLabel: "تبديل",
+        compact: true,
+      });
+      if (!confirmed) return;
+      const saved = await fetchJson(`/api/schedules/${target.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...values, buildingId: other.buildingId, roomId: other.roomId, AdRoomCode: other.room, AdRoomHall: other.hall, locationStatus: "VERIFIED", rev: (target as any).rev }),
+      });
+      offerUndo(`تبديل قاعة شعبة ${target.SCode || ""}`, [restoreStep(target)]);
+      if (saved && typeof saved === "object" && Number((saved as any).id)) setRows(current => current.map(item => (Number(item.id) === Number((saved as any).id) ? (saved as FSchedule) : item)));
+      else await loadRows({ silent: true });
+      forgetSuggestions();
+      takeFreedRoom(target);
+      setMessage(`نُقلت الشعبة ${target.SCode || ""} إلى ${other.room}/${other.hall} — القاعة ${target.AdRoomCode}/${target.AdRoomHall} لموعدك.`);
+    } catch (e: any) {
+      setError(friendlyError(e));
+    } finally {
+      setReplaceBusy(false);
+    }
+  };
+  const replacePlaceholder = async (section: ReplaceableSection) => {
+    const target = rows.find(row => Number(row.id) === Number(section.rowId));
+    if (!target) { setError("تعذّر العثور على الشعبة."); return; }
+    const confirmed = await visualConfirm({
+      title: "استبدال الشعبة الشاغرة",
+      message: `تُحذف شعبة ${target.SCode || ""} («هيئة تدريسية» · ${formatScheduleTimeRange(target.fstarttime, target.fendtime)} · ${target.AdRoomCode}/${target.AdRoomHall}) ويأخذ هذا الموعد قاعتَها. إن كان عليها طلبة مسجّلون فانقلهم أولاً. يمكنك التراجع.`,
+      confirmLabel: "حذف واستبدال",
+      tone: "danger",
+      compact: true,
+    });
+    if (!confirmed) return;
+    setReplaceBusy(true);
+    try {
+      await fetchJson(`/api/schedules/${target.id}`, { method: "DELETE" });
+      const { id: _id, AdCourseName: _name, ...values } = target as any;
+      offerUndo(`استبدال شعبة ${target.SCode || ""}`, [{ method: "POST", url: "/api/schedules", body: values }]);
+      setRows(current => current.filter(item => Number(item.id) !== Number(target.id)));
+      forgetSuggestions();
+      takeFreedRoom(target);
+      setMessage(`حُذفت الشعبة الشاغرة ${target.SCode || ""} — قاعتها لموعدك (يمكنك التراجع).`);
+    } catch (e: any) {
+      setError(friendlyError(e));
+    } finally {
+      setReplaceBusy(false);
+    }
+  };
+
   /**
    * What the regulation would say about this appointment, said while it is
    * still being written.
@@ -9147,7 +9214,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       {roomIdeas ? (
                         roomIdeas.length || roomReplaceable.length ? (
                           <RoomSuggestionCards suggestions={roomIdeas} onSelect={takeSlot} label="قاعات متاحة في هذا الوقت"
-                            replaceable={roomReplaceable} onReplaceable={section => void assignToPlaceholder(section)} replaceBusy={replaceBusy} />
+                            replaceable={roomReplaceable} replaceBusy={replaceBusy}
+                            onReplaceable={(section, action) => void (action === "assign" ? assignToPlaceholder(section) : action === "swap" ? swapPlaceholder(section) : replacePlaceholder(section))} />
                         ) : (
                           <SuggestionEmpty reason={roomIdeasReason} note={roomIdeasNote || "لا توجد قاعة خالية من قاعات القسم في هذا الوقت."} />
                         )

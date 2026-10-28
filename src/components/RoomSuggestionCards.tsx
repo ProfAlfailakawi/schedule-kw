@@ -1,7 +1,7 @@
 import React from "react";
 import {
   Armchair, ArrowLeftRight, Ban, Building2, CalendarX2, Check, CheckCircle2, Clock3, DoorOpen, Footprints,
-  Hourglass, MapPin, MonitorPlay, Repeat2, Star, UserRound, UserRoundCheck, UsersRound,
+  Hourglass, MapPin, MonitorPlay, Repeat2, Star, Trash2, UserRound, UserRoundCheck, UsersRound,
 } from "lucide-react";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import type { SuggestionEmptyReason } from "../utils/suggestionEngine";
@@ -89,10 +89,11 @@ export default function RoomSuggestionCards({
   /** room: الوقت ثابت والقاعة هي السؤال · slot: الوقت والقاعة معاً. */
   variant?: "room" | "slot";
   replaceable?: ReplaceableSection[];
-  onReplaceable?: (section: ReplaceableSection) => void;
+  /** 👤 إسناد (المقرر نفسه) · 🔁 تبديل · 🗑️ استبدال. */
+  onReplaceable?: (section: ReplaceableSection, action: "assign" | "swap" | "replace") => void;
   replaceBusy?: boolean;
 }) {
-  const assignable = onReplaceable ? replaceable.filter(item => item.sameCourse) : [];
+  const assignable = onReplaceable ? replaceable : [];
   return <section className={`room-suggestion-panel room-suggestion-panel--${variant}`} aria-label={label}>
     <header>
       <span className="room-suggestion-mark"><Armchair aria-hidden="true" /></span>
@@ -137,11 +138,23 @@ export default function RoomSuggestionCards({
           <bdi dir="ltr" className="room-suggest-code">{item.room}/{item.hall}</bdi>
           <small>{item.courseName || "المقرر نفسه"}{item.scode ? ` · شعبة ${item.scode}` : ""} · <time dir="ltr">{formatScheduleTimeRange(item.start, item.end)}</time></small>
         </span>
-        <button type="button" className="room-replaceable-assign" disabled={replaceBusy}
-          data-guide-ignore="يسند الأستاذ المختار إلى شعبة «هيئة تدريسية» القائمة للمقرر نفسه بدل إنشاء موعد جديد؛ يُسجَّل ويمكن التراجع عنه"
-          onClick={() => onReplaceable?.(item)} title="إسناد الأستاذ لهذه الشعبة بدل موعد جديد (يمكن التراجع)">
-          <Star aria-hidden="true" /><UserRoundCheck aria-hidden="true" /><span>إسناد</span>
-        </button>
+        <span className="room-replaceable-actions">
+          {item.sameCourse ? <button type="button" className="room-replaceable-assign is-best" disabled={replaceBusy}
+            data-guide-ignore="يسند الأستاذ المختار إلى شعبة «هيئة تدريسية» القائمة للمقرر نفسه بدل إنشاء موعد جديد؛ يُسجَّل ويمكن التراجع عنه"
+            onClick={() => onReplaceable?.(item, "assign")} title="الأفضل: إسناد الأستاذ لهذه الشعبة بدل موعد جديد (يمكن التراجع)">
+            <Star aria-hidden="true" /><UserRoundCheck aria-hidden="true" /><span>إسناد</span>
+          </button> : null}
+          <button type="button" className="room-replaceable-assign" disabled={replaceBusy}
+            data-guide-ignore="ينقل شعبة «هيئة تدريسية» إلى قاعة حرّة أخرى في الوقت نفسه ويعطي قاعتها لهذا الموعد؛ يمكن التراجع"
+            onClick={() => onReplaceable?.(item, "swap")} title="تبديل: انقل الشعبة الشاغرة إلى قاعة حرّة أخرى">
+            <Repeat2 aria-hidden="true" /><span>تبديل</span>
+          </button>
+          <button type="button" className="room-replaceable-assign is-danger" disabled={replaceBusy}
+            data-guide-ignore="يحذف شعبة «هيئة تدريسية» بعد تأكيد ويعطي قاعتها لهذا الموعد؛ يمكن التراجع"
+            onClick={() => onReplaceable?.(item, "replace")} title="استبدال: احذف الشعبة الشاغرة وخذ قاعتها (بتأكيد)">
+            <Trash2 aria-hidden="true" /><span>استبدال</span>
+          </button>
+        </span>
       </div>)}
     </div> : null}
   </section>;

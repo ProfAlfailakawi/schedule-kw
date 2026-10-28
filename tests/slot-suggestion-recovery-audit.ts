@@ -23,7 +23,7 @@ assert.match(route, /id:editedRowId, fstarttime:toClock\(sampleStart\)/);
 assert.match(route, /\},universe\);/);
 assert.match(route, /rowOccupiesRoom\(row, hall.roomId, hall.room, hall.hall\)/);
 assert.match(route, /rankSuggestionCandidates\(\{/);
-assert.match(route, /hallRows: hall => live\.filter\(row => rowOccupiesRoom\(row, hall\.roomId, hall\.room, hall\.hall\)\)/);
+assert.match(route, /hallRows: hall => live\.filter\(row => rowOccupiesRoom\(row, hall\.roomId, hall\.room, hall\.hall\) && \(Boolean\(row\.roomId\) \|\| Boolean\(row\.companionRoomId\) \|\| Number\(row\.AdCollegeId\) === collegeId\)\)/, "A4: legacy text-only rooms match only inside their own college");
 assert.match(route, /instructorRows, sectionRows,/);
 const editor = readFileSync("src/components/Schedules.tsx", "utf8");
 const quick = readFileSync("src/components/QuickCreatePopover.tsx", "utf8");

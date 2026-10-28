@@ -8226,7 +8226,9 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   const { candidates, stats } = rankSuggestionCandidates({
     dayKeys, starts, duration,
     halls: halls.map(hall=>({room:String(hall.room),hall:String(hall.hall),buildingId:String(hall.buildingId),roomId:String(hall.roomId)})),
-    hallRows: hall => live.filter(row => rowOccupiesRoom(row, hall.roomId, hall.room, hall.hall)),
+    /* A4: القاعة الرسمية (roomId) مكانٌ واحد عبر الكليات؛ أما صفٌّ قديم بنصّ المبنى/القاعة
+       وحده فلا يُطابَق إلا في كليته — «1/101» في بنات ليست «1/101» في بنين. */
+    hallRows: hall => live.filter(row => rowOccupiesRoom(row, hall.roomId, hall.room, hall.hall) && (Boolean(row.roomId) || Boolean(row.companionRoomId) || Number(row.AdCollegeId) === collegeId)),
     instructorRows, sectionRows,
     travelMinutes: (from, to) => travelMinutesFor(mobility, from as any, to as any),
     borrowBlocked: (hall, day, from, to) => {
