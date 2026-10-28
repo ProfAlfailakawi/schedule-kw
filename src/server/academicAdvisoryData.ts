@@ -27,7 +27,12 @@ export async function academicAdviceForScope(collegeId: number, sectionId: numbe
       } as AcademicPlanView;
     }));
   const active = approved.filter((p): p is AcademicPlanView => Boolean(p));
-  if (!active.length) return empty;
+  if (!active.length) {
+    // A demo section with no approved plan still needs the independent six-tool lesson.
+    // Never expose fictional advice in an actual department.
+    if (Repository.isDemoRequest()) empty.decisionLab = buildAcademicDecisionLabTrainingPreview();
+    return empty;
+  }
   const input = {
     collegeId, sectionId, termId, plans: active,
     profiles: profiles as StudentProfile[],
