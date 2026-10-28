@@ -727,8 +727,13 @@ export function parseProblem(input: string, context: TmContext): TmProblem | nul
 
   /* طلبٌ زائد على مقرر: برمزه أو باسمه. */
   if (/(زاد|زياد|ارتفع|كثر|طلب|ضغط|ممتلئ|امتلا|مقفل|شعبه اضافيه|شعبه جديده)/.test(text)) {
-    const digits = (text.match(/\d{2,4}/g) || []);
-    const byCode = context.courses.find(course => digits.some(d => String(course.CourseCode || "").replace(/\D/g, "").endsWith(d)));
+    /* الرمزُ كاملاً أولاً (0109468)، ثم آخرُ أرقامه كما يُقال شفاهةً (121): كان
+       التقطيعُ إلى أربعةٍ أربعةٍ يُطابق «0109» من رمزٍ طويلٍ مع مقررٍ آخر.
+       والرقمُ يُؤخذ بطوله كلّه، فلا يكون ذيلاً لرمزٍ أقصر منه. */
+    const runs = text.match(/\d{2,}/g) || [];
+    const digitsOf = (course: AdCourse) => String(course.CourseCode || "").replace(/\D/g, "");
+    const byCode = context.courses.find(course => runs.some(run => digitsOf(course) === run))
+      || context.courses.find(course => runs.some(run => digitsOf(course).endsWith(run)));
     if (byCode) return { kind: "demandUp", courseId: Number(byCode.AdCourseId) };
     const byName = context.courses.find(course => norm(course.CourseName).length > 3 && text.includes(norm(course.CourseName)));
     if (byName) return { kind: "demandUp", courseId: Number(byName.AdCourseId) };

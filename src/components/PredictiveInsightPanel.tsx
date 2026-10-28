@@ -8,9 +8,10 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, CalendarClock, CalendarPlus, ChevronDown, GraduationCap, HelpCircle, History, Info, Layers, Link2, Lock, Sparkles, TrendingDown, TrendingUp, Users,
+  AlertTriangle, CalendarClock, CalendarPlus, ChevronDown, GraduationCap, HelpCircle, History, Hourglass, Info, Layers, Link2, Lock, Sparkles, TrendingDown, TrendingUp, Users,
 } from "lucide-react";
 import { EmptyState, MicroLoader, SecondaryButton } from "./ui";
+import { demandAsk, openInTimeMachine } from "../utils/timeMachineLink";
 import RadarSchedule, { request } from "./RadarSchedule";
 import PlanBadge from "./PlanBadge";
 import { AR, countOf } from "../utils/arabicCount";
@@ -167,6 +168,13 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
               <span>{nf(row.planned)}</span>{row.trend === "up" ? <TrendingUp aria-hidden="true" /> : row.trend === "down" ? <TrendingDown aria-hidden="true" /> : <span aria-hidden="true">←</span>}<b>{nf(row.expected)}</b>
               {row.low !== row.high ? <small className="pi-range" dir="ltr">{nf(row.low)}–{nf(row.high)}</small> : null}
               {row.delta !== 0 ? <em data-sign={row.delta > 0 ? "plus" : "minus"}><bdi dir="ltr">{row.delta > 0 ? "+" : "−"}{nf(Math.abs(row.delta))}</bdi></em> : null}
+              {/* نقصٌ متوقَّع ← حلولٌ جاهزة في آلة الزمن، على نسخةٍ افتراضية. */}
+              {row.delta > 0 && canSchedule && row.code ? (
+                <button type="button" className="tm-link-btn" title="جرّب الحلول في آلة الزمن" aria-label={`جرّب ${row.name} في آلة الزمن`}
+                  data-guide-ignore="يفتح آلة الزمن على نسخة افتراضية؛ لا يكتب في الجدول" onClick={() => openInTimeMachine(demandAsk(row.code))}>
+                  <Hourglass aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
             <ConfidenceMeter confidence={row.confidence} compact />
             <details className="pi-why">
