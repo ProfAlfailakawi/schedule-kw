@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import fs from "node:fs";
 import { analyseAcademicAdvice, mandatoryPrecedes, type AcademicPlanView } from "../src/utils/academicAdvisory";
+import { buildAcademicDecisionLab, feasibleAcademicBundle } from "../src/utils/academicDecisionLab";
 import type { AdCourse, FSchedule, StudentProfile } from "../src/types";
 
 const course = (id: number, section = 9): AdCourse => ({
@@ -72,6 +73,39 @@ assert.ok(adviceUI.includes("<details") && adviceUI.includes("defaultOpen={demo}
 const demoSeed = fs.readFileSync("src/server/demoRadarSeed.ts", "utf8");
 assert.ok(demoSeed.includes("Academic-opportunity showcase") && demoSeed.includes("Repository.isDemoRequest()"),
   "demo must use eligible, isolated fictional students rather than invented UI counts");
+
+
+// Digital twin: one section changes, no other published row is mutated.
+const labRows = [
+  { ...slot(2,"501","08:00","09:00"), AdInstructorId:10, roomId:"room-a" },
+  { ...slot(3,"501","08:00","09:00"), AdInstructorId:20, roomId:"room-b" },
+];
+const labInput={...base,rows:labRows,profiles:[1,2,3,4].map(i=>profile(i,[2,3],[1]))};
+const labBase=analyseAcademicAdvice(labInput);
+const lab=buildAcademicDecisionLab(labInput,labBase);
+assert.equal(lab.nonBlocking,true,"scenario never implies changing source schedule");
+assert.ok(lab.scenarios.length>0,"eligible fictional cohort produces an actual simulated alternative");
+const win=lab.scenarios.find(s=>s.before==="08:00" && s.after==="09:30");
+assert.ok(win, "safe alternative found from existing room/instructor schedule");
+assert.equal(win.beforeFeasible,0,"full wished bundle is impossible before shift");
+assert.equal(win.afterFeasible,4,"full wished bundle becomes feasible, not just a pairwise score");
+assert.equal(win.rippleImproved,1,"unavoidable pairwise overlap is removed");
+assert.equal(win.resources,"checked","both primary resources verified against other term rows");
+assert.deepEqual(labRows.map(row=>row.fstarttime),["08:00","08:00"],"simulation does not mutate source");
+const privateLab=buildAcademicDecisionLab({...labInput,profiles:[profile(1,[2,3],[1])]},
+  analyseAcademicAdvice({...labInput,profiles:[profile(1,[2,3],[1])]}));
+assert.equal(privateLab.scenarios.length,0,"do not expose one or two students through what-if comparisons");
+const roomBlock={...slot(5,"501","09:30","10:30"),AdInstructorId:25,roomId:"room-a"};
+const withRoomBlock={...labInput,rows:[...labRows,roomBlock]};
+const blockedLab=buildAcademicDecisionLab(withRoomBlock,analyseAcademicAdvice(withRoomBlock));
+assert.ok(!blockedLab.scenarios.some(s=>s.courseId===2 && s.after==="09:30"),"a shared room conflict cannot be advertised as a viable opportunity");
+const noBundle=new Map<number,any>([[2,[{slots:[{day:"fsunday",start:"08:00",end:"09:00"}]}]],[3,[{slots:[{day:"fsunday",start:"08:00",end:"09:00"}]}]]]);
+assert.equal(feasibleAcademicBundle({courses:[2,3],constraints:{}},noBundle),false,"full multi-course bundle backtracking");
+assert.equal(feasibleAcademicBundle({courses:[2],constraints:{noMorning:true}},noBundle),false,"student time restriction blocks inappropriate slots");
+const labUI=fs.readFileSync("src/components/AcademicDecisionLabPanel.tsx","utf8");
+assert.ok(labUI.includes("adl-compare") && labUI.includes("لماذا هذا الموعد؟") && labUI.includes("البيانات والحدود"),
+  "visual twin offers infographic comparison, optional reasons and uncertainty");
+assert.ok(labUI.includes("onRefresh") && !labUI.includes("onApply"),"preview remains refreshable and never applies itself");
 
 const unknown = analyseAcademicAdvice({ ...base, plans: [], profiles: [1,2,3].map(i => profile(i,[2,3],[1])) });
 assert.equal(unknown.pairs.length, 0, "no approved plan means no advice");
