@@ -33,6 +33,7 @@ export interface LiveState {
 
 const AWAKE_EVERY_MS = 15_000;
 const DROWSY_EVERY_MS = 60_000;
+const STOP_AFTER_MS = 2_000;
 
 const connId =
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -44,6 +45,7 @@ let attention: Attention = "asleep";
 let stopWatching: (() => void) | null = null;
 let timer = 0;
 let scopeTimer = 0;
+let stopTimer = 0;
 let inFlight = false;
 let askAgain = false;
 /** The server said this account has no business with the live channel. */
@@ -140,7 +142,9 @@ function leave() {
 }
 
 function start() {
-  if (stopWatching || typeof window === "undefined") return;
+  if (typeof window === "undefined") return;
+  window.clearTimeout(stopTimer);
+  if (stopWatching) return;
   attention = "asleep";
   stopWatching = watchAttention(next => {
     const previous = attention;
@@ -155,16 +159,23 @@ function start() {
 
 function stopIfUnused() {
   if (listening() || !stopWatching) return;
-  stopWatching();
-  stopWatching = null;
-  window.clearTimeout(timer);
-  window.clearTimeout(scopeTimer);
-  window.removeEventListener("pagehide", leave);
-  leave();
-  // Nobody is left to tell. Whoever subscribes next reads everything on
-  // arrival, so the count starts again from the first answer after that.
-  known = null;
-  state = { company: 0, connected: false };
+  window.clearTimeout(stopTimer);
+  // A screen leaving as another arrives — or React mounting a screen twice in
+  // development — must not cost a goodbye and a fresh hello. The stop waits
+  // two seconds; anyone who subscribes meanwhile simply carries on.
+  stopTimer = window.setTimeout(() => {
+    if (listening() || !stopWatching) return;
+    stopWatching();
+    stopWatching = null;
+    window.clearTimeout(timer);
+    window.clearTimeout(scopeTimer);
+    window.removeEventListener("pagehide", leave);
+    leave();
+    // Nobody is left to tell. Whoever subscribes next reads everything on
+    // arrival, so the count starts again from the first answer after that.
+    known = null;
+    state = { company: 0, connected: false };
+  }, STOP_AFTER_MS);
 }
 
 /**

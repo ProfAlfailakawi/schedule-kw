@@ -170,7 +170,7 @@ const answer = (body: Record<string, unknown>) => answers.push({ status: 200, bo
   await advance(15_000);
   check(signals.length === 1, "T7 نسخةٌ أقدم أجابت بوقتٍ أصغر: لا يُعاد خبرٌ قديم كأنه جديد", signals);
 
-  pulse.onLiveState(state => states.push({ ...state }));
+  const stopState = pulse.onLiveState(state => states.push({ ...state }));
   answer({ changedAt: 200, notifiedAt: 60, company: 2 });
   pulse.setLiveScope({ collegeId: 1, sectionId: 2, termId: 3 });
   pulse.setLiveScope({ collegeId: 1, sectionId: 2, termId: 3 });
@@ -224,15 +224,30 @@ const answer = (body: Record<string, unknown>) => answers.push({ status: 200, bo
   await visibility(false);
   check(asked.length === afterGrace + 1 && signals[signals.length - 1] === "schedules@900", "T17 عودةُ اللسان: سؤالٌ فوري، وما فات يصل خبراً واحداً", { asked: asked.length - afterGrace, signals });
 
+  // Every screen leaves, and one comes straight back (a navigation, or React
+  // mounting twice in development): no goodbye, no fresh hello.
+  stopBoard(); stopBell();
+  check(beacons.length === 0, "T19 ما دام مستمعٌ واحد باقياً لا يُعلن الرحيل", beacons);
+  stopState();
+  const beforeBounce = asked.length;
+  const bounced = pulse.onLiveSignal(["schedules"], () => undefined);
+  await advance(1_000);
+  check(beacons.length === 0 && asked.length === beforeBounce, "T20 شاشةٌ غادرت وأخرى جاءت في اللحظة نفسها: لا وداع ولا سؤالَ زائد", { beacons, asks: asked.length - beforeBounce });
+  bounced();
+  await advance(1_999);
+  check(beacons.length === 0, "T21 والوداعُ ينتظر ثانيتين قبل أن يُقال", beacons);
+  await advance(1);
+  check(beacons.length === 1 && beacons[0].includes("conn="), "T22 ثم يُقال مرّةً واحدة، باسم اللسان", beacons);
+
   // No permission is a fact, not a hiccup.
+  const stopAgain = pulse.onLiveState(state => states.push({ ...state }));
+  await settle();
   answers.push({ status: 403, body: { error: "no" } });
   await advance(15_000);
   const refusedAt = asked.length;
   await advance(10 * 60_000);
   check(asked.length === refusedAt && states[states.length - 1]?.connected === false, "T18 حسابٌ بلا صلاحية: يتوقف السؤال، والجدولُ يعرف أنه غير متصل", asked.length - refusedAt);
-
-  stopBoard(); stopBell();
-  check(beacons.length === 0, "T19 ما دام مستمعٌ واحد باقياً لا يُعلن الرحيل", beacons);
+  stopAgain();
 }
 Date.now = realNow;
 
@@ -264,6 +279,8 @@ Date.now = realNow;
   check(/window\.setInterval\(\(\) => \{ if \(!document\.hidden\) void checkVersion\(\); \}, 120_000\)/.test(main), "W13 فحصُ الإصدار لا يسأل من لسانٍ مخفيّ");
   const app = read("src/App.tsx");
   check((app.match(/if \(!pageAwake\) return;/g) || []).length >= 3, "W14 شاراتُ الشريط الثلاث تستريح مع اللسان");
+  const heartbeat = between(app, "const [healthProbe, setHealthProbe]", "useEffect(() => { setOnline(");
+  check(/if \(!pageAwake\) return;/.test(heartbeat) && /\}, \[healthProbe, pageAwake\]\);/.test(heartbeat), "W17 ونبضُ «متصل بالخادم» لا يسأل من شاشةٍ لا أحد أمامها، ويسأل فور العودة");
   for (const role of ["departmentHead", "dean", "advisor", "standard"]) {
     const verdict = roleWriteDecision({ method: "POST", path: "/schedules/pulse", authenticated: true, powerUser: false, role } as any);
     check(verdict.allowed, `W15 رحيلُ لسانٍ ليس كتابة بيانات: يمرّ لصفة «${role}» للاطّلاع`, verdict);

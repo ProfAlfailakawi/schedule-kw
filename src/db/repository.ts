@@ -2573,6 +2573,10 @@ export const Repository = {
   // Demo sandbox helpers. A demo request sees only its own in-memory clone.
   isDemoMode: (): boolean => runningMode === "demo",
   currentDemoSessionId: (): string => demoSandboxContext.getStore()?.sessionId || "",
+  /** Runs `fn` as the real university, whichever sandbox the caller is in —
+   *  for work a batch owes to everyone, like the change beacon after a window
+   *  that a demo visitor happened to open. */
+  outsideDemoSandbox: <T>(fn: () => T): T => demoSandboxContext.exit(fn),
   isDemoRequest: (): boolean => Boolean(demoSandboxContext.getStore()),
   createDemoSandbox: (sessionId: string, ttlMs: number): void => {
     demoSandboxes.set(sessionId, { state: createDemoSandboxState() as DBState, expiresAt: Date.now() + ttlMs });

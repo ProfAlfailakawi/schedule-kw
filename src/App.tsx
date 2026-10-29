@@ -1260,6 +1260,9 @@ export default function App() {
   );
   const [healthProbe, setHealthProbe] = useState(0);
   useEffect(() => {
+    // Shown is not looked at (pageAwake.ts): a window left open on a desk
+    // asked every thirty seconds all night. Waking asks at once.
+    if (!pageAwake) return;
     let alive = true;
     let timer = 0;
     const beat = async () => {
@@ -1298,7 +1301,7 @@ export default function App() {
       window.removeEventListener("offline", down);
       document.removeEventListener("visibilitychange", wake);
     };
-  }, [healthProbe]);
+  }, [healthProbe, pageAwake]);
   useEffect(() => { setOnline(health === "online"); }, [health]);
   const healthLabel =
     health === "online" ? "متصل بالخادم · الحفظ متاح"

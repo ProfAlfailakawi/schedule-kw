@@ -5744,14 +5744,25 @@ setInterval(() => {
     }
   }
 }, 10_000).unref?.();
+/* Everyone who wrote in the window, not only the first. The window used to keep
+   the first writer's sandbox and drop the rest: a demo visitor's save and a
+   coordinator's save landing in the same 350 ms became one announcement in the
+   visitor's name, the coordinator's colleagues never heard of theirs, and the
+   beacon stayed silent (it says nothing from inside a sandbox). */
+const pendingScheduleSessions = new Set<string>();
 onSchedulesInvalidated(() => {
+  pendingScheduleSessions.add(Repository.currentDemoSessionId());
   if (scheduleEventTimer) return;
-  const demoSessionId = Repository.currentDemoSessionId();
   scheduleEventTimer = setTimeout(() => {
     scheduleEventTimer = null;
-    broadcastScheduleChange(demoSessionId);
-    // …and tell the other instances, which never saw this write at all.
-    void Repository.markSchedulesChanged();
+    const sessions = [...pendingScheduleSessions];
+    pendingScheduleSessions.clear();
+    // A real change is written to every screen, sandboxes included, so once is enough.
+    if (sessions.includes("")) broadcastScheduleChange("");
+    else for (const session of sessions) broadcastScheduleChange(session);
+    // …and tell the other instances, which never saw this write at all — as
+    // the university, whichever sandbox happened to open the window.
+    if (sessions.includes("")) void Repository.outsideDemoSandbox(() => Repository.markSchedulesChanged());
   }, 350);
 });
 /**

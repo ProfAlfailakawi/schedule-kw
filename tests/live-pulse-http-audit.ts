@@ -121,22 +121,45 @@ try {
     const afterNote = await one.pulse("head-tab");
     check(note.status < 300 && afterNote.notifiedAt > beforeNote.notifiedAt, "H7 ملاحظةٌ على موعد تُقدّم وقتَ الجرس", { status: note.status, before: beforeNote.notifiedAt, after: afterNote.notifiedAt });
 
+    /* A row that saves cleanly (the demo data carries a few honest clashes). */
+    const saveOne = async (session: Awaited<ReturnType<typeof demoSession>>) => {
+      const rows = await (await session.call("/api/schedules?collegeId=1&sectionId=1&termId=1")).json() as any[];
+      for (const row of rows.slice(0, 25)) {
+        const response = await session.call(`/api/schedules/${row.id}`, { method: "PUT", body: JSON.stringify({ ...row, fdetail: `${row.fdetail || ""} ` }) });
+        if (response.ok) return { id: row.id as number, row };
+      }
+      return null;
+    };
     await one.as("committeeChair");
-    const otherBefore = await two.pulse("other-sandbox-tab");
     const watching = await one.stream("chair-watch");
-    const rows = await (await one.call("/api/schedules?collegeId=1&sectionId=1&termId=1")).json() as any[];
-    let saved = 0;
-    for (const row of rows.slice(0, 25)) {
-      const response = await one.call(`/api/schedules/${row.id}`, { method: "PUT", body: JSON.stringify({ ...row, fdetail: `${row.fdetail || ""} ` }) });
-      if (response.ok) { saved = row.id; break; }
-    }
+    const saved = await saveOne(one);
     for (let i = 0; i < 30 && !watching.changes.length; i++) await pause(100);
     const afterSave = await one.pulse("chair-tab");
     await watching.close();
-    check(saved > 0 && watching.changes.length > 0, "H8a موعدٌ حُفظ، والبثّ أعلنه", { saved, changes: watching.changes });
+    check(Boolean(saved) && watching.changes.length > 0, "H8a موعدٌ حُفظ، والبثّ أعلنه", { saved: saved?.id, changes: watching.changes });
     check(afterSave.changedAt === Math.max(...watching.changes), "H8 والنبضةُ تقول الوقتَ نفسه الذي قاله البثّ", { pulse: afterSave.changedAt, stream: watching.changes });
+    // The other sandbox may be busy with its own showcase; what it must not
+    // carry is THIS save's time.
     const otherAfter = await two.pulse("other-sandbox-tab");
-    check(otherAfter.changedAt === otherBefore.changedAt, "H9 ولا يوقظ صندوقاً آخر", { before: otherBefore.changedAt, after: otherAfter.changedAt });
+    check(!watching.changes.includes(otherAfter.changedAt), "H9 ولا يوقظ صندوقاً آخر", { other: otherAfter.changedAt, mine: watching.changes });
+
+    /* Two sandboxes save in the same 350 ms. The window used to keep only the
+       first writer, so one of the two boards never heard of its own save. */
+    await two.as("committeeChair");
+    const [oneRows, twoRows] = await Promise.all([
+      one.call("/api/schedules?collegeId=1&sectionId=1&termId=1").then(r => r.json() as Promise<any[]>),
+      two.call("/api/schedules?collegeId=1&sectionId=1&termId=1").then(r => r.json() as Promise<any[]>),
+    ]);
+    const oneRow = oneRows.find(row => row.id === saved?.id);
+    const twoRow = twoRows.find(row => row.id === saved?.id);
+    const [oneWatch, twoWatch] = await Promise.all([one.stream("together-one"), two.stream("together-two")]);
+    const [oneSave, twoSave] = await Promise.all([
+      one.call(`/api/schedules/${oneRow?.id}`, { method: "PUT", body: JSON.stringify({ ...oneRow, fdetail: `${oneRow?.fdetail || ""} ` }) }),
+      two.call(`/api/schedules/${twoRow?.id}`, { method: "PUT", body: JSON.stringify({ ...twoRow, fdetail: `${twoRow?.fdetail || ""} ` }) }),
+    ]);
+    for (let i = 0; i < 30 && (!oneWatch.changes.length || !twoWatch.changes.length); i++) await pause(100);
+    await Promise.all([oneWatch.close(), twoWatch.close()]);
+    check(oneSave.ok && twoSave.ok && oneWatch.changes.length > 0 && twoWatch.changes.length > 0, "H10 صندوقان حفظا في اللحظة نفسها: كلٌّ يسمع حفظه، لا الأوّلُ وحده", { one: [oneSave.status, oneWatch.changes.length], two: [twoSave.status, twoWatch.changes.length] });
   }
 } finally {
   if (child?.pid) { try { process.kill(-child.pid, "SIGKILL"); } catch { try { child.kill("SIGKILL"); } catch { /* ended */ } } }

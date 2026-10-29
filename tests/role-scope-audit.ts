@@ -190,6 +190,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
     "POST /api/schedules/meeting-slots": "نوافذ فراغٍ لأساتذةٍ يختارهم القارئ — بلا مقرّرٍ ولا قاعة",
     "POST /api/guide/intent": "دليل الاستخدام — لا بيانات",
     "GET /api/roles": "تعريفات الصفات — لا بيانات",
+    "POST /api/schedules/pulse": "لسانٌ يُعلن رحيله عن النبضة: يحذف مدخلاً في الذاكرة يملكه الحساب نفسه — بلا بيانات (السؤالُ نفسه GET خلف isScopeAllowed)",
   };
   const routeHead = /\napp\.(get|post|put|delete|patch)\("([^"]+)"/g;
   const heads = [...server.matchAll(routeHead)];
