@@ -43,6 +43,16 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
    * فصلٌ سابقٌ مجمَّد (يُعرض للاطّلاع). هو للقراءة وحدها: التشغيلُ و«ماذا لو؟» يقيسان فصلَ الباب فقط
    * ويردّان 409 `term-frozen` على الفصل السابق.
    */
+  /**
+   * ── منتقي الكلية والقسم في شاشات الإرشاد ──
+   * `?collegeId=&sectionId=` اختياريان: يضيّقان ما يراه القارئ داخل نطاقه، ولا يوسّعانه أبداً
+   * (الشرطُ يُضاف إلى isScopeAllowed، لا يحلّ محلّه). بلا اختيار يبقى كل شيءٍ كما كان.
+   */
+  const pickOf = (req: Request) => {
+    const collegeId = Math.max(0, Number(req.query.collegeId) || 0), sectionId = Math.max(0, Number(req.query.sectionId) || 0);
+    return { narrowed: Boolean(collegeId || sectionId), fits: (c: number, s: number) => (!collegeId || Number(c) === collegeId) && (!sectionId || Number(s) === sectionId) };
+  };
+
   const readTermFor = async (req: Request, res: Response): Promise<{ term: any; frozen: boolean } | null | "sent"> => {
     const terms = (await Repository.getTerms()) as any[];
     const door = pickDoorTerm(terms as any);
@@ -66,14 +76,17 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
     /* الفصلُ السابق سجلٌّ مجمَّد: لا يُعاد احتسابُه ولا يُوسَم «قديماً» وإن تغيّرت ملفّاتٌ بعده. */
     if (run?.stale && !frozen) kickRadarRefresh();
     const catalog = new Map(((await Repository.getCourses()) as AdCourse[]).map(course => [Number(course.AdCourseId), course] as const));
-    const power = deps.isPowerUser(req);
+    const pick = pickOf(req);
+    const powerUser = deps.isPowerUser(req);
+    /* «الكل» لصاحب الصلاحية الكاملة يقرأ الأرقام الإجمالية كما هي؛ والمنتقي يجمع نطاقه كأي قسم. */
+    const power = powerUser && !pick.narrowed;
     const inScope = (rows: NonNullable<typeof run>["courses"] | undefined) => (rows || [])
-      .filter(row => power || deps.isScopeAllowed(req, row.collegeId, row.sectionId))
+      .filter(row => (powerUser || deps.isScopeAllowed(req, row.collegeId, row.sectionId)) && pick.fits(row.collegeId, row.sectionId))
       .map(row => {
         const course = catalog.get(row.courseId);
         return { ...row, code: String(course?.CourseCode || ""), name: String(course?.CourseName || `مقرر ${row.courseId}`) };
       });
-    const visible = power ? null : (run?.scopes || []).filter(scope => deps.isScopeAllowed(req, scope.collegeId, scope.sectionId));
+    const visible = power ? null : (run?.scopes || []).filter(scope => (powerUser || deps.isScopeAllowed(req, scope.collegeId, scope.sectionId)) && pick.fits(scope.collegeId, scope.sectionId));
     const bands = () => ({ canReach15: 0, canReach12To14: 0, below12: 0, graduatingBelow12: 0, unknown: 0 });
     const scoped = { students: 0, population: 0, withoutRules: 0, defaulted: 0, windows: Array.from({ length: run?.rounds || 1 }, () => 0), capacity: bands(), projected: { students: 0, capacity: bands() }, dataQuality: { total: 0, ready: 0, excluded: 0, issues: {} as Record<string, number> } };
     for (const scope of visible || []) {
@@ -88,7 +101,7 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
     }
     res.json({
       term: { id: Number(term.AdTermId), name: String(term.AdTermName || "") },
-      canRun: power && !frozen,
+      canRun: powerUser && !frozen,
       frozen,
       auto: frozen ? { enabled: false, everyHours: radarAutoSettings().everyHours } : radarAutoSettings(),
       phase: frozen ? { mode: "closed", label: "انتهى التسجيل", line: "فصلٌ سابق: أرقامُ الرادار كما كانت عند إغلاقه.", namesVisible: true }
@@ -177,8 +190,9 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
     if (!run) { res.json({ ready: false }); return; }
     try {
       const insight = await radarInsightFor(term, run.rounds || 2, { wishesTermId: run.wishesTermId, scope: ctxKey(Number(term.AdTermId)) });
-      const power = deps.isPowerUser(req);
-      const mine = (collegeId: number, sectionId: number) => power || deps.isScopeAllowed(req, collegeId, sectionId);
+      const pick = pickOf(req);
+      const power = deps.isPowerUser(req) && !pick.narrowed;
+      const mine = (collegeId: number, sectionId: number) => (deps.isPowerUser(req) || deps.isScopeAllowed(req, collegeId, sectionId)) && pick.fits(collegeId, sectionId);
       const causes = emptyCauseTotals();
       let short = 0, students = 0;
       for (const scope of insight.scopes) if (mine(scope.collegeId, scope.sectionId)) {
@@ -261,11 +275,12 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
         merged.set(Number(id), sum);
       }
     }
-    const power = deps.isPowerUser(req);
+    const pick = pickOf(req);
+    const power = deps.isPowerUser(req) && !pick.narrowed;
     const catalog = new Map(((await Repository.getCourses()) as AdCourse[]).map(course => [Number(course.AdCourseId), course] as const));
     const courses = [...merged].flatMap(([courseId, row]) => {
       const course = catalog.get(courseId);
-      if (!course || (!power && !deps.isScopeAllowed(req, Number(course.AdCollegeId), Number(course.AdSectionId)))) return [];
+      if (!course || (!deps.isPowerUser(req) && !deps.isScopeAllowed(req, Number(course.AdCollegeId), Number(course.AdSectionId))) || !pick.fits(Number(course.AdCollegeId), Number(course.AdSectionId))) return [];
       return [{ courseId, code: String(course.CourseCode || ""), name: String(course.CourseName || ""), ...row }];
     }).sort((a, b) => b.stuck - a.stuck || a.code.localeCompare(b.code, "en"));
     /* عددُ المجيبين الكلّيُّ لا يُقال لمن يرى مقرراتِه وحدها: طلبةٌ أجابوا عن أقسامٍ أخرى لا يصفون نتائجَه.

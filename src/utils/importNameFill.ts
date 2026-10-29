@@ -12,6 +12,8 @@
  * لا يُغيَّر في السطر إلا AdInstructorId، ولا يُمسّ سطرٌ يحمل أستاذاً. والتراجعُ
  * يعيد السطور كما كانت حرفاً بحرف.
  */
+import { sortTermsNewest } from "./termSequence";
+
 export interface FillRow {
   AdCourseId: number;
   SCode: string;
@@ -61,10 +63,16 @@ function compare(a: FillRow, b: FillRow): Array<{ field: FillField; mine: string
  * المسافات والتطويل. ثم تطابقٌ تامّ للاسم المطبَّع مع اسمٍ واحدٍ من أعضاء القسم ومنتدبيه
  * في ذلك الفصل. اسمان يطابقان ← لا شيء (لا يُختار أحدهما).
  */
+/* وسمُ الصفة بعد الاسم — «(منتدب)»، «- منتدبة»، «متقاعد»، «متفرغ» — ليس من الاسم:
+   الجدول والسجلّ يكتبانه حيناً ويتركانه حيناً، فكان الاسمُ الصحيح «لا يُعرف صاحبه». */
+const ROLE_SUFFIX = /[\s\-–—(]*(?:منتدب|منتدبه|منتدبة|متقاعد|متقاعده|متقاعدة|متفرغ|متفرغه|متفرغة)\s*\)?\s*$/u;
+
 export function normalizeArabicName(value: unknown): string {
-  return String(value ?? "")
-    .replace(/[ً-ْٰـ]/g, "")
-    .replace(/^\s*(?:(?:أ\.?\s*د|ا\.?\s*د|د|أ|ا|م|الدكتور|الدكتورة|الاستاذ|الأستاذ|الاستاذة|الأستاذة)\s*[./]\s*|(?:الدكتور|الدكتورة|الاستاذ|الأستاذ|الاستاذة|الأستاذة)\s+)+/u, "")
+  let text = String(value ?? "").normalize("NFKC")
+    .replace(/[\u064B-\u0652\u0670\u0640\u200c-\u200f\u202a-\u202e\u2066-\u2069]/g, "")
+    .replace(/^\s*(?:(?:أ\.?\s*م\.?\s*د|ا\.?\s*م\.?\s*د|أ\.?\s*د|ا\.?\s*د|د|أ|ا|م|الدكتور|الدكتورة|الاستاذ|الأستاذ|الاستاذة|الأستاذة)\s*[./]\s*|(?:الدكتور|الدكتورة|الاستاذ|الأستاذ|الاستاذة|الأستاذة)\s+)+/u, "");
+  for (let guard = 0; guard < 3 && ROLE_SUFFIX.test(text); guard++) text = text.replace(ROLE_SUFFIX, "");
+  return text
     .replace(/[أإآٱ]/g, "ا").replace(/ؤ/g, "و").replace(/ئ/g, "ي").replace(/ة/g, "ه").replace(/ى/g, "ي")
     .replace(/[^\p{L}\p{N}]+/gu, "").trim();
 }
@@ -131,15 +139,95 @@ export function fillSummary(decisions: readonly FillDecision[]) {
   };
 }
 
-/** يطبّق: المطابقُ التامّ دائماً، والجزئيُّ ما وافق عليه المستخدم فقط. يغيّر الاسم وحده. */
-export function applyNameFill<T extends FillRow>(rows: readonly T[], decisions: readonly FillDecision[], acceptedPartials: ReadonlySet<number> = new Set()): T[] {
+/**
+ * يطبّق: المطابقُ التامّ دائماً، والجزئيُّ ما وافق عليه المستخدم فقط. يغيّر الاسم وحده
+ * — ومعه برهانُه. كان البرهانُ يبقى «UNRESOLVED» من القراءة الأولى، فتُصبغ خانةُ الأستاذ
+ * بالأحمر وفيها الاسمُ الصحيح (الأحمر في المعاينة يقرأ البرهان لا الاسم). الاسمُ هنا
+ * اعتمده المستخدم بعد معاينةٍ صريحة، فبرهانُه يدويّ مؤكَّد كأنه اختاره من القائمة.
+ */
+export function applyNameFill<T extends FillRow>(rows: readonly T[], decisions: readonly FillDecision[], acceptedPartials: ReadonlySet<number> = new Set(), sourceLabel = ""): T[] {
   const byIndex = new Map(decisions.map(row => [row.index, row]));
   return rows.map((row, index) => {
     const decision = byIndex.get(index);
     if (!decision || !decision.instructorId) return row;
-    if (decision.status === "match" || (decision.status === "partial" && acceptedPartials.has(index))) return { ...row, AdInstructorId: decision.instructorId };
+    if (decision.status === "match" || (decision.status === "partial" && acceptedPartials.has(index))) {
+      const evidence = (row as any).importEvidence;
+      const prior = (evidence && typeof evidence === "object" ? evidence.instructor : null) || {};
+      return {
+        ...row,
+        AdInstructorId: decision.instructorId,
+        importEvidence: {
+          ...(evidence && typeof evidence === "object" ? evidence : {}),
+          instructor: {
+            ...prior,
+            canonical: String(decision.instructorId),
+            confidence: "CONFIRMED", score: 100, source: "MANUAL", method: "NAME_FILL", derived: false,
+            reason: `عُبّئ الاسم ${sourceLabel ? `${sourceLabel} ` : ""}${decision.status === "match" ? "بتطابق السطر ١٠٠٪" : "بعد قبول الفرق"} واعتُمد في المعاينة.`,
+          },
+        },
+      };
+    }
     return row;
   });
 }
 
 export const FILL_FIELD_LABEL: Record<FillField, string> = { course: "المقرر", section: "الشعبة", days: "الأيام", time: "الوقت", room: "القاعة" };
+
+/**
+ * ── من أيّ فصلٍ تُؤخذ الأسماء ─────────────────────────────────────────────
+ * الفصلُ المفتوح نفسه، والفصلُ الدراسي الذي قبله مباشرة (الصيفي لا يُعدّ «سابقاً»:
+ * جدوله قصيرٌ وأساتذته غير أساتذة الفصل). كلاهما مقبول، والمطابقةُ ١٠٠٪ هي هي.
+ */
+export function nameFillSourceTerms(terms: ReadonlyArray<{ AdTermId: number; AdTermName: string }>, termId: number): Array<{ id: number; name: string; short: string }> {
+  const sorted = sortTermsNewest(terms.filter(term => Number(term.AdTermId) > 0));
+  const at = sorted.findIndex(term => Number(term.AdTermId) === Number(termId));
+  const current = at >= 0 ? sorted[at] : null;
+  const out = [{ id: Number(termId), name: String(current?.AdTermName || "هذا الفصل"), short: "هذا الفصل" }];
+  if (at < 0) return out;
+  const previous = sorted.slice(at + 1).find(term => !/صيفي|صيفى/.test(String(term.AdTermName || "")));
+  if (previous) out.push({ id: Number(previous.AdTermId), name: String(previous.AdTermName || ""), short: "الفصل السابق" });
+  return out;
+}
+
+/**
+ * ── ما ردّه الخادم على الملف الثاني، بكلماتٍ يعمل بها المستخدم ─────────────────
+ * الخادم يردّ بطريقتين: سطورَ NDJSON (تقدّم، ثم `done` أو `error`)، أو كائنَ JSON
+ * واحداً بلا `type` حين يرفض قبل القراءة (403 نطاق، 409 فصل/فرع/قسم آخر، 413 حجم،
+ * 422 ترويسة أو صورة، 503 القراءة مشغولة). كانت الشاشة تقرأ الأولى وحدها، فكل رفضٍ
+ * من الثانية صار «تعذّر قراءة الملف الثاني» بلا سبب.
+ */
+export function nameFillPdfOutcome(status: number, text: string): { rows: any[] } | { error: string; code?: string } {
+  let result: any = null, failure: any = null, plain: any = null;
+  for (const line of String(text || "").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let event: any;
+    try { event = JSON.parse(trimmed); } catch { continue; }
+    if (event?.type === "done") result = event.result;
+    else if (event?.type === "error") failure = event;
+    else if (!event?.type && event && typeof event === "object") plain = event;
+  }
+  if (!result && plain && Array.isArray(plain.rows)) result = plain;
+  const problem = failure || (!result ? plain : null);
+  if (problem?.error) {
+    const code = String(problem.code || "");
+    /* «للفصل الفارغ فقط» لا معنى له هنا: التعبئة لا تكتب، فلا يُعرض للمستخدم سببُ حفظٍ لم يطلبه. */
+    if (code === "PDF_TARGET_TERM_OCCUPIED") return { error: "الخادم عامل الملف الثاني كاستيرادٍ للحفظ لا كقراءةٍ للأسماء. حدّث الصفحة ثم أعد المحاولة.", code };
+    return { error: `الملف الثاني: ${String(problem.error)}`, code: code || undefined };
+  }
+  if (!result) {
+    if (status === 0) return { error: "انقطع الاتصال قبل أن يصل الملف الثاني. تحقّق من الشبكة ثم أعد الرفع." };
+    if (status === 401) return { error: "انتهت الجلسة. سجّل الدخول ثم أعد رفع الملف الثاني." };
+    if (status === 403) return { error: "لا صلاحية لك لقراءة جداول هذا القسم." };
+    if (status === 413) return { error: "الملف الثاني أكبر من 24 ميغابايت. صغّر حجمه أو ارفع صفحات الجدول وحدها." };
+    if (status === 503) return { error: "قراءة المستندات مشغولة الآن. أعد المحاولة بعد دقيقة." };
+    if (status >= 500) return { error: `توقّف الخادم أثناء قراءة الملف الثاني (رمز ${status}). أعد المحاولة؛ وإن تكرّر فأبلغ إدارة النظام.` };
+    return { error: "انقطعت قراءة الملف الثاني قبل نهايتها. أعد الرفع؛ وإن تكرّر فارفع نسخةً أوضح." };
+  }
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  if (!rows.length) return { error: "لم تُقرأ من الملف الثاني أي شعبة. ارفع جدول القسم الرسمي نفسه بصيغة PDF.", code: "NO_ROWS" };
+  if (!rows.some((row: any) => String(row?.sourceInstructorText || "").trim() || Number(row?.AdInstructorId || 0))) {
+    return { error: "الملف الثاني بلا أسماء أساتذة: كل خانات الأستاذ فيه فارغة. ارفع النسخة التي تحمل الأسماء.", code: "NO_NAMES" };
+  }
+  return { rows };
+}

@@ -31,6 +31,7 @@ import {
 import { seatTeamPage } from "./seatTeamPage";
 import { isDemoLinkToken } from "../utils/demoLinkToken";
 import { publicPageNonce } from "./core/publicPages";
+import { campusFamilies, campusFamilyName } from "../utils/campusFamily";
 import { AR, countOf } from "../utils/arabicCount";
 
 const actorOf = (req: AuthenticatedRequest): SeatActor | undefined => (req.user as any)?.SeatActor;
@@ -141,7 +142,18 @@ async function seatView(seat: any, ledger: SeatLedger | null, req: Authenticated
     canHandOver: await handsOverSeat(req, seat),
     holderSource: seatHolderSource(seat.Role),
     scopeTree: manage && rule && rule.scope !== "seat" ? await scopeTreeFor(seat, rule.scope) : [],
+    campusOptions: isPowerUser(req) && roleDefinition(seat.Role).id === "collegeRegistrar" ? await campusOptionsFor(seat) : null,
   };
+}
+
+/** لمدير النظام: كلُّ حرمٍ، وأيُّه على هذا الكرسي، وأيُّه على كرسيٍّ آخر. */
+async function campusOptionsFor(seat: any) {
+  const [colleges, assigns, taken] = await Promise.all([Repository.getColleges(), Repository.getUserAssigns(Number(seat.SystemUserId)), collegeRegistrarCoverage(Number(seat.SystemUserId))]);
+  const mine = new Set(assigns.map(row => Number(row.AdCollegeId)));
+  return campusFamilies(colleges as any[]).map(family => ({
+    ...family,
+    colleges: family.colleges.map(college => ({ ...college, selected: mine.has(college.collegeId), takenElsewhere: taken.has(college.collegeId) })),
+  })).sort((a, b) => Number(b.colleges.some(c => c.selected)) - Number(a.colleges.some(c => c.selected)));
 }
 
 /** شجرةُ ما يُختار منه نطاقُ موظف التسجيل: كلياتُ نطاق الكرسي وأقسامُها. */
@@ -219,6 +231,19 @@ async function issueMemberLink(seatId: number, memberId: string, by: string) {
   return { ok: true as const, token };
 }
 
+const collegeIdsFrom = (body: any): number[] =>
+  [...new Set((Array.isArray(body?.collegeIds) ? body.collegeIds : body?.collegeId ? [body.collegeId] : []).map(Number).filter((id: number) => Number.isInteger(id) && id > 0))] as number[];
+
+/** الحرمُ المغطّاة بكراسي «رئيس تسجيل الكلية» — عدا كرسيٍّ يُعدَّل حرمُه الآن. */
+async function collegeRegistrarCoverage(exceptSeatId = 0): Promise<Set<number>> {
+  const covered = new Set<number>();
+  for (const user of await Repository.getUsers()) {
+    if (user.IsDeleted || Number(user.SystemUserId) === exceptSeatId || roleDefinition((user as any).Role).id !== "collegeRegistrar") continue;
+    for (const row of await Repository.getUserAssigns(Number(user.SystemUserId))) covered.add(Number(row.AdCollegeId));
+  }
+  return covered;
+}
+
 /* ── حارسُ العضو ──────────────────────────────────────────────────────────── */
 
 /** ما لا يكتبه عضوُ الفريق: التوقيعُ وسحبُه، وإدارةُ الكرسي، وكلمةُ سرّه. والنائبُ يوقّع. */
@@ -265,9 +290,9 @@ app.get("/api/seats", requirePowerAdmin, async (_req: AuthenticatedRequest, res:
       lastEvent: ledger?.history[ledger.history.length - 1] || null,
     };
   }).sort((a, b) => a.order - b.order || String(a.name).localeCompare(String(b.name), "ar"));
+  /* الحرمُ بلا رئيس تسجيل، مجموعةً بكليتها: «التربية الأساسية (بنين · بنات · الفحيحيل)» زرٌّ واحد. */
   const withCollegeRegistrar = new Set(seats.filter(seat => seat.role === "collegeRegistrar").flatMap(seat => seat.collegeIds));
-  const missingCollegeRegistrars = (colleges as any[]).filter(college => !withCollegeRegistrar.has(Number(college.AdCollegeId)))
-    .map(college => ({ collegeId: Number(college.AdCollegeId), collegeName: String(college.AdCollegeName || "") }));
+  const missingCollegeRegistrars = campusFamilies((colleges as any[]).filter(college => !withCollegeRegistrar.has(Number(college.AdCollegeId))));
   res.json({ seats, missingCollegeRegistrars, roles: ACADEMIC_ROLES.filter(role => isSeatRole(role.id)).map(role => ({ id: role.id, label: role.label, order: role.order })) });
 });
 
@@ -508,41 +533,68 @@ app.post("/api/seats/:id/deputy/end", requireAuth, async (req: AuthenticatedRequ
   res.json(await seatView(seat, out.ledger, req));
 });
 
-/** كرسيُّ «رئيس تسجيل الكلية» لكليةٍ لا كرسيَّ لها، ومعه شاغلُه وكلمتُه الأولى. */
+/**
+ * كرسيُّ «رئيس تسجيل الكلية»: كرسيٌّ واحد قد يغطي حرماً أو أكثر من الكلية نفسها
+ * (بنين، بنات، الفحيحيل…)، وكلُّ حرمٍ في النظام كليةٌ قائمة بذاتها. ومعه شاغلُه وكلمتُه الأولى.
+ */
 app.post("/api/seats/college-registrar", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
-  const collegeId = Number(req.body?.collegeId || 0);
-  const college = (await Repository.getColleges()).find(row => Number(row.AdCollegeId) === collegeId) as any;
-  if (!college) { res.status(404).json({ error: "الكلية غير موجودة." }); return; }
+  const wanted = collegeIdsFrom(req.body);
+  if (!wanted.length) { res.status(400).json({ error: "اختر حرماً واحداً على الأقل." }); return; }
+  const colleges = (await Repository.getColleges()) as any[];
+  const picked = wanted.map(id => colleges.find(row => Number(row.AdCollegeId) === id)).filter(Boolean);
+  if (picked.length !== wanted.length) { res.status(404).json({ error: "في الاختيار حرمٌ غير موجود." }); return; }
   const person = await personFrom({ ...req.body, instructorId: 0 });
   if ("error" in person) { res.status(400).json({ error: person.error }); return; }
+  const taken = await collegeRegistrarCoverage();
+  const clash = picked.find(college => taken.has(Number(college.AdCollegeId)));
+  if (clash) { res.status(409).json({ error: `«${clash.AdCollegeName}» له رئيس تسجيل من قبل. أضفه إلى كرسيّه أو سلّمه بدل إنشاء آخر.` }); return; }
   const users = await Repository.getUsers();
-  const existing: unknown[] = [];
-  for (const user of users) {
-    if (user.IsDeleted || roleDefinition((user as any).Role).id !== "collegeRegistrar") continue;
-    if ((await Repository.getUserAssigns(Number(user.SystemUserId))).some(row => Number(row.AdCollegeId) === collegeId)) existing.push(user);
-  }
-  if (existing.length) { res.status(409).json({ error: "لهذه الكلية كرسيُّ رئيس تسجيل من قبل. سلّمه بدل إنشاء آخر." }); return; }
-  const tag = String(college.AdCollegeCode || "").replace(/[^A-Za-z0-9]/g, "").toLowerCase() || `c${collegeId}`;
+  const first = picked[0];
+  const tag = String(first.AdCollegeCode || "").replace(/[^A-Za-z0-9]/g, "").toLowerCase() || `c${first.AdCollegeId}`;
   const logins = new Set(users.map(user => String(user.SystemUserLogin || "").toLowerCase()));
   let login = `${tag}registrar`;
   for (let n = 2; logins.has(login.toLowerCase()); n += 1) login = `${tag}registrar${n}`;
   const password = generateInitialPassword();
   const role = roleDefinition("collegeRegistrar");
   const user = await Repository.createUser({
-    Name: `${role.label} — ${college.AdCollegeName}`, SystemUserLogin: login,
+    Name: `${role.label} — ${campusFamilyName(picked.map(row => String(row.AdCollegeName || "")))}`, SystemUserLogin: login,
     SystemUserPass: Repository.hashPassword(password), SystemUserPassVault: Repository.encryptPasswordForVault(password),
     IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: role.id, MustChangePassword: true,
   } as any);
   await Repository.saveSecurityByUser(user.SystemUserId, role.formIds);
-  await Repository.saveUserAssigns(user.SystemUserId, [{ AdCollegeId: collegeId, AdSectionId: 0 }]);
+  await Repository.saveUserAssigns(user.SystemUserId, picked.map(row => ({ AdCollegeId: Number(row.AdCollegeId), AdSectionId: 0 })));
   const at = new Date().toISOString(), by = byName(req);
   const holder: SeatHolder = { name: person.name, ...(person.mobile ? { mobile: person.mobile } : {}), since: at, by };
   await updateSeatLedger(user.SystemUserId, ledger => ({
-    next: withSeatEvent(withSeatEvent({ ...ledger, holder }, { at, kind: "seat-created", by, detail: user.Name }), { at, kind: "holder-set", by, detail: `الشاغل: ${holder.name}` }),
+    next: withSeatEvent(withSeatEvent({ ...ledger, holder }, { at, kind: "seat-created", by, detail: `${user.Name}: ${picked.map(row => row.AdCollegeName).join("، ")}` }), { at, kind: "holder-set", by, detail: `الشاغل: ${holder.name}` }),
     result: true,
   }));
   res.locals.auditChanges = `كرسيٌّ جديد: ${user.Name} — الشاغل ${holder.name}`;
   res.status(201).json({ seatId: user.SystemUserId, login, password, seatName: user.Name, holder });
+});
+
+/** حرمُ كرسيّ «رئيس تسجيل الكلية» بعد إنشائه: يُضاف إليه حرمٌ أو يُرفع عنه. لمدير النظام وحده. */
+app.post("/api/seats/:id/colleges", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const seat = await seatUser(Number(req.params.id));
+  if (!seat || roleDefinition(seat.Role).id !== "collegeRegistrar") { res.status(404).json({ error: "هذا ليس كرسيَّ رئيس تسجيل كلية." }); return; }
+  const wanted = collegeIdsFrom(req.body);
+  if (!wanted.length) { res.status(400).json({ error: "يبقى للكرسي حرمٌ واحد على الأقل." }); return; }
+  const colleges = (await Repository.getColleges()) as any[];
+  const picked = wanted.map(id => colleges.find(row => Number(row.AdCollegeId) === id)).filter(Boolean);
+  if (picked.length !== wanted.length) { res.status(404).json({ error: "في الاختيار حرمٌ غير موجود." }); return; }
+  const taken = await collegeRegistrarCoverage(Number(seat.SystemUserId));
+  const clash = picked.find(college => taken.has(Number(college.AdCollegeId)));
+  if (clash) { res.status(409).json({ error: `«${clash.AdCollegeName}» له رئيس تسجيل آخر.` }); return; }
+  const before = new Set((await Repository.getUserAssigns(Number(seat.SystemUserId))).map(row => Number(row.AdCollegeId)));
+  await Repository.saveUserAssigns(Number(seat.SystemUserId), picked.map(row => ({ AdCollegeId: Number(row.AdCollegeId), AdSectionId: 0 })));
+  const added = picked.filter(row => !before.has(Number(row.AdCollegeId))).map(row => row.AdCollegeName);
+  const removed = colleges.filter(row => before.has(Number(row.AdCollegeId)) && !wanted.includes(Number(row.AdCollegeId))).map(row => row.AdCollegeName);
+  const at = new Date().toISOString(), by = byName(req);
+  const detail = [added.length ? `أُضيف: ${added.join("، ")}` : "", removed.length ? `رُفع: ${removed.join("، ")}` : ""].filter(Boolean).join(" · ") || "بلا تغيير";
+  const out = await updateSeatLedger(Number(seat.SystemUserId), ledger => ({ next: withSeatEvent(ledger, { at, kind: "seat-colleges", by, detail }), result: true }));
+  authCache.clear();
+  res.locals.auditChanges = `حرم ${seat.Name}: ${detail}`;
+  res.json(await seatView(seat, "error" in out ? await readSeatLedger(Number(seat.SystemUserId)) : out.ledger, req));
 });
 
 /* ── الدخول برابط العضو ──────────────────────────────────────────────────── */

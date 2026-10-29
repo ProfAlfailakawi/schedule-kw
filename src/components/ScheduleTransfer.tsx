@@ -1667,11 +1667,20 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                       {importKind === "authority-pdf" || importKind === "worksheet" ? (
                         <ImportNameFillPanel
                           rows={xlsxPreview.rows as ImportRow[]}
-                          onRows={next => setXlsxPreview((prev: any) => prev ? { ...prev, rows: next } : prev)}
-                          people={[...new Map([...instructors, ...directoryPeople]
-                            .filter(person => departmentIds.includes(Number(person.AdInstructorId)) || roster.includes(Number(person.AdInstructorId)))
+                          /* من رُبطوا بالتعبئة يدخلون قائمة العرض (resolvedInstructors) كما يدخلها من
+                             طابقهم الخادم، فلا تبقى خانةٌ صحيحة الاسم حمراء لأن صاحبها خارج القائمة. */
+                          onRows={(next, filled) => setXlsxPreview((prev: any) => prev ? {
+                            ...prev, rows: next,
+                            ...(filled?.length ? { resolvedInstructors: [...new Map([...(Array.isArray(prev.resolvedInstructors) ? prev.resolvedInstructors : []), ...filled]
+                              .map((person: any) => [Number(person.AdInstructorId), { AdInstructorId: Number(person.AdInstructorId), AdInstructorName: String(person.AdInstructorName || "") }])).values()] } : {}),
+                          } : prev)}
+                          /* أهلُ القسم كما يقرؤهم قانون النشر نفسه (departmentInstructorIds من الخادم،
+                             يشمل مواقع الفرع كلها) مع تاريخ القسم ومنتدبي الفصل — لا تاريخ هذا الموقع وحده. */
+                          people={[...new Map([...instructors, ...directoryPeople, ...((Array.isArray(xlsxPreview.resolvedInstructors) ? xlsxPreview.resolvedInstructors : []) as any[])]
+                            .filter(person => departmentIds.includes(Number(person.AdInstructorId)) || roster.includes(Number(person.AdInstructorId))
+                              || (Array.isArray(xlsxPreview.departmentInstructorIds) && xlsxPreview.departmentInstructorIds.map(Number).includes(Number(person.AdInstructorId))))
                             .map(person => [Number(person.AdInstructorId), person])).values()] as any}
-                          collegeId={collegeId} sectionId={sectionId} termId={termId}
+                          collegeId={collegeId} sectionId={activeImportSectionId} termId={termId} terms={terms}
                           courseName={id => String(deptCourses.find((course: any) => Number(course.AdCourseId) === id)?.CourseName || "")}
                         />
                       ) : null}
@@ -1838,7 +1847,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
 
           {tab === "courses" ? (
             collegeId && sectionId && termId
-              ? <Suspense fallback={<p>⏳</p>}><AllCourses collegeId={collegeId} sectionId={sectionId} termId={termId} /></Suspense>
+              ? <Suspense fallback={<p>⏳</p>}><AllCourses collegeId={collegeId} sectionId={sectionId} termId={termId} onImportStats={() => setTab("planning")} /></Suspense>
               : <p>اختر القسم والفصل أولاً.</p>
           ) : null}
 

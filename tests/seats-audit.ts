@@ -9,6 +9,7 @@
  *  S6  التسليم: كلمةٌ أولى، وتغييرٌ إجباري، والفريقُ يُجمَّد ورابطُه لا يفتح، ثم «مستمر» يعيده برابطه نفسه.
  *  S7  مكتب التسجيل: موظفٌ بنطاقٍ محدد يعمل بصفة «موظف التسجيل» وفي نطاقه وحده؛ ولا نطاقَ أوسع من الكرسي.
  *  S8  رئيسُ تسجيل الكلية يمدّد لكليته ولا يضع موعد الفصل.
+ *  S9  الحرم: كرسيٌّ واحد لبنين وبنات والفحيحيل؛ الموظف بكليةٍ وقسمٍ من أيّها؛ ورفعُ حرمٍ يُسقطه من نطاق الموظف.
  */
 import { waitForDemoSeed } from "./helpers/demoSeed";
 import { startDemoServer, type LiveServer } from "./helpers/liveServer";
@@ -16,6 +17,7 @@ import { activeDeputy, civilTailOf, handOverLedger, resolveSeatActor, scopeWithi
 import { canExtendDeadline, canManageDeadline, canReviewSubmissions, roleDefinition } from "../src/utils/academicRoles";
 import { inboxAudience } from "../src/utils/inboxAudience";
 import { seatMemberGuard } from "../src/server/seatsRoutes";
+import { campusFamilies, campusFamilyName } from "../src/utils/campusFamily";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -82,7 +84,22 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   check(run(holder, "POST", "/approvals/sign").passedOn && run(undefined, "POST", "/approvals/sign").passedOn, "S3 الشاغل ومن لا كرسيَّ له لا يمسّهما الحارس");
 }
 
-/* ── S4–S8: خادمٌ حيّ ── */
+/* ── S9 بلا خادم: الحرم تُجمع بكليتها ── */
+{
+  const families = campusFamilies([
+    { AdCollegeId: 1, AdCollegeName: "كلية التربية الأساسية - بنين" },
+    { AdCollegeId: 2, AdCollegeName: "كلية التربية الأساسية - بنات" },
+    { AdCollegeId: 3, AdCollegeName: "كلية التربية الأساسية - الفحيحيل - بنات" },
+    { AdCollegeId: 4, AdCollegeName: "كلية الدراسات التكنولوجية" },
+  ]);
+  const basic = families.find(row => row.familyName === "كلية التربية الأساسية");
+  check(families.length === 2 && basic?.colleges.length === 3 && basic.colleges.map(c => c.chip).join("|") === "بنين|بنات|الفحيحيل - بنات",
+    "S9 حرمُ الكلية الواحدة زرٌّ واحد، وكلُّ حرمٍ وسمٌ قصير", families);
+  check(campusFamilyName(["كلية التربية الأساسية - بنين", "كلية التربية الأساسية - بنات"]) === "كلية التربية الأساسية" && campusFamilyName(["كلية الحقوق"]) === "كلية الحقوق",
+    "S9 اسمُ الكرسي اسمُ الكلية للحرم كلها، واسمُ الحرم إن كان واحداً");
+}
+
+/* ── S4–S9: خادمٌ حيّ ── */
 let server: LiveServer | null = null;
 try {
   server = await startDemoServer("seats");
@@ -179,6 +196,37 @@ try {
   check(setDeadline.status === 403, "S8 رئيس تسجيل الكلية لا يضع موعد الفصل", setDeadline.body);
   const extend = await json("/api/approvals/extensions", { method: "POST", body: JSON.stringify({ termId: 1, action: "grant", days: 3, reason: "اختبار", scope: { kind: "college", collegeId: 1 } }) });
   check(extend.status !== 403, "S8 ويمدّد لكليته", extend.body);
+
+  /* S9: كرسيُّ رئيس تسجيلٍ لحرمين، وموظفٌ بقسمٍ من أحدهما وكليةٍ كاملةٍ من الآخر */
+  await as("admin");
+  const boys = await json("/api/colleges", { method: "POST", body: JSON.stringify({ AdCollegeCode: "77", AdCollegeName: "كلية الاختبار - بنين" }) });
+  const girls = await json("/api/colleges", { method: "POST", body: JSON.stringify({ AdCollegeCode: "77", AdCollegeName: "كلية الاختبار - بنات" }) });
+  const boysId = Number(boys.body?.AdCollegeId || boys.body?.college?.AdCollegeId || 0), girlsId = Number(girls.body?.AdCollegeId || girls.body?.college?.AdCollegeId || 0);
+  check(boysId > 0 && girlsId > 0, "S9 حرمان جديدان للكلية نفسها", { boys: boys.status, girls: girls.status });
+  const listed = await json("/api/seats");
+  const family = listed.body?.missingCollegeRegistrars?.find((row: any) => row.familyName === "كلية الاختبار");
+  check(family?.colleges?.length === 2, "S9 الحرمان بلا رئيس تسجيل يظهران زرّاً واحداً", listed.body?.missingCollegeRegistrars);
+  const createdSeat = await json("/api/seats/college-registrar", { method: "POST", body: JSON.stringify({ collegeIds: [boysId, girlsId], name: "أ. رئيسة تسجيل الاختبار", mobile: "99001122" }) });
+  check(createdSeat.status === 201 && createdSeat.body?.seatName === "رئيس تسجيل الكلية — كلية الاختبار", "S9 كرسيٌّ واحد للحرمين باسم الكلية", createdSeat.body);
+  const second = await json("/api/seats/college-registrar", { method: "POST", body: JSON.stringify({ collegeIds: [girlsId], name: "أ. كرسيٌّ مكرر" }) });
+  check(second.status === 409, "S9 ولا كرسيَّ ثانياً لحرمٍ له رئيس تسجيل", second.body);
+  const seatId = Number(createdSeat.body?.seatId);
+  const girlsSections = ((await json("/api/sections")).body as any[] || []).filter((row: any) => Number(row.AdCollegeId) === girlsId);
+  const campusScopes = [{ AdCollegeId: boysId, AdSectionId: 0 }, ...(girlsSections[0] ? [{ AdCollegeId: girlsId, AdSectionId: Number(girlsSections[0].AdSectionId) }] : [{ AdCollegeId: girlsId, AdSectionId: 0 }])];
+  const staff = await json(`/api/seats/${seatId}/members`, { method: "POST", body: JSON.stringify({ name: "أ. موظفة الحرمين", civil: "290010155555", scopes: campusScopes }) });
+  check(staff.status === 201, "S9 رئيس تسجيل الكلية يعطي موظفه كليةً كاملة من حرم وقسماً من حرمٍ آخر", staff.body);
+  const outside = await json(`/api/seats/${seatId}/members`, { method: "POST", body: JSON.stringify({ name: "أ. خارج الحرمين", scopes: [{ AdCollegeId: 1, AdSectionId: 1 }] }) });
+  check(outside.status === 400, "S9 ولا يعطيه قسماً من كليةٍ ليست على كرسيّه", outside.body);
+  const view = await json(`/api/seats/${seatId}`);
+  const picked = (view.body?.campusOptions || []).flatMap((row: any) => row.colleges).filter((row: any) => row.selected).map((row: any) => row.collegeId).sort();
+  check(JSON.stringify(picked) === JSON.stringify([boysId, girlsId].sort()), "S9 مدير النظام يرى حرم الكرسي", view.body?.campusOptions);
+  const narrowed = await json(`/api/seats/${seatId}/colleges`, { method: "POST", body: JSON.stringify({ collegeIds: [girlsId] }) });
+  check(narrowed.status === 200 && narrowed.body?.history?.[0]?.kind === "seat-colleges", "S9 رفعُ حرمٍ عن الكرسي يُكتب في تاريخه", narrowed.body?.history?.[0]);
+  await json(`/api/public/team/${encodeURIComponent(staff.body?.token)}`, { method: "POST", body: JSON.stringify({ tail: "5555" }) });
+  const staffSession = await json("/api/auth/me");
+  const sessionColleges = new Set((staffSession.body?.scopes || []).map((row: any) => Number(row.AdCollegeId)));
+  check(staffSession.body?.role?.id === "registrarStaff" && !sessionColleges.has(boysId) && (girlsSections[0] ? sessionColleges.has(girlsId) : true),
+    "S9 والحرمُ المرفوع يسقط من نطاق الموظف: لا يتّسع نطاقُه على كرسيّ من أضافه", { scopes: staffSession.body?.scopes });
 } catch (error) {
   failed++;
   console.log("\x1b[31m✗ الاختبار الحيّ توقّف:\x1b[0m", error instanceof Error ? error.message : error);
