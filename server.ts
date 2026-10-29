@@ -144,6 +144,7 @@ import { registerPlanSheetRoutes } from "./src/server/planSheetRoutes";
 import { buildFeatureNotifications, buildMasariGapNotifications } from "./src/utils/featureNotifications";
 import { studentGaps } from "./src/utils/sectionGap";
 import { seedDemoRadar, seedDemoMasariDemand } from "./src/server/demoRadarSeed";
+import { seedDemoOtherDepartmentStories } from "./src/server/demoPreviousTermSeed";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "./src/utils/instructorRequestItems";
 import { radarNoticeFor, registerSimulationRoutes, scheduleRadarAutoRun } from "./src/server/simulationRoutes";
 import { registerInsightRoutes } from "./src/server/insightRoutes";
@@ -2352,6 +2353,8 @@ function scheduleDemoExtras(sessionId: string): void {
       catch (error) { failures.push(name); console.error(`[demo] seeding ${name} failed:`, error); }
     };
     await run("stories", seedDemoStories);
+    /* كشفُ التسجيل والرغباتُ والمقترحات للقسمين الآخرين، قبل الرادار فلا يُعلَّم قديماً بعده. */
+    await run("other departments", () => seedDemoOtherDepartmentStories({ sealIdentity: sealStudentIdentity, fingerprintOf: surveyFingerprint, requestItemFromRow, dayLetters: DAY_LETTERS, judge: request => judgeRequestItems(request) }, DEMO_STORY_SCOPE.termId));
     await run("radar", () => seedDemoRadar({ sealIdentity: sealStudentIdentity, today: kuwaitDateISO() }));
     await run("Masari demand", seedDemoMasariDemand);
     if (failures.length) throw new Error(`Demo seed incomplete: ${failures.join(", ")}`);
