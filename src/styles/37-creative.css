@@ -1,0 +1,103 @@
+/* ═══ أفكار إبداعية (2026-10-29) — إنفوجرافيك في أماكن العمل اليومية ═══════════════════
+   كل قاعدة هنا تخصّ مكوّناً جديداً بصنفه الخاص، فلا تمسّ شاشةً أخرى. */
+
+/* ── نبض الفصل (تغييرات الجدول ← رحلة الطلبة) ── */
+.term-pulse{margin:10px 0 14px;padding-block-start:22px}
+.term-pulse-track{position:relative;block-size:12px;border-radius:999px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.term-pulse-seg{position:absolute;inset-block:0;border-radius:999px;background:var(--accent);opacity:.42;transition:opacity .2s var(--ease)}
+.term-pulse-seg[data-kind="submission"]{background:var(--brass)}
+.term-pulse-seg[data-kind="frozen"]{background:var(--muted)}
+.term-pulse-seg[data-kind="close"]{background:var(--ink-2)}
+.term-pulse-seg[data-kind="round"]{background:color-mix(in srgb,var(--accent) 70%,var(--info,#2a6fdb))}
+.term-pulse-seg[data-state="done"]{opacity:1}
+.term-pulse-seg[data-state="now"]{opacity:1;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent);animation:term-pulse-glow 2.4s ease-in-out infinite}
+.term-pulse-today{position:absolute;inset-block:-22px -6px;inline-size:2px;margin-inline-start:-1px;background:var(--danger,#b23b2c);border-radius:2px}
+.term-pulse-today span{position:absolute;inset-block-start:0;inset-inline-start:50%;transform:translateX(50%);padding:1px 8px;border-radius:999px;
+  background:var(--danger,#b23b2c);color:#fff;font-size:11px;font-weight:700;white-space:nowrap;line-height:18px}
+.term-pulse-ends{display:flex;justify-content:space-between;margin-top:6px;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+@keyframes term-pulse-glow{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 10%,transparent)}}
+@media (prefers-reduced-motion:reduce){.term-pulse-seg[data-state="now"]{animation:none}}
+
+/* ── خريطة حرارة الأسبوع (الجدول الدراسي ← مواعيد القسم) ── */
+.week-heat{margin:0 0 14px;padding:12px 14px 14px;border:1px solid var(--line);border-radius:18px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 3%,var(--surface)),var(--surface))}
+.week-heat-head{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.week-heat-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.week-heat-chip svg{inline-size:14px;block-size:14px}
+.week-heat-chip.is-peak{background:color-mix(in srgb,var(--danger,#b23b2c) 10%,var(--surface));color:var(--danger,#b23b2c)}
+.week-heat-chip.is-quiet{background:color-mix(in srgb,var(--accent) 10%,var(--surface));color:var(--accent-ink,var(--accent))}
+.week-heat-chip b{font-variant-numeric:tabular-nums}
+.week-heat-grid{display:grid;grid-template-columns:54px repeat(12,minmax(0,1fr));gap:3px;align-items:center}
+.week-heat-corner{display:block}
+.week-heat-hour{font:600 10.5px/1 var(--font-mono,ui-monospace,monospace);color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.week-heat-day{font-size:11.5px;font-weight:650;color:var(--ink-2);white-space:nowrap}
+.week-heat-cell{display:block;block-size:16px;border-radius:5px;background:var(--surface-2);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line) 70%,transparent)}
+.week-heat-cell[data-level="1"]{background:color-mix(in srgb,var(--accent) 22%,var(--surface))}
+.week-heat-cell[data-level="2"]{background:color-mix(in srgb,var(--accent) 45%,var(--surface))}
+.week-heat-cell[data-level="3"]{background:color-mix(in srgb,var(--accent) 72%,var(--surface))}
+.week-heat-cell[data-level="4"]{background:var(--accent)}
+.week-heat-cell[data-peak]{box-shadow:0 0 0 2px var(--surface),0 0 0 4px color-mix(in srgb,var(--danger,#b23b2c) 70%,transparent)}
+@media (max-width:560px){
+  .week-heat{padding:10px 10px 12px}
+  .week-heat-grid{grid-template-columns:44px repeat(12,minmax(0,1fr));gap:2px}
+  .week-heat-cell{block-size:14px;border-radius:4px}
+  .week-heat-day{font-size:10.5px}
+}
+
+/* ── حلقات الحمل (الاستعلامات ← عدالة الحمل) ── */
+.load-rings{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;margin:14px 0 8px}
+.load-ring{display:grid;justify-items:center;gap:6px;padding:12px 6px 10px;border:1px solid var(--line);border-radius:16px;background:var(--surface);text-align:center}
+.load-ring>span{font-size:11.5px;font-weight:650;line-height:1.4;color:var(--ink-2);overflow-wrap:anywhere}
+.load-ring[data-tone="danger"]{border-color:color-mix(in srgb,var(--danger,#b23b2c) 35%,var(--line));background:color-mix(in srgb,var(--danger,#b23b2c) 4%,var(--surface))}
+.load-ring[data-tone="warn"]{border-color:color-mix(in srgb,var(--warning,#a86b00) 35%,var(--line))}
+.load-rings-key{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 14px;color:var(--muted);font-size:11.5px}
+.load-rings-key span{display:inline-flex;align-items:center;gap:6px}
+.load-rings-key span::before{content:"";inline-size:10px;block-size:10px;border-radius:50%;background:var(--accent)}
+.load-rings-key span[data-tone="warn"]::before{background:var(--warning,#a86b00)}
+.load-rings-key span[data-tone="danger"]::before{background:var(--danger,#b23b2c)}
+.load-rings-key span[data-tone="slate"]::before{background:var(--muted)}
+@media (max-width:560px){.load-rings{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}}
+
+/* ── قصة الفصل (تغييرات الجدول ← صفحة القسم) ── */
+.term-story{margin:0 0 14px;padding:14px 16px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-radius:20px;
+  background:radial-gradient(120% 140% at 100% 0%,color-mix(in srgb,var(--accent) 8%,transparent),transparent 60%),var(--surface)}
+.term-story-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;margin-bottom:12px}
+.term-story-mark{display:grid;place-items:center;inline-size:42px;block-size:42px;border-radius:14px;background:linear-gradient(145deg,var(--accent-strong,var(--accent)),var(--accent));color:var(--accent-contrast,#fff)}
+.term-story-mark svg{inline-size:20px;block-size:20px}
+.term-story-head strong{display:block;font-size:1rem}
+.term-story-head small{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.term-story-copy{display:inline-flex;align-items:center;gap:6px;min-block-size:36px;padding:6px 12px;border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));
+  border-radius:999px;background:var(--surface);color:var(--accent-ink,var(--accent));font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.term-story-copy svg{inline-size:15px;block-size:15px}
+.term-story-copy:hover{background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.term-story-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.term-story-tile{display:grid;justify-items:center;gap:3px;padding:10px 6px;border-radius:14px;background:var(--surface-2);text-align:center}
+.term-story-tile svg{inline-size:18px;block-size:18px;color:var(--accent)}
+.term-story-tile b{font-size:1.25rem;line-height:1.2;font-variant-numeric:tabular-nums}
+.term-story-tile span{font-size:11.5px;color:var(--muted);font-weight:600}
+.term-story-tile[data-tone="danger"] svg,.term-story-tile[data-tone="danger"] b{color:var(--danger,#b23b2c)}
+.term-story-tile[data-tone="good"] svg{color:var(--success,#1f6b5c)}
+.term-story-rounds{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.term-story-rounds li{display:inline-flex;align-items:center;gap:5px;padding:4px 10px 4px 6px;border-radius:999px;background:var(--surface-2)}
+.term-story-rounds em{font-style:normal;font-size:11.5px;font-weight:700;color:var(--muted)}
+.term-story-rounds i{position:relative;display:grid;place-items:center;inline-size:24px;block-size:24px;border-radius:50%;background:var(--surface);color:var(--accent)}
+.term-story-rounds i svg{inline-size:13px;block-size:13px}
+.term-story-rounds i[data-step="returned"]{color:var(--warning,#a86b00)}
+.term-story-rounds i[data-step="accepted"]{color:var(--success,#1f6b5c)}
+.term-story-rounds i small{position:absolute;inset-block-start:-5px;inset-inline-end:-5px;min-inline-size:15px;block-size:15px;padding:0 3px;border-radius:999px;
+  background:var(--warning,#a86b00);color:#fff;font:700 10px/15px var(--font-mono,ui-monospace,monospace);text-align:center}
+.term-story-rounds li:not(:last-child)::after{content:"←";margin-inline-start:4px;color:var(--muted)}
+@media (max-width:560px){
+  .term-story{padding:12px}
+  .term-story-head{grid-template-columns:auto minmax(0,1fr)}
+  .term-story-copy{grid-column:1/-1;justify-content:center}
+  .term-story-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+/* ── توحيد البطاقات المتكرّرة: كانت أربعة أنماط بأربع زوايا (9 · 14 · 20 · 22px) وظلالٍ مختلفة —
+   بطاقة الموعد، بطاقة الطالب، بطاقة الطلب، بطاقة السجل. صارت لغةً واحدة:
+   البطاقة 18px بظلٍّ واحد، والبلاطة داخلها 12px. الأسطح الحاوية تبقى كما هي. */
+:root{--card-r:18px;--tile-r:12px;--card-shadow:0 1px 2px rgb(17 25 22 / .04),0 10px 24px -20px rgb(17 25 22 / .28)}
+.request-card,.student-cases-table tr.sc-card,.record-card,.visual-minimal .term-deck .record-card,.schedule-agenda-surface{border-radius:var(--card-r)}
+.request-card,.student-cases-table tr.sc-card{box-shadow:var(--card-shadow)}
+.student-cases-table tr.sc-card .student-case-course,.adl-watch-item,.adl-live-courses .adl-watch-item,.term-story-tile{border-radius:var(--tile-r)}
