@@ -54,7 +54,10 @@ function tcRibbon(r,open){if(!data)return "";var mode=data.mode||"edit";
    (ring?'<span class="tc-ring" data-tone="'+esc(ring.tone)+'" style="--p:'+Math.round(ring.ratio*100)+'" title="'+esc(ring.label)+'" aria-label="'+esc(ring.label)+'"><b>'+ring.hours+'/'+ring.load+'</b></span>':'')+'</div>'}
  if(mode==="view")return '<div class="tc-ribbon" data-k="view" role="status"><span class="tc-ic" aria-hidden="true">👁️</span><div><b>للعرض فقط</b><small>جدولك المعتمد وحالة طلباتك</small></div></div>';
  if(open)return "";
- var s=tcStates(r),when=r.window&&r.window.closesAt?tcDate(r.window.closesAt):"";
+ /* C4: الشريطُ بعد انتهاء الموعد فعلاً. طلبٌ اكتمل قبل موعده تقوله بطاقتُه («اكتمل طلبك»)، ولا يُقال «منذ» عن موعدٍ لم يأتِ. */
+ var closes=r.window&&r.window.closesAt?Date.parse(r.window.closesAt):NaN;
+ if(!(closes<=Date.now()))return "";
+ var s=tcStates(r),when=tcDate(r.window.closesAt);
  return '<div class="tc-ribbon" data-k="closed" role="status"><span class="tc-ic" aria-hidden="true">🔒</span><div><b>انتهت فترة الطلبات</b><small>'+(when?'منذ '+esc(when)+' · ':'')+'جدولك المعتمد أدناه للاطلاع</small>'+
   ((s.f||s.x||s.p)?'<div class="tc-chips">'+(s.f?'<span>✅ ثُبّت <b>'+s.f+'</b></span>':'')+(s.x?'<span>❌ رُفض <b>'+s.x+'</b></span>':'')+(s.p?'<span>⏳ قيد المراجعة <b>'+s.p+'</b></span>':'')+'</div>':'')+'</div></div>'}
 function tcCourseLock(c){if(!c.offering)return "";var o=c.offering,on=(data.interest||[]).indexOf(Number(c.id))>=0;

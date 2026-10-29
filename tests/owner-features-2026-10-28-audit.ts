@@ -173,6 +173,10 @@ vm.runInContext(TEACHER_CARD_EXTRAS_JS, tc);
 const ribbon = vm.runInContext(`tcRibbon({window:{closesAt:"2026-10-20T20:59:00Z"},items:[{action:"change",decision:{state:"fixed"}},{action:"add",decision:{state:"rejected"}},{action:"add"},{action:"keep"}]},false)`, tc);
 ok(ribbon.includes("🔒") && ribbon.includes("انتهت فترة الطلبات") && ribbon.includes("✅ ثُبّت <b>1") && ribbon.includes("❌ رُفض <b>1") && ribbon.includes("⏳ قيد المراجعة <b>1"), "C4 ribbon: date + previous request states");
 ok(vm.runInContext(`tcRibbon({items:[]},true)`, tc) === "", "C4 no ribbon while open");
+const ahead = new Date(Date.now() + 5 * 86400000).toISOString();
+ok(vm.runInContext(`tcRibbon({status:"settled",window:{closesAt:${JSON.stringify(ahead)}},items:[{action:"change",decision:{state:"fixed"}}]},false)`, tc) === ""
+  && vm.runInContext(`tcRibbon({status:"settled",items:[]},false)`, tc) === "",
+  "C4 settled before the deadline: no «انتهت فترة الطلبات · منذ» a date still ahead");
 tc.data = { mode: "view" };
 ok(vm.runInContext(`tcRibbon({items:[]},false)`, tc).includes("👁️"), "E1 view-only ribbon");
 tc.data = { mode: "ta", ta: { closesAt: new Date(Date.now() + 3 * 3600000).toISOString(), remind: true }, taLoad: { hours: 6, load: 12, ratio: .5, tone: "open", label: "نصابك 6/12" } };
