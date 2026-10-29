@@ -1,6 +1,6 @@
 import React from "react";
 import {
-  AlertTriangle, Building2, Check, Clock3, Info, Loader2, Minus, MonitorPlay, Puzzle, UserRound, WandSparkles, X, DoorOpen,
+  AlertTriangle, Building2, Check, Clock3, Info, Loader2, Minus, MonitorPlay, Puzzle, Ruler, UserRound, WandSparkles, X, DoorOpen,
 } from "lucide-react";
 import type { AppointmentVerdict, CheckKind, VerdictCheck, VerdictDetail } from "../utils/appointmentVerdict";
 
@@ -46,8 +46,11 @@ function Ring({ verdict }: { verdict: AppointmentVerdict }) {
   </svg>;
 }
 
+/** مانعٌ أو تنبيهٌ عن ساعات المقرر أو نمطه: يُصلَح بضغطة «طبّق النمط المعتمد». */
+export const isPatternDetail = (text: string) => /الساعات المعتمدة|نمط اللائحة|خارج اللائحة|النمط غير معتمد/.test(String(text || ""));
+
 export default function AppointmentChecksPanel({
-  verdict, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, children,
+  verdict, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, onApplyPattern, children,
 }: {
   verdict: AppointmentVerdict;
   checking: boolean;
@@ -58,6 +61,8 @@ export default function AppointmentChecksPanel({
   renderConflict?: (detail: VerdictDetail) => React.ReactNode;
   /** الحفظ مقفل لسبب خارج الموعد (الجدول عند التسجيل…). */
   lockedReason?: string | null;
+  /** تجاوزٌ متعمَّد لنمط اللائحة: زرّ «طبّق النمط المعتمد» بجانب بند الساعات/النمط. */
+  onApplyPattern?: () => void;
   /** ما يُعرض تحت البطاقات (اقتراحات البديل، رسم النمط…). */
   children?: React.ReactNode;
 }) {
@@ -98,7 +103,10 @@ export default function AppointmentChecksPanel({
             <ul className="checks-details">
               {check.details.map(detail => <li key={detail.id} className={detail.blocks ? "is-block" : "is-warn"}>
                 {renderConflict && detail.conflict ? renderConflict(detail) : <p><b>{detail.text}</b>{detail.detail ? <small>{detail.detail}</small> : null}</p>}
-                {detail.blocks && onAlternative ? <button type="button" className="checks-alt" disabled={alternativeBusy}
+                {onApplyPattern && isPatternDetail(detail.text) ? <button type="button" className="checks-alt checks-apply-pattern"
+                  data-guide-ignore="يعيد الأيام والنهاية إلى النمط المعتمد لساعات المقرر؛ لا يحفظ شيئاً"
+                  onClick={onApplyPattern}><Ruler aria-hidden="true" />طبّق النمط المعتمد</button> : null}
+                {detail.blocks && onAlternative && !(onApplyPattern && isPatternDetail(detail.text)) ? <button type="button" className="checks-alt" disabled={alternativeBusy}
                   data-guide-ignore="يطلب بديلاً آمناً لهذا المانع من محرك الاقتراح الموحد؛ لا يحفظ شيئاً"
                   onClick={() => onAlternative(check, detail)}><WandSparkles aria-hidden="true" />{alternativeBusy ? "…" : "بديل"}</button> : null}
               </li>)}

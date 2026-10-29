@@ -350,3 +350,95 @@ body:has(.mini-week.is-sheet.is-open) .smart-guide-fab{opacity:0;pointer-events:
 @media (hover:none){.mini-week-target svg{opacity:.7}}
 @media (prefers-reduced-motion:reduce){.mini-week *,.mini-week,.qc-mini-side{animation:none!important;transition:none!important}}
 @media print{.mini-week,.qc-mini-side{display:none!important}}
+
+/* ── R2 (ملاحظات المالك 2026-10-29): جدول الأستاذ كبيراً، بدائل داخل النموذج، لاصق، خانات «هيئة تدريسية» ── */
+/* سطح المكتب: جدول الأستاذ المفتوح يأخذ نصف الصفحة، والعمود الجانبي يلازم الشاشة ويتمرّر وحده. */
+@media (min-width:1101px){
+  .schedule-editor-grid:has(>.editor-side>.mini-week.is-side.is-open:not(.is-sheet)){grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .schedule-editor-grid:has(>.editor-side>.mini-week.is-open:not(.is-sheet))>.editor-side{max-height:calc(100dvh - 2 * var(--s5));overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:4px}
+}
+.mini-week.is-side:not(.is-sheet),.mini-week.is-sheet{--mw-axis:28px}
+.mini-week.is-side .mini-week-head,.mini-week.is-sheet .mini-week-head{padding-inline-end:48px}
+.mini-week.is-side:not(.is-sheet) .mini-week-days,.mini-week.is-side:not(.is-sheet) .mini-week-canvas,.mini-week.is-side:not(.is-sheet) .mini-week-grid{column-gap:6px}
+.mini-week.is-side .mini-week-days span,.mini-week.is-sheet .mini-week-days span{font-size:12px}
+.mini-week.is-side .mini-week-axis span,.mini-week.is-sheet .mini-week-axis span{font-size:11px}
+.mini-week.is-side .mini-week-chip-text,.mini-week.is-sheet .mini-week-chip-text{padding:5px 5px 3px 3px}
+.mini-week.is-side .mini-week-chip-text b,.mini-week.is-sheet .mini-week-chip-text b{font-size:11.5px}
+.mini-week.is-side .mini-week-chip-text small,.mini-week.is-sheet .mini-week-chip-text small{font-size:10px}
+.mini-week.is-side .mini-week-target svg,.mini-week.is-sheet .mini-week-target svg{width:16px;height:16px}
+.mini-week.is-side .mini-week-stick,.mini-week.is-sheet .mini-week-stick{width:26px;height:26px}
+.mini-week.is-side .mini-week-stick svg,.mini-week.is-sheet .mini-week-stick svg{width:14px;height:14px}
+.mini-week.is-side .mini-week-ghost-mark,.mini-week.is-sheet .mini-week-ghost-mark{width:19px;height:19px}
+.mini-week.is-side .mini-week-ghost-mark svg,.mini-week.is-sheet .mini-week-ghost-mark svg{width:11px;height:11px}
+/* الهاتف: شريطٌ سفليّ طويل حين يُفتح. */
+.mini-week.is-sheet.is-open{max-height:min(88dvh,780px)}
+/* إغلاقٌ سريع ✕ مكان السهم حين يكون مفتوحاً. */
+.mini-week-close{position:absolute;top:10px;inset-inline-end:10px;z-index:7;display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface);color:var(--ink-2);box-shadow:var(--shadow-sm);cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.mini-week-close svg{width:16px;height:16px}
+.mini-week-close:hover,.mini-week-close:focus-visible{border-color:var(--danger);color:var(--danger);outline:none}
+.mini-week.is-sheet .mini-week-close{top:16px}
+.mini-week.is-compact .mini-week-close{top:7px;inset-inline-end:7px;width:28px;height:28px}
+.mini-week.is-open .mini-week-chevron{opacity:0}
+/* مفتاح «جدول الأستاذ» بجانب حقل الأستاذ: يُتذكَّر لكل مستخدم على الجهاز. */
+.instructor-tools{display:flex;justify-content:flex-start;margin-top:6px}
+.mini-week-toggle{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:4px 6px 4px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);font:inherit;font-size:var(--t-xs);font-weight:800;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+.mini-week-toggle>svg{width:15px;height:15px;flex:none}
+.mini-week-toggle.is-on{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--accent-ink);background:var(--accent-softer)}
+.mini-week-toggle.is-on>svg{color:var(--accent)}
+.mini-week-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mini-week-toggle-track{position:relative;display:inline-block;width:30px;height:18px;border-radius:999px;background:color-mix(in srgb,var(--muted) 35%,var(--surface-2));transition:background .18s}
+.mini-week-toggle-track>i{position:absolute;top:2px;inset-inline-start:2px;width:14px;height:14px;border-radius:50%;background:var(--surface);box-shadow:var(--shadow-sm);transition:inset-inline-start .18s var(--ease-out)}
+.mini-week-toggle.is-on .mini-week-toggle-track{background:var(--accent)}
+.mini-week-toggle.is-on .mini-week-toggle-track>i{inset-inline-start:14px}
+.mini-week-toggle.is-compact{min-height:26px;padding:2px 4px 2px 8px;gap:4px}
+.mini-week-toggle.is-compact>svg{width:13px;height:13px}
+.mini-week-toggle.is-compact .mini-week-toggle-track{width:24px;height:14px}
+.mini-week-toggle.is-compact .mini-week-toggle-track>i{width:10px;height:10px}
+.mini-week-toggle.is-compact.is-on .mini-week-toggle-track>i{inset-inline-start:12px}
+.qc-teacher-label{display:flex;align-items:center;justify-content:space-between;gap:6px}
+
+/* «لاصق بمحاضرتي»: شرائح قبل/بعد تملأ اليوم والوقت بضغطة. */
+.lecture-stick{grid-column:1/-1;display:grid;gap:8px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-radius:16px;background:color-mix(in srgb,var(--accent) 4%,var(--surface))}
+.lecture-stick-head{display:flex;align-items:center;gap:6px;margin:0;font-size:var(--t-xs);color:var(--muted)}
+.lecture-stick-head svg{width:16px;height:16px;color:var(--accent);transform:rotate(180deg)}
+.lecture-stick-head b{color:var(--ink);font-size:var(--t-sm)}
+.lecture-stick-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:8px}
+.lecture-stick-chip{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:48px;padding:6px 10px 6px 8px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font:inherit;text-align:start;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.lecture-stick-chip:hover,.lecture-stick-chip:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent);outline:none}
+.lecture-stick-chip.is-active{border-color:var(--accent);background:var(--accent-softer)}
+.lecture-stick-side{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:var(--accent-softer);color:var(--accent)}
+.lecture-stick-side svg{width:16px;height:16px}
+.lecture-stick-copy{display:grid;gap:1px;min-width:0}
+.lecture-stick-copy b{overflow:hidden;font-size:var(--t-xs);font-weight:800;white-space:nowrap;text-overflow:ellipsis}
+.lecture-stick-copy small{color:var(--muted);font-size:11px}
+.lecture-stick-copy time{font:700 11px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.lecture-stick-room{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);font:700 11px/1.3 var(--font-mono)}
+.lecture-stick-room svg{width:12px;height:12px;color:var(--muted)}
+.lecture-stick-more{justify-self:start;min-height:28px;padding:2px 12px;border:1px dashed var(--line);border-radius:999px;background:none;color:var(--accent-ink);font:inherit;font-size:var(--t-xs);font-weight:800;cursor:pointer}
+
+/* «بدائل آمنة» داخل النموذج: «بديل» ينزل إليها بسلاسة ويضيئها. */
+.appointment-alternatives{display:grid;gap:10px;margin-top:12px;padding:12px;border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:18px;background:var(--surface);scroll-margin-block:96px;outline:none}
+.appointment-alternatives:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+.appointment-alternatives.is-flash{animation:alternatives-flash 1.6s var(--ease-out) both}
+@keyframes alternatives-flash{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent);background:var(--accent-softer)}60%{box-shadow:0 0 0 10px transparent}100%{box-shadow:none;background:var(--surface)}}
+.appointment-alternatives-head{display:flex;align-items:center;gap:8px}
+.appointment-alternatives-head b{font-size:var(--t-sm)}
+.appointment-alternatives-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:var(--accent-softer);color:var(--accent)}
+.appointment-alternatives-mark svg{width:16px;height:16px}
+.appointment-alternatives-close{margin-inline-start:auto;display:grid;place-items:center;width:30px;height:30px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface);color:var(--muted);cursor:pointer}
+.appointment-alternatives-close svg{width:14px;height:14px}
+.appointment-alternatives-skeleton{display:grid;gap:8px}
+.appointment-alternatives-skeleton i{display:block;height:54px;border-radius:14px;background:linear-gradient(90deg,var(--surface-2),var(--surface),var(--surface-2));background-size:200% 100%;animation:alternatives-shimmer 1.2s linear infinite}
+@keyframes alternatives-shimmer{to{background-position:-200% 0}}
+
+/* «طبّق النمط المعتمد» بضغطة، بجانب «خارج اللائحة» وبند الساعات. */
+.regulation-chips-apply,.checks-apply-pattern{display:inline-flex;align-items:center;gap:5px;min-height:30px;padding:4px 12px;border:1px solid var(--accent);border-radius:999px;background:var(--accent);color:var(--accent-contrast);font:inherit;font-size:var(--t-xs);font-weight:800;cursor:pointer}
+.regulation-chips-apply svg,.checks-apply-pattern svg{width:13px;height:13px}
+.regulation-chips-apply:hover,.checks-apply-pattern:hover{background:var(--accent-strong)}
+
+/* خانات «هيئة تدريسية» المطابقة: معلَّمةٌ بوضوح، وحقائق التطابق أيقونات. */
+.room-replaceable-title{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.room-replaceable-badge{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;background:var(--brass);color:var(--surface);font-size:10.5px;font-style:normal;font-weight:800}
+.room-replaceable-facts{display:flex;flex-wrap:wrap;gap:4px}
+@media (prefers-reduced-motion:reduce){.appointment-alternatives.is-flash,.appointment-alternatives-skeleton i,.mini-week-toggle,.mini-week-toggle-track>i{animation:none!important;transition:none!important}}
+@media print{.lecture-stick,.appointment-alternatives,.mini-week-toggle{display:none!important}}

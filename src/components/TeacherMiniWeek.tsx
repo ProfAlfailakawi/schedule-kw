@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowUp, CalendarDays, Check, ChevronDown, Hourglass, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, CalendarDays, CalendarOff, Check, ChevronDown, Hourglass, Plus, X } from "lucide-react";
 import type { AdCourse, FSchedule } from "../types";
 import type { AppointmentVerdict } from "../utils/appointmentVerdict";
 import { DAY_KEYS, type DayKey } from "../utils/scheduleRegulations";
@@ -22,12 +22,71 @@ import VisitingBadge from "./VisitingBadge";
  */
 const DAY_SHORT: Record<DayKey, string> = { fsunday: "أحد", fmonday: "اثنين", ftuesday: "ثلاثاء", fwednesday: "أربعاء", fthursday: "خميس" };
 const DAY_FULL: Record<DayKey, string> = { fsunday: "الأحد", fmonday: "الاثنين", ftuesday: "الثلاثاء", fwednesday: "الأربعاء", fthursday: "الخميس" };
-const TRACK = { side: 248, compact: 176, sheet: 212 } as const;
+/* المسار كبيرٌ الآن (ملاحظة المالك 2026-10-29: «صغير جداً»): نصف الصفحة على سطح المكتب،
+   وشريطٌ سفليّ طويل على الهاتف — ويتّسع بارتفاع النافذة. */
+const TRACK = { side: [380, 640], compact: [240, 400], sheet: [300, 560] } as const;
+function trackFor(kind: keyof typeof TRACK, viewport: number) {
+  const [min, max] = TRACK[kind];
+  const want = kind === "side" ? viewport - 300 : kind === "sheet" ? viewport * 0.58 : viewport * 0.44;
+  return Math.round(Math.max(min, Math.min(max, want)));
+}
+function useViewportHeight() {
+  const read = () => typeof window === "undefined" ? 900 : window.innerHeight || 900;
+  const [height, setHeight] = useState(read);
+  useEffect(() => {
+    const sync = () => setHeight(read());
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, []);
+  return height;
+}
+
+/* ── إظهارٌ/إخفاءٌ يُتذكَّر لكل مستخدم على هذا الجهاز ───────────────────────────
+   مفتاحٌ واحد يقرؤه المحرر الكامل و«موعد جديد» السريع، وحدثٌ يزامن النوافذ المفتوحة. */
+const ENABLED_EVENT = "teacher-mini-week:enabled";
+const enabledKey = (userId: number) => `teacher-mini-week:enabled:${userId}`;
+export function useMiniWeekEnabled(userId: number): [boolean, (next: boolean) => void] {
+  const key = enabledKey(userId);
+  const [enabled, setEnabledState] = useState(() => safeStorage.get(key) !== "off");
+  useEffect(() => {
+    setEnabledState(safeStorage.get(key) !== "off");
+    const sync = () => setEnabledState(safeStorage.get(key) !== "off");
+    window.addEventListener(ENABLED_EVENT, sync);
+    return () => window.removeEventListener(ENABLED_EVENT, sync);
+  }, [key]);
+  const setEnabled = (next: boolean) => {
+    safeStorage.set(key, next ? "on" : "off");
+    setEnabledState(next);
+    window.dispatchEvent(new Event(ENABLED_EVENT));
+  };
+  return [enabled, setEnabled];
+}
+
+/** مفتاح «جدول الأستاذ» بجانب حقل الأستاذ: يطفئه أو يعيده، ويُتذكَّر. */
+export function MiniWeekToggle({ enabled, onChange, compact = false }: { enabled: boolean; onChange: (next: boolean) => void; compact?: boolean }) {
+  const Icon = enabled ? CalendarDays : CalendarOff;
+  return <button type="button" className={`mini-week-toggle${enabled ? " is-on" : ""}${compact ? " is-compact" : ""}`} role="switch" aria-checked={enabled}
+    title={enabled ? "إخفاء جدول الأستاذ (يُتذكَّر)" : "إظهار جدول الأستاذ"} onClick={() => onChange(!enabled)}
+    data-guide-ignore="يظهر جدول الأستاذ المصغّر أو يخفيه، ويتذكّر الاختيار على هذا الجهاز؛ لا يغيّر الموعد">
+    <Icon aria-hidden="true" />{compact ? null : <span>جدول الأستاذ</span>}<i className="mini-week-toggle-track" aria-hidden="true"><i /></i>
+  </button>;
+}
 
 export interface MiniPick { day: DayKey; start: string; end: string; days: DayKey[]; room?: MiniRoomPick }
 
 /** ما تقوله الشاشة عن الموعد الجاري: من الحكم الواحد (appointmentVerdict). */
-export type MiniVerdict = Pick<AppointmentVerdict, "state" | "blockers">;
+export type MiniVerdict = Pick<AppointmentVerdict, "state" | "blockers"> & Partial<Pick<AppointmentVerdict, "checks">>;
+
+/**
+ * الشبح أحمر حين يتعارض الموعد في أسبوع الأستاذ نفسه (بطاقتا «الأستاذ» و«الوقت»)، لا لمانعٍ
+ * آخر لا يخص أسبوعه (الشعبة، القاعة، النطاق): كان مانعُ ساعات الشعبة يرسم الكتلة حمراء بعلامة X
+ * وبطاقة الأستاذ تقول «سليم» (ملاحظة المالك 2026-10-29).
+ */
+export function ghostBlockers(verdict: MiniVerdict) {
+  if (!verdict.checks) return verdict.blockers;
+  return verdict.checks.filter(check => (check.kind === "teacher" || check.kind === "time") && check.state === "block")
+    .flatMap(check => check.details.filter(detail => detail.blocks));
+}
 
 type Tone = "clean" | "blocked" | "checking" | "idle";
 
@@ -52,7 +111,7 @@ function useMedia(query: string, enabled: boolean) {
 
 /** أسبوع الأستاذ في الأقسام الأخرى (ضمن صلاحية القارئ): قراءةٌ واحدة بالمسار القائم، تبقى بين الفتحات. */
 const widerCache = new Map<string, FSchedule[]>();
-function useWiderWeek(teacherId: number, termId: number, refresh: unknown) {
+export function useWiderWeek(teacherId: number, termId: number, refresh: unknown) {
   const key = `${termId}:${teacherId}`;
   const [state, setState] = useState<{ key: string; rows: FSchedule[] }>(() => ({ key, rows: widerCache.get(key) || [] }));
   useEffect(() => {
@@ -133,6 +192,23 @@ export default function TeacherMiniWeek({
   useEffect(() => { setOpenState(storedOpen(storageKey)); }, [storageKey]);
   const setOpen = (next: boolean) => { setOpenState(next); safeStorage.set(storageKey, next ? "open" : "closed"); };
 
+  /* إغلاقٌ سريع: زرّ X، وEsc (للشريط السفلي أو حين يكون التركيز داخله)، والسحب لأسفل. */
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const inside = Boolean(shell.current && document.activeElement && shell.current.contains(document.activeElement));
+      if (!sheet && !inside) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setOpen(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sheet]);
+  const viewport = useViewportHeight();
+
   const wider = useWiderWeek(teacherId, termId, rows);
   const all = useMemo(() => [...rows, ...wider], [rows, wider]);
   const lectures = useMemo(() => teacherLectures(all, teacherId, termId, excludeId, collegeId), [all, teacherId, termId, excludeId, collegeId]);
@@ -150,7 +226,8 @@ export default function TeacherMiniWeek({
 
   /* الشبح يقرأ الحكم الواحد: مانعٌ → أحمر مخطّط؛ وأثناء الفحص يبقى لونه الأخير ويخفق. */
   const settled = useRef<"clean" | "blocked" | "idle">("idle");
-  const tone: Tone = verdict.blockers.length ? "blocked" : verdict.state === "checking" ? "checking" : checked ? "clean" : "idle";
+  const blockers = ghostBlockers(verdict);
+  const tone: Tone = blockers.length ? "blocked" : verdict.state === "checking" ? "checking" : checked ? "clean" : "idle";
   if (tone !== "checking") settled.current = tone;
 
   const span = useMemo(() => compactSpan(dayWindow, [...lectures.map(item => item.end), ...(ghost ? [ghost.end] : [])]), [dayWindow, lectures, ghost]);
@@ -165,7 +242,7 @@ export default function TeacherMiniWeek({
   const [active, setActive] = useState("");
   useEffect(() => { setPreview(null); }, [ghostKey, teacherId]);
 
-  const trackHeight = sheet ? TRACK.sheet : TRACK[variant];
+  const trackHeight = trackFor(sheet ? "sheet" : variant, viewport);
   const total = Math.max(60, span.end - span.start);
   const at = (value: number) => ((Math.min(span.end, Math.max(span.start, value)) - span.start) / total) * 100;
   const place = (from: number, to: number): React.CSSProperties => ({ top: `${at(from)}%`, height: `${Math.max(2.4, at(to) - at(from))}%` });
@@ -246,6 +323,8 @@ export default function TeacherMiniWeek({
       </span>
       <ChevronDown className="mini-week-chevron" aria-hidden="true" />
     </button>
+    {open ? <button type="button" className="mini-week-close" aria-label="إغلاق جدول الأستاذ" title="إغلاق (Esc)" onClick={() => setOpen(false)}
+      data-guide-ignore="يطوي جدول الأستاذ المصغّر؛ لا يغيّر الموعد"><X aria-hidden="true" /></button> : null}
     {open ? <div className="mini-week-body" id={bodyId}>
       <div className="mini-week-days" aria-hidden="true">
         <span />

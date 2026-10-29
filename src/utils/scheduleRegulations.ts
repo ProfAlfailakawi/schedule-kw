@@ -813,3 +813,39 @@ export function weeklyLectureMinutes(row: Partial<Record<DayKey, unknown>> & { f
 
 /** الحدُّ الأعلى لدقائق الأسبوع لمقرّرٍ بهذه الساعات: لا يزيد على ما اعتُمد (هامشُ ١٠٪ لفرق ٥٠/٨٠). */
 export const maxWeeklyMinutesFor = (hours: number) => Math.round(Math.round(hours) * 50 * 1.1);
+
+type MeetingLike = Partial<Record<DayKey, unknown>> & { fstarttime?: unknown; fendtime?: unknown };
+const sameMeeting = (a: MeetingLike, b: MeetingLike) =>
+  String(a.fstarttime || "").slice(0, 5) === String(b.fstarttime || "").slice(0, 5)
+  && String(a.fendtime || "").slice(0, 5) === String(b.fendtime || "").slice(0, 5)
+  && DAY_KEYS.every(day => Boolean(a[day]) === Boolean(b[day]));
+
+export interface SectionHoursReading {
+  /** دقائق الأسبوع للشعبة بعد هذا الموعد. */
+  total: number;
+  max: number;
+  over: boolean;
+  /** مواعيد الشعبة الأخرى التي حُسبت معه (لتُسمّى في التنبيه). */
+  others: MeetingLike[];
+}
+
+/**
+ * ── مجموع ساعات الشعبة بعد هذا الموعد: مصدرٌ واحد للحفظ والفحص والمقترح ─────────
+ * الموعد نفسه بنمط ساعات المقرر (كتلة «أربعاء · 170د» = 150 دقيقة معتمدة لمقرر 3 ساعات)،
+ * ومعه مواعيد الشعبة الأخرى. ونسخةٌ مطابقة للموعد نفسه (الأيام والوقت ذاتها) سجلٌّ مكرَّر
+ * يقوله فحص التكرار — لا ساعاتٌ إضافية؛ فلا تُضاعف المجموع (ملاحظة المالك 2026-10-29:
+ * «الشعبة: تعارض — 6 ساعات تقريباً» لموعدٍ واحدٍ بنمطٍ اقترحه النموذج نفسه).
+ */
+export function sectionWeeklyHours(row: MeetingLike, siblings: readonly MeetingLike[], hours: number): SectionHoursReading {
+  const others = siblings.filter(other => !sameMeeting(other, row))
+    .filter((other, index, list) => list.findIndex(item => sameMeeting(item, other)) === index);
+  const total = others.reduce((sum, other) => sum + weeklyLectureMinutes(other, hours), 0) + weeklyLectureMinutes(row, hours);
+  const max = maxWeeklyMinutesFor(hours);
+  return { total, max, over: hours > 0 && total > max, others };
+}
+
+/** «الأربعاء 08:00–10:50» لموعدٍ حُسب مع الشعبة. */
+export function meetingLabel(row: MeetingLike): string {
+  const days = DAY_KEYS.filter(day => Boolean(row[day])).map(day => DAY_NAMES[DAY_KEYS.indexOf(day)]).join("·");
+  return `${days} ${String(row.fstarttime || "").slice(0, 5)}–${String(row.fendtime || "").slice(0, 5)}`;
+}

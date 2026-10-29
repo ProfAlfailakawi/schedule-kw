@@ -217,3 +217,39 @@ export function teacherHeader(
     gapAfter: then?.gapMinutes || 0,
   };
 }
+
+export interface StickOption {
+  key: string;
+  side: "before" | "after";
+  lecture: MiniLecture;
+  spot: MiniTarget;
+  /** قاعة المحاضرة إن خلت، وإلا مبناها (تلميحٌ للإدارة في المحرر الكامل). */
+  room: MiniRoomPick | null;
+}
+
+/**
+ * «لاصق بمحاضرتي» في نموذج الموعد (الجديد والتعديل): لكل محاضرةٍ للأستاذ — صفّاً صفّاً لا يوماً
+ * يوماً — «قبلها» و«بعدها» على أيامها نفسها، بمعادلة lectureStick الواحدة (adjacentPlacement)،
+ * مرتبةً بالأسبوع. لا شيء يُخترع: لا خيار حين لا موضع ملاصقاً حرّاً.
+ */
+export function lectureStickOptions(
+  lectures: readonly MiniLecture[],
+  rows: readonly FSchedule[],
+  course: RegulationCourse | null | undefined,
+  window: MiniSpan,
+  options: { minutes?: number; excludeId?: number; fixedDays?: readonly DayKey[] } = {},
+): StickOption[] {
+  const anchors = new Map<number, MiniLecture>();
+  for (const item of lectures) if (!anchors.has(item.id)) anchors.set(item.id, item);
+  const out: StickOption[] = [];
+  for (const lecture of anchors.values()) {
+    for (const side of ["before", "after"] as const) {
+      const spot = adjacentPlacement(lecture, side, course, lectures, window, { minutes: options.minutes, fixedDays: options.fixedDays });
+      /* محاضرتان متتاليتان قد تقودان إلى الموضع نفسه (الملاصق مأخوذ → +30/+60): شريحةٌ واحدة له. */
+      if (!spot || out.some(item => item.spot.start === spot.start && item.spot.end === spot.end && item.spot.days.join("+") === spot.days.join("+"))) continue;
+      out.push({ key: `${lecture.id}:${side}`, side, lecture, spot, room: lecture.otherCollege ? null : adjacentRoom(lecture, spot, rows, options.excludeId || 0) });
+    }
+  }
+  const dayIndex = (spot: MiniTarget) => DAY_KEYS.indexOf(spot.days[0] || spot.day);
+  return out.sort((a, b) => dayIndex(a.spot) - dayIndex(b.spot) || a.spot.start - b.spot.start);
+}

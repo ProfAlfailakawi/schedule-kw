@@ -157,3 +157,46 @@ export function regulationFit(
 
 /** الأيام المختارة في صفّ موعد. */
 export const daysOfRow = (row: Partial<Record<DayKey, unknown>>): DayKey[] => DAY_KEYS.filter(day => Boolean(row[day]));
+
+/**
+ * ── «طبّق النمط المعتمد»: أفضل نمط للأيام الحالية ────────────────────────────
+ * الأيام نمطٌ معتمد بنفسها ← هو؛ وإلا الأنسب الذي يضم أول يوم مختار (كضغطه من جديد).
+ */
+export function bestRegulationChoice(course: RegulationCourse | null | undefined, days: readonly DayKey[]): RegulationChoice | null {
+  if (!days.length || !regulationHours(course)) return null;
+  return regulationChoiceFor(course, days) || regulationChoicesForDay(course, days[0])[0] || null;
+}
+
+export interface RegulationCompletion {
+  days: DayKey[];
+  /** "" حين لا بداية بعد. */
+  end: string;
+  applied: RegulationChoice;
+}
+
+/**
+ * الإكمال الآلي في كل نموذج موعد (القاعدة المتفق عليها): اختيار يوم أو بداية — أو
+ * اختيار المقرر بعدهما — يكمل أيام النمط ونهايته، فلا يتجاوز المجموع الساعات المعتمدة
+ * إلا بتجاوزٍ متعمَّد من المستخدم (يُحمل خارج هذه الدالة).
+ *  • `fresh`: الأيام لم يخترها المستخدم بنفسه (خانة مرسومة، مقرر اختير بعد الأيام) →
+ *    تُكمل كما لو ضُغط أول يوم من جديد.
+ *  • وإلا تبقى الأيام إن كانت نمطاً معتمداً، وتُحسب النهاية من دقائقه.
+ * null: لا ساعات للمقرر أو لا أيام — لا نمط يُخترع.
+ */
+export function completeRegulation(
+  course: RegulationCourse | null | undefined,
+  days: readonly DayKey[],
+  start: string,
+  options: { fresh?: boolean } = {},
+): RegulationCompletion | null {
+  if (!days.length || !regulationHours(course)) return null;
+  const exact = options.fresh ? null : regulationChoiceFor(course, days);
+  const applied = exact || regulationChoicesForDay(course, days[0])[0];
+  if (!applied) return null;
+  const from = toMinutes(start);
+  return {
+    days: [...applied.days],
+    end: Number.isFinite(from) ? clock(Math.min(SCHEDULE_DAY_END, from + applied.minutes)) : "",
+    applied,
+  };
+}

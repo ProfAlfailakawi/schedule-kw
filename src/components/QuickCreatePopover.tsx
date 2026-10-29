@@ -16,13 +16,13 @@ import { isAssignableInstructor } from "../utils/instructorStatus";
 import { isBlockingConflict } from "../utils/scheduleIntelligence";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
-import RoomSuggestionCards, { SuggestionEmpty } from "./RoomSuggestionCards";
+import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
 import InstructorPicker from "./InstructorPicker";
-import TeacherMiniWeek, { type MiniPick } from "./TeacherMiniWeek";
+import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, type MiniPick } from "./TeacherMiniWeek";
 import VisitingBadge from "./VisitingBadge";
 import RegulationPatternChips from "./RegulationPatternChips";
 import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
-import { pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, type RegulationChoice } from "../utils/appointmentRegulation";
+import { bestRegulationChoice, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 
 /**
@@ -117,7 +117,12 @@ export default function QuickCreatePopover({
   visitingIds,
   visitingRosterIds,
   miniWeek,
+  onReplaceable,
+  replaceBusy = false,
 }: {
+  /** 🔄 خانة «هيئة تدريسية» مطابقة تماماً: «خذ موعدها» · «بدّل» · «احذفها وخذ مكانها» — طلبٌ واحد محروس عند الأب. */
+  onReplaceable?: (section: ReplaceableSection, action: "assign" | "swap" | "replace", appointment: Record<string, unknown>) => void;
+  replaceBusy?: boolean;
   /** مقرّرٌ معروفٌ سلفاً — كإضافةٍ طلبها أستاذ — فتُفتح البطاقةُ وهو مختار. */
   initialCourseId?: number;
   seed: QuickSeed;
@@ -148,6 +153,7 @@ export default function QuickCreatePopover({
   miniWeek?: { rows: readonly FSchedule[]; courses: Map<number, AdCourse>; window: { start: number; end: number }; userId: number; nisabOf: (id: number) => number; nameOf: (id: number) => string; isPlaceholder: (id: number) => boolean };
 }) {
   const planBadges = usePlanBadges();
+  const [miniWeekEnabled, setMiniWeekEnabled] = useMiniWeekEnabled(Number(miniWeek?.userId || 0));
   const { isVisiting } = useVisitingLookup(termId);
   const ref = useRef<HTMLDivElement | null>(null);
   /** N3: جدول الأستاذ المصغّر بطاقةً جانبية عائمة بجانب البطاقة (سطح المكتب). */
@@ -178,6 +184,7 @@ export default function QuickCreatePopover({
      editor already stopped asking for it. Anything typed by hand wins; the
      suggestion only refills while the field is still untouched. */
   const sectionTyped = useRef(false);
+  /* تجاوزٌ متعمَّد للنمط: «المدة» بالعجلة وحدها (أو نمطٌ اختاره المنسّق) — تحريك الساعة ليس تجاوزاً. */
   const timeEdited = useRef(false);
   /* ── اللائحة عند اختيار المقرر وعند ضغط يوم (B1) ───────────────────────── */
   const applyDays = (course: AdCourse | undefined, result: { days: DayKey[]; alternatives: RegulationChoice[] }) => {
@@ -206,6 +213,7 @@ export default function QuickCreatePopover({
   };
   const applyChoice = (choice: RegulationChoice) => {
     if (daysLocked) return;
+    timeEdited.current = false;
     setChosenDays(choice.days as DayKey[]);
     setDraft(current => ({ ...current, end: timeOf(Math.min(SCHEDULE_DAY_END, minutesOf(current.start) + choice.minutes)) }));
   };
@@ -285,6 +293,7 @@ export default function QuickCreatePopover({
   const [ideaKind, setIdeaKind] = useState<"room" | "time" | null>(null);
   const [ideasBusy, setIdeasBusy] = useState(false);
   const [ideasError, setIdeasError] = useState("");
+  const [ideasReplaceable, setIdeasReplaceable] = useState<ReplaceableSection[]>([]);
 
   const payload = {
     instructorRequestId: seed.instructorRequestId,
@@ -357,7 +366,7 @@ export default function QuickCreatePopover({
   const blocked = previewCurrent && (verdict.blockers.length > 0 || blockingCount > 0);
   const checkFailed = previewCurrent && Boolean(liveCheck.error);
 
-  useEffect(() => { setIdeas(null); setIdeasError(""); setIdeaReason(undefined); }, [checkKey]);
+  useEffect(() => { setIdeas(null); setIdeasError(""); setIdeaReason(undefined); setIdeasReplaceable([]); }, [checkKey]);
   const requestIdeas = async (roomOnly: boolean) => {
     if (!draft.courseId || hasDifferentTimes) return;
     const requestedKey = checkKey;
@@ -367,13 +376,14 @@ export default function QuickCreatePopover({
       const result = await fetchSuggestions(suggestionBody(payload, roomOnly ? "room" : "slot", minutesOf(draft.end) - minutesOf(draft.start)));
       if (latestIdeasKey.current !== requestedKey) return;
       setIdeas(result.slots);
+      setIdeasReplaceable(onReplaceable && draft.instructorId && !seed.instructorRequestId ? result.replaceable : []);
       setIdeaReason(result.reason);
       if (!result.slots.length && result.note) setIdeasError(String(result.note));
     } catch (issue: any) { if (latestIdeasKey.current === requestedKey) setIdeasError(issue?.message || "تعذّر إيجاد المقترحات."); }
     finally { setIdeasBusy(false); }
   };
   const takeIdea = (idea: SuggestionReply["slots"][number]) => {
-    timeEdited.current = true;
+    /* الاقتراح يرث مدة الموعد الحالية (نمطاً كانت أو تجاوزاً)، فلا يغيّر حال التجاوز. */
     patch({
       ...(idea.start && idea.end ? { start: idea.start, end: idea.end } : {}),
       room: idea.room, hall: idea.hall, buildingId: idea.buildingId, roomId: idea.roomId, locationStatus: "VERIFIED",
@@ -393,6 +403,13 @@ export default function QuickCreatePopover({
     const seen = new Set<string>();
     return pool.filter(choice => { const key = choice.days.join("+") + choice.minutes; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 3);
   }, [daysLocked, selectedCourse, chosenDays, dayChoices]);
+  /* 🔄 خانة «هيئة تدريسية»: الفعل عند الأب بمسوّدة هذه البطاقة نفسها. */
+  const placeholderPick = onReplaceable ? (section: ReplaceableSection, action: "assign" | "swap" | "replace") => onReplaceable(section, action, payload) : undefined;
+  /* «طبّق النمط المعتمد»: ضغطة تعيد الأيام والنهاية إلى النمط وتنهي التجاوز. */
+  const applyBest = () => {
+    const choice = bestRegulationChoice(selectedCourse, chosenDays);
+    if (choice) applyChoice(choice);
+  };
   const dayLabel = chosenDays.map(day => DAY_ORDER.find(item => item.key === day)?.short).filter(Boolean).join("·") || seed.dayLabel;
   const firstBlocker = verdict.blockers[0]?.text;
 
@@ -400,7 +417,8 @@ export default function QuickCreatePopover({
      «+» أو «قبلها/بعدها» يملأ الأيام (ما لم تكن أيام طلب أستاذ) والبداية والنهاية،
      و«قبلها/بعدها» يقترح قاعة المحاضرة الملاصقة أو مبناها ما لم تُختر قاعة. */
   const pickFromMiniWeek = (pick: MiniPick) => {
-    timeEdited.current = true;
+    /* «+» و«قبلها/بعدها» بنمط المقرر نفسه: ليس تجاوزاً. */
+    timeEdited.current = false;
     if (!daysLocked) {
       setChosenDays(pick.days);
       setDayChoices(regulationChoicesForDay(selectedCourse, pick.day).filter(choice => choice.days.join("+") !== pick.days.join("+")));
@@ -417,7 +435,7 @@ export default function QuickCreatePopover({
     });
   };
   const miniTeacherId = Number(draft.instructorId) || 0;
-  const miniWeekNode = miniWeek && miniTeacherId && !miniWeek.isPlaceholder(miniTeacherId) && !hasDifferentTimes ? (
+  const miniWeekNode = miniWeek && miniWeekEnabled && miniTeacherId && !miniWeek.isPlaceholder(miniTeacherId) && !hasDifferentTimes ? (
     <TeacherMiniWeek variant="compact" teacherId={miniTeacherId} teacherName={miniWeek.nameOf(miniTeacherId) || teacherName}
       nisab={miniWeek.nisabOf(miniTeacherId)} visiting={isVisiting(miniTeacherId, collegeId, sectionId)}
       rows={miniWeek.rows} termId={termId} collegeId={collegeId} draft={payload} verdict={verdict} checked={checkable}
@@ -425,7 +443,7 @@ export default function QuickCreatePopover({
       fixedDays={daysLocked ? chosenDays : undefined} onPick={pickFromMiniWeek} />
   ) : null;
   /* بطاقةٌ جانبية حيث يتّسع جانبٌ من النافذة، وإلا فشريطٌ داخل البطاقة نفسها. */
-  const [side, setSide] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
+  const [side, setSide] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
   const showSide = Boolean(miniWeekNode);
   useLayoutEffect(() => {
     if (!showSide || !box) { setSide(null); return; }
@@ -433,11 +451,13 @@ export default function QuickCreatePopover({
       const card = ref.current;
       if (!card || window.innerWidth < 900) { setSide(null); return; }
       const rect = card.getBoundingClientRect();
-      const width = 300, gap = 10, margin = 12;
-      const left = rect.left - margin >= width + gap ? rect.left - gap - width
-        : window.innerWidth - rect.right - margin >= width + gap ? rect.right + gap : null;
+      /* بطاقةٌ جانبية كبيرة: أوسع جانبٍ متاح حتى 560px (لا أقل من 300). */
+      const gap = 10, margin = 12;
+      const roomBefore = rect.left - margin - gap, roomAfter = window.innerWidth - rect.right - margin - gap;
+      const width = Math.min(560, Math.max(roomBefore, roomAfter));
+      const left = width < 300 ? null : roomBefore >= roomAfter ? rect.left - gap - width : rect.right + gap;
       const top = Math.max(margin, Math.min(rect.top, window.innerHeight - 260));
-      setSide(left === null ? null : { left, top, maxHeight: window.innerHeight - top - margin });
+      setSide(left === null ? null : { left, top, width, maxHeight: window.innerHeight - top - margin });
     };
     place();
     window.addEventListener("resize", place);
@@ -477,7 +497,13 @@ export default function QuickCreatePopover({
         <TimeWheels
           start={draft.start}
           end={draft.end}
-          onChange={(next) => { timeEdited.current = true; patch({ start: next.start, end: next.end }); }}
+          onChange={(next) => {
+            /* «المدة» بالعجلة تجاوزٌ متعمَّد؛ أما الساعة والدقيقة فتعيدان النهاية إلى النمط. */
+            const lengthChanged = minutesOf(next.end) - minutesOf(next.start) !== minutesOf(draft.end) - minutesOf(draft.start);
+            if (lengthChanged) timeEdited.current = regulationFit(selectedCourse, chosenDays, next.start, next.end) === "off";
+            const end = !timeEdited.current && !lengthChanged ? regulationEnd(selectedCourse, chosenDays, next.start) || next.end : next.end;
+            patch({ start: next.start, end });
+          }}
           preferredDuration={regulationChoiceFor(selectedCourse, chosenDays)?.minutes || Number(durationForDay?.(seed.day) || 0)}
         />
       )}
@@ -493,7 +519,8 @@ export default function QuickCreatePopover({
         </div>
       ) : null}
       {regulationChips.length || fit === "off" ? (
-        <RegulationPatternChips compact choices={regulationChips} activeId={regulationChoiceFor(selectedCourse, chosenDays)?.id} fit={fit} onPick={applyChoice} />
+        <RegulationPatternChips compact choices={regulationChips} activeId={regulationChoiceFor(selectedCourse, chosenDays)?.id} fit={fit} onPick={applyChoice}
+          onApplyBest={!daysLocked && regulationHours(selectedCourse) > 0 && fit === "off" ? applyBest : undefined} />
       ) : null}
 
       <div className="qc-fields">
@@ -521,7 +548,7 @@ export default function QuickCreatePopover({
           />
         </label>
         <div className="qc-field qc-teacher">
-          <span>الأستاذ</span>
+          <span className="qc-teacher-label">الأستاذ{miniWeek ? <MiniWeekToggle compact enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /> : null}</span>
           {lockedTeacher ? (
             <span className="qc-teacher-locked">
               <UserRound aria-hidden="true" /><b>{teacherName || "أستاذ الطلب"}</b>
@@ -572,11 +599,13 @@ export default function QuickCreatePopover({
             <button type="button" className="room-suggest-ask" data-guide-ignore="يقترح قاعات دون حجز" disabled={ideasBusy} onClick={() => void requestIdeas(true)}><DoorOpen aria-hidden="true" />اقترح قاعة متاحة</button>
           </div>
           {ideasBusy ? <small role="status" className="qc-busy"><Loader2 aria-hidden="true" />أبحث…</small> : null}
-          {ideas && !ideas.length ? <SuggestionEmpty reason={ideaReason} note={ideasError || "لا توجد اقتراحات متاحة ضمن الشروط المختارة."} /> : null}
+          {ideas && !ideas.length && !ideasReplaceable.length ? <SuggestionEmpty reason={ideaReason} note={ideasError || "لا توجد اقتراحات متاحة ضمن الشروط المختارة."} /> : null}
           {!ideas && ideasError ? <p className="qc-warn">{ideasError}</p> : null}
-          {ideas?.length ? (
-            ideaKind === "room" ? <RoomSuggestionCards suggestions={ideas} label="قاعات مناسبة للموعد" onSelect={takeIdea} />
-              : <RoomSuggestionCards variant="slot" suggestions={ideas} label="أفضل الأوقات والقاعات" onSelect={takeIdea} />
+          {ideas && (ideas.length || ideasReplaceable.length) ? (
+            ideaKind === "room" ? <RoomSuggestionCards suggestions={ideas} label="قاعات مناسبة للموعد" onSelect={takeIdea}
+                replaceable={ideasReplaceable} replaceBusy={replaceBusy} onReplaceable={placeholderPick} />
+              : <RoomSuggestionCards variant="slot" suggestions={ideas} label="أفضل الأوقات والقاعات" onSelect={takeIdea}
+                replaceable={ideasReplaceable} replaceBusy={replaceBusy} onReplaceable={placeholderPick} />
           ) : null}
         </div>
       ) : null}
@@ -625,7 +654,7 @@ export default function QuickCreatePopover({
     </div>
     {miniWeekNode && side ? (
       <div className="qc-mini-side" ref={sideRef} role="dialog" aria-modal="false" aria-label="أسبوع الأستاذ بجوار الموعد الجديد"
-        style={{ left: side.left, top: side.top, maxHeight: side.maxHeight }} onPointerDown={(e) => e.stopPropagation()}>
+        style={{ left: side.left, top: side.top, width: side.width, maxHeight: side.maxHeight }} onPointerDown={(e) => e.stopPropagation()}>
         {miniWeekNode}
       </div>
     ) : null}

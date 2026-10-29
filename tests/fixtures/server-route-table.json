@@ -1760,7 +1760,7 @@
    ],
    "path": "/api/schedules/suggest-slots",
    "name": "bound dispatch",
-   "call": "244edd61ba018d48",
+   "call": "981e2abcefad2fe3",
    "site": "server.ts:8348",
    "regexp": "/^\\/api\\/schedules\\/suggest-slots\\/?$/i",
    "end": true
@@ -1772,7 +1772,7 @@
    ],
    "path": "/api/schedules/placeholder-action",
    "name": "bound dispatch",
-   "call": "20be9868fea046d1",
+   "call": "16c77737c88277c9",
    "site": "server.ts:8535",
    "regexp": "/^\\/api\\/schedules\\/placeholder-action\\/?$/i",
    "end": true
