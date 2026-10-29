@@ -142,7 +142,7 @@ async function main() {
     const card = server.slice(server.indexOf("async function buildStaffCard"), server.indexOf('app.get("/api/share"'));
     check(card.includes("normalizeCivilId(civil)") && card.includes("sameCivilId(row.AdInstructorCivil, digits)"), "D4 بطاقتي تطبّع بالدالة الواحدة");
     const note = server.slice(server.indexOf('app.post("/api/public/staff/:token/note"'), server.indexOf('app.post("/api/public/staff/:token/note"') + 4000);
-    check(note.includes("normalizeCivilId(body.civil)"), "D4 ملاحظة بطاقتي تطبّع بالدالة الواحدة");
+    check(note.includes("normalizeCivilId(body.civil)") || (note.includes("staffIdentityFrom(req, token)") && note.includes("Number(card.instructorId)")), "D4 ملاحظة بطاقتي تطبّع بالدالة الواحدة (أو تأخذ صاحبها من بوابة البطاقة نفسها)");
     check(server.includes("const storedCivil = normalizeCivilId(signer?.AdInstructorCivil)"), "D4 التوقيع يطبّع بالدالة الواحدة");
     check(server.includes("new Map(instructors.map(row => [normalizeCivilId(row.AdInstructorCivil), row]))"), "D4 الاستيراد يطبّع بالدالة الواحدة");
     check((server.match(/const AdInstructorCivil = normalizeCivilId\(req\.body\?\.AdInstructorCivil\)/g) || []).length === 2, "D4 إضافة الأستاذ وتعديله يخزّنان الصيغة الواحدة");
@@ -216,7 +216,7 @@ async function main() {
       windowed.reserve("k");
       check(windowed.blocked("k"), "D6 إرجاعُ محاولةٍ من نافذةٍ انقضت لا يمسّ النافذة الجديدة");
     }
-    const staffPost = server.slice(server.indexOf('app.post("/api/public/staff/:token", '), server.indexOf('app.post("/api/public/staff/:token", ') + 1400);
+    const staffPost = server.slice(server.indexOf('app.post("/api/public/staff/:token", '), server.indexOf('app.post("/api/public/staff/:token", ') + 3400);
     check(staffPost.includes('const attempt = publicAttemptReserve(token') && staffPost.includes("attempt.release();") && !staffPost.includes("staffLookupAllowed"),
       "D6 بطاقتي تحجز المحاولة قبل البحث ويُرجعها النجاح وحده");
     check(staffPost.indexOf("publicAttemptReserve(token") < staffPost.indexOf("await buildStaffCard") && staffPost.indexOf("await buildStaffCard") < staffPost.indexOf("attempt.release();"),
@@ -411,7 +411,7 @@ async function main() {
     check(list.includes("changedSinceSent: Boolean(mark.sentFingerprint) && mark.sentFingerprint !== now"), "D14 من تغيّر جدولُه منذ أُرسل إليه");
     const publish = read("src/components/SchedulePublish.tsx");
     check(publish.includes('reachAboutCard(person, personalUrl(entry.id), "changed")') && publish.includes("أبلغ من تغيّر جدولهم"), "D14 رسالة «طرأ تعديل» صار لها من يرسلها");
-    const staffPost = server.slice(server.indexOf('app.post("/api/public/staff/:token", '), server.indexOf('app.post("/api/public/staff/:token", ') + 2500);
+    const staffPost = server.slice(server.indexOf('app.post("/api/public/staff/:token", '), server.indexOf('app.post("/api/public/staff/:token", ') + 4600);
     check(staffPost.includes("markShareLinkInstructor(resolved.link.id, cardInstructorId, { seenAt:") && staffPost.includes("lastSeenAt: previousVisit?.seenAt"), "D14 البطاقة تسجّل الزيارة وتعيد السابقة");
     check(staffPost.includes("const { instructorId: cardInstructorId, fingerprint: cardFingerprint, ...visible } = card;"), "D14 البصمة ورقم الأستاذ لا يُرسلان للصفحة");
     const page = server.slice(server.indexOf("function staffCardPage"), server.indexOf("function surveyPage"));

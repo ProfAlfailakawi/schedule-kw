@@ -184,6 +184,8 @@
   "import#181",
   "import#182",
   "import#183",
+  "import#184",
+  "import#185",
   "stmt:configureRuntimeEnvironment();",
   "decl:app",
   "app:set \"trust proxy\"",
@@ -814,8 +816,8 @@
   "app:post \"/api/user-scopes\"",
   "app:put \"/api/user-scopes/:id\"",
   "app:delete \"/api/user-scopes/:id\"",
-  "import#184",
-  "import#185",
+  "import#186",
+  "import#187",
   "app:get \"/api/reports/excel/:type\"",
   "app:get \"/api/search/natural\"",
   "decl:balanceScopeLabel",
@@ -839,6 +841,7 @@
   "decl:requestMovementEntries",
   "decl:movementHistoryScopes",
   "decl:scheduleMovementEntries",
+  "decl:StaffIdentity",
   "decl:buildStaffCard",
   "decl:staffFamilyScopes",
   "decl:staffFamilyShareLinks",
@@ -877,6 +880,9 @@
   "decl:sendCalendar",
   "app:get \"/api/public/ics/:token\"",
   "decl:calendarSecret",
+  "decl:staffDeviceSecret",
+  "decl:staffCookieSecure",
+  "decl:staffIdentityFrom",
   "decl:calendarKey",
   "app:get \"/api/public/ics/:token/:key\"",
   "app:get \"/api/public/cal/:token/:key\"",
@@ -962,6 +968,7 @@
   "app:post \"/api/student-registration/:id/course-state\"",
   "app:post \"/api/student-registration/:id/case-state\"",
   "app:get \"/api/schedules/staff-inbox\"",
+  "app:post \"/api/public/staff/:token/forget\"",
   "app:post \"/api/public/staff/:token\"",
   "decl:demoPageHint",
   "decl:publicPageNonce",
@@ -1077,6 +1084,7 @@
   "stmt:for (const candidate of [path.join(process.cwd(), \"public\", \"plans\", \"_template\", \"sheet.html\"), path.join(process.cwd()",
   "stmt:{ registerPlanSheetRoutes(app, { requireAuth, isScopeAllowed: (req, collegeId, sectionId) => isScopeAllowed(req, college",
   "stmt:registerAdsRoutes(app, { requireAuth, requireRootAdmin, publicPageNonce });",
+  "stmt:registerRoomDoorRoutes(app, { publicPageNonce, readLocationRegistry: () => readLocationRegistry(), normalizeLocation: (r",
   "stmt:registerSimulationRoutes(app, { requireAuth, isScopeAllowed: (req, collegeId, sectionId) => isScopeAllowed(req, collegeI",
   "stmt:registerInsightRoutes(app, { requireAuth, isScopeAllowed: (req, collegeId, sectionId) => isScopeAllowed(req, collegeId, ",
   "stmt:registerTimeMachineRoutes(app, { requireRead: requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), requireWrite: requirePerm",
@@ -2732,6 +2740,49 @@
    ]
   },
   {
+   "spec": "./src/server/staffDeviceKey",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "clearStaffDeviceCookie",
+     "clearStaffDeviceCookie",
+     false
+    ],
+    [
+     "createStaffDeviceSecretResolver",
+     "createStaffDeviceSecretResolver",
+     false
+    ],
+    [
+     "signStaffDevice",
+     "signStaffDevice",
+     false
+    ],
+    [
+     "staffDeviceCookie",
+     "staffDeviceCookie",
+     false
+    ],
+    [
+     "staffDeviceExpiry",
+     "staffDeviceExpiry",
+     false
+    ],
+    [
+     "verifyStaffDevice",
+     "verifyStaffDevice",
+     false
+    ],
+    [
+     "STAFF_DEVICE_COOKIE",
+     "STAFF_DEVICE_COOKIE",
+     false
+    ]
+   ]
+  },
+  {
    "spec": "./src/utils/shareLinkLifetime",
    "type": false,
    "def": null,
@@ -4287,6 +4338,19 @@
     [
      "registerTimeMachineRoutes",
      "registerTimeMachineRoutes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/roomDoorRoutes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "registerRoomDoorRoutes",
+     "registerRoomDoorRoutes",
      false
     ]
    ]

@@ -254,6 +254,7 @@ ${STAFF_CARD_VISUAL_CSS}
       <input id="civil" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="12 رقمًا" aria-label="الرقم المدني">
       <button type="submit" id="go">عرض</button>
     </form>
+    <label class="remember" for="remember"><input type="checkbox" id="remember"><span>تذكّرني على هذا الجهاز</span></label>
     <div class="note" id="note" role="status" aria-live="polite"></div>
     <div class="skel" id="gateSkel" aria-hidden="true" hidden><i></i><i></i></div>
     <p class="hint">صفحة للقراءة فقط · لا تحتاج حساباً<br>لا تُعرض أرقام هواتف ولا بيانات زملائك.</p>
@@ -310,6 +311,7 @@ ${STAFF_CARD_VISUAL_CSS}
     </div>
     <div class="print-foot" id="printFoot"></div>
     <div class="foot" id="foot"></div>
+    <button type="button" class="forget" id="forget" hidden>انسَ هذا الجهاز</button>
   </div>
 </div>
 <script nonce="${nonce}">
@@ -330,6 +332,9 @@ ${CALENDAR_LINKS_CLIENT_JS}
     .replace(/[۰-۹]/g,function(d){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))});};
   var friendlyDate=function(value,withTime){var d=new Date(value);if(!value||isNaN(d))return "";var date=d.toLocaleDateString("ar-KW-u-nu-latn",{year:"numeric",month:"long",day:"numeric"});if(!withTime)return date;return date+" · "+d.toLocaleTimeString("ar-KW-u-nu-latn",{hour:"2-digit",minute:"2-digit"})};
   civil.addEventListener("input",function(){var v=ascii(civil.value);if(v!==civil.value)civil.value=v;});
+  /* «تذكّرني»: مختارٌ افتراضياً على الهاتف (جهازٌ شخصي)، وغير مختارٍ على الحاسوب. */
+  var rememberBox=document.getElementById("remember");
+  try{if(rememberBox)rememberBox.checked=window.matchMedia("(pointer:coarse)").matches}catch(e){}
 
   document.getElementById("print").addEventListener("click",function(e){e.preventDefault();window.print()});
 
@@ -339,7 +344,7 @@ ${CALENDAR_LINKS_CLIENT_JS}
     if(value.length!==12){note.textContent="الرقم المدني 12 رقمًا.";return}
     note.textContent="";go.disabled=true;go.textContent="…";document.getElementById("gateSkel").hidden=false;
     fetch("/api/public/staff/"+encodeURIComponent(TOKEN),{
-      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({civil:value})
+      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({civil:value,remember:Boolean(rememberBox&&rememberBox.checked)})
     }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})})
       .then(function(res){
         go.disabled=false;go.textContent="عرض";document.getElementById("gateSkel").hidden=true;
@@ -434,7 +439,9 @@ ${CALENDAR_LINKS_CLIENT_JS}
   function render(d,value){
     if(visitSince===null){visitSince=d.lastSeenAt||"";visitChanged=Boolean(d.changedSinceLastVisit);}
     currentCivil=value;
-    try{sessionStorage.setItem("sk-civil:"+TOKEN,value)}catch(e){}
+    if(value){try{sessionStorage.setItem("sk-civil:"+TOKEN,value)}catch(e){}}
+    var forget=document.getElementById("forget");if(forget)forget.hidden=!d.remembered;
+    try{if(d.remembered)localStorage.setItem("sk-dev:"+TOKEN,"1");else localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
     var currentTerm = { termId: Number(d.termId || 0) };
     var phase = d.termPhase || ((Boolean(d.liveTermId) && Number(d.termId) === Number(d.liveTermId)) ? "current" : "past");
     var live = phase === "current";
@@ -560,9 +567,26 @@ ${CALENDAR_LINKS_CLIENT_JS}
     gate.style.display="none";card.style.display="block";
     window.scrollTo(0,0);
   }
+  /* «انسَ هذا الجهاز»: يمسح المفتاح ثم يعيد الصفحة إلى سؤال الرقم. */
+  var forgetBtn=document.getElementById("forget");
+  if(forgetBtn)forgetBtn.addEventListener("click",function(){
+    forgetBtn.disabled=true;
+    try{sessionStorage.removeItem("sk-civil:"+TOKEN);localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
+    fetch("/api/public/staff/"+encodeURIComponent(TOKEN)+"/forget",{method:"POST"}).then(function(){location.reload()},function(){location.reload()});
+  });
   /* العودةُ من صفحة الطلب لا تطلب الرقم ثانيةً: يُحفظ في هذه الجلسة وحدها (يزول بإغلاق التبويب). */
+  var resumed=false;
   try{var saved=sessionStorage.getItem("sk-civil:"+TOKEN);
-    if(saved&&/^[0-9]{12}$/.test(saved)){civil.value=saved;var fm=document.getElementById("form");if(fm.requestSubmit)fm.requestSubmit();else go.click()}}catch(e){}
+    if(saved&&/^[0-9]{12}$/.test(saved)){resumed=true;civil.value=saved;var fm=document.getElementById("form");if(fm.requestSubmit)fm.requestSubmit();else go.click()}}catch(e){}
+  /* جهازٌ متذكَّر: يفتح البطاقة مباشرة بمفتاحه (كوكي لا تقرؤه الصفحة). إن لم يصلح بقي سؤال الرقم بلا رسالة. */
+  var hinted=false;try{hinted=localStorage.getItem("sk-dev:"+TOKEN)==="1"}catch(e){}
+  if(!resumed&&hinted){
+    var gs=document.getElementById("gateSkel");if(gs)gs.hidden=false;
+    fetch("/api/public/staff/"+encodeURIComponent(TOKEN),{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})
+      .then(function(r){return r.ok?r.json():null})
+      .then(function(d){if(gs)gs.hidden=true;if(d&&d.name)render(d,"");else{try{localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}}})
+      .catch(function(){if(gs)gs.hidden=true;});
+  }
 })();
 </script>
 </body>

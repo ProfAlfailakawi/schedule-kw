@@ -14,6 +14,7 @@ import { currentTermId, termPhase } from "../../utils/termSequence";
 import type { ScheduleShareLink, InstructorRequest } from "../../types";
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { enrichCompanionRoomTypes } from "../../utils/companionRoomDisplay";
+import { clearStaffDeviceCookie, createStaffDeviceSecretResolver, signStaffDevice, staffDeviceCookie, staffDeviceExpiry, verifyStaffDevice, STAFF_DEVICE_COOKIE } from "../staffDeviceKey";
 import { individualExceptionOpen } from "../../utils/instructorRequestWindows";
 import { negotiationState } from "../../utils/instructorRequestThread";
 import { instructorScheduleFingerprint } from "../../utils/scheduleFingerprint";
@@ -27,6 +28,7 @@ import { withVisitingSuffix } from "../../utils/visitingText";
 import { firstLast } from "../../utils/weekVisual";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "../publicTheme";
+import { getCookies } from "../core/auth";
 import { currentInstructorRequestGeneration, requestWindowOpen } from "../core/instructorRequests";
 import { readLocationRegistry } from "../core/locations";
 import { sortTermsNewestServer } from "../core/ordering";
@@ -48,14 +50,22 @@ import { studentSchedulePage } from "../pages/studentSchedulePage";
 const PUBLIC_VISITING_BADGE_CSS = `.visiting-badge,.meta .visiting-badge,.pill.who .visiting-badge,.pub-week .slot .visiting-badge{display:inline-flex;align-items:center;justify-content:center;flex:none;min-height:18px;padding:1px 6px;margin-inline-start:5px;border:1px solid color-mix(in srgb,var(--brass,#a8792a) 42%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--brass,#a8792a) 10%,var(--card,#fff));color:color-mix(in srgb,var(--brass,#a8792a) 88%,var(--ink));font-size:11px;font-weight:700;font-style:normal;line-height:1.15;white-space:nowrap;vertical-align:middle;overflow:visible;text-overflow:clip}
 @media print{.visiting-badge,.meta .visiting-badge,.pill.who .visiting-badge,.pub-week .slot .visiting-badge{border-color:#9a7a43;background:#faf5e9;color:#6e521f}}`;
 
-async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedTermId = 0) {
-  const digits = normalizeCivilId(civil);
-  if (digits.length < 8) return null;
+/** هويةُ الأستاذ في البطاقة: رقمُه المدني، أو مفتاحُ جهازٍ موقّعٌ يحمل رقمه الداخلي («تذكّرني»). */
+type StaffIdentity = string | { instructorId: number };
+
+async function buildStaffCard(link: ScheduleShareLink, identity: StaffIdentity, requestedTermId = 0) {
+  const byDevice = typeof identity === "object" && identity !== null;
+  const civil = byDevice ? "" : String(identity);
+  const digits = byDevice ? "" : normalizeCivilId(civil);
+  if (!byDevice && digits.length < 8) return null;
 
   const [instructors, courses, colleges, terms, sections] = await Promise.all([
     Repository.getInstructors(), Repository.getCourses(), Repository.getColleges(), Repository.getTerms(), Repository.getSections()
   ]);
-  const person = instructors.find(row => sameCivilId(row.AdInstructorCivil, digits));
+  /* مفتاحُ الجهاز يعيّن الأستاذ برقمه الداخلي، ثم تمرّ البوابات نفسها التي تمرّ بها الهوية بالرقم المدني. */
+  const person = byDevice
+    ? instructors.find(row => Number(row.AdInstructorId) === Number((identity as { instructorId: number }).instructorId))
+    : instructors.find(row => sameCivilId(row.AdInstructorCivil, digits));
   // A demo sandbox deliberately includes fictitious civil IDs: let its
   // instructor card keep working. Production must never authenticate an
   // artificial "هيئة تدريسية" identity as a real professor.
@@ -309,6 +319,17 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
     requestLinks,
   };
 }
+const staffDeviceSecret = createStaffDeviceSecretResolver(() => process.env.STAFF_DEVICE_SECRET, () => Repository.getSharedServerSecret());
+const staffCookieSecure = process.env.NODE_ENV === "production";
+/* الرقمُ المدني إن أُرسل، وإلا مفتاحُ الجهاز من الكوكي — والمفتاحُ لا يصلح إلا لرمز هذا الرابط. */
+async function staffIdentityFrom(req: Request, token: string): Promise<{ identity: StaffIdentity; byDevice: boolean } | null> {
+  const civil = String((req.body || {}).civil || "");
+  if (civil) return { identity: civil, byDevice: false };
+  const raw = getCookies(req)[STAFF_DEVICE_COOKIE];
+  if (!raw) return null;
+  const instructorId = verifyStaffDevice(await staffDeviceSecret(), token, raw);
+  return instructorId ? { identity: { instructorId }, byDevice: true } : null;
+}
 
 /**
  * ── بطاقة الأستاذ تتكلّم ────────────────────────────────────────────────────
@@ -350,7 +371,8 @@ app.post("/api/public/staff/:token/note", async (req: Request, res: Response) =>
   }
 
   const body = (req.body || {}) as Record<string, unknown>;
-  const card = await buildStaffCard(resolved.link, String(body.civil || ""), Number(body.termId || 0));
+  const who = await staffIdentityFrom(req, token);
+  const card = who ? await buildStaffCard(resolved.link, who.identity, Number(body.termId || 0)) : null;
   if (!card) { res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return; }
   attempt.release();
   if (!card.liveTermId || Number(card.termId) !== Number(card.liveTermId)) {
@@ -364,9 +386,9 @@ app.post("/api/public/staff/:token/note", async (req: Request, res: Response) =>
   // actually on this instructor's own card.
   if (!lecture) { res.status(404).json({ error: "هذا الموعد ليس ضمن جدولك" }); return; }
 
+  /* صاحبُ البطاقة كما عيّنته البوابة نفسُها — بالرقم المدني أو بمفتاح الجهاز — لا بحثٌ ثانٍ. */
   const instructors = await Repository.getInstructors();
-  const digits = normalizeCivilId(body.civil);
-  const person = instructors.find(row => sameCivilId(row.AdInstructorCivil, digits));
+  const person = instructors.find(row => Number(row.AdInstructorId) === Number(card.instructorId));
   if (!person) { res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return; }
 
   if (await Repository.countStaffNotesToday(person.AdInstructorId) >= STAFF_NOTES_PER_DAY) {
@@ -409,21 +431,51 @@ app.post("/api/public/staff/:token/note", async (req: Request, res: Response) =>
   res.status(201).json({ id: row.id, createdAt: row.createdAt, text: row.text });
 });
 
+/* «انسَ هذا الجهاز»: يمسح المفتاح من هذا الجهاز وحده. لا يحتاج هوية، فلا يكشف شيئاً. */
+app.post("/api/public/staff/:token/forget", (req: Request, res: Response) => {
+  res.setHeader("Set-Cookie", clearStaffDeviceCookie(String(req.params.token || ""), staffCookieSecure));
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true });
+});
+
 app.post("/api/public/staff/:token", async (req: Request, res: Response) => {
   const token = String(req.params.token || "");
   const resolved = await resolveShareToken(token);
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
   if (resolved.link.kind !== "staff") { res.status(404).json({ error: "هذا الرابط ليس بطاقة أستاذ" }); return; }
+  /* فتحٌ بلا رقمٍ ولا مفتاحِ جهاز لا يُحسب محاولةً: الصفحة تسأل بصمتٍ عن جهازٍ متذكَّر. */
+  if (!String(req.body?.civil || "") && !getCookies(req)[STAFF_DEVICE_COOKIE]) {
+    res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return;
+  }
   const attempt = publicAttemptReserve(token, req.ip || "unknown");
   if (!attempt) {
     res.status(429).json({ error: "محاولات كثيرة. انتظر عشر دقائق ثم أعد المحاولة." });
     return;
   }
-  const card = await buildStaffCard(resolved.link, String(req.body?.civil || ""), Number(req.body?.termId || 0));
+  const who = await staffIdentityFrom(req, token);
+  // مفتاحُ جهازٍ لم يعد صالحاً يُمسح ويُطلب الرقم كالعادة — بلا تمييزٍ عن «لا بطاقة».
+  if (!who) {
+    if (getCookies(req)[STAFF_DEVICE_COOKIE]) res.setHeader("Set-Cookie", clearStaffDeviceCookie(token, staffCookieSecure));
+    res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return;
+  }
+  const card = await buildStaffCard(resolved.link, who.identity, Number(req.body?.termId || 0));
   // One answer for a wrong number and for someone with no lectures this term:
   // the page must not become a way to test which numbers exist.
-  if (!card) { res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return; }
+  if (!card) {
+    if (who.byDevice) res.setHeader("Set-Cookie", clearStaffDeviceCookie(token, staffCookieSecure));
+    res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return;
+  }
   attempt.release();
+  /* «تذكّرني»: بعد التحقق بالرقم المدني وحده، يُعطى الجهازُ مفتاحاً موقّعاً لهذا الرابط وهذا الأستاذ. */
+  let remembered = who.byDevice;
+  if (!who.byDevice && req.body?.remember === true) {
+    const expiresAt = staffDeviceExpiry(resolved.link.expiresAt);
+    if (expiresAt > Date.now()) {
+      const value = signStaffDevice(await staffDeviceSecret(), token, Number(card.instructorId), expiresAt);
+      res.setHeader("Set-Cookie", staffDeviceCookie(token, value, expiresAt, staffCookieSecure));
+      remembered = true;
+    }
+  }
   void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
   /* «منذ زيارتك الأخيرة»: ما حُفظ من الزيارة السابقة يُعاد، ثم تُسجَّل هذه. */
   const { instructorId: cardInstructorId, fingerprint: cardFingerprint, ...visible } = card;
@@ -437,6 +489,7 @@ app.post("/api/public/staff/:token", async (req: Request, res: Response) => {
   const planMapUrl = mapSectionId > 0 && (await Repository.listPublishedSheets().catch(() => [])).some(sheet => Number(sheet.AdSectionId) === mapSectionId) ? `/plans/s${mapSectionId}/` : "";
   res.json({
     ...visible,
+    remembered,
     planMapUrl,
     lastSeenAt: previousVisit?.seenAt || "",
     changedSinceLastVisit: Boolean(previousVisit?.seenFingerprint) && Number(card.termId) === Number(resolved.link.AdTermId)

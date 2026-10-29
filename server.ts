@@ -26,11 +26,12 @@ import { registerPlanSheetRoutes } from "./src/server/planSheetRoutes";
 import { registerSimulationRoutes, scheduleRadarAutoRun } from "./src/server/simulationRoutes";
 import { registerInsightRoutes } from "./src/server/insightRoutes";
 import { registerTimeMachineRoutes } from "./src/server/timeMachineRoutes";
+import { registerRoomDoorRoutes } from "./src/server/roomDoorRoutes";
 import { scheduleAutoTermJob } from "./src/server/autoTerms";
 import { eligibleHallsForSection } from "./src/utils/locationRegistry";
 import { state } from "./src/server/core/state";
 import { noteScheduleMutation, scheduleLockRefusal } from "./src/server/core/approvals";
-import { type AuthenticatedRequest, authMiddleware, bindPublicLinkContext, DEMO_READ_ONLY_PREFIXES, getCookies, isPowerUser, requireAnyPermission, requireAuth, requirePermission, requireRootAdmin, ROOT_ADMIN_USER_ID } from "./src/server/core/auth";
+import { type AuthenticatedRequest, authMiddleware, bindPublicLinkContext, DEMO_READ_ONLY_PREFIXES, getCookies, isPowerUser, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin, ROOT_ADMIN_USER_ID } from "./src/server/core/auth";
 import { API_PERFORMANCE_LIMIT, apiPerformanceSamples, asyncSafe } from "./src/server/core/http";
 import { instructorRequestDepartmentScopes, resolveRequestLink, verifyRequestSigner } from "./src/server/core/instructorRequests";
 import { broadcastNotify, broadcastStudentNotifySoon, listenForScheduleChangesAcrossInstances } from "./src/server/core/liveChannel";
@@ -478,6 +479,14 @@ for (const candidate of [path.join(process.cwd(), "public", "plans", "_template"
 
 /* ── الإعلانات ونبضُ الزوار ولوحة الجمهور: قياسٌ مجهول، وإدارةٌ لحساب الإدارة الرئيسي ── */
 registerAdsRoutes(app, { requireAuth, requireRootAdmin, publicPageNonce });
+
+/* ── بابُ القاعة وشاشةُ الممر: ملصقٌ على كل باب ولوحةٌ لكل مبنى (قراءةٌ عامة)، وروابطُها لمدير السجل ── */
+registerRoomDoorRoutes(app, {
+  publicPageNonce,
+  readLocationRegistry: () => readLocationRegistry(),
+  normalizeLocation: (row, registry) => canonicalizeHistoricalLocationForRuntime(row, registry),
+  requireRegistryAdmin: [requirePermission(7), requirePowerAdmin],
+});
 
 /* ── بروفةُ التسجيل: تشغيلٌ لإدارة النظام، وقراءةٌ بحدود النطاق ──────────────── */
 registerSimulationRoutes(app, {

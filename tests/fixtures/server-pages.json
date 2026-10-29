@@ -2,12 +2,12 @@
  "note": "sha256 لمخرجات بُناة الصفحات بمدخلات tests/server-route-parity-audit.ts",
  "pages": {
   "staffCardPage#0": {
-   "sha256": "5355f678b586c8de008a53bd38b55464cb5254f8e05527d930aee75773eb785d",
-   "length": 69300
+   "sha256": "e60555dff42eb9f537d2f83bde34c005fde271d78b7b9ecae77489acf4d32a02",
+   "length": 71991
   },
   "staffCardPage#1": {
-   "sha256": "65d9651c65963091205b85deb8bec468aad42ba6cd6d59c1088c980b94786eaf",
-   "length": 69387
+   "sha256": "5fdd46d4ebc2c91151c6b19e66849ea147ef2a9a824e997b7ec85c2353c0ea29",
+   "length": 72078
   },
   "surveyPage#0": {
    "sha256": "4fc98011923967305bd4b7809e043f63f44480455a5d88024b4ce69cc3b629ca",
