@@ -4,6 +4,7 @@
 import { spawn, type ChildProcess } from "child_process";
 import { waitForDemoSeed } from "./helpers/demoSeed";
 import { scheduleIsSigned, wipeDecision, type WipeContext } from "../src/utils/scheduleWipePolicy";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -29,7 +30,7 @@ check(scheduleIsSigned("drafting", 1) && scheduleIsSigned("submitted", 0) && !sc
 /* ── ما لا يكشفه وضع العرض (Firestore وتزامن الكتابة) ───────────────────────── */
 {
   const fs = await import("node:fs");
-  const server = fs.readFileSync("server.ts", "utf8");
+  const server = readServerSource();
   const restore = server.slice(server.indexOf('app.post("/api/schedules/wipe-scope/restore"'), server.indexOf("// --- SMART SCHEDULE WORKSPACE"));
   check(restore.includes("Repository.getScheduleVersionById("), "الإرجاع يقرأ النسخة كاملةً بصفوفها (قائمة Firestore بلا صفوف)");
   check(restore.includes("expectCurrentCount: 0"), "والفراغ يُفحص داخل قفل الكتابة نفسه");

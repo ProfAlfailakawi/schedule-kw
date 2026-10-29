@@ -17,6 +17,7 @@ import path from "path";
 import { caseRefFor, caseRefOf } from "../src/db/repository";
 import { APPROVAL_WRITE_PREFIXES, roleWriteDecision } from "../src/server/roleGuard";
 import { sectionOwnsNeed, surveyOwnsNeed } from "../src/utils/studentCaseScope";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -24,7 +25,7 @@ function check(condition: boolean, name: string) {
   else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`); }
 }
 
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 const repo = fs.readFileSync(path.join(process.cwd(), "src/db/repository.ts"), "utf8");
 const types = fs.readFileSync(path.join(process.cwd(), "src/types.ts"), "utf8");
 const screen = fs.readFileSync(path.join(process.cwd(), "src/components/StudentRegistration.tsx"), "utf8");

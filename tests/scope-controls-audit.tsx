@@ -8,6 +8,7 @@ import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "../src/compo
 import { visibleTermIds } from "../src/utils/scopedTerms";
 import { currentTermId } from "../src/utils/termSequence";
 import { invitationHref, isInvitationHash, parseInvitationHash, photoInvitationHref } from "../src/utils/invitationLink";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0;
 function check(label: string, run: () => void) { run(); console.log(`✓ ${label}`); passed++; }
@@ -74,7 +75,7 @@ check("أحدث فصل أُنشئ يبقى فارغًا، والفصل الأق�
   const current = currentTermId(terms, Date.UTC(2026, 9, 19)); assert.equal(current, 10); assert.deepEqual(visibleTermIds([11, 10, 9], new Map([[9, 3]]), 11), [11, 9]);
 });
 check("الخادم يبقي أحدث فصل ويخفي مركز الذكاء القسم بحسب شكل النطاق", () => {
-  const server = fs.readFileSync("server.ts", "utf8"); assert(server.includes("visibleTermIds(terms.map(term => Number(term.AdTermId)), counts, newest)"));
+  const server = readServerSource(); assert(server.includes("visibleTermIds(terms.map(term => Number(term.AdTermId)), counts, newest)"));
   const intel = fs.readFileSync("src/components/IntelligenceWorkspace.tsx", "utf8"); assert(intel.includes("hideSection={hidesSection(scopeShape(scopes, isPowerAdmin))}")); assert(intel.includes('compareTermOptions.length > 1 ? [{ value: "compare"'));
 });
 check("الرادار يستدعي hook الفصول قبل خروج شاشة التحميل", () => {

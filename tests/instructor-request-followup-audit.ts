@@ -24,6 +24,7 @@ import { NEGOTIATION_LABEL, negotiationState, parseOfferedSlots } from "../src/u
 import { requestFullySettled } from "../src/utils/instructorRequestVerdict";
 import { formatScheduleTimeRange } from "../src/utils/scheduleTime";
 import { roomKeyOf } from "../src/utils/locationRegistry";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -31,7 +32,7 @@ function check(condition: boolean, name: string) {
   else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`); }
 }
 
-const server = readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const inbox = readFileSync("src/components/InstructorInbox.tsx", "utf8");
 
 /* ── البديلُ ينقل المحاضرةَ بأيامها ──────────────────────────────────────── */

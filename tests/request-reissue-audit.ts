@@ -12,6 +12,7 @@ import fs from "fs";
 import path from "path";
 import { latestRequestByInstructor, reissueMove, requestLinkNeedsReplacing } from "../src/utils/requestReissue";
 import { retainRequestReservations } from "../src/utils/instructorRequestReservations";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -55,7 +56,7 @@ check(!requestLinkNeedsReplacing({ expiresAt: "2027-05-07T00:00:00.000Z" }, true
 
 /* ── التوصيلُ في الخادم ─────────────────────────────────────────────────── */
 
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 const repo = fs.readFileSync(path.join(process.cwd(), "src/db/repository.ts"), "utf8");
 const publish = fs.readFileSync(path.join(process.cwd(), "src/components/SchedulePublish.tsx"), "utf8");
 const issue = server.slice(server.indexOf('app.post("/api/instructor-requests/issue"'), server.indexOf("/* ── وارِدُ القسم"));

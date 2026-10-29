@@ -24,6 +24,7 @@ import { rankRequestRooms } from "../src/utils/requestRoomRanking";
 import { notParticipated } from "../src/utils/requestParticipation";
 import { inboxInstructorChoices } from "../src/utils/instructorIdentity";
 import { REQUEST_DAY_AUTOFILL_SCRIPT } from "../src/server/requestDayAutofillScript";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`✓ ${label}`); } else { failed++; console.error(`✗ ${label}`); } };
@@ -81,7 +82,7 @@ const verdictFor = (req: InstructorRequest, allRows: FSchedule[]) => {
   const offering = row({ id: 300, AdInstructorId: 99990, fmonday: true, fwednesday: true });
   const claimed = occupiedRowsForRequest([offering], [reservation("req-x", "i-x", 81, monWed, { offeringRowIds: [300], room: undefined })], TERM, "someone-else");
   check(claimed.length === 1 && Number(claimed[0].AdInstructorId) === 81, "حجزُ شعبةٍ قائمة يُنسب صفُّها الرسمي لصاحبه بلا صفٍّ مكرّر");
-  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const server = readServerSource();
   check(server.includes("contexts.set(key, buildSharedRequestContext(row))") && server.includes("requestContextFor(options.context || await buildSharedRequestContext(request), request)"),
     "الوارد يبني سياقاً مشتركاً بلا استثناء، والحكمُ يشتقّ منه سياقَ كل طلبٍ على حدة");
 }
@@ -103,7 +104,7 @@ const verdictFor = (req: InstructorRequest, allRows: FSchedule[]) => {
   let holdIgnored = true;
   try { assertRequestReservationWrite(edit, [reservation("req-t", "draft:0", 70, monWed, { heldUntil: new Date(Date.now() + 60_000).toISOString() })]); } catch { holdIgnored = false; }
   check(holdIgnored, "حجزُ التحرير المؤقّت لا يمنع القسم");
-  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const server = readServerSource();
   const schedules = fs.readFileSync(path.join(process.cwd(), "src/components/Schedules.tsx"), "utf8");
   check(server.includes("applyRequestHoldOverride(req)") && server.includes('code: "request-hold"') && schedules.includes('failure?.code !== "request-hold"') && schedules.includes("overrideRequestHolds"),
     "مسار الحفظ يسأل عند حجز الطلب ثم يعيد الإرسال بالتأكيد");
@@ -113,7 +114,7 @@ const verdictFor = (req: InstructorRequest, allRows: FSchedule[]) => {
 
 /* ── القاعةُ تتبع الموعدَ المنقول: مشغولةٌ + بدائلُ خالية ≠ «ممنوع» ─────────── */
 {
-  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const server = readServerSource();
   const inbox = fs.readFileSync(path.join(process.cwd(), "src/components/InstructorInbox.tsx"), "utf8");
   check(server.includes("verdict.roomCandidates = [originalKey, ...verdict.roomCandidates.filter(key => key !== originalKey)]")
     && server.includes("roomSwitch: { from:"), "النقلُ يُبقي قاعتَه إن خلت، وإلا يُبدَّلها إلى الأنسب الخالي (roomSwitch)");
@@ -141,14 +142,14 @@ const verdictFor = (req: InstructorRequest, allRows: FSchedule[]) => {
 
 /* ── B2: الإضافة الثانية للمقرر نفسه ─────────────────────────────────────── */
 {
-  const server0 = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const server0 = readServerSource();
   check(server0.includes('focusItem(held,"المقرر مضاف — أكمل أيامه هنا.")'), "الكرت لا يُنشئ إضافةً ثانيةً للمقرر نفسه (تُجمع فتتجاوز ساعاته) — يفتح بندَه القائم");
   const box: any = {};
   vm.runInNewContext(`${REQUEST_DAY_AUTOFILL_SCRIPT}\nthis.complete=completeRequestDays;`, box, { timeout: 1000 });
   const patterns = [["fsunday", "ftuesday", "fthursday"], ["fmonday", "fwednesday"]];
   check(box.complete("fmonday", [], patterns).join() === "fmonday,fwednesday", "اختيارُ الاثنين أولاً يكمل نمطَ اللائحة (الاثنين والأربعاء)");
   check(box.complete("fthursday", ["fmonday", "fwednesday"], patterns).join() === "fmonday,fwednesday,fthursday", "وبعدها كلُّ ضغطةٍ صريحة");
-  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const server = readServerSource();
   check(!server.includes("المشكلة في الأيام لا في الوقت") && !server.includes("عالج الموانع قبل الإرسال") && server.includes("start-off") && server.includes("whyIcon(i,t)"),
     "الأوقاتُ غير المتاحة باهتةٌ بأيقونة سببها، ولا تلميحَ غامض ولا «موانع» في زرّ الإرسال");
 }
@@ -173,7 +174,7 @@ const verdictFor = (req: InstructorRequest, allRows: FSchedule[]) => {
     "سطرُ تعديل القسم يصل الأستاذَ «تغيّرت القاعة» بلا اسمٍ ولا رمز، وبقيةُ الجملة كما هي");
   check(withoutRoomNames("عدّل القسم موعداً مرتبطاً بهذا الطلب أثناء انتظاره.") === "عدّل القسم موعداً مرتبطاً بهذا الطلب أثناء انتظاره." && withoutRoomNames("") === "",
     "وما لا قاعةَ فيه يبقى حرفاً بحرف");
-  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const server = readServerSource();
   const page = server.slice(server.indexOf("function instructorRequestPage"), server.indexOf('app.get("/r/:token"'));
   check(!server.includes("roomPick: verdict") && !/roomPick|reservedRoom|roomSwitch|ROOM_WHY/.test(page) && page.includes("function roomSignalHtml(it)"),
     "الكرت لا يعرض «الأنسب» ولا بديلين ولا اختياراً: إشارةٌ واحدة 🏫✓ وحدها");
@@ -199,7 +200,7 @@ const verdictFor = (req: InstructorRequest, allRows: FSchedule[]) => {
   const submitted = allocateRequestReservations(ledger, a, [{ ...proposal(70), itemId: "real" }], []);
   check(submitted.length === 1 && !submitted[0].heldUntil && submitted[0].itemId === "real", "الإرسالُ يحلّ محلَّ الحجز المؤقّت بحجزٍ ينتظر القسم");
   check(retainRequestReservations(ledger, { ...a, items: [] }).length === 1 && releaseRequestHolds(ledger, a.id).length === 0, "قراراتُ القسم لا تُسقط حجزَ التحرير، والخروجُ يُسقطه");
-  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const server = readServerSource();
   check(server.includes('"/api/public/request/:token/hold"') && server.includes('code: "race-lost"') && server.includes("alternatives: (again!.items[lost].nearestTimes || []).slice(0, 2)"),
     "الخاسرُ يتلقّى بديلين قريبين من الحكم نفسه، عند الحجز وعند الإرسال");
 }
@@ -220,7 +221,7 @@ const verdictFor = (req: InstructorRequest, allRows: FSchedule[]) => {
     { AdInstructorId: 5, instructorName: "د. شيماء" },
   ]);
   check(choices.length === 2 && choices[0].ids.join() === "1,2", "منتقي الوارد: الأستاذ مرّةً واحدة، و«هيئة تدريسية» ليست أستاذاً");
-  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const server = readServerSource();
   check(server.includes("if (!id || placeholderIds.has(id)) continue;") && server.includes("!placeholderPeople.has(Number(request.AdInstructorId))"),
     "لا يُصدَر رابطُ طلبٍ لـ«هيئة تدريسية»، ولا تُعرض طلباتها القديمة في الوارد");
 }

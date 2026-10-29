@@ -19,6 +19,7 @@ import fs from "fs";
 import path from "path";
 import { format } from "util";
 import { parseNaturalQuery } from "../src/utils/naturalQuery";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -63,7 +64,7 @@ check(parseNaturalQuery("انقلمقرر0450 الى الاحد الساعة ٩"
 
 /* ── ٢) تعبير حدّ الفراغ ────────────────────────────────────────────────── */
 
-const serverSource = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const serverSource = readServerSource();
 const gapThreshold = serverSource.match(/normalized\.match\((\/[^;]*?\/)\)\?\.\[1\]\|\|3/);
 check(Boolean(gapThreshold), "تعبير حدّ الفراغ موجودٌ في موضعه");
 

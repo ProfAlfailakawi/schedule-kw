@@ -5,6 +5,7 @@ import fs from "fs";
 import { PATTERN_LIBRARY_CSS, PATTERN_LIBRARY_ICON, patternLibraryHtml } from "../src/utils/patternLibraryView";
 import { patternLibraryInput } from "../src/utils/patternLibraryInput";
 import { patternLibraryByHours, patternsForHours } from "../src/utils/scheduleRegulations";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -24,7 +25,7 @@ check(fourHourBlock?.minutesPerDay[0] === 230 && fourHourBlock.weeklyMinutes ===
 check(!/تاريخ/.test(html), "ولا كلمة «تاريخي» في النص");
 check(!html.includes("<script") && !/on\w+=/.test(html), "والرسم نصٌّ ثابت بلا سكربت");
 check(PATTERN_LIBRARY_ICON.includes("<svg") && PATTERN_LIBRARY_CSS.includes(".plib-pat"), "أيقونةٌ وأنماطٌ جاهزة");
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const editHtml = server.slice(server.indexOf("function editHtml(it,i)"), server.indexOf("function editHtml(it,i)") + 700);
 check(/class="plib"/.test(editHtml) && /أيام المحاضرة/.test(editHtml), "في صفحة الأستاذ: الأيقونة داخل شاشة تعديل الموعد عند «أيام المحاضرة»");
 check(!/<div class="hd">[^]*?class="plib"/.test(server.slice(server.indexOf('<div class="hd">'), server.indexOf('<div class="hd">') + 900)), "وليست في رأس الصفحة");

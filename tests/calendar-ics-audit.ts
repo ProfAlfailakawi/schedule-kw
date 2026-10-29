@@ -10,6 +10,7 @@ import fs from "node:fs";
 import { buildCalendar, buildReminder, calendarSubscribeLinks, CALENDAR_LINKS_CLIENT_JS, escapeText } from "../src/utils/icalendar";
 import { CALENDAR_FEED_PAUSED_NOTE, calendarFeedKey, instructorFromCalendarKey, personCalendarKey } from "../src/server/calendarSecret";
 import { liveCardLinkFor } from "../src/utils/shareLinkLifetime";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let checks = 0;
 function ok(condition: unknown, label: string) {
@@ -175,7 +176,7 @@ const client = clientFn("https://schedule.example/api/public/cal/tok/p1-abc.ics?
 ok(client.apple === links.apple && client.google === links.google && client.outlook === links.outlook && client.office === links.office, "browser derivation equals server derivation");
 
 // Page fences: the calendar is visible again, everywhere.
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const masari = fs.readFileSync("src/server/studentHomePage.ts", "utf8");
 ok(!server.includes('document.getElementById("ics").style.display = "none";'), "بطاقتي: calendar button no longer force-hidden");
 ok(!server.includes('function calendarHtml(compact){return ""}'), "teacher card: calendar line restored");

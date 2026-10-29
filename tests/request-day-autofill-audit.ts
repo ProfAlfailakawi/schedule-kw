@@ -7,6 +7,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { REQUEST_DAY_AUTOFILL_SCRIPT } from "../src/server/requestDayAutofillScript";
 import { DEMO_COPY_SCRIPT } from "../src/server/publicKit";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -25,7 +26,7 @@ check(list(toggle("fmonday", ["fsunday"])) === "fsunday+fmonday", "يضيف ال
 check(list(toggle("fmonday", ["fsunday", "fmonday", "ftuesday"])) === "fsunday+ftuesday", "إزالة يوم تترك بقية الأيام كما اختارها الأستاذ");
 
 /* 2) الربط في الصفحة والخادم. */
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 /* قرار المالك 2026-10-28 (B1/B2): أوّلُ يومٍ يكمل نمطَ اللائحة من مصدرٍ واحد (dayPatterns ← patternsForHours)، وما بعده صريح. */
 check(server.includes("${REQUEST_DAY_AUTOFILL_SCRIPT}") && server.includes("it.days=completeRequestDays(d,it.days,((data&&data.dayPatterns)||{})[courseIdOf(it)]||[])") && server.includes("tapDay(it,el.dataset.day)")
   && server.includes("patternsForHours(effectiveCourseHours(course))"), "الصفحة تكمل أيام نمط اللائحة عند أوّل يوم من مصدرها الواحد، ثم تختار صراحةً");

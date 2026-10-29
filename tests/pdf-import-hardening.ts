@@ -17,6 +17,7 @@ import { LOCATION_REGISTRY_SEED } from "../src/generated/locationRegistrySeed.ts
 import { scanLeftCellUnread, pagesWithUnreadCells } from "../src/utils/importPageReview.ts";
 import { pairRowsByLine, fillLineCells, pageNumberShape, scanPageTone, greyPhotoVerdict, GREY_PHOTO_REFUSAL, authorityCourseFromFamilyAndName, authorityCourseSiblingByName, fillScheduleCellsFrom, scanPageVerdict, scanRefusalMessage, clearImplausibleScanDays, unresolvedDaysReason, restoredDaysReason, rejudgeEmptyPage, type OcrPageDiagnostic } from "../src/utils/documentOcr.ts";
 import { pagesAwaitingReview, pageReviewIssues, pageReviewWaitLine, unconfirmedReviewPages } from "../src/utils/importPageReview.ts";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const passed:string[]=[];
 const check=(name:string,fn:()=>void)=>{fn();passed.push(name);};
@@ -417,7 +418,7 @@ check("a grey phone photo is refused in seconds at preflight, a white scan never
   assert.deepEqual(greyPhotoVerdict([]),[]);
   assert.match(GREY_PHOTO_REFUSAL,/لم يُستورد أي صف/);
   /* Wired: the import route refuses before any reading; the probe reuses page 1's render and a failed probe never refuses. */
-  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  const server=readServerSource();
   assert.match(server,/if\(Array\.isArray\(headerPreflight\.greyPhotoPages\)&&headerPreflight\.greyPhotoPages\.length\)\{\s*res\.status\(422\)\.json\(\{error:GREY_PHOTO_REFUSAL,code:"PDF_SCAN_GREY_PHOTO"/);
   assert.match(server,/if\(Array\.isArray\(header\.greyPhotoPages\)&&header\.greyPhotoPages\.length\)\{res\.status\(422\)\.json\(\{error:GREY_PHOTO_REFUSAL/,"the department-bootstrap route refuses the same way, not «header unresolved»");
   const ocr=readFileSync(new URL("../src/utils/documentOcr.ts",import.meta.url),"utf8");
@@ -479,7 +480,7 @@ check("a scanned course number that lost its last digit is settled by its family
   assert.equal((agrees.rows[0] as any).courseMatchMethod,undefined,"a name that matches (one glyph off) raises nothing");
   const text=parseScheduleTable([{rows:[],gridRows:[row("3010115","تجويد القران الكريم وحفظه (1)","pdf-text")]} as any],courses,[],undefined,{authorityDepartmentCode:"0101"});
   assert.equal(text.rows[0].AdCourseId,0,"the text layer prints what it prints; its numbers are never repaired");
-  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  const server=readServerSource();
   assert.match(server,/if\(row\.courseMatchMethod&&Number\(row\.AdCourseId\)\)Object\.assign\(row\.importEvidence\.course,\{confidence:"REVIEW_REQUIRED"/);
   const table=readFileSync(new URL("../src/components/ImportPreviewTable.tsx",import.meta.url),"utf8");
   assert.match(table,/<small>رقم المقرر غير واضح<\/small>/);
@@ -510,7 +511,7 @@ check("a scanned instructor name garbled by noise is shown as its clean words an
   assert.equal(displayInstructorText("د. إقبال عبدالعزيز المطوع"),"د. إقبال عبدالعزيز المطوع");
   assert.equal(displayInstructorText("حمد ail سعود المحيلبي ١"),"حمد سعود المحيلبي");
   /* Wired: the server calls such a name unclear and searches candidates with its clean words; every screen shows the same text. */
-  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  const server=readServerSource();
   assert.match(server,/registryCandidatesFor\(readable\.garbled&&readable\.text\?readable\.text:written,/);
   /* الوسم «اسم غير واضح» يقول الحال؛ السبب تحته سطر واحد بالخطوة لا فقرة تتكرر في كل صف. */
   assert.match(server,/if\(readable\.garbled\)return\{method:"UNREADABLE_NAME",reason:"اختر الأستاذ من القائمة\."\}/);
@@ -532,7 +533,7 @@ check("the server refuses a scanned draft whose waiting pages were not confirmed
   assert.deepEqual(unconfirmedReviewPages([2],"2"),[2],"a request that is not a list confirms nothing");
   assert.deepEqual(unconfirmedReviewPages([2,"x",-1,1.5],[]),[2],"only whole positive page numbers are pages");
   /* Wired end to end: signed at preview, checked at draft, sent by every scanned-draft request. */
-  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  const server=readServerSource();
   assert.match(server,/const reviewPages=pagesAwaitingReview\(recognized\.pageDiagnostics,\[\]\);[\s\S]{0,400}\.\.\.\(reviewPages\.length\?\{reviewPages\}:\{\}\)/,"the preview signs the waiting pages into its receipt");
   const draftRoute=server.slice(server.indexOf('app.post("/api/intelligence/drafts", '),server.indexOf('\napp.',server.indexOf('app.post("/api/intelligence/drafts", ')+10));
   assert.match(draftRoute,/unconfirmedReviewPages\(receipt\?\.reviewPages,req\.body\?\.reviewedPages\)/);
@@ -734,7 +735,7 @@ passed.push("a scan refused as busy says so in words");
   assert.ok(rows.every(item=>"importEvidence" in item),"the reviewed rows keep their evidence; the input is not mutated");
   assert.deepEqual(Object.assign({},baseline[3],{importEvidence:rows[3].importEvidence}),rows[3],"nothing but the evidence leaves the baseline");
 
-  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  const server=readServerSource();
   const draftRoute=server.slice(server.indexOf('app.post("/api/intelligence/drafts", '),server.indexOf('\napp.',server.indexOf('app.post("/api/intelligence/drafts", ')+10));
   assert.match(draftRoute,/withoutImportEvidence\(assignAuthoritySections\(safeDraftRows\(req\.body\?\.baselineRows/,"a baseline from an older window is stripped on the server too");
   assert.match(draftRoute,/suppliedBaseline:withoutImportEvidence\(rows\)/,"the fallback baseline is stripped as well");

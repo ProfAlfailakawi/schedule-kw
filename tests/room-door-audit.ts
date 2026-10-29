@@ -16,6 +16,7 @@ import path from "path";
 import vm from "vm";
 import express from "express";
 import type { AddressInfo } from "net";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -306,7 +307,7 @@ const boardToken = secret.buildingDoorToken(key, building.id);
   const html = pageModule.roomDoorPage(d, { nonce: "N0NCE", screen: false, live: "/d/x/now", self: "/d/x" });
   check(!/`|\$\{/.test(html.slice(html.indexOf("<script"), html.lastIndexOf("</script>"))), "R4 السكربتُ نصٌّ عادي بلا قالبٍ متروك");
   check(!new RegExp(String.fromCharCode(0x2028) + "|" + String.fromCharCode(0x2029)).test(html), "R4 لا فاصلَ سطرٍ يونيكودي يكسر سكربت متصفّحٍ قديم");
-  const server = read("server.ts");
+  const server = readServerSource();
   check((server.match(/registerRoomDoorRoutes\(app,/g) || []).length === 1 && server.includes('import { registerRoomDoorRoutes } from "./src/server/roomDoorRoutes"'), "R5 المسارات مسجّلةٌ في الخادم مرّةً واحدة");
   const sw = read("public/sw.js");
   check(/startsWith\("\/d\/"\)\|\|url\.pathname\.startsWith\("\/b\/"\)\)return;/.test(sw), "R5 عاملُ الخدمة لا يحفظ صفحات الأبواب مكان هيكل التطبيق");

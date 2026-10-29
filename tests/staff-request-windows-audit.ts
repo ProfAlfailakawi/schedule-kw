@@ -4,8 +4,9 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import { normalizeInstructorDeadline, individualExceptionOpen, requestWindowOpen } from "../src/utils/instructorRequestWindows";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
-const source = fs.readFileSync("server.ts", "utf8");
+const source = readServerSource();
 const ui = fs.readFileSync("src/components/SchedulePublish.tsx", "utf8");
 
 assert.equal(normalizeInstructorDeadline("2026-10-28"), "2026-10-28T20:59:59.000Z");

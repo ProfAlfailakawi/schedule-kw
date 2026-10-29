@@ -15,6 +15,7 @@ import { scopeShape, hidesCollege, hidesSection } from "../src/utils/scopeShape"
 import { soleCollegeOf } from "../src/utils/scopeContext";
 import { visibleTermIds } from "../src/utils/scopedTerms";
 import { trimScopeSelects, type ScopeAskSelect } from "../src/components/ScopeAskBar";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -69,7 +70,7 @@ for (const [file, label] of [["src/components/ScheduleTransfer.tsx", "نسخ ق�
   check(/useScopedTerms</.test(read(file)), `F5 ${label}: فصولٌ مرشّحة بالقاعدة نفسها`);
 }
 check(/copySourceTerms\.filter/.test(read("src/components/ScheduleTransfer.tsx")) && /scopedSourceTerms/.test(read("src/components/LivingScheduleLayer.tsx")) && /compareTermOptions\.map/.test(read("src/components/IntelligenceWorkspace.tsx")), "F5 القوائم تقرأ من المرشَّح لا من الخام");
-const server = read("server.ts");
+const server = readServerSource();
 const route = server.slice(server.indexOf('app.get("/api/terms/scoped"'), server.indexOf('app.post("/api/terms"'));
 check(/readLiveSchedulesForRequest\(req,/.test(route) && /visibleTermIds\(/.test(route) && /dataContextCacheKey\(/.test(route), "F4 المسار: صفوفُ نطاق القارئ + القاعدة الواحدة + مفتاح السياق");
 check(!/getSchedulesByScope\(\{[^}]*\}\)/.test(route.replace(/readLive[^\n]*/g, "")), "F4 ولا مسحَ بلا فصل");

@@ -6,6 +6,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -16,7 +17,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
 const workspace = read("src/components/IntelligenceWorkspace.tsx");
 const scenes = read("src/components/LivingScheduleScenes.tsx");
 const layer = read("src/components/LivingScheduleLayer.tsx");
-const server = read("server.ts");
+const server = readServerSource();
 
 console.log("مساحة الذكاء");
 check(/<td className=\{mark\("AdInstructorId"\)\}>\{instructor\}\{isVisiting\(row\.AdInstructorId,row\.AdCollegeId,row\.AdSectionId\)\?<> <VisitingBadge compact \/><\/>:null\}<\/td>/.test(workspace), "جدول تقرير التغييرات (PDF) يرسم الشارة");

@@ -2,6 +2,7 @@
 # كانت سطراً واحداً طويلاً في package.json، فيتعارض عليه كلُّ طلبَي دمجٍ يضيفان اختباراً.
 # أضِف اختبارك في سطرٍ جديد (ويُفضَّل قربَ ما يشبهه لا في آخر الملف).
 test:repo-hygiene
+test:server-parity
 test:firestore-target
 test:firestore-indexes
 test:anonymous-guard

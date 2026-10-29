@@ -40,6 +40,7 @@
     "test:schedule-interface": "tsx tests/schedule-interface-audit.ts",
     "test:schedule-wipe": "tsx tests/schedule-wipe-audit.ts",
     "test:repo-hygiene": "node tests/repo-hygiene-guard.mjs",
+    "test:server-parity": "tsx tests/server-route-parity-audit.ts",
     "test:firestore-target": "tsx tests/firestore-target-audit.ts",
     "test:firestore-indexes": "tsx tests/firestore-index-audit.ts",
     "test:anonymous-guard": "tsx tests/anonymous-guard-audit.ts",

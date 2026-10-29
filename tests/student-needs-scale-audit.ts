@@ -8,6 +8,7 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const privateDir = fs.mkdtempSync(path.join(os.tmpdir(), "schedule-needs-scale-"));
 fs.writeFileSync(path.join(privateDir, "db.json"), JSON.stringify({
@@ -62,7 +63,7 @@ const between = (source: string, start: string, end: string) => {
 
 /* ── بنية: لا مسحَ للفصل في مسارات الهوية ──────────────────────────────────── */
 {
-  const server = read("server.ts");
+  const server = readServerSource();
   const prior = between(server, "const priorNeedForHand=", "\nconst caseRefMatches");
   const verification = between(server, "const reusableGraduateVerification=", "\nconst normalizeStudentIdentityName");
   const identity = between(server, "const reusableStudentIdentity=", "\n/* One numeric alphabet");

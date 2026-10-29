@@ -8,6 +8,7 @@ import { Repository } from "../src/db/repository";
 import { departmentFamily, departmentFamilyKey, departmentFamilyResolver } from "../src/utils/sectionLabel";
 import { termVisitingIds } from "../src/utils/liveVisiting";
 import { addMultiSiteFixture } from "./helpers/multiSiteSandbox";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -52,7 +53,7 @@ async function behaviour() {
   });
 }
 
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 check(!server.includes("/api/department-delegates/elsewhere") && !server.includes("/api/department-delegates/adopt"), "لا مسار «elsewhere/adopt»: العائلة تقرأ تلقائياً");
 check(!fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8").includes("adoptDelegate"), "ولا زرّ ضمّ في الواجهة");
 const famDefs = [server, fs.readFileSync("src/db/repository.ts", "utf8"), fs.readFileSync("src/utils/liveVisiting.ts", "utf8")]

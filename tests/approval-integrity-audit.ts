@@ -11,6 +11,7 @@
 import fs from "fs";
 import path from "path";
 import { roleDefinition } from "../src/utils/academicRoles";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -18,7 +19,7 @@ function check(condition: boolean, name: string) {
   else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`); }
 }
 
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 const repository = fs.readFileSync(path.join(process.cwd(), "src/db/repository.ts"), "utf8");
 const adminUsers = fs.readFileSync(path.join(process.cwd(), "src/components/AdminUsers.tsx"), "utf8");
 const indexes = JSON.parse(fs.readFileSync(path.join(process.cwd(), "firestore.indexes.json"), "utf8"));

@@ -10,6 +10,7 @@ import fs from "fs";
 import vm from "vm";
 import { ARABIC_COUNT_SCRIPT } from "../src/utils/arabicCount";
 import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT, VOICE_INPUT_SECONDS } from "../src/server/voiceInputScript";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -179,7 +180,7 @@ check(gap.recs[0].started + (gap.recs.length - 1) <= 4 || gap.sandbox.VI.restart
 check(!/fetch\(|XMLHttpRequest|sendBeacon|localStorage|sessionStorage|indexedDB|MediaRecorder|getUserMedia/.test(VOICE_INPUT_JS), "السكربتُ لا يرسل ولا يخزّن ولا يسجّل صوتاً: لا شبكةَ ولا تخزينَ ولا MediaRecorder");
 
 /* ── في الصفحة ──────────────────────────────────────────────────────────── */
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const page = server.slice(server.indexOf("function instructorRequestPage"), server.indexOf('app.get("/r/:token"'));
 check(/\$\{VOICE_INPUT_JS\}/.test(page) && /\$\{VOICE_INPUT_CSS\}/.test(page), "الصفحة تحمل سكربت الإملاء وأنماطه");
 check(/data-vi-field="msg"/.test(page) && /VI\.html\("msg"\)/.test(page), "الزرّ بجانب حقل الرسالة للقسم");

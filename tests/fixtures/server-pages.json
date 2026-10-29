@@ -1,0 +1,61 @@
+{
+ "note": "sha256 لمخرجات بُناة الصفحات بمدخلات tests/server-route-parity-audit.ts",
+ "pages": {
+  "staffCardPage#0": {
+   "sha256": "e60555dff42eb9f537d2f83bde34c005fde271d78b7b9ecae77489acf4d32a02",
+   "length": 71991
+  },
+  "staffCardPage#1": {
+   "sha256": "5fdd46d4ebc2c91151c6b19e66849ea147ef2a9a824e997b7ec85c2353c0ea29",
+   "length": 72078
+  },
+  "surveyPage#0": {
+   "sha256": "466a5a1062b4a78358b86eb01bbac1b409bd64b8c68ac04233b3889f48a56bbf",
+   "length": 31310
+  },
+  "surveyPage#1": {
+   "sha256": "273a6803170a0f4f44c7c0e47679b9a99b3cd398bc1c1ae86ac3df7a88b85d09",
+   "length": 31322
+  },
+  "studentCaseSurveyPage#0": {
+   "sha256": "7fba488c7426037ff330a566ddf20125ec1cec07fb333cb8cdb598a76b5a0956",
+   "length": 47216
+  },
+  "studentCaseSurveyPage#1": {
+   "sha256": "b5e4bdf693b4f940bf8f8a44bb342c6871a306d5dd20406ab85383e8180f86a9",
+   "length": 47314
+  },
+  "instructorRequestPage#0": {
+   "sha256": "edfff8d20913f685c753a691489de198dfc51fbf5b4f981a954ae13e4b9b4211",
+   "length": 276724
+  },
+  "instructorRequestPage#1": {
+   "sha256": "21c4e5dde2acdef1fdc949981a0c4690398dc737f73a706f57277e1e97bb46ca",
+   "length": 276882
+  },
+  "publicInvalidLinkPage#0": {
+   "sha256": "d6673766e7c402772d184aba8edb51baefb4403c07dfa361dadd75406743afff",
+   "length": 1436
+  },
+  "publicInvalidLinkPage#1": {
+   "sha256": "d7dc5c3d6047985aa16cbda020cf7ee27741f0a4c5c095b7ee006d2919ce852e",
+   "length": 1445
+  },
+  "studentCaseStatusPage#0": {
+   "sha256": "9203a61c2b7c0dd998c5289d17cad1f5db4017d665db23dc51de1c5252a285d9",
+   "length": 16120
+  },
+  "studentCaseStatusPage#1": {
+   "sha256": "858ed7b47b7e156d89beb32474a3dd1556f752e441dfdb067ddb2a1db88e2013",
+   "length": 16196
+  },
+  "studentSchedulePage#0": {
+   "sha256": "1133a4df8ff1363ce93d70cc242f5a9c7b8bb020dc2068f680f726114c619b1c",
+   "length": 49141
+  },
+  "studentSchedulePage#1": {
+   "sha256": "aa342c47df9f5c92df2b9b3a1e7f2fd057334fddb08e97c599f75b47c7fb7f86",
+   "length": 49164
+  }
+ }
+}

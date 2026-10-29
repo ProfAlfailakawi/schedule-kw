@@ -7,6 +7,7 @@ import { analyseAcademicAdvice, mandatoryPrecedes, type AcademicPlanView } from 
 import { buildAcademicDecisionLab, feasibleAcademicBundle } from "../src/utils/academicDecisionLab";
 import { buildAcademicDecisionLabTrainingPreview } from "../src/utils/academicDecisionLabDemo";
 import type { AdCourse, FSchedule, StudentProfile } from "../src/types";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const course = (id: number, section = 9): AdCourse => ({
   AdCourseId: id, AdCollegeId: 12, AdSectionId: section, CourseCode: String(id),
@@ -209,7 +210,7 @@ const excludedCo = analyseAcademicAdvice({ ...base, profiles: [1,2,3].map(i => p
 assert.ok(!excludedCo.pairs.some(p => p.a === 5 && p.b === 6), "unmet corequisite cannot inflate count");
 const mixed = analyseAcademicAdvice({ ...base, profiles: [profile(1,[2,3],[1]), profile(2,[2,3],[1],"new"), profile(3,[2,3],[1],"new")] });
 assert.equal(mixed.pairs.find(p => p.a === 2 && p.b === 3)?.shared, 0, "students from an unapproved plan cannot count");
-const code = fs.readFileSync("server.ts","utf8");
+const code = readServerSource();
 assert.ok(code.includes('app.get("/api/schedules/academic-advice", requirePermission(7)'), "scope protected route");
 assert.ok(code.includes('app.get("/api/public/request/:token/academic-advice"'), "professor link authenticated separately");
 const visual = fs.readFileSync("src/server/academicAdvisoryVisual.ts","utf8");

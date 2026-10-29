@@ -6,6 +6,7 @@
  */
 import { readFileSync } from "node:fs";
 import { rowOccupiesRoom } from "../src/utils/locationRegistry";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`✓ ${name}`); } else { failed++; console.log(`✗ ${name}`); } };
@@ -21,7 +22,7 @@ check("قاعة أخرى بالمعرّف لا تشغلها وإن تشابه ا
 check("صفٌّ بانتظار تثبيت القاعة لا يشغل شيئاً", !at({ AdRoomCode: "17", AdRoomHall: "F20", locationStatus: "PENDING_ROOM" }));
 check("صفٌّ بلا قاعة لا يشغل شيئاً", !at({}));
 
-const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+const server = readServerSource();
 const advisor = server.slice(server.indexOf('app.post("/api/schedules/suggest-slots"'));
 const advisorBody = advisor.slice(0, advisor.indexOf("\napp."));
 check("مقترح القاعات يقرأ الإشغال بالقاعدة الواحدة", advisorBody.includes("rowOccupiesRoom(row, hall.roomId, hall.room, hall.hall)"));

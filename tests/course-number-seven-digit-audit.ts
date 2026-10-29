@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { authorityCourseCode, authorityDepartmentCode } from "../src/utils/authorityAcademicCodes";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -36,7 +37,7 @@ check(authorityCourseCode("", edtech) === "" && authorityCourseCode(undefined, e
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
 const reports = read("src/components/Reports.tsx");
 const authority = read("src/components/AuthorityPdfReport.tsx");
-const server = read("server.ts");
+const server = readServerSource();
 
 check(!/print-course-id">\{row\.AdCourseId/.test(reports), "التقرير الشامل لا يطبع رقم النظام الداخلي AdCourseId");
 check(/CourseCode: authorityCourseCode\(/.test(reports), "كل ورقة مطبوعة تأخذ رقم المقرر من authorityCourseCode");

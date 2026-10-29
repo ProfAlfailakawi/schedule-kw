@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { authorityFieldMatchesOriginal as same } from "../src/utils/authorityNetChange";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const original = {
   referenceNumber: "18945", sourceOrder: 1,
@@ -47,7 +48,7 @@ assert.equal(isSame("fstarttime", { ...original, fstarttime: "25:00" }), false);
 assert.equal(isSame("AdInstructorId", { ...original }), false);
 
 // The original comparison must be wired to this guard, not just tested in isolation.
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 assert.match(server, /authorityFieldMatchesOriginal\(field,source,next\)/);
 assert.match(server, /const visibleChangedFields=changedFields\.filter\(field=>field!=="SCode"\)/);
 assert.match(server, /baselineRows=importLayout==="authority-pdf"/);

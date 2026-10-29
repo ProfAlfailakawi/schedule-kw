@@ -15,6 +15,7 @@ import { signatureVerifyPage } from "../src/server/signatureVerifyPage";
 import { learnCourseNature, habitualBlockMinutes } from "../src/utils/courseNature";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import { roomKeyOf } from "../src/utils/locationRegistry";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -114,7 +115,7 @@ const lateApplied = judgeRequest(ask({ days: lateAlt?.days as any || [], start: 
 check(Boolean(lateAlt) && lateApplied.sendable, "والبديل يمرّ عند البداية نفسها");
 const labShapes = judgeRequest(ask({ days: ["fmonday", "ftuesday"] }), labContext);
 check(labShapes.shapes?.length === 1 && labShapes.shapes?.[0]?.days.join() === "fwednesday", "ومقرّرٌ درج يوماً واحداً: يُقترح يومُه وحدَه، بلا نمط محاضرات");
-check(/suggestNature: priorHabits/.test(fs.readFileSync("server.ts", "utf8")) && /ranks\[Number\(row\.AdTermId\)\]/.test(fs.readFileSync("server.ts", "utf8")), "والمعتاد المقترَح يُتعلَّم من الفصول السابقة للفصل الجاري وحدها");
+check(/suggestNature: priorHabits/.test(readServerSource()) && /ranks\[Number\(row\.AdTermId\)\]/.test(readServerSource()), "والمعتاد المقترَح يُتعلَّم من الفصول السابقة للفصل الجاري وحدها");
 
 const multi = withHistory(new Map([[100, learnCourseNature(100, [16, 17, 18].flatMap((term, k) => [
   row({ id: 800 + k * 2, AdTermId: term, fmonday: true, fwednesday: true, fthursday: false, fsunday: false, fstarttime: "09:00", fendtime: "10:20" }),
@@ -135,7 +136,7 @@ const priorOnly = learnCourseNature(100, [16, 17].map((term, k) => row({ id: 950
 check(judgeRequest(ask({ days: ["fsunday", "fmonday"] }), { ...mixedHabit, suggestNature: new Map([[100, priorOnly!]]) } as any).reasons.some(reason => reason.blocking && /لا يُخلط/.test(reason.text)), "وخلطٌ لم يظهر إلا في الفصل الجاري يبقى ممنوعاً");
 
 /* ── ٢–٧. عقودُ المصدر ───────────────────────────────────────────────────── */
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const page = server.slice(server.indexOf("function instructorRequestPage"), server.indexOf('app.get("/r/:token"'));
 check(/\.sort\(function\(a,b\)\{[^}]*a\.it\.ord==null/.test(page), "ترتيب الصفوف يقرأ رتبةً ثابتة لا يومَ الموعد الحالي");
 check(!/function planTable\(\)[\s\S]{0,400}planDays\(a\.it\)/.test(page), "planTable لا يعيد الفرز بالموعد المتغيّر");

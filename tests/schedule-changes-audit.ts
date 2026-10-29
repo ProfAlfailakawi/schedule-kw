@@ -9,6 +9,7 @@
 import fs from "fs";
 import path from "path";
 import { DIFF_FIELD_LABEL, daysText, diffSchedules, fieldValue, summarizeDiff } from "../src/utils/scheduleDiff";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -112,7 +113,7 @@ check(Object.values(DIFF_FIELD_LABEL).every(label => /[؀-ۿ]/.test(label)), "ك
 
 /* ── ما رُكّب في الخادم ────────────────────────────────────────────────── */
 
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 const baselineSrc = fs.readFileSync(path.join(process.cwd(), "src/utils/changesBaseline.ts"), "utf8");
 check(server.includes('app.get("/api/reports/schedule-changes"'), "تقرير التغييرات له مسار");
 check(server.includes('app.get("/api/approvals/inbox"'), "صندوق الوارد له مسار");

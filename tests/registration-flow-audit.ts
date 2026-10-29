@@ -16,6 +16,7 @@ import path from "path";
 import express from "express";
 import { createHmac, createHash } from "crypto";
 import type { AddressInfo } from "net";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -316,7 +317,7 @@ try {
   check(radarAutoSettings().enabled === true && radarAutoSettings().everyHours === 24, "I2 الافتراضي: تلقائيٌّ كل ٢٤ ساعة");
   const adminSummary = (await http("GET", "/api/simulation/summary", { who: "admin" })).json;
   check(adminSummary.auto?.enabled === true && adminSummary.auto.everyHours === 24, "I2 الشاشةُ تقول إنه تلقائي وكم ساعة");
-  const rs = fs.readFileSync(path.join(process.cwd(), "src/server/simulationRoutes.ts"), "utf8"), sv = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const rs = fs.readFileSync(path.join(process.cwd(), "src/server/simulationRoutes.ts"), "utf8"), sv = readServerSource();
   check(rs.includes("acquireRegistrationRunLease") && rs.includes("Repository.isDemoMode()") && sv.includes("scheduleRadarAutoRun(") && rs.includes("if (run?.stale && !frozen) kickRadarRefresh()"), "I2 بقفلٍ بين الخوادم، ولا يعمل في التجربة، ويُجدول عند الإقلاع");
 
   /* H1: الرئيسية بطلبٍ واحد تعيد الأجزاء التسعة نفسها التي تعيدها مساراتُها الخاصة. */

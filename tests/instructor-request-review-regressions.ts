@@ -2,11 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { approvedBarterReservation, borrowerOutsideApprovedWindow, scheduleViolatesApprovedBarterWindow } from "../src/utils/hallBarterWindow";
 import { instructorRequestProposalIdentity } from "../src/utils/instructorRequestProposalIdentity";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`✓ ${label}`); } else { failed++; console.error(`✗ ${label}`); } };
 const root = process.cwd();
-const server = fs.readFileSync(path.join(root, "server.ts"), "utf8");
+const server = readServerSource();
 const page = server.slice(server.indexOf("function publicItemId"), server.indexOf("function askAccept"));
 const decide = server.slice(server.indexOf('app.post("/api/instructor-requests/:id/decide"'), server.indexOf('app.post("/api/instructor-requests/:id/apply"'));
 const departmentReply = server.slice(server.indexOf('app.post("/api/instructor-requests/:id/reply"'), server.indexOf('app.get("/api/public/request/:token"'));

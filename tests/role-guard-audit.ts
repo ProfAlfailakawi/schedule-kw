@@ -20,6 +20,7 @@ import {
   type AcademicRole,
 } from "../src/utils/academicRoles";
 import { isApprovalWritePath, readOnlyRefusal, roleWriteDecision } from "../src/server/roleGuard";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -145,7 +146,7 @@ check(refusal.error.includes("عميد الكلية"), "الرفض يُقرأ ب
 
 /* ── ٣) الحارس مركّبٌ في موضعه ──────────────────────────────────────────── */
 
-const serverSource = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const serverSource = readServerSource();
 check(serverSource.includes("roleWriteDecision"), "الخادم يستدعي قرار الحارس");
 check(serverSource.includes("readOnlyRefusal"), "الخادم يردّ برسالة الرفض المعرَّفة");
 

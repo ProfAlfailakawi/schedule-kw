@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { eligibleSuggestionEditId, instructorRowsForSuggestion } from "../src/utils/slotSuggestionScope";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const rows = [
   { id: 17, AdCollegeId: 2, AdSectionId: 3, AdTermId: 9, AdCourseId: 5, SCode: "101" },
@@ -15,7 +16,7 @@ assert.equal(eligibleSuggestionEditId(rows, 17, 2, 3, 8), 0, "Cannot exclude ano
 assert.equal(eligibleSuggestionEditId(rows, 9999, 2, 3, 9), 0, "Cannot forge an edit of an unknown row.");
 assert.equal(eligibleSuggestionEditId(rows, 0, 2, 3, 9), 0, "Creation does not exclude an existing row.");
 
-const server = readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const route = server.slice(server.indexOf('app.post("/api/schedules/suggest-slots"'));
 assert.match(route, /const editedRowId = eligibleSuggestionEditId\(universe, excludeId, collegeId, sectionId, termId\)/);
 assert.match(route, /Number\(row.id\) !== editedRowId/);

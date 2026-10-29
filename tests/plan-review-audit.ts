@@ -20,6 +20,7 @@ import {
 } from "../src/utils/curriculumRules";
 import { parseKind, rowsToDrafts } from "../src/utils/curriculumRulesImport";
 import type { CurriculumCourseRule, ElectiveGroup } from "../src/types";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -350,7 +351,7 @@ const ctx = (plan: number[]) => ({
 
 /* ── R6: الواجهة ─────────────────────────────────────────────────────────── */
 {
-  const server = read("server.ts");
+  const server = readServerSource();
   check(server.includes("registerPlanReviewRoutes(app, {") && server.includes("isScopeAllowed: (req, collegeId, sectionId) => isScopeAllowed(req, collegeId, sectionId)"), "R6 الخادم يسجّل مسارات المراجعة بحارس النطاق نفسه");
   const routes = read("src/server/planReviewRoutes.ts");
   check(routes.includes("ownsCourse(req, course)") && routes.includes('code: "foreign-course"'), "R6 حارسُ «مقررات القسم وحدها» في الخادم لا في الواجهة");

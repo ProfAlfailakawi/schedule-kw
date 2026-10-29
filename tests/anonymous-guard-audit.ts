@@ -18,6 +18,7 @@ import fs from "node:fs";
 import express from "express";
 import type { AddressInfo } from "node:net";
 import { createDeadSessionMemory, createLinkMissGuard, createSessionLookupBudget, isSessionIdShape } from "../src/server/anonymousGuard";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -109,7 +110,7 @@ try {
 }
 
 /* G12 — the server asks the guard before Firestore. */
-const source = fs.readFileSync("server.ts", "utf8");
+const source = readServerSource();
 const auth = source.slice(source.indexOf("async function authMiddleware"), source.indexOf("async function authMiddleware") + 4_000);
 const at = (needle: string) => auth.indexOf(needle);
 check(at("isSessionIdShape(sessionId)") > 0 && at("isSessionIdShape(sessionId)") < at("Repository.getSession(sessionId)"), "G12a المعرّفُ المخترَع يُردّ قبل أن تُسأل قاعدةُ البيانات");

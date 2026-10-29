@@ -6,13 +6,14 @@
  *  ٤) خياراتُ القاعة السريعة تأتي من سجلّ القاعات لا من صفوف القسم وحدها
  */
 import fs from "fs";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, name: string) => { if (ok) { passed += 1; console.log(`✓ ${name}`); } else { failed += 1; console.error(`✗ ${name}`); } };
 const read = (path: string) => fs.readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 const sim = read("src/server/simulationRoutes.ts");
-const server = read("server.ts");
+const server = readServerSource();
 check(!/(?:inputMemo|predictiveMemo|outcomeMemo)\.get\((?!ctxKey|deps\.dataContextKey)/.test(sim), "كلُّ ذاكرةٍ في المحاكاة تُقرأ بمفتاحٍ يحمل عالَمه");
 check(/dataContextKey: dataContextCacheKey,\n\}\);\nregisterInsightRoutes/.test(server) && /const scopeDeps = \{[^\n]*dataContextKey: dataContextCacheKey \};/.test(server), "الخادم يمرّر قاعدةَ المفتاح إلى مسارات المحاكاة والإشعار");
 

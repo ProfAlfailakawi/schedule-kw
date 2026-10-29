@@ -7,6 +7,7 @@ import {
   STAFF_DEVICE_COOKIE, STAFF_DEVICE_MAX_DAYS, clearStaffDeviceCookie, deriveStaffDeviceSecret, signStaffDevice,
   staffDeviceCookie, staffDeviceExpiry, verifyStaffDevice,
 } from "../src/server/staffDeviceKey";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: unknown, label: string) => {
@@ -45,7 +46,7 @@ check(/Max-Age=2592000/.test(header), "عمر الكوكي حتى انتهاء �
 check(!/; Secure/.test(staffDeviceCookie("t", key, end, false, now)), "بلا Secure خارج الإنتاج (تطوير محلي)");
 check(/Max-Age=0/.test(clearStaffDeviceCookie("t", true)), "«انسَ هذا الجهاز» يمسح الكوكي");
 
-const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+const server = readServerSource();
 const route = server.slice(server.indexOf('app.post("/api/public/staff/:token", async'), server.indexOf("/* The old `staff-ics?civil=…` route is gone."));
 check(route.indexOf("STAFF_DEVICE_COOKIE]) {") > -1 && route.indexOf("STAFF_DEVICE_COOKIE]) {") < route.indexOf("publicAttemptReserve("), "فتحٌ بلا رقمٍ ولا مفتاح لا يُحسب محاولة");
 check(/!who\.byDevice && req\.body\?\.remember === true/.test(route), "المفتاح يُعطى بعد التحقق بالرقم المدني وطلب «تذكّرني» فقط");

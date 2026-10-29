@@ -15,8 +15,9 @@ import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT } from '../src/serve
 import { CALENDAR_LINKS_CLIENT_JS } from '../src/utils/calendarLinks.ts';
 import { TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS } from '../src/server/teacherCardExtras.ts';
 import { PUSH_CARD_CSS, PUSH_CARD_JS, pushCardHead } from '../src/server/pushCard.ts';
+import { readServerSource } from "./helpers/serverSource.mjs";
 
-const server = fs.readFileSync('server.ts', 'utf8');
+const server = readServerSource();
 const start = server.indexOf('function instructorRequestPage');
 const end = server.indexOf('app.post("/api/public/request/:token/check"', start);
 if (start < 0 || end <= start) throw new Error('تعذر عزل صفحة طلب الأستاذ من المصدر');

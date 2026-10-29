@@ -20,6 +20,7 @@ import { ApprovalRevisionConflict, Repository } from "../src/db/repository";
 import { runApprovalAttempts } from "../src/server/approvalAttempts";
 import { scopeBase } from "../src/utils/scopeFingerprint";
 import type { ScheduleAdditionPending, ScheduleApproval, ScheduleApprovalSignature } from "../src/types";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -28,7 +29,7 @@ function check(condition: boolean, name: string) {
 }
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
-const server = read("server.ts");
+const server = readServerSource();
 const workflow = read("src/utils/approvalWorkflow.ts");
 const bar = read("src/components/ApprovalBar.tsx");
 const changes = read("src/components/ScheduleChanges.tsx");

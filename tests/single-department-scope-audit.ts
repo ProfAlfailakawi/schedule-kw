@@ -16,6 +16,7 @@ import fs from "fs";
 import path from "path";
 import { resolveScopeSelection, singleDepartmentOf } from "../src/utils/scopeContext";
 import { createDemoSandboxState, DEMO_ROLE_ACCOUNTS } from "../src/db/demoSandbox";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -59,7 +60,7 @@ check(!("lockSection" in resolveScopeSelection(one, 3)), "S1 لا «lockSection�
 
 /* ── S2: وسم الخادم ─────────────────────────────────────────────────────── */
 
-const server = read("server.ts");
+const server = readServerSource();
 const detailsStart = server.indexOf("async function clientScopeDetails(");
 const details = server.slice(detailsStart, server.indexOf("\n}\n", detailsStart));
 check(detailsStart > 0 && /AdCollegeWide:\s*true/.test(details), "S2 الصفوف المبسوطة من «الكلية كلها» تحمل AdCollegeWide");

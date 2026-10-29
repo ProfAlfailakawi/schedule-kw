@@ -25,6 +25,7 @@ import { studentNeedsCommitteeHelp } from "../src/utils/studentNeedRequest";
 import { verifiedUnresolvableStudentConflicts } from "../src/utils/studentCaseConflict";
 import type { SimOffering } from "../src/utils/registrationSim";
 import type { AdTerm, StudentProfile } from "../src/types";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -192,7 +193,7 @@ check(studentHomeSource.includes('homePart("request-context")') && studentHomeSo
   check(!/\$\{/.test(STUDENT_HOME_SCRIPT.replace(/var countOf=[\s\S]*?;var AR=\{[^\n]*\};/, "")), "D5 لا ‎${‎ شاردة في سكربت الصفحة");
   check(html.includes('lang="ar" dir="rtl"') && html.includes("viewport-fit=cover") && html.includes('name="robots" content="noindex,nofollow"'), "D5 عربيةٌ يمينية للهاتف ولا تُفهرَس");
   check(html.includes("prefers-reduced-motion") && html.includes("env(safe-area-inset-bottom)"), "D5 احترامُ تقليل الحركة وحوافّ الهاتف");
-  const server = read("server.ts");
+  const server = readServerSource();
   check(server.includes("registerStudentDoorRoutes(app,") && server.includes('app.get(["/me", "/me/"]') && server.includes("scheduleStudentProfilePurge("), "D5 الخادم يسجّل المسارات والصفحة والتطهير");
   check(server.includes('req.query.track === "boys" ? "boys" : req.query.track === "girls" ? "girls" : ""') && server.includes("studentHomePage(publicPageNonce(res), track)"), "D5 مسار الصفحة ثابتٌ من قائمة مسموحة وبنونسٍ جديد في كل طلب");
   const routes = read("src/server/studentDoorRoutes.ts");

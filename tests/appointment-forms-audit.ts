@@ -10,6 +10,7 @@ import { appointmentVerdict, relevantConflicts } from "../src/utils/appointmentV
 import { emptySuggestionReason, orderSuggestionCandidates, rankSuggestionCandidates, type SuggestionHall } from "../src/utils/suggestionEngine";
 import { spellingTwinGroups, spellingTwinsOf } from "../src/utils/courseSpellingTwins";
 import { createDemoSandboxState, DEMO_COMPANION_TYPE, DEMO_STUDIO_ROOM_ID } from "../src/db/demoSandbox";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: unknown, name: string) {
@@ -117,7 +118,7 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
 /* ── الربط في الواجهة والخادم ─────────────────────────────────────────────── */
 const editor = read("src/components/Schedules.tsx");
 const quick = read("src/components/QuickCreatePopover.tsx");
-const server = read("server.ts");
+const server = readServerSource();
 const picker = read("src/components/InstructorPicker.tsx");
 const cards = read("src/components/RoomSuggestionCards.tsx");
 const select = read("src/components/SearchableSelect.tsx");

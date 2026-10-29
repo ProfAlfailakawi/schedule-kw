@@ -17,6 +17,7 @@ import path from "path";
 import { companyOn, createChangeClock, sweepPulses, PULSE_TTL_MS, type PulseEntry } from "../src/server/livePulse";
 import { foreignWrites } from "../src/db/beaconEcho";
 import { roleWriteDecision } from "../src/server/roleGuard";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -253,7 +254,7 @@ Date.now = realNow;
 
 /* ── W) الأسلاك ── */
 {
-  const server = read("server.ts");
+  const server = readServerSource();
   const pulseRoute = between(server, 'app.get("/api/schedules/pulse"', 'app.post("/api/schedules/pulse"');
   check(/requireAnyPermission\(\[7, 8, 9, 10, 14, 16, 17\]\)/.test(pulseRoute), "W1 النبضة خلف باب البثّ نفسه");
   check(/isScopeAllowed\(req, collegeId, sectionId\)/.test(pulseRoute) && /boardScopeKey\(req, collegeId, sectionId, termId\)/.test(pulseRoute), "W2 وخلف جداره: لا يُدّعى جدولٌ لا يحقّ لصاحبه");

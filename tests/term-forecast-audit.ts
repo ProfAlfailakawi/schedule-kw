@@ -3,6 +3,7 @@ import fs from "fs";
 import { Repository } from "../src/db/repository";
 import { computeTermForecast } from "../src/utils/termForecast";
 import { addMultiSiteFixture } from "./helpers/multiSiteSandbox";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -59,7 +60,7 @@ async function behaviour() {
   });
 }
 
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const route = server.slice(server.indexOf('app.get("/api/forecast/term"'), server.indexOf('app.put("/api/registration-stats"'));
 check(/requirePermission\(7\)/.test(route) && /isScopeAllowed\(req, collegeId, sectionId\)/.test(route), "المسار: صلاحية + isScopeAllowed");
 check(/readSchedulesForRequest\(/.test(route) && /AdSectionId\) === sectionId/.test(route), "المسار: صفوف القارئ وقسمٌ واحد");

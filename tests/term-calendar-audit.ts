@@ -5,6 +5,7 @@
 import fs from "fs";
 import { autoTermDue, defaultTermDates, sundayNearest, termEndDate, termHasEnded, termStatus, termWindow } from "../src/utils/termSequence";
 import { closeEndedTerms, runAutoTermJob } from "../src/server/autoTerms";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -72,7 +73,7 @@ check(due("2027-04-01").name === "الفصل الأول 2027/2028" && due("2027-
   const again = await runAutoTermJob(deps(false), Date.parse("2026-10-03T09:00:00"));
   check(first === "الفصل الثاني 2026/2027" && again === null && store.length === 1 && store[0].AdTermStart === "2027-01-31" && store[0].AdTermWeeks === 14,
     "المهمة متكرّرة الأمان: فصلٌ واحد بتاريخه وأسابيعه");
-  const server = fs.readFileSync("server.ts", "utf8");
+  const server = readServerSource();
   const repo = fs.readFileSync("src/db/repository.ts", "utf8");
   check(server.includes("scheduleAutoTermJob({") && server.includes("Repository.createTermIfAbsent("), "الخادم يجدول المهمة عبر المستودع");
   check(repo.includes('collection("autoTermClaims").doc(') && repo.includes("await claim.create("), "Firestore: حجزُ الاسم ذرّي فلا يولد فصلان من نسختين");

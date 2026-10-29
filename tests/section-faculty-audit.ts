@@ -4,6 +4,7 @@
 import fs from "fs";
 import { ensureSectionFaculty, placeholderCivilFor } from "../src/server/sectionFaculty";
 import { singleFacultyPlaceholder, withoutFacultyPlaceholderCivil, isFacultyPlaceholder } from "../src/utils/placeholderInstructor";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -55,7 +56,7 @@ const fake = (seed: any[] = [], faculty: Record<string, number[]> = {}) => {
   check(picker.includes("singleFacultyPlaceholder(") && picker.includes("!isFacultyPlaceholder(person)") && picker.includes("!isFacultyPlaceholder(selected)"), "قائمة الأستاذ لا تكرر الهيئة ولا تعرض رقمها");
   check(directory.includes("items.filter(x => !isFacultyPlaceholder(x))"), "دليل الأساتذة الحقيقيين لا يعرض سجل الهيئة الافتراضي");
 
-  const server = fs.readFileSync("server.ts", "utf8"), plan = fs.readFileSync("src/server/planReviewRoutes.ts", "utf8");
+  const server = readServerSource(), plan = fs.readFileSync("src/server/planReviewRoutes.ts", "utf8");
   check(server.includes("ensureSectionFaculty(Repository, collegeId, Number(newSec.AdSectionId))"), "إضافة قسم من الإدارة تُنشئ السجل");
   check(server.includes("if(created){try{await ensureSectionFaculty(Repository,collegeId"), "إنشاء القسم من ترويسة PDF يُنشئ السجل (ما أُنشئ الآن فقط)");
   check(plan.includes("ensureSectionFaculty(Repository, Number(college.AdCollegeId), Number(created.AdSectionId))"), "إنشاء القسم من الصحيفة يُنشئ السجل");

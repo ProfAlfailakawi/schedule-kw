@@ -31,6 +31,7 @@ import { ADMIN_COOLDOWN_MS, awaitingInScope, HOOK_WAIT_MS, pushHooks, registerPu
 import { isPushWorkerRegistration, unregisterAppWorkers } from "../src/utils/pushClient";
 import { roleWriteDecision } from "../src/server/roleGuard";
 import { Repository } from "../src/db/repository";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: unknown, label: string) => {
@@ -527,7 +528,7 @@ const ROOMY_REQUEST = () => ({
   check(!/AdRoom|roomPick|reservedRoom|roomOptions/.test(PUSH_CARD_JS), "والشارةُ لا تقرأ شيئاً عن القاعات");
 
   /* التوصيل في server.ts: سطرٌ لكل حدث */
-  const server = read("server.ts");
+  const server = readServerSource();
   const route = (start: string, end: string) => between(server, start, end);
   check(route('app.post("/api/public/request/:token", rateLimitPublicRequest', "/**").includes("if (!unchangedConfirmed) await pushHooks.requestSubmitted(saved);"), "📥 إرسالُ الأستاذ طلبَه (لا تأكيدَ «بلا تعديل»)");
   check(route('app.post("/api/public/request/:token/reply", rateLimitPublicRequest', "/** One signature").includes("await pushHooks.teacherReplied(saved, [index], acceptAt >= 0);")

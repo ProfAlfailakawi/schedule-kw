@@ -16,6 +16,7 @@ import { canSeeDecisionBoard, decisionBoardScope } from "../src/utils/decisionBo
 import ActionableErrorNotice from "../src/components/ActionableErrorNotice";
 import type { GapItem } from "../src/utils/sectionGap";
 import type { AdCourse, FSchedule, StudentProfile } from "../src/types";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -113,7 +114,7 @@ console.log("K2 — قرارات «تم/تجاهل» مشتركة على الخ�
     check((await Repository.getPlanTriageDecisions(1, 1, 1)).length === 0, "«إرجاع» يحذف القرار");
   });
   Repository.dropDemoSandbox(session);
-  const server = read("server.ts");
+  const server = readServerSource();
   const route = server.slice(server.indexOf('app.put("/api/schedules/section-gap/decisions"'), server.indexOf('app.get("/api/schedules/section-gap", '));
   check(server.includes('app.get("/api/schedules/section-gap/decisions", requirePermission(7)') && route.includes("requirePermission(7)") && route.includes("isScopeAllowed(req, collegeId, sectionId)"), "المساران بصلاحية التخطيط نفسها (الإذن 7 + نطاق الكلية والقسم)");
   check(route.includes("التجاهل يحتاج سبباً مكتوباً") && route.includes("byName: String(req.user?.Name"), "الخادم يرفض تجاهلاً بلا سبب، ويكتب اسم صاحب القرار ووقته من الجلسة لا من الطلب");
@@ -133,7 +134,7 @@ console.log("K3 — مركز الذكاء: قراءةٌ فاشلة لا تُسق
   const workspace = read("src/components/IntelligenceWorkspace.tsx");
   check(workspace.includes("Promise.allSettled(sources.map(source => source.run()))"), "القراءات الثانوية تستقرّ كلٌّ وحدها (كانت Promise.all تُسقط السبع بفشل واحدة)");
   check(workspace.includes("<ActionableErrorNotice") && workspace.includes("showTechnical={isPowerAdmin}"), "الخطأ بأيقونة وسبب وإعادة محاولة؛ التفاصيل التقنية للمدير فقط");
-  const server = read("server.ts");
+  const server = readServerSource();
   check(/code: "INTERNAL", ref \}/.test(server) && server.includes("[api-error] ref=%s"), "خطأ الخادم يحمل رمز مرجع يطابق سطر السجل");
   const internal = classifyActionableError(Object.assign(new Error("تعذّر إتمام العملية الآن"), { status: 500, ref: "EABC12", url: "/api/intelligence/genome?x=1" }));
   check(internal.kind === "server" && internal.retryable && internal.technical.includes("EABC12") && internal.technical.includes("/api/intelligence/genome") && !internal.technical.includes("x=1"), "500 ← «تعذّرت القراءة» + مرجع + مسار بلا استعلام");

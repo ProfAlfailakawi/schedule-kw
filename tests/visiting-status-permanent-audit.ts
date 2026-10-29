@@ -7,6 +7,7 @@
 import fs from "fs";
 import path from "path";
 import { visitingByScope } from "../src/utils/liveVisiting";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`  ✓ ${label}`); } else { failed++; console.log(`  ✗ ${label}`); } };
@@ -19,7 +20,7 @@ for (const term of [5, 6, 99]) check(visitingByScope(directoryOnly, term, known,
 check(!visitingByScope([{ collegeId: 1, sectionId: 1, instructorIds: [10], kind: "directory" }, { collegeId: 1, sectionId: 1, instructorIds: [11], kind: "roster", termId: 5 }] as any, 5, known, scopes)["1:1"]?.includes(11), "من في روستر الفصل وليس في الدليل ليس منتدباً");
 check(!visitingByScope([{ collegeId: 1, sectionId: 1, instructorIds: [12], kind: "roster", termId: 3 }] as any, 5, known, scopes)["1:1"], "قسمٌ بلا دليلٍ لا يُنتدَب فيه من مرّ في روستر فصلٍ قديم");
 
-const server = read("server.ts");
+const server = readServerSource();
 const status = server.slice(server.indexOf("async function readVisitingStatus("), server.indexOf("async function readVisitingStatus(") + 1500);
 check(/getDepartmentDelegates\(collegeId, sectionId\)/.test(status) && /getExplicitDirectoryScopes\(\)/.test(status) && /saved \|\| !termId \? directory/.test(status), "الخادم يقرأ الصفة من دليل القسم، وقسمٌ بلا دليلٍ محفوظ يُقرأ له روسترُ الفصل وحده (كما visitingByScope)");
 check(/visitingStatusIds/.test(server) && /visitingInstructorIds,/.test(server), "حمولةُ الجدول تحمل الصفةَ (للشارة) وروسترَ الفصل (للمنتقي) معاً");

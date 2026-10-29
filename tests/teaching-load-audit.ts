@@ -6,6 +6,7 @@ import { createDemoSandboxState } from "../src/db/demoSandbox";
 import {
   emptyTeachingLoadConfig, evaluateTeachingLoad, hoursLabel, normalizeTeachingLoadConfig, teachingHoursByInstructor, teachingLoadLimits, teachingLoadProblem,
 } from "../src/utils/teachingLoad";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(ok: boolean, label: string) {
@@ -73,7 +74,7 @@ check(teachingLoadProblem({ ranks: [{ name: "أستاذ", minHours: 9, maxHours:
 }
 
 /* ── العقد: اختياريةٌ، مخوَّلة، قراءةٌ فقط، معزولة ── */
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const block = server.slice(server.indexOf("النصاب التدريسي (ميزةٌ اختيارية"), server.indexOf('app.post("/api/sections"'));
 check(/app\.get\("\/api\/admin\/teaching-load",[^\n]*requireRootAdmin/.test(block) && /app\.put\("\/api\/admin\/teaching-load",[^\n]*requireRootAdmin/.test(block), "الإعداد (قراءةً وحفظاً) للمدير الرئيسي وحده");
 check(/app\.get\("\/api\/teaching-load\/status"/.test(block) && block.includes("isScopeAllowed(req, collegeId, sectionId)"), "تنبيه المخطّط محكومٌ بنطاقه");

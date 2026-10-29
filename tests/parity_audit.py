@@ -3,12 +3,20 @@ from pathlib import Path
 import re, sys
 from snapshot_loader import load_snapshot, snapshot_available, print_snapshot_skip
 
+def read_server_source():
+    """server.ts وما قُسّم منه بترتيبه القديم — tests/helpers/serverSource.mjs."""
+    import subprocess, pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    code = "import { readServerSource } from './tests/helpers/serverSource.mjs'; process.stdout.write(readServerSource())"
+    return subprocess.check_output(["node", "--input-type=module", "-e", code], cwd=root, text=True)
+
+
 root=Path(__file__).resolve().parents[1]
 checks=[]
 def check(cond,msg): checks.append((bool(cond),msg))
 def txt(rel): return (root/rel).read_text(encoding='utf-8')
 
-app=txt('src/App.tsx'); server=txt('server.ts'); css=txt('src/index.css'); refine=txt('src/styles/refinement.css')
+app=txt('src/App.tsx'); server=read_server_source(); css=txt('src/index.css'); refine=txt('src/styles/refinement.css')
 repo=txt('src/db/repository.ts'); snapshot=txt('src/db/snapshot.ts'); reports=txt('src/components/Reports.tsx')
 schedules=txt('src/components/Schedules.tsx'); admin=txt('src/components/AdminUsers.tsx'); living=txt('src/components/LivingScheduleLayer.tsx')
 experience=txt('src/components/ScheduleExperienceLayer.tsx'); dashboard=txt('src/components/Dashboard.tsx'); migration=txt('scripts/import-legacy-json.ts')
