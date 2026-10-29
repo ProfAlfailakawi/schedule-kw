@@ -38,6 +38,7 @@ test:blockers-stream
 test:changes-baseline
 test:notifications
 test:bell-yield
+test:web-push
 test:id-types
 test:inbox-live
 test:public-syntax

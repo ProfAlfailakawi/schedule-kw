@@ -124,6 +124,7 @@ const Reports = safeLazy(loadReports);
 const AdminUsers = safeLazy(loadAdminUsers);
 const About = safeLazy(loadAbout);
 import { legacyOnboardingSeenKey, onboardingSeen, onboardingSeenKey } from "./utils/onboardingKey";
+import { forgetPushDevice, markPushActive } from "./utils/pushClient";
 /* The welcome stage is a first-run surface: it must not sit in the payload
    every returning user downloads. */
 const Onboarding = safeLazy(() => import("./components/Onboarding"));
@@ -1644,6 +1645,9 @@ export default function App() {
     window.history.replaceState({}, "", pathByView[landingView] || pathByView.dashboard);
   };
   const logout = async () => {
+    /* جهازٌ مشترك لا يحمل تنبيهاتِ من خرج: يُلغى اشتراكُه والجلسةُ ما زالت صالحة (قبل الخروج). */
+    await forgetPushDevice().catch(() => undefined);
+    if (user) markPushActive(String(user.SystemUserId || user.Name || ""), false);
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     forgetWarmStarts();
     await forgetCachedReads();
