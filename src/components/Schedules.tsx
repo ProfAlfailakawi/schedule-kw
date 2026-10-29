@@ -76,9 +76,9 @@ import AppointmentChecksPanel from "./AppointmentChecksPanel";
 import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, type MiniPick } from "./TeacherMiniWeek";
 import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
-import RegulationPatternChips from "./RegulationPatternChips";
+import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, type VerdictCheck } from "../utils/appointmentVerdict";
-import { bestRegulationChoice, completeRegulation, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
+import { bestRegulationChoice, completeRegulation, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { spellingTwinsOf } from "../utils/courseSpellingTwins";
 import {
@@ -3020,6 +3020,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setRegulationAlternatives([]);
     setTimingOverride(false);
     daysSeeded.current = false;
+    usualDismissed.current = "";
     timingOpenedKey.current = "";
     setBorrowOpen(false); setBorrowMsg(""); setBorrowRooms([]);
     setRoomOwner(null);
@@ -3327,6 +3328,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const [timingOverride, setTimingOverride] = useState(false);
   /* أيامٌ بُذرت من خانة مرسومة (لم تُختر نمطاً) تُكمل حين يُعرف المقرر. */
   const daysSeeded = useRef(false);
+  /* إضاءةٌ قصيرة على الأيام والنهاية حين يكملهما النمط آلياً — يرى المستخدم ما تغيّر. */
+  const [autofillFlash, flashAutofill] = useAutofillFlash();
+  /* أفرغ المستخدم الأيام بيده: لا يُعاد النمط المعتاد حتى يتغيّر المقرر أو البداية. */
+  const usualDismissed = useRef("");
   /* مفتاح التوقيت لحظة فتح «تعديل»: لا إكمال حتى يتغيّر. */
   const timingOpenedKey = useRef("");
   /* شرائح البدائل اللائحية لليوم المضغوط (B1). */
@@ -4015,15 +4020,27 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const pool = [...(formRegulationChoice ? [formRegulationChoice] : []), ...regulationAlternatives,
       ...(formDays.length ? regulationChoicesForDay(formCourse, formDays[0]) : [])];
     const seen = new Set<string>();
-    return pool.filter(choice => { const key = choice.days.join("+") + choice.minutes; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 4);
+    /* كتلةُ اليوم الواحد شريحةٌ واحدة (يوم النمط الأول)، لا «أحد · 170د» و«ثلاثاء · 170د» معاً. */
+    return pool.filter(choice => { const key = choice.days.length === 1 ? `block:${choice.minutes}` : choice.days.join("+") + choice.minutes; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 4);
   }, [formRegulationChoice, regulationAlternatives, formCourse, formDays.join("+")]);
+  /** أيامٌ جرت بها عادة القسم لهذا المقرر: المرصودة عبر الفصول، ثم شعبُه القائمة في اللوحة. */
+  const usualDaysFor = (courseId: number) => {
+    if (!courseId) return [];
+    const habit = (nature.get(courseId)?.dayPatterns || []).map(pattern => ({ days: pattern.days, count: pattern.count }));
+    const live = rows.filter(row => Number(row.AdCourseId) === courseId && Number(row.id) !== Number(editId || 0)).map(row => ({ days: daysOfRow(row as any) }));
+    return [...habit, ...live];
+  };
   /** النهاية من البداية: دقائق نمط اللائحة أولاً، ثم عادة القسم. */
   const endForStart = (row: Partial<FSchedule>, start: string) =>
     regulationEnd(courseById.get(Number(row.AdCourseId || 0)), daysOfRow(row as any), start) || autoEndFor(row, start);
   const chooseFormDay = (day: RegDayKey, checked: boolean) => {
     setScheduleTouched(true);
     const result = pickDay(formCourse, formDays, day, checked);
-    daysSeeded.current = false;
+    /* يومٌ يُضغط قبل اختيار مقررٍ له ساعات ليس قرار نمط: يُكمل نمطَه المعتاد حين يُعرف المقرر
+       (الأحد ← أحد·ثلاثاء·خميس، لا «أحد · 170د» لأن يوماً واحداً صادف نمط الكتلة). */
+    daysSeeded.current = !regulationHours(formCourse);
+    usualDismissed.current = result.days.length ? "" : `${Number(form.AdCourseId) || 0}|${form.fstarttime || ""}`;
+    if (result.applied && checked) flashAutofill();
     /* أيامٌ لا تطابق نمطاً لمقررٍ له ساعات = تجاوزٌ متعمَّد؛ وإلا فالإكمال الآلي يبقى حارساً. */
     setTimingOverride(Boolean(regulationHours(formCourse) && result.days.length && !result.applied));
     setRegulationAlternatives(result.alternatives);
@@ -4090,12 +4107,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const key = timingKeyOf(form);
     if (editor === "edit" && timingOpenedKey.current && key === timingOpenedKey.current) return;
     timingOpenedKey.current = "";
-    const completed = completeRegulation(formCourse, formDays, String(form.fstarttime || ""), { fresh: daysSeeded.current });
+    /* بدايةٌ بلا يوم (كتابةً أو بالعجلة): النمط المعتاد لهذا المقرر يكمل الأيام والنهاية. */
+    const usual = formDays.length || !form.fstarttime || usualDismissed.current === `${Number(form.AdCourseId) || 0}|${form.fstarttime}`
+      ? null : usualRegulationChoice(formCourse, usualDaysFor(Number(form.AdCourseId) || 0));
+    const completed = completeRegulation(formCourse, formDays, String(form.fstarttime || ""), { fresh: daysSeeded.current, usual });
     if (!completed) return;
     daysSeeded.current = false;
     const sameDays = completed.days.join("+") === formDays.join("+");
     const sameEnd = !completed.end || completed.end === String(form.fendtime || "");
     if (sameDays && sameEnd) return;
+    flashAutofill();
     if (!sameDays) setRegulationAlternatives(regulationChoicesForDay(formCourse, completed.days[0]).filter(choice => choice.id !== completed.applied.id));
     setForm(previous => {
       const next: any = { ...previous };
@@ -5181,6 +5202,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const seedDay = quick.day, start = draft.start, end = draft.end;
     setQuick(null);
     openCreate({ day: seedDay, ...(draft.days?.length ? { days: draft.days } : {}), start, end });
+    /* بطاقةٌ بلا مقرر: يومها المرسوم لم يُختر نمطاً بعد، فيُكمل حين يُختار المقرر في المحرر الكامل. */
+    if (!draft.courseId) daysSeeded.current = true;
     setForm(prev => ({
       ...prev,
       AdCourseId: draft.courseId || prev.AdCourseId,
@@ -9266,7 +9289,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </div>
                 ) : null}
                 <Field label="الأيام" hint={dayPatternNote}>
-                  <div className="checkbox-row day-pills">
+                  <div className={`checkbox-row day-pills${autofillFlash ? " is-autofilled" : ""}`}>
                     {days.map((d) => (
                       <label key={d.key}>
                         <input
@@ -9284,6 +9307,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     fit={formRegulationFit}
                     onPick={applyRegulationChoice}
                     onApplyBest={patternOverridden ? applyApprovedPattern : undefined}
+                    autofilled={autofillFlash}
                   />
                 </Field>
                 {Number(form.AdInstructorId || 0) && !isFacultyPlaceholderId(Number(form.AdInstructorId)) ? (
@@ -9321,6 +9345,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         setStartTimeLimitNotice("");
                         setScheduleTouched(true);
                         const start = e.target.value;
+                        if (!timingOverride && start && regulationEnd(formCourse, formDays, start)) flashAutofill();
                         setForm((p) => ({ ...p, fstarttime: start, fendtime: timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
                       }}
                       required
@@ -9342,14 +9367,20 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       anchor={timeCounterAnchor.current}
                       start={form.fstarttime || SCHEDULE_DAY_START_TIME}
                       end={form.fendtime || form.fstarttime || SCHEDULE_DAY_START_TIME}
-                      preferredDuration={expectedDurationForSelection(form)}
+                      preferredDuration={formRegulationChoice?.minutes || expectedDurationForSelection(form)}
                       minTime={activeScheduleWindow.startTime}
                       maxTime={activeScheduleWindow.endTime}
                       onChange={(next) => {
                         setScheduleTouched(true);
-                        /* العجلة تحفظ المدة: تحريك الساعة يعيد النهاية إلى النمط، وتغيير «المدة» تجاوزٌ متعمَّد. */
-                        const spanBefore = form.fstarttime && form.fendtime ? mins(form.fendtime) - mins(form.fstarttime) : 0;
+                        /* العجلة تحفظ المدة: تحريك الساعة يعيد النهاية إلى النمط، وتغيير «المدة» تجاوزٌ متعمَّد.
+                           المدة السابقة كما ترسمها العجلة نفسها (30د على الأقل، ومن 08:00 حين تكون البداية فارغة):
+                           كان أول دوران للساعة في نموذجٍ جديد يُقرأ «تغيير مدة» (0 ← 30د) فيوقف الإكمال
+                           ويترك 09:00–09:30 «خارج اللائحة» — السبب الجذري لملاحظة المالك في مسار العجلة. */
+                        const shownStart = form.fstarttime || SCHEDULE_DAY_START_TIME;
+                        const shownEnd = form.fendtime || form.fstarttime || SCHEDULE_DAY_START_TIME;
+                        const spanBefore = Math.max(30, mins(shownEnd) - mins(shownStart));
                         const lengthChanged = mins(next.end) - mins(next.start) !== spanBefore;
+                        if (!lengthChanged && !timingOverride && regulationEnd(formCourse, formDays, next.start)) flashAutofill();
                         if (lengthChanged) setTimingOverride(regulationFit(formCourse, formDays, next.start, next.end) === "off" && regulationHours(formCourse) > 0);
                         setForm((p) => ({ ...p, fstarttime: next.start, fendtime: lengthChanged || timingOverride ? next.end : (endForStart(p, next.start) || next.end) }));
                       }}
@@ -9358,7 +9389,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   ) : null}
                 </Field>
                 <Field label="نهاية الوقت" required>
-                  <div className="schedule-time-control" dir="ltr">
+                  <div className={`schedule-time-control${autofillFlash ? " is-autofilled" : ""}`} dir="ltr">
                     <TimeField
                      
           min={activeScheduleWindow.startTime}

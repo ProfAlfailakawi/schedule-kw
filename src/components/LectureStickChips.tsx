@@ -1,13 +1,33 @@
-import React, { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, DoorOpen, Magnet } from "lucide-react";
+import React, { useEffect, useId, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ChevronDown, DoorOpen, Magnet } from "lucide-react";
 import type { AdCourse, FSchedule } from "../types";
 import { DAY_KEYS, type DayKey } from "../utils/scheduleRegulations";
 import { lectureStickOptions, teacherLectures, toClock, toMin, type MiniSpan } from "../utils/teacherMiniWeek";
 import { courseLabel } from "../utils/courseLabel";
 import { useWiderWeek, type MiniPick } from "./TeacherMiniWeek";
+import { safeStorage } from "../utils/safeStorage";
 
 const DAY_SHORT: Record<DayKey, string> = { fsunday: "أحد", fmonday: "اثنين", ftuesday: "ثلاثاء", fwednesday: "أربعاء", fthursday: "خميس" };
 const SHOWN = 6;
+
+/* ── مطويٌّ افتراضياً، ويُتذكَّر على الجهاز (ملاحظة المالك R3) ───────────────────
+   رأسٌ مضغوط بأيقونته وعدد الخيارات؛ من فتحه مرةً يجده مفتوحاً في النموذج التالي. */
+const OPEN_KEY = "lecture-stick:open";
+const OPEN_EVENT = "lecture-stick:open";
+export function useLectureStickOpen(): [boolean, (next: boolean) => void] {
+  const [open, setOpenState] = useState(() => safeStorage.get(OPEN_KEY) === "on");
+  useEffect(() => {
+    const sync = () => setOpenState(safeStorage.get(OPEN_KEY) === "on");
+    window.addEventListener(OPEN_EVENT, sync);
+    return () => window.removeEventListener(OPEN_EVENT, sync);
+  }, []);
+  const setOpen = (next: boolean) => {
+    safeStorage.set(OPEN_KEY, next ? "on" : "off");
+    setOpenState(next);
+    window.dispatchEvent(new Event(OPEN_EVENT));
+  };
+  return [open, setOpen];
+}
 
 /**
  * ── «لاصق بمحاضرتي» داخل نموذج الموعد (الجديد والتعديل) ──────────────────────
@@ -37,14 +57,23 @@ export default function LectureStickChips({
   const options = useMemo(() => lectureStickOptions(lectures, all, course, dayWindow, { minutes, excludeId }),
     [lectures, all, course, dayWindow, minutes, excludeId]);
   const [more, setMore] = useState(false);
+  const [open, setOpen] = useLectureStickOpen();
+  const listId = useId();
   if (!options.length) return null;
   const draftDays = DAY_KEYS.filter(day => Boolean((draft as any)[day])).join("+");
   const shown = more ? options : options.slice(0, SHOWN);
   const nameOf = (row: FSchedule) => courseLabel(String(row.AdCourseName || courses.get(Number(row.AdCourseId))?.CourseName || ""), 0.3).text
     || String(courses.get(Number(row.AdCourseId))?.CourseCode || "");
-  return <div className="lecture-stick" role="group" aria-label="لاصق بمحاضرتي">
-    <p className="lecture-stick-head"><Magnet aria-hidden="true" /><b>لاصق بمحاضرتي</b><small>قبلها أو بعدها في اليوم نفسه</small></p>
-    <div className="lecture-stick-list">
+  const count = options.length.toLocaleString("ar-KW-u-nu-latn");
+  return <div className={`lecture-stick${open ? "" : " is-collapsed"}`} role="group" aria-label="لاصق بمحاضرتي">
+    <button type="button" className="lecture-stick-toggle" aria-expanded={open} aria-controls={open ? listId : undefined} onClick={() => setOpen(!open)}
+      title={open ? "طيّ «لاصق بمحاضرتي» (يُتذكَّر على هذا الجهاز)" : "عرض مواعيد قبل محاضرات الأستاذ وبعدها"}
+      data-guide-ignore="يفتح خيارات الالتصاق بمحاضرات الأستاذ أو يطويها، ويتذكّر ذلك على هذا الجهاز؛ لا يغيّر الموعد">
+      <Magnet aria-hidden="true" /><b>لاصق بمحاضرتي</b><span className="lecture-stick-count">{count}</span>
+      <small>قبلها أو بعدها في اليوم نفسه</small><ChevronDown className="lecture-stick-chevron" aria-hidden="true" />
+    </button>
+    {open ? <>
+    <div className="lecture-stick-list" id={listId}>
       {shown.map(option => {
         const { spot, lecture, room, side } = option;
         const Icon = side === "before" ? ArrowUp : ArrowDown;
@@ -67,5 +96,6 @@ export default function LectureStickChips({
     </div>
     {options.length > SHOWN ? <button type="button" className="lecture-stick-more" onClick={() => setMore(value => !value)}
       data-guide-ignore="يعرض بقية خيارات الالتصاق أو يطويها">{more ? "أقل" : `+${options.length - SHOWN}`}</button> : null}
+    </> : null}
   </div>;
 }

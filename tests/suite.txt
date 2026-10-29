@@ -190,6 +190,7 @@ test:placeholder-action
 test:course-spelling-merge
 test:teacher-mini-week
 test:appointment-forms-r2
+test:appointment-forms-r3
 test:schedule-wipe
 test:instructor-availability
 test:instructor-offering-flow
