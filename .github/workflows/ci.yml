@@ -50,8 +50,12 @@ jobs:
       - name: TypeScript check (noEmit)
         run: npm run lint
 
-      - name: Run all tests
-        run: npm test
+      # Pull requests skip the slowest tests (tests/slow.txt, ~45% of the test
+      # time); every push to main runs them all, and deploy-schedule.yml only
+      # releases a commit whose full run on main succeeded. Actions minutes are
+      # billed, and each pull request used to pay for the full suite twice.
+      - name: Run tests (quick for pull requests, all on main)
+        run: npm test ${{ github.event_name == 'pull_request' && '-- --quick' || '' }}
 
       - name: Production Build
         run: npm run build

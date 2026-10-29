@@ -6,6 +6,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  actions: read
 
 concurrency:
   group: schedule-production-deploy
@@ -22,6 +23,31 @@ jobs:
     # PRODUCTION_DEPLOY_ENABLED is the owner's kill switch (repository variable).
     if: github.repository == 'ProfAlfailakawi/schedule-kw' && vars.PRODUCTION_DEPLOY_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'success'))
     steps:
+      # Pull requests run CI without the slowest tests (tests/slow.txt); the full
+      # suite runs on every push to main. So the release is the commit that full
+      # run passed — nothing else: not a branch, not main while it is red. A run
+      # still going is waited for; one dispatched seconds after a merge finds it.
+      - name: Refuse a commit the full CI on main has not passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          for attempt in $(seq 1 60); do
+            found=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$SHA" --event push --limit 1 \
+              --json status,conclusion,url --jq '.[0] // empty | "\(.status) \(.conclusion) \(.url)"')
+            set -- $found
+            status="${1:-none}"; conclusion="${2:-}"; url="${3:-}"
+            if [ "$status" = "completed" ] && [ "$conclusion" = "success" ]; then echo "✓ the full CI on main passed for $SHA: $url"; exit 0; fi
+            if [ "$status" = "completed" ]; then echo "::error::CI on main ended '$conclusion' for $SHA ($url). Fix main, then deploy."; exit 1; fi
+            if [ "$status" = "none" ] && [ "$attempt" -ge 6 ]; then
+              echo "::error::No CI run on main for $SHA. Only commits pushed to main are released: gh workflow run deploy-schedule.yml --ref main"; exit 1
+            fi
+            echo "CI on main: ${status} for $SHA (check $attempt); waiting…"
+            sleep 30
+          done
+          echo "::error::CI on main did not finish within 30 minutes for $SHA."
+          exit 1
+
       - name: Check out SCHEDULE
         uses: actions/checkout@v6
         with:
