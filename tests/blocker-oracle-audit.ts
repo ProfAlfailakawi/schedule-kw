@@ -21,6 +21,7 @@ import {
   isBlockingConflict, placeholderInstructorIds, rowClashReasons,
 } from "../src/utils/scheduleBlockers";
 import { analyzeSchedule, fastConflictScan, outsideScopeClashes } from "../src/utils/scheduleIntelligence";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -178,7 +179,7 @@ const copies = sources.flatMap(path => {
 check(copies.length === 1 && copies[0] === "src/utils/scheduleIntelligence.ts",
   `شرط المانع مكتوبٌ مرةً واحدة فقط — isBlockingConflict (${copies.join(", ")})`);
 
-const server = readFileSync(join(ROOT, "server.ts"), "utf8");
+const server = readServerSource();
 /* Full readings include advisory findings; blocking decisions still use the central predicate. */
 const ALLOWED_RAW: Array<[string, string]> = [
   ["findConflicts(assigned, week,", "offering discovery: suppress alternatives with shared-student overlap, even when an explicit request may seek an exception"],

@@ -22,6 +22,7 @@ import { currentTermId as currentTermIdOf, planningTermCandidates, planningTermI
 import { onboardingScenesFor } from "../src/components/Onboarding";
 import { legacyOnboardingSeenKey, onboardingSeen, onboardingSeenKey, ROLES_WITH_OWN_TOUR } from "../src/utils/onboardingKey";
 import { createDemoSandboxState, DEMO_ROLE_ACCOUNTS } from "../src/db/demoSandbox";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -29,7 +30,7 @@ function check(condition: boolean, name: string) {
   else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`); }
 }
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
-const server = read("server.ts");
+const server = readServerSource();
 /** جسمُ مسارٍ من الخادم: من تعريفه إلى تعريف المسار التالي. */
 function routeBody(signature: string): string {
   const at = server.indexOf(signature);
@@ -336,7 +337,7 @@ check(HISTORICAL_FINALITY_LABEL === "جدول نُفّذ (قبل دورة الا
   const acceptedNotes = buildNotifications({ role: "departmentHead", scopes: [mk("accepted", 1)] });
   check(acceptedNotes.some(item => item.title.includes("ملاحظات التسجيل")), "N19: …وبعد الاعتماد تُنبّه القسم");
   check(fs.readFileSync(path.join(process.cwd(), "src/utils/notificationCenter.ts"), "utf8").includes('approval.status !== "submitted" && scope.openRegistrarNotes > 0')
-    && fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8").includes('if (approval.status === "submitted") continue;'),
+    && readServerSource().includes('if (approval.status === "submitted") continue;'),
     "N19: والجدولُ عند التسجيل لا يُطلب من القسم فعلٌ على مراجعةٍ جارية");
 }
 

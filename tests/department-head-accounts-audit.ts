@@ -5,6 +5,7 @@
 import fs from "fs";
 import { planAdvisorAccounts, planDepartmentHeadAccounts } from "../src/utils/departmentHeadAccounts";
 import { ACADEMIC_ROLES, isAdvisorRole, isReadOnlyRole, roleDefinition } from "../src/utils/academicRoles";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -154,7 +155,7 @@ check(ACADEMIC_ROLES.some(role => role.id === "advisor"), "الصفة معرّف
 const appSrc = fs.readFileSync("src/App.tsx", "utf8");
 check(/sessionRole\.advisorOnly[\s\S]{0,200}studentRegistration/.test(appSrc) && /advisorOnly\s*\n?\s*\? undefined/.test(appSrc), "القائمة: المرشد بلا استعلامات وتقارير، وأي وجهة تعود إلى كشف التسجيل");
 
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const block = server.slice(server.indexOf('app.post("/api/users/department-heads"'), server.indexOf('app.put("/api/users/:id"'));
 check(/requirePowerAdmin/.test(block), "الإنشاء لمدير النظام وحده على الخادم");
 check(/SystemUserPass: ""/.test(block) && /IsActive: false/.test(block) && !/hashPassword|randomBytes|encryptPasswordForVault/.test(block), "لا كلمة سرّ تُولَّد، والحساب موقوف");

@@ -1,5 +1,6 @@
 import fs from "fs";
 import { roomTypeSiblingIds } from "../src/utils/courseRoomTypeSync";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -47,7 +48,7 @@ check(roomTypeSiblingIds({ ...courses[0], AdSectionId: 99 }, courses, sections, 
 check(roomTypeSiblingIds({ ...courses[0], AdCollegeId: 99 }, courses, sections, colleges).length === 0, "كليةٌ مجهولة لا تطابق شيئاً");
 
 /* ترتيبُ الكتابة في المسار: النسخُ قبل المقرر المعدَّل، فتعيد المحاولةُ ما فات. */
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const courseUi = fs.readFileSync("src/components/Courses.tsx", "utf8");
 check(courseUi.includes("course-detail-fact") && courseUi.includes("نوع القاعة") && courseUi.includes("طبيعة التدريس") && courseUi.includes("teachingModeValue(selected)"), "تفاصيل المقرر تعرض نوع القاعة وطبيعة التدريس المخزّنة");
 const route = server.slice(server.indexOf('app.put("/api/courses/:id"'), server.indexOf('app.delete("/api/courses/:id"'));

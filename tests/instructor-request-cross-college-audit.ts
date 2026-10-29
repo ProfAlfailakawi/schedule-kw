@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { departmentFamily } from "../src/utils/sectionLabel";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -9,7 +10,7 @@ function check(condition: boolean, name: string) {
 }
 
 const root = process.cwd();
-const server = fs.readFileSync(path.join(root, "server.ts"), "utf8");
+const server = readServerSource();
 const types = fs.readFileSync(path.join(root, "src/types.ts"), "utf8");
 const inbox = fs.readFileSync(path.join(root, "src/components/InstructorInbox.tsx"), "utf8");
 const requestPage = server.slice(server.indexOf("function instructorRequestPage"), server.indexOf('app.post("/api/public/request/:token/check"'));

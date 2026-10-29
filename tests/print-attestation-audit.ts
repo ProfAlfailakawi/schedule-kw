@@ -12,6 +12,7 @@
 
 import fs from "fs";
 import path from "path";
+import { serverSourceFiles } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -66,7 +67,7 @@ check(reports.includes('if (kind === "comprehensive" || kind === "comprehensive-
  * في الموقع كلِّه لاتينية.
  */
 const sources = [
-  "server.ts",
+  ...serverSourceFiles(),
   ...fs.readdirSync(path.join(process.cwd(), "src/components")).map(name => `src/components/${name}`),
   ...fs.readdirSync(path.join(process.cwd(), "src/utils")).map(name => `src/utils/${name}`),
 ].filter(file => /\.(ts|tsx)$/.test(file));

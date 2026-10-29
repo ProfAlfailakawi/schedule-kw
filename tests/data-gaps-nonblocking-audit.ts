@@ -14,6 +14,7 @@ import { canSign, emptyApproval } from "../src/utils/approvalWorkflow";
 import { approvalBlockerSummary } from "../src/utils/scheduleBlockers";
 import { capacityGapItems, computeScheduleDataReadiness } from "../src/utils/scheduleDataReadiness";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 let passed = 0, failed = 0;
@@ -121,7 +122,7 @@ const base = { courses: [course], instructorIds: new Set([7, 8]) };
 }
 /* 4) البنية: لا بوابة في الخادم، والعدّ يستعمل مطبّع الموانع نفسه. */
 {
-  const server = readFileSync(join(ROOT, "server.ts"), "utf8");
+  const server = readServerSource();
   const sign = server.slice(server.indexOf('app.post("/api/approvals/sign"'), server.indexOf('app.post("/api/approvals/withdraw"'));
   check(sign.includes("requiredCourseGaps") && sign.includes("course-requirements-missing") && sign.includes("capacityGapItems(readiness.items)"), "مسار التوقيع يمنع حقلي متطلبات المقرر والسعة من خلال فحوصهما المحددة");
   const fn = server.slice(server.indexOf("async function scheduleDataReadiness"), server.indexOf('app.get("/api/approvals"'));

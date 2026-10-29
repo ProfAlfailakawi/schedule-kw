@@ -24,11 +24,12 @@ import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT } from "../src/serve
 import { AR } from "../src/utils/arabicCount";
 import { CALENDAR_LINKS_CLIENT_JS } from "../src/utils/calendarLinks";
 import { TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS } from "../src/server/teacherCardExtras";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
 const file = path.join(process.cwd(), "server.ts");
-const source = ts.createSourceFile(file, fs.readFileSync(file, "utf8"), ts.ScriptTarget.ES2022, true);
+const source = ts.createSourceFile(file, readServerSource(), ts.ScriptTarget.ES2022, true);
 
 const PAGES = ["staffCardPage", "surveyPage", "studentCaseSurveyPage", "instructorRequestPage", "studentCaseStatusPage", "studentSchedulePage"];
 const found = new Map<string, ts.FunctionDeclaration>();

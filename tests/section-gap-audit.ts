@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { planGaps, planSurpluses, planTargets, reconcilePlanAdjustments, studentGaps, type GapCourse, type GapPlan } from "../src/utils/sectionGap";
 import { SectionGapPanel, showQuickCompareBadge } from "../src/components/SectionGapNote";
 import { createDemoSandboxState, DEMO_TERM_CURRENT } from "../src/db/demoSandbox";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -181,7 +182,7 @@ import { buildMasariGapNotifications } from "../src/utils/featureNotifications";
 const bell = buildMasariGapNotifications([{ collegeId: 1, sectionId: 6, sectionName: "الدراسات الإسلامية", courses: 1 }, { collegeId: 1, sectionId: 2, sectionName: "علم البيانات", courses: 3 }, { collegeId: 1, sectionId: 9, sectionName: "الرياضيات", courses: 0 }], 2, "الفصل الثاني");
 check(bell.length === 2 && bell[0].title === "طلبة «مساري» يحتاجون شعباً في مقرر واحد" && bell[1].title === "طلبة «مساري» يحتاجون شعباً في 3 مقررات" && bell.every(item => item.view === "schedules" && item.tone === "action" && item.termId === 2), "جرس «مساري»: سطرٌ لكل قسمٍ له نقص، بعدّ عربيّ سليم، ولا سطر لقسمٍ بلا نقص", bell.map(item => item.title));
 check(bell[0].id !== buildMasariGapNotifications([{ collegeId: 1, sectionId: 6, sectionName: "x", courses: 2 }])[0].id, "تغيّر العدد يصير إشعاراً جديداً");
-const server = fs.readFileSync("server.ts", "utf8"), schedules = fs.readFileSync("src/components/Schedules.tsx", "utf8");
+const server = readServerSource(), schedules = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 check(server.includes("cachedSectionGap") && server.includes("buildMasariGapNotifications(found") && /\["standard", "committeeChair", "departmentHead"\]\.includes\(role\) && !isPowerUser\(req\)/.test(server), "الجرس لعاملي القسم وحدهم، وبقراءةٍ مخبّأةٍ دقيقة");
 check(schedules.includes("onStudentGaps={setStudentGaps}") && schedules.includes("week-legend-need") && schedules.includes('hueBy === "course"'), "علامة «+N» على شارة المقرر في مفتاح الألوان، للمقررات فقط");
 check(bar.includes('title="قارن شعبك بكشف المتبقي"'), "تلميح الأيقونة كلمتان لا فقرة");

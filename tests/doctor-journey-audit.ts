@@ -20,6 +20,7 @@ import { normalizeCivilId, sameCivilId } from "../src/utils/civilId";
 import { coverConflict } from "../src/utils/coverAvailability";
 import { chosenAlternativeIndex } from "../src/utils/requestAlternatives";
 import { TERM_LINK_FALLBACK_DAYS, readsUntilTermEnd, requestsCloseAtFromDate, shareLinkReadable, termLinkExpiresAt } from "../src/utils/shareLinkLifetime";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: unknown, name: string) {
@@ -27,7 +28,7 @@ function check(condition: unknown, name: string) {
   else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`); }
 }
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
-const server = read("server.ts");
+const server = readServerSource();
 const repository = read("src/db/repository.ts");
 
 async function main() {

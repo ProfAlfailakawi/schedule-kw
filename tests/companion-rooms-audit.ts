@@ -6,6 +6,7 @@ import { findConflicts, findConflictsExhaustive, fastConflictScan } from "../src
 import type { FSchedule, MasterRoom, MasterBuilding } from "../src/types";
 import { diffSchedules } from "../src/utils/scheduleDiff";
 import { instructorScheduleFingerprint } from "../src/utils/scheduleFingerprint";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const base = {
   AdCollegeId:1,AdSectionId:1,AdTermId:1,AdCourseId:1,AdCourseName:"Test",
@@ -47,7 +48,7 @@ assert.deepEqual(eligible.map(r=>r.roomId),["open"],"advisors never propose stud
 // Both must be able to mark an existing studio as companion-only, and the batch
 // creation API must persist this policy rather than silently assuming "normal".
 const quickSetup = readFileSync(new URL("../src/components/LocationQuickSetup.tsx", import.meta.url),"utf8");
-const server = readFileSync(new URL("../server.ts", import.meta.url),"utf8");
+const server = readServerSource();
 const createRoute = server.split('app.post("/api/admin/location-setup/rooms"')[1]?.split('app.delete("/api/admin/location-setup/rooms/')[0] || "";
 const editRoomRoute = server.split('app.put("/api/admin/location-registry/rooms/:id"')[1]?.split("\\napp.")[0] || "";
 assert.ok(quickSetup.includes('bookingPolicy: roomBookingPolicy'),"quick setup submits booking policy when creating studios");

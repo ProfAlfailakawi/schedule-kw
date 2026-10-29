@@ -1,5 +1,13 @@
 from pathlib import Path
 
+def read_server_source():
+    """server.ts وما قُسّم منه بترتيبه القديم — tests/helpers/serverSource.mjs."""
+    import subprocess, pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    code = "import { readServerSource } from './tests/helpers/serverSource.mjs'; process.stdout.write(readServerSource())"
+    return subprocess.check_output(["node", "--input-type=module", "-e", code], cwd=root, text=True)
+
+
 root=Path(__file__).resolve().parents[1]
 def read(path): return (root/path).read_text(encoding='utf-8')
 def ok(name, cond):
@@ -7,7 +15,7 @@ def ok(name, cond):
     print(f'[ok] {name}')
 
 ocr=read('src/utils/documentOcr.ts')
-server=read('server.ts')
+server=read_server_source()
 paged=read('src/components/PagedImportPreview.tsx')
 transfer=read('src/components/ScheduleTransfer.tsx')
 intel=read('src/components/IntelligenceWorkspace.tsx')

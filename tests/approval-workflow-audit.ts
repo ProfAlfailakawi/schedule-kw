@@ -17,6 +17,7 @@ import {
   verificationCode,
 } from "../src/utils/approvalWorkflow";
 import type { ScheduleApproval, ScheduleApprovalSignature } from "../src/types";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -222,7 +223,7 @@ check(priority("returned", 2) < priority("accepted", 2), "المُرجَع قب�
 
 /* ── القواعد كما رُكّبت في الخادم ───────────────────────────────────────── */
 
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 check(server.includes("scheduleLockRefusal"), "قفلُ الإرسال مُركَّب");
 for (const route of ['app.post("/api/schedules"', 'app.put("/api/schedules/:id"', 'app.delete("/api/schedules/:id"']) {
   /* إضافةُ الموعد وتعديلُه معالجان مسمّيان (يستعملهما «اعتماد الاقتراح» أيضاً): الجسمُ عند تعريفهما. */

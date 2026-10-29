@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { planTaConversion, isTrainingAssistant } from "../src/utils/taConversion";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let checks = 0;
 function ok(condition: unknown, label: string) {
@@ -28,7 +29,7 @@ ok(rows[0].AdInstructorId === 1 && rows[1].AdInstructorId === 1, "preview cannot
 ok(planTaConversion([], people).affected.length === 0, "blank new term is safe");
 ok(planTaConversion(rows, people.filter(p => p.AdInstructorId === 2)).affected.length === 0, "no TA classification means no changes");
 const read = (p: string) => fs.readFileSync(p, "utf8");
-const server = read("server.ts");
+const server = readServerSource();
 const repo = read("src/db/repository.ts");
 const staff = read("src/components/Instructors.tsx");
 const schedule = read("src/components/Schedules.tsx");

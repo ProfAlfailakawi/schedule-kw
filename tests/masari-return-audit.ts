@@ -8,6 +8,7 @@ import path from "node:path";
 import { runInNewContext } from "node:vm";
 import { PEER_COURSE_MIN, peerCourseCounts } from "../src/utils/studentProfile";
 import { STUDENT_HOME_SCRIPT, studentHomePage } from "../src/server/studentHomePage";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => { if (!ok) console.log("✗ " + label, extra ?? ""); assert.ok(ok, label); passed++; console.log("✓ " + label); };
@@ -76,7 +77,7 @@ const manifest = JSON.parse(read("public/me.webmanifest"));
 check(manifest.start_url.startsWith("/me") && manifest.scope === "/me" && manifest.display === "standalone" && manifest.dir === "rtl" && manifest.lang === "ar", "manifest مساري: يبدأ من /me ونطاقه /me");
 check(manifest.icons.some((i: any) => i.purpose === "maskable") && manifest.icons.every((i: any) => fs.existsSync(path.join(process.cwd(), "public", i.src))), "أيقوناتُه موجودةٌ فعلاً، وفيها قابلةٌ للقصّ");
 check(studentHomePage("n").includes('<link rel="manifest" href="/me.webmanifest">'), "الصفحة تعلن manifest الخاصّ بها لا manifest التطبيق الإداري");
-check(/"manifest-src 'self'"/.test(read("server.ts")), "سياسة CSP تسمح بـ manifest من الموقع نفسه (وإلا حُجب الرابط)");
+check(/"manifest-src 'self'"/.test(readServerSource()), "سياسة CSP تسمح بـ manifest من الموقع نفسه (وإلا حُجب الرابط)");
 check(JSON.parse(read("public/manifest.webmanifest")).scope === "/", "manifest التطبيق الإداري لم يُمسّ");
 
 console.log(`\n${passed} passed, 0 failed`);

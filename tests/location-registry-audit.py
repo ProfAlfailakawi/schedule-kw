@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 import json,re,sys
 from pathlib import Path
+
+def read_server_source():
+    """server.ts وما قُسّم منه بترتيبه القديم — tests/helpers/serverSource.mjs."""
+    import subprocess, pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    code = "import { readServerSource } from './tests/helpers/serverSource.mjs'; process.stdout.write(readServerSource())"
+    return subprocess.check_output(["node", "--input-type=module", "-e", code], cwd=root, text=True)
+
 ROOT=Path(__file__).resolve().parents[1]
 SEED=ROOT/'src/generated/locationRegistrySeed.ts'
 
@@ -46,7 +54,7 @@ ok('09 same room code remains per-building', any(len(v)>1 for v in code_multi.va
 ok('10 shared logic evidence', summary['sharedRooms']>0 and all(str(r.get('sharedConfidence')) in {'CONFIRMED','PROBABLE'} for r in R if r['shared']))
 loc=(ROOT/'src/utils/locationRegistry.ts').read_text()
 ok('11 pending system state', 'PENDING_ROOM' in loc and 'return ""' in loc)
-server=(ROOT/'server.ts').read_text()
+server=read_server_source()
 ok('12 ordinary add room unavailable UI/backend', 'إضافة القاعات محصورة بمدير النظام' in server)
 ok('13 admin backend protected', 'app.post("/api/admin/location-registry/rooms", requirePermission(7), requirePowerAdmin' in server)
 room_create=server[server.index('app.post("/api/admin/location-registry/rooms"'):server.index('app.put("/api/admin/location-registry/rooms/:id"')]
@@ -246,7 +254,7 @@ ok('87 visiting instructor is shown as a quiet badge beside the canonical system
 # Owner academic-import identity rules (2026-08-25).
 auth=(ROOT/'src/utils/authorityAcademicCodes.ts').read_text()
 doc=(ROOT/'src/utils/documentOcr.ts').read_text()
-server=(ROOT/'server.ts').read_text()
+server=read_server_source()
 ok('81 scientific department code is college + local department', 'college 01 + department 01 => 0101' in auth and 'authorityDepartmentMatches' in server)
 ok('81b branch/site college codes collapse to the two-digit SWRSCHA college authority', 'collegeRaw.length >= 2' in auth and 'collegeRaw.slice(0, 2)' in auth and 'Commercial Girls 022 -> 02' in auth)
 ok('81c PDF import derives department college authority from the official site prefix, not a branch-shaped catalogue code', 'const targetAuthorityCollegeCode=(()=>{' in server and 'academicDigits(targetSitePrefix)' in server and 'siteDigits.slice(0,2)' in server and 'authorityDepartmentMatches(sourceDepartment,targetAuthorityCollegeCode,targetSection.AdSectionCode)' in server)

@@ -22,6 +22,7 @@ import { analyzeSchedule } from "../src/utils/scheduleIntelligence";
 import { buildOneMinuteBrief, buildScheduleHealth2, buildSchedulePulse } from "../src/utils/livingSchedule";
 import { blockingSummaryPhrase } from "../src/utils/approvalWorkflow";
 import { AR, countOf } from "../src/utils/arabicCount";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -103,7 +104,7 @@ check(blockingConflicts(rows, rows, { placeholderInstructorIds: placeholderInstr
 /* ── STRUCTURE: every surface reads those functions ─────────────────────── */
 const ROOT = process.cwd();
 const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
-const server = read("server.ts");
+const server = readServerSource();
 const bar = read("src/components/ApprovalBar.tsx");
 const review = read("src/components/ScheduleReview.tsx");
 

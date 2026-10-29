@@ -18,6 +18,7 @@ import { createDemoSandboxState } from "../src/db/demoSandbox";
 import { locationPreflight } from "../src/server/locationRegistryEngine";
 import { isDemoLinkToken, publicLinkTokenFromPath, DEMO_LINK_TOKEN_PREFIX } from "../src/utils/demoLinkToken";
 import { requestFullySettled } from "../src/utils/instructorRequestVerdict";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -25,7 +26,7 @@ function check(condition: boolean, name: string) {
   else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`); }
 }
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
-const server = read("server.ts");
+const server = readServerSource();
 const lines = server.split("\n");
 
 /* ── P1 بنيةً: كلُّ ذاكرةٍ في server.ts مفتاحُها يحمل عالَمه ──────────────── */

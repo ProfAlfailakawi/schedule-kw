@@ -8,6 +8,7 @@ import os from "os";
 import path from "path";
 import { spawn } from "child_process";
 import { waitForDemoSeed } from "./helpers/demoSeed";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -17,7 +18,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
 const BASE = "http://localhost:3000";
 const up = async () => { try { return (await fetch(BASE + "/api/public/me/state")).ok; } catch { return false; } };
 
-const srv = fs.readFileSync("server.ts", "utf8"), ui = fs.readFileSync("src/components/SectionBuild.tsx", "utf8"), plan = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
+const srv = readServerSource(), ui = fs.readFileSync("src/components/SectionBuild.tsx", "utf8"), plan = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
 check(srv.includes('applyProposalCore(req, {\n        kind: "opening"') && !/section-build\/apply[\s\S]{0,3000}Repository\.(createSchedule|updateSchedule)\(/.test(srv), "الإنزال يمرّ من باب الاعتماد المشترك لا من الكتابة المباشرة");
 check(srv.includes("section-build:${collegeId}:${sectionId}:${termId}") && srv.includes("String(req.body?.fingerprint"), "قفلٌ متسلسل وبصمة أسبوع قبل الكتابة");
 check(plan.includes("<SectionBuild") && plan.includes("buildReady") && fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8").includes("xlsxPreview.editable") && ui.includes("/api/section-build/review-rows") && ui.includes("/api/section-build/apply") && ui.includes('role="alertdialog"'), "الواجهة موصولة في تخطيط الشعب وفيها تأكيدٌ قبل الكتابة");

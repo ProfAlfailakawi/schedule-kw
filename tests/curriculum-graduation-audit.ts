@@ -13,6 +13,7 @@ import path from "path";
 import os from "os";
 import { choosePlanForSheet, sheetTotalEvidence, type PlanRuleCandidate } from "../src/utils/graduationPlan";
 import { graduationSheetFacts } from "../src/utils/documentOcr";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const privateDir = fs.mkdtempSync(path.join(os.tmpdir(), "schedule-curriculum-grad-"));
 fs.writeFileSync(path.join(privateDir, "db.json"), JSON.stringify({
@@ -104,7 +105,7 @@ const pick = (candidates: PlanRuleCandidate[], facts: any) => {
 
 /* ── 3. الخادم: قاعدة واحدة لكل مسارات الخريج ─────────────────────────── */
 {
-  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const server = readServerSource();
   const between = (start: string, end: string) => { const from = server.indexOf(start); const to = server.indexOf(end, from + start.length); return from < 0 ? "" : server.slice(from, to < 0 ? undefined : to); };
   const proof = between("async function graduateProofCore(", "async function graduateSubmitCheck(");
   check(proof.includes("choosePlanForSheet(ruleCandidates") && proof.includes("curriculumPlanId,nameMatched"),

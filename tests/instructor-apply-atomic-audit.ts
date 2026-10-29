@@ -15,6 +15,7 @@ import path from "path";
 import { spawn } from "child_process";
 import { waitForDemoSeed } from "./helpers/demoSeed";
 import { slotTimeGroups } from "../src/utils/slotTimeGroups";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -36,7 +37,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
 /* ── الربط ── */
 {
   const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
-  const srv = read("server.ts"), inbox = read("src/components/InstructorInbox.tsx"), repository = read("src/db/repository.ts");
+  const srv = readServerSource(), inbox = read("src/components/InstructorInbox.tsx"), repository = read("src/db/repository.ts");
   const route = srv.slice(srv.indexOf('app.post("/api/instructor-requests/:id/apply"'), srv.indexOf("/* ── حوارُ البند"));
   check(route.length > 500 && !/Repository\.(createSchedule|updateSchedule|deleteSchedule)\b/.test(route), "L1 مسار التثبيت لا يكتب في المستودع مباشرة: يمرّ بمعالجات الحفظ نفسها");
   check(/dryRun: true/.test(route) && /reverted/.test(route), "L2 فحصٌ جافّ لكل خطوة قبل الكتابة، وتراجعٌ إن تعذّرت خطوة");

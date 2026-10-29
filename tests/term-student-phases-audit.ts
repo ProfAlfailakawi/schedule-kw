@@ -15,6 +15,7 @@ import {
   MAX_STUDENT_ROUNDS, checkStudentPhases, hasStudentPhases, readStudentPhase, studentTimeline, suggestStudentPhases,
 } from "../src/utils/termStudentPhases";
 import type { AdTerm, TermStudentPhases } from "../src/types";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -134,7 +135,7 @@ const issuesOf = (input: any, submissionDeadline: string | undefined = SUBMIT) =
   try { await Repository.setTermStudentPhases(999, GOOD); } catch { missing = true; }
   check(missing, "T5 فصلٌ غير موجود: خطأ");
 
-  const server = read("server.ts");
+  const server = readServerSource();
   const start = server.indexOf('app.post("/api/approvals/student-phases"');
   const route = server.slice(start, server.indexOf("\n});\n", start));
   check(start > 0 && route.includes("canManageDeadline(req.user?.Role)") && route.includes("isPowerUser(req)"), "T5 المسار برئيس التسجيل والإدارة وحدهما");

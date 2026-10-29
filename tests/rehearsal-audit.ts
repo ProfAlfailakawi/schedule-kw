@@ -17,6 +17,7 @@ import { movementAttribution } from "../src/utils/movementAttribution";
 import { firstInstructorEditAt, movementAfterInstructorEdit } from "../src/utils/instructorMovementWindow";
 import type { AdCourse, AdInstructor, FSchedule, ScheduleApproval } from "../src/types";
 import { roomKeyOf } from "../src/utils/locationRegistry";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -24,7 +25,7 @@ const check = (ok: boolean, label: string) => {
   else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); }
 };
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
-const server = read("server.ts");
+const server = readServerSource();
 /** جسمُ دالّةٍ أو مسارٍ في الخادم، من بدايته إلى بداية ما يليه. */
 const block = (source: string, start: string, end = "\napp.") => {
   const at = source.indexOf(start);

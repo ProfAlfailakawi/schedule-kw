@@ -4,6 +4,7 @@
  */
 import fs from "fs";
 import { acceptedPdfSourceLabel, parseTermName, pdfTermAccepted } from "../src/utils/pdfTermRule";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -30,7 +31,7 @@ check(pdfTermAccepted(src("summer", 2025), "الفصل الصيفي 2026/2027"),
 check(!pdfTermAccepted(src("second", 2025), "فصل غير مقروء"), "اسم فصل غير مقروء: لا شيء يُقبل");
 check(acceptedPdfSourceLabel(T) === "الفصل الثاني 2025/2026 أو الفصل الأول 2026/2027", `نص الفصل المطلوب في الرفض (${acceptedPdfSourceLabel(T)})`);
 
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 check(!server.includes("sourceIsEarlier"), "الخادم لا يسمح بالفصل الأقدم عموماً");
 check((server.match(/pdfTermAccepted\(/g) || []).length === 2, "المسار الرئيسي والاحتياطي يطبّقان القاعدة نفسها");
 

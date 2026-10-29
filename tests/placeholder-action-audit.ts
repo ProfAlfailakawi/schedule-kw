@@ -13,6 +13,7 @@ import os from "os";
 import path from "path";
 import { spawn } from "child_process";
 import { waitForDemoSeed } from "./helpers/demoSeed";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -22,7 +23,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
 
 /* ── الربط (بلا خادم) ── */
 {
-  const srv = fs.readFileSync("server.ts", "utf8"), repo = fs.readFileSync("src/db/repository.ts", "utf8");
+  const srv = readServerSource(), repo = fs.readFileSync("src/db/repository.ts", "utf8");
   const route = srv.slice(srv.indexOf('app.post("/api/schedules/placeholder-action"'), srv.indexOf("/* ── استثناءات الأسبوع"));
   check(route.length > 800 && !/Repository\.(createSchedule|updateSchedule|deleteSchedule)\b/.test(route), "L1 لا كتابة مباشرة: كل خطوة عبر الفحص الجافّ ثم معاملة واحدة");
   check(/commitScheduleChangeSet: async/.test(repo) && /tx\.delete\(firestoreDb!\.collection\("schedules"\)/.test(repo.slice(repo.indexOf("commitScheduleChangeSet: async"))) && /withSerialLock\(`request-reservations:\$\{termId\}`/.test(repo.slice(repo.indexOf("commitScheduleChangeSet: async"))), "L2 معاملة Firestore ومسار التجربة كلاهما كلّه أو لا شيء");

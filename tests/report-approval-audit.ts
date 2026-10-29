@@ -12,6 +12,7 @@
 
 import fs from "fs";
 import path from "path";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -22,7 +23,7 @@ function check(condition: boolean, name: string) {
 const reports = fs.readFileSync(path.join(process.cwd(), "src/components/Reports.tsx"), "utf8");
 const printCss = fs.readFileSync(path.join(process.cwd(), "src/styles/08-print.css"), "utf8");
 const approvalCss = fs.readFileSync(path.join(process.cwd(), "src/styles/11-approval.css"), "utf8");
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 const app = fs.readFileSync(path.join(process.cwd(), "src/App.tsx"), "utf8");
 
 /* ── التواقيع في الوثيقة ────────────────────────────────────────────────── */

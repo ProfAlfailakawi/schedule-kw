@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs";
 import { judgeRequest, type RequestedRow, type VerdictContext } from "../src/utils/instructorRequestVerdict";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, name: string, extra?: unknown) => {
@@ -63,7 +64,7 @@ const applied = (bad.shapes || []).map(shape => ({ shape, verdict: judge(shape.d
 check(applied.length > 0 && applied.every(a => !a.verdict.reasons.some(r => r.code === "hours" || (r.blocking && r.source === "shape"))), "P3 كلُّ زرٍّ مقترح يمرّ من الفاحص بلا منع ساعات", applied.map(a => ({ l: a.shape.label, k: a.verdict.kind })));
 
 /* P4: مصدرُ الصفحة */
-const server = readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const page = server.slice(server.indexOf("function instructorRequestPage"), server.indexOf('app.post("/api/public/request/:token/check"'));
 check(page.includes("function unchangedEdit(it)") && page.includes('return{rowId:it.rowId,action:"keep",days:[],start:"",excuse:it.excuse}'), "P4 التعديلُ بلا لمسة يُرسل إبقاءً");
 check(/var changed=state\.filter\(function\(it\)\{return it\.action!=="keep"&&!unchangedEdit\(it\)&&!incompleteItem\(it\)\}\)/.test(page), "P4 ولا يُعدّ في «جاهز»، ولا الموعدُ الناقص");

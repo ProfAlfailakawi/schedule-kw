@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -7,7 +8,7 @@ function check(condition: boolean, name: string) {
   else { failed++; console.log(`\x1b[31m✗ ${name}\x1b[0m`); }
 }
 
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 const card = server.slice(server.indexOf("async function buildStaffCard"), server.indexOf('app.get("/api/share"'));
 const movement = server.slice(server.indexOf("async function scheduleMovementEntries"), server.indexOf("async function buildStaffCard"));
 const calendar = server.slice(server.indexOf('app.get("/api/public/ics/:token/:key"'), server.indexOf("const STAFF_NOTES_PER_DAY"));

@@ -10,6 +10,7 @@ import { approvalBlockerCount, blockingConflicts, placeholderInstructorIds } fro
 import { createDemoSandboxState, DEMO_CONFLICT_SECTION_ID } from "../src/db/demoSandbox";
 import { describeScopeChanges, replacementLoss, scopeBase, scopeFingerprint } from "../src/utils/scopeFingerprint";
 import { applyWithOverwriteConfirm, SCOPE_CHANGED_CODE } from "../src/utils/scopeOverwrite";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -18,7 +19,7 @@ function check(condition: boolean, name: string) {
 }
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
-const server = read("server.ts");
+const server = readServerSource();
 const route = (signature: string) => {
   const at = server.indexOf(signature);
   if (at < 0) return "";

@@ -10,6 +10,7 @@ import fs from "fs";
 import path from "path";
 import { buildCalendar } from "../src/utils/icalendar";
 import { withVisitingSuffix, VISITING_SUFFIX } from "../src/components/VisitingBadge";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -17,7 +18,7 @@ const check = (ok: boolean, label: string) => {
   else { failed++; console.log(`  ✗ ${label}`); }
 };
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
-const server = read("server.ts");
+const server = readServerSource();
 const slice = (from: string, length: number) => { const at = server.indexOf(from); return at < 0 ? "" : server.slice(at, at + length); };
 
 /* ── التقويم: سلوكٌ حقيقي ─────────────────────────────────────────────── */

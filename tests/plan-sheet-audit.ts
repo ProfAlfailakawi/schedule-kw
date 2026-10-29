@@ -13,6 +13,7 @@ import express from "express";
 import type { AddressInfo } from "net";
 import { buildPlanSheet } from "../src/server/planSheetPage";
 import type { SheetModel } from "../src/types";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -386,7 +387,7 @@ const model: SheetModel = {
 
 /* ── S4: الواجهة ─────────────────────────────────────────────────────────── */
 {
-  const work = read("src/components/IntelligenceWorkspace.tsx"), pub = read("src/components/PlanSheetPublisher.tsx"), server = read("server.ts");
+  const work = read("src/components/IntelligenceWorkspace.tsx"), pub = read("src/components/PlanSheetPublisher.tsx"), server = readServerSource();
   check(work.includes('"sheet"') && work.includes("canPublishSheets") && work.includes("<Workflow />") && work.includes("<PlanSheetPublisher"), "S4 بطاقة «الصحيفة» في مركز الذكاء بأيقونةٍ جديدة");
   check(work.includes('isAdmin={isPowerAdmin}') && pub.includes('isAdmin = false') && pub.includes('{isAdmin ? <SecondaryButton onClick={() => showQr("كل الأقسام", indexUrl)}')
     && pub.includes('QR كل الأقسام</SecondaryButton> : null}'), "S4 رمز QR لكل الأقسام يظهر للآدمن فقط، لا لرؤساء لجان الجدول");

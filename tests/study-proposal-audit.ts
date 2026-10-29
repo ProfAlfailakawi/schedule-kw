@@ -11,6 +11,7 @@ import {
   applyProposalOps, commitReadiness, decisionStateOf, effectiveStatus, expiryAfterDays, materialFingerprint, nextSectionCodeFrom,
   courseLayouts, proposalDrift, proposalMetrics, responseGate, snapshotOf, validateOps, tempRowId, assignmentIsAdjusted, PROPOSAL_MAX_OPS,
 } from "../src/utils/studyProposal";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -240,7 +241,7 @@ import fs from "fs";
 {
   const routes = fs.readFileSync("src/server/studyProposalRoutes.ts", "utf8");
   const engine = fs.readFileSync("src/server/studyProposalEngine.ts", "utf8");
-  const server = fs.readFileSync("server.ts", "utf8");
+  const server = readServerSource();
   const staffRoutes = [...routes.matchAll(/app\.(?:get|post|put)\("(\/api\/study-proposals[^"]*)",\s*([^,]+),/g)];
   check(staffRoutes.length >= 8 && staffRoutes.every(m => m[2].trim() === "staff"), "كل مسارات القسم تمرّ بحارس صلاحية الجداول (٧)", staffRoutes.map(m => `${m[1]}:${m[2]}`));
   check(!/Repository\.(createSchedule|updateSchedule|deleteSchedule|moveSchedulesBatch)\(/.test(routes.slice(0, routes.indexOf("export async function seedDemoStudyProposals")) + engine), "لا كتابةَ في جدول المواعيد إلا عبر معاملة التثبيت (commitStudyProposal)");

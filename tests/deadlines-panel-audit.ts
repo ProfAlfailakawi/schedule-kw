@@ -27,6 +27,7 @@ import { isLate } from "../src/utils/lateness";
 import { canManageDeadline, ACADEMIC_ROLES } from "../src/utils/academicRoles";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
 import type { ScheduleApproval } from "../src/types";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -34,7 +35,7 @@ const check = (ok: boolean, label: string) => {
   else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); }
 };
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
-const server = read("server.ts");
+const server = readServerSource();
 const route = (head: string) => {
   const start = server.indexOf(head);
   if (start < 0) return "";

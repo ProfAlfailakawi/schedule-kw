@@ -2,11 +2,12 @@
 import fs from "fs";
 import path from "path";
 import { proposedRow } from "../src/components/InstructorInbox";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
 const inbox = fs.readFileSync(path.join(process.cwd(), "src/components/InstructorInbox.tsx"), "utf8");
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 
 const row: any = { AdInstructorId: 7, AdCollegeId: 2, AdSectionId: 3, AdTermId: 1 };
 const add = proposedRow(row, { action: "add", after: { courseId: 112, collegeId: 4, sectionId: 9 }, slots: [{ day: "fmonday", start: "09:30", end: "10:50" }, { day: "fwednesday", start: "09:30", end: "10:50" }] } as any);

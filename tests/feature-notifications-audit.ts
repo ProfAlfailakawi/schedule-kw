@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 import { buildStudentNotices, type StudentNoticeInput } from "../src/utils/studentNotices";
 import { buildFeatureNotifications } from "../src/utils/featureNotifications";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -83,7 +84,7 @@ const ids = (input: StudentNoticeInput) => buildStudentNotices(input).map(n => n
 
 /* N3 */
 {
-  const server = read("server.ts");
+  const server = readServerSource();
   check(server.includes("buildFeatureNotifications({ role, planReviews: reviews") && server.includes("pendingPlanReviews(req, scopeDeps)") && server.includes("radarNoticeFor(req, scopeDeps)"), "N3 الخادم يضيف بنودَ المزايا إلى /api/notifications");
   check(server.includes('console.error("[notifications] feature items:"'), "N3 وتعذّرُها لا يُسقط الجرس");
   const center = read("src/utils/notificationCenter.ts");

@@ -4,6 +4,7 @@
  */
 import { createDemoSandboxState, DEMO_HISTORY_TERMS, DEMO_OTHER_DEPARTMENTS, DEMO_VISITING_INSTRUCTOR_IDS } from "../src/db/demoSandbox";
 import { planGaps, planSurpluses } from "../src/utils/sectionGap";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(ok: boolean, label: string) {
@@ -78,7 +79,7 @@ check(demo.hallBarterRequests.every((r: any) => r.status !== "cancelled" || r.ca
 
 /* ── زرُّ «ماذا لو فتحنا» لا يردّ بلا شيء حين يقترح التنبّؤ شعبةً ولا رغبات حيّة تُنقص مقاعدها ── */
 import fs from "node:fs";
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const route = server.slice(server.indexOf('app.get("/api/schedules/openings-preview"'), server.indexOf('app.get("/api/schedules/demand"'));
 check(route.includes("requirePermission(7)") && route.includes("isScopeAllowed(req, collegeId, sectionId)"), "اقتراحُ التوقّع محكومٌ بالصلاحية والنطاق");
 check(!/Repository\.(create|update|delete|save)\w*/.test(route), "اقتراحُ التوقّع قراءةٌ فقط: لا يكتب شيئاً");

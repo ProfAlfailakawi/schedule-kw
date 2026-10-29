@@ -8,6 +8,7 @@ import fs from "fs";
 import vm from "vm";
 import { studyProposalPage } from "../src/server/studyProposalPage";
 import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from "../src/server/studyProposalAlert";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -126,7 +127,7 @@ check(!/\\/.test(PROPOSAL_ALERT_SCRIPT + PROPOSAL_ALERT_CSS.replace(/\\/g, "")),
 let alertCompiles = true;
 try { new vm.Script(PROPOSAL_ALERT_SCRIPT); } catch { alertCompiles = false; }
 check(alertCompiles, "سكربت التنبيه سليم");
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 check(/app\.get\("\/r\/:token\/proposal\/:pid"/.test(server), "المسار /r/:token/proposal/:pid مسجَّل");
 check(server.indexOf('app.get("/r/:token/proposal/:pid"') > server.indexOf('app.get("/r/:token", async'), "المسار الجديد بعد مسار صفحة الطلب");
 check((server.match(/\$\{PROPOSAL_ALERT_SCRIPT\}/g) || []).length === 2, "التنبيه محقونٌ في صفحة الطلب وبطاقة الأستاذ");

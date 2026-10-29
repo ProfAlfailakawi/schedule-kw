@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { readServerSource } from "../tests/helpers/serverSource.mjs";
 
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -243,7 +244,7 @@ const smart = read("src/components/SmartGuide.tsx");
 const schedules = read("src/components/Schedules.tsx");
 const intelligence = read("src/components/IntelligenceWorkspace.tsx");
 const css = read("src/styles/03-shell.css");
-const server = read("server.ts");
+const server = readServerSource();
 const packageJson = JSON.parse(read("package.json"));
 
 const tokens = [

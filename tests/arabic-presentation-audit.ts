@@ -4,6 +4,7 @@
  */
 import fs from "fs";
 import { arabicMatchKey, hasArabicPresentationForms, normalizeArabicText } from "../src/utils/arabicText";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -23,7 +24,7 @@ for (const fn of ["createCourse", "updateCourse"]) {
   const body = repo.slice(start, repo.indexOf("invalidateReference", start));
   check(/name = normalizeArabicText\(name\)/.test(body), `${fn} يطبّع الاسم قبل الكتابة`);
 }
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 check(!/\.normalize\("NFKC"\)[^\n]*CourseName/.test(server), "لا نسخة ثانية للقاعدة في الخادم");
 
 console.log(`\n${passed} passed, ${failed} failed`);

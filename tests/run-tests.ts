@@ -24,6 +24,7 @@ import { readDepartmentMemory } from "../src/utils/departmentMemory";
 import { clockRangesOverlap, normalizeClock, SCHEDULE_DAY_END, SCHEDULE_DAY_START, withinScheduleDay } from "../src/utils/scheduleTime";
 import { isSharedRoom, roomIdentityKey, roomKeyOf } from "../src/utils/locationRegistry";
 import { Repository, initDatabase, ScheduleRevisionConflict } from "../src/db/repository";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const originalLog = console.log;
 const originalError = console.error;
@@ -1437,7 +1438,7 @@ async function runTests() {
     /* And the real regression risk is not this function changing — it is
        somebody building a second key beside it, which is exactly how the two
        spellings came to exist. A legacy key may be composed in one place only. */
-    const serverSource = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+    const serverSource = readServerSource();
     const inlineLegacyKeys = (serverSource.match(/`legacy:\$\{/g) || []).length;
     assert(inlineLegacyKeys === 0,
       "لا يُبنى مفتاح قاعة قديم داخل server.ts — الهجاء في locationRegistry وحده");
@@ -1556,7 +1557,7 @@ async function runTests() {
     }
 
     /* The structural half: nothing may decide this question for itself again. */
-    const serverText = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+    const serverText = readServerSource();
     const ownership = serverText.slice(serverText.indexOf("async function roomOwnership"), serverText.indexOf("async function roomScopeNotice"));
     assert(ownership.includes("isSharedRoom(") && !/\broom\.value\.shared\b/.test(ownership),
       "roomOwnership يسأل القاعدة المشتركة ولا يقرأ العلم المخزَّن");
@@ -1675,7 +1676,7 @@ async function runTests() {
     /* And the guard: the two handlers must not reach for the whole-database
        copy again. It is one grep, and it is the only thing standing between
        this fix and the next person who adds "just to be safe". */
-    const serverSource = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+    const serverSource = readServerSource();
     const registryBlock = serverSource.slice(
       serverSource.indexOf('app.put("/api/admin/location-registry/rooms/:id"'),
       serverSource.indexOf('app.post("/api/admin/location-registry/migration/:id/rollback"'));
@@ -1721,7 +1722,7 @@ async function runTests() {
        These are source pins, deliberately: the real-account branch cannot be
        exercised without the university's Firestore, so the guard lives where
        the mistake was — in the shape of the code. */
-    const source = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+    const source = readServerSource();
     const heartbeat = source.slice(
       source.indexOf('app.post("/api/auth/heartbeat"'),
       source.indexOf('app.post("/api/demo/reset"'));
@@ -1787,7 +1788,7 @@ async function runTests() {
        whole key — so it was the cheapest place to guess tokens or hammer the
        OCR upload. The login form had a limiter; these did not. Source pins,
        because exercising the middleware needs a live server and a database. */
-    const source = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+    const source = readServerSource();
     assert(/app\.use\("\/api\/public",\s*rateLimitPublic\)/.test(source),
       "الحدّ مثبّت على كامل مسار /api/public لا على نقطة واحدة");
     const limiter = source.slice(

@@ -10,6 +10,7 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const privateDir = fs.mkdtempSync(path.join(os.tmpdir(), "schedule-masari-integrity-"));
 fs.writeFileSync(path.join(privateDir, "db.json"), JSON.stringify({
@@ -77,7 +78,7 @@ check(/requestType === "graduate" && Number\(need\.surveySectionId/.test(read("s
 }
 
 /* ── 2. استبيان الأستاذ ← الجدول ───────────────────────────────────────── */
-const server = read("server.ts");
+const server = readServerSource();
 const decideRoute = server.slice(server.indexOf('app.post("/api/instructor-requests/:id/decide"'), server.indexOf('app.post("/api/instructor-requests/:id/reply"'));
 check(/item\.decision\?\.state === "fixed"[\s\S]{0,200}already-fixed/.test(decideRoute), "I1 الخادم يرفض إعادة الفصل في بند ثُبّت");
 check(decideRoute.includes("mixed-times"), "I2 الخادم يرفض تثبيت بند بأوقات مختلفة بوقت واحد");

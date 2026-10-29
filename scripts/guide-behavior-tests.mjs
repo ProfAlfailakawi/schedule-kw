@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import { readServerSource } from "../tests/helpers/serverSource.mjs";
 
 const root = process.cwd();
 const failures = [];
@@ -146,7 +147,7 @@ assert(safeFeatures.every(feature=>engine.GUIDE_ACTIONS.some(action=>action.feat
 const sensitiveActions=engine.GUIDE_ACTIONS.filter(action=>action.risk==="sensitive" || action.risk==="write");
 assert(sensitiveActions.length>=3 && sensitiveActions.every(action=>action.requiresConfirmation===true), "كل WRITE/SENSITIVE مسجل بسياسة تأكيد صريحة");
 assert(engine.GUIDE_JOURNEYS.some(j=>j.id==="journey.schedule.find-room") && engine.GUIDE_JOURNEYS.some(j=>j.id==="journey.schedule.practice") && engine.GUIDE_JOURNEYS.some(j=>j.id==="journey.intelligence.try"), "الرحلات المهمة خارج النقل والتحرير معرفة Declaratively أيضًا");
-const serverSource=read("server.ts");
+const serverSource=readServerSource();
 assert(serverSource.includes('canAccessGuideFeature, featureById') && !serverSource.includes("GUIDE_ADMIN_FEATURES") && !serverSource.includes("GUIDE_PERMISSION_FEATURES"), "الخادم يعيد استخدام Predicate الصلاحيات المركزي ولا يكرر خرائط صلاحية للمرشد");
 
 // 18/19/20 — الهاتف، أشر لي، الإيقاف.
@@ -162,7 +163,7 @@ assert(/const resumeTask[\s\S]{0,1800}beginScreenHandoff\("أستعيد آخر �
 assert(/const executeSafe[\s\S]{0,2600}beginScreenHandoff\(/.test(smart) && /const simulateFeature[\s\S]{0,800}beginScreenHandoff\(/.test(smart) && /const replayWorkflow[\s\S]{0,400}beginScreenHandoff\(/.test(smart), "كل إجراء ينقل التفاعل إلى الشاشة يخفي «كيف؟» قبل التفاعل");
 assert(read("src/components/Schedules.tsx").includes("practiceMode") && read("src/components/Schedules.tsx").includes("practiceSnapshotRef"), "وضع تجربة آمن يعمل داخل نفس واجهة الجدول");
 assert(!/<video\b/i.test(smart), "لا يوجد فيديو داخل المرشد");
-assert(read("server.ts").includes("rawHistorySent:false"), "AI fallback يرسل سياقًا أدنى دون سجل النقرات الخام");
+assert(readServerSource().includes("rawHistorySent:false"), "AI fallback يرسل سياقًا أدنى دون سجل النقرات الخام");
 
 // المتبقي من تدقيق الاكتمال: Registry ↔ Command Palette + Native AI + UX الهاتف.
 const schedulesSource=read("src/components/Schedules.tsx");

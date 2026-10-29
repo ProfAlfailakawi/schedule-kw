@@ -8,6 +8,7 @@ import fs from "fs";
 import path from "path";
 import { buildApprovalDossier } from "../src/utils/approvalDossier";
 import { approvalScopeKey } from "../src/utils/approvalScope";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -16,7 +17,7 @@ const check = (ok: boolean, label: string) => {
 };
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
 
-const server = read("server.ts");
+const server = readServerSource();
 const display = server.slice(server.indexOf("const asDisplayRow = (row: any) => ({"), server.indexOf("const asDisplayRow = (row: any) => ({") + 400);
 check(/readVisitingStatus\(collegeId, sectionId, termId\)/.test(server.slice(server.indexOf("visitingIdsForReport") - 20, server.indexOf("visitingIdsForReport") + 200)), "الخادم يقرأ دفتر المنتدبين الحيّ لنطاق التقرير");
 check(/visiting: visitingIdsForReport\.has\(Number\(row\.AdInstructorId\)\)/.test(display), "ويحمل علمَ المنتدب مع كل صفٍّ يعرضه");

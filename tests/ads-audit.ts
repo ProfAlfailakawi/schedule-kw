@@ -16,6 +16,7 @@ import vm from "vm";
 import zlib from "zlib";
 import http from "http";
 import type { AddressInfo } from "net";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ads-audit-"));
 process.env.SCHEDULE_PRIVATE_DIR = dir;
@@ -870,7 +871,7 @@ async function main() {
     check(CP.verifyCoupon("sec-a", "c1", CP.issueCoupon("sec-a", "c1", "ABCD2345")) !== "" && CP.verifyCoupon("sec-b", "c1", CP.issueCoupon("sec-a", "c1", "ABCD2345")) === "" && CP.verifyCoupon("sec-a", "c2", CP.issueCoupon("sec-a", "c1", "ABCD2345")) === "", "الكوبون: التوقيع مربوطٌ بالسرّ وبالحملة");
     check((await call("GET", `/verify/${"0".repeat(32)}`)).status === 404 && (await call("GET", `/verify/${CP.verifyId("d".repeat(40))}`)).status === 404 && (await call("GET", "/verify/short")).status === 404, "التحقق: معرّفٌ مجهول أو حملةٌ مسودة = ٤٠٤");
     const ucReport = await call("GET", "/ad-report/" + "u".repeat(40));
-    const serverSrc = fs.readFileSync("server.ts", "utf8");
+    const serverSrc = readServerSource();
     check(/app\.get\(\["\/verify", "\/verify\/:code"\][^\n]*next: NextFunction\)[^\n]*\n\s*if \(\/\^\[0-9a-f\]\{32\}\$\/\.test\(String\(req\.params\.code[^\n]*next\(\)/.test(serverSrc) && serverSrc.indexOf('app.get(["/verify", "/verify/:code"]') < serverSrc.indexOf("registerAdsRoutes(app,"), "التحقق: مسار توقيع الجدول يمرّر معرّف الكوبون (٣٢ ست عشرية) إلى مسار الإعلانات بدل حجبه");
     check(ucReport.text.includes("كوبونات الطلبة الموثَّقة") && ucReport.text.includes("<b>1</b>") && ucReport.text.includes(`/verify/${vid}`), "التقرير: التحويل الموثَّق وصفحة تحقق المتجر");
     const ucAdmin = (await call("GET", "/api/admin/ads")).json.campaigns.find((x: any) => x.id === "uc-live");

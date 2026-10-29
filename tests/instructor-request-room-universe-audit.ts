@@ -16,10 +16,11 @@ import { confirmedDepartmentRoomIds, eligibleHallsForSection, roomKeyOf, type Lo
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import fs from "node:fs";
 import path from "node:path";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, name: string) => { if (ok) { passed++; console.log(`✓ ${name}`); } else { failed++; console.log(`✗ ${name}`); } };
-const serverSource = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const serverSource = readServerSource();
 
 const TEACHER = 7, SECTION = 5;
 const row = (over: Partial<FSchedule> = {}): FSchedule => ({

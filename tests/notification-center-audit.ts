@@ -10,6 +10,7 @@ import { buildNotifications, type CenterScope } from "../src/utils/notificationC
 import { emptyApproval } from "../src/utils/approvalWorkflow";
 import { cleanSeenIds, mergeSeenIds, seenKey, seenUnchanged, SEEN_LIMIT } from "../src/utils/notificationSeen";
 import { roleWriteDecision } from "../src/server/roleGuard";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -46,7 +47,7 @@ items = buildNotifications({ role: "committeeChair", scopes: [scope({ status: "a
 check(items[0]?.tone === "action" && items[items.length - 1]?.tone === "done", "المطلوب أولاً، والمنجز آخراً");
 
 // الخادم
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 check(server.includes('const sent = stage === "head" ? await submitToRegistrar('), "اعتماد رئيس القسم يرسل للتسجيل في الخطوة نفسها");
 check(server.includes("const everAccepted = next.rounds.some(round => Boolean(round.acceptedAt));"), "بعد أول قبول لا تُسجَّل إضافاتٌ تنتظر رئيس القسم");
 check(/status: "accepted", rounds, pendingAdditions: \[\]/.test(server), "القبول يُسقط ما بقي من إقرارات");
@@ -114,7 +115,7 @@ check(/isScopeAllowed\(req, Number\(row\.AdCollegeId\), Number\(row\.AdSectionId
     && !roleWriteDecision({ method: "POST", path: "/notifications/seen/extra", authenticated: true, powerUser: false, role: "dean" }).allowed,
     "المقروء: الإذنُ لهذا المسار بعينه، لا لما يشبهه");
   /* موصولٌ من الطرفين: الخادم يرسل المقروء ويحفظه، والجرسُ يرسل ما يُعلَّم. */
-  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const server = readServerSource();
   const bell = fs.readFileSync(path.join(process.cwd(), "src/components/NotificationCenter.tsx"), "utf8");
   check(/app\.post\("\/api\/notifications\/seen", requireAuth,[\s\S]{0,300}cleanSeenIds\(req\.body\?\.ids\)[\s\S]{0,300}Repository\.addNotificationSeen\(Number\(req\.user\?\.SystemUserId\)/.test(server),
     "المقروء: الخادم يحفظه لصاحب الجلسة وحده، بعد تنقية ما وصل");

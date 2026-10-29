@@ -15,6 +15,7 @@ import { roleWriteDecision } from "../src/server/roleGuard";
 import { MASARI_ACK_TEXT, MASARI_ACK_JS } from "../src/server/masariDisclaimer";
 import { TEACHER_CARD_EXTRAS_JS } from "../src/server/teacherCardExtras";
 import { AR as arNouns, countOf as arCountOf } from "../src/utils/arabicCount";
+import { readServerSource, serverSourceFiles } from "./helpers/serverSource.mjs";
 
 let checks = 0;
 function ok(condition: unknown, label: string) { if (!condition) throw new Error(`✗ ${label}`); checks++; }
@@ -23,7 +24,7 @@ function ok(condition: unknown, label: string) { if (!condition) throw new Error
 ok(linkMode(undefined) === "edit" && linkMode({}) === "edit" && linkMode({ linkMode: "x" }) === "edit", "E1 missing/unknown mode = edit (existing requests unchanged)");
 ok(linkMode({ linkMode: "view" }) === "view" && linkMode({ linkMode: "ta" }) === "ta", "E1 one source of truth: InstructorRequest.linkMode (shared with «لم يشاركوا»)");
 {
-  const server0 = fs.readFileSync("server.ts", "utf8");
+  const server0 = readServerSource();
   ok(!server0.includes("linkMode(resolved.link)") && server0.includes("linkMode(resolved.request)") && server0.includes("linkMode: issueMode,") && server0.includes('status: "sent", linkMode: "ta"'), "E1 server writes and reads the request's linkMode only");
   ok(!fs.readFileSync("src/types.ts", "utf8").includes('mode?: "view" | "edit" | "ta";\n  /**\n   * ما يُعرف'), "E1 no second mode field on the link");
 }
@@ -54,11 +55,11 @@ ok(issueLinkMode(undefined) === "edit" && issueLinkMode("view") === "view" && is
   "E1 إصدارُ البطاقة 👁️ أو ✏️؛ و🎓 تُفتح من مرحلتها");
 ok(taPhaseOwns({ linkMode: "ta" }, false) && !taPhaseOwns({ linkMode: "ta" }, true) && !taPhaseOwns({ linkMode: "view" }, false) && !taPhaseOwns({}, false) && !taPhaseOwns(null, false),
   "F3 النشرُ الجماعي يترك بطاقةَ التدريب القائمة لمرحلتها؛ والاستثناءُ الفرديُّ يحكم");
-for (const file of ["server.ts", "src/components/InstructorInbox.tsx", "src/components/SchedulePublish.tsx", "src/components/TAPhasePanel.tsx", "src/utils/requestParticipation.ts"]) {
+for (const file of [...serverSourceFiles(), "src/components/InstructorInbox.tsx", "src/components/SchedulePublish.tsx", "src/components/TAPhasePanel.tsx", "src/utils/requestParticipation.ts"]) {
   ok(!/\.linkMode\s*[!=]==/.test(fs.readFileSync(file, "utf8")), `E1 ${file} يقرأ الصفة بـlinkMode() وحدها`);
 }
 {
-  const server1 = fs.readFileSync("server.ts", "utf8");
+  const server1 = readServerSource();
   const issue = server1.slice(server1.indexOf('app.post("/api/instructor-requests/issue"'), server1.indexOf('app.get("/api/instructor-requests/exceptions"'));
   ok(issue.includes("const issueMode = issueLinkMode(req.body?.mode);") && issue.includes("if (!issueMode) { res.status(400)"), "E1 الإصدارُ يردّ «🎓»");
   ok(issue.indexOf("taPhaseOwns(held, individualOnly)") > 0 && issue.indexOf("taPhaseOwns(held, individualOnly)") < issue.indexOf('if (held && move === "keep"'), "F3 حارسُ بطاقة التدريب قبل كل تمديدٍ أو كتابة");
@@ -92,7 +93,7 @@ const judged: StickJudged[] = [
 ok(bestPerSide(judged).find(r => r.side === "after")?.shift === 30, "C6 nearest available when adjacent taken");
 ok(topSticks(judged)[0].side === "before" && topSticks(judged)[0].sameRoom, "C6 best: same room first");
 ok(topSticks(judged).length <= 3 && shiftLabel(after[1]) === "+30د" && shiftLabel(after[0]) === "ملاصق", "C6 top 3 + labels");
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const stickRoute = server.slice(server.indexOf('app.post("/api/public/request/:token/stick"'), server.indexOf('/* ── C5: لوحة المسؤول لحالة الطرح'));
 ok(stickRoute.includes("judgeRequestItems(") && !stickRoute.includes("findConflicts(") && !stickRoute.includes("judgeRequest("), "C6 reuses the one verdict engine, no duplicate checks");
 

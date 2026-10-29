@@ -3,6 +3,7 @@ import fs from "fs";
 import { SCHEDULE_DAYS } from "../src/utils/scheduleIntelligence";
 import { buildRowReasons, instructorLoadUnits } from "../src/utils/rowReasons";
 import { hasRowExplanation } from "../src/components/RowHistory";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let failed = 0;
 const check = (ok: boolean, label: string) => { console.log(`${ok ? "\x1b[32m✓" : "\x1b[31m✗"} ${label}\x1b[0m`); if (!ok) failed++; };
@@ -56,7 +57,7 @@ check(!kinds({ row: plain, proposals: [{ ...prop, status: "draft" }] }).includes
 check(instructorLoadUnits([row(1), row(2), row(3, { SCode: "02" })], 7, () => 3) === 6, "الشعبة (مقرر+رمز) تُحسب مرة");
 
 /* المصدر */
-const server = fs.readFileSync("server.ts", "utf8"), sch = fs.readFileSync("src/components/Schedules.tsx", "utf8"), rh = fs.readFileSync("src/components/RowHistory.tsx", "utf8");
+const server = readServerSource(), sch = fs.readFileSync("src/components/Schedules.tsx", "utf8"), rh = fs.readFileSync("src/components/RowHistory.tsx", "utf8");
 check(server.includes("buildRowReasons({") && /decisionCost,whyHere,reasons\}/.test(server), "الخادم يضيف reasons إلى سياق الموعد");
 check(server.includes("تعذّر حساب رقائق"), "إخفاق الحساب لا يكسر السياق");
 check(sch.includes("context.reasons"), "البطاقة تمرر reasons");

@@ -9,13 +9,14 @@
  */
 import fs from "fs";
 import path from "path";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed=0,failed=0;
 function check(value:boolean,label:string){
   if(value){passed++;console.log(`\x1b[32m✓ ${label}\x1b[0m`);}else{failed++;console.log(`\x1b[31m✗ ${label}\x1b[0m`);}
 }
 const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),"utf8");
-const server=read("server.ts"),repo=read("src/db/repository.ts"),types=read("src/types.ts"),courses=read("src/components/Courses.tsx"),plans=read("src/components/CurriculumPlans.tsx"),schedules=read("src/components/Schedules.tsx"),reports=read("src/components/Reports.tsx");
+const server=readServerSource(),repo=read("src/db/repository.ts"),types=read("src/types.ts"),courses=read("src/components/Courses.tsx"),plans=read("src/components/CurriculumPlans.tsx"),schedules=read("src/components/Schedules.tsx"),reports=read("src/components/Reports.tsx");
 
 check(types.includes('export type CurriculumPlanStatus = "active" | "transition" | "archived"'),"ثلاث حالات للصحيفة: حالية وانتقالية ومؤرشفة");
 check(types.includes('CourseCodeSnapshot?: string')&&types.includes('CourseNameSnapshot?: string'),"هوية المقرر التاريخية محفوظة داخل موعد الجدول");

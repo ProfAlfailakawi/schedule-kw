@@ -12,6 +12,7 @@ import vm from "vm";
 import { PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "../src/server/publicKit";
 import { THREAD_LIMIT, capThread } from "../src/utils/instructorRequestThread";
 import { studyProposalPage } from "../src/server/studyProposalPage";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -56,7 +57,7 @@ check(capped.length === THREAD_LIMIT && capped[0].at === 0 && capped[capped.leng
 check(capThread(long.slice(0, 5)).length === 5, "وما دون الحدّ يبقى كما هو");
 
 /* ── الصفحتان العامتان ─────────────────────────────────────────────────────── */
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const pageStart = server.indexOf("function instructorRequestPage");
 const requestPage = server.slice(pageStart, server.indexOf('app.get("/r/:token"', pageStart));
 const proposal = studyProposalPage("t", "p", "n", "");

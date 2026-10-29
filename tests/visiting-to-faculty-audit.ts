@@ -3,6 +3,7 @@
  */
 import fs from "fs";
 import { applyVisitingToFaculty, recoverRetiredFromPrintedName, retiredOrSabbaticalIds } from "../src/utils/visitingToFaculty";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -47,7 +48,7 @@ const evidenced: any[] = [{ AdInstructorId: 1, importEvidence: { instructor: { r
 applyVisitingToFaculty(evidenced, { visiting: new Set([1]), placeholderId: 99 });
 check(evidenced[0].importEvidence.instructor.canonical === 99 && evidenced[0].importEvidence.instructor.confidence === "CONFIRMED" && evidenced[0].importEvidence.instructor.method === "VISITING_TO_FACULTY" && evidenced[0].importEvidence.course.confidence === "CONFIRMED", "دليل الأستاذ يطابق الصف بعد الاستبدال ولا يُمسّ غيره");
 
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 check((server.match(/visitingToFacultyPlan\(collegeId, ?sectionId, ?termId\)/g) || []).length === 3, "مسارات الاستيراد الثلاثة (PDF والنموذج والملف المُصدَّر) تطبّق القاعدة");
 check(/replacedVisitingInstructorId: Number\(raw\?\.replacedVisitingInstructorId/.test(server), "تنقية المسودة تحفظ المنتدب الأصلي فلا يضيع بعد الاستبدال");
 check(/retiredOrSabbaticalIds\(instructors as any\)\) visiting\.add\(id\)/.test(server), "الخادم يضمّ المتقاعد والمتفرغ إلى خطة الاستبدال");

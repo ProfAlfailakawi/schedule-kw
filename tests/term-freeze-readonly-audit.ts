@@ -8,6 +8,7 @@
 import fs from "fs";
 import path from "path";
 import { currentTermId, termIsFrozen, TERM_FROZEN_LABEL, TERM_FROZEN_MESSAGE } from "../src/utils/termSequence";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -45,7 +46,7 @@ check(!termIsFrozen(0, flagged as any, NOW) && !termIsFrozen(999, flagged as any
 check(TERM_FROZEN_LABEL === "فصل سابق · للعرض فقط" && /للاطّلاع فقط/.test(TERM_FROZEN_MESSAGE), "والنصّان كما طلب المالك");
 
 /* ── الخادم: كلُّ بابٍ يكتب يسأل ── */
-const server = read("server.ts");
+const server = readServerSource();
 check(server.includes("async function refuseIfTermFrozen(res: Response, termId: number)") && server.includes('code: "term-frozen"'), "حارسٌ واحدٌ في الخادم برمزٍ صريح term-frozen");
 const routeBody = (route: string) => {
   const at = server.indexOf(route);

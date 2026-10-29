@@ -7,6 +7,7 @@ import { Repository } from "../src/db/repository";
 import { planVisitingConversion, ConversionState } from "../src/utils/visitingConversion";
 import { readConversionState, runVisitingConversion } from "../src/db/visitingConversion";
 import { addMultiSiteFixture } from "./helpers/multiSiteSandbox";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -109,7 +110,7 @@ async function behaviour() {
   });
 }
 
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const route = server.slice(server.indexOf('"/api/instructors/:id/visiting-conversion"'));
 check(/requirePermission\(7\)/.test(route.slice(0, 120)) && /isScopeAllowed/.test(route.slice(0, 2000)), "المسار يفرض الصلاحية ونطاق كل قسم");
 check(fs.readFileSync("src/components/Instructors.tsx", "utf8").includes("VisitingConversionPanel"), "اللوحة في شاشة تعديل الأستاذ");

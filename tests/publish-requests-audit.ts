@@ -12,6 +12,7 @@
 
 import fs from "fs";
 import path from "path";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -20,7 +21,7 @@ function check(condition: boolean, name: string) {
 }
 
 const publish = fs.readFileSync(path.join(process.cwd(), "src/components/SchedulePublish.tsx"), "utf8");
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 const details = fs.readFileSync(path.join(process.cwd(), "src/styles/09-details.css"), "utf8");
 
 /* ── البابُ موجودٌ ويُستدعى ────────────────────────────────────────────── */

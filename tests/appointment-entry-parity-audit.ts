@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { nextCourseSectionCode } from "../src/utils/nextCourseSectionCode";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const read = (file: string) => readFileSync(file, "utf8");
 const schedule = read("src/components/Schedules.tsx");
 const inbox = read("src/components/InstructorInbox.tsx");
 const quick = read("src/components/QuickCreatePopover.tsx");
 const handoff = read("src/utils/requestHandoff.ts");
-const server = read("server.ts");
+const server = readServerSource();
 const wheels = read("src/components/TimeCounter.tsx");
 
 const sample = [

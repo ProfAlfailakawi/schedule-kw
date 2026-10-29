@@ -20,6 +20,7 @@ import { roleDefinition } from "../src/utils/academicRoles";
 import { AR, countOf } from "../src/utils/arabicCount";
 import { finalSourceFor } from "../src/utils/finality";
 import { approvalBlockerCount, placeholderInstructorIds } from "../src/utils/scheduleBlockers";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -84,7 +85,7 @@ check(audit.some(e => e.status === 403) && audit.some(e => e.action === "تسج�
   "وفيها اعتمادٌ ودخولٌ ومحاولةٌ مرفوضة");
 check(audit.every(e => Date.parse(e.timestamp) <= Date.now()), "ولا عمليةَ في المستقبل");
 
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 const seed = server.slice(server.indexOf("async function seedDemoStories("), server.indexOf("\n}\n", server.indexOf("async function seedDemoStories(")));
 
 /* ── 6: لا تسرّب: البذرُ كلُّه في الصندوق ─────────────────────────────────── */

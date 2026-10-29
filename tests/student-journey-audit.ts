@@ -16,6 +16,7 @@ import { createCoalescer, createTtlMemo, studentQueueAggregate } from "../src/se
 import { chooseStudentCaseSecret } from "../src/server/studentCaseSecret";
 import { applyStudentCaseDecision, isCaseLevelNeed, studentCaseRefusal, studentCaseStatus } from "../src/utils/studentCaseDecision";
 import { sectionOwnsNeed as sheetOwnsNeed } from "../src/utils/studentCaseScope";
+import { readServerSource, serverSourceFiles } from "./helpers/serverSource.mjs";
 
 /* مخزنٌ محليٌّ معزول لكل تشغيل: لا يلمس بيانات أحد. */
 const privateDir = fs.mkdtempSync(path.join(os.tmpdir(), "schedule-student-journey-"));
@@ -39,7 +40,7 @@ function check(condition: boolean, name: string) {
 }
 const ROOT = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), "utf8");
-const server = read("server.ts");
+const server = readServerSource();
 const between = (source: string, start: string, end: string) => {
   const from = source.indexOf(start);
   if (from < 0) return "";
@@ -157,7 +158,7 @@ const surveyPageSource = between(server, "function studentCaseSurveyPage", "</sc
   check(sections.includes("اقتراح غير محفوظ — احفظه ليعمل تحقق الخريجين") && sections.includes("rule.suggested"),
     "S7 شاشة الأقسام تقول إن القيمة اقتراحٌ غير محفوظ");
   const guessPattern = /\/فرنسي\/\.test\(/;
-  const copies = ["server.ts", "src/components/Sections.tsx", "src/utils/degreeRules.ts"].filter(file => guessPattern.test(read(file)));
+  const copies = [...serverSourceFiles(), "src/components/Sections.tsx", "src/utils/degreeRules.ts"].filter(file => guessPattern.test(read(file)));
   check(copies.length === 1 && copies[0] === "src/utils/degreeRules.ts", `S7 تخمين القاعدة من اسم القسم في مكانٍ واحد (${copies.join(", ")})`);
   check(server.includes("const degreeRuleFromName=suggestedDegreeRule;") && sections.includes("suggestedDegreeRule("), "S7 الخادم والشاشة يقرآن التخمين نفسه");
   check(suggestedDegreeRule("اللغة الفرنسية").degreeUnits === 132 && suggestedDegreeRule("تربية خاصة").degreeUnits === 134
@@ -333,7 +334,7 @@ const surveyPageSource = between(server, "function studentCaseSurveyPage", "</sc
   check(!/slice\(0,\s*8\)\.toUpperCase\(\)/.test(workspace + register) && workspace.includes("<StudentCasesTable")
     && (register.match(/item\.caseRef\s*\|\|\s*"—"/g) || []).length === 2,
     "S13 الجدول والطباعة (السجلّ المشترك) يعرضان رقم الحالة، لا بادئة المعرّف");
-  const derivations = ["server.ts", "src/db/repository.ts", "src/utils/studentNeedMerge.ts", "src/components/IntelligenceWorkspace.tsx", "src/components/StudentRegistration.tsx"]
+  const derivations = [...serverSourceFiles(), "src/db/repository.ts", "src/utils/studentNeedMerge.ts", "src/components/IntelligenceWorkspace.tsx", "src/components/StudentRegistration.tsx"]
     .filter(file => /slice\(0,\s*8\)\.toUpperCase\(\)/.test(read(file)));
   check(derivations.length === 1 && derivations[0] === "src/utils/studentNeedMerge.ts", `S13 اشتقاق رقم الحالة في مكانٍ واحد (${derivations.join(", ")})`);
 }

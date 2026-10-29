@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import type { InstructorRequest } from "../src/types";
 import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind, unchangedScheduleFingerprint } from "../src/utils/instructorRequestConfirmation";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let checks = 0;
 function expect(ok: boolean, label: string) {
@@ -47,7 +48,7 @@ expect(isUnchangedConfirmed({ status: "settled", timeline: [{ kind: unchangedCon
 expect(!isUnchangedConfirmed({ status: "submitted", timeline: [{ kind: unchangedConfirmationKind, at: "2026-01-02" }] }), "An incomplete request is never treated as confirmed");
 expect(!isUnchangedConfirmed({ status: "settled", timeline: [{ kind: "settled", at: "2026-01-02" }] }), "Old department settlements do not appear as automatic confirmations");
 
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 expect(server.includes('status: unchangedConfirmed ? "settled" : "submitted"'), "The server finalizes only confirmed unchanged submissions");
 expect(server.includes('request.status !== "superseded" && !placeholderPeople.has(Number(request.AdInstructorId)) && (')
   && server.includes("\n    inScope(Number(request.AdCollegeId)"), "Superseded rounds stay excluded while completed unchanged submissions remain visible within scope");

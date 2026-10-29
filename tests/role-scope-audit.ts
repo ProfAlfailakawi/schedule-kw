@@ -16,6 +16,7 @@ import { departmentNameKey, inboxAudience, multiSiteDepartment, multiSiteHeadlin
 import { ACADEMIC_ROLES } from "../src/utils/academicRoles";
 import { createDemoSandboxState, DEMO_SWITCH_ACCOUNTS, demoActiveRoleKey } from "../src/db/demoSandbox";
 import { visibleFilterOptions } from "../src/components/InstructorInbox";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -108,7 +109,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
  * صفة على خادمٍ تجريبيٍّ معزول. وهذه الفحوصُ البنيوية تُمسك ما أصلحه فلا يعود:
  */
 {
-  const server = read("server.ts");
+  const server = readServerSource();
   const route = (head: string) => {
     const at = server.indexOf(head);
     if (at < 0) return "";

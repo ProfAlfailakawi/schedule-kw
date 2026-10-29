@@ -5,6 +5,7 @@ import fs from "fs";
 import { departmentLoadWarning, departmentTypicalTotal, historicalBaseline, NO_HISTORY_MAX, rangeLabel, remainingBacklog, suggestSectionCount } from "../src/utils/sectionCountSuggestion";
 import { blankSpots, columnKind, labelLooksRemaining, readRemainingReport, readReportHeader, remainingOf, remainingValues } from "../src/utils/remainingReport";
 import { readReportCells } from "../src/utils/documentOcr";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -235,7 +236,7 @@ check(ui.includes("التقرير والطباعة") && ui.includes('dataset.pri
   "التقرير يُطبع بمنفذ الطباعة المعتاد، ومعه مصدر المتبقي");
 
 /* ── الربط: المستودع والخادم والواجهة ── */
-const server = fs.readFileSync("server.ts", "utf8");
+const server = readServerSource();
 const repo = fs.readFileSync("src/db/repository.ts", "utf8");
 check(repo.includes("getRegistrationStats: async") && repo.includes("saveRegistrationStats: async") && repo.includes('collection("registrationStats")'), "الإحصاء يُحفظ عبر المستودع (Firestore والمحلي)");
 check(repo.includes("input.counts ?? previous?.counts") && repo.includes("remaining: Object.fromEntries(Object.entries(clean(input.remaining, 100000, -100000)).map(([key, value]) => [key, Math.max(0, value)]))")

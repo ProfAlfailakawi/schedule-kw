@@ -18,6 +18,7 @@ import path from "path";
 import { createDemoSandboxState, DEMO_ROLE_ACCOUNTS, DEMO_SWITCH_ACCOUNTS } from "../src/db/demoSandbox";
 import { ACADEMIC_ROLES, roleDefinition, isViewerOnlyRole } from "../src/utils/academicRoles";
 import { isApprovalWritePath, roleWriteDecision } from "../src/server/roleGuard";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -126,7 +127,7 @@ check(state.scheduleComments.some(c => c.origin === "department"), "ملاحظة
 
 /* ── ٥) الخادمُ يبدّل الصفة، والحارس يسمح بالمسار ───────────────────────── */
 
-const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+const server = readServerSource();
 check(server.includes('app.post("/api/demo/role"'), "الخادم يفتح مسار تبديل الصفة");
 check(server.includes('app.post("/api/demo/role", rateLimitDemoRole,'),
   "ومسارُ التبديل محدودُ المعدّل بحدٍّ يُطبَّق دائماً — لا يُترك مساراً مصادَقاً بلا حدّ");

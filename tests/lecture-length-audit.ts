@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { effectiveCourseHours, lectureLengthProblem, periodBalanceSnapshot } from "../src/utils/scheduleRegulations";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const sut = { fsunday: true, ftuesday: true, fthursday: true };
 assert.ok(lectureLengthProblem({ ...sut, fstarttime: "08:00", fendtime: "08:40" }, 3), "40 دقيقة أحد/ثلاثاء/خميس تُرفض");
@@ -34,7 +35,7 @@ console.log("weekly-cap ok");
 import fs from "node:fs";
 import { patternNoticeHtml } from "../src/utils/patternLibraryView";
 import { patternLibraryInput } from "../src/utils/patternLibraryInput";
-const serverSrc = fs.readFileSync("server.ts", "utf8");
+const serverSrc = readServerSource();
 const lengthFn = serverSrc.slice(serverSrc.indexOf("async function scheduleLengthIssue("), serverSrc.indexOf("async function scheduleLengthNotice("));
 assert.ok(!/\blectureLengthProblem\s*\(/.test(lengthFn) && /maxWeeklyMinutesFor/.test(lengthFn), "طول المحاضرة لا يرفض الحفظ، وحدّ العبء الأسبوعي فقط يبقى مانعاً");
 const lengthNotice = serverSrc.slice(serverSrc.indexOf("async function scheduleLengthNotice("), serverSrc.indexOf("async function schedulePayloadIssues("));

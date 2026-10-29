@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
-const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+const server = readServerSource();
 const reviewRoutes = readFileSync(new URL("../src/server/planReviewRoutes.ts", import.meta.url), "utf8");
 const referenceView = readFileSync(new URL("../src/components/CurriculumReferenceReview.tsx", import.meta.url), "utf8");
 const coursesView = readFileSync(new URL("../src/components/Courses.tsx", import.meta.url), "utf8");

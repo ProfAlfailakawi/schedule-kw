@@ -9,6 +9,7 @@ import { visitingByScope } from "../src/utils/liveVisiting";
 import { departmentFamilyResolver } from "../src/utils/sectionLabel";
 import { invalidateVisitingLookup, isVisitingIn, loadVisitingLookup } from "../src/utils/visitingLookup";
 import { VISITING_SUFFIX, withVisitingSuffix } from "../src/components/VisitingBadge";
+import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -63,7 +64,7 @@ check(withVisitingSuffix("أ. سالم", true) === `أ. سالم${VISITING_SUFFI
   check(Object.keys(failed1.scopes).length === 0, "وإن تعذّرت القراءة: لا شارات ولا خطأ يُرمى");
   check(Object.keys((await loadVisitingLookup(0, fake)).scopes).length === 0, "وفصلٌ بلا رقم: قائمةٌ فارغة بلا طلب");
 
-  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const server = readServerSource();
   check(/app\.get\("\/api\/visiting-lookup", requireAnyPermission\(\[3, 7, 8, 9, 10, 14, 16, 17\]\)/.test(server), "والنقطة /api/visiting-lookup موجودة بصلاحيات القراءة نفسها");
   const route = server.slice(server.indexOf('app.get("/api/visiting-lookup"'), server.indexOf('app.get("/api/reports/visiting-roster"'));
   check(/filterByScope\(req, allSections as any\[\]\)/.test(route), "وتقتصر على أقسام القارئ (الحارسُ ظاهرٌ في المعالج نفسه)");
