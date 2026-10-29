@@ -54,6 +54,8 @@
     "test:curriculum-reference-pdf": "tsx tests/curriculum-reference-pdf-audit.ts",
     "test:reference-apply": "tsx tests/reference-apply-audit.ts",
     "test:schedule-apply": "tsx tests/schedule-apply-proposal-audit.ts",
+    "test:time-machine": "tsx tests/time-machine-audit.ts",
+    "test:time-machine-links": "tsx tests/time-machine-links-audit.ts",
     "test:radar-insight": "tsx tests/radar-insight-audit.ts",
     "test:outcome-story": "tsx tests/outcome-story-audit.ts",
     "test:registration-causes": "tsx tests/registration-causes-audit.ts",

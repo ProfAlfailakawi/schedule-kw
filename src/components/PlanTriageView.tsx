@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Check, CircleSlash, CloudOff, Lightbulb, OctagonAlert, RotateCcw, TriangleAlert, Wrench } from "lucide-react";
+import { Check, CircleSlash, CloudOff, Hourglass, Lightbulb, OctagonAlert, RotateCcw, TriangleAlert, Wrench } from "lucide-react";
 import type { GapItem } from "../utils/sectionGap";
 import { FOCUS_COURSE_EVENT, type PlanDecision, type PlanTier, type triagePlanItems } from "../utils/planTriage";
 import { AR, countOf } from "../utils/arabicCount";
+import { demandAsk, openInTimeMachine } from "../utils/timeMachineLink";
 
 export type PlanTriage = ReturnType<typeof triagePlanItems>;
 
@@ -73,6 +74,13 @@ export default function PlanTriageView({ triage, renderItem, onDecide, onClose, 
         onClick={() => { window.dispatchEvent(new CustomEvent(FOCUS_COURSE_EVENT, { detail: { code: entry.item.code, courseId: entry.item.id } })); onClose(); }}>
         <Wrench aria-hidden="true" /> عالج
       </button>
+      {/* يحتاج شعبةً أخرى ← حلولٌ جاهزة في آلة الزمن، على نسخةٍ افتراضية. */}
+      {entry.item.extra > 0 && entry.item.code ? (
+        <button type="button" className="plan-triage-act" title="حلول جاهزة لشعبة إضافية في آلة الزمن" data-guide-ignore="يفتح آلة الزمن على نسخة افتراضية؛ لا يكتب في الجدول"
+          onClick={() => { openInTimeMachine(demandAsk(entry.item.code)); onClose(); }}>
+          <Hourglass aria-hidden="true" /> جرّب
+        </button>
+      ) : null}
       {onDecide ? <>
         <button type="button" className="plan-triage-act" aria-pressed={asking?.id === entry.item.id && asking.state === "done"}
           data-guide-ignore="يعلّم البند منجزاً في هذا المتصفح" onClick={() => { setAsking({ id: entry.item.id, state: "done" }); setReason(""); }}>
