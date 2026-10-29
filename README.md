@@ -24,3 +24,12 @@ This is an operational/admin system for deterministic academic timetabling. Reli
 ## Recovery Documentation
 
 Always use branches and PRs for changes, and maintain a clear rollback plan. Do not redesign the UI or rewrite working scheduling logic unless addressing a defect supported by tests.
+
+## Standing Rules (owner decisions)
+
+These are fixed decisions by the system owner. Do not change them without the owner's explicit request.
+
+- ⚠️ **Course numbers are 7 digits only.** Every course number a reader sees (printed report, query screen, Excel export) is the Authority number: college (2) + department (2) + course (3), e.g. `01` + `09` + `105` = `0109105`. The catalogue usually stores only the last 3 digits, so never render `CourseCode` or `CourseCodeSnapshot` directly, and never render `AdCourseId` (an internal id). Build the number with `authorityCourseCode()` and the department key from `authorityDepartmentCode()` in `src/utils/authorityAcademicCodes.ts`; on the query screen use `courseNumberOf`. Guarded by `npm run test:course-number-seven-digit`.
+- ⚠️ **Printed reports keep their design.** Fix values and data, not the layout. A layout change that cannot be avoided must reuse the existing print classes and be checked on a Chrome-printed A4 landscape PDF before merging.
+
+> ⚠️ **رقم المقرر سبع خانات فقط:** الكلية (2) ثم القسم (2) ثم المقرر (3)، مثل `0109105`. لا تُعرض الخانات الثلاث المخزّنة ولا `AdCourseId`. **وتصميم التقارير المطبوعة لا يُمسّ:** الإصلاح في البيانات لا في الشكل.

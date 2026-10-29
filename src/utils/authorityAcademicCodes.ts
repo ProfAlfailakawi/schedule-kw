@@ -120,7 +120,7 @@ export function authorityCourseCodeMatches(sourceCode: unknown, catalogueCourseC
  * CourseCodeSnapshot مباشرةً، ولا AdCourseId أبداً (رقمٌ داخلي للنظام). يُمرَّر
  * الرمز المخزَّن ومفتاح القسم ذو الخانات الأربع (authorityDepartmentCode) إلى
  * هذه الدالة. وما لا يُبنى بثقة يُعاد كما خُزّن، فلا تُختلق هوية مقرر.
- * يحرس القاعدةَ tests/course-number-seven-digit-audit.ts.
+ * القاعدة مكتوبة في README (Standing Rules)، ويحرسها tests/course-number-seven-digit-audit.ts.
  */
 export function authorityCourseCode(catalogueCourseCode: unknown, departmentCode: unknown): string {
   const stored = String(catalogueCourseCode ?? "").normalize("NFKC").trim();

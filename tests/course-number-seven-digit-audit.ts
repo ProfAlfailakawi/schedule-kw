@@ -45,7 +45,7 @@ check(!/code-chip">\{(?!courseNumberOf\()/.test(reports), "شرائح رمز ا�
 check(!/\{\s*pickedCourse\?\.CourseCode/.test(reports), "بطاقة الموعد المختار لا تعرض الرمز المخزَّن");
 check(/authorityCourseCode\(course\?\.CourseCode \|\| row\.CourseCodeSnapshot/.test(authority), "تقرير تغييرات الجدول يكتب رقم المقرر بسبع خانات");
 check(/"رمز المقرر": courseNumberOf\(s\)/.test(server), "ملف Excel يكتب رقم المقرر بسبع خانات");
-check(/0109105/.test(read("CLAUDE.md")), "والقاعدة مكتوبة لمن يعمل على المشروع بعدنا (CLAUDE.md)");
+check(/0109105/.test(read("README.md")) && /authorityCourseCode/.test(read("README.md")), "والقاعدة مكتوبة في README لمن يعمل على المشروع بعدنا");
 
 console.log(`\ncourse number audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
