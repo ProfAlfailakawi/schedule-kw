@@ -57,9 +57,9 @@ const PATTERN = new RegExp(`(?:${INTERP})${ISO}${TAGS}${ISO}(?:${nounAlternation
  * line; each entry must still match something, so a stale one is reported. */
 const ALLOW: Array<{ file: string; contains: string; why: string }> = [
   { file: "src/components/ads/CampaignDrawer.tsx", contains: ": \"\"} نقرات ${nf.format(c.totals.clicks)}", why: "«نقرات» عنوانٌ يسبق رقمَه بعد وصلةٍ نصّية («نقرات 25»)، لا معدود" },
-  { file: "server.ts", contains: "${dayLabel} يوم محجوز", why: "«الأحد يوم محجوز» — اسم يوم قبل «يوم»، لا عدد" },
-  { file: "server.ts", contains: "${requestedInstructor.AdInstructorName} يوم ${dayMatch.label}", why: "اسم أستاذ ثم «يوم الأحد»" },
-  { file: "server.ts", contains: "\"موعد آخر\")} شعبة ${String(other.SCode", why: "اسم مقرر ثم «شعبة 01» — رمز الشعبة بعد اسمها" },
+  { file: "src/server/routes/intelligenceRoutes.ts", contains: "${dayLabel} يوم محجوز", why: "«الأحد يوم محجوز» — اسم يوم قبل «يوم»، لا عدد" },
+  { file: "src/server/routes/intelligenceRoutes.ts", contains: "${requestedInstructor.AdInstructorName} يوم ${dayMatch.label}", why: "اسم أستاذ ثم «يوم الأحد»" },
+  { file: "src/server/routes/reportsRoutes.ts", contains: "\"موعد آخر\")} شعبة ${String(other.SCode", why: "اسم مقرر ثم «شعبة 01» — رمز الشعبة بعد اسمها" },
   { file: "src/server/core/staffCard.ts", contains: "${movementName(now)} تغيّر موعدها", why: "«تغيّر» هنا فعلٌ بعد اسم المقرر، لا معدود" },
   { file: "src/server/core/staffCard.ts", contains: "${movementName(now)} تغيّر مكانُ محاضرتها", why: "«تغيّر» فعلٌ بعد اسم المقرر" },
   { file: "src/server/pages/surveyPages.ts", contains: "<h1>${label}</h1><p class=\"lead\">طلب واضح", why: "جملة تبدأ بـ«طلب» بعد عنوان الصفحة" },
