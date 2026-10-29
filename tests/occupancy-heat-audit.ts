@@ -77,7 +77,8 @@ check(reports.includes("departmentFamily(sections, filters.collegeId, filters.se
 check(reports.includes("/api/schedules?termId=${termId}&collegeId=${collegeId}&sectionId=${sectionId}") && reports.includes("البيانات جزئية: تعذرت قراءة {familyRead.denied.join"),
   "وكل كليةٍ تُقرأ بصلاحية الحساب، وما رُدّ منها يُقال");
 check(reports.includes('if (kind === "occupancy")') && reports.includes('className="print-occupancy-table print-occupancy-heat"'), "ولها ورقة بيد شبكة إشغال القاعات");
-check(grid.includes("onPick") && reports.includes("setOccupancyPick") && reports.includes('aria-label={`محاضرات ${day.label}`}'), "والضغط على الخانة يفتح محاضراتها");
+const slotPanel = fs.readFileSync(path.join(process.cwd(), "src/components/OccupancySlotPanel.tsx"), "utf8");
+check(grid.includes("onPick") && reports.includes("setOccupancyPick") && reports.includes("<OccupancySlotPanel") && slotPanel.includes('aria-label={`محاضرات ${day}`}'), "والضغط على الخانة يفتح محاضراتها");
 check(/\.print-report \.print-occupancy-table tbody tr:nth-child\(n\) td\.print-heat-5\{background:#2b7666 !important\}/.test(printCss),
   "ودرجة الشبكة لا يمحوها تخطيط الصفوف على الورقة");
 /* مراجعة #302: العائلة تتبع تحديث البيانات، والطباعة تتبع النطاق المختار. */

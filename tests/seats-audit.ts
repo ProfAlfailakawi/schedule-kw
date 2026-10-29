@@ -186,5 +186,13 @@ try {
   await server?.stop();
 }
 
+/* حقول نموذج الكرسي تبقى داخل خليتها: بلا هذا يخرج حقل الجوال من البطاقة. */
+{
+  const css = (await import("fs")).readFileSync("src/components/seats/seats.css", "utf8");
+  check(/\.seat-form-grid label,\.seat-date\{[^}]*min-inline-size:0/.test(css)
+    && /\.seat-form-grid input,\.seat-date input\{[^}]*box-sizing:border-box;inline-size:100%;min-inline-size:0/.test(css),
+    "حقول نموذج الكرسي لا تتجاوز خليتها");
+}
+
 console.log(`\n${passed} نجح، ${failed} فشل`);
 if (failed) process.exit(1);

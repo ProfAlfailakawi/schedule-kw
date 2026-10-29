@@ -64,9 +64,12 @@ import PrintComprehensiveHead, { printIssueDate } from "./PrintComprehensiveHead
 import PrintStamp from "./PrintStamp";
 import { buildReportStamp, type ReportStampClaim } from "../utils/reportStamp";
 import { flushPendingReportStamps, sendReportStamp } from "../utils/reportStampClient";
-import DecisionBoard from "./DecisionBoard";
+import DecisionBoard, { type DecisionBoardPrintDepartment } from "./DecisionBoard";
+import { instructorReportScope } from "../utils/instructorReportScope";
+import { compactCampusLabels } from "../utils/campusChips";
 import OccupancyHeatGrid from "./OccupancyHeatGrid";
-import { canSeeDecisionBoard } from "../utils/decisionBoardScope";
+import OccupancySlotPanel from "./OccupancySlotPanel";
+import { canSeeDecisionBoard, decisionBoardScope } from "../utils/decisionBoardScope";
 
 /**
  * One question, seven lenses.
@@ -91,7 +94,10 @@ type VisitingTeachingData = {
   rows: FSchedule[];
 };
 type Lens = "list" | "week" | "instructor" | "courseLoad" | "room" | "occupancy" | "roomInstructor" | "matrix" | "time" | "visiting" | "visitingHistory" | "fairness" | "balance" | "courseRoom" | "decision";
-type PrintKind = Exclude<Lens, "courseRoom" | "decision"> | "comprehensive" | "comprehensive-branch" | null;
+/* كل عدسةٍ لها ورقة: زرّ «طباعة هذا العرض» يظهر في كل عدسة، وعدسةٌ بلا ورقة كانت
+   تخرج صفحةً بيضاء عنوانها «undefined» («المقررات × القاعات» و«لوحة القرار»).
+   tests/report-print-menus-audit.ts يحرس ذلك. */
+type PrintKind = Lens | "comprehensive" | "comprehensive-branch" | null;
 
 /* Safari is the one printing engine here that ignores `@page size` (so wide
    sheets meet portrait paper) — detected once, and only ever used to OFFER a
@@ -1056,6 +1062,21 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     row => `${Number(row.AdCollegeId) || 0}|${optionKey(row.AdSectionName)}`, filters.sectionId, row => Number(row.AdSectionId),
   ), [sections, filters.collegeId, filters.sectionId, isPowerAdmin, scopeState.sectionIds.join("|")]);
   const sectionOptionLabel = useMemo(() => sectionLabels(sectionOptions, colleges), [sectionOptions, colleges]);
+  /* ── ورقة «لوحة القرار» ─────────────────────────────────────────────────
+     كل قسمٍ في اللوحة يبلّغ بما يعرضه (DecisionBoard → onPrintData)، موسوماً
+     بكليته وفصله؛ والورقة تأخذ أقسام النطاق الحالي وحدها وبترتيب اللوحة. */
+  const [decisionPrintData, setDecisionPrintData] = useState<Record<string, DecisionBoardPrintDepartment>>({});
+  const reportDecisionDepartment = useCallback((entry: DecisionBoardPrintDepartment) => {
+    setDecisionPrintData(previous => ({ ...previous, [`${entry.collegeId}:${entry.termId}:${entry.sectionId}`]: entry }));
+  }, []);
+  const decisionPrintDepartments = useMemo(() => {
+    const scope = decisionBoardScope({ roleId, isPowerAdmin, scopes }, { collegeId: filters.collegeId, sectionId: filters.sectionId, sections: sectionOptions });
+    if (scope.kind === "none" || !filters.termId) return [] as DecisionBoardPrintDepartment[];
+    return sectionOptions
+      .filter(section => scope.sectionIds.includes(Number(section.AdSectionId)))
+      .map(section => decisionPrintData[`${filters.collegeId}:${filters.termId}:${Number(section.AdSectionId)}`])
+      .filter((entry): entry is DecisionBoardPrintDepartment => Boolean(entry));
+  }, [decisionPrintData, roleId, isPowerAdmin, scopes, filters.collegeId, filters.sectionId, filters.termId, sectionOptions]);
   /**
    * A course can exist more than once in imported catalogues (different legacy
    * IDs / code variants) while carrying the exact same visible name inside the
@@ -1726,6 +1747,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const occupancyScopeLabel = familyActive
     ? `عائلة القسم — ${familyScopes.map(scope => collegeById.get(scope.collegeId)?.AdCollegeName).filter(Boolean).join(" · ")}`
     : collegeName ? `الموقع — ${collegeName}` : "الموقع المفتوح";
+  const occupancyCampusOrder = useMemo(() => familyScopes.map(scope => scope.collegeId), [familyScopes]);
+  const closeOccupancyPick = useCallback(() => setOccupancyPick(null), []);
   /* العائلة قيد القراءة: لا طباعة لنسخةٍ نصفها قديم، ولا هيكلَ انتظارٍ فوق شبكةٍ معروضة. */
   const familyPending = familyActive && (!familyRead || familyRead.key !== familyKey || familyRead.loading);
   const familyFirstLoad = familyActive && (!familyRead || familyRead.key !== familyKey || (familyRead.loading && !familyRead.rows.length));
@@ -1830,6 +1853,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       list: "نتائج الاستعلام", week: "الأسبوع", instructor: "تقرير الأستاذ", courseLoad: "توزيع المواد بين المواقع", room: "إشغال القاعات والفراغات", occupancy: "نسبة الإشغال", roomInstructor: "القاعات والأساتذة",
       matrix: "القاعات والأوقات", time: "الأوقات", visiting: "المنتدبون — الفصل الحالي",
       visitingHistory: "المنتدبون — كل الفصول", fairness: "عدالة توزيع العبء", balance: "ميزان الأقسام",
+      courseRoom: "المقررات × القاعات", decision: "لوحة القرار",
       comprehensive: "تقرير الجدول الشامل", "comprehensive-branch": "تقرير الجدول الشامل — كل الفروع",
     };
     document.title = `SCHEDULE · ${titleOverride || reportTitles[kind]}`;
@@ -1919,10 +1943,21 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   /* يطبع تقرير الأستاذ من نطاق مستقل عن مرشحات العرض الحالية. كل قراءة تمر
      عبر /api/schedules، الذي يقصر الصفوف على صلاحيات الحساب قبل إرجاعها. */
   const printInstructorScope = async (scope: "college" | "all-colleges", collegeId = filters.collegeId) => {
-    if (showPwaPrintHelp() || !filters.termId) return;
-    const instructorId = Number(filters.instructorId || 0);
-    if (!instructorId && !filters.instructorQuery.trim()) return;
+    /* القائمة تُغلق أولاً في كل حال: ضغطةٌ لا تُغلقها ولا تطبع تبدو للقارئ زرّاً معطّلاً. */
     setScopeMenu(null);
+    if (showPwaPrintHelp()) return;
+    if (!filters.termId) { setError("اختر الفصل أولاً لطباعة تقرير الأستاذ."); return; }
+    const instructorId = Number(filters.instructorId || 0);
+    /* بلا أستاذٍ مختار يُطبع أساتذة العرض كلهم (src/utils/instructorReportScope.ts)
+       — كان هذا رجوعاً صامتاً، وهو حال الشاشة أول ما تُفتح. */
+    const who = instructorReportScope({
+      instructorId,
+      instructorQuery: filters.instructorQuery,
+      viewInstructorIds: results.map(row => Number(row.AdInstructorId)),
+      normalize: sortKey,
+      nameOf: id => instructorById.get(id)?.AdInstructorName || "",
+    });
+    if ("reason" in who) { setError(who.reason); return; }
     setBranchBusy(true);
     setError(null);
     try {
@@ -1936,13 +1971,10 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         if (!response.ok) throw new Error("تعذرت قراءة جداول الأستاذ في النطاق المطلوب");
         return { target, rows: await response.json() as FSchedule[] };
       }));
-      const matches = responses.flatMap(({ rows }) => rows).filter(row => {
-        if (instructorId) return Number(row.AdInstructorId) === instructorId;
-        const q = sortKey(filters.instructorQuery).toLowerCase();
-        return sortKey(instructorById.get(Number(row.AdInstructorId))?.AdInstructorName || "").toLowerCase().includes(q);
-      });
+      const matches = responses.flatMap(({ rows }) => rows).filter(who.matches);
+      if (!matches.length) { setError("لا مواعيد للأساتذة المطلوبين في هذا النطاق."); return; }
       const chosenCollege = scope === "college" ? collegeById.get(collegeId)?.AdCollegeName || "" : "كل الكليات";
-      const instructorName = instructorId ? instructorById.get(instructorId)?.AdInstructorName : filters.instructorQuery.trim();
+      const instructorName = instructorId ? instructorById.get(instructorId)?.AdInstructorName : who.label;
       const title = `تقرير الأستاذ — ${instructorName ? withVisitingSuffix(instructorName, !!instructorId && isVisitingInstructor(instructorId)) : "استعلام"} — ${scope === "college" ? chosenCollege : "كل الكليات"}`;
       flushSync(() => { setPrintRowsOverride(matches); setPrintCollegeOverride(chosenCollege); setPrintKind("instructor"); setAuthorityReport(null); setAuthorityBook(null); });
       printReport("instructor", title);
@@ -3034,36 +3066,34 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               const source = cell ? cell.rows : occupancyRows.filter(row => Boolean((row as any)[DAYS[occupancyPick.day].flag])
                 && (!occupancyPick.collegeId || Number(row.AdCollegeId) === occupancyPick.collegeId));
               const rows = [...source].sort((a, b) => minutes(a.fstarttime) - minutes(b.fstarttime) || byArabic(a.AdCourseName || "", b.AdCourseName || ""));
-              const where = occupancyPick.collegeId ? occupancySites.find(site => site.collegeId === occupancyPick.collegeId)?.label : occupancyScopeLabel;
+              /* المحاضرات تحت مواقعها برقائق ترشيح (OccupancySlotPanel)؛ والموقع يُقال مرةً للمجموعة لا في كل صفّ. */
+              const siteLabel = occupancyPick.collegeId ? occupancySites.find(site => site.collegeId === occupancyPick.collegeId)?.label : familyActive ? "عائلة القسم" : collegeName || undefined;
               return (
-                <>
-                  <div className="query-detail-backdrop no-print" onMouseDown={() => setOccupancyPick(null)} aria-hidden="true" />
-                  <div className="occupancy-pick query-detail-panel no-print" role="dialog" aria-modal="true" aria-label={`محاضرات ${day.label}`}>
-                    <header>
-                      <div>
-                        <small>{cell ? `${day.label} · ${scheduleClockForDisplay(clock(cell.hour))}–${scheduleClockForDisplay(clock(cell.hour + 60))}` : `${day.label} · اليوم كله`}</small>
-                        <strong>{where}</strong>
-                      </div>
-                      <span className="occupancy-pick-count">
-                        {countOf(rows.length, AR.lecture)}
-                        {cell ? ` · ${num(cell.rooms)} من ${countOf(heat.rooms, AR.room)} (${num(cell.rate)}٪)` : ` · إشغال ${num(day.rate)}٪`}
-                      </span>
-                      <button type="button" data-guide-ignore="إغلاق تفاصيل نسبة الإشغال فقط" onClick={() => setOccupancyPick(null)} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
-                    </header>
-                    {rows.length ? (
-                      <div className="occupancy-pick-rows">
-                        {rows.map(row => (
-                          <article key={row.id}>
-                            <strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<PlanBadge courseId={row.AdCourseId} /></strong>
-                            <span className="report-instructor-with-badge"><span className="rib-name">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}</span>{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
-                            <em>{[courseNumberOf(row) || "", row.SCode ? `شعبة ${row.SCode}` : "", placeOfRow(row), familyActive && !occupancyPick.collegeId ? collegeById.get(Number(row.AdCollegeId))?.AdCollegeName || "" : ""].filter(Boolean).join(" · ")}</em>
-                            <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
-                          </article>
-                        ))}
-                      </div>
-                    ) : <p className="occupancy-pick-empty">لا محاضرات في هذا الوقت.</p>}
-                  </div>
-                </>
+                <OccupancySlotPanel
+                  key={`${occupancyPick.collegeId || 0}|${occupancyPick.day}|${occupancyPick.hour ?? "day"}`}
+                  day={day.label}
+                  range={cell ? `${scheduleClockForDisplay(clock(cell.hour))}–${scheduleClockForDisplay(clock(cell.hour + 60))}` : null}
+                  rate={cell ? cell.rate : day.rate}
+                  busyRooms={cell ? cell.rooms : null}
+                  totalRooms={heat.rooms}
+                  campusOrder={occupancyCampusOrder}
+                  scopeLabel={siteLabel}
+                  onClose={closeOccupancyPick}
+                  rows={rows.map(row => ({
+                    id: row.id,
+                    course: row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—",
+                    badge: <PlanBadge courseId={row.AdCourseId} />,
+                    code: courseNumberOf(row) || "",
+                    section: String(row.SCode || ""),
+                    room: placeOfRow(row) === "بلا قاعة" ? "" : placeOfRow(row),
+                    teacher: instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ",
+                    visiting: isVisitingInstructor(row.AdInstructorId),
+                    campusId: Number(row.AdCollegeId) || 0,
+                    campusName: collegeById.get(Number(row.AdCollegeId))?.AdCollegeName || "",
+                    start: scheduleClockForDisplay(row.fstarttime),
+                    end: scheduleClockForDisplay(row.fendtime),
+                  }))}
+                />
               );
             })() : null}
           </div>
@@ -3343,6 +3373,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             sectionId={filters.sectionId}
             termId={filters.termId}
             sections={sectionOptions}
+            onPrintData={reportDecisionDepartment}
           />
         ) : lens === "roomInstructor" ? (
           <div className="room-teacher-report">
@@ -3562,15 +3593,21 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           showCollegeOnInstructorRows={printCollegeOverride === "كل الكليات" || printCollegeOverride === "كل الفروع"}
           visitingIds={visitingIds}
           visitingRows={familyTeaching ? familyTeaching.rows : undefined}
-          visitingScopeNote={familyTeaching ? (familyTeaching.complete ? `القسم في: ${familyTeaching.family.map(item => item.collegeName).filter(Boolean).join("، ")}` : "غير مكتمل: لا صلاحية على بعض كليات القسم") : ""}
+          visitingScopeNote={familyTeaching ? (familyTeaching.complete ? "" : "غير مكتمل: لا صلاحية على بعض كليات القسم") : ""}
+          visitingScopeSites={familyTeaching?.complete ? familyTeaching.family.map(item => item.collegeName).filter(Boolean) : undefined}
           visitingPlace={visitingPlaceLabel}
           siteGroups={branchSiteGroups}
-          approval={printApproval}
+          /* ختم الاعتماد وتواقيعه لقسمٍ واحد: القسم المختار. ورقة «لوحة القرار» للعميد
+             والمدير تضم أقسام الكلية كلها، فلو حملت ختم القسم المختار لوقّع على أقسامٍ
+             لم تُعتمد. فلا تحمله إلا إن كانت أقسامها هي القسم المختار وحده. */
+          approval={printKind === "decision" && !decisionPrintDepartments.every(entry => entry.sectionId === Number(filters.sectionId)) ? null : printApproval}
           stampCode={comprehensiveStamp?.code}
           stampOrigin={stampOrigin}
           changesAppendix={changesAppendix}
           balanceApprovals={termApprovals}
           occupancy={occupancyHeat ? { heat: occupancyHeat, sites: occupancySites, scopeLabel: occupancyScopeLabel } : null}
+          courseRoom={printKind === "courseRoom" ? roomTypeMismatches : undefined}
+          decision={printKind === "decision" ? decisionPrintDepartments : undefined}
         />
       </PrintPortal>
       {meetingOpen && roleId === "departmentHead" ? <MeetingSlots
@@ -4204,7 +4241,7 @@ function PrintSheet(props: React.ComponentProps<typeof PrintSheetBody>) {
   );
 }
 
-function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balance, visitingHistory, scopeLine, collegeName, termName, sectionName, sectionCode, courseById, departmentKeyBySection, instructorById, collegeById, showCollegeOnInstructorRows, visitingIds, visitingRows, visitingScopeNote, visitingPlace, siteGroups, approval, changesAppendix, balanceApprovals, stampCode, stampOrigin, occupancy }: {
+function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balance, visitingHistory, scopeLine, collegeName, termName, sectionName, sectionCode, courseById, departmentKeyBySection, instructorById, collegeById, showCollegeOnInstructorRows, visitingIds, visitingRows, visitingScopeNote, visitingScopeSites, visitingPlace, siteGroups, approval, changesAppendix, balanceApprovals, stampCode, stampOrigin, occupancy, courseRoom, decision }: {
   kind: PrintKind;
   rows: FSchedule[];
   fairness: any;
@@ -4228,6 +4265,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
   /** صفوف تدريس المنتدبين عبر كليات القسم (استعلام المنتدبين وحده). */
   visitingRows?: FSchedule[];
   visitingScopeNote?: string;
+  /** مواقع القسم (المنتدبون — الفصل الحالي): تُطبع وسوماً قصيرة لا جملةً طويلة. */
+  visitingScopeSites?: string[];
   visitingPlace?: (collegeId: number, sectionId: number) => string;
   /** مواقع الفرع ومواعيد كل منها — تُمرَّر فقط لوثيقة «كل الفروع». */
   siteGroups?: Array<{ site: BranchScope; rows: FSchedule[] }>;
@@ -4248,6 +4287,10 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
   stampOrigin?: string;
   /** نسبة الإشغال: الشبكة الجامعة، وفي العائلة شبكةٌ لكل كلية. */
   occupancy?: { heat: OccupancyHeat; sites: Array<{ collegeId: number; label: string; heat: OccupancyHeat }>; scopeLabel: string } | null;
+  /** «المقررات × القاعات»: المواعيد التي لا يطابق نوعُ قاعتها نوعَ مقررها، كما تعرضها العدسة. */
+  courseRoom?: Array<{ row: FSchedule; wanted: string; actual: string; room: string }>;
+  /** «لوحة القرار»: ما يعرضه كل قسمٍ في اللوحة (DecisionBoard → onPrintData). */
+  decision?: DecisionBoardPrintDepartment[];
 }) {
   if (!kind) return null;
 
@@ -4267,6 +4310,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
     visitingHistory: "المنتدبون — كل الفصول",
     fairness: "عدالة توزيع العبء",
     balance: "نشرة المجلس — ميزان الأقسام",
+    courseRoom: "المقررات × القاعات",
+    decision: "لوحة القرار",
     comprehensive: "تقرير الجدول الشامل",
     "comprehensive-branch": "تقرير الجدول الشامل — كل الفروع",
   };
@@ -4462,6 +4507,88 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
             ) : null}
           </div>
         ) : <p className="print-empty">لا توجد مواعيد ضمن النطاق المحدد.</p>}
+      </div>
+    );
+  }
+
+  /* ── «المقررات × القاعات» ──────────────────────────────────────────────
+     ورقة «نتائج الاستعلام» نفسها — الترويسة والسطور وأرقام الصفحات — لكن
+     لمواعيد المخالفة وحدها، وتحت القاعة نوعُها ← النوع الذي يطلبه المقرر. */
+  if (kind === "courseRoom") {
+    const items = courseRoom || [];
+    const pages = paginateItems(items, PAGE_ROWS.list);
+    const courseCount = new Set(items.map(item => Number(item.row.AdCourseId))).size;
+    return (
+      <div className="print-report print-wide print-query-report print-query-list-report">
+        {pages.length ? pages.map((pageItems, pageIndex) => (
+          <section className="print-explicit-page" key={`course-room-page-${pageIndex + 1}`}>
+            <PrintLetterhead title={titles[kind]} scope={scopeLine} college={collegeName} footer={false} />
+            <div className="print-query-summaryline">
+              <span><b>{items.length}</b> {nounFor(items.length, AR.appointment)}</span>
+              <span><b>{courseCount}</b> {nounFor(courseCount, AR.course)}</span>
+            </div>
+            <div className="print-query-list">
+              {pageItems.map(({ row, wanted, actual, room }, index) => {
+                const course = courseOf(row);
+                const serial = pageIndex * PAGE_ROWS.list + index + 1;
+                return (
+                  <article key={row.id}>
+                    <span className="print-list-index">{String(serial).padStart(2, "0")}</span>
+                    <div className="print-list-core">
+                      <strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName || "—"}</strong>
+                      <span><bdi className="print-ltr">{course?.CourseCode || "—"}</bdi><i>شعبة {row.SCode || "—"}</i><em>{instructorPrintName(row)}</em></span>
+                    </div>
+                    <time className="print-ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
+                    <span className="print-list-room"><bdi dir="ltr">{room || placeOfRow(row)}</bdi><br /><small>{actual} ← {wanted}</small></span>
+                    <span className="print-days print-list-days">{dayCell(row)}</span>
+                  </article>
+                );
+              })}
+            </div>
+            <PrintPageMeta page={pageIndex + 1} total={pages.length} college={collegeName} date={issueDate} />
+          </section>
+        )) : <p className="print-empty">لا مخالفات: كل قاعةٍ مسجَّل نوعُها تطابق نوعَ مقررها في هذا النطاق.</p>}
+      </div>
+    );
+  }
+
+  /* ── «لوحة القرار» ─────────────────────────────────────────────────────
+     ورقة «تقرير الأستاذ» نفسها — رأسُ مجموعةٍ وجدول — لكل قسم: عدّادُ عاجل/مهم/فرصة،
+     ثم مقرراته المصنّفة كما تعرضها اللوحة. */
+  if (kind === "decision") {
+    const tierLabel: Record<string, string> = { urgent: "عاجل", important: "مهم", opportunity: "فرصة" };
+    const departments = decision || [];
+    const pages = departments.flatMap(department => {
+      const chunks = paginateItems(department.items, PAGE_ROWS.list);
+      return (chunks.length ? chunks : [[]]).map(items => ({ department, items }));
+    });
+    return (
+      <div className="print-report print-wide print-query-report print-query-groups-report">
+        {pages.length ? pages.map(({ department, items }, pageIndex) => (
+          <section className="print-explicit-page" key={`decision-${department.sectionId}-${pageIndex}`}>
+            <PrintLetterhead title={titles[kind]} scope={scopeLine} college={collegeName} footer={false} />
+            <section className="print-query-group">
+              <header>
+                <div><strong>{department.name}</strong></div>
+                <span><b>{department.counts.urgent}</b> عاجل</span><span><b>{department.counts.important}</b> مهم</span><span><b>{department.counts.opportunity}</b> فرصة</span>
+              </header>
+              {department.status !== "ready" ? <p className="print-empty">{department.status === "failed" ? "تعذّرت قراءة التخطيط لهذا القسم." : "لم تكتمل قراءة التخطيط لهذا القسم بعد."}</p>
+                : items.length ? <table>
+                  <colgroup><col style={{ width: "38%" }} /><col style={{ width: "10%" }} /><col style={{ width: "10%" }} /><col style={{ width: "13%" }} /><col style={{ width: "29%" }} /></colgroup>
+                  <thead><tr><th>المقرر ورمزه</th><th>القائم</th><th>المطلوب</th><th>التصنيف</th><th>السبب</th></tr></thead>
+                  <tbody>{items.map((item, index) => <tr key={`${item.code}-${index}`}>
+                    <td className="print-course-block"><strong>{item.name || "—"}</strong><span><bdi className="print-ltr">{item.code || "—"}</bdi></span></td>
+                    <td className="print-ltr">{item.existing}</td>
+                    <td className="print-ltr">{item.required}</td>
+                    <td>{tierLabel[item.tier] || item.tier}</td>
+                    <td>{item.reason}{item.handled ? " · عولج" : ""}</td>
+                  </tr>)}</tbody>
+                </table>
+                : <p className="print-empty">لا فرق بين الشعب والتخطيط لهذا القسم.</p>}
+            </section>
+            <PrintPageMeta page={pageIndex + 1} total={pages.length} college={collegeName} date={issueDate} />
+          </section>
+        )) : <p className="print-empty">لا أقسام في نطاق لوحة القرار.</p>}
       </div>
     );
   }
@@ -4827,6 +4954,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
   }
 
   if (kind === "visiting") {
+    const visitingCampuses = compactCampusLabels(visitingScopeSites || []);
     const teachingRows = visitingRows || rows.filter(row => visitingIds.has(Number(row.AdInstructorId)));
     const groups = groupRows(teachingRows, row => instructorOf(row)?.AdInstructorName || "منتدب");
     const pages = groups.flatMap(group => paginateItems(group.rows, PAGE_ROWS.visitingRows).map(groupRows => ({ group, rows: groupRows })));
@@ -4848,8 +4976,12 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                     {instructor?.AdInstructorCivil ? <small className="print-ltr">{instructor.AdInstructorCivil}</small> : null}
                   </div>
                   <span><b>{countOf(summary?.sections || 0, AR.section)} · {countOf(weeklyHours(load), AR.hour)} أسبوعياً</b></span>
-                  {visitingScopeNote ? <span className="print-visiting-scope">{visitingScopeNote}</span> : null}
                   <span><b>{days}</b> {nounFor(days, AR.day)}</span>
+                  {/* المواقع سطرٌ مستقل تحت الاسم، وسومٌ قصيرة: الجملة الطويلة كانت تضغط الاسم كلمةً في كل سطر. */}
+                  {visitingCampuses.chips.length ? <span className="print-visiting-scope print-visiting-campuses">
+                    القسم في{visitingCampuses.base ? <> {visitingCampuses.base}</> : null}:
+                    {visitingCampuses.chips.map(chip => <i key={chip}>{chip}</i>)}
+                  </span> : visitingScopeNote ? <span className="print-visiting-scope print-visiting-campuses">{visitingScopeNote}</span> : null}
                 </header>
                 <table>
                   <colgroup><col style={{ width: "38%" }} /><col style={{ width: "20%" }} /><col style={{ width: "19%" }} /><col style={{ width: "13%" }} /><col style={{ width: "10%" }} /></colgroup>

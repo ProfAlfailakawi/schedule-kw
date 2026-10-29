@@ -105,3 +105,153 @@ button.occupancy-heat-cell:hover{transform:scale(1.07);z-index:2;position:relati
   .occupancy-heat-cell{transition:none}
   button.occupancy-heat-cell:hover{transform:none}
 }
+
+/* ── لوحة الخانة (OccupancySlotPanel) ───────────────────────────────────────
+   الرأس: حلقة الإشغال والوقت ورقائق المواقع. الجسم: المحاضرات تحت مواقعها،
+   الاسم كاملاً بلا قصّ (ينزل سطراً ثانياً)، والقاعة والشعبة رقيقتان هادئتان.
+   على الحاسوب أعمدة، وعلى الهاتف الصفّ مكدّس: الوقت في الطرف وما سواه تحته. */
+.occupancy-slot{
+  display:flex;flex-direction:column;overflow:hidden;
+  border:1px solid var(--line);border-radius:24px;background:var(--surface);
+}
+.visual-minimal.query-page .query-detail-panel.occupancy-slot,
+.query-detail-panel.occupancy-slot{
+  inline-size:min(920px,calc(100vw - 48px));
+  max-block-size:min(86dvh,860px);overflow:hidden;
+}
+.occupancy-slot-head{
+  display:flex;align-items:center;gap:14px;flex:none;
+  padding:16px 18px 14px;
+  background:linear-gradient(180deg,var(--accent-softer),color-mix(in srgb,var(--accent-softer) 40%,var(--surface)));
+  border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent);
+}
+.occupancy-slot-ring .dna-ringc{font-size:14px;font-weight:800}
+.occupancy-slot-ring .dna-ringc small{font-family:var(--font-mono);font-size:10.5px}
+.occupancy-slot-title{display:grid;gap:2px;flex:1;min-width:0}
+.occupancy-slot-title>small{font-size:12.5px;font-weight:700;color:var(--accent-ink,var(--accent))}
+.occupancy-slot-scope{font-weight:600;color:var(--muted)}
+.occupancy-slot-title>strong{
+  justify-self:start;font:800 22px/1.15 var(--font-mono);color:var(--ink);
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em;
+}
+.occupancy-slot-title>strong:not([dir]){font-family:inherit}
+.occupancy-slot-facts{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:2px;font-size:12.5px;color:var(--ink-2)}
+.occupancy-slot-facts>span+span::before{content:"";display:inline-block;inline-size:4px;block-size:4px;margin-inline-end:12px;border-radius:50%;background:var(--muted-2,var(--muted));vertical-align:middle}
+.occupancy-slot-facts b{font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+.occupancy-slot-close{
+  display:inline-grid;place-items:center;flex:none;align-self:flex-start;
+  inline-size:38px;block-size:38px;padding:0;border:0;border-radius:12px;
+  background:transparent;color:var(--muted);cursor:pointer;
+}
+.occupancy-slot-close:hover{background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink)}
+.occupancy-slot-close svg{inline-size:20px;block-size:20px}
+
+.occupancy-slot-tools{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;flex:none;
+  padding:10px 18px;border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent);
+}
+.occupancy-slot-campuses{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.occupancy-slot-campuses>button{
+  display:inline-flex;align-items:center;gap:6px;
+  min-block-size:34px;padding:4px 6px 4px 12px;border:1px solid var(--line);border-radius:999px;
+  background:var(--surface);color:var(--ink-2);
+  font:inherit;font-size:13px;font-weight:700;cursor:pointer;
+  transition:background .14s var(--ease-out,ease),color .14s var(--ease-out,ease),border-color .14s var(--ease-out,ease);
+}
+.occupancy-slot-campuses>button b{
+  display:inline-grid;place-items:center;min-inline-size:22px;block-size:22px;padding:0 6px;border-radius:999px;
+  background:var(--surface-2);color:var(--ink);font:800 11.5px/1 var(--font-mono);font-variant-numeric:tabular-nums;
+}
+.occupancy-slot-campuses>button:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--accent-ink,var(--accent))}
+.occupancy-slot-campuses>button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.occupancy-slot-campuses>button[aria-pressed="true"] b{background:color-mix(in srgb,#fff 22%,transparent);color:#fff}
+.occupancy-slot-search{
+  display:flex;align-items:center;gap:6px;flex:0 1 240px;min-width:160px;
+  padding:0 12px;min-block-size:34px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);
+}
+.occupancy-slot-search:focus-within{border-color:var(--accent);background:var(--surface)}
+.occupancy-slot-search svg{inline-size:16px;block-size:16px;flex:none;color:var(--muted)}
+.occupancy-slot-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:13px;color:var(--ink)}
+
+.occupancy-slot-body{flex:1;min-block-size:0;overflow-y:auto;overscroll-behavior:contain;padding:4px 0 10px}
+.occupancy-slot-group-head{
+  position:sticky;top:0;z-index:1;
+  display:flex;align-items:center;gap:8px;margin:0;
+  padding:10px 18px 6px;
+  background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(6px);
+  font-size:13px;font-weight:800;color:var(--ink);
+}
+.occupancy-slot-group-head svg{inline-size:16px;block-size:16px;color:var(--accent)}
+.occupancy-slot-group-head b{
+  padding:1px 8px;border-radius:999px;background:var(--surface-2);
+  font:800 11.5px/1.5 var(--font-mono);color:var(--muted);font-variant-numeric:tabular-nums;
+}
+.occupancy-slot-rows{list-style:none;margin:0;padding:0 10px}
+.occupancy-slot-row{
+  display:grid;align-items:center;gap:6px 14px;
+  grid-template-columns:62px minmax(0,1.7fr) minmax(0,1.1fr) 220px;
+  grid-template-areas:"time course teacher meta";
+  padding:10px 8px;
+}
+.occupancy-slot-row+.occupancy-slot-row{border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.occupancy-slot-row:hover{background:color-mix(in srgb,var(--accent) 4%,transparent)}
+.occupancy-slot-time{
+  grid-area:time;align-self:start;
+  display:grid;justify-items:center;gap:1px;padding:6px 4px;border-radius:10px;
+  background:color-mix(in srgb,var(--accent) 9%,var(--surface));
+  font-family:var(--font-mono);font-variant-numeric:tabular-nums;
+}
+.occupancy-slot-time b{font-size:13px;font-weight:800;color:var(--accent-ink,var(--accent))}
+.occupancy-slot-time span{font-size:11px;color:var(--muted)}
+.occupancy-slot-course{grid-area:course;display:grid;justify-items:start;gap:4px;min-width:0}
+.occupancy-slot-name{
+  font-size:14.5px;font-weight:700;line-height:1.5;color:var(--ink);
+  white-space:normal;overflow-wrap:anywhere;
+}
+.occupancy-slot-name .plan-badge{margin-inline-start:6px;vertical-align:middle}
+.occupancy-slot-code{
+  padding:1px 7px;border-radius:6px;background:var(--surface-2);
+  font:600 11px/1.6 var(--font-mono);color:var(--muted);letter-spacing:.02em;
+}
+.occupancy-slot-teacher{
+  grid-area:teacher;display:flex;align-items:flex-start;gap:6px;min-width:0;
+  font-size:13px;line-height:1.55;color:var(--ink-2);
+}
+.occupancy-slot-teacher>svg{flex:none;inline-size:15px;block-size:15px;margin-top:3px;color:var(--muted)}
+.occupancy-slot-teacher-name{min-width:0;white-space:normal;overflow-wrap:anywhere}
+.occupancy-slot-teacher .visiting-badge{flex:none;align-self:center;font-size:11px}
+.occupancy-slot-meta{grid-area:meta;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px}
+.occupancy-slot-section,.occupancy-slot-room{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;
+}
+.occupancy-slot-section{background:var(--surface-2);color:var(--ink-2)}
+.occupancy-slot-section b{font:800 12px/1.4 var(--font-mono);color:var(--ink)}
+.occupancy-slot-room{background:color-mix(in srgb,var(--accent) 10%,var(--surface));color:var(--accent-ink,var(--accent))}
+.occupancy-slot-room svg{inline-size:14px;block-size:14px}
+.occupancy-slot-room b{font:800 12px/1.4 var(--font-mono)}
+.occupancy-slot-room[data-empty]{background:var(--surface-2);color:var(--muted)}
+.occupancy-slot-room[data-empty] b{font-family:inherit;font-weight:600}
+.occupancy-slot-empty{margin:0;padding:28px 18px;color:var(--muted);font-size:var(--t-sm);text-align:center}
+
+@media (max-width:760px){
+  .visual-minimal.query-page .query-detail-panel.occupancy-slot,
+  .query-detail-panel.occupancy-slot{inline-size:calc(100vw - 20px);max-block-size:min(84dvh,calc(100dvh - 168px));border-radius:22px}
+  .occupancy-slot-head{gap:12px;padding:14px 14px 12px}
+  .occupancy-slot-title>strong{font-size:19px}
+  .occupancy-slot-tools{padding:10px 14px}
+  .occupancy-slot-campuses{flex-basis:100%;gap:5px}
+  .occupancy-slot-campuses>button{min-block-size:32px;padding:3px 5px 3px 10px;font-size:12.5px;gap:5px}
+  .occupancy-slot-search{flex:1 1 100%}
+  .occupancy-slot-group-head{padding:10px 14px 6px}
+  .occupancy-slot-rows{padding:0 6px}
+  .occupancy-slot-row{
+    grid-template-columns:54px minmax(0,1fr);
+    grid-template-areas:"time course" "time teacher" "time meta";
+    gap:4px 12px;padding:10px 6px;
+  }
+  .occupancy-slot-meta{justify-content:flex-start;margin-top:2px}
+}
+@media (prefers-reduced-motion:reduce){
+  .occupancy-slot-campuses>button{transition:none}
+}

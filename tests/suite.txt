@@ -57,6 +57,7 @@ test:student-journey
 test:print-attestation
 test:print-fit
 test:occupancy-heat
+test:occupancy-slot-panel
 test:request-handoff
 test:request-signature
 test:teacher-card
@@ -200,3 +201,4 @@ test:live-pulse
 test:live-pulse-http
 test:seats
 test:import-courses-r3
+test:report-print-menus
