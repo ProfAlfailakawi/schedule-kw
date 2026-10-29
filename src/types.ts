@@ -1395,7 +1395,7 @@ export interface InstructorRequestSnapshot {
   sectionCode: string;
   days: string;
   time: string;
-  /** القاعة. تُملأ في «كان» وتبقى فارغةً في «طلب»: الأستاذ لا يختار قاعة. */
+  /** القاعة. تُملأ في «كان» وتبقى فارغةً في «طلب»: الأستاذ لا يختار قاعة، ولا تُرسل إلى صفحته في أيٍّ منهما. */
   room?: string;
 }
 
@@ -1436,11 +1436,14 @@ export interface InstructorRequestItem {
   roomOptions?: Array<{ key: string; room: string; hall: string; buildingId?: string; roomId?: string; companionRoomId?: string; companionRoomLabel?: string;
     /** أسبابُ ترتيب القاعة (C2): رموزٌ تُرسم أيقونات — قسم المقرر، قرب قاعاتك، القاعة السابقة، السعة، التوزيع العادل، المرفق. */
     why?: RequestRoomReason[] }>;
-  /** نقلُ موعدٍ قائمٍ وقاعتُه مشغولةٌ في الوقت الجديد: تُبدَّل إلى الأنسب الخالي (لا «ممنوع»)، والتثبيتُ يكتبها. */
+  /** نقلُ موعدٍ قائمٍ وقاعتُه مشغولةٌ في الوقت الجديد: تُبدَّل إلى الأنسب الخالي (لا «ممنوع»)، والتثبيتُ يكتبها. للقسم وحده. */
   roomSwitch?: { from: string; to: { roomId?: string; buildingId?: string; room: string; hall: string; companionRoomId?: string; companionRoomLabel?: string } };
-  /** القاعةُ التي حُجزت للبند فعلاً عند الإرسال (الأنسب المتاح لحظتها). تُعرض في عمود «التغيير». */
+  /** القاعةُ التي حُجزت للبند فعلاً عند الإرسال (الأنسب المتاح لحظتها). تُعرض في عمود «التغيير» — **للقسم وحده**. */
   reservedRoom?: { roomId?: string; label: string; companionLabel?: string };
-  /** الأنسب وبديلان (للأستاذ، بلا تفاصيل غيره): رمزُ القاعة وأسبابُ اختيارها. */
+  /**
+   * حقلٌ قديم: «الأنسب» وبديلاه كما عُرضا للأستاذ قبل قرار المالك (2026-10-29: «مخفية اكيد متعمدة»).
+   * لا يُبنى بعده، ويبقى في الطلبات التي حُفظت قبله — فيُنزع مع حقول القاعة الأخرى ولا يصل الأستاذ.
+   */
   roomPick?: Array<{ label: string; why: RequestRoomReason[] }>;
   /** أقربُ الأوقات المتاحة حين يُمنع الطلب. */
   nearestTimes?: InstructorRequestSlot[];

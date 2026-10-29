@@ -73,3 +73,47 @@ export function shareLinkReadable(
   const window = termWindow(term);
   return Boolean(window && now < window.to);
 }
+
+/**
+ * ── متى يتوقّف اشتراكُ التقويم الثابت؟ (قرار المالك 2026-10-29) ────────────────
+ *
+ * اشتراكُ الأستاذ الثابت (‎/api/public/cal/<رمز>/p<رقم>-<مفتاح>.ics‎) يتبع الشخصَ لا
+ * الرابط، فإعادةُ نشر البطاقة أو تجديدُها لا تقطعه. لكنه لا يبقى بلا باب: يعرض
+ * المحاضرات ما دام بيد الأستاذ «رابطُ بطاقةٍ حيّ» واحدٌ على الأقل. فإن لم يبقَ له
+ * شيء (إيقافٌ نهائي) أجاب الخادمُ تقويماً صالحاً فارغاً يقول إنه توقّف — فتُمسح
+ * المحاضراتُ من الهاتف بهدوء — ويعود وحده متى صدرت له بطاقةٌ جديدة.
+ *
+ * «رابطُ بطاقةٍ حيّ» للأستاذ: غيرُ موقوف (`revoked`) **ومقروءٌ الآن** بالقاعدة نفسها
+ * التي تفتح البطاقة (shareLinkReadable). فالانتهاءُ يُحتسب: رابطٌ مضى تاريخُه وانقضى
+ * فصلُه لا تُفتح به البطاقة، فلا يُبقي التقويمَ حيّاً. وهو واحدٌ من ثلاثة:
+ *   1) رابطُه الشخصي: `kind "staff"` و`AdInstructorId` رقمُه؛
+ *   2) رابطُ طلبه (كرت الأستاذ، ومنه مرحلةُ التدريب): `kind "request"` و`AdInstructorId` رقمُه؛
+ *   3) بطاقةُ القسم العامة (`kind "staff"` بلا `AdInstructorId`) لقسمٍ يدرّس فيه
+ *      (`teachesIn`) — يفتح بها بطاقتَه برقمه المدني.
+ * وغيرُها (جدولُ القسم، الاستبيان، جدولُ الطلبة) لا يفتح بطاقةَ أحد فلا يُحسب.
+ */
+export interface CardLinkLike {
+  kind?: string | null;
+  AdInstructorId?: number | string | null;
+  AdTermId?: number | string | null;
+  revoked?: boolean | null;
+  expiresAt?: string | null;
+}
+
+export function liveCardLinkFor<T extends CardLinkLike>(
+  links: ReadonlyArray<T>,
+  instructorId: number,
+  options: { termOf: (termId: number) => TermLike; teachesIn?: (link: T) => boolean; now?: number },
+): T | undefined {
+  const id = Number(instructorId || 0);
+  if (!id) return undefined;
+  const now = options.now ?? Date.now();
+  return links.find(link => {
+    if (link.revoked) return false;
+    const owner = Number(link.AdInstructorId || 0);
+    const opensCard = link.kind === "request" ? owner === id
+      : link.kind === "staff" ? (owner > 0 ? owner === id : Boolean(options.teachesIn?.(link)))
+        : false;
+    return opensCard && shareLinkReadable(link, options.termOf(Number(link.AdTermId || 0)), now);
+  });
+}
