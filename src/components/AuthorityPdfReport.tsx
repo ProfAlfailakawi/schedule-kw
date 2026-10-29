@@ -4,6 +4,7 @@ import { AdCourse, AdInstructor, FSchedule } from "../types";
 import VisitingBadge from "./VisitingBadge";
 import { displayInstructorText } from "../utils/instructorIdentity";
 import { effectiveCourseHours } from "../utils/scheduleRegulations";
+import { authorityCourseCode } from "../utils/authorityAcademicCodes";
 
 export type AuthorityReportEntry = {
   status: "added" | "deleted" | "changed" | "unchanged";
@@ -33,6 +34,8 @@ interface Props {
   sectionName: string;
   sectionCode: string;
   courseById: Map<number, AdCourse>;
+  /** مفتاح القسم ذو الخانات الأربع لكل قسم — يُكتب منه رقم المقرر السباعي كما تطبعه الهيئة. */
+  departmentKeyBySection?: Map<number, string>;
   instructorById: Map<number, AdInstructor>;
   visitingIds: Set<number>;
   /** يحكم على كل صفٍّ بكليته وقسمه هو (وثيقة كل الفروع تجمع صفوف أقسامٍ عدة فلا تصلح لها قائمةٌ واحدة). */
@@ -49,6 +52,8 @@ interface Props {
   bookSites?: Array<{ label: string; added: number; deleted: number; changed: number }>;
   /** حين تضم الوثيقة مواقع الفرع: عمود «الموقع» يظهر، وصفوف المواقع تتصل. */
   showSite?: boolean;
+  /** النسخة نفسها بعمودٍ أخير للرقم المدني بعد اسم المدرس، لكل صف لا للمعدَّل وحده. */
+  showCivil?: boolean;
 }
 
 const pageItems = <T,>(items: T[], size: number): T[][] => {
@@ -65,6 +70,7 @@ export default function AuthorityPdfReport({
   sectionName,
   sectionCode,
   courseById,
+  departmentKeyBySection,
   instructorById,
   visitingIds,
   isVisitingRow,
@@ -72,13 +78,16 @@ export default function AuthorityPdfReport({
   pageTotal,
   bookSites,
   showSite = false,
+  showCivil = false,
 }: Props) {
   const entries = [...report.rows].sort((a, b) => {
     const ar = Number((a.current || a.source)?.sourceOrder ?? Number.MAX_SAFE_INTEGER);
     const br = Number((b.current || b.source)?.sourceOrder ?? Number.MAX_SAFE_INTEGER);
     return ar - br;
   });
-  const pages = pageItems(entries, 23);
+  /* ٢٨ صفاً كالتقرير الشامل، وبكثافة صفوفه نفسها (print-comprehensive-dense-rows):
+     الصف أقصر بالمليمترات التي كانت تُترك فراغاً أسفل الورقة، والتصميم كما هو. */
+  const pages = pageItems(entries, 28);
   const branch = [report.sourceBranchCode, report.sourceBranchName].filter(Boolean).join(" ") || "—";
   const fieldChanged = (entry: AuthorityReportEntry, ...fields: string[]) =>
     entry.status === "changed" && fields.some(field => entry.changedFields.includes(field));
@@ -99,7 +108,7 @@ export default function AuthorityPdfReport({
       .filter(Boolean).reverse().join(" ") || "—";
 
   return (
-    <div className={`print-report print-wide print-query-report print-comprehensive print-comprehensive-book authority-pdf-report${showSite ? " authority-pdf-with-site" : ""}`}>
+    <div className={`print-report print-wide print-query-report print-comprehensive print-comprehensive-book print-comprehensive-dense-rows authority-pdf-report${showSite ? " authority-pdf-with-site" : ""}${showCivil ? " authority-pdf-with-civil" : ""}`}>
       <div className="print-comprehensive-pages">
         {pages.map((pageEntries, pageIndex) => (
           <section className="print-comprehensive-page authority-pdf-page" key={`authority-${pageIndex + 1}`}>
@@ -134,7 +143,7 @@ export default function AuthorityPdfReport({
 
             <div className="print-comprehensive-grid authority-pdf-grid" role="table" aria-label="تقرير تغييرات الجدول">
               <div className="print-comprehensive-grid-row print-comprehensive-grid-head" role="row">
-                {["رقم المقرر", "الرقم المرجعي", "الشعبة", "مسمى المقرر", "عدد الوحدات", "عدد الساعات", "الحد الأقصى", "القاعة", "المبنى", "الوقت", "الأيام", "المدرس"].map(head => (
+                {["رقم المقرر", "الرقم المرجعي", "الشعبة", "مسمى المقرر", "عدد الوحدات", "عدد الساعات", "الحد الأقصى", "القاعة", "المبنى", "الوقت", "الأيام", "المدرس", ...(showCivil ? ["الرقم المدني"] : [])].map(head => (
                   <div role="columnheader" key={head}>{head}</div>
                 ))}
               </div>
@@ -149,7 +158,7 @@ export default function AuthorityPdfReport({
                   return (
                     <div className={`print-comprehensive-grid-row authority-pdf-row authority-pdf-row-${entry.status}`} role="row" key={`${pageIndex}-${index}-${row.id || row.sourceOrder || index}-${entry.status}`}>
                       {statusLabel ? <span className="authority-pdf-row-marker" aria-hidden="true">{statusLabel}</span> : null}
-                      <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "AdCourseId"))}`}>{course?.CourseCode || row.CourseCodeSnapshot || "—"}</div>
+                      <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "AdCourseId"))}`}>{authorityCourseCode(course?.CourseCode || row.CourseCodeSnapshot, departmentKeyBySection?.get(Number(course?.AdSectionId || row.AdSectionId))) || "—"}</div>
                       {/* ── الرقم المرجعي لمقرر لم تُصدره الهيئة بعد ──────────────────
                           A course added after the import has no CRN, because a
                           CRN is the Authority's number and it has not issued one
@@ -191,11 +200,12 @@ export default function AuthorityPdfReport({
                           حتى لا يمتلئ العمود بأرقام لا تخصّ التغيير. */}
                       <div role="cell" className={`print-wrap print-instructor-name authority-pdf-instructor ${cell(fieldChanged(entry, "AdInstructorId"))}`}>
                         <span>{instructor?.AdInstructorName || displayInstructorText(row.sourceInstructorText) || "—"}</span>
-                        {fieldChanged(entry, "AdInstructorId") && instructor?.AdInstructorCivil
+                        {!showCivil && fieldChanged(entry, "AdInstructorId") && instructor?.AdInstructorCivil
                           ? <bdi className="authority-pdf-civil print-ltr">{String(instructor.AdInstructorCivil).trim()}</bdi>
                           : null}
                         {(isVisitingRow ? isVisitingRow(row) : visitingIds.has(Number(row.AdInstructorId))) ? <VisitingBadge compact /> : null}
                       </div>
+                      {showCivil ? <div role="cell" className={`print-ltr authority-pdf-civil-cell ${cell(fieldChanged(entry, "AdInstructorId"))}`}>{String(instructor?.AdInstructorCivil || "").trim() || "—"}</div> : null}
                     </div>
                   );
                 })}

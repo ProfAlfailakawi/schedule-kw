@@ -109,6 +109,34 @@ export function authorityCourseCodeMatches(sourceCode: unknown, catalogueCourseC
   return source.length === 3 && source === tail;
 }
 
+/**
+ * ── رقم المقرر المعتمد: سبع خانات، ولا غيرها ─────────────────────────────
+ *
+ * ⚠️ قاعدةٌ ثابتة من مالك النظام: كل رقم مقرر يراه القارئ — تقريرٌ مطبوع، أو
+ * استعلامٌ على الشاشة، أو ملف Excel — يُكتب بخاناته السبع كما تطبعه الهيئة:
+ * الكلية (2) ثم القسم (2) ثم المقرر نفسه (3):
+ *   01 + 09 + 105 => 0109105
+ * والكتالوج يحفظ غالباً الخانات الثلاث وحدها (105)، فلا تُعرض CourseCode ولا
+ * CourseCodeSnapshot مباشرةً، ولا AdCourseId أبداً (رقمٌ داخلي للنظام). يُمرَّر
+ * الرمز المخزَّن ومفتاح القسم ذو الخانات الأربع (authorityDepartmentCode) إلى
+ * هذه الدالة. وما لا يُبنى بثقة يُعاد كما خُزّن، فلا تُختلق هوية مقرر.
+ * يحرس القاعدةَ tests/course-number-seven-digit-audit.ts.
+ */
+export function authorityCourseCode(catalogueCourseCode: unknown, departmentCode: unknown): string {
+  const stored = String(catalogueCourseCode ?? "").normalize("NFKC").trim();
+  const course = academicDigits(stored);
+  const department = academicDigits(departmentCode);
+  // رمزٌ فيه غير الأرقام ليس رقم مقرر للهيئة: يُعرض كما هو ولا تُنتزع منه أرقام.
+  if (!course || course.length !== stored.replace(/\s/g, "").length) return stored;
+  if (department.length !== 4) return course;
+  if (course.length <= 3) return `${department}${course.padStart(3, "0")}`;
+  /* المفتاح الكامل من القسم نفسه ربما أُنشئ تحت كليةٍ أخرى أولاً، والهيئة تطبعه
+     بكلية التقرير (0101101 يُطبع 0201101 في الكلية 02). أما مفتاح قسمٍ آخر
+     فيبقى كما هو: 0102102 مقرر قسمٍ آخر لا يُعاد ربطه. */
+  if (course.length === 7) return course.slice(2, 4) === department.slice(2, 4) ? `${department}${course.slice(-3)}` : course;
+  return course;
+}
+
 /** Normalize a section value exactly as printed by SWRSCHA.
  *
  * Section numbering is not globally fixed. Older reports may print 501/502…
