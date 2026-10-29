@@ -58,6 +58,10 @@ import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { teachingHoursByInstructor } from "../utils/teachingLoad";
 import { effectiveCourseHours } from "../utils/scheduleRegulations";
 import { authorityCourseCode, authorityDepartmentCode } from "../utils/authorityAcademicCodes";
+import PrintComprehensiveHead, { printIssueDate } from "./PrintComprehensiveHead";
+import PrintStamp from "./PrintStamp";
+import { buildReportStamp, type ReportStampClaim } from "../utils/reportStamp";
+import { flushPendingReportStamps, sendReportStamp } from "../utils/reportStampClient";
 import DecisionBoard from "./DecisionBoard";
 import { canSeeDecisionBoard } from "../utils/decisionBoardScope";
 
@@ -1253,7 +1257,6 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const resolvedCollegeId = filters.collegeId || (resultCollegeIds.length === 1 ? resultCollegeIds[0] : 0);
   const resolvedSectionId = filters.sectionId || (resultSectionIds.length === 1 ? resultSectionIds[0] : 0);
   const collegeName = collegeById.get(resolvedCollegeId)?.AdCollegeName || (resultCollegeIds.length > 1 ? "عدة كليات" : "");
-  const collegeCode = collegeById.get(resolvedCollegeId)?.AdCollegeCode || "";
   const termName = termById.get(filters.termId)?.AdTermName || "";
   const section = sectionById.get(resolvedSectionId);
   const sectionName = section?.AdSectionName || (resultSectionIds.length > 1 ? "عدة أقسام" : "");
@@ -1290,6 +1293,70 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     site,
     rows: site.isBase ? all : (branchRows[`${site.collegeId}:${site.sectionId}`] || []),
   })), [branchSites, branchRows, all]);
+
+  /* ── ختم الورقة الرسمية (utils/reportStamp) ──────────────────────────────
+     يُبنى في كل رسمٍ من الصفوف التي ستُطبع فعلاً، فيكون في الذيل ساعةَ الأمر
+     بلا انتظار؛ ويُرسل إلى الخادم حين تنتهي الطباعة. وما لا يصلح له ختم (ورقةٌ
+     بلا قسمٍ محدد) يُطبع كما كان. */
+  const stampOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  const comprehensiveStamp = useMemo((): ReportStampClaim | null => {
+    if (printKind !== "comprehensive" && printKind !== "comprehensive-branch") return null;
+    const groups = printKind === "comprehensive-branch" ? branchSiteGroups.filter(group => group.rows.length) : [];
+    if (groups.length > 1) {
+      return buildReportStamp({
+        kind: "comprehensive-branch",
+        termId: filters.termId,
+        sites: groups.map(group => ({ collegeId: group.site.collegeId, sectionId: group.site.sectionId })),
+        wholeScope: true,
+        rows: groups.flatMap(group => group.rows),
+        courseById: bookCourseById,
+      });
+    }
+    if (!filters.collegeId || !filters.sectionId || !filters.termId) return null;
+    const printed = printRowsOverride || results;
+    const scopeCount = all.filter(row => row.AdCollegeId === filters.collegeId && row.AdSectionId === filters.sectionId && row.AdTermId === filters.termId).length;
+    return buildReportStamp({
+      kind: "comprehensive",
+      termId: filters.termId,
+      sites: [{ collegeId: filters.collegeId, sectionId: filters.sectionId }],
+      /* ورقةٌ بلا مرشّح يضيّقها: الموعد الذي يُضاف بعدها نقصٌ فيها. */
+      wholeScope: !printRowsOverride && printed.length === scopeCount,
+      rows: printed,
+      courseById: printKind === "comprehensive-branch" ? bookCourseById : courseById,
+    });
+  }, [printKind, branchSiteGroups, filters.termId, filters.collegeId, filters.sectionId, printRowsOverride, results, all, courseById, bookCourseById]);
+  const authorityStamp = useMemo((): ReportStampClaim | null => {
+    const printed = (report: AuthorityReport) => report.rows.map(entry => entry.current).filter((row): row is FSchedule => Boolean(row));
+    if (authorityBook?.length) {
+      return buildReportStamp({
+        kind: "authority-pdf",
+        termId: filters.termId,
+        sites: authorityBook.map(entry => ({ collegeId: entry.site.collegeId, sectionId: entry.site.sectionId })),
+        draftIds: authorityBook.map(entry => entry.report.draftId),
+        wholeScope: true,
+        rows: authorityBook.flatMap(entry => printed(entry.report)),
+        courseById: bookCourseById,
+      });
+    }
+    if (!authorityReport || !filters.collegeId || !filters.sectionId) return null;
+    return buildReportStamp({
+      kind: "authority-pdf",
+      termId: filters.termId,
+      sites: [{ collegeId: filters.collegeId, sectionId: filters.sectionId }],
+      draftIds: [authorityReport.draftId],
+      wholeScope: true,
+      rows: printed(authorityReport),
+      courseById,
+    });
+  }, [authorityBook, authorityReport, filters.termId, filters.collegeId, filters.sectionId, courseById, bookCourseById]);
+  /* الختمُ الذي رُسم آخرَ مرة؛ أوامرُ الطباعة تقرؤه بعد رسمها المتزامن. */
+  const stampRef = useRef<{ comprehensive: ReportStampClaim | null; authority: ReportStampClaim | null }>({ comprehensive: null, authority: null });
+  stampRef.current = { comprehensive: comprehensiveStamp, authority: authorityStamp };
+  const printedStampFor = (kind: string): ReportStampClaim | null =>
+    kind === "authority-pdf" ? stampRef.current.authority
+      : kind === "comprehensive" || kind === "comprehensive-branch" ? stampRef.current.comprehensive
+      : null;
+  useEffect(() => { flushPendingReportStamps(); }, []);
 
   const loadBranchRows = useCallback(async () => {
     if (!filters.termId || !otherBranchSites.length) return { rows: {} as Record<string, FSchedule[]>, denied: [] as string[] };
@@ -1679,6 +1746,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         setAuthorityBook(null);
       });
     }
+    const printedStamp = printedStampFor(kind);
 
     const root = document.documentElement;
     const originalTitle = document.title;
@@ -1725,6 +1793,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const resume = () => {
       if (resumed) return;
       resumed = true;
+      /* الورقة خرجت: يُسجَّل ختمها الآن، لا قبل الأمر. */
+      sendReportStamp(printedStamp);
       window.removeEventListener("afterprint", resume);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       clearPrintFlags();
@@ -1817,6 +1887,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   /* الطباعة بعد القراءة: نفس نمط «تقرير تغييرات الجدول» القائم — تُجلب
      البيانات أولاً ثم تُثبَّت الورقة ثم يُستدعى أمر الطباعة. */
   const runPrint = (kind: string) => {
+    const printedStamp = printedStampFor(kind);
     closeReportEvents();
     const root = document.documentElement;
     const originalTitle = document.title;
@@ -1839,6 +1910,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const resume = () => {
       if (resumed) return;
       resumed = true;
+      /* الورقة خرجت: يُسجَّل ختمها الآن، لا قبل الأمر. */
+      sendReportStamp(printedStamp);
       window.removeEventListener("afterprint", resume);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       clearPrintFlags();
@@ -1913,6 +1986,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
 
       closeReportEvents();
       flushSync(() => { setAuthorityCivil(civil); setAuthorityBook(null); setAuthorityReport(data as AuthorityReport); });
+      const printedStamp = printedStampFor("authority-pdf");
 
       const root = document.documentElement;
       const originalTitle = document.title;
@@ -1930,6 +2004,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       const resume = () => {
         if (resumed) return;
         resumed = true;
+        /* الورقة خرجت: يُسجَّل ختمها الآن، لا قبل الأمر. */
+        sendReportStamp(printedStamp);
         window.removeEventListener("afterprint", resume);
         document.removeEventListener("visibilitychange", onVisibilityChange);
         clearPrintFlags();
@@ -3291,6 +3367,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           visitingPlace={visitingPlaceLabel}
           siteGroups={branchSiteGroups}
           approval={printApproval}
+          stampCode={comprehensiveStamp?.code}
+          stampOrigin={stampOrigin}
           changesAppendix={changesAppendix}
           balanceApprovals={termApprovals}
         />
@@ -3333,7 +3411,6 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               report={merged}
               termName={termName}
               collegeName={`${collegeName || "—"} — كل الفروع`}
-              collegeCode={collegeCode}
               sectionName={sectionName}
               sectionCode={sectionCode}
               courseById={bookCourseById}
@@ -3344,6 +3421,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               bookSites={bookSites}
               showSite
               showCivil={authorityCivil}
+              approval={printApproval ? { line: approvalScopeLine(printApproval), status: printApproval.status } : null}
+              stampCode={authorityStamp?.code}
+              stampOrigin={stampOrigin}
             />
           );
         })() : authorityReport ? (
@@ -3351,7 +3431,6 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             report={authorityReport}
             termName={termName}
             collegeName={collegeName}
-            collegeCode={collegeCode}
             sectionName={sectionName}
             sectionCode={sectionCode}
             courseById={courseById}
@@ -3359,6 +3438,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             instructorById={instructorById}
             visitingIds={visitingIds}
             showCivil={authorityCivil}
+            approval={printApproval ? { line: approvalScopeLine(printApproval), status: printApproval.status } : null}
+            stampCode={authorityStamp?.code}
+            stampOrigin={stampOrigin}
           />
         ) : null}
       </PrintPortal>
@@ -3894,7 +3976,7 @@ function PrintSheet(props: React.ComponentProps<typeof PrintSheetBody>) {
   );
 }
 
-function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balance, visitingHistory, scopeLine, collegeName, termName, sectionName, sectionCode, courseById, departmentKeyBySection, instructorById, collegeById, showCollegeOnInstructorRows, visitingIds, visitingRows, visitingScopeNote, visitingPlace, siteGroups, approval, changesAppendix, balanceApprovals }: {
+function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balance, visitingHistory, scopeLine, collegeName, termName, sectionName, sectionCode, courseById, departmentKeyBySection, instructorById, collegeById, showCollegeOnInstructorRows, visitingIds, visitingRows, visitingScopeNote, visitingPlace, siteGroups, approval, changesAppendix, balanceApprovals, stampCode, stampOrigin }: {
   kind: PrintKind;
   rows: FSchedule[];
   fairness: any;
@@ -3933,6 +4015,9 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
   changesAppendix?: ChangesAppendix | null;
   /** حال الاعتماد والموعد لكل قسم — لنشرة الميزان (N14). */
   balanceApprovals?: Map<number, BalanceApprovalState> | null;
+  /** ختم الورقة (الشامل وحده): رمزُ النسخة المطبوعة، وأصلُ رابط التحقق. */
+  stampCode?: string | null;
+  stampOrigin?: string;
 }) {
   if (!kind) return null;
 
@@ -4048,25 +4133,16 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                 {approval && approval.status !== "accepted" ? (
                   <div className="print-unapproved-mark" aria-hidden="true">نسخة غير معتمدة</div>
                 ) : null}
-                <header className="print-comprehensive-classic-head">
-                  <div className="print-comprehensive-head-top">
-                    <div className="print-comprehensive-side print-comprehensive-side-right">
-                      <div><span>رمز القسم العلمي</span><strong>{sectionCode || "—"}</strong></div>
-                      <div><span>القسم العلمي</span><strong>{sectionName || "—"}</strong></div>
-                    </div>
-                    <div className="print-comprehensive-title-block">
-                      <h1>تقرير القسم العلمي الشامل</h1>
-                      <p>الكلية: {collegeName || "—"}{showSite ? " — كل الفروع" : ""}</p>
-                      {approval ? (
-                        <p className="print-approval-line" data-status={approval.status}>{approvalScopeLine(approval)}</p>
-                      ) : null}
-                    </div>
-                    <div className="print-comprehensive-side print-comprehensive-side-left">
-                      <div><span>الفصل الدراسي</span><strong>{termName || scopeLine || "—"}</strong></div>
-                      <div><span>تاريخ الإصدار</span><strong><bdi dir="ltr">{issueDate}</bdi></strong></div>
-                    </div>
-                  </div>
-                </header>
+                <PrintComprehensiveHead
+                  title="تقرير القسم العلمي الشامل"
+                  sectionCode={sectionCode}
+                  sectionName={sectionName}
+                  college={collegeName}
+                  allSites={showSite}
+                  approval={approval ? { line: approvalScopeLine(approval), status: approval.status } : null}
+                  termName={termName || scopeLine}
+                  issueDate={issueDate}
+                />
 
                 {/* شكل القسم كله قبل تفصيله: كم شعبة في كل موقع، مرة واحدة في
                     أول صفحة من الوثيقة، ولا وجود له في تقرير الموقع الواحد. */}
@@ -4130,7 +4206,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                   </div>
                 </div>
 
-                <footer className="print-comprehensive-page-footer">
+                <footer className={`print-comprehensive-page-footer${stampCode ? " has-print-stamp" : ""}`}>
                   <PrintSignatures approval={approval} />
                   <div className="print-comprehensive-legend-stack">
                     <div className="print-comprehensive-legend">
@@ -4138,6 +4214,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                     </div>
                     <div className="print-comprehensive-page-number"><bdi dir="ltr">{bookPage} / {totalPages}</bdi></div>
                   </div>
+                  {/* الختم على كل صفحة لا على الأولى: صفحةٌ تُفصل من الرزمة تحمل ما يُطابَق به. */}
+                  {stampCode ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
                 </footer>
               </section>
               );

@@ -2290,15 +2290,6 @@
   html[data-print-kind="authority-pdf"] #app-print-root>.print-only{display:none!important}
   html[data-print-kind="authority-pdf"] #app-print-root>.authority-pdf-print-host{display:block!important;visibility:visible!important}
   .authority-pdf-report,.authority-pdf-page{page:comprehensive!important}
-  .authority-pdf-head{display:grid!important;gap:2mm!important;margin-bottom:2.2mm!important}
-  .authority-pdf-title{width:100%!important;max-width:none!important;padding:0!important}
-  .authority-pdf-title h1{font-size:13.5pt!important;margin:0!important}
-  .authority-pdf-scope-grid{display:grid!important;grid-template-columns:1fr 1fr!important;border:1pt solid #1f6b5c!important;background:#fff!important;direction:rtl!important}
-  .authority-pdf-scope-grid>div{display:grid!important;grid-template-columns:20mm minmax(0,1fr)!important;align-items:center!important;min-height:8mm!important;padding:1mm 1.4mm!important;border-inline-start:.4pt solid #cbd4d0!important;border-block-end:.4pt solid #cbd4d0!important}
-  .authority-pdf-scope-grid>div:nth-child(2n){border-inline-start:0!important}
-  .authority-pdf-scope-grid>div:nth-last-child(-n+2){border-block-end:0!important}
-  .authority-pdf-scope-grid span{font-size:6.2pt!important;color:#5d6966!important;font-weight:700!important}
-  .authority-pdf-scope-grid strong{font-size:7.4pt!important;color:#111!important;white-space:normal!important}
   .authority-pdf-grid .print-comprehensive-grid-row{grid-template-columns:17mm 19mm 12mm minmax(43mm,1fr) 10mm 10mm 12mm 15mm 17mm 26mm 16mm minmax(34mm,1fr)!important}
   /* نسخة الرقم المدني: عمودٌ أخير بعد المدرس. يتسع للرقم (١٢ خانة) ولشارة الحالة
      التي تجلس في طرف الصف، ويُقتطع عرضه من مرونة المقرر والمدرس لا من الأعمدة الثابتة. */
@@ -2760,3 +2751,40 @@
   .print-query-groups-report .print-instructor-venue .companion-facility-badge bdi{font-size:6.8pt!important;white-space:normal!important;overflow-wrap:anywhere!important}
 }
 
+/* ── ختم الورقة (PrintStamp) ────────────────────────────────────────────────
+   عمودٌ ثالث في الطرف الأيسر من ذيل الشامل وتقرير التغييرات، بارتفاع خانات
+   التوقيع لا أكثر: الذيل لا يطول مليمتراً، فلا يسقط صفٌّ من الصفحة. وما سواه
+   في الذيل كما هو؛ والذيل بلا ختم يبقى على عموديه. */
+@media print{
+  .print-comprehensive-page-footer.has-print-stamp{
+    grid-template-columns:13.4mm 58mm minmax(0,1fr) !important;
+    grid-template-areas:"stamp legend signatures" !important;
+  }
+  .print-comprehensive-page-footer .print-stamp{
+    grid-area:stamp !important;
+    align-self:end !important;
+    display:flex !important;
+    align-items:flex-end !important;
+    gap:.5mm !important;
+    direction:ltr !important;
+  }
+  .print-stamp-qr{
+    display:block !important;
+    flex:none !important;
+    width:11mm !important;
+    height:11mm !important;
+    background:#fff !important;
+  }
+  .print-stamp-qr path{fill:#111 !important}
+  /* الرمز مكتوباً رأسياً بجانب المربع، لمن يكتبه بيده في schedule-kw.com/v. */
+  .print-stamp-code{
+    writing-mode:vertical-rl !important;
+    transform:rotate(180deg) !important;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace !important;
+    font-size:4.6pt !important;
+    line-height:1 !important;
+    letter-spacing:.06em !important;
+    color:#4c5652 !important;
+    white-space:nowrap !important;
+  }
+}

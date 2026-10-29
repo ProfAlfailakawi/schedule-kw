@@ -5,6 +5,8 @@ import VisitingBadge from "./VisitingBadge";
 import { displayInstructorText } from "../utils/instructorIdentity";
 import { effectiveCourseHours } from "../utils/scheduleRegulations";
 import { authorityCourseCode } from "../utils/authorityAcademicCodes";
+import PrintComprehensiveHead, { printIssueDate } from "./PrintComprehensiveHead";
+import PrintStamp from "./PrintStamp";
 
 export type AuthorityReportEntry = {
   status: "added" | "deleted" | "changed" | "unchanged";
@@ -30,7 +32,6 @@ interface Props {
   report: AuthorityReport;
   termName: string;
   collegeName: string;
-  collegeCode: string;
   sectionName: string;
   sectionCode: string;
   courseById: Map<number, AdCourse>;
@@ -54,6 +55,13 @@ interface Props {
   showSite?: boolean;
   /** النسخة نفسها بعمودٍ أخير للرقم المدني بعد اسم المدرس، لكل صف لا للمعدَّل وحده. */
   showCivil?: boolean;
+  /** سطر حال الاعتماد في الترويسة، كما في التقرير الشامل. */
+  approval?: { line: string; status: string } | null;
+  /** ختم الورقة (utils/reportStamp): رمزُ هذه النسخة، وأصلُ رابط التحقق. */
+  stampCode?: string | null;
+  stampOrigin?: string;
+  /** تاريخ الإصدار في الترويسة؛ اليوم إن لم يُمرَّر. */
+  issueDate?: string;
 }
 
 const pageItems = <T,>(items: T[], size: number): T[][] => {
@@ -66,7 +74,6 @@ export default function AuthorityPdfReport({
   report,
   termName,
   collegeName,
-  collegeCode,
   sectionName,
   sectionCode,
   courseById,
@@ -79,6 +86,10 @@ export default function AuthorityPdfReport({
   bookSites,
   showSite = false,
   showCivil = false,
+  approval = null,
+  stampCode = null,
+  stampOrigin,
+  issueDate = printIssueDate(),
 }: Props) {
   const entries = [...report.rows].sort((a, b) => {
     const ar = Number((a.current || a.source)?.sourceOrder ?? Number.MAX_SAFE_INTEGER);
@@ -88,7 +99,6 @@ export default function AuthorityPdfReport({
   /* ٢٨ صفاً كالتقرير الشامل، وبكثافة صفوفه نفسها (print-comprehensive-dense-rows):
      الصف أقصر بالمليمترات التي كانت تُترك فراغاً أسفل الورقة، والتصميم كما هو. */
   const pages = pageItems(entries, 28);
-  const branch = [report.sourceBranchCode, report.sourceBranchName].filter(Boolean).join(" ") || "—";
   const fieldChanged = (entry: AuthorityReportEntry, ...fields: string[]) =>
     entry.status === "changed" && fields.some(field => entry.changedFields.includes(field));
   /**
@@ -112,34 +122,33 @@ export default function AuthorityPdfReport({
       <div className="print-comprehensive-pages">
         {pages.map((pageEntries, pageIndex) => (
           <section className="print-comprehensive-page authority-pdf-page" key={`authority-${pageIndex + 1}`}>
-            <header className="print-comprehensive-classic-head authority-pdf-head">
-              <div className="print-comprehensive-title-block authority-pdf-title">
-                <h1>تقرير تغييرات الجدول</h1>
+            {/* ترويسة التقرير الشامل نفسها — هي المعتمدة — بعنوان هذه الوثيقة. */}
+            <PrintComprehensiveHead
+              title="تقرير تغييرات الجدول"
+              sectionCode={sectionCode}
+              sectionName={sectionName}
+              college={collegeName}
+              approval={approval}
+              termName={termName}
+              issueDate={issueDate}
+            />
+            {pageOffset + pageIndex === 0 && bookSites?.length ? (
+              <div className="print-comprehensive-sites" role="note">
+                <span>مواقع القسم في هذا الفصل:</span>
+                {/* ── يُقرأ بلا شرح ────────────────────────────────────────
+                    كان السطر يقول «+1 −0 ±1»، وهي رموز يعرفها من كتبها. وما
+                    يحتاجه قارئ الوثيقة كلمتان: ماذا أُضيف وماذا حُذف وماذا
+                    عُدّل، وما لا تغيير فيه يُقال صراحةً لا بصفرٍ مركون. */}
+                {bookSites.map(site => {
+                  const parts = [
+                    site.added ? `مضاف ${site.added}` : "",
+                    site.deleted ? `محذوف ${site.deleted}` : "",
+                    site.changed ? `معدّل ${site.changed}` : "",
+                  ].filter(Boolean);
+                  return <b key={site.label}>{site.label} · {parts.length ? parts.join(" · ") : "بلا تغيير"}</b>;
+                })}
               </div>
-              <div className="authority-pdf-scope-grid">
-                <div><span>الفصل</span><strong>{termName || "—"}</strong></div>
-                <div><span>الكلية</span><strong>{[collegeCode, collegeName].filter(Boolean).join(" ") || "—"}</strong></div>
-                <div><span>القسم</span><strong>{[sectionCode, sectionName].filter(Boolean).join(" ") || "—"}</strong></div>
-                <div><span>الفرع</span><strong>{branch}</strong></div>
-              </div>
-              {pageOffset + pageIndex === 0 && bookSites?.length ? (
-                <div className="print-comprehensive-sites" role="note">
-                  <span>مواقع القسم في هذا الفصل:</span>
-                  {/* ── يُقرأ بلا شرح ────────────────────────────────────────
-                      كان السطر يقول «+1 −0 ±1»، وهي رموز يعرفها من كتبها. وما
-                      يحتاجه قارئ الوثيقة كلمتان: ماذا أُضيف وماذا حُذف وماذا
-                      عُدّل، وما لا تغيير فيه يُقال صراحةً لا بصفرٍ مركون. */}
-                  {bookSites.map(site => {
-                    const parts = [
-                      site.added ? `مضاف ${site.added}` : "",
-                      site.deleted ? `محذوف ${site.deleted}` : "",
-                      site.changed ? `معدّل ${site.changed}` : "",
-                    ].filter(Boolean);
-                    return <b key={site.label}>{site.label} · {parts.length ? parts.join(" · ") : "بلا تغيير"}</b>;
-                  })}
-                </div>
-              ) : null}
-            </header>
+            ) : null}
 
             <div className="print-comprehensive-grid authority-pdf-grid" role="table" aria-label="تقرير تغييرات الجدول">
               <div className="print-comprehensive-grid-row print-comprehensive-grid-head" role="row">
@@ -213,7 +222,7 @@ export default function AuthorityPdfReport({
               </div>
             </div>
 
-            <footer className="print-comprehensive-page-footer authority-pdf-footer">
+            <footer className={`print-comprehensive-page-footer authority-pdf-footer${stampCode ? " has-print-stamp" : ""}`}>
               <div className="print-comprehensive-signatures">
                 <div><span>توقيع رئيس لجنة الجدول</span><i /></div>
                 <div><span>توقيع رئيس القسم العلمي</span><i /></div>
@@ -227,6 +236,8 @@ export default function AuthorityPdfReport({
                 </div>
                 <div className="print-comprehensive-page-number"><bdi dir="ltr">{pageOffset + pageIndex + 1} / {pageTotal ?? pages.length}</bdi></div>
               </div>
+              {/* الختم على كل صفحة، كالتقرير الشامل: صفحةٌ تُفصل من الرزمة تحمل ما يُطابَق به. */}
+              {stampCode ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
             </footer>
           </section>
         ))}

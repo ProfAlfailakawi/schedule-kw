@@ -1,5 +1,6 @@
 import { departmentFamily } from "../utils/sectionLabel";
 import type { TmScenarioRecord } from "../utils/timeMachine";
+import type { ReportStampRecord } from "../utils/reportStamp";
 import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict, withReservedRooms, holdRequestReservation, releaseRequestHolds, liveReservations,
   type RequestReservation, type RequestReservationProposal, type RequestScheduleOperation } from "../utils/instructorRequestReservations";
 import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
@@ -246,6 +247,7 @@ interface DBState {
   rooms: AdRoom[];
   auditLogs?: AuditLogEntry[];
   scheduleVersions?: ScheduleVersion[];
+  reportStamps?: ReportStampRecord[];
   scheduleDrafts?: ScheduleDraft[];
   scheduleOpenDecisions?: ScheduleOpenDecision[];
   clientTelemetry?: ClientTelemetryEntry[];
@@ -5040,6 +5042,28 @@ export const Repository = {
     return (db.scheduleDrafts || []).filter(row=>row.scopeKey===scopeKey).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
   },
 
+  /**
+   * ختمُ الورقة المطبوعة (utils/reportStamp): سجلٌّ لكل رمز، مفتاحُه الرمز نفسه.
+   * الرمزُ مشتقٌّ من مضمون الورقة، فطباعةٌ ثانية للمضمون نفسه تكتب السجلَّ نفسه.
+   */
+  getReportStamp: async (code: string): Promise<ReportStampRecord | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("reportStamps").doc(code).get();
+      return doc.exists ? (doc.data() as ReportStampRecord) : undefined;
+    }
+    return (db.reportStamps || []).find(item => item.code === code);
+  },
+  saveReportStamp: async (record: ReportStampRecord): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("reportStamps").doc(record.code).set(record);
+      return;
+    }
+    const list = db.reportStamps || (db.reportStamps = []);
+    const index = list.findIndex(item => item.code === record.code);
+    if (index >= 0) list[index] = record; else list.unshift(record);
+    if (list.length > 2000) list.length = 2000;
+    saveDatabase();
+  },
   getScheduleDraftById: async (id: string): Promise<ScheduleDraft | undefined> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const doc = await firestoreDb.collection("scheduleDrafts").doc(id).get();

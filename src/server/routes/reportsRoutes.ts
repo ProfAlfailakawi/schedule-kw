@@ -7,13 +7,13 @@
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
 import type { Express } from "express";
-import { Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import { Repository } from "../../db/repository";
 import { byRoom } from "../../utils/sorting";
 import { activeDays, analyzeSchedule, timeToMinutes } from "../../utils/scheduleIntelligence";
 import { buildFairnessEngine } from "../../utils/livingSchedule";
-import type { FSchedule, ScheduleNoteField } from "../../types";
+import type { AdCourse, FSchedule, ScheduleNoteField } from "../../types";
 import { DAY_FLAGS } from "../../utils/naturalQuery";
 import { departmentFamily } from "../../utils/sectionLabel";
 import { readVisitingTeaching } from "../visitingTeachingRead";
@@ -28,11 +28,14 @@ import { roleDefinition } from "../../utils/academicRoles";
 import { withVisitingSuffix } from "../../utils/visitingText";
 import { formatScheduleTimeRange, SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "../../utils/scheduleTime";
 import { authorityCourseCode, authorityDepartmentCode } from "../../utils/authorityAcademicCodes";
+import { REPORT_STAMP_KIND_LABEL, REPORT_STAMP_MAX_ROWS, compareReportStamp, normalizeReportStampCode, reportStampCode, stampRowHash, stampRowValues, type ReportStampKind, type ReportStampRecord, type ReportStampSite } from "../../utils/reportStamp";
+import { reportStampPage, type ReportStampLine } from "../reportStampPage";
+import { publicPageNonce } from "../core/publicPages";
 import { isInvalidLocationToken, roomIdentityKey } from "../../utils/locationRegistry";
 import { siblingBranchScopes } from "../../utils/branchScope";
 import * as XLSX from "xlsx";
 import { countBlockingConflicts, readApproval, readDeadlineFor, regulationNoticesForScope } from "../core/approvals";
-import { type AuthenticatedRequest, requireAnyPermission, requireAuth, requirePermission } from "../core/auth";
+import { type AuthenticatedRequest, getCookies, requireAnyPermission, requireAuth, requirePermission } from "../core/auth";
 import { authorityBaselineForScope, authorityCourseCodeMap, buildAuthorityPdfDiff, inferAuthorityBranchCode } from "../core/authority";
 import { notesWithState } from "../core/notes";
 import { courseNameCollator, sortTermsNewestServer, verifiedRoomKey } from "../core/ordering";
@@ -635,6 +638,167 @@ app.get("/api/reports/authority-pdf-diff", requireAnyPermission([7,8,9,10,14,16,
     importedAt:draft.createdAt,publishedAt:draft.publishedAt||null,
     ...comparison,
   });
+});
+
+/**
+ * ── ختمُ الورقة المطبوعة: التسجيل (utils/reportStamp) ───────────────────────
+ *
+ * المتصفح يحسب الختم من الصفوف التي طبعها ويرسمه في ذيل الورقة، ثم يرسل
+ * هنا ما طبع بعد أمر الطباعة لا قبله. والخادم لا يأخذ الورقة بكلامها: يقرأ
+ * صفوفها من الجدول نفسه ويحفظ قيمها هو، ويعلّم ما اختلف منها عمّا رآه
+ * المتصفح (شاشةٌ لم تُحدَّث). ومن هذه القيم تُقارَن الورقة بالجدول الحيّ
+ * كلما مُسح ختمها.
+ */
+const rateLimitReportStamp = rateLimit({
+  windowMs: 60_000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طباعاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً." },
+});
+app.post("/api/report-stamps", rateLimitReportStamp, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const body = req.body || {};
+  const kind = String(body.kind || "") as ReportStampKind;
+  const termId = Number(body.termId) || 0;
+  const sites: ReportStampSite[] = (Array.isArray(body.sites) ? body.sites : []).slice(0, 12)
+    .map((site: any) => ({ collegeId: Number(site?.collegeId) || 0, sectionId: Number(site?.sectionId) || 0 }))
+    .filter((site: ReportStampSite) => site.collegeId > 0 && site.sectionId > 0);
+  const draftIds: string[] = (Array.isArray(body.draftIds) ? body.draftIds : []).slice(0, 12).map((id: unknown) => String(id || "")).filter(Boolean);
+  const claimed: Array<{ id: number; h: string }> = (Array.isArray(body.rows) ? body.rows : []).slice(0, REPORT_STAMP_MAX_ROWS + 1)
+    .map((row: any) => ({ id: Number(row?.id) || 0, h: String(row?.h || "") }))
+    .filter((row: { id: number; h: string }) => row.id > 0 && /^[0-9a-z]{1,12}$/.test(row.h));
+  const wholeScope = body.wholeScope === true;
+  const code = normalizeReportStampCode(body.code);
+  if (!Object.prototype.hasOwnProperty.call(REPORT_STAMP_KIND_LABEL, kind) || !termId || !sites.length || !claimed.length || claimed.length > REPORT_STAMP_MAX_ROWS || !code) {
+    res.status(400).json({ error: "ختمٌ ناقص." });
+    return;
+  }
+  if (sites.some(site => !isScopeAllowed(req, site.collegeId, site.sectionId))) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  /* الرمزُ يُعاد حسابه هنا: سجلٌّ لا يطابق رمزَه لا يُكتب، ولا يُكتب فوق ختمِ ورقةٍ أخرى. */
+  if (reportStampCode({ kind, termId, sites, draftIds, wholeScope, rows: claimed }) !== code) { res.status(409).json({ error: "الختم لا يطابق صفوفه." }); return; }
+  const at = new Date().toISOString();
+  const existing = await Repository.getReportStamp(code);
+  if (existing) {
+    await Repository.saveReportStamp({ ...existing, lastPrintedAt: at, printCount: (Number(existing.printCount) || 1) + 1 });
+    res.json({ code, firstPrintedAt: existing.firstPrintedAt });
+    return;
+  }
+  const [scopes, courses] = await Promise.all([
+    Promise.all(sites.map(site => Repository.getSchedulesByScope({ collegeId: site.collegeId, sectionId: site.sectionId, termId }))),
+    Repository.getCourses(),
+  ]);
+  const live = new Map<number, FSchedule>(scopes.flat().map(row => [Number(row.id), row] as [number, FSchedule]));
+  const courseById = new Map<number, AdCourse>(courses.map(course => [Number(course.AdCourseId), course] as [number, AdCourse]));
+  const staleRowIds: number[] = [];
+  const rows = claimed.map(row => {
+    const current = live.get(row.id);
+    /* صفٌّ في الورقة لم يعد في نطاقها: حُذف بين قراءة الشاشة والطباعة، فيُحفظ بلا قيمٍ ويُعدّ محذوفاً. */
+    if (!current) { staleRowIds.push(row.id); return { id: row.id, s: 0, v: [] as string[] }; }
+    const values = stampRowValues(current, courseById.get(Number(current.AdCourseId)));
+    if (stampRowHash(row.id, values) !== row.h) staleRowIds.push(row.id);
+    return { id: row.id, s: Number(current.AdSectionId) || 0, v: values };
+  });
+  const record: ReportStampRecord = { code, kind, termId, sites, draftIds, wholeScope, rows, staleRowIds, firstPrintedAt: at, lastPrintedAt: at, printCount: 1 };
+  await Repository.saveReportStamp(record);
+  res.status(201).json({ code, firstPrintedAt: at, staleRows: staleRowIds.length });
+});
+
+/**
+ * ── صفحة التحقق من الورقة المطبوعة (/v/:code) ───────────────────────────────
+ *
+ * عامةٌ بلا دخول: من يمسك الورقة قد لا يملك حساباً. والجوابُ من الجدول الحيّ
+ * لحظةَ السؤال، صفاً صفاً، لا من تاريخٍ مخزَّن. وحدٌّ لكل عنوان يمنع تخمين
+ * الرموز. والمسار لا يفرّق بين الحروف الكبيرة والصغيرة: الختمُ يرسم رابطه
+ * بالكبيرة ليصغر مربّعه.
+ */
+const rateLimitReportStampPage = rateLimit({
+  windowMs: 60_000,
+  limit: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة.",
+});
+/* نسخةُ العرض (DATA_MODE=demo) لا بيانات حقيقية فيها: الختمُ هناك في صندوق
+   الزائر نفسه، فتُقرأ الصفحة منه. والنسخة الحقيقية لا تقرأ صندوقاً تجريبياً
+   أبداً، ولو حمل المتصفّح جلسةً تجريبية — القاعدة نفسها في /journey. */
+app.use("/v/:code", (req: Request, _res: Response, next: NextFunction) => {
+  const sessionId = getCookies(req)["session_id"];
+  if (!Repository.isDemoMode() || !sessionId?.startsWith("demo_")) { next(); return; }
+  if (!Repository.runDemoSandbox(sessionId, next)) next();
+});
+app.get(["/v", "/v/:code"], rateLimitReportStampPage, async (req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  publicPageNonce(res);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  const typed = String(req.params.code ?? req.query.c ?? "").trim();
+  if (!typed) { res.send(reportStampPage({ state: "ask" })); return; }
+  const code = normalizeReportStampCode(typed);
+  if (!code) { res.status(404).send(reportStampPage({ state: "invalid", typed: typed.slice(0, 16) })); return; }
+  /* ما كُتب باليد (صغيراً أو بشرطة) يُحوَّل إلى رابطه الواحد. */
+  if (req.params.code !== code) { res.redirect(303, `/v/${code}`); return; }
+  try {
+    const record = await Repository.getReportStamp(code);
+    if (!record) { res.status(404).send(reportStampPage({ state: "unknown", code })); return; }
+    const [scopes, courses, colleges, sections, terms] = await Promise.all([
+      Promise.all(record.sites.map(site => Repository.getSchedulesByScope({ collegeId: site.collegeId, sectionId: site.sectionId, termId: record.termId }))),
+      Repository.getCourses(),
+      Repository.getColleges(),
+      Repository.getSections(),
+      Repository.getTerms(),
+    ]);
+    const courseById = new Map<number, AdCourse>(courses.map(course => [Number(course.AdCourseId), course] as [number, AdCourse]));
+    const comparison = compareReportStamp(record, scopes.flat(), courseById);
+    const collegeById = new Map<number, any>((colleges as any[]).map(college => [Number(college.AdCollegeId), college] as [number, any]));
+    const sectionById = new Map<number, any>((sections as any[]).map(section => [Number(section.AdSectionId), section] as [number, any]));
+    /* رقم المقرر في الصفحة بسبع خانات كما في الورقة (قاعدة المالك). */
+    const line = (item: { sectionId: number; values: string[] }): ReportStampLine => {
+      const section = sectionById.get(Number(item.sectionId));
+      const departmentKey = authorityDepartmentCode(collegeById.get(Number(section?.AdCollegeId))?.AdCollegeCode, section?.AdSectionCode);
+      return { course: item.values[0] ? authorityCourseCode(item.values[0].split("|")[1] || "", departmentKey) : "", name: item.values[1] || "", section: item.values[2] || "" };
+    };
+    let draftChanged = false;
+    if (record.kind === "authority-pdf") {
+      const drafts = await Promise.all(record.sites.map(site => authorityDraftForScope(site.collegeId, site.sectionId, record.termId)));
+      draftChanged = drafts.map(draft => String((draft as any)?.id || "")).filter(Boolean).sort().join(",") !== [...record.draftIds].sort().join(",");
+    }
+    let approvalLine = "";
+    if (record.sites.length === 1) {
+      const site = record.sites[0];
+      const approval = await Repository.getScheduleApproval(site.collegeId, site.sectionId, record.termId);
+      if (approval) {
+        /* السطرُ نفسه الذي تطبعه الترويسة (approvalScopeLine في الاستعلامات). */
+        const acceptedAt = (approval.rounds || []).map(round => round.acceptedAt).filter(Boolean).pop();
+        approvalLine = approval.status === "accepted"
+          ? `معتمد من التسجيل${acceptedAt ? ` بتاريخ ${new Intl.DateTimeFormat("ar-KW-u-nu-latn", { timeZone: "Asia/Kuwait", day: "numeric", month: "long", year: "numeric" }).format(new Date(acceptedAt))}` : ""}`
+          : approval.status === "submitted" ? `قيد مراجعة التسجيل — الجولة ${approval.currentRound}`
+          : approval.status === "returned" ? `مُرجَع بملاحظات — الجولة ${approval.currentRound}`
+          : APPROVAL_STATUS_LABEL[approval.status] || "";
+      }
+    }
+    const unique = (values: string[]) => [...new Set(values.filter(Boolean))].join("، ");
+    const outdated = Boolean(comparison.changed.length || comparison.removed.length || comparison.added.length || draftChanged);
+    res.send(reportStampPage({
+      state: outdated ? "outdated" : "current",
+      code,
+      kindLabel: REPORT_STAMP_KIND_LABEL[record.kind],
+      sectionLine: unique(record.sites.map(site => String(sectionById.get(site.sectionId)?.AdSectionName || ""))),
+      collegeLine: unique(record.sites.map(site => String(collegeById.get(site.collegeId)?.AdCollegeName || ""))),
+      termName: String((terms as any[]).find(term => Number(term.AdTermId) === Number(record.termId))?.AdTermName || ""),
+      rowCount: record.rows.length,
+      firstPrintedAt: record.firstPrintedAt,
+      lastPrintedAt: record.lastPrintedAt,
+      printCount: record.printCount,
+      approvalLine,
+      draftChanged,
+      changed: comparison.changed.map(item => ({ ...line(item), fields: item.fields, beforePrint: item.beforePrint })),
+      removed: comparison.removed.map(line),
+      added: comparison.added.map(line),
+    }));
+  } catch (error) {
+    console.error("report stamp page failed", error);
+    res.status(503).send(reportStampPage({ state: "error", code }));
+  }
 });
 
 // --- EXCEL EXPORTS (STANDALONE REAL IMPLEMENTATION) ---
