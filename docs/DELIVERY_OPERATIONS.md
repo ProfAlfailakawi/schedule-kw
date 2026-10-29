@@ -36,6 +36,15 @@ Do this only after read-only confirmation that the `schedule` service carries th
 
 **Rollback:** route traffic back to the previous revision (`gcloud run services update-traffic schedule --to-revisions=<previous>=100`); remove `FIREBASE_CONFIG_SOURCE` to restore file precedence. No data is moved, copied or renamed at any step.
 
+## Firestore indexes (Enterprise edition)
+
+The production database is Firestore **Enterprise** edition. Nothing is indexed on its own there: a filter without an index reads the whole collection, and every document read is billed. Until 2026-10-29 it had no indexes at all; in the week before, its fifty heaviest queries read about 590 million read units, nearly all of them full scans.
+
+- `firestore.indexes.json` is the record of every index in production (19 on 2026-10-29). It is **not deployed** — `firebase.json` points at the `(default)` database, not the production one — so an index is created by hand: Console → Firestore → the production database → Indexes → Create index (query scope Collection, leave Sparse and Unique unchecked).
+- Add the index to the file in the same change as the query that needs it. `npm run test:firestore-indexes` fails when a query on a large collection starts with a field no index leads, and names the line.
+- After a release, Firestore → Query insights (7 days, by Read units) shows what still scans: compare *Docs scanned* with *Results returned*.
+- The TTL policies the file declares (`sessions.expiresAtTtl`, `clientTelemetry.expiresAtTtl`) are **not enabled** in production. Enabling one (Firestore → Time-to-live → Create policy) permanently deletes the expired documents of that collection, so it is the owner's decision.
+
 ## Academic curriculum rules
 
 The complete approved rules are in [`CURRICULUM_SHEET_RULES.md`](CURRICULUM_SHEET_RULES.md). Preserve department-only visibility, cross-department prerequisite notes, the official sheet categories, service-course behavior, level and arrow colors, the two tracks per department, the shared girls' sheet, and the student's complete personal map. Do not change these rules without owner direction.
