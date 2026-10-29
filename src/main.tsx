@@ -360,14 +360,16 @@ if (import.meta.env.PROD) {
   };
   window.addEventListener("pageshow", event => { if ((event as PageTransitionEvent).persisted) void checkVersion(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) void checkVersion(); });
-  window.setInterval(() => { void checkVersion(); }, 120_000);
+  // A hidden tab is asked the moment it is shown (above); asking it every two
+  // minutes all night only kept the server awake to say "same build".
+  window.setInterval(() => { if (!document.hidden) void checkVersion(); }, 120_000);
 }
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     void navigator.serviceWorker.register("/sw.js").then(registration => {
       if (!registration) return;
-      window.setInterval(() => { void registration.update().catch(() => undefined); }, 300_000);
+      window.setInterval(() => { if (!document.hidden) void registration.update().catch(() => undefined); }, 300_000);
     }).catch(() => undefined);
   });
   let refreshing = false;

@@ -94,6 +94,7 @@ import { termChronology } from "../utils/termSequence";
 import { kuwaitDayOfIso, recordLinkOpen } from "../utils/linkOpens";
 import type { LinkMode } from "../utils/linkMode";
 import { unchangedScheduleFingerprint } from "../utils/instructorRequestConfirmation";
+import { foreignWrites, type BeaconCount } from "./beaconEcho";
 
 // Runtime state must not live inside the replaceable application release. A number of
 // deployment/upload tools synchronize an archive by deleting destination files that are
@@ -2553,6 +2554,13 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills";
 /** معرّفُ وثيقة Firestore لا يحمل «/». */
 const featureDocId = (id: string) => String(id || "").replace(/\//g, "_").slice(0, 300);
+
+/* This process's name on the change beacon (beaconEcho.ts). Random per start,
+   not per revision: two copies of one revision are still two writers. */
+const BEACON_WRITER = `w${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+/* A writers map this long is mostly processes long gone; it is cleared, and
+   the only cost is one needless refresh on whichever instances are alive. */
+const BEACON_WRITERS_LIMIT = 64;
 
 export const Repository = {
   getStudentCaseSecret: async (): Promise<string> => getOrCreateStudentCaseSecret(),
@@ -7081,6 +7089,10 @@ export const Repository = {
    * It is a beacon, not a payload: it carries a counter and a time, never a
    * schedule row, so no permission decision depends on it. In demo mode there
    * is only ever one process, and this quietly does nothing.
+   *
+   * Each write is also counted under its writer (`writers.<id>`), so the
+   * instance that wrote can tell its own echo from a colleague's change —
+   * see beaconEcho.ts for why that used to cost every edit a second read.
    */
   markSchedulesChanged: async (): Promise<void> => {
     if (!firestoreDb || demoSandboxContext.getStore()) return;
@@ -7088,6 +7100,7 @@ export const Repository = {
       await firestoreDb.doc("_meta/schedulesChanged").set({
         changedAt: Date.now(),
         serial: FieldValue.increment(1),
+        writers: { [BEACON_WRITER]: FieldValue.increment(1) },
       }, { merge: true });
     } catch {
       // The in-process broadcast still fires; a missed beacon costs a live
@@ -7097,12 +7110,28 @@ export const Repository = {
 
   watchSchedulesChanged: (onChange: () => void): (() => void) => {
     if (!firestoreDb || demoSandboxContext.getStore()) return () => undefined;
-    let first = true;
-    const stop = firestoreDb.doc("_meta/schedulesChanged").onSnapshot(
-      () => {
+    const beacon = firestoreDb.doc("_meta/schedulesChanged");
+    let last: BeaconCount | null = null;
+    const stop = beacon.onSnapshot(
+      snapshot => {
+        const next: BeaconCount = {
+          serial: Number(snapshot.get("serial") || 0),
+          mine: Number(snapshot.get(`writers.${BEACON_WRITER}`) || 0),
+        };
         // The first callback is the document's current state, not news.
-        if (first) { first = false; return; }
-        onChange();
+        if (!last) {
+          last = next;
+          const writers = snapshot.get("writers");
+          if (writers && typeof writers === "object" && Object.keys(writers).length > BEACON_WRITERS_LIMIT) {
+            void beacon.update({ writers: FieldValue.delete() }).catch(() => undefined);
+          }
+          return;
+        }
+        const foreign = foreignWrites(last, next);
+        last = next;
+        // Only somebody else's write is news. Our own already cleared our own
+        // cache and told our own screens, 350 ms before the beacon came back.
+        if (foreign > 0) onChange();
       },
       error => console.error("Schedule change listener stopped:", error?.message || error),
     );

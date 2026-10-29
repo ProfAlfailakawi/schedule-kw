@@ -31,6 +31,8 @@ import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "./ScopeAskBa
 import ApplyProposal from "./ApplyProposal";
 import { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
+import { usePageAwake } from "../utils/pageAwake";
+import { onLiveSignal } from "../utils/livePulse";
 import StudentCasesTable, { exportStudentCasesXlsx, GRADUATE_REASON_LABEL, STUDENT_CASE_TYPE_LABEL, type StudentCaseView } from "./StudentCasesTable";
 import {
   CASE_STATUS_LABEL, COMMITTEE_REASONS, CaseStateChip, PENDING_COMMITTEE, REJECT_REASONS, RegistrationJourney, STATE_LABEL,
@@ -401,14 +403,21 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
   }, [collegeId, sectionId, termId]);
   useEffect(() => { void loadOpenings(); }, [loadOpenings]);
 
-  /* النبضةُ الحيّة: قرارٌ كتبته اللجنة أو التسجيل من شاشةٍ أخرى يُقرأ هنا فوراً. */
+  /* النبضةُ الحيّة: قرارٌ كتبته اللجنة أو التسجيل من شاشةٍ أخرى يُقرأ هنا خلال
+     ثوانٍ — بنبضة اللسان (utils/livePulse.ts) لا بخيطٍ يبقى مفتوحاً طوال اليوم.
+     وتنام مع اللسان (pageAwake.ts)، وحين يصحو يقرأ مرّةً ليلحق بما فاته — عند
+     الصحوة وحدها، لا كلما تغيّر النطاق. */
+  const pageAwake = usePageAwake();
+  const registrationSlept = useRef(false);
   useEffect(() => {
-    if (!collegeId || !sectionId || !termId || typeof EventSource === "undefined") return;
-    let source: EventSource | null = null, pending = 0;
+    if (!pageAwake) { registrationSlept.current = true; return; }
+    if (!collegeId || !sectionId || !termId) return;
+    if (registrationSlept.current) { registrationSlept.current = false; void load(); }
+    let pending = 0;
     const soon = () => { window.clearTimeout(pending); pending = window.setTimeout(() => { void load(); }, 800); };
-    try { source = new EventSource("/api/schedules/events"); source.addEventListener("notify", soon); } catch { source = null; }
-    return () => { window.clearTimeout(pending); source?.close(); };
-  }, [collegeId, sectionId, termId, load]);
+    const stopPulse = onLiveSignal(["notify"], soon);
+    return () => { window.clearTimeout(pending); stopPulse(); };
+  }, [pageAwake, collegeId, sectionId, termId, load]);
 
   const collegeOptions = useMemo(() => {
     if (catalog) {

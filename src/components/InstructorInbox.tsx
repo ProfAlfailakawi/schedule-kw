@@ -32,7 +32,7 @@ import { byArabic } from "../utils/sorting";
  */
 
 import MiniRing from "./MiniRing";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, Inbox, Link2, Loader2, MailQuestion,
   ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
@@ -43,6 +43,8 @@ import { DnaCount } from "./dna";
 import { RequestTimelineToggle } from "./dna/requestDna";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
+import { usePageAwake } from "../utils/pageAwake";
+import { onLiveSignal } from "../utils/livePulse";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
 import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
 import { num } from "./proposal/proposalFormat";
@@ -968,14 +970,20 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   useEffect(() => { void load(); }, [load]);
   /* الواردُ حيّ: طلبٌ يصل أو قرارٌ من زميلٍ يُعيد القراءةَ بهدوء، فلا يُثبِّت
      اثنان البندَ نفسه ولا ينتظر أحدٌ زرَّ تحديث. */
+  /* يسمع ولا يُبقي خيطاً مفتوحاً: نبضةُ اللسان (utils/livePulse.ts) تقول «في
+     الجرس جديد» خلال ثوانٍ، فيُقرأ الواردُ كما كان يُقرأ. وتنام مع اللسان
+     (pageAwake.ts)، وحين يصحو يقرأ مرّةً واحدةً ليلحق بما فاته — عند الصحوة
+     وحدها، لا كلما تغيّر النطاق (فذاك يقرؤه الأثرُ الذي فوقه). */
+  const pageAwake = usePageAwake();
+  const inboxSlept = useRef(false);
   useEffect(() => {
-    if (typeof EventSource === "undefined") return;
+    if (!pageAwake) { inboxSlept.current = true; return; }
+    if (inboxSlept.current) { inboxSlept.current = false; void load(); }
     let timer = 0;
-    const source = new EventSource("/api/schedules/events");
     const soon = () => { window.clearTimeout(timer); timer = window.setTimeout(() => void load(), 900); };
-    source.addEventListener("notify", soon);
-    return () => { window.clearTimeout(timer); source.close(); };
-  }, [load]);
+    const stopPulse = onLiveSignal(["notify"], soon);
+    return () => { window.clearTimeout(timer); stopPulse(); };
+  }, [pageAwake, load]);
 
   const collegeOptions = useMemo(() => {
     if (catalog) {

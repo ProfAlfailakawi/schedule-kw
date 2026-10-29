@@ -6,6 +6,7 @@ import TermSelect from "./TermSelect";
 import SearchableSelect from "./SearchableSelect";
 import IntelligenceScopeSwitch from "./IntelligenceScopeSwitch";
 import { departmentFamily } from "../utils/sectionLabel";
+import { usePageAwake } from "../utils/pageAwake";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import PlanSheetPublisher from "./PlanSheetPublisher";
 import { roleDefinition } from "../utils/academicRoles";
@@ -960,9 +961,14 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
    * would ever hear about it — several requests were filed and the register
    * stayed empty until the page was reloaded by hand. So the demand card, and
    * only it, is re-read on a timer while this tab is actually being looked at.
+   *
+   * "Looked at" is pageAwake's word for it: shown AND touched in the last ten
+   * minutes. A tab merely left visible asked every ten seconds all night.
    */
+  const pageAwake = usePageAwake();
   useEffect(() => {
     if (!collegeId || !sectionId || !termId || !overview || overview.analysisScope !== readingMode) return;
+    if (!pageAwake) return;
     let alive = true;
     const pollDemand = async () => {
       if (document.hidden) return;
@@ -975,7 +981,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     const timer = window.setInterval(pollDemand, 10_000);
     document.addEventListener("visibilitychange", pollDemand);
     return () => { alive = false; window.clearInterval(timer); document.removeEventListener("visibilitychange", pollDemand); };
-  }, [collegeId, sectionId, termId, analysisQuery, overview?.family]);
+  }, [collegeId, sectionId, termId, analysisQuery, overview?.family, pageAwake]);
 
   const previousReadingMode = useRef(readingMode);
   useEffect(() => {

@@ -75,6 +75,10 @@ export interface PresenceClient {
   onFrame(listener: (peers: PresencePeer[]) => void): () => void;
   /** Leaving: clears the mark now, and survives the page going away. */
   leave(): void;
+  /** The stream just opened, and the server holds an empty mark for it. The
+   *  whole position goes up once — a row already open in the editor must not
+   *  wait for the pointer to cross a cell before a colleague can see it. */
+  resend(): void;
   dispose(): void;
 }
 
@@ -225,6 +229,10 @@ export function createPresenceClient(currentUserId = 0): PresenceClient {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: payload, credentials: "include", keepalive: true,
       }).catch(() => undefined);
+    },
+
+    resend() {
+      schedule(true);
     },
 
     dispose() {
