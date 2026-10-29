@@ -7469,6 +7469,16 @@ app.put("/api/visiting-roster", requirePermission(7), async (req: AuthenticatedR
   const ids: number[] = Array.isArray(req.body?.instructorIds) ? req.body.instructorIds.map(Number).filter(Boolean) : [];
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل." }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  /* عضويةُ الفصل تُختار من دليل القسم (أو ممّن في الفصل أصلاً)، لا من أرقامٍ
+     حرّة: رقمُ أيِّ موظفٍ في الجامعة كان يدخل الفصل، ثم «نسخ الفصل» يرفعه إلى
+     دليل القسم الدائم، فتُقرأ بياناته كاملةً ويُعدَّل سجلُّه. والإضافةُ برقمٍ
+     مدنيٍّ جديد لها بابُها (/api/visiting-roster/instructor). */
+  const [currentRoster, directory] = await Promise.all([
+    Repository.getVisitingRoster(collegeId, sectionId, termId),
+    Repository.getDepartmentDelegates(collegeId, sectionId),
+  ]);
+  const known = new Set<number>([...currentRoster, ...directory].map(Number));
+  if (ids.some(id => !known.has(Number(id)))) { res.status(400).json({ error: "أضف المنتدب إلى قائمة القسم أولاً (بالرقم المدني)، ثم حدّده لهذا الفصل." }); return; }
   // Term membership is deliberately independent of the permanent department
   // directory. Removing somebody from this term never deletes them from the
   // department's own delegate list.
@@ -17240,6 +17250,9 @@ app.get("/api/public/schedule/:token", async (req: Request, res: Response) => {
   if (resolved.link.kind === "survey") { res.status(404).json({ error: "هذا الرابط استبيان للطلبة" }); return; }
   /* رابطُ جدول الطلبة يقرأ المعتمدَ وحده من بابه (/api/public/students). */
   if (resolved.link.kind === "students") { res.status(404).json({ error: "هذا الرابط جدول الطلبة" }); return; }
+  /* ورابطُ الطلب لصاحبه وحده (/r): صفحةُ /s تحوّله إلى بابه ولا تفتح به جدولَ
+     القسم، فلا تفتحه واجهتُها كذلك. */
+  if (resolved.link.kind === "request") { res.status(404).json({ error: "هذا الرابط طلب جدول لأستاذ" }); return; }
   void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
   res.setHeader("Cache-Control", "no-store");
   res.json(await buildSharePayload(resolved.link));
@@ -17305,7 +17318,7 @@ async function sendCalendar(req: Request, res: Response, name: string, termId: n
 app.get("/api/public/ics/:token", async (req: Request, res: Response) => {
   const resolved = await resolveShareToken(String(req.params.token));
   if ("error" in resolved) { res.status(resolved.status).type("text/plain; charset=utf-8").send(resolved.error); return; }
-  if (resolved.link.kind === "staff" || resolved.link.kind === "survey" || resolved.link.kind === "students") { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
+  if (resolved.link.kind === "staff" || resolved.link.kind === "survey" || resolved.link.kind === "students" || resolved.link.kind === "request") { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
   const payload = await buildSharePayload(resolved.link);
   void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
   /* A lecture cancelled on one specific date disappears from that one date in
@@ -25795,7 +25808,7 @@ footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--line);color:v
     <a class="primary" id="icsLink" href="${icsUrl}">Apple · إضافة إلى التقويم</a>
     <a id="icsGoogle" href="${icsUrl}" target="_blank" rel="noopener">Google</a>
     <a id="icsOutlook" href="${icsUrl}" target="_blank" rel="noopener">Outlook</a>
-    <script nonce="${nonce}">${CALENDAR_LINKS_CLIENT_JS}(function(){var L=calLinks(location.origin+"${icsUrl}",${JSON.stringify(String(payload.section || "الجدول"))});
+    <script nonce="${nonce}">${CALENDAR_LINKS_CLIENT_JS}(function(){var L=calLinks(location.origin+"${icsUrl}",${JSON.stringify(String(payload.section || "الجدول")).replace(/</g, "\\u003c")});
       var a=document.getElementById("icsLink"),g=document.getElementById("icsGoogle"),o=document.getElementById("icsOutlook");
       if(a) a.href=L.apple; if(g) g.href=L.google; if(o) o.href=L.outlook;})();</script>
     <a href="javascript:window.print()">طباعة</a>
