@@ -75,6 +75,7 @@ import { readsUntilTermEnd, requestsCloseAtFromDate, shareLinkReadable, termLink
 import { normalizeInstructorDeadline, individualExceptionOpen, requestWindowOpen as requestWindowOpenPolicy } from "./src/utils/instructorRequestWindows";
 import { termPhase, termIsFrozen, TERM_FROZEN_MESSAGE } from "./src/utils/termSequence";
 import { createAttemptLimiter, limiterOptionsFromEnv } from "./src/server/publicAttemptLimiter";
+import { createDeadSessionMemory, createLinkMissGuard, createSessionLookupBudget, isSessionIdShape } from "./src/server/anonymousGuard";
 import { runApprovalAttempts, type ApprovalOnce } from "./src/server/approvalAttempts";
 import { createCoalescer, createTtlMemo, studentQueueAggregate, type StudentQueueEntry } from "./src/server/notificationCache";
 import { createDataContextKey } from "./src/server/dataContextCache";
@@ -870,10 +871,19 @@ export function forgetAuthSession(sessionId?: string) {
 }
 Repository.onIdentityChanged?.(() => authCache.clear());
 
+/* جلسةٌ لا وجود لها تُسأل عنها قاعدةُ البيانات مرةً واحدة، لا مع كل طلب؛ وعنوانٌ
+   يخترع معرّفاتٍ يُقرأ مجهولاً بعد حدٍّ لا يبلغه متصفّحٌ حقيقي. القاعدة كلها
+   في src/server/anonymousGuard.ts. */
+const deadSessions = createDeadSessionMemory();
+const sessionLookups = createSessionLookupBudget();
+let sessionLookupRefusedLoggedAt = 0;
+
 async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const cookies = getCookies(req);
   const sessionId = cookies["session_id"];
   if (!sessionId) { next(); return; }
+  /* معرّفٌ لم يصنعه الخادم لا يُسمّي جلسة: لا يُسأل عنه أحد. */
+  if (!isSessionIdShape(sessionId)) { next(); return; }
   /* جلسةٌ تجريبية لا هويةَ لها خارج صندوقها: صندوقٌ انتهى، أو رابطٌ حقيقيٌّ
      فُتح من متصفّح التجربة، يُقرأ فيهما الطلب مجهولاً — لا بهوية «مدير
      البيئة التجريبية» المحفوظة في authCache على بياناتٍ حقيقية. */
@@ -893,7 +903,28 @@ async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Ne
     return;
   }
 
-  const sess = await Repository.getSession(sessionId);
+  /* الجلساتُ الحقيقية في Firestore وكلُّ سؤالٍ عنها قراءة؛ التجريبيةُ في الذاكرة. */
+  const billed = sessionId.startsWith("sess_") && !Repository.isDemoRequest();
+  if (billed && deadSessions.knows(sessionId)) { next(); return; }
+  const lookup = billed ? sessionLookups.reserve(req.ip || "unknown") : null;
+  if (billed && !lookup) {
+    if (Date.now() - sessionLookupRefusedLoggedAt > 60_000) {
+      sessionLookupRefusedLoggedAt = Date.now();
+      console.warn(`[anonymous-guard] ${req.ip || "unknown"} keeps presenting sessions that do not exist; its unknown ids are read as signed out for now.`);
+    }
+    next();
+    return;
+  }
+
+  let sess: Awaited<ReturnType<typeof Repository.getSession>>;
+  try {
+    sess = await Repository.getSession(sessionId);
+  } catch (error) {
+    lookup?.release(false);
+    throw error;
+  }
+  if (sess) lookup?.release(true);
+  else if (billed) deadSessions.remember(sessionId);
   if (sess) {
     req.userId = sess.userId;
     const user = await Repository.getUserById(sess.userId);
@@ -922,6 +953,7 @@ async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Ne
     }
     authCache.delete(sessionId);
     await Repository.deleteSession(sessionId);
+    if (billed) deadSessions.remember(sessionId);
   } else {
     authCache.delete(sessionId);
   }
@@ -1009,6 +1041,9 @@ function bindPublicLinkContext(req: Request, _res: Response, next: NextFunction)
   (req as AuthenticatedRequest).demoSessionId = sessionId;
   if (!Repository.runDemoSandbox(sessionId, next)) next();
 }
+/* صفحاتُ الروابط تعدّ الرموزَ التي لا تطابق شيئاً، لا من يفتحها (anonymousGuard.ts):
+   شبكةُ الجامعة تفتح ألف رابطٍ صحيح ولا تُحجب، ومن يخمّن يُوقَف قبل أن يُسأل عنه أحد. */
+app.use(PUBLIC_LINK_PAGE_PREFIXES.map(prefix => `${prefix}:token`), createLinkMissGuard());
 app.use(PUBLIC_LINK_PAGE_PREFIXES.map(prefix => `${prefix}:token`), bindPublicLinkContext);
 
 // A dedicated demo service binds every API request to the caller's own in-memory sandbox.
@@ -2737,7 +2772,10 @@ app.post("/api/auth/logout", async (req: AuthenticatedRequest, res: Response) =>
     // Drop the remembered identity before the record, so no request in flight
     // can be served from memory after the person has signed out.
     forgetAuthSession(sessionId);
-    await Repository.deleteSession(sessionId);
+    /* معرّفٌ لم يصنعه الخادم لا سجلَّ له يُحذف؛ والمحذوفُ يُذكر ميّتاً، فتبويبٌ
+       آخر بالكوكي القديم لا يُسأل عنه بعد الآن. */
+    if (isSessionIdShape(sessionId)) await Repository.deleteSession(sessionId);
+    if (sessionId.startsWith("sess_")) deadSessions.remember(sessionId);
   }
   res.setHeader("Set-Cookie", `session_id=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`);
   res.json({ success: true });
