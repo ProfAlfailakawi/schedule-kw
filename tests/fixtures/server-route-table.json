@@ -2409,7 +2409,7 @@
    ],
    "path": "/api/intelligence/pdf-import",
    "name": "bound dispatch",
-   "call": "4fef401613907eaa",
+   "call": "00433b8261174110",
    "site": "server.ts:10888",
    "regexp": "/^\\/api\\/intelligence\\/pdf-import\\/?$/i",
    "end": true
@@ -2421,7 +2421,7 @@
    ],
    "path": "/api/intelligence/drafts",
    "name": "bound dispatch",
-   "call": "688d0927469f41e0",
+   "call": "5f54e3ab9af43fc2",
    "site": "server.ts:11639",
    "regexp": "/^\\/api\\/intelligence\\/drafts\\/?$/i",
    "end": true
@@ -2793,7 +2793,7 @@
    ],
    "path": "/api/intelligence/drafts/:id/publish",
    "name": "bound dispatch",
-   "call": "e6bfe3b8cb38b0bb",
+   "call": "74db268398d01df1",
    "site": "server.ts:14056",
    "regexp": "/^\\/api\\/intelligence\\/drafts(?:\\/([^/]+?))\\/publish\\/?$/i",
    "end": true
@@ -4293,7 +4293,7 @@
    ],
    "path": "/api/study-proposals/context",
    "name": "bound dispatch",
-   "call": "ca17e76d28e39b0a",
+   "call": "a9240b4856cc7fcb",
    "site": "src/server/studyProposalRoutes.ts:272",
    "regexp": "/^\\/api\\/study-proposals\\/context\\/?$/i",
    "end": true
@@ -4329,7 +4329,7 @@
    ],
    "path": "/api/study-proposals/vacancies",
    "name": "bound dispatch",
-   "call": "f16072cd7a682c5e",
+   "call": "4cbbbb9780df6d8f",
    "site": "src/server/studyProposalRoutes.ts:396",
    "regexp": "/^\\/api\\/study-proposals\\/vacancies\\/?$/i",
    "end": true

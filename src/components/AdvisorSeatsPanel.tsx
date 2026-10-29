@@ -9,6 +9,7 @@ import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { useEffect, useMemo, useState } from "react";
 import { Ticket } from "lucide-react";
 import { PrimaryButton, SecondaryButton } from "./ui";
+import CampusChip from "./CampusChip";
 
 type State = { capacity: number; quota: number; hardCap: number; limitedBy: "quota" | "room"; advisorAdded: number; remaining: number; fairShare?: number; tone: "green" | "yellow" | "red"; ringLabel: string };
 type Section = { key: string; courseId: number; courseName: string; section: string; time: string; state: State; ledger: { roomCapacity?: number | null } };
@@ -24,7 +25,7 @@ function Ring({ state }: { state: State }) {
   return <span className="of-ring" data-tone={state.tone} style={{ ["--p" as any]: p }} title={state.ringLabel} aria-label={`السعة ${state.ringLabel}`}><b>{state.capacity}+{state.advisorAdded}/{extra}</b></span>;
 }
 
-export default function AdvisorSeatsPanel({ collegeId, sectionId, termId }: { collegeId: number; sectionId: number; termId: number }) {
+export default function AdvisorSeatsPanel({ collegeId, sectionId, termId, collegeName }: { collegeId: number; sectionId: number; termId: number; collegeName?: string }) {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -76,7 +77,7 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId }: { co
   const shown = data.sections.filter(s => !query || `${s.courseName} ${s.section}`.includes(query));
   return (
     <section className="of-section" aria-label="رصيد مقاعد المرشد">
-      <h4><Ticket aria-hidden="true" /> 🎟️ رصيد مقاعد المرشد</h4>
+      <h4><Ticket aria-hidden="true" /> 🎟️ رصيد مقاعد المرشد <CampusChip collegeName={collegeName} /></h4>
       <div className="of-kpis">
         <div className="of-kpi"><span className="of-ic">🎟️</span><b>{totals.added}</b><span>المقاعد المضافة</span></div>
         <div className="of-kpi"><span className="of-ic">🟡</span><b>{totals.near}</b><span>قريبة من الامتلاء</span></div>

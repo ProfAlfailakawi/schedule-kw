@@ -33,6 +33,7 @@ import { ACADEMIC_ROLES, roleDefinition, roleMismatchHint, type AcademicRole } f
 import { collegeShortName } from "../utils/sectionLabel";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import type { HeadPlanRow } from "../utils/departmentHeadAccounts";
+import CampusChip from "./CampusChip";
 
 /* «نسخ فصل» is administration, not day-to-day scheduling: it belongs on this
    rail beside the users, the scopes and the log. It keeps its own screen and
@@ -1532,7 +1533,7 @@ export default function AdminUsers({
                 {headPlan.map(row => (
                   <tr key={planKind === "advisors" ? `${row.sectionName}:${(row.sectionIds || [row.sectionId]).join(",")}` : `${row.collegeId}:${row.sectionId}`}>
                     <td>{row.sectionName}</td>
-                    <td>{row.collegeNames?.join("، ") || row.collegeName}</td>
+                    <td>{(row.collegeNames?.length ? row.collegeNames : [row.collegeName]).filter(Boolean).map((name: string, index: number) => <span key={`${name}:${index}`} className="campus-name"><CampusChip collegeName={name} />{name}</span>)}</td>
                     <td dir="ltr">{row.deptLogin || "—"}</td>
                     <td dir="ltr">{row.status === "exists" ? row.existingLogin : row.proposedLogin}</td>
                     <td>

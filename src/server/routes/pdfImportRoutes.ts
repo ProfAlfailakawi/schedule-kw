@@ -210,6 +210,12 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
   if(!collegeId||!sectionId||!termId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
   const bytes=Buffer.isBuffer(req.body)?req.body:Buffer.alloc(0);
   if(!bytes.length){res.status(400).json({error:"لم يصل ملف PDF"});return;}
+  /* ── «تجربة بلا حفظ» ───────────────────────────────────────────────────
+     فصلٌ فيه جدولٌ كامل كان يُردّ قبل القراءة («للفصل الفارغ فقط») فلا يرى
+     المستخدم ما في ملفه أصلاً. بـ dryRun=1 يُقرأ الملف بالفحوص نفسها كلّها
+     (الفصل والكلية والقسم) ولا يُكتب شيء؛ والمقارنةُ بالجدول الحالي تُرسم في
+     الواجهة. والحفظُ بعدها استبدالٌ مؤكَّد صراحةً فقط (replaceFilled في الإيصال). */
+  const dryRun=String(req.query.dryRun||"")==="1";
 
   /* DOCUMENT PRE-FLIGHT MUST RUN BEFORE TABLE READING — for text PDFs AND
      image-only CamScanner PDFs. readAuthorityPdfHeader reads page 1 only. */
@@ -257,6 +263,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
   const targetTermIsEmpty=async()=>{
     if(occupiedChecked)return true;
     occupiedChecked=true;
+    if(dryRun)return true;
     const occupied=await Repository.getSchedulesByScope({collegeId,sectionId,termId});
     if(!occupied.length)return true;
     const body={error:"نسخ جدول PDF متاح للفصل الفارغ فقط. أنشئ فصلاً فارغاً أو اختر واحداً بلا مواعيد.",code:"PDF_TARGET_TERM_OCCUPIED"};
@@ -516,7 +523,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
     if(streaming){emit({type:"error",...finalHeaderProblem.body});res.end();return;}
     res.status(finalHeaderProblem.status).json(finalHeaderProblem.body);return;
   }
-  if(!occupiedChecked){
+  if(!occupiedChecked&&!dryRun){
     const occupied=await Repository.getSchedulesByScope({collegeId,sectionId,termId});
     if(occupied.length){
       const body={error:"نسخ جدول PDF متاح للفصل الفارغ فقط. أنشئ فصلاً فارغاً أو اختر واحداً بلا مواعيد.",code:"PDF_TARGET_TERM_OCCUPIED"};
@@ -895,6 +902,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
     v:1,collegeId,sectionId,termId,issuedAt:new Date().toISOString(),
     sourceTerm:headerPreflight.term.label,sourceBranch:headerPreflight.branch.label,sourceDepartment:headerPreflight.department.label,
     ...(reviewPages.length?{reviewPages}:{}),
+    ...(dryRun?{replaceFilled:true}:{}),
   });
   const evidenceFields=["course","section","days","time","instructor","building","room"];
   let confirmedCells=0,derivedCells=0,reviewCells=0,readyRows=0;
@@ -947,6 +955,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
     pageDiagnostics:recognized.pageDiagnostics,
     suspiciousExtraction:recognized.suspiciousExtraction,
     importReceipt,
+    dryRun,
     headerBranch:headerPreflight.branch||recognized.headerBranch||undefined,
     headerDepartment:headerPreflight.department||recognized.headerDepartment||undefined,
     headerTerm:headerPreflight.term||recognized.headerTerm||undefined,

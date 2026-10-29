@@ -25,6 +25,7 @@ import type {
   StudyProposalDayKey, StudyProposalVersion,
 } from "../types";
 import { toEnglishDigits } from "../utils/digits";
+import { departmentVacancyRows } from "../utils/proposalVacancyScope";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "../utils/termSequence";
 import { normalizeClock, withinScheduleDay, scheduleDayWindowMinutes } from "../utils/scheduleTime";
 import { timeToMinutes } from "../utils/scheduleIntelligence";
@@ -199,6 +200,18 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
   const admin = (req: any) => Boolean(req.user?.IsAdminUser);
   const canSeeScope = (req: any, c: number, s: number) => admin(req) || deps.canSee(req, c, s);
   const canWriteScope = (req: any, c: number, s: number) => admin(req) || deps.canWrite(req, c, s);
+  /* شواغرُ القسم وحده: مواقعُ القسم التي يكتب فيها المستخدم، ومقرراتُه التشغيلية (src/utils/proposalVacancyScope.ts). */
+  const vacancyScopeOf = async (req: any, request: InstructorRequest) => {
+    const base = deps.departmentScopes
+      ? await deps.departmentScopes(request)
+      : [{ collegeId: Number(request.AdCollegeId), collegeName: "", sectionId: Number(request.AdSectionId) }];
+    const scopes = base.filter(scope => canWriteScope(req, scope.collegeId, scope.sectionId));
+    const courseIds = new Set<number>();
+    for (const sectionId of new Set(scopes.map(scope => Number(scope.sectionId)))) {
+      for (const id of await Repository.getOperationalCourseIds(sectionId)) courseIds.add(Number(id));
+    }
+    return { scopes, courseIds };
+  };
 
   async function loadForStaff(req: any, res: Response, id: string, write = false): Promise<StudyProposal | null> {
     const proposal = await Repository.getStudyProposal(String(id || ""));
@@ -303,9 +316,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
       if (!courseIds.has(id)) continue;
       (usedCodes[id] ||= []).push(Number(row.SCode));
     }
-    const faculty = world.termRows
-      .filter(row => world.placeholders.has(Number(row.AdInstructorId)) && canWriteScope(req, Number(row.AdCollegeId), Number(row.AdSectionId)))
-      .slice(0, 1500)
+    const faculty = departmentVacancyRows(world.termRows, { scopes, courseIds, placeholders: world.placeholders })
       .map(row => ({
         snapshot: snapshotOf(row, world.catalog),
         item: gridItem(row, world, deps, req, { state: "current", key: keyOfRow(Number(row.id)) }),
@@ -402,9 +413,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     const clean = await sanitizeOps(req.body?.ops, world, stored, row => canWriteScope(req, Number(row.AdCollegeId), Number(row.AdSectionId)));
     if (clean.error) { res.status(400).json({ error: clean.error }); return; }
     /* القائمة نفسها التي يقرؤها «إسناد شعبة» في السياق: شعبُ «هيئة تدريسية» التي يملك المستخدم الكتابة فيها. */
-    const rows = world.termRows
-      .filter(row => world.placeholders.has(Number(row.AdInstructorId)) && canWriteScope(req, Number(row.AdCollegeId), Number(row.AdSectionId)))
-      .slice(0, 1500);
+    const rows = departmentVacancyRows(world.termRows, { ...(await vacancyScopeOf(req, request)), placeholders: world.placeholders });
     const result = await rankVacancies(deps, req, {
       instructorId: Number(request.AdInstructorId), termId: Number(request.AdTermId),
       collegeId: Number(request.AdCollegeId), sectionId: Number(request.AdSectionId),
