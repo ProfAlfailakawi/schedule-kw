@@ -45,6 +45,19 @@ The production database is Firestore **Enterprise** edition. Nothing is indexed 
 - After a release, Firestore → Query insights (7 days, by Read units) shows what still scans: compare *Docs scanned* with *Results returned*.
 - The TTL policies the file declares (`sessions.expiresAtTtl`, `clientTelemetry.expiresAtTtl`) are **not enabled** in production. Enabling one (Firestore → Time-to-live → Create policy) permanently deletes the expired documents of that collection, so it is the owner's decision.
 
+## Cost decisions (October 2026)
+
+The owner's rule: the site must stay up and free or nearly free, and a spending cap that would show visitors an error page is not acceptable. These are the decisions taken under that rule, with the measurement behind each, so they are not re-litigated from scratch.
+
+- **Cloud Run `schedule`:** request-based billing, min 0 / max 1 instance, 2 vCPU, 4 GiB, concurrency 1000, startup CPU boost. Thirty-day p99 CPU was about 10% of the previous 8 vCPU. One instance with concurrency 1000 serves everyone; concurrency 80 would have refused visitors at max 1. `gcloud run deploy --image` keeps these settings.
+- **Warm during working hours:** the Cloud Scheduler job `schedule-warm` (project `gen-lang-client-0379571946`, `europe-west1`) asks `https://schedule-kw.com/api/health` every five minutes, Sunday to Thursday, 08:00–15:55 Kuwait time. `/api/health` answers from memory without touching Firestore. Idle time is not billed under request-based billing, so the instance stays warm at no cost, and the first visitor of the morning does not wait for a cold start. Outside those hours the service scales to zero as before.
+- **Live updates:** a 15-second pulse (`/api/schedules/pulse`), not an always-open stream. An open stream bills the instance for every second it stays open. The stream opens only when a colleague is on the same board (PR #280).
+- **The frontend stays on Cloud Run (not Firebase Hosting).** Static files were about 8% of requests. Hashed assets are already cached for a year (`immutable`), so browsers do not ask again. Moving them would split the domain and the session cookie between two hosts and touch the domain mapping (see Deployment safeguards). The saving would be a fraction of a few percent of requests that already cost milliseconds. Revisit only if static traffic grows to dominate.
+- **Firestore:** see *Firestore indexes* above — nearly all of the read bill was full scans.
+- **Anonymous traffic:** `src/server/anonymousGuard.ts` counts failures (sessions that do not exist, link tokens that match nothing), never successes. A campus behind one NAT address is never limited.
+- **CI minutes:** pull requests skip `tests/slow.txt`, and main runs everything. `Deploy SCHEDULE` releases only a commit whose full run on main passed.
+- **Image:** the final stage carries the bundle, the packages it requires (`scripts/runtime-deps.mjs`), the Firestore target and the OCR language data. Artifact Registry keeps the 10 newest images.
+
 ## Academic curriculum rules
 
 The complete approved rules are in [`CURRICULUM_SHEET_RULES.md`](CURRICULUM_SHEET_RULES.md). Preserve department-only visibility, cross-department prerequisite notes, the official sheet categories, service-course behavior, level and arrow colors, the two tracks per department, the shared girls' sheet, and the student's complete personal map. Do not change these rules without owner direction.
