@@ -755,7 +755,8 @@ app.get(["/v", "/v/:code"], rateLimitReportStampPage, async (req: Request, res: 
     const line = (item: { sectionId: number; values: string[] }): ReportStampLine => {
       const section = sectionById.get(Number(item.sectionId));
       const departmentKey = authorityDepartmentCode(collegeById.get(Number(section?.AdCollegeId))?.AdCollegeCode, section?.AdSectionCode);
-      return { course: item.values[0] ? authorityCourseCode(item.values[0].split("|")[1] || "", departmentKey) : "", name: item.values[1] || "", section: item.values[2] || "" };
+      const [, catalogue = "", snapshot = ""] = (item.values[0] || "").split("|");
+      return { course: item.values[0] ? authorityCourseCode(snapshot || catalogue, departmentKey) : "", name: item.values[1] || "", section: item.values[2] || "" };
     };
     let draftChanged = false;
     if (record.kind === "authority-pdf") {

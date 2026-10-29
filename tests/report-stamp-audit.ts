@@ -47,6 +47,7 @@ check(stamp([row(1), row(2), row(3, { AdRoomHall: "F04" })]).code !== base.code,
 check(stamp([row(1), row(2), row(3, { AdInstructorId: 26 })]).code !== base.code, "وتغيير المدرس يغيّره");
 check(stamp([row(1), row(2), row(3, { fthursday: true })]).code !== base.code, "وتغيير الأيام يغيّره");
 check(stamp([row(1), row(2)]).code !== base.code, "وورقةٌ ينقصها صف لها ختمٌ آخر");
+check(stamp([row(1), row(2), row(3, { CourseCodeSnapshot: "123" } as any)]).code !== stamp([row(1), row(2), row(3, { CourseCodeSnapshot: "999" } as any)]).code, "ورمزُ المقرر المحفوظ مع الموعد (يطبعه الشامل) يغيّره");
 check(stamp(rows, false).code !== base.code, "والورقة المرشّحة غير الورقة الكاملة وإن تطابقت صفوفها");
 check(buildReportStamp({ kind: "authority-pdf", termId: 107, sites: site, draftIds: ["d1"], wholeScope: true, rows, courseById })!.code !== base.code, "ونوع الورقة جزءٌ من الختم");
 check(buildReportStamp({ kind: "authority-pdf", termId: 107, sites: site, draftIds: ["d1"], wholeScope: true, rows, courseById })!.code
@@ -126,6 +127,12 @@ for (const fn of ["const printReport = ", "const runPrint = ", "const printAutho
 /* ── الخادم وصفحة التحقق ──────────────────────────────────────────────────── */
 const route = server.slice(server.indexOf('app.post("/api/report-stamps"'), server.indexOf('app.post("/api/report-stamps"') + 4000);
 check(/requireAuth/.test(route) && /isScopeAllowed/.test(route), "التسجيل لصاحب حساب، داخل صلاحيات أقسامه");
+{
+  const { roleWriteDecision } = await import("../src/server/roleGuard");
+  const roles = ["departmentHead", "registrar", "dean"];
+  check(roles.every(role => roleWriteDecision({ method: "POST", path: "/report-stamps", authenticated: true, powerUser: false, role } as any).allowed), "ورئيس القسم والتسجيل والعميد يسجّلون ختم ما يطبعونه (حارس الصفات لا يردّه)");
+  check(!roleWriteDecision({ method: "POST", path: "/schedules", authenticated: true, powerUser: false, role: "dean" } as any).allowed, "والاستثناء ضيّق: الكتابة على الجدول ما زالت ممنوعة عليهم");
+}
 check(/reportStampCode\(\{ kind, termId, sites, draftIds, wholeScope, rows: claimed \}\) !== code/.test(route), "والخادم يرفض ختماً لا يطابق صفوفه");
 check(/stampRowValues\(current/.test(route) && /staleRowIds/.test(route), "ويحفظ قيم الصفوف كما في الجدول هو، ويعلّم ما رآه المتصفح قديماً");
 check(/app\.get\(\["\/v", "\/v\/:code"\], rateLimitReportStampPage/.test(server) && /publicPageNonce\(res\)/.test(server.slice(server.indexOf('app.get(["/v"'), server.indexOf('app.get(["/v"') + 800)), "صفحة التحقق عامة بحدٍّ لكل عنوان وبسياسة أمان الصفحات العامة");

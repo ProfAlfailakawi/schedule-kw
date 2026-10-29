@@ -88,7 +88,8 @@ type StampCourse = Pick<AdCourse, "CourseCode" | "CourseName"> & { CourseCredit?
 /** قيم الصف كما تُقرأ في الورقة، بترتيب STAMP_FIELDS. */
 export function stampRowValues(row: FSchedule, course?: StampCourse | null): string[] {
   return [
-    `${Number(row.AdCourseId) || 0}|${text(course?.CourseCode)}`,
+    /* الرمزان معاً: الشامل يطبع رمز الموعد المحفوظ قبل رمز الكتالوج، وتقرير التغييرات بالعكس. */
+    `${Number(row.AdCourseId) || 0}|${text(course?.CourseCode)}|${text(row.CourseCodeSnapshot)}`,
     text(row.CourseNameSnapshot || row.AdCourseName || course?.CourseName),
     text(row.SCode),
     `${number(course?.CourseCredit)}|${number(course?.CourseHours)}|${number(course?.MaxStudent)}`,
