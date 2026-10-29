@@ -9,33 +9,22 @@
  * المراجعةُ إن عادت شاشةٌ يملكها حسابٌ فارغةً (كشف التسجيل، رغبات الأساتذة، المقترحات، تغييرات الجدول،
  * مركز الذكاء، الرادار، مراجعة الصحيفة).
  *
- * المنفذ: PORT (الافتراضي 3000). يتخطّى الاختبارُ نفسَه إن كان المنفذ مشغولاً بخادمٍ آخر.
+ * الخادم على منفذٍ حرّ (helpers/liveServer)، فلا يتخطّى الاختبارُ نفسَه أبداً، ويُقتل الخادمُ مهما انتهى.
  */
-import fs from "fs";
-import os from "os";
-import path from "path";
-import { spawn } from "child_process";
 import { waitForDemoSeed } from "./helpers/demoSeed";
+import { startDemoServer, type LiveServer } from "./helpers/liveServer";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
   if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); }
   else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`, extra !== undefined ? JSON.stringify(extra).slice(0, 300) : ""); }
 };
-const PORT = process.env.PORT || "3000";
-const BASE = `http://localhost:${PORT}`;
-const up = async () => { try { return (await fetch(BASE + "/api/public/me/state")).ok; } catch { return false; } };
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "schedule-demo-radar-"));
-let child: ReturnType<typeof spawn> | null = null;
+let server: LiveServer | null = null;
 try {
-  if (await up()) {
-    console.log("   (تخطّي: المنفذ مشغول بخادمٍ آخر)");
-  } else {
-    child = spawn("npx", ["tsx", "server.ts"], { env: { ...process.env, PORT, DATA_MODE: "demo", NODE_ENV: "development", SCHEDULE_PRIVATE_DIR: dir }, stdio: "ignore", detached: true });
-    let ready = false;
-    for (let i = 0; i < 120 && !ready; i += 1) { ready = await up(); if (!ready) await new Promise(r => setTimeout(r, 1000)); }
-    if (!ready) throw new Error("الخادم لم يبدأ");
+  {
+    server = await startDemoServer("demo-radar");
+    const BASE = server.base;
     const loginStartedAt = Date.now();
     const login = await fetch(BASE + "/api/auth/demo", { method: "POST" });
     check(login.status === 200 && Date.now() - loginStartedAt < 6000, "T0 الدخول التجريبي سريع ولا ينتظر تجهيز أمثلة العرض", { status: login.status, elapsedMs: Date.now() - loginStartedAt });
@@ -66,7 +55,9 @@ try {
     const outcome = await get("/api/simulation/outcome");
     check(outcome.answered > 0 && outcome.answered <= summary.run.students && outcome.courses.some((c: any) => c.stuck > 0 && c.registered > 0), "T2 أجوبةُ «هل سجلت؟» من المشاركين فقط وبها سجّلتُ وتعثّرتُ", [outcome.answered, outcome.courses.length]);
     const plans = await get("/api/plan-review/status");
-    check(plans.pending.length === 1 && plans.sections.length === 1 && plans.sections.find((s: any) => s.plans[0].pending)?.plans[0].status === "active", "T3 تعديلٌ واحدٌ قيد المراجعة يتصدّر قسمَه، وللقسم صحيفتان", plans.pending);
+    /* «sections.length === 1» قديم: في الصندوق ثلاثة أقسام منذ bf4b895 والمديرُ الجذر يرى كلَّها، فقسمُ التعديل يُعرف بتعديله لا بأنه الوحيد. */
+    const reviewed = plans.sections.find((s: any) => s.plans[0]?.pending);
+    check(plans.pending.length === 1 && reviewed?.plans[0].status === "active" && reviewed.plans.length === 2 && plans.sections.length === (await get("/api/sections")).length, "T3 تعديلٌ واحدٌ قيد المراجعة يتصدّر قسمَه، ولقسمه صحيفتان، والأقسامُ كلُّها في القائمة", plans.pending);
     const ds = plans.pending[0];
     const dsPlan = await get(`/api/plan-review/plan?planId=${ds.planId}&sectionId=${ds.sectionId}`);
     check(dsPlan.state.status === "review" && dsPlan.state.live?.version === 1 && dsPlan.rules.length >= 4, "T3 ما قيد المراجعة تعديلٌ فوق نسخةٍ معتمدة (الإصدار ١) — فبياناتُ القسم كاملةٌ ولا تتأثر", dsPlan.state);
@@ -154,8 +145,7 @@ try {
     }
   }
 } finally {
-  /* SIGKILL لمجموعة العملية كلها: خادمُ التجربة بعد ملء الفصلين يتأخر عن SIGTERM فيبقى على المنفذ ويُسقط خطوةً لاحقة تشغّل خادمها على المنفذ نفسه. */
-  if (child?.pid) { try { process.kill(-child.pid, "SIGKILL"); } catch { try { child.kill("SIGKILL"); } catch { /* ended */ } } }
+  await server?.stop();
 }
 console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+process.exit(failed || process.exitCode ? 1 : 0);

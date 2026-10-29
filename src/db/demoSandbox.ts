@@ -1,9 +1,11 @@
 import type {
   AdCollege, AdCollegeUserAssign, AdCourse, AdInstructor, AdRoom, AdSection,
   AdTerm, FSchedule, FormName, FormSecurity, ScheduleApproval, ScheduleComment,
-  ScheduleVersion, SystemUser, MasterBuilding, MasterRoom, AuditLogEntry
+  ScheduleVersion, SystemUser, MasterBuilding, MasterRoom, AuditLogEntry,
+  CurriculumPlan, CurriculumPlanCourse, CurriculumRuleSet
 } from "../types";
 import { generateSyntheticCivilId } from "../utils/civilId";
+import { courseLevelFromCode } from "../utils/curriculumRules";
 import { AR, countOf } from "../utils/arabicCount";
 import { roleDefinition, type AcademicRole } from "../utils/academicRoles";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
@@ -69,6 +71,9 @@ export interface DemoSandboxState {
   registrationStats?: any[];
   /* النصاب التدريسي (ميزةٌ اختيارية مفعَّلةٌ في الصندوق لتُشرح): انظر DEMO_TEACHING_LOAD. */
   teachingLoadConfig?: any[];
+  /* صحيفةُ كلٍّ من القسمين الآخرين (otherDepartmentSheets). صحيفتا تكنولوجيا التعليم تُبذران بعد الدخول (seedDemoRadar). */
+  curriculumPlans?: CurriculumPlan[]; curriculumPlanCourses?: CurriculumPlanCourse[];
+  curriculumRuleSets?: CurriculumRuleSet[]; curriculumRuleDrafts?: CurriculumRuleSet[];
 }
 
 /** مدرّبان (TA) لمرحلة التدريب: يختاران من الشعب الشاغرة («هيئة تدريسية») فتجري الرحلة كلها في الصندوق. */
@@ -134,6 +139,32 @@ function syntheticCourses(): AdCourse[] {
     MaxStudent: hours >= 4 ? 28 : 40,
   })));
   return [...own, ...others];
+}
+
+/* ── صحيفةُ كلٍّ من القسمين الآخرين، معتمدةُ القواعد ──────────────────────────────────────
+ * «مراجعة الصحيفة» تعرض للمدير الأقسامَ كلَّها، فكان القسمان يُفتحان على «لا صحائف» (أُسقطت صحائفُ بقية
+ * الأقسام مع مزامنة 823bdf0). لكلٍّ منهما صحيفةٌ فعّالةٌ واحدة بمقرّراته كلِّها، وقواعدُها معتمدة (الإصدار ١)
+ * بالشكل الذي يكتبه approveRuleDraft: إجباريةٌ بمستوى رمزها، بلا متطلّباتٍ تُخترع. والرادارُ يبقى
+ * لتكنولوجيا التعليم وحده: لا ملفّاتِ طلبةٍ في القسمين، فلا يتغيّر رقمٌ فيه. */
+function otherDepartmentSheets(courses: readonly AdCourse[], at: string) {
+  const plans: CurriculumPlan[] = [], links: CurriculumPlanCourse[] = [], ruleSets: CurriculumRuleSet[] = [], drafts: CurriculumRuleSet[] = [];
+  const by = "رئيس لجنة الجدول (عرض تجريبي)";
+  for (const { sectionId } of DEMO_OTHER_DEPARTMENTS) {
+    const own = courses.filter(course => Number(course.AdSectionId) === sectionId);
+    if (!own.length) continue;
+    const id = `demo-plan-s${sectionId}`;
+    plans.push({
+      id, AdCollegeId: DEMO_COLLEGE_ID, AdSectionId: sectionId, name: "صحيفة القسم 2026/2027", status: "active",
+      createdAt: at, createdBy: by, activatedAt: at,
+      degreeRule: { degreeUnits: 130, fieldTrainingRequired: 100, graduateRegularPassed: 112, graduateSummerPassed: 118, updatedAt: at, updatedBy: by },
+    });
+    links.push(...own.map(course => ({ id: `${id}_${course.AdCourseId}`, planId: id, AdCollegeId: DEMO_COLLEGE_ID, AdSectionId: sectionId, AdCourseId: course.AdCourseId, createdAt: at, createdBy: by })));
+    const rules = own.map(course => { const level = courseLevelFromCode(course.CourseCode); return { courseId: course.AdCourseId, kind: "compulsory" as const, ...(level ? { level } : {}) }; });
+    const approved: CurriculumRuleSet = { id, planId: id, AdCollegeId: DEMO_COLLEGE_ID, AdSectionId: sectionId, rules, groups: [], version: 1, updatedAt: at, updatedBy: `استيراد · ${by}`, approvedAt: at, approvedBy: by };
+    ruleSets.push(approved);
+    drafts.push({ ...approved, status: "approved", basedOnVersion: 0 });
+  }
+  return { plans, links, ruleSets, drafts };
 }
 
 /* ── سجلُّ مبانٍ وقاعاتٍ للبيئة التجريبية ─────────────────────────────────
@@ -748,10 +779,10 @@ function seedIntelligenceExtras(schedules: FSchedule[], courses: AdCourse[]) {
     { id: "demo-memory-3", createdAt: iso(6), SystemUserId: 16, userName: COMMITTEE_NAME, AdCollegeId: DEMO_COLLEGE_ID, AdSectionId: DEMO_SECTION_ID, AdTermId: DEMO_TERM_CURRENT,
       kind: "meeting-decision", reason: "اجتماع القسم: تُحجز مختبرات الإنتاج صباحاً، وتبقى القاعات الكبرى للمقررات المشتركة." },
   ];
-  const departmentRooms = [{
-    id: `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}`, scopeKey: `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}`, collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID,
-    rooms: DEMO_HALLS.map(hall => ({ building: hall.code, hall: hall.hall })), updatedAt: iso(20),
-  }];
+  /* دليلُ قاعات القسم يُقرأ من تاريخه (getDepartmentRooms) فيظهر كاملاً بلا تثبيت. والتثبيتُ للقاعة التي لم يُنقل
+     قسمُها في السجلّ، وسجلُّ الصندوق يُسند كلَّ قاعةٍ لقسمها؛ وكان تثبيتُ كل القاعات (DEMO_HALLS) يمنح القسمَ قاعاتِ
+     القسمين الآخرين بلا استعارة، ويُبقي له قاعةً نُقلت إلى غيره فلا يُختبر «قاعاتُ القسم الحالية» في تنزيل الشعب. */
+  const departmentRooms: any[] = [];
   const [first, second] = DEMO_BUILDINGS.map(demoBuildingCode);
   const mobility = [{ AdCollegeId: DEMO_COLLEGE_ID, defaultTravelMinutes: 10, sameBuildingMinutes: 5, pairs: [{ fromBuilding: first, toBuilding: second, minutes: 8 }], updatedAt: iso(20), updatedBy: HEAD_NAME }];
   return { constraints, memories, departmentRooms, mobility };
@@ -880,6 +911,7 @@ export function createDemoSandboxState(): DemoSandboxState {
 
   const now = new Date().toISOString();
   const extras = seedIntelligenceExtras(schedules, courses);
+  const sheets = otherDepartmentSheets(courses, now);
   /* شارة «التخطيط» في جدول الديمو تحتاج قرارات تخطيط محفوظة، لا مجرد
      نافذة الرفع. قراراتٌ متعددة تُظهر العجز والزيادة معاً في القائمة نفسها
      التي يراها القسم بعد رفع كشف المتبقي واختيار عدد الشعب. هذه الأرقام وهمية
@@ -976,6 +1008,7 @@ export function createDemoSandboxState(): DemoSandboxState {
       id: "main", enabled: true, ranks: DEMO_TEACHING_LOAD_RANKS.map(rank => ({ ...rank })),
       assignments: structuredClone(DEMO_TEACHING_LOAD_ASSIGNMENTS), updatedAt: now, updatedBy: "بيانات الديمو",
     }],
+    curriculumPlans: sheets.plans, curriculumPlanCourses: sheets.links, curriculumRuleSets: sheets.ruleSets, curriculumRuleDrafts: sheets.drafts,
     registrationStats: [
       {
         id: planScope, scopeKey: planScope, collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID,
