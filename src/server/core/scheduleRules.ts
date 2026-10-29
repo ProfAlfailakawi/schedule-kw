@@ -14,7 +14,7 @@ import { directoryVisitingIds, termVisitingIds } from "../../utils/liveVisiting"
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { patternNoticeHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
-import { DAY_KEYS, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, patternsForHours, weeklyLectureMinutes } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionWeeklyHours } from "../../utils/scheduleRegulations";
 import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { historicalOrigin } from "../../utils/courseNature";
@@ -81,8 +81,9 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
       .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")
         &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
         &&Number(other.id)!==Number(row.id||0));
-    const total=siblings.reduce((sum:number,other:any)=>sum+weeklyLectureMinutes(other,hours),0)+weeklyLectureMinutes(row,hours);
-    if(!habitual&&total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`;
+    /* مصدرٌ واحد (sectionWeeklyHours): النسخة المطابقة للموعد نفسه لا تضاعف المجموع، والمواعيد المحسوبة تُسمّى. */
+    const reading=sectionWeeklyHours(row,siblings,hours);
+    if(!habitual&&reading.total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(reading.total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة${reading.others.length?` — حُسب معه للشعبة ${String(row.SCode||"")} نفسها: ${reading.others.slice(0,3).map(meetingLabel).join("، ")}`:""}`;
   }
   return null;
 }

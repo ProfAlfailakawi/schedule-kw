@@ -307,6 +307,16 @@ async function main() {
       const html = await http("GET", `/r/${link}`);
       check(html.status === 200 && html.text.includes("قاعتك يحددها القسم") && !html.text.includes("room-pick") && !labels.some(l => html.text.includes(l)),
         "والصفحةُ نفسها: إشارةُ 🏫✓ «قاعتك يحددها القسم» ولا قاعةَ بعينها");
+      /* المالك 2026-10-29: ولا تلميحَ — «نفس القاعة» و«نفس المبنى» و«تغيّرت القاعة» و«المبنى». المسموحُ سببُ
+         الوقت غير المتاح «لا تتوفّر قاعة في هذا الوقت» ومختصراه، وإشارةُ «قاعتك يحددها القسم». */
+      const shown = html.text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/<!--[\s\S]*?-->/g, "")
+        .replace(/"room":\{[^}]*\}/g, "").replace(/"building":\{[^}]*\}/g, "")
+        .replace(/لا تتوفّر قاعةٌ? في هذا الوقت|لا قاعة في هذا الوقت|لا قاعة في الوقت المطلوب|قاعتك يحددها القسم/g, "");
+      const hints = [...shown.matchAll(/.{0,20}(قاعة|القاعة|المبنى|مبنى|🏢).{0,20}/g)].map(m => m[0]);
+      check(!hints.length, "والصفحةُ بلا «القاعة» ولا «المبنى» ولا «نفس القاعة/المبنى» ولا 🏢", hints.slice(0, 3));
+      const stick = await http("POST", `/api/public/request/${link}/stick`, { items: payload, itemIndex: at });
+      check(stick.status !== 200 || !/sameRoom|sameBuilding|"roomKey"|"building"/.test(stick.text),
+        "و«لاصق بمحاضرتي» لا يردّ «نفس القاعة» ولا «نفس المبنى»", stick.text.slice(0, 200));
     } else check(false, "يوجد كرتٌ يُفحص منه الفحصُ الدفعي والحجز");
   }
 

@@ -75,7 +75,7 @@ export function movementHistoryScopes(requests: ReadonlyArray<{ AdCollegeId?: nu
 }
 
 export async function scheduleMovementEntries(instructorId: number, termId: number, rows: any[], courseById: Map<number, any>, options: { withRooms?: boolean; historyScopes?: Array<{ collegeId: number; sectionId: number }> } = {}): Promise<MovementEntry[]> {
-  /* صفحةُ الطلب لا تحمل اسمَ قاعةٍ أبداً: تقول إن المكان تغيّر، ولا تقول أين. */
+  /* صفحةُ الطلب لا تحمل اسمَ قاعةٍ أبداً، ولا تقول إن المكان تغيّر: حركةُ القاعة للقسم وحده. */
   const withRooms = options.withRooms !== false;
   const movementScopeMap = new Map<string, { collegeId: number; sectionId: number }>();
   for (const scope of options.historyScopes || []) movementScopeMap.set(`${scope.collegeId}:${scope.sectionId}`, scope);
@@ -110,8 +110,9 @@ export async function scheduleMovementEntries(instructorId: number, termId: numb
         if (!was) { movementHistory.push({at,label,tone:"add",day:movementDay(now),source:"schedule",text:`${movementName(now)} أُضيفت ${now.fstarttime}–${now.fendtime}${withRooms ? ` · ${movementRoom(now)}` : ""}`}); continue; }
         if (String(was.fstarttime)!==String(now.fstarttime) || String(was.fendtime)!==String(now.fendtime) || shareDayIndexes(was).join(",")!==shareDayIndexes(now).join(","))
           movementHistory.push({at,label,tone:"move",day:movementDay(now),source:"schedule",text:`${movementName(now)} تغيّر موعدها من ${was.fstarttime}–${was.fendtime} إلى ${now.fstarttime}–${now.fendtime}`});
-        if (movementRoom(was)!==movementRoom(now))
-          movementHistory.push({at,label,tone:"room",day:movementDay(now),source:"schedule",text:withRooms ? `${movementName(now)} تغيّرت القاعة ${movementRoom(was)} ← ${movementRoom(now)}` : `${movementName(now)} تغيّر مكانُ محاضرتها`});
+        /* صفحةُ الطلب (withRooms=false) لا تعرف أن القاعة تغيّرت أصلاً: لا اسمَ ولا تلميحَ (المالك 2026-10-29). */
+        if (withRooms && movementRoom(was)!==movementRoom(now))
+          movementHistory.push({at,label,tone:"room",day:movementDay(now),source:"schedule",text:`${movementName(now)} تغيّرت القاعة ${movementRoom(was)} ← ${movementRoom(now)}`});
       }
       for (const [id,was] of before) if (!after.has(id))
         movementHistory.push({at,label,tone:"gone",day:movementDay(was),source:"schedule",text:`${movementName(was)} حُذفت من جدولك`});

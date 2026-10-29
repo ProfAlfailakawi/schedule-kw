@@ -1,7 +1,7 @@
 import React from "react";
 import {
-  Armchair, ArrowLeftRight, Ban, Building2, CalendarX2, Check, CheckCircle2, Clock3, DoorOpen, Footprints,
-  Hourglass, MapPin, MonitorPlay, Repeat2, Star, Trash2, UserRound, UserRoundCheck, UsersRound,
+  Armchair, ArrowLeftRight, Ban, Building2, CalendarDays, CalendarX2, Check, CheckCircle2, Clock3, DoorOpen, Footprints,
+  Hourglass, MapPin, MonitorPlay, Repeat2, Ruler, Star, Trash2, UserRound, UserRoundCheck, UsersRound,
 } from "lucide-react";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
@@ -20,13 +20,19 @@ export interface RoomSuggestion {
   companionRoomLabel?: string;
 }
 
-/** شعبة «هيئة تدريسية» تشغل القاعة في الوقت نفسه بالضبط (🔄 قابلة للاستبدال). */
+/** شعبة «هيئة تدريسية» تطابق الموعد المطلوب تطابقاً تاماً (🔄 قابلة للاستبدال — placeholderMatch). */
 export interface ReplaceableSection {
   rowId: number;
   room: string;
   hall: string;
   start: string;
   end: string;
+  /** أيامها (قد تختلف عن أيام النموذج في «اقترح وقتاً وقاعة»). */
+  days?: string[];
+  /** «أحد·ثلاثاء·خميس · 50د». */
+  pattern?: string;
+  /** ok: سعة القاعة تكفي المقرر · unknown: إحداهما غير مسجلة → «غير محددة». */
+  capacity?: "ok" | "unknown";
   courseId: number;
   courseName?: string;
   scode?: string;
@@ -45,6 +51,8 @@ function factsFor(reasons: string[] = []): Fact[] {
     else if (reason.includes("نوع القاعة") && reason.includes("مختلف")) fact = { text: "نوع مختلف", icon: DoorOpen, tone: "warn" };
     else if (reason.includes("السعة المسجلة مناسبة")) fact = { text: "سعة مناسبة", icon: UsersRound, tone: "good" };
     else if (reason.includes("السعة المسجلة أقل")) fact = { text: "سعة أقل", icon: UsersRound, tone: "warn" };
+    /* سعةٌ مجهولة تُقال «غير محددة» — لا رقمَ مفترضاً ولا حكماً عليها. */
+    else if (reason.includes("سعة القاعة غير مسجلة")) fact = { text: "السعة غير محددة", icon: UsersRound, tone: "muted" };
     else if (reason.includes("لا يترك فراغاً للأستاذ")) fact = { text: "دون فراغ", icon: Hourglass, tone: "good" };
     else if (reason.startsWith("فراغ ")) fact = { text: reason.replace("فراغ ", "").replace(" دقيقة", "د").replace(" دقائق", "د"), icon: Hourglass, tone: "muted" };
     else if (reason.includes("بلا انتقال بين المباني")) fact = { text: "دون تنقّل", icon: Footprints, tone: "good" };
@@ -77,6 +85,68 @@ export function SuggestionEmpty({ reason, note }: { reason?: SuggestionEmptyReas
     <span className="suggestion-empty-icon" aria-hidden="true"><Icon /></span>
     <b>{face.word}</b>
   </p>;
+}
+
+const DAY_SHORT: Record<string, string> = { fsunday: "أحد", fmonday: "اثنين", ftuesday: "ثلاثاء", fwednesday: "أربعاء", fthursday: "خميس" };
+
+/**
+ * 🔄 شعبٌ «هيئة تدريسية» تطابق الموعد تطابقاً تاماً — معلَّمة بوضوح، وثلاثة أفعال بضغطة:
+ * «خذ موعدها» (المقرر نفسه: يُستبدل الاسم وحده) · «بدّل» (تنتقل هي إلى قاعة حرّة) ·
+ * «احذفها وخذ مكانها». كلٌّ منها طلبٌ واحد محروس، وبتراجع.
+ */
+export function ReplaceableList({ items, onReplaceable, busy = false }: {
+  items: ReplaceableSection[];
+  onReplaceable: (section: ReplaceableSection, action: "assign" | "swap" | "replace") => void;
+  busy?: boolean;
+}) {
+  if (!items.length) return null;
+  return <div className="room-replaceable" role="group" aria-label="شعب «هيئة تدريسية» مطابقة">
+    <p className="room-replaceable-head"><Repeat2 aria-hidden="true" /><b>خانات «هيئة تدريسية»</b><small>تطابق تام</small></p>
+    {items.map(item => {
+      const days = (item.days || []).map(day => DAY_SHORT[day]).filter(Boolean).join("·");
+      return <div className="room-replaceable-card" key={item.rowId} data-replaceable={item.rowId}>
+        <span className="room-replaceable-swap" aria-hidden="true">
+          <span className="is-before"><UserRound /><small>هيئة</small></span>
+          <ArrowLeftRight />
+          <span className="is-after"><UserRoundCheck /><small>الأستاذ</small></span>
+        </span>
+        <span className="room-replaceable-copy">
+          <span className="room-replaceable-title">
+            <bdi dir="ltr" className="room-suggest-code">{item.room}/{item.hall}</bdi>
+            <em className="room-replaceable-badge">هيئة تدريسية</em>
+          </span>
+          <small>{item.courseName || "المقرر نفسه"}{item.scode ? ` · شعبة ${item.scode}` : ""}</small>
+          <span className="room-replaceable-facts">
+            <small className="room-suggest-fact good"><Clock3 aria-hidden="true" />{days ? `${days} · ` : ""}<time dir="ltr">{formatScheduleTimeRange(item.start, item.end)}</time></small>
+            <small className="room-suggest-fact good" title={item.pattern ? `نمط معتمد: ${item.pattern}` : "يطابق الوقت المطلوب"}><Ruler aria-hidden="true" />النمط</small>
+            {item.capacity === "unknown"
+              ? <small className="room-suggest-fact muted" title="سعة القاعة أو المقرر غير مسجلة"><UsersRound aria-hidden="true" />السعة غير محددة</small>
+              : <small className="room-suggest-fact good"><UsersRound aria-hidden="true" />السعة</small>}
+            <small className="room-suggest-fact good"><MonitorPlay aria-hidden="true" />المرفق</small>
+            <small className="room-suggest-fact good"><CalendarDays aria-hidden="true" />الأستاذ حرّ</small>
+          </span>
+          {item.radar ? <small className="room-replaceable-radar" title={`رادار التسجيل: ${countOf(item.radar.seated, AR.student)} في المقرر على ${countOf(item.radar.sections, AR.section)}`}><UsersRound aria-hidden="true" /><b>{item.radar.seated}</b>/<span>{item.radar.sections}</span></small> : null}
+        </span>
+        <span className="room-replaceable-actions">
+          {item.sameCourse ? <button type="button" className="room-replaceable-assign is-best" disabled={busy}
+            data-guide-ignore="يسند الأستاذ المختار إلى شعبة «هيئة تدريسية» القائمة للمقرر نفسه (يُستبدل الاسم وحده)؛ يُسجَّل ويمكن التراجع عنه"
+            onClick={() => onReplaceable(item, "assign")} title="الأفضل: يأخذ الأستاذ موعدها نفسه — يُستبدل الاسم وحده (يمكن التراجع)">
+            <Star aria-hidden="true" /><UserRoundCheck aria-hidden="true" /><span>خذ موعدها</span>
+          </button> : null}
+          <button type="button" className="room-replaceable-assign" disabled={busy}
+            data-guide-ignore="ينقل شعبة «هيئة تدريسية» إلى قاعة حرّة أخرى في الوقت نفسه ويعطي خانتها لهذا الموعد؛ يمكن التراجع"
+            onClick={() => onReplaceable(item, "swap")} title="بدّل: تنتقل الشعبة إلى قاعة حرّة أخرى، ويأخذ موعدك خانتها">
+            <Repeat2 aria-hidden="true" /><span>بدّل</span>
+          </button>
+          <button type="button" className="room-replaceable-assign is-danger" disabled={busy}
+            data-guide-ignore="يحذف شعبة «هيئة تدريسية» بعد تأكيد ويعطي خانتها لهذا الموعد؛ يمكن التراجع"
+            onClick={() => onReplaceable(item, "replace")} title="احذفها وخذ مكانها (بتأكيد، ويمكن التراجع)">
+            <Trash2 aria-hidden="true" /><span>احذفها وخذ مكانها</span>
+          </button>
+        </span>
+      </div>;
+    })}
+  </div>;
 }
 
 /**
@@ -129,38 +199,7 @@ export default function RoomSuggestionCards({
         </button>;
       })}
     </div> : null}
-    {assignable.length ? <div className="room-replaceable" role="group" aria-label="قابلة للاستبدال">
-      <p className="room-replaceable-head"><Repeat2 aria-hidden="true" /><b>قابلة للاستبدال</b><small>شعبة «هيئة تدريسية» في الوقت نفسه</small></p>
-      {assignable.map(item => <div className="room-replaceable-card" key={item.rowId}>
-        <span className="room-replaceable-swap" aria-hidden="true">
-          <span className="is-before"><UserRound /><small>هيئة</small></span>
-          <ArrowLeftRight />
-          <span className="is-after"><UserRoundCheck /><small>الأستاذ</small></span>
-        </span>
-        <span className="room-replaceable-copy">
-          <bdi dir="ltr" className="room-suggest-code">{item.room}/{item.hall}</bdi>
-          <small>{item.courseName || "المقرر نفسه"}{item.scode ? ` · شعبة ${item.scode}` : ""} · <time dir="ltr">{formatScheduleTimeRange(item.start, item.end)}</time></small>
-          {item.radar ? <small className="room-replaceable-radar" title={`رادار التسجيل: ${countOf(item.radar.seated, AR.student)} في المقرر على ${countOf(item.radar.sections, AR.section)}`}><UsersRound aria-hidden="true" /><b>{item.radar.seated}</b>/<span>{item.radar.sections}</span></small> : null}
-        </span>
-        <span className="room-replaceable-actions">
-          {item.sameCourse ? <button type="button" className="room-replaceable-assign is-best" disabled={replaceBusy}
-            data-guide-ignore="يسند الأستاذ المختار إلى شعبة «هيئة تدريسية» القائمة للمقرر نفسه بدل إنشاء موعد جديد؛ يُسجَّل ويمكن التراجع عنه"
-            onClick={() => onReplaceable?.(item, "assign")} title="الأفضل: إسناد الأستاذ لهذه الشعبة بدل موعد جديد (يمكن التراجع)">
-            <Star aria-hidden="true" /><UserRoundCheck aria-hidden="true" /><span>إسناد</span>
-          </button> : null}
-          <button type="button" className="room-replaceable-assign" disabled={replaceBusy}
-            data-guide-ignore="ينقل شعبة «هيئة تدريسية» إلى قاعة حرّة أخرى في الوقت نفسه ويعطي قاعتها لهذا الموعد؛ يمكن التراجع"
-            onClick={() => onReplaceable?.(item, "swap")} title="تبديل: انقل الشعبة الشاغرة إلى قاعة حرّة أخرى">
-            <Repeat2 aria-hidden="true" /><span>تبديل</span>
-          </button>
-          <button type="button" className="room-replaceable-assign is-danger" disabled={replaceBusy}
-            data-guide-ignore="يحذف شعبة «هيئة تدريسية» بعد تأكيد ويعطي قاعتها لهذا الموعد؛ يمكن التراجع"
-            onClick={() => onReplaceable?.(item, "replace")} title="استبدال: احذف الشعبة الشاغرة وخذ قاعتها (بتأكيد)">
-            <Trash2 aria-hidden="true" /><span>استبدال</span>
-          </button>
-        </span>
-      </div>)}
-    </div> : null}
+    {assignable.length ? <ReplaceableList items={assignable} onReplaceable={onReplaceable!} busy={replaceBusy} /> : null}
   </section>;
 }
 

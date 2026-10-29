@@ -31,7 +31,7 @@ import { endForRequest, headlineReasonOf, rowFromRequest, weeklyLoadOf, type Req
 import { offeringStatesForTerm } from "../offeringStates";
 import { pushHooks } from "../pushRoutes";
 import { linkMode, modeAllowsFreeEdit, modeAllowsWrite } from "../../utils/linkMode";
-import { bestPerSide, stickCandidates, topSticks, type StickAnchor, type StickJudged } from "../../utils/lectureStick";
+import { bestPerSide, stickCandidates, stickForTeacher, topSticks, type StickAnchor, type StickJudged } from "../../utils/lectureStick";
 import { offeringBlocked, offeringView, toggleInterest, type CourseInterestDoc, type CourseOfferingDoc } from "../../utils/courseOffering";
 import { allowedFor, countdown, loadRing, type TaPhaseDoc } from "../../utils/taPhase";
 import { habitualBlockMinutes } from "../../utils/courseNature";
@@ -84,8 +84,13 @@ function stripForInstructor(request: InstructorRequest) {
     signature: request.signature
       ? { at: request.signature.at, verifyCode: request.signature.verifyCode, fingerprint: "" }
       : undefined,
-    /* سطرُ «عُدّل الموعد» يكتبه تعديلُ القسم («القاعة 7/31 ← 8/22»): يصل الأستاذَ «تغيّرت القاعة» بلا اسم. */
-    timeline: (request.timeline || []).map(event => event.detail ? { ...event, detail: withoutRoomNames(event.detail) } : event),
+    /* سطرُ «عُدّل الموعد» يكتبه تعديلُ القسم («القاعة 7/31 ← 8/22»): يصل الأستاذَ بلا جزء القاعة أصلاً،
+       وتعديلٌ لم يمسّ إلا القاعةَ لا يصله حدثاً (لا اسمَ ولا تلميحَ — المالك 2026-10-29). */
+    timeline: (request.timeline || []).flatMap(event => {
+      if (!event.detail) return [event];
+      const detail = withoutRoomNames(event.detail);
+      return detail ? [{ ...event, detail }] : [];
+    }),
     items: (request.items || []).map(item => {
       /* القاعةُ لا تصل الأستاذ (قرار المالك 2026-10-29: «مخفية اكيد متعمدة»): المرشّحاتُ وتفاصيلُها،
          و«الأنسب» (roomPick في ما حُفظ قبل القرار)، والمحجوزةُ، والمبدَّلة — كلُّها للقسم. يرى roomAvailable وحده. */
@@ -159,7 +164,12 @@ async function requestSlotsForCourse(request: InstructorRequest, courseId: numbe
   const approved = patternsForHours(effectiveCourseHours(course)).find(pattern => days.length === 1
     ? pattern.days.length === 1 : pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
   return days.map(day => {
-    const length = days.length === 1 && block ? block : historicalLectureMinutes(model, { ...flags, AdCourseId: courseId }, day, approved?.minutesPerDay[days.length === 1 ? 0 : approved.days.indexOf(day)]);
+    /* يومٌ واحد بلا طولٍ معروفٍ للصفّ: نمطُ اليوم الواحد في اللائحة (ثلاث ساعات = ١٧٠ د) هو الطول، لا طولُ
+       اليوم في تاريخ المقرّر — ذاك جاء من نمط الاثنين والأربعاء (٧٥–٨٠ د) فكان يقصّر «الأربعاء وحده» عن ساعاته
+       ويمنعه بـ«لا يغطّيها» وهو نمطٌ معتمد (ملاحظة المالك r4). عادةُ المقرّر بيومٍ واحد تصل هنا `block` فتبقى أولى. */
+    const length = days.length === 1 && block ? block
+      : days.length === 1 && approved ? approved.minutesPerDay[0]
+      : historicalLectureMinutes(model, { ...flags, AdCourseId: courseId }, day, approved?.minutesPerDay[days.length === 1 ? 0 : approved.days.indexOf(day)]);
     return { day, start, end: minutesToTime(timeToMinutes(start) + length) };
   });
 }
@@ -1342,7 +1352,8 @@ app.post("/api/public/request/:token/interest", rateLimitPublicRequest, async (r
 /**
  * C6 · 🧲 «لاصق بمحاضرتي»: لكل محاضرةٍ قائمة ⬅️ قبلها / ➡️ بعدها، يُحسب الوقتُ من نهايتها
  * وفاصل اللائحة ومدّة المقرر (src/utils/lectureStick.ts)، ثم يُحكم على كل مرشّحٍ بالمحرّك
- * الواحد judgeRequestItems — لا فحصَ ثانٍ هنا. نفسُ القاعة أولاً ثم نفسُ المبنى.
+ * الواحد judgeRequestItems — لا فحصَ ثانٍ هنا. نفسُ القاعة أولاً ثم نفسُ المبنى في الترتيب وحده:
+ * الردُّ يمرّ بـ stickForTeacher فلا يصل الأستاذَ «نفس القاعة» ولا «نفس المبنى».
  */
 app.post("/api/public/request/:token/stick", rateLimitCheckTimes, async (req: Request, res: Response) => {
   const resolved = await resolveRequestLink(String(req.params.token || ""));
@@ -1405,7 +1416,7 @@ app.post("/api/public/request/:token/stick", rateLimitCheckTimes, async (req: Re
       }
     }
   }
-  res.json({ anchors: anchors.map(({ roomKey, building, ...rest }) => rest), best: bestPerSide(judged), top: topSticks(judged) });
+  res.json({ anchors: anchors.map(({ roomKey, building, ...rest }) => rest), best: bestPerSide(judged).map(stickForTeacher), top: topSticks(judged).map(stickForTeacher) });
 });
 
 /** صفحةُ المقترح الدراسي للأستاذ: الرابطُ الشخصيّ نفسُه ثم معرّفُ المقترح. */

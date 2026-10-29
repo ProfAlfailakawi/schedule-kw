@@ -104,20 +104,13 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .why summary::-webkit-details-marker{display:none}
 .why p{margin:4px 0 0;line-height:1.7}
 
-.alts.shapes button{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;min-block-size:44px}
-.sp{display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:0 4px}
-.sp b{font-size:13px;color:var(--ink)}
-.sp small{font:700 11.5px/1.2 "Plex Arabic",Tahoma,sans-serif!important;color:var(--muted);letter-spacing:0!important}
-.alts.shapes button{flex-direction:row!important;gap:10px!important;font-family:inherit}
-.alts button .alt-d,.sp b{font-family:"Plex Arabic",-apple-system,"Segoe UI",Tahoma,sans-serif!important;letter-spacing:0!important}
+.alts button .alt-d{font-family:"Plex Arabic",-apple-system,"Segoe UI",Tahoma,sans-serif!important;letter-spacing:0!important}
 .dname{text-decoration:none;display:inline-block;padding:2px 8px;border-radius:7px;font-size:11.5px;font-weight:700;background:var(--soft);color:var(--ink)}
 .alt-d{font-size:11.5px;color:var(--muted);font-weight:600}
 .own-msg{display:flex;gap:8px;align-items:flex-start;margin:8px 0 0;padding:10px 12px;border-radius:12px;background:var(--bad2);color:var(--bad);font-size:13px}
 .own-msg>.sk-gi{flex:none;width:16px;height:16px;margin-top:2px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .own-msg>span{display:flex;flex-direction:column;gap:6px}
 .starts button[data-own-clash]{opacity:.45;text-decoration:line-through;cursor:not-allowed}
-.sp u{text-decoration:none;display:grid;place-items:center;width:22px;height:22px;border-radius:7px;font-size:11.5px;font-weight:700;background:var(--ok2);color:var(--ok)}
-.sp b{font:700 11px/1 ui-monospace,monospace;color:var(--muted);direction:ltr}
 .advice .vshort{color:var(--warn)}
 .vwrap{display:flex;flex-direction:column;align-items:flex-start;gap:4px;flex:1;min-inline-size:0}
 .vcard{display:flex;flex-direction:column;gap:5px;margin:8px 0 2px;padding:9px 12px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:13px}
@@ -156,6 +149,36 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .skel i:first-child{block-size:58px;inline-size:68%}
 @keyframes skel{from{background-position:120% 0}to{background-position:-120% 0}}
 @media (prefers-reduced-motion:reduce){.skel i,.leave-card{animation:none}}
+
+/* ── «أكمل أيام المقرر»: أنماطُ الأيام حبوباً تلتفّ ولا تتراكب (r4) ──────────────
+   رأسٌ (أيقونة + جملة) ثم صفُّ الحبوب بعرض البطاقة. كلُّ حبّة: أحرفُ الأيام دوائرَ ثم
+   الدقائق رقماً واحداً إن تساوت، وإلا كلُّ يومٍ بدقائقه. الاسمُ الكامل في aria-label. */
+.heat-key.heat-shape[role=status]{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px 8px;margin:12px 0 2px;padding:10px 12px;border-radius:16px;border:1px dashed color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--ok2) 45%,var(--card));color:var(--ink);font-size:13.5px;font-weight:700}
+.heat-key.heat-shape[role=status]>.sk-gi{inline-size:18px;block-size:18px;color:var(--accent)}
+.heat-key.heat-shape>.alts.shapes{grid-column:1/-1;margin:0}
+.alts.shapes{display:flex;flex-wrap:wrap;gap:8px}
+.alts.shapes button{display:inline-flex!important;flex-direction:row!important;align-items:center;gap:9px!important;flex:0 0 auto;max-inline-size:100%;min-block-size:46px;padding:6px 14px 6px 7px!important;border-radius:999px!important;border:1.5px solid color-mix(in srgb,var(--accent) 40%,var(--line))!important;background:var(--card)!important;color:var(--ink);font-family:inherit;font-size:13px;font-weight:700;line-height:1;white-space:nowrap;cursor:pointer;box-shadow:0 1px 0 rgba(0,0,0,.03);transition:border-color .15s,background .15s,transform .1s}
+.alts.shapes button:hover{border-color:var(--accent)!important;background:color-mix(in srgb,var(--ok2) 55%,var(--card))!important}
+.alts.shapes button:active{transform:scale(.98)}
+.alts.shapes button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.shp-days{display:inline-flex;align-items:center;gap:3px}
+.shp-days u,.shp-seg u{text-decoration:none;display:grid;place-items:center;inline-size:28px;block-size:28px;border-radius:50%;background:var(--ok2);color:var(--ok);font-size:13px;font-weight:800;line-height:1}
+.shp-seg{display:inline-flex;align-items:center;gap:4px}
+.shp-seg+.shp-seg{padding-inline-start:6px;border-inline-start:1px solid var(--line)}
+.shp-min{display:inline-flex;align-items:baseline;gap:3px;color:var(--muted);font-size:12px;font-weight:700}
+.shp-min b,.shp-seg small{font-family:"Plex Arabic",-apple-system,"Segoe UI",Tahoma,sans-serif;font-variant-numeric:tabular-nums;font-size:15px;font-weight:800;color:var(--ink);letter-spacing:0}
+.shp-seg small{font-size:13px}
+.shp-usual{display:grid;place-items:center;inline-size:22px;block-size:22px;border-radius:50%;background:var(--warn2);color:var(--warn)}
+.shp-usual .sk-gi{inline-size:13px;block-size:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.shp-plain{white-space:normal;text-align:start;line-height:1.5}
+/* «ينتهي …»: أيامٌ بأحرفها ثم ساعةُ النهاية، مجموعةً بالساعة نفسها، تلتفّ ولا تطول سطراً واحداً. */
+.ends{flex-wrap:wrap;row-gap:6px}
+.ends-l{font-weight:700;color:var(--ink)}
+.ends-g{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 4px;border-radius:999px;background:var(--soft);border:1px solid var(--line)}
+.ends-g .bp-d{display:inline-flex;gap:2px}
+.ends-g .bp-d u{text-decoration:none;display:grid;place-items:center;inline-size:22px;block-size:22px;border-radius:50%;background:var(--card);color:var(--ink);font-size:11.5px;font-weight:800}
+.ends-t{font-family:"Plex Arabic",-apple-system,"Segoe UI",Tahoma,sans-serif;font-variant-numeric:tabular-nums;font-size:13.5px;font-weight:800;color:var(--ink)}
+@media(max-width:520px){.alts.shapes{gap:7px}.alts.shapes button{min-block-size:44px;padding-inline-end:12px!important}.shp-days u,.shp-seg u{inline-size:26px;block-size:26px;font-size:12.5px}}
 `;
 
 export const REQUEST_VISUAL_JS = String.raw`
@@ -207,7 +230,7 @@ function skVerdict(it){var n=String(it&&it.note||""),full=verdictText(it),ic="",
 var SKREASON={room:["door","لا قاعة في الوقت المطلوب"],instructor:["alert","تعارض مع أستاذ آخر"],regulation:["shield","مخالفة للائحة"],cohort:["alert","تقاطع مع طلبة مشتركين"],load:["layers","النصاب التدريسي"],department:["cal","قرار القسم"],other:["alert","سبب آخر"]};
 function skReason(code,askedAt){var r=SKREASON[code];if(!r)return "";return '<span class="vshort">'+gi(r[0])+esc(r[1])+'</span>'+(askedAt?'<span class="vrow"><bdi dir="ltr">'+esc(askedAt)+'</bdi></span>':"")}
 function skAltBtn(ds,start){return '<small class="alt-d">'+esc(fmtDays(ds))+'</small><b class="bp-t">'+esc(start)+'</b>'}
-/* «عندك محاضرة في هذا الوقت»: أيُّها، وفي أيّ يومٍ ووقت. */
+/* «لديك محاضرة في هذا الوقت»: أيُّها، وفي أيّ يومٍ ووقت. */
 function skOwnClash(it,i,t){var d=it.days||[],s=mins(t),e=mins(endOf(d,t,it.blk));
  var o=othersFor(i).filter(function(o){return o.d.some(function(x){return d.indexOf(x)>=0})&&s<o.e&&o.s<e})[0];
  if(!o)return "";var day=o.d.filter(function(x){return d.indexOf(x)>=0}).map(function(x){var f=DAYS.filter(function(y){return y[0]===x})[0];return f?f[1]:x}).join(" · ");
@@ -216,9 +239,20 @@ function skAdvice(t){t=String(t||"");var m=/^موعدك الحالي أقصر م
  if(!m)return '<p class="advice" role="note">'+esc(t)+'</p>';
  return '<p class="advice" role="note"><span class="vshort">'+gi("alert")+'أقصر من ساعات المقرر ('+esc(m[1])+')</span></p><details class="why"><summary>التفاصيل</summary><p>'+esc(t)+'</p></details>'}
 /* «الاثنين 80د · الأربعاء 80د · الخميس 50د» أيامٌ بأحرفها ودقائقها. */
-function skShape(label){var parts=String(label||"").split("·").map(function(x){return x.trim()}).filter(Boolean),out="";
- parts.forEach(function(p){var m=/^(\S+)\s+([0-9]+)/.exec(p);if(m)out+='<span class="sp"><b>'+esc(m[1])+'</b><small>'+m[2]+' د</small></span>';else out+='<span class="sp">'+esc(p)+'</span>'});
- return out||esc(label)}
+function skShape(label){var raw=String(label||""),usual=/^المعتاد تاريخياً:\s*/.test(raw);raw=raw.replace(/^المعتاد تاريخياً:\s*/,"");
+ var parts=raw.split("·").map(function(x){return x.trim()}).filter(Boolean),ds=[];
+ for(var k=0;k<parts.length;k++){var m=/^(\S+)\s+([0-9]+)/.exec(parts[k]);if(!m)return '<span class="shp-plain">'+esc(label)+'</span>';ds.push({l:SKDN[m[1]]||esc(m[1].slice(0,1)),m:m[2]})}
+ if(!ds.length)return '<span class="shp-plain">'+esc(label)+'</span>';
+ var same=ds.every(function(d){return d.m===ds[0].m});
+ var lead=usual?'<span class="shp-usual" title="المعتاد تاريخياً">'+gi("clock")+'</span>':'';
+ if(same)return lead+'<span class="shp-days">'+ds.map(function(d){return '<u>'+d.l+'</u>'}).join("")+'</span><span class="shp-min"><b>'+ds[0].m+'</b>د</span>';
+ return lead+ds.map(function(d){return '<span class="shp-seg"><u>'+d.l+'</u><small>'+d.m+'</small></span>'}).join("")+'<span class="shp-min">د</span>'}
+/* «ينتهي»: الأيامُ ذاتُ ساعةِ النهاية الواحدة حبّةٌ واحدة — «ح ث خ 14:15» لا «ينتهي الأحد 14:15 · الثلاثاء 14:15 · …». */
+var SKORDER=["fsunday","fmonday","ftuesday","fwednesday","fthursday"];
+function skEnds(slots,days,end){var list=(slots&&slots.length?slots:(days||[]).map(function(d){return{day:d,end:end}})).filter(function(sl){return sl&&sl.day&&sl.end}),groups=[];
+ list.slice().sort(function(a,b){return SKORDER.indexOf(a.day)-SKORDER.indexOf(b.day)}).forEach(function(sl){var g=groups.filter(function(x){return x.end===sl.end})[0];if(g){if(g.days.indexOf(sl.day)<0)g.days.push(sl.day)}else groups.push({end:sl.end,days:[sl.day]})});
+ if(!groups.length)return end?'<bdi dir="ltr" class="ends-t">'+esc(end)+'</bdi>':"";
+ return groups.map(function(g){return '<span class="ends-g">'+skPills(g.days)+'<bdi dir="ltr" class="ends-t">'+esc(g.end)+'</bdi><span class="sr">'+esc(fmtDays(g.days))+' '+esc(g.end)+'</span></span>'}).join("")}
 /* «ماذا أحتاج منك الآن؟»: خطوةٌ واحدةٌ كبيرة تتغيّر بمرحلة الطلب، فلا يحتاج الأستاذ أن يقرأ المسار ليعرف. */
 function skNext(open,sent,edited){var s=stageIdx(),pend=pendingList().length,ic="eye",tone="wait",t="",sub="",btn="";
  if(!open&&!sent){ic="lock";tone="done";t="انتهت مدة استقبال الطلبات";sub="جدولك كما هو، ولا شيء مطلوب منك."}
@@ -269,7 +303,7 @@ function skBackIcon(){if(!skBackTarget()&&history.length<2)return "";
 function skGoBack(){var t=skBackTarget();if(t)location.href=t;else history.back()}
 function skLeaveAsk(){var m=document.getElementById("leaveAsk");
  if(!m){m=document.createElement("div");m.id="leaveAsk";m.className="leave";m.hidden=true;
-  m.innerHTML='<div class="leave-card" role="alertdialog" aria-modal="true" aria-labelledby="lvT"><span class="lv-ic">'+gi("alert")+'</span><b id="lvT">عندك تعديل لم يُرسل</b><p>مسودتك محفوظة على هذا الجهاز، لكنها لم تصل القسم بعد. إن خرجتَ الآن تجدها عند عودتك.</p><div class="leave-row"><button type="button" data-leave>خروج</button><button type="button" data-stay>أكمل التعديل</button></div></div>';
+  m.innerHTML='<div class="leave-card" role="alertdialog" aria-modal="true" aria-labelledby="lvT"><span class="lv-ic">'+gi("alert")+'</span><b id="lvT">لديك تعديل لم يُرسل</b><p>مسودتك محفوظة على هذا الجهاز، لكنها لم تصل القسم بعد. إن خرجتَ الآن تجدها عند عودتك.</p><div class="leave-row"><button type="button" data-leave>خروج</button><button type="button" data-stay>أكمل التعديل</button></div></div>';
   document.body.appendChild(m);
   m.onclick=function(e){var t=e.target;if(t===m||(t.closest&&t.closest("[data-stay]"))){m.hidden=true;return}if(t.closest&&t.closest("[data-leave]")){m.hidden=true;skLeaving=true;skGoBack()}}}
  m.hidden=false;var b=m.querySelector("[data-stay]");if(b)b.focus()}

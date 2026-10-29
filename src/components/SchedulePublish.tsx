@@ -3,12 +3,13 @@ import TAPhasePanel from "./TAPhasePanel";
 import CourseOfferingPanel from "./CourseOfferingPanel";
 import type { LinkMode } from "../utils/linkMode";
 import { DnaStepper } from "./dna";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarPlus, Check, Copy, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, Users, X } from "lucide-react";
 import MasariQrButton from "./MasariQrButton";
 import { reachAboutCard, unreachable, whatsappNumber } from "../utils/reachInstructor";
 import type { AdInstructor } from "../types";
+import { instructorPickerLabels } from "../utils/instructorPickerChoices";
 import { AR, countOf, oblique } from "../utils/arabicCount";
 import { deadlineEndsAt } from "../utils/approvalWorkflow";
 import { GhostButton, PrimaryButton, SecondaryButton } from "./ui";
@@ -141,6 +142,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     [exceptions, setExceptions] = useState<Array<{ instructorId: number; name: string; closesAt: string; grantedAt: string; reason: string; revokedAt: string; active: boolean }>>([]);
 
   const scoped = Boolean(collegeId && sectionId && termId);
+  const manageLabels = useMemo(() => instructorPickerLabels(manageFaculty), [manageFaculty]);
 
   const loadPersonal = async () => {
     try {
@@ -946,7 +948,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                           <label>الأستاذ
                             <select value={manageInstructorId} onChange={event => setManageInstructorId(Number(event.target.value))}>
                               <option value={0}>اختر الأستاذ</option>
-                              {manageFaculty.map(person => <option key={person.AdInstructorId} value={person.AdInstructorId}>{person.AdInstructorName}</option>)}
+                              {/* اسمٌ متكرّر لسجلّين مختلفين: يُميَّز بآخر أرقام الجوال، لا يظهر مرّتين متطابقتين (r4). */}
+                              {manageFaculty.map(person => <option key={person.AdInstructorId} value={person.AdInstructorId}>{manageLabels.get(Number(person.AdInstructorId)) || person.AdInstructorName}</option>)}
                             </select>
                           </label>
                           <label>سبب الاستثناء

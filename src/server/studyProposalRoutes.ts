@@ -39,6 +39,7 @@ import {
 import {
   evaluateProposal, gridItem, keyOfNew, keyOfRow, loadWorld, rankVacancies, suggestAlternatives, type EngineDeps, type LoadedWorld,
 } from "./studyProposalEngine";
+import { withoutProposalPlaces } from "../utils/proposalTeacherView";
 
 export interface StudyProposalRouteDeps extends EngineDeps {
   requirePermission: (formNameId: number) => RequestHandler;
@@ -753,8 +754,13 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
 
   const openDeps: EngineDeps = { ...deps, canSee: () => true, canWrite: () => false };
 
-  /** ما يراه الأستاذ عن مقترحه: النسخة المرسلة الأخيرة، وجدوله قبل وبعد. */
+  /** ما يراه الأستاذ عن مقترحه: النسخة المرسلة الأخيرة، وجدوله قبل وبعد — بلا قاعةٍ ولا مبنى
+   *  (المالك 2026-10-29). كلُّ مخرجٍ إلى الأستاذ يمرّ من هنا، فلا يُنسى النزعُ في مسار. */
   async function publicView(proposal: StudyProposal, world: LoadedWorld, full: boolean) {
+    return withoutProposalPlaces(await publicViewWithPlaces(proposal, world, full));
+  }
+
+  async function publicViewWithPlaces(proposal: StudyProposal, world: LoadedWorld, full: boolean) {
     const sent = proposal.versions.find(v => v.version === proposal.sentVersion);
     const status = effectiveStatus(proposal);
     const termClosed = await termShutOf(world, Number(proposal.AdTermId));
@@ -813,7 +819,8 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
         before: op.source && op.kind !== "assign" ? { days: op.source.days, start: op.source.fstarttime, end: op.source.fendtime, place: [op.source.AdRoomCode, op.source.AdRoomHall].filter(Boolean).join(" · ") } : undefined,
         adjusted: op.kind === "assign" && Boolean(op.source) && (
           op.source!.fstarttime !== op.target.fstarttime || op.source!.fendtime !== op.target.fendtime ||
-          op.source!.days.join() !== daysOf(op.target).join() || (op.source!.AdRoomHall || "") !== (op.target.AdRoomHall || "")),
+          /* القاعةُ لا تدخل «عُدّل ليلائم جدولك»: الأستاذ لا يعرف بتغيّرها (المالك 2026-10-29). */
+          op.source!.days.join() !== daysOf(op.target).join()),
         out: op.out ? { courseName: op.out.snapshot.courseName, courseCode: op.out.snapshot.courseCode, SCode: op.out.snapshot.SCode, days: op.out.snapshot.days, start: op.out.snapshot.fstarttime, end: op.out.snapshot.fendtime, action: op.out.action } : undefined,
         result: proposal.commit?.results.find(r => r.opId === op.id)?.state,
       })),

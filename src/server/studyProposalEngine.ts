@@ -16,7 +16,7 @@ import type {
 } from "../types";
 import { isBlockingConflict, timeToMinutes, minutesToTime } from "../utils/scheduleIntelligence";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
-import { reviewSchedule, effectiveCourseHours, weeklyLectureMinutes, maxWeeklyMinutesFor } from "../utils/scheduleRegulations";
+import { reviewSchedule, effectiveCourseHours, maxWeeklyMinutesFor, sectionWeeklyHours } from "../utils/scheduleRegulations";
 import { learnCourseNature } from "../utils/courseNature";
 import { confirmedDepartmentRoomIds, eligibleHallsForSection, rowOccupiesRoom } from "../utils/locationRegistry";
 import { mergeRegistryWithSeed } from "./locationRegistryEngine";
@@ -181,7 +181,8 @@ export async function proposalSchedulePreflight(
       && Number(item.AdCollegeId) === Number(row.AdCollegeId)
       && Number(item.AdSectionId) === Number(row.AdSectionId)
       && Number(item.AdTermId) === Number(row.AdTermId));
-    const total = siblings.reduce((sum, item) => sum + weeklyLectureMinutes(item), 0) + weeklyLectureMinutes(row);
+    /* المصدر الواحد نفسه الذي يقرأ به الحفظ: الكتلة بنمط ساعات المقرر، والنسخة المطابقة لا تضاعف. */
+    const total = sectionWeeklyHours(row, siblings, hours).total;
     if (total > maxWeeklyMinutesFor(hours)) {
       // Add/Edit makes the identical historical-nature exception.
       const history = await Repository.getScheduleHistoryForCourses([courseId]);
