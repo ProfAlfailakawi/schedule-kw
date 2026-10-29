@@ -1,0 +1,107 @@
+/* ==========================================================================
+   نسبة الإشغال — الأسبوع يوماً يوماً وساعةً ساعة (Reports › عدسة occupancy)
+   --------------------------------------------------------------------------
+   بلغة خريطة حرارة الأسبوع (37-creative.css › .week-heat) ودرجات شبكة القاعات
+   (06-intelligence.css › .occupancy-row): مربعٌ مستدير لكل ساعة يشتدّ لونه
+   بزحامه، وحلقةٌ حمراء حول الذروة. الجديد أن كل مربعٍ يقول رقمه، وأن في طرف
+   كل يومٍ نسبة إشغال قاعاته. كل ما هنا محصورٌ في أصناف هذه العدسة.
+   ========================================================================== */
+
+.lens-occupancy{display:grid;gap:var(--s4);padding:var(--s4) var(--s5) var(--s5)}
+.occupancy-scope-switch{max-width:720px}
+.occupancy-scope-switch>button:disabled{cursor:not-allowed;opacity:.55}
+.occupancy-scope-switch>button:disabled:hover{background:transparent;color:var(--muted)}
+
+.occupancy-heat-card{
+  display:grid;gap:12px;
+  padding:14px 16px 16px;border:1px solid var(--line);border-radius:18px;
+  background:color-mix(in srgb,var(--accent) 3%,var(--surface));
+}
+.occupancy-heat-summary{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.occupancy-heat-summary>strong{margin-inline-end:4px;font-size:var(--t-sm);font-weight:750;color:var(--ink)}
+.occupancy-heat-summary>span{
+  display:inline-flex;align-items:baseline;gap:5px;
+  padding:4px 10px;border-radius:999px;
+  background:var(--surface-2);color:var(--ink-2);font-size:12px;font-weight:600;
+}
+.occupancy-heat-summary b{font-variant-numeric:tabular-nums;font-weight:800;color:var(--ink)}
+.occupancy-heat-summary>span.is-rate{background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--accent-ink,var(--accent))}
+.occupancy-heat-summary>span.is-rate b{color:var(--accent-ink,var(--accent))}
+.occupancy-heat-summary>span.is-peak{background:color-mix(in srgb,var(--danger,#b23b2c) 9%,var(--surface));color:var(--danger,#b23b2c)}
+.occupancy-heat-summary>span.is-peak b{color:var(--danger,#b23b2c)}
+
+/* ── الشبكة ─────────────────────────────────────────────────────────────── */
+.occupancy-heat{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:4px}
+.occupancy-heat .occupancy-heat-day-col{width:76px}
+.occupancy-heat .occupancy-heat-rate-col{width:58px}
+.occupancy-heat thead th{
+  padding:0 0 2px;
+  font:600 11px/1 var(--font-mono,ui-monospace,monospace);
+  color:var(--muted);text-align:center;font-variant-numeric:tabular-nums;
+}
+.occupancy-heat thead th.occupancy-heat-rate-head{font-family:inherit;font-size:11px;font-weight:700}
+.occupancy-heat tbody th{padding:0;text-align:start}
+.occupancy-heat td{padding:0}
+.occupancy-heat-day{
+  display:block;width:100%;padding:6px 4px;border:0;border-radius:8px;background:transparent;
+  font:inherit;font-size:12.5px;font-weight:700;color:var(--ink-2);text-align:start;white-space:nowrap;
+}
+button.occupancy-heat-day{cursor:pointer}
+button.occupancy-heat-day:hover{color:var(--accent-ink,var(--accent));background:color-mix(in srgb,var(--accent) 7%,transparent)}
+button.occupancy-heat-day[aria-pressed="true"]{color:var(--accent-ink,var(--accent));background:color-mix(in srgb,var(--accent) 12%,transparent)}
+
+.occupancy-heat-cell{
+  display:grid;place-items:center;width:100%;block-size:34px;padding:0;
+  border:0;border-radius:9px;
+  background:var(--surface-2);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line) 70%,transparent);
+  font:750 12.5px/1 var(--font-mono,ui-monospace,monospace);
+  color:var(--ink);font-variant-numeric:tabular-nums;
+  transition:transform .14s var(--ease-out,ease),box-shadow .14s var(--ease-out,ease);
+}
+button.occupancy-heat-cell{cursor:pointer}
+button.occupancy-heat-cell:hover{transform:scale(1.07);z-index:2;position:relative}
+.occupancy-heat-cell[data-level="1"]{background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
+.occupancy-heat-cell[data-level="2"]{background:color-mix(in srgb,var(--accent) 32%,var(--surface))}
+.occupancy-heat-cell[data-level="3"]{background:color-mix(in srgb,var(--accent) 50%,var(--surface))}
+.occupancy-heat-cell[data-level="4"]{background:color-mix(in srgb,var(--accent) 72%,var(--surface));color:#fff}
+.occupancy-heat-cell[data-level="5"]{background:var(--accent);color:#fff}
+.occupancy-heat-cell[data-peak]{box-shadow:0 0 0 2px var(--surface),0 0 0 4px color-mix(in srgb,var(--danger,#b23b2c) 70%,transparent)}
+.occupancy-heat-cell[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:2px;z-index:3;position:relative}
+.occupancy-heat-cell b{font-weight:800}
+
+.occupancy-heat-rate{text-align:center}
+.occupancy-heat-rate b{
+  display:inline-block;min-width:44px;padding:5px 6px;border-radius:999px;
+  background:color-mix(in srgb,var(--accent) 10%,var(--surface));
+  font:800 12px/1 var(--font-mono,ui-monospace,monospace);
+  color:var(--accent-ink,var(--accent));font-variant-numeric:tabular-nums;
+}
+.occupancy-heat-note{margin:0;color:var(--muted);font-size:var(--t-xs);line-height:1.6}
+
+/* ── كليات العائلة: شبكةٌ أصغر لكل موقع ─────────────────────────────────── */
+.occupancy-heat-sites{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:var(--s3)}
+.occupancy-heat-card.is-site{padding:12px 12px 14px;background:var(--surface)}
+.occupancy-heat.is-compact{border-spacing:3px}
+.occupancy-heat.is-compact .occupancy-heat-day-col{width:62px}
+.occupancy-heat.is-compact .occupancy-heat-rate-col{width:48px}
+.occupancy-heat.is-compact thead th.is-odd{color:transparent}
+.occupancy-heat.is-compact .occupancy-heat-cell{block-size:24px;border-radius:6px;font-size:10.5px}
+.occupancy-heat.is-compact .occupancy-heat-day{font-size:11.5px;padding:4px 2px}
+.occupancy-heat.is-compact .occupancy-heat-rate b{min-width:38px;padding:4px 5px;font-size:10.5px}
+
+@media (max-width:760px){
+  .lens-occupancy{padding:var(--s3)}
+  .occupancy-heat{border-spacing:2px}
+  .occupancy-heat .occupancy-heat-day-col{width:54px}
+  .occupancy-heat .occupancy-heat-rate-col{width:44px}
+  .occupancy-heat thead th.is-odd{color:transparent}
+  .occupancy-heat-cell{block-size:28px;border-radius:6px;font-size:10.5px}
+  .occupancy-heat-day{font-size:11px;padding:4px 2px}
+  .occupancy-heat-rate b{min-width:36px;padding:4px;font-size:10.5px}
+  .occupancy-heat-sites{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  .occupancy-heat-cell{transition:none}
+  button.occupancy-heat-cell:hover{transform:none}
+}

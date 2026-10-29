@@ -2788,3 +2788,47 @@
     white-space:nowrap !important;
   }
 }
+
+/* ── الورقة تمتلئ ولا تُقصّ (src/utils/printFit.ts) ───────────────────────
+   قبل أمر الطباعة تُقاس كل صفحة، ويُكتب عليها أكبرُ حجمٍ تحمله ورقة A4 — أو
+   أقلُّ تصغيرٍ يُدخلها كلها. وهنا يُطبَّق تكبيراً موحّداً لمحتوى الصفحة كله:
+   الترويسة والجدول والذيل معاً، فالتصميم بنِسَبه كما هو والهوامش لا تتغيّر.
+   الشامل وتقرير التغييرات لا يُكبَّران أبداً؛ يُصغَّران فقط إن كانت الصفحة
+   ستُقصّ. والصفحة التي بقيت بحجمها لا تحمل السمة، فتخرج كما كانت تماماً. */
+@media print{
+  .print-report:not(.print-comprehensive) .print-explicit-page[data-print-fit]>*,
+  .print-comprehensive-book .print-comprehensive-page[data-print-fit]>*{
+    zoom:var(--print-fit,1) !important;
+  }
+}
+
+/* ── نسبة الإشغال: الأيام × الساعات (Reports › kind occupancy) ─────────────
+   الورقة بيد شبكة إشغال القاعات أعلاه (.print-occupancy-table) — المربع
+   ودرجاته وقرص الرقم كما هي — إلا أن رأس السطر هنا اسمُ يوم عربي لا رقمُ
+   قاعة، فلا يُكتب بالخط الأحادي. والذروة بحلقةٍ حمراء كما على الشاشة. */
+@media print{
+  .print-occupancy-heat tbody th{
+    font-family:"Plex Arabic",Arial,"Noto Sans Arabic",sans-serif !important;
+    white-space:nowrap !important;
+  }
+  .print-occupancy-heat .print-heat{height:9mm !important}
+  .print-occupancy-heat .print-heat > span{font-size:7.4pt !important;min-width:4.6mm !important}
+  .print-occupancy-heat .print-heat-peak{box-shadow:inset 0 0 0 .55mm #b23b2c !important}
+  .print-occupancy-heat-note{
+    margin:3mm 0 0 !important;color:#5c6663 !important;font-size:7pt !important;text-align:right !important;
+  }
+}
+
+/* ── الدرجة لا يمحوها تخطيط الصفوف ─────────────────────────────────────────
+   تخطيط الجداول العام (`.print-report tbody tr:nth-child(even) td`) أقوى
+   انتقاءً من درجات الشبكة، فكان كل سطرٍ ثانٍ في شبكة الإشغال يخرج باهتاً بلا
+   لون — قاعةٌ مزدحمة تُقرأ فارغة. والتعليق أعلاه يقول إن الدرجة هي الغاية من
+   الشبكة كلها؛ فتُعاد هنا بانتقاءٍ يعلو التخطيط، بالقيم نفسها، لهذه الشبكة وحدها. */
+@media print{
+  .print-report .print-occupancy-table tbody tr:nth-child(n) td.print-heat{background:#f4f6f5 !important}
+  .print-report .print-occupancy-table tbody tr:nth-child(n) td.print-heat-1{background:#dbeae5 !important}
+  .print-report .print-occupancy-table tbody tr:nth-child(n) td.print-heat-2{background:#a9cdc2 !important}
+  .print-report .print-occupancy-table tbody tr:nth-child(n) td.print-heat-3{background:#7fb6a6 !important}
+  .print-report .print-occupancy-table tbody tr:nth-child(n) td.print-heat-4{background:#4f9280 !important}
+  .print-report .print-occupancy-table tbody tr:nth-child(n) td.print-heat-5{background:#2b7666 !important}
+}

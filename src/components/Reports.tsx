@@ -6,7 +6,7 @@ import { flushSync } from "react-dom";
 import {
   BookOpen, Building2, CalendarDays, Compass, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
-  ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, IdCard,
+  ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, IdCard, Grid3x3, Network,
 } from "lucide-react";
 import { parseNaturalQuery } from "../utils/naturalQuery";
 import { EmptyState, Field, GhostButton, Notice, PageTitle, PrintLetterhead, PrintPortal, SecondaryButton } from "./ui";
@@ -23,7 +23,9 @@ import { siblingBranchScopes, type BranchScope } from "../utils/branchScope";
 import { byArabic, sortByName, sortKey } from "../utils/sorting";
 import { compareCourseSection } from "../utils/scheduleOrder";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
-import { sectionLabels } from "../utils/sectionLabel";
+import { clearPrintFit, fitPrintPages, packPrintLines, warmPrintFonts } from "../utils/printFit";
+import { departmentFamily, sectionLabels } from "../utils/sectionLabel";
+import { buildOccupancyHeat, type OccupancyHeat } from "../utils/occupancyHeat";
 import { currentTermId, sortTermsNewest, termChronology, termIsArchive } from "../utils/termSequence";
 import {
   buildVisitingHistoryModel, sortVisitingTerms, visitingHeatLevel, termSectionCount,
@@ -63,6 +65,7 @@ import PrintStamp from "./PrintStamp";
 import { buildReportStamp, type ReportStampClaim } from "../utils/reportStamp";
 import { flushPendingReportStamps, sendReportStamp } from "../utils/reportStampClient";
 import DecisionBoard from "./DecisionBoard";
+import OccupancyHeatGrid from "./OccupancyHeatGrid";
 import { canSeeDecisionBoard } from "../utils/decisionBoardScope";
 
 /**
@@ -87,7 +90,7 @@ type VisitingTeachingData = {
   instructors: AdInstructor[];
   rows: FSchedule[];
 };
-type Lens = "list" | "week" | "instructor" | "courseLoad" | "room" | "roomInstructor" | "matrix" | "time" | "visiting" | "visitingHistory" | "fairness" | "balance" | "courseRoom" | "decision";
+type Lens = "list" | "week" | "instructor" | "courseLoad" | "room" | "occupancy" | "roomInstructor" | "matrix" | "time" | "visiting" | "visitingHistory" | "fairness" | "balance" | "courseRoom" | "decision";
 type PrintKind = Exclude<Lens, "courseRoom" | "decision"> | "comprehensive" | "comprehensive-branch" | null;
 
 /* Safari is the one printing engine here that ignores `@page size` (so wide
@@ -167,6 +170,7 @@ const LENSES: Array<{ id: Lens; label: string; hint: string; icon: React.ReactNo
   { id: "instructor", label: "الأساتذة", hint: "مواعيد كل أستاذ وحمله الأسبوعي", icon: <UserRound /> },
   { id: "courseLoad", label: "المواد × المواقع", hint: "مواد كل أستاذ في البنين والبنات والجهراء وبقية المواقع", icon: <BookOpen /> },
   { id: "room", label: "القاعات", hint: "ما تشغله كل قاعة ومتى تفرغ", icon: <Building2 /> },
+  { id: "occupancy", label: "نسبة الإشغال", hint: "كم محاضرة في كل يوم وساعة، ونسبة إشغال القاعات لكل يوم — للموقع أو لعائلة القسم كلها", icon: <Grid3x3 /> },
   { id: "roomInstructor", label: "القاعات والأساتذة", hint: "كل قاعة ومبناها وأساتذتها، وكل أستاذ والقاعات التي يدرّس فيها", icon: <Landmark /> },
   { id: "courseRoom", label: "المقررات × القاعات", hint: "مواعيد قاعتها لا يطابق نوعها نوع المقرر", icon: <DoorOpen /> },
   { id: "matrix", label: "القاعات × الأوقات", hint: "شبكة تقاطع كل قاعة مع كل وقت", icon: <Table2 /> },
@@ -201,10 +205,10 @@ const ROLE_LENSES: Record<string, Lens[]> = {
      والقائمةُ — المعتمدة وحدها — تكون فارغةً قبل أن يعتمد التسجيل شيئاً، فشاشةٌ
      أولى فارغة لا تجيب أحداً. ثم الجداول نفسها وما يُكمل الصورة. */
   dean:           ["balance", "list", "week", "decision", "fairness", "courseLoad", "visiting"],
-  viceDean:       ["balance", "list", "week", "decision", "fairness", "courseLoad", "visiting", "instructor", "room", "roomInstructor", "matrix", "courseRoom"],
-  registrarDean:  ["balance", "list", "room", "roomInstructor", "matrix", "courseRoom"],
-  registrarHead:  ["balance", "list", "room", "roomInstructor", "matrix", "courseRoom"],
-  registrarStaff: ["balance", "list", "room", "roomInstructor", "courseRoom"],
+  viceDean:       ["balance", "list", "week", "decision", "fairness", "courseLoad", "visiting", "instructor", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
+  registrarDean:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
+  registrarHead:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
+  registrarStaff: ["balance", "list", "room", "occupancy", "roomInstructor", "courseRoom"],
 };
 
 /**
@@ -602,6 +606,10 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const [roomDay, setRoomDay] = useState<number | "week">("week");
   /** Which square of the occupancy grid the reader asked about. */
   const [roomPick, setRoomPick] = useState<{ room: string; point: number | null } | null>(null);
+  /* نسبة الإشغال: الموقع المفتوح أو عائلة القسم كلها، والخانة التي فُتحت. */
+  const [occupancyScope, setOccupancyScope] = useState<"site" | "family">("site");
+  const [occupancyPick, setOccupancyPick] = useState<{ day: number; hour: number | null } | null>(null);
+  const [familyRead, setFamilyRead] = useState<{ key: string; rows: FSchedule[]; denied: string[]; loading: boolean } | null>(null);
   const [ask, setAsk] = useState("");
   const [askNote, setAskNote] = useState<string | null>(null);
   const [mobileWideNotice, setMobileWideNotice] = useState<Lens | null>(null);
@@ -1009,6 +1017,39 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     }).catch(() => { if (!controller.signal.aborted) setSiteLoadRead({ termId, rows: [], denied: [], loading: false }); });
     return () => controller.abort();
   }, [lens, filters.termId, siteLoadScopeKey, filters.sectionId]);
+
+  /* ── عائلة القسم لنسبة الإشغال ──────────────────────────────────────────
+     القسم نفسه في كل كلياته (departmentFamily — الموضع الوحيد لقاعدة العائلة).
+     تُقرأ كل كليةٍ من /api/schedules، فالخادم يقصرها على صلاحية الحساب؛ وما
+     رُدّ منها يُقال على الشاشة لا يُسكت عنه. */
+  const familyScopes = useMemo(() => (
+    filters.collegeId && filters.sectionId ? departmentFamily(sections, filters.collegeId, filters.sectionId) : []
+  ), [sections, filters.collegeId, filters.sectionId]);
+  const familyKey = `${filters.termId}|${familyScopes.map(scope => `${scope.collegeId}:${scope.sectionId}`).join("|")}`;
+  /* وتُقرأ من جديد مع كل تحديثٍ لبيانات النطاق (`all`: الإشارة الحية وزرّ
+     التحديث كلاهما يمرّ بـ readScope): عائلةٌ قُرئت مرةً لا تبقى على محاضراتٍ
+     حُذفت أو نُقلت. وما قُرئ قبلُ يبقى ظاهراً أثناء القراءة، فلا تنطفئ الشبكة. */
+  useEffect(() => {
+    if (lens !== "occupancy" || occupancyScope !== "family" || !filters.termId || familyScopes.length < 2) return;
+    const controller = new AbortController();
+    const termId = filters.termId;
+    setFamilyRead(previous => previous?.key === familyKey
+      ? { ...previous, loading: true }
+      : { key: familyKey, rows: [], denied: [], loading: true });
+    void Promise.all(familyScopes.map(async ({ collegeId, sectionId }) => {
+      try {
+        const response = await fetch(`/api/schedules?termId=${termId}&collegeId=${collegeId}&sectionId=${sectionId}`, { signal: controller.signal });
+        if (!response.ok) return { collegeId, rows: [] as FSchedule[], denied: true };
+        const rows = await response.json() as FSchedule[];
+        return { collegeId, rows: rows.filter(row => Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId), denied: false };
+      } catch { return { collegeId, rows: [] as FSchedule[], denied: true }; }
+    })).then(parts => {
+      if (controller.signal.aborted) return;
+      setFamilyRead({ key: familyKey, rows: parts.flatMap(part => part.rows),
+        denied: parts.filter(part => part.denied).map(part => collegeById.get(part.collegeId)?.AdCollegeName || String(part.collegeId)), loading: false });
+    }).catch(() => { if (!controller.signal.aborted) setFamilyRead({ key: familyKey, rows: [], denied: [], loading: false }); });
+    return () => controller.abort();
+  }, [lens, occupancyScope, familyKey, all]);
   const sectionOptions = useMemo(() => dedupeVisibleOptions(
     sortByName(sections.filter(s => (!filters.collegeId || s.AdCollegeId === filters.collegeId) && (isPowerAdmin || scopeState.sectionIds.includes(Number(s.AdSectionId)))), (s: AdSection) => s.AdSectionName),
     row => `${Number(row.AdCollegeId) || 0}|${optionKey(row.AdSectionName)}`, filters.sectionId, row => Number(row.AdSectionId),
@@ -1657,6 +1698,37 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     return { slots, rooms: rooms.sort((a: any, b: any) => byRoomLabel(a.name, b.name)), totalRate, days };
   }, [occupancy, roomDay]);
 
+  /* ── نسبة الإشغال (utils/occupancyHeat) ─────────────────────────────────
+     الموقع يقرأ صفوف الاستعلام نفسها، بمرشّحاتها كبقية العدسات؛ والعائلة تقرأ
+     القسم كاملاً في كل كلياته. والقاعة تُعرَّف بكليتها: «1/101» في البنين
+     غير «1/101» في البنات. */
+  const familyActive = occupancyScope === "family" && familyScopes.length > 1;
+  const occupancyRows = familyActive ? (familyRead?.key === familyKey ? familyRead.rows : []) : results;
+  const occupancyRoomKey = useCallback((row: FSchedule) => {
+    const place = placeOfRow(row);
+    return place === "بلا قاعة" ? "" : `${Number(row.AdCollegeId) || 0}|${place}`;
+  }, []);
+  const occupancyWanted = lens === "occupancy" || printKind === "occupancy";
+  const occupancyHeat = useMemo(
+    () => (occupancyWanted ? buildOccupancyHeat(occupancyRows, occupancyRoomKey) : null),
+    [occupancyWanted, occupancyRows, occupancyRoomKey],
+  );
+  /* وفي العائلة شبكةٌ لكل كلية تحت الشبكة الجامعة: أين يقع الزحام بين المواقع. */
+  const occupancySites = useMemo(() => {
+    if (!occupancyWanted || !familyActive) return [] as Array<{ collegeId: number; label: string; heat: OccupancyHeat }>;
+    return familyScopes.map(scope => ({
+      collegeId: scope.collegeId,
+      label: collegeById.get(scope.collegeId)?.AdCollegeName || `الكلية ${scope.collegeId}`,
+      heat: buildOccupancyHeat(occupancyRows.filter(row => Number(row.AdCollegeId) === scope.collegeId && Number(row.AdSectionId) === scope.sectionId), occupancyRoomKey),
+    })).filter(site => site.heat.lectures > 0);
+  }, [occupancyWanted, familyActive, familyScopes, occupancyRows, occupancyRoomKey, collegeById]);
+  const occupancyScopeLabel = familyActive
+    ? `عائلة القسم — ${familyScopes.map(scope => collegeById.get(scope.collegeId)?.AdCollegeName).filter(Boolean).join(" · ")}`
+    : collegeName ? `الموقع — ${collegeName}` : "الموقع المفتوح";
+  /* العائلة قيد القراءة: لا طباعة لنسخةٍ نصفها قديم، ولا هيكلَ انتظارٍ فوق شبكةٍ معروضة. */
+  const familyPending = familyActive && (!familyRead || familyRead.key !== familyKey || familyRead.loading);
+  const familyFirstLoad = familyActive && (!familyRead || familyRead.key !== familyKey || (familyRead.loading && !familyRead.rows.length));
+
   // --- output --------------------------------------------------------------
 
   /** Every filter the screen is showing travels with the export, so the
@@ -1690,6 +1762,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     document.addEventListener("keydown", close, true);
     return () => { document.removeEventListener("pointerdown", close, true); document.removeEventListener("keydown", close, true); };
   }, [scopeMenu]);
+
+  /* خطوط الورقة تصل قبل أول طباعة: printFit يقيس الصفحة بها. */
+  useEffect(() => { warmPrintFonts(); }, []);
 
   /**
    * الوثيقتان معاً.
@@ -1751,7 +1826,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const root = document.documentElement;
     const originalTitle = document.title;
     const reportTitles: Record<Exclude<PrintKind, null>, string> = {
-      list: "نتائج الاستعلام", week: "الأسبوع", instructor: "تقرير الأستاذ", courseLoad: "توزيع المواد بين المواقع", room: "إشغال القاعات والفراغات", roomInstructor: "القاعات والأساتذة",
+      list: "نتائج الاستعلام", week: "الأسبوع", instructor: "تقرير الأستاذ", courseLoad: "توزيع المواد بين المواقع", room: "إشغال القاعات والفراغات", occupancy: "نسبة الإشغال", roomInstructor: "القاعات والأساتذة",
       matrix: "القاعات والأوقات", time: "الأوقات", visiting: "المنتدبون — الفصل الحالي",
       visitingHistory: "المنتدبون — كل الفصول", fairness: "عدالة توزيع العبء", balance: "ميزان الأقسام",
       comprehensive: "تقرير الجدول الشامل", "comprehensive-branch": "تقرير الجدول الشامل — كل الفروع",
@@ -1769,6 +1844,11 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
        invisible to every other engine. */
     if (SAFARI_PRINT_ENGINE || IOS_CHROME_PRINT_ENGINE) root.dataset.printRotate = "1";
     if (CHROMIUM_PRINT_ENGINE) root.dataset.printChromium = "1";
+    /* ── الورقة تمتلئ ولا تُقصّ ───────────────────────────────────────────
+       كل صفحةٍ تُكبَّر إلى أقصى ما تحمله ورقة A4، أو تُصغَّر حتى تدخلها كلها
+       (src/utils/printFit.ts). تُقاس بعد سمات المحرّك أعلاه لأنها تغيّر هندسة
+       الورقة، ومتزامنةً فلا تكسر شرط Safari أن يأتي الأمر في اللمسة نفسها. */
+    fitPrintPages(document.getElementById("app-print-root") || document);
     let leftForPrint = false;
     let resumed = false;
     /* Two different things end here, and they must not end together.
@@ -1783,6 +1863,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       delete root.dataset.printKind;
       delete root.dataset.printRotate;
       delete root.dataset.printChromium;
+      /* وأحجامُ الصفحات معها: قِيست لهذه الطباعة، وطباعةٌ لاحقة من قائمة
+         المتصفّح بعد تغيّر البيانات تخرج بالحجم المصمَّم لا بحجمٍ قديم. */
+      clearPrintFit(document.getElementById("app-print-root") || document);
       /* وملحقُ التغييرات معها: هو جزءٌ من الوثيقة المعروضة، ونزعُه أثناء
          المعاينة يُسقطه من المطبوع أو يُعيد ترتيب الصفحات — وهو العطبُ نفسه
          الذي وُصف أعلاه، لا عطبٌ آخر. */
@@ -1900,12 +1983,15 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     root.dataset.printKind = kind;
     if (SAFARI_PRINT_ENGINE || IOS_CHROME_PRINT_ENGINE) root.dataset.printRotate = "1";
     if (CHROMIUM_PRINT_ENGINE) root.dataset.printChromium = "1";
+    /* الشامل وتقرير التغييرات بحجمهما المعتمد؛ لا يُصغَّر منهما إلا ما كان سيُقصّ. */
+    fitPrintPages(document.getElementById("app-print-root") || document);
     let leftForPrint = false;
     let resumed = false;
     const clearPrintFlags = () => {
       delete root.dataset.printKind;
       delete root.dataset.printRotate;
       delete root.dataset.printChromium;
+      clearPrintFit(document.getElementById("app-print-root") || document);
     };
     const resume = () => {
       if (resumed) return;
@@ -1994,12 +2080,15 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       root.dataset.printKind = "authority-pdf";
       if (SAFARI_PRINT_ENGINE || IOS_CHROME_PRINT_ENGINE) root.dataset.printRotate = "1";
       if (CHROMIUM_PRINT_ENGINE) root.dataset.printChromium = "1";
+      /* بحجمه المعتمد؛ ولا تُصغَّر منه إلا صفحةٌ كانت ستُقصّ (printFit). */
+      fitPrintPages(document.getElementById("app-print-root") || document);
       let leftForPrint = false;
       let resumed = false;
       const clearPrintFlags = () => {
         delete root.dataset.printKind;
         delete root.dataset.printRotate;
         delete root.dataset.printChromium;
+        clearPrintFit(document.getElementById("app-print-root") || document);
       };
       const resume = () => {
         if (resumed) return;
@@ -2133,6 +2222,12 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [roomPick]);
+  useEffect(() => {
+    if (!occupancyPick) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOccupancyPick(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [occupancyPick]);
 
   const selectLens = (next: Lens) => {
     const phone = typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
@@ -2145,6 +2240,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       setPrintKind(next === "decision" ? "list" : next);
       setOpenGroup(null);
       setRoomPick(null);
+      setOccupancyPick(null);
     });
   };
 
@@ -2451,7 +2547,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             </> : null}
             {lens === "courseLoad" ? <small>{termName} · {sectionName || "اختر القسم"} · المواقع التي يوجد فيها القسم</small> : scopeLine ? <small>{scopeLine}</small> : null}
           </div>
-          {!pending && (results.length || (lens === "courseLoad" && courseLoads.length) || (lens === "balance" && balance) || (authorityReportAvailable && all.length > 0)) ? <div className="query-canvas-actions">
+          {!pending && (results.length || (lens === "courseLoad" && courseLoads.length) || (lens === "balance" && balance) || (lens === "occupancy" && occupancyHeat?.lectures) || (authorityReportAvailable && all.length > 0)) ? <div className="query-canvas-actions">
+            {/* نسبة الإشغال تطبع النطاق المختار: عائلة القسم لها محاضراتها ولو خلا الموقع المفتوح منها. */}
+            {!results.length && lens === "occupancy" && occupancyHeat?.lectures ? (
+              <button type="button" className="query-print-icon" data-guide-ignore="طباعة نسبة الإشغال؛ قراءة فقط" onClick={() => printReport("occupancy")} disabled={familyPending} aria-label="طباعة نسبة الإشغال" title="طباعة نسبة الإشغال">
+                <Printer aria-hidden="true" />
+              </button>
+            ) : null}
             {/* نشرة الميزان تُطبع قبل أول موعدٍ معتمد أيضاً (N14). */}
             {!results.length && lens === "balance" && balance ? (
               <button
@@ -2482,7 +2584,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   ) : null}
                 </div>
               ) : (
-                <button type="button" className="query-print-icon" data-guide-ignore="طباعة العرض الحالي؛ قراءة فقط" onClick={() => printReport(lens)} aria-label="طباعة هذا العرض" title="طباعة هذا العرض">
+                <button type="button" className="query-print-icon" data-guide-ignore="طباعة العرض الحالي؛ قراءة فقط" onClick={() => printReport(lens)} disabled={lens === "occupancy" && familyPending} aria-label="طباعة هذا العرض" title="طباعة هذا العرض">
                   <Printer aria-hidden="true" />
                 </button>
               )}
@@ -2543,7 +2645,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
 
         {loading || pending || (lens === "visitingHistory" && visitingHistoryLoading) ? (
           <QuerySkeleton />
-        ) : !results.length && lens !== "room" && lens !== "balance" && lens !== "visitingHistory" && lens !== "courseLoad" ? (
+        ) : !results.length && lens !== "room" && lens !== "balance" && lens !== "visitingHistory" && lens !== "courseLoad" && lens !== "occupancy" ? (
           <div className="query-empty">
             <EmptyState
               title={error ? "تعذّرت القراءة" : isDeanReader && !filters.collegeId ? "اختر الكلية" : isDeanReader ? "لا جدول معتمد بعد" : "لا نتائج"}
@@ -2867,6 +2969,102 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   ))}
               </div>
             ) : null}
+          </div>
+        ) : lens === "occupancy" ? (
+          <div className="lens-occupancy">
+            {/* نوعان: الموقع المفتوح (بنين مثلاً) بمرشّحات الاستعلام، وعائلة القسم
+                كاملةً في كل كلياتها. قسمٌ في موقعٍ واحد لا عائلة له تُعرض. */}
+            <div className="visiting-scope-switch occupancy-scope-switch no-print" role="group" aria-label="نطاق نسبة الإشغال">
+              <button type="button" className={!familyActive ? "active" : ""} aria-pressed={!familyActive}
+                data-guide-ignore="تبديل نسبة الإشغال إلى الموقع المفتوح يغيّر العرض فقط"
+                onClick={() => { setOccupancyScope("site"); setOccupancyPick(null); }}>
+                <Building2 aria-hidden="true" />
+                <span><b>الموقع</b><small>{collegeName || "الموقع المفتوح"}</small></span>
+              </button>
+              <button type="button" className={familyActive ? "active" : ""} aria-pressed={familyActive}
+                disabled={familyScopes.length < 2}
+                data-guide-ignore="تبديل نسبة الإشغال إلى عائلة القسم كلها يغيّر العرض فقط"
+                title={familyScopes.length < 2 ? "القسم في موقعٍ واحد، فلا عائلة له" : undefined}
+                onClick={() => { setOccupancyScope("family"); setOccupancyPick(null); }}>
+                <Network aria-hidden="true" />
+                <span><b>عائلة القسم</b><small>{familyScopes.length > 1 ? familyScopes.map(scope => collegeById.get(scope.collegeId)?.AdCollegeName).filter(Boolean).join(" · ") : "القسم في موقعٍ واحد"}</small></span>
+              </button>
+            </div>
+            {familyFirstLoad ? (
+              <div className="occupancy-loading"><QuerySkeleton /></div>
+            ) : occupancyHeat && occupancyHeat.lectures ? (
+              <>
+                {familyActive && familyRead?.denied.length ? <p className="course-load-partial" role="status">البيانات جزئية: تعذرت قراءة {familyRead.denied.join("، ")}</p> : null}
+                <section className="occupancy-heat-card">
+                  <header className="occupancy-heat-summary">
+                    <span><b>{num(occupancyHeat.lectures)}</b> {nounFor(occupancyHeat.lectures, AR.lecture)}</span>
+                    <span><b>{num(occupancyHeat.rooms)}</b> {nounFor(occupancyHeat.rooms, AR.room)}</span>
+                    <span className="is-rate"><b>{num(occupancyHeat.rate)}٪</b> إشغال الأسبوع</span>
+                    {occupancyHeat.peak ? (
+                      <span className="is-peak">الذروة {occupancyHeat.days[occupancyHeat.peak.day].label} <b dir="ltr">{scheduleClockForDisplay(clock(occupancyHeat.hours[occupancyHeat.peak.hour]))}</b> · {countOf(occupancyHeat.peak.count, AR.lecture)}</span>
+                    ) : null}
+                  </header>
+                  <OccupancyHeatGrid heat={occupancyHeat} pick={occupancyPick && !occupancyPick.collegeId ? occupancyPick : null} onPick={setOccupancyPick} label={`نسبة الإشغال — ${occupancyScopeLabel}`} />
+                  <p className="occupancy-heat-note">الرقم عدد المحاضرات في الساعة، والنسبة في طرف اليوم ساعاتُ القاعات المشغولة من {countOf(occupancyHeat.rooms, AR.room)} × {countOf(occupancyHeat.hours.length, AR.hour)}. اضغط مربعاً لترى محاضراته.</p>
+                </section>
+                {familyActive && occupancySites.length > 1 ? (
+                  <div className="occupancy-heat-sites">
+                    {occupancySites.map(site => (
+                      <section key={site.collegeId} className="occupancy-heat-card is-site">
+                        <header className="occupancy-heat-summary">
+                          <strong>{site.label}</strong>
+                          <span><b>{num(site.heat.lectures)}</b> {nounFor(site.heat.lectures, AR.lecture)}</span>
+                          <span className="is-rate"><b>{num(site.heat.rate)}٪</b></span>
+                        </header>
+                        <OccupancyHeatGrid heat={site.heat} compact collegeId={site.collegeId} pick={occupancyPick?.collegeId === site.collegeId ? occupancyPick : null} onPick={setOccupancyPick} label={`نسبة الإشغال — ${site.label}`} />
+                      </section>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="query-empty"><EmptyState title="لا محاضرات في هذا النطاق" /></div>
+            )}
+            {occupancyPick && occupancyHeat ? (() => {
+              const heat = occupancyPick.collegeId ? occupancySites.find(site => site.collegeId === occupancyPick.collegeId)?.heat : occupancyHeat;
+              const day = heat?.days[occupancyPick.day];
+              if (!heat || !day) return null;
+              const cell = occupancyPick.hour == null ? null : day.cells.find(item => item.hour === occupancyPick.hour);
+              const source = cell ? cell.rows : occupancyRows.filter(row => Boolean((row as any)[DAYS[occupancyPick.day].flag])
+                && (!occupancyPick.collegeId || Number(row.AdCollegeId) === occupancyPick.collegeId));
+              const rows = [...source].sort((a, b) => minutes(a.fstarttime) - minutes(b.fstarttime) || byArabic(a.AdCourseName || "", b.AdCourseName || ""));
+              const where = occupancyPick.collegeId ? occupancySites.find(site => site.collegeId === occupancyPick.collegeId)?.label : occupancyScopeLabel;
+              return (
+                <>
+                  <div className="query-detail-backdrop no-print" onMouseDown={() => setOccupancyPick(null)} aria-hidden="true" />
+                  <div className="occupancy-pick query-detail-panel no-print" role="dialog" aria-modal="true" aria-label={`محاضرات ${day.label}`}>
+                    <header>
+                      <div>
+                        <small>{cell ? `${day.label} · ${scheduleClockForDisplay(clock(cell.hour))}–${scheduleClockForDisplay(clock(cell.hour + 60))}` : `${day.label} · اليوم كله`}</small>
+                        <strong>{where}</strong>
+                      </div>
+                      <span className="occupancy-pick-count">
+                        {countOf(rows.length, AR.lecture)}
+                        {cell ? ` · ${num(cell.rooms)} من ${countOf(heat.rooms, AR.room)} (${num(cell.rate)}٪)` : ` · إشغال ${num(day.rate)}٪`}
+                      </span>
+                      <button type="button" data-guide-ignore="إغلاق تفاصيل نسبة الإشغال فقط" onClick={() => setOccupancyPick(null)} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
+                    </header>
+                    {rows.length ? (
+                      <div className="occupancy-pick-rows">
+                        {rows.map(row => (
+                          <article key={row.id}>
+                            <strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<PlanBadge courseId={row.AdCourseId} /></strong>
+                            <span className="report-instructor-with-badge"><span className="rib-name">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}</span>{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
+                            <em>{[courseNumberOf(row) || "", row.SCode ? `شعبة ${row.SCode}` : "", placeOfRow(row), familyActive && !occupancyPick.collegeId ? collegeById.get(Number(row.AdCollegeId))?.AdCollegeName || "" : ""].filter(Boolean).join(" · ")}</em>
+                            <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
+                          </article>
+                        ))}
+                      </div>
+                    ) : <p className="occupancy-pick-empty">لا محاضرات في هذا الوقت.</p>}
+                  </div>
+                </>
+              );
+            })() : null}
           </div>
         ) : lens === "visiting" ? (
           <>
@@ -3371,6 +3569,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           stampOrigin={stampOrigin}
           changesAppendix={changesAppendix}
           balanceApprovals={termApprovals}
+          occupancy={occupancyHeat ? { heat: occupancyHeat, sites: occupancySites, scopeLabel: occupancyScopeLabel } : null}
         />
       </PrintPortal>
       {meetingOpen && roleId === "departmentHead" ? <MeetingSlots
@@ -3821,6 +4020,22 @@ const APPENDIX_KIND_LABEL: Record<ChangesAppendix["entries"][number]["kind"], st
   added: "مضاف", removed: "محذوف", changed: "معدّل",
 };
 
+/**
+ * ── الملحق صفحاتٌ، لا صفحةٌ تُقصّ ──────────────────────────────────────────
+ *
+ * كان الملحق صفحةً واحدة مهما طال. وصفحة الشامل في Safari صندوقٌ ثابتٌ بارتفاع
+ * الورقة يُخفي ما زاد عنه: فملحقٌ بأربعين تغييراً كان يخرج بنصفه، بلا تواقيع.
+ * فصار يُرصّ صفحاتٍ بحسب طول تغييراته لا عددها — التغيير الذي يمسّ ثلاث خانات
+ * يأخذ مكان ثلاثة أسطر — وكل صفحةٍ بترويستها وتواقيعها كصفحات الشامل.
+ * الملخّص في الأولى وحدها. والملحق القصير يخرج صفحةً واحدة كما كان تماماً.
+ */
+/* مقيسةٌ على ورقة A4 عرضية بالحجم المصمَّم: سطر التغيير الواحد ٦٫٢ ملم، وكل
+   خانةٍ إضافية في التغيير نفسه ٤٫٤ ملم، والأولى تحمل الملخّص. والصفحة الأقصر
+   من هذا يكبّرها printFit حتى تمتلئ. */
+const APPENDIX_FIRST_PAGE_LINES = 21;
+const APPENDIX_NEXT_PAGE_LINES = 23;
+const appendixLines = (entry: ChangesAppendix["entries"][number]) => 1 + Math.max(0, entry.changes.length - 1) * 0.7;
+
 function PrintChangesAppendix({ appendix, collegeName, sectionName, termName, approval }: {
   appendix: ChangesAppendix;
   collegeName: string;
@@ -3828,55 +4043,67 @@ function PrintChangesAppendix({ appendix, collegeName, sectionName, termName, ap
   termName: string;
   approval?: PrintApproval | null;
 }) {
+  const pages = packPrintLines(appendix.entries, appendixLines, APPENDIX_FIRST_PAGE_LINES, APPENDIX_NEXT_PAGE_LINES);
   return (
-    <section className="print-comprehensive-page print-changes-appendix">
-      <header className="print-comprehensive-classic-head">
-        <div className="print-comprehensive-head-top">
-          <div className="print-comprehensive-title-block">
-            <h1>ملحق: تغييرات الجدول</h1>
-            <p>{sectionName || "—"} — {collegeName || "—"} — {termName || "—"}</p>
-            {appendix.round > 1 ? <p className="print-approval-line">الجولة {appendix.round}</p> : null}
-          </div>
-        </div>
-      </header>
-
-      <p className="print-changes-summary">
-        {appendix.firstReview
-          ? `جدولٌ جديد بـ${countOf(appendix.counts.added, oblique(AR.appointment))} — لا مراجعةَ سابقة يُقارن بها.`
-          : `${appendix.summary}. ولم يتغيّر ${countOf(appendix.counts.unchanged, AR.appointment)}.`}
-      </p>
-
-      {appendix.entries.length ? (
-        <div className="print-changes-grid" role="table" aria-label="تغييرات الجدول">
-          <div className="print-changes-head" role="row">
-            <div role="columnheader">النوع</div>
-            <div role="columnheader">المقرر</div>
-            <div role="columnheader">الشعبة</div>
-            <div role="columnheader">ما تغيّر</div>
-          </div>
-          {appendix.entries.map(entry => (
-            <div className="print-changes-row" role="row" key={`${entry.kind}:${entry.scheduleId}`} data-kind={entry.kind}>
-              <div role="cell" className="print-changes-kind">{APPENDIX_KIND_LABEL[entry.kind]}</div>
-              <div role="cell" className="print-wrap">{entry.row?.AdCourseName || `موعد ${entry.scheduleId}`}</div>
-              <div role="cell" className="print-ltr">{entry.row?.SCode || "—"}</div>
-              <div role="cell" className="print-wrap print-changes-detail">
-                {entry.changes.length
-                  ? entry.changes.map(change => (
-                      <span key={change.field}>
-                        <b>{change.label}:</b> {change.before} ← {change.after}
-                      </span>
-                    ))
-                  : <span>—</span>}
+    <>
+      {pages.map((pageEntries, pageIndex) => (
+        <section className="print-comprehensive-page print-changes-appendix" data-print-fit-group="appendix" key={`appendix-${pageIndex + 1}`}>
+          <header className="print-comprehensive-classic-head">
+            <div className="print-comprehensive-head-top">
+              <div className="print-comprehensive-title-block">
+                <h1>ملحق: تغييرات الجدول</h1>
+                <p>{sectionName || "—"} — {collegeName || "—"} — {termName || "—"}</p>
+                {appendix.round > 1 ? <p className="print-approval-line">الجولة {appendix.round}</p> : null}
               </div>
             </div>
-          ))}
-        </div>
-      ) : <p className="print-empty">لم يتغيّر شيء منذ المراجعة الأخيرة.</p>}
+          </header>
 
-      <footer className="print-comprehensive-page-footer">
-        <PrintSignatures approval={approval} />
-      </footer>
-    </section>
+          {pageIndex === 0 ? (
+            <p className="print-changes-summary">
+              {appendix.firstReview
+                ? `جدولٌ جديد بـ${countOf(appendix.counts.added, oblique(AR.appointment))} — لا مراجعةَ سابقة يُقارن بها.`
+                : `${appendix.summary}. ولم يتغيّر ${countOf(appendix.counts.unchanged, AR.appointment)}.`}
+            </p>
+          ) : null}
+
+          {pageEntries.length ? (
+            <div className="print-changes-grid" role="table" aria-label="تغييرات الجدول">
+              <div className="print-changes-head" role="row">
+                <div role="columnheader">النوع</div>
+                <div role="columnheader">المقرر</div>
+                <div role="columnheader">الشعبة</div>
+                <div role="columnheader">ما تغيّر</div>
+              </div>
+              {pageEntries.map(entry => (
+                <div className="print-changes-row" role="row" key={`${entry.kind}:${entry.scheduleId}`} data-kind={entry.kind}>
+                  <div role="cell" className="print-changes-kind">{APPENDIX_KIND_LABEL[entry.kind]}</div>
+                  <div role="cell" className="print-wrap">{entry.row?.AdCourseName || `موعد ${entry.scheduleId}`}</div>
+                  <div role="cell" className="print-ltr">{entry.row?.SCode || "—"}</div>
+                  <div role="cell" className="print-wrap print-changes-detail">
+                    {entry.changes.length
+                      ? entry.changes.map(change => (
+                          <span key={change.field}>
+                            <b>{change.label}:</b> {change.before} ← {change.after}
+                          </span>
+                        ))
+                      : <span>—</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="print-empty">لم يتغيّر شيء منذ المراجعة الأخيرة.</p>}
+
+          <footer className="print-comprehensive-page-footer">
+            <PrintSignatures approval={approval} />
+            {pages.length > 1 ? (
+              <div className="print-comprehensive-legend-stack">
+                <div className="print-comprehensive-page-number"><bdi dir="ltr">{pageIndex + 1} / {pages.length}</bdi></div>
+              </div>
+            ) : null}
+          </footer>
+        </section>
+      ))}
+    </>
   );
 }
 
@@ -3976,7 +4203,7 @@ function PrintSheet(props: React.ComponentProps<typeof PrintSheetBody>) {
   );
 }
 
-function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balance, visitingHistory, scopeLine, collegeName, termName, sectionName, sectionCode, courseById, departmentKeyBySection, instructorById, collegeById, showCollegeOnInstructorRows, visitingIds, visitingRows, visitingScopeNote, visitingPlace, siteGroups, approval, changesAppendix, balanceApprovals, stampCode, stampOrigin }: {
+function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balance, visitingHistory, scopeLine, collegeName, termName, sectionName, sectionCode, courseById, departmentKeyBySection, instructorById, collegeById, showCollegeOnInstructorRows, visitingIds, visitingRows, visitingScopeNote, visitingPlace, siteGroups, approval, changesAppendix, balanceApprovals, stampCode, stampOrigin, occupancy }: {
   kind: PrintKind;
   rows: FSchedule[];
   fairness: any;
@@ -4018,6 +4245,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
   /** ختم الورقة (الشامل وحده): رمزُ النسخة المطبوعة، وأصلُ رابط التحقق. */
   stampCode?: string | null;
   stampOrigin?: string;
+  /** نسبة الإشغال: الشبكة الجامعة، وفي العائلة شبكةٌ لكل كلية. */
+  occupancy?: { heat: OccupancyHeat; sites: Array<{ collegeId: number; label: string; heat: OccupancyHeat }>; scopeLabel: string } | null;
 }) {
   if (!kind) return null;
 
@@ -4029,6 +4258,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
     instructor: "الأساتذة",
     courseLoad: "توزيع المواد بين المواقع",
     room: "إشغال القاعات والفراغات",
+    occupancy: "نسبة الإشغال",
     roomInstructor: "القاعات والأساتذة",
     matrix: "القاعات × الأوقات",
     time: "الأوقات",
@@ -4328,7 +4558,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
           const load = teachingHoursByInstructor(page.group.rows, courseHours).get(instructorId) || 0;
           const days = new Set(page.group.rows.flatMap(row => dayFlags(row).map(day => day.key))).size;
           return (
-            <section className="print-explicit-page" key={`${page.group.key}-${pageIndex}`}>
+            /* ورقة كل أستاذ تُملأ بحجمها هي (printFit): أستاذٌ بمحاضرتين لا يُطبع بخطّ أستاذٍ بسبع. */
+            <section className="print-explicit-page" data-print-fit-group={`instructor:${instructorId}:${page.group.key}`} key={`${page.group.key}-${pageIndex}`}>
               <PrintLetterhead title={titles[kind]} scope={scopeLine} college={collegeName} footer={false} />
               <section className="print-query-group">
                 <header>
@@ -4378,7 +4609,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
     const teacherPages = paginateItems(directory.teachers, 12);
     const total = roomPages.length + teacherPages.length;
     const printList = (entries: Array<{ title: string; subtitle: string; names: string[] }>, title: string, page: number) => (
-      <section className="print-explicit-page" key={`${title}-${page}`}>
+      <section className="print-explicit-page" data-print-fit-group={`room-instructor:${title}`} key={`${title}-${page}`}>
         <PrintLetterhead title={`القاعات والأساتذة — ${title}`} scope={scopeLine} college={collegeName} footer={false} />
         <div className="print-query-summaryline"><span>{countOf(directory.rooms.length, AR.room)}</span><span>{countOf(directory.teachers.length, AR.instructor)}</span></div>
         <table className="print-room-teacher-table"><thead><tr><th>{title === "حسب القاعة" ? "القاعة" : "الأستاذ"}</th><th>{title === "حسب القاعة" ? "المبنى" : "القاعات والمباني"}</th><th>{title === "حسب القاعة" ? "الأساتذة" : "العدد"}</th></tr></thead>
@@ -4391,6 +4622,53 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
       {roomPages.map((page, index) => printList(page.map(room => ({ title: `قاعة ${room.hall}`, subtitle: `مبنى ${room.building}`, names: [...room.teachers.entries()].sort((a,b) => byArabic(a[1],b[1])).map(([id,name]) => `${name}${visitingIds.has(id) ? " · منتدب" : ""}`) })), "حسب القاعة", index + 1))}
       {teacherPages.map((page, index) => printList(page.map(teacher => ({ title: `${teacher.name}${visitingIds.has(teacher.id) ? " · منتدب" : ""}`, subtitle: [...teacher.rooms.values()].map(room => `${room.building}/${room.hall}`).join(" · "), names: [String(teacher.rooms.size)] })), "حسب الأستاذ", roomPages.length + index + 1))}
     </div>;
+  }
+
+  if (kind === "occupancy") {
+    /* الورقة بيد شبكة إشغال القاعات نفسها (print-occupancy-table): مربعٌ لكل
+       ساعة بدرجة زحامه، والرقم في قرصه، ونسبة اليوم في طرف سطره. والعائلة
+       تبدأ بشبكتها الجامعة ثم ورقةٌ لكل كلية، فيُقرأ أين يقع الزحام بين المواقع. */
+    const sheets = occupancy
+      ? [{ key: "all", label: occupancy.scopeLabel, heat: occupancy.heat }, ...occupancy.sites.map(site => ({ key: `site-${site.collegeId}`, label: site.label, heat: site.heat }))]
+          .filter(sheet => sheet.heat.lectures)
+      : [];
+    return (
+      <div className="print-report print-wide print-query-report print-occupancy-heat-report">
+        {sheets.length ? sheets.map((sheet, pageIndex) => {
+          const heat = sheet.heat;
+          return (
+            <section className="print-explicit-page" key={sheet.key}>
+              <PrintLetterhead title={titles[kind]} scope={`${scopeLine}${scopeLine ? " · " : ""}${sheet.label}`} college={collegeName} footer={false} />
+              <div className="print-query-summaryline">
+                <span><b>{heat.lectures}</b> {nounFor(heat.lectures, AR.lecture)}</span>
+                <span><b>{heat.rooms}</b> {nounFor(heat.rooms, AR.room)}</span>
+                <span><b>{heat.rate}</b>٪ إشغال الأسبوع</span>
+                {heat.peak ? <span>الذروة {heat.days[heat.peak.day].label} <bdi dir="ltr">{scheduleClockForDisplay(clock(heat.hours[heat.peak.hour]))}</bdi> · <b>{heat.peak.count}</b> {nounFor(heat.peak.count, AR.lecture)}</span> : null}
+              </div>
+              <table className="print-occupancy-table print-occupancy-heat">
+                <colgroup><col style={{ width: "10%" }} />{heat.hours.map(hour => <col key={hour} />)}<col style={{ width: "8%" }} /></colgroup>
+                <thead><tr><th>اليوم</th>{heat.hours.map(hour => <th key={hour} className="print-ltr">{scheduleClockForDisplay(clock(hour))}</th>)}<th>الإشغال</th></tr></thead>
+                <tbody>{heat.days.map(day => (
+                  <tr key={day.index}>
+                    <th>{day.label}</th>
+                    {day.cells.map((cell, hourIndex) => (
+                      <td key={cell.hour} className={`print-heat print-heat-${cell.level}${heat.peak?.day === day.index && heat.peak?.hour === hourIndex ? " print-heat-peak" : ""}`}>
+                        {cell.count ? <span>{cell.count}</span> : null}
+                      </td>
+                    ))}
+                    <td className="print-ltr"><strong>{day.rate}%</strong></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+              <p className="print-occupancy-heat-note">
+                الرقم في المربع عدد المحاضرات في تلك الساعة · الإشغال ساعاتُ القاعات المشغولة في اليوم من {countOf(heat.rooms, AR.room)} × {countOf(heat.hours.length, AR.hour)} · المربع الداكن أزحم
+              </p>
+              <PrintPageMeta page={pageIndex + 1} total={sheets.length} college={collegeName} date={issueDate} />
+            </section>
+          );
+        }) : <p className="print-empty">لا محاضرات ضمن النطاق المحدد.</p>}
+      </div>
+    );
   }
 
   if (kind === "room") {
@@ -4414,7 +4692,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
         {totalPages ? (
           <>
             {roomPages.map((pageRooms: any[], pageIndex) => (
-              <section className="print-explicit-page" key={`room-occupancy-${pageIndex + 1}`}>
+              <section className="print-explicit-page" data-print-fit-group="room-occupancy" key={`room-occupancy-${pageIndex + 1}`}>
                 <PrintLetterhead title={titles[kind]} scope={scope} college={collegeName} footer={false} />
                 <div className="print-query-summaryline">
                   <span><b>{roomLoad.rooms.length}</b> {nounFor(roomLoad.rooms.length, AR.room)}</span>
@@ -4443,7 +4721,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
             {freePages.map((pageRooms: any[], freeIndex) => {
               const pageNumber = roomPages.length + freeIndex + 1;
               return (
-                <section className="print-explicit-page" key={`room-free-${freeIndex + 1}`}>
+                <section className="print-explicit-page" data-print-fit-group="room-free" key={`room-free-${freeIndex + 1}`}>
                   <PrintLetterhead title={`${titles[kind]} — الفترات المتاحة`} scope={scope} college={collegeName} footer={false} />
                   <section className="print-free-windows">
                     <h2>الفترات المتاحة</h2>
@@ -4458,7 +4736,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
             {directoryPages.map((pageEntries, directoryIndex) => {
               const pageNumber = roomPages.length + freePages.length + directoryIndex + 1;
               return (
-                <section className="print-explicit-page" key={`room-directory-${directoryIndex + 1}`}>
+                <section className="print-explicit-page" data-print-fit-group="room-directory" key={`room-directory-${directoryIndex + 1}`}>
                   <PrintLetterhead title={`${titles[kind]} — دليل القاعات`} scope={scope} college={collegeName} footer={false} />
                   {/* The directory used to be a field of small boxes in four
                       columns: on paper it read as scattered fragments rather
@@ -4560,7 +4838,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
           const load = summary?.weeklyMinutes || 0;
           const days = new Set(page.group.rows.flatMap(row => dayFlags(row).map(day => day.key))).size;
           return (
-            <section className="print-explicit-page" key={`visiting-${page.group.key}-${pageIndex}`}>
+            <section className="print-explicit-page" data-print-fit-group={`visiting:${page.group.key}`} key={`visiting-${page.group.key}-${pageIndex}`}>
               <PrintLetterhead title={titles[kind]} scope={scopeLine} college={collegeName} footer={false} />
               <section className="print-query-group">
                 <header>

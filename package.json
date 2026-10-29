@@ -180,6 +180,8 @@
     "test:student-case-status": "tsx tests/student-case-status-audit.ts",
     "test:student-registration": "tsx tests/student-registration-audit.ts",
     "test:print-attestation": "tsx tests/print-attestation-audit.ts",
+    "test:print-fit": "tsx tests/print-fit-audit.ts",
+    "test:occupancy-heat": "tsx tests/occupancy-heat-audit.ts",
     "test:request-handoff": "tsx tests/request-handoff-audit.ts",
     "test:study-proposal-page": "tsx tests/study-proposal-public-page-audit.ts",
     "test:request-signature": "tsx tests/request-signature-audit.ts",
