@@ -57,7 +57,7 @@ export interface SeatDeputy {
 }
 
 export type SeatEventKind =
-  | "seat-created" | "holder-set" | "handover"
+  | "seat-created" | "seat-colleges" | "holder-set" | "handover"
   | "member-added" | "member-continued" | "member-ended" | "member-frozen" | "member-scopes"
   | "link-issued" | "link-locked" | "deputy-set" | "deputy-ended";
 

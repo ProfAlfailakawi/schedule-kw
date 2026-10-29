@@ -3,6 +3,7 @@ import { Armchair, Building2, Crown, Plus, Search, Snowflake, UsersRound } from 
 import SeatPanel from "./SeatPanel";
 import SeatLinkCard from "./SeatLinkCard";
 import { invitationHref } from "../../utils/invitationLink";
+import type { CampusFamily } from "../../utils/campusFamily";
 import "./seats.css";
 
 /**
@@ -19,7 +20,7 @@ type SeatRow = {
   team: { active: number; pending: number; frozen: number; ended: number } | null;
   lastEvent: { at: string; kind: string; detail: string } | null;
 };
-type Listing = { seats: SeatRow[]; missingCollegeRegistrars: Array<{ collegeId: number; collegeName: string }>; roles: Array<{ id: string; label: string; order: number }> };
+type Listing = { seats: SeatRow[]; missingCollegeRegistrars: CampusFamily[]; roles: Array<{ id: string; label: string; order: number }> };
 
 const GROUPS: Array<{ id: string; label: string; roles: string[] }> = [
   { id: "all", label: "الكل", roles: [] },
@@ -43,7 +44,8 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
   const [focus, setFocus] = useState<"" | "noHolder" | "frozen">("");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
-  const [creating, setCreating] = useState<{ collegeId: number; collegeName: string } | null>(null);
+  /* كرسيٌّ جديد لحرمٍ أو أكثر من الكلية نفسها: الحرمُ كلُّها مختارةٌ ابتداءً، ويُرفع منها ما لا يتابعه. */
+  const [creating, setCreating] = useState<{ family: CampusFamily; picked: Set<number> } | null>(null);
   const [createForm, setCreateForm] = useState({ name: "", mobile: "" });
   const [created, setCreated] = useState<{ login: string; password: string; seatName: string; holder: { name: string; mobile?: string } } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -77,7 +79,7 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
     setBusy(true); setError("");
     try {
       const result = await call<{ seatId: number; login: string; password: string; seatName: string; holder: { name: string; mobile?: string } }>("/api/seats/college-registrar", {
-        method: "POST", body: JSON.stringify({ collegeId: creating.collegeId, name: createForm.name, mobile: createForm.mobile }),
+        method: "POST", body: JSON.stringify({ collegeIds: [...creating.picked], name: createForm.name, mobile: createForm.mobile }),
       });
       setCreated(result); setCreating(null); setCreateForm({ name: "", mobile: "" });
       await load(); setSelected(result.seatId);
@@ -107,8 +109,11 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
           <div>
             <strong>كلياتٌ بلا رئيس تسجيل</strong>
             <div className="seats-missing-list">
-              {listing.missingCollegeRegistrars.map(row => (
-                <button data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" type="button" key={row.collegeId} onClick={() => { setCreating(row); setCreated(null); }}><Plus aria-hidden="true" />{row.collegeName}</button>
+              {listing.missingCollegeRegistrars.map(family => (
+                <button type="button" data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" key={family.familyName} onClick={() => { setCreating({ family, picked: new Set(family.colleges.map(c => c.collegeId)) }); setCreated(null); }}>
+                  <Plus aria-hidden="true" />{family.familyName}
+                  {family.colleges.length > 1 ? <small>{family.colleges.map(c => c.chip).join(" · ")}</small> : null}
+                </button>
               ))}
             </div>
           </div>
@@ -158,13 +163,27 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
           ) : null}
           {creating ? (
             <div className="seat-panel seats-create">
-              <header className="seat-hero"><span className="seat-role-chip"><Armchair aria-hidden="true" />رئيس تسجيل الكلية</span><h2>{creating.collegeName}</h2><p>كرسيٌّ جديد يمدّد التسليم لكليته، ويضيف موظفي التسجيل فيها.</p></header>
+              <header className="seat-hero"><span className="seat-role-chip"><Armchair aria-hidden="true" />رئيس تسجيل الكلية</span><h2>{creating.family.familyName}</h2><p>كرسيٌّ واحد يمدّد التسليم لكل حرمٍ تختاره، ويضيف موظفي التسجيل فيه.</p></header>
+              {creating.family.colleges.length > 1 ? (
+                <div className="seat-campus-pick" role="group" aria-label="الحرم">
+                  <span className="seat-field-label">الحرم التي يتابعها</span>
+                  {creating.family.colleges.map(college => (
+                    <label key={college.collegeId}>
+                      <input type="checkbox" checked={creating.picked.has(college.collegeId)} onChange={() => {
+                        const picked = new Set(creating.picked);
+                        if (picked.has(college.collegeId)) picked.delete(college.collegeId); else picked.add(college.collegeId);
+                        setCreating({ ...creating, picked });
+                      }} /> {college.chip}
+                    </label>
+                  ))}
+                </div>
+              ) : null}
               <div className="seat-form-grid">
                 <label><span>الشاغل</span><input value={createForm.name} onChange={e => setCreateForm({ ...createForm, name: e.target.value })} placeholder="الاسم كاملاً" autoFocus /></label>
                 <label><span>الجوال</span><input value={createForm.mobile} onChange={e => setCreateForm({ ...createForm, mobile: e.target.value })} placeholder="99887766" inputMode="tel" dir="ltr" /></label>
               </div>
               <div className="seat-sheet-actions">
-                <button data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" type="button" className="btn btn-primary" disabled={busy || createForm.name.trim().length < 3} onClick={() => void createSeat()}><Plus aria-hidden="true" /> أنشئ الكرسي</button>
+                <button data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" type="button" className="btn btn-primary" disabled={busy || createForm.name.trim().length < 3 || !creating.picked.size} onClick={() => void createSeat()}><Plus aria-hidden="true" /> أنشئ الكرسي</button>
                 <button data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" type="button" className="btn btn-ghost" onClick={() => setCreating(null)}>إلغاء</button>
               </div>
             </div>

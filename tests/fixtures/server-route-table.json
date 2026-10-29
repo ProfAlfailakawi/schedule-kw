@@ -3573,8 +3573,8 @@
    ],
    "path": "/api/seats",
    "name": "bound dispatch",
-   "call": "435051c83898a974",
-   "site": "src/server/seatsRoutes.ts:245",
+   "call": "70b71048e80cbc8c",
+   "site": "src/server/seatsRoutes.ts:270",
    "regexp": "/^\\/api\\/seats\\/?$/i",
    "end": true
   },
@@ -3586,7 +3586,7 @@
    "path": "/api/seats/mine",
    "name": "bound dispatch",
    "call": "9b045fcbb4b724ff",
-   "site": "src/server/seatsRoutes.ts:274",
+   "site": "src/server/seatsRoutes.ts:299",
    "regexp": "/^\\/api\\/seats\\/mine\\/?$/i",
    "end": true
   },
@@ -3598,7 +3598,7 @@
    "path": "/api/seats/switch-options",
    "name": "bound dispatch",
    "call": "dd4c976370ec9ac4",
-   "site": "src/server/seatsRoutes.ts:281",
+   "site": "src/server/seatsRoutes.ts:306",
    "regexp": "/^\\/api\\/seats\\/switch-options\\/?$/i",
    "end": true
   },
@@ -3610,7 +3610,7 @@
    "path": "/api/seats/switch",
    "name": "bound dispatch",
    "call": "32c92c256ec5cb88",
-   "site": "src/server/seatsRoutes.ts:309",
+   "site": "src/server/seatsRoutes.ts:334",
    "regexp": "/^\\/api\\/seats\\/switch\\/?$/i",
    "end": true
   },
@@ -3622,7 +3622,7 @@
    "path": "/api/seats/:id",
    "name": "bound dispatch",
    "call": "514c02858b3fd452",
-   "site": "src/server/seatsRoutes.ts:322",
+   "site": "src/server/seatsRoutes.ts:347",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3634,7 +3634,7 @@
    "path": "/api/seats/:id/holder",
    "name": "bound dispatch",
    "call": "770aa6dc0aacf995",
-   "site": "src/server/seatsRoutes.ts:336",
+   "site": "src/server/seatsRoutes.ts:361",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/holder\\/?$/i",
    "end": true
   },
@@ -3646,7 +3646,7 @@
    "path": "/api/seats/:id/handover",
    "name": "bound dispatch",
    "call": "8327fdc674a0124a",
-   "site": "src/server/seatsRoutes.ts:351",
+   "site": "src/server/seatsRoutes.ts:376",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/handover\\/?$/i",
    "end": true
   },
@@ -3658,7 +3658,7 @@
    "path": "/api/seats/:id/members",
    "name": "bound dispatch",
    "call": "fdd83b921606845e",
-   "site": "src/server/seatsRoutes.ts:373",
+   "site": "src/server/seatsRoutes.ts:398",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members\\/?$/i",
    "end": true
   },
@@ -3670,7 +3670,7 @@
    "path": "/api/seats/:id/members/:mid/link",
    "name": "bound dispatch",
    "call": "203f84f43ddcb22f",
-   "site": "src/server/seatsRoutes.ts:412",
+   "site": "src/server/seatsRoutes.ts:437",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members(?:\\/([^/]+?))\\/link\\/?$/i",
    "end": true
   },
@@ -3682,7 +3682,7 @@
    "path": "/api/seats/:id/members/:mid/status",
    "name": "bound dispatch",
    "call": "cb2eed827f14f2f0",
-   "site": "src/server/seatsRoutes.ts:425",
+   "site": "src/server/seatsRoutes.ts:450",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members(?:\\/([^/]+?))\\/status\\/?$/i",
    "end": true
   },
@@ -3694,7 +3694,7 @@
    "path": "/api/seats/:id/members/:mid/scopes",
    "name": "bound dispatch",
    "call": "5c1caf94da5da445",
-   "site": "src/server/seatsRoutes.ts:452",
+   "site": "src/server/seatsRoutes.ts:477",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members(?:\\/([^/]+?))\\/scopes\\/?$/i",
    "end": true
   },
@@ -3706,7 +3706,7 @@
    "path": "/api/seats/:id/deputy",
    "name": "bound dispatch",
    "call": "f0c024415a29212e",
-   "site": "src/server/seatsRoutes.ts:474",
+   "site": "src/server/seatsRoutes.ts:499",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/deputy\\/?$/i",
    "end": true
   },
@@ -3718,7 +3718,7 @@
    "path": "/api/seats/:id/deputy/end",
    "name": "bound dispatch",
    "call": "01d5f5f1f929b9e0",
-   "site": "src/server/seatsRoutes.ts:494",
+   "site": "src/server/seatsRoutes.ts:519",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/deputy\\/end\\/?$/i",
    "end": true
   },
@@ -3729,9 +3729,21 @@
    ],
    "path": "/api/seats/college-registrar",
    "name": "bound dispatch",
-   "call": "9ca7956f5f32e293",
-   "site": "src/server/seatsRoutes.ts:512",
+   "call": "eb9a8410267faed9",
+   "site": "src/server/seatsRoutes.ts:540",
    "regexp": "/^\\/api\\/seats\\/college-registrar\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/seats/:id/colleges",
+   "name": "bound dispatch",
+   "call": "1acbd4e016c470c1",
+   "site": "src/server/seatsRoutes.ts:577",
+   "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/colleges\\/?$/i",
    "end": true
   },
   {
@@ -3742,7 +3754,7 @@
    "path": "/k/:token",
    "name": "bound dispatch",
    "call": "101e9642acd57d86",
-   "site": "src/server/seatsRoutes.ts:561",
+   "site": "src/server/seatsRoutes.ts:613",
    "regexp": "/^\\/k(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3754,7 +3766,7 @@
    "path": "/api/public/team/:token",
    "name": "bound dispatch",
    "call": "354fd3fb2bf2f79a",
-   "site": "src/server/seatsRoutes.ts:577",
+   "site": "src/server/seatsRoutes.ts:629",
    "regexp": "/^\\/api\\/public\\/team(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },

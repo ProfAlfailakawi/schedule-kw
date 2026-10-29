@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Armchair, ArrowLeftRight, BadgeCheck, CalendarClock, Crown, History, KeyRound, Link2, Search, Snowflake,
+  Armchair, ArrowLeftRight, BadgeCheck, Building2, CalendarClock, Crown, History, KeyRound, Link2, Search, Snowflake,
   UserCheck, UserMinus, UserPlus, UsersRound, X,
 } from "lucide-react";
 import SeatLinkCard from "./SeatLinkCard";
@@ -36,6 +36,8 @@ export interface SeatDetail {
   candidates?: Candidate[];
   holderCandidates?: Candidate[];
   scopeTree?: ScopeTree;
+  /** لمدير النظام على كرسيّ «رئيس تسجيل الكلية»: الحرمُ كلُّها، وما عليه منها. */
+  campusOptions?: Array<{ familyName: string; colleges: Array<{ collegeId: number; collegeName: string; chip: string; selected: boolean; takenElsewhere: boolean }> }> | null;
 }
 
 async function call<T = any>(url: string, init?: RequestInit): Promise<T> {
@@ -55,18 +57,18 @@ const initialOf = (name?: string) => String(name || "").trim().replace(/^(د|أ|
 const origin = () => (typeof window !== "undefined" ? window.location.origin : "https://schedule-kw.com");
 
 const EVENT_ICON: Record<SeatEventKind, React.ReactNode> = {
-  "seat-created": <Armchair />, "holder-set": <Crown />, handover: <ArrowLeftRight />,
+  "seat-created": <Armchair />, "seat-colleges": <Building2 />, "holder-set": <Crown />, handover: <ArrowLeftRight />,
   "member-added": <UserPlus />, "member-continued": <UserCheck />, "member-ended": <UserMinus />, "member-frozen": <Snowflake />,
   "member-scopes": <UsersRound />, "link-issued": <Link2 />, "link-locked": <KeyRound />, "deputy-set": <BadgeCheck />, "deputy-ended": <CalendarClock />,
 };
 const EVENT_LABEL: Record<SeatEventKind, string> = {
-  "seat-created": "أُنشئ الكرسي", "holder-set": "سُجّل الشاغل", handover: "تسليم الكرسي",
+  "seat-created": "أُنشئ الكرسي", "seat-colleges": "تغيير الحرم", "holder-set": "سُجّل الشاغل", handover: "تسليم الكرسي",
   "member-added": "عضوٌ جديد", "member-continued": "استمرار عضو", "member-ended": "انتهاء عضوية", "member-frozen": "تجميد الفريق",
   "member-scopes": "نطاق موظف", "link-issued": "رابطٌ جديد", "link-locked": "أُقفل رابط", "deputy-set": "تكليف نائب", "deputy-ended": "انتهاء النيابة",
 };
 
 type Sheet =
-  | { kind: "handover" } | { kind: "holder" } | { kind: "add" } | { kind: "deputy" }
+  | { kind: "handover" } | { kind: "holder" } | { kind: "add" } | { kind: "deputy" } | { kind: "campuses" }
   | { kind: "link"; title: string; subtitle?: string; url: string; mobile?: string; message: string; credentials?: { login: string; password: string }; after?: () => void };
 
 function PersonPicker({ candidates, value, onPick, placeholder }: { candidates: Candidate[]; value: number | null; onPick: (id: number) => void; placeholder: string }) {
@@ -124,6 +126,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
   const [manualMode, setManualMode] = useState(false);
   const [scopes, setScopes] = useState<Set<string>>(new Set());
   const [deputy, setDeputy] = useState({ memberId: "", until: "" });
+  const [campuses, setCampuses] = useState<Set<number>>(new Set());
   const url = source === "mine" ? "/api/seats/mine" : `/api/seats/${seatId}`;
 
   const load = useCallback(async () => {
@@ -200,6 +203,10 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
     await call(`/api/seats/${id}/deputy`, { method: "POST", body: JSON.stringify(deputy) });
     closeSheet(); await load();
   });
+  const saveCampuses = () => run(async () => {
+    await call(`/api/seats/${id}/colleges`, { method: "POST", body: JSON.stringify({ collegeIds: [...campuses] }) });
+    closeSheet(); onChanged?.(); await load();
+  });
   const endDeputy = () => run(async () => { await call(`/api/seats/${id}/deputy/end`, { method: "POST" }); await load(); });
 
   if (error && !detail) return <div className="seat-panel seat-panel-empty"><p className="seat-error" role="alert">{error}</p></div>;
@@ -247,6 +254,20 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
       </header>
 
       {error ? <p className="seat-error" role="alert">{error}</p> : null}
+
+      {detail.campusOptions ? (
+        <section className="seat-campuses" aria-label="الحرم">
+          <Building2 aria-hidden="true" />
+          <div>
+            <small>الحرم التي يتابعها</small>
+            <span>{detail.campusOptions.flatMap(family => family.colleges.filter(c => c.selected).map(c => family.colleges.length > 1 ? `${family.familyName} · ${c.chip}` : c.collegeName)).join("، ") || "لا حرم"}</span>
+          </div>
+          <button type="button" data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => {
+            setCampuses(new Set(detail.campusOptions!.flatMap(family => family.colleges.filter(c => c.selected).map(c => c.collegeId))));
+            setSheet({ kind: "campuses" });
+          }}>تعديل الحرم</button>
+        </section>
+      ) : null}
 
       <section className="seat-holder" aria-label="الشاغل">
         <div className={`seat-avatar ${detail.holder ? "" : "empty"}`} aria-hidden="true">{detail.holder ? initialOf(detail.holder.name) : <Armchair />}</div>
@@ -387,6 +408,32 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
                 <div className="seat-sheet-actions">
                   <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-primary" disabled={busy || (team.source === "department" ? !pick : !manualValid || !scopes.size)} onClick={() => void addMember()}><UserPlus aria-hidden="true" /> أضف وأصدر رابطه</button>
                   <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
+                </div>
+              </>
+            ) : null}
+            {sheet.kind === "campuses" && detail.campusOptions ? (
+              <>
+                <h3 className="seat-sheet-title"><Building2 aria-hidden="true" />الحرم التي يتابعها الكرسي</h3>
+                <p className="seat-sheet-lead">كرسيٌّ واحد لحرمٍ أو أكثر. الحرمُ الذي له رئيس تسجيلٍ آخر لا يُختار هنا. ونطاقُ الموظفين يتبع الكرسي: ما يُرفع عنه يسقط من نطاقهم.</p>
+                <div className="seat-campus-families">
+                  {detail.campusOptions.map(family => (
+                    <fieldset key={family.familyName}>
+                      <legend>{family.familyName}</legend>
+                      {family.colleges.map(college => (
+                        <label key={college.collegeId} className={college.takenElsewhere ? "muted" : ""}>
+                          <input type="checkbox" disabled={college.takenElsewhere} checked={campuses.has(college.collegeId)} onChange={() => {
+                            const next = new Set(campuses);
+                            if (next.has(college.collegeId)) next.delete(college.collegeId); else next.add(college.collegeId);
+                            setCampuses(next);
+                          }} /> {college.chip}{college.takenElsewhere ? <small> · له رئيس تسجيل آخر</small> : null}
+                        </label>
+                      ))}
+                    </fieldset>
+                  ))}
+                </div>
+                <div className="seat-sheet-actions">
+                  <button type="button" data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" className="btn btn-primary" disabled={busy || !campuses.size} onClick={() => void saveCampuses()}><Building2 aria-hidden="true" /> احفظ الحرم</button>
+                  <button type="button" data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
                 </div>
               </>
             ) : null}
