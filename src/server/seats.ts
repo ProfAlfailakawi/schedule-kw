@@ -83,7 +83,7 @@ async function applySeatActor(user: any, actor: SeatActor, ledger: SeatLedger, s
   /* موظفُ التسجيل: شاشاتُ صفته من شاشات الكرسي، ونطاقُه ما حُدّد له داخل نطاق الكرسي. */
   const allowedForms = new Set(roleDefinition(role).formIds);
   const member = ledger.members.find(row => row.id === actor.memberId);
-  return { user: composed, scopes: await expandMemberScopes(member?.scopes || []), permissions: permissions.filter(id => allowedForms.has(id)) };
+  return { user: composed, scopes: await expandMemberScopes(member?.scopes || [], actor.seatRole, scopes), permissions: permissions.filter(id => allowedForms.has(id)) };
 }
 
 /**
@@ -91,16 +91,21 @@ async function applySeatActor(user: any, actor: SeatActor, ledger: SeatLedger, s
  * لا يُجيز لها قسماً (isScopeAllowed). فتُفرد الكليةُ أقساماً وقت قراءة الجلسة — فيلحق
  * قسمٌ أُنشئ أمس — ويبقى الحكمُ في isScopeAllowed كما هو، لا استثناء فيه.
  */
-async function expandMemberScopes(scopes: SeatScope[]): Promise<SeatScope[]> {
+async function expandMemberScopes(scopes: SeatScope[], seatRole: unknown, seatScopes: SeatScope[]): Promise<SeatScope[]> {
   const out = new Map<string, SeatScope>();
+  /* ولا يتّسع نطاقُ الموظف بعد إضافته: إن رُفع حرمٌ عن كرسيّ من أضافه سقط من نطاقه هو أيضاً. */
+  const wide = roleDefinition(seatRole).scopeMode === "allColleges";
+  const seatColleges = new Set(seatScopes.filter(row => !Number(row.AdSectionId)).map(row => Number(row.AdCollegeId)));
+  const seatSections = new Set(seatScopes.filter(row => Number(row.AdSectionId)).map(row => `${row.AdCollegeId}:${row.AdSectionId}`));
+  const inside = (row: SeatScope) => wide || seatColleges.has(Number(row.AdCollegeId)) || seatSections.has(`${row.AdCollegeId}:${row.AdSectionId}`);
   const wholeColleges = new Set(scopes.filter(row => !Number(row.AdSectionId)).map(row => Number(row.AdCollegeId)));
   if (wholeColleges.size) {
     const sections = await Repository.getSections();
     for (const section of sections as any[]) {
-      if (wholeColleges.has(Number(section.AdCollegeId))) out.set(`${section.AdCollegeId}:${section.AdSectionId}`, { AdCollegeId: Number(section.AdCollegeId), AdSectionId: Number(section.AdSectionId) });
+      if (wholeColleges.has(Number(section.AdCollegeId)) && inside({ AdCollegeId: Number(section.AdCollegeId), AdSectionId: Number(section.AdSectionId) })) out.set(`${section.AdCollegeId}:${section.AdSectionId}`, { AdCollegeId: Number(section.AdCollegeId), AdSectionId: Number(section.AdSectionId) });
     }
   }
-  for (const row of scopes) if (Number(row.AdSectionId)) out.set(`${row.AdCollegeId}:${row.AdSectionId}`, { AdCollegeId: Number(row.AdCollegeId), AdSectionId: Number(row.AdSectionId) });
+  for (const row of scopes) if (Number(row.AdSectionId) && inside(row)) out.set(`${row.AdCollegeId}:${row.AdSectionId}`, { AdCollegeId: Number(row.AdCollegeId), AdSectionId: Number(row.AdSectionId) });
   return [...out.values()];
 }
 

@@ -22,6 +22,7 @@
 .seats-missing strong{display:block;margin-bottom:8px;font-size:var(--ix-secondary)}
 .seats-missing-list{display:flex;flex-wrap:wrap;gap:6px}
 .seats-missing-list button{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:var(--r-full);border:1px solid color-mix(in srgb,var(--brass) 35%,var(--line));background:var(--surface);color:var(--ink);font:inherit;font-size:var(--t-sm);cursor:pointer}
+.seats-missing-list button small{color:var(--muted);font-size:var(--t-xs);margin-inline-start:4px}
 .seats-missing-list button svg{inline-size:14px;block-size:14px;color:var(--brass)}
 .seats-missing-list button:hover{border-color:var(--brass)}
 
@@ -230,3 +231,19 @@
 @media (prefers-reduced-motion:reduce){
   .seat-sheet-scrim,.seat-sheet,.seat-drawer,.seat-drawer-backdrop,.seat-skeleton{animation:none}
 }
+
+/* ── الحرم: كرسيُّ رئيس تسجيل الكلية لحرمٍ أو أكثر ── */
+.seat-campuses{display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:var(--r-md);background:var(--surface-2,var(--canvas));border:1px solid var(--line)}
+.seat-campuses>svg{inline-size:19px;block-size:19px;color:var(--brass);flex:none}
+.seat-campuses>div{display:grid;gap:1px;flex:1;min-inline-size:0}
+.seat-campuses small{color:var(--muted);font-size:var(--t-xs);font-weight:600}
+.seat-campuses span{font-size:var(--ix-secondary);overflow-wrap:anywhere}
+.seat-campus-pick{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2,var(--canvas))}
+.seat-campus-pick .seat-field-label{inline-size:100%}
+.seat-campus-pick label,.seat-campus-families label{display:inline-flex;align-items:center;gap:7px;font-size:var(--ix-secondary)}
+.seat-campus-pick input,.seat-campus-families input{inline-size:17px;block-size:17px;accent-color:var(--accent)}
+.seat-campus-families{display:grid;gap:8px;max-block-size:320px;overflow:auto}
+.seat-campus-families fieldset{margin:0;padding:8px 12px 10px;border:1px solid var(--line);border-radius:var(--r-md);display:flex;flex-wrap:wrap;gap:6px 16px}
+.seat-campus-families legend{padding:0 6px;font-size:var(--t-sm);font-weight:700;color:var(--muted)}
+.seat-campus-families label.muted{color:var(--muted)}
+.seat-campus-families small{font-size:var(--t-xs)}
