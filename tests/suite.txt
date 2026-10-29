@@ -4,6 +4,8 @@
 test:repo-hygiene
 test:server-parity
 test:firestore-target
+test:firestore-indexes
+test:anonymous-guard
 test:schedule-time-window
 test:schedule-interface
 test:hardening

@@ -26,6 +26,7 @@ import {
 import { DnaCount, DnaTimeline, useMotionScope } from "./dna";
 import { ApprovalDnaStepper, DeadlineDnaRing } from "./dna/scheduleDna";
 import ApprovalBar from "./ApprovalBar";
+import TermStory from "./TermStory";
 import SubmissionDeadlines from "./SubmissionDeadlines";
 import { useScopedTerms } from "./useScopedTerms";
 import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "./ScopeAskBar";
@@ -1163,6 +1164,20 @@ function Report({ termId, termName, scope, role, onBack, archive = false, frozen
       {role.signatureStage && !isRegistrar ? null : <DeadlineStrip deadline={report.deadline} />}
       {error ? <Notice type="error">{error}</Notice> : null}
       {message ? <Notice type="success">{message}</Notice> : null}
+
+      <TermStory
+        scopeLine={[termName, scope.collegeName, scope.sectionName].filter(Boolean).join(" · ") || `قسم ${scope.sectionId}`}
+        statusLabel={report.statusLabel}
+        rowCount={Math.max(0, report.rowCount ?? (report.diff.counts.added + report.diff.counts.changed + report.diff.counts.unchanged))}
+        moved={report.diff.counts.added + report.diff.counts.changed + report.diff.counts.removed}
+        firstReview={report.diff.firstReview}
+        baselineSource={report.baselineSource}
+        rounds={report.rounds}
+        notesTotal={report.notes.filter(note => note.origin === "registrar").length}
+        /* «عولجت» = حالةٌ منتهية فقط: «أُجيبت» ردٌّ من القسم ينتظر حكم التسجيل، وقد يُصرّ على التعديل. */
+        notesDone={report.notes.filter(note => note.origin === "registrar" && (note.state === "changed" || note.state === "removed" || note.state === "resolved")).length}
+        blockers={Math.max((report.reviewBlockers || []).length, report.blockingConflicts || 0) + (report.regulationNotices || []).filter(item => item.approvalEffect === "block").length}
+      />
 
       <ChangesReviewOverview
         report={report}

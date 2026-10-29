@@ -40,6 +40,8 @@
     "test:repo-hygiene": "node tests/repo-hygiene-guard.mjs",
     "test:server-parity": "tsx tests/server-route-parity-audit.ts",
     "test:firestore-target": "tsx tests/firestore-target-audit.ts",
+    "test:firestore-indexes": "tsx tests/firestore-index-audit.ts",
+    "test:anonymous-guard": "tsx tests/anonymous-guard-audit.ts",
     "test:ads": "tsx tests/ads-audit.ts && tsx tests/ads-preview-audit.ts",
     "test:schedule-time-window": "tsx tests/schedule-time-window-audit.ts",
     "test:masari-integrity": "tsx tests/masari-approval-integrity-audit.ts",

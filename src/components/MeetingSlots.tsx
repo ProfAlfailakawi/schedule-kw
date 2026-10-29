@@ -1,6 +1,6 @@
 import { byArabic } from "../utils/sorting";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarCheck2, Check, Globe2, Search, Users, X } from "lucide-react";
+import { CalendarCheck2, CalendarSearch, Check, Globe2, Search, X } from "lucide-react";
 import { PrimaryButton } from "./ui";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
@@ -136,7 +136,7 @@ export default function MeetingSlots({ instructors, scopeNarrowed = false, termI
       <div className="meeting-slots-backdrop no-print" onMouseDown={onClose} aria-hidden="true" />
       <section className="meeting-slots no-print" role="dialog" aria-modal="true" aria-label="متى نلتقي؟">
         <header className="meeting-slots-head">
-          <span className="meeting-slots-mark" aria-hidden="true"><Users /></span>
+          <span className="meeting-slots-mark" aria-hidden="true"><CalendarSearch /></span>
           <div>
             <small>من جداول هذا الفصل نفسها</small>
             <h2>متى نلتقي؟</h2>
