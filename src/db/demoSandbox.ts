@@ -520,19 +520,20 @@ const DEMO_ROLE_SEEDS: DemoRoleSeed[] = [
   { role: "dean",           id: 10, name: "د. عميد كلية التربية الأساسية",    login: "demo.dean" },
   { role: "viceDean",       id: 11, name: "د. العميد المساعد الأكاديمي",      login: "demo.vicedean" },
   { role: "registrarDean",  id: 12, name: "د. عميد التسجيل",                 login: "demo.regdean" },
-  { role: "registrarHead",  id: 13, name: "أ. رئيس التسجيل",                 login: "demo.reghead" },
+  { role: "registrarHead",  id: 13, name: "أ. المسجّل العام",                 login: "demo.reghead" },
+  { role: "collegeRegistrar", id: 22, name: "أ. رئيس تسجيل كلية التربية الأساسية", login: "demo.collegereg" },
   { role: "registrarStaff", id: 14, name: "أ. موظف التسجيل",                 login: "demo.regstaff" },
   { role: "departmentHead", id: 15, name: "د. رئيس قسم تكنولوجيا التعليم",    login: "demo.dept" },
   { role: "advisor",        id: 19, name: "أ. مرشد قسم تكنولوجيا التعليم",     login: "demo.advisor" },
   { role: "committeeChair", id: 16, name: "د. رئيس لجنة جدول تكنولوجيا التعليم", login: "demo.committee" },
   { role: "standard",       id: 17, name: "أ. مستخدم عادي",                  login: "demo.standard" },
 ];
-/* حسابان إضافيان لعرض الديمو على الإدارة العامة: «المسجل العام» بصلاحيات عميد التسجيل نفسها،
+/* حسابٌ إضافيٌّ لعرض الديمو على الإدارة العامة: «الإرشاد العام» بصفة المرشد. («المسجّل العام» صار صفةً قائمة
+   بذاتها — registrarHead — فلم يعد حساباً إضافياً.) والنصُّ القديم: «المسجل العام» بصلاحيات عميد التسجيل نفسها،
    و«الإرشاد العام» بصفة المرشد. وفي الصندوق قسمٌ واحدٌ ذو بيانات، فنطاقاهما نطاقُ صفتيهما نفسُه؛ وصفتاهما من الصفات القائمة، فلا قاعدةَ جديدة
    ولا شاشة؛ ومفتاحُ الشريط وحدَه يميّزهما، لأن التبديل يتمّ بمفتاح الصفة. */
 interface DemoExtraSeed extends DemoRoleSeed { key: string; label: string }
 const DEMO_EXTRA_SEEDS: DemoExtraSeed[] = [
-  { key: "registrarGeneral", label: "المسجل العام", role: "registrarDean", id: 20, name: "د. المسجل العام", login: "demo.regeneral" },
   { key: "advisorGeneral", label: "الإرشاد العام", role: "advisor", id: 21, name: "أ. الإرشاد العام", login: "demo.advisorgeneral" },
 ];
 const DEMO_ACCOUNT_SEEDS: DemoRoleSeed[] = [...DEMO_ROLE_SEEDS, ...DEMO_EXTRA_SEEDS];

@@ -17,7 +17,7 @@ import { decideException, exceptionRefusal, normalizeExceptionDays, resolveExcep
 import { APPROVAL_STATUS_LABEL, blockingConflictPhrase, canSign, canSubmit, emptyApproval, inboxPriority, lastReviewedVersionId, readDeadline, verificationCode, acknowledgeAdditions, awaitsHeadSignature, canHeadReturn, canReturn, canWithdraw, CLOSED_BY_ACCEPTANCE_LABEL, countAnsweredRegistrarNotes, countOpenRegistrarNotes, extensionRefusal, kuwaitDateISO, openRound, pendingAdditionTotal, readViewExpectation, additionsAwaitingHead, withRemainingSignatures, extensionRequestRefusal, roundBaselineVersionId, staleViewRefusal, statusAfterSignatureChange, suggestedExtensionDate } from "../../utils/approvalWorkflow";
 import { diffSchedules } from "../../utils/scheduleDiff";
 import { approvalBlockerSummary } from "../../utils/scheduleBlockers";
-import { canManageDeadline, canReviewSubmissions, roleLabel, signatureStage, watchesInbox } from "../../utils/academicRoles";
+import { canExtendDeadline, canManageDeadline, canReviewSubmissions, roleLabel, signatureStage, watchesInbox } from "../../utils/academicRoles";
 import { capacityGapItems, computeScheduleDataReadiness } from "../../utils/scheduleDataReadiness";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { checkStudentPhases, hasStudentPhases } from "../../utils/termStudentPhases";
@@ -390,9 +390,15 @@ app.post("/api/approvals/sign", requireAuth, async (req: AuthenticatedRequest, r
   const stage = signatureStage(actor.role);
   if (!stage) { res.status(403).json({ error: "التوقيع لرئيس لجنة الجدول ولرئيس القسم العلمي فقط." }); return; }
   if (await refuseIfTermClosed(res, termId)) return;
+  const actorInstructorId = Number((req.user as any)?.SeatActor?.instructorId || 0) || undefined;
 
   await approvalTransaction(res, collegeId, sectionId, termId, async once => {
     const approval = await readApproval(collegeId, sectionId, termId);
+    /* توقيعان لأن المراجعَين اثنان: من وقّع للجنة لا يوقّع لرئيس القسم على الجدول نفسه، ولو جلس على الكرسيين. */
+    const otherStage = approval.signatures.find(item => item.stage !== stage);
+    if (actorInstructorId && otherStage?.actorInstructorId === actorInstructorId) {
+      res.status(409).json({ error: `وقّعتَ هذا الجدول بصفة «${otherStage.roleLabel}». التوقيع الثاني لشخصٍ آخر.`, code: "same-person-both-stages" }); return;
+    }
     const rows = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
     if (refuseIfStale(req, res, { round: approval.currentRound, rowCount: rows.length, status: approval.status })) return;
     /* نواقصُ البيانات إشعارٌ لا مانع (قاعدة 2026-09-27): لا يمنع التوقيعَ إلا تعارضٌ ماديّ،
@@ -422,6 +428,7 @@ app.post("/api/approvals/sign", requireAuth, async (req: AuthenticatedRequest, r
       rowCount: rows.length,
       regulationNoticeCount: notices,
       verifyCode: verificationCode(String(version?.id || `${collegeId}:${sectionId}:${termId}`), actor.id, at),
+      ...(actorInstructorId ? { actorInstructorId } : {}),
     };
     let next: ScheduleApproval = { ...approval, signatures: [...approval.signatures.filter(item => item.stage !== stage), signature] };
     /* توقيعُ اللجنة من جديد يطوي إرجاع رئيس القسم: أُجيب عنه (R11). */
@@ -645,7 +652,7 @@ app.post("/api/approvals/accept", requireAuth, async (req: AuthenticatedRequest,
 
 /** موعد تسليم الفصل. حقلٌ واحد، بيد رئيس التسجيل وحده، يظهر لكل قسم. */
 app.post("/api/approvals/deadline", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  if (!canManageDeadline(req.user?.Role) && !isPowerUser(req)) { res.status(403).json({ error: "موعد التسليم يضعه رئيس التسجيل." }); return; }
+  if (!canManageDeadline(req.user?.Role) && !isPowerUser(req)) { res.status(403).json({ error: "موعد التسليم يضعه المسجّل العام." }); return; }
   const termId = Number(req.body?.termId || 0);
   const deadline = String(req.body?.deadline || "").trim();
   if (!termId) { res.status(400).json({ error: "اختر الفصل أولاً." }); return; }
@@ -670,7 +677,7 @@ app.post("/api/approvals/deadline", requireAuth, async (req: AuthenticatedReques
  * الخادم. وفارغٌ يرفع التواريخ كلها: رفعُ القيد قرارٌ وارد.
  */
 app.post("/api/approvals/student-phases", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  if (!canManageDeadline(req.user?.Role) && !isPowerUser(req)) { res.status(403).json({ error: "مواعيد الطلبة يضعها رئيس التسجيل." }); return; }
+  if (!canManageDeadline(req.user?.Role) && !isPowerUser(req)) { res.status(403).json({ error: "مواعيد الطلبة يضعها المسجّل العام." }); return; }
   const termId = Number(req.body?.termId || 0);
   if (!termId) { res.status(400).json({ error: "اختر الفصل أولاً." }); return; }
   const term = await Repository.getTermById(termId);
@@ -706,7 +713,7 @@ app.post("/api/approvals/student-phases", requireAuth, async (req: Authenticated
  * تمديداً. ومنحُه يطوي طلبَ القسم إن كان.
  */
 app.post("/api/approvals/extension", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  if (!canManageDeadline(req.user?.Role) && !isPowerUser(req)) { res.status(403).json({ error: "التمديد يمنحه رئيس التسجيل." }); return; }
+  if (!canExtendDeadline(req.user?.Role) && !isPowerUser(req)) { res.status(403).json({ error: "التمديد يمنحه المسجّل العام أو رئيس تسجيل الكلية." }); return; }
   const scope = approvalScopeFromBody(req, res); if (!scope) return;
   const { collegeId, sectionId, termId } = scope;
   const until = String(req.body?.until || "").trim();
@@ -730,7 +737,7 @@ app.post("/api/approvals/extension", requireAuth, async (req: AuthenticatedReque
 });
 
 app.post("/api/approvals/extensions", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  if (!canManageDeadline(req.user?.Role) && !isPowerUser(req)) { res.status(403).json({ error: "الاستثناءاتُ يمنحها رئيس التسجيل." }); return; }
+  if (!canExtendDeadline(req.user?.Role) && !isPowerUser(req)) { res.status(403).json({ error: "الاستثناءاتُ يمنحها المسجّل العام أو رئيس تسجيل الكلية." }); return; }
   const termId = Number(req.body?.termId || 0);
   const action = String(req.body?.action || "grant");
   if (!termId) { res.status(400).json({ error: "اختر الفصل أولاً." }); return; }

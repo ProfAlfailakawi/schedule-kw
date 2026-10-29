@@ -166,6 +166,7 @@
     "test:demo-screens": "tsx tests/demo-screens-audit.ts",
     "test:demo-cases": "tsx tests/demo-cases-audit.ts",
     "test:roles": "tsx tests/role-guard-audit.ts",
+    "test:seats": "tsx tests/seats-audit.ts",
     "test:doctor-journey": "tsx tests/doctor-journey-audit.ts",
     "test:approval": "tsx tests/approval-workflow-audit.ts",
     "test:changes": "tsx tests/schedule-changes-audit.ts",

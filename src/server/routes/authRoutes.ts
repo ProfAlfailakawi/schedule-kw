@@ -20,13 +20,14 @@ import { requestsCloseAtFromDate, termLinkExpiresAt } from "../../utils/shareLin
 import { isSessionIdShape } from "../anonymousGuard";
 import { verificationCode, kuwaitDateISO } from "../../utils/approvalWorkflow";
 import { effectiveCourseHours } from "../../utils/scheduleRegulations";
-import { canManageDeadline, canReviewSubmissions, canAnnotateCells, isAcademicRole, isAdvisorRole, isViewerOnlyRole, roleDefinition, roleLabel, signatureStage, watchesInbox } from "../../utils/academicRoles";
+import { canExtendDeadline, canManageDeadline, canReviewSubmissions, canAnnotateCells, isAcademicRole, isAdvisorRole, isViewerOnlyRole, roleDefinition, roleLabel, signatureStage, watchesInbox } from "../../utils/academicRoles";
 import { seedDemoRadar, seedDemoMasariDemand } from "../demoRadarSeed";
 import { seedDemoOtherDepartmentStories } from "../demoPreviousTermSeed";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { LEGACY_SHARED_PASSWORD, newPasswordProblem } from "../accountPassword";
 import { endForRequest, requestFullySettled, weeklyLoadOf, type RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { pushHooks } from "../pushRoutes";
+import { seatIdentity } from "../seats";
 import { authCache, type AuthenticatedRequest, deadSessions, DEMO_SESSION_GONE, DEMO_SESSION_TTL_MS, getCookies, requireAuth, ROOT_ADMIN_USER_ID, SERVER_IDLE_SESSION_MS, sessionTouchedAt } from "../core/auth";
 import { DEMO_STORY_SCOPE, demoTeacherRequest } from "../core/demo";
 import { judgeRequestItems, REQUEST_LINK_DAYS } from "../core/instructorRequests";
@@ -485,6 +486,7 @@ function roleDescriptor(user: any) {
     landing: definition.landing,
     canReview: canReviewSubmissions(definition.id),
     canManageDeadline: canManageDeadline(definition.id),
+    canExtendDeadline: canExtendDeadline(definition.id),
     watchesInbox: watchesInbox(definition.id),
     canAnnotate: canAnnotateCells(definition.id),
     signatureStage: signatureStage(definition.id),
@@ -656,12 +658,14 @@ app.post("/api/auth/login", rateLimitLogin, async (req: Request, res: Response) 
   );
 
   loginAttempts.delete(req.ip || "unknown");
-  const safeUser = safeSystemUser(user);
   const userPerms = await Repository.getSecurityByUser(user.SystemUserId);
-  const permissions = userPerms.map(p => p.FormNameId);
-  const scopes = await clientScopeDetails(await Repository.getUserAssigns(user.SystemUserId));
+  /* الدخولُ بكلمة سرّ الكرسي دخولُ شاغله: يُقرأ اسمُه كما تقرؤه الجلساتُ بعده (docs/SEATS.md). */
+  const seated = (await seatIdentity(user, undefined, await Repository.getUserAssigns(user.SystemUserId), userPerms.map(p => Number(p.FormNameId))))!;
+  const safeUser = safeSystemUser(seated.user);
+  const permissions = seated.permissions;
+  const scopes = await clientScopeDetails(seated.scopes);
 
-  res.json({ user: { ...safeUser, IsRootAdmin: Number(user.SystemUserId) === ROOT_ADMIN_USER_ID, IsDemo: false }, role: roleDescriptor(user), permissions, scopes, data: activeDataMode() });
+  res.json({ user: { ...safeUser, IsRootAdmin: Number(user.SystemUserId) === ROOT_ADMIN_USER_ID, IsDemo: false }, role: roleDescriptor(seated.user), permissions, scopes, data: activeDataMode() });
 });
 
 /* تغييرُ كلمة السر بيد صاحبها: بالكلمة الحالية، ولا تُقبل الموحّدةُ القديمة ولا الحاليةُ نفسها.
@@ -707,8 +711,8 @@ app.get("/api/auth/me", async (req: AuthenticatedRequest, res: Response) => {
     return;
   }
   const safeUser = safeSystemUser(req.user);
-  const userPerms = await Repository.getSecurityByUser(req.user.SystemUserId);
-  const permissions = userPerms.map(p => p.FormNameId);
+  /* الشاشاتُ كما حُلّت للجلسة: عضوُ الفريق يرى شاشاتِ صفته هو، لا شاشاتِ الكرسي كلها. */
+  const permissions = req.permissions ?? (await Repository.getSecurityByUser(req.user.SystemUserId)).map(p => p.FormNameId);
   const scopes = await clientScopeDetails(req.scopes || []);
   // The interface says out loud when it is not on the university's database.
   const demoActiveRole = Number(req.user.SystemUserId) === ROOT_ADMIN_USER_ID ? "admin" : demoActiveRoleKey(Number(req.user.SystemUserId), (req.user as any).Role);

@@ -571,6 +571,8 @@ interface StoredSession {
   userId: number;
   createdAt: number;
   expiresAt: number;
+  /** عضوُ فريق الكرسي الذي فتح هذه الجلسة برابطه (docs/SEATS.md)؛ غائبٌ لجلسة الشاغل. */
+  memberId?: string;
 }
 const demoSessions = new Map<string, StoredSession>();
 
@@ -2579,7 +2581,9 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 }
 
 /** مجموعاتُ الميزات المسمّاة — لا تُكتب مجموعةٌ لم تُسمَّ هنا. */
-export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns";
+export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
+  /* الكراسي (docs/SEATS.md): سجلُّ كل حساب — شاغله وفريقه وتاريخه — وروابطُ أعضاء الفرق. */
+  | "seatLedgers" | "seatMemberLinks";
 /** معرّفُ وثيقة Firestore لا يحمل «/». */
 const featureDocId = (id: string) => String(id || "").replace(/\//g, "_").slice(0, 300);
 
@@ -2643,6 +2647,9 @@ export const Repository = {
     for (const [sessionId, record] of demoSandboxes) {
       if (record.expiresAt <= now) continue;
       if ((record.state.scheduleShareLinks || []).some(link => link.id === token)) return sessionId;
+      /* رابطُ عضو فريق الكرسي (docs/SEATS.md) يُنشأ داخل الصندوق كذلك. */
+      const seatLinks = ((record.state.featureDocs || {}) as Record<string, Record<string, unknown>>).seatMemberLinks || {};
+      if (Object.prototype.hasOwnProperty.call(seatLinks, token)) return sessionId;
     }
     return "";
   },
@@ -2661,9 +2668,9 @@ export const Repository = {
   decryptPasswordFromVault,
 
   // Sessions: Firestore-backed in production so login survives multi-instance/server restarts.
-  createSession: async (sessionId: string, userId: number, ttlMs: number): Promise<void> => {
+  createSession: async (sessionId: string, userId: number, ttlMs: number, extra: { memberId?: string } = {}): Promise<void> => {
     const now = Date.now();
-    const session: StoredSession = { sessionId, userId, createdAt: now, expiresAt: now + ttlMs };
+    const session: StoredSession = { sessionId, userId, createdAt: now, expiresAt: now + ttlMs, ...(extra.memberId ? { memberId: extra.memberId } : {}) };
     if (firestoreDb && !demoSandboxContext.getStore()) {
       // `expiresAt` stays a number because the code compares it as one. The
       // Timestamp twin exists purely so Firestore's own TTL policy can sweep
@@ -2722,6 +2729,36 @@ export const Repository = {
     demoSessions.delete(sessionId);
     demoSandboxes.delete(sessionId);
   },
+
+  /**
+   * يُخرج كلَّ جلسةٍ مفتوحة على حساب — أو جلساتِ عضوٍ واحدٍ من فريقه — دفعةً واحدة.
+   * التسليمُ وإنهاءُ العضوية يعنيان أن الجهاز الذي كان مفتوحاً لا يكمل، لا أن ينتظر خمس عشرة دقيقة.
+   */
+  deleteSessionsForUser: async (userId: number, memberId?: string): Promise<number> => {
+    const matches = (session: StoredSession) => Number(session.userId) === Number(userId) && (memberId === undefined || session.memberId === memberId);
+    let removed = 0;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("sessions").where("userId", "==", Number(userId)).get();
+      for (const doc of snap.docs) {
+        if (!matches(doc.data() as StoredSession)) continue;
+        await doc.ref.delete();
+        removed += 1;
+      }
+    } else {
+      const current = demoSandboxContext.getStore()?.sessionId;
+      for (const [id, session] of demoSessions) {
+        /* في البيئة التجريبية جلسةُ الزائر هي صندوقُه: لا تُحذف من تحته، فيبقى يجرّب. */
+        if (id === current || !matches(session)) continue;
+        demoSessions.delete(id);
+        removed += 1;
+      }
+    }
+    announceIdentityChange();
+    return removed;
+  },
+
+  /** يبلّغ ذاكرةَ الهويات أن شيئاً فيها تغيّر (شاغلُ كرسي، فريقُه، نائبُه)، فتُقرأ من جديد. */
+  notifyIdentityChanged: (): void => { announceIdentityChange(); },
 
   // Audit log: additive operational history. It is intentionally separate from legacy tables.
   createAuditLog: async (entry: Omit<AuditLogEntry, "id" | "timestamp">): Promise<AuditLogEntry> => {

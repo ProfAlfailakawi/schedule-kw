@@ -133,8 +133,9 @@ const approval = (over: Partial<ScheduleApproval> = {}): ScheduleApproval => ({ 
 {
   const bulk = route('app.post("/api/approvals/extensions"');
   check(bulk.length > 0, "D6 المسار POST /api/approvals/extensions موجود");
-  check(bulk.includes("!canManageDeadline(req.user?.Role) && !isPowerUser(req)") && bulk.indexOf("canManageDeadline") < bulk.indexOf("Repository."),
-    "D6 لرئيس التسجيل والإدارة وحدهما، قبل أي قراءة");
+  /* قرار المالك (2026-10-29، docs/SEATS.md): التمديدُ للمسجّل العام ولرئيس تسجيل الكلية في كليته، ووضعُ الموعد للأول وحده. */
+  check(bulk.includes("!canExtendDeadline(req.user?.Role) && !isPowerUser(req)") && bulk.indexOf("canExtendDeadline") < bulk.indexOf("Repository."),
+    "D6 لمن يمدّد والإدارة وحدهم، قبل أي قراءة");
   const managers = ACADEMIC_ROLES.filter(role => canManageDeadline(role.id)).map(role => role.id);
   check(managers.length === 1 && managers[0] === "registrarHead", "D6 ومن الصفات: رئيس التسجيل وحده");
   check(bulk.includes("AdTermClosed === true || termHasEnded(term"), "D6 فصلٌ انتهى أو أُغلق لا تُعدَّل مواعيده");

@@ -57,6 +57,8 @@ interface Props {
   rows: DeadlineRow[] | null;
   /** رئيسُ التسجيل (والإدارة) يكتب؛ وغيرُه يقرأ الشريط. */
   canEdit: boolean;
+  /** يمدّد ولا يضع الموعد: رئيسُ تسجيل الكلية (docs/SEATS.md). غائبٌ = كمن يضع الموعد. */
+  canExtend?: boolean;
   onChanged: () => void;
   /** «تمديد» من سطر الوارد: تُفتح ورقةُ الاستثناء على ذلك القسم. */
   extendFor?: { row: DeadlineRow; nonce: number } | null;
@@ -314,7 +316,9 @@ function ExceptionSheet({ seed, rows, termId, termDeadline, onClose, onApplied }
 
 /* ── اللوحة ─────────────────────────────────────────────────────────────── */
 
-export default function SubmissionDeadlines({ terms, termId, onTermChange, rows, canEdit, onChanged, extendFor, focus }: Props) {
+export default function SubmissionDeadlines({ terms, termId, onTermChange, rows, canEdit, canExtend: canExtendProp, onChanged, extendFor, focus }: Props) {
+  /* الاستثناءاتُ وطلباتُ التمديد لمن يمدّد؛ وموعدُ الفصل ومواعيدُ الطلبة لمن يضعه وحده. */
+  const canExtend = canEdit || Boolean(canExtendProp);
   const term = terms.find(row => Number(row.AdTermId) === termId);
   /* ميزان الفصل: الشريط يتمدّد مرّةً واحدة لكل فصل في الجلسة، لا مع كل تحديث. */
   const progressScope = useMotionScope<HTMLDivElement>({ playKey: `deadlines-progress:${termId}`, enabled: Boolean(rows) });
@@ -354,7 +358,7 @@ export default function SubmissionDeadlines({ terms, termId, onTermChange, rows,
   useEffect(() => { setDraft(termDeadline); }, [termDeadline]);
 
   /* ما ينتظر صاحبَ القرار لا يُطوى عنه: فصلٌ بلا موعد، أو طلبٌ معلّق. */
-  const needsAttention = canEdit && (phase === "none" || requests.length > 0);
+  const needsAttention = (canEdit && phase === "none") || (canExtend && requests.length > 0);
   const open = !collapsed || needsAttention || editing || Boolean(sheet);
 
   useEffect(() => {
@@ -496,7 +500,7 @@ export default function SubmissionDeadlines({ terms, termId, onTermChange, rows,
             <strong>لم يُحدَّد آخر موعدٍ لتسليم جداول {term?.AdTermName || "هذا الفصل"}</strong>
             <small>{canEdit
               ? "موعدٌ واحد لكل الأقسام، ينتهي 23:59 بتوقيت الكويت. ثم تُضاف الاستثناءات لمن يحتاج."
-              : "يضعه رئيس التسجيل، فيظهر لكل قسمٍ فوق جدوله."}</small>
+              : "يضعه المسجّل العام، فيظهر لكل قسمٍ فوق جدوله."}</small>
           </div>
           {canEdit ? (
             <div className="sd-presets">
@@ -603,7 +607,7 @@ export default function SubmissionDeadlines({ terms, termId, onTermChange, rows,
                     <span>يطلب {countOf(ask.days, oblique(AR.day))} — «{ask.reason}»</span>
                     <small>{ask.by}{ask.at ? ` · ${stamp(ask.at)}` : ""}{plan ? ` · يصبح موعده ${deadlineDateShort(plan.until)}` : ""}</small>
                   </div>
-                  {canEdit ? (
+                  {canExtend ? (
                     rejecting === key ? (
                       <div className="sd-reject">
                         <input value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="سبب الرفض — يراه القسم" aria-label="سبب الرفض" autoFocus />
@@ -637,7 +641,7 @@ export default function SubmissionDeadlines({ terms, termId, onTermChange, rows,
         <div className="sd-block">
           <h4>
             <CalendarPlus aria-hidden="true" /> الاستثناءات {exceptions.length ? <span className="sd-count">{exceptions.length}</span> : null}
-            {canEdit && rows ? (
+            {canExtend && rows ? (
               <PrimaryButton type="button" className="sd-add" data-guide-target="changes.action.exceptions" onClick={() => setSheet({
                 title: "إضافة استثناء", scope: "departments", picked: [], mode: "days", days: 3, until: termDeadline, reason: "",
               })}>
@@ -662,7 +666,7 @@ export default function SubmissionDeadlines({ terms, termId, onTermChange, rows,
                           {row.deadline.extensionReason ? <span>{row.deadline.extensionReason}</span> : null}
                           {row.extensionBy || row.extensionAt ? <small>{[row.extensionBy, stamp(row.extensionAt)].filter(Boolean).join(" · ")}</small> : null}
                         </div>
-                        {canEdit ? (
+                        {canExtend ? (
                           <div className="sd-exception-actions">
                             <button type="button" className="sd-icon" title="تعديل الاستثناء" aria-label={`تعديل استثناء ${row.sectionName}`}
                               data-guide-ignore="يفتح ورقة الاستثناء مملوءة — التطبيق بعدها هو الفعل" onClick={() => setSheet({

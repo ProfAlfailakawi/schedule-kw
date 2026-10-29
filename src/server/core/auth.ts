@@ -9,6 +9,7 @@ import { Request, Response, NextFunction } from "express";
 import { Repository } from "../../db/repository";
 import { createDeadSessionMemory, createSessionLookupBudget, isSessionIdShape } from "../anonymousGuard";
 import { isDemoLinkToken, publicLinkTokenFromPath } from "../../utils/demoLinkToken";
+import { seatIdentity } from "../seats";
 
 // Helper to parse cookies
 export function getCookies(req: Request): Record<string, string> {
@@ -171,9 +172,20 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
         Repository.getUserAssigns(user.SystemUserId),
         Repository.getSecurityByUser(user.SystemUserId),
       ]);
-      req.scopes = assigns;
-      req.permissions = security.map(item => Number(item.FormNameId));
-      authCache.set(sessionId, { at: Date.now(), userId: sess.userId, user, scopes: req.scopes || [], permissions: req.permissions });
+      /* الكرسيُّ ومن يجلس عليه (docs/SEATS.md): الاسمُ في السجل والتوقيع اسمُ الجالس، وعضوُ
+         الفريق بصفة فريقه ونطاقه. وجلسةُ عضوٍ لم يعد يعمل لا تُقرأ. */
+      const identity = await seatIdentity(user, sess.memberId, assigns, security.map(item => Number(item.FormNameId)));
+      if (!identity) {
+        authCache.delete(sessionId);
+        await Repository.deleteSession(sessionId);
+        if (billed) deadSessions.remember(sessionId);
+        next();
+        return;
+      }
+      req.user = identity.user;
+      req.scopes = identity.scopes;
+      req.permissions = identity.permissions;
+      authCache.set(sessionId, { at: Date.now(), userId: sess.userId, user: req.user, scopes: req.scopes || [], permissions: req.permissions });
       touchSession(sessionId, idleTtlMs);
       next();
       return;

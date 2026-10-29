@@ -19,7 +19,8 @@ export type AcademicRole =
   | "dean"            // عميد الكلية
   | "viceDean"        // العميد المساعد للشؤون الأكاديمية
   | "registrarDean"   // عميد التسجيل
-  | "registrarHead"   // رئيس التسجيل
+  | "registrarHead"   // المسجّل العام: كل الكليات، يضع موعد التسليم ويمدّده
+  | "collegeRegistrar" // رئيس تسجيل الكلية: كليته وحدها، يمدّد ولا يضع الموعد
   | "registrarStaff"  // موظف التسجيل
   | "departmentHead"  // رئيس القسم العلمي
   | "committeeChair"  // رئيس لجنة الجدول في القسم
@@ -99,13 +100,26 @@ export const ACADEMIC_ROLES: AcademicRoleDefinition[] = [
   },
   {
     id: "registrarHead",
-    label: "رئيس التسجيل",
-    hint: "كل الكليات: ملاحظات وقبول وإرجاع، ويضع موعد التسليم ويمدّده.",
+    label: "المسجّل العام",
+    hint: "كل الكليات: ملاحظات وقبول وإرجاع، ويضع موعد التسليم ويمدّده لأي كلية أو قسم.",
     readOnly: true,
     formIds: [REPORT_DEPARTMENT, QUERY_INSTRUCTOR, QUERY_ROOM, QUERY_ROOM_TIME],
     scopeMode: "allColleges",
     landing: "changes",
     order: 4,
+  },
+  {
+    /* ── رئيسُ تسجيل الكلية (docs/SEATS.md) ─────────────────────────────────
+     * ما يفعله المسجّلُ العام، في كليته وحدها: يلاحظ ويقبل ويُرجع، ويمدّد التسليمَ
+     * لكليته أو لأقسامها، ولا يضع موعدَ الفصل. وله فريقٌ من موظفي التسجيل في كليته. */
+    id: "collegeRegistrar",
+    label: "رئيس تسجيل الكلية",
+    hint: "كليته: ملاحظات وقبول وإرجاع، ويمدّد التسليم لكليته أو لأقسامها، ولا يضع موعد الفصل.",
+    readOnly: true,
+    formIds: [REPORT_DEPARTMENT, QUERY_INSTRUCTOR, QUERY_ROOM, QUERY_ROOM_TIME],
+    scopeMode: "college",
+    landing: "changes",
+    order: 4.5,
   },
   {
     id: "registrarStaff",
@@ -200,18 +214,27 @@ export function isReadOnlyRole(value: unknown): boolean {
 /** أدوار التسجيل: تكتب الملاحظات وتقبل وتُرجع، ولا تمسّ صفاً واحداً. */
 export function isRegistrarRole(value: unknown): boolean {
   const id = roleDefinition(value).id;
-  return id === "registrarHead" || id === "registrarStaff" || id === "registrarDean";
+  return id === "registrarHead" || id === "collegeRegistrar" || id === "registrarStaff" || id === "registrarDean";
 }
 
-/** من يملك وضع موعد التسليم وتمديده: رئيس التسجيل وحده. */
+/** من يضع موعد تسليم الفصل ومواعيد الطلبة: المسجّل العام وحده. */
 export function canManageDeadline(value: unknown): boolean {
   return roleDefinition(value).id === "registrarHead";
+}
+
+/**
+ * من يمدّد التسليم لكليةٍ أو قسم: المسجّلُ العام لأي كلية، ورئيسُ تسجيل الكلية
+ * لكليته — والنطاقُ يحرسه المسارُ نفسه (isScopeAllowed)، لا هذه الدالة.
+ */
+export function canExtendDeadline(value: unknown): boolean {
+  const id = roleDefinition(value).id;
+  return id === "registrarHead" || id === "collegeRegistrar";
 }
 
 /** من يملك الملاحظة والقبول والإرجاع على الوارد. */
 export function canReviewSubmissions(value: unknown): boolean {
   const id = roleDefinition(value).id;
-  return id === "registrarHead" || id === "registrarStaff";
+  return id === "registrarHead" || id === "collegeRegistrar" || id === "registrarStaff";
 }
 
 /** من يوقّع، وبأي ترتيب: اللجنة أولاً ثم رئيس القسم. */
@@ -242,7 +265,7 @@ export function isViewerOnlyRole(value: unknown): boolean {
  */
 export function watchesInbox(value: unknown): boolean {
   const id = roleDefinition(value).id;
-  return id === "registrarHead" || id === "registrarStaff" || id === "registrarDean";
+  return id === "registrarHead" || id === "collegeRegistrar" || id === "registrarStaff" || id === "registrarDean";
 }
 
 /**
@@ -257,7 +280,7 @@ export function watchesInbox(value: unknown): boolean {
  */
 export function canAnnotateCells(value: unknown): boolean {
   const id = roleDefinition(value).id;
-  return id === "registrarHead" || id === "registrarStaff"
+  return id === "registrarHead" || id === "collegeRegistrar" || id === "registrarStaff"
     || id === "departmentHead" || id === "committeeChair";
 }
 
@@ -272,7 +295,7 @@ export function canAnnotateCells(value: unknown): boolean {
 export function roleMismatchHint(name: unknown, role: unknown): string | null {
   const text = String(name || "");
   const id = roleDefinition(role).id;
-  if (/تسجيل/.test(text) && id !== "registrarHead" && id !== "registrarStaff" && id !== "registrarDean") {
+  if (/تسجيل/.test(text) && id !== "registrarHead" && id !== "collegeRegistrar" && id !== "registrarStaff" && id !== "registrarDean") {
     return "الاسم يدلّ على التسجيل والصفة ليست من صفات التسجيل — راجع الصفة.";
   }
   if (/^\s*عميد/.test(text) && id !== "dean" && id !== "viceDean" && id !== "registrarDean") {

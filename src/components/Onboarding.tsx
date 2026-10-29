@@ -380,7 +380,7 @@ export function onboardingScenesFor(roleId: string | undefined): { scenes: Scene
   switch (roleId) {
     case "departmentHead": return { scenes: HEAD_SCENES, staged: false };
     case "registrarHead": return { scenes: [REGISTRAR_SCENES[0], REGISTRAR_SCENES[1], REGISTRAR_SCENES[2], REGISTRAR_HEAD_EXTRA, REGISTRAR_SCENES[3]], staged: false };
-    case "registrarStaff": return { scenes: REGISTRAR_SCENES, staged: false };
+    case "registrarStaff": case "collegeRegistrar": return { scenes: REGISTRAR_SCENES, staged: false };
     case "dean": case "registrarDean": return { scenes: DEAN_SCENES, staged: false };
     case "viceDean": return { scenes: [...DEAN_SCENES.slice(0, 3), VICE_DEAN_EXTRA, ...DEAN_SCENES.slice(3)], staged: false };
     default: return { scenes: SCENES, staged: true };
@@ -391,6 +391,7 @@ const ROLE_GREETING: Record<string, string> = {
   departmentHead: " جدول قسمك بين يديك قراءةً وتوقيعاً.",
   registrarHead: " وارد الكليات بين يديك.",
   registrarStaff: " وارد كلياتك بين يديك.",
+  collegeRegistrar: " وارد كليتك بين يديك.",
   dean: " كليتك بين يديك اطّلاعاً.",
   viceDean: " كليتك بين يديك اطّلاعاً.",
   registrarDean: " الكليات كلها بين يديك اطّلاعاً.",

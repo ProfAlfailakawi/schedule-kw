@@ -18,6 +18,7 @@ import {
   Info,
   Library,
   LogOut,
+  Armchair,
   Megaphone,
   Menu,
   TrendingUp,
@@ -61,6 +62,8 @@ import { installClientTelemetry, setTelemetryOwner, telemetryBreadcrumb, telemet
 import { AR, countOf, nounFor } from "./utils/arabicCount";
 import { isInvitationHash } from "./utils/invitationLink";
 import ChangePassword from "./components/ChangePassword";
+import SeatDrawer from "./components/seats/SeatDrawer";
+import { seatActorCaption, type SeatActor } from "./utils/seats";
 
 function safeLazy<T extends React.ComponentType<any>>(factory: () => Promise<{ default: T }>) {
   return lazy(() =>
@@ -249,7 +252,7 @@ const reportViews: ReportMode[] = [
   "reportTime",
   "reportRoomTime",
 ];
-const adminViews: AdminMode[] = ["users", "permissions", "scopes", "audit", "locations", "roomSetup", "sectionHours", "teachingLoad", "backup"];
+const adminViews: AdminMode[] = ["users", "seats", "permissions", "scopes", "audit", "locations", "roomSetup", "sectionHours", "teachingLoad", "backup"];
 const academicViews: AcademicTab[] = ["terms", "colleges", "sections", "instructors", "courses"];
 /** Permission id that unlocks each academic catalogue. */
 const ACADEMIC_PERM: Record<AcademicTab, number> = {
@@ -309,6 +312,7 @@ const pathByView: Record<View, string> = {
   reportTime: "/FSchedule/TimeReportRPT",
   reportRoomTime: "/FSchedule/RoomTimeReportRPT",
   users: "/SystemUser/Index",
+  seats: "/SystemUser/Seats",
   permissions: "/FormSecurity/Index",
   scopes: "/AdCollegeUserAssign/Index",
   audit: "/System/AuditLog",
@@ -1130,6 +1134,8 @@ export default function App() {
      foot of the rail, where it belongs: a thing you glance at, not a place you
      navigate to. */
   const [journeyOpen, setJourneyOpen] = useState(false);
+  /* «كرسيّي» (docs/SEATS.md): فريقُ الكرسي والتسليم وتاريخه، من بطاقة الحساب. */
+  const [seatDrawerOpen, setSeatDrawerOpen] = useState(false);
   /* «الرحلة» من مساري (/?journey=1&back=/me): تُفتح فوق التطبيق نفسه حين يكون الزائر داخلاً (حساب العرض مثلاً)، لا في شاشة الدخول وحدها. */
   const [journeyFromMasari, setJourneyFromMasari] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("journey") === "1");
   /* التطبيق يعيد كتابة العنوان عند الإقلاع فيضيع ?back=: يُلتقط مرةً عند أول رسم. */
@@ -1536,6 +1542,8 @@ export default function App() {
     [permissions],
   );
   const isPowerAdmin = Boolean(user?.IsAdminUser || user?.IsRootAdmin);
+  /* من يجلس على الكرسي في هذه الجلسة (docs/SEATS.md)؛ غائبٌ لكرسيٍّ لم يُسجَّل شاغله. */
+  const seatActor = ((user as any)?.SeatActor || null) as SeatActor | null;
   /* شارةُ السياق لحساب القسم (scopeShape): الكلية والقسم مخفيّان في الشاشات، فيُقال له أين يعمل في رأسها. */
   const scopeContext = (() => {
     const shape = scopeShape(scopes as any, isPowerAdmin);
@@ -2046,6 +2054,12 @@ export default function App() {
       case "users":
         return isPowerAdmin && hasPerm(11) ? (
           <AdminUsers mode="users" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin)} demoReadOnly={Boolean(user.IsDemo)} />
+        ) : (
+          unauthorized()
+        );
+      case "seats":
+        return isPowerAdmin && hasPerm(11) ? (
+          <AdminUsers mode="seats" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin)} demoReadOnly={Boolean(user.IsDemo)} />
         ) : (
           unauthorized()
         );
@@ -2669,6 +2683,9 @@ export default function App() {
         {/* One card carries who you are, whether saving is safe, the theme and
             the way out — three sentences of chrome reduced to a dot and two
             glyphs, which also keeps the rail inside a 720px-tall laptop. */}
+        {seatDrawerOpen ? (
+          <SeatDrawer onClose={() => setSeatDrawerOpen(false)} canManage={!seatActor || seatActor.kind === "holder"} />
+        ) : null}
         {journeyOpen ? (
           <Suspense fallback={null}>
             <ScheduleJourney onClose={() => setJourneyOpen(false)} />
@@ -2687,11 +2704,13 @@ export default function App() {
               className={`user-avatar health-${health}`}
               title={healthLabel}
             >
-              {user.Name.trim().charAt(0) || "م"}
+              {(seatActor ? seatActor.name : user.Name).trim().replace(/^(د|أ|م)\.\s*/, "").charAt(0) || "م"}
               <i aria-hidden="true" />
             </div>
             <div className="user-card-identity">
-              <strong>{user.Name}</strong>
+              {/* الكرسيُّ ومن يجلس عليه (docs/SEATS.md): اسمُ الجالس أولاً، والكرسيُّ تحته. */}
+              <strong>{seatActor ? seatActor.name : user.Name}</strong>
+              {seatActor ? <small className="user-card-seat" title={`${seatActorCaption(seatActor)} · ${String((user as any).SeatName || "")}`}>{seatActor.kind === "holder" ? String((user as any).SeatName || "") : `${seatActorCaption(seatActor)} · ${String((user as any).SeatName || "")}`}</small> : null}
               {isPowerAdmin || !/^\s*قسم(?:\s|$)/.test(user.Name || "") ? (
                 <small className="user-card-section">
                   {isPowerAdmin ? "إدارة كاملة"
@@ -2704,6 +2723,17 @@ export default function App() {
             </div>
             <span className="sr-only" role="status">{healthLabel}</span>
             <div className="user-card-tools">
+              {!isPowerAdmin && sessionRole.id !== "standard" ? (
+                <button
+                  type="button"
+                  onClick={() => setSeatDrawerOpen(true)}
+                  title="كرسيّي: الفريق والتسليم والتاريخ"
+                  aria-label="كرسيّي"
+                  data-guide-ignore="يفتح لوحة الكرسي: الفريق والتسليم وتاريخ الكرسي"
+                >
+                  <Armchair />
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={replayOnboarding}

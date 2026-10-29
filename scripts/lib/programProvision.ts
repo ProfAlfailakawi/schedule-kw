@@ -67,7 +67,7 @@ export interface ProvisionReport {
 
 /** اسم الدخول لكل صفة: لاحقةٌ ثابتة بعد البادئة. */
 export const ROLE_LOGIN_SUFFIX: Record<string, string> = {
-  dean: "dean", viceDean: "vicedean", registrarDean: "registrardean", registrarHead: "registrarhead", registrarStaff: "registrarstaff",
+  dean: "dean", viceDean: "vicedean", registrarDean: "registrardean", registrarHead: "registrarhead", collegeRegistrar: "collegeregistrar", registrarStaff: "registrarstaff",
   departmentHead: "head", advisor: "advisor", committeeChair: "dept", standard: "user",
 };
 /** صفاتُ القسم تُقيَّد بقسم البرنامج؛ وما سواها بالكلية كلِّها (قسم صفر) — ولا شيء خارج هذه الكلية. */
