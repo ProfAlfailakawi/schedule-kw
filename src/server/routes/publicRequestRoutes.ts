@@ -29,6 +29,7 @@ import { planBadgesFor, serviceCourseKeys } from "../planBadgeShared";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { endForRequest, headlineReasonOf, rowFromRequest, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "../../utils/instructorRequestVerdict";
 import { offeringStatesForTerm } from "../offeringStates";
+import { pushHooks } from "../pushRoutes";
 import { linkMode, modeAllowsFreeEdit, modeAllowsWrite } from "../../utils/linkMode";
 import { bestPerSide, stickCandidates, topSticks, type StickAnchor, type StickJudged } from "../../utils/lectureStick";
 import { offeringBlocked, offeringView, toggleInterest, type CourseInterestDoc, type CourseOfferingDoc } from "../../utils/courseOffering";
@@ -794,6 +795,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
 
   res.setHeader("Cache-Control", "no-store");
   if (!unchangedConfirmed) broadcastNotify(Repository.currentDemoSessionId());
+  if (!unchangedConfirmed) await pushHooks.requestSubmitted(saved);
   res.json({ request: stripForInstructor(saved), changed, unchangedConfirmed });
 });
 
@@ -893,6 +895,7 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
   }, acceptAt >= 0 ? await requestReservationProposals(judged) : undefined);
   res.setHeader("Cache-Control", "no-store");
   broadcastNotify(Repository.currentDemoSessionId());
+  await pushHooks.teacherReplied(saved, [index], acceptAt >= 0);
   res.json({ request: stripForInstructor(await judgeRequestItems(saved)) });
 });
 
@@ -952,6 +955,7 @@ app.post("/api/public/request/:token/reply-batch", rateLimitPublicRequest, async
     timeline: [...(resolved.request.timeline || []), ...[...indexes].map(itemIndex => ({ kind: "proposal-accepted" as const, at: now, itemIndex }))],
   }, await requestReservationProposals(judged));
   res.setHeader("Cache-Control", "no-store"); broadcastNotify(Repository.currentDemoSessionId());
+  await pushHooks.teacherReplied(saved, [...indexes], true);
   res.json({ request: stripForInstructor(await judgeRequestItems(saved)) });
 });
 

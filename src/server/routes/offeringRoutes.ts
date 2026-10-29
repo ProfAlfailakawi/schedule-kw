@@ -19,6 +19,7 @@ import { AR, countOf } from "../../utils/arabicCount";
 import { planBadgesFor } from "../planBadgeShared";
 import { dayKeysOf } from "../../utils/instructorRequestItems";
 import { forgetOfferingStates } from "../offeringStates";
+import { pushHooks } from "../pushRoutes";
 import { isTaRequest } from "../../utils/requestParticipation";
 import { emptyOfferingDoc, normalizeLevel, normalizeOfferingEntry, offeringDocId, suggestFutureCourses, type CourseInterestDoc, type CourseOfferingDoc } from "../../utils/courseOffering";
 import { alternativeSections, baseCapacityFor, nearFull, normalizeQuotaConfig, sectionKey, seatState, tryAddSeats, type SeatLedger, type SeatQuotaConfig } from "../../utils/advisorSeats";
@@ -77,6 +78,7 @@ async function dispatchTaWaves(id: string, by: { SystemUserId?: number; UserName
   const out = [];
   for (const wave of claimed.result) out.push(...await sendTaWave(doc, wave, by));
   if (out.length) broadcastNotify(Repository.currentDemoSessionId());
+  if (out.length) await pushHooks.taWindowOpened(doc.closesAt, out);
   return out;
 }
 

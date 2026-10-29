@@ -7,7 +7,7 @@
  * ثم المفتاح الثابت للأستاذ، وأزرار Apple/Google/Outlook، وسياجٌ على الصفحات.
  */
 import fs from "node:fs";
-import { buildCalendar, buildReminder, calendarSubscribeLinks, CALENDAR_LINKS_CLIENT_JS } from "../src/utils/icalendar";
+import { buildCalendar, buildReminder, calendarSubscribeLinks, CALENDAR_LINKS_CLIENT_JS, escapeText } from "../src/utils/icalendar";
 import { CALENDAR_FEED_PAUSED_NOTE, calendarFeedKey, instructorFromCalendarKey, personCalendarKey } from "../src/server/calendarSecret";
 import { liveCardLinkFor } from "../src/utils/shareLinkLifetime";
 import { readServerSource } from "./helpers/serverSource.mjs";
@@ -202,5 +202,11 @@ ok(send.includes("description: pausedNote ? pausedNote :"), "the paused note bec
 const legacy = server.slice(server.indexOf('app.get("/api/public/ics/:token/:key"'), server.indexOf("/**\n * ── الاشتراكُ الثابت (M3)"));
 ok(legacy.includes("await sendInstructorCalendar(req, res, person);"), "legacy per-link feed keeps its own rule (dies with its link)");
 ok(server.includes("ما دامت بطاقتك سارية") && !server.includes('(نهاية الفصل)، ولا يحتاج إعادة إضافة'), "بطاقتي: the subscription note no longer promises the whole term regardless of revoke");
+
+/* CR وحده نهايةُ سطرٍ عند بعض قارئي التقويم: نصٌّ من رابط ‎/api/public/ics-reminder‎
+   كان يمرّ به كما هو فيُحقن سطرُ «END:VEVENT» جديد. */
+ok(escapeText("A\rEND:VEVENT\rBEGIN:VEVENT") === "A\\nEND:VEVENT\\nBEGIN:VEVENT" && !/[\r\n]/.test(escapeText("a\rb\nc\r\nd")), "escapeText: lone CR is escaped like LF and CRLF");
+const injected = buildReminder({ date: "2026-11-02", title: "A\rEND:VEVENT\rBEGIN:VEVENT\rSUMMARY:x", now: new Date("2026-10-28T08:00:00Z") } as any);
+ok(validateIcs(injected).length === 0 && injected.split("\r\n").filter(line => line === "BEGIN:VEVENT" || line === "END:VEVENT").length === 2 && !/\r(?!\n)/.test(injected), "reminder with lone CR in its text stays one valid event");
 
 console.log(`calendar-ics-audit: ${checks} checks passed`);

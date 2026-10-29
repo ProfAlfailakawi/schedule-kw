@@ -6,6 +6,7 @@ import EntranceOverture from "./components/EntranceOverture.tsx";
 import {safeStorage} from "./utils/safeStorage";
 import {BUILD_STAMP} from "./generated/buildStamp";
 import {toEnglishDigits} from "./utils/digits";
+import {unregisterAppWorkers} from "./utils/pushClient";
 import "./index.css";
 /* The decision lab is shared by screens and its CSS belongs to the browser entry,
    not its component: Node-based feature tests import the component directly. */
@@ -253,6 +254,11 @@ try {
  * blank page until someone thought to hard-refresh. Instead: drop the caches,
  * unregister the worker and reload — once. The guard makes a genuinely broken
  * build fail visibly rather than spin.
+ *
+ * «the worker» is the app's sw.js. The push worker (/push-sw.js) holds no cache
+ * and serves no request, so it cannot be what is stale — and unregistering it
+ * would silently cancel this device's push subscription. unregisterAppWorkers
+ * keeps it (src/utils/pushClient.ts).
  */
 const RECOVERY_KEY="schedule-chunk-recovery";
 const recoverFromStaleBuild=async()=>{
@@ -260,8 +266,7 @@ const recoverFromStaleBuild=async()=>{
   safeStorage.set(RECOVERY_KEY,"1","session");
   try{
     if("caches" in window){const keys=await caches.keys();await Promise.all(keys.map(key=>caches.delete(key)))}
-    const registrations=await navigator.serviceWorker?.getRegistrations?.();
-    await Promise.all((registrations||[]).map(registration=>registration.unregister()));
+    await unregisterAppWorkers();
   }catch{/* a blocked cache API must not stop the reload */}
   window.location.reload();
 };
@@ -344,8 +349,8 @@ if (import.meta.env.PROD) {
           if (versionBusy()) { window.setTimeout(() => { void reset(); }, 4000); return; }
           try {
             if ("caches" in window) { const keys = await caches.keys(); await Promise.all(keys.map(key => caches.delete(key))); }
-            const registrations = await navigator.serviceWorker?.getRegistrations?.();
-            await Promise.all((registrations || []).map(registration => registration.unregister()));
+            /* every worker but the push one: it caches nothing, and dropping it cancels the push subscription */
+            await unregisterAppWorkers();
           } catch { /* a blocked cache API must not stop the reload */ }
           window.location.reload();
         };

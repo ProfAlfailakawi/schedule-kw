@@ -24,6 +24,7 @@ import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT } from "../src/serve
 import { AR } from "../src/utils/arabicCount";
 import { CALENDAR_LINKS_CLIENT_JS } from "../src/utils/calendarLinks";
 import { TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS } from "../src/server/teacherCardExtras";
+import { PUSH_CARD_CSS, PUSH_CARD_JS, pushCardHead } from "../src/server/pushCard";
 import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
@@ -42,7 +43,7 @@ for (const name of PAGES) {
   if (!node) { check(false, `${name}: موجودة`); continue; }
   const js = ts.transpileModule(node.getText(source), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const args = node.parameters.map(() => JSON.stringify("x")).join(",");
-  const sandbox: any = { out: "", AR, ARABIC_COUNT_SCRIPT, NEGOTIATION_LABEL, PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS, REQUEST_VISUAL_CSS, REQUEST_VISUAL_JS, REQUEST_V3_CSS, REQUEST_V4_CSS, PATTERN_LIBRARY_CSS, PATTERN_LIBRARY_ICON, patternLibraryHtml, patternLibraryInput, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT, DEMO_COPY_SCRIPT, REQUEST_REPLAY_SCRIPT, REQUEST_DAY_AUTOFILL_SCRIPT, VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT, CALENDAR_LINKS_CLIENT_JS, TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS };
+  const sandbox: any = { out: "", AR, ARABIC_COUNT_SCRIPT, NEGOTIATION_LABEL, PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS, REQUEST_VISUAL_CSS, REQUEST_VISUAL_JS, REQUEST_V3_CSS, REQUEST_V4_CSS, PATTERN_LIBRARY_CSS, PATTERN_LIBRARY_ICON, patternLibraryHtml, patternLibraryInput, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT, DEMO_COPY_SCRIPT, REQUEST_REPLAY_SCRIPT, REQUEST_DAY_AUTOFILL_SCRIPT, VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT, CALENDAR_LINKS_CLIENT_JS, TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS, PUSH_CARD_CSS, PUSH_CARD_JS, pushCardHead };
   try {
     vm.runInNewContext(`${js}\nout = ${name}(${args});`, sandbox);
   } catch (error: any) {

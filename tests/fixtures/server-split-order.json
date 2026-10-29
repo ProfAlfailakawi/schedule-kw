@@ -186,6 +186,8 @@
   "import#183",
   "import#184",
   "import#185",
+  "import#186",
+  "import#187",
   "stmt:configureRuntimeEnvironment();",
   "decl:app",
   "app:set \"trust proxy\"",
@@ -816,8 +818,8 @@
   "app:post \"/api/user-scopes\"",
   "app:put \"/api/user-scopes/:id\"",
   "app:delete \"/api/user-scopes/:id\"",
-  "import#186",
-  "import#187",
+  "import#188",
+  "import#189",
   "app:get \"/api/reports/excel/:type\"",
   "app:get \"/api/search/natural\"",
   "decl:balanceScopeLabel",
@@ -1088,6 +1090,7 @@
   "stmt:registerSimulationRoutes(app, { requireAuth, isScopeAllowed: (req, collegeId, sectionId) => isScopeAllowed(req, collegeI",
   "stmt:registerInsightRoutes(app, { requireAuth, isScopeAllowed: (req, collegeId, sectionId) => isScopeAllowed(req, collegeId, ",
   "stmt:registerTimeMachineRoutes(app, { requireRead: requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), requireWrite: requirePerm",
+  "stmt:registerPushRoutes(app, { requireAuth, isScopeAllowed: (req, collegeId, sectionId) => isScopeAllowed(req, collegeId, sec",
   "stmt:registerStudentShowcase(app, { identityKey: studentIdentityKey, sealIdentity: sealStudentIdentity, isProduction: () => p",
   "stmt:registerStudentDoorRoutes(app, { surveyFingerprint, sealIdentity: sealStudentIdentity, openIdentity: value => openStuden",
   "app:get [\"/me\", \"/me/\"]",
@@ -4722,6 +4725,47 @@
    ]
   },
   {
+   "spec": "./src/server/pushRoutes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "pushHooks",
+     "pushHooks",
+     false
+    ],
+    [
+     "registerPushRoutes",
+     "registerPushRoutes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/pushCard",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "PUSH_CARD_CSS",
+     "PUSH_CARD_CSS",
+     false
+    ],
+    [
+     "PUSH_CARD_JS",
+     "PUSH_CARD_JS",
+     false
+    ],
+    [
+     "pushCardHead",
+     "pushCardHead",
+     false
+    ]
+   ]
+  },
+  {
    "spec": "./src/utils/linkMode",
    "type": false,
    "def": null,
@@ -5163,6 +5207,11 @@
     [
      "normalizeClock",
      "normalizeClock",
+     false
+    ],
+    [
+     "readScheduleTimeRange",
+     "readScheduleTimeRange",
      false
     ],
     [

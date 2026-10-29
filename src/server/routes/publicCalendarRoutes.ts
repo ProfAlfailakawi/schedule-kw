@@ -170,6 +170,9 @@ app.get("/api/public/schedule/:token", async (req: Request, res: Response) => {
   if (resolved.link.kind === "survey") { res.status(404).json({ error: "هذا الرابط استبيان للطلبة" }); return; }
   /* رابطُ جدول الطلبة يقرأ المعتمدَ وحده من بابه (/api/public/students). */
   if (resolved.link.kind === "students") { res.status(404).json({ error: "هذا الرابط جدول الطلبة" }); return; }
+  /* ورابطُ الطلب لصاحبه وحده (/r): صفحةُ /s تحوّله إلى بابه ولا تفتح به جدولَ
+     القسم، فلا تفتحه واجهتُها كذلك. */
+  if (resolved.link.kind === "request") { res.status(404).json({ error: "هذا الرابط طلب جدول لأستاذ" }); return; }
   void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
   res.setHeader("Cache-Control", "no-store");
   res.json(await buildSharePayload(resolved.link));
@@ -178,7 +181,7 @@ app.get("/api/public/schedule/:token", async (req: Request, res: Response) => {
 app.get("/api/public/ics/:token", async (req: Request, res: Response) => {
   const resolved = await resolveShareToken(String(req.params.token));
   if ("error" in resolved) { res.status(resolved.status).type("text/plain; charset=utf-8").send(resolved.error); return; }
-  if (resolved.link.kind === "staff" || resolved.link.kind === "survey" || resolved.link.kind === "students") { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
+  if (resolved.link.kind === "staff" || resolved.link.kind === "survey" || resolved.link.kind === "students" || resolved.link.kind === "request") { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
   const payload = await buildSharePayload(resolved.link);
   void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
   /* A lecture cancelled on one specific date disappears from that one date in

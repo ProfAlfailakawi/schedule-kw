@@ -157,6 +157,8 @@ import "../../utils/icalendar";
 import "../../utils/calendarLinks";
 import "../offeringStates";
 import "../teacherCardExtras";
+import "../pushRoutes";
+import "../pushCard";
 import "../../utils/linkMode";
 import "../../utils/requestParticipation";
 import "../../utils/lectureStick";

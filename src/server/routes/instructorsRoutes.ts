@@ -457,6 +457,16 @@ app.put("/api/visiting-roster", requirePermission(7), async (req: AuthenticatedR
   const ids: number[] = Array.isArray(req.body?.instructorIds) ? req.body.instructorIds.map(Number).filter(Boolean) : [];
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل." }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  /* عضويةُ الفصل تُختار من دليل القسم (أو ممّن في الفصل أصلاً)، لا من أرقامٍ
+     حرّة: رقمُ أيِّ موظفٍ في الجامعة كان يدخل الفصل، ثم «نسخ الفصل» يرفعه إلى
+     دليل القسم الدائم، فتُقرأ بياناته كاملةً ويُعدَّل سجلُّه. والإضافةُ برقمٍ
+     مدنيٍّ جديد لها بابُها (/api/visiting-roster/instructor). */
+  const [currentRoster, directory] = await Promise.all([
+    Repository.getVisitingRoster(collegeId, sectionId, termId),
+    Repository.getDepartmentDelegates(collegeId, sectionId),
+  ]);
+  const known = new Set<number>([...currentRoster, ...directory].map(Number));
+  if (ids.some(id => !known.has(Number(id)))) { res.status(400).json({ error: "أضف المنتدب إلى قائمة القسم أولاً (بالرقم المدني)، ثم حدّده لهذا الفصل." }); return; }
   // Term membership is deliberately independent of the permanent department
   // directory. Removing somebody from this term never deletes them from the
   // department's own delegate list.

@@ -14,6 +14,10 @@ test:room-occupancy
 test:room-door
 test:doctor-journey
 test:calendar-ics
+test:review-audit-1028
+test:demand-repair-simulation
+test:visiting-to-faculty
+test:pdf-term-rule
 test:owner-features-1028
 test:ta-phase-flow
 test:staff-global
@@ -35,6 +39,7 @@ test:blockers-stream
 test:changes-baseline
 test:notifications
 test:bell-yield
+test:web-push
 test:id-types
 test:inbox-live
 test:public-syntax

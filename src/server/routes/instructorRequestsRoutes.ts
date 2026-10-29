@@ -23,6 +23,7 @@ import { roleLabel } from "../../utils/academicRoles";
 import { requestItemFromRow } from "../../utils/instructorRequestItems";
 import { requestFullySettled } from "../../utils/instructorRequestVerdict";
 import { offeringStatesForTerm } from "../offeringStates";
+import { pushHooks } from "../pushRoutes";
 import { issueLinkMode, linkMode, linkModeLabel, taPhaseOwns } from "../../utils/linkMode";
 import { notOpened } from "../../utils/requestParticipation";
 import { offeringBadge } from "../../utils/courseOffering";
@@ -640,6 +641,7 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
     ...stored, items, timeline,
     status: decided ? "settled" : "in-review",
   });
+  await pushHooks.requestDecided(saved, index);
   res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });
 
@@ -905,6 +907,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
     } catch { warnings.push({ message: "ثُبّت الطلب؛ تعذّر تحديث سجل النسخة أو الإشعار. راجع حركة الجدول." }); }
   }
   const saved = committed.request;
+  await pushHooks.requestFixed(saved, chain);
   res.locals.auditChanges = `تثبيت رغبة أستاذ (${String(instructor?.AdInstructorName || "")}): ` + plan.map(step =>
     `${step.action === "delete" ? "حذف" : step.action === "create" ? "إضافة" : "نقل"} ${step.days.map(dayLabelOf).join(" و")} ${formatScheduleTimeRange(step.start, step.end)}`).join(" · ");
   res.locals.auditRowIds = [...committed.rows.map(row => row.id), ...ops.filter(op => op.kind === "delete").map(op => (op as any).rowId)];
@@ -960,6 +963,7 @@ app.post("/api/instructor-requests/:id/reply", requirePermission(7), async (req:
     timeline: [...(stored.timeline || []), { kind: "department-replied" as InstructorRequestEventKind, at: now, by, itemIndex: index }],
   });
   broadcastNotify(Repository.currentDemoSessionId());
+  await pushHooks.departmentReplied(saved, index);
   res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });
 }

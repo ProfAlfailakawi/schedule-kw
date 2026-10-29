@@ -26,6 +26,7 @@ import { seedDemoOtherDepartmentStories } from "../demoPreviousTermSeed";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { DEFAULT_INVITATION_PASSWORD } from "../../utils/invitationLink";
 import { endForRequest, requestFullySettled, weeklyLoadOf, type RequestDayKey } from "../../utils/instructorRequestVerdict";
+import { pushHooks } from "../pushRoutes";
 import { authCache, type AuthenticatedRequest, deadSessions, DEMO_SESSION_GONE, DEMO_SESSION_TTL_MS, getCookies, requireAuth, ROOT_ADMIN_USER_ID, SERVER_IDLE_SESSION_MS, sessionTouchedAt } from "../core/auth";
 import { DEMO_STORY_SCOPE, demoTeacherRequest } from "../core/demo";
 import { judgeRequestItems, REQUEST_LINK_DAYS } from "../core/instructorRequests";
@@ -660,6 +661,7 @@ app.post("/api/auth/logout", async (req: AuthenticatedRequest, res: Response) =>
     // Drop the remembered identity before the record, so no request in flight
     // can be served from memory after the person has signed out.
     forgetAuthSession(sessionId);
+    await pushHooks.signedOut(sessionId);
     /* معرّفٌ لم يصنعه الخادم لا سجلَّ له يُحذف؛ والمحذوفُ يُذكر ميّتاً، فتبويبٌ
        آخر بالكوكي القديم لا يُسأل عنه بعد الآن. */
     if (isSessionIdShape(sessionId)) await Repository.deleteSession(sessionId);

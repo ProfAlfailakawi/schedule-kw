@@ -1,0 +1,53 @@
+/* ── 🔔 «خلّ التنبيهات توصل جوالك»: بطاقةٌ في مركز الإشعارات (src/components/PushCard.tsx) ──
+   صفٌّ واحد: أيقونةٌ، وسطرٌ وأيقونتا ما يصل، ومفتاح. «جرّب» يظهر حين يعمل.
+   الألوانُ كلُّها من رموز الواجهة فتتبع الوضعين النهاري والليلي. */
+.push-card{
+  margin:10px 12px 2px;padding:12px 12px 12px 14px;
+  display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:8px 12px;
+  border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-radius:var(--r-md);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--accent-soft) 75%,var(--surface)) 0%,var(--surface) 100%);
+}
+.push-icon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm)}
+.push-icon svg{width:20px;height:20px}
+.push-card[data-state="off"] .push-icon svg,.push-card[data-state="ios"] .push-icon svg{animation:push-ring 2.4s ease 1.2s 2;transform-origin:50% 10%}
+@keyframes push-ring{0%,40%,100%{transform:rotate(0)}8%{transform:rotate(-14deg)}16%{transform:rotate(12deg)}24%{transform:rotate(-8deg)}32%{transform:rotate(5deg)}}
+.push-text{display:grid;gap:4px;min-width:0}
+.push-text strong{font-size:14px;font-weight:700;line-height:1.5;color:var(--ink)}
+.push-kinds,.push-how{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:12.5px;line-height:1.6;color:var(--ink-2)}
+.push-kinds span{display:inline-flex;align-items:center;gap:5px}
+.push-kinds svg,.push-how svg{width:15px;height:15px;flex:none;color:var(--accent)}
+
+/* المفتاح */
+.push-switch{position:relative;flex:none;width:48px;height:28px;padding:0;border:0;border-radius:999px;background:color-mix(in srgb,var(--ink-2) 28%,var(--line));cursor:pointer;transition:background .2s var(--ease,ease)}
+.push-switch i{position:absolute;top:3px;inset-inline-start:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgb(0 0 0 / .25);transition:inset-inline-start .2s var(--ease,ease)}
+.push-switch[aria-checked="true"]{background:var(--success)}
+.push-switch[aria-checked="true"] i{inset-inline-start:23px}
+.push-switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.push-switch:disabled{cursor:progress;opacity:.7}
+.push-switch[aria-busy="true"] i{animation:push-pulse .9s ease-in-out infinite alternate}
+@keyframes push-pulse{to{transform:scale(.8)}}
+
+.push-try{grid-column:2 / -1;justify-self:start;display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 14px;border-radius:999px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.push-try svg{width:14px;height:14px}
+.push-try:hover:not(:disabled){background:var(--accent-soft)}
+.push-try:disabled{opacity:.6;cursor:progress}
+.push-note{grid-column:1 / -1;margin:0;font-size:12.5px;line-height:1.6;color:var(--success)}
+.push-note[data-tone="bad"]{color:var(--danger)}
+
+.push-card[data-state="on"]{border-color:color-mix(in srgb,var(--success) 26%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--success-soft) 80%,var(--surface)) 0%,var(--surface) 100%)}
+.push-card[data-state="on"] .push-icon{color:var(--success)}
+.push-card[data-state="blocked"]{grid-template-columns:40px minmax(0,1fr);border-color:color-mix(in srgb,var(--danger) 24%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--danger-soft) 80%,var(--surface)) 0%,var(--surface) 100%)}
+.push-card[data-state="blocked"] .push-icon{color:var(--danger)}
+.push-card[data-state="blocked"] .push-how svg{color:var(--danger)}
+
+/* iPhone خارج الشاشة الرئيسية: ثلاثُ خطواتٍ بأيقوناتها */
+.push-card[data-state="ios"]{grid-template-columns:40px minmax(0,1fr);align-items:start}
+.push-steps{list-style:none;margin:6px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.push-steps li{position:relative;display:grid;justify-items:center;gap:5px;text-align:center}
+.push-steps li span{position:relative;z-index:1;width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm)}
+.push-steps li span svg{width:18px;height:18px}
+.push-steps li small{font-size:11.5px;line-height:1.4;color:var(--ink-2)}
+.push-steps li+li::before{content:"";position:absolute;top:17px;inset-inline-start:calc(-50% + 18px);width:calc(100% - 36px + 6px);height:2px;border-radius:2px;background:color-mix(in srgb,var(--accent) 35%,transparent)}
+
+@media (prefers-reduced-motion:reduce){.push-card .push-icon svg,.push-switch i{animation:none!important;transition:none}}
+@media print{.push-card{display:none}}

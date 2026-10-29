@@ -8,6 +8,8 @@ import { NOTIFY_FOCUS_KEY, writeNotifyFocus } from "../utils/notifyFocus";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { SEEN_LIMIT, seenKey } from "../utils/notificationSeen";
 import { followOpenDialogs } from "../utils/dialogLayer";
+import { listenForPushOpen, pushActiveHere } from "../utils/pushClient";
+import PushCard from "./PushCard";
 
 /**
  * ── مركز الإشعارات ──────────────────────────────────────────────────────────
@@ -89,9 +91,11 @@ export default function NotificationCenter({ userKey, onNavigate }: Props) {
           if (arrived.length) {
             setToast(arrived[0]);
             setToastMore(arrived.length - 1);
+            /* طلباتُ الأساتذة يحملها تنبيهُ الجوال إن فُعّل هنا (PushCard): لا تنبيهَ ثانٍ من اللسان. */
+            const desk = pushActiveHere(userKey) ? arrived.filter(item => !item.id.startsWith("request:")) : arrived;
             try {
-              if (document.hidden && "Notification" in window && Notification.permission === "granted") {
-                new Notification("SCHEDULE", { body: arrived[0].title, tag: arrived[0].id });
+              if (desk.length && document.hidden && "Notification" in window && Notification.permission === "granted") {
+                new Notification("SCHEDULE", { body: desk[0].title, tag: desk[0].id });
               }
             } catch { /* المتصفّح يمنع — يكفي الجرس */ }
           }
@@ -153,6 +157,15 @@ export default function NotificationCenter({ userKey, onNavigate }: Props) {
   /* الجرسُ يتنحّى لكل نافذةٍ مفتوحة فوق الصفحة (03-shell.css). حيث يعرف المحرّكُ
      :has() لا يعمل هذا شيئاً؛ وحيث لا يعرفه يكتب العلامةَ على <html> بنفسه. */
   useEffect(() => followOpenDialogs(), []);
+
+  /* لُمس تنبيهُ الجوال واللسانُ مفتوح: يفتح عاملُ التنبيهات اللسانَ ويطلب الصفحة،
+     فتُفتح هنا بلا إعادة تحميل (App يقرأ المسار من popstate). */
+  useEffect(() => listenForPushOpen(path => {
+    setOpen(false);
+    if (window.location.pathname + window.location.search === path) return;
+    window.history.pushState({}, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }), []);
 
   /* عنوانُ النافذة يحمل العدد: من فتح النظامَ في لسانٍ جانبيٍّ يراه دون أن يعود إليه. */
   const mineCount = items.filter(item => item.tone === "alert" || item.tone === "action").length;
@@ -218,7 +231,7 @@ export default function NotificationCenter({ userKey, onNavigate }: Props) {
         onClick={() => {
           setOpen(value => !value);
           setToast(null);
-          try { if ("Notification" in window && Notification.permission === "default") void Notification.requestPermission(); } catch { /* اختياري */ }
+          /* الإذنُ يُطلب من مفتاح «خلّ التنبيهات توصل جوالك» داخل اللوحة وحده، لا عند فتحها. */
         }}
       >
         <Bell aria-hidden="true" />
@@ -240,6 +253,7 @@ export default function NotificationCenter({ userKey, onNavigate }: Props) {
               <button type="button" aria-label="إغلاق" data-guide-ignore="إغلاق لوحة الإشعارات لا يعدّل البيانات" onClick={() => setOpen(false)}><X aria-hidden="true" /></button>
             </span>
           </header>
+          <PushCard userKey={userKey} />
           {groups.length ? groups.map(group => (
             <section key={group.id} aria-label={group.label}>
               <h3>{group.label} <span>{group.rows.length}</span></h3>

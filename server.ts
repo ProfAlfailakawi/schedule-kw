@@ -28,6 +28,7 @@ import { registerInsightRoutes } from "./src/server/insightRoutes";
 import { registerTimeMachineRoutes } from "./src/server/timeMachineRoutes";
 import { registerRoomDoorRoutes } from "./src/server/roomDoorRoutes";
 import { scheduleAutoTermJob } from "./src/server/autoTerms";
+import { registerPushRoutes } from "./src/server/pushRoutes";
 import { eligibleHallsForSection } from "./src/utils/locationRegistry";
 import { state } from "./src/server/core/state";
 import { noteScheduleMutation, scheduleLockRefusal } from "./src/server/core/approvals";
@@ -574,6 +575,14 @@ registerTimeMachineRoutes(app, {
   normalizer: async () => { const registry = await readLocationRegistry(); return row => canonicalizeHistoricalLocationForRuntime(row, registry); },
   lengthIssue: (row, week) => scheduleLengthIssue(row, week),
   dataContextKey: dataContextCacheKey,
+});
+
+/* ── 🔔 تنبيهاتُ الجوال (Web Push): المساراتُ والمفتاح وخطافاتُ الأحداث في src/server/pushRoutes.ts ── */
+registerPushRoutes(app, {
+  requireAuth,
+  isScopeAllowed: (req, collegeId, sectionId) => isScopeAllowed(req, collegeId, sectionId),
+  isPowerUser: req => isPowerUser(req),
+  resolveCard: async token => { const resolved = await resolveRequestLink(token); return "error" in resolved ? null : { token: resolved.link.id, instructorId: Number(resolved.request.AdInstructorId) }; },
 });
 
 /* ── مساري: رابطٌ دائمٌ واحدٌ للجامعة كلها ────────────────────────────

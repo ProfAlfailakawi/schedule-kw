@@ -20,6 +20,7 @@ import { NEGOTIATION_LABEL } from "../../utils/instructorRequestThread";
 import { ARABIC_COUNT_SCRIPT } from "../../utils/arabicCount";
 import { CALENDAR_LINKS_CLIENT_JS } from "../../utils/calendarLinks";
 import { TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS } from "../teacherCardExtras";
+import { PUSH_CARD_CSS, PUSH_CARD_JS, pushCardHead } from "../pushCard";
 
 /**
  * ── صفحةُ الأستاذ ───────────────────────────────────────────────────────────
@@ -46,6 +47,7 @@ export function instructorRequestPage(token: string, nonce: string, demoHint = "
 <meta name="color-scheme" content="light"><meta name="theme-color" content="#f2f3ef">
 <title>جدولي — طلب تعديل</title>
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/schedule-icon-192.png">
+${pushCardHead(token)}
 <style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}
 ${typeof ACADEMIC_ADVICE_CSS !== "undefined" ? ACADEMIC_ADVICE_CSS : ""}
 :root{color-scheme:light dark;--ink:#15251d;--muted:#627269;--muted2:#8b9991;--line:#dce5df;--line2:#cbd8d0;--bg:#fff;--card:#fff;
@@ -166,6 +168,7 @@ ${PATTERN_LIBRARY_CSS}
 .plib-pop{position:fixed;inset-inline:12px;inset-block-start:9vh;z-index:60;margin-inline:auto;inline-size:auto;max-inline-size:440px;max-block-size:80vh;overflow:auto;padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:0 24px 60px rgba(22,57,40,.25)}
 ${REQUEST_VISUAL_CSS}
 ${TEACHER_CARD_EXTRAS_CSS}
+${PUSH_CARD_CSS}
 /* Completed unchanged request: minimal signed confirmation, no review pathway. */
 .confirm-wrap{max-width:570px;margin:clamp(32px,9vh,82px) auto 20px;text-align:center}
 .confirm-card{position:relative;overflow:hidden;padding:clamp(24px,6vw,44px) 22px 27px;border:1px solid #cde4d7;border-radius:28px;background:linear-gradient(155deg,#f0f8f3 0%,#fff 58%,#f6f9f5 100%);box-shadow:0 18px 55px rgba(31,107,92,.09)}
@@ -189,6 +192,7 @@ ${TEACHER_CARD_EXTRAS_CSS}
 ${PUBLIC_KIT_SCRIPT}
 ${CALENDAR_LINKS_CLIENT_JS}
 ${TEACHER_CARD_EXTRAS_JS}
+${PUSH_CARD_JS}
 var PLIB=${JSON.stringify(patternLibraryHtml(patternLibraryInput()))},PLIB_ICON=${JSON.stringify(PATTERN_LIBRARY_ICON)};
 document.addEventListener("click",function(e){var d=document.querySelector(".plib[open]");if(d&&!d.contains(e.target))d.removeAttribute("open")});
 var TOKEN=${JSON.stringify(token)},host=document.getElementById("host"),demoNode=document.querySelector("#demoTop .demo-hint"),demoOpen=false,data=null,state=[],activeTab="schedule",chooserOpen=false,offeringsOpen=false,offeringSearch="";

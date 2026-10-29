@@ -18,7 +18,7 @@ import path from "path";
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore, FieldPath, FieldValue, Timestamp } from "firebase-admin/firestore";
-import type { Firestore, WriteBatch } from "firebase-admin/firestore";
+import type { Firestore, QueryDocumentSnapshot, WriteBatch } from "firebase-admin/firestore";
 import { gzipSync, gunzipSync } from "zlib";
 import { assertExplicitProductionTarget } from "../server/firestoreTarget";
 import { defaultPrivateDirectory, isCloudRunRuntime, materializePackagedSnapshotOnce, packagedSnapshotPath, readJsonSnapshot } from "./snapshot";
@@ -95,6 +95,7 @@ import { kuwaitDayOfIso, recordLinkOpen } from "../utils/linkOpens";
 import type { LinkMode } from "../utils/linkMode";
 import { unchangedScheduleFingerprint } from "../utils/instructorRequestConfirmation";
 import { foreignWrites, type BeaconCount } from "./beaconEcho";
+import { collectPages, type PushSubscriptionRecord } from "../server/webPush";
 
 // Runtime state must not live inside the replaceable application release. A number of
 // deployment/upload tools synchronize an archive by deleting destination files that are
@@ -295,6 +296,8 @@ interface DBState {
   departmentFaculty?: DepartmentDelegateDirectory[];
   /** «المقروء» في جرس الإشعارات لكل مستخدم (src/utils/notificationSeen.ts). */
   notificationSeen?: Array<{ userId: number; ids: string[]; updatedAt: string }>;
+  /** اشتراكاتُ تنبيهات الجوال (src/server/webPush.ts): سجلٌّ لكل جهاز. */
+  pushSubscriptions?: PushSubscriptionRecord[];
   locationBuildings?: MasterBuilding[];
   locationRooms?: MasterRoom[];
   locationRoomTypes?: string[];
@@ -567,6 +570,27 @@ interface StoredSession {
   expiresAt: number;
 }
 const demoSessions = new Map<string, StoredSession>();
+
+/**
+ * ── صندوقٌ انتهى ولم يعد صاحبه يُكنس ────────────────────────────────────────
+ * كان الصندوقُ المنتهي يُحذف فقط حين يعود صاحبُه بالجلسة نفسها — والزائرُ الذي
+ * أغلق المتصفح لا يعود، فبقيت صناديقُهم (ربع ميغابايت لكلٍّ منها قبل التعبئة)
+ * في ذاكرة النسخة ما عاشت. فكلُّ صندوقٍ جديد يكنس المنتهيَ قبله، مرّةً في
+ * الدقيقة على الأكثر حتى لا يكلّف الدخولُ مروراً كاملاً كلَّ مرة.
+ */
+let lastDemoSweepAt = 0;
+function sweepExpiredDemoSandboxes(now = Date.now(), force = false): number {
+  if (!force && now - lastDemoSweepAt < 60_000) return 0;
+  lastDemoSweepAt = now;
+  let removed = 0;
+  for (const [sessionId, record] of demoSandboxes) {
+    if (record.expiresAt <= now) { demoSandboxes.delete(sessionId); removed += 1; }
+  }
+  for (const [sessionId, session] of demoSessions) {
+    if (session.expiresAt <= now) demoSessions.delete(sessionId);
+  }
+  return removed;
+}
 
 /**
  * ── المعرّفات تُحجز على دفعات، لا واحداً واحداً ──────────────────────────────
@@ -2551,7 +2575,7 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 }
 
 /** مجموعاتُ الميزات المسمّاة — لا تُكتب مجموعةٌ لم تُسمَّ هنا. */
-export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills";
+export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns";
 /** معرّفُ وثيقة Firestore لا يحمل «/». */
 const featureDocId = (id: string) => String(id || "").replace(/\//g, "_").slice(0, 300);
 
@@ -2579,14 +2603,19 @@ export const Repository = {
   outsideDemoSandbox: <T>(fn: () => T): T => demoSandboxContext.exit(fn),
   isDemoRequest: (): boolean => Boolean(demoSandboxContext.getStore()),
   createDemoSandbox: (sessionId: string, ttlMs: number): void => {
+    sweepExpiredDemoSandboxes();
     demoSandboxes.set(sessionId, { state: createDemoSandboxState() as DBState, expiresAt: Date.now() + ttlMs });
   },
   /** صندوقُ «مساري» التجريبي: حالةٌ فارغةٌ تُملأ بما يمرَّر، لا نسخةٌ من بيانات حقيقية ولا من صندوق الصفات. */
   createShowcaseSandbox: (sessionId: string, ttlMs: number, seed: Partial<DBState>): void => {
+    sweepExpiredDemoSandboxes();
     const empty = Object.fromEntries(Object.entries(baseDb).filter(([, value]) => Array.isArray(value)).map(([key]) => [key, []]));
     demoSandboxes.set(sessionId, { state: { ...empty, ...structuredClone(seed) } as DBState, expiresAt: Date.now() + ttlMs });
   },
   dropDemoSandbox: (sessionId: string): void => { demoSandboxes.delete(sessionId); },
+  /** عددُ الصناديق في الذاكرة الآن (للاختبار والمراقبة). */
+  demoSandboxCount: (): number => demoSandboxes.size,
+  sweepExpiredDemoSandboxes: (now = Date.now()): number => sweepExpiredDemoSandboxes(now, true),
   resetDemoSandbox: (sessionId: string, ttlMs: number): boolean => {
     if (!sessionId.startsWith("demo_")) return false;
     demoSandboxes.set(sessionId, { state: createDemoSandboxState() as DBState, expiresAt: Date.now() + ttlMs });
@@ -7761,6 +7790,75 @@ export const Repository = {
     const merged = mergeSeenIds(stored, added);
     if (!seenUnchanged(stored, merged)) { row.ids = merged; row.updatedAt = new Date().toISOString(); saveDatabase(); }
     return merged;
+  },
+
+  /* ── تنبيهاتُ الجوال (Web Push): سجلٌّ لكل جهاز ──────────────────────────────
+   * المعرّفُ بصمةُ رابط الاشتراك، فالجهازُ الواحد سجلٌّ واحد: اشتراكُه من جديد
+   * (حسابٌ آخر على الهاتف نفسه، أو كرتٌ آخر) يستبدل صاحبَه ولا يتكرّر. في Firestore
+   * مجموعةُ pushSubscriptions باستعلام حقلٍ واحد (فهرسٌ تلقائي)؛ وفي العرض ذاكرةُ
+   * الصندوق نفسه، فلا يبلغ تنبيهٌ تجريبيٌّ جهازاً خارج صندوقه. */
+  getPushSubscription: async (id: string): Promise<PushSubscriptionRecord | null> => {
+    const key = String(id || "");
+    if (!/^[0-9a-f]{64}$/.test(key)) return null;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("pushSubscriptions").doc(key).get();
+      return doc.exists ? (doc.data() as PushSubscriptionRecord) : null;
+    }
+    return (db.pushSubscriptions || []).find(row => row.id === key) || null;
+  },
+
+  listPushSubscriptions: async (filter: { userId?: number; cardToken?: string; instructorId?: number; ownerKind?: "user" | "card"; session?: string }): Promise<PushSubscriptionRecord[]> => {
+    const matches = (row: PushSubscriptionRecord) =>
+      (filter.userId == null || Number(row.userId) === Number(filter.userId))
+      && (filter.cardToken == null || row.cardToken === filter.cardToken)
+      && (filter.instructorId == null || Number(row.instructorId) === Number(filter.instructorId))
+      && (filter.ownerKind == null || row.ownerKind === filter.ownerKind)
+      && (filter.session == null || row.session === filter.session);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const collection = firestoreDb.collection("pushSubscriptions");
+      const base = filter.cardToken != null ? collection.where("cardToken", "==", filter.cardToken)
+        : filter.userId != null ? collection.where("userId", "==", Number(filter.userId))
+        : filter.session != null ? collection.where("session", "==", filter.session)
+        : filter.instructorId != null ? collection.where("instructorId", "==", Number(filter.instructorId))
+        : filter.ownerKind != null ? collection.where("ownerKind", "==", filter.ownerKind)
+        : collection;
+      /* صفحةً بعد صفحة بترتيب المعرّف: لا مشتركَ يسقط بعد الخمسمئة الأولى. */
+      const docs = await collectPages<QueryDocumentSnapshot>(async (after, size) => {
+        let query = base.orderBy(FieldPath.documentId()).limit(size);
+        if (after) query = query.startAfter(after);
+        return (await query.get()).docs;
+      });
+      return docs.map(doc => doc.data() as PushSubscriptionRecord).filter(matches);
+    }
+    return (db.pushSubscriptions || []).filter(matches).map(row => ({ ...row }));
+  },
+
+  savePushSubscription: async (record: PushSubscriptionRecord): Promise<PushSubscriptionRecord> => {
+    const row: PushSubscriptionRecord = Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)) as PushSubscriptionRecord;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("pushSubscriptions").doc(row.id).set(row, { merge: false });
+      return row;
+    }
+    const rest = (db.pushSubscriptions || []).filter(item => item.id !== row.id);
+    /* سقفٌ للصندوق: زائرُ عرضٍ لا يملأ الذاكرة باشتراكاتٍ وهمية. */
+    db.pushSubscriptions = [...rest, row].slice(-1000);
+    saveDatabase();
+    return row;
+  },
+
+  deletePushSubscription: async (id: string): Promise<boolean> => {
+    const key = String(id || "");
+    if (!/^[0-9a-f]{64}$/.test(key)) return false;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("pushSubscriptions").doc(key).delete();
+      return true;
+    }
+    const before = db.pushSubscriptions || [];
+    const after = before.filter(row => row.id !== key);
+    if (after.length === before.length) return false;
+    db.pushSubscriptions = after;
+    saveDatabase();
+    return true;
   },
 
   createScheduleDecisionMemory: async (entry: Omit<ScheduleDecisionMemory, "id" | "createdAt">): Promise<ScheduleDecisionMemory> => {

@@ -707,7 +707,7 @@ footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--line);color:v
     <a class="primary" id="icsLink" href="${icsUrl}">Apple · إضافة إلى التقويم</a>
     <a id="icsGoogle" href="${icsUrl}" target="_blank" rel="noopener">Google</a>
     <a id="icsOutlook" href="${icsUrl}" target="_blank" rel="noopener">Outlook</a>
-    <script nonce="${nonce}">${CALENDAR_LINKS_CLIENT_JS}(function(){var L=calLinks(location.origin+"${icsUrl}",${JSON.stringify(String(payload.section || "الجدول"))});
+    <script nonce="${nonce}">${CALENDAR_LINKS_CLIENT_JS}(function(){var L=calLinks(location.origin+"${icsUrl}",${JSON.stringify(String(payload.section || "الجدول")).replace(/</g, "\\u003c")});
       var a=document.getElementById("icsLink"),g=document.getElementById("icsGoogle"),o=document.getElementById("icsOutlook");
       if(a) a.href=L.apple; if(g) g.href=L.google; if(o) o.href=L.outlook;})();</script>
     <a href="javascript:window.print()">طباعة</a>

@@ -113,6 +113,8 @@ export function publicPageNonce(res: Response): string {
     "connect-src 'self'",
     /* manifest-src يرجع إلى default-src 'none' فيُحجب `<link rel=manifest>` (تثبيتُ «مساري» مستقلاً). */
     "manifest-src 'self'",
+    /* عاملُ تنبيهات الكرت (/push-sw.js): بلا هذا يرجع worker-src إلى script-src بالـnonce فيُحجب التسجيل. */
+    "worker-src 'self'",
     "base-uri 'none'",
     /* 'self', not 'none': the survey form is submitted by script and normally
        never navigates, but if that script ever fails the browser falls back to a
