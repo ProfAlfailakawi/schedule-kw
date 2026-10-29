@@ -129,3 +129,5 @@ h1 .campus-chip,h2 .campus-chip{font-size:var(--t-base,1rem);padding:4px 14px;ve
 .campus-name{display:inline-flex;align-items:center;gap:4px;margin-inline-end:8px}
 summary .campus-chip,h4 .campus-chip{margin-inline-start:6px}
 .ac-nowrap{white-space:nowrap}
+.dry-offer.is-failed{background:var(--danger-soft);border-color:color-mix(in srgb,var(--danger) 30%,transparent)}
+.dry-offer.is-failed>svg{color:var(--danger)}

@@ -17,9 +17,6 @@ export interface DiffEntry { key: string; label: string; before?: Row; after?: R
 export interface ImportDiff { added: DiffEntry[]; removed: DiffEntry[]; changed: DiffEntry[]; same: number; current: number; incoming: number }
 
 const clock = (value: unknown) => String(value || "").trim().slice(0, 5);
-const dayMask = (row: Row) => DAY_KEYS.map(key => (row[key] ? "1" : "0")).join("");
-/** موعدُ الشعبة كلُّه (قد تكون صفوفاً بأيامٍ مختلفة) بصيغةٍ ثابتة للمقارنة. */
-const signature = (rows: Row[], pick: (row: Row) => string) => [...new Set(rows.map(pick))].sort().join("|");
 /* القاعة بنصّها الرسمي (المبنى-القاعة) — يحمله الطرفان — وإلا بمعرّفها. */
 const roomOf = (row: Row) => {
   const text = `${row.AdRoomCode || ""}-${row.AdRoomHall || ""}`.normalize("NFKC").replace(/\s+/g, "").toUpperCase();
@@ -40,6 +37,39 @@ const labelOf = (rows: Row[]) => {
   return `${name} · ش${String(row.SCode ?? "").trim() || "؟"}`;
 };
 
+/* ── الموعدُ لقاءاتٌ لا خاناتٌ متفرّقة ──────────────────────────────────────
+ * الشعبةُ قد تلتقي في أيامٍ بأوقاتٍ أو قاعاتٍ مختلفة. مقارنةُ مجموعة الأيام
+ * ومجموعة الأوقات كلٌّ وحده تُضيّع من يلتقي متى: تبديلُ «الأحد 08:00 / الاثنين
+ * 10:00» إلى «الأحد 10:00 / الاثنين 08:00» كان يُقرأ «كما هو». فيُفكّ كلُّ صفٍّ
+ * إلى لقاءات (يومٌ + بدايةٌ + نهايةٌ + أستاذٌ + قاعة)، ويُقارن اللقاء بنظيره في يومه. */
+interface Meeting { day: string; time: string; instructor: string; room: string }
+function meetingsOf(rows: Row[]): Map<string, Meeting[]> {
+  const out = new Map<string, Meeting[]>();
+  for (const row of rows) for (const day of DAY_KEYS) {
+    if (!row[day]) continue;
+    const meeting = { day, time: `${clock(row.fstarttime)}-${clock(row.fendtime)}`, instructor: String(Number(row.AdInstructorId) || 0), room: String(row.AdRoomHall || "").trim() ? roomOf(row) : String(row.roomId || "") };
+    out.set(day, [...(out.get(day) || []), meeting]);
+  }
+  for (const list of out.values()) list.sort((a, b) => a.time.localeCompare(b.time));
+  return out;
+}
+
+/** ما تغيّر بين موعدَي الشعبة نفسها. خانةٌ لم تُحسم في الملف (أستاذٌ أو قاعةٌ بلا مطابقة) ملاحظةُ معاينة لا تغيير. */
+export function meetingChanges(before: Row[], after: Row[]): DiffField[] {
+  const a = meetingsOf(before), b = meetingsOf(after);
+  const fields = new Set<DiffField>();
+  for (const day of new Set([...a.keys(), ...b.keys()])) {
+    const x = a.get(day) || [], y = b.get(day) || [];
+    if (x.length !== y.length) { fields.add("days"); if (!x.length || !y.length) continue; }
+    for (let i = 0; i < Math.min(x.length, y.length); i++) {
+      if (x[i].time !== y[i].time) fields.add("time");
+      if (y[i].instructor !== "0" && x[i].instructor !== y[i].instructor) fields.add("instructor");
+      if (y[i].room && x[i].room !== y[i].room) fields.add("room");
+    }
+  }
+  return (["days", "time", "instructor", "room"] as DiffField[]).filter(field => fields.has(field));
+}
+
 export function importDiff(current: readonly Row[], incoming: readonly Row[]): ImportDiff {
   const before = group(current), after = group(incoming);
   const added: DiffEntry[] = [], removed: DiffEntry[] = [], changed: DiffEntry[] = [];
@@ -47,14 +77,7 @@ export function importDiff(current: readonly Row[], incoming: readonly Row[]): I
   for (const [key, rows] of after) {
     const old = before.get(key);
     if (!old) { added.push({ key, label: labelOf(rows), after: rows[0] }); continue; }
-    const fields: DiffField[] = [];
-    if (signature(old, dayMask) !== signature(rows, dayMask)) fields.push("days");
-    if (signature(old, row => `${clock(row.fstarttime)}-${clock(row.fendtime)}`) !== signature(rows, row => `${clock(row.fstarttime)}-${clock(row.fendtime)}`)) fields.push("time");
-    /* خانةٌ لم تُحسم في الملف (أستاذٌ أو قاعةٌ بلا مطابقة) ملاحظةُ معاينة لا تغيير: لا تُعدّ هنا. */
-    const resolved = (pick: (row: Row) => string) => rows.every(row => pick(row));
-    if (resolved(row => (Number(row.AdInstructorId) > 0 ? "1" : ""))
-      && signature(old, row => String(Number(row.AdInstructorId) || 0)) !== signature(rows, row => String(Number(row.AdInstructorId) || 0))) fields.push("instructor");
-    if (resolved(roomOf) && signature(old, roomOf) !== signature(rows, roomOf)) fields.push("room");
+    const fields = meetingChanges(old, rows);
     if (fields.length) changed.push({ key, label: labelOf(rows), before: old[0], after: rows[0], fields });
     else same += 1;
   }

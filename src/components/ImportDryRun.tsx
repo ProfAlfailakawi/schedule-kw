@@ -5,7 +5,7 @@
  * (طلبٌ ثم تأكيد)، وكتابةٌ واحدة تحفظ قبلها نسخةً للتراجع؛ و«تراجع» يعيدها بنقرة.
  */
 import React, { useState } from "react";
-import { AlertTriangle, CheckCircle2, Equal, FlaskConical, Minus, PenLine, Plus, Undo2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Equal, FlaskConical, Minus, PenLine, Plus, RotateCcw, Undo2, X } from "lucide-react";
 import { DIFF_FIELD_LABEL, type ImportDiff } from "../utils/importDiff";
 import { AR, countOf } from "../utils/arabicCount";
 import { PrimaryButton, SecondaryButton } from "./ui";
@@ -19,6 +19,17 @@ export function DryRunOffer({ count, onTry, busy }: { count: number | null; onTr
       <FlaskConical aria-hidden="true" />
       <p><b>هذا الفصل فيه جدول{count ? ` (${countOf(count, AR.appointment)})` : ""}.</b> الاستيراد هنا «تجربة بلا حفظ»: يُقرأ الملف ويُقارن بالجدول الحالي، ولا يُكتب شيء حتى «طبّق».</p>
       {onTry ? <PrimaryButton type="button" onClick={onTry} disabled={busy} data-guide-ignore="قراءة الملف تجربةً بلا حفظ؛ لا تكتب في الجدول"><FlaskConical aria-hidden="true" />جرّب بلا حفظ</PrimaryButton> : null}
+    </div>
+  );
+}
+
+/** تعذّرت قراءة الجدول الحالي (أساس المقارنة): يُقال بوضوح، ومعه «أعد المحاولة». */
+export function DryRunBaselineFailed({ onRetry, busy }: { onRetry: () => void; busy?: boolean }) {
+  return (
+    <div className="dry-offer is-failed" role="alert">
+      <AlertTriangle aria-hidden="true" />
+      <p><b>تعذّرت قراءة جدول الفصل الحالي.</b> بدونه لا يُرسم الفرق؛ أعد المحاولة قبل الاستيراد.</p>
+      <SecondaryButton type="button" onClick={onRetry} disabled={busy} data-guide-ignore="إعادة قراءة جدول الفصل الحالي للمقارنة؛ لا تكتب"><RotateCcw aria-hidden="true" />أعد المحاولة</SecondaryButton>
     </div>
   );
 }

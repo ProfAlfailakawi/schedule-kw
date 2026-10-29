@@ -66,7 +66,7 @@ type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "planning" 
 const SectionSimulator = lazy(() => import("./SectionSimulator"));
 /* 📚 «كل المقررات» بجانب التخطيط: كل مقررات الصحيفتين، و«− شعبة / + شعبة» بأثرٍ فوري (src/components/AllCourses.tsx). */
 const AllCourses = lazy(() => import("./AllCourses"));
-import ImportDryRun, { DryRunOffer } from "./ImportDryRun";
+import ImportDryRun, { DryRunBaselineFailed, DryRunOffer } from "./ImportDryRun";
 import { importDiff } from "../utils/importDiff";
 
 export default function ScheduleTransfer({ collegeId, collegeName, sectionId, termId, instructors, departmentIds, terms, onChanged, onSectionChange, onClose }: Props) {
@@ -124,6 +124,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
   const [termMismatch, setTermMismatch] = useState<{ source: string; accepted: string; target: string } | null>(null);
   /* ── 🧪 تجربة بلا حفظ ── فصلٌ فيه جدول: الملف يُقرأ ويُقارن ولا يُكتب شيء حتى «طبّق». */
   const [termRows, setTermRows] = useState<any[] | null>(null);
+  /* تعذّرت قراءة الجدول الحالي: يُقال ويُعاد، ولا يبقى المستخدم بلا فرقٍ ولا زرّ. */
+  const [termRowsFailed, setTermRowsFailed] = useState(false);
   const [dryOffer, setDryOffer] = useState<{ file: File; targetSectionId: number } | null>(null);
   const [dryRunActive, setDryRunActive] = useState(false);
   const [dryApplied, setDryApplied] = useState<{ count: number; undoVersions: string[]; undone?: boolean } | null>(null);
@@ -296,12 +298,15 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
   const scopeReady = Boolean(collegeId && sectionId && termId);
   /* جدولُ الفصل الحالي: به يُعرف أن الفصل ممتلئ فيُقرأ الملف «تجربةً بلا حفظ»، ويُقارن به. */
   const loadTermRows = useCallback(async () => {
-    if (!scopeReady) { setTermRows(null); return; }
+    if (!scopeReady) { setTermRows(null); setTermRowsFailed(false); return; }
     try {
       const response = await fetch(`/api/schedules?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include" });
-      const data = response.ok ? await response.json() : null;
-      setTermRows(Array.isArray(data) ? data : Array.isArray(data?.rows) ? data.rows : null);
-    } catch { setTermRows(null); }
+      if (!response.ok) throw new Error("baseline");
+      const data = await response.json();
+      const rows = Array.isArray(data) ? data : Array.isArray(data?.rows) ? data.rows : null;
+      if (!rows) throw new Error("baseline");
+      setTermRows(rows); setTermRowsFailed(false);
+    } catch { setTermRows(null); setTermRowsFailed(true); }
   }, [scopeReady, collegeId, sectionId, termId]);
   useEffect(() => { if (tab === "import") void loadTermRows(); }, [tab, loadTermRows]);
   const dryDiff = useMemo(() => (dryRunActive && Array.isArray(xlsxPreview?.rows) && termRows ? importDiff(termRows, xlsxPreview.rows) : null), [dryRunActive, xlsxPreview?.rows, termRows]);
@@ -310,9 +315,14 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     setBusy(true); setError(null);
     try {
       for (const versionId of dryApplied.undoVersions) {
-        const response = await fetch(`/api/intelligence/versions/${encodeURIComponent(versionId)}/restore`, { method: "POST", headers: { "x-schedule-confirm": "restore" } });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data?.error || "تعذّر التراجع");
+        /* الاسترجاعُ بالطريق نفسه الذي يسأل قبل محو ما تغيّر بعد «طبّق» (scopeOverwrite.ts). */
+        const done = await applyWithOverwriteConfirm("restore", async confirm => {
+          const response = await fetch(`/api/intelligence/versions/${encodeURIComponent(versionId)}/restore`, { method: "POST", headers: { "x-schedule-confirm": confirm } });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw Object.assign(new Error(data?.error || "تعذّر التراجع"), { data });
+          return data;
+        }, options => visualConfirm(options));
+        if (done === null) return;
       }
       setDryApplied(prev => (prev ? { ...prev, undone: true } : prev));
       onChanged(); void loadTermRows();
@@ -1464,6 +1474,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               {/* فصلٌ فيه جدول: يُقال قبل الرفع أن الاستيراد هنا تجربةٌ بلا حفظ — لا رفضٌ بعد دقيقة قراءة. */}
               {termRows?.length && !dryOffer ? <DryRunOffer count={termRows.length} /> : null}
               {dryOffer ? <DryRunOffer count={termRows?.length ?? null} busy={busy} onTry={() => void readPdf(dryOffer.file, dryOffer.targetSectionId, true)} /> : null}
+              {termRowsFailed ? <DryRunBaselineFailed busy={busy} onRetry={() => void loadTermRows()} /> : null}
               <input
                 ref={fileRef}
                 type="file"
@@ -1754,7 +1765,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                         {importReady && !publishGateSatisfied ? (
                           <p className="transfer-preflight-wait" role="status">جارٍ فحص التعارض مع بقية الأقسام في هذا الفصل…</p>
                         ) : null}
-                        {importReady && publishGateSatisfied && !dryRunActive ? (
+                        {importReady && publishGateSatisfied && !dryDiff ? (
                           <PrimaryButton type="button" data-guide-ignore="إجراء استيراد له تحقق ومراجعة ونقطة أمان خاصة داخل نفس النافذة" onClick={() => void saveExcelDraft(true)} disabled={busy || !importReady}>
                             {busy ? "يجهّز…" : fromPlanning ? <><Layers aria-hidden="true" /> {planningMeta.added > 0 ? `نزّل ${countOf(planningMeta.added, AR.section)} في الجدول` : "نزّل التعديلات في الجدول"}</> : importKind === "authority-pdf" && Number(xlsxPreview.count || 0) === 0 ? "اعتماد حذف جميع مواعيد PDF ونشره" : `تعبئة ${countOf(Number(xlsxPreview.count || 0), AR.appointment)} ونشرها`}
                           </PrimaryButton>

@@ -152,6 +152,14 @@ const context: TmContext = {
   const diff = importDiff(cur as any, file as any);
   check(diff.same === 1 && diff.added.length === 1 && diff.removed.length === 1 && diff.changed.length === 1
     && diff.changed[0].fields!.join() === "time,instructor", "6.1 الفرق: يُضاف/يُحذف/يتغيّر (في أي خانة)/كما هو", diff);
+  /* مراجعة: الأيامُ والأوقاتُ تُقارن لقاءً لقاءً لا مجموعاتٍ منفصلة. */
+  const meet = (day: string, start: string, end: string, extra: Record<string, unknown> = {}) => ({ AdCourseId: 9, SCode: "501", AdCourseName: "د", [day]: true, fstarttime: start, fendtime: end, AdInstructorId: 11, AdRoomCode: "B1", AdRoomHall: "G1", ...extra });
+  const swapped = importDiff([meet("fsunday", "08:00", "09:15"), meet("fmonday", "10:00", "11:15")] as any, [meet("fsunday", "10:00", "11:15"), meet("fmonday", "08:00", "09:15")] as any);
+  check(swapped.same === 0 && swapped.changed.length === 1 && swapped.changed[0].fields!.join() === "time", "6.1b تبديلُ وقتَي الأحد والاثنين تغييرٌ لا «كما هو»", swapped);
+  const roomSwap = importDiff([meet("fsunday", "08:00", "09:15"), meet("fmonday", "08:00", "09:15", { AdRoomHall: "G2" })] as any, [meet("fsunday", "08:00", "09:15", { AdRoomHall: "G2" }), meet("fmonday", "08:00", "09:15")] as any);
+  check(roomSwap.changed[0]?.fields?.join() === "room", "6.1c تبديلُ قاعتَي اليومين يُرى", roomSwap);
+  const unresolved = importDiff([meet("fsunday", "08:00", "09:15")] as any, [meet("fsunday", "08:00", "09:15", { AdInstructorId: 0, AdRoomHall: "" })] as any);
+  check(unresolved.same === 1, "6.1d خانةٌ لم تُحسم في الملف ملاحظةُ معاينة لا تغيير");
   const server = readServerSource();
   check(/const dryRun=String\(req\.query\.dryRun\|\|""\)==="1"/.test(server) && /if\(dryRun\)return true;/.test(server) && /!occupiedChecked&&!dryRun/.test(server),
     "6.2 القراءة التجريبية لا تُردّ لأن الفصل ممتلئ");
@@ -161,7 +169,12 @@ const context: TmContext = {
   const xfer = read("src/components/ScheduleTransfer.tsx");
   check(/ImportDryRun/.test(xfer) && /DryRunOffer/.test(xfer) && /PDF_TARGET_TERM_OCCUPIED/.test(xfer) && /versions\/\$\{encodeURIComponent\(versionId\)\}\/restore/.test(xfer),
     "6.5 الواجهة: عرضُ التجربة حين يمتلئ الفصل، والفرقُ مرسوماً، و«تراجع»");
-  check(/!dryRunActive \?/.test(xfer.replace(/\s+/g, " ")) || /publishGateSatisfied && !dryRunActive/.test(xfer), "6.6 زرّ النشر العادي لا يظهر في التجربة (لا كتابة إلا «طبّق»)");
+  check(/!dryDiff \?/.test(xfer), "6.6 زرّ النشر العادي لا يظهر مع الفرق (لا كتابة إلا «طبّق»)");
+  check(/setTermRowsFailed\(true\)/.test(xfer) && /<DryRunBaselineFailed/.test(xfer) && /onRetry=\{\(\) => void loadTermRows\(\)\}/.test(xfer),
+    "6.5b تعذّرُ قراءة الجدول الحالي يُقال ومعه «أعد المحاولة»");
+  check(/importReady && publishGateSatisfied && !dryDiff \?/.test(xfer) && !/publishGateSatisfied && !dryRunActive/.test(xfer),
+    "6.5c زرّ النشر العادي لا يُخفى إلا حين يُرسم الفرق فعلاً");
+  check(/applyWithOverwriteConfirm\("restore"[\s\S]{0,400}dryApplied|undoDryApply[\s\S]{0,900}applyWithOverwriteConfirm\("restore"/.test(xfer), "6.5d «تراجع» يسأل قبل محو ما تغيّر بعد «طبّق»");
   const dry = read("src/components/ImportDryRun.tsx");
   check(/نعم، طبّق/.test(dry) && /لم يُكتب شيء/.test(dry), "6.7 «طبّق» خطوتان، والشارة تقول إن شيئاً لم يُكتب");
 }
