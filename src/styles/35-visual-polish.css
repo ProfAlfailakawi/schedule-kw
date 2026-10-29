@@ -25,9 +25,9 @@
 .schedule-editor .schedule-time-control{min-inline-size:min(100%,16rem)}
 
 /* ── حدّ أدنى للخط: لا نصّ أصغر من 11px في لوحة مختبر القرار الأكاديمي ── */
-.adl-lab small,.adl-lab .adl-tag,.adl-lab .adl-refresh,.adl-lab .adl-view-mode,.adl-lab .adl-count,
+.adl-lab small,.adl-lab .adl-tag,.adl-lab .adl-refresh,.adl-lab .adl-count,
 .adl-lab .adl-footer,.adl-lab .adl-meter-label strong,.adl-lab .adl-impact span,.adl-lab .adl-section-head>small,
-.adl-lab .adl-live-foot,.adl-lab .adl-view-caption,.adl-lab .adl-chain-body span,.adl-lab .adl-training-note{font-size:11px}
+.adl-lab .adl-live-foot,.adl-lab .adl-view-caption,.adl-lab .adl-chain-body span{font-size:11px}
 .adl-lab .adl-refresh{min-height:36px;padding-inline:12px}
 .adl-lab .adl-view-mode{min-height:40px}
 @media(max-width:430px){.adl-lab .adl-view-mode{font-size:11px}.adl-lab .adl-count{font-size:11px}}

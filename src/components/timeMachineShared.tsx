@@ -15,29 +15,35 @@ import {
 } from "../utils/timeMachine";
 import { activeDays, timeToMinutes } from "../utils/scheduleIntelligence";
 import { readSharedScope } from "../utils/sharedScope";
+import { contextForScope, timeMachineScopeKey } from "../utils/timeMachineScope";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "../utils/scheduleTime";
 import "../styles/33-time-machine.css";
 
 export type LoadedContext = TmContext & { frozen?: string | null };
 
 export function useTimeMachineContext(scope?: { collegeId?: number; sectionId?: number; termId?: number }) {
-  const [context, setContext] = useState<LoadedContext | null>(null);
+  /* The context remembers which scope asked for it. After the college or the
+     department changes, the previous department's board is NOT returned while
+     the new one loads — its workbench and «اعتمد» would otherwise stay live
+     under the new header, and a slow connection could apply them to the wrong
+     department. A reload of the same scope keeps the board on screen. */
+  const [loaded, setLoaded] = useState<{ key: string; context: LoadedContext } | null>(null);
   const [error, setError] = useState("");
   const [tick, setTick] = useState(0);
   const asked = scope && scope.sectionId ? scope : readSharedScope();
-  const key = `${asked.collegeId || 0}:${asked.sectionId || 0}:${asked.termId || 0}`;
+  const key = timeMachineScopeKey(asked);
   useEffect(() => {
     let cancelled = false;
     setError("");
     const qs = new URLSearchParams({ collegeId: String(asked.collegeId || 0), sectionId: String(asked.sectionId || 0), termId: String(asked.termId || 0) });
     fetch(`/api/time-machine/context?${qs}`, { credentials: "include" })
       .then(async response => { const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body?.error || "تعذّر تحميل الجدول"); return body; })
-      .then(body => { if (!cancelled) setContext(body); })
+      .then(body => { if (!cancelled) setLoaded({ key, context: body }); })
       .catch(e => { if (!cancelled) setError(e.message); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, tick]);
-  return { context, error, reload: () => setTick(n => n + 1) };
+  return { context: contextForScope<LoadedContext>(loaded, key), error, reload: () => setTick(n => n + 1) };
 }
 
 export const scopeQuery = (context: TmContext) =>

@@ -1,5 +1,4 @@
 import { byArabic } from "../utils/sorting";
-import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import AdvisorSeatsPanel from "./AdvisorSeatsPanel";
 /**
  * ── كشفُ التسجيل ────────────────────────────────────────────────────────────
@@ -793,7 +792,6 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
         كشف التسجيل
       </PageTitle>
 
-      {Boolean(collegeId && sectionId && termId) && <AcademicAdvicePanel collegeId={collegeId} sectionId={sectionId} termId={termId} compact />}
       {Boolean(collegeId && sectionId && termId) && <details className="surface" style={{ padding: "10px 14px" }}><summary>🎟️ رصيد مقاعد المرشد</summary><AdvisorSeatsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} /></details>}
 
       <ScopeAskBar

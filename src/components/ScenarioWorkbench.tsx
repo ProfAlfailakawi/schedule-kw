@@ -5,14 +5,15 @@
  * للمتأثرين وحدهم. الاعتمادُ يظهر لمن يكتب الجدول فقط، والخادمُ يحرسه أيضاً.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Check, CircleAlert, Copy, Eye, GitBranch, MessageCircle, Save, Send, Trash2, Undo2 } from "lucide-react";
+import { CalendarDays, Check, CircleAlert, Copy, Eye, GitBranch, MessageCircle, Save, Send, ShieldCheck, Trash2, Undo2, X } from "lucide-react";
+import { useDialogDismiss } from "./ui";
 import type { AdInstructor, FSchedule } from "../types";
 import {
   applyChanges, boardOf, compareBoards, dominoOf, driftOf, staleChanges, teacherCards,
   type TmChange, type TmScenarioRecord,
 } from "../utils/timeMachine";
 import { reachAboutCard } from "../utils/reachInstructor";
-import { AR, countOf } from "../utils/arabicCount";
+import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { DeltaStrip, Ico, LevelDot, TimeSlider, postJson, scopeQuery, type IcoName, type LoadedContext } from "./timeMachineShared";
 
 const OP_ICON: Record<TmChange["op"], IcoName> = { move: "move", assign: "assign", remove: "remove", add: "add" };
@@ -61,6 +62,8 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [students, setStudents] = useState<StudentImpact | null | "none">(null);
   const [published, setPublished] = useState<TmScenarioRecord | null>(scenario?.status === "applied" ? scenario : null);
+  /* «اعتمد الكل» لا يكتب مباشرة: ورقةٌ تقول قبلها ما يتغيّر ومن يُبلَّغ وكيف يُتراجع. */
+  const [confirming, setConfirming] = useState(false);
   useEffect(() => { setName(scenario?.name || defaultName || ""); }, [scenario?.id, defaultName]);
   useEffect(() => { setStudents(null); }, [changes]);
 
@@ -171,7 +174,7 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
             <input data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" className="tm-name" value={name} onChange={event => setName(event.target.value)} placeholder="اسم السيناريو" aria-label="اسم السيناريو" maxLength={80} />
             <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="btn btn-secondary" onClick={() => void save()} disabled={!changes.length || Boolean(busy)}><Save aria-hidden="true" />حفظ</button>
             {scenario ? <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="btn btn-ghost" onClick={() => void share()} title="للعرض لرئيس القسم والعميد"><Eye aria-hidden="true" />{scenario.shared ? "مشارَك" : "شارك للعرض"}</button> : null}
-            <button data-guide-feature-id="timeMachine.action.apply" data-guide-target="timeMachine.action.apply" type="button" className="btn btn-primary" onClick={() => void apply()} disabled={!changes.length || Boolean(busy) || delta.level === "red" && delta.after.blocking > delta.before.blocking}>
+            <button data-guide-feature-id="timeMachine.action.apply" data-guide-target="timeMachine.action.apply" type="button" className="btn btn-primary" onClick={() => setConfirming(true)} disabled={!changes.length || Boolean(busy) || delta.level === "red" && delta.after.blocking > delta.before.blocking}>
               <Check aria-hidden="true" />{busy === "apply" ? "يعتمد…" : "اعتمد الكل"}
             </button>
           </>
@@ -185,6 +188,10 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
         {message ? <span className={`tm-msg tm-msg-${message.tone}`} role="status">{message.text}</span> : null}
       </footer>
 
+      {confirming ? (
+        <ApplyConfirmSheet changes={changes} delta={delta} onCancel={() => setConfirming(false)}
+          onConfirm={() => { setConfirming(false); void apply(); }} />
+      ) : null}
       {applied && published ? <PublishPanel context={context} scenario={published} /> : null}
       {scenario?.history?.length ? (
         <details className="tm-history"><summary><GitBranch aria-hidden="true" />السجلّ ({scenario.history.length})</summary>
@@ -192,6 +199,61 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
         </details>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * ── ورقة «قبل الاعتماد» ──
+ * ثلاثة أرقام (مواعيد، أساتذة، طلبة)، ثم ثلاثة أسئلة بأيقوناتها: ما الذي يتغيّر؟
+ * من يُبلَّغ؟ كيف أتراجع؟ — الجواب من الحساب نفسه الذي رسم الأثر، لا وعداً عامّاً.
+ */
+function ApplyConfirmSheet({ changes, delta, onCancel, onConfirm }: {
+  changes: TmChange[]; delta: ReturnType<typeof compareBoards>; onCancel: () => void; onConfirm: () => void;
+}) {
+  useDialogDismiss(true, onCancel);
+  const teachers = delta.teachersAffected.length;
+  const shown = changes.slice(0, 6);
+  return (
+    <div className="tm-confirm-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onCancel(); }}>
+      <section className="tm-confirm" role="dialog" aria-modal="true" aria-labelledby="tm-confirm-title">
+        <header className="tm-confirm-head">
+          <span className="tm-confirm-mark" aria-hidden="true"><Check /></span>
+          <div><small>قبل الاعتماد</small><h3 id="tm-confirm-title">هذا ما سيحدث</h3></div>
+          <button type="button" className="tm-confirm-close" onClick={onCancel} aria-label="رجوع" data-guide-ignore="يغلق ورقة الاعتماد دون اعتماد"><X aria-hidden="true" /></button>
+        </header>
+        <ul className="tm-confirm-tiles">
+          <li><Ico n="changes" /><b>{delta.changedRows}</b><small>{nounFor(delta.changedRows, AR.appointment)}</small></li>
+          <li><Ico n="teachers" /><b>{teachers}</b><small>{nounFor(teachers, AR.instructor)}</small></li>
+          <li><Ico n="students" /><b>{delta.studentsMoved ?? "—"}</b><small>{nounFor(Number(delta.studentsMoved || 0), AR.student)} · رادار</small></li>
+        </ul>
+        <div className="tm-confirm-rows">
+          <section>
+            <h4><Ico n="changes" />ما الذي يتغيّر</h4>
+            <ul className="tm-confirm-changes">
+              {shown.map(change => <li key={change.id}><Ico n={OP_ICON[change.op]} /><span>{change.label}</span></li>)}
+              {changes.length > shown.length ? <li className="tm-confirm-more">و{countOf(changes.length - shown.length, AR.change)} أخرى</li> : null}
+            </ul>
+            <small>كلُّها دفعةً واحدة، أو لا شيء.</small>
+          </section>
+          <section>
+            <h4><Send aria-hidden="true" />من يُبلَّغ</h4>
+            <p>{teachers
+              ? <>لا رسالة تُرسل تلقائياً. بعد الاعتماد تظهر بطاقات {countOf(teachers, AR.instructor)} المتأثرين برسالةٍ جاهزة ترسلها بنفسك.</>
+              : <>لا يتغيّر جدول أي أستاذ.</>}</p>
+            <small><CalendarDays aria-hidden="true" />التقويم المشترك يتحدّث تلقائياً.</small>
+          </section>
+          <section>
+            <h4><Undo2 aria-hidden="true" />التراجع</h4>
+            <p>تُحفظ نقطة استعادة قبل الكتابة، و«استعادة بنقرة» تعيد الجدول كما كان.</p>
+            <small><ShieldCheck aria-hidden="true" />يُرفض الاعتماد إن تغيّر الجدول الحيّ بعد هذا السيناريو.</small>
+          </section>
+        </div>
+        <footer className="tm-confirm-actions">
+          <button type="button" className="btn btn-primary" onClick={onConfirm} data-guide-ignore="ينفّذ الاعتماد بعد قراءة ملخّصه"><Check aria-hidden="true" />اعتمد الآن</button>
+          <button type="button" className="btn btn-ghost" onClick={onCancel} data-guide-ignore="يغلق الورقة دون اعتماد">رجوع</button>
+        </footer>
+      </section>
+    </div>
   );
 }
 

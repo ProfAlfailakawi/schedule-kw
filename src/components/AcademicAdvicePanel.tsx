@@ -12,6 +12,8 @@ interface Props {
   courseId?: number;
   candidate?: { days: string[]; start: string; end: string };
   compact?: boolean;
+  /** بطاقتُها المخصّصة (مركز الذكاء، أدوات البيانات): مفتوحةٌ وظاهرةٌ دائماً، حتى في الانتظار والفراغ. */
+  defaultOpen?: boolean;
 }
 const minute = (value: string) => {
   const match = /^(\d{2}):(\d{2})$/.exec(normalizeClock(value));
@@ -22,7 +24,7 @@ const intersects = (a: AcademicSlot, b: AcademicSlot) =>
   minute(a.start) < minute(b.end) && minute(b.start) < minute(a.end);
 const slotsOverlap = (a: AcademicSlot[], b: AcademicSlot[]) => a.some(x => b.some(y => intersects(x, y)));
 const chip: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 999,
-  border: "1px solid var(--line, #dce5df)", fontSize: 11, fontWeight: 650, lineHeight: 1.5 };
+  border: "1px solid var(--line, #dce5df)", fontSize: 11, fontWeight: 650, lineHeight: 1.5, whiteSpace: "nowrap", flex: "none" };
 const card: CSSProperties = { display: "grid", alignContent: "start", gap: 7, minWidth: 0, borderRadius: 12,
   border: "1px solid var(--line, #dce5df)", background: "var(--card, #fff)", padding: "11px 12px" };
 const exampleFor = (pair: AcademicPair) => {
@@ -31,7 +33,7 @@ const exampleFor = (pair: AcademicPair) => {
   return null;
 };
 /** Read-only, non-blocking advice. No save/approval/teacher request state is changed. */
-export default function AcademicAdvicePanel({ collegeId, sectionId, termId, courseId, candidate, compact = false }: Props) {
+export default function AcademicAdvicePanel({ collegeId, sectionId, termId, courseId, candidate, compact = false, defaultOpen = false }: Props) {
   const [pairs, setPairs] = useState<AcademicPair[]>([]);
   const [timePreferences, setTimePreferences] = useState<AcademicTimePreference[]>([]);
   const [lab, setLab] = useState<AcademicDecisionLab | undefined>();
@@ -39,7 +41,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const demo = isDemoSession();
   /* `defaultOpen` is not an attribute of <details>: the card never opened by itself (K1). */
-  const [open, setOpen] = useState(demo);
+  const [open, setOpen] = useState(demo || defaultOpen);
   useEffect(() => {
     setPairs([]); setTimePreferences([]); setLab(undefined); setStatus("loading");
     if (!collegeId || !sectionId || !termId) return;
@@ -71,8 +73,8 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
     Number(b.unavoidable) - Number(a.unavoidable)), [pairs, courseId, candidate?.days?.join(","), candidate?.start, candidate?.end]);
   const periods = timePreferences.filter(p => (!courseId || p.courseId === courseId) && (!candidate ||
     (p.period === "afternoon" ? minute(candidate.start) < 720 : minute(candidate.end) > 720)));
-  if (status === "loading" && !demo) return null;
-  if (status === "ready" && !relevant.length && !periods.length && !lab?.scenarios?.some(s => !courseId || s.courseId === courseId) && !lab?.graduationWatch?.some(w => !courseId || w.courseId === courseId) && !demo) return null;
+  if (status === "loading" && !demo && !defaultOpen) return null;
+  if (status === "ready" && !relevant.length && !periods.length && !lab?.scenarios?.some(s => !courseId || s.courseId === courseId) && !lab?.graduationWatch?.some(w => !courseId || w.courseId === courseId) && !demo && !defaultOpen) return null;
   const total = relevant.length + periods.length;
   const shown = relevant.slice(0, compact ? 3 : relevant.length);
   return (

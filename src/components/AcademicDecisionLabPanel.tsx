@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftRight, BrainCircuit, CalendarClock, CheckCheck, ChevronDown,
   GitBranch, GraduationCap, Info, RefreshCw, Scale, ShieldCheck, Sparkles, Users
 } from "lucide-react";
 import type { AcademicDecisionLab, AcademicDecisionScenario } from "../utils/academicDecisionLab";
-import { buildAcademicDecisionLabTrainingPreview } from "../utils/academicDecisionLabDemo";
 import { AR, countOf } from "../utils/arabicCount";
 
 type Props = {
@@ -39,20 +38,13 @@ const explain = (items: string[]) => <div className="adl-explain-body">{items.ma
 export default function AcademicDecisionLabPanel({ lab, courseId, compact = false, demo, onRefresh, refreshing }: Props) {
   const [feature, setFeature] = useState<Feature>("whatif");
   const [selected, setSelected] = useState("");
-  // The tutorial is calculated from a completely fictional timetable. It
-  // never replaces live course recommendations returned by the API.
-  const lesson = useMemo(buildAcademicDecisionLabTrainingPreview, []);
-  /* K1: the department's own reading first whenever it has a confirmed opportunity; otherwise the lesson, with the live funnel one click away. */
-  const [viewMode, setViewMode] = useState<"training" | "live">(lab && !lab.demoShowcase && lab.scenarios.length ? "live" : "training");
-  const pickedMode = useRef(false);
-  useEffect(() => { if (lab && !lab.demoShowcase && lab.scenarios.length && !pickedMode.current) setViewMode("live"); }, [lab]);
-  const viewingTraining = viewMode === "training";
-  const shownLab = viewingTraining ? lesson : lab;
+  /* The fictional six-tools lesson was removed at the owner's request: these views read the department's own data only. */
+  const shownLab = lab;
   const liveWatch = (lab?.graduationWatch || []).filter(w => !courseId || w.courseId === courseId);
-  const scenarios = useMemo(() => (shownLab?.scenarios || []).filter(s => viewingTraining || !courseId || s.courseId === courseId), [shownLab, courseId, viewingTraining]);
-  const watched = (shownLab?.graduationWatch || []).filter(w => viewingTraining || !courseId || w.courseId === courseId);
+  const scenarios = useMemo(() => (shownLab?.scenarios || []).filter(s => !courseId || s.courseId === courseId), [shownLab, courseId]);
+  const watched = (shownLab?.graduationWatch || []).filter(w => !courseId || w.courseId === courseId);
   const active: AcademicDecisionScenario | undefined = scenarios.find(s => s.id === selected) || scenarios[0];
-  useEffect(() => { setSelected(""); }, [courseId, viewMode, lab?.sampledAt]);
+  useEffect(() => { setSelected(""); }, [courseId, lab?.sampledAt]);
   /* ── لماذا لا نتيجة؟ (K1) ───────────────────────────────────────────────
      The same sentence under four tools told the reader nothing. The funnel is
      the lab's own count of real records at each stage, so the empty state says
@@ -134,18 +126,6 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
         </div>)}</div>
       <small className="adl-live-foot">هذه مقررات القسم الفعلية.</small>
     </div>}
-    <div className="adl-view-modes" role="group" aria-label="مصدر نتائج المختبر">
-      <button type="button" data-guide-ignore="معاينة المحاكاة الافتراضية المنفصلة عن بيانات القسم"
-        className={viewingTraining ? "adl-view-mode adl-view-mode-active" : "adl-view-mode"}
-        aria-pressed={viewingTraining} onClick={() => { pickedMode.current = true; setViewMode("training"); }}>تجربة الأدوات الست</button>
-      <button type="button" data-guide-ignore="عرض التحليل الحقيقي للنطاق المختار دون حفظ"
-        className={!viewingTraining ? "adl-view-mode adl-view-mode-active" : "adl-view-mode"}
-        aria-pressed={!viewingTraining} onClick={() => { pickedMode.current = true; setViewMode("live"); }}>بيانات القسم الفعلية</button>
-    </div>
-    {viewingTraining && <div className="adl-training-note" role="note">
-      <Info size={17} aria-hidden="true" />
-      <span><strong>تجربة تعليمية</strong> · حالة افتراضية منفصلة عن جدول القسم.</span>
-    </div>}
     <div className="adl-features" role="group" aria-label="اختر إحدى المزايا الست">
       {features.map(item => <button type="button" key={item.id}
         className={"adl-feature" + (feature === item.id ? " adl-feature-active" : "")}
@@ -170,7 +150,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
       <div className="adl-section-head">
         {features.filter(x => x.id === feature).map(item =>
           <span key={item.id}><item.icon size={16} aria-hidden="true" /><strong>{item.title}</strong></span>)}
-        <small>{viewingTraining ? "درس افتراضي محسوب" : "بيانات القسم الفعلية"}</small>
+        <small>بيانات القسم الفعلية</small>
       </div>
       {(feature === "twin" || feature === "whatif") && (active ? <>
         <div className="adl-title-line"><CalendarClock size={15} aria-hidden="true" />
@@ -205,7 +185,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
           ? "يفحص تركيبة الطالب كاملة."
           : "افتراضي · لا يغيّر الجدول."}</small>
       </> : noEvidence)}
-      {feature === "domino" && (shownLab?.chain && (viewingTraining || !courseId) ? <>
+      {feature === "domino" && (shownLab?.chain && !courseId ? <>
         <div className="adl-positive">
           <span><GitBranch size={17} aria-hidden="true" />+{n(shownLab.chain.gain)}</span>
           <div><strong>تحسّن مجمع من خطوتين مترابطتين</strong>
@@ -220,10 +200,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
       </> : <div className="adl-no-evidence"><GitBranch size={18} aria-hidden="true" />
         <div><strong>لا توجد سلسلة تحسين مؤكّدة</strong>
           <small>تظهر عندما تؤدي خطوتان آمنتان لتحسّن أكبر من كل خطوة بمفردها.</small></div></div>)}
-      {feature === "rescue" && <>
-        {viewingTraining && <small className="adl-view-caption">مقررات تدريبية افتراضية.</small>}
-        {watchList}
-      </>}
+      {feature === "rescue" && watchList}
       {feature === "balance" && (active ? <>
         <div className="adl-balance-grid">
           <div className="adl-impact"><CalendarClock size={17} aria-hidden="true" /><span>إزاحة موعد الأستاذ</span>

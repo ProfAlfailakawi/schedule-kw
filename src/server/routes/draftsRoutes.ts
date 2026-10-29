@@ -27,6 +27,7 @@ import { intelligenceReadScopes, isScopeAllowed, scopedScheduleUniverse } from "
 import { approvalBlockerOptions, mapSmartIssuesToRows, type PdfImportReceipt, safeDraftRows, smartContextFrom, validateSmartRows } from "../core/smartImport";
 import { captureScopeVersion, confirmTokens, recordVersionAfter, replacementAction, scopeOverwriteRefusal } from "../core/versions";
 import { readVisitingStatus } from "../core/visiting";
+import { versionListItem } from "../../utils/scheduleVersionList";
 
 async function verifyPdfImportReceipt(token:unknown,context:{collegeId:number;sectionId:number;termId:number}){
   try{
@@ -442,7 +443,18 @@ app.post("/api/intelligence/drafts/:id/publish", requirePermission(7), async (re
 });
 
 app.get("/api/intelligence/versions", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
-  const {collegeId,sectionId,termId}=smartContextFrom(req); if(!collegeId||!sectionId||!termId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;} const versions=await Repository.getScheduleVersions(collegeId,sectionId,termId,80); res.json(versions.map(({rows,...meta})=>({...meta,rowCount:Number(meta.rowCount ?? rows.length)})));
+  const {collegeId,sectionId,termId}=smartContextFrom(req); if(!collegeId||!sectionId||!termId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  /* سجلُّ النسخ قراءةٌ ثانوية: إن تعذّرت يبقى «مركز الذكاء» كاملاً، وتصل قائمةٌ فارغة
+     موسومةٌ بأنها جزئية (X-Reading-Partial) فتظهر أيقونةٌ صغيرة بدل خطأ 500. */
+  let versions:any[]=[];
+  try{versions=await Repository.getScheduleVersions(collegeId,sectionId,termId,80);}
+  catch(error:any){
+    console.warn("[versions] list degraded %s:%s:%s:",collegeId,sectionId,termId,error?.message||error);
+    res.setHeader("X-Reading-Partial","versions");
+  }
+  const items:any[]=[];
+  for(const version of versions){try{items.push(versionListItem(version));}catch{res.setHeader("X-Reading-Partial","versions");}}
+  res.json(items);
 });
 app.get("/api/intelligence/versions/compare", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const a=await Repository.getScheduleVersionById(String(req.query.fromId||"")),b=await Repository.getScheduleVersionById(String(req.query.toId||"")); if(!a||!b){res.status(404).json({error:"إحدى النسختين غير موجودة"});return;} if(a.scopeKey!==b.scopeKey||!isScopeAllowed(req,a.AdCollegeId,a.AdSectionId)){res.status(403).json({error:"لا يمكن مقارنة نسخ خارج نطاق القسم"});return;} const key=(r:any)=>`${r.AdCourseId}:${r.SCode}:${r.AdInstructorId}:${activeDays(r).join(",")}:${r.fstarttime}:${r.fendtime}:${r.AdRoomCode}:${r.AdRoomHall}`; const ak=new Set(a.rows.map(key)),bk=new Set(b.rows.map(key)); res.json({from:{id:a.id,label:a.label,createdAt:a.createdAt,count:a.rows.length,rows:a.rows},to:{id:b.id,label:b.label,createdAt:b.createdAt,count:b.rows.length,rows:b.rows},added:[...bk].filter(x=>!ak.has(x)).length,removed:[...ak].filter(x=>!bk.has(x)).length,unchanged:[...bk].filter(x=>ak.has(x)).length});

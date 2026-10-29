@@ -60,7 +60,7 @@
       ]
     },
     {
-      "_comment": "The history list: newest versions of one scope, without reading their embedded snapshots.",
+      "_comment": "The history list: one scope's versions, without their embedded snapshots. Its leading scopeKey serves the equality filter; since 2026-10-29 the query has no orderBy — sorting matching snapshots in memory failed at Firestore's 128 MiB query limit (RESOURCE_EXHAUSTED on /api/intelligence/versions and /api/schedules/wipe-scope), so newest-first and the limit are applied in Node.",
       "collectionGroup": "scheduleVersions",
       "queryScope": "COLLECTION",
       "fields": [

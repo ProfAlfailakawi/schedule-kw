@@ -116,7 +116,13 @@ console.log("K2 — قرارات «تم/تجاهل» مشتركة على الخ�
   Repository.dropDemoSandbox(session);
   const server = readServerSource();
   const route = server.slice(server.indexOf('app.put("/api/schedules/section-gap/decisions"'), server.indexOf('app.get("/api/schedules/section-gap", '));
-  check(server.includes('app.get("/api/schedules/section-gap/decisions", requirePermission(7)') && route.includes("requirePermission(7)") && route.includes("isScopeAllowed(req, collegeId, sectionId)"), "المساران بصلاحية التخطيط نفسها (الإذن 7 + نطاق الكلية والقسم)");
+  /* القراءةُ لمن يقرأ لوحة القرار أيضاً (14: رئيس القسم والعميد)، والكتابةُ للجنة وحدها (7). */
+  check(server.includes('app.get("/api/schedules/section-gap/decisions", requireAnyPermission([7, 14])') && route.includes("requirePermission(7)") && route.includes("isScopeAllowed(req, collegeId, sectionId)"), "القراءة بالإذن 7 أو 14، والكتابة بالإذن 7 وحده، وكلاهما بنطاق الكلية والقسم");
+  check(server.includes('app.get("/api/schedules/section-gap", requireAnyPermission([7, 14])') && server.includes('app.get("/api/registration-stats", requireAnyPermission([7, 14])'),
+    "لوحة القرار لرئيس القسم تقرأ التخطيط وتاريخه: لا 403 تُبقي «جارٍ القراءة» إلى الأبد");
+  const gapHook = read("src/components/SectionGapNote.tsx"), board = read("src/components/DecisionBoard.tsx");
+  check(gapHook.includes("setFailure({ scope, status: response.status })") && gapHook.includes("failed,"), "قراءةُ التخطيط المرفوضة تُحفظ خطأً لا انتظاراً");
+  check(board.includes("gap.failed") && board.includes("onRetry") && board.includes("أعد المحاولة"), "لوحة القرار تُنهي الانتظار بخطأٍ وإعادة");
   check(route.includes("التجاهل يحتاج سبباً مكتوباً") && route.includes("byName: String(req.user?.Name"), "الخادم يرفض تجاهلاً بلا سبب، ويكتب اسم صاحب القرار ووقته من الجلسة لا من الطلب");
   const triageSource = read("src/utils/planTriage.ts");
   check(triageSource.includes("/api/schedules/section-gap/decisions") && triageSource.includes("plan-triage-pending:") && triageSource.includes('if (error?.status) throw error;'), "localStorage احتياطٌ للانقطاع فقط: يُصفّ ما لم يصل ويُرسل عند العودة، والرفض لا يُصفّ");
@@ -149,7 +155,7 @@ console.log("K4 — التنبّؤ: لا رقم بلا دليل");
 {
   const panel = read("src/components/PredictiveInsightPanel.tsx");
   check(panel.includes('row.confidence.level === "insufficient"') && panel.includes("بيانات غير كافية"), "المقررات بلا تاريخ كافٍ في «بيانات غير كافية» بلا رقم");
-  check(panel.includes("ليش؟") && panel.includes("row.reason"), "لكل رقم «ليش؟» من سبب المحرّك نفسه");
+  check(panel.includes("لماذا؟") && panel.includes("row.reason"), "لكل رقم «لماذا؟» من سبب المحرّك نفسه");
   check(panel.includes("pi-range") && panel.includes("row.low") && panel.includes("row.high"), "المدى ظاهر بجانب الرقم");
   check(panel.includes("data-kpi") && panel.includes("ساعات ضغط قاعات") && panel.includes("مسبقات تحجز دفعة"), "ملخص بلمحة: نقص، فائض، رغبات، ضغط قاعات، مسبقات، بيانات غير كافية");
   check(!/predictDemand\(|confidenceFrom\(/.test(panel), "لا منطق تنبّؤ مكرر في الواجهة");

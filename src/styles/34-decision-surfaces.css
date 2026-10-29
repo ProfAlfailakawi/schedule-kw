@@ -122,3 +122,21 @@
 .pi-insufficient-list li em{display:inline-flex;align-items:center;gap:3px;font-style:normal;color:var(--info);font-size:.75rem}
 .pi-insufficient-list li em svg{width:12px;height:12px}
 @media (max-width:640px){.pi-row.pi-row-why{grid-template-columns:minmax(0,1fr) auto}}
+
+/* ── التخطيط في لوحة القرار: الانتظار ينتهي بخطأٍ وإعادة ── */
+.decision-board-failed{display:inline-grid;place-items:center;margin-inline-start:auto;color:var(--danger)}
+.decision-board-failed svg{width:18px;height:18px}
+.decision-board-error{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;padding:10px 12px;border-radius:12px;background:var(--danger-soft);color:var(--ink-2);font-size:.88rem}
+.decision-board-error>svg{width:18px;height:18px;flex:none;color:var(--danger)}
+.decision-board-error span{flex:1;min-width:12ch}
+.decision-board-error button{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:650;cursor:pointer}
+.decision-board-error button svg{width:15px;height:15px}
+
+/* ── قراءةٌ جزئية في مركز الذكاء: أيقونةٌ صغيرة، لا لافتةٌ حمراء ── */
+.intel-partial-chip{display:inline-flex;align-items:center;gap:8px;justify-self:start;margin:0;padding-block:4px;padding-inline:12px 6px;border-radius:999px;border:1px dashed var(--line-strong);background:var(--surface);color:var(--muted);font-size:.82rem}
+.intel-partial-chip>svg{width:15px;height:15px;color:var(--warning)}
+.intel-partial-chip button{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);cursor:pointer}
+.intel-partial-chip button svg{width:14px;height:14px}
+
+/* «فرصة لتحسين الجدول» داخل أدوات البيانات: بعرض الورقة كله. */
+.transfer-improve{justify-self:stretch;width:100%;min-width:0}

@@ -1,4 +1,5 @@
 import { departmentFamily } from "../utils/sectionLabel";
+import { VERSION_META_FIELDS, newestVersions, normalizeVersionMeta } from "../utils/scheduleVersionList";
 import type { TmScenarioRecord } from "../utils/timeMachine";
 import type { ReportStampRecord } from "../utils/reportStamp";
 import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict, withReservedRooms, holdRequestReservation, releaseRequestHolds, liveReservations,
@@ -4540,23 +4541,27 @@ export const Repository = {
     const safeLimit = Math.max(1, Math.min(100, Number(limit) || 60));
     if (firestoreDb && !demoSandboxContext.getStore()) {
       /**
-       * Newest first, at the database, without the snapshots.
+       * Light, and sorted here — never by the database.
        *
-       * Every version document embeds a complete copy of the department's term,
-       * so reading two hundred of them to show sixty one-line labels moved
-       * megabytes to build a list. Ordering and limiting now happen in
-       * Firestore, and `.select()` asks for the metadata fields only — the rows
-       * stay where they are until something actually needs to restore them.
+       * Every version document embeds a complete copy of the department's term.
+       * The list used to ask Firestore for `orderBy("createdAt", "desc")`; the
+       * production database (Enterprise edition) found no index to sort with,
+       * sorted the matching documents in memory and failed for a department
+       * with many versions: «RESOURCE_EXHAUSTED … 128.29 MiB when the limit is
+       * 128.00 MiB» — a 500 under «قراءة القرار» and under «مسح الجدول».
+       *
+       * Now the query filters by scope and selects the metadata fields only;
+       * there is no orderBy, so nothing is sorted in Firestore's memory and no
+       * composite index has to exist. Ordering and the limit happen in Node on
+       * a few hundred one-line records (see utils/scheduleVersionList).
        */
       const snap = await firestoreDb.collection("scheduleVersions")
         .where("scopeKey", "==", scopeKey)
-        .orderBy("createdAt", "desc")
-        .limit(safeLimit)
-        .select("id", "scopeKey", "createdAt", "SystemUserId", "userName", "AdCollegeId", "AdSectionId", "AdTermId", "label", "source", "rowCount")
+        .select(...VERSION_META_FIELDS)
         .get();
-      return snap.docs.map(doc => ({ rows: [], ...(doc.data() as ScheduleVersion) }));
+      return newestVersions(snap.docs.map(doc => normalizeVersionMeta(doc.data(), doc.id)), safeLimit);
     }
-    return (db.scheduleVersions || []).filter(row => row.scopeKey === scopeKey).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,safeLimit);
+    return newestVersions((db.scheduleVersions || []).filter(row => row?.scopeKey === scopeKey).map(row => normalizeVersionMeta(row)), safeLimit);
   },
 
   /**
@@ -4567,6 +4572,10 @@ export const Repository = {
    * question needs the snapshots: what happened to a single appointment over
    * time. It is answered from a deliberately short tail, because a lecture's
    * story is told by its recent publications and not by every one since 2016.
+   *
+   * Two steps, for the same reason as the list: the newest ids are chosen from
+   * the light records, then exactly those documents are fetched by id. A query
+   * never holds the heavy documents for a sort.
    */
   getScheduleVersionsWithRows: async (
     collegeId: number, sectionId: number, termId: number, limit = 12,
@@ -4574,17 +4583,13 @@ export const Repository = {
     const scopeKey = `${collegeId}:${sectionId}:${termId}`;
     const safeLimit = Math.max(1, Math.min(24, Number(limit) || 12));
     if (firestoreDb && !demoSandboxContext.getStore()) {
-      const snap = await firestoreDb.collection("scheduleVersions")
-        .where("scopeKey", "==", scopeKey)
-        .orderBy("createdAt", "desc")
-        .limit(safeLimit)
-        .get();
-      return snap.docs.map(doc => doc.data() as ScheduleVersion);
+      const newest = await Repository.getScheduleVersions(collegeId, sectionId, termId, safeLimit);
+      if (!newest.length) return [];
+      const collection = firestoreDb.collection("scheduleVersions");
+      const docs = await firestoreDb.getAll(...newest.map(version => collection.doc(version.id)));
+      return newestVersions(docs.filter(doc => doc.exists).map(doc => normalizeVersionMeta(doc.data(), doc.id)), safeLimit);
     }
-    return (db.scheduleVersions || [])
-      .filter(row => row.scopeKey === scopeKey)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, safeLimit);
+    return newestVersions((db.scheduleVersions || []).filter(row => row?.scopeKey === scopeKey).map(row => normalizeVersionMeta(row)), safeLimit);
   },
 
   /**

@@ -32,6 +32,8 @@ export const PLAN_SAVED_EVENT = "schedule:plan-saved";
 export function useSectionGap(collegeId: number, sectionId: number, termId: number, refreshSignal = 0, wantStaffing = false) {
   const scope = `${collegeId}:${sectionId}:${termId}`;
   const [loaded, setLoaded] = useState<{ scope: string; payload: GapPayload } | null>(null);
+  /* قراءةٌ رُفضت أو انقطعت لا تبقى «جارٍ القراءة» إلى الأبد: تُحفظ هنا ليعرض صاحبُها خطأً وإعادة. */
+  const [failure, setFailure] = useState<{ scope: string; status: number } | null>(null);
   const [past, setPast] = useState<{ scope: string; stamp: string; history: GapPlan["history"] } | null>(null);
   const [bump, setBump] = useState(0);
   /* من يدرّس كل مقرر: ثقيلٌ، فيُجلب حين تُفتح اللوحة فقط، ويُجدَّد مع كل تغيّرٍ في الجدول. */
@@ -48,10 +50,19 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
   useEffect(() => {
     if (!collegeId || !sectionId || !termId) return;
     let cancelled = false;
+    setFailure(null);
     fetch(`/api/schedules/section-gap?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`)
-      .then(response => (response.ok ? response.json() : null))
-      .then((body: GapPayload | null) => { if (!cancelled) setLoaded(body ? { scope, payload: body } : null); })
-      .catch(() => { if (!cancelled) setLoaded(null); });
+      .then(response => {
+        if (response.ok) return response.json();
+        if (!cancelled) setFailure({ scope, status: response.status });
+        return null;
+      })
+      .then((body: GapPayload | null) => {
+        if (cancelled) return;
+        setLoaded(body ? { scope, payload: body } : null);
+        if (body) setFailure(null);
+      })
+      .catch(() => { if (!cancelled) { setLoaded(null); setFailure({ scope, status: 0 }); } });
     return () => { cancelled = true; };
   }, [collegeId, sectionId, termId, refreshSignal, scope, bump]);
   /* تخطيط الشعب يحفظ في السجلّ نفسه: مسحُ الكشف هناك (أو رفعُه) يُحدِّث الشارات والأيقونة هنا دون إعادة فتح الشاشة. */
@@ -90,7 +101,8 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
   const reload = useCallback(() => setBump(value => value + 1), []);
   /* مع كشفٍ مرفوع لا تكتمل حسبة التخطيط قبل أن يصل تاريخ الفصول (وإلا اقترح «شعبةً واحدة» فأخفى النقص). */
   const ready = data !== null && (!data.planImported || historyReady);
-  return { planItems: plan.gaps, planTargets: plan.targets, planSurplusItems: plan.surpluses, studentItems, staffing: staffed && staffed.scope === scope ? staffed.payload.staffing : null, freeSlots: staffed && staffed.scope === scope ? staffed.payload.visitorFreeSlots : 0, courses: data?.courses || [], planImported: Boolean(data?.planImported), loaded: data !== null, ready, source: data?.planSource?.fileName || "", reload };
+  const failed = !data && failure?.scope === scope ? failure : null;
+  return { failed, planItems: plan.gaps, planTargets: plan.targets, planSurplusItems: plan.surpluses, studentItems, staffing: staffed && staffed.scope === scope ? staffed.payload.staffing : null, freeSlots: staffed && staffed.scope === scope ? staffed.payload.visitorFreeSlots : 0, courses: data?.courses || [], planImported: Boolean(data?.planImported), loaded: data !== null, ready, source: data?.planSource?.fileName || "", reload };
 }
 
 export type Gap = ReturnType<typeof useSectionGap>;
