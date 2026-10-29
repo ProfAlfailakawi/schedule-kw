@@ -77,6 +77,8 @@ function samplesFor(p, hintPaths) {
 /**
  * طبقةٌ للمقارنة: { kind: "route"|"middleware", methods: Set, paths: string[]|null, regexp }.
  * paths=null: لا يُعرف المسار (يُعدّ ملتقياً مع كل شيء ما لم يُعطَ regexp).
+ * @param {{ kind: string, methods?: string[], paths: string[] | null, regexp?: RegExp | null }} spec
+ * @returns {{ kind: string, methods: Set<string>, paths: string[] | null, regexp: any }}
  */
 export function makeLayer({ kind, methods = [], paths, regexp }) {
   const end = kind !== "middleware";
