@@ -42,7 +42,8 @@ check(count(S, /(?:title|aria-label)=\{`\$\{title\} · \$\{withVisitingSuffix\(i
 has(S, /instructorVisiting=\{Boolean\(physics\.state\.row && visitingIds\.has/, "Schedules: يمرّر علمَ المنتدب لطبقة السحب");
 
 // ── المكوّنات الصغيرة
-has("src/components/QuickCreatePopover.tsx", /withVisitingSuffix\(i\.AdInstructorName, isVisiting\(i\.AdInstructorId, collegeId, sectionId\)\)/, "QuickCreate: خيارات الأستاذ بلاحقة بنطاق القسم");
+has("src/components/QuickCreatePopover.tsx", /<InstructorPicker[\s\S]*?visitingIds=\{visitingIds\}[\s\S]*?visitingRosterIds=\{visitingRosterIds\}/, "QuickCreate: المنتقي الموحّد بشارة المنتدب وروستر الفصل");
+has("src/components/QuickCreatePopover.tsx", /isVisiting\(draft\.instructorId, collegeId, sectionId\) \? <VisitingBadge compact \/>/, "QuickCreate: أستاذ الطلب المقفل بشارة بنطاق القسم");
 has("src/components/SchedulePhysics/SchedulePhysicsLayer.tsx", /instructorVisiting \? <VisitingBadge compact \/>/, "طبقة السحب: الشارة على الاسم");
 has("src/components/SchedulePhysics/ScheduleDecisionPreview.tsx", /instructorVisiting \? <VisitingBadge compact \/>/, "معاينة القرار: الشارة على الاسم");
 const D = "src/components/DaySubstitute.tsx";

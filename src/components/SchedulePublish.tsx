@@ -1,3 +1,7 @@
+import SendModePicker from "./SendModePicker";
+import TAPhasePanel from "./TAPhasePanel";
+import CourseOfferingPanel from "./CourseOfferingPanel";
+import type { LinkMode } from "../utils/linkMode";
 import { DnaStepper } from "./dna";
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -115,7 +119,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     [closeTime, setCloseTime] = useState("23:59"),
     /* ومع البطاقة تُفتح نافذةُ طلبات التعديل ما لم يُطفئها المنسّق. */
     [openRequests, setOpenRequests] = useState(true),
-    [issued, setIssued] = useState<{ created: number; reissued: number; renewed?: number; empty?: "no-rows" | "no-instructors" } | null>(null),
+    [issued, setIssued] = useState<{ created: number; reissued: number; renewed?: number; empty?: "no-rows" | "no-instructors"; mode?: LinkMode } | null>(null),
     /* كم بطاقةً سابقةً حلّت محلَّها البطاقةُ الجديدة — سطرٌ في خبر الإنشاء لا قائمة. */
     [replaced, setReplaced] = useState(0),
     /* الروابطُ الموقوفة والمنتهية مطويّةٌ تحت سطرٍ واحد، فلا تزاحم الحيّة. */
@@ -131,6 +135,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     [manageReason, setManageReason] = useState(""),
     [manageFaculty, setManageFaculty] = useState<AdInstructor[]>([]),
     [manageSuccess, setManageSuccess] = useState(""),
+    /* E1: صفةُ الإرسال — للجماعي (sendMode) وللفردي/إعادة الفتح (manageSendMode). */
+    [sendMode, setSendMode] = useState<LinkMode>("edit"),
+    [manageSendMode, setManageSendMode] = useState<LinkMode>("edit"),
     [exceptions, setExceptions] = useState<Array<{ instructorId: number; name: string; closesAt: string; grantedAt: string; reason: string; revokedAt: string; active: boolean }>>([]);
 
   const scoped = Boolean(collegeId && sectionId && termId);
@@ -187,11 +194,11 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
    * بـ`/api/share` ولا يظهر في قائمة الروابط: يُصدَر ويُتابَع في «وارد
    * الأساتذة»، ويُرسل لكلِّ أستاذٍ رابطُه من هناك.
    */
-  const issueRequests = async (deadline = `${closesAt}T${closeTime}`, instructorId = 0, reason = "", reopen = false) => {
+  const issueRequests = async (deadline = `${closesAt}T${closeTime}`, instructorId = 0, reason = "", reopen = false, mode: LinkMode = sendMode) => {
     const response = await fetch("/api/instructor-requests/issue", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ collegeId, sectionId, termId, closesAt: deadline, source: "draft",
+      body: JSON.stringify({ collegeId, sectionId, termId, closesAt: mode === "view" ? viewDeadline() : deadline, source: "draft", mode,
         ...(instructorId ? { instructorId, reason } : {}), ...(reopen ? { reopen: true } : {}) }),
     });
     const data = await readReply(response, "تعذر فتح طلبات التعديل");
@@ -204,7 +211,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
        أنه فتح لعشرين وقد فتح لثلاثة. */
     const reissued = rows.filter(row => row.reissued).length;
     const renewed = rows.filter(row => row.renewed).length;
-    setIssued({ created: rows.length - reissued - renewed, reissued, renewed });
+    setIssued({ created: rows.length - reissued - renewed, reissued, renewed, mode });
     return data;
   };
 
@@ -227,7 +234,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     setBusy(true); setError(null); setManageSuccess("");
     try {
       const data = await issueRequests(`${manageDate}T${manageTime}`,
-        manageMode === "one" ? manageInstructorId : 0, manageReason.trim(), true);
+        manageMode === "one" ? manageInstructorId : 0, manageReason.trim(), true, manageSendMode);
       if (data?.emptyTerm) throw new Error("لا توجد مواعيد مسندة إلى أساتذة في هذا الفصل.");
       setManageSuccess(manageMode === "one" ? "فُتح التعديل لهذا الأستاذ فقط، من بطاقته الحالية." : "أُعيد فتح التعديل للجميع دون تبديل روابطهم.");
       setManageMode(null);
@@ -253,6 +260,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   /* بطاقة الأستاذ: الموعدُ يحكم استقبالَ الطلبات وحده. الرابطُ نفسه — والتقويم
      الذي يتبعه في هاتف الأستاذ — يعيش حتى نهاية الفصل، ويحسب الخادمُ ذلك من
      تاريخ الفصل لا من هذا الموعد. الاستبيانُ وحده يموت مع موعده. */
+  /* 👁️ للعرض فقط لا يسأل عن موعد: الخادمُ يحتاج تاريخاً صالحاً للرابط، والصفةُ تمنع الكتابة. */
+  const viewDeadline = () => { const d = new Date(Date.now() + 86400000); return `${d.toISOString().slice(0, 10)}T23:59`; };
   const withRequests = kind === "staff";
   const byDate = kind === "staff" || kind === "survey";
   const linkDays = kind === "survey" && closesAt
@@ -260,14 +269,14 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     : days;
 
   const create = async () => {
-    if (byDate && !closesAt) { setError(kind === "survey" ? "اكتب آخر موعدٍ لاستقبال إجابات الطلبة." : "اكتب آخر موعدٍ لاستقبال طلبات التعديل."); return; }
+    if (byDate && !closesAt && !(kind === "staff" && sendMode === "view")) { setError(kind === "survey" ? "اكتب آخر موعدٍ لاستقبال إجابات الطلبة." : "اكتب آخر موعدٍ لاستقبال طلبات التعديل."); return; }
     setBusy(true);
     setError(null);
     try {
       const response = await fetch("/api/share", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ collegeId, sectionId, termId, days: linkDays, showInstructors, kind, ...(withRequests ? { requestsCloseAt: `${closesAt}T${closeTime}` } : {}) })
+        body: JSON.stringify({ collegeId, sectionId, termId, days: linkDays, showInstructors, kind, ...(withRequests ? { requestsCloseAt: sendMode === "view" ? viewDeadline() : `${closesAt}T${closeTime}` } : {}) })
       });
       const data = await readReply(response, "تعذر إنشاء الرابط");
       /* الخادمُ أوقف بطاقاتِ القسم السابقة؛ تُرى هنا موقوفةً بلا إعادة تحميل. */
@@ -592,10 +601,17 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
             >
               <header className="share-step-head">
                 <small>الخطوة 2 من 3</small>
-                <h3 id="publish-step-options-title">{kind === "department" ? "مدة الرابط وما سيظهر فيه" : kind === "survey" ? "آخر موعد لاستقبال إجابات الطلبة" : "آخر موعد لاستقبال الطلبات"}</h3>
+                <h3 id="publish-step-options-title">{kind === "department" ? "مدة الرابط وما سيظهر فيه" : kind === "survey" ? "آخر موعد لاستقبال إجابات الطلبة" : sendMode === "edit" ? "نوع الإرسال وآخر موعد" : "نوع الإرسال"}</h3>
                 {kind === "department" ? <p>رابط قراءة عام للجدول ضمن الصلاحية المحددة.</p> : null}
               </header>
-              <div className={`share-compose ${kind === "department" ? "" : "share-compose-single"}`}>
+              {kind === "staff" ? <SendModePicker value={sendMode} onChange={setSendMode} /> : null}
+              {kind === "staff" && sendMode === "ta" ? <TAPhasePanel collegeId={collegeId} sectionId={sectionId} termId={termId} /> : null}
+              {kind === "staff" && sendMode === "edit" ? (
+                <details className="of-section"><summary>🟢🔒🌱🎯 حالة طرح المقررات في الكرت</summary>
+                  <CourseOfferingPanel collegeId={collegeId} sectionId={sectionId} termId={termId} />
+                </details>
+              ) : null}
+              <div className={`share-compose ${kind === "department" ? "" : "share-compose-single"}`} hidden={kind === "staff" && sendMode !== "edit"}>
                 {kind === "department" ? <div className="share-days" role="group" aria-label="مدة الصلاحية">
                   {DAY_CHOICES.map(choice => (
                     <button
@@ -643,7 +659,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                   type="button"
                   data-guide-target="schedule.publish"
                   onClick={create}
-                  disabled={busy || (withRequests && !closesAt)}
+                  hidden={kind === "staff" && sendMode === "ta"}
+                  disabled={busy || (withRequests && sendMode === "edit" && !closesAt)}
                 >
                   <Link2 />
                   {busy ? "ينشئ الرابط…" : "إنشاء الرابط"}
@@ -683,11 +700,14 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                       الجديد، وطلبٌ أرسله صاحبُه وينتظر القسم. «مفتوحة من قبل» كانت
                       تُقال لطلباتٍ مات موعدُها، فيظنّها المنسّقُ مفتوحة. */}
                   {[
-                    issued.created ? `فُتحت طلبات التعديل لـ${countOf(issued.created, oblique(AR.instructor))}` : "",
+                    /* الرسالةُ بصفة الإرسال: رابطُ العرض لا «يفتح طلبات تعديل». */
+                    issued.created ? (issued.mode === "view"
+                      ? `أُرسل جدولُ العرض لـ${countOf(issued.created, oblique(AR.instructor))}`
+                      : `فُتحت طلبات التعديل لـ${countOf(issued.created, oblique(AR.instructor))}`) : "",
                     issued.renewed ? `جُدّد الموعد لـ${countOf(issued.renewed, oblique(AR.instructor))}` : "",
                     issued.reissued ? `${countOf(issued.reissued, AR.instructor)} طلباتهم عند القسم` : "",
                   ].filter(Boolean).join(" · ")}
-                  {issued.created || issued.renewed ? " — يطلبون من بطاقتهم، وتتابعها في «وارد الأساتذة»." : " — تتابعها في «وارد الأساتذة»."}
+                  {issued.mode === "view" ? " — يرون جدولهم من بطاقتهم، بلا طلبات." : issued.created || issued.renewed ? " — يطلبون من بطاقتهم، وتتابعها في «وارد الأساتذة»." : " — تتابعها في «وارد الأساتذة»."}
                 </p>
               ) : null}
               <div className="share-list" role="list" aria-live="polite">
@@ -920,6 +940,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                   {manageMode ? (
                     <div className="share-window-form">
                       <strong>{manageMode === "one" ? "فتح التعديل لأستاذ واحد" : "إعادة فتح التعديل لجميع الأساتذة"}</strong>
+                      <SendModePicker value={manageSendMode} onChange={setManageSendMode} allow={["view", "edit"]} />
                       {manageMode === "one" ? (
                         <>
                           <label>الأستاذ

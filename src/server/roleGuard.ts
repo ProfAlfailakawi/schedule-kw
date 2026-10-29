@@ -36,6 +36,9 @@ export const SESSION_WRITE_PATHS = new Set([
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
+/** ما يكتبه المرشد من رصيده وحده (src/utils/advisorSeats.ts). */
+export const ADVISOR_SEAT_WRITES = new Set(["/advisor-seats/add", "/advisor-seats/exception"]);
+
 /**
  * الصفحات العامة (بطاقة عضو الهيئة، رابط الطلب، التقويم، استمارة الطالب)
  * تُفتح برمزٍ في الرابط لا بحساب. من يفتحها وهو مسجّلُ الدخول بصفة اطّلاع —
@@ -92,6 +95,8 @@ export function roleWriteDecision(input: RoleGuardInput): RoleGuardVerdict {
   // permission 14 and every participant against the head's department.
   if (input.method.toUpperCase() === "POST" && input.path === "/schedules/meeting-slots" && roleDefinition(input.role).id === "departmentHead") return { allowed: true, reason: "read" };
   if (roleDefinition(input.role).id === "departmentHead" && DEPARTMENT_PLAN_REVIEW_WRITES.has(input.path)) return { allowed: true, reason: "approval" };
+  /* رصيد مقاعد المرشد (L3): بابٌ أضيق للمرشد وحده — إضافةُ مقعدٍ من رصيده وطلبُ استثناء. لا جدول ولا اعتماد. */
+  if (isAdvisorRole(input.role) && input.method.toUpperCase() === "POST" && ADVISOR_SEAT_WRITES.has(input.path)) return { allowed: true, reason: "approval" };
   /* المرشد يقرأ كشف التسجيل ولا يشارك في دورة الاعتماد: لا يمرّ من البابِ الضيّق. */
   if (isApprovalWritePath(input.path) && !isViewerOnlyRole(input.role) && !isAdvisorRole(input.role)) return { allowed: true, reason: "approval" };
   return { allowed: false, reason: "read-only-role" };

@@ -2300,6 +2300,11 @@
   .authority-pdf-scope-grid span{font-size:6.2pt!important;color:#5d6966!important;font-weight:700!important}
   .authority-pdf-scope-grid strong{font-size:7.4pt!important;color:#111!important;white-space:normal!important}
   .authority-pdf-grid .print-comprehensive-grid-row{grid-template-columns:17mm 19mm 12mm minmax(43mm,1fr) 10mm 10mm 12mm 15mm 17mm 26mm 16mm minmax(34mm,1fr)!important}
+  /* نسخة الرقم المدني: عمودٌ أخير بعد المدرس. يتسع للرقم (١٢ خانة) ولشارة الحالة
+     التي تجلس في طرف الصف، ويُقتطع عرضه من مرونة المقرر والمدرس لا من الأعمدة الثابتة. */
+  .authority-pdf-with-civil .authority-pdf-grid .print-comprehensive-grid-row{grid-template-columns:17mm 19mm 12mm minmax(38mm,1fr) 10mm 10mm 12mm 15mm 17mm 26mm 16mm 36mm 46mm!important}
+  /* الخلية ltr فطرفها المنطقي يمين؛ وشارة الحالة تجلس يساراً، فيُحجز لها اليسار صراحةً. */
+  .authority-pdf-grid .authority-pdf-row>[role="cell"].authority-pdf-civil-cell{padding-left:13mm!important;padding-right:1.2mm!important}
   .authority-pdf-with-site .print-site-chip{font-size:5.4pt !important}
   .authority-pdf-grid .print-comprehensive-grid-row>[role="cell"],.authority-pdf-grid .print-comprehensive-grid-row>[role="columnheader"]{font-size:5.95pt!important;padding-inline:.55mm!important}
   .authority-pdf-grid .print-comprehensive-grid-head>[role="columnheader"]{font-size:5.65pt!important}

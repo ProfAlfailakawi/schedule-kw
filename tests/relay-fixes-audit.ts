@@ -359,7 +359,9 @@ check(changes.includes("const canRebut = Boolean(role.signatureStage) && !isView
   check((schedules.match(/disabled=\{Boolean\(approvalLock\)\}/g) || []).length >= 3, "R21 وأزرارُ «إضافة موعد» معطّلةٌ بسببها");
   check(schedules.includes("Boolean(approvalLock) ||") && schedules.includes("if (approvalLock) { e.preventDefault(); setPhysicsNotice(approvalLock); return; }"),
     "R21 والسحبُ لا يبدأ، ويُقال لماذا");
-  check(schedules.includes("<strong>لا يُحفظ الآن</strong>"), "R21 ولوحةُ فحص الحفظ لا تقول «صالح» على جدولٍ مقفل");
+  /* اللوحة صارت مكوّناً واحداً (AppointmentChecksPanel): يأخذ سبب القفل فيقول «لا يُحفظ الآن» بدل «جاهز». */
+  const checksPanel = fs.readFileSync("src/components/AppointmentChecksPanel.tsx", "utf8");
+  check(schedules.includes("lockedReason={approvalLock}") && checksPanel.includes('lockedReason ? "لا يُحفظ الآن"'), "R21 ولوحةُ فحص الحفظ لا تقول «صالح» على جدولٍ مقفل");
 }
 
 /* ── R22: لا وعدَ بتلوينٍ لا يقع ────────────────────────────────────────────── */
@@ -454,9 +456,11 @@ async function revisionBehaviour() {
       const callers = [...server.matchAll(/captureScopeVersion\(req,[^\n]*/g)].map(match => match[0]);
       const unchanged = callers.filter(line => line.includes("{ unchanged: true }"));
       check(unchanged.length === 5, "R7-review قراراتُ الاعتماد الخمسة بلا كتابة صفوف");
-      check(callers.length - unchanged.length === 13 && (server.match(/await recordVersionAfter\(/g) || []).length === 14
+      /* +1: استبدال شعبة «هيئة تدريسية» الذرّي (placeholder-action) يلتقط ويسجّل كغيره.
+         +1 لكلٍّ: اعتمادُ آلة الزمن واستعادتُها (timeMachineRoutes عبر الحقن في server.ts). */
+      check(callers.length - unchanged.length === 15 && (server.match(/await recordVersionAfter\(/g) || []).length === 16
         && server.includes("recordVersionAfter(before, current => current.map(row => byId.get(Number(row.id)) || row))"),
-        "R7-review كلُّ عمليةٍ تكتب صفوفاً تسجّل ما صار من صفوفها (الإضافة، التعديل ونقله، الحذف، الاستبدال، النسخ، النشر، الاسترجاع، التراجع، مسح الجدول بالكامل وإرجاعه)");
+        "R7-review كلُّ عمليةٍ تكتب صفوفاً تسجّل ما صار من صفوفها (الإضافة، التعديل ونقله، الحذف، الاستبدال، استبدال «هيئة تدريسية»، النسخ، النشر، الاسترجاع، التراجع، مسح الجدول بالكامل وإرجاعه، اعتماد آلة الزمن واستعادتها)");
       /* إضافةُ الموعد معالجٌ مسمّى (يستعمله «اعتماد الاقتراح» أيضاً): الجسمُ عند تعريفه لا عند تسجيل المسار. */
       const add = route("const createScheduleHandler = async");
       check(add.indexOf("recordVersionAfter(addVersion, before => [...before, newSched])") > add.indexOf("Repository.createSchedule(")

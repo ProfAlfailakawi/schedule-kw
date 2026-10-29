@@ -20,6 +20,7 @@ import { groupDeptTracks, planMatchKey, trackLabels, type DeptTrack } from "../u
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
 import { compareCurriculumReference, isTechnologyEducation, referenceCodeKey } from "../utils/curriculumReference";
 import { arabicMatchKey } from "../utils/arabicText";
+import { spellingTwinGroups } from "../utils/courseSpellingTwins";
 import { AR, countOf } from "../utils/arabicCount";
 import express from "express";
 import { rateLimit } from "express-rate-limit";
@@ -875,6 +876,74 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     }
     res.locals.auditChanges = `حذف مقرراتٍ مكررة (${names.length}): ${names.slice(0, 40).join(" | ")}`;
     res.json({ ok: true, deleted: names.length });
+  });
+
+  /* ── مقررٌ واحد بإملاءين (G5): «اداره/إدارة مراكز مصادر التعلم» ───────────────────────────────────
+     معاينةٌ أولاً: كل إملاء بما يشير إليه (مواعيد كل الفصول، روابط الصحائف، الطلبة، قواعد الصحيفة). ثم دمجٌ واحد بتأكيد صريح
+     يختار فيه المسؤول الاسمَ المعتمد: تُنقل المواعيد والروابط إلى الباقي ويُؤرشف المكرّر — لا حذفٌ صامت. ما تشير إليه بيانات
+     الطلبة أو القواعد لا يُدمج آلياً (يُقال لماذا). القاعدة الواحدة للإملاء: courseNameRelation (spellingTwinGroups). */
+  const spellingTwinScan = async () => {
+    const [sections, colleges, courses, ruleSets, drafts, schedules, links] = await Promise.all([Repository.getSections(), Repository.getColleges(), Repository.getCourses(),
+      Repository.listRuleSets(), Repository.listRuleDrafts(), Repository.getSchedules(), Repository.getAllCurriculumPlanCourses()]);
+    const collegeName = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
+    const referenced = new Set<number>();
+    for (const set of [...(ruleSets as any[]), ...(drafts as any[])]) {
+      for (const rule of set.rules || []) { referenced.add(Number(rule.courseId)); for (const id of [...(rule.prereq?.all || []), ...(rule.prereq?.anyOf || []).flat(), ...(rule.coreq || [])]) referenced.add(Number(id)); }
+      for (const group of set.groups || []) for (const id of group.courseIds || []) referenced.add(Number(id));
+      for (const id of set.externals || []) referenced.add(Number(id));
+    }
+    const scheduleCount = new Map<number, number>();
+    for (const row of schedules as any[]) scheduleCount.set(Number(row.AdCourseId), (scheduleCount.get(Number(row.AdCourseId)) || 0) + 1);
+    const linkCount = new Map<number, number>();
+    for (const link of links as any[]) linkCount.set(Number(link.AdCourseId), (linkCount.get(Number(link.AdCourseId)) || 0) + 1);
+    let studentUsed: Set<number> | null = null;
+    const studentsUse = async () => {
+      if (studentUsed) return studentUsed;
+      studentUsed = new Set<number>();
+      for (const profile of await Repository.listStudentProfiles() as any[]) for (const id of [...(profile.passedCourseIds || []), ...(profile.equivalentCourseIds || []), ...(profile.wishes?.courseIds || []), ...(profile.visitSnapshot?.passedIds || [])]) studentUsed.add(Number(id));
+      for (const term of await Repository.getTerms() as any[]) for (const need of await Repository.getStudentNeedsForTerm(Number(term.AdTermId)) as any[]) for (const id of need.courseIds || []) studentUsed.add(Number(id));
+      return studentUsed;
+    };
+    const out: Array<{ sectionId: number; section: string; groups: Array<{ names: string[]; courses: any[] }> }> = [];
+    for (const section of sections as any[]) {
+      const sid = Number(section.AdSectionId);
+      const own = (courses as AdCourse[]).filter(row => Number(row.AdSectionId) === sid);
+      const groups = spellingTwinGroups(own.map(row => String(row.CourseName || "")));
+      if (!groups.length) continue;
+      const students = await studentsUse();
+      out.push({ sectionId: sid, section: `${collegeName.get(Number(section.AdCollegeId)) || ""} · ${section.AdSectionName}`, groups: groups.map(names => ({
+        names,
+        courses: own.filter(row => names.includes(String(row.CourseName || "").trim())).map(row => {
+          const id = Number(row.AdCourseId);
+          const blockedBy = students.has(id) ? "بيانات طلبة" : referenced.has(id) ? "قواعد صحيفة" : "";
+          return { id, code: String(row.CourseCode || ""), name: String(row.CourseName || ""), schedules: scheduleCount.get(id) || 0, plans: linkCount.get(id) || 0, students: students.has(id), rules: referenced.has(id), mergeable: !blockedBy, blockedBy };
+        }),
+      })) });
+    }
+    return out;
+  };
+  app.get("/api/plan-review/sheet/spelling-twins", deps.requireAuth, async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    res.setHeader("Cache-Control", "no-store");
+    const sections = await spellingTwinScan();
+    res.json({ ok: true, sections, total: sections.reduce((sum, row) => sum + row.groups.length, 0) });
+  });
+  app.post("/api/plan-review/sheet/spelling-twins/merge", sheetLimit, deps.requireAuth, express.json({ limit: "64kb" }), async (req: Request, res: Response) => {
+    if (!deps.isRootAdmin(req)) { fail(res, 403, "للحساب الرئيسي وحده."); return; }
+    if (req.body?.confirm !== true) { fail(res, 428, "الدمج يحتاج تأكيداً صريحاً بعد المعاينة."); return; }
+    const keeperId = Number(req.body?.keeperId || 0);
+    const mergeIds = [...new Set(((req.body?.mergeIds as unknown[]) || []).map(Number).filter(id => Number.isFinite(id) && id > 0 && id !== keeperId))];
+    const canonicalName = String(req.body?.canonicalName || "").trim();
+    if (!keeperId || !mergeIds.length || !canonicalName) { fail(res, 400, "حدّد المقرر الباقي والمكرّر والاسم المعتمد."); return; }
+    /* يُعاد الفحص لحظة الدمج: لا يُدمج إلا ما ما زال إملاءً للمقرر نفسه في القسم نفسه وغيرَ مستعمل عند الطلبة أو القواعد. */
+    const group = (await spellingTwinScan()).flatMap(section => section.groups).find(item => item.courses.some(course => course.id === keeperId));
+    if (!group || mergeIds.some(id => !group.courses.some(course => course.id === id))) { fail(res, 409, "لم تعد هذه المقررات إملاءً واحداً؛ أعد الفحص."); return; }
+    if (!group.names.includes(canonicalName)) { fail(res, 400, "اختر الاسم المعتمد من إملاءات المقرر نفسه."); return; }
+    const blocked = group.courses.filter(course => mergeIds.includes(course.id) && !course.mergeable);
+    if (blocked.length) { fail(res, 409, `لا يُدمج آلياً: ${blocked.map(course => `${course.code} (${course.blockedBy})`).join("، ")}.`); return; }
+    const result = await Repository.mergeCourses(keeperId, mergeIds, canonicalName, String((req as any).user?.Name || ""));
+    res.locals.auditChanges = `دمج إملاء مقرر: ${group.courses.filter(course => mergeIds.includes(course.id)).map(course => `${course.code} ${course.name}`).join(" + ")} ← ${result.keeper.CourseCode} «${canonicalName}» (${countOf(result.schedules, AR.appointment, "بلا مواعيد")}، روابط الصحيفة: ${result.links})`;
+    res.json({ ok: true, keeper: result.keeper, schedules: result.schedules, links: result.links });
   });
 
   /* ── مقررات الأقسام الخدمية (بلا صحائف): تُضاف بتأكيد المسؤول لكل رمز قسم ─────────────────────────────

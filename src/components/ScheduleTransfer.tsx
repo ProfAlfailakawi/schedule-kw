@@ -1,14 +1,15 @@
 import TermSelect from "./TermSelect";
 import { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X } from "lucide-react";
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Puzzle } from "lucide-react";
 import { PrimaryButton, SecondaryButton, useDialogDismiss, visualConfirm } from "./ui";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { importRowKey, type ImportRow } from "./ImportPreviewTable";
 import PagedImportPreview, { PageReviewWait } from "./PagedImportPreview";
+import ImportNameFillPanel from "./ImportNameFillPanel";
 import SchedulePublish from "./SchedulePublish";
 import SectionPlanning from "./SectionPlanning";
 import { blockingConflicts, placeholderInstructorIds } from "../utils/scheduleBlockers";
@@ -60,7 +61,9 @@ interface Props {
   onClose: () => void;
 }
 
-type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "planning";
+type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "planning" | "simulator";
+/* 🧩 محاكي الشعب بجانب «تخطيط الشعب»: ماذا لو حذفنا/أضفنا/دمجنا/قسّمنا؟ (src/components/SectionSimulator.tsx) */
+const SectionSimulator = lazy(() => import("./SectionSimulator"));
 
 export default function ScheduleTransfer({ collegeId, collegeName, sectionId, termId, instructors, departmentIds, terms, onChanged, onSectionChange, onClose }: Props) {
   useDialogDismiss(true, onClose);
@@ -544,6 +547,9 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
   /* مراجعة التخطيط لا تبقى تحت تبويبٍ آخر: من غادرها يعود إلى شاشةٍ نظيفة، فلا تظهر شعب التخطيط في «استيراد». */
   const goTab = (next: Tab) => { if (fromPlanning) { setXlsxPreview(null); setXlsxDraft(""); } setTab(next); };
   const importPreviewOpen = tab === "import" && importKind === "authority-pdf" && Boolean(xlsxPreview?.rows?.length) && !xlsxDraft;
+  /* M1: استيراد PDF يأخذ الصفحة كلها — من أول قراءة الملف حتى المعاينة والنشر — لا ورقةً
+     بعرض 880px تُمرَّر أفقياً. تبقى ورقةً عادية لبقية التبويبات. */
+  const importFullPage = tab === "import" && !publishReceipt && (importPreviewOpen || (importKind === "authority-pdf" && (Boolean(readProgress) || Boolean(xlsxPreview))));
 
   const rotatedPdfGuidance = Boolean(error && /دوّر صفحات الجدول للوضع الأفقي/.test(error));
   const pdfReadinessSummary = useMemo(() => {
@@ -1221,7 +1227,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
 
   return (
     <div className="transfer-backdrop no-print" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`transfer-sheet visual-minimal${importPreviewOpen && !publishReceipt ? " is-page-wide" : ""}`} role="dialog" aria-modal="true" aria-label="نقل الجدول">
+      <section className={`transfer-sheet visual-minimal${importFullPage ? " is-page-wide is-full-page" : ""}`} role="dialog" aria-modal="true" aria-label="نقل الجدول">
         <header>
           <div>
             <span className="surface-kicker">الجدول كوحدة واحدة</span>
@@ -1246,7 +1252,11 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "visiting" ? "active" : ""} onClick={() => goTab("visiting")} title="المنتدبون"><UserPlus />المنتدبون</button>
           )}
           {termEnded ? null : (
+            <>
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
+            {/* 🧩 بجانب التخطيط، وبحكمه: فصلٌ منتهٍ لا محاكاةَ لشعبه. */}
+            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "simulator" ? "active" : ""} onClick={() => goTab("simulator")} title="محاكي الشعب"><Puzzle />محاكي الشعب</button>
+            </>
           )}
         </nav>
         )}
@@ -1581,6 +1591,18 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                     <>
                       {/* The whole table, red on what the scan could not read,
                           and a quick edit + delete beside EVERY row. */}
+                      {/* L4: ملف PDF الرسمي أو ورقة Excel — أيُّ استيرادٍ وصل بلا أسماء. */}
+                      {importKind === "authority-pdf" || importKind === "worksheet" ? (
+                        <ImportNameFillPanel
+                          rows={xlsxPreview.rows as ImportRow[]}
+                          onRows={next => setXlsxPreview((prev: any) => prev ? { ...prev, rows: next } : prev)}
+                          people={[...new Map([...instructors, ...directoryPeople]
+                            .filter(person => departmentIds.includes(Number(person.AdInstructorId)) || roster.includes(Number(person.AdInstructorId)))
+                            .map(person => [Number(person.AdInstructorId), person])).values()] as any}
+                          collegeId={collegeId} sectionId={sectionId} termId={termId}
+                          courseName={id => String(deptCourses.find((course: any) => Number(course.AdCourseId) === id)?.CourseName || "")}
+                        />
+                      ) : null}
                       <PagedImportPreview
                         rows={xlsxPreview.rows as ImportRow[]}
                         pageCount={Number(xlsxPreview.pages||0)}
@@ -1739,6 +1761,12 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               </div>
               {collegeId && sectionId && termId ? <SectionPlanning collegeId={collegeId} sectionId={sectionId} termId={termId} onReviewRows={(rows, meta) => { setTab("import"); void previewWorksheetRows(rows, "تخطيط الشعب", true, meta); }} /> : <p>اختر القسم والفصل أولاً.</p>}
             </>
+          ) : null}
+
+          {tab === "simulator" ? (
+            collegeId && sectionId && termId
+              ? <Suspense fallback={<p>⏳</p>}><SectionSimulator collegeId={collegeId} sectionId={sectionId} termId={termId} /></Suspense>
+              : <p>اختر القسم والفصل أولاً.</p>
           ) : null}
 
           {tab === "visiting" ? (

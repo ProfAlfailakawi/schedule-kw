@@ -9,6 +9,9 @@ test:hardening
 test:companion-rooms
 test:room-occupancy
 test:doctor-journey
+test:calendar-ics
+test:owner-features-1028
+test:ta-phase-flow
 test:staff-global
 test:instructor-status
 test:request-cross-college
@@ -124,6 +127,8 @@ test:plan-pdf
 test:plan-sheet-import
 test:curriculum-reference-pdf
 test:schedule-apply
+test:time-machine
+test:time-machine-links
 test:registration-causes
 test:radar-insight
 test:reference-apply
@@ -157,9 +162,14 @@ audit:guide
 test:pattern-library
 test:lecture-length
 test:appointment-entry-parity
+test:appointment-forms
+test:placeholder-action
+test:course-spelling-merge
+test:teacher-mini-week
 test:schedule-wipe
 test:instructor-availability
 test:instructor-offering-flow
 test:ta-conversion
 test:unchanged-request
 test:unchanged-request-http
+test:course-number-seven-digit

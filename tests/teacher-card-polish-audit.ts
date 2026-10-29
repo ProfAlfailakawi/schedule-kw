@@ -207,8 +207,8 @@ check(/civilEl\.value=""/.test(verifyScript), "ويُمحى من الحقل بع
 check(/verifyHtml\(r\.signature&&r\.signature\.verifyCode\)/.test(page) && /تحقّق من رمزك/.test(page), "رابط «تحقّق من رمزك» في تبويب الحركة وشاشة «وصل طلبك»");
 
 /* ── المرحلة ٤: اشتراك التقويم (عقودٌ ساكنة) ───────────────────────────── */
-check(/calendarFeed: `\/api\/public\/ics\/\$\{encodeURIComponent\(resolved\.link\.id\)\}\/\$\{encodeURIComponent\(calendarToken\)\}/.test(server) && server.includes("calendarKey(resolved.link.id, Number(request.AdInstructorId))"), "الكرت يعيد استعمال مفتاح اشتراك بطاقة الأستاذ نفسه");
-check(page.includes('function calendarHtml(compact){return ""}'), "زر التقويم معطّل العرض مؤقتاً وفق الملاحظة");
+check(server.includes("calendarFeed: `${await stableCalendarPath(resolved.link.id, Number(request.AdInstructorId))}?term=") && server.includes("calendarFeed: await stableCalendarPath(link.id, person.AdInstructorId)"), "الكرت وبطاقة الأستاذ يحملان الاشتراك الثابت نفسه (M3)");
+check(!page.includes('function calendarHtml(compact){return ""}') && page.includes("calLinks(location.origin+data.calendarFeed"), "زر التقويم عاد: Apple/Google/Outlook (M3)");
 check(/anyFixed\(\)\?calendarHtml\(true\)/.test(page) && /calendarHtml\(false\)\+'<button type="button" class="btn-main" id="again">/.test(page), "في رأس الكرت بعد التثبيت وفي شاشة «وصل طلبك»");
 check(server.includes('app.get("/api/public/ics/:token/:key"'), "اشتراك التقويم على الخادم محفوظ");
 
@@ -286,7 +286,7 @@ check(!/prefers-color-scheme:\s*dark/.test(css4), "لا وضعَ داكن: ال�
 check(css4.includes(".verdict[data-tone=warn]>i{background:#8a6100}"), "أيقونة التنبيه بتباينٍ كافٍ في الفاتح");
 check(kit4.includes("وقّع برقمك المدني"), "عنوانُ ورقة التوقيع الجديد");
 check(server.includes("memoryHtml()+planTable()") || server.includes("replayHtml()+memoryHtml()"), "بطاقةُ الذاكرة أعلى الجدول");
-check(server.includes("calmHtml") && page.includes('function calendarHtml(compact){return ""}'), "زر التقويم لا يظهر في البطاقة الهادئة");
+check(server.includes("calmHtml") && server.includes("(anyFixed()?calendarHtml(true):'')"), "زر التقويم داخل البطاقة الهادئة بعد التثبيت");
 
 /* السكربت المولَّد يُجمَّع كما هو. */
 const html = server.includes("function instructorRequestPage") ? "ok" : "";

@@ -59,7 +59,7 @@ import {
 import { AR, countOf } from "../utils/arabicCount";
 import { reachAboutCard } from "../utils/reachInstructor";
 import { inboxInstructorChoices, isPlaceholderInboxRow } from "../utils/instructorIdentity";
-import { notParticipated } from "../utils/requestParticipation";
+import { isTaRequest, notOpened, notParticipated, openedNotAnswered } from "../utils/requestParticipation";
 import { putHandoff } from "../utils/requestHandoff";
 import { currentTermId } from "../utils/termSequence";
 import { singleDepartmentOf } from "../utils/scopeContext";
@@ -614,7 +614,7 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
       <tr className="request-row" data-action={item.action} data-verdict={item.verdict || "clear"} data-decided={decided || undefined} data-readiness={readiness}>
         <td data-label="الطلب">
           <span className="request-action" data-action={item.action}>{ACTION_LABEL[item.action] || item.action}</span>
-          <strong>{item.after?.courseName || item.before?.courseName || "—"}<PlanBadge courseId={item.after?.courseId || item.before?.courseId} /></strong>
+          <strong>{item.after?.courseName || item.before?.courseName || "—"}<PlanBadge courseId={item.after?.courseId || item.before?.courseId} />{(item as any).offering ? <span className="badge badge-warning" title={(item as any).offering.line} style={{ marginInlineStart: 6 }}>{(item as any).offering.icon} {(item as any).offering.line}</span> : null}</strong>
           {item.before?.sectionCode ? <small>شعبة {item.before.sectionCode}</small> : null}
           {item.action === "add" && item.after?.collegeName ? <small>{item.after.collegeName}</small> : null}
         </td>
@@ -855,6 +855,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const [actionFilter, setActionFilter] = useState<"all" | "change" | "add" | "delete">("all");
   const [verdictFilter, setVerdictFilter] = useState<"all" | "clear" | "exception" | "conflict">("all");
   const [deptFilter, setDeptFilter] = useState(0);
+  /* D2/F3: «🎓 تدريب» — طلباتُ مرحلة التدريب وحدها (المصدرُ الواحد: ‎isTaRequest(row)‎). */
+  const [taOnly, setTaOnly] = useState(false);
   const [instructorFilter, setInstructorFilter] = useState(0);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [quick, setQuick] = useState<{ row: InboxRequest; index: number; after?: number[]; seed: QuickSeed } | null>(null);
@@ -1023,7 +1025,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
      جلبَ جديداً، ولا تعريفاً للتعارض بين أستاذين. بنودُ «أبقِ» و«احذف» لا
      تُعدّ لأنها ليست موعداً مطلوباً. */
   const heat = useMemo(() => buildInboxHeat(rows || [], day => Boolean(INBOX_DAY_NAMES[day as keyof typeof INBOX_DAY_NAMES])), [rows]);
-  const openedQuiet = (rows || []).filter(row => row.status === "sent" && row.linkOpenedAt).length;
+  /* «فتحوا ولم يجيبوا» و«لم يفتحوا» يقرآن صفةَ الرابط نفسها: رابطُ العرض فقط لا ينتظر جواباً (D2). */
+  const openedQuiet = openedNotAnswered(rows || []).length;
 
   /* الأساتذةُ الذين في الوارد فعلاً، مرتّبون أبجدياً بحسب الاسم — كقائمة الأستاذ في
      «الجدول الدراسي». */
@@ -1083,6 +1086,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const visibleConfirmedUnchanged = visible.filter(row => isUnchangedConfirmed(row)
     && (!deptFilter || Number(row.AdSectionId) === deptFilter));
   const changed = stateFilter === "confirmed-unchanged" ? [] : visible.filter(row => (!deptFilter || Number(row.AdSectionId) === deptFilter)
+    && (!taOnly || isTaRequest(row))
     && (row.changedCount > 0
       ? (row.items || []).some(item => item.action !== "keep" && !(item as any).hidden && itemFilter(item))
       /* ملاحظةٌ عامة بلا بنودٍ مغيَّرة: تُقرأ بطاقةً، لا تُدفن في «الجدول كما هو». */
@@ -1096,7 +1100,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     return [...groups.entries()].sort(([a], [b]) => byArabic(a, b));
   }, [changed]);
   const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note && !isUnchangedConfirmed(row));
-  const silent = visible.filter(row => !row.linkOpenedAt && (row as any).linkMode !== "view");
+  const silent = notOpened<InboxRequest>(visible);
   const absentRows: InboxRequest[] = notParticipated<InboxRequest>(visible);
 
   /**
@@ -1506,6 +1510,12 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                 }}
               >
                 <ShieldCheck aria-hidden="true" /> ثبّتوا جداولهم كما هي <b>{num(counts.confirmedUnchanged)}</b>
+              </button>
+            ) : null}
+            {(rows || []).some(isTaRequest) ? (
+              <button type="button" className={`request-confirmed-filter${taOnly ? " active" : ""}`} aria-pressed={taOnly}
+                data-guide-ignore="فلتر مرحلة التدريب — عرضٌ لا فعل" onClick={() => setTaOnly(on => !on)}>
+                🎓 تدريب <b>{num((rows || []).filter(isTaRequest).length)}</b>
               </button>
             ) : null}
             <details className="request-filters-more" open={actionFilter !== "all" || verdictFilter !== "all" || Boolean(deptFilter)}>

@@ -1,4 +1,5 @@
 import { ARABIC_COUNT_SCRIPT } from "../utils/arabicCount";
+import { MASARI_ACK_CSS, MASARI_ACK_JS } from "./masariDisclaimer";
 import { PUBLIC_FONT_FACES } from "./publicKit";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./publicTheme";
 import { STUDENT_MAP_CSS, STUDENT_MAP_SCRIPT } from "./studentMapUi";
@@ -1118,7 +1119,11 @@ function icsText(title,iso,note){var stamp=new Date().toISOString().replace(/[-:
   return ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//SCHEDULE//Masari//AR","CALSCALE:GREGORIAN","BEGIN:VEVENT","UID:masari-"+icsDay(iso)+"-"+Math.random().toString(36).slice(2,10)+"@schedule","DTSTAMP:"+stamp,"DTSTART;VALUE=DATE:"+icsDay(iso),"DTEND;VALUE=DATE:"+icsNext(iso),"SUMMARY:"+icsEsc(title),"DESCRIPTION:"+icsEsc(note||""),
     "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(title),"TRIGGER:-PT15H","END:VALARM","BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(title),"TRIGGER:PT8H","END:VALARM","END:VEVENT","END:VCALENDAR"].join("\r\n")}
 function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(url)},1500)}
-function addToCalendar(title,iso,note){if(!iso)return;downloadBlob(new Blob([icsText(title,iso,note)],{type:"text/calendar;charset=utf-8"}),"masari.ics");toast("نُزّل التذكير — افتحه ليُضاف إلى تقويمك")}
+/* M3: آيفون لا يفتح Blob‎ ‎.ics‎ من ‎a.download‎ (يحفظه في «الملفات»، ولا شيء في وضع التطبيق المثبّت)؛
+   الملفُّ يُخدَم من الخادم ‎text/calendar‎ inline فيفتح نافذة «أضف إلى التقويم» على كل جهاز. */
+function addToCalendar(title,iso,note){if(!iso)return;var day=String(iso).slice(0,10);
+  location.href="/api/public/ics-reminder?d="+encodeURIComponent(day)+"&t="+encodeURIComponent(String(title).slice(0,120))+"&n="+encodeURIComponent(String(note||"").slice(0,300));
+  toast("يُفتح التذكير في تقويمك")}
 /* ── شارك جدولك صورة: تُرسم على الجهاز بلا اسمٍ ولا رقم؛ القسمُ وحده. ── */
 function tkShareImage(cur){var items=tkItems(cur).filter(function(i){return i.timesVisible&&(i.slots||[]).length});if(!items.length){toast("لا مواعيد معتمدة لتُشارَك بعد",true);return}
   var lo=1440,hi=0;items.forEach(function(it){it.slots.forEach(function(s){lo=Math.min(lo,s.start);hi=Math.max(hi,s.end)})});lo=Math.floor(lo/60)*60;hi=Math.ceil(hi/60)*60;
@@ -1161,7 +1166,7 @@ function planCard(a,o){
   if(o){
     if(!o.remainingCount){if(!a)h+='<p class="lead">أنجزت كل مقررات صحيفتك. مبارك!</p>'}
     else h+='<div class="offrow">'+ring(o.remainingCount?Math.round(now/o.remainingCount*100):0)+'<div class="offt"><b>'+now+' <small>تستطيع تسجيلها الآن</small></b><span class="muted">من '+o.remainingCount+' متبقية</span></div></div>'
-      +'<details class="more"><summary>'+ic("down")+' المطروح لي ('+okList.length+')</summary><div class="list" style="margin-block-start:6px">'+(okList.map(function(c){return '<div class="opt'+(c.sections?"":" off")+'"><span class="tx"><b>'+esc(c.name)+'</b><small><span class="code">'+esc(c.code)+'</span> · '+countOf(c.credit,AR.unit)+'</small>'+peerTag(c.id)+'</span><span class="chip'+(c.sections?" ok":"")+'">'+(c.sections?countOf(c.sections,AR.section):"غير مطروح")+'</span></div>'}).join("")||'<p class="muted">لا مقررات متاحة الآن.</p>')+'</div></details>'}
+      +'<details class="more"><summary>'+ic("down")+' المطروح لي ('+okList.length+')</summary><div class="list" style="margin-block-start:6px">'+(okList.map(function(c){return '<div class="opt'+(c.sections?"":" off")+'"><span class="tx"><b>'+esc(c.name)+'</b><small><span class="code">'+esc(c.code)+'</span> · '+countOf(c.credit,AR.unit)+'</small>'+peerTag(c.id)+'</span><span class="chip'+(c.sections?" ok":"")+'">'+(c.sections?countOf(c.sections,AR.section):c.offering?esc(c.offering.icon+" "+c.offering.line):"غير مطروح")+'</span></div>'}).join("")||'<p class="muted">لا مقررات متاحة الآن.</p>')+'</div></details>'}
   return h+'<p class="fine">'+ic("shield","")+' اقتراح فقط — لا يحجز مقعداً.</p></section>'}
 function loadPlan(){var host=document.getElementById("advice");if(!host)return;
   host.innerHTML='<div class="skel"></div>';
@@ -1202,7 +1207,7 @@ function renderWishes(){nextStepPaint();var host=document.getElementById("wishes
   var state=wishState(),step=Math.max(0,Math.min(2,S.wStep||0));
   var remaining=(S.offered&&S.offered.courses)||[];
   var allowedNow=remaining.filter(function(c){return!(c.needs&&c.needs.length)}),lockedNow=remaining.filter(function(c){return c.needs&&c.needs.length});
-  var row=function(c){return '<div class="opt'+(c.sections?"":" off")+'" role="checkbox" tabindex="0" aria-checked="'+(state.courseIds.indexOf(c.id)>=0?"true":"false")+'" data-id="'+c.id+'"><span class="box">'+ic("check")+'</span><span class="tx"><b>'+esc(c.name)+'</b><small><span class="code">'+esc(c.code)+'</span> · '+countOf(c.credit,AR.unit)+(c.sections?"":" · غير مطروح هذا الفصل")+'</small>'+peerTag(c.id)+'</span></div>'};
+  var row=function(c){return '<div class="opt'+(c.sections?"":" off")+'" role="checkbox" tabindex="0" aria-checked="'+(state.courseIds.indexOf(c.id)>=0?"true":"false")+'" data-id="'+c.id+'"><span class="box">'+ic("check")+'</span><span class="tx"><b>'+esc(c.name)+'</b><small><span class="code">'+esc(c.code)+'</span> · '+countOf(c.credit,AR.unit)+(c.sections?"":c.offering?" · "+esc(c.offering.icon+" "+c.offering.line):" · غير مطروح هذا الفصل")+'</small>'+peerTag(c.id)+'</span></div>'};
   var h='<section class="card fade wz"><h2><span class="b">'+ic("heart")+'</span>رغباتي لهذا الفصل<span class="chip">ليس تسجيلاً</span></h2>';
   h+='<div class="sl" data-i="0"><span class="lbl">كم وحدةً تريد هذا الفصل؟</span><div class="bignum"><b id="wun"></b></div><p class="hint">وحدة دراسية هذا الفصل · بين '+lim("wishUnitsMin",12)+' و'+lim("wishUnitsMax",15)+'</p><div class="seg fit" id="wu" role="group" aria-label="الوحدات">'+(function(){var a=[],lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15);for(var n=lo;n<=hi;n++)a.push(n);return a})().map(function(n){return '<button type="button" data-n="'+n+'" aria-pressed="'+(n===state.targetUnits?"true":"false")+'">'+n+'</button>'}).join("")+'</div></div>';
   h+='<div class="sl" data-i="1" hidden><span class="lbl">ما الذي لا يناسبك؟ <small class="muted">اختياري</small></span><div class="tags" id="wc">'
@@ -1245,6 +1250,7 @@ function sheetForget(){sheet('<h3>حذف ملفّي</h3><p class="lead">يُحذ
   var a="",fs=document.getElementById("fs");wireOtp("f1",function(v){a=v;fs.disabled=v.length!==6});document.getElementById("fc").addEventListener("click",closeSheet);
   fs.addEventListener("click",function(){fs.disabled=true;api("POST","/api/public/me/forget",{code:a}).then(function(r){fs.disabled=false;if(!r.ok){showErr("ferr",r.d.error||"تعذّر الحذف");return}closeSheet();S.state.signedIn=false;S.state.profile=null;S.civil="";S.draft=null;toast("حُذف ملفّك");setView("gate")})})}
 
+${MASARI_ACK_JS}
 function render(){
   closeSheet();window.scrollTo(0,0);var oldNav=topEl.querySelector("nav.tabs");if(oldNav)oldNav.remove();if(S.view!=="setup")dockEl.innerHTML="";
   var appEl=document.querySelector(".app");if(appEl)appEl.setAttribute("data-view",S.view);
@@ -1254,7 +1260,8 @@ function render(){
   if(v==="code")return viewCode();
   if(v==="create")return viewCreate();
   if(v==="setup")return viewSetup();
-  if(v==="home")return viewHome();
+  /* M2: بطاقة «مقترحات فقط» مرّةً لكل فصل/مسار، ثم شريطٌ ثابت. */
+  if(v==="home"){if(!masariAcked())return viewAck();viewHome();masariRibbon();return}
 }
 function boot(){setView("boot");api("GET","/api/public/me/state").then(function(r){
   if(!r.ok){app.innerHTML='<section class="card"><p class="err">'+esc(r.d.error||"تعذّر فتح الصفحة")+'</p><button class="btn" id="retry">أعد المحاولة</button></section>';document.getElementById("retry").addEventListener("click",function(){location.reload()});return}
@@ -1276,7 +1283,7 @@ export function studentHomePage(nonce: string, track: "boys" | "girls" | "" = ""
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/schedule-icon-192.png">
 <link rel="manifest" href="/me.webmanifest">
-<style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}${STUDENT_HOME_CSS}</style>
+<style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}${STUDENT_HOME_CSS}${MASARI_ACK_CSS}</style>
 </head>
 <body>
 ${SPRITE}

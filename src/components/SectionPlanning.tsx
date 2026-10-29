@@ -205,7 +205,11 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
       const key = String(course.id);
       const entered = remaining[key] !== undefined && remaining[key] !== "";
       const history = data?.history?.[key] || [];
-      const suggestion = suggestSectionCount(entered ? Number(remaining[key]) : null, course.capacity, history);
+      const raw = suggestSectionCount(entered ? Number(remaining[key]) : null, course.capacity, history);
+      /* C5: حالة الطرح من المصدر الواحد — 🔒/🌱 صفر، و🎯 لا يتجاوز سقفه. */
+      const offering = (data as any)?.offering?.[key] as undefined | { state: string; maxSections: number; badge?: { icon: string; line: string } };
+      const cap = !offering ? null : offering.state === "closed" || offering.state === "future" ? 0 : offering.state === "limited" ? Math.max(0, offering.maxSections) : null;
+      const suggestion = cap === null ? raw : { ...raw, suggested: raw.suggested == null ? raw.suggested : Math.min(raw.suggested, cap), max: raw.max == null ? raw.max : Math.min(raw.max, cap), min: raw.min == null ? raw.min : Math.min(raw.min, cap), offering };
       const explicit = chosen[key] !== undefined && chosen[key] !== "";
       const pick = explicit ? Number(chosen[key]) : suggestion.suggested;
       const outside = explicit && suggestion.min != null && suggestion.max != null && (pick! < suggestion.min || pick! > suggestion.max);
@@ -347,7 +351,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
           {planned.map(row => (
             <tr key={row.key} className={row.outside ? "is-outside" : undefined}>
               <td dir="ltr">{row.course.code}</td>
-              <td>{row.course.name}</td>
+              <td>{row.course.name}{(row.suggestion as any).offering?.badge ? <span className="badge badge-warning" style={{ marginInlineStart: 6 }} title={(row.suggestion as any).offering.badge.line}>{(row.suggestion as any).offering.badge.icon}</span> : null}</td>
               <td>{row.entered ? remaining[row.key] : "—"}</td>
               <td><b>{row.pick}</b>{row.outside ? " *" : ""}</td>
               <td>{rangeText(row.suggestion)}</td>

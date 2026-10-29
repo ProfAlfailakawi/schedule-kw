@@ -35,11 +35,18 @@ assert.match(quick, /disabled=\{hasDifferentTimes\}/);
 assert.match(quick, /\/api\/schedules\/check-conflicts/);
 assert.match(quick, /result\.validationIssues/);
 assert.match(quick, /conflicts\.filter\(isBlockingConflict\)/);
-assert.match(quick, /\/api\/schedules\/suggest-slots/);
+assert.match(quick, /fetchSuggestions\(suggestionBody\(payload/);
+assert.match(read("src/utils/suggestionClient.ts"), /\/api\/schedules\/suggest-slots/);
 assert.match(quick, /pendingCheck \|\| blocked \|\| checkFailed/);
-assert.match(server, /validationIssues=await schedulePayloadIssues\(row\)/);
-assert.match(server, /lengthIssue=await scheduleLengthIssue/);
-assert.match(server, /borrowingRequired && dayKeys\.some\(day=>!borrowCovers/);
+{
+  const checkRoute = server.slice(server.indexOf('app.post("/api/schedules/check-conflicts"'), server.indexOf('app.post("/api/schedules/check-conflicts"') + 2200);
+  assert.match(checkRoute, /schedulePayloadIssues\(row\)/);
+  assert.match(checkRoute, /checkLengthIssue\(row\)/);
+  assert.match(server, /async function checkLengthIssue[\s\S]{0,700}unchangedShape[\s\S]{0,200}scheduleLengthIssue\(\{\.\.\.row/, "the live check skips the hours cap for an unchanged saved row, exactly like the update gate");
+  assert.match(checkRoute, /checkLocationIssues\(row\)/);
+  assert.match(checkRoute, /await Promise\.all\(\[/, "check-conflicts runs its independent reads in parallel");
+}
+assert.match(server, /return borrowingRequired && !borrowCovers\(String\(hall\.roomId\),day,from,to\)/);
 assert.match(wheels, /Math\.min\(maximum, clamped \+ span\)/);
 
 console.log("Appointment-entry parity: shared section codes, live checks, handoff, multi-time safety, borrowed-room windows, duration ✓");

@@ -1,4 +1,5 @@
 import { departmentFamily } from "../utils/sectionLabel";
+import type { TmScenarioRecord } from "../utils/timeMachine";
 import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict, withReservedRooms, holdRequestReservation, releaseRequestHolds, liveReservations,
   type RequestReservation, type RequestReservationProposal, type RequestScheduleOperation } from "../utils/instructorRequestReservations";
 import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
@@ -91,6 +92,7 @@ import { caseRefFromId, mergeStudentResubmission } from "../utils/studentNeedMer
 import { cleanSeenIds, mergeSeenIds, seenUnchanged } from "../utils/notificationSeen";
 import { termChronology } from "../utils/termSequence";
 import { kuwaitDayOfIso, recordLinkOpen } from "../utils/linkOpens";
+import type { LinkMode } from "../utils/linkMode";
 import { unchangedScheduleFingerprint } from "../utils/instructorRequestConfirmation";
 
 // Runtime state must not live inside the replaceable application release. A number of
@@ -279,6 +281,8 @@ interface DBState {
   visitingRosters?: VisitingRoster[];
   departmentDelegates?: DepartmentDelegateDirectory[];
   teachingLoadConfig?: TeachingLoadConfig[];
+  /** وثائقُ الميزات الصغيرة (FEATURE_COLLECTIONS): مجموعةٌ ← معرّف ← وثيقة. */
+  featureDocs?: Record<string, Record<string, any>>;
   departmentRooms?: DepartmentRoomDirectory[];
   registrationStats?: RegistrationStats[];
   scheduleDecisionMemories?: ScheduleDecisionMemory[];
@@ -298,6 +302,8 @@ interface DBState {
   locationMigrationRuns?: LocationMigrationRun[];
   /** دليلُ البيئة التجريبية وحدها: الأرقامُ الوهمية التي تُقترح على الصفحات العامة. */
   demoGuide?: DemoGuide;
+  /** آلة الزمن: سيناريوهاتٌ افتراضية فوق الجدول الحيّ (src/utils/timeMachine.ts). */
+  timeMachineScenarios?: TmScenarioRecord[];
 }
 
 /** ما تقترحه الصفحاتُ العامة على زائر البيئة التجريبية ليجرّب. كلُّه وهمي. */
@@ -2543,6 +2549,11 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
   }
 }
 
+/** مجموعاتُ الميزات المسمّاة — لا تُكتب مجموعةٌ لم تُسمَّ هنا. */
+export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills";
+/** معرّفُ وثيقة Firestore لا يحمل «/». */
+const featureDocId = (id: string) => String(id || "").replace(/\//g, "_").slice(0, 300);
+
 export const Repository = {
   getStudentCaseSecret: async (): Promise<string> => getOrCreateStudentCaseSecret(),
   /** السرّ المشترك بين نسخ الخادم، مقروءاً خارج صندوق العرض دائماً: مفتاحُ
@@ -3564,6 +3575,68 @@ export const Repository = {
     await markRegistrationRunsStale();
   },
 
+  /**
+   * ── دمجُ مقررٍ كُتب بإملاءين (G5) — كلُّه أو لا شيء ─────────────────────────
+   * يُعاد ربطُ كل مواعيد المكرّر (كل الفصول) وروابط صحائفه بالمقرر الباقي، ويأخذ الباقي
+   * الاسمَ الذي اختاره المسؤول، ويُؤرشف المكرّر ثم يُحذف — في معاملة واحدة (أو حفظٍ واحد في التجربة).
+   * لا يُستدعى إلا بعد معاينةٍ وتأكيد، والتحقق من الاستعمال (طلبة/قواعد) قبله في المسار.
+   */
+  mergeCourses: async (keeperId: number, mergeIds: number[], canonicalName: string, by = ""): Promise<{ keeper: AdCourse; schedules: number; links: number }> => {
+    const ids = [...new Set(mergeIds.map(Number).filter(id => id && id !== Number(keeperId)))];
+    if (!ids.length) throw new Error("لا مقررات للدمج.");
+    if (ids.length > 9) throw new Error("ادمج تسعة مقررات على الأكثر في المرة الواحدة.");
+    const name = normalizeArabicText(canonicalName);
+    invalidateReference(REFERENCE_KEYS.courses); invalidateSchedules();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const now = new Date().toISOString();
+      const result = await firestoreDb.runTransaction(async tx => {
+        const keeperRef = firestoreDb!.collection("courses").doc(`course_${keeperId}`);
+        const dupRefs = ids.map(id => firestoreDb!.collection("courses").doc(`course_${id}`));
+        const [keeperDoc, dupDocs, scheduleSnap, linkSnap] = await Promise.all([tx.get(keeperRef), Promise.all(dupRefs.map(ref => tx.get(ref))),
+          tx.get(firestoreDb!.collection("schedules").where("AdCourseId", "in", ids)),
+          tx.get(firestoreDb!.collection("curriculumPlanCourses").where("AdCourseId", "in", ids))]);
+        if (!keeperDoc.exists || dupDocs.some(doc => !doc.exists)) throw new Error("تغيّرت المقررات أثناء الدمج؛ أعد الفحص.");
+        const keeper = { ...(keeperDoc.data() as AdCourse), CourseName: name };
+        if (dupDocs.some(doc => Number((doc.data() as AdCourse).AdSectionId) !== Number(keeper.AdSectionId))) throw new Error("الدمج داخل القسم الواحد فقط.");
+        scheduleSnap.docs.forEach(doc => { const row = doc.data() as FSchedule; tx.set(doc.ref, { ...row, AdCourseId: keeperId, rev: Number(row.rev || 0) + 1 }); });
+        linkSnap.docs.forEach(doc => {
+          const link = doc.data() as CurriculumPlanCourse;
+          const id = `${link.planId}_${keeperId}`;
+          tx.set(firestoreDb!.collection("curriculumPlanCourses").doc(id), { ...link, id, AdCourseId: keeperId });
+          tx.delete(doc.ref);
+        });
+        tx.set(keeperRef, keeper);
+        dupDocs.forEach((doc, index) => {
+          tx.set(firestoreDb!.collection("deletedRecords").doc(`courses__course_${ids[index]}`), { collection: "courses", docId: `course_${ids[index]}`, deletedAt: now, reason: `دمج إملاء في ${keeperId}${by ? ` · ${by}` : ""}`, payload: doc.data() });
+          tx.delete(dupRefs[index]);
+        });
+        return { keeper, schedules: scheduleSnap.size, links: linkSnap.size };
+      });
+      invalidateScheduleRelationCache();
+      await markRegistrationRunsStale();
+      return result;
+    }
+    const keeperAt = db.courses.findIndex(course => Number(course.AdCourseId) === Number(keeperId));
+    if (keeperAt < 0 || ids.some(id => !db.courses.some(course => Number(course.AdCourseId) === id))) throw new Error("تغيّرت المقررات أثناء الدمج؛ أعد الفحص.");
+    if (ids.some(id => Number(db.courses.find(course => Number(course.AdCourseId) === id)!.AdSectionId) !== Number(db.courses[keeperAt].AdSectionId))) throw new Error("الدمج داخل القسم الواحد فقط.");
+    const merging = new Set(ids);
+    let schedules = 0, links = 0;
+    db.schedules = db.schedules.map(row => merging.has(Number(row.AdCourseId)) ? (schedules++, { ...row, AdCourseId: keeperId, rev: Number(row.rev || 0) + 1 }) : row);
+    if (!Array.isArray(db.curriculumPlanCourses)) db.curriculumPlanCourses = [];
+    const kept = new Map<string, CurriculumPlanCourse>();
+    for (const link of db.curriculumPlanCourses) {
+      if (merging.has(Number(link.AdCourseId))) { links++; const id = `${link.planId}_${keeperId}`; if (!kept.has(id)) kept.set(id, { ...link, id, AdCourseId: keeperId }); }
+      else kept.set(link.id, link);
+    }
+    db.curriculumPlanCourses = [...kept.values()];
+    db.courses[keeperAt] = { ...db.courses[keeperAt], CourseName: name };
+    const keeper = db.courses[keeperAt];
+    db.courses = db.courses.filter(course => !merging.has(Number(course.AdCourseId)));
+    saveDatabase();
+    await markRegistrationRunsStale();
+    return { keeper, schedules, links };
+  },
+
   // Curriculum plans -------------------------------------------------------
   getCurriculumPlans: async (sectionId: number): Promise<CurriculumPlan[]> => {
     const sid = Number(sectionId || 0);
@@ -4238,6 +4311,80 @@ export const Repository = {
     saveDatabase();
     await Promise.all([...new Set(updated.map(row => Number(row.AdTermId)))].map(id => markRegistrationRunsStale(id)));
     return updated;
+  },
+
+  /**
+   * ── تغييرٌ مركّب واحد: كلُّه أو لا شيء (G3) ─────────────────────────────────
+   * إسناد/تبديل/استبدال شعبة «هيئة تدريسية» مع حفظ الموعد الجديد. الصفوف القانونية
+   * تأتي من الفحص الجافّ لمساري الحفظ والتعديل (السياسة المركزية نفسها)، ثم يُعاد
+   * هنا داخل المعاملة: المراجعات، وسجلّ حجوزات الطلبات، ونوافذ الاستعارة، وتعارضٌ
+   * ماديّ على الأسبوع النهائي — ويُكتب الجميع معاً أو لا يُكتب شيء.
+   */
+  commitScheduleChangeSet: async (termId: number,
+    operations: Array<{ kind: "create"; body: Omit<FSchedule, "id"> } | { kind: "update"; rowId: number; original: FSchedule; body: Partial<FSchedule> } | { kind: "delete"; rowId: number; original: FSchedule }>,
+    normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
+    validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>,
+    /** طلباتٌ أكّد القسمُ تجاوزَ حجزها (overrideRequestHolds) — حجوز بقية الأساتذة تبقى حارسة. */
+    reservationOwner: string | string[] = ""): Promise<{ rows: FSchedule[]; deletedIds: number[] }> => {
+    const count = operations.filter(op => op.kind === "create").length;
+    const firstId = firestoreDb && !demoSandboxContext.getStore() && count ? await reserveFirestoreIds("schedules", count) : 0;
+    const compute = async (week: FSchedule[], entries: RequestReservation[], startId: number, windows: ApprovedHallWindow[]) => {
+      const changed = new Set<number>();
+      const written: FSchedule[] = [];
+      let nextId = startId;
+      for (const op of operations) {
+        if (op.kind === "create") {
+          const row = { ...op.body, id: nextId++, rev: 1 } as FSchedule;
+          assertRequestReservationWrite(row, entries, reservationOwner);
+          written.push(row);
+          continue;
+        }
+        const live = week.find(row => Number(row.id) === op.rowId);
+        if (!live || Number(live.rev || 0) !== Number(op.original.rev || 0)) throw new ScheduleRevisionConflict(live || op.original);
+        changed.add(op.rowId);
+        assertRequestReservationWrite(live, entries.filter(entry => entry.offeringRowIds.includes(op.rowId)), reservationOwner);
+        if (op.kind === "update") {
+          const row = { ...live, ...op.body, id: live.id, rev: Number(live.rev || 0) + 1 } as FSchedule;
+          assertRequestReservationWrite(row, entries, reservationOwner);
+          written.push(row);
+        }
+      }
+      const finalWeek = [...week.filter(row => !changed.has(Number(row.id))), ...written];
+      if (written.some(row => scheduleViolatesApprovedBarterWindow(row, windows)))
+        throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
+      const clashes = findConflicts(written.map(normalize), finalWeek.map(normalize), { placeholderInstructorIds: placeholders }).filter(isBlockingConflict);
+      if (clashes.length) throw new RequestReservationConflict("تغيّر الجدول وظهر تعارض أثناء الحفظ. حدّث الجدول وأعد المحاولة.");
+      if (validateFinalWeek) await validateFinalWeek(written, finalWeek);
+      return { rows: written, finalWeek };
+    };
+    const deletedIds = operations.filter(op => op.kind === "delete").map(op => (op as any).rowId as number);
+    let rows: FSchedule[];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
+      rows = await firestoreDb.runTransaction(async tx => {
+        const [ledger, schedules, barterSnapshot] = await Promise.all([tx.get(ledgerRef),
+          tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])),
+          tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)]))]);
+        const windows = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
+        const planned = await compute(schedules.docs.map(doc => doc.data() as FSchedule), ledger.data()?.entries || [], firstId, windows);
+        deletedIds.forEach(id => tx.delete(firestoreDb!.collection("schedules").doc(`schedule_${id}`)));
+        planned.rows.forEach(row => tx.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`), row));
+        tx.set(ledgerRef, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
+        return planned.rows;
+      }, { maxAttempts: 20 });
+    } else {
+      rows = await withSerialLock(`request-reservations:${termId}`, async () => {
+        const windows = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === termId));
+        const planned = await compute(db.schedules.filter(row => Number(row.AdTermId) === termId),
+          db.instructorRequestReservationLedgers?.[String(termId)] || [], Math.max(0, ...db.schedules.map(row => Number(row.id))) + 1, windows);
+        db.schedules = [...db.schedules.filter(row => Number(row.AdTermId) !== termId), ...planned.finalWeek];
+        saveDatabase();
+        return planned.rows;
+      });
+    }
+    invalidateSchedules(); invalidateReference(REFERENCE_KEYS.scheduleCount);
+    await markRegistrationRunsStale(termId);
+    return { rows, deletedIds };
   },
 
   deleteSchedule: async (id: number, reservationOwner: string | string[] = ""): Promise<void> => {
@@ -5401,6 +5548,33 @@ export const Repository = {
     return { fields: rec, first };
   },
 
+  /**
+   * صفةُ رابط الطلب وحدها (E1) — حقلٌ واحد، لا إعادةُ حفظ الطلب كله: طلبٌ ينتظر قرارَ القسم
+   * قد يصله قرارٌ أو ردٌّ بين قراءة النشر وكتابته، فلا يُمحى. ولا يُرفع رقمُ مراجعته: بنودُه لم
+   * تتغيّر، فلا يُردّ إرسالُ الأستاذ بـ«تغيّر الطلب». ويُبثّ الحفظُ فيُعيد الكرتُ الحيّ رسمَ صفته.
+   */
+  setInstructorRequestLinkMode: async (id: string, mode: LinkMode): Promise<boolean> => {
+    const at = new Date().toISOString();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequests").doc(id);
+      const saved = await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        tx.update(ref, { linkMode: mode, updatedAt: at });
+        return { ...(snap.data() as InstructorRequest), linkMode: mode, updatedAt: at };
+      });
+      if (saved) announceInstructorRequestSaved(saved);
+      return Boolean(saved);
+    }
+    const row = (db.instructorRequests || []).find(item => item.id === id);
+    if (!row) return false;
+    row.linkMode = mode;
+    row.updatedAt = at;
+    saveDatabase();
+    announceInstructorRequestSaved(row);
+    return true;
+  },
+
   getInstructorRequest: async (id: string): Promise<InstructorRequest | undefined> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const doc = await firestoreDb.collection("instructorRequests").doc(id).get();
@@ -6414,6 +6588,141 @@ export const Repository = {
     }
     if (localApplyLeases.get(key)?.holder === holder) localApplyLeases.delete(key);
   },
+
+  /* ── آلة الزمن: سيناريوهاتٌ محفوظة واعتمادٌ ذرّي ───────────────────────── */
+  getTimeMachineScenarios: async (termId: number, collegeId: number, sectionId: number): Promise<TmScenarioRecord[]> => {
+    const mine = (row: TmScenarioRecord) => Number(row.termId) === Number(termId) && Number(row.collegeId) === Number(collegeId) && Number(row.sectionId) === Number(sectionId);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("timeMachineScenarios").where("termId", "==", Number(termId)).get();
+      return snap.docs.map(doc => doc.data() as TmScenarioRecord).filter(mine).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    }
+    return (db.timeMachineScenarios || []).filter(mine).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  },
+  getTimeMachineScenario: async (id: string): Promise<TmScenarioRecord | undefined> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("timeMachineScenarios").doc(String(id)).get();
+      return doc.exists ? doc.data() as TmScenarioRecord : undefined;
+    }
+    return (db.timeMachineScenarios || []).find(row => row.id === id);
+  },
+  /** حفظٌ بختم إصدار: `expectedRevision` يمنع الكتابة فوق نسخة زميلٍ أحدث. */
+  saveTimeMachineScenario: async (row: TmScenarioRecord, expectedRevision?: number): Promise<TmScenarioRecord> => {
+    const next = { ...row, revision: Number(row.revision || 0) + 1, updatedAt: new Date().toISOString() };
+    const stale = (current?: TmScenarioRecord) => expectedRevision !== undefined && Number(current?.revision || 0) !== Number(expectedRevision);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("timeMachineScenarios").doc(row.id);
+      await firestoreDb.runTransaction(async tx => {
+        const current = await tx.get(ref);
+        if (stale(current.exists ? current.data() as TmScenarioRecord : undefined)) throw new RequestReservationConflict("تغيّر السيناريو من جهازٍ آخر. أعد فتحه.");
+        tx.set(ref, next);
+      });
+      return next;
+    }
+    const list = db.timeMachineScenarios ||= [];
+    const at = list.findIndex(item => item.id === row.id);
+    if (stale(at >= 0 ? list[at] : undefined)) throw new RequestReservationConflict("تغيّر السيناريو من جهازٍ آخر. أعد فتحه.");
+    if (at >= 0) list[at] = next; else list.unshift(next);
+    saveDatabase();
+    return next;
+  },
+  deleteTimeMachineScenario: async (id: string): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("timeMachineScenarios").doc(String(id)).delete(); return; }
+    db.timeMachineScenarios = (db.timeMachineScenarios || []).filter(row => row.id !== id);
+    saveDatabase();
+  },
+
+  /**
+   * اعتمادُ سيناريو (أو استعادةُ نقطته) كلُّه أو لا شيء.
+   *
+   * الأجسامُ وصلت من فحص معالجَي الحفظ الجافّ (المسار المركزي). وهنا، داخل معاملةٍ
+   * واحدة، يُعاد قراءةُ الفصل الحيّ: إصدارُ كل صفّ، وحجوزُ الطلبات، ونوافذُ الاستعارة،
+   * والتعارضُ الماديّ على الأسبوع النهائي — ثم تُكتب الصفوف ووثيقةُ السيناريو معاً.
+   * أيُّ اختلافٍ يرمي ولا يُكتب شيء.
+   */
+  commitTimeMachinePlan: async (termId: number, scenarioId: string, expectedScenarioRevision: number,
+    operations: Array<
+      | { kind: "update"; rowId: number; body: Partial<FSchedule>; expectedRev: number }
+      | { kind: "create"; body: Partial<FSchedule>; fixedId?: number }
+      | { kind: "delete"; rowId: number; expectedRev: number }>,
+    finalize: (result: { rows: FSchedule[]; before: FSchedule[]; createdIds: number[]; deletedIds: number[] }, current: TmScenarioRecord) => TmScenarioRecord,
+    normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
+    validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>): Promise<{ scenario: TmScenarioRecord; rows: FSchedule[]; deletedIds: number[] }> => {
+    const needIds = operations.filter(op => op.kind === "create" && !op.fixedId).length;
+    const firstId = firestoreDb && !demoSandboxContext.getStore() && needIds ? await reserveFirestoreIds("schedules", needIds) : 0;
+    const compute = async (week: FSchedule[], current: TmScenarioRecord | undefined, entries: RequestReservation[], startId: number, windows: ApprovedHallWindow[]) => {
+      if (!current || Number(current.revision || 0) !== Number(expectedScenarioRevision))
+        throw new RequestReservationConflict("تغيّر السيناريو أثناء الاعتماد. أعد فتحه.");
+      const byId = new Map(week.map(row => [Number(row.id), row]));
+      const written: FSchedule[] = [], before: FSchedule[] = [], createdIds: number[] = [], deletedIds: number[] = [];
+      const changed = new Set<number>();
+      let nextId = startId;
+      for (const op of operations) {
+        if (op.kind === "create") {
+          const id = op.fixedId || nextId++;
+          if (byId.has(id)) throw new ScheduleRevisionConflict(byId.get(id)!);
+          const row = { ...op.body, id, rev: 1 } as FSchedule;
+          assertRequestReservationWrite(row, entries);
+          written.push(row); createdIds.push(id);
+          continue;
+        }
+        const live = byId.get(op.rowId);
+        if (!live || Number(live.rev || 0) !== Number(op.expectedRev)) throw new ScheduleRevisionConflict(live || ({ id: op.rowId } as FSchedule));
+        changed.add(op.rowId); before.push(live);
+        if (op.kind === "update") {
+          const row = { ...live, ...op.body, id: live.id, rev: Number(live.rev || 0) + 1 } as FSchedule;
+          assertRequestReservationWrite(live, entries.filter(entry => entry.offeringRowIds.includes(op.rowId)));
+          assertRequestReservationWrite(row, entries.filter(entry => !entry.offeringRowIds.includes(op.rowId)));
+          written.push(row);
+        } else {
+          assertRequestReservationWrite(live, entries.filter(entry => entry.offeringRowIds.includes(op.rowId)));
+          deletedIds.push(op.rowId);
+        }
+      }
+      const finalWeek = [...week.filter(row => !changed.has(Number(row.id))), ...written];
+      if (written.some(row => scheduleViolatesApprovedBarterWindow(row, windows)))
+        throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
+      /* لا تعارضَ جديداً: ما يحمله الصفُّ المكتوب من موانع لا يزيد على ما حمله قبل الكتابة. */
+      const blockingOf = (rows: FSchedule[], universe: FSchedule[]) => rows.length
+        ? findConflicts(rows.map(normalize), universe.map(normalize), { placeholderInstructorIds: placeholders }).filter(isBlockingConflict).length : 0;
+      if (blockingOf(written, finalWeek) > blockingOf(before.filter(row => !deletedIds.includes(Number(row.id))), week))
+        throw new RequestReservationConflict("تغيّر الجدول الحيّ وظهر تعارضٌ أثناء الاعتماد. أعد فحص السيناريو.");
+      if (validateFinalWeek) await validateFinalWeek(written, finalWeek);
+      const scenario = finalize({ rows: written, before, createdIds, deletedIds }, current);
+      return { scenario: { ...scenario, revision: Number(current.revision || 0) + 1, updatedAt: new Date().toISOString() }, rows: written, deletedIds, finalWeek };
+    };
+    let result: { scenario: TmScenarioRecord; rows: FSchedule[]; deletedIds: number[] };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const scenarioRef = firestoreDb.collection("timeMachineScenarios").doc(scenarioId);
+      const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
+      result = await firestoreDb.runTransaction(async tx => {
+        const [stored, ledger, schedules, barterSnapshot] = await Promise.all([tx.get(scenarioRef), tx.get(ledgerRef),
+          tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])),
+          tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)]))]);
+        const windows = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
+        const planned = await compute(schedules.docs.map(doc => doc.data() as FSchedule), stored.exists ? stored.data() as TmScenarioRecord : undefined,
+          ledger.data()?.entries || [], firstId, windows);
+        planned.deletedIds.forEach(id => tx.delete(firestoreDb!.collection("schedules").doc(`schedule_${id}`)));
+        planned.rows.forEach(row => tx.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`), row));
+        tx.set(scenarioRef, planned.scenario);
+        return { scenario: planned.scenario, rows: planned.rows, deletedIds: planned.deletedIds };
+      }, { maxAttempts: 20 });
+    } else {
+      result = await withSerialLock(`request-reservations:${termId}`, async () => {
+        const list = db.timeMachineScenarios ||= [];
+        const at = list.findIndex(row => row.id === scenarioId);
+        const windows = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === termId));
+        const planned = await compute(db.schedules.filter(row => Number(row.AdTermId) === termId), at >= 0 ? list[at] : undefined,
+          db.instructorRequestReservationLedgers?.[String(termId)] || [], Math.max(0, ...db.schedules.map(row => Number(row.id))) + 1, windows);
+        db.schedules = [...db.schedules.filter(row => Number(row.AdTermId) !== termId), ...planned.finalWeek];
+        list[at] = planned.scenario;
+        saveDatabase();
+        return { scenario: planned.scenario, rows: planned.rows, deletedIds: planned.deletedIds };
+      });
+    }
+    invalidateSchedules(); invalidateReference(REFERENCE_KEYS.scheduleCount);
+    await markRegistrationRunsStale(termId);
+    return result;
+  },
   getRegistrationRun: async (termId: number): Promise<RegistrationRun | undefined> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const doc = await firestoreDb.collection("registrationRuns").doc(String(termId)).get();
@@ -6950,6 +7259,60 @@ export const Repository = {
     db.departmentDelegates = [...(db.departmentDelegates || []).filter(item => item.scopeKey !== scopeKey), row];
     saveDatabase();
     return unique;
+  },
+
+  /* ── وثائقُ الميزات (حالة طرح المقرر، رصيد مقاعد المرشد، مرحلة التدريب…) ────
+   * مخزنٌ واحدٌ بمجموعاتٍ مسمّاة، وكتابةٌ ذرّية (`updateFeatureDoc`): في Firestore
+   * داخل runTransaction، وفي الذاكرة/الديمو بلا await بين القراءة والكتابة —
+   * فلا يتجاوز مرشدان متزامنان السقف، ولا يحجز مدرّبان الشعبة نفسها. */
+  getFeatureDoc: async <T = any>(collection: FeatureCollection, id: string): Promise<T | null> => {
+    const key = featureDocId(id);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection(collection).doc(key).get();
+      return doc.exists ? (doc.data() as T) : null;
+    }
+    return ((db.featureDocs || {})[collection] || {})[key] ?? null;
+  },
+  listFeatureDocs: async <T = any>(collection: FeatureCollection, prefix = ""): Promise<T[]> => {
+    const wanted = featureDocId(prefix);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection(collection).get();
+      return snap.docs.filter(doc => !wanted || doc.id.startsWith(wanted)).map(doc => doc.data() as T);
+    }
+    return Object.entries((db.featureDocs || {})[collection] || {})
+      .filter(([id]) => !wanted || id.startsWith(wanted)).map(([, row]) => row as T);
+  },
+  saveFeatureDoc: async <T = any>(collection: FeatureCollection, id: string, row: T): Promise<T> => {
+    const key = featureDocId(id);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection(collection).doc(key).set(row as any, { merge: false });
+      return row;
+    }
+    const all = db.featureDocs || {};
+    db.featureDocs = { ...all, [collection]: { ...(all[collection] || {}), [key]: row } };
+    saveDatabase();
+    return row;
+  },
+  /** يقرأ ويكتب ذرّياً. `fn` تُرجع الوثيقة الجديدة، أو `{ refuse }` فلا يُكتب شيء. */
+  updateFeatureDoc: async <T = any, R = unknown>(collection: FeatureCollection, id: string,
+    fn: (current: T | null) => { next: T; result: R } | { refuse: R }): Promise<{ ok: true; result: R; next: T } | { ok: false; result: R }> => {
+    const key = featureDocId(id);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection(collection).doc(key);
+      return firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        const out = fn(snap.exists ? (snap.data() as T) : null);
+        if ("refuse" in out) return { ok: false as const, result: out.refuse };
+        tx.set(ref, out.next as any, { merge: false });
+        return { ok: true as const, result: out.result, next: out.next };
+      });
+    }
+    const all = db.featureDocs || {};
+    const out = fn(((all[collection] || {})[key] ?? null) as T | null);
+    if ("refuse" in out) return { ok: false, result: out.refuse };
+    db.featureDocs = { ...all, [collection]: { ...(all[collection] || {}), [key]: out.next } };
+    saveDatabase();
+    return { ok: true, result: out.result, next: out.next };
   },
 
   /* ── النصاب التدريسي: وثيقةٌ واحدة (`main`) ─────────────────────────────────

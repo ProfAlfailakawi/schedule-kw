@@ -255,7 +255,7 @@ async function main() {
   check(!!pending, "يوجد طلبٌ فيه تعديلٌ لم يثبّته القسم");
   const calCard = await http("GET", `/api/public/request/${encodeURIComponent(pending.linkId)}`);
   const feedPath = String(calCard.json.calendarFeed || "");
-  check(/^\/api\/public\/ics\/[^/]+\/[0-9a-f]{32}\?term=\d+$/.test(feedPath), "الكرت يحمل رابط اشتراكه — هو نفسه اشتراك بطاقة الأستاذ لا بابٌ ثانٍ", feedPath);
+  check(/^\/api\/public\/cal\/[^/]+\/p\d+-[0-9a-f]{32}\.ics\?term=\d+$/.test(feedPath), "الكرت يحمل اشتراكه الثابت — يتبع الأستاذ لا الرابط (M3)", feedPath);
   const feed = await fetch(BASE + feedPath);
   const ics = await feed.text();
   check(feed.status === 200 && /text\/calendar/.test(feed.headers.get("content-type") || "") && ics.startsWith("BEGIN:VCALENDAR") && ics.includes("END:VCALENDAR"), "والرابط يُرجع ملف تقويمٍ صالحاً");
@@ -272,7 +272,7 @@ async function main() {
   }
   const cacheHeader = feed.headers.get("cache-control") || "";
   check(/no-cache|no-store/.test(cacheHeader) && !!feed.headers.get("etag"), "وإعادة القراءة تُفحص كل مرّة (ETag) فلا يبقى جدولٌ قديم في الهاتف", cacheHeader);
-  const forged = await fetch(BASE + feedPath.replace(/\/[0-9a-f]{32}\?/, "/" + "0".repeat(32) + "?"));
+  const forged = await fetch(BASE + feedPath.replace(/-[0-9a-f]{32}\.ics\?/, "-" + "0".repeat(32) + ".ics?"));
   check(forged.status === 404, "مفتاحٌ مزوَّر لا يفتح شيئاً", forged.status);
 
   /* ═══ المرحلة ٥: ذاكرةُ الفصول ═══════════════════════════════════════════ */
