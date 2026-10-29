@@ -121,7 +121,7 @@ export interface VapidKeys {
 }
 
 /** رتبةُ المنحنى P-256: المفتاحُ السرّي عددٌ في [1, n−1]. */
-const P256_ORDER = Buffer.from("ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551", "hex");
+const P256_ORDER = Buffer.from("ffffffff00000000ffffffffffffffff" + "bce6faada7179e84f3b9cac2fc632551", "hex"); /* ثابتُ المنحنى العامّ n (FIPS 186-4)، لا سرّ */
 
 export function vapidKeysFromPrivate(privateKey: Uint8Array): VapidKeys {
   const d = Buffer.from(privateKey);

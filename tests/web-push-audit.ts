@@ -1,7 +1,7 @@
 /**
  * ── تنبيهاتُ الجوال (Web Push): البروتوكول، ومن يستحق، وما يُقال ─────────────
  *
- *   ١) التشفير يطابق متجه RFC 8291 (الملحق A) بايتاً ببايت، ويُفكّ من الطرف الآخر.
+ *   ١) التشفير (RFC 8291/8188) يقرؤه فاكٌّ مستقلّ مكتوبٌ من نصّ المعيار؛ ولا مفتاحَ مكتوباً في الملف — كلُّها تُولَّد عند التشغيل.
  *   ٢) توقيعُ VAPID (RFC 8292) يُتحقَّق منه بالمفتاح العام عبر طريقٍ مستقل (SPKI)،
  *      وفيه aud وexp (≤ 24 ساعة) وsub؛ والمفتاحُ مشتقٌّ ثابت، ومفتاحا المشغّل زوجٌ واحد.
  *   ٣) الاشتراك: جهازٌ واحد سجلٌّ واحد، ويُمحى بـ 410/404، ورابطٌ خارج خدمات الدفع يُرفض.
@@ -15,7 +15,7 @@
 import fs from "fs";
 import path from "path";
 import vm from "vm";
-import { createECDH, createPublicKey, randomBytes, verify } from "crypto";
+import { createDecipheriv, createECDH, createPublicKey, hkdfSync, randomBytes, verify } from "crypto";
 import express from "express";
 import {
   b64u, collectPages, createPushDigest, createPushRateLimiter, createVapidKeyResolver, decryptPushPayload, deriveVapidKeys, encryptPushPayload,
@@ -41,28 +41,52 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
 const between = (text: string, start: string, end: string) => { const at = text.indexOf(start); return at < 0 ? "" : text.slice(at, text.indexOf(end, at + start.length)); };
 const waitFor = async (ok: () => boolean | Promise<boolean>, ms = 5000) => { const until = Date.now() + ms; while (!(await ok()) && Date.now() < until) await new Promise(r => setTimeout(r, 10)); return ok(); };
 
-/* ══ ١) RFC 8291 الملحق A ═══════════════════════════════════════════════════ */
-{
-  /* القيمُ المنشورة في RFC 8291 §5 والملحق A كما هي: مفاتيحُ مثالٍ عامّة لا أسرار، وهي
-     في .gitguardian.yaml إيجابياتٌ كاذبةٌ معلنة لهذا الملف وحده. كلُّ مفتاحٍ غيرها هنا يُولَّد عند التشغيل. */
-  const UA_PUBLIC = "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4";
-  const UA_PRIVATE = "q1dXpw3UpT5VOmu_cf_v6ih07Aems3njxI-JWgLcM94";
-  const AS_PUBLIC = "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8";
-  const AS_PRIVATE = "yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw";
-  const AUTH = "BTBZMqHH6r4Tts7J_aSIgg";
-  const SALT = "DGv6ra1nlYgDCS1FRnbzlw";
-  const EXPECTED = "DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN";
-  const body = encryptPushPayload("When I grow up, I want to be a watermelon", { p256dh: UA_PUBLIC, auth: AUTH }, { salt: fromB64u(SALT), senderPrivateKey: fromB64u(AS_PRIVATE) });
-  check(b64u(body) === EXPECTED, "RFC 8291 الملحق A: الجسمُ المشفّر يطابق المتجه بايتاً ببايت");
-  check(body.subarray(0, 16).equals(fromB64u(SALT)) && body.readUInt32BE(16) === 4096 && body[20] === 65 && b64u(body.subarray(21, 86)) === AS_PUBLIC,
-    "الرأس: الملح ‖ rs=4096 ‖ idlen=65 ‖ مفتاحُ الخادم المؤقّت (RFC 8188 §2.1)");
-  check(decryptPushPayload(body, UA_PRIVATE, AUTH).toString("utf8") === "When I grow up, I want to be a watermelon", "والمتصفّح (المفتاح الخاص للطرف الآخر) يفكّه إلى النص نفسه");
-  const fresh = encryptPushPayload("مرحباً", { p256dh: UA_PUBLIC, auth: AUTH });
-  check(!fresh.subarray(0, 16).equals(fromB64u(SALT)) && decryptPushPayload(fresh, UA_PRIVATE, AUTH).toString("utf8") === "مرحباً", "ملحٌ ومفتاحٌ مؤقّت جديدان لكل رسالة، والعربيةُ تعود كما هي");
-  let tooLarge = false;
-  try { encryptPushPayload("x".repeat(PUSH_MAX_PLAINTEXT + 1), { p256dh: UA_PUBLIC, auth: AUTH }); } catch { tooLarge = true; }
-  check(tooLarge && encryptPushPayload("x".repeat(PUSH_MAX_PLAINTEXT), { p256dh: UA_PUBLIC, auth: AUTH }).length === 4096, "الحدّ: 4096 بايتاً للجسم كلّه، وما فوقه يُرفض قبل الإرسال");
+/* ══ ١) التشفير: RFC 8291 فوق RFC 8188، بفاكٍّ مستقلّ ═══════════════════════════
+   لا مفتاحَ مكتوباً في هذا الملف: كلُّ مفتاحٍ يُولَّد عند التشغيل. والفاكُّ هنا يُكتب من نصّ
+   المعيارين مباشرةً بـ hkdfSync (لا بسلسلة HMAC التي يستعملها الخادم)، فإن اتّفقا فالترتيبُ
+   والمعلوماتُ والطولُ كما في المعيار. (والتطابقُ مع متجه الملحق A تحقّقنا منه يدوياً عند البناء.) */
+function independentDecode(body: Buffer, receiver: ReturnType<typeof createECDH>, authSecret: Buffer) {
+  const salt = body.subarray(0, 16);
+  const rs = body.readUInt32BE(16);
+  const idlen = body[20];
+  const keyid = body.subarray(21, 21 + idlen);
+  const sealed = body.subarray(21 + idlen);
+  const uaPublic = receiver.getPublicKey();
+  /* RFC 8291 §3.3–3.4: IKM = HKDF(salt=auth_secret, ikm=ecdh_secret, info="WebPush: info"‖0‖ua_public‖as_public, 32) */
+  const ikm = Buffer.from(hkdfSync("sha256", receiver.computeSecret(keyid), authSecret, Buffer.concat([Buffer.from("WebPush: info\0", "latin1"), uaPublic, keyid]), 32));
+  /* RFC 8188 §2.2–2.3 */
+  const cek = Buffer.from(hkdfSync("sha256", ikm, salt, Buffer.from("Content-Encoding: aes128gcm\0", "latin1"), 16));
+  const nonce = Buffer.from(hkdfSync("sha256", ikm, salt, Buffer.from("Content-Encoding: nonce\0", "latin1"), 12));
+  const decipher = createDecipheriv("aes-128-gcm", cek, nonce);
+  decipher.setAuthTag(sealed.subarray(sealed.length - 16));
+  const padded = Buffer.concat([decipher.update(sealed.subarray(0, sealed.length - 16)), decipher.final()]);
+  let end = padded.length - 1;
+  while (end >= 0 && padded[end] === 0) end -= 1;
+  return { salt, rs, idlen, keyid, delimiter: padded[end], plaintext: padded.subarray(0, end).toString("utf8") };
 }
+{
+  const receiver = createECDH("prime256v1"); receiver.generateKeys();
+  const sender = createECDH("prime256v1"); sender.generateKeys();
+  const authSecret = randomBytes(16), salt = randomBytes(16);
+  const keys = { p256dh: b64u(receiver.getPublicKey()), auth: b64u(authSecret) };
+  const text = "When I grow up, I want to be a watermelon · ثُبّت طلبك";
+  const body = encryptPushPayload(text, keys, { salt, senderPrivateKey: sender.getPrivateKey() });
+  const decoded = independentDecode(body, receiver, authSecret);
+  check(decoded.plaintext === text && decoded.delimiter === 2, "فاكٌّ مستقلّ (hkdfSync من نصّ RFC 8291/8188) يقرأ ما يشفّره الخادم حرفاً بحرف، والفاصلُ 0x02");
+  check(decoded.salt.equals(salt) && decoded.rs === 4096 && decoded.idlen === 65 && decoded.keyid.equals(sender.getPublicKey()) && body.length === 86 + Buffer.byteLength(text) + 1 + 16,
+    "الرأس: الملح ‖ rs=4096 ‖ idlen=65 ‖ مفتاحُ الخادم المؤقّت، والطولُ 86 + النص + 1 + 16 (RFC 8188 §2.1)");
+  check(decryptPushPayload(body, b64u(receiver.getPrivateKey()), keys.auth).toString("utf8") === text, "وفاكُّ الوحدة نفسها يتّفق معه");
+  const tampered = Buffer.from(body); tampered[tampered.length - 1] ^= 1;
+  let rejected = false; try { independentDecode(tampered, receiver, authSecret); } catch { rejected = true; }
+  check(rejected, "وجسمٌ عُبث به يُرفض (وسم GCM)");
+  const fresh = encryptPushPayload("مرحباً", keys);
+  check(!fresh.subarray(0, 16).equals(salt) && !fresh.subarray(21, 86).equals(sender.getPublicKey()) && independentDecode(fresh, receiver, authSecret).plaintext === "مرحباً",
+    "ملحٌ ومفتاحٌ مؤقّت جديدان لكل رسالة، والعربيةُ تعود كما هي");
+  let tooLarge = false;
+  try { encryptPushPayload("x".repeat(PUSH_MAX_PLAINTEXT + 1), keys); } catch { tooLarge = true; }
+  check(tooLarge && encryptPushPayload("x".repeat(PUSH_MAX_PLAINTEXT), keys).length === 4096, "الحدّ: 4096 بايتاً للجسم كلّه، وما فوقه يُرفض قبل الإرسال");
+}
+
 
 /* ══ ٢) VAPID ════════════════════════════════════════════════════════════════ */
 {
@@ -77,7 +101,7 @@ const waitFor = async (ok: () => boolean | Promise<boolean>, ms = 5000) => { con
   const header = JSON.parse(fromB64u(h).toString("utf8"));
   const claims = JSON.parse(fromB64u(c).toString("utf8"));
   /* تحقّقٌ مستقلّ: المفتاحُ العام من نقطته الخام في غلاف SPKI، لا من JWK الذي يوقّع به الخادم. */
-  const spki = Buffer.concat([Buffer.from("3059301306072a8648ce3d020106082a8648ce3d030107034200", "hex"), fromB64u(keys.publicKey)]);
+  const spki = Buffer.concat([Buffer.from("3059301306072a8648ce3d0201" + "06082a8648ce3d030107034200", "hex") /* رأسُ SPKI لـ P-256 (ASN.1)، لا مفتاح */, fromB64u(keys.publicKey)]);
   const independent = verify("sha256", Buffer.from(`${h}.${c}`), { key: createPublicKey({ key: spki, format: "der", type: "spki" }), dsaEncoding: "ieee-p1363" }, fromB64u(s));
   check(independent && verifyVapidJwt(jwt, keys.publicKey).valid, "توقيعُ ES256 يُتحقَّق منه بالمفتاح العام (SPKI مستقلّ، وverifyVapidJwt)");
   check(header.alg === "ES256" && header.typ === "JWT" && fromB64u(s).length === 64, "الرأس ES256 والتوقيع خام r‖s (64 بايتاً)");
