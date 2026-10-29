@@ -59,7 +59,7 @@ export default function ChangePassword({ name, onChanged, onLogout }: { name: st
             <Field label="أعد كتابة الكلمة الجديدة" required>
               <input type="password" autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} disabled={busy} required minLength={8} maxLength={128} />
             </Field>
-            <PrimaryButton type="submit" disabled={busy}>
+            <PrimaryButton type="submit" disabled={busy} data-guide-ignore="حفظ كلمة السر الجديدة قبل دخول مساحة العمل">
               {busy ? <span className="button-spinner" /> : <><KeyRound aria-hidden="true" /> احفظ كلمة السر وتابع</>}
             </PrimaryButton>
           </form>

@@ -228,6 +228,16 @@
    "methods": [],
    "path": "/api",
    "name": "wrapped",
+   "call": "e22e25dfe37b51e1",
+   "site": "server.ts:244",
+   "regexp": "/^\\/api\\/?(?=\\/|$)/i",
+   "end": false
+  },
+  {
+   "kind": "middleware",
+   "methods": [],
+   "path": "/api",
+   "name": "wrapped",
    "call": "142951d177ac9127",
    "site": "server.ts:1077",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
@@ -294,7 +304,7 @@
    ],
    "path": "/i/:username",
    "name": "bound dispatch",
-   "call": "e572298c61d9ba9c",
+   "call": "7567d80f799747c1",
    "site": "server.ts:2708",
    "regexp": "/^\\/i(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -306,9 +316,21 @@
    ],
    "path": "/api/auth/login",
    "name": "bound dispatch",
-   "call": "f5e0e505d51655c5",
+   "call": "75486b7bdea7a657",
    "site": "server.ts:2717",
    "regexp": "/^\\/api\\/auth\\/login\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/auth/change-password",
+   "name": "bound dispatch",
+   "call": "235281f83bd1c7d3",
+   "site": "src/server/routes/authRoutes.ts:669",
+   "regexp": "/^\\/api\\/auth\\/change-password\\/?$/i",
    "end": true
   },
   {
@@ -450,7 +472,7 @@
    ],
    "path": "/api/colleges",
    "name": "bound dispatch",
-   "call": "a3db7191b22155ec",
+   "call": "abbe25e8df12126b",
    "site": "server.ts:3369",
    "regexp": "/^\\/api\\/colleges\\/?$/i",
    "end": true
@@ -1342,7 +1364,7 @@
    ],
    "path": "/api/department-delegates/:instructorId",
    "name": "bound dispatch",
-   "call": "f1e89a73e3da3040",
+   "call": "396f15d74a098266",
    "site": "server.ts:7529",
    "regexp": "/^\\/api\\/department-delegates(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -1798,7 +1820,7 @@
    ],
    "path": "/api/schedules/:id/substitutes",
    "name": "bound dispatch",
-   "call": "c2d1e75081508d91",
+   "call": "d610f2015a823754",
    "site": "server.ts:8757",
    "regexp": "/^\\/api\\/schedules(?:\\/([^/]+?))\\/substitutes\\/?$/i",
    "end": true
@@ -4910,7 +4932,7 @@
    ],
    "path": "/api/plan-review/section-accounts",
    "name": "bound dispatch",
-   "call": "c03c3ef31c21fa9a",
+   "call": "0350adc272170f51",
    "site": "src/server/planReviewRoutes.ts:1057",
    "regexp": "/^\\/api\\/plan-review\\/section-accounts\\/?$/i",
    "end": true
