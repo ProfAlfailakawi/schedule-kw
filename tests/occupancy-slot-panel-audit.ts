@@ -14,6 +14,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import OccupancySlotPanel, { SLOT_SEARCH_FROM, type SlotPanelRow } from "../src/components/OccupancySlotPanel";
 import { campusShortLabels, groupSlotRows, matchesSlotQuery, visibleSlotGroups } from "../src/utils/occupancySlot";
 
+const reports = fs.readFileSync(path.join(process.cwd(), "src/components/Reports.tsx"), "utf8");
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
   if (condition) { passed++; console.log(`\x1b[32m✓ ${name}\x1b[0m`); }
@@ -89,6 +90,19 @@ check(single.includes("occupancy-slot-search") && single.includes('type="search"
 check(!single.includes("occupancy-slot-campuses") && !single.includes("occupancy-slot-group-head"), "موقعٌ واحد: لا رقائق ولا رؤوس مجموعات");
 check(single.includes("اليوم كله") && single.includes("إشغال اليوم كله"), "واليوم كله يقول ذلك بدل الساعة");
 
+/* مراجعة #306: خانةٌ في عائلة القسم ليس فيها إلا محاضرات بنين، والكلية المفتوحة بنات —
+   الموقع الظاهر من الصفوف نفسها، لا من الكلية المختارة. */
+const boysOnly = renderToStaticMarkup(React.createElement(OccupancySlotPanel, {
+  day: "الاثنين", range: "08:00–09:00", rate: 10, busyRooms: 1, totalRooms: 32,
+  rows: [row(2, BOYS, "أسس تكنولوجيا التعليم", "د. س", "08:00")], scopeLabel: "التربية الأساسية - بنات", onClose: () => {},
+}));
+check(boysOnly.includes("التربية الأساسية - بنين") && !boysOnly.includes("التربية الأساسية - بنات"), "موقعٌ واحد في الخانة يُسمّى من صفوفه: بنين لا الكلية المفتوحة");
+const emptySlot = renderToStaticMarkup(React.createElement(OccupancySlotPanel, {
+  day: "الاثنين", range: "18:00–19:00", rate: 0, busyRooms: 0, totalRooms: 32, rows: [], scopeLabel: "عائلة القسم", onClose: () => {},
+}));
+check(emptySlot.includes("عائلة القسم") && emptySlot.includes("لا محاضرات في هذا الوقت."), "والخانة الفارغة تقول نطاقها");
+check(reports.includes(': familyActive ? "عائلة القسم" : collegeName'), "والعائلة لا تُوسَم باسم الكلية المفتوحة");
+
 /* ── لا صنف قصٍّ على المقرر أو الأستاذ ──────────────────────────────────── */
 const css = fs.readFileSync(path.join(process.cwd(), "src/styles/39-occupancy-heat.css"), "utf8");
 const rule = (selector: string) => {
@@ -105,7 +119,6 @@ check(/@media \(max-width:760px\)\{[^]*grid-template-areas:"time course" "time t
 check(/grid-template-areas:"time course teacher meta"/.test(css), "وعلى الحاسوب أعمدة");
 
 /* ── موصولة بالعدسة ──────────────────────────────────────────────────────── */
-const reports = fs.readFileSync(path.join(process.cwd(), "src/components/Reports.tsx"), "utf8");
 const lensBlock = reports.slice(reports.indexOf(') : lens === "occupancy" ? ('), reports.indexOf(') : lens === "visiting" ? ('));
 check(lensBlock.length > 0 && lensBlock.includes("<OccupancySlotPanel") && !lensBlock.includes("occupancy-pick-rows"), "عدسة نسبة الإشغال تفتح اللوحة الجديدة لا القديمة");
 check(reports.includes("campusOrder={occupancyCampusOrder}") && reports.includes("familyScopes.map(scope => scope.collegeId)"), "وترتيب المواقع من عائلة القسم");

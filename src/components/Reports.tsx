@@ -3038,7 +3038,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 && (!occupancyPick.collegeId || Number(row.AdCollegeId) === occupancyPick.collegeId));
               const rows = [...source].sort((a, b) => minutes(a.fstarttime) - minutes(b.fstarttime) || byArabic(a.AdCourseName || "", b.AdCourseName || ""));
               /* المحاضرات تحت مواقعها برقائق ترشيح (OccupancySlotPanel)؛ والموقع يُقال مرةً للمجموعة لا في كل صفّ. */
-              const siteLabel = occupancyPick.collegeId ? occupancySites.find(site => site.collegeId === occupancyPick.collegeId)?.label : collegeName || undefined;
+              const siteLabel = occupancyPick.collegeId ? occupancySites.find(site => site.collegeId === occupancyPick.collegeId)?.label : familyActive ? "عائلة القسم" : collegeName || undefined;
               return (
                 <OccupancySlotPanel
                   key={`${occupancyPick.collegeId || 0}|${occupancyPick.day}|${occupancyPick.hour ?? "day"}`}

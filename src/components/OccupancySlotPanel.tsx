@@ -42,7 +42,7 @@ export default function OccupancySlotPanel({ day, range, rate, busyRooms, totalR
   totalRooms: number;
   rows: SlotPanelRow[];
   campusOrder?: number[];
-  /** اسم النطاق حين يكون موقعاً واحداً. */
+  /** اسم النطاق لخانةٍ بلا محاضرات؛ وإلا فالموقع من الصفوف. */
   scopeLabel?: string;
   onClose: () => void;
 }) {
@@ -50,6 +50,9 @@ export default function OccupancySlotPanel({ day, range, rate, busyRooms, totalR
   const [query, setQuery] = useState("");
   const groups = useMemo(() => groupSlotRows(rows, campusOrder), [rows, campusOrder]);
   const multi = groups.length > 1;
+  /* موقعٌ واحد: اسمه من صفوفه نفسها لا من الكلية المختارة — خانةٌ في عائلة القسم
+     قد لا يكون فيها إلا محاضرات بنين والكلية المفتوحة بنات. والنطاق لخانةٍ فارغة. */
+  const campusLine = multi ? "" : groups.length === 1 ? groups[0].label : scopeLabel || "";
   const visible = useMemo(() => visibleSlotGroups(groups, campus, query), [groups, campus, query]);
   const shown = visible.reduce((sum, group) => sum + group.rows.length, 0);
 
@@ -72,7 +75,7 @@ export default function OccupancySlotPanel({ day, range, rate, busyRooms, totalR
             label={`${num(rate)}٪`} sublabel={busyRooms != null ? <span dir="ltr">{num(busyRooms)}/{num(totalRooms)}</span> : null}
             ariaLabel={`إشغال القاعات ${num(rate)}٪`} className="occupancy-slot-ring" />
           <div className="occupancy-slot-title">
-            <small>{range ? day : "اليوم كله"}{!multi && scopeLabel ? <> · <span className="occupancy-slot-scope">{scopeLabel}</span></> : null}</small>
+            <small>{range ? day : "اليوم كله"}{campusLine ? <> · <span className="occupancy-slot-scope" title={groups[0]?.rows[0]?.campusName}>{campusLine}</span></> : null}</small>
             {range ? <strong dir="ltr">{range}</strong> : <strong>{day}</strong>}
             <span className="occupancy-slot-facts"><span><b>{num(rows.length)}</b> {nounFor(rows.length, AR.lecture)}</span><span>{roomsLine}</span></span>
           </div>
