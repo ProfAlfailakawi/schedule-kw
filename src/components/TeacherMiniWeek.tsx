@@ -230,7 +230,7 @@ export default function TeacherMiniWeek({
         <b><span className="mini-week-name">{teacherName || "الأستاذ"}</span>{visiting ? <VisitingBadge compact /> : null}</b>
         <span className="mini-week-facts">
           <em className={`is-load${over ? " is-over" : loadDelta > 0 ? " is-up" : ""}`} aria-label={`النصاب ${header.loadNow} ثم ${header.loadAfter}`}>
-            <span dir="ltr">{header.loadNow}</span><ArrowLeft aria-hidden="true" /><span dir="ltr">{header.loadAfter}</span>{header.nisab ? <small dir="ltr">/{header.nisab}</small> : null}
+            <span dir="ltr">{header.loadNow}</span><ArrowLeft aria-hidden="true" /><span dir="ltr">{header.loadAfter}{header.nisab ? <small>/{header.nisab}</small> : null}</span>
           </em>
           <em className={dayDelta > 0 ? "is-up" : ""} aria-label={`أيام الحضور ${header.daysAfter}`}>
             <CalendarDays aria-hidden="true" /><span dir="ltr">{header.daysAfter}</span>{dayDelta > 0 ? <sup dir="ltr">+{dayDelta}</sup> : null}
@@ -290,7 +290,7 @@ export default function TeacherMiniWeek({
             {ghost && ghost.days.includes(day) ? <span key={`g-${ghostKey}`} className={`mini-week-ghost is-${tone === "checking" ? settled.current : tone}${tone === "checking" ? " is-checking" : ""}`}
               style={place(ghost.start, ghost.end)} role="img"
               aria-label={tone === "blocked" ? "الموعد الجاري يتعارض" : tone === "checking" ? "الموعد الجاري قيد الفحص" : tone === "idle" ? "الموعد الجاري — لم يُفحص بعد" : "الموعد الجاري سليم"}>
-              {pixels(ghost.start, ghost.end) >= 18 ? (tone === "blocked" ? <X aria-hidden="true" /> : tone === "clean" ? <Check aria-hidden="true" /> : null) : null}
+              {tone === "blocked" || tone === "clean" ? <i className="mini-week-ghost-mark" aria-hidden="true">{tone === "blocked" ? <X /> : <Check />}</i> : null}
             </span> : null}
           </div>)}
         </div>

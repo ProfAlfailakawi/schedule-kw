@@ -297,8 +297,8 @@
 
 .mini-week-chip{z-index:2;inset-inline:2px;display:grid;background:color-mix(in srgb,var(--mw-own) 13%,var(--surface));border-inline-start:3px solid var(--mw-own);border-radius:6px 8px 8px 6px;box-shadow:0 1px 0 color-mix(in srgb,var(--line) 70%,transparent);cursor:default}
 .mini-week-chip.is-other{background:color-mix(in srgb,var(--mw-other) 15%,var(--surface));border-inline-start-color:var(--mw-other)}
-.mini-week-chip-text{display:grid;align-content:start;gap:1px;min-width:0;padding:3px 4px 2px 3px;overflow:hidden}
-.mini-week-chip-text b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;font-size:9.5px;font-weight:800;line-height:1.25;color:var(--ink);overflow-wrap:normal}
+.mini-week-chip-text{display:grid;align-content:start;gap:1px;min-width:0;padding:3px 3px 2px 2px;overflow:hidden;-webkit-mask-image:linear-gradient(to right,transparent 0,black 6px);mask-image:linear-gradient(to right,transparent 0,black 6px)}
+.mini-week-chip-text b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;font-size:9px;font-weight:800;line-height:1.25;color:var(--ink);overflow-wrap:normal}
 .mini-week-chip.is-tall .mini-week-chip-text b{-webkit-line-clamp:2}
 .mini-week-chip-text small{font:600 8.5px/1.1 var(--font-mono);font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--mw-own) 70%,var(--ink))}
 .mini-week-chip.is-other .mini-week-chip-text small{color:color-mix(in srgb,var(--mw-other) 75%,var(--ink))}
@@ -315,8 +315,11 @@
 
 .mini-week-preview{z-index:3;border:1.5px dashed var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);pointer-events:none;animation:mini-week-fade .15s ease-out both}
 @keyframes mini-week-fade{from{opacity:0}to{opacity:1}}
-.mini-week-ghost{z-index:4;inset-inline:1px;display:grid;place-items:start end;padding:2px;border-radius:8px;pointer-events:none;animation:mini-week-ghost-in .26s var(--ease-out) both}
-.mini-week-ghost svg{width:11px;height:11px;stroke-width:3}
+.mini-week-ghost{z-index:4;inset-inline:1px;border-radius:8px;pointer-events:none;animation:mini-week-ghost-in .26s var(--ease-out) both}
+.mini-week-ghost-mark{position:absolute;top:-6px;inset-inline-end:-5px;display:grid;place-items:center;width:15px;height:15px;border:2px solid var(--surface);border-radius:50%;color:var(--surface);font-style:normal}
+.mini-week-ghost-mark svg{width:9px;height:9px;stroke-width:3.5}
+.mini-week-ghost.is-clean .mini-week-ghost-mark{background:var(--success)}
+.mini-week-ghost.is-blocked .mini-week-ghost-mark{background:var(--danger)}
 .mini-week-ghost.is-clean{border:2px solid var(--success);background:color-mix(in srgb,var(--success) 20%,transparent);color:var(--success);box-shadow:0 0 0 3px color-mix(in srgb,var(--success) 14%,transparent),0 6px 14px -8px var(--success)}
 .mini-week-ghost.is-blocked{border:2px solid var(--danger);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--danger) 30%,transparent) 0 4px,color-mix(in srgb,var(--danger) 6%,transparent) 4px 8px);color:var(--danger);box-shadow:0 0 0 3px color-mix(in srgb,var(--danger) 14%,transparent),0 6px 14px -8px var(--danger)}
 .mini-week-ghost.is-idle{border:2px dashed color-mix(in srgb,var(--accent) 70%,transparent);background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
@@ -343,6 +346,7 @@ html[data-barter-open="true"] .qc-mini-side,html[data-journey-open="true"] .qc-m
 .mini-week-grip{position:absolute;top:6px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:999px;background:color-mix(in srgb,var(--muted) 45%,transparent);pointer-events:none}
 .schedule-editor:has(.mini-week.is-sheet){padding-bottom:calc(96px + env(safe-area-inset-bottom))!important}
 body:has(.mini-week.is-sheet) .smart-guide-fab{bottom:calc(var(--fab-floor) + 84px)}
+body:has(.mini-week.is-sheet.is-open) .smart-guide-fab{opacity:0;pointer-events:none}
 @media (hover:none){.mini-week-target svg{opacity:.7}}
 @media (prefers-reduced-motion:reduce){.mini-week *,.mini-week,.qc-mini-side{animation:none!important;transition:none!important}}
 @media print{.mini-week,.qc-mini-side{display:none!important}}
