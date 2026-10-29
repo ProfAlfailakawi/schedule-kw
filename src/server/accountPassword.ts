@@ -12,6 +12,7 @@
  */
 import { randomInt } from "node:crypto";
 import type { NextFunction, Response } from "express";
+import { AR, countOf } from "../utils/arabicCount";
 import type { AuthenticatedRequest } from "./core/auth";
 
 /** الكلمةُ الموحّدة القديمة: لا تُعطى لحسابٍ جديد، ومن يدخل بها يُطلب منه تغييرها. */
@@ -31,7 +32,7 @@ export const MIN_PASSWORD_LENGTH = 8;
 
 /** سببُ رفض الكلمة الجديدة، أو null إن قُبلت. */
 export function newPasswordProblem(current: string, next: string): string | null {
-  if (typeof next !== "string" || next.length < MIN_PASSWORD_LENGTH) return `كلمة السر الجديدة ${MIN_PASSWORD_LENGTH} أحرف على الأقل`;
+  if (typeof next !== "string" || next.length < MIN_PASSWORD_LENGTH) return `كلمة السر الجديدة ${countOf(MIN_PASSWORD_LENGTH, AR.character)} على الأقل`;
   if (next.length > 128) return "كلمة السر الجديدة أطول من المسموح";
   if (next === LEGACY_SHARED_PASSWORD) return "اختر كلمة سرٍّ غير الكلمة الموحّدة القديمة";
   if (next === current) return "اختر كلمة سرٍّ غير الحالية";
