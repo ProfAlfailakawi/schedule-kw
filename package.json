@@ -31,6 +31,7 @@
     "test:appointment-forms": "tsx tests/appointment-forms-audit.ts",
     "test:placeholder-action": "tsx tests/placeholder-action-audit.ts",
     "test:course-spelling-merge": "tsx tests/course-spelling-merge-audit.ts",
+    "test:teacher-mini-week": "tsx tests/teacher-mini-week-audit.ts",
     "test:schedule-interface": "tsx tests/schedule-interface-audit.ts",
     "test:schedule-wipe": "tsx tests/schedule-wipe-audit.ts",
     "test:repo-hygiene": "node tests/repo-hygiene-guard.mjs",

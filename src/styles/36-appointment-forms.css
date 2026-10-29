@@ -229,3 +229,120 @@
   .quick-create .qc-fields>.qc-field.qc-wide:first-child{grid-column:1/-1}
   .room-replaceable-swap{display:none}
 }
+
+/* ── N3: جدول الأستاذ المصغّر ───────────────────────────────────────────────
+   بطاقةٌ جانبية بجانب النموذج (سطح المكتب)، وشريطٌ سفليّ يُسحب حين يصير المحرر عموداً
+   واحداً. أعمدة الأسبوع الخمسة على محورٍ مضغوط؛ محاضرات الأستاذ أحداثُ تقويم، وكليةٌ
+   أخرى بلونٍ نحاسي، والموعد الجاري شبحٌ أخضر/أحمر مخطّط، والخانات الحرّة «+» متقطّعة. */
+.editor-side{display:grid;gap:12px;align-content:start;min-width:0}
+@media (min-width:981px){.editor-side>.conflict-panel{position:static!important}}
+@media (min-width:1101px){.schedule-editor-grid>.editor-side{position:sticky;top:var(--s5)}}
+
+.mini-week{--mw-axis:20px;--mw-own:var(--info);--mw-other:var(--brass);position:relative;display:grid;min-width:0;border:1px solid var(--line);border-radius:20px;background:var(--surface);box-shadow:var(--shadow-sm)}
+.mini-week-head{display:grid;grid-template-columns:46px minmax(0,1fr) 18px;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;border-radius:20px;background:none;color:inherit;font:inherit;text-align:start;cursor:pointer}
+.mini-week-head:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.mini-week-head:hover .mini-week-chevron{color:var(--ink)}
+
+.mini-week-ring{position:relative;display:grid;place-items:center;width:46px;height:46px}
+.mini-week-ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.mini-week-ring circle{fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dasharray .35s var(--ease-out),stroke-dashoffset .35s var(--ease-out)}
+.mini-week-ring-track{stroke:color-mix(in srgb,var(--line) 85%,transparent)}
+.mini-week-ring-now{stroke:var(--accent)}
+.mini-week-ring-add{stroke:color-mix(in srgb,var(--accent) 42%,var(--surface))}
+.mini-week-ring-tick{stroke:var(--danger);stroke-width:2.5;stroke-linecap:round}
+.mini-week-ring.is-over .mini-week-ring-add{stroke:var(--danger)}
+.mini-week-ring>b{position:relative;font:800 14px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink);letter-spacing:-.02em}
+.mini-week-ring.is-over>b{color:var(--danger)}
+
+.mini-week-who{display:grid;gap:4px;min-width:0}
+.mini-week-who>b{display:flex;align-items:center;gap:6px;min-width:0;font-size:var(--t-sm);font-weight:800;line-height:1.3}
+.mini-week-name{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mini-week-who .visiting-badge{flex:none}
+.mini-week-facts{display:flex;flex-wrap:wrap;gap:5px}
+.mini-week-facts em{display:inline-flex;align-items:center;gap:3px;min-height:20px;padding:0 7px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);font:700 11px/1 var(--font-mono);font-style:normal;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mini-week-facts em svg{width:11px;height:11px;flex:none;color:var(--muted)}
+.mini-week-facts em small{margin-inline-start:1px;color:var(--muted);font-weight:600;font-size:10px}
+.mini-week-facts em sup{font-size:9px;line-height:1;vertical-align:super}
+.mini-week-facts em.is-load.is-up{background:var(--accent-softer);color:var(--accent-ink)}
+.mini-week-facts em.is-load.is-up svg{color:var(--accent)}
+.mini-week-facts em.is-up:not(.is-load){background:var(--warning-soft);color:var(--warning)}
+.mini-week-facts em.is-up:not(.is-load) svg{color:var(--warning)}
+.mini-week-facts em.is-down{background:color-mix(in srgb,var(--success) 12%,var(--surface));color:var(--success)}
+.mini-week-facts em.is-down svg{color:var(--success)}
+.mini-week-facts em.is-over{background:var(--danger-soft);color:var(--danger)}
+.mini-week-facts em.is-over svg{color:var(--danger)}
+.mini-week-facts .mini-week-trend{width:10px;height:10px;color:currentColor!important}
+.mini-week-chevron{width:16px;height:16px;color:var(--muted);transition:transform .2s var(--ease-out),color .15s}
+.mini-week.is-open .mini-week-chevron{transform:rotate(180deg)}
+
+.mini-week-body{display:grid;gap:4px;padding:0 10px 12px;animation:mini-week-open .22s var(--ease-out) both}
+@keyframes mini-week-open{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.mini-week-days,.mini-week-canvas{display:grid;grid-template-columns:var(--mw-axis) repeat(5,minmax(0,1fr));column-gap:4px}
+.mini-week-days span{min-width:0;overflow:hidden;font-size:10px;font-weight:700;line-height:1.4;color:var(--muted);text-align:center;white-space:nowrap;text-overflow:clip}
+.mini-week-days span.is-draft{color:var(--accent);font-weight:800}
+.mini-week-canvas{padding-block:5px}
+.mini-week-axis{position:relative;height:var(--mw-track)}
+.mini-week-axis span{position:absolute;inset-inline-start:0;transform:translateY(-50%);font:600 9px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--muted-2,var(--muted))}
+.mini-week-grid{grid-column:2/-1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));column-gap:4px}
+.mini-week-track{position:relative;height:var(--mw-track);border-radius:10px;background:var(--surface-2);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line) 60%,transparent)}
+.mini-week-track.is-draft{background:color-mix(in srgb,var(--accent) 6%,var(--surface-2))}
+.mini-week-tick{position:absolute;inset-inline:0;height:1px;background:color-mix(in srgb,var(--line) 75%,transparent);pointer-events:none}
+
+.mini-week-target,.mini-week-chip,.mini-week-preview,.mini-week-ghost{position:absolute;inset-inline:3px;border-radius:7px;min-height:8px}
+.mini-week-target{z-index:1;display:grid;place-items:center;padding:0;border:1px dashed color-mix(in srgb,var(--accent) 42%,var(--line));background:transparent;color:var(--accent);cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s}
+.mini-week-target svg{width:12px;height:12px;opacity:.45;transition:opacity .15s,transform .15s}
+.mini-week-target:hover,.mini-week-target:focus-visible,.mini-week-target.is-lit{border-style:solid;border-color:color-mix(in srgb,var(--accent) 70%,transparent);background:var(--accent-softer);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 14%,transparent)}
+.mini-week-target:hover svg,.mini-week-target:focus-visible svg,.mini-week-target.is-lit svg{opacity:1;transform:scale(1.12)}
+.mini-week-target:focus-visible{outline:none}
+
+.mini-week-chip{z-index:2;inset-inline:2px;display:grid;background:color-mix(in srgb,var(--mw-own) 13%,var(--surface));border-inline-start:3px solid var(--mw-own);border-radius:6px 8px 8px 6px;box-shadow:0 1px 0 color-mix(in srgb,var(--line) 70%,transparent);cursor:default}
+.mini-week-chip.is-other{background:color-mix(in srgb,var(--mw-other) 15%,var(--surface));border-inline-start-color:var(--mw-other)}
+.mini-week-chip-text{display:grid;align-content:start;gap:1px;min-width:0;padding:3px 4px 2px 3px;overflow:hidden}
+.mini-week-chip-text b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;font-size:9.5px;font-weight:800;line-height:1.25;color:var(--ink);overflow-wrap:normal}
+.mini-week-chip.is-tall .mini-week-chip-text b{-webkit-line-clamp:2}
+.mini-week-chip-text small{font:600 8.5px/1.1 var(--font-mono);font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--mw-own) 70%,var(--ink))}
+.mini-week-chip.is-other .mini-week-chip-text small{color:color-mix(in srgb,var(--mw-other) 75%,var(--ink))}
+.mini-week-chip.is-thin .mini-week-chip-text{display:none}
+.mini-week-stick{position:absolute;left:50%;z-index:6;display:grid;place-items:center;width:20px;height:20px;padding:0;border:2px solid var(--surface);border-radius:50%;background:var(--accent);color:var(--accent-contrast);box-shadow:var(--shadow-sm);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s,transform .15s}
+.mini-week-stick svg{width:11px;height:11px}
+.mini-week-stick.is-before{top:0;transform:translate(-50%,-55%) scale(.85)}
+.mini-week-stick.is-after{bottom:0;transform:translate(-50%,55%) scale(.85)}
+.mini-week-chip:hover,.mini-week-chip:focus-within,.mini-week-chip.is-active{z-index:5}
+.mini-week-chip:hover .mini-week-stick,.mini-week-chip:focus-within .mini-week-stick,.mini-week-chip.is-active .mini-week-stick{opacity:1;pointer-events:auto}
+.mini-week-chip:hover .mini-week-stick.is-before,.mini-week-chip:focus-within .mini-week-stick.is-before,.mini-week-chip.is-active .mini-week-stick.is-before{transform:translate(-50%,-55%) scale(1)}
+.mini-week-chip:hover .mini-week-stick.is-after,.mini-week-chip:focus-within .mini-week-stick.is-after,.mini-week-chip.is-active .mini-week-stick.is-after{transform:translate(-50%,55%) scale(1)}
+.mini-week-stick:hover,.mini-week-stick:focus-visible{background:var(--accent-strong);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+
+.mini-week-preview{z-index:3;border:1.5px dashed var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);pointer-events:none;animation:mini-week-fade .15s ease-out both}
+@keyframes mini-week-fade{from{opacity:0}to{opacity:1}}
+.mini-week-ghost{z-index:4;inset-inline:1px;display:grid;place-items:start end;padding:2px;border-radius:8px;pointer-events:none;animation:mini-week-ghost-in .26s var(--ease-out) both}
+.mini-week-ghost svg{width:11px;height:11px;stroke-width:3}
+.mini-week-ghost.is-clean{border:2px solid var(--success);background:color-mix(in srgb,var(--success) 20%,transparent);color:var(--success);box-shadow:0 0 0 3px color-mix(in srgb,var(--success) 14%,transparent),0 6px 14px -8px var(--success)}
+.mini-week-ghost.is-blocked{border:2px solid var(--danger);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--danger) 30%,transparent) 0 4px,color-mix(in srgb,var(--danger) 6%,transparent) 4px 8px);color:var(--danger);box-shadow:0 0 0 3px color-mix(in srgb,var(--danger) 14%,transparent),0 6px 14px -8px var(--danger)}
+.mini-week-ghost.is-idle{border:2px dashed color-mix(in srgb,var(--accent) 70%,transparent);background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
+.mini-week-ghost.is-checking{animation:mini-week-ghost-in .26s var(--ease-out) both,mini-week-pulse 1.1s ease-in-out .26s infinite}
+@keyframes mini-week-ghost-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+@keyframes mini-week-pulse{50%{opacity:.5}}
+
+/* البطاقة السريعة: شريطٌ داخلها، أو بطاقةٌ جانبية عائمة حيث تتّسع النافذة. */
+.mini-week.is-compact{--mw-axis:16px;border-radius:16px;box-shadow:none;background:color-mix(in srgb,var(--surface-2) 40%,var(--surface))}
+.mini-week.is-compact .mini-week-head{grid-template-columns:40px minmax(0,1fr) 16px;gap:8px;padding:8px 10px;border-radius:16px}
+.mini-week.is-compact .mini-week-ring{width:40px;height:40px}
+.mini-week.is-compact .mini-week-ring>b{font-size:12.5px}
+.mini-week.is-compact .mini-week-body{padding:0 8px 10px}
+.qc-mini-week{grid-column:1/-1;min-width:0}
+.qc-mini-side{position:fixed;z-index:420;width:300px;max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;border-radius:20px;animation:rise .2s var(--ease-out) both}
+.qc-mini-side>.mini-week{border-radius:20px;background:var(--surface);box-shadow:var(--shadow-lg)}
+.qc-mini-side>.mini-week .mini-week-head{border-radius:20px}
+html[data-schedule-workspace="focus"] .qc-mini-side{z-index:2600}
+html[data-barter-open="true"] .qc-mini-side,html[data-journey-open="true"] .qc-mini-side{visibility:hidden!important;opacity:0!important;pointer-events:none!important}
+
+/* المحرر عموداً واحداً: شريطٌ سفليّ فوق شريط التنقل، يُسحب لأعلى فيفتح ولأسفل فيُطوى. */
+.mini-week.is-sheet{position:fixed;inset-inline:8px;bottom:calc(var(--dock-h,0px) + 8px + env(safe-area-inset-bottom));z-index:180;max-width:560px;margin-inline:auto;max-height:min(74dvh,500px);overflow:auto;overscroll-behavior:contain;border-radius:22px;box-shadow:var(--shadow-lg);transition:transform .22s var(--ease-out)}
+.mini-week.is-sheet .mini-week-head{padding-top:16px;touch-action:none;user-select:none;-webkit-user-select:none}
+.mini-week-grip{position:absolute;top:6px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:999px;background:color-mix(in srgb,var(--muted) 45%,transparent);pointer-events:none}
+.schedule-editor:has(.mini-week.is-sheet){padding-bottom:calc(96px + env(safe-area-inset-bottom))!important}
+body:has(.mini-week.is-sheet) .smart-guide-fab{bottom:calc(var(--fab-floor) + 84px)}
+@media (hover:none){.mini-week-target svg{opacity:.7}}
+@media (prefers-reduced-motion:reduce){.mini-week *,.mini-week,.qc-mini-side{animation:none!important;transition:none!important}}
+@media print{.mini-week,.qc-mini-side{display:none!important}}

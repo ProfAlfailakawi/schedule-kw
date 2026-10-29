@@ -160,6 +160,7 @@ test:appointment-entry-parity
 test:appointment-forms
 test:placeholder-action
 test:course-spelling-merge
+test:teacher-mini-week
 test:schedule-wipe
 test:instructor-availability
 test:instructor-offering-flow

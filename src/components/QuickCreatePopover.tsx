@@ -2,7 +2,7 @@ import CompanionFacilityPicker from "./CompanionFacilityPicker";
 import SearchableSelect from "./SearchableSelect";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Building2, Check, Clock3, DoorOpen, Loader2, Maximize2, Minus, MonitorPlay, Puzzle, Sparkles, UserRound, X } from "lucide-react";
-import type { AdCourse, AdInstructor } from "../types";
+import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import LocationPicker from "./LocationPicker";
 import { TimeWheels } from "./TimeCounter";
 import type { DayKey } from "./scheduleWorkspace";
@@ -18,6 +18,7 @@ import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import RoomSuggestionCards, { SuggestionEmpty } from "./RoomSuggestionCards";
 import InstructorPicker from "./InstructorPicker";
+import TeacherMiniWeek, { type MiniPick } from "./TeacherMiniWeek";
 import VisitingBadge from "./VisitingBadge";
 import RegulationPatternChips from "./RegulationPatternChips";
 import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
@@ -115,6 +116,7 @@ export default function QuickCreatePopover({
   departmentIds = [],
   visitingIds,
   visitingRosterIds,
+  miniWeek,
 }: {
   /** مقرّرٌ معروفٌ سلفاً — كإضافةٍ طلبها أستاذ — فتُفتح البطاقةُ وهو مختار. */
   initialCourseId?: number;
@@ -142,10 +144,14 @@ export default function QuickCreatePopover({
   departmentIds?: number[];
   visitingIds?: Iterable<number>;
   visitingRosterIds?: Iterable<number>;
+  /** N3: جدول الأستاذ المصغّر — من بيانات اللوحة المحمّلة (يغيب حيث لا لوحة، كالوارد). */
+  miniWeek?: { rows: readonly FSchedule[]; courses: Map<number, AdCourse>; window: { start: number; end: number }; userId: number; nisabOf: (id: number) => number; nameOf: (id: number) => string; isPlaceholder: (id: number) => boolean };
 }) {
   const planBadges = usePlanBadges();
   const { isVisiting } = useVisitingLookup(termId);
   const ref = useRef<HTMLDivElement | null>(null);
+  /** N3: جدول الأستاذ المصغّر بطاقةً جانبية عائمة بجانب البطاقة (سطح المكتب). */
+  const sideRef = useRef<HTMLDivElement | null>(null);
   const firstField = useRef<HTMLButtonElement | null>(null);
   const [box, setBox] = useState<{ left: number; top: number } | null>(null);
   /* طلبُ أستاذٍ يحمل أيامه: لا تُعاد صياغتها هنا (الوارد يقرّر). الرسمُ الحرّ يكمل النمط. */
@@ -254,7 +260,7 @@ export default function QuickCreatePopover({
       if (e.key === "Escape") { if (ref.current?.querySelector(".ss-pop") || ref.current?.querySelector(".instructor-pop")) return; e.stopPropagation(); onCancel(); }
     };
     const away = (e: PointerEvent) => {
-      if (!ref.current || ref.current.contains(e.target as Node)) return;
+      if (!ref.current || ref.current.contains(e.target as Node) || sideRef.current?.contains(e.target as Node)) return;
       onCancel();
     };
     window.addEventListener("keydown", key, true);
@@ -390,7 +396,55 @@ export default function QuickCreatePopover({
   const dayLabel = chosenDays.map(day => DAY_ORDER.find(item => item.key === day)?.short).filter(Boolean).join("·") || seed.dayLabel;
   const firstBlocker = verdict.blockers[0]?.text;
 
-  return (
+  /* ── N3: جدول الأستاذ المصغّر ─────────────────────────────────────────────
+     «+» أو «قبلها/بعدها» يملأ الأيام (ما لم تكن أيام طلب أستاذ) والبداية والنهاية،
+     و«قبلها/بعدها» يقترح قاعة المحاضرة الملاصقة أو مبناها ما لم تُختر قاعة. */
+  const pickFromMiniWeek = (pick: MiniPick) => {
+    timeEdited.current = true;
+    if (!daysLocked) {
+      setChosenDays(pick.days);
+      setDayChoices(regulationChoicesForDay(selectedCourse, pick.day).filter(choice => choice.days.join("+") !== pick.days.join("+")));
+    }
+    const room = pick.room;
+    const sameBuilding = !draft.buildingId || String(draft.buildingId) === String(room?.buildingId || "");
+    const takeRoom = Boolean(room?.buildingId && !draft.roomId && draft.locationStatus !== "PENDING_ROOM" && sameBuilding && (room.roomId || !draft.buildingId));
+    patch({
+      start: pick.start, end: pick.end,
+      ...(takeRoom && room ? {
+        buildingId: room.buildingId, roomId: room.roomId, room: String(room.AdRoomCode || ""), hall: String(room.AdRoomHall || ""), locationStatus: room.locationStatus,
+        ...(String(room.buildingId) !== String(draft.buildingId || "") ? { companionRoomId: "", companionRoomLabel: "" } : {}),
+      } : {}),
+    });
+  };
+  const miniTeacherId = Number(draft.instructorId) || 0;
+  const miniWeekNode = miniWeek && miniTeacherId && !miniWeek.isPlaceholder(miniTeacherId) && !hasDifferentTimes ? (
+    <TeacherMiniWeek variant="compact" teacherId={miniTeacherId} teacherName={miniWeek.nameOf(miniTeacherId) || teacherName}
+      nisab={miniWeek.nisabOf(miniTeacherId)} visiting={isVisiting(miniTeacherId, collegeId, sectionId)}
+      rows={miniWeek.rows} termId={termId} collegeId={collegeId} draft={payload} verdict={verdict} checked={checkable}
+      course={selectedCourse} courses={miniWeek.courses} window={miniWeek.window} userId={miniWeek.userId}
+      fixedDays={daysLocked ? chosenDays : undefined} onPick={pickFromMiniWeek} />
+  ) : null;
+  /* بطاقةٌ جانبية حيث يتّسع جانبٌ من النافذة، وإلا فشريطٌ داخل البطاقة نفسها. */
+  const [side, setSide] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
+  const showSide = Boolean(miniWeekNode);
+  useLayoutEffect(() => {
+    if (!showSide || !box) { setSide(null); return; }
+    const place = () => {
+      const card = ref.current;
+      if (!card || window.innerWidth < 900) { setSide(null); return; }
+      const rect = card.getBoundingClientRect();
+      const width = 300, gap = 10, margin = 12;
+      const left = rect.left - margin >= width + gap ? rect.left - gap - width
+        : window.innerWidth - rect.right - margin >= width + gap ? rect.right + gap : null;
+      const top = Math.max(margin, Math.min(rect.top, window.innerHeight - 260));
+      setSide(left === null ? null : { left, top, maxHeight: window.innerHeight - top - margin });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [showSide, box]);
+
+  return (<>
     <div
       className="quick-create visual-minimal"
       ref={ref}
@@ -489,6 +543,7 @@ export default function QuickCreatePopover({
             />
           )}
         </div>
+        {miniWeekNode && !side ? <div className="qc-mini-week">{miniWeekNode}</div> : null}
         <div className="qc-location">
           <LocationPicker
             collegeId={collegeId}
@@ -568,5 +623,10 @@ export default function QuickCreatePopover({
         </button>
       </footer>
     </div>
-  );
+    {miniWeekNode && side ? (
+      <div className="qc-mini-side" ref={sideRef} style={{ left: side.left, top: side.top, maxHeight: side.maxHeight }} onPointerDown={(e) => e.stopPropagation()}>
+        {miniWeekNode}
+      </div>
+    ) : null}
+  </>);
 }

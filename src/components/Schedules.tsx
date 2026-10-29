@@ -67,6 +67,8 @@ import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
 import AppointmentChecksPanel from "./AppointmentChecksPanel";
+import TeacherMiniWeek, { type MiniPick } from "./TeacherMiniWeek";
+import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips from "./RegulationPatternChips";
 import { appointmentVerdict, type VerdictCheck } from "../utils/appointmentVerdict";
 import { pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
@@ -3996,6 +3998,28 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (next.fstarttime) {
         const end = endForStart(next, next.fstarttime);
         if (end) next.fendtime = end;
+      }
+      return next;
+    });
+  };
+  /* N3: «+» أو «قبلها/بعدها» في جدول الأستاذ المصغّر يملأ أيام النمط والبداية والنهاية،
+     و«قبلها/بعدها» يقترح قاعة المحاضرة الملاصقة (أو مبناها) ما لم تُختر قاعة. الحكم يفحص كأي اختيار. */
+  const miniWeekWindow = useMemo(() => ({ start: activeScheduleWindow.start, end: activeScheduleWindow.end }), [activeScheduleWindow.start, activeScheduleWindow.end]);
+  const isFacultyPlaceholderId = (id: number) => isFacultyPlaceholder(instructorById.get(id) as any);
+  const editorOriginalRow = useMemo(() => editor === "edit" ? rows.find(row => Number(row.id) === Number(editId)) || null : null, [editor, editId, rows]);
+  const pickFromMiniWeek = (pick: MiniPick) => {
+    setScheduleTouched(true);
+    setRegulationAlternatives(regulationChoicesForDay(formCourse, pick.day).filter(choice => choice.days.join("+") !== pick.days.join("+")));
+    setForm(previous => {
+      const next: any = { ...previous };
+      days.forEach(item => { next[item.key] = pick.days.includes(item.key as RegDayKey); });
+      next.fstarttime = pick.start;
+      next.fendtime = pick.end || endForStart(next, pick.start) || next.fendtime;
+      const room = pick.room;
+      const sameBuilding = !next.buildingId || String(next.buildingId) === String(room?.buildingId || "");
+      if (room?.buildingId && !next.roomId && next.locationStatus !== "PENDING_ROOM" && sameBuilding && (room.roomId || !next.buildingId)) {
+        const buildingChanged = String(room.buildingId) !== String(next.buildingId || "");
+        Object.assign(next, room, buildingChanged ? { companionRoomId: "", companionRoomLabel: "" } : {});
       }
       return next;
     });
@@ -9430,6 +9454,27 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <FormActions onBack={back} loading={saving} submitDisabled={Boolean(!selectedFormDays.length||!editorVerdict.canSave)} />
             </form>
           </Surface>
+          <div className="editor-side">
+          {Number(form.AdInstructorId || 0) && !isFacultyPlaceholderId(Number(form.AdInstructorId)) ? (
+            <TeacherMiniWeek
+              teacherId={Number(form.AdInstructorId)}
+              teacherName={instructorById.get(Number(form.AdInstructorId))?.AdInstructorName || ""}
+              nisab={Number(instructorById.get(Number(form.AdInstructorId))?.AdInstructorLoad || 0)}
+              visiting={formVisiting(form.AdInstructorId)}
+              rows={rows}
+              termId={Number(form.AdTermId || filterTerm || 0)}
+              collegeId={Number(form.AdCollegeId || 0)}
+              excludeId={editor === "edit" ? Number(editId || 0) : 0}
+              original={editorOriginalRow}
+              draft={form}
+              verdict={editorVerdict}
+              course={formCourse}
+              courses={courseById}
+              window={miniWeekWindow}
+              userId={Number(user?.SystemUserId || 0)}
+              onPick={pickFromMiniWeek}
+            />
+          ) : null}
           <AppointmentChecksPanel
             verdict={editorVerdict}
             checking={checking}
@@ -9531,6 +9576,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               </div>
             ) : null}
           </AppointmentChecksPanel>
+          </div>
         </div>
       </div>
     );
@@ -12318,6 +12364,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           departmentIds={departmentInstructorIds}
           visitingIds={visitingIds}
           visitingRosterIds={pickerVisitingRosterIds}
+          miniWeek={{ rows, courses: courseById, window: miniWeekWindow, userId: Number(user?.SystemUserId || 0), nisabOf: (id: number) => Number(instructorById.get(id)?.AdInstructorLoad || 0), nameOf: (id: number) => instructorById.get(id)?.AdInstructorName || "", isPlaceholder: isFacultyPlaceholderId }}
           saving={saving}
           error={quickError}
           onCancel={() => { setQuick(null); setQuickError(null); }}
