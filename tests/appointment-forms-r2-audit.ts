@@ -67,7 +67,7 @@ const theory3 = { CourseHours: 3, CourseTeachingMode: "theoretical" };
   check(bestRegulationChoice(theory3, ["fsunday", "ftuesday"])?.days.join("+") === "fsunday+ftuesday+fthursday", "R5 «طبّق النمط المعتمد» على أيامٍ خارج النمط → الأنسب الذي يضم أول يوم");
   check(regulationFit(theory3, ["fsunday", "ftuesday", "fthursday"], "08:00", "09:20") === "off", "R6 المدة بيد المستخدم خارج النمط = «خارج اللائحة»");
   const editor = read("src/components/Schedules.tsx"), quick = read("src/components/QuickCreatePopover.tsx");
-  check(/completeRegulation\(formCourse, formDays, String\(form\.fstarttime \|\| ""\), \{ fresh: daysSeeded\.current \}\)/.test(editor)
+  check(/completeRegulation\(formCourse, formDays, String\(form\.fstarttime \|\| ""\), \{ fresh: daysSeeded\.current(, usual)? \}\)/.test(editor)
     && /\[editor, timingOverride, formCourse, formDays\.join\("\+"\), form\.fstarttime\]/.test(editor), "R7 المحرر الكامل: أي تغيّر في المقرر/الأيام/البداية يكمل النمط ونهايته");
   check(/daysSeeded\.current = Boolean\(seed\?\.day && !seed\?\.days\?\.length\)/.test(editor), "R8 يوم الخانة المرسومة يُكمل حين يُعرف المقرر (السبب الجذري)");
   check(/timingOpenedKey\.current = timingKeyOf\(values\)/.test(editor) && /key === timingOpenedKey\.current\) return/.test(editor), "R9 «تعديل» لا يغيّر الموعد المحفوظ عند فتحه");

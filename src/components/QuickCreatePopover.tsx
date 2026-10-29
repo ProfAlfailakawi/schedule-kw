@@ -20,7 +20,7 @@ import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from ".
 import InstructorPicker from "./InstructorPicker";
 import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, type MiniPick } from "./TeacherMiniWeek";
 import VisitingBadge from "./VisitingBadge";
-import RegulationPatternChips from "./RegulationPatternChips";
+import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
 import { bestRegulationChoice, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
@@ -186,14 +186,18 @@ export default function QuickCreatePopover({
   const sectionTyped = useRef(false);
   /* تجاوزٌ متعمَّد للنمط: «المدة» بالعجلة وحدها (أو نمطٌ اختاره المنسّق) — تحريك الساعة ليس تجاوزاً. */
   const timeEdited = useRef(false);
+  /* إضاءةٌ قصيرة على الأيام والوقت حين يكملهما النمط آلياً. */
+  const [autofillFlash, flashAutofill] = useAutofillFlash();
   /* ── اللائحة عند اختيار المقرر وعند ضغط يوم (B1) ───────────────────────── */
-  const applyDays = (course: AdCourse | undefined, result: { days: DayKey[]; alternatives: RegulationChoice[] }) => {
+  const applyDays = (course: AdCourse | undefined, result: { days: DayKey[]; alternatives: RegulationChoice[]; applied?: RegulationChoice | null }) => {
     setChosenDays(result.days);
     setDayChoices(result.alternatives);
-    if (timeEdited.current || hasDifferentTimes) return;
+    const end = timeEdited.current || hasDifferentTimes ? "" : regulationEnd(course, result.days, draft.start);
+    if (result.applied && (result.days.join("+") !== chosenDays.join("+") || (end && end !== draft.end))) flashAutofill();
+    if (!end) return;
     setDraft(current => {
-      const end = regulationEnd(course, result.days, current.start);
-      return end && end !== current.end ? { ...current, end } : current;
+      const next = regulationEnd(course, result.days, current.start);
+      return next && next !== current.end ? { ...current, end: next } : current;
     });
   };
   const chooseCourse = (courseId: number) => {
@@ -406,7 +410,8 @@ export default function QuickCreatePopover({
     const active = regulationChoiceFor(selectedCourse, chosenDays);
     const pool = [...(active ? [active] : []), ...dayChoices, ...(chosenDays.length ? regulationChoicesForDay(selectedCourse, chosenDays[0]) : [])];
     const seen = new Set<string>();
-    return pool.filter(choice => { const key = choice.days.join("+") + choice.minutes; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 3);
+    /* كتلةُ اليوم الواحد شريحةٌ واحدة (يوم النمط الأول)، لا «أحد · 170د» و«ثلاثاء · 170د» معاً. */
+    return pool.filter(choice => { const key = choice.days.length === 1 ? `block:${choice.minutes}` : choice.days.join("+") + choice.minutes; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 3);
   }, [daysLocked, selectedCourse, chosenDays, dayChoices]);
   /* 🔄 خانة «هيئة تدريسية»: الفعل عند الأب بمسوّدة هذه البطاقة نفسها. */
   const placeholderPick = onReplaceable ? (section: ReplaceableSection, action: "assign" | "swap" | "replace") => onReplaceable(section, action, payload) : undefined;
@@ -483,7 +488,7 @@ export default function QuickCreatePopover({
         <span className="qc-mark" aria-hidden="true"><Clock3 /></span>
         <div>
           <strong>موعد جديد</strong>
-          <small>{dayLabel} · <time dir="ltr">{formatScheduleTimeRange(draft.start, draft.end)}</time></small>
+          <small className={autofillFlash ? "is-autofilled" : undefined}>{dayLabel} · <time dir="ltr">{formatScheduleTimeRange(draft.start, draft.end)}</time></small>
         </div>
         <button type="button" className="qc-close" onClick={onCancel} aria-label="إغلاق بدون حفظ">
           <X aria-hidden="true" />
@@ -506,7 +511,9 @@ export default function QuickCreatePopover({
             /* «المدة» بالعجلة تجاوزٌ متعمَّد؛ أما الساعة والدقيقة فتعيدان النهاية إلى النمط. */
             const lengthChanged = minutesOf(next.end) - minutesOf(next.start) !== minutesOf(draft.end) - minutesOf(draft.start);
             if (lengthChanged) timeEdited.current = regulationFit(selectedCourse, chosenDays, next.start, next.end) === "off";
-            const end = !timeEdited.current && !lengthChanged ? regulationEnd(selectedCourse, chosenDays, next.start) || next.end : next.end;
+            const fitted = !timeEdited.current && !lengthChanged ? regulationEnd(selectedCourse, chosenDays, next.start) : "";
+            if (fitted && fitted !== next.end) flashAutofill();
+            const end = fitted || next.end;
             patch({ start: next.start, end });
           }}
           preferredDuration={regulationChoiceFor(selectedCourse, chosenDays)?.minutes || Number(durationForDay?.(seed.day) || 0)}
@@ -514,7 +521,7 @@ export default function QuickCreatePopover({
       )}
 
       {!daysLocked ? (
-        <div className="qc-days" role="group" aria-label="أيام الموعد">
+        <div className={`qc-days${autofillFlash ? " is-autofilled" : ""}`} role="group" aria-label="أيام الموعد">
           {DAY_ORDER.map(day => {
             const on = chosenDays.includes(day.key);
             return <button type="button" key={day.key} className={on ? "is-on" : ""} aria-pressed={on}
@@ -525,7 +532,7 @@ export default function QuickCreatePopover({
       ) : null}
       {regulationChips.length || fit === "off" ? (
         <RegulationPatternChips compact choices={regulationChips} activeId={regulationChoiceFor(selectedCourse, chosenDays)?.id} fit={fit} onPick={applyChoice}
-          onApplyBest={!daysLocked && regulationHours(selectedCourse) > 0 && fit === "off" ? applyBest : undefined} />
+          onApplyBest={!daysLocked && regulationHours(selectedCourse) > 0 && fit === "off" ? applyBest : undefined} autofilled={autofillFlash} />
       ) : null}
 
       <div className="qc-fields">

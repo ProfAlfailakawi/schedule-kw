@@ -167,6 +167,37 @@ export function bestRegulationChoice(course: RegulationCourse | null | undefined
   return regulationChoiceFor(course, days) || regulationChoicesForDay(course, days[0])[0] || null;
 }
 
+/** أيامٌ جرت بها عادة القسم لهذا المقرر (مرصودة أو شعبٌ قائمة)، ومرّات تكرارها. */
+export interface UsualDays { days: readonly DayKey[]; count?: number }
+
+/**
+ * ── النمط المعتاد حين تُعرف البداية ولا يومَ بعد (ملاحظة المالك R3) ─────────────
+ * «إذا حطيت وقت والمقرر ٣ ساعات المفروض تلقائي»: المقرر والبداية وحدهما يكفيان.
+ *  1) أكثرُ أيامٍ جرت بها عادة القسم لهذا المقرر — إن كانت نمطاً معتمداً لساعاته؛
+ *  2) وإلا الأنسب لطبيعة المقرر: النظري الموزّع على الأيام (أحد·ثلاثاء·خميس لثلاث ساعات)،
+ *     والعملي كتلةٌ واحدة.
+ * null: لا ساعات للمقرر — لا نمط يُخترع.
+ */
+export function usualRegulationChoice(course: RegulationCourse | null | undefined, history: readonly UsualDays[] = []): RegulationChoice | null {
+  const hours = regulationHours(course);
+  if (!hours) return null;
+  const tally = new Map<string, { choice: RegulationChoice; count: number }>();
+  for (const item of history) {
+    const choice = regulationChoiceFor(course, DAY_KEYS.filter(day => item.days.includes(day)));
+    if (!choice) continue;
+    const key = choice.days.join("+");
+    const entry = tally.get(key) || { choice, count: 0 };
+    entry.count += Math.max(1, Number(item.count) || 1);
+    tally.set(key, entry);
+  }
+  const habit = [...tally.values()].sort((a, b) => b.count - a.count)[0];
+  if (habit) return habit.choice;
+  const patterns = patternsForHours(hours).filter(uniform);
+  const block = prefersBlock(course);
+  const pattern = patterns.find(item => (item.days.length === 1) === block) || patterns[0];
+  return pattern ? choiceOf(pattern, pattern.days) : null;
+}
+
 export interface RegulationCompletion {
   days: DayKey[];
   /** "" حين لا بداية بعد. */
@@ -181,19 +212,25 @@ export interface RegulationCompletion {
  *  • `fresh`: الأيام لم يخترها المستخدم بنفسه (خانة مرسومة، مقرر اختير بعد الأيام) →
  *    تُكمل كما لو ضُغط أول يوم من جديد.
  *  • وإلا تبقى الأيام إن كانت نمطاً معتمداً، وتُحسب النهاية من دقائقه.
- * null: لا ساعات للمقرر أو لا أيام — لا نمط يُخترع.
+ *  • `usual`: لا أيام بعد والبداية معروفة → النمط المعتاد (usualRegulationChoice).
+ * null: لا ساعات للمقرر، أو لا أيام ولا (بداية + نمط معتاد) — لا نمط يُخترع.
  */
 export function completeRegulation(
   course: RegulationCourse | null | undefined,
   days: readonly DayKey[],
   start: string,
-  options: { fresh?: boolean } = {},
+  options: { fresh?: boolean; usual?: RegulationChoice | null } = {},
 ): RegulationCompletion | null {
-  if (!days.length || !regulationHours(course)) return null;
+  if (!regulationHours(course)) return null;
+  const from = toMinutes(start);
+  if (!days.length) {
+    const usual = options.usual;
+    if (!usual || !Number.isFinite(from)) return null;
+    return { days: [...usual.days], end: clock(Math.min(SCHEDULE_DAY_END, from + usual.minutes)), applied: usual };
+  }
   const exact = options.fresh ? null : regulationChoiceFor(course, days);
   const applied = exact || regulationChoicesForDay(course, days[0])[0];
   if (!applied) return null;
-  const from = toMinutes(start);
   return {
     days: [...applied.days],
     end: Number.isFinite(from) ? clock(Math.min(SCHEDULE_DAY_END, from + applied.minutes)) : "",
