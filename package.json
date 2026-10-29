@@ -90,6 +90,7 @@
     "test:public-kit": "tsx tests/public-kit-audit.ts",
     "test:companion-rooms":"tsx tests/companion-rooms-audit.ts",
     "test:room-occupancy": "tsx tests/room-occupancy-audit.ts && tsx tests/instructor-request-room-universe-audit.ts && tsx tests/slot-suggestion-recovery-audit.ts",
+    "test:room-door": "tsx tests/room-door-audit.ts",
     "test:behavior": "tsx tests/run-tests.ts",
     "test:shared-scope": "tsx tests/shared-scope-audit.ts",
     "test:student-journey": "tsx tests/student-journey-audit.ts",

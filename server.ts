@@ -150,6 +150,7 @@ import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "./src/utils/instruct
 import { radarNoticeFor, registerSimulationRoutes, scheduleRadarAutoRun } from "./src/server/simulationRoutes";
 import { registerInsightRoutes } from "./src/server/insightRoutes";
 import { registerTimeMachineRoutes } from "./src/server/timeMachineRoutes";
+import { registerRoomDoorRoutes } from "./src/server/roomDoorRoutes";
 import { studentHomePage } from "./src/server/studentHomePage";
 import { DEFAULT_INVITATION_PASSWORD } from "./src/utils/invitationLink";
 import { scheduleAutoTermJob } from "./src/server/autoTerms";
@@ -25026,6 +25027,14 @@ for (const candidate of [path.join(process.cwd(), "public", "plans", "_template"
 
 /* ── الإعلانات ونبضُ الزوار ولوحة الجمهور: قياسٌ مجهول، وإدارةٌ لحساب الإدارة الرئيسي ── */
 registerAdsRoutes(app, { requireAuth, requireRootAdmin, publicPageNonce });
+
+/* ── بابُ القاعة وشاشةُ الممر: ملصقٌ على كل باب ولوحةٌ لكل مبنى (قراءةٌ عامة)، وروابطُها لمدير السجل ── */
+registerRoomDoorRoutes(app, {
+  publicPageNonce,
+  readLocationRegistry: () => readLocationRegistry(),
+  normalizeLocation: (row, registry) => canonicalizeHistoricalLocationForRuntime(row, registry),
+  requireRegistryAdmin: [requirePermission(7), requirePowerAdmin],
+});
 
 /* ── بروفةُ التسجيل: تشغيلٌ لإدارة النظام، وقراءةٌ بحدود النطاق ──────────────── */
 registerSimulationRoutes(app, {

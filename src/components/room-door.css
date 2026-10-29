@@ -1,0 +1,19 @@
+/* ── أدوات الأبواب في شاشة المباني والقاعات ── */
+.room-door-strip{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap;margin:10px 0 2px;padding:10px 12px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent,#1f6b5c) 22%,transparent);background:linear-gradient(160deg,color-mix(in srgb,var(--accent,#1f6b5c) 8%,transparent),transparent 70%)}
+.room-door-strip-label{display:inline-flex;align-items:center;gap:8px;font-weight:700;color:var(--accent,#1f6b5c)}
+.room-door-strip-label svg{width:20px;height:20px}
+.room-door-strip-label small{font-weight:600;color:var(--muted-text,#667085);font-size:.78rem}
+.room-door-actions{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap}
+.room-door-actions .btn{gap:6px}
+.room-door-screen-link{text-decoration:none}
+.room-door-screen-link svg{width:15px;height:15px;opacity:.7}
+.room-door-error{color:var(--danger,#973c38);font-size:.78rem}
+.room-door-qr-btn{min-width:36px;padding-inline:9px!important}
+.room-door-qr-btn svg{width:17px;height:17px}
+.room-door-sheet{gap:var(--s3,12px)}
+.room-door-sheet .student-qr-code{width:236px;height:236px}
+.room-door-plate{display:grid;justify-items:center;gap:0;margin:0 auto;padding:8px 22px 10px;border-radius:16px;background:linear-gradient(160deg,#1f6b5c,#134a3f);color:#fff;box-shadow:0 12px 26px -18px rgba(19,74,63,.9)}
+.room-door-plate small{font-size:.74rem;opacity:.85}
+.room-door-plate b{font-size:2rem;line-height:1.1;letter-spacing:.02em}
+.room-door-scan{margin:0;font-weight:700;color:var(--accent,#1f6b5c)}
+.room-door-sheet .student-qr-actions a{text-decoration:none}
