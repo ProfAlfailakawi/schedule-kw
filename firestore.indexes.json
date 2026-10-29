@@ -16,6 +16,50 @@
       ]
     },
     {
+      "_comment": "The production database is Firestore Enterprise edition: nothing is indexed on its own, and a filter without an index reads the whole collection. None of the indexes in this file existed there until 2026-10-29, when they were created in the console; keep the two in step (tests/firestore-index-audit.ts checks the code against this file). This one: a term's rows — 15,185 queries in the week before, each reading all ~16,000 schedules (42.9M read units).",
+      "collectionGroup": "schedules",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "AdTermId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "Rows of a few courses without a term (AdCourseId IN, and the delete guard's LIMIT 1): 30,321 + 1,428 + 749 queries in a week, each a full scan (~89M read units).",
+      "collectionGroup": "schedules",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "AdCourseId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "Live conflict check and the instructor's own timetable. The comment beside the query already assumed a single-field index — true in Standard edition, not in Enterprise.",
+      "collectionGroup": "schedules",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "AdInstructorId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "Live conflict check and room occupancy: the same assumption as AdInstructorId.",
+      "collectionGroup": "schedules",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "AdRoomCode",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "_comment": "The history list: newest versions of one scope, without reading their embedded snapshots.",
       "collectionGroup": "scheduleVersions",
       "queryScope": "COLLECTION",
@@ -79,6 +123,116 @@
         },
         {
           "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "A department's courses: 77,420 queries in a week, each reading the whole catalogue (~4,500 documents, 21.8M read units).",
+      "collectionGroup": "courses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "AdSectionId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "Hydrating a handful of rows to their courses (AdCourseId IN), and the catalogue in course order.",
+      "collectionGroup": "courses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "AdCourseId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "A department's study-plan courses: 177,656 queries in a week, each reading all ~5,800 plan courses (85.3M read units).",
+      "collectionGroup": "curriculumPlanCourses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "AdSectionId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "A department's study plans: 409,717 queries in a week — the most frequent query in the app — each reading every plan (17.9M read units).",
+      "collectionGroup": "curriculumPlans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "AdSectionId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "A signed-in user's permissions, read with every session: 14,197 queries a week, ~420 documents read to return 6.",
+      "collectionGroup": "formSecurity",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "SystemUserId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "A signed-in user's scopes, read beside formSecurity: ~440 documents read to return 3.",
+      "collectionGroup": "userScopes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "SystemUserId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "A department's open draft: 693 queries a week, 85 documents read to return 2, each draft carrying its rows (3.2M read units).",
+      "collectionGroup": "scheduleDrafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "scopeKey",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "A term's instructor requests: 10,465 queries a week (1.3M read units).",
+      "collectionGroup": "instructorRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "AdTermId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "Opening a request link: one document, found without reading the others.",
+      "collectionGroup": "instructorRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "linkId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "The audit log's newest thousand: 24,505 documents read per view without it.",
+      "collectionGroup": "auditLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "timestamp",
           "order": "DESCENDING"
         }
       ]

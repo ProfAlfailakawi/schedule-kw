@@ -10,9 +10,13 @@
  *     رُفض وينتظر اختيار الأستاذ) ومقترحاتٌ دراسية (ثُبّت، وافق، طلب تعديلاً، انتهت صلاحيته).
  *   • تغييراتُ الجدول: من دورة الاعتماد المبذورة في demoSandbox (seedPreviousTermUniverse).
  *
+ * والمحرّكُ نفسه (seedTermStories بمرحلة «now») يبذر الآن الفصلَ الجاري للقسمين الآخرين
+ * (seedDemoOtherDepartmentStories)، والفصلُ السابق لا يُبذر في الصندوق الحالي.
+ *
  * يُبذر داخل صندوق الزائر وحده، بدوالّ الخادم نفسها، وكلُّ الأسماء والأرقام وهمية.
  */
 import { Repository } from "../db/repository";
+import { DEMO_COLLEGE_ID, DEMO_OTHER_DEPARTMENTS } from "../db/demoSandbox";
 import { generateSyntheticCivilId, normalizeCivilId } from "../utils/civilId";
 import { verificationCode } from "../utils/approvalWorkflow";
 import { endForRequest, type RequestDayKey } from "../utils/instructorRequestVerdict";
@@ -32,17 +36,22 @@ export interface PreviousTermSeedDeps {
   judge?: (request: InstructorRequest) => Promise<InstructorRequest>;
 }
 
-/** القسمُ الوحيد في الصندوق: لكل فصلٍ قادمٍ كشفٌ ورغباتٌ ومقترحاتٌ بحالاتها كلِّها. */
-export const DEMO_TERM_STORY_SCOPES: ReadonlyArray<{ collegeId: number; sectionId: number }> = [{ collegeId: 1, sectionId: 1 }];
+/** القسمان الآخران في الصندوق (التربية الفنية والتصميم التعليمي). تكنولوجيا التعليم قصّتُه في seedDemoStories. */
+export const DEMO_OTHER_DEPARTMENT_SCOPES: ReadonlyArray<{ collegeId: number; sectionId: number }> =
+  DEMO_OTHER_DEPARTMENTS.map(({ sectionId }) => ({ collegeId: DEMO_COLLEGE_ID, sectionId }));
 
 type Phase = "past" | "now";
 
 const DAY_KEYS: RequestDayKey[] = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"];
 const START_CHOICES = ["08:00", "09:30", "11:00", "12:30", "14:00", "15:30", "10:00", "13:30"];
 
-/** الفصلُ القادم أو الصيفي: طلباتُ طلبةٍ وأساتذةٌ ومقترحاتٌ حيّةٌ بكل حالاتها (فصل الجاري له قصّتُه في seedDemoStories). */
-export async function seedDemoTermStories(deps: PreviousTermSeedDeps, termId: number): Promise<void> {
-  await seedTermStories(deps, termId, "now", DEMO_TERM_STORY_SCOPES);
+/**
+ * الفصلُ الجاري في القسمين الآخرين: كشفُ تسجيلٍ ورغباتُ أساتذةٍ ومقترحاتٌ حيّةٌ بكل حالاتها.
+ * كانت تُبذر لكل قسمٍ غير قسم القصة (seedDemoCurrentTermStories)، ثم أسقطتها مزامنةُ 823bdf0 حين صار
+ * الصندوقُ قسماً واحداً؛ وعاد القسمان بجداولهما (bf4b895) فبقيت شاشاتُهما هذه فارغة.
+ */
+export async function seedDemoOtherDepartmentStories(deps: PreviousTermSeedDeps, termId: number): Promise<void> {
+  await seedTermStories(deps, termId, "now", DEMO_OTHER_DEPARTMENT_SCOPES);
 }
 
 /** نهايةُ موعدٍ يبدأ عند `start` بمدة المحاضرة القائمة نفسها. */

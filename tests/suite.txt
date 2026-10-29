@@ -3,6 +3,8 @@
 # أضِف اختبارك في سطرٍ جديد (ويُفضَّل قربَ ما يشبهه لا في آخر الملف).
 test:repo-hygiene
 test:firestore-target
+test:firestore-indexes
+test:anonymous-guard
 test:schedule-time-window
 test:schedule-interface
 test:hardening

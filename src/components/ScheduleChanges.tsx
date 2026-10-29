@@ -1170,9 +1170,12 @@ function Report({ termId, termName, scope, role, onBack, archive = false, frozen
         statusLabel={report.statusLabel}
         rowCount={Math.max(0, report.rowCount ?? (report.diff.counts.added + report.diff.counts.changed + report.diff.counts.unchanged))}
         moved={report.diff.counts.added + report.diff.counts.changed + report.diff.counts.removed}
+        firstReview={report.diff.firstReview}
+        baselineSource={report.baselineSource}
         rounds={report.rounds}
         notesTotal={report.notes.filter(note => note.origin === "registrar").length}
-        notesDone={report.notes.filter(note => note.origin === "registrar" && note.state !== "open").length}
+        /* «عولجت» = حالةٌ منتهية فقط: «أُجيبت» ردٌّ من القسم ينتظر حكم التسجيل، وقد يُصرّ على التعديل. */
+        notesDone={report.notes.filter(note => note.origin === "registrar" && (note.state === "changed" || note.state === "removed" || note.state === "resolved")).length}
         blockers={Math.max((report.reviewBlockers || []).length, report.blockingConflicts || 0) + (report.regulationNotices || []).filter(item => item.approvalEffect === "block").length}
       />
 
