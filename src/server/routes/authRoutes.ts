@@ -36,6 +36,7 @@ import { isScopeAllowed, safeSystemUser } from "../core/scope";
 import { shareLinkLabel } from "../core/shareLinks";
 import { placeholderInstructorIds } from "../core/smartImport";
 import { graduateThreshold, sealStudentIdentity, surveyFingerprint } from "../core/studentIdentity";
+import { loadCapOf } from "../../utils/teachingLoad";
 
 // Rate limiting for login (simple in-memory)
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -257,7 +258,7 @@ async function seedDemoAvailableCourses(instructorId: number, scopeRows: FSchedu
     .map(row => Number(row.AdCourseId)));
   const ownRows = termRows.filter(row => Number(row.AdInstructorId) === instructorId);
   const courseById = new Map((courses as any[]).map(course => [Number(course.AdCourseId), course]));
-  const load = Number(instructors.find(person => Number(person.AdInstructorId) === instructorId)?.AdInstructorLoad || 0);
+  const load = loadCapOf(instructors.find(person => Number(person.AdInstructorId) === instructorId));
   let usedLoad = weeklyLoadOf(ownRows, courseById as any);
   const roomRows = [...new Map(scopeRows.filter(row => row.roomId).map(row => [String(row.roomId), row] as [string, FSchedule])).values()];
   const templates = [...new Map(scopeRows.filter(row => row.roomId && !dayKeysOf(row).includes("fsunday")

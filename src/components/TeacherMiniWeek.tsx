@@ -134,14 +134,17 @@ export function useWiderWeek(teacherId: number, termId: number, refresh: unknown
 }
 
 /** حلقة النصاب: القوس الثابت ما يحمله الآن، والقوس الفاتح ما يضيفه هذا الموعد. */
-function LoadRing({ now, after, nisab }: { now: number; after: number; nisab: number }) {
+/** «الإضافي» (من الدرجة العلمية أو استثناء العضو): ما بين النصاب والسقف لونٌ هادئ، والأحمرُ لما فوق السقف وحده. */
+function LoadRing({ now, after, nisab, overtime = 0, limited = nisab > 0 }: { now: number; after: number; nisab: number; overtime?: number; limited?: boolean }) {
   const radius = 19, circumference = 2 * Math.PI * radius;
-  const scale = Math.max(1, nisab > 0 ? Math.max(nisab, after) : after);
+  const ceiling = limited ? nisab + Math.max(0, overtime) : 0;
+  const scale = Math.max(1, limited ? Math.max(ceiling, after) : after);
   const nowLength = (Math.min(now, scale) / scale) * circumference;
   const addLength = (Math.max(0, Math.min(after, scale) - Math.min(now, scale)) / scale) * circumference;
-  const over = nisab > 0 && after > nisab;
+  const over = limited && after > ceiling;
+  const extra = !over && limited && after > nisab;
   const tick = nisab > 0 && after > nisab ? (nisab / scale) * 360 : null;
-  return <span className={`mini-week-ring${over ? " is-over" : ""}`} aria-hidden="true">
+  return <span className={`mini-week-ring${over ? " is-over" : extra ? " is-overtime" : ""}`} aria-hidden="true">
     <svg viewBox="0 0 48 48">
       <circle className="mini-week-ring-track" cx="24" cy="24" r={radius} />
       {nowLength > 0 ? <circle className="mini-week-ring-now" cx="24" cy="24" r={radius} strokeDasharray={`${nowLength} ${circumference}`} /> : null}
@@ -153,12 +156,16 @@ function LoadRing({ now, after, nisab }: { now: number; after: number; nisab: nu
 }
 
 export default function TeacherMiniWeek({
-  teacherId, teacherName, nisab = 0, visiting = false, rows, termId, collegeId, excludeId = 0, original = null,
+  teacherId, teacherName, nisab = 0, overtime = 0, limited = nisab > 0, visiting = false, rows, termId, collegeId, excludeId = 0, original = null,
   draft, verdict, checked = true, course, courses, window: dayWindow, userId = 0, fixedDays, onPick, variant = "side",
 }: {
   teacherId: number;
   teacherName: string;
   nisab?: number;
+  /** إضافيُّ العضو فوق نصابه (الأعلى + الإضافي = السقف). */
+  overtime?: number;
+  /** للعضو قيدٌ ولو كان صفراً (إعفاءٌ كامل باستثناء). */
+  limited?: boolean;
   visiting?: boolean;
   /** صفوفٌ محمّلة أصلاً (اللوحة)؛ تُضاف إليها قراءة أسبوع الأستاذ في الأقسام الأخرى. */
   rows: readonly FSchedule[];
@@ -293,10 +300,11 @@ export default function TeacherMiniWeek({
   } : {};
 
   const loadDelta = header.loadAfter - header.loadNow;
-  const over = header.nisab > 0 && header.loadAfter > header.nisab;
+  const over = limited && header.loadAfter > header.nisab + overtime;
+  const inOvertime = !over && limited && header.loadAfter > header.nisab;
   const dayDelta = header.daysAfter - header.daysNow;
   const gapDelta = header.gapAfter - header.gapNow;
-  const facts = `النصاب ${header.loadNow} ← ${header.loadAfter}${header.nisab ? ` من ${header.nisab}` : ""} · أيام الحضور ${header.daysAfter} · ${gapWords(header.gapAfter)}`;
+  const facts = `النصاب ${header.loadNow} ← ${header.loadAfter}${limited ? ` من ${header.nisab}` : ""}${limited && overtime ? ` وإضافيّ ${overtime}` : ""} · أيام الحضور ${header.daysAfter} · ${gapWords(header.gapAfter)}`;
 
   return <section ref={shell} className={`mini-week is-${variant}${sheet ? " is-sheet" : ""}${open ? " is-open" : ""}`}
     aria-label={`أسبوع ${teacherName || "الأستاذ"}`} data-mini-week="true" style={{ "--mw-track": `${trackHeight}px` } as React.CSSProperties}>
@@ -305,12 +313,12 @@ export default function TeacherMiniWeek({
       onClick={() => { if (swallowClick.current) { swallowClick.current = false; return; } setOpen(!open); }}
       {...headHandlers}
       data-guide-ignore="يطوي جدول الأستاذ المصغّر أو يفتحه؛ لا يغيّر الموعد">
-      <LoadRing now={header.loadNow} after={header.loadAfter} nisab={header.nisab} />
+      <LoadRing now={header.loadNow} after={header.loadAfter} nisab={header.nisab} overtime={overtime} limited={limited} />
       <span className="mini-week-who">
         <b><span className="mini-week-name">{teacherName || "الأستاذ"}</span>{visiting ? <VisitingBadge compact /> : null}</b>
         <span className="mini-week-facts">
-          <em className={`is-load${over ? " is-over" : loadDelta > 0 ? " is-up" : ""}`} aria-label={`النصاب ${header.loadNow} ثم ${header.loadAfter}`}>
-            <span dir="ltr">{header.loadNow}</span><ArrowLeft aria-hidden="true" /><span dir="ltr">{header.loadAfter}{header.nisab ? <small>/{header.nisab}</small> : null}</span>
+          <em className={`is-load${over ? " is-over" : inOvertime ? " is-overtime" : loadDelta > 0 ? " is-up" : ""}`} aria-label={`النصاب ${header.loadNow} ثم ${header.loadAfter}`}>
+            <span dir="ltr">{header.loadNow}</span><ArrowLeft aria-hidden="true" /><span dir="ltr">{header.loadAfter}{limited ? <small>/{header.nisab}{overtime ? `+${overtime}` : ""}</small> : null}</span>
           </em>
           <em className={dayDelta > 0 ? "is-up" : ""} aria-label={`أيام الحضور ${header.daysAfter}`}>
             <CalendarDays aria-hidden="true" /><span dir="ltr">{header.daysAfter}</span>{dayDelta > 0 ? <sup dir="ltr">+{dayDelta}</sup> : null}

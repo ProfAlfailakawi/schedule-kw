@@ -165,5 +165,6 @@ export const REFERENCE_KEYS = {
   instructors: "instructors",
   courses: "courses",
   formNames: "formNames",
-  scheduleCount: "scheduleCount"
+  scheduleCount: "scheduleCount",
+  teachingLoad: "teachingLoad"
 } as const;

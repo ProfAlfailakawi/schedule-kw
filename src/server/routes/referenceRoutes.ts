@@ -14,7 +14,7 @@ import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import { visibleTermIds } from "../../utils/scopedTerms";
 import { currentTermId } from "../../utils/termSequence";
 import { ensureSectionFaculty } from "../sectionFaculty";
-import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadProblem } from "../../utils/teachingLoad";
+import { evaluateTeachingLoad, hasLoadOverride, loadTermContext, teachingHoursByInstructor, teachingLoadProblem } from "../../utils/teachingLoad";
 import type { AdCourse, AdInstructor, AdSection } from "../../types";
 import { provisionCollegeUsers } from "../sectionUsers";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
@@ -185,16 +185,51 @@ app.get("/api/admin/teaching-load", requirePermission(7), requireRootAdmin, asyn
   const termId = Number(req.query.termId || 0) || Number(currentTermId(terms as any) || terms[0]?.AdTermId || 0);
   const term = terms.find(item => Number(item.AdTermId) === termId);
   const [config, instructors, hours] = await Promise.all([Repository.getTeachingLoadConfig(), Repository.getInstructors(), termId ? teachingLoadHoursForTerm(termId) : Promise.resolve(new Map<number, number>())]);
+  const context = loadTermContext(terms as any, termId);
   res.setHeader("Cache-Control", "no-store");
   res.json({
     config,
     term: term ? { id: termId, name: String(term.AdTermName || "") } : null,
     terms: terms.map(item => ({ id: Number(item.AdTermId), name: String(item.AdTermName || "") })),
     instructors: sortArabicNamed(instructors, row => row.AdInstructorName).map(row => {
-      const status = evaluateTeachingLoad(config, Number(row.AdInstructorId), hours.get(Number(row.AdInstructorId)) || 0);
-      return { id: Number(row.AdInstructorId), name: String(row.AdInstructorName || ""), retired: Boolean(row.AdInstructorStatus), hours: status.hours, state: status.state, allowed: status.allowed, excess: status.excess };
+      const status = evaluateTeachingLoad(config, Number(row.AdInstructorId), hours.get(Number(row.AdInstructorId)) || 0, context);
+      return { id: Number(row.AdInstructorId), name: String(row.AdInstructorName || ""), retired: Boolean(row.AdInstructorStatus), hours: status.hours, state: status.state, allowed: status.allowed, excess: status.excess, exception: status.exception };
     }),
   });
+});
+
+/* ── استثناءُ عضوٍ واحد: من اسمه في شاشة الأساتذة ─────────────────────────────
+   يقرأ ويكتب إسنادَ عضوٍ واحد (درجته، وحدوده الخاصّة بسببها وفصل انتهائها) ولا يمسّ غيره، بالتحقّق نفسه. */
+app.get("/api/admin/teaching-load/member/:id", requirePermission(7), requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const instructorId = Number(req.params.id);
+  const [config, terms, person] = await Promise.all([Repository.getTeachingLoadConfig(), Repository.getTerms(), Repository.getInstructorById(instructorId)]);
+  if (!person) { res.status(404).json({ error: "العضو غير موجود." }); return; }
+  const sorted = sortTermsNewestServer(terms);
+  const termId = Number(currentTermId(sorted as any) || sorted[0]?.AdTermId || 0);
+  const hours = termId ? (await teachingLoadHoursForTerm(termId)).get(instructorId) || 0 : 0;
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    enabled: config.enabled, ranks: config.ranks, assignment: config.assignments[String(instructorId)] || {},
+    status: evaluateTeachingLoad(config, instructorId, hours, loadTermContext(sorted as any, termId)),
+    terms: sorted.map(item => ({ id: Number(item.AdTermId), name: String(item.AdTermName || "") })), termId,
+  });
+});
+
+app.put("/api/admin/teaching-load/member/:id", requirePermission(7), requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const instructorId = Number(req.params.id);
+  if (!(await Repository.getInstructorById(instructorId))) { res.status(404).json({ error: "العضو غير موجود." }); return; }
+  const config = await Repository.getTeachingLoadConfig();
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const entry: Record<string, unknown> = {};
+  for (const key of ["rankId", "minHours", "maxHours", "extraHours", "reason", "untilTermId"]) if (body[key] !== undefined && body[key] !== null && body[key] !== "") entry[key] = body[key];
+  if (entry.rankId && !config.ranks.some(rank => rank.id === entry.rankId)) { res.status(400).json({ error: "الدرجة غير موجودة." }); return; }
+  if (!hasLoadOverride(entry as any)) { delete entry.reason; delete entry.untilTermId; }
+  const assignments = { ...config.assignments, [String(instructorId)]: entry as any };
+  if (!Object.keys(entry).length) delete assignments[String(instructorId)];
+  const problem = teachingLoadProblem({ ranks: config.ranks, assignments: { [String(instructorId)]: entry } });
+  if (problem) { res.status(400).json({ error: problem }); return; }
+  const saved = await Repository.saveTeachingLoadConfig({ ...config, assignments }, String(req.user?.Name || ""));
+  res.json({ success: true, assignment: saved.assignments[String(instructorId)] || {} });
 });
 
 app.put("/api/admin/teaching-load", requirePermission(7), requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
@@ -215,11 +250,14 @@ app.get("/api/teaching-load/status", requirePermission(7), async (req: Authentic
   const [scopeRows, hours, instructors] = await Promise.all([Repository.getSchedulesByScope({ collegeId, sectionId, termId }), teachingLoadHoursForTerm(termId), Repository.getInstructors()]);
   const nameById = new Map<number, string>(instructors.map((row: AdInstructor) => [Number(row.AdInstructorId), String(row.AdInstructorName || "")] as [number, string]));
   const inScope = [...new Set<number>(scopeRows.map(row => Number(row.AdInstructorId || 0)).filter(Boolean))];
-  const statuses = inScope.map(id => evaluateTeachingLoad(config, id, hours.get(id) || 0));
+  const context = loadTermContext(await Repository.getTerms() as any, termId);
+  const statuses = inScope.map(id => evaluateTeachingLoad(config, id, hours.get(id) || 0, context));
   res.json({
     enabled: true,
     over: statuses.filter(item => item.state === "over").sort((a, b) => b.excess - a.excess)
-      .map(item => ({ id: item.instructorId, name: nameById.get(item.instructorId) || `عضو ${item.instructorId}`, rank: item.rank?.name || "", hours: item.hours, allowed: item.allowed, extra: item.extra, excess: item.excess })),
+      .map(item => ({ id: item.instructorId, name: nameById.get(item.instructorId) || `عضو ${item.instructorId}`, rank: item.rank?.name || "", hours: item.hours, allowed: item.allowed, max: item.max, extra: item.extra, excess: item.excess, exception: Boolean(item.exception) })),
+    /* «الإضافي»: بين الأعلى والسقف — يُعدّ ولا يُنبَّه به كتجاوز. */
+    overtimeCount: statuses.filter(item => item.state === "overtime").length,
     withinCount: statuses.filter(item => item.state === "within").length,
   });
 });

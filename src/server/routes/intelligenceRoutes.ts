@@ -31,6 +31,7 @@ import { normalizedBuilding, SCHEDULE_DAY_KEYS, scheduleOverlap, travelMinutesFo
 import { filterByScope, intelligenceReadScopes, isScopeAllowed, scopedScheduleUniverse } from "../core/scope";
 import { approvalBlockerOptions, placeholderInstructorIds, resolveSmartContext, safeDraftRows, smartContextFrom, validateSmartRows } from "../core/smartImport";
 import { readVisitingStatus } from "../core/visiting";
+import { loadLimitOf } from "../../utils/teachingLoad";
 
 function recentTenYearTermIds(terms:any[]): Set<number> {
   const withYear=terms.map(term=>({id:Number(term.AdTermId||0),year:academicStartYear(term.AdTermName)})).filter(item=>item.id);
@@ -641,7 +642,7 @@ app.get("/api/intelligence/context/:id", requirePermission(7), async (req: Authe
   const id=Number(req.params.id||0); const selected=await Repository.getScheduleById(id); if(!selected){res.status(404).json({error:"الموعد غير موجود"});return;}
   if(!isScopeAllowed(req,selected.AdCollegeId,selected.AdSectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
   const [termRows,courses,instructors,comments,terms,courseHistory,versions]=await Promise.all([
-    Repository.getSchedulesByScope({termId:selected.AdTermId}),Repository.getCourses(),Repository.getInstructors(),Repository.getScheduleComments(id),Repository.getTerms(),Repository.getScheduleHistoryForCourses([selected.AdCourseId]),Repository.getScheduleVersionsWithRows(selected.AdCollegeId,selected.AdSectionId,selected.AdTermId,24)
+    Repository.getSchedulesByScope({termId:selected.AdTermId}),Repository.getCourses(),Repository.getInstructors(Number(selected.AdTermId)),Repository.getScheduleComments(id),Repository.getTerms(),Repository.getScheduleHistoryForCourses([selected.AdCourseId]),Repository.getScheduleVersionsWithRows(selected.AdCollegeId,selected.AdSectionId,selected.AdTermId,24)
   ]);
   const visible=req.user.IsAdminUser?termRows:filterByScope(req,termRows); const termVisible=visible;
   const related={
@@ -688,8 +689,8 @@ app.get("/api/intelligence/context/:id", requirePermission(7), async (req: Authe
     const mineAll=selected.AdInstructorId?termRows.filter(r=>r.AdInstructorId===selected.AdInstructorId):[];
     reasons=buildRowReasons({
       row:selected,room,barter:barter.filter(r=>r.status==="approved"),maxStudent:Number(course?.MaxStudent)||0,
-      instructorRows:mineAll,quota:Number(instructor?.AdInstructorLoad)||null,
-      loadUnits:Number(instructor?.AdInstructorLoad)>0?instructorLoadUnits(mineAll,selected.AdInstructorId,creditOf):null,
+      instructorRows:mineAll,quota:loadLimitOf(instructor),
+      loadUnits:loadLimitOf(instructor)!==null?instructorLoadUnits(mineAll,selected.AdInstructorId,creditOf):null,
       history:courseHistory,requests:requests as any,proposals:proposals as any,
     });
   }catch(error:any){console.error("تعذّر حساب رقائق «لماذا؟»:",error?.message||error);}

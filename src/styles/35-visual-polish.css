@@ -102,12 +102,11 @@
 .teaching-load>*{min-inline-size:0}
 .tl-members select,.tl-members input{min-inline-size:0;inline-size:100%}
 @media (max-width:900px){
-  .tl-row{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .tl-name,.tl-load,.tl-row>select{grid-column:1/-1}
-  /* overflow:clip لا يُنشئ حاوية تمرير، فيلتصق صفّ العناوين أعلى الشاشة أثناء تمرير الأعضاء. */
+  /* كل عضو بطاقة: الاسمُ، ثم الدرجةُ وزرُّ الاستثناء، ثم مقياسُ العبء. لا خاناتِ أرقامٍ في الصف (الاستثناءُ في محرّره). */
+  .tl-row{grid-template-columns:minmax(0,1fr) auto}
+  .tl-name,.tl-load{grid-column:1/-1}
   .tl-members{overflow:clip}
-  .tl-row-head{display:grid;position:sticky;inset-block-start:calc(var(--topbar-h,64px) + env(safe-area-inset-top,0px));z-index:2;text-align:center;box-shadow:0 6px 12px -10px rgb(0 0 0 / .25)}
-  .tl-row-head>span:nth-child(1),.tl-row-head>span:nth-child(2),.tl-row-head>span:nth-child(6){display:none}
+  .tl-row-head{display:none}
   .tl-term{inline-size:100%}
   .tl-term select{flex:1;min-inline-size:0}
   .tl-search{max-inline-size:none}

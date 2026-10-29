@@ -102,12 +102,17 @@ export default function AcademicConsole({
   hasPerm,
   scopes = [],
   isAdmin = true,
+  rootAdmin = false,
+  demoReadOnly = false,
 }: {
   tab: AcademicTab;
   onTab: (tab: AcademicTab) => void;
   hasPerm: (id: number) => boolean;
   scopes?: ScopeAssignmentLike[];
   isAdmin?: boolean;
+  /** المدير الرئيسي: استثناءُ نصاب العضو من شاشة الأساتذة. */
+  rootAdmin?: boolean;
+  demoReadOnly?: boolean;
 }) {
   const visible = useMemo(() => TABS.filter(spec => hasPerm(spec.perm)), [hasPerm]);
   const [counts, setCounts] = useState<Partial<Record<AcademicTab, number>>>({});
@@ -157,7 +162,7 @@ export default function AcademicConsole({
         {active === "terms" ? <Terms embedded actionSlot={actionSlot} /> : null}
         {active === "colleges" ? <Colleges embedded actionSlot={actionSlot} /> : null}
         {active === "sections" ? <Sections embedded actionSlot={actionSlot} /> : null}
-        {active === "instructors" ? <Instructors embedded actionSlot={actionSlot} /> : null}
+        {active === "instructors" ? <Instructors embedded actionSlot={actionSlot} loadAdmin={rootAdmin} demoReadOnly={demoReadOnly} /> : null}
         {active === "courses" ? <Courses embedded actionSlot={actionSlot} scopes={scopes} isAdmin={isAdmin} /> : null}
       </Suspense>
     </div>

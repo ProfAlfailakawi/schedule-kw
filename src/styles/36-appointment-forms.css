@@ -251,6 +251,9 @@
 .mini-week-ring-add{stroke:color-mix(in srgb,var(--accent) 42%,var(--surface))}
 .mini-week-ring-tick{stroke:var(--danger);stroke-width:2.5;stroke-linecap:round}
 .mini-week-ring.is-over .mini-week-ring-add{stroke:var(--danger)}
+/* «الإضافي»: ما بين النصاب والسقف هادئٌ لا خطأ؛ الأحمرُ لما فوق السقف وحده. */
+.mini-week-ring.is-overtime .mini-week-ring-add{stroke:var(--info)}
+.mini-week-ring.is-overtime .mini-week-ring-tick{stroke:var(--info)}
 .mini-week-ring>b{position:relative;font:800 14px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink);letter-spacing:-.02em}
 .mini-week-ring.is-over>b{color:var(--danger)}
 
@@ -271,6 +274,8 @@
 .mini-week-facts em.is-down svg{color:var(--success)}
 .mini-week-facts em.is-over{background:var(--danger-soft);color:var(--danger)}
 .mini-week-facts em.is-over svg{color:var(--danger)}
+.mini-week-facts em.is-overtime{background:var(--info-soft);color:var(--info)}
+.mini-week-facts em.is-overtime svg{color:var(--info)}
 .mini-week-facts .mini-week-trend{width:10px;height:10px;color:currentColor!important}
 .mini-week-chevron{width:16px;height:16px;color:var(--muted);transition:transform .2s var(--ease-out),color .15s}
 .mini-week.is-open .mini-week-chevron{transform:rotate(180deg)}

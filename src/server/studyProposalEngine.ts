@@ -28,6 +28,7 @@ import {
 } from "../utils/studyProposal";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START, isValidClock, scheduleDayWindowMinutes, withinScheduleDay } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
+import { loadLimitOf } from "../utils/teachingLoad";
 
 export interface EngineDeps {
   scheduleConflicts: (req: any, row: any, excludeId?: number, hypothetical?: FSchedule[]) => Promise<any[]>;
@@ -72,7 +73,7 @@ export async function loadWorld(termId: number, instructorId: number): Promise<L
   const [termRows, courses, instructors, colleges, sections, terms] = await Promise.all([
     Repository.getSchedulesByScope({ termId }) as Promise<FSchedule[]>,
     Repository.getCourses() as Promise<AdCourse[]>,
-    Repository.getInstructors() as Promise<AdInstructor[]>,
+    Repository.getInstructors(termId) as Promise<AdInstructor[]>,
     Repository.getColleges() as Promise<any[]>,
     Repository.getSections() as Promise<any[]>,
     Repository.getTerms() as Promise<any[]>,
@@ -429,12 +430,12 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
   const instructorRowsAfter = applied.rows.filter(row => ofPerson(world, row));
   const before = proposalMetrics(instructorRowsBefore, world.catalog.courseById);
   const after = proposalMetrics(instructorRowsAfter, world.catalog.courseById);
-  const loadCap = Number((world.instructor as any)?.AdInstructorLoad || 0) || null;
+  const loadCap = loadLimitOf(world.instructor);
   if (after.unknown.includes("load")) addFinding({
     kind: "info", code: "load-unknown", title: "تعذّر حساب النصاب",
     detail: "ساعات بعض المقررات غير مسجّلة في الكتالوج، فلا يُعرض نصابٌ تخميني.", fix: "سجّل الساعات المعتمدة للمقرر.",
   });
-  else if (loadCap && after.loadUnits !== null && after.loadUnits > loadCap) addFinding({
+  else if (loadCap !== null && after.loadUnits !== null && after.loadUnits > loadCap) addFinding({
     kind: "review", code: "load-over", title: "النصاب بعد المقترح يتجاوز المسجّل",
     detail: `النصاب بعد المقترح ${countOf(after.loadUnits, AR.hour)} والمسجّل ${countOf(loadCap, AR.hour)}.`,
     reason: "النصاب يُحسب بالساعات المعتمدة لكل شعبةٍ مرّة.", fix: "راجع المواد أو وافق على التجاوز بقرار القسم.",

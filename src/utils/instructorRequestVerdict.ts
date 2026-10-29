@@ -701,9 +701,10 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   /* يُقاس على الإضافة وحدَها: نقلُ محاضرةٍ لا يغيّر ساعاتِ المقرّر، وحذفُها
      يُنقصها، والإبقاءُ لا يُحاسَب عليه أحد. فالإضافةُ هي ما يزيد النصاب.
 
-     وغيابُ النصاب ليس صفراً: أستاذٌ لا نصابَ مسجّلٌ له لا يُمنع برقمٍ مخترع. */
-  const declared = Number(context.instructorLoad || 0);
-  if (request.action === "add" && declared > 0) {
+     وغيابُ النصاب ليس صفراً: أستاذٌ لا نصابَ مسجّلٌ له (null) لا يُمنع برقمٍ مخترع؛ والصفرُ الصريح
+     (إعفاءٌ كامل باستثناء) قيدٌ حقيقي. */
+  const declared = context.instructorLoad === null || context.instructorLoad === undefined || !Number.isFinite(Number(context.instructorLoad)) ? null : Number(context.instructorLoad);
+  if (request.action === "add" && declared !== null) {
     const after = weeklyLoadOf(afterRows, context.courses);
     if (after > declared) {
       reasons.push({

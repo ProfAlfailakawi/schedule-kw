@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { randomBytes } from "crypto";
 import { initDatabase, Repository } from "./src/db/repository";
-import { teachingLoadLimits } from "./src/utils/teachingLoad";
+import { loadLimitOf, loadTermContext, withLoadPolicies } from "./src/utils/teachingLoad";
 import { coerceScopeValues } from "./src/utils/scopeContext";
 import { readOnlyRefusal, roleWriteDecision } from "./src/server/roleGuard";
 import { registerStudyProposalRoutes } from "./src/server/studyProposalRoutes";
@@ -562,12 +562,13 @@ registerTimeMachineRoutes(app, {
     return [...new Map([...historical, ...scoped, ...visiting.instructors].map(person => [Number(person.AdInstructorId), person])).values()];
   },
   coursesFor: sectionId => Repository.getOperationalCoursesBySection(sectionId),
-  loadLimits: async instructors => {
-    const config = await Repository.getTeachingLoadConfig();
-    return Object.fromEntries(instructors.map(person => {
-      const managed = config.enabled ? teachingLoadLimits(config, Number(person.AdInstructorId)).allowed : null;
-      return [String(person.AdInstructorId), Number(managed ?? person.AdInstructorLoad ?? 0) || 0];
-    }).filter(([, value]) => Number(value) > 0));
+  /* السقفُ نفسُه في كل مكان: الأعلى + الإضافي من استثناء العضو (الساري في الفصل المُحاكى) أو درجته، وإلا نصابُه
+     المسجّل. والصفرُ الصريح (إعفاءٌ كامل) قيدٌ يُرسَل؛ ومن لا قيدَ له لا مفتاحَ له. */
+  loadLimits: async (instructors, termId) => {
+    const [config, terms] = await Promise.all([Repository.getTeachingLoadConfig(), Repository.getTerms()]);
+    return Object.fromEntries(withLoadPolicies(instructors, config, loadTermContext(terms as any, termId))
+      .map(person => [String(person.AdInstructorId), loadLimitOf(person)] as [string, number | null])
+      .filter((entry): entry is [string, number] => entry[1] !== null));
   },
   /* فصلٌ مجمَّد أو منتهٍ: آلة الزمن تُقرأ وتُحاكى فيه ولا تكتب (كالتخطيط والاستيراد). */
   termFrozen: async termId => (termIsFrozen(termId, (await Repository.getTerms()) as any) ? TERM_FROZEN_MESSAGE

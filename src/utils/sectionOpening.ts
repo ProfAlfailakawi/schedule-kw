@@ -12,6 +12,7 @@ import { cohortPairs, type DemandReading } from "./studentDemand";
 import type { Prediction } from "./courseSuccession";
 import { roomIdentityKey } from "./locationRegistry";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
+import { loadCapOf } from "./teachingLoad";
 
 /**
  * ── الشعبة الجديدة، وأين توضع ───────────────────────────────────────────────
@@ -325,7 +326,7 @@ export function readSectionOpenings(
     const courseHoursNow = Number(course.CourseHours || course.CourseCredit) || 0;
     const eligibleAtStart = teachers.filter(id => {
       const person = personById.get(id);
-      const limit = Number(person?.AdInstructorLoad) || 0;
+      const limit = loadCapOf(person);
       return person && person.AdInstructorStatus !== "retired" && person.AdInstructorStatus !== "sabbatical" && limit > 0 && (currentLoads.get(id) || 0) + courseHoursNow <= limit;
     });
     for (let slot = 1; slot <= needed; slot += 1) {
@@ -344,7 +345,7 @@ export function readSectionOpenings(
             const courseHours = Number(course.CourseHours || course.CourseCredit) || 0;
             const candidates = teachers.filter(id => {
               const person = personById.get(id);
-              const limit = Number(person?.AdInstructorLoad) || 0;
+              const limit = loadCapOf(person);
               return person && person.AdInstructorStatus !== "retired" && person.AdInstructorStatus !== "sabbatical"
                 && limit > 0 && (currentLoads.get(id) || 0) + courseHours <= limit;
             });
