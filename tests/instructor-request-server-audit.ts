@@ -231,9 +231,9 @@ check(page.includes("movementSince=d.movementSince||null")
   && page.includes("تبدأ حركة جدولك الرسمية بعد إرسال أول طلب تعديل.")
   && page.includes("function activityHtml(r)"),
   "الصفحة الداخلية توضّح بداية الحركة وتحافظ على سجل الطلب والردود");
-check(staffPage.includes('document.getElementById("ics").style.display = "none"')
-  && page.includes('function calendarHtml(compact){return ""}'),
-  "إخفاء زر التقويم المتعطل من الخارج والداخل دون حذف مسارات الاشتراك بالخادم");
+check(!staffPage.includes('document.getElementById("ics").style.display = "none";')
+  && !page.includes('function calendarHtml(compact){return ""}') && server.includes('app.get("/api/public/cal/:token/:key"'),
+  "التقويم عاد من الخارج والداخل باشتراكٍ ثابت (M3)");
 check(server.includes('app.get("/api/public/ics/:token/:key"'),
   "رابط التقويم الخلفي محفوظ دون تغيير");
 

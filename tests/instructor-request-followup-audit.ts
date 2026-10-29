@@ -10,6 +10,7 @@
  *   - الواردُ على مستوى الكلية يُصفّى بنطاق الحساب قسماً قسماً.
  */
 
+import { CALENDAR_LINKS_CLIENT_JS } from "../src/utils/calendarLinks";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "../src/server/publicTheme";
@@ -108,7 +109,7 @@ check(eaten === 0, "لا تعبيرَ نمطيَّ في صفحةٍ عامة يف
 
 const staffSrc = server.slice(server.indexOf("function staffCardPage"), server.indexOf("</html>`", server.indexOf("function staffCardPage")) + 9) + ";}";
 const staffHtml = (() => {
-  const sb: any = { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, DEMO_COPY_SCRIPT, COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS, REQUEST_VISUAL_CSS, REQUEST_VISUAL_JS };
+  const sb: any = { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, DEMO_COPY_SCRIPT, COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS, REQUEST_VISUAL_CSS, REQUEST_VISUAL_JS, CALENDAR_LINKS_CLIENT_JS };
   vm.runInNewContext(staffSrc.replace("function staffCardPage(token: string, label: string, nonce: string, demoHint = \"\"): string {", "function staffCardPage(token, label, nonce, demoHint = \"\") {")
     + "\nthis.html = staffCardPage('t','قسم','n');", sb);
   return String(sb.html);

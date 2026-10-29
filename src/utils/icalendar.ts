@@ -25,6 +25,7 @@
 
 import { termWindow } from "./termSequence";
 import { withVisitingSuffix } from "./visitingText";
+import { isValidClock, normalizeClock } from "./scheduleTime";
 
 export interface CalendarLecture {
   /** Stable across edits — the appointment's own id. */
@@ -231,6 +232,8 @@ export function buildCalendar(document: CalendarDocument): string {
     "PRODID:-//SCHEDULE//Academic Timetable//AR",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
+    /* RFC 7986 NAME — Apple and newer Outlook read it; X-WR-CALNAME for Google. */
+    `NAME:${escapeText(document.name)}`,
     `X-WR-CALNAME:${escapeText(document.name)}`,
     `X-WR-TIMEZONE:${TZID}`,
     ...(document.description ? [`X-WR-CALDESC:${escapeText(document.description)}`] : []),
@@ -250,7 +253,11 @@ export function buildCalendar(document: CalendarDocument): string {
 
   for (const lecture of document.lectures) {
     const days = [...new Set(lecture.days)].filter(day => day >= 0 && day <= 6).sort();
-    if (!days.length || !lecture.start || !lecture.end) continue;
+    /* A stored "9:00" or "09:00:00" is a clock; an impossible or inverted range
+       is not a lecture. iOS drops a WHOLE subscription that holds one event whose
+       end is not after its start, so such a row is left out, never written. */
+    const start = normalizeClock(lecture.start), end = normalizeClock(lecture.end);
+    if (!days.length || !isValidClock(start) || !isValidClock(end) || end <= start) continue;
     // The series begins on the first of its own weekdays from today onward.
     const first = days
       .map(day => nextWeekday(from, day))
@@ -267,7 +274,7 @@ export function buildCalendar(document: CalendarDocument): string {
     const exdates = [...new Set(lecture.cancelledDates || [])]
       .filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date))
       .sort()
-      .map(date => `EXDATE;TZID=${TZID}:${localStamp(new Date(`${date}T00:00:00Z`), lecture.start)}`);
+      .map(date => `EXDATE;TZID=${TZID}:${localStamp(new Date(`${date}T00:00:00Z`), start)}`);
 
     lines.push(
       "BEGIN:VEVENT",
@@ -278,8 +285,8 @@ export function buildCalendar(document: CalendarDocument): string {
       // The revision doubles as the sequence: a calendar that has seen version
       // three will accept version four and ignore a stale two.
       `SEQUENCE:${Math.max(0, Number(lecture.revision || 0))}`,
-      `DTSTART;TZID=${TZID}:${localStamp(first, lecture.start)}`,
-      `DTEND;TZID=${TZID}:${localStamp(first, lecture.end)}`,
+      `DTSTART;TZID=${TZID}:${localStamp(first, start)}`,
+      `DTEND;TZID=${TZID}:${localStamp(first, end)}`,
       ...exdates,
       /* UNTIL when the term's end is known — a real last day, the same one on
          every fetch. COUNT otherwise, which at least bounds the series even
@@ -309,14 +316,15 @@ export function buildCalendar(document: CalendarDocument): string {
   /* One-day entries: no RRULE, one DTSTART, one DTEND. A coverage day in a
      colleague's calendar is exactly this — a single dated fact. */
   for (const single of document.singles || []) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(single.date || "")) || !single.start || !single.end) continue;
+    const singleStart = normalizeClock(single.start), singleEnd = normalizeClock(single.end);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(single.date || "")) || !isValidClock(singleStart) || !isValidClock(singleEnd) || singleEnd <= singleStart) continue;
     const day = new Date(`${single.date}T00:00:00Z`);
     lines.push(
       "BEGIN:VEVENT",
       `UID:schedule-single-${single.id}@schedule.app`,
       `DTSTAMP:${dtstamp}`,
-      `DTSTART;TZID=${TZID}:${localStamp(day, single.start)}`,
-      `DTEND;TZID=${TZID}:${localStamp(day, single.end)}`,
+      `DTSTART;TZID=${TZID}:${localStamp(day, singleStart)}`,
+      `DTEND;TZID=${TZID}:${localStamp(day, singleEnd)}`,
       `SUMMARY:${escapeText(single.title)}`,
       single.room ? `LOCATION:${escapeText(single.room)}` : "",
       single.description ? `DESCRIPTION:${escapeText(single.description)}` : "",
@@ -335,5 +343,36 @@ export function buildCalendar(document: CalendarDocument): string {
   }
 
   lines.push("END:VCALENDAR");
+  return lines.filter(Boolean).map(foldLine).join("\r\n") + "\r\n";
+}
+
+export { calendarSubscribeLinks, CALENDAR_LINKS_CLIENT_JS, type CalendarSubscribeLinks } from "./calendarLinks";
+
+/**
+ * تذكيرٌ ليوم كامل (موعد دور التسجيل في مساري) بتنبيهين: مساء اليوم السابق وصباح اليوم.
+ * UID ثابت من التاريخ والعنوان، فإعادةُ الإضافة تحدّث الموعد ولا تكرّره.
+ */
+export function buildReminder(input: { title: string; date: string; note?: string; now?: Date }): string {
+  const now = input.now || new Date();
+  const day = String(input.date || "").slice(0, 10);
+  const next = new Date(`${day}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  const ymd = (d: Date) => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
+  let hash = 0;
+  for (const ch of `${day}|${input.title}`) hash = (hash * 31 + ch.codePointAt(0)!) >>> 0;
+  const lines = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//SCHEDULE//Masari//AR", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:masari-${day.replace(/-/g, "")}-${hash.toString(36)}@schedule.app`,
+    `DTSTAMP:${stampUTC(now)}`,
+    `DTSTART;VALUE=DATE:${day.replace(/-/g, "")}`,
+    `DTEND;VALUE=DATE:${ymd(next)}`,
+    `SUMMARY:${escapeText(input.title)}`,
+    input.note ? `DESCRIPTION:${escapeText(input.note)}` : "",
+    "TRANSP:TRANSPARENT",
+    "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${escapeText(input.title)}`, "TRIGGER:-PT3H", "END:VALARM",
+    "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${escapeText(input.title)}`, "TRIGGER:PT8H", "END:VALARM",
+    "END:VEVENT", "END:VCALENDAR",
+  ];
   return lines.filter(Boolean).map(foldLine).join("\r\n") + "\r\n";
 }
