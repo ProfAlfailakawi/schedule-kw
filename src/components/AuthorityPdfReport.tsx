@@ -143,7 +143,8 @@ export default function AuthorityPdfReport({
 
             <div className="print-comprehensive-grid authority-pdf-grid" role="table" aria-label="تقرير تغييرات الجدول">
               <div className="print-comprehensive-grid-row print-comprehensive-grid-head" role="row">
-                {["رقم المقرر", "الرقم المرجعي", "الشعبة", "مسمى المقرر", "عدد الوحدات", "عدد الساعات", "الحد الأقصى", "القاعة", "المبنى", "الوقت", "الأيام", "المدرس", ...(showCivil ? ["الرقم المدني"] : [])].map(head => (
+                {/* أعمدة المستند بترتيبها كما تطبعه الهيئة، ثم عمود الرقم المدني في نسخته وحدها. */}
+                {[...["رقم المقرر", "الرقم المرجعي", "الشعبة", "مسمى المقرر", "عدد الوحدات", "عدد الساعات", "الحد الأقصى", "القاعة", "المبنى", "الوقت", "الأيام", "المدرس"], ...(showCivil ? ["الرقم المدني"] : [])].map(head => (
                   <div role="columnheader" key={head}>{head}</div>
                 ))}
               </div>
