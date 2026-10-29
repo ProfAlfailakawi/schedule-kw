@@ -138,10 +138,31 @@ try {
     await watching.close();
     check(Boolean(saved) && watching.changes.length > 0, "H8a موعدٌ حُفظ، والبثّ أعلنه", { saved: saved?.id, changes: watching.changes });
     check(afterSave.changedAt === Math.max(...watching.changes), "H8 والنبضةُ تقول الوقتَ نفسه الذي قاله البثّ", { pulse: afterSave.changedAt, stream: watching.changes });
-    // The other sandbox may be busy with its own showcase; what it must not
-    // carry is THIS save's time.
-    const otherAfter = await two.pulse("other-sandbox-tab");
-    check(!watching.changes.includes(otherAfter.changedAt), "H9 ولا يوقظ صندوقاً آخر", { other: otherAfter.changedAt, mine: watching.changes });
+    /* Isolation is only observable against a quiet sandbox: a showcase still
+       filling itself moves its own clock, and two broadcasts in one window can
+       share a millisecond. So wait until the other sandbox's time has held
+       still for two seconds, save here, and see whether it moved — three tries,
+       in case the other sandbox wakes on its own in between. */
+    const quietTime = async () => {
+      let last = (await two.pulse("other-sandbox-tab")).changedAt;
+      for (let still = 0, i = 0; i < 40 && still < 4; i++) {
+        await pause(500);
+        const now = (await two.pulse("other-sandbox-tab")).changedAt;
+        still = now === last ? still + 1 : 0;
+        last = now;
+      }
+      return last;
+    };
+    const isolation: Array<{ before: number; after: number }> = [];
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const before = await quietTime();
+      await saveOne(one);
+      await pause(1_000);
+      const after = (await two.pulse("other-sandbox-tab")).changedAt;
+      isolation.push({ before, after });
+      if (after === before) break;
+    }
+    check(isolation.some(({ before, after }) => before === after), "H9 ولا يوقظ صندوقاً آخر", isolation);
 
     /* Two sandboxes save in the same 350 ms. The window used to keep only the
        first writer, so one of the two boards never heard of its own save. */
