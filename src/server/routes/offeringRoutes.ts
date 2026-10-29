@@ -28,6 +28,7 @@ import { formatScheduleTimeRange } from "../../utils/scheduleTime";
 import { refuseIfTermFrozen } from "../core/approvals";
 import { type AuthenticatedRequest, requireAnyPermission, requirePermission } from "../core/auth";
 import { instructorRequestSectionCourses, taPhaseId } from "../core/instructorRequests";
+import { loadCapOf } from "../../utils/teachingLoad";
 import { broadcastNotify } from "../core/liveChannel";
 import { readLocationRegistry } from "../core/locations";
 import { isScopeAllowed } from "../core/scope";
@@ -169,7 +170,7 @@ app.get("/api/ta-phase", requirePermission(7), async (req: AuthenticatedRequest,
   await dispatchTaWaves(id, req.user || {}).catch(() => []);
   const family = await staffFamilyScopes(collegeId, sectionId);
   const [doc, instructors, courses, rowsByScope, staffLinks, requests] = await Promise.all([
-    Repository.getFeatureDoc<TaPhaseDoc>("taPhases", id), Repository.getInstructors(), Repository.getCourses(),
+    Repository.getFeatureDoc<TaPhaseDoc>("taPhases", id), Repository.getInstructors(termId), Repository.getCourses(),
     Promise.all(family.map(scope => Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId }))),
     staffFamilyShareLinks(collegeId, sectionId, termId),
     Promise.all(family.map(scope => Repository.getInstructorRequests(scope.collegeId, scope.sectionId, termId))),
@@ -187,7 +188,7 @@ app.get("/api/ta-phase", requirePermission(7), async (req: AuthenticatedRequest,
     vacant: vacant.map(row => ({ ...row, courseName: courseName.get(row.courseId) || "" })), summary: vacantSummary(vacant),
     tas: instructors.filter(isTrainingAssistant).filter(row => !isFacultyPlaceholder(row)).map(row => {
       const own = taRequests.find(r => Number(r.AdInstructorId) === Number(row.AdInstructorId) && isTaRequest(r));
-      return { id: Number(row.AdInstructorId), name: String(row.AdInstructorName || ""), load: Number(row.AdInstructorLoad || 0),
+      return { id: Number(row.AdInstructorId), name: String(row.AdInstructorName || ""), load: loadCapOf(row),
         chosen: (own?.items || []).filter(item => item.offeringRowIds?.length).length, opened: !!((own as any)?.linkOpenedAt || (own as any)?.openedAt), sent: !!own,
         /* للتذكير بواتساب (يضغط المنسّقُ «إرسال»): رابطُه الشخصيّ ورقمُه من سجلّه. */
         linkId: own?.linkId || "", mobile: String(row.AdInstructorMobile || ""),

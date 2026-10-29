@@ -22,7 +22,7 @@ export const TEACHER_CARD_EXTRAS_CSS = `
 .tc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.tc-chips span{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:12px;font-weight:700}
 .tc-ring{flex:none;margin-inline-start:auto;inline-size:58px;block-size:58px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--tc-ring,#2f8f6a) calc(var(--p)*1%),var(--line) 0);position:relative}
 .tc-ring::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--card)}.tc-ring b{position:relative;z-index:1;font-size:12px;direction:ltr}
-.tc-ring[data-tone=near]{--tc-ring:#c98a00}.tc-ring[data-tone=full]{--tc-ring:#b3261e}
+.tc-ring[data-tone=near]{--tc-ring:#c98a00}.tc-ring[data-tone=full]{--tc-ring:#b3261e}.tc-ring[data-tone=overtime]{--tc-ring:#3a78b5}
 .tc-remind{margin:6px 0 0;font-weight:700;color:#8a6100}
 body[data-mode=ta] .nextnow,body[data-mode=view] .nextnow{display:none}
 body[data-mode=ta]:not([data-ta-picked="1"]) .send{display:none}

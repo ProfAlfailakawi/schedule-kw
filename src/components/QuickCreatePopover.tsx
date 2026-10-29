@@ -150,7 +150,7 @@ export default function QuickCreatePopover({
   visitingIds?: Iterable<number>;
   visitingRosterIds?: Iterable<number>;
   /** N3: جدول الأستاذ المصغّر — من بيانات اللوحة المحمّلة (يغيب حيث لا لوحة، كالوارد). */
-  miniWeek?: { rows: readonly FSchedule[]; courses: Map<number, AdCourse>; window: { start: number; end: number }; userId: number; nisabOf: (id: number) => number; nameOf: (id: number) => string; isPlaceholder: (id: number) => boolean };
+  miniWeek?: { rows: readonly FSchedule[]; courses: Map<number, AdCourse>; window: { start: number; end: number }; userId: number; nisabOf: (id: number) => number; overtimeOf?: (id: number) => number; limitedOf?: (id: number) => boolean; nameOf: (id: number) => string; isPlaceholder: (id: number) => boolean };
 }) {
   const planBadges = usePlanBadges();
   const [miniWeekEnabled, setMiniWeekEnabled] = useMiniWeekEnabled(Number(miniWeek?.userId || 0));
@@ -442,7 +442,7 @@ export default function QuickCreatePopover({
   const miniTeacherId = Number(draft.instructorId) || 0;
   const miniWeekNode = miniWeek && miniWeekEnabled && miniTeacherId && !miniWeek.isPlaceholder(miniTeacherId) && !hasDifferentTimes ? (
     <TeacherMiniWeek variant="compact" teacherId={miniTeacherId} teacherName={miniWeek.nameOf(miniTeacherId) || teacherName}
-      nisab={miniWeek.nisabOf(miniTeacherId)} visiting={isVisiting(miniTeacherId, collegeId, sectionId)}
+      nisab={miniWeek.nisabOf(miniTeacherId)} overtime={miniWeek.overtimeOf?.(miniTeacherId) || 0} limited={miniWeek.limitedOf ? miniWeek.limitedOf(miniTeacherId) : miniWeek.nisabOf(miniTeacherId) > 0} visiting={isVisiting(miniTeacherId, collegeId, sectionId)}
       rows={miniWeek.rows} termId={termId} collegeId={collegeId} draft={payload} verdict={verdict} checked={checkable}
       course={selectedCourse} courses={miniWeek.courses} window={miniWeek.window} userId={miniWeek.userId}
       fixedDays={daysLocked ? chosenDays : undefined} onPick={pickFromMiniWeek} />

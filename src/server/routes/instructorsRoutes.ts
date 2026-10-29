@@ -78,7 +78,9 @@ function maskCivilTail(civil: unknown): string {
 }
 
 async function instructorsForScope<T extends { AdInstructorId: number; AdInstructorCivil?: string; AdInstructorMobile?: string }>(req: AuthenticatedRequest, list: T[], exactCivil = ""): Promise<T[]> {
-  const readable = instructorsForReader(req, list).map(withoutFacultyPlaceholderCivil);
+  /* النصابُ الفعّال في الفصل المعروض (استثناءٌ انتهى قبله لا يسري). */
+  const loadTermId = Number((req.query as any)?.termId || 0);
+  const readable = (loadTermId ? await Repository.withLoadForTerm(instructorsForReader(req, list) as any[], loadTermId) as T[] : instructorsForReader(req, list)).map(withoutFacultyPlaceholderCivil);
   const circle = await instructorCircleFor(req);
   if (!circle) return readable;
   return readable.map(person => circle.has(Number(person.AdInstructorId)) || (exactCivil && String(person.AdInstructorCivil || "").trim() === exactCivil)
@@ -294,7 +296,8 @@ app.put("/api/instructors/:id", requirePermission(3), async (req: Request, res: 
   /* النصابُ رقمٌ موجبٌ معقول، أو لا شيء. وحدُّه الأعلى ليس تجميلاً: نصابٌ
      مكتوبٌ خطأً بأربعة أرقام يجعل القيدَ صامتاً إلى الأبد بلا أن يعرف أحد. */
   const loadRaw = Number(req.body?.AdInstructorLoad);
-  const load = Number.isFinite(loadRaw) && loadRaw > 0 && loadRaw <= 40 ? loadRaw : null;
+  /* ساعاتٌ صحيحة فقط: كسرٌ يصل (8.5) يُقرَّب ولا يُخزَّن. */
+  const load = Number.isFinite(loadRaw) && loadRaw > 0 && loadRaw <= 40 ? Math.round(loadRaw) : null;
   if (!AdInstructorCivil || !String(AdInstructorName || "").trim()) {
     res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" });
     return;

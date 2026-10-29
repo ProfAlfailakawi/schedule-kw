@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown, Scale } from "lucide-react";
 import { hoursLabel } from "../utils/teachingLoad";
+import { ExceptionBadge } from "./LoadException";
 
-type Over = { id: number; name: string; rank: string; hours: number; allowed: number; extra: number; excess: number };
+type Over = { id: number; name: string; rank: string; hours: number; allowed: number; max?: number; extra: number; excess: number; exception?: boolean };
 
 const num = (value: number) => Number(value || 0).toLocaleString("ar-KW-u-nu-latn", { maximumFractionDigits: 2 });
 
@@ -59,13 +60,13 @@ export default function TeachingLoadNotice({ collegeId, sectionId, termId, refre
           <ul>
             {over.map(row => (
               <li key={row.id}>
-                <span><b>{row.name}</b>{row.rank ? <small>{row.rank}</small> : null}</span>
+                <span><b>{row.name}{row.exception ? <> <ExceptionBadge /></> : null}</b>{row.rank ? <small>{row.rank}</small> : null}</span>
                 <span className="tl-notice-num" dir="ltr">{num(row.hours)} / {num(row.allowed)}</span>
                 <em><bdi dir="ltr">+{num(row.excess)}</bdi></em>
               </li>
             ))}
           </ul>
-          <p>العبءُ من ساعات المقررات المسجّلة للعضو في الفصل، والمسموح هو الحدّ الأعلى مع الساعات الإضافية. تنبيهٌ فقط: يمكنك متابعة التعديل.</p>
+          <p>العبءُ من ساعات المقررات المسجّلة للعضو في الفصل، والسقفُ هو الحدّ الأعلى مع الإضافي (من الدرجة أو استثناء العضو). تنبيهٌ فقط: يمكنك متابعة التعديل.</p>
         </div>
       ) : null}
     </div>

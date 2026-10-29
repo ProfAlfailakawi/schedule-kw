@@ -71,7 +71,7 @@ async function readSectionBuild(collegeId: number, sectionId: number, termId: nu
   const [courses, stats, termWeek, history, people, registry] = await Promise.all([
     Repository.getCoursesBySection(sectionId), Repository.getRegistrationStats(collegeId, sectionId, termId),
     Repository.getSchedulesByScope({ termId }), Repository.getSchedulesByScope({ collegeId, sectionId }),
-    Repository.getInstructors().catch(() => []), readLocationRegistry(),
+    Repository.getInstructors(termId).catch(() => []), readLocationRegistry(),
   ]);
   const week = termWeek.filter(row => Number(row.AdSectionId) === sectionId && Number(row.AdCollegeId) === collegeId);
   /* ما يراه المستخدم على الشاشة (المختار، وإلا المقترح) يصل هنا أعداداً فقط؛ وبلا إرسالٍ يُقرأ المحفوظ. */
@@ -448,7 +448,7 @@ app.post("/api/section-build/review-rows", requirePermission(7), async (req: Aut
   const [built, occupied, people, allCourses] = await Promise.all([
     readSectionBuild(collegeId, sectionId, termId, req.body?.targets),
     Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
-    Repository.getInstructors().catch(() => []), Repository.getCoursesBySection(sectionId),
+    Repository.getInstructors(termId).catch(() => []), Repository.getCoursesBySection(sectionId),
   ]);
   /* المحدَّد في المعاينة فقط (مفاتيح مقرر:شعبة)؛ وبلا إرسالٍ تُفتح كل المبنيّة. */
   const picked = Array.isArray(req.body?.pick) ? new Set<string>(req.body.pick.map(String)) : null;
@@ -514,7 +514,7 @@ app.get("/api/forecast/term", requirePermission(7), async (req: AuthenticatedReq
   if (!termId) { res.status(400).json({ error: "لا فصل" }); return; }
   const [rows, courses, instructors, stats] = await Promise.all([
     readSchedulesForRequest(req, collegeId, sectionId, termId), Repository.getCoursesBySection(sectionId),
-    Repository.getInstructors(), Repository.getRegistrationStats(collegeId, sectionId, termId),
+    Repository.getInstructors(termId), Repository.getRegistrationStats(collegeId, sectionId, termId),
   ]);
   const scoped = rows.filter(row => Number(row.AdSectionId) === sectionId);
   const mine = new Set(scoped.map(row => Number(row.AdInstructorId)));
@@ -680,7 +680,7 @@ app.get("/api/schedules/openings-preview", requirePermission(7), async (req: Aut
   if (!collegeId || !sectionId || !termId || !courseId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   const [courses, termWeek, sectionHistory, people, registry, style] = await Promise.all([
     Repository.getCourses(), Repository.getSchedulesByScope({ termId }), Repository.getSchedulesByScope({ collegeId, sectionId }),
-    Repository.getInstructors().catch(() => []), readLocationRegistry(), departmentStyle({ AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId }),
+    Repository.getInstructors(termId).catch(() => []), readLocationRegistry(), departmentStyle({ AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId }),
   ]);
   const course = (courses as AdCourse[]).find(row => Number(row.AdCourseId) === courseId && Number(row.AdSectionId) === sectionId);
   if (!course) { res.status(404).json({ error: "المقرر غير موجود في هذا القسم" }); return; }
@@ -822,7 +822,7 @@ app.get("/api/schedules/demand", requirePermission(7), async (req: Authenticated
      many sections exist. Priced against each course's own MaxStudent, and every
      new section placed against the real week before it is offered. */
   const [people, openingRegistry] = reading.respondents || prediction.courses.length
-    ? await Promise.all([Repository.getInstructors().catch(() => []), readLocationRegistry()])
+    ? await Promise.all([Repository.getInstructors(termId).catch(() => []), readLocationRegistry()])
     : [[], { buildings: [], rooms: [] } as Awaited<ReturnType<typeof readLocationRegistry>>];
   let openings: OpeningReading = reading.respondents || prediction.courses.length
     ? readSectionOpenings(

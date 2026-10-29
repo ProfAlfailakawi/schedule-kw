@@ -5,6 +5,7 @@ import { numericText } from "../utils/digits";
 import { sortByName } from "../utils/sorting";
 import VisitingConversionPanel from "./VisitingConversionPanel";
 import VisitingBadge from "./VisitingBadge";
+import { ExceptionBadge, InstructorLoadPanel } from "./LoadException";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import {
   AddButton,
@@ -26,8 +27,9 @@ import {
   visualConfirm,
 } from "./ui";
 type Mode = "index" | "create" | "edit";
-/** `embedded` means the academic console already supplies the page identity. */
-export default function Instructors({ embedded = false, actionSlot = null }: { embedded?: boolean; actionSlot?: HTMLElement | null }) {
+/** `embedded` means the academic console already supplies the page identity.
+ *  `loadAdmin` (المدير الرئيسي): بطاقةُ النصاب واستثناءُ العضو من اسمه في التفاصيل. */
+export default function Instructors({ embedded = false, actionSlot = null, loadAdmin = false, demoReadOnly = false }: { embedded?: boolean; actionSlot?: HTMLElement | null; loadAdmin?: boolean; demoReadOnly?: boolean }) {
   const [items, setItems] = useState<any[]>([]),
     [mode, setMode] = useState<Mode>("index"),
     [editId, setEditId] = useState<number | null>(null),
@@ -403,6 +405,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
                       {x.AdInstructorCategory === "ta" ? <span className="staff-badge ta-category-badge">TA · هيئة تدريب</span> : null}
                       {x.AdInstructorStatus === "retired" ? <span className="staff-badge is-retired">متقاعد</span>
                         : x.AdInstructorStatus === "sabbatical" ? <span className="staff-badge is-sabbatical">متفرّغ</span> : null}
+                      {x.LoadPolicy?.exception ? <ExceptionBadge reason={x.LoadPolicy.exception.reason} /> : null}
                       {delegateIds.has(x.AdInstructorId) ? <span className="instructor-delegate-mark" title={affiliationLabel(affiliationOf(x.AdInstructorId).delegate).join(" ، ") || "قسم الانتداب غير مسجّل"}><VisitingBadge compact /></span> : null}
                       {activeId === x.AdInstructorId ? <span className="sr-only">، محدد</span> : null}
                     </>
@@ -474,6 +477,7 @@ export default function Instructors({ embedded = false, actionSlot = null }: { e
                     || "لا انتداب مسجّل"}</b>
                 </article>
               </div>
+              {loadAdmin ? <InstructorLoadPanel instructorId={Number(selected.AdInstructorId)} name={selected.AdInstructorName} demoReadOnly={demoReadOnly} onChanged={() => void load()} /> : null}
               <div className="inspector-actions">
                 <PrimaryButton onClick={() => edit(selected)}>
                   تعديل
