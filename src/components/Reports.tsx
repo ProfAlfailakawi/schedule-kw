@@ -68,6 +68,7 @@ import DecisionBoard, { type DecisionBoardPrintDepartment } from "./DecisionBoar
 import { instructorReportScope } from "../utils/instructorReportScope";
 import { compactCampusLabels } from "../utils/campusChips";
 import OccupancyHeatGrid from "./OccupancyHeatGrid";
+import OccupancySlotPanel from "./OccupancySlotPanel";
 import { canSeeDecisionBoard, decisionBoardScope } from "../utils/decisionBoardScope";
 
 /**
@@ -1746,6 +1747,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const occupancyScopeLabel = familyActive
     ? `عائلة القسم — ${familyScopes.map(scope => collegeById.get(scope.collegeId)?.AdCollegeName).filter(Boolean).join(" · ")}`
     : collegeName ? `الموقع — ${collegeName}` : "الموقع المفتوح";
+  const occupancyCampusOrder = useMemo(() => familyScopes.map(scope => scope.collegeId), [familyScopes]);
+  const closeOccupancyPick = useCallback(() => setOccupancyPick(null), []);
   /* العائلة قيد القراءة: لا طباعة لنسخةٍ نصفها قديم، ولا هيكلَ انتظارٍ فوق شبكةٍ معروضة. */
   const familyPending = familyActive && (!familyRead || familyRead.key !== familyKey || familyRead.loading);
   const familyFirstLoad = familyActive && (!familyRead || familyRead.key !== familyKey || (familyRead.loading && !familyRead.rows.length));
@@ -3063,36 +3066,34 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               const source = cell ? cell.rows : occupancyRows.filter(row => Boolean((row as any)[DAYS[occupancyPick.day].flag])
                 && (!occupancyPick.collegeId || Number(row.AdCollegeId) === occupancyPick.collegeId));
               const rows = [...source].sort((a, b) => minutes(a.fstarttime) - minutes(b.fstarttime) || byArabic(a.AdCourseName || "", b.AdCourseName || ""));
-              const where = occupancyPick.collegeId ? occupancySites.find(site => site.collegeId === occupancyPick.collegeId)?.label : occupancyScopeLabel;
+              /* المحاضرات تحت مواقعها برقائق ترشيح (OccupancySlotPanel)؛ والموقع يُقال مرةً للمجموعة لا في كل صفّ. */
+              const siteLabel = occupancyPick.collegeId ? occupancySites.find(site => site.collegeId === occupancyPick.collegeId)?.label : familyActive ? "عائلة القسم" : collegeName || undefined;
               return (
-                <>
-                  <div className="query-detail-backdrop no-print" onMouseDown={() => setOccupancyPick(null)} aria-hidden="true" />
-                  <div className="occupancy-pick query-detail-panel no-print" role="dialog" aria-modal="true" aria-label={`محاضرات ${day.label}`}>
-                    <header>
-                      <div>
-                        <small>{cell ? `${day.label} · ${scheduleClockForDisplay(clock(cell.hour))}–${scheduleClockForDisplay(clock(cell.hour + 60))}` : `${day.label} · اليوم كله`}</small>
-                        <strong>{where}</strong>
-                      </div>
-                      <span className="occupancy-pick-count">
-                        {countOf(rows.length, AR.lecture)}
-                        {cell ? ` · ${num(cell.rooms)} من ${countOf(heat.rooms, AR.room)} (${num(cell.rate)}٪)` : ` · إشغال ${num(day.rate)}٪`}
-                      </span>
-                      <button type="button" data-guide-ignore="إغلاق تفاصيل نسبة الإشغال فقط" onClick={() => setOccupancyPick(null)} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
-                    </header>
-                    {rows.length ? (
-                      <div className="occupancy-pick-rows">
-                        {rows.map(row => (
-                          <article key={row.id}>
-                            <strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<PlanBadge courseId={row.AdCourseId} /></strong>
-                            <span className="report-instructor-with-badge"><span className="rib-name">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}</span>{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
-                            <em>{[courseNumberOf(row) || "", row.SCode ? `شعبة ${row.SCode}` : "", placeOfRow(row), familyActive && !occupancyPick.collegeId ? collegeById.get(Number(row.AdCollegeId))?.AdCollegeName || "" : ""].filter(Boolean).join(" · ")}</em>
-                            <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
-                          </article>
-                        ))}
-                      </div>
-                    ) : <p className="occupancy-pick-empty">لا محاضرات في هذا الوقت.</p>}
-                  </div>
-                </>
+                <OccupancySlotPanel
+                  key={`${occupancyPick.collegeId || 0}|${occupancyPick.day}|${occupancyPick.hour ?? "day"}`}
+                  day={day.label}
+                  range={cell ? `${scheduleClockForDisplay(clock(cell.hour))}–${scheduleClockForDisplay(clock(cell.hour + 60))}` : null}
+                  rate={cell ? cell.rate : day.rate}
+                  busyRooms={cell ? cell.rooms : null}
+                  totalRooms={heat.rooms}
+                  campusOrder={occupancyCampusOrder}
+                  scopeLabel={siteLabel}
+                  onClose={closeOccupancyPick}
+                  rows={rows.map(row => ({
+                    id: row.id,
+                    course: row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—",
+                    badge: <PlanBadge courseId={row.AdCourseId} />,
+                    code: courseNumberOf(row) || "",
+                    section: String(row.SCode || ""),
+                    room: placeOfRow(row) === "بلا قاعة" ? "" : placeOfRow(row),
+                    teacher: instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ",
+                    visiting: isVisitingInstructor(row.AdInstructorId),
+                    campusId: Number(row.AdCollegeId) || 0,
+                    campusName: collegeById.get(Number(row.AdCollegeId))?.AdCollegeName || "",
+                    start: scheduleClockForDisplay(row.fstarttime),
+                    end: scheduleClockForDisplay(row.fendtime),
+                  }))}
+                />
               );
             })() : null}
           </div>
