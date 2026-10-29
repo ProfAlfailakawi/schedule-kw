@@ -13,6 +13,8 @@
 import fs from "fs";
 import path from "path";
 import ts from "typescript";
+import { matchesInboxAsk, parseInboxAsk, type InboxAskCandidate } from "../src/utils/inboxAsk";
+import { parseNaturalQuery } from "../src/utils/naturalQuery";
 
 /** كلماتٌ عاميّة لا تأتي في الفصحى بهذا الرسم، وبجانب كلٍّ بديلُها. */
 const COLLOQUIAL: Record<string, string> = {
@@ -58,6 +60,7 @@ const ALLOW: Array<[string, string, string]> = [
   // كلماتُ توقّفٍ يُسقطها مركزُ الوارد من سؤال المستخدم — لا تُعرض.
   ["src/utils/inboxAsk.ts", "اللي", "كلمة توقّف في فهم السؤال"],
   ["src/utils/inboxAsk.ts", "شنو", "كلمة توقّف في فهم السؤال"],
+  ["src/utils/inboxAsk.ts", "عندك", "كلمة توقّف في فهم السؤال"],
 ];
 
 const LETTERS = "ء-يٱ-ۓً-ْـ";
@@ -161,6 +164,37 @@ const files = walk("src");
 const hits = files.flatMap(file => scanFile(file));
 for (const h of hits) console.log(`  ${h.file}:${h.line}  «${h.word}» ← ${COLLOQUIAL[h.word]}\n      ${h.text}`);
 check(hits.length === 0, `نصوص الواجهة في src/ (${files.length} ملفاً) بلا كلمةٍ عاميّة`);
+
+/* ── الأمثلةُ المعروضة يفهمها قارئُها ──────────────────────────────────────
+   صار المثال فصيحاً («التي لديها»، «فارغة»، «من لديه») فيجب أن يفهمه المحلّل
+   الذي يُكتب له، وتبقى العاميّة مفهومةً لمن اعتادها. تُقرأ الأمثلة من الشاشة
+   نفسها، فإن تغيّر مثالٌ اختُبر الجديد. */
+{
+  const changes = fs.readFileSync("src/components/ScheduleChanges.tsx", "utf8");
+  const inboxExamples = [...changes.matchAll(/askPlaceholder=\{[^}]*\}/g)].flatMap(m => [...m[0].matchAll(/"اسأل: ([^"]+)"/g)].map(x => x[1]));
+  check(inboxExamples.length === 2, `أمثلةُ الوارد مقروءةٌ من الشاشة (${inboxExamples.join(" | ")})`);
+  const row: InboxAskCandidate = { status: "submitted", late: true, blockingConflicts: 1, openNotes: 1, sectionName: "قسم الرياضيات", collegeName: "كلية التربية الأساسية" };
+  for (const example of [...inboxExamples, "الأقسام المتأخرة اللي عندها موانع", "المتأخر أو اللي فيه ملاحظات"]) {
+    const ask = parseInboxAsk(example);
+    check(ask.understood && ask.lateOnly && ask.signals.length === 1 && ask.text === "" && matchesInboxAsk(row, ask),
+      `الوارد يفهم «${example}» كلَّه ولا يُبقي نصَّ بحثٍ يُفرغ الشاشة`);
+  }
+
+  const reports = fs.readFileSync("src/components/Reports.tsx", "utf8");
+  const roomExamples = [...reports.matchAll(/(?:اسأل|جرّب): (قاعات [^"<]+?)(?="|<)/g)].map(m => m[1].trim());
+  check(roomExamples.length === 2, `أمثلةُ استعلام القاعات مقروءةٌ من الشاشة (${roomExamples.join(" | ")})`);
+  for (const example of [...roomExamples, "قاعات فاضية الثلاثاء 10"]) {
+    const q = parseNaturalQuery(example);
+    check(q.intent === "freeRooms" && q.day === 2 && q.time === "10:00", `الاستعلام يفهم «${example}» قاعاتٍ فارغةً الثلاثاء 10:00`);
+  }
+
+  const intel = fs.readFileSync("src/components/IntelligenceWorkspace.tsx", "utf8");
+  const intelRoutes = fs.readFileSync("src/server/routes/intelligenceRoutes.ts", "utf8");
+  const chip = (intel.match(/"(من لديه [^"]+)"/) || [])[1] || "";
+  const normalized = chip.replace(/[؟?]/g, "").toLowerCase();
+  check(Boolean(chip) && intelRoutes.includes("/^من\\s/.test(normalized)") && /^من\s/.test(normalized) && /فراغ/.test(normalized),
+    `مثالُ مركز الذكاء «${chip}» سؤالٌ عن القسم كلّه (لا عن أستاذٍ اسمُه «لديه») ويُجاب بالفراغات`);
+}
 
 // كلُّ استثناءٍ ما زال يقابل موضعاً حقيقياً — لا يبقى استثناءٌ ميّت.
 for (const [file, word, why] of ALLOW) {
