@@ -48,6 +48,7 @@ import type { ReportMode } from "./components/Reports";
 import type { AdminMode } from "./components/AdminUsers";
 import type { AcademicTab } from "./components/AcademicConsole";
 import { safeStorage } from "./utils/safeStorage";
+import { usePageAwake } from "./utils/pageAwake";
 import { singleDepartmentOf } from "./utils/scopeContext";
 import { scopeShape } from "./utils/scopeShape";
 import { multiSiteDepartment } from "./utils/inboxAudience";
@@ -645,8 +646,15 @@ export default function App() {
    * وتختفي حين لا شيء ينتظر. */
   const [barterPending, setBarterPending] = useState(0);
   useEffect(() => { setTelemetryOwner(Number(user?.SystemUserId || 0)); }, [user?.SystemUserId]);
+  /* The three dock badges below poll on a timer, and a timer does not know
+     whether anyone is looking: a tab left open overnight asked all night, and
+     every answer was a request billed and a query read. They rest with the tab
+     (pageAwake.ts) and read once on waking, so the number is fresh the moment
+     somebody looks at it. */
+  const pageAwake = usePageAwake();
   useEffect(() => {
     if (!user || !hasPerm(7)) { setBarterPending(0); return; }
+    if (!pageAwake) return;
     let alive = true;
     const read = () => fetch("/api/hall-barter/inbox", { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
@@ -657,7 +665,7 @@ export default function App() {
     const onFocus = () => void read();
     window.addEventListener("focus", onFocus);
     return () => { alive = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
-  }, [user?.SystemUserId, permissions]);
+  }, [user?.SystemUserId, permissions, pageAwake]);
   /**
    * ── شارة تغييرات الجدول ────────────────────────────────────────────────
    *
@@ -672,6 +680,7 @@ export default function App() {
   const [simulationVisible, setSimulationVisible] = useState(false);
   useEffect(() => {
     if (!user) { setPlanReviewCount(0); setSimulationVisible(false); return; }
+    if (!pageAwake) return;
     let alive = true;
     const read = () => fetch("/api/plan-review/status", { credentials: "include" })
       .then(response => (response.ok ? response.json() : null))
@@ -688,9 +697,10 @@ export default function App() {
     window.addEventListener("focus", onFocus);
     window.addEventListener("schedule:plan-review-updated", refresh);
     return () => { alive = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); window.removeEventListener("schedule:plan-review-updated", refresh); };
-  }, [user?.SystemUserId, sessionRole.id, permissions]);
+  }, [user?.SystemUserId, sessionRole.id, permissions, pageAwake]);
   useEffect(() => {
     if (!user || !opensChangesScreen(sessionRole)) { setChangesBadge(0); return; }
+    if (!pageAwake) return;
     let alive = true;
     const read = () => fetch("/api/approvals/badge", { credentials: "include" })
       .then(response => (response.ok ? response.json() : null))
@@ -701,7 +711,7 @@ export default function App() {
     const onFocus = () => void read();
     window.addEventListener("focus", onFocus);
     return () => { alive = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
-  }, [user?.SystemUserId, sessionRole.id]);
+  }, [user?.SystemUserId, sessionRole.id, pageAwake]);
 
   /**
    * ── الشاشات الثقيلة تُحمَّل قبل أن تُطلب ──────────────────────────────────
@@ -1250,6 +1260,9 @@ export default function App() {
   );
   const [healthProbe, setHealthProbe] = useState(0);
   useEffect(() => {
+    // Shown is not looked at (pageAwake.ts): a window left open on a desk
+    // asked every thirty seconds all night. Waking asks at once.
+    if (!pageAwake) return;
     let alive = true;
     let timer = 0;
     const beat = async () => {
@@ -1288,7 +1301,7 @@ export default function App() {
       window.removeEventListener("offline", down);
       document.removeEventListener("visibilitychange", wake);
     };
-  }, [healthProbe]);
+  }, [healthProbe, pageAwake]);
   useEffect(() => { setOnline(health === "online"); }, [health]);
   const healthLabel =
     health === "online" ? "متصل بالخادم · الحفظ متاح"

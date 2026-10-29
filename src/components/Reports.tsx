@@ -47,6 +47,7 @@ import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import SubmissionDeadlines, { type DeadlineRow } from "./SubmissionDeadlines";
 import { inboxAudience } from "../utils/inboxAudience";
 import { usePageAwake } from "../utils/pageAwake";
+import { onLiveSignal } from "../utils/livePulse";
 import { roomIdentityKey, roomDisplay, resolveBuilding, resolveRoom } from "../utils/locationRegistry";
 import { DnaRing } from "./dna";
 import MeetingSlots from "./MeetingSlots";
@@ -830,7 +831,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
    */
   const [pending, setPending] = useState(false);
   const [liveNudge, setLiveNudge] = useState(false);
-  const reportEventsRef = useRef<EventSource | null>(null);
+  const reportEventsRef = useRef<(() => void) | null>(null);
   /**
    * ميزان الأقسام — every department of the term on one line each.
    *
@@ -927,29 +928,27 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   }, [lens, filters.termId, liveNudge]);
 
   const closeReportEvents = useCallback(() => {
-    const source = reportEventsRef.current;
-    if (!source) return;
-    source.close();
+    const stop = reportEventsRef.current;
+    if (!stop) return;
+    stop();
     reportEventsRef.current = null;
   }, []);
+  /* Listening, not streaming: a report has no presence to show, so it never
+     needed a line of its own held open — the tab's pulse (utils/livePulse.ts)
+     says when a timetable changed anywhere, within seconds. The names stay,
+     because printing pauses and resumes the listening by them. */
   const openReportEvents = useCallback(() => {
-    if (typeof EventSource === "undefined" || reportEventsRef.current) return;
-    const source = new EventSource("/api/schedules/events");
-    const onChange = () => {
+    if (reportEventsRef.current) return;
+    reportEventsRef.current = onLiveSignal(["schedules"], () => {
       setLiveNudge(true);
       /* A deleted timetable must also delete its stale comparison button from
          this screen. Re-read the scoped rows quietly on the live event instead
          of waiting for the reader to press Refresh. */
       void readScope(undefined, true);
-    };
-    source.addEventListener("schedules", onChange);
-    source.addEventListener("error", () => {
-      if (source.readyState === EventSource.CLOSED && reportEventsRef.current === source) reportEventsRef.current = null;
     });
-    reportEventsRef.current = source;
   }, [readScope]);
-  /* The stream sleeps with the tab (see pageAwake.ts); waking re-reads once so
-     nothing saved during the sleep is missed. */
+  /* The listening sleeps with the tab (see pageAwake.ts); waking re-reads once
+     so nothing saved during the sleep is missed. */
   const pageAwake = usePageAwake();
   const reportStreamOpenedBefore = useRef(false);
   useEffect(() => {

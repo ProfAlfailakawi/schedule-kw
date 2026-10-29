@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePageAwake } from "../utils/pageAwake";
+import { onLiveSignal } from "../utils/livePulse";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Bell, CheckCheck, CheckCircle2, ChevronLeft, Clock3, X, Zap } from "lucide-react";
 import type { CenterNotification, NotificationTone } from "../utils/notificationCenter";
@@ -125,24 +126,21 @@ export default function NotificationCenter({ userKey, onNavigate }: Props) {
   useEffect(() => {
     if (!pageAwake) return;
     load();
-    const timer = window.setInterval(load, 60000);
+    /* احتياطٌ بطيء لما لا تُعلن عنه نبضة — موعدٌ يمرّ، رادارٌ يتجدّد وحده. كانت
+       القراءةُ كل دقيقة لأنها كانت الطريقَ الوحيد إن انقطع الخيط، وكلُّ قراءةٍ
+       تقرأ الفصل؛ والنبضةُ اليوم لا تنقطع بانقطاع خيط. */
+    const timer = window.setInterval(load, 5 * 60_000);
     window.addEventListener("focus", load);
-    /* النبضةُ الحيّة: الخادم يقول «تغيّر شيء» فيُسأل فوراً — طلبُ أستاذ،
-       إرجاعٌ، اعتماد. والقراءةُ الدورية تبقى احتياطاً إن انقطع الخيط. */
-    let source: EventSource | null = null;
+    /* النبضةُ الحيّة (utils/livePulse.ts): سؤالٌ قصيرٌ كل ثوانٍ بدل خيطٍ مفتوحٍ
+       طوال اليوم. الخادم يقول «تغيّر شيء» فيُسأل الجرس — طلبُ أستاذ، إرجاعٌ،
+       اعتماد — والقراءةُ نفسها كما كانت. */
     let pending = 0;
     const soon = () => { window.clearTimeout(pending); pending = window.setTimeout(load, 700); };
-    try {
-      if (typeof EventSource !== "undefined") {
-        source = new EventSource("/api/schedules/events");
-        source.addEventListener("notify", soon);
-        source.addEventListener("schedules", soon);
-      }
-    } catch { source = null; }
+    const stopPulse = onLiveSignal(["notify", "schedules"], soon);
     return () => {
       window.clearInterval(timer); window.clearTimeout(pending);
       window.removeEventListener("focus", load);
-      source?.close();
+      stopPulse();
     };
   }, [load, pageAwake]);
 

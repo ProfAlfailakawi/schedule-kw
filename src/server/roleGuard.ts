@@ -32,6 +32,9 @@ export const SESSION_WRITE_PATHS = new Set([
   "/auth/logout", "/auth/heartbeat", "/auth/presence",
   "/auth/login", "/auth/demo", "/demo/reset", "/demo/role", "/telemetry/client",
   "/notifications/seen",
+  // A tab saying it closed (livePulse.ts) — presence, not data: a dean or a
+  // department head leaves a board exactly like anyone else.
+  "/schedules/pulse",
 ]);
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);

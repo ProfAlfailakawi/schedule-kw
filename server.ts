@@ -50,6 +50,7 @@ import { readVisitingTeaching } from "./src/server/visitingTeachingRead";
 import { aggregateVisitingHistory } from "./src/utils/visitingHistory";
 import { coerceScopeValues } from "./src/utils/scopeContext";
 import { readOnlyRefusal, roleWriteDecision } from "./src/server/roleGuard";
+import { companyOn, createChangeClock, sweepPulses, type PulseEntry } from "./src/server/livePulse";
 import { provisionCollegeUsers } from "./src/server/sectionUsers";
 import { registerStudyProposalRoutes, seedDemoStudyProposals } from "./src/server/studyProposalRoutes";
 import { effectiveStatus as studyProposalStatus, decisionStateOf as studyProposalDecision } from "./src/utils/studyProposal";
@@ -2910,7 +2911,10 @@ app.post("/api/auth/presence", requireAuth, (req: AuthenticatedRequest, res: Res
   const termId = Number(scope.termId || 0);
   if (collegeId && isScopeAllowed(req, collegeId, sectionId)) {
     record.collegeId = collegeId; record.sectionId = sectionId;
-    record.scopeKey = `${collegeId}:${sectionId}:${termId}`;
+    // The same key the stream registered under. A bare `c:s:t` here filed a
+    // demo visitor under the REAL board with those numbers, and put their
+    // name and pointer on real coordinators' screens.
+    record.scopeKey = boardScopeKey(req, collegeId, sectionId, termId);
   }
 
   if (body.gone) {
@@ -5599,10 +5603,18 @@ interface ScheduleEventClient extends PresenceMark {
 const scheduleEventClients = new Map<Response, ScheduleEventClient>();
 let scheduleEventTimer: ReturnType<typeof setTimeout> | null = null;
 let scheduleEventSerial = 0;
+/* The same two pieces of news, kept as times for the screens that ask instead
+   of listening (the pulse below; src/server/livePulse.ts explains why). */
+const scheduleChangeClock = createChangeClock(Date.now());
+const notifyClock = createChangeClock(Date.now());
 /** Writes the event to every screen attached to THIS instance. */
 function broadcastScheduleChange(demoSessionId = "") {
+  // One time for both channels, so a screen holding a stream can tell that
+  // the pulse is repeating news the stream already delivered.
+  const changedAt = Date.now();
+  scheduleChangeClock.bump(demoSessionId, changedAt);
   scheduleEventSerial += 1;
-  const payload = `id: ${scheduleEventSerial}\nevent: schedules\ndata: {"changedAt":${Date.now()}}\n\n`;
+  const payload = `id: ${scheduleEventSerial}\nevent: schedules\ndata: {"changedAt":${changedAt}}\n\n`;
   for (const [response, client] of scheduleEventClients) {
     if (demoSessionId && client.demoSessionId !== demoSessionId) continue;
     try { response.write(payload); } catch { scheduleEventClients.delete(response); }
@@ -5617,6 +5629,7 @@ function broadcastScheduleChange(demoSessionId = "") {
 /* نبضةٌ من صندوقٍ تجريبي لا توقظ إلا شاشاتِ ذلك الصندوق: قرارٌ وهميّ لا يجعل
    كلَّ شاشةٍ حقيقية تعيد سؤال جرسها. */
 function broadcastNotify(demoSessionId = "") {
+  notifyClock.bump(demoSessionId);
   scheduleEventSerial += 1;
   const payload = `id: ${scheduleEventSerial}\nevent: notify\ndata: {"at":${Date.now()}}\n\n`;
   for (const [response, client] of scheduleEventClients) {
@@ -5731,14 +5744,25 @@ setInterval(() => {
     }
   }
 }, 10_000).unref?.();
+/* Everyone who wrote in the window, not only the first. The window used to keep
+   the first writer's sandbox and drop the rest: a demo visitor's save and a
+   coordinator's save landing in the same 350 ms became one announcement in the
+   visitor's name, the coordinator's colleagues never heard of theirs, and the
+   beacon stayed silent (it says nothing from inside a sandbox). */
+const pendingScheduleSessions = new Set<string>();
 onSchedulesInvalidated(() => {
+  pendingScheduleSessions.add(Repository.currentDemoSessionId());
   if (scheduleEventTimer) return;
-  const demoSessionId = Repository.currentDemoSessionId();
   scheduleEventTimer = setTimeout(() => {
     scheduleEventTimer = null;
-    broadcastScheduleChange(demoSessionId);
-    // …and tell the other instances, which never saw this write at all.
-    void Repository.markSchedulesChanged();
+    const sessions = [...pendingScheduleSessions];
+    pendingScheduleSessions.clear();
+    // A real change is written to every screen, sandboxes included, so once is enough.
+    if (sessions.includes("")) broadcastScheduleChange("");
+    else for (const session of sessions) broadcastScheduleChange(session);
+    // …and tell the other instances, which never saw this write at all — as
+    // the university, whichever sandbox happened to open the window.
+    if (sessions.includes("")) void Repository.outsideDemoSandbox(() => Repository.markSchedulesChanged());
   }, 350);
 });
 /**
@@ -5807,7 +5831,7 @@ app.get("/api/schedules/events", requireAnyPermission([7, 8, 9, 10, 14, 16, 17])
         peers: presenceRoster(boardScopeKey(req, collegeId, sectionId, termId), now),
       })}\n\n`);
     } catch { /* the close handler below does the cleanup */ }
-    markPresenceDirty(`${collegeId}:${sectionId}:${termId}`);
+    markPresenceDirty(boardScopeKey(req, collegeId, sectionId, termId));
   }
 
   // Proxies drop silent connections; a comment line every while keeps this one open.
@@ -5822,6 +5846,50 @@ app.get("/api/schedules/events", requireAnyPermission([7, 8, 9, 10, 14, 16, 17])
     scheduleEventClients.delete(res);
     if (gone?.scopeKey) markPresenceDirty(gone.scopeKey);
   });
+});
+
+/**
+ * ── النبضة: الخيطُ يُفتح حين يكون معك أحد ─────────────────────────────────
+ *
+ * The stream's cheap twin (src/server/livePulse.ts has the reasoning). A
+ * screen that is alone on its board asks this every few seconds instead of
+ * holding a stream open: who else is here, when did the board last change,
+ * when did the bell last have news. It is answered from memory — no database
+ * read — and closes at once, so Cloud Run bills milliseconds, not afternoons.
+ *
+ * Behind the same door as the stream, and the same wall: a pulse may only
+ * claim a board its holder is allowed to be on, and an empty scope (the bell,
+ * the reports screen) counts as nobody's company.
+ */
+const pulseClients = new Map<string, PulseEntry>();
+app.get("/api/schedules/pulse", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), (req: AuthenticatedRequest, res: Response) => {
+  const now = Date.now();
+  const connId = String(req.query.conn || "").slice(0, 64);
+  const collegeId = Number(req.query.college || 0);
+  const sectionId = Number(req.query.section || 0);
+  const termId = Number(req.query.term || 0);
+  const userId = Number(req.user?.SystemUserId || 0);
+  const scopeKey = connId && collegeId && isScopeAllowed(req, collegeId, sectionId)
+    ? boardScopeKey(req, collegeId, sectionId, termId)
+    : "";
+  if (connId) pulseClients.set(connId, { userId, scopeKey, active: req.query.active !== "0", seenAt: now });
+  sweepPulses(pulseClients, now);
+  const demoSessionId = req.demoSessionId || "";
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    company: companyOn(scopeKey, userId, pulseClients.values(), scheduleEventClients.values(), now),
+    changedAt: scheduleChangeClock.read(demoSessionId),
+    notifiedAt: notifyClock.read(demoSessionId),
+  });
+});
+/* Leaving. sendBeacon can only POST, and a closed tab should stop counting as
+   company now, not a minute and a half from now. Only the tab's own account
+   can retire it. */
+app.post("/api/schedules/pulse", requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  const connId = String(req.query.conn || "").slice(0, 64);
+  const entry = pulseClients.get(connId);
+  if (entry && entry.userId === Number(req.user?.SystemUserId || 0)) pulseClients.delete(connId);
+  res.status(204).end();
 });
 
 /**
@@ -23500,6 +23568,14 @@ function openLive(){if(liveOff||live||!window.EventSource||document.visibilitySt
 setInterval(function(){if(document.visibilityState==="visible"&&Date.now()-lastFetch>110000)refresh()},30000);
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"){openLive();if(Date.now()-lastFetch>30000)refresh()}else closeLive()});
 window.addEventListener("focus",function(){if(Date.now()-lastFetch>30000)refresh()});
+/* ظاهرةٌ لا تعني مقروءة: صفحةٌ تُركت أمام كرسيٍّ فارغ عشرَ دقائق تُغلق بثّها — فالبثُّ
+   المفتوح يُحسب على الخادم كلَّ ثانيةٍ يبقى فيها — وتبقى القراءةُ البطيئة أعلاه كل
+   دقيقتين، فيصل القرارُ على أي حال. وأوّلُ لمسةٍ تُعيد البثّ وتقرأ. */
+var touchedAt=Date.now(),idleClosed=false;
+function touched(){touchedAt=Date.now();if(idleClosed&&document.visibilityState==="visible"){idleClosed=false;openLive();if(Date.now()-lastFetch>30000)refresh()}}
+["pointerdown","pointermove","keydown","wheel","touchstart"].forEach(function(n){window.addEventListener(n,touched,{passive:true})});
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"){touchedAt=Date.now();idleClosed=false}});
+setInterval(function(){if(live&&Date.now()-touchedAt>600000){closeLive();idleClosed=true}},60000);
 fetch("/api/public/request/"+encodeURIComponent(TOKEN)).then(function(r){
  return r.json().then(function(d){return{ok:r.ok,d:d}})}).then(function(x){
  if(!x.ok){host.innerHTML='<div class="err">'+esc(x.d.error||"تعذّر فتح الرابط")+'</div>';return}

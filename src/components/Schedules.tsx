@@ -167,6 +167,7 @@ import type { GapItem as SectionGapItem } from "../utils/sectionGap";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
+import { onLiveSignal, onLiveState, setLiveScope, type LiveState } from "../utils/livePulse";
 import { adviseDayPattern, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding, reviewSchedule, type DayKey as RegDayKey } from "../utils/scheduleRegulations";
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { rowClashReasons } from "../utils/scheduleBlockers";
@@ -8381,8 +8382,61 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      server time, and a board nobody is looking at has nothing to show. */
   const pageAwake = usePageAwake();
   const liveStreamOpenedBefore = useRef(false);
+  /**
+   * ── الخيطُ يُفتح حين يكون معك أحد ─────────────────────────────────────────
+   *
+   * Alone on a board there is no presence to draw and nobody to race for a
+   * card, and a stream held open for nobody was the largest line on the bill.
+   * The tab's pulse (utils/livePulse.ts) asks who else is on this board: the
+   * stream opens the moment the answer is "someone", and closes half a minute
+   * after it becomes "no one" — long enough that a colleague reloading their
+   * page does not make the line flicker. In between, the pulse carries the
+   * news: a change made anywhere reaches this board within seconds, by the same
+   * quiet scoped re-read the stream would have asked for.
+   */
+  const [liveState, setLiveState] = useState<LiveState>({ company: 0, connected: false });
+  useEffect(() => onLiveState(setLiveState), []);
+  const [liveShared, setLiveShared] = useState(false);
   useEffect(() => {
-    if (mode !== "schedule" || !workspaceReady || !pageAwake || typeof EventSource === "undefined") return;
+    if (liveState.company > 0) { setLiveShared(true); return; }
+    const timer = window.setTimeout(() => setLiveShared(false), 30_000);
+    return () => window.clearTimeout(timer);
+  }, [liveState.company]);
+  useEffect(() => {
+    if (mode !== "schedule" || !workspaceReady) return;
+    setLiveScope({ collegeId: filterCollege, sectionId: filterSection, termId: filterTerm });
+    return () => setLiveScope(null);
+  }, [mode, workspaceReady, filterCollege, filterSection, filterTerm]);
+  /* The newest change the stream itself delivered. A pulse repeating it is
+     not news; one reporting something later is (a change made while the
+     stream was reconnecting, or before it opened). */
+  const lastStreamChange = useRef(0);
+  const loadRowsRef = useRef(loadRows);
+  loadRowsRef.current = loadRows;
+  useEffect(() => {
+    if (mode !== "schedule" || !workspaceReady) return;
+    let retry = 0;
+    const refresh = () => {
+      window.clearTimeout(retry);
+      if (liveBusy.current) {
+        // Re-armed for the same reason as the stream's own refresh below: the
+        // companion effect only runs when the work state changes.
+        liveRefreshPending.current = true;
+        retry = window.setTimeout(refresh, 1200);
+        return;
+      }
+      liveRefreshPending.current = false;
+      void loadRowsRef.current({ silent: true }).catch(() => undefined);
+    };
+    const stop = onLiveSignal(["schedules"], ({ changedAt }) => {
+      if (changedAt <= lastStreamChange.current) return;
+      refresh();
+      setLiveFeedSerial(current => current + 1);
+    });
+    return () => { window.clearTimeout(retry); stop(); };
+  }, [mode, workspaceReady]);
+  useEffect(() => {
+    if (mode !== "schedule" || !workspaceReady || !pageAwake || !liveShared || typeof EventSource === "undefined") return;
     let refreshTimer = 0;
     /* The scope goes on the URL so the server knows which board this stream is
        watching from the first byte. It is read from the ref, not the filter
@@ -8429,7 +8483,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       liveRefreshPending.current = false;
       void loadRows({ silent: true }).catch(() => undefined);
     };
-    source.addEventListener("schedules", () => {
+    source.addEventListener("schedules", event => {
+      try {
+        const changedAt = Number(JSON.parse((event as MessageEvent).data)?.changedAt) || 0;
+        lastStreamChange.current = Math.max(lastStreamChange.current, changedAt);
+      } catch { /* the refresh below does not depend on the time */ }
       window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(refreshQuietly, 250);
       setLiveFeedSerial(current => current + 1);
@@ -8441,6 +8499,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     source.onopen = () => {
       setLiveFeed(true);
       liveStreamOpenedBefore.current = true;
+      presence.resend();
       if (wokeFromSleep && !caughtUp) { caughtUp = true; refreshQuietly(); }
     };
     source.onerror = () => setLiveFeed(false);
@@ -8452,8 +8511,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       presencePaint.clear();
       source.close();
       setLiveFeed(false);
+      // No line, nobody seen: colleagues' chips go with the stream instead of
+      // staying on screen as if they were still being watched.
+      const now = scopeRef.current;
+      presence.ingest({ scope: `${now.collegeId}:${now.sectionId}:${now.termId}`, peers: [] });
     };
-  }, [mode, workspaceReady, pageAwake]);
+  }, [mode, workspaceReady, pageAwake, liveShared]);
   /* Who is here is the only part of presence allowed to be React state — it
      changes when someone arrives or leaves, not when they move. */
   useEffect(() => presence.onRoster(setPeers), [presence]);
@@ -10345,11 +10408,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           {/* The live radar: what the board knows about itself, always visible.
               Counted locally on every change, so the number never waits for a
               request — pressing it takes you to the offending cards. */}
+          {/* Two ways of being connected, and the dot says which: a stream
+              shared with a colleague here now, or the pulse that keeps a board
+              you have to yourself up to date within seconds. */}
           <span
-            className={`schedule-live-dot ${liveFeed ? "on" : ""}`}
-            title={liveFeed ? "بث مباشر: أي تغيير من زميل يظهر هنا تلقائياً" : "البث المباشر غير متصل — يحدَّث عند القراءة"}
+            className={`schedule-live-dot ${liveFeed || liveState.connected ? "on" : ""}`}
+            title={liveFeed
+              ? "بث مباشر: أي تغيير من زميل يظهر هنا تلقائياً"
+              : liveState.connected
+                ? "متصل: أي تغيير من زميل يصل هنا خلال ثوانٍ، ويصير لحظياً حين يفتح زميلٌ هذا الجدول"
+                : "البث المباشر غير متصل — يحدَّث عند القراءة"}
             role="status"
-            aria-label={liveFeed ? "البث المباشر متصل" : "البث المباشر غير متصل"}
+            aria-label={liveFeed || liveState.connected ? "البث المباشر متصل" : "البث المباشر غير متصل"}
           />
           {/* Who else is on this board. It only ever names the people it can
               see — it never claims you are alone, because a colleague served by

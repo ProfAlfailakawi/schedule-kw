@@ -431,7 +431,10 @@ const surveyPageSource = between(server, "function studentCaseSurveyPage", "</sc
   const pulse = between(server, 'const broadcastStudentNotifySoon', "/* A mark older than this");
   check(pulse.includes('createCoalescer(3000, broadcastNotify)') && pulse.includes('app.use("/api/student-registration"') && pulse.includes("broadcastStudentNotifySoon();"),
     "S19 قرارات الكشف ترسل نبضة الإشعارات — مجمّعةً في ثلاث ثوانٍ");
-  check(read("src/components/StudentRegistration.tsx").includes('source.addEventListener("notify", soon)'), "S19 والكشف المفتوح يعيد القراءة عندها");
+  // The sheet hears it through the tab's pulse now (utils/livePulse.ts), not a
+  // stream of its own; the notify clock is what the pulse reports.
+  check(read("src/components/StudentRegistration.tsx").includes('onLiveSignal(["notify"], soon)'), "S19 والكشف المفتوح يعيد القراءة عندها");
+  check(between(server, "function broadcastNotify(", "for (const prefix of").includes("notifyClock.bump(demoSessionId);"), "S19 والنبضة تحمل الخبر لمن لا خيط له");
 }
 
 /* ── مراجعة 2: الجرس لا يقرأ كشف الفصل مع كل نداء ─────────────────────── */

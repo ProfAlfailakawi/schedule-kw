@@ -59,6 +59,8 @@
     "test:schedule-apply": "tsx tests/schedule-apply-proposal-audit.ts",
     "test:time-machine": "tsx tests/time-machine-audit.ts",
     "test:time-machine-links": "tsx tests/time-machine-links-audit.ts",
+    "test:live-pulse": "tsx tests/live-pulse-audit.ts",
+    "test:live-pulse-http": "tsx tests/live-pulse-http-audit.ts",
     "test:radar-insight": "tsx tests/radar-insight-audit.ts",
     "test:outcome-story": "tsx tests/outcome-story-audit.ts",
     "test:registration-causes": "tsx tests/registration-causes-audit.ts",
