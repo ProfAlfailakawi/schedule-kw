@@ -203,14 +203,15 @@ try {
   const girls = await json("/api/colleges", { method: "POST", body: JSON.stringify({ AdCollegeCode: "77", AdCollegeName: "كلية الاختبار - بنات" }) });
   const boysId = Number(boys.body?.AdCollegeId || boys.body?.college?.AdCollegeId || 0), girlsId = Number(girls.body?.AdCollegeId || girls.body?.college?.AdCollegeId || 0);
   check(boysId > 0 && girlsId > 0, "S9 حرمان جديدان للكلية نفسها", { boys: boys.status, girls: girls.status });
+  /* الكليةُ الجديدة تولد برئيس تسجيلها، وحرمُها الثاني يلحق بالكرسي نفسه (لا كرسيّان) */
   const listed = await json("/api/seats");
-  const family = listed.body?.missingCollegeRegistrars?.find((row: any) => row.familyName === "كلية الاختبار");
-  check(family?.colleges?.length === 2, "S9 الحرمان بلا رئيس تسجيل يظهران زرّاً واحداً", listed.body?.missingCollegeRegistrars);
-  const createdSeat = await json("/api/seats/college-registrar", { method: "POST", body: JSON.stringify({ collegeIds: [boysId, girlsId], name: "أ. رئيسة تسجيل الاختبار", mobile: "99001122" }) });
-  check(createdSeat.status === 201 && createdSeat.body?.seatName === "رئيس تسجيل الكلية — كلية الاختبار", "S9 كرسيٌّ واحد للحرمين باسم الكلية", createdSeat.body);
+  const autoSeats = (listed.body?.seats || []).filter((row: any) => row.role === "collegeRegistrar" && row.collegeIds.includes(boysId));
+  check(autoSeats.length === 1 && autoSeats[0].collegeIds.includes(girlsId) && autoSeats[0].name === "رئيس تسجيل الكلية — كلية الاختبار" && autoSeats[0].mustChangePassword === true,
+    "S9 الحرمان الجديدان لكرسيّ رئيس تسجيلٍ واحد يولد معهما باسم الكلية", autoSeats);
+  check(!(listed.body?.missingCollegeRegistrars || []).some((row: any) => row.familyName === "كلية الاختبار"), "S9 ولا يظهران في الكليات الناقصة");
   const second = await json("/api/seats/college-registrar", { method: "POST", body: JSON.stringify({ collegeIds: [girlsId], name: "أ. كرسيٌّ مكرر" }) });
   check(second.status === 409, "S9 ولا كرسيَّ ثانياً لحرمٍ له رئيس تسجيل", second.body);
-  const seatId = Number(createdSeat.body?.seatId);
+  const seatId = Number(autoSeats[0]?.id);
   const girlsSections = ((await json("/api/sections")).body as any[] || []).filter((row: any) => Number(row.AdCollegeId) === girlsId);
   const campusScopes = [{ AdCollegeId: boysId, AdSectionId: 0 }, ...(girlsSections[0] ? [{ AdCollegeId: girlsId, AdSectionId: Number(girlsSections[0].AdSectionId) }] : [{ AdCollegeId: girlsId, AdSectionId: 0 }])];
   const staff = await json(`/api/seats/${seatId}/members`, { method: "POST", body: JSON.stringify({ name: "أ. موظفة الحرمين", civil: "290010155555", scopes: campusScopes }) });
@@ -227,6 +228,33 @@ try {
   const sessionColleges = new Set((staffSession.body?.scopes || []).map((row: any) => Number(row.AdCollegeId)));
   check(staffSession.body?.role?.id === "registrarStaff" && !sessionColleges.has(boysId) && (girlsSections[0] ? sessionColleges.has(girlsId) : true),
     "S9 والحرمُ المرفوع يسقط من نطاق الموظف: لا يتّسع نطاقُه على كرسيّ من أضافه", { scopes: staffSession.body?.scopes });
+
+  /* S10: الكليةُ الجديدة تولد برئيس تسجيلها بالكلمة الافتراضية، و«أنشئها كلّها» يسدّ ما نقص */
+  await as("admin");
+  const madeIds: number[] = [];
+  for (const name of ["كلية التجربة - بنين", "كلية التجربة - بنات", "كلية التجربة - الفحيحيل - بنات"]) {
+    const made = await json("/api/colleges", { method: "POST", body: JSON.stringify({ AdCollegeCode: "88", AdCollegeName: name }) });
+    madeIds.push(Number(made.body?.AdCollegeId || 0));
+  }
+  const trialSeats = ((await json("/api/seats")).body?.seats || []).filter((row: any) => row.role === "collegeRegistrar" && row.collegeIds.some((id: number) => madeIds.includes(id)));
+  const trialSeat = trialSeats[0];
+  check(trialSeats.length === 1 && madeIds.every(id => trialSeat.collegeIds.includes(id)) && trialSeat.name === "رئيس تسجيل الكلية — كلية التجربة",
+    "S10 ثلاثةُ حرمٍ جديدة لكرسيٍّ واحد يولد معها", trialSeats);
+  check(trialSeat?.mustChangePassword === true && trialSeat?.active === true, "S10 الحساب فعّالٌ ومُعلَّمٌ بتغيير الكلمة الافتراضية عند أول دخول", trialSeat);
+  /* حرمٌ رُفع عن كرسيّه صار ناقصاً: «أنشئها كلّها» يعيده إلى كرسيّ كليته، لا كرسيَّ جديداً */
+  await json(`/api/seats/${trialSeat?.id}/colleges`, { method: "POST", body: JSON.stringify({ collegeIds: [madeIds[0]] }) });
+  const gap = await json("/api/seats");
+  check(gap.body?.missingCollegeRegistrars?.some((row: any) => row.familyName === "كلية التجربة" && row.colleges.length === 2), "S10 الحرمان المرفوعان يظهران ناقصين", gap.body?.missingCollegeRegistrars);
+  const before = gap.body?.seats?.filter((row: any) => row.role === "collegeRegistrar").length;
+  const allRun = await json("/api/seats/college-registrars/all", { method: "POST" });
+  const trial = allRun.body?.results?.find((row: any) => row.seatId === trialSeat?.id);
+  check(allRun.status === 200 && allRun.body?.password === "12345678" && trial?.status === "extended" && trial?.colleges?.length === 2,
+    "S10 «أنشئها كلّها» يعيد الحرمين إلى كرسيّ كليتهما", allRun.body);
+  const afterRun = await json("/api/seats");
+  check(afterRun.body?.missingCollegeRegistrars?.length === 0 && afterRun.body?.seats?.filter((row: any) => row.role === "collegeRegistrar").length === before,
+    "S10 لم تبقَ كليةٌ بلا رئيس تسجيل، ولم يتكرّر كرسيّ", afterRun.body?.missingCollegeRegistrars);
+  const rerun = await json("/api/seats/college-registrars/all", { method: "POST" });
+  check(rerun.status === 200 && rerun.body?.results?.length === 0, "S10 الإعادة لا تنشئ شيئاً", rerun.body);
 } catch (error) {
   failed++;
   console.log("\x1b[31m✗ الاختبار الحيّ توقّف:\x1b[0m", error instanceof Error ? error.message : error);
