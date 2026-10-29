@@ -388,7 +388,7 @@
    ],
    "path": "/api/demo/teacher-card",
    "name": "bound dispatch",
-   "call": "0c680b78af67fa01",
+   "call": "c8c7649c9be5f84c",
    "site": "server.ts:2891",
    "regexp": "/^\\/api\\/demo\\/teacher-card\\/?$/i",
    "end": true
@@ -5832,7 +5832,7 @@
    ],
    "path": "/api/public/push/rotate",
    "name": "bound dispatch",
-   "call": "e5904a0c87ea842c",
+   "call": "4768c671895eeb90",
    "site": "src/server/pushRoutes.ts:362",
    "regexp": "/^\\/api\\/public\\/push\\/rotate\\/?$/i",
    "end": true

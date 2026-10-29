@@ -387,7 +387,7 @@ export default function CurriculumPlans({
       {picking ? (
         <div className="plan-picker">
           <header>
-            <div><strong>مقررات بقيت كما هي</strong><span>اختر من الصحيفة السابقة ما بقي برقمه واسمه في الجديدة، فيصير مشتركاً بين الصحيفتين.</span></div>
+            <div><strong>مقررات بقيت كما هي</strong><span>اختر من الصحيفة السابقة ما بقي برقمه واسمه في الجديدة، فيصبح مشتركاً بين الصحيفتين.</span></div>
             <button type="button" className="plan-link-btn" data-guide-ignore="تحديد كل المقررات الظاهرة أو إلغاء التحديد" onClick={() => {
               const visible = filterList(carryable).map(course => Number(course.AdCourseId));
               const all = visible.every(id => picked.has(id));
@@ -561,7 +561,7 @@ export default function CurriculumPlans({
             <div className="plan-next">
               {showNextGeneration ? (
                 <Surface className="plan-next-form">
-                  <p>نادراً ما يُحتاج: صحيفة ثالثة بعد الجديدة. تصير «{active.name}» سابقةً وتبدأ الأحدث فارغة.</p>
+                  <p>نادراً ما يُحتاج: صحيفة ثالثة بعد الجديدة. تصبح «{active.name}» سابقةً وتبدأ الأحدث فارغة.</p>
                   <input value={planName} onChange={e => setPlanName(e.target.value)} placeholder="اسم الصحيفة الأحدث" aria-label="اسم الصحيفة الأحدث" />
                   <PrimaryButton data-guide-ignore="إنشاء جيل أحدث من الصحيفة" onClick={createPlan} disabled={busy || !planName.trim()}><Plus /> إنشاء</PrimaryButton>
                   <SecondaryButton data-guide-ignore="إلغاء إنشاء صحيفة أحدث" onClick={() => setShowNextGeneration(false)}>إلغاء</SecondaryButton>

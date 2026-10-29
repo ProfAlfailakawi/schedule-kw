@@ -601,7 +601,7 @@ export default function SubmissionDeadlines({ terms, termId, onTermChange, rows,
                   <div className="sd-request-text">
                     <strong>{row.sectionName || `قسم ${row.sectionId}`} <small>{row.collegeName}</small></strong>
                     <span>يطلب {countOf(ask.days, oblique(AR.day))} — «{ask.reason}»</span>
-                    <small>{ask.by}{ask.at ? ` · ${stamp(ask.at)}` : ""}{plan ? ` · يصير موعده ${deadlineDateShort(plan.until)}` : ""}</small>
+                    <small>{ask.by}{ask.at ? ` · ${stamp(ask.at)}` : ""}{plan ? ` · يصبح موعده ${deadlineDateShort(plan.until)}` : ""}</small>
                   </div>
                   {canEdit ? (
                     rejecting === key ? (

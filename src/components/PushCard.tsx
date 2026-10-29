@@ -5,7 +5,7 @@ import {
 } from "../utils/pushClient";
 
 /**
- * ── 🔔 «خلّ التنبيهات توصل جوالك» — بطاقةٌ في مركز الإشعارات ────────────────
+ * ── 🔔 «فعّل التنبيهات على جوالك» — بطاقةٌ في مركز الإشعارات ────────────────
  *
  * لمن يملك وارد طلبات الأساتذة وحده (الخادمُ يقول audience). مفتاحٌ واحد يُفعّل
  * التنبيه على هذا الجهاز، و«جرّب» يدفع تنبيهاً إليه الآن. وعلى iPhone خارج
@@ -117,7 +117,7 @@ export default function PushCard({ userKey }: { userKey: string }) {
         {phase === "blocked" ? <BellOff /> : phase === "ios" ? <Smartphone /> : <BellRing />}
       </span>
       <div className="push-text">
-        <strong>{phase === "blocked" ? "التنبيهات محظورة على هذا الجهاز" : "خلّ التنبيهات توصل جوالك"}</strong>
+        <strong>{phase === "blocked" ? "التنبيهات محظورة على هذا الجهاز" : "فعّل التنبيهات على جوالك"}</strong>
         {phase === "ios" ? (
           <ol className="push-steps" aria-label="ثلاث خطوات على iPhone">
             <li><span><Share aria-hidden="true" /></span><small>مشاركة ⬆︎</small></li>

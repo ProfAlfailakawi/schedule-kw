@@ -599,7 +599,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
             {nUnread ? (
               <p className="section-plan-yellow-note" role="status">
                 <AlertTriangle aria-hidden="true" />
-                <span>لم يُقرأ بوضوح «المتبقي» لـ{countOf(nUnread, AR.course)}: خاناتها صفراء وفارغة، ولن تُعبَّأ إلا إن كتبتَ قيمتها بيدك — لا تصير صفراً ولا تؤخذ من عمودٍ مجاور.</span>
+                <span>لم يُقرأ بوضوح «المتبقي» لـ{countOf(nUnread, AR.course)}: خاناتها صفراء وفارغة، ولن تُعبَّأ إلا إن كتبتَ قيمتها بيدك — لا تصبح صفراً ولا تؤخذ من عمودٍ مجاور.</span>
               </p>
             ) : null}
             {(preview.assessment?.notes || []).map(note => <p key={note} className="section-plan-yellow-note" role="status"><AlertTriangle aria-hidden="true" /><span>{note}</span></p>)}

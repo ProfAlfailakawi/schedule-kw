@@ -333,7 +333,7 @@ function heroHtml(v){
  var st=v.status,l=null,word="",big="",sub="",fill=1,meta="",ico=v.state,bigCls="ring-big";
  if(v.state==="busy"){l=v.today[st.current];word="مشغولة";big=codeOf(l);sub='تنتهي <time class="ltr">'+hm(st.until)+'</time>';fill=st.left/Math.max(1,l.e-l.s)}
  else if(v.state==="soon"){l=v.today[st.next];word="تبدأ بعد";big='<span class="ltr">'+st.left+'</span><small>د</small>';bigCls="ring-big count";sub=codeOf(l);fill=st.left/Math.max(1,D.soon)}
- else if(v.state==="free"){word="فاضية";sub=st.until>=0?'حتى <time class="ltr">'+hm(st.until)+'</time>':"بقية اليوم";fill=st.until>=0?Math.min(1,st.left/60):1}
+ else if(v.state==="free"){word="فارغة";sub=st.until>=0?'حتى <time class="ltr">'+hm(st.until)+'</time>':"بقية اليوم";fill=st.until>=0?Math.min(1,st.left/60):1}
  else if(v.state==="weekend"){word="عطلة";sub="نهاية الأسبوع"}
  else{word="خارج الفصل";sub=v.termState==="before"&&D.term&&D.term.start?"يبدأ "+esc(dateLabel(D.term.start)):D.upcoming?"الفصل القادم "+esc(dateLabel(D.upcoming)):"لا محاضرات الآن"}
  if(l)meta+='<p class="course">'+esc(l.title||"")+(l.sec?" · "+secOf(l):"")+"</p>";
@@ -377,7 +377,7 @@ function tileHtml(r){
  var v=viewOf({term:D.term,week:r.week,soon:D.soon}),st=v.status,word="",meta="",p=0,l;
  if(v.state==="busy"){l=v.today[st.current];word="مشغولة";meta=(l.code?'<bdi class="ltr">'+esc(l.code)+"</bdi> · ":"")+"حتى "+hm(st.until);p=1-st.left/Math.max(1,l.e-l.s)}
  else if(v.state==="soon"){l=v.today[st.next];word="تبدأ بعد "+st.left+" د";meta=(l.code?'<bdi class="ltr">'+esc(l.code)+"</bdi> · ":"")+hm(l.s);p=1-st.left/Math.max(1,D.soon)}
- else if(v.state==="free"){word="فاضية";meta=st.until>=0?"حتى "+hm(st.until):"بقية اليوم";p=st.until>=0?Math.max(0,1-st.left/240):0}
+ else if(v.state==="free"){word="فارغة";meta=st.until>=0?"حتى "+hm(st.until):"بقية اليوم";p=st.until>=0?Math.max(0,1-st.left/240):0}
  else if(v.state==="weekend"){word="عطلة";meta="نهاية الأسبوع"}
  else{word="خارج الفصل";meta="—"}
  return {state:v.state,html:'<a class="tile st-'+v.state+'" href="'+esc(r.href)+'"><span class="t-top"><span class="t-code">'+esc(r.code)+'</span><span class="t-dot">'+ic(v.state)+'</span></span><span class="t-state">'+word+'</span><span class="t-meta">'+meta+'</span><span class="t-bar"><i style="width:'+Math.round(Math.max(0,Math.min(1,p))*100)+'%"></i></span></a>'}}
@@ -385,7 +385,7 @@ function renderBoard(){
  var counts={free:0,busy:0,soon:0},groups=[],byFloor={},all="",i,r,t,g,html="",state="";
  for(i=0;i<D.rooms.length;i++){r=D.rooms[i];t=tileHtml(r);state=t.state;if(counts[t.state]!==undefined)counts[t.state]++;all+=t.html;
   g=byFloor[r.floor];if(!g){g={label:r.floor,html:"",n:0};byFloor[r.floor]=g;groups.push(g)}g.html+=t.html;g.n++}
- var legend='<div class="legend"><span class="st-free"><i></i>فاضية <b>'+counts.free+'</b></span><span class="st-busy"><i></i>مشغولة <b>'+counts.busy+'</b></span><span class="st-soon"><i></i>تبدأ قريباً <b>'+counts.soon+"</b></span></div>";
+ var legend='<div class="legend"><span class="st-free"><i></i>فارغة <b>'+counts.free+'</b></span><span class="st-busy"><i></i>مشغولة <b>'+counts.busy+'</b></span><span class="st-soon"><i></i>تبدأ قريباً <b>'+counts.soon+"</b></span></div>";
  var banner=state==="weekend"?'<div class="banner">'+ic("weekend")+"عطلة نهاية الأسبوع — تعود المحاضرات الأحد</div>":state==="outside"?'<div class="banner">'+ic("outside")+"خارج الفصل الدراسي"+(D.upcoming?" — الفصل القادم "+esc(dateLabel(D.upcoming)):"")+"</div>":"";
  /* الشاشةُ شبكةٌ واحدة تملأ التلفاز بلا تمرير؛ والهاتفُ أدوارٌ بعناوينها. */
  if(SCREEN)html='<div class="tiles" id="tiles">'+all+"</div>";
@@ -518,7 +518,7 @@ export function boardDoorPage(data: BoardDoorData, opts: DoorPageOptions): strin
     + `<a href="${esc(opts.self)}?screen=1">${icon("screen")}وضع الشاشة</a></div>`;
   return shell({
     title: `قاعات مبنى ${building.number || building.code} الآن`,
-    description: `${doorDateLabel(today.date)} — أيّ القاعات فاضية الآن`,
+    description: `${doorDateLabel(today.date)} — أيّ القاعات فارغة الآن`,
     screen: opts.screen,
     nonce: opts.nonce,
     header: topBar(data.term?.name || "", opts.screen) + ident,

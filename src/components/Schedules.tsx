@@ -10556,7 +10556,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             title={liveFeed
               ? "بث مباشر: أي تغيير من زميل يظهر هنا تلقائياً"
               : liveState.connected
-                ? "متصل: أي تغيير من زميل يصل هنا خلال ثوانٍ، ويصير لحظياً حين يفتح زميلٌ هذا الجدول"
+                ? "متصل: أي تغيير من زميل يصل هنا خلال ثوانٍ، ويصبح لحظياً حين يفتح زميلٌ هذا الجدول"
                 : "البث المباشر غير متصل — يحدَّث عند القراءة"}
             role="status"
             aria-label={liveFeed || liveState.connected ? "البث المباشر متصل" : "البث المباشر غير متصل"}

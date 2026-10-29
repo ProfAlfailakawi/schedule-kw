@@ -609,7 +609,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               {kind === "staff" ? <SendModePicker value={sendMode} onChange={setSendMode} /> : null}
               {kind === "staff" && sendMode === "ta" ? <TAPhasePanel collegeId={collegeId} sectionId={sectionId} termId={termId} /> : null}
               {kind === "staff" && sendMode === "edit" ? (
-                <details className="of-section"><summary>🟢🔒🌱🎯 حالة طرح المقررات في الكرت</summary>
+                <details className="of-section"><summary>🟢🔒🌱🎯 حالة طرح المقررات في بطاقة الأستاذ</summary>
                   <CourseOfferingPanel collegeId={collegeId} sectionId={sectionId} termId={termId} />
                 </details>
               ) : null}

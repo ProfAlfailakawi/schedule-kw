@@ -2453,8 +2453,8 @@ export default function App() {
               data-guide-ignore="رابطٌ خاصّ ببيئة Demo يفتح تجربة «مساري» للطالب في صندوقٍ معزول ببيانات وهمية">
               <GraduationCap aria-hidden="true" /><span>جرّب كطالب</span>
             </a>
-            <a className="demo-student-link demo-teacher-link" href="/api/demo/teacher-card" target="_blank" rel="noopener" title="افتح كرت الأستاذ كما يراه عضو هيئة التدريس، ببياناتٍ افتراضية"
-              data-guide-ignore="رابطٌ خاصّ ببيئة Demo يفتح كرت الأستاذ في صندوقٍ معزول ببيانات وهمية">
+            <a className="demo-student-link demo-teacher-link" href="/api/demo/teacher-card" target="_blank" rel="noopener" title="افتح بطاقة الأستاذ كما يراها عضو هيئة التدريس، ببياناتٍ افتراضية"
+              data-guide-ignore="رابطٌ خاصّ ببيئة Demo يفتح بطاقة الأستاذ في صندوقٍ معزول ببيانات وهمية">
               <Presentation aria-hidden="true" /><span>جرّب كأستاذ</span>
             </a>
             {demoInfo && demoInfo.roles.length ? (
@@ -2943,7 +2943,7 @@ export default function App() {
                   {favoriteViews.length || entityFavorites.length ? (
                     <>
                       <span className="command-group-title">
-                        الأكثر استخداماً عندك
+                        الأكثر استخداماً لديك
                       </span>
                       <div className="favorite-grid">
                         {entityFavorites.slice(0, 4).map((x) => (

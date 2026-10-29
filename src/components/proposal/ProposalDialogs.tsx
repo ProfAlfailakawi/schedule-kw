@@ -94,7 +94,7 @@ export function SendDialog({ ws, onClose, onSent }: { ws: Workspace; onClose: ()
   const readyMessage = [
     `السلام عليكم ${ctx.instructor.name}،`,
     `لديك مقترح دراسي من ${ctx.scope.sectionName || "القسم"} لفصل ${ctx.term.name}.`,
-    `تقدر تطّلع على أثره في جدولك وتخبرنا إذا يناسبك من رابطك الشخصي (آخر موعد للرد: ${deadline}):`,
+    `يمكنك الاطّلاع على أثره في جدولك وإخبارنا إن كان يناسبك من رابطك الشخصي (آخر موعد للرد: ${deadline}):`,
     link,
   ].filter(Boolean).join("\n");
   const wa = whatsappNumber(ctx.instructor.mobile);
@@ -127,7 +127,7 @@ export function SendDialog({ ws, onClose, onSent }: { ws: Workspace; onClose: ()
         <div className="sp-sent">
           <span className="sp-sent-icon" aria-hidden="true"><Check /></span>
           <h2>أُرسل المقترح إلى الأستاذ</h2>
-          <p className="sp-sent-lead">أصبح المقترح (النسخة {num(sentView.proposal.sentVersion)}) ظاهراً في كرت {ctx.instructor.name}{visiting ? <> <VisitingBadge compact /></> : null} الشخصي. الإرسال لا يحجز شعبةً ولا قاعةً، ولا يغيّر جدوله الفعلي.</p>
+          <p className="sp-sent-lead">أصبح المقترح (النسخة {num(sentView.proposal.sentVersion)}) ظاهراً في بطاقة {ctx.instructor.name}{visiting ? <> <VisitingBadge compact /></> : null} الشخصي. الإرسال لا يحجز شعبةً ولا قاعةً، ولا يغيّر جدوله الفعلي.</p>
           <p className="sp-note-box"><AlertTriangle aria-hidden="true" />لم يُرسل النظام بريداً أو رسالةً إلى الأستاذ. انسخ الرابط أو الرسالة الجاهزة وأرسلها له بوسيلتك.</p>
           <label className="sp-copy-field"><span><Link2 aria-hidden="true" />رابط المقترح الشخصي</span>
             <input readOnly value={link} dir="ltr" onFocus={e => e.currentTarget.select()} /></label>
@@ -316,7 +316,7 @@ export function CommitDialog({ ws, onClose, onDone }: { ws: Workspace; onClose: 
 
         {state === "done" ? (
           <div className="sp-sent"><span className="sp-sent-icon" aria-hidden="true"><Check /></span>
-            <p className="sp-sent-lead">ثُبّتت المجموعة كوحدةٍ واحدة وتحدّث الجدول وكرت الأستاذ وسجل الحوار. الضغطة المكررة لا تنشئ شيئاً مرتين.</p>
+            <p className="sp-sent-lead">ثُبّتت المجموعة كوحدةٍ واحدة وتحدّث الجدول وبطاقة الأستاذ وسجل الحوار. الضغطة المكررة لا تنشئ شيئاً مرتين.</p>
             {proposal.commit ? (
               <ul className="sp-done-list" aria-label="ما نُفِّذ">
                 {proposal.commit.results.map(result => {

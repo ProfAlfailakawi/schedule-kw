@@ -1052,7 +1052,7 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
   h+='</div></section>';
   host.innerHTML=h;
   /* محطة الاستراحة: أطولُ فراغٍ في أسبوعه يُعرض فيه إعلانٌ إن وُجدت حملةٌ للموقع (السكربت العام يحمّله من الخادم ويحتسب ظهوره). */
-  if(brk)adxMountLater("adx-break-box","break",adxCtx({intro:'عندك فراغٌ يوم '+DAYN[brk.day]+' من '+tkClock(brk.from)+' إلى '+tkClock(brk.to)+' (نحو '+countOf(Math.round(brk.min/6)/10,AR.hour)+'). استراحتك برعاية:'}));
+  if(brk)adxMountLater("adx-break-box","break",adxCtx({intro:'لديك فراغٌ يوم '+DAYN[brk.day]+' من '+tkClock(brk.from)+' إلى '+tkClock(brk.to)+' (نحو '+countOf(Math.round(brk.min/6)/10,AR.hour)+'). استراحتك برعاية:'}));
   if(mom.near)adxMountLater("adx-near-box","nearby",adxCtx({intro:'بين محاضرتيك يوم '+DAYN[mom.near.day]+' ('+tkClock(mom.near.from)+' ← '+tkClock(mom.near.to)+') أنت في المبنى نفسه. استراحتك القريبة برعاية:'}));
   if(mom.after)adxMountLater("adx-after-box","afterclass",adxCtx({intro:'تنتهي محاضراتك يوم '+DAYN[mom.after.day]+' عند '+tkClock(mom.after.at)+'. وقتك بعدها برعاية:'}));
   /* راعي مقرر: يُفصل الإعلان في المتصفح بمطابقة رموز مقررات جدوله (لا رغباته) مع المقرر المرعي. */

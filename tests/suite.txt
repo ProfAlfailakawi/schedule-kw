@@ -82,6 +82,7 @@ test:credentials
 test:parity
 test:dean-notify
 test:arabic-count
+test:standard-arabic-ui
 test:rehearsal
 test:deadlines-panel
 test:single-department

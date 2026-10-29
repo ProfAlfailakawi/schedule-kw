@@ -39,7 +39,7 @@ export const PROPOSAL_MIN_DAYS = 1;
 export const PROPOSAL_MAX_DAYS = 30;
 
 export const PROPOSAL_DEFAULT_MESSAGE =
-  "راجعنا رغباتك، ونقترح الترتيب التالي. تقدر تطّلع على أثره في جدولك وتخبرنا إذا يناسبك.";
+  "راجعنا رغباتك، ونقترح الترتيب التالي. يمكنك الاطّلاع على أثره في جدولك وإخبارنا إن كان يناسبك.";
 
 export const OP_KIND_LABEL: Record<StudyProposalOpKind, string> = {
   assign: "إسناد شعبة",

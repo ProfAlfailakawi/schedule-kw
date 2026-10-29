@@ -1,8 +1,8 @@
 /**
  * ── بابُ القاعة وشاشةُ الممر ─────────────────────────────────────────────────
  *
- *   R1  الحال عند ساعاتٍ ثابتة بتوقيت الكويت: فاضية، مشغولة، تبدأ بعد، عطلة،
- *       خارج الفصل، ومحاضرةٌ أُلغيت اليوم تُرى فاضيةً بوسمها — على أسبوعٍ مبنيٍّ
+ *   R1  الحال عند ساعاتٍ ثابتة بتوقيت الكويت: فارغة، مشغولة، تبدأ بعد، عطلة،
+ *       خارج الفصل، ومحاضرةٌ أُلغيت اليوم تُرى فارغةً بوسمها — على أسبوعٍ مبنيٍّ
  *       من صفوف الجدول نفسها (شعبتان معاً، قاعةٌ مشتركة بين قسمين، صفٌّ قديمٌ نصّي).
  *   R2  النصُّ الذي يُرسل إلى المتصفّح هو نفسُه الذي يحسب في الخادم، ويعمل وحده.
  *   R3  الرمز: ثابتٌ بين الإقلاعات، مستقلٌّ عن CALENDAR_SECRET، مختلفٌ لكل قاعة ومبنى.
@@ -129,12 +129,12 @@ const viewAt = (iso: string) => { const d = roomAt(iso); return { d, v: door.doo
 }
 {
   const { v } = viewAt("2026-11-01T11:00:00+03:00");
-  check(v.state === "free" && door.doorSentence(v) === "فاضية — حتى 12:00", "R1 فاضية — حتى 12:00 (الأحد 11:00)", door.doorSentence(v));
+  check(v.state === "free" && door.doorSentence(v) === "فارغة — حتى 12:00", "R1 فارغة — حتى 12:00 (الأحد 11:00)", door.doorSentence(v));
   const late = viewAt("2026-11-01T14:00:00+03:00").v;
-  check(late.state === "free" && door.doorSentence(late) === "فاضية — بقية اليوم" && late.next?.wd === 2 && late.next.lecture.start === "08:00",
-    "R1 بعد آخر محاضرة: فاضية بقية اليوم، والتاليةُ الثلاثاء 08:00", late.next);
+  check(late.state === "free" && door.doorSentence(late) === "فارغة — بقية اليوم" && late.next?.wd === 2 && late.next.lecture.start === "08:00",
+    "R1 بعد آخر محاضرة: فارغة بقية اليوم، والتاليةُ الثلاثاء 08:00", late.next);
   const early = viewAt("2026-11-01T07:10:00+03:00").v;
-  check(early.state === "free" && early.status?.until === 480, "R1 قبل الدوام: فاضية حتى أول محاضرة");
+  check(early.state === "free" && early.status?.until === 480, "R1 قبل الدوام: فارغة حتى أول محاضرة");
 }
 {
   const { d, v } = viewAt("2026-11-06T10:00:00+03:00");
@@ -153,7 +153,7 @@ const viewAt = (iso: string) => { const d = roomAt(iso); return { d, v: door.doo
   const { d, v } = viewAt("2026-11-05T15:40:00+03:00");
   const thursday = d.week[4].lectures;
   check(thursday.find(l => l.code === "0109224")?.x === 1 && !thursday.find(l => l.code === "0109221")?.x, "R1 الإلغاءُ لتاريخه ولموعده وحده (التغطيةُ بأستاذٍ بديل ليست إلغاءً)", thursday);
-  check(v.state === "free" && v.cancelledNow?.code === "0109224" && door.doorSentence(v) === "فاضية — بقية اليوم", "R1 أُلغيت اليوم: فاضيةٌ في وقتها، والمحاضرةُ موسومة", door.doorSentence(v));
+  check(v.state === "free" && v.cancelledNow?.code === "0109224" && door.doorSentence(v) === "فارغة — بقية اليوم", "R1 أُلغيت اليوم: فارغةٌ في وقتها، والمحاضرةُ موسومة", door.doorSentence(v));
   const sameTimeNextWeek = viewAt("2026-11-12T15:40:00+03:00").v;
   check(sameTimeNextWeek.state === "busy", "R1 الخميس التالي: المحاضرةُ نفسها تعود مشغولة");
   check(viewAt("2026-11-05T14:30:00+03:00").v.state === "busy", "R1 محاضرةُ التغطية تبقى مشغولة");
@@ -245,7 +245,7 @@ const boardToken = secret.buildingDoorToken(key, building.id);
     check(Boolean(nonce) && scripts.length > 0 && scripts.every(tag => tag.includes(`nonce="${nonce}"`)), "R4 كلُّ سكربتٍ يحمل رقمَ الصفحة الخاص (CSP nonce)", { nonce, scripts });
     check(/noindex/.test(page.headers.get("x-robots-tag") || "") && /noindex/.test(page.text) && page.headers.get("cache-control") === "no-store", "R4 لا فهرسة ولا تخزين (X-Robots-Tag وmeta)");
     check(page.text.includes("مشغولة · 0110108 — تنتهي 10:45") && page.text.includes(">F01<"), "R4 الحالُ مكتوبةٌ في الصفحة قبل السكربت", page.text.slice(page.text.indexOf('<main'), page.text.indexOf('</main>')));
-    check(page.text.includes(`/b/${boardToken}`), "R4 الصفحةُ تدلّ على لوحة المبنى (القاعاتُ الفاضية بجوارها)");
+    check(page.text.includes(`/b/${boardToken}`), "R4 الصفحةُ تدلّ على لوحة المبنى (القاعاتُ الفارغة بجوارها)");
 
     const live = await call(`/d/${f01Token}/now`);
     const body = JSON.stringify(live.json);
@@ -289,7 +289,7 @@ const boardToken = secret.buildingDoorToken(key, building.id);
     check(page.status === 200 && page.text.includes(">F01<"), "R3 بعد تدوير CALENDAR_SECRET وإقلاعٍ جديد: الملصقُ القديم يفتح قاعته");
     clockNow = at("2026-11-05T15:40:00+03:00");
     const cancelled = await again.call(`/d/${f01Token}`);
-    check(cancelled.text.includes("فاضية — بقية اليوم"), "R4 صفحةُ اليوم الملغاة محاضرتُه تقول «فاضية»", cancelled.text.slice(cancelled.text.indexOf("<main"), cancelled.text.indexOf("</main>")));
+    check(cancelled.text.includes("فارغة — بقية اليوم"), "R4 صفحةُ اليوم الملغاة محاضرتُه تقول «فارغة»", cancelled.text.slice(cancelled.text.indexOf("<main"), cancelled.text.indexOf("</main>")));
   } finally { again.server.close(); delete process.env.CALENDAR_SECRET; }
 
   process.env.ROOM_DOOR_PER_IP_PER_MINUTE = "3";

@@ -42,7 +42,7 @@ export function scheduleIsSigned(approvalStatus?: string | null, signatureCount 
 export function wipeDecision(context: WipeContext): WipeDecision {
   const chair = context.role === "committeeChair";
   if (!context.isAdmin && !chair) {
-    return { allowed: false, reason: "مسح الجدول بالكامل للأدمن ورئيس لجنة الجدول فقط." };
+    return { allowed: false, reason: "مسح الجدول بالكامل لمدير النظام ورئيس لجنة الجدول فقط." };
   }
   if (!context.termId) return { allowed: false, reason: "اختر الفصل أولاً." };
   if (context.termClosed) return { allowed: false, reason: "هذا الفصل منتهٍ، وجدوله لا يُمسح." };
@@ -53,7 +53,7 @@ export function wipeDecision(context: WipeContext): WipeDecision {
     return { allowed: false, reason: "المسح للفصل الذي يُعَدّ الآن فقط." };
   }
   if (scheduleIsSigned(context.approvalStatus, context.signatureCount) && !context.isAdmin) {
-    return { allowed: false, reason: "وُقّع هذا الجدول، فلا يمسحه إلا الأدمن." };
+    return { allowed: false, reason: "وُقّع هذا الجدول، فلا يمسحه إلا مدير النظام." };
   }
   return { allowed: true, reason: "" };
 }

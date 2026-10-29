@@ -4069,7 +4069,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
             <div className="prompt-chips">
               {[
                 "لماذا يوم الاثنين مزدحم؟",
-                "منو عنده أكثر من 3 ساعات فراغ؟",
+                "من لديه أكثر من 3 ساعات فراغ؟",
                 "ما أفضل القاعات الأقل استخداماً؟",
                 "أعطني أفضل توزيع يقلل الفراغات",
               ].map((x) => (

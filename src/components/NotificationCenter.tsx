@@ -231,7 +231,7 @@ export default function NotificationCenter({ userKey, onNavigate }: Props) {
         onClick={() => {
           setOpen(value => !value);
           setToast(null);
-          /* الإذنُ يُطلب من مفتاح «خلّ التنبيهات توصل جوالك» داخل اللوحة وحده، لا عند فتحها. */
+          /* الإذنُ يُطلب من مفتاح «فعّل التنبيهات على جوالك» داخل اللوحة وحده، لا عند فتحها. */
         }}
       >
         <Bell aria-hidden="true" />
