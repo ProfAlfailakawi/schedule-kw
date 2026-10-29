@@ -1,6 +1,8 @@
 import { byArabic } from "../utils/sorting";
 import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import AdvisorSeatsPanel from "./AdvisorSeatsPanel";
+import CampusChip, { CampusFilter } from "./CampusChip";
+import { campusOf, campusText, type Campus } from "../utils/campus";
 /**
  * ── كشفُ التسجيل ────────────────────────────────────────────────────────────
  *
@@ -419,7 +421,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
     return () => { window.clearTimeout(pending); stopPulse(); };
   }, [pageAwake, collegeId, sectionId, termId, load]);
 
-  const collegeOptions = useMemo(() => {
+  const collegeNames = useMemo(() => {
     if (catalog) {
       return catalog.colleges
         .map(row => ({ value: Number(row.AdCollegeId), label: String(row.AdCollegeName || `كلية ${row.AdCollegeId}`) }))
@@ -433,8 +435,28 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
     }
     return [...seen].map(([value, label]) => ({ value, label }));
   }, [scopes, catalog]);
+  /* ── بنين أم بنات؟ ── حسابُ المرشد يشمل القسم في الجهتين: كلُّ كليةٍ بوسمها،
+     وتصفيةٌ بينهما حين تجمع القائمةُ الاثنتين (src/utils/campus.ts). */
+  /* اسمُ الكلية قد لا يصل مع النطاق (حسابٌ نطاقُه أرقامٌ وحدها): يُقرأ مرةً من /api/colleges لوسم الجهة. */
+  const [collegeDirectory, setCollegeDirectory] = useState<Map<number, string>>(new Map());
+  const knownName = collegeNames.find(item => item.value === collegeId)?.label || "";
+  useEffect(() => {
+    if (!collegeId || campusOf(knownName) || collegeDirectory.size) return;
+    void request("/api/colleges").then((list: any) => {
+      const rows = Array.isArray(list) ? list : (list?.colleges || []);
+      setCollegeDirectory(new Map(rows.map((row: any) => [Number(row.AdCollegeId), String(row.AdCollegeName || "")])));
+    }).catch(() => undefined);
+  }, [collegeId, knownName, collegeDirectory.size]);
+  const [campusPick, setCampusPick] = useState<Campus | "all">("all");
+  const fullName = (item: { value: number; label: string }) => (campusOf(item.label) ? item.label : collegeDirectory.get(item.value) || item.label);
+  const collegeCampuses = useMemo(() => collegeNames.map(item => campusOf(fullName(item))), [collegeNames, collegeDirectory]);
+  const collegeOptions = useMemo(() => collegeNames
+    .filter(item => campusPick === "all" || campusOf(fullName(item)) === campusPick || item.value === collegeId)
+    .map(item => { const tag = campusText(campusOf(fullName(item))); return { value: item.value, label: tag && !item.label.includes(tag) ? `${tag} · ${item.label}` : item.label }; }),
+  [collegeNames, campusPick, collegeId, collegeDirectory]);
+  const collegeName = campusOf(knownName) ? knownName : (collegeDirectory.get(collegeId) || knownName);
   /* كلية البنات تُعدّ طالباتٍ أجبن، لا طلاباً أجابوا. */
-  const studentWords = studentNounsFor(collegeOptions.find(item => item.value === collegeId)?.label);
+  const studentWords = studentNounsFor(collegeName);
 
   const sectionOptions = useMemo(() => {
     if (catalog) {
@@ -790,12 +812,14 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
         eyebrow={<><ClipboardList aria-hidden="true" /> التسجيل</>}
         subtitle="ما طلبه الطلبة: اللجنة توافق أولاً، ثم يسجّل التسجيل"
       >
-        كشف التسجيل
+        كشف التسجيل{collegeId ? <> <CampusChip collegeName={collegeName} /></> : null}
       </PageTitle>
 
       {Boolean(collegeId && sectionId && termId) && <AcademicAdvicePanel collegeId={collegeId} sectionId={sectionId} termId={termId} compact />}
-      {Boolean(collegeId && sectionId && termId) && <details className="surface" style={{ padding: "10px 14px" }}><summary>🎟️ رصيد مقاعد المرشد</summary><AdvisorSeatsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} /></details>}
+      {Boolean(collegeId && sectionId && termId) && <details className="surface" style={{ padding: "10px 14px" }}><summary>🎟️ رصيد مقاعد المرشد <CampusChip collegeName={collegeName} /></summary><AdvisorSeatsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} /></details>}
 
+      {/* الجهةُ في العنوان دائماً، والتصفيةُ بين البنين والبنات حين تجمع قائمةُ الكليات الجهتين. */}
+      <div className="campus-scope"><CampusFilter campuses={collegeCampuses} value={campusPick} onChange={setCampusPick} /></div>
       <ScopeAskBar
         idPrefix="registration"
         label="نطاق الكشف"

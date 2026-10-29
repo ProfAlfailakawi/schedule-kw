@@ -1,6 +1,6 @@
 /**
- * رفع PDF المعتمد: الفصل المختار لا يقبل إلا الفصل نفسه من السنة السابقة.
- * الثاني 2026/2027 ← الثاني 2025/2026 فقط، وكل ما عداه يُرفض.
+ * رفع ملف الجدول: الفصل المختار يقبل ثلاثة فصول — نفسَه (الفصل المُنشأ في النظام)،
+ * وموسمَه من السنة السابقة، والفصلَ الذي يسبقه مباشرة. وكل ما عداه يُرفض.
  */
 import fs from "fs";
 import { acceptedPdfSourceLabel, parseTermName, pdfTermAccepted } from "../src/utils/pdfTermRule";
@@ -12,7 +12,7 @@ const T = "الفصل الثاني 2026/2027";
 const src = (season: "first" | "second" | "summer", a: number) => ({ season, years: [a, a + 1] });
 
 check(pdfTermAccepted(src("second", 2025), T), "الثاني 2025/2026 يُقبل");
-check(!pdfTermAccepted(src("second", 2026), T), "الثاني 2026/2027 (الفصل نفسه) يُرفض");
+check(pdfTermAccepted(src("second", 2026), T), "الثاني 2026/2027 (الفصل نفسه، المُنشأ في النظام) يُقبل");
 check(pdfTermAccepted(src("first", 2026), T), "الأول 2026/2027 (فصل سنته نفسها) يُقبل في الثاني");
 check(!pdfTermAccepted(src("first", 2025), T), "الأول 2025/2026 يُرفض");
 check(!pdfTermAccepted(src("summer", 2025), T), "الصيفي 2025/2026 يُرفض");
@@ -20,7 +20,7 @@ check(!pdfTermAccepted(src("second", 2024), T), "الثاني 2024/2025 (أقد�
 check(!pdfTermAccepted(src("summer", 2026), T), "الصيفي 2026/2027 يُرفض");
 check(!pdfTermAccepted(src("first", 2026), "الفصل الصيفي 2026/2027"), "الصيفي لا يقبل الأول 2026/2027");
 check(!pdfTermAccepted(src("second", 2026), "الفصل الصيفي 2026/2027"), "الصيفي لا يقبل الثاني 2026/2027");
-check(!pdfTermAccepted(src("first", 2026), "الفصل الأول 2026/2027"), "الأول لا يقبل نفسه");
+check(pdfTermAccepted(src("first", 2026), "الفصل الأول 2026/2027"), "الأول يقبل نفسه (الفصل المُنشأ)");
 check(!pdfTermAccepted(src("second", 2027), T), "الثاني 2027/2028 (لاحق) يُرفض");
 check(!pdfTermAccepted(src("first", 2027), T), "الأول 2027/2028 (لاحق) يُرفض");
 check(pdfTermAccepted(src("first", 2025), "الفصل الأول 2026/2027"), "الأول 2026/2027 يقبل الأول 2025/2026");
@@ -29,7 +29,8 @@ check(pdfTermAccepted(src("second", 2025), "الفصل الأول 2026/2027"), "
 check(!pdfTermAccepted(src("summer", 2026), "الفصل الأول 2026/2027"), "الأول 2026/2027 لا يقبل الصيفي 2026/2027");
 check(pdfTermAccepted(src("summer", 2025), "الفصل الصيفي 2026/2027"), "الصيفي 2026/2027 يقبل الصيفي 2025/2026");
 check(!pdfTermAccepted(src("second", 2025), "فصل غير مقروء"), "اسم فصل غير مقروء: لا شيء يُقبل");
-check(acceptedPdfSourceLabel(T) === "الفصل الثاني 2025/2026 أو الفصل الأول 2026/2027", `نص الفصل المطلوب في الرفض (${acceptedPdfSourceLabel(T)})`);
+check(acceptedPdfSourceLabel(T) === "الفصل الثاني 2026/2027 أو الفصل الثاني 2025/2026 أو الفصل الأول 2026/2027", `نص الفصول الثلاثة في الرفض (${acceptedPdfSourceLabel(T)})`);
+check(pdfTermAccepted(src("summer", 2026), "الفصل الصيفي 2026/2027"), "الصيفي يقبل نفسه");
 
 const server = readServerSource();
 check(!server.includes("sourceIsEarlier"), "الخادم لا يسمح بالفصل الأقدم عموماً");

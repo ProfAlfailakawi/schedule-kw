@@ -44,7 +44,7 @@ function safeImportEvidence(input:any){
 /* reviewPages: scanned pages accepted with printed lines that have no row. The
    draft is refused until the request confirms each one (importPageReview). A
    receipt signed before this field existed carries none and asks for none. */
-export type PdfImportReceipt={v:1;collegeId:number;sectionId:number;termId:number;sourceTerm:string;sourceBranch:string;sourceDepartment:string;issuedAt:string;reviewPages?:number[]};
+export type PdfImportReceipt={v:1;collegeId:number;sectionId:number;termId:number;sourceTerm:string;sourceBranch:string;sourceDepartment:string;issuedAt:string;reviewPages?:number[];/** قراءةُ «تجربة بلا حفظ» لفصلٍ فيه جدول: لا تُحفظ إلا باستبدالٍ مؤكَّد صراحة. */replaceFilled?:boolean};
 
 export function safeDraftRows(input: unknown, collegeId: number, sectionId: number, termId: number): any[] {
   if (!Array.isArray(input)) return [];

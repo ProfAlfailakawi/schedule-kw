@@ -5,6 +5,10 @@
  * second ← first of its own year; first ← last year's second. «الثاني 2026/2027» takes
  * «الثاني 2025/2026» and «الأول 2026/2027»; «الأول 2026/2027» takes «الأول 2025/2026»
  * and «الثاني 2025/2026». The summer term takes only last year's summer.
+ *
+ * And the chosen term itself, always: the term the department created in the
+ * system (the current/newest one) may receive its own official schedule file —
+ * «الثاني 2026/2027» takes «الثاني 2026/2027». Three accepted terms in all.
  */
 export type PdfHeaderTerm = { season: "first" | "second" | "summer"; years: number[]; label?: string };
 
@@ -28,16 +32,18 @@ export function acceptedPdfSourceTerm(targetName: string): { season: PdfHeaderTe
 }
 
 /**
- * المصادر المقبولة: نفس موسم السنة السابقة دائماً، ومعه الفصل الذي يسبقه مباشرة:
- * الثاني ← الأول من سنته نفسها، والأول ← الثاني من العام الماضي. الصيفي لا يقبل إلا صيفي العام الماضي.
+ * المصادر المقبولة: الفصلُ المختار نفسه (الفصل الذي أُنشئ في النظام يقبل ملفَّ جدوله)،
+ * ونفس موسم السنة السابقة، ومعه الفصل الذي يسبقه مباشرة:
+ * الثاني ← الأول من سنته نفسها، والأول ← الثاني من العام الماضي. الصيفي يقبل نفسه وصيفي العام الماضي.
  */
 function acceptedSources(targetName: string) {
   const previous = acceptedPdfSourceTerm(targetName);
   if (!previous) return [];
   const own = previous.years.map(year => year + 1);
-  if (previous.season === "second") return [previous, { season: "first" as const, years: own }];
-  if (previous.season === "first") return [previous, { season: "second" as const, years: previous.years }];
-  return [previous];
+  const self = { season: previous.season, years: own };
+  if (previous.season === "second") return [self, previous, { season: "first" as const, years: own }];
+  if (previous.season === "first") return [self, previous, { season: "second" as const, years: previous.years }];
+  return [self, previous];
 }
 
 export function pdfTermAccepted(header: PdfHeaderTerm, targetName: string): boolean {

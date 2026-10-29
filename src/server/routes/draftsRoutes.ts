@@ -76,9 +76,12 @@ app.post("/api/intelligence/drafts", requirePermission(7), async (req: Authentic
   if(previewIssues.length){res.status(400).json({error:"لا يمكن حفظ المسودة أو نشرها قبل معالجة جميع ملاحظات المعاينة.",issues:previewIssues});return;}
   const issues=await validateSmartRows(rows,collegeId,sectionId,{checkConflicts:false,requireDepartmentInstructor:importLayout==="authority-pdf"});
   if(issues.length){res.status(400).json({error:"أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.",issues});return;}
-  if(importLayout==="authority-pdf"){
+  /* «تجربة بلا حفظ» ثم «طبّق»: استبدالُ فصلٍ فيه جدول مسموحٌ بثلاثة شروط معاً —
+     إيصالُ قراءةٍ تجريبية موقَّع، وطلبٌ صريح من الواجهة، وتأكيدُ «replace-filled». */
+  const replaceFilled=importLayout==="authority-pdf"&&Boolean(receipt?.replaceFilled)&&req.body?.replaceFilled===true&&confirmTokens(req).has("replace-filled");
+  if(importLayout==="authority-pdf"&&!replaceFilled){
     const occupied=await Repository.getSchedulesByScope({collegeId,sectionId,termId});
-    if(occupied.length){res.status(409).json({error:"نسخ PDF مسموح إلى فصل فارغ فقط. اختر فصلاً بلا بيانات."});return;}
+    if(occupied.length){res.status(409).json({error:"نسخ PDF مسموح إلى فصل فارغ فقط. اختر فصلاً بلا بيانات، أو استعمل «تجربة بلا حفظ».",code:"PDF_TARGET_TERM_OCCUPIED"});return;}
   }
   /* Preserve the ORIGINAL Authority-PDF read as the immutable comparison
      baseline, even when the reviewer deletes or corrects rows in the preview
@@ -110,6 +113,7 @@ app.post("/api/intelligence/drafts", requirePermission(7), async (req: Authentic
     sourceBranchCode:String(req.body?.sourceBranchCode||"").trim().slice(0,20)||undefined,
     sourceBranchName:String(req.body?.sourceBranchName||"").trim().slice(0,180)||undefined,
     importReceipt:importReceipt||undefined,
+    ...(replaceFilled?{replaceFilled:true}:{}),
   });
   res.status(201).json(draft);
 });
@@ -218,7 +222,8 @@ app.post("/api/intelligence/drafts/:id/publish", requirePermission(7), async (re
   /* ── «فصلٌ فارغ» يُقاس لحظة النشر لا لحظة الحفظ ─────────────────────────
      المسودة قد تُحفظ اليوم وتُنشر غداً، وبينهما يُضاف موعد يدوياً أو يُنشر
      استيراد آخر. النشر يستبدل النطاق كاملاً، فكان يمحو ما أُضيف بصمت. */
-  if(draft.importLayout==="authority-pdf"&&draft.status!=="published"){
+  const replacingFilled=Boolean(draft.replaceFilled)&&confirmTokens(req).has("replace-filled");
+  if(draft.importLayout==="authority-pdf"&&draft.status!=="published"&&!replacingFilled){
     const occupiedNow=await Repository.getSchedulesByScope({collegeId:draft.AdCollegeId,sectionId:draft.AdSectionId,termId:draft.AdTermId});
     if(occupiedNow.length){
       res.status(409).json({error:`أُضيف إلى هذا الفصل ${countOf(occupiedNow.length, AR.appointment)} بعد حفظ نسخة PDF. نسخ جدول PDF متاح للفصل الفارغ فقط؛ لم يُنشر شيء ولم يُحذف شيء.`,code:"PDF_TARGET_TERM_OCCUPIED"});
@@ -438,7 +443,9 @@ app.post("/api/intelligence/drafts/:id/publish", requirePermission(7), async (re
     if(group.scope.isBase||!publication)publication=record;
   }
   await Repository.updateScheduleDraft(draft.id,{status:"published",rows:written,publishedAt:new Date().toISOString()});
-  res.json({success:true,count:written.length,publication,adjusted,scopes:publishedScopes,plantedCourses:plantedTwins});
+  /* نقاطُ التراجع: «تراجع» بعد «طبّق» يسترجع هذه النسخ (/api/intelligence/versions/:id/restore). */
+  const undoVersions=[...publishVersions.values()].map(version=>String((version as any)?.id||"")).filter(Boolean);
+  res.json({success:true,count:written.length,publication,adjusted,scopes:publishedScopes,plantedCourses:plantedTwins,undoVersions});
 });
 
 app.get("/api/intelligence/versions", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {

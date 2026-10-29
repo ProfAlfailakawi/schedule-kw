@@ -1,8 +1,8 @@
 import TermSelect from "./TermSelect";
 import { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
-import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Puzzle } from "lucide-react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Puzzle, Library } from "lucide-react";
 import { PrimaryButton, SecondaryButton, useDialogDismiss, visualConfirm } from "./ui";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
@@ -61,9 +61,13 @@ interface Props {
   onClose: () => void;
 }
 
-type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "planning" | "simulator";
+type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "planning" | "courses" | "simulator";
 /* 🧩 محاكي الشعب بجانب «تخطيط الشعب»: ماذا لو حذفنا/أضفنا/دمجنا/قسّمنا؟ (src/components/SectionSimulator.tsx) */
 const SectionSimulator = lazy(() => import("./SectionSimulator"));
+/* 📚 «كل المقررات» بجانب التخطيط: كل مقررات الصحيفتين، و«− شعبة / + شعبة» بأثرٍ فوري (src/components/AllCourses.tsx). */
+const AllCourses = lazy(() => import("./AllCourses"));
+import ImportDryRun, { DryRunOffer } from "./ImportDryRun";
+import { importDiff } from "../utils/importDiff";
 
 export default function ScheduleTransfer({ collegeId, collegeName, sectionId, termId, instructors, departmentIds, terms, onChanged, onSectionChange, onClose }: Props) {
   useDialogDismiss(true, onClose);
@@ -118,6 +122,11 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
   /* ملف إكسل/JSON لا يذكر فصله: يُسأل المستخدم من أي فصلٍ أُخذ، ثم تُطبَّق قاعدة الـPDF نفسها. */
   const [sourceTermAsk, setSourceTermAsk] = useState<{ file: File; choice: string } | null>(null);
   const [termMismatch, setTermMismatch] = useState<{ source: string; accepted: string; target: string } | null>(null);
+  /* ── 🧪 تجربة بلا حفظ ── فصلٌ فيه جدول: الملف يُقرأ ويُقارن ولا يُكتب شيء حتى «طبّق». */
+  const [termRows, setTermRows] = useState<any[] | null>(null);
+  const [dryOffer, setDryOffer] = useState<{ file: File; targetSectionId: number } | null>(null);
+  const [dryRunActive, setDryRunActive] = useState(false);
+  const [dryApplied, setDryApplied] = useState<{ count: number; undoVersions: string[]; undone?: boolean } | null>(null);
   /* The quick-edit course picker needs the department's catalogue; fetched once
      the first time a PDF preview opens, never on plain Excel imports. */
   const [deptCourses, setDeptCourses] = useState<any[]>([]);
@@ -285,6 +294,30 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
   };
 
   const scopeReady = Boolean(collegeId && sectionId && termId);
+  /* جدولُ الفصل الحالي: به يُعرف أن الفصل ممتلئ فيُقرأ الملف «تجربةً بلا حفظ»، ويُقارن به. */
+  const loadTermRows = useCallback(async () => {
+    if (!scopeReady) { setTermRows(null); return; }
+    try {
+      const response = await fetch(`/api/schedules?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include" });
+      const data = response.ok ? await response.json() : null;
+      setTermRows(Array.isArray(data) ? data : Array.isArray(data?.rows) ? data.rows : null);
+    } catch { setTermRows(null); }
+  }, [scopeReady, collegeId, sectionId, termId]);
+  useEffect(() => { if (tab === "import") void loadTermRows(); }, [tab, loadTermRows]);
+  const dryDiff = useMemo(() => (dryRunActive && Array.isArray(xlsxPreview?.rows) && termRows ? importDiff(termRows, xlsxPreview.rows) : null), [dryRunActive, xlsxPreview?.rows, termRows]);
+  const undoDryApply = async () => {
+    if (!dryApplied?.undoVersions.length) return;
+    setBusy(true); setError(null);
+    try {
+      for (const versionId of dryApplied.undoVersions) {
+        const response = await fetch(`/api/intelligence/versions/${encodeURIComponent(versionId)}/restore`, { method: "POST", headers: { "x-schedule-confirm": "restore" } });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "تعذّر التراجع");
+      }
+      setDryApplied(prev => (prev ? { ...prev, undone: true } : prev));
+      onChanged(); void loadTermRows();
+    } catch (e: any) { setError(e?.message || "تعذّر التراجع"); } finally { setBusy(false); }
+  };
   const activeImportSectionId = importSectionId || sectionId;
   /* موقع الفرع (الجهراء/الفحيحيل) لا يستورد لنفسه: الجدول المعتمد يصدر ملفاً
    * واحداً من كلية الأساس ويوزّعه النظام على المواقع. فإن فُتح تبويب الاستيراد
@@ -707,6 +740,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
   const previewWorksheetRows = async (rows: any[], fileName: string, editable = false, planning?: { existing: number; added: number; pending: number; existingKeys?: string[] }) => {
     setError(null); setXlsxPreview(null); setXlsxDraft(""); setImportKind("worksheet");
     setImportSectionId(0); setPdfScopeFix(null);
+    /* ملف إكسل لفصلٍ فيه جدول: يُعرض فرقُه عن الجدول الحالي أولاً (تجربة بلا حفظ)؛ «نزّل الشعب» له حصيلتُه. */
+    setDryOffer(null); setDryApplied(null); setDryRunActive(!planning && Boolean(termRows?.length));
     setSmartProposal(null); setSmartPicked(new Set()); setSmartFile(null); setPublishReceipt(null);
     setBusy(true);
     try {
@@ -866,12 +901,13 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     setSmartProposal(null);
     setSmartPicked(new Set());
   };
-  const readPdf = async (file: File, targetSectionId = sectionId) => {
+  const readPdf = async (file: File, targetSectionId = sectionId, dry = Boolean(termRows?.length) && targetSectionId === sectionId) => {
     setError(null); setPdfScopeFix(null); setTermMismatch(null); setXlsxPreview(null); setXlsxDraft(""); setImportKind("authority-pdf"); setBusy(true); setReviewedImportPages([]);
+    setDryOffer(null); setDryRunActive(false); setDryApplied(null);
     setSmartProposal(null); setSmartPicked(new Set()); setSmartFile(file);
     setReadProgress({ pct: 4, message: "يجهّز الملف للقراءة", seen: [] });
     try {
-      const query=new URLSearchParams({collegeId:String(collegeId),sectionId:String(targetSectionId),termId:String(termId)});
+      const query=new URLSearchParams({collegeId:String(collegeId),sectionId:String(targetSectionId),termId:String(termId),...(dry?{dryRun:"1"}:{})});
       const payload=await file.arrayBuffer();
       /* A request that never reached the server, or a stream that broke before
          its result, is named for what it was (see importStreamFailure) instead
@@ -929,14 +965,20 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
         setError(null);
         return true;
       };
-      if(failure){if(offerScopeFix(failure)||offerTermMismatch(failure))return;throw new Error(String(failure?.error||failure||"تعذرت قراءة PDF"));}
+      /* فصلٌ فيه جدول: لا طريقٌ مسدود — عرضُ «تجربة بلا حفظ» على الملف نفسه. */
+      const offerDryRun=(problem:any)=>{
+        if(problem?.code!=="PDF_TARGET_TERM_OCCUPIED"||dry)return false;
+        setDryOffer({file,targetSectionId});setError(null);return true;
+      };
+      if(failure){if(offerScopeFix(failure)||offerTermMismatch(failure)||offerDryRun(failure))return;throw new Error(String(failure?.error||failure||"تعذرت قراءة PDF"));}
       if(!data){const rest=buffer.trim();if(rest){try{const tail=JSON.parse(rest);data=tail.result||tail;}catch{/* no trailing json */}}}
       /* A refusal (an occupied term, a permission wall) arrives as one plain
          JSON object with no newline. Structured department mismatch stays on
          screen as an actionable recovery instead of a dead-end sentence. */
-      if(data&&(data as any).error&&!(data as any).rows){if(offerScopeFix(data)||offerTermMismatch(data))return;throw new Error((data as any).error);}
+      if(data&&(data as any).error&&!(data as any).rows){if(offerScopeFix(data)||offerTermMismatch(data)||offerDryRun(data))return;throw new Error((data as any).error);}
       if(!data)throw new Error(interruptedImportMessage(response.status));
       const scannedRows=assignAuthoritySections(Array.isArray(data.rows)?data.rows:[]);
+      setDryRunActive(Boolean(data.dryRun));
       setImportSectionId(targetSectionId);
       setPdfScopeFix(null);
       setXlsxPreview({
@@ -981,8 +1023,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     finally{setBusy(false);}
   };
 
-  const publishImportedDraft=async(id:string)=>{
-    const response=await fetch(`/api/intelligence/drafts/${encodeURIComponent(id)}/publish`,{method:"POST",headers:{"x-schedule-confirm":"publish"}});
+  const publishImportedDraft=async(id:string,replaceFilled=false)=>{
+    const response=await fetch(`/api/intelligence/drafts/${encodeURIComponent(id)}/publish`,{method:"POST",headers:{"x-schedule-confirm":replaceFilled?"publish,replace-filled":"publish"}});
     const data=await response.json();
     if(!response.ok){
       /* ── الرفض يجب أن يُرى على الصف الذي سبّبه ──────────────────────────
@@ -1020,10 +1062,11 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     const scopes=Array.isArray(data?.scopes)?data.scopes.filter((scope:any)=>scope&&scope.siteLabel):[];
     setPlantedCourses(Array.isArray(data?.plantedCourses)?data.plantedCourses.map((item:any)=>String(item||"")).filter(Boolean):[]);
     setXlsxDraft(`published:${id}`);onChanged();
+    if(replaceFilled)setDryApplied({count:Number(data?.count||0),undoVersions:Array.isArray(data?.undoVersions)?data.undoVersions.map(String):[]});
     return scopes as Array<{siteLabel:string;count:number}>;
   };
 
-  const saveExcelDraft = async (publishNow=false) => {
+  const saveExcelDraft = async (publishNow=false, replaceFilled=false) => {
     if (!importReady) {
       setError("أكمل ملاحظات المعاينة أولًا.");
       window.setTimeout(() => document.querySelector(".transfer-preview .import-preview-table-wrap, .transfer-preview .import-issues-fold, .transfer-preview")?.scrollIntoView({ behavior: "smooth", block: "center" }), 40);
@@ -1033,7 +1076,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     try {
       const response = await fetch("/api/intelligence/drafts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(replaceFilled ? { "x-schedule-confirm": "replace-filled" } : {}) },
         body: JSON.stringify({
           collegeId, sectionId:activeImportSectionId, termId,
           source: "import",
@@ -1048,6 +1091,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
           /* The server checks these against the pages its receipt says need «راجعت الصفحة». */
           reviewedPages:importKind==="authority-pdf"?reviewedImportPages:undefined,
           previewIssues: importBlockingIssues,
+          ...(replaceFilled ? { replaceFilled: true } : {}),
         }),
       });
       const data = await response.json();
@@ -1071,7 +1115,10 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
       /* The draft is a step on the way to publishing, never a destination. If
          publishing fails the screen must keep the review — and its buttons —
          instead of announcing a saved draft the reader would read as done. */
-      if(publishNow&&id){
+      if(publishNow&&id&&replaceFilled){
+        /* «طبّق» من التجربة: تبقى بطاقة الفرق على الشاشة ومعها «تراجع». */
+        await publishImportedDraft(id,true);
+      } else if(publishNow&&id){
         const scopes=await publishImportedDraft(id);
         /* لا عودة إلى النافذة الصغيرة ولا إلى جدول المعاينة: حصيلة النشر تحلّ
            محلّ الشاشة كلها، ومنها يُغلق. */
@@ -1254,6 +1301,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
           {termEnded ? null : (
             <>
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
+            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "courses" ? "active" : ""} onClick={() => goTab("courses")} title="كل المقررات"><Library />كل المقررات</button>
             {/* 🧩 بجانب التخطيط، وبحكمه: فصلٌ منتهٍ لا محاكاةَ لشعبه. */}
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "simulator" ? "active" : ""} onClick={() => goTab("simulator")} title="محاكي الشعب"><Puzzle />محاكي الشعب</button>
             </>
@@ -1413,6 +1461,9 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                   </ol>
                 </div>
               </div>
+              {/* فصلٌ فيه جدول: يُقال قبل الرفع أن الاستيراد هنا تجربةٌ بلا حفظ — لا رفضٌ بعد دقيقة قراءة. */}
+              {termRows?.length && !dryOffer ? <DryRunOffer count={termRows.length} /> : null}
+              {dryOffer ? <DryRunOffer count={termRows?.length ?? null} busy={busy} onTry={() => void readPdf(dryOffer.file, dryOffer.targetSectionId, true)} /> : null}
               <input
                 ref={fileRef}
                 type="file"
@@ -1452,6 +1503,13 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               {/* While a sharper reading is in flight the table is frozen. The
                   rows to keep were captured when the request left, so an edit
                   made meanwhile would be silently overwritten by the merge. */}
+              {xlsxPreview && dryDiff ? (
+                <ImportDryRun diff={dryDiff} conflicts={termConflictsFresh ? (termConflicts?.issues.length || 0) : 0}
+                  ready={importReady && publishGateSatisfied} checking={importReady && !publishGateSatisfied} busy={busy}
+                  applied={dryApplied ? { count: dryApplied.count, undoable: dryApplied.undoVersions.length > 0, undone: dryApplied.undone } : null}
+                  onApply={() => void saveExcelDraft(true, true)} onUndo={() => void undoDryApply()}
+                  onCancel={() => { setXlsxPreview(null); setDryRunActive(false); setDryApplied(null); }} />
+              ) : null}
               {xlsxPreview ? (
                 <div className={`transfer-preview${smartBusy ? " is-smart-locked" : ""}`} aria-busy={smartBusy}>
                   <div className="transfer-counts import-summary-cards">
@@ -1696,7 +1754,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                         {importReady && !publishGateSatisfied ? (
                           <p className="transfer-preflight-wait" role="status">جارٍ فحص التعارض مع بقية الأقسام في هذا الفصل…</p>
                         ) : null}
-                        {importReady && publishGateSatisfied ? (
+                        {importReady && publishGateSatisfied && !dryRunActive ? (
                           <PrimaryButton type="button" data-guide-ignore="إجراء استيراد له تحقق ومراجعة ونقطة أمان خاصة داخل نفس النافذة" onClick={() => void saveExcelDraft(true)} disabled={busy || !importReady}>
                             {busy ? "يجهّز…" : fromPlanning ? <><Layers aria-hidden="true" /> {planningMeta.added > 0 ? `نزّل ${countOf(planningMeta.added, AR.section)} في الجدول` : "نزّل التعديلات في الجدول"}</> : importKind === "authority-pdf" && Number(xlsxPreview.count || 0) === 0 ? "اعتماد حذف جميع مواعيد PDF ونشره" : `تعبئة ${countOf(Number(xlsxPreview.count || 0), AR.appointment)} ونشرها`}
                           </PrimaryButton>
@@ -1761,6 +1819,12 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               </div>
               {collegeId && sectionId && termId ? <SectionPlanning collegeId={collegeId} sectionId={sectionId} termId={termId} onReviewRows={(rows, meta) => { setTab("import"); void previewWorksheetRows(rows, "تخطيط الشعب", true, meta); }} /> : <p>اختر القسم والفصل أولاً.</p>}
             </>
+          ) : null}
+
+          {tab === "courses" ? (
+            collegeId && sectionId && termId
+              ? <Suspense fallback={<p>⏳</p>}><AllCourses collegeId={collegeId} sectionId={sectionId} termId={termId} /></Suspense>
+              : <p>اختر القسم والفصل أولاً.</p>
           ) : null}
 
           {tab === "simulator" ? (

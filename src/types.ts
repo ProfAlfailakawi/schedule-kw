@@ -598,6 +598,8 @@ export interface ScheduleDraft {
   sourceBranchName?: string;
   /** Server-signed proof that the PDF header matched this exact academic scope. */
   importReceipt?: string;
+  /** مسودةُ «تجربة بلا حفظ» لفصلٍ فيه جدول: تستبدله عند النشر بتأكيدٍ صريح، ولها نقطةُ تراجع. */
+  replaceFilled?: boolean;
   publishedAt?: string;
 }
 

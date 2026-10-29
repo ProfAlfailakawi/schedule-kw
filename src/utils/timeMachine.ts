@@ -143,6 +143,35 @@ export function placeholderIdsOf(context: Pick<TmContext, "instructors">): Set<n
   return placeholderInstructorIds(context.instructors);
 }
 
+/* ── السعة: من أين يأتي الرقم ────────────────────────────────────────────────
+ * سعةُ الشعبة هي سعةُ المقرر المسجّلة (MaxStudent)؛ فإن لم تُسجَّل فسعةُ القاعة
+ * من سجلّ المواقع؛ وإلا فهي «غير محددة» — لا رقمَ مخترعاً، ولا يدخل رقمٌ مجهول
+ * في حساب المقاعد أو العجز. سعةٌ أقل من ٥ مقاعد ليست سعةً (بيانٌ ناقص).
+ * وكانت بطاقةُ الموضع المقترح تقول «سعة 100» وهي سعةُ القاعة في السجل،
+ * لا سعةُ الشعبة — فصار الرقم يُسمّى بمصدره. */
+export type TmCapacitySource = "section" | "room" | null;
+export interface TmCapacity { value: number | null; source: TmCapacitySource }
+const plausibleSeats = (value: unknown) => (Number(value) >= 5 ? Math.trunc(Number(value)) : 0);
+export function seatCapacity(course: Pick<AdCourse, "MaxStudent"> | null | undefined, hall?: Pick<TmHall, "capacity"> | null): TmCapacity {
+  const own = plausibleSeats(course?.MaxStudent);
+  if (own) return { value: own, source: "section" };
+  const room = plausibleSeats(hall?.capacity);
+  if (room) return { value: room, source: "room" };
+  return { value: null, source: null };
+}
+/** «سعة 40» · «سعة القاعة 100» · «السعة غير محددة». */
+export function capacityLabel(capacity: TmCapacity): string {
+  if (capacity.value === null) return "السعة غير محددة";
+  return capacity.source === "room" ? `سعة القاعة ${capacity.value}` : `سعة ${capacity.value}`;
+}
+/** قاعةُ الصفّ في قائمة قاعات النطاق (لسعتها). */
+export function hallOfRow(row: Partial<FSchedule>, halls: readonly TmHall[]): TmHall | null {
+  const roomId = String(row.roomId || "");
+  if (roomId) { const byId = halls.find(hall => String(hall.roomId || "") === roomId); if (byId) return byId; }
+  const code = String(row.AdRoomCode || ""), name = String(row.AdRoomHall || "");
+  return halls.find(hall => hall.code === code && hall.hall === name) || null;
+}
+
 /** الجدول الكامل الذي يُفحص عليه: النطاق ومعه بقيةُ الفصل المقنّعة. */
 export function boardOf(context: Pick<TmContext, "rows" | "outside">): FSchedule[] {
   return [...context.rows, ...context.outside];
@@ -247,17 +276,25 @@ export function measure(board: FSchedule[], context: TmContext, options: { regul
   }
   const sectionKeys = new Set(scopeRows.map(sectionKey));
   let seats = 0;
-  const sectionsByCourse = new Map<number, number>();
+  /* مقاعدُ كل مقرر بسعةٍ معروفة لكل شعبة (المقرر، وإلا القاعة)؛ مقررٌ فيه شعبةٌ
+     بسعةٍ «غير محددة» لا يُحسب عجزُه — فالصفر هنا رقمٌ مخترع. */
+  const seatsByCourse = new Map<number, number>();
+  const unknownCourses = new Set<number>();
+  const firstRowOf = new Map<string, FSchedule>();
+  for (const row of scopeRows) if (!firstRowOf.has(sectionKey(row))) firstRowOf.set(sectionKey(row), row);
   for (const key of sectionKeys) {
     const courseId = Number(key.split("|")[0]);
-    sectionsByCourse.set(courseId, (sectionsByCourse.get(courseId) || 0) + 1);
-    seats += Number(courses.get(courseId)?.MaxStudent || 0);
+    const capacity = seatCapacity(courses.get(courseId), hallOfRow(firstRowOf.get(key) || {}, context.halls || []));
+    if (capacity.value === null) { unknownCourses.add(courseId); continue; }
+    seatsByCourse.set(courseId, (seatsByCourse.get(courseId) || 0) + capacity.value);
+    seats += capacity.value;
   }
   let shortfall: number | null = null;
   if (context.demand) {
     shortfall = 0;
     for (const [courseId, demand] of Object.entries(context.demand)) {
-      const capacityNow = (sectionsByCourse.get(Number(courseId)) || 0) * Number(courses.get(Number(courseId))?.MaxStudent || 0);
+      if (unknownCourses.has(Number(courseId))) continue;
+      const capacityNow = seatsByCourse.get(Number(courseId)) || 0;
       if (capacityNow > 0 || demand.seated > 0) shortfall += Math.max(0, Number(demand.seated || 0) - capacityNow);
     }
   }
@@ -373,7 +410,9 @@ export interface TmSectionCard {
   end: string;
   period: TmPeriod;
   hall: string;
+  /** سعةُ الشعبة المعروفة (المقرر، وإلا القاعة)، و0 حين تكون «غير محددة». */
   capacity: number;
+  capacitySource: TmCapacitySource;
   students: number | null;
   mode: string;
   added: boolean;
@@ -408,7 +447,7 @@ export function sectionCards(board: FSchedule[], context: TmContext): TmSectionC
       end: first.fendtime,
       period: periodOf(first.fstarttime),
       hall: hallLabel(first),
-      capacity: Number(course?.MaxStudent || 0),
+      ...(() => { const cap = seatCapacity(course, hallOfRow(first, context.halls || [])); return { capacity: cap.value || 0, capacitySource: cap.source }; })(),
       students: estimateSectionStudents(Number(first.AdCourseId), context),
       mode: String(course?.CourseTeachingMode || ""),
       added: rows.some(row => Number(row.id) < 0),
@@ -476,6 +515,7 @@ function verifyNoNewBlocking(before: FSchedule[], after: FSchedule[], context: T
 export interface TmRemoveImpact {
   card: TmSectionCard;
   students: number | null;
+  /** capacity = 0 حين تكون السعة «غير محددة»؛ وعندها freeSeats = null. */
   alternatives: Array<{ code: string; when: string; freeSeats: number | null; capacity: number }>;
   shortfall: number | null;
   teacher: { id: number; name: string; before: number; after: number; limit: number } | null;
@@ -492,11 +532,12 @@ export function removeImpact(board: FSchedule[], key: string, context: TmContext
   const alternatives = siblings.map(item => ({
     code: item.code,
     when: `${item.days.map(dayLabel).join(" ")} ${item.start}`,
-    capacity: item.capacity,
-    freeSeats: perSection === null ? null : Math.max(0, item.capacity - perSection),
+    capacity: item.capacitySource ? item.capacity : 0,
+    freeSeats: perSection === null || !item.capacitySource ? null : Math.max(0, item.capacity - perSection),
   }));
   let shortfall: number | null = null;
-  if (perSection !== null) {
+  /* بديلٌ سعتُه «غير محددة» يجعل العجز غير معروف، لا صفراً. */
+  if (perSection !== null && alternatives.every(item => item.freeSeats !== null)) {
     const room = alternatives.reduce((sum, item) => sum + Number(item.freeSeats || 0), 0);
     shortfall = Math.max(0, perSection - room);
   }
@@ -523,6 +564,8 @@ export interface TmPlacement {
   score: number;
   reasons: string[];
   studentsServed: number | null;
+  /** سعةُ الشعبة المقترحة: المقرر، وإلا القاعة، وإلا null («غير محددة»). */
+  capacity?: TmCapacity;
 }
 
 type Philosophy = "minimal" | "students" | "teachers" | "rooms" | "flex";
@@ -560,9 +603,6 @@ export function suggestPlacements(board: FSchedule[], courseId: number, context:
   const halls = rankedHalls(context, course, pattern ? rowHall(pattern) : null);
   const demand = context.demand?.[String(courseId)];
   const unmet = demand ? Math.max(0, Number(demand.wanted || 0) - Number(demand.seated || 0)) : null;
-  /* سعةٌ مسجّلة أقل من ٥ ليست سعة شعبة (بيان ناقص): لا يُحدّ بها العدد ولا يُخترع غيرها. */
-  const seatCap = Number(course?.MaxStudent || 0) >= 5 ? Number(course?.MaxStudent) : 0;
-  const served = unmet === null ? null : Math.min(seatCap || unmet, unmet);
   const out: TmPlacement[] = [];
   for (const teacher of candidatesTeachers) {
     for (const set of days) {
@@ -585,8 +625,10 @@ export function suggestPlacements(board: FSchedule[], courseId: number, context:
           const sameDay = mine.some(row => set.some(day => row[day]));
           if (sameDay) { score += 10; reasons.push("في يومٍ يدرّس فيه"); }
         }
-        if (Number(hall.capacity || 0) >= Number(course?.MaxStudent || 0) && hall.capacity) reasons.push(`سعة ${hall.capacity}`);
-        out.push({ days: set, start: minutesToTime(start), end: minutesToTime(start + duration), hall, instructorId: teacher, score, reasons, studentsServed: served });
+        /* السعةُ تُسمّى بمصدرها: سعةُ الشعبة (المقرر) وإلا سعةُ القاعة، وإلا «غير محددة». */
+        const capacity = seatCapacity(course, hall);
+        const served = unmet === null ? null : Math.min(capacity.value || unmet, unmet);
+        out.push({ days: set, start: minutesToTime(start), end: minutesToTime(start + duration), hall, instructorId: teacher, score, reasons, studentsServed: served, capacity });
       }
     }
   }

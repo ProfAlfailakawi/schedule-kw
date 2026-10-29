@@ -7,7 +7,7 @@
 import React, { useMemo, useState } from "react";
 import { GitMerge, Plus, Scissors, Search, Trash2, X } from "lucide-react";
 import {
-  MODE_LABEL, PERIOD_LABEL, TM_DAYS, addSectionChange, applyChanges, boardOf, dayLabel, hallLabel, mergeSectionsChange,
+  MODE_LABEL, PERIOD_LABEL, TM_DAYS, addSectionChange, applyChanges, boardOf, capacityLabel, dayLabel, hallLabel, mergeSectionsChange,
   removeImpact, removeSectionChange, sectionCards, splitSectionChange, suggestPlacements,
   type TmChange, type TmPeriod, type TmScenarioRecord, type TmSectionCard,
 } from "../utils/timeMachine";
@@ -15,6 +15,9 @@ import type { DayKey } from "../utils/scheduleIntelligence";
 import ScenarioWorkbench from "./ScenarioWorkbench";
 import { Ico, Loading, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
 import { AR, nounFor } from "../utils/arabicCount";
+import { useCourseSheets } from "./useCourseSheets";
+import { inNewSheet, SHEET_TAG_LABEL, type SheetTag } from "../utils/sheetTag";
+import "../styles/39-sections-courses.css";
 
 type Assign = "all" | "vacant" | "assigned";
 /* الاختصار الشائع لأيام الدوام: أحد، اثنين، ثلاثاء، أربعاء، خميس. */
@@ -53,7 +56,9 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
   const totals = {
     sections: cards.length,
     vacant: cards.filter(card => card.vacant).length,
-    seats: cards.reduce((sum, card) => sum + card.capacity, 0),
+    /* مقاعدُ الشعب ذات السعة المعروفة وحدها؛ والباقي يُعدّ «غير محددة» لا صفراً. */
+    seats: cards.reduce((sum, card) => sum + (card.capacitySource ? card.capacity : 0), 0),
+    unknownSeats: cards.filter(card => !card.capacitySource).length,
     students: context.demand ? cards.reduce((sum, card) => sum + (card.students || 0), 0) : null,
   };
 
@@ -63,12 +68,21 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
   const people = new Map(context.instructors.map(person => [Number(person.AdInstructorId), person.AdInstructorName] as const));
   const courseOptions = [...new Map(context.courses.map(course => [course.AdCourseId, course])).values()]
     .sort((a, b) => String(a.CourseCode).localeCompare(String(b.CourseCode)));
+  /* مقرراتُ الصحيفة الجديدة تُرى بوسمٍ ظاهر، وتُجمع في القائمة تحت عنوانها. */
+  const sheets = useCourseSheets(Number(context.scope.sectionId));
+  const tagOf = (courseId: number): SheetTag => sheets.tags.get(Number(courseId)) ?? null;
+  const newOptions = courseOptions.filter(course => inNewSheet(tagOf(course.AdCourseId)));
+  const otherOptions = courseOptions.filter(course => !inNewSheet(tagOf(course.AdCourseId)));
+  const optionText = (course: typeof courseOptions[number]) => {
+    const tag = tagOf(course.AdCourseId);
+    return `${course.CourseCode} · ${course.CourseName}${tag === "new" ? " · 🆕 صحيفة جديدة" : ""}`;
+  };
 
   return (
     <div className="tm-sim">
       <ul className="tm-kpis" aria-label="ملخص الشعب">
         <li><Ico n="sections" className="tm-kpi-ico" /><b>{totals.sections}</b><small>{nounFor(totals.sections, AR.section)}</small></li>
-        <li><Ico n="seats" className="tm-kpi-ico" /><b>{totals.seats}</b><small>{nounFor(totals.seats, AR.seat)}</small></li>
+        <li title={totals.unknownSeats ? `${totals.unknownSeats} شعبة سعتها غير محددة ولم تُحسب` : undefined}><Ico n="seats" className="tm-kpi-ico" /><b>{totals.seats}</b><small>{nounFor(totals.seats, AR.seat)}{totals.unknownSeats ? ` · ${totals.unknownSeats} غير محددة` : ""}</small></li>
         <li><Ico n="students" className="tm-kpi-ico" /><b>{totals.students ?? "—"}</b><small>{nounFor(totals.students ?? 0, AR.student)} · رادار</small></li>
         <li className={totals.vacant ? "is-warn" : ""}><Ico n="vacant" className="tm-kpi-ico" /><b>{totals.vacant}</b><small>شاغرة</small></li>
       </ul>
@@ -94,7 +108,10 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
       <div className="tm-addbar">
         <select data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" value={adding || ""} onChange={event => { setAdding(Number(event.target.value)); setInspect(null); }} aria-label="أضف شعبة لمقرر">
           <option value="">+ ماذا لو أضفنا شعبة…</option>
-          {courseOptions.map(course => <option key={course.AdCourseId} value={course.AdCourseId}>{course.CourseCode} · {course.CourseName}</option>)}
+          {newOptions.length ? <>
+            <optgroup label="🆕 الصحيفة الجديدة">{newOptions.map(course => <option key={course.AdCourseId} value={course.AdCourseId}>{optionText(course)}</option>)}</optgroup>
+            <optgroup label="📘 الصحيفة القديمة والمقررات الأخرى">{otherOptions.map(course => <option key={course.AdCourseId} value={course.AdCourseId}>{optionText(course)}</option>)}</optgroup>
+          </> : courseOptions.map(course => <option key={course.AdCourseId} value={course.AdCourseId}>{optionText(course)}</option>)}
         </select>
         {mergeFrom ? <span className="tm-hint"><GitMerge aria-hidden="true" />اختر الشعبة التي تستقبل الطلبة <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={() => setMergeFrom(null)}><X aria-label="إلغاء" /></button></span> : null}
       </div>
@@ -113,7 +130,8 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
                 <li title="الأستاذ"><Ico n="teachers" /><b>{people.get(item.instructorId) || "—"}</b></li>
                 {item.studentsServed !== null ? <li title="طلبة يُخدَمون (رادار)"><Ico n="students" /><b>≈{item.studentsServed}</b></li> : null}
               </ul>
-              <p className="tm-tags">{item.reasons.slice(0, 2).map(reason => <span key={reason}>{reason}</span>)}</p>
+              <p className="tm-tags">{item.reasons.slice(0, 2).map(reason => <span key={reason}>{reason}</span>)}
+                {item.capacity ? <span className={item.capacity.value === null ? "is-unknown" : ""} title={item.capacity.source === "room" ? "سعة المقرر غير مسجّلة؛ هذه سعة القاعة في سجل المواقع" : item.capacity.source === "section" ? "سعة الشعبة المسجّلة للمقرر" : "لا سعة مسجّلة للمقرر ولا للقاعة"}>{capacityLabel(item.capacity)}</span> : null}</p>
               <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="btn btn-secondary" onClick={() => add(addSectionChange(board, adding, item, context))}><Plus aria-hidden="true" />للسلة</button>
             </article>
           )) : <p className="tm-note">لا موضع خالٍ بلا تعارض لهذا المقرر</p>}
@@ -147,7 +165,7 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
 
       <div className="tm-cards">
         {shown.map(card => (
-          <SectionCardView key={card.key} card={card} active={inspect === card.key} merging={Boolean(mergeFrom) && mergeFrom !== card.key && cards.find(c => c.key === mergeFrom)?.courseId === card.courseId}
+          <SectionCardView key={card.key} card={card} sheet={tagOf(card.courseId)} active={inspect === card.key} merging={Boolean(mergeFrom) && mergeFrom !== card.key && cards.find(c => c.key === mergeFrom)?.courseId === card.courseId}
             onInspect={() => { setInspect(inspect === card.key ? null : card.key); setAdding(0); }}
             onSplit={() => add(splitSectionChange(board, card, context))}
             onMerge={() => {
@@ -170,23 +188,23 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
   );
 }
 
-function SectionCardView({ card, active, merging, onInspect, onSplit, onMerge }: { key?: string; card: TmSectionCard; active: boolean; merging: boolean; onInspect: () => void; onSplit: () => void; onMerge: () => void }) {
-  /* سعةٌ مسجّلة أقل من ٥ مقاعد ليست سعة شعبة (بيان ناقص): لا يُرسم شريطٌ عليها. */
-  const plausible = plausibleCapacity(card.capacity);
+function SectionCardView({ card, sheet, active, merging, onInspect, onSplit, onMerge }: { key?: string; card: TmSectionCard; sheet: SheetTag; active: boolean; merging: boolean; onInspect: () => void; onSplit: () => void; onMerge: () => void }) {
+  /* السعةُ من المقرر، وإلا من القاعة، وإلا «غير محددة» — لا رقمَ مخترعاً ولا شريط عليه. */
+  const plausible = Boolean(card.capacitySource) && plausibleCapacity(card.capacity);
   const fill = card.students !== null && plausible ? Math.min(100, card.students / card.capacity * 100) : 0;
-  const seats = plausible ? (card.students !== null ? `≈${card.students}/${card.capacity}` : `${card.capacity}`) : card.students !== null ? `≈${card.students}` : "";
+  const seats = plausible ? (card.students !== null ? `≈${card.students}/${card.capacity}` : `${card.capacity}`) : card.students !== null ? `≈${card.students} · السعة غير محددة` : "السعة غير محددة";
   const seatIcon = card.students !== null ? "students" as const : "seats" as const;
   return (
     <article className={`tm-card ${active ? "is-active" : ""} ${card.vacant ? "is-vacant" : ""} ${card.added ? "is-added" : ""} ${merging ? "is-merge-target" : ""}`}>
       <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="tm-card-main" onClick={merging ? onMerge : onInspect} aria-label={`${card.courseCode} · ش${card.code}`}>
-        <span className="tm-card-code"><b>{card.courseCode}</b><small>ش{card.code}</small></span>
+        <span className="tm-card-code"><b>{card.courseCode}</b><small>ش{card.code}</small>{sheet === "new" ? <em className="tm-sheet-tag" title="مقرر من الصحيفة الجديدة">🆕 {SHEET_TAG_LABEL.new}</em> : null}</span>
         <span className="tm-card-name">{card.courseName}</span>
         <span className="tm-card-meta">
           <span className="tm-days">{TM_DAYS.map((day, index) => <i key={day} className={card.days.includes(day) ? "on" : ""} title={dayLabel(day)}>{DAY_LETTER[index]}</i>)}</span>
           <bdi>{card.start}–{card.end}</bdi>
         </span>
         <span className="tm-card-meta"><span className="tm-th"><Ico n="rooms" />{card.hall}</span><span className="tm-th">{card.vacant ? <><Ico n="vacant" />شاغرة</> : <><Ico n="teachers" />{card.instructorName}</>}</span></span>
-        {seats ? <span className="tm-seat" title={card.students !== null ? "طلبة ≈ / سعة" : "سعة"}>
+        {seats ? <span className={`tm-seat${plausible ? "" : " is-unknown"}`} title={!plausible ? "لا سعة مسجّلة للمقرر ولا للقاعة" : card.capacitySource === "room" ? "سعة القاعة (سعة المقرر غير مسجّلة)" : card.students !== null ? "طلبة ≈ / سعة" : "سعة"}>
           {plausible && card.students !== null ? <span className="tm-bar" aria-hidden="true"><i style={{ width: `${fill}%` }} /></span> : null}
           <small className="tm-th"><Ico n={seatIcon} />{seats}</small>
         </span> : null}
