@@ -4461,7 +4461,7 @@
    ],
    "path": "/api/public/request/:token/stick",
    "name": "bound dispatch",
-   "call": "e9d31fc0381ffce5",
+   "call": "59ce85d0f953f851",
    "site": "server.ts:24296",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/stick\\/?$/i",
    "end": true

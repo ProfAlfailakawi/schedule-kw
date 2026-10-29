@@ -219,7 +219,8 @@ export const REQUEST_V4_CSS = `
 .starts button[data-heat=bad]{--heat:#c0392b;color:var(--bad)}
 .starts button[aria-pressed=true][data-heat]::after{background:rgba(255,255,255,.9)}
 .heat-key{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin:9px 2px 0;font-size:12px;color:var(--muted)}
-.heat-key span{display:inline-block;inline-size:16px;block-size:4px;border-radius:3px;margin-inline-end:5px;vertical-align:middle}
+/* شرطةُ اللون لمفتاح الخريطة وحدها: «span» عامّةً كانت تضغط جملةَ «أكمل أيام المقرر» وحبوبَ الأنماط إلى 16×4 فتتراكب (r4). */
+.heat-key span[data-heat]{display:inline-block;inline-size:16px;block-size:4px;border-radius:3px;margin-inline-end:5px;vertical-align:middle}
 .heat-key span[data-heat=ok]{background:#2f8f69}
 .heat-key span[data-heat=warn]{background:#c58a12}
 .heat-key span[data-heat=bad]{background:#c0392b}

@@ -8,6 +8,7 @@
  *   tcRibbon      🔒 «انتهت فترة الطلبات» بتاريخها · 👁️ «للعرض فقط» · 🎓 مرحلة التدريب بعدّادٍ وحلقة نصاب
  *   tcCourseLock  🔒/🌱/🎯 على المقرر غير المتاح + 🌟 «اهتمام مستقبلي»
  *   tcStickHtml   🧲 «لاصق بمحاضرتي»: ⬅️ قبلها / ➡️ بعدها لكل محاضرة، شريطٌ زمني، «اقترح أفضل التصاق»
+ *                 الوقتُ وحده: لا قاعةَ ولا مبنى ولا تلميحَ بهما (قرار المالك 2026-10-29).
  *
  * يعتمد على ما في الصفحة: esc, gi, data, state, paint, recheckAll, TOKEN, fmtDays, payloadItems, rawItem.
  */
@@ -71,7 +72,7 @@ function tcBar(a,c){var span=720,o=480,pos=function(t){return Math.max(0,Math.mi
  return '<div class="tc-tl" aria-hidden="true"><i class="a" style="inset-inline-start:'+pos(a.start)+'%;inline-size:'+(pos(a.end)-pos(a.start))+'%"></i>'+(c?'<i class="c" data-tone="'+esc(c.tone)+'" style="inset-inline-start:'+pos(c.start)+'%;inline-size:'+(pos(c.end)-pos(c.start))+'%"></i>':'')+'</div>'}
 function tcShift(c){return c.shift?(c.side==="after"?"+":"−")+c.shift+"د":"ملاصق"}
 function tcSideBtn(i,c,label){if(!c)return '<button type="button" class="tc-side" data-tone="bad" disabled>'+label+' · —</button>';
- return '<button type="button" class="tc-side" data-tone="'+esc(c.tone)+'" data-stick="'+i+'" data-days="'+esc(c.days.join(","))+'" data-start="'+esc(c.start)+'"'+(c.tone==="bad"?' disabled title="'+esc(c.reason||"غير متاح")+'"':'')+'>'+label+' <bdi dir="ltr">'+esc(c.start+"–"+c.end)+'</bdi> <span class="tc-tag">'+(c.tone==="bad"?"⛔":tcShift(c))+'</span>'+(c.sameRoom?'<span class="tc-tag">🏫 نفس القاعة</span>':c.sameBuilding?'<span class="tc-tag">🏢 نفس المبنى</span>':'')+'</button>'}
+ return '<button type="button" class="tc-side" data-tone="'+esc(c.tone)+'" data-stick="'+i+'" data-days="'+esc(c.days.join(","))+'" data-start="'+esc(c.start)+'"'+(c.tone==="bad"?' disabled title="'+esc(c.reason||"غير متاح")+'"':'')+'>'+label+' <bdi dir="ltr">'+esc(c.start+"–"+c.end)+'</bdi> <span class="tc-tag">'+(c.tone==="bad"?"⛔":tcShift(c))+'</span></button>'}
 function tcStickHtml(it,i){if(!data||data.mode!=="edit"||!data.windowOpen||it.offeringId)return "";var st=tcStick[i];
  var h='<div class="tc-stick"><button type="button" class="tc-open" data-stick-open="'+i+'" aria-expanded="'+(!!st)+'">🧲 لاصق بمحاضرتي</button>';
  if(!st)return h+'</div>';

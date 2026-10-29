@@ -171,13 +171,16 @@ export function withReservedRooms(request: InstructorRequest, entries: RequestRe
  * تُكتب القاعةُ المحجوزة على البند للقسم (أعلاه)، وتُنزع من نسخة الأستاذ مع
  * مرشّحاتها وبدائلها (stripForInstructor). وبقي سطرٌ واحد يحملها نصّاً: تعديلُ
  * القسم لموعدٍ جاء من طلب يُسجَّل في خطّ الطلب جملةً («الوقت … · القاعة 7/31 ←
- * 8/22»). فتصل الأستاذَ الجملةُ نفسها و«القاعة …» فيها «تغيّرت القاعة»، و«المرفق
- * المرافق …» «تغيّر المرفق المرافق» — يعرف أن شيئاً تغيّر، ولا يعرف أين.
+ * 8/22 · المرفق المرافق …»). فتصل الأستاذَ الجملةُ بلا جزء القاعة ولا المرفق:
+ * لا اسمَ ولا رمزَ ولا تلميحَ مثل «تغيّرت القاعة» (المالك 2026-10-29: لا معلومةَ
+ * عن القاعة أو المبنى ولا تلميحَ بها). وما لم يبقَ منه شيءٌ يعود نصّاً فارغاً،
+ * فيُسقَط الحدثُ كلُّه من نسخة الأستاذ.
  */
+const ROOM_PART = /^(القاعة|المرفق المرافق) /;
 export function withoutRoomNames(text: string): string {
   const parts = String(text || "").split(" · ");
-  if (!parts.some(part => /^(القاعة|المرفق المرافق) /.test(part))) return String(text || "");
-  return parts.map(part => /^القاعة /.test(part) ? "تغيّرت القاعة" : /^المرفق المرافق /.test(part) ? "تغيّر المرفق المرافق" : part).join(" · ");
+  if (!parts.some(part => ROOM_PART.test(part))) return String(text || "");
+  return parts.filter(part => !ROOM_PART.test(part)).join(" · ");
 }
 
 /** Official writes participate in the same transaction as submissions. Internal apply

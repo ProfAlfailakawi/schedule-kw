@@ -33,7 +33,10 @@ check(/useVisitingLookup\(row\.AdTermId\)/.test(inbox) && /<strong className="sc
 check((inbox.match(/\{row\.instructorName\}\{rowVisiting\(row\) \? <VisitingBadge compact \/> : null\}/g) || []).length === 2, "رابطا التذكير لمن لم يفتحوا");
 check(/withVisitingSuffix\(row\.instructorName, rowVisiting\(row\)\)\)\.join/.test(inbox), "قائمة «كما هو»");
 check(/label: withVisitingSuffix\(row\.instructorName, rowVisiting\(row\)\)/.test(inbox), "خيارات مرشّح الأستاذ");
-check(/visiting: rowVisiting\(row\)/.test(inbox) && /withVisitingSuffix\(row\.instructorName, Boolean\(row\.visiting\)\)/.test(read("src/components/proposal/ProposalInboxParts.tsx")), "قائمة اختيار الأستاذ للمقترح");
+/* r4: المنتقي يبني من proposalLauncherChoices (الشخص مرّةً واحدة)، وشارةُ المنتدب تبقى على كل خيار. */
+check(/visiting: rowVisiting\(row\)/.test(inbox)
+  && /withVisitingSuffix\(choice\.name, choice\.visiting\)/.test(read("src/components/proposal/ProposalInboxParts.tsx"))
+  && /visiting: Boolean\(row\.visiting\)/.test(read("src/utils/instructorPickerChoices.ts")), "قائمة اختيار الأستاذ للمقترح");
 
 const dept = read("src/components/DepartmentSchedule.tsx");
 check(/instructorId: Number\(item\.AdInstructorId\)/.test(dept) && /isVisiting\(row\.instructorId, row\.collegeId, row\.sectionId\)/.test(dept), "جدول القسم يحمل المعرّف ويسأل بكلية الصفّ وقسمه");
