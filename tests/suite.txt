@@ -10,6 +10,7 @@ test:schedule-interface
 test:hardening
 test:companion-rooms
 test:room-occupancy
+test:room-door
 test:doctor-journey
 test:calendar-ics
 test:review-audit-1028
