@@ -55,6 +55,13 @@
   .hall-barter-inbox:not(.hall-barter-inbox-decision) .hall-barter-inbox-copy,
   .hall-barter-inbox:not(.hall-barter-inbox-decision) .hall-barter-inbox-go{position:absolute!important;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   .hall-barter-inbox:not(.hall-barter-inbox-decision) .hall-barter-inbox-mark{inline-size:40px;block-size:40px;border-radius:50%}
+  /* على خطّ الشريط العائم نفسه وفي الزاوية: كل العائمات في شريطٍ واحد أسفل الشاشة. */
+  .hall-barter-inbox:not(.hall-barter-inbox-decision){inset-block-end:calc(12px + env(safe-area-inset-bottom));inset-inline-start:16px}
+}
+@media screen and (max-width:768px){
+  /* الهاتف: بجوار شريط «موعد/بحث» فوق شريط التنقل، لا فوقه بطابقٍ كامل. */
+  .hall-barter-inbox:not(.hall-barter-inbox-decision){inline-size:46px;block-size:46px;inset-block-end:calc(66px + env(safe-area-inset-bottom));inset-inline-start:12px}
+  .hall-barter-inbox:not(.hall-barter-inbox-decision) .hall-barter-inbox-mark{inline-size:36px;block-size:36px}
 }
 
 /* شارة الصحيفة في كشف التسجيل كانت تنكسر لسطرين على الجوال فتتضخّم: سطر واحد، تُختصر إن ضاقت. */
@@ -281,3 +288,11 @@
 
 /* قوائم «التخطيط» في شريط الاعتماد: تبقى ١٦px على الجوال (كي لا يكبّر iOS الصفحة) لكن بوزنٍ أخفّ. */
 @media (pointer:coarse){.apb-dr-cap select{font-weight:600}}
+
+/* ── قائمة المواعيد على الهاتف: حين تزاحمت شارتا «التالية» و«استوديو إنتاج» العنوانَ في سطرٍ
+   لا يلتفّ، انكمش الاسم حتى انكسرت الكلمة نفسها («تكنولوجي / ا التعليم»). صار السطر يلتفّ:
+   الاسم يحتفظ بكلماته كاملة، والشارات تنزل تحته. */
+@media (max-width:760px){
+  .schedule-agenda .agenda-title-row{flex-wrap:wrap}
+  .schedule-agenda .agenda-title-row>strong{flex:1 1 10em;min-width:min(10em,100%);overflow-wrap:break-word;word-break:normal}
+}

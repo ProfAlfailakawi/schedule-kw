@@ -61,7 +61,7 @@ export default function SectionScheduleHours({header,demoReadOnly=false}:{header
     }catch(error:any){setNotice({text:error.message||"تعذر حفظ أوقات الدوام",bad:true});}finally{setBusy(false);}
   };
   return <div className="content-stack admin-page section-schedule-hours">
-    {header}<PageTitle eyebrow="إدارة النظام · للمدير الرئيسي فقط" subtitle="الافتراضي لكل قسم: ٨ص – ٨م.">أوقات الدوام للأقسام</PageTitle>
+    {header}<PageTitle eyebrow="إدارة النظام · للمدير الرئيسي فقط" subtitle="الافتراضي لكل قسم: 8ص – 8م.">أوقات الدوام للأقسام</PageTitle>
     {notice?<Notice>{notice.text}</Notice>:null}
     {demoReadOnly?<Notice type="info">الإعدادات للعرض في الديمو، والحفظ معطّل.</Notice>:null}
     <Surface className="form-card smart-form">
