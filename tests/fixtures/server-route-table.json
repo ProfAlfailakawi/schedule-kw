@@ -4668,7 +4668,7 @@
    ],
    "path": "/api/study-proposals/context",
    "name": "bound dispatch",
-   "call": "6c8f9161a429de16",
+   "call": "7434a95f2d4a8caa",
    "site": "src/server/studyProposalRoutes.ts:286",
    "regexp": "/^\\/api\\/study-proposals\\/context\\/?$/i",
    "end": true

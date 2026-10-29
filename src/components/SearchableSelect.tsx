@@ -109,7 +109,10 @@ export default function SearchableSelect({
     document.addEventListener("mousedown", away);
     window.addEventListener("keydown", escape, true);
     /* تُغلق القائمة الثابتة بحركة الصفحة لا بتمرير قائمتها نفسها. */
-    const drift = (event: Event) => { if (fixed && !(event.target instanceof Node && box.current?.contains(event.target))) close(); };
+    /* ولا تُغلق بما تُحدثه هي لحظةَ فتحها: ظهورُها يغيّر مقاسَ حاويها القابل للتمرير (بطاقةٌ عائمة)
+       فيُطلق المتصفحُ حدثَ تمريرٍ بلا حركة — كان يُغلقها قبل أن تُرى. */
+    const openedAt = Date.now();
+    const drift = (event: Event) => { if (fixed && Date.now() - openedAt > 250 && !(event.target instanceof Node && box.current?.contains(event.target))) close(); };
     window.addEventListener("scroll", drift, true);
     window.addEventListener("resize", drift);
     return () => {
@@ -140,7 +143,14 @@ export default function SearchableSelect({
   useEffect(() => { setActive(0); }, [needle]);
   useEffect(() => {
     if (!open) return;
-    list.current?.querySelector<HTMLElement>(`[data-ss-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
+    /* تُمرَّر القائمةُ وحدها إلى الخيار النشط: scrollIntoView كان يمرّر الحاويَ أيضاً (بطاقةٌ عائمة
+       قابلةٌ للتمرير)، فتُغلق القائمةُ الثابتة نفسها لحظةَ فتحها بحدث التمرير. */
+    const box = list.current, item = box?.querySelector<HTMLElement>(`[data-ss-index="${active}"]`);
+    if (box && item) {
+      const at = item.getBoundingClientRect(), frame = box.getBoundingClientRect();
+      if (at.top < frame.top) box.scrollTop -= frame.top - at.top;
+      else if (at.bottom > frame.bottom) box.scrollTop += at.bottom - frame.bottom;
+    }
   }, [active, open]);
 
   const onKeys = (event: React.KeyboardEvent) => {

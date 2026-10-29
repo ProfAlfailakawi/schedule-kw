@@ -1,22 +1,21 @@
 /**
- * ── منتقيات الأستاذ: الشخصُ مرّةً واحدة، والاسمُ المتكرّر بتمييزٍ صغير ──────
+ * ── منتقيات الأستاذ: الشخصُ مرّةً واحدة، باسمه وحده ─────────────────────────
  *
- * ملاحظةُ المالك (r4): في «وارد الأساتذة» يظهر «د. أحمد الفيلكاوي» مرّتين في
- * منتقي «مقترح دراسي». السبب: المنتقي كان يُفرد كلَّ طلبٍ سطراً، والطلبُ
- * يصدر لكل (سجلِّ أستاذ × قسم). و«د. أحمد الفيلكاوي» له سجلّان في سجلّ
- * الأساتذة بمعرّفين (والمشكلةُ نفسُها حُلّت لمنتقي التصفية في N1 —
- * inboxInstructorChoices — ولم تُطبَّق على منتقي المقترح). وكذلك «هيئة
- * تدريسية» — اسمٌ لا شخص — كانت تظهر بعدد سجلاتها.
+ * ملاحظةُ المالك (r4) ثم (r2 «خطأ فادح»): في «وارد رغبات الأساتذة» كان منتقي «مقترح
+ * دراسي» يُفرد الشخصَ سطراً لكل طلب — والطلبُ يصدر لكل (سجلِّ أستاذ × قسم × كلية) —
+ * فظهر «د. أحمد الفيلكاوي · قسم تكنولوجيا التعليم — كلية التربية الأساسية - بنات»
+ * ثم «… - بنين»، وكذلك الشعيب والمنيفي والكندري وحيدر.
  *
- * القاعدة هنا واحدة للمنتقيات:
- *   - الهويةُ مفتاحُ الاسم (instructorIdentityKey): «د. أحمد الفيلكاوي» بسجلّين
- *     في القسم نفسه شخصٌ واحد وسطرٌ واحد.
- *   - الشخصُ نفسُه في قسمين مختلفين طلبان حقيقيان مختلفان (المقترحُ يُكتب في
- *     نطاق طلبه): يبقى سطران، ولكلٍّ اسمُ قسمه تمييزاً صغيراً لا تكراراً.
- *   - سجلّان مختلفان بالاسم نفسه حين يكون الفعلُ لكل معرّفٍ على حدة (إعادةُ
- *     فتح الرابط لأستاذ): لا يُدمجان، بل يُميَّزان بآخر أرقام الجوال، وإلا برقم السجل.
+ * القاعدة الواحدة للمنتقيات الآن:
+ *   - الهويةُ مفتاحُ الاسم (personIdentityKey ← instructorIdentityKey مع أرقام الاسم):
+ *     سجلّان باسمٍ واحد، أو طلبان في البنين والبنات، شخصٌ واحد وسطرٌ واحد.
+ *   - السطرُ اسمُ الشخص وحده (ومعه وسمُ «منتدب» إن كان)، بلا قسمٍ ولا كلية ولا جوال.
+ *   - وسمُ الموقع (بنين/بنات/الكلية) يُرسم داخل ما يُفتح — على كل طلبٍ وكل موعد —
+ *     لا في المنتقي (campusChip.ts).
+ *   - الفعلُ لكل معرّف (إعادةُ فتح الرابط لأستاذ في شاشة النشر) يقع على كل سجلّات الشخص.
  */
 import { instructorIdentityKey, placeholderInstructorIds } from "./instructorIdentity";
+import { campusChipOf, campusChips } from "./campusChip";
 
 export interface LauncherRequestRow {
   id: string;
@@ -31,53 +30,99 @@ export interface LauncherRequestRow {
 }
 
 export interface LauncherChoice {
-  /** الطلبُ الذي يُفتح عليه المقترح. */
+  /** الطلبُ الذي يُفتح عليه المقترح أولاً (قيمةُ الخيار). */
   value: string;
   name: string;
-  /** تمييزٌ صغير يظهر بعد الاسم حين يتكرّر الشخص في أكثر من قسم. */
+  /** لم يعد يُكتب بعد الاسم شيء: الشخصُ مرّةً واحدة باسمه وحده (r2). يبقى الحقلُ فارغاً لمن يقرؤه. */
   hint: string;
+  visiting: boolean;
+  /** كلُّ طلباته في الوارد — طلبٌ لكل (سجلٍّ × قسمٍ × كلية) — الأوّلُ هو `value`. */
+  requests: LauncherPersonRequest[];
+}
+
+export interface LauncherPersonRequest {
+  id: string;
+  /** وسمُ الموقع الصغير («بنين»/«بنات» أو اسمُ الكلية) — يُرسم داخل المساحة، لا في المنتقي. */
+  campus: string;
+  collegeName: string;
+  sectionName: string;
+  changedCount: number;
+  /** منتدبٌ في قسم هذا الطلب. */
   visiting: boolean;
 }
 
 /* مفتاحُ الهوية يُسقط الأرقام (لا اسمَ فيه رقم)، فـ«عضو هيئة تدريس تجريبي 5» و«… 6» كانا مفتاحاً واحداً؛
    الأرقامُ في الاسم جزءٌ من هويته هنا. */
-const identityOf = (name: string, id: number | string) => {
+export const personIdentityKey = (name: string, id: number | string) => {
   const key = instructorIdentityKey(String(name || ""));
   const digits = (String(name || "").match(/[0-9٠-٩]+/g) || []).join(",");
   return key ? `${key}${digits ? `#${digits}` : ""}` : `id:${Number(id)}`;
 };
+const identityOf = personIdentityKey;
 const ar = (a: string, b: string) => a.localeCompare(b, "ar", { numeric: true });
 
-/** منتقي «مقترح دراسي» في الوارد: سطرٌ لكل (شخص × قسم)، بلا «هيئة تدريسية». */
-export function proposalLauncherChoices(rows: readonly LauncherRequestRow[]): LauncherChoice[] {
+/**
+ * سجلّاتُ الشخص نفسه في سجلّ الأساتذة: معرّفُه، ومعه كلُّ معرّفٍ يحمل الاسمَ نفسه بالهوية
+ * (بنين وبنات، أو سجلٌّ مكرّر). لا تُضمّ «هيئة تدريسية» أبداً — ليست شخصاً.
+ */
+export function personRecordIds(
+  instructors: ReadonlyArray<{ AdInstructorId: number | string; AdInstructorName?: unknown }>,
+  instructorId: number,
+): Set<number> {
+  const ids = new Set<number>([Number(instructorId)]);
+  const self = instructors.find(person => Number(person.AdInstructorId) === Number(instructorId));
+  const placeholders = placeholderInstructorIds(instructors as any);
+  if (!self || placeholders.has(Number(instructorId))) return ids;
+  const key = identityOf(String(self.AdInstructorName || ""), instructorId);
+  if (key.startsWith("id:")) return ids;
+  for (const person of instructors) {
+    const id = Number(person.AdInstructorId);
+    if (!id || placeholders.has(id)) continue;
+    if (identityOf(String(person.AdInstructorName || ""), id) === key) ids.add(id);
+  }
+  return ids;
+}
+
+/**
+ * منتقي «مقترح دراسي» في الوارد: **الشخصُ مرّةً واحدة باسمه وحده** (ملاحظة المالك r2 —
+ * «خطأ فادح»: كان يظهر «د. أحمد الفيلكاوي · قسم … — كلية التربية الأساسية - بنات» ثم «… - بنين»).
+ * الطلبُ يصدر لكل (سجلٍّ × قسمٍ × كلية)، فيُجمع كلُّ ذلك تحت الشخص؛ واختيارُه يفتح المساحةَ على
+ * طلبه الأوّل ومعه بقيةُ طلباته (يُنتقل بينها داخل المساحة بوسم الموقع)، وجدولُه الكامل.
+ * لا «هيئة تدريسية».
+ *
+ * الطلبُ الأوّل: ما في كلية الشاشة الحالية (`preferCollegeId`)، ثم ما فيه تعديل، ثم أوّلُ ما وصل.
+ */
+export function proposalLauncherChoices(rows: readonly LauncherRequestRow[], preferCollegeId = 0): LauncherChoice[] {
   const placeholders = placeholderInstructorIds(rows.map(row => ({ AdInstructorId: row.AdInstructorId, AdInstructorName: row.instructorName })));
-  const people = new Map<string, Map<string, LauncherRequestRow[]>>();
+  const people = new Map<string, LauncherRequestRow[]>();
   for (const row of rows) {
     if (!row?.id || placeholders.has(Number(row.AdInstructorId))) continue;
     const person = identityOf(row.instructorName, row.AdInstructorId);
-    const scope = `${Number(row.AdCollegeId || 0)}:${Number(row.AdSectionId || 0)}`;
-    const scopes = people.get(person) || new Map<string, LauncherRequestRow[]>();
-    scopes.set(scope, [...(scopes.get(scope) || []), row]);
-    people.set(person, scopes);
+    people.set(person, [...(people.get(person) || []), row]);
   }
   const out: LauncherChoice[] = [];
-  for (const scopes of people.values()) {
-    const picked = [...scopes.values()].map(list =>
-      /* سجلّان للشخص في القسم نفسه: الطلبُ الذي فيه تعديلٌ أولى، ثم الأوّل كما وصل. */
-      [...list].sort((a, b) => Number((b.changedCount || 0) > 0) - Number((a.changedCount || 0) > 0))[0]);
-    const many = picked.length > 1;
-    const sectionCounts = new Map<string, number>();
-    for (const row of picked) sectionCounts.set(String(row.sectionName || ""), (sectionCounts.get(String(row.sectionName || "")) || 0) + 1);
-    for (const row of picked) {
-      const section = String(row.sectionName || "").trim();
-      const college = String(row.requestCollegeName || "").trim();
-      const hint = !many ? ""
-        : section && (sectionCounts.get(section) || 0) === 1 ? section
-        : [section, college].filter(Boolean).join(" — ") || `قسم ${Number(row.AdSectionId || 0)}`;
-      out.push({ value: row.id, name: String(row.instructorName || "").trim(), hint, visiting: Boolean(row.visiting) });
-    }
+  for (const list of people.values()) {
+    const ordered = list.map((row, at) => ({ row, at })).sort((a, b) =>
+      Number(Boolean(preferCollegeId) && Number(b.row.AdCollegeId) === preferCollegeId) - Number(Boolean(preferCollegeId) && Number(a.row.AdCollegeId) === preferCollegeId)
+      || Number((b.row.changedCount || 0) > 0) - Number((a.row.changedCount || 0) > 0)
+      || a.at - b.at).map(entry => entry.row);
+    const chips = campusChips(ordered.map(row => String(row.requestCollegeName || "")));
+    const first = ordered[0];
+    out.push({
+      value: first.id,
+      name: String(first.instructorName || "").trim(),
+      hint: "",
+      visiting: ordered.some(row => row.visiting === true),
+      requests: ordered.map(row => {
+        const collegeName = String(row.requestCollegeName || "").trim();
+        return {
+          id: row.id, collegeName, sectionName: String(row.sectionName || "").trim(), changedCount: Number(row.changedCount || 0), visiting: Boolean(row.visiting),
+          campus: chips.get(collegeName.replace(/\s+/g, " ")) || (collegeName ? campusChipOf(collegeName) : String(row.sectionName || "").trim()),
+        };
+      }),
+    });
   }
-  return out.sort((a, b) => ar(a.name, b.name) || ar(a.hint, b.hint));
+  return out.sort((a, b) => ar(a.name, b.name));
 }
 
 export interface PickerPerson {
@@ -86,25 +131,27 @@ export interface PickerPerson {
   AdInstructorMobile?: string;
 }
 
+export interface PickerPersonChoice {
+  /** أوّلُ معرّفٍ للشخص — قيمةُ الخيار. */
+  value: number;
+  /** كلُّ معرّفاته في القائمة: الفعلُ يقع عليها كلّها. */
+  ids: number[];
+  label: string;
+}
+
 /**
- * عناوينُ منتقٍ يعمل لكل معرّفٍ على حدة: الاسمُ وحده إن لم يتكرّر، وإلا الاسمُ
- * ومعه آخرُ أربعة أرقامٍ من الجوال (إن اختلفت بين السجلات)، وإلا «سجل رقم …».
+ * منتقٍ يعمل بالمعرّف (إعادةُ فتح التعديل لأستاذ): الشخصُ مرّةً واحدة باسمه، ومعه كلُّ
+ * معرّفاته — سجلّان لاسمٍ واحد لا يُعرضان «… · جوال …1234» و«… · جوال …5678» بعد اليوم.
  */
-export function instructorPickerLabels(people: readonly PickerPerson[]): Map<number, string> {
-  const groups = new Map<string, PickerPerson[]>();
+export function instructorPickerPeople(people: readonly PickerPerson[]): PickerPersonChoice[] {
+  const groups = new Map<string, PickerPersonChoice>();
   for (const person of people) {
-    const key = identityOf(person.AdInstructorName, person.AdInstructorId);
-    groups.set(key, [...(groups.get(key) || []), person]);
+    const id = Number(person.AdInstructorId);
+    if (!id) continue;
+    const key = identityOf(person.AdInstructorName, id);
+    const held = groups.get(key);
+    if (held) { if (!held.ids.includes(id)) held.ids.push(id); }
+    else groups.set(key, { value: id, ids: [id], label: String(person.AdInstructorName || "").trim() });
   }
-  const labels = new Map<number, string>();
-  for (const list of groups.values()) {
-    const tails = list.map(person => String(person.AdInstructorMobile || "").replace(/\D/g, "").slice(-4));
-    const tailsDiffer = tails.every(Boolean) && new Set(tails).size === list.length;
-    list.forEach((person, index) => {
-      const name = String(person.AdInstructorName || "").trim();
-      const id = Number(person.AdInstructorId);
-      labels.set(id, list.length < 2 ? name : `${name} · ${tailsDiffer ? `جوال …${tails[index]}` : `سجل رقم ${id}`}`);
-    });
-  }
-  return labels;
+  return [...groups.values()].sort((a, b) => ar(a.label, b.label));
 }

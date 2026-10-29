@@ -9,8 +9,9 @@ import React from "react";
 import VisitingBadge from "../VisitingBadge";
 import { useVisitingLookup } from "../../hooks/useVisitingLookup";
 import {
-  AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarCheck2, CalendarDays, Check, Clock, GraduationCap, Hourglass, Layers, Scale, ShieldAlert, X,
+  AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarCheck2, CalendarDays, Check, Clock, GraduationCap, Hourglass, Layers, MapPin, Scale, ShieldAlert, X,
 } from "lucide-react";
+import type { LauncherPersonRequest } from "../../utils/instructorPickerChoices";
 import type { StudyProposalMetrics } from "../../types";
 import { AR, countOf } from "../../utils/arabicCount";
 import { STATUS_LABEL } from "../../utils/studyProposal";
@@ -75,6 +76,10 @@ export default function ProposalHeader(props: {
   hasOps: boolean;
   onRetry: () => void;
   onClose: () => void;
+  /** طلباتُ الشخص نفسه كلُّها (بنين/بنات، وكلُّ كلية): وسمٌ لكلٍّ يُنتقل به. */
+  siblings?: LauncherPersonRequest[];
+  requestId?: string;
+  onSwitch?: (requestId: string) => void;
 }) {
   const { ctx, proposal, status, before, after, loadCap, blockers, reviews, evalState, evalCurrent, hasOps } = props;
   const { isVisiting: lookupVisiting } = useVisitingLookup(ctx?.term.id);
@@ -100,11 +105,28 @@ export default function ProposalHeader(props: {
         <div className="sp-id-text">
           <p className="sp-eyebrow">إعداد مقترح دراسي</p>
           <h1 id="sp-title" className="schedule-instructor-with-badge">{ctx.instructor.name}{visiting ? <VisitingBadge compact /> : null}</h1>
-          <p className="sp-meta">
-            <span>{ctx.term.name}</span>
-            <span aria-hidden="true">·</span>
-            <span>{[ctx.scope.collegeName, ctx.scope.sectionName].filter(Boolean).join(" — ")}</span>
-          </p>
+          {props.siblings && props.siblings.length > 1 ? (
+            <div className="sp-meta sp-meta-person">
+              <span>{ctx.term.name}</span>
+              {/* طلباتُه كلُّها وسوماً صغيرة: الحاليُّ مضغوط، والضغطُ على غيره ينقل المساحة إليه. */}
+              <nav className="sp-person-requests" aria-label="طلبات الأستاذ في المواقع">
+                {props.siblings.map(entry => (
+                  <button key={entry.id} type="button" aria-pressed={entry.id === props.requestId} disabled={!props.onSwitch}
+                    title={[entry.collegeName, entry.sectionName].filter(Boolean).join(" — ")}
+                    onClick={() => props.onSwitch?.(entry.id)} data-guide-ignore="ينقل مساحة المقترح إلى طلب الأستاذ في موقعٍ آخر — لا يكتب شيئاً">
+                    <MapPin aria-hidden="true" />{entry.campus}
+                    {entry.changedCount ? <em aria-label={countOf(entry.changedCount, AR.edit)}>{num(entry.changedCount)}</em> : null}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          ) : (
+            <p className="sp-meta">
+              <span>{ctx.term.name}</span>
+              <span aria-hidden="true">·</span>
+              <span>{[ctx.scope.collegeName, ctx.scope.sectionName].filter(Boolean).join(" — ")}</span>
+            </p>
+          )}
         </div>
         <div className="sp-status-group">
           <span className="sp-status" data-status={status}>

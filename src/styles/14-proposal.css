@@ -1055,3 +1055,28 @@ body:has(.sp-root) .smart-guide-fab{visibility:hidden}
   .sp-ev[data-state="out"],.sp-ev[data-state="vacant"]{border-style:dashed}
   .sp-glyph,.sp-diff-icon{border:1px solid CanvasText}
 }
+
+/* ── الشخصُ كاملاً (r2): طلباته في المواقع، ووسمُ الموقع على كل موعد، ومنتقي المقرر بلا تكرار ── */
+.sp-meta-person{align-items:center;gap:8px}
+.sp-person-requests{display:inline-flex;flex-wrap:wrap;gap:4px;padding:2px;border-radius:var(--r-full);background:var(--surface-3)}
+.sp-person-requests button{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:700;padding:3px 10px;border-radius:var(--r-full);cursor:pointer;min-block-size:26px;transition:background .15s,color .15s}
+.sp-person-requests button svg{inline-size:12px;block-size:12px}
+.sp-person-requests button[aria-pressed="true"]{background:var(--surface);color:var(--accent-ink);box-shadow:var(--shadow-xs)}
+.sp-person-requests button:not([aria-pressed="true"]):hover{color:var(--ink)}
+.sp-person-requests em{font-style:normal;display:inline-grid;place-items:center;min-inline-size:16px;block-size:16px;padding-inline:4px;border-radius:var(--r-full);background:var(--accent-soft);color:var(--accent-ink);font-size:10.5px;font-variant-numeric:tabular-nums}
+.sp-ev-campus{display:inline-flex;align-items:center;padding:0 6px;border-radius:var(--r-full);background:var(--accent-soft);color:var(--accent-ink);font-size:10.5px;font-weight:700;line-height:1.6;white-space:nowrap;flex:none}
+.sp-ev-campus[data-twin]{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink-2)}
+.sp-detail header strong .sp-ev-campus{margin-inline-start:6px;vertical-align:2px}
+.sp-ev[data-tiny] .sp-ev-campus{display:none}
+.sp-course-pick{display:grid;gap:6px;min-inline-size:0}
+.sp-campus-seg{justify-self:start}
+.sp-campus-seg button svg{inline-size:13px;block-size:13px}
+.sp-course-pick .ss-trigger{min-block-size:38px}
+/* حركةُ الظهور تُبقي على البطاقة «transform» بعد انتهائها (fill both)، فتصير القائمةُ الثابتة لمنتقي المقرر
+   محصورةً داخلها وتُقصّ. تُترك الحركةُ كما هي، ويزول أثرُها بعد انتهائها. */
+.sp-root .quick-create.sp-quick{animation-fill-mode:backwards}
+/* على الجوال يُخفى سطرُ الفصل والقسم؛ وتبقى وسومُ طلباته وحدها تحت الاسم (هي الطريقُ إلى صورته الكاملة). */
+@media (max-width:639px){
+  .sp-root .sp-meta.sp-meta-person{display:flex;margin-block-start:4px}
+  .sp-root .sp-meta.sp-meta-person>span{display:none}
+}
