@@ -234,7 +234,11 @@ export function analyzeServer(text, fileName = "server.ts") {
     u.refs = new Map(); // name -> { value, type, write, evalTime, positions: [{start,end,shorthand}] }
     if (u.kind === "import") continue;
     const unitRoot = u.nodes[0];
+    u.relSpecs = []; // import("./src/x") داخل الجملة: يُعاد حسابُ مساره في وحدتها الجديدة
     const visit = node => {
+      const specArg = ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) ? node.argument.literal
+        : ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword ? node.arguments[0] : null;
+      if (specArg && ts.isStringLiteral(specArg) && specArg.text.startsWith(".")) u.relSpecs.push({ start: specArg.getStart(sf), end: specArg.end, spec: specArg.text });
       if (ts.isIdentifier(node) && !isDeclarationName(node)) {
         let sym;
         let shorthand = false;

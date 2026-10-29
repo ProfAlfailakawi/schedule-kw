@@ -113,6 +113,7 @@ export function generate(analysis, plan, mapping, { root }) {
         if (!hasExport) edits.push({ at: node.getStart(sf), end: node.getStart(sf), text: "export " });
       }
     }
+    if (u.target !== SERVER) for (const r of u.relSpecs || []) edits.push({ at: r.start, end: r.end, text: JSON.stringify(repathSpec(r.spec, moduleFile(u.target))) });
     edits.sort((a, b) => b.at - a.at);
     let out = u.text;
     for (const e of edits) out = out.slice(0, e.at - u.start) + e.text + out.slice(e.end - u.start);

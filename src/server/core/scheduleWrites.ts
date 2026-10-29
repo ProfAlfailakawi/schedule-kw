@@ -26,7 +26,7 @@ import { captureScopeVersion, recordVersionAfter } from "./versions";
  * يُكتب فقط حين يمرّ الحفظ من «اعتماد الاقتراح» (الرادار، حالة طالب، رغبة أستاذ). الحفظُ اليدويّ
  * لا يحمل مصدراً ولا يتغيّر. والقيم مقيّدة: نوعٌ من قائمةٍ مغلقة، ونصوصٌ قصيرة. */
 const SCHEDULE_ORIGIN_KINDS = new Set(["radar", "student-case", "instructor-request", "intelligence", "planning"]);
-function scheduleOriginOf(req: AuthenticatedRequest): import("./src/types").ScheduleOrigin | undefined {
+function scheduleOriginOf(req: AuthenticatedRequest): import("../../types").ScheduleOrigin | undefined {
   const raw = (req.body as any)?.origin;
   if (!raw || !SCHEDULE_ORIGIN_KINDS.has(String(raw.kind))) return undefined;
   const text = (value: unknown, max: number) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max) || undefined;
