@@ -55,22 +55,28 @@ export function toEnglishDigits(value: string): string {
     .replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
 }
 
+/* Campus days run 08:00–20:00, so a 1–6 without «ص» means the afternoon, and
+   «م/مساءً/عصراً» moves a morning-looking hour past noon. One rule for «2» and
+   «2:30» alike: «2:00 م» used to come back as 02:00 — a time when every room
+   is free — while «2» alone read correctly as 14:00. */
+function afternoonHour(hour: number, marker: string): number {
+  if (/^م|مساء|عصر/.test(marker) && hour < 12) return hour + 12;
+  if (!marker && hour >= 1 && hour <= 6) return hour + 12;
+  return hour;
+}
+
 function readTime(text: string): string | null {
-  const explicit = text.match(/\b(\d{1,2})\s*:\s*(\d{2})\b/);
+  const explicit = text.match(/\b(\d{1,2})\s*:\s*(\d{2})\b\s*(ص|صباح\w*|م|مساء\w*|عصر\w*)?/);
   if (explicit) {
-    const hour = Math.min(23, Number(explicit[1]));
+    const hour = Math.min(23, afternoonHour(Number(explicit[1]), explicit[3] || ""));
     return `${String(hour).padStart(2, "0")}:${explicit[2]}`;
   }
   // "الساعة 10", "10 الصبح", or a bare hour in a sentence that asks about time.
   const bare = text.match(/(?:الساع[ةه]\s*)?\b(\d{1,2})\b\s*(ص|صباح\w*|م|مساء\w*|عصر\w*)?/);
   if (!bare) return null;
-  let hour = Number(bare[1]);
+  const hour = Number(bare[1]);
   if (hour < 1 || hour > 23) return null;
-  const marker = bare[2] || "";
-  // Campus days run 08:00–20:00, so a bare 1–6 means the afternoon.
-  if (/^م|مساء|عصر/.test(marker) && hour < 12) hour += 12;
-  else if (!marker && hour >= 1 && hour <= 6) hour += 12;
-  return `${String(hour).padStart(2, "0")}:00`;
+  return `${String(afternoonHour(hour, bare[2] || "")).padStart(2, "0")}:00`;
 }
 
 function readName(text: string): string | null {
