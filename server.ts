@@ -210,6 +210,7 @@ import {
   academicDigits,
   assignAuthoritySections,
   withoutImportEvidence,
+  authorityCourseCode,
   authorityDepartmentCode,
   authorityDepartmentMatches,
   authoritySectionCodeLooksPlausible,
@@ -15460,9 +15461,15 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
   /* الرقم المدني لا يصل صفات الاطّلاع (N13) — ولا في الملفّ. */
   const instructorById = new Map(instructorsForReader(req, instructors).map(x => [x.AdInstructorId, x]));
   const courseById = new Map(courses.map(x => [x.AdCourseId, x]));
+  /* رقم المقرر في الملف سبع خانات كما تطبعه الهيئة: الكلية ثم القسم ثم المقرر (authorityCourseCode). */
+  const courseNumberOf = (s: any) => {
+    const course = courseById.get(s.AdCourseId);
+    const owner = sectionById.get(Number(course?.AdSectionId || s.AdSectionId));
+    return authorityCourseCode(course?.CourseCode, authorityDepartmentCode(collegeById.get(Number(owner?.AdCollegeId))?.AdCollegeCode, owner?.AdSectionCode));
+  };
 
   // These two read through a relation, so they wait for the maps above.
-  if (courseCode) schedules = schedules.filter(s => (courseById.get(s.AdCourseId)?.CourseCode || "") === String(courseCode).trim());
+  if (courseCode) schedules = schedules.filter(s => (courseById.get(s.AdCourseId)?.CourseCode || "") === String(courseCode).trim() || courseNumberOf(s) === String(courseCode).trim());
   if (civil) schedules = schedules.filter(s => String(instructorById.get(s.AdInstructorId)?.AdInstructorCivil || "").includes(String(civil).trim()));
 
   schedules.sort((a, b) =>
@@ -15491,7 +15498,7 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
     return {
       "الكلية": coll?.AdCollegeName || "",
       "القسم العلمي": sec?.AdSectionName || "",
-      "رمز المقرر": course?.CourseCode || "",
+      "رمز المقرر": courseNumberOf(s),
       "المقرر الدراسي": s.AdCourseName || course?.CourseName || "",
       "الشعبة": s.SCode || "",
       "الوحدات": course?.CourseCredit || 0,
@@ -23232,7 +23239,7 @@ function paint(){
  var readyTxt=sent&&!blocked?countOf(edited,AR.edit):ready;
  var readySub=incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(edited===0?"تأكيدك يثبّت الجدول كما هو":sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
  var h=skBackIcon()+proposalBanner+(freshNote?'<div class="fresh-note" role="status">'+gi("eye")+'<span>وصل ردّ من القسم. احفظ تعديلك أو أرسله ثم حدّث الصفحة.</span></div>':'')+
-  '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open?"":" · انتهت مدّة الطلبات، والصفحة للقراءة")+'</p>'+
+  '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open||data.mode==="view"?"":(r.window&&r.window.closesAt&&Date.parse(r.window.closesAt)<=Date.now())?" · انتهت مدّة الطلبات، والصفحة للقراءة":approved?" · اكتمل طلبك، والصفحة للقراءة":" · الصفحة للقراءة")+'</p>'+
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+tcRibbon(r,open)+
   (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+skNext(open,sent,edited)+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';

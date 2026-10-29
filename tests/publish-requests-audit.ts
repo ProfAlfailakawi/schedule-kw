@@ -59,6 +59,13 @@ check(publish.includes("فُتحت طلبات التعديل لـ") && publish.i
   "فلا يظنُّ القسمُ أنه أرسل لعشرين وقد أرسل لثلاثة");
 check(publish.includes("يطلبون من بطاقتهم، وتتابعها في «وارد الأساتذة»"),
   "ويُدلُّ على موضع المتابعة، فالروابطُ لا تظهر في هذه القائمة");
+/* صفةُ الإرسال تُقال كما هي: رابطُ العرض (👁️) لا «يفتح طلبات تعديل». */
+check(publish.includes("reissued, renewed, mode });") && publish.includes('issued.mode === "view"')
+  && publish.includes("أُرسل جدولُ العرض لـ") && publish.includes("يرون جدولهم من بطاقتهم، بلا طلبات."),
+  "وإرسالُ العرض يُقال عرضاً، لا «فُتحت طلبات التعديل»");
+/* وعنوانُ البطاقة لا يقول «انتهت مدّة الطلبات» قبل موعدها: طلبٌ اكتمل يقول اكتماله. */
+check(server.includes('(open||data.mode==="view"?"":(r.window&&r.window.closesAt&&Date.parse(r.window.closesAt)<=Date.now())?" · انتهت مدّة الطلبات، والصفحة للقراءة":approved?" · اكتمل طلبك، والصفحة للقراءة":" · الصفحة للقراءة")'),
+  "وعنوانُ البطاقة يقول «انتهت» بعد الموعد وحده، و«اكتمل طلبك» قبله، ولا شيء لرابط العرض");
 
 /* ── ثلاثةٌ في صفٍّ واحد ──────────────────────────────────────────────── */
 
@@ -103,7 +110,7 @@ check(/useEffect\(\(\) => \{\s*setIssued\(null\);\s*setReplaced\(0\);\s*setShowP
   "ونتيجةُ الإصدار تُمحى عند تغيّر النطاق أو النوع أو إعادة الفتح");
 check(publish.includes("setCreatedId(data.id);\n      setIssued(null);"),
   "وعند إنشاء رابطٍ من نوعٍ آخر");
-check(publish.includes("setIssued({ created: rows.length - reissued - renewed, reissued, renewed });"),
+check(publish.includes("setIssued({ created: rows.length - reissued - renewed, reissued, renewed, mode });"),
   "ويُقال ما فُتح من الطلبات مع البطاقة، في الموضع نفسه");
 
 /* ── والمرشدُ يعرف البابَ الثالث ──────────────────────────────────────────
