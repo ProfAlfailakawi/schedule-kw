@@ -458,7 +458,7 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
             <ShieldCheck aria-hidden="true" />موقَّع <code>{row.signature.verifyCode}</code>
           </span>
         ) : row.submittedAt ? (
-          <span className="request-signed" data-missing="true" title="أُرسل قبل أن يصير الإرسال توقيعاً">
+          <span className="request-signed" data-missing="true" title="أُرسل قبل أن يصبح الإرسال توقيعاً">
             <ShieldAlert aria-hidden="true" />بلا توقيع
           </span>
         ) : null}
@@ -1314,7 +1314,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     <TermFrozenContext.Provider value={frozen}>
     <div className="content-stack changes-screen visual-minimal" data-term-frozen-scope={frozen || undefined}>
       <PageTitle
-        action={rows && rows.length ? <ProposalLauncherBar rows={rows.map(row => ({ id: row.id, instructorName: row.instructorName, visiting: rowVisiting(row) }))} proposals={proposals} onOpen={openStudyProposal} /> : undefined}
+        action={rows && rows.length ? <ProposalLauncherBar rows={rows.map(row => ({ id: row.id, AdInstructorId: row.AdInstructorId, instructorName: row.instructorName, AdCollegeId: row.AdCollegeId, AdSectionId: row.AdSectionId, sectionName: row.sectionName, requestCollegeName: row.requestCollegeName, changedCount: row.changedCount, visiting: rowVisiting(row) }))} proposals={proposals} onOpen={openStudyProposal} /> : undefined}
         eyebrow={<><Inbox aria-hidden="true" /> رغبات الأساتذة</>}
         subtitle="ما طلبه الأساتذة على مسوّداتهم، لا الجدول كله"
       >

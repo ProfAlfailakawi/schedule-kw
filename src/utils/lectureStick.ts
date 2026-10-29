@@ -9,6 +9,7 @@
  *
  * إن كان الملاصقُ مأخوذاً يُجرَّب الأقرب «+٣٠د» ثم «+٦٠د» (للأمام بعدها، وللخلف قبلها).
  * والترتيب: متاحٌ أولاً، ثم نفسُ القاعة، ثم نفسُ المبنى، ثم الملاصقُ قبل المُزاح، ثم بعدها قبل قبلها.
+ * والترتيبُ بالقاعة يبقى في الخادم: ما يصل الأستاذ يمرّ بـ stickForTeacher فلا يحمل قاعةً ولا مبنى.
  */
 import type { DayKey } from "./scheduleRegulations";
 import { requiredGapForDays } from "./scheduleRegulations";
@@ -93,6 +94,16 @@ const score = (row: StickJudged) =>
 export function topSticks(judged: StickJudged[], limit = 3): StickJudged[] {
   return bestPerSide(judged).filter(row => row.tone !== "bad")
     .sort((a, b) => score(b) - score(a) || a.start.localeCompare(b.start)).slice(0, limit);
+}
+
+/**
+ * ما يصل الأستاذَ من المرشّح: الوقتُ وحكمُه وإزاحتُه، بلا «نفس القاعة» ولا «نفس المبنى».
+ * القاعةُ وتلميحاتُها لا تصل الأستاذ (قرار المالك 2026-10-29)؛ الترتيبُ بها يبقى في الخادم وحده.
+ */
+export type StickForTeacher = Omit<StickJudged, "sameRoom" | "sameBuilding">;
+export function stickForTeacher(row: StickJudged): StickForTeacher {
+  const { sameRoom: _room, sameBuilding: _building, ...rest } = row;
+  return rest;
 }
 
 /** وسمُ الإزاحة كما يُرسم: «ملاصق» أو «+٣٠د». */

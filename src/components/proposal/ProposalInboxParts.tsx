@@ -10,6 +10,7 @@ import { useFrozenScreen } from "../TermFrozenRibbon";
 import { CalendarClock, CheckCircle2, ClipboardPen, MessageSquareWarning, Send, ShieldCheck, ThumbsUp, Clock, Ban, FileClock } from "lucide-react";
 import { countOf } from "../../utils/arabicCount";
 import { withVisitingSuffix } from "../VisitingBadge";
+import { proposalLauncherChoices, type LauncherRequestRow } from "../../utils/instructorPickerChoices";
 import { commitReadiness, effectiveStatus, OP_KIND_LABEL, STATUS_LABEL } from "../../utils/studyProposal";
 import type { StudyProposal } from "../../types";
 import type { StaffProposalView } from "./proposalApi";
@@ -81,7 +82,8 @@ export function ProposalStrip({ requestId, proposals, onOpen, itemIndex = null, 
 
 /** زرٌّ واحد بجوار أدوات الوارد: «+ مقترح دراسي»، يختار الأستاذَ ثم يفتح المساحة. */
 export function ProposalLauncherBar({ rows, proposals, onOpen }: {
-  rows: Array<{ id: string; instructorName: string; /** منتدبٌ في قسم الطلب: تُلحق به اللاحقة في القائمة. */ visiting?: boolean }>;
+  /** طلباتُ الوارد؛ `visiting`: منتدبٌ في قسم الطلب تُلحق به اللاحقة في القائمة. */
+  rows: LauncherRequestRow[];
   proposals: StaffProposalView[];
   onOpen: (open: OpenWorkspace) => void;
 }) {
@@ -89,6 +91,8 @@ export function ProposalLauncherBar({ rows, proposals, onOpen }: {
   const [picking, setPicking] = useState(false);
   const [pick, setPick] = useState("");
   const toCommit = useMemo(() => proposals.filter(view => { const s = effectiveStatus(view.proposal); return s === "approved" || s === "partial"; }), [proposals]);
+  /* الشخصُ مرّةً واحدة (سجلّان لاسمٍ واحد سطرٌ واحد)، والشخصُ في قسمين يُميَّز باسم القسم، ولا «هيئة تدريسية». */
+  const choices = useMemo(() => proposalLauncherChoices(rows), [rows]);
   if (!rows.length && !proposals.length) return null;
   return (
     <section className="sp-launch" aria-label="المقترحات الدراسية" data-guide-ignore="بدء مقترح دراسي — لا يكتب في الجدول">
@@ -103,7 +107,7 @@ export function ProposalLauncherBar({ rows, proposals, onOpen }: {
           <label className="sp-launch-pick"><span className="sr-only">الأستاذ</span>
             <select value={pick} onChange={e => setPick(e.target.value)} aria-label="اختر أستاذاً لإعداد مقترح له" autoFocus>
               <option value="">اختر أستاذاً…</option>
-              {rows.map(row => <option key={row.id} value={row.id}>{withVisitingSuffix(row.instructorName, Boolean(row.visiting))}</option>)}
+              {choices.map(choice => <option key={choice.value} value={choice.value}>{withVisitingSuffix(choice.name, choice.visiting)}{choice.hint ? ` · ${choice.hint}` : ""}</option>)}
             </select>
           </label>
           <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="btn btn-primary" disabled={!pick} onClick={() => { onOpen({ requestId: pick }); setPicking(false); setPick(""); }}>ابدأ</button>

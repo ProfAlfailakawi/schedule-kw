@@ -16,6 +16,7 @@ import fs from "fs";
 import path from "path";
 import { firstInstructorEditAt, movementAfterInstructorEdit } from "../src/utils/instructorMovementWindow";
 import { readServerSource } from "./helpers/serverSource.mjs";
+import { instructorRequestPage } from "../src/server/pages/instructorRequestPage";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -65,8 +66,8 @@ check(/after: rest\.after \? \{ \.\.\.rest\.after, room: undefined \}/.test(serv
   "و«طلب» لا تحمل قاعةً أبداً");
 check(/before: rest\.before \? \{ \.\.\.rest\.before, room: undefined \}/.test(server),
   "و«كان» كذلك: لا قاعةَ في نسخة الأستاذ ولو كانت قاعتَه");
-check(server.includes("timeline: (request.timeline || []).map(event => event.detail ? { ...event, detail: withoutRoomNames(event.detail) } : event)"),
-  "وسطرُ «عُدّل الموعد» في خطّ طلبه يقول «تغيّرت القاعة» ولا يسمّيها");
+check(server.includes("const detail = withoutRoomNames(event.detail);") && server.includes("return detail ? [{ ...event, detail }] : [];"),
+  "وسطرُ «عُدّل الموعد» في خطّ طلبه بلا جزء القاعة، وتعديلُ القاعة وحدها لا يصله حدثاً");
 check(!server.includes("roomPick: verdict") && server.includes("res.json({ held: true, heldUntil: result?.heldUntil });"),
   "و«الأنسب» لا يُبنى للأستاذ أصلاً، والحجزُ المؤقّت لا يردّ اسمَ ما حجزه");
 check(server.includes("stripForInstructor(judgedRequest)") && server.includes("judgeRequestItems(request),\n  ]);"), "والقراءةُ تمرّ بالتجريد");
@@ -151,13 +152,27 @@ const page = server.slice(server.indexOf("function instructorRequestPage"), serv
 check(page.includes("مسودة · غير معتمدة · لا تُعتبر تكليفاً"),
   "الصفحةُ تحمل حالتَها: الصورةُ تُرسل وتُقرأ اعتماداً إن لم تحملها");
 check(page.includes("@media print"), "وتبقى الحالةُ في الطباعة");
-/* الكلمةُ العامة مسموحة بطلب صاحب النظام («قاعة وليس مكان»): «لا تتوفّر قاعة»
-   و«تغيّرت القاعة» لا تكشفان قاعةً بعينها. أمّا اسمُ القاعة ورمزُها فممنوعان. */
-check(!/قاعة|AdRoomCode|AdRoomHall|roomCandidates/.test(page
+/* الكلمةُ العامة مسموحة بطلب صاحب النظام («قاعة وليس مكان») في سببٍ واحد: «لا تتوفّر قاعة في هذا
+   الوقت» — تقول لماذا لا يصلح الوقت ولا تكشف قاعةً بعينها. أمّا اسمُ القاعة ورمزُها فممنوعان،
+   وكذلك تلميحاتُها (المالك 2026-10-29): «نفس القاعة» و«نفس المبنى» و«تغيّرت القاعة» و«المبنى». */
+check(!/قاعة|المبنى|مبنى|مباني|AdRoomCode|AdRoomHall|roomCandidates|sameRoom|sameBuilding/.test(page
     .replace(/مدّةُ المحاضرة/g, "")
-    .replace(/لا تتوفّر قاعة في هذا الوقت/g, "")
-    .replace(/تغيّرت القاعة/g, "")),
-  "ولا اسمَ قاعةٍ في الصفحة كلها");
+    .replace(/لا تتوفّر قاعة في هذا الوقت/g, "")),
+  "ولا اسمَ قاعةٍ ولا تلميحَ بقاعةٍ أو مبنى في الصفحة كلها");
+/* والصفحةُ كما تصل المتصفّح — بكل ما يُحقن فيها (إضافات الكرت، الأنماط، الرسوم، تعبئة الأيام، كرت المدرّب) —
+   لا تحمل «القاعة» ولا «المبنى» ولا 🏢. المسموحُ عباراتٌ لا غنى عنها ولا تكشف شيئاً:
+   سببُ الوقت غير المتاح «لا تتوفّر قاعة في هذا الوقت» (ومختصرُه)، وإشارةُ 🏫✓ «قاعتك يحددها القسم». */
+{
+  const rendered = instructorRequestPage("tok", "nonce")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/<!--[\s\S]*?-->/g, "")
+    /* قاموسُ العدّ المشترك يحمل «قاعة/مبنى» أسماءً معدودة، لا نصّاً معروضاً. */
+    .replace(/"room":\{[^}]*\}/g, "").replace(/"building":\{[^}]*\}/g, "");
+  const ALLOWED = [/لا تتوفّر قاعةٌ? في هذا الوقت/g, /لا قاعة في هذا الوقت/g, /لا قاعة في الوقت المطلوب/g, /قاعتك يحددها القسم/g];
+  const rest = ALLOWED.reduce((text, rule) => text.replace(rule, ""), rendered);
+  const leaks = [...rest.matchAll(/.{0,24}(قاعة|القاعة|قاعات|المبنى|مبنى|المباني|مباني|🏢|نفس القاعة|نفس المبنى).{0,24}/g)].map(m => m[0]);
+  check(!leaks.length, "الصفحةُ المرسلة كاملةً بلا «القاعة» ولا «المبنى» ولا «نفس القاعة/المبنى» ولا 🏢" + (leaks.length ? `: ${leaks.slice(0, 3).join(" | ")}` : ""));
+  check(!/sameRoom|sameBuilding|تغيّرت القاعة/.test(rendered), "ولا يقرأ الكرتُ sameRoom/sameBuilding ولا يقول «تغيّرت القاعة»");
+}
 /* المالك 2026-10-29 (القرار ٣: «مخفية اكيد متعمدة»): أُلغي «الأنسب» وبديلاه (C2 في 2026-10-28).
    الترتيبُ والحجزُ لحظةَ الإرسال باقيان في الخادم؛ والأستاذ يرى إشارةً واحدة 🏫✓ بلا اسمٍ ولا رمزٍ ولا اختيار. */
 check(!/roomPick|roomOptions|reservedRoom|roomSwitch|ROOM_WHY|room-pick/.test(page),

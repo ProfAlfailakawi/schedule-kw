@@ -319,8 +319,9 @@ var API="/api/public/request/"+encodeURIComponent(TOKEN)+"/proposals/"+encodeURI
 var DAYS=[["fsunday","الأحد"],["fmonday","الاثنين"],["ftuesday","الثلاثاء"],["fwednesday","الأربعاء"],["fthursday","الخميس"]];
 var KIND={create:"شعبة جديدة",assign:"إسناد شعبة",edit:"تعديل موعد",replace:"استبدال"};
 var KIND_IC={create:"plus",assign:"inflow",edit:"pen",replace:"swap"};
-var REASONS=[["time","الوقت"],["place","المكان"],["days","الأيام"],["load","النصاب التدريسي"],["other","سبب آخر"]];
-var REASON_TXT={time:"الوقت",place:"المكان",days:"الأيام",load:"النصاب التدريسي",other:"سبب آخر"};
+/* الأستاذ لا يُسأل عن الموقع سبباً (المالك 2026-10-29)؛ ردٌّ قديمٌ سببُه «place» يُقرأ «سبب آخر». */
+var REASONS=[["time","الوقت"],["days","الأيام"],["load","النصاب التدريسي"],["other","سبب آخر"]];
+var REASON_TXT={time:"الوقت",days:"الأيام",load:"النصاب التدريسي",other:"سبب آخر"};
 var D=null,META={term:"",who:""},LOADING=true,LOADERR=null,LOADCODE=0;
 var UI={mode:"after",view:window.innerWidth<640?"agenda":"grid",ghosts:true,day:"",choice:{},linked:"",reason:"",note:"",start:"",sdays:[],fold:{tt:false,im:false},editing:false,sending:false,err:"",errCode:"",open:null,lastFocus:null,barHide:false};
 var CRED={one:"ساعة معتمدة",two:"ساعتان معتمدتان",few:"ساعات معتمدة",many:"ساعة معتمدة"};
@@ -381,8 +382,6 @@ function statusInfo(p){var s=p.status;
  if(s==="expired")return {tone:"bad",icon:"clock",text:"انتهت مهلة الرد"};
  if(s==="committed")return {tone:"ok",icon:"shield",text:"ثبّته القسم في جدولك"};
  return {tone:"info",icon:"info",text:p.statusLabel||"مقترح"}}
-function place(o){return o&&o.placeKnown===false?"القاعة لم تُحدد":(o&&o.place)||"القاعة لم تُحدد"}
-function placeOf(x){return (x&&x.place)?x.place:"القاعة لم تُحدد"}
 function opOf(id){var o=D.ops||[];for(var i=0;i<o.length;i++)if(o[i].id===id)return o[i];return null}
 function opName(o){return (o.target.courseName||o.target.courseCode||"مقرر")+(o.target.SCode?" · شعبة "+o.target.SCode:"")}
 function liveRegion(t){var el=document.getElementById("live");if(el)el.textContent=t}
@@ -431,15 +430,14 @@ function msgHtml(){if(!D.message)return "";return '<small>رسالة القسم'
 function factsHtml(t){
  return '<dl class="facts">'+
  '<div><dt>'+ic("cal")+'</dt><dd><span class="lbl">الأيام</span>'+esc(daysText(t.days))+'</dd></div>'+
- '<div><dt>'+ic("clock")+'</dt><dd><span class="lbl">الوقت</span>'+rngHtml(t.start,t.end)+'</dd></div>'+
- '<div><dt>'+ic("pin")+'</dt><dd><span class="lbl">المكان</span>'+(t.placeKnown===false?'<span class="dim">القاعة لم تُحدد</span>':esc(t.place||"القاعة لم تُحدد"))+'</dd></div></dl>'}
+ '<div><dt>'+ic("clock")+'</dt><dd><span class="lbl">الوقت</span>'+rngHtml(t.start,t.end)+'</dd></div></dl>'}
 function whereLine(x){return daysText(x.days)+" · "+rng(x.start,x.end)}
 function whatChanges(o){var h='',t=o.target;
  if(o.kind==="create")h='<div class="row" data-r="in">'+ic("plus")+'<span><b>تُفتح لك شعبةٌ جديدة</b> في جدولك إن وافقتَ وثبّت القسم المقترح.</span></div>';
  else if(o.kind==="assign"){h='<div class="row" data-r="in">'+ic("inflow")+'<span><b>تُسند إليك شعبةٌ قائمة</b> في جدول القسم، ولا تُفتح شعبةٌ جديدة.</span></div>';
-  if(o.adjusted)h+='<span class="why">عُدّل وقتُ هذه الشعبة أو مكانها ليلائم جدولك؛ الموعد أدناه هو المقترح لك.</span>'}
+  if(o.adjusted)h+='<span class="why">عُدّل وقتُ هذه الشعبة ليلائم جدولك؛ الموعد أدناه هو المقترح لك.</span>'}
  else if(o.kind==="edit"){var b=o.before||{};
-  h='<div class="ba"><span>الآن</span><div class="was">'+esc(daysText(b.days))+' · '+rngHtml(b.start,b.end)+(b.place?' · '+esc(b.place):'')+'</div><span>المقترح</span><div><b>'+esc(daysText(t.days))+' · </b>'+rngHtml(t.start,t.end)+' · '+esc(placeOf(t))+'</div></div>'}
+  h='<div class="ba"><span>الآن</span><div class="was">'+esc(daysText(b.days))+' · '+rngHtml(b.start,b.end)+'</div><span>المقترح</span><div><b>'+esc(daysText(t.days))+' · </b>'+rngHtml(t.start,t.end)+'</div></div>'}
  else if(o.kind==="replace"){var u=o.out;
   if(u)h+='<div class="row" data-r="out">'+ic("outflow")+'<span><b>يخرج من جدولك:</b> '+esc(u.courseName||u.courseCode||"")+(u.SCode?' · شعبة '+esc(u.SCode):'')+' · '+esc(daysText(u.days))+' · '+rngHtml(u.start,u.end)+'</span></div>';
   h+='<div class="row" data-r="in">'+ic("inflow")+'<span><b>يدخل:</b> '+esc(opName(o))+' · '+esc(o.incoming==="create"?"شعبةٌ جديدة":"شعبةٌ قائمة في جدول القسم")+'</span></div>';
@@ -495,10 +493,10 @@ function lanesFor(list){list.sort(function(a,b){return a.s-b.s||b.e-a.e});
 function stLabel(it){if(it.state==="proposed")return "مقترح";if(it.state==="modified")return "معدّل";
  if(it.state==="out")return it.outAction==="delete"?"يُحذف":it.outAction==="unassign"?"يخرج":"قبل التعديل";return ""}
 function stIcon(it){return it.state==="proposed"?"plus":it.state==="modified"?"pen":it.state==="out"?"x":""}
-function evAria(it,day){var l=stLabel(it);return (l?l+": ":"")+it.courseName+(it.SCode?"، شعبة "+it.SCode:"")+"، "+(day?dayName(day)+"، ":"")+rng(it.start,it.end)+"، "+placeOf(it)}
+function evAria(it,day){var l=stLabel(it);return (l?l+": ":"")+it.courseName+(it.SCode?"، شعبة "+it.SCode:"")+"، "+(day?dayName(day)+"، ":"")+rng(it.start,it.end)}
 function evHtml(it,pos,day,swap){var s=mins(it.start),e=mins(it.end),h=pos?(e-s)/60:0,st=it.state,lbl=stLabel(it);
  var tag=lbl?'<span class="tag">'+ic(stIcon(it))+'<span>'+esc(lbl)+'</span></span>':'';
- var core=tag+'<span class="n">'+esc(it.courseName||it.courseCode)+'</span>'+(it.SCode?'<span class="t sc">شعبة '+esc(it.SCode)+'</span>':'')+'<span class="t">'+rngHtml(it.start,it.end)+'</span><span class="p">'+esc(placeOf(it))+'</span>';
+ var core=tag+'<span class="n">'+esc(it.courseName||it.courseCode)+'</span>'+(it.SCode?'<span class="t sc">شعبة '+esc(it.SCode)+'</span>':'')+'<span class="t">'+rngHtml(it.start,it.end)+'</span>';
  if(!pos)return '<button type="button" class="ev'+(swap?' swap':'')+'" data-st="'+st+'" data-act="open" data-key="'+esc(it.key)+'" data-day="'+day+'" aria-haspopup="dialog" aria-label="'+esc(evAria(it,day))+'">'+core+'</button>';
  var style='top:calc(var(--H)*'+((s-START)/60).toFixed(4)+');height:calc(var(--H)*'+h.toFixed(4)+' - 2px);inset-inline-start:calc('+pos.lane+'*100%/'+pos.lanes+' + 1px);width:calc(100%/'+pos.lanes+' - 3px)';
  var short=(e-s)<=80,tiny=(e-s)<=55,micro=(e-s)<=45;
@@ -544,7 +542,7 @@ function findItem(key){var S=D.schedule,all=S.before.items.concat(S.after.items,
 function itemNote(it){var o=it.opId?opOf(it.opId):null;
  if(it.state==="current")return UI.mode==="before"?"موعدٌ قائم في جدولك الآن.":"موعدٌ قائم في جدولك، ولا يتغيّر بهذا المقترح.";
  if(it.state==="proposed"){return o?("يُضاف إلى جدولك إن وافقتَ وثبّت القسم المقترح · "+KIND[o.kind]+"."):"يُضاف إلى جدولك إن وافقتَ وثبّت القسم المقترح."}
- if(it.state==="modified"){var b=o&&o.before;return "هذا الموعد قائمٌ في جدولك ويُعدَّل وقتُه أو مكانه."+(b?" كان: "+daysText(b.days)+" · "+rng(b.start,b.end)+(b.place?" · "+b.place:"")+".":"")}
+ if(it.state==="modified"){var b=o&&o.before;return "هذا الموعد قائمٌ في جدولك ويُعدَّل وقتُه."+(b?" كان: "+daysText(b.days)+" · "+rng(b.start,b.end)+".":"")}
  if(it.state==="out"){if(it.outAction==="delete")return "يُحذف هذا الموعد من الجدول إن ثبّت القسم المقترح.";if(it.outAction==="unassign")return "يخرج من جدولك فقط إن ثبّت القسم المقترح، وتبقى الشعبة في جدول القسم.";return "هذا موعدك الحالي قبل التعديل، ويحلّ محلَّه الموعدُ المعدّل."}return ""}
 function dlgHtml(it){var lbl=stLabel(it);
  return '<div class="ov" data-act="close-ov"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgT" tabindex="-1"><header><h3 id="dlgT">'+esc(it.courseName||it.courseCode)+'<small>'+esc(it.courseCode||"")+(it.SCode?' · شعبة '+esc(it.SCode):'')+'</small></h3><button type="button" class="x" data-act="close" aria-label="إغلاق التفاصيل">'+ic("x")+'</button></header>'+
@@ -589,7 +587,7 @@ function respHtml(){var p=D,g=p.gate||{},h='';
 function historyBlock(){var rs=D.responses||[],hs=D.history||[];if(!rs.length&&hs.length<2)return "";
  var ev=[];hs.forEach(function(v){ev.push({at:v.sentAt,t:"النسخة "+v.version+" أُرسلت "+dateShort(v.sentAt),n:v.version>1&&v.message?v.message:""})});
  rs.forEach(function(r){var a=(r.decisions||[]).filter(function(x){return x.decision==="approve"}).length,c=(r.decisions||[]).length-a;
-  var what=c?(a?"وافقتَ على "+countOf(a,AR.course)+" وطلبتَ تعديل "+countOf(c,AR.course):"طلبتَ تعديلاً")+(r.reason?" · "+REASON_TXT[r.reason]:""):"وافقتَ على "+(D.responseMode==="linked"?"المقترح كاملاً":countOf(a,AR.course));
+  var what=c?(a?"وافقتَ على "+countOf(a,AR.course)+" وطلبتَ تعديل "+countOf(c,AR.course):"طلبتَ تعديلاً")+(r.reason?" · "+(REASON_TXT[r.reason]||REASON_TXT.other):""):"وافقتَ على "+(D.responseMode==="linked"?"المقترح كاملاً":countOf(a,AR.course));
   var extra=[];if(r.suggestedStart)extra.push("وقتٌ مقترح: "+r.suggestedStart);if(r.suggestedDays&&r.suggestedDays.length)extra.push("أيامٌ مقترحة: "+daysText(r.suggestedDays));
   ev.push({at:r.at,t:"ردّك على النسخة "+r.version+": "+what+" · "+dateShort(r.at),n:r.note||"",x:extra.join(" · "),code:r.verifyCode})});
  ev.sort(function(a,b){return String(a.at).localeCompare(String(b.at))});
