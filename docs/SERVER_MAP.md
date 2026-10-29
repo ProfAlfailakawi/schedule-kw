@@ -18,15 +18,14 @@
 ## إعادةُ التقسيم على main أحدث
 
 ```sh
-git switch -c refactor/server-split origin/main          # فرعٌ جديد من main الأحدث
-git checkout <فرع التقسيم السابق> -- scripts/split-server tests/server-route-parity-audit.ts tests/helpers/serverSource.mjs
-# ثم أضف test:server-parity إلى package.json وtests/suite.txt إن لم يكونا
+# فرعُ التقسيم ما زال مفتوحاً وتقدّم main: دمجٌ (لا rebase)، وserver.ts من main كما هو
+git fetch origin && git merge --no-commit origin/main
+git show origin/main:server.ts > server.ts                # لا يُحلّ تعارضٌ في الكود المنقول باليد
+git checkout --theirs -- <اختبارٌ متعارض>                  # ثم تعيد الأداةُ توجيهَه إلى readServerSource()
 npx tsx tests/server-route-parity-audit.ts --update        # ١) لقطتا الموجّه والصفحات من server.ts غير المقسوم ← commit
 cp server.ts /tmp/server.orig.ts
 node scripts/split-server/split.mjs --plan                 # تقرير: مساراتٌ بلا قاعدة، أحجام، دوالُ تسجيلٍ مقسومة
-node scripts/split-server/split.mjs --write --phase pages   --source /tmp/server.orig.ts  # ← commit
-node scripts/split-server/split.mjs --write --phase helpers --source /tmp/server.orig.ts  # ← commit
-node scripts/split-server/split.mjs --write --phase routes  --source /tmp/server.orig.ts  # ← commit
+node scripts/split-server/split.mjs --write --phase routes --source /tmp/server.orig.ts  # (أو pages ثم helpers ثم routes، commit لكلٍّ)
 npx tsx tests/server-route-parity-audit.ts && npm run lint
 ```
 

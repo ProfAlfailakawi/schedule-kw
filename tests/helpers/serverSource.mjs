@@ -43,6 +43,75 @@ export function statementKey(ts, st, sf) {
   return `stmt:${st.getText(sf).replace(/\s+/g, " ").slice(0, 120)}`;
 }
 
+/** تصريحُ استيراد: { spec, type, def, ns, named: [[imported, local, typeOnly]] } */
+export function describeImport(ts, st) {
+  const clause = st.importClause;
+  const named = clause?.namedBindings && ts.isNamedImports(clause.namedBindings)
+    ? clause.namedBindings.elements.map(e => [(e.propertyName || e.name).text, e.name.text, Boolean(e.isTypeOnly)]) : [];
+  return {
+    spec: st.moduleSpecifier.text,
+    type: Boolean(clause?.isTypeOnly),
+    def: clause?.name?.text || null,
+    ns: clause?.namedBindings && ts.isNamespaceImport(clause.namedBindings) ? clause.namedBindings.name.text : null,
+    named,
+  };
+}
+
+function importLine(d) {
+  const named = d.named.map(([imported, local, typeOnly]) => `${typeOnly ? "type " : ""}${imported === local ? local : `${imported} as ${local}`}`);
+  const head = [d.def, d.ns ? `* as ${d.ns}` : null, named.length ? `{ ${named.join(", ")} }` : null].filter(Boolean).join(", ");
+  return head ? `import ${d.type ? "type " : ""}${head} from ${JSON.stringify(d.spec)};` : `import ${JSON.stringify(d.spec)};`;
+}
+
+/**
+ * الاستيراداتُ مجموعةً كما كانت تُكتب في server.ts: كلُّ تصريحٍ أصليّ بأسمائه التي ما زال
+ * يستوردها أحدٌ (بمسارها من الجذر)، وما جدّ بعد التقسيم بعدها. لا يُكتب اسمٌ لا يستورده الكود الآن.
+ */
+function importBlock(original, actual) {
+  const has = new Map();
+  for (const d of actual) {
+    const set = has.get(d.spec) || new Set();
+    if (d.def) set.add(`default ${d.def}`);
+    if (d.ns) set.add(`* ${d.ns}`);
+    for (const [imported, local] of d.named) set.add(`${imported} ${local}`);
+    if (!d.def && !d.ns && !d.named.length) set.add("side-effect");
+    has.set(d.spec, set);
+  }
+  const used = new Map([...has].map(([k, v]) => [k, new Set(v)]));
+  const lines = [];
+  for (const d of original) {
+    const set = has.get(d.spec);
+    if (!set) continue;
+    const keep = {
+      ...d,
+      def: d.def && set.has(`default ${d.def}`) ? d.def : null,
+      ns: d.ns && set.has(`* ${d.ns}`) ? d.ns : null,
+      named: d.named.filter(([imported, local]) => set.has(`${imported} ${local}`)),
+    };
+    if (!keep.def && !keep.ns && !keep.named.length) continue;
+    lines.push(importLine(keep));
+    const u = used.get(d.spec);
+    if (keep.def) u.delete(`default ${keep.def}`);
+    if (keep.ns) u.delete(`* ${keep.ns}`);
+    for (const [imported, local] of keep.named) u.delete(`${imported} ${local}`);
+  }
+  for (const d of actual) {
+    const u = used.get(d.spec);
+    const rest = {
+      ...d,
+      def: d.def && u.has(`default ${d.def}`) ? d.def : null,
+      ns: d.ns && u.has(`* ${d.ns}`) ? d.ns : null,
+      named: d.named.filter(([imported, local]) => u.has(`${imported} ${local}`)),
+    };
+    if (!rest.def && !rest.ns && !rest.named.length) continue;
+    lines.push(importLine(rest));
+    if (rest.def) u.delete(`default ${rest.def}`);
+    if (rest.ns) u.delete(`* ${rest.ns}`);
+    for (const [imported, local] of rest.named) u.delete(`${imported} ${local}`);
+  }
+  return lines.join("\n") + "\n";
+}
+
 const isRegisterFunction = (ts, st) => ts.isFunctionDeclaration(st) && st.name && /^register\w*Routes\d*$/.test(st.name.text) && st.body
   && st.parameters.length === 1 && ts.isIdentifier(st.parameters[0].name) && st.parameters[0].name.text === "app";
 
@@ -59,7 +128,9 @@ export function readServerSource(root = process.cwd()) {
     return plain;
   }
   const ts = require("typescript");
-  const order = new Map(JSON.parse(fs.readFileSync(orderPath, "utf8")).keys.map((k, i) => [k, i]));
+  const fixture = JSON.parse(fs.readFileSync(orderPath, "utf8"));
+  const order = new Map(fixture.keys.map((k, i) => [k, i]));
+  const actualImports = [];
   const seen = new Map();
   const chunks = [];
   files.forEach((file, fileIndex) => {
@@ -74,7 +145,18 @@ export function readServerSource(root = process.cwd()) {
         seen.set(base, n);
         const known = order.get(n === 1 ? base : `${base}#${n}`);
         let at;
-        if (base === "import") at = -1;
+        if (base === "import") {
+          // الاستيراداتُ تُجمع في كتلةٍ واحدةٍ بصيغة server.ts القديمة (importBlock)
+          const d = describeImport(ts, st);
+          if (file !== "server.ts" && d.spec.startsWith(".")) {
+            let rooted = path.posix.normalize(path.posix.join(path.posix.dirname(file), d.spec));
+            if (!rooted.startsWith(".")) rooted = "./" + rooted;
+            d.spec = rooted;
+          }
+          if (d.spec.startsWith("./src/server/") && /^\.\/src\/server\/(core|pages|routes)\//.test(d.spec)) continue; // بين الوحدات المقسومة نفسها
+          actualImports.push(d);
+          continue;
+        }
         else if (known !== undefined) { at = known; last = known; step = 0; }
         else { step += 1; at = last + step / 10000; }
         let chunk = st.getFullText(sf);
@@ -96,7 +178,7 @@ export function readServerSource(root = process.cwd()) {
     take(sf.statements);
   });
   chunks.sort((a, b) => a.at - b.at || a.fileIndex - b.fileIndex || a.pos - b.pos);
-  const joined = chunks.map(c => c.chunk).join("") + "\n";
+  const joined = (fixture.imports ? importBlock(fixture.imports, actualImports) : "") + chunks.map(c => c.chunk).join("") + "\n";
   cache.set(root, joined);
   return joined;
 }

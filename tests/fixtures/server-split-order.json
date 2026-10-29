@@ -1,5 +1,5 @@
 {
- "note": "ترتيبُ جمل server.ts قبل التقسيم — scripts/split-server؛ يقرؤه tests/helpers/serverSource.mjs",
+ "note": "ترتيبُ جمل server.ts قبل التقسيم واستيراداتُه — scripts/split-server؛ يقرؤه tests/helpers/serverSource.mjs",
  "keys": [
   "import",
   "import#2",
@@ -1093,5 +1093,4723 @@
   "decl:reconcileDepartmentHeadPermissions",
   "decl:startServer",
   "stmt:startServer().catch(error => { console.error(\"Server initialization failed:\", error); process.exitCode = 1; });"
+ ],
+ "imports": [
+  {
+   "spec": "./src/utils/roomSuitability",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "roomSuitability",
+     "roomSuitability",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/academicAdvisoryData",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "academicAdviceForScope",
+     "academicAdviceForScope",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/academicAdvisoryVisual",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "ACADEMIC_ADVICE_CSS",
+     "ACADEMIC_ADVICE_CSS",
+     false
+    ],
+    [
+     "ACADEMIC_ADVICE_SCRIPT",
+     "ACADEMIC_ADVICE_SCRIPT",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/slotSuggestionScope",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "eligibleSuggestionEditId",
+     "eligibleSuggestionEditId",
+     false
+    ],
+    [
+     "instructorRowsForSuggestion",
+     "instructorRowsForSuggestion",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/suggestionEngine",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "emptySuggestionReason",
+     "emptySuggestionReason",
+     false
+    ],
+    [
+     "orderSuggestionCandidates",
+     "orderSuggestionCandidates",
+     false
+    ],
+    [
+     "rankSuggestionCandidates",
+     "rankSuggestionCandidates",
+     false
+    ],
+    [
+     "SUGGESTION_EMPTY_WORD",
+     "SUGGESTION_EMPTY_WORD",
+     false
+    ],
+    [
+     "toClock",
+     "toClock",
+     false
+    ],
+    [
+     "SuggestionDayKey",
+     "SuggestionDayKey",
+     true
+    ],
+    [
+     "SuggestionEmptyReason",
+     "SuggestionEmptyReason",
+     true
+    ],
+    [
+     "SuggestionHall",
+     "SuggestionHall",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorRequestThread",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "appendRequestThread",
+     "appendRequestThread",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/advancedIntelligence",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "historicalLectureMinutes",
+     "historicalLectureMinutes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorRequestWeek",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "instructorWeekAfter",
+     "instructorWeekAfter",
+     false
+    ],
+    [
+     "requestIdentity",
+     "requestIdentity",
+     false
+    ],
+    [
+     "rowsForRequestSlots",
+     "rowsForRequestSlots",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/requestRoomRanking",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "rankRequestRooms",
+     "rankRequestRooms",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorRequestReservations",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "reservationRows",
+     "reservationRows",
+     false
+    ],
+    [
+     "liveReservations",
+     "liveReservations",
+     false
+    ],
+    [
+     "occupiedRowsForRequest",
+     "occupiedRowsForRequest",
+     false
+    ],
+    [
+     "RequestReservationConflict",
+     "RequestReservationConflict",
+     false
+    ],
+    [
+     "RequestHoldConflict",
+     "RequestHoldConflict",
+     false
+    ],
+    [
+     "REQUEST_RACE_LOST",
+     "REQUEST_RACE_LOST",
+     false
+    ],
+    [
+     "withoutRoomNames",
+     "withoutRoomNames",
+     false
+    ],
+    [
+     "RequestReservationProposal",
+     "RequestReservationProposal",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/intelligenceReadingScope",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "compareIntelligenceTerms",
+     "compareIntelligenceTerms",
+     false
+    ],
+    [
+     "rowsForIntelligenceScope",
+     "rowsForIntelligenceScope",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "express",
+   "type": false,
+   "def": "express",
+   "ns": null,
+   "named": [
+    [
+     "Request",
+     "Request",
+     false
+    ],
+    [
+     "Response",
+     "Response",
+     false
+    ],
+    [
+     "NextFunction",
+     "NextFunction",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "express-rate-limit",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "rateLimit",
+     "rateLimit",
+     false
+    ],
+    [
+     "ipKeyGenerator",
+     "ipKeyGenerator",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "compression",
+   "type": false,
+   "def": "compression",
+   "ns": null,
+   "named": []
+  },
+  {
+   "spec": "path",
+   "type": false,
+   "def": "path",
+   "ns": null,
+   "named": []
+  },
+  {
+   "spec": "fs",
+   "type": false,
+   "def": "fs",
+   "ns": null,
+   "named": []
+  },
+  {
+   "spec": "./src/server/runtimeEnv",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "configureRuntimeEnvironment",
+     "configureRuntimeEnvironment",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/generated/buildStamp",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "BUILD_STAMP",
+     "BUILD_STAMP",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "crypto",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "createCipheriv",
+     "createCipheriv",
+     false
+    ],
+    [
+     "createDecipheriv",
+     "createDecipheriv",
+     false
+    ],
+    [
+     "createHash",
+     "createHash",
+     false
+    ],
+    [
+     "createHmac",
+     "createHmac",
+     false
+    ],
+    [
+     "randomBytes",
+     "randomBytes",
+     false
+    ],
+    [
+     "randomUUID",
+     "randomUUID",
+     false
+    ],
+    [
+     "timingSafeEqual",
+     "timingSafeEqual",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "zlib",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "createGunzip",
+     "createGunzip",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/db/repository",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "activeDataMode",
+     "activeDataMode",
+     false
+    ],
+    [
+     "ApprovalRevisionConflict",
+     "ApprovalRevisionConflict",
+     false
+    ],
+    [
+     "DuplicateResourceError",
+     "DuplicateResourceError",
+     false
+    ],
+    [
+     "initDatabase",
+     "initDatabase",
+     false
+    ],
+    [
+     "Repository",
+     "Repository",
+     false
+    ],
+    [
+     "ScheduleRevisionConflict",
+     "ScheduleRevisionConflict",
+     false
+    ],
+    [
+     "StudentCourseStateConflict",
+     "StudentCourseStateConflict",
+     false
+    ],
+    [
+     "withSerialLock",
+     "withSerialLock",
+     false
+    ],
+    [
+     "caseRefFor",
+     "caseRefFor",
+     false
+    ],
+    [
+     "ScopeChangedError",
+     "ScopeChangedError",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/courseRoomTypeSync",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "roomTypeSiblingIds",
+     "roomTypeSiblingIds",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/db/demoSandbox",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "DEMO_SWITCH_ACCOUNTS",
+     "DEMO_SWITCH_ACCOUNTS",
+     false
+    ],
+    [
+     "demoActiveRoleKey",
+     "demoActiveRoleKey",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/db/referenceCache",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "clearScheduleCacheQuietly",
+     "clearScheduleCacheQuietly",
+     false
+    ],
+    [
+     "onSchedulesInvalidated",
+     "onSchedulesInvalidated",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/db/snapshot",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "isCloudRunRuntime",
+     "isCloudRunRuntime",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/civilId",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "generateSyntheticCivilId",
+     "generateSyntheticCivilId",
+     false
+    ],
+    [
+     "normalizeCivilId",
+     "normalizeCivilId",
+     false
+    ],
+    [
+     "sameCivilId",
+     "sameCivilId",
+     false
+    ],
+    [
+     "validateCivilId",
+     "validateCivilId",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/digits",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "toEnglishDigits",
+     "toEnglishDigits",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/departmentHeadAccounts",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "ADVISOR_ROLE",
+     "ADVISOR_ROLE",
+     false
+    ],
+    [
+     "DEPARTMENT_HEAD_ROLE",
+     "DEPARTMENT_HEAD_ROLE",
+     false
+    ],
+    [
+     "planAdvisorAccounts",
+     "planAdvisorAccounts",
+     false
+    ],
+    [
+     "planDepartmentHeadAccounts",
+     "planDepartmentHeadAccounts",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/arabicText",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "normalizeArabicText",
+     "normalizeArabicText",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/sorting",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "byRoom",
+     "byRoom",
+     false
+    ],
+    [
+     "byArabic",
+     "byArabic",
+     false
+    ],
+    [
+     "sortByName",
+     "sortByName",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scheduleIntelligence",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "activeDays",
+     "activeDays",
+     false
+    ],
+    [
+     "analyzeSchedule",
+     "analyzeSchedule",
+     false
+    ],
+    [
+     "autoScheduleProposal",
+     "autoScheduleProposal",
+     false
+    ],
+    [
+     "compareTerms",
+     "compareTerms",
+     false
+    ],
+    [
+     "conflictSolutions",
+     "conflictSolutions",
+     false
+    ],
+    [
+     "findConflicts",
+     "findConflicts",
+     false
+    ],
+    [
+     "isBlockingConflict",
+     "isBlockingConflict",
+     false
+    ],
+    [
+     "minutesToTime",
+     "minutesToTime",
+     false
+    ],
+    [
+     "outsideScopeClashes",
+     "outsideScopeClashes",
+     false
+    ],
+    [
+     "SCHEDULE_DAYS",
+     "SCHEDULE_DAYS",
+     false
+    ],
+    [
+     "timeToMinutes",
+     "timeToMinutes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scheduleInnovation",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "buildScheduleGenome",
+     "buildScheduleGenome",
+     false
+    ],
+    [
+     "buildWarRoom",
+     "buildWarRoom",
+     false
+    ],
+    [
+     "evaluateScheduleConstraints",
+     "evaluateScheduleConstraints",
+     false
+    ],
+    [
+     "forecastScheduleMove",
+     "forecastScheduleMove",
+     false
+    ],
+    [
+     "runScheduleAutopilot",
+     "runScheduleAutopilot",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/termRollover",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "describeRollover",
+     "describeRollover",
+     false
+    ],
+    [
+     "readTermRollover",
+     "readTermRollover",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scopedTerms",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "visibleTermIds",
+     "visibleTermIds",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/termSequence",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "termChronology",
+     "termChronology",
+     false
+    ],
+    [
+     "currentTermId",
+     "currentTermId",
+     false
+    ],
+    [
+     "planningTermCandidates",
+     "planningTermCandidates",
+     false
+    ],
+    [
+     "termHasEnded",
+     "termHasEnded",
+     false
+    ],
+    [
+     "termIsArchive",
+     "termIsArchive",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scheduleWipePolicy",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "WIPE_CONFIRM_TOKEN",
+     "WIPE_CONFIRM_TOKEN",
+     false
+    ],
+    [
+     "WIPE_MAX_ROWS",
+     "WIPE_MAX_ROWS",
+     false
+    ],
+    [
+     "WIPE_RESTORE_TOKEN",
+     "WIPE_RESTORE_TOKEN",
+     false
+    ],
+    [
+     "WIPE_VERSION_LABEL",
+     "WIPE_VERSION_LABEL",
+     false
+    ],
+    [
+     "wipeDecision",
+     "wipeDecision",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/pdfTermRule",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "acceptedPdfSourceLabel",
+     "acceptedPdfSourceLabel",
+     false
+    ],
+    [
+     "pdfTermAccepted",
+     "pdfTermAccepted",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/visitingToFaculty",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "applyVisitingToFaculty",
+     "applyVisitingToFaculty",
+     false
+    ],
+    [
+     "recoverRetiredFromPrintedName",
+     "recoverRetiredFromPrintedName",
+     false
+    ],
+    [
+     "retiredOrSabbaticalIds",
+     "retiredOrSabbaticalIds",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/sectionFaculty",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "ensureSectionFaculty",
+     "ensureSectionFaculty",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/taConversion",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "isTrainingAssistant",
+     "isTrainingAssistant",
+     false
+    ],
+    [
+     "planTaConversion",
+     "planTaConversion",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/teachingLoad",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "evaluateTeachingLoad",
+     "evaluateTeachingLoad",
+     false
+    ],
+    [
+     "teachingHoursByInstructor",
+     "teachingHoursByInstructor",
+     false
+    ],
+    [
+     "teachingLoadLimits",
+     "teachingLoadLimits",
+     false
+    ],
+    [
+     "teachingLoadProblem",
+     "teachingLoadProblem",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/livingSchedule",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "buildConflictTopology",
+     "buildConflictTopology",
+     false
+    ],
+    [
+     "buildDecisionMemoryInsight",
+     "buildDecisionMemoryInsight",
+     false
+    ],
+    [
+     "buildFairnessEngine",
+     "buildFairnessEngine",
+     false
+    ],
+    [
+     "buildFragilityMap",
+     "buildFragilityMap",
+     false
+    ],
+    [
+     "buildOneMinuteBrief",
+     "buildOneMinuteBrief",
+     false
+    ],
+    [
+     "buildRoomResilience",
+     "buildRoomResilience",
+     false
+    ],
+    [
+     "buildScheduleHealth2",
+     "buildScheduleHealth2",
+     false
+    ],
+    [
+     "buildSchedulePulse",
+     "buildSchedulePulse",
+     false
+    ],
+    [
+     "createEmergencyPlans",
+     "createEmergencyPlans",
+     false
+    ],
+    [
+     "explainScheduleDecision",
+     "explainScheduleDecision",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/types",
+   "type": true,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "AdCourse",
+     "AdCourse",
+     false
+    ],
+    [
+     "AdInstructor",
+     "AdInstructor",
+     false
+    ],
+    [
+     "AdSection",
+     "AdSection",
+     false
+    ],
+    [
+     "FSchedule",
+     "FSchedule",
+     false
+    ],
+    [
+     "ScheduleApproval",
+     "ScheduleApproval",
+     false
+    ],
+    [
+     "ScheduleApprovalSignature",
+     "ScheduleApprovalSignature",
+     false
+    ],
+    [
+     "ScheduleComment",
+     "ScheduleComment",
+     false
+    ],
+    [
+     "ScheduleNoteField",
+     "ScheduleNoteField",
+     false
+    ],
+    [
+     "ScheduleShareLink",
+     "ScheduleShareLink",
+     false
+    ],
+    [
+     "HallBarterRequest",
+     "HallBarterRequest",
+     false
+    ],
+    [
+     "MasterBuilding",
+     "MasterBuilding",
+     false
+    ],
+    [
+     "MasterRoom",
+     "MasterRoom",
+     false
+    ],
+    [
+     "LocationReviewCase",
+     "LocationReviewCase",
+     false
+    ],
+    [
+     "InstructorRequest",
+     "InstructorRequest",
+     false
+    ],
+    [
+     "InstructorRequestItem",
+     "InstructorRequestItem",
+     false
+    ],
+    [
+     "InstructorRequestSignature",
+     "InstructorRequestSignature",
+     false
+    ],
+    [
+     "InstructorRequestSnapshot",
+     "InstructorRequestSnapshot",
+     false
+    ],
+    [
+     "InstructorRequestEventKind",
+     "InstructorRequestEventKind",
+     false
+    ],
+    [
+     "StudentNeed",
+     "StudentNeed",
+     false
+    ],
+    [
+     "CurriculumPlan",
+     "CurriculumPlan",
+     false
+    ],
+    [
+     "CurriculumDegreeRule",
+     "CurriculumDegreeRule",
+     false
+    ],
+    [
+     "CurriculumRuleSet",
+     "CurriculumRuleSet",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/naturalQuery",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "DAY_FLAGS",
+     "DAY_FLAGS",
+     false
+    ],
+    [
+     "DAY_LABELS",
+     "DAY_LABELS",
+     false
+    ],
+    [
+     "parseNaturalQuery",
+     "parseNaturalQuery",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/meetingSlots",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "computeMeetingSlots",
+     "computeMeetingSlots",
+     false
+    ],
+    [
+     "meetingParticipants",
+     "meetingParticipants",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/liveVisiting",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "directoryVisitingIds",
+     "directoryVisitingIds",
+     false
+    ],
+    [
+     "liveVisitingIds",
+     "liveVisitingIds",
+     false
+    ],
+    [
+     "termVisitingIds",
+     "termVisitingIds",
+     false
+    ],
+    [
+     "visitingByScope",
+     "visitingByScope",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/sectionLabel",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "departmentFamily",
+     "departmentFamily",
+     false
+    ],
+    [
+     "departmentFamilyResolver",
+     "departmentFamilyResolver",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/db/visitingConversion",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "readConversionState",
+     "readConversionState",
+     false
+    ],
+    [
+     "runVisitingConversion",
+     "runVisitingConversion",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/visitingTeachingRead",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "readVisitingTeaching",
+     "readVisitingTeaching",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/visitingHistory",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "aggregateVisitingHistory",
+     "aggregateVisitingHistory",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scopeContext",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "coerceScopeValues",
+     "coerceScopeValues",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/roleGuard",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "readOnlyRefusal",
+     "readOnlyRefusal",
+     false
+    ],
+    [
+     "roleWriteDecision",
+     "roleWriteDecision",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/livePulse",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "companyOn",
+     "companyOn",
+     false
+    ],
+    [
+     "createChangeClock",
+     "createChangeClock",
+     false
+    ],
+    [
+     "sweepPulses",
+     "sweepPulses",
+     false
+    ],
+    [
+     "PulseEntry",
+     "PulseEntry",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/sectionUsers",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "provisionCollegeUsers",
+     "provisionCollegeUsers",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/studyProposalRoutes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "registerStudyProposalRoutes",
+     "registerStudyProposalRoutes",
+     false
+    ],
+    [
+     "seedDemoStudyProposals",
+     "seedDemoStudyProposals",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/studyProposal",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "effectiveStatus",
+     "studyProposalStatus",
+     false
+    ],
+    [
+     "decisionStateOf",
+     "studyProposalDecision",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/studyProposalPage",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "studyProposalPage",
+     "studyProposalPage",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/signatureVerifyPage",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "signatureVerifyPage",
+     "signatureVerifyPage",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/previousTermRequest",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "pickPreviousRequest",
+     "pickPreviousRequest",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/requestReissue",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "latestRequestByInstructor",
+     "latestRequestByInstructor",
+     false
+    ],
+    [
+     "reissueMove",
+     "reissueMove",
+     false
+    ],
+    [
+     "requestLinkNeedsReplacing",
+     "requestLinkNeedsReplacing",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/requestReplayScript",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "REQUEST_REPLAY_SCRIPT",
+     "REQUEST_REPLAY_SCRIPT",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/requestDayAutofillScript",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "REQUEST_DAY_AUTOFILL_SCRIPT",
+     "REQUEST_DAY_AUTOFILL_SCRIPT",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/voiceInputScript",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "VOICE_INPUT_CSS",
+     "VOICE_INPUT_CSS",
+     false
+    ],
+    [
+     "VOICE_INPUT_JS",
+     "VOICE_INPUT_JS",
+     false
+    ],
+    [
+     "VOICE_INPUT_LIMIT",
+     "VOICE_INPUT_LIMIT",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/studyProposalAlert",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "PROPOSAL_ALERT_CSS",
+     "PROPOSAL_ALERT_CSS",
+     false
+    ],
+    [
+     "PROPOSAL_ALERT_SCRIPT",
+     "PROPOSAL_ALERT_SCRIPT",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/requestPageStyles",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "REQUEST_V3_CSS",
+     "REQUEST_V3_CSS",
+     false
+    ],
+    [
+     "REQUEST_V4_CSS",
+     "REQUEST_V4_CSS",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/patternLibraryView",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "PATTERN_LIBRARY_CSS",
+     "PATTERN_LIBRARY_CSS",
+     false
+    ],
+    [
+     "PATTERN_LIBRARY_ICON",
+     "PATTERN_LIBRARY_ICON",
+     false
+    ],
+    [
+     "patternLibraryHtml",
+     "patternLibraryHtml",
+     false
+    ],
+    [
+     "patternNoticeHtml",
+     "patternNoticeHtml",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/patternLibraryInput",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "patternLibraryInput",
+     "patternLibraryInput",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/requestVisual",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "REQUEST_VISUAL_CSS",
+     "REQUEST_VISUAL_CSS",
+     false
+    ],
+    [
+     "REQUEST_VISUAL_JS",
+     "REQUEST_VISUAL_JS",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/staffCardVisual",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "COURSE_COLOR_JS",
+     "COURSE_COLOR_JS",
+     false
+    ],
+    [
+     "STAFF_CARD_VISUAL_CSS",
+     "STAFF_CARD_VISUAL_CSS",
+     false
+    ],
+    [
+     "STAFF_CARD_VISUAL_JS",
+     "STAFF_CARD_VISUAL_JS",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/companionRoomDisplay",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "enrichCompanionRoomTypes",
+     "enrichCompanionRoomTypes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/publicKit",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "DEMO_COPY_SCRIPT",
+     "DEMO_COPY_SCRIPT",
+     false
+    ],
+    [
+     "PUBLIC_FONT_FACES",
+     "PUBLIC_FONT_FACES",
+     false
+    ],
+    [
+     "PUBLIC_KIT_CSS",
+     "PUBLIC_KIT_CSS",
+     false
+    ],
+    [
+     "PUBLIC_KIT_SCRIPT",
+     "PUBLIC_KIT_SCRIPT",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/notificationSeen",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "cleanSeenIds",
+     "cleanSeenIds",
+     false
+    ],
+    [
+     "seenKey",
+     "seenKey",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/calendarSecret",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "CALENDAR_FEED_PAUSED_NOTE",
+     "CALENDAR_FEED_PAUSED_NOTE",
+     false
+    ],
+    [
+     "calendarFeedKey",
+     "calendarFeedKey",
+     false
+    ],
+    [
+     "createCalendarSecretResolver",
+     "createCalendarSecretResolver",
+     false
+    ],
+    [
+     "instructorFromCalendarKey",
+     "instructorFromCalendarKey",
+     false
+    ],
+    [
+     "personCalendarKey",
+     "personCalendarKey",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/shareLinkLifetime",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "liveCardLinkFor",
+     "liveCardLinkFor",
+     false
+    ],
+    [
+     "readsUntilTermEnd",
+     "readsUntilTermEnd",
+     false
+    ],
+    [
+     "requestsCloseAtFromDate",
+     "requestsCloseAtFromDate",
+     false
+    ],
+    [
+     "shareLinkReadable",
+     "shareLinkReadable",
+     false
+    ],
+    [
+     "termLinkExpiresAt",
+     "termLinkExpiresAt",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorRequestWindows",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "normalizeInstructorDeadline",
+     "normalizeInstructorDeadline",
+     false
+    ],
+    [
+     "individualExceptionOpen",
+     "individualExceptionOpen",
+     false
+    ],
+    [
+     "requestWindowOpen",
+     "requestWindowOpenPolicy",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/termSequence",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "termPhase",
+     "termPhase",
+     false
+    ],
+    [
+     "termIsFrozen",
+     "termIsFrozen",
+     false
+    ],
+    [
+     "TERM_FROZEN_MESSAGE",
+     "TERM_FROZEN_MESSAGE",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/publicAttemptLimiter",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "createAttemptLimiter",
+     "createAttemptLimiter",
+     false
+    ],
+    [
+     "limiterOptionsFromEnv",
+     "limiterOptionsFromEnv",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/anonymousGuard",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "createDeadSessionMemory",
+     "createDeadSessionMemory",
+     false
+    ],
+    [
+     "createLinkMissGuard",
+     "createLinkMissGuard",
+     false
+    ],
+    [
+     "createSessionLookupBudget",
+     "createSessionLookupBudget",
+     false
+    ],
+    [
+     "isSessionIdShape",
+     "isSessionIdShape",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/approvalAttempts",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "runApprovalAttempts",
+     "runApprovalAttempts",
+     false
+    ],
+    [
+     "ApprovalOnce",
+     "ApprovalOnce",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/notificationCache",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "createCoalescer",
+     "createCoalescer",
+     false
+    ],
+    [
+     "createTtlMemo",
+     "createTtlMemo",
+     false
+    ],
+    [
+     "studentQueueAggregate",
+     "studentQueueAggregate",
+     false
+    ],
+    [
+     "StudentQueueEntry",
+     "StudentQueueEntry",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/dataContextCache",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "createDataContextKey",
+     "createDataContextKey",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/demoLinkToken",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "isDemoLinkToken",
+     "isDemoLinkToken",
+     false
+    ],
+    [
+     "publicLinkTokenFromPath",
+     "publicLinkTokenFromPath",
+     false
+    ],
+    [
+     "PUBLIC_LINK_PAGE_PREFIXES",
+     "PUBLIC_LINK_PAGE_PREFIXES",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/requestAlternatives",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "chosenAlternativeIndex",
+     "chosenAlternativeIndex",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/slotTimeGroups",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "slotTimeGroups",
+     "slotTimeGroups",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorRequestThread",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "NEGOTIATION_LABEL",
+     "NEGOTIATION_LABEL",
+     false
+    ],
+    [
+     "THREAD_TEXT_LIMIT",
+     "THREAD_TEXT_LIMIT",
+     false
+    ],
+    [
+     "capThread",
+     "capThread",
+     false
+    ],
+    [
+     "negotiationState",
+     "negotiationState",
+     false
+    ],
+    [
+     "parseOfferedSlots",
+     "parseOfferedSlots",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/coverAvailability",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "coverConflict",
+     "coverConflict",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/reachInstructor",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "storableMobile",
+     "storableMobile",
+     false
+    ],
+    [
+     "whatsappNumber",
+     "whatsappNumber",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scheduleFingerprint",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "instructorScheduleFingerprint",
+     "instructorScheduleFingerprint",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/readScope",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "coversWholeCollege",
+     "coversWholeCollege",
+     false
+    ],
+    [
+     "expandScopeSections",
+     "expandScopeSections",
+     false
+    ],
+    [
+     "resolveSmartScope",
+     "resolveSmartScope",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/finality",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "finalSourceFor",
+     "finalSourceFor",
+     false
+    ],
+    [
+     "Finality",
+     "Finality",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/movementAttribution",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "movementAttribution",
+     "movementAttribution",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorMovementWindow",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "firstInstructorEditAt",
+     "firstInstructorEditAt",
+     false
+    ],
+    [
+     "movementAfterInstructorEdit",
+     "movementAfterInstructorEdit",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorRequestConfirmation",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "canConfirmUnchanged",
+     "canConfirmUnchanged",
+     false
+    ],
+    [
+     "isUnchangedConfirmed",
+     "isUnchangedConfirmed",
+     false
+    ],
+    [
+     "unchangedConfirmationKind",
+     "unchangedConfirmationKind",
+     false
+    ],
+    [
+     "unchangedScheduleFingerprint",
+     "unchangedScheduleFingerprint",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/lateness",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "isLate",
+     "isLate",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/submissionDeadlines",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "decideException",
+     "decideException",
+     false
+    ],
+    [
+     "exceptionRefusal",
+     "exceptionRefusal",
+     false
+    ],
+    [
+     "normalizeExceptionDays",
+     "normalizeExceptionDays",
+     false
+    ],
+    [
+     "resolveExceptionTargets",
+     "resolveExceptionTargets",
+     false
+    ],
+    [
+     "withException",
+     "withException",
+     false
+    ],
+    [
+     "withoutException",
+     "withoutException",
+     false
+    ],
+    [
+     "ExceptionAction",
+     "ExceptionAction",
+     true
+    ],
+    [
+     "ExceptionAmount",
+     "ExceptionAmount",
+     true
+    ],
+    [
+     "ExceptionOutcome",
+     "ExceptionOutcome",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/placeholderInstructor",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "placeholderInstructorIdsOf",
+     "placeholderInstructorIdsOf",
+     false
+    ],
+    [
+     "isFacultyPlaceholder",
+     "isFacultyPlaceholder",
+     false
+    ],
+    [
+     "singleFacultyPlaceholder",
+     "singleFacultyPlaceholder",
+     false
+    ],
+    [
+     "withoutFacultyPlaceholderCivil",
+     "withoutFacultyPlaceholderCivil",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/approvalWorkflow",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "APPROVAL_STATUS_LABEL",
+     "APPROVAL_STATUS_LABEL",
+     false
+    ],
+    [
+     "blockingConflictPhrase",
+     "blockingConflictPhrase",
+     false
+    ],
+    [
+     "canSign",
+     "canSign",
+     false
+    ],
+    [
+     "canSubmit",
+     "canSubmit",
+     false
+    ],
+    [
+     "describeWholesaleRefusal",
+     "describeWholesaleRefusal",
+     false
+    ],
+    [
+     "emptyApproval",
+     "emptyApproval",
+     false
+    ],
+    [
+     "inboxPriority",
+     "inboxPriority",
+     false
+    ],
+    [
+     "isFullySigned",
+     "isFullySigned",
+     false
+    ],
+    [
+     "isWholesaleChange",
+     "isWholesaleChange",
+     false
+    ],
+    [
+     "lastReviewedVersionId",
+     "lastReviewedVersionId",
+     false
+    ],
+    [
+     "readDeadline",
+     "readDeadline",
+     false
+    ],
+    [
+     "statusAfterSignature",
+     "statusAfterSignature",
+     false
+    ],
+    [
+     "verificationCode",
+     "verificationCode",
+     false
+    ],
+    [
+     "DeadlineState",
+     "DeadlineState",
+     true
+    ],
+    [
+     "WholesaleAction",
+     "WholesaleAction",
+     true
+    ],
+    [
+     "acknowledgeAdditions",
+     "acknowledgeAdditions",
+     false
+    ],
+    [
+     "appendApprovalEvent",
+     "appendApprovalEvent",
+     false
+    ],
+    [
+     "approvalLockReason",
+     "approvalLockReason",
+     false
+    ],
+    [
+     "awaitsHeadSignature",
+     "awaitsHeadSignature",
+     false
+    ],
+    [
+     "canHeadReturn",
+     "canHeadReturn",
+     false
+    ],
+    [
+     "canRequestExtension",
+     "canRequestExtension",
+     false
+    ],
+    [
+     "canReturn",
+     "canReturn",
+     false
+    ],
+    [
+     "canWithdraw",
+     "canWithdraw",
+     false
+    ],
+    [
+     "CLOSED_BY_ACCEPTANCE_LABEL",
+     "CLOSED_BY_ACCEPTANCE_LABEL",
+     false
+    ],
+    [
+     "countAnsweredRegistrarNotes",
+     "countAnsweredRegistrarNotes",
+     false
+    ],
+    [
+     "countOpenRegistrarNotes",
+     "countOpenRegistrarNotes",
+     false
+    ],
+    [
+     "isOpenRegistrarNote",
+     "isOpenRegistrarNote",
+     false
+    ],
+    [
+     "extensionRefusal",
+     "extensionRefusal",
+     false
+    ],
+    [
+     "insistOutcome",
+     "insistOutcome",
+     false
+    ],
+    [
+     "isSwapEdit",
+     "isSwapEdit",
+     false
+    ],
+    [
+     "kuwaitDateISO",
+     "kuwaitDateISO",
+     false
+    ],
+    [
+     "mergePendingAdditions",
+     "mergePendingAdditions",
+     false
+    ],
+    [
+     "openRound",
+     "openRound",
+     false
+    ],
+    [
+     "pendingAdditionTotal",
+     "pendingAdditionTotal",
+     false
+    ],
+    [
+     "readViewExpectation",
+     "readViewExpectation",
+     false
+    ],
+    [
+     "additionsAwaitingHead",
+     "additionsAwaitingHead",
+     false
+    ],
+    [
+     "withRemainingSignatures",
+     "withRemainingSignatures",
+     false
+    ],
+    [
+     "extensionRequestRefusal",
+     "extensionRequestRefusal",
+     false
+    ],
+    [
+     "roundBaselineVersionId",
+     "roundBaselineVersionId",
+     false
+    ],
+    [
+     "roundEndVersionId",
+     "roundEndVersionId",
+     false
+    ],
+    [
+     "staleViewRefusal",
+     "staleViewRefusal",
+     false
+    ],
+    [
+     "statusAfterSignatureChange",
+     "statusAfterSignatureChange",
+     false
+    ],
+    [
+     "suggestedExtensionDate",
+     "suggestedExtensionDate",
+     false
+    ],
+    [
+     "TERM_CLOSED_APPROVAL_MESSAGE",
+     "TERM_CLOSED_APPROVAL_MESSAGE",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scheduleDiff",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "diffSchedules",
+     "diffSchedules",
+     false
+    ],
+    [
+     "fieldValue",
+     "diffFieldValue",
+     false
+    ],
+    [
+     "summarizeDiff",
+     "summarizeDiff",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scopeFingerprint",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "describeScopeChanges",
+     "describeScopeChanges",
+     false
+    ],
+    [
+     "fingerprintOfSignatures",
+     "fingerprintOfSignatures",
+     false
+    ],
+    [
+     "replacementLoss",
+     "replacementLoss",
+     false
+    ],
+    [
+     "scopeBase",
+     "scopeBase",
+     false
+    ],
+    [
+     "scopeSignatures",
+     "scopeSignatures",
+     false
+    ],
+    [
+     "ScopeBase",
+     "ScopeBase",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scheduleBlockers",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "approvalBlockerCount",
+     "approvalBlockerCount",
+     false
+    ],
+    [
+     "approvalBlockerSummary",
+     "approvalBlockerSummary",
+     false
+    ],
+    [
+     "approvalWarnings",
+     "approvalWarnings",
+     false
+    ],
+    [
+     "blockingConflictDetails",
+     "blockingConflictDetails",
+     false
+    ],
+    [
+     "blockingConflicts",
+     "blockingConflicts",
+     false
+    ],
+    [
+     "blockingRowIds",
+     "blockingRowIds",
+     false
+    ],
+    [
+     "doubleEntryCount",
+     "doubleEntryCount",
+     false
+    ],
+    [
+     "placeholderInstructorIds",
+     "sharedPlaceholderInstructorIds",
+     false
+    ],
+    [
+     "ApprovalBlockerOptions",
+     "ApprovalBlockerOptions",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/changesBaseline",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "chooseCaptureBaseline",
+     "chooseCaptureBaseline",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/approvalScope",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "approvalScopeKey",
+     "approvalScopeKey",
+     false
+    ],
+    [
+     "authorityRowsForScope",
+     "authorityRowsForScope",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/notificationCenter",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "buildNotifications",
+     "buildNotifications",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/linkedRequestItems",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "awaitedItemIndexes",
+     "awaitedItemIndexes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scheduleRegulations",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "DAY_KEYS",
+     "DAY_KEYS",
+     false
+    ],
+    [
+     "DAY_NAMES",
+     "DAY_NAMES",
+     false
+    ],
+    [
+     "effectiveCourseHours",
+     "effectiveCourseHours",
+     false
+    ],
+    [
+     "expectedMinutesForDay",
+     "expectedMinutesForDay",
+     false
+    ],
+    [
+     "lectureLengthProblem",
+     "lectureLengthProblem",
+     false
+    ],
+    [
+     "maxWeeklyMinutesFor",
+     "maxWeeklyMinutesFor",
+     false
+    ],
+    [
+     "patternsForHours",
+     "patternsForHours",
+     false
+    ],
+    [
+     "periodBalanceFinding",
+     "periodBalanceFinding",
+     false
+    ],
+    [
+     "reviewSchedule",
+     "reviewSchedule",
+     false
+    ],
+    [
+     "weeklyLectureMinutes",
+     "weeklyLectureMinutes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/academicRoles",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "ACADEMIC_ROLES",
+     "ACADEMIC_ROLES",
+     false
+    ],
+    [
+     "DEFAULT_MIGRATION_ROLE",
+     "DEFAULT_MIGRATION_ROLE",
+     false
+    ],
+    [
+     "canManageDeadline",
+     "canManageDeadline",
+     false
+    ],
+    [
+     "canReviewSubmissions",
+     "canReviewSubmissions",
+     false
+    ],
+    [
+     "canAnnotateCells",
+     "canAnnotateCells",
+     false
+    ],
+    [
+     "isAcademicRole",
+     "isAcademicRole",
+     false
+    ],
+    [
+     "isAdvisorRole",
+     "isAdvisorRole",
+     false
+    ],
+    [
+     "isReadOnlyRole",
+     "isReadOnlyRole",
+     false
+    ],
+    [
+     "isRegistrarRole",
+     "isRegistrarRole",
+     false
+    ],
+    [
+     "isViewerOnlyRole",
+     "isViewerOnlyRole",
+     false
+    ],
+    [
+     "roleDefinition",
+     "roleDefinition",
+     false
+    ],
+    [
+     "roleLabel",
+     "roleLabel",
+     false
+    ],
+    [
+     "signatureStage",
+     "signatureStage",
+     false
+    ],
+    [
+     "watchesInbox",
+     "watchesInbox",
+     false
+    ],
+    [
+     "AcademicRole",
+     "AcademicRole",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scheduleDataReadiness",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "capacityGapItems",
+     "capacityGapItems",
+     false
+    ],
+    [
+     "computeScheduleDataReadiness",
+     "computeScheduleDataReadiness",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/arabicCount",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "AR",
+     "AR",
+     false
+    ],
+    [
+     "ARABIC_COUNT_SCRIPT",
+     "ARABIC_COUNT_SCRIPT",
+     false
+    ],
+    [
+     "countOf",
+     "countOf",
+     false
+    ],
+    [
+     "nounFor",
+     "nounFor",
+     false
+    ],
+    [
+     "oblique",
+     "oblique",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/settledDrift",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "readSettledDrift",
+     "readSettledDrift",
+     false
+    ],
+    [
+     "settledTerm",
+     "settledTerm",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/departmentRhythm",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "learnRhythm",
+     "learnRhythm",
+     false
+    ],
+    [
+     "offRhythm",
+     "offRhythm",
+     false
+    ],
+    [
+     "describeRhythm",
+     "describeRhythm",
+     false
+    ],
+    [
+     "RhythmReading",
+     "RhythmReading",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/departmentMemory",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "readDepartmentMemory",
+     "readDepartmentMemory",
+     false
+    ],
+    [
+     "DepartmentMemory",
+     "DepartmentMemory",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/studentDemand",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "readStudentDemand",
+     "readStudentDemand",
+     false
+    ],
+    [
+     "mergeCurrentDemandResponses",
+     "mergeCurrentDemandResponses",
+     false
+    ],
+    [
+     "cohortPairs",
+     "cohortPairs",
+     false
+    ],
+    [
+     "sharedBetween",
+     "sharedBetween",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/studentCaseDecision",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "isCaseLevelNeed",
+     "isCaseLevelNeed",
+     false
+    ],
+    [
+     "studentCaseStatus",
+     "studentCaseStatus",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/studentCaseScope",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "sectionOwnsNeed",
+     "sectionOwnsNeed",
+     false
+    ],
+    [
+     "surveyOwnsNeed",
+     "surveyOwnsNeed",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/studentNeedMerge",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "droppedCourseLabel",
+     "droppedCourseLabel",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/degreeRules",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "suggestedDegreeRule",
+     "suggestedDegreeRule",
+     false
+    ],
+    [
+     "readDegreeRuleInput",
+     "readDegreeRuleInput",
+     false
+    ],
+    [
+     "DegreeRule",
+     "DegreeRule",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/graduationPlan",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "choosePlanForSheet",
+     "choosePlanForSheet",
+     false
+    ],
+    [
+     "PlanRuleCandidate",
+     "PlanRuleCandidate",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/termSequence",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "termWindow",
+     "termWindow",
+     false
+    ],
+    [
+     "previousYearSameTermName",
+     "previousYearSameTermName",
+     false
+    ],
+    [
+     "sameTermName",
+     "sameTermName",
+     false
+    ],
+    [
+     "termSeasonOf",
+     "termSeasonOf",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/termStudentPhases",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "checkStudentPhases",
+     "checkStudentPhases",
+     false
+    ],
+    [
+     "hasStudentPhases",
+     "hasStudentPhases",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/adsRoutes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "adInjection",
+     "adInjection",
+     false
+    ],
+    [
+     "adNotifications",
+     "adNotifications",
+     false
+    ],
+    [
+     "registerAdsRoutes",
+     "registerAdsRoutes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/studentDoorRoutes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "registerStudentDoorRoutes",
+     "registerStudentDoorRoutes",
+     false
+    ],
+    [
+     "scheduleStudentProfilePurge",
+     "scheduleStudentProfilePurge",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/studentShowcase",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "registerStudentShowcase",
+     "registerStudentShowcase",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/planReviewRoutes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "pendingPlanReviews",
+     "pendingPlanReviews",
+     false
+    ],
+    [
+     "registerPlanReviewRoutes",
+     "registerPlanReviewRoutes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/planBadgeShared",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "planBadgesFor",
+     "planBadgesFor",
+     false
+    ],
+    [
+     "serviceCourseKeys",
+     "serviceCourseKeys",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/planSheetRoutes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "registerPlanSheetRoutes",
+     "registerPlanSheetRoutes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/featureNotifications",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "buildFeatureNotifications",
+     "buildFeatureNotifications",
+     false
+    ],
+    [
+     "buildMasariGapNotifications",
+     "buildMasariGapNotifications",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/sectionGap",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "studentGaps",
+     "studentGaps",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/demoRadarSeed",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "seedDemoRadar",
+     "seedDemoRadar",
+     false
+    ],
+    [
+     "seedDemoMasariDemand",
+     "seedDemoMasariDemand",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/demoPreviousTermSeed",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "seedDemoOtherDepartmentStories",
+     "seedDemoOtherDepartmentStories",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorRequestItems",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "dayKeysOf",
+     "dayKeysOf",
+     false
+    ],
+    [
+     "DAY_LETTERS",
+     "DAY_LETTERS",
+     false
+    ],
+    [
+     "requestItemFromRow",
+     "requestItemFromRow",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/simulationRoutes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "radarNoticeFor",
+     "radarNoticeFor",
+     false
+    ],
+    [
+     "registerSimulationRoutes",
+     "registerSimulationRoutes",
+     false
+    ],
+    [
+     "scheduleRadarAutoRun",
+     "scheduleRadarAutoRun",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/insightRoutes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "registerInsightRoutes",
+     "registerInsightRoutes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/timeMachineRoutes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "registerTimeMachineRoutes",
+     "registerTimeMachineRoutes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/studentHomePage",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "studentHomePage",
+     "studentHomePage",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/invitationLink",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "DEFAULT_INVITATION_PASSWORD",
+     "DEFAULT_INVITATION_PASSWORD",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/autoTerms",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "scheduleAutoTermJob",
+     "scheduleAutoTermJob",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/demandRepair",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "readDemandRepairs",
+     "readDemandRepairs",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/simulationData",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "loadSimulationInput",
+     "loadSimulationInput",
+     false
+    ],
+    [
+     "rankDemandRepairsBySimulation",
+     "rankDemandRepairsBySimulation",
+     false
+    ],
+    [
+     "rankSectionOpeningsBySimulation",
+     "rankSectionOpeningsBySimulation",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorRequestVerdict",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "endForRequest",
+     "endForRequest",
+     false
+    ],
+    [
+     "headlineReasonOf",
+     "headlineReasonOf",
+     false
+    ],
+    [
+     "judgeRequest",
+     "judgeRequest",
+     false
+    ],
+    [
+     "requestFullySettled",
+     "requestFullySettled",
+     false
+    ],
+    [
+     "rowFromRequest",
+     "rowFromRequest",
+     false
+    ],
+    [
+     "weeklyLoadOf",
+     "weeklyLoadOf",
+     false
+    ],
+    [
+     "RequestDayKey",
+     "RequestDayKey",
+     true
+    ],
+    [
+     "RequestedRow",
+     "RequestedRow",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/courseSuccession",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "readCourseSuccession",
+     "readCourseSuccession",
+     false
+    ],
+    [
+     "cohortTurnover",
+     "cohortTurnover",
+     false
+    ],
+    [
+     "predictDemand",
+     "predictDemand",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/sectionOpening",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "nextSectionCodes",
+     "nextSectionCodes",
+     false
+    ],
+    [
+     "readSectionOpenings",
+     "readSectionOpenings",
+     false
+    ],
+    [
+     "OpeningReading",
+     "OpeningReading",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/sectionBuild",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "demandFromTargets",
+     "demandFromTargets",
+     false
+    ],
+    [
+     "gapRows",
+     "gapRows",
+     false
+    ],
+    [
+     "hardestFirst",
+     "hardestFirst",
+     false
+    ],
+    [
+     "weekFingerprint",
+     "weekFingerprint",
+     false
+    ],
+    [
+     "GapRow",
+     "GapRow",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/visitingNeed",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "visitorFreeSlots",
+     "visitorFreeSlots",
+     false
+    ],
+    [
+     "staffCourse",
+     "staffCourse",
+     false
+    ],
+    [
+     "CourseStaffing",
+     "CourseStaffing",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/sectionPending",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "FACULTY_PLACEHOLDER",
+     "FACULTY_PLACEHOLDER",
+     false
+    ],
+    [
+     "facultyPlaceholderOf",
+     "facultyPlaceholderOf",
+     false
+    ],
+    [
+     "placePending",
+     "placePending",
+     false
+    ],
+    [
+     "templatesFromHistory",
+     "templatesFromHistory",
+     false
+    ],
+    [
+     "PendingRoom",
+     "PendingRoom",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/curriculumRules",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "courseLevelFromCode",
+     "courseLevelFromCode",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/appointmentStory",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "reasonForMove",
+     "reasonForMove",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/icalendar",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "buildCalendar",
+     "buildCalendar",
+     false
+    ],
+    [
+     "buildReminder",
+     "buildReminder",
+     false
+    ],
+    [
+     "calendarSpanForTerm",
+     "calendarSpanForTerm",
+     false
+    ],
+    [
+     "CalendarLecture",
+     "CalendarLecture",
+     true
+    ],
+    [
+     "CalendarSingle",
+     "CalendarSingle",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/calendarLinks",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "CALENDAR_LINKS_CLIENT_JS",
+     "CALENDAR_LINKS_CLIENT_JS",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/offeringStates",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "forgetOfferingStates",
+     "forgetOfferingStates",
+     false
+    ],
+    [
+     "offeringStatesForTerm",
+     "offeringStatesForTerm",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/teacherCardExtras",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "TEACHER_CARD_EXTRAS_CSS",
+     "TEACHER_CARD_EXTRAS_CSS",
+     false
+    ],
+    [
+     "TEACHER_CARD_EXTRAS_JS",
+     "TEACHER_CARD_EXTRAS_JS",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/linkMode",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "issueLinkMode",
+     "issueLinkMode",
+     false
+    ],
+    [
+     "linkMode",
+     "linkMode",
+     false
+    ],
+    [
+     "linkModeLabel",
+     "linkModeLabel",
+     false
+    ],
+    [
+     "modeAllowsFreeEdit",
+     "modeAllowsFreeEdit",
+     false
+    ],
+    [
+     "modeAllowsWrite",
+     "modeAllowsWrite",
+     false
+    ],
+    [
+     "taPhaseOwns",
+     "taPhaseOwns",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/requestParticipation",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "isTaRequest",
+     "isTaRequest",
+     false
+    ],
+    [
+     "notOpened",
+     "notOpened",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/lectureStick",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "bestPerSide",
+     "bestPerSide",
+     false
+    ],
+    [
+     "stickCandidates",
+     "stickCandidates",
+     false
+    ],
+    [
+     "topSticks",
+     "topSticks",
+     false
+    ],
+    [
+     "StickAnchor",
+     "StickAnchor",
+     true
+    ],
+    [
+     "StickJudged",
+     "StickJudged",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/courseOffering",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "applyOfferingToOpenings",
+     "applyOfferingToOpenings",
+     false
+    ],
+    [
+     "offeringBadge",
+     "offeringBadge",
+     false
+    ],
+    [
+     "offeringBlocked",
+     "offeringBlocked",
+     false
+    ],
+    [
+     "emptyOfferingDoc",
+     "emptyOfferingDoc",
+     false
+    ],
+    [
+     "normalizeLevel",
+     "normalizeLevel",
+     false
+    ],
+    [
+     "normalizeOfferingEntry",
+     "normalizeOfferingEntry",
+     false
+    ],
+    [
+     "offeringDocId",
+     "offeringDocId",
+     false
+    ],
+    [
+     "offeringView",
+     "offeringView",
+     false
+    ],
+    [
+     "suggestFutureCourses",
+     "suggestFutureCourses",
+     false
+    ],
+    [
+     "toggleInterest",
+     "toggleInterest",
+     false
+    ],
+    [
+     "CourseInterestDoc",
+     "CourseInterestDoc",
+     true
+    ],
+    [
+     "CourseOfferingDoc",
+     "CourseOfferingDoc",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/advisorSeats",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "alternativeSections",
+     "alternativeSections",
+     false
+    ],
+    [
+     "baseCapacityFor",
+     "baseCapacityFor",
+     false
+    ],
+    [
+     "nearFull",
+     "nearFull",
+     false
+    ],
+    [
+     "normalizeQuotaConfig",
+     "normalizeQuotaConfig",
+     false
+    ],
+    [
+     "sectionKey",
+     "sectionKey",
+     false
+    ],
+    [
+     "seatState",
+     "seatState",
+     false
+    ],
+    [
+     "tryAddSeats",
+     "tryAddSeats",
+     false
+    ],
+    [
+     "SeatLedger",
+     "SeatLedger",
+     true
+    ],
+    [
+     "SeatQuotaConfig",
+     "SeatQuotaConfig",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/taPhase",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "allowedFor",
+     "allowedFor",
+     false
+    ],
+    [
+     "countdown",
+     "countdown",
+     false
+    ],
+    [
+     "dueWaves",
+     "dueWaves",
+     false
+    ],
+    [
+     "loadRing",
+     "loadRing",
+     false
+    ],
+    [
+     "phaseOpen",
+     "phaseOpen",
+     false
+    ],
+    [
+     "planWaves",
+     "planWaves",
+     false
+    ],
+    [
+     "vacantSections",
+     "vacantSections",
+     false
+    ],
+    [
+     "vacantSummary",
+     "vacantSummary",
+     false
+    ],
+    [
+     "TaPhaseDoc",
+     "TaPhaseDoc",
+     true
+    ],
+    [
+     "TaWave",
+     "TaWave",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/visitingText",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "withVisitingSuffix",
+     "withVisitingSuffix",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/courseNature",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "learnAll",
+     "learnAll",
+     false
+    ],
+    [
+     "learnCourseNature",
+     "learnCourseNature",
+     false
+    ],
+    [
+     "habitualBlockMinutes",
+     "habitualBlockMinutes",
+     false
+    ],
+    [
+     "historicalOrigin",
+     "historicalOrigin",
+     false
+    ],
+    [
+     "CourseNature",
+     "CourseNature",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/weekVisual",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "firstLast",
+     "firstLast",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/campusTravel",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "Campus",
+     "Campus",
+     false
+    ],
+    [
+     "DEFAULT_TRAVEL_MINUTES",
+     "DEFAULT_TRAVEL_MINUTES",
+     false
+    ],
+    [
+     "SAME_BUILDING_MINUTES",
+     "SAME_BUILDING_MINUTES",
+     false
+    ],
+    [
+     "campusOf",
+     "campusOf",
+     false
+    ],
+    [
+     "interCampusMinutes",
+     "interCampusMinutes",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/advancedIntelligence",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "buildCourseLife",
+     "buildCourseLife",
+     false
+    ],
+    [
+     "buildDecisionCost",
+     "buildDecisionCost",
+     false
+    ],
+    [
+     "buildHistoricalTimeModel",
+     "buildHistoricalTimeModel",
+     false
+    ],
+    [
+     "buildOfferingLife",
+     "buildOfferingLife",
+     false
+    ],
+    [
+     "discoverUnwrittenRules",
+     "discoverUnwrittenRules",
+     false
+    ],
+    [
+     "explainWhyHere",
+     "explainWhyHere",
+     false
+    ],
+    [
+     "investigateCrowding",
+     "investigateCrowding",
+     false
+    ],
+    [
+     "logicalAnomalies",
+     "logicalAnomalies",
+     false
+    ],
+    [
+     "scheduleAccuracyFromVersions",
+     "scheduleAccuracyFromVersions",
+     false
+    ],
+    [
+     "simulatePolicy",
+     "simulatePolicy",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/scheduleTime",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "clockRangesOverlap",
+     "clockRangesOverlap",
+     false
+    ],
+    [
+     "formatScheduleTimeRange",
+     "formatScheduleTimeRange",
+     false
+    ],
+    [
+     "isValidClock",
+     "isValidClock",
+     false
+    ],
+    [
+     "normalizeClock",
+     "normalizeClock",
+     false
+    ],
+    [
+     "SCHEDULE_DAY_END",
+     "SCHEDULE_DAY_END",
+     false
+    ],
+    [
+     "SCHEDULE_DAY_END_TIME",
+     "SCHEDULE_DAY_END_TIME",
+     false
+    ],
+    [
+     "SCHEDULE_DAY_START",
+     "SCHEDULE_DAY_START",
+     false
+    ],
+    [
+     "SCHEDULE_DAY_START_TIME",
+     "SCHEDULE_DAY_START_TIME",
+     false
+    ],
+    [
+     "SCHEDULE_SLOT_MINUTES",
+     "SCHEDULE_SLOT_MINUTES",
+     false
+    ],
+    [
+     "scheduleDayWindowMinutes",
+     "scheduleDayWindowMinutes",
+     false
+    ],
+    [
+     "withinScheduleDay",
+     "withinScheduleDay",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/guide/smartGuide",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "canAccessGuideFeature",
+     "canAccessGuideFeature",
+     false
+    ],
+    [
+     "featureById",
+     "featureById",
+     false
+    ],
+    [
+     "featureIdForGuideIntentGoal",
+     "featureIdForGuideIntentGoal",
+     false
+    ],
+    [
+     "parseStructuredGuideIntent",
+     "parseStructuredGuideIntent",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorIdentity",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "displayInstructorText",
+     "displayInstructorText",
+     false
+    ],
+    [
+     "instructorCleanName",
+     "instructorCleanName",
+     false
+    ],
+    [
+     "foldInstructorText",
+     "foldInstructorText",
+     false
+    ],
+    [
+     "instructorIdentityTokens",
+     "instructorIdentityTokens",
+     false
+    ],
+    [
+     "readableInstructorName",
+     "readableInstructorName",
+     false
+    ],
+    [
+     "registryCandidatesFor",
+     "registryCandidatesFor",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorStatus",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "isAssignableInstructor",
+     "isAssignableInstructor",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/authorityNetChange",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "authorityFieldMatchesOriginal",
+     "authorityFieldMatchesOriginal",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/documentOcr",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "ocrDocument",
+     "ocrDocument",
+     false
+    ],
+    [
+     "ocrGraduationSheetDocument",
+     "ocrGraduationSheetDocument",
+     false
+    ],
+    [
+     "parseScheduleTable",
+     "parseScheduleTable",
+     false
+    ],
+    [
+     "instructorRegistryOutcome",
+     "instructorRegistryOutcome",
+     false
+    ],
+    [
+     "graduationSheetFacts",
+     "graduationSheetFacts",
+     false
+    ],
+    [
+     "cleanBuildingCode",
+     "cleanBuildingCode",
+     false
+    ],
+    [
+     "cleanHallCode",
+     "cleanHallCode",
+     false
+    ],
+    [
+     "readAuthorityPdfHeader",
+     "readAuthorityPdfHeader",
+     false
+    ],
+    [
+     "renderPdfPagesForSmartRead",
+     "renderPdfPagesForSmartRead",
+     false
+    ],
+    [
+     "cropRowStripsForSmartRead",
+     "cropRowStripsForSmartRead",
+     false
+    ],
+    [
+     "SCAN_READING_BUSY_MESSAGE",
+     "SCAN_READING_BUSY_MESSAGE",
+     false
+    ],
+    [
+     "ScanReadingBusyError",
+     "ScanReadingBusyError",
+     false
+    ],
+    [
+     "GREY_PHOTO_REFUSAL",
+     "GREY_PHOTO_REFUSAL",
+     false
+    ],
+    [
+     "readReportCells",
+     "readReportCells",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/remainingReport",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "assessRemainingImport",
+     "assessRemainingImport",
+     false
+    ],
+    [
+     "blankSpots",
+     "blankSpots",
+     false
+    ],
+    [
+     "columnKind",
+     "columnKind",
+     false
+    ],
+    [
+     "imageOrientationRefusal",
+     "imageOrientationRefusal",
+     false
+    ],
+    [
+     "readRemainingReport",
+     "readRemainingReport",
+     false
+    ],
+    [
+     "readReportHeader",
+     "readReportHeader",
+     false
+    ],
+    [
+     "remainingReportTermRelation",
+     "remainingReportTermRelation",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/termForecast",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "computeTermForecast",
+     "computeTermForecast",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/authorityScanRecovery",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "recoverAuthorityScanRowsFromHistory",
+     "recoverAuthorityScanRowsFromHistory",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/authorityAcademicCodes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "academicDigits",
+     "academicDigits",
+     false
+    ],
+    [
+     "assignAuthoritySections",
+     "assignAuthoritySections",
+     false
+    ],
+    [
+     "withoutImportEvidence",
+     "withoutImportEvidence",
+     false
+    ],
+    [
+     "authorityCourseCode",
+     "authorityCourseCode",
+     false
+    ],
+    [
+     "authorityDepartmentCode",
+     "authorityDepartmentCode",
+     false
+    ],
+    [
+     "authorityDepartmentMatches",
+     "authorityDepartmentMatches",
+     false
+    ],
+    [
+     "authoritySectionCodeLooksPlausible",
+     "authoritySectionCodeLooksPlausible",
+     false
+    ],
+    [
+     "normalizeAuthoritySectionCode",
+     "normalizeAuthoritySectionCode",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/rowReasons",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "buildRowReasons",
+     "buildRowReasons",
+     false
+    ],
+    [
+     "instructorLoadUnits",
+     "instructorLoadUnits",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/locationRegistry",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "PENDING_ROOM",
+     "PENDING_ROOM",
+     false
+    ],
+    [
+     "confirmedDepartmentRoomIds",
+     "confirmedDepartmentRoomIdsFromRegistry",
+     false
+    ],
+    [
+     "eligibleHallsForSection",
+     "eligibleHallsForSection",
+     false
+    ],
+    [
+     "buildingIdentityKey",
+     "buildingIdentityKey",
+     false
+    ],
+    [
+     "compareLocationCodes",
+     "compareLocationCodes",
+     false
+    ],
+    [
+     "isInvalidLocationToken",
+     "isInvalidLocationToken",
+     false
+    ],
+    [
+     "isSharedRoom",
+     "isSharedRoom",
+     false
+    ],
+    [
+     "normalizeLocationToken",
+     "normalizeLocationToken",
+     false
+    ],
+    [
+     "roomIdentityKey",
+     "roomIdentityKey",
+     false
+    ],
+    [
+     "roomKeyOf",
+     "roomKeyOf",
+     false
+    ],
+    [
+     "rowOccupiesRoom",
+     "rowOccupiesRoom",
+     false
+    ],
+    [
+     "resolveAuthorityLocation",
+     "resolveAuthorityLocation",
+     false
+    ],
+    [
+     "resolveBuilding",
+     "resolveBuilding",
+     false
+    ],
+    [
+     "resolveRoom",
+     "resolveRoom",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/locationCollegePrefixes",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "officialBuildingCode",
+     "officialBuildingCode",
+     false
+    ],
+    [
+     "officialCollegeSitePrefix",
+     "officialCollegeSitePrefix",
+     false
+    ],
+    [
+     "officialSiteLabel",
+     "officialSiteLabel",
+     false
+    ],
+    [
+     "parseOfficialBuildingCode",
+     "parseOfficialBuildingCode",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/branchScope",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "collegeBranchRoot",
+     "collegeBranchRoot",
+     false
+    ],
+    [
+     "collegeSitePrefix",
+     "collegeSitePrefix",
+     false
+    ],
+    [
+     "resolveBranchScope",
+     "resolveBranchScope",
+     false
+    ],
+    [
+     "siblingBranchScopes",
+     "siblingBranchScopes",
+     false
+    ],
+    [
+     "splitRowsByBranch",
+     "splitRowsByBranch",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/hallBarterFairness",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "fairShareByOwner",
+     "fairShareByOwner",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/hallBarterWindow",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "approvedBarterReservation",
+     "approvedBarterReservation",
+     false
+    ],
+    [
+     "borrowerOutsideApprovedWindow",
+     "borrowerOutsideApprovedWindow",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/instructorRequestProposalIdentity",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "instructorRequestProposalIdentity",
+     "instructorRequestProposalIdentity",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/documentOcr",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "scanRefusalMessage",
+     "scanRefusalMessage",
+     false
+    ],
+    [
+     "unresolvedDaysReason",
+     "unresolvedDaysReason",
+     false
+    ],
+    [
+     "restoredDaysReason",
+     "restoredDaysReason",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/importPageReview",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "pageReviewWaitLine",
+     "pageReviewWaitLine",
+     false
+    ],
+    [
+     "pagesAwaitingReview",
+     "pagesAwaitingReview",
+     false
+    ],
+    [
+     "unconfirmedReviewPages",
+     "unconfirmedReviewPages",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/branchScope",
+   "type": true,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "BranchScope",
+     "BranchScope",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/server/locationRegistryEngine",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "buildMigrationPlan",
+     "buildMigrationPlan",
+     false
+    ],
+    [
+     "locationPreflight",
+     "locationPreflight",
+     false
+    ],
+    [
+     "mergeRegistryWithSeed",
+     "mergeRegistryWithSeed",
+     false
+    ],
+    [
+     "newMigrationRun",
+     "newMigrationRun",
+     false
+    ],
+    [
+     "registryHealth",
+     "registryHealth",
+     false
+    ],
+    [
+     "rollbackPatch",
+     "rollbackPatch",
+     false
+    ],
+    [
+     "seedRegistry",
+     "seedRegistry",
+     false
+    ],
+    [
+     "LOCATION_MIGRATION_VERSION",
+     "LOCATION_MIGRATION_VERSION",
+     false
+    ]
+   ]
+  },
+  {
+   "spec": "./src/utils/geminiScheduleLayer",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "bindGeminiRowsToCatalogue",
+     "bindGeminiRowsToCatalogue",
+     false
+    ],
+    [
+     "buildSmartImportCatalogue",
+     "buildSmartImportCatalogue",
+     false
+    ],
+    [
+     "deterministicSchedulingCalls",
+     "deterministicSchedulingCalls",
+     false
+    ],
+    [
+     "extractJsonObject",
+     "extractJsonObject",
+     false
+    ],
+    [
+     "GEMINI_SCHEDULE_FUNCTION_NAMES",
+     "GEMINI_SCHEDULE_FUNCTION_NAMES",
+     false
+    ],
+    [
+     "normalizeGeminiScheduleRows",
+     "normalizeGeminiScheduleRows",
+     false
+    ],
+    [
+     "sanitizeGeminiScheduleCalls",
+     "sanitizeGeminiScheduleCalls",
+     false
+    ],
+    [
+     "scheduleDelta",
+     "scheduleDelta",
+     false
+    ],
+    [
+     "GeminiScheduleCall",
+     "GeminiScheduleCall",
+     true
+    ]
+   ]
+  },
+  {
+   "spec": "xlsx",
+   "type": false,
+   "def": null,
+   "ns": "XLSX",
+   "named": []
+  },
+  {
+   "spec": "./src/server/publicTheme",
+   "type": false,
+   "def": null,
+   "ns": null,
+   "named": [
+    [
+     "PUBLIC_LIGHT_VARS",
+     "PUBLIC_LIGHT_VARS",
+     false
+    ],
+    [
+     "PUBLIC_THEME_COLOR",
+     "PUBLIC_THEME_COLOR",
+     false
+    ]
+   ]
+  }
  ]
 }

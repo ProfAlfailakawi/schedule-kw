@@ -10,7 +10,7 @@
 import path from "node:path";
 import { ts } from "./analyze.mjs";
 import { SERVER } from "./plan.mjs";
-import { ORDER_FILE, statementKey } from "../../tests/helpers/serverSource.mjs";
+import { ORDER_FILE, describeImport, statementKey } from "../../tests/helpers/serverSource.mjs";
 
 const SERVER_FILE = "server.ts";
 /** علامةُ الملف المولَّد: الأداةُ لا تمسح ملفاً بلا هذه العلامة. */
@@ -314,7 +314,8 @@ export function generate(analysis, plan, mapping, { root }) {
       seen.set(base, n);
       keys.push(n === 1 ? base : `${base}#${n}`);
     }
-    files.set(path.join(root, ORDER_FILE), JSON.stringify({ note: "ترتيبُ جمل server.ts قبل التقسيم — scripts/split-server؛ يقرؤه tests/helpers/serverSource.mjs", keys }, null, 1) + "\n");
+    const importDecls = analysis.sf.statements.filter(st => ts.isImportDeclaration(st)).map(st => describeImport(ts, st));
+    files.set(path.join(root, ORDER_FILE), JSON.stringify({ note: "ترتيبُ جمل server.ts قبل التقسيم واستيراداتُه — scripts/split-server؛ يقرؤه tests/helpers/serverSource.mjs", keys, imports: importDecls }, null, 1) + "\n");
   }
   return { files, warnings };
 }
@@ -337,15 +338,14 @@ function serverMap(analysis, plan, mapping, files, root) {
   out.push("نصُّ كل جملةٍ منقولٌ بالبايت مع تعليقاته؛ لا يُمسّ إلا بإضافة `export` وبـ`state.x`. والطرقُ داخل دوال التسجيل بلا إزاحة: إزاحةُ سطرٍ داخل قالبٍ نصّيّ تغيّر ما يُرسَل.", "");
   out.push("## إعادةُ التقسيم على main أحدث", "");
   out.push("```sh");
-  out.push("git switch -c refactor/server-split origin/main          # فرعٌ جديد من main الأحدث");
-  out.push("git checkout <فرع التقسيم السابق> -- scripts/split-server tests/server-route-parity-audit.ts tests/helpers/serverSource.mjs");
-  out.push("# ثم أضف test:server-parity إلى package.json وtests/suite.txt إن لم يكونا");
+  out.push("# فرعُ التقسيم ما زال مفتوحاً وتقدّم main: دمجٌ (لا rebase)، وserver.ts من main كما هو");
+  out.push("git fetch origin && git merge --no-commit origin/main");
+  out.push("git show origin/main:server.ts > server.ts                # لا يُحلّ تعارضٌ في الكود المنقول باليد");
+  out.push("git checkout --theirs -- <اختبارٌ متعارض>                  # ثم تعيد الأداةُ توجيهَه إلى readServerSource()");
   out.push("npx tsx tests/server-route-parity-audit.ts --update        # ١) لقطتا الموجّه والصفحات من server.ts غير المقسوم ← commit");
   out.push("cp server.ts /tmp/server.orig.ts");
   out.push("node scripts/split-server/split.mjs --plan                 # تقرير: مساراتٌ بلا قاعدة، أحجام، دوالُ تسجيلٍ مقسومة");
-  out.push("node scripts/split-server/split.mjs --write --phase pages   --source /tmp/server.orig.ts  # ← commit");
-  out.push("node scripts/split-server/split.mjs --write --phase helpers --source /tmp/server.orig.ts  # ← commit");
-  out.push("node scripts/split-server/split.mjs --write --phase routes  --source /tmp/server.orig.ts  # ← commit");
+  out.push("node scripts/split-server/split.mjs --write --phase routes --source /tmp/server.orig.ts  # (أو pages ثم helpers ثم routes، commit لكلٍّ)");
   out.push("npx tsx tests/server-route-parity-audit.ts && npm run lint");
   out.push("```", "");
   out.push("كلُّ مرحلةٍ تُكتب كاملةً من `server.ts` الأصلي (تمسح `src/server/{core,routes,pages}` المولَّدة وتعيد كتابتها)، وتعيد توجيهَ الاختبارات التي تقرأ نصَّ `server.ts` إلى `readServerSource()` (`tests/helpers/serverSource.mjs`). مسارٌ جديد بلا قاعدة يوقف الأداة: أضِفه إلى `routes` في `scripts/split-server/mapping.mjs`. ومساعدٌ جديد يتبع مستعمليه تلقائياً (وحدةٌ واحدة تستعمله ← إليها؛ أكثر ← وحدةُ منطقته في `regions`).", "");
