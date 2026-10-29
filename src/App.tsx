@@ -60,6 +60,7 @@ import { formatScheduleTimeRange } from "./utils/scheduleTime";
 import { installClientTelemetry, setTelemetryOwner, telemetryBreadcrumb, telemetryGuide } from "./utils/clientTelemetry";
 import { AR, countOf, nounFor } from "./utils/arabicCount";
 import { isInvitationHash } from "./utils/invitationLink";
+import ChangePassword from "./components/ChangePassword";
 
 function safeLazy<T extends React.ComponentType<any>>(factory: () => Promise<{ default: T }>) {
   return lazy(() =>
@@ -596,6 +597,8 @@ function NavSection({
 
 export default function App() {
   useEffect(() => { installClientTelemetry(); telemetryBreadcrumb("فتح التطبيق"); }, []);
+  /* حسابٌ عليه اختيارُ كلمة سرّه: يبقى خارج مساحة العمل (بلا user) حتى يغيّرها. */
+  const [passwordGate, setPasswordGate] = useState<any>(null);
   const [user, setUser] = useState<SessionUser | null>(null),
     [permissions, setPermissions] = useState<number[]>([]),
     [sessionRole, setSessionRole] = useState<SessionRole>(DEFAULT_SESSION_ROLE),
@@ -1322,7 +1325,9 @@ export default function App() {
       try {
         const res = await fetch("/api/auth/me"),
           data = await res.json();
-        if (res.ok && data.user) {
+        if (res.ok && data.user?.MustChangePassword) {
+          setPasswordGate(data);
+        } else if (res.ok && data.user) {
           /**
            * ── متى يُنسى ما قُرئ سابقاً ──────────────────────────────────
            *
@@ -1630,6 +1635,8 @@ export default function App() {
     data?: { mode: string; real: boolean };
     demo?: { roles?: Array<{ role: string; label: string }>; activeRole?: string; seedStatus?: "preparing" | "ready" | "failed" };
   }) => {
+    if ((data.user as any)?.MustChangePassword) { setPasswordGate(data); return; }
+    setPasswordGate(null);
     forgetWarmStarts();
     setUser(data.user);
     try { localStorage.setItem("schedule-last-user", String(data.user?.SystemUserId || 0)); } catch { /* private mode */ }
@@ -1769,6 +1776,15 @@ export default function App() {
       <div className="app-loading" aria-busy="true">
         <MicroLoader size={48} label="جاري تجهيز مساحة العمل…" />
       </div>
+    );
+  }
+  if (!user && passwordGate) {
+    return (
+      <ChangePassword
+        name={String(passwordGate.user?.Name || "")}
+        onChanged={() => login({ ...passwordGate, user: { ...passwordGate.user, MustChangePassword: false } })}
+        onLogout={() => { void fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined); setPasswordGate(null); window.history.replaceState({}, "", "/"); }}
+      />
     );
   }
   if (!user) {

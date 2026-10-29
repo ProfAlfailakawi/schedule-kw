@@ -32,6 +32,7 @@ import { registerPushRoutes } from "./src/server/pushRoutes";
 import { eligibleHallsForSection } from "./src/utils/locationRegistry";
 import { state } from "./src/server/core/state";
 import { noteScheduleMutation, scheduleLockRefusal } from "./src/server/core/approvals";
+import { passwordChangeGate } from "./src/server/accountPassword";
 import { type AuthenticatedRequest, authMiddleware, bindPublicLinkContext, DEMO_READ_ONLY_PREFIXES, getCookies, isPowerUser, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin, ROOT_ADMIN_USER_ID } from "./src/server/core/auth";
 import { API_PERFORMANCE_LIMIT, apiPerformanceSamples, asyncSafe } from "./src/server/core/http";
 import { instructorRequestDepartmentScopes, resolveRequestLink, verifyRequestSigner } from "./src/server/core/instructorRequests";
@@ -239,6 +240,8 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
 // Only the API needs to know who is calling. Stylesheets, fonts and the shell
 // were paying for an identity lookup they never read.
 app.use("/api", authMiddleware as express.RequestHandler);
+/* حسابٌ عليه اختيارُ كلمة سرّه (كلمةٌ أولى، أو الموحّدةُ القديمة) لا يصل إلى غير ‎/auth/*‎ حتى يغيّرها. */
+app.use("/api", passwordChangeGate as express.RequestHandler);
 app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   if (!Repository.isDemoRequest() || req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") { next(); return; }
   if (req.path === "/auth/logout" || req.path === "/auth/heartbeat" || req.path === "/auth/presence" || req.path === "/demo/reset" || req.path === "/demo/role") { next(); return; }

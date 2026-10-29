@@ -403,7 +403,8 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const roles = new Set(owned.map(row => row.Role));
       check(owned.length === frenchAll.length * 3 && ["departmentHead", "committeeChair", "advisor"].every(role => roles.has(role)), "القسم الجديد يولد بثلاثة حسابات: رئيس قسم ورئيس جدول ومرشد", owned.map(row => row.SystemUserLogin));
       check(new Set(owned.map(row => String(row.SystemUserLogin).toLowerCase())).size === owned.length && owned.some(row => row.SystemUserLogin === "Frenchdept") && owned.every(row => /^French/.test(row.SystemUserLogin)), "أسماء الدخول من اسم القسم بالإنجليزية وبلا تصادم", owned.map(row => row.SystemUserLogin));
-      check(owned.every(row => row.IsActive === true && Repository.verifyPassword("12345678", row.SystemUserPass) === true), "الحسابات فعّالة");
+      /* فعّالةٌ بكلمةٍ أولى خاصة لكل حساب (لا 12345678 الموحّدة)، وتُطلب تغييرُها عند أول دخول. */
+      check(owned.every(row => row.IsActive === true && row.MustChangePassword === true && Repository.verifyPassword("12345678", row.SystemUserPass) === false), "الحسابات فعّالة، بلا الكلمة الموحّدة، ويُطلب تغييرها عند أول دخول");
       const assigns = await Promise.all(owned.map(async row => ({ row, a: await Repository.getUserAssigns(row.SystemUserId) })));
       check(assigns.every(({ a }) => a.length === 1 && Number(a[0].AdSectionId) > 0), "كل حساب مقيَّد بقسمه وكليته وحدهما");
       check((madeFrench.json.createdSections as any[]).every(row => row.accounts?.length === 3 && row.accounts.every((acc: any) => acc.status === "created")) && againFrench.json.createdSections.length === 0 && users.length === ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted).length, "الإعادة لا تكرر الحسابات");
@@ -426,7 +427,8 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const made = await call("root", "POST", "/api/plan-review/section-accounts", { sectionIds: [did] });
       const after = (await call("root", "GET", "/api/plan-review/section-accounts")).json.rows.find((item: any) => item.sectionId === did);
       const created = ((await Repository.getUsers()) as any[]).filter(user => /^Music(dept|advisor)/.test(user.SystemUserLogin));
-      check(made.json.created === 2 && !after && created.length === 2 && created.every(user => user.IsActive === true && Repository.verifyPassword("12345678", user.SystemUserPass)), "الإنشاء للناقص وحده: حسابان فعّالان بكلمة السر الافتراضية، ولا يتكرر", made.json);
+      const issued = (made.json.credentials || []) as Array<{ login: string; password: string }>;
+      check(made.json.created === 2 && !after && created.length === 2 && created.every(user => user.IsActive === true && user.MustChangePassword === true && !Repository.verifyPassword("12345678", user.SystemUserPass) && issued.some(item => item.login === user.SystemUserLogin && Repository.verifyPassword(item.password, user.SystemUserPass))), "الإنشاء للناقص وحده: حسابان فعّالان، لكلٍّ كلمته الأولى تُعاد للمسؤول، ولا يتكرر", made.json.logins);
     }
 
     {

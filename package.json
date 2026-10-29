@@ -17,6 +17,7 @@
     "test:ta-conversion": "tsx tests/ta-conversion-audit.ts",
     "test:calendar-ics": "tsx tests/calendar-ics-audit.ts",
     "test:review-audit-1028": "tsx tests/review-audit-2026-10-28.ts",
+    "test:owner-approved-1029": "tsx tests/owner-approved-2026-10-29-audit.ts",
     "test:owner-features-1028": "tsx tests/owner-features-2026-10-28-audit.ts",
     "test:ta-phase-flow": "tsx tests/ta-phase-flow-audit.ts",
     "test:visiting-status": "tsx tests/visiting-status-permanent-audit.ts",

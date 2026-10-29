@@ -18,7 +18,7 @@ import { expandScopeSections } from "../readScope";
 import { isFacultyPlaceholder, singleFacultyPlaceholder, withoutFacultyPlaceholderCivil } from "../../utils/placeholderInstructor";
 import { isReadOnlyRole } from "../../utils/academicRoles";
 import { foldInstructorText } from "../../utils/instructorIdentity";
-import { type AuthenticatedRequest, requireAnyPermission, requirePermission } from "../core/auth";
+import { type AuthenticatedRequest, isPowerUser, requireAnyPermission, requirePermission } from "../core/auth";
 import { dataContextCacheKey } from "../core/locations";
 import { sortArabicNamed, sortTermsNewestServer } from "../core/ordering";
 import { filterByScope, instructorsForReader, isScopeAllowed } from "../core/scope";
@@ -39,7 +39,7 @@ import { readLiveVisitingRoster } from "../core/visiting";
  * يرونه كاملاً؛ وصفاتُ الاطّلاع لا ترى الرقم أصلاً (instructorsForReader).
  */
 const instructorCircleCache = new Map<string, { at: number; ids: Set<number> }>();
-async function instructorCircleFor(req: AuthenticatedRequest): Promise<Set<number> | null> {
+export async function instructorCircleFor(req: AuthenticatedRequest): Promise<Set<number> | null> {
   if (!req.user || req.user.IsAdminUser || isReadOnlyRole(req.user.Role)) return null;
   const granted = req.permissions ?? (await Repository.getSecurityByUser(req.user.SystemUserId)).map(item => Number(item.FormNameId));
   if (granted.map(Number).includes(3)) return null;
@@ -63,6 +63,11 @@ async function instructorCircleFor(req: AuthenticatedRequest): Promise<Set<numbe
   if (instructorCircleCache.size > 500) instructorCircleCache.clear();
   instructorCircleCache.set(key, { at: Date.now(), ids });
   return ids;
+}
+
+/** هويّةُ الأستاذ (الرقم المدني والاسم) في سجلٍّ مشترك: للإدارة ولصاحب شاشة الأساتذة (٣). */
+export function canEditInstructorIdentity(req: AuthenticatedRequest): boolean {
+  return isPowerUser(req) || (req.permissions || []).map(Number).includes(3);
 }
 
 /** آخر أربعة أرقام، والباقي نقاط: «••••••••1234». */
@@ -522,6 +527,10 @@ app.put("/api/department-delegates/:instructorId", requirePermission(7), async (
   if(collision&&Number(collision.AdInstructorId)!==instructorId){res.status(409).json({error:"هذا الرقم المدني مرتبط بمنتدب آخر."});return;}
   const existing=await Repository.getInstructorById(instructorId);
   if(!existing){res.status(404).json({error:"المنتدب غير موجود"});return;}
+  /* الرقمُ المدنيّ والاسمُ هويّةُ سجلٍّ مشترك بين الأقسام (وقد يكون أستاذاً معيَّناً في
+     كليةٍ أخرى): لا يغيّرهما إلا الإدارةُ أو صاحبُ شاشة الأساتذة (٣). وللقسم ما سواهما. */
+  const identityChanged=civil!==normalizeCivilId(existing.AdInstructorCivil)||name!==String(existing.AdInstructorName||"").trim().slice(0,100);
+  if(identityChanged&&!canEditInstructorIdentity(req)){res.status(403).json({error:"الرقم المدني والاسم يعدّلهما مسؤول النظام أو صاحب صلاحية شاشة الأساتذة. يمكنك تعديل الجوّال."});return;}
   /* الجوّالُ لمن يديره هذا القسم (تحقّقنا أعلاه أنه في قائمته). غيابُ الحقل
      يُبقي الرقم كما هو؛ والحقلُ الفارغ يمحوه صراحةً. */
   const hasMobile=Object.prototype.hasOwnProperty.call(req.body||{},"AdInstructorMobile");

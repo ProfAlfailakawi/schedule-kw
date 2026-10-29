@@ -42,6 +42,8 @@ type Candidate = {
   id: number;
   name: string;
   mobile: string;
+  /** من خارج أقسام القارئ: لا يصل رقمه، والتواصل عبر قسمه. */
+  contactViaDepartment?: boolean;
   score: number;
   taughtTerms: number;
   reasons: string[];
@@ -243,6 +245,8 @@ export default function DaySubstitute({ row, instructorName, onClose, onRecorded
                           <a className="day-substitute-wa" href={href} target="_blank" rel="noopener noreferrer" title="يفتح محادثة واتساب برسالة جاهزة — أنت من يضغط إرسال">
                             <MessageCircle aria-hidden="true" /> واتساب
                           </a>
+                        ) : candidate.contactViaDepartment ? (
+                          <span className="day-substitute-nowa" title="رقم جوال أستاذٍ من خارج أقسامك لا يظهر هنا — تواصل معه عبر قسمه">عبر قسمه</span>
                         ) : (
                           <span className="day-substitute-nowa" title="لا يوجد رقم جوال صالح في سجل الأستاذ">بلا رقم</span>
                         )}
