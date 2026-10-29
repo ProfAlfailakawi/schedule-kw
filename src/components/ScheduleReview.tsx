@@ -20,7 +20,6 @@ import { rowsInApprovalScope } from "../utils/approvalScope";
 import { approvalScoreBreakdown } from "../utils/approvalScore";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import PlanBadge from "./PlanBadge";
-import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 
 /**
@@ -840,7 +839,6 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
           </section>
         ) : null}
 
-        <AcademicAdvicePanel collegeId={collegeId} sectionId={sectionId} termId={termId} />
 
         <section className="review-period-rule" aria-labelledby="review-period-title" data-open={periodOpen || undefined}>
           <button type="button" className="review-period-toggle" aria-expanded={periodOpen} aria-controls="review-period-content" onClick={() => setPeriodOpen(value => !value)} data-guide-ignore="طيّ أو فتح تفاصيل توزيع الصباحي والمسائي داخل المراجعة">

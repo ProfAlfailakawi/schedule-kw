@@ -18,7 +18,6 @@ import { commitReadiness, effectiveStatus, type GridItem } from "../../utils/stu
 import { proposalApi, ProposalApiError } from "./proposalApi";
 import { useProposalWorkspace } from "./useProposalWorkspace";
 import ProposalHeader, { summaryLine } from "./ProposalHeader";
-import AcademicAdvicePanel from "../AcademicAdvicePanel";
 import ProposalWeekGrid, { type GridMode } from "./ProposalWeekGrid";
 import ProposalOpForm from "./ProposalOpForm";
 import ProposalQuickCard, { type QuickSeed } from "./ProposalQuickCard";
@@ -280,8 +279,7 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
       variant="auto"
     />
   );
-  const advice = ws.ops.filter(op => Boolean(op.target?.AdCourseId)).slice(0, 3).map(op => <div key={op.id}><AcademicAdvicePanel compact collegeId={Number(op.target.AdCollegeId)} sectionId={Number(op.target.AdSectionId)} termId={ctx.term.id} courseId={Number(op.target.AdCourseId)} candidate={{ days: op.target.days, start: String(op.target.fstarttime || ""), end: String(op.target.fendtime || "") }} /></div>);
-  const checksPane = <><ProposalChecks ws={ws} compact={wide} />{advice}</>;
+  const checksPane = <ProposalChecks ws={ws} compact={wide} />;
   const vacancyPane = <ProposalVacancies ws={ws} rows={vacancies} onAssigned={() => { setGridMode("with"); setNotice("أُضيف الإسناد إلى المسودة."); }} />;
   const readyVacancies = vacancies.filter(v => v.fit === "ready").length;
   const issues = checked ? (blockers || 0) + (reviews || 0) : 0;

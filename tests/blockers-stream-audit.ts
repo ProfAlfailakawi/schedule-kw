@@ -191,7 +191,7 @@ await (async () => {
     && movement.includes("await hydrateVersionRows(currentVersions)"),
     "B14 سجلّ الأستاذ لا يقول عن كل محاضرة «أُضيفت»");
   const repo = read("src/db/repository.ts");
-  check(/\.select\("id", "scopeKey"[^)]*"rowCount"\)/.test(repo), "B14 (القائمة ما زالت خفيفة عمداً — الإصلاح عند القارئ)");
+  check(repo.includes(".select(...VERSION_META_FIELDS)") && !read("src/utils/scheduleVersionList.ts").match(/VERSION_META_FIELDS = \[[^\]]*"rows"/), "B14 (القائمة ما زالت خفيفة عمداً — الإصلاح عند القارئ)");
 }
 
 /* B15 — the demo never shows a state the product would refuse. */

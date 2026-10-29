@@ -166,6 +166,8 @@ test:course-room-type-sync
 test:decision-1913
 test:approval-review
 test:decision-surfaces
+test:schedule-versions-list
+test:time-machine-scope-escape
 test:visiting-badge-changes
 test:visiting-lookup
 test:visiting-badge-g1

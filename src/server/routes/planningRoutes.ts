@@ -36,7 +36,7 @@ import { computeTermForecast } from "../../utils/termForecast";
 import { academicDigits, authorityDepartmentCode } from "../../utils/authorityAcademicCodes";
 import { roomIdentityKey } from "../../utils/locationRegistry";
 import { officialCollegeSitePrefix } from "../../utils/locationCollegePrefixes";
-import { type AuthenticatedRequest, requirePermission } from "../core/auth";
+import { type AuthenticatedRequest, requireAnyPermission, requirePermission } from "../core/auth";
 import { documentReadingGate } from "../core/http";
 import { confirmedDepartmentRoomIds, readLocationRegistry } from "../core/locations";
 import { sortTermsNewestServer, termChronologyServer } from "../core/ordering";
@@ -265,7 +265,7 @@ export function registerPlanningRoutes(app: Express): void {
  * يسجّلوا المقرر بعد)؛ ويُعاد معه تاريخُ الفصول المماثلة كلها (الموسم نفسه،
  * سنواتٌ سابقة): الشعبُ المفتوحة فعلاً في الجدول، والمتبقي إن استُورد يومها.
  * الحسابُ نفسه في المتصفح والاختبار: src/utils/sectionCountSuggestion.ts. */
-app.get("/api/registration-stats", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+app.get("/api/registration-stats", requireAnyPermission([7, 14]), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
@@ -613,7 +613,7 @@ app.post("/api/registration-stats/remaining-cells", rateLimitDocumentRead, requi
 /* ── K2: قرارات «تم/تجاهل» على بنود التخطيط، مشتركةٌ في النطاق ─────────────
    الصلاحيات نفسها التي يُحفظ بها التخطيط (registration-stats): الإذن 7 ونطاق
    الكلية والقسم. القرار يُكتب باسم صاحبه ووقته؛ لا يُقبل «تجاهل» بلا سبب. */
-app.get("/api/schedules/section-gap/decisions", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+app.get("/api/schedules/section-gap/decisions", requireAnyPermission([7, 14]), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
@@ -642,7 +642,7 @@ app.put("/api/schedules/section-gap/decisions", requirePermission(7), async (req
   res.json({ decision });
 });
 
-app.get("/api/schedules/section-gap", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+app.get("/api/schedules/section-gap", requireAnyPermission([7, 14]), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0);
   const sectionId = Number(req.query.sectionId || 0);
   const termId = Number(req.query.termId || 0);

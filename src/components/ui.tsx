@@ -38,20 +38,40 @@ function getToastHost() {
  * in behaviour than this pass is willing to make silently, and the honest state
  * of it is written in the audit note instead.
  */
+/* Open dialogs, oldest first. A sheet opened inside another (the «before you
+   apply» sheet inside Data Tools) registers its listener after its parent, so
+   the parent heard Escape first and closed everything — the simulation basket
+   with it. Only the topmost open dialog answers Escape now. */
+const dialogDismissStack: Array<{ current: () => void }> = [];
+/** Exported for the audit: how many dialogs are listening right now. */
+export const openDialogDismissCount = () => dialogDismissStack.length;
+
+/** Registers one open dialog for Escape; returns its cleanup. Plain function so it can be tested without React. */
+export function listenForDialogDismiss(entry: { current: () => void }, target: Pick<Document, "addEventListener" | "removeEventListener"> = document): () => void {
+  dialogDismissStack.push(entry);
+  const onKey = (event: Event) => {
+    if ((event as KeyboardEvent).key !== "Escape" || event.defaultPrevented) return;
+    if (dialogDismissStack[dialogDismissStack.length - 1] !== entry) return;
+    event.preventDefault();
+    entry.current();
+  };
+  target.addEventListener("keydown", onKey);
+  return () => {
+    target.removeEventListener("keydown", onKey);
+    const at = dialogDismissStack.lastIndexOf(entry);
+    if (at >= 0) dialogDismissStack.splice(at, 1);
+  };
+}
+
 export function useDialogDismiss(open: boolean, onDismiss: () => void) {
   const dismiss = React.useRef(onDismiss);
   dismiss.current = onDismiss;
   React.useEffect(() => {
     if (!open) return;
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      event.preventDefault();
-      dismiss.current();
-    };
-    document.addEventListener("keydown", onKey);
+    const stopListening = listenForDialogDismiss(dismiss);
     return () => {
-      document.removeEventListener("keydown", onKey);
+      stopListening();
       /* Only if the page has not already moved focus somewhere deliberate. */
       if (opener?.isConnected && document.activeElement === document.body) opener.focus();
     };

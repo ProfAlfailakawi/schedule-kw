@@ -39,17 +39,25 @@
 
 /* الإجراءات */
 .pi-acts{display:grid;gap:var(--s3)}
-.pi-act{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2)}
+/* البطاقة: العنوانُ يملك السطرَ كله، والثقةُ شارةٌ بجانبه، والإجراءُ وشرحُه
+   صفٌّ تحتهما بعرض البطاقة. كان الإجراءُ عموداً «auto» يتّسع بشرحه فيعصر
+   عمودَ العنوان حتى تنزل كلُّ كلمةٍ في سطر. */
+.pi-act{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"ic body conf" "do do do";align-items:start;column-gap:var(--s3);row-gap:0;padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2)}
 .pi-act[data-level="low"],.pi-act[data-level="insufficient"]{border-style:dashed;background:transparent}
-.pi-act-ic{display:grid;place-items:center;inline-size:36px;block-size:36px;border-radius:12px;background:var(--accent-soft);color:var(--accent-ink)}
+.pi-act-ic{grid-area:ic;display:grid;place-items:center;inline-size:36px;block-size:36px;border-radius:12px;background:var(--accent-soft);color:var(--accent-ink)}
 .pi-act[data-level="low"] .pi-act-ic,.pi-act[data-level="insufficient"] .pi-act-ic{background:var(--surface-2);color:var(--muted)}
 .pi-act-ic svg{inline-size:18px;block-size:18px}
-.pi-act-body{display:grid;gap:2px;min-inline-size:0}
-.pi-act-body small{color:var(--muted)}
-.pi-act-do{display:grid;justify-items:end;gap:4px;min-inline-size:0}
-.pi-why-off{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:var(--t-sm);max-inline-size:26ch}
+.pi-act-body{grid-area:body;display:grid;gap:3px;min-inline-size:0;padding-block-start:2px}
+.pi-act-body b{font-weight:700;line-height:1.55;text-wrap:balance;overflow-wrap:anywhere}
+.pi-act-body small{color:var(--muted);line-height:1.7;max-inline-size:62ch;text-wrap:pretty}
+.pi-act>.pi-conf{grid-area:conf;align-self:start;padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.pi-act-do{grid-area:do;display:grid;justify-items:start;gap:6px;min-inline-size:0}
+.pi-act-do:not(:empty){margin-block-start:var(--s3);padding-block-start:var(--s3);border-block-start:1px dashed var(--line)}
+.pi-act-do .sm-act{padding-block-start:0;border-block-start:0;inline-size:100%}
+.pi-act-do .sm-act-note{max-inline-size:70ch;line-height:1.75}
+.pi-why-off{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:var(--t-sm);max-inline-size:none}
 .pi-why-off svg{inline-size:13px;block-size:13px;flex:none}
-@media (max-width:720px){.pi-act{grid-template-columns:auto minmax(0,1fr)}.pi-act .pi-conf,.pi-act-do{grid-column:1/-1;justify-self:start}}
+@media (max-width:560px){.pi-act{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"ic body" "ic conf" "do do";padding:var(--s3)}.pi-act>.pi-conf{justify-self:start;margin-block-start:6px}}
 
 /* الصفوف */
 .pi-legend{margin:0;display:flex;gap:var(--s3);align-items:center;color:var(--muted);font-size:var(--t-sm)}
