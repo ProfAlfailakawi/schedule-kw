@@ -69,8 +69,6 @@ export interface AcademicDecisionLab {
   sampledAt: string;
   basis: "approved-plans-and-student-wishes";
   nonBlocking: true;
-  /** Explicitly fictional, isolated tutorial results computed by the production engine. */
-  demoShowcase?: boolean;
   limitations: string[];
 }
 type Offering = { key: string; courseId: number; section: string; rows: FSchedule[]; slots: AcademicSlot[] };

@@ -151,6 +151,21 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
     };
   }
 
+  /* ── منتقي الكلية والقسم: ما يحقّ للقارئ وحده، بأسمائه، ليختار صراحةً لا ضمناً. ── */
+  app.get("/api/time-machine/scopes", deps.requireRead, async (req: Request, res: Response) => {
+    res.setHeader("Cache-Control", "no-store");
+    const [colleges, sections] = await Promise.all([Repository.getColleges(), Repository.getSections()]);
+    const allowed = (sections as any[])
+      .filter(section => deps.isScopeAllowed(req, Number(section.AdCollegeId), Number(section.AdSectionId)))
+      .map(section => ({ id: Number(section.AdSectionId), collegeId: Number(section.AdCollegeId), name: String(section.AdSectionName || "") }));
+    const collegeIds = new Set(allowed.map(section => section.collegeId));
+    res.json({
+      colleges: (colleges as any[]).filter(college => collegeIds.has(Number(college.AdCollegeId)))
+        .map(college => ({ id: Number(college.AdCollegeId), name: String(college.AdCollegeName || "") })),
+      sections: allowed,
+    });
+  });
+
   app.get("/api/time-machine/context", deps.requireRead, async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     const asked = scopeOfQuery(req);

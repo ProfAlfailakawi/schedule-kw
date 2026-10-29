@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import AcademicDecisionLabPanel from "../src/components/AcademicDecisionLabPanel";
 import { analyseAcademicAdvice, mandatoryPrecedes, type AcademicPlanView } from "../src/utils/academicAdvisory";
 import { buildAcademicDecisionLab, feasibleAcademicBundle } from "../src/utils/academicDecisionLab";
-import { buildAcademicDecisionLabTrainingPreview } from "../src/utils/academicDecisionLabDemo";
 import type { AdCourse, FSchedule, StudentProfile } from "../src/types";
 import { readServerSource } from "./helpers/serverSource.mjs";
 
@@ -73,7 +72,7 @@ const enoughChoice = analyseAcademicAdvice({ ...base,
 assert.ok(!enoughChoice.timePreferences.some(p => p.courseId === 2 && p.period === "afternoon"),
   "a fully fitting existing section satisfies the constraint (do not recommend extra supply)");
 const adviceUI = fs.readFileSync("src/components/AcademicAdvicePanel.tsx","utf8");
-assert.ok(adviceUI.includes("<details") && adviceUI.includes("useState(demo)") && adviceUI.includes("open={open}"),
+assert.ok(adviceUI.includes("<details") && adviceUI.includes("useState(demo || defaultOpen)") && adviceUI.includes("open={open}"),
   "academic opportunities should be condensed dropdown cards and expanded in the demo");
 const demoSeed = fs.readFileSync("src/server/demoRadarSeed.ts", "utf8");
 assert.ok(demoSeed.includes("Academic-opportunity showcase") && demoSeed.includes("Repository.isDemoRequest()"),
@@ -115,52 +114,33 @@ const watchLab=buildAcademicDecisionLab(missingCourseInput,analyseAcademicAdvice
 assert.ok(watchLab.graduationWatch?.some(w=>w.courseId===4 && !w.offered && w.demand===4),
   "rescue flags a genuinely desired unoffered prerequisite-dependent course without promising graduation dates");
 
-// Demo regression: every showcased output MUST be calculated by the same
-// production engine on isolated fictional courses, never invented UI numbers.
-const training = buildAcademicDecisionLabTrainingPreview();
-assert.equal(training.demoShowcase, true, "demo lesson is prominently distinguished from actual section advice");
-assert.ok(training.scenarios.length >= 2, "the six-tool demo includes interactive what-if scenarios");
-assert.ok(training.scenarios.some(s => s.beforeFeasible === 0 && s.afterFeasible >= 3 && s.gain >= 3),
-  "whole-bundle digital twin and before-after have a genuine calculated improvement");
-assert.ok(training.chain && training.chain.gain > Math.max(...training.scenarios.map(s => s.gain)),
-  "domino tool has a real two-step, non-duplicated calculation");
-assert.ok(training.graduationWatch?.some(w => !w.offered && w.downstream > 0 && w.demand >= 3),
-  "graduation rescue has an actually eligible prerequisite bottleneck");
-assert.ok(training.scenarios.some(s => s.facultyShiftMinutes > 0 && s.resources === "checked"),
-  "teacher and room balance measures are computed rather than decorative labels");
-assert.ok(training.scenarios.every(s => s.reasons.length && s.cautions.length && s.confidence),
-  "every preview carries transparent reasons and confidence");
+// «تجربة الأدوات الست» حُذفت بقرار المالك: لا درس افتراضي، والأدوات الست تقرأ بيانات القسم وحدها.
+assert.ok(!fs.existsSync("src/utils/academicDecisionLabDemo.ts"), "the fictional six-tools lesson is gone");
 const sixUi = fs.readFileSync("src/components/AcademicDecisionLabPanel.tsx", "utf8");
+assert.ok(!sixUi.includes("تجربة الأدوات الست") && !sixUi.includes("viewingTraining") && !sixUi.includes("حالة افتراضية منفصلة"),
+  "no training toggle and no fictional numbers remain in the lab");
 for (const name of ["التوأم الأكاديمي", "قبل / بعد", "تأثير الدومينو",
   "إنقاذ المسار", "التوازن العادل", "الثقة والتفسير"]) {
   assert.ok(sixUi.includes(name), "all six named tools must be discoverable: " + name);
 }
 assert.ok(sixUi.includes("setFeature(item.id)") && sixUi.includes("adl-feature"),
   "all six tiles really switch visible content, not static placeholder labels");
-assert.ok(sixUi.includes("viewingTraining &&") && sixUi.includes("حالة افتراضية منفصلة"),
-  "fictional training numbers cannot be represented as real university data");
-// Render the actual React component, not merely search for JSX labels.
+// Render the actual React component on the department's own (computed) reading.
 const html = renderToStaticMarkup(createElement(AcademicDecisionLabPanel, {
-  lab: training, demo: true, onRefresh: () => {}, refreshing: false,
+  lab: chainLab, demo: false, onRefresh: () => {}, refreshing: false,
 }));
 assert.equal((html.match(/class="adl-feature(?: adl-feature-active)?"/g) || []).length, 6,
   "actual HTML must contain six independently clickable feature buttons");
-assert.ok(html.includes("الموعد الحالي") && html.includes("الموعد المقترح"),
-  "initial visual must render the complete before/after calculation");
-assert.ok(html.includes("حالة افتراضية منفصلة"),
-  "the screenshot must identify fictional instructional results without ambiguity");
+assert.ok(html.includes("الموعد الحالي") && html.includes("الموعد المقترح") && html.includes("بيانات القسم الفعلية"),
+  "initial visual renders the live before/after calculation");
 const emptyHtml = renderToStaticMarkup(createElement(AcademicDecisionLabPanel, {
-  lab: privateLabForVisibility(), demo: false, onRefresh: () => {}, refreshing: false,
+  lab: { ...chainLab, scenarios: [], graduationWatch: [], chain: undefined }, demo: false, onRefresh: () => {}, refreshing: false,
 }));
 assert.equal((emptyHtml.match(/class="adl-feature(?: adl-feature-active)?"/g) || []).length, 6,
   "no actual scenarios must never hide the six analysis tools");
-function privateLabForVisibility() {
-  return { ...training, demoShowcase: false, scenarios: [], graduationWatch: [], chain: undefined };
-}
-// Regression: the previously visible live course list must survive alongside
-// the separate six-feature lesson, even if there are no live what-if scenarios.
+assert.ok(emptyHtml.includes("لا فرصة مؤكّدة لهذا النطاق الآن"), "an empty reading says so honestly");
 const liveWatchMarkup = renderToStaticMarkup(createElement(AcademicDecisionLabPanel, {
-  lab: { ...training, demoShowcase: false, scenarios: [], chain: undefined,
+  lab: { ...chainLab, scenarios: [], chain: undefined,
     graduationWatch: [{ courseId: 501, courseName: "مقرر أصيل من القسم", offered: false,
       downstream: 2, demand: 5, nearGraduation: 0 }] },
   demo: false, onRefresh: () => {}, refreshing: false,
@@ -168,14 +148,7 @@ const liveWatchMarkup = renderToStaticMarkup(createElement(AcademicDecisionLabPa
 assert.ok(liveWatchMarkup.includes("مقررات المسار الأكاديمي") &&
   liveWatchMarkup.includes("مقرر أصيل من القسم") &&
   liveWatchMarkup.includes("هذه مقررات القسم الفعلية"),
-  "restored real-course list stays visible even when the calculated preview is selected");
-assert.ok(liveWatchMarkup.includes("تجربة الأدوات الست") &&
-  liveWatchMarkup.includes("بيانات القسم الفعلية") &&
-  liveWatchMarkup.includes("حالة افتراضية منفصلة") &&
-  liveWatchMarkup.includes("الموعد المقترح"),
-  "the six tools must show the separately marked training calculation, not six empty states");
-assert.equal((liveWatchMarkup.match(/class="adl-feature(?: adl-feature-active)?"/g) || []).length, 6,
-  "all six interactive tools stay visible beside the actual course list");
+  "real-course list stays visible even when no what-if scenario exists");
 const adviceOrder = fs.readFileSync("src/components/AcademicAdvicePanel.tsx", "utf8");
 assert.ok(adviceOrder.indexOf("فرص المقررات المكتشفة") < adviceOrder.indexOf("<AcademicDecisionLabPanel"),
   "course opportunities appear BEFORE the full academic lab, so they are not buried below it");

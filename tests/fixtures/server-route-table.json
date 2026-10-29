@@ -2805,7 +2805,7 @@
    ],
    "path": "/api/intelligence/versions",
    "name": "bound dispatch",
-   "call": "34bee78f4db0a7f7",
+   "call": "ee9b650fe1e86373",
    "site": "server.ts:14303",
    "regexp": "/^\\/api\\/intelligence\\/versions\\/?$/i",
    "end": true
@@ -3621,7 +3621,7 @@
    ],
    "path": "/api/registration-stats",
    "name": "bound dispatch",
-   "call": "d457fb0af459bced",
+   "call": "af1b5d9d0bcc781c",
    "site": "server.ts:16739",
    "regexp": "/^\\/api\\/registration-stats\\/?$/i",
    "end": true
@@ -3885,7 +3885,7 @@
    ],
    "path": "/api/schedules/section-gap/decisions",
    "name": "bound dispatch",
-   "call": "836b89af174393f7",
+   "call": "7c60ffad928d6a21",
    "site": "server.ts:18433",
    "regexp": "/^\\/api\\/schedules\\/section-gap\\/decisions\\/?$/i",
    "end": true
@@ -3909,7 +3909,7 @@
    ],
    "path": "/api/schedules/section-gap",
    "name": "bound dispatch",
-   "call": "52a80b79baf36e99",
+   "call": "ad8cff7b3a5222d1",
    "site": "server.ts:18462",
    "regexp": "/^\\/api\\/schedules\\/section-gap\\/?$/i",
    "end": true
@@ -5643,6 +5643,18 @@
    "call": "ed726b3c76440810",
    "site": "src/server/insightRoutes.ts:62",
    "regexp": "/^\\/api\\/schedules(?:\\/([^/]+?))\\/history\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/time-machine/scopes",
+   "name": "bound dispatch",
+   "call": "9f83d6747868558c",
+   "site": "src/server/timeMachineRoutes.ts:155",
+   "regexp": "/^\\/api\\/time-machine\\/scopes\\/?$/i",
    "end": true
   },
   {

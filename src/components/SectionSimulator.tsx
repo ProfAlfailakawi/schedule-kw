@@ -4,8 +4,8 @@
  * احذف شعبة، أضف شعبة، ادمج، قسّم — في سلّةٍ تُقاس معاً بلا لمسٍ للجدول الحقيقي.
  * الأرقام من المحرّكات القائمة (src/utils/timeMachine.ts)، والطلبةُ من الرادار وحده.
  */
-import React, { useMemo, useState } from "react";
-import { GitMerge, Plus, Scissors, Search, Trash2, X } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, GitMerge, Plus, Scissors, Search, Trash2, X } from "lucide-react";
 import {
   MODE_LABEL, PERIOD_LABEL, TM_DAYS, addSectionChange, applyChanges, boardOf, dayLabel, hallLabel, mergeSectionsChange,
   removeImpact, removeSectionChange, sectionCards, splitSectionChange, suggestPlacements,
@@ -21,8 +21,14 @@ type Assign = "all" | "vacant" | "assigned";
 const DAY_LETTER = ["ح", "ن", "ث", "ر", "خ"];
 const plausibleCapacity = (capacity: number) => Number(capacity) >= 5;
 
-export function SectionSimulatorBody({ context, reload }: { context: LoadedContext; reload: () => void }) {
+export function SectionSimulatorBody({ context, reload, onBasket }: { context: LoadedContext; reload: () => void; onBasket?: (count: number) => void }) {
   const [changes, setChanges] = useState<TmChange[]>([]);
+  /* «للسلة» كان يضيف شيئاً لا يُرى: السلّة والأثر أسفل الصفحة. الآن شريطٌ ثابت أسفل
+     الشاشة بعدد التغييرات ينبض مع كل إضافة، ويقول ما أُضيف، وزرٌّ ينقل إلى الأثر. */
+  const [pulse, setPulse] = useState(0);
+  const benchRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => { onBasket?.(changes.length); }, [changes.length]);
+  const showImpact = () => benchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   const [scenario, setScenario] = useState<TmScenarioRecord | null>(null);
   const [query, setQuery] = useState("");
   const [days, setDays] = useState<Set<DayKey>>(new Set());
@@ -57,7 +63,7 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
     students: context.demand ? cards.reduce((sum, card) => sum + (card.students || 0), 0) : null,
   };
 
-  const add = (change: TmChange | null) => { if (change) setChanges(list => [...list, change]); setInspect(null); setAdding(0); setMergeFrom(null); };
+  const add = (change: TmChange | null) => { if (change) { setChanges(list => [...list, change]); setPulse(n => n + 1); } setInspect(null); setAdding(0); setMergeFrom(null); };
   const impact = inspect ? removeImpact(board, inspect, context) : null;
   const suggestions = adding ? suggestPlacements(board, adding, context, { max: 3 }) : [];
   const people = new Map(context.instructors.map(person => [Number(person.AdInstructorId), person.AdInstructorName] as const));
@@ -164,8 +170,15 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
           {changes.map(change => <li key={change.id}><span>{change.label}</span><button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={() => setChanges(list => list.filter(item => item.id !== change.id))} aria-label="أزل من السلة"><X /></button></li>)}
         </ul>
       ) : <p className="tm-note">اضغط شعبة لترى أثر حذفها، أو أضف شعبة، أو <Ico n="split" /> قسّم، أو <Ico n="merge" /> ادمج</p>}
-      {changes.length ? <ScenarioWorkbench context={context} changes={changes} mode="sections" scenario={scenario} onScenario={setScenario}
-        defaultName="محاكاة الشعب" onDiscard={() => { setChanges([]); setScenario(null); }} onApplied={reload} /> : null}
+      {changes.length ? <div ref={benchRef} className="tm-bench-anchor"><ScenarioWorkbench context={context} changes={changes} mode="sections" scenario={scenario} onScenario={setScenario}
+        defaultName="محاكاة الشعب" onDiscard={() => { setChanges([]); setScenario(null); }} onApplied={reload} /></div> : null}
+      {changes.length ? (
+        <div className="tm-basket-dock" role="status" aria-live="polite">
+          <span className="tm-basket-dock-count" key={pulse} data-pulse={pulse ? "" : undefined}><Ico n="basket" /><b>{changes.length}</b></span>
+          <span className="tm-basket-dock-last"><small>أُضيف إلى السلة</small><b>{changes[changes.length - 1].label}</b></span>
+          <button type="button" className="btn btn-primary" onClick={showImpact} data-guide-ignore="ينتقل إلى أثر السلة؛ لا يكتب في الجدول"><ArrowDown aria-hidden="true" />اعرض الأثر</button>
+        </div>
+      ) : null}
     </div>
   );
 }

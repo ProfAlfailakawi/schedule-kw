@@ -156,7 +156,7 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
           without history used to print «0 ← 1 +1» beside «لا يكفي التاريخ» —
           a guess dressed as a forecast. Those are now one honest group:
           «بيانات غير كافية», no number. Every shown number carries its range
-          and, on demand, the engine's own reason («ليش؟»). */}
+          and, on demand, the engine's own reason («لماذا؟»). */}
       <div className="pi-block">
         <h4><Layers aria-hidden="true" /> الشعب المتوقعة <small>{nf(gap.length)} تحتاج نظراً من {nf(evidenced.length)}</small></h4>
         <p className="pi-legend"><i className="k-bar" />فصول سابقة <i className="k-exp" />المتوقع <i className="k-plan" />المخطّط الآن <span className="pi-legend-conf" aria-hidden="true"><i className="k-conf" />الثقة: ثلاثة أعمدة = عالية</span></p>
@@ -178,7 +178,7 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
             </div>
             <ConfidenceMeter confidence={row.confidence} compact />
             <details className="pi-why">
-              <summary data-guide-ignore="يشرح مصدر الرقم فقط"><HelpCircle aria-hidden="true" /> ليش؟</summary>
+              <summary data-guide-ignore="يشرح مصدر الرقم فقط"><HelpCircle aria-hidden="true" /> لماذا؟</summary>
               <p>{row.reason}</p>
               <p className="pi-why-basis">{row.confidence.termsUsed ? `من ${countOf(row.confidence.termsUsed, AR.term)}` : "بلا فصول سابقة"}{row.capacity ? ` · سعة الشعبة ${nf(row.capacity)}` : ""}{row.confidence.backtestError != null ? ` · خطأ الاختبار الرجعي ${nf(Math.round(row.confidence.backtestError * 100))}٪` : ""}{row.confidence.caveat ? ` · ${row.confidence.caveat}` : ""}</p>
             </details>

@@ -237,7 +237,9 @@ type InsightScene =
   /* ما قاله الطلاب: الطلب، والتقاطع، والنقلة التي تُزيله. */
   | "students"
   /* الصحيفة: نشرُ الصحائف المعتمدة للجميع (رابط وQR وPDF) لرئيس لجنة الجدول. */
-  | "sheet";
+  | "sheet"
+  /* «فرصة لتحسين الجدول»: بطاقتُها هنا، وأيقونتُها في «أدوات البيانات» — ولا مكان ثالث. */
+  | "improve";
 /* «جرّب» — every card it holds, including the three that used to appear on
    their own the moment a scenario existed. */
 type TwinCard = "hero" | "lab" | "board" | "editor" | "ledger";
@@ -515,6 +517,10 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
   const [errorDetail, setErrorDetail] = useState<{ message: string; info: ActionableError; retry?: () => void } | null>(null);
   /* Secondary readings that did not arrive. The board still paints; only these cards wait. */
   const [degraded, setDegraded] = useState<{ sources: string[]; info: ActionableError } | null>(null);
+  /* Readings the server answered only in part (X-Reading-Partial): the card shows
+     what arrived with a small icon, never the full-width error. */
+  const partialPaths = useRef(new Set<string>());
+  const [partialSources, setPartialSources] = useState<string[]>([]);
   const fail = (e: unknown, retry?: () => void) => {
     const text = smartMessage(e);
     const info = classifyActionableError(e);
@@ -688,6 +694,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     }
     if (!r.ok)
       throw Object.assign(new Error(d.error || "تعذر تنفيذ العملية"), { issues: d.issues, code: d.code, changes: d.changes, status: r.status, url, ref: d.ref });
+    if (r.headers.get("x-reading-partial")) partialPaths.current.add(url.split("?")[0]);
     return d;
   };
   useEffect(() => {
@@ -882,6 +889,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     setLoading(true);
     setOverview(null); setDemand(null); setGenome(null); setOperationsReview(null); setExperienceHealth(null);
     setDrafts([]); setVersions([]); setDecisionInbox({manual:[],inferred:[],totalOpen:0}); setDegraded(null);
+    setPartialSources([]); partialPaths.current.clear();
     setError(null);
     let painted = false;
     try {
@@ -935,6 +943,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         sources: failedAt.map(index => sources[index].label),
         info: classifyActionableError((settled[failedAt[0]] as PromiseRejectedResult).reason),
       } : null);
+      setPartialSources(partialPaths.current.has("/api/intelligence/versions") ? ["النسخ"] : []);
       const [d, v, g, cx, dm, ops, decisions, ux] = sources.map((_, index) => valueAt(index));
       setDrafts(Array.isArray(d) ? d : []);
       setOverview((current: any) => current ? {...current, draftCount: Array.isArray(d) ? d.filter((draft:any) => draft.status === "draft").length : 0} : current);
@@ -2494,6 +2503,13 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
             }]
           : []),
         {
+          value: "improve" as const,
+          label: "فرصة لتحسين الجدول",
+          detail: "موعدٌ بديل يُكمل جداول الطلبة",
+          metric: "—",
+          icon: <Lightbulb />,
+        },
+        {
           value: "predict" as const,
           label: "تنبّؤ الفصل القادم",
           detail: predictSummary?.thin ? "التاريخ لا يكفي بعد" : predictSummary ? `من ${countOf(predictSummary.historyTerms, AR.term)} سابقة · وبأي ثقة` : "ما سيحتاجه الفصل، وبأي ثقة",
@@ -2689,7 +2705,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         مركز الذكاء
       </PageTitle>
       {contextBar}
-      {Boolean(collegeId && sectionId && termId) && <AcademicAdvicePanel collegeId={collegeId} sectionId={sectionId} termId={termId} />}
       {collegeId && sectionId && termId && (tab === "twin" || hasMultipleDepartmentColleges) ? <div className="intelligence-reading-toolbar no-print">
         {tab === "twin" ? <span className="intelligence-working-scope">{ownScope.collegeName}</span>
           : <IntelligenceScopeSwitch value={analysisScope} onChange={value => {pendingReadingAction.current = null; setAnalysisScope(value);}} />}
@@ -2804,6 +2819,13 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
           onRetry={() => void reload()}
           onDismiss={() => setDegraded(null)}
         />
+      ) : null}
+      {partialSources.length && !degraded && collegeId && sectionId && termId ? (
+        <p className="intel-partial-chip" role="status">
+          <History aria-hidden="true" />
+          <span>{partialSources.join(" · ")}: قراءة جزئية</span>
+          <button type="button" onClick={() => void reload()} aria-label="أعد قراءة النسخ" data-guide-ignore="يعيد قراءة مركز الذكاء فقط؛ لا يكتب شيئاً"><RefreshCw aria-hidden="true" /></button>
+        </p>
       ) : null}
       {error && collegeId && sectionId && termId && errorDetail?.message === error && !smartRetry ? (
         <ActionableErrorNotice
@@ -3953,6 +3975,11 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
           {canPublishSheets && activeInsightKey === "sheet" ? (
             <div className="content-stack insight-scene-panel" id="insight-panel-sheet" role="tabpanel" aria-labelledby="insight-tab-sheet" tabIndex={0}>
               <PlanSheetPublisher onChanged={loadSheetSummary} focusSectionId={Number(sectionId) || 0} isAdmin={isPowerAdmin} />
+            </div>
+          ) : null}
+          {activeInsightKey === "improve" && collegeId && sectionId && termId ? (
+            <div className="content-stack insight-scene-panel" id="insight-panel-improve" role="tabpanel" aria-labelledby="insight-tab-improve" tabIndex={0}>
+              <AcademicAdvicePanel collegeId={collegeId} sectionId={sectionId} termId={termId} defaultOpen />
             </div>
           ) : null}
           {activeInsightKey === "predict" ? (

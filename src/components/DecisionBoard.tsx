@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Building2, ChevronDown, Eye, Lightbulb, OctagonAlert, Sparkles, TriangleAlert } from "lucide-react";
+import { Building2, ChevronDown, CloudOff, Eye, Lightbulb, OctagonAlert, RefreshCw, Sparkles, TriangleAlert } from "lucide-react";
 import type { AdSection } from "../types";
 import { useSectionGap } from "./SectionGapNote";
 import PlanTriageView from "./PlanTriageView";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
-import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import { reconcilePlanAdjustments } from "../utils/sectionGap";
 import { loadPlanDecisions, triagePlanItems, type PlanDecision } from "../utils/planTriage";
 import { decisionBoardScope, type DecisionBoardReader } from "../utils/decisionBoardScope";
@@ -42,7 +41,8 @@ function DepartmentRow({ collegeId, section, termId, expanded, onToggle }: {
         data-guide-ignore="يفتح لوحة القرار لقسمٍ واحد للقراءة فقط">
         <span className="decision-board-dept-ic" aria-hidden="true"><Building2 /></span>
         <strong>{section.AdSectionName}</strong>
-        {!gap.loaded ? <small className="decision-board-wait">…</small> : (
+        {gap.failed ? <span className="decision-board-failed" aria-label="تعذّرت القراءة"><CloudOff aria-hidden="true" /></span>
+          : !gap.loaded ? <small className="decision-board-wait">…</small> : (
           <span className="decision-board-counts" aria-label={`عاجل ${counts.urgent}، مهم ${counts.important}، فرصة ${counts.opportunity}`}>
             <span className="tier-urgent"><OctagonAlert aria-hidden="true" />{num(counts.urgent)}</span>
             <span className="tier-important"><TriangleAlert aria-hidden="true" />{num(counts.important)}</span>
@@ -51,19 +51,26 @@ function DepartmentRow({ collegeId, section, termId, expanded, onToggle }: {
         )}
         <ChevronDown aria-hidden="true" className="decision-board-chev" />
       </button>
-      {expanded ? <DepartmentBoard collegeId={collegeId} sectionId={Number(section.AdSectionId)} termId={termId} triage={triage} loaded={gap.loaded} /> : null}
+      {expanded ? <DepartmentBoard collegeId={collegeId} sectionId={Number(section.AdSectionId)} termId={termId} triage={triage} loaded={gap.loaded} failed={gap.failed} onRetry={gap.reload} /> : null}
     </article>
   );
 }
 
-function DepartmentBoard({ collegeId, sectionId, termId, triage, loaded }: {
+function DepartmentBoard({ collegeId, sectionId, triage, loaded, failed, onRetry }: {
   collegeId: number; sectionId: number; termId: number; triage: ReturnType<typeof triagePlanItems>; loaded: boolean;
+  failed: { status: number } | null; onRetry: () => void;
 }) {
   return (
     <div className="decision-board-body">
       <section className="decision-board-card">
         <h4><Sparkles aria-hidden="true" /> التخطيط</h4>
-        {!loaded ? <p className="decision-board-note">جارٍ القراءة…</p>
+        {/* كلُّ انتظارٍ ينتهي: بياناتٌ، أو «لا فرق»، أو خطأٌ بإعادة — لا «جارٍ القراءة» إلى الأبد. */}
+        {failed ? <div className="decision-board-error" role="alert">
+            <CloudOff aria-hidden="true" />
+            <span>{failed.status === 403 ? "لا صلاحية لقراءة التخطيط لهذا القسم." : "تعذّرت قراءة التخطيط الآن."}</span>
+            <button type="button" onClick={onRetry} data-guide-ignore="يعيد قراءة التخطيط فقط؛ لا يكتب شيئاً"><RefreshCw aria-hidden="true" /> أعد المحاولة</button>
+          </div>
+          : !loaded ? <p className="decision-board-note">جارٍ القراءة…</p>
           : triage.live.length || triage.handled.length
             ? <PlanTriageView triage={triage} readOnly onClose={() => undefined}
                 renderItem={(item, actions) => (
@@ -80,7 +87,6 @@ function DepartmentBoard({ collegeId, sectionId, termId, triage, loaded }: {
       <section className="decision-board-card">
         <PredictiveInsightPanel canSchedule={false} onChanged={() => undefined} scope={{ mode: "college", collegeId, sectionId }} />
       </section>
-      <AcademicAdvicePanel collegeId={collegeId} sectionId={sectionId} termId={termId} />
     </div>
   );
 }

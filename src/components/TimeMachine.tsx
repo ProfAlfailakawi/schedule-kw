@@ -6,8 +6,8 @@
  *   🎯 هدف: «صفّر الخميس»، «قلّل الفجوات»، «وفّر قاعتين».
  * ثم مقارنةٌ جنباً إلى جنب، وحفظٌ ونسخٌ ومشاركةٌ للعرض، وتنبيهُ انحراف.
  */
-import React, { useEffect, useMemo, useState } from "react";
-import { FlaskConical, Hourglass, Puzzle, Scale, Siren, Sparkles, Target } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Building2, CircleCheck, FlaskConical, Hourglass, Layers, PencilLine, Puzzle, Scale, Siren, Sparkles, Target, X } from "lucide-react";
 import {
   boardOf, compareScenarios, describeProblem, driftOf, parseProblem, solveProblem,
   type TmProblem, type TmScenarioRecord, type TmSolution,
@@ -17,6 +17,8 @@ import { AR, countOf } from "../utils/arabicCount";
 import { SectionSimulatorBody } from "./SectionSimulator";
 import { COMPARE_ICON, Ico, LevelDot, Loading, PHILOSOPHY_ICON, scopeQuery, type IcoName, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
 import { takeTimeMachineAsk } from "../utils/timeMachineLink";
+import { readSharedScope, writeSharedScope } from "../utils/sharedScope";
+import { safeStorage } from "../utils/safeStorage";
 
 type Mode = "emergency" | "lab" | "goal";
 
@@ -37,14 +39,105 @@ const GOALS: Array<{ icon: IcoName; label: string; problem: TmProblem }> = [
   { icon: "rooms", label: "وفّر قاعتين", problem: { kind: "freeRooms", count: 2 } },
 ];
 
+interface ScopeOptions { colleges: Array<{ id: number; name: string }>; sections: Array<{ id: number; collegeId: number; name: string }> }
+const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, "ar");
+
+/**
+ * ── الكلية والقسم صراحةً ──
+ * كانت آلة الزمن تفتح على النطاق المحفوظ من شاشةٍ أخرى بلا منتقٍ، فلا يعرف القارئ
+ * كيف يبدّل القسم. المنتقيان هنا في رأس الصفحة، دائماً، حتى في الانتظار والخطأ،
+ * ويكتبان النطاق المشترك لأن القارئ اختاره بيده.
+ */
 export default function TimeMachine() {
-  const { context, error, reload } = useTimeMachineContext();
-  if (error) return <div className="tm-page"><p className="tm-note" role="alert">{error}</p></div>;
-  if (!context) return <div className="tm-page"><Loading /></div>;
-  return <TimeMachineBody context={context} reload={reload} />;
+  const [picked, setPicked] = useState(() => readSharedScope());
+  const { context, error, reload } = useTimeMachineContext(picked.sectionId ? picked : undefined);
+  const [options, setOptions] = useState<ScopeOptions | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/time-machine/scopes", { credentials: "include" })
+      .then(response => (response.ok ? response.json() : null))
+      .then(body => { if (alive) setOptions(body && Array.isArray(body.sections) ? body : { colleges: [], sections: [] }); })
+      .catch(() => { if (alive) setOptions({ colleges: [], sections: [] }); });
+    return () => { alive = false; };
+  }, []);
+  const collegeId = picked.collegeId || context?.scope.collegeId || 0;
+  const sectionId = picked.sectionId || context?.scope.sectionId || 0;
+  const choose = (patch: { collegeId: number; sectionId: number }) => {
+    writeSharedScope(patch, { source: "time-machine" });
+    setPicked(current => ({ ...current, ...patch }));
+  };
+  const pickCollege = (id: number) => {
+    const first = (options?.sections || []).filter(section => section.collegeId === id).sort(byName)[0];
+    choose({ collegeId: id, sectionId: first?.id || 0 });
+  };
+  const colleges = [...(options?.colleges || [])].sort(byName);
+  const sections = (options?.sections || []).filter(section => section.collegeId === collegeId).sort(byName);
+  const scopeKey = context ? `${context.scope.collegeId}:${context.scope.sectionId}:${context.scope.termId}` : "";
+  return (
+    <div className="tm-page">
+      <header className="tm-hero">
+        <span className="tm-hero-mark" aria-hidden="true"><Hourglass /></span>
+        <div className="tm-hero-copy">
+          <h1>آلة الزمن</h1>
+          {context ? <p><bdi>{context.scope.termName}</bdi> · {countOf(context.rows.length, AR.appointment)}</p> : null}
+        </div>
+        <span className="tm-branch" title="لا شيء يُكتب في الجدول حتى الاعتماد"><Ico n="branch" />فرعٌ افتراضي</span>
+        <div className="tm-scope" role="group" aria-label="الكلية والقسم">
+          <label className="tm-scope-pick">
+            <Building2 aria-hidden="true" />
+            <span className="sr-only">الكلية</span>
+            <select data-guide-ignore="يختار كلية آلة الزمن؛ لا يكتب في الجدول" value={collegeId || ""} disabled={colleges.length < 2}
+              onChange={event => pickCollege(Number(event.target.value))} aria-label="الكلية">
+              {!colleges.some(college => college.id === collegeId) ? <option value={collegeId || ""}>{options ? "اختر الكلية" : "…"}</option> : null}
+              {colleges.map(college => <option key={college.id} value={college.id}>{college.name}</option>)}
+            </select>
+          </label>
+          <label className="tm-scope-pick">
+            <Layers aria-hidden="true" />
+            <span className="sr-only">القسم</span>
+            <select data-guide-ignore="يختار قسم آلة الزمن؛ لا يكتب في الجدول" value={sectionId || ""} disabled={sections.length < 2 && sections.some(section => section.id === sectionId)}
+              onChange={event => choose({ collegeId, sectionId: Number(event.target.value) })} aria-label="القسم">
+              {!sections.some(section => section.id === sectionId) ? <option value={sectionId || ""}>{context?.scope.sectionName || (options ? "اختر القسم" : "…")}</option> : null}
+              {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+            </select>
+          </label>
+        </div>
+      </header>
+      {error ? <p className="tm-note" role="alert">{error}</p>
+        : !context ? <Loading />
+        : <TimeMachineBody key={scopeKey} context={context} reload={reload} />}
+    </div>
+  );
 }
 
-function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: () => void }) {
+/* ── ثلاثُ خطوات بأيقونات: تشرح أول مرة، ثم تبقى مؤشّراً لمكان القارئ. ── */
+const INTRO_KEY = "tm-intro-seen-v1";
+const STEPS: Array<{ icon: React.ReactNode; title: string; hint: string }> = [
+  { icon: <PencilLine />, title: "اكتب المشكلة", hint: "جملةٌ قصيرة، أو هدف، أو تعديلٌ حرّ في المختبر" },
+  { icon: <Scale />, title: "قارن الحلول", hint: "ثلاثة حلول بأثرها قبل وبعد — على نسخةٍ افتراضية" },
+  { icon: <CircleCheck />, title: "اعتمد", hint: "ترى قبلها ما يتغيّر ومن يُبلَّغ، والتراجع بنقرة" },
+];
+function TmSteps({ step }: { step: 1 | 2 | 3 }) {
+  const [firstRun, setFirstRun] = useState(() => !safeStorage.get(INTRO_KEY));
+  const dismiss = () => { safeStorage.set(INTRO_KEY, "1"); setFirstRun(false); };
+  return (
+    <ol className={`tm-steps ${firstRun ? "is-intro" : ""}`} aria-label="خطوات آلة الزمن">
+      {STEPS.map((item, index) => {
+        const n = index + 1;
+        const state = n < step ? "done" : n === step ? "now" : "next";
+        return (
+          <li key={item.title} className={`tm-step is-${state}`} aria-current={state === "now" ? "step" : undefined}>
+            <span className="tm-step-ico" aria-hidden="true">{state === "done" ? <CircleCheck /> : item.icon}</span>
+            <span className="tm-step-copy"><b><i>{n}</i>{item.title}</b>{firstRun ? <small>{item.hint}</small> : null}</span>
+          </li>
+        );
+      })}
+      {firstRun ? <li className="tm-step-close"><button type="button" onClick={dismiss} aria-label="فهمت، أخفِ الشرح" data-guide-ignore="يخفي شرح الخطوات فقط"><X aria-hidden="true" /></button></li> : null}
+    </ol>
+  );
+}
+
+function TimeMachineBody({ context, reload }: { key?: string; context: LoadedContext; reload: () => void }) {
   const [mode, setMode] = useState<Mode>("emergency");
   const [text, setText] = useState("");
   const [problem, setProblem] = useState<TmProblem | null>(null);
@@ -55,7 +148,21 @@ function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: 
   const [saved, setSaved] = useState<TmScenarioRecord[]>([]);
   const [comparing, setComparing] = useState<Set<string>>(new Set());
   const [elapsed, setElapsed] = useState(0);
+  const [labBasket, setLabBasket] = useState(0);
   const base = useMemo(() => boardOf(context), [context]);
+  /* «جرّبه» يرسم الأثر أسفل الصفحة: ننتقل إليه فوراً، فلا يضغط القارئ ولا يرى شيئاً. */
+  const benchRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!chosen) return;
+    const frame = requestAnimationFrame(() => benchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return () => cancelAnimationFrame(frame);
+  }, [chosen?.id]);
+  const solutionsRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!problem || chosen) return;
+    const frame = requestAnimationFrame(() => solutionsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+    return () => cancelAnimationFrame(frame);
+  }, [problem]);
 
   const loadSaved = () => fetch(`/api/time-machine/scenarios?${scopeQuery(context)}`, { credentials: "include" })
     .then(r => r.json()).then(body => setSaved(Array.isArray(body?.scenarios) ? body.scenarios : [])).catch(() => setSaved([]));
@@ -92,17 +199,11 @@ function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: 
   }, [solutions, comparing]);
 
   const problemLabel = problem ? describeProblem(problem, context) : undefined;
+  const step: 1 | 2 | 3 = mode === "lab" ? (labBasket ? 2 : 1) : chosen ? 3 : problem ? 2 : 1;
 
   return (
-    <div className="tm-page">
-      <header className="tm-hero">
-        <span className="tm-hero-mark" aria-hidden="true"><Hourglass /></span>
-        <div>
-          <h1>آلة الزمن</h1>
-          <p><bdi>{context.scope.sectionName}</bdi> · <bdi>{context.scope.termName}</bdi> · {countOf(context.rows.length, AR.appointment)}</p>
-        </div>
-        <span className="tm-branch" title="لا شيء يُكتب في الجدول حتى الاعتماد"><Ico n="branch" />فرعٌ افتراضي</span>
-      </header>
+    <>
+      <TmSteps step={step} />
 
       <nav className="tm-modes" aria-label="الوضع">
         {([["emergency", <Siren key="i" />, "طوارئ"], ["lab", <FlaskConical key="i" />, "مختبر"], ["goal", <Target key="i" />, "هدف"]] as Array<[Mode, React.ReactNode, string]>).map(([value, icon, label]) => (
@@ -127,10 +228,10 @@ function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: 
 
       {unknown && mode !== "lab" && text ? <p className="tm-note" role="status"><Ico n="idea" /> لم أفهم الجملة. جرّب: «قاعة … تعطلت الأحد»، «د. … معتذر الخميس»، «زاد الطلب على 121»</p> : null}
 
-      {mode === "lab" ? <SectionSimulatorBody context={context} reload={reload} /> : null}
+      {mode === "lab" ? <SectionSimulatorBody context={context} reload={reload} onBasket={setLabBasket} /> : null}
 
       {mode !== "lab" && problem ? (
-        <section className="tm-solutions" aria-label="حلول جاهزة">
+        <section className="tm-solutions" aria-label="حلول جاهزة" ref={solutionsRef}>
           <h2><Ico n="problem" className="tm-h-ico" />{problemLabel}<small><bdi>{elapsed} ms</bdi></small></h2>
           {solutions.length ? (
             <div className="tm-solution-grid">
@@ -180,15 +281,15 @@ function TimeMachineBody({ context, reload }: { context: LoadedContext; reload: 
       ) : null}
 
       {mode !== "lab" && chosen ? (
-        <>
+        <div ref={benchRef} className="tm-bench-anchor">
           <ScenarioWorkbench context={context} changes={chosen.changes} mode={problem ? (mode === "goal" ? "goal" : "emergency") : (scenario?.mode || "lab")}
             problem={problemLabel || scenario?.problem} scenario={scenario} onScenario={onScenario}
             defaultName={problemLabel || chosen.title} onDiscard={() => { setChosen(null); setScenario(null); }} onApplied={() => { reload(); void loadSaved(); }} />
-        </>
+        </div>
       ) : null}
 
       <SavedScenarios list={saved} context={context} onOpen={record => { setMode("emergency"); openSaved(record); }} />
-    </div>
+    </>
   );
 }
 
