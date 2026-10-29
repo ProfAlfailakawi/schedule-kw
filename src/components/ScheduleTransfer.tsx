@@ -547,6 +547,9 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
   /* مراجعة التخطيط لا تبقى تحت تبويبٍ آخر: من غادرها يعود إلى شاشةٍ نظيفة، فلا تظهر شعب التخطيط في «استيراد». */
   const goTab = (next: Tab) => { if (fromPlanning) { setXlsxPreview(null); setXlsxDraft(""); } setTab(next); };
   const importPreviewOpen = tab === "import" && importKind === "authority-pdf" && Boolean(xlsxPreview?.rows?.length) && !xlsxDraft;
+  /* M1: استيراد PDF يأخذ الصفحة كلها — من أول قراءة الملف حتى المعاينة والنشر — لا ورقةً
+     بعرض 880px تُمرَّر أفقياً. تبقى ورقةً عادية لبقية التبويبات. */
+  const importFullPage = tab === "import" && !publishReceipt && (importPreviewOpen || (importKind === "authority-pdf" && (Boolean(readProgress) || Boolean(xlsxPreview))));
 
   const rotatedPdfGuidance = Boolean(error && /دوّر صفحات الجدول للوضع الأفقي/.test(error));
   const pdfReadinessSummary = useMemo(() => {
@@ -1224,7 +1227,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
 
   return (
     <div className="transfer-backdrop no-print" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`transfer-sheet visual-minimal${importPreviewOpen && !publishReceipt ? " is-page-wide" : ""}`} role="dialog" aria-modal="true" aria-label="نقل الجدول">
+      <section className={`transfer-sheet visual-minimal${importFullPage ? " is-page-wide is-full-page" : ""}`} role="dialog" aria-modal="true" aria-label="نقل الجدول">
         <header>
           <div>
             <span className="surface-kicker">الجدول كوحدة واحدة</span>

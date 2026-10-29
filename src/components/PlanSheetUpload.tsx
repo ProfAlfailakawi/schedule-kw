@@ -7,6 +7,7 @@
 import React, { useRef, useState } from "react";
 import { AR, countOf } from "../utils/arabicCount";
 import DuplicateCoursesPanel from "./DuplicateCoursesPanel";
+import SpellingTwinsMerge from "./SpellingTwinsMerge";
 import ServiceCoursesPanel, { voteServiceCourses, type ServiceCourse } from "./ServiceCoursesPanel";
 import { AlertTriangle, CheckCircle2, Download, GraduationCap, FileUp, FileX2, History, Link2, Loader2, PencilLine, Plus, SearchX, ShieldAlert, Trash2, UserPlus, X } from "lucide-react";
 
@@ -427,6 +428,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone, tools }: {
         ) : <small role="status">كل الأقسام لها حساباتها</small>) : null}
       </div>
       <DuplicateCoursesPanel />
+      <SpellingTwinsMerge />
       <ServiceCoursesPanel targets={targets} winners={serviceWinners} onWinners={setServiceWinners} />
         {tools}
       </details>

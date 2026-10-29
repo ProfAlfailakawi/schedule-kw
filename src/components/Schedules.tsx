@@ -65,7 +65,15 @@ import {
 import { DnaCount, DnaStatusHeader } from "./dna";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
-import RoomSuggestionCards from "./RoomSuggestionCards";
+import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
+import AppointmentChecksPanel from "./AppointmentChecksPanel";
+import TeacherMiniWeek, { type MiniPick } from "./TeacherMiniWeek";
+import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
+import RegulationPatternChips from "./RegulationPatternChips";
+import { appointmentVerdict, type VerdictCheck } from "../utils/appointmentVerdict";
+import { pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
+import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
+import { spellingTwinsOf } from "../utils/courseSpellingTwins";
 import {
   Badge,
   EmptyState,
@@ -159,7 +167,7 @@ import type { GapItem as SectionGapItem } from "../utils/sectionGap";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
-import { adviseDayPattern, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding, patternsForHours, patternsForHoursOnDay, reviewSchedule, type DayKey as RegDayKey, type WeeklyPattern } from "../utils/scheduleRegulations";
+import { adviseDayPattern, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding, reviewSchedule, type DayKey as RegDayKey } from "../utils/scheduleRegulations";
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { rowClashReasons } from "../utils/scheduleBlockers";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
@@ -2978,19 +2986,42 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /** الطلبُ الذي جاءت منه الإضافةُ المفتوحة، إن جاءت من وارد الأساتذة. */
   const pendingHandoff = useRef<RequestHandoff | null>(null);
 
+  /* ── كل ما يخص موعداً واحداً يُمحى معه ───────────────────────────────────
+   * نتائج الفحص، والاقتراحات، وملاحظات اللائحة، والاستعارة، والطلب الذي جاء
+   * منه — كانت تبقى بعد الإغلاق فيفتح الموعد التالي وفيه «تعارض أستاذ» لأستاذٍ
+   * لم يُختر، أو اقتراحات لقاعة موعد سابق. فتح جديد / فتح تعديل / إغلاق: كلها
+   * تمرّ من هنا (A5). */
+  const clearEditorTransients = () => {
+    setError(null);
+    setConflicts([]);
+    setSolutions([]);
+    setServerValidationIssues([]);
+    setPatternNotice("");
+    setLectureNotice("");
+    setChecking(false);
+    setScheduleTouched(false);
+    setRoomIdeas(null); setRoomIdeasNote(""); setRoomIdeasReason(undefined); setRoomReplaceable([]);
+    setSlotIdeas(null); setSlotIdeasNote(""); setSlotIdeasReason(undefined);
+    setAlternatives(null);
+    setRegulationAlternatives([]);
+    setBorrowOpen(false); setBorrowMsg(""); setBorrowRooms([]);
+    setRoomOwner(null);
+    setTimeCounterOpen(false); setStartTimeLimitNotice(""); setEndTimeLimitNotice("");
+    lastCheckFormKey.current = "";
+  };
   const openCreate = (seed?: CreateSeed) => {
       if (showMobileReadOnlyGate()) return;
       /* كلُّ أبواب الإضافة تمرّ من هنا — الزرّ والخانة الفارغة والأوامر —
          فيُقال السببُ هنا مرّةً واحدة بدل محرّرٍ يُفتح ليُرفض. */
       if (approvalLock) { setMessage(null); setError(approvalLock); return; }
-      setError(null);
+      clearEditorTransients();
       setMessage(null);
-      setConflicts([]);
-      setSolutions([]);
+      /* ── الجديد يفتح نظيفاً (A5) ─────────────────────────────────────────
+       * كان النموذج يرث آخر ما حُفظ (الأستاذ، القاعة، الأيام، الوقت) فيُفتح
+       * وفيه بقايا موعد سابق ويُفحص عليها قبل أن يختار المستخدم شيئاً. يبقى
+       * النطاق وحده (الكلية/القسم/الفصل)؛ والإدخال المتتابع بعد حفظٍ ناجح له
+       * بابه الصريح (continueCreating) لا هذا الباب. */
       const next = blank();
-      const last = lastSavedRef.current || savedPrefs.lastSaved || null;
-      if (last) Object.assign(next, last);
-      if (!next.buildingId) { next.AdRoomCode = ""; next.AdRoomHall = ""; next.roomId = undefined; next.locationStatus = undefined; }
       // Scope is inherited only when the user has explicitly activated the
       // board. Never revive a saved college/term behind an empty selector.
       const preferredCollege = Number(filterCollege) || 0;
@@ -3054,10 +3085,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     },
     openEdit = (row: FSchedule) => {
       if (showMobileReadOnlyGate()) return;
-      setError(null);
+      /* التعديل يحمّل هذا الموعد وحده، بلا أثرٍ من موعد سابق. */
+      clearEditorTransients();
       setMessage(null);
-      setConflicts([]);
-      setSolutions([]);
       setEditId(row.id);
       const { id: _id, AdCourseName: name, ...rowValues } = row;
       const values = { ...rowValues };
@@ -3089,9 +3119,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setEditor("index");
       presence.send({ editing: null });
       setEditId(null);
-      setError(null);
-      setConflicts([]);
-      setSolutions([]);
+      clearEditorTransients();
+      /* طلبُ أستاذٍ فُتح ثم أُغلق دون حفظ لا يلحق بالموعد التالي. */
+      pendingHandoff.current = null;
       setForm(blank());
       setCourseName("");
     };
@@ -3149,10 +3179,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     });
     setCourseName(courseById.get(courseId)?.CourseName || "");
     setEditId(null);
-    setError(null);
-    setConflicts([]);
-    setSolutions([]);
-    setScheduleTouched(false);
+    clearEditorTransients();
     /* The number was offered, not typed — so changing the course still moves it. */
     sectionAutofilled.current = true;
     setEditor("create");
@@ -3233,7 +3260,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     // Nothing to choose from is not a card, it is a dead end — the full editor
     // can still fetch and explain, so the stroke goes there instead.
     if (!quickCourses.length || !instructors.length) { openCreate(seed); return; }
-    const last = lastSavedRef.current || savedPrefs.lastSaved || null;
+    /* «موعد جديد» يُفتح نظيفاً (A5): لا أستاذ ولا قاعة من موعدٍ سابق — اليوم والوقت
+       من الرسم وحدهما، والقاعة فقط إن رُسم في عمود قاعةٍ بعينها. */
     setQuick({
       day: seed.day,
       dayLabel: days.find(d => d.key === seed.day)?.label || "",
@@ -3241,9 +3269,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       end: seed.end,
       x: seed.x,
       y: seed.y,
-      instructorId: Number(last?.AdInstructorId) || 0,
-      room: String(seed.roomCode ?? last?.AdRoomCode ?? savedPrefs.lastRoomCode ?? ""),
-      hall: String(seed.roomHall ?? last?.AdRoomHall ?? savedPrefs.lastRoomHall ?? ""),
+      instructorId: 0,
+      room: String(seed.roomCode ?? ""),
+      hall: String(seed.roomHall ?? ""),
     });
   };
   /**
@@ -3274,6 +3302,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   // waits until the days or the time have been touched, or until a save is
   // attempted; the submit button stays disabled meanwhile either way.
   const [scheduleTouched, setScheduleTouched] = useState(false);
+  /* شرائح البدائل اللائحية لليوم المضغوط (B1). */
+  const [regulationAlternatives, setRegulationAlternatives] = useState<RegulationChoice[]>([]);
+  /* مفتاح القيم التي فُحصت آخر مرة: تحديثٌ حيّ للجدول يعيد الفحص بصمت، وتغييرُ
+     النموذج وحده يُظهر «يفحص». */
+  const lastCheckFormKey = useRef("");
   /* ── الاستعارة داخل المحرر، بلا مغادرة ────────────────────────────────────
    * صاحب الجدول عالقٌ في وضع موعد: لا قاعة له في هذا الوقت. لا يريد أن
    * تُقذف أمامه شاشةٌ عملاقة تقطع عمله — يريد أن يستعير هنا، ويكمل. فالتلميح
@@ -3367,26 +3400,29 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   currentSuggestionKey.current = roomIdeasKey;
   const [slotIdeas, setSlotIdeas] = useState<any[] | null>(null);
   const [slotIdeasNote, setSlotIdeasNote] = useState("");
+  const [slotIdeasReason, setSlotIdeasReason] = useState<SuggestionReply["reason"]>(undefined);
   const [slotBusy, setSlotBusy] = useState(false);
+  /* المدة التي يُسأل بها «وقت وقاعة»: مدة الموعد إن كُتبت، وإلا مدة نمط اللائحة
+     للأيام المختارة، وإلا عادة القسم — لا 60 دقيقة ثابتة لا تطابق أي نمط. */
+  const suggestionDuration = () => {
+    if (form.fstarttime && form.fendtime && mins(form.fendtime) > mins(form.fstarttime)) return mins(form.fendtime) - mins(form.fstarttime);
+    const choice = regulationChoiceFor(courseById.get(Number(form.AdCourseId || 0)), daysOfRow(form as any));
+    return choice?.minutes || expectedDurationForSelection(form) || 50;
+  };
+  /* «اقترح لي وقتاً وقاعة» · «اقترح قاعة متاحة» · «اقترح بديلاً آمناً»: محرّكٌ واحد
+     (suggestionClient ← /api/schedules/suggest-slots)، والردّ الفارغ يحمل سببه. */
   const askForSlots = async () => {
     const requestedKey = roomIdeasKey;
     setSlotBusy(true);
     setSlotIdeas(null);
     setSlotIdeasNote("");
+    setSlotIdeasReason(undefined);
     try {
-      const duration = form.fstarttime && form.fendtime && mins(form.fendtime) > mins(form.fstarttime)
-        ? mins(form.fendtime) - mins(form.fstarttime)
-        : 60;
-      const response = await fetch("/api/schedules/suggest-slots", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, durationMinutes: duration, excludeId: editId || 0 })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "تعذر اقتراح الأوقات");
+      const data = await fetchSuggestions(suggestionBody({ ...form, excludeId: editId || 0, instructorRequestId: pendingHandoff.current?.requestId }, "slot", suggestionDuration()));
       if (currentSuggestionKey.current !== requestedKey) return;
       setSlotIdeasNote(String(data.note || ""));
-      setSlotIdeas(Array.isArray(data.slots) ? data.slots : []);
+      setSlotIdeasReason(data.reason);
+      setSlotIdeas(data.slots);
     } catch (e: any) {
       if (currentSuggestionKey.current !== requestedKey) return;
       setError(friendlyError(e));
@@ -3401,24 +3437,26 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      والقاعة «بانتظار التثبيت» أو مختارة، فهو بالضبط ما يحتاجه صفٌّ مستورد. */
   const [roomIdeas, setRoomIdeas] = useState<any[] | null>(null);
   const [roomIdeasNote, setRoomIdeasNote] = useState("");
+  const [roomIdeasReason, setRoomIdeasReason] = useState<SuggestionReply["reason"]>(undefined);
+  const [roomReplaceable, setRoomReplaceable] = useState<ReplaceableSection[]>([]);
   const [roomIdeasBusy, setRoomIdeasBusy] = useState(false);
-  useEffect(() => { setRoomIdeas(null); setSlotIdeas(null); setRoomIdeasNote(""); setSlotIdeasNote(""); }, [roomIdeasKey]);
+  const [alternatives, setAlternatives] = useState<SuggestionReply | null>(null);
+  useEffect(() => { setRoomIdeas(null); setSlotIdeas(null); setRoomIdeasNote(""); setSlotIdeasNote(""); setRoomReplaceable([]); setAlternatives(null); }, [roomIdeasKey]);
+  /* اقتراحٌ محفوظ في الذاكرة القصيرة لا يبقى بعد تغيّر الجدول. */
+  useEffect(() => { forgetSuggestions(); }, [rows]);
   const askForRooms = async () => {
     if (roomIdeas) { setRoomIdeas(null); return; }
     const requestedKey = roomIdeasKey;
     setRoomIdeasNote("");
+    setRoomIdeasReason(undefined);
     setRoomIdeasBusy(true);
     try {
-      const response = await fetch("/api/schedules/suggest-slots", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, roomOnly: true, excludeId: editId || 0 })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "تعذر اقتراح القاعات");
+      const data = await fetchSuggestions(suggestionBody({ ...form, excludeId: editId || 0, instructorRequestId: pendingHandoff.current?.requestId }, "room"));
       if (currentSuggestionKey.current !== requestedKey) return;
       setRoomIdeasNote(String(data.note || ""));
-      setRoomIdeas(Array.isArray(data.slots) ? data.slots : []);
+      setRoomIdeasReason(data.reason);
+      setRoomReplaceable(editor === "create" && Number(form.AdInstructorId || 0) ? data.replaceable : []);
+      setRoomIdeas(data.slots);
     } catch (e: any) {
       if (currentSuggestionKey.current !== requestedKey) return;
       setError(friendlyError(e));
@@ -3427,12 +3465,77 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setRoomIdeasBusy(false);
     }
   };
+  /* اختيار اقتراح يملأ الوقت والقاعة الرسمية والمرفق المرافق معاً — فلا يبقى
+     «المقرر يتطلب مرفقاً» بعد اختيار اقتراحٍ وجد له المحرّك مرفقاً متاحاً. */
   const takeSlot = (slot: any) => {
     setRoomIdeas(null);
     setScheduleTouched(true);
-    setForm(prev => ({ ...prev, fstarttime: slot.start, fendtime: slot.end, ...(slot.roomId&&slot.buildingId?{buildingId:slot.buildingId,roomId:slot.roomId,AdRoomCode:slot.room,AdRoomHall:slot.hall,locationStatus:"VERIFIED" as const}:{}) }));
+    setForm(prev => ({
+      ...prev, fstarttime: slot.start || prev.fstarttime, fendtime: slot.end || prev.fendtime,
+      ...(slot.roomId&&slot.buildingId?{buildingId:slot.buildingId,roomId:slot.roomId,AdRoomCode:slot.room,AdRoomHall:slot.hall,locationStatus:"VERIFIED" as const}:{}),
+      ...(slot.companionRoomId?{companionRoomId:slot.companionRoomId,companionRoomLabel:slot.companionRoomLabel||""}:{}),
+    }));
     setSlotIdeas(null);
+    setAlternatives(null);
   };
+  /* 🔄 إسناد الأستاذ إلى شعبة «هيئة تدريسية» القائمة للمقرر نفسه بدل موعدٍ جديد:
+     تعديل صفٍّ واحد عبر بوابة الحفظ نفسها (PUT)، مسجَّل، وبزرّ تراجع. */
+  const [replaceBusy, setReplaceBusy] = useState(false);
+  /* ── 🔄 «هيئة تدريسية»: إسناد · تبديل · استبدال — طلبٌ واحد ذرّي (G3) ──────
+     الخادم (/api/schedules/placeholder-action) يفحص كل خطوة بمساري الحفظ والتعديل
+     على الأسبوع كما سيصير، ثم يكتب الشعبة والموعد الجديد معاً أو لا شيء، ويعيد
+     خطوات التراجع. هنا: تأكيدٌ بصورة «قبل/بعد»، ثم ضغطة واحدة. */
+  const placeholderAction = async (section: ReplaceableSection, action: "assign" | "swap" | "replace") => {
+    const target = rows.find(row => Number(row.id) === Number(section.rowId));
+    const teacherId = Number(form.AdInstructorId || 0);
+    if (!target || !teacherId) { setError("اختر الأستاذ أولاً."); return; }
+    if (action !== "assign" && (!form.AdCourseId || !String(form.SCode || "").trim())) { setError("أكمل المقرر والشعبة أولاً."); return; }
+    const teacher = instructorById.get(teacherId)?.AdInstructorName || "الأستاذ";
+    const where = `${target.AdRoomCode}/${target.AdRoomHall} · ${formatScheduleTimeRange(target.fstarttime, target.fendtime)}`;
+    const students = section.radar ? ` في رادار التسجيل ${countOf(section.radar.seated, AR.student)} على ${countOf(section.radar.sections, AR.section)} لهذا المقرر — انقل المتأثرين قبل التغيير.` : "";
+    setReplaceBusy(true);
+    try {
+      let swapTo: any = null;
+      if (action === "swap") {
+        const { id: _id, AdCourseName: _name, ...values } = target as any;
+        const reply = await fetchSuggestions(suggestionBody({ ...values, excludeId: target.id }, "room"));
+        const other = reply.slots.find(slot => String(slot.roomId || "") !== String(target.roomId || "") && !(slot.room === target.AdRoomCode && slot.hall === target.AdRoomHall));
+        if (!other) { setError(`لا قاعة حرّة لنقل الشعبة ${target.SCode || ""} إليها في الوقت نفسه.`); return; }
+        swapTo = { buildingId: other.buildingId, roomId: other.roomId, AdRoomCode: other.room, AdRoomHall: other.hall };
+      }
+      const message = action === "assign"
+        ? `قبل: شعبة ${target.SCode || ""} «هيئة تدريسية» · ${where}\nبعد: الشعبة نفسها لـ ${teacher} — لا يُنشأ موعد جديد.`
+        : action === "swap"
+          ? `قبل: شعبة ${target.SCode || ""} «هيئة تدريسية» · ${where}\nبعد: تنتقل إلى ${swapTo.AdRoomCode}/${swapTo.AdRoomHall}، ويُحفظ موعد ${teacher} في قاعتها.`
+          : `قبل: شعبة ${target.SCode || ""} «هيئة تدريسية» · ${where}\nبعد: تُحذف، ويُحفظ موعد ${teacher} في قاعتها.${students}`;
+      const confirmed = await visualConfirm({
+        title: action === "assign" ? "إسناد بدل موعد جديد" : action === "swap" ? "تبديل القاعة" : "استبدال الشعبة الشاغرة",
+        message: message + (action !== "replace" && students ? `\n${students}` : "") + "\nتُنفَّذ الخطوتان معاً أو لا شيء، ويمكنك التراجع.",
+        confirmLabel: action === "assign" ? "إسناد" : action === "swap" ? "تبديل وحفظ" : "استبدال وحفظ",
+        ...(action === "replace" ? { tone: "danger" as const } : {}),
+        compact: true,
+      });
+      if (!confirmed) return;
+      /* حجزُ طلب أستاذ ينتظر القسم يُسأل عنه بالسؤال نفسه الذي يسأله الحفظ والحذف (A2). */
+      const result: any = await withRequestHoldPrompt(overrideRequestHolds => fetchJson("/api/schedules/placeholder-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, placeholderId: target.id, placeholderRev: (target as any).rev, appointment: { ...form, AdInstructorId: teacherId }, swapTo, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }),
+      }), action === "assign" ? "الإسناد" : action === "swap" ? "التبديل" : "الاستبدال");
+      offerUndo(action === "assign" ? `إسناد شعبة ${target.SCode || ""}` : action === "swap" ? `تبديل قاعة شعبة ${target.SCode || ""}` : `استبدال شعبة ${target.SCode || ""}`, Array.isArray(result?.undo) ? result.undo : []);
+      forgetSuggestions();
+      await loadRows({ silent: true });
+      markChanged(Number(result?.createdId || target.id));
+      back();
+      requestAnimationFrame(() => setMessage(action === "assign" ? `أُسندت الشعبة ${target.SCode || ""} إلى ${teacher} — لم يُنشأ موعد جديد.` : action === "swap" ? `نُقلت الشعبة ${target.SCode || ""} وحُفظ موعد ${teacher} في قاعتها.` : `استُبدلت الشعبة ${target.SCode || ""} بموعد ${teacher}.`));
+    } catch (e: any) {
+      setError(friendlyError(e));
+    } finally {
+      setReplaceBusy(false);
+    }
+  };
+
+
   /**
    * What the regulation would say about this appointment, said while it is
    * still being written.
@@ -3482,7 +3585,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     outsideTeachingDay?`وقت المحاضرة يجب أن يكون بين ${scheduleClockForDisplay(activeScheduleWindow.startTime)} و${scheduleClockForDisplay(activeScheduleWindow.endTime)}.`:"",
     ...serverValidationIssues,
   ].filter(Boolean);
-  const blockingConflicts=conflicts.filter(isBlockingConflict);
   const editorTimingNote = historicalTimingNote(form);
   const planningSectionCountNotice = (() => {
     const course = courseById.get(Number(form.AdCourseId || 0));
@@ -3648,6 +3750,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       },
     ] : [];
     return {
+      source: conflict,
       id: `${conflict.type}-${conflict.rowId || conflict.otherId || index}`,
       /* The blocking red is reserved for what actually blocks. A hall-scope
          note keeps its brass; every other advisory takes the warning tone. */
@@ -3867,31 +3970,101 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * leave the course still adding up to its credit hours.
    */
   const courseNature = nature.get(Number(form.AdCourseId) || 0) || null;
-  const approvedPatterns = useMemo<WeeklyPattern[]>(() => {
-    const course = courseById.get(Number(form.AdCourseId) || 0);
-    const hours = Number(course?.CourseHours || course?.CourseCredit || 0);
-    const chosen = days.filter(day => (form as any)[day.key]).map(day => day.key as RegDayKey);
-    return hours ? patternsForHoursOnDay(hours, chosen[0]) : [];
-  }, [form.AdCourseId, courseById]);
-  const activePattern = useMemo(() => {
-    const chosen = days.filter(day => (form as any)[day.key]).map(day => day.key);
-    return approvedPatterns.find(pattern =>
-      pattern.days.length === chosen.length && pattern.days.every(day => chosen.includes(day as any))) || null;
-  }, [approvedPatterns, form.fsunday, form.fmonday, form.ftuesday, form.fwednesday, form.fthursday]);
-  const applyPattern = (pattern: WeeklyPattern) => {
+  /* ── اللائحة في الإدخال (B1/B3) ─────────────────────────────────────────
+     مصدرٌ واحد: appointmentRegulation ← patternsForHours (قرار 1913/2016) — هو
+     نفسه ما يقرأ به فحص الاعتماد وحكم طلبات الأساتذة. */
+  const formCourse = courseById.get(Number(form.AdCourseId) || 0);
+  const formDays = daysOfRow(form as any);
+  /* G5: اسمٌ له إملاءٌ آخر في مقررات القسم نفسه → اقتراح دمج (لا حذف). */
+  const courseSpellingTwins = useMemo(() => spellingTwinsOf(courseName, courseNames), [courseName, courseNames]);
+  const formRegulationChoice = useMemo(() => regulationChoiceFor(formCourse, formDays), [formCourse, formDays.join("+")]);
+  const formRegulationFit = regulationFit(formCourse, formDays, String(form.fstarttime || ""), String(form.fendtime || ""));
+  const formRegulationChips = useMemo(() => {
+    const pool = [...(formRegulationChoice ? [formRegulationChoice] : []), ...regulationAlternatives,
+      ...(formDays.length ? regulationChoicesForDay(formCourse, formDays[0]) : [])];
+    const seen = new Set<string>();
+    return pool.filter(choice => { const key = choice.days.join("+") + choice.minutes; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 4);
+  }, [formRegulationChoice, regulationAlternatives, formCourse, formDays.join("+")]);
+  /** النهاية من البداية: دقائق نمط اللائحة أولاً، ثم عادة القسم. */
+  const endForStart = (row: Partial<FSchedule>, start: string) =>
+    regulationEnd(courseById.get(Number(row.AdCourseId || 0)), daysOfRow(row as any), start) || autoEndFor(row, start);
+  const chooseFormDay = (day: RegDayKey, checked: boolean) => {
     setScheduleTouched(true);
+    const result = pickDay(formCourse, formDays, day, checked);
+    setRegulationAlternatives(result.alternatives);
     setForm(previous => {
       const next: any = { ...previous };
-      days.forEach(day => { next[day.key] = pattern.days.includes(day.key as any); });
-      // Every meeting starts at the same hour (م.8/9); the first one sets the length.
-      const start = next.fstarttime || SCHEDULE_DAY_START_TIME;
-      next.fstarttime = start;
-      const [h, m] = start.split(":").map(Number);
-      const total = Math.min(SCHEDULE_DAY_END, (h || 0) * 60 + (m || 0) + pattern.minutesPerDay[0]);
-      next.fendtime = `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+      days.forEach(item => { next[item.key] = result.days.includes(item.key as RegDayKey); });
+      if (next.fstarttime) {
+        const end = endForStart(next, next.fstarttime);
+        if (end) next.fendtime = end;
+      }
       return next;
     });
   };
+  /* N3: «+» أو «قبلها/بعدها» في جدول الأستاذ المصغّر يملأ أيام النمط والبداية والنهاية،
+     و«قبلها/بعدها» يقترح قاعة المحاضرة الملاصقة (أو مبناها) ما لم تُختر قاعة. الحكم يفحص كأي اختيار. */
+  const miniWeekWindow = useMemo(() => ({ start: activeScheduleWindow.start, end: activeScheduleWindow.end }), [activeScheduleWindow.start, activeScheduleWindow.end]);
+  const isFacultyPlaceholderId = (id: number) => isFacultyPlaceholder(instructorById.get(id) as any);
+  const editorOriginalRow = useMemo(() => editor === "edit" ? rows.find(row => Number(row.id) === Number(editId)) || null : null, [editor, editId, rows]);
+  const pickFromMiniWeek = (pick: MiniPick) => {
+    setScheduleTouched(true);
+    setRegulationAlternatives(regulationChoicesForDay(formCourse, pick.day).filter(choice => choice.days.join("+") !== pick.days.join("+")));
+    setForm(previous => {
+      const next: any = { ...previous };
+      days.forEach(item => { next[item.key] = pick.days.includes(item.key as RegDayKey); });
+      next.fstarttime = pick.start;
+      next.fendtime = pick.end || endForStart(next, pick.start) || next.fendtime;
+      const room = pick.room;
+      const sameBuilding = !next.buildingId || String(next.buildingId) === String(room?.buildingId || "");
+      if (room?.buildingId && !next.roomId && next.locationStatus !== "PENDING_ROOM" && sameBuilding && (room.roomId || !next.buildingId)) {
+        const buildingChanged = String(room.buildingId) !== String(next.buildingId || "");
+        Object.assign(next, room, buildingChanged ? { companionRoomId: "", companionRoomLabel: "" } : {});
+      }
+      return next;
+    });
+  };
+  const applyRegulationChoice = (choice: RegulationChoice) => {
+    setScheduleTouched(true);
+    setForm(previous => {
+      const next: any = { ...previous };
+      days.forEach(day => { next[day.key] = choice.days.includes(day.key as RegDayKey); });
+      // Every meeting starts at the same hour (م.8/9); the pattern sets the length.
+      const start = next.fstarttime || "";
+      if (start) next.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_END, mins(start) + choice.minutes));
+      return next;
+    });
+  };
+  /* ── حكمٌ واحد للنموذج (A6) ───────────────────────────────────────────────
+     الشريط «صحّح قبل الحفظ» ولوحة «فحص موانع الحفظ» وزرّ الحفظ يقرؤون هذا وحده،
+     ولا يُفحص فيه حقلٌ لم يُختر (A5). */
+  const companionRequired = Boolean(String(formCourse?.CourseCompanionRoomType || "").trim());
+  const editorVerdict = appointmentVerdict({
+    form: form as any,
+    validationIssues,
+    conflicts,
+    checking,
+    companionRequired,
+    regulation: formRegulationFit,
+    regulationNote: "خارج نمط اللائحة",
+    notes: editorSupplementalCards.map(card => ({ kind: "time" as const, text: String(card.title || ""), detail: String(card.detail || "") || undefined })),
+  });
+  const [altBusy, setAltBusy] = useState(false);
+  const askAlternatives = async () => {
+    const requestedKey = roomIdeasKey;
+    setAltBusy(true);
+    setAlternatives(null);
+    try {
+      const reply = await fetchAlternatives({ ...form, excludeId: editId || 0, instructorRequestId: pendingHandoff.current?.requestId }, suggestionDuration());
+      if (currentSuggestionKey.current !== requestedKey) return;
+      setAlternatives(reply);
+    } catch (e: any) {
+      setError(friendlyError(e));
+    } finally {
+      setAltBusy(false);
+    }
+  };
+
 
   const weekInstructors = useMemo(() => {
     const seen = new Map<number, string>();
@@ -3929,40 +4102,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   }, [filteredRows, lens.building]);
   const weekLensCount = useMemo(() => filteredRows.filter(lensMatches).length, [filteredRows, lens]);
 
-  const solveConflicts = async () => {
-    if (
-      !form.AdCollegeId ||
-      !form.AdSectionId ||
-      !form.AdTermId ||
-      !form.AdCourseId ||
-      !form.AdInstructorId
-    )
-      return;
-    setSolving(true);
-    setSolutions([]);
-    try {
-      const d = await fetchJson("/api/intelligence/conflict-solutions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, id: editId || -1 }),
-      });
-      setSolutions(d.solutions || []);
-    } catch (e: any) {
-      setError(friendlyError(e));
-    } finally {
-      setSolving(false);
-    }
-  };
-  const applySolution = (item: any) => {
-    setForm((p) => ({
-      ...p,
-      fstarttime: item.start,
-      fendtime: item.end,
-      AdRoomCode: item.roomCode,
-      AdRoomHall: item.roomHall,
-    }));
-    setSolutions([]);
-  };
+  /* «اقترح بديلاً آمناً» في المحرر يسأل محرّك الاقتراح الواحد (askAlternatives)؛
+     conflict-solutions يبقى لبطاقة السياق وحدها. */
   const openContext = async (row: FSchedule) => {
     replayAbortRef.current?.abort();
     replayAbortRef.current = null;
@@ -4461,6 +4602,23 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }));
     setMessage(handoffNotice(handoff));
   }, [mode, courses.length]);
+  /* ── الفحص الحيّ: مصدرٌ واحد، شبه فوري (A6/A7) ─────────────────────────────
+   * يُجاب أولاً من الجدول المحمّل (بلا طلب)، ثم يحلّ حكم الخادم محلّه — وهو
+   * الحكم نفسه الذي تُقرأ منه اللوحة والشريط وزرّ الحفظ (appointmentVerdict).
+   * • كل حقل يغيّر الحكم في المفاتيح أدناه — ومنها المرفق المرافق والمبنى
+   *   والقاعة الرسمية: كان غيابها يُبقي «المقرر يتطلب مرفقاً» بعد اختياره (A3).
+   * • تحديثٌ حيّ للجدول (حفظ زميل) يعيد الفحص بصمت دون «يفحص» ودون مسح الحكم.
+   * • ذاكرة قصيرة لكل مجموعة قيم: الرجوع إلى قيمٍ فُحصت للتو فوري. */
+  const checkPayloadKey = JSON.stringify({
+    AdCollegeId: form.AdCollegeId, AdSectionId: form.AdSectionId, AdTermId: form.AdTermId, AdCourseId: form.AdCourseId,
+    SCode: form.SCode, AdInstructorId: form.AdInstructorId,
+    fsunday: form.fsunday, fmonday: form.fmonday, ftuesday: form.ftuesday, fwednesday: form.fwednesday, fthursday: form.fthursday,
+    fstarttime: form.fstarttime, fendtime: form.fendtime, AdRoomCode: form.AdRoomCode, AdRoomHall: form.AdRoomHall,
+    buildingId: form.buildingId, roomId: form.roomId, locationStatus: form.locationStatus, companionRoomId: form.companionRoomId || "",
+    excludeId: editId || 0,
+  });
+  const checkCache = useRef(new Map<string, { at: number; data: any }>());
+  useEffect(() => { checkCache.current.clear(); }, [rows]);
   useEffect(() => {
     setSolutions([]);
     if (
@@ -4475,21 +4633,31 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setServerValidationIssues([]);
       setPatternNotice("");
       setLectureNotice("");
+      setChecking(false);
+      lastCheckFormKey.current = "";
       return;
     }
-    // The board already in memory answers first: a same-department collision
-    // lights up the instant a day or an hour is touched, with no request and no
-    // debounce. The server's verdict — which also sees other departments, the
-    // hall's ownership and campus travel — replaces it the moment it lands.
-    const candidate: any = { ...form, id: editId || -900001 };
-    /* «هيئة تدريسية» ليست شخصاً هنا أيضاً: الحكم نفسه الذي يقوله الخادم بعد لحظة. */
-    setConflicts(findConflicts([candidate], editId ? rows.filter(row => row.id !== editId) : rows, { placeholderInstructorIds: placeholderInstructorIds(instructorById.values()) }));
-    setServerValidationIssues([]);
-    setPatternNotice("");
-    setLectureNotice("");
+    const formChanged = lastCheckFormKey.current !== checkPayloadKey;
+    lastCheckFormKey.current = checkPayloadKey;
+    const apply = (data: any) => {
+      setConflicts(data.conflicts || []);
+      setServerValidationIssues(Array.isArray(data.validationIssues) ? data.validationIssues : []);
+      setPatternNotice(typeof data.patternNotice === "string" ? data.patternNotice : "");
+      setLectureNotice(typeof data.lectureNotice === "string" ? data.lectureNotice : "");
+    };
+    const cached = checkCache.current.get(checkPayloadKey);
+    if (cached && Date.now() - cached.at < 20_000) { apply(cached.data); setChecking(false); return; }
+    if (formChanged) {
+      // The board already in memory answers first: a same-department collision
+      // lights up the instant a day or an hour is touched, with no request.
+      const candidate: any = { ...form, id: editId || -900001 };
+      /* «هيئة تدريسية» ليست شخصاً هنا أيضاً: الحكم نفسه الذي يقوله الخادم بعد لحظة. */
+      setConflicts(findConflicts([candidate], editId ? rows.filter(row => row.id !== editId) : rows, { placeholderInstructorIds: placeholderInstructorIds(instructorById.values()) }));
+      setServerValidationIssues([]);
+      setChecking(true);
+    }
     const controller = new AbortController(),
       timer = window.setTimeout(async () => {
-        setChecking(true);
         try {
           const data = await fetchJson("/api/schedules/check-conflicts", {
             method: "POST",
@@ -4497,40 +4665,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             body: JSON.stringify({ ...form, excludeId: editId || 0, instructorRequestId: pendingHandoff.current?.requestId }),
             signal: controller.signal,
           });
-          setConflicts(data.conflicts || []);
-          setServerValidationIssues(Array.isArray(data.validationIssues) ? data.validationIssues : []);
-          setPatternNotice(typeof data.patternNotice === "string" ? data.patternNotice : "");
-          setLectureNotice(typeof data.lectureNotice === "string" ? data.lectureNotice : "");
-        } catch (e: any) {
-          if (e?.name !== "AbortError") { setError(friendlyError(e)); }
-        } finally {
+          checkCache.current.set(checkPayloadKey, { at: Date.now(), data });
+          if (checkCache.current.size > 40) checkCache.current.delete(checkCache.current.keys().next().value as string);
+          apply(data);
           setChecking(false);
+        } catch (e: any) {
+          if (e?.name !== "AbortError") { setError(friendlyError(e)); setChecking(false); }
         }
-      }, 320);
+      }, formChanged ? 160 : 600);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [
-    editor,
-    editId,
-    rows,
-    instructorById,
-    form.AdTermId,
-    form.AdInstructorId,
-    form.AdCourseId,
-    form.SCode,
-    form.fsunday,
-    form.fmonday,
-    form.ftuesday,
-    form.fwednesday,
-    form.fthursday,
-    form.fstarttime,
-    form.fendtime,
-    timeRangeInvalid,
-    form.AdRoomCode,
-    form.AdRoomHall,
-  ]);
+  }, [editor, checkPayloadKey, rows, timeRangeInvalid]);
   // The last successful save becomes the starting point for the next one: same
   // term, same scope, same instructor, same room, same days. Only the identity
   // of the appointment itself starts blank.
@@ -4613,8 +4760,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       return;
     }
     if (!englishDigits(form.SCode)) { setError("الشعبة يجب أن تحتوي على أرقام فقط"); return; }
-    if (validationIssues.length) { setScheduleTouched(true); setError(validationIssues[0]); return; }
-    if (blockingConflicts.length) { setError(blockingConflicts[0]?.message || "لا يمكن الحفظ قبل معالجة التعارضات."); return; }
+    if (!selectedFormDays.length) { setScheduleTouched(true); setError("يجب اختيار يوم واحد على الأقل للمحاضرة."); return; }
+    if (editorVerdict.blockers.length) { setScheduleTouched(true); setError(editorVerdict.blockers[0].text || "لا يمكن الحفظ قبل معالجة التعارضات."); return; }
     const protectedPdfRow = editor === "edit" ? rows.find(row => row.id === editId) : null;
     if (protectedPdfRow && protectedPdfRow.sourceOrder !== undefined && Number(protectedPdfRow.sourceOrder) < 1_000_000 && Number(protectedPdfRow.AdCourseId) !== Number(form.AdCourseId)) {
       const remove = await visualConfirm({
@@ -4879,15 +5026,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       buildingId: draft.buildingId,
       roomId: draft.roomId,
       locationStatus: draft.locationStatus,
+      /* المرفق المرافق كان يسقط هنا فيُرفض حفظ مقرر الاستوديو من البطاقة السريعة. */
+      companionRoomId: draft.companionRoomId || "",
+      companionRoomLabel: draft.companionRoomLabel || "",
     };
-    payload[quick.day] = true;
+    (draft.days?.length ? draft.days : [quick.day]).forEach(day => { payload[day] = true; });
     setSaving(true);
     try {
-      const saved = await fetchJson("/api/schedules", {
+      /* حجز طلب أستاذ يُسأل عنه كما في المحرر الكامل (A2). */
+      const saved: any = await withRequestHoldPrompt(overrideRequestHolds => fetchJson("/api/schedules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+        body: JSON.stringify({ ...payload, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }),
+      }), "الإضافة");
       const createdId = Number(saved?.id || 0);
       if (createdId)
         offerUndo(
@@ -4931,7 +5082,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (!quick) return;
     const seedDay = quick.day, start = draft.start, end = draft.end;
     setQuick(null);
-    openCreate({ day: seedDay, start, end });
+    openCreate({ day: seedDay, ...(draft.days?.length ? { days: draft.days } : {}), start, end });
     setForm(prev => ({
       ...prev,
       AdCourseId: draft.courseId || prev.AdCourseId,
@@ -4942,6 +5093,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       buildingId: draft.buildingId || prev.buildingId,
       roomId: draft.roomId || prev.roomId,
       locationStatus: draft.locationStatus || prev.locationStatus,
+      companionRoomId: draft.companionRoomId || prev.companionRoomId,
+      companionRoomLabel: draft.companionRoomLabel || prev.companionRoomLabel,
     }));
     if (draft.courseId) setCourseName(courseById.get(draft.courseId)?.CourseName || "");
   };
@@ -8778,7 +8931,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               </div>
             </div>
             {formScopeLabel?<div className="scope-inline-note"><strong>النطاق الجاهز</strong><span>{formScopeLabel}</span></div>:null}
-            {(scheduleTouched||outsideTeachingDay)&&validationIssues.length?<div className="editor-validation-strip"><AlertTriangle/><div><strong>صحّح قبل الحفظ</strong>{validationIssues.map(x=><span key={x}>{x}</span>)}</div></div>:null}
+            {editorVerdict.blockers.length?<div className="editor-validation-strip" role="alert"><AlertTriangle/><div><strong>صحّح قبل الحفظ</strong>{editorVerdict.blockers.map(x=><span key={x.id}>{x.text}</span>)}</div></div>:null}
             {Boolean(form.AdCourseId && form.AdCollegeId && form.AdSectionId && form.AdTermId) && <AcademicAdvicePanel compact collegeId={Number(form.AdCollegeId)} sectionId={Number(form.AdSectionId)} termId={Number(form.AdTermId)} courseId={Number(form.AdCourseId)} candidate={{ days: (["fsunday","fmonday","ftuesday","fwednesday","fthursday"] as const).filter(day => Boolean(form[day])), start: String(form.fstarttime || ""), end: String(form.fendtime || "") }} />}
             <form onSubmit={save}>
               <div className="schedule-form-sections">
@@ -8828,6 +8981,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     searchPlaceholder="اكتب اسم المقرر"
                     required
                   />
+                  {courseSpellingTwins.length ? (
+                    <small className="course-twin-hint" role="status" title="الاسمان إملاءٌ واحد لمقرر واحد غالباً؛ الدمج من «فحص المقررات المكررة» في مراجعة الصحيفة، ولا يُحذف شيء دون تأكيد.">
+                      <AlertTriangle aria-hidden="true" /><span>إملاء آخر: «{courseSpellingTwins[0]}»</span><b>اقتراح دمج</b>
+                    </small>
+                  ) : null}
                   {!courseNames.length && form.AdSectionId ? <small className="field-inline-hint">لا تظهر مقررات لهذا القسم بعد. جرّبتُ الآن الجلب المباشر للقسم الحالي؛ إن استمرت القائمة فارغة فراجع بيانات المقررات في القسم نفسه.</small> : null}
                 </Field>
                 <Field label="رمز المقرر الدراسي" required>
@@ -8942,25 +9100,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     ) : null}
                   </div>
                 ) : null}
-                {approvedPatterns.length ? (
-                  <div className="pattern-shelf">
-                    <span>الأنماط المعتمدة لهذا المقرر</span>
-                    <div>
-                      {approvedPatterns.map(pattern => (
-                        <button
-                          type="button"
-                          key={pattern.id}
-                          className={activePattern?.id === pattern.id ? "active" : ""}
-                          onClick={() => applyPattern(pattern)}
-                          title={pattern.note}
-                        >
-                          {pattern.label}
-                        </button>
-                      ))}
-                    </div>
-                    {activePattern ? <small>{activePattern.note}</small> : <small>اختر نمطاً ليضبط الأيام والمدة معاً.</small>}
-                  </div>
-                ) : null}
                 <Field label="الأيام" hint={dayPatternNote}>
                   <div className="checkbox-row day-pills">
                     {days.map((d) => (
@@ -8968,26 +9107,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         <input
                           type="checkbox"
                           checked={Boolean(form[d.key])}
-                          onChange={(e) => {
-                            setScheduleTouched(true);
-                            setForm((p) => {
-                              const next: any = { ...p, [d.key]: e.target.checked };
-                              // Changing the selected teaching days changes the
-                              // duration. Prefer this department/course history;
-                              // the 50/80-minute institutional rhythm is only the
-                              // fallback when history has no reliable answer.
-                              if (next.fstarttime) {
-                                const duration = expectedDurationForSelection(next);
-                                if (duration > 0) next.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_END, mins(next.fstarttime) + duration));
-                              }
-                              return next;
-                            });
-                          }}
+                          onChange={(e) => chooseFormDay(d.key as RegDayKey, e.target.checked)}
                         />
                         <span>{d.label}</span>
                       </label>
                     ))}
                   </div>
+                  <RegulationPatternChips
+                    choices={formRegulationChips}
+                    activeId={formRegulationChoice?.id}
+                    fit={formRegulationFit}
+                    onPick={applyRegulationChoice}
+                  />
                 </Field>
                   </div>
                 </section>
@@ -9010,7 +9141,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         setStartTimeLimitNotice("");
                         setScheduleTouched(true);
                         const start = e.target.value;
-                        setForm((p) => ({ ...p, fstarttime: start, fendtime: autoEndFor(p, start) }));
+                        setForm((p) => ({ ...p, fstarttime: start, fendtime: endForStart(p, start) }));
                       }}
                       required
                     />
@@ -9072,7 +9203,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   courseRoomType={String(courseById.get(Number(form.AdCourseId||0))?.CourseRoomType||"")}
                   courseTeachingMode={String(courseById.get(Number(form.AdCourseId||0))?.CourseTeachingMode||"")}
                   seatsNeeded={Number(courseById.get(Number(form.AdCourseId||0))?.MaxStudent||0)}
-                  onChange={(patch)=>{setScheduleTouched(true);setForm(current=>({...current,...patch,companionRoomId:"",companionRoomLabel:""}));}}
+                  onChange={(patch)=>{setScheduleTouched(true);setForm(current=>{
+                    /* المرفق المرافق يتبع الموقع: يُمحى فقط إن تغيّر المبنى فعلاً — لا عند كل
+                       تطبيعٍ للموقع، وإلا فتح تعديلُ موعدٍ سليم ومرفقُه ممحوّ (A3). */
+                    const buildingChanged = "buildingId" in patch && String(patch.buildingId || "") !== String(current.buildingId || "");
+                    return {...current,...patch,...(buildingChanged?{companionRoomId:"",companionRoomLabel:""}:{})};
+                  });}}
                   showRaw={editor==="edit"}
                   hallAction={hallAvailabilityReady && Number(form.AdSectionId||0) ? (
                     <div className="room-suggest">
@@ -9089,10 +9225,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         <span>{roomIdeasBusy ? "أبحث…" : "اقترح قاعة متاحة"}</span>
                       </button>
                       {roomIdeas ? (
-                        roomIdeas.length ? (
-                          <RoomSuggestionCards suggestions={roomIdeas} onSelect={takeSlot} label="قاعات متاحة في هذا الوقت" />
+                        roomIdeas.length || roomReplaceable.length ? (
+                          <RoomSuggestionCards suggestions={roomIdeas} onSelect={takeSlot} label="قاعات متاحة في هذا الوقت"
+                            replaceable={roomReplaceable} replaceBusy={replaceBusy}
+                            onReplaceable={(section, action) => void placeholderAction(section, action)} />
                         ) : (
-                          <p className="room-suggest-empty">{roomIdeasNote || "لا توجد قاعة خالية من قاعات القسم في هذا الوقت."}</p>
+                          <SuggestionEmpty reason={roomIdeasReason} note={roomIdeasNote || "لا توجد قاعة خالية من قاعات القسم في هذا الوقت."} />
                         )
                       ) : null}
                     </div>
@@ -9251,26 +9389,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     </button>
                     {slotIdeas ? (
                       slotIdeas.length ? (
-                        <div className="slot-ideas">
-                          {slotIdeas.map((slot, index) => (
-                            <button type="button" key={`${slot.start}-${slot.room}-${slot.hall}`} onClick={() => takeSlot(slot)}>
-                              <b className="slot-rank">{index + 1}</b>
-                              <span className="slot-when">
-                                <time dir="ltr">{formatScheduleTimeRange(slot.start, slot.end)}</time>
-                                <small>{slot.room}/{slot.hall}</small>
-                              </span>
-                              <span className="slot-why">
-                                {slot.reasons.map((reason: string) => <i key={reason}>{reason}</i>)}
-                              </span>
-                              <span className="slot-score" style={{ "--score": `${slot.score}%` } as React.CSSProperties}>
-                                <i />
-                                <em>{slot.score}</em>
-                              </span>
-                            </button>
-                          ))}
-                        </div>
+                        <RoomSuggestionCards variant="slot" suggestions={slotIdeas} onSelect={takeSlot} label="أفضل الأوقات والقاعات" />
                       ) : (
-                        <p className="slot-empty">{slotIdeasNote || "لا توجد خانة خالية بهذه الأيام والمدة."}</p>
+                        <SuggestionEmpty reason={slotIdeasReason} note={slotIdeasNote || "لا توجد خانة خالية بهذه الأيام والمدة."} />
                       )
                     ) : null}
                   </div>
@@ -9310,181 +9431,121 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         : "—"
                     }
                   />
+                  {/* الحكم نفسه الذي تقرؤه لوحة الفحص والشريط وزرّ الحفظ. */}
                   <Badge
                     tone={
-                      checking
-                        ? "neutral"
-                        : conflicts.length
+                      editorVerdict.blockers.length
+                        ? "danger"
+                        : editorVerdict.notes.length
                           ? "warning"
-                          : "success"
+                          : checking ? "neutral" : "success"
                     }
                   >
-                    {checking
-                      ? "جاري الفحص"
-                      : conflicts.length
-                        ? countOf(conflicts.length, AR.note)
-                        : "جاهز"}
+                    {editorVerdict.blockers.length
+                      ? countOf(editorVerdict.blockers.length, AR.blocker)
+                      : checking
+                        ? "يفحص…"
+                        : editorVerdict.notes.length
+                          ? countOf(editorVerdict.notes.length, AR.note)
+                          : "جاهز"}
                   </Badge>
                 </div>
               </div>
-              <FormActions onBack={back} loading={saving} submitDisabled={Boolean(validationIssues.length||blockingConflicts.length||checking)} />
+              <FormActions onBack={back} loading={saving} submitDisabled={Boolean(!selectedFormDays.length||!editorVerdict.canSave)} />
             </form>
           </Surface>
-          <aside className={`conflict-panel ${validationIssues.length || blockingConflicts.length ? "conflict-panel--alert" : "conflict-panel--clear"}`}>
-            <div className={`conflict-head ${validationIssues.length || blockingConflicts.length ? "conflict-head--alert" : "conflict-head--clear"}`}>
-              <span>
-                {validationIssues.length || blockingConflicts.length ? <AlertTriangle /> : <CheckCircle2 />}
-              </span>
-              <div>
-                <strong>فحص موانع الحفظ</strong>
-                <small>
-                  {validationIssues.length?"تحقق من الوقت والأيام":checking?"جاري الفحص...":blockingConflicts.length?"تعارض يمنع الحفظ":editorTimingReviewCard?"ملاحظة تاريخية تحتاج مراجعة":"لا يوجد مانع ظاهر"}
-                </small>
+          <div className="editor-side">
+          {Number(form.AdInstructorId || 0) && !isFacultyPlaceholderId(Number(form.AdInstructorId)) ? (
+            <TeacherMiniWeek
+              teacherId={Number(form.AdInstructorId)}
+              teacherName={instructorById.get(Number(form.AdInstructorId))?.AdInstructorName || ""}
+              nisab={Number(instructorById.get(Number(form.AdInstructorId))?.AdInstructorLoad || 0)}
+              visiting={formVisiting(form.AdInstructorId)}
+              rows={rows}
+              termId={Number(form.AdTermId || filterTerm || 0)}
+              collegeId={Number(form.AdCollegeId || 0)}
+              excludeId={editor === "edit" ? Number(editId || 0) : 0}
+              original={editorOriginalRow}
+              draft={form}
+              verdict={editorVerdict}
+              course={formCourse}
+              courses={courseById}
+              window={miniWeekWindow}
+              userId={Number(user?.SystemUserId || 0)}
+              onPick={pickFromMiniWeek}
+            />
+          ) : null}
+          <AppointmentChecksPanel
+            verdict={editorVerdict}
+            checking={checking}
+            lockedReason={approvalLock}
+            alternativeBusy={altBusy}
+            onAlternative={() => void askAlternatives()}
+            renderConflict={detail => {
+              const card = editorConflictCards.find(item => item.source === detail.conflict);
+              return card ? renderEditorConflictCard(card) : null;
+            }}
+          >
+            {editorVerdict.blockers.length ? (
+              <div className="solver-box">
+                <SecondaryButton type="button" onClick={() => void askAlternatives()} disabled={altBusy} data-guide-ignore="يطلب بدائل آمنة (القاعة نفسها في وقت آخر أو قاعة أخرى في الوقت نفسه) من محرك الاقتراح الموحد؛ لا يحفظ شيئاً">
+                  <WandSparkles />
+                  {altBusy ? "أبحث عن البدائل..." : "اقترح بديلاً آمناً"}
+                </SecondaryButton>
               </div>
-            </div>
-            {hasEditorDecisionAccordions ? (
-              <div className="decision-accordion-list" aria-label="تفاصيل المراجعة">
-                {editorRoomConflictCards.length ? (
-                  <details className={`decision-accordion ${accordionTone(editorRoomConflictCards)}`} open={editorRoomConflictCards.some(card => card.blocks)}>
-                    <summary className="decision-accordion-summary">
-                      <span className="decision-accordion-title"><Building2 /> تعارض قاعة</span>
-                      <em>{countOf(editorRoomConflictCards.length, AR.note)}</em>
-                    </summary>
-                    <div className="decision-accordion-body">
-                      <div className="decision-stack" aria-label="تعارض قاعة">
-                        {editorRoomConflictCards.map(renderEditorConflictCard)}
-                      </div>
+            ) : null}
+            {alternatives ? (
+              alternatives.slots.length
+                ? <RoomSuggestionCards variant="slot" suggestions={alternatives.slots} onSelect={takeSlot} label="بدائل آمنة" />
+                : <SuggestionEmpty reason={alternatives.reason} note={alternatives.note} />
+            ) : null}
+            {editorRegulation.length ? (
+              <details className="decision-accordion decision-accordion--regulation">
+                <summary className="decision-accordion-summary">
+                  <span className="decision-accordion-title decision-regulation-title">
+                    <ClipboardCheck />
+                    <span><strong>موانع اللائحة</strong><small>{DECISION_1912_LABEL}</small></span>
+                  </span>
+                  <em className="decision-regulation-count">{countOf(editorRegulation.length, AR.approvalBlocker)}</em>
+                </summary>
+                <div className="decision-accordion-body">
+                  <section className="decision-section decision-section--regulation" role="status" aria-label={`ملاحظات اللائحة · ${DECISION_1912_LABEL}`}>
+                    <div className="decision-note-list">
+                      {editorRegulationCards.map((finding) => (
+                        <article key={finding.rule} className={`decision-note decision-note--${finding.severity} decision-note--feature`}>
+                          <div className="decision-feature-topline">
+                            <span className="decision-card-kicker">مانع اعتماد · {DECISION_1912_LABEL}</span>
+                            <em className="decision-card-flag">{finding.article || "معلومة"}</em>
+                          </div>
+                          <div className="decision-feature-hero">
+                            <div className="decision-note-body">
+                              <strong>{finding.title}</strong>
+                              {finding.detail ? <details className="decision-note-details"><summary>التفاصيل</summary><p>{finding.detail}</p></details> : null}
+                            </div>
+                            <div className="decision-note-icon" aria-hidden="true">
+                              {finding.icon === "history" ? <History /> : finding.icon === "room" ? <Building2 /> : <Lightbulb />}
+                            </div>
+                          </div>
+                          {finding.metric ? (
+                            <div className="regulation-metric-strip" aria-hidden="true">
+                              <div><span>الحالي</span><strong>{finding.metric.current.toLocaleString("ar-KW-u-nu-latn")} {finding.metric.unit}</strong></div>
+                              <div className="regulation-metric-emphasis"><span>{finding.metric.delta > 0 ? "أكثر بـ" : finding.metric.delta < 0 ? "أقل بـ" : "مطابق"}</span><strong>{Math.abs(finding.metric.delta).toLocaleString("ar-KW-u-nu-latn")} {finding.metric.unit}</strong></div>
+                              <div><span>المعتاد</span><strong>{finding.metric.usual.toLocaleString("ar-KW-u-nu-latn")} {finding.metric.unit}</strong></div>
+                            </div>
+                          ) : (
+                            <div className="regulation-facts" aria-hidden="true">
+                              <div><span>مدة اللقاء</span><strong>{finding.currentDurationLabel}</strong></div>
+                              <div><span>الأيام</span><strong>{finding.selectedDaysLabel}</strong></div>
+                              <div><span>المرجع</span><strong>{finding.article || "لائحة"}</strong></div>
+                            </div>
+                          )}
+                        </article>
+                      ))}
                     </div>
-                  </details>
-                ) : null}
-                {editorInstructorConflictCards.length ? (
-                  <details className={`decision-accordion ${accordionTone(editorInstructorConflictCards)}`} open={editorInstructorConflictCards.some(card => card.blocks)}>
-                    <summary className="decision-accordion-summary">
-                      <span className="decision-accordion-title"><UsersRound /> تعارض أستاذ</span>
-                      <em>{countOf(editorInstructorConflictCards.length, AR.note)}</em>
-                    </summary>
-                    <div className="decision-accordion-body">
-                      <div className="decision-stack" aria-label="تعارض أستاذ">
-                        {editorInstructorConflictCards.map(renderEditorConflictCard)}
-                      </div>
-                    </div>
-                  </details>
-                ) : null}
-                {editorDuplicateConflictCards.length ? (
-                  <details className={`decision-accordion ${accordionTone(editorDuplicateConflictCards)}`} open={editorDuplicateConflictCards.some(card => card.blocks)}>
-                    <summary className="decision-accordion-summary">
-                      <span className="decision-accordion-title"><CopyPlus /> موعد مكرر</span>
-                      <em>{countOf(editorDuplicateConflictCards.length, AR.note)}</em>
-                    </summary>
-                    <div className="decision-accordion-body">
-                      <div className="decision-stack" aria-label="موعد مكرر">
-                        {editorDuplicateConflictCards.map(renderEditorConflictCard)}
-                      </div>
-                    </div>
-                  </details>
-                ) : null}
-                {editorRegulation.length ? (
-                  <details className="decision-accordion decision-accordion--regulation">
-                    <summary className="decision-accordion-summary">
-                      <span className="decision-accordion-title decision-regulation-title">
-                        <ClipboardCheck />
-                        <span><strong>موانع اللائحة</strong><small>{DECISION_1912_LABEL}</small></span>
-                      </span>
-                      <em className="decision-regulation-count">{countOf(editorRegulation.length, AR.approvalBlocker)}</em>
-                    </summary>
-                    <div className="decision-accordion-body">
-                      <section className="decision-section decision-section--regulation" role="status" aria-label={`ملاحظات اللائحة · ${DECISION_1912_LABEL}`}>
-                        <div className="decision-note-list">
-                          {editorRegulationCards.map((finding) => (
-                            <article key={finding.rule} className={`decision-note decision-note--${finding.severity} decision-note--feature`}>
-                              <div className="decision-feature-topline">
-                                <span className="decision-card-kicker">مانع اعتماد · {DECISION_1912_LABEL}</span>
-                                <em className="decision-card-flag">{finding.article || "معلومة"}</em>
-                              </div>
-                              <div className="decision-feature-hero">
-                                <div className="decision-note-body">
-                                  <strong>{finding.title}</strong>
-                                  {finding.detail ? <details className="decision-note-details"><summary>التفاصيل</summary><p>{finding.detail}</p></details> : null}
-                                </div>
-                                <div className="decision-note-icon" aria-hidden="true">
-                                  {finding.icon === "history" ? <History /> : finding.icon === "room" ? <Building2 /> : <Lightbulb />}
-                                </div>
-                              </div>
-                              {finding.metric ? (
-                                <div className="regulation-metric-strip" aria-hidden="true">
-                                  <div><span>الحالي</span><strong>{finding.metric.current.toLocaleString("ar-KW-u-nu-latn")} {finding.metric.unit}</strong></div>
-                                  <div className="regulation-metric-emphasis"><span>{finding.metric.delta > 0 ? "أكثر بـ" : finding.metric.delta < 0 ? "أقل بـ" : "مطابق"}</span><strong>{Math.abs(finding.metric.delta).toLocaleString("ar-KW-u-nu-latn")} {finding.metric.unit}</strong></div>
-                                  <div><span>المعتاد</span><strong>{finding.metric.usual.toLocaleString("ar-KW-u-nu-latn")} {finding.metric.unit}</strong></div>
-                                </div>
-                              ) : (
-                                <div className="regulation-facts" aria-hidden="true">
-                                  <div><span>مدة اللقاء</span><strong>{finding.currentDurationLabel}</strong></div>
-                                  <div><span>الأيام</span><strong>{finding.selectedDaysLabel}</strong></div>
-                                  <div><span>المرجع</span><strong>{finding.article || "لائحة"}</strong></div>
-                                </div>
-                              )}
-                            </article>
-                          ))}
-                        </div>
-                      </section>
-                    </div>
-                  </details>
-                ) : null}
-                {editorGenericConflictCards.length || editorSupplementalCards.length ? (
-                  <details className={`decision-accordion ${accordionTone(editorGenericConflictCards)}`} open={editorGenericConflictCards.some(card => card.blocks)}>
-                    <summary className="decision-accordion-summary">
-                      <span className="decision-accordion-title"><Layers /> تنبيهات</span>
-                      <em>{countOf(editorGenericConflictCards.length + editorSupplementalCards.length, AR.note)}</em>
-                    </summary>
-                    <div className="decision-accordion-body">
-                      {editorGenericConflictCards.length ? (
-                        <div className="decision-stack" aria-label="ملاحظة">
-                          {editorGenericConflictCards.map(renderEditorConflictCard)}
-                        </div>
-                      ) : null}
-                      {editorSupplementalCards.length ? (
-                        <div className="decision-note-list" aria-label="ملاحظات سياقية">
-                          {editorSupplementalCards.map(finding => (
-                            <article key={finding.rule} className={`decision-note decision-note--${finding.severity} decision-note--feature`}>
-                              <div className="decision-feature-topline">
-                                <span className="decision-card-kicker">{finding.sourceLabel}</span>
-                                <em className="decision-card-flag">{finding.article && finding.article !== finding.sourceLabel ? finding.article : "مرجع تاريخي"}</em>
-                              </div>
-                              <div className="decision-feature-hero">
-                                <div className="decision-note-body">
-                                  <strong>{finding.title}</strong>
-                                  {finding.detail ? <details className="decision-note-details"><summary>التفاصيل</summary><p>{finding.detail}</p></details> : null}
-                                </div>
-                                <div className="decision-note-icon" aria-hidden="true">
-                                  {finding.icon === "history" ? <History /> : finding.icon === "room" ? <Building2 /> : <Lightbulb />}
-                                </div>
-                              </div>
-                            </article>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </details>
-                ) : null}
-              </div>
-            ) : (
-              approvalLock ? (
-                /* الفحصُ نظيف، لكنّ الحفظ لن يمرّ: يُقال السببُ هنا بدل «صالح». */
-                <div className="conflict-clear" data-locked="true">
-                  <AlertTriangle />
-                  <strong>لا يُحفظ الآن</strong>
-                  <span>{approvalLock}</span>
+                  </section>
                 </div>
-              ) : (
-              <div className="conflict-clear">
-                <CheckCircle2 />
-                <strong>الموعد صالح للحفظ</strong>
-                <span>
-                  سيستمر الفحص تلقائياً مع تغيير الوقت أو القاعة أو الأستاذ.
-                </span>
-              </div>
-              )
-            )}
+              </details>
+            ) : null}
             {patternNotice ? (
               <div className="pattern-notice-box">
                 <style>{PATTERN_LIBRARY_CSS}</style>
@@ -9514,48 +9575,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </div>
               </div>
             ) : null}
-            {conflicts.length ? (
-              <div className="solver-box">
-                <SecondaryButton
-                  type="button"
-                  onClick={solveConflicts}
-                  disabled={solving}
-                >
-                  <WandSparkles />
-                  {solving ? "أبحث عن البدائل..." : "اقترح بديلاً آمناً"}
-                </SecondaryButton>
-                {solutions.length ? (
-                  <div className="solver-results">
-                    {solutions.map((x: any) => (
-                      <button
-                        type="button"
-                        key={`${x.start}-${x.roomCode}-${x.roomHall}`}
-                        onClick={() => applySolution(x)}
-                      >
-                        <span className="solver-rank">{x.rank}</span>
-                        <div>
-                          <strong dir="ltr">
-                            {formatScheduleTimeRange(x.start, x.end)}
-                          </strong>
-                          <small>
-                            مبنى {x.roomCode} · قاعة {x.roomHall}
-                          </small>
-                        </div>
-                        {/* A clear suggestion needs no "no obstacle" label — that
-                            is what being suggested already means. Only a real
-                            caveat earns a badge. */}
-                        {x.conflicts ? <Badge tone="warning">{x.label}</Badge> : null}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            <p className="conflict-note">
-              هذه تنبيهات واقتراحات فقط؛ الحفظ الأصلي لا يتم إلا عندما تضغط
-              «موافق».
-            </p>
-          </aside>
+          </AppointmentChecksPanel>
+          </div>
         </div>
       </div>
     );
@@ -12340,6 +12361,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           }, day)}
           conflictOf={quickConflict}
           nextSectionCode={(courseId) => nextSectionCode(courseId, Number(filterTerm) || 0)}
+          departmentIds={departmentInstructorIds}
+          visitingIds={visitingIds}
+          visitingRosterIds={pickerVisitingRosterIds}
+          miniWeek={{ rows, courses: courseById, window: miniWeekWindow, userId: Number(user?.SystemUserId || 0), nisabOf: (id: number) => Number(instructorById.get(id)?.AdInstructorLoad || 0), nameOf: (id: number) => instructorById.get(id)?.AdInstructorName || "", isPlaceholder: isFacultyPlaceholderId }}
           saving={saving}
           error={quickError}
           onCancel={() => { setQuick(null); setQuickError(null); }}

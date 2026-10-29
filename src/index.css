@@ -40,6 +40,7 @@
 @import "./styles/34-decision-surfaces.css";
 @import "./styles/35-visual-polish.css";
 @import "./styles/33-owner-features.css";
+@import "./styles/36-appointment-forms.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the
    render-blocking path. They were the LAST two imports, so loading them after
    everything else preserves the cascade order exactly as it stands here. */
