@@ -85,6 +85,7 @@
     "test:registration-flow": "tsx tests/registration-flow-audit.ts && npm run test:demand-repair-simulation",
     "test:feature-notifications": "tsx tests/feature-notifications-audit.ts",
     "test:demo-radar": "tsx tests/demo-radar-audit.ts",
+    "test:demo-firestore-isolation": "tsx tests/demo-firestore-isolation-audit.ts",
     "test:term-forecast": "tsx tests/term-forecast-audit.ts",
     "test:section-gap": "tsx tests/section-gap-audit.ts && tsx tests/visiting-need-audit.ts",
     "test:searchable-select": "tsx tests/searchable-select-audit.ts",

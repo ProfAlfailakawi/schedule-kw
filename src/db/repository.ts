@@ -1073,7 +1073,8 @@ export function saveDatabase() {
 async function markRegistrationRunsStale(termId?: number): Promise<void> {
   const at = new Date().toISOString();
   try {
-    if (firestoreDb) {
+    /* A demo visitor's edits live in their sandbox only: they must never mark the real radar runs stale. */
+    if (firestoreDb && !demoSandboxContext.getStore()) {
       const snapshot = await firestoreDb.collection("registrationRuns").get();
       const matches = snapshot.docs.filter(doc => {
         const run = doc.data() as RegistrationRun;
