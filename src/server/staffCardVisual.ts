@@ -23,6 +23,13 @@ var SKC={
 `;
 
 export const STAFF_CARD_VISUAL_CSS = String.raw`
+/* «تذكّرني على هذا الجهاز» تحت حقل الرقم، و«انسَ هذا الجهاز» في ذيل البطاقة. */
+.remember{display:flex;align-items:center;justify-content:center;gap:8px;inline-size:fit-content;margin:12px auto 0;min-height:40px;padding:0 6px;font-size:13.5px;font-weight:600;color:var(--muted,#5f6d68);cursor:pointer}
+.remember input{flex:none;inline-size:20px!important;block-size:20px!important;min-inline-size:0!important;margin:0;padding:0;border:0;box-shadow:none;accent-color:var(--ok,#1f6b56)}
+.forget{display:block;margin:6px auto 18px;padding:8px 14px;min-height:40px;border:1px solid var(--line,#dfe4de);border-radius:999px;background:transparent;color:var(--muted,#5f6d68);font:inherit;font-size:12.5px;cursor:pointer}
+.forget[hidden]{display:none}
+@media print{.remember,.forget{display:none!important}}
+
 /* ── مظهر «بطاقتي» ───────────────────────────────────────────────────────── */
 .head-tools{display:flex;gap:8px;flex:none}
 .head h1{text-wrap:balance}

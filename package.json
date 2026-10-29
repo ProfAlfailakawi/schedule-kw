@@ -23,6 +23,7 @@
     "test:approval-review": "tsx tests/approval-review-audit.ts",
     "test:decision-surfaces": "tsx tests/decision-surfaces-audit.ts",
     "test:voice-input": "tsx tests/voice-input-audit.ts",
+    "test:staff-device": "tsx tests/staff-device-key-audit.ts",
     "test:teacher-card-flow": "tsx tests/teacher-card-flow-audit.ts",
     "test:day-autofill": "tsx tests/request-day-autofill-audit.ts",
     "test:teacher-card": "tsx tests/teacher-card-polish-audit.ts",
