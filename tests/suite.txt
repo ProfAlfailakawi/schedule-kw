@@ -54,6 +54,8 @@ test:student-case-status
 test:student-registration
 test:student-journey
 test:print-attestation
+test:print-fit
+test:occupancy-heat
 test:request-handoff
 test:request-signature
 test:teacher-card
