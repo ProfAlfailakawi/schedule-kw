@@ -62,3 +62,26 @@ details.of-section[open]>summary{background:var(--accent-softer)}
 .ta-allowed{flex-basis:100%;display:grid;gap:6px;padding:8px;border-radius:12px;background:var(--accent-softer)}
 .ta-allowed-hint{color:var(--muted,#6b7280);font-size:.74rem}
 .of-chip bdi{white-space:nowrap}
+
+/* تعبئة الأسماء: من أيّ فصلٍ تُؤخذ — مقبضٌ صغير بجانب «من الجدول» */
+.of-term-pick{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2,#f4f6f3)}
+.of-term-pick>svg{width:15px;height:15px;margin-inline:6px 2px;color:var(--muted)}
+.of-term-pick>button{min-height:30px;padding:3px 12px;border:0;border-radius:999px;background:transparent;color:var(--muted);font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+.of-term-pick>button.on{background:var(--surface,#fff);color:var(--accent-ink,var(--ink));box-shadow:0 1px 3px color-mix(in srgb,var(--ink) 14%,transparent)}
+.of-term-pick>button:disabled{opacity:.5;cursor:default}
+
+/* ── منتقي الكلية والقسم في رأس شاشات الإرشاد (AdvisingScopePicker) ── */
+.adv-scope{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
+.adv-scope-pick{display:inline-flex;align-items:center;gap:6px;min-height:42px;max-width:min(320px,100%);padding:0 6px 0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface,#fff);box-shadow:var(--shadow-xs);cursor:pointer;min-width:0}
+.adv-scope-pick>svg{width:17px;height:17px;flex:none;color:var(--accent)}
+.adv-scope-pick select{appearance:auto;min-width:0;max-width:100%;border:0;background:transparent;color:var(--ink);font:inherit;font-size:.9rem;font-weight:800;padding:6px 2px;cursor:pointer;text-overflow:ellipsis}
+.adv-scope-pick select:focus-visible{outline:none}
+.adv-scope-pick:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+.adv-scope-pick.is-fixed{cursor:default;background:var(--surface-2,#f4f6f3);box-shadow:none;padding-inline:12px}
+.adv-scope-pick.is-fixed span{font-size:.88rem;font-weight:800;color:var(--ink-2,var(--ink));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adv-scope-pick select:disabled{opacity:.55;cursor:not-allowed}
+@media (max-width:640px){
+  .adv-scope{width:100%}
+  .adv-scope-pick{flex:1 1 0;max-width:none}
+  .adv-scope-pick select{width:100%}
+}

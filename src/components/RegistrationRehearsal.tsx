@@ -27,6 +27,8 @@ import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { orderRadarCourses } from "../utils/registrationSim";
 import RadarSchedule, { request } from "./RadarSchedule";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
+import AdvisingScopePicker, { useAdvisingScopeCatalog } from "./AdvisingScopePicker";
+import { byArabic } from "../utils/sorting";
 
 interface Unmet { "not-offered": number; conflict: number; full: number; prereq: number; units: number }
 interface CourseRow { courseId: number; code: string; name: string; sections: number; capacity: number; taken: number; wanted: number; seated: number; unmet: Unmet }
@@ -85,7 +87,29 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
     fetch("/api/terms", { cache: "no-store" }).then(r => r.ok ? r.json() : []).then(list => { if (live) setTerms(Array.isArray(list) ? list : (list.terms || [])); }).catch(() => undefined);
     return () => { live = false; };
   }, []);
-  const termQuery = termPick ? `?termId=${termPick}` : "";
+  /* ── الكلية والقسم في الرأس ── 0 = «الكل» (نطاق القارئ كله، كما كان). يضيّقان ما يعرضه الخادم
+     داخل نطاق القارئ ولا يوسّعانه (simulationRoutes: pickOf). */
+  const catalog = useAdvisingScopeCatalog();
+  const [scopePick, setScopePick] = useState({ collegeId: 0, sectionId: 0 });
+  const termQuery = (() => {
+    const params = new URLSearchParams();
+    if (termPick) params.set("termId", String(termPick));
+    if (scopePick.collegeId) params.set("collegeId", String(scopePick.collegeId));
+    if (scopePick.sectionId) params.set("sectionId", String(scopePick.sectionId));
+    const text = params.toString();
+    return text ? `?${text}` : "";
+  })();
+  const collegeChoices = useMemo(() => (catalog?.colleges || []).map(row => ({ value: row.id, label: row.name || `كلية ${row.id}` })).sort((a, b) => byArabic(a.label, b.label)), [catalog]);
+  const sectionChoices = useMemo(() => (catalog?.sections || [])
+    .filter(row => !scopePick.collegeId || row.collegeId === scopePick.collegeId)
+    .map(row => ({ value: row.id, label: row.name || `قسم ${row.id}` }))
+    .filter((row, index, all) => all.findIndex(other => other.value === row.value) === index)
+    .sort((a, b) => byArabic(a.label, b.label)), [catalog, scopePick.collegeId]);
+  const pickScope = (next: { collegeId: number; sectionId: number }) => {
+    if (next.collegeId === scopePick.collegeId && next.sectionId === scopePick.sectionId) return;
+    setData(null); setOutcome(null); setInsight(null); setInsightFailed(false); setView(null); setAll(false); setQ(""); setError("");
+    setScopePick(next);
+  };
 
   const load = useCallback(async () => {
     try { const next = await request(`/api/simulation/summary${termQuery}`); setData(next); if (!termPick && next?.term?.id) setDoorId(Number(next.term.id)); setError(""); } catch (e: any) { setError(e.message); }
@@ -175,6 +199,13 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
       <PageTitle eyebrow="رادار التسجيل" subtitle="لو سجّل الطلبةُ بحسب ما كتبوه: أين الزحام، وما المطلوب ولا يُطرح؟"
         action={(
           <div className="sm-actions">
+            {(catalog?.sections.length || 0) > 1 ? (
+              <AdvisingScopePicker idPrefix="radar" colleges={collegeChoices} sections={sectionChoices}
+                collegeId={scopePick.collegeId} sectionId={scopePick.sectionId}
+                allLabel={{ college: "كل الكليات", section: "كل الأقسام" }}
+                onCollege={id => pickScope({ collegeId: id, sectionId: 0 })}
+                onSection={id => pickScope({ collegeId: scopePick.collegeId || (catalog?.sections.find(row => row.id === id)?.collegeId || 0), sectionId: id })} />
+            ) : null}
             {data?.run ? <SecondaryButton onClick={exportXlsx} data-guide-ignore="تصديرُ تقرير الرادار داخل شاشةٍ مسجّلة في المرشد باسم page.simulation"><Download size={16} /> تقرير Excel</SecondaryButton> : null}
             <MasariQrButton data-guide-ignore="زرُّ رمز «مساري» داخل شاشةٍ مسجّلة في المرشد باسم page.simulation" />
           </div>

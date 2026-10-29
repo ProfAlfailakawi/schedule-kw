@@ -691,29 +691,63 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     );
   };
 
-  const renderFinding = (finding: ReviewFindingGroup) => (
-            <details key={finding.groupKey} className={`review-finding severity-${findingTone(finding)}`}>
+  /* ── بندٌ واحد، بطاقةٌ واحدة ─────────────────────────────────────────────
+     كانت البنود تُعرض مرتين: قائمةٌ فوق فيها «83 ← 98» و«عالج» بعدد مواعيد
+     الكلية المفتوحة (8)، ثم البطاقات نفسها تحتها بعدد مواعيد القسم في كلياته كلها
+     (24). فصار البند الواحد رقمين. الآن البطاقة وحدها: عددُها مواعيدُ الكلية التي
+     تُحسب عليها الدرجة (scoreSegmentOf)، وفيها ما تصير إليه الدرجة و«عالج». */
+  /* لكل بطاقةٍ أثرُها هي: الموانع المادية تُفكّ بطاقةً بطاقة (الحلقة تجمعها شريحةً واحدة)،
+     والسليمُ لا يتغيّر — الاتحادُ نفسه — فالدرجة واحدة في الرأس والبطاقات. */
+  const cardBreakdown = useMemo(() => approvalScoreBreakdown(
+    scopeRows.map(row => Number(row.id)),
+    groupedFindings.map(group => ({ key: group.groupKey, label: group.title, tone: isMaterialFinding(group) ? "block" as const : "regulation" as const, rowIds: group.rowIds })),
+  ), [scopeRows, groupedFindings]);
+  const scoreSegmentOf = (finding: ReviewFindingGroup) => cardBreakdown.segments.find(segment => segment.key === finding.groupKey);
+  const renderFinding = (finding: ReviewFindingGroup) => {
+    const scoped = finding.rowIds.filter(id => scopeIds.has(Number(id)));
+    const elsewhere = finding.rowIds.length - scoped.length;
+    const segment = scoreSegmentOf(finding);
+    const gain = segment ? segment.projected - score : 0;
+    const focusable = scoped.filter(id => loadedIds.has(id));
+    return (
+            <details key={finding.groupKey} className={`review-finding severity-${findingTone(finding)}`} data-review-finding={finding.groupKey}>
               <summary data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط">
                 <span className="review-mark" aria-hidden="true">{findingIcon(finding)}</span>
                 <span className="review-copy">
                   <strong>{markVisitingNames(finding.title, finding.rowIds)}</strong>
                   <small>{findingPreview(finding)}</small>
-                  {finding.rowIds.length ? (
+                  {scoped.length ? (
                     <span className="finding-share-wrap">
-                      <span className="finding-share-count">
+                      <span className="finding-share-count" title={elsewhere > 0 ? `و${countOf(elsewhere, AR.appointment)} في كلية أخرى من القسم لا تُحسب في هذه الدرجة` : undefined}>
                         <b>{finding.groupedCount.toLocaleString("ar-KW-u-nu-latn")}</b>
                         <span>{finding.groupedCount === 1 ? "تعارض" : "تعارضات"}</span>
                         <i>·</i>
-                        <span>{countOf(finding.rowIds.length, AR.appointment)} {nounFor(finding.rowIds.length, AR.affectedAdj)}</span>
+                        <span data-finding-count={scoped.length}>{countOf(scoped.length, AR.appointment)} {nounFor(scoped.length, AR.affectedAdj)}</span>
                       </span>
                       <span className="finding-share" aria-hidden="true">
-                        <i style={{ width: `${Math.min(100, (finding.rowIds.length / spread.total) * 100)}%` }} />
+                        <i style={{ width: `${Math.min(100, (scoped.length / spread.total) * 100)}%` }} />
                       </span>
                     </span>
                   ) : null}
                 </span>
-                <em>{finding.article}</em>
-                <i>{findingStatus(finding)}</i>
+                <span className="review-finding-side">
+                  <span className="review-finding-tags"><em>{finding.article}</em><i>{findingStatus(finding)}</i></span>
+                  {segment && gain > 0 ? (
+                    <span className="review-score-fix-gain" data-score-fix={segment.key} title={`لو عولج هذا البند وحده تصبح الدرجة ${segment.projected}`}>
+                      <TrendingUp aria-hidden="true" />
+                      <b>{score.toLocaleString("ar-KW-u-nu-latn")}</b><i aria-hidden="true">←</i><b>{segment.projected.toLocaleString("ar-KW-u-nu-latn")}</b>
+                      <em>+{gain.toLocaleString("ar-KW-u-nu-latn")}</em>
+                    </span>
+                  ) : null}
+                  {onFocusRows && focusable.length ? (
+                    <button type="button" className="review-score-fix-act"
+                      data-guide-ignore="يُبرز مواعيد البند على الجدول للمعالجة، لا يغيّر شيئاً"
+                      title="أظهر مواعيد هذا البند على الجدول لمعالجتها"
+                      onClick={event => { event.preventDefault(); event.stopPropagation(); onFocusRows(focusable); onClose(); }}>
+                      <Wrench aria-hidden="true" /> عالج
+                    </button>
+                  ) : null}
+                </span>
               </summary>
               <div className="review-rows">
                   <div className="review-finding-detail">
@@ -733,16 +767,12 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                       ) : (
                         renderFindingPeople(finding)
                       )}
-                      {onFocusRows && finding.rowIds.some(id => loadedIds.has(id)) ? (
-                        <SecondaryButton type="button" data-guide-ignore="إبراز مواعيد الملاحظة على الجدول فقط، لا يغيّر شيئاً" onClick={() => { onFocusRows(finding.rowIds.filter(id => loadedIds.has(id))); onClose(); }}>
-                          <Wrench aria-hidden="true" /> عالج
-                        </SecondaryButton>
-                      ) : null}
                     </>
                   ) : null}
               </div>
             </details>
-  );
+    );
+  };
 
 
   return (
@@ -804,38 +834,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
 
         {/* ── من أين جاءت الدرجة، وماذا يرفعها (I2) ─────────────────────── */}
         {readinessChecked && breakdown.total ? (
-          <section className="review-score-plan" aria-label="معادلة الدرجة وخطة رفعها">
+          <section className="review-score-plan" aria-label="معادلة الدرجة">
             <p className="review-score-formula" data-review-formula=""><Calculator aria-hidden="true" /><span dir="rtl">{breakdown.formula}</span></p>
-            {breakdown.segments.length ? (
-              <ol className="review-score-fixes">
-                {breakdown.segments.map((segment, index) => {
-                  const focusable = segment.rowIds.filter(id => loadedIds.has(id));
-                  const gain = segment.projected - score;
-                  return (
-                    <li key={segment.key} className={`review-score-fix tone-${segment.tone === "block" ? "block" : `reg-${index % 4}`}`} data-score-fix={segment.key}>
-                      <span className="review-score-fix-mark" aria-hidden="true">{segment.tone === "block" ? <AlertTriangle /> : <Wrench />}</span>
-                      <span className="review-score-fix-copy">
-                        <strong>{segment.label}</strong>
-                        <small>{countOf(segment.touched, AR.appointment)}</small>
-                      </span>
-                      <span className="review-score-fix-gain" title={`لو عولج هذا البند وحده تصبح الدرجة ${segment.projected}`}>
-                        <TrendingUp aria-hidden="true" />
-                        <b>{score.toLocaleString("ar-KW-u-nu-latn")}</b><i aria-hidden="true">←</i><b>{segment.projected.toLocaleString("ar-KW-u-nu-latn")}</b>
-                        {gain > 0 ? <em>+{gain.toLocaleString("ar-KW-u-nu-latn")}</em> : null}
-                      </span>
-                      {onFocusRows ? (
-                        <button type="button" className="review-score-fix-act" disabled={!focusable.length}
-                          data-guide-ignore="يُبرز مواعيد البند على الجدول للمعالجة، لا يغيّر شيئاً"
-                          title={focusable.length ? "أظهر مواعيد هذا البند على الجدول لمعالجتها" : "مواعيد هذا البند في كلية أخرى من القسم"}
-                          onClick={() => { onFocusRows(focusable); onClose(); }}>
-                          <Wrench aria-hidden="true" /> عالج
-                        </button>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ol>
-            ) : null}
           </section>
         ) : null}
 
