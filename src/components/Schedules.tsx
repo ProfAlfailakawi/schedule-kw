@@ -1,4 +1,5 @@
 import PatternLibraryButton from "./PatternLibraryButton";
+import WeekHeat from "./WeekHeat";
 import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import WipeScheduleButton from "./WipeScheduleButton";
 import TAConversionPanel from "./TAConversionPanel";
@@ -59,6 +60,8 @@ import {
   Table2,
   DoorOpen,
   UsersRound,
+  CalendarSearch,
+  Replace,
   WandSparkles,
   X,
 } from "lucide-react";
@@ -10535,7 +10538,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               onClick={() => setMeetingOpen(true)}
               title="اختر أساتذة ليعرض الجدول النوافذ الأسبوعية التي يتفرغون فيها معاً"
             >
-              <UsersRound /> متى نلتقي؟
+              <CalendarSearch aria-hidden="true" /> متى نلتقي؟
             </GhostButton> : null}
             {workspaceToolsOpen ? <GhostButton
               type="button"
@@ -10544,7 +10547,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               disabled={!filterCollege || !filterSection || !filterTerm}
               title="تحويل مواعيد أعضاء هيئة التدريب إلى هيئة تدريسية"
             >
-              <UsersRound aria-hidden="true" /> تحويل هيئة التدريب
+              <Replace aria-hidden="true" /> تحويل هيئة التدريب
             </GhostButton> : null}
             {workspaceToolsOpen ? <GhostButton
               type="button"
@@ -10636,6 +10639,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             </div>
             <span>{countOf(agendaRows.length, AR.appointment)}</span>
           </div>
+          <WeekHeat rows={agendaRows} />
           {hueLegend.length > 1 || scheduledVisitingIds.size ? (
             <div className="week-legend agenda-legend" role="group" aria-label="مفتاح الألوان">
               <div className="week-legend-basis" role="group" aria-label="معنى اللون">

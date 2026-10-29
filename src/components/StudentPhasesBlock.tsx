@@ -59,6 +59,35 @@ export function starterPhases(submissionDeadline: string): TermStudentPhases {
   };
 }
 
+/* ── نبضُ الفصل: المحطاتُ على خطٍّ زمنيٍّ واحد بمقياس التاريخ، و«اليوم» دبّوسٌ عليه ──
+   يقرأ من بعيد ما تقوله القائمة تحته: أين نحن، وكم بقي، وأيُّ المحطات أطول. للعين وحدها
+   (aria-hidden)، فالقائمة المرقّمة تحته تقول الشيء نفسه لقارئ الشاشة. */
+const dayNumber = (iso: string) => Math.floor(Date.parse(`${iso}T00:00:00Z`) / 86_400_000);
+const dayIso = (n: number) => new Date(n * 86_400_000).toISOString().slice(0, 10);
+function TermPulse({ steps, today }: { steps: TimelineStep[]; today: string }) {
+  const dated = steps.filter(step => step.from || step.to);
+  if (dated.length < 2) return null;
+  const first = Math.min(...dated.map(step => dayNumber(step.from || step.to!)));
+  const last = Math.max(...dated.map(step => dayNumber(step.to || step.from!))) + 1;
+  const span = Math.max(1, last - first);
+  const at = (n: number) => Math.min(100, Math.max(0, ((n - first) / span) * 100));
+  const now = dayNumber(today);
+  const todayAt = now >= first && now <= last ? at(now) : null;
+  return (
+    <div className="term-pulse" aria-hidden="true">
+      <div className="term-pulse-track">
+        {dated.map(step => {
+          const from = dayNumber(step.from || step.to!), to = dayNumber(step.to || step.from!) + 1;
+          return <i key={step.id} className="term-pulse-seg" data-kind={step.kind} data-state={step.state} title={`${step.title} · ${rangeText(step)}`}
+            style={{ insetInlineStart: `${at(from)}%`, inlineSize: `${Math.max(1.4, at(to) - at(from))}%` }} />;
+        })}
+        {todayAt !== null ? <b className="term-pulse-today" style={{ insetInlineStart: `${todayAt}%` }}><span>اليوم</span></b> : null}
+      </div>
+      <div className="term-pulse-ends"><small>{deadlineDateShort(dayIso(first))}</small><small>{deadlineDateShort(dayIso(last - 1))}</small></div>
+    </div>
+  );
+}
+
 interface Props {
   term: AdTerm | undefined;
   terms: AdTerm[];
@@ -121,6 +150,8 @@ export default function StudentPhasesBlock({ term, terms, canEdit, onChanged }: 
 
       {error ? <Notice type="error" onDismiss={() => setError(null)}>{error}</Notice> : null}
       {message ? <Notice type="success" onDismiss={() => setMessage(null)}>{message}</Notice> : null}
+
+      {set ? <TermPulse steps={steps} today={today} /> : null}
 
       <ol className="sp-track" aria-label="مراحل الطلبة في الفصل">
         {steps.map(step => {
