@@ -24,6 +24,14 @@ import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "../../utils/scheduleTime";
 import { minutesCompact, num, timeRange } from "./proposalFormat";
 import { AR, countOf } from "../../utils/arabicCount";
+import { campusChips } from "../../utils/campusChip";
+
+/** وسمُ الموقع الصغير على الموعد (بنين/بنات/الكلية) — لا يُرسم إن كانت مواعيده كلُّها في كليةٍ واحدة. */
+function CampusChip({ item, chips }: { item: GridItem; chips: ReadonlyMap<string, string> }) {
+  const label = !item.outside && item.collegeName ? chips.get(String(item.collegeName).replace(/\s+/g, " ").trim()) : undefined;
+  if (!label) return null;
+  return <span className="sp-ev-campus" data-twin={item.twin || undefined} title={[item.collegeName, item.sectionName].filter(Boolean).join(" — ")}>{label}</span>;
+}
 
 export type GridMode = "current" | "with";
 
@@ -176,6 +184,8 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
   const dayView = variant === "agenda" || narrow;
 
   const changes = useMemo(() => props.changes ?? proposalChangeSet(afterItems, ghosts), [props.changes, afterItems, ghosts]);
+  /* جدولُه الكامل قد يجمع البنين والبنات وكلياتٍ أخرى: لكل موعدٍ وسمُ موقعه الصغير. */
+  const chips = useMemo(() => campusChips([...currentItems, ...afterItems, ...ghosts].map(item => (item.outside ? "" : item.collegeName || ""))), [currentItems, afterItems, ghosts]);
   const withMode = mode === "with";
   const showVac = withMode && !props.readOnly && variant !== "grid" && Boolean(props.showVacancies) && Boolean(props.vacancies?.length);
   const vacancies = useMemo(() => (showVac ? (props.vacancies || []).filter(v => v.fit === "ready" || v.fit === "review" || v.fit === "checking") : []), [showVac, props.vacancies]);
@@ -274,7 +284,7 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
           <span className="sp-ev-title">{item.outside ? "التزام خارج القسم" : item.courseName || "موعد"}</span>
         </span>
         {!tiny && !item.outside ? (
-          <span className="sp-ev-meta">{item.SCode ? <bdi className="sp-sec">{item.SCode}</bdi> : null}<bdi className="sp-time">{!overlay && entry.lanes > 1 ? String(item.start).slice(0, 5) : timeRange(item.start, item.end)}</bdi></span>
+          <span className="sp-ev-meta">{item.SCode ? <bdi className="sp-sec">{item.SCode}</bdi> : null}<bdi className="sp-time">{!overlay && entry.lanes > 1 ? String(item.start).slice(0, 5) : timeRange(item.start, item.end)}</bdi><CampusChip item={item} chips={chips} /></span>
         ) : null}
         {!tiny ? fromLine(item, change) : null}
         {!compact && !vacancy && item.place && !item.outside && item.state !== "out" ? <span className="sp-ev-place"><Building2 aria-hidden="true" />{item.place}</span> : null}
@@ -310,7 +320,7 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
     <aside className="sp-detail" role="region" aria-label="تفاصيل الموعد المحدد">
       <header>
         <div>
-          <strong>{selected.outside ? "التزام خارج القسم" : selected.courseName}</strong>
+          <strong>{selected.outside ? "التزام خارج القسم" : selected.courseName}<CampusChip item={selected} chips={chips} /></strong>
           {!selected.outside && <small>{[selected.courseCode, selected.SCode ? `شعبة ${selected.SCode}` : ""].filter(Boolean).join(" · ")}</small>}
         </div>
         <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="sp-icon-btn" onClick={() => { onSelect(null); setDetailKey(null); }} aria-label="إغلاق التفاصيل"><X aria-hidden="true" /></button>
@@ -333,6 +343,7 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
           {selected.collegeName && <div><dt>القسم</dt><dd>{[selected.collegeName, selected.sectionName].filter(Boolean).join(" · ")}</dd></div>}
         </dl>
       )}
+      {selected.twin ? <p className="sp-detail-finding" data-kind="info"><Lock aria-hidden="true" /><span>موعده المسجّل بسجلٍّ آخر في سجلّ الأساتذة — يُرى هنا ضمن جدوله الكامل، ويُعدَّل من طلبه في موقعه.</span></p> : null}
       {selectedVacancy?.note ? <p className="sp-detail-finding" data-kind="review"><Sparkles aria-hidden="true" /><span>{selectedVacancy.note}</span></p> : null}
       {props.findingsFor(selected.key).map(finding => (
         <p key={finding.id} className="sp-detail-finding" data-kind={finding.kind}>
@@ -409,7 +420,7 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
         ) : (
           <DayView
             entries={[...base.map(item => ({ item })), ...ghostList.map(item => ({ item })), ...(draft ? [{ item: draft }] : []), ...vacancies.map(v => ({ item: v.item, vacancy: v }))]}
-            stats={dayStats} marks={marks} changeOf={changeOf} selectedKey={detailKey} focusKeys={focusKeys} dimUnchanged={withMode && changes.all.length > 0}
+            stats={dayStats} marks={marks} changeOf={changeOf} chips={chips} selectedKey={detailKey} focusKeys={focusKeys} dimUnchanged={withMode && changes.all.length > 0}
             onSelect={key => pick(key)} onAddDay={props.readOnly ? undefined : props.onAddDay} onAssign={props.onAssign} preferDay={changes.all[0]?.after?.days[0] || changes.all[0]?.before?.days[0]}
           />
         )}
@@ -431,8 +442,9 @@ function SlotPill({ item, tone, fields }: { item: GridItem; tone: "before" | "af
 export { SlotPill };
 
 /** يومٌ واحدٌ بخطٍّ زمني: للجوال وللنافذة الضيّقة. الفراغاتُ بين المحاضرات تُرى ولا تُحسب في الرأس. */
-function DayView({ entries, stats, marks, changeOf, selectedKey, focusKeys, dimUnchanged, onSelect, onAddDay, onAssign, preferDay }: {
+function DayView({ entries, stats, marks, changeOf, chips, selectedKey, focusKeys, dimUnchanged, onSelect, onAddDay, onAssign, preferDay }: {
   entries: Array<{ item: GridItem; vacancy?: VacancyItem }>;
+  chips: ReadonlyMap<string, string>;
   stats: Record<StudyProposalDayKey, { count: number; changed: number; conflict: boolean; open: number }>;
   marks: { blocker: ReadonlySet<string>; review: ReadonlySet<string> };
   changeOf: (item: GridItem) => ProposalChange | undefined;
@@ -481,6 +493,7 @@ function DayView({ entries, stats, marks, changeOf, selectedKey, focusKeys, dimU
               <span className="sp-ev-meta">
                 {item.SCode ? <bdi className="sp-sec">{item.SCode}</bdi> : null}
                 <bdi className="sp-time">{timeRange(item.start, item.end)}</bdi>
+                <CampusChip item={item} chips={chips} />
                 {item.place && item.state !== "out" ? <span className="sp-ev-place"><Building2 aria-hidden="true" />{item.place}</span> : null}
               </span>
             ) : null}

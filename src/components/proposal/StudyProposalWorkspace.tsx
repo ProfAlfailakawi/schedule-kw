@@ -27,6 +27,7 @@ import ProposalDiffStrip from "./ProposalDiff";
 import ProposalVacancies, { useVacancies } from "./ProposalVacancies";
 import { CommitDialog, ProposalResponses, SendDialog } from "./ProposalDialogs";
 import { relativeSaved, num } from "./proposalFormat";
+import type { LauncherPersonRequest } from "../../utils/instructorPickerChoices";
 import { TERM_FROZEN_LABEL } from "../../utils/termSequence";
 
 function useMedia(query: string) {
@@ -50,7 +51,7 @@ if (typeof window !== "undefined") {
   window.addEventListener("popstate", () => { ownPopNow = ownPops > 0; if (ownPopNow) ownPops -= 1; });
 }
 
-type Dialog = null | "send" | "commit" | "close" | "withdraw";
+type Dialog = null | "send" | "commit" | "close" | "withdraw" | "switch";
 type PaneTab = "grid" | "ops" | "vacant" | "checks";
 
 export interface WorkspaceProps {
@@ -63,9 +64,13 @@ export interface WorkspaceProps {
   onClose: () => void;
   /** يُستدعى بعد أي تغييرٍ محفوظ، ليحدّث ما حوله. */
   onChanged?: () => void;
+  /** كلُّ طلبات الشخص نفسه (بنين/بنات، وكلُّ كلية) — تُرسم وسوماً في الرأس يُنتقل بها. */
+  siblings?: LauncherPersonRequest[];
+  /** الانتقالُ إلى طلبٍ آخر للشخص نفسه (يُعاد فتح المساحة عليه). */
+  onSwitch?: (requestId: string) => void;
 }
 
-export default function StudyProposalWorkspace({ requestId, proposalId = null, itemIndex = null, startWith = null, onClose, onChanged }: WorkspaceProps) {
+export default function StudyProposalWorkspace({ requestId, proposalId = null, itemIndex = null, startWith = null, onClose, onChanged, siblings, onSwitch }: WorkspaceProps) {
   const ws = useProposalWorkspace({ requestId, proposalId, itemIndex, onChanged });
   const wide = useMedia("(min-width: 1000px)");
   const [tab, setTab] = useState<PaneTab>("grid");
@@ -104,6 +109,12 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
   }, [hasCtx]);
 
   const requestClose = () => { if (dialogRef.current) return; if (wsRef.current.dirty) setDialog("close"); else onClose(); };
+  /* الانتقالُ إلى طلبٍ آخر للشخص نفسه: يسأل أولاً إن كانت في المسودة تعديلاتٌ غير محفوظة. */
+  const [switchTo, setSwitchTo] = useState<string | null>(null);
+  const requestSwitch = (id: string) => {
+    if (!onSwitch || id === requestId || dialogRef.current) return;
+    if (wsRef.current.dirty) { setSwitchTo(id); setDialog("switch"); } else onSwitch(id);
+  };
 
   /* ── زرُّ الرجوع في المتصفّح ─────────────────────────────────────────────
      المساحةُ تُفتح فوق القائمة بلا عنوانٍ جديد، فكان «رجوع» المتصفّح يُخرج المستخدم من الشاشة كلها.
@@ -175,7 +186,7 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
       list.push({ label: "تعديل المادة", Icon: Pencil, run: () => openForOp(op.id) });
       if (ws.marks.blocker.has(item.key)) list.push({ label: "أوقات بديلة", Icon: CalendarClock, run: () => { ws.loadAlternatives(op.id); setTab("checks"); } });
       list.push({ label: "إزالة من المقترح", Icon: Trash2, tone: "danger", run: () => { ws.removeOp(op.id); ws.setSelectedKey(null); } });
-    } else if (item.state === "current" && !item.outside && item.rowId > 0) {
+    } else if (item.state === "current" && !item.outside && !item.twin && item.rowId > 0) {
       list.push({ label: "تعديل موعد هذا الأستاذ", Icon: Pencil, run: () => { ws.chooseMode("edit"); ws.pickRow(item.rowId); setCard({ kind: "edit" }); } });
       list.push({ label: "استبدال هذا الموعد", Icon: ArrowLeftRight, run: () => { ws.chooseMode("replace"); ws.pickRow(item.rowId); setMore(true); } });
     }
@@ -305,7 +316,8 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
         <ProposalHeader ctx={ctx} proposal={proposal} status={statusKey as any}
           before={ctx.current.metrics} after={ws.evalCurrent && ws.evaluation ? ws.evaluation.after.metrics : null}
           loadCap={ctx.instructor.loadCap} blockers={blockers} reviews={reviews} evalState={ws.evalState} evalCurrent={ws.evalCurrent}
-          evalError={ws.evalError} hasOps={ws.ops.length > 0 && !ws.terminal} onRetry={ws.retryEvaluation} onClose={requestClose} />
+          evalError={ws.evalError} hasOps={ws.ops.length > 0 && !ws.terminal} onRetry={ws.retryEvaluation} onClose={requestClose}
+          siblings={siblings} requestId={requestId} onSwitch={onSwitch ? requestSwitch : undefined} />
 
         {!wide ? tabs : null}
 
@@ -380,6 +392,14 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
           actions={[
             { label: "حفظ وإغلاق", primary: true, run: () => void saveAndClose() },
             { label: "إغلاق دون حفظ", tone: "danger", run: () => { setDialog(null); onClose(); } },
+            { label: "متابعة العمل", run: () => setDialog(null) },
+          ]} onDismiss={() => setDialog(null)} />
+      ) : null}
+      {dialog === "switch" && switchTo ? (
+        <ConfirmDialog title="لديك تعديلاتٌ غير محفوظة" text="الانتقال إلى طلبه الآخر يغلق هذه المسودة. احفظها لتكمل لاحقاً."
+          actions={[
+            { label: "حفظ وانتقال", primary: true, run: () => void (async () => { const result = await ws.save(); setDialog(null); if (result) onSwitch?.(switchTo); })() },
+            { label: "انتقال دون حفظ", tone: "danger", run: () => { setDialog(null); onSwitch?.(switchTo); } },
             { label: "متابعة العمل", run: () => setDialog(null) },
           ]} onDismiss={() => setDialog(null)} />
       ) : null}

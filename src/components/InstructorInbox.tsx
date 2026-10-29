@@ -61,6 +61,7 @@ import {
 import { AR, countOf } from "../utils/arabicCount";
 import { reachAboutCard } from "../utils/reachInstructor";
 import { inboxInstructorChoices, isPlaceholderInboxRow } from "../utils/instructorIdentity";
+import { proposalLauncherChoices } from "../utils/instructorPickerChoices";
 import { isTaRequest, notOpened, notParticipated, openedNotAnswered } from "../utils/requestParticipation";
 import { putHandoff } from "../utils/requestHandoff";
 import { currentTermId } from "../utils/termSequence";
@@ -850,6 +851,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   /* المقترحات الدراسية: قائمتها في النطاق، والمساحة المفتوحة الآن (إن وُجدت). */
   const [proposals, setProposals] = useState<StaffProposalView[]>([]);
   const [workspace, setWorkspace] = useState<OpenWorkspace | null>(null);
+  const personChoicesRef = useRef<ReturnType<typeof proposalLauncherChoices>>([]);
   /* ── المرشّحات ──────────────────────────────────────────────────────────
      أربعةُ أسئلةٍ يسألها المنسّق فعلاً: ما الذي ينتظرني؟ أيُّ نوع؟ ما الجاهزُ
      منه؟ وفي أيّ قسم؟ وكلٌّ منها زرٌّ واحد، لا قائمةٌ منسدلة. */
@@ -865,7 +867,13 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   /* تنبيهاتٌ لا تمنع (انتقالٌ ضيّق بين مبنيين…) بعد تثبيتٍ نجح. */
   const [notice, setNotice] = useState<string | null>(null);
   /* المساحة تعمل على الجوال أيضاً: الجدول يتحوّل إلى يومٍ واحدٍ بخطٍّ زمني حين يضيق العرض. */
-  const openStudyProposal = (target: OpenWorkspace) => setWorkspace(target);
+  /* أيُّ طريقٍ فتح المساحة (المنتقي أو بطاقة الطلب): تُرفق بها طلباتُ الشخص نفسه كلُّها —
+     بنين وبنات وكلُّ كلية — فيرى صورته الكاملة ويتنقّل بينها (r2). */
+  const openStudyProposal = (target: OpenWorkspace) => {
+    if (target.siblings) { setWorkspace(target); return; }
+    const person = personChoicesRef.current.find(choice => choice.requests.some(entry => entry.id === target.requestId));
+    setWorkspace({ ...target, siblings: person && person.requests.length > 1 ? person.requests : undefined });
+  };
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickError, setQuickError] = useState<string | null>(null);
 
@@ -1040,6 +1048,10 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
      «الجدول الدراسي». */
   const { lookup: visitingLookup, isVisiting: lookupVisiting } = useVisitingLookup(termId);
   const rowVisiting = (row: InboxRequest) => lookupVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId);
+  /* صفوفُ المنتقي، وأشخاصُها (شخصٌ واحدٌ بطلباته كلها) — المصدرُ نفسه لمنتقي «مقترح دراسي» ولإرفاق طلبات الشخص بالمساحة. */
+  const launcherRows = useMemo(() => (rows || []).map(row => ({ id: row.id, AdInstructorId: row.AdInstructorId, instructorName: row.instructorName, AdCollegeId: row.AdCollegeId, AdSectionId: row.AdSectionId, sectionName: row.sectionName, requestCollegeName: row.requestCollegeName, changedCount: row.changedCount, visiting: rowVisiting(row) })), [rows, visitingLookup]);
+  const personChoices = useMemo(() => proposalLauncherChoices(launcherRows, collegeId), [launcherRows, collegeId]);
+  personChoicesRef.current = personChoices;
   const instructorOptions = useMemo(() => instructorChoices.map(choice => {
     const own = (rows || []).filter(entry => choice.ids.includes(Number(entry.AdInstructorId)));
     /* المنتدبُ يُوسم بشارته ولو جاء بسجلّين: يُمثَّل الشخصُ بصفّه المنتدب إن وُجد. */
@@ -1314,7 +1326,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     <TermFrozenContext.Provider value={frozen}>
     <div className="content-stack changes-screen visual-minimal" data-term-frozen-scope={frozen || undefined}>
       <PageTitle
-        action={rows && rows.length ? <ProposalLauncherBar rows={rows.map(row => ({ id: row.id, AdInstructorId: row.AdInstructorId, instructorName: row.instructorName, AdCollegeId: row.AdCollegeId, AdSectionId: row.AdSectionId, sectionName: row.sectionName, requestCollegeName: row.requestCollegeName, changedCount: row.changedCount, visiting: rowVisiting(row) }))} proposals={proposals} onOpen={openStudyProposal} /> : undefined}
+        action={rows && rows.length ? <ProposalLauncherBar rows={launcherRows} preferCollegeId={collegeId} proposals={proposals} onOpen={openStudyProposal} /> : undefined}
         eyebrow={<><Inbox aria-hidden="true" /> رغبات الأساتذة</>}
         subtitle="ما طلبه الأساتذة على مسوّداتهم، لا الجدول كله"
       >
@@ -1669,7 +1681,10 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       {workspace ? (
         <React.Suspense fallback={<MicroLoader label="يفتح مساحة المقترح…" />}>
           <StudyProposalWorkspace
+            key={workspace.requestId}
             requestId={workspace.requestId}
+            siblings={workspace.siblings}
+            onSwitch={requestId => setWorkspace({ requestId, siblings: workspace.siblings })}
             proposalId={workspace.proposalId}
             itemIndex={workspace.itemIndex ?? null}
             startWith={workspace.startWith ?? null}

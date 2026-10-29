@@ -4,14 +4,14 @@
  *   R1  «لاصق بمحاضرتي» بلا «🏫 نفس القاعة» ولا «🏢 نفس المبنى»: الردُّ لا يحملهما، والكرتُ لا يرسمهما.
  *   R2  صفحةُ المقترح الدراسي للأستاذ بلا قاعةٍ ولا مبنى ولا «المكان» — في الصفحة وفي ردّ الخادم.
  *   R3  «أكمل أيام المقرر»: حبوبُ أنماطٍ تلتفّ ولا تتراكب، وسطرُ «ينتهي» مجموعٌ بالساعة.
- *   R4  منتقي الأستاذ في الوارد: الشخصُ مرّةً واحدة، والاسمُ المتكرّر بتمييزٍ صغير.
+ *   R4  منتقي الأستاذ في الوارد: الشخصُ مرّةً واحدة باسمه وحده (r2 تجاوز «التمييز الصغير»: tests/inbox-proposal-pickers-r2-audit.ts).
  *   R5  نصوصُ الكرت بالفصحى: «لديك» لا «عندك».
  */
 import vm from "node:vm";
 import { readFileSync } from "node:fs";
 import { bestPerSide, stickForTeacher, topSticks, type StickJudged } from "../src/utils/lectureStick";
 import { withoutProposalPlaces } from "../src/utils/proposalTeacherView";
-import { instructorPickerLabels, proposalLauncherChoices } from "../src/utils/instructorPickerChoices";
+import { instructorPickerPeople, proposalLauncherChoices } from "../src/utils/instructorPickerChoices";
 import { TEACHER_CARD_EXTRAS_JS } from "../src/server/teacherCardExtras";
 import { REQUEST_VISUAL_CSS, REQUEST_VISUAL_JS } from "../src/server/requestVisual";
 import { REQUEST_V3_CSS, REQUEST_V4_CSS } from "../src/server/requestPageStyles";
@@ -119,21 +119,20 @@ check(read("src/server/pages/instructorRequestPage.ts").includes("+skEnds(it.com
     { id: "a", AdInstructorId: 11, instructorName: "د. أحمد الفيلكاوي", AdCollegeId: 1, AdSectionId: 1, sectionName: "تكنولوجيا التعليم" },
     { id: "b", AdInstructorId: 11, instructorName: "د. أحمد  الفيلكاوى", AdCollegeId: 1, AdSectionId: 2, sectionName: "المكتبات" },
   ]);
-  check(twoScopes.length === 2 && twoScopes.every(c => c.hint) && new Set(twoScopes.map(c => c.hint)).size === 2,
-    "R4 الشخصُ نفسُه في قسمين: سطران، ولكلٍّ اسمُ قسمه تمييزاً لا تكراراً", twoScopes);
-  const labels = instructorPickerLabels([
+  /* r2 (المالك): الشخصُ نفسُه في قسمين سطرٌ واحد باسمه، وطلباه معه يُنتقل بينهما داخل المساحة. */
+  check(twoScopes.length === 1 && twoScopes[0].hint === "" && twoScopes[0].requests.length === 2,
+    "R4/r2 الشخصُ نفسُه في قسمين: سطرٌ واحد بلا تمييز، وطلباه معه", twoScopes);
+  const people = instructorPickerPeople([
     { AdInstructorId: 11, AdInstructorName: "د. أحمد الفيلكاوي", AdInstructorMobile: "99001234" },
     { AdInstructorId: 12, AdInstructorName: "د. أحمد الفيلكاوي", AdInstructorMobile: "66005678" },
     { AdInstructorId: 13, AdInstructorName: "د. آلاء جابر ذياب" },
   ]);
-  check(labels.get(11) === "د. أحمد الفيلكاوي · جوال …1234" && labels.get(12) === "د. أحمد الفيلكاوي · جوال …5678" && labels.get(13) === "د. آلاء جابر ذياب",
-    "R4 منتقي «إعادة فتح لأستاذ»: الاسمُ المتكرّر يُميَّز بآخر أرقام الجوال، والفريدُ كما هو", [...labels]);
-  const noMobile = instructorPickerLabels([{ AdInstructorId: 11, AdInstructorName: "د. سالم العلي" }, { AdInstructorId: 12, AdInstructorName: "د. سالم العلي" }]);
-  check(noMobile.get(11) === "د. سالم العلي · سجل رقم 11" && noMobile.get(12) === "د. سالم العلي · سجل رقم 12", "R4 وبلا جوال: رقمُ السجل");
+  check(people.length === 2 && people.find(p => p.label === "د. أحمد الفيلكاوي")?.ids.join() === "11,12" && people.some(p => p.label === "د. آلاء جابر ذياب"),
+    "R4/r2 منتقي «إعادة فتح لأستاذ»: الشخصُ مرّةً واحدة باسمه، ومعه سجلّاه", people);
   const parts = read("src/components/proposal/ProposalInboxParts.tsx"), publish = read("src/components/SchedulePublish.tsx"), inbox = read("src/components/InstructorInbox.tsx");
-  check(parts.includes("proposalLauncherChoices(rows)") && parts.includes("choices.map(choice =>") && !parts.includes("rows.map(row => <option"), "R4 منتقي «مقترح دراسي» يبني من proposalLauncherChoices");
+  check(parts.includes("proposalLauncherChoices(rows, preferCollegeId)") && parts.includes("choices.map(choice =>") && !parts.includes("rows.map(row => <option"), "R4 منتقي «مقترح دراسي» يبني من proposalLauncherChoices");
   check(inbox.includes("AdInstructorId: row.AdInstructorId, instructorName: row.instructorName, AdCollegeId: row.AdCollegeId, AdSectionId: row.AdSectionId"), "R4 والوارد يمرّر ما يُعرف به الشخص ونطاقُه");
-  check(publish.includes("instructorPickerLabels(manageFaculty)") && publish.includes("manageLabels.get(Number(person.AdInstructorId))"), "R4 ومنتقي «إعادة فتح لأستاذ» في شاشة النشر كذلك");
+  check(publish.includes("instructorPickerPeople(manageFaculty)") && publish.includes("manageChoices.map(choice =>"), "R4 ومنتقي «إعادة فتح لأستاذ» في شاشة النشر كذلك");
   check(inbox.includes("inboxInstructorChoices(rows || [])"), "R4 ومنتقي التصفية في الوارد باقٍ على الهوية (N1)");
 }
 

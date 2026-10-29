@@ -588,6 +588,8 @@ export interface GridItem {
   placeKnown: boolean;
   /** موعدٌ من خارج نطاق صلاحية المستخدم: يظهر إشغالاً فقط. */
   outside?: boolean;
+  /** موعدُ الأستاذ نفسِه بسجلٍّ آخر في سجلّ الأساتذة (بنين/بنات): جزءٌ من جدوله الكامل، يُرى ولا يُعدَّل من هذا الطلب. */
+  twin?: boolean;
   /** لقطةٌ كاملة لعرض التفاصيل عند الضغط. */
   collegeName?: string;
   sectionName?: string;
