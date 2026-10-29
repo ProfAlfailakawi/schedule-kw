@@ -9,6 +9,9 @@ test:hardening
 test:companion-rooms
 test:room-occupancy
 test:doctor-journey
+test:calendar-ics
+test:owner-features-1028
+test:ta-phase-flow
 test:staff-global
 test:instructor-status
 test:request-cross-college

@@ -100,7 +100,7 @@ async function main() {
     check(shareRoute.includes("requestsCloseAt"), "D2 الرابط يحفظ موعد الطلبات منفصلاً");
     const publish = read("src/components/SchedulePublish.tsx");
     check(publish.includes('const linkDays = kind === "survey" && closesAt'), "D2 المتصفح لا يقصّ عمر البطاقة على موعد الطلبات");
-    check(publish.includes("requestsCloseAt: `${closesAt}T${closeTime}`"), "D2 تاريخ وساعة الطلبات منفصلان عن عمر البطاقة");
+    check(publish.includes("requestsCloseAt: sendMode === \"view\" ? viewDeadline() : `${closesAt}T${closeTime}`"), "D2 تاريخ وساعة الطلبات منفصلان عن عمر البطاقة");
     check(!server.includes("اشتراك دائم"), "D2 لا تقول البطاقة «اشتراك دائم» وهي تنتهي");
     check(server.includes("حتى نهاية الفصل"), "D2 البطاقة تقول صراحةً إن الاشتراك حتى نهاية الفصل");
     check(server.includes("const windowClosesAt = normalizeInstructorDeadline(closesAt);") && server.includes("window: { opensAt, closesAt: baseCloseAt }"), "D2 نافذة الطلب تُحسب بالدالة الموحدة وتسمح بالاستثناء الفردي");
@@ -163,7 +163,7 @@ async function main() {
     const page = server.slice(server.indexOf("function staffCardPage"), server.indexOf("function surveyPage"));
     check(page.includes('phase === "past"') && page.includes("فصل قادم") && page.includes('calendarOpen = phase !== "past"'), "D5 الصفحة تقول «قادم» وتُبقي التقويم");
     check(page.includes('"term="+encodeURIComponent'), "D5 اشتراك الفصل القادم يحمل رقمه");
-    const ics = server.slice(server.indexOf('app.get("/api/public/ics/:token/:key"'), server.indexOf('app.get("/api/public/ics/:token/:key"') + 2000);
+    const ics = server.slice(server.indexOf("async function sendInstructorCalendar"), server.indexOf("async function sendInstructorCalendar") + 2000);
     check(ics.includes('termPhase(pinnedTerm as any, currentTermId(terms as any)) === "upcoming"'), "D5 التقويم يخدم الفصل القادم المثبّت ولا يفتح به فصلاً انقضى");
   }
 

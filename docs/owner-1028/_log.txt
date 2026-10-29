@@ -1,0 +1,39 @@
+📸 docs/owner-1028/m2-masari-entry-card-390.png
+📸 docs/owner-1028/m2-masari-home-ribbon-390.png
+📸 docs/owner-1028/m2-masari-tab-الآن-390.png
+📸 docs/owner-1028/m2-masari-tab-خطتي-390.png
+📸 docs/owner-1028/m2-masari-tab-ملفي-390.png
+M2 [390] بعد «فهمت» وإعادة التحميل: البطاقة لم تعد ✓ · الشريط ظاهر ✓ · أخطاء الصفحة 0
+📸 docs/owner-1028/m2-masari-entry-card-1440.png
+📸 docs/owner-1028/m2-masari-home-ribbon-1440.png
+📸 docs/owner-1028/m2-masari-tab-الآن-1440.png
+📸 docs/owner-1028/m2-masari-tab-خطتي-1440.png
+📸 docs/owner-1028/m2-masari-tab-ملفي-1440.png
+M2 [1440] بعد «فهمت» وإعادة التحميل: البطاقة لم تعد ✓ · الشريط ظاهر ✓ · أخطاء الصفحة 0
+L3 [390] رسائل: أضفت 3 · آخر مقعدين | متبقٍّ 2 فقط | أضفت 1 · آخر مقعد | أضفت 5 · آخر مقعد
+📸 docs/owner-1028/l3-advisor-seats-390.png
+📸 docs/owner-1028/l3-advisor-board-390.png
+📸 docs/owner-1028/e1-send-mode-390.png
+📸 docs/owner-1028/f-ta-phase-panel-390.png
+📸 docs/owner-1028/c5-offering-admin-390.png
+📸 docs/owner-1028/f3-ta-card-390.png
+📸 docs/owner-1028/c5-teacher-card-offering-390.png
+C5 [390] مقررات مقفلة في الكرت: 2 · متاحة 53
+L4 [390] لم تظهر لوحة الأسماء
+[390] أخطاء صفحة المسؤول: 3 — Error: WebSocket closed without opened. / Error: WebSocket closed without opened.
+L3 [1440] رسائل: أضفت 3 · آخر مقعدين | متبقٍّ 2 فقط | أضفت 1 · آخر مقعد | أضفت 5 · آخر مقعد
+📸 docs/owner-1028/l3-advisor-seats-1440.png
+📸 docs/owner-1028/l3-advisor-board-1440.png
+📸 docs/owner-1028/e1-send-mode-1440.png
+📸 docs/owner-1028/f-ta-phase-panel-1440.png
+📸 docs/owner-1028/c5-offering-admin-1440.png
+📸 docs/owner-1028/f3-ta-card-1440.png
+📸 docs/owner-1028/c5-teacher-card-offering-1440.png
+C5 [1440] مقررات مقفلة في الكرت: 2 · متاحة 53
+L4 [1440] لم تظهر لوحة الأسماء
+[1440] أخطاء صفحة المسؤول: 3 — Error: WebSocket closed without opened. / Error: WebSocket closed without opened.
+C4 ينتظر إغلاق النافذة (~٢ دقيقة)…
+📸 docs/owner-1028/c4-closed-ribbon-390.png
+C4 [390] الشريط ظاهر ✓ · أدوات التعديل مزالة ✓
+📸 docs/owner-1028/c4-closed-ribbon-1440.png
+C4 [1440] الشريط ظاهر ✓ · أدوات التعديل مزالة ✓

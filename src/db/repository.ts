@@ -92,6 +92,7 @@ import { caseRefFromId, mergeStudentResubmission } from "../utils/studentNeedMer
 import { cleanSeenIds, mergeSeenIds, seenUnchanged } from "../utils/notificationSeen";
 import { termChronology } from "../utils/termSequence";
 import { kuwaitDayOfIso, recordLinkOpen } from "../utils/linkOpens";
+import type { LinkMode } from "../utils/linkMode";
 import { unchangedScheduleFingerprint } from "../utils/instructorRequestConfirmation";
 
 // Runtime state must not live inside the replaceable application release. A number of
@@ -280,6 +281,8 @@ interface DBState {
   visitingRosters?: VisitingRoster[];
   departmentDelegates?: DepartmentDelegateDirectory[];
   teachingLoadConfig?: TeachingLoadConfig[];
+  /** وثائقُ الميزات الصغيرة (FEATURE_COLLECTIONS): مجموعةٌ ← معرّف ← وثيقة. */
+  featureDocs?: Record<string, Record<string, any>>;
   departmentRooms?: DepartmentRoomDirectory[];
   registrationStats?: RegistrationStats[];
   scheduleDecisionMemories?: ScheduleDecisionMemory[];
@@ -2545,6 +2548,11 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
     try { listener(info); } catch { /* مستمعٌ معطوب لا يُفسد الحفظ */ }
   }
 }
+
+/** مجموعاتُ الميزات المسمّاة — لا تُكتب مجموعةٌ لم تُسمَّ هنا. */
+export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills";
+/** معرّفُ وثيقة Firestore لا يحمل «/». */
+const featureDocId = (id: string) => String(id || "").replace(/\//g, "_").slice(0, 300);
 
 export const Repository = {
   getStudentCaseSecret: async (): Promise<string> => getOrCreateStudentCaseSecret(),
@@ -5540,6 +5548,33 @@ export const Repository = {
     return { fields: rec, first };
   },
 
+  /**
+   * صفةُ رابط الطلب وحدها (E1) — حقلٌ واحد، لا إعادةُ حفظ الطلب كله: طلبٌ ينتظر قرارَ القسم
+   * قد يصله قرارٌ أو ردٌّ بين قراءة النشر وكتابته، فلا يُمحى. ولا يُرفع رقمُ مراجعته: بنودُه لم
+   * تتغيّر، فلا يُردّ إرسالُ الأستاذ بـ«تغيّر الطلب». ويُبثّ الحفظُ فيُعيد الكرتُ الحيّ رسمَ صفته.
+   */
+  setInstructorRequestLinkMode: async (id: string, mode: LinkMode): Promise<boolean> => {
+    const at = new Date().toISOString();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequests").doc(id);
+      const saved = await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        tx.update(ref, { linkMode: mode, updatedAt: at });
+        return { ...(snap.data() as InstructorRequest), linkMode: mode, updatedAt: at };
+      });
+      if (saved) announceInstructorRequestSaved(saved);
+      return Boolean(saved);
+    }
+    const row = (db.instructorRequests || []).find(item => item.id === id);
+    if (!row) return false;
+    row.linkMode = mode;
+    row.updatedAt = at;
+    saveDatabase();
+    announceInstructorRequestSaved(row);
+    return true;
+  },
+
   getInstructorRequest: async (id: string): Promise<InstructorRequest | undefined> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const doc = await firestoreDb.collection("instructorRequests").doc(id).get();
@@ -7224,6 +7259,60 @@ export const Repository = {
     db.departmentDelegates = [...(db.departmentDelegates || []).filter(item => item.scopeKey !== scopeKey), row];
     saveDatabase();
     return unique;
+  },
+
+  /* ── وثائقُ الميزات (حالة طرح المقرر، رصيد مقاعد المرشد، مرحلة التدريب…) ────
+   * مخزنٌ واحدٌ بمجموعاتٍ مسمّاة، وكتابةٌ ذرّية (`updateFeatureDoc`): في Firestore
+   * داخل runTransaction، وفي الذاكرة/الديمو بلا await بين القراءة والكتابة —
+   * فلا يتجاوز مرشدان متزامنان السقف، ولا يحجز مدرّبان الشعبة نفسها. */
+  getFeatureDoc: async <T = any>(collection: FeatureCollection, id: string): Promise<T | null> => {
+    const key = featureDocId(id);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection(collection).doc(key).get();
+      return doc.exists ? (doc.data() as T) : null;
+    }
+    return ((db.featureDocs || {})[collection] || {})[key] ?? null;
+  },
+  listFeatureDocs: async <T = any>(collection: FeatureCollection, prefix = ""): Promise<T[]> => {
+    const wanted = featureDocId(prefix);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection(collection).get();
+      return snap.docs.filter(doc => !wanted || doc.id.startsWith(wanted)).map(doc => doc.data() as T);
+    }
+    return Object.entries((db.featureDocs || {})[collection] || {})
+      .filter(([id]) => !wanted || id.startsWith(wanted)).map(([, row]) => row as T);
+  },
+  saveFeatureDoc: async <T = any>(collection: FeatureCollection, id: string, row: T): Promise<T> => {
+    const key = featureDocId(id);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection(collection).doc(key).set(row as any, { merge: false });
+      return row;
+    }
+    const all = db.featureDocs || {};
+    db.featureDocs = { ...all, [collection]: { ...(all[collection] || {}), [key]: row } };
+    saveDatabase();
+    return row;
+  },
+  /** يقرأ ويكتب ذرّياً. `fn` تُرجع الوثيقة الجديدة، أو `{ refuse }` فلا يُكتب شيء. */
+  updateFeatureDoc: async <T = any, R = unknown>(collection: FeatureCollection, id: string,
+    fn: (current: T | null) => { next: T; result: R } | { refuse: R }): Promise<{ ok: true; result: R; next: T } | { ok: false; result: R }> => {
+    const key = featureDocId(id);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection(collection).doc(key);
+      return firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        const out = fn(snap.exists ? (snap.data() as T) : null);
+        if ("refuse" in out) return { ok: false as const, result: out.refuse };
+        tx.set(ref, out.next as any, { merge: false });
+        return { ok: true as const, result: out.result, next: out.next };
+      });
+    }
+    const all = db.featureDocs || {};
+    const out = fn(((all[collection] || {})[key] ?? null) as T | null);
+    if ("refuse" in out) return { ok: false, result: out.refuse };
+    db.featureDocs = { ...all, [collection]: { ...(all[collection] || {}), [key]: out.next } };
+    saveDatabase();
+    return { ok: true, result: out.result, next: out.next };
   },
 
   /* ── النصاب التدريسي: وثيقةٌ واحدة (`main`) ─────────────────────────────────
