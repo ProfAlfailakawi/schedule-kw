@@ -51,6 +51,10 @@ self.addEventListener("fetch",event=>{
   if(url.pathname.startsWith("/_ads/")||url.pathname==="/_pulse")return;
   /* صفحتا الشركاء مستقلتان عن التطبيق وبرمزٍ سرّي: لو مرّتا بقاعدة التنقّل لحلّتا محلّ هيكل التطبيق دون اتصال. */
   if(url.pathname.startsWith("/ad-report/")||url.pathname.startsWith("/partners/")||url.pathname.startsWith("/verify/")||url.pathname==="/measurement")return;
+  /* صفحاتُ الروابط العامة — كرتُ الأستاذ (/r/) وبطاقةُ القسم (/s/) ومساري (/me) وأخواتها — تُبنى في
+     الخادم لكل رمز. لا تُخزَّن هنا ولا تُجاب من هيكل التطبيق: لو مرّت بقاعدة التنقّل لصار الكرتُ هو
+     «التطبيق» دون اتصال، ولقُدِّم كرتٌ قديم. ولها عاملُها الخاص للتنبيهات (/push-sw.js) بلا ذاكرة. */
+  if(/^\/(?:r|s|q|m|t)\//.test(url.pathname)||url.pathname==="/me"||url.pathname.startsWith("/me/")||url.pathname==="/push-sw.js")return;
   if(url.pathname.startsWith("/api/")){
     // Never persist authentication responses or credential/admin-user payloads.
     if(url.pathname.startsWith("/api/auth/")||url.pathname==="/api/users"||!isCacheableApi(url.pathname))return;

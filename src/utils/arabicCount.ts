@@ -130,6 +130,7 @@ export const AR = {
   note:        { one: "ملاحظة", two: "ملاحظتان", few: "ملاحظات", many: "ملاحظة" },
   request:     { one: "طلب", two: "طلبان", few: "طلبات", many: "طلباً" },
   message:     { one: "رسالة", two: "رسالتان", few: "رسائل", many: "رسالة" },
+  reply:       { one: "ردّ", two: "ردّان", few: "ردود", many: "ردّاً" },
   clash:       { one: "تداخل", two: "تداخلان", few: "تداخلات", many: "تداخلاً" },
   conflict:    { one: "تعارض", two: "تعارضان", few: "تعارضات", many: "تعارضاً" },
   blocker:     { one: "مانع", two: "مانعان", few: "موانع", many: "مانعاً" },
