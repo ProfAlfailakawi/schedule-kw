@@ -624,7 +624,8 @@ export default function QuickCreatePopover({
       </footer>
     </div>
     {miniWeekNode && side ? (
-      <div className="qc-mini-side" ref={sideRef} style={{ left: side.left, top: side.top, maxHeight: side.maxHeight }} onPointerDown={(e) => e.stopPropagation()}>
+      <div className="qc-mini-side" ref={sideRef} role="dialog" aria-modal="false" aria-label="أسبوع الأستاذ بجوار الموعد الجديد"
+        style={{ left: side.left, top: side.top, maxHeight: side.maxHeight }} onPointerDown={(e) => e.stopPropagation()}>
         {miniWeekNode}
       </div>
     ) : null}

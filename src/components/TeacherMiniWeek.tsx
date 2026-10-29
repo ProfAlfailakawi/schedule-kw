@@ -4,6 +4,7 @@ import type { AdCourse, FSchedule } from "../types";
 import type { AppointmentVerdict } from "../utils/appointmentVerdict";
 import { DAY_KEYS, type DayKey } from "../utils/scheduleRegulations";
 import { courseLabel } from "../utils/courseLabel";
+import { AR, countOf } from "../utils/arabicCount";
 import {
   adjacentPlacement, adjacentRoom, compactSpan, freeTargets, teacherHeader, teacherLectures, teacherRows, toClock, toMin,
   type MiniLecture, type MiniRoomPick, type MiniSpan, type MiniTarget,
@@ -32,6 +33,8 @@ type Tone = "clean" | "blocked" | "checking" | "idle";
 
 const daysText = (days: readonly DayKey[]) => days.map(day => DAY_SHORT[day]).join("·");
 const hoursText = (minutes: number) => String(Math.round(minutes / 6) / 10);
+/** «فراغات ساعة ونصف» بالعدّ العربي الواحد (arabicCount)، لا رقمٌ قبل معدودٍ مكتوبٍ باليد. */
+const gapWords = (minutes: number) => minutes > 0 ? `فراغات ${countOf(minutes / 60, AR.hour)}` : "بلا فراغات";
 
 function useMedia(query: string, enabled: boolean) {
   const read = () => enabled && typeof window !== "undefined" && Boolean(window.matchMedia?.(query).matches);
@@ -216,7 +219,7 @@ export default function TeacherMiniWeek({
   const over = header.nisab > 0 && header.loadAfter > header.nisab;
   const dayDelta = header.daysAfter - header.daysNow;
   const gapDelta = header.gapAfter - header.gapNow;
-  const facts = `النصاب ${header.loadNow} ← ${header.loadAfter}${header.nisab ? ` من ${header.nisab}` : ""} · أيام الحضور ${header.daysAfter} · الفراغات ${hoursText(header.gapAfter)} ساعة`;
+  const facts = `النصاب ${header.loadNow} ← ${header.loadAfter}${header.nisab ? ` من ${header.nisab}` : ""} · أيام الحضور ${header.daysAfter} · ${gapWords(header.gapAfter)}`;
 
   return <section ref={shell} className={`mini-week is-${variant}${sheet ? " is-sheet" : ""}${open ? " is-open" : ""}`}
     aria-label={`أسبوع ${teacherName || "الأستاذ"}`} data-mini-week="true" style={{ "--mw-track": `${trackHeight}px` } as React.CSSProperties}>
@@ -235,7 +238,7 @@ export default function TeacherMiniWeek({
           <em className={dayDelta > 0 ? "is-up" : ""} aria-label={`أيام الحضور ${header.daysAfter}`}>
             <CalendarDays aria-hidden="true" /><span dir="ltr">{header.daysAfter}</span>{dayDelta > 0 ? <sup dir="ltr">+{dayDelta}</sup> : null}
           </em>
-          <em className={gapDelta > 0 ? "is-up" : gapDelta < 0 ? "is-down" : ""} aria-label={`الفراغات ${hoursText(header.gapAfter)} ساعة`}>
+          <em className={gapDelta > 0 ? "is-up" : gapDelta < 0 ? "is-down" : ""} aria-label={gapWords(header.gapAfter)}>
             <Hourglass aria-hidden="true" /><span dir="ltr">{hoursText(header.gapAfter)}</span>
             {gapDelta ? (gapDelta > 0 ? <ArrowUp aria-hidden="true" className="mini-week-trend" /> : <ArrowDown aria-hidden="true" className="mini-week-trend" />) : null}
           </em>

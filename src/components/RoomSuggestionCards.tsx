@@ -4,6 +4,7 @@ import {
   Hourglass, MapPin, MonitorPlay, Repeat2, Star, Trash2, UserRound, UserRoundCheck, UsersRound,
 } from "lucide-react";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
+import { AR, countOf } from "../utils/arabicCount";
 import type { SuggestionEmptyReason } from "../utils/suggestionEngine";
 
 export interface RoomSuggestion {
@@ -139,7 +140,7 @@ export default function RoomSuggestionCards({
         <span className="room-replaceable-copy">
           <bdi dir="ltr" className="room-suggest-code">{item.room}/{item.hall}</bdi>
           <small>{item.courseName || "المقرر نفسه"}{item.scode ? ` · شعبة ${item.scode}` : ""} · <time dir="ltr">{formatScheduleTimeRange(item.start, item.end)}</time></small>
-          {item.radar ? <small className="room-replaceable-radar" title={`رادار التسجيل: ${item.radar.seated} طالباً في المقرر على ${item.radar.sections} شعبة`}><UsersRound aria-hidden="true" /><b>{item.radar.seated}</b>/<span>{item.radar.sections}</span></small> : null}
+          {item.radar ? <small className="room-replaceable-radar" title={`رادار التسجيل: ${countOf(item.radar.seated, AR.student)} في المقرر على ${countOf(item.radar.sections, AR.section)}`}><UsersRound aria-hidden="true" /><b>{item.radar.seated}</b>/<span>{item.radar.sections}</span></small> : null}
         </span>
         <span className="room-replaceable-actions">
           {item.sameCourse ? <button type="button" className="room-replaceable-assign is-best" disabled={replaceBusy}

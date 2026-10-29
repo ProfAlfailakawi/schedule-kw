@@ -942,7 +942,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     const blocked = group.courses.filter(course => mergeIds.includes(course.id) && !course.mergeable);
     if (blocked.length) { fail(res, 409, `لا يُدمج آلياً: ${blocked.map(course => `${course.code} (${course.blockedBy})`).join("، ")}.`); return; }
     const result = await Repository.mergeCourses(keeperId, mergeIds, canonicalName, String((req as any).user?.Name || ""));
-    res.locals.auditChanges = `دمج إملاء مقرر: ${group.courses.filter(course => mergeIds.includes(course.id)).map(course => `${course.code} ${course.name}`).join(" + ")} ← ${result.keeper.CourseCode} «${canonicalName}» (${result.schedules} موعد، ${result.links} رابط صحيفة)`;
+    res.locals.auditChanges = `دمج إملاء مقرر: ${group.courses.filter(course => mergeIds.includes(course.id)).map(course => `${course.code} ${course.name}`).join(" + ")} ← ${result.keeper.CourseCode} «${canonicalName}» (${countOf(result.schedules, AR.appointment, "بلا مواعيد")}، روابط الصحيفة: ${result.links})`;
     res.json({ ok: true, keeper: result.keeper, schedules: result.schedules, links: result.links });
   });
 
