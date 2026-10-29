@@ -113,6 +113,8 @@ check(read("src/server/pages/instructorRequestPage.ts").includes("+skEnds(it.com
   check(!names.some(n => n.startsWith("هيئة")), "R4 ولا «هيئة تدريسية» في المنتقي");
   const numbered = proposalLauncherChoices([5, 6, 7].map(n => ({ id: `t${n}`, AdInstructorId: n, instructorName: `عضو هيئة تدريس تجريبي ${n}`, AdCollegeId: 1, AdSectionId: 1 })));
   check(numbered.length === 3, "R4 اسمان يختلفان برقمٍ فقط شخصان لا شخصٌ واحد", numbered);
+  const visiting = proposalLauncherChoices([{ id: "v", AdInstructorId: 40, instructorName: "د. منتدب زائر", AdCollegeId: 1, AdSectionId: 1, visiting: true }]);
+  check(visiting[0]?.visiting === true, "R4 وشارةُ المنتدب تبقى على خياره");
   const twoScopes = proposalLauncherChoices([
     { id: "a", AdInstructorId: 11, instructorName: "د. أحمد الفيلكاوي", AdCollegeId: 1, AdSectionId: 1, sectionName: "تكنولوجيا التعليم" },
     { id: "b", AdInstructorId: 11, instructorName: "د. أحمد  الفيلكاوى", AdCollegeId: 1, AdSectionId: 2, sectionName: "المكتبات" },
