@@ -53,8 +53,8 @@ fs.writeFileSync(path.join(dir, "db.json"), JSON.stringify({
     { AdSectionId: 2, AdCollegeId: 5, AdSectionCode: "10", AdSectionName: "التربية الفنية" },
   ],
   instructors: [
-    { AdInstructorId: 1, AdInstructorName: INSTRUCTOR_NAMES[0], AdInstructorCivil: "289010101234", AdSectionId: 1 },
-    { AdInstructorId: 2, AdInstructorName: INSTRUCTOR_NAMES[1], AdInstructorCivil: "289010101235", AdSectionId: 2 },
+    { AdInstructorId: 1, AdInstructorName: INSTRUCTOR_NAMES[0], AdInstructorCivil: "300010100122", AdSectionId: 1 },
+    { AdInstructorId: 2, AdInstructorName: INSTRUCTOR_NAMES[1], AdInstructorCivil: "300123100006", AdSectionId: 2 },
   ],
   courses: [
     course(11, 1, "0109105", "مدخل إلى تكنولوجيا التعليم"), course(12, 2, "0110108", "الرسم الحرّ"),
@@ -250,7 +250,7 @@ const boardToken = secret.buildingDoorToken(key, building.id);
     const body = JSON.stringify(live.json);
     check(live.status === 200 && live.json?.kind === "room" && live.json.week.length === 5 && live.json.at === clockNow, "R4 البياناتُ الحيّة: أسبوعُ القاعة ولحظةُ الخادم");
     check(!INSTRUCTOR_NAMES.some(name => body.includes(name) || page.text.includes(name)), "R4 لا اسمَ أستاذ في البيانات ولا في الصفحة (ولا اسمَ البديل)");
-    check(!/Instructor|instructor|Civil|civil|MaxStudent|AdCourseId|scheduleId|"id":/.test(body) && !/2890101012/.test(body + page.text), "R4 لا معرّفَ ولا رقمَ مدنيّاً ولا عددَ طلبة");
+    check(!/Instructor|instructor|Civil|civil|MaxStudent|AdCourseId|scheduleId|"id":/.test(body) && !/300010100122|300123100006/.test(body + page.text), "R4 لا معرّفَ ولا رقمَ مدنيّاً ولا عددَ طلبة");
     const keys = new Set<string>();
     for (const day of live.json.week) for (const lecture of day.lectures) Object.keys(lecture).forEach(k => keys.add(k));
     check([...keys].every(k => ["s", "e", "start", "end", "code", "title", "sec", "x"].includes(k)), "R4 المحاضرةُ: الرمزُ والاسمُ والشعبةُ والوقتُ وحدها", [...keys]);
