@@ -82,7 +82,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     const invite = parseInvitationHash(hash);
     if (invite) {
       updateUsername(invite.username);
-      setPassword(invite.password);
+      if (invite.password) setPassword(invite.password);
       window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
     }
   }, []);

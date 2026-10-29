@@ -24,7 +24,7 @@ import { canManageDeadline, canReviewSubmissions, canAnnotateCells, isAcademicRo
 import { seedDemoRadar, seedDemoMasariDemand } from "../demoRadarSeed";
 import { seedDemoOtherDepartmentStories } from "../demoPreviousTermSeed";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
-import { DEFAULT_INVITATION_PASSWORD } from "../../utils/invitationLink";
+import { LEGACY_SHARED_PASSWORD, newPasswordProblem } from "../accountPassword";
 import { endForRequest, requestFullySettled, weeklyLoadOf, type RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { pushHooks } from "../pushRoutes";
 import { authCache, type AuthenticatedRequest, deadSessions, DEMO_SESSION_GONE, DEMO_SESSION_TTL_MS, getCookies, requireAuth, ROOT_ADMIN_USER_ID, SERVER_IDLE_SESSION_MS, sessionTouchedAt } from "../core/auth";
@@ -586,10 +586,13 @@ app.post("/api/demo/role", rateLimitDemoRole, requireAuth, async (req: Authentic
 
 /* رابطٌ قصير يُقرأ من صورة واتساب. لا تعتمد الدعوة المصوّرة على بقاء #fragment
    عند فتح الصورة أو على تحويل النص المصوَّر إلى رابطٍ يحمل معاملات مخفية. */
+/* الرابطُ القصير يحمل اسمَ الدخول وحده: كان يُكمله بالكلمة الموحّدة، فيصير كلُّ اسمٍ
+   يُخمَّن (Frenchdept…) دعوةً جاهزة. الكلمةُ تصل صاحبَها من المسؤول، والروابطُ القديمة
+   في واتساب تبقى تعمل فتملأ الاسم. */
 app.get("/i/:username", rateLimitLogin, (req: Request, res: Response) => {
   const username = String(req.params.username || "").trim();
   if (!username || username.length > 200) { res.status(400).type("text/plain").send("رابط الدعوة غير صالح"); return; }
-  const invite = new URLSearchParams({ username, password: DEFAULT_INVITATION_PASSWORD });
+  const invite = new URLSearchParams({ username });
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.redirect(302, `/#invite=${encodeURIComponent(invite.toString())}`);
@@ -635,6 +638,13 @@ app.post("/api/auth/login", rateLimitLogin, async (req: Request, res: Response) 
     return;
   }
 
+  /* من يدخل بالكلمة الموحّدة القديمة لا يُقفل: يدخل، ويُعلَّم فلا يصل إلى شيءٍ حتى يختار كلمته
+     (passwordChangeGate). والعلامةُ على الحساب لا على الجلسة، فتبقى إن خرج قبل التغيير. */
+  if (password === LEGACY_SHARED_PASSWORD && !(user as any).MustChangePassword) {
+    await Repository.updateUser(Number(user.SystemUserId), { MustChangePassword: true } as any);
+    (user as any).MustChangePassword = true;
+  }
+
   // Generate Session ID
   const sessionId = `sess_${randomBytes(32).toString("hex")}`;
   await Repository.createSession(sessionId, user.SystemUserId, SERVER_IDLE_SESSION_MS);
@@ -652,6 +662,26 @@ app.post("/api/auth/login", rateLimitLogin, async (req: Request, res: Response) 
   const scopes = await clientScopeDetails(await Repository.getUserAssigns(user.SystemUserId));
 
   res.json({ user: { ...safeUser, IsRootAdmin: Number(user.SystemUserId) === ROOT_ADMIN_USER_ID, IsDemo: false }, role: roleDescriptor(user), permissions, scopes, data: activeDataMode() });
+});
+
+/* تغييرُ كلمة السر بيد صاحبها: بالكلمة الحالية، ولا تُقبل الموحّدةُ القديمة ولا الحاليةُ نفسها.
+   وهو الباب الوحيد المفتوح (مع من أنا والخروج) لحسابٍ عليه تغييرُ كلمته. */
+app.post("/api/auth/change-password", rateLimitLogin, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  if (Repository.isDemoRequest()) { res.status(403).json({ error: "هذه العملية غير متاحة في البيئة التجريبية" }); return; }
+  const current = String(req.body?.currentPassword ?? "");
+  const next = String(req.body?.newPassword ?? "");
+  const user = await Repository.getUserById(Number(req.user.SystemUserId));
+  if (!user || !Repository.verifyPassword(current, user.SystemUserPass)) { res.status(400).json({ error: "كلمة السر الحالية غير صحيحة" }); return; }
+  const problem = newPasswordProblem(current, next);
+  if (problem) { res.status(400).json({ error: problem }); return; }
+  await Repository.updateUser(Number(user.SystemUserId), {
+    SystemUserPass: Repository.hashPassword(next),
+    SystemUserPassVault: Repository.encryptPasswordForVault(next),
+    MustChangePassword: false,
+  } as any);
+  forgetAuthSession(getCookies(req)["session_id"]);
+  res.locals.auditChanges = "تغيير كلمة السر";
+  res.json({ ok: true });
 });
 
 app.post("/api/auth/logout", async (req: AuthenticatedRequest, res: Response) => {

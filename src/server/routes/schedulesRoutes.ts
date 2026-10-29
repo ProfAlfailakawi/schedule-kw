@@ -32,6 +32,7 @@ import { filterByScope, isScopeAllowed } from "../core/scope";
 import { safeDraftRows, validateSmartRows } from "../core/smartImport";
 import { captureScopeVersion, confirmTokens, recordVersionAfter } from "../core/versions";
 import { readLiveVisitingRoster, readVisitingStatus } from "../core/visiting";
+import { instructorCircleFor } from "./instructorsRoutes";
 
 /* ── استثناءات الأسبوع ────────────────────────────────────────────────────────
    Dated facts OVER an appointment: cancelled THIS date, covered THIS date.
@@ -378,6 +379,15 @@ app.get("/api/schedules/:id/substitutes", requirePermission(7), async (req: Auth
     .filter(Boolean)
     .sort((a: any, b: any) => b.score - a.score || byArabic(a.name,b.name))
     .slice(0, 12);
+  /* الجوّالُ بالقاعدة نفسها التي يُقرأ بها دليلُ الأساتذة (instructorCircleFor):
+     من في حلقة أقسام القارئ يصل رقمُه فيُبنى له رابطُ واتساب، ومن سواه يصل بلا
+     رقم ويُقال للواجهة «تواصل عبر قسمه». الإدارةُ وصاحبُ شاشة الأساتذة (٣) يرون الكل. */
+  const circle = await instructorCircleFor(req);
+  for (const candidate of candidates as any[]) {
+    if (!circle || circle.has(Number(candidate.id))) continue;
+    candidate.mobile = "";
+    candidate.contactViaDepartment = true;
+  }
 
   const exceptions = await Repository.getScheduleWeekExceptions(Number(row.AdTermId), Number(row.id));
   res.json({

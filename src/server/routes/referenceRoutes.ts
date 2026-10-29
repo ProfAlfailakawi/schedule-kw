@@ -73,9 +73,10 @@ app.post("/api/colleges", requirePermission(2), async (req: Request, res: Respon
     return;
   }
   const newC = await Repository.createCollege(code, name);
-  /* الكلية الجديدة تولد بعميدها وعميدها المساعد (فعّالين بكلمة السر الافتراضية)؛ وعميد التسجيل ورئيسه نطاقهما كل الكليات فيشملانها. */
+  /* الكلية الجديدة تولد بعميدها وعميدها المساعد (فعّالين، لكلٍّ كلمةٌ أولى عشوائية تُعاد هنا للمسؤول ويُطلب تغييرها عند أول دخول)؛ وعميد التسجيل ورئيسه نطاقهما كل الكليات فيشملانها. */
   const accounts = (req as AuthenticatedRequest).user?.IsAdminUser ? await provisionCollegeUsers(Repository, newC) : [];
   res.locals.auditChanges = `إنشاء كلية «${name}»${accounts.length ? ` وحسابات ${accounts.filter(row => row.status === "created").map(row => row.login).join("، ")}` : ""}`;
+  res.setHeader("Cache-Control", "no-store");
   res.status(201).json({ ...newC, accounts });
 });
 

@@ -108,6 +108,21 @@ export default function PlanSheetUpload({ targets, sectionId, onDone, tools }: {
   const [accounts, setAccounts] = useState<{ rows: AccountsRow[]; total: number } | null>(null);
   const [accountsOn, setAccountsOn] = useState<Set<number>>(new Set());
   const [accountsMsg, setAccountsMsg] = useState("");
+  /* الكلمات الأولى للحسابات التي أُنشئت في هذه الجلسة: لكل حسابٍ كلمتُه العشوائية، تُعرض هنا مرّةً
+     ليسلّمها المسؤول لصاحبها، ويُطلب تغييرها عند أول دخول. لا تُحفظ في المتصفح. */
+  const [issued, setIssued] = useState<Array<{ where: string; label: string; login: string; password: string }>>([]);
+  const collectIssued = (data: any) => {
+    const found: Array<{ where: string; label: string; login: string; password: string }> = [];
+    for (const group of [...(Array.isArray(data?.createdColleges) ? data.createdColleges : []), ...(Array.isArray(data?.createdSections) ? data.createdSections : [])]) {
+      for (const item of Array.isArray(group?.accounts) ? group.accounts : []) {
+        if (item?.status === "created" && item.password) found.push({ where: String(group.name || ""), label: String(item.label || ""), login: String(item.login || ""), password: String(item.password) });
+      }
+    }
+    for (const item of Array.isArray(data?.credentials) ? data.credentials : []) {
+      if (item?.password) found.push({ where: String(item.section || ""), label: String(item.label || ""), login: String(item.login || ""), password: String(item.password) });
+    }
+    if (found.length) setIssued(current => [...current, ...found]);
+  };
   const previewAccounts = async () => {
     setAccountsMsg(""); setAccountsOn(new Set());
     try {
@@ -121,11 +136,12 @@ export default function PlanSheetUpload({ targets, sectionId, onDone, tools }: {
     const ids = [...accountsOn];
     if (!ids.length) return;
     const count = (accounts?.rows || []).filter(row => accountsOn.has(row.sectionId)).reduce((sum, row) => sum + row.missing.length, 0);
-    if (!window.confirm(`إنشاء ${countOf(count, AR.account)} فعّالة بكلمة السر الافتراضية؟`)) return;
+    if (!window.confirm(`إنشاء ${countOf(count, AR.account)} فعّالة، لكلٍّ منها كلمة سرٍّ أولى خاصة تظهر لك بعد الإنشاء؟`)) return;
     try {
       const response = await fetch("/api/plan-review/section-accounts", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ sectionIds: ids }) });
       const data = await response.json().catch(() => ({} as any));
       if (!response.ok) throw new Error(data.error || "تعذّر الإنشاء");
+      collectIssued(data);
       setAccountsMsg(`أُنشئ ${countOf(Number(data.created || 0), AR.account)}${data.failed?.length ? ` · تعثّر ${data.failed.length}` : ""}`);
       await previewAccounts();
     } catch (e: any) { setAccountsMsg(String(e?.message || "تعذّر الإنشاء")); }
@@ -239,7 +255,7 @@ export default function PlanSheetUpload({ targets, sectionId, onDone, tools }: {
         const began = performance.now();
         const { response, data, attempts } = await post(`/api/plan-review/sheet/import${qsOf?.(files[item.index]) || ""}`, files[item.index]);
         const timing = { ms: Math.round(performance.now() - began), http: response.status, attempts };
-        if (response.ok) { accepted.push(item.index); state.ok += 1; last = { sectionId: Number(data.sectionId || 0), planId: String(data.planId || "") }; rows[item.index] = { ...rows[item.index], status: "ok", ...pick(data), ...timing, server: data }; }
+        if (response.ok) { collectIssued(data); accepted.push(item.index); state.ok += 1; last = { sectionId: Number(data.sectionId || 0), planId: String(data.planId || "") }; rows[item.index] = { ...rows[item.index], status: "ok", ...pick(data), ...timing, server: data }; }
         else { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: data.rejection?.kind === "department" ? "لا قسم بهذا الاسم أو الرمز" : (SHORT[data.rejection?.kind]?.title || data.error || "تعذّر"), detail: data.rejection?.message || `HTTP ${response.status}`, ...(data.rejection?.missing ? { missingDept: { name: String(data.rejection.departmentName || "").replace(/^قسم\s+/, ""), code: String(data.rejection.code || ""), sheetCollege: String(data.rejection.sheetCollege || ""), collegeCode: String(data.rejection.collegeCode || ""), colleges: Array.isArray(data.rejection.colleges) ? data.rejection.colleges : [] } } : {}), ...timing, server: data }; }
       } catch (e: any) { state.failed += 1; rows[item.index] = { ...rows[item.index], status: "rejected", reason: "تعذّر الرفع", detail: String(e?.message || e) }; }
       state.done += 1; publish();
@@ -423,9 +439,17 @@ export default function PlanSheetUpload({ targets, sectionId, onDone, tools }: {
               ))}
             </ul>
             <button type="button" className="btn btn-secondary" onClick={() => setAccountsOn(current => current.size === accounts.rows.length ? new Set() : new Set(accounts.rows.map(row => row.sectionId)))} data-guide-ignore="تحديد كل الأقسام أو إلغاء التحديد داخل شاشة مراجعة الصحيفة">حدّد الكل / ألغِ</button>
-            <button type="button" className="btn btn-primary" disabled={!accountsOn.size || Boolean(working)} onClick={() => void run("جارٍ إنشاء الحسابات", createAccounts)} data-guide-ignore="إنشاء الحسابات الناقصة للأقسام المحدّدة بكلمة السر الافتراضية داخل شاشة مراجعة الصحيفة"><Plus aria-hidden="true" size={16} /> أنشئ المحدّد</button>
+            <button type="button" className="btn btn-primary" disabled={!accountsOn.size || Boolean(working)} onClick={() => void run("جارٍ إنشاء الحسابات", createAccounts)} data-guide-ignore="إنشاء الحسابات الناقصة للأقسام المحدّدة بكلمات سرٍّ أولى خاصة داخل شاشة مراجعة الصحيفة"><Plus aria-hidden="true" size={16} /> أنشئ المحدّد</button>
           </>
         ) : <small role="status">كل الأقسام لها حساباتها</small>) : null}
+        {issued.length ? (
+          <div className="pr-sheet-issued" role="group" aria-label="كلمات السر الأولى للحسابات الجديدة">
+            <small>كلمات السر الأولى — تظهر هنا مرّة واحدة؛ سلّم كل كلمة لصاحبها، وسيُطلب منه تغييرها عند أول دخول. ولك دائماً تعيين غيرها من شاشة المستخدمين.</small>
+            <ul>
+              {issued.map(item => <li key={`${item.login}:${item.password}`}><b>{item.where}</b> · {item.label} · <code dir="ltr">{item.login}</code> · <code dir="ltr">{item.password}</code></li>)}
+            </ul>
+          </div>
+        ) : null}
       </div>
       <DuplicateCoursesPanel />
       <SpellingTwinsMerge />

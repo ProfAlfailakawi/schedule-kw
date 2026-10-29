@@ -124,6 +124,9 @@ export default function Colleges({ embedded = false, actionSlot = null }: { embe
       setError(d.error || "فشل حفظ بيانات الكلية");
       return;
     }
+    /* حسابا العميد والعميد المساعد يولدان بكلمتين أوليين خاصتين: تُعرضان مرّةً ليسلّمهما المسؤول. */
+    const issued = (Array.isArray(d.accounts) ? d.accounts : []).filter((item: any) => item?.status === "created" && item.password);
+    if (issued.length) window.alert(`أُنشئت حسابات الكلية. كلمات السر الأولى (تظهر مرّة واحدة، ويُطلب تغييرها عند أول دخول):\n\n${issued.map((item: any) => `${item.label}: ${item.login} — ${item.password}`).join("\n")}`);
     await load();
     back();
   };

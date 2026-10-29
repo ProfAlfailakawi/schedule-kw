@@ -10,6 +10,8 @@ export interface SystemUser {
   IsActive: boolean;
   IsLocked: boolean;
   IsDeleted?: boolean;
+  /** يُطلب منه اختيارُ كلمة سرٍّ قبل أي شيء (حسابٌ جديد بكلمةٍ أولى، أو دخولٌ بالكلمة الموحّدة القديمة). */
+  MustChangePassword?: boolean;
   // Optional link used by the modern personal dashboard. Existing legacy users remain valid without it.
   AdInstructorId?: number;
   /**

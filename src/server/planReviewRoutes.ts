@@ -1061,6 +1061,8 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
     const made: string[] = [];
     const failed: string[] = [];
+    /* الكلمةُ الأولى لكل حسابٍ أُنشئ: تُعرض للمسؤول مرّةً ليسلّمها، ولا تُكتب في سجل التدقيق. */
+    const credentials: Array<{ section: string; label: string; login: string; password: string }> = [];
     for (const row of await planSectionAccounts(Repository)) {
       if (!ids.has(row.sectionId)) continue;
       const section = (sections as any[]).find(item => Number(item.AdSectionId) === row.sectionId);
@@ -1069,10 +1071,12 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       try {
         const accounts = await provisionSectionUsers(Repository, college, section, undefined, row.missing.map(item => item.role));
         made.push(...accounts.filter(item => item.status === "created").map(item => item.login));
+        credentials.push(...accounts.filter(item => item.status === "created" && item.password).map(item => ({ section: row.section, label: item.label, login: item.login, password: String(item.password) })));
       } catch (error: any) { failed.push(`${row.section}: ${String(error?.message || error)}`); console.error("[section-accounts]", error?.stack || error); }
     }
     res.locals.auditChanges = `إنشاء حسابات أقسام: ${made.join("، ")}${failed.length ? ` | تعثّر: ${failed.join("، ")}` : ""}`;
-    res.json({ ok: true, created: made.length, logins: made, failed });
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, created: made.length, logins: made, credentials, failed });
   });
 
   app.post("/api/plan-review/sheet/reconcile", sheetLimit, deps.requireAuth, express.json({ limit: "2mb" }), async (req: Request, res: Response) => {

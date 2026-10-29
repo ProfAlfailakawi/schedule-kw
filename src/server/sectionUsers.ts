@@ -1,14 +1,14 @@
 /**
  * حسابات القسم الجديد: يُنشأ القسم من الصحيفة فتُنشأ معه صفاتُه الثلاث (رئيس القسم، رئيس الجدول، المرشد)
- * فعّالةً بكلمة السر الافتراضية الموحّدة، مقيَّدةً بكليته وقسمه.
+ * فعّالةً، كلٌّ بكلمة سرٍّ أولى عشوائية خاصةٍ به (تُعاد في النتيجة ليسلّمها المسؤول) ويُطلب تغييرها عند
+ * أول دخول، مقيَّدةً بكليته وقسمه. لا كلمة موحّدة: أسماءُ الدخول تُخمَّن من اسم القسم.
  *
  * العميد والعميد المساعد وموظفو التسجيل نطاقهم الكلية كلها (قسم صفر)، والمدير يرى كل شيء؛ فيشمل نطاقُهم
  * القسمَ الجديد بلا ربطٍ إضافي. لا يُلمس حسابٌ موجود، والإعادة لا تكرّر شيئاً.
  */
 import { ACADEMIC_ROLES, roleDefinition } from "../utils/academicRoles";
 import { englishPrefixOf } from "../utils/englishPrefix";
-
-export const DEFAULT_SECTION_PASSWORD = "12345678";
+import { generateInitialPassword } from "./accountPassword";
 
 /** صفات القسم ولاحقة اسم الدخول لكلٍّ منها. */
 export const SECTION_ACCOUNT_ROLES: Array<{ id: string; suffix: string }> = [
@@ -17,7 +17,8 @@ export const SECTION_ACCOUNT_ROLES: Array<{ id: string; suffix: string }> = [
   { id: "advisor", suffix: "advisor" },
 ];
 
-export interface SectionAccountResult { login: string; role: string; label: string; status: "created" | "exists" | "completed" }
+/** `password` للحساب المُنشأ وحده: كلمتُه الأولى، تُعرض للمسؤول مرّةً ليسلّمها لصاحبها. */
+export interface SectionAccountResult { login: string; role: string; label: string; status: "created" | "exists" | "completed"; password?: string }
 
 /** بادئة القسم الإنجليزية من اسمه (Frenchdept/Frenchhead/Frenchadvisor)، وإلا رمز الكلية والقسم. */
 const loginBase = (college: { AdCollegeId: number; AdCollegeCode: string }, section: { AdSectionCode: string; AdSectionName?: string }) => {
@@ -27,7 +28,7 @@ const loginBase = (college: { AdCollegeId: number; AdCollegeCode: string }, sect
   return `${code}${String(section.AdSectionCode || "").replace(/[^A-Za-z0-9]/g, "").toLowerCase()}`;
 };
 const collegeTag = (college: { AdCollegeId: number; AdCollegeCode: string }) => String(college.AdCollegeCode || "").replace(/[^A-Za-z0-9]/g, "") || `c${college.AdCollegeId}`;
-export async function provisionSectionUsers(Repository: any, college: { AdCollegeId: number; AdCollegeCode: string; AdCollegeName: string }, section: { AdSectionId: number; AdSectionCode: string; AdSectionName: string }, password = DEFAULT_SECTION_PASSWORD, only?: string[]): Promise<SectionAccountResult[]> {
+export async function provisionSectionUsers(Repository: any, college: { AdCollegeId: number; AdCollegeCode: string; AdCollegeName: string }, section: { AdSectionId: number; AdSectionCode: string; AdSectionName: string }, password?: string, only?: string[]): Promise<SectionAccountResult[]> {
   const collegeId = Number(college.AdCollegeId), sectionId = Number(section.AdSectionId);
   const users = ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted);
   const byLogin = new Map(users.map(row => [String(row.SystemUserLogin).toLowerCase(), row]));
@@ -54,14 +55,15 @@ export async function provisionSectionUsers(Repository: any, college: { AdColleg
       out.push({ login, role: id, label: role.label, status: filled ? "completed" : "exists" });
       continue;
     }
+    const initial = password || generateInitialPassword();
     const user = await Repository.createUser({
       Name: `${role.label} — ${section.AdSectionName}`, SystemUserLogin: login,
-      SystemUserPass: Repository.hashPassword(password), SystemUserPassVault: Repository.encryptPasswordForVault(password),
-      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: id,
+      SystemUserPass: Repository.hashPassword(initial), SystemUserPassVault: Repository.encryptPasswordForVault(initial),
+      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: id, MustChangePassword: true,
     });
     await Repository.saveSecurityByUser(user.SystemUserId, role.formIds);
     await Repository.saveUserAssigns(user.SystemUserId, [{ AdCollegeId: collegeId, AdSectionId: sectionId }]);
-    out.push({ login, role: id, label: role.label, status: "created" });
+    out.push({ login, role: id, label: role.label, status: "created", password: initial });
   }
   return out;
 }
@@ -72,7 +74,7 @@ export const COLLEGE_ACCOUNT_ROLES: Array<{ id: string; suffix: string }> = [
   { id: "viceDean", suffix: "vicedean" },
 ];
 
-export async function provisionCollegeUsers(Repository: any, college: { AdCollegeId: number; AdCollegeCode: string; AdCollegeName: string }, password = DEFAULT_SECTION_PASSWORD): Promise<SectionAccountResult[]> {
+export async function provisionCollegeUsers(Repository: any, college: { AdCollegeId: number; AdCollegeCode: string; AdCollegeName: string }, password?: string): Promise<SectionAccountResult[]> {
   const collegeId = Number(college.AdCollegeId);
   const users = ((await Repository.getUsers()) as any[]).filter(row => !row.IsDeleted);
   const byLogin = new Map(users.map(row => [String(row.SystemUserLogin).toLowerCase(), row]));
@@ -90,14 +92,15 @@ export async function provisionCollegeUsers(Repository: any, college: { AdColleg
       }
     }
     if (found) { out.push({ login, role: id, label: role.label, status: "exists" }); continue; }
+    const initial = password || generateInitialPassword();
     const user = await Repository.createUser({
       Name: `${role.label} — ${college.AdCollegeName}`, SystemUserLogin: login,
-      SystemUserPass: Repository.hashPassword(password), SystemUserPassVault: Repository.encryptPasswordForVault(password),
-      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: id,
+      SystemUserPass: Repository.hashPassword(initial), SystemUserPassVault: Repository.encryptPasswordForVault(initial),
+      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: id, MustChangePassword: true,
     });
     await Repository.saveSecurityByUser(user.SystemUserId, role.formIds);
     await Repository.saveUserAssigns(user.SystemUserId, [{ AdCollegeId: collegeId, AdSectionId: 0 }]);
-    out.push({ login, role: id, label: role.label, status: "created" });
+    out.push({ login, role: id, label: role.label, status: "created", password: initial });
   }
   return out;
 }

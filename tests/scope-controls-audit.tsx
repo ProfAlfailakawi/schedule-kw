@@ -7,7 +7,7 @@ import Courses from "../src/components/Courses";
 import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "../src/components/ScopeAskBar";
 import { visibleTermIds } from "../src/utils/scopedTerms";
 import { currentTermId } from "../src/utils/termSequence";
-import { invitationHref, isInvitationHash, parseInvitationHash, photoInvitationHref } from "../src/utils/invitationLink";
+import { invitationHref, isInvitationHash, parseInvitationHash } from "../src/utils/invitationLink";
 import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0;
@@ -52,13 +52,15 @@ check("رابط الدعوة يملأ حقلي الدخول ويمسح بيان�
   assert(isInvitationHash(hash));
   assert.deepEqual(parseInvitationHash(hash), { username: "tsbdept+one", password: "1234&5678" });
   assert.deepEqual(parseInvitationHash("#invite&username=tsbdept&password=12345678"), { username: "tsbdept", password: "12345678" });
-  assert.equal(photoInvitationHref("https://schedule-kw.com/", "tsbdept", "12345678"), "https://schedule-kw.com/i/tsbdept");
-  assert.equal(photoInvitationHref("https://schedule-kw.com/", "tsbdept", "different"), null);
-  assert(login.includes("parseInvitationHash(hash)") && login.includes("updateUsername(invite.username)") && login.includes("setPassword(invite.password)"));
+  /* الرابط القصير /i/<login> يحمل الاسم وحده: يُملأ الاسم، ولا كلمة موحّدة في أي رابط. */
+  assert.deepEqual(parseInvitationHash(`#invite=${encodeURIComponent("username=tsbdept")}`), { username: "tsbdept", password: "" });
+  assert.equal(parseInvitationHash(`#invite=${encodeURIComponent("password=x")}`), null);
+  assert(!invitation.includes("12345678") && !invitation.includes("photoInvitationHref"));
+  assert(login.includes("parseInvitationHash(hash)") && login.includes("updateUsername(invite.username)") && login.includes("if (invite.password) setPassword(invite.password)"));
   assert(login.includes('window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`)') && invitation.includes("invitationHref(SITE, login, temporaryPassword)"));
   assert(invitation.includes('const displayUrl = "schedule-kw.com"') && invitation.includes('<a href={url}') && invitation.includes('clipboard.writeText(url)'));
   assert(!invitation.includes('credential("كلمة المرور المؤقتة"') && !invitation.includes('<div className="invitation-credential"><small>كلمة المرور المؤقتة</small>'));
-  assert(!invitation.includes('credential("اسم المستخدم"') && !invitation.includes('<div className="invitation-credential">') && invitation.includes('const url = photoUrl || invitationHref(SITE, login, temporaryPassword)'));
+  assert(!invitation.includes('credential("اسم المستخدم"') && !invitation.includes('<div className="invitation-credential">') && invitation.includes('const url = invitationHref(SITE, login, temporaryPassword)'));
   assert(invitation.includes('code.addData(url)') && invitation.includes('ctx.drawImage(qr, 500, 605, 200, 200)'));
   assert(invitation.includes('اضغط مطولاً على QR Code لفتح الموقع') && invitation.includes('className="invitation-card-qr"'));
 });

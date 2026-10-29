@@ -1,10 +1,5 @@
+/** `password` may be empty: the short /i/<login> link only pre-fills the user name. */
 export type InvitationCredentials = { username: string; password: string };
-export const DEFAULT_INVITATION_PASSWORD = "12345678";
-
-/** Short enough to be recognised as a link in a shared invitation image. */
-export function photoInvitationHref(site: string, username: string, password: string): string | null {
-  return password === DEFAULT_INVITATION_PASSWORD ? `${site}i/${encodeURIComponent(username)}` : null;
-}
 
 /** Keep credentials in the URL fragment, which browsers never send to the server. */
 export function invitationHref(site: string, username: string, password: string): string {
@@ -29,5 +24,7 @@ export function parseInvitationHash(hash: string): InvitationCredentials | null 
   const params = new URLSearchParams(payload);
   const username = params.get("username")?.slice(0, 200) || "";
   const password = params.get("password")?.slice(0, 128) || "";
-  return username && password ? { username, password } : null;
+  /* A link without a password (the short /i/<login> redirect) still names the
+     account; the password then comes from the administrator, not the link. */
+  return username ? { username, password } : null;
 }

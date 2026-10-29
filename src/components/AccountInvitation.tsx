@@ -2,24 +2,25 @@ import React, { useEffect, useState } from "react";
 import { Check, Copy, Download, KeyRound, Link, Send, X } from "lucide-react";
 import BrandMark from "./BrandMark";
 import "./account-invitation.css";
-import { DEFAULT_INVITATION_PASSWORD, invitationHref, photoInvitationHref } from "../utils/invitationLink";
+import { invitationHref } from "../utils/invitationLink";
 
 type Props = { name: string; login: string; active: boolean; hasPassword?: boolean };
 const SITE = "https://schedule-kw.com/";
 
 export default function AccountInvitation({ name, login, active, hasPassword }: Props) {
   const [open, setOpen] = useState(false);
-  const [temporaryPassword, setTemporaryPassword] = useState(DEFAULT_INVITATION_PASSWORD);
+  /* لا كلمة افتراضية: يكتب المسؤول كلمة هذا الحساب (الأولى التي ظهرت عند إنشائه، أو التي عيّنها له). */
+  const [temporaryPassword, setTemporaryPassword] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [previewQr, setPreviewQr] = useState("");
   useEffect(() => {
     setOpen(false);
-    setTemporaryPassword(DEFAULT_INVITATION_PASSWORD);
+    setTemporaryPassword("");
     setStatus("");
   }, [login]);
-  const photoUrl = photoInvitationHref(SITE, login, temporaryPassword);
-  const url = photoUrl || invitationHref(SITE, login, temporaryPassword);
+  /* الكلمة في جزء # من الرابط، فلا تصل إلى الخادم؛ ولا رابط قصير بكلمةٍ موحّدة يُخمَّن. */
+  const url = invitationHref(SITE, login, temporaryPassword);
   const displayUrl = "schedule-kw.com";
   useEffect(() => {
     let cancelled = false;
@@ -120,7 +121,7 @@ export default function AccountInvitation({ name, login, active, hasPassword }: 
           <footer>{previewQr && <img className="invitation-card-qr" src={previewQr} alt="رمز QR لفتح رابط الدخول الخاص" />}<a href={url} target="_blank" rel="noopener noreferrer" dir="ltr" title="فتح رابط الدخول الخاص">{displayUrl}</a><small>اضغط مطولاً على QR Code لفتح الموقع</small></footer>
         </div>
       </div>
-      <label className="invitation-password"><span><KeyRound aria-hidden="true" /> كلمة المرور التي ستُرسل</span><input dir="ltr" value={temporaryPassword} onChange={e => { setTemporaryPassword(e.target.value); setStatus(""); }} autoComplete="off" maxLength={128} /><small>القيمة الافتراضية 12345678. راجع مطابقتها لكلمة الحساب الحالية؛ إعداد البطاقة لا يغيّر كلمة المرور.</small></label>
+      <label className="invitation-password"><span><KeyRound aria-hidden="true" /> كلمة المرور التي ستُرسل</span><input dir="ltr" value={temporaryPassword} onChange={e => { setTemporaryPassword(e.target.value); setStatus(""); }} autoComplete="off" maxLength={128} /><small>اكتب كلمة هذا الحساب: الأولى التي ظهرت عند إنشائه، أو التي عيّنتها له من شاشة المستخدمين. إعداد البطاقة لا يغيّر كلمة المرور.</small></label>
       {!active || hasPassword === false ? <p className="invitation-feedback" role="status">فعّل الحساب واضبط كلمة مروره أولًا قبل تجهيز الدعوة.</p> : null}
       <div className="invitation-actions"><button type="button" data-guide-ignore="نسخ رسالة بيانات الدخول بعد مراجعتها" disabled={!ready} onClick={() => void copy()}><Copy aria-hidden="true" /> نسخ رسالة واتساب</button><button type="button" data-guide-ignore="تنزيل صورة بطاقة الدخول بعد مراجعتها" disabled={!ready || busy} onClick={() => void download()}><Download aria-hidden="true" /> {busy ? "جارٍ تجهيز الصورة…" : "حفظ البطاقة كصورة"}</button></div>
       {status && <p className="invitation-feedback" role="status"><Check aria-hidden="true" />{status}</p>}
