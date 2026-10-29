@@ -1,8 +1,9 @@
 /**
  * ── جدول الأستاذ المصغّر (N3): قراءةٌ لا محرّك ────────────────────────────────
  * يقرأ صفوفاً محمّلة أصلاً ويعيد ترتيبها للعرض: محاضرات الأستاذ بالأيام، والخانات الحرّة
- * التي تتّسع لنمط المقرر (appointmentRegulation)، وموضع «قبلها/بعدها» بالفاصل المقرَّر
- * (requiredGapForDays)، والنصاب (weeklyLoadOf) وأيام الحضور والفراغات (instructorGapStats).
+ * التي تتّسع لنمط المقرر (appointmentRegulation)، و«قبلها/بعدها» بمعادلة «لاصق بمحاضرتي»
+ * نفسها في كرت الأستاذ (lectureStick)، والنصاب (weeklyLoadOf) وأيام الحضور والفراغات
+ * (instructorGapStats).
  * لا قاعدة جديدة: الحكم على الموعد يبقى لـ appointmentVerdict وحده.
  */
 import type { AdCourse, FSchedule } from "../types";
@@ -10,6 +11,7 @@ import { DAY_KEYS, requiredGapForDays, type DayKey } from "./scheduleRegulations
 import { regulationChoiceFor, regulationChoicesForDay, type RegulationCourse } from "./appointmentRegulation";
 import { instructorGapStats } from "./scheduleIntelligence";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
+import { stickCandidates } from "./lectureStick";
 
 export const toMin = (value: unknown) => {
   const match = String(value || "").match(/^(\d{1,2}):(\d{2})/);
@@ -117,8 +119,10 @@ export function freeTargets(
 }
 
 /**
- * «قبلها / بعدها»: الموعد ملاصقاً للمحاضرة بالفاصل المقرَّر، بنمط المقرر ليوم المحاضرة،
- * داخل يوم الدراسة وحرّاً للأستاذ في كل أيام النمط — وإلا فلا زرّ.
+ * «قبلها / بعدها» — معادلة «لاصق بمحاضرتي» الواحدة (lectureStick، كرت الأستاذ C6):
+ * على أيام المحاضرة نفسها، بعدها = نهايتها + فاصل اللائحة، وقبلها = بدايتها − الفاصل − المدّة،
+ * وإن زاحم الملاصقُ محاضرةً أخرى للأستاذ فالأقرب +30 ثم +60. المدّة من نمط المقرر لتلك الأيام
+ * (وإلا مدّة الموعد الجاري)، والموضع داخل يوم الدراسة وحرٌّ للأستاذ — وإلا فلا زرّ.
  */
 export function adjacentPlacement(
   lecture: MiniLecture,
@@ -128,14 +132,20 @@ export function adjacentPlacement(
   window: MiniSpan,
   options: { minutes?: number; fixedDays?: readonly DayKey[] } = {},
 ): MiniTarget | null {
-  const pattern = patternForDay(course, lecture.day, options.minutes || 0, options.fixedDays);
-  if (!pattern) return null;
-  const gap = requiredGapForDays(pattern.days);
-  const start = side === "before" ? lecture.start - gap - pattern.minutes : lecture.end + gap;
-  const end = start + pattern.minutes;
-  if (start < window.start || end > window.end) return null;
-  if (pattern.days.some(day => crowds(lectures, day, start, end, gap))) return null;
-  return { day: lecture.day, start, end, days: pattern.days };
+  const fixed = options.fixedDays?.length ? DAY_KEYS.filter(day => options.fixedDays!.includes(day)) : null;
+  if (fixed && !fixed.includes(lecture.day)) return null;
+  const days = fixed || DAY_KEYS.filter(day => Boolean((lecture.row as any)[day]));
+  const fallback = options.minutes || patternForDay(course, lecture.day)?.minutes || 0;
+  const durationFor = (list: DayKey[]) => regulationChoiceFor(course, list)?.minutes || fallback;
+  const anchor = { rowId: lecture.id, title: "", days, start: toClock(lecture.start), end: toClock(lecture.end) };
+  for (const candidate of stickCandidates(anchor, side, durationFor)) {
+    const start = toMin(candidate.start), end = toMin(candidate.end);
+    if (start < window.start || end > window.end) continue;
+    const gap = requiredGapForDays(candidate.days);
+    if (candidate.days.some(day => crowds(lectures, day, start, end, gap))) continue;
+    return { day: lecture.day, start, end, days: candidate.days };
+  }
+  return null;
 }
 
 export interface MiniRoomPick { buildingId?: string; roomId?: string; AdRoomCode?: string; AdRoomHall?: string; locationStatus?: "VERIFIED" }

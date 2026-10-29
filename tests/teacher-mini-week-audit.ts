@@ -55,7 +55,11 @@ const mondayLecture = lectures.find(item => item.day === "fmonday")!;
 const mondayAfter = adjacentPlacement(mondayLecture, "after", theory3, lectures, day);
 check(mondayAfter?.start === 10 * 60 + 50 + 15 && mondayAfter.end - mondayAfter.start === 80, "N15 «بعدها» يوم الاثنين: فاصل 15 ونمط 80د", mondayAfter);
 const packed = teacherLectures([row(1, ["fsunday", "ftuesday", "fthursday"], "08:00", "08:50"), row(5, ["fsunday", "ftuesday", "fthursday"], "09:00", "09:50")], 7, 1, 0, 1);
-check(adjacentPlacement(packed[0], "after", theory3, packed, day) === null, "N16 «بعدها» يزاحم محاضرةً تالية → لا زرّ");
+const shifted = adjacentPlacement(packed[0], "after", theory3, packed, day);
+check(shifted?.start === 10 * 60 && shifted.end === 10 * 60 + 50, "N16 الملاصق يزاحم محاضرةً تالية → الأقرب المتاح (+30 ثم +60) كما في كرت الأستاذ", shifted);
+const boxed = teacherLectures([row(1, ["fsunday", "ftuesday", "fthursday"], "08:00", "08:50"), row(5, ["fsunday", "ftuesday", "fthursday"], "09:00", "10:50")], 7, 1, 0, 1);
+check(adjacentPlacement(boxed[0], "after", theory3, boxed, day) === null, "N16b لا متاح حتى +60 → لا زرّ");
+check(/import \{ stickCandidates \} from "\.\/lectureStick"/.test(fs.readFileSync("src/utils/teacherMiniWeek.ts", "utf8")), "N16c «قبلها/بعدها» بمعادلة «لاصق بمحاضرتي» الواحدة (lectureStick)");
 
 /* «قاعته نفسها أولاً ثم مبناه». */
 const spot = after!;
