@@ -518,11 +518,7 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
         return known ? { key, room: String(known.AdRoomCode || ""), hall: String(known.AdRoomHall || ""), buildingId: known.buildingId, roomId: known.roomId } : null;
       }).filter(Boolean) as any,
       nearestTimes: verdict.nearestTimes.map(entry => ({ day: entry.day, days: entry.days, start: entry.start, end: entry.end })),
-      /* «الأنسب» وبديلان: رمزُ القاعة وأيقوناتُ سببها — يراها الأستاذ، ويحجز الخادمُ أوّلها الخاليَ لحظةَ الإرسال. */
-      roomPick: verdict.kind === "conflict" ? undefined : verdict.roomCandidates.slice(0, 3).map(key => {
-        const hall = rules.hallByKey.get(key);
-        return hall ? { label: [hall.room, hall.hall].filter(Boolean).join("/"), why: rankedByKey.get(key)?.why || [] } : null;
-      }).filter(Boolean) as any,
+      /* لا «الأنسب» للأستاذ (قرار المالك 2026-10-29): الترتيبُ أعلاه يقرّر الحجزَ لحظةَ الإرسال، ويراه القسمُ وحده. */
       shapes: verdict.shapes,
       advice: verdict.advice || (!item.offeringRowIds?.length && !rules.knownRoomKeys.length
         ? "يحتاج القسم التحقق من القاعة قبل الاعتماد؛ بيانات القاعات المتاحة غير مكتملة."

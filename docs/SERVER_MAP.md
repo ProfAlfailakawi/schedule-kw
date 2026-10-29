@@ -2,7 +2,7 @@
 
 > مولَّدةٌ بـ `node scripts/split-server/split.mjs` — لا تُحرَّر باليد؛ تُعاد مع كل تشغيل.
 
-المرحلة: `helpers`. حجمُ `server.ts` بعد التقسيم: 18414 سطراً (كان 26040).
+المرحلة: `helpers`. حجمُ `server.ts` بعد التقسيم: 18442 سطراً (كان 26066).
 
 ## البنية
 
@@ -36,7 +36,7 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 
 | الملف | الأسطر | المحتوى |
 |---|---:|---|
-| `server.ts` | 18414 | جذرُ التركيب |
+| `server.ts` | 18442 | جذرُ التركيب |
 | `src/server/core/approvals.ts` | 374 | الاعتماد: الأقفال والمعاملات وتسجيلُ التغيير |
 | `src/server/core/auth.ts` | 299 | الجلسة والهوية والصلاحيات (authMiddleware، requireAuth، requirePermission…) |
 | `src/server/core/authority.ts` | 259 | مقارنةُ ملف الجهة الرسمية (PDF) بالجدول |
@@ -46,7 +46,7 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `src/server/core/hallBarter.ts` | 52 | تبادلُ القاعات: الحالة المشتركة والفحوص |
 | `src/server/core/http.ts` | 89 | أدواتُ HTTP: asyncSafe، حدُّ التزامن، قراءةُ النسخ الاحتياطية |
 | `src/server/core/input.ts` | 46 | تنظيفُ المدخلات وحدودُها |
-| `src/server/core/instructorRequests.ts` | 609 | طلباتُ الأساتذة: السياقُ والحكمُ على البنود |
+| `src/server/core/instructorRequests.ts` | 605 | طلباتُ الأساتذة: السياقُ والحكمُ على البنود |
 | `src/server/core/liveChannel.ts` | 248 | القناة الحيّة: بثُّ التغييرات والحضور |
 | `src/server/core/locations.ts` | 96 | سجلُّ المواقع والقاعات: القراءة والتوحيد قبل الكتابة |
 | `src/server/core/notes.ts` | 80 | ملاحظاتُ الجدول وحالاتُها |
@@ -68,7 +68,7 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `src/server/core/studentIdentity.ts` | 338 | هويةُ الطالب وقواعدُ التخرّج وإثباتُه |
 | `src/server/core/versions.ts` | 129 | نسخُ النطاق قبل الكتابة وبعدها، وتأكيدُ الاستبدال |
 | `src/server/core/visiting.ts` | 78 | الأساتذةُ الزائرون: القراءة والفحص |
-| `src/server/pages/instructorRequestPage.ts` | 1035 | صفحةُ طلب الأستاذ (/r/:token) |
+| `src/server/pages/instructorRequestPage.ts` | 1037 | صفحةُ طلب الأستاذ (/r/:token) |
 | `src/server/pages/publicInvalidLinkPage.ts` | 15 | صفحةُ الرابط غير الصالح |
 | `src/server/pages/staffCardPage.ts` | 571 | بطاقةُ الأستاذ العامة |
 | `src/server/pages/studentCaseStatusPage.ts` | 144 | صفحةُ «حالة طلبي» للطالب |
@@ -366,72 +366,72 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `POST /api/registration-stats/remaining-pdf` | 17149 | `server.ts` |
 | `POST /api/registration-stats/remaining-cells` | 17201 | `server.ts` |
 | `GET /api/public/schedule/:token` | 17224 | `server.ts` |
-| `GET /api/public/ics/:token` | 17295 | `server.ts` |
-| `GET /api/public/ics/:token/:key` | 17341 | `server.ts` |
-| `GET /api/public/cal/:token/:key` | 17362 | `server.ts` |
-| `GET /api/public/ics-reminder` | 17380 | `server.ts` |
-| `POST /api/public/staff/:token/note` | 17478 | `server.ts` |
-| `GET /api/degree-rules` | 17828 | `server.ts` |
-| `PUT /api/degree-rules/:sectionId` | 17850 | `server.ts` |
-| `GET /api/public/survey/:token` | 17891 | `server.ts` |
-| `POST /api/public/survey/:token/identity-status` | 17951 | `server.ts` |
-| `POST /api/public/survey/:token/proof-status` | 17999 | `server.ts` |
-| `POST /api/public/survey/:token/proof` | 18124 | `server.ts` |
-| `POST /api/public/survey/:token` | 18164 | `server.ts` |
-| `GET /api/schedules/section-gap/decisions` | 18371 | `server.ts` |
-| `PUT /api/schedules/section-gap/decisions` | 18377 | `server.ts` |
-| `GET /api/schedules/section-gap` | 18400 | `server.ts` |
-| `GET /api/schedules/section-gap/staffing` | 18414 | `server.ts` |
-| `GET /api/schedules/openings-preview` | 18473 | `server.ts` |
-| `GET /api/schedules/academic-advice` | 18499 | `server.ts` |
-| `GET /api/schedules/demand` | 18512 | `server.ts` |
-| `GET /api/student-registration` | 18808 | `server.ts` |
-| `POST /api/student-registration/:id/course-state` | 18962 | `server.ts` |
-| `POST /api/student-registration/:id/case-state` | 19151 | `server.ts` |
-| `GET /api/schedules/staff-inbox` | 19208 | `server.ts` |
-| `POST /api/public/staff/:token` | 19239 | `server.ts` |
-| `POST /api/instructor-requests/issue` | 21262 | `server.ts` |
-| `GET /api/instructor-requests/exceptions` | 21474 | `server.ts` |
-| `POST /api/instructor-requests/exception/revoke` | 21497 | `server.ts` |
-| `GET /api/instructor-requests` | 21523 | `server.ts` |
-| `POST /api/instructor-requests/:id/decide` | 21673 | `server.ts` |
-| `POST /api/instructor-requests/:id/apply` | 21849 | `server.ts` |
-| `POST /api/instructor-requests/:id/reply` | 22127 | `server.ts` |
-| `GET /api/public/request/:token` | 22171 | `server.ts` |
-| `POST /api/public/request/:token` | 22313 | `server.ts` |
-| `POST /api/public/request/:token/reply` | 22483 | `server.ts` |
-| `POST /api/public/request/:token/reply-batch` | 22577 | `server.ts` |
-| `POST /api/public/request/:token/check` | 23651 | `server.ts` |
-| `GET /api/public/request/:token/academic-advice` | 23736 | `server.ts` |
-| `POST /api/public/request/:token/check-batch` | 23770 | `server.ts` |
-| `GET /api/public/request/:token/previous` | 23822 | `server.ts` |
-| `GET /api/public/request/:token/events` | 23886 | `server.ts` |
-| `POST /api/public/request/:token/check-times` | 23931 | `server.ts` |
-| `POST /api/public/request/:token/hold` | 23997 | `server.ts` |
-| `GET /api/public/request/:token/movement` | 24032 | `server.ts` |
-| `GET /r/:token` | 24090 | `server.ts` |
-| `POST /api/public/request/:token/interest` | 24145 | `server.ts` |
-| `POST /api/public/request/:token/stick` | 24165 | `server.ts` |
-| `GET /api/course-offering` | 24230 | `server.ts` |
-| `PUT /api/course-offering` | 24261 | `server.ts` |
-| `GET /api/ta-phase` | 24326 | `server.ts` |
-| `POST /api/ta-phase/allowed` | 24364 | `server.ts` |
-| `POST /api/ta-phase/open` | 24381 | `server.ts` |
-| `POST /api/ta-phase/close` | 24405 | `server.ts` |
-| `GET /api/advisor-seats` | 24442 | `server.ts` |
-| `PUT /api/advisor-seats/config` | 24458 | `server.ts` |
-| `POST /api/advisor-seats/add` | 24468 | `server.ts` |
-| `POST /api/advisor-seats/exception` | 24491 | `server.ts` |
-| `GET /r/:token/proposal/:pid` | 24505 | `server.ts` |
-| `GET /verify ، /verify/:code` | 24531 | `server.ts` |
-| `POST /api/public/verify` | 24536 | `server.ts` |
-| `POST /api/public/survey/:token/my-case` | 24641 | `server.ts` |
-| `GET /m/:token` | 24870 | `server.ts` |
-| `GET /q/:token` | 24883 | `server.ts` |
-| `GET /me ، /me/` | 25048 | `server.ts` |
-| `GET /api/public/students/:token` | 25493 | `server.ts` |
-| `GET /t/:token` | 25508 | `server.ts` |
-| `GET /s/:token` | 25522 | `server.ts` |
+| `GET /api/public/ics/:token` | 17296 | `server.ts` |
+| `GET /api/public/ics/:token/:key` | 17342 | `server.ts` |
+| `GET /api/public/cal/:token/:key` | 17367 | `server.ts` |
+| `GET /api/public/ics-reminder` | 17397 | `server.ts` |
+| `POST /api/public/staff/:token/note` | 17501 | `server.ts` |
+| `GET /api/degree-rules` | 17851 | `server.ts` |
+| `PUT /api/degree-rules/:sectionId` | 17873 | `server.ts` |
+| `GET /api/public/survey/:token` | 17914 | `server.ts` |
+| `POST /api/public/survey/:token/identity-status` | 17974 | `server.ts` |
+| `POST /api/public/survey/:token/proof-status` | 18022 | `server.ts` |
+| `POST /api/public/survey/:token/proof` | 18147 | `server.ts` |
+| `POST /api/public/survey/:token` | 18187 | `server.ts` |
+| `GET /api/schedules/section-gap/decisions` | 18394 | `server.ts` |
+| `PUT /api/schedules/section-gap/decisions` | 18400 | `server.ts` |
+| `GET /api/schedules/section-gap` | 18423 | `server.ts` |
+| `GET /api/schedules/section-gap/staffing` | 18437 | `server.ts` |
+| `GET /api/schedules/openings-preview` | 18496 | `server.ts` |
+| `GET /api/schedules/academic-advice` | 18522 | `server.ts` |
+| `GET /api/schedules/demand` | 18535 | `server.ts` |
+| `GET /api/student-registration` | 18831 | `server.ts` |
+| `POST /api/student-registration/:id/course-state` | 18985 | `server.ts` |
+| `POST /api/student-registration/:id/case-state` | 19174 | `server.ts` |
+| `GET /api/schedules/staff-inbox` | 19231 | `server.ts` |
+| `POST /api/public/staff/:token` | 19262 | `server.ts` |
+| `POST /api/instructor-requests/issue` | 21286 | `server.ts` |
+| `GET /api/instructor-requests/exceptions` | 21498 | `server.ts` |
+| `POST /api/instructor-requests/exception/revoke` | 21521 | `server.ts` |
+| `GET /api/instructor-requests` | 21547 | `server.ts` |
+| `POST /api/instructor-requests/:id/decide` | 21697 | `server.ts` |
+| `POST /api/instructor-requests/:id/apply` | 21873 | `server.ts` |
+| `POST /api/instructor-requests/:id/reply` | 22151 | `server.ts` |
+| `GET /api/public/request/:token` | 22195 | `server.ts` |
+| `POST /api/public/request/:token` | 22337 | `server.ts` |
+| `POST /api/public/request/:token/reply` | 22507 | `server.ts` |
+| `POST /api/public/request/:token/reply-batch` | 22601 | `server.ts` |
+| `POST /api/public/request/:token/check` | 23677 | `server.ts` |
+| `GET /api/public/request/:token/academic-advice` | 23762 | `server.ts` |
+| `POST /api/public/request/:token/check-batch` | 23796 | `server.ts` |
+| `GET /api/public/request/:token/previous` | 23847 | `server.ts` |
+| `GET /api/public/request/:token/events` | 23911 | `server.ts` |
+| `POST /api/public/request/:token/check-times` | 23956 | `server.ts` |
+| `POST /api/public/request/:token/hold` | 24022 | `server.ts` |
+| `GET /api/public/request/:token/movement` | 24058 | `server.ts` |
+| `GET /r/:token` | 24116 | `server.ts` |
+| `POST /api/public/request/:token/interest` | 24171 | `server.ts` |
+| `POST /api/public/request/:token/stick` | 24191 | `server.ts` |
+| `GET /api/course-offering` | 24256 | `server.ts` |
+| `PUT /api/course-offering` | 24287 | `server.ts` |
+| `GET /api/ta-phase` | 24352 | `server.ts` |
+| `POST /api/ta-phase/allowed` | 24390 | `server.ts` |
+| `POST /api/ta-phase/open` | 24407 | `server.ts` |
+| `POST /api/ta-phase/close` | 24431 | `server.ts` |
+| `GET /api/advisor-seats` | 24468 | `server.ts` |
+| `PUT /api/advisor-seats/config` | 24484 | `server.ts` |
+| `POST /api/advisor-seats/add` | 24494 | `server.ts` |
+| `POST /api/advisor-seats/exception` | 24517 | `server.ts` |
+| `GET /r/:token/proposal/:pid` | 24531 | `server.ts` |
+| `GET /verify ، /verify/:code` | 24557 | `server.ts` |
+| `POST /api/public/verify` | 24562 | `server.ts` |
+| `POST /api/public/survey/:token/my-case` | 24667 | `server.ts` |
+| `GET /m/:token` | 24896 | `server.ts` |
+| `GET /q/:token` | 24909 | `server.ts` |
+| `GET /me ، /me/` | 25074 | `server.ts` |
+| `GET /api/public/students/:token` | 25519 | `server.ts` |
+| `GET /t/:token` | 25534 | `server.ts` |
+| `GET /s/:token` | 25548 | `server.ts` |
 
 ## خريطةُ النقل: التعريفات والجمل
 
@@ -842,154 +842,155 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `remainingAssessment` | function | 17145 | `server.ts` |
 | `TERM_WEEKS` | const | 17247 | `server.ts` |
 | `sendCalendar` | function | 17258 | `server.ts` |
-| `calendarSecret` | const | 17336 | `src/server/core/shareLinks.ts` |
-| `calendarKey` | const | 17338 | `src/server/core/shareLinks.ts` |
-| `stableCalendarPath` | const | 17370 | `src/server/core/shareLinks.ts` |
-| `sendInstructorCalendar` | function | 17391 | `server.ts` |
-| `STAFF_NOTES_PER_DAY` | const | 17476 | `server.ts` |
-| `studentCaseSecretPromise` | let | 17570 | `src/server/core/studentIdentity.ts` |
-| `studentCaseSecret` | const | 17571 | `src/server/core/studentIdentity.ts` |
-| `surveyFingerprint` | const | 17572 | `src/server/core/studentIdentity.ts` |
-| `studentIdentityKey` | const | 17575 | `src/server/core/studentIdentity.ts` |
-| `sealStudentIdentity` | const | 17576 | `src/server/core/studentIdentity.ts` |
-| `openStudentIdentity` | const | 17581 | `src/server/core/studentIdentity.ts` |
-| `canSeeStudentIdentity` | const | 17603 | `src/server/core/studentIdentity.ts` |
-| `studentIdentityFor` | const | 17604 | `src/server/core/studentIdentity.ts` |
-| `degreeRuleFromName` | const | 17612 | `src/server/core/studentIdentity.ts` |
-| `degreeRuleForSection` | const | 17626 | `src/server/core/studentIdentity.ts` |
-| `storedDegreeRuleForSection` | const | 17640 | `src/server/core/studentIdentity.ts` |
-| `planDegreeRule` | const | 17655 | `src/server/core/studentIdentity.ts` |
-| `graduationCandidatesForSection` | const | 17671 | `src/server/core/studentIdentity.ts` |
-| `graduationRuleFor` | const | 17681 | `src/server/core/studentIdentity.ts` |
-| `isSummerTerm` | const | 17695 | `src/server/core/studentIdentity.ts` |
-| `graduateThreshold` | const | 17696 | `src/server/core/studentIdentity.ts` |
-| `STUDENT_PROOF_TTL_MS` | const | 17699 | `src/server/core/studentIdentity.ts` |
-| `issueStudentProof` | const | 17700 | `src/server/core/studentIdentity.ts` |
-| `studentProofExpired` | const | 17706 | `src/server/core/studentIdentity.ts` |
-| `verifyStudentProof` | const | 17709 | `src/server/core/studentIdentity.ts` |
-| `normalizeCaseRef` | const | 17722 | `server.ts` |
-| `priorNeedForHand` | const | 17724 | `server.ts` |
-| `caseRefMatches` | const | 17732 | `server.ts` |
-| `maskedInitial` | const | 17734 | `server.ts` |
-| `CASE_REF_REQUIRED` | const | 17735 | `server.ts` |
-| `reusableGraduateVerification` | const | 17743 | `server.ts` |
-| `normalizeStudentIdentityName` | const | 17774 | `server.ts` |
-| `reusableStudentIdentity` | const | 17781 | `server.ts` |
-| `asciiDigits` | const | 17798 | `src/server/core/studentIdentity.ts` |
-| `surveyCohort` | const | 17800 | `src/server/core/studentIdentity.ts` |
-| `surveyActiveCourseIds` | const | 17815 | `src/server/core/studentIdentity.ts` |
-| `surveyCourseIdsForSection` | function | 17817 | `server.ts` |
-| `surveyTermEnded` | const | 17881 | `src/server/core/studentIdentity.ts` |
-| `SURVEY_TERM_ENDED` | const | 17882 | `server.ts` |
-| `surveyPayloadCache` | const | 17888 | `src/server/core/studentIdentity.ts` |
-| `SURVEY_PAYLOAD_TTL_MS` | const | 17889 | `server.ts` |
-| `STUDENT_PROOF_MAX_BYTES` | const | 18021 | `server.ts` |
-| `STUDENT_PROOF_TOO_LARGE` | const | 18022 | `server.ts` |
-| `studentProofBody` | const | 18023 | `server.ts` |
-| `readStudentProofBody` | const | 18024 | `server.ts` |
-| `GraduateProofSink` | type | 18032 | `src/server/core/studentIdentity.ts` |
-| `graduateProofCore` | function | 18033 | `src/server/core/studentIdentity.ts` |
-| `graduateSubmitCheck` | function | 18137 | `src/server/core/studentIdentity.ts` |
-| `curriculumLabelsFor` | const | 18303 | `src/server/core/planning.ts` |
-| `sectionGapCache` | const | 18322 | `server.ts` |
-| `cachedSectionGap` | function | 18323 | `server.ts` |
-| `sectionGapData` | function | 18331 | `src/server/core/planning.ts` |
-| `sectionGapStaffing` | function | 18429 | `server.ts` |
-| `canWriteRegistration` | const | 18735 | `server.ts` |
-| `grantedPermissions` | const | 18744 | `server.ts` |
-| `owningSectionsInScopeFor` | const | 18755 | `server.ts` |
-| `STUDENT_COURSE_STATES` | const | 18762 | `server.ts` |
-| `STUDENT_REJECT_REASONS` | const | 18763 | `server.ts` |
-| `STUDENT_COMMITTEE_REASONS` | const | 18764 | `server.ts` |
-| `RegistrationViewer` | type | 18775 | `server.ts` |
-| `registrationViewer` | const | 18776 | `server.ts` |
-| `reachedRegistration` | const | 18779 | `server.ts` |
-| `registrarBlockReason` | function | 18799 | `server.ts` |
-| `demoPageHint` | function | 19317 | `src/server/core/publicPages.ts` |
-| `publicPageNonce` | function | 19359 | `src/server/core/publicPages.ts` |
-| `staffCardPage` | function | 19384 | `src/server/pages/staffCardPage.ts` |
-| `surveyPage` | function | 19956 | `src/server/pages/surveyPages.ts` |
-| `studentCaseSurveyPage` | function | 20290 | `src/server/pages/surveyPages.ts` |
-| `REQUEST_LINK_DAYS` | const | 20391 | `src/server/core/instructorRequests.ts` |
-| `requestWindowOpen` | const | 20394 | `src/server/core/instructorRequests.ts` |
-| `currentInstructorRequestGeneration` | function | 20397 | `src/server/core/instructorRequests.ts` |
-| `requireCurrentInstructorRequestGeneration` | function | 20411 | `server.ts` |
-| `requestItemScope` | function | 20419 | `src/server/core/instructorRequests.ts` |
-| `requestForDepartment` | function | 20434 | `server.ts` |
-| `stripForInstructor` | function | 20451 | `server.ts` |
-| `courseHabitMemo` | const | 20489 | `src/server/core/instructorRequests.ts` |
-| `onSchedulesInvalidated(() => courseHabitMemo.clear());` | جملة | 20490 | `src/server/core/instructorRequests.ts` |
-| `courseHabit` | function | 20492 | `src/server/core/instructorRequests.ts` |
-| `habitBlockFor` | const | 20508 | `server.ts` |
-| `blockMinutesOfItem` | function | 20511 | `server.ts` |
-| `decisionStillApplies` | function | 20524 | `server.ts` |
-| `priorAddFor` | function | 20535 | `server.ts` |
-| `requestSlotsForCourse` | function | 20550 | `server.ts` |
-| `instructorRequestItemsFromPayload` | function | 20562 | `server.ts` |
-| `resolveRequestLink` | function | 20683 | `src/server/core/instructorRequests.ts` |
-| `instructorRequestSectionCourses` | function | 20709 | `src/server/core/instructorRequests.ts` |
-| `refreshUnsubmittedInstructorRequest` | function | 20729 | `server.ts` |
-| `InstructorRequestCourseOption` | type | 20759 | `server.ts` |
-| `instructorRequestDepartmentScopes` | function | 20776 | `src/server/core/instructorRequests.ts` |
-| `instructorRequestCourseOptions` | function | 20804 | `server.ts` |
-| `originalOffering` | function | 20835 | `server.ts` |
-| `availableInstructorOfferings` | function | 20840 | `server.ts` |
-| `requestReservationProposals` | function | 20879 | `server.ts` |
-| `buildRequestContext` | function | 20898 | `src/server/core/instructorRequests.ts` |
-| `buildSharedRequestContext` | function | 20906 | `src/server/core/instructorRequests.ts` |
-| `SharedRequestContext` | type | 20939 | `src/server/core/instructorRequests.ts` |
-| `requestContextFor` | function | 20941 | `src/server/core/instructorRequests.ts` |
-| `requestRulesForScope` | function | 20957 | `src/server/core/instructorRequests.ts` |
-| `roomUsageMemo` | const | 21022 | `src/server/core/instructorRequests.ts` |
-| `roomUsageOf` | function | 21023 | `src/server/core/instructorRequests.ts` |
-| `rulesInflight` | const | 21035 | `src/server/core/instructorRequests.ts` |
-| `rulesOnce` | function | 21036 | `src/server/core/instructorRequests.ts` |
-| `judgeRequestItems` | function | 21044 | `src/server/core/instructorRequests.ts` |
-| `requireInstructorRequestRevision` | function | 21658 | `src/server/core/instructorRequests.ts` |
-| `instructorRequestItemIdentity` | function | 21670 | `src/server/core/instructorRequests.ts` |
-| `ApplyOp` | type | 21832 | `server.ts` |
-| `daysFlags` | const | 21837 | `server.ts` |
-| `rowBodyOf` | const | 21838 | `server.ts` |
-| `requestDayPatterns` | function | 22264 | `server.ts` |
-| `verifyRequestSigner` | function | 22282 | `src/server/core/instructorRequests.ts` |
-| `instructorRequestPage` | function | 22650 | `src/server/pages/instructorRequestPage.ts` |
-| `previousTermMemo` | const | 23821 | `server.ts` |
-| `cardStreams` | const | 23874 | `server.ts` |
-| `cardStreamTotal` | let | 23875 | `server.ts` |
-| `CARD_STREAMS_PER_REQUEST` | const | 23876 | `server.ts` |
-| `CARD_STREAMS_TOTAL` | const | 23877 | `server.ts` |
-| `Repository.onInstructorRequestSaved(info => {` | جملة | 23878 | `server.ts` |
-| `rateLimitCheckTimes` | const | 23923 | `server.ts` |
-| `REQUEST_HOLD_TTL_MS` | const | 23996 | `server.ts` |
-| `registerStudyProposalRoutes(app, {` | جملة | 24061 | `server.ts` |
-| `publicInvalidLinkPage` | function | 24086 | `src/server/pages/publicInvalidLinkPage.ts` |
-| `offeringViewsFor` | function | 24107 | `server.ts` |
-| `coursesWithOffering` | function | 24126 | `server.ts` |
-| `taPhaseId` | const | 24137 | `src/server/core/instructorRequests.ts` |
-| `taPhaseForRequest` | function | 24140 | `server.ts` |
-| `sendTaWave` | function | 24280 | `server.ts` |
-| `dispatchTaWaves` | function | 24310 | `server.ts` |
-| `setInterval(() => {` | جملة | 24415 | `server.ts` |
-| `seatConfigId` | const | 24420 | `server.ts` |
-| `seatSections` | function | 24422 | `server.ts` |
-| `rateLimitVerifySignature` | const | 24522 | `server.ts` |
-| `SURVEY_STATUS_GRACE_MS` | const | 24628 | `server.ts` |
-| `resolveSurveyStatusToken` | function | 24629 | `server.ts` |
-| `studentCaseStatusPage` | function | 24742 | `src/server/pages/studentCaseStatusPage.ts` |
-| `registerPlanReviewRoutes(app, {` | جملة | 24900 | `server.ts` |
-| `planSheetTemplate` | let | 24911 | `server.ts` |
-| `for (const candidate of [path.join(process.cwd(), "public", "plans", "` | جملة | 24912 | `server.ts` |
-| `{` | جملة | 24915 | `server.ts` |
-| `registerAdsRoutes(app, { requireAuth, requireRootAdmin, publicPageNonc` | جملة | 24926 | `server.ts` |
-| `registerSimulationRoutes(app, {` | جملة | 24929 | `server.ts` |
-| `registerInsightRoutes(app, {` | جملة | 24936 | `server.ts` |
-| `registerTimeMachineRoutes(app, {` | جملة | 24943 | `server.ts` |
-| `registerStudentShowcase(app, { identityKey: studentIdentityKey, sealId` | جملة | 25021 | `server.ts` |
-| `registerStudentDoorRoutes(app, {` | جملة | 25022 | `server.ts` |
-| `STUDENT_QR_DAYS` | const | 25062 | `server.ts` |
-| `studentSchedulePage` | function | 25064 | `src/server/pages/studentSchedulePage.ts` |
-| `migrateLegacyAccountsToCommitteeRole` | function | 25750 | `server.ts` |
-| `SCHEDULE_WORKSPACE_FORM_ID` | const | 25777 | `server.ts` |
-| `reconcileDepartmentHeadPermissions` | function | 25778 | `server.ts` |
-| `startServer` | function | 25795 | `server.ts` |
-| `startServer().catch(error => {` | جملة | 26037 | `server.ts` |
+| `calendarSecret` | const | 17337 | `src/server/core/shareLinks.ts` |
+| `calendarKey` | const | 17339 | `src/server/core/shareLinks.ts` |
+| `holdsLiveCardLink` | function | 17377 | `server.ts` |
+| `stableCalendarPath` | const | 17387 | `src/server/core/shareLinks.ts` |
+| `sendInstructorCalendar` | function | 17408 | `server.ts` |
+| `STAFF_NOTES_PER_DAY` | const | 17499 | `server.ts` |
+| `studentCaseSecretPromise` | let | 17593 | `src/server/core/studentIdentity.ts` |
+| `studentCaseSecret` | const | 17594 | `src/server/core/studentIdentity.ts` |
+| `surveyFingerprint` | const | 17595 | `src/server/core/studentIdentity.ts` |
+| `studentIdentityKey` | const | 17598 | `src/server/core/studentIdentity.ts` |
+| `sealStudentIdentity` | const | 17599 | `src/server/core/studentIdentity.ts` |
+| `openStudentIdentity` | const | 17604 | `src/server/core/studentIdentity.ts` |
+| `canSeeStudentIdentity` | const | 17626 | `src/server/core/studentIdentity.ts` |
+| `studentIdentityFor` | const | 17627 | `src/server/core/studentIdentity.ts` |
+| `degreeRuleFromName` | const | 17635 | `src/server/core/studentIdentity.ts` |
+| `degreeRuleForSection` | const | 17649 | `src/server/core/studentIdentity.ts` |
+| `storedDegreeRuleForSection` | const | 17663 | `src/server/core/studentIdentity.ts` |
+| `planDegreeRule` | const | 17678 | `src/server/core/studentIdentity.ts` |
+| `graduationCandidatesForSection` | const | 17694 | `src/server/core/studentIdentity.ts` |
+| `graduationRuleFor` | const | 17704 | `src/server/core/studentIdentity.ts` |
+| `isSummerTerm` | const | 17718 | `src/server/core/studentIdentity.ts` |
+| `graduateThreshold` | const | 17719 | `src/server/core/studentIdentity.ts` |
+| `STUDENT_PROOF_TTL_MS` | const | 17722 | `src/server/core/studentIdentity.ts` |
+| `issueStudentProof` | const | 17723 | `src/server/core/studentIdentity.ts` |
+| `studentProofExpired` | const | 17729 | `src/server/core/studentIdentity.ts` |
+| `verifyStudentProof` | const | 17732 | `src/server/core/studentIdentity.ts` |
+| `normalizeCaseRef` | const | 17745 | `server.ts` |
+| `priorNeedForHand` | const | 17747 | `server.ts` |
+| `caseRefMatches` | const | 17755 | `server.ts` |
+| `maskedInitial` | const | 17757 | `server.ts` |
+| `CASE_REF_REQUIRED` | const | 17758 | `server.ts` |
+| `reusableGraduateVerification` | const | 17766 | `server.ts` |
+| `normalizeStudentIdentityName` | const | 17797 | `server.ts` |
+| `reusableStudentIdentity` | const | 17804 | `server.ts` |
+| `asciiDigits` | const | 17821 | `src/server/core/studentIdentity.ts` |
+| `surveyCohort` | const | 17823 | `src/server/core/studentIdentity.ts` |
+| `surveyActiveCourseIds` | const | 17838 | `src/server/core/studentIdentity.ts` |
+| `surveyCourseIdsForSection` | function | 17840 | `server.ts` |
+| `surveyTermEnded` | const | 17904 | `src/server/core/studentIdentity.ts` |
+| `SURVEY_TERM_ENDED` | const | 17905 | `server.ts` |
+| `surveyPayloadCache` | const | 17911 | `src/server/core/studentIdentity.ts` |
+| `SURVEY_PAYLOAD_TTL_MS` | const | 17912 | `server.ts` |
+| `STUDENT_PROOF_MAX_BYTES` | const | 18044 | `server.ts` |
+| `STUDENT_PROOF_TOO_LARGE` | const | 18045 | `server.ts` |
+| `studentProofBody` | const | 18046 | `server.ts` |
+| `readStudentProofBody` | const | 18047 | `server.ts` |
+| `GraduateProofSink` | type | 18055 | `src/server/core/studentIdentity.ts` |
+| `graduateProofCore` | function | 18056 | `src/server/core/studentIdentity.ts` |
+| `graduateSubmitCheck` | function | 18160 | `src/server/core/studentIdentity.ts` |
+| `curriculumLabelsFor` | const | 18326 | `src/server/core/planning.ts` |
+| `sectionGapCache` | const | 18345 | `server.ts` |
+| `cachedSectionGap` | function | 18346 | `server.ts` |
+| `sectionGapData` | function | 18354 | `src/server/core/planning.ts` |
+| `sectionGapStaffing` | function | 18452 | `server.ts` |
+| `canWriteRegistration` | const | 18758 | `server.ts` |
+| `grantedPermissions` | const | 18767 | `server.ts` |
+| `owningSectionsInScopeFor` | const | 18778 | `server.ts` |
+| `STUDENT_COURSE_STATES` | const | 18785 | `server.ts` |
+| `STUDENT_REJECT_REASONS` | const | 18786 | `server.ts` |
+| `STUDENT_COMMITTEE_REASONS` | const | 18787 | `server.ts` |
+| `RegistrationViewer` | type | 18798 | `server.ts` |
+| `registrationViewer` | const | 18799 | `server.ts` |
+| `reachedRegistration` | const | 18802 | `server.ts` |
+| `registrarBlockReason` | function | 18822 | `server.ts` |
+| `demoPageHint` | function | 19340 | `src/server/core/publicPages.ts` |
+| `publicPageNonce` | function | 19382 | `src/server/core/publicPages.ts` |
+| `staffCardPage` | function | 19407 | `src/server/pages/staffCardPage.ts` |
+| `surveyPage` | function | 19979 | `src/server/pages/surveyPages.ts` |
+| `studentCaseSurveyPage` | function | 20313 | `src/server/pages/surveyPages.ts` |
+| `REQUEST_LINK_DAYS` | const | 20414 | `src/server/core/instructorRequests.ts` |
+| `requestWindowOpen` | const | 20417 | `src/server/core/instructorRequests.ts` |
+| `currentInstructorRequestGeneration` | function | 20420 | `src/server/core/instructorRequests.ts` |
+| `requireCurrentInstructorRequestGeneration` | function | 20434 | `server.ts` |
+| `requestItemScope` | function | 20442 | `src/server/core/instructorRequests.ts` |
+| `requestForDepartment` | function | 20457 | `server.ts` |
+| `stripForInstructor` | function | 20474 | `server.ts` |
+| `courseHabitMemo` | const | 20517 | `src/server/core/instructorRequests.ts` |
+| `onSchedulesInvalidated(() => courseHabitMemo.clear());` | جملة | 20518 | `src/server/core/instructorRequests.ts` |
+| `courseHabit` | function | 20520 | `src/server/core/instructorRequests.ts` |
+| `habitBlockFor` | const | 20536 | `server.ts` |
+| `blockMinutesOfItem` | function | 20539 | `server.ts` |
+| `decisionStillApplies` | function | 20552 | `server.ts` |
+| `priorAddFor` | function | 20563 | `server.ts` |
+| `requestSlotsForCourse` | function | 20578 | `server.ts` |
+| `instructorRequestItemsFromPayload` | function | 20590 | `server.ts` |
+| `resolveRequestLink` | function | 20711 | `src/server/core/instructorRequests.ts` |
+| `instructorRequestSectionCourses` | function | 20737 | `src/server/core/instructorRequests.ts` |
+| `refreshUnsubmittedInstructorRequest` | function | 20757 | `server.ts` |
+| `InstructorRequestCourseOption` | type | 20787 | `server.ts` |
+| `instructorRequestDepartmentScopes` | function | 20804 | `src/server/core/instructorRequests.ts` |
+| `instructorRequestCourseOptions` | function | 20832 | `server.ts` |
+| `originalOffering` | function | 20863 | `server.ts` |
+| `availableInstructorOfferings` | function | 20868 | `server.ts` |
+| `requestReservationProposals` | function | 20907 | `server.ts` |
+| `buildRequestContext` | function | 20926 | `src/server/core/instructorRequests.ts` |
+| `buildSharedRequestContext` | function | 20934 | `src/server/core/instructorRequests.ts` |
+| `SharedRequestContext` | type | 20967 | `src/server/core/instructorRequests.ts` |
+| `requestContextFor` | function | 20969 | `src/server/core/instructorRequests.ts` |
+| `requestRulesForScope` | function | 20985 | `src/server/core/instructorRequests.ts` |
+| `roomUsageMemo` | const | 21050 | `src/server/core/instructorRequests.ts` |
+| `roomUsageOf` | function | 21051 | `src/server/core/instructorRequests.ts` |
+| `rulesInflight` | const | 21063 | `src/server/core/instructorRequests.ts` |
+| `rulesOnce` | function | 21064 | `src/server/core/instructorRequests.ts` |
+| `judgeRequestItems` | function | 21072 | `src/server/core/instructorRequests.ts` |
+| `requireInstructorRequestRevision` | function | 21682 | `src/server/core/instructorRequests.ts` |
+| `instructorRequestItemIdentity` | function | 21694 | `src/server/core/instructorRequests.ts` |
+| `ApplyOp` | type | 21856 | `server.ts` |
+| `daysFlags` | const | 21861 | `server.ts` |
+| `rowBodyOf` | const | 21862 | `server.ts` |
+| `requestDayPatterns` | function | 22288 | `server.ts` |
+| `verifyRequestSigner` | function | 22306 | `src/server/core/instructorRequests.ts` |
+| `instructorRequestPage` | function | 22675 | `src/server/pages/instructorRequestPage.ts` |
+| `previousTermMemo` | const | 23846 | `server.ts` |
+| `cardStreams` | const | 23899 | `server.ts` |
+| `cardStreamTotal` | let | 23900 | `server.ts` |
+| `CARD_STREAMS_PER_REQUEST` | const | 23901 | `server.ts` |
+| `CARD_STREAMS_TOTAL` | const | 23902 | `server.ts` |
+| `Repository.onInstructorRequestSaved(info => {` | جملة | 23903 | `server.ts` |
+| `rateLimitCheckTimes` | const | 23948 | `server.ts` |
+| `REQUEST_HOLD_TTL_MS` | const | 24021 | `server.ts` |
+| `registerStudyProposalRoutes(app, {` | جملة | 24087 | `server.ts` |
+| `publicInvalidLinkPage` | function | 24112 | `src/server/pages/publicInvalidLinkPage.ts` |
+| `offeringViewsFor` | function | 24133 | `server.ts` |
+| `coursesWithOffering` | function | 24152 | `server.ts` |
+| `taPhaseId` | const | 24163 | `src/server/core/instructorRequests.ts` |
+| `taPhaseForRequest` | function | 24166 | `server.ts` |
+| `sendTaWave` | function | 24306 | `server.ts` |
+| `dispatchTaWaves` | function | 24336 | `server.ts` |
+| `setInterval(() => {` | جملة | 24441 | `server.ts` |
+| `seatConfigId` | const | 24446 | `server.ts` |
+| `seatSections` | function | 24448 | `server.ts` |
+| `rateLimitVerifySignature` | const | 24548 | `server.ts` |
+| `SURVEY_STATUS_GRACE_MS` | const | 24654 | `server.ts` |
+| `resolveSurveyStatusToken` | function | 24655 | `server.ts` |
+| `studentCaseStatusPage` | function | 24768 | `src/server/pages/studentCaseStatusPage.ts` |
+| `registerPlanReviewRoutes(app, {` | جملة | 24926 | `server.ts` |
+| `planSheetTemplate` | let | 24937 | `server.ts` |
+| `for (const candidate of [path.join(process.cwd(), "public", "plans", "` | جملة | 24938 | `server.ts` |
+| `{` | جملة | 24941 | `server.ts` |
+| `registerAdsRoutes(app, { requireAuth, requireRootAdmin, publicPageNonc` | جملة | 24952 | `server.ts` |
+| `registerSimulationRoutes(app, {` | جملة | 24955 | `server.ts` |
+| `registerInsightRoutes(app, {` | جملة | 24962 | `server.ts` |
+| `registerTimeMachineRoutes(app, {` | جملة | 24969 | `server.ts` |
+| `registerStudentShowcase(app, { identityKey: studentIdentityKey, sealId` | جملة | 25047 | `server.ts` |
+| `registerStudentDoorRoutes(app, {` | جملة | 25048 | `server.ts` |
+| `STUDENT_QR_DAYS` | const | 25088 | `server.ts` |
+| `studentSchedulePage` | function | 25090 | `src/server/pages/studentSchedulePage.ts` |
+| `migrateLegacyAccountsToCommitteeRole` | function | 25776 | `server.ts` |
+| `SCHEDULE_WORKSPACE_FORM_ID` | const | 25803 | `server.ts` |
+| `reconcileDepartmentHeadPermissions` | function | 25804 | `server.ts` |
+| `startServer` | function | 25821 | `server.ts` |
+| `startServer().catch(error => {` | جملة | 26063 | `server.ts` |

@@ -880,6 +880,7 @@
   "decl:calendarKey",
   "app:get \"/api/public/ics/:token/:key\"",
   "app:get \"/api/public/cal/:token/:key\"",
+  "decl:holdsLiveCardLink",
   "decl:stableCalendarPath",
   "app:get \"/api/public/ics-reminder\"",
   "decl:sendInstructorCalendar",

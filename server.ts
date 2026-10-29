@@ -6,7 +6,7 @@ import { emptySuggestionReason, orderSuggestionCandidates, rankSuggestionCandida
 import { appendRequestThread, THREAD_TEXT_LIMIT, negotiationState, parseOfferedSlots } from "./src/utils/instructorRequestThread";
 import { historicalLectureMinutes, buildCourseLife, buildDecisionCost, buildHistoricalTimeModel, buildOfferingLife, discoverUnwrittenRules, explainWhyHere, investigateCrowding, logicalAnomalies, scheduleAccuracyFromVersions, simulatePolicy } from "./src/utils/advancedIntelligence";
 import { instructorWeekAfter } from "./src/utils/instructorRequestWeek";
-import { reservationRows, RequestReservationConflict, RequestHoldConflict, REQUEST_RACE_LOST, type RequestReservationProposal } from "./src/utils/instructorRequestReservations";
+import { reservationRows, RequestReservationConflict, RequestHoldConflict, REQUEST_RACE_LOST, withoutRoomNames, type RequestReservationProposal } from "./src/utils/instructorRequestReservations";
 import { compareIntelligenceTerms, rowsForIntelligenceScope } from "./src/utils/intelligenceReadingScope";
 import express, { Request, Response, NextFunction } from "express";
 import { rateLimit } from "express-rate-limit";
@@ -56,8 +56,8 @@ import { pickPreviousRequest } from "./src/utils/previousTermRequest";
 import { latestRequestByInstructor, reissueMove, requestLinkNeedsReplacing } from "./src/utils/requestReissue";
 import { enrichCompanionRoomTypes } from "./src/utils/companionRoomDisplay";
 import { cleanSeenIds, seenKey } from "./src/utils/notificationSeen";
-import { calendarFeedKey, instructorFromCalendarKey } from "./src/server/calendarSecret";
-import { requestsCloseAtFromDate, termLinkExpiresAt } from "./src/utils/shareLinkLifetime";
+import { CALENDAR_FEED_PAUSED_NOTE, calendarFeedKey, instructorFromCalendarKey } from "./src/server/calendarSecret";
+import { liveCardLinkFor, requestsCloseAtFromDate, termLinkExpiresAt } from "./src/utils/shareLinkLifetime";
 import { normalizeInstructorDeadline, individualExceptionOpen } from "./src/utils/instructorRequestWindows";
 import { createLinkMissGuard, isSessionIdShape } from "./src/server/anonymousGuard";
 import { runApprovalAttempts, type ApprovalOnce } from "./src/server/approvalAttempts";
@@ -13266,7 +13266,7 @@ const TERM_WEEKS = 16;
  * body at all. That is the difference between a feed a department can hand to
  * four hundred people and one it cannot.
  */
-async function sendCalendar(req: Request, res: Response, name: string, termId: number, lectures: CalendarLecture[], singles: CalendarSingle[] = []) {
+async function sendCalendar(req: Request, res: Response, name: string, termId: number, lectures: CalendarLecture[], singles: CalendarSingle[] = [], pausedNote = "") {
   const term = (await Repository.getTerms()).find(row => row.AdTermId === termId);
   /* حدّا الفصل من ‎termWindow‎ (المعلَن، وإلا المستنبط من اسم الفصل)؛ «اليوم»
      لم يعد مرساةً إلا لفصلٍ لا يُعرف عنه شيء — ويقول الملف ذلك. */
@@ -13282,7 +13282,8 @@ async function sendCalendar(req: Request, res: Response, name: string, termId: n
     // the subscriber's phone, rather than presenting an invented semester as if
     // it were the registrar's.
     name: span.source === "declared" ? name : span.source === "default" ? `${name} (تواريخ الفصل تقديرية)` : `${name} (تواريخ الفصل غير مسجّلة)`,
-    description: span.source === "declared"
+    /* اشتراكٌ ثابتٌ توقّف (لا بطاقةَ حيّة): الاسمُ نفسُه، والوصفُ يقول ذلك. */
+    description: pausedNote ? pausedNote : span.source === "declared"
       ? `${term?.AdTermName || ""} · يبدأ ${startDate} ويستمر ${countOf(weeks, AR.week)} · للقراءة فقط، ويُحدَّث من نفسه.`
       : span.source === "default"
         ? `${term?.AdTermName || ""} · تواريخ الفصل غير مسجّلة؛ الحدّان تقديريان من اسم الفصل (${span.startDate} ← ${span.endDate}) · للقراءة فقط.`
@@ -13344,18 +13345,34 @@ app.get("/api/public/ics/:token/:key", async (req: Request, res: Response) => {
 });
 
 /**
- * ── الاشتراكُ الثابت (M3) ────────────────────────────────────────────────────
+ * ── الاشتراكُ الثابت (M3) — يتبع الأستاذَ ما دامت بيده بطاقةٌ حيّة ───────────────
  * ‎/api/public/cal/<رمز البطاقة>/p<رقم>-<مفتاح>.ics‎ — المفتاحُ للأستاذ لا للرابط
- * (src/server/calendarSecret.ts)، فإيقافُ البطاقة أو إعادةُ نشرها لا يقتل
- * اشتراكاتِ الهواتف. ورمزُ البطاقة في المسار يربط الطلبَ بصندوق الديمو وحده؛
- * لا يُشترط أن يكون الرابطُ حياً.
+ * (src/server/calendarSecret.ts)، فإعادةُ نشر البطاقة أو تجديدُها (رابطٌ جديد يحلّ
+ * محلّ القديم) لا تقطع اشتراكاتِ الهواتف. أما الإيقافُ النهائي — لم يبقَ بيده رابطُ
+ * بطاقةٍ حيّ: شخصيٌّ، أو رابطُ طلبه، أو بطاقةُ قسمٍ يدرّس فيه؛ غيرُ موقوفٍ ومقروءٌ الآن
+ * فالانتهاءُ يُحتسب (liveCardLinkFor في src/utils/shareLinkLifetime.ts) — فيُوقفه:
+ * 200 بتقويمٍ صالحٍ فارغ بالاسم نفسه ووصفٍ يقول إنه توقّف، فتُمسح المحاضراتُ من الهاتف
+ * بهدوء بدل خطأٍ يُبقيها، ويعود وحده متى صدرت له بطاقةٌ جديدة (قرار المالك 2026-10-29).
+ * ورمزُ البطاقة في المسار يربط الطلبَ بصندوق الديمو وحده؛ لا يُشترط أن يكون هو حياً.
  */
 app.get("/api/public/cal/:token/:key", async (req: Request, res: Response) => {
   const id = instructorFromCalendarKey(await calendarSecret(), String(req.params.key || ""));
   const person = id ? (await Repository.getInstructors()).find(row => Number(row.AdInstructorId) === id) : undefined;
   if (!person) { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
-  await sendInstructorCalendar(req, res, person);
+  await sendInstructorCalendar(req, res, person, { pauseWithoutLiveCard: true });
 });
+
+/** هل بيد الأستاذ رابطُ بطاقةٍ حيّ؟ القاعدةُ كلُّها في liveCardLinkFor؛ هنا قراءةُ الروابط:
+ *  ما يحمل رقمَه (الشخصيةُ وروابطُ الطلب) باستعلامٍ واحد، ثم بطاقةُ القسم العامة لعائلة
+ *  كل قسمٍ يدرّس فيه في فصل التقويم (‎ownRows‎). */
+async function holdsLiveCardLink(instructorId: number, ownRows: FSchedule[], terms: Awaited<ReturnType<typeof Repository.getTerms>>): Promise<boolean> {
+  const termOf = (termId: number) => terms.find(term => Number(term.AdTermId) === termId) as any;
+  if (liveCardLinkFor(await Repository.getShareLinksByInstructor(instructorId), instructorId, { termOf })) return true;
+  const scopes = new Map(ownRows.map(row => [`${row.AdCollegeId}:${row.AdSectionId}:${row.AdTermId}`, row]));
+  const departmentCards = (await Promise.all([...scopes.values()].map(row =>
+    staffFamilyShareLinks(Number(row.AdCollegeId), Number(row.AdSectionId), Number(row.AdTermId))))).flat();
+  return Boolean(liveCardLinkFor(departmentCards, instructorId, { termOf, teachesIn: () => true }));
+}
 
 /**
  * ── تذكيرٌ ليومٍ واحد (مساري) ──────────────────────────────────────────────
@@ -13375,7 +13392,7 @@ app.get("/api/public/ics-reminder", (req: Request, res: Response) => {
 });
 
 /** جدول الأستاذ في الفصل الجاري (أو القادم المثبّت بـ‎?term=‎) ملفَّ تقويم. */
-async function sendInstructorCalendar(req: Request, res: Response, person: { AdInstructorId: number; AdInstructorName?: string }) {
+async function sendInstructorCalendar(req: Request, res: Response, person: { AdInstructorId: number; AdInstructorName?: string }, options: { pauseWithoutLiveCard?: boolean } = {}) {
   const [courses, terms, colleges] = await Promise.all([
     Repository.getCourses(), Repository.getTerms(), Repository.getColleges(),
   ]);
@@ -13392,6 +13409,12 @@ async function sendInstructorCalendar(req: Request, res: Response, person: { AdI
   }
   const termRows = await Repository.getSchedulesByScope({ termId: liveTermId });
   const rows = termRows.filter(row => row.AdInstructorId === person.AdInstructorId);
+  const calendarName = `جدول ${person.AdInstructorName || "الأستاذ"}`;
+  /* الاشتراكُ الثابت بلا بطاقةٍ حيّة: تقويمٌ صالحٌ فارغ بالاسم نفسه، ووصفُه يقول إنه توقّف. */
+  if (options.pauseWithoutLiveCard && !(await holdsLiveCardLink(Number(person.AdInstructorId), rows, terms))) {
+    await sendCalendar(req, res, calendarName, liveTermId, [], [], CALENDAR_FEED_PAUSED_NOTE);
+    return;
+  }
   const courseById = new Map(courses.map(row => [row.AdCourseId, row]));
   const collegeById = new Map(colleges.map(row => [Number(row.AdCollegeId), row]));
 
@@ -13422,7 +13445,7 @@ async function sendInstructorCalendar(req: Request, res: Response, person: { AdI
     })
     .filter(Boolean) as CalendarSingle[];
 
-  await sendCalendar(req, res, `جدول ${person.AdInstructorName || "الأستاذ"}`, liveTermId, rows.map(row => {
+  await sendCalendar(req, res, calendarName, liveTermId, rows.map(row => {
     const course = courseById.get(row.AdCourseId);
     return {
       id: row.id,
@@ -14930,8 +14953,12 @@ function stripForInstructor(request: InstructorRequest) {
     signature: request.signature
       ? { at: request.signature.at, verifyCode: request.signature.verifyCode, fingerprint: "" }
       : undefined,
+    /* سطرُ «عُدّل الموعد» يكتبه تعديلُ القسم («القاعة 7/31 ← 8/22»): يصل الأستاذَ «تغيّرت القاعة» بلا اسم. */
+    timeline: (request.timeline || []).map(event => event.detail ? { ...event, detail: withoutRoomNames(event.detail) } : event),
     items: (request.items || []).map(item => {
-      const { roomCandidates, roomOptions, offeringRows, ...rest } = item;
+      /* القاعةُ لا تصل الأستاذ (قرار المالك 2026-10-29: «مخفية اكيد متعمدة»): المرشّحاتُ وتفاصيلُها،
+         و«الأنسب» (roomPick في ما حُفظ قبل القرار)، والمحجوزةُ، والمبدَّلة — كلُّها للقسم. يرى roomAvailable وحده. */
+      const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, ...rest } = item;
       const itemId = instructorRequestItemIdentity(item);
       const identify = (slot: any) => ({ ...slot,
         proposalId: instructorRequestProposalIdentity(itemId, slot) });
@@ -14941,7 +14968,8 @@ function stripForInstructor(request: InstructorRequest) {
           ...(rest.decision.alternatives ? { alternatives: rest.decision.alternatives.map(identify) } : {}) } } : {}),
         ...(rest.thread ? { thread: rest.thread.map(message => ({ ...message,
           ...(message.slots ? { slots: message.slots.map(identify) } : {}) })) } : {}),
-        /* «كان» تحمل قاعتَه هو — وهي قاعتُه يعرفها — و«طلب» لا تحملها أبداً. */
+        /* لا «كان» ولا «طلب» تحمل قاعة: الصفحةُ لا تعرضها، والقرارُ أن لا تصل. */
+        before: rest.before ? { ...rest.before, room: undefined } : rest.before,
         after: rest.after ? { ...rest.after, room: undefined } : rest.after,
         /* حالةُ الحوار تُحسب هنا بالقاعدة الواحدة، والصفحةُ تعرضها ولا تستنتجها. */
         negotiation: negotiationState(rest),
@@ -16740,7 +16768,6 @@ app.post("/api/public/request/:token/check-batch", async (req: Request, res: Res
         slots: item.slots || [], computedEnd: item.slots?.[0]?.end || "", roomAvailable: item.roomAvailable ?? null,
         nearestTimes: (item.nearestTimes || []).map(slot => ({ day: slot.day, days: slot.days, start: slot.start, end: slot.end })),
         shapes: item.shapes || [], advice: item.advice || "", block: item.block || 0,
-        roomPick: item.roomPick || [],
         ...(mixed ? { patternNotice: await mixedPatternNotice(courseId, (item.slots || []).map(slot => slot.day as RequestDayKey), Number(resolved.request.AdTermId), undefined, true).catch(() => null) } : {}),
         notes: itemNotes,
       };
@@ -16901,7 +16928,7 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
   const context = await buildRequestContext(resolved.request);
   const rulesCache = new Map<string, any>();
   const times: Record<string, "ok" | "warn" | "bad"> = {};
-  /* سببُ كل وقتٍ ممنوع رمزاً واحداً يُرسم أيقونةً صغيرة (B2): أستاذ، قاعة، مرفق، طلبة، نصاب، لائحة. */
+  /* سببُ كل وقتٍ ممنوع رمزاً واحداً يُرسم أيقونةً صغيرة (B2): مصدرُ المانع الأول (instructor · room · facility · cohort · load · regulation). */
   const why: Record<string, string> = {};
   let problemIsShape = false;
   let shapes: any[] = [];
@@ -16957,7 +16984,8 @@ app.post("/api/public/request/:token/hold", rateLimitCheckTimes, async (req: Req
   if (!proposal) { res.json({ held: false }); return; }
   try {
     const result = await Repository.holdInstructorRequestSlot(resolved.request, { ...proposal, itemId: `draft:${index}` }, REQUEST_HOLD_TTL_MS);
-    res.json({ held: true, heldUntil: result?.heldUntil, room: target.roomPick?.[0]?.label || "" });
+    /* الحجزُ يأخذ أنسبَ الخالي، والجوابُ لا يسمّيه (قرار المالك 2026-10-29: لا يصل الأستاذَ اسمٌ ولا رمز). */
+    res.json({ held: true, heldUntil: result?.heldUntil });
   } catch (error: any) {
     if (!(error instanceof RequestReservationConflict)) throw error;
     /* خسر السباق: الحكمُ يُعاد على الدفتر الجديد، فيرى ما أخذه الزميل، ويقترح أقربَ بديلين. */

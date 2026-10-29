@@ -300,7 +300,7 @@ ${STAFF_CARD_VISUAL_CSS}
           <b id="subTitle">جدولك في تقويمك</b>
           <button type="button" id="subClose" class="hbtn" aria-label="إغلاق"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
-        <p class="sheet-note"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2"/><path d="M20 4v5h-5M4 20v-5h5"/></svg><span id="subLife">اشتراك يتابع جدولك من نفسه حتى نهاية الفصل، ولا يحتاج إعادة إضافة بعد كل تعديل.</span></p>
+        <p class="sheet-note"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2"/><path d="M20 4v5h-5M4 20v-5h5"/></svg><span id="subLife">اشتراك يتابع جدولك من نفسه ما دامت بطاقتك سارية، ولا يحتاج إعادة إضافة بعد كل تعديل.</span></p>
         <a class="opt primary" id="subNow" href="#"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3.5c-1 .1-2.2.8-2.8 1.6-.6.7-1.1 1.8-.9 2.8 1.1 0 2.2-.7 2.8-1.5.6-.8 1-1.8.9-2.9z"/><path d="M12 8.5c-1-.1-2.3-.9-3.5-.9C6.6 7.6 5 9.2 5 12.2c0 3.3 2.3 8.3 4.2 8.3 1 0 1.6-.7 2.8-.7s1.7.7 2.8.7c1.5 0 2.8-2.7 3.3-4.1-1.7-.8-2.4-2.4-2.4-3.9 0-1.3.7-2.5 1.8-3.2-.8-1.1-2-1.6-3.1-1.6-1 0-1.6.8-2.4.8z"/></svg></span><span class="t">Apple · آيفون وماك<small>يفتح «اشتراك» في تطبيق التقويم</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
         <a class="opt" id="subGoogle" href="#" target="_blank" rel="noopener"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12.2c0-.6-.1-1.2-.2-1.7H12v3.3h4.5a3.9 3.9 0 0 1-1.7 2.5"/><path d="M12 20a8 8 0 1 1 5.4-13.9"/></svg></span><span class="t">Google Calendar<small>يفتح صفحة الإضافة في جوجل</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
         <a class="opt" id="subOutlook" href="#" target="_blank" rel="noopener"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="12" height="14" rx="2"/><circle cx="9" cy="12" r="2.6"/><path d="M15 8h6v8h-6"/></svg></span><span class="t">Outlook<small>حساب شخصي أو حساب الجامعة</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
@@ -555,7 +555,7 @@ ${CALENDAR_LINKS_CLIENT_JS}
       var pf=document.getElementById("printFoot");if(pf)pf.textContent="طُبع من SCHEDULE بتاريخ "+friendlyDate(new Date().toISOString(),false)+" · جدولٌ للقراءة، والمرجع جدولُ القسم المعتمد";
       document.getElementById("foot").textContent="قراءة الجدول متاحة حتى نهاية الفصل ("+until+") · للقراءة فقط";
       var life=document.getElementById("subLife");
-      if(life) life.textContent="اشتراك يتابع جدولك من نفسه حتى "+until+" (نهاية الفصل)، ولا يحتاج إعادة إضافة بعد كل تعديل.";
+      if(life) life.textContent="اشتراك يتابع جدولك من نفسه ما دامت بطاقتك سارية (حتى "+until+")، ولا يحتاج إعادة إضافة بعد كل تعديل.";
     }catch(e){}
     gate.style.display="none";card.style.display="block";
     window.scrollTo(0,0);

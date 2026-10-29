@@ -169,5 +169,14 @@ check(!visual13.includes('data-nx="send"') &&
   page.includes('<button type="button" id="send"'),
   "P13 اختصار إلى الإرسال المحذوف لا يمسّ زر الإرسال الأصلي");
 
+/* P15: القاعة مخفيةٌ عن الأستاذ عمداً (قرار المالك 2026-10-29: «مخفية اكيد متعمدة») */
+const styles15 = readFileSync("src/server/requestPageStyles.ts", "utf8");
+check(page.includes("<span class=\"vwrap\">'+skVerdict(it)+'</span>'+roomSignalHtml(it)") && !page.includes("roomPickHtml") && !page.includes("ROOM_WHY"),
+  "P15 سطرُ الحكم يحمل إشارةَ القاعة 🏫✓ وحدها: لا «الأنسب» ولا بدائل ولا اختيار");
+check(page.includes('data-room-ok="1"') && page.includes('toast("check",el.getAttribute("aria-label")||"")') && styles15.includes(".verdict>.room-ok{") && !styles15.includes(".room-pick"),
+  "P15 والإشارةُ زرٌّ صغير: تلميحُها بالمرور، وعلى الهاتف ضغطةٌ تقول «قاعتك يحددها القسم»");
+check(page.includes('room:["door","لا تتوفّر قاعة في هذا الوقت"]') && !page.includes("لا قاعة خالية"),
+  "P15 وسببُ الوقت غير المتاح للقاعة بالجملة العامة نفسها، لا اسمَ ولا «خالية»");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
