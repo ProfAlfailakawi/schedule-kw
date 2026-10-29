@@ -85,8 +85,9 @@ function instructorReasons(input: RowReasonInput): RowReason[] {
   const { row } = input;
   const out: RowReason[] = [];
   if (!row.AdInstructorId) return out;
+  /* null = لا نصاب؛ والصفرُ الصريح (إعفاءٌ كامل) نصابٌ يُقاس عليه. */
   const quota = num(input.quota);
-  if (quota > 0 && input.loadUnits != null) {
+  if (input.quota !== null && input.quota !== undefined && quota >= 0 && input.loadUnits != null) {
     const load = num(input.loadUnits);
     out.push(load > quota
       ? { kind: "load", tone: "warn", label: `حمل ${load}/${quota}`, tip: `يحمل ${countOf(load, AR.hour)} معتمدة وهو فوق نصابه ${quota}` }

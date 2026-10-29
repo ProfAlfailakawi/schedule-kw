@@ -291,22 +291,26 @@ const OFFERINGS: Record<number, ReadonlyArray<readonly [code: string, sections: 
 
 /* ── النصاب التدريسي في الديمو ────────────────────────────────────────────────
  *
- * أربعُ درجات، وإسنادٌ لبعض أعضاء القسم يُري الحالتين معاً على جدول الفصل الجاري:
- *   ضمن النصاب : (4) أستاذ مشارك 13 من 13 · (5) أستاذ مشارك 15 من 13+2 إضافية · (6) أستاذ 11 من 12 · (8) أستاذ مساعد 12 من 15
- *   تجاوز      : (3) أستاذ 13 من 12 ← ساعةٌ واحدة · (12) أستاذ مساعد 19 من 15 ← أربع ساعات
+ * أربعُ درجاتٍ مرتّبة («أستاذ» أولاً) لكلٍّ منها ساعتان إضافيتان، وإسنادٌ لبعض أعضاء القسم يُري الحالات كلها
+ * على جدول الفصل الجاري:
+ *   ضمن النصاب : (4) أستاذ مشارك 13 من 13 · (6) أستاذ 11 من 12 · (8) أستاذ مساعد 12 من 15
+ *   إضافي      : (3) أستاذ 13 من 12+2 ← ساعةٌ إضافية، لا تجاوز
+ *   تجاوز      : (12) أستاذ مساعد 19 من 15+2 ← ساعتان · (5) استثناءٌ بمنصبٍ إداري 15 من 12+2 ← ساعة
  *   دون الأدنى : (2) أستاذ مساعد 7 من 12 (للإعداد وحده؛ لا يُنبَّه به المخطّط)
  * الأرقامُ نتيجةُ جدولٍ مبنيٍّ بخوارزميةٍ حتمية، ويحرسها اختبارُ النصاب فلا تنحرف بصمت. */
 export const DEMO_TEACHING_LOAD_RANKS = [
-  { id: "rank-professor", name: "أستاذ", minHours: 9, maxHours: 12 },
-  { id: "rank-associate", name: "أستاذ مشارك", minHours: 10, maxHours: 13 },
-  { id: "rank-assistant", name: "أستاذ مساعد", minHours: 12, maxHours: 15 },
-  { id: "rank-lecturer", name: "مدرّس", minHours: 12, maxHours: 15 },
+  { id: "rank-professor", name: "أستاذ", minHours: 9, maxHours: 12, overtimeHours: 2 },
+  { id: "rank-associate", name: "أستاذ مشارك", minHours: 10, maxHours: 13, overtimeHours: 2 },
+  { id: "rank-assistant", name: "أستاذ مساعد", minHours: 12, maxHours: 15, overtimeHours: 2 },
+  { id: "rank-lecturer", name: "مدرّس", minHours: 12, maxHours: 15, overtimeHours: 2 },
 ] as const;
-export const DEMO_TEACHING_LOAD_ASSIGNMENTS: Record<string, { rankId: string; extraHours?: number }> = {
+/* حالاتُ الشرح كلها على جدول الفصل الجاري: تجاوزٌ (12)، وإضافيٌّ هادئ (3)، واستثناءٌ بمنصبٍ إداري ينتهي
+   بنهاية الفصل الثاني (5: أعلى 12 + 2 ← تجاوزُ ساعة)، وضمن النصاب، ودون الأدنى (2)، وغيرُ مضبوط. */
+export const DEMO_TEACHING_LOAD_ASSIGNMENTS: Record<string, { rankId: string; minHours?: number; maxHours?: number; extraHours?: number; reason?: "admin" | "task" | "sabbatical" | "other"; untilTermId?: number }> = {
   "2": { rankId: "rank-assistant" },
   "3": { rankId: "rank-professor" },
   "4": { rankId: "rank-associate" },
-  "5": { rankId: "rank-associate", extraHours: 2 },
+  "5": { rankId: "rank-associate", minHours: 6, maxHours: 12, extraHours: 2, reason: "admin", untilTermId: DEMO_TERM_SECOND },
   "6": { rankId: "rank-professor" },
   "8": { rankId: "rank-assistant" },
   "12": { rankId: "rank-assistant" },

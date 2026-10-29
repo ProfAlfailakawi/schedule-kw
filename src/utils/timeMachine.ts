@@ -37,6 +37,13 @@ import { AR, countOf } from "./arabicCount";
 
 /* ── الأشكال ───────────────────────────────────────────────────────────────── */
 
+
+/** سقفُ العضو في المحاكاة: مفتاحُه موجود = له قيد (والصفرُ إعفاءٌ كامل، قيدٌ حقيقي)؛ غيابُه = لا قيد. */
+export function limitOf(context: { loadLimits?: Record<string, number> }, id: number): number | null {
+  const value = context.loadLimits?.[String(id)];
+  return value === undefined || value === null || !Number.isFinite(Number(value)) ? null : Math.max(0, Number(value));
+}
+
 export const TM_DAYS: DayKey[] = SCHEDULE_DAYS.map(day => day.key);
 export const dayLabel = (day: DayKey | null | undefined): string => SCHEDULE_DAYS.find(item => item.key === day)?.label || "";
 
@@ -283,8 +290,8 @@ export function measure(board: FSchedule[], context: TmContext, options: { regul
   for (const id of scopeTeachers) {
     const hours = weeklyLoadOf(board.filter(row => Number(row.AdInstructorId) === id), courses);
     loads[String(id)] = hours;
-    const limit = Number(context.loadLimits?.[String(id)] || 0);
-    if (limit > 0 && hours > limit) overLoad += 1;
+    const limit = limitOf(context, id);
+    if (limit !== null && hours > limit) overLoad += 1;
   }
   const sectionKeys = new Set(scopeRows.map(sectionKey));
   let seats = 0;
@@ -601,8 +608,8 @@ export function suggestPlacements(board: FSchedule[], courseId: number, context:
   const people = context.instructors.filter(person => !placeholders.has(Number(person.AdInstructorId)) && person.AdInstructorStatus !== "retired" && person.AdInstructorStatus !== "sabbatical");
   const hours = Number(course?.CourseHours || course?.CourseCredit || 0);
   const spare = (id: number) => {
-    const limit = Number(context.loadLimits?.[String(id)] || 0);
-    if (!limit) return null;
+    const limit = limitOf(context, id);
+    if (limit === null) return null;
     return limit - weeklyLoadOf(board.filter(row => Number(row.AdInstructorId) === id), courses);
   };
   const flex = [...placeholders][0];
@@ -958,9 +965,10 @@ export function solveProblem(problem: TmProblem, base: FSchedule[], context: TmC
           .filter(person => index.teacherFree(Number(person.AdInstructorId), days, start, end))
           .map(person => {
             const id = Number(person.AdInstructorId);
-            const limit = Number(context.loadLimits?.[String(id)] || 0);
+            const limit = limitOf(context, id) ?? 0;
+            const limited = limitOf(context, id) !== null;
             const load = weeklyLoadOf(base.filter(other => Number(other.AdInstructorId) === id), courses);
-            return { person, id, over: limit > 0 && load + hours > limit, rank: (sameCourse.has(id) ? 0 : 10) + (limit ? Math.max(0, load - limit + hours) : 3) };
+            return { person, id, over: limited && load + hours > limit, rank: (sameCourse.has(id) ? 0 : 10) + (limited ? Math.max(0, load - limit + hours) : 3) };
           })
           .filter(item => !item.over)
           .sort((a, b) => a.rank - b.rank)[0];

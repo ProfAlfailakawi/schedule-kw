@@ -1842,6 +1842,8 @@ export default function App() {
             hasPerm={hasAcademicPerm}
             scopes={scopes}
             isAdmin={isPowerAdmin}
+            rootAdmin={Boolean(user.IsRootAdmin)}
+            demoReadOnly={Boolean(user.IsDemo)}
           />
         ) : (
           unauthorized()

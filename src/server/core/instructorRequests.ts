@@ -8,6 +8,7 @@
 import { roomSuitability } from "../../utils/roomSuitability";
 import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "../../utils/instructorRequestWeek";
 import { rankRequestRooms } from "../../utils/requestRoomRanking";
+import { loadLimitOf } from "../../utils/teachingLoad";
 import { liveReservations, occupiedRowsForRequest } from "../../utils/instructorRequestReservations";
 import { Request, Response } from "express";
 import { Repository } from "../../db/repository";
@@ -202,7 +203,7 @@ export async function buildSharedRequestContext(request: InstructorRequest) {
   const [allRows, courses, instructors, needs, ledger] = await Promise.all([
     Repository.getSchedulesByScope({ termId: Number(request.AdTermId) }),
     Repository.getCourses(),
-    Repository.getInstructors(),
+    Repository.getInstructors(Number(request.AdTermId)),
     Repository.getStudentNeeds(Number(request.AdCollegeId), Number(request.AdSectionId), Number(request.AdTermId)).catch(() => []),
     Repository.getInstructorRequestReservations(Number(request.AdTermId)),
   ]);
@@ -456,7 +457,7 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       dayStart: rules.dayStart,
       dayEnd: rules.dayEnd,
       windowOpen: open,
-      instructorLoad: Number(context.instructors.get(Number(request.AdInstructorId))?.AdInstructorLoad || 0) || null,
+      instructorLoad: loadLimitOf(context.instructors.get(Number(request.AdInstructorId))),
       /* ورقةُ رفض القسم تعرض بدائلَ لكل بند، ولو كان متاحاً (مراجعة البروفة). */
       offerAlternatives: Boolean(options.forDepartment),
       nature: habits,
