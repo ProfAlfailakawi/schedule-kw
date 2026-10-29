@@ -38,6 +38,7 @@
     "test:schedule-interface": "tsx tests/schedule-interface-audit.ts",
     "test:schedule-wipe": "tsx tests/schedule-wipe-audit.ts",
     "test:repo-hygiene": "node tests/repo-hygiene-guard.mjs",
+    "test:server-parity": "tsx tests/server-route-parity-audit.ts",
     "test:firestore-target": "tsx tests/firestore-target-audit.ts",
     "test:ads": "tsx tests/ads-audit.ts && tsx tests/ads-preview-audit.ts",
     "test:schedule-time-window": "tsx tests/schedule-time-window-audit.ts",
