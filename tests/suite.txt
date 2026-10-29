@@ -51,6 +51,7 @@ test:request-signature
 test:teacher-card
 test:teacher-card-2
 test:voice-input
+test:staff-device
 test:study-proposal-page
 test:publish-requests
 test:staff-request-windows

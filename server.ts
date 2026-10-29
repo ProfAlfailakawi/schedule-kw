@@ -71,6 +71,7 @@ import { enrichCompanionRoomTypes } from "./src/utils/companionRoomDisplay";
 import { DEMO_COPY_SCRIPT, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "./src/server/publicKit";
 import { cleanSeenIds, seenKey } from "./src/utils/notificationSeen";
 import { CALENDAR_FEED_PAUSED_NOTE, calendarFeedKey, createCalendarSecretResolver, instructorFromCalendarKey, personCalendarKey } from "./src/server/calendarSecret";
+import { clearStaffDeviceCookie, createStaffDeviceSecretResolver, signStaffDevice, staffDeviceCookie, staffDeviceExpiry, verifyStaffDevice, STAFF_DEVICE_COOKIE } from "./src/server/staffDeviceKey";
 import { liveCardLinkFor, readsUntilTermEnd, requestsCloseAtFromDate, shareLinkReadable, termLinkExpiresAt } from "./src/utils/shareLinkLifetime";
 import { normalizeInstructorDeadline, individualExceptionOpen, requestWindowOpen as requestWindowOpenPolicy } from "./src/utils/instructorRequestWindows";
 import { termPhase, termIsFrozen, TERM_FROZEN_MESSAGE } from "./src/utils/termSequence";
@@ -16159,14 +16160,22 @@ async function scheduleMovementEntries(instructorId: number, termId: number, row
   return movementHistory;
 }
 
-async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedTermId = 0) {
-  const digits = normalizeCivilId(civil);
-  if (digits.length < 8) return null;
+/** هويةُ الأستاذ في البطاقة: رقمُه المدني، أو مفتاحُ جهازٍ موقّعٌ يحمل رقمه الداخلي («تذكّرني»). */
+type StaffIdentity = string | { instructorId: number };
+
+async function buildStaffCard(link: ScheduleShareLink, identity: StaffIdentity, requestedTermId = 0) {
+  const byDevice = typeof identity === "object" && identity !== null;
+  const civil = byDevice ? "" : String(identity);
+  const digits = byDevice ? "" : normalizeCivilId(civil);
+  if (!byDevice && digits.length < 8) return null;
 
   const [instructors, courses, colleges, terms, sections] = await Promise.all([
     Repository.getInstructors(), Repository.getCourses(), Repository.getColleges(), Repository.getTerms(), Repository.getSections()
   ]);
-  const person = instructors.find(row => sameCivilId(row.AdInstructorCivil, digits));
+  /* مفتاحُ الجهاز يعيّن الأستاذ برقمه الداخلي، ثم تمرّ البوابات نفسها التي تمرّ بها الهوية بالرقم المدني. */
+  const person = byDevice
+    ? instructors.find(row => Number(row.AdInstructorId) === Number((identity as { instructorId: number }).instructorId))
+    : instructors.find(row => sameCivilId(row.AdInstructorCivil, digits));
   // A demo sandbox deliberately includes fictitious civil IDs: let its
   // instructor card keep working. Production must never authenticate an
   // artificial "هيئة تدريسية" identity as a real professor.
@@ -17335,6 +17344,17 @@ app.get("/api/public/ics/:token", async (req: Request, res: Response) => {
 /* السرّ لا يولَد عشوائياً عند كل إقلاع: القاعدة كلّها في ‎src/server/calendarSecret.ts‎
    (المتغيّر إن ضُبط، وإلا مشتقٌّ من السرّ المشترك المحفوظ). */
 const calendarSecret = createCalendarSecretResolver(() => process.env.CALENDAR_SECRET, () => Repository.getSharedServerSecret());
+const staffDeviceSecret = createStaffDeviceSecretResolver(() => process.env.STAFF_DEVICE_SECRET, () => Repository.getSharedServerSecret());
+const staffCookieSecure = process.env.NODE_ENV === "production";
+/* الرقمُ المدني إن أُرسل، وإلا مفتاحُ الجهاز من الكوكي — والمفتاحُ لا يصلح إلا لرمز هذا الرابط. */
+async function staffIdentityFrom(req: Request, token: string): Promise<{ identity: StaffIdentity; byDevice: boolean } | null> {
+  const civil = String((req.body || {}).civil || "");
+  if (civil) return { identity: civil, byDevice: false };
+  const raw = getCookies(req)[STAFF_DEVICE_COOKIE];
+  if (!raw) return null;
+  const instructorId = verifyStaffDevice(await staffDeviceSecret(), token, raw);
+  return instructorId ? { identity: { instructorId }, byDevice: true } : null;
+}
 
 const calendarKey = async (token: string, instructorId: number) =>
   calendarFeedKey(await calendarSecret(), token, instructorId);
@@ -17510,7 +17530,8 @@ app.post("/api/public/staff/:token/note", async (req: Request, res: Response) =>
   }
 
   const body = (req.body || {}) as Record<string, unknown>;
-  const card = await buildStaffCard(resolved.link, String(body.civil || ""), Number(body.termId || 0));
+  const who = await staffIdentityFrom(req, token);
+  const card = who ? await buildStaffCard(resolved.link, who.identity, Number(body.termId || 0)) : null;
   if (!card) { res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return; }
   attempt.release();
   if (!card.liveTermId || Number(card.termId) !== Number(card.liveTermId)) {
@@ -17524,9 +17545,9 @@ app.post("/api/public/staff/:token/note", async (req: Request, res: Response) =>
   // actually on this instructor's own card.
   if (!lecture) { res.status(404).json({ error: "هذا الموعد ليس ضمن جدولك" }); return; }
 
+  /* صاحبُ البطاقة كما عيّنته البوابة نفسُها — بالرقم المدني أو بمفتاح الجهاز — لا بحثٌ ثانٍ. */
   const instructors = await Repository.getInstructors();
-  const digits = normalizeCivilId(body.civil);
-  const person = instructors.find(row => sameCivilId(row.AdInstructorCivil, digits));
+  const person = instructors.find(row => Number(row.AdInstructorId) === Number(card.instructorId));
   if (!person) { res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return; }
 
   if (await Repository.countStaffNotesToday(person.AdInstructorId) >= STAFF_NOTES_PER_DAY) {
@@ -19259,21 +19280,51 @@ app.get("/api/schedules/staff-inbox", requirePermission(7), async (req: Authenti
   }));
 });
 
+/* «انسَ هذا الجهاز»: يمسح المفتاح من هذا الجهاز وحده. لا يحتاج هوية، فلا يكشف شيئاً. */
+app.post("/api/public/staff/:token/forget", (req: Request, res: Response) => {
+  res.setHeader("Set-Cookie", clearStaffDeviceCookie(String(req.params.token || ""), staffCookieSecure));
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true });
+});
+
 app.post("/api/public/staff/:token", async (req: Request, res: Response) => {
   const token = String(req.params.token || "");
   const resolved = await resolveShareToken(token);
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
   if (resolved.link.kind !== "staff") { res.status(404).json({ error: "هذا الرابط ليس بطاقة أستاذ" }); return; }
+  /* فتحٌ بلا رقمٍ ولا مفتاحِ جهاز لا يُحسب محاولةً: الصفحة تسأل بصمتٍ عن جهازٍ متذكَّر. */
+  if (!String(req.body?.civil || "") && !getCookies(req)[STAFF_DEVICE_COOKIE]) {
+    res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return;
+  }
   const attempt = publicAttemptReserve(token, req.ip || "unknown");
   if (!attempt) {
     res.status(429).json({ error: "محاولات كثيرة. انتظر عشر دقائق ثم أعد المحاولة." });
     return;
   }
-  const card = await buildStaffCard(resolved.link, String(req.body?.civil || ""), Number(req.body?.termId || 0));
+  const who = await staffIdentityFrom(req, token);
+  // مفتاحُ جهازٍ لم يعد صالحاً يُمسح ويُطلب الرقم كالعادة — بلا تمييزٍ عن «لا بطاقة».
+  if (!who) {
+    if (getCookies(req)[STAFF_DEVICE_COOKIE]) res.setHeader("Set-Cookie", clearStaffDeviceCookie(token, staffCookieSecure));
+    res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return;
+  }
+  const card = await buildStaffCard(resolved.link, who.identity, Number(req.body?.termId || 0));
   // One answer for a wrong number and for someone with no lectures this term:
   // the page must not become a way to test which numbers exist.
-  if (!card) { res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return; }
+  if (!card) {
+    if (who.byDevice) res.setHeader("Set-Cookie", clearStaffDeviceCookie(token, staffCookieSecure));
+    res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return;
+  }
   attempt.release();
+  /* «تذكّرني»: بعد التحقق بالرقم المدني وحده، يُعطى الجهازُ مفتاحاً موقّعاً لهذا الرابط وهذا الأستاذ. */
+  let remembered = who.byDevice;
+  if (!who.byDevice && req.body?.remember === true) {
+    const expiresAt = staffDeviceExpiry(resolved.link.expiresAt);
+    if (expiresAt > Date.now()) {
+      const value = signStaffDevice(await staffDeviceSecret(), token, Number(card.instructorId), expiresAt);
+      res.setHeader("Set-Cookie", staffDeviceCookie(token, value, expiresAt, staffCookieSecure));
+      remembered = true;
+    }
+  }
   void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
   /* «منذ زيارتك الأخيرة»: ما حُفظ من الزيارة السابقة يُعاد، ثم تُسجَّل هذه. */
   const { instructorId: cardInstructorId, fingerprint: cardFingerprint, ...visible } = card;
@@ -19287,6 +19338,7 @@ app.post("/api/public/staff/:token", async (req: Request, res: Response) => {
   const planMapUrl = mapSectionId > 0 && (await Repository.listPublishedSheets().catch(() => [])).some(sheet => Number(sheet.AdSectionId) === mapSectionId) ? `/plans/s${mapSectionId}/` : "";
   res.json({
     ...visible,
+    remembered,
     planMapUrl,
     lastSeenAt: previousVisit?.seenAt || "",
     changedSinceLastVisit: Boolean(previousVisit?.seenFingerprint) && Number(card.termId) === Number(resolved.link.AdTermId)
@@ -19647,6 +19699,7 @@ ${STAFF_CARD_VISUAL_CSS}
       <input id="civil" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="12 رقمًا" aria-label="الرقم المدني">
       <button type="submit" id="go">عرض</button>
     </form>
+    <label class="remember" for="remember"><input type="checkbox" id="remember"><span>تذكّرني على هذا الجهاز</span></label>
     <div class="note" id="note" role="status" aria-live="polite"></div>
     <div class="skel" id="gateSkel" aria-hidden="true" hidden><i></i><i></i></div>
     <p class="hint">صفحة للقراءة فقط · لا تحتاج حساباً<br>لا تُعرض أرقام هواتف ولا بيانات زملائك.</p>
@@ -19703,6 +19756,7 @@ ${STAFF_CARD_VISUAL_CSS}
     </div>
     <div class="print-foot" id="printFoot"></div>
     <div class="foot" id="foot"></div>
+    <button type="button" class="forget" id="forget" hidden>انسَ هذا الجهاز</button>
   </div>
 </div>
 <script nonce="${nonce}">
@@ -19723,6 +19777,9 @@ ${CALENDAR_LINKS_CLIENT_JS}
     .replace(/[۰-۹]/g,function(d){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))});};
   var friendlyDate=function(value,withTime){var d=new Date(value);if(!value||isNaN(d))return "";var date=d.toLocaleDateString("ar-KW-u-nu-latn",{year:"numeric",month:"long",day:"numeric"});if(!withTime)return date;return date+" · "+d.toLocaleTimeString("ar-KW-u-nu-latn",{hour:"2-digit",minute:"2-digit"})};
   civil.addEventListener("input",function(){var v=ascii(civil.value);if(v!==civil.value)civil.value=v;});
+  /* «تذكّرني»: مختارٌ افتراضياً على الهاتف (جهازٌ شخصي)، وغير مختارٍ على الحاسوب. */
+  var rememberBox=document.getElementById("remember");
+  try{if(rememberBox)rememberBox.checked=window.matchMedia("(pointer:coarse)").matches}catch(e){}
 
   document.getElementById("print").addEventListener("click",function(e){e.preventDefault();window.print()});
 
@@ -19732,7 +19789,7 @@ ${CALENDAR_LINKS_CLIENT_JS}
     if(value.length!==12){note.textContent="الرقم المدني 12 رقمًا.";return}
     note.textContent="";go.disabled=true;go.textContent="…";document.getElementById("gateSkel").hidden=false;
     fetch("/api/public/staff/"+encodeURIComponent(TOKEN),{
-      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({civil:value})
+      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({civil:value,remember:Boolean(rememberBox&&rememberBox.checked)})
     }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})})
       .then(function(res){
         go.disabled=false;go.textContent="عرض";document.getElementById("gateSkel").hidden=true;
@@ -19827,7 +19884,9 @@ ${CALENDAR_LINKS_CLIENT_JS}
   function render(d,value){
     if(visitSince===null){visitSince=d.lastSeenAt||"";visitChanged=Boolean(d.changedSinceLastVisit);}
     currentCivil=value;
-    try{sessionStorage.setItem("sk-civil:"+TOKEN,value)}catch(e){}
+    if(value){try{sessionStorage.setItem("sk-civil:"+TOKEN,value)}catch(e){}}
+    var forget=document.getElementById("forget");if(forget)forget.hidden=!d.remembered;
+    try{if(d.remembered)localStorage.setItem("sk-dev:"+TOKEN,"1");else localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
     var currentTerm = { termId: Number(d.termId || 0) };
     var phase = d.termPhase || ((Boolean(d.liveTermId) && Number(d.termId) === Number(d.liveTermId)) ? "current" : "past");
     var live = phase === "current";
@@ -19953,9 +20012,26 @@ ${CALENDAR_LINKS_CLIENT_JS}
     gate.style.display="none";card.style.display="block";
     window.scrollTo(0,0);
   }
+  /* «انسَ هذا الجهاز»: يمسح المفتاح ثم يعيد الصفحة إلى سؤال الرقم. */
+  var forgetBtn=document.getElementById("forget");
+  if(forgetBtn)forgetBtn.addEventListener("click",function(){
+    forgetBtn.disabled=true;
+    try{sessionStorage.removeItem("sk-civil:"+TOKEN);localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
+    fetch("/api/public/staff/"+encodeURIComponent(TOKEN)+"/forget",{method:"POST"}).then(function(){location.reload()},function(){location.reload()});
+  });
   /* العودةُ من صفحة الطلب لا تطلب الرقم ثانيةً: يُحفظ في هذه الجلسة وحدها (يزول بإغلاق التبويب). */
+  var resumed=false;
   try{var saved=sessionStorage.getItem("sk-civil:"+TOKEN);
-    if(saved&&/^[0-9]{12}$/.test(saved)){civil.value=saved;var fm=document.getElementById("form");if(fm.requestSubmit)fm.requestSubmit();else go.click()}}catch(e){}
+    if(saved&&/^[0-9]{12}$/.test(saved)){resumed=true;civil.value=saved;var fm=document.getElementById("form");if(fm.requestSubmit)fm.requestSubmit();else go.click()}}catch(e){}
+  /* جهازٌ متذكَّر: يفتح البطاقة مباشرة بمفتاحه (كوكي لا تقرؤه الصفحة). إن لم يصلح بقي سؤال الرقم بلا رسالة. */
+  var hinted=false;try{hinted=localStorage.getItem("sk-dev:"+TOKEN)==="1"}catch(e){}
+  if(!resumed&&hinted){
+    var gs=document.getElementById("gateSkel");if(gs)gs.hidden=false;
+    fetch("/api/public/staff/"+encodeURIComponent(TOKEN),{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})
+      .then(function(r){return r.ok?r.json():null})
+      .then(function(d){if(gs)gs.hidden=true;if(d&&d.name)render(d,"");else{try{localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}}})
+      .catch(function(){if(gs)gs.hidden=true;});
+  }
 })();
 </script>
 </body>
