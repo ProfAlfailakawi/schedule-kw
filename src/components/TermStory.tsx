@@ -21,11 +21,22 @@ export interface TermStoryRound {
   amendment?: boolean;
 }
 
-export default function TermStory({ scopeLine, statusLabel, rowCount, moved, rounds, notesDone, notesTotal, blockers }: {
+/* أساسُ المقارنة كما يقوله التقرير نفسه: «ما تحرّك» لا معنى له إلا بما قورن به. */
+type Basis = "authority" | "round" | "capture" | "reviewed" | "none";
+const SINCE: Record<Exclude<Basis, "authority" | "none">, string> = {
+  round: "منذ آخر مراجعة للتسجيل",
+  reviewed: "منذ آخر مراجعة للتسجيل",
+  capture: "منذ آخر لقطة قبل هذه الجولة",
+};
+
+export default function TermStory({ scopeLine, statusLabel, rowCount, moved, firstReview = false, baselineSource, rounds, notesDone, notesTotal, blockers }: {
   scopeLine: string;
   statusLabel: string;
   rowCount: number;
   moved: number;
+  /** أول مراجعة: لا نسخة سابقة، فكل موعدٍ يُعرض مضافاً — لا «تحرّك». */
+  firstReview?: boolean;
+  baselineSource?: Basis;
   rounds: TermStoryRound[];
   notesDone: number;
   notesTotal: number;
@@ -33,10 +44,18 @@ export default function TermStory({ scopeLine, statusLabel, rowCount, moved, rou
 }) {
   const [copied, setCopied] = useState(false);
   const roundCount = Math.max(1, rounds.length);
+  const againstAuthority = baselineSource === "authority";
+  const first = !againstAuthority && (baselineSource === "none" || firstReview);
+  const since = baselineSource && baselineSource in SINCE ? SINCE[baselineSource as keyof typeof SINCE] : "منذ أساس المقارنة";
+  const movedSentence = first
+    ? "أول مراجعة — لا نسخة سابقة للمقارنة"
+    : againstAuthority
+      ? (moved ? `يختلف ${countOf(moved, AR.appointment)} عن نسخة الهيئة المعتمدة` : "يطابق نسخة الهيئة المعتمدة")
+      : (moved ? `تحرّك ${countOf(moved, AR.appointment)} ${since}` : `لم يتحرّك موعد ${since}`);
   const sentence = [
     `${scopeLine}:`,
     countOf(rowCount, AR.appointment),
-    moved ? `تحرّك ${countOf(moved, AR.appointment)} منذ المراجعة` : "لم يتحرّك موعد منذ المراجعة",
+    movedSentence,
     countOf(roundCount, AR.round),
     notesTotal ? `عولجت ${notesDone.toLocaleString("ar-KW-u-nu-latn")} من ${countOf(notesTotal, AR.note)}` : "بلا ملاحظات",
     blockers ? countOf(blockers, AR.approvalBlocker) : "بلا موانع",
@@ -54,9 +73,11 @@ export default function TermStory({ scopeLine, statusLabel, rowCount, moved, rou
     window.setTimeout(() => setCopied(false), 2200);
   };
 
-  const tiles = [
+  const tiles: Array<{ key: string; icon: React.ReactNode; value: number | string; label: string; tone?: string }> = [
     { key: "rows", icon: <CalendarDays aria-hidden="true" />, value: rowCount, label: "موعداً" },
-    { key: "moved", icon: <FileDiff aria-hidden="true" />, value: moved, label: "تحرّك" },
+    first
+      ? { key: "moved", icon: <FileDiff aria-hidden="true" />, value: "—", label: "أول مراجعة" }
+      : { key: "moved", icon: <FileDiff aria-hidden="true" />, value: moved, label: againstAuthority ? "عن الهيئة" : "تحرّك" },
     { key: "rounds", icon: <Repeat aria-hidden="true" />, value: roundCount, label: roundCount === 1 ? "جولة" : "جولات" },
     { key: "notes", icon: <MessageSquareReply aria-hidden="true" />, value: notesTotal ? `${notesDone}/${notesTotal}` : "0", label: "ملاحظات عولجت" },
     { key: "blockers", icon: blockers ? <OctagonAlert aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />, value: blockers, label: blockers ? "موانع" : "بلا موانع", tone: blockers ? "danger" : "good" },
