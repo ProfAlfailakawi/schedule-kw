@@ -41,6 +41,7 @@ test:changes-baseline
 test:notifications
 test:bell-yield
 test:web-push
+test:updating-page
 test:id-types
 test:inbox-live
 test:public-syntax

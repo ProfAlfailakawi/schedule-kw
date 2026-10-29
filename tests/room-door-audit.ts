@@ -310,7 +310,7 @@ const boardToken = secret.buildingDoorToken(key, building.id);
   const server = readServerSource();
   check((server.match(/registerRoomDoorRoutes\(app,/g) || []).length === 1 && server.includes('import { registerRoomDoorRoutes } from "./src/server/roomDoorRoutes"'), "R5 المسارات مسجّلةٌ في الخادم مرّةً واحدة");
   const sw = read("public/sw.js");
-  check(/startsWith\("\/d\/"\)\|\|url\.pathname\.startsWith\("\/b\/"\)\)return;/.test(sw), "R5 عاملُ الخدمة لا يحفظ صفحات الأبواب مكان هيكل التطبيق");
+  check(/startsWith\("\/d\/"\)\|\|url\.pathname\.startsWith\("\/b\/"\)\)return(?: leaveToNetwork\(\))?;/.test(sw), "R5 عاملُ الخدمة لا يحفظ صفحات الأبواب مكان هيكل التطبيق");
 }
 
 /* ── R6: ملصقاتُ الأبواب ─────────────────────────────────────────────────────── */
