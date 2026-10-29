@@ -56,9 +56,18 @@ check(!server.includes('app.get("/api/public/request/:token", requireAuth'), "و
 /* ── القاعةُ لا تغادر ──────────────────────────────────────────────────── */
 
 check(server.includes("function stripForInstructor"), "تجريدُ ما لا يخصّ الأستاذ في دالّةٍ واحدة");
-check(server.includes("const { roomCandidates, roomOptions, offeringRows, ...rest } = item;"), "والمرشّحاتُ وتفاصيلُ قاعاتِها تُنزع نزعاً، لا تُستثنى بالنسيان");
+/* المالك 2026-10-29 (القرار ٣: «مخفية اكيد متعمدة»): ولا «الأنسب» ولا المحجوزةُ ولا المبدَّلة —
+   ومنها ما حُفظ في الطلبات قبل القرار (roomPick)، فيُنزع ولو لم يعد يُبنى. */
+check(server.includes("const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, ...rest } = item;"),
+  "والمرشّحاتُ وتفاصيلُ قاعاتِها، و«الأنسب» والمحجوزةُ والمبدَّلة، تُنزع نزعاً لا تُستثنى بالنسيان");
 check(/after: rest\.after \? \{ \.\.\.rest\.after, room: undefined \}/.test(server),
   "و«طلب» لا تحمل قاعةً أبداً");
+check(/before: rest\.before \? \{ \.\.\.rest\.before, room: undefined \}/.test(server),
+  "و«كان» كذلك: لا قاعةَ في نسخة الأستاذ ولو كانت قاعتَه");
+check(server.includes("timeline: (request.timeline || []).map(event => event.detail ? { ...event, detail: withoutRoomNames(event.detail) } : event)"),
+  "وسطرُ «عُدّل الموعد» في خطّ طلبه يقول «تغيّرت القاعة» ولا يسمّيها");
+check(!server.includes("roomPick: verdict") && server.includes("res.json({ held: true, heldUntil: result?.heldUntil });"),
+  "و«الأنسب» لا يُبنى للأستاذ أصلاً، والحجزُ المؤقّت لا يردّ اسمَ ما حجزه");
 check(server.includes("stripForInstructor(judgedRequest)") && server.includes("judgeRequestItems(request),\n  ]);"), "والقراءةُ تمرّ بالتجريد");
 check(server.includes("stripForInstructor(saved)"), "والإرسالُ كذلك — لا مخرجَ بلا تجريد");
 /* مسارُ الفحص يخاطب صفحةَ الأستاذ أيضاً، فلا يُرسل مرشّحاته. */
@@ -143,10 +152,19 @@ check(page.includes("مسودة · غير معتمدة · لا تُعتبر تك
 check(page.includes("@media print"), "وتبقى الحالةُ في الطباعة");
 /* الكلمةُ العامة مسموحة بطلب صاحب النظام («قاعة وليس مكان»): «لا تتوفّر قاعة»
    و«تغيّرت القاعة» لا تكشفان قاعةً بعينها. أمّا اسمُ القاعة ورمزُها فممنوعان. */
-/* المالك 2026-10-28 (C1/C2): القاعةُ تُختار تلقائياً وتُعرض للأستاذ («الأنسب» + بديلان)
-   من roomPick الذي يبنيه الخادم وحده؛ ولا يصل الصفحةَ صفُّ غيره ولا قائمةُ المرشّحين الخام. */
-check(!/AdRoomCode|AdRoomHall|roomCandidates|roomOptions/.test(page) && page.includes("function roomPickHtml(it)") && page.includes("it.roomPick"),
-  "القاعة تُعرض من اختيار الخادم وحده، بلا صفوفٍ ولا مرشّحين خام");
+check(!/قاعة|AdRoomCode|AdRoomHall|roomCandidates/.test(page
+    .replace(/مدّةُ المحاضرة/g, "")
+    .replace(/لا تتوفّر قاعة في هذا الوقت/g, "")
+    .replace(/تغيّرت القاعة/g, "")),
+  "ولا اسمَ قاعةٍ في الصفحة كلها");
+/* المالك 2026-10-29 (القرار ٣: «مخفية اكيد متعمدة»): أُلغي «الأنسب» وبديلاه (C2 في 2026-10-28).
+   الترتيبُ والحجزُ لحظةَ الإرسال باقيان في الخادم؛ والأستاذ يرى إشارةً واحدة 🏫✓ بلا اسمٍ ولا رمزٍ ولا اختيار. */
+check(!/roomPick|roomOptions|reservedRoom|roomSwitch|ROOM_WHY|room-pick/.test(page),
+  "ولا «الأنسب» ولا بدائلُه ولا المحجوزةُ في الصفحة ومساراتها");
+check(page.includes("function roomSignalHtml(it)") && page.includes('title="قاعتك يحددها القسم" aria-label="قاعتك يحددها القسم"')
+  && page.includes("it.roomOk&&(it.tone===\"ok\"||it.tone===\"warn\")") && page.includes("it.roomOk=result.roomAvailable===true")
+  && page.includes("roomOk:it.roomAvailable===true"),
+  "بل إشارةٌ واحدة 🏫✓ «قاعتك يحددها القسم» تقرأ roomAvailable وحده، ولا تظهر مع مانع");
 check(page.includes("ينتهي ") && page.includes("مدّةُ المحاضرة من اللائحة"),
   "والنهايةُ تُعرض محسوبةً ولا تُسأل");
 check(page.includes('fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-batch"')
