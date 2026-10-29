@@ -64,17 +64,22 @@ import {
   Replace,
   WandSparkles,
   X,
+  Loader2,
+  Magnet,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { DnaCount, DnaStatusHeader } from "./dna";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
 import AppointmentChecksPanel from "./AppointmentChecksPanel";
-import TeacherMiniWeek, { type MiniPick } from "./TeacherMiniWeek";
+import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, type MiniPick } from "./TeacherMiniWeek";
+import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips from "./RegulationPatternChips";
 import { appointmentVerdict, type VerdictCheck } from "../utils/appointmentVerdict";
-import { pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
+import { bestRegulationChoice, completeRegulation, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { spellingTwinsOf } from "../utils/courseSpellingTwins";
 import {
@@ -175,6 +180,7 @@ import { adviseDayPattern, DECISION_1912_LABEL, expectedMinutesForDay, isDecisio
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { rowClashReasons } from "../utils/scheduleBlockers";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
+import { fitsCoursePattern } from "../utils/teacherMiniWeek";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
 import { historicalLocationNeedsReview, normalizeLocationToken, roomDisplay, roomIdentityKey } from "../utils/locationRegistry";
 import { findRepairChain, type RepairChain } from "../utils/repairChain";
@@ -872,6 +878,10 @@ function ScheduleLegendScroller({
     </div>
   );
 }
+
+/** مفتاح توقيت الموعد (المقرر · الأيام · البداية): يعرف به الإكمال اللائحي أن المستخدم مسّ الوقت. */
+const timingKeyOf = (row: any) =>
+  `${Number(row?.AdCourseId || 0)}|${["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].map(key => row?.[key] ? 1 : 0).join("")}|${String(row?.fstarttime || "")}`;
 
 export default function Schedules({ mode, user, scopes = [], permissions = [], signatureStage: approvalStage = null, committeeEligible = false, onNavigate }: Props) {
   const prefsKey = `schedule-workspace-prefs-${user?.SystemUserId || 0}`;
@@ -3005,9 +3015,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setChecking(false);
     setScheduleTouched(false);
     setRoomIdeas(null); setRoomIdeasNote(""); setRoomIdeasReason(undefined); setRoomReplaceable([]);
-    setSlotIdeas(null); setSlotIdeasNote(""); setSlotIdeasReason(undefined);
+    setSlotIdeas(null); setSlotIdeasNote(""); setSlotIdeasReason(undefined); setSlotReplaceable([]);
     setAlternatives(null);
     setRegulationAlternatives([]);
+    setTimingOverride(false);
+    daysSeeded.current = false;
+    timingOpenedKey.current = "";
     setBorrowOpen(false); setBorrowMsg(""); setBorrowRooms([]);
     setRoomOwner(null);
     setTimeCounterOpen(false); setStartTimeLimitNotice(""); setEndTimeLimitNotice("");
@@ -3083,6 +3096,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         next.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_END, mins(seed.start) + (seed.day ? expectedMinutesForDay(seed.day as RegDayKey) : 50)));
       }
       setForm(next);
+      /* يومُ خانةٍ مرسومة لم يختره المستخدم نمطاً: يُكمل نمطَ المقرر حين يُعرف (completeRegulation). */
+      daysSeeded.current = Boolean(seed?.day && !seed?.days?.length);
       setCourseName(seed?.courseId ? (courseById.get(Number(seed.courseId))?.CourseName || "") : "");
       setEditId(null);
       setEditor("create");
@@ -3105,6 +3120,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         sectionAutofilled.current = false;
       }
       setForm(values);
+      /* التعديل لا يُكمَل آلياً عند الفتح: الموعد المحفوظ يبقى كما هو حتى يمسّ المستخدم أيامه أو وقته. */
+      timingOpenedKey.current = timingKeyOf(values);
       setCourseName(name || courseById.get(row.AdCourseId)?.CourseName || "");
       // A row open in someone's form is the quietest way to lose a change: it
       // looks untouched on every other screen right up until the save.
@@ -3306,6 +3323,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   // waits until the days or the time have been touched, or until a save is
   // attempted; the submit button stays disabled meanwhile either way.
   const [scheduleTouched, setScheduleTouched] = useState(false);
+  /* تجاوزٌ متعمَّد لنمط اللائحة (نهاية/مدة/أيام بيد المستخدم) — وحده يوقف الإكمال الآلي. */
+  const [timingOverride, setTimingOverride] = useState(false);
+  /* أيامٌ بُذرت من خانة مرسومة (لم تُختر نمطاً) تُكمل حين يُعرف المقرر. */
+  const daysSeeded = useRef(false);
+  /* مفتاح التوقيت لحظة فتح «تعديل»: لا إكمال حتى يتغيّر. */
+  const timingOpenedKey = useRef("");
   /* شرائح البدائل اللائحية لليوم المضغوط (B1). */
   const [regulationAlternatives, setRegulationAlternatives] = useState<RegulationChoice[]>([]);
   /* مفتاح القيم التي فُحصت آخر مرة: تحديثٌ حيّ للجدول يعيد الفحص بصمت، وتغييرُ
@@ -3406,6 +3429,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const [slotIdeasNote, setSlotIdeasNote] = useState("");
   const [slotIdeasReason, setSlotIdeasReason] = useState<SuggestionReply["reason"]>(undefined);
   const [slotBusy, setSlotBusy] = useState(false);
+  /* 🔄 خانات «هيئة تدريسية» المطابقة تماماً في «اقترح لي وقتاً وقاعة» (موعدٌ جديد لأستاذٍ حقيقي). */
+  const [slotReplaceable, setSlotReplaceable] = useState<ReplaceableSection[]>([]);
   /* المدة التي يُسأل بها «وقت وقاعة»: مدة الموعد إن كُتبت، وإلا مدة نمط اللائحة
      للأيام المختارة، وإلا عادة القسم — لا 60 دقيقة ثابتة لا تطابق أي نمط. */
   const suggestionDuration = () => {
@@ -3426,6 +3451,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (currentSuggestionKey.current !== requestedKey) return;
       setSlotIdeasNote(String(data.note || ""));
       setSlotIdeasReason(data.reason);
+      setSlotReplaceable(editor === "create" && Number(form.AdInstructorId || 0) ? data.replaceable : []);
       setSlotIdeas(data.slots);
     } catch (e: any) {
       if (currentSuggestionKey.current !== requestedKey) return;
@@ -3445,7 +3471,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const [roomReplaceable, setRoomReplaceable] = useState<ReplaceableSection[]>([]);
   const [roomIdeasBusy, setRoomIdeasBusy] = useState(false);
   const [alternatives, setAlternatives] = useState<SuggestionReply | null>(null);
-  useEffect(() => { setRoomIdeas(null); setSlotIdeas(null); setRoomIdeasNote(""); setSlotIdeasNote(""); setRoomReplaceable([]); setAlternatives(null); }, [roomIdeasKey]);
+  useEffect(() => { setRoomIdeas(null); setSlotIdeas(null); setRoomIdeasNote(""); setSlotIdeasNote(""); setRoomReplaceable([]); setSlotReplaceable([]); setAlternatives(null); }, [roomIdeasKey]);
   /* اقتراحٌ محفوظ في الذاكرة القصيرة لا يبقى بعد تغيّر الجدول. */
   useEffect(() => { forgetSuggestions(); }, [rows]);
   const askForRooms = async () => {
@@ -3489,11 +3515,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      الخادم (/api/schedules/placeholder-action) يفحص كل خطوة بمساري الحفظ والتعديل
      على الأسبوع كما سيصير، ثم يكتب الشعبة والموعد الجديد معاً أو لا شيء، ويعيد
      خطوات التراجع. هنا: تأكيدٌ بصورة «قبل/بعد»، ثم ضغطة واحدة. */
-  const placeholderAction = async (section: ReplaceableSection, action: "assign" | "swap" | "replace") => {
+  /* `source`: الموعد الذي يُبحث له — النموذج الكامل افتراضاً، أو مسوّدة «موعد جديد» السريع. */
+  const placeholderAction = async (section: ReplaceableSection, action: "assign" | "swap" | "replace", source?: { appointment: Partial<FSchedule>; done: () => void }) => {
+    const draft: any = source?.appointment || form;
     const target = rows.find(row => Number(row.id) === Number(section.rowId));
-    const teacherId = Number(form.AdInstructorId || 0);
+    const teacherId = Number(draft.AdInstructorId || 0);
     if (!target || !teacherId) { setError("اختر الأستاذ أولاً."); return; }
-    if (action !== "assign" && (!form.AdCourseId || !String(form.SCode || "").trim())) { setError("أكمل المقرر والشعبة أولاً."); return; }
+    if (action !== "assign" && (!draft.AdCourseId || !String(draft.SCode || "").trim())) { setError("أكمل المقرر والشعبة أولاً."); return; }
     const teacher = instructorById.get(teacherId)?.AdInstructorName || "الأستاذ";
     const where = `${target.AdRoomCode}/${target.AdRoomHall} · ${formatScheduleTimeRange(target.fstarttime, target.fendtime)}`;
     const students = section.radar ? ` في رادار التسجيل ${countOf(section.radar.seated, AR.student)} على ${countOf(section.radar.sections, AR.section)} لهذا المقرر — انقل المتأثرين قبل التغيير.` : "";
@@ -3513,9 +3541,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           ? `قبل: شعبة ${target.SCode || ""} «هيئة تدريسية» · ${where}\nبعد: تنتقل إلى ${swapTo.AdRoomCode}/${swapTo.AdRoomHall}، ويُحفظ موعد ${teacher} في قاعتها.`
           : `قبل: شعبة ${target.SCode || ""} «هيئة تدريسية» · ${where}\nبعد: تُحذف، ويُحفظ موعد ${teacher} في قاعتها.${students}`;
       const confirmed = await visualConfirm({
-        title: action === "assign" ? "إسناد بدل موعد جديد" : action === "swap" ? "تبديل القاعة" : "استبدال الشعبة الشاغرة",
+        title: action === "assign" ? "خذ موعدها" : action === "swap" ? "بدّل الخانة" : "احذفها وخذ مكانها",
         message: message + (action !== "replace" && students ? `\n${students}` : "") + "\nتُنفَّذ الخطوتان معاً أو لا شيء، ويمكنك التراجع.",
-        confirmLabel: action === "assign" ? "إسناد" : action === "swap" ? "تبديل وحفظ" : "استبدال وحفظ",
+        confirmLabel: action === "assign" ? "خذ موعدها" : action === "swap" ? "بدّل واحفظ" : "احذفها واحفظ",
         ...(action === "replace" ? { tone: "danger" as const } : {}),
         compact: true,
       });
@@ -3524,13 +3552,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       const result: any = await withRequestHoldPrompt(overrideRequestHolds => fetchJson("/api/schedules/placeholder-action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, placeholderId: target.id, placeholderRev: (target as any).rev, appointment: { ...form, AdInstructorId: teacherId }, swapTo, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }),
+        body: JSON.stringify({ action, placeholderId: target.id, placeholderRev: (target as any).rev, appointment: { ...draft, AdInstructorId: teacherId }, swapTo, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }),
       }), action === "assign" ? "الإسناد" : action === "swap" ? "التبديل" : "الاستبدال");
       offerUndo(action === "assign" ? `إسناد شعبة ${target.SCode || ""}` : action === "swap" ? `تبديل قاعة شعبة ${target.SCode || ""}` : `استبدال شعبة ${target.SCode || ""}`, Array.isArray(result?.undo) ? result.undo : []);
       forgetSuggestions();
       await loadRows({ silent: true });
       markChanged(Number(result?.createdId || target.id));
-      back();
+      if (source) source.done(); else back();
       requestAnimationFrame(() => setMessage(action === "assign" ? `أُسندت الشعبة ${target.SCode || ""} إلى ${teacher} — لم يُنشأ موعد جديد.` : action === "swap" ? `نُقلت الشعبة ${target.SCode || ""} وحُفظ موعد ${teacher} في قاعتها.` : `استُبدلت الشعبة ${target.SCode || ""} بموعد ${teacher}.`));
     } catch (e: any) {
       setError(friendlyError(e));
@@ -3995,6 +4023,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const chooseFormDay = (day: RegDayKey, checked: boolean) => {
     setScheduleTouched(true);
     const result = pickDay(formCourse, formDays, day, checked);
+    daysSeeded.current = false;
+    /* أيامٌ لا تطابق نمطاً لمقررٍ له ساعات = تجاوزٌ متعمَّد؛ وإلا فالإكمال الآلي يبقى حارساً. */
+    setTimingOverride(Boolean(regulationHours(formCourse) && result.days.length && !result.applied));
     setRegulationAlternatives(result.alternatives);
     setForm(previous => {
       const next: any = { ...previous };
@@ -4010,9 +4041,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      و«قبلها/بعدها» يقترح قاعة المحاضرة الملاصقة (أو مبناها) ما لم تُختر قاعة. الحكم يفحص كأي اختيار. */
   const miniWeekWindow = useMemo(() => ({ start: activeScheduleWindow.start, end: activeScheduleWindow.end }), [activeScheduleWindow.start, activeScheduleWindow.end]);
   const isFacultyPlaceholderId = (id: number) => isFacultyPlaceholder(instructorById.get(id) as any);
+  /* جدول الأستاذ المصغّر: مفتاح إظهار/إخفاء يُتذكَّر لكل مستخدم على هذا الجهاز. */
+  const [miniWeekEnabled, setMiniWeekEnabled] = useMiniWeekEnabled(Number(user?.SystemUserId || 0));
   const editorOriginalRow = useMemo(() => editor === "edit" ? rows.find(row => Number(row.id) === Number(editId)) || null : null, [editor, editId, rows]);
   const pickFromMiniWeek = (pick: MiniPick) => {
     setScheduleTouched(true);
+    daysSeeded.current = false;
+    /* موضعٌ خارج نمط المقرر (قبلها/بعدها على أيام محاضرةٍ بنمطٍ آخر) يبقى كما اختير تجاوزاً صريحاً:
+       ما فُحص هو ما يُحفظ، ولا يضيف الإكمال اللائحي يوماً لم يُفحص. */
+    setTimingOverride(!fitsCoursePattern(formCourse, { days: pick.days, start: mins(pick.start), end: mins(pick.end) }));
     setRegulationAlternatives(regulationChoicesForDay(formCourse, pick.day).filter(choice => choice.days.join("+") !== pick.days.join("+")));
     setForm(previous => {
       const next: any = { ...previous };
@@ -4030,6 +4067,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
   const applyRegulationChoice = (choice: RegulationChoice) => {
     setScheduleTouched(true);
+    daysSeeded.current = false;
+    setTimingOverride(false);
     setForm(previous => {
       const next: any = { ...previous };
       days.forEach(day => { next[day.key] = choice.days.includes(day.key as RegDayKey); });
@@ -4038,6 +4077,44 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (start) next.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_END, mins(start) + choice.minutes));
       return next;
     });
+  };
+  /* ── «تجاوز الساعات» لا يقع سهواً (ملاحظة المالك 2026-10-29) ─────────────────
+     كان الإكمال اللائحي يجري عند ضغط يومٍ أو كتابة البداية وحدهما؛ فخانةٌ مرسومة ثم
+     مقررٌ يُختار بعدها، أو عجلة الوقت التي تحفظ المدة السابقة، تتركان أياماً ومدةً
+     تزيد على ساعات المقرر (أحد·ثلاثاء·خميس × 80د = «5 ساعات تقريباً»). الآن: أي
+     تغيّر في المقرر أو الأيام أو البداية يكمل النمط ونهايته (completeRegulation)،
+     إلا حين يتجاوزه المستخدم عمداً (نهاية بيده، مدة بالعجلة، أيام خارج النمط) —
+     وحينها فقط يظهر التنبيه ومعه «طبّق النمط المعتمد». */
+  useEffect(() => {
+    if (editor === "index" || timingOverride || pendingHandoff.current?.requestId) return;
+    const key = timingKeyOf(form);
+    if (editor === "edit" && timingOpenedKey.current && key === timingOpenedKey.current) return;
+    timingOpenedKey.current = "";
+    const completed = completeRegulation(formCourse, formDays, String(form.fstarttime || ""), { fresh: daysSeeded.current });
+    if (!completed) return;
+    daysSeeded.current = false;
+    const sameDays = completed.days.join("+") === formDays.join("+");
+    const sameEnd = !completed.end || completed.end === String(form.fendtime || "");
+    if (sameDays && sameEnd) return;
+    if (!sameDays) setRegulationAlternatives(regulationChoicesForDay(formCourse, completed.days[0]).filter(choice => choice.id !== completed.applied.id));
+    setForm(previous => {
+      const next: any = { ...previous };
+      days.forEach(item => { next[item.key] = completed.days.includes(item.key as RegDayKey); });
+      if (completed.end) next.fendtime = completed.end;
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, timingOverride, formCourse, formDays.join("+"), form.fstarttime]);
+  const patternOverridden = regulationHours(formCourse) > 0 && formRegulationFit === "off";
+  /* «طبّق النمط المعتمد»: ضغطةٌ واحدة تعيد الأيام والنهاية إلى النمط وتُنهي التجاوز. */
+  const applyApprovedPattern = () => {
+    const choice = bestRegulationChoice(formCourse, formDays);
+    if (choice) applyRegulationChoice(choice);
+  };
+  /* البداية تتحرك والمدة لا تتغيّر حين يكون التجاوز متعمَّداً. */
+  const shiftedEnd = (row: Partial<FSchedule>, start: string) => {
+    const span = row.fstarttime && row.fendtime ? mins(String(row.fendtime)) - mins(String(row.fstarttime)) : 0;
+    return span > 0 ? timeFromMins(Math.min(SCHEDULE_DAY_END, mins(start) + span)) : endForStart(row, start);
   };
   /* ── حكمٌ واحد للنموذج (A6) ───────────────────────────────────────────────
      الشريط «صحّح قبل الحفظ» ولوحة «فحص موانع الحفظ» وزرّ الحفظ يقرؤون هذا وحده،
@@ -4054,6 +4131,23 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     notes: editorSupplementalCards.map(card => ({ kind: "time" as const, text: String(card.title || ""), detail: String(card.detail || "") || undefined })),
   });
   const [altBusy, setAltBusy] = useState(false);
+  /* «بديل» ينزل إلى قسم «بدائل آمنة» في النموذج بسلاسة، ويضعه في التركيز ويضيئه لحظة. */
+  const alternativesRef = useRef<HTMLElement | null>(null);
+  const [altJump, setAltJump] = useState(0);
+  const goToAlternatives = () => { void askAlternatives(); setAltJump(value => value + 1); };
+  useEffect(() => {
+    if (!altJump) return;
+    const node = alternativesRef.current;
+    if (!node) return;
+    const reduce = typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+    node.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    node.focus({ preventScroll: true });
+    node.classList.remove("is-flash");
+    void node.offsetWidth;
+    node.classList.add("is-flash");
+    const timer = window.setTimeout(() => node.classList.remove("is-flash"), 1800);
+    return () => window.clearTimeout(timer);
+  }, [altJump]);
   const askAlternatives = async () => {
     const requestedKey = roomIdeasKey;
     setAltBusy(true);
@@ -5101,6 +5195,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       companionRoomLabel: draft.companionRoomLabel || prev.companionRoomLabel,
     }));
     if (draft.courseId) setCourseName(courseById.get(draft.courseId)?.CourseName || "");
+    /* مدةٌ اختارها المنسّق بالعجلة في البطاقة السريعة تبقى تجاوزاً متعمَّداً في المحرر الكامل. */
+    if (regulationFit(courseById.get(Number(draft.courseId || 0)), draft.days?.length ? draft.days as RegDayKey[] : [seedDay as RegDayKey], start, end) === "off") setTimingOverride(true);
   };
   const remove = async (id: number) => {
     if (showMobileReadOnlyGate()) return;
@@ -9128,6 +9224,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   {/* The civil ID already sits inside the picker beneath the
                       name; repeating it under the field was the same number
                       twice. */}
+                  <div className="instructor-tools"><MiniWeekToggle enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /></div>
                 </Field>
                 {courseNature && courseNature.confidence !== "low" ? (
                   <div className="nature-card">
@@ -9149,6 +9246,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         onClick={() => {
                           const seed = courseNature.suggestion!;
                           setScheduleTouched(true);
+                          /* العادة المرصودة اختيارٌ متعمَّد: لا يُعاد كتابتها بالنمط (والخادم يعفي المقرر المعتاد). */
+                          daysSeeded.current = false;
+                          setTimingOverride(regulationFit(formCourse, seed.days as RegDayKey[], seed.start, seed.end) === "off");
                           setForm(previous => {
                             const next: any = { ...previous };
                             days.forEach(day => { next[day.key] = seed.days.includes(day.key as any); });
@@ -9184,8 +9284,23 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     activeId={formRegulationChoice?.id}
                     fit={formRegulationFit}
                     onPick={applyRegulationChoice}
+                    onApplyBest={patternOverridden ? applyApprovedPattern : undefined}
                   />
                 </Field>
+                {Number(form.AdInstructorId || 0) && !isFacultyPlaceholderId(Number(form.AdInstructorId)) ? (
+                  <LectureStickChips
+                    teacherId={Number(form.AdInstructorId)}
+                    rows={rows}
+                    termId={Number(form.AdTermId || filterTerm || 0)}
+                    collegeId={Number(form.AdCollegeId || 0)}
+                    excludeId={editor === "edit" ? Number(editId || 0) : 0}
+                    course={formCourse}
+                    courses={courseById}
+                    window={miniWeekWindow}
+                    draft={form}
+                    onPick={pickFromMiniWeek}
+                  />
+                ) : null}
                   </div>
                 </section>
                 <section className="schedule-form-section">
@@ -9207,7 +9322,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         setStartTimeLimitNotice("");
                         setScheduleTouched(true);
                         const start = e.target.value;
-                        setForm((p) => ({ ...p, fstarttime: start, fendtime: endForStart(p, start) }));
+                        setForm((p) => ({ ...p, fstarttime: start, fendtime: timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
                       }}
                       required
                     />
@@ -9233,7 +9348,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       maxTime={activeScheduleWindow.endTime}
                       onChange={(next) => {
                         setScheduleTouched(true);
-                        setForm((p) => ({ ...p, fstarttime: next.start, fendtime: next.end }));
+                        /* العجلة تحفظ المدة: تحريك الساعة يعيد النهاية إلى النمط، وتغيير «المدة» تجاوزٌ متعمَّد. */
+                        const spanBefore = form.fstarttime && form.fendtime ? mins(form.fendtime) - mins(form.fstarttime) : 0;
+                        const lengthChanged = mins(next.end) - mins(next.start) !== spanBefore;
+                        if (lengthChanged) setTimingOverride(regulationFit(formCourse, formDays, next.start, next.end) === "off" && regulationHours(formCourse) > 0);
+                        setForm((p) => ({ ...p, fstarttime: next.start, fendtime: lengthChanged || timingOverride ? next.end : (endForStart(p, next.start) || next.end) }));
                       }}
                       onClose={() => setTimeCounterOpen(false)}
                     />
@@ -9253,7 +9372,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       onChange={(e) => {
                         setEndTimeLimitNotice("");
                         setScheduleTouched(true);
-                        setForm((p) => ({ ...p, fendtime: e.target.value }));
+                        const end = e.target.value;
+                        /* نهايةٌ بيد المستخدم لا تطابق النمط = تجاوزٌ متعمَّد (التنبيه + «طبّق النمط المعتمد»). */
+                        setTimingOverride(regulationHours(formCourse) > 0 && regulationFit(formCourse, formDays, String(form.fstarttime || ""), end) === "off");
+                        setForm((p) => ({ ...p, fendtime: end }));
                       }}
                       required
                     />
@@ -9454,13 +9576,34 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       {slotBusy ? "أبحث…" : "اقترح لي وقتاً وقاعة"}
                     </button>
                     {slotIdeas ? (
-                      slotIdeas.length ? (
-                        <RoomSuggestionCards variant="slot" suggestions={slotIdeas} onSelect={takeSlot} label="أفضل الأوقات والقاعات" />
+                      slotIdeas.length || slotReplaceable.length ? (
+                        <RoomSuggestionCards variant="slot" suggestions={slotIdeas} onSelect={takeSlot} label="أفضل الأوقات والقاعات"
+                          replaceable={slotReplaceable} replaceBusy={replaceBusy}
+                          onReplaceable={(section, action) => void placeholderAction(section, action)} />
                       ) : (
                         <SuggestionEmpty reason={slotIdeasReason} note={slotIdeasNote || "لا توجد خانة خالية بهذه الأيام والمدة."} />
                       )
                     ) : null}
                   </div>
+                  {/* ── «بدائل آمنة» داخل النموذج: «بديل» في لوحة الفحص ينزل إليها بسلاسة ويضيئها. */}
+                  {altBusy || alternatives ? (
+                    <section ref={alternativesRef} id="appointment-alternatives" tabIndex={-1} className="appointment-alternatives" aria-label="بدائل آمنة" aria-busy={altBusy}>
+                      <header className="appointment-alternatives-head">
+                        <span className="appointment-alternatives-mark" aria-hidden="true"><WandSparkles /></span>
+                        <b>بدائل آمنة</b>
+                        {altBusy ? <Loader2 className="checks-spin" aria-label="يبحث" /> : null}
+                        <button type="button" className="appointment-alternatives-close" aria-label="إغلاق البدائل" onClick={() => setAlternatives(null)}
+                          data-guide-ignore="يغلق قائمة البدائل الآمنة؛ لا يغيّر الموعد"><X aria-hidden="true" /></button>
+                      </header>
+                      {alternatives ? (
+                        alternatives.slots.length || (editor === "create" && Number(form.AdInstructorId || 0) && alternatives.replaceable.length)
+                          ? <RoomSuggestionCards variant="slot" suggestions={alternatives.slots} onSelect={takeSlot} label="أوقات وقاعات بلا تعارض"
+                              replaceable={editor === "create" && Number(form.AdInstructorId || 0) ? alternatives.replaceable : []} replaceBusy={replaceBusy}
+                              onReplaceable={(section, action) => void placeholderAction(section, action)} />
+                          : <SuggestionEmpty reason={alternatives.reason} note={alternatives.note} />
+                      ) : <div className="appointment-alternatives-skeleton" aria-hidden="true"><i /><i /><i /></div>}
+                    </section>
+                  ) : null}
                 </section>
               </div>
               <div className="save-preview">
@@ -9521,7 +9664,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             </form>
           </Surface>
           <div className="editor-side">
-          {Number(form.AdInstructorId || 0) && !isFacultyPlaceholderId(Number(form.AdInstructorId)) ? (
+          {miniWeekEnabled && Number(form.AdInstructorId || 0) && !isFacultyPlaceholderId(Number(form.AdInstructorId)) ? (
             <TeacherMiniWeek
               teacherId={Number(form.AdInstructorId)}
               teacherName={instructorById.get(Number(form.AdInstructorId))?.AdInstructorName || ""}
@@ -9546,7 +9689,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             checking={checking}
             lockedReason={approvalLock}
             alternativeBusy={altBusy}
-            onAlternative={() => void askAlternatives()}
+            onAlternative={() => goToAlternatives()}
+            onApplyPattern={patternOverridden ? applyApprovedPattern : undefined}
             renderConflict={detail => {
               const card = editorConflictCards.find(item => item.source === detail.conflict);
               return card ? renderEditorConflictCard(card) : null;
@@ -9554,16 +9698,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           >
             {editorVerdict.blockers.length ? (
               <div className="solver-box">
-                <SecondaryButton type="button" onClick={() => void askAlternatives()} disabled={altBusy} data-guide-ignore="يطلب بدائل آمنة (القاعة نفسها في وقت آخر أو قاعة أخرى في الوقت نفسه) من محرك الاقتراح الموحد؛ لا يحفظ شيئاً">
+                <SecondaryButton type="button" onClick={() => goToAlternatives()} disabled={altBusy} data-guide-ignore="يطلب بدائل آمنة (القاعة نفسها في وقت آخر أو قاعة أخرى في الوقت نفسه) من محرك الاقتراح الموحد وينزل إليها؛ لا يحفظ شيئاً">
                   <WandSparkles />
                   {altBusy ? "أبحث عن البدائل..." : "اقترح بديلاً آمناً"}
                 </SecondaryButton>
               </div>
-            ) : null}
-            {alternatives ? (
-              alternatives.slots.length
-                ? <RoomSuggestionCards variant="slot" suggestions={alternatives.slots} onSelect={takeSlot} label="بدائل آمنة" />
-                : <SuggestionEmpty reason={alternatives.reason} note={alternatives.note} />
             ) : null}
             {editorRegulation.length ? (
               <details className="decision-accordion decision-accordion--regulation">
@@ -12444,6 +12583,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           onCancel={() => { setQuick(null); setQuickError(null); }}
           onExpand={expandQuick}
           onCreate={createQuick}
+          replaceBusy={replaceBusy}
+          onReplaceable={(section, action, appointment) => void placeholderAction(section, action, { appointment: appointment as Partial<FSchedule>, done: () => { setQuick(null); setQuickError(null); } })}
         />
       ) : null}
       <SchedulePhysicsLayer
