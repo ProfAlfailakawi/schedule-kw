@@ -5,10 +5,22 @@ import { useSectionGap } from "./SectionGapNote";
 import PlanTriageView from "./PlanTriageView";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import { reconcilePlanAdjustments } from "../utils/sectionGap";
-import { loadPlanDecisions, triagePlanItems, type PlanDecision } from "../utils/planTriage";
+import { loadPlanDecisions, triagePlanItems, type PlanDecision, type PlanTier } from "../utils/planTriage";
 import { decisionBoardScope, type DecisionBoardReader } from "../utils/decisionBoardScope";
 
 const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
+
+/**
+ * ما تطبعه «لوحة القرار»: لكل قسمٍ ما تعرضه سطورُه نفسها — العدّاد والمقررات
+ * المصنّفة — فلا تُحسب الورقة من غير ما يراه القارئ. كان زرّ الطباعة يطبع
+ * ورقةً بلا محتوى، لأن العدسة لم يكن لها ورقة.
+ */
+export type DecisionBoardPrintItem = { name: string; code: string; existing: number; required: number; tier: PlanTier; reason: string; handled: boolean };
+export type DecisionBoardPrintDepartment = {
+  collegeId: number; termId: number; sectionId: number; name: string; status: "loading" | "failed" | "ready";
+  counts: { urgent: number; important: number; opportunity: number };
+  items: DecisionBoardPrintItem[];
+};
 
 /**
  * ── «لوحة القرار» داخل الاستعلامات (K5) ──────────────────────────────────────
@@ -22,8 +34,9 @@ const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
  * Nothing here writes: no «تم/تجاهل», no «عالج» into a workshop they do not own,
  * no one-click opening. The server still decides every scope (isScopeAllowed).
  */
-function DepartmentRow({ collegeId, section, termId, expanded, onToggle }: {
+function DepartmentRow({ collegeId, section, termId, expanded, onToggle, onPrintData }: {
   collegeId: number; section: AdSection; termId: number; expanded: boolean; onToggle: () => void;
+  onPrintData?: (entry: DecisionBoardPrintDepartment) => void;
 }) {
   const gap = useSectionGap(collegeId, Number(section.AdSectionId), termId);
   /* The department's shared «تم/تجاهل» decisions, read so the counts match what the committee sees. */
@@ -35,6 +48,18 @@ function DepartmentRow({ collegeId, section, termId, expanded, onToggle }: {
   }, [collegeId, section.AdSectionId, termId]);
   const triage = useMemo(() => triagePlanItems(reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems), decisions), [gap.planItems, gap.planSurplusItems, decisions]);
   const { counts } = triage;
+  useEffect(() => {
+    if (!onPrintData) return;
+    onPrintData({
+      collegeId, termId, sectionId: Number(section.AdSectionId), name: section.AdSectionName,
+      status: gap.failed ? "failed" : gap.loaded ? "ready" : "loading",
+      counts: { urgent: counts.urgent, important: counts.important, opportunity: counts.opportunity },
+      items: [
+        ...triage.live.map(entry => ({ name: entry.item.name, code: entry.item.code, existing: entry.item.existing, required: entry.item.required, tier: entry.tier, reason: entry.reason, handled: false })),
+        ...triage.handled.map(entry => ({ name: entry.item.name, code: entry.item.code, existing: entry.item.existing, required: entry.item.required, tier: entry.tier, reason: entry.reason, handled: true })),
+      ],
+    });
+  }, [onPrintData, collegeId, termId, section.AdSectionId, section.AdSectionName, gap.failed, gap.loaded, triage]);
   return (
     <article className="decision-board-dept" data-open={expanded || undefined}>
       <button type="button" className="decision-board-dept-head" aria-expanded={expanded} onClick={onToggle}
@@ -91,8 +116,10 @@ function DepartmentBoard({ collegeId, sectionId, triage, loaded, failed, onRetry
   );
 }
 
-export default function DecisionBoard({ reader, collegeId, sectionId, termId, sections }: {
+export default function DecisionBoard({ reader, collegeId, sectionId, termId, sections, onPrintData }: {
   reader: DecisionBoardReader; collegeId: number; sectionId: number; termId: number; sections: AdSection[];
+  /** يُبلَّغ بما يعرضه كل قسم، لتطبعه الشاشة الأم بالنطاق نفسه. */
+  onPrintData?: (entry: DecisionBoardPrintDepartment) => void;
 }) {
   const scope = decisionBoardScope(reader, { collegeId, sectionId, sections });
   const [openId, setOpenId] = useState<number | null>(scope.kind === "department" ? scope.sectionIds[0] || null : null);
@@ -105,12 +132,13 @@ export default function DecisionBoard({ reader, collegeId, sectionId, termId, se
     <div className="decision-board" data-scope={scope.kind}>
       <p className="decision-board-scope"><Eye aria-hidden="true" /> {scope.label} · للقراءة فقط</p>
       {scope.kind === "department" && shown[0]
-        ? <DepartmentRow collegeId={collegeId} section={shown[0]} termId={termId} expanded onToggle={() => undefined} />
+        ? <DepartmentRow collegeId={collegeId} section={shown[0]} termId={termId} expanded onToggle={() => undefined} onPrintData={onPrintData} />
         : shown.map(section => (
           <React.Fragment key={section.AdSectionId}>
             <DepartmentRow collegeId={collegeId} section={section} termId={termId}
               expanded={openId === Number(section.AdSectionId)}
-              onToggle={() => setOpenId(current => current === Number(section.AdSectionId) ? null : Number(section.AdSectionId))} />
+              onToggle={() => setOpenId(current => current === Number(section.AdSectionId) ? null : Number(section.AdSectionId))}
+              onPrintData={onPrintData} />
           </React.Fragment>
         ))}
       {!shown.length ? <div className="decision-board-empty"><Eye aria-hidden="true" /><strong>لا أقسام في نطاقك لهذه الكلية.</strong></div> : null}

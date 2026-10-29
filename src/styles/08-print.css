@@ -2832,3 +2832,63 @@
   .print-report .print-occupancy-table tbody tr:nth-child(n) td.print-heat-4{background:#4f9280 !important}
   .print-report .print-occupancy-table tbody tr:nth-child(n) td.print-heat-5{background:#2b7666 !important}
 }
+
+/* ==========================================================================
+   ── المنتدبون: الاسم والمواقع، والشريطُ الأبيض في Safari (2026-10-29) ─────
+   بطلب المالك، على هذين التقريرين وحدهما — إلا الشريط فهو عطبٌ عام.
+
+   ١. «الفصل الحالي»: الرأس صفٌّ مرن، وكانت جملة «القسم في: …» الطويلة تأخذ
+      عرضه كله فينضغط اسم المنتدب كلمةً في كل سطر. الاسم الآن يحجز عرضاً
+      يكفيه سطراً أو سطرين، والمواقع سطرٌ مستقل تحته وسوماً قصيرة
+      (src/utils/campusChips.ts).
+   ٢. «كل الفصول»: عمود المنتدب 36mm كان يقطع الأسماء الطويلة؛ صار 50mm،
+      وما يبقى من العرض لأعمدة السنوات كما كان.
+   ٣. Safari يطبع الورقة العريضة مدوَّرةً داخل صفحةٍ عمودية (data-print-rotate)،
+      أما شريط الختم والتوقيع فثابتٌ (position:fixed) لا يُدوَّر: فكان يقع
+      أسفل الصفحة العمودية — وهو طرف الورقة الأيمن حين تُقرأ أفقياً — شريطاً
+      أبيض يقطع العنوان والعمود الأول، ونصُّه «قيد الإعداد · بلا توقيع مُثبت»
+      عمودياً فوقها. موضعه الصحيح هو ذيل الورقة نفسها، والورقة تحجز له 8mm
+      (padding-block-end) — وذلك الذيل بعد التدوير هو الحافة اليسرى للصفحة
+      العمودية، بطول الورقة وفي موضعها. فيُرسم هناك عمودياً، باتجاه الورقة.
+   ========================================================================== */
+@media print{
+  .print-visiting-report .print-query-group>header>div{flex:1 1 auto !important;min-width:70mm !important}
+  .print-visiting-report .print-query-group>header>div>strong{white-space:normal !important;overflow-wrap:normal !important}
+  .print-visiting-report .print-query-group>header>span{flex:0 0 auto !important;white-space:nowrap !important}
+  .print-visiting-report .print-query-group>header>.print-visiting-campuses{
+    flex:1 0 100% !important;
+    display:flex !important;
+    flex-wrap:wrap !important;
+    align-items:center !important;
+    gap:1mm 1.2mm !important;
+    white-space:normal !important;
+    font-size:6.6pt !important;
+    color:#5c6662 !important;
+  }
+  .print-visiting-campuses>i{
+    font-style:normal !important;
+    padding:.3mm 1.6mm !important;
+    border:.45pt solid #cbd4d0 !important;
+    border-radius:2mm !important;
+    background:#fff !important;
+    color:#164f44 !important;
+    font-weight:650 !important;
+    white-space:nowrap !important;
+  }
+
+  .print-history-col-person{width:50mm !important}
+
+  html[data-print-rotate="1"] .print-sheet-attestation{
+    inset:auto !important;
+    left:0 !important;
+    top:calc((297mm - 297mm * var(--safari-rot-scale)) / 2) !important;
+    width:calc(8mm * var(--safari-rot-scale)) !important;
+    height:calc(297mm * var(--safari-rot-scale)) !important;
+    writing-mode:vertical-rl !important;
+    direction:rtl !important;
+    padding:0 !important;
+    border-top:0 !important;
+    border-right:.5pt solid #cbd4d0 !important;
+    background:transparent !important;
+  }
+}
