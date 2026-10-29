@@ -162,9 +162,9 @@
 .seat-link-btn{justify-self:start;border:0;background:none;padding:2px;color:var(--accent);font:inherit;font-size:var(--t-sm);font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .seat-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .seat-form-grid.three{grid-template-columns:2fr 1fr 1.2fr}
-.seat-form-grid label,.seat-date{display:grid;gap:5px}
+.seat-form-grid label,.seat-date{display:grid;gap:5px;min-inline-size:0}
 .seat-form-grid span,.seat-date span,.seat-field-label{font-size:var(--t-sm);font-weight:700;color:var(--muted)}
-.seat-form-grid input,.seat-date input{min-block-size:44px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font:inherit;font-size:var(--ix-body)}
+.seat-form-grid input,.seat-date input{box-sizing:border-box;inline-size:100%;min-inline-size:0;min-block-size:44px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font:inherit;font-size:var(--ix-body)}
 .seat-form-grid input:focus,.seat-date input:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
 .seat-date{justify-self:start}
 .seat-scope-tree{display:grid;gap:6px;max-block-size:260px;overflow:auto;padding:8px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2,var(--canvas))}
