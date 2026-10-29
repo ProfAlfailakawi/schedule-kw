@@ -1,5 +1,6 @@
 import { byArabic } from "../utils/sorting";
 import AdvisorSeatsPanel from "./AdvisorSeatsPanel";
+import AdvisingScopePicker from "./AdvisingScopePicker";
 import CampusChip, { CampusFilter } from "./CampusChip";
 import { campusOf, campusText, type Campus } from "../utils/campus";
 /**
@@ -797,11 +798,16 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
     ><CheckCheck aria-hidden="true" /> موافقة مقررات الطالب</button>;
   };
 
+  /* الكلية والقسم في رأس الشاشة (AdvisingScopePicker)؛ الفصلُ يبقى في شريط البحث. */
   const selects: ScopeAskSelect[] = [
-    { key: "college", label: "الكلية", value: collegeId, placeholder: "اختر الكلية", options: collegeOptions },
-    { key: "section", label: "القسم", value: sectionId, placeholder: "اختر القسم", options: sectionOptions, disabled: !collegeId },
     { key: "term", label: "الفصل", value: termId, placeholder: "اختر الفصل", options: scopedTerms.map(row => ({ value: row.AdTermId, label: row.AdTermName })) },
   ];
+  const pickCollege = (id: number) => {
+    const only = singleDepartmentOf(scopes, id, powerAdmin) ?? 0;
+    sharedScope.pick({ collegeId: id, sectionId: only });
+    setCollegeId(id); setSectionId(only);
+  };
+  const pickSection = (id: number) => { sharedScope.pick({ sectionId: id }); setSectionId(id); };
 
   if (!terms) return <MicroLoader label="يقرأ الفصول…" />;
 
@@ -810,6 +816,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
       <PageTitle
         eyebrow={<><ClipboardList aria-hidden="true" /> التسجيل</>}
         subtitle="ما طلبه الطلبة: اللجنة توافق أولاً، ثم يسجّل التسجيل"
+        action={<AdvisingScopePicker idPrefix="registration" colleges={collegeOptions} sections={sectionOptions} collegeId={collegeId} sectionId={sectionId} onCollege={pickCollege} onSection={pickSection} />}
       >
         كشف التسجيل{collegeId ? <> <CampusChip collegeName={collegeName} /></> : null}
       </PageTitle>
@@ -829,12 +836,8 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
         selects={trimScopeSelects(selects, scopes, powerAdmin)}
         onSelect={(key, value) => {
           const id = Number(value) || 0;
-          if (key === "college") {
-            const only = singleDepartmentOf(scopes, id, powerAdmin) ?? 0;
-            sharedScope.pick({ collegeId: id, sectionId: only });
-            setCollegeId(id); setSectionId(only);
-          }
-          else if (key === "section") { sharedScope.pick({ sectionId: id }); setSectionId(id); }
+          if (key === "college") pickCollege(id);
+          else if (key === "section") pickSection(id);
           else { sharedScope.pick({ termId: id }); setTermId(id); }
         }}
       />

@@ -199,3 +199,4 @@ test:report-stamp
 test:live-pulse
 test:live-pulse-http
 test:seats
+test:import-courses-r3

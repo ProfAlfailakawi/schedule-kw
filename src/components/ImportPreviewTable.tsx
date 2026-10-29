@@ -374,7 +374,14 @@ export default function ImportPreviewTable({
             const notes = rowIssues[importRowKey(row)] || [];
             const notesFor = (key: EvidenceKey) => notes.filter(note => importIssueField(note) === key);
             const cellClass = (key: EvidenceKey, bad: boolean) => evidenceClass(row, key, bad || notesFor(key).length > 0);
-            const cellTitle = (key: EvidenceKey) => (notesFor(key).length ? notesFor(key).join(" · ") : evidenceTitle(row, key)) || undefined;
+            /* الأحمر يقول سببه في سطر: خانةٌ بلا هوية، أو هويةٌ لا تعرفها قائمة العرض. */
+            const instructorRedWhy = () => {
+              const id = Number(row.AdInstructorId) || 0;
+              if (!id) return evidenceTitle(row, "instructor") || "لا أستاذ مرتبط بهذا الصف — اختره من القائمة.";
+              if (!instructorById.has(id)) return "الأستاذ المرتبط غير موجود في قائمة أساتذة القسم — اختره من القائمة.";
+              return evidenceTitle(row, "instructor");
+            };
+            const cellTitle = (key: EvidenceKey) => (notesFor(key).length ? notesFor(key).join(" · ") : key === "instructor" ? instructorRedWhy() : evidenceTitle(row, key)) || undefined;
             const unplacedNotes = notes.filter(note => !importIssueField(note));
             const outsideNote = !missing.instructor(row) && !notesFor("instructor").length && instructorOutsideDepartment(row)
               ? "هذا الأستاذ ليس ضمن أساتذة القسم أو منتدبي الفصل — اضغط «تثبيت» إن كان هو المقصود، أو اختر غيره من القائمة."

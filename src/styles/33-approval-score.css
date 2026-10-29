@@ -14,18 +14,6 @@
 .review-score-plan{display:grid;gap:8px;margin:0 0 12px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-card,16px);background:var(--surface-2)}
 .review-score-formula{display:flex;align-items:center;gap:8px;margin:0;font-size:.86rem;font-weight:700;color:var(--muted)}
 .review-score-formula svg{width:16px;height:16px;color:var(--accent);flex:none}
-.review-score-fixes{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.review-score-fix{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:var(--surface);border:1px solid var(--line);border-inline-start:4px solid var(--warning)}
-.review-score-fix.tone-block{border-inline-start-color:var(--danger)}
-.review-score-fix.tone-reg-1{border-inline-start-color:color-mix(in srgb,var(--warning) 62%,var(--danger))}
-.review-score-fix.tone-reg-2{border-inline-start-color:var(--info)}
-.review-score-fix.tone-reg-3{border-inline-start-color:color-mix(in srgb,var(--warning) 55%,var(--surface))}
-.review-score-fix-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:var(--warning-soft);color:var(--warning)}
-.review-score-fix.tone-block .review-score-fix-mark{background:var(--danger-soft);color:var(--danger)}
-.review-score-fix-mark svg{width:16px;height:16px}
-.review-score-fix-copy{display:grid;min-width:0}
-.review-score-fix-copy strong{font-size:.88rem;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.review-score-fix-copy small{font-size:.75rem;color:var(--muted)}
 .review-score-fix-gain{display:inline-flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums;color:var(--muted);font-size:.85rem}
 .review-score-fix-gain svg{width:14px;height:14px;color:var(--success)}
 .review-score-fix-gain b:last-of-type{color:var(--success);font-size:1rem}
@@ -36,7 +24,16 @@
 .review-score-fix-act svg{width:14px;height:14px}
 .review-score-fix-act:hover:not(:disabled){background:var(--accent-soft)}
 .review-score-fix-act:disabled{opacity:.45;cursor:not-allowed}
-@media (max-width:640px){
-  .review-score-fix{grid-template-columns:auto minmax(0,1fr) auto}
-  .review-score-fix-act{grid-column:2/-1;justify-self:start}
+/* ── بندٌ واحد في بطاقةٍ واحدة: الوسمان، وما تصير إليه الدرجة، و«عالج» في جانب البطاقة ── */
+@media screen{
+  .review-finding>summary{grid-template-columns:46px minmax(0,1fr) auto}
+  .review-finding-side{display:grid;justify-items:end;align-content:start;gap:8px;min-width:0}
+  .review-finding-tags{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+  .review-finding-tags>em,.review-finding-tags>i{font-size:.72rem;border-radius:999px;padding:5px 10px;font-style:normal;white-space:nowrap}
+  .review-finding-side .review-score-fix-gain{padding:3px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line)}
+}
+@media screen and (max-width:720px){
+  .review-finding>summary{grid-template-columns:36px minmax(0,1fr)}
+  .review-finding-side{grid-column:2;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:6px}
+  .review-finding-tags{justify-content:flex-start}
 }

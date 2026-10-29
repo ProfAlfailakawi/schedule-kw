@@ -1,15 +1,16 @@
 /**
  * ── 📚 كل المقررات ──
  * كل مقررات صحائف القسم — المطروح منها وغير المطروح — في لسانين: «الصحيفة الجديدة»
- * و«الصحيفة القديمة». لكل مقرر شعبُه ومقاعدُه وطلبُه (من الرادار حين يوجد)، وزرّا
+ * و«الصحيفة القديمة». لكل مقرر شعبُه ومقاعدُه ومتبقّيه (من كشف المتبقي المستورد للفصل،
+ * وإلا من الرادار)، و«لم يسجّلوا» من الكشف نفسه، وزرّا
  * «− شعبة» و«+ شعبة» يُريان الأثر فوراً: المقاعد مقابل الطلب، ومن يبقى بلا مقعد،
  * ونصابُ الأستاذ، وضغطُ القاعة. لا يُكتب شيءٌ حتى «اعتمد» صريحٍ في منضدة السيناريو.
  * المحرّك هو محرّك محاكي الشعب نفسه (src/utils/timeMachine.ts عبر courseWhatIf.ts).
  */
 import React, { useMemo, useState } from "react";
-import { Minus, Plus, Search, Undo2, UserX, X } from "lucide-react";
+import { FileSpreadsheet, FileUp, Minus, Plus, Radar, Search, Undo2, UserRoundCheck, UserX, X } from "lucide-react";
 import { applyChanges, boardOf, type TmChange, type TmScenarioRecord } from "../utils/timeMachine";
-import { addOneSection, courseSeatStats, netSectionDelta, removeOneSection, type CourseImpact, type CourseSeatStat } from "../utils/courseWhatIf";
+import { addOneSection, courseSeatStats, DEMAND_WORD, netSectionDelta, removeOneSection, type CourseImpact, type CourseSeatStat } from "../utils/courseWhatIf";
 import { inNewSheet, inOldSheet, SHEET_TAG_LABEL, type SheetTag } from "../utils/sheetTag";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import ScenarioWorkbench from "./ScenarioWorkbench";
@@ -21,7 +22,7 @@ type Sheet = "new" | "old" | "all";
 type Show = "all" | "offered" | "missing" | "short";
 const hours = (minutes: number) => Math.round(minutes / 6) / 10;
 
-export function AllCoursesBody({ context, reload }: { context: LoadedContext; reload: () => void }) {
+export function AllCoursesBody({ context, reload, onImportStats }: { context: LoadedContext; reload: () => void; onImportStats?: () => void }) {
   const sheets = useCourseSheets(Number(context.scope.sectionId));
   const [changes, setChanges] = useState<TmChange[]>([]);
   const [scenario, setScenario] = useState<TmScenarioRecord | null>(null);
@@ -61,13 +62,22 @@ export function AllCoursesBody({ context, reload }: { context: LoadedContext; re
   });
   const scoped = catalogue.filter(({ tag }) => activeSheet === "all" || (activeSheet === "new" ? inNewSheet(tag) : inOldSheet(tag)));
   const sum = (pick: (stat: CourseSeatStat) => number | null) => scoped.reduce((n, { course }) => n + Number(pick(statsAfter.get(Number(course.AdCourseId))!) || 0), 0);
+  /* إجماليُّ الطلبة من كشف المتبقي للقسم في هذا الفصل؛ والرادار بديلٌ حين لا كشف. */
+  const report = context.registration || null;
+  /* الإجماليُّ من مصدرٍ واحد: الكشف إن وُجد، وإلا الرادار — لا يُجمع رقمُ كشفٍ إلى رقم رادار. */
+  const primary: CourseSeatStat["demandSource"] = report?.remaining ? "remaining" : report?.unregistered ? "unregistered" : context.demand ? "radar" : null;
+  const fromPrimary = (pick: (stat: CourseSeatStat) => number | null) => (stat: CourseSeatStat) => (stat.demandSource === primary ? pick(stat) : 0);
   const totals = {
     courses: scoped.length,
     offered: scoped.filter(({ course }) => statsAfter.get(Number(course.AdCourseId))?.sections).length,
     sections: sum(stat => stat.sections),
     seats: sum(stat => stat.seats),
-    withoutSeat: context.demand ? sum(stat => stat.withoutSeat) : null,
+    demand: primary ? sum(fromPrimary(stat => stat.demand)) : null,
+    unregistered: primary === "remaining" && report?.unregistered ? sum(stat => stat.unregistered) : null,
+    withoutSeat: primary ? sum(fromPrimary(stat => stat.withoutSeat)) : null,
   };
+  const demandLabel = DEMAND_WORD[primary || "remaining"];
+  const importedOn = report?.importedAt ? new Date(report.importedAt).toLocaleDateString("ar-KW-u-nu-latn", { day: "numeric", month: "short" }) : "";
 
   const act = (courseId: number, kind: "add" | "remove") => {
     const impact = kind === "add" ? addOneSection(board, courseId, context) : removeOneSection(board, courseId, context);
@@ -93,8 +103,25 @@ export function AllCoursesBody({ context, reload }: { context: LoadedContext; re
         <li><Ico n="sections" className="tm-kpi-ico" /><b>{totals.offered}<small>/{totals.courses}</small></b><small>{nounFor(totals.courses, AR.course)} مطروحة</small></li>
         <li><Ico n="sections" className="tm-kpi-ico" /><b>{totals.sections}</b><small>{nounFor(totals.sections, AR.section)}</small></li>
         <li><Ico n="seats" className="tm-kpi-ico" /><b>{totals.seats}</b><small>{nounFor(totals.seats, AR.seat)}</small></li>
-        <li className={totals.withoutSeat ? "is-warn" : ""}><Ico n="students" className="tm-kpi-ico" /><b>{totals.withoutSeat ?? "—"}</b><small>بلا مقعد · رادار</small></li>
+        <li className="ac-kpi-demand" data-ac-total="demand"><Ico n="students" className="tm-kpi-ico" /><b>{totals.demand ?? "—"}</b><small>{demandLabel}</small></li>
+        <li className={totals.withoutSeat ? "is-warn" : ""} data-ac-total="without-seat"><UserX aria-hidden="true" className="tm-ico tm-kpi-ico" /><b>{totals.withoutSeat ?? "—"}</b><small>بلا مقعد</small></li>
       </ul>
+
+      {/* مصدرُ أرقام الطلبة في سطرٍ واحد: الكشف المستورد، أو دعوةٌ لاستيراده. */}
+      {report ? (
+        <p className="ac-source" data-ac-source="report">
+          <FileSpreadsheet aria-hidden="true" />
+          <span>كشف المتبقي{report.fileName ? <> · <bdi>{report.fileName}</bdi></> : null}{importedOn ? ` · ${importedOn}` : ""}</span>
+          {totals.unregistered !== null ? <em><UserRoundCheck aria-hidden="true" />{totals.unregistered} لم يسجّلوا</em> : null}
+          {context.demand ? <em><Radar aria-hidden="true" />الرادار متاح</em> : null}
+        </p>
+      ) : (
+        <p className="ac-source is-missing" data-ac-source="missing" role="status">
+          <FileSpreadsheet aria-hidden="true" />
+          <span>لا كشف تسجيل لهذا الفصل{context.demand ? " · الأرقام من الرادار" : ""}</span>
+          {onImportStats ? <button type="button" onClick={onImportStats} data-guide-ignore="انتقالٌ إلى «تخطيط الشعب» لاستيراد كشف المتبقي"><FileUp aria-hidden="true" />استورد الكشف</button> : null}
+        </p>
+      )}
 
       {sheets.hasPlans ? (
         <div className="ac-sheets" role="tablist" aria-label="الصحيفة">
@@ -145,9 +172,11 @@ function CourseCard({ code, name, tag, now, after, delta, impact, none, onAdd, o
   key?: number; code: string; name: string; tag: SheetTag; now: CourseSeatStat; after: CourseSeatStat; delta: number;
   impact: CourseImpact | null; none: "add" | "remove" | null; onAdd: () => void; onRemove: () => void; onUndo: (change: TmChange) => void;
 }) {
-  const wanted = after.wanted;
-  const scale = Math.max(1, after.seats, now.seats, wanted || 0);
-  const tone = !after.sections ? "is-missing" : after.withoutSeat ? "is-short" : wanted !== null && after.seats >= wanted ? "is-ok" : "";
+  const demand = after.demand;
+  const scale = Math.max(1, after.seats, now.seats, demand || 0);
+  const tone = !after.sections ? (demand ? "is-short" : "is-missing") : after.withoutSeat ? "is-short" : demand !== null && after.seats >= demand ? "is-ok" : "";
+  const demandWord = DEMAND_WORD[after.demandSource || "remaining"];
+  const fill = demand ? Math.min(100, Math.round((after.seats / demand) * 100)) : null;
   return (
     <article className={`ac-course ${tone} ${delta ? "is-changed" : ""}`}>
       <header className="ac-head">
@@ -158,13 +187,20 @@ function CourseCard({ code, name, tag, now, after, delta, impact, none, onAdd, o
       <div className="ac-facts">
         <span className="ac-fact" title="الشعب"><Ico n="sections" /><b>{after.sections}</b><small>{after.sections ? nounFor(after.sections, AR.section) : "غير مطروح"}</small></span>
         <span className="ac-fact" title="المقاعد ذات السعة المعروفة"><Ico n="seats" /><b>{after.seats}</b><small>{after.unknownSections ? `+ ${after.unknownSections} غير محددة` : nounFor(after.seats, AR.seat)}</small></span>
-        <span className="ac-fact" title="الطلب من رادار التسجيل"><Ico n="students" /><b>{wanted ?? "—"}</b><small>الطلب</small></span>
+        <span className="ac-fact" title={after.demandSource === "radar" ? "الطلب من رادار التسجيل" : after.demandSource === "unregistered" ? "من كشف عمادة التسجيل: لم يسجّلوا المقرر بعد" : "المتبقي من كشف عمادة التسجيل: من لم يجتز المقرر بعد"}><Ico n="students" /><b>{demand ?? "—"}</b><small>{demandWord}</small></span>
         <span className={`ac-fact ${after.withoutSeat ? "is-bad" : ""}`} title="طلبة بلا مقعد"><UserX aria-hidden="true" className="tm-ico tm-ico-remove" /><b>{after.withoutSeat ?? "—"}</b><small>بلا مقعد</small></span>
       </div>
-      <div className="ac-bar" role="img" aria-label={`المقاعد ${after.seats}${wanted !== null ? ` مقابل طلب ${wanted}` : ""}`}>
+      <div className="ac-bar" role="img" aria-label={`المقاعد ${after.seats}${demand !== null ? ` مقابل ${demandWord} ${demand}` : ""}`}>
         <i className="ac-bar-seats" style={{ width: `${Math.min(100, after.seats / scale * 100)}%` }} />
-        {wanted !== null ? <i className="ac-bar-demand" style={{ insetInlineStart: `${Math.min(100, wanted / scale * 100)}%` }} /> : null}
+        {demand !== null ? <i className="ac-bar-demand" style={{ insetInlineStart: `${Math.min(100, demand / scale * 100)}%` }} /> : null}
       </div>
+      {fill !== null || (after.unregistered !== null && after.demandSource === "remaining") || (after.wanted !== null && after.demandSource !== "radar") ? (
+        <div className="ac-legend">
+          {fill !== null ? <span className={fill >= 100 ? "is-ok" : "is-short"}><i className="ac-dot" aria-hidden="true" />{fill}٪ من {demandWord}</span> : null}
+          {after.unregistered !== null && after.demandSource === "remaining" ? <span title="من كشف عمادة التسجيل: لم يسجّلوا المقرر بعد"><UserRoundCheck aria-hidden="true" />{after.unregistered} لم يسجّلوا</span> : null}
+          {after.wanted !== null && after.demandSource !== "radar" ? <span title="الطلب من رادار التسجيل"><Radar aria-hidden="true" />{after.wanted} رادار</span> : null}
+        </div>
+      ) : null}
       <div className="ac-actions">
         <button type="button" className="ac-btn" onClick={onRemove} disabled={!after.sections} data-guide-ignore="«− شعبة» افتراضي؛ لا يكتب حتى الاعتماد"><Minus aria-hidden="true" />شعبة</button>
         <button type="button" className="ac-btn is-add" onClick={onAdd} data-guide-ignore="«+ شعبة» افتراضي؛ لا يكتب حتى الاعتماد"><Plus aria-hidden="true" />شعبة</button>
@@ -184,7 +220,7 @@ function ImpactStrip({ impact, onUndo }: { impact: CourseImpact; onUndo: () => v
       <header><span><Ico n={impact.kind === "add" ? "add" : "remove"} />{impact.kind === "add" ? "+ شعبة" : "− شعبة"} · {impact.what}</span>
         <button type="button" onClick={onUndo} aria-label="تراجع" title="تراجع" data-guide-ignore="تراجعٌ عن تغييرٍ افتراضي"><Undo2 /></button></header>
       <div className="ac-impact-grid">
-        <div className={`tm-impact-tile ${a.seats < b.seats ? "is-bad" : a.seats > b.seats ? "is-good" : ""}`}><Ico n="seats" className="tm-tile-ico" />{arrow(b.seats, a.seats)}<small>المقاعد{a.wanted !== null ? ` · الطلب ${a.wanted}` : ""}</small></div>
+        <div className={`tm-impact-tile ${a.seats < b.seats ? "is-bad" : a.seats > b.seats ? "is-good" : ""}`}><Ico n="seats" className="tm-tile-ico" />{arrow(b.seats, a.seats)}<small>المقاعد{a.demand !== null ? ` · ${DEMAND_WORD[a.demandSource || "remaining"]} ${a.demand}` : ""}</small></div>
         <div className={`tm-impact-tile ${worse(b.withoutSeat, a.withoutSeat) ? "is-bad" : a.withoutSeat !== null && b.withoutSeat !== null && a.withoutSeat < b.withoutSeat ? "is-good" : ""}`}><Ico n="students" className="tm-tile-ico" />{arrow(b.withoutSeat ?? "—", a.withoutSeat ?? "—")}<small>بلا مقعد</small></div>
         {impact.teacher ? (
           <div className={`tm-impact-tile ${impact.teacher.limit && impact.teacher.after > impact.teacher.limit ? "is-bad" : ""}`}><Ico n="teachers" className="tm-tile-ico" />{arrow(impact.teacher.before, impact.teacher.after)}
@@ -202,9 +238,9 @@ function ImpactStrip({ impact, onUndo }: { impact: CourseImpact; onUndo: () => v
 }
 
 /** «كل المقررات» مستقلاً: يقرأ نطاقه بنفسه. */
-export default function AllCourses({ collegeId, sectionId, termId }: { collegeId?: number; sectionId?: number; termId?: number }) {
+export default function AllCourses({ collegeId, sectionId, termId, onImportStats }: { collegeId?: number; sectionId?: number; termId?: number; onImportStats?: () => void }) {
   const { context, error, reload } = useTimeMachineContext({ collegeId, sectionId, termId });
   if (error) return <p className="tm-note" role="alert">{error}</p>;
   if (!context) return <Loading />;
-  return <AllCoursesBody context={context} reload={reload} />;
+  return <AllCoursesBody context={context} reload={reload} onImportStats={onImportStats} />;
 }

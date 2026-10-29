@@ -5799,7 +5799,7 @@
    ],
    "path": "/api/simulation/summary",
    "name": "bound dispatch",
-   "call": "5a054cc45f44d239",
+   "call": "3d897e8351627c50",
    "site": "src/server/simulationRoutes.ts:59",
    "regexp": "/^\\/api\\/simulation\\/summary\\/?$/i",
    "end": true
@@ -5823,7 +5823,7 @@
    ],
    "path": "/api/simulation/insight",
    "name": "bound dispatch",
-   "call": "045a149b86e49719",
+   "call": "92a444ab7338e972",
    "site": "src/server/simulationRoutes.ts:170",
    "regexp": "/^\\/api\\/simulation\\/insight\\/?$/i",
    "end": true
@@ -5859,7 +5859,7 @@
    ],
    "path": "/api/simulation/outcome",
    "name": "bound dispatch",
-   "call": "3ba24144bb9332d0",
+   "call": "6e1cbb495f23a25d",
    "site": "src/server/simulationRoutes.ts:246",
    "regexp": "/^\\/api\\/simulation\\/outcome\\/?$/i",
    "end": true

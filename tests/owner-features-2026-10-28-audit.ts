@@ -201,7 +201,7 @@ ok(JSON.stringify(fillSummary(plan)) === '{"total":3,"match":1,"partial":1,"none
 const applied = applyNameFill(imported, plan);
 ok(applied[0].AdInstructorId === 7 && applied[1].AdInstructorId === 0 && applied[3].AdInstructorId === 8, "L4 partial applied only when accepted");
 ok(applyNameFill(imported, plan, new Set([1]))[1].AdInstructorId === 8, "L4 accepted partial");
-ok(JSON.stringify({ ...applied[0], AdInstructorId: 0 }) === JSON.stringify(imported[0]), "L4 only the name field changes");
+{ const { importEvidence: _evidence, ...rest } = applied[0] as any; ok(JSON.stringify({ ...rest, AdInstructorId: 0 }) === JSON.stringify(imported[0]) && _evidence?.instructor?.confidence === "CONFIRMED", "L4 only the name field (and its evidence) change"); }
 const fromPdf = planNameFill([base], [{ ...base, AdInstructorId: 0, instructorText: "د.احمد علي" }], people);
 ok(fromPdf[0].status === "match" && fromPdf[0].instructorId === 7, "L4 second PDF: names resolved against members/seconded");
 

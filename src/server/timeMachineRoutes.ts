@@ -14,10 +14,10 @@
 import type { Express, Request, RequestHandler, Response } from "express";
 import { randomUUID } from "crypto";
 import { Repository } from "../db/repository";
-import type { AdCourse, AdInstructor, FSchedule } from "../types";
+import type { AdCourse, AdInstructor, FSchedule, RegistrationStats } from "../types";
 import {
   applyChanges, driftOf, planOperations, touchedRowIds,
-  type TmChange, type TmContext, type TmHall, type TmHistoryEntry, type TmScenarioRecord,
+  type TmChange, type TmContext, type TmHall, type TmHistoryEntry, type TmRegistration, type TmScenarioRecord,
 } from "../utils/timeMachine";
 import { createTtlMemo } from "./notificationCache";
 import { evaluateScheduleChange, loadSimulationInput } from "./simulationData";
@@ -110,6 +110,32 @@ function sanitizeChanges(raw: unknown): TmChange[] {
   return out;
 }
 
+/**
+ * ── كشفُ المتبقي المستورد للقسم في الفصل ──────────────────────────────────
+ * «كل المقررات» كان يقرأ الرادار وحده، فقسمٌ استورد كشفه ولم يُشغَّل له رادار يرى
+ * «0» أو «—» في كل خانة طلبة. القراءةُ هنا بقانون التخطيط نفسه (planningRoutes):
+ * عمود «الذين لم يجتازوا» (notPassed) هو المتبقي، ومعه «لم يسجّلوا» و«المقاعد
+ * المتبقية» من الكشف نفسه؛ وما حُفظ قديماً بعمود «الذين لم يسجلوا» يُقرأ «لم يسجّلوا».
+ */
+function registrationOf(stats: RegistrationStats | null, courseIds: Set<number>): TmRegistration | null {
+  if (!stats) return null;
+  const pick = (map: Record<string, number> | undefined) => {
+    const out: Record<string, number> = {};
+    for (const [key, value] of Object.entries(map || {})) if (courseIds.has(Number(key)) && Number.isFinite(Number(value))) out[key] = Math.max(0, Math.round(Number(value)));
+    return Object.keys(out).length ? out : null;
+  };
+  const column = stats.remainingSource?.column;
+  const remaining = column === "notPassed" ? pick(stats.remaining) : null;
+  const unregistered = column === "notPassed" ? pick(stats.unregistered) : column === "unregistered" ? pick(stats.remaining) : null;
+  const vacant = column === "notPassed" ? pick(stats.vacant) : null;
+  if (!remaining && !unregistered) return null;
+  return {
+    remaining, unregistered, vacant,
+    fileName: String(stats.remainingSource?.fileName || ""), importedAt: String(stats.remainingSource?.importedAt || stats.updatedAt || ""),
+    reportTerm: String(stats.remainingSource?.reportTerm || ""),
+  };
+}
+
 export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): void {
   const fail = (res: Response, status: number, error: string, extra: Record<string, unknown> = {}) => res.status(status).json({ error, ...extra });
   const scopeOfQuery = (req: Request) => ({ collegeId: Number(req.query.collegeId || req.body?.collegeId || 0), sectionId: Number(req.query.sectionId || req.body?.sectionId || 0), termId: Number(req.query.termId || req.body?.termId || 0) });
@@ -120,7 +146,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
 
   /** كل ما يحتاجه المحاكي لفصلٍ ونطاق، بلا أسماءٍ من خارج النطاق. */
   async function buildContext(req: Request, collegeId: number, sectionId: number, termId: number): Promise<TmContext & { live: FSchedule[] }> {
-    const [rows, termRows, courses, instructors, halls, run, terms, sections] = await Promise.all([
+    const [rows, termRows, courses, instructors, halls, run, terms, sections, stats] = await Promise.all([
       deps.readScopeRows(req, collegeId, sectionId, termId),
       Repository.getSchedulesByScope({ termId }),
       deps.coursesFor(sectionId),
@@ -129,6 +155,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
       Repository.getRegistrationRun(termId),
       Repository.getTerms(),
       Repository.getSections(),
+      Repository.getRegistrationStats(collegeId, sectionId, termId).catch(() => null),
     ]);
     const scopeIds = new Set(rows.map(row => Number(row.id)));
     const teacherIds = new Set(rows.map(row => Number(row.AdInstructorId)));
@@ -145,6 +172,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
       scope: { collegeId, sectionId, termId, sectionName: String(section?.AdSectionName || ""), termName: String((term as any)?.AdTermName || "") },
       rows, outside: maskOutside(outsideRaw, teacherIds), courses, instructors, halls,
       demand: demand && Object.keys(demand).length ? demand : null,
+      registration: registrationOf(stats, courseIds),
       loadLimits: await deps.loadLimits(instructors),
       canWrite: await deps.canWrite(req),
       live: termRows,
