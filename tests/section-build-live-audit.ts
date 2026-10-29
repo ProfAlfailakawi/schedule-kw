@@ -2,20 +2,19 @@
  * ── «نزّل الشعب» على خادمٍ حقيقيّ في وضع التجربة ───────────────────────────────
  * المعاينة تقرأ ولا تكتب، والإنزال يرفض البصمة القديمة والمختار المزوَّر، ويكتب بمصدر «تخطيط الشعب»
  * عبر مسار الجدول، ثم التراجع يمحو الدفعة وحدها.
+ *
+ * المقرراتُ تُختار من جدول التجربة كما هو (لا أرقامٌ ثابتة: كانت أرقامَ ديمو علوم الحاسب قبل 823bdf0)،
+ * والخادم على منفذٍ حرّ (helpers/liveServer) ويُقتل مهما انتهى الاختبار.
  */
 import fs from "fs";
-import os from "os";
-import path from "path";
-import { spawn } from "child_process";
 import { waitForDemoSeed } from "./helpers/demoSeed";
+import { startDemoServer, type LiveServer } from "./helpers/liveServer";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
   if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); }
   else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`, extra !== undefined ? JSON.stringify(extra).slice(0, 400) : ""); }
 };
-const BASE = "http://localhost:3000";
-const up = async () => { try { return (await fetch(BASE + "/api/public/me/state")).ok; } catch { return false; } };
 
 const srv = fs.readFileSync("server.ts", "utf8"), ui = fs.readFileSync("src/components/SectionBuild.tsx", "utf8"), plan = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
 check(srv.includes('applyProposalCore(req, {\n        kind: "opening"') && !/section-build\/apply[\s\S]{0,3000}Repository\.(createSchedule|updateSchedule)\(/.test(srv), "الإنزال يمرّ من باب الاعتماد المشترك لا من الكتابة المباشرة");
@@ -27,15 +26,11 @@ check(transferSrc.includes('className="tp-banner"') && transferSrc.includes("con
 
 check(transferSrc.includes("const keepPending = ") && transferSrc.includes('origin === "existing" && !row.roomId') && !/locationStatus: "PENDING_ROOM" \} : row\)/.test(transferSrc), "القاعة إلزامية في مراجعة التخطيط: الشعبة المقترحة لا تُجعل «بانتظار التثبيت» تلقائياً (قرارٌ صريح من المستخدم وحده)");
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "schedule-section-build-"));
-let child: ReturnType<typeof spawn> | null = null;
+let server: LiveServer | null = null;
 try {
-  if (await up()) console.log("   (تخطّي الحيّ: المنفذ مشغول بخادمٍ آخر)");
-  else {
-    child = spawn("npx", ["tsx", "server.ts"], { env: { ...process.env, DATA_MODE: "demo", NODE_ENV: "development", SCHEDULE_PRIVATE_DIR: dir }, stdio: "ignore", detached: true });
-    let ready = false;
-    for (let i = 0; i < 120 && !ready; i += 1) { ready = await up(); if (!ready) await new Promise(r => setTimeout(r, 1000)); }
-    if (!ready) throw new Error("الخادم لم يبدأ");
+  {
+    server = await startDemoServer("section-build");
+    const BASE = server.base;
     const login = await fetch(BASE + "/api/auth/demo", { method: "POST" });
     const cookie = ((login.headers as any).getSetCookie?.() as string[] || []).map(c => c.split(";")[0]).join("; ");
     await waitForDemoSeed(BASE, cookie);
@@ -45,14 +40,27 @@ try {
     };
     /* القاعة بلا سعة مسجّلة تبقى صالحةً للبناء. أساتذة التجربة بلا نصاب؛ بدونه يقول المحرّك السبب ولا يخترع. */
     for (const person of (await call("GET", "/api/instructors")).body as any[]) await call("PUT", `/api/instructors/${person.AdInstructorId}`, { ...person, AdInstructorLoad: 40 });
+    /* تعديلُ قاعةٍ كما ترسله شاشةُ السجلّ: السعةُ معه دائماً (null إن لم تُسجَّل)، فلا يُردّ تعديلُ قاعةٍ بلا سعة. */
+    const putRoom = (room: any, patch: Record<string, unknown>) => call("PUT", `/api/admin/location-registry/rooms/${room.id}`, { capacity: room.capacity ?? null, ...patch });
 
     const scope = { collegeId: 1, sectionId: 1, termId: 1 };
-    const base = { ...scope, targets: { "1": 4, "2": 3, "3": 6, "17": 3 } };
     const before = (await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body as any[];
+    /* ── المقرراتُ من جدول التجربة نفسه ──
+       مقررٌ يتطلب مرفقاً مرافقاً (استوديو التصوير، #272) لا يبنيه التنزيل: محرّكه لا يحجز المرفق، فيُستبعد هنا. */
+    const catalog = ((await call("GET", "/api/courses")).body as any[]).filter(course => Number(course.AdSectionId) === 1);
+    const sectionsOf = (id: number) => new Set(before.filter(row => Number(row.AdCourseId) === id).map(row => String(row.SCode))).size;
+    const plain = catalog.filter(course => !String(course.CourseCompanionRoomType || "").trim() && sectionsOf(Number(course.AdCourseId)) > 0)
+      .sort((a, b) => sectionsOf(Number(b.AdCourseId)) - sectionsOf(Number(a.AdCourseId)) || Number(a.AdCourseId) - Number(b.AdCourseId));
+    const [grow, second, done] = plain.map(course => Number(course.AdCourseId));
+    const over = catalog.map(course => Number(course.AdCourseId)).find(id => sectionsOf(id) >= 2 && ![grow, second, done].includes(id)) ?? 0;
+    if (!grow || !second || !done || !over) throw new Error(`جدول التجربة لا يكفي لإعداد الاختبار: ${JSON.stringify({ grow, second, done, over })}`);
+    const target = (id: number, delta: number) => sectionsOf(id) + delta;
+    const base = { ...scope, targets: { [over]: target(over, -1), [done]: target(done, 0), [grow]: target(grow, 2), [second]: target(second, 2) } };
+    console.log(`   مقررات الاختبار: يزيد ${grow} و${second} (+٢)، مكتمل ${done}، فوق المطلوب ${over}`);
     const preview = await call("POST", "/api/section-build/preview", base);
-    const row3 = preview.body.rows.find((r: any) => r.courseId === 3);
-    check(preview.status === 200 && row3.target === 6 && row3.existing === 4 && row3.remaining === 2, "المطلوب ٦ والموجود ٤ ⇒ باقٍ ٢", row3);
-    check(row3.placements.length === 2 && preview.body.totals.placeable === 4, "الباقي يُبنى له موعدٌ وقاعةٌ وأستاذ", preview.body.totals);
+    const growRow = preview.body.rows.find((r: any) => r.courseId === grow);
+    check(preview.status === 200 && growRow.target === sectionsOf(grow) + 2 && growRow.existing === sectionsOf(grow) && growRow.remaining === 2, `المطلوب ${sectionsOf(grow) + 2} والموجود ${sectionsOf(grow)} ⇒ باقٍ ٢`, growRow);
+    check(growRow.placements.length === 2 && preview.body.totals.placeable === 4, "الباقي يُبنى له موعدٌ وقاعةٌ وأستاذ", preview.body.totals);
     check(preview.body.rows.flatMap((r: any) => r.placements).every((p: any) => /^[5-9]\d\d$/.test(String(p.sectionCode))), "أرقام الشعب المقترحة صالحةٌ للاستيراد (٣ خانات من 501) فلا تُحجب المراجعة بها", preview.body.rows.flatMap((r: any) => r.placements.map((p: any) => p.sectionCode)));
     check(((await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body as any[]).length === before.length, "المعاينة لا تكتب شيئاً");
     const unset = await call("POST", "/api/section-build/preview", { ...scope, targets: {} });
@@ -61,7 +69,7 @@ try {
     const pick = preview.body.rows.flatMap((r: any) => r.placements.map((p: any) => `${r.courseId}:${p.sectionCode}`));
     check((await call("POST", "/api/section-build/apply", { ...base, fingerprint: "قديمة", pick })).status === 409, "بصمةٌ قديمة تُردّ");
     check((await call("POST", "/api/section-build/apply", { ...base, fingerprint: preview.body.fingerprint, pick: [] })).status === 400, "بلا اختيار يُردّ");
-    check((await call("POST", "/api/section-build/apply", { ...base, fingerprint: preview.body.fingerprint, pick: ["3:999"] })).status === 409, "شعبةٌ مزوَّرة لا يبنيها الخادم");
+    check((await call("POST", "/api/section-build/apply", { ...base, fingerprint: preview.body.fingerprint, pick: [`${grow}:999`] })).status === 409, "شعبةٌ مزوَّرة لا يبنيها الخادم");
     const applied = await call("POST", "/api/section-build/apply", { ...base, fingerprint: preview.body.fingerprint, pick });
     check(applied.status === 200 && applied.body.applied.length === pick.length, "الإنزال كتب ما اختير كله", applied.body);
     const after = (await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body as any[];
@@ -81,8 +89,13 @@ try {
     check(Array.isArray(occupiedReview.body.existingKeys) && occupiedReview.body.existingKeys.length === before.length && occupiedReview.body.existingKeys.every((k: string) => /^\d+\|/.test(k)), "والمراجعة تُرجع مفتاح كل موعدٍ حالي ليُحسب أصل كل صف بعد حذف المراجع", occupiedReview.body?.existingKeys);
     const occupiedImp = await call("POST", "/api/intelligence/import-preview", { ...scope, rows: occupiedReview.body.rows });
     check(occupiedImp.status === 200 && occupiedImp.body.count === occupiedReview.body.count, "وشاشة الاستيراد تقرأها كلها", { status: occupiedImp.status, error: occupiedImp.body?.error, count: occupiedImp.body?.count, expected: occupiedReview.body?.count });
-    /* فصلٌ فيه مواعيد ومقررٌ لا أستاذ سابق له (CS490): يُعرض معلّقاً (قاعة وأستاذ بانتظار التثبيت) في المراجعة ولا يُهمَل. */
-    const wide = { ...scope, targets: { "27": 3 } };
+    /* فصلٌ فيه مواعيد ومقررٌ لا أستاذ سابق له: يُعرض معلّقاً (قاعة وأستاذ بانتظار التثبيت) في المراجعة ولا يُهمَل.
+       كلُّ مقرّرٍ في صحيفة التجربة له تاريخٌ يدرّسه فيه أستاذ، فيُضاف للقسم مقررٌ جديدٌ لم يُدرَّس قط. */
+    const codes = new Set(catalog.map(course => String(course.CourseCode)));
+    const freshCode = Array.from({ length: 40 }, (_, at) => `0109${499 - at}`).find(code => !codes.has(code));
+    const fresh = await call("POST", "/api/courses", { AdCollegeId: 1, AdSectionId: 1, CourseCode: freshCode, CourseName: "مقرر جديد لم يُدرَّس (اختبار)", CourseCredit: 3, CourseHours: 3, MaxStudent: 30 });
+    if (fresh.status !== 201) throw new Error(`تعذّر إعداد المقرر الجديد: ${JSON.stringify(fresh.body)}`);
+    const wide = { ...scope, targets: { [Number(fresh.body.AdCourseId)]: 3 } };
     const widePreview = await call("POST", "/api/section-build/preview", wide);
     const wideReview = await call("POST", "/api/section-build/review-rows", wide);
     check(widePreview.body.totals.pending === 3 && widePreview.body.totals.placeable === 3 && wideReview.status === 200 && wideReview.body.existing === before.length && wideReview.body.count === before.length + 3 && wideReview.body.pending === 3, "فصلٌ فيه مواعيد: ما لا أستاذ سابق له يُعرض معلّقاً في المراجعة ولا يُهمَل", { totals: widePreview.body.totals, count: wideReview.body?.count, pending: wideReview.body?.pending, before: before.length });
@@ -94,19 +107,19 @@ try {
     const registryRooms = ((await call("GET", "/api/location-registry")).body.rooms || []) as any[];
     const keepRoom = "room_901A01_101";
     const movedOut = [] as string[];
-    for (const room of registryRooms) if (room.id !== keepRoom && (room.sectionIds || []).includes(1)) { const moved = await call("PUT", `/api/admin/location-registry/rooms/${room.id}`, { sectionIds: [2], primarySectionIds: [] }); if (moved.status === 200) movedOut.push(room.id); }
+    for (const room of registryRooms) if (room.id !== keepRoom && (room.sectionIds || []).includes(1)) { const moved = await putRoom(room, { sectionIds: [2], primarySectionIds: [] }); if (moved.status === 200) movedOut.push(room.id); }
     const currentOnly = await call("POST", "/api/section-build/preview", wide);
     const usedRooms = currentOnly.body.rows.flatMap((r: any) => r.placements.map((p: any) => p.roomId)).filter(Boolean);
     check(movedOut.length > 0 && usedRooms.length > 0 && usedRooms.every((id: string) => id === keepRoom), "الاختيار من قاعات القسم الحالية فقط: قاعةٌ من تاريخه صارت لقسمٍ آخر لا تُختار", { movedOut: movedOut.length, usedRooms });
     check(currentOnly.body.totals.roomless + usedRooms.length === currentOnly.body.totals.pending, "وما لم تُوجد له قاعةٌ حالية يبقى بلا قاعة (لا تخمين) ويُعدّ", currentOnly.body.totals);
-    await call("PUT", `/api/admin/location-registry/rooms/${keepRoom}`, { sectionIds: [2], primarySectionIds: [] });
+    await putRoom(registryRooms.find(room => room.id === keepRoom) || { id: keepRoom }, { sectionIds: [2], primarySectionIds: [] });
     const noCurrent = await call("POST", "/api/section-build/preview", wide);
     check(noCurrent.body.rows.flatMap((r: any) => r.placements).filter((p: any) => p.pending).every((p: any) => !p.roomId), "وإن لم تكن أيُّ قاعةٍ من تاريخه مسجّلةً له الآن لا تُؤخذ قاعةٌ من التاريخ وحده: يظهر التثبيت", noCurrent.body.totals);
     const onlyPicked = await call("POST", "/api/section-build/review-rows", { ...base, pick: [pick[0]] });
     check(onlyPicked.status === 200 && onlyPicked.body.added === 1, "المحدَّد في المعاينة وحده يُضاف", onlyPicked.body?.added);
     for (const row of before) await call("DELETE", `/api/schedules/${row.id}`);
     /* «لا قاعة موثّقة»: القاعات موقوفة، فيُبنى الوقت من الفصل المماثل وتنتظر القاعة تثبيتها. */
-    for (const room of (await call("GET", "/api/location-registry")).body.rooms) await call("PUT", `/api/admin/location-registry/rooms/${room.id}`, { active: false });
+    for (const room of (await call("GET", "/api/location-registry")).body.rooms) await putRoom(room, { active: false });
     const empty = await call("POST", "/api/section-build/preview", base);
     const all = empty.body.rows.flatMap((r: any) => r.placements);
     const pendingOnly = all.filter((p: any) => p.pending);
@@ -124,8 +137,7 @@ try {
     check(((await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body as any[]).length === 0, "لا شيء كُتب في الجدول قبل النشر من شاشة المراجعة");
   }
 } finally {
-  if (child?.pid) try { process.kill(-child.pid); } catch { /* gone */ }
-  fs.rmSync(dir, { recursive: true, force: true });
+  await server?.stop();
 }
 console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+process.exit(failed || process.exitCode ? 1 : 0);
