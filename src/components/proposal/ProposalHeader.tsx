@@ -115,7 +115,7 @@ export default function ProposalHeader(props: {
                     title={[entry.collegeName, entry.sectionName].filter(Boolean).join(" — ")}
                     onClick={() => props.onSwitch?.(entry.id)} data-guide-ignore="ينقل مساحة المقترح إلى طلب الأستاذ في موقعٍ آخر — لا يكتب شيئاً">
                     <MapPin aria-hidden="true" />{entry.campus}
-                    {entry.changedCount ? <em aria-label={`${num(entry.changedCount)} تعديل`}>{num(entry.changedCount)}</em> : null}
+                    {entry.changedCount ? <em aria-label={countOf(entry.changedCount, AR.edit)}>{num(entry.changedCount)}</em> : null}
                   </button>
                 ))}
               </nav>

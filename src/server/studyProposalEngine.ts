@@ -374,11 +374,13 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
         if (Number(other.id) === Number(row.id)) continue;
         const shared = dayOverlap(row, other);
         if (!shared.start) continue;
+        /* موعدٌ خارج نطاق المستخدم يُقال تداخلُه بلا مقرّرٍ ولا شعبةٍ ولا كلية — كما يرسمه gridItem إشغالاً وحسب. */
+        const visible = deps.canSee(req, Number(other.AdCollegeId), Number(other.AdSectionId));
         const college = world.colleges.find(c => Number(c.AdCollegeId) === Number(other.AdCollegeId))?.AdCollegeName || "";
         const course = world.catalog.courseById.get(Number(other.AdCourseId))?.CourseName || other.AdCourseName || "محاضرة";
         addFinding({
           kind: "review", code: "person-twin", opId, title: "يتداخل مع موعده المسجّل بسجلٍّ آخر",
-          detail: `${course} (شعبة ${other.SCode})${college ? ` — ${college}` : ""}.`,
+          detail: visible ? `${course} (شعبة ${other.SCode})${college ? ` — ${college}` : ""}.` : "التزامٌ له في قسمٍ خارج نطاقك في الوقت نفسه.",
           reason: "الأستاذ نفسه مسجّلٌ بسجلّين في سجلّ الأساتذة، ولا يحضر محاضرتين في وقتٍ واحد.",
           fix: "غيّر اليوم أو الوقت.", gridKeys: [gridKeyOf(opId), keyOfRow(Number(other.id))].filter(Boolean),
           day: shared.day, start: shared.start, end: shared.end,

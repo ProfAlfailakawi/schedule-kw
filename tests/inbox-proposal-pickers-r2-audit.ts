@@ -129,9 +129,10 @@ const BOYS = "كلية التربية الأساسية - بنين", GIRLS = "ك�
   const sb = await Repository.createSection(Number(boys.AdCollegeId), "R2T", "تكنولوجيا التعليم");
   const sg = await Repository.createSection(Number(girls.AdCollegeId), "R2T", "تكنولوجيا التعليم");
   const term = (await Repository.getTerms())[0] || await Repository.createTerm("فصل اختبار");
-  const a = await Repository.createInstructor("290010100001", "د. اختبار الفيلكاوي", "99000001");
-  const b = await Repository.createInstructor("290010100002", "د. اختبار الفيلكاوى", "99000002");
-  const other = await Repository.createInstructor("290010100003", "د. اختبار الكندري", "99000003");
+  const a = await Repository.createInstructor("300010100122", "د. اختبار الفيلكاوي", "99000001");
+  const b = await Repository.createInstructor("300123100006", "د. اختبار الفيلكاوى", "99000002");
+  /* أرقامٌ مدنية وهمية معلنة (tests/student-journey-audit.ts)، والثالث غيرُ صالحٍ عمداً. */
+  const other = await Repository.createInstructor("300000000003", "د. اختبار الكندري", "99000003");
   const cb = await Repository.createCourse(Number(boys.AdCollegeId), Number(sb.AdSectionId), "0109108", "أخلاقيات استخدام التكنولوجيا", 3, 3, 30, false);
   const cg = await Repository.createCourse(Number(girls.AdCollegeId), Number(sg.AdSectionId), "0109108", "أخلاقيات استخدام التكنولوجيا", 3, 3, 30, false);
   const row = (collegeId: number, sectionId: number, courseId: number, instructorId: number, day: string, start: string, end: string, scode: string) => Repository.createSchedule({
@@ -162,6 +163,18 @@ const BOYS = "كلية التربية الأساسية - بنين", GIRLS = "ك�
   const keys = evaluation.before.items.map(item => item.key);
   check(keys.includes(keyOfRow(Number(rb.id))) && keys.includes(keyOfRow(Number(rg.id))), "S4 الفحصُ يرسم جدوله الكامل قبل المقترح وبعده", keys);
   check(evaluation.findings.some(f => f.code === "person-twin"), "S5 محاضرةٌ جديدة في وقت موعده بالبنات تُقال للمراجعة", { codes: evaluation.findings.map(f => f.code), why: evaluation.incompleteReasons, issues: evaluation.opIssues, after: evaluation.after.items.map(i => i.key) });
+  /* موعدُه الآخر في قسمٍ خارج نطاق المستخدم: التداخلُ يُقال، بلا مقرّرٍ ولا شعبةٍ ولا كلية. */
+  const narrowDeps = { ...deps, canSee: (_req: unknown, collegeId: number) => collegeId === Number(boys.AdCollegeId) };
+  const narrow = await evaluateProposal(narrowDeps, null, {
+    instructorId: Number(a.AdInstructorId), termId: Number(term.AdTermId), collegeId: Number(boys.AdCollegeId), sectionId: Number(sb.AdSectionId),
+    ops: [{ id: "op1", kind: "create", target: {
+      AdCollegeId: Number(boys.AdCollegeId), AdSectionId: Number(sb.AdSectionId), AdCourseId: Number(cb.AdCourseId), courseName: "أخلاقيات استخدام التكنولوجيا",
+      courseCode: "108", SCode: "911", days: ["fmonday"], fstarttime: "10:00", fendtime: "10:50", AdRoomCode: "", AdRoomHall: "", locationStatus: "PENDING_ROOM", buildingId: "09",
+    } } as any],
+  }, world);
+  const hidden = narrow.findings.find(f => f.code === "person-twin");
+  check(hidden && !/أخلاقيات|902|بنات|كلية/.test(`${hidden.title} ${hidden.detail}`),
+    "S5b خارج النطاق: التداخلُ يُقال بلا اسم المقرر ولا الشعبة ولا الكلية", hidden);
   check(evaluation.before.metrics.sections === 2, "S6 النصابُ وعددُ الشعب للشخص كلّه", evaluation.before.metrics);
 }
 
