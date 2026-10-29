@@ -209,6 +209,7 @@ import {
   academicDigits,
   assignAuthoritySections,
   withoutImportEvidence,
+  authorityCourseCode,
   authorityDepartmentCode,
   authorityDepartmentMatches,
   authoritySectionCodeLooksPlausible,
@@ -15304,9 +15305,15 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
   /* الرقم المدني لا يصل صفات الاطّلاع (N13) — ولا في الملفّ. */
   const instructorById = new Map(instructorsForReader(req, instructors).map(x => [x.AdInstructorId, x]));
   const courseById = new Map(courses.map(x => [x.AdCourseId, x]));
+  /* رقم المقرر في الملف سبع خانات كما تطبعه الهيئة: الكلية ثم القسم ثم المقرر (authorityCourseCode). */
+  const courseNumberOf = (s: any) => {
+    const course = courseById.get(s.AdCourseId);
+    const owner = sectionById.get(Number(course?.AdSectionId || s.AdSectionId));
+    return authorityCourseCode(course?.CourseCode, authorityDepartmentCode(collegeById.get(Number(owner?.AdCollegeId))?.AdCollegeCode, owner?.AdSectionCode));
+  };
 
   // These two read through a relation, so they wait for the maps above.
-  if (courseCode) schedules = schedules.filter(s => (courseById.get(s.AdCourseId)?.CourseCode || "") === String(courseCode).trim());
+  if (courseCode) schedules = schedules.filter(s => (courseById.get(s.AdCourseId)?.CourseCode || "") === String(courseCode).trim() || courseNumberOf(s) === String(courseCode).trim());
   if (civil) schedules = schedules.filter(s => String(instructorById.get(s.AdInstructorId)?.AdInstructorCivil || "").includes(String(civil).trim()));
 
   schedules.sort((a, b) =>
@@ -15335,7 +15342,7 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
     return {
       "الكلية": coll?.AdCollegeName || "",
       "القسم العلمي": sec?.AdSectionName || "",
-      "رمز المقرر": course?.CourseCode || "",
+      "رمز المقرر": courseNumberOf(s),
       "المقرر الدراسي": s.AdCourseName || course?.CourseName || "",
       "الشعبة": s.SCode || "",
       "الوحدات": course?.CourseCredit || 0,

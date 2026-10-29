@@ -6,7 +6,7 @@ import { flushSync } from "react-dom";
 import {
   BookOpen, Building2, CalendarDays, Compass, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
-  ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert,
+  ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, IdCard,
 } from "lucide-react";
 import { parseNaturalQuery } from "../utils/naturalQuery";
 import { EmptyState, Field, GhostButton, Notice, PageTitle, PrintLetterhead, PrintPortal, SecondaryButton } from "./ui";
@@ -56,6 +56,7 @@ import PlanBadge from "./PlanBadge";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { teachingHoursByInstructor } from "../utils/teachingLoad";
 import { effectiveCourseHours } from "../utils/scheduleRegulations";
+import { authorityCourseCode, authorityDepartmentCode } from "../utils/authorityAcademicCodes";
 import DecisionBoard from "./DecisionBoard";
 import { canSeeDecisionBoard } from "../utils/decisionBoardScope";
 
@@ -400,12 +401,13 @@ const dedupeVisibleOptions = <T,>(
  * تُستدعى من موضعين — خانة فصل بعينها، أو السجل كاملاً — فبقيت واحدة كي لا
  * يختلف ما يقرؤه المستخدم باختلاف الطريق الذي وصل منه.
  */
-function VisitingHistoryTermCard({ term, courseById }: {
+function VisitingHistoryTermCard({ term, courseById, courseNumberOf }: {
   /* المشروع لا يحمّل @types/react، فلا يعرف المدقّق أن «key» سمة محجوزة لرياكت
      ولا تصل إلى الخصائص. إعلانها هنا يُسكت الخطأ دون أن يستعملها أحد. */
   key?: string;
   term: VisitingHistoryPerson["terms"][number];
   courseById: Map<number, AdCourse>;
+  courseNumberOf: (row: FSchedule | null | undefined, course?: AdCourse | null) => string;
 }) {
   return (
     <section className="visiting-history-term">
@@ -418,7 +420,7 @@ function VisitingHistoryTermCard({ term, courseById }: {
           {term.items.map((item, itemIndex) => {
             const course = courseById.get(Number(item.courseId));
             const courseName = course?.CourseName || item.courseName || "مقرر";
-            const courseCode = course?.CourseCode || "";
+            const courseCode = courseNumberOf(null, course);
             return (
               <span key={`${term.termId}-${item.scheduleId || itemIndex}`}>
                 <b>شعبة {item.sectionCode || "—"}</b>
@@ -505,6 +507,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   /* نطاق التقارير: الموقع المفتوح وحده (الافتراضي) أو مواقع الفرع كلها. */
   /* أي زر تقرير فتح قائمة نطاقه الآن — والقائمة تُغلق بالضغط خارجها. */
   const [scopeMenu, setScopeMenu] = useState<"comprehensive" | "authority" | "instructor" | null>(null);
+  /* تقرير التغييرات نفسه، بعمود الرقم المدني بعد اسم المدرس — يختاره زرّ البطاقة بجانب الزر الأصلي. */
+  const [authorityCivil, setAuthorityCivil] = useState(false);
   const [printRowsOverride, setPrintRowsOverride] = useState<FSchedule[] | null>(null);
   const [printCollegeOverride, setPrintCollegeOverride] = useState("");
   const [courses, setCourses] = useState<AdCourse[]>([]);
@@ -1052,6 +1056,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   );
   const collegeById = useMemo(() => new Map(colleges.map(x => [x.AdCollegeId, x])), [colleges]);
   const sectionById = useMemo(() => new Map(sections.map(x => [x.AdSectionId, x])), [sections]);
+  /* ── رقم المقرر سبع خانات: الكلية ثم القسم ثم المقرر ─────────────────────
+     الكتالوج يحفظ غالباً الخانات الثلاث، والقارئ يعرف المقرر برقم الهيئة الكامل
+     (0109105). فكل رقم مقرر يُعرض في الاستعلامات يمرّ من هنا — انظر authorityCourseCode. */
+  const departmentKeyBySection = useMemo(() => new Map(sections.map(item => [Number(item.AdSectionId), authorityDepartmentCode(collegeById.get(item.AdCollegeId)?.AdCollegeCode, item.AdSectionCode)])), [sections, collegeById]);
+  const courseNumberOf = useCallback((row: FSchedule | null | undefined, course?: AdCourse | null) => {
+    const owner = course || (row ? courseById.get(row.AdCourseId) : undefined);
+    return authorityCourseCode(row?.CourseCodeSnapshot || owner?.CourseCode, departmentKeyBySection.get(Number(owner?.AdSectionId || row?.AdSectionId)));
+  }, [courseById, departmentKeyBySection]);
   const termById = useMemo(() => new Map(terms.map(x => [x.AdTermId, x])), [terms]);
   const rowsForFacet = useCallback((omit:"course"|"instructor"|"building"|"room") => {
     let rows=[...all];
@@ -1060,7 +1072,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     if(filters.termId)rows=rows.filter(r=>Number(r.AdTermId)===Number(filters.termId));
     if(omit!=="instructor"&&filters.instructorId)rows=rows.filter(r=>Number(r.AdInstructorId)===Number(filters.instructorId));
     if(omit!=="course"&&filters.courseId)rows=rows.filter(r=>Number(r.AdCourseId)===Number(filters.courseId));
-    if(omit!=="course"&&filters.courseCode.trim())rows=rows.filter(r=>(r.CourseCodeSnapshot||courseById.get(r.AdCourseId)?.CourseCode||"")===filters.courseCode.trim());
+    if(omit!=="course"&&filters.courseCode.trim())rows=rows.filter(r=>(r.CourseCodeSnapshot||courseById.get(r.AdCourseId)?.CourseCode||"")===filters.courseCode.trim()||courseNumberOf(r)===filters.courseCode.trim());
     if(omit!=="building"&&filters.building)rows=rows.filter(r=>rowMatchesBuilding(r,filters.building));
     if(omit!=="room"&&filters.hall)rows=rows.filter(r=>rowMatchesRoom(r,filters.hall));
     /* Arithmetic, not alphabetical: an unpadded «9:00» stored years ago sorts
@@ -1069,7 +1081,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const chosenDays=DAYS.filter(day=>filters[day.key]);
     if(chosenDays.length)rows=rows.filter(r=>chosenDays.some(day=>Boolean((r as any)[day.flag])));
     return rows;
-  },[all,filters,courseById,rowMatchesBuilding,rowMatchesRoom]);
+  },[all,filters,courseById,courseNumberOf,rowMatchesBuilding,rowMatchesRoom]);
   const courseOptions = useMemo(() => {
     // Cascading query logic: once a room/building is chosen, a course selector
     // must describe that physical context, not the whole department catalogue.
@@ -1149,14 +1161,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         return rowCourse ? courseIdentityKey(rowCourse) === chosenIdentity : Number(s.AdCourseId) === Number(filters.courseId);
       });
     }
-    if (filters.courseCode.trim()) rows = rows.filter(s => (s.CourseCodeSnapshot || courseById.get(s.AdCourseId)?.CourseCode || "") === filters.courseCode.trim());
+    if (filters.courseCode.trim()) rows = rows.filter(s => (s.CourseCodeSnapshot || courseById.get(s.AdCourseId)?.CourseCode || "") === filters.courseCode.trim() || courseNumberOf(s) === filters.courseCode.trim());
     const chosenDays = DAYS.filter(day => filters[day.key]);
     if (chosenDays.length) rows = rows.filter(s => chosenDays.some(day => (s as any)[day.flag]));
     return rows.sort((a, b) => compareCourseSection(
       {courseCode:a.CourseCodeSnapshot||courseById.get(a.AdCourseId)?.CourseCode,sectionCode:a.SCode,courseName:a.AdCourseName||courseById.get(a.AdCourseId)?.CourseName,id:a.id},
       {courseCode:b.CourseCodeSnapshot||courseById.get(b.AdCourseId)?.CourseCode,sectionCode:b.SCode,courseName:b.AdCourseName||courseById.get(b.AdCourseId)?.CourseName,id:b.id},
     ) || String(a.fstarttime).localeCompare(String(b.fstarttime)));
-  }, [all, filters, instructorById, courseById, courseIdentityKey]);
+  }, [all, filters, instructorById, courseById, courseIdentityKey, courseNumberOf]);
 
   const set = (key: keyof Filters, value: any) => setFilters(prev => ({ ...prev, [key]: value }));
   const resetFilters = () => setFilters(prev => ({ ...fresh(), collegeId: prev.collegeId, sectionId: prev.sectionId, termId: prev.termId }));
@@ -1858,7 +1870,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     runPrint("comprehensive-branch");
   };
 
-  const printBranchAuthorityReport = async () => {
+  const printBranchAuthorityReport = async (civil = false) => {
     if (showPwaPrintHelp()) return;
     if (!branchSites.length || !filters.termId) return;
     setAuthorityReportBusy(true);
@@ -1875,14 +1887,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       }
       if (!books.length) throw new Error("لا توجد نسخة PDF معتمدة محفوظة لأي من مواقع هذا القسم.");
       if (missing.length) setError(`مواقع بلا نسخة معتمدة محفوظة لم تُدرج: ${missing.join("، ")}.`);
-      flushSync(() => { setAuthorityReport(null); setAuthorityBook(books); });
+      flushSync(() => { setAuthorityCivil(civil); setAuthorityReport(null); setAuthorityBook(books); });
       runPrint("authority-pdf");
     } catch (e: any) {
       setError(e?.message || "تعذر إعداد تقرير تغييرات الجدول لكل الفروع");
     } finally { setAuthorityReportBusy(false); }
   };
 
-  const printAuthorityReport = async () => {
+  const printAuthorityReport = async (civil = false) => {
     if (showPwaPrintHelp()) return;
     if (!filters.collegeId || !filters.sectionId || !filters.termId) {
       setError("اختر الفصل والكلية والقسم أولاً لفتح تقرير تغييرات الجدول.");
@@ -1901,7 +1913,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       if (!response.ok) throw new Error(data.error || "تعذر إعداد تقرير تغييرات الجدول");
 
       closeReportEvents();
-      flushSync(() => { setAuthorityBook(null); setAuthorityReport(data as AuthorityReport); });
+      flushSync(() => { setAuthorityCivil(civil); setAuthorityBook(null); setAuthorityReport(data as AuthorityReport); });
 
       const root = document.documentElement;
       const originalTitle = document.title;
@@ -1984,12 +1996,12 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     for (const item of roomTypeMismatches) {
       const id = Number(item.row.AdCourseId);
       const course = courseById.get(id);
-      const group = byCourse.get(id) || { courseId: id, name: String(item.row.AdCourseName || course?.CourseName || ""), code: String(item.row.CourseCodeSnapshot || course?.CourseCode || ""), items: [] };
+      const group = byCourse.get(id) || { courseId: id, name: String(item.row.AdCourseName || course?.CourseName || ""), code: courseNumberOf(item.row, course), items: [] };
       group.items.push(item);
       byCourse.set(id, group);
     }
     return [...byCourse.values()].sort((a, b) => b.items.length - a.items.length || byArabic(a.name, b.name));
-  }, [roomTypeMismatches, courseById]);
+  }, [roomTypeMismatches, courseById, courseNumberOf]);
   const roomTeacherIndex = useMemo(() => roomInstructorDirectory(results, instructorById), [results, instructorById]);
   const maxLoad = Math.max(1, ...byInstructor.map(group => group.load));
   const maxSlot = Math.max(1, ...byTime.map(slot => slot.count));
@@ -2019,7 +2031,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             <time dir="ltr">{formatScheduleTimeRange(selectedResult.fstarttime, selectedResult.fendtime)}</time>
           </article>
           <article>
-            <strong>{pickedCourse?.CourseCode || "بدون رمز"}</strong>
+            <strong>{courseNumberOf(selectedResult, pickedCourse) || "بدون رمز"}</strong>
             <span>{collegeById.get(selectedResult.AdCollegeId)?.AdCollegeName || "بدون كلية"}</span>
             <em>{[selectedResult.AdRoomCode, selectedResult.AdRoomHall].filter(Boolean).join("/") || "بدون قاعة"}</em><CompanionFacilityBadge row={selectedResult} compact />
             <span>{selectedResult.fdetail || "لا توجد ملاحظات"}</span>
@@ -2227,7 +2239,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 value={filters.courseId || ""}
                 onChange={picked => set("courseId", Number(picked) || 0)}
                 title={selectedCourse ? cleanOptionText(selectedCourse.CourseName) : "كل المقررات"}
-                options={[{ value: "", label: "الكل" }, ...courseOptions.map(row => ({ value: row.AdCourseId, label: cleanOptionText(row.CourseName), badge: courseOptionBadge([Number(row.AdCourseId)], planBadges), hint: row.CourseCode || undefined, keywords: String(row.CourseCode || "") }))]}
+                options={[{ value: "", label: "الكل" }, ...courseOptions.map(row => ({ value: row.AdCourseId, label: cleanOptionText(row.CourseName), badge: courseOptionBadge([Number(row.AdCourseId)], planBadges), hint: courseNumberOf(null, row) || undefined, keywords: [row.CourseCode, courseNumberOf(null, row)].filter(Boolean).join(" ") }))]}
                 placeholder="الكل"
                 ariaLabel="المقرر"
                 searchPlaceholder="اكتب اسم المقرر أو رمزه"
@@ -2436,13 +2448,16 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             </> : null}
             {!pending && authorityReportAvailable && all.length > 0 ? (
               <div className="query-report-action">
-                <SecondaryButton type="button" data-guide-ignore="طباعة تقرير قراءة فقط داخل مركز الاستعلامات" aria-haspopup={branchSites.length > 1 || undefined} aria-expanded={scopeMenu === "authority" || undefined} onClick={() => branchSites.length > 1 ? setScopeMenu(scopeMenu === "authority" ? null : "authority") : void printAuthorityReport()} disabled={authorityReportBusy} title="يقارن النسخة الأصلية المستوردة بالجدول الحالي ويعرض ما أضيف أو حُذف أو عُدّل">
+                <SecondaryButton type="button" data-guide-ignore="طباعة تقرير قراءة فقط داخل مركز الاستعلامات" aria-haspopup={branchSites.length > 1 || undefined} aria-expanded={scopeMenu === "authority" || undefined} onClick={() => { setAuthorityCivil(false); branchSites.length > 1 ? setScopeMenu(scopeMenu === "authority" && !authorityCivil ? null : "authority") : void printAuthorityReport(); }} disabled={authorityReportBusy} title="يقارن النسخة الأصلية المستوردة بالجدول الحالي ويعرض ما أضيف أو حُذف أو عُدّل">
                   <ClipboardList aria-hidden="true" />{authorityReportBusy ? "يجهّز التقرير…" : "تقرير تغييرات الجدول"}
                 </SecondaryButton>
+                <button type="button" className="query-print-icon" data-guide-ignore="طباعة تقرير التغييرات نفسه مع الرقم المدني؛ قراءة فقط" aria-label="تقرير تغييرات الجدول مع الرقم المدني" aria-haspopup={branchSites.length > 1 || undefined} title="التقرير نفسه مع الرقم المدني بعد اسم المدرس" disabled={authorityReportBusy} onClick={() => { setAuthorityCivil(true); branchSites.length > 1 ? setScopeMenu(scopeMenu === "authority" && authorityCivil ? null : "authority") : void printAuthorityReport(true); }}>
+                  <IdCard aria-hidden="true" />
+                </button>
                 {scopeMenu === "authority" ? (
                   <div className="query-scope-menu" role="menu">
-                    <button type="button" role="menuitem" data-guide-ignore="طباعة تقرير التغييرات للموقع المفتوح" onClick={() => { setScopeMenu(null); void printAuthorityReport(); }}>هذا الموقع<small>{collegeName || "—"}</small></button>
-                    <button type="button" role="menuitem" data-guide-ignore="طباعة تقرير التغييرات لمواقع الفرع في وثيقة واحدة" onClick={() => { setScopeMenu(null); void printBranchAuthorityReport(); }}>كل الفروع<small>{branchSites.map(site => site.siteLabel).join(" · ")}</small></button>
+                    <button type="button" role="menuitem" data-guide-ignore="طباعة تقرير التغييرات للموقع المفتوح" onClick={() => { setScopeMenu(null); void printAuthorityReport(authorityCivil); }}>هذا الموقع<small>{collegeName || "—"}</small></button>
+                    <button type="button" role="menuitem" data-guide-ignore="طباعة تقرير التغييرات لمواقع الفرع في وثيقة واحدة" onClick={() => { setScopeMenu(null); void printBranchAuthorityReport(authorityCivil); }}>كل الفروع<small>{branchSites.map(site => site.siteLabel).join(" · ")}</small></button>
                   </div>
                 ) : null}
               </div>
@@ -2491,7 +2506,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   <div className="lens-main">
                     <div className="course-room-type-line"><strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName}<PlanBadge courseId={row.AdCourseId} /></strong><CourseRoomTypeBadge type={course?.CourseRoomType} compact/></div>
                     <div className="lens-tags">
-                      <span className="code-chip">{row.CourseCodeSnapshot || course?.CourseCode || "—"}</span>
+                      <span className="code-chip">{courseNumberOf(row, course) || "—"}</span>
                       <span>{row.SCode}</span>
                       <span className="report-instructor-with-badge"><UserRound aria-hidden="true" />{instructor?.AdInstructorName || "—"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
                       {finality[`${Number(row.AdCollegeId || 0)}:${Number(row.AdSectionId || 0)}`] === "historical"
@@ -2550,7 +2565,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                         <span className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
                       </div>
                       <small>
-                        <b>{row.CourseCodeSnapshot || courseById.get(row.AdCourseId)?.CourseCode || "—"}</b>
+                        <b>{courseNumberOf(row) || "—"}</b>
                         <span className="lens-week-room" dir="ltr">
                           {[row.AdRoomCode, row.AdRoomHall].filter(Boolean).join("/") || "—"}
                         </span>
@@ -2606,7 +2621,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                               <span key={row.id} className="matrix-slot">
                                 <b>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<PlanBadge courseId={row.AdCourseId} /></b>
                                 <em className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "—"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</em>
-                                <i dir="ltr">{row.CourseCodeSnapshot || courseById.get(row.AdCourseId)?.CourseCode || "—"} · {row.SCode}</i>
+                                <i dir="ltr">{courseNumberOf(row) || "—"} · {row.SCode}</i>
                               </span>
                             ))}
                           </td>
@@ -2811,7 +2826,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                     <div className="group-rows" id={`query-visiting-group-${group.id}`}>
                       {group.rows.map(row => (
                         <div key={`${row.AdCollegeId}-${row.id}`}>
-                          <span className="code-chip">{row.CourseCodeSnapshot || courseById.get(row.AdCourseId)?.CourseCode || "—"}</span>
+                          <span className="code-chip">{courseNumberOf(row) || "—"}</span>
                           <span>{courseById.get(row.AdCourseId)?.CourseName || row.AdCourseName}<PlanBadge courseId={row.AdCourseId} />{row.SCode ? <small> · شعبة <bdi>{row.SCode}</bdi></small> : null}</span>
                           <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                           <small>{dayText(row)} · {row.AdRoomCode || "—"}/{row.AdRoomHall || "—"}</small>
@@ -2957,7 +2972,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                             <tr className="visiting-history-drawer">
                               <td colSpan={columnCount}>
                                 <div className="visiting-history-details">
-                                  <VisitingHistoryTermCard term={openTerm} courseById={courseById} />
+                                  <VisitingHistoryTermCard term={openTerm} courseById={courseById} courseNumberOf={courseNumberOf} />
                                 </div>
                               </td>
                             </tr>
@@ -2967,7 +2982,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                               <td colSpan={columnCount}>
                                 <div className="visiting-history-details" id={`${groupId}-details`}>
                                   {sortVisitingTerms(person.terms).map(term => (
-                                    <VisitingHistoryTermCard key={`${person.instructorId}-${term.termId}`} term={term} courseById={courseById} />
+                                    <VisitingHistoryTermCard key={`${person.instructorId}-${term.termId}`} term={term} courseById={courseById} courseNumberOf={courseNumberOf} />
                                   ))}
                                 </div>
                               </td>
@@ -3103,7 +3118,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   <div className="group-rows" id={`query-instructor-group-${group.id}`}>
                     {group.rows.map(row => (
                       <div key={row.id}>
-                        <span className="code-chip">{row.CourseCodeSnapshot || courseById.get(row.AdCourseId)?.CourseCode || "—"}</span>
+                        <span className="code-chip">{courseNumberOf(row) || "—"}</span>
                         <span>{row.AdCourseName}</span>
                         <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                         <small>{dayText(row)} <CompanionFacilityBadge row={row} compact /></small>
@@ -3164,7 +3179,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                             >
                               <strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName || "—"}</strong>
                               <div>
-                                <span className="code-chip">{row.CourseCodeSnapshot || course?.CourseCode || "—"}</span>
+                                <span className="code-chip">{courseNumberOf(row, course) || "—"}</span>
                                 <span>شعبة {row.SCode || "—"}</span>
                               </div>
                               <small className="report-instructor-with-badge">{instructor?.AdInstructorName || "بدون أستاذ"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</small>
@@ -3246,6 +3261,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           sectionName={sectionName}
           sectionCode={sectionCode}
           courseById={printKind === "comprehensive-branch" ? bookCourseById : courseById}
+          departmentKeyBySection={departmentKeyBySection}
           instructorById={instructorById}
           collegeById={collegeById}
           showCollegeOnInstructorRows={printCollegeOverride === "كل الكليات" || printCollegeOverride === "كل الفروع"}
@@ -3301,11 +3317,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               sectionName={sectionName}
               sectionCode={sectionCode}
               courseById={bookCourseById}
+              departmentKeyBySection={departmentKeyBySection}
               instructorById={instructorById}
               visitingIds={visitingIds}
               isVisitingRow={bookRowIsVisiting}
               bookSites={bookSites}
               showSite
+              showCivil={authorityCivil}
             />
           );
         })() : authorityReport ? (
@@ -3317,8 +3335,10 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             sectionName={sectionName}
             sectionCode={sectionCode}
             courseById={courseById}
+            departmentKeyBySection={departmentKeyBySection}
             instructorById={instructorById}
             visitingIds={visitingIds}
+            showCivil={authorityCivil}
           />
         ) : null}
       </PrintPortal>
@@ -3854,7 +3874,7 @@ function PrintSheet(props: React.ComponentProps<typeof PrintSheetBody>) {
   );
 }
 
-function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balance, visitingHistory, scopeLine, collegeName, termName, sectionName, sectionCode, courseById, instructorById, collegeById, showCollegeOnInstructorRows, visitingIds, visitingRows, visitingScopeNote, visitingPlace, siteGroups, approval, changesAppendix, balanceApprovals }: {
+function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balance, visitingHistory, scopeLine, collegeName, termName, sectionName, sectionCode, courseById, departmentKeyBySection, instructorById, collegeById, showCollegeOnInstructorRows, visitingIds, visitingRows, visitingScopeNote, visitingPlace, siteGroups, approval, changesAppendix, balanceApprovals }: {
   kind: PrintKind;
   rows: FSchedule[];
   fairness: any;
@@ -3869,6 +3889,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
   sectionName: string;
   sectionCode: string;
   courseById: Map<number, AdCourse>;
+  /** مفتاح القسم ذو الخانات الأربع لكل قسم — يُبنى منه رقم المقرر السباعي. */
+  departmentKeyBySection?: Map<number, string>;
   instructorById: Map<number, AdInstructor>;
   collegeById: Map<number, AdCollege>;
   showCollegeOnInstructorRows: boolean;
@@ -3919,7 +3941,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
       ...(current || {}),
       AdCourseId: Number(row.AdCourseId),
       CourseName: row.CourseNameSnapshot || row.AdCourseName || current?.CourseName || "",
-      CourseCode: row.CourseCodeSnapshot || current?.CourseCode || "",
+      /* رقم الهيئة السباعي لكل ورقة تُطبع، لا الخانات الثلاث المخزّنة (authorityCourseCode). */
+      CourseCode: authorityCourseCode(row.CourseCodeSnapshot || current?.CourseCode, departmentKeyBySection?.get(Number(current?.AdSectionId || row.AdSectionId))),
     } as AdCourse;
   };
   const instructorOf = (row: FSchedule) => instructorById.get(row.AdInstructorId);
@@ -3959,8 +3982,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
     };
     const sortRows = (list: FSchedule[]) => [...list].sort((a, b) =>
       compareCourseSection(
-        {courseCode:a.CourseCodeSnapshot||courseOf(a)?.CourseCode,sectionCode:a.SCode,courseName:a.AdCourseName||courseOf(a)?.CourseName,id:a.id},
-        {courseCode:b.CourseCodeSnapshot||courseOf(b)?.CourseCode,sectionCode:b.SCode,courseName:b.AdCourseName||courseOf(b)?.CourseName,id:b.id},
+        {courseCode:courseOf(a)?.CourseCode,sectionCode:a.SCode,courseName:a.AdCourseName||courseOf(a)?.CourseName,id:a.id},
+        {courseCode:courseOf(b)?.CourseCode,sectionCode:b.SCode,courseName:b.AdCourseName||courseOf(b)?.CourseName,id:b.id},
       ) || importOrder(a) - importOrder(b) ||
       String(a.fstarttime).localeCompare(String(b.fstarttime)) ||
       Number(a.id) - Number(b.id)
@@ -4064,7 +4087,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                       return (
                         <div className="print-comprehensive-grid-row" role="row" key={row.id}>
                           <div role="cell" className="print-num">{serial}</div>
-                          <div role="cell" className="print-ltr print-course-id">{row.AdCourseId || "—"}</div>
+                          <div role="cell" className="print-ltr print-course-id">{course?.CourseCode || "—"}</div>
                           <div role="cell" className="print-ltr">{row.SCode || "—"}</div>
                           {/* الموقع بطاقة بجانب اسم المقرر لا عموداً: العمود
                               يضيّق الجدول الرسمي كله لأجل كلمة. */}
@@ -4072,9 +4095,9 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                             {row.CourseNameSnapshot || row.AdCourseName || course?.CourseName || "—"}
                             {showSite && siteOfRow.get(row) ? <span className="print-site-chip">{siteOfRow.get(row)}</span> : null}
                           </div>
-                          <div role="cell" className="num print-course-units">{course ? course.CourseCredit : "—"}</div>
-                          <div role="cell" className="num print-course-hours">{course ? course.CourseHours : "—"}</div>
-                          <div role="cell" className="num print-course-capacity">{course ? course.MaxStudent : "—"}</div>
+                          <div role="cell" className="num print-course-units">{course?.CourseCredit ?? "—"}</div>
+                          <div role="cell" className="num print-course-hours">{course ? (effectiveCourseHours(course) || "—") : "—"}</div>
+                          <div role="cell" className="num print-course-capacity">{course?.MaxStudent ?? "—"}</div>
                           <div role="cell" className="print-ltr print-nowrap print-course-time">{row.fstarttime && row.fendtime ? formatScheduleTimeRange(row.fstarttime, row.fendtime) : "—"}</div>
                           <div role="cell" className="print-ltr">{dayCodeCell(row)}</div>
                           <div role="cell" className="print-ltr">{String(row.AdRoomCode || "").trim() || "—"}</div>
@@ -4135,7 +4158,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                     <span className="print-list-index">{String(serial).padStart(2, "0")}</span>
                     <div className="print-list-core">
                       <strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName || "—"}</strong>
-                      <span><bdi className="print-ltr">{row.CourseCodeSnapshot || course?.CourseCode || "—"}</bdi><i>شعبة {row.SCode || "—"}</i><em>{instructorPrintName(row)}</em></span>
+                      <span><bdi className="print-ltr">{course?.CourseCode || "—"}</bdi><i>شعبة {row.SCode || "—"}</i><em>{instructorPrintName(row)}</em></span>
                     </div>
                     <time className="print-ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                     <span className="print-list-room"><bdi dir="ltr">{placeOfRow(row)}</bdi><CompanionFacilityBadge row={row} compact /></span>
