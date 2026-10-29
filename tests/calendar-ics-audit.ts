@@ -8,7 +8,8 @@
  */
 import fs from "node:fs";
 import { buildCalendar, buildReminder, calendarSubscribeLinks, CALENDAR_LINKS_CLIENT_JS } from "../src/utils/icalendar";
-import { calendarFeedKey, instructorFromCalendarKey, personCalendarKey } from "../src/server/calendarSecret";
+import { CALENDAR_FEED_PAUSED_NOTE, calendarFeedKey, instructorFromCalendarKey, personCalendarKey } from "../src/server/calendarSecret";
+import { liveCardLinkFor } from "../src/utils/shareLinkLifetime";
 
 let checks = 0;
 function ok(condition: unknown, label: string) {
@@ -123,6 +124,47 @@ ok(instructorFromCalendarKey(secret, key.replace("p42-", "p43-")) === 0, "key ca
 ok(instructorFromCalendarKey("t".repeat(64), key) === 0, "different secret refuses");
 ok(personCalendarKey(secret, 42) === key && calendarFeedKey(secret, "tokA", 42) !== calendarFeedKey(secret, "tokB", 42), "person key is independent of the link (link keys are not)");
 
+// ── The stable feed lives while the person holds a live card link (owner decision 2026-10-29). ──
+{
+  const at = Date.parse("2026-10-28T09:00:00Z");
+  const terms: Record<number, { AdTermName: string; AdTermStart: string; AdTermWeeks: number }> = {
+    1: { AdTermName: "الأول 2026/2027", AdTermStart: "2026-09-13", AdTermWeeks: 16 }, // running on `at`
+    9: { AdTermName: "الثاني 2025/2026", AdTermStart: "2026-02-01", AdTermWeeks: 16 }, // ended before `at`
+  };
+  const termOf = (id: number) => terms[id] as any;
+  const future = "2026-12-31T00:00:00.000Z", past = "2026-10-01T00:00:00.000Z";
+  type L = { id: string; kind: string; AdInstructorId?: number; AdTermId: number; revoked?: boolean; expiresAt: string };
+  const live = (links: L[], teaches = true) => liveCardLinkFor(links, 42, { termOf, teachesIn: () => teaches, now: at })?.id;
+  const personal: L = { id: "p", kind: "staff", AdInstructorId: 42, AdTermId: 1, expiresAt: future };
+  const request: L = { id: "r", kind: "request", AdInstructorId: 42, AdTermId: 1, expiresAt: future };
+  const department: L = { id: "d", kind: "staff", AdTermId: 1, expiresAt: future };
+  ok(live([personal]) === "p" && live([request]) === "r", "own personal link or request card keeps the feed");
+  ok(live([department]) === "d" && live([department], false) === undefined, "a department card counts only where the teacher teaches");
+  ok(live([{ ...personal, AdInstructorId: 7 }, { ...request, AdInstructorId: 7 }]) === undefined, "a colleague's links never keep someone else's feed");
+  ok(live([{ ...department, kind: "department" }, { ...department, kind: "survey" }, { ...department, kind: "students" }]) === undefined, "timetable/survey/students links open no card");
+  // Re-issue / renew: the old link is revoked, its replacement is live → the feed continues.
+  ok(live([{ ...request, revoked: true }, { ...request, id: "r2" }]) === "r2", "re-issued request card keeps the feed alive");
+  ok(live([{ ...department, revoked: true }, { ...department, id: "d2" }]) === "d2", "re-published department card keeps the feed alive");
+  // Final revoke: nothing live is left → the feed pauses.
+  ok(live([{ ...personal, revoked: true }, { ...request, revoked: true }, { ...department, revoked: true }]) === undefined, "final revoke leaves no live card");
+  // Expiry counts, by the card's own lifetime rule (staff/request read until their term ends).
+  ok(live([{ ...personal, expiresAt: past }]) === "p", "an expired staff link still reads until its term ends");
+  ok(live([{ ...personal, AdTermId: 9, expiresAt: past }, { ...request, AdTermId: 9, expiresAt: past }]) === undefined, "a link whose term has ended is not live");
+  ok(liveCardLinkFor([personal], 0, { termOf, now: at }) === undefined, "no instructor, no feed");
+
+  // The paused answer: a valid, empty VCALENDAR with the same name and a description that says it stopped.
+  const name = "جدول د. أحمد";
+  const paused = buildCalendar({ name, description: CALENDAR_FEED_PAUSED_NOTE, weeks: 16, startDate: "2026-09-13", endDate: "2026-12-31", now, lectures: [], singles: [] });
+  const running = buildCalendar({ name, description: "x", weeks: 16, startDate: "2026-09-13", endDate: "2026-12-31", now, lectures: [{ id: 11, title: "TEC 101", start: "08:00", end: "09:15", days: [0, 2] }] });
+  const unfold = (text: string) => text.replace(/\r\n[ \t]/g, "");
+  ok(validateIcs(paused).length === 0, `paused feed is valid RFC 5545: ${validateIcs(paused).join(" | ")}`);
+  ok(!paused.includes("BEGIN:VEVENT") && running.includes("BEGIN:VEVENT"), "paused feed carries no lecture (phones clear them quietly)");
+  ok(unfold(paused).includes(`X-WR-CALDESC:${CALENDAR_FEED_PAUSED_NOTE}`) && /توقّف/.test(CALENDAR_FEED_PAUSED_NOTE), "X-WR-CALDESC says the subscription stopped");
+  const nameLines = (text: string) => unfold(text).split("\r\n").filter(line => /^(NAME|X-WR-CALNAME):/.test(line)).join("|");
+  ok(nameLines(paused) === nameLines(running) && nameLines(paused).includes(name), "same calendar name as the live feed");
+  ok(/REFRESH-INTERVAL/.test(paused), "phones keep polling, so it resumes by itself");
+}
+
 // Subscribe buttons.
 const links = calendarSubscribeLinks("https://schedule.example/api/public/cal/tok/p1-abc.ics?term=3", "جدولي");
 ok(links.apple === "webcal://schedule.example/api/public/cal/tok/p1-abc.ics?term=3", "Apple uses webcal://");
@@ -143,5 +185,21 @@ ok(server.includes('app.get("/api/public/ics-reminder"'), "reminder endpoint exi
 ok(masari.includes('location.href="/api/public/ics-reminder?d="') && !/addToCalendar\([^)]*\)\{[^}]*downloadBlob/.test(masari), "مساري: reminder opens a served .ics, not a blob download");
 const send = server.slice(server.indexOf("async function sendCalendar"), server.indexOf('app.get("/api/public/ics/:token", '));
 ok(send.includes('"text/calendar; charset=utf-8"') && send.includes("inline;") && send.includes("ETag"), "calendar headers: text/calendar utf-8, inline, ETag");
+// Owner decision 2026-10-29: the stable feed pauses (200, empty, same name) when no live card is left.
+const stable = server.slice(server.indexOf("── الاشتراكُ الثابت (M3)"), server.indexOf("/** رابطُ الاشتراك الثابت لأستاذ، نسبياً للموقع. */"));
+ok(stable.includes("await sendInstructorCalendar(req, res, person, { pauseWithoutLiveCard: true });")
+  && stable.includes("liveCardLinkFor(await Repository.getShareLinksByInstructor(instructorId), instructorId, { termOf })")
+  && stable.includes("staffFamilyShareLinks(Number(row.AdCollegeId), Number(row.AdSectionId), Number(row.AdTermId))"),
+  "stable feed asks for a live card: own links, then the department cards where the teacher teaches");
+ok(stable.includes("الإيقافُ النهائي") && !stable.includes("لا يُشترط أن يكون الرابطُ حياً"), "the M3 comment states the new rule, not the old promise");
+const personFeed = server.slice(server.indexOf("async function sendInstructorCalendar"), server.indexOf("const STAFF_NOTES_PER_DAY"));
+ok(personFeed.includes("if (options.pauseWithoutLiveCard && !(await holdsLiveCardLink(Number(person.AdInstructorId), rows, terms))) {")
+  && personFeed.includes("await sendCalendar(req, res, calendarName, liveTermId, [], [], CALENDAR_FEED_PAUSED_NOTE);")
+  && personFeed.includes("await sendCalendar(req, res, calendarName, liveTermId, rows.map("),
+  "paused and live answers share one name and one sender (ETag, headers)");
+ok(send.includes("description: pausedNote ? pausedNote :"), "the paused note becomes X-WR-CALDESC");
+const legacy = server.slice(server.indexOf('app.get("/api/public/ics/:token/:key"'), server.indexOf("/**\n * ── الاشتراكُ الثابت (M3)"));
+ok(legacy.includes("await sendInstructorCalendar(req, res, person);"), "legacy per-link feed keeps its own rule (dies with its link)");
+ok(server.includes("ما دامت بطاقتك سارية") && !server.includes('(نهاية الفصل)، ولا يحتاج إعادة إضافة'), "بطاقتي: the subscription note no longer promises the whole term regardless of revoke");
 
 console.log(`calendar-ics-audit: ${checks} checks passed`);
