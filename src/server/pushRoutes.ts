@@ -5,16 +5,18 @@
  *
  *   الأستاذ (من كرته /r/:token، وكرتِ مرحلة التدريب نفسه):
  *     ✅ ثُبّت طلبه · ❌ تعذّر · 🔁 بدائل يختار منها · 💬 ردُّ القسم · 🎓 فُتح بابُ التدريب له.
- *     وقراراتُ القسم المتتالية على كرتٍ واحد تُجمع في دفعة (90 ثانية).
+ *     تنبيهٌ واحدٌ لكل كرت يستبدل سابقَه على الهاتف (الوسم نفسه)، ونصُّه حصيلةُ قرارات
+ *     القسم في الدقائق العشر الأخيرة تُقرأ من الطلب لحظةَ الإرسال («✅ ثُبّت 3 مواعيد»).
  *   منسّقُ القسم في التطبيق (من يملك وارد الطلبات: الشاشة ٧ أو إدارة النظام):
- *     📥 طلباتٌ جديدة في نطاقه، وتنبيهٌ ثانٍ وحيد: 🤝 ردُّ أستاذٍ على مقترحه.
- *     دفعةٌ واحدة لكل صاحب حسابٍ ولكل نوع كل ثلاث دقائق.
+ *     📥 طلباتٌ تنتظر التثبيت في نطاقه، وتنبيهٌ ثانٍ وحيد: 🤝 ردُّ أستاذٍ على مقترحه.
+ *     تنبيهٌ فوري يستبدل سابقَه بوسم القسم، بالعدد كما هو لحظةَ الإرسال، وتهدئةٌ لكل
+ *     قسمٍ ثلاثَ دقائق محفوظةٌ في قاعدة البيانات (pushCooldowns) لا في ذاكرة نسخةٍ بعينها.
+ *
+ * لا مؤقّتَ ولا عملَ بعد الرد: Cloud Run يخنق المعالج حين لا طلبَ يُخدم، فما يُترك
+ * للخلفية قد يتأخر بلا حدّ أو يضيع. فالمسارُ ينتظر الخطاف (حتى ثانيتين ونصف) ثم يردّ.
  *
  * والاشتراكُ مربوطٌ بصاحبه: حسابٌ، أو كرتٌ برمزه. كرتٌ أُوقف أو انتهى لا يُدفع
  * إليه، وتُمحى اشتراكاتُه عند أوّل محاولة. وما ترفضه خدمةُ الدفع بـ 404/410 يُمحى.
- *
- * والخطافاتُ في server.ts سطرٌ واحد لكل حدث (pushHooks.*): لا تُنتظر، ولا تُسقط
- * طلباً إن فشلت — الخطأُ يُكتب في السجل وحده.
  */
 import type { Express, Request, RequestHandler, Response } from "express";
 import { timingSafeEqual } from "crypto";
@@ -23,13 +25,13 @@ import type { InstructorRequest, InstructorRequestItem } from "../types";
 import { createDataContextKey } from "./dataContextCache";
 import { createTtlMemo } from "./notificationCache";
 import {
-  createPushDigest, createPushRateLimiter, createVapidKeyResolver, deviceLabel, pushSessionTag, pushSubscriptionId, pushTopic,
+  createPushRateLimiter, createVapidKeyResolver, deviceLabel, pushSessionTag, pushSubscriptionId, pushTopic,
   readPushSubscription, sendWebPush,
-  type DigestFlush, type PushFetch, type PushMessage, type PushSubscriptionRecord, type PushUrgency, type VapidKeys,
+  type PushFetch, type PushMessage, type PushSubscriptionRecord, type PushUrgency, type VapidKeys,
 } from "./webPush";
 import {
   adminRepliesMessage, adminRequestsMessage, adminTestMessage, cardTestMessage, messageMentionsRoom, roomTokensOf,
-  taWindowMessage, teacherDigestMessage, teacherEventFor, type AdminEvent, type TeacherEvent,
+  taWindowMessage, teacherDigestMessage, teacherEventFor, type TeacherEvent,
 } from "./pushMessages";
 import { CARD_TOKEN_PATTERN, cardManifest } from "./pushCard";
 
@@ -40,19 +42,19 @@ export interface PushRouteDeps {
   /** كرتُ الأستاذ برمزه — null إن أُوقف أو انتهى أو طُوي بجولةٍ جديدة (resolveRequestLink). */
   resolveCard: (token: string) => Promise<{ token: string; instructorId: number } | null>;
   readEnv?: () => { publicKey?: string; privateKey?: string };
-  /** للاختبار: خدمةُ دفعٍ وهمية. */
+  /** للاختبار: خدمةُ دفعٍ وهمية وساعة. */
   fetchImpl?: PushFetch;
   now?: () => number;
-  /** للاختبار: مواعيدُ الدفعات بلا مؤقّتٍ حقيقي. */
-  schedule?: (fn: () => void, ms: number) => unknown;
 }
 
 export interface DeliveryReport { sent: number; failed: number; removed: number; limited: number }
 
-/** نافذةُ تجميع القسم: دفعةٌ واحدة كل ثلاث دقائق لكل صاحب حسابٍ ولكل نوع. */
-export const ADMIN_DIGEST_MS = 3 * 60_000;
-/** قراراتُ القسم المتتالية على كرتٍ واحد: تنبيهٌ فوري ثم دفعةٌ بعد دقيقةٍ ونصف. */
-export const CARD_DIGEST_MS = 90_000;
+/** تهدئةُ القسم: تنبيهٌ واحد لكل قسمٍ ولكل نوع كل ثلاث دقائق — محفوظةٌ في قاعدة البيانات. */
+export const ADMIN_COOLDOWN_MS = 3 * 60_000;
+/** قراراتُ القسم التي يجمعها تنبيهُ الكرت الواحد. */
+export const CARD_RECENT_MS = 10 * 60_000;
+/** أقصى ما ينتظره المسارُ للخطاف قبل أن يردّ. */
+export const HOOK_WAIT_MS = 2500;
 
 type Audience = (collegeId: number, sectionId: number) => boolean;
 type AdminKind = "requests" | "replies";
@@ -63,6 +65,21 @@ const scopeKey = (collegeId: number, sectionId: number) => `${Number(collegeId) 
 function itemScope(request: InstructorRequest, item: InstructorRequestItem) {
   const snapshot = item.action === "add" ? item.after : item.before;
   return { collegeId: Number(snapshot?.collegeId || request.AdCollegeId || 0), sectionId: Number(snapshot?.sectionId || request.AdSectionId || 0) };
+}
+
+/**
+ * ما ينتظر القسمَ في نطاقٍ ما، كما هو الآن: طلباتٌ فيها بندٌ لم يُقرَّر بعد، أو
+ * (للردود) بندٌ آخرُ رسالةٍ فيه من الأستاذ. هو العددُ الذي يقوله التنبيه.
+ */
+export function awaitingInScope(requests: InstructorRequest[], kind: AdminKind, collegeId: number, sectionId: number): number {
+  return requests.filter(request => request.status === "submitted" || request.status === "in-review").filter(request =>
+    (request.items || []).some(item => {
+      const where = itemScope(request, item);
+      if (where.collegeId !== collegeId || where.sectionId !== sectionId) return false;
+      if (kind === "requests") return item.action !== "keep" && !item.decision?.state;
+      const last = (item.thread || []).at(-1);
+      return last?.from === "instructor" && item.decision?.state !== "fixed";
+    })).length;
 }
 
 function createPushEngine(deps: PushRouteDeps) {
@@ -119,30 +136,34 @@ function createPushEngine(deps: PushRouteDeps) {
     return names.get(scopeKey(collegeId, sectionId)) || "";
   }
 
-  /* ── دفعاتُ القسم ───────────────────────────────────────────────────────── */
-  const adminDigest = createPushDigest<AdminEvent>({
-    windowMs: ADMIN_DIGEST_MS, now: clock, schedule: deps.schedule,
-    flush: batch => { void flushAdmin(batch).catch(error => log("admin digest", error)); },
-  });
-  async function flushAdmin(batch: DigestFlush<AdminEvent>) {
-    const [, userText, kind] = batch.key.split("¦");
-    const userId = Number(userText);
-    const records = await Repository.listPushSubscriptions({ userId, ownerKind: "user" });
-    if (!records.length || !(await audienceOf(userId))) return;
-    const message = kind === "replies" ? adminRepliesMessage(batch.events) : adminRequestsMessage(batch.events);
-    await deliver(records, message, { urgency: "normal", topic: pushTopic(`inbox:${userId}:${kind}`) });
+  /** تهدئةُ القسم في قاعدة البيانات (ذرّية): كلُّ النسخ ترى الوقتَ نفسه. */
+  async function claimCooldown(key: string): Promise<boolean> {
+    const now = clock();
+    const claimed = await Repository.updateFeatureDoc<{ id: string; at: number }, boolean>("pushCooldowns", key, current =>
+      current && now - Number(current.at || 0) < ADMIN_COOLDOWN_MS ? { refuse: false } : { next: { id: key, at: now }, result: true });
+    return claimed.ok;
   }
-  async function noteForAdmins(kind: AdminKind, scopes: Array<{ collegeId: number; sectionId: number }>, eventId: string, extra: Partial<AdminEvent> = {}) {
+
+  /* ── القسم: تنبيهٌ فوري بالعدد الحاضر، يستبدل سابقَه، بتهدئةٍ لكل قسم ─────── */
+  async function noteForAdmins(kind: AdminKind, request: InstructorRequest, scopes: Array<{ collegeId: number; sectionId: number }>, accepted = false) {
     const wanted = [...new Map(scopes.filter(scope => scope.collegeId && scope.sectionId).map(scope => [scopeKey(scope.collegeId, scope.sectionId), scope])).values()];
     if (!wanted.length) return;
     const subscribed = await Repository.listPushSubscriptions({ ownerKind: "user" });
     const userIds = [...new Set(subscribed.map(record => Number(record.userId)).filter(Boolean))];
     if (!userIds.length) return;
-    const place = await placeOf(wanted[0].collegeId, wanted[0].sectionId);
-    for (const userId of userIds) {
-      const audience = await audienceOf(userId).catch(() => null);
-      if (!audience || !wanted.some(scope => audience(scope.collegeId, scope.sectionId))) continue;
-      adminDigest.add(`${contextKey("push")}¦${userId}¦${kind}`, [{ id: eventId, event: { place, ...extra } }]);
+    const audiences = await Promise.all(userIds.map(async userId => ({ userId, audience: await audienceOf(userId).catch(() => null) })));
+    let termRequests: InstructorRequest[] | null = null;
+    for (const scope of wanted) {
+      const recipients = audiences.filter(entry => entry.audience?.(scope.collegeId, scope.sectionId)).map(entry => entry.userId);
+      if (!recipients.length) continue;
+      if (!(await claimCooldown(`${kind}:${scopeKey(scope.collegeId, scope.sectionId)}`))) continue;
+      termRequests ||= await Repository.getInstructorRequests(0, 0, Number(request.AdTermId));
+      const count = Math.max(1, awaitingInScope(termRequests, kind, scope.collegeId, scope.sectionId));
+      const place = await placeOf(scope.collegeId, scope.sectionId);
+      const base = kind === "replies" ? adminRepliesMessage(count, place, accepted) : adminRequestsMessage(count, place);
+      const message = { ...base, tag: `${base.tag}-${scopeKey(scope.collegeId, scope.sectionId)}` };
+      const records = subscribed.filter(record => recipients.includes(Number(record.userId)));
+      await deliver(records, message, { urgency: "normal", topic: pushTopic(`inbox:${kind}:${scopeKey(scope.collegeId, scope.sectionId)}`) });
     }
   }
 
@@ -155,30 +176,23 @@ function createPushEngine(deps: PushRouteDeps) {
     await Promise.all(records.map(record => Repository.deletePushSubscription(record.id).catch(error => log("delete", error))));
     return [];
   }
-  const cardDigest = createPushDigest<TeacherEvent & { roomTokens: string[] }>({
-    windowMs: CARD_DIGEST_MS, now: clock, schedule: deps.schedule,
-    flush: batch => { void flushCard(batch).catch(error => log("card digest", error)); },
-  });
-  async function flushCard(batch: DigestFlush<TeacherEvent & { roomTokens: string[] }>) {
-    const token = batch.key.split("¦")[1] || "";
-    const records = await liveCardRecords(token);
-    if (!records.length) return;
-    const message = teacherDigestMessage(batch.events, token);
-    /* القاعدةُ لا تُترك للنصّ وحده: تنبيهٌ فيه أثرُ قاعةٍ لا يُرسل. */
-    if (messageMentionsRoom(message, batch.events.flatMap(event => event.roomTokens))) { log("card", "room token in teacher text — not sent"); return; }
-    await deliver(records, message, { urgency: "high", topic: pushTopic(`card:${token}`) });
-  }
-  function noteForCard(request: InstructorRequest, indexes: number[], kind?: TeacherEvent["kind"]) {
+  /** تنبيهٌ واحدٌ للكرت يستبدل سابقَه: الردُّ وحده، أو حصيلةُ القرارات الأخيرة على الطلب. */
+  async function noteForCard(request: InstructorRequest, indexes: number[], kind?: TeacherEvent["kind"]) {
     const token = String(request.linkId || "");
     if (!token) return;
-    const entries = indexes.flatMap(index => {
-      const event = teacherEventFor(request, index, kind);
-      if (!event) return [];
-      const item = request.items[index];
-      const stamp = kind === "reply" ? String((item.thread || []).at(-1)?.at || "") : String(item.decision?.decidedAt || "");
-      return [{ id: `${request.id}:${index}:${event.kind}:${stamp}`, event: { ...event, roomTokens: roomTokensOf(item) } }];
-    });
-    if (entries.length) cardDigest.add(`${contextKey("push")}¦${token}`, entries);
+    const records = await liveCardRecords(token);
+    if (!records.length) return;
+    const recent = (index: number) => {
+      const at = Date.parse(String(request.items[index]?.decision?.decidedAt || ""));
+      return indexes.includes(index) || (Number.isFinite(at) && clock() - at <= CARD_RECENT_MS && at <= clock() + 60_000);
+    };
+    const picked = kind === "reply" ? indexes : (request.items || []).map((_, index) => index).filter(recent);
+    const events = picked.map(index => teacherEventFor(request, index, kind)).filter((event): event is TeacherEvent => Boolean(event));
+    if (!events.length) return;
+    const message = teacherDigestMessage(events, token);
+    /* القاعدةُ لا تُترك للنصّ وحده: تنبيهٌ فيه أثرُ قاعةٍ لا يُرسل. */
+    if (messageMentionsRoom(message, picked.flatMap(index => roomTokensOf(request.items[index])))) { log("card", "room token in teacher text — not sent"); return; }
+    await deliver(records, message, { urgency: "high", topic: pushTopic(`card:${token}`) });
   }
 
   return {
@@ -188,16 +202,15 @@ function createPushEngine(deps: PushRouteDeps) {
         { collegeId: Number(request.AdCollegeId), sectionId: Number(request.AdSectionId) },
         ...(request.items || []).filter(item => item.action !== "keep").map(item => itemScope(request, item)),
       ];
-      return noteForAdmins("requests", scopes, `request:${request.id}`);
+      return noteForAdmins("requests", request, scopes);
     },
     teacherReplied(request: InstructorRequest, indexes: number[], accepted: boolean) {
       const items = indexes.map(index => request.items[index]).filter(Boolean);
-      const at = String(items.map(item => (item.thread || []).at(-1)?.at || "").sort().at(-1) || clock());
-      return noteForAdmins("replies", items.map(item => itemScope(request, item)), `reply:${request.id}:${indexes.join(",")}:${at}`, { accepted });
+      return noteForAdmins("replies", request, items.map(item => itemScope(request, item)), accepted);
     },
-    requestDecided(request: InstructorRequest, index: number) { noteForCard(request, [index]); },
-    requestFixed(request: InstructorRequest, indexes: number[]) { noteForCard(request, indexes, "fixed"); },
-    departmentReplied(request: InstructorRequest, index: number) { noteForCard(request, [index], "reply"); },
+    requestDecided(request: InstructorRequest, index: number) { return noteForCard(request, [index]); },
+    requestFixed(request: InstructorRequest, indexes: number[]) { return noteForCard(request, indexes, "fixed"); },
+    departmentReplied(request: InstructorRequest, index: number) { return noteForCard(request, [index], "reply"); },
     /**
      * خروجٌ صريح من جلسة: الأجهزةُ التي فُعّلت منها لا تحمل بعده تنبيهاتِ من خرج
      * (جهازٌ مشترك). الصفحةُ تُلغي اشتراكها قبل الخروج (forgetPushDevice)، وهذا
@@ -211,13 +224,13 @@ function createPushEngine(deps: PushRouteDeps) {
       return records.length;
     },
     async taWindowOpened(closesAt: string, sent: Array<{ instructorId: number; linkId: string }>) {
-      for (const entry of sent) {
+      await Promise.all(sent.map(async entry => {
         /* المدرّبُ اشترك من كرته السابق (أو من كرت التدريب نفسه إن أُعيد): يصله الخبرُ إلى كرته الجديد. */
         const records = await Repository.listPushSubscriptions({ instructorId: Number(entry.instructorId), ownerKind: "card" });
         const live: PushSubscriptionRecord[] = [];
         for (const token of new Set(records.map(record => String(record.cardToken || "")))) live.push(...await liveCardRecords(token));
         if (live.length) await deliver(live, taWindowMessage(entry.linkId, closesAt), { urgency: "high", topic: pushTopic(`ta:${entry.linkId}`) });
-      }
+      }));
     },
   };
 }
@@ -225,21 +238,24 @@ function createPushEngine(deps: PushRouteDeps) {
 type PushEngine = ReturnType<typeof createPushEngine>;
 let engine: PushEngine | null = null;
 
-function fire(label: string, task: (current: PushEngine) => unknown) {
+/**
+ * يُنتظر في المسار قبل الرد، بحدٍّ أقصى HOOK_WAIT_MS، ولا يرمي أبداً: الخطأُ يُكتب
+ * في السجل وحده، وبطءُ خدمة الدفع لا يحبس ردَّ الأستاذ أو المنسّق أكثر من ثانيتين ونصف.
+ */
+function fire(label: string, task: (current: PushEngine) => unknown): Promise<void> {
   const current = engine;
-  if (!current) return;
-  try {
-    const result = task(current);
-    if (result && typeof (result as Promise<unknown>).catch === "function") {
-      (result as Promise<unknown>).catch(error => console.warn(`[push] ${label}:`, error instanceof Error ? error.message : error));
-    }
-  } catch (error) {
-    console.warn(`[push] ${label}:`, error instanceof Error ? error.message : error);
-  }
+  if (!current) return Promise.resolve();
+  const report = (error: unknown) => console.warn(`[push] ${label}:`, error instanceof Error ? error.message : error);
+  let work: Promise<void>;
+  try { work = Promise.resolve(task(current)).then(() => undefined, report); }
+  catch (error) { report(error); return Promise.resolve(); }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bound = new Promise<void>(resolve => { timer = setTimeout(resolve, HOOK_WAIT_MS); });
+  return Promise.race([work, bound]).finally(() => clearTimeout(timer));
 }
 
 /**
- * خطافاتُ الأحداث في server.ts: سطرٌ واحد لكلٍّ، لا يُنتظر ولا يرمي.
+ * خطافاتُ الأحداث في server.ts: سطرٌ واحد لكلٍّ، يُنتظر (بحدّ) ولا يرمي.
  * قبل registerPushRoutes (أو في اختبارٍ لا يسجّلها) لا تفعل شيئاً.
  */
 export const pushHooks = {

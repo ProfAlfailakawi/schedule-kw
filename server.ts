@@ -2780,7 +2780,7 @@ app.post("/api/auth/logout", async (req: AuthenticatedRequest, res: Response) =>
     // Drop the remembered identity before the record, so no request in flight
     // can be served from memory after the person has signed out.
     forgetAuthSession(sessionId);
-    pushHooks.signedOut(sessionId);
+    await pushHooks.signedOut(sessionId);
     /* معرّفٌ لم يصنعه الخادم لا سجلَّ له يُحذف؛ والمحذوفُ يُذكر ميّتاً، فتبويبٌ
        آخر بالكوكي القديم لا يُسأل عنه بعد الآن. */
     if (isSessionIdShape(sessionId)) await Repository.deleteSession(sessionId);
@@ -21931,7 +21931,7 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
     ...stored, items, timeline,
     status: decided ? "settled" : "in-review",
   });
-  pushHooks.requestDecided(saved, index);
+  await pushHooks.requestDecided(saved, index);
   res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });
 
@@ -22229,7 +22229,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
     } catch { warnings.push({ message: "ثُبّت الطلب؛ تعذّر تحديث سجل النسخة أو الإشعار. راجع حركة الجدول." }); }
   }
   const saved = committed.request;
-  pushHooks.requestFixed(saved, chain);
+  await pushHooks.requestFixed(saved, chain);
   res.locals.auditChanges = `تثبيت رغبة أستاذ (${String(instructor?.AdInstructorName || "")}): ` + plan.map(step =>
     `${step.action === "delete" ? "حذف" : step.action === "create" ? "إضافة" : "نقل"} ${step.days.map(dayLabelOf).join(" و")} ${formatScheduleTimeRange(step.start, step.end)}`).join(" · ");
   res.locals.auditRowIds = [...committed.rows.map(row => row.id), ...ops.filter(op => op.kind === "delete").map(op => (op as any).rowId)];
@@ -22285,7 +22285,7 @@ app.post("/api/instructor-requests/:id/reply", requirePermission(7), async (req:
     timeline: [...(stored.timeline || []), { kind: "department-replied" as InstructorRequestEventKind, at: now, by, itemIndex: index }],
   });
   broadcastNotify(Repository.currentDemoSessionId());
-  pushHooks.departmentReplied(saved, index);
+  await pushHooks.departmentReplied(saved, index);
   res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });
 
@@ -22592,7 +22592,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
 
   res.setHeader("Cache-Control", "no-store");
   if (!unchangedConfirmed) broadcastNotify(Repository.currentDemoSessionId());
-  if (!unchangedConfirmed) pushHooks.requestSubmitted(saved);
+  if (!unchangedConfirmed) await pushHooks.requestSubmitted(saved);
   res.json({ request: stripForInstructor(saved), changed, unchangedConfirmed });
 });
 
@@ -22692,7 +22692,7 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
   }, acceptAt >= 0 ? await requestReservationProposals(judged) : undefined);
   res.setHeader("Cache-Control", "no-store");
   broadcastNotify(Repository.currentDemoSessionId());
-  pushHooks.teacherReplied(saved, [index], acceptAt >= 0);
+  await pushHooks.teacherReplied(saved, [index], acceptAt >= 0);
   res.json({ request: stripForInstructor(await judgeRequestItems(saved)) });
 });
 
@@ -22752,7 +22752,7 @@ app.post("/api/public/request/:token/reply-batch", rateLimitPublicRequest, async
     timeline: [...(resolved.request.timeline || []), ...[...indexes].map(itemIndex => ({ kind: "proposal-accepted" as const, at: now, itemIndex }))],
   }, await requestReservationProposals(judged));
   res.setHeader("Cache-Control", "no-store"); broadcastNotify(Repository.currentDemoSessionId());
-  pushHooks.teacherReplied(saved, [...indexes], true);
+  await pushHooks.teacherReplied(saved, [...indexes], true);
   res.json({ request: stripForInstructor(await judgeRequestItems(saved)) });
 });
 
@@ -24451,7 +24451,7 @@ async function dispatchTaWaves(id: string, by: { SystemUserId?: number; UserName
   const out = [];
   for (const wave of claimed.result) out.push(...await sendTaWave(doc, wave, by));
   if (out.length) broadcastNotify(Repository.currentDemoSessionId());
-  if (out.length) pushHooks.taWindowOpened(doc.closesAt, out);
+  if (out.length) await pushHooks.taWindowOpened(doc.closesAt, out);
   return out;
 }
 

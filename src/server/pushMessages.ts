@@ -190,32 +190,23 @@ export function cardTestMessage(token: string, at = new Date().toISOString()): P
 
 /* ── أحداثُ القسم ─────────────────────────────────────────────────────────── */
 
-export interface AdminEvent {
-  /** القسمُ كما يُقرأ («تكنولوجيا التعليم»). */
-  place: string;
-  /** ردُّ أستاذٍ وافق على المقترح: صار جاهزاً للتثبيت. */
-  accepted?: boolean;
-}
-
-const placesLine = (events: AdminEvent[]) => {
-  const places = [...new Set(events.map(event => String(event.place || "").trim()).filter(Boolean))];
-  return places.slice(0, 2).join(" · ") + (places.length > 2 ? ` · +${places.length - 2}` : "");
-};
-
-/** «📥 3 طلبات جديدة — جاهزة للتثبيت»: العددُ كلُّه منذ أوّل الدفعة. */
-export function adminRequestsMessage(events: AdminEvent[], at = new Date().toISOString()): PushMessage {
-  const n = Math.max(1, events.length);
+/**
+ * «📥 3 طلبات جديدة — جاهزة للتثبيت»: العددُ ما ينتظر في القسم لحظةَ الإرسال
+ * (يُقرأ من الطلبات نفسها)، والسطرُ اسمُ القسم. الوسمُ يستبدل التنبيهَ السابق.
+ */
+export function adminRequestsMessage(count: number, place = "", at = new Date().toISOString()): PushMessage {
+  const n = Math.max(1, Math.round(Number(count) || 0));
   const counted = n === 1 ? `${AR.request.one} ${AR.newAdj.one}` : `${countOf(n, AR.request)} ${nounFor(n, AR.newAdj)}`;
-  return { title: `📥 ${counted} — ${nounFor(n, AR.readyAdj)} للتثبيت`, body: placesLine(events), url: INBOX_PATH, tag: "inbox-requests", at };
+  return { title: `📥 ${counted} — ${nounFor(n, AR.readyAdj)} للتثبيت`, body: String(place || ""), url: INBOX_PATH, tag: "inbox-requests", at };
 }
 
 /** الحدثُ الثاني للقسم: الأستاذُ ردّ على مقترحه — وافق فصار جاهزاً، أو اقترح غيره. */
-export function adminRepliesMessage(events: AdminEvent[], at = new Date().toISOString()): PushMessage {
-  const n = Math.max(1, events.length);
+export function adminRepliesMessage(count: number, place = "", accepted = false, at = new Date().toISOString()): PushMessage {
+  const n = Math.max(1, Math.round(Number(count) || 0));
   const title = n === 1
-    ? (events[0]?.accepted ? "🤝 أستاذ وافق على مقترحك — جاهز للتثبيت" : "💬 أستاذ ردّ على مقترحك")
+    ? (accepted ? "🤝 أستاذ وافق على مقترحك — جاهز للتثبيت" : "💬 أستاذ ردّ على مقترحك")
     : `💬 ${countOf(n, AR.reply)} على مقترحاتك`;
-  return { title, body: placesLine(events), url: INBOX_PATH, tag: "inbox-replies", at };
+  return { title, body: String(place || ""), url: INBOX_PATH, tag: "inbox-replies", at };
 }
 
 export function adminTestMessage(at = new Date().toISOString()): PushMessage {

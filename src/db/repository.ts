@@ -2575,7 +2575,7 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 }
 
 /** مجموعاتُ الميزات المسمّاة — لا تُكتب مجموعةٌ لم تُسمَّ هنا. */
-export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills";
+export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns";
 /** معرّفُ وثيقة Firestore لا يحمل «/». */
 const featureDocId = (id: string) => String(id || "").replace(/\//g, "_").slice(0, 300);
 

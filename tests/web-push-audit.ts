@@ -6,7 +6,7 @@
  *      وفيه aud وexp (≤ 24 ساعة) وsub؛ والمفتاحُ مشتقٌّ ثابت، ومفتاحا المشغّل زوجٌ واحد.
  *   ٣) الاشتراك: جهازٌ واحد سجلٌّ واحد، ويُمحى بـ 410/404، ورابطٌ خارج خدمات الدفع يُرفض.
  *   ٤) نصُّ الأستاذ بلا قاعة: لا رمزَ ولا اسم، ولو حمل اسمُ المقرر رمزَ قاعته.
- *   ٥) الحدّ لكل اشتراك، والتجميعُ (فوريٌّ أولاً ثم دفعةٌ واحدة بالعدد كلّه).
+ *   ٥) الحدّ لكل اشتراك، والعددُ يُقرأ لحظةَ الإرسال، وتهدئةُ القسم في قاعدة البيانات (لا مؤقّت).
  *   ٦) الأحداثُ في صندوق العرض: 📥 لمنسّق النطاق وحده، ✅ إلى كرت الأستاذ، وكرتٌ
  *      أُوقف لا يُدفع إليه وتُمحى اشتراكاته؛ والمسارات عبر HTTP.
  *   ٧) العامل: push وnotificationclick بلا fetch؛ والاستعادةُ لا تُسقطه؛ وsw.js لا يقدّم
@@ -18,7 +18,7 @@ import vm from "vm";
 import { createDecipheriv, createECDH, createPublicKey, hkdfSync, randomBytes, verify } from "crypto";
 import express from "express";
 import {
-  b64u, collectPages, createPushDigest, createPushRateLimiter, createVapidKeyResolver, decryptPushPayload, deriveVapidKeys, encryptPushPayload,
+  b64u, collectPages, createPushRateLimiter, createVapidKeyResolver, decryptPushPayload, deriveVapidKeys, encryptPushPayload,
   fromB64u, isAllowedPushEndpoint, PUSH_MAX_PLAINTEXT, pushSubscriptionId, readPushSubscription, sendWebPush, vapidAuthorization,
   vapidJwt, vapidKeysFromEnv, vapidKeysFromPrivate, VAPID_SUBJECT, verifyVapidJwt, type PushSubscriptionRecord,
 } from "../src/server/webPush";
@@ -27,7 +27,7 @@ import {
   teacherDigestMessage, teacherEventFor,
 } from "../src/server/pushMessages";
 import { cardManifest, CARD_TOKEN_PATTERN, PUSH_CARD_CSS, PUSH_CARD_JS, pushCardHead } from "../src/server/pushCard";
-import { pushHooks, registerPushRoutes } from "../src/server/pushRoutes";
+import { ADMIN_COOLDOWN_MS, awaitingInScope, HOOK_WAIT_MS, pushHooks, registerPushRoutes } from "../src/server/pushRoutes";
 import { isPushWorkerRegistration, unregisterAppWorkers } from "../src/utils/pushClient";
 import { roleWriteDecision } from "../src/server/roleGuard";
 import { Repository } from "../src/db/repository";
@@ -230,37 +230,30 @@ const ROOMY_REQUEST = () => ({
   clock += 60_000;
   check(limiter.take("s1") && !limiter.take("s1"), "ثم واحدٌ كل دقيقة");
 
-  let now = 0;
-  const timers: Array<{ at: number; fn: () => void }> = [];
-  const flushes: Array<{ key: string; events: string[]; reason: string }> = [];
-  const digest = createPushDigest<string>({ windowMs: 180_000, now: () => now, schedule: (fn, ms) => { const t = { at: now + ms, fn }; timers.push(t); return t; }, cancel: t => { const i = timers.indexOf(t as any); if (i >= 0) timers.splice(i, 1); }, flush: batch => flushes.push(batch) });
-  check(digest.add("u", [{ id: "r1", event: "A" }]) === "now" && flushes.length === 1 && flushes[0].events.length === 1, "أوّلُ طلبٍ في هدوءٍ يُرسل فوراً");
-  now = 30_000; check(digest.add("u", [{ id: "r2", event: "B" }]) === "held", "والثاني في النافذة ينتظر");
-  now = 60_000; check(digest.add("u", [{ id: "r3", event: "C" }]) === "held" && digest.add("u", [{ id: "r2", event: "B" }]) === "duplicate", "والمكرَّر لا يُعدّ مرّتين");
-  check(flushes.length === 1 && timers.length === 1 && timers[0].at === 180_000, "مؤقّتٌ واحد عند انقضاء النافذة");
-  now = 180_000; timers.shift()!.fn();
-  check(flushes.length === 2 && flushes[1].events.join("") === "ABC" && flushes[1].reason === "window", "عند انقضائها دفعةٌ واحدة بالعدد كلّه منذ أوّل الدفعة (3)");
-  now = 500_000;
-  check(digest.add("u", [{ id: "r4", event: "D" }]) === "now" && flushes[2].events.join("") === "D", "وبعد نافذةٍ هادئة تبدأ دفعةٌ جديدة من واحد");
-  now = 510_000; digest.add("u", [{ id: "r5", event: "E" }]);
-  now = 900_000; check(digest.add("u", [{ id: "r6", event: "F" }]) === "now" && flushes.at(-1)!.events.join("") === "DEF", "ومؤقّتٌ لم يُطلق (خادمٌ نائم) يُرسل ما فاته مع الحدث التالي");
-  check(digest.add("v", [{ id: "x1", event: "1" }, { id: "x2", event: "2" }]) === "now" && flushes.at(-1)!.events.length === 2, "وسلسلةُ بنودٍ في تثبيتٍ واحد تنبيهٌ واحد");
-
-  check(adminRequestsMessage([{ place: "تكنولوجيا التعليم" }]).title === "📥 طلب جديد — جاهز للتثبيت", "📥 طلب جديد — جاهز للتثبيت");
-  check(adminRequestsMessage([{ place: "أ" }, { place: "ب" }]).title === "📥 طلبان جديدان — جاهزان للتثبيت", "📥 طلبان جديدان — جاهزان للتثبيت");
-  const three = adminRequestsMessage([{ place: "تكنولوجيا التعليم" }, { place: "تكنولوجيا التعليم" }, { place: "الرياضيات" }]);
-  check(three.title === "📥 3 طلبات جديدة — جاهزة للتثبيت" && three.body === "تكنولوجيا التعليم · الرياضيات" && three.url === "/FSchedule/InstructorRequests",
-    `📥 3 طلبات جديدة — جاهزة للتثبيت، والأقسامُ سطرٌ، واللمسةُ تفتح الوارد («${three.body}»)`);
-  check(adminRequestsMessage(Array.from({ length: 11 }, () => ({ place: "" }))).title === "📥 11 طلباً جديداً — جاهزة للتثبيت", "📥 11 طلباً جديداً");
-  check(adminRepliesMessage([{ place: "", accepted: true }]).title === "🤝 أستاذ وافق على مقترحك — جاهز للتثبيت" && adminRepliesMessage([{ place: "" }, { place: "" }, { place: "" }]).title === "💬 3 ردود على مقترحاتك",
+  check(adminRequestsMessage(1, "تكنولوجيا التعليم").title === "📥 طلب جديد — جاهز للتثبيت", "📥 طلب جديد — جاهز للتثبيت");
+  check(adminRequestsMessage(2).title === "📥 طلبان جديدان — جاهزان للتثبيت", "📥 طلبان جديدان — جاهزان للتثبيت");
+  const three = adminRequestsMessage(3, "تكنولوجيا التعليم");
+  check(three.title === "📥 3 طلبات جديدة — جاهزة للتثبيت" && three.body === "تكنولوجيا التعليم" && three.url === "/FSchedule/InstructorRequests",
+    "📥 3 طلبات جديدة — جاهزة للتثبيت، والقسمُ سطرٌ، واللمسةُ تفتح الوارد");
+  check(adminRequestsMessage(11).title === "📥 11 طلباً جديداً — جاهزة للتثبيت", "📥 11 طلباً جديداً");
+  check(adminRepliesMessage(1, "", true).title === "🤝 أستاذ وافق على مقترحك — جاهز للتثبيت" && adminRepliesMessage(3).title === "💬 3 ردود على مقترحاتك",
     "الحدثُ الثاني للقسم: 🤝 وافق — جاهز للتثبيت · 💬 3 ردود");
+  const pending = [
+    { status: "submitted", AdCollegeId: 1, AdSectionId: 2, items: [{ action: "change", before: {}, decision: undefined }, { action: "keep", before: {} }] },
+    { status: "in-review", AdCollegeId: 1, AdSectionId: 2, items: [{ action: "add", after: { collegeId: 1, sectionId: 2 }, decision: { state: "fixed" } }] },
+    { status: "in-review", AdCollegeId: 1, AdSectionId: 2, items: [{ action: "add", after: { collegeId: 1, sectionId: 3 } }] },
+    { status: "sent", AdCollegeId: 1, AdSectionId: 2, items: [{ action: "change", before: {} }] },
+    { status: "in-review", AdCollegeId: 1, AdSectionId: 2, items: [{ action: "change", before: {}, decision: { state: "rejected" }, thread: [{ from: "department" }, { from: "instructor", accepted: true }] }] },
+  ] as any[];
+  check(awaitingInScope(pending, "requests", 1, 2) === 1 && awaitingInScope(pending, "requests", 1, 3) === 1 && awaitingInScope(pending, "replies", 1, 2) === 1,
+    "العددُ يُقرأ لحظةَ الإرسال: ما لم يُقرَّر في القسم نفسه (لا المثبَّت، ولا قسمٌ آخر، ولا ما لم يُرسل)، والردودُ آخرُ رسالةٍ فيها من الأستاذ");
 }
 
 /* ══ ٦) الأحداث في صندوق العرض، والمسارات ═══════════════════════════════════ */
 {
   const sent: Array<{ endpoint: string; body: Buffer; headers: Record<string, string> }> = [];
   const statusOf = new Map<string, number>();
-  const timers: Array<() => void> = [];
+  let clockMs = Date.parse("2026-10-29T08:05:00Z");
   const LIVE = "card-token-aaaaaaaaaaaaaaaa", REVOKED = "card-token-revokedrevoked1";
   const own = vapidKeysFromPrivate(randomBytes(32));
   const app = express();
@@ -280,8 +273,8 @@ const ROOMY_REQUEST = () => ({
     isPowerUser: req => Boolean(req.user?.IsAdminUser),
     resolveCard: async token => (token === LIVE ? { token, instructorId: 9 } : null),
     readEnv: () => own,
-    fetchImpl: async (url, init) => { sent.push({ endpoint: url, body: Buffer.from(init.body), headers: init.headers }); return { status: statusOf.get(url) || 201 }; },
-    schedule: fn => { timers.push(fn); return fn; },
+    fetchImpl: async (url, init) => { sent.push({ endpoint: url, body: Buffer.from(init.body), headers: init.headers }); if (url.includes("/slow-")) await new Promise(r => setTimeout(r, 6000)); return { status: statusOf.get(url) || 201 }; },
+    now: () => clockMs,
   });
 
   const server = app.listen(0, "127.0.0.1");
@@ -321,55 +314,67 @@ const ROOMY_REQUEST = () => ({
       const request = (id: string, sectionId = scope.AdSectionId) => ({ ...ROOMY_REQUEST(), id, AdCollegeId: scope.AdCollegeId, AdSectionId: sectionId,
         items: [{ itemId: "n", rowId: null, action: "add", after: { courseId: 1, courseName: "مقرر", sectionCode: "", days: "", time: "", collegeId: scope.AdCollegeId, sectionId }, slots: [] }] });
       const toCommittee = () => sent.filter(entry => entry.endpoint === committee.endpoint);
+      /* طلباتٌ محفوظةٌ فعلاً: العددُ يُقرأ منها لحظةَ الإرسال. */
+      const store = async (id: string, sectionId = scope.AdSectionId) => {
+        const { id: _id, createdAt: _c, updatedAt: _u, ...entry } = request(id, sectionId) as any;
+        return Repository.createInstructorRequest({ ...entry, status: "submitted" });
+      };
+      const tagOf = `inbox-requests-${scope.AdCollegeId}:${scope.AdSectionId}`;
 
-      pushHooks.requestSubmitted(request("r1"));
-      check(await waitFor(() => toCommittee().length === 1), "📥 أوّلُ طلبٍ في نطاق المنسّق يصل جهازَه فوراً");
+      /* لا مؤقّت: الخطافُ يُنتظر في المسار، فالتنبيهُ خرج قبل أن يعود. */
+      await pushHooks.requestSubmitted(await store("r1"));
+      check(toCommittee().length === 1, "📥 أوّلُ طلبٍ في نطاق المنسّق خرج إلى جهازه قبل أن يعود الخطاف (لا عملَ بعد الرد)");
       const first = open(toCommittee()[0], committee);
-      check(first.title === "📥 طلب جديد — جاهز للتثبيت" && first.url === "/FSchedule/InstructorRequests" && first.tag === "inbox-requests", `«${first.title}» ويفتح الوارد`);
+      check(first.title === "📥 طلب جديد — جاهز للتثبيت" && first.url === "/FSchedule/InstructorRequests" && first.tag === tagOf, `«${first.title}» ويفتح الوارد، بوسم القسم (${first.tag})`);
       check(!sent.some(entry => entry.endpoint === head.endpoint), "ورئيسُ القسم (لا وارد له) لا يصله شيء");
-      /* المحرّكُ نفسُه (ما تستدعيه pushHooks) يُنتظر هنا ليكون الترتيبُ حتمياً. */
-      await engine.requestSubmitted(request("r2"));
-      await engine.requestSubmitted(request("r3"));
-      await engine.requestSubmitted(request("r-other", scope.AdSectionId + 999));
-      check(toCommittee().length === 1 && timers.length === 1, "ما يلحقه في ثلاث دقائق ينتظر دفعةً واحدة، وطلبٌ خارج نطاقه لا يُعدّ");
-      timers.shift()!();
-      check(await waitFor(() => toCommittee().length === 2), "عند انقضاء النافذة تنبيهٌ واحد");
+      const cooldown = await Repository.getFeatureDoc<{ at: number }>("pushCooldowns", `requests:${scope.AdCollegeId}:${scope.AdSectionId}`);
+      check(cooldown?.at === clockMs, "تهدئةُ القسم محفوظةٌ في قاعدة البيانات (pushCooldowns) لا في ذاكرة نسخة");
+      const r2 = await store("r2"), r3 = await store("r3"), other = await store("r-other", scope.AdSectionId + 999);
+      clockMs += 60_000;
+      await pushHooks.requestSubmitted(r2);
+      await pushHooks.requestSubmitted(other);
+      check(toCommittee().length === 1, "طلبٌ في التهدئة (ثلاث دقائق) لا يُنبّه من جديد، وطلبٌ خارج نطاقه لا يصله");
+      clockMs += ADMIN_COOLDOWN_MS;
+      await pushHooks.requestSubmitted(r3);
+      check(toCommittee().length === 2, "وبعدها تنبيهٌ فوري");
       const digest = open(toCommittee()[1], committee);
-      check(digest.title === "📥 3 طلبات جديدة — جاهزة للتثبيت" && toCommittee()[1].headers.Urgency === "normal" && /^[\w-]{1,32}$/.test(toCommittee()[1].headers.Topic),
-        `«${digest.title}» — بالعدد كلّه، يستبدل سابقَه (الوسم والموضوع)`);
+      check(digest.title === "📥 3 طلبات جديدة — جاهزة للتثبيت" && digest.tag === tagOf && toCommittee()[1].headers.Urgency === "normal" && /^[\w-]{1,32}$/.test(toCommittee()[1].headers.Topic),
+        `«${digest.title}» — العددُ كما هو الآن في القسم، والوسمُ نفسه يستبدل السابق على الهاتف`);
 
       /* كرتُ الأستاذ */
       const teacherPhone = device("teacher"), oldCard = device("old-card");
       check((await call("POST", `/api/public/request/${LIVE}/push`, { subscription: teacherPhone })).status === 200, "الأستاذ يشترك من كرته برمزه");
       check((await call("POST", `/api/public/request/${REVOKED}/push`, { subscription: oldCard })).status === 404, "وكرتٌ أُوقف لا يُشترك فيه");
       const decided = ROOMY_REQUEST();
-      pushHooks.requestDecided(decided, 0);
+      const onlyFirst = ROOMY_REQUEST();
+      onlyFirst.items[1].decision = undefined; onlyFirst.items[2].decision = undefined;
+      await pushHooks.requestDecided(onlyFirst, 0);
       const toTeacher = () => sent.filter(entry => entry.endpoint === teacherPhone.endpoint);
-      check(await waitFor(() => toTeacher().length === 1), "✅ قرارُ القسم يصل هاتفَ الأستاذ فوراً");
+      check(toTeacher().length === 1, "✅ قرارُ القسم خرج إلى هاتف الأستاذ قبل أن يعود الخطاف");
       const fixed = open(toTeacher()[0], teacherPhone);
       check(fixed.title === "✅ ثُبّت طلبك" && fixed.body === "مبادئ المحاسبة · الأحد والثلاثاء 10:00" && fixed.url === `/r/${LIVE}` && toTeacher()[0].headers.Urgency === "high",
         `«${fixed.title} · ${fixed.body}» إلى كرته`);
       check(!/12\/3|B-204|A-101|مختبر|قاعة|مدرج/.test(JSON.stringify(fixed)), "والتنبيهُ المفكوك نفسه بلا قاعة");
-      engine.requestDecided(decided, 1);
-      engine.departmentReplied(decided, 2);
-      check(toTeacher().length === 1 && timers.length === 1, "قراراتٌ متتالية على الكرت نفسه تنتظر دفعةً واحدة");
-      timers.shift()!();
-      check(await waitFor(() => toTeacher().length === 2), "ثم تنبيهٌ واحد بها");
+      await pushHooks.requestDecided(decided, 1);
       const batch = open(toTeacher()[1], teacherPhone);
-      check(batch.title === "📋 قرارات القسم على طلبك" && batch.body === "✅ 1 · 🔁 1 · 💬 1", `«${batch.title}: ${batch.body}»`);
+      check(batch.title === "📋 قرارات القسم على طلبك" && batch.body === "✅ 1 · 🔁 1 · ❌ 1" && batch.tag === "card-decisions" && fixed.tag === "card-decisions",
+        `قرارٌ تالٍ: تنبيهٌ يستبدل سابقَه (الوسم نفسه) بحصيلة الدقائق العشر الأخيرة من الطلب نفسه («${batch.title}: ${batch.body}»)`);
+      await pushHooks.departmentReplied(decided, 2);
+      const reply = open(toTeacher()[2], teacherPhone);
+      check(reply.title === "💬 ردّ القسم على طلبك" && reply.body === "تاريخ الفن · يقترح الخميس 12:00", `💬 ردُّ القسم («${reply.body}»)`);
 
       /* كرتٌ أُوقف بعد الاشتراك: لا يُدفع إليه، وتُمحى اشتراكاته */
       const stale = device("stale");
       const staleId = pushSubscriptionId(stale.endpoint);
       await Repository.savePushSubscription({ id: staleId, endpoint: stale.endpoint, keys: stale.keys, ownerKind: "card", cardToken: REVOKED, instructorId: 9, createdAt: "", updatedAt: "" } as PushSubscriptionRecord);
-      engine.requestDecided({ ...ROOMY_REQUEST(), id: "req-revoked", linkId: REVOKED }, 0);
+      await pushHooks.requestDecided({ ...ROOMY_REQUEST(), id: "req-revoked", linkId: REVOKED }, 0);
       check(await waitFor(async () => !(await Repository.getPushSubscription(staleId))) && !sent.some(entry => entry.endpoint === stale.endpoint),
         "كرتٌ أُوقف: لا تنبيهَ إليه، ويُمحى اشتراكُه");
 
       /* 🎓 بابُ التدريب: إلى الكرت الجديد عبر اشتراك المدرّب من كرته الحيّ */
-      pushHooks.taWindowOpened("2026-11-05T17:00:00Z", [{ instructorId: 9, linkId: "ta-new-token-cccccccccccc" }]);
-      check(await waitFor(() => toTeacher().length === 3), "🎓 فُتح باب التدريب: يصل المدرّبَ من اشتراكه في كرته");
-      const ta = open(toTeacher()[2], teacherPhone);
+      await pushHooks.taWindowOpened("2026-11-05T17:00:00Z", [{ instructorId: 9, linkId: "ta-new-token-cccccccccccc" }]);
+      check(await waitFor(() => toTeacher().length === 4), "🎓 فُتح باب التدريب: يصل المدرّبَ من اشتراكه في كرته");
+      const ta = open(toTeacher()[3], teacherPhone);
       check(ta.title === "🎓 فُتح باب التدريب لك" && ta.url === "/r/ta-new-token-cccccccccccc", "…ويفتح كرتَ التدريب الجديد");
 
       /* 410: يُمحى */
@@ -416,6 +421,16 @@ const ROOMY_REQUEST = () => ({
       check(await waitFor(async () => !(await Repository.getPushSubscription(pushSubscriptionId(shared.endpoint)))) && Boolean(await Repository.getPushSubscription(pushSubscriptionId(own.endpoint))),
         "تسجيلُ الخروج الصريح يُسقط اشتراكَ ذلك الجهاز على الخادم، وهاتفُ صاحبه (جلسةٌ أخرى) يبقى");
       check(await engine.signedOut("") === 0, "وخروجٌ بلا جلسة لا يمسّ شيئاً");
+
+      /* خدمةُ دفعٍ بطيئة لا تحبس الرد: الخطافُ يعود بعد HOOK_WAIT_MS على الأكثر */
+      const slow = device("slow-device");
+      await call("POST", "/api/push/subscribe", { subscription: slow }, 16);
+      clockMs += ADMIN_COOLDOWN_MS + 1;
+      const startedAt = Date.now();
+      await pushHooks.requestSubmitted(await store("r-slow"));
+      const waited = Date.now() - startedAt;
+      check(sent.some(entry => entry.endpoint === slow.endpoint) && waited >= HOOK_WAIT_MS - 200 && waited < HOOK_WAIT_MS + 1500,
+        `خدمةُ دفعٍ عالقة: المسارُ ينتظر ${HOOK_WAIT_MS} ms على الأكثر ثم يردّ (انتظر ${waited} ms)`);
 
       /* الكرت على الشاشة الرئيسية */
       const manifest = await fetch(`${base}/r/${LIVE}/manifest.webmanifest`).then(async r => ({ type: r.headers.get("content-type") || "", json: await r.json() }));
@@ -514,13 +529,13 @@ const ROOMY_REQUEST = () => ({
   /* التوصيل في server.ts: سطرٌ لكل حدث */
   const server = read("server.ts");
   const route = (start: string, end: string) => between(server, start, end);
-  check(route('app.post("/api/public/request/:token", rateLimitPublicRequest', "/**").includes("if (!unchangedConfirmed) pushHooks.requestSubmitted(saved);"), "📥 إرسالُ الأستاذ طلبَه (لا تأكيدَ «بلا تعديل»)");
-  check(route('app.post("/api/public/request/:token/reply", rateLimitPublicRequest', "/** One signature").includes("pushHooks.teacherReplied(saved, [index], acceptAt >= 0);")
-    && route('app.post("/api/public/request/:token/reply-batch"', "/**").includes("pushHooks.teacherReplied(saved, [...indexes], true);"), "🤝 ردُّ الأستاذ على المقترح (واحداً ودفعة)");
-  check(route('app.post("/api/instructor-requests/:id/decide"', "/* ══ تثبيتُ بندٍ").includes("pushHooks.requestDecided(saved, index);"), "✅/❌/🔁 قرارُ القسم على بند");
-  check(route('app.post("/api/instructor-requests/:id/apply"', "/* ── حوارُ البند").includes("pushHooks.requestFixed(saved, chain);"), "✅ التثبيتُ الذرّي لسلسلة البنود");
-  check(route('app.post("/api/instructor-requests/:id/reply"', "/* ── بابُ الأستاذ").includes("pushHooks.departmentReplied(saved, index);"), "💬 ردُّ القسم في حوار البند");
-  check(route("async function dispatchTaWaves(", 'app.get("/api/ta-phase"').includes("if (out.length) pushHooks.taWindowOpened(doc.closesAt, out);"), "🎓 موجةُ مرحلة التدريب");
+  check(route('app.post("/api/public/request/:token", rateLimitPublicRequest', "/**").includes("if (!unchangedConfirmed) await pushHooks.requestSubmitted(saved);"), "📥 إرسالُ الأستاذ طلبَه (لا تأكيدَ «بلا تعديل»)");
+  check(route('app.post("/api/public/request/:token/reply", rateLimitPublicRequest', "/** One signature").includes("await pushHooks.teacherReplied(saved, [index], acceptAt >= 0);")
+    && route('app.post("/api/public/request/:token/reply-batch"', "/**").includes("await pushHooks.teacherReplied(saved, [...indexes], true);"), "🤝 ردُّ الأستاذ على المقترح (واحداً ودفعة)");
+  check(route('app.post("/api/instructor-requests/:id/decide"', "/* ══ تثبيتُ بندٍ").includes("await pushHooks.requestDecided(saved, index);"), "✅/❌/🔁 قرارُ القسم على بند");
+  check(route('app.post("/api/instructor-requests/:id/apply"', "/* ── حوارُ البند").includes("await pushHooks.requestFixed(saved, chain);"), "✅ التثبيتُ الذرّي لسلسلة البنود");
+  check(route('app.post("/api/instructor-requests/:id/reply"', "/* ── بابُ الأستاذ").includes("await pushHooks.departmentReplied(saved, index);"), "💬 ردُّ القسم في حوار البند");
+  check(route("async function dispatchTaWaves(", 'app.get("/api/ta-phase"').includes("if (out.length) await pushHooks.taWindowOpened(doc.closesAt, out);"), "🎓 موجةُ مرحلة التدريب");
   check(/registerPushRoutes\(app, \{[\s\S]{0,600}resolveCard: async token => \{ const resolved = await resolveRequestLink\(token\);/.test(server), "registerPushRoutes: الكرتُ يُحلّ بـ resolveRequestLink نفسه (موقوفٌ أو منتهٍ = null)");
   const page = between(server, "function instructorRequestPage", 'app.post("/api/public/request/:token/check"');
   check(page.includes("${pushCardHead(token)}") && page.includes("${PUSH_CARD_CSS}") && page.includes("${PUSH_CARD_JS}"), "كرتُ الأستاذ يحمل الشارة ورأسَ «بطاقتي»");
@@ -531,7 +546,14 @@ const ROOMY_REQUEST = () => ({
   const logout = between(appSource, "const logout = async () => {", "};");
   check(logout.includes("await forgetPushDevice()") && logout.indexOf("await forgetPushDevice()") < logout.indexOf('fetch("/api/auth/logout"'),
     "App.tsx: تسجيلُ الخروج يُلغي اشتراكَ الجهاز (forgetPushDevice) قبل إبطال الجلسة");
-  check(between(server, 'app.post("/api/auth/logout"', "res.json({ success: true });").includes("pushHooks.signedOut(sessionId);"), "والخادمُ يُسقط اشتراكاتِ تلك الجلسة عند الخروج");
+  check(between(server, 'app.post("/api/auth/logout"', "res.json({ success: true });").includes("await pushHooks.signedOut(sessionId);"), "والخادمُ يُسقط اشتراكاتِ تلك الجلسة عند الخروج");
+
+  /* لا عملَ بعد الرد: Cloud Run يخنق المعالج حين لا طلب، فلا مؤقّتَ تجميعٍ ولا خطافَ لا يُنتظر */
+  const routes = read("src/server/pushRoutes.ts");
+  check((routes.match(/setTimeout\(/g) || []).length === 1 && /setTimeout\(resolve, HOOK_WAIT_MS\)/.test(routes) && !/createPushDigest|setInterval/.test(routes + read("src/server/webPush.ts")),
+    "pushRoutes: المؤقّتُ الوحيد حدُّ انتظار الخطاف — لا مؤقّتَ تجميعٍ في الخلفية");
+  check((server.match(/^\s*(?:if \([^)]*\) )?pushHooks\./gm) || []).length === 0 && (server.match(/await pushHooks\./g) || []).length === 8,
+    "server.ts: الخطافاتُ الثمانية كلُّها تُنتظر قبل الرد");
 
   /* اكتشافُ المستلمين لا يقف عند الخمسمئة الأولى */
   const all = Array.from({ length: 1234 }, (_, i) => i);
