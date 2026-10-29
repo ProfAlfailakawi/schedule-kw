@@ -133,6 +133,7 @@ test:registration-flow
 test:section-opening
 test:feature-notifications
 test:demo-radar
+test:demo-firestore-isolation
 test:plan-pdf
 test:plan-sheet-import
 test:curriculum-reference-pdf
