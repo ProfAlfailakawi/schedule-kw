@@ -34,6 +34,7 @@ import { linkMode, modeAllowsFreeEdit, modeAllowsWrite } from "../../utils/linkM
 import { bestPerSide, stickCandidates, stickForTeacher, topSticks, type StickAnchor, type StickJudged } from "../../utils/lectureStick";
 import { offeringBlocked, offeringView, toggleInterest, type CourseInterestDoc, type CourseOfferingDoc } from "../../utils/courseOffering";
 import { allowedFor, countdown, loadRing, type TaPhaseDoc } from "../../utils/taPhase";
+import { loadCapOf, loadNisabOf } from "../../utils/teachingLoad";
 import { habitualBlockMinutes } from "../../utils/courseNature";
 import { isValidClock, normalizeClock } from "../../utils/scheduleTime";
 import { roomKeyOf } from "../../utils/locationRegistry";
@@ -396,7 +397,7 @@ async function availableInstructorOfferings(request: InstructorRequest, context?
     groups.set(key, [...(groups.get(key) || []), row]);
   }
   const mine = instructorWeekAfter(request, ctx.allRows);
-  const load = Number(ctx.instructors.get(Number(request.AdInstructorId))?.AdInstructorLoad || 0);
+  const load = loadCapOf(ctx.instructors.get(Number(request.AdInstructorId)));
   const result: Array<{ id: number; courseId: number; courseName: string; sectionCode: string; collegeId: number; sectionId: number; collegeName: string; slots: Array<{ day: RequestDayKey; start: string; end: string }> }> = [];
   const rulesCache = new Map<string, Awaited<ReturnType<typeof requestRulesForScope>>>();
   for (const list of groups.values()) {
@@ -631,7 +632,7 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
     availableOfferings: offerings,
     ...(mode === "ta" ? {
       ta: taDoc ? { closesAt: taDoc.closesAt, remind: countdown(taDoc).remind } : { closesAt: request.window?.closesAt || "" },
-      taLoad: loadRing(taHours, Number(person?.AdInstructorLoad || 0)),
+      taLoad: loadRing(taHours, loadNisabOf(person).nisab, loadNisabOf(person).overtime),
     } : {}),
     interest,
     /* اشتراكُ التقويم هو نفسُه المبنيّ لبطاقة الأستاذ (/m): الرابطُ الشخصيّ مفتاحُه، فلا بابَ ثانٍ ولا خلاصةَ ثانية.

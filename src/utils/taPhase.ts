@@ -116,9 +116,12 @@ export function allowedFor(doc: Pick<TaPhaseDoc, "allowedCourses"> | null | unde
   return Array.isArray(list) && list.length ? new Set(list.map(Number)) : null;
 }
 
-/** حلقة النصاب «نصابك 6/12» — النسبة واللون. بلا نصابٍ مسجّل: لا حلقة (لا يُخترع رقم). */
-export function loadRing(hours: number, load: number) {
+/** حلقة النصاب «نصابك 6/12» — النسبة واللون. بلا نصابٍ مسجّل: لا حلقة (لا يُخترع رقم).
+ *  «الإضافي» (من الدرجة أو الاستثناء) يجعل ما بين النصاب والسقف لوناً هادئاً «overtime»، لا امتلاءً أحمر. */
+export function loadRing(hours: number, load: number, overtime = 0) {
   if (!(load > 0)) return null;
+  const extra = Math.max(0, Math.round(Number(overtime) || 0));
   const ratio = Math.min(1, Math.max(0, hours / load));
-  return { hours, load, ratio, label: `نصابك ${hours}/${load}`, tone: hours >= load ? "full" : ratio >= 0.75 ? "near" : "open" };
+  const tone = hours > load + extra ? "full" : extra && hours > load ? "overtime" : hours >= load ? (extra ? "near" : "full") : ratio >= 0.75 ? "near" : "open";
+  return { hours, load, overtime: extra, ratio, label: extra ? `نصابك ${hours}/${load} وإضافيّ ${extra}` : `نصابك ${hours}/${load}`, tone };
 }

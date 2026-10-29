@@ -10,7 +10,7 @@ import { reservationRows } from "../utils/instructorRequestReservations";
 import { approvedBarterReservation, borrowerOutsideApprovedWindow, hallBarterWindows, scheduleViolatesApprovedBarterWindow, scheduleOccupiesApprovedBarterWindow, approvedBarterWindowMatchesSchedule, type ApprovedHallWindow } from "../utils/hallBarterWindow";
 import { clockRangesOverlap } from "../utils/scheduleTime";
 import { findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
-import { TEACHING_LOAD_DOC_ID, normalizeTeachingLoadConfig } from "../utils/teachingLoad";
+import { TEACHING_LOAD_DOC_ID, loadCapOf, loadTermContext, normalizeTeachingLoadConfig, withLoadPolicies } from "../utils/teachingLoad";
 import { normalizeArabicText } from "../utils/arabicText";
 import fs from "fs";
 import { chooseStudentCaseSecret, STUDENT_CASE_SECRET_CONFLICT_MESSAGE, type StudentCaseSecretChoice } from "../server/studentCaseSecret";
@@ -92,7 +92,7 @@ import { DEMO_LINK_TOKEN_PREFIX, isDemoLinkToken } from "../utils/demoLinkToken"
 import { applyStudentCaseDecision, studentCaseRefusal, type StudentCaseSide } from "../utils/studentCaseDecision";
 import { caseRefFromId, mergeStudentResubmission } from "../utils/studentNeedMerge";
 import { cleanSeenIds, mergeSeenIds, seenUnchanged } from "../utils/notificationSeen";
-import { termChronology } from "../utils/termSequence";
+import { currentTermId, termChronology } from "../utils/termSequence";
 import { kuwaitDayOfIso, recordLinkOpen } from "../utils/linkOpens";
 import type { LinkMode } from "../utils/linkMode";
 import { unchangedScheduleFingerprint } from "../utils/instructorRequestConfirmation";
@@ -355,6 +355,20 @@ const db = new Proxy({} as DBState, {
 
 // Shared process caches are excellent for production, but a demo cache would
 // become a covert bridge between visitors. Demo requests always read their own state.
+/**
+ * ── النصابُ الفعّال عند القراءة ─────────────────────────────────────────────
+ *
+ * كلُّ من يقرأ عضواً من هنا يجد عليه `LoadPolicy` إن فُعّلت «الدرجات العلمية» وضُبط له نصاب (استثناؤه
+ * الساري في الفصل الجاري، وإلا درجتُه)، فيقيس كلُّ حسابٍ للنصاب (`loadCapOf`) على الرقم نفسه: الحلقات،
+ * والاعتماد، والتخطيط، وآلة الزمن. نسخٌ لا تمسّ المخزَّن ولا `AdInstructorLoad`، ولا تُكتب أبداً.
+ */
+async function withManagedLoad<T extends AdInstructor>(people: T[]): Promise<T[]> {
+  const config = await Repository.getTeachingLoadConfig();
+  if (!config.enabled || !people.length) return people;
+  const terms = await Repository.getTerms();
+  return withLoadPolicies(people, config, loadTermContext(terms as any, currentTermId(terms as any)));
+}
+
 function scopedCachedReference<T>(key: string, loader: () => Promise<T>): Promise<T> {
   return demoSandboxContext.getStore() ? loader() : cachedReference(key, loader);
 }
@@ -3341,13 +3355,13 @@ export const Repository = {
   },
 
   // Instructors
-  getInstructors: async (): Promise<AdInstructor[]> => scopedCachedReference(REFERENCE_KEYS.instructors, async () => {
+  getInstructors: async (): Promise<AdInstructor[]> => withManagedLoad(await scopedCachedReference(REFERENCE_KEYS.instructors, async () => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const snap = await firestoreDb.collection("instructors").orderBy("AdInstructorId", "asc").get();
       return sortByName(snap.docs.map(doc => doc.data() as AdInstructor), person => person.AdInstructorName);
     }
     return sortByName(db.instructors, person => person.AdInstructorName);
-  }),
+  })),
 
   /**
    * Resolve only the people referenced by the open department/term.
@@ -3364,25 +3378,26 @@ export const Repository = {
         `${INSTRUCTOR_IDS_PREFIX}${sectionId}`,
         () => firestoreDepartmentInstructorIdsAllTime(sectionId),
       );
-      return firestoreInstructorsByIds(allTimeIds);
+      return withManagedLoad(await firestoreInstructorsByIds(allTimeIds));
     }
     const rows = await Repository.getSchedulesByScope(filters);
     const ids = [...new Set(rows.map(row => Number(row.AdInstructorId)).filter(Boolean))];
     if (!ids.length) return [];
-    if (firestoreLive) return firestoreInstructorsByIds(ids);
+    if (firestoreLive) return withManagedLoad(await firestoreInstructorsByIds(ids));
     const wanted = new Set(ids);
-    return sortByName(db.instructors.filter(person => wanted.has(Number(person.AdInstructorId))), person => person.AdInstructorName);
+    return withManagedLoad(sortByName(db.instructors.filter(person => wanted.has(Number(person.AdInstructorId))), person => person.AdInstructorName));
   },
 
   getInstructorsByScope: async (sectionId: number, termId = 0): Promise<AdInstructor[]> =>
     Repository.getInstructorsByScheduleScope({ sectionId, termId }),
 
   getInstructorById: async (id: number): Promise<AdInstructor | undefined> => {
+    let person: AdInstructor | undefined;
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const doc = await firestoreDb.collection("instructors").doc(`instructor_${id}`).get();
-      return doc.exists ? (doc.data() as AdInstructor) : undefined;
-    }
-    return db.instructors.find(i => i.AdInstructorId === id);
+      person = doc.exists ? (doc.data() as AdInstructor) : undefined;
+    } else person = db.instructors.find(i => i.AdInstructorId === id);
+    return person ? (await withManagedLoad([person]))[0] : undefined;
   },
 
   getInstructorByCivil: async (civil: string): Promise<AdInstructor | undefined> => {
@@ -3416,7 +3431,7 @@ export const Repository = {
     /* والنصابُ كذلك: رقمٌ موجبٌ يُحفظ، وأيُّ شيءٍ آخر يمحوه — فأستاذٌ رُفع
        نصابُه يعود بلا نصاب، لا بنصابٍ صفر. والفرقُ ليس شكلياً: الصفرُ قيدٌ
        يمنع كلَّ شيء، والغيابُ قيدٌ صامت. */
-    const loadValue = Number(load);
+    const loadValue = Math.round(Number(load));
     const loadField = Number.isFinite(loadValue) && loadValue > 0 ? { AdInstructorLoad: loadValue } : {};
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const docRef = firestoreDb.collection("instructors").doc(`instructor_${id}`);
@@ -5441,7 +5456,7 @@ export const Repository = {
       const remaining = retainRequestReservations(entries, next);
       const loadWeek = [...finalWeek.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId)),
         ...reservationRows(remaining.filter(entry => entry.instructorId === Number(request.AdInstructorId)), termId)];
-      if (adding && Number(loadPerson?.AdInstructorLoad) > 0 && weeklyLoadOf(loadWeek, courseMap) > Number(loadPerson!.AdInstructorLoad))
+      if (adding && loadCapOf(loadPerson) > 0 && weeklyLoadOf(loadWeek, courseMap) > loadCapOf(loadPerson))
         throw new RequestReservationConflict("تغيّر نصاب الأستاذ أثناء الاعتماد. راجع الطلب والجدول.");
       return { request: next, rows: written, entries: remaining, finalWeek };
     };
@@ -5527,10 +5542,10 @@ export const Repository = {
       ? await Promise.all([Repository.getInstructorById(Number(next.AdInstructorId)), Repository.getCourses()]) : [undefined, []];
     const courseMap = new Map(loadCourses.map(course => [Number(course.AdCourseId), course]));
     const checkLoad = (week: FSchedule[], entries: RequestReservation[]) => {
-      if (!(Number(loadPerson?.AdInstructorLoad) > 0)) return;
+      if (!(loadCapOf(loadPerson) > 0)) return;
       const projected = instructorWeekAfter(next, week);
       const others = reservationRows(entries.filter(entry => entry.requestId !== next.id && entry.instructorId === Number(next.AdInstructorId)), termId);
-      if (weeklyLoadOf([...projected, ...others], courseMap) > Number(loadPerson!.AdInstructorLoad))
+      if (weeklyLoadOf([...projected, ...others], courseMap) > loadCapOf(loadPerson))
         throw new RequestReservationConflict("تجاوز مجموع الطلبات والجدول نصابك المسجّل. راجع اختياراتك.");
     };
     const checkRevision = (current?: InstructorRequest) => {
@@ -7461,16 +7476,18 @@ export const Repository = {
 
   /* ── النصاب التدريسي: وثيقةٌ واحدة (`main`) ─────────────────────────────────
    * معطَّلةٌ حتى يفعّلها المسؤول؛ وقراءةُ ما لم يُكتب بعدُ ترجع إعداداً فارغاً معطَّلاً، لا خطأً. */
-  getTeachingLoadConfig: async (): Promise<TeachingLoadConfig> => {
+  /* تُقرأ مع كل قراءةٍ لعضو (النصابُ الفعّال)، فتُحفظ في الذاكرة القصيرة نفسها وتسقط مع كل حفظ. */
+  getTeachingLoadConfig: async (): Promise<TeachingLoadConfig> => scopedCachedReference(REFERENCE_KEYS.teachingLoad, async () => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const doc = await firestoreDb.collection("teachingLoadConfig").doc(TEACHING_LOAD_DOC_ID).get();
       return normalizeTeachingLoadConfig(doc.exists ? doc.data() : null);
     }
     return normalizeTeachingLoadConfig((db.teachingLoadConfig || [])[0]);
-  },
+  }),
 
   saveTeachingLoadConfig: async (config: unknown, updatedBy?: string): Promise<TeachingLoadConfig> => {
     const row = { ...normalizeTeachingLoadConfig(config), updatedAt: new Date().toISOString(), ...(updatedBy ? { updatedBy } : {}) };
+    invalidateReference(REFERENCE_KEYS.teachingLoad);
     if (firestoreDb && !demoSandboxContext.getStore()) {
       await firestoreDb.collection("teachingLoadConfig").doc(TEACHING_LOAD_DOC_ID).set(row, { merge: false });
       return row;

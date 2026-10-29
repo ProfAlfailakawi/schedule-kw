@@ -31,6 +31,7 @@ import { normalizedBuilding, SCHEDULE_DAY_KEYS, scheduleOverlap, travelMinutesFo
 import { filterByScope, intelligenceReadScopes, isScopeAllowed, scopedScheduleUniverse } from "../core/scope";
 import { approvalBlockerOptions, placeholderInstructorIds, resolveSmartContext, safeDraftRows, smartContextFrom, validateSmartRows } from "../core/smartImport";
 import { readVisitingStatus } from "../core/visiting";
+import { loadCapOf } from "../../utils/teachingLoad";
 
 function recentTenYearTermIds(terms:any[]): Set<number> {
   const withYear=terms.map(term=>({id:Number(term.AdTermId||0),year:academicStartYear(term.AdTermName)})).filter(item=>item.id);
@@ -688,8 +689,8 @@ app.get("/api/intelligence/context/:id", requirePermission(7), async (req: Authe
     const mineAll=selected.AdInstructorId?termRows.filter(r=>r.AdInstructorId===selected.AdInstructorId):[];
     reasons=buildRowReasons({
       row:selected,room,barter:barter.filter(r=>r.status==="approved"),maxStudent:Number(course?.MaxStudent)||0,
-      instructorRows:mineAll,quota:Number(instructor?.AdInstructorLoad)||null,
-      loadUnits:Number(instructor?.AdInstructorLoad)>0?instructorLoadUnits(mineAll,selected.AdInstructorId,creditOf):null,
+      instructorRows:mineAll,quota:loadCapOf(instructor)||null,
+      loadUnits:loadCapOf(instructor)>0?instructorLoadUnits(mineAll,selected.AdInstructorId,creditOf):null,
       history:courseHistory,requests:requests as any,proposals:proposals as any,
     });
   }catch(error:any){console.error("تعذّر حساب رقائق «لماذا؟»:",error?.message||error);}

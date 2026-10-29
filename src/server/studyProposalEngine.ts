@@ -27,6 +27,7 @@ import {
 } from "../utils/studyProposal";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START, isValidClock, scheduleDayWindowMinutes, withinScheduleDay } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
+import { loadCapOf } from "../utils/teachingLoad";
 
 export interface EngineDeps {
   scheduleConflicts: (req: any, row: any, excludeId?: number, hypothetical?: FSchedule[]) => Promise<any[]>;
@@ -393,7 +394,7 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
   const instructorRowsAfter = applied.rows.filter(row => Number(row.AdInstructorId) === input.instructorId);
   const before = proposalMetrics(instructorRowsBefore, world.catalog.courseById);
   const after = proposalMetrics(instructorRowsAfter, world.catalog.courseById);
-  const loadCap = Number((world.instructor as any)?.AdInstructorLoad || 0) || null;
+  const loadCap = loadCapOf(world.instructor) || null;
   if (after.unknown.includes("load")) addFinding({
     kind: "info", code: "load-unknown", title: "تعذّر حساب النصاب",
     detail: "ساعات بعض المقررات غير مسجّلة في الكتالوج، فلا يُعرض نصابٌ تخميني.", fix: "سجّل الساعات المعتمدة للمقرر.",

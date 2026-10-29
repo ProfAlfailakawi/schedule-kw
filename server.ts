@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { randomBytes } from "crypto";
 import { initDatabase, Repository } from "./src/db/repository";
-import { teachingLoadLimits } from "./src/utils/teachingLoad";
+import { loadCapOf, withLoadPolicies } from "./src/utils/teachingLoad";
 import { coerceScopeValues } from "./src/utils/scopeContext";
 import { readOnlyRefusal, roleWriteDecision } from "./src/server/roleGuard";
 import { registerStudyProposalRoutes } from "./src/server/studyProposalRoutes";
@@ -562,12 +562,11 @@ registerTimeMachineRoutes(app, {
     return [...new Map([...historical, ...scoped, ...visiting.instructors].map(person => [Number(person.AdInstructorId), person])).values()];
   },
   coursesFor: sectionId => Repository.getOperationalCoursesBySection(sectionId),
+  /* السقفُ نفسُه في كل مكان: الأعلى + الإضافي من استثناء العضو أو درجته، وإلا نصابُه المسجّل. */
   loadLimits: async instructors => {
     const config = await Repository.getTeachingLoadConfig();
-    return Object.fromEntries(instructors.map(person => {
-      const managed = config.enabled ? teachingLoadLimits(config, Number(person.AdInstructorId)).allowed : null;
-      return [String(person.AdInstructorId), Number(managed ?? person.AdInstructorLoad ?? 0) || 0];
-    }).filter(([, value]) => Number(value) > 0));
+    return Object.fromEntries(withLoadPolicies(instructors, config).map(person => [String(person.AdInstructorId), loadCapOf(person)] as [string, number])
+      .filter(([, value]) => value > 0));
   },
   /* فصلٌ مجمَّد أو منتهٍ: آلة الزمن تُقرأ وتُحاكى فيه ولا تكتب (كالتخطيط والاستيراد). */
   termFrozen: async termId => (termIsFrozen(termId, (await Repository.getTerms()) as any) ? TERM_FROZEN_MESSAGE

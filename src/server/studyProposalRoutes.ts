@@ -40,6 +40,7 @@ import {
   evaluateProposal, gridItem, keyOfNew, keyOfRow, loadWorld, rankVacancies, suggestAlternatives, type EngineDeps, type LoadedWorld,
 } from "./studyProposalEngine";
 import { withoutProposalPlaces } from "../utils/proposalTeacherView";
+import { loadCapOf } from "../utils/teachingLoad";
 
 export interface StudyProposalRouteDeps extends EngineDeps {
   requirePermission: (formNameId: number) => RequestHandler;
@@ -352,7 +353,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
       instructor: {
         id: Number(world.instructor.AdInstructorId), name: String(world.instructor.AdInstructorName || ""),
         mobile: String(world.instructor.AdInstructorMobile || ""),
-        loadCap: Number((world.instructor as any).AdInstructorLoad || 0) || null,
+        loadCap: loadCapOf(world.instructor) || null,
         retired: (world.instructor as any).AdInstructorStatus === "retired",
       },
       term: { id: termId, name: String(world.term?.AdTermName || ""), closed: termClosedOf(world), frozen: termIsFrozen(termId, (await Repository.getTerms()) as any) },
@@ -827,7 +828,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
       schedule: {
         before: { items: beforeItems, metrics: proposalMetrics(before, world.catalog.courseById) },
         after: { items: afterItems, ghosts, metrics: proposalMetrics(afterRows, world.catalog.courseById) },
-        loadCap: sent.impact?.loadCap ?? (Number((world.instructor as any)?.AdInstructorLoad || 0) || null),
+        loadCap: sent.impact?.loadCap ?? (loadCapOf(world.instructor) || null),
       },
     };
   }

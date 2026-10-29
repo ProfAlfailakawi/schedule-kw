@@ -604,9 +604,33 @@
    ],
    "path": "/api/admin/teaching-load",
    "name": "bound dispatch",
-   "call": "185b182a980284cf",
+   "call": "e1752f3b9be9219c",
    "site": "src/server/routes/referenceRoutes.ts:183",
    "regexp": "/^\\/api\\/admin\\/teaching-load\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/admin/teaching-load/member/:id",
+   "name": "bound dispatch",
+   "call": "fbb31ea93a170e6d",
+   "site": "src/server/routes/referenceRoutes.ts:203",
+   "regexp": "/^\\/api\\/admin\\/teaching-load\\/member(?:\\/([^/]+?))\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "put"
+   ],
+   "path": "/api/admin/teaching-load/member/:id",
+   "name": "bound dispatch",
+   "call": "a8d6a88c37431bd5",
+   "site": "src/server/routes/referenceRoutes.ts:218",
+   "regexp": "/^\\/api\\/admin\\/teaching-load\\/member(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
   {
@@ -628,7 +652,7 @@
    ],
    "path": "/api/teaching-load/status",
    "name": "bound dispatch",
-   "call": "91a564022aba9929",
+   "call": "0bb36629fc8427b1",
    "site": "src/server/routes/referenceRoutes.ts:209",
    "regexp": "/^\\/api\\/teaching-load\\/status\\/?$/i",
    "end": true
@@ -784,7 +808,7 @@
    ],
    "path": "/api/instructors/:id",
    "name": "bound dispatch",
-   "call": "4b2b648bebd9d3fe",
+   "call": "c76645627967d6d4",
    "site": "src/server/routes/instructorsRoutes.ts:285",
    "regexp": "/^\\/api\\/instructors(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -2577,7 +2601,7 @@
    ],
    "path": "/api/intelligence/context/:id",
    "name": "bound dispatch",
-   "call": "5bfe4762966a5b8b",
+   "call": "557721771f7776ba",
    "site": "src/server/routes/intelligenceRoutes.ts:640",
    "regexp": "/^\\/api\\/intelligence\\/context(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -4416,7 +4440,7 @@
    ],
    "path": "/api/public/request/:token",
    "name": "bound dispatch",
-   "call": "9f71355b1510a1f6",
+   "call": "348e5d2806e24176",
    "site": "src/server/routes/publicRequestRoutes.ts:557",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -4632,7 +4656,7 @@
    ],
    "path": "/api/study-proposals/context",
    "name": "bound dispatch",
-   "call": "a9240b4856cc7fcb",
+   "call": "444bdc7fa0b63df2",
    "site": "src/server/studyProposalRoutes.ts:286",
    "regexp": "/^\\/api\\/study-proposals\\/context\\/?$/i",
    "end": true
@@ -4800,7 +4824,7 @@
    ],
    "path": "/api/ta-phase",
    "name": "bound dispatch",
-   "call": "36e990d67a68b15b",
+   "call": "ce04558cd65ac44d",
    "site": "src/server/routes/offeringRoutes.ts:165",
    "regexp": "/^\\/api\\/ta-phase\\/?$/i",
    "end": true

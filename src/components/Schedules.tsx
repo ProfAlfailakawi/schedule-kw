@@ -112,6 +112,7 @@ import {
 import LivingScheduleLayer from "./LivingScheduleLayer";
 import HallBarterBoard, { type HallBarterReservationView } from "./HallBarterBoard";
 import TeachingLoadNotice from "./TeachingLoadNotice";
+import { loadNisabOf } from "../utils/teachingLoad";
 import ApprovalBar from "./ApprovalBar";
 import LocationPicker from "./LocationPicker";
 import CompanionFacilityPicker from "./CompanionFacilityPicker";
@@ -9666,7 +9667,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             <TeacherMiniWeek
               teacherId={Number(form.AdInstructorId)}
               teacherName={instructorById.get(Number(form.AdInstructorId))?.AdInstructorName || ""}
-              nisab={Number(instructorById.get(Number(form.AdInstructorId))?.AdInstructorLoad || 0)}
+              nisab={loadNisabOf(instructorById.get(Number(form.AdInstructorId))).nisab}
+              overtime={loadNisabOf(instructorById.get(Number(form.AdInstructorId))).overtime}
               visiting={formVisiting(form.AdInstructorId)}
               rows={rows}
               termId={Number(form.AdTermId || filterTerm || 0)}
@@ -12575,7 +12577,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           departmentIds={departmentInstructorIds}
           visitingIds={visitingIds}
           visitingRosterIds={pickerVisitingRosterIds}
-          miniWeek={{ rows, courses: courseById, window: miniWeekWindow, userId: Number(user?.SystemUserId || 0), nisabOf: (id: number) => Number(instructorById.get(id)?.AdInstructorLoad || 0), nameOf: (id: number) => instructorById.get(id)?.AdInstructorName || "", isPlaceholder: isFacultyPlaceholderId }}
+          miniWeek={{ rows, courses: courseById, window: miniWeekWindow, userId: Number(user?.SystemUserId || 0), nisabOf: (id: number) => loadNisabOf(instructorById.get(id)).nisab, overtimeOf: (id: number) => loadNisabOf(instructorById.get(id)).overtime, nameOf: (id: number) => instructorById.get(id)?.AdInstructorName || "", isPlaceholder: isFacultyPlaceholderId }}
           saving={saving}
           error={quickError}
           onCancel={() => { setQuick(null); setQuickError(null); }}

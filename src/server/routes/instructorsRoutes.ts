@@ -294,7 +294,8 @@ app.put("/api/instructors/:id", requirePermission(3), async (req: Request, res: 
   /* النصابُ رقمٌ موجبٌ معقول، أو لا شيء. وحدُّه الأعلى ليس تجميلاً: نصابٌ
      مكتوبٌ خطأً بأربعة أرقام يجعل القيدَ صامتاً إلى الأبد بلا أن يعرف أحد. */
   const loadRaw = Number(req.body?.AdInstructorLoad);
-  const load = Number.isFinite(loadRaw) && loadRaw > 0 && loadRaw <= 40 ? loadRaw : null;
+  /* ساعاتٌ صحيحة فقط: كسرٌ يصل (8.5) يُقرَّب ولا يُخزَّن. */
+  const load = Number.isFinite(loadRaw) && loadRaw > 0 && loadRaw <= 40 ? Math.round(loadRaw) : null;
   if (!AdInstructorCivil || !String(AdInstructorName || "").trim()) {
     res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" });
     return;
