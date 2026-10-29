@@ -158,7 +158,7 @@ const probed = scanFile("probe.tsx", probe).map(h => `${h.line}:${h.word}`).join
 check(probed === "2:ليش 3:وين 7:هني", `القارئ يُمسك نصوص الواجهة ويترك التعليقات والمطابقة (${probed})`);
 
 const files = walk("src");
-const hits = files.flatMap(scanFile);
+const hits = files.flatMap(file => scanFile(file));
 for (const h of hits) console.log(`  ${h.file}:${h.line}  «${h.word}» ← ${COLLOQUIAL[h.word]}\n      ${h.text}`);
 check(hits.length === 0, `نصوص الواجهة في src/ (${files.length} ملفاً) بلا كلمةٍ عاميّة`);
 
