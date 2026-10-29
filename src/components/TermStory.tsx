@@ -45,7 +45,9 @@ export default function TermStory({ scopeLine, statusLabel, rowCount, moved, fir
   const [copied, setCopied] = useState(false);
   const roundCount = Math.max(1, rounds.length);
   const againstAuthority = baselineSource === "authority";
-  const first = !againstAuthority && (baselineSource === "none" || firstReview);
+  /* المصدرُ الصريح أولاً: جولةٌ أو لقطةٌ محفوظة بلا مواعيد أساسٌ حقيقي وإن كان فارغاً،
+     فتبقى إضافاتها ظاهرة. و«أول مراجعة» من التخمين وحده حين يغيب المصدر. */
+  const first = baselineSource ? baselineSource === "none" : firstReview;
   const since = baselineSource && baselineSource in SINCE ? SINCE[baselineSource as keyof typeof SINCE] : "منذ أساس المقارنة";
   const movedSentence = first
     ? "أول مراجعة — لا نسخة سابقة للمقارنة"
