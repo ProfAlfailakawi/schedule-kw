@@ -1,8 +1,8 @@
 /*
  * ── عاملُ التنبيهات وحده (Web Push) ─────────────────────────────────────────
  *
- * عاملٌ مستقلّ عن sw.js، ولا معالجَ fetch فيه البتّة: لا يخزّن شيئاً ولا يجيب
- * طلباً، فلا يقدّم صفحةً قديمة، ولا يمسّ كرتَ الأستاذ الذي يُبنى في الخادم.
+ * عاملٌ مستقلّ عن sw.js، لا يخزّن صفحةً ولا يجيب طلباً من ذاكرة، فلا يقدّم
+ * صفحةً قديمة، ولا يمسّ كرتَ الأستاذ الذي يُبنى في الخادم (إلا جوابَ الخطأ، أدناه).
  *
  *   • في التطبيق نطاقُه "/push/" — لا صفحةَ هناك، فلا يتحكّم بشيء، ولا تمسّه
  *     استعادةُ الإصدار القديم في main.tsx (تُسقط sw.js وتُبقي هذا، وإلا ماتت
@@ -11,8 +11,51 @@
  *     الشاشة الرئيسية (iOS 16.4+ لا يدفع إلا لتطبيقٍ هناك).
  *
  * ثابتٌ بين الإصدارات عمداً: لا ختمَ بناءٍ فيه، فلا يُعاد تثبيتُه مع كل نشر.
+ *
+ * معالجُ fetch الوحيد فيه لا يخزّن صفحةً ولا يجيب من ذاكرة: يمرّر تنقّلَ الكرت
+ * إلى الشبكة كما هو، فإن جاء 500/502/503/504 (Google أثناء تبديل الخادم) أو
+ * انقطع، قدّم صفحةَ «نُحدّث البرنامج» (/updating.html) بدل صفحة Google
+ * الإنجليزية، وهي تعيد فتحَ الكرت نفسه حين يعود الخادم. الصفحةُ وحدها في
+ * ذاكرةٍ ثابتة الاسم يشاركها sw.js ويجدّدها مع كل نشر.
  */
-self.addEventListener("install", function () { self.skipWaiting(); });
+var UPDATING_CACHE = "schedule-updating";
+var UPDATING_PAGE = "/updating.html";
+function isUpdatingStatus(status) { return status === 500 || status === 502 || status === 503 || status === 504; }
+function storeUpdatingPage() {
+  return fetch(UPDATING_PAGE, { cache: "no-store" }).then(function (response) {
+    if (!response.ok || String(response.headers.get("content-type") || "").indexOf("text/html") < 0) return;
+    return caches.open(UPDATING_CACHE).then(function (cache) { return cache.put(UPDATING_PAGE, response); });
+  }).catch(function () { /* تُعاد بعد أول تنقّلٍ ناجح */ });
+}
+function updatingResponse() {
+  return caches.open(UPDATING_CACHE).then(function (cache) { return cache.match(UPDATING_PAGE); }).then(function (page) {
+    if (!page) return null;
+    return page.text().then(function (body) {
+      return new Response(body, { status: 503, statusText: "Service Unavailable",
+        headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5", "X-Schedule-Updating": "1" } });
+    });
+  }).catch(function () { return null; });
+}
+
+self.addEventListener("install", function (event) {
+  self.skipWaiting();
+  event.waitUntil(storeUpdatingPage());
+});
+
+self.addEventListener("fetch", function (event) {
+  var request = event.request;
+  if (request.mode !== "navigate" || request.method !== "GET") return;
+  event.respondWith(fetch(request).then(function (response) {
+    if (!isUpdatingStatus(response.status)) {
+      if (response.ok) caches.open(UPDATING_CACHE).then(function (cache) { return cache.match(UPDATING_PAGE); })
+        .then(function (hit) { return hit || storeUpdatingPage(); }).catch(function () {});
+      return response;
+    }
+    return updatingResponse().then(function (page) { return page || response; });
+  }, function (error) {
+    return updatingResponse().then(function (page) { if (page) return page; throw error; });
+  }));
+});
 
 /* ما يُفتح عند اللمس صفحةٌ من الموقع نفسه، وإلا فبدايةُ نطاق العامل. */
 function targetOf(data) {

@@ -9,7 +9,7 @@
  *   ٥) الحدّ لكل اشتراك، والعددُ يُقرأ لحظةَ الإرسال، وتهدئةُ القسم في قاعدة البيانات (لا مؤقّت).
  *   ٦) الأحداثُ في صندوق العرض: 📥 لمنسّق النطاق وحده، ✅ إلى كرت الأستاذ، وكرتٌ
  *      أُوقف لا يُدفع إليه وتُمحى اشتراكاته؛ والمسارات عبر HTTP.
- *   ٧) العامل: push وnotificationclick بلا fetch؛ والاستعادةُ لا تُسقطه؛ وsw.js لا يقدّم
+ *   ٧) العامل: push وnotificationclick، وfetch لا يبدّل إلا جوابَ الخطأ؛ والاستعادةُ لا تُسقطه؛ وsw.js لا يقدّم
  *      كرتَ الأستاذ من هيكل التطبيق؛ والكرتُ تطبيقُ «بطاقتي» على الشاشة الرئيسية.
  */
 import fs from "fs";
@@ -450,7 +450,13 @@ const ROOMY_REQUEST = () => ({
   const worker = read("public/push-sw.js");
   check(/addEventListener\("push"/.test(worker) && /addEventListener\("notificationclick"/.test(worker) && /addEventListener\("pushsubscriptionchange"/.test(worker),
     "push-sw.js: push وnotificationclick وpushsubscriptionchange");
-  check(!/addEventListener\(\s*["']fetch["']/.test(worker) && !/caches\./.test(worker) && !/__BUILD__/.test(worker), "ولا معالجَ fetch ولا ذاكرة ولا ختمَ بناء: لا يقدّم صفحةً قديمة أبداً");
+  /* معالجُ fetch الوحيد: التنقّلُ إلى الشبكة كما هو، وصفحةُ «نُحدّث البرنامج» عند 5xx أو الانقطاع
+     (tests/updating-page-audit.ts). لا ذاكرةَ فيه غيرُ تلك الصفحة، ولا ختمَ بناء. */
+  const opened = worker.match(/caches\.open\([^)]*\)/g) || [];
+  const puts = worker.match(/\.put\([^,]*,/g) || [];
+  check(!/__BUILD__/.test(worker) && opened.length > 0 && opened.every(call => call === "caches.open(UPDATING_CACHE)") && puts.every(call => call === ".put(UPDATING_PAGE,")
+    && /request\.mode !== "navigate"/.test(worker) && !/cache\.match\((?!UPDATING_PAGE)/.test(worker),
+    "ولا يحفظ صفحةً غيرَ صفحة التحديث ولا ختمَ بناء: لا يقدّم صفحةً قديمة أبداً");
 
   const runWorker = (scope: string, windows: Array<{ url: string }>) => {
     const handlers: Record<string, (event: any) => void> = {};
@@ -499,16 +505,24 @@ const ROOMY_REQUEST = () => ({
 
   /* sw.js لا يقدّم كرتَ الأستاذ من هيكل التطبيق */
   const sw = read("public/sw.js");
-  const respond = (pathname: string) => {
+  /* يجيب العاملُ التنقّلَ الآن ليبدّل جوابَ الخطأ وحده؛ فالسؤال: هل حُفظ الكرتُ مكان هيكل التطبيق؟ */
+  const respond = async (pathname: string, mode = "navigate") => {
     const handlers: Record<string, (event: any) => void> = {};
+    const stored: string[] = [];
     const self: any = { addEventListener: (type: string, fn: any) => { handlers[type] = fn; }, location: { origin: "https://schedule-kw.com" }, skipWaiting() {}, clients: { claim() {} } };
-    vm.runInNewContext(sw, { self, URL, caches: { open: async () => ({}) }, fetch: async () => ({}) });
-    let answered = false;
-    handlers.fetch({ request: { method: "GET", url: `https://schedule-kw.com${pathname}`, mode: "navigate" }, respondWith: () => { answered = true; } });
-    return answered;
+    const cache = { put: async (key: any) => { stored.push(String(key?.url || key)); }, match: async () => undefined };
+    const network = new Response("<p>server page</p>", { status: 200, headers: { "Content-Type": "text/html" } });
+    vm.runInNewContext(sw, { self, URL, Response, caches: { open: async () => cache }, fetch: async () => network });
+    let answer: Promise<any> | null = null;
+    handlers.fetch({ request: { method: "GET", url: `https://schedule-kw.com${pathname}`, mode }, respondWith: (p: Promise<any>) => { answer = p; }, waitUntil() {} });
+    const response = answer ? await answer : null;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    return { answered: Boolean(answer), passedThrough: response === network, shell: stored.includes("/index.html") };
   };
-  check(!respond("/r/abc") && !respond("/s/abc") && !respond("/me") && !respond("/r/abc/manifest.webmanifest"), "sw.js: كرتُ الأستاذ وبطاقةُ القسم ومساري تذهب إلى الخادم، لا إلى هيكل التطبيق");
-  check(respond("/FSchedule/Index"), "وشاشاتُ التطبيق ما زالت تُجاب بهيكله دون اتصال");
+  const cardNav = await respond("/r/abc"), share = await respond("/s/abc"), mine = await respond("/me"), manifestReq = await respond("/r/abc/manifest.webmanifest", "cors");
+  check([cardNav, share, mine].every(r => r.passedThrough && !r.shell) && !manifestReq.answered,
+    "sw.js: كرتُ الأستاذ وبطاقةُ القسم ومساري تذهب إلى الخادم كما هي، ولا تُحفظ مكان هيكل التطبيق");
+  check((await respond("/FSchedule/Index")).shell, "وشاشاتُ التطبيق ما زالت تُحفظ هيكلاً يُجاب به دون اتصال");
 
   /* «بطاقتي» والشارة */
   const token = "AbCdEfGhIjKlMnOpQrStUvWxYz012345";

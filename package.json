@@ -130,6 +130,7 @@
     "test:notifications": "tsx tests/notification-center-audit.ts",
     "test:bell-yield": "tsx tests/notify-bell-yield-audit.ts",
     "test:web-push": "tsx tests/web-push-audit.ts",
+    "test:updating-page": "tsx tests/updating-page-audit.ts",
     "test:changes-baseline": "tsx tests/changes-baseline-audit.ts",
     "test:approval-scope": "tsx tests/approval-scope-audit.ts",
     "test:approval-dossier": "tsx tests/approval-dossier-audit.ts",

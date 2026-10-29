@@ -7,6 +7,7 @@ import {safeStorage} from "./utils/safeStorage";
 import {BUILD_STAMP} from "./generated/buildStamp";
 import {toEnglishDigits} from "./utils/digits";
 import {unregisterAppWorkers} from "./utils/pushClient";
+import {isPlatformUpdating, SERVER_BACK_EVENT, showUpdatingNotice, UPDATING_MESSAGE, UPDATING_WRITE_MESSAGE} from "./utils/updatingNotice";
 import "./index.css";
 /* The decision lab is shared by screens and its CSS belongs to the browser entry,
    not its component: Node-based feature tests import the component directly. */
@@ -70,6 +71,8 @@ installMobileViewportLock();
 // responses; it only blocks writes while offline and softens unexpected infrastructure
 // errors into a message a scheduling coordinator can act on.
 const nativeFetch=window.fetch.bind(window);
+/** Is the server answering at all? Asked directly, past the wrapper below. */
+const serverAnswers=()=>nativeFetch("/api/health",{cache:"no-store"}).then(response=>response.ok,()=>false);
 const normalizePayload=(value:any):any=>{
   if(typeof value==="string")return toEnglishDigits(value);
   if(Array.isArray(value))return value.map(normalizePayload);
@@ -201,6 +204,12 @@ const customFetch = ((input:RequestInfo|URL,init?:RequestInit)=>{
     // Any successful write can invalidate any catalogue read.
     if(isWrite&&response.ok)clearCatalogueCache();
     const contentType=response.headers.get("content-type")||"";
+    /* Our /api always answers JSON. A 5xx page in HTML is the platform swapping
+       servers mid-deploy: one calm notice instead of an error banner. */
+    if(isPlatformUpdating(response.status,contentType)){
+      showUpdatingNotice(serverAnswers);
+      return new Response(JSON.stringify({error:isWrite?UPDATING_WRITE_MESSAGE:UPDATING_MESSAGE}),{status:503,statusText:"Updating",headers:{"Content-Type":"application/json; charset=utf-8","X-Schedule-Updating":"1","X-Schedule-Friendly-Error":"1"}});
+    }
     if(!contentType.includes("application/json"))return response;
     try{
       const raw=await response.clone().json();
@@ -263,6 +272,10 @@ try {
 const RECOVERY_KEY="schedule-chunk-recovery";
 const recoverFromStaleBuild=async()=>{
   if(safeStorage.get(RECOVERY_KEY,"session"))return;
+  /* A chunk that failed while the server is mid-deploy is not a stale build.
+     Wiping now would drop the worker exactly when its updating page is needed:
+     wait for the server, then reload — nothing cleared. */
+  if(!(await serverAnswers())){showUpdatingNotice(serverAnswers,()=>{window.location.reload()});return}
   safeStorage.set(RECOVERY_KEY,"1","session");
   try{
     if("caches" in window){const keys=await caches.keys();await Promise.all(keys.map(key=>caches.delete(key)))}
@@ -337,6 +350,8 @@ if (import.meta.env.PROD) {
     if (versionReloading) return;
     try {
       const response = await fetch("/api/version", { cache: "no-store" });
+      /* Mid-deploy the answer is an error page, not a build: ask again when the server is back. */
+      if (!response.ok) return;
       const data = await response.json();
       if (!data?.build || data.build === BUILD_STAMP) { safeStorage.remove(UPDATE_ATTEMPT_KEY, "local"); return; }
       versionReloading = true;
@@ -364,6 +379,8 @@ if (import.meta.env.PROD) {
     } catch { /* offline — the next check will see */ }
   };
   window.addEventListener("pageshow", event => { if ((event as PageTransitionEvent).persisted) void checkVersion(); });
+  /* The server came back from a deploy: this tab may now be the old build. */
+  window.addEventListener(SERVER_BACK_EVENT, () => { void checkVersion(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) void checkVersion(); });
   // A hidden tab is asked the moment it is shown (above); asking it every two
   // minutes all night only kept the server awake to say "same build".
