@@ -13,9 +13,12 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request replaces its older run. A run on main is never
+# cancelled: deploy-schedule.yml releases only a commit whose full run on main
+# passed, and a merge landing a minute later must not erase that verdict.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
