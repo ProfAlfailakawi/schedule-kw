@@ -119,7 +119,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     [closeTime, setCloseTime] = useState("23:59"),
     /* ومع البطاقة تُفتح نافذةُ طلبات التعديل ما لم يُطفئها المنسّق. */
     [openRequests, setOpenRequests] = useState(true),
-    [issued, setIssued] = useState<{ created: number; reissued: number; renewed?: number; empty?: "no-rows" | "no-instructors" } | null>(null),
+    [issued, setIssued] = useState<{ created: number; reissued: number; renewed?: number; empty?: "no-rows" | "no-instructors"; mode?: LinkMode } | null>(null),
     /* كم بطاقةً سابقةً حلّت محلَّها البطاقةُ الجديدة — سطرٌ في خبر الإنشاء لا قائمة. */
     [replaced, setReplaced] = useState(0),
     /* الروابطُ الموقوفة والمنتهية مطويّةٌ تحت سطرٍ واحد، فلا تزاحم الحيّة. */
@@ -211,7 +211,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
        أنه فتح لعشرين وقد فتح لثلاثة. */
     const reissued = rows.filter(row => row.reissued).length;
     const renewed = rows.filter(row => row.renewed).length;
-    setIssued({ created: rows.length - reissued - renewed, reissued, renewed });
+    setIssued({ created: rows.length - reissued - renewed, reissued, renewed, mode });
     return data;
   };
 
@@ -700,11 +700,14 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                       الجديد، وطلبٌ أرسله صاحبُه وينتظر القسم. «مفتوحة من قبل» كانت
                       تُقال لطلباتٍ مات موعدُها، فيظنّها المنسّقُ مفتوحة. */}
                   {[
-                    issued.created ? `فُتحت طلبات التعديل لـ${countOf(issued.created, oblique(AR.instructor))}` : "",
+                    /* الرسالةُ بصفة الإرسال: رابطُ العرض لا «يفتح طلبات تعديل». */
+                    issued.created ? (issued.mode === "view"
+                      ? `أُرسل جدولُ العرض لـ${countOf(issued.created, oblique(AR.instructor))}`
+                      : `فُتحت طلبات التعديل لـ${countOf(issued.created, oblique(AR.instructor))}`) : "",
                     issued.renewed ? `جُدّد الموعد لـ${countOf(issued.renewed, oblique(AR.instructor))}` : "",
                     issued.reissued ? `${countOf(issued.reissued, AR.instructor)} طلباتهم عند القسم` : "",
                   ].filter(Boolean).join(" · ")}
-                  {issued.created || issued.renewed ? " — يطلبون من بطاقتهم، وتتابعها في «وارد الأساتذة»." : " — تتابعها في «وارد الأساتذة»."}
+                  {issued.mode === "view" ? " — يرون جدولهم من بطاقتهم، بلا طلبات." : issued.created || issued.renewed ? " — يطلبون من بطاقتهم، وتتابعها في «وارد الأساتذة»." : " — تتابعها في «وارد الأساتذة»."}
                 </p>
               ) : null}
               <div className="share-list" role="list" aria-live="polite">
