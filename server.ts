@@ -84,6 +84,7 @@ import { registerStudentRegistrationRoutes } from "./src/server/routes/studentRe
 import { registerSurveyRoutes } from "./src/server/routes/surveyRoutes";
 import { registerSystemRoutes } from "./src/server/routes/systemRoutes";
 import { registerUsersRoutes } from "./src/server/routes/usersRoutes";
+import { registerSeatsRoutes, seatMemberGuard } from "./src/server/seatsRoutes";
 import { registerVerifyRoutes } from "./src/server/routes/verifyRoutes";
 
 const app = express();
@@ -283,6 +284,8 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
   if (verdict.allowed) { next(); return; }
   res.status(403).json(readOnlyRefusal(req.user?.Role));
 });
+/* عضوُ فريق الكرسي يعمل ولا يوقّع ولا يدير الكرسيَّ ولا يغيّر كلمة سرّه (docs/SEATS.md). */
+app.use("/api", seatMemberGuard as express.RequestHandler);
 app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   if (req.path === "/health" || req.path === "/telemetry/client") { next(); return; }
   const started = process.hrtime.bigint();
@@ -418,6 +421,7 @@ registerScheduleNotesRoutes(app);
 registerNotificationsRoutes(app);
 registerAdminRoutes(app);
 registerUsersRoutes(app);
+registerSeatsRoutes(app);
 registerShareRoutes(app);
 registerPlanningRoutes(app);
 registerPublicCalendarRoutes(app);

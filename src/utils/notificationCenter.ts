@@ -94,7 +94,7 @@ export function pendingExtensionRequest(approval: ScheduleApproval): { until?: s
   };
 }
 
-const REGISTRAR = new Set(["registrarHead", "registrarStaff"]);
+const REGISTRAR = new Set(["registrarHead", "collegeRegistrar", "registrarStaff"]);
 const WATCHERS = new Set(["registrarDean"]);
 const DEANS = new Set(["dean", "viceDean"]);
 

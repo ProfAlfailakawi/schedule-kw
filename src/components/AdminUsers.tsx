@@ -5,7 +5,8 @@ import LocationQuickSetup from "./LocationQuickSetup";
 import SectionScheduleHours from "./SectionScheduleHours";
 import TeachingLoadSettings from "./TeachingLoadSettings";
 import AccountInvitation from "./AccountInvitation";
-import { Activity, ArchiveRestore, Building2, Check, ChevronLeft, Clock3, CopyPlus, DatabaseBackup, DoorOpen, Download, Eraser, FileArchive, FileCheck2, GraduationCap, History, KeyRound, Landmark, Layers, LifeBuoy, RefreshCw, Save, ScanSearch, ScrollText, Search, ShieldCheck, Trash2, Upload, UserCog, UsersRound, X } from "lucide-react";
+import SeatsAdmin from "./seats/SeatsAdmin";
+import { Activity, ArchiveRestore, Armchair, Building2, Check, ChevronLeft, Clock3, CopyPlus, DatabaseBackup, DoorOpen, Download, Eraser, FileArchive, FileCheck2, GraduationCap, History, KeyRound, Landmark, Layers, LifeBuoy, RefreshCw, Save, ScanSearch, ScrollText, Search, ShieldCheck, Trash2, Upload, UserCog, UsersRound, X } from "lucide-react";
 import {
   AddButton,
   Badge,
@@ -38,7 +39,7 @@ import CampusChip from "./CampusChip";
 /* «نسخ فصل» is administration, not day-to-day scheduling: it belongs on this
    rail beside the users, the scopes and the log. It keeps its own screen and
    its own URL — this only moves the door it is opened from. */
-export type AdminMode = "users" | "permissions" | "scopes" | "audit" | "backup" | "copyTerm" | "locations" | "roomSetup" | "sectionHours" | "teachingLoad";
+export type AdminMode = "users" | "seats" | "permissions" | "scopes" | "audit" | "backup" | "copyTerm" | "locations" | "roomSetup" | "sectionHours" | "teachingLoad";
 type PageMode = "index" | "create" | "edit";
 interface SafeUser {
   SystemUserId: number;
@@ -552,7 +553,7 @@ export default function AdminUsers({
   const load = async () => {
     setError(null);
     try {
-      if (mode === "locations" || mode === "roomSetup" || mode === "sectionHours" || mode === "teachingLoad") return;
+      if (mode === "locations" || mode === "roomSetup" || mode === "sectionHours" || mode === "teachingLoad" || mode === "seats") return;
       if (mode === "backup") {
         if (!rootAdmin) throw new Error("هذه الخزنة مخصصة لحساب الإدارة الرئيسي فقط");
         const status = await api("/api/system-backup/status") as BackupStatus;
@@ -861,6 +862,10 @@ export default function AdminUsers({
     permissions.length === 0 || permissions.includes(11)
       ? { value: "users", label: "المستخدمون", icon: <UsersRound /> }
       : null,
+    /* الكراسي (docs/SEATS.md): من يجلس على كل حساب، والتسليم، والفرق، والتاريخ. */
+    permissions.length === 0 || permissions.includes(11)
+      ? { value: "seats", label: "الكراسي", icon: <Armchair /> }
+      : null,
     // Note 26: the standalone "الصلاحيات" tab is gone — permissions are edited
     // inline on the users screen, so there is nothing useful to show on its own.
     permissions.length === 0 || permissions.includes(15)
@@ -892,6 +897,8 @@ export default function AdminUsers({
       {error ? <Notice>{error}</Notice> : null}
     </>
   );
+
+  if (mode === "seats") return <SeatsAdmin header={consoleHead()} />;
 
   if (mode === "locations") {
     return rootAdmin

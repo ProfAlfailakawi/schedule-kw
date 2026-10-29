@@ -26,7 +26,7 @@ export interface FeatureNotificationInput {
   termName?: string;
 }
 
-const WATCHERS = new Set(["dean", "viceDean", "registrarDean", "registrarHead", "registrarStaff", "admin"]);
+const WATCHERS = new Set(["dean", "viceDean", "registrarDean", "registrarHead", "collegeRegistrar", "registrarStaff", "admin"]);
 
 export function buildFeatureNotifications(input: FeatureNotificationInput): CenterNotification[] {
   const { role } = input;

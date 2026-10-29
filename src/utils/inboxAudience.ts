@@ -103,6 +103,9 @@ export function inboxAudience(role: unknown, { powerAdmin = false, scopes = [] a
   switch (id) {
     case "registrarHead":
       return { deadlinesPanel: "edit", registrarSignals: true, extendActions: true, rowLabel: "section", multiSite: null, department: false };
+    /* رئيسُ تسجيل الكلية يمدّد لكليته ولا يضع الموعد: يرى اللوحة قراءةً، وأزرارُ التمديد له. */
+    case "collegeRegistrar":
+      return { deadlinesPanel: "read", registrarSignals: true, extendActions: true, rowLabel: "section", multiSite: null, department: false };
     case "registrarStaff":
     case "registrarDean":
       return { deadlinesPanel: "read", registrarSignals: true, extendActions: false, rowLabel: "section", multiSite: null, department: false };

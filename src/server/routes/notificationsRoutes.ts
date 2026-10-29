@@ -57,7 +57,7 @@ import { approvalBlockerOptions } from "../core/smartImport";
  * مركز الإشعارات: ما بقي لكل صاحب صفة، مشتقّاً من حال الجداول لحظةَ السؤال.
  * النطاق هنا هو النطاق في كل مكان — لا يرى أحدٌ إشعاراً عن قسمٍ خارج نطاقه.
  */
-const REGISTRAR_NOTIFY_ROLES = new Set(["registrarHead", "registrarStaff"]);
+const REGISTRAR_NOTIFY_ROLES = new Set(["registrarHead", "collegeRegistrar", "registrarStaff"]);
 function studentQueueForTerm(termId: number): Promise<Map<string, StudentQueueEntry>> {
   const key = dataContextCacheKey(termId);
   return studentQueueMemo.get(key, async () => {

@@ -1522,6 +1522,7 @@ export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin =
           onTermChange={pickTerm}
           rows={inboxRows}
           canEdit={audience.deadlinesPanel === "edit"}
+          canExtend={audience.extendActions}
           onChanged={() => { setReloadKey(key => key + 1); void loadTerms(); }}
           extendFor={extendFor}
           focus={panelFocus}

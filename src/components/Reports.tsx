@@ -209,6 +209,7 @@ const ROLE_LENSES: Record<string, Lens[]> = {
   registrarDean:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
   registrarHead:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
   registrarStaff: ["balance", "list", "room", "occupancy", "roomInstructor", "courseRoom"],
+  collegeRegistrar: ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
 };
 
 /**

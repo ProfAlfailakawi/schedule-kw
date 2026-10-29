@@ -130,7 +130,8 @@ const snapshot = async () => JSON.stringify([(await Repository.getSections()).le
   const ids = new Set(courses.map(row => Number(row.AdCourseId)));
   check(live?.rules?.length === 32 && live.rules.every((rule: any) => (rule.prereq?.all || []).every((id: number) => ids.has(id))) && (live.externals || []).length === 0 && live.groups.length === 2, "V2د القواعد 32 ومسبقاتها من داخل القسم وحده ومجموعتا اختيار (فيهما مقرراتُ القسم وحدها) بلا متطلبات خارجية", [live?.rules?.length, live?.groups?.length]);
   const users = ((await Repository.getUsers()) as any[]).filter(row => /^tso/.test(row.SystemUserLogin));
-  check(users.length === 9 && users.every(row => row.IsActive === true), "V2د الحسابات التسعة فعّالة", users.length);
+  /* حسابٌ لكل صفة (ومنها «رئيس تسجيل الكلية»، docs/SEATS.md). */
+  check(users.length === ACADEMIC_ROLES.length && users.every(row => row.IsActive === true), "V2د حسابُ كل صفةٍ فعّال", users.length);
 }
 
 /* V3 + V4 */
@@ -199,7 +200,7 @@ const snapshot = async () => JSON.stringify([(await Repository.getSections()).le
   const users1 = (await Repository.getUsers()) as any[];
   const ok = (login: string) => { const u = users1.find(row => row.SystemUserLogin === login); return u.IsActive === true && Repository.verifyPassword("12345668", u.SystemUserPass) === true && String(u.SystemUserPass).startsWith("scrypt$") && (!Repository.encryptPasswordForVault("x") || Boolean(u.SystemUserPassVault)); };
   const mine = users1.filter(row => /^tsb/.test(row.SystemUserLogin) && row.SystemUserLogin !== "tsbdean");
-  check(done.ok && mine.length === 8 && mine.every(row => ok(row.SystemUserLogin)), "V5ج حسابات الأداة فعّالة بكلمة سرٍّ مُجزّأة ومحفوظة في الخزنة", done.accounts.map(row => `${row.login}:${row.status}`));
+  check(done.ok && mine.length === ACADEMIC_ROLES.length - 1 && mine.every(row => ok(row.SystemUserLogin)), "V5ج حسابات الأداة فعّالة بكلمة سرٍّ مُجزّأة ومحفوظة في الخزنة", done.accounts.map(row => `${row.login}:${row.status}`));
   check(JSON.stringify(users1.find(row => row.SystemUserLogin === "tsbdean")) === dean0, "V5ج حسابٌ له كلمة سرٍّ يُترك كما هو");
   check(JSON.stringify(users1.find(row => row.IsAdminUser)) === adminBefore, "V5ج الأدمن لم يُمسّ");
 }

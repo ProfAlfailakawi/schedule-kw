@@ -40,7 +40,9 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
   for (const role of ACADEMIC_ROLES) {
     const audience = inboxAudience(role.id);
     check(["edit", "read", null].includes(audience.deadlinesPanel as any), `A «${role.label}» لها قرارٌ صريح في اللوحة`);
-    check(audience.extendActions === (audience.deadlinesPanel === "edit"), `A «${role.label}»: أزرار التمديد مع التحرير وحده`);
+    /* رئيسُ تسجيل الكلية يمدّد ولا يضع الموعد (docs/SEATS.md): أزرارُ التمديد له واللوحةُ قراءة. */
+    const extendsOnly = role.id === "collegeRegistrar";
+    check(audience.extendActions === (audience.deadlinesPanel === "edit" || extendsOnly), `A «${role.label}»: أزرار التمديد مع التحرير، أو للمدّد وحده`);
   }
 
   const changes = read("src/components/ScheduleChanges.tsx");

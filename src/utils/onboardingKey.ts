@@ -14,7 +14,7 @@ export function onboardingSeenKey(userId: number | string, roleId: string | unde
  * ما عداها يرى الجولة العامّة نفسها التي كانت قبل N26 — جولة اللجنة.
  */
 export const ROLES_WITH_OWN_TOUR: ReadonlySet<string> = new Set([
-  "departmentHead", "registrarHead", "registrarStaff", "dean", "registrarDean", "viceDean",
+  "departmentHead", "registrarHead", "collegeRegistrar", "registrarStaff", "dean", "registrarDean", "viceDean",
 ]);
 
 /**
