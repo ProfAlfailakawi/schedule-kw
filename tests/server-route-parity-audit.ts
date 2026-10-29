@@ -39,6 +39,10 @@ const ROUTE_FIXTURE = path.join(ROOT, "tests/fixtures/server-route-table.json");
 const PAGE_FIXTURE = path.join(ROOT, "tests/fixtures/server-pages.json");
 const UPDATE = process.argv.includes("--update");
 const FORCE = process.argv.includes("--force");
+/* --source <ملف>: لقطةٌ من نسخةٍ غير مقسومة من server.ts غيرِ الموجودة (مثلاً بعد بدء التقسيم) */
+const SOURCE = process.argv.includes("--source") ? path.resolve(process.argv[process.argv.indexOf("--source") + 1]) : null;
+/** النقلُ يكتب `state.x` حيث كان `x` لمتغيّرٍ مشترك (core/state.ts): يُعدّ النصّان واحداً. */
+const sameAfterStateMove = (text: string) => text.replace(/\b(\w+): state\.\1\b/g, "$1").replace(/\bstate\.(\w+)/g, "$1");
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -86,7 +90,7 @@ function callSite(): { site: string; call: string | null } {
     };
     visit(sf);
     const rel = path.relative(ROOT, file).replace(/^server\.parity-\d+\.ts$/, "server.ts");
-    return { site: `${rel}:${line}`, call: best ? (best as import("typescript").CallExpression).getText(sf) : null };
+    return { site: `${rel}:${line}`, call: best ? sameAfterStateMove((best as import("typescript").CallExpression).getText(sf)) : null };
   }
   return { site: "express", call: null };
 }
@@ -122,7 +126,7 @@ const listened = new Promise<any>(resolve => { resolveListen = resolve; });
 };
 
 /* ── المدخل: server.ts، أو نسخةٌ منه تصدّر بُناةَ الصفحات إن لم يُقسَم بعد ── */
-const serverText = fs.readFileSync(path.join(ROOT, "server.ts"), "utf8");
+const serverText = fs.readFileSync(SOURCE || path.join(ROOT, "server.ts"), "utf8");
 const unsplit = /^(?:async )?function \w+Page\(/m.test(serverText);
 if (UPDATE && !unsplit && !FORCE) {
   console.error("اللقطةُ تؤخذ من server.ts قبل التقسيم. (--force لأخذها من المقسوم.)");
