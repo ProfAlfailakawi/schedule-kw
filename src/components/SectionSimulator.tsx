@@ -14,7 +14,7 @@ import {
 import type { DayKey } from "../utils/scheduleIntelligence";
 import ScenarioWorkbench from "./ScenarioWorkbench";
 import { Ico, Loading, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
-import { AR, nounFor } from "../utils/arabicCount";
+import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { useCourseSheets } from "./useCourseSheets";
 import { inNewSheet, SHEET_TAG_LABEL, type SheetTag } from "../utils/sheetTag";
 import "../styles/39-sections-courses.css";
@@ -82,7 +82,7 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
     <div className="tm-sim">
       <ul className="tm-kpis" aria-label="ملخص الشعب">
         <li><Ico n="sections" className="tm-kpi-ico" /><b>{totals.sections}</b><small>{nounFor(totals.sections, AR.section)}</small></li>
-        <li title={totals.unknownSeats ? `${totals.unknownSeats} شعبة سعتها غير محددة ولم تُحسب` : undefined}><Ico n="seats" className="tm-kpi-ico" /><b>{totals.seats}</b><small>{nounFor(totals.seats, AR.seat)}{totals.unknownSeats ? ` · ${totals.unknownSeats} غير محددة` : ""}</small></li>
+        <li title={totals.unknownSeats ? `${countOf(totals.unknownSeats, AR.section)}: السعة غير محددة ولم تُحسب` : undefined}><Ico n="seats" className="tm-kpi-ico" /><b>{totals.seats}</b><small>{nounFor(totals.seats, AR.seat)}{totals.unknownSeats ? ` · ${totals.unknownSeats} غير محددة` : ""}</small></li>
         <li><Ico n="students" className="tm-kpi-ico" /><b>{totals.students ?? "—"}</b><small>{nounFor(totals.students ?? 0, AR.student)} · رادار</small></li>
         <li className={totals.vacant ? "is-warn" : ""}><Ico n="vacant" className="tm-kpi-ico" /><b>{totals.vacant}</b><small>شاغرة</small></li>
       </ul>

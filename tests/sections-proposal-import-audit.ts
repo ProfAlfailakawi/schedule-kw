@@ -169,10 +169,10 @@ const context: TmContext = {
   const xfer = read("src/components/ScheduleTransfer.tsx");
   check(/ImportDryRun/.test(xfer) && /DryRunOffer/.test(xfer) && /PDF_TARGET_TERM_OCCUPIED/.test(xfer) && /versions\/\$\{encodeURIComponent\(versionId\)\}\/restore/.test(xfer),
     "6.5 الواجهة: عرضُ التجربة حين يمتلئ الفصل، والفرقُ مرسوماً، و«تراجع»");
-  check(/!dryDiff \?/.test(xfer), "6.6 زرّ النشر العادي لا يظهر مع الفرق (لا كتابة إلا «طبّق»)");
+  check(/\(dryDiff \? null :/.test(xfer), "6.6 زرّ النشر العادي لا يظهر مع الفرق (لا كتابة إلا «طبّق»)");
   check(/setTermRowsFailed\(true\)/.test(xfer) && /<DryRunBaselineFailed/.test(xfer) && /onRetry=\{\(\) => void loadTermRows\(\)\}/.test(xfer),
     "6.5b تعذّرُ قراءة الجدول الحالي يُقال ومعه «أعد المحاولة»");
-  check(/importReady && publishGateSatisfied && !dryDiff \?/.test(xfer) && !/publishGateSatisfied && !dryRunActive/.test(xfer),
+  check(/importReady && publishGateSatisfied \? \(dryDiff \? null :/.test(xfer) && !/publishGateSatisfied && !dryRunActive/.test(xfer),
     "6.5c زرّ النشر العادي لا يُخفى إلا حين يُرسم الفرق فعلاً");
   check(/applyWithOverwriteConfirm\("restore"[\s\S]{0,400}dryApplied|undoDryApply[\s\S]{0,900}applyWithOverwriteConfirm\("restore"/.test(xfer), "6.5d «تراجع» يسأل قبل محو ما تغيّر بعد «طبّق»");
   const dry = read("src/components/ImportDryRun.tsx");

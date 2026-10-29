@@ -1765,7 +1765,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                         {importReady && !publishGateSatisfied ? (
                           <p className="transfer-preflight-wait" role="status">جارٍ فحص التعارض مع بقية الأقسام في هذا الفصل…</p>
                         ) : null}
-                        {importReady && publishGateSatisfied && !dryDiff ? (
+                        {/* مع «تجربة بلا حفظ» مرسومةً، «طبّق» في بطاقتها هو الطريق الوحيد للكتابة. */}
+                        {importReady && publishGateSatisfied ? (dryDiff ? null :
                           <PrimaryButton type="button" data-guide-ignore="إجراء استيراد له تحقق ومراجعة ونقطة أمان خاصة داخل نفس النافذة" onClick={() => void saveExcelDraft(true)} disabled={busy || !importReady}>
                             {busy ? "يجهّز…" : fromPlanning ? <><Layers aria-hidden="true" /> {planningMeta.added > 0 ? `نزّل ${countOf(planningMeta.added, AR.section)} في الجدول` : "نزّل التعديلات في الجدول"}</> : importKind === "authority-pdf" && Number(xlsxPreview.count || 0) === 0 ? "اعتماد حذف جميع مواعيد PDF ونشره" : `تعبئة ${countOf(Number(xlsxPreview.count || 0), AR.appointment)} ونشرها`}
                           </PrimaryButton>

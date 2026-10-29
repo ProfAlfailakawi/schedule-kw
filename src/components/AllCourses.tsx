@@ -158,7 +158,7 @@ function CourseCard({ code, name, tag, now, after, delta, impact, none, onAdd, o
       <div className="ac-facts">
         <span className="ac-fact" title="الشعب"><Ico n="sections" /><b>{after.sections}</b><small>{after.sections ? nounFor(after.sections, AR.section) : "غير مطروح"}</small></span>
         <span className="ac-fact" title="المقاعد ذات السعة المعروفة"><Ico n="seats" /><b>{after.seats}</b><small>{after.unknownSections ? `+ ${after.unknownSections} غير محددة` : nounFor(after.seats, AR.seat)}</small></span>
-        <span className="ac-fact" title="الطلب من رادار التسجيل"><Ico n="students" /><b>{wanted ?? "—"}</b><small>طلب</small></span>
+        <span className="ac-fact" title="الطلب من رادار التسجيل"><Ico n="students" /><b>{wanted ?? "—"}</b><small>الطلب</small></span>
         <span className={`ac-fact ${after.withoutSeat ? "is-bad" : ""}`} title="طلبة بلا مقعد"><UserX aria-hidden="true" className="tm-ico tm-ico-remove" /><b>{after.withoutSeat ?? "—"}</b><small>بلا مقعد</small></span>
       </div>
       <div className="ac-bar" role="img" aria-label={`المقاعد ${after.seats}${wanted !== null ? ` مقابل طلب ${wanted}` : ""}`}>
@@ -184,7 +184,7 @@ function ImpactStrip({ impact, onUndo }: { impact: CourseImpact; onUndo: () => v
       <header><span><Ico n={impact.kind === "add" ? "add" : "remove"} />{impact.kind === "add" ? "+ شعبة" : "− شعبة"} · {impact.what}</span>
         <button type="button" onClick={onUndo} aria-label="تراجع" title="تراجع" data-guide-ignore="تراجعٌ عن تغييرٍ افتراضي"><Undo2 /></button></header>
       <div className="ac-impact-grid">
-        <div className={`tm-impact-tile ${a.seats < b.seats ? "is-bad" : a.seats > b.seats ? "is-good" : ""}`}><Ico n="seats" className="tm-tile-ico" />{arrow(b.seats, a.seats)}<small>مقاعد{a.wanted !== null ? ` · طلب ${a.wanted}` : ""}</small></div>
+        <div className={`tm-impact-tile ${a.seats < b.seats ? "is-bad" : a.seats > b.seats ? "is-good" : ""}`}><Ico n="seats" className="tm-tile-ico" />{arrow(b.seats, a.seats)}<small>المقاعد{a.wanted !== null ? ` · الطلب ${a.wanted}` : ""}</small></div>
         <div className={`tm-impact-tile ${worse(b.withoutSeat, a.withoutSeat) ? "is-bad" : a.withoutSeat !== null && b.withoutSeat !== null && a.withoutSeat < b.withoutSeat ? "is-good" : ""}`}><Ico n="students" className="tm-tile-ico" />{arrow(b.withoutSeat ?? "—", a.withoutSeat ?? "—")}<small>بلا مقعد</small></div>
         {impact.teacher ? (
           <div className={`tm-impact-tile ${impact.teacher.limit && impact.teacher.after > impact.teacher.limit ? "is-bad" : ""}`}><Ico n="teachers" className="tm-tile-ico" />{arrow(impact.teacher.before, impact.teacher.after)}
