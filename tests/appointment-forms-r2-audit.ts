@@ -16,7 +16,7 @@ import { bestRegulationChoice, completeRegulation, regulationFit } from "../src/
 import { sectionWeeklyHours, weeklyLectureMinutes } from "../src/utils/scheduleRegulations";
 import { appointmentVerdict } from "../src/utils/appointmentVerdict";
 import { placeholderMatch } from "../src/utils/placeholderMatch";
-import { lectureStickOptions, teacherLectures, toClock } from "../src/utils/teacherMiniWeek";
+import { fitsCoursePattern, lectureStickOptions, teacherLectures, toClock } from "../src/utils/teacherMiniWeek";
 import { readServerSource } from "./helpers/serverSource.mjs";
 import { waitForDemoSeed } from "./helpers/demoSeed";
 
@@ -124,6 +124,19 @@ const theory3 = { CourseHours: 3, CourseTeachingMode: "theoretical" };
   check(before && toClock(before.spot.start) === "09:00" && toClock(before.spot.end) === "09:50", "S3 «قبلها» = البداية − الفاصل − مدة النمط", before?.spot);
   check(after?.room?.roomId === "r1", "S4 تلميح القاعة للإدارة: قاعة المحاضرة إن خلت");
   check(options[0].spot.days[0] === "fsunday" && options.at(-1)!.spot.days[0] === "fmonday", "S5 مرتبةٌ بالأسبوع");
+  /* مراجعة PR #299: شريحةٌ خارج نمط المقرر كانت تُطبَّق ثم يعيد الإكمالُ كتابتها (يومٌ لم يُفحص). */
+  const offPattern = teacherLectures([row(5, ["fsunday", "ftuesday"], "10:00", "10:50")], 7, 1, 0, 1);
+  check(lectureStickOptions(offPattern, [], theory3, { start: 8 * 60, end: 20 * 60 }, { minutes: 50 }).length === 0
+    && !fitsCoursePattern(theory3, { days: ["fsunday", "ftuesday"], start: 600, end: 650 }) && fitsCoursePattern({}, { days: ["fsunday", "ftuesday"], start: 600, end: 650 }),
+    "S8 لا شريحة خارج أنماط المقرر المعتمدة (أحد·ثلاثاء 50د لمقرر 3 ساعات) — ما يُعرض هو ما يُطبَّق ويُفحص");
+  check(/setTimingOverride\(!fitsCoursePattern\(formCourse, \{ days: pick\.days, start: mins\(pick\.start\), end: mins\(pick\.end\) \}\)\)/.test(read("src/components/Schedules.tsx")),
+    "S9 «قبلها/بعدها» من جدول الأستاذ خارج النمط تبقى تجاوزاً صريحاً لا يُعاد كتابته");
+  {
+    const quickSrc = read("src/components/QuickCreatePopover.tsx");
+    check(/holdOpen\.current = replaceBusy;/.test(quickSrc) && /if \(e\.key === "Escape"\) \{ if \(holdOpen\.current/.test(quickSrc)
+      && /if \(holdOpen\.current \|\| \(e\.target instanceof Element && e\.target\.closest\(/.test(quickSrc),
+      "Q1 تأكيد فعل «هيئة تدريسية» لا يُغلق «موعد جديد» السريع ولا يهمل مسوّدته (ضغطٌ خارجها أو Esc)");
+  }
   const editor = read("src/components/Schedules.tsx"), chips = read("src/components/LectureStickChips.tsx");
   check(/<LectureStickChips[\s\S]{0,600}onPick=\{pickFromMiniWeek\}/.test(editor) && /excludeId=\{editor === "edit" \? Number\(editId \|\| 0\) : 0\}/.test(editor), "S6 في «جديد» و«تعديل»، وضغطةٌ تملأ اليوم والوقت (والقاعة إن لم تُختر)");
   check(/lectureStickOptions\(/.test(chips) && /lecture-stick-room/.test(chips) && /useWiderWeek\(/.test(chips), "S7 الشرائح من المعادلة الواحدة، بتلميح القاعة، وأسبوع الأستاذ كاملاً");

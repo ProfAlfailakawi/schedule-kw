@@ -260,15 +260,20 @@ export default function QuickCreatePopover({
     firstField.current?.focus();
   }, []);
 
+  /* تأكيدُ فعلٍ على خانة «هيئة تدريسية» يُفتح نافذةً خارج البطاقة: لا يُعدّ ضغطُها ولا Esc فيها
+     خروجاً يهمل المسوّدة — فإن فشل الفعل بقيت المسوّدة لإعادة المحاولة. */
+  const holdOpen = useRef(false);
+  holdOpen.current = replaceBusy;
   // Escape closes; a press anywhere outside closes. Both are the same promise —
   // nothing here is saved until «إنشاء» is pressed, so leaving costs nothing.
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       /* قائمةُ مقررٍ مفتوحة داخل البطاقة تأخذ Escape وحدها (تُغلق هي)، فلا تُهمل المسوّدة. */
-      if (e.key === "Escape") { if (ref.current?.querySelector(".ss-pop") || ref.current?.querySelector(".instructor-pop")) return; e.stopPropagation(); onCancel(); }
+      if (e.key === "Escape") { if (holdOpen.current || ref.current?.querySelector(".ss-pop") || ref.current?.querySelector(".instructor-pop")) return; e.stopPropagation(); onCancel(); }
     };
     const away = (e: PointerEvent) => {
       if (!ref.current || ref.current.contains(e.target as Node) || sideRef.current?.contains(e.target as Node)) return;
+      if (holdOpen.current || (e.target instanceof Element && e.target.closest('[role="dialog"],[role="alertdialog"],[aria-modal="true"]'))) return;
       onCancel();
     };
     window.addEventListener("keydown", key, true);

@@ -180,6 +180,7 @@ import { adviseDayPattern, DECISION_1912_LABEL, expectedMinutesForDay, isDecisio
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { rowClashReasons } from "../utils/scheduleBlockers";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
+import { fitsCoursePattern } from "../utils/teacherMiniWeek";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
 import { historicalLocationNeedsReview, normalizeLocationToken, roomDisplay, roomIdentityKey } from "../utils/locationRegistry";
 import { findRepairChain, type RepairChain } from "../utils/repairChain";
@@ -4046,7 +4047,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const pickFromMiniWeek = (pick: MiniPick) => {
     setScheduleTouched(true);
     daysSeeded.current = false;
-    setTimingOverride(false);
+    /* موضعٌ خارج نمط المقرر (قبلها/بعدها على أيام محاضرةٍ بنمطٍ آخر) يبقى كما اختير تجاوزاً صريحاً:
+       ما فُحص هو ما يُحفظ، ولا يضيف الإكمال اللائحي يوماً لم يُفحص. */
+    setTimingOverride(!fitsCoursePattern(formCourse, { days: pick.days, start: mins(pick.start), end: mins(pick.end) }));
     setRegulationAlternatives(regulationChoicesForDay(formCourse, pick.day).filter(choice => choice.days.join("+") !== pick.days.join("+")));
     setForm(previous => {
       const next: any = { ...previous };

@@ -8,7 +8,7 @@
  */
 import type { AdCourse, FSchedule } from "../types";
 import { DAY_KEYS, requiredGapForDays, type DayKey } from "./scheduleRegulations";
-import { regulationChoiceFor, regulationChoicesForDay, type RegulationCourse } from "./appointmentRegulation";
+import { regulationChoiceFor, regulationChoicesForDay, regulationHours, type RegulationCourse } from "./appointmentRegulation";
 import { instructorGapStats } from "./scheduleIntelligence";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
 import { stickCandidates } from "./lectureStick";
@@ -218,6 +218,14 @@ export function teacherHeader(
   };
 }
 
+/** موضعٌ يطابق نمطاً معتمداً لساعات المقرر (الأيام والمدة) — أو مقررٌ بلا ساعات فلا نمط يُخالَف.
+    فما يُعرض شريحةً هو ما يُطبَّق ويُفحص بالضبط، ولا يعيد الإكمال اللائحي كتابته بعد الضغط. */
+export function fitsCoursePattern(course: RegulationCourse | null | undefined, spot: Pick<MiniTarget, "days" | "start" | "end">): boolean {
+  if (!regulationHours(course)) return true;
+  const choice = regulationChoiceFor(course, spot.days);
+  return Boolean(choice && choice.minutes === spot.end - spot.start);
+}
+
 export interface StickOption {
   key: string;
   side: "before" | "after";
@@ -246,7 +254,7 @@ export function lectureStickOptions(
     for (const side of ["before", "after"] as const) {
       const spot = adjacentPlacement(lecture, side, course, lectures, window, { minutes: options.minutes, fixedDays: options.fixedDays });
       /* محاضرتان متتاليتان قد تقودان إلى الموضع نفسه (الملاصق مأخوذ → +30/+60): شريحةٌ واحدة له. */
-      if (!spot || out.some(item => item.spot.start === spot.start && item.spot.end === spot.end && item.spot.days.join("+") === spot.days.join("+"))) continue;
+      if (!spot || !fitsCoursePattern(course, spot) || out.some(item => item.spot.start === spot.start && item.spot.end === spot.end && item.spot.days.join("+") === spot.days.join("+"))) continue;
       out.push({ key: `${lecture.id}:${side}`, side, lecture, spot, room: lecture.otherCollege ? null : adjacentRoom(lecture, spot, rows, options.excludeId || 0) });
     }
   }
