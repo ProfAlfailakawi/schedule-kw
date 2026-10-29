@@ -12,6 +12,7 @@ test:companion-rooms
 test:room-occupancy
 test:doctor-journey
 test:calendar-ics
+test:review-audit-1028
 test:owner-features-1028
 test:ta-phase-flow
 test:staff-global
