@@ -164,6 +164,8 @@ import { buildCalendar, buildReminder, calendarSpanForTerm, type CalendarLecture
 import { CALENDAR_LINKS_CLIENT_JS } from "./src/utils/calendarLinks";
 import { forgetOfferingStates, offeringStatesForTerm } from "./src/server/offeringStates";
 import { TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS } from "./src/server/teacherCardExtras";
+import { pushHooks, registerPushRoutes } from "./src/server/pushRoutes";
+import { PUSH_CARD_CSS, PUSH_CARD_JS, pushCardHead } from "./src/server/pushCard";
 import { issueLinkMode, linkMode, linkModeLabel, modeAllowsFreeEdit, modeAllowsWrite, taPhaseOwns } from "./src/utils/linkMode";
 import { isTaRequest, notOpened } from "./src/utils/requestParticipation";
 import { bestPerSide, stickCandidates, topSticks, type StickAnchor, type StickJudged } from "./src/utils/lectureStick";
@@ -19330,6 +19332,8 @@ function publicPageNonce(res: Response): string {
     "connect-src 'self'",
     /* manifest-src يرجع إلى default-src 'none' فيُحجب `<link rel=manifest>` (تثبيتُ «مساري» مستقلاً). */
     "manifest-src 'self'",
+    /* عاملُ تنبيهات الكرت (/push-sw.js): بلا هذا يرجع worker-src إلى script-src بالـnonce فيُحجب التسجيل. */
+    "worker-src 'self'",
     "base-uri 'none'",
     /* 'self', not 'none': the survey form is submitted by script and normally
        never navigates, but if that script ever fails the browser falls back to a
@@ -21770,6 +21774,7 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
     ...stored, items, timeline,
     status: decided ? "settled" : "in-review",
   });
+  pushHooks.requestDecided(saved, index);
   res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });
 
@@ -22067,6 +22072,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
     } catch { warnings.push({ message: "ثُبّت الطلب؛ تعذّر تحديث سجل النسخة أو الإشعار. راجع حركة الجدول." }); }
   }
   const saved = committed.request;
+  pushHooks.requestFixed(saved, chain);
   res.locals.auditChanges = `تثبيت رغبة أستاذ (${String(instructor?.AdInstructorName || "")}): ` + plan.map(step =>
     `${step.action === "delete" ? "حذف" : step.action === "create" ? "إضافة" : "نقل"} ${step.days.map(dayLabelOf).join(" و")} ${formatScheduleTimeRange(step.start, step.end)}`).join(" · ");
   res.locals.auditRowIds = [...committed.rows.map(row => row.id), ...ops.filter(op => op.kind === "delete").map(op => (op as any).rowId)];
@@ -22122,6 +22128,7 @@ app.post("/api/instructor-requests/:id/reply", requirePermission(7), async (req:
     timeline: [...(stored.timeline || []), { kind: "department-replied" as InstructorRequestEventKind, at: now, by, itemIndex: index }],
   });
   broadcastNotify(Repository.currentDemoSessionId());
+  pushHooks.departmentReplied(saved, index);
   res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });
 
@@ -22428,6 +22435,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
 
   res.setHeader("Cache-Control", "no-store");
   if (!unchangedConfirmed) broadcastNotify(Repository.currentDemoSessionId());
+  if (!unchangedConfirmed) pushHooks.requestSubmitted(saved);
   res.json({ request: stripForInstructor(saved), changed, unchangedConfirmed });
 });
 
@@ -22527,6 +22535,7 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
   }, acceptAt >= 0 ? await requestReservationProposals(judged) : undefined);
   res.setHeader("Cache-Control", "no-store");
   broadcastNotify(Repository.currentDemoSessionId());
+  pushHooks.teacherReplied(saved, [index], acceptAt >= 0);
   res.json({ request: stripForInstructor(await judgeRequestItems(saved)) });
 });
 
@@ -22586,6 +22595,7 @@ app.post("/api/public/request/:token/reply-batch", rateLimitPublicRequest, async
     timeline: [...(resolved.request.timeline || []), ...[...indexes].map(itemIndex => ({ kind: "proposal-accepted" as const, at: now, itemIndex }))],
   }, await requestReservationProposals(judged));
   res.setHeader("Cache-Control", "no-store"); broadcastNotify(Repository.currentDemoSessionId());
+  pushHooks.teacherReplied(saved, [...indexes], true);
   res.json({ request: stripForInstructor(await judgeRequestItems(saved)) });
 });
 
@@ -22613,6 +22623,7 @@ function instructorRequestPage(token: string, nonce: string, demoHint = ""): str
 <meta name="color-scheme" content="light"><meta name="theme-color" content="#f2f3ef">
 <title>جدولي — طلب تعديل</title>
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/schedule-icon-192.png">
+${pushCardHead(token)}
 <style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}
 ${typeof ACADEMIC_ADVICE_CSS !== "undefined" ? ACADEMIC_ADVICE_CSS : ""}
 :root{color-scheme:light dark;--ink:#15251d;--muted:#627269;--muted2:#8b9991;--line:#dce5df;--line2:#cbd8d0;--bg:#fff;--card:#fff;
@@ -22733,6 +22744,7 @@ ${PATTERN_LIBRARY_CSS}
 .plib-pop{position:fixed;inset-inline:12px;inset-block-start:9vh;z-index:60;margin-inline:auto;inline-size:auto;max-inline-size:440px;max-block-size:80vh;overflow:auto;padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:0 24px 60px rgba(22,57,40,.25)}
 ${REQUEST_VISUAL_CSS}
 ${TEACHER_CARD_EXTRAS_CSS}
+${PUSH_CARD_CSS}
 /* Completed unchanged request: minimal signed confirmation, no review pathway. */
 .confirm-wrap{max-width:570px;margin:clamp(32px,9vh,82px) auto 20px;text-align:center}
 .confirm-card{position:relative;overflow:hidden;padding:clamp(24px,6vw,44px) 22px 27px;border:1px solid #cde4d7;border-radius:28px;background:linear-gradient(155deg,#f0f8f3 0%,#fff 58%,#f6f9f5 100%);box-shadow:0 18px 55px rgba(31,107,92,.09)}
@@ -22756,6 +22768,7 @@ ${TEACHER_CARD_EXTRAS_CSS}
 ${PUBLIC_KIT_SCRIPT}
 ${CALENDAR_LINKS_CLIENT_JS}
 ${TEACHER_CARD_EXTRAS_JS}
+${PUSH_CARD_JS}
 var PLIB=${JSON.stringify(patternLibraryHtml(patternLibraryInput()))},PLIB_ICON=${JSON.stringify(PATTERN_LIBRARY_ICON)};
 document.addEventListener("click",function(e){var d=document.querySelector(".plib[open]");if(d&&!d.contains(e.target))d.removeAttribute("open")});
 var TOKEN=${JSON.stringify(token)},host=document.getElementById("host"),demoNode=document.querySelector("#demoTop .demo-hint"),demoOpen=false,data=null,state=[],activeTab="schedule",chooserOpen=false,offeringsOpen=false,offeringSearch="";
@@ -24279,6 +24292,7 @@ async function dispatchTaWaves(id: string, by: { SystemUserId?: number; UserName
   const out = [];
   for (const wave of claimed.result) out.push(...await sendTaWave(doc, wave, by));
   if (out.length) broadcastNotify(Repository.currentDemoSessionId());
+  if (out.length) pushHooks.taWindowOpened(doc.closesAt, out);
   return out;
 }
 
@@ -24970,6 +24984,14 @@ registerTimeMachineRoutes(app, {
   normalizer: async () => { const registry = await readLocationRegistry(); return row => canonicalizeHistoricalLocationForRuntime(row, registry); },
   lengthIssue: (row, week) => scheduleLengthIssue(row, week),
   dataContextKey: dataContextCacheKey,
+});
+
+/* ── 🔔 تنبيهاتُ الجوال (Web Push): المساراتُ والمفتاح وخطافاتُ الأحداث في src/server/pushRoutes.ts ── */
+registerPushRoutes(app, {
+  requireAuth,
+  isScopeAllowed: (req, collegeId, sectionId) => isScopeAllowed(req, collegeId, sectionId),
+  isPowerUser: req => isPowerUser(req),
+  resolveCard: async token => { const resolved = await resolveRequestLink(token); return "error" in resolved ? null : { token: resolved.link.id, instructorId: Number(resolved.request.AdInstructorId) }; },
 });
 
 /* ── مساري: رابطٌ دائمٌ واحدٌ للجامعة كلها ────────────────────────────

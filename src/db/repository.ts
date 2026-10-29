@@ -95,6 +95,7 @@ import { kuwaitDayOfIso, recordLinkOpen } from "../utils/linkOpens";
 import type { LinkMode } from "../utils/linkMode";
 import { unchangedScheduleFingerprint } from "../utils/instructorRequestConfirmation";
 import { foreignWrites, type BeaconCount } from "./beaconEcho";
+import type { PushSubscriptionRecord } from "../server/webPush";
 
 // Runtime state must not live inside the replaceable application release. A number of
 // deployment/upload tools synchronize an archive by deleting destination files that are
@@ -295,6 +296,8 @@ interface DBState {
   departmentFaculty?: DepartmentDelegateDirectory[];
   /** «المقروء» في جرس الإشعارات لكل مستخدم (src/utils/notificationSeen.ts). */
   notificationSeen?: Array<{ userId: number; ids: string[]; updatedAt: string }>;
+  /** اشتراكاتُ تنبيهات الجوال (src/server/webPush.ts): سجلٌّ لكل جهاز. */
+  pushSubscriptions?: PushSubscriptionRecord[];
   locationBuildings?: MasterBuilding[];
   locationRooms?: MasterRoom[];
   locationRoomTypes?: string[];
@@ -7746,6 +7749,68 @@ export const Repository = {
     const merged = mergeSeenIds(stored, added);
     if (!seenUnchanged(stored, merged)) { row.ids = merged; row.updatedAt = new Date().toISOString(); saveDatabase(); }
     return merged;
+  },
+
+  /* ── تنبيهاتُ الجوال (Web Push): سجلٌّ لكل جهاز ──────────────────────────────
+   * المعرّفُ بصمةُ رابط الاشتراك، فالجهازُ الواحد سجلٌّ واحد: اشتراكُه من جديد
+   * (حسابٌ آخر على الهاتف نفسه، أو كرتٌ آخر) يستبدل صاحبَه ولا يتكرّر. في Firestore
+   * مجموعةُ pushSubscriptions باستعلام حقلٍ واحد (فهرسٌ تلقائي)؛ وفي العرض ذاكرةُ
+   * الصندوق نفسه، فلا يبلغ تنبيهٌ تجريبيٌّ جهازاً خارج صندوقه. */
+  getPushSubscription: async (id: string): Promise<PushSubscriptionRecord | null> => {
+    const key = String(id || "");
+    if (!/^[0-9a-f]{64}$/.test(key)) return null;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("pushSubscriptions").doc(key).get();
+      return doc.exists ? (doc.data() as PushSubscriptionRecord) : null;
+    }
+    return (db.pushSubscriptions || []).find(row => row.id === key) || null;
+  },
+
+  listPushSubscriptions: async (filter: { userId?: number; cardToken?: string; instructorId?: number; ownerKind?: "user" | "card" }): Promise<PushSubscriptionRecord[]> => {
+    const matches = (row: PushSubscriptionRecord) =>
+      (filter.userId == null || Number(row.userId) === Number(filter.userId))
+      && (filter.cardToken == null || row.cardToken === filter.cardToken)
+      && (filter.instructorId == null || Number(row.instructorId) === Number(filter.instructorId))
+      && (filter.ownerKind == null || row.ownerKind === filter.ownerKind);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const collection = firestoreDb.collection("pushSubscriptions");
+      const query = filter.cardToken != null ? collection.where("cardToken", "==", filter.cardToken)
+        : filter.userId != null ? collection.where("userId", "==", Number(filter.userId))
+        : filter.instructorId != null ? collection.where("instructorId", "==", Number(filter.instructorId))
+        : filter.ownerKind != null ? collection.where("ownerKind", "==", filter.ownerKind)
+        : collection.limit(500);
+      const snap = await query.limit(500).get();
+      return snap.docs.map(doc => doc.data() as PushSubscriptionRecord).filter(matches);
+    }
+    return (db.pushSubscriptions || []).filter(matches).map(row => ({ ...row }));
+  },
+
+  savePushSubscription: async (record: PushSubscriptionRecord): Promise<PushSubscriptionRecord> => {
+    const row: PushSubscriptionRecord = Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)) as PushSubscriptionRecord;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("pushSubscriptions").doc(row.id).set(row, { merge: false });
+      return row;
+    }
+    const rest = (db.pushSubscriptions || []).filter(item => item.id !== row.id);
+    /* سقفٌ للصندوق: زائرُ عرضٍ لا يملأ الذاكرة باشتراكاتٍ وهمية. */
+    db.pushSubscriptions = [...rest, row].slice(-200);
+    saveDatabase();
+    return row;
+  },
+
+  deletePushSubscription: async (id: string): Promise<boolean> => {
+    const key = String(id || "");
+    if (!/^[0-9a-f]{64}$/.test(key)) return false;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("pushSubscriptions").doc(key).delete();
+      return true;
+    }
+    const before = db.pushSubscriptions || [];
+    const after = before.filter(row => row.id !== key);
+    if (after.length === before.length) return false;
+    db.pushSubscriptions = after;
+    saveDatabase();
+    return true;
   },
 
   createScheduleDecisionMemory: async (entry: Omit<ScheduleDecisionMemory, "id" | "createdAt">): Promise<ScheduleDecisionMemory> => {
