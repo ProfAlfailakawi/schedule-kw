@@ -184,5 +184,6 @@ test:ta-conversion
 test:unchanged-request
 test:unchanged-request-http
 test:course-number-seven-digit
+test:report-stamp
 test:live-pulse
 test:live-pulse-http

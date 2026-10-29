@@ -99,6 +99,9 @@ export function roleWriteDecision(input: RoleGuardInput): RoleGuardVerdict {
   // This POST only calculates free time. The endpoint separately checks
   // permission 14 and every participant against the head's department.
   if (input.method.toUpperCase() === "POST" && input.path === "/schedules/meeting-slots" && roleDefinition(input.role).id === "departmentHead") return { allowed: true, reason: "read" };
+  // ختمُ الورقة المطبوعة (utils/reportStamp): سجلُّ ما طُبع، لا تعديلٌ على الجدول. يطبعه
+  // رئيس القسم والتسجيل والعميد كما يطبعه غيرهم، والمسار نفسه يتحقق من الدخول والنطاق.
+  if (input.method.toUpperCase() === "POST" && input.path === "/report-stamps") return { allowed: true, reason: "read" };
   if (roleDefinition(input.role).id === "departmentHead" && DEPARTMENT_PLAN_REVIEW_WRITES.has(input.path)) return { allowed: true, reason: "approval" };
   /* رصيد مقاعد المرشد (L3): بابٌ أضيق للمرشد وحده — إضافةُ مقعدٍ من رصيده وطلبُ استثناء. لا جدول ولا اعتماد. */
   if (isAdvisorRole(input.role) && input.method.toUpperCase() === "POST" && ADVISOR_SEAT_WRITES.has(input.path)) return { allowed: true, reason: "approval" };

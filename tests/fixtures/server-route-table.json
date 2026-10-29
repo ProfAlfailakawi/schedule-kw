@@ -1820,6 +1820,43 @@
    "methods": [
     "post"
    ],
+   "path": "/api/report-stamps",
+   "name": "bound dispatch",
+   "call": "ddeec4886ac207b8",
+   "site": "src/server/routes/reportsRoutes.ts",
+   "regexp": "/^\\/api\\/report-stamps\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "middleware",
+   "methods": [],
+   "path": "/v/:code",
+   "name": "wrapped",
+   "call": "1fbe68efc13457a5",
+   "site": "src/server/routes/reportsRoutes.ts",
+   "regexp": "/^\\/v(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
+   "end": false
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": [
+    "/v",
+    "/v/:code"
+   ],
+   "name": "bound dispatch",
+   "call": "fed220845a3a0a1d",
+   "site": "src/server/routes/reportsRoutes.ts",
+   "regexp": "/^\\/v\\/?$|^\\/v(?:\\/([^/]+?))\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
    "path": "/api/schedules/meeting-slots",
    "name": "bound dispatch",
    "call": "352fc76136093eb7",
