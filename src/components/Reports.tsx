@@ -3596,7 +3596,10 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           visitingScopeSites={familyTeaching?.complete ? familyTeaching.family.map(item => item.collegeName).filter(Boolean) : undefined}
           visitingPlace={visitingPlaceLabel}
           siteGroups={branchSiteGroups}
-          approval={printApproval}
+          /* ختم الاعتماد وتواقيعه لقسمٍ واحد: القسم المختار. ورقة «لوحة القرار» للعميد
+             والمدير تضم أقسام الكلية كلها، فلو حملت ختم القسم المختار لوقّع على أقسامٍ
+             لم تُعتمد. فلا تحمله إلا إن كانت أقسامها هي القسم المختار وحده. */
+          approval={printKind === "decision" && !decisionPrintDepartments.every(entry => entry.sectionId === Number(filters.sectionId)) ? null : printApproval}
           stampCode={comprehensiveStamp?.code}
           stampOrigin={stampOrigin}
           changesAppendix={changesAppendix}

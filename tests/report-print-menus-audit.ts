@@ -87,6 +87,8 @@ const base = { normalize: (value: string) => value, nameOf: (id: number) => name
 
   check(reports.includes("onPrintData={reportDecisionDepartment}"), "لوحة القرار تبلّغ الشاشة بما تعرضه لتُطبع");
   check(reports.includes('courseRoom={printKind === "courseRoom" ? roomTypeMismatches'), "ورقة «المقررات × القاعات» تأخذ مخالفات العرض نفسه");
+  check(reports.includes('approval={printKind === "decision" && !decisionPrintDepartments.every(entry => entry.sectionId === Number(filters.sectionId)) ? null : printApproval}'),
+    "ورقة «لوحة القرار» لأقسام الكلية لا تحمل ختم القسم المختار وتواقيعه");
   const board = fs.readFileSync(path.join(process.cwd(), "src/components/DecisionBoard.tsx"), "utf8");
   check(/onPrintData\(\{/.test(board) && (board.match(/onPrintData=\{onPrintData\}/g) || []).length === 2, "كل سطر قسمٍ في اللوحة يبلّغ (القسم الواحد وأقسام الكلية)");
 }
