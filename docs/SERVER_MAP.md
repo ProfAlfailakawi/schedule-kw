@@ -2,7 +2,7 @@
 
 > مولَّدةٌ بـ `node scripts/split-server/split.mjs` — لا تُحرَّر باليد؛ تُعاد مع كل تشغيل.
 
-المرحلة: `pages`. حجمُ `server.ts` بعد التقسيم: 23416 سطراً (كان 26040).
+المرحلة: `helpers`. حجمُ `server.ts` بعد التقسيم: 18414 سطراً (كان 26040).
 
 ## البنية
 
@@ -36,8 +36,38 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 
 | الملف | الأسطر | المحتوى |
 |---|---:|---|
-| `server.ts` | 23416 | جذرُ التركيب |
+| `server.ts` | 18414 | جذرُ التركيب |
+| `src/server/core/approvals.ts` | 374 | الاعتماد: الأقفال والمعاملات وتسجيلُ التغيير |
+| `src/server/core/auth.ts` | 299 | الجلسة والهوية والصلاحيات (authMiddleware، requireAuth، requirePermission…) |
+| `src/server/core/authority.ts` | 259 | مقارنةُ ملف الجهة الرسمية (PDF) بالجدول |
 | `src/server/core/boot.ts` | 194 | الإقلاع: ترتيبُ تحميل الوحدات الأصلية ثم ضبطُ البيئة |
+| `src/server/core/demo.ts` | 44 | البيئة التجريبية: قصصُ العرض وطلبُ الأستاذ التجريبي |
+| `src/server/core/gemini.ts` | 95 | طبقةُ النموذج اللغوي: نيّةُ الدليل وطلبُ الجدولة |
+| `src/server/core/hallBarter.ts` | 52 | تبادلُ القاعات: الحالة المشتركة والفحوص |
+| `src/server/core/http.ts` | 89 | أدواتُ HTTP: asyncSafe، حدُّ التزامن، قراءةُ النسخ الاحتياطية |
+| `src/server/core/input.ts` | 46 | تنظيفُ المدخلات وحدودُها |
+| `src/server/core/instructorRequests.ts` | 609 | طلباتُ الأساتذة: السياقُ والحكمُ على البنود |
+| `src/server/core/liveChannel.ts` | 248 | القناة الحيّة: بثُّ التغييرات والحضور |
+| `src/server/core/locations.ts` | 96 | سجلُّ المواقع والقاعات: القراءة والتوحيد قبل الكتابة |
+| `src/server/core/notes.ts` | 80 | ملاحظاتُ الجدول وحالاتُها |
+| `src/server/core/notifications.ts` | 44 | الإشعاراتُ والجرس |
+| `src/server/core/ordering.ts` | 69 | الترتيبُ العربي للأسماء والفصول |
+| `src/server/core/planning.ts` | 71 | التخطيط: فجوةُ الشعب وتقريرُ المتبقي |
+| `src/server/core/publicPages.ts` | 125 | الصفحاتُ العامة: تلميحُ التجربة وسياسةُ المحتوى |
+| `src/server/core/rateLimits.ts` | 94 | حدودُ المعدّل للدخول والروابط العامة |
+| `src/server/core/rhythm.ts` | 147 | إيقاعُ القسم وانجرافُ المواعيد |
+| `src/server/core/scheduleConflicts.ts` | 357 | فاحصُ التعارضات وحجوزُ الطلبات |
+| `src/server/core/scheduleReads.ts` | 129 | قراءةُ الجدول بحسب القارئ والفصل |
+| `src/server/core/scheduleRules.ts` | 197 | قواعدُ الموعد: الأيام والأطوال والقاعات والتنقّل |
+| `src/server/core/scheduleWrites.ts` | 586 | إنشاءُ صفوف الجدول وتعديلُها وحذفُها وتطبيقُ المقترحات |
+| `src/server/core/scope.ts` | 153 | نطاقُ القارئ: الكلية والقسم وما يُسمح له برؤيته |
+| `src/server/core/shareLinks.ts` | 145 | روابطُ المشاركة العامة |
+| `src/server/core/smartImport.ts` | 394 | قواعدُ الاستيراد الذكي وفحصُ الصفوف |
+| `src/server/core/staffCard.ts` | 135 | بطاقةُ الأستاذ وسجلُّ الحركة |
+| `src/server/core/state.ts` | 14 | متغيّراتُ الحالة المشتركة (تُكتب من أكثر من وحدة) |
+| `src/server/core/studentIdentity.ts` | 338 | هويةُ الطالب وقواعدُ التخرّج وإثباتُه |
+| `src/server/core/versions.ts` | 129 | نسخُ النطاق قبل الكتابة وبعدها، وتأكيدُ الاستبدال |
+| `src/server/core/visiting.ts` | 78 | الأساتذةُ الزائرون: القراءة والفحص |
 | `src/server/pages/instructorRequestPage.ts` | 1035 | صفحةُ طلب الأستاذ (/r/:token) |
 | `src/server/pages/publicInvalidLinkPage.ts` | 15 | صفحةُ الرابط غير الصالح |
 | `src/server/pages/staffCardPage.ts` | 571 | بطاقةُ الأستاذ العامة |
@@ -411,25 +441,25 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `app` | const | 238 | `server.ts` |
 | `app.set("trust proxy", 1);` | app | 247 | `server.ts` |
 | `PORT` | const | 250 | `server.ts` |
-| `arabicUiCollator` | const | 257 | `server.ts` |
-| `foldHeaderIdentity` | const | 258 | `server.ts` |
-| `isSpecialEducationIdentity` | const | 263 | `server.ts` |
-| `academicSectionNameMatches` | const | 275 | `server.ts` |
-| `sortArabicNamed` | const | 287 | `server.ts` |
-| `verifiedRoomKey` | const | 289 | `server.ts` |
-| `verifiedBuildingKey` | const | 293 | `server.ts` |
-| `termChronologyServer` | const | 297 | `server.ts` |
-| `sortTermsNewestServer` | const | 303 | `server.ts` |
-| `dataContextCacheKey` | const | 317 | `server.ts` |
-| `locationRegistryCache` | const | 319 | `server.ts` |
-| `readLocationRegistry` | function | 320 | `server.ts` |
-| `invalidateLocationRegistry` | function | 334 | `server.ts` |
+| `arabicUiCollator` | const | 257 | `src/server/core/ordering.ts` |
+| `foldHeaderIdentity` | const | 258 | `src/server/core/ordering.ts` |
+| `isSpecialEducationIdentity` | const | 263 | `src/server/core/ordering.ts` |
+| `academicSectionNameMatches` | const | 275 | `src/server/core/ordering.ts` |
+| `sortArabicNamed` | const | 287 | `src/server/core/ordering.ts` |
+| `verifiedRoomKey` | const | 289 | `src/server/core/ordering.ts` |
+| `verifiedBuildingKey` | const | 293 | `src/server/core/ordering.ts` |
+| `termChronologyServer` | const | 297 | `src/server/core/ordering.ts` |
+| `sortTermsNewestServer` | const | 303 | `src/server/core/ordering.ts` |
+| `dataContextCacheKey` | const | 317 | `src/server/core/locations.ts` |
+| `locationRegistryCache` | const | 319 | `src/server/core/locations.ts` |
+| `readLocationRegistry` | function | 320 | `src/server/core/locations.ts` |
+| `invalidateLocationRegistry` | function | 334 | `src/server/core/locations.ts` |
 | `provisionBranchSiteLocationsFromAuthority` | function | 354 | `server.ts` |
-| `confirmedDepartmentRoomIds` | const | 425 | `server.ts` |
+| `confirmedDepartmentRoomIds` | const | 425 | `src/server/core/locations.ts` |
 | `DepartmentRoomReference` | type | 426 | `server.ts` |
-| `canonicalizeLocationForWrite` | function | 428 | `server.ts` |
-| `canonicalizeHistoricalLocationForRuntime` | function | 467 | `server.ts` |
-| `asyncSafe` | const | 494 | `server.ts` |
+| `canonicalizeLocationForWrite` | function | 428 | `src/server/core/locations.ts` |
+| `canonicalizeHistoricalLocationForRuntime` | function | 467 | `src/server/core/locations.ts` |
+| `asyncSafe` | const | 494 | `src/server/core/http.ts` |
 | `for (const verb of ["get", "post", "put", "patch", "delete", "all", "u` | جملة | 508 | `server.ts` |
 | `process.on("unhandledRejection", (reason) => {` | جملة | 514 | `server.ts` |
 | `process.on("uncaughtException", (error) => {` | جملة | 517 | `server.ts` |
@@ -440,110 +470,110 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `   كبيراً قبل أن يصل إلى المسار. safeDraftRows يقصّ كل حقل ويحدّ الصفو` | app | 584 | `server.ts` |
 | `app.use(express.json({ limit: "1mb" }));` | app | 585 | `server.ts` |
 | `app.use((req, res, next) => {` | app | 589 | `server.ts` |
-| `getCookies` | function | 615 | `server.ts` |
+| `getCookies` | function | 615 | `src/server/core/auth.ts` |
 | `loginAttempts` | const | 630 | `server.ts` |
 | `rateLimitLogin` | function | 631 | `server.ts` |
 | `rateLimitHeavyReport` | const | 664 | `server.ts` |
-| `requestTokenKey` | const | 678 | `server.ts` |
-| `REQUEST_IP_CEILING` | const | 682 | `server.ts` |
-| `REQUEST_TOKEN_CEILING` | const | 683 | `server.ts` |
+| `requestTokenKey` | const | 678 | `src/server/core/rateLimits.ts` |
+| `REQUEST_IP_CEILING` | const | 682 | `src/server/core/rateLimits.ts` |
+| `REQUEST_TOKEN_CEILING` | const | 683 | `src/server/core/rateLimits.ts` |
 | `rateLimitPublicRequest` | const | 686 | `server.ts` |
 | `rateLimitCardEvents` | const | 696 | `server.ts` |
 | `rateLimitDocumentRead` | const | 707 | `server.ts` |
 | `rateLimitDemoRole` | const | 715 | `server.ts` |
-| `readRateLimitEnv` | function | 741 | `server.ts` |
-| `PUBLIC_RATE_LIMIT_MAX` | const | 748 | `server.ts` |
-| `PUBLIC_RATE_LIMIT_WINDOW_MS` | const | 749 | `server.ts` |
-| `publicRequestWindows` | const | 750 | `server.ts` |
-| `publicRateLimitSweptAt` | let | 751 | `server.ts` |
-| `rateLimitPublic` | function | 753 | `server.ts` |
+| `readRateLimitEnv` | function | 741 | `src/server/core/rateLimits.ts` |
+| `PUBLIC_RATE_LIMIT_MAX` | const | 748 | `src/server/core/rateLimits.ts` |
+| `PUBLIC_RATE_LIMIT_WINDOW_MS` | const | 749 | `src/server/core/rateLimits.ts` |
+| `publicRequestWindows` | const | 750 | `src/server/core/rateLimits.ts` |
+| `publicRateLimitSweptAt` | let | 751 | `src/server/core/rateLimits.ts` |
+| `rateLimitPublic` | function | 753 | `src/server/core/rateLimits.ts` |
 | `app.use("/api/public", rateLimitPublic);` | app | 786 | `server.ts` |
-| `requestLinkLimit` | const | 787 | `server.ts` |
+| `requestLinkLimit` | const | 787 | `src/server/core/rateLimits.ts` |
 | `app.use("/api/public/request/:token", requestLinkLimit);` | app | 793 | `server.ts` |
 | `app.use(adInjection());` | app | 795 | `server.ts` |
-| `SERVER_IDLE_SESSION_MS` | const | 797 | `server.ts` |
-| `DEMO_SESSION_TTL_MS` | const | 798 | `server.ts` |
-| `AuthenticatedRequest` | interface | 801 | `server.ts` |
-| `AUTH_CACHE_MS` | const | 827 | `server.ts` |
-| `authCache` | const | 828 | `server.ts` |
-| `SESSION_TOUCH_EVERY_MS` | const | 849 | `server.ts` |
-| `sessionTouchedAt` | const | 850 | `server.ts` |
-| `touchSession` | function | 852 | `server.ts` |
+| `SERVER_IDLE_SESSION_MS` | const | 797 | `src/server/core/auth.ts` |
+| `DEMO_SESSION_TTL_MS` | const | 798 | `src/server/core/auth.ts` |
+| `AuthenticatedRequest` | interface | 801 | `src/server/core/auth.ts` |
+| `AUTH_CACHE_MS` | const | 827 | `src/server/core/auth.ts` |
+| `authCache` | const | 828 | `src/server/core/auth.ts` |
+| `SESSION_TOUCH_EVERY_MS` | const | 849 | `src/server/core/auth.ts` |
+| `sessionTouchedAt` | const | 850 | `src/server/core/auth.ts` |
+| `touchSession` | function | 852 | `src/server/core/auth.ts` |
 | `forgetAuthSession` | function | 869 | `server.ts` |
-| `Repository.onIdentityChanged?.(() => authCache.clear());` | جملة | 873 | `server.ts` |
-| `deadSessions` | const | 878 | `server.ts` |
-| `sessionLookups` | const | 879 | `server.ts` |
-| `sessionLookupRefusedLoggedAt` | let | 880 | `server.ts` |
-| `authMiddleware` | function | 882 | `server.ts` |
+| `Repository.onIdentityChanged?.(() => authCache.clear());` | جملة | 873 | `src/server/core/auth.ts` |
+| `deadSessions` | const | 878 | `src/server/core/auth.ts` |
+| `sessionLookups` | const | 879 | `src/server/core/auth.ts` |
+| `sessionLookupRefusedLoggedAt` | let | 880 | `src/server/core/auth.ts` |
+| `authMiddleware` | function | 882 | `src/server/core/auth.ts` |
 | `databaseDown` | let | 971 | `server.ts` |
 | `databaseDownRef` | let | 982 | `server.ts` |
 | `app.use("/api", (req, res, next) => {` | app | 1021 | `server.ts` |
-| `bindPublicLinkContext` | function | 1038 | `server.ts` |
+| `bindPublicLinkContext` | function | 1038 | `src/server/core/auth.ts` |
 | `   شبكةُ الجامعة تفتح ألف رابطٍ صحيح ولا تُحجب، ومن يخمّن يُوقَف قبل أ` | app | 1047 | `server.ts` |
 | `app.use(PUBLIC_LINK_PAGE_PREFIXES.map(prefix => `${prefix}:token`), bi` | app | 1048 | `server.ts` |
 | `app.use("/api", (req: Request, res: Response, next: NextFunction) => {` | app | 1052 | `server.ts` |
 | `app.use("/api", authMiddleware as express.RequestHandler);` | app | 1067 | `server.ts` |
-| `DEMO_READ_ONLY_PREFIXES` | const | 1071 | `server.ts` |
+| `DEMO_READ_ONLY_PREFIXES` | const | 1071 | `src/server/core/auth.ts` |
 | `app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextF` | app | 1072 | `server.ts` |
 | `   حارس الأدوار: نقطة واحدة، لا مئة` | app | 1102 | `server.ts` |
-| `ApiPerformanceSample` | type | 1114 | `server.ts` |
-| `apiPerformanceSamples` | const | 1115 | `server.ts` |
-| `API_PERFORMANCE_LIMIT` | const | 1116 | `server.ts` |
+| `ApiPerformanceSample` | type | 1114 | `src/server/core/http.ts` |
+| `apiPerformanceSamples` | const | 1115 | `src/server/core/http.ts` |
+| `API_PERFORMANCE_LIMIT` | const | 1116 | `src/server/core/http.ts` |
 | `app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextF` | app | 1117 | `server.ts` |
 | `app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextF` | app | 1137 | `server.ts` |
-| `DEMO_SESSION_GONE` | const | 1222 | `server.ts` |
-| `signInRequiredMessage` | function | 1223 | `server.ts` |
-| `requireAuth` | function | 1228 | `server.ts` |
-| `powerOnlyFormIds` | const | 1238 | `server.ts` |
+| `DEMO_SESSION_GONE` | const | 1222 | `src/server/core/auth.ts` |
+| `signInRequiredMessage` | function | 1223 | `src/server/core/auth.ts` |
+| `requireAuth` | function | 1228 | `src/server/core/auth.ts` |
+| `powerOnlyFormIds` | const | 1238 | `src/server/core/auth.ts` |
 | `DECISION_CENTRE_FORM_ID` | const | 1241 | `server.ts` |
-| `isPowerUser` | function | 1242 | `server.ts` |
-| `requirePowerAdmin` | function | 1245 | `server.ts` |
-| `ROOT_ADMIN_USER_ID` | const | 1251 | `server.ts` |
-| `requireRootAdmin` | function | 1252 | `server.ts` |
+| `isPowerUser` | function | 1242 | `src/server/core/auth.ts` |
+| `requirePowerAdmin` | function | 1245 | `src/server/core/auth.ts` |
+| `ROOT_ADMIN_USER_ID` | const | 1251 | `src/server/core/auth.ts` |
+| `requireRootAdmin` | function | 1252 | `src/server/core/auth.ts` |
 | `SYSTEM_BACKUP_MAX_BYTES` | const | 1261 | `server.ts` |
 | `gunzipBounded` | function | 1276 | `server.ts` |
 | `readSystemBackupBody` | function | 1300 | `server.ts` |
-| `limitConcurrency` | function | 1326 | `server.ts` |
-| `documentReadingGate` | const | 1351 | `server.ts` |
-| `requirePermission` | function | 1354 | `server.ts` |
-| `requireAnyPermission` | function | 1379 | `server.ts` |
-| `isScopeAllowed` | function | 1399 | `server.ts` |
-| `filterByScope` | function | 1455 | `server.ts` |
-| `legacyFDetail` | function | 1484 | `server.ts` |
-| `safeSystemUser` | function | 1494 | `server.ts` |
-| `captureScopeVersion` | function | 1513 | `server.ts` |
-| `recordVersionAfter` | function | 1525 | `server.ts` |
-| `confirmTokens` | function | 1538 | `server.ts` |
-| `scopeOverwriteRefusal` | function | 1548 | `server.ts` |
-| `replacementAction` | function | 1569 | `server.ts` |
-| `safeImportEvidence` | function | 1578 | `server.ts` |
-| `PdfImportReceipt` | type | 1599 | `server.ts` |
+| `limitConcurrency` | function | 1326 | `src/server/core/http.ts` |
+| `documentReadingGate` | const | 1351 | `src/server/core/http.ts` |
+| `requirePermission` | function | 1354 | `src/server/core/auth.ts` |
+| `requireAnyPermission` | function | 1379 | `src/server/core/auth.ts` |
+| `isScopeAllowed` | function | 1399 | `src/server/core/scope.ts` |
+| `filterByScope` | function | 1455 | `src/server/core/scope.ts` |
+| `legacyFDetail` | function | 1484 | `src/server/core/scope.ts` |
+| `safeSystemUser` | function | 1494 | `src/server/core/scope.ts` |
+| `captureScopeVersion` | function | 1513 | `src/server/core/versions.ts` |
+| `recordVersionAfter` | function | 1525 | `src/server/core/versions.ts` |
+| `confirmTokens` | function | 1538 | `src/server/core/versions.ts` |
+| `scopeOverwriteRefusal` | function | 1548 | `src/server/core/versions.ts` |
+| `replacementAction` | function | 1569 | `src/server/core/versions.ts` |
+| `safeImportEvidence` | function | 1578 | `src/server/core/smartImport.ts` |
+| `PdfImportReceipt` | type | 1599 | `src/server/core/smartImport.ts` |
 | `signPdfImportReceipt` | function | 1600 | `server.ts` |
 | `verifyPdfImportReceipt` | function | 1606 | `server.ts` |
 | `DRAFT_DOCUMENT_MAX_BYTES` | const | 1620 | `server.ts` |
-| `safeDraftRows` | function | 1622 | `server.ts` |
-| `AUTHORITY_PDF_COMPARE_FIELDS` | const | 1668 | `server.ts` |
-| `authorityCourseCodeMap` | function | 1678 | `server.ts` |
-| `buildAuthorityPdfDiff` | function | 1683 | `server.ts` |
-| `inferAuthorityBranchCode` | function | 1883 | `server.ts` |
-| `branchOwnScopes` | function | 1896 | `server.ts` |
-| `placeholderInstructorIds` | function | 1917 | `server.ts` |
-| `approvalBlockerOptions` | function | 1926 | `server.ts` |
-| `blockingImportConflicts` | function | 1934 | `server.ts` |
-| `collegeFallbackInstructorIds` | function | 1956 | `server.ts` |
-| `visitingToFacultyPlan` | function | 1975 | `server.ts` |
-| `departmentInstructorIdSet` | function | 1993 | `server.ts` |
-| `validateSmartRows` | function | 2022 | `server.ts` |
-| `mapSmartIssuesToRows` | function | 2133 | `server.ts` |
-| `smartContextFrom` | function | 2155 | `server.ts` |
-| `resolveSmartContext` | function | 2176 | `server.ts` |
+| `safeDraftRows` | function | 1622 | `src/server/core/smartImport.ts` |
+| `AUTHORITY_PDF_COMPARE_FIELDS` | const | 1668 | `src/server/core/authority.ts` |
+| `authorityCourseCodeMap` | function | 1678 | `src/server/core/authority.ts` |
+| `buildAuthorityPdfDiff` | function | 1683 | `src/server/core/authority.ts` |
+| `inferAuthorityBranchCode` | function | 1883 | `src/server/core/authority.ts` |
+| `branchOwnScopes` | function | 1896 | `src/server/core/smartImport.ts` |
+| `placeholderInstructorIds` | function | 1917 | `src/server/core/smartImport.ts` |
+| `approvalBlockerOptions` | function | 1926 | `src/server/core/smartImport.ts` |
+| `blockingImportConflicts` | function | 1934 | `src/server/core/smartImport.ts` |
+| `collegeFallbackInstructorIds` | function | 1956 | `src/server/core/smartImport.ts` |
+| `visitingToFacultyPlan` | function | 1975 | `src/server/core/smartImport.ts` |
+| `departmentInstructorIdSet` | function | 1993 | `src/server/core/smartImport.ts` |
+| `validateSmartRows` | function | 2022 | `src/server/core/smartImport.ts` |
+| `mapSmartIssuesToRows` | function | 2133 | `src/server/core/smartImport.ts` |
+| `smartContextFrom` | function | 2155 | `src/server/core/smartImport.ts` |
+| `resolveSmartContext` | function | 2176 | `src/server/core/smartImport.ts` |
 | `breathe` | const | 2212 | `server.ts` |
-| `intelligenceReadScopes` | function | 2215 | `server.ts` |
-| `scopedScheduleUniverse` | function | 2222 | `server.ts` |
+| `intelligenceReadScopes` | function | 2215 | `src/server/core/scope.ts` |
+| `scopedScheduleUniverse` | function | 2222 | `src/server/core/scope.ts` |
 | `clientScopeDetails` | function | 2233 | `server.ts` |
 | `demoSessionPayload` | function | 2302 | `server.ts` |
 | `readDemoIdentity` | function | 2314 | `server.ts` |
-| `DEMO_STORY_SCOPE` | const | 2338 | `server.ts` |
+| `DEMO_STORY_SCOPE` | const | 2338 | `src/server/core/demo.ts` |
 | `demoSeedJobs` | const | 2339 | `server.ts` |
 | `demoSeedStatus` | const | 2340 | `server.ts` |
 | `scheduleDemoExtras` | function | 2346 | `server.ts` |
@@ -551,120 +581,120 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `seedDemoAvailableCourses` | function | 2416 | `server.ts` |
 | `seedDemoStories` | function | 2472 | `server.ts` |
 | `roleDescriptor` | function | 2794 | `server.ts` |
-| `demoTeacherRequest` | function | 2878 | `server.ts` |
+| `demoTeacherRequest` | function | 2878 | `src/server/core/demo.ts` |
 | `PRESENCE_DAYS` | const | 2928 | `server.ts` |
 | `cleanMarkPart` | const | 2929 | `server.ts` |
-| `TEXT_LIMIT` | const | 3305 | `server.ts` |
-| `cleanText` | function | 3309 | `server.ts` |
-| `boundedInt` | function | 3318 | `server.ts` |
+| `TEXT_LIMIT` | const | 3305 | `src/server/core/input.ts` |
+| `cleanText` | function | 3309 | `src/server/core/input.ts` |
+| `boundedInt` | function | 3318 | `src/server/core/input.ts` |
 | `boundedDecimal` | function | 3327 | `server.ts` |
 | `COURSE_LIMIT` | const | 3339 | `server.ts` |
 | `courseNumberIssue` | function | 3342 | `server.ts` |
 | `collegeMobilityHistoryCache` | const | 3412 | `server.ts` |
 | `teachingLoadHoursForTerm` | function | 3482 | `server.ts` |
 | `scopedTermsCache` | const | 3605 | `server.ts` |
-| `instructorsForReader` | function | 3696 | `server.ts` |
+| `instructorsForReader` | function | 3696 | `src/server/core/scope.ts` |
 | `instructorCircleCache` | const | 3714 | `server.ts` |
 | `instructorCircleFor` | function | 3715 | `server.ts` |
 | `maskCivilTail` | function | 3742 | `server.ts` |
 | `instructorsForScope` | function | 3748 | `server.ts` |
-| `courseNameCollator` | const | 3978 | `server.ts` |
-| `sortCoursesByName` | const | 3979 | `server.ts` |
+| `courseNameCollator` | const | 3978 | `src/server/core/ordering.ts` |
+| `sortCoursesByName` | const | 3979 | `src/server/core/ordering.ts` |
 | `curriculumOverview` | function | 4125 | `server.ts` |
 | `curriculumArchiveReadiness` | function | 4265 | `server.ts` |
 | `committeeCatalogEditAllowed` | function | 4314 | `server.ts` |
 | `refuseCommitteeCatalogEdit` | function | 4325 | `server.ts` |
-| `SCHEDULE_DAY_KEYS` | const | 4590 | `server.ts` |
-| `scheduleOverlap` | const | 4607 | `server.ts` |
-| `sectionScheduleWindowCache` | const | 4609 | `server.ts` |
-| `sectionScheduleWindow` | function | 4610 | `server.ts` |
-| `mixedPatternNotice` | function | 4620 | `server.ts` |
-| `scheduleLengthIssue` | function | 4631 | `server.ts` |
+| `SCHEDULE_DAY_KEYS` | const | 4590 | `src/server/core/scheduleRules.ts` |
+| `scheduleOverlap` | const | 4607 | `src/server/core/scheduleRules.ts` |
+| `sectionScheduleWindowCache` | const | 4609 | `src/server/core/scheduleRules.ts` |
+| `sectionScheduleWindow` | function | 4610 | `src/server/core/scheduleRules.ts` |
+| `mixedPatternNotice` | function | 4620 | `src/server/core/scheduleRules.ts` |
+| `scheduleLengthIssue` | function | 4631 | `src/server/core/scheduleRules.ts` |
 | `scheduleLengthNotice` | function | 4650 | `server.ts` |
-| `schedulePayloadIssues` | function | 4657 | `server.ts` |
-| `roomOwnership` | function | 4673 | `server.ts` |
-| `roomScopeNotice` | function | 4702 | `server.ts` |
+| `schedulePayloadIssues` | function | 4657 | `src/server/core/scheduleRules.ts` |
+| `roomOwnership` | function | 4673 | `src/server/core/scheduleRules.ts` |
+| `roomScopeNotice` | function | 4702 | `src/server/core/scheduleConflicts.ts` |
 | `HALL_BARTER_MIN_WINDOW_MINUTES` | const | 4719 | `server.ts` |
 | `HALL_BARTER_MAX_OPPORTUNITIES` | const | 4720 | `server.ts` |
-| `HALL_BARTER_DAY_LABEL` | const | 4721 | `server.ts` |
+| `HALL_BARTER_DAY_LABEL` | const | 4721 | `src/server/core/hallBarter.ts` |
 | `HALL_BARTER_STALE_DAYS` | const | 4724 | `server.ts` |
 | `HALL_BARTER_STALE_REASON` | const | 4725 | `server.ts` |
 | `sweepStaleHallBarter` | function | 4727 | `server.ts` |
 | `HallCampusGender` | type | 4739 | `server.ts` |
 | `hallCampusGender` | function | 4740 | `server.ts` |
 | `sameHallCampusGender` | function | 4750 | `server.ts` |
-| `hallBarterSerial` | let | 4757 | `server.ts` |
-| `hallBarterBoardCache` | const | 4758 | `server.ts` |
-| `academicStartYear` | function | 4760 | `server.ts` |
+| `hallBarterSerial` | let | 4757 | `src/server/core/state.ts` |
+| `hallBarterBoardCache` | const | 4758 | `src/server/core/hallBarter.ts` |
+| `academicStartYear` | function | 4760 | `src/server/core/hallBarter.ts` |
 | `recentTenYearTermIds` | function | 4764 | `server.ts` |
 | `rowOccupiesWindow` | function | 4773 | `server.ts` |
-| `barterRequestRoomKey` | function | 4793 | `server.ts` |
-| `barterRequestMatchesRow` | function | 4796 | `server.ts` |
+| `barterRequestRoomKey` | function | 4793 | `src/server/core/hallBarter.ts` |
+| `barterRequestMatchesRow` | function | 4796 | `src/server/core/hallBarter.ts` |
 | `barterRequestOverlaps` | function | 4797 | `server.ts` |
-| `hallBarterAllowsRoomUse` | function | 4802 | `server.ts` |
+| `hallBarterAllowsRoomUse` | function | 4802 | `src/server/core/hallBarter.ts` |
 | `hallBarterRequestShape` | function | 4811 | `server.ts` |
 | `buildHallBarterBoard` | function | 4829 | `server.ts` |
-| `normalizedBuilding` | function | 5062 | `server.ts` |
-| `travelPairKey` | function | 5063 | `server.ts` |
-| `travelMinutesFor` | function | 5064 | `server.ts` |
+| `normalizedBuilding` | function | 5062 | `src/server/core/scheduleRules.ts` |
+| `travelPairKey` | function | 5063 | `src/server/core/scheduleRules.ts` |
+| `travelMinutesFor` | function | 5064 | `src/server/core/scheduleRules.ts` |
 | `rowsOverlapOnDay` | function | 5074 | `server.ts` |
 | `spatialBurnoutAnalysis` | function | 5075 | `server.ts` |
 | `roomIsFreeForRow` | function | 5101 | `server.ts` |
 | `roomCastlingProposals` | function | 5109 | `server.ts` |
-| `CAMPUS_LABEL` | const | 5140 | `server.ts` |
-| `interCampusWarnings` | function | 5150 | `server.ts` |
-| `describeScheduleChange` | function | 5194 | `server.ts` |
-| `DepartmentStyle` | interface | 5227 | `server.ts` |
-| `NO_COHORT` | const | 5235 | `server.ts` |
-| `rhythmCache` | const | 5236 | `server.ts` |
-| `rhythmRefreshing` | const | 5237 | `server.ts` |
-| `RHYTHM_STALE_MS` | const | 5243 | `server.ts` |
-| `styleOf` | const | 5244 | `server.ts` |
-| `departmentStyle` | function | 5246 | `server.ts` |
-| `readDepartmentStyle` | function | 5263 | `server.ts` |
-| `scheduleConflicts` | function | 5321 | `server.ts` |
-| `applyRequestHoldOverride` | function | 5543 | `server.ts` |
-| `noteRequestHoldOverride` | function | 5561 | `server.ts` |
-| `requestHoldRefusal` | function | 5580 | `server.ts` |
-| `PresenceMark` | interface | 5618 | `server.ts` |
-| `ScheduleEventClient` | interface | 5627 | `server.ts` |
-| `scheduleEventClients` | const | 5644 | `server.ts` |
-| `scheduleEventTimer` | let | 5645 | `server.ts` |
-| `scheduleEventSerial` | let | 5646 | `server.ts` |
-| `scheduleChangeClock` | const | 5649 | `server.ts` |
-| `notifyClock` | const | 5650 | `server.ts` |
-| `broadcastScheduleChange` | function | 5652 | `server.ts` |
-| `broadcastNotify` | function | 5672 | `server.ts` |
+| `CAMPUS_LABEL` | const | 5140 | `src/server/core/scheduleConflicts.ts` |
+| `interCampusWarnings` | function | 5150 | `src/server/core/scheduleConflicts.ts` |
+| `describeScheduleChange` | function | 5194 | `src/server/core/scheduleRules.ts` |
+| `DepartmentStyle` | interface | 5227 | `src/server/core/rhythm.ts` |
+| `NO_COHORT` | const | 5235 | `src/server/core/rhythm.ts` |
+| `rhythmCache` | const | 5236 | `src/server/core/rhythm.ts` |
+| `rhythmRefreshing` | const | 5237 | `src/server/core/rhythm.ts` |
+| `RHYTHM_STALE_MS` | const | 5243 | `src/server/core/rhythm.ts` |
+| `styleOf` | const | 5244 | `src/server/core/rhythm.ts` |
+| `departmentStyle` | function | 5246 | `src/server/core/rhythm.ts` |
+| `readDepartmentStyle` | function | 5263 | `src/server/core/rhythm.ts` |
+| `scheduleConflicts` | function | 5321 | `src/server/core/scheduleConflicts.ts` |
+| `applyRequestHoldOverride` | function | 5543 | `src/server/core/scheduleConflicts.ts` |
+| `noteRequestHoldOverride` | function | 5561 | `src/server/core/scheduleConflicts.ts` |
+| `requestHoldRefusal` | function | 5580 | `src/server/core/scheduleConflicts.ts` |
+| `PresenceMark` | interface | 5618 | `src/server/core/liveChannel.ts` |
+| `ScheduleEventClient` | interface | 5627 | `src/server/core/liveChannel.ts` |
+| `scheduleEventClients` | const | 5644 | `src/server/core/liveChannel.ts` |
+| `scheduleEventTimer` | let | 5645 | `src/server/core/liveChannel.ts` |
+| `scheduleEventSerial` | let | 5646 | `src/server/core/liveChannel.ts` |
+| `scheduleChangeClock` | const | 5649 | `src/server/core/liveChannel.ts` |
+| `notifyClock` | const | 5650 | `src/server/core/liveChannel.ts` |
+| `broadcastScheduleChange` | function | 5652 | `src/server/core/liveChannel.ts` |
+| `broadcastNotify` | function | 5672 | `src/server/core/liveChannel.ts` |
 | `for (const prefix of ["/api/approvals", "/api/schedule-notes", "/api/i` | جملة | 5681 | `server.ts` |
-| `broadcastStudentNotifySoon` | const | 5692 | `server.ts` |
+| `broadcastStudentNotifySoon` | const | 5692 | `src/server/core/liveChannel.ts` |
 | `app.use("/api/student-registration", (req: Request, res: Response, nex` | app | 5693 | `server.ts` |
-| `PRESENCE_STALE_MS` | const | 5707 | `server.ts` |
-| `PRESENCE_GONE_MS` | const | 5708 | `server.ts` |
-| `presenceDirty` | const | 5709 | `server.ts` |
-| `presenceFlushTimer` | let | 5710 | `server.ts` |
-| `emptyMark` | const | 5712 | `server.ts` |
-| `boardScopeKey` | const | 5713 | `server.ts` |
-| `hasMark` | const | 5714 | `server.ts` |
-| `presenceRoster` | function | 5724 | `server.ts` |
-| `broadcastPresence` | function | 5744 | `server.ts` |
-| `markPresenceDirty` | function | 5757 | `server.ts` |
-| `setInterval(() => {` | جملة | 5775 | `server.ts` |
-| `pendingScheduleSessions` | const | 5793 | `server.ts` |
-| `onSchedulesInvalidated(() => {` | جملة | 5794 | `server.ts` |
-| `stopScheduleBeacon` | let | 5818 | `server.ts` |
-| `listenForScheduleChangesAcrossInstances` | function | 5819 | `server.ts` |
+| `PRESENCE_STALE_MS` | const | 5707 | `src/server/core/liveChannel.ts` |
+| `PRESENCE_GONE_MS` | const | 5708 | `src/server/core/liveChannel.ts` |
+| `presenceDirty` | const | 5709 | `src/server/core/liveChannel.ts` |
+| `presenceFlushTimer` | let | 5710 | `src/server/core/liveChannel.ts` |
+| `emptyMark` | const | 5712 | `src/server/core/liveChannel.ts` |
+| `boardScopeKey` | const | 5713 | `src/server/core/liveChannel.ts` |
+| `hasMark` | const | 5714 | `src/server/core/liveChannel.ts` |
+| `presenceRoster` | function | 5724 | `src/server/core/liveChannel.ts` |
+| `broadcastPresence` | function | 5744 | `src/server/core/liveChannel.ts` |
+| `markPresenceDirty` | function | 5757 | `src/server/core/liveChannel.ts` |
+| `setInterval(() => {` | جملة | 5775 | `src/server/core/liveChannel.ts` |
+| `pendingScheduleSessions` | const | 5793 | `src/server/core/liveChannel.ts` |
+| `onSchedulesInvalidated(() => {` | جملة | 5794 | `src/server/core/liveChannel.ts` |
+| `stopScheduleBeacon` | let | 5818 | `src/server/core/liveChannel.ts` |
+| `listenForScheduleChangesAcrossInstances` | function | 5819 | `src/server/core/liveChannel.ts` |
 | `pulseClients` | const | 5905 | `server.ts` |
-| `readLiveVisitingRoster` | function | 5949 | `server.ts` |
-| `readVisitingStatus` | function | 5969 | `server.ts` |
-| `visitingChecker` | function | 5990 | `server.ts` |
-| `readsFinalSchedulesOnly` | function | 6090 | `server.ts` |
-| `termEndedForReading` | function | 6098 | `server.ts` |
-| `finalRowsWithFinality` | function | 6103 | `server.ts` |
-| `finalRowsOnly` | function | 6124 | `server.ts` |
-| `readSchedulesForRequest` | function | 6132 | `server.ts` |
-| `scopeSectionIdsFor` | function | 6148 | `server.ts` |
+| `readLiveVisitingRoster` | function | 5949 | `src/server/core/visiting.ts` |
+| `readVisitingStatus` | function | 5969 | `src/server/core/visiting.ts` |
+| `visitingChecker` | function | 5990 | `src/server/core/visiting.ts` |
+| `readsFinalSchedulesOnly` | function | 6090 | `src/server/core/scheduleReads.ts` |
+| `termEndedForReading` | function | 6098 | `src/server/core/scheduleReads.ts` |
+| `finalRowsWithFinality` | function | 6103 | `src/server/core/scheduleReads.ts` |
+| `finalRowsOnly` | function | 6124 | `src/server/core/scheduleReads.ts` |
+| `readSchedulesForRequest` | function | 6132 | `src/server/core/scheduleReads.ts` |
+| `scopeSectionIdsFor` | function | 6148 | `src/server/core/scheduleReads.ts` |
 | `readScopedTermRows` | function | 6153 | `server.ts` |
-| `readLiveSchedulesForRequest` | function | 6175 | `server.ts` |
+| `readLiveSchedulesForRequest` | function | 6175 | `src/server/core/scheduleReads.ts` |
 | `checkLengthIssue` | function | 6451 | `server.ts` |
 | `checkLocationIssues` | function | 6463 | `server.ts` |
 | `previewNaturalLanguageMove` | function | 6758 | `server.ts` |
@@ -679,131 +709,131 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `officialBuildingCollegeIds` | const | 7872 | `server.ts` |
 | `taConversionState` | function | 8124 | `server.ts` |
 | `WEEK_EXCEPTION_DATE` | const | 8634 | `server.ts` |
-| `weekExceptionDayKey` | function | 8636 | `server.ts` |
+| `weekExceptionDayKey` | function | 8636 | `src/server/core/scheduleRules.ts` |
 | `readScheduleForException` | function | 8643 | `server.ts` |
-| `meetingExcludedIds` | function | 8841 | `server.ts` |
+| `meetingExcludedIds` | function | 8841 | `src/server/core/scheduleRules.ts` |
 | `requireMeetingAccess` | const | 8855 | `server.ts` |
 | `meetingDepartmentPeople` | function | 8862 | `server.ts` |
-| `SCHEDULE_ORIGIN_KINDS` | const | 8929 | `server.ts` |
-| `scheduleOriginOf` | function | 8930 | `server.ts` |
-| `companionBookingFor` | function | 8945 | `server.ts` |
-| `createScheduleHandler` | const | 8963 | `server.ts` |
-| `updateScheduleHandler` | const | 9089 | `server.ts` |
-| `deleteScheduleHandler` | const | 9281 | `server.ts` |
-| `InnerScheduleResult` | interface | 9338 | `server.ts` |
-| `runScheduleHandler` | function | 9340 | `server.ts` |
-| `PROPOSAL_ORIGIN_LABEL` | const | 9366 | `server.ts` |
-| `PROPOSAL_DAYS` | const | 9369 | `server.ts` |
-| `dayFlagsOf` | const | 9370 | `server.ts` |
-| `dayOfRow` | const | 9371 | `server.ts` |
-| `dayLabelOf` | const | 9372 | `server.ts` |
-| `editBodyFor` | function | 9375 | `server.ts` |
-| `ProposalOutcome` | interface | 9389 | `server.ts` |
-| `applyProposalCore` | function | 9391 | `server.ts` |
+| `SCHEDULE_ORIGIN_KINDS` | const | 8929 | `src/server/core/scheduleWrites.ts` |
+| `scheduleOriginOf` | function | 8930 | `src/server/core/scheduleWrites.ts` |
+| `companionBookingFor` | function | 8945 | `src/server/core/scheduleWrites.ts` |
+| `createScheduleHandler` | const | 8963 | `src/server/core/scheduleWrites.ts` |
+| `updateScheduleHandler` | const | 9089 | `src/server/core/scheduleWrites.ts` |
+| `deleteScheduleHandler` | const | 9281 | `src/server/core/scheduleWrites.ts` |
+| `InnerScheduleResult` | interface | 9338 | `src/server/core/scheduleWrites.ts` |
+| `runScheduleHandler` | function | 9340 | `src/server/core/scheduleWrites.ts` |
+| `PROPOSAL_ORIGIN_LABEL` | const | 9366 | `src/server/core/scheduleWrites.ts` |
+| `PROPOSAL_DAYS` | const | 9369 | `src/server/core/scheduleWrites.ts` |
+| `dayFlagsOf` | const | 9370 | `src/server/core/scheduleWrites.ts` |
+| `dayOfRow` | const | 9371 | `src/server/core/scheduleWrites.ts` |
+| `dayLabelOf` | const | 9372 | `src/server/core/scheduleWrites.ts` |
+| `editBodyFor` | function | 9375 | `src/server/core/scheduleWrites.ts` |
+| `ProposalOutcome` | interface | 9389 | `src/server/core/scheduleWrites.ts` |
+| `applyProposalCore` | function | 9391 | `src/server/core/scheduleWrites.ts` |
 | `wipeScopeState` | function | 9570 | `server.ts` |
 | `wipeScopeOf` | const | 9599 | `server.ts` |
 | `GuideIntentPayload` | type | 9729 | `server.ts` |
 | `deterministicGuideIntent` | function | 9740 | `server.ts` |
 | `serverCanExposeGuideFeature` | function | 9760 | `server.ts` |
 | `requestGuideAIIntent` | function | 9771 | `server.ts` |
-| `GeminiPart` | type | 9826 | `server.ts` |
-| `geminiOutputText` | function | 9828 | `server.ts` |
-| `geminiFunctionCalls` | function | 9836 | `server.ts` |
-| `requestGeminiScheduleLayer` | function | 9844 | `server.ts` |
+| `GeminiPart` | type | 9826 | `src/server/core/gemini.ts` |
+| `geminiOutputText` | function | 9828 | `src/server/core/gemini.ts` |
+| `geminiFunctionCalls` | function | 9836 | `src/server/core/gemini.ts` |
+| `requestGeminiScheduleLayer` | function | 9844 | `src/server/core/gemini.ts` |
 | `emptyScopeGuidance` | function | 10243 | `server.ts` |
-| `authorityBaselineForScope` | function | 11695 | `server.ts` |
+| `authorityBaselineForScope` | function | 11695 | `src/server/core/authority.ts` |
 | `authorityDraftForScope` | function | 11712 | `server.ts` |
-| `scheduleLockRefusal` | function | 11785 | `server.ts` |
-| `registrarNotesInRound` | function | 11829 | `server.ts` |
-| `termIsClosed` | function | 11836 | `server.ts` |
+| `scheduleLockRefusal` | function | 11785 | `src/server/core/approvals.ts` |
+| `registrarNotesInRound` | function | 11829 | `src/server/core/approvals.ts` |
+| `termIsClosed` | function | 11836 | `src/server/core/approvals.ts` |
 | `approvalTransaction` | function | 11854 | `server.ts` |
 | `approvalScopeLabel` | function | 11879 | `server.ts` |
-| `withEvent` | function | 11891 | `server.ts` |
-| `noteScheduleMutation` | function | 11906 | `server.ts` |
-| `ApprovalEventWriter` | type | 11955 | `server.ts` |
-| `amendmentAfterEdit` | function | 11956 | `server.ts` |
-| `settleAmendmentMarker` | function | 11976 | `server.ts` |
+| `withEvent` | function | 11891 | `src/server/core/approvals.ts` |
+| `noteScheduleMutation` | function | 11906 | `src/server/core/approvals.ts` |
+| `ApprovalEventWriter` | type | 11955 | `src/server/core/approvals.ts` |
+| `amendmentAfterEdit` | function | 11956 | `src/server/core/approvals.ts` |
+| `settleAmendmentMarker` | function | 11976 | `src/server/core/approvals.ts` |
 | `settlePendingAmendmentInLock` | function | 11985 | `server.ts` |
 | `settlePendingAmendment` | function | 11995 | `server.ts` |
-| `applyScheduleMutation` | function | 12003 | `server.ts` |
-| `wholesaleRefusal` | function | 12065 | `server.ts` |
-| `countBlockingConflicts` | function | 12081 | `server.ts` |
+| `applyScheduleMutation` | function | 12003 | `src/server/core/approvals.ts` |
+| `wholesaleRefusal` | function | 12065 | `src/server/core/approvals.ts` |
+| `countBlockingConflicts` | function | 12081 | `src/server/core/approvals.ts` |
 | `blockingConflictCount` | function | 12087 | `server.ts` |
 | `blockingSummaryFor` | function | 12097 | `server.ts` |
-| `regulationNoticesForScope` | function | 12107 | `server.ts` |
+| `regulationNoticesForScope` | function | 12107 | `src/server/core/approvals.ts` |
 | `regulationNoticeCount` | function | 12154 | `server.ts` |
-| `readApproval` | function | 12159 | `server.ts` |
-| `readDeadlineFor` | function | 12165 | `server.ts` |
+| `readApproval` | function | 12159 | `src/server/core/approvals.ts` |
+| `readDeadlineFor` | function | 12165 | `src/server/core/approvals.ts` |
 | `approvalActor` | function | 12174 | `server.ts` |
 | `approvalScopeFromBody` | function | 12183 | `server.ts` |
-| `refuseIfTermClosed` | function | 12194 | `server.ts` |
-| `refuseIfTermFrozen` | function | 12214 | `server.ts` |
+| `refuseIfTermClosed` | function | 12194 | `src/server/core/approvals.ts` |
+| `refuseIfTermFrozen` | function | 12214 | `src/server/core/approvals.ts` |
 | `refuseIfStale` | function | 12225 | `server.ts` |
 | `scheduleDataReadiness` | function | 12233 | `server.ts` |
 | `submitToRegistrar` | function | 12529 | `server.ts` |
 | `EXTENSION_ACTIONS` | const | 12778 | `server.ts` |
 | `EXTENSIONS_MAX_TARGETS` | const | 12779 | `server.ts` |
 | `NOTE_FIELDS` | const | 12893 | `server.ts` |
-| `NOTE_FIELD_LABEL` | const | 12894 | `server.ts` |
-| `noteFieldValue` | function | 12906 | `server.ts` |
-| `noteState` | function | 12924 | `server.ts` |
-| `notesWithState` | function | 12941 | `server.ts` |
+| `NOTE_FIELD_LABEL` | const | 12894 | `src/server/core/notes.ts` |
+| `noteFieldValue` | function | 12906 | `src/server/core/notes.ts` |
+| `noteState` | function | 12924 | `src/server/core/notes.ts` |
+| `notesWithState` | function | 12941 | `src/server/core/notes.ts` |
 | `noteSuggestions` | function | 12972 | `server.ts` |
 | `REGISTRAR_NOTIFY_ROLES` | const | 13216 | `server.ts` |
-| `studentQueueMemo` | const | 13228 | `server.ts` |
+| `studentQueueMemo` | const | 13228 | `src/server/core/notifications.ts` |
 | `studentQueueForTerm` | function | 13229 | `server.ts` |
-| `bellBlockingMemo` | const | 13242 | `server.ts` |
-| `onSchedulesInvalidated(() => bellBlockingMemo.invalidate());` | جملة | 13243 | `server.ts` |
+| `bellBlockingMemo` | const | 13242 | `src/server/core/notifications.ts` |
+| `onSchedulesInvalidated(() => bellBlockingMemo.invalidate());` | جملة | 13243 | `src/server/core/notifications.ts` |
 | `bellBlockingCount` | function | 13244 | `server.ts` |
-| `bellPlanningTermId` | function | 13252 | `server.ts` |
+| `bellPlanningTermId` | function | 13252 | `src/server/core/notifications.ts` |
 | `notificationItemsForTerm` | function | 13263 | `server.ts` |
 | `approvalBadgeForTerm` | function | 13479 | `server.ts` |
-| `hydrateVersionRows` | function | 14351 | `server.ts` |
+| `hydrateVersionRows` | function | 14351 | `src/server/core/versions.ts` |
 | `briefChangedSince` | function | 14362 | `server.ts` |
 | `rowSignatureServer` | function | 14370 | `server.ts` |
-| `livingResponseCache` | const | 14392 | `server.ts` |
+| `livingResponseCache` | const | 14392 | `src/server/core/versions.ts` |
 | `LIVING_RESPONSE_TTL_MS` | const | 14393 | `server.ts` |
-| `onSchedulesInvalidated(() => livingResponseCache.clear());` | جملة | 14394 | `server.ts` |
-| `driftCache` | const | 14544 | `server.ts` |
-| `historicalTimeCache` | const | 14545 | `server.ts` |
-| `driftSerial` | let | 14546 | `server.ts` |
-| `onSchedulesInvalidated(() => { driftSerial += 1; historicalTimeCache.c` | جملة | 14547 | `server.ts` |
-| `splitArchivedCourseRows` | function | 14749 | `server.ts` |
+| `onSchedulesInvalidated(() => livingResponseCache.clear());` | جملة | 14394 | `src/server/core/versions.ts` |
+| `driftCache` | const | 14544 | `src/server/core/rhythm.ts` |
+| `historicalTimeCache` | const | 14545 | `src/server/core/rhythm.ts` |
+| `driftSerial` | let | 14546 | `src/server/core/rhythm.ts` |
+| `onSchedulesInvalidated(() => { driftSerial += 1; historicalTimeCache.c` | جملة | 14547 | `src/server/core/rhythm.ts` |
+| `splitArchivedCourseRows` | function | 14749 | `src/server/core/scheduleReads.ts` |
 | `applyRoleTemplate` | function | 15015 | `server.ts` |
 | `applyRoleScopeOnly` | function | 15062 | `server.ts` |
 | `sanitizeAssigns` | function | 15163 | `server.ts` |
 | `departmentHeadPlan` | function | 15215 | `server.ts` |
 | `advisorPlan` | function | 15223 | `server.ts` |
 | `balanceScopeLabel` | function | 15801 | `server.ts` |
-| `SHARE_DAY_KEYS` | const | 15949 | `server.ts` |
-| `SHARE_DAY_NAMES` | const | 15950 | `server.ts` |
-| `SHARE_ICS_DAYS` | const | 15951 | `server.ts` |
+| `SHARE_DAY_KEYS` | const | 15949 | `src/server/core/shareLinks.ts` |
+| `SHARE_DAY_NAMES` | const | 15950 | `src/server/core/shareLinks.ts` |
+| `SHARE_ICS_DAYS` | const | 15951 | `src/server/core/shareLinks.ts` |
 | `SHARE_MAX_DAYS` | const | 15952 | `server.ts` |
-| `shareDayIndexes` | function | 15954 | `server.ts` |
-| `shareLinkStillReadable` | function | 15961 | `server.ts` |
-| `resolveShareToken` | function | 15970 | `server.ts` |
+| `shareDayIndexes` | function | 15954 | `src/server/core/shareLinks.ts` |
+| `shareLinkStillReadable` | function | 15961 | `src/server/core/shareLinks.ts` |
+| `resolveShareToken` | function | 15970 | `src/server/core/shareLinks.ts` |
 | `PUBLIC_VISITING_BADGE_CSS` | const | 15983 | `server.ts` |
-| `buildSharePayload` | function | 15986 | `server.ts` |
-| `publicAttempts` | const | 16043 | `server.ts` |
-| `publicAttemptKey` | const | 16044 | `server.ts` |
-| `publicAttemptReserve` | const | 16047 | `server.ts` |
+| `buildSharePayload` | function | 15986 | `src/server/core/shareLinks.ts` |
+| `publicAttempts` | const | 16043 | `src/server/core/shareLinks.ts` |
+| `publicAttemptKey` | const | 16044 | `src/server/core/shareLinks.ts` |
+| `publicAttemptReserve` | const | 16047 | `src/server/core/shareLinks.ts` |
 | `staffLookupAllowed` | function | 16050 | `server.ts` |
-| `MovementEntry` | type | 16063 | `server.ts` |
-| `MOVEMENT_REJECT_REASON` | const | 16068 | `server.ts` |
-| `requestMovementEntries` | function | 16073 | `server.ts` |
-| `movementHistoryScopes` | function | 16108 | `server.ts` |
-| `scheduleMovementEntries` | function | 16116 | `server.ts` |
+| `MovementEntry` | type | 16063 | `src/server/core/staffCard.ts` |
+| `MOVEMENT_REJECT_REASON` | const | 16068 | `src/server/core/staffCard.ts` |
+| `requestMovementEntries` | function | 16073 | `src/server/core/staffCard.ts` |
+| `movementHistoryScopes` | function | 16108 | `src/server/core/staffCard.ts` |
+| `scheduleMovementEntries` | function | 16116 | `src/server/core/staffCard.ts` |
 | `buildStaffCard` | function | 16162 | `server.ts` |
-| `staffFamilyScopes` | function | 16425 | `server.ts` |
-| `staffFamilyShareLinks` | function | 16428 | `server.ts` |
-| `liveStaffPublication` | const | 16433 | `server.ts` |
-| `shareLinkLabel` | function | 16456 | `server.ts` |
+| `staffFamilyScopes` | function | 16425 | `src/server/core/staffCard.ts` |
+| `staffFamilyShareLinks` | function | 16428 | `src/server/core/staffCard.ts` |
+| `liveStaffPublication` | const | 16433 | `src/server/core/staffCard.ts` |
+| `shareLinkLabel` | function | 16456 | `src/server/core/shareLinks.ts` |
 | `isPersonalStaffLink` | const | 16585 | `server.ts` |
 | `personalLinkEligibleIds` | function | 16587 | `server.ts` |
 | `staffLinkFamilyAllowed` | const | 16601 | `server.ts` |
 | `readSectionBuild` | function | 16823 | `server.ts` |
 | `authorityDepartmentKeyOf` | function | 17093 | `server.ts` |
-| `REMAINING_SEASONS` | const | 17105 | `server.ts` |
+| `REMAINING_SEASONS` | const | 17105 | `src/server/core/planning.ts` |
 | `REMAINING_SEASON_NAMES` | const | 17106 | `server.ts` |
 | `remainingContext` | function | 17107 | `server.ts` |
 | `remainingTermRefusal` | function | 17123 | `server.ts` |
@@ -812,31 +842,31 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `remainingAssessment` | function | 17145 | `server.ts` |
 | `TERM_WEEKS` | const | 17247 | `server.ts` |
 | `sendCalendar` | function | 17258 | `server.ts` |
-| `calendarSecret` | const | 17336 | `server.ts` |
-| `calendarKey` | const | 17338 | `server.ts` |
-| `stableCalendarPath` | const | 17370 | `server.ts` |
+| `calendarSecret` | const | 17336 | `src/server/core/shareLinks.ts` |
+| `calendarKey` | const | 17338 | `src/server/core/shareLinks.ts` |
+| `stableCalendarPath` | const | 17370 | `src/server/core/shareLinks.ts` |
 | `sendInstructorCalendar` | function | 17391 | `server.ts` |
 | `STAFF_NOTES_PER_DAY` | const | 17476 | `server.ts` |
-| `studentCaseSecretPromise` | let | 17570 | `server.ts` |
-| `studentCaseSecret` | const | 17571 | `server.ts` |
-| `surveyFingerprint` | const | 17572 | `server.ts` |
-| `studentIdentityKey` | const | 17575 | `server.ts` |
-| `sealStudentIdentity` | const | 17576 | `server.ts` |
-| `openStudentIdentity` | const | 17581 | `server.ts` |
-| `canSeeStudentIdentity` | const | 17603 | `server.ts` |
-| `studentIdentityFor` | const | 17604 | `server.ts` |
-| `degreeRuleFromName` | const | 17612 | `server.ts` |
-| `degreeRuleForSection` | const | 17626 | `server.ts` |
-| `storedDegreeRuleForSection` | const | 17640 | `server.ts` |
-| `planDegreeRule` | const | 17655 | `server.ts` |
-| `graduationCandidatesForSection` | const | 17671 | `server.ts` |
-| `graduationRuleFor` | const | 17681 | `server.ts` |
-| `isSummerTerm` | const | 17695 | `server.ts` |
-| `graduateThreshold` | const | 17696 | `server.ts` |
-| `STUDENT_PROOF_TTL_MS` | const | 17699 | `server.ts` |
-| `issueStudentProof` | const | 17700 | `server.ts` |
-| `studentProofExpired` | const | 17706 | `server.ts` |
-| `verifyStudentProof` | const | 17709 | `server.ts` |
+| `studentCaseSecretPromise` | let | 17570 | `src/server/core/studentIdentity.ts` |
+| `studentCaseSecret` | const | 17571 | `src/server/core/studentIdentity.ts` |
+| `surveyFingerprint` | const | 17572 | `src/server/core/studentIdentity.ts` |
+| `studentIdentityKey` | const | 17575 | `src/server/core/studentIdentity.ts` |
+| `sealStudentIdentity` | const | 17576 | `src/server/core/studentIdentity.ts` |
+| `openStudentIdentity` | const | 17581 | `src/server/core/studentIdentity.ts` |
+| `canSeeStudentIdentity` | const | 17603 | `src/server/core/studentIdentity.ts` |
+| `studentIdentityFor` | const | 17604 | `src/server/core/studentIdentity.ts` |
+| `degreeRuleFromName` | const | 17612 | `src/server/core/studentIdentity.ts` |
+| `degreeRuleForSection` | const | 17626 | `src/server/core/studentIdentity.ts` |
+| `storedDegreeRuleForSection` | const | 17640 | `src/server/core/studentIdentity.ts` |
+| `planDegreeRule` | const | 17655 | `src/server/core/studentIdentity.ts` |
+| `graduationCandidatesForSection` | const | 17671 | `src/server/core/studentIdentity.ts` |
+| `graduationRuleFor` | const | 17681 | `src/server/core/studentIdentity.ts` |
+| `isSummerTerm` | const | 17695 | `src/server/core/studentIdentity.ts` |
+| `graduateThreshold` | const | 17696 | `src/server/core/studentIdentity.ts` |
+| `STUDENT_PROOF_TTL_MS` | const | 17699 | `src/server/core/studentIdentity.ts` |
+| `issueStudentProof` | const | 17700 | `src/server/core/studentIdentity.ts` |
+| `studentProofExpired` | const | 17706 | `src/server/core/studentIdentity.ts` |
+| `verifyStudentProof` | const | 17709 | `src/server/core/studentIdentity.ts` |
 | `normalizeCaseRef` | const | 17722 | `server.ts` |
 | `priorNeedForHand` | const | 17724 | `server.ts` |
 | `caseRefMatches` | const | 17732 | `server.ts` |
@@ -845,25 +875,25 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `reusableGraduateVerification` | const | 17743 | `server.ts` |
 | `normalizeStudentIdentityName` | const | 17774 | `server.ts` |
 | `reusableStudentIdentity` | const | 17781 | `server.ts` |
-| `asciiDigits` | const | 17798 | `server.ts` |
-| `surveyCohort` | const | 17800 | `server.ts` |
-| `surveyActiveCourseIds` | const | 17815 | `server.ts` |
+| `asciiDigits` | const | 17798 | `src/server/core/studentIdentity.ts` |
+| `surveyCohort` | const | 17800 | `src/server/core/studentIdentity.ts` |
+| `surveyActiveCourseIds` | const | 17815 | `src/server/core/studentIdentity.ts` |
 | `surveyCourseIdsForSection` | function | 17817 | `server.ts` |
-| `surveyTermEnded` | const | 17881 | `server.ts` |
+| `surveyTermEnded` | const | 17881 | `src/server/core/studentIdentity.ts` |
 | `SURVEY_TERM_ENDED` | const | 17882 | `server.ts` |
-| `surveyPayloadCache` | const | 17888 | `server.ts` |
+| `surveyPayloadCache` | const | 17888 | `src/server/core/studentIdentity.ts` |
 | `SURVEY_PAYLOAD_TTL_MS` | const | 17889 | `server.ts` |
 | `STUDENT_PROOF_MAX_BYTES` | const | 18021 | `server.ts` |
 | `STUDENT_PROOF_TOO_LARGE` | const | 18022 | `server.ts` |
 | `studentProofBody` | const | 18023 | `server.ts` |
 | `readStudentProofBody` | const | 18024 | `server.ts` |
-| `GraduateProofSink` | type | 18032 | `server.ts` |
-| `graduateProofCore` | function | 18033 | `server.ts` |
-| `graduateSubmitCheck` | function | 18137 | `server.ts` |
-| `curriculumLabelsFor` | const | 18303 | `server.ts` |
+| `GraduateProofSink` | type | 18032 | `src/server/core/studentIdentity.ts` |
+| `graduateProofCore` | function | 18033 | `src/server/core/studentIdentity.ts` |
+| `graduateSubmitCheck` | function | 18137 | `src/server/core/studentIdentity.ts` |
+| `curriculumLabelsFor` | const | 18303 | `src/server/core/planning.ts` |
 | `sectionGapCache` | const | 18322 | `server.ts` |
 | `cachedSectionGap` | function | 18323 | `server.ts` |
-| `sectionGapData` | function | 18331 | `server.ts` |
+| `sectionGapData` | function | 18331 | `src/server/core/planning.ts` |
 | `sectionGapStaffing` | function | 18429 | `server.ts` |
 | `canWriteRegistration` | const | 18735 | `server.ts` |
 | `grantedPermissions` | const | 18744 | `server.ts` |
@@ -875,53 +905,53 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `registrationViewer` | const | 18776 | `server.ts` |
 | `reachedRegistration` | const | 18779 | `server.ts` |
 | `registrarBlockReason` | function | 18799 | `server.ts` |
-| `demoPageHint` | function | 19317 | `server.ts` |
-| `publicPageNonce` | function | 19359 | `server.ts` |
+| `demoPageHint` | function | 19317 | `src/server/core/publicPages.ts` |
+| `publicPageNonce` | function | 19359 | `src/server/core/publicPages.ts` |
 | `staffCardPage` | function | 19384 | `src/server/pages/staffCardPage.ts` |
 | `surveyPage` | function | 19956 | `src/server/pages/surveyPages.ts` |
 | `studentCaseSurveyPage` | function | 20290 | `src/server/pages/surveyPages.ts` |
-| `REQUEST_LINK_DAYS` | const | 20391 | `server.ts` |
-| `requestWindowOpen` | const | 20394 | `server.ts` |
-| `currentInstructorRequestGeneration` | function | 20397 | `server.ts` |
+| `REQUEST_LINK_DAYS` | const | 20391 | `src/server/core/instructorRequests.ts` |
+| `requestWindowOpen` | const | 20394 | `src/server/core/instructorRequests.ts` |
+| `currentInstructorRequestGeneration` | function | 20397 | `src/server/core/instructorRequests.ts` |
 | `requireCurrentInstructorRequestGeneration` | function | 20411 | `server.ts` |
-| `requestItemScope` | function | 20419 | `server.ts` |
+| `requestItemScope` | function | 20419 | `src/server/core/instructorRequests.ts` |
 | `requestForDepartment` | function | 20434 | `server.ts` |
 | `stripForInstructor` | function | 20451 | `server.ts` |
-| `courseHabitMemo` | const | 20489 | `server.ts` |
-| `onSchedulesInvalidated(() => courseHabitMemo.clear());` | جملة | 20490 | `server.ts` |
-| `courseHabit` | function | 20492 | `server.ts` |
+| `courseHabitMemo` | const | 20489 | `src/server/core/instructorRequests.ts` |
+| `onSchedulesInvalidated(() => courseHabitMemo.clear());` | جملة | 20490 | `src/server/core/instructorRequests.ts` |
+| `courseHabit` | function | 20492 | `src/server/core/instructorRequests.ts` |
 | `habitBlockFor` | const | 20508 | `server.ts` |
 | `blockMinutesOfItem` | function | 20511 | `server.ts` |
 | `decisionStillApplies` | function | 20524 | `server.ts` |
 | `priorAddFor` | function | 20535 | `server.ts` |
 | `requestSlotsForCourse` | function | 20550 | `server.ts` |
 | `instructorRequestItemsFromPayload` | function | 20562 | `server.ts` |
-| `resolveRequestLink` | function | 20683 | `server.ts` |
-| `instructorRequestSectionCourses` | function | 20709 | `server.ts` |
+| `resolveRequestLink` | function | 20683 | `src/server/core/instructorRequests.ts` |
+| `instructorRequestSectionCourses` | function | 20709 | `src/server/core/instructorRequests.ts` |
 | `refreshUnsubmittedInstructorRequest` | function | 20729 | `server.ts` |
 | `InstructorRequestCourseOption` | type | 20759 | `server.ts` |
-| `instructorRequestDepartmentScopes` | function | 20776 | `server.ts` |
+| `instructorRequestDepartmentScopes` | function | 20776 | `src/server/core/instructorRequests.ts` |
 | `instructorRequestCourseOptions` | function | 20804 | `server.ts` |
 | `originalOffering` | function | 20835 | `server.ts` |
 | `availableInstructorOfferings` | function | 20840 | `server.ts` |
 | `requestReservationProposals` | function | 20879 | `server.ts` |
-| `buildRequestContext` | function | 20898 | `server.ts` |
-| `buildSharedRequestContext` | function | 20906 | `server.ts` |
-| `SharedRequestContext` | type | 20939 | `server.ts` |
-| `requestContextFor` | function | 20941 | `server.ts` |
-| `requestRulesForScope` | function | 20957 | `server.ts` |
-| `roomUsageMemo` | const | 21022 | `server.ts` |
-| `roomUsageOf` | function | 21023 | `server.ts` |
-| `rulesInflight` | const | 21035 | `server.ts` |
-| `rulesOnce` | function | 21036 | `server.ts` |
-| `judgeRequestItems` | function | 21044 | `server.ts` |
-| `requireInstructorRequestRevision` | function | 21658 | `server.ts` |
-| `instructorRequestItemIdentity` | function | 21670 | `server.ts` |
+| `buildRequestContext` | function | 20898 | `src/server/core/instructorRequests.ts` |
+| `buildSharedRequestContext` | function | 20906 | `src/server/core/instructorRequests.ts` |
+| `SharedRequestContext` | type | 20939 | `src/server/core/instructorRequests.ts` |
+| `requestContextFor` | function | 20941 | `src/server/core/instructorRequests.ts` |
+| `requestRulesForScope` | function | 20957 | `src/server/core/instructorRequests.ts` |
+| `roomUsageMemo` | const | 21022 | `src/server/core/instructorRequests.ts` |
+| `roomUsageOf` | function | 21023 | `src/server/core/instructorRequests.ts` |
+| `rulesInflight` | const | 21035 | `src/server/core/instructorRequests.ts` |
+| `rulesOnce` | function | 21036 | `src/server/core/instructorRequests.ts` |
+| `judgeRequestItems` | function | 21044 | `src/server/core/instructorRequests.ts` |
+| `requireInstructorRequestRevision` | function | 21658 | `src/server/core/instructorRequests.ts` |
+| `instructorRequestItemIdentity` | function | 21670 | `src/server/core/instructorRequests.ts` |
 | `ApplyOp` | type | 21832 | `server.ts` |
 | `daysFlags` | const | 21837 | `server.ts` |
 | `rowBodyOf` | const | 21838 | `server.ts` |
 | `requestDayPatterns` | function | 22264 | `server.ts` |
-| `verifyRequestSigner` | function | 22282 | `server.ts` |
+| `verifyRequestSigner` | function | 22282 | `src/server/core/instructorRequests.ts` |
 | `instructorRequestPage` | function | 22650 | `src/server/pages/instructorRequestPage.ts` |
 | `previousTermMemo` | const | 23821 | `server.ts` |
 | `cardStreams` | const | 23874 | `server.ts` |
@@ -935,7 +965,7 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `publicInvalidLinkPage` | function | 24086 | `src/server/pages/publicInvalidLinkPage.ts` |
 | `offeringViewsFor` | function | 24107 | `server.ts` |
 | `coursesWithOffering` | function | 24126 | `server.ts` |
-| `taPhaseId` | const | 24137 | `server.ts` |
+| `taPhaseId` | const | 24137 | `src/server/core/instructorRequests.ts` |
 | `taPhaseForRequest` | function | 24140 | `server.ts` |
 | `sendTaWave` | function | 24280 | `server.ts` |
 | `dispatchTaWaves` | function | 24310 | `server.ts` |

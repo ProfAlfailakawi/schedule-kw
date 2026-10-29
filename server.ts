@@ -5,50 +5,48 @@ import { eligibleSuggestionEditId, instructorRowsForSuggestion } from "./src/uti
 import { emptySuggestionReason, orderSuggestionCandidates, rankSuggestionCandidates, SUGGESTION_EMPTY_WORD, toClock, type SuggestionDayKey, type SuggestionEmptyReason, type SuggestionHall } from "./src/utils/suggestionEngine";
 import { appendRequestThread, THREAD_TEXT_LIMIT, negotiationState, parseOfferedSlots } from "./src/utils/instructorRequestThread";
 import { historicalLectureMinutes, buildCourseLife, buildDecisionCost, buildHistoricalTimeModel, buildOfferingLife, discoverUnwrittenRules, explainWhyHere, investigateCrowding, logicalAnomalies, scheduleAccuracyFromVersions, simulatePolicy } from "./src/utils/advancedIntelligence";
-import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "./src/utils/instructorRequestWeek";
-import { rankRequestRooms } from "./src/utils/requestRoomRanking";
-import { reservationRows, liveReservations, occupiedRowsForRequest, RequestReservationConflict, RequestHoldConflict, REQUEST_RACE_LOST, type RequestReservationProposal } from "./src/utils/instructorRequestReservations";
+import { instructorWeekAfter } from "./src/utils/instructorRequestWeek";
+import { reservationRows, RequestReservationConflict, RequestHoldConflict, REQUEST_RACE_LOST, type RequestReservationProposal } from "./src/utils/instructorRequestReservations";
 import { compareIntelligenceTerms, rowsForIntelligenceScope } from "./src/utils/intelligenceReadingScope";
 import express, { Request, Response, NextFunction } from "express";
-import { rateLimit, ipKeyGenerator } from "express-rate-limit";
+import { rateLimit } from "express-rate-limit";
 import compression from "compression";
 import path from "path";
 import fs from "fs";
 import { BUILD_STAMP } from "./src/generated/buildStamp";
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import { createGunzip } from "zlib";
 import { activeDataMode, ApprovalRevisionConflict, DuplicateResourceError, initDatabase, Repository, ScheduleRevisionConflict, StudentCourseStateConflict, withSerialLock, caseRefFor, ScopeChangedError } from "./src/db/repository";
 import { roomTypeSiblingIds } from "./src/utils/courseRoomTypeSync";
 import { DEMO_SWITCH_ACCOUNTS, demoActiveRoleKey } from "./src/db/demoSandbox";
-import { clearScheduleCacheQuietly, onSchedulesInvalidated } from "./src/db/referenceCache";
 import { generateSyntheticCivilId, normalizeCivilId, sameCivilId, validateCivilId } from "./src/utils/civilId";
 import { toEnglishDigits } from "./src/utils/digits";
 import { ADVISOR_ROLE, DEPARTMENT_HEAD_ROLE, planAdvisorAccounts, planDepartmentHeadAccounts } from "./src/utils/departmentHeadAccounts";
 import { normalizeArabicText } from "./src/utils/arabicText";
-import { byRoom, byArabic, sortByName } from "./src/utils/sorting";
+import { byRoom, byArabic } from "./src/utils/sorting";
 import { activeDays, analyzeSchedule, autoScheduleProposal, conflictSolutions, findConflicts, isBlockingConflict, minutesToTime, outsideScopeClashes, SCHEDULE_DAYS, timeToMinutes } from "./src/utils/scheduleIntelligence";
 import { buildScheduleGenome, buildWarRoom, evaluateScheduleConstraints, forecastScheduleMove, runScheduleAutopilot } from "./src/utils/scheduleInnovation";
 import { describeRollover, readTermRollover } from "./src/utils/termRollover";
 import { visibleTermIds } from "./src/utils/scopedTerms";
-import { termChronology, currentTermId, planningTermCandidates, termHasEnded, termIsArchive, termPhase, termIsFrozen, TERM_FROZEN_MESSAGE, termWindow, termSeasonOf } from "./src/utils/termSequence";
+import { currentTermId, planningTermCandidates, termHasEnded, termPhase, termIsFrozen, TERM_FROZEN_MESSAGE, termWindow, termSeasonOf } from "./src/utils/termSequence";
 import { WIPE_CONFIRM_TOKEN, WIPE_MAX_ROWS, WIPE_RESTORE_TOKEN, WIPE_VERSION_LABEL, wipeDecision } from "./src/utils/scheduleWipePolicy";
 import { acceptedPdfSourceLabel, pdfTermAccepted } from "./src/utils/pdfTermRule";
-import { applyVisitingToFaculty, recoverRetiredFromPrintedName, retiredOrSabbaticalIds } from "./src/utils/visitingToFaculty";
+import { applyVisitingToFaculty, recoverRetiredFromPrintedName } from "./src/utils/visitingToFaculty";
 import { ensureSectionFaculty } from "./src/server/sectionFaculty";
 import { isTrainingAssistant, planTaConversion } from "./src/utils/taConversion";
 import { evaluateTeachingLoad, teachingHoursByInstructor, teachingLoadLimits, teachingLoadProblem } from "./src/utils/teachingLoad";
 import { buildConflictTopology, buildDecisionMemoryInsight, buildFairnessEngine, buildFragilityMap, buildOneMinuteBrief, buildRoomResilience, buildScheduleHealth2, buildSchedulePulse, createEmergencyPlans, explainScheduleDecision } from "./src/utils/livingSchedule";
-import type { AdCourse, AdInstructor, AdSection, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleComment, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestEventKind, StudentNeed, CurriculumPlan, CurriculumDegreeRule, CurriculumRuleSet } from "./src/types";
+import type { AdCourse, AdInstructor, AdSection, FSchedule, ScheduleApproval, ScheduleApprovalSignature, ScheduleNoteField, ScheduleShareLink, HallBarterRequest, MasterBuilding, MasterRoom, LocationReviewCase, InstructorRequest, InstructorRequestItem, InstructorRequestSignature, InstructorRequestEventKind, StudentNeed, CurriculumDegreeRule, CurriculumRuleSet } from "./src/types";
 import { DAY_FLAGS, DAY_LABELS, parseNaturalQuery } from "./src/utils/naturalQuery";
-import { computeMeetingSlots, meetingParticipants } from "./src/utils/meetingSlots";
-import { directoryVisitingIds, liveVisitingIds, termVisitingIds, visitingByScope } from "./src/utils/liveVisiting";
+import { computeMeetingSlots } from "./src/utils/meetingSlots";
+import { visitingByScope } from "./src/utils/liveVisiting";
 import { departmentFamily, departmentFamilyResolver } from "./src/utils/sectionLabel";
 import { readConversionState, runVisitingConversion } from "./src/db/visitingConversion";
 import { readVisitingTeaching } from "./src/server/visitingTeachingRead";
 import { aggregateVisitingHistory } from "./src/utils/visitingHistory";
 import { coerceScopeValues } from "./src/utils/scopeContext";
 import { readOnlyRefusal, roleWriteDecision } from "./src/server/roleGuard";
-import { companyOn, createChangeClock, sweepPulses, type PulseEntry } from "./src/server/livePulse";
+import { companyOn, sweepPulses, type PulseEntry } from "./src/server/livePulse";
 import { provisionCollegeUsers } from "./src/server/sectionUsers";
 import { registerStudyProposalRoutes, seedDemoStudyProposals } from "./src/server/studyProposalRoutes";
 import { effectiveStatus as studyProposalStatus, decisionStateOf as studyProposalDecision } from "./src/utils/studyProposal";
@@ -56,53 +54,47 @@ import { studyProposalPage } from "./src/server/studyProposalPage";
 import { signatureVerifyPage } from "./src/server/signatureVerifyPage";
 import { pickPreviousRequest } from "./src/utils/previousTermRequest";
 import { latestRequestByInstructor, reissueMove, requestLinkNeedsReplacing } from "./src/utils/requestReissue";
-import { patternNoticeHtml } from "./src/utils/patternLibraryView";
-import { patternLibraryInput } from "./src/utils/patternLibraryInput";
 import { enrichCompanionRoomTypes } from "./src/utils/companionRoomDisplay";
 import { cleanSeenIds, seenKey } from "./src/utils/notificationSeen";
-import { calendarFeedKey, createCalendarSecretResolver, instructorFromCalendarKey, personCalendarKey } from "./src/server/calendarSecret";
-import { readsUntilTermEnd, requestsCloseAtFromDate, shareLinkReadable, termLinkExpiresAt } from "./src/utils/shareLinkLifetime";
-import { normalizeInstructorDeadline, individualExceptionOpen, requestWindowOpen as requestWindowOpenPolicy } from "./src/utils/instructorRequestWindows";
-import { createAttemptLimiter, limiterOptionsFromEnv } from "./src/server/publicAttemptLimiter";
-import { createDeadSessionMemory, createLinkMissGuard, createSessionLookupBudget, isSessionIdShape } from "./src/server/anonymousGuard";
+import { calendarFeedKey, instructorFromCalendarKey } from "./src/server/calendarSecret";
+import { requestsCloseAtFromDate, termLinkExpiresAt } from "./src/utils/shareLinkLifetime";
+import { normalizeInstructorDeadline, individualExceptionOpen } from "./src/utils/instructorRequestWindows";
+import { createLinkMissGuard, isSessionIdShape } from "./src/server/anonymousGuard";
 import { runApprovalAttempts, type ApprovalOnce } from "./src/server/approvalAttempts";
-import { createCoalescer, createTtlMemo, studentQueueAggregate, type StudentQueueEntry } from "./src/server/notificationCache";
-import { createDataContextKey } from "./src/server/dataContextCache";
-import { isDemoLinkToken, publicLinkTokenFromPath, PUBLIC_LINK_PAGE_PREFIXES } from "./src/utils/demoLinkToken";
+import { studentQueueAggregate, type StudentQueueEntry } from "./src/server/notificationCache";
+import { isDemoLinkToken, PUBLIC_LINK_PAGE_PREFIXES } from "./src/utils/demoLinkToken";
 import { chosenAlternativeIndex } from "./src/utils/requestAlternatives";
 import { slotTimeGroups } from "./src/utils/slotTimeGroups";
 import { coverConflict } from "./src/utils/coverAvailability";
 import { storableMobile, whatsappNumber } from "./src/utils/reachInstructor";
 import { instructorScheduleFingerprint } from "./src/utils/scheduleFingerprint";
-import { coversWholeCollege, expandScopeSections, resolveSmartScope } from "./src/server/readScope";
-import { finalSourceFor, type Finality } from "./src/utils/finality";
-import { movementAttribution } from "./src/utils/movementAttribution";
+import { coversWholeCollege, expandScopeSections } from "./src/server/readScope";
+import type { Finality } from "./src/utils/finality";
 import { firstInstructorEditAt, movementAfterInstructorEdit } from "./src/utils/instructorMovementWindow";
 import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind, unchangedScheduleFingerprint } from "./src/utils/instructorRequestConfirmation";
 import { isLate } from "./src/utils/lateness";
 import { decideException, exceptionRefusal, normalizeExceptionDays, resolveExceptionTargets, withException, withoutException, type ExceptionAction, type ExceptionAmount, type ExceptionOutcome } from "./src/utils/submissionDeadlines";
 import { isFacultyPlaceholder, singleFacultyPlaceholder, withoutFacultyPlaceholderCivil } from "./src/utils/placeholderInstructor";
-import { APPROVAL_STATUS_LABEL, blockingConflictPhrase, canSign, canSubmit, describeWholesaleRefusal, emptyApproval, inboxPriority, isFullySigned, isWholesaleChange, lastReviewedVersionId, readDeadline, verificationCode, type DeadlineState, type WholesaleAction, acknowledgeAdditions, appendApprovalEvent, approvalLockReason, awaitsHeadSignature, canHeadReturn, canReturn, canWithdraw, CLOSED_BY_ACCEPTANCE_LABEL, countAnsweredRegistrarNotes, countOpenRegistrarNotes, isOpenRegistrarNote, extensionRefusal, insistOutcome, isSwapEdit, kuwaitDateISO, mergePendingAdditions, openRound, pendingAdditionTotal, readViewExpectation, additionsAwaitingHead, withRemainingSignatures, extensionRequestRefusal, roundBaselineVersionId, roundEndVersionId, staleViewRefusal, statusAfterSignatureChange, suggestedExtensionDate, TERM_CLOSED_APPROVAL_MESSAGE } from "./src/utils/approvalWorkflow";
+import { APPROVAL_STATUS_LABEL, blockingConflictPhrase, canSign, canSubmit, emptyApproval, inboxPriority, isFullySigned, lastReviewedVersionId, readDeadline, verificationCode, acknowledgeAdditions, awaitsHeadSignature, canHeadReturn, canReturn, canWithdraw, CLOSED_BY_ACCEPTANCE_LABEL, countAnsweredRegistrarNotes, countOpenRegistrarNotes, isOpenRegistrarNote, extensionRefusal, insistOutcome, kuwaitDateISO, openRound, pendingAdditionTotal, readViewExpectation, additionsAwaitingHead, withRemainingSignatures, extensionRequestRefusal, roundBaselineVersionId, roundEndVersionId, staleViewRefusal, statusAfterSignatureChange, suggestedExtensionDate } from "./src/utils/approvalWorkflow";
 import { diffSchedules, fieldValue as diffFieldValue, summarizeDiff } from "./src/utils/scheduleDiff";
-import { describeScopeChanges, fingerprintOfSignatures, replacementLoss, scopeBase, scopeSignatures, type ScopeBase } from "./src/utils/scopeFingerprint";
-import { approvalBlockerCount, approvalBlockerSummary, approvalWarnings, blockingConflictDetails, blockingConflicts, blockingRowIds, doubleEntryCount, placeholderInstructorIds as sharedPlaceholderInstructorIds, type ApprovalBlockerOptions } from "./src/utils/scheduleBlockers";
+import { scopeBase } from "./src/utils/scopeFingerprint";
+import { approvalBlockerCount, approvalBlockerSummary, approvalWarnings, blockingConflictDetails, blockingConflicts, blockingRowIds, doubleEntryCount } from "./src/utils/scheduleBlockers";
 import { chooseCaptureBaseline } from "./src/utils/changesBaseline";
-import { approvalScopeKey, authorityRowsForScope } from "./src/utils/approvalScope";
+import { approvalScopeKey } from "./src/utils/approvalScope";
 import { buildNotifications } from "./src/utils/notificationCenter";
 import { awaitedItemIndexes } from "./src/utils/linkedRequestItems";
-import { DAY_KEYS, DAY_NAMES, effectiveCourseHours, expectedMinutesForDay, lectureLengthProblem, maxWeeklyMinutesFor, patternsForHours, periodBalanceFinding, reviewSchedule, weeklyLectureMinutes } from "./src/utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, effectiveCourseHours, expectedMinutesForDay, lectureLengthProblem, patternsForHours, reviewSchedule } from "./src/utils/scheduleRegulations";
 import { ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, canManageDeadline, canReviewSubmissions, canAnnotateCells, isAcademicRole, isAdvisorRole, isReadOnlyRole, isRegistrarRole, isViewerOnlyRole, roleDefinition, roleLabel, signatureStage, watchesInbox, type AcademicRole } from "./src/utils/academicRoles";
 import { capacityGapItems, computeScheduleDataReadiness } from "./src/utils/scheduleDataReadiness";
 import { AR, countOf, nounFor, oblique } from "./src/utils/arabicCount";
 import { readSettledDrift, settledTerm } from "./src/utils/settledDrift";
-import { learnRhythm, offRhythm, describeRhythm, type RhythmReading } from "./src/utils/departmentRhythm";
-import { readDepartmentMemory, type DepartmentMemory } from "./src/utils/departmentMemory";
-import { readStudentDemand, mergeCurrentDemandResponses, cohortPairs, sharedBetween } from "./src/utils/studentDemand";
+import { describeRhythm } from "./src/utils/departmentRhythm";
+import { readStudentDemand, mergeCurrentDemandResponses, cohortPairs } from "./src/utils/studentDemand";
 import { isCaseLevelNeed, studentCaseStatus } from "./src/utils/studentCaseDecision";
 import { sectionOwnsNeed, surveyOwnsNeed } from "./src/utils/studentCaseScope";
 import { droppedCourseLabel } from "./src/utils/studentNeedMerge";
-import { suggestedDegreeRule, readDegreeRuleInput, type DegreeRule } from "./src/utils/degreeRules";
-import { choosePlanForSheet, type PlanRuleCandidate } from "./src/utils/graduationPlan";
+import { readDegreeRuleInput, type DegreeRule } from "./src/utils/degreeRules";
+import type { PlanRuleCandidate } from "./src/utils/graduationPlan";
 import { checkStudentPhases, hasStudentPhases } from "./src/utils/termStudentPhases";
 import { adInjection, adNotifications, registerAdsRoutes } from "./src/server/adsRoutes";
 import { registerStudentDoorRoutes, scheduleStudentProfilePurge } from "./src/server/studentDoorRoutes";
@@ -123,7 +115,7 @@ import { DEFAULT_INVITATION_PASSWORD } from "./src/utils/invitationLink";
 import { scheduleAutoTermJob } from "./src/server/autoTerms";
 import { readDemandRepairs } from "./src/utils/demandRepair";
 import { loadSimulationInput, rankDemandRepairsBySimulation, rankSectionOpeningsBySimulation } from "./src/server/simulationData";
-import { endForRequest, headlineReasonOf, judgeRequest, requestFullySettled, rowFromRequest, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "./src/utils/instructorRequestVerdict";
+import { endForRequest, headlineReasonOf, requestFullySettled, rowFromRequest, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "./src/utils/instructorRequestVerdict";
 import { readCourseSuccession, cohortTurnover, predictDemand } from "./src/utils/courseSuccession";
 import { nextSectionCodes, readSectionOpenings, type OpeningReading } from "./src/utils/sectionOpening";
 import { demandFromTargets, gapRows, hardestFirst, weekFingerprint } from "./src/utils/sectionBuild";
@@ -141,31 +133,59 @@ import { applyOfferingToOpenings, offeringBadge, offeringBlocked, emptyOfferingD
 import { alternativeSections, baseCapacityFor, nearFull, normalizeQuotaConfig, sectionKey, seatState, tryAddSeats, type SeatLedger, type SeatQuotaConfig } from "./src/utils/advisorSeats";
 import { allowedFor, countdown, dueWaves, loadRing, phaseOpen, planWaves, vacantSections, vacantSummary, type TaPhaseDoc, type TaWave } from "./src/utils/taPhase";
 import { withVisitingSuffix } from "./src/utils/visitingText";
-import { learnAll, learnCourseNature, habitualBlockMinutes, historicalOrigin, type CourseNature } from "./src/utils/courseNature";
+import { learnAll, habitualBlockMinutes } from "./src/utils/courseNature";
 import { firstLast } from "./src/utils/weekVisual";
-import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, campusOf, interCampusMinutes } from "./src/utils/campusTravel";
-import { clockRangesOverlap, formatScheduleTimeRange, isValidClock, normalizeClock, SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, SCHEDULE_DAY_START_TIME, SCHEDULE_SLOT_MINUTES, scheduleDayWindowMinutes, withinScheduleDay } from "./src/utils/scheduleTime";
+import { DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES } from "./src/utils/campusTravel";
+import { formatScheduleTimeRange, isValidClock, normalizeClock, SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, SCHEDULE_DAY_START_TIME, SCHEDULE_SLOT_MINUTES, scheduleDayWindowMinutes, withinScheduleDay } from "./src/utils/scheduleTime";
 import { canAccessGuideFeature, featureById, featureIdForGuideIntentGoal, parseStructuredGuideIntent } from "./src/guide/smartGuide";
-import { displayInstructorText, instructorCleanName, foldInstructorText, instructorIdentityTokens, readableInstructorName, registryCandidatesFor } from "./src/utils/instructorIdentity";
+import { displayInstructorText, foldInstructorText, instructorIdentityTokens, readableInstructorName, registryCandidatesFor } from "./src/utils/instructorIdentity";
 import { isAssignableInstructor } from "./src/utils/instructorStatus";
-import { authorityFieldMatchesOriginal } from "./src/utils/authorityNetChange";
-import { ocrDocument, ocrGraduationSheetDocument, parseScheduleTable, graduationSheetFacts, cleanBuildingCode, cleanHallCode, readAuthorityPdfHeader, renderPdfPagesForSmartRead, cropRowStripsForSmartRead, SCAN_READING_BUSY_MESSAGE, ScanReadingBusyError, GREY_PHOTO_REFUSAL, readReportCells, scanRefusalMessage, unresolvedDaysReason, restoredDaysReason } from "./src/utils/documentOcr";
+import { ocrDocument, parseScheduleTable, readAuthorityPdfHeader, renderPdfPagesForSmartRead, cropRowStripsForSmartRead, SCAN_READING_BUSY_MESSAGE, ScanReadingBusyError, GREY_PHOTO_REFUSAL, readReportCells, scanRefusalMessage, unresolvedDaysReason, restoredDaysReason } from "./src/utils/documentOcr";
 import { assessRemainingImport, blankSpots, columnKind, imageOrientationRefusal, readRemainingReport, readReportHeader, remainingReportTermRelation } from "./src/utils/remainingReport";
 import { computeTermForecast } from "./src/utils/termForecast";
 import { recoverAuthorityScanRowsFromHistory } from "./src/utils/authorityScanRecovery";
 import { academicDigits, assignAuthoritySections, withoutImportEvidence, authorityCourseCode, authorityDepartmentCode, authorityDepartmentMatches, normalizeAuthoritySectionCode } from "./src/utils/authorityAcademicCodes";
 import { buildRowReasons, instructorLoadUnits } from "./src/utils/rowReasons";
-import { PENDING_ROOM, confirmedDepartmentRoomIds as confirmedDepartmentRoomIdsFromRegistry, eligibleHallsForSection, buildingIdentityKey, compareLocationCodes, isInvalidLocationToken, isSharedRoom, roomIdentityKey, roomKeyOf, rowOccupiesRoom, resolveAuthorityLocation, resolveBuilding, resolveRoom } from "./src/utils/locationRegistry";
+import { PENDING_ROOM, eligibleHallsForSection, buildingIdentityKey, isInvalidLocationToken, isSharedRoom, roomIdentityKey, roomKeyOf, rowOccupiesRoom, resolveAuthorityLocation, resolveBuilding, resolveRoom } from "./src/utils/locationRegistry";
 import { officialBuildingCode, officialCollegeSitePrefix, officialSiteLabel, parseOfficialBuildingCode } from "./src/utils/locationCollegePrefixes";
-import { collegeBranchRoot, collegeSitePrefix, resolveBranchScope, siblingBranchScopes, splitRowsByBranch, type BranchScope } from "./src/utils/branchScope";
+import { collegeSitePrefix, resolveBranchScope, siblingBranchScopes, splitRowsByBranch, type BranchScope } from "./src/utils/branchScope";
 import { fairShareByOwner } from "./src/utils/hallBarterFairness";
-import { approvedBarterReservation, borrowerOutsideApprovedWindow } from "./src/utils/hallBarterWindow";
 import { instructorRequestProposalIdentity } from "./src/utils/instructorRequestProposalIdentity";
 import { pageReviewWaitLine, pagesAwaitingReview, unconfirmedReviewPages } from "./src/utils/importPageReview";
-import { buildMigrationPlan, locationPreflight, mergeRegistryWithSeed, newMigrationRun, registryHealth, rollbackPatch, seedRegistry, LOCATION_MIGRATION_VERSION } from "./src/server/locationRegistryEngine";
-import { bindGeminiRowsToCatalogue, buildSmartImportCatalogue, deterministicSchedulingCalls, extractJsonObject, GEMINI_SCHEDULE_FUNCTION_NAMES, normalizeGeminiScheduleRows, sanitizeGeminiScheduleCalls, scheduleDelta, type GeminiScheduleCall } from "./src/utils/geminiScheduleLayer";
+import { buildMigrationPlan, locationPreflight, newMigrationRun, registryHealth, rollbackPatch, seedRegistry, LOCATION_MIGRATION_VERSION } from "./src/server/locationRegistryEngine";
+import { bindGeminiRowsToCatalogue, buildSmartImportCatalogue, deterministicSchedulingCalls, GEMINI_SCHEDULE_FUNCTION_NAMES, normalizeGeminiScheduleRows, sanitizeGeminiScheduleCalls, scheduleDelta, type GeminiScheduleCall } from "./src/utils/geminiScheduleLayer";
 import * as XLSX from "xlsx";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./src/server/publicTheme";
+import { state } from "./src/server/core/state";
+import { countBlockingConflicts, noteScheduleMutation, readApproval, readDeadlineFor, refuseIfTermClosed, refuseIfTermFrozen, regulationNoticesForScope, scheduleLockRefusal, settleAmendmentMarker, wholesaleRefusal, withEvent } from "./src/server/core/approvals";
+import { authCache, type AuthenticatedRequest, authMiddleware, bindPublicLinkContext, deadSessions, DEMO_READ_ONLY_PREFIXES, DEMO_SESSION_GONE, DEMO_SESSION_TTL_MS, getCookies, isPowerUser, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin, ROOT_ADMIN_USER_ID, SERVER_IDLE_SESSION_MS, sessionTouchedAt, signInRequiredMessage } from "./src/server/core/auth";
+import { authorityBaselineForScope, authorityCourseCodeMap, buildAuthorityPdfDiff, inferAuthorityBranchCode } from "./src/server/core/authority";
+import { DEMO_STORY_SCOPE, demoTeacherRequest } from "./src/server/core/demo";
+import { requestGeminiScheduleLayer } from "./src/server/core/gemini";
+import { academicStartYear, barterRequestMatchesRow, barterRequestRoomKey, HALL_BARTER_DAY_LABEL, hallBarterBoardCache } from "./src/server/core/hallBarter";
+import { API_PERFORMANCE_LIMIT, apiPerformanceSamples, asyncSafe, documentReadingGate } from "./src/server/core/http";
+import { boundedInt, cleanText, TEXT_LIMIT } from "./src/server/core/input";
+import { buildRequestContext, buildSharedRequestContext, courseHabit, currentInstructorRequestGeneration, instructorRequestDepartmentScopes, instructorRequestItemIdentity, instructorRequestSectionCourses, judgeRequestItems, REQUEST_LINK_DAYS, requestContextFor, requestItemScope, requestRulesForScope, requestWindowOpen, requireInstructorRequestRevision, resolveRequestLink, taPhaseId, verifyRequestSigner } from "./src/server/core/instructorRequests";
+import { boardScopeKey, broadcastNotify, broadcastScheduleChange, broadcastStudentNotifySoon, emptyMark, listenForScheduleChangesAcrossInstances, markPresenceDirty, notifyClock, presenceRoster, scheduleChangeClock, type ScheduleEventClient, scheduleEventClients } from "./src/server/core/liveChannel";
+import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, confirmedDepartmentRoomIds, dataContextCacheKey, invalidateLocationRegistry, readLocationRegistry } from "./src/server/core/locations";
+import { NOTE_FIELD_LABEL, noteFieldValue, noteState, notesWithState } from "./src/server/core/notes";
+import { bellBlockingMemo, bellPlanningTermId, studentQueueMemo } from "./src/server/core/notifications";
+import { academicSectionNameMatches, arabicUiCollator, courseNameCollator, foldHeaderIdentity, sortArabicNamed, sortCoursesByName, sortTermsNewestServer, termChronologyServer, verifiedRoomKey } from "./src/server/core/ordering";
+import { curriculumLabelsFor, sectionGapData } from "./src/server/core/planning";
+import { demoPageHint, publicPageNonce } from "./src/server/core/publicPages";
+import { rateLimitPublic, requestLinkLimit, requestTokenKey } from "./src/server/core/rateLimits";
+import { departmentStyle, driftCache, driftSerial, historicalTimeCache } from "./src/server/core/rhythm";
+import { applyRequestHoldOverride, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "./src/server/core/scheduleConflicts";
+import { finalRowsOnly, readLiveSchedulesForRequest, readSchedulesForRequest, readsFinalSchedulesOnly, scopeSectionIdsFor, splitArchivedCourseRows, termEndedForReading } from "./src/server/core/scheduleReads";
+import { describeScheduleChange, meetingExcludedIds, mixedPatternNotice, normalizedBuilding, roomOwnership, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, sectionScheduleWindow, sectionScheduleWindowCache, travelMinutesFor, travelPairKey, weekExceptionDayKey } from "./src/server/core/scheduleRules";
+import { applyProposalCore, companionBookingFor, createScheduleHandler, dayLabelOf, deleteScheduleHandler, PROPOSAL_DAYS, type ProposalOutcome, runScheduleHandler, updateScheduleHandler } from "./src/server/core/scheduleWrites";
+import { filterByScope, instructorsForReader, intelligenceReadScopes, isScopeAllowed, legacyFDetail, safeSystemUser, scopedScheduleUniverse } from "./src/server/core/scope";
+import { buildSharePayload, calendarKey, calendarSecret, publicAttemptKey, publicAttemptReserve, publicAttempts, resolveShareToken, SHARE_DAY_KEYS, SHARE_DAY_NAMES, shareDayIndexes, shareLinkLabel, shareLinkStillReadable, stableCalendarPath } from "./src/server/core/shareLinks";
+import { approvalBlockerOptions, blockingImportConflicts, branchOwnScopes, collegeFallbackInstructorIds, departmentInstructorIdSet, mapSmartIssuesToRows, type PdfImportReceipt, placeholderInstructorIds, resolveSmartContext, safeDraftRows, smartContextFrom, validateSmartRows, visitingToFacultyPlan } from "./src/server/core/smartImport";
+import { liveStaffPublication, movementHistoryScopes, scheduleMovementEntries, staffFamilyScopes, staffFamilyShareLinks } from "./src/server/core/staffCard";
+import { asciiDigits, degreeRuleFromName, graduateProofCore, graduateSubmitCheck, graduateThreshold, graduationCandidatesForSection, graduationRuleFor, issueStudentProof, isSummerTerm, openStudentIdentity, planDegreeRule, sealStudentIdentity, storedDegreeRuleForSection, studentIdentityFor, studentIdentityKey, surveyActiveCourseIds, surveyCohort, surveyFingerprint, surveyPayloadCache, surveyTermEnded } from "./src/server/core/studentIdentity";
+import { captureScopeVersion, confirmTokens, hydrateVersionRows, livingResponseCache, recordVersionAfter, replacementAction, scopeOverwriteRefusal } from "./src/server/core/versions";
+import { readLiveVisitingRoster, readVisitingStatus, visitingChecker } from "./src/server/core/visiting";
 import { instructorRequestPage } from "./src/server/pages/instructorRequestPage";
 import { publicInvalidLinkPage } from "./src/server/pages/publicInvalidLinkPage";
 import { staffCardPage } from "./src/server/pages/staffCardPage";
@@ -186,90 +206,6 @@ app.set("trust proxy", 1);
 /* المنفذُ ثابتٌ (3000) في كل بيئة. والتجريبيُّ وحده (DATA_MODE=demo) يقبل PORT ليُشغَّل بجانب خادمٍ آخر في بيئات التطوير والاختبار؛
    فلا يتغيّر المنفذُ في أي نشرٍ حقيقيّ (Cloud Run ينشر بـDATA_MODE=firestore). */
 const PORT = process.env.DATA_MODE === "demo" && Number(process.env.PORT) > 0 ? Number(process.env.PORT) : 3000;
-
-
-// User-facing reference lists follow one ordering contract everywhere: Arabic
-// alphabetic order for names, and newest-to-oldest for academic terms. Keeping
-// it at the API boundary prevents one picker from silently drifting away from
-// another screen that consumes the same data.
-const arabicUiCollator = new Intl.Collator("ar", { numeric: true, sensitivity: "base", ignorePunctuation: true });
-const foldHeaderIdentity = (value: unknown) => String(value ?? "").normalize("NFKC")
-  .replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
-  .replace(/[ً-ْـ]/g, "").replace(/[إأآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه")
-  .replace(/(?:^|\s)(?:قسم|القسم|كليه|كلية)(?=\s|$)/g," ")
-  .replace(/[^ء-ي0-9a-zA-Z ]/g," ").replace(/\s+/g," ").trim().toLowerCase();
-const isSpecialEducationIdentity = (value: unknown) => {
-  const folded=foldHeaderIdentity(value);
-  return /(?:^|\s)التربيه\s+الخاصه(?:\s|$)/.test(folded)||/(?:^|\s)تربيه\s+خاصه(?:\s|$)/.test(folded);
-};
-/**
- * One academic-section identity rule for import headers and student proofs.
- * Special Education is the deliberate umbrella exception: programme labels
- * such as «اسلامية تربية خاصة» or «لغة عربية تربية خاصة» belong to the one
- * canonical system department «قسم التربية الخاصة». A Special-Education
- * programme must never match Islamic Education / Arabic merely because it also
- * contains that subject word.
- */
-const academicSectionNameMatches = (observed: unknown, canonical: unknown) => {
-  const source=foldHeaderIdentity(observed),target=foldHeaderIdentity(canonical);
-  if(!source||!target)return false;
-  const sourceSpecial=isSpecialEducationIdentity(source),targetSpecial=isSpecialEducationIdentity(target);
-  if(sourceSpecial||targetSpecial)return sourceSpecial&&targetSpecial;
-  if(source.includes(target)||target.includes(source))return true;
-  const loose=(token:string)=>token.replace(/^ال(?=\S{3,})/,"");
-  const generic=new Set(["تربيه","تعليم","عامه","علمي"]);
-  const sourceTokens=source.split(" ").map(loose).filter(Boolean);
-  const tokens=target.split(" ").map(loose).filter(token=>token.length>=4&&!generic.has(token));
-  return tokens.length>0&&tokens.every(token=>sourceTokens.includes(token));
-};
-const sortArabicNamed = <T>(rows: readonly T[], pick: (row: T) => unknown): T[] =>
-  sortByName(rows, pick);
-const verifiedRoomKey = (row: Partial<FSchedule>): string =>
-  row.roomId && row.locationStatus !== "PENDING_ROOM" && row.locationStatus !== "LOCATION_REVIEW_REQUIRED" && row.locationStatus !== "INVALID_HISTORICAL"
-    ? `id:${row.roomId}`
-    : "";
-const verifiedBuildingKey = (row: Partial<FSchedule>): string =>
-  row.buildingId && row.locationStatus !== "LOCATION_REVIEW_REQUIRED" && row.locationStatus !== "INVALID_HISTORICAL"
-    ? `id:${row.buildingId}`
-    : "";
-const termChronologyServer = (term: any) => {
-  const name = String(term?.AdTermName || "");
-  const years = name.match(/(\d{4})\s*\/\s*(\d{4})/);
-  const season = name.includes("الصيفي") ? 3 : name.includes("الثاني") ? 2 : name.includes("الأول") ? 1 : 0;
-  return years ? Number(years[1]) * 10 + season : Number(term?.AdTermId || 0);
-};
-const sortTermsNewestServer = <T extends { AdTermId?: unknown; AdTermName?: unknown }>(rows: readonly T[]): T[] =>
-  [...rows].sort((a, b) => termChronologyServer(b) - termChronologyServer(a) || Number(b.AdTermId || 0) - Number(a.AdTermId || 0));
-
-/* ── ذاكرةُ العملية لها عالَمان: الحقيقي، وصندوقُ كل زائرٍ تجريبي ───────────
- *
- * البيئةُ التجريبية تعمل داخل الخدمة الحقيقية نفسها: طلبُ الزائر يُربط بصندوقه
- * (AsyncLocalStorage) فيقرأ Repository بياناتِه هو. أما ذاكرةٌ على مستوى
- * العملية فلا تعرف ذلك الربط — فكان سجلُّ المباني المحفوظ دقيقةً يمتلئ من أوّل
- * طلبٍ يسأله: إن كان زائراً تجريبياً حُفظ سجلُّ صندوقه (فارغاً) فرُفض حفظُ
- * المستخدمين الحقيقيين «اختر مبنى رسميًا من سجل المباني» دقيقةً كاملة، وإن
- * كان حقيقياً قرأ الزائرُ سجلَّ الجامعة.
- *
- * فكلُّ مفتاحٍ لذاكرةٍ تحفظ ما قرأه Repository يمرّ بـdataContextCacheKey
- * (القاعدة في src/server/dataContextCache.ts). */
-const dataContextCacheKey = createDataContextKey(() => Repository.currentDemoSessionId());
-
-const locationRegistryCache=new Map<string,{at:number;buildings:MasterBuilding[];rooms:MasterRoom[]}>();
-async function readLocationRegistry(force=false){
-  const cacheKey=dataContextCacheKey("registry");
-  const held=locationRegistryCache.get(cacheKey);
-  if(!force&&held&&Date.now()-held.at<60_000)return held;
-  const [buildings,rooms]=await Promise.all([Repository.getLocationBuildings(),Repository.getLocationRooms()]);
-  /* بذرةُ السجل مأخوذةٌ من تاريخ الجامعة الحقيقي؛ الصندوقُ التجريبي له سجلُّه
-     الوهميّ وحده (demoSandbox.ts) ولا يُخلط بمباني الجامعة. */
-  const merged=Repository.isDemoRequest()?{buildings:[...buildings],rooms:[...rooms]}:mergeRegistryWithSeed({buildings,rooms});
-  merged.buildings.sort((a,b)=>compareLocationCodes(a.officialCode,b.officialCode));
-  merged.rooms.sort((a,b)=>compareLocationCodes(a.buildingCode,b.buildingCode)||compareLocationCodes(a.canonicalCode,b.canonicalCode));
-  const entry={at:Date.now(),...merged};
-  if(locationRegistryCache.size>100)locationRegistryCache.clear();
-  locationRegistryCache.set(cacheKey,entry);return entry;
-}
-function invalidateLocationRegistry(){locationRegistryCache.delete(dataContextCacheKey("registry"));}
 
 /* ── مواقع الفرع تدخل السجل من الوثيقة المعتمدة ───────────────────────────
  *
@@ -360,89 +296,7 @@ async function provisionBranchSiteLocationsFromAuthority(
   if(newBuildings.length||newRooms.length)invalidateLocationRegistry();
   return {buildings:newBuildings.map(item=>item.officialCode),rooms:newRooms.map(item=>`${item.buildingCode}/${item.canonicalCode}`)};
 }
-const confirmedDepartmentRoomIds=confirmedDepartmentRoomIdsFromRegistry;
 type DepartmentRoomReference={building:string;hall:string};
-
-async function canonicalizeLocationForWrite(row:any,collegeId:number,sectionId:number,authorityRoomId=""){
-  const [registry,colleges,pinnedDepartmentRooms]=await Promise.all([readLocationRegistry(),Repository.getColleges(),Repository.getPinnedDepartmentRooms(collegeId,sectionId)]);
-  const pinnedRoomIds=confirmedDepartmentRoomIds(registry,pinnedDepartmentRooms,collegeId);
-  /* الموقع داخل الفرع نفسه ليس خارج النطاق: قاعة الجهراء تبقى قابلة للتعديل
-     والحفظ من القسم نفسه، بينما فرع آخر (بنين مقابل بنات) يظل مرفوضاً. */
-  const branchRoot=collegeBranchRoot(colleges as any,collegeId);
-  /* القاعة التي أسندتها الجهة في الجدول المستورد قرارٌ رسمي: تعديل الأستاذ أو
-     الوقت في الموعد نفسه لا يُرفض بحجة أن القاعة لقسم آخر ما دامت لم تتغير. */
-  const directoryApprovedRoom=Boolean(row?.roomId&&(pinnedRoomIds.has(String(row.roomId))||(authorityRoomId&&String(row.roomId)===authorityRoomId)));
-  let check=locationPreflight(row,registry,{collegeId,sectionId,branchRoot,allowOutOfScopeRoom:directoryApprovedRoom});
-  const blocking=check.issues.filter(issue=>issue.severity==="high");
-  if(blocking.length&&blocking.every(issue=>issue.type==="room_scope")&&check.canonical&&await hallBarterAllowsRoomUse({...row,...check.canonical},collegeId,sectionId)){
-    check=locationPreflight(row,registry,{collegeId,sectionId,branchRoot,allowOutOfScopeRoom:true});
-  }else if(blocking.some(issue=>issue.type==="room_scope")){
-    /* ── الرفض يقول للمستعير ما ينقصه هو ──────────────────────────────────
-     * قسمٌ استعار هذه القاعة يوم الأحد ثم وضع محاضرة يوم الثلاثاء يُرفض —
-     * وهذا صحيح — لكن الرسالة كانت تقول له «القاعة مرتبطة بقسم آخر» وكأنه لم
-     * يستعرها قط. فمتى كان له فيها نوافذ معتمدة، تُسمّى له نوافذه بأيامها
-     * وأوقاتها ليعرف أنه خارجها لا خارج الاستعارة كلها. */
-    const roomId=String((check.canonical as any)?.roomId||row?.roomId||"");
-    const termId=Number(row?.AdTermId||0);
-    if(roomId&&termId){
-      const requests=await Repository.getHallBarterRequests(termId);
-      const windows=requests.filter(request=>request.status==="approved"&&String(request.roomId||"")===roomId&&
-        Number(request.requesterCollegeId)===collegeId&&Number(request.requesterSectionId)===sectionId);
-      if(windows.length){
-        const shown=windows.slice(0,4).map(request=>`${HALL_BARTER_DAY_LABEL.get(request.day)||request.day} ${formatScheduleTimeRange(request.startTime,request.endTime)}`).join(" · ");
-        check={...check,issues:check.issues.map(issue=>issue.type==="room_scope"
-          ?{...issue,message:`الموعد يتجاوز نافذة الاستعارة المعتمدة. نوافذك المعتمدة في هذه القاعة: ${shown}.`}
-          :issue)};
-      }
-    }
-  }
-  return {registry,check};
-}
-
-/** Runtime-only bridge for the deployment window before the historical migration is executed.
- * It never writes legacy rows and never guesses REVIEW/PROBABLE values. The current term is
- * resolved against the confirmed registry in memory so aliases cannot hide a room conflict. */
-function canonicalizeHistoricalLocationForRuntime(row:FSchedule,registry:{buildings:MasterBuilding[];rooms:MasterRoom[]}):FSchedule{
-  if(row.locationStatus==="PENDING_ROOM"||row.roomId===PENDING_ROOM)return row;
-  if(row.buildingId&&row.roomId)return row;
-  const building=resolveBuilding(registry,String(row.AdRoomCode||""),{collegeId:Number(row.AdCollegeId||0),sectionId:Number(row.AdSectionId||0)});
-  if(building.status!=="CONFIRMED"||!building.value)return row;
-  const room=resolveRoom(registry,String(row.AdRoomHall||""),building.value.id,{collegeId:Number(row.AdCollegeId||0),sectionId:Number(row.AdSectionId||0)});
-  if(room.status!=="CONFIRMED"||!room.value)return {...row,buildingId:building.value.id,AdRoomCode:building.value.officialCode};
-  return {...row,buildingId:building.value.id,roomId:room.value.id,AdRoomCode:building.value.officialCode,AdRoomHall:room.value.canonicalCode,locationStatus:"VERIFIED"};
-}
-
-
-/**
- * A rejected promise must reach the error handler, not the process.
- *
- * Express 4 predates async handlers: it calls them, ignores the promise they
- * return, and never learns that one rejected. The rejection then rises as an
- * unhandled rejection, which modern Node treats as fatal — so one slow moment
- * from Firestore could kill an instance mid-day, dropping every request in
- * flight and every live schedule stream with it.
- *
- * Rather than remember a wrapper at four hundred call sites, the routing verbs
- * are taught it once, here, before any route is registered. Handlers keep their
- * shape: a four-argument error handler is left exactly as written, a returned
- * promise gets `.catch(next)`, and a synchronous throw is forwarded too. Any
- * properties a middleware carries (a mounted router, Vite's connect app) are
- * copied onto the wrapper so nothing that inspects them notices the difference.
- */
-const asyncSafe = (handler: any) => {
-  if (typeof handler !== "function" || handler.length >= 4) return handler;
-  const wrapped = function (this: unknown, req: Request, res: Response, next: NextFunction) {
-    try {
-      const outcome = handler.call(this, req, res, next);
-      if (outcome && typeof outcome.then === "function") outcome.catch(next);
-      return outcome;
-    } catch (error) {
-      next(error);
-      return undefined;
-    }
-  };
-  return Object.assign(wrapped, handler);
-};
 for (const verb of ["get", "post", "put", "patch", "delete", "all", "use"] as const) {
   const original = (app as any)[verb].bind(app);
   (app as any)[verb] = (...args: any[]) => original(...args.map(asyncSafe));
@@ -549,21 +403,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Helper to parse cookies
-function getCookies(req: Request): Record<string, string> {
-  const list: Record<string, string> = {};
-  const cookieHeader = req.headers.cookie;
-  if (!cookieHeader) return list;
-  cookieHeader.split(";").forEach(cookie => {
-    const parts = cookie.split("=");
-    const name = parts.shift()?.trim();
-    if (name) {
-      list[name] = decodeURIComponent(parts.join("="));
-    }
-  });
-  return list;
-}
-
 // Rate limiting for login (simple in-memory)
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
 function rateLimitLogin(req: Request, res: Response, next: NextFunction) {
@@ -606,19 +445,6 @@ const rateLimitHeavyReport = rateLimit({
   legacyHeaders: false,
   message: { error: "طلباتٌ كثيرة لهذا التقرير في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
 });
-
-/* ── بطاقةُ الأستاذ: الحدُّ لكل رابطٍ شخصيّ، وسقفٌ لكل عنوان ─────────────────────
-   كانت كلُّ حدودها (٦٠ طلباً عامّاً، و٣٠ إرسالاً وردّاً، و٩٠ فحصَ أوقات، و١٢٠ بثّاً في الدقيقة) على العنوان، وبطاقةٌ
-   واحدةٌ تنادي نحو عشرة طلبات: فشبكةُ الجامعة (أو مشغّلُ الجوال خلف NAT) عنوانٌ واحدٌ لعشرات الأساتذة، وفي اختبار
-   التحمّل (scripts/loadtest/teacher-card.mjs) رُدّ ١٥ من ١٦ توقيعاً بـ٤٢٩ من عنوانٍ واحد. صار الحدُّ لكل رابطٍ
-   (الرابطُ مفتاحٌ شخصيٌّ طويلٌ لا يُخمَّن)، وفوقه سقفٌ لكل عنوانٍ يتّسع لنحو ثلاثين بطاقةً في الدقيقة.
-   المفتاحُ بصمةٌ (sha256) لا الرابطُ نفسُه: الذاكرةُ لا تحمل رابطاً. */
-const requestTokenKey = (req: Request): string => {
-  const token = String(req.params?.token || "");
-  return token ? `req:${createHash("sha256").update(token).digest("hex").slice(0, 32)}` : `ip:${ipKeyGenerator(req.ip || "unknown")}`;
-};
-const REQUEST_IP_CEILING = (() => { const n = Number(process.env.PUBLIC_REQUEST_PER_IP_PER_MINUTE); return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1500; })();
-const REQUEST_TOKEN_CEILING = (() => { const n = Number(process.env.PUBLIC_REQUEST_PER_LINK_PER_MINUTE); return Number.isFinite(n) && n > 0 ? Math.floor(n) : 240; })();
 /* طلبُ الأستاذ وردُّه من رابطه العام: حدٌّ سخيٌّ لإنسانٍ يكتب، فوق عدّاد
    المحاولات الموقّعة (publicAttempts) لا بدلاً منه. */
 const rateLimitPublicRequest = rateLimit({
@@ -657,246 +483,14 @@ const rateLimitDemoRole = rateLimit({
   legacyHeaders: false,
   message: { error: "تبديلاتٌ كثيرة جداً في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
 });
-
-/**
- * ── Rate limit for the public surface (`/api/public/*`) ──────────────────────
- *
- * Everything under `/api/public` answers without an account: a share token in
- * the URL is the whole key. That is what makes those endpoints useful — a
- * student opens a link and reads their schedule — and also what makes them the
- * cheapest place to guess tokens, scrape a term, or hammer the OCR upload. The
- * login form was already limited; this closes the other door with the same
- * simple in-memory counter, kept deliberately generous so real use never feels
- * it: a survey page makes a handful of calls, a calendar client polls rarely.
- *
- * Both numbers are environment-tunable because the right value depends on the
- * deployment, not on the code: a college behind one NAT address is many people
- * on one `req.ip`. `PUBLIC_RATE_LIMIT_MAX=0` turns the limit off entirely.
- *
- * The counter lives in this process only — see SECURITY-TODO.md item 3 for why
- * that is a ceiling on what it can promise across several Cloud Run instances.
- */
-function readRateLimitEnv(name: string, fallback: number): number {
-  const raw = String(process.env[name] ?? "").trim();
-  if (!raw) return fallback;
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value < 0) return fallback;
-  return Math.floor(value);
-}
-const PUBLIC_RATE_LIMIT_MAX = readRateLimitEnv("PUBLIC_RATE_LIMIT_MAX", 60);
-const PUBLIC_RATE_LIMIT_WINDOW_MS = Math.max(1000, readRateLimitEnv("PUBLIC_RATE_LIMIT_WINDOW_MS", 60000));
-const publicRequestWindows = new Map<string, { count: number; windowStart: number }>();
-let publicRateLimitSweptAt = 0;
-
-function rateLimitPublic(req: Request, res: Response, next: NextFunction) {
-  if (PUBLIC_RATE_LIMIT_MAX <= 0) { next(); return; }
-  /* «مساري» (/api/public/me/*) له حدودُه التي تحكمه (أخطاء الرمز على الملف والعنوان، والكتابة في الدقيقة)،
-     ولا يصحّ أن يزاحمه عدّادٌ واحدٌ لكل عنوان: شبكةُ الجامعة عنوانٌ واحد لآلاف الطلبة، وصفحةُ الباب
-     الواحدة تنادي خمسَ مراتٍ — فيُحجب الطالبُ التاسعُ في الدقيقة ويومُ التسجيل هو يومُه. */
-  if (req.originalUrl.startsWith("/api/public/me/")) { next(); return; }
-  /* وبطاقةُ الأستاذ (/api/public/request/:token/*) حدُّها لكل رابطٍ وسقفٌ لكل عنوانٍ أوسع (requestLinkLimit). */
-  if (req.originalUrl.startsWith("/api/public/request/")) { next(); return; }
-  const now = Date.now();
-  // Expired windows are dropped once per window, so a long-lived instance that
-  // has served many addresses does not keep a row for every one of them.
-  if (now - publicRateLimitSweptAt > PUBLIC_RATE_LIMIT_WINDOW_MS) {
-    publicRateLimitSweptAt = now;
-    for (const [key, seen] of publicRequestWindows) {
-      if (now - seen.windowStart >= PUBLIC_RATE_LIMIT_WINDOW_MS) publicRequestWindows.delete(key);
-    }
-  }
-  const ip = req.ip || "unknown";
-  const seen = publicRequestWindows.get(ip);
-  if (!seen || now - seen.windowStart >= PUBLIC_RATE_LIMIT_WINDOW_MS) {
-    publicRequestWindows.set(ip, { count: 1, windowStart: now });
-    next();
-    return;
-  }
-  seen.count += 1;
-  if (seen.count > PUBLIC_RATE_LIMIT_MAX) {
-    const retryAfterSeconds = Math.max(1, Math.ceil((seen.windowStart + PUBLIC_RATE_LIMIT_WINDOW_MS - now) / 1000));
-    res.setHeader("Retry-After", String(retryAfterSeconds));
-    res.status(429).json({ error: "طلبات كثيرة جداً من هذا الاتصال. انتظر قليلاً ثم أعد المحاولة." });
-    return;
-  }
-  next();
-}
 app.use("/api/public", rateLimitPublic);
-const requestLinkLimit = [
-  rateLimit({ windowMs: 60_000, limit: REQUEST_IP_CEILING, keyGenerator: req => `ip:${ipKeyGenerator(req.ip || "unknown")}`, standardHeaders: true, legacyHeaders: false,
-    message: { error: "طلباتٌ كثيرة من هذه الشبكة في وقتٍ قصير. انتظر دقيقةً ثم أعد المحاولة." } }),
-  rateLimit({ windowMs: 60_000, limit: REQUEST_TOKEN_CEILING, keyGenerator: requestTokenKey, standardHeaders: true, legacyHeaders: false,
-    message: { error: "طلباتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." } }),
-];
 app.use("/api/public/request/:token", requestLinkLimit);
 /* نبضُ الزوار والإعلانُ يُحقنان في الصفحات العامة وحدها (انظر server/adsRoutes). */
 app.use(adInjection());
 
-const SERVER_IDLE_SESSION_MS = 15 * 60 * 1000;
-const DEMO_SESSION_TTL_MS = 60 * 60 * 1000;
-
-// Middleware to load session user
-interface AuthenticatedRequest extends Request {
-  userId?: number;
-  user?: any;
-  scopes?: { AdCollegeId: number; AdSectionId: number }[];
-  /** FormName ids this session holds, resolved once with the identity. */
-  permissions?: number[];
-  demoSessionId?: string;
-}
-
-/**
- * Who is asking, resolved once instead of three times per request.
- *
- * Identifying the caller meant three sequential database round trips — the
- * session, then the user, then their scopes — and it ran for every request,
- * including stylesheets and fonts. On a hosted database that was roughly half a
- * second of waiting before any handler had started, on every single call, which
- * is most of what made the application feel slow.
- *
- * The answer is now held for a few seconds per session. It is dropped the
- * moment the person signs out, and whenever an account or its scopes are
- * edited, so a revoked or locked account cannot keep working from memory.
- */
-// Twenty seconds was too tight: past it, the first request of every burst paid
-// for three database round trips again, which is exactly the half second the
-// cache existed to remove. Two minutes still bounds how long a revoked account
-// could linger, and sign-out and account edits drop the entry immediately.
-const AUTH_CACHE_MS = 120_000;
-const authCache = new Map<string, { at: number; userId: number; user: any; scopes: any[]; permissions: number[] }>();
-
-/**
- * ── الجلسة تُقاس بالحضور، لا بالكتابة إلى قاعدة البيانات ────────────────────
- *
- * The idle rule is fifteen minutes and it stays fifteen minutes. What was
- * broken is *what counts as being present*.
- *
- * Extending the session used to happen in exactly one place: the slow path of
- * `authMiddleware`, and only once the session was already inside its last ten
- * minutes. Every request served from `authCache` — which is most of them, for
- * two minutes at a stretch — returned early and extended nothing. So a person
- * clicking through the board could be working continuously and still be signed
- * out on the fifteen-minute mark, because the requests that proved they were
- * there were precisely the ones that skipped the extension.
- *
- * The extension moves here, in front of both paths. It is still a database
- * write, so it is throttled: one write per session per two minutes, no matter
- * how many requests arrive. Worst case the record trails real activity by two
- * minutes, which the fifteen-minute window absorbs without noticing.
- */
-const SESSION_TOUCH_EVERY_MS = 120_000;
-const sessionTouchedAt = new Map<string, number>();
-
-function touchSession(sessionId: string, ttlMs: number): void {
-  const now = Date.now();
-  const last = sessionTouchedAt.get(sessionId) || 0;
-  if (now - last < SESSION_TOUCH_EVERY_MS) return;
-  sessionTouchedAt.set(sessionId, now);
-  // The reader is not kept waiting on a keep-alive write, and a failed write
-  // simply means the next request tries again — never a thrown request.
-  void Repository.refreshSession(sessionId, ttlMs).catch(() => {
-    sessionTouchedAt.delete(sessionId);
-  });
-  // Sessions end without announcing it. Anything older than an hour cannot be
-  // throttling a live session any more, so the map stays small on its own.
-  if (sessionTouchedAt.size > 500) {
-    for (const [id, at] of sessionTouchedAt) if (now - at > 3_600_000) sessionTouchedAt.delete(id);
-  }
-}
-
 export function forgetAuthSession(sessionId?: string) {
   if (sessionId) { authCache.delete(sessionId); sessionTouchedAt.delete(sessionId); }
   else { authCache.clear(); sessionTouchedAt.clear(); }
-}
-Repository.onIdentityChanged?.(() => authCache.clear());
-
-/* جلسةٌ لا وجود لها تُسأل عنها قاعدةُ البيانات مرةً واحدة، لا مع كل طلب؛ وعنوانٌ
-   يخترع معرّفاتٍ يُقرأ مجهولاً بعد حدٍّ لا يبلغه متصفّحٌ حقيقي. القاعدة كلها
-   في src/server/anonymousGuard.ts. */
-const deadSessions = createDeadSessionMemory();
-const sessionLookups = createSessionLookupBudget();
-let sessionLookupRefusedLoggedAt = 0;
-
-async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const cookies = getCookies(req);
-  const sessionId = cookies["session_id"];
-  if (!sessionId) { next(); return; }
-  /* معرّفٌ لم يصنعه الخادم لا يُسمّي جلسة: لا يُسأل عنه أحد. */
-  if (!isSessionIdShape(sessionId)) { next(); return; }
-  /* جلسةٌ تجريبية لا هويةَ لها خارج صندوقها: صندوقٌ انتهى، أو رابطٌ حقيقيٌّ
-     فُتح من متصفّح التجربة، يُقرأ فيهما الطلب مجهولاً — لا بهوية «مدير
-     البيئة التجريبية» المحفوظة في authCache على بياناتٍ حقيقية. */
-  if (sessionId.startsWith("demo_") && !Repository.isDemoRequest()) { next(); return; }
-
-  const idleTtlMs = Repository.isDemoRequest() ? DEMO_SESSION_TTL_MS : SERVER_IDLE_SESSION_MS;
-
-  const cached = authCache.get(sessionId);
-  if (cached && Date.now() - cached.at < AUTH_CACHE_MS) {
-    req.userId = cached.userId;
-    req.user = cached.user;
-    req.scopes = cached.scopes;
-    req.permissions = cached.permissions;
-    // A request answered from memory is still a person at the keyboard.
-    touchSession(sessionId, idleTtlMs);
-    next();
-    return;
-  }
-
-  /* الجلساتُ الحقيقية في Firestore وكلُّ سؤالٍ عنها قراءة؛ التجريبيةُ في الذاكرة. */
-  const billed = sessionId.startsWith("sess_") && !Repository.isDemoRequest();
-  if (billed && deadSessions.knows(sessionId)) { next(); return; }
-  const lookup = billed ? sessionLookups.reserve(req.ip || "unknown") : null;
-  if (billed && !lookup) {
-    if (Date.now() - sessionLookupRefusedLoggedAt > 60_000) {
-      sessionLookupRefusedLoggedAt = Date.now();
-      console.warn(`[anonymous-guard] ${req.ip || "unknown"} keeps presenting sessions that do not exist; its unknown ids are read as signed out for now.`);
-    }
-    next();
-    return;
-  }
-
-  let sess: Awaited<ReturnType<typeof Repository.getSession>>;
-  try {
-    sess = await Repository.getSession(sessionId);
-  } catch (error) {
-    lookup?.release(false);
-    throw error;
-  }
-  if (sess) lookup?.release(true);
-  else if (billed) deadSessions.remember(sessionId);
-  if (sess) {
-    req.userId = sess.userId;
-    const user = await Repository.getUserById(sess.userId);
-    if (user && user.IsActive && !user.IsLocked && !user.IsDeleted) {
-      req.user = user;
-      /**
-       * The permission list joins the identity, instead of being re-read on
-       * every single gated call.
-       *
-       * `requirePermission` runs in front of nearly every route, and it was the
-       * one identity read with no cache — so each API call still paid for a
-       * Firestore round trip even when the user and scopes were already known.
-       * Every permission write announces an identity change, which clears this
-       * cache immediately, so a revoked screen closes as fast as it ever did.
-       */
-      const [assigns, security] = await Promise.all([
-        Repository.getUserAssigns(user.SystemUserId),
-        Repository.getSecurityByUser(user.SystemUserId),
-      ]);
-      req.scopes = assigns;
-      req.permissions = security.map(item => Number(item.FormNameId));
-      authCache.set(sessionId, { at: Date.now(), userId: sess.userId, user, scopes: req.scopes || [], permissions: req.permissions });
-      touchSession(sessionId, idleTtlMs);
-      next();
-      return;
-    }
-    authCache.delete(sessionId);
-    await Repository.deleteSession(sessionId);
-    if (billed) deadSessions.remember(sessionId);
-  } else {
-    authCache.delete(sessionId);
-  }
-  next();
 }
 
 /**
@@ -963,23 +557,6 @@ app.use("/api", (req, res, next) => {
     ref: databaseDownRef,
   }));
 });
-
-/*
- * ── الرابطُ العام يُفتح في عالَمه ────────────────────────────────────────────
- *
- * صفحاتُ الروابط (/s /q /r /m) وواجهاتُها (/api/public/…) تُحلّ برمز الرابط لا
- * بالجلسة. فرمزٌ تجريبي («demo.…») يُربط بالصندوق الذي أنشأه — من المتصفّح
- * نفسه أو من هاتفٍ يشترك في التقويم — ولا يُبحث عنه في البيانات الحقيقية.
- * ورمزٌ حقيقي يُقرأ من البيانات الحقيقية ولو حمل المتصفّح جلسةً تجريبية، وتلك
- * الجلسة لا هويةَ لها هناك (authMiddleware). القاعدة: src/utils/demoLinkToken.ts.
- */
-function bindPublicLinkContext(req: Request, _res: Response, next: NextFunction) {
-  const token = publicLinkTokenFromPath(req.originalUrl);
-  const sessionId = isDemoLinkToken(token) ? Repository.demoSandboxForLinkToken(token) : "";
-  if (!sessionId) { next(); return; }
-  (req as AuthenticatedRequest).demoSessionId = sessionId;
-  if (!Repository.runDemoSandbox(sessionId, next)) next();
-}
 /* صفحاتُ الروابط تعدّ الرموزَ التي لا تطابق شيئاً، لا من يفتحها (anonymousGuard.ts):
    شبكةُ الجامعة تفتح ألف رابطٍ صحيح ولا تُحجب، ومن يخمّن يُوقَف قبل أن يُسأل عنه أحد. */
 app.use(PUBLIC_LINK_PAGE_PREFIXES.map(prefix => `${prefix}:token`), createLinkMissGuard());
@@ -1003,10 +580,6 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
 // Only the API needs to know who is calling. Stylesheets, fonts and the shell
 // were paying for an identity lookup they never read.
 app.use("/api", authMiddleware as express.RequestHandler);
-
-// System administration is a showroom in demo: readable, never mutable. This is
-// server-side enforcement, so removing `disabled` in DevTools still cannot change it.
-const DEMO_READ_ONLY_PREFIXES = ["/users", "/permissions", "/user-scopes", "/system-backup", "/admin/teaching-load"];
 app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   if (!Repository.isDemoRequest() || req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") { next(); return; }
   if (req.path === "/auth/logout" || req.path === "/auth/heartbeat" || req.path === "/auth/presence" || req.path === "/demo/reset" || req.path === "/demo/role") { next(); return; }
@@ -1048,10 +621,6 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
   if (verdict.allowed) { next(); return; }
   res.status(403).json(readOnlyRefusal(req.user?.Role));
 });
-
-type ApiPerformanceSample = { at:number; path:string; method:string; durationMs:number; status:number; userId:number; collegeId:number; sectionId:number; termId:number };
-const apiPerformanceSamples: ApiPerformanceSample[] = [];
-const API_PERFORMANCE_LIMIT = 5000;
 app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   if (req.path === "/health" || req.path === "/telemetry/client") { next(); return; }
   const started = process.hrtime.bigint();
@@ -1148,53 +717,9 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
   });
   next();
 });
-
-/*
- * ── «سجّل الدخول» لمن لا حسابَ له: الجلسةُ التجريبية المفقودة ─────────────────
- *
- * الصندوقُ التجريبيُّ في ذاكرة الخادم. فإن انقضت ساعتُه أو أُعيد تشغيلُ الخادم
- * (نشرُ نسخةٍ جديدة) ضاع، وصار كلُّ طلبٍ من المجرِّب يُردّ «الرجاء تسجيل الدخول
- * أولاً» — لمن لم يملك حساباً قطّ، وفي منتصف دورةٍ يؤدّيها. وقد وقع هذا في
- * البروفة الحيّة بعد نشرٍ جرى أثناءها. فيُقال له ما حدث وما يفعل.
- */
-const DEMO_SESSION_GONE = "انتهت الجلسة التجريبية أو أُعيد تشغيل الخادم فمُحيت بياناتها. ابدأ تجربةً جديدة من صفحة الدخول.";
-function signInRequiredMessage(req: Request): string {
-  return String(getCookies(req)["session_id"] || "").startsWith("demo_") ? DEMO_SESSION_GONE : "الرجاء تسجيل الدخول أولاً";
-}
-
-// Require authenticated user
-function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  if (!req.user) {
-    res.status(401).json({ error: signInRequiredMessage(req) });
-    return;
-  }
-  next();
-}
-
-// Screens that are intentionally reserved for the main administrator.
-// The department scheduler keeps the operational schedule/search/report tools only.
-const powerOnlyFormIds = new Set([2, 3, 4, 5, 11, 12, 15]);
 /* The schedule workspace and مركز الذكاء are the same permission — every
    intelligence route is guarded by it, and every list route accepts it. */
 const DECISION_CENTRE_FORM_ID = 7;
-function isPowerUser(req: AuthenticatedRequest): boolean {
-  return Boolean(req.user && (req.user.IsAdminUser || Number(req.user.SystemUserId) === ROOT_ADMIN_USER_ID));
-}
-function requirePowerAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  if (!req.user) { res.status(401).json({ error: signInRequiredMessage(req) }); return; }
-  if (!isPowerUser(req)) { res.status(403).json({ error: "هذه الأداة مخصصة لإدارة النظام الرئيسية" }); return; }
-  next();
-}
-
-const ROOT_ADMIN_USER_ID = Math.max(1, Number(process.env.ROOT_ADMIN_USER_ID || 1) || 1);
-function requireRootAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  if (!req.user) { res.status(401).json({ error: signInRequiredMessage(req) }); return; }
-  if (Number(req.user.SystemUserId) !== ROOT_ADMIN_USER_ID) {
-    res.status(403).json({ error: "هذه الخزنة مخصصة لحساب الإدارة الرئيسي فقط" });
-    return;
-  }
-  next();
-}
 
 const SYSTEM_BACKUP_MAX_BYTES = 80 * 1024 * 1024;
 
@@ -1242,299 +767,6 @@ async function readSystemBackupBody(req: Request): Promise<unknown> {
   if (raw.length > SYSTEM_BACKUP_MAX_BYTES) throw new Error("النسخة بعد فك الضغط أكبر من الحد الآمن");
   return JSON.parse(raw.toString("utf8"));
 }
-
-/**
- * ── قراءة المستندات: اثنان في وقت واحد، لا أكثر ─────────────────────────────
- *
- * Reading a scanned timetable is the most expensive thing this server does. Each
- * page is rendered by pdf.js into a canvas and sliced into strips before OCR
- * sees it, and that rendering happens in this process's heap — twenty-odd
- * bitmaps per page, for up to twelve pages. One import is comfortable. Four
- * arriving together is an out-of-memory kill, and the work is not even faster:
- * the OCR workers behind it are already saturated by one document.
- *
- * So the reading routes admit two at a time and make the rest wait their turn,
- * which costs a queued reader some seconds and costs everyone else nothing. The
- * queue itself is bounded — past that the honest answer is "not now", not a
- * request that waits forever holding a 24 MB upload in memory.
- *
- * A slot is released on `finish` *and* on `close`, so a reader who closes the
- * tab mid-import hands their turn to the next person instead of stranding it.
- */
-function limitConcurrency(max: number, queueLimit: number) {
-  let active = 0;
-  const waiting: (() => void)[] = [];
-  return (_req: Request, res: Response, next: NextFunction) => {
-    const begin = () => {
-      active += 1;
-      let released = false;
-      const release = () => {
-        if (released) return;
-        released = true;
-        active -= 1;
-        waiting.shift()?.();
-      };
-      res.once("finish", release);
-      res.once("close", release);
-      next();
-    };
-    if (active < max) { begin(); return; }
-    if (waiting.length >= queueLimit) {
-      res.status(503).json({ error: "قراءة المستندات مشغولة الآن بطلبات أخرى. أعد المحاولة بعد قليل." });
-      return;
-    }
-    waiting.push(begin);
-  };
-}
-const documentReadingGate = limitConcurrency(2, 8);
-
-// Require Form permission
-function requirePermission(formNameId: number) {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      res.status(401).json({ error: signInRequiredMessage(req) });
-      return;
-    }
-    // Keep the single department scheduler inside the operational workspace even if
-    // an old FormSecurity record accidentally grants a legacy administrative screen.
-    if (powerOnlyFormIds.has(formNameId) && !isPowerUser(req)) {
-      res.status(403).json({ error: "هذه الشاشة مخصصة لإدارة النظام الرئيسية" });
-      return;
-    }
-    // Legacy navigation is driven by FormSecurity even when IsAdminUser=true.
-    // Resolved once per session by authMiddleware; the fallback covers a caller
-    // that reached here without passing through it.
-    const granted = req.permissions ?? (await Repository.getSecurityByUser(req.user.SystemUserId)).map(item => Number(item.FormNameId));
-    const hasPerm = granted.includes(formNameId);
-    if (!hasPerm) {
-      res.status(403).json({ error: "ليس لديك صلاحية للوصول إلى هذا القسم" });
-      return;
-    }
-    next();
-  };
-}
-
-function requireAnyPermission(formNameIds: number[]) {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      res.status(401).json({ error: signInRequiredMessage(req) });
-      return;
-    }
-    if (formNameIds.every(id => powerOnlyFormIds.has(id)) && !isPowerUser(req)) {
-      res.status(403).json({ error: "هذه الشاشة مخصصة لإدارة النظام الرئيسية" });
-      return;
-    }
-    const granted = req.permissions ?? (await Repository.getSecurityByUser(req.user.SystemUserId)).map(item => Number(item.FormNameId));
-    if (!granted.some(id => formNameIds.includes(id))) {
-      res.status(403).json({ error: "ليس لديك صلاحية للوصول إلى هذا القسم" });
-      return;
-    }
-    next();
-  };
-}
-
-// Check if section/college is in user's academic scopes
-function isScopeAllowed(req: AuthenticatedRequest, collegeId: number, sectionId: number): boolean {
-  if (!req.user) return false;
-  if (req.user.IsAdminUser) return true;
-  /**
-   * ── «كل الكليات» إذنٌ، لا لقطةٌ تشيخ ──────────────────────────────────────
-   *
-   * صفةُ التسجيل نطاقُها الجامعة كلها، وكان ذلك يُكتب صفّاً لكل كليةٍ موجودة
-   * يوم الحفظ. والكلياتُ تُنشأ بعده: كليةٌ أُضيفت أمس لا صفَّ لها، فيُردّ عنها
-   * رئيسُ التسجيل — بصمت، وشاشتُه تعده بأن اللاحق مشمول.
-   *
-   * فصارت الصفةُ نفسها هي الإذن. والصفوفُ تبقى تُكتب لأن شاشاتٍ أخرى تقرؤها
-   * لتعرف أقسامَ الحساب، لكنها لم تعد مصدرَ الحكم — فلا يشيخ الحكمُ بشيخوختها.
-   */
-  if (roleDefinition(req.user.Role).scopeMode === "allColleges") return true;
-  if (!req.scopes) return false;
-  // If sectionId is 0, we check if user has access to ANY section in this college
-  if (sectionId === 0) {
-    return req.scopes.some(s => s.AdCollegeId === collegeId);
-  }
-  /**
-   * ── «الكلية كلها»: صفٌّ واحد بقسم صفر ───────────────────────────────────
-   *
-   * صفوف النطاق تُكتب دائماً بقسمٍ حقيقي — شاشة النطاقات ترفض الصفر صراحةً —
-   * فالصفر لم يكن له معنى في هذا الجدول، وهذه الدالّة لم تكن تعرفه: كانت تطلب
-   * تطابقاً حرفياً على رقم القسم، فصفٌّ بقسمٍ صفر لا يُجيز قسماً واحداً.
-   *
-   * والصفات التي نطاقها كليةٌ كاملة — العميد ومساعده وعمداء التسجيل — تحتاج
-   * أن تقرأ كل أقسام كليتها، بما يُنشأ منها غداً. فكتابةُ صفٍّ لكل قسم كانت
-   * ستشيخ عند أول قسمٍ جديد، ويعود المدير ليضيفه يدوياً.
-   *
-   * فصار الصفر يعني «الكلية كلها» — لكن لهذه الصفات وحدها. والقيد مقصود: صفٌّ
-   * بقسمٍ صفر قد يكون موجوداً في بيانات سنواتٍ مضت لحسابٍ لا علاقة له بهذا،
-   * وتوسيعُ صلاحيته لأنه صادف الشكلَ نفسه توسيعٌ صامت لا يقبله أحد.
-   */
-  const scopeMode = roleDefinition(req.user.Role).scopeMode;
-  if (scopeMode === "college" || scopeMode === "allColleges") {
-    if (req.scopes.some(s => s.AdCollegeId === collegeId && Number(s.AdSectionId) === 0)) return true;
-  }
-  return req.scopes.some(s => s.AdCollegeId === collegeId && s.AdSectionId === sectionId);
-}
-
-// Filter arrays based on allowed user scopes
-/**
- * ── سؤالٌ واحد، جوابٌ واحد ──────────────────────────────────────────────────
- *
- * هذه الدالّة وأختُها `isScopeAllowed` تسألان الشيء نفسه: أيرى هذا الحسابُ هذا
- * القسم؟ وكانتا تجيبان بمنطقين منفصلين متطابقين — فلمّا تعلّمت إحداهما أن صفّاً
- * بقسمٍ صفر يعني الكلية كلها، بقيت الأخرى لا تعرفه.
- *
- * وأثرُ الافتراق ليس رفضاً ظاهراً بل أسوأ منه: العميد يمرّ من الحارس فلا يُردّ،
- * ثم تُصفّى بياناتُه هنا فتخرج فارغة. شاشةٌ تفتح بلا شيء، بلا رسالة، بلا سبب
- * ظاهر — وهو أعسرُ ما يُشخَّص.
- *
- * فصار الجواب من موضعٍ واحد. وأيُّ قاعدةِ نطاقٍ تُضاف غداً تُكتب مرّةً وتسري
- * على الاثنتين.
- */
-function filterByScope<T extends { AdCollegeId: number; AdSectionId: number }>(req: AuthenticatedRequest, list: T[]): T[] {
-  if (!req.user) return [];
-  if (req.user.IsAdminUser) return list;
-  if (!req.scopes) return [];
-  return list.filter(item => {
-    const sectionId = Number(item.AdSectionId);
-    /**
-     * صفٌّ بقسمٍ صفر ليس سؤالاً عن الكلية.
-     *
-     * لِـ`isScopeAllowed` معنيان للصفر بحسب موضعه: صفرٌ في السؤال يعني «أله
-     * شيءٌ في هذه الكلية؟» وهو سؤالُ شاشةٍ لا سؤالُ صفّ؛ وصفرٌ في صفّ النطاق
-     * يعني «الكلية كلها» لصفاتها وحدها.
-     *
-     * ولمّا صارت التصفية تسأل الحارسَ نفسه، صار صفٌّ بياناتُه ناقصةُ القسم —
-     * من ترحيلٍ قديم أو استيرادٍ بلا قسم — يدخل من باب المعنى الأول: يُسأل عنه
-     * بصفر، فيُجاب «نعم» لكل من له أيُّ شيءٍ في تلك الكلية، أيّاً كانت صفته.
-     * وهذا توسيعٌ لم يُقصد، وليس من عمل هذه الإضافة أن يقع.
-     *
-     * فالصفُّ الناقص يُطلب له تطابقٌ حرفيّ، كما كان قبل التوحيد تماماً.
-     */
-    if (sectionId <= 0) {
-      return req.scopes!.some(s => s.AdCollegeId === Number(item.AdCollegeId) && Number(s.AdSectionId) === 0);
-    }
-    return isScopeAllowed(req, Number(item.AdCollegeId), sectionId);
-  });
-}
-
-// Legacy FSchedule.fdetail stores weekday numbers, not display names:
-// 1=Sunday, 2=Monday, 3=Tuesday, 4=Wednesday, 5=Thursday.
-function legacyFDetail(days: { fsunday?: unknown; fmonday?: unknown; ftuesday?: unknown; fwednesday?: unknown; fthursday?: unknown }): string {
-  return [
-    days.fsunday && "1",
-    days.fmonday && "2",
-    days.ftuesday && "3",
-    days.fwednesday && "4",
-    days.fthursday && "5"
-  ].filter(Boolean).join(",");
-}
-
-function safeSystemUser(user: any) {
-  const { SystemUserPass: _passwordHash, SystemUserPassVault: _passwordVault, ...safe } = user || {};
-  return safe;
-}
-
-
-/**
- * ── ما بعد التغيير هو أساسُ التراجع عنه ────────────────────────────────
- * النسخة تُؤخذ قبل التغيير الذي تحميه. فحين يُطلب التراجع لاحقاً، السؤال
- * ليس «هل تغيّر الجدول منذ النسخة؟» — تغيّر، وهذا هو التغيير نفسه — بل «هل
- * تغيّر شيءٌ آخر بعده؟». فيُسجَّل الجدولُ كما صار، ويُقارن به عند الاسترجاع
- * (scopeOverwriteRefusal).
- *
- * و«كما صار» يُحسب من الصفوف التي كتبها الطلب نفسه، داخل الطلب وقبل الردّ
- * (recordVersionAfter) — لا بإعادة قراءة النطاق بعد انتهاء الردّ: تلك القراءة
- * كانت تلتقط تعديلَ زميلٍ وقع بينهما، فيُحسب من «ما صار» بعد عمليتنا، ثم
- * يمحوه التراجعُ بلا سؤال. ومن لا يكتب صفوفاً (قرارات الاعتماد) يقول
- * `{ unchanged: true }` فيكون أساسُها ما التُقط.
- */
-async function captureScopeVersion(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number, label: string, source: "manual"|"draft"|"publish"|"undo"|"copy"|"import" = "manual", options: { unchanged?: boolean } = {}) {
-  if (!req.user) return undefined;
-  const rows = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
-  const version = await Repository.createScheduleVersion({
-    SystemUserId: Number(req.user.SystemUserId), userName: String(req.user.Name || req.user.SystemUserLogin || ""),
-    AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId, label, source, rows
-  });
-  if (options.unchanged) await recordVersionAfter(version, rows);
-  return version;
-}
-
-/** «ما صار» بعد العملية، من صفوفها هي: دالّةٌ على ما قبلها، أو الصفوف المكتوبة نفسها. */
-async function recordVersionAfter(
-  version: { id?: string; rows?: any[] } | undefined,
-  after: any[] | ((before: any[]) => any[]),
-): Promise<void> {
-  if (!version?.id) return;
-  const rows = typeof after === "function" ? after(version.rows || []) : after;
-  try { await Repository.setScheduleVersionBase(version.id, scopeBase(rows)); }
-  catch (error) { console.error("[versions] تعذّر تسجيل أساس النسخة:", error instanceof Error ? error.message : error); }
-}
-
-/* ── «x-schedule-confirm» قد يحمل أكثر من موافقة ───────────────────────────
-   «publish» أو «restore» تقول «أريد هذا الفعل»، و«overwrite-newer» تقول «وأعرف
-   أنه سيمحو ما تغيّر بعد أساسه». تُرسلان معاً مفصولتين بفاصلة. */
-function confirmTokens(req: AuthenticatedRequest): Set<string> {
-  return new Set(String(req.get("x-schedule-confirm") || "").split(",").map(token => token.trim()).filter(Boolean));
-}
-
-/**
- * ── لا يُمحى ما تغيّر بعد الأساس دون أن يُسمّى ─────────────────────────────
- * The live scope against the base a draft or version was built on. Equal, or no
- * base recorded (older objects): nothing to say. Different, and the caller has
- * not said «overwrite-newer»: a refusal that lists what would be lost.
- */
-async function scopeOverwriteRefusal(
-  req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number, base: ScopeBase,
-): Promise<{ error: string; code: string; changes: string[] } | null> {
-  if (!base?.baseSignatures || !base.baseFingerprint) return null;
-  if (confirmTokens(req).has("overwrite-newer")) return null;
-  const live = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
-  if (fingerprintOfSignatures(scopeSignatures(live)) === base.baseFingerprint) return null;
-  const courses = await Repository.getCoursesBySection(sectionId).catch(() => [] as any[]);
-  const nameOf = new Map((courses as any[]).map(course => [Number(course.AdCourseId), String(course.CourseName || "")]));
-  const changes = describeScopeChanges(base.baseSignatures, live, id => nameOf.get(id) || "");
-  return {
-    error: `تغيّر الجدول بعد أن أُخذت هذه النسخة: ${countOf(changes.length, AR.change)} ستُمحى إن تابعت. لم يُكتب شيء.`,
-    code: "scope-changed-since-base",
-    changes: changes.slice(0, 40),
-  };
-}
-
-/* ── الموعد النهائي يقيس أثر الاستبدال، لا اسم الزر ─────────────────────────
-   استيرادُ ملفٍّ ونسخُ فصلٍ تسليمٌ شامل بطبيعته. أما نشرُ مسودةٍ عادية أو
-   استرجاعُ نسخةٍ أو التراجعُ عن قرار فيُقاس بما يمحوه فعلاً من الجدول الحيّ،
-   بقاعدة الحذف الجماعي نفسها (isWholesaleChange). */
-async function replacementAction(
-  collegeId: number, sectionId: number, termId: number, nextRows: any[], kind?: "import" | "copy-term",
-): Promise<WholesaleAction> {
-  if (kind) return { kind };
-  const live = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
-  const loss = replacementLoss(live, nextRows);
-  return { kind: "bulk-delete", deleting: loss.deleting, total: loss.total };
-}
-
-function safeImportEvidence(input:any){
-  if(!input||typeof input!=="object")return undefined;
-  const field=(value:any)=>value&&typeof value==="object"?{
-    raw:String(value.raw||"").slice(0,220),normalized:String(value.normalized||"").slice(0,220),
-    canonical:value.canonical===undefined||value.canonical===null?undefined:String(value.canonical).slice(0,180),
-    confidence:["CONFIRMED","REVIEW_REQUIRED","UNRESOLVED"].includes(String(value.confidence))?String(value.confidence):"UNRESOLVED",
-    score:Number.isFinite(Number(value.score))?Math.max(0,Math.min(100,Math.round(Number(value.score)))):undefined,
-    source:String(value.source||"").slice(0,60)||undefined,
-    method:String(value.method||"").slice(0,80)||undefined,
-    derived:Boolean(value.derived),
-    reason:String(value.reason||"").slice(0,300),
-    evidence:Array.isArray(value.evidence)?value.evidence.map((item:any)=>String(item||"").slice(0,180)).filter(Boolean).slice(0,8):[],
-  }:undefined;
-  const safe:any={};
-  for(const key of ["course","section","days","time","instructor","building","room"]){const item=field(input[key]);if(item)safe[key]=item;}
-  return Object.keys(safe).length?safe:undefined;
-}
-
-/* reviewPages: scanned pages accepted with printed lines that have no row. The
-   draft is refused until the request confirms each one (importPageReview). A
-   receipt signed before this field existed carries none and asks for none. */
-type PdfImportReceipt={v:1;collegeId:number;sectionId:number;termId:number;sourceTerm:string;sourceBranch:string;sourceDepartment:string;issuedAt:string;reviewPages?:number[]};
 async function signPdfImportReceipt(payload:PdfImportReceipt){
   const body=Buffer.from(JSON.stringify(payload),"utf8").toString("base64url");
   const secret=await Repository.getStudentCaseSecret();
@@ -1557,578 +789,6 @@ async function verifyPdfImportReceipt(token:unknown,context:{collegeId:number;se
    الأرقام 8 بايت والنصوص +1)؛ الهامش يغطي الفرق وحقول المسودة الأخرى. */
 const DRAFT_DOCUMENT_MAX_BYTES = 960_000;
 
-function safeDraftRows(input: unknown, collegeId: number, sectionId: number, termId: number): any[] {
-  if (!Array.isArray(input)) return [];
-  if (input.length > 450) throw new Error("المسودة أكبر من الحد الآمن المسموح");
-  return input.map((raw: any, index: number) => ({
-    id: Number.isInteger(Number(raw?.id)) ? Number(raw.id) : -(index + 1),
-    AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
-    AdCourseId: Number(raw?.AdCourseId || 0), AdCourseName: String(raw?.AdCourseName || ""), SCode: String(raw?.SCode || ""),
-    AdInstructorId: Number(raw?.AdInstructorId || 0),
-    fsunday: Boolean(raw?.fsunday), fmonday: Boolean(raw?.fmonday), ftuesday: Boolean(raw?.ftuesday), fwednesday: Boolean(raw?.fwednesday), fthursday: Boolean(raw?.fthursday),
-    /* One stored shape. A typed form already sends "HH:MM"; a spreadsheet
-       sends whatever the sheet holds, and an unpadded "9:00" used to reach
-       every string comparison downstream. */
-    fstarttime: normalizeClock(raw?.fstarttime), fendtime: normalizeClock(raw?.fendtime),
-    AdRoomCode: String(raw?.AdRoomCode || ""), AdRoomHall: String(raw?.AdRoomHall || ""),
-    buildingId: String(raw?.buildingId || "") || undefined, roomId: String(raw?.roomId || "") || undefined,
-    companionRoomId: String(raw?.companionRoomId || "").trim() || undefined,
-    companionRoomLabel: String(raw?.companionRoomLabel || "").slice(0,100) || undefined,
-    locationStatus: raw?.locationStatus, sourceBuildingText: String(raw?.sourceBuildingText || raw?.AdRoomCode || "").slice(0,80) || undefined,
-    sourceRoomText: String(raw?.sourceRoomText || raw?.AdRoomHall || "").slice(0,80) || undefined,
-    sourceSitePrefix: String(raw?.sourceSitePrefix || "").slice(0,12) || undefined,
-    sourceSiteLabel: String(raw?.sourceSiteLabel || "").slice(0,140) || undefined,
-    courseSiteLabel: String(raw?.courseSiteLabel || "").slice(0,140) || undefined,
-    courseSiteMessage: String(raw?.courseSiteMessage || "").slice(0,420) || undefined,
-    scopeMismatchType: raw?.scopeMismatchType === "CROSS_BRANCH" ? "CROSS_BRANCH" : undefined,
-    scopeMismatchLabel: String(raw?.scopeMismatchLabel || "").slice(0,140) || undefined,
-    scopeMismatchMessage: String(raw?.scopeMismatchMessage || "").slice(0,420) || undefined,
-    locationMigrationId: raw?.locationMigrationId, locationMigrationVersion: raw?.locationMigrationVersion, locationResolvedAt: raw?.locationResolvedAt,
-    fdetail: legacyFDetail(raw || {}),
-    referenceNumber: String(raw?.referenceNumber || "").slice(0,30),
-    sourceInstructorText: String(raw?.sourceInstructorText || "").slice(0,180) || undefined,
-    replacedVisitingInstructorId: Number(raw?.replacedVisitingInstructorId || 0) || undefined,
-    sourceCourseCode:String(raw?.sourceCourseCode||"").slice(0,40)||undefined,
-    sourceCourseText:String(raw?.sourceCourseText||"").slice(0,220)||undefined,
-    sourceSectionText:String(raw?.sourceSectionText||"").slice(0,40)||undefined,
-    importEvidence:safeImportEvidence(raw?.importEvidence),
-    // Imported PDF rows carry their original stable order. New rows deliberately
-    // live in a separate range so they can never impersonate a deleted source row.
-    sourceOrder: raw?.sourceOrder !== undefined && raw?.sourceOrder !== null && Number.isFinite(Number(raw.sourceOrder))
-      ? Number(raw.sourceOrder)
-      : 1_000_000 + index,
-    sourcePage: Number.isFinite(Number(raw?.sourcePage)) && Number(raw?.sourcePage) > 0
-      ? Math.floor(Number(raw.sourcePage))
-      : undefined,
-  }));
-}
-
-const AUTHORITY_PDF_COMPARE_FIELDS = [
-  "AdCourseId","SCode","AdInstructorId",
-  "fsunday","fmonday","ftuesday","fwednesday","fthursday",
-  "fstarttime","fendtime","AdRoomCode","AdRoomHall"
-] as const;
-
-/** Compare the immutable source PDF with the LIVE timetable, not the saved
- * draft. sourceOrder is the stable trace carried from the PDF through publish;
- * ordinary rows created later live outside the imported source range. */
-/** رمز المقرر الرسمي لكل رقم كتالوج — هوية المقرر التي تعبر الأقسام. */
-async function authorityCourseCodeMap(){
-  const courses=await Repository.getCourses();
-  return new Map<number,string>(courses.map((course:any)=>[Number(course.AdCourseId),String(course.CourseCode||"").trim()]));
-}
-
-function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],options:{instructorNameById?:Map<number,string>;courseCodeById?:Map<number,string>}={}){
-  const baseline=assignAuthoritySections([...(baselineInput||[])]).sort((a:any,b:any)=>Number(a.sourceOrder)-Number(b.sourceOrder));
-  const current=[...(currentInput||[])];
-  const consumed=new Set<number>();
-  const refKey=(value:any)=>String(value||"").replace(/[\s\u200e\u200f\u202a-\u202e]/g,"").trim();
-  const sectionKey=(row:any)=>`${Number(row?.AdCourseId||0)}|${String(row?.SCode||"").trim()}`;
-  /* A row created after the Authority PDF is a new academic action forever:
-     editing it keeps it green, and deleting it removes it from the report.
-     sourceOrder >= 1,000,000 is the explicit post-PDF range. Older imported
-     rows that pre-date sourceOrder can still prove their PDF origin through
-     CRN/reference or the immutable import-evidence fields. */
-  const hasPdfEvidence=(row:any)=>Boolean(refKey(row?.referenceNumber)||row?.sourceCourseCode||row?.sourceCourseText||row?.sourceSectionText||row?.importEvidence);
-  const isImportedPdfRow=(row:any)=>{
-    const rawOrder=row?.sourceOrder;
-    /* sourceOrder alone is not provenance. A manual form can inherit stale UI
-       state, but it cannot manufacture immutable PDF evidence. Requiring both
-       keeps every post-PDF row green even after later edits. */
-    if(rawOrder!==undefined&&rawOrder!==null&&Number.isFinite(Number(rawOrder)))return Number(rawOrder)<1_000_000&&hasPdfEvidence(row);
-    return hasPdfEvidence(row);
-  };
-  const uniqueIndex=(predicate:(row:any)=>boolean)=>{
-    const matches:number[]=[];
-    current.forEach((row:any,index:number)=>{if(!consumed.has(index)&&predicate(row))matches.push(index);});
-    return matches.length===1?matches[0]:-1;
-  };
-  const matchIndex=(source:any)=>{
-    const reference=refKey(source?.referenceNumber);
-    const order=Number(source?.sourceOrder);
-
-    /* The CRN/reference number printed by the Authority is the strongest row
-       identity we own.  Prefer it BEFORE sourceOrder.  sourceOrder is a visual
-       import trace and can drift when an old baseline was renumbered/rebuilt;
-       pairing by a stale order is exactly how one untouched row can inherit a
-       different row and make every visible cell look yellow. */
-    if(reference){
-      const byReference=uniqueIndex((row:any)=>
-        isImportedPdfRow(row)&&refKey(row?.referenceNumber)===reference
-      );
-      if(byReference>=0)return byReference;
-
-      /* Legacy live rows can occasionally lose the persisted CRN while still
-         retaining the immutable imported order.  Allow that fallback only when
-         the candidate has NO conflicting reference.  Never pair a baseline CRN
-         with another non-empty CRN merely because sourceOrder happens to match. */
-      if(Number.isFinite(order)){
-        const byOrder=uniqueIndex((row:any)=>{
-          if(!isImportedPdfRow(row)||Number(row?.sourceOrder)!==order)return false;
-          const currentReference=refKey(row?.referenceNumber);
-          return !currentReference||currentReference===reference;
-        });
-        if(byOrder>=0)return byOrder;
-      }
-
-      /* A source row with a real CRN that is no longer present is a deletion.
-         Do NOT fall through to course+section and accidentally consume another
-         imported row, which would generate a full-row false diff. */
-      return -1;
-    }
-
-    if(Number.isFinite(order)){
-      const byOrder=uniqueIndex((row:any)=>isImportedPdfRow(row)&&Number(row?.sourceOrder)===order);
-      if(byOrder>=0)return byOrder;
-    }
-
-    /* Last conservative fallback for legacy imported rows that truly have no
-       reference number. A manual post-PDF row can never enter this path. */
-    const signature=sectionKey(source);
-    if(!signature.startsWith("0|")){
-      const bySection=uniqueIndex((row:any)=>isImportedPdfRow(row)&&!refKey(row?.referenceNumber)&&sectionKey(row)===signature);
-      if(bySection>=0)return bySection;
-    }
-    return -1;
-  };
-  const reportRows:any[]=[];
-  baseline.forEach((source:any)=>{
-    const index=matchIndex(source);
-    if(index<0){
-      reportRows.push({status:"deleted",changedFields:[],referenceNumber:String(source.referenceNumber||""),source,current:null});
-      return;
-    }
-    consumed.add(index);
-    /* نسخة محلية: الصف الحي كائنٌ من ذاكرة الجداول المشتركة، والمقارنة لا تكتب فيه. */
-    const next={...current[index]};
-    source={...source};
-    /* Compare the academic meaning of each printed cell, not incidental storage
-       representation. Imported booleans, numeric ids, clocks and location codes
-       can pass through JSON/Firestore with harmless type/spacing differences;
-       those must never turn untouched cells yellow. */
-    const normalizeEmpty = (val: any) => {
-      const s = String(val ?? "").trim();
-      if (!s || s === "—" || s === "-" || s === "ـ" || s === "N/A" || s === "غير متوفر" || s === "غير محدد" || s === "غير موجود" || s === "---") return "";
-      return s;
-    };
-    const comparable=(field:string,value:any)=>{
-      /* ── المقرر يُعرف برمزه لا برقمه الداخلي ────────────────────────────
-       * المقرر الواحد له رقم مستقل في كتالوج كل قسم، والنشر يضع صف الجهراء في
-       * قسم الجهراء برقم كتالوجه هناك. فمقارنة الرقم بالرقم كانت تقول إن
-       * المقرر «تغيّر» في كل صف من مواقع الفرع — ومعه الوحدات والساعات والسعة
-       * لأنها تتبعه — فيخرج التقرير مصفرّاً كله بينما لم يُعدَّل إلا القاعة.
-       * الرمز الرسمي هو هوية المقرر عبر الأقسام، فبه تُقارن. */
-      if(field==="AdCourseId"){
-        const code=options.courseCodeById?.get(Number(value||0));
-        return code ? `code:${String(code).trim()}` : Number(value||0);
-      }
-      if(field==="AdInstructorId")return Number(value||0);
-      if(["SCode"].includes(field)){
-        const num=String(value??"").replace(/\D/g,"").replace(/^0+/,"");
-        return num || String(value??"").trim();
-      }
-      if(["fsunday","fmonday","ftuesday","fwednesday","fthursday"].includes(field)){
-        /* Firestore/JSON history can preserve imported weekday flags as 0/1
-           strings. Boolean("0") is true in JavaScript and used to paint every
-           untouched day cell yellow. Compare the academic flag, not JS truthiness. */
-        const token=String(value??"").trim().toLowerCase();
-        return value===true||value===1||token==="1"||token==="true"||token==="y"||token==="yes";
-      }
-      if(field==="AdRoomCode"){
-        const valStr=normalizeEmpty(value).replace(/\s+/g,"").toUpperCase();
-        /* Compare the complete canonical building token.  Keeping only the first
-           three digits (012) hides real B07 -> B09 edits and makes cell-level
-           diffing semantically inconsistent with what the report prints. */
-        return cleanBuildingCode(valStr)||valStr;
-      }
-      if(field==="AdRoomHall"){
-        const clean = cleanHallCode(String(value || ""));
-        const norm = normalizeEmpty(value).replace(/\s+/g,"").toUpperCase();
-        return clean || norm;
-      }
-      if(["fstarttime","fendtime"].includes(field)){
-        const str = String(value||"").trim();
-        const match = str.match(/(\d{1,2}):(\d{2})/);
-        if(match) return `${match[1].padStart(2,"0")}:${match[2]}`;
-        const digits=String(value||"").replace(/\D/g,"");
-        if(/^\d{3,4}$/.test(digits)){const hh=digits.slice(0,-2).padStart(2,"0"),mm=digits.slice(-2);return `${hh}:${mm}`;}
-        return normalizeEmpty(value);
-      }
-      return normalizeEmpty(value);
-    };
-    /* قانون الهوية المشترك، مع كلمات الصفة التي يلحقها تقرير المقارنة وحده. */
-    const cleanInstructor=(val:unknown)=>instructorCleanName(String(val??""))
-      .replace(/(?:^|\s)(?:منتدب|مساعد|محاضر)(?=\s|$)/g," ")
-      .replace(/\s+/g," ")
-      .trim();
-    const sameInstructorIdentity=()=>{
-      if(comparable("AdInstructorId",source.AdInstructorId)===comparable("AdInstructorId",next.AdInstructorId))return true;
-      /* هويتان مسجّلتان مختلفتان = أستاذ تغيّر، مهما تشابه الاسم المطبوع:
-         «يحيى سالم» يقع داخل «يحيى سالم العنزي» و«يحيى سالم الشمري» معاً. */
-      if(Number(source.AdInstructorId||0)>0&&Number(next.AdInstructorId||0)>0)return false;
-      const names=options.instructorNameById;
-      const rawSource=String(source.sourceInstructorText||names?.get(Number(source.AdInstructorId))||"").trim();
-      const rawNext=String(names?.get(Number(next.AdInstructorId))||next.sourceInstructorText||"").trim();
-      if(rawSource&&rawNext&&rawSource===rawNext)return true;
-      const sourceName=cleanInstructor(foldHeaderIdentity(source.sourceInstructorText||names?.get(Number(source.AdInstructorId))||""));
-      const currentName=cleanInstructor(foldHeaderIdentity(names?.get(Number(next.AdInstructorId))||next.sourceInstructorText||""));
-      /* Import/publish may resolve the exact professor text from the PDF to its
-         canonical registry id. That is not a timetable edit. A real later
-         instructor swap resolves to a different normalized name and remains a
-         genuine yellow cell. */
-      return Boolean(sourceName&&currentName&&(sourceName===currentName||sourceName.includes(currentName)||currentName.includes(sourceName)));
-    };
-
-    /* HEURISTIC: If OCR failed to extract certain fields on multi-page PDFs, 
-       inherit them from the proven DB source to prevent false 'changed' or 'deleted' states. */
-    /* ما عجزت القراءة الأصلية عن التقاطه لا يُعدّ «تعديلاً» — فتُكمَّل نسخة
-       المصدر المحلية من الحي. أما العكس (ملء الحي من المصدر) فكان يُخفي
-       تعديلاً حقيقياً: قاعة صارت «بانتظار التثبيت» تظهر بلا تغيير وبالقاعة القديمة. */
-    if (!source.fstarttime && next.fstarttime) source.fstarttime = next.fstarttime;
-    if (!source.fendtime && next.fendtime) source.fendtime = next.fendtime;
-    if (!source.AdRoomCode && next.AdRoomCode) source.AdRoomCode = next.AdRoomCode;
-    if (!source.AdRoomHall && next.AdRoomHall && source.locationStatus !== "PENDING_ROOM") source.AdRoomHall = next.AdRoomHall;
-    if (!source.fsunday && !source.fmonday && !source.ftuesday && !source.fwednesday && !source.fthursday) {
-      source.fsunday = next.fsunday;
-      source.fmonday = next.fmonday;
-      source.ftuesday = next.ftuesday;
-      source.fwednesday = next.fwednesday;
-      source.fthursday = next.fthursday;
-    }
-
-    const changedFields=AUTHORITY_PDF_COMPARE_FIELDS.filter(field=>{
-      if(field==="AdInstructorId"&&sameInstructorIdentity())return false;
-      /* Same original academic value after one or more edits is NOT a change. */
-      if(authorityFieldMatchesOriginal(field,source,next))return false;
-      return comparable(field,source[field])!==comparable(field,next[field]);
-    });
-    /* Section identity is source-owned. Older drafts may still carry a
-       generated section from a pre-fix import; assignAuthoritySections repairs
-       it from sourceSectionText before this comparison. Keep SCode out of the
-       user-edit badge because the Authority preview locks that cell, while the
-       full changedFields array still preserves audit truth. */
-    const visibleChangedFields=changedFields.filter(field=>field!=="SCode");
-    reportRows.push({status:visibleChangedFields.length?"changed":"unchanged",changedFields,referenceNumber:String(source.referenceNumber||next.referenceNumber||""),source,current:next});
-  });
-  current.forEach((row:any,index:number)=>{
-    if(consumed.has(index))return;
-    reportRows.push({status:"added",changedFields:[...AUTHORITY_PDF_COMPARE_FIELDS],referenceNumber:String(row.referenceNumber||""),source:null,current:row});
-  });
-  const counts=reportRows.reduce((acc:any,row:any)=>(acc[row.status]=(acc[row.status]||0)+1,acc),{added:0,deleted:0,changed:0,unchanged:0});
-  return{rows:reportRows,counts};
-}
-
-function inferAuthorityBranchCode(draft:any,rows:any[]){
-  const explicit=String(draft?.sourceBranchCode||"").trim();
-  if(explicit)return explicit;
-  const votes=new Map<string,number>();
-  for(const row of rows||[]){
-    const match=String(row?.AdRoomCode||"").trim().match(/^(\d{3})/);
-    if(match)votes.set(match[1],(votes.get(match[1])||0)+1);
-  }
-  return[...votes.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0]||"";
-}
-
-/** مواقع الفرع التي يملكها هذا القسم: يُدرَّس في أكثر من موقع، وحجزه في أيّها
-    حجزُه هو، لا حجز طرف آخر. */
-function branchOwnScopes(colleges:any[],sections:any[],collegeId:number,sectionId:number){
-  return siblingBranchScopes({colleges,sections,baseCollegeId:collegeId,baseSectionId:sectionId})
-    .map(scope=>({collegeId:scope.collegeId,sectionId:scope.sectionId}))
-    .concat([{collegeId,sectionId}])
-    .filter((scope,index,list)=>list.findIndex(item=>item.collegeId===scope.collegeId&&item.sectionId===scope.sectionId)===index);
-}
-
-/** ── قاعدة التعارض التي تمنع النشر، في موضع واحد ─────────────────────────────
- *
- * تُقرأ من بوابة النشر ومن الفحص المسبق معاً. لو نُسخت لكانت المعاينة تقول
- * «كل شيء مضبوط» عن جدول يرفضه الحفظ — وهو العيب نفسه الذي جاء هذا الفحص
- * ليزيله، فلا يجوز أن يُعاد إنتاجه في نسختين تفترقان مع الوقت.
- *
- * الصفوف المعروضة لم تُحفظ بعد فلا معرّفات لها، و`safeDraftRows` يعطيها معرّفات
- * سالبة كي لا تصطدم بمعرّفات صفوف الفصل الحقيقية فيُقرأ تعارضٌ حقيقي على أنه
- * الصف نفسه. */
-/* ── معرّفات «هيئة تدريسية» في السجل ──────────────────────────────────────────
-   سجلٌّ اسمه هذا ليس شخصاً بل معنى تتشاركه الجامعة: تُكتب حين لا يكون للشعبة
-   اسم مدرّس ثابت. فلا يُقاس عليه الحجز المزدوج، وإلا صار كل قسمين استعملاه في
-   ساعة واحدة «تعارضاً» لا يملك أحد إصلاحه. وكلمة «هيئة» لا يُسمّى بها الناس،
-   فصدرُ الاسم وحده يعرّف السجل مهما كتبت بقيته. */
-function placeholderInstructorIds(instructors: Array<{ AdInstructorId?: unknown; AdInstructorName?: unknown }>): Set<number> {
-  /* القاعدة في `instructorIdentity` وحدها؛ هنا اسمُها القديم لمن يناديه. */
-  return sharedPlaceholderInstructorIds(instructors);
-}
-
-/* ── خيارات قاعدة المانع كما تقرؤها بوابة الحفظ ────────────────────────────
-   «هيئة تدريسية» ليست شخصاً، والقاعة تُعرف بعد طيّ أسمائها القديمة على السجل
-   الرسمي. كل عدٍّ أو قائمةٍ لموانع الاعتماد يأخذ الخيارين من هنا، فلا يرى
-   أحدٌ مانعاً لا تراه البوابة ولا العكس. */
-async function approvalBlockerOptions(): Promise<ApprovalBlockerOptions> {
-  const [instructors, registry] = await Promise.all([Repository.getInstructors(), readLocationRegistry()]);
-  return {
-    placeholderInstructorIds: placeholderInstructorIds(instructors as any),
-    normalizeRow: (row: any) => canonicalizeHistoricalLocationForRuntime(row as FSchedule, registry),
-  };
-}
-
-function blockingImportConflicts(
-  targetRows:any[],termRows:any[],collegeId:number,sectionId:number,
-  ownScopeList:Array<{collegeId:number;sectionId:number}>,
-  placeholderIds?:Set<number>,
-  normalizeRow?:(row:any)=>any,
-){
-  const ownScopes=new Set<string>([`${collegeId}:${sectionId}`,...ownScopeList.map(scope=>`${scope.collegeId}:${scope.sectionId}`)]);
-  const external=termRows.filter(item=>!ownScopes.has(`${Number(item.AdCollegeId)}:${Number(item.AdSectionId)}`));
-  const universe=[...external,...targetRows];
-  return blockingConflicts(targetRows,universe,{placeholderInstructorIds:placeholderIds,normalizeRow});
-}
-
-/* ── نطاق أساتذة القسم الذي لا تاريخ له ──────────────────────────────────────
- *
- * كل ما يعرفه النظام عن «أساتذة القسم» مشتقّ من جداول سابقة. والقسم الذي
- * يستورد جدوله الأول لا جدول له بعد، فنطاقه يولد فارغاً — وعندها لا يبقى شيء
- * تُقاس عليه هوية، لا في المطابقة ولا في التحقق قبل الحفظ.
- *
- * فحين — وحين فقط — يكون نطاق القسم نفسه خالياً، يتسع إلى أساتذة الكلية،
- * مقروئين من جداول أقسامها الأخرى. القراءة واحدة يستعملها الطرفان، فلا يمكن
- * أن يقبل أحدهما اسماً يرفضه الآخر: كان ذلك سيُظهر الاسم في المعاينة ثم يمنع
- * حفظه بحجة أنه «غير مثبت ضمن القسم»، وهو أسوأ من ترك الخانة فارغة. */
-async function collegeFallbackInstructorIds(collegeId: number): Promise<number[]> {
-  const collegeHistory = await Repository.getSchedulesByScope({ collegeId });
-  return [...new Set((collegeHistory as any[])
-    .map(row => Number(row.AdInstructorId || 0))
-    .filter(id => Number.isFinite(id) && id > 0))];
-}
-
-/* ── قائمة أهل القسم قانون واحد لا قراءتان ────────────────────────────────
-   كانت الشاشة تبني «أهل القسم» من نطاق القسم وحده، بينما يقرؤها قانون النشر
-   من مواقع الفرع كلها ومعها احتياط الكلية للقسم الذي لا تاريخ له بعد. فمن
-   يقبله الحفظ كان يُوسم في المعاينة غريباً عن القسم: إنذار كاذب على جدول
-   صحيح تماماً. القائمة تُحسب هنا مرة واحدة، ويقرأ منها الطرفان. */
-/**
- * ── المنتدب في جدول مستورد يصير «هيئة تدريسية» ─────────────────────────────
- * المنتدبون يتغيّرون كل فصل، فلا يُحمَّل الفصل الجديد بأسمائهم: أي صف أستاذه
- * منتدب (من دليل القسم أو روستر الفصل، وليس من هيئته) يُسنَد إلى سجل «هيئة
- * تدريسية» الخاص بالقسم. التغيير في صفوف هذا الجدول وحدها؛ لا يُمَس وضع
- * المنتدب نفسه في النظام. بلا سجلٍّ واحدٍ لـ«هيئة تدريسية» للقسم يبقى الصف كما هو.
- */
-async function visitingToFacultyPlan(collegeId: number, sectionId: number, termId: number): Promise<{ visiting: Set<number>; placeholderId: number }> {
-  const [colleges, sections, instructors] = await Promise.all([Repository.getColleges(), Repository.getSections(), Repository.getInstructors()]);
-  const scopes = branchOwnScopes(colleges as any, sections as any, collegeId, sectionId);
-  const pools = await Promise.all(scopes.map(async scope => ({
-    delegates: await Repository.getDepartmentDelegates(scope.collegeId, scope.sectionId),
-    roster: await Repository.getVisitingRoster(scope.collegeId, scope.sectionId, termId),
-    faculty: await Repository.getDepartmentFaculty(scope.collegeId, scope.sectionId),
-  })));
-  const ids = (lists: any[][]) => new Set<number>(lists.flat().map(Number).filter(id => Number.isFinite(id) && id > 0));
-  const faculty = ids(pools.map(pool => pool.faculty));
-  const visiting = new Set([...ids(pools.flatMap(pool => [pool.delegates, pool.roster]))].filter(id => !faculty.has(id)));
-  /* المتقاعد والمتفرّغ بوضع المنتدب: يُستبدلان كذلك، ولو كانا في هيئة القسم. */
-  for (const id of retiredOrSabbaticalIds(instructors as any)) visiting.add(id);
-  const membership = await departmentInstructorIdSet(colleges as any, sections as any, collegeId, sectionId, termId);
-  const mine = [...placeholderInstructorIds(instructors as any)].filter(id => membership.has(id));
-  return { visiting, placeholderId: mine.length === 1 ? mine[0] : 0 };
-}
-
-async function departmentInstructorIdSet(
-  allColleges: any[], allSections: any[], collegeId: number, sectionId: number, termId: number,
-): Promise<Set<number>> {
-  const scopes = branchOwnScopes(allColleges as any, allSections as any, collegeId, sectionId);
-  const pools = await Promise.all(scopes.map(async scope => {
-    const [history, delegates, roster] = await Promise.all([
-      Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId }),
-      Promise.all([Repository.getDepartmentDelegates(scope.collegeId, scope.sectionId), Repository.getDepartmentFaculty(scope.collegeId, scope.sectionId)]).then(lists => lists.flat()),
-      Repository.getVisitingRoster(scope.collegeId, scope.sectionId, termId),
-    ]);
-    return { history, delegates, roster };
-  }));
-  const idsOf = (pool: { history: any[]; delegates: any[]; roster: any[] }) => [
-    ...pool.history.map((row: any) => Number(row.AdInstructorId || 0)),
-    ...pool.delegates.map(Number), ...pool.roster.map(Number),
-  ].filter((id: number) => Number.isFinite(id) && id > 0);
-  const ids = new Set<number>(pools.flatMap(idsOf));
-  /* الاحتياط يُقاس بخلوّ نطاق القسم المستهدف نفسه — لا مجموع أقسام الفرع —
-     وإلا لقبل أحد الطرفين ما يرفضه الآخر. */
-  const baseIndex = scopes.findIndex(scope => scope.collegeId === collegeId && scope.sectionId === sectionId);
-  const basePool = baseIndex >= 0 ? pools[baseIndex] : undefined;
-  /* سجل «هيئة تدريسية» ليس أستاذاً: قسمٌ لا يملك غيره ما زال بلا نطاقٍ حقيقي، فيبقى له احتياط الكلية. */
-  const placeholders = placeholderInstructorIds(await Repository.getInstructors() as any);
-  if (!basePool || !idsOf(basePool).some(id => !placeholders.has(id))) {
-    for (const id of await collegeFallbackInstructorIds(collegeId)) ids.add(id);
-  }
-  return ids;
-}
-
-async function validateSmartRows(rows: any[], collegeId: number, sectionId: number, options: { checkConflicts?: boolean; resolveHistorical?: boolean; requireDepartmentInstructor?:boolean; departmentInstructorIds?:Set<number>; requireCompanion?:boolean } = {}) {
-  const termId = Number(rows[0]?.AdTermId || 0);
-  const checkConflicts = options.checkConflicts !== false;
-  /* القسم الواحد يُدرَّس في مواقع الفرع الثلاثة، ومن يدرّس في الجهراء عضو في
-     القسم نفسه لا في قسم غريب. فقائمة أعضاء القسم تُقرأ من مواقع الفرع كلها،
-     تماماً كما يُقرأ المبنى بحد الفرع لا بحد رقم الكلية. */
-  const [allColleges, allSections] = await Promise.all([Repository.getColleges(), Repository.getSections()]);
-  const branchRoot = collegeBranchRoot(allColleges as any, collegeId);
-  const departmentScopes = options.requireDepartmentInstructor
-    ? branchOwnScopes(allColleges as any, allSections as any, collegeId, sectionId)
-    : [];
-  const [courses, instructors, currentSchedules, registry] = await Promise.all([
-    Repository.getCourses(), Repository.getInstructors(), Repository.getSchedulesByScope({ termId }), readLocationRegistry(),
-  ]);
-  const courseById = new Map(courses.map(course => [course.AdCourseId, course]));
-  const instructorIds = new Set(instructors.map(instructor => instructor.AdInstructorId));
-  /* لقطة واحدة لعضوية القسم لكل طلب: من حسبها قبل النداء يمرّرها، فلا تُقرأ
-     مرتين ولا يقع الحكم على قائمتين مختلفتين إن تغيّر الدليل بينهما. */
-  const departmentInstructorIds = options.departmentInstructorIds
-    ?? (options.requireDepartmentInstructor
-      ? await departmentInstructorIdSet(allColleges as any, allSections as any, collegeId, sectionId, termId)
-      : new Set<number>());
-  const errors: string[] = [];
-  for (let index=0; index<rows.length; index+=1) {
-    const row=rows[index];
-    if(options.resolveHistorical && !row.buildingId){
-      const b=resolveBuilding(registry,row.AdRoomCode,{collegeId,sectionId});
-      if(b.status==="CONFIRMED"&&b.value){
-        row.buildingId=b.value.id; row.AdRoomCode=b.value.officialCode;
-        if(row.locationStatus!=="PENDING_ROOM"&&!row.roomId){
-          const r=resolveRoom(registry,row.AdRoomHall,b.value.id,{collegeId,sectionId});
-          if(r.status==="CONFIRMED"&&r.value){row.roomId=r.value.id;row.AdRoomHall=r.value.canonicalCode;row.locationStatus="VERIFIED";}
-        }
-      }
-    }
-    const course = courseById.get(Number(row.AdCourseId));
-    if (!course || course.AdCollegeId !== collegeId || course.AdSectionId !== sectionId) errors.push(`السطر ${index + 1}: المقرر غير صالح للقسم المحدد`);
-    /* A person the reviewer picked by hand in the preview is a decision, not a
-       university-wide name match. The department-membership rule exists to stop
-       the matcher from reaching outside the department on its own; it must not
-       overrule a human who chose a colleague from the register on purpose. */
-    const instructorChosenByHand=String((row as any)?.importEvidence?.instructor?.source||"")==="MANUAL";
-    /* ── الاسم الكامل المطابق حرفاً هوية، لا تخمين ──────────────────────────
-       عضوية القسم في هذا النظام مستنتجة لا مُسجَّلة: تُقرأ من جداول سابقة ومن
-       انتداب ودليل يدوي. فالقسم الذي لا يحمل تاريخه إلا بعض أساتذته يجعل بقية
-       أهله «من خارج القسم»، فيُمنع نشر جدول صحيح تماماً بحجّة مطابقة على
-       مستوى الجامعة — بينما يمرّ الصف نفسه بلا اعتراض إذا ضغط المراجع على
-       اسمٍ هو الاسم ذاته.
-       الشرط الجامع لما يُقبل هنا ليس قوة البرهان بل وحدة النتيجة: ألّا يبقى
-       في السجل كله سوى مرشّح واحد مؤهل. مساواة الاسم الكامل، وهوية «هيئة
-       تدريسية» المسجّلة، وبرهان اسمين مرتبين لا يؤهّل سواهما أحداً في الجامعة
-       — كلها تُرجع شخصاً أو لا شيء.
-       وبرهان الأسماء الثلاثة ليس منها: فهو يختار الأعلى درجة بين مؤهّلين
-       متزاحمين ولا يشترط وحدتهم، فاسمٌ ثالث مشابه بحرف واحد قد يخسر السباق
-       دون أن يُبطل النتيجة. فيبقى محكوماً بعضوية القسم، كما يبقى ما يتكئ على
-       النطاق أصلاً — اسم مفرد، تعميم، جوار. */
-    const instructorProvenByFullName=["EXACT_FULL","FACULTY_IDENTITY","GLOBAL_SOLE_TWO_NAME"].includes(String((row as any)?.importEvidence?.instructor?.method||""));
-    if (!instructorIds.has(Number(row.AdInstructorId))) errors.push(`السطر ${index + 1}: أستاذ المقرر غير صالح`);
-    else if(options.requireDepartmentInstructor&&!instructorChosenByHand&&!instructorProvenByFullName&&!departmentInstructorIds.has(Number(row.AdInstructorId)))errors.push(`السطر ${index + 1}: الأستاذ المطابق غير مثبت ضمن القسم الحالي؛ يلزم Review بدلاً من المطابقة على مستوى الجامعة`);
-    /* صفٌّ جاء من جدول الجهة يحمل شعبته كما طُبعت («01»، «1») وقاعته كما
-       أسندتها الجهة. نسخ الفصل والتقييم والاسترجاع تعيد فحص الصفوف نفسها،
-       فتُفحص بقانون الاستيراد نفسه لا بقاعدة «3–4 أرقام» الخاصة بالنماذج. */
-    const authorityRow=Boolean(String((row as any)?.sourceSectionText||"").trim())||Boolean((row as any)?.importEvidence?.section);
-    if(options.requireDepartmentInstructor||authorityRow){
-      const authoritySection=Number(String(row.SCode||""));
-      if(!/^\d{3}$/.test(String(row.SCode||""))||authoritySection<501||authoritySection>999)errors.push(`السطر ${index + 1}: شعبة جدول PDF يجب أن تبدأ من 501 وتستمر 502، 503… لكل مقرر`);
-    }else if (!/^\d{3,4}$/.test(String(row.SCode || ""))) errors.push(`السطر ${index + 1}: رقم الشعبة يجب أن يكون 3 أو 4 أرقام إنجليزية`);
-    /* The authority PDF IS the room decision. The university publishes the hall
-       beside the course, so re-asking the registry whether the department owns
-       that hall turns a correct import into a wall of identical warnings the
-       reviewer cannot act on. Double-booking is still caught below, by the
-       conflict pass that compares the actual reservations. */
-    const authorityRooms=Boolean(options.requireDepartmentInstructor)||authorityRow;
-    let location=locationPreflight(row,registry,{collegeId,sectionId,branchRoot,allowOutOfScopeRoom:authorityRooms});
-    const locationBlocking=location.issues.filter(issue=>issue.severity==="high");
-    if(!authorityRooms&&locationBlocking.length&&locationBlocking.every(issue=>issue.type==="room_scope")&&location.canonical&&await hallBarterAllowsRoomUse({...row,...location.canonical},collegeId,sectionId)){
-      location=locationPreflight(row,registry,{collegeId,sectionId,branchRoot,allowOutOfScopeRoom:true});
-    }
-    if(!location.ok) location.issues.filter(issue=>issue.severity==="high").forEach(issue=>errors.push(`السطر ${index + 1}: ${issue.message}`));
-    else if(location.canonical) Object.assign(row,location.canonical);
-    /* Preserve real companion reservations when copying or applying a draft;
-       force new-term copies to meet the current catalog requirement. Historic PDFs
-       without companion metadata remain readable through their existing import path. */
-    if(course && location.ok && (options.requireCompanion || row.companionRoomId)){
-      const companion=await companionBookingFor(course,row,row);
-      if(companion.issue)errors.push(`السطر ${index + 1}: ${companion.issue}`);
-      else { row.companionRoomId=companion.id;row.companionRoomLabel=companion.label; }
-    }
-    /* Imported rows are exactly where an impossible clock arrives — a spreadsheet
-       cell or an OCR'd page, neither of which is bounded by a time picker. */
-    if (!isValidClock(row.fstarttime) || !isValidClock(row.fendtime)) errors.push(`السطر ${index + 1}: وقت غير صالح (الساعة بين 0 و23 والدقيقة بين 0 و59)`);
-    else if (timeToMinutes(row.fendtime) <= timeToMinutes(row.fstarttime)) errors.push(`السطر ${index + 1}: وقت النهاية يجب أن يكون بعد البداية`);
-    else { const window=await sectionScheduleWindow(Number(row.AdSectionId||sectionId)); if(!withinScheduleDay(timeToMinutes(row.fstarttime),timeToMinutes(row.fendtime),window)) errors.push(`السطر ${index + 1}: وقت المحاضرة يجب أن يكون بين ${window.startTime} و${window.endTime}`); }
-    if (activeDays(row).length === 0) errors.push(`السطر ${index + 1}: لم يتم تحديد يوم للمحاضرة`);
-    if (course) row.AdCourseName = course.CourseName;
-  }
-  if (checkConflicts && !errors.length && rows.length) {
-    /* ── الجدول لا يتعارض مع نسخته السابقة ───────────────────────────────────
-     * المستند المعتمد واحد، وصفوفه تُنشر كل صف في قسمه في موقعه. فحين يُعاد
-     * استيراد الملف نفسه، تكون صفوف الجهراء المنشورة سابقاً موجودة في نطاق
-     * الجهراء — أي «خارج» النطاق المفتوح — فيراها فحص التعارض حجزاً لطرف آخر
-     * ويرفض الصف بحجّة «حجز مزدوج لأستاذ المقرر»، والحقيقة أنه يتعارض مع نفسه
-     * قبل أن يُستبدل. ومواقع القسم كلها ستُستبدل بهذه العملية نفسها، فلا تدخل
-     * فحص التعارض. أما بقية الأقسام فتبقى كما هي: حجزها حقيقي ويُحترم. */
-    const conflicts = blockingImportConflicts(rows, currentSchedules, collegeId, sectionId, departmentScopes, placeholderInstructorIds(instructors as any), (await approvalBlockerOptions()).normalizeRow);
-    conflicts.slice(0, 20).forEach((item:any) => errors.push(item.message || item.detail || "يوجد تعارض يمنع الاعتماد"));
-  }
-  return [...new Set(errors)].slice(0, 30);
-}
-
-
-function mapSmartIssuesToRows(rows: any[], issues: string[], conflicts: any[] = []) {
-  const byId: Record<string, string[]> = {};
-  const add = (id: number, reason: string) => {
-    if (!rows.some(row => Number(row.id) === Number(id))) return;
-    const key = String(Number(id));
-    const clean = String(reason || "يحتاج مراجعة").trim();
-    byId[key] = [...new Set([...(byId[key] || []), clean])].slice(0, 4);
-  };
-  issues.forEach(issue => {
-    const match = String(issue).match(/السطر\s+(\d+)/);
-    if (!match) return;
-    const row = rows[Number(match[1]) - 1];
-    if (row) add(Number(row.id), String(issue).replace(/^السطر\s+\d+\s*:\s*/, ""));
-  });
-  conflicts.forEach((item: any) => {
-    const reason = [item?.message, item?.detail].filter(Boolean).join(" — ") || "يوجد تعارض يمنع النشر";
-    add(Number(item?.rowId), reason);
-    add(Number(item?.otherId), reason);
-  });
-  return byId;
-}
-
-function smartContextFrom(req: AuthenticatedRequest) {
-  /* Binary imports carry a Buffer in `req.body`, so their scope necessarily
-     travels in the query string. Merge both channels instead of making every
-     non-GET request ignore its query parameters. JSON body values still win. */
-  const body = req.body && !Buffer.isBuffer(req.body) && typeof req.body === "object" ? req.body : {};
-  const source: any = { ...(req.query || {}), ...(body || {}) };
-  return { collegeId: Number(source.collegeId || source.AdCollegeId || 0), sectionId: Number(source.sectionId || source.AdSectionId || 0), termId: Number(source.termId || source.AdTermId || 0) };
-}
-
-
-/**
- * ── السياق الذكي لا يُصدِّق الطلبَ على نطاقه ────────────────────────────────
- *
- * كان يأخذ القسمَ والكليةَ من الطلب كما جاءا، ولا يسأل عنهما أحداً — فكان
- * البحثُ بالجملة يقرأ لرئيس لجنةٍ مسوّداتِ أيِّ قسمٍ يكتب رقمَه في الرابط.
- * وحين لا يُسمّى قسمٌ كان يختار من أرقام صفوف النطاق الخام، فيسقط صفُّ «الكلية
- * كلها» ويقرأ للعميد الجامعةَ كلها بقسمٍ صفر.
- *
- * صار القرار في `resolveSmartScope` (src/server/readScope.ts) بحَكَمٍ واحد هو
- * `isScopeAllowed`، ومعه `allowed` يلتزم به كلُّ من يستدعي هذه الدالّة.
- */
-async function resolveSmartContext(req: AuthenticatedRequest, options: { allowCollegeWide?: boolean } = {}) {
-  const requested = smartContextFrom(req);
-  const [terms, sections] = await Promise.all([Repository.getTerms(), Repository.getSections()]);
-  const termId = requested.termId || Number(sortTermsNewestServer(terms)[0]?.AdTermId || 0);
-  let busiest: Map<number, number> | undefined;
-  if (!requested.sectionId) {
-    const schedules = await Repository.getSchedulesByScope({ termId });
-    busiest = new Map<number, number>();
-    for (const row of schedules) busiest.set(Number(row.AdSectionId), (busiest.get(Number(row.AdSectionId)) || 0) + 1);
-  }
-  const scope = resolveSmartScope({
-    requested, sections, busiest, allowCollegeWide: options.allowCollegeWide,
-    allowed: (collegeId, sectionId) => isScopeAllowed(req, collegeId, sectionId),
-  });
-  const section = sections.find(row => row.AdSectionId === scope.sectionId);
-  return { collegeId: scope.collegeId, sectionId: scope.sectionId, termId, section, allowed: scope.allowed };
-}
-
 /**
  * ── نَفَس بين تحليل وتحليل ──────────────────────────────────────────────────
  *
@@ -2148,22 +808,6 @@ async function resolveSmartContext(req: AuthenticatedRequest, options: { allowCo
  * check, a presence ping or somebody else's schedule can land in between.
  */
 const breathe = () => new Promise<void>(resolve => setImmediate(resolve));
-
-/** Read-only department analysis uses the established department family mapping. */
-async function intelligenceReadScopes(req: AuthenticatedRequest, collegeId: number, sectionId: number) {
-  if ((req.query.analysisScope || req.body?.analysisScope) !== "department") return [{ collegeId, sectionId }];
-  const sections = await Repository.getSections();
-  return departmentFamily(sections, collegeId, sectionId)
-    .filter(scope => isScopeAllowed(req, scope.collegeId, scope.sectionId));
-}
-
-async function scopedScheduleUniverse(collegeId: number, sectionId: number, termId: number) {
-  const [rows, universe] = await Promise.all([
-    Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
-    Repository.getSchedulesByScope({ termId })
-  ]);
-  return { rows, universe };
-}
 
 
 // Client-facing scope labels: authorization still uses the numeric assignments,
@@ -2256,24 +900,6 @@ async function readDemoIdentity(userId: number) {
   const scopes = await clientScopeDetails(await Repository.getUserAssigns(user.SystemUserId));
   return { user, permissions, scopes };
 }
-
-/*
- * ── قصّةٌ لكل صفة، من أول نظرة ──────────────────────────────────────────────
- *
- * الجداولُ ودورةُ الاعتماد مبذورةٌ في demoSandbox.ts. وما يحتاج مفاتيحَ الخادم
- * — بصمةَ الرقم المدني وختمَ هوية الطالب، وحُكمَ النظام على طلب الأستاذ —
- * يُبذر هنا، بالدوالّ نفسها التي يكتب بها الحقيقي، داخل صندوق الزائر:
- *
- *   • رابطا القسم: بطاقاتُ الأساتذة، واستبيانُ المقررات — فيجدهما المنسّق في
- *     لوحة النشر كما يجدهما في الحقيقي، ويجرّبهما الأستاذُ والطالب.
- *   • قاعدةُ التخرّج لعلوم الحاسب — فطلبُ الخريج ممكنٌ في الاستبيان.
- *   • أربعُ حالات طلبة: خريجٌ وافقت عليه اللجنة وينتظر التسجيل، وتعارضُ مقرّرين
- *     ينتظر اللجنة، وفتحُ مقرّرٍ سجّله التسجيل، وآخرُ لم توافق عليه اللجنة.
- *   • طلبا أستاذين: واحدٌ وصل وينتظر القسم، وآخرُ قُرّر برفضٍ وبدائل.
- *
- * كلُّ الأسماء والأرقام وهمية (generateSyntheticCivilId).
- */
-const DEMO_STORY_SCOPE = { collegeId: 1, sectionId: 1, termId: 1 } as const;
 const demoSeedJobs = new Map<string, Promise<void>>();
 const demoSeedStatus = new Map<string, "preparing" | "ready" | "failed">();
 
@@ -2805,21 +1431,6 @@ app.post("/api/demo/reset", requireAuth, async (req: AuthenticatedRequest, res: 
   scheduleDemoExtras(sessionId);
 });
 
-/**
- * ── «جرّب كأستاذ»: كرتُ الأستاذ في الديمو ────────────────────────────────────
- *
- * تحت «جرّب كطالب» في شريط الديمو. يفتح «بطاقة الأستاذ» (`/s/demo.…`) أولاً: يكتب الزائرُ رقمَ أستاذٍ
- * وهمي (في تلميح الصفحة مع زرّ نسخ) ثم يصل منها إلى طلب تعديل الجدول (`/r/demo.…`) فيغيّر أيامَه ويوقّع. يُفضَّل أستاذٌ فتح رابطه ولم يرسل شيئاً بعد، لتكون التجربةُ من أولها. والمسارُ رابطٌ
- * عادي (لا JavaScript): إن لم يكتمل البذرُ بعدُ أجاب بصفحةٍ تعيد المحاولة وحدها كل ثانيتين.
- */
-/** أستاذُ التجربة: من فتح رابطه ولم يرسل (ثم من لم يرسل) — يُبذر طلبُه في صندوق الزائر. */
-async function demoTeacherRequest(): Promise<InstructorRequest | undefined> {
-  const { collegeId, sectionId, termId } = DEMO_STORY_SCOPE;
-  const requests = await Repository.getInstructorRequests(collegeId, sectionId, termId);
-  const active = (await currentInstructorRequestGeneration(requests)).filter(row => row.status !== "superseded");
-  return active.find(row => !row.submittedAt && row.linkOpenedAt) || active.find(row => !row.submittedAt) || active[0];
-}
-
 app.get("/api/demo/teacher-card", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   if (!Repository.isDemoRequest()) { res.status(404).json({ error: "هذه العملية متاحة للبيئة التجريبية فقط" }); return; }
   res.setHeader("Cache-Control", "no-store");
@@ -3224,43 +1835,6 @@ app.get("/api/search", requireAnyPermission([7, 8, 9, 10, 16, 17]), async (req: 
   res.json({ schedules: scheduleResults, instructors: instructorResults, courses: courseResults, rooms: roomResults });
 });
 
-/**
- * ── التحقق من المدخلات: قاعدة واحدة في مكان واحد ─────────────────────────────
- *
- * Reference-data CRUD used to check only that a field was truthy, then hand the
- * raw value to Firestore. That accepted an unbounded string, an array or object
- * where a name belongs, and — because `parseInt("abc")` is `NaN` and `NaN` is
- * not caught by a truthiness test — wrote `NaN` into numeric columns, which then
- * poisons every later calculation that reads them.
- *
- * These three helpers are the whole rule. They return `null` for "not
- * acceptable" so a caller can answer with one clear Arabic sentence naming the
- * field, instead of storing something nobody can explain later.
- */
-/* The longest real college name in the register is 32 characters
-   («كلية الدراسات التكنولوجية - بنات»). 120 leaves generous room for a longer
-   branch or a renamed faculty while refusing the pathological case. */
-const TEXT_LIMIT = { name: 120, code: 40 } as const;
-
-/** A real, trimmed, bounded string — or null. Numbers are accepted (a code may
- *  arrive as one) but objects, arrays, booleans and blank text never are. */
-function cleanText(value: unknown, max: number): string | null {
-  if (typeof value !== "string" && typeof value !== "number") return null;
-  const text = String(value).trim();
-  if (!text || text.length > max) return null;
-  return text;
-}
-
-/** A whole number inside [min,max]. Arabic-Indic digits are normalised first, so
- *  «٤٥» is the same input as "45". Empty means "not stated" → `fallback`. */
-function boundedInt(value: unknown, min: number, max: number, fallback: number | null = null): number | null {
-  if (value === undefined || value === null || value === "") return fallback;
-  if (typeof value !== "string" && typeof value !== "number") return null;
-  const parsed = Number(toEnglishDigits(value).trim());
-  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < min || parsed > max) return null;
-  return parsed;
-}
-
 /** Same, but a decimal is legitimate (teaching hours run 1.5, 2.5 …). */
 function boundedDecimal(value: unknown, min: number, max: number, fallback: number | null = null): number | null {
   if (value === undefined || value === null || value === "") return fallback;
@@ -3612,30 +2186,6 @@ app.delete("/api/terms/:id", requirePermission(5), async (req: Request, res: Res
   res.json({ success: true });
 });
 
-// --- INSTRUCTORS API ---
-
-/**
- * The teaching register.
- *
- * The whole register is a hundred kilobytes and every screen was loading it to
- * name the dozen people who teach in one department. Passing `sectionId`
- * answers with the staff who actually appear in that department's term, which
- * is what a picker opens on; the full register is still one request away for
- * the moment someone searches beyond their own department; that search itself
- * returns at most forty matching people instead of the whole register.
- */
-/**
- * ── بياناتُ الأستاذ الشخصية لا تصل القارئ ───────────────────────────────────
- *
- * صفاتُ الاطّلاع (العميدان، التسجيل، رئيس القسم) تفتح تقرير القسم (١٤) فتقرأ
- * دليلَ الأساتذة — وكان يصلها الرقمُ المدني والهاتف لكل أستاذ. لا عمل لها بهما:
- * لا تُنشئ أستاذاً ولا تطابق هويةً. فيُحذفان هنا، لكل مسارٍ يعيد الدليل.
- */
-function instructorsForReader<T extends { AdInstructorCivil?: string; AdInstructorMobile?: string }>(req: AuthenticatedRequest, list: T[]): T[] {
-  if (req.user?.IsAdminUser || !isReadOnlyRole(req.user?.Role)) return list;
-  return list.map(person => ({ ...person, AdInstructorCivil: "", AdInstructorMobile: "" }));
-}
-
 /**
  * ── الرقم المدني والهاتف لأهل القسم وحدهم ──────────────────────────────────
  *
@@ -3910,12 +2460,6 @@ app.delete("/api/instructors/:id", requirePermission(3), async (req: Request, re
   await Repository.deleteInstructor(id);
   res.json({ success: true });
 });
-
-// --- COURSES API ---
-
-const courseNameCollator = new Intl.Collator("ar", { numeric: true, sensitivity: "base", ignorePunctuation: true });
-const sortCoursesByName = <T extends { CourseName?: unknown }>(rows: T[]): T[] =>
-  [...rows].sort((a, b) => courseNameCollator.compare(String(a.CourseName || "").trim(), String(b.CourseName || "").trim()));
 
 /**
  * The course catalogue.
@@ -4522,125 +3066,12 @@ app.delete("/api/courses/:id", requirePermission(6), async (req: AuthenticatedRe
   await Repository.deleteCourse(id);
   res.json({ success: true });
 });
-
-// --- SCHEDULES (FSchedule) API ---
-
-const SCHEDULE_DAY_KEYS=["fsunday","fmonday","ftuesday","fwednesday","fthursday"] as const;
-/**
- * ── الوقت يُقارَن بالدقائق، لا بالحروف ──────────────────────────────────────
- *
- * This compared the four values as STRINGS. On zero-padded "HH:MM" that is
- * accidentally the same answer as arithmetic, which is why it survived — but
- * the write path never padded (`fstarttime: String(raw?.fstarttime || "")`)
- * and the spreadsheet import takes whatever the sheet holds, so a single
- * "9:00" was enough to make it lie: "9:00" sorts AFTER "10:00", so two truly
- * overlapping lectures read as not overlapping. The conflict engine has always
- * compared minutes, so the two disagreed silently — and this one is what the
- * hall-barter reservation, the room-freedom check, the swap-safety test and
- * the approval reading all run on.
- *
- * Minutes, like the engine. `normalizeClock` below closes the other half by
- * making an unpadded time impossible to store in the first place.
- */
-const scheduleOverlap=(aStart:string,aEnd:string,bStart:string,bEnd:string)=>
-  clockRangesOverlap(aStart,aEnd,bStart,bEnd);
-const sectionScheduleWindowCache=new Map<string,{expiresAt:number;startTime:string;endTime:string}>();
-async function sectionScheduleWindow(sectionId:number){
-  const cacheKey=dataContextCacheKey(sectionId),cached=sectionScheduleWindowCache.get(cacheKey);if(cached&&cached.expiresAt>Date.now())return cached;
-  const section=await Repository.getSectionById(sectionId),bounds=scheduleDayWindowMinutes(section);
-  const value={expiresAt:Date.now()+30_000,startTime:bounds.startTime,endTime:bounds.endTime};sectionScheduleWindowCache.set(cacheKey,value);return value;
-}
-/**
- * تنبيهُ «النمط غير معتمد»: أيامٌ تخلط الـ50 بالـ80 وليست نمطاً معتمداً في مكتبة الأنماط لساعات المقرّر ولا نمطاً درج
- * عليه المقرّرُ نفسُه في فصولٍ سابقة. يعيد رسمَ التنبيه (النمطُ المختار بجانب المعتمد) أو null. صفحةُ الأستاذ تمنع به،
- * والجدولُ الدراسي عند القسم ينبّه به ولا يمنع.
- */
-async function mixedPatternNotice(courseId:number,days:RequestDayKey[],termId:number,minutes?:number,blocking=false):Promise<string|null>{
-  const shortDays=days.filter(d=>d==="fsunday"||d==="ftuesday"||d==="fthursday"),longDays=days.filter(d=>d==="fmonday"||d==="fwednesday");
-  if(!courseId||!shortDays.length||!longDays.length)return null;
-  const course=await Repository.getCourseById(courseId);const hours=effectiveCourseHours(course);
-  const sameDays=(list:readonly string[])=>list.length===days.length&&list.every(d=>days.includes(d as RequestDayKey));
-  if(hours>0&&patternsForHours(hours).some(p=>sameDays(p.days)))return null;
-  /* التاريخ من الفصول السابقة وحدها: نمطُ الفصل الجاري لا يُعفي نفسَه. */
-  if(historicalOrigin(await courseHabit(courseId,termId),termId)?.patterns.some(p=>sameDays(p)))return null;
-  const ordered=DAY_KEYS.filter(d=>days.includes(d));
-  return patternNoticeHtml(patternLibraryInput(),Math.round(hours)||0,ordered,ordered.map(d=>minutes&&minutes>0?minutes:expectedMinutesForDay(d)),blocking);
-}
-async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
-  const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
-  const course=await Repository.getCourseById(courseId);
-  const nature=await courseHabit(courseId);
-  /* بياناتٌ قديمةٌ قد تسجل الوحدات ولا تملأ حقل الساعات؛ لا تُعامل حينها كأن المقرر ساعة واحدة. */
-  const hours=effectiveCourseHours(course),habitual=nature&&nature.confidence!=="low"?nature.meetingMinutes:undefined;
-  /* توافقُ طول الموعد مع نمط اللائحة ملاحظة استرشادية، ولا يمنع الحفظ.
-     المنعُ هنا محصورٌ في تجاوز مجموع العبء الأسبوعي لساعات المقرر. */
-  /* مقرّرٌ لا يزيد على ساعاته المعتمدة في أي مكان يُنشأ منه: صفوفُه الأخرى في الفصل والشعبة نفسيهما تُحسب معه. */
-  if(hours>0&&Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
-    const siblings=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
-      .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")
-        &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
-        &&Number(other.id)!==Number(row.id||0));
-    const total=siblings.reduce((sum:number,other:any)=>sum+weeklyLectureMinutes(other,hours),0)+weeklyLectureMinutes(row,hours);
-    if(!habitual&&total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`;
-  }
-  return null;
-}
 async function scheduleLengthNotice(row:any):Promise<string|null>{
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
   const course=await Repository.getCourseById(courseId),nature=await courseHabit(courseId);
   const hours=effectiveCourseHours(course),habitual=nature&&nature.confidence!=="low"?nature.meetingMinutes:undefined;
   const mixedOutside=Boolean(await mixedPatternNotice(courseId,SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row?.AdTermId||0)));
   return mixedOutside?null:lectureLengthProblem(row,hours,habitual);
-}
-async function schedulePayloadIssues(row:any){const issues:string[]=[];if(!SCHEDULE_DAY_KEYS.some(k=>Boolean(row?.[k])))issues.push("يجب اختيار يوم واحد على الأقل للمحاضرة");if(row?.fstarttime&&row?.fendtime){
-  /* An impossible clock is refused before it is measured. `timeToMinutes` answers
-     with a number for anything — "10:76" becomes 676, i.e. 11:16 — so without
-     this the row was stored at a time nobody typed. */
-  if(!isValidClock(row.fstarttime)||!isValidClock(row.fendtime))issues.push("وقت المحاضرة غير صالح: الساعة بين 0 و23 والدقيقة بين 0 و59");
-  else{const start=timeToMinutes(String(row.fstarttime)),end=timeToMinutes(String(row.fendtime));if(end<=start)issues.push("وقت النهاية يجب أن يكون بعد وقت البداية");else{const window=await sectionScheduleWindow(Number(row.AdSectionId||0));if(!withinScheduleDay(start,end,window))issues.push(`وقت المحاضرة يجب أن يكون بين ${window.startTime} و${window.endTime}`);}}}return issues;}
-/**
- * Who does this hall belong to?
- *
- * Nothing in the data says "this hall is the English department's", but the
- * history says it plainly: if four fifths of everything ever booked there
- * belongs to one department, that is whose hall it is. Answering this needs
- * only the room — not a day, not a time — so a coordinator learns they have
- * reached into another department's hall the moment they type it, instead of
- * after filling in the rest of the form.
- */
-async function roomOwnership(roomCodeRaw:unknown,roomHallRaw:unknown,collegeId:number,sectionId:number){
-  const roomCode=String(roomCodeRaw||"").trim(),roomHall=String(roomHallRaw||"").trim();
-  if(!roomCode||!roomHall||!collegeId||!sectionId)return null;
-  const registry=await readLocationRegistry();
-  const building=resolveBuilding(registry,roomCode,{collegeId,sectionId});
-  if(building.status!=="CONFIRMED"||!building.value)return null;
-  const room=resolveRoom(registry,roomHall,building.value.id,{collegeId});
-  if(room.status!=="CONFIRMED"||!room.value)return null;
-  /* The section list is the fact; the stored flag is a copy that has drifted
-     on eight rooms. `isSharedRoom` reads the fact, like both read endpoints
-     already do — so ownership, the scope notice and the barter gate finally
-     agree with the lists the user sees. */
-  if(isSharedRoom(room.value)||room.value.sectionIds.length===0||room.value.sectionIds.includes(sectionId))return null;
-  /* A room explicitly kept in this department's directory is an intentional
-     scheduling entitlement, not an accidental cross-department pick. Keep the
-     warning/gate aligned with the same rule used by Add/Edit save. */
-  const pinnedDepartmentRooms=await Repository.getPinnedDepartmentRooms(collegeId,sectionId);
-  if(confirmedDepartmentRoomIds(registry,pinnedDepartmentRooms,collegeId).has(room.value.id))return null;
-  const ownerSectionId=Number(room.value.primarySectionIds?.[0]||room.value.sectionIds[0]||0);
-  if(!ownerSectionId)return null;
-  const [section,college]=await Promise.all([Repository.getSectionById(ownerSectionId),Repository.getCollegeById(Number(room.value.collegeIds?.[0]||collegeId))]);
-  return{
-    room:building.value.officialCode,hall:room.value.canonicalCode,roomId:room.value.id,
-    section:section?.AdSectionName||"",college:college?.AdCollegeName||"",
-    owner:[section?.AdSectionName,college?.AdCollegeName].filter(Boolean).join(" — ")||"قسم آخر",
-    samples:Number(room.value.historicalUsageCount||0),ownerSamples:Number(room.value.historicalUsageCount||0),share:100
-  };
-}
-
-async function roomScopeNotice(row:any){
-  const owner=await roomOwnership(row?.AdRoomCode,row?.AdRoomHall,Number(row?.AdCollegeId||0),Number(row?.AdSectionId||0));
-  if(!owner)return null;
-  return{type:"roomScope",severity:"warning",rowId:0,message:`تنبيه نطاق القاعة: ${owner.room}/${owner.hall} مرتبطة تاريخياً بـ ${owner.owner}`,detail:`القاعة مصنفة في السجل الرسمي لقسم آخر. استخدامها يتطلب نافذة استعارة معتمدة؛ وسيمنع الخادم الحفظ خارج اليوم والوقت المعتمدين.`};
 }
 
 /**
@@ -4656,7 +3087,6 @@ async function roomScopeNotice(row:any){
    يملأ الشاشة بما لا ينفع. */
 const HALL_BARTER_MIN_WINDOW_MINUTES = 50;
 const HALL_BARTER_MAX_OPPORTUNITIES = 400;
-const HALL_BARTER_DAY_LABEL = new Map(SCHEDULE_DAY_KEYS.map((key,index)=>[key,DAY_LABELS[index]]));
 /* مهلة الطلب المعلّق: أسبوع. بعده يُلغى تلقائياً بسبب واضح، فلا يبقى معلّقاً
  * إلى الأبد ولا يُبقي العدّاد مضيئاً — ويظهر في السجل «ملغي» بسببه. */
 const HALL_BARTER_STALE_DAYS = 7;
@@ -4671,7 +3101,7 @@ async function sweepStaleHallBarter(requests:HallBarterRequest[]):Promise<HallBa
     try { const updated=await Repository.updateHallBarterRequest(request.id,{status:"cancelled",cancelReason:HALL_BARTER_STALE_REASON},"pending"); if(updated)updatedById.set(String(request.id),updated); }
     catch(error){ if(!(error instanceof RequestReservationConflict))throw error; }
   }
-  if(updatedById.size){hallBarterSerial++;hallBarterBoardCache.clear();}
+  if(updatedById.size){state.hallBarterSerial++;hallBarterBoardCache.clear();}
   return requests.map(request=>updatedById.get(String(request.id))||request);
 }
 type HallCampusGender = "male" | "female" | null;
@@ -4692,13 +3122,6 @@ function sameHallCampusGender(a: unknown,b: unknown){
   // no cross-college borrowing is safer than guessing the wrong campus.
   return Boolean(left&&right&&left===right);
 }
-let hallBarterSerial = 0;
-const hallBarterBoardCache = new Map<string,{ scheduleSerial:number; barterSerial:number; expiresAt:number; body:any }>();
-
-function academicStartYear(name: unknown): number | null {
-  const match=String(name||"").match(/(?:19|20)\d{2}/);
-  return match?Number(match[0]):null;
-}
 function recentTenYearTermIds(terms:any[]): Set<number> {
   const withYear=terms.map(term=>({id:Number(term.AdTermId||0),year:academicStartYear(term.AdTermName)})).filter(item=>item.id);
   const years=withYear.map(item=>item.year).filter((year):year is number=>Number.isFinite(year));
@@ -4711,40 +3134,10 @@ function recentTenYearTermIds(terms:any[]): Set<number> {
 function rowOccupiesWindow(row:any,day:string,start:string,end:string){
   return Boolean(row?.[day])&&scheduleOverlap(String(row.fstarttime||""),String(row.fendtime||""),start,end);
 }
-/**
- * ── مفتاح واحد للقاعة، وإلا فالحجز لا يُطابَق أبداً ─────────────────────────
- *
- * A hall barter reservation is matched against a schedule row by comparing
- * this key with `roomIdentityKey`. The two were built by different rules: the
- * registry uppercases and unifies Arabic/Persian digits through NFKC, this one
- * lowercased and did nothing else. On the legacy branch — any room or request
- * without a registry `roomId` — `legacy:012B08|G20` was compared against
- * `legacy:012b08|g20`, so the two could never be equal for ANY room.
- *
- * The consequence was silent and it was a blocker: «القاعة محجوزة رقمياً عبر
- * استعارة القاعات» never fired for those rooms, and neither did «الموعد يتجاوز
- * نافذة الاستعارة المعتمدة». The modern `id:` branch always worked, which is
- * why nobody saw it.
- *
- * Both sides now spell the room the one way the registry spells it.
- */
-function barterRequestRoomKey(request:Partial<HallBarterRequest>){
-  return roomKeyOf(request.roomId,request.roomCode,request.roomHall);
-}
-function barterRequestMatchesRow(request:Partial<HallBarterRequest>,row:Partial<FSchedule>){const rowKey=roomIdentityKey(row);return Boolean(rowKey)&&barterRequestRoomKey(request)===rowKey;}
 function barterRequestOverlaps(request:HallBarterRequest,roomCode:string,roomHall:string,day:string,start:string,end:string,roomId?:string){
   const target=roomKeyOf(roomId,roomCode,roomHall);
   if(!target) return false;
   return request.status==="approved"&&barterRequestRoomKey(request)===target&&request.day===day&&scheduleOverlap(request.startTime,request.endTime,start,end);
-}
-async function hallBarterAllowsRoomUse(row:Partial<FSchedule>,collegeId:number,sectionId:number){
-  const termId=Number(row.AdTermId||0),roomId=String(row.roomId||"");
-  const start=String(row.fstarttime||""),end=String(row.fendtime||"");
-  const days=SCHEDULE_DAY_KEYS.filter(day=>Boolean((row as any)[day]));
-  if(!termId||!roomId||!start||!end||!days.length)return false;
-  const requests=await Repository.getHallBarterRequests(termId);
-  const mine=requests.filter(request=>request.status==="approved"&&String(request.roomId||"")===roomId&&Number(request.requesterCollegeId)===collegeId&&Number(request.requesterSectionId)===sectionId);
-  return days.every(day=>mine.some(request=>request.day===day&&timeToMinutes(start)>=timeToMinutes(request.startTime)&&timeToMinutes(end)<=timeToMinutes(request.endTime)));
 }
 function hallBarterRequestShape(request:HallBarterRequest,sections:any[],colleges:any[]){
   const requesterSection=sections.find(section=>Number(section.AdSectionId)===Number(request.requesterSectionId));
@@ -4767,7 +3160,7 @@ function hallBarterRequestShape(request:HallBarterRequest,sections:any[],college
 async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,sectionId:number,termId:number){
   const cacheKey=dataContextCacheKey(`${collegeId}:${sectionId}:${termId}:${String((req.query as any)?.ownerSectionId||"")}:${String((req.query as any)?.day||"")}:${String((req.query as any)?.buildingCode||"")}`);
   const cached=hallBarterBoardCache.get(cacheKey);
-  if(cached&&cached.scheduleSerial===driftSerial&&cached.barterSerial===hallBarterSerial&&cached.expiresAt>Date.now())return cached.body;
+  if(cached&&cached.scheduleSerial===driftSerial&&cached.barterSerial===state.hallBarterSerial&&cached.expiresAt>Date.now())return cached.body;
   /* لا قراءة لكل جداول النظام بعد اليوم: السؤال صار عن هذا الفصل وحده،
      وقراءة عشر سنوات لكل لوحة كانت أثقل شيء فيها. */
   const [termRowsRaw,collegeHistoryRaw,sections,colleges,requestsRaw,registry]=await Promise.all([
@@ -4993,21 +3386,9 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
     incoming:sameCampusRequests.filter(request=>request.ownerCollegeId===collegeId&&request.ownerSectionId===sectionId),
     outgoing:sameCampusRequests.filter(request=>request.requesterCollegeId===collegeId&&request.requesterSectionId===sectionId),
   };
-  hallBarterBoardCache.set(cacheKey,{scheduleSerial:driftSerial,barterSerial:hallBarterSerial,expiresAt:Date.now()+2*60*1000,body});
+  hallBarterBoardCache.set(cacheKey,{scheduleSerial:driftSerial,barterSerial:state.hallBarterSerial,expiresAt:Date.now()+2*60*1000,body});
   if(hallBarterBoardCache.size>120)hallBarterBoardCache.clear();
   return body;
-}
-function normalizedBuilding(value: unknown){return String(value||"").trim();}
-function travelPairKey(a:string,b:string){const x=normalizedBuilding(a).toLocaleLowerCase(),y=normalizedBuilding(b).toLocaleLowerCase();return [x,y].sort().join("|");}
-function travelMinutesFor(profile:any,fromBuilding:string,toBuilding:string,fromCampus?:Campus,toCampus?:Campus){
-  // A move between the college's remote campuses (الجهراء / الفحيحيل / الرئيسي) is a
-  // commute, not a walk between halls — it overrides the per-building matrix.
-  if(fromCampus&&toCampus){const inter=interCampusMinutes(fromCampus,toCampus);if(inter!=null)return inter;}
-  const from=normalizedBuilding(fromBuilding),to=normalizedBuilding(toBuilding);
-  if(!from||!to)return 0;
-  if(from.toLocaleLowerCase()===to.toLocaleLowerCase())return Math.max(0,Number(profile?.sameBuildingMinutes)||SAME_BUILDING_MINUTES);
-  const pair=(profile?.pairs||[]).find((item:any)=>travelPairKey(item.fromBuilding,item.toBuilding)===travelPairKey(from,to));
-  return Math.max(1,Math.min(120,Number(pair?.minutes)||Number(profile?.defaultTravelMinutes)||DEFAULT_TRAVEL_MINUTES));
 }
 function rowsOverlapOnDay(a:any,b:any,dayKey:string){return Boolean(a?.[dayKey]&&b?.[dayKey])&&scheduleOverlap(String(a.fstarttime||""),String(a.fendtime||""),String(b.fstarttime||""),String(b.fendtime||""));}
 function spatialBurnoutAnalysis(scopeRows:any[],termRows:any[],profile:any,instructors:any[]=[]){
@@ -5074,548 +3455,6 @@ function roomCastlingProposals(scopeRows:any[],termRows:any[],profile:any,instru
   }
   return {radar,proposals:proposals.slice(0,8)};
 }
-
-const CAMPUS_LABEL: Record<string, string> = { jahra: "الجهراء", fahaheel: "الفحيحيل", main: "الحرم الرئيسي" };
-/**
- * Note 38 — a soft "too little time between campuses" warning.
- *
- * The instructor's appointments are fetched across the whole term (every
- * college), so a new placement can be checked against a same-day lecture on a
- * different campus. If the gap is smaller than the commute (الجهراء/الفحيحيل/
- * العارضية rules), we surface a `soft` warning: it explains the risk but never
- * blocks the save — a real timetable sometimes has to accept a tight transfer.
- */
-async function interCampusWarnings(candidate: any, all: any[]) {
-  const instructorId = Number(candidate.AdInstructorId || 0);
-  if (!instructorId || !candidate.fstarttime || !candidate.fendtime) return [];
-  const colleges = await Repository.getColleges();
-  const campusById = new Map<number, ReturnType<typeof campusOf>>(colleges.map((c: any) => [Number(c.AdCollegeId), campusOf(c.AdCollegeName)]));
-  const candCampus = campusById.get(Number(candidate.AdCollegeId));
-  if (!candCampus) return [];
-  const own = all.filter(r => Number(r.AdInstructorId) === instructorId && Number(r.id) !== Number(candidate.id));
-  const days: Array<[string, string]> = [["fsunday", "الأحد"], ["fmonday", "الاثنين"], ["ftuesday", "الثلاثاء"], ["fwednesday", "الأربعاء"], ["fthursday", "الخميس"]];
-  const cStart = timeToMinutes(candidate.fstarttime), cEnd = timeToMinutes(candidate.fendtime);
-  const seen = new Set<string>();
-  const warnings: any[] = [];
-  for (const [key, label] of days) {
-    if (!candidate[key]) continue;
-    for (const other of own) {
-      if (!other[key]) continue;
-      const otherCampus = campusById.get(Number(other.AdCollegeId));
-      if (!otherCampus) continue;
-      const need = interCampusMinutes(candCampus, otherCampus);
-      if (need == null) continue; // same campus — the per-building matrix handles it
-      const oStart = timeToMinutes(other.fstarttime), oEnd = timeToMinutes(other.fendtime);
-      // Gap only when the two do not overlap (an overlap is already a hard conflict).
-      const gap = cStart >= oEnd ? cStart - oEnd : (oStart >= cEnd ? oStart - cEnd : -1);
-      if (gap < 0 || gap >= need) continue;
-      const dedupe = `${key}:${[candCampus, otherCampus].sort().join("-")}`;
-      if (seen.has(dedupe)) continue;
-      seen.add(dedupe);
-      warnings.push({
-        type: "travel", severity: "warning", soft: true, rowId: 0,
-        message: `انتقال ضيّق بين ${CAMPUS_LABEL[candCampus]} و${CAMPUS_LABEL[otherCampus]}`,
-        detail: `${label}: التنقّل يحتاج قرابة ${countOf(need, oblique(AR.minute))}، والمتاح ${countOf(gap, AR.minute)} فقط بين موعدَي الأستاذ. يمكنك الحفظ مع الانتباه لهذا الفارق.`,
-      });
-    }
-  }
-  return warnings.slice(0, 3);
-}
-/**
- * The one sentence the audit log was missing.
- *
- * "تعديل · موعد #418" records that something happened; nobody has ever opened a
- * log to learn that. The question is always what moved and where it moved to,
- * so a placement change is written the way a person would say it — days, time,
- * hall and instructor, each named only when it actually changed.
- */
-function describeScheduleChange(before: any, after: any, instructorName?: (id: number) => string): string {
-  const dayText = (row: any) => SCHEDULE_DAY_KEYS.map((key, index) => (row?.[key] ? DAY_LABELS[index] : null)).filter(Boolean).join("، ") || "بلا أيام";
-  const parts: string[] = [];
-  const beforeDays = dayText(before), afterDays = dayText(after);
-  if (beforeDays !== afterDays) parts.push(`الأيام ${beforeDays} ← ${afterDays}`);
-  if (before?.fstarttime !== after?.fstarttime || before?.fendtime !== after?.fendtime)
-    parts.push(`الوقت ${formatScheduleTimeRange(before?.fstarttime, before?.fendtime)} ← ${formatScheduleTimeRange(after?.fstarttime, after?.fendtime)}`);
-  const beforeRoom = `${before?.AdRoomCode || ""}/${before?.AdRoomHall || ""}`;
-  const afterRoom = `${after?.AdRoomCode || ""}/${after?.AdRoomHall || ""}`;
-  if (beforeRoom !== afterRoom) parts.push(`القاعة ${beforeRoom} ← ${afterRoom}`);
-  if(String(before?.companionRoomId||"")!==String(after?.companionRoomId||""))parts.push(`المرفق المرافق ${before?.companionRoomLabel||"بدون"} ← ${after?.companionRoomLabel||"بدون"}`);
-  if (Number(before?.AdInstructorId || 0) !== Number(after?.AdInstructorId || 0))
-    parts.push(`الأستاذ ${instructorName?.(Number(before?.AdInstructorId || 0)) || before?.AdInstructorId} ← ${instructorName?.(Number(after?.AdInstructorId || 0)) || after?.AdInstructorId}`);
-  if (String(before?.SCode || "") !== String(after?.SCode || "")) parts.push(`الشعبة ${before?.SCode} ← ${after?.SCode}`);
-  return parts.join(" · ");
-}
-
-/**
- * ── ما تعلّمه النظام من عشر سنوات ───────────────────────────────────────────
- *
- * The department's own style, read out of its entire history — every term it
- * has ever scheduled, not just the one on screen. Nobody declares it and
- * nobody is asked for it; a habit repeated a few thousand times is a stronger
- * statement than any settings field.
- *
- * Cached per department against the same change beacon the live feed already
- * runs on, so reading it costs one pass over the rows and then nothing at all
- * until some schedule somewhere is written.
- *
- * A declared rule still wins. If a department has explicitly stated a doorway,
- * that number is used and the learned one is not — a person who says something
- * out loud outranks a pattern the software inferred.
- */
-interface DepartmentStyle {
-  reading:RhythmReading|null;
-  doorway:number;
-  memory:DepartmentMemory|null;
-  /** Course pairs that share students, from whoever answered the survey. */
-  cohort:Set<string>;
-  cohortSize:(a:number,b:number)=>number;
-}
-const NO_COHORT:Pick<DepartmentStyle,"cohort"|"cohortSize">={cohort:new Set(),cohortSize:()=>0};
-const rhythmCache=new Map<string,{serial:number;at:number}&DepartmentStyle>();
-const rhythmRefreshing=new Map<string,Promise<DepartmentStyle>>();
-/* ── عادةُ القسم لا تتغيّر بحفظة واحدة ──────────────────────────────────────
- * القراءة أدناه تمرّ على كل فصول القسم (عشر سنوات) — وكانت تُعاد كاملةً بعد
- * كل حفظ في أي قسم (driftSerial)، فيطول «جاري الفحص» في أول فحص بعد أي حفظ.
- * وكل ما تُخرجه ملاحظاتٌ لينة لا تمنع الحفظ. فالقراءة السابقة تُجيب فوراً ما
- * دامت حديثة، وتُحدَّث في الخلفية مرة واحدة. */
-const RHYTHM_STALE_MS=10*60_000;
-const styleOf=(cached:DepartmentStyle):DepartmentStyle=>({reading:cached.reading,doorway:cached.doorway,memory:cached.memory,cohort:cached.cohort,cohortSize:cached.cohortSize});
-
-async function departmentStyle(row:any):Promise<DepartmentStyle>{
-  const collegeId=Number(row?.AdCollegeId||0),sectionId=Number(row?.AdSectionId||0);
-  if(!collegeId)return{reading:null,doorway:0,memory:null,...NO_COHORT};
-  const key=dataContextCacheKey(`${collegeId}:${sectionId}`);
-  const cached=rhythmCache.get(key);
-  if(cached&&cached.serial===driftSerial)return styleOf(cached);
-  const refresh=()=>{
-    const running=rhythmRefreshing.get(key);
-    if(running)return running;
-    const job=readDepartmentStyle(row,key).finally(()=>rhythmRefreshing.delete(key));
-    rhythmRefreshing.set(key,job);
-    return job;
-  };
-  if(cached&&Date.now()-cached.at<RHYTHM_STALE_MS){void refresh().catch(()=>undefined);return styleOf(cached);}
-  return refresh();
-}
-
-async function readDepartmentStyle(row:any,key:string):Promise<DepartmentStyle>{
-  const collegeId=Number(row?.AdCollegeId||0),sectionId=Number(row?.AdSectionId||0),termId=Number(row?.AdTermId||0);
-  const serial=driftSerial;
-  try{
-    // Every term this department has ever run. History is the whole point:
-    // a habit is what survives across years, and one term of it is chance.
-    const history=(await Repository.getSchedules()).filter(item=>
-      Number(item.AdCollegeId)===collegeId&&(!sectionId||Number(item.AdSectionId)===sectionId));
-    const reading=learnRhythm(history);
-    /* The same pass answers the memory's questions too — one read of history
-       serves both, and neither is computed again until something is written. */
-    const [memCourses,memPeople]=await Promise.all([Repository.getCourses(),Repository.getInstructors()]);
-    const memory=readDepartmentMemory(history,memCourses,memPeople);
-    const rules=termId?await Repository.getScheduleConstraints(collegeId,sectionId,termId).catch(()=>[]):[];
-    const declared=Number(rules.find(item=>item.type==="room_doorway"&&item.enabled!==false)?.maxMinutes||0);
-    /* The learned break is per pattern; the sweep takes one number, so it takes
-       the SMALLEST habit across patterns. Flagging at the tighter of the two
-       cannot invent a finding on the looser one. */
-    const learned=Math.min(...reading.patterns.map(p=>p.breakMinutes||Infinity));
-    /* ── القاعدة المقرَّرة أولاً، ثم ما يعلنه القسم ───────────────────────────
-     * The college states this per day family — ten minutes on Sun/Tue/Thu,
-     * fifteen on Mon/Wed — and one learned number cannot say that: whichever
-     * value history produced was wrong on one of the two families. Zero here
-     * means "no declared override", and the engine then reads the requirement
-     * from the days each pair actually shares.
-     *
-     * A department that declares its own figure still wins, exactly as before:
-     * a rule somebody states out loud outranks both the institutional default
-     * and a pattern the software inferred. `learned` is kept for the rhythm
-     * reading that still uses it elsewhere. */
-    void learned;
-    const doorway=Math.max(0,Math.min(60,declared));
-    /* What the students said, read on the same pass and cached against the
-       same beacon. A department that has never run a survey pays nothing and
-       sees exactly what it saw before. */
-    let cohort=new Set<string>(), cohortSize:(a:number,b:number)=>number=()=>0;
-    if(termId&&sectionId){
-      try{
-        const needs=await Repository.getStudentNeeds(collegeId,sectionId,termId);
-        if(needs.length){
-          const demand=readStudentDemand(needs,memCourses.filter(c=>Number(c.AdSectionId)===sectionId));
-          cohort=cohortPairs(demand);
-          cohortSize=(a,b)=>sharedBetween(demand,a,b);
-        }
-      }catch{ /* no survey is the ordinary case */ }
-    }
-    rhythmCache.set(key,{serial,at:Date.now(),reading,doorway,memory,cohort,cohortSize});
-    if(rhythmCache.size>200)rhythmCache.clear();
-    return{reading,doorway,memory,cohort,cohortSize};
-  }catch{return{reading:null,doorway:0,memory:null,...NO_COHORT};}
-}
-
-/**
- * `hypothetical` is the whole term as it WOULD be — used by the study proposal,
- * which asks this very gate about rows that do not exist yet. Everything else
- * (hall scope, barter windows, hall-owner notices, travel, rhythm) is the
- * ordinary save gate, unchanged: one verdict, never a second checker.
- */
-async function scheduleConflicts(req:AuthenticatedRequest,row:any,excludeId=0,hypothetical?:FSchedule[]){
-  const termId=Number(row?.AdTermId||0);
-  if(!termId||!row?.fstarttime||!row?.fendtime||!SCHEDULE_DAY_KEYS.some(k=>Boolean(row?.[k])))return[];
-  const candidate:any={...row,id:excludeId||Number(row?.id||-900000),AdTermId:termId};
-  const [termRowsRaw, instructor, roomNotice, hallBarterRequests, registry]=await Promise.all([
-    // One current-term read (cached by the repository) is intentional here: it closes the
-    // pre-migration alias gap without ever scanning ten years during interactive use.
-    hypothetical?Promise.resolve(hypothetical):Repository.getSchedulesByScope({termId}),
-    Number(candidate.AdInstructorId||0) ? Repository.getInstructorById(Number(candidate.AdInstructorId)) : Promise.resolve(null),
-    roomScopeNotice(candidate),
-    Repository.getHallBarterRequests(termId),
-    readLocationRegistry(),
-  ]);
-  const ownerValue = (req as any).__requestReservationOwner;
-  const reservationOwners = new Set<string>((Array.isArray(ownerValue) ? ownerValue : [ownerValue]).map(value => String(value || "")).filter(Boolean));
-  if (!reservationOwners.size && row.instructorRequestId && req.path?.includes("check-conflicts")) {
-    const request = await Repository.getInstructorRequest(String(row.instructorRequestId));
-    if (request && Number(request.AdInstructorId) === Number(row.AdInstructorId) && Number(request.AdTermId) === termId
-      && isScopeAllowed(req, Number(row.AdCollegeId), Number(row.AdSectionId))) reservationOwners.add(request.id);
-  }
-  /* حجزُ التحرير المؤقّت لا يمنع القسم (A2): يحمي الأستاذَ من زميله وحده. */
-  const heldEntries = (await Repository.getInstructorRequestReservations(termId)).filter(entry => !reservationOwners.has(entry.requestId) && !entry.heldUntil);
-  const heldRows = reservationRows(heldEntries, termId);
-  const holdOfRow = (id: unknown) => { const n = Number(id); return n <= -2_000_000_000 + heldEntries.length * 10 && n >= -2_000_000_000 ? heldEntries[Math.floor((n + 2_000_000_000) / 10)] : undefined; };
-  const rowsWithReservations = [...termRowsRaw, ...heldRows];
-  const candidateCanonical=canonicalizeHistoricalLocationForRuntime(candidate as FSchedule,registry);
-  const all=rowsWithReservations.map(item=>canonicalizeHistoricalLocationForRuntime(item,registry)).filter(item=>item.id!==excludeId);
-  const style=await departmentStyle(candidate);
-  const raw=findConflicts([candidateCanonical],all,{doorwayMinutes:style.doorway,
-    cohortPairs:style.cohort,cohortSize:style.cohortSize,
-    placeholderInstructorIds:placeholderInstructorIds(await Repository.getInstructors() as any)});
-
-  /* ── مَن يقف في المكان الآخر ────────────────────────────────────────────
-   *
-   * A refusal that will not say why is worse than no refusal. When the other
-   * appointment belongs to another department the coordinator was told only
-   * «يوجد حجز متداخل خارج نطاق العرض الحالي» — no day, no hour, no owner — and
-   * the board never loads that row either, so there was nowhere left to look.
-   * The room card carried the least of all: the instructor card at least gave
-   * the hour.
-   *
-   * The department is named. Not as an exception: the hall-scope notice beside
-   * it already prints «مرتبطة تاريخياً بـ قسم اللغة العربية — كلية التربية
-   * الأساسية», and hiding the same fact one card away was a contradiction
-   * inside one screen. It is also the actionable half — it says whom to call,
-   * and «استعارة القاعات» exists in this product for exactly that conversation.
-   *
-   * What stays private stays private: the other course, its section, and the
-   * name of the other lecturer are never revealed by these lines. What is
-   * revealed is organisational — a department holds this hall at this hour —
-   * and it is the minimum a person needs to move their own appointment.
-   *
-   * Resolved once, before the mapping, for every department other than the
-   * candidate's own; the repository reads are cached and the set is tiny.
-   */
-  const otherScopeKey=(row:any)=>`${Number(row?.AdCollegeId||0)}:${Number(row?.AdSectionId||0)}`;
-  const ownScopeKey=otherScopeKey(candidate);
-  const scopeNames=new Map<string,string>();
-  await Promise.all([...new Set(raw
-    .map((conflict:any)=>all.find(item=>item.id===conflict.otherId))
-    .filter((other:any)=>other&&otherScopeKey(other)!==ownScopeKey)
-    .map((other:any)=>otherScopeKey(other)))]
-    .map(async (key:string)=>{
-      const [collegeId,sectionId]=key.split(":").map(Number);
-      const [section,college]=await Promise.all([
-        sectionId?Repository.getSectionById(sectionId):Promise.resolve(null),
-        collegeId?Repository.getCollegeById(collegeId):Promise.resolve(null),
-      ]);
-      scopeNames.set(key,[section?.AdSectionName,college?.AdCollegeName].filter(Boolean).join(" — ")||"قسم آخر");
-    }));
-  const otherDaysLabel=(row:any)=>SCHEDULE_DAY_KEYS.map((key,index)=>row?.[key]?DAY_LABELS[index]:null).filter(Boolean).join(" و");
-  /** «قسم اللغة العربية — كلية التربية الأساسية · الأحد والثلاثاء · 11:50 - 11:00» */
-  const elsewhereLine=(other:any)=>[
-    scopeNames.get(otherScopeKey(other))||"قسم آخر",
-    otherDaysLabel(other),
-    formatScheduleTimeRange(String(other?.fstarttime||""),String(other?.fendtime||"")),
-  ].filter(Boolean).join(" · ");
-  /** The same line, kept behind the course name when the reader may see it. */
-  const detailFor=(other:any,visible:boolean)=>{
-    const elsewhere=otherScopeKey(other)!==ownScopeKey;
-    if(!elsewhere) return `${other.AdCourseName||"مقرر"} — ${formatScheduleTimeRange(other.fstarttime,other.fendtime)}`;
-    return visible
-      ? `${other.AdCourseName||"مقرر"} · ${elsewhereLine(other)}`
-      : elsewhereLine(other);
-  };
-
-  /* «الأستاذ X لديه محاضرة متداخلة»: X هو أستاذ الموعد المفحوص، فيحمل «· منتدب» إن كان منتدباً في قسم هذا الموعد. القراءة لازمة عند تعارض أستاذ وحده. */
-  const instructorIsVisiting=instructor&&raw.some((conflict:any)=>conflict.type==="instructor")
-    ?(await visitingChecker(termId,[{collegeId:candidate.AdCollegeId,sectionId:candidate.AdSectionId}]))(instructor.AdInstructorId,candidate.AdCollegeId,candidate.AdSectionId)
-    :false;
-  const conflicts=raw.map((conflict:any)=>{
-    /* The turnaround rule is advice, not a refusal. `soft` is what keeps it out
-       of the blocked list in move-batch and out of the 409 on save — a
-       department that deliberately runs back-to-back lectures must never be
-       stopped from saying so. */
-    if(conflict.type==="cohort"){
-      const other=all.find(item=>item.id===conflict.otherId);
-      const visible=other?Boolean(req.user?.IsAdminUser||isScopeAllowed(req,other.AdCollegeId,other.AdSectionId)):true;
-      /* Soft on purpose: it speaks for whoever answered the survey, not for the
-         registrar, and a partial answer must never be the thing that blocks a
-         department from saving its own schedule. */
-      return{...conflict,soft:true,severity:"medium",rowId:visible&&other?other.id:0,
-        message:"تعارض على الطلاب",
-        detail:visible?conflict.detail:"الموعد الآخر خارج نطاق العرض الحالي."};
-    }
-    if(conflict.type==="doorway"){
-      const other=all.find(item=>item.id===conflict.otherId);
-      const visible=other?Boolean(req.user?.IsAdminUser||isScopeAllowed(req,other.AdCollegeId,other.AdSectionId)):true;
-      return{...conflict,soft:true,severity:"low",rowId:visible&&other?other.id:0,
-        message:"الفاصل بين المحاضرتين غير كافٍ",
-        detail:visible?conflict.detail:"الفاصل قصير عن المطلوب، والموعد الآخر خارج نطاق العرض الحالي."};
-    }
-    const other=all.find(item=>item.id===conflict.otherId);
-    const visible=other?Boolean(req.user?.IsAdminUser||isScopeAllowed(req,other.AdCollegeId,other.AdSectionId)):true;
-    if(conflict.type==="instructor"&&other)return{...conflict,severity:"high",rowId:visible?other.id:0,message:`الأستاذ ${withVisitingSuffix(instructor?.AdInstructorName||"",Boolean(instructor?.AdInstructorName)&&instructorIsVisiting)} لديه محاضرة متداخلة`,detail:detailFor(other,visible)};
-    if(conflict.type==="room"&&other)return{...conflict,severity:"high",rowId:visible?other.id:0,message:`القاعة ${other.AdRoomCode}/${other.AdRoomHall} مشغولة في نفس الوقت`,detail:detailFor(other,visible)};
-    /* ── الشعبة نفسها في مكانين: تُقال ولا تمنع ─────────────────────────────
-       قاعدة المالك 2026-09-27: «التوقيع لا يمنعه إلا تعارض ماديّ». قاعتان
-       مختلفتان أو أستاذان حقيقيان مختلفان ليسا تعارضاً ماديّاً (twinKind)، فلا
-       يمنعان الحفظ ولا النقل — لكن البطاقة تقولهما، بما يختلف فيهما. */
-    if(conflict.type==="sectionTwice")return{...conflict,soft:true,severity:"medium",rowId:visible&&other?other.id:0,
-      detail:visible||!other?conflict.detail:`الشعبة نفسها مسجّلة بالأيام والوقت نفسيهما · ${elsewhereLine(other)}`};
-    // A repeated course and section is only a duplicate when it is the very same
-    // placement; a lecture on Sunday and its laboratory on Tuesday share a
-    // section number by design and must not be refused. Since 2026-09-27 it is
-    // also only a duplicate when nothing tells the two rows apart — no second
-    // hall, no second real teacher — because only then would it publish twice.
-    /* Same department: the twin row is on the reader's own board, so its own
-       phrasing stays. Another department: name it, with the day and the hour. */
-    return{...conflict,severity:"high",rowId:visible&&other?other.id:0,message:"يوجد موعد مطابق تماماً لنفس المقرر والشعبة",
-      detail:!other?"يوجد سجل مطابق خارج نطاق العرض الحالي"
-        :otherScopeKey(other)===ownScopeKey?`نفس الأيام ونفس الوقت ${formatScheduleTimeRange(other.fstarttime, other.fendtime)}`
-          :detailFor(other,visible)};
-  });
-  const sameBarterRoom=(request:any)=>barterRequestMatchesRow(request,candidate);
-  const sameRoomBarterWindows=hallBarterRequests.filter(sameBarterRoom);
-  const barterReservation = SCHEDULE_DAY_KEYS.map(day=>Boolean(candidate[day])
-    ? approvedBarterReservation(sameRoomBarterWindows, day, String(candidate.fstarttime||""), String(candidate.fendtime||""), Number(candidate.AdCollegeId), Number(candidate.AdSectionId))
-    : undefined).find(Boolean);
-  const myApprovedWindows=hallBarterRequests.filter((request:any)=>request.status==="approved"&&sameBarterRoom(request)&&
-    Number(request.requesterCollegeId)===Number(candidate.AdCollegeId)&&Number(request.requesterSectionId)===Number(candidate.AdSectionId));
-  const selectedBarterDays=SCHEDULE_DAY_KEYS.filter(day=>Boolean(candidate[day]));
-  const borrowerWindowViolation=selectedBarterDays.some(day=>borrowerOutsideApprovedWindow(sameRoomBarterWindows, day,
-    String(candidate.fstarttime||""), String(candidate.fendtime||""), Number(candidate.AdCollegeId), Number(candidate.AdSectionId)));
-  const barterNotes:any[] = [];
-  if(barterReservation)barterNotes.push({
-    type:"hallBarter",severity:"high",soft:false,rowId:0,otherId:0,
-    message:`القاعة ${candidate.AdRoomCode}/${candidate.AdRoomHall} محجوزة رقمياً عبر استعارة القاعات`,
-    detail:`نافذة الاستعارة المعتمدة ${HALL_BARTER_DAY_LABEL.get(barterReservation.day as typeof SCHEDULE_DAY_KEYS[number])||""} ${formatScheduleTimeRange(barterReservation.startTime, barterReservation.endTime)}.`
-  });
-  if(borrowerWindowViolation)barterNotes.push({
-    type:"hallBarterWindow",severity:"high",soft:false,rowId:0,otherId:0,
-    message:"الموعد يتجاوز نافذة الاستعارة المعتمدة",
-    detail:"استخدم القاعة داخل اليوم والوقت المعتمدين فقط، أو اطلب نافذة إضافية من استعارة القاعات قبل الحفظ."
-  });
-  const softTravel = await interCampusWarnings(candidate, all);
-  /* The department's own habit, broken. Not an error — a lecture beginning at
-     08:55 where every other lecture on that day has begun at 08:50 for ten
-     years is almost always a slip of the finger, and occasionally a decision.
-     So it is said once, softly, and never refuses a save. */
-  const habit = style.reading ? offRhythm(candidate, style.reading) : "";
-  const rhythmNote = habit
-    ? [{ type: "rhythm", severity: "low", soft: true, rowId: 0, otherId: 0,
-         message: "خارج إيقاع القسم المعتاد", detail: habit }]
-    : [];
-
-  /* ── ذاكرة عشر سنوات، عند لحظة القرار وحدها ─────────────────────────────
-   *
-   * Not a dashboard and not a strip: the question «what does history say about
-   * HERE» is only worth answering while somebody's card is actually over here.
-   * At every other moment it is noise, so at every other moment it is not
-   * computed and not sent.
-   *
-   * At most one sentence about the place and one about the hall. A person
-   * mid-drag can read one line; five lines are a wall they will learn to skip.
-   */
-  const memoryNotes: any[] = [];
-  if (style.memory) {
-    const day = SCHEDULE_DAY_KEYS.find(key => Boolean(candidate[key]));
-    const slot = day ? style.memory.atSlot(day as any, String(candidate.fstarttime || "")) : null;
-    if (slot) memoryNotes.push({ type: "memory", severity: "low", soft: true, rowId: 0, otherId: 0,
-      message: slot.surprising ? "شيء لم ينتبه له أحد" : "من ذاكرة القسم", detail: slot.text });
-    const hall = style.memory.aboutRoom(String(candidate.AdRoomCode || ""), String(candidate.AdRoomHall || ""), candidate.roomId);
-    // Only the surprising half about a hall: «هذه قاعتك المعتادة» is true and
-    // tells a coordinator nothing they have not known for years.
-    if (hall?.surprising) memoryNotes.push({ type: "memory", severity: "low", soft: true, rowId: 0, otherId: 0,
-      message: "شيء لم ينتبه له أحد", detail: hall.text });
-  }
-
-  /* ── الاستعارة المعتمدة ليست مخالفة نطاق ────────────────────────────────
-   * «تنبيه نطاق القاعة» يقول إن القاعة مسجلة لقسم آخر، وهو صحيح دائماً — حتى
-   * بعد أن يوافق القسم المضيف. وهو يمنع الحفظ (فليس soft)، فكان القسم الذي
-   * أتمّ الطلب والموافقة يُمنع من استعمال ما استُعير له، والرسالة التي يقرؤها
-   * «تنبيه» لا «رفض». فمتى غطّت نوافذُه المعتمدة أيام الموعد ووقتَه كاملاً،
-   * تحوّل التنبيه إلى ما هو: خبر يُقرأ ولا يمنع، بنصّه الصحيح. وما عدا ذلك
-   * يبقى مانعاً كما كان — الاستعارة تُطلب وتُعتمد، ولا تُفترض. */
-  const barterCoversRow=myApprovedWindows.length>0&&selectedBarterDays.length>0&&!borrowerWindowViolation;
-  const roomNotes=roomNotice
-    ? [barterCoversRow
-        ? {...roomNotice,severity:"low",soft:true,
-           message:`قاعة مستعارة بنافذة معتمدة: ${candidate.AdRoomCode}/${candidate.AdRoomHall}`,
-           detail:"القاعة مسجلة لقسم آخر، والاستعارة معتمدة لهذا اليوم والوقت. الحفظ مسموح داخل النافذة فقط."}
-        : roomNotice]
-    : [];
-  /* التعارضُ مع حجز طلبٍ ينتظر القسم يُوسم بصاحبه: الواجهةُ تسأل المنسّق بوضوح بدل «ممنوع» (A2). */
-  const withHolds = conflicts.map((conflict: any) => {
-    const hold = holdOfRow(conflict.otherId);
-    return hold ? { ...conflict, holdRequestId: hold.requestId, holdItemId: hold.itemId } : conflict;
-  });
-  return [...withHolds, ...barterNotes, ...roomNotes, ...softTravel, ...rhythmNote, ...memoryNotes];
-}
-
-/**
- * ── القسمُ يبقى صاحبَ القرار (A2) ───────────────────────────────────────────
- *
- * اختار الأستاذُ وقتاً فحُجز له حتى يقرّر القسم. فإن أراد المنسّقُ نقلَ ذلك
- * الموعد إلى وقتٍ جديد كان يُمنع بحجز الطلب نفسه، ولا مخرجَ له. الآن يُسأل:
- * الخادمُ يعيد `code: "request-hold"` مع صاحب الحجز، والواجهةُ تعرضه سؤالاً
- * واحداً، وتأكيدُه يُعيد الإرسال بـ`overrideRequestHolds`. عندها يمضي التعديلُ
- * متجاوزاً حجزَ ذلك الطلب وحده — حجوزُ بقية الأساتذة تبقى حارسة — ويُكتب في
- * خطّ الطلب الزمني، والبندُ الذي صار موعدُه هو المطلوب يُعلَّم «ثُبّت».
- */
-async function applyRequestHoldOverride(req: AuthenticatedRequest): Promise<string[]> {
-  const ids: string[] = [...new Set<string>((Array.isArray(req.body?.overrideRequestHolds) ? req.body.overrideRequestHolds as unknown[] : []).map(value => String(value)).filter(Boolean))].slice(0, 10);
-  const allowed: string[] = [];
-  for (const id of ids) {
-    const request = await Repository.getInstructorRequest(id);
-    if (!request || request.status === "superseded" || request.status === "settled") continue;
-    const visible = isScopeAllowed(req, Number(request.AdCollegeId), Number(request.AdSectionId))
-      || (request.items || []).some(item => item.action !== "keep" && (() => { const scope = requestItemScope(request, item); return isScopeAllowed(req, scope.collegeId, scope.sectionId); })());
-    if (visible) allowed.push(id);
-  }
-  if (allowed.length) {
-    const current = (req as any).__requestReservationOwner;
-    (req as any).__requestReservationOwner = [...new Set([...(Array.isArray(current) ? current : current ? [current] : []), ...allowed])];
-  }
-  return allowed;
-}
-
-/** بعد تعديلٍ أكّده القسم على موعدٍ محجوزٍ لطلب: يُسجَّل في خطّ الطلب، ويُثبَّت البندُ الذي صار موعدُه كما طُلب. */
-async function noteRequestHoldOverride(requestIds: string[], row: FSchedule | null, by: string): Promise<void> {
-  const at = new Date().toISOString();
-  for (const id of requestIds) {
-    const request = await Repository.getInstructorRequest(id);
-    if (!request) continue;
-    const days = row ? dayKeysOf(row).sort().join(",") : "";
-    const items = request.items.map(item => {
-      if (!row || item.decision?.state === "fixed" || item.decision?.state === "rejected") return item;
-      const same = (Number(item.rowId) === Number(row.id) || (item.offeringRowIds || []).includes(Number(row.id)))
-        && (item.slots || []).map(slot => String(slot.day)).sort().join(",") === days
-        && (item.slots || []).every(slot => timeToMinutes(slot.start) === timeToMinutes(row.fstarttime));
-      return same ? { ...item, decision: { state: "fixed" as const, decidedBy: by, decidedAt: at, scheduleId: Number(row.id), note: "ثبّته القسم من الجدول مباشرة." } } : item;
-    });
-    await Repository.saveInstructorRequest({ ...request, items,
-      timeline: [...(request.timeline || []), { kind: "schedule-edited" as const, at, by, detail: "عدّل القسم موعداً مرتبطاً بهذا الطلب أثناء انتظاره." }].slice(-300) }).catch(() => undefined);
-  }
-}
-
-/** ردُّ 409 حين يحجز الموعدَ طلبُ أستاذٍ ينتظر القسم: من صاحبه، ليُسأل المنسّق بدل أن يُمنع. */
-async function requestHoldRefusal(requestIds: string[]) {
-  const [instructors, requests] = await Promise.all([Repository.getInstructors(), Promise.all(requestIds.map(id => Repository.getInstructorRequest(id)))]);
-  const nameOf = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
-  return {
-    error: "هذا الموعد محجوزٌ لطلب أستاذ ينتظر قرارك. المتابعة تعتمد تعديلك وتُبقي الطلب في الوارد.",
-    code: "request-hold",
-    holds: requests.filter(Boolean).map(request => ({ requestId: request!.id, instructorName: nameOf.get(Number(request!.AdInstructorId)) || "" })),
-  };
-}
-
-/**
- * The living schedule: one message the moment anything changes.
- *
- * Every write to the timetable — a save, a drag, a delete, a term copy, an
- * import — already announces itself by clearing the schedule cache. This
- * channel forwards that announcement to every open screen as a server-sent
- * event, so a colleague's change appears on your board by itself, without
- * anyone pressing refresh. The event deliberately carries no rows: each
- * listener re-reads its own scope through the normal scoped road, so the
- * permission walls stay exactly where they are.
- *
- * A short debounce turns a burst of writes (a six-card drag, an import) into
- * one message, sent after the write has actually landed.
- */
-/**
- * ── من غيري هنا ────────────────────────────────────────────────────────────
- *
- * A live connection used to be an anonymous socket: the registry held Response
- * objects and nothing else, which was enough to say "something changed" and not
- * enough to say anything about anyone. Presence needs the second thing, so the
- * Set becomes a Map from the same Response to what is known about the person
- * holding it — and stays keyed by the Response, so `.size` against the 400-cap
- * and delete-on-write-failure both keep working exactly as they did.
- *
- * Nothing here is ever written to a database. A hover is true for a few seconds
- * and then it is not; storing it would cost a document write per mouse move and
- * would outlive the fact it describes.
- */
-interface PresenceMark {
-  /** The cell under the pointer, when there is one. Touch has no hover. */
-  cell: { day: string; start: string; room?: string } | null;
-  /** A card in the air — by pointer or by keyboard, the two are the same news. */
-  holding: { rowId: number; rev: number } | null;
-  /** A row open in the editor. */
-  editing: { rowId: number; rev: number } | null;
-}
-
-interface ScheduleEventClient extends PresenceMark {
-  res: Response;
-  /** Names this exact stream, so a POST can address the connection it belongs to. */
-  connId: string;
-  userId: number;
-  name: string;
-  /** college:section:term — presence is scoped to a board, never to a person. */
-  scopeKey: string;
-  collegeId: number;
-  sectionId: number;
-  /** Demo streams are private to one sandbox even when their academic scope matches. */
-  demoSessionId: string;
-  /** When the mark was last refreshed, and when the connection last spoke. */
-  markAt: number;
-  seenAt: number;
-}
-
-const scheduleEventClients = new Map<Response, ScheduleEventClient>();
-let scheduleEventTimer: ReturnType<typeof setTimeout> | null = null;
-let scheduleEventSerial = 0;
-/* The same two pieces of news, kept as times for the screens that ask instead
-   of listening (the pulse below; src/server/livePulse.ts explains why). */
-const scheduleChangeClock = createChangeClock(Date.now());
-const notifyClock = createChangeClock(Date.now());
-/** Writes the event to every screen attached to THIS instance. */
-function broadcastScheduleChange(demoSessionId = "") {
-  // One time for both channels, so a screen holding a stream can tell that
-  // the pulse is repeating news the stream already delivered.
-  const changedAt = Date.now();
-  scheduleChangeClock.bump(demoSessionId, changedAt);
-  scheduleEventSerial += 1;
-  const payload = `id: ${scheduleEventSerial}\nevent: schedules\ndata: {"changedAt":${changedAt}}\n\n`;
-  for (const [response, client] of scheduleEventClients) {
-    if (demoSessionId && client.demoSessionId !== demoSessionId) continue;
-    try { response.write(payload); } catch { scheduleEventClients.delete(response); }
-  }
-}
-
-/**
- * ── نبضةُ الإشعارات ───────────────────────────────────────────────────────
- * لا تحمل شيئاً: تقول لكل شاشةٍ مفتوحة «اسأل عن إشعاراتك الآن»، فيسأل كلٌّ
- * بنطاقه هو. فيصل طلبُ الأستاذ أو قرارُ التسجيل في لحظته، لا بعد دقائق.
- */
-/* نبضةٌ من صندوقٍ تجريبي لا توقظ إلا شاشاتِ ذلك الصندوق: قرارٌ وهميّ لا يجعل
-   كلَّ شاشةٍ حقيقية تعيد سؤال جرسها. */
-function broadcastNotify(demoSessionId = "") {
-  notifyClock.bump(demoSessionId);
-  scheduleEventSerial += 1;
-  const payload = `id: ${scheduleEventSerial}\nevent: notify\ndata: {"at":${Date.now()}}\n\n`;
-  for (const [response, client] of scheduleEventClients) {
-    if (demoSessionId && client.demoSessionId !== demoSessionId) continue;
-    try { response.write(payload); } catch { scheduleEventClients.delete(response); }
-  }
-}
 for (const prefix of ["/api/approvals", "/api/schedule-notes", "/api/instructor-requests"]) {
   app.use(prefix, (req: Request, res: Response, next: NextFunction) => {
     const demoSessionId = (req as AuthenticatedRequest).demoSessionId || "";
@@ -5623,11 +3462,6 @@ for (const prefix of ["/api/approvals", "/api/schedule-notes", "/api/instructor-
     next();
   });
 }
-/* «/api/student-registration»: قرارُ اللجنة يصل التسجيلَ، وقرارُ التسجيل يصل
-   القسمَ — لكن بنبضةٍ مجمّعة (ثلاث ثوانٍ): اللجنةُ تقرّر مقرّراً بعد مقرّر،
-   وكلُّ نبضةٍ توقظ كلَّ شاشةٍ فتسأل جرسها. وكلُّ كتابةٍ تمحو مجموعَ الكشف
-   المحفوظ للجرس (studentQueueMemo) قبل أن تصل النبضة. */
-const broadcastStudentNotifySoon = createCoalescer(3000, broadcastNotify);
 app.use("/api/student-registration", (req: Request, res: Response, next: NextFunction) => {
   if (req.method !== "GET") res.on("finish", () => {
     if (res.statusCode >= 300) return;
@@ -5636,139 +3470,6 @@ app.use("/api/student-registration", (req: Request, res: Response, next: NextFun
   });
   next();
 });
-
-/* A mark older than this is treated as stale — the person is still connected,
-   but wherever their pointer was, it is not news any more. A connection that
-   has not spoken at all for the longer window stops being listed: a stream is
-   authorised once at connect and never re-checked, so silence is the cheap
-   stand-in for asking again. */
-const PRESENCE_STALE_MS = 45_000;
-const PRESENCE_GONE_MS = 90_000;
-const presenceDirty = new Set<string>();
-let presenceFlushTimer: ReturnType<typeof setTimeout> | null = null;
-
-const emptyMark = (): PresenceMark => ({ cell: null, holding: null, editing: null });
-const boardScopeKey = (req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number) => `${req.demoSessionId ? `demo:${req.demoSessionId}:` : ""}${collegeId}:${sectionId}:${termId}`;
-const hasMark = (mark: PresenceMark) => Boolean(mark.cell || mark.holding || mark.editing);
-
-/**
- * Everyone on one board, as that board's own members would see them.
- *
- * Scope-symmetric on purpose: an administrator's wider reach lets them read any
- * department's DATA, but presence is other people's names and movements, and
- * there is no version of this feature where someone learns who is working in a
- * college they are not in.
- */
-function presenceRoster(scopeKey: string, now: number) {
-  const peers: Array<{ connId: string; userId: number; name: string } & PresenceMark> = [];
-  for (const client of scheduleEventClients.values()) {
-    if (client.scopeKey !== scopeKey) continue;
-    if (now - client.seenAt > PRESENCE_GONE_MS) continue;
-    const fresh = now - client.markAt <= PRESENCE_STALE_MS;
-    peers.push({
-      // Named field by field. `req.user` is the raw stored row and still carries
-      // the password hash and the login name; spreading it here would post both
-      // to every colleague on the board.
-      connId: client.connId, userId: client.userId, name: client.name,
-      cell: fresh ? client.cell : null,
-      holding: fresh ? client.holding : null,
-      editing: fresh ? client.editing : null,
-    });
-  }
-  return peers;
-}
-
-/** Writes the roster for one board to every connection watching that board. */
-function broadcastPresence(scopeKey: string) {
-  const now = Date.now();
-  const peers = presenceRoster(scopeKey, now);
-  // No `id:` line. The server never reads Last-Event-ID back, so a presence
-  // frame must not look resumable — every frame is a whole roster, and a
-  // reconnect is answered with a fresh one rather than a gap.
-  const payload = `event: presence\ndata: ${JSON.stringify({ scope: scopeKey, at: now, peers })}\n\n`;
-  for (const [res, client] of scheduleEventClients) {
-    if (client.scopeKey !== scopeKey) continue;
-    try { res.write(payload); } catch { scheduleEventClients.delete(res); }
-  }
-}
-
-function markPresenceDirty(scopeKey: string) {
-  if (!scopeKey) return;
-  presenceDirty.add(scopeKey);
-  if (presenceFlushTimer) return;
-  // A timer of its own. Sharing scheduleEventTimer would drop presence whenever
-  // a schedule write was already pending, and would drag a Firestore write into
-  // the path of a mouse move.
-  presenceFlushTimer = setTimeout(() => {
-    presenceFlushTimer = null;
-    const scopes = [...presenceDirty];
-    presenceDirty.clear();
-    for (const scope of scopes) broadcastPresence(scope);
-  }, 250);
-}
-
-/* A frozen tab, a closed laptop, or a session that quietly expired all look the
-   same from here: the marks stop arriving. This is what turns that silence back
-   into an empty chair. */
-setInterval(() => {
-  const now = Date.now();
-  for (const client of scheduleEventClients.values()) {
-    const stale = now - client.markAt > PRESENCE_STALE_MS;
-    const gone = now - client.seenAt > PRESENCE_GONE_MS;
-    if ((stale || gone) && hasMark(client)) {
-      Object.assign(client, emptyMark());
-      markPresenceDirty(client.scopeKey);
-    } else if (gone) {
-      markPresenceDirty(client.scopeKey);
-    }
-  }
-}, 10_000).unref?.();
-/* Everyone who wrote in the window, not only the first. The window used to keep
-   the first writer's sandbox and drop the rest: a demo visitor's save and a
-   coordinator's save landing in the same 350 ms became one announcement in the
-   visitor's name, the coordinator's colleagues never heard of theirs, and the
-   beacon stayed silent (it says nothing from inside a sandbox). */
-const pendingScheduleSessions = new Set<string>();
-onSchedulesInvalidated(() => {
-  pendingScheduleSessions.add(Repository.currentDemoSessionId());
-  if (scheduleEventTimer) return;
-  scheduleEventTimer = setTimeout(() => {
-    scheduleEventTimer = null;
-    const sessions = [...pendingScheduleSessions];
-    pendingScheduleSessions.clear();
-    // A real change is written to every screen, sandboxes included, so once is enough.
-    if (sessions.includes("")) broadcastScheduleChange("");
-    else for (const session of sessions) broadcastScheduleChange(session);
-    // …and tell the other instances, which never saw this write at all — as
-    // the university, whichever sandbox happened to open the window.
-    if (sessions.includes("")) void Repository.outsideDemoSandbox(() => Repository.markSchedulesChanged());
-  }, 350);
-});
-/**
- * The other half of the live channel.
- *
- * Without this, "live" quietly meant "live for whoever shares my instance" —
- * the moment Cloud Run runs a second copy, half the users stop receiving their
- * colleagues' changes and nothing on screen suggests anything is wrong. The
- * beacon document is watched here, so a change written anywhere is announced
- * everywhere. The listener is started once the database is up.
- */
-let stopScheduleBeacon: (() => void) | null = null;
-function listenForScheduleChangesAcrossInstances() {
-  if (stopScheduleBeacon) return;
-  stopScheduleBeacon = Repository.watchSchedulesChanged(() => {
-    // Another instance wrote. Our cached rows are stale, so they are dropped —
-    // quietly, because announcing a change we did not make would send the
-    // beacon straight back out and the two instances would echo forever.
-    clearScheduleCacheQuietly();
-    studentQueueMemo.invalidate();
-    bellBlockingMemo.invalidate();
-    hallBarterSerial += 1;
-    hallBarterBoardCache.clear();
-    livingResponseCache.clear();
-    broadcastScheduleChange();
-  });
-}
 
 app.get("/api/schedules/events", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), (req: AuthenticatedRequest, res: Response) => {
   res.writeHead(200, {
@@ -5872,74 +3573,6 @@ app.post("/api/schedules/pulse", requireAuth, (req: AuthenticatedRequest, res: R
 });
 
 /**
- * Read the visiting roster exactly as the live UI should understand it.
- *
- * A term roster may outlive a person being removed from the department's
- * visiting directory. Those old IDs are useful historical evidence, but they
- * must not keep a "2 visitors" badge alive in today's schedule, nor resurrect
- * someone the department deliberately removed. The persistent department
- * directory is therefore the live-membership authority, while the global
- * instructor table confirms that the identity itself still exists.
- *
- * Historical roster documents are never rewritten here; this is a read filter
- * only, so past evidence remains intact for audit/recovery.
- */
-async function readLiveVisitingRoster(collegeId: number, sectionId: number, termId: number) {
-  if (!collegeId || !sectionId || !termId) return { instructorIds: [] as number[], instructors: [] as any[] };
-  const [roster, directory, instructors] = await Promise.all([
-    Repository.getVisitingRoster(collegeId, sectionId, termId),
-    Repository.getDepartmentDelegates(collegeId, sectionId),
-    Repository.getInstructors(),
-  ]);
-  const instructorById = new Map(instructors.map(person => [Number(person.AdInstructorId), person]));
-  const instructorIds = liveVisitingIds(roster, directory, id => instructorById.has(id));
-  return {
-    instructorIds,
-    instructors: instructorIds.map(id => instructorById.get(id)).filter(Boolean),
-  };
-}
-
-/**
- * صفةُ «منتدب» دائمةٌ: اسمٌ في دليل منتدبي القسم (عائلته)، له سجلٌّ في الأساتذة. لا يشترط
- * أن يكون في روستر فصلٍ بعينه، ولا يزول إلا حين يُحوَّل من بطاقة الأستاذ إلى معيّن.
- * روسترُ الفصل يحدد من يُدرِّس فيه (`readLiveVisitingRoster`)، لا من يُسمّى منتدباً.
- */
-async function readVisitingStatus(collegeId: number, sectionId: number, termId = 0) {
-  if (!collegeId || !sectionId) return { instructorIds: [] as number[] };
-  const [directory, instructors, explicit, family] = await Promise.all([
-    Repository.getDepartmentDelegates(collegeId, sectionId),
-    Repository.getInstructors(),
-    Repository.getExplicitDirectoryScopes(),
-    Repository.familyOf(collegeId, sectionId),
-  ]);
-  const known = new Set(instructors.map(person => Number(person.AdInstructorId)));
-  const saved = family.some(member => explicit.some(scope => Number(scope.collegeId) === Number(member.collegeId) && Number(scope.sectionId) === Number(member.sectionId)));
-  /* قسمٌ لم يحفظ دليلاً قطّ: «دليلُه» المقروء من الأرشيف يضم كل من مرّ في أي فصل، فيُقرأ له روسترُ هذا الفصل وحده
-     (القاعدةُ نفسها في visitingByScope) كي لا يصير منتدباً في كل الفصول بلا قرار. */
-  const live = saved || !termId ? directory : liveVisitingIds(await Repository.getVisitingRoster(collegeId, sectionId, termId), directory, id => known.has(id));
-  return { instructorIds: [...new Set([...live].map(Number).filter(id => Number.isFinite(id) && id > 0 && known.has(id)))] };
-}
-
-/**
- * «منتدب» لكل صفٍّ بقسمه هو: يقرأ دفتر المنتدبين مرةً لكل (كلية، قسم) متميّز في الفصل ثم
- * يجيب عن أي صف. المنتدب منتدبٌ في قسمٍ لا في كل الأقسام، فالقرار دائماً بنطاق الصف نفسه.
- * للمخرجات التي لا طلب مستخدم خلفها (الصفحات العامة، التقويم، الإكسل).
- */
-async function visitingChecker(termId: number, scopes: Iterable<{ collegeId: unknown; sectionId: unknown }>) {
-  const byScope = new Map<string, Set<number>>();
-  const wanted = new Map<string, { collegeId: number; sectionId: number }>();
-  for (const scope of scopes) {
-    const collegeId = Number(scope.collegeId) || 0, sectionId = Number(scope.sectionId) || 0;
-    if (collegeId && sectionId) wanted.set(`${collegeId}:${sectionId}`, { collegeId, sectionId });
-  }
-  await Promise.all([...wanted].map(async ([key, scope]) => {
-    byScope.set(key, new Set((await readVisitingStatus(scope.collegeId, scope.sectionId, termId)).instructorIds.map(Number)));
-  }));
-  return (instructorId: unknown, collegeId: unknown, sectionId: unknown) =>
-    byScope.get(`${Number(collegeId) || 0}:${Number(sectionId) || 0}`)?.has(Number(instructorId)) === true;
-}
-
-/**
  * The whole workspace in one request.
  *
  * Opening the schedule used to be a conversation: colleges, then sections, then
@@ -6008,86 +3641,6 @@ app.get("/api/schedules/workspace", requirePermission(7), async (req: Authentica
   });
 });
 
-/**
- * The scoped read, shaped by who is asking.
- *
- * A department coordinator's account already says which sections are theirs, so
- * a request with no section filter must not scan the whole university term and
- * throw the surplus away — it reads the handful of sections the account owns,
- * which is the same answer at a fraction of the weight. The administrator keeps
- * the wide read, because for them the wide read is the answer.
- */
-/**
- * ── العميد يرى الجدولَ النهائي وحده ──────────────────────────────────────────
- *
- * العميد والعميد المساعد لا يتابعان المسوّدة: يريان كلَّ قسمٍ كما قبِله
- * التسجيل آخرَ مرّة. فقسمٌ معتمدٌ الآن يُقرأ حيّاً — لأن أيَّ تعديلٍ بعد القبول
- * يعيده للتسجيل فوراً — وقسمٌ عاد للتسجيل بعد قبولٍ سابق يُقرأ من نسخة ذلك
- * القبول، وقسمٌ لم يُقبل قطّ لا يظهر.
- */
-function readsFinalSchedulesOnly(req: AuthenticatedRequest): boolean {
-  const id = roleDefinition(req.user?.Role).id;
-  return !req.user?.IsAdminUser && (id === "dean" || id === "viceDean");
-}
-
-/**
- * الفصلُ منتهٍ؟ أُغلق صراحةً أو انقضت نافذته (القاعدة المستقرّة: termHasEnded).
- */
-async function termEndedForReading(termId: number): Promise<boolean> {
-  const term = (await Repository.getTerms()).find(item => Number(item.AdTermId) === Number(termId));
-  return Boolean(term && (term.AdTermClosed === true || termHasEnded(term as any)));
-}
-
-async function finalRowsWithFinality(rows: FSchedule[], termId: number): Promise<{ rows: FSchedule[]; finality: Record<string, Finality> }> {
-  const [approvals, termEnded] = await Promise.all([Repository.getScheduleApprovalsForTerm(termId), termEndedForReading(termId)]);
-  const byScope = new Map<string, typeof approvals[number]>(approvals.map(item => [`${Number(item.AdCollegeId)}:${Number(item.AdSectionId)}`, item]));
-  const groups = new Map<string, FSchedule[]>();
-  for (const row of rows) {
-    const key = `${Number(row.AdCollegeId || 0)}:${Number(row.AdSectionId || 0)}`;
-    groups.set(key, [...(groups.get(key) || []), row]);
-  }
-  const out: FSchedule[] = [];
-  const finality: Record<string, Finality> = {};
-  for (const [key, live] of groups) {
-    const source = finalSourceFor(byScope.get(key), termEnded);
-    if (source.kind === "none") continue;
-    if (source.kind === "live") { out.push(...live); finality[key] = source.finality; continue; }
-    const version = await Repository.getScheduleVersionById(source.versionId);
-    if (version?.rows?.length) { out.push(...(version.rows as FSchedule[])); finality[key] = "accepted"; }
-    else if (termEnded) { out.push(...live); finality[key] = "historical"; }
-  }
-  return { rows: out, finality };
-}
-
-async function finalRowsOnly(rows: FSchedule[], termId: number): Promise<FSchedule[]> {
-  return (await finalRowsWithFinality(rows, termId)).rows;
-}
-
-/**
- * `out.finality` — لمن يرى النهائيَّ وحده: صفةُ كل قسمٍ ظهر («accepted» أو
- * «historical»)، ليقول التقرير أيَّها معتمدٌ وأيَّها منفَّذٌ قبل دورة الاعتماد.
- */
-async function readSchedulesForRequest(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number, out?: { finality?: Record<string, Finality> }): Promise<FSchedule[]> {
-  const rows = await readLiveSchedulesForRequest(req, collegeId, sectionId, termId);
-  if (!readsFinalSchedulesOnly(req)) return rows;
-  const final = await finalRowsWithFinality(rows, termId);
-  if (out) out.finality = final.finality;
-  return final.rows;
-}
-
-/**
- * ── كل ما في نطاق القارئ لفصلٍ واحد ─────────────────────────────────────────
- *
- * البحث ولوحة البداية وقائمة الأساتذة كانت تجمع أرقامَ الأقسام من صفوف النطاق
- * الخام، فيسقط صفُّ «الكلية كلها» (قسم صفر) ويرى العميدُ ومساعدُه لا شيء.
- * هنا تُشتقّ الأقسامُ من الحَكَم (`expandScopeSections`)، وتُقرأ الكليةُ
- * المغطّاة كاملةً بقراءةٍ واحدة. ومن يقرأ النهائيَّ وحده (العميد) يُعطى النهائي.
- */
-async function scopeSectionIdsFor(req: AuthenticatedRequest): Promise<Set<number>> {
-  const sections = await Repository.getSections();
-  return expandScopeSections(sections, (collegeId, sectionId) => isScopeAllowed(req, collegeId, sectionId));
-}
-
 async function readScopedTermRows(req: AuthenticatedRequest, termId: number): Promise<FSchedule[]> {
   if (req.user?.IsAdminUser) return Repository.getSchedulesByScope({ termId });
   const sections = await Repository.getSections();
@@ -6108,28 +3661,6 @@ async function readScopedTermRows(req: AuthenticatedRequest, termId: number): Pr
   }
   const rows = filterByScope(req, (await Promise.all(reads)).flat());
   return readsFinalSchedulesOnly(req) ? finalRowsOnly(rows, termId) : rows;
-}
-
-async function readLiveSchedulesForRequest(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number): Promise<FSchedule[]> {
-  if (!req.user?.IsAdminUser && !sectionId) {
-    /* نطاقُ الكلية كاملةً (قسمٌ صفر) يُقرأ بالكلية: العميد لا يملك قائمةَ أقسامٍ
-       في نطاقه، يملك الكلية. وكانت القراءة تُسقط الصفر فلا يرى شيئاً. */
-    let wholeColleges = [...new Set((req.scopes || [])
-      .filter(scope => Number(scope.AdSectionId) === 0 && (!collegeId || Number(scope.AdCollegeId) === collegeId))
-      .map(scope => Number(scope.AdCollegeId)).filter(Boolean))];
-    /* ومن نطاقُه كلُّ الكليات لا يُقرأ له الفصلُ كلُّه بلا اختيار: يختار كليةً. */
-    if (!collegeId && wholeColleges.length > 1) wholeColleges = [];
-    const scopeSectionIds = [...new Set((req.scopes || [])
-      .filter(scope => !collegeId || Number(scope.AdCollegeId) === collegeId)
-      .filter(scope => !wholeColleges.includes(Number(scope.AdCollegeId)))
-      .map(scope => Number(scope.AdSectionId)).filter(Boolean))];
-    const groups = await Promise.all([
-      ...wholeColleges.map(id => Repository.getSchedulesByScope({ collegeId: id, termId })),
-      ...scopeSectionIds.map(scopeSectionId => Repository.getSchedulesByScope({ sectionId: scopeSectionId, termId })),
-    ]);
-    return filterByScope(req, groups.flat());
-  }
-  return filterByScope(req, await Repository.getSchedulesByScope({ collegeId, sectionId, termId }));
 }
 
 app.get("/api/schedules", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {
@@ -6214,7 +3745,7 @@ app.post("/api/hall-barter/requests", requirePermission(7), async (req: Authenti
     ownerCollegeId:Number(opportunity.ownerCollegeId),ownerSectionId:Number(opportunity.ownerSectionId),
     confidence:Number(opportunity.confidence||0),historyTerms:Number(opportunity.historyTerms||0),
   });
-  hallBarterSerial++;hallBarterBoardCache.clear();
+  state.hallBarterSerial++;hallBarterBoardCache.clear();
   broadcastScheduleChange();void Repository.markSchedulesChanged();
   res.status(201).json({request,message:"أُرسل طلب الاستعارة رقمياً إلى القسم المضيف. لم يتغير أي موعد دراسي بعد."});
 });
@@ -6272,7 +3803,7 @@ app.post("/api/hall-barter/requests/:id/respond", requirePermission(7), async (r
     if(error instanceof RequestReservationConflict){res.status(409).json({error:error.message,code:error.code});return;}
     throw error;
   }
-  hallBarterSerial++;hallBarterBoardCache.clear();
+  state.hallBarterSerial++;hallBarterBoardCache.clear();
   broadcastScheduleChange();void Repository.markSchedulesChanged();
   res.json({request:updated,message:decision==="approve"?"تم اعتماد الاستعارة. أصبحت النافذة محجوزة رقمياً للقسم الطالب وتظهر للطرفين.":"تم رفض الطلب دون أي تغيير على الجدول."});
   });
@@ -6291,7 +3822,7 @@ app.post("/api/hall-barter/requests/:id/cancel", requirePermission(7), async (re
   let updated: HallBarterRequest;
   try { updated=await Repository.updateHallBarterRequest(request.id,{status:"cancelled"},request.status); }
   catch(error:any){if(error instanceof RequestReservationConflict){res.status(409).json({error:error.message,code:error.code});return;}throw error;}
-  hallBarterSerial++;hallBarterBoardCache.clear();
+  state.hallBarterSerial++;hallBarterBoardCache.clear();
   broadcastScheduleChange();void Repository.markSchedulesChanged();
   res.json({request:updated,message:"تم إلغاء طلب الاستعارة وتحرير النافذة."});
 });
@@ -8571,13 +6102,6 @@ app.post("/api/schedules/placeholder-action", requirePermission(7), async (req: 
 
 const WEEK_EXCEPTION_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-function weekExceptionDayKey(date: string): string | null {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) return null;
-  const day = parsed.getUTCDay();
-  return day >= 0 && day <= 4 ? SCHEDULE_DAY_KEYS[day] : null;
-}
-
 async function readScheduleForException(req: AuthenticatedRequest, res: Response): Promise<FSchedule | null> {
   const id = Number(req.params.id || 0);
   const row = await Repository.getScheduleById(id);
@@ -8766,27 +6290,6 @@ app.get("/api/schedules/:id/substitutes", requirePermission(7), async (req: Auth
   });
 });
 
-/* ── متى نلتقي؟ ──────────────────────────────────────────────────────────────
-   The committee question every department asks weekly. Choose the people; the
-   term's own schedule already knows when each of them teaches. Free windows
-   are computed on the same 30-minute grid as the board, merged into ranges,
-   and ranked. Nothing is revealed beyond busy/free for people the caller
-   chose by name. */
-
-/** Who may sit in «متى نلتقي؟» this term — decided here, for every scope.
- *  Visiting instructors are read term-wide across colleges (not from the
- *  department on screen), so a college-only or empty scope excludes them too. */
-async function meetingExcludedIds(termId: number) {
-  const [affiliations, instructors, sections] = await Promise.all([Repository.getDelegateAffiliations(), Repository.getInstructors(), Repository.getSections()]);
-  const known = new Set(instructors.map(person => Number(person.AdInstructorId)));
-  const visiting = [...new Set([
-    ...termVisitingIds(affiliations, termId, id => known.has(id), departmentFamilyResolver(sections)),
-    ...directoryVisitingIds(affiliations, id => known.has(id)),
-  ])];
-  const kept = new Set(meetingParticipants(instructors, visiting).map(person => Number(person.AdInstructorId)));
-  return { instructors, excluded: instructors.map(person => Number(person.AdInstructorId)).filter(id => !kept.has(id)), visiting };
-}
-
 /* The timetable tool keeps permission 7. The same read-only calculation is also
    available to a department head from reports (permission 14), and only for
    instructors in that head's own department. */
@@ -8860,388 +6363,8 @@ app.post("/api/schedules/meeting-slots", requireMeetingAccess, async (req: Authe
   const answer = computeMeetingSlots({ rows: termRows, ids: participantIds, nameById, duration });
   res.json({ ...answer, busyScope: "allColleges" });
 });
-
-/* ── مصدرُ التغيير: من أين جاء هذا الموعد؟ ─────────────────────────────────────
- * يُكتب فقط حين يمرّ الحفظ من «اعتماد الاقتراح» (الرادار، حالة طالب، رغبة أستاذ). الحفظُ اليدويّ
- * لا يحمل مصدراً ولا يتغيّر. والقيم مقيّدة: نوعٌ من قائمةٍ مغلقة، ونصوصٌ قصيرة. */
-const SCHEDULE_ORIGIN_KINDS = new Set(["radar", "student-case", "instructor-request", "intelligence", "planning"]);
-function scheduleOriginOf(req: AuthenticatedRequest): import("./src/types").ScheduleOrigin | undefined {
-  const raw = (req.body as any)?.origin;
-  if (!raw || !SCHEDULE_ORIGIN_KINDS.has(String(raw.kind))) return undefined;
-  const text = (value: unknown, max: number) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max) || undefined;
-  return {
-    kind: raw.kind,
-    refId: text(raw.refId, 64),
-    note: text(raw.note, 160),
-    by: String(req.user?.Name || req.user?.SystemUserLogin || roleLabel(req.user?.Role) || "").slice(0, 80),
-    at: new Date().toISOString(),
-  };
-}
-
-
-/** The course owns the requirement; the appointment holds the physical facility. */
-async function companionBookingFor(course:AdCourse,body:any,canonical:any,existing?:FSchedule):Promise<{issue?:string;id:string;label:string}>{
-  const required=String(course.CourseCompanionRoomType||"").trim();
-  const requested=String(body?.companionRoomId||"").trim();
-  const registry=await readLocationRegistry();
-  const primary=registry.rooms.find(room=>room.id===canonical.roomId);
-  const previousPrimary=existing&&String(existing.roomId||"")===String(canonical.roomId||"");
-  if(primary?.bookingPolicy&&primary.bookingPolicy!=="normal"&&!previousPrimary)return {issue:"هذه القاعة لا تقبل الحجز المستقل. اختر قاعة تدريسية أخرى.",id:"",label:""};
-  if(!required)return requested?{issue:"هذا المقرر لا يحتاج مرفقًا مرافقًا؛ أزل اختياره.",id:"",label:""}:{id:"",label:""};
-  if(!requested)return {issue:`المقرر يتطلب مرفقًا مرافقًا من نوع «${required}» طوال الموعد.`,id:"",label:""};
-  const room=registry.rooms.find(item=>item.id===requested);
-  const primaryBuilding=registry.buildings.find(item=>item.id===canonical.buildingId);
-  const building=room&&registry.buildings.find(item=>item.id===room.buildingId);
-  if(!room||!building||!primaryBuilding||!room.active||room.confidence!=="CONFIRMED"||!building.active||building.confidence!=="CONFIRMED")return {issue:"المرفق المرافق غير متاح أو غير معتمد.",id:"",label:""};
-  if(room.id===canonical.roomId||room.bookingPolicy!=="companion_only"||String(room.roomType||"").trim()!==required)return {issue:"المرفق المختار غير مخصص لمرافقة هذا المقرر.",id:"",label:""};
-  if(String(building.officialCode||"").slice(0,4)!==String(primaryBuilding.officialCode||"").slice(0,4))return {issue:"الاستوديو والقاعة الأساسية يجب أن يكونا في الموقع الدراسي نفسه.",id:"",label:""};
-  return {id:room.id,label:`${building.officialCode} / ${room.canonicalCode}`};
-}
-
-const createScheduleHandler = async (req: AuthenticatedRequest, res: Response) => {
-  const {
-    AdCollegeId,
-    AdSectionId,
-    AdTermId,
-    AdCourseId,
-    SCode,
-    AdInstructorId,
-    fsunday,
-    fmonday,
-    ftuesday,
-    fwednesday,
-    fthursday,
-    fstarttime,
-    fendtime,
-    AdRoomCode,
-    AdRoomHall
-  } = req.body;
-
-  if (!AdCollegeId || !AdSectionId || !AdTermId || !AdCourseId || !SCode || !AdInstructorId || !fstarttime || !fendtime || !req.body?.buildingId || (!req.body?.roomId && req.body?.locationStatus !== PENDING_ROOM)) {
-    res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" });
-    return;
-  }
-  if (!/^\d+$/.test(String(SCode))) {
-    res.status(400).json({ error: "الرجاء كتابة الأرقام بالانجليزي" });
-    return;
-  }
-  const payloadIssues=await schedulePayloadIssues(req.body);
-  if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
-  {const lengthIssue=await scheduleLengthIssue(req.body,(req as any).__hypotheticalWeek);
-  if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}}
-
-  const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
-  if (!isScopeAllowed(req, collegeId, sectionId) && !req.user.IsAdminUser) {
-    res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" });
-    return;
-  }
-
-  const [section, course, term, instructor] = await Promise.all([
-    Repository.getSectionById(sectionId), Repository.getCourseById(courseId), Repository.getTermById(termId), Repository.getInstructorById(instructorId)
-  ]);
-  if (!section || section.AdCollegeId !== collegeId) { res.status(400).json({ error: "القسم العلمي المختار لا يتبع الكلية المختارة" }); return; }
-  if (!course || course.AdCollegeId !== collegeId || course.AdSectionId !== sectionId) { res.status(400).json({ error: "المقرر المختار غير صالح" }); return; }
-  const operationalCourseIds=await Repository.getOperationalCourseIds(sectionId);
-  if(!operationalCourseIds.has(courseId)){res.status(409).json({error:"هذا المقرر مؤرشف أكاديمياً ولا يمكن إضافته إلى جدول جديد. يظهر فقط في السجل التاريخي."});return;}
-  const [curriculumPlans,curriculumMemberships]=await Promise.all([Repository.getCurriculumPlans(sectionId),Repository.getCurriculumPlanCourses(sectionId)]);
-  const memberPlanIds=new Set(curriculumMemberships.filter(row=>Number(row.AdCourseId)===courseId).map(row=>row.planId));
-  const schedulePlan=curriculumPlans.find(row=>row.status==="active"&&memberPlanIds.has(row.id))||curriculumPlans.find(row=>row.status==="transition"&&memberPlanIds.has(row.id));
-  if (!term) { res.status(400).json({ error: "الفصل الدراسي المختار غير صالح" }); return; }
-  if (!instructor) { res.status(400).json({ error: "أستاذ المقرر المختار غير صالح" }); return; }
-  const locationResult=await canonicalizeLocationForWrite({...req.body,AdCollegeId:collegeId,AdSectionId:sectionId},collegeId,sectionId);
-  if(!locationResult.check.ok){res.status(400).json({error:locationResult.check.issues[0]?.message||"المكان غير صالح",issues:locationResult.check.issues});return;}
-  const canonicalBody={...req.body,...locationResult.check.canonical,AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:courseId,AdInstructorId:instructorId};
-  const companion=await companionBookingFor(course,req.body,canonicalBody);
-  if(companion.issue){res.status(400).json({error:companion.issue});return;}
-  canonicalBody.companionRoomId=companion.id;
-  canonicalBody.companionRoomLabel=companion.label;
-  const createOverrides=await applyRequestHoldOverride(req);
-  const conflicts=await scheduleConflicts(req,canonicalBody,0,(req as any).__hypotheticalWeek);
-  // Soft warnings (e.g. a tight inter-campus transfer, Note 38) are surfaced by
-  // the live check but never block the save.
-  const blockingSave=conflicts.filter((c:any)=>!c.soft);
-  if(blockingSave.length&&blockingSave.every((c:any)=>c.holdRequestId)){res.status(409).json({...await requestHoldRefusal([...new Set(blockingSave.map((c:any)=>String(c.holdRequestId)))]),issues:blockingSave});return;}
-  if(blockingSave.length){res.status(409).json({error:blockingSave[0].message||"يوجد تعارض يمنع الحفظ",issues:blockingSave});return;}
-
-  /* القفل يُقرأ بعد أن يثبت أن الطلب صحيحٌ في ذاته: ردُّ «الجدول عند التسجيل»
-     على طلبٍ ناقص الحقول يخفي الخطأ الحقيقي خلف خطأٍ إجرائي. */
-  const addLock = await scheduleLockRefusal(req,collegeId, sectionId, termId);
-  if (addLock) { res.status(409).json({ error: addLock, code: "schedule-locked" }); return; }
-  /* فحصٌ جافّ كما في التعديل: كلُّ التحقّق مرّ ولا كتابة (للتثبيت الذرّي لبنود الأساتذة). */
-
-
-
-  const writeRow = {
-    AdCollegeId: collegeId,
-    AdSectionId: sectionId,
-    AdTermId: termId,
-    AdCourseId: courseId,
-    AdCourseName: course.CourseName,
-    CourseCodeSnapshot: String(course.CourseCode || ""),
-    CourseNameSnapshot: String(course.CourseName || ""),
-    CurriculumPlanIdSnapshot: schedulePlan?.id,
-    SCode,
-    AdInstructorId: instructorId,
-    fsunday: !!fsunday,
-    fmonday: !!fmonday,
-    ftuesday: !!ftuesday,
-    fwednesday: !!fwednesday,
-    fthursday: !!fthursday,
-    /* The typed form sends "HH:MM"; an API caller need not. One stored shape,
-       here too, so no reader downstream has to guess. */
-    fstarttime: normalizeClock(fstarttime),
-    fendtime: normalizeClock(fendtime),
-    AdRoomCode: String(canonicalBody.AdRoomCode || ""),
-    AdRoomHall: String(canonicalBody.AdRoomHall || ""),
-    buildingId: canonicalBody.buildingId,
-    roomId: canonicalBody.roomId,
-    ...(companion.id?{companionRoomId:companion.id,companionRoomLabel:companion.label}:{}),
-    locationStatus: canonicalBody.locationStatus,
-    sourceBuildingText: req.body?.sourceBuildingText,
-    sourceRoomText: req.body?.sourceRoomText,
-    /* Explicit post-PDF provenance: manual rows live permanently in the green
-       range. Later edits preserve this value, so they can never become yellow
-       merely because course/section happens to match an old PDF row. */
-    sourceOrder: Math.max(1_000_000, Date.now()),
-    fdetail: legacyFDetail({ fsunday, fmonday, ftuesday, fwednesday, fthursday }),
-    ...(scheduleOriginOf(req) ? { origin: scheduleOriginOf(req) } : {}),
-  };
-  if ((req as any).__dryRun) { res.json({ ok: true, dryRun: true, row: writeRow, warnings: conflicts.filter((c:any)=>c.soft) }); return; }
-  const addVersion = await captureScopeVersion(req, collegeId, sectionId, termId, "قبل إضافة موعد دراسي", "manual");
-  let newSched: FSchedule;
-  try { newSched = await Repository.createSchedule(writeRow, (req as any).__requestReservationOwner || ""); }
-  catch (error) {
-    if (error instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([error.holdRequestId])); return; }
-    throw error;
-  }
-  if (createOverrides.length) await noteRequestHoldOverride(createOverrides, newSched, String(req.user?.Name || "القسم"));
-
-  await recordVersionAfter(addVersion, before => [...before, newSched]);
-  await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "add", row: newSched });
-
-  res.locals.auditRowIds = [Number(newSched.id)];
-  res.status(201).json(newSched);
-};
 app.post("/api/schedules", requirePermission(7), createScheduleHandler);
-
-const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) => {
-  const id = parseInt(req.params.id);
-  const {
-    AdCollegeId,
-    AdSectionId,
-    AdTermId,
-    AdCourseId,
-    SCode,
-    AdInstructorId,
-    fsunday,
-    fmonday,
-    ftuesday,
-    fwednesday,
-    fthursday,
-    fstarttime,
-    fendtime,
-    AdRoomCode,
-    AdRoomHall
-  } = req.body;
-
-  /* ── ويُقال «انتهى الفصل» قبل «أكمل الحقول» ─────────────────────────────
-   *
-   * يُقرأ الصفُّ القائم ويُسأل عن قفله أوّلَ شيء، قبل التحقّق من الحقول
-   * والتعارضات. لأن من يعدّل موعداً في فصلٍ مجمَّدٍ كان يُردّ أولاً برسالةٍ
-   * عن حقلٍ ناقصٍ أو تعارضٍ في قاعة، فيُصلح ما ليس بعطل، ثم يُردّ ثانيةً
-   * بالسبب الحقيقيّ. والرسالةُ الأولى ليست خطأً في ذاتها، لكنها تُرسل القارئَ
-   * في طريقٍ لا يُوصل.
-   *
-   * وقفلُ النطاق المنقول إليه يبقى في موضعه بعدُ، لأنه لا يُعرف قبل أن
-   * تُقرأ حقولُ الوجهة. */
-  const existing = await Repository.getScheduleById(id);
-  if (!existing) { res.status(404).json({ error: "الجدول غير موجود" }); return; }
-  const frozenSource = await scheduleLockRefusal(req, existing.AdCollegeId, existing.AdSectionId, existing.AdTermId);
-  if (frozenSource) { res.status(409).json({ error: frozenSource, code: "schedule-locked" }); return; }
-
-  if (!AdCollegeId || !AdSectionId || !AdTermId || !AdCourseId || !SCode || !AdInstructorId || !fstarttime || !fendtime || !req.body?.buildingId || (!req.body?.roomId && req.body?.locationStatus !== PENDING_ROOM)) {
-    res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" });
-    return;
-  }
-  if (!/^\d+$/.test(String(SCode))) {
-    res.status(400).json({ error: "الرجاء كتابة الأرقام بالانجليزي" });
-    return;
-  }
-  const payloadIssues=await schedulePayloadIssues(req.body);
-  if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
-  {const unchangedShape=existing&&existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime&&SCHEDULE_DAY_KEYS.every(k=>Boolean((existing as any)[k])===Boolean(req.body?.[k]));
-  const lengthIssue=unchangedShape?null:await scheduleLengthIssue({...req.body,id},(req as any).__hypotheticalWeek);
-  if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}}
-
-  const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
-  if (existing.sourceOrder !== undefined && Number(existing.sourceOrder) < 1_000_000 && Number(existing.AdCourseId) !== courseId) {
-    res.status(409).json({
-      error: "أنت تحاول تبديل اسم مقرر وارد في الجدول المعتمد، وهذا مخالف للائحة نظام الجدول. يمكنك حذف المقرر كاملاً ثم إضافة مقرر جديد، لكن لا يمكن تغيير اسمه.",
-      code: "COURSE_NAME_LOCKED",
-    });
-    return;
-  }
-  if (!req.user.IsAdminUser && (!isScopeAllowed(req, existing.AdCollegeId, existing.AdSectionId) || !isScopeAllowed(req, collegeId, sectionId))) {
-    res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" });
-    return;
-  }
-  const [section, course, term, instructor] = await Promise.all([
-    Repository.getSectionById(sectionId), Repository.getCourseById(courseId), Repository.getTermById(termId), Repository.getInstructorById(instructorId)
-  ]);
-  if (!section || section.AdCollegeId !== collegeId) { res.status(400).json({ error: "القسم العلمي المختار لا يتبع الكلية المختارة" }); return; }
-  if (!course || course.AdCollegeId !== collegeId || course.AdSectionId !== sectionId) { res.status(400).json({ error: "المقرر المختار غير صالح" }); return; }
-  const operationalIdsForEdit=await Repository.getOperationalCourseIds(sectionId);
-  if(Number(existing.AdCourseId)!==courseId&&!operationalIdsForEdit.has(courseId)){res.status(409).json({error:"المقرر البديل مؤرشف أكاديمياً ولا يمكن إسناده إلى موعد حالي."});return;}
-  const [editPlans,editMemberships]=await Promise.all([Repository.getCurriculumPlans(sectionId),Repository.getCurriculumPlanCourses(sectionId)]);
-  const editMemberPlanIds=new Set(editMemberships.filter(row=>Number(row.AdCourseId)===courseId).map(row=>row.planId));
-  const editPlan=editPlans.find(row=>row.status==="active"&&editMemberPlanIds.has(row.id))||editPlans.find(row=>row.status==="transition"&&editMemberPlanIds.has(row.id));
-  if (!term) { res.status(400).json({ error: "الفصل الدراسي المختار غير صالح" }); return; }
-  if (!instructor) { res.status(400).json({ error: "أستاذ المقرر المختار غير صالح" }); return; }
-  const importedRoomId=(existing as any)?.importEvidence&&(existing as any)?.roomId?String((existing as any).roomId):"";
-  const locationResult=await canonicalizeLocationForWrite({...req.body,AdCollegeId:collegeId,AdSectionId:sectionId},collegeId,sectionId,importedRoomId);
-  if(!locationResult.check.ok){res.status(400).json({error:locationResult.check.issues[0]?.message||"المكان غير صالح",issues:locationResult.check.issues});return;}
-  const canonicalBody={...req.body,...locationResult.check.canonical,AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:courseId,AdInstructorId:instructorId};
-  const companion=await companionBookingFor(course,req.body,canonicalBody,existing);
-  if(companion.issue){res.status(400).json({error:companion.issue});return;}
-  canonicalBody.companionRoomId=companion.id;
-  canonicalBody.companionRoomLabel=companion.label;
-  const overriddenHolds=await applyRequestHoldOverride(req);
-  const conflicts=await scheduleConflicts(req,canonicalBody,id,(req as any).__hypotheticalWeek);
-  const blockingEdit=conflicts.filter((c:any)=>!c.soft);
-  if(blockingEdit.length&&blockingEdit.every((c:any)=>c.holdRequestId)){res.status(409).json({...await requestHoldRefusal([...new Set(blockingEdit.map((c:any)=>String(c.holdRequestId)))]),issues:blockingEdit});return;}
-  if(blockingEdit.length){res.status(409).json({error:blockingEdit[0].message||"يوجد تعارض يمنع التعديل",issues:blockingEdit});return;}
-
-  /* النطاقان معاً: نقلُ موعدٍ من قسمٍ مُرسَلٍ إلى آخر يمسّ الجدولين، فيكفي
-     قفلُ أحدهما للمنع. */
-  /* والنطاقُ المنقول إليه: نقلُ موعدٍ إلى جدولٍ مُرسَلٍ أو فصلٍ منتهٍ يمسّه
-     كما يمسّ مصدرَه، فيكفي قفلُ أحدهما للمنع. ومصدرُه سُئل أعلاه قبل كل شيء. */
-  const editLock = await scheduleLockRefusal(req,collegeId, sectionId, termId);
-  if (editLock) { res.status(409).json({ error: editLock, code: "schedule-locked" }); return; }
-
-  /* فحصٌ جافّ: كلُّ التحقّق (نطاق، قفل، تعارض) مرّ ولا كتابة. يستعمله «اعتماد الاقتراح» قبل أي خطوة. */
-  const writeFields = {
-      AdCollegeId: collegeId,
-      AdSectionId: sectionId,
-      AdTermId: termId,
-      AdCourseId: courseId,
-      AdCourseName: course.CourseName,
-      CourseCodeSnapshot: String(course.CourseCode || ""),
-      CourseNameSnapshot: String(course.CourseName || ""),
-      CurriculumPlanIdSnapshot: editPlan?.id,
-      SCode,
-      AdInstructorId: instructorId,
-      fsunday: !!fsunday,
-      fmonday: !!fmonday,
-      ftuesday: !!ftuesday,
-      fwednesday: !!fwednesday,
-      fthursday: !!fthursday,
-      fstarttime: normalizeClock(fstarttime),
-      fendtime: normalizeClock(fendtime),
-      AdRoomCode: String(canonicalBody.AdRoomCode || ""),
-      AdRoomHall: String(canonicalBody.AdRoomHall || ""),
-      buildingId: canonicalBody.buildingId,
-      roomId: canonicalBody.roomId,
-      companionRoomId: companion.id,
-      companionRoomLabel: companion.label,
-      locationStatus: canonicalBody.locationStatus,
-      sourceBuildingText: req.body?.sourceBuildingText,
-      sourceRoomText: req.body?.sourceRoomText,
-      fdetail: legacyFDetail({ fsunday, fmonday, ftuesday, fwednesday, fthursday }),
-      ...((req as any).__restoreOrigin ? { origin: (req as any).__restoreOrigin.value } : scheduleOriginOf(req) ? { origin: scheduleOriginOf(req) } : existing.origin ? { origin: existing.origin } : {}),
-    };
-  if ((req as any).__dryRun) { res.json({ ok: true, dryRun: true, row: writeFields, warnings: conflicts.filter((c:any)=>c.soft) }); return; }
-  try {
-    const editVersion = await captureScopeVersion(req, existing.AdCollegeId, existing.AdSectionId, existing.AdTermId, "قبل تعديل موعد دراسي", "manual");
-    const arrivalVersion = existing.AdCollegeId !== collegeId || existing.AdSectionId !== sectionId || existing.AdTermId !== termId
-      ? await captureScopeVersion(req, collegeId, sectionId, termId, "قبل نقل موعد إلى هذا الجدول", "manual")
-      : undefined;
-    const updated = await Repository.updateSchedule(id, writeFields,
-      req.body?.rev == null ? undefined : Number(req.body.rev), (req as any).__requestReservationOwner || "");
-    if (overriddenHolds.length) await noteRequestHoldOverride(overriddenHolds, updated, String(req.user?.Name || "القسم"));
-    /* يظلّ تعديلُ الموعد من الجدول مرتبطاً برغبة الأستاذ الأصلية، فيظهر في
-       سجلّها للقسم وللأستاذ بدلاً من أن يختفي أثر التعديل خارج الوارد. */
-    if (existing.origin?.kind === "instructor-request" && existing.origin.refId) {
-      const linked = await Repository.getInstructorRequest(existing.origin.refId);
-      const change = describeScheduleChange(existing, updated);
-      if (linked && change) {
-        const at = new Date().toISOString();
-        await Repository.saveInstructorRequest({
-          ...linked,
-          timeline: [...(linked.timeline || []), { kind: "schedule-edited" as const, at, by: req.user.Name || "القسم", detail: change }].slice(-300),
-        });
-      }
-    }
-    // Hand the audit trail the sentence describing what actually moved.
-    res.locals.auditChanges = describeScheduleChange(existing, updated) || undefined;
-    const movedScope = existing.AdCollegeId !== collegeId || existing.AdSectionId !== sectionId || existing.AdTermId !== termId;
-    await recordVersionAfter(editVersion, before => movedScope
-      ? before.filter(row => Number(row.id) !== Number(id))
-      : before.map(row => Number(row.id) === Number(id) ? updated : row));
-    await recordVersionAfter(arrivalVersion, before => [...before.filter(row => Number(row.id) !== Number(id)), updated]);
-    /* ── الموعد المنتقل إضافةٌ عند وجهته، لا تعديلاً ──────────────────────
-     * كان يُبلَّغ القسمُ المستقبِل بـ«تعديل»، فلا يُسجَّل في انتظار الإقرار.
-     * لكنّ شعبةً ظهرت في جدوله بعد توقيع رئيسه هي بالضبط ما وُجدت قائمةُ
-     * الانتظار من أجله: التزامٌ لم يره حين وقّع. والقسمُ الذي غادرته يتغيّر
-     * أيضاً، ولو بالنقصان. */
-    /* وتبديلُ المقرر أو رقم الشعبة في مكانه إضافةٌ كذلك (R13): التزامٌ آخر
-       حلّ محلّ الذي وقّع عليه رئيس القسم، لا خانةٌ تبدّلت في صفٍّ رآه. */
-    await noteScheduleMutation(req, collegeId, sectionId, termId,
-      movedScope || isSwapEdit(existing, updated) ? { kind: "add", row: updated } : { kind: "edit", row: updated });
-    if (movedScope) {
-      await noteScheduleMutation(req, existing.AdCollegeId, existing.AdSectionId, existing.AdTermId, { kind: "delete", row: existing });
-    }
-    res.json(updated);
-  } catch (e: any) {
-    if (e instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([e.holdRequestId])); return; }
-    if (e instanceof RequestReservationConflict) { res.status(409).json({ error: e.message, code: e.code }); return; }
-    if (e instanceof ScheduleRevisionConflict) {
-      /* Not a failure to write — a refusal to overwrite. Both versions go back
-         so the interface can show the reader what changed and let them decide,
-         instead of silently discarding one person's work. */
-      res.status(409).json({
-        error: "تغيّر هذا الموعد أثناء عملك.",
-        conflict: "revision",
-        current: e.current,
-        yours: {
-          AdCourseId: courseId, SCode, AdInstructorId: instructorId,
-          fsunday: !!fsunday, fmonday: !!fmonday, ftuesday: !!ftuesday,
-          fwednesday: !!fwednesday, fthursday: !!fthursday,
-          fstarttime, fendtime, AdRoomCode: AdRoomCode || "", AdRoomHall: AdRoomHall || "",
-        },
-      });
-      return;
-    }
-    res.status(404).json({ error: e.message });
-  }
-};
 app.put("/api/schedules/:id", requirePermission(7), updateScheduleHandler);
-
-const deleteScheduleHandler = async (req: AuthenticatedRequest, res: Response) => {
-  const id = parseInt(req.params.id);
-  const sched = await Repository.getScheduleById(id);
-  if (sched && !isScopeAllowed(req, sched.AdCollegeId, sched.AdSectionId) && !req.user.IsAdminUser) {
-    res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" });
-    return;
-  }
-  let deleteVersion: Awaited<ReturnType<typeof captureScopeVersion>>;
-  if (sched) {
-    const deleteLock = await scheduleLockRefusal(req,sched.AdCollegeId, sched.AdSectionId, sched.AdTermId);
-    if (deleteLock) { res.status(409).json({ error: deleteLock, code: "schedule-locked" }); return; }
-    deleteVersion = await captureScopeVersion(req, sched.AdCollegeId, sched.AdSectionId, sched.AdTermId, "قبل حذف موعد دراسي", "manual");
-    // A deletion has no "after", so the record keeps what was standing there.
-    res.locals.auditChanges = `حُذف: ${sched.AdCourseName || "موعد"} · شعبة ${sched.SCode} · ${formatScheduleTimeRange(sched.fstarttime, sched.fendtime)} · ${sched.AdRoomCode}/${sched.AdRoomHall}`;
-  }
-  const deleteOverrides = await applyRequestHoldOverride(req);
-  try { await Repository.deleteSchedule(id, (req as any).__requestReservationOwner || ""); }
-  catch (error) {
-    if (error instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([error.holdRequestId])); return; }
-    throw error;
-  }
-  if (deleteOverrides.length) await noteRequestHoldOverride(deleteOverrides, null, String(req.user?.Name || "القسم"));
-  await recordVersionAfter(deleteVersion, before => before.filter(row => Number(row.id) !== Number(id)));
-  if (sched) await noteScheduleMutation(req, sched.AdCollegeId, sched.AdSectionId, sched.AdTermId, { kind: "delete", row: sched });
-  res.json({ success: true });
-};
 app.delete("/api/schedules/:id", requirePermission(7), deleteScheduleHandler);
 
 // --- COPY SCHEDULES API ---
@@ -9260,188 +6383,6 @@ app.get("/api/schedules/copy-preview", requireAuth, requirePowerAdmin, async (re
   const courseById=new Map(courses.map(item=>[item.AdCourseId,item])); const instructorById=new Map(instructors.map(item=>[item.AdInstructorId,item]));
   res.json({sourceCount:source.length,targetCount:target.length,sourceIssues,canCopy:source.length>0&&target.length===0&&!sourceIssues.length,preview:source.slice(0,12).map(row=>({id:row.id,courseCode:row.CourseCodeSnapshot||courseById.get(row.AdCourseId)?.CourseCode||"",courseName:row.CourseNameSnapshot||row.AdCourseName||courseById.get(row.AdCourseId)?.CourseName||"",sectionCode:row.SCode,instructorName:instructorById.get(row.AdInstructorId)?.AdInstructorName||"",time:formatScheduleTimeRange(row.fstarttime, row.fendtime),room:`${row.AdRoomCode}/${row.AdRoomHall}`}))});
 });
-
-/* ══ اعتمادُ اقتراحٍ في الجدول الأصلي ═════════════════════════════════════════════
- *
- * الرادارُ وكشفُ التسجيل ورغباتُ الأساتذة تنتهي كلُّها إلى سؤالٍ واحد: «هل أنفّذ هذا في الجدول؟».
- * وهذا هو الجواب الواحد: لا مسارَ جانبياً يتجاوز الاعتماد. كلُّ تنفيذٍ يمرّ من **المسار نفسه** الذي
- * تمرّ منه ورشةُ الجدول (`createScheduleHandler` و`updateScheduleHandler`) بتحقّقه كلِّه: النطاق،
- * القفلُ عند التسجيل، تعارضُ القاعة والأستاذ والدفعة، تثبيتُ المكان، لقطةُ الإصدار قبل التغيير
- * وبعده، وسجلُّ الاعتماد (جولةُ تعديلٍ إن كان الجدول مقبولاً). ما يُضاف هنا: مصدرُ التغيير
- * (`origin`) على الصف، وجملةٌ في سجلّ التدقيق، وتراجعٌ كاملٌ لتبديلٍ تعذّرت خطوتُه الثانية.
- *
- * والحاكم أخيراً هو الخادم لا الشاشة: الاقتراحُ يُعاد فحصُه لحظةَ الاعتماد على الجدول كما هو
- * الآن، فاقتراحٌ مضى عليه ما يغيّره يُردّ بسببه ولا يُكتب.
- */
-interface InnerScheduleResult { status: number; body: any; headers: Record<string, string>; audit?: string }
-
-async function runScheduleHandler(
-  handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
-  req: AuthenticatedRequest,
-  patch: { params?: Record<string, string>; body: any; hypotheticalWeek?: FSchedule[]; dryRun?: boolean; restoreOrigin?: { value: any } },
-): Promise<InnerScheduleResult> {
-  const result: InnerScheduleResult = { status: 200, body: undefined, headers: {} };
-  const inner: any = Object.create(req);
-  inner.body = patch.body;
-  inner.params = patch.params || {};
-  /* أعلامٌ داخليةٌ لا يملكها طلبٌ قادمٌ من المتصفّح: تُضبط هنا وحدها. */
-  inner.__hypotheticalWeek = patch.hypotheticalWeek;
-  inner.__dryRun = Boolean(patch.dryRun);
-  inner.__restoreOrigin = patch.restoreOrigin;
-  const sink: any = {
-    locals: {}, headersSent: false, statusCode: 200,
-    status(code: number) { result.status = code; this.statusCode = code; return this; },
-    json(value: any) { result.body = value; this.headersSent = true; return this; },
-    setHeader(key: string, value: string) { result.headers[key] = String(value); return this; },
-    getHeader() { return undefined; },
-  };
-  inner.res = sink;
-  await handler(inner, sink as Response);
-  result.audit = sink.locals.auditChanges;
-  return result;
-}
-
-const PROPOSAL_ORIGIN_LABEL: Record<string, string> = {
-  "radar": "رادار التسجيل", "student-case": "حالة طالب", "instructor-request": "رغبة أستاذ", "intelligence": "مركز الذكاء", "planning": "تخطيط الشعب",
-};
-const PROPOSAL_DAYS = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
-const dayFlagsOf = (day: string) => Object.fromEntries(PROPOSAL_DAYS.map(key => [key, key === day]));
-const dayOfRow = (row: any): string => PROPOSAL_DAYS.find(key => Boolean(row?.[key])) || "";
-const dayLabelOf = (day: string) => SCHEDULE_DAYS.find(item => item.key === day)?.label || "";
-
-/** حقولُ الصفّ كما يطلبها مسارُ التعديل، مع تغيير اليوم والوقت وحدهما. */
-function editBodyFor(row: any, to: { day: string; start: string; end: string }, origin: any) {
-  return {
-    AdCollegeId: row.AdCollegeId, AdSectionId: row.AdSectionId, AdTermId: row.AdTermId, AdCourseId: row.AdCourseId,
-    SCode: row.SCode, AdInstructorId: row.AdInstructorId,
-    ...dayFlagsOf(to.day), fstarttime: to.start, fendtime: to.end,
-    AdRoomCode: row.AdRoomCode, AdRoomHall: row.AdRoomHall,
-    buildingId: row.buildingId, roomId: row.roomId, locationStatus: row.locationStatus,
-    sourceBuildingText: row.sourceBuildingText, sourceRoomText: row.sourceRoomText,
-  companionRoomId: row.companionRoomId, companionRoomLabel: row.companionRoomLabel,
-    rev: row.rev, origin,
-  };
-}
-
-/** نتيجةُ اعتماد اقتراح: حالةٌ وجسمٌ وجملةٌ للتدقيق. يستعملها المسارُ المباشر وقرارُ لجنة كشف التسجيل معاً. */
-interface ProposalOutcome { status: number; json: any; audit?: string }
-
-async function applyProposalCore(req: AuthenticatedRequest, body: any): Promise<ProposalOutcome> {
-  const kind = String(body?.kind || "");
-  const origin = body?.origin;
-  const fail = (status: number, json: any): ProposalOutcome => ({ status, json });
-  if (!SCHEDULE_ORIGIN_KINDS.has(String(origin?.kind))) return fail(400, { error: "مصدر الاقتراح غير معروف.", code: "bad-origin" });
-  const where = PROPOSAL_ORIGIN_LABEL[String(origin.kind)];
-  const refuse = (result: InnerScheduleResult): ProposalOutcome => fail(result.status >= 400 ? result.status : 500, {
-    ...(result.body && typeof result.body === "object" ? result.body : { error: "تعذّر التنفيذ." }),
-    applied: [],
-  });
-
-  /* ── فتحُ شعبة: صفٌّ جديد بالشعبة والقاعة والأستاذ الذين أثبت المحرّك أنهم خالون ── */
-  if (kind === "opening") {
-    const collegeId = Number(body.collegeId), sectionId = Number(body.sectionId), termId = Number(body.termId), courseId = Number(body.courseId);
-    const slot = body.placement || {};
-    /* يوماً واحداً أو عدّة أيام (طلبُ أستاذٍ لمحاضرةٍ في الأحد والثلاثاء معاً). */
-    const days: string[] = [...new Set<string>((Array.isArray(slot.days) && slot.days.length ? slot.days : [slot.day]).map(String))].filter(day => (PROPOSAL_DAYS as readonly string[]).includes(day));
-    if (![collegeId, sectionId, termId, courseId].every(value => value > 0) || !days.length) {
-      return fail(400, { error: "اقتراحٌ ناقص: الكلية والقسم والفصل والمقرر واليوم مطلوبة." });
-    }
-    if (!(Number(slot.instructorId) > 0)) {
-      return fail(422, { error: "لا أستاذَ خالياً لهذا الموعد. اختر أستاذاً من ورشة الجدول ثم احفظ.", code: "needs-instructor" });
-    }
-    /* رقمُ الشعبة: ما اقترحه المحرّك إن لم يُستعمل لهذا المقرر في هذا الفصل، وإلا الأعلى + 1. */
-    const week = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
-    const used = new Set(week.filter(row => Number(row.AdCourseId) === courseId).map(row => String(row.SCode)));
-    let code = String(slot.sectionCode || "").replace(/\D/g, "");
-    if (!code || used.has(code)) {
-      const numbers = [...used].map(Number).filter(Number.isFinite);
-      code = String((numbers.length ? Math.max(...numbers) : 500) + 1);
-    }
-    const result = await runScheduleHandler(createScheduleHandler, req, { body: {
-      AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId, AdCourseId: courseId,
-      SCode: code, AdInstructorId: Number(slot.instructorId),
-      ...Object.fromEntries(PROPOSAL_DAYS.map(key => [key, days.includes(key)])), fstarttime: slot.start, fendtime: slot.end,
-      AdRoomCode: slot.roomCode || "", AdRoomHall: slot.roomHall || "",
-      buildingId: slot.buildingId, roomId: slot.roomId, locationStatus: slot.buildingId && slot.roomId ? "VERIFIED" : undefined,
-      origin,
-    } });
-    if (result.status >= 400) return refuse(result);
-    const row = result.body;
-    return {
-      status: 201,
-      json: { ok: true, applied: [{ action: "add", row }], amendment: result.headers["X-Approval-Amendment"] || null },
-      audit: `اعتماد اقتراح من ${where}: فُتحت شعبة ${row.SCode} لـ«${row.AdCourseName}» · ${days.map(dayLabelOf).join(" و")} ${formatScheduleTimeRange(row.fstarttime, row.fendtime)} · ${row.AdRoomCode}/${row.AdRoomHall}`,
-    };
-  }
-
-  /* ── نقلُ موعد، أو تبديلُ موعدين: يُفحص الموعدُ القائم أولاً ثم يُكتب ── */
-  if (kind === "move" || kind === "swap") {
-    const moves: Array<{ rowId: number; from: any; to: any }> = (Array.isArray(body.moves) ? body.moves : []).slice(0, 2);
-    if (!moves.length || (kind === "swap" && moves.length !== 2)) return fail(400, { error: "اقتراحٌ ناقص: المطلوب موعدٌ للنقل أو موعدان للتبديل." });
-    const originals: any[] = [];
-    for (const move of moves) {
-      const row: any = await Repository.getScheduleById(Number(move.rowId));
-      if (!row) return fail(404, { error: "لم يعد هذا الموعد موجوداً في الجدول.", code: "stale" });
-      if (!isScopeAllowed(req, row.AdCollegeId, row.AdSectionId) && !req.user?.IsAdminUser) return fail(403, { error: "خارج صلاحيات الأقسام المسموحة لك" });
-      const sameNow = dayOfRow(row) === move.from?.day && String(row.fstarttime) === String(move.from?.start) && String(row.fendtime) === String(move.from?.end);
-      if (!sameNow) return fail(409, { error: "تغيّر موعدُ هذا المقرر منذ بُني الاقتراح. حدّث الصفحة وانظر الاقتراح من جديد.", code: "stale" });
-      if (!(PROPOSAL_DAYS as readonly string[]).includes(move.to?.day) || !move.to?.start || !move.to?.end) return fail(400, { error: "وجهةُ النقل ناقصة." });
-      originals.push(row);
-    }
-    /* ── الحالةُ النهائية للموعدين معاً ──────────────────────────────────────────
-     * تبديلُ موعدين يُحكم عليه كما سيصير الجدولُ بعد الخطوتين، لا بعد الأولى وحدها: الأولى تُفحص
-     * والثانيةُ ما زالت في مكانها فتتعارض معها (أستاذٌ أو قاعةٌ أو دفعةٌ مشتركة) ولو كان التبديلُ كلُّه سليماً.
-     * فيُبنى أسبوعُ الفصل كما سيكون، ويُفحص كلُّ موعدٍ عليه فحصاً جافّاً (بلا كتابة) قبل أن تُكتب خطوةٌ واحدة. */
-    const termRows = await Repository.getSchedulesByScope({ termId: Number(originals[0].AdTermId) });
-    const targetOf = new Map(moves.map((move, i) => [Number(originals[i].id), move.to] as const));
-    const finalWeek: FSchedule[] = termRows.map(row => {
-      const to: any = targetOf.get(Number(row.id));
-      return to ? ({ ...row, ...dayFlagsOf(to.day), fstarttime: to.start, fendtime: to.end } as any) : row;
-    });
-    const useFinal = moves.length > 1 ? finalWeek : undefined;
-    for (let i = 0; i < moves.length; i += 1) {
-      const dry = await runScheduleHandler(updateScheduleHandler, req, {
-        params: { id: String(originals[i].id) }, body: editBodyFor(originals[i], moves[i].to, origin), hypotheticalWeek: useFinal, dryRun: true,
-      });
-      if (dry.status >= 400) return fail(dry.status, { ...(dry.body && typeof dry.body === "object" ? dry.body : { error: "تعذّر التنفيذ." }), applied: [], reverted: true });
-    }
-    const applied: Array<{ action: string; row: any }> = [];
-    let amendment: string | null = null;
-    for (let i = 0; i < moves.length; i += 1) {
-      const result = await runScheduleHandler(updateScheduleHandler, req, {
-        params: { id: String(originals[i].id) }, body: editBodyFor(originals[i], moves[i].to, origin), hypotheticalWeek: useFinal,
-      });
-      if (result.status >= 400) {
-        /* بعد أن مرّ الفحصُ الجافّ لا يُتوقّع هذا إلا لتغيّرٍ في اللحظة نفسها (إصدارٌ سبقنا أو قفل). تُردّ ما كُتب
-           ويُعاد مصدرُه الأول (أو يُمحى)؛ وما تبقّى من أثرٍ (رقمُ الإصدار ولقطةُ التاريخ) سجلٌّ يُقرأ لا بيانٌ فاسد. */
-        let reverted = true;
-        for (let j = applied.length - 1; j >= 0; j -= 1) {
-          const back = await runScheduleHandler(updateScheduleHandler, req, {
-            params: { id: String(originals[j].id) },
-            body: editBodyFor({ ...originals[j], rev: applied[j].row.rev }, { day: dayOfRow(originals[j]), start: originals[j].fstarttime, end: originals[j].fendtime }, undefined),
-            restoreOrigin: { value: originals[j].origin },
-          });
-          if (back.status >= 400) reverted = false;
-        }
-        return fail(result.status, {
-          ...(result.body && typeof result.body === "object" ? result.body : { error: "تعذّر التنفيذ." }),
-          applied: [], reverted,
-          ...(reverted ? {} : { error: "تعذّر إتمام التبديل ولم يمكن ردّ خطوته الأولى. راجع موعد " + (originals[0].AdCourseName || "المقرر") + " في الجدول." }),
-        });
-      }
-      applied.push({ action: "move", row: result.body });
-      amendment = result.headers["X-Approval-Amendment"] || amendment;
-    }
-    return {
-      status: 200,
-      json: { ok: true, applied, amendment },
-      audit: `اعتماد اقتراح من ${where}: ` + applied.map((item, i) =>
-        `${item.row.AdCourseName} · شعبة ${item.row.SCode} من ${dayLabelOf(moves[i].from.day)} ${formatScheduleTimeRange(moves[i].from.start, moves[i].from.end)} إلى ${dayLabelOf(moves[i].to.day)} ${formatScheduleTimeRange(item.row.fstarttime, item.row.fendtime)}`).join(" ⇄ "),
-    };
-  }
-
-  return fail(400, { error: "نوعُ الاقتراح غير معروف.", code: "bad-kind" });
-}
 
 app.post("/api/schedules/apply-proposal", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const outcome = await applyProposalCore(req, req.body || {});
@@ -9756,91 +6697,6 @@ async function requestGuideAIIntent(payload:{question:string;context:any;allowed
     return JSON.parse(clean);
   } catch {
     return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
-
-function geminiOutputText(data: any) {
-  return String((data?.candidates || [])
-    .flatMap((candidate: any) => candidate?.content?.parts || [])
-    .map((part: any) => part?.text || "")
-    .filter(Boolean)
-    .join("\n") || "").trim();
-}
-
-function geminiFunctionCalls(data: any) {
-  return (data?.candidates || [])
-    .flatMap((candidate: any) => candidate?.content?.parts || [])
-    .map((part: any) => part?.functionCall)
-    .filter(Boolean)
-    .map((call: any) => ({ name: call.name, args: call.args || {} }));
-}
-
-async function requestGeminiScheduleLayer(parts: GeminiPart[], options: { json?: boolean; tools?: boolean } = {}) {
-  const key = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || "").trim();
-  if (!key) return null;
-  const model = String(process.env.GEMINI_SCHEDULE_MODEL || process.env.GEMINI_MODEL || "gemini-3.6-flash").trim();
-  const controller = new AbortController();
-  /* Reading a multi-page scan is not a chat turn: even a one-line prompt costs
-     ~20s on this model, so an 18s budget aborted every real import. Function
-     calls stay short; a document read is given the time a document needs. */
-  const budgetMs = options.tools ? 45_000 : 180_000;
-  const timer = setTimeout(() => controller.abort(), budgetMs);
-  try {
-    const functionDeclarations = GEMINI_SCHEDULE_FUNCTION_NAMES.map(name => ({
-      name,
-      description: {
-        check_conflicts: "Check whether a proposed timetable change collides with rooms, instructors, duplicate sections, hall-barter windows, or student cohorts.",
-        find_rooms: "Find eligible rooms or room availability for a day/time request.",
-        check_instructors: "Resolve instructor availability or instructor-specific scheduling questions.",
-        check_regulations: "Evaluate institutional and department scheduling regulations for a proposed scenario.",
-        simulate_schedule: "Preview a schedule scenario and return before/after effects without writing anything.",
-      }[name],
-      parameters: { type: "OBJECT", properties: { query: { type: "STRING" }, code: { type: "STRING" }, dayIndex: { type: "NUMBER" }, time: { type: "STRING" }, rowId: { type: "NUMBER" }, room: { type: "STRING" } } },
-    }));
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: [
-          "You are only a comprehension layer for an academic timetable system.",
-          "Never decide the final schedule and never ask to save, publish, apply, update, delete, or commit.",
-          "Return structured JSON or safe function calls only. The deterministic server validators are the sole authority before anything can be stored.",
-        ].join("\n") }] },
-        contents: [{ role: "user", parts }],
-        ...(options.tools ? { tools: [{ functionDeclarations }], toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: GEMINI_SCHEDULE_FUNCTION_NAMES } } } : {}),
-        /* Transcription is not a reasoning problem. Left to think at length the
-           model spent 11.8s on a single row where 1.8s produced the same JSON,
-           which is what turned a page read into a three-minute wait. */
-        ...(options.json
-          ? { generationConfig: { responseMimeType: "application/json", temperature: 0.1, thinkingConfig: { thinkingLevel: "low" } } }
-          : { generationConfig: { temperature: 0.1, thinkingConfig: { thinkingLevel: "low" } } }),
-      }),
-    });
-    /* A silent null told the reviewer only "Gemini غير مهيأ", which hid a wrong
-       model name, an expired key, and a timeout behind one sentence. The reason
-       is logged for the operator and returned so the screen can name it. */
-    if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      let message = detail;
-      try { message = JSON.parse(detail)?.error?.message || detail; } catch { /* plain text */ }
-      console.error(`Gemini ${model} رفض الطلب: HTTP ${response.status} — ${String(message).slice(0, 300)}`);
-      return { failed: true, status: response.status, reason: String(message).slice(0, 300) };
-    }
-    const data = await response.json().catch(() => null);
-    if (!data) return null;
-    const calls = sanitizeGeminiScheduleCalls(geminiFunctionCalls(data));
-    if (calls.length) return { calls, raw: data };
-    const text = geminiOutputText(data);
-    return { json: extractJsonObject(text), text, raw: data };
-  } catch (error: any) {
-    const aborted = error?.name === "AbortError";
-    console.error(`Gemini ${model} فشل: ${aborted ? `تجاوز المهلة ${budgetMs}ms` : String(error?.message || error).slice(0, 200)}`);
-    return { failed: true, status: 0, reason: aborted ? `تجاوز المهلة (${countOf(Math.round(budgetMs / 1000), AR.second)}) أثناء قراءة الملف` : String(error?.message || "تعذر الاتصال بـGemini").slice(0, 200) };
   } finally {
     clearTimeout(timer);
   }
@@ -11623,23 +8479,6 @@ app.post("/api/intelligence/drafts", requirePermission(7), async (req: Authentic
 });
 
 /**
- * خط الأساس الذي يخص هذا القسم وحده.
- *
- * المستند المعتمد واحد ويحوي مواقع الفرع كلها، وصفوفه تُنشر كل صف في موقعه.
- * فتقرير التغييرات لقسم بعينه يجب أن يقارن ما يخص ذلك الموقع فقط — وإلا ظهرت
- * صفوف الجهراء «محذوفة» في تقرير الرئيسي لمجرد أنها نُشرت حيث تنتمي. الصفوف
- * القديمة التي لا تحمل بادئة موقع تبقى مع الموقع الذي استُورد منه الملف.
- */
-async function authorityBaselineForScope(baseline:any[],draft:{AdCollegeId:number;AdSectionId:number},collegeId:number,sectionId:number){
-  const rows=Array.isArray(baseline)?baseline:[];
-  if(!rows.length)return rows;
-  const [colleges,sections]=await Promise.all([Repository.getColleges(),Repository.getSections()]);
-  const split=splitRowsByBranch(rows,{colleges:colleges as any,sections:sections as any,baseCollegeId:draft.AdCollegeId,baseSectionId:draft.AdSectionId});
-  /* وثيقةُ الموقع الشقيق لا تصير أساسَ هذا القسم إلا بصفوفه هو (approvalScope). */
-  return authorityRowsForScope(rows,split,draft,collegeId,sectionId);
-}
-
-/**
  * النسخة المعتمدة التي تخص النطاق، ولو كانت محفوظةً عند موقع شقيق للفرع.
  *
  * تقرير PDF وشاشة تغييرات الجدول يجب أن يبدآ من الوثيقة نفسها. إبقاء البحث
@@ -11691,91 +8530,6 @@ app.get("/api/intelligence/drafts/:id/import-report", requirePermission(7), asyn
   });
 });
 
-/* The Authority-PDF report belongs to the normal inquiry/report centre. It is
-   scoped by the header selections and always compares the latest imported
-   baseline with the timetable as it exists right now. */
-/* ══════════════════════════════════════════════════════════════════════════
-   دورة الاعتماد
-   ══════════════════════════════════════════════════════════════════════════
-
-   كل ما يلي يقرأ قراره من `utils/approvalWorkflow` ولا يخترع قاعدةً لنفسه.
-   والسبب أن هذه القواعد اتُّفق عليها واحدةً واحدة، وكلٌّ منها كانت تحتمل غير
-   ما استقرّت عليه — فلو تفرّقت بين المسارات لاختلفت نسخةٌ منها عن أخرى عند
-   أول تعديل، ولما ظهر الاختلاف في أي شاشة.
-
-   وهذه المسارات هي البابُ الضيّق الوحيد الذي يمرّ منه صاحب الصفة القارئة:
-   لأن الملاحظة والتوقيع والإرجاع ليست تعديلاً على الجدول، بل الطريقة التي
-   يشارك بها من لا يملك أن يمسّ صفّاً.                                       */
-
-/**
- * ── القفل بعد الإرسال، والفتح بعد القبول ────────────────────────────────────
- *
- * جدولٌ عند التسجيل لا يُعدَّل: الطرف الآخر يقرؤه الآن، وتغييرُه تحت يده يجعل
- * ملاحظته على شيءٍ لم يعد موجوداً.
- *
- * أمّا بعد القبول فالتعديل مفتوح — لكنه لا يمرّ صامتاً. القسم الذي يكتشف خطأً
- * بعد القبول يعدّله فيعود جدوله إلى «عند التسجيل» جولةً جديدة تلقائياً، فيرى
- * التسجيل ما تغيّر وحده. والبديل — أن يطلب القسم فتحاً يدوياً من المدير في كل
- * مرّة — كان سيدفع الجميع إلى إصلاح الأخطاء خارج النظام.
- *
- * تُعيد الدالّة رسالة المنع إن وُجد مانع، و `null` إن جاز المضيّ.
- */
-async function scheduleLockRefusal(
-  req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number,
-  /* `registrarLock: false` لما لا يقفله التسجيل: استثناءُ الأسبوع، وقرارُ طلب
-     الأستاذ، وإصدارُ روابطه. يبقى عليها حكمُ الفصل المنتهي وحده (R8). */
-  options: { registrarLock?: boolean } = {},
-): Promise<string | null> {
-  /* ── وفصلٌ انتهى لا يُعدَّل ──────────────────────────────────────────────
-   *
-   * كانت علامةُ «منتهٍ» تُعرض ولا تمنع شيئاً: تُقرأ في شاشة الفصول وفي عنوان
-   * الجدول، ثم يُحفظ فيه ما شاء من شاء. فالمقرّرُ الذي انتهى وسُلّمت درجاتُه
-   * يمكن أن يتغيّر وقتُه بعد شهرين، ولا يعرف أحدٌ أن ما يقرؤه اليومَ ليس ما
-   * جرى في حينه.
-   *
-   * ويُقرأ العلَمُ الصريحُ وحدَه — ما أعلنه المنسّق بيده — لا المشتقُّ من
-   * ترتيب الفصول. لأن `isTermClosed` تعدّ كلَّ فصلٍ ليس الأحدثَ منتهياً،
-   * فالأخذُ بها هنا يُجمّد عشرَ سنواتٍ من الفصول دفعةً واحدة، ولم يُطلب ذلك.
-   *
-   * ولجنةُ الجدول تعمل فيه: هي التي تجرّب وتصحّح. ومن سواها يقرأ ويطبع
-   * ويستعلم — ولا يكتب. ومن أراد فتحَه يرفع العلامةَ من شاشة الفصول، وذلك
-   * فعلٌ ظاهرٌ مسجَّل، لا بابٌ خلفيّ. */
-  /* ── واللجنةُ تُعرف بصفتها المكتوبة، لا بالافتراض ────────────────────────
-   *
-   * `signatureStage` تسقط إلى صفةٍ افتراضيةٍ حين لا تُعرف الصفة — وهي
-   * `committeeChair` — فحسابٌ بلا صفةٍ مكتوبة يُقرأ «لجنة». وحسابُ الإدارة
-   * الجذر من هؤلاء عن قصد: الترحيلُ يستثنيه من إسناد الصفات. فكان يمرّ من
-   * فوق هذا التجميد كلِّه بلا أن يرفع العلامة، ويسقط معه البابُ الظاهرُ
-   * المسجَّل الذي وُضع ليكون الطريقَ الوحيد.
-   *
-   * فالشرطُ صفةٌ مكتوبةٌ صراحةً، لا صفةٌ يُسقط إليها الغياب. */
-  const role = req.user?.Role;
-  const isCommittee = isAcademicRole(role) && signatureStage(role) === "committee";
-  const term = (await Repository.getTerms()).find(row => Number(row.AdTermId) === Number(termId));
-  const termClosed = term?.AdTermClosed === true;
-  const approval = options.registrarLock === false ? undefined : await Repository.getScheduleApproval(collegeId, sectionId, termId);
-  /* القاعدةُ نفسُها التي تقرؤها الشاشة قبل أن يمدّ أحدٌ يده (R21): من
-     `approvalLockReason` وحدها، لا نسخةٌ ثانية هنا تفترق عنها. */
-  return approvalLockReason(approval, {
-    termClosed, isCommittee,
-    registrarNotesInCurrentRound: approval ? await registrarNotesInRound(approval) : 0,
-    registrarLock: options.registrarLock,
-  });
-}
-
-/** كم ملاحظةً كتبها التسجيل في الجولة الجارية — ما يُغلق جولةَ التعديل. */
-async function registrarNotesInRound(approval: ScheduleApproval): Promise<number> {
-  if (approval.status !== "submitted") return 0;
-  const notes = await Repository.getScheduleCommentsByScope(approval.AdCollegeId, approval.AdSectionId, approval.AdTermId);
-  return notes.filter(note => note.origin === "registrar" && Number(note.round || 1) === Number(approval.currentRound)).length;
-}
-
-/** أانتهى الفصل بعلامةٍ صريحة؟ (R23) */
-async function termIsClosed(termId: number): Promise<boolean> {
-  const term = await Repository.getTermById(termId);
-  return (term as any)?.AdTermClosed === true;
-}
-
 /**
  * ── وثيقةُ الاعتماد على طابورٍ وبمراجعة ─────────────────────────────────────
  *
@@ -11825,100 +8579,6 @@ async function approvalScopeLabel(collegeId: number, sectionId: number, termId: 
   }
 }
 
-/** حدثٌ في سجلّ الدورة باسم صاحب الطلب وصفته. */
-function withEvent(req: AuthenticatedRequest, approval: ScheduleApproval, action: string, detail?: string, round?: number): ScheduleApproval {
-  return appendApprovalEvent(approval, {
-    by: String(req.user?.Name || req.user?.SystemUserLogin || ""),
-    role: String(req.user?.Role || (req.user?.IsAdminUser ? "admin" : "")),
-    action, detail, round,
-  });
-}
-
-/**
- * ما بعد التعديل: فتحُ جولة تعديل، وتسجيل ما أُضيف بعد التوقيع.
- *
- * تُستدعى بعد نجاح التعديل لا قبله، لأنها تصف ما وقع فعلاً. وهي صامتةٌ عند
- * الفشل عمداً: لا يجوز أن يُبطِل عجزُ سجلٍّ إداريٍّ عن الكتابة حفظَ موعدٍ
- * دراسيٍّ صحيح.
- */
-async function noteScheduleMutation(
-  req: AuthenticatedRequest,
-  collegeId: number, sectionId: number, termId: number,
-  change: { kind: "add" | "edit" | "delete"; row?: any; rows?: any[] },
-): Promise<void> {
-  try {
-    /**
-     * ── على الطابور نفسه الذي تقف عليه قرارات الاعتماد ────────────────────
-     *
-     * هذه الدالّة تقرأ وثيقة الاعتماد ثم تكتبها كاملة، كقرارات الدورة كلها.
-     * فهي على الطابور نفسه وبالمراجعة نفسها: رئيسُ القسم يضغط «موافق» على
-     * الشُّعب المضافة، واستيرادٌ قرأ الوثيقة قبلها بلحظة لا يكتب فوقه.
-     */
-    await withSerialLock(`approval:${collegeId}:${sectionId}:${termId}`, async () => {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        try { await applyScheduleMutation(req, collegeId, sectionId, termId, change); return; }
-        catch (error) { if (!(error instanceof ApprovalRevisionConflict) || attempt === 1) throw error; }
-      }
-    });
-  } catch (error) {
-    console.error("[approval] تعذّر تحديث سجلّ الاعتماد بعد تعديل الجدول:", error instanceof Error ? error.message : error);
-    /* ── لا يمرّ تعديلُ المعتمد بلا جولة (مراجعة 6) ─────────────────────────
-     * كان الفشلُ هنا يُبلع: جدولٌ معتمد يُعدَّل ويبقى «معتمداً» ولا يعلم
-     * التسجيل. فتُكتب علامةٌ فوق آخر مراجعة، ويفتح الجولةَ أوّلُ من يقرأ
-     * الوثيقة (settlePendingAmendment)، ويُقال للشاشة في ترويسة الردّ. */
-    try {
-      const marked = await Repository.markScheduleApprovalAmendmentPending(collegeId, sectionId, termId, {
-        at: new Date().toISOString(),
-        by: String(req.user?.Name || req.user?.SystemUserLogin || ""),
-        role: String(req.user?.Role || (req.user?.IsAdminUser ? "admin" : "")),
-        kind: change.kind,
-      });
-      if (marked) {
-        console.error(`[approval] عُلّم ${collegeId}:${sectionId}:${termId} بتعديلٍ ينتظر جولته.`);
-        if (req.res && !req.res.headersSent) req.res.setHeader("X-Approval-Amendment", "pending");
-      }
-    } catch (markError) {
-      console.error("[approval] تعذّر حتى تعليمُ التعديل المنتظر:", markError instanceof Error ? markError.message : markError);
-      if (req.res && !req.res.headersSent) req.res.setHeader("X-Approval-Amendment", "failed");
-    }
-  }
-}
-
-/**
- * ── ما بعد تعديل جدولٍ معتمد: جولةُ تعديل (R8)، أو حدثٌ في فصلٍ منتهٍ (R23) ──
- * مكانٌ واحد يقرؤه التعديلُ نفسه (applyScheduleMutation) ومن يُصفّي علامةَ
- * تعديلٍ لم تُفتح جولتُه (settleAmendmentMarker). `event` يكتب الحدث باسم صاحب
- * التعديل، لا باسم من صادف أن قرأ الوثيقة.
- */
-type ApprovalEventWriter = (approval: ScheduleApproval, action: string, detail?: string, round?: number) => ScheduleApproval;
-async function amendmentAfterEdit(
-  approval: ScheduleApproval, termId: number, by: string, kind: "add" | "edit" | "delete", event: ApprovalEventWriter,
-): Promise<ScheduleApproval> {
-  if (approval.status !== "accepted") return approval;
-  /* ── الفصلُ المنتهي لا تُفتح فيه جولة (R23) ─────────────────────────
-   * لجنةُ الجدول تعمل في فصلٍ منتهٍ، والتسجيلُ لا يراجع فيه شيئاً. فتعديلُها
-   * يُسجَّل حدثاً ظاهراً في السجلّ، ولا يُرسل الجدول إلى وارد لا ينتظره. */
-  if (await termIsClosed(termId)) {
-    return event(approval, "closed-term-edit", kind === "add" ? "إضافة" : kind === "delete" ? "حذف" : "تعديل");
-  }
-  /* ── جولةُ تعديل، لا قفل (R8) ─────────────────────────────────────
-   * أولُ تعديلٍ على جدولٍ مقبول يفتح جولةً أساسُها ما قُبل، ويبقى
-   * التعديل فيها مفتوحاً حتى يكتب التسجيل ملاحظة. والجولةُ تُبنى من
-   * الدالّة نفسها التي يبني بها الإرسالُ جولته. */
-  const baselineVersionId = roundBaselineVersionId(approval, approval.currentRound + 1, { acceptedOnly: true });
-  const opened = openRound(approval, { at: new Date().toISOString(), by, amendment: true, baselineVersionId });
-  return event({ ...approval, status: "submitted", ...opened }, "amendment-open", undefined, opened.currentRound);
-}
-
-/** تُصفّى العلامة في الذاكرة: تُمحى، وتُفتح الجولة إن كان الجدول ما زال معتمداً. */
-async function settleAmendmentMarker(approval: ScheduleApproval): Promise<ScheduleApproval> {
-  const marker = approval.amendmentPending;
-  if (!marker) return approval;
-  const { amendmentPending: _settled, ...rest } = approval;
-  const event: ApprovalEventWriter = (row, action, detail, round) => appendApprovalEvent(row, { by: marker.by, role: marker.role || "", action, detail, round });
-  return amendmentAfterEdit(rest as ScheduleApproval, approval.AdTermId, marker.by, marker.kind, event);
-}
-
 /** داخل قفل النطاق: تُقرأ الوثيقة، وتُصفّى علامتُها وتُحفظ إن وُجدت. */
 async function settlePendingAmendmentInLock(collegeId: number, sectionId: number, termId: number): Promise<void> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -11936,89 +8596,6 @@ async function settlePendingAmendment(collegeId: number, sectionId: number, term
   } catch (error) {
     console.error("[approval] تعذّر فتحُ جولة التعديل المنتظرة:", error instanceof Error ? error.message : error);
   }
-}
-
-async function applyScheduleMutation(
-  req: AuthenticatedRequest,
-  collegeId: number, sectionId: number, termId: number,
-  change: { kind: "add" | "edit" | "delete"; row?: any; rows?: any[] },
-): Promise<void> {
-  const approval = await Repository.getScheduleApproval(collegeId, sectionId, termId);
-  if (!approval) return;
-  /* علامةُ تعديلٍ سابقٍ لم تُفتح جولتُه تُصفّى أوّلاً (مراجعة 6). */
-  let next: ScheduleApproval = await settleAmendmentMarker(approval);
-  const by = String(req.user?.Name || req.user?.SystemUserLogin || "");
-
-  /* الإضافة بعد توقيع رئيس القسم وحدها ما ينتظر إقراره: تغييرُ قاعةٍ يُبدّل
-     خانةً في صفٍّ وافق عليه، وإضافةُ شعبةٍ تُنشئ التزاماً لم يره أصلاً. */
-  /* ورئيسُ القسم يعتمد المرّةَ الأولى وحدها: بعد أول قبولٍ من التسجيل تمرّ
-     تعديلاتُ اللجنة إلى التسجيل مباشرة، فلا يُنتظر إقرارُه على إضافة. */
-  const everAccepted = next.rounds.some(round => Boolean(round.acceptedAt));
-  const headSignature = everAccepted ? undefined : next.signatures.find(item => item.stage === "head");
-  const addedRows = change.kind === "add" ? (change.rows || (change.row ? [change.row] : [])) : [];
-  if (headSignature && addedRows.length) {
-    const at = new Date().toISOString();
-    const fresh = addedRows
-      .filter(row => row)
-      .map(row => ({
-        scheduleId: Number(row.id),
-        courseId: Number(row.AdCourseId || 0),
-        courseName: String(row.AdCourseName || ""),
-        sectionCode: String(row.SCode || ""),
-        addedAt: at,
-        addedBy: by,
-      }));
-    /* ── ما زاد على السقف يُعدّ ولا يسقط (R14) ────────────────────────────
-     * كان يُقصّ عند ستين فيضيع ما بعده. فيُسمّى ما يُقرأ، ويُعدّ الباقي،
-     * ويمنع الإرسالَ كلُّه حتى يُقرّ. */
-    const merged = mergePendingAdditions(next, fresh);
-    if (merged.pendingAdditions.length !== next.pendingAdditions.length
-        || merged.pendingAdditionsOverflow !== Number(next.pendingAdditionsOverflow || 0)) {
-      next = { ...next, ...merged };
-    }
-  }
-  /* صفٌّ حُذف قبل أن يُقرّ لا ينتظر إقراراً: ما عاد موجوداً ليوافق عليه أحد.
-     والشرط قبل البناء لا بعده: بناءُ كائنٍ جديد في كل حذفٍ يجعل فحص التغيير
-     في الأسفل صادقاً دائماً، فتُكتب وثيقةُ الاعتماد في كل حذفِ موعد. */
-  if (change.kind === "delete" && change.row
-      && next.pendingAdditions.some(item => Number(item.scheduleId) === Number(change.row.id))) {
-    next = { ...next, pendingAdditions: next.pendingAdditions.filter(item => Number(item.scheduleId) !== Number(change.row.id)) };
-  }
-
-  next = await amendmentAfterEdit(next, termId, by, change.kind, (row, action, detail, round) => withEvent(req, row, action, detail, round));
-
-  if (next !== approval) await Repository.saveScheduleApproval(next);
-}
-
-/**
- * ── التسليم الشامل بعد الموعد ───────────────────────────────────────────────
- *
- * ما يُمنع بعد الموعد هو نوعُ الفعل لا حجمه: استيرادُ ملفٍّ ونسخُ فصلٍ
- * يستبدلان الجدول كله بحكم تعريفهما، والحذفُ الجماعي يُقاس بالنسبة لا بالعدد —
- * لأن عشرين صفّاً في قسمٍ صغير هي جدوله كله، وفي قسمٍ كبير تصحيحٌ عادي.
- *
- * وتبقى التعديلات الجزئية مفتوحةً بعد الموعد كما قبله، لأن القاعة تتغيّر
- * والأستاذ يعتذر ولا ينتظر أيٌّ منهما تاريخاً في تقويم.
- */
-async function wholesaleRefusal(collegeId: number, sectionId: number, termId: number, action: WholesaleAction): Promise<string | null> {
-  if (!isWholesaleChange(action)) return null;
-  const approval = await readApproval(collegeId, sectionId, termId);
-  const deadline = await readDeadlineFor(approval, termId);
-  if (!deadline.past) return null;
-  return describeWholesaleRefusal(action, deadline);
-}
-
-/**
- * التعارض المادّي وحده — لا اللائحة — هو ما يُحصى هنا.
- *
- * والعدّ مفصولٌ عن القراءة عمداً: صندوق وارد التسجيل يسأل هذا السؤال عن كل
- * قسمٍ في الكلية دفعةً واحدة، فلو حملت الدالّة قراءتَها معها لقرأت جدول الفصل
- * كاملاً مرّةً لكل قسم — عشرين قراءةً كاملة لشاشةٍ تُفتح عشرين مرّةً في اليوم.
- * فتُقرأ مرّةً في الأعلى، وتُمرَّر.
- */
-function countBlockingConflicts(scopeRows: any[], termRows: any[], options: ApprovalBlockerOptions = {}): number {
-  /* القاعدة نفسها في `scheduleBlockers` — هذا اسمها القديم فقط. */
-  return approvalBlockerCount(scopeRows, termRows, options);
 }
 
 /** السؤال عن قسمٍ واحد، حين لا يكون في اليد جدولُ الفصل أصلاً. */
@@ -12041,72 +8618,8 @@ async function blockingSummaryFor(collegeId: number, sectionId: number, termId: 
   return approvalBlockerSummary(scopeRows, termRows, options);
 }
 
-/** موانع اللائحة الظاهرة وقت التوقيع والإرسال. */
-async function regulationNoticesForScope(collegeId: number, sectionId: number, termId: number) {
-  try {
-    const [sections, courses, instructors] = await Promise.all([
-      Repository.getSections(),
-      Repository.getCourses(),
-      Repository.getInstructors(),
-    ]);
-    const family = departmentFamily(sections as any[], collegeId, sectionId);
-    const [rows, scopeRows] = await Promise.all([
-      Promise.all(family.map(member => Repository.getSchedulesByScope({ collegeId: member.collegeId, sectionId: member.sectionId, termId }))).then(groups => groups.flat()),
-      Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
-    ]);
-    const findings = reviewSchedule({
-      rows: rows as any,
-      courses: new Map(courses.map((row: any) => [Number(row.AdCourseId), row])),
-      instructors: new Map(instructors.map((row: any) => [Number(row.AdInstructorId), row])),
-    });
-    const familyRows = rows;
-    const familyBalance = periodBalanceFinding(familyRows as any);
-    const allFindings = [...findings, ...(familyBalance ? [familyBalance] : [])];
-    const ownIds = new Set(scopeRows.map((row: any) => Number(row.id)));
-    return allFindings
-      .filter(item => item.approvalEffect === "block" && item.source === "decision-1912")
-      .map(item => ({
-        rule: String(item.rule || ""),
-        article: String(item.article || ""),
-        source: item.source,
-        approvalEffect: item.approvalEffect,
-        title: String(item.title || "مانع لائحي"),
-        detail: String(item.detail || ""),
-        rowIds: item.rowIds.map(Number).filter(id => ownIds.has(id)),
-        ...(item.data ? { data: item.data } : {}),
-      }));
-  } catch {
-    /* فشلُ الفحص لا يُعامل كأن الجدول سليم؛ أعد المحاولة قبل الاعتماد. */
-    return [{
-      rule: "regulation-review-unavailable",
-      article: "مراجعة الاعتماد",
-      source: "decision-1912",
-      approvalEffect: "block",
-      title: "تعذر فحص موانع اللائحة",
-      detail: "أعد المحاولة قبل الاعتماد.",
-      rowIds: [],
-    }];
-  }
-}
-
 async function regulationNoticeCount(collegeId: number, sectionId: number, termId: number): Promise<number> {
   return (await regulationNoticesForScope(collegeId, sectionId, termId)).length;
-}
-
-/** السجلّ كما هو، أو سجلٌّ فارغٌ لقسمٍ لم يبدأ الدورة. */
-async function readApproval(collegeId: number, sectionId: number, termId: number): Promise<ScheduleApproval> {
-  const stored = await Repository.getScheduleApproval(collegeId, sectionId, termId);
-  return stored || emptyApproval(collegeId, sectionId, termId);
-}
-
-/** الموعد الساري لهذا القسم: تمديده إن وُجد، وإلا موعد فصله — بتوقيت الكويت (R15). */
-async function readDeadlineFor(approval: ScheduleApproval, termId: number): Promise<DeadlineState> {
-  const term = await Repository.getTermById(termId);
-  return readDeadline({
-    termDeadline: (term as any)?.AdTermSubmissionDeadline,
-    extensionUntil: approval.extensionUntil,
-    extensionReason: approval.extensionReason,
-  }, new Date());
 }
 
 function approvalActor(req: AuthenticatedRequest) {
@@ -12123,36 +8636,6 @@ function approvalScopeFromBody(req: AuthenticatedRequest, res: Response): { coll
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الفصل والكلية والقسم أولاً." }); return null; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return null; }
   return { collegeId, sectionId, termId };
-}
-
-/**
- * ── فصلٌ منتهٍ: الدورةُ مغلقة (R23) ────────────────────────────────────────
- * كلُّ فعلٍ يكتب في وثيقة الاعتماد يُسأل هذا أولاً، برسالةٍ واحدةٍ واضحة.
- */
-async function refuseIfTermClosed(res: Response, termId: number): Promise<boolean> {
-  /* فصلٌ صار أرشيفاً (أُغلق أو انقضى وليس الجاري) لا توقيعَ فيه ولا مواعيد. */
-  const terms = await Repository.getTerms();
-  const term = terms.find(row => Number(row.AdTermId) === Number(termId));
-  if (!(await termIsClosed(termId)) && !termIsArchive(term as any, terms as any)) {
-    /* فصلٌ أقدمُ من الجاري يُجمَّد أيضاً وإن لم يُعلَن منتهياً (انظر termIsFrozen). */
-    if (!termIsFrozen(termId, terms as any)) return false;
-    res.status(409).json({ error: TERM_FROZEN_MESSAGE, code: "term-frozen" });
-    return true;
-  }
-  res.status(409).json({ error: TERM_CLOSED_APPROVAL_MESSAGE, code: "term-closed" });
-  return true;
-}
-
-
-/**
- * ── فصلٌ سابق: للعرض فقط ────────────────────────────────────────────────────
- * كشفُ التسجيل ورغباتُ الأساتذة وتغييراتُ الجدول تُقرأ في أي فصل، وتُكتب في
- * الجاري (والقادم) وحدهما. القاعدةُ في `termIsFrozen` نفسِها التي تقرؤها الشاشة.
- */
-async function refuseIfTermFrozen(res: Response, termId: number): Promise<boolean> {
-  if (!termIsFrozen(termId, (await Repository.getTerms()) as any)) return false;
-  res.status(409).json({ error: TERM_FROZEN_MESSAGE, code: "term-frozen" });
-  return true;
 }
 
 /**
@@ -12829,73 +9312,6 @@ app.post("/api/approvals/extension-request", requireAuth, async (req: Authentica
    تُخزَّن — فلا يمكن أن تقول الخانة «عُولجت» وهي على حالها.                 */
 
 const NOTE_FIELDS: ScheduleNoteField[] = ["time", "days", "room", "instructor", "sectionCode", "course", "row"];
-const NOTE_FIELD_LABEL: Record<ScheduleNoteField, string> = {
-  time: "الوقت", days: "الأيام", room: "القاعة", instructor: "أستاذ المقرر",
-  sectionCode: "رقم الشعبة", course: "المقرر", row: "الموعد كاملاً",
-};
-
-/**
- * القيمة التي تحملها الخانة الآن.
- *
- * هي أساسُ كل شيء بعدها: تُحفظ لحظة الملاحظة، وتُقارن بما صار إليه الصفّ فتقول
- * الحالة. ولذلك تُشتقّ من مكانٍ واحد — لو اختلفت صيغةُ القراءة عن صيغة الكتابة
- * لظهرت كل خانةٍ متغيّرةً وهي لم تُمسّ.
- */
-function noteFieldValue(row: any, field: ScheduleNoteField): string {
-  if (!row) return "";
-  switch (field) {
-    case "time": return `${normalizeClock(String(row.fstarttime || ""))}-${normalizeClock(String(row.fendtime || ""))}`;
-    case "days": return legacyFDetail(row);
-    case "room": return `${String(row.AdRoomCode || "")}/${String(row.AdRoomHall || "")}`;
-    case "instructor": return String(Number(row.AdInstructorId || 0));
-    case "sectionCode": return String(row.SCode || "");
-    case "course": return String(Number(row.AdCourseId || 0));
-    case "row": return [
-      normalizeClock(String(row.fstarttime || "")), normalizeClock(String(row.fendtime || "")),
-      legacyFDetail(row), String(row.AdRoomCode || ""), String(row.AdRoomHall || ""),
-      String(Number(row.AdInstructorId || 0)), String(row.SCode || ""), String(Number(row.AdCourseId || 0)),
-    ].join("|");
-  }
-}
-
-/** حالة الملاحظة، محسوبةً من الواقع لا مقروءةً من علَم. */
-function noteState(note: ScheduleComment, row: any): "open" | "changed" | "answered" | "resolved" | "removed" {
-  if (!row) return "removed";
-  /* ── الملاحظةُ المحسومة ليست ملاحظةً تنتظر ─────────────────────────────
-   *
-   * قبولُ التسجيل لتبرير القسم يُغلق الملاحظة ويُبقي نصَّ الردّ — وهو مقصود،
-   * فالحجّةُ تُحفظ. لكنّ قراءة الردّ وحدها كانت تُبقيها «أُجيب عنها» إلى
-   * الأبد: يعدّها الوارد ردّاً ينتظر قراراً، وتُعرض أزرارُ القرار على قرارٍ
-   * اتُّخذ.
-   *
-   * فالحسمُ يُقرأ قبل الردّ: ما قُبل انتهى، وما بقي ردُّه بلا قرارٍ ينتظر. */
-  if (note.resolved || note.rebuttalVerdict === "accepted") return "resolved";
-  if (note.rebuttal) return "answered";
-  const field = (note.field || "row") as ScheduleNoteField;
-  return noteFieldValue(row, field) !== String(note.valueAtNote ?? "") ? "changed" : "open";
-}
-
-/** الملاحظات مع حالتها الحيّة، لكل من يعرضها. */
-async function notesWithState(collegeId: number, sectionId: number, termId: number) {
-  const [notes, rows] = await Promise.all([
-    Repository.getScheduleCommentsByScope(collegeId, sectionId, termId),
-    Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
-  ]);
-  const byId = new Map(rows.map((row: any) => [Number(row.id), row]));
-  return notes
-    .filter(note => note.origin === "registrar" || note.origin === "department")
-    .map(note => {
-      const row = byId.get(Number(note.scheduleId));
-      const field = (note.field || "row") as ScheduleNoteField;
-      return {
-        ...note,
-        field,
-        fieldLabel: NOTE_FIELD_LABEL[field],
-        state: noteState(note, row),
-        valueNow: row ? noteFieldValue(row, field) : undefined,
-      };
-    });
-}
 
 /**
  * ── السببُ جاهزٌ قبل أن يُكتب ────────────────────────────────────────────────
@@ -13152,18 +9568,6 @@ app.delete("/api/schedule-notes/:id", requireAuth, async (req: AuthenticatedRequ
  * النطاق هنا هو النطاق في كل مكان — لا يرى أحدٌ إشعاراً عن قسمٍ خارج نطاقه.
  */
 const REGISTRAR_NOTIFY_ROLES = new Set(["registrarHead", "registrarStaff"]);
-/**
- * ── الجرس لفصلين: الجاري، وفصل التخطيط (N18) ────────────────────────────────
- *
- * دورةُ الاعتماد تجري غالباً على الفصل التالي والجاري يُدرَّس. فيُقرأ الجرس
- * للجاري ولفصل التخطيط (planningTermCandidates في termSequence.ts: أحدثُ فصلٍ
- * لم ينتهِ وفيه نشاط)، وكلُّ بندٍ من فصل التخطيط يحمل اسمَ فصله ومعرّفه.
- * ومن سأل عن فصلٍ بعينه (termId) يُجاب عنه وحده.
- */
-/* مجموعُ كشف الطلبة لكل فصل، محفوظاً دقيقة — القاعدة في src/server/notificationCache.ts.
-   يُمحى عند كتابة الكشف، ووصول استبيان، ونبضِ نسخةٍ أخرى. والمفتاحُ يحمل جلسة
-   العرض التجريبي: لكلِّ جلسةٍ بياناتُها. */
-const studentQueueMemo = createTtlMemo<Map<string, StudentQueueEntry>>({ ttlMs: 60_000 });
 function studentQueueForTerm(termId: number): Promise<Map<string, StudentQueueEntry>> {
   const key = dataContextCacheKey(termId);
   return studentQueueMemo.get(key, async () => {
@@ -13171,31 +9575,12 @@ function studentQueueForTerm(termId: number): Promise<Map<string, StudentQueueEn
     return studentQueueAggregate(termNeeds as any[], allCourses as any[]);
   });
 }
-
-/* موانعُ القسم المعتمد في جرس العميدين (N20): كانت تُسأل بـblockingConflictCount
-   لكل قسمٍ معتمد مع كل نداء — قراءتان لجدول الفصل وفحصُ تعارضٍ كامل لكل قسم.
-   فصار جدولُ الفصل الذي قرأه الجرس مرّةً يُعدّ لكل قسمٍ في الذاكرة (كما يفعل
-   الوارد)، ويُحفظ العدُّ لكل فصلٍ وقسم حتى يتغيّر جدولٌ (onSchedulesInvalidated
-   ونبضُ النسخ الأخرى) أو تمضي دقيقة. */
-const bellBlockingMemo = createTtlMemo<number>({ ttlMs: 60_000 });
-onSchedulesInvalidated(() => bellBlockingMemo.invalidate());
 function bellBlockingCount(collegeId: number, sectionId: number, termId: number, termRows: any[]): Promise<number> {
   const key = dataContextCacheKey(`${termId}:${collegeId}:${sectionId}`);
   return bellBlockingMemo.get(key, async () => {
     const scopeRows = termRows.filter(row => Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId);
     return countBlockingConflicts(scopeRows, termRows, await approvalBlockerOptions());
   });
-}
-
-async function bellPlanningTermId(terms: any[]): Promise<number> {
-  for (const candidate of planningTermCandidates(terms as any)) {
-    const [approvals, rows] = await Promise.all([
-      Repository.getScheduleApprovalsForTerm(candidate),
-      Repository.getSchedulesByScope({ termId: candidate }),
-    ]);
-    if (approvals.length || rows.length) return candidate;
-  }
-  return 0;
 }
 
 async function notificationItemsForTerm(req: AuthenticatedRequest, termId: number) {
@@ -14282,20 +10667,6 @@ app.post("/api/intelligence/import-preview", requirePermission(7), async (req: A
   raw.forEach((item:any,index:number)=>{const code=String(item["رمز المقرر"]??item.CourseCode??item.courseCode??"").trim();const course=byCode.get(code.toLowerCase());const civil=normalizeCivilId(item["الرقم المدني"]??item.AdInstructorCivil??item.civil??"");const iname=String(item["أستاذ المقرر"]??item.AdInstructorName??item.instructor??"").trim();const instructor=byCivil.get(civil)||byName.get(iname.toLowerCase());const sectionCode=String(item["الشعبة"]??item.SCode??item.section??"").trim();const time=String(item["الوقت"]??item.time??"").trim();const parts=time.split(/\s*[-–—]\s*/);const start=normalizeClock(String(item.fstarttime??item.startTime??parts[1]??parts[0]??"").trim().slice(0,5)),end=normalizeClock(String(item.fendtime??item.endTime??parts[0]??parts[1]??"").trim().slice(0,5));const dayText=String(item["الأيام"]??item.days??"");const row:any={id:-(index+1),AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:course?.AdCourseId||0,AdCourseName:course?.CourseName||String(item["المقرر الدراسي"]??""),SCode:sectionCode,AdInstructorId:instructor?.AdInstructorId||0,fsunday:dayText.includes("الأحد")||Boolean(item.fsunday),fmonday:dayText.includes("الاثنين")||Boolean(item.fmonday),ftuesday:dayText.includes("الثلاثاء")||Boolean(item.ftuesday),fwednesday:dayText.includes("الأربعاء")||Boolean(item.fwednesday),fthursday:dayText.includes("الخميس")||Boolean(item.fthursday),fstarttime:start,fendtime:end,AdRoomCode:String(item["المبنى"]??item.AdRoomCode??"").trim(),AdRoomHall:String(item["القاعة"]??item.AdRoomHall??"").trim(),fdetail:""}; row.fdetail=legacyFDetail(row); if(!course)issues.push(`السطر ${index+1}: لم أجد رمز المقرر ${code||"(فارغ)"} في هذا القسم`);if(!instructor)issues.push(`السطر ${index+1}: لم أتعرف على أستاذ المقرر`);rows.push(row);}); const visitingReplaced=applyVisitingToFaculty(rows,await visitingToFacultyPlan(collegeId,sectionId,termId)); const validation=await validateSmartRows(rows,collegeId,sectionId,{resolveHistorical:true}); issues.push(...validation); const duplicateKeys=new Set<string>(),duplicates:string[]=[]; rows.forEach((r:any,i:number)=>{const key=`${r.AdCourseId}:${r.SCode}`;if(duplicateKeys.has(key))duplicates.push(`السطر ${i+1}: مقرر/شعبة مكرر`);duplicateKeys.add(key)});issues.push(...duplicates); res.json({rows,issues:[...new Set(issues)].slice(0,40),valid:issues.length===0,count:rows.length,preview:rows.slice(0,20),visitingReplaced});
 });
 
-/* ── قائمة النسخ لا تحمل صفوفها ──────────────────────────────────────────
-   في Firestore تُقرأ قائمة النسخ بلا لقطاتها عمداً (getScheduleVersions)،
-   فمن يقارن بها يجد نسخةً فارغة: «الملخص» قال إن كل موعد تغيّر، وسجلّ الأستاذ
-   قال عن كل محاضرة «أُضيفت». ما يحتاج اللقطة يطلبها بمعرّفها. */
-async function hydrateVersionRows<T extends { id: string; rows?: any[]; rowCount?: number }>(versions: T[]): Promise<T[]> {
-  return Promise.all(versions.map(async version => {
-    /* rowCount 0 is a genuinely empty snapshot; an older document without a
-       count is fetched too, since an empty list there proves nothing. */
-    if ((version.rows && version.rows.length) || version.rowCount === 0) return version;
-    const full = await Repository.getScheduleVersionById(version.id).catch(() => undefined);
-    return full ? { ...version, rows: full.rows || [] } : version;
-  }));
-}
-
 /* ما تغيّر منذ آخر نقطة أمان — القراءة نفسها للملخص وللطبقة الحية. */
 async function briefChangedSince(collegeId: number, sectionId: number, termId: number, rows: any[]): Promise<number | undefined> {
   const [latest] = await hydrateVersionRows(await Repository.getScheduleVersions(collegeId, sectionId, termId, 1));
@@ -14306,30 +10677,7 @@ async function briefChangedSince(collegeId: number, sectionId: number, termId: n
 }
 
 function rowSignatureServer(row:any){return `${row.AdCourseId||0}:${row.SCode||""}:${row.AdInstructorId||0}:${activeDays(row).join(",")}:${row.fstarttime||""}:${row.fendtime||""}:${row.AdRoomCode||""}|${row.AdRoomHall||""}`}
-
-
-// --- LIVING SCHEDULE LAYER --------------------------------------------------
-// All routes below are additive. They read the verified schedule tables and either
-// return analysis or create a draft/memory record; none bypasses the existing
-// schedule CRUD validation or publication gate.
-/**
- * ── ردّ التحليل يُحسب مرة، لا مرة لكل سائل ──────────────────────────────────
- *
- * The living reading hydrates the university's whole term and runs six
- * analyses over it. Measured on production, a cold run cost the single-threaded
- * server up to 27 seconds — and every viewer of the same term paid it again
- * after the row-cache turned over, even though the answer had not changed.
- *
- * The finished JSON is therefore kept per scope and served as-is. Nothing new
- * decides when it dies: it is cleared by exactly the two signals that already
- * clear every schedule cache in this file — a write on this instance
- * (onSchedulesInvalidated) and the cross-instance beacon below — plus a short
- * TTL as the same parachute the row cache wears. Demo sessions bypass it
- * entirely: their world is per-visitor and must never leak between sandboxes.
- */
-const livingResponseCache = new Map<string, { at: number; body: string }>();
 const LIVING_RESPONSE_TTL_MS = 120_000;
-onSchedulesInvalidated(() => livingResponseCache.clear());
 
 app.get("/api/intelligence/living", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const { collegeId, sectionId, termId, section } = await resolveSmartContext(req);
@@ -14455,34 +10803,6 @@ app.post("/api/intelligence/emergency", requirePermission(7), requirePowerAdmin,
   const [scheduleData,courses,instructors,constraints]=await Promise.all([scopedScheduleUniverse(collegeId,sectionId,termId),Repository.getCourses(),Repository.getInstructors(),Repository.getScheduleConstraints(collegeId,sectionId,termId)]); const {rows,universe}=scheduleData; if(!rows.length){res.status(400).json({error:"لا يوجد جدول في هذا النطاق"});return;}
   const result=createEmergencyPlans(kind,value,rows,universe,courses,instructors,constraints); if(!result.affected){res.status(400).json({error:"لم أجد مواعيد تتأثر بهذه الحالة"});return;} res.json({...result,guardrail:"الخطط الثلاث سيناريوهات فقط. لا شيء يُنشر قبل حفظه كمسودة ثم اعتماده صراحة."});
 });
-
-/**
- * The reading that belongs BEFORE the copy.
- *
- * `/genesis` already builds next term from last term into a draft, and touches
- * nothing real. What it never said is the one thing a coordinator needs first:
- * of three hundred lectures, which carry a decision inside them? A course that
- * has left the catalogue, a teacher on sabbatical, a hall nobody uses any more,
- * a course whose name was rewritten — each of those is a row somebody has to
- * think about, and the other two hundred and eighty are not.
- *
- * This reads; it does not write. The draft is still made by the endpoint below,
- * and only after a person has seen this.
- */
-/**
- * ── ما الذي تغيّر تحت الجدول المعتمد ────────────────────────────────────────
- *
- * The one check nobody triggers. It is deliberately lazy: the answer is kept
- * per scope and thrown away the moment ANY schedule anywhere is written, using
- * the change beacon the live feed already runs on. A department that reads this
- * ten times an hour on an unchanged university pays for one scan.
- *
- * There is no cron, no background job, and nothing that wakes a server up.
- */
-const driftCache = new Map<string, { serial: number; body: unknown }>();
-const historicalTimeCache = new Map<string, { serial:number; expiresAt:number; body:ReturnType<typeof buildHistoricalTimeModel> }>();
-let driftSerial = 0;
-onSchedulesInvalidated(() => { driftSerial += 1; historicalTimeCache.clear(); });
 
 app.get("/api/intelligence/department-start-rhythm", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId=Number(req.query.collegeId||0),sectionId=Number(req.query.sectionId||0),termId=Number(req.query.termId||0);
@@ -14679,17 +10999,6 @@ app.get("/api/intelligence/rollover", requirePermission(7), async (req: Authenti
     guardrail: "قراءة فقط. لم يُنشأ شيء ولم يتغيّر شيء.",
   });
 });
-
-/* ── المقرر المؤرشف لا يُوضع في جدولٍ حالي — بأي باب ──────────────────────
-   الإضافة والنسخ والاستيراد ترفض مقرراً أُرشف أكاديمياً، و«بداية الفصل» كانت
-   تنسخه كما هو من الفصل السابق، فيعود المقرر الذي أُخرج من الخطة إلى جدول
-   الفصل الجديد من الباب الخلفي. القراءة هنا واحدة يستعملها النسخ وبداية الفصل. */
-async function splitArchivedCourseRows<T extends { AdCourseId?: unknown }>(rows: T[], sectionId: number): Promise<{ operational: T[]; archived: T[] }> {
-  const operationalIds = await Repository.getOperationalCourseIds(sectionId);
-  const operational: T[] = [], archived: T[] = [];
-  for (const row of rows) (operationalIds.has(Number(row.AdCourseId)) ? operational : archived).push(row);
-  return { operational, archived };
-}
 
 app.post("/api/intelligence/genesis", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId=Number(req.body?.collegeId||0),sectionId=Number(req.body?.sectionId||0),targetTermId=Number(req.body?.targetTermId||req.body?.termId||0),sourceTermId=Number(req.body?.sourceTermId||0); if(!collegeId||!sectionId||!targetTermId||!sourceTermId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;} if(sourceTermId===targetTermId){res.status(400).json({error:"اختر فصلاً سابقاً مختلفاً عن الفصل الجديد"});return;}
@@ -15875,40 +12184,7 @@ app.get("/api/reports/room-load", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]
     rooms: [...rooms.values()].sort((a, b) => byRoom(a.room, a.hall, b.room, b.hall))
   });
 });
-
-// ============================================================================
-// READ-ONLY PUBLICATION — share links, public page, calendar subscription
-// A token is a long random string, expires on its own, and never exposes a
-// civil ID, phone number, account or any scope beyond the one it was made for.
-// ============================================================================
-
-const SHARE_DAY_KEYS = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
-const SHARE_DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
-const SHARE_ICS_DAYS = ["SU", "MO", "TU", "WE", "TH"];
 const SHARE_MAX_DAYS = 180;
-
-function shareDayIndexes(row: FSchedule): number[] {
-  return SHARE_DAY_KEYS.map((key, index) => (row as any)[key] ? index : -1).filter(index => index >= 0);
-}
-
-/** هل ما زال الرابطُ مقروءاً؟ القاعدة (وأيُّ الأنواع يُقرأ حتى نهاية فصله —
- *  بطاقاتُ الأساتذة بنوعيها، القسمِ والشخصي، ورابطُ الطلب) في
- *  src/utils/shareLinkLifetime.ts وحدها. الفصلُ لا يُقرأ إلا إن مضى تاريخُ الرابط. */
-async function shareLinkStillReadable(link: ScheduleShareLink, knownTerms?: Array<{ AdTermId: number; AdTermName?: string; AdTermStart?: string; AdTermWeeks?: number }>): Promise<boolean> {
-  if (!link.expiresAt || Date.parse(String(link.expiresAt)) >= Date.now() || !readsUntilTermEnd(link.kind)) {
-    return shareLinkReadable(link, undefined as any);
-  }
-  const term = (knownTerms || await Repository.getTerms()).find(row => Number(row.AdTermId) === Number(link.AdTermId));
-  return shareLinkReadable(link, term);
-}
-
-/** Resolves a token to its live scope, or explains precisely why it cannot be read. */
-async function resolveShareToken(token: string) {
-  const link = await Repository.getShareLink(String(token || ""));
-  if (!link || link.revoked) return { error: "الرابط غير موجود أو تم إيقافه", status: 404 as const };
-  if (!await shareLinkStillReadable(link)) return { error: "انتهت صلاحية هذا الرابط", status: 410 as const };
-  return { link };
-}
 
 /* `options.termId` يقرأ فصلاً غير فصل الرابط (رابط الطلبة: الجاري)، و
    `finalOnly` يقصر القراءة على المعتمد (finalRowsOnly) — للأبواب العامة للطلبة. */
@@ -15919,180 +12195,9 @@ async function resolveShareToken(token: string) {
 const PUBLIC_VISITING_BADGE_CSS = `.visiting-badge,.meta .visiting-badge,.pill.who .visiting-badge,.pub-week .slot .visiting-badge{display:inline-flex;align-items:center;justify-content:center;flex:none;min-height:18px;padding:1px 6px;margin-inline-start:5px;border:1px solid color-mix(in srgb,var(--brass,#a8792a) 42%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--brass,#a8792a) 10%,var(--card,#fff));color:color-mix(in srgb,var(--brass,#a8792a) 88%,var(--ink));font-size:11px;font-weight:700;font-style:normal;line-height:1.15;white-space:nowrap;vertical-align:middle;overflow:visible;text-overflow:clip}
 @media print{.visiting-badge,.meta .visiting-badge,.pill.who .visiting-badge,.pub-week .slot .visiting-badge{border-color:#9a7a43;background:#faf5e9;color:#6e521f}}`;
 
-async function buildSharePayload(link: ScheduleShareLink, options: { termId?: number; finalOnly?: boolean } = {}) {
-  const termId = Number(options.termId || link.AdTermId);
-  const [liveRows, courses, instructors, sections, colleges, terms] = await Promise.all([
-    Repository.getSchedulesByScope({ collegeId: link.AdCollegeId, sectionId: link.AdSectionId, termId }),
-    Repository.getCourses(), Repository.getInstructors(), Repository.getSections(), Repository.getColleges(), Repository.getTerms()
-  ]);
-  const rows = options.finalOnly ? await finalRowsOnly(liveRows, termId) : liveRows;
-  const courseById = new Map(courses.map(row => [row.AdCourseId, row]));
-  const instructorById = new Map(instructors.map(row => [row.AdInstructorId, row]));
-  /* الشارة «منتدب» تتبع الاسم: لا اسمَ حين تُخفى الأسماء فلا علامة، ويُحسب النطاق مرةً للرابط كله. */
-  const showNames = link.showInstructors !== false;
-  const isVisiting = showNames ? await visitingChecker(termId, [{ collegeId: link.AdCollegeId, sectionId: link.AdSectionId }]) : () => false;
-  return {
-    label: link.label,
-    college: colleges.find(row => row.AdCollegeId === link.AdCollegeId)?.AdCollegeName || "",
-    section: sections.find(row => row.AdSectionId === link.AdSectionId)?.AdSectionName || "",
-    term: terms.find(row => row.AdTermId === termId)?.AdTermName || "",
-    expiresAt: link.expiresAt,
-    showInstructors: link.showInstructors !== false,
-    rows: rows
-      .slice()
-      .sort((a, b) => String(a.fstarttime).localeCompare(String(b.fstarttime)))
-      .map(row => ({
-        id: row.id,
-        code: courseById.get(row.AdCourseId)?.CourseCode || "",
-        name: row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "",
-        section: row.SCode || "",
-        start: row.fstarttime,
-        end: row.fendtime,
-        days: shareDayIndexes(row),
-        room: row.AdRoomCode || "",
-        hall: row.AdRoomHall || "",
-        // Carried for the calendar feed: a subscriber's copy of an appointment
-        // is only replaced when the version it holds is older than this one.
-        rev: Number(row.rev || 0),
-        instructor: showNames ? (instructorById.get(row.AdInstructorId)?.AdInstructorName || "") : "",
-        visiting: showNames && isVisiting(row.AdInstructorId, link.AdCollegeId, link.AdSectionId)
-      }))
-  };
-}
-
-/**
- * The instructor card.
- *
- * Instructors outnumber accounts by an order of magnitude and will never be
- * given credentials, so the card has to work with nothing but a link. A civil
- * ID on its own would be a public directory — colleagues know each other's
- * numbers — so the link is the permission and the civil ID is only the
- * selector: without the link nothing is reachable at all, and with it a person
- * can reach exactly one card, their own, inside the college that issued it.
- *
- * Guesses are rate limited per link, a wrong number and a person who teaches
- * nothing this term get the same answer, and the card never shows a civil ID,
- * a phone number or anyone else's row.
- */
-/* الحدّ مشترك بين الأبواب العامة كلها، ويعدّ الأخطاء لا الدخول — القاعدة في
-   ‎src/server/publicAttemptLimiter.ts‎. */
-const publicAttempts = createAttemptLimiter(limiterOptionsFromEnv());
-const publicAttemptKey = (scope: string, ip: string) => `${scope}|${ip}`;
-/* يُحجز قبل أوّل `await`: المحاولة تُحسب خطأً عند الدخول، ويُرجعها النجاح
-   وحده بـ`release()`. فلا يمرّ من الطلبات المتوازية أكثرُ من الحدّ. */
-const publicAttemptReserve = (scope: string, ip: string) => publicAttempts.reserve(publicAttemptKey(scope, ip));
-
 /** الأبواب التي لم تنتقل بعد إلى عدّ الأخطاء وحدها (استبيان الطلبة): كل طلبٍ يُعدّ. */
 function staffLookupAllowed(token: string, ip: string): boolean {
   return publicAttempts.consume(publicAttemptKey(token, ip));
-}
-
-/**
- * ── حركةُ جدول الأستاذ: مصدرٌ واحد لبطاقتي ولصفحة الطلب ────────────────────
- *
- * كانت «حركة الجدول» في بطاقتي و«الحركة» في صفحة الطلب شيئين مختلفين: الأولى
- * تقرأ نسخَ الجدول، والثانية بنودَ الطلب وحدها. فيرى الأستاذ في الموضعين
- * قصّتين. فصار لكلٍّ منهما القسمان نفساهما، بالكلمات نفسها:
- *   - طلباتُه: ما طلبه، وقرارُ القسم فيه.
- *   - حركةُ جدوله الرسمية: ما أُضيف ونُقل وحُذف فعلاً.
- */
-type MovementEntry = {
-  at: string; label: string; tone: "add" | "move" | "room" | "gone"; day: string; text: string;
-  source?: "request" | "schedule"; decision?: "fixed" | "rejected" | "pending";
-};
-
-const MOVEMENT_REJECT_REASON: Record<string, string> = {
-  room: "لا تتوفّر قاعةٌ مناسبة في هذا الوقت", instructor: "يتعارض مع أستاذ آخر", regulation: "مخالفة للائحة",
-  cohort: "يتقاطع مع مقرّر يشترك طلبتُه", load: "النصاب التدريسي", department: "قرار القسم", other: "سبب آخر",
-};
-
-function requestMovementEntries(requests: InstructorRequest[]): MovementEntry[] {
-  const entries: MovementEntry[] = [];
-  for (const request of requests) {
-    if (request.status === "sent" || !request.submittedAt) continue;
-    for (const item of request.items || []) {
-      if (item.action === "keep") continue;
-      const before = item.before, after = item.after;
-      const name = String(after?.courseName || before?.courseName || "مقرر");
-      const place = item.action === "add" && after?.collegeName ? ` · ${after.collegeName}` : "";
-      const text = item.action === "delete"
-        ? `طلبتَ حذف ${name} (${before?.days || ""} ${before?.time || ""})`
-        : item.action === "add"
-          ? `طلبتَ إضافة ${name}: ${after?.days || ""} ${after?.time || ""}${place}`
-          : `طلبتَ نقل ${name} من ${before?.days || ""} ${before?.time || ""} إلى ${after?.days || ""} ${after?.time || ""}`;
-      const state = item.decision?.state === "fixed" ? "fixed" : item.decision?.state === "rejected" ? "rejected" : "pending";
-      const label = state === "fixed" ? "ثبّته القسم"
-        : state === "rejected"
-          ? `رفضه القسم${item.decision?.reasonCode ? ` — ${MOVEMENT_REJECT_REASON[item.decision.reasonCode] || ""}` : ""}${item.decision?.note ? ` · ${item.decision.note}` : ""}`
-          : "بانتظار قرار القسم";
-      entries.push({
-        at: String(item.decision?.decidedAt || request.submittedAt),
-        label, text: text.replace(/\s+/g, " ").trim(),
-        tone: item.action === "delete" ? "gone" : item.action === "add" ? "add" : "move",
-        day: "", source: "request", decision: state,
-      });
-    }
-  }
-  return entries;
-}
-
-/**
- * الأقسامُ التي تُقرأ حركتُه فيها: أقسامُ صفوفه الحالية وحدها كانت تُسقط القسمَ
- * الذي حُذف منه كلُّ ما يدرّسه — فلا يرى «حُذفت من جدولك» أبداً. فتُضاف أقسامُ
- * طلباته في الفصل، والقسمُ الذي أصدر الرابط.
- */
-function movementHistoryScopes(requests: ReadonlyArray<{ AdCollegeId?: number; AdSectionId?: number }>, ...extra: Array<{ collegeId: number; sectionId: number }>) {
-  const scopes = new Map<string, { collegeId: number; sectionId: number }>();
-  for (const scope of [...extra, ...requests.map(request => ({ collegeId: Number(request.AdCollegeId || 0), sectionId: Number(request.AdSectionId || 0) }))]) {
-    if (scope.collegeId && scope.sectionId) scopes.set(`${scope.collegeId}:${scope.sectionId}`, scope);
-  }
-  return [...scopes.values()];
-}
-
-async function scheduleMovementEntries(instructorId: number, termId: number, rows: any[], courseById: Map<number, any>, options: { withRooms?: boolean; historyScopes?: Array<{ collegeId: number; sectionId: number }> } = {}): Promise<MovementEntry[]> {
-  /* صفحةُ الطلب لا تحمل اسمَ قاعةٍ أبداً: تقول إن المكان تغيّر، ولا تقول أين. */
-  const withRooms = options.withRooms !== false;
-  const movementScopeMap = new Map<string, { collegeId: number; sectionId: number }>();
-  for (const scope of options.historyScopes || []) movementScopeMap.set(`${scope.collegeId}:${scope.sectionId}`, scope);
-  for (const row of rows) {
-    const collegeId = Number(row.AdCollegeId || 0), sectionId = Number(row.AdSectionId || 0);
-    if (collegeId && sectionId) movementScopeMap.set(`${collegeId}:${sectionId}`, { collegeId, sectionId });
-  }
-  const movementHistory: MovementEntry[] = [];
-  /* أيامُ المحاضرة كلُّها: «الأحد» وحده عن محاضرة الأحد والثلاثاء كان يوحي
-     بأن الثلاثاء لم يتغيّر. */
-  const movementDay = (row:any) => shareDayIndexes(row).map(index => SHARE_DAY_NAMES[index]).filter(Boolean).join(" · ");
-  const movementName = (row:any) => row?.AdCourseName || courseById.get(Number(row?.AdCourseId))?.CourseName || courseById.get(Number(row?.AdCourseId))?.CourseCode || "مقرر";
-  const movementRoom = (row:any) => [row?.AdRoomCode,row?.AdRoomHall].filter(Boolean).join("/") || "—";
-  const movementShape = (list:any[]) => new Map(list.filter(row => Number(row.AdInstructorId) === instructorId).map(row => [Number(row.id),row]));
-  for (const scope of movementScopeMap.values()) {
-    const [rawVersions, generation] = await Promise.all([
-      Repository.getScheduleVersions(scope.collegeId, scope.sectionId, termId, 100),
-      Repository.getInstructorRequestGeneration(scope.collegeId, scope.sectionId, termId),
-    ]);
-    const currentVersions = generation.startedAt ? rawVersions.filter(version => version.createdAt >= generation.startedAt) : rawVersions;
-    const versions = await hydrateVersionRows(currentVersions);
-    const ordered = [...versions].sort((a,b) => Date.parse(a.createdAt)-Date.parse(b.createdAt));
-    const liveSection = rows.filter(row => Number(row.AdCollegeId) === scope.collegeId && Number(row.AdSectionId) === scope.sectionId);
-    const states = ordered.map(version => ({ at:version.createdAt,label:version.label || "تعديل الجدول",rows:version.rows || [] }));
-    states.push({ at:new Date().toISOString(),label:"الجدول الحالي",rows:liveSection });
-    for (let i=1;i<states.length;i++) {
-      const before=movementShape(states[i-1].rows), after=movementShape(states[i].rows);
-      /* ما تغيّر بين لقطتين وقع بعد الأولى، بالفعل الذي أُخذت قبله (movementAttribution). */
-      const {at,label}=movementAttribution(states[i-1]);
-      for (const [id,now] of after) {
-        const was=before.get(id);
-        if (!was) { movementHistory.push({at,label,tone:"add",day:movementDay(now),source:"schedule",text:`${movementName(now)} أُضيفت ${now.fstarttime}–${now.fendtime}${withRooms ? ` · ${movementRoom(now)}` : ""}`}); continue; }
-        if (String(was.fstarttime)!==String(now.fstarttime) || String(was.fendtime)!==String(now.fendtime) || shareDayIndexes(was).join(",")!==shareDayIndexes(now).join(","))
-          movementHistory.push({at,label,tone:"move",day:movementDay(now),source:"schedule",text:`${movementName(now)} تغيّر موعدها من ${was.fstarttime}–${was.fendtime} إلى ${now.fstarttime}–${now.fendtime}`});
-        if (movementRoom(was)!==movementRoom(now))
-          movementHistory.push({at,label,tone:"room",day:movementDay(now),source:"schedule",text:withRooms ? `${movementName(now)} تغيّرت القاعة ${movementRoom(was)} ← ${movementRoom(now)}` : `${movementName(now)} تغيّر مكانُ محاضرتها`});
-      }
-      for (const [id,was] of before) if (!after.has(id))
-        movementHistory.push({at,label,tone:"gone",day:movementDay(was),source:"schedule",text:`${movementName(was)} حُذفت من جدولك`});
-    }
-  }
-  return movementHistory;
 }
 
 async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedTermId = 0) {
@@ -16357,19 +12462,6 @@ async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedT
   };
 }
 
-/* بطاقة الأستاذ تُنشر لعائلة القسم العلمية الواحدة، لا لكل موقع على حدة. */
-async function staffFamilyScopes(collegeId: number, sectionId: number) {
-  return departmentFamily(await Repository.getSections(), collegeId, sectionId);
-}
-async function staffFamilyShareLinks(collegeId: number, sectionId: number, termId: number): Promise<ScheduleShareLink[]> {
-  const family = await staffFamilyScopes(collegeId, sectionId);
-  return (await Promise.all(family.map(scope => Repository.getShareLinks(scope.collegeId, scope.sectionId, termId))))
-    .flat().filter(link => link.kind === "staff");
-}
-const liveStaffPublication = (link: ScheduleShareLink): boolean =>
-  link.kind === "staff" && !link.revoked && !Number(link.AdInstructorId || 0)
-  && Date.parse(String(link.expiresAt || "")) > Date.now();
-
 app.get("/api/share", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
@@ -16387,16 +12479,6 @@ app.get("/api/share", requirePermission(7), async (req: AuthenticatedRequest, re
   res.json([...ownLinks.filter(link => link.kind !== "staff"), ...visibleStaff]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
 });
-
-/** عنوانُ الرابط كما يُعرض في لوحة النشر وعلى الصفحة — لكل نوعٍ صيغتُه. */
-function shareLinkLabel(kind: "staff" | "survey" | "department" | "students", sectionName: string, termName: string): string {
-  if (kind === "students") return `جدول الطلبة · ${sectionName}`.trim();
-  return kind === "staff"
-    ? `بطاقات الأساتذة · ${termName}`.trim()
-    : kind === "survey"
-      ? `استبيان المقررات · ${sectionName} · ${termName}`.trim()
-      : `${sectionName} · ${termName}`.trim();
-}
 
 app.post("/api/share", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
@@ -17032,13 +13114,6 @@ function authorityDepartmentKeyOf(college: any, section: any): string {
   const collegeCode = site.length >= 2 ? site.slice(0, 2) : catalogue.length >= 2 ? catalogue.slice(0, 2) : catalogue;
   return authorityDepartmentCode(collegeCode, section?.AdSectionCode);
 }
-
-/* ── كشفُ «المتبقي» (PDF أو صورة) ← معاينة ─────────────────────────────────
-   لا يُحفظ شيءٌ هنا ولا يُبقى الملف: تُعاد القراءةُ (الأعمدة وأرقام كل مقرر)
-   والواجهة تعرضها، والقسم يختار العمود ويُملأ ثم يُحفظ بالباب المعتاد.
-   كشفٌ مصوّرٌ صفحاتٍ يُرفع صورةً صورة: كلُّ ردٍّ يحمل خلايا صفحته، والواجهة
-   تجمعها وتطلب قراءتها معاً (remaining-cells) فتتطابق أعمدةُ الصفحات. */
-const REMAINING_SEASONS: Record<string, "first" | "second" | "summer"> = { "الأول": "first", "الثاني": "second", "الصيفي": "summer" };
 const REMAINING_SEASON_NAMES = { first: "الأول", second: "الثاني", summer: "الصيفي" } as const;
 async function remainingContext(collegeId: number, sectionId: number, termId: number) {
   const [courses, colleges, sections, terms] = await Promise.all([Repository.getCoursesBySection(sectionId), Repository.getColleges(), Repository.getSections(), Repository.getTerms()]);
@@ -17254,26 +13329,6 @@ app.get("/api/public/ics/:token", async (req: Request, res: Response) => {
   })));
 });
 
-/**
- * ── تقويم الأستاذ ───────────────────────────────────────────────────────────
- *
- * A calendar subscription is one URL fetched by a phone forever, with no way to
- * send anything alongside it — no form, no header a person could fill in. So the
- * civil ID cannot be the key: it would sit in the URL, in the phone's account
- * settings, and in every server log that ever touches it.
- *
- * Instead the card — which has already proved who is holding it — hands out a
- * derived key: an HMAC over the link and the instructor's row id. It reveals no
- * civil ID, cannot be reversed into one, cannot be guessed without the server's
- * secret, and dies the moment the link that produced it is revoked or expires.
- */
-/* السرّ لا يولَد عشوائياً عند كل إقلاع: القاعدة كلّها في ‎src/server/calendarSecret.ts‎
-   (المتغيّر إن ضُبط، وإلا مشتقٌّ من السرّ المشترك المحفوظ). */
-const calendarSecret = createCalendarSecretResolver(() => process.env.CALENDAR_SECRET, () => Repository.getSharedServerSecret());
-
-const calendarKey = async (token: string, instructorId: number) =>
-  calendarFeedKey(await calendarSecret(), token, instructorId);
-
 app.get("/api/public/ics/:token/:key", async (req: Request, res: Response) => {
   const token = String(req.params.token || "");
   const resolved = await resolveShareToken(token);
@@ -17301,10 +13356,6 @@ app.get("/api/public/cal/:token/:key", async (req: Request, res: Response) => {
   if (!person) { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
   await sendInstructorCalendar(req, res, person);
 });
-
-/** رابطُ الاشتراك الثابت لأستاذ، نسبياً للموقع. */
-const stableCalendarPath = async (token: string, instructorId: number) =>
-  `/api/public/cal/${encodeURIComponent(token)}/${personCalendarKey(await calendarSecret(), instructorId)}.ics`;
 
 /**
  * ── تذكيرٌ ليومٍ واحد (مساري) ──────────────────────────────────────────────
@@ -17483,170 +13534,6 @@ app.post("/api/public/staff/:token/note", async (req: Request, res: Response) =>
 });
 
 /**
- * ── الاستبيان ───────────────────────────────────────────────────────────────
- *
- * A door for students, and the only one in the system. It is scoped to ONE
- * section by the link itself, and that is load-bearing: sections here are
- * already separated by gender, so the link decides which cohort is answering
- * and nobody has to guess anything from a person's name. A boys' survey and a
- * girls' survey are two links, issued the same way as any other.
- *
- * The civil ID is checked against the Kuwaiti checksum — an invented number
- * never reaches the store. It is then kept in two forms: a keyed HMAC
- * fingerprint (the duplicate key, which identifies nobody on its own) AND,
- * together with the name, a field-level AES-256-GCM ciphertext, because the
- * authorised department and registration need to know who a case belongs to.
- * Neither plaintext is logged or sent to anyone outside those screens; an
- * existing case is opened on the public pages only with civil ID + case number.
- */
-/* الوعدُ محفوظٌ للعملية كلها، فيُقرأ السرُّ الحقيقيُّ دائماً — خارج صندوق العرض
-   (getSharedServerSecret). كان يُقرأ بسياق أوّل طالبٍ يسأله: فإن كان زائراً
-   تجريبياً حُفظ مفتاحُ الصندوق المحلي للنسخة كلها، فخُتمت به هوياتُ الطلبة
-   الحقيقيين وبصماتُهم بعده — مفتاحٌ لا تعرفه النسخُ الأخرى. */
-let studentCaseSecretPromise: Promise<string> | null = null;
-const studentCaseSecret = () => studentCaseSecretPromise ||= Repository.getSharedServerSecret();
-const surveyFingerprint = async (civil: string) =>
-  createHmac("sha256", await studentCaseSecret()).update(`need|${civil}`).digest("hex").slice(0, 32);
-
-const studentIdentityKey = async () => createHmac("sha256", await studentCaseSecret()).update("student-case-identity-v1").digest();
-const sealStudentIdentity=async(value:string)=>{
-  const iv=randomBytes(12),cipher=createCipheriv("aes-256-gcm",await studentIdentityKey(),iv);
-  const encrypted=Buffer.concat([cipher.update(value,"utf8"),cipher.final()]),tag=cipher.getAuthTag();
-  return Buffer.concat([iv,tag,encrypted]).toString("base64url");
-};
-const openStudentIdentity=async(value?:string)=>{
-  const raw=String(value||""); if(!raw) return "";
-  const decryptWith=async(key:Buffer)=>{const payload=Buffer.from(raw,"base64url"),iv=payload.subarray(0,12),tag=payload.subarray(12,28),encrypted=payload.subarray(28),cipher=createDecipheriv("aes-256-gcm",key,iv);cipher.setAuthTag(tag);return Buffer.concat([cipher.update(encrypted),cipher.final()]).toString("utf8")};
-  try{return await decryptWith(await studentIdentityKey());}
-  catch{
-    // One-release bridge for records written before the shared key existed. If
-    // CALENDAR_SECRET was configured stably, old cases remain readable and can
-    // coexist with new shared-key cases. Per-instance random legacy records are
-    // cryptographically unrecoverable once the writing instance disappears.
-    const legacyCalendarSecret=String(process.env.CALENDAR_SECRET||"").trim();
-    if(!legacyCalendarSecret) return "";
-    try{return await decryptWith(createHmac("sha256",legacyCalendarSecret).update("student-case-identity-v1").digest());}catch{return"";}
-  }
-};
-
-/**
- * ── من يرى اسمَ الطالب ورقمه المدني ─────────────────────────────────────────
- * One rule for the two screens that show them (the intelligence centre's case
- * register and the registration sheet): the department and registration staff
- * who act on a case see who it belongs to; the view-only roles (dean, vice
- * dean, registrar dean) read the same register without the identity.
- */
-const canSeeStudentIdentity = (req: AuthenticatedRequest): boolean => !isViewerOnlyRole(req.user?.Role);
-const studentIdentityFor = async (req: AuthenticatedRequest, need: any): Promise<{ name: string; civil: string }> => {
-  if (!canSeeStudentIdentity(req)) return { name: "", civil: "" };
-  const [name, civil] = await Promise.all([openStudentIdentity(need?.nameCipher), openStudentIdentity(need?.civilCipher)]);
-  return { name, civil };
-};
-
-/** The name-derived SUGGESTION lives once, in src/utils/degreeRules.ts. It is
- * never a rule a student is measured against until the department saves it. */
-const degreeRuleFromName=suggestedDegreeRule;
-
-/**
- * The rule a department is actually judged by.
- *
- * This is what the graduate case in the student survey measures a transcript
- * against, so it decides whether a real student is told they are eligible. It
- * was inferred from the department NAME by regular expression: a department
- * earned 134 units by containing the word «انجليزي», and every department that
- * matched nothing fell to 130 — a number nobody chose, that no screen showed,
- * and that a rename could change without anyone noticing. A stored rule now
- * wins; the name heuristic remains only as the seed for departments nobody has
- * reviewed yet.
- */
-const degreeRuleForSection=async(sectionId:number,sectionName:string):Promise<DegreeRule&{reviewed:boolean}>=>{
-  const stored=(await Repository.getDegreeRules()).find(row=>Number(row.AdSectionId)===Number(sectionId));
-  if(!stored)return{...degreeRuleFromName(sectionName),reviewed:false};
-  return{
-    degreeUnits:Number(stored.degreeUnits),
-    fieldTrainingRequired:Number(stored.fieldTrainingRequired),
-    graduateRegularPassed:Number(stored.graduateRegularPassed),
-    graduateSummerPassed:Number(stored.graduateSummerPassed),
-    reviewed:true,
-  };
-};
-
-/** Graduate proof is a hard data gate, so it never falls back to the historical
- * name heuristic. The department's saved academic rule must exist. */
-const storedDegreeRuleForSection=async(sectionId:number):Promise<DegreeRule|null>=>{
-  const stored=(await Repository.getDegreeRules()).find(row=>Number(row.AdSectionId)===Number(sectionId));
-  if(!stored)return null;
-  const rule={
-    degreeUnits:Number(stored.degreeUnits),
-    fieldTrainingRequired:Number(stored.fieldTrainingRequired),
-    graduateRegularPassed:Number(stored.graduateRegularPassed),
-    graduateSummerPassed:Number(stored.graduateSummerPassed),
-  };
-  return Object.values(rule).every(value=>Number.isFinite(value)&&value>0)?rule:null;
-};
-
-/** A plan's own graduation rule. «الصحيفة السابقة» created before rules moved
- * onto plans carries none; its students are the ones the department's saved
- * rule was written for, so that rule answers for it. */
-const planDegreeRule=(plan:CurriculumPlan,sectionRule:DegreeRule|null):DegreeRule|null=>{
-  const own=plan.degreeRule;
-  if(own){
-    const rule={degreeUnits:Number(own.degreeUnits),fieldTrainingRequired:Number(own.fieldTrainingRequired),graduateRegularPassed:Number(own.graduateRegularPassed),graduateSummerPassed:Number(own.graduateSummerPassed)};
-    return Object.values(rule).every(value=>Number.isFinite(value)&&value>0)?rule:null;
-  }
-  return plan.code==="LEGACY"?sectionRule:null;
-};
-
-/**
- * ── قواعد التخرج في المرحلة الانتقالية ─────────────────────────────────────
- * The rules a graduate of this department may be measured against: one per
- * live curriculum plan, or the department's own rule when it has no plans.
- * Every graduate path (survey payload, proof, reuse, submit) asks this one
- * function; `choosePlanForSheet` then picks the student's plan from the sheet.
- */
-const graduationCandidatesForSection=async(sectionId:number):Promise<PlanRuleCandidate[]>=>{
-  const [plans,sectionRule]=await Promise.all([Repository.getCurriculumPlans(sectionId),storedDegreeRuleForSection(sectionId)]);
-  /* The current plan first, everywhere these are listed. */
-  const live=plans.filter(plan=>plan.status!=="archived"&&!plan.virtual).sort((a,b)=>Number(b.status==="active")-Number(a.status==="active"));
-  if(!live.length)return[{planName:"قواعد القسم",status:"section",rule:sectionRule}];
-  return live.map(plan=>({planId:plan.id,planName:plan.name,status:plan.status==="active"?"active":"transition",rule:planDegreeRule(plan,sectionRule)}));
-};
-/** The rule a verified sheet was measured against, re-read NOW: a rule edited
- * after the upload applies, a plan archived since then does not. A proof with
- * no plan (issued before plans carried rules) is valid only while one rule stands. */
-const graduationRuleFor=(candidates:PlanRuleCandidate[],planId:unknown):PlanRuleCandidate&{rule:DegreeRule}|null=>{
-  const ruled=candidates.filter((row):row is PlanRuleCandidate&{rule:DegreeRule}=>Boolean(row.rule));
-  const id=String(planId||"");
-  if(id)return ruled.find(row=>row.planId===id)||null;
-  return candidates.length===1&&ruled.length===1?ruled[0]:null;
-};
-
-/**
- * Which number a graduate case is measured against.
- *
- * A summer term and a regular term do not ask for the same total, and the
- * survey link already knows which term it belongs to — so the threshold follows
- * the term rather than being one figure for the whole year.
- */
-const isSummerTerm=(termName:string)=>/صيفي|صيفى|summer/i.test(String(termName||""));
-const graduateThreshold=(rule:DegreeRule,termName:string)=>
-  isSummerTerm(termName)?Number(rule.graduateSummerPassed):Number(rule.graduateRegularPassed);
-/** How long a verified graduation sheet stays usable in one page session. */
-const STUDENT_PROOF_TTL_MS=20*60_000;
-const issueStudentProof=async(payload:{fingerprint:string;sectionId:number;passedUnits:number;requiredUnits:number;degreeUnits:number;curriculumPlanId?:string;nameMatched:boolean;specializationMatched:boolean;documentKind:"graduation-sheet"})=>{
-  const body=Buffer.from(JSON.stringify({...payload,exp:Date.now()+STUDENT_PROOF_TTL_MS})).toString("base64url");
-  const signature=createHmac("sha256",await studentIdentityKey()).update(body).digest("base64url");return`${body}.${signature}`;
-};
-/** A genuine proof whose time ran out — told apart from a missing or forged one
- * so the page can reopen the upload instead of a dead end. */
-const studentProofExpired=async(token:string)=>{
-  try{const[body,signature]=String(token||"").split("."),expected=createHmac("sha256",await studentIdentityKey()).update(body).digest("base64url");if(!body||signature!==expected)return false;const payload=JSON.parse(Buffer.from(body,"base64url").toString("utf8"));return Number(payload.exp)<=Date.now();}catch{return false;}
-};
-const verifyStudentProof=async(token:string)=>{
-  try{const[body,signature]=String(token||"").split("."),expected=createHmac("sha256",await studentIdentityKey()).update(body).digest("base64url");if(!body||signature!==expected)return null;const payload=JSON.parse(Buffer.from(body,"base64url").toString("utf8"));return Number(payload.exp)>Date.now()?payload:null;}catch{return null;}
-};
-
-/**
  * ── رقمُ الحالة هو المفتاح الثاني ───────────────────────────────────────────
  *
  * الرقمُ المدنيُّ ليس سرّاً: يعرفه الزميلُ والقريب، ويُكتب على كل استمارة.
@@ -17730,26 +13617,6 @@ const reusableStudentIdentity=async(link:any,civil:string)=>{
   return{fingerprint,name:name.trim(),civil:storedCivil,sectionId,needId:String(prior.id||"")};
 };
 
-/* One numeric alphabet: the shared converter, not a second copy of it. */
-const asciiDigits = toEnglishDigits;
-
-const surveyCohort = (sectionName: string) => {
-  const text = String(sectionName || "");
-  if (/بنات|طالبات|إناث|اناث/.test(text)) return { cohort: "girls", cohortLabel: "طالبات" };
-  if (/بنين|طلاب|ذكور/.test(text)) return { cohort: "boys", cohortLabel: "طلاب" };
-  return { cohort: "mixed", cohortLabel: "طلبة القسم" };
-};
-
-/**
- * The courses a survey treats as ACTIVE for one department — one rule for the
- * page that lists them (GET), the answer that is checked (POST) and the
- * department's reading of the answers (demand). GET used curriculumOverview,
- * which drops catalogue courses that have no plan membership, while POST and
- * demand used getOperationalCourseIds, which keeps them: a course could be
- * accepted and counted but never offered, or the reverse.
- */
-const surveyActiveCourseIds = (sectionId: number): Promise<Set<number>> => Repository.getOperationalCourseIds(sectionId);
-
 function surveyCourseIdsForSection(courses: any[], history: any[], sectionId: number) {
   const taught = new Map<number, number>();
   for (const row of history) {
@@ -17809,19 +13676,7 @@ app.put("/api/degree-rules/:sectionId", requirePermission(4), async (req: Authen
   surveyPayloadCache.clear();
   res.json(saved);
 });
-
-/**
- * انتهى الفصلُ الذي يجمع له الاستبيان: مرّ تاريخُ نهايته، أو أعلن صاحبُ
- * الصلاحية انتهاءه. قاعدةٌ واحدة يسألها إصدارُ الرابط، وقراءتُه، والإرسال.
- */
-const surveyTermEnded = (term: any): boolean => Boolean(term) && (term.AdTermClosed === true || termHasEnded(term));
 const SURVEY_TERM_ENDED = "انتهى هذا الفصل، ولم يعد الاستبيان يستقبل طلبات. تابع طلبك السابق من «حالة طلبي» أو راجع القسم.";
-
-/* ── قائمةُ مقرّرات الاستبيان تُبنى مرّةً لكل رابط ────────────────────────
- * بناؤها يقرأ أرشيفَ الجداول كلّه (عشر سنوات) وخطةَ كل قسم. وكان يُعاد لكل
- * طالبٍ يفتح الرابط — ومئاتُ الطلبة يفتحونه في اليوم نفسه. والقائمةُ لا تتغيّر
- * بين طالبٍ وآخر، فتُحفظ عشرَ دقائق ويأخذها من بعده فوراً. */
-const surveyPayloadCache = new Map<string, { at: number; payload: any }>();
 const SURVEY_PAYLOAD_TTL_MS = 10 * 60 * 1000;
 
 app.get("/api/public/survey/:token", async (req: Request, res: Response) => {
@@ -17964,99 +13819,6 @@ const readStudentProofBody=(req:Request,res:Response,next:NextFunction)=>{
     next(error);
   });
 };
-/* التحقّق من صحيفة التخرّج: واحدٌ للاستبيان القديم ولبابِ «مساري» — القاعدة في موضعٍ واحد. تكتب ردَّها في `res` (أي كائنٍ بـ status().json()). */
-type GraduateProofSink={status:(code:number)=>{json:(body:any)=>void};json:(body:any)=>void};
-async function graduateProofCore(a:{collegeId:number;termId:number;civil:string;name:string;sectionId:number;bytes:Buffer;mime:string},res:GraduateProofSink):Promise<void>{
-  const{civil,name,sectionId}=a;
-  const sections=await Repository.getSections(),section=sections.find((row:any)=>Number(row.AdSectionId)===sectionId&&Number(row.AdCollegeId)===a.collegeId);
-  if(!section){res.status(400).json({error:"القسم العلمي غير صالح"});return;}
-  /* The saved academic rule is a precondition, checked BEFORE the expensive
-     OCR: without it no sheet can be judged, so reading one only burned the
-     student's upload and the server's memory to say «no rule» afterwards. */
-  const ruleCandidates=await graduationCandidatesForSection(sectionId);
-  if(!ruleCandidates.some(row=>row.rule)){res.status(422).json({error:"لا توجد قواعد تخرج أكاديمية معتمدة لهذا القسم في النظام. لا يمكن التحقق من صحيفة التخرج قبل اعتمادها من إدارة القسم.",code:"no-degree-rule"});return;}
-  const bytes=a.bytes;if(!bytes.length){res.status(400).json({error:"ارفع صحيفة التخرج PDF أو صورة واضحة"});return;}
-  const mime=a.mime;
-  let ocr;
-  try{ocr=await ocrGraduationSheetDocument(bytes,mime);}
-  catch(error:any){/* رسالةُ مكتبةٍ إنجليزية («Invalid PDF structure») لا تُقال للطالب: نصٌّ عربيٌّ واحد. */
-    const why=String(error?.message||"");
-    res.status(422).json({error:/[\u0621-\u064A]/.test(why)?why:"تعذّرت قراءة الإثبات. ارفع صورة أوضح أو ملف PDF."});return;}
-  const facts=graduationSheetFacts(ocr.text);
-  const civilCandidates=(Array.isArray(facts.civilCandidates)?facts.civilCandidates:[])
-    .map((value:any)=>asciiDigits(value).replace(/\D/g,""))
-    .filter((value:string,index:number,array:string[])=>value.length===12&&validateCivilId(value).isValid&&array.indexOf(value)===index);
-  /* Exact identity remains the hard gate. Ignore timestamp-like 12-digit OCR
-     noise by checksum, then accept the entered civil when it appears either as
-     one token or as digit groups on ONE visual line. No digit is repaired or
-     guessed. This restores the official Authority screenshot where Tesseract
-     may emit «3000 1010 0122» instead of «300010100122». */
-  const proofAscii=asciiDigits(String(ocr.text||""));
-  const escapedCivil=civil.split("").map(d=>d.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("[ \t\u00a0\u200e\u200f.-]{0,3}");
-  const civilVisible=civilCandidates.includes(civil)||new RegExp(`(?:^|[^0-9])${escapedCivil}(?:[^0-9]|$)`).test(proofAscii);
-  const hasPassedEvidence=Number(facts.passedUnits)>0||(Array.isArray(facts.passedUnitCandidates)&&facts.passedUnitCandidates.length>0);
-  const proofFactsReadable=Boolean(facts.isGraduationSheet&&civilVisible&&Number(facts.passedUnits)>0)
-    ||Boolean(facts.isGraduationSheet&&civilVisible&&hasPassedEvidence);
-  if(!ocr.legibility.readable&&!proofFactsReadable){res.status(422).json({error:ocr.legibility.reason});return;}
-  if(!facts.isGraduationSheet){
-    res.status(422).json({error:"الملف المرفوع ليس صحيفة التخرج/الخطة الدراسية المعتمدة. ارفع الصفحة الرسمية التي يظهر فيها البرنامج والوحدات المجتازة."});return;
-  }
-  if(!civilCandidates.length&&!civilVisible){res.status(422).json({error:"لم أتعرف على الرقم المدني في صحيفة التخرج. ارفع نسخة أوضح يظهر فيها الرقم كاملاً."});return;}
-  if(!civilVisible){res.status(422).json({error:"الرقم المدني في الإثبات لا يطابق الرقم المدخل."});return;}
-  /* The typed name is for the department's human-facing case card, not a hard
-     proof key. Students may enter first + last name while the Authority sheet
-     prints the full civil name. Civil ID remains the 100% identity gate. */
-  const foldName=(value:string)=>String(value||"").replace(/[ً-ْـ]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/[^ء-يa-zA-Z ]/g," ").replace(/\s+/g," ").trim().toLowerCase();
-  const documentName=foldName(ocr.text),nameWords=foldName(name).split(" ").filter(word=>word.length>=3),nameMatched=nameWords.length>0&&nameWords.some(word=>documentName.includes(word));
-  /* Only the programme row decides the specialization — never words anywhere
-     else on the sheet. No readable programme row fails closed. */
-  const programmeText=String(facts.programmeText||"");
-  if(!programmeText){
-    res.status(422).json({code:"programme-unreadable",error:"لم أتعرف على سطر «البرنامج» في صحيفة التخرج. ارفع الصفحة الرسمية كاملة وبوضوح يظهر فيها البرنامج."});return;
-  }
-  const specializationMatched=academicSectionNameMatches(programmeText,String(section.AdSectionName||""));
-  if(!specializationMatched){
-    res.status(422).json({error:`التخصص الظاهر في صحيفة التخرج لا يطابق القسم المحدد «${String(section.AdSectionName||"")}». اختر قسمك الصحيح وارفع صحيفتك أنت.`});return;
-  }
-  /* Required graduation units come from the selected department's reviewed
-     academic rule. OCR only has to prove the student's PASSED units. The
-     Authority screenshot lays its values in a visual row, so sparse OCR can
-     read the label and the number with programme text between them. When the
-     immediate label-value pair is missing, resolve only the bounded candidates
-     next to «الوحدات المجتازة», anchored by the department's degree total. */
-  /* Old or new curriculum: the sheet's own «الوحدات المطلوبة» decides, in
-     src/utils/graduationPlan.ts. Never measured against another plan's rule. */
-  const planChoice=choosePlanForSheet(ruleCandidates,{requiredUnits:Number(facts.requiredUnits||0),requiredUnitCandidates:facts.requiredUnitCandidates,passedUnits:Number(facts.passedUnits||0)});
-  if("error" in planChoice){res.status(422).json({code:planChoice.code,error:planChoice.error});return;}
-  const rule=planChoice.candidate.rule,curriculumPlanId=planChoice.candidate.planId;
-  const degreeUnits=Number(rule.degreeUnits);
-  const resolvePassedUnits=()=>{
-    const direct=Number(facts.passedUnits||0);if(direct>0)return direct;
-    const near=(Array.isArray(facts.passedUnitCandidates)?facts.passedUnitCandidates:[])
-      .map((value:any)=>Number(value)).filter((value:number)=>Number.isFinite(value)&&value>=60&&value<=degreeUnits);
-    const candidates=near.length?near:(Array.isArray(facts.unitCandidates)?facts.unitCandidates:[])
-      .map((value:any)=>Number(value)).filter((value:number)=>Number.isFinite(value)&&value>=60&&value<=degreeUnits);
-    if(!candidates.length)return 0;
-    if(candidates.length===1)return candidates[0]===degreeUnits?0:candidates[0];
-    const remaining=[...candidates];
-    const degreeIndex=remaining.indexOf(degreeUnits);
-    if(degreeIndex>=0)remaining.splice(degreeIndex,1);
-    return remaining.filter(value=>value<=degreeUnits).sort((a,b)=>b-a)[0]||0;
-  };
-  const passedUnits=resolvePassedUnits();
-  if(!passedUnits){res.status(422).json({error:"لم أتعرف على مجموع الوحدات المجتازة في صحيفة التخرج. ارفع الصفحة الرسمية كاملة وبوضوح."});return;}
-  const terms=await Repository.getTerms();
-  const termName=String(terms.find((row:any)=>Number(row.AdTermId)===a.termId)?.AdTermName||"");
-  const required=graduateThreshold(rule,termName),summer=isSummerTerm(termName);
-  const eligible=passedUnits>=required;
-  if(!eligible){res.status(422).json({error:`لم تُستوفَ وحدات الخريج/المتوقع تخرجه: الصحيفة تظهر اجتياز ${countOf(passedUnits, oblique(AR.unit))}، والمطلوب ${required} في ${summer?"الفصل الصيفي":"الفصل العادي"}${ruleCandidates.length>1?` حسب «${planChoice.candidate.planName}»`:""}.`});return;}
-  const proofToken=await issueStudentProof({fingerprint:await surveyFingerprint(civil),sectionId,passedUnits,requiredUnits:required,degreeUnits:Number(rule.degreeUnits),curriculumPlanId,nameMatched,specializationMatched,documentKind:"graduation-sheet"});
-  const planNote=ruleCandidates.length>1?` حسب «${planChoice.candidate.planName}»`:" حسب بيانات قسمك";
-  res.json({eligible:true,passedUnits,requiredUnits:required,degreeUnits:Number(rule.degreeUnits),termName,summer,planName:ruleCandidates.length>1?planChoice.candidate.planName:undefined,
-    message:`تم التحقق من صحيفة التخرج: الرقم المدني والقسم والوحدات المجتازة مطابقة. اجتزت ${countOf(passedUnits, oblique(AR.unit))}، والمطلوب ${required}${planNote}. يمكنك متابعة الطلب.`,
-    proofToken,confidence:ocr.confidence});
-
-}
 app.post("/api/public/survey/:token/proof", readStudentProofBody, async (req:Request,res:Response)=>{
   const token=String(req.params.token||""),resolved=await resolveShareToken(token);
   if("error"in resolved){res.status(resolved.status).json({error:resolved.error});return;}
@@ -18068,34 +13830,6 @@ app.post("/api/public/survey/:token/proof", readStudentProofBody, async (req:Req
   await graduateProofCore({collegeId:Number(resolved.link.AdCollegeId),termId:Number(resolved.link.AdTermId),civil,name,sectionId,
     bytes:Buffer.isBuffer(req.body)?req.body:Buffer.alloc(0),mime:String(req.get("x-file-type")||"application/pdf").slice(0,80)},res);
 });
-
-/* ما يُتحقَّق منه عند إرسال طلب الخريج: رمزُ الإثبات حيّ، ولهذا الطالب والقسم، والعتبةُ من القاعدة الحالية لفصل الطلب. واحدةٌ للاستبيان القديم ولـ«مساري». */
-async function graduateSubmitCheck(a:{civil:string;sectionId:number;termId:number;proofToken:string;reusableProofToken?:string}):Promise<
-  {error:{status:number;body:any}}|{passedUnits:number;requiredUnits:number;degreeUnits:number;provenPlanId?:string;nameMatched:boolean;eligibility:"eligible"|"ineligible"}>{
-  const{civil,sectionId}=a;
-  let proof=await verifyStudentProof(a.proofToken);
-  if(!proof&&a.reusableProofToken){
-    proof=await verifyStudentProof(a.reusableProofToken);
-  }
-  const ruleCandidates=await graduationCandidatesForSection(sectionId);
-  if(!ruleCandidates.some(row=>row.rule))return{error:{status:400,body:{error:"قواعد التخرج الأكاديمية لهذا القسم غير معتمدة في النظام"}}};
-  const provenPlan=proof?graduationRuleFor(ruleCandidates,proof.curriculumPlanId):null;
-  const currentRule=provenPlan?.rule;
-  if(!proof&&await studentProofExpired(a.proofToken)){
-    return{error:{status:400,body:{code:"proof-expired",error:"انتهت مهلة التحقق من صحيفة التخرج (20 دقيقة). أعد رفعها للتحقق — ملاحظاتك ونوع طلبك باقيان في الصفحة."}}};
-  }
-  if(!proof||!currentRule||proof.fingerprint!==await surveyFingerprint(civil)||Number(proof.sectionId)!==sectionId||proof.documentKind!=="graduation-sheet"||proof.specializationMatched!==true||Number(proof.degreeUnits)!==Number(currentRule.degreeUnits)){
-    return{error:{status:400,body:{code:"proof-required",error:"ارفع صحيفة التخرج الرسمية وتحقق منها قبل إرسال حالة الخريج"}}};
-  }
-  /* The threshold is the CURRENT saved rule for the request's term — never the
-     figure carried inside the proof token, which was computed for whatever
-     term and rule applied when the sheet was read. */
-  const termName=String((await Repository.getTerms()).find((row:any)=>Number(row.AdTermId)===Number(a.termId))?.AdTermName||"");
-  const passedUnits=Number(proof.passedUnits||0),requiredUnits=graduateThreshold(currentRule,termName);
-  const eligibility=requiredUnits>0&&passedUnits>=requiredUnits?"eligible" as const:"ineligible" as const;
-  if(eligibility!=="eligible")return{error:{status:400,body:{error:`غير مجتاز للوحدات المطلوبة (${requiredUnits})`}}};
-  return{passedUnits,requiredUnits,degreeUnits:Number(currentRule.degreeUnits),provenPlanId:provenPlan?.planId,nameMatched:Boolean(proof.nameMatched),eligibility};
-}
 
 app.post("/api/public/survey/:token", async (req: Request, res: Response) => {
   const token = String(req.params.token || "");
@@ -18231,22 +13965,6 @@ app.post("/api/public/survey/:token", async (req: Request, res: Response) => {
   res.status(201).json({ name, count: courseIds.length, requestType, caseRef: caseRefFor(savedNeed) });
 });
 
-/**
- * «صحيفة سابقة / جديدة» beside a student: the plan their graduation sheet
- * proved, or the only plan their chosen courses fit. Read from the student's
- * own department, and shown only there are two live plans to tell apart.
- */
-const curriculumLabelsFor=async(needs:any[])=>{
-  const sectionIds=[...new Set(needs.filter(need=>need?.curriculumPlanId).map(need=>Number(need.studentSectionId||need.AdSectionId||0)).filter(Boolean))];
-  const labels=new Map<string,{name:string;status:string}>();
-  await Promise.all(sectionIds.map(async sid=>{
-    const plans=await Repository.getCurriculumPlans(sid);
-    if(plans.filter(plan=>plan.status!=="archived").length<2)return;
-    for(const plan of plans)labels.set(plan.id,{name:plan.name,status:plan.status});
-  }));
-  return(need:any)=>labels.get(String(need?.curriculumPlanId||""))||null;
-};
-
 /** What the students said, for the department: the counts that plan sections,
  * and the named case list (name + civil ID decrypted) for the authorised,
  * scope-checked department only. Never cached by the service worker. */
@@ -18263,42 +13981,6 @@ async function cachedSectionGap(collegeId: number, sectionId: number, termId: nu
   if (sectionGapCache.size > 200) sectionGapCache.clear();
   sectionGapCache.set(key, { at: Date.now(), data });
   return data;
-}
-async function sectionGapData(collegeId: number, sectionId: number, termId: number) {
-  const [allTermNeeds, courses, termWeek, currentProfiles, stats] = await Promise.all([
-    Repository.getStudentNeeds(collegeId, 0, termId),
-    Repository.getCoursesBySection(sectionId),
-    Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
-    Repository.getStudentProfilesByCollege(collegeId).catch(() => []),
-    Repository.getRegistrationStats(collegeId, sectionId, termId).catch(() => null),
-  ]);
-  const operationalDemandIds = await surveyActiveCourseIds(sectionId);
-  const targetCourseIds = new Set((courses as any[]).filter(course => operationalDemandIds.has(Number(course.AdCourseId))).map(course => Number(course.AdCourseId)));
-  const needs = (allTermNeeds as any[]).filter(need => surveyOwnsNeed(need, sectionId, targetCourseIds));
-  const analyticalNeeds = mergeCurrentDemandResponses(needs as any[], currentProfiles as any[], { termId, collegeId, sectionId })
-    .filter((need: any) => Array.isArray(need.courseIds));
-  const reading = readStudentDemand(analyticalNeeds, courses as any[]);
-  const studentsOf = new Map(reading.courses.map(item => [Number(item.courseId), Number(item.students) || 0]));
-  const sectionsOf = new Map<number, Set<string>>();
-  for (const row of termWeek as any[]) {
-    const id = Number(row.AdCourseId);
-    if (!sectionsOf.has(id)) sectionsOf.set(id, new Set());
-    sectionsOf.get(id)!.add(String(row.SCode || row.id));
-  }
-  return {
-    respondents: reading.respondents,
-    planImported: Boolean(stats?.remainingSource?.column === "notPassed" && stats?.remainingSource?.fileName && stats.remainingSource.fileName !== "إدخال يدوي"),
-    planSource: stats?.remainingSource?.column === "notPassed" ? { fileName: stats.remainingSource.fileName, importedAt: stats.remainingSource.importedAt } : null,
-    /* «المختار» يُكتب بيد القسم ولو لم يُرفع كشف؛ والمتبقي لا يُعتدّ به إلا من كشفٍ مرفوع (الحالُ القديم المحفوظ بعمودٍ آخر لا يُحسب). */
-    accepted: stats?.accepted || {},
-    remaining: stats?.remainingSource?.column === "notPassed" ? (stats?.remaining || {}) : {},
-    courses: (courses as any[]).map(course => ({
-      id: Number(course.AdCourseId), code: String(course.CourseCode || ""), name: String(course.CourseName || ""),
-      capacity: Number(course.MaxStudent) || 0,
-      existing: sectionsOf.get(Number(course.AdCourseId))?.size || 0,
-      students: studentsOf.get(Number(course.AdCourseId)) || 0,
-    })),
-  };
 }
 
 /* ── K2: قرارات «تم/تجاهل» على بنود التخطيط، مشتركةٌ في النطاق ─────────────
@@ -19207,176 +14889,10 @@ app.post("/api/public/staff/:token", async (req: Request, res: Response) => {
   });
 });
 
-/* The old `staff-ics?civil=…` route is gone. A subscription URL is stored by
-   the phone and repeated in every server log for as long as it lives, and a
-   civil ID has no business being either. `/api/public/ics/:token/:key` above
-   carries a derived key instead and says the same thing. */
-
-/**
- * The instructor card page: one file, no bundle, no account.
- *
- * It opens on a single question — the civil ID — and turns into a personal
- * week once answered. Everything is inline so it loads on a weak connection
- * and keeps working when the campus network is slow.
- */
-/**
- * ── الصفحات العامة: سياسة صارمة، لأن مصدرها كلّه من هنا ─────────────────────
- *
- * These pages are the one surface an unauthenticated stranger reaches, and they
- * interpolate text the system did not author — a label, an OCR'd name, a message
- * typed by a visitor. Everything on them is escaped, but escaping is a rule that
- * has to hold at every single site; this is the wall that holds when one of them
- * someday does not.
- *
- * Their markup is written entirely by this file, so a per-response nonce is
- * reliable in a way it is not for a bundled application shell: only the four
- * scripts below carry it, and an injected script tag — having no nonce — does
- * not run at all.
- *
- * `style-src` stays 'unsafe-inline' deliberately. These pages carry a handful of
- * `style="…"` attributes, which a nonce cannot cover, and a nonce on the same
- * directive would *disable* the allowance they need. An inline style cannot
- * execute; with scripts nonced and `object-src 'none'`, letting them through
- * costs nothing that matters.
- */
-/*
- * ── تلميحُ البيئة التجريبية على الصفحات العامة ──────────────────────────────
- *
- * بطاقةُ الأستاذ والاستبيانُ و«حالة طلبي» وطلبُ الجدول كلُّها تطلب رقماً مدنياً
- * — وزائرُ التجربة لا يعرف رقماً يطابق شيئاً في صندوقه، فتقف الرحلةُ عند أول
- * حقل. فتقترح الصفحةُ في البيئة التجريبية وحدها رقماً وهمياً يعمل: أستاذاً في
- * القسم، وطالباً جديداً، وحالةً مبذورةً برقمها.
- *
- * ولا يُكتب شيءٌ من هذا في الحقيقي أبداً: الشرطُ الأول `isDemoRequest`، وهو لا
- * يصدق إلا والطلبُ مربوطٌ بصندوقٍ برمز رابطه (bindPublicLinkContext).
- */
-async function demoPageHint(link: ScheduleShareLink, page: "staff" | "survey" | "status" | "request"): Promise<string> {
-  if (!Repository.isDemoRequest()) return "";
-  /* الرقمُ مع زرّ «نسخ الرقم»: التحديدُ بالإصبع كان يقطع الرقم، فالنسخُ بضغطةٍ (DEMO_COPY_SCRIPT). */
-  const num = (value: string) => {
-    const digits = String(value).replace(/[^0-9A-Z]/gi, "");
-    return `<span class="demo-num"><bdi dir="ltr" style="font-weight:700;user-select:all;-webkit-user-select:all">${digits}</bdi>`
-      + `<button type="button" class="demo-copy" data-demo-copy="${digits}" aria-live="polite" title="نسخ الرقم" aria-label="نسخ الرقم ${digits}">`
-      + `<svg class="ic-copy" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg>`
-      + `<svg class="ic-ok" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button></span>`;
-  };
-  const lines: string[] = [];
-  if (page === "staff" || page === "request") {
-    const ownerId = Number(link.AdInstructorId || 0);
-    const rows = ownerId ? [] : await Repository.getSchedulesByScope({ collegeId: link.AdCollegeId, sectionId: link.AdSectionId, termId: link.AdTermId });
-    const ids = ownerId ? [ownerId] : [...new Set(rows.map(row => Number(row.AdInstructorId)))].sort((a, b) => a - b);
-    /* في بطاقة القسم يُقترح رقمُ أستاذ التجربة نفسه (من له طلبٌ ينتظره)، فيجد بعد الدخول رابطَ طلبه؛ أمّا البطاقةُ الشخصية فرقمُ صاحبها وحده (غيره يُردّ). */
-    const demoOwner = page === "staff" && !ownerId ? Number((await demoTeacherRequest())?.AdInstructorId || 0) : 0;
-    const instructors = await Repository.getInstructors();
-    const person = (demoOwner ? instructors.find(row => Number(row.AdInstructorId) === demoOwner && normalizeCivilId(row.AdInstructorCivil)) : undefined)
-      || instructors.find(row => !isFacultyPlaceholder(row) && ids.includes(Number(row.AdInstructorId)) && normalizeCivilId(row.AdInstructorCivil));
-    if (person) lines.push(page === "request"
-      ? `رقمُ صاحب هذا الرابط المدني (وهمي) للتوقيع عند الإرسال: ${num(normalizeCivilId(person.AdInstructorCivil))}`
-      : `جرّب الرقم المدني ${num(normalizeCivilId(person.AdInstructorCivil))} — أستاذٌ وهمي في هذا القسم.`);
-  }
-  const guide = Repository.getDemoGuide();
-  if (page === "survey" && guide) {
-    lines.push(`طالبٌ جديد: الرقم المدني ${num(guide.freshStudentCivil)} وأيُّ اسمٍ ثلاثي.`);
-    const graduate = guide.cases[0];
-    if (graduate) lines.push(`أو افتح حالةً مبذورة (${graduate.label}): الرقم المدني ${num(graduate.civil)} · رقم الحالة ${num(graduate.caseRef)}.`);
-  }
-  if (page === "status" && guide) {
-    for (const entry of guide.cases.slice(0, 3)) lines.push(`${entry.label}: الرقم المدني ${num(entry.civil)} · رقم الحالة ${num(entry.caseRef)}`);
-  }
-  if (!lines.length) return "";
-  const copyCss = `<style>.demo-num{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap;vertical-align:middle}`
-    + `.demo-copy{display:inline-grid;place-items:center;inline-size:34px;block-size:34px;padding:0;border-radius:50%;border:1px solid #c79b5f;background:#fffdf7;color:#5b4520;font:inherit;font-size:11.5px;font-weight:700;line-height:1.4;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s ease,color .15s ease,border-color .15s ease}`
-    + `.demo-copy svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;grid-area:1/1}.demo-copy .ic-ok{display:none}.demo-copy[data-copied] .ic-copy{display:none}.demo-copy[data-copied] .ic-ok{display:block}`
-    + `.demo-copy:hover{background:#f6e7c6}.demo-copy:focus-visible{outline:2px solid #5b4520;outline-offset:2px}.demo-copy:active{transform:scale(.97)}`
-    + `.demo-copy[data-copied]{background:#e8f5ee;border-color:#8fc7a9;color:#1f6b46}</style>`;
-  return `${copyCss}<div class="demo-hint" role="note" style="margin:10px 0;padding:8px 11px;border-radius:10px;background:#fff7e6;border:1px dashed #c79b5f;color:#5b4520;font-size:12px;line-height:1.65;text-align:start"><b>بيئة تجريبية</b> — الأرقام وهمية.<br>${lines.join("<br>")}</div>`;
-}
-
-function publicPageNonce(res: Response): string {
-  const nonce = randomBytes(16).toString("base64");
-  res.setHeader("Content-Security-Policy", [
-    "default-src 'none'",
-    `script-src 'nonce-${nonce}'`,
-    "style-src 'unsafe-inline'",
-    /* `blob:` is not decoration here: the proof upload shrinks a photo before
-       sending it by drawing `URL.createObjectURL(file)` into a canvas. Without
-       it that image fails to load, the compression path quietly falls back, and
-       phones upload full-size originals over mobile data. */
-    "img-src 'self' data: blob:",
-    "font-src 'self'",
-    "connect-src 'self'",
-    /* manifest-src يرجع إلى default-src 'none' فيُحجب `<link rel=manifest>` (تثبيتُ «مساري» مستقلاً). */
-    "manifest-src 'self'",
-    "base-uri 'none'",
-    /* 'self', not 'none': the survey form is submitted by script and normally
-       never navigates, but if that script ever fails the browser falls back to a
-       native submit — which should reach this application, not be dropped. */
-    "form-action 'self'",
-    ...(process.env.APPLET_ID ? [] : ["frame-ancestors 'none'"]),
-  ].join("; "));
-  return nonce;
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   طلباتُ الأساتذة على مسوّداتهم
-   ══════════════════════════════════════════════════════════════════════════
-
-   القسم ينسخ الجدول من فصلٍ ماضٍ ثم يرسله للأساتذة، أو يرسله ثم ينسخ. وفي
-   الحالتين يفتح الأستاذُ رابطَه فيرى مسوّدةَ جدوله هو — لا جدولَ القسم ولا
-   جدولَ زميل — فيقول «أبقِه» أو «عدّله» أو «احذفه» أو «أضف».
-
-   وثلاثةُ حدودٍ تُفرَض هنا في الخادم، لا في الصفحة، لأن الصفحةَ عند صاحبها:
-
-   ١) الرابطُ هو الهويّة. لا حساب، ولا رقمٌ مدنيٌّ يُسأل عنه، ولا طريقَ من
-      رابطٍ إلى طلبِ غيره. وما يُقرأ ويُكتب محدودٌ بالسجلّ الذي يشير إليه.
-
-   ٢) القاعةُ لا تُرسَل. مهما حسب النظامُ من مرشّحاتٍ للقسم، فما يغادر إلى
-      صفحة الأستاذ قيمةٌ منطقيةٌ واحدة: متاحٌ أو لا. تجريدُها يقع في
-      `stripForInstructor` وحدها، فلا موضعَ آخرَ يمكن أن ينساه.
-
-   ٣) الحكمُ يُعاد حسابُه في الخادم دائماً. ما يصل من الصفحة يومٌ وبدايةٌ
-      واختيار؛ وأيُّ حُكمٍ يصحبه يُطرح ويُعاد بناؤه من الجدول الحقيقي، وإلا
-      لأرسل من يعرف كيف يُعدّل الطلبَ حُكماً يقول «خالٍ من التعارض».
-
-   ولا شيء هنا يكتب في جدول. التثبيتُ يمرّ بمسارات الحفظ نفسها التي يستعملها
-   المنسّق بيده (`/api/schedules`)، فيرث التحقّقَ والنسخَ والتدقيقَ وتقريرَ
-   التغييرات كما هي؛ وهذا المسار يسجّل القرارَ بعدها فقط.
-   ══════════════════════════════════════════════════════════════════════════ */
-
-const REQUEST_LINK_DAYS = 21;
-
-/** الموعد العام والاستثناء الفردي محكومان بدالة واحدة في الخادم. */
-const requestWindowOpen = (request: InstructorRequest): boolean => requestWindowOpenPolicy(request);
-
-/** Requests from earlier schedule generations remain in history, never in active views. */
-async function currentInstructorRequestGeneration<T extends InstructorRequest>(requests: readonly T[]): Promise<T[]> {
-  const scopes = new Map<string, { collegeId: number; sectionId: number; termId: number }>();
-  for (const row of requests) {
-    const scope = { collegeId: Number(row.AdCollegeId), sectionId: Number(row.AdSectionId), termId: Number(row.AdTermId) };
-    scopes.set(`${scope.collegeId}:${scope.sectionId}:${scope.termId}`, scope);
-  }
-  const generations = new Map<string, number>();
-  await Promise.all([...scopes].map(async ([key, scope]) => {
-    const value = await Repository.getInstructorRequestGeneration(scope.collegeId, scope.sectionId, scope.termId);
-    generations.set(key, value.generation);
-  }));
-  return requests.filter(row => Number(row.scheduleGeneration || 0) === generations.get(`${Number(row.AdCollegeId)}:${Number(row.AdSectionId)}:${Number(row.AdTermId)}`));
-}
-
 async function requireCurrentInstructorRequestGeneration(request: InstructorRequest, res: Response): Promise<boolean> {
   if (await Repository.isInstructorRequestInCurrentGeneration(request)) return true;
   res.status(410).json({ error: "أُغلقت هذه الجولة بعد استبدال الجدول. حدّث الوارد لعرض الجولة الحالية.", code: "request-schedule-replaced" });
   return false;
-}
-
-/** موقعُ البند: الإضافةُ حيث اختار الأستاذ، والتعديلُ والحذفُ حيث يقع الصفُّ نفسُه.
- *  والطلباتُ القديمة التي لا تحمل موقعاً تعود إلى موقع الرابط، كما كانت. */
-function requestItemScope(request: InstructorRequest, item: InstructorRequestItem): { collegeId: number; sectionId: number } {
-  const snapshot = item.action === "add" ? item.after : item.before;
-  return {
-    collegeId: Number(snapshot?.collegeId || request.AdCollegeId || 0),
-    sectionId: Number(snapshot?.sectionId || request.AdSectionId || 0),
-  };
 }
 
 /**
@@ -19434,31 +14950,6 @@ function stripForInstructor(request: InstructorRequest) {
       };
     }),
   };
-}
-
-
-/**
- * ما درج عليه المقرّر في فصولٍ سابقة (طولُ لقائه حين يُدرَّس يوماً واحداً). يُقرأ تاريخُه مرّةً كلَّ عشر دقائق
- * لكل مقرّر، لا مع كل نقرة: الحكمُ يتكرّر عند كل تعديلٍ في الصفحة.
- */
-const courseHabitMemo = new Map<string, { at: number; nature: CourseNature | null }>();
-onSchedulesInvalidated(() => courseHabitMemo.clear());
-/* `beforeTermId` يحصر التعلّمَ في الفصول التي سبقته: يُستعمل لبناء الأنماط المقترحة وحدها. بلا قيمةٍ يبقى كما كان. */
-async function courseHabit(courseId: number, beforeTermId = 0): Promise<CourseNature | null> {
-  if (!courseId) return null;
-  const key = `${dataContextCacheKey(courseId)}:${beforeTermId}`;
-  const held = courseHabitMemo.get(key);
-  if (held && Date.now() - held.at < 10 * 60_000) return held.nature;
-  let nature: CourseNature | null = null;
-  try {
-    const [history, terms] = await Promise.all([Repository.getScheduleHistoryForCourses([courseId]), Repository.getTerms()]);
-    const ranks = Object.fromEntries(terms.map(term => [Number(term.AdTermId), termChronology(term)]));
-    nature = learnCourseNature(courseId, history.filter(row => !beforeTermId || (ranks[Number(row.AdTermId)] ?? Number(row.AdTermId)) < (ranks[beforeTermId] ?? beforeTermId)));
-    if (nature) nature.termRanks = ranks;
-  } catch { nature = null; }
-  if (courseHabitMemo.size > 800) courseHabitMemo.clear();
-  courseHabitMemo.set(key, { at: Date.now(), nature });
-  return nature;
 }
 const habitBlockFor = async (courseId: number, termId: number) => habitualBlockMinutes(await courseHabit(courseId), termId);
 
@@ -19634,47 +15125,6 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
   return items;
 }
 
-/** يقرأ الرابط ويعيد السجلّ، أو الخطأَ بحالته. */
-async function resolveRequestLink(token: string) {
-  const wanted = String(token || "");
-  /* الرابطُ وطلبُه يُقرآن معاً: معرّفُ الرابط هو الرمز نفسُه، فلا حاجة لانتظار الأول قبل سؤال الثاني (رحلةٌ أقلّ في كل نداء). */
-  const [link, early] = await Promise.all([
-    Repository.getShareLink(wanted),
-    wanted ? Repository.getInstructorRequestByLink(wanted).catch(() => undefined) : Promise.resolve(undefined),
-  ]) as [Awaited<ReturnType<typeof Repository.getShareLink>>, InstructorRequest | undefined | null];
-  if (!link || link.revoked) return { error: "الرابط غير موجود أو تم إيقافه", status: 404 } as const;
-  if (link.kind !== "request") return { error: "هذا الرابط ليس طلبَ جدول", status: 404 } as const;
-  if (!await shareLinkStillReadable(link)) return { error: "انتهت صلاحية هذا الرابط", status: 410 } as const;
-  const request: InstructorRequest | undefined | null = link.id === wanted && early ? early : await Repository.getInstructorRequestByLink(link.id);
-  if (!request) return { error: "لا يوجد طلبٌ مرتبطٌ بهذا الرابط", status: 404 } as const;
-  if (!(await Repository.isInstructorRequestInCurrentGeneration(request)))
-    return { error: "أُغلقت هذه الجولة بعد استبدال الجدول. استخدم رابط الجولة الحالية.", status: 410 } as const;
-  return { link, request } as const;
-}
-
-/**
- * كتالوجُ القسم لبطاقة الأستاذ يجب أن يأتي من الكتالوج الكامل لا من استعلام
- * Firestore مباشر على AdSectionId. البيانات الموروثة لا تحمل هذا الحقل دائماً
- * بالنوع النصي نفسه: قد يكون رقماً أو نصاً أو نصاً فيه مسافات. Firestore
- * يطابق النوع والقيمة حرفياً، فيسقط بعض المقررات من الاستعلام بينما Number
- * يثبت أنها للقسم نفسه. لذلك نقرأ المرجع الكامل (وهو cached أصلاً) ثم نطبّع
- * هوية القسم في الذاكرة. هذا المسار عام لبطاقة الأستاذ فقط حتى لا نحوّل كل
- * قوائم التطبيق الصغيرة إلى مسحٍ كامل للكتالوج.
- */
-async function instructorRequestSectionCourses(sectionIdValue: unknown) {
-  const sectionId = Number(sectionIdValue || 0);
-  if (!sectionId) return [] as any[];
-  /* The professor chooses from the department catalogue, not from the rows
-     that happen to be offered this term. `getCoursesBySection` already
-     normalizes legacy numeric/string AdSectionId values; the operational
-     set then removes only courses that are explicitly archived. */
-  const [courses, operationalIds] = await Promise.all([
-    Repository.getCoursesBySection(sectionId),
-    Repository.getOperationalCourseIds(sectionId),
-  ]);
-  return courses.filter(row => operationalIds.has(Number(row.AdCourseId))) as any[];
-}
-
 /**
  * الطلب الذي لم يُرسَل بعد هو نافذة على جدول الأستاذ الحي، لا صورة إصدار
  * الرابط. قد تضيف اللجنة موعداً ثانياً أو ثالثاً بعد إرسال الرابط؛ إبقاء
@@ -19721,35 +15171,6 @@ type InstructorRequestCourseOption = {
   /** مقررُ خدمةٍ تطلبه أقسامٌ أخرى: يظهر بجانبه «متطلب». */
   service?: boolean;
 };
-
-/**
- * A request link belongs to one department, not to one campus. The same academic
- * department may exist in Basic Education Girls, Jahra, Commercial Studies, or
- * another college/site. We resolve those sibling sections by academic identity
- * and expose only those scopes — never unrelated university departments.
- */
-async function instructorRequestDepartmentScopes(request: InstructorRequest) {
-  const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
-  const base = (sections as any[]).find(row => Number(row.AdSectionId) === Number(request.AdSectionId));
-  if (!base) return [] as Array<{ collegeId: number; collegeName: string; sectionId: number }>;
-  const collegeNameById = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
-  /* Restrict additions to the exact scientific department family used by
-     publication and reviews. Fuzzy matching is only suitable for imports. */
-  const family = departmentFamily(sections as any[], Number(base.AdCollegeId), Number(base.AdSectionId));
-  const familyKeys = new Set(family.map(scope => `${scope.collegeId}:${scope.sectionId}`));
-  const scopes = (sections as any[])
-    .filter(row => familyKeys.has(`${Number(row.AdCollegeId)}:${Number(row.AdSectionId)}`))
-    .map(row => ({
-      collegeId: Number(row.AdCollegeId || 0),
-      collegeName: collegeNameById.get(Number(row.AdCollegeId || 0)) || "",
-      sectionId: Number(row.AdSectionId || 0),
-    }))
-    .filter(scope => scope.collegeId && scope.sectionId);
-  const unique = [...new Map(scopes.map(scope => [`${scope.collegeId}:${scope.sectionId}`, scope])).values()];
-  const defaultCollege = (name: string) => /التربية\s*الأساسية.*بنات/.test(String(name || "")) ? 0 : 1;
-  return unique.sort((a, b) => defaultCollege(a.collegeName) - defaultCollege(b.collegeName)
-    || arabicUiCollator.compare(a.collegeName, b.collegeName));
-}
 
 /**
  * Full operational catalogue for this academic department across every college
@@ -19842,374 +15263,6 @@ async function requestReservationProposals(request: InstructorRequest): Promise<
       courseId: Number(item.after?.courseId || item.before?.courseId), slots: item.slots || [], rooms,
       offeringRowIds: item.offeringRowIds || [], offeringRows: item.offeringRows };
   });
-}
-
-/**
- * يبني سياقَ الحكم من الجدول الحقيقي.
- *
- * يُقرأ الفصلُ كلُّه مرّةً واحدةً لكل نداء، لا مرّةً لكل بند: طلبٌ فيه عشرةُ
- * بنودٍ كان سيقرأ الجدولَ عشراً، وأساتذةٌ خمسون يفتحون روابطهم في يومٍ واحد.
- */
-async function buildRequestContext(request: InstructorRequest) {
-  return requestContextFor(await buildSharedRequestContext(request), request);
-}
-
-/**
- * السياقُ المشترك لنطاقٍ واحد (فصل/كلية/قسم): يُبنى مرّةً لعشرات الطلبات في
- * الوارد. لا يستثني حجزَ أحد — الاستثناءُ لكل طلبٍ في `requestContextFor`.
- */
-async function buildSharedRequestContext(request: InstructorRequest) {
-  const [allRows, courses, instructors, needs, ledger] = await Promise.all([
-    Repository.getSchedulesByScope({ termId: Number(request.AdTermId) }),
-    Repository.getCourses(),
-    Repository.getInstructors(),
-    Repository.getStudentNeeds(Number(request.AdCollegeId), Number(request.AdSectionId), Number(request.AdTermId)).catch(() => []),
-    Repository.getInstructorRequestReservations(Number(request.AdTermId)),
-  ]);
-  const officialRows = allRows as FSchedule[];
-  const scopeRows = (allRows as any[]).filter(row =>
-    Number(row.AdCollegeId) === Number(request.AdCollegeId) && Number(row.AdSectionId) === Number(request.AdSectionId));
-  const demand = readStudentDemand(needs as any[], courses as any[]);
-  /* سُلّمُ البدايات يُجمع من أنماط القسم كلها بلا تكرار: الأحد والثلاثاء
-     والخميس نمطٌ، والاثنين والأربعاء نمطٌ آخر، ولكلٍّ سُلّمُه. وأخذُ أحدهما
-     وحده كان يُخفي نصفَ ما يدرّس به القسم فعلاً. */
-  const rhythm = learnRhythm(scopeRows as any[]);
-  const ladder = [...new Set(rhythm.patterns.flatMap(pattern => pattern.ladder))];
-  const roomKeys = [...new Set((scopeRows as any[]).map(row => roomKeyOf(row.roomId, row.AdRoomCode, row.AdRoomHall)).filter(Boolean))];
-  return {
-    termId: Number(request.AdTermId),
-    allRows: officialRows as any[],
-    officialRows, reservationsAll: liveReservations(ledger), reservations: liveReservations(ledger),
-    ownerRequestId: "" as string,
-    views: new Map<string, any>(),
-    scopeRows,
-    courses: new Map((courses as any[]).map(row => [Number(row.AdCourseId), row])),
-    instructors: new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), row])),
-    cohortPairs: cohortPairs(demand),
-    knownRoomKeys: roomKeys,
-    startLadder: ladder,
-  };
-}
-
-type SharedRequestContext = Awaited<ReturnType<typeof buildSharedRequestContext>>;
-/** سياقُ طلبٍ بعينه: الجدولُ الرسميُّ وحجوزُ غيره، لا حجوزُه هو (A1). يُحفظ لكل طلب فلا يُعاد حسابه مع كل وقتٍ في خريطة الأوقات. */
-function requestContextFor(shared: SharedRequestContext, request: InstructorRequest): SharedRequestContext {
-  if (shared.ownerRequestId === request.id) return shared;
-  const held = shared.views.get(request.id);
-  if (held) return held;
-  const view: SharedRequestContext = {
-    ...shared,
-    ownerRequestId: request.id,
-    reservations: shared.reservationsAll.filter(entry => entry.requestId !== request.id),
-    allRows: occupiedRowsForRequest(shared.officialRows, shared.reservationsAll, shared.termId, request.id) as any[],
-  };
-  shared.views.set(request.id, view);
-  return view;
-}
-
-/** Constraints are local to the college/section where the requested lecture
- * will live, while instructor clashes remain institution-wide for the term. */
-async function requestRulesForScope(
-  context: Awaited<ReturnType<typeof buildRequestContext>>,
-  collegeId: number,
-  sectionId: number,
-  termId: number,
-) {
-  const scopeRows = context.allRows.filter(row =>
-    Number(row.AdCollegeId) === Number(collegeId) && Number(row.AdSectionId) === Number(sectionId));
-  const needs = await Repository.getStudentNeeds(collegeId, sectionId, termId).catch(() => []);
-  const courseRows = [...context.courses.values()];
-  const demand = readStudentDemand(needs as any[], courseRows as any[]);
-  const rhythm = learnRhythm(scopeRows as any[]);
-  const startLadder = [...new Set(rhythm.patterns.flatMap(pattern => pattern.ladder))];
-  /* القاعاتُ المعروفة هي قاعاتُ القسم في السجلّ + المستعارة المعتمدة — القاعدةُ
-     نفسُها التي تستعملها شاشةُ الجدول («اقترح قاعة»)، لا قاعاتُ صفوفه القائمة:
-     قسمٌ بشعبةٍ واحدةٍ له قاعةٌ واحدةٌ معروفة، فإن شغلتها محاضرةٌ أخرى لأستاذه
-     قال النموذجُ «لا قاعة» والسجلُّ مليءٌ بالخالية. */
-  const [registry, barter, pinnedRooms] = await Promise.all([readLocationRegistry(), Repository.getHallBarterRequests(termId).catch(() => [] as any[]), Repository.getPinnedDepartmentRooms(collegeId, sectionId)]);
-  const borrowed = new Set((barter as any[]).filter(item => item.status === "approved" && Number(item.requesterCollegeId) === Number(collegeId)
-    && Number(item.requesterSectionId) === Number(sectionId) && item.roomId).map(item => String(item.roomId)));
-  const pinned = confirmedDepartmentRoomIds(registry, pinnedRooms, Number(collegeId));
-  const halls = eligibleHallsForSection(registry, Number(sectionId), borrowed, pinned);
-  const roomAliases: Record<string, string> = {};
-  const registryKeys = halls.map(hall => {
-    const key = roomKeyOf(hall.roomId, hall.room, hall.hall);
-    roomAliases[key] = roomKeyOf("", hall.room, hall.hall);
-    return key;
-  });
-  /* Historical text-only rows are evidence for display, not reservable room
-     identities. Never let them make the early verdict say "available" when
-     submission cannot create a physical reservation from the same room set. */
-  const knownRoomKeys = [...new Set(registryKeys)];
-  /* تفاصيلُ القاعة (مبنى وقاعة ومعرّفاها) لكل مفتاحٍ من السجلّ: قاعةٌ خاليةٌ لم تظهر يوماً في صفوف القسم لا تُوجد في scopeRows،
-     فكانت خياراتُ نموذج الإضافة السريع تخرج فارغةً مع أن الحكم وجد لها قاعة. */
-  const hallByKey = new Map<string, { room: string; hall: string; buildingId: any; roomId: any }>();
-  halls.forEach((hall, index) => hallByKey.set(registryKeys[index], { room: String(hall.room || ""), hall: String(hall.hall || ""), buildingId: hall.buildingId, roomId: hall.roomId }));
-  /* أوقاتُ دوام القسم من شاشة المشرف («أوقات الدوام للأقسام»)، لا حدٌّ عامٌّ واحد. */
-  const dayWindow = scheduleDayWindowMinutes(await Repository.getSectionById(sectionId).catch(() => null));
-  const roomEligible = (key: string, day: RequestDayKey, start: string, end: string) => {
-    const hall = hallByKey.get(key);
-    const record = registry.rooms.find(room => room.id === hall?.roomId);
-    if (!record) return false;
-    const windows = (barter as any[]).filter(item => String(item.roomId) === String(record.id));
-    if (approvedBarterReservation(windows, day, start, end, collegeId, sectionId)
-      || borrowerOutsideApprovedWindow(windows, day, start, end, collegeId, sectionId)) return false;
-    if (record.sectionIds.includes(sectionId) || pinned.has(record.id)) return true;
-    return windows.some(item => item.status === "approved" && Number(item.requesterCollegeId) === collegeId
-      && Number(item.requesterSectionId) === sectionId && item.day === day
-      && timeToMinutes(item.startTime) <= timeToMinutes(start) && timeToMinutes(item.endTime) >= timeToMinutes(end));
-  };
-  const selectedCourseFit = (key: string, courseId: number) => {
-    const hall = hallByKey.get(key), room = registry.rooms.find(room => room.id === hall?.roomId), course = context.courses.get(courseId);
-    const fit = roomSuitability(course, room);
-    return fit.typeRank * 1000 + fit.adjustment;
-  };
-  return { scopeRows, cohortPairs: cohortPairs(demand), startLadder, knownRoomKeys, roomAliases, hallByKey, registry, roomEligible, selectedCourseFit, dayStart: dayWindow.start, dayEnd: dayWindow.end };
-}
-/**
- * يُعيد حساب حُكم كل بند من الجدول الحقيقي.
- *
- * يُستدعى عند كل قراءةٍ وكل إرسال، لأن الجدول يتحرّك تحت الطلب: وقتٌ كان
- * متاحاً يومَ فُتح الرابط قد يكون أُخذ قبل أن يضغط الأستاذ إرسال، وحُكمٌ
- * محفوظٌ من أمس يكذب بصمت.
- */
-/** كم لقاءً تشغله كلُّ قاعةٍ في الفصل — للتوزيع العادل في اختيار القاعة. يُحسب مرّةً للسياق. */
-const roomUsageMemo = new WeakMap<object, Map<string, number>>();
-function roomUsageOf(context: { officialRows: FSchedule[] }): Map<string, number> {
-  let usage = roomUsageMemo.get(context.officialRows);
-  if (usage) return usage;
-  usage = new Map();
-  for (const row of context.officialRows) {
-    const id = String((row as any).roomId || "");
-    if (id) usage.set(id, (usage.get(id) || 0) + dayKeysOf(row).length);
-  }
-  roomUsageMemo.set(context.officialRows, usage);
-  return usage;
-}
-/** يحسب قيمةً لمفتاحٍ مرةً واحدة ولو سأل عنها كثيرون معاً: النتيجةُ تُحفظ في الخريطة، والرحلةُ الجارية تُشارَك. */
-const rulesInflight = new WeakMap<Map<string, any>, Map<string, Promise<any>>>();
-async function rulesOnce<T>(cache: Map<string, T>, key: string, make: () => Promise<T>): Promise<T> {
-  if (cache.has(key)) return cache.get(key) as T;
-  let flights = rulesInflight.get(cache);
-  if (!flights) { flights = new Map(); rulesInflight.set(cache, flights); }
-  let flight = flights.get(key);
-  if (!flight) { flight = make().then(value => { cache.set(key, value); flights!.delete(key); return value; }, error => { flights!.delete(key); throw error; }); flights.set(key, flight); }
-  return flight;
-}
-async function judgeRequestItems(request: InstructorRequest, options: {
-  forDepartment?: boolean;
-  /** سياقٌ بُني مرّةً لحزمةِ أحكامٍ متتابعة (خريطة الأوقات): لا يُعاد بناؤه ولا تُعاد قراءةُ قواعد النطاق لكل وقت. */
-  context?: Awaited<ReturnType<typeof buildRequestContext>>;
-  rulesCache?: Map<string, any>;
-} = {}): Promise<InstructorRequest> {
-  /* السياقُ قد يُبنى مرّةً لطلباتٍ كثيرة؛ ما يراه هذا الطلب يُشتقّ منه هنا دائماً. */
-  const context = requestContextFor(options.context || await buildSharedRequestContext(request), request);
-  /* نافذةُ الطلبات تحدّ إرسالَ الأستاذ، لا قرارَ القسم: بعد إغلاقها كان كلُّ
-     بندٍ يُعلَّم «انتهت مدّة استقبال الطلبات» مانعاً، فيتعطّل «ثبّت» على ما
-     لم يُقرَّر بعد. فالقسمُ يرى الحكمَ بلا شرط النافذة. */
-  const open = options.forDepartment ? true : requestWindowOpen(request);
-  const instructorRows = context.allRows.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
-  const mine = context.scopeRows.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
-
-  /* ── جدولُ الأستاذ بعد الحزمة، لا قبلها ────────────────────────────────
-   *
-   * الحكمُ يُقاس على ما سيكون، لا على ما هو كائن: حزمةٌ تنقل محاضرتين إلى
-   * الساعة نفسها لا تصطدم إحداهما بالأخرى في الجدول القديم، لأن أيّاً منهما
-   * لم تكن هناك بعد. فتُبنى صفوفُه بعد الطلب مرّةً واحدةً للحزمة كلها، ثم
-   * يُقاس كلُّ بندٍ عليها — فيرى البندُ إخوتَه.
-   *
-   * والإضافةُ تأخذ هويّةً مؤقّتةً سالبةً فريدة، لأن إضافتين بلا معرّفٍ كانتا
-   * صفّاً واحداً في نظر محرّك التعارض فيتخطّى المقارنةَ بينهما.
-   */
-  const tempIdFor = (index: number) => -(index + 1);
-  const requestRowIds = new Set((request.items || []).map(item => Number(item.rowId || 0)).filter(Boolean));
-  const rowsAfter: any[] = instructorWeekAfter(request, context.allRows);
-
-  const rulesByScope: Map<string, Awaited<ReturnType<typeof requestRulesForScope>>> = options.rulesCache || new Map();
-  /* نطاقاتُ البنود المختلفة تُقرأ معاً لا واحداً بعد واحد، ونطاقٌ يسأل عنه عشراتُ الطلبات في آنٍ واحد (شاشة القسم) يُحسب مرةً واحدة. */
-  const scopesNeeded = new Map<string, { collegeId: number; sectionId: number }>();
-  for (const item of (request.items || [])) {
-    const original = item.rowId == null ? undefined : instructorRows.find(row => Number(row.id) === Number(item.rowId));
-    const selectedCourse = context.courses.get(Number(item.after?.courseId || item.before?.courseId || 0));
-    const collegeId = Number(item.after?.collegeId || selectedCourse?.AdCollegeId || original?.AdCollegeId || request.AdCollegeId);
-    const sectionId = Number(item.after?.sectionId || selectedCourse?.AdSectionId || original?.AdSectionId || request.AdSectionId);
-    scopesNeeded.set(`${collegeId}:${sectionId}`, { collegeId, sectionId });
-  }
-  await Promise.all([...scopesNeeded].map(([key, scope]) =>
-    rulesOnce(rulesByScope, key, () => requestRulesForScope(context, scope.collegeId, scope.sectionId, Number(request.AdTermId)))));
-
-  /* تاريخُ المقرّرات التي يمسّها الطلب: يقرأ منه الحكمُ طولَ لقاء الشعب ذات اليوم الواحد. */
-  const habits = new Map<number, CourseNature>();
-  const priorHabits = new Map<number, CourseNature>();
-  await Promise.all([...new Set((request.items || []).filter(item => item.action === "change" || item.action === "add")
-    .map(item => Number(item.after?.courseId || item.before?.courseId || 0)).filter(Boolean))].map(async courseId => {
-    const [nature, prior] = await Promise.all([courseHabit(courseId), courseHabit(courseId, Number(request.AdTermId))]);
-    if (nature) habits.set(courseId, nature);
-    if (prior) priorHabits.set(courseId, prior);
-  }));
-
-  const items = (request.items || []).map((item, index) => {
-    const slot = item.slots?.[0];
-    const days = (item.slots || []).map(entry => entry.day as RequestDayKey);
-    const original = item.rowId == null ? undefined : instructorRows.find(row => Number(row.id) === Number(item.rowId));
-    const selectedCourse = context.courses.get(Number(item.after?.courseId || item.before?.courseId || 0));
-    const targetCollegeId = Number(item.after?.collegeId || selectedCourse?.AdCollegeId || original?.AdCollegeId || request.AdCollegeId);
-    const targetSectionId = Number(item.after?.sectionId || selectedCourse?.AdSectionId || original?.AdSectionId || request.AdSectionId);
-    const rules = rulesByScope.get(`${targetCollegeId}:${targetSectionId}`)!;
-    if (item.decision?.state === "fixed" || item.decision?.state === "rejected") return item;
-    const companionType = String(selectedCourse?.CourseCompanionRoomType || "");
-    const candidateIds = new Set(rowsForRequestSlots(item.slots || [], {}, requestIdentity(item, index)).map(row => Number(row.id)));
-    const facilityWeek = [...context.allRows.filter(row => Number(row.AdInstructorId) !== Number(request.AdInstructorId)), ...rowsAfter]
-      .filter(row => !candidateIds.has(Number(row.id)));
-    const facilityFor = (key: string, slots: Array<{ day: string; start: string; end: string }>) => {
-      const primary = rules.hallByKey.get(key);
-      const building = rules.registry.buildings.find(building => building.id === primary?.buildingId);
-      return rules.registry.rooms.find(room => {
-        const place = rules.registry.buildings.find(building => building.id === room.buildingId);
-        return room.active && room.confidence === "CONFIRMED" && room.bookingPolicy === "companion_only" && room.roomType === companionType
-          && place?.active && place.confidence === "CONFIRMED" && building && place.officialCode.slice(0, 4) === building.officialCode.slice(0, 4)
-          && !facilityWeek.some(row => rowOccupiesRoom(row, room.id, place.officialCode, room.canonicalCode)
-            && slots.some(slot => Boolean((row as any)[slot.day]) && scheduleOverlap(slot.start, slot.end, row.fstarttime, row.fendtime)));
-      });
-    };
-    /* ── القاعةُ الأنسب (C2) ── الإلزاميُّ في الحكم نفسه (خلوٌّ، أهلية الكلية والقسم، المرفق)، والسعةُ والتفضيلُ هنا. */
-    const courseIdOfItem = Number(item.after?.courseId || item.before?.courseId || 0);
-    const itemDays = new Set((item.slots || []).map(entry => String(entry.day)));
-    const sameDayMine = rowsAfter.filter(row => Number(row.id) !== Number(item.rowId) && [...itemDays].some(day => Boolean((row as any)[day])));
-    const rankedRooms = item.offeringRowIds?.length ? [] : rankRequestRooms(rules.knownRoomKeys.map(key => {
-      const hall = rules.hallByKey.get(key), room = rules.registry.rooms.find(entry => entry.id === hall?.roomId);
-      return { key, roomId: hall?.roomId ? String(hall.roomId) : undefined, buildingId: hall?.buildingId ? String(hall.buildingId) : undefined,
-        capacity: Number((room as any)?.capacity || 0), fit: rules.selectedCourseFit(key, courseIdOfItem), sectionIds: (room as any)?.sectionIds || [] };
-    }), {
-      courseSectionId: targetSectionId,
-      nearBuildingIds: new Set(sameDayMine.map(row => String((row as any).buildingId || "")).filter(Boolean)),
-      previousRoomIds: new Set([original, ...instructorRows.filter(row => Number(row.AdCourseId) === courseIdOfItem)]
-        .map(row => String((row as any)?.roomId || "")).filter(Boolean)),
-      seats: Number(selectedCourse?.MaxStudent || 0),
-      usage: roomUsageOf(context),
-      facility: Boolean(companionType),
-    });
-    const rankedByKey = new Map(rankedRooms.map(room => [room.key, room]));
-    const verdict = judgeRequest({
-      rowId: item.offeringRowIds?.[0] ?? item.rowId,
-      tempId: tempIdFor(index),
-      slots: item.slots as any,
-      relatedRowIds: item.offeringRowIds,
-      action: item.action,
-      AdCourseId: Number(item.after?.courseId || item.before?.courseId || 0),
-      days: days.length ? days : [],
-      start: slot?.start || "",
-    }, {
-      instructorId: Number(request.AdInstructorId),
-      allRows: context.allRows,
-      instructorRowsAfter: rowsAfter,
-      courses: context.courses,
-      instructors: context.instructors,
-      cohortPairs: rules.cohortPairs,
-      knownRoomKeys: item.offeringRowIds?.length ? [] : rankedRooms.map(room => room.key),
-      roomCollegeId: targetCollegeId,
-      roomEligible: rules.roomEligible,
-      roomSlotsEligible: companionType && !item.offeringRowIds?.length ? (key, slots) => Boolean(facilityFor(key, slots)) : undefined,
-      placeholderInstructorIds: placeholderInstructorIds([...context.instructors.values()]),
-      roomAliases: rules.roomAliases,
-      startLadder: rules.startLadder,
-      dayStart: rules.dayStart,
-      dayEnd: rules.dayEnd,
-      windowOpen: open,
-      instructorLoad: Number(context.instructors.get(Number(request.AdInstructorId))?.AdInstructorLoad || 0) || null,
-      /* ورقةُ رفض القسم تعرض بدائلَ لكل بند، ولو كان متاحاً (مراجعة البروفة). */
-      offerAlternatives: Boolean(options.forDepartment),
-      nature: habits,
-      suggestNature: priorHabits,
-      termId: Number(request.AdTermId),
-    });
-    if (item.offeringRowIds?.length) {
-      verdict.nearestTimes = [];
-      const ids = new Set(item.offeringRowIds);
-      const targets = rowsAfter.filter(row => ids.has(Number(row.id)));
-      const week = [...context.allRows.filter(row => !ids.has(Number(row.id)) && Number(row.AdInstructorId) !== Number(request.AdInstructorId)), ...rowsAfter.filter(row => !ids.has(Number(row.id)))];
-      if (findConflicts(targets, week).some(conflict => conflict.type === "room")) {
-        verdict.kind = "conflict"; verdict.reasons.push({ source: "room", text: "قاعة الشعبة مشغولة في موعدها؛ يحتاج القسم معالجة الموعد.", blocking: true });
-      }
-    }
-    const withFacility = new Map<string, { companionRoomId: string; companionRoomLabel: string }>();
-    if (companionType && !item.offeringRowIds?.length) {
-      for (const key of verdict.roomCandidates) {
-        const facility = facilityFor(key, item.slots || []);
-        if (facility) withFacility.set(key, { companionRoomId: facility.id, companionRoomLabel: `${rules.registry.buildings.find(building => building.id === facility.buildingId)?.officialCode} / ${facility.canonicalCode}` });
-      }
-      verdict.roomCandidates = verdict.roomCandidates.filter(key => withFacility.has(key));
-      if (!verdict.roomCandidates.length) {
-        verdict.kind = "conflict";
-        verdict.reasons.push({ source: "room", text: "لا يتوفر المرفق المرافق المطلوب طوال الموعد. جرّب وقتاً آخر أو راجع القسم.", blocking: true });
-      }
-    }
-    /* ── القاعةُ تتبع الموعدَ المنقول (A2/C7) ─────────────────────────────────
-     * نقلُ موعدٍ قائمٍ يُبقي قاعتَه إن كانت خاليةً في الوقت الجديد — وتُقدَّم على
-     * غيرها فلا تتبدّل بلا سبب. فإن شغلها غيرُه وكانت قاعاتٌ صالحةٌ خالية، فليس
-     * هذا «ممنوعاً»: تُبدَّل إلى الأنسب (rankRequestRooms) ويُقال ذلك سطراً واحداً،
-     * والتثبيتُ يكتب القاعةَ الجديدة. كان الصفُّ يحتفظ بقاعته المشغولة فيقول الفحصُ
-     * الحيّ «القاعة مشغولة» والحكمُ نفسُه يعدّ ثلاث عشرة قاعةً خالية. */
-    const originalKey = item.action === "change" && original ? roomKeyOf((original as any).roomId, original.AdRoomCode, original.AdRoomHall) : "";
-    if (originalKey && verdict.roomCandidates.includes(originalKey))
-      verdict.roomCandidates = [originalKey, ...verdict.roomCandidates.filter(key => key !== originalKey)];
-    const originalTaken = Boolean(originalKey) && !verdict.roomCandidates.includes(originalKey) && context.allRows.some(row =>
-      Number(row.id) !== Number(original!.id) && Number(row.AdInstructorId) !== Number(request.AdInstructorId)
-      && rowOccupiesRoom(row, (original as any).roomId, original!.AdRoomCode, original!.AdRoomHall)
-      && (item.slots || []).some(slot => Boolean((row as any)[slot.day]) && scheduleOverlap(slot.start, slot.end, row.fstarttime, row.fendtime)));
-    return {
-      ...item,
-      ...(originalTaken && verdict.roomCandidates[0] && rules.hallByKey.get(verdict.roomCandidates[0]) ? (() => {
-        const to = rules.hallByKey.get(verdict.roomCandidates[0])!;
-        return { roomSwitch: { from: [original!.AdRoomCode, original!.AdRoomHall].filter(Boolean).join("/"),
-          to: { roomId: String(to.roomId || ""), buildingId: String(to.buildingId || ""), room: to.room, hall: to.hall, ...withFacility.get(verdict.roomCandidates[0]) } } };
-      })() : { roomSwitch: undefined }),
-      courseRequirements: selectedCourse ? { CourseRoomType: selectedCourse.CourseRoomType, CourseTeachingMode: selectedCourse.CourseTeachingMode,
-        CourseCompanionRoomType: selectedCourse.CourseCompanionRoomType, MaxStudent: selectedCourse.MaxStudent } : undefined,
-      verdict: verdict.kind,
-      reasons: verdict.reasons,
-      roomCandidates: verdict.roomCandidates,
-      roomAvailable: verdict.roomAvailable,
-      /* تفاصيلُ أولى القاعات الخالية (مبنى وقاعة) ليُملأ بها نموذجُ الإضافة السريع: للقسم وحده. */
-      roomOptions: verdict.roomCandidates.map(key => {
-        const registered = rules.hallByKey.get(key);
-        if (registered) return { key, room: registered.room, hall: registered.hall, buildingId: registered.buildingId, roomId: registered.roomId, ...withFacility.get(key), why: rankedByKey.get(key)?.why || [] };
-        const known: any = rules.scopeRows.find(row => row.roomId && roomKeyOf(row.roomId, row.AdRoomCode, row.AdRoomHall) === key);
-        return known ? { key, room: String(known.AdRoomCode || ""), hall: String(known.AdRoomHall || ""), buildingId: known.buildingId, roomId: known.roomId } : null;
-      }).filter(Boolean) as any,
-      nearestTimes: verdict.nearestTimes.map(entry => ({ day: entry.day, days: entry.days, start: entry.start, end: entry.end })),
-      /* «الأنسب» وبديلان: رمزُ القاعة وأيقوناتُ سببها — يراها الأستاذ، ويحجز الخادمُ أوّلها الخاليَ لحظةَ الإرسال. */
-      roomPick: verdict.kind === "conflict" ? undefined : verdict.roomCandidates.slice(0, 3).map(key => {
-        const hall = rules.hallByKey.get(key);
-        return hall ? { label: [hall.room, hall.hall].filter(Boolean).join("/"), why: rankedByKey.get(key)?.why || [] } : null;
-      }).filter(Boolean) as any,
-      shapes: verdict.shapes,
-      advice: verdict.advice || (!item.offeringRowIds?.length && !rules.knownRoomKeys.length
-        ? "يحتاج القسم التحقق من القاعة قبل الاعتماد؛ بيانات القاعات المتاحة غير مكتملة."
-        : (() => { const hall = rules.hallByKey.get(verdict.roomCandidates[0]); const room = rules.registry.rooms.find(room => room.id === hall?.roomId);
-          const fit = roomSuitability(selectedCourse, room);
-          return fit.reasons.some(reason => /مختلف|أقل/.test(reason)) ? "يمكن تقديم الطلب؛ ملاءمة نوع القاعة أو سعتها تحتاج مراجعة القسم." : undefined; })()),
-      block: verdict.blockMinutes || (item.slots?.length === 1 ? timeToMinutes(item.slots[0].end) - timeToMinutes(item.slots[0].start) : undefined),
-    } as InstructorRequestItem;
-  });
-
-  /* ملاحظاتُ اللائحة التي لا تمنع (م.7/5 وم.7/2) كما تبدو بعد الطلب كلِّه: تُعرض للأستاذ تنبيهاً لا مانعاً. */
-  const notes: Array<{ kind: "sections" | "balance"; article: string; courseIds: number[]; data?: any }> = [];
-  try {
-    const scopeRows = (rulesByScope.get(`${request.AdCollegeId}:${request.AdSectionId}`)?.scopeRows || []) as any[];
-    const mineAfter = new Set(rowsAfter.map(row => Number(row.id)));
-    const scopeAfter = scopeRows.filter(row => Number(row.AdInstructorId) !== Number(request.AdInstructorId)).concat(rowsAfter as any[]);
-    const found = reviewSchedule({ rows: scopeAfter as any, courses: context.courses as any, instructors: context.instructors as any });
-    const sameHour = found.find(item => item.rule === "sections-same-hour");
-    if (sameHour) {
-      const mine = scopeAfter.filter(row => (sameHour.rowIds || []).map(Number).includes(Number(row.id)) && mineAfter.has(Number(row.id)));
-      if (mine.length) notes.push({ kind: "sections", article: "م.7/5", courseIds: [...new Set(mine.map(row => Number(row.AdCourseId)))] });
-    }
-    const balance = periodBalanceFinding(scopeAfter as any);
-    if (balance?.data) notes.push({ kind: "balance", article: "م.7/2", courseIds: [], data: balance.data });
-  } catch { /* اللائحة تنبيهٌ يُعرض، فتعذّر حسابها لا يوقف الفحص */ }
-
-  return { ...request, items, notes } as typeof request & { notes: typeof notes };
 }
 
 /* ── إصدارُ الروابط ──────────────────────────────────────────────────────── */
@@ -20607,24 +15660,6 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
   }
   res.json({ rows, totals, currentRows: scopeRows, familyColleges, familyScopes });
 });
-
-/* ── قرارُ القسم على بند ─────────────────────────────────────────────────── */
-
-function requireInstructorRequestRevision(req: Request, res: Response, request: InstructorRequest) {
-  const raw = (req.body as any)?.requestRevision;
-  if (raw == null || String(raw).trim() === "" || !Number.isSafeInteger(Number(raw)) || Number(raw) < 0) {
-    res.status(428).json({ error: "حدّث الطلب وأعد المحاولة؛ رقم النسخة مطلوب.", code: "request-revision-required" });
-    return false;
-  }
-  if (Number(raw) !== Number(request.requestRevision || 0)) {
-    res.status(409).json({ error: "تغيّر الطلب بعد فتحه. حدّث البيانات؛ مسودتك محفوظة.", code: "request-revision" });
-    return false;
-  }
-  return true;
-}
-function instructorRequestItemIdentity(item: InstructorRequestItem) {
-  return String(item.itemId || (item.rowId != null ? `row:${item.rowId}` : `add:${(item.offeringRowIds || []).join(",")}`));
-}
 app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
   if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
@@ -21228,41 +16263,6 @@ async function requestDayPatterns(courseIds: number[]): Promise<Record<number, s
     if (patterns.length) out[id] = patterns;
   }
   return out;
-}
-
-/**
- * توقيعُ الأستاذ على ما يرسله من بابه — الطلبُ كلُّه أو ردٌّ في حوار بند.
- * يُعيد رقمَه المطبَّع حين يطابق سجلَّه، أو "" وقد أُجيب الطلبُ بسببه.
- */
-async function verifyRequestSigner(request: InstructorRequest, req: Request, res: Response): Promise<string> {
-  const signScope = `request:${request.id}`;
-  const signAttempt = publicAttemptReserve(signScope, req.ip || "unknown");
-  if (!signAttempt) {
-    res.status(429).json({ error: "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة." });
-    return "";
-  }
-  const civil = normalizeCivilId(req.body?.civil);
-  const civilCheck = validateCivilId(civil);
-  if (!civilCheck.isValid) {
-    /* فشلُ رقم التحقق يسبق أيَّ مطابقة، فلا يُقال إنه خالف بيانات البطاقة: لم تُقرأ بعدُ. */
-    res.status(400).json({ error: "الرقم المدني غير مكتمل أو فيه خطأ كتابة. راجعه وأعد المحاولة." });
-    return "";
-  }
-  const signer = (await Repository.getInstructors() as any[])
-    .find(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
-  /* والجوابُ واحدٌ سواءٌ أخطأ الرقمَ أم لم يكن في سجلّه رقمٌ أصلاً: التفريقُ
-     بينهما يقول لمن يجرّب أيُّ الأساتذة مسجَّلٌ رقمُه. */
-  /* والرقمُ المخزونُ يُطبَّع كما يُطبَّع المُرسَل: سجلٌّ كُتب بأرقامٍ عربيةٍ أو
-     فارسية — وبابُ الأساتذة يقبلها — كان `\D` يمحوه كلَّه فيصير فارغاً، فلا
-     يطابق شيئاً أبداً. وصاحبُه يدخل رقمَه الصحيح فيُردّ، مرّةً بعد مرّة، بلا
-     سببٍ يظهر له ولا للقسم. */
-  const storedCivil = normalizeCivilId(signer?.AdInstructorCivil);
-  if (!storedCivil || storedCivil !== civil) {
-    res.status(403).json({ error: "الرقم المدني لا يطابق صاحب هذا الرابط." });
-    return "";
-  }
-  signAttempt.release();
-  return civil;
 }
 
 app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Request, res: Response) => {
@@ -22070,8 +17070,6 @@ function coursesWithOffering<T extends { id: number; collegeId: number; sectionI
       : [{ ...course, offeringNote: `${view.icon} ${view.line}`, offering: { state: view.state, icon: view.icon, line: view.line } }];
   });
 }
-
-const taPhaseId = (collegeId: number, sectionId: number, termId: number) => `${collegeId}:${sectionId}:${termId}`;
 
 /** مرحلةُ التدريب التي يتبعها طلبُ مدرّب: وثيقةُ نطاق الطلب. */
 async function taPhaseForRequest(request: InstructorRequest) {
