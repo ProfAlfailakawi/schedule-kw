@@ -90,6 +90,26 @@ export function normalizeClock(value: unknown): string {
 }
 
 /**
+ * ── خانةُ «الوقت» في ملف الاستيراد: «08:00-09:20» ─────────────────────────────
+ *
+ * نموذجُ الاستيراد يكتبها «من-إلى» (08:00-09:20)، وتصديرُ الفصل يكتبها بالمنسِّق
+ * أعلاه داخل عازلٍ ثنائيّ الاتجاه (⁦08:00 – 09:20⁩). وكان المستورِد يقرأ الجزء
+ * الثاني بدايةً والأول نهايةً، فيُرفض كلُّ صفٍّ من النموذج نفسه بـ«النهاية قبل
+ * البداية»، ويُرفض صفُّ التصدير لأن عازل الاتجاه بقي ملتصقاً بالساعة.
+ * فالعوازلُ تُنزع، والساعتان تُقرآن بترتيبهما؛ ومن كتبها بالعكس في ورقةٍ عربية
+ * (09:20-08:00) تُفهم منه كذلك، لأن المحاضرة لا تنتهي قبل أن تبدأ.
+ * ساعةٌ واحدة بلا نهاية تُعطى للطرفين معاً، فيرفضها المدقّق كما كان يفعل.
+ */
+export function readScheduleTimeRange(cell: unknown): { start: string; end: string } {
+  const text = String(cell ?? "").replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "").trim();
+  const parts = text.split(/\s*[-–—]\s*/).map(part => part.trim()).filter(Boolean);
+  const first = normalizeClock(parts[0] ?? "");
+  const second = parts.length > 1 ? normalizeClock(parts[1]) : first;
+  if (isValidClock(first) && isValidClock(second) && second < first) return { start: second, end: first };
+  return { start: first, end: second };
+}
+
+/**
  * Is this a clock the timetable can actually mean?
  *
  * `timeToMinutes` is deliberately forgiving — it answers with a number for

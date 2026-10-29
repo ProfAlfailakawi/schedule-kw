@@ -7,12 +7,15 @@
  *  R3 عضويةُ المنتدبين في الفصل تُختار من دليل القسم: رقمُ موظفٍ حرّ يُرفض (كان يُرفع
  *     بعدها بـ«نسخ الفصل» إلى الدليل الدائم فتُقرأ بياناته كاملةً ويُعدَّل سجلُّه).
  *  R4 الصندوقُ التجريبي المنتهي يُكنس ولو لم يعد صاحبه.
+ *  R5 خانةُ «الوقت» في ملف الاستيراد تُقرأ «من-إلى» كما يكتبها النموذجُ والتصدير
+ *     (كانت تُقرأ بالعكس فيُرفض كلُّ صفٍّ من النموذج نفسه).
  *
  * خادمٌ حقيقيّ في وضع التجربة على منفذٍ حرّ (helpers/liveServer).
  */
 import { waitForDemoSeed } from "./helpers/demoSeed";
 import { startDemoServer, type LiveServer } from "./helpers/liveServer";
 import { Repository } from "../src/db/repository";
+import { formatScheduleTimeRange, readScheduleTimeRange } from "../src/utils/scheduleTime";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -30,6 +33,15 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   const removed = Repository.sweepExpiredDemoSandboxes();
   check(removed >= 2 && Repository.demoSandboxCount() === before + 1, "R4 الصناديق المنتهية تُكنس ويبقى الحيّ", { before, removed, after: Repository.demoSandboxCount() });
   Repository.dropDemoSandbox("demo_review_live");
+}
+
+/* R5 — بلا خادم. */
+{
+  const same = (got: { start: string; end: string }, start: string, end: string) => got.start === start && got.end === end;
+  check(same(readScheduleTimeRange("08:00-09:20"), "08:00", "09:20"), "R5 خانةُ النموذج «08:00-09:20» بدايةٌ ثم نهاية", readScheduleTimeRange("08:00-09:20"));
+  check(same(readScheduleTimeRange(formatScheduleTimeRange("08:00", "09:20")), "08:00", "09:20"), "R5 خانةُ التصدير (بعازل الاتجاه) تُقرأ كما كُتبت", readScheduleTimeRange(formatScheduleTimeRange("08:00", "09:20")));
+  check(same(readScheduleTimeRange("9:30 – 10:45"), "09:30", "10:45") && same(readScheduleTimeRange("12:20-11:00"), "11:00", "12:20"), "R5 ساعةٌ بلا صفر، وترتيبٌ معكوس في ورقةٍ عربية");
+  check(same(readScheduleTimeRange(""), "", "") && same(readScheduleTimeRange("08:00"), "08:00", "08:00"), "R5 الخانةُ الفارغة والساعةُ الوحيدة كما كانتا (يرفضهما المدقّق)");
 }
 
 let server: LiveServer | null = null;
@@ -105,6 +117,16 @@ try {
       check(fromDirectory.status === 200, "R3 وإضافةُ منتدبٍ من دليل القسم تبقى تعمل", { status: fromDirectory.status });
       await call("/api/visiting-roster", { method: "PUT", body: JSON.stringify({ ...scope, instructorIds: roster }) });
     }
+
+    /* R5 — حيّاً: صفٌّ بشكل النموذج تماماً (عمود «الوقت» وحده). */
+    const imported = await call("/api/intelligence/import-preview", { method: "POST", body: JSON.stringify({ ...scope, rows: [
+      { "رمز المقرر": "101", "المقرر الدراسي": "اختبار", "الشعبة": "501", "أستاذ المقرر": "اسم", "الأيام": "الأحد - الثلاثاء", "الوقت": "08:00-09:20", "المبنى": "B9", "القاعة": "F10" },
+      { "رمز المقرر": "102", "المقرر الدراسي": "اختبار", "الشعبة": "502", "أستاذ المقرر": "اسم", "الأيام": "الاثنين", "الوقت": formatScheduleTimeRange("11:00", "12:20"), "المبنى": "B9", "القاعة": "F12" },
+    ] }) });
+    const rows: any[] = imported.json?.rows || [];
+    const issues: string[] = imported.json?.issues || [];
+    check(imported.status === 200 && rows[0]?.fstarttime === "08:00" && rows[0]?.fendtime === "09:20" && rows[1]?.fstarttime === "11:00" && rows[1]?.fendtime === "12:20"
+      && !issues.some(issue => issue.includes("النهاية") || issue.includes("وقت غير صالح")), "R5 الاستيرادُ يقرأ وقتَ النموذج والتصدير بلا «النهاية قبل البداية»", { status: imported.status, rows: rows.map(r => [r.fstarttime, r.fendtime]), issues });
   }
 } catch (error) {
   failed++;
