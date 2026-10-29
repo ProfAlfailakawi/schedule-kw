@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ArrowLeftRight, CalendarDays, Check, CheckCircle2, History, RotateCcw, ShieldCheck, UsersRound, X } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, CalendarDays, Check, CheckCircle2, History, Replace, RotateCcw, ShieldCheck, UsersRound, X } from "lucide-react";
 import { PrimaryButton, SecondaryButton, visualConfirm, useDialogDismiss } from "./ui";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
@@ -99,7 +99,7 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
       <section className="transfer-sheet visual-minimal ta-conversion-sheet" role="dialog" aria-modal="true" aria-label="تحويل هيئة التدريب">
         <header className="ta-conversion-header">
           <div className="ta-conversion-heading">
-            <span className="ta-conversion-symbol"><UsersRound aria-hidden="true" /></span>
+            <span className="ta-conversion-symbol"><Replace aria-hidden="true" /></span>
             <div>
               <span className="surface-kicker">الجدول الدراسي · المزيد</span>
               <h2>تحويل هيئة التدريب</h2>

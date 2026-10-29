@@ -18,7 +18,8 @@
  * والفاشلُ المعروفُ في tests/known-failures.txt يُشغَّل ويُطبع ولا يُسقط التشغيل؛
  * فإن نجح طُلب حذفُه من القائمة، حتى لا تبقى القائمةُ مخبأً.
  *
- * التشغيل: `npm test`، أو `npm test -- test:publish-requests test:request-reissue` لبعضها.
+ * التشغيل: `npm test`، أو `npm test -- test:publish-requests test:request-reissue` لبعضها،
+ * أو `npm test -- --quick` بلا الثقيلة (tests/slow.txt) — وهو ما يشغّله CI لطلبات الدمج.
  */
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -32,8 +33,12 @@ const listed = fs.readFileSync(path.join(root, "tests/suite.txt"), "utf8")
   .split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("#"));
 const known = new Set(fs.readFileSync(path.join(root, "tests/known-failures.txt"), "utf8")
   .split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("#")));
-const wanted = process.argv.slice(2);
-const suite = wanted.length ? wanted : listed;
+/* `--quick` (CI لطلبات الدمج) يتخطّى ما في tests/slow.txt؛ والتشغيلُ الكامل بعد الدمج يشغّله. */
+const quick = process.argv.includes("--quick");
+const slow = new Set(fs.readFileSync(path.join(root, "tests/slow.txt"), "utf8")
+  .split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("#")));
+const wanted = process.argv.slice(2).filter(arg => arg !== "--quick");
+const suite = (wanted.length ? wanted : listed).filter(name => !(quick && slow.has(name)));
 
 const unknown = suite.filter(name => !scripts[name]);
 if (unknown.length) {
@@ -45,6 +50,13 @@ if (dupes.length) {
   console.error(`مكرّرٌ في tests/suite.txt: ${[...new Set(dupes)].join("، ")}`);
   process.exit(1);
 }
+/* اختبارٌ ثقيل لا يُتخطّى إلا وهو في القائمة الكاملة: وإلا لم يشغّله شيءٌ أبداً. */
+const strays = [...slow].filter(name => !listed.includes(name));
+if (strays.length) {
+  console.error(`في tests/slow.txt ما ليس في tests/suite.txt: ${strays.join("، ")}`);
+  process.exit(1);
+}
+if (quick) console.log(`تشغيلٌ سريع: يُتخطّى ${slow.size} من الثقيلة (tests/slow.txt)، ويشغّلها التشغيلُ الكامل بعد الدمج.`);
 
 const portBusy = () => new Promise(resolve => {
   const socket = net.connect({ port: PORT, host: "127.0.0.1" });

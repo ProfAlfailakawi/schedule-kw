@@ -1,0 +1,17 @@
+# ما يُرسل إلى `docker build` (Dockerfile). المرحلةُ الأخيرة تنسخ ما يقرؤه الخادم
+# وحده، فهذا لا يغيّر الصورة؛ يمنع فقط إرسالَ ما لا يحتاجه البناء، ولا يدع ملفاً
+# خاصاً يدخل مرحلةَ البناء ولو سهواً. البناءُ نفسه يحتاج المصدرَ والسكربتات والاختبارات.
+.git
+node_modules
+dist
+coverage
+*.log
+.env*
+!.env.example
+database/db.json
+database/db.json.gz
+database/legacy-password-vault.key
+database/*.backup
+database/*.firestore-verification.json
+schedule-backups/
+cookies.txt

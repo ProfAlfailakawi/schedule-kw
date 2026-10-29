@@ -275,6 +275,41 @@ async function main() {
   const forged = await fetch(BASE + feedPath.replace(/-[0-9a-f]{32}\.ics\?/, "-" + "0".repeat(32) + ".ics?"));
   check(forged.status === 404, "مفتاحٌ مزوَّر لا يفتح شيئاً", forged.status);
 
+  /* ═══ القرار ٣ (2026-10-29): القاعة لا تصل الأستاذ — لا في JSON الكرت ولا في صفحته ═══ */
+  {
+    const termBody = (await A("GET", "/api/schedules?termId=1")).json;
+    const termList: any[] = Array.isArray(termBody) ? termBody : (termBody.rows || []);
+    const labels = [...new Set(termList.map(r => [r.AdRoomCode, r.AdRoomHall].filter(Boolean).join("/")).filter((l: string) => l.length >= 5))] as string[];
+    check(labels.length > 0, "في الفصل قاعاتٌ بأسمائها يُبحث عنها في كرت الأستاذ", labels.length);
+    const roomKey = /"(roomPick|reservedRoom|roomSwitch|roomCandidates|roomOptions|AdRoomCode|AdRoomHall)"/;
+    const leaks: string[] = [];
+    for (const r of rows) {
+      const card = await http("GET", `/api/public/request/${encodeURIComponent(r.linkId)}?live=1`);
+      if (card.status !== 200) continue;
+      const named = labels.filter(l => card.text.includes(l));
+      const ownRoom = (card.json.request?.items || []).some((it: any) => it.before?.room || it.after?.room);
+      if (named.length || roomKey.test(card.text) || ownRoom) leaks.push(`${r.AdInstructorId}:${named.slice(0, 2).join(",")}:${(roomKey.exec(card.text) || [])[1] || ""}:${ownRoom}`);
+    }
+    check(!leaks.length, "JSON كل كرت بلا اسم قاعةٍ ولا رمزها ولا «الأنسب» ولا المحجوزة ولا قاعة «كان»", leaks);
+    const draft = rows.find(r => r.AdInstructorId === 5) || rows.find(r => r.status === "sent");
+    if (draft) {
+      const link = encodeURIComponent(draft.linkId);
+      const items = ((await http("GET", `/api/public/request/${link}?live=1`)).json.request?.items || []) as any[];
+      const at = items.findIndex(i => i.rowId != null);
+      const payload = items.map((i, n) => n === at ? { rowId: i.rowId, action: "change", days: (i.slots || []).map((s: any) => s.day), start: "08:00" } : { rowId: i.rowId, action: "keep", days: [], start: "" });
+      const batch = await http("POST", `/api/public/request/${link}/check-batch`, { items: payload });
+      const result = (batch.json.items || [])[0] || {};
+      check(batch.status === 200 && !roomKey.test(batch.text) && !labels.some(l => batch.text.includes(l)) && "roomAvailable" in result,
+        "الفحصُ الدفعي يقول roomAvailable وحده: لا «الأنسب» ولا اسم", batch.json);
+      const hold = await http("POST", `/api/public/request/${link}/hold`, { itemIndex: at, items: payload });
+      check(!/"room"/.test(hold.text) && !labels.some(l => hold.text.includes(l)), "والحجزُ المؤقّت لا يردّ اسمَ ما حجزه", hold.json);
+      await http("POST", `/api/public/request/${link}/hold`, { release: true });
+      const html = await http("GET", `/r/${link}`);
+      check(html.status === 200 && html.text.includes("قاعتك يحددها القسم") && !html.text.includes("room-pick") && !labels.some(l => html.text.includes(l)),
+        "والصفحةُ نفسها: إشارةُ 🏫✓ «قاعتك يحددها القسم» ولا قاعةَ بعينها");
+    } else check(false, "يوجد كرتٌ يُفحص منه الفحصُ الدفعي والحجز");
+  }
+
   /* ═══ المرحلة ٥: ذاكرةُ الفصول ═══════════════════════════════════════════ */
   const terms = (await A("GET", "/api/terms")).json as any[];
   const later = terms.find(t => Number(t.AdTermId) === 2);
@@ -349,6 +384,42 @@ async function main() {
     const flood: number[] = [];
     for (let i = 0; i < 260; i += 1) flood.push((await http("GET", `/api/public/request/${solo}?live=1`)).status);
     check(flood.includes(429), "ورابطٌ واحدٌ يكرّر بلا توقف يقف عند حدّه الشخصيّ", flood.slice(-3));
+  }
+
+  /* ═══ القرار ٥ (2026-10-29): الاشتراكُ الثابت يعيش ما دامت بطاقةٌ حيّة ═════════
+     آخرَ الملف لأنه يوقف روابطَ هذا الصندوق. صاحبُ «pending» (المرحلة ٤) يدرّس في
+     القسم ١:١ وحده، وبطاقاتُه: رابطُ طلبه وبطاقةُ القسم العامة. */
+  {
+    const unfold = (t: string) => t.replace(/\r\n[ \t]/g, "");
+    const read = async () => { const r = await fetch(BASE + feedPath); const text = unfold(await r.text()); return { status: r.status, type: r.headers.get("content-type") || "", text }; };
+    const nameOf = (t: string) => (/^X-WR-CALNAME:(.*)$/m.exec(t) || [])[1] || "";
+    const departmentCard = () => A("GET", `/api/share?${SCOPE}`).then(r => (r.json as any[]).find(l => l.kind === "staff" && !Number(l.AdInstructorId || 0) && !l.revoked));
+    const live = await read();
+    check(live.status === 200 && /BEGIN:VEVENT/.test(live.text) && !!nameOf(live.text), "الاشتراك حيٌّ ومعه محاضراته", live.status);
+    /* إيقافُ رابط طلبه وحده ليس نهائياً: بطاقةُ القسم ما زالت تفتح بطاقته. */
+    const revokeOwn = await A("DELETE", `/api/share/${encodeURIComponent(pending.linkId)}`);
+    /* ورابطُ طلبه للفصل اللاحق (المرحلة ٥ أصدرته) بطاقةٌ حيّة أخرى: يُوقف هو أيضاً. */
+    for (const later of ((await A("GET", "/api/instructor-requests?collegeId=1&sectionId=1&termId=2")).json.rows || []) as any[])
+      if (Number(later.AdInstructorId) === Number(pending.AdInstructorId)) await A("DELETE", `/api/share/${encodeURIComponent(later.linkId)}`);
+    const afterOwn = await read();
+    check(revokeOwn.status === 200 && afterOwn.status === 200 && /BEGIN:VEVENT/.test(afterOwn.text), "إيقافُ رابط الطلب وبطاقةُ القسم حيّة: التقويم باقٍ", afterOwn.status);
+    /* إعادةُ نشر بطاقة القسم: القديمة تُوقف والجديدة تحلّ محلّها — والتقويم لا ينقطع. */
+    const first = await departmentCard();
+    const republished = await A("POST", "/api/share", { collegeId: 1, sectionId: 1, termId: 1, kind: "staff" });
+    const afterReissue = await read();
+    check(!!first && republished.status === 201 && republished.json.id !== first.id && /BEGIN:VEVENT/.test(afterReissue.text),
+      "إعادةُ الإصدار تُبقي الاشتراك حيّاً", { status: republished.status, replaced: republished.json.replaced });
+    /* الإيقافُ النهائي: لا يبقى بيده رابطُ بطاقةٍ حيّ. */
+    const cancelled = await A("DELETE", `/api/share/${encodeURIComponent(republished.json.id)}`);
+    const paused = await read();
+    check(cancelled.status === 200 && paused.status === 200 && /text\/calendar/.test(paused.type) && paused.text.startsWith("BEGIN:VCALENDAR")
+      && paused.text.includes("END:VCALENDAR") && !/BEGIN:VEVENT/.test(paused.text),
+      "الإيقافُ النهائي: 200 بتقويمٍ صالحٍ فارغ (تُمسح المحاضرات من الهاتف بهدوء)", { status: paused.status, type: paused.type });
+    check(/^X-WR-CALDESC:توقّف/m.test(paused.text) && nameOf(paused.text) === nameOf(live.text), "بالاسم نفسه، ووصفُه يقول إنه توقّف", nameOf(paused.text));
+    /* ويعود وحده متى صدرت بطاقةٌ جديدة. */
+    const reissued = await A("POST", "/api/share", { collegeId: 1, sectionId: 1, termId: 1, kind: "staff" });
+    const resumed = await read();
+    check(reissued.status === 201 && resumed.status === 200 && /BEGIN:VEVENT/.test(resumed.text) && nameOf(resumed.text) === nameOf(live.text), "ويعود وحده حين يصدر القسم بطاقةً جديدة");
   }
 
   /* ورمزٌ بتوقيعٍ قديمٍ بلا بنود: يُقال ذلك ولا يُخترع. */

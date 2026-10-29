@@ -1,0 +1,12 @@
+# الاختباراتُ الثقيلة: يتخطّاها «npm test -- --quick» (CI لطلبات الدمج)، ويشغّلها
+# «npm test» كاملةً بعد كل دمجٍ في main — ولا يُنشر إلا ما نجح فيه التشغيلُ الكامل
+# (.github/workflows/deploy-schedule.yml). دقائقُ GitHub Actions تُدفع، وهذه السبعةُ
+# كانت 104 ثوانٍ من 237 في كل تشغيل (CI على main، 2026-10-29).
+# يُضاف هنا ما تجاوز خمسَ ثوانٍ في CI، ويبقى مع ذلك في tests/suite.txt.
+test:swrs136-real
+test:student-needs-scale
+test:plan-sheet-import
+test:teacher-card-flow
+test:student-door-network
+test:live-pulse-http
+test:instructor-offering-flow

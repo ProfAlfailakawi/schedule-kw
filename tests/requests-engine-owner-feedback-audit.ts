@@ -4,6 +4,9 @@
  * A1 التعارض مع النفس · A2 القسم لا يُقفل عليه · A4 نطاق الكلية · B2 الإضافة الثانية
  * C2 اختيار القاعة · C3 التسابق والحجز المؤقّت · D1/D2 «لم يشاركوا» · N1 تكرار الأساتذة.
  * كلُّ بندٍ يُعاد إنتاجُ خطئه أولاً على المحرّك الحقيقي، ثم يُثبت الإصلاح.
+ *
+ * والمالك 2026-10-29 (القرار ٣: «مخفية اكيد متعمدة»): C2 يبقى ترتيباً وحجزاً في الخادم ويراه
+ * القسم، ولا يصل الأستاذَ منه اسمٌ ولا رمزٌ ولا بديل.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -14,7 +17,7 @@ import { judgeRequest } from "../src/utils/instructorRequestVerdict";
 import { reviewSchedule } from "../src/utils/scheduleRegulations";
 import {
   allocateRequestReservations, assertRequestReservationWrite, holdRequestReservation, liveReservations, occupiedRowsForRequest,
-  releaseRequestHolds, reservationRows, retainRequestReservations, withReservedRooms, RequestHoldConflict, RequestReservationConflict, REQUEST_RACE_LOST,
+  releaseRequestHolds, reservationRows, retainRequestReservations, withReservedRooms, withoutRoomNames, RequestHoldConflict, RequestReservationConflict, REQUEST_RACE_LOST,
   type RequestReservation, type RequestReservationProposal,
 } from "../src/utils/instructorRequestReservations";
 import { rankRequestRooms } from "../src/utils/requestRoomRanking";
@@ -163,7 +166,19 @@ const verdictFor = (req: InstructorRequest, allRows: FSchedule[]) => {
   check(ranked.slice(1, 3).length === 2, "ومعها بديلان مرتّبان");
   const req = request("req-c2", 70, [addItem("i1")]);
   const stamped = withReservedRooms(req, [reservation("req-c2", "i1", 70)]);
-  check(stamped.items[0].reservedRoom?.label === "B1/101", "القاعةُ المحجوزة تُكتب على البند فتظهر في «التغيير»");
+  check(stamped.items[0].reservedRoom?.label === "B1/101", "القاعةُ المحجوزة تُكتب على البند فتظهر في «التغيير» عند القسم");
+  /* القرار ٣ (2026-10-29): لا يراها الأستاذ — ولا «الأنسب» وبديلاه، ولا اسمُها في سطر «عُدّل الموعد». */
+  const edited = "الوقت 08:00–09:15 ← 09:30–10:45 · القاعة B1/101 ← B2/202 · المرفق المرافق 7/12 ← بدون";
+  check(withoutRoomNames(edited) === "الوقت 08:00–09:15 ← 09:30–10:45 · تغيّرت القاعة · تغيّر المرفق المرافق",
+    "سطرُ تعديل القسم يصل الأستاذَ «تغيّرت القاعة» بلا اسمٍ ولا رمز، وبقيةُ الجملة كما هي");
+  check(withoutRoomNames("عدّل القسم موعداً مرتبطاً بهذا الطلب أثناء انتظاره.") === "عدّل القسم موعداً مرتبطاً بهذا الطلب أثناء انتظاره." && withoutRoomNames("") === "",
+    "وما لا قاعةَ فيه يبقى حرفاً بحرف");
+  const server = fs.readFileSync(path.join(process.cwd(), "server.ts"), "utf8");
+  const page = server.slice(server.indexOf("function instructorRequestPage"), server.indexOf('app.get("/r/:token"'));
+  check(!server.includes("roomPick: verdict") && !/roomPick|reservedRoom|roomSwitch|ROOM_WHY/.test(page) && page.includes("function roomSignalHtml(it)"),
+    "الكرت لا يعرض «الأنسب» ولا بديلين ولا اختياراً: إشارةٌ واحدة 🏫✓ وحدها");
+  check(server.includes("rankRequestRooms(rules.knownRoomKeys.map(") && server.includes("knownRoomKeys: item.offeringRowIds?.length ? [] : rankedRooms.map(room => room.key)")
+    && server.includes("await requestReservationProposals(judged)"), "والترتيبُ الذكي والحجزُ لحظةَ الإرسال باقيان في الخادم كما هما");
 }
 
 /* ── C3: التسابق والحجز المؤقّت ─────────────────────────────────────────── */

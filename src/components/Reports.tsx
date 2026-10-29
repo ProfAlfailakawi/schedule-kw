@@ -3228,6 +3228,27 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 <div><small>أساتذة</small><strong>{num(fairness.rows.length)}</strong></div>
               </div>
             </div>
+            {/* حلقاتُ الحمل: كل أستاذ حلقةٌ تمتلئ بساعاته قياساً بأثقل زملائه، ولونُها بُعدُه عن المتوسط —
+                المثقل والخفيف يُريان من الشبكة قبل قراءة أي سطر. */}
+            <div className="load-rings" role="list" aria-label="حمل كل أستاذ قياساً بالمتوسط">
+              {(() => {
+                const heaviest = Math.max(1, ...fairness.rows.map(person => person.hours));
+                return [...fairness.rows].sort((x, y) => y.hours - x.hours).map(row => {
+                  const ratio = fairness.average ? row.hours / fairness.average : 1;
+                  const tone = ratio >= 1.3 ? "danger" : ratio >= 1.1 ? "warn" : ratio <= 0.6 ? "slate" : "accent";
+                  return (
+                    <div role="listitem" key={`ring-${row.id}`} className="load-ring" data-tone={tone}>
+                      <DnaRing value={row.hours} max={heaviest} size={64} stroke={6} tone={tone} label={num(row.hours)}
+                        ariaLabel={`${row.name}: ${countOf(row.hours, AR.hour)} معتمدة`} />
+                      <span>{row.name}</span>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+            <div className="load-rings-key" aria-hidden="true">
+              <span data-tone="accent">حول المتوسط</span><span data-tone="warn">أعلى منه</span><span data-tone="danger">مثقل</span><span data-tone="slate">خفيف</span>
+            </div>
             <div className="fairness-rows">
               {fairness.rows.map(row => (
                 <div key={row.id}>

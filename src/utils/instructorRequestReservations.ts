@@ -165,6 +165,21 @@ export function withReservedRooms(request: InstructorRequest, entries: RequestRe
   }) };
 }
 
+/**
+ * ── والقاعةُ لا تصل الأستاذ (قرار المالك 2026-10-29: «مخفية اكيد متعمدة») ───
+ *
+ * تُكتب القاعةُ المحجوزة على البند للقسم (أعلاه)، وتُنزع من نسخة الأستاذ مع
+ * مرشّحاتها وبدائلها (stripForInstructor). وبقي سطرٌ واحد يحملها نصّاً: تعديلُ
+ * القسم لموعدٍ جاء من طلب يُسجَّل في خطّ الطلب جملةً («الوقت … · القاعة 7/31 ←
+ * 8/22»). فتصل الأستاذَ الجملةُ نفسها و«القاعة …» فيها «تغيّرت القاعة»، و«المرفق
+ * المرافق …» «تغيّر المرفق المرافق» — يعرف أن شيئاً تغيّر، ولا يعرف أين.
+ */
+export function withoutRoomNames(text: string): string {
+  const parts = String(text || "").split(" · ");
+  if (!parts.some(part => /^(القاعة|المرفق المرافق) /.test(part))) return String(text || "");
+  return parts.map(part => /^القاعة /.test(part) ? "تغيّرت القاعة" : /^المرفق المرافق /.test(part) ? "تغيّر المرفق المرافق" : part).join(" · ");
+}
+
 /** Official writes participate in the same transaction as submissions. Internal apply
  * passes its owner explicitly; a client-supplied origin cannot bypass reservations.
  * A department edit the coordinator explicitly confirmed passes that request as an owner too (A2). */

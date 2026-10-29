@@ -7,7 +7,7 @@ import { appendRequestThread } from "./src/utils/instructorRequestThread";
 import { historicalLectureMinutes } from "./src/utils/advancedIntelligence";
 import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "./src/utils/instructorRequestWeek";
 import { rankRequestRooms } from "./src/utils/requestRoomRanking";
-import { reservationRows, liveReservations, occupiedRowsForRequest, RequestReservationConflict, RequestHoldConflict, REQUEST_RACE_LOST, type RequestReservationProposal } from "./src/utils/instructorRequestReservations";
+import { reservationRows, liveReservations, occupiedRowsForRequest, RequestReservationConflict, RequestHoldConflict, REQUEST_RACE_LOST, withoutRoomNames, type RequestReservationProposal } from "./src/utils/instructorRequestReservations";
 import { compareIntelligenceTerms, rowsForIntelligenceScope } from "./src/utils/intelligenceReadingScope";
 import express, { Request, Response, NextFunction } from "express";
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
@@ -70,11 +70,13 @@ import { COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS } from "./
 import { enrichCompanionRoomTypes } from "./src/utils/companionRoomDisplay";
 import { DEMO_COPY_SCRIPT, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "./src/server/publicKit";
 import { cleanSeenIds, seenKey } from "./src/utils/notificationSeen";
-import { calendarFeedKey, createCalendarSecretResolver, instructorFromCalendarKey, personCalendarKey } from "./src/server/calendarSecret";
-import { readsUntilTermEnd, requestsCloseAtFromDate, shareLinkReadable, termLinkExpiresAt } from "./src/utils/shareLinkLifetime";
+import { CALENDAR_FEED_PAUSED_NOTE, calendarFeedKey, createCalendarSecretResolver, instructorFromCalendarKey, personCalendarKey } from "./src/server/calendarSecret";
+import { clearStaffDeviceCookie, createStaffDeviceSecretResolver, signStaffDevice, staffDeviceCookie, staffDeviceExpiry, verifyStaffDevice, STAFF_DEVICE_COOKIE } from "./src/server/staffDeviceKey";
+import { liveCardLinkFor, readsUntilTermEnd, requestsCloseAtFromDate, shareLinkReadable, termLinkExpiresAt } from "./src/utils/shareLinkLifetime";
 import { normalizeInstructorDeadline, individualExceptionOpen, requestWindowOpen as requestWindowOpenPolicy } from "./src/utils/instructorRequestWindows";
 import { termPhase, termIsFrozen, TERM_FROZEN_MESSAGE } from "./src/utils/termSequence";
 import { createAttemptLimiter, limiterOptionsFromEnv } from "./src/server/publicAttemptLimiter";
+import { createDeadSessionMemory, createLinkMissGuard, createSessionLookupBudget, isSessionIdShape } from "./src/server/anonymousGuard";
 import { runApprovalAttempts, type ApprovalOnce } from "./src/server/approvalAttempts";
 import { createCoalescer, createTtlMemo, studentQueueAggregate, type StudentQueueEntry } from "./src/server/notificationCache";
 import { createDataContextKey } from "./src/server/dataContextCache";
@@ -143,10 +145,12 @@ import { registerPlanSheetRoutes } from "./src/server/planSheetRoutes";
 import { buildFeatureNotifications, buildMasariGapNotifications } from "./src/utils/featureNotifications";
 import { studentGaps } from "./src/utils/sectionGap";
 import { seedDemoRadar, seedDemoMasariDemand } from "./src/server/demoRadarSeed";
+import { seedDemoOtherDepartmentStories } from "./src/server/demoPreviousTermSeed";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "./src/utils/instructorRequestItems";
 import { radarNoticeFor, registerSimulationRoutes, scheduleRadarAutoRun } from "./src/server/simulationRoutes";
 import { registerInsightRoutes } from "./src/server/insightRoutes";
 import { registerTimeMachineRoutes } from "./src/server/timeMachineRoutes";
+import { registerRoomDoorRoutes } from "./src/server/roomDoorRoutes";
 import { studentHomePage } from "./src/server/studentHomePage";
 import { DEFAULT_INVITATION_PASSWORD } from "./src/utils/invitationLink";
 import { scheduleAutoTermJob } from "./src/server/autoTerms";
@@ -872,10 +876,19 @@ export function forgetAuthSession(sessionId?: string) {
 }
 Repository.onIdentityChanged?.(() => authCache.clear());
 
+/* جلسةٌ لا وجود لها تُسأل عنها قاعدةُ البيانات مرةً واحدة، لا مع كل طلب؛ وعنوانٌ
+   يخترع معرّفاتٍ يُقرأ مجهولاً بعد حدٍّ لا يبلغه متصفّحٌ حقيقي. القاعدة كلها
+   في src/server/anonymousGuard.ts. */
+const deadSessions = createDeadSessionMemory();
+const sessionLookups = createSessionLookupBudget();
+let sessionLookupRefusedLoggedAt = 0;
+
 async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const cookies = getCookies(req);
   const sessionId = cookies["session_id"];
   if (!sessionId) { next(); return; }
+  /* معرّفٌ لم يصنعه الخادم لا يُسمّي جلسة: لا يُسأل عنه أحد. */
+  if (!isSessionIdShape(sessionId)) { next(); return; }
   /* جلسةٌ تجريبية لا هويةَ لها خارج صندوقها: صندوقٌ انتهى، أو رابطٌ حقيقيٌّ
      فُتح من متصفّح التجربة، يُقرأ فيهما الطلب مجهولاً — لا بهوية «مدير
      البيئة التجريبية» المحفوظة في authCache على بياناتٍ حقيقية. */
@@ -895,7 +908,28 @@ async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Ne
     return;
   }
 
-  const sess = await Repository.getSession(sessionId);
+  /* الجلساتُ الحقيقية في Firestore وكلُّ سؤالٍ عنها قراءة؛ التجريبيةُ في الذاكرة. */
+  const billed = sessionId.startsWith("sess_") && !Repository.isDemoRequest();
+  if (billed && deadSessions.knows(sessionId)) { next(); return; }
+  const lookup = billed ? sessionLookups.reserve(req.ip || "unknown") : null;
+  if (billed && !lookup) {
+    if (Date.now() - sessionLookupRefusedLoggedAt > 60_000) {
+      sessionLookupRefusedLoggedAt = Date.now();
+      console.warn(`[anonymous-guard] ${req.ip || "unknown"} keeps presenting sessions that do not exist; its unknown ids are read as signed out for now.`);
+    }
+    next();
+    return;
+  }
+
+  let sess: Awaited<ReturnType<typeof Repository.getSession>>;
+  try {
+    sess = await Repository.getSession(sessionId);
+  } catch (error) {
+    lookup?.release(false);
+    throw error;
+  }
+  if (sess) lookup?.release(true);
+  else if (billed) deadSessions.remember(sessionId);
   if (sess) {
     req.userId = sess.userId;
     const user = await Repository.getUserById(sess.userId);
@@ -924,6 +958,7 @@ async function authMiddleware(req: AuthenticatedRequest, res: Response, next: Ne
     }
     authCache.delete(sessionId);
     await Repository.deleteSession(sessionId);
+    if (billed) deadSessions.remember(sessionId);
   } else {
     authCache.delete(sessionId);
   }
@@ -1011,6 +1046,9 @@ function bindPublicLinkContext(req: Request, _res: Response, next: NextFunction)
   (req as AuthenticatedRequest).demoSessionId = sessionId;
   if (!Repository.runDemoSandbox(sessionId, next)) next();
 }
+/* صفحاتُ الروابط تعدّ الرموزَ التي لا تطابق شيئاً، لا من يفتحها (anonymousGuard.ts):
+   شبكةُ الجامعة تفتح ألف رابطٍ صحيح ولا تُحجب، ومن يخمّن يُوقَف قبل أن يُسأل عنه أحد. */
+app.use(PUBLIC_LINK_PAGE_PREFIXES.map(prefix => `${prefix}:token`), createLinkMissGuard());
 app.use(PUBLIC_LINK_PAGE_PREFIXES.map(prefix => `${prefix}:token`), bindPublicLinkContext);
 
 // A dedicated demo service binds every API request to the caller's own in-memory sandbox.
@@ -2319,6 +2357,8 @@ function scheduleDemoExtras(sessionId: string): void {
       catch (error) { failures.push(name); console.error(`[demo] seeding ${name} failed:`, error); }
     };
     await run("stories", seedDemoStories);
+    /* كشفُ التسجيل والرغباتُ والمقترحات للقسمين الآخرين، قبل الرادار فلا يُعلَّم قديماً بعده. */
+    await run("other departments", () => seedDemoOtherDepartmentStories({ sealIdentity: sealStudentIdentity, fingerprintOf: surveyFingerprint, requestItemFromRow, dayLetters: DAY_LETTERS, judge: request => judgeRequestItems(request) }, DEMO_STORY_SCOPE.termId));
     await run("radar", () => seedDemoRadar({ sealIdentity: sealStudentIdentity, today: kuwaitDateISO() }));
     await run("Masari demand", seedDemoMasariDemand);
     if (failures.length) throw new Error(`Demo seed incomplete: ${failures.join(", ")}`);
@@ -2739,7 +2779,10 @@ app.post("/api/auth/logout", async (req: AuthenticatedRequest, res: Response) =>
     // Drop the remembered identity before the record, so no request in flight
     // can be served from memory after the person has signed out.
     forgetAuthSession(sessionId);
-    await Repository.deleteSession(sessionId);
+    /* معرّفٌ لم يصنعه الخادم لا سجلَّ له يُحذف؛ والمحذوفُ يُذكر ميّتاً، فتبويبٌ
+       آخر بالكوكي القديم لا يُسأل عنه بعد الآن. */
+    if (isSessionIdShape(sessionId)) await Repository.deleteSession(sessionId);
+    if (sessionId.startsWith("sess_")) deadSessions.remember(sessionId);
   }
   res.setHeader("Set-Cookie", `session_id=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`);
   res.json({ success: true });
@@ -16120,14 +16163,22 @@ async function scheduleMovementEntries(instructorId: number, termId: number, row
   return movementHistory;
 }
 
-async function buildStaffCard(link: ScheduleShareLink, civil: string, requestedTermId = 0) {
-  const digits = normalizeCivilId(civil);
-  if (digits.length < 8) return null;
+/** هويةُ الأستاذ في البطاقة: رقمُه المدني، أو مفتاحُ جهازٍ موقّعٌ يحمل رقمه الداخلي («تذكّرني»). */
+type StaffIdentity = string | { instructorId: number };
+
+async function buildStaffCard(link: ScheduleShareLink, identity: StaffIdentity, requestedTermId = 0) {
+  const byDevice = typeof identity === "object" && identity !== null;
+  const civil = byDevice ? "" : String(identity);
+  const digits = byDevice ? "" : normalizeCivilId(civil);
+  if (!byDevice && digits.length < 8) return null;
 
   const [instructors, courses, colleges, terms, sections] = await Promise.all([
     Repository.getInstructors(), Repository.getCourses(), Repository.getColleges(), Repository.getTerms(), Repository.getSections()
   ]);
-  const person = instructors.find(row => sameCivilId(row.AdInstructorCivil, digits));
+  /* مفتاحُ الجهاز يعيّن الأستاذ برقمه الداخلي، ثم تمرّ البوابات نفسها التي تمرّ بها الهوية بالرقم المدني. */
+  const person = byDevice
+    ? instructors.find(row => Number(row.AdInstructorId) === Number((identity as { instructorId: number }).instructorId))
+    : instructors.find(row => sameCivilId(row.AdInstructorCivil, digits));
   // A demo sandbox deliberately includes fictitious civil IDs: let its
   // instructor card keep working. Production must never authenticate an
   // artificial "هيئة تدريسية" identity as a real professor.
@@ -17216,7 +17267,7 @@ const TERM_WEEKS = 16;
  * body at all. That is the difference between a feed a department can hand to
  * four hundred people and one it cannot.
  */
-async function sendCalendar(req: Request, res: Response, name: string, termId: number, lectures: CalendarLecture[], singles: CalendarSingle[] = []) {
+async function sendCalendar(req: Request, res: Response, name: string, termId: number, lectures: CalendarLecture[], singles: CalendarSingle[] = [], pausedNote = "") {
   const term = (await Repository.getTerms()).find(row => row.AdTermId === termId);
   /* حدّا الفصل من ‎termWindow‎ (المعلَن، وإلا المستنبط من اسم الفصل)؛ «اليوم»
      لم يعد مرساةً إلا لفصلٍ لا يُعرف عنه شيء — ويقول الملف ذلك. */
@@ -17232,7 +17283,8 @@ async function sendCalendar(req: Request, res: Response, name: string, termId: n
     // the subscriber's phone, rather than presenting an invented semester as if
     // it were the registrar's.
     name: span.source === "declared" ? name : span.source === "default" ? `${name} (تواريخ الفصل تقديرية)` : `${name} (تواريخ الفصل غير مسجّلة)`,
-    description: span.source === "declared"
+    /* اشتراكٌ ثابتٌ توقّف (لا بطاقةَ حيّة): الاسمُ نفسُه، والوصفُ يقول ذلك. */
+    description: pausedNote ? pausedNote : span.source === "declared"
       ? `${term?.AdTermName || ""} · يبدأ ${startDate} ويستمر ${countOf(weeks, AR.week)} · للقراءة فقط، ويُحدَّث من نفسه.`
       : span.source === "default"
         ? `${term?.AdTermName || ""} · تواريخ الفصل غير مسجّلة؛ الحدّان تقديريان من اسم الفصل (${span.startDate} ← ${span.endDate}) · للقراءة فقط.`
@@ -17295,6 +17347,17 @@ app.get("/api/public/ics/:token", async (req: Request, res: Response) => {
 /* السرّ لا يولَد عشوائياً عند كل إقلاع: القاعدة كلّها في ‎src/server/calendarSecret.ts‎
    (المتغيّر إن ضُبط، وإلا مشتقٌّ من السرّ المشترك المحفوظ). */
 const calendarSecret = createCalendarSecretResolver(() => process.env.CALENDAR_SECRET, () => Repository.getSharedServerSecret());
+const staffDeviceSecret = createStaffDeviceSecretResolver(() => process.env.STAFF_DEVICE_SECRET, () => Repository.getSharedServerSecret());
+const staffCookieSecure = process.env.NODE_ENV === "production";
+/* الرقمُ المدني إن أُرسل، وإلا مفتاحُ الجهاز من الكوكي — والمفتاحُ لا يصلح إلا لرمز هذا الرابط. */
+async function staffIdentityFrom(req: Request, token: string): Promise<{ identity: StaffIdentity; byDevice: boolean } | null> {
+  const civil = String((req.body || {}).civil || "");
+  if (civil) return { identity: civil, byDevice: false };
+  const raw = getCookies(req)[STAFF_DEVICE_COOKIE];
+  if (!raw) return null;
+  const instructorId = verifyStaffDevice(await staffDeviceSecret(), token, raw);
+  return instructorId ? { identity: { instructorId }, byDevice: true } : null;
+}
 
 const calendarKey = async (token: string, instructorId: number) =>
   calendarFeedKey(await calendarSecret(), token, instructorId);
@@ -17314,18 +17377,34 @@ app.get("/api/public/ics/:token/:key", async (req: Request, res: Response) => {
 });
 
 /**
- * ── الاشتراكُ الثابت (M3) ────────────────────────────────────────────────────
+ * ── الاشتراكُ الثابت (M3) — يتبع الأستاذَ ما دامت بيده بطاقةٌ حيّة ───────────────
  * ‎/api/public/cal/<رمز البطاقة>/p<رقم>-<مفتاح>.ics‎ — المفتاحُ للأستاذ لا للرابط
- * (src/server/calendarSecret.ts)، فإيقافُ البطاقة أو إعادةُ نشرها لا يقتل
- * اشتراكاتِ الهواتف. ورمزُ البطاقة في المسار يربط الطلبَ بصندوق الديمو وحده؛
- * لا يُشترط أن يكون الرابطُ حياً.
+ * (src/server/calendarSecret.ts)، فإعادةُ نشر البطاقة أو تجديدُها (رابطٌ جديد يحلّ
+ * محلّ القديم) لا تقطع اشتراكاتِ الهواتف. أما الإيقافُ النهائي — لم يبقَ بيده رابطُ
+ * بطاقةٍ حيّ: شخصيٌّ، أو رابطُ طلبه، أو بطاقةُ قسمٍ يدرّس فيه؛ غيرُ موقوفٍ ومقروءٌ الآن
+ * فالانتهاءُ يُحتسب (liveCardLinkFor في src/utils/shareLinkLifetime.ts) — فيُوقفه:
+ * 200 بتقويمٍ صالحٍ فارغ بالاسم نفسه ووصفٍ يقول إنه توقّف، فتُمسح المحاضراتُ من الهاتف
+ * بهدوء بدل خطأٍ يُبقيها، ويعود وحده متى صدرت له بطاقةٌ جديدة (قرار المالك 2026-10-29).
+ * ورمزُ البطاقة في المسار يربط الطلبَ بصندوق الديمو وحده؛ لا يُشترط أن يكون هو حياً.
  */
 app.get("/api/public/cal/:token/:key", async (req: Request, res: Response) => {
   const id = instructorFromCalendarKey(await calendarSecret(), String(req.params.key || ""));
   const person = id ? (await Repository.getInstructors()).find(row => Number(row.AdInstructorId) === id) : undefined;
   if (!person) { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
-  await sendInstructorCalendar(req, res, person);
+  await sendInstructorCalendar(req, res, person, { pauseWithoutLiveCard: true });
 });
+
+/** هل بيد الأستاذ رابطُ بطاقةٍ حيّ؟ القاعدةُ كلُّها في liveCardLinkFor؛ هنا قراءةُ الروابط:
+ *  ما يحمل رقمَه (الشخصيةُ وروابطُ الطلب) باستعلامٍ واحد، ثم بطاقةُ القسم العامة لعائلة
+ *  كل قسمٍ يدرّس فيه في فصل التقويم (‎ownRows‎). */
+async function holdsLiveCardLink(instructorId: number, ownRows: FSchedule[], terms: Awaited<ReturnType<typeof Repository.getTerms>>): Promise<boolean> {
+  const termOf = (termId: number) => terms.find(term => Number(term.AdTermId) === termId) as any;
+  if (liveCardLinkFor(await Repository.getShareLinksByInstructor(instructorId), instructorId, { termOf })) return true;
+  const scopes = new Map(ownRows.map(row => [`${row.AdCollegeId}:${row.AdSectionId}:${row.AdTermId}`, row]));
+  const departmentCards = (await Promise.all([...scopes.values()].map(row =>
+    staffFamilyShareLinks(Number(row.AdCollegeId), Number(row.AdSectionId), Number(row.AdTermId))))).flat();
+  return Boolean(liveCardLinkFor(departmentCards, instructorId, { termOf, teachesIn: () => true }));
+}
 
 /** رابطُ الاشتراك الثابت لأستاذ، نسبياً للموقع. */
 const stableCalendarPath = async (token: string, instructorId: number) =>
@@ -17349,7 +17428,7 @@ app.get("/api/public/ics-reminder", (req: Request, res: Response) => {
 });
 
 /** جدول الأستاذ في الفصل الجاري (أو القادم المثبّت بـ‎?term=‎) ملفَّ تقويم. */
-async function sendInstructorCalendar(req: Request, res: Response, person: { AdInstructorId: number; AdInstructorName?: string }) {
+async function sendInstructorCalendar(req: Request, res: Response, person: { AdInstructorId: number; AdInstructorName?: string }, options: { pauseWithoutLiveCard?: boolean } = {}) {
   const [courses, terms, colleges] = await Promise.all([
     Repository.getCourses(), Repository.getTerms(), Repository.getColleges(),
   ]);
@@ -17366,6 +17445,12 @@ async function sendInstructorCalendar(req: Request, res: Response, person: { AdI
   }
   const termRows = await Repository.getSchedulesByScope({ termId: liveTermId });
   const rows = termRows.filter(row => row.AdInstructorId === person.AdInstructorId);
+  const calendarName = `جدول ${person.AdInstructorName || "الأستاذ"}`;
+  /* الاشتراكُ الثابت بلا بطاقةٍ حيّة: تقويمٌ صالحٌ فارغ بالاسم نفسه، ووصفُه يقول إنه توقّف. */
+  if (options.pauseWithoutLiveCard && !(await holdsLiveCardLink(Number(person.AdInstructorId), rows, terms))) {
+    await sendCalendar(req, res, calendarName, liveTermId, [], [], CALENDAR_FEED_PAUSED_NOTE);
+    return;
+  }
   const courseById = new Map(courses.map(row => [row.AdCourseId, row]));
   const collegeById = new Map(colleges.map(row => [Number(row.AdCollegeId), row]));
 
@@ -17396,7 +17481,7 @@ async function sendInstructorCalendar(req: Request, res: Response, person: { AdI
     })
     .filter(Boolean) as CalendarSingle[];
 
-  await sendCalendar(req, res, `جدول ${person.AdInstructorName || "الأستاذ"}`, liveTermId, rows.map(row => {
+  await sendCalendar(req, res, calendarName, liveTermId, rows.map(row => {
     const course = courseById.get(row.AdCourseId);
     return {
       id: row.id,
@@ -17448,7 +17533,8 @@ app.post("/api/public/staff/:token/note", async (req: Request, res: Response) =>
   }
 
   const body = (req.body || {}) as Record<string, unknown>;
-  const card = await buildStaffCard(resolved.link, String(body.civil || ""), Number(body.termId || 0));
+  const who = await staffIdentityFrom(req, token);
+  const card = who ? await buildStaffCard(resolved.link, who.identity, Number(body.termId || 0)) : null;
   if (!card) { res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return; }
   attempt.release();
   if (!card.liveTermId || Number(card.termId) !== Number(card.liveTermId)) {
@@ -17462,9 +17548,9 @@ app.post("/api/public/staff/:token/note", async (req: Request, res: Response) =>
   // actually on this instructor's own card.
   if (!lecture) { res.status(404).json({ error: "هذا الموعد ليس ضمن جدولك" }); return; }
 
+  /* صاحبُ البطاقة كما عيّنته البوابة نفسُها — بالرقم المدني أو بمفتاح الجهاز — لا بحثٌ ثانٍ. */
   const instructors = await Repository.getInstructors();
-  const digits = normalizeCivilId(body.civil);
-  const person = instructors.find(row => sameCivilId(row.AdInstructorCivil, digits));
+  const person = instructors.find(row => Number(row.AdInstructorId) === Number(card.instructorId));
   if (!person) { res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return; }
 
   if (await Repository.countStaffNotesToday(person.AdInstructorId) >= STAFF_NOTES_PER_DAY) {
@@ -19197,21 +19283,51 @@ app.get("/api/schedules/staff-inbox", requirePermission(7), async (req: Authenti
   }));
 });
 
+/* «انسَ هذا الجهاز»: يمسح المفتاح من هذا الجهاز وحده. لا يحتاج هوية، فلا يكشف شيئاً. */
+app.post("/api/public/staff/:token/forget", (req: Request, res: Response) => {
+  res.setHeader("Set-Cookie", clearStaffDeviceCookie(String(req.params.token || ""), staffCookieSecure));
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true });
+});
+
 app.post("/api/public/staff/:token", async (req: Request, res: Response) => {
   const token = String(req.params.token || "");
   const resolved = await resolveShareToken(token);
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
   if (resolved.link.kind !== "staff") { res.status(404).json({ error: "هذا الرابط ليس بطاقة أستاذ" }); return; }
+  /* فتحٌ بلا رقمٍ ولا مفتاحِ جهاز لا يُحسب محاولةً: الصفحة تسأل بصمتٍ عن جهازٍ متذكَّر. */
+  if (!String(req.body?.civil || "") && !getCookies(req)[STAFF_DEVICE_COOKIE]) {
+    res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return;
+  }
   const attempt = publicAttemptReserve(token, req.ip || "unknown");
   if (!attempt) {
     res.status(429).json({ error: "محاولات كثيرة. انتظر عشر دقائق ثم أعد المحاولة." });
     return;
   }
-  const card = await buildStaffCard(resolved.link, String(req.body?.civil || ""), Number(req.body?.termId || 0));
+  const who = await staffIdentityFrom(req, token);
+  // مفتاحُ جهازٍ لم يعد صالحاً يُمسح ويُطلب الرقم كالعادة — بلا تمييزٍ عن «لا بطاقة».
+  if (!who) {
+    if (getCookies(req)[STAFF_DEVICE_COOKIE]) res.setHeader("Set-Cookie", clearStaffDeviceCookie(token, staffCookieSecure));
+    res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return;
+  }
+  const card = await buildStaffCard(resolved.link, who.identity, Number(req.body?.termId || 0));
   // One answer for a wrong number and for someone with no lectures this term:
   // the page must not become a way to test which numbers exist.
-  if (!card) { res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return; }
+  if (!card) {
+    if (who.byDevice) res.setHeader("Set-Cookie", clearStaffDeviceCookie(token, staffCookieSecure));
+    res.status(404).json({ error: "لا توجد بطاقة بهذا الرقم في هذا الفصل" }); return;
+  }
   attempt.release();
+  /* «تذكّرني»: بعد التحقق بالرقم المدني وحده، يُعطى الجهازُ مفتاحاً موقّعاً لهذا الرابط وهذا الأستاذ. */
+  let remembered = who.byDevice;
+  if (!who.byDevice && req.body?.remember === true) {
+    const expiresAt = staffDeviceExpiry(resolved.link.expiresAt);
+    if (expiresAt > Date.now()) {
+      const value = signStaffDevice(await staffDeviceSecret(), token, Number(card.instructorId), expiresAt);
+      res.setHeader("Set-Cookie", staffDeviceCookie(token, value, expiresAt, staffCookieSecure));
+      remembered = true;
+    }
+  }
   void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
   /* «منذ زيارتك الأخيرة»: ما حُفظ من الزيارة السابقة يُعاد، ثم تُسجَّل هذه. */
   const { instructorId: cardInstructorId, fingerprint: cardFingerprint, ...visible } = card;
@@ -19225,6 +19341,7 @@ app.post("/api/public/staff/:token", async (req: Request, res: Response) => {
   const planMapUrl = mapSectionId > 0 && (await Repository.listPublishedSheets().catch(() => [])).some(sheet => Number(sheet.AdSectionId) === mapSectionId) ? `/plans/s${mapSectionId}/` : "";
   res.json({
     ...visible,
+    remembered,
     planMapUrl,
     lastSeenAt: previousVisit?.seenAt || "",
     changedSinceLastVisit: Boolean(previousVisit?.seenFingerprint) && Number(card.termId) === Number(resolved.link.AdTermId)
@@ -19587,6 +19704,7 @@ ${STAFF_CARD_VISUAL_CSS}
       <input id="civil" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="12 رقمًا" aria-label="الرقم المدني">
       <button type="submit" id="go">عرض</button>
     </form>
+    <label class="remember" for="remember"><input type="checkbox" id="remember"><span>تذكّرني على هذا الجهاز</span></label>
     <div class="note" id="note" role="status" aria-live="polite"></div>
     <div class="skel" id="gateSkel" aria-hidden="true" hidden><i></i><i></i></div>
     <p class="hint">صفحة للقراءة فقط · لا تحتاج حساباً<br>لا تُعرض أرقام هواتف ولا بيانات زملائك.</p>
@@ -19633,7 +19751,7 @@ ${STAFF_CARD_VISUAL_CSS}
           <b id="subTitle">جدولك في تقويمك</b>
           <button type="button" id="subClose" class="hbtn" aria-label="إغلاق"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
-        <p class="sheet-note"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2"/><path d="M20 4v5h-5M4 20v-5h5"/></svg><span id="subLife">اشتراك يتابع جدولك من نفسه حتى نهاية الفصل، ولا يحتاج إعادة إضافة بعد كل تعديل.</span></p>
+        <p class="sheet-note"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2"/><path d="M20 4v5h-5M4 20v-5h5"/></svg><span id="subLife">اشتراك يتابع جدولك من نفسه ما دامت بطاقتك سارية، ولا يحتاج إعادة إضافة بعد كل تعديل.</span></p>
         <a class="opt primary" id="subNow" href="#"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3.5c-1 .1-2.2.8-2.8 1.6-.6.7-1.1 1.8-.9 2.8 1.1 0 2.2-.7 2.8-1.5.6-.8 1-1.8.9-2.9z"/><path d="M12 8.5c-1-.1-2.3-.9-3.5-.9C6.6 7.6 5 9.2 5 12.2c0 3.3 2.3 8.3 4.2 8.3 1 0 1.6-.7 2.8-.7s1.7.7 2.8.7c1.5 0 2.8-2.7 3.3-4.1-1.7-.8-2.4-2.4-2.4-3.9 0-1.3.7-2.5 1.8-3.2-.8-1.1-2-1.6-3.1-1.6-1 0-1.6.8-2.4.8z"/></svg></span><span class="t">Apple · آيفون وماك<small>يفتح «اشتراك» في تطبيق التقويم</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
         <a class="opt" id="subGoogle" href="#" target="_blank" rel="noopener"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12.2c0-.6-.1-1.2-.2-1.7H12v3.3h4.5a3.9 3.9 0 0 1-1.7 2.5"/><path d="M12 20a8 8 0 1 1 5.4-13.9"/></svg></span><span class="t">Google Calendar<small>يفتح صفحة الإضافة في جوجل</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
         <a class="opt" id="subOutlook" href="#" target="_blank" rel="noopener"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="12" height="14" rx="2"/><circle cx="9" cy="12" r="2.6"/><path d="M15 8h6v8h-6"/></svg></span><span class="t">Outlook<small>حساب شخصي أو حساب الجامعة</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
@@ -19643,6 +19761,7 @@ ${STAFF_CARD_VISUAL_CSS}
     </div>
     <div class="print-foot" id="printFoot"></div>
     <div class="foot" id="foot"></div>
+    <button type="button" class="forget" id="forget" hidden>انسَ هذا الجهاز</button>
   </div>
 </div>
 <script nonce="${nonce}">
@@ -19663,6 +19782,9 @@ ${CALENDAR_LINKS_CLIENT_JS}
     .replace(/[۰-۹]/g,function(d){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))});};
   var friendlyDate=function(value,withTime){var d=new Date(value);if(!value||isNaN(d))return "";var date=d.toLocaleDateString("ar-KW-u-nu-latn",{year:"numeric",month:"long",day:"numeric"});if(!withTime)return date;return date+" · "+d.toLocaleTimeString("ar-KW-u-nu-latn",{hour:"2-digit",minute:"2-digit"})};
   civil.addEventListener("input",function(){var v=ascii(civil.value);if(v!==civil.value)civil.value=v;});
+  /* «تذكّرني»: مختارٌ افتراضياً على الهاتف (جهازٌ شخصي)، وغير مختارٍ على الحاسوب. */
+  var rememberBox=document.getElementById("remember");
+  try{if(rememberBox)rememberBox.checked=window.matchMedia("(pointer:coarse)").matches}catch(e){}
 
   document.getElementById("print").addEventListener("click",function(e){e.preventDefault();window.print()});
 
@@ -19672,7 +19794,7 @@ ${CALENDAR_LINKS_CLIENT_JS}
     if(value.length!==12){note.textContent="الرقم المدني 12 رقمًا.";return}
     note.textContent="";go.disabled=true;go.textContent="…";document.getElementById("gateSkel").hidden=false;
     fetch("/api/public/staff/"+encodeURIComponent(TOKEN),{
-      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({civil:value})
+      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({civil:value,remember:Boolean(rememberBox&&rememberBox.checked)})
     }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})})
       .then(function(res){
         go.disabled=false;go.textContent="عرض";document.getElementById("gateSkel").hidden=true;
@@ -19767,7 +19889,9 @@ ${CALENDAR_LINKS_CLIENT_JS}
   function render(d,value){
     if(visitSince===null){visitSince=d.lastSeenAt||"";visitChanged=Boolean(d.changedSinceLastVisit);}
     currentCivil=value;
-    try{sessionStorage.setItem("sk-civil:"+TOKEN,value)}catch(e){}
+    if(value){try{sessionStorage.setItem("sk-civil:"+TOKEN,value)}catch(e){}}
+    var forget=document.getElementById("forget");if(forget)forget.hidden=!d.remembered;
+    try{if(d.remembered)localStorage.setItem("sk-dev:"+TOKEN,"1");else localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
     var currentTerm = { termId: Number(d.termId || 0) };
     var phase = d.termPhase || ((Boolean(d.liveTermId) && Number(d.termId) === Number(d.liveTermId)) ? "current" : "past");
     var live = phase === "current";
@@ -19888,14 +20012,31 @@ ${CALENDAR_LINKS_CLIENT_JS}
       var pf=document.getElementById("printFoot");if(pf)pf.textContent="طُبع من SCHEDULE بتاريخ "+friendlyDate(new Date().toISOString(),false)+" · جدولٌ للقراءة، والمرجع جدولُ القسم المعتمد";
       document.getElementById("foot").textContent="قراءة الجدول متاحة حتى نهاية الفصل ("+until+") · للقراءة فقط";
       var life=document.getElementById("subLife");
-      if(life) life.textContent="اشتراك يتابع جدولك من نفسه حتى "+until+" (نهاية الفصل)، ولا يحتاج إعادة إضافة بعد كل تعديل.";
+      if(life) life.textContent="اشتراك يتابع جدولك من نفسه ما دامت بطاقتك سارية (حتى "+until+")، ولا يحتاج إعادة إضافة بعد كل تعديل.";
     }catch(e){}
     gate.style.display="none";card.style.display="block";
     window.scrollTo(0,0);
   }
+  /* «انسَ هذا الجهاز»: يمسح المفتاح ثم يعيد الصفحة إلى سؤال الرقم. */
+  var forgetBtn=document.getElementById("forget");
+  if(forgetBtn)forgetBtn.addEventListener("click",function(){
+    forgetBtn.disabled=true;
+    try{sessionStorage.removeItem("sk-civil:"+TOKEN);localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
+    fetch("/api/public/staff/"+encodeURIComponent(TOKEN)+"/forget",{method:"POST"}).then(function(){location.reload()},function(){location.reload()});
+  });
   /* العودةُ من صفحة الطلب لا تطلب الرقم ثانيةً: يُحفظ في هذه الجلسة وحدها (يزول بإغلاق التبويب). */
+  var resumed=false;
   try{var saved=sessionStorage.getItem("sk-civil:"+TOKEN);
-    if(saved&&/^[0-9]{12}$/.test(saved)){civil.value=saved;var fm=document.getElementById("form");if(fm.requestSubmit)fm.requestSubmit();else go.click()}}catch(e){}
+    if(saved&&/^[0-9]{12}$/.test(saved)){resumed=true;civil.value=saved;var fm=document.getElementById("form");if(fm.requestSubmit)fm.requestSubmit();else go.click()}}catch(e){}
+  /* جهازٌ متذكَّر: يفتح البطاقة مباشرة بمفتاحه (كوكي لا تقرؤه الصفحة). إن لم يصلح بقي سؤال الرقم بلا رسالة. */
+  var hinted=false;try{hinted=localStorage.getItem("sk-dev:"+TOKEN)==="1"}catch(e){}
+  if(!resumed&&hinted){
+    var gs=document.getElementById("gateSkel");if(gs)gs.hidden=false;
+    fetch("/api/public/staff/"+encodeURIComponent(TOKEN),{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})
+      .then(function(r){return r.ok?r.json():null})
+      .then(function(d){if(gs)gs.hidden=true;if(d&&d.name)render(d,"");else{try{localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}}})
+      .catch(function(){if(gs)gs.hidden=true;});
+  }
 })();
 </script>
 </body>
@@ -20422,8 +20563,12 @@ function stripForInstructor(request: InstructorRequest) {
     signature: request.signature
       ? { at: request.signature.at, verifyCode: request.signature.verifyCode, fingerprint: "" }
       : undefined,
+    /* سطرُ «عُدّل الموعد» يكتبه تعديلُ القسم («القاعة 7/31 ← 8/22»): يصل الأستاذَ «تغيّرت القاعة» بلا اسم. */
+    timeline: (request.timeline || []).map(event => event.detail ? { ...event, detail: withoutRoomNames(event.detail) } : event),
     items: (request.items || []).map(item => {
-      const { roomCandidates, roomOptions, offeringRows, ...rest } = item;
+      /* القاعةُ لا تصل الأستاذ (قرار المالك 2026-10-29: «مخفية اكيد متعمدة»): المرشّحاتُ وتفاصيلُها،
+         و«الأنسب» (roomPick في ما حُفظ قبل القرار)، والمحجوزةُ، والمبدَّلة — كلُّها للقسم. يرى roomAvailable وحده. */
+      const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, ...rest } = item;
       const itemId = instructorRequestItemIdentity(item);
       const identify = (slot: any) => ({ ...slot,
         proposalId: instructorRequestProposalIdentity(itemId, slot) });
@@ -20433,7 +20578,8 @@ function stripForInstructor(request: InstructorRequest) {
           ...(rest.decision.alternatives ? { alternatives: rest.decision.alternatives.map(identify) } : {}) } } : {}),
         ...(rest.thread ? { thread: rest.thread.map(message => ({ ...message,
           ...(message.slots ? { slots: message.slots.map(identify) } : {}) })) } : {}),
-        /* «كان» تحمل قاعتَه هو — وهي قاعتُه يعرفها — و«طلب» لا تحملها أبداً. */
+        /* لا «كان» ولا «طلب» تحمل قاعة: الصفحةُ لا تعرضها، والقرارُ أن لا تصل. */
+        before: rest.before ? { ...rest.before, room: undefined } : rest.before,
         after: rest.after ? { ...rest.after, room: undefined } : rest.after,
         /* حالةُ الحوار تُحسب هنا بالقاعدة الواحدة، والصفحةُ تعرضها ولا تستنتجها. */
         negotiation: negotiationState(rest),
@@ -21186,11 +21332,7 @@ async function judgeRequestItems(request: InstructorRequest, options: {
         return known ? { key, room: String(known.AdRoomCode || ""), hall: String(known.AdRoomHall || ""), buildingId: known.buildingId, roomId: known.roomId } : null;
       }).filter(Boolean) as any,
       nearestTimes: verdict.nearestTimes.map(entry => ({ day: entry.day, days: entry.days, start: entry.start, end: entry.end })),
-      /* «الأنسب» وبديلان: رمزُ القاعة وأيقوناتُ سببها — يراها الأستاذ، ويحجز الخادمُ أوّلها الخاليَ لحظةَ الإرسال. */
-      roomPick: verdict.kind === "conflict" ? undefined : verdict.roomCandidates.slice(0, 3).map(key => {
-        const hall = rules.hallByKey.get(key);
-        return hall ? { label: [hall.room, hall.hall].filter(Boolean).join("/"), why: rankedByKey.get(key)?.why || [] } : null;
-      }).filter(Boolean) as any,
+      /* لا «الأنسب» للأستاذ (قرار المالك 2026-10-29): الترتيبُ أعلاه يقرّر الحجزَ لحظةَ الإرسال، ويراه القسمُ وحده. */
       shapes: verdict.shapes,
       advice: verdict.advice || (!item.offeringRowIds?.length && !rules.knownRoomKeys.length
         ? "يحتاج القسم التحقق من القاعة قبل الاعتماد؛ بيانات القاعات المتاحة غير مكتملة."
@@ -22610,8 +22752,9 @@ app.post("/api/public/request/:token/reply-batch", rateLimitPublicRequest, async
  *   - شارةُ «مسودة، غير معتمدة» فوق كل شيء، وتبقى في الطباعة وفي لقطة الشاشة،
  *     لأن الصورةَ تُرسل إلى غيره وتُقرأ اعتماداً إن لم تحمل حالتَها.
  *   - يكتب البدايةَ ويختار أيامَه، ولا يُسأل عن النهاية: اللائحةُ تعرفها.
- *   - القاعةُ يختارها الخادمُ وحده ويعرضها («الأنسب» وبديلان من roomPick، طلب المالك C1/C2)؛
- *     ولا يصل الصفحةَ صفُّ غيره ولا قائمةُ مرشّحين خام. «الوقت متاح» أو «غير متاح» ومعه بدائل.
+ *   - القاعةُ يرتّبها الخادمُ ويحجز أنسبها لحظةَ الإرسال، ولا يصل الصفحةَ اسمُها ولا رمزُها
+ *     ولا بديلُها (قرار المالك 2026-10-29: «مخفية اكيد متعمدة» — أُلغي «الأنسب» وبديلاه من C2).
+ *     يرى الأستاذ «الوقت متاح» أو «غير متاح» ومعه بدائل، وإشارةً واحدة 🏫✓ «قاعتك يحددها القسم».
  *   - خطٌّ زمنيٌّ لطلبه هو: متى أُنشئ الرابط، ومتى فُتح، ومتى أرسل، وما ثُبّت
  *     وما رُفض ولماذا. فلا يُقال بعدها «أنتم ما سويتوا شيئاً»، ولا يُقال له
  *     «أرسلنا» وهو لم يفتح.
@@ -23087,7 +23230,7 @@ function offeringsHtml(){var list=(data.availableOfferings||[]).filter(function(
  var searchable=ordered.map(function(group){return '<details class="offering-course" data-offering-course="'+esc(group.id)+'"><summary><span><b>'+esc(group.name)+reqTag({courseId:group.courseId,sectionId:group.sectionId})+'</b><small>'+esc([group.code,group.college].filter(Boolean).join(" · "))+'</small></span><span class="chip">'+group.options.length+' '+(group.options.length===1?"شعبة":"شعب")+'</span></summary><div class="offering-options">'+group.options.map(function(o){var slots=o.slots.map(function(sl){return '<span class="offering-slot">'+ic("calendar")+'<b>'+esc(fmtDays([sl.day]))+'</b><time>'+esc(sl.start)+' – '+esc(sl.end)+'</time></span>'}).join("");var times=o.slots.map(function(sl){return fmtDays([sl.day])+' '+sl.start+' – '+sl.end}).join('، ');return '<button type="button" class="offering-option" data-offering="'+o.id+'" aria-label="'+esc(o.courseName+'، شعبة '+o.sectionCode+'، '+times)+'"><span class="offering-section"><small>شعبة</small><b>'+esc(o.sectionCode)+'</b></span><span class="offering-schedule">'+slots+'</span><span class="offering-pick">'+ic("check")+'<span>اخترها</span></span></button>'}).join("")+'</div></details>'}).join("");
  return '<details class="memory offerings" id="offerings"'+(offeringsOpen?' open':'')+'><summary aria-label="الشعب المتاحة التي تناسب جدولك، '+countOf(list.length, AR.section)+' في '+countOf(ordered.length, AR.course)+'"><span class="offerings-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 10h18M8 14h3M8 17h7"/></svg></span><span class="offering-title">شعب متاحة تناسب جدولك</span><span class="chip">'+countOf(list.length, AR.section)+'</span><small>'+countOf(ordered.length, AR.course)+' · اختر الشعبة المناسبة</small></summary><div class="offering-body"><label class="offering-search-label"><span class="sr">ابحث في المقررات والشعب المتاحة</span><input class="offering-search" id="offeringSearch" type="search" placeholder="ابحث بالمقرر أو الرمز أو الشعبة…" value="'+esc(offeringSearch)+'" autocomplete="off"></label><p class="offering-empty" id="offeringEmpty" hidden>لا توجد شعبة تطابق بحثك.</p><div class="offering-groups">'+searchable+'</div></div></details>'}
 function editHtml(it,i){if(it.offeringId)return '<p class="sub">'+gi("check")+'اخترت شعبة قائمة بموعدها. تُسند إليك بعد موافقة القسم.</p>';var h="";h+='<div class="edit"><div class="field-head"><span class="field-title">أيام المحاضرة</span><details class="plib"><summary aria-label="مكتبة الأنماط" title="مكتبة الأنماط">'+PLIB_ICON+'</summary><div class="plib-pop">'+PLIB+'</div></details></div><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
-    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status" title="اضغط أيَّ يوم لتبديله">'+gi("star")+'<span>'+esc(it.autoNote)+'</span></p>':'')+bestHtml(it,i)+tcStickHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);var bad=it.start!==t&&heat[i]&&heat[i][t]==="bad";if(bad)return '<button type="button" class="start-off" disabled data-heat="bad" aria-label="'+t+' · غير متاح">'+t+whyIcon(i,t)+'</button>';return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' aria-disabled="true" title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+(it.ownT&&it.ownT!==it.start&&ownClash(it,i,it.ownT)?skOwnClash(it,i,it.ownT):'')+heatLegend(i)+'<details class="more-time"'+(skMoreOpen(it,i)?' open':'')+'><summary data-more="'+i+'">'+gi("clock")+'وقت آخر</summary><label class="time"><span class="sr">وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label></details><p class="ends">'+(sameAsBefore(it)?gi("swap")+"هذا موعدك الحالي — غيّر اليوم أو الوقت.":it.days.length&&it.start?gi("clock")+"ينتهي "+(it.computedSlots&&it.computedSlots.length?it.computedSlots.map(function(sl){return fmtDays([sl.day])+" "+sl.end}).join(" · "):endOf(it.days,it.start,it.blk))+'<span class="ends-src" title="مدّةُ المحاضرة من اللائحة">'+gi("shield")+'</span>':gi("cal")+"اختر اليوم ثم الوقت")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span class="vwrap">'+skVerdict(it)+'</span>'+(it.advice?skAdvice(it.advice):'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'" aria-label="'+esc(sh.label)+'">'+skShape(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'" aria-label="'+esc(fmtDays(ds)+" "+a.start)+'">'+skAltBtn(ds,a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+roomPickHtml(it)+(it.pnote?'<div class="pnote" style="margin:8px 0 0">'+it.pnote+'</div>':'')+notesHtml(it)+academicCardHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
+    h+='</div>'+(it.autoNote?'<p class="auto-note" role="status" title="اضغط أيَّ يوم لتبديله">'+gi("star")+'<span>'+esc(it.autoNote)+'</span></p>':'')+bestHtml(it,i)+tcStickHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60}).map(function(t){var own=it.start!==t&&ownClash(it,i,t);var bad=it.start!==t&&heat[i]&&heat[i][t]==="bad";if(bad)return '<button type="button" class="start-off" disabled data-heat="bad" aria-label="'+t+' · غير متاح">'+t+whyIcon(i,t)+'</button>';return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' aria-disabled="true" title="عندك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+'</button>'}).join("")+'</div>'+(it.ownT&&it.ownT!==it.start&&ownClash(it,i,it.ownT)?skOwnClash(it,i,it.ownT):'')+heatLegend(i)+'<details class="more-time"'+(skMoreOpen(it,i)?' open':'')+'><summary data-more="'+i+'">'+gi("clock")+'وقت آخر</summary><label class="time"><span class="sr">وقت آخر</span>'+SK.tf('data-i="'+i+'" data-start="1" aria-label="وقت آخر"',it.start)+'</label></details><p class="ends">'+(sameAsBefore(it)?gi("swap")+"هذا موعدك الحالي — غيّر اليوم أو الوقت.":it.days.length&&it.start?gi("clock")+"ينتهي "+(it.computedSlots&&it.computedSlots.length?it.computedSlots.map(function(sl){return fmtDays([sl.day])+" "+sl.end}).join(" · "):endOf(it.days,it.start,it.blk))+'<span class="ends-src" title="مدّةُ المحاضرة من اللائحة">'+gi("shield")+'</span>':gi("cal")+"اختر اليوم ثم الوقت")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":"…")+'</i><span class="vwrap">'+skVerdict(it)+'</span>'+roomSignalHtml(it)+(it.advice?skAdvice(it.advice):'')+(it.shapes&&it.shapes.length?'<div class="shapes-box"><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'" aria-label="'+esc(sh.label)+'">'+skShape(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'" aria-label="'+esc(fmtDays(ds)+" "+a.start)+'">'+skAltBtn(ds,a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+(it.pnote?'<div class="pnote" style="margin:8px 0 0">'+it.pnote+'</div>':'')+notesHtml(it)+academicCardHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
 function bodyHtml(it,i,open){var h=decisionBox(it,i,open)+threadBox(it,i);
  if(open&&data.mode!=="ta"){if(it.negotiation==="proposed")h+='<p class="hint-pro" title="تعديل الموعد من هنا يبدأ طلبًا جديدًا">'+gi("star")+'<span>للرد على اقتراح القسم: بطاقة «قرارك» أعلاه</span></p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
  else if(!h)h='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
@@ -23169,7 +23312,7 @@ function weekStrip(){
    استثناء، أحمر لا يمكن. والزرُّ لا يُعطَّل بها (القرارُ للخادم عند الإرسال)، وإنما يُرى. */
 var heat={},heatKey={},heatTimer={},heatShape={},heatWhy={},heatShapes={};
 /* سببُ الوقت غير المتاح أيقونةً لا جملة (B2). */
-var WHY_IC={instructor:["user","عندك محاضرة"],room:["door","لا قاعة خالية"],facility:["tool","المرفق مشغول"],cohort:["users","طلبة مشتركون"],load:["scale","يتجاوز نصابك"],regulation:["shield","اللائحة"],shape:["cal","الأيام"],window:["lock","مغلق"]};
+var WHY_IC={instructor:["user","عندك محاضرة"],room:["door","لا تتوفّر قاعة في هذا الوقت"],facility:["tool","المرفق مشغول"],cohort:["users","طلبة مشتركون"],load:["scale","يتجاوز نصابك"],regulation:["shield","اللائحة"],shape:["cal","الأيام"],window:["lock","مغلق"]};
 function whyIcon(i,t){var w=heatWhy[i]&&heatWhy[i][t],m=WHY_IC[w]||["x","غير متاح"];return '<span class="why-ic" title="'+m[1]+'" aria-label="'+m[1]+'">'+gi(m[0])+'</span>'}
 function heatAttr(i,t){var h=heat[i]&&heat[i][t];if(!h)return "";
  return ' data-heat="'+h+'" aria-label="'+t+(h==="ok"?" · متاح":h==="warn"?" · يحتاج سبب استثناء":" · غير ممكن")+'"'}
@@ -23187,10 +23330,9 @@ function bestTimes(it,i){var h=heat[i];if(!h||heatShape[i]||!it.days.length)retu
  return out.length>=3?out.slice(0,3):[]}
 function bestHtml(it,i){var best=bestTimes(it,i);if(!best.length)return "";
  return '<div class="best" role="group" aria-label="أفضل ثلاثة مواعيد لك"><p class="shape-lead">أفضل ٣ مواعيد لك:</p><div class="best-row">'+best.map(function(b){return '<button type="button" data-i="'+i+'" data-quick="'+b.t+'" aria-label="'+esc(fmtDays(it.days)+" "+b.t+" — "+b.why)+'">'+skPills(it.days)+'<b class="bp-t">'+ltr(b.t)+'</b><small>'+gi(b.why==="بعد محاضرتك مباشرة"?"clock":"check")+esc(b.why)+'</small></button>'}).join("")+'</div></div>'}
-/* «الأنسب» + بديلان (C2): رمزُ القاعة وأيقوناتُ سببها. الاختيارُ تلقائيّ، ويُحجز أوّلُ الخالي لحظةَ الإرسال. */
-var ROOM_WHY={dept:["home","قاعة القسم"],near:["pin","قرب قاعاتك"],previous:["history","قاعتك السابقة"],capacity:["users","سعة مناسبة"],fair:["scale","توزيع عادل"],facility:["tool","مع المرفق"]};
-function roomPickHtml(it){var rp=it.reservedRoom&&it.reservedRoom.label?[{label:it.reservedRoom.label,why:[],held:1}]:(it.tone==="ok"||it.tone==="warn")?(it.roomPick||[]):[];if(!rp.length)return "";
- return '<div class="room-pick" role="group" aria-label="القاعة">'+rp.map(function(r,k){return '<span class="rp'+(k===0?' rp-best':'')+'">'+gi(k===0?"star":"door")+'<b>'+ltr(r.label)+'</b>'+(k===0?'<small>'+(r.held?'محجوزة':'الأنسب')+'</small>':'')+(r.why||[]).map(function(w){var m=ROOM_WHY[w];return m?'<i class="rp-why" title="'+m[1]+'" aria-label="'+m[1]+'">'+gi(m[0])+'</i>':""}).join("")+'</span>'}).join("")+'</div>'}
+/* المكانُ لا يُسمّى للأستاذ (قرار المالك 2026-10-29: «مخفية اكيد متعمدة»): لا «الأنسب» ولا بدائل ولا اختيار.
+   إشارةٌ واحدة 🏫✓ حين يقول الخادمُ إن للموعد مكاناً خالياً (roomAvailable)، والقسمُ يحدّده ويحجزه لحظةَ الإرسال. */
+function roomSignalHtml(it){return it.roomOk&&(it.tone==="ok"||it.tone==="warn")?'<button type="button" class="room-ok" data-room-ok="1" title="قاعتك يحددها القسم" aria-label="قاعتك يحددها القسم"><span aria-hidden="true">🏫</span><b aria-hidden="true">✓</b></button>':""}
 function startList(it){return startChoices(it.days).filter(function(t){return !it.blk||it.days.length!==1||mins(t)+it.blk<=20*60})}
 function heatSig(i){return state[i].days.join()+"|"+state[i].blk+"|"+JSON.stringify(payloadWith(i).map(function(p,k){return k===i?{rowId:p.rowId,action:p.action,courseId:p.courseId,collegeId:p.collegeId,sectionId:p.sectionId,days:p.days}:p}))}
 function ensureHeat(){state.forEach(function(it,i){
@@ -23210,7 +23352,7 @@ function holdSlot(i){var it=state[i];if(!it||!data||!data.windowOpen||!(it.actio
  var seq=holdSeq[i]=(holdSeq[i]||0)+1;
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/hold",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({itemIndex:i,items:payloadItems()})})
  .then(function(r){return r.json().then(function(d){return{ok:r.ok,status:r.status,d:d}})}).then(function(x){if(holdSeq[i]!==seq||!state[i])return;
-  if(x.status===409&&x.d&&x.d.code==="race-lost"){holdSig[i]=null;var t=state[i];t.tone="bad";t.note=x.d.error||"سبقك زميل لهذا الوقت ⏱️";t.alts=x.d.alternatives||[];t.roomPick=[];t.raced=true;heatKey[i]="";ensureHeat();paint();return}
+  if(x.status===409&&x.d&&x.d.code==="race-lost"){holdSig[i]=null;var t=state[i];t.tone="bad";t.note=x.d.error||"سبقك زميل لهذا الوقت ⏱️";t.alts=x.d.alternatives||[];t.roomOk=false;t.raced=true;heatKey[i]="";ensureHeat();paint();return}
   if(x.ok&&x.d&&x.d.held){state[i].raced=false}}).catch(function(){})}
 setInterval(function(){if(document.visibilityState==="hidden"||!data||!data.windowOpen)return;state.forEach(function(it,i){if(openCards[i])heatKey[i]=""});ensureHeat()},45000);
 function planDays(it){return it.action==="add"||it.action==="change"?it.days:(it.slots||[]).map(function(s){return s.day})}
@@ -23411,6 +23553,8 @@ function wire(){tcWire();
  host.querySelectorAll("[data-day]").forEach(function(el){el.onclick=function(){
   var i=+el.dataset.i,it=state[i];tapDay(it,el.dataset.day);paint();recheckAll(i)}});
  host.querySelectorAll("[data-wk]").forEach(function(el){el.onclick=function(){focusItem(+el.dataset.wk)}});
+ /* 🏫✓ على الهاتف لا تلميحَ بالمرور: الضغطةُ تقول الجملةَ نفسها. */
+ host.querySelectorAll("[data-room-ok]").forEach(function(el){el.onclick=function(){toast("check",el.getAttribute("aria-label")||"")}});
  host.querySelectorAll("[data-toggle]").forEach(function(el){el.onclick=function(){var i=+el.dataset.toggle;openCards[i]=!(el.getAttribute("aria-expanded")==="true");paint();var row=document.getElementById("item-"+i),head=row&&row.querySelector(".appt-head");if(head)head.focus({preventScroll:true})}});
  host.querySelectorAll("[data-dept-alt]").forEach(function(el){el.onclick=function(){
   var i=+el.dataset.i,it=state[i],p=el.dataset.deptAlt.split("|");if(!it)return;
@@ -23466,7 +23610,7 @@ function recheckAll(){
  active.forEach(function(i){var it=state[i];it.tone="checking";it.note="يفحص التعارض والموانع على جدولك…";it.alts=[];it.shapes=[];it.notes=[];it.advice="";it.pnote="";heatShape[i]=false});paint();
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:payloadItems()})})
  .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||"تعذر الفحص");return d})})
- .then(function(d){if(seq!==checkSeq)return;if(d.availableOfferings)data.availableOfferings=d.availableOfferings;(d.items||[]).forEach(function(result){var i=Number(result.itemIndex),it=state[i];if(!it||active.indexOf(i)<0)return;it.tone=result.kind==="clear"?"ok":result.kind==="exception"?"warn":"bad";it.note=result.headline||"";it.alts=result.nearestTimes||[];it.shapes=result.shapes||[];it.notes=result.notes||[];it.advice=result.advice||"";it.pnote=result.patternNotice||"";it.computedSlots=result.slots||[];it.roomPick=result.roomPick||[];it.raced=false;if(result.block)it.blk=result.block;if(it.tone==="ok"||it.tone==="warn")holdSlot(i)});paint()})
+ .then(function(d){if(seq!==checkSeq)return;if(d.availableOfferings)data.availableOfferings=d.availableOfferings;(d.items||[]).forEach(function(result){var i=Number(result.itemIndex),it=state[i];if(!it||active.indexOf(i)<0)return;it.tone=result.kind==="clear"?"ok":result.kind==="exception"?"warn":"bad";it.note=result.headline||"";it.alts=result.nearestTimes||[];it.shapes=result.shapes||[];it.notes=result.notes||[];it.advice=result.advice||"";it.pnote=result.patternNotice||"";it.computedSlots=result.slots||[];it.roomOk=result.roomAvailable===true;it.raced=false;if(result.block)it.blk=result.block;if(it.tone==="ok"||it.tone==="warn")holdSlot(i)});paint()})
  .catch(function(){if(seq!==checkSeq)return;active.forEach(function(i){var it=state[i];if(it){it.tone="bad";it.note="تعذّر فحص الموعد الآن. أعد المحاولة قبل الإرسال."}});paint()});
 }
 /* «كان» يُقرأ من لقطة الموعد الأصلي، لا من slots: بعد الإرسال تحمل slots ما
@@ -23514,7 +23658,7 @@ function postSubmit(civil,done){
  .then(function(x){
   if(!x.ok){
    sendingNow=false;
-   if(typeof x.d.itemIndex==="number"&&state[x.d.itemIndex]){var bad=state[x.d.itemIndex];if(bad.action!=="delete"&&bad.action!=="keep"){bad.tone="bad";bad.note=x.d.error||bad.note;if(x.d.alternatives&&x.d.alternatives.length){bad.alts=x.d.alternatives;bad.roomPick=[]}heatKey[x.d.itemIndex]="";ensureHeat()}closeSheet();focusItem(x.d.itemIndex,x.d.error||"تعذّر الإرسال");return}
+   if(typeof x.d.itemIndex==="number"&&state[x.d.itemIndex]){var bad=state[x.d.itemIndex];if(bad.action!=="delete"&&bad.action!=="keep"){bad.tone="bad";bad.note=x.d.error||bad.note;if(x.d.alternatives&&x.d.alternatives.length){bad.alts=x.d.alternatives;bad.roomOk=false}heatKey[x.d.itemIndex]="";ensureHeat()}closeSheet();focusItem(x.d.itemIndex,x.d.error||"تعذّر الإرسال");return}
    done(x.d.error||"تعذّر الإرسال",x.status);return}
   dirty=false;clearDraft();
   /* شاشةُ «وصل طلبك» تبقى حتى يضغط «افتح جدولك»: حفظُ الإرسال نفسِه يُطلق حدثاً في البثّ،
@@ -23540,7 +23684,7 @@ function mapItems(d){return (d.request.items||[]).map(function(it){var a=it.afte
   before:it.before||it.after,blk:(it.block||blockOf(it.before||it.after)),after:it.after,slots:it.slots||[],days:(it.action==="change"||it.action==="add")?(it.slots||[]).map(function(s){return s.day}):[],
   start:(it.action==="change"||it.action==="add")&&it.slots&&it.slots[0]?it.slots[0].start:"",excuse:it.excuse||"",
   decision:it.decision||null,thread:it.thread||[],negotiation:it.negotiation||"",tone:it.verdict==="clear"?"ok":it.verdict==="exception"?"warn":it.verdict==="conflict"?"bad":"",
-  advice:it.advice||"",shapes:it.shapes||[],note:it.reasons&&it.reasons.length?it.reasons[0].text:(it.verdict==="clear"?"الوقت متاح":""),alts:it.nearestTimes||[],roomPick:it.roomPick||[],reservedRoom:it.reservedRoom||null}})}
+  advice:it.advice||"",shapes:it.shapes||[],note:it.reasons&&it.reasons.length?it.reasons[0].text:(it.verdict==="clear"?"الوقت متاح":""),alts:it.nearestTimes||[],roomOk:it.roomAvailable===true}})}
 /* ترتيبُ العرض: بحسب الموعد الرسمي عند التحميل، ثم لا يتغيّر في هذه الجلسة. */
 function rankState(){state.map(function(it,i){return{it:it,i:i}}).sort(function(a,b){
   var da=planDays(a.it),db=planDays(b.it);var ka=DAYS.map(function(d){return d[0]}).indexOf(da[0]),kb=DAYS.map(function(d){return d[0]}).indexOf(db[0]);
@@ -23769,7 +23913,6 @@ app.post("/api/public/request/:token/check-batch", async (req: Request, res: Res
         slots: item.slots || [], computedEnd: item.slots?.[0]?.end || "", roomAvailable: item.roomAvailable ?? null,
         nearestTimes: (item.nearestTimes || []).map(slot => ({ day: slot.day, days: slot.days, start: slot.start, end: slot.end })),
         shapes: item.shapes || [], advice: item.advice || "", block: item.block || 0,
-        roomPick: item.roomPick || [],
         ...(mixed ? { patternNotice: await mixedPatternNotice(courseId, (item.slots || []).map(slot => slot.day as RequestDayKey), Number(resolved.request.AdTermId), undefined, true).catch(() => null) } : {}),
         notes: itemNotes,
       };
@@ -23930,7 +24073,7 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
   const context = await buildRequestContext(resolved.request);
   const rulesCache = new Map<string, any>();
   const times: Record<string, "ok" | "warn" | "bad"> = {};
-  /* سببُ كل وقتٍ ممنوع رمزاً واحداً يُرسم أيقونةً صغيرة (B2): أستاذ، قاعة، مرفق، طلبة، نصاب، لائحة. */
+  /* سببُ كل وقتٍ ممنوع رمزاً واحداً يُرسم أيقونةً صغيرة (B2): مصدرُ المانع الأول (instructor · room · facility · cohort · load · regulation). */
   const why: Record<string, string> = {};
   let problemIsShape = false;
   let shapes: any[] = [];
@@ -23986,7 +24129,8 @@ app.post("/api/public/request/:token/hold", rateLimitCheckTimes, async (req: Req
   if (!proposal) { res.json({ held: false }); return; }
   try {
     const result = await Repository.holdInstructorRequestSlot(resolved.request, { ...proposal, itemId: `draft:${index}` }, REQUEST_HOLD_TTL_MS);
-    res.json({ held: true, heldUntil: result?.heldUntil, room: target.roomPick?.[0]?.label || "" });
+    /* الحجزُ يأخذ أنسبَ الخالي، والجوابُ لا يسمّيه (قرار المالك 2026-10-29: لا يصل الأستاذَ اسمٌ ولا رمز). */
+    res.json({ held: true, heldUntil: result?.heldUntil });
   } catch (error: any) {
     if (!(error instanceof RequestReservationConflict)) throw error;
     /* خسر السباق: الحكمُ يُعاد على الدفتر الجديد، فيرى ما أخذه الزميل، ويقترح أقربَ بديلين. */
@@ -24897,6 +25041,14 @@ for (const candidate of [path.join(process.cwd(), "public", "plans", "_template"
 
 /* ── الإعلانات ونبضُ الزوار ولوحة الجمهور: قياسٌ مجهول، وإدارةٌ لحساب الإدارة الرئيسي ── */
 registerAdsRoutes(app, { requireAuth, requireRootAdmin, publicPageNonce });
+
+/* ── بابُ القاعة وشاشةُ الممر: ملصقٌ على كل باب ولوحةٌ لكل مبنى (قراءةٌ عامة)، وروابطُها لمدير السجل ── */
+registerRoomDoorRoutes(app, {
+  publicPageNonce,
+  readLocationRegistry: () => readLocationRegistry(),
+  normalizeLocation: (row, registry) => canonicalizeHistoricalLocationForRuntime(row, registry),
+  requireRegistryAdmin: [requirePermission(7), requirePowerAdmin],
+});
 
 /* ── بروفةُ التسجيل: تشغيلٌ لإدارة النظام، وقراءةٌ بحدود النطاق ──────────────── */
 registerSimulationRoutes(app, {

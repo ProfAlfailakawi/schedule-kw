@@ -5958,6 +5958,21 @@ export const Repository = {
     return (db.scheduleShareLinks || []).find(row => row.id === id);
   },
 
+  /**
+   * روابطُ أستاذٍ واحد التي تحمل رقمَه (الشخصيةُ وروابطُ الطلب): يسأل عنها اشتراكُ تقويمه
+   * الثابت «هل بقيت له بطاقةٌ حيّة؟» (liveCardLinkFor). استعلامٌ واحد على حقلٍ واحد؛ والرقمُ
+   * يُطابَق عدداً ونصاً كما في بقية الاستعلامات القديمة.
+   */
+  getShareLinksByInstructor: async (instructorId: number): Promise<ScheduleShareLink[]> => {
+    const id = Number(instructorId || 0);
+    if (!id) return [];
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("scheduleShareLinks").where("AdInstructorId", "in", [id, String(id)]).limit(500).get();
+      return snap.docs.map(doc => doc.data() as ScheduleShareLink);
+    }
+    return (db.scheduleShareLinks || []).filter(row => Number(row.AdInstructorId || 0) === id);
+  },
+
   /** Read a card's request links in one Firestore RPC instead of one round-trip per request. */
   getShareLinksByIds: async (ids: string[]): Promise<ScheduleShareLink[]> => {
     const unique = [...new Set(ids.map(String).filter(Boolean))].filter(id => !isDemoLinkToken(id) || demoSandboxContext.getStore());

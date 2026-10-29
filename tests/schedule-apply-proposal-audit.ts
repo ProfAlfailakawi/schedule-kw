@@ -4,20 +4,18 @@
  * خادمٌ حقيقيّ في وضع التجربة. الاقتراحُ (فتح شعبة، نقل، تبديل) يمرّ من
  * `POST /api/schedules/apply-proposal` فيصل الجدولَ الفعليّ بتحقّق الحفظ اليدويّ نفسِه، ويُردّ ما
  * كان قديماً أو متعارضاً، ويُردّ التبديلُ الناقصُ إلى ما كان، ويُسجَّل مصدرُه.
+ * الخادم على منفذٍ حرّ (helpers/liveServer)، ويُقتل مهما انتهى الاختبار.
  */
 import fs from "fs";
-import os from "os";
 import path from "path";
-import { spawn } from "child_process";
 import { waitForDemoSeed } from "./helpers/demoSeed";
+import { startDemoServer, type LiveServer } from "./helpers/liveServer";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
   if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); }
   else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`, extra !== undefined ? JSON.stringify(extra).slice(0, 400) : ""); }
 };
-const BASE = "http://localhost:3000";
-const up = async () => { try { return (await fetch(BASE + "/api/public/me/state")).ok; } catch { return false; } };
 
 /* ── الربط في الواجهات الأربع (مصدرٌ: يقول إن السلك موصول، والسلوكُ الحيّ أدناه) ── */
 {
@@ -27,21 +25,16 @@ const up = async () => { try { return (await fetch(BASE + "/api/public/me/state"
   check(intel.includes('kind: "opening"') && intel.includes('kind: fix.swapWith ? "swap" : "move"') && intel.includes("<ApplyProposal"), "L1 مركز الذكاء: فتحُ الشعب والنقلُ والتبديل لها زرُّ «اعتمد في الجدول»");
   check(reg.includes("openSection: slot") && reg.includes("موافقة + فتح شعبة") && reg.includes("committeeActs && !course.settled"), "L2 كشف التسجيل: موافقةُ اللجنة تحمل فتحَ الشعبة، وللجنة وحدها");
   check(radar.includes("function RadarSchedule") && radar.includes('kind: "radar"') && app.includes("canSchedule={hasPerm(7) && !sessionRole.viewerOnly && !sessionRole.advisorOnly}"), "L3 الرادار: «اقتراح الجدول» لمن يملك الجدول فقط (لا للعرض الصرف ولا للمرشد)");
-  check(inbox.includes("roomOptions") && inbox.includes("suggestion:") && srv.includes("const { roomCandidates, roomOptions, offeringRows, ...rest } = item;"), "L4 رغبات الأساتذة: بطاقةُ الإضافة تُملأ بأول قاعةٍ خالية، ولا تصل صفحةَ الأستاذ");
+  check(inbox.includes("roomOptions") && inbox.includes("suggestion:") && srv.includes("const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, ...rest } = item;"), "L4 رغبات الأساتذة: بطاقةُ الإضافة تُملأ بأول قاعةٍ خالية، ولا تصل صفحةَ الأستاذ");
   check(apply.includes("/api/schedules/apply-proposal") && !/fetch\([^)]*\/api\/schedules["`]/.test(apply), "L5 الزرُّ لا يكتب إلا من باب الاعتماد الواحد");
   check(srv.includes("createScheduleHandler, req") && srv.includes("updateScheduleHandler, req") && !/app\.post\("\/api\/schedules\/apply-proposal"[\s\S]{0,400}Repository\.(createSchedule|updateSchedule)/.test(srv), "L6 الباب يمرّ من معالجَي الحفظ نفسيهما، لا من الكتابة مباشرةً في المستودع");
 }
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "schedule-apply-proposal-"));
-let child: ReturnType<typeof spawn> | null = null;
+let server: LiveServer | null = null;
 try {
-  if (await up()) {
-    console.log("   (تخطّي: المنفذ مشغول بخادمٍ آخر)");
-  } else {
-    child = spawn("npx", ["tsx", "server.ts"], { env: { ...process.env, DATA_MODE: "demo", NODE_ENV: "development", SCHEDULE_PRIVATE_DIR: dir }, stdio: "ignore", detached: true });
-    let ready = false;
-    for (let i = 0; i < 120 && !ready; i += 1) { ready = await up(); if (!ready) await new Promise(r => setTimeout(r, 1000)); }
-    if (!ready) throw new Error("الخادم لم يبدأ");
+  {
+    server = await startDemoServer("apply-proposal");
+    const BASE = server.base;
     const login = await fetch(BASE + "/api/auth/demo", { method: "POST" });
     const cookie = ((login.headers as any).getSetCookie?.() as string[] || []).map(c => c.split(";")[0]).join("; ");
     await waitForDemoSeed(BASE, cookie);
@@ -50,8 +43,11 @@ try {
       return { status: response.status, body: await response.json().catch(() => null) as any };
     };
     const week = async () => (await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body as any[];
+    /* الفصلُ الأول كلُّه (كل الأقسام). بلا termId يقرأ الخادمُ أحدثَ فصل — الثاني 2026/2027، ولا مواعيد فيه —
+       فكانت كلُّ خانةٍ تبدو «خالية» ويتعارض الإعدادُ مع مواعيد الفصل الأول. */
+    const termRows = async () => (await call("GET", "/api/schedules?termId=1")).body as any[];
     const freeSlot = async (teacherId: number, rooms: any[], duration = 75) => {
-      const everything = (await call("GET", "/api/schedules")).body as any[];
+      const everything = await termRows();
       const mins = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
       const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
       for (const day of ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"]) {
@@ -186,7 +182,7 @@ try {
     if (target3) {
       const rowsBefore = (await week()).length;
       /* خانةٌ خاليةٌ فعلاً للأستاذ والقاعة معاً في الأسبوع كلِّه (كل الأقسام) */
-      const everything = (await call("GET", "/api/schedules")).body as any[];
+      const everything = await termRows();
       const mins = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
       const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
       let free: { day: string; start: string; end: string } | null = null;
@@ -215,7 +211,7 @@ try {
     check(lines.some(line => /اعتماد اقتراح من رادار التسجيل/.test(line)) && lines.some(line => /فُتحت شعبة/.test(line)), "A1 سجلُّ التدقيق يقول من أين جاء كلُّ تغيير");
   }
 } finally {
-  if (child?.pid) { try { process.kill(-child.pid, "SIGTERM"); } catch { child.kill(); } }
+  await server?.stop();
 }
 console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+process.exit(failed || process.exitCode ? 1 : 0);
