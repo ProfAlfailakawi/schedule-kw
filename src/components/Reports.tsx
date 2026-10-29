@@ -1026,12 +1026,16 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     filters.collegeId && filters.sectionId ? departmentFamily(sections, filters.collegeId, filters.sectionId) : []
   ), [sections, filters.collegeId, filters.sectionId]);
   const familyKey = `${filters.termId}|${familyScopes.map(scope => `${scope.collegeId}:${scope.sectionId}`).join("|")}`;
+  /* وتُقرأ من جديد مع كل تحديثٍ لبيانات النطاق (`all`: الإشارة الحية وزرّ
+     التحديث كلاهما يمرّ بـ readScope): عائلةٌ قُرئت مرةً لا تبقى على محاضراتٍ
+     حُذفت أو نُقلت. وما قُرئ قبلُ يبقى ظاهراً أثناء القراءة، فلا تنطفئ الشبكة. */
   useEffect(() => {
     if (lens !== "occupancy" || occupancyScope !== "family" || !filters.termId || familyScopes.length < 2) return;
-    if (familyRead?.key === familyKey && !familyRead.loading) return;
     const controller = new AbortController();
     const termId = filters.termId;
-    setFamilyRead({ key: familyKey, rows: [], denied: [], loading: true });
+    setFamilyRead(previous => previous?.key === familyKey
+      ? { ...previous, loading: true }
+      : { key: familyKey, rows: [], denied: [], loading: true });
     void Promise.all(familyScopes.map(async ({ collegeId, sectionId }) => {
       try {
         const response = await fetch(`/api/schedules?termId=${termId}&collegeId=${collegeId}&sectionId=${sectionId}`, { signal: controller.signal });
@@ -1045,7 +1049,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         denied: parts.filter(part => part.denied).map(part => collegeById.get(part.collegeId)?.AdCollegeName || String(part.collegeId)), loading: false });
     }).catch(() => { if (!controller.signal.aborted) setFamilyRead({ key: familyKey, rows: [], denied: [], loading: false }); });
     return () => controller.abort();
-  }, [lens, occupancyScope, familyKey]);
+  }, [lens, occupancyScope, familyKey, all]);
   const sectionOptions = useMemo(() => dedupeVisibleOptions(
     sortByName(sections.filter(s => (!filters.collegeId || s.AdCollegeId === filters.collegeId) && (isPowerAdmin || scopeState.sectionIds.includes(Number(s.AdSectionId)))), (s: AdSection) => s.AdSectionName),
     row => `${Number(row.AdCollegeId) || 0}|${optionKey(row.AdSectionName)}`, filters.sectionId, row => Number(row.AdSectionId),
@@ -1721,6 +1725,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const occupancyScopeLabel = familyActive
     ? `عائلة القسم — ${familyScopes.map(scope => collegeById.get(scope.collegeId)?.AdCollegeName).filter(Boolean).join(" · ")}`
     : collegeName ? `الموقع — ${collegeName}` : "الموقع المفتوح";
+  /* العائلة قيد القراءة: لا طباعة لنسخةٍ نصفها قديم، ولا هيكلَ انتظارٍ فوق شبكةٍ معروضة. */
+  const familyPending = familyActive && (!familyRead || familyRead.key !== familyKey || familyRead.loading);
+  const familyFirstLoad = familyActive && (!familyRead || familyRead.key !== familyKey || (familyRead.loading && !familyRead.rows.length));
 
   // --- output --------------------------------------------------------------
 
@@ -2540,7 +2547,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             </> : null}
             {lens === "courseLoad" ? <small>{termName} · {sectionName || "اختر القسم"} · المواقع التي يوجد فيها القسم</small> : scopeLine ? <small>{scopeLine}</small> : null}
           </div>
-          {!pending && (results.length || (lens === "courseLoad" && courseLoads.length) || (lens === "balance" && balance) || (authorityReportAvailable && all.length > 0)) ? <div className="query-canvas-actions">
+          {!pending && (results.length || (lens === "courseLoad" && courseLoads.length) || (lens === "balance" && balance) || (lens === "occupancy" && occupancyHeat?.lectures) || (authorityReportAvailable && all.length > 0)) ? <div className="query-canvas-actions">
+            {/* نسبة الإشغال تطبع النطاق المختار: عائلة القسم لها محاضراتها ولو خلا الموقع المفتوح منها. */}
+            {!results.length && lens === "occupancy" && occupancyHeat?.lectures ? (
+              <button type="button" className="query-print-icon" data-guide-ignore="طباعة نسبة الإشغال؛ قراءة فقط" onClick={() => printReport("occupancy")} disabled={familyPending} aria-label="طباعة نسبة الإشغال" title="طباعة نسبة الإشغال">
+                <Printer aria-hidden="true" />
+              </button>
+            ) : null}
             {/* نشرة الميزان تُطبع قبل أول موعدٍ معتمد أيضاً (N14). */}
             {!results.length && lens === "balance" && balance ? (
               <button
@@ -2571,7 +2584,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   ) : null}
                 </div>
               ) : (
-                <button type="button" className="query-print-icon" data-guide-ignore="طباعة العرض الحالي؛ قراءة فقط" onClick={() => printReport(lens)} aria-label="طباعة هذا العرض" title="طباعة هذا العرض">
+                <button type="button" className="query-print-icon" data-guide-ignore="طباعة العرض الحالي؛ قراءة فقط" onClick={() => printReport(lens)} disabled={lens === "occupancy" && familyPending} aria-label="طباعة هذا العرض" title="طباعة هذا العرض">
                   <Printer aria-hidden="true" />
                 </button>
               )}
@@ -2977,7 +2990,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 <span><b>عائلة القسم</b><small>{familyScopes.length > 1 ? familyScopes.map(scope => collegeById.get(scope.collegeId)?.AdCollegeName).filter(Boolean).join(" · ") : "القسم في موقعٍ واحد"}</small></span>
               </button>
             </div>
-            {familyActive && (!familyRead || familyRead.key !== familyKey || familyRead.loading) ? (
+            {familyFirstLoad ? (
               <div className="occupancy-loading"><QuerySkeleton /></div>
             ) : occupancyHeat && occupancyHeat.lectures ? (
               <>

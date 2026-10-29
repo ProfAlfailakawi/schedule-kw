@@ -80,6 +80,12 @@ check(reports.includes('if (kind === "occupancy")') && reports.includes('classNa
 check(grid.includes("onPick") && reports.includes("setOccupancyPick") && reports.includes('aria-label={`محاضرات ${day.label}`}'), "والضغط على الخانة يفتح محاضراتها");
 check(/\.print-report \.print-occupancy-table tbody tr:nth-child\(n\) td\.print-heat-5\{background:#2b7666 !important\}/.test(printCss),
   "ودرجة الشبكة لا يمحوها تخطيط الصفوف على الورقة");
+/* مراجعة #302: العائلة تتبع تحديث البيانات، والطباعة تتبع النطاق المختار. */
+check(reports.includes("}, [lens, occupancyScope, familyKey, all]);") && !reports.includes("if (familyRead?.key === familyKey && !familyRead.loading) return;"),
+  "العائلة تُقرأ من جديد مع كل تحديثٍ لبيانات النطاق، لا تبقى على محاضراتٍ حُذفت");
+check(reports.includes('(lens === "occupancy" && occupancyHeat?.lectures)') && reports.includes('onClick={() => printReport("occupancy")} disabled={familyPending}'),
+  "وزرّ الطباعة يظهر لعائلةٍ لها محاضرات ولو خلا الموقع، ويُعطَّل أثناء قراءتها");
+check(reports.includes('disabled={lens === "occupancy" && familyPending}'), "ولا تُطبع نسخةٌ نصفها قديم أثناء التحديث");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
