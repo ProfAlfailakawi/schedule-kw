@@ -18,7 +18,7 @@ import vm from "vm";
 import { createECDH, createPublicKey, randomBytes, verify } from "crypto";
 import express from "express";
 import {
-  b64u, createPushDigest, createPushRateLimiter, createVapidKeyResolver, decryptPushPayload, deriveVapidKeys, encryptPushPayload,
+  b64u, collectPages, createPushDigest, createPushRateLimiter, createVapidKeyResolver, decryptPushPayload, deriveVapidKeys, encryptPushPayload,
   fromB64u, isAllowedPushEndpoint, PUSH_MAX_PLAINTEXT, pushSubscriptionId, readPushSubscription, sendWebPush, vapidAuthorization,
   vapidJwt, vapidKeysFromEnv, vapidKeysFromPrivate, VAPID_SUBJECT, verifyVapidJwt, type PushSubscriptionRecord,
 } from "../src/server/webPush";
@@ -43,21 +43,15 @@ const waitFor = async (ok: () => boolean | Promise<boolean>, ms = 5000) => { con
 
 /* ══ ١) RFC 8291 الملحق A ═══════════════════════════════════════════════════ */
 {
-  /* المتجهُ المنشور في RFC 8291 §5 والملحق A (مفاتيحُ مثالٍ عامّة، لا أسرار): بالست عشري، بترتيب
-     مفتاح المتصفّح العام (65) والخاص (32)، ومفتاح الخادم المؤقّت العام (65) والخاص (32)، وسرّ المصادقة (16)، والملح (16). */
-  const VECTOR = Buffer.from(
-    "042571b2becdfde360551aaf1ed0f4cd366c11cebe555f89bcb7b186a53339173168ece2ebe018597bd30479b86e3c8f8eced577ca59187e9246990db682008b0e"
-    + "ab5757a70dd4a53e553a6bbf71ffefea2874ec07a6b379e3c48f895a02dc33de"
-    + "04fe33f4ab0dea71914db55823f73b54948f41306d920732dbb9a59a53286482200e597a7b7bc260ba1c227998580992e93973002f3012a28ae8f06bbb78e5ec0f"
-    + "c9f58f89813e9f8e872e71f42aa64e1757c9254dcc62b72ddc010bb4043ea11c"
-    + "05305932a1c7eabe13b6cec9fda48882"
-    + "0c6bfaadad67958803092d454676f397", "hex");
-  const part = (from: number, length: number) => b64u(VECTOR.subarray(from, from + length));
-  const UA_PUBLIC = part(0, 65), UA_PRIVATE = part(65, 32), AS_PUBLIC = part(97, 65), AS_PRIVATE = part(162, 32), AUTH = part(194, 16), SALT = part(210, 16);
-  /* جسمُ الرسالة في RFC 8291 §5. */
-  const EXPECTED = b64u(Buffer.from(
-    "0c6bfaadad67958803092d454676f397000010004104fe33f4ab0dea71914db55823f73b54948f41306d920732dbb9a59a53286482200e597a7b7bc260ba1c2279985"
-    + "80992e93973002f3012a28ae8f06bbb78e5ec0ff297de5b429bba7153d3a4ae0caa091fd425f3b4b5414add8ab37a19c1bbb05cf5cb5b2a2e0562d558635641ec52812c6c8ff42e95ccb86be7cd", "hex"));
+  /* القيمُ المنشورة في RFC 8291 §5 والملحق A كما هي: مفاتيحُ مثالٍ عامّة لا أسرار، وهي
+     في .gitguardian.yaml إيجابياتٌ كاذبةٌ معلنة لهذا الملف وحده. كلُّ مفتاحٍ غيرها هنا يُولَّد عند التشغيل. */
+  const UA_PUBLIC = "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4";
+  const UA_PRIVATE = "q1dXpw3UpT5VOmu_cf_v6ih07Aems3njxI-JWgLcM94";
+  const AS_PUBLIC = "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8";
+  const AS_PRIVATE = "yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw";
+  const AUTH = "BTBZMqHH6r4Tts7J_aSIgg";
+  const SALT = "DGv6ra1nlYgDCS1FRnbzlw";
+  const EXPECTED = "DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN";
   const body = encryptPushPayload("When I grow up, I want to be a watermelon", { p256dh: UA_PUBLIC, auth: AUTH }, { salt: fromB64u(SALT), senderPrivateKey: fromB64u(AS_PRIVATE) });
   check(b64u(body) === EXPECTED, "RFC 8291 الملحق A: الجسمُ المشفّر يطابق المتجه بايتاً ببايت");
   check(body.subarray(0, 16).equals(fromB64u(SALT)) && body.readUInt32BE(16) === 4096 && body[20] === 65 && b64u(body.subarray(21, 86)) === AS_PUBLIC,
@@ -269,8 +263,8 @@ const ROOMY_REQUEST = () => ({
   const server = app.listen(0, "127.0.0.1");
   await new Promise(resolve => server.once("listening", resolve));
   const base = `http://127.0.0.1:${(server.address() as any).port}`;
-  const call = (method: string, url: string, body?: unknown, user?: number) => fetch(base + url, {
-    method, headers: { "Content-Type": "application/json", ...(user ? { "x-test-user": String(user) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body),
+  const call = (method: string, url: string, body?: unknown, user?: number, session?: string) => fetch(base + url, {
+    method, headers: { "Content-Type": "application/json", ...(user ? { "x-test-user": String(user) } : {}), ...(session ? { Cookie: `session_id=${session}` } : {}) }, body: body === undefined ? undefined : JSON.stringify(body),
   }).then(async r => ({ status: r.status, type: r.headers.get("content-type") || "", data: await r.json().catch(() => null) }));
   const device = (name: string) => { const k = uaKeys(); return { endpoint: `https://fcm.googleapis.com/fcm/send/${name}`, keys: { p256dh: k.p256dh, auth: k.auth }, priv: k.priv }; };
   const open = (entry: { body: Buffer }, dev: { priv: string; keys: { auth: string } }) => JSON.parse(decryptPushPayload(entry.body, dev.priv, dev.keys.auth).toString("utf8"));
@@ -384,6 +378,21 @@ const ROOMY_REQUEST = () => ({
       await call("POST", "/api/push/unsubscribe", { endpoint: rotated.endpoint }, 16);
       check(!(await Repository.getPushSubscription(pushSubscriptionId(rotated.endpoint))), "وصاحبُه يطفئه");
 
+      /* جهازٌ مشترك: الخروجُ الصريح يُسقط اشتراكَ الجلسة التي فعّلته، وجلسةٌ أخرى تبقى */
+      const shared = device("shared-pc"), own = device("own-phone");
+      await call("POST", "/api/push/subscribe", { subscription: shared }, 16, "sess_shared_pc_session");
+      await call("POST", "/api/push/subscribe", { subscription: own }, 16, "sess_own_phone_session");
+      const bound = await call("GET", "/api/push/status", undefined, 16, "sess_shared_pc_session");
+      check(bound.data.bound.length === 1 && bound.data.bound[0] === pushSubscriptionId(shared.endpoint) && bound.data.ids.length >= 2,
+        "الحالةُ تعرف أيَّ أجهزة الحساب فُعّل من هذه الجلسة (bound)");
+      check((await Repository.getPushSubscription(pushSubscriptionId(shared.endpoint)))?.session?.length === 32
+        && !JSON.stringify(await Repository.getPushSubscription(pushSubscriptionId(shared.endpoint))).includes("sess_shared_pc_session"),
+        "ويُحفظ مع الاشتراك بصمةُ الجلسة لا الجلسةُ نفسها");
+      pushHooks.signedOut("sess_shared_pc_session");
+      check(await waitFor(async () => !(await Repository.getPushSubscription(pushSubscriptionId(shared.endpoint)))) && Boolean(await Repository.getPushSubscription(pushSubscriptionId(own.endpoint))),
+        "تسجيلُ الخروج الصريح يُسقط اشتراكَ ذلك الجهاز على الخادم، وهاتفُ صاحبه (جلسةٌ أخرى) يبقى");
+      check(await engine.signedOut("") === 0, "وخروجٌ بلا جلسة لا يمسّ شيئاً");
+
       /* الكرت على الشاشة الرئيسية */
       const manifest = await fetch(`${base}/r/${LIVE}/manifest.webmanifest`).then(async r => ({ type: r.headers.get("content-type") || "", json: await r.json() }));
       check(/application\/manifest\+json/.test(manifest.type) && manifest.json.start_url === `/r/${LIVE}` && manifest.json.scope === `/r/${LIVE}` && manifest.json.display === "standalone" && manifest.json.short_name === "بطاقتي",
@@ -492,6 +501,24 @@ const ROOMY_REQUEST = () => ({
   const page = between(server, "function instructorRequestPage", 'app.post("/api/public/request/:token/check"');
   check(page.includes("${pushCardHead(token)}") && page.includes("${PUSH_CARD_CSS}") && page.includes("${PUSH_CARD_JS}"), "كرتُ الأستاذ يحمل الشارة ورأسَ «بطاقتي»");
   check(between(server, "function publicPageNonce(", "return nonce;").includes(`"worker-src 'self'"`), "CSP الصفحات العامة يسمح بعامل الكرت (worker-src 'self')");
+
+  /* الخروجُ الصريح: الصفحةُ تُلغي اشتراك الجهاز والجلسةُ صالحة، والخادمُ يُسقط ما فاتها */
+  const appSource = read("src/App.tsx");
+  const logout = between(appSource, "const logout = async () => {", "};");
+  check(logout.includes("await forgetPushDevice()") && logout.indexOf("await forgetPushDevice()") < logout.indexOf('fetch("/api/auth/logout"'),
+    "App.tsx: تسجيلُ الخروج يُلغي اشتراكَ الجهاز (forgetPushDevice) قبل إبطال الجلسة");
+  check(between(server, 'app.post("/api/auth/logout"', "res.json({ success: true });").includes("pushHooks.signedOut(sessionId);"), "والخادمُ يُسقط اشتراكاتِ تلك الجلسة عند الخروج");
+
+  /* اكتشافُ المستلمين لا يقف عند الخمسمئة الأولى */
+  const all = Array.from({ length: 1234 }, (_, i) => i);
+  const pages: Array<number | null> = [];
+  const read1234 = await collectPages<number>(async (after, size) => { pages.push(after); const from = after == null ? 0 : after + 1; return all.slice(from, from + size); });
+  check(read1234.length === 1234 && read1234[1233] === 1233 && pages.join() === ",499,999", "collectPages: 1234 اشتراكاً في ثلاث صفحاتٍ متتالية، لا يسقط منها واحد");
+  check((await collectPages<number>(async () => all.slice(0, 500))).length === 500 * 200, "وسقفُ الصفحات يمنع حلقةً بلا نهاية");
+  const repoSource = read("src/db/repository.ts");
+  const list = between(repoSource, "listPushSubscriptions: async", "savePushSubscription: async");
+  check(list.includes("collectPages<QueryDocumentSnapshot>") && list.includes("orderBy(FieldPath.documentId())") && list.includes("startAfter(after)") && !/\.limit\(500\)\.get\(\)/.test(list),
+    "repository: الاشتراكاتُ تُقرأ صفحةً بعد صفحة بترتيب المعرّف (لا سقفَ 500 صامتاً)");
 }
 
 console.log(`\nWeb push audit: ${passed} passed, ${failed} failed`);

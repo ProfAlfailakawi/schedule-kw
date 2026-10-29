@@ -2779,6 +2779,7 @@ app.post("/api/auth/logout", async (req: AuthenticatedRequest, res: Response) =>
     // Drop the remembered identity before the record, so no request in flight
     // can be served from memory after the person has signed out.
     forgetAuthSession(sessionId);
+    pushHooks.signedOut(sessionId);
     /* معرّفٌ لم يصنعه الخادم لا سجلَّ له يُحذف؛ والمحذوفُ يُذكر ميّتاً، فتبويبٌ
        آخر بالكوكي القديم لا يُسأل عنه بعد الآن. */
     if (isSessionIdShape(sessionId)) await Repository.deleteSession(sessionId);

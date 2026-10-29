@@ -23,7 +23,7 @@ import type { InstructorRequest, InstructorRequestItem } from "../types";
 import { createDataContextKey } from "./dataContextCache";
 import { createTtlMemo } from "./notificationCache";
 import {
-  createPushDigest, createPushRateLimiter, createVapidKeyResolver, deviceLabel, pushSubscriptionId, pushTopic,
+  createPushDigest, createPushRateLimiter, createVapidKeyResolver, deviceLabel, pushSessionTag, pushSubscriptionId, pushTopic,
   readPushSubscription, sendWebPush,
   type DigestFlush, type PushFetch, type PushMessage, type PushSubscriptionRecord, type PushUrgency, type VapidKeys,
 } from "./webPush";
@@ -198,6 +198,18 @@ function createPushEngine(deps: PushRouteDeps) {
     requestDecided(request: InstructorRequest, index: number) { noteForCard(request, [index]); },
     requestFixed(request: InstructorRequest, indexes: number[]) { noteForCard(request, indexes, "fixed"); },
     departmentReplied(request: InstructorRequest, index: number) { noteForCard(request, [index], "reply"); },
+    /**
+     * خروجٌ صريح من جلسة: الأجهزةُ التي فُعّلت منها لا تحمل بعده تنبيهاتِ من خرج
+     * (جهازٌ مشترك). الصفحةُ تُلغي اشتراكها قبل الخروج (forgetPushDevice)، وهذا
+     * يمسك ما لم تصل إليه: لسانٌ آخر، أو متصفّحٌ أُغلق قبل الإلغاء. انتهاءُ الجلسة
+     * بالخمول ليس خروجاً: التنبيهُ يصل والتطبيقُ مغلق، وذاك غرضُه.
+     */
+    async signedOut(sessionId: string) {
+      if (!sessionId) return 0;
+      const records = await Repository.listPushSubscriptions({ session: pushSessionTag(sessionId), ownerKind: "user" });
+      await Promise.all(records.map(record => Repository.deletePushSubscription(record.id)));
+      return records.length;
+    },
     async taWindowOpened(closesAt: string, sent: Array<{ instructorId: number; linkId: string }>) {
       for (const entry of sent) {
         /* المدرّبُ اشترك من كرته السابق (أو من كرت التدريب نفسه إن أُعيد): يصله الخبرُ إلى كرته الجديد. */
@@ -243,6 +255,8 @@ export const pushHooks = {
   departmentReplied: (request: InstructorRequest, index: number) => fire("department reply", current => current.departmentReplied(request, index)),
   /** 🎓 موجةُ مرحلة التدريب أُرسلت: لكل مدرّبٍ إلى كرته الجديد. */
   taWindowOpened: (closesAt: string, sent: Array<{ instructorId: number; linkId: string }>) => fire("ta window", current => current.taWindowOpened(closesAt, sent)),
+  /** تسجيلُ خروجٍ صريح: تُسقط اشتراكاتُ الأجهزة التي فُعّلت من تلك الجلسة. */
+  signedOut: (sessionId: string) => fire("signed out", current => current.signedOut(sessionId)),
 };
 
 function sameSecret(a: string, b: string): boolean {
@@ -268,6 +282,7 @@ export function registerPushRoutes(app: Express, deps: PushRouteDeps): PushEngin
       ...(owner.cardToken ? { cardToken: owner.cardToken, instructorId: owner.instructorId } : {}),
       createdAt: sameOwner ? previous!.createdAt : at, updatedAt: at,
       device: deviceLabel(req.headers["user-agent"]) || undefined,
+      ...(owner.session ? { session: owner.session } : {}),
     });
   };
 
@@ -284,14 +299,19 @@ export function registerPushRoutes(app: Express, deps: PushRouteDeps): PushEngin
       current.vapid().catch(() => null), Repository.listPushSubscriptions({ userId, ownerKind: "user" }), current.audienceOf(userId).catch(() => null),
     ]);
     res.setHeader("Cache-Control", "no-store");
-    res.json({ enabled: Boolean(keys), publicKey: keys?.publicKey || "", audience: Boolean(audience), ids: records.map(record => record.id) });
+    const cookie = /(?:^|;\s*)session_id=([^;]+)/.exec(String(req.headers.cookie || ""))?.[1];
+    const tag = cookie ? pushSessionTag(cookie) : "";
+    res.json({ enabled: Boolean(keys), publicKey: keys?.publicKey || "", audience: Boolean(audience), ids: records.map(record => record.id),
+      /* أجهزةٌ مربوطةٌ بهذه الجلسة؛ وما سواها تربطه البطاقةُ بها مرّةً عند فتحها. */
+      bound: records.filter(record => tag && record.session === tag).map(record => record.id) });
   });
 
   app.post("/api/push/subscribe", deps.requireAuth, async (req: any, res: Response) => {
     const subscription = readPushSubscription(req.body?.subscription);
     if (!subscription) { res.status(400).json({ error: "اشتراكٌ غير صالح من هذا المتصفح." }); return; }
     const userId = Number(req.user?.SystemUserId || 0);
-    const saved = await saveRecord(subscription, { ownerKind: "user", userId }, req);
+    const cookie = /(?:^|;\s*)session_id=([^;]+)/.exec(String(req.headers.cookie || ""))?.[1];
+    const saved = await saveRecord(subscription, { ownerKind: "user", userId, ...(cookie ? { session: pushSessionTag(cookie) } : {}) }, req);
     res.locals.auditEntity = "تنبيهات الجوال";
     res.locals.auditChanges = `تفعيل التنبيهات على جهاز${saved.device ? ` (${saved.device})` : ""}`;
     res.json({ ok: true, id: saved.id });

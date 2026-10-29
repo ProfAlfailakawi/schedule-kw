@@ -14,7 +14,7 @@ import {
 
 type Phase = "loading" | "hidden" | "ios" | "off" | "on" | "blocked" | "busy";
 
-interface Status { enabled?: boolean; audience?: boolean; publicKey?: string; ids?: string[] }
+interface Status { enabled?: boolean; audience?: boolean; publicKey?: string; ids?: string[]; bound?: string[] }
 
 export default function PushCard({ userKey }: { userKey: string }) {
   const [phase, setPhase] = useState<Phase>("loading");
@@ -41,10 +41,15 @@ export default function PushCard({ userKey }: { userKey: string }) {
         if (!alive) return;
         setRegistration(prepared.registration);
         setSubscription(prepared.subscription);
-        const on = prepared.subscription ? (status.ids || []).includes(await subscriptionId(prepared.subscription.endpoint)) : false;
+        const id = prepared.subscription ? await subscriptionId(prepared.subscription.endpoint) : "";
+        const on = Boolean(id) && (status.ids || []).includes(id);
         if (!alive) return;
         setPhase(on ? "on" : "off");
         markPushActive(userKey, on);
+        /* يُربط الجهازُ بالجلسة الحاضرة: خروجُها الصريح يُسقطه على الخادم أيضاً. */
+        if (on && prepared.subscription && !(status.bound || []).includes(id)) {
+          void fetch("/api/push/subscribe", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: prepared.subscription.toJSON() }) }).catch(() => undefined);
+        }
       } catch {
         if (alive) setPhase("off");
       }

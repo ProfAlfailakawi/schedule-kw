@@ -1,0 +1,24 @@
+# Known false positives, declared explicitly.
+#
+# tests/web-push-audit.ts checks the Web Push encryption against the published
+# example in RFC 8291 (section 5 and Appendix A). Those keys are printed in the
+# standard itself and are not secrets of this project. Every other key in the
+# tests is generated at runtime; production keys come from the environment or
+# are derived from the stored server secret and are never committed.
+version: 2
+secret:
+  ignored-matches:
+    - name: RFC 8291 example - user agent public key
+      match: BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4
+    - name: RFC 8291 example - user agent private key
+      match: q1dXpw3UpT5VOmu_cf_v6ih07Aems3njxI-JWgLcM94
+    - name: RFC 8291 example - application server public key
+      match: BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8
+    - name: RFC 8291 example - application server private key
+      match: yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw
+    - name: RFC 8291 example - authentication secret
+      match: BTBZMqHH6r4Tts7J_aSIgg
+    - name: RFC 8291 example - salt
+      match: DGv6ra1nlYgDCS1FRnbzlw
+  ignored-paths:
+    - tests/web-push-audit.ts

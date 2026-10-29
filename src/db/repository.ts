@@ -18,7 +18,7 @@ import path from "path";
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore, FieldPath, FieldValue, Timestamp } from "firebase-admin/firestore";
-import type { Firestore, WriteBatch } from "firebase-admin/firestore";
+import type { Firestore, QueryDocumentSnapshot, WriteBatch } from "firebase-admin/firestore";
 import { gzipSync, gunzipSync } from "zlib";
 import { assertExplicitProductionTarget } from "../server/firestoreTarget";
 import { defaultPrivateDirectory, isCloudRunRuntime, materializePackagedSnapshotOnce, packagedSnapshotPath, readJsonSnapshot } from "./snapshot";
@@ -95,7 +95,7 @@ import { kuwaitDayOfIso, recordLinkOpen } from "../utils/linkOpens";
 import type { LinkMode } from "../utils/linkMode";
 import { unchangedScheduleFingerprint } from "../utils/instructorRequestConfirmation";
 import { foreignWrites, type BeaconCount } from "./beaconEcho";
-import type { PushSubscriptionRecord } from "../server/webPush";
+import { collectPages, type PushSubscriptionRecord } from "../server/webPush";
 
 // Runtime state must not live inside the replaceable application release. A number of
 // deployment/upload tools synchronize an archive by deleting destination files that are
@@ -7781,21 +7781,28 @@ export const Repository = {
     return (db.pushSubscriptions || []).find(row => row.id === key) || null;
   },
 
-  listPushSubscriptions: async (filter: { userId?: number; cardToken?: string; instructorId?: number; ownerKind?: "user" | "card" }): Promise<PushSubscriptionRecord[]> => {
+  listPushSubscriptions: async (filter: { userId?: number; cardToken?: string; instructorId?: number; ownerKind?: "user" | "card"; session?: string }): Promise<PushSubscriptionRecord[]> => {
     const matches = (row: PushSubscriptionRecord) =>
       (filter.userId == null || Number(row.userId) === Number(filter.userId))
       && (filter.cardToken == null || row.cardToken === filter.cardToken)
       && (filter.instructorId == null || Number(row.instructorId) === Number(filter.instructorId))
-      && (filter.ownerKind == null || row.ownerKind === filter.ownerKind);
+      && (filter.ownerKind == null || row.ownerKind === filter.ownerKind)
+      && (filter.session == null || row.session === filter.session);
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const collection = firestoreDb.collection("pushSubscriptions");
-      const query = filter.cardToken != null ? collection.where("cardToken", "==", filter.cardToken)
+      const base = filter.cardToken != null ? collection.where("cardToken", "==", filter.cardToken)
         : filter.userId != null ? collection.where("userId", "==", Number(filter.userId))
+        : filter.session != null ? collection.where("session", "==", filter.session)
         : filter.instructorId != null ? collection.where("instructorId", "==", Number(filter.instructorId))
         : filter.ownerKind != null ? collection.where("ownerKind", "==", filter.ownerKind)
-        : collection.limit(500);
-      const snap = await query.limit(500).get();
-      return snap.docs.map(doc => doc.data() as PushSubscriptionRecord).filter(matches);
+        : collection;
+      /* صفحةً بعد صفحة بترتيب المعرّف: لا مشتركَ يسقط بعد الخمسمئة الأولى. */
+      const docs = await collectPages<QueryDocumentSnapshot>(async (after, size) => {
+        let query = base.orderBy(FieldPath.documentId()).limit(size);
+        if (after) query = query.startAfter(after);
+        return (await query.get()).docs;
+      });
+      return docs.map(doc => doc.data() as PushSubscriptionRecord).filter(matches);
     }
     return (db.pushSubscriptions || []).filter(matches).map(row => ({ ...row }));
   },
@@ -7808,7 +7815,7 @@ export const Repository = {
     }
     const rest = (db.pushSubscriptions || []).filter(item => item.id !== row.id);
     /* سقفٌ للصندوق: زائرُ عرضٍ لا يملأ الذاكرة باشتراكاتٍ وهمية. */
-    db.pushSubscriptions = [...rest, row].slice(-200);
+    db.pushSubscriptions = [...rest, row].slice(-1000);
     saveDatabase();
     return row;
   },

@@ -287,6 +287,29 @@ export interface PushSubscriptionRecord {
   /** وصفٌ عامّ للجهاز («iPhone»، «Android»…) يُعرض لصاحبه، لا بصمةَ متصفّح. */
   device?: string;
   lastSentAt?: string;
+  /** بصمةُ جلسة الدخول التي فعّلته (لا الجلسةُ نفسها): خروجُها الصريح يُسقطه. */
+  session?: string;
+}
+
+/** بصمةُ جلسة الدخول كما تُحفظ مع اشتراك الحساب. */
+export function pushSessionTag(sessionId: string): string {
+  return createHash("sha256").update(`push-session|${String(sessionId || "")}`).digest("hex").slice(0, 32);
+}
+
+/**
+ * يقرأ مجموعةً كاملةً صفحةً بعد صفحة: `fetchPage(after, size)` يعيد صفحةً تبدأ بعد
+ * آخر عنصرٍ من سابقتها. صفحةٌ ناقصة تعني النهاية. سقفٌ للصفحات يمنع حلقةً بلا نهاية.
+ */
+export async function collectPages<T>(fetchPage: (after: T | null, size: number) => Promise<T[]>, size = 500, maxPages = 200): Promise<T[]> {
+  const out: T[] = [];
+  let after: T | null = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const rows = await fetchPage(after, size);
+    out.push(...rows);
+    if (rows.length < size) break;
+    after = rows[rows.length - 1];
+  }
+  return out;
 }
 
 export function deviceLabel(userAgent: unknown): string {
