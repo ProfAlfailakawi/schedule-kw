@@ -120,7 +120,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
       <div className="adl-head-icon"><BrainCircuit size={20} aria-hidden="true" /></div>
       <div className="adl-head-copy"><strong>مختبر القرار الأكاديمي</strong>
         <small>ست أدوات ذكية · اختر الميزة لاستعراض نتيجتها</small></div>
-      <span className="adl-tag"><Sparkles size={12} aria-hidden="true" /> ٦ أدوات</span>
+      <span className="adl-tag"><Sparkles size={12} aria-hidden="true" /> 6 أدوات</span>
     </div>
     {liveWatch.length > 0 && <div className="adl-live-courses">
       <div className="adl-live-heading"><GraduationCap size={17} aria-hidden="true" />

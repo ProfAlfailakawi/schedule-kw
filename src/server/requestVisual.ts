@@ -14,7 +14,7 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .wc-n{order:-1;margin-bottom:6px;line-height:16px}
 .wk-axis{margin-top:22px}
 .wb{overflow:hidden}
-.wb span{display:block;padding:2px 2px 0;font-size:9px;line-height:1.15;font-weight:700;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:clip}
+.wb span{display:block;padding:2px 3px 0;font-size:10px;line-height:1.15;font-weight:700;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wb[data-k=ghost] span{color:var(--c)}
 .wb[data-k=del] span{color:#fff;text-shadow:0 0 3px rgba(0,0,0,.6)}
 .wb::after{content:"";position:absolute;inset:-14px -3px}

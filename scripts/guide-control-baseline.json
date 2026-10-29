@@ -290,6 +290,7 @@
     "src/components/ui.tsx|PrimaryButton|submit|<PrimaryButton type=\"submit\" disabled={loading || submitDisabled}>",
     "src/components/ui.tsx|PrimaryButton|true|<PrimaryButton onClick={onClick}>",
     "src/components/ui.tsx|SecondaryButton|button تراجع|<SecondaryButton type=\"button\" onClick={onBack}>",
+    "src/components/ui.tsx|button|<dynamic> button active console-tab-plain page string console-tab-icon true pending — ar-KW-u-nu-latn console-tab-label|<button key={option.value} type=\"button\" ref={on ? active : undefined} className={`console-tab ${on ? \"active\" : \"\"} ${counted ? \"\" : \"console-tab-plain\"}`.trim()} aria-current={on",
     "src/components/ui.tsx|button|button active console-tab-plain page console-tab-icon true pending — ar-KW-u-nu-latn console-tab-label|<button key={option.value} type=\"button\" ref={on ? active : undefined} className={`console-tab ${on ? \"active\" : \"\"} ${counted ? \"\" : \"console-tab-plain\"}`.trim()} aria-current={on",
     "src/components/ui.tsx|button|button active|<button key={option.value} type=\"button\" className={value===option.value?\"active\":\"\"} onClick={()=>instant?onChange(option.value):runVisualTransition(()=>onChange(option.value))}>",
     "src/components/ui.tsx|button||<button {...props} className={`btn btn-ghost ${className}`.trim()}>",

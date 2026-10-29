@@ -129,7 +129,7 @@ export default function LocationQuickSetup({ header, demoReadOnly = false }: { h
   return <div className="content-stack location-quick-setup">
     {header}
     <PageTitle eyebrow="إدارة النظام · للمدير الرئيسي فقط" subtitle="إضافة المباني وقاعات الأقسام المشتركة، مع بقاء السجل الإداري الكامل كما هو.">إضافة المباني والقاعات</PageTitle>
-    {demoReadOnly ? <Notice>وضع العرض التجريبي: يمكنك استعراض الواجهة، والحفظ متوقف.</Notice> : null}
+    {demoReadOnly ? <Notice type="info">العرض التجريبي: الحفظ متوقف.</Notice> : null}
     {error ? <Notice>{error}</Notice> : null}{notice ? <div className="location-quick-notice" role="status">{notice}</div> : null}
     <LocationRoomTypeManager demoReadOnly={demoReadOnly} onTypesChange={setRoomTypes} />
     <Surface className="location-quick-filters">

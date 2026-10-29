@@ -97,7 +97,7 @@ export default function TeachingLoadSettings({ header, demoReadOnly = false }: {
   return (
     <div className="content-stack admin-page teaching-load">
       {header}
-      <PageTitle eyebrow="إدارة النظام · للمدير الرئيسي فقط" subtitle="ميزةٌ اختيارية: درجاتٌ علمية بنصابها بالساعات، وتنبيهٌ هادئ للمخطّط إن تجاوز عضوٌ نصابه. لا تمنع تعديل الجدول.">النصاب التدريسي</PageTitle>
+      <PageTitle eyebrow="إدارة النظام · للمدير الرئيسي فقط" subtitle="اختيارية: درجاتٌ بنصابها، وتنبيهٌ هادئ عند التجاوز — لا تمنع التعديل.">النصاب التدريسي</PageTitle>
       {notice ? <Notice type={notice.type}>{notice.text}</Notice> : null}
       {demoReadOnly ? <Notice type="info">الإعدادات للعرض في الديمو، والحفظ معطّل.</Notice> : null}
 

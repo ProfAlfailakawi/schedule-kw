@@ -230,7 +230,7 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
           <div className="pi-stack" role="img" aria-label={`في موعدهم ${g.onTime}، تأخر فصل ${g.delayed1}، فصلان فأكثر ${g.delayed2plus}، غير مقيَّمين ${g.unassessed}`}>
             <i style={{ inlineSize: seg(g.onTime) }} data-k="ok" /><i style={{ inlineSize: seg(g.delayed1) }} data-k="d1" /><i style={{ inlineSize: seg(g.delayed2plus) }} data-k="d2" /><i style={{ inlineSize: seg(g.unassessed) }} data-k="na" />
           </div>
-          <p className="pi-stack-key"><span data-k="ok">في موعدهم <b>{nf(g.onTime)}</b></span><span data-k="d1">+١ فصل <b>{nf(g.delayed1)}</b></span><span data-k="d2">+٢ فأكثر <b>{nf(g.delayed2plus)}</b></span><span data-k="na">غير مقيَّمين <b>{nf(g.unassessed)}</b></span></p>
+          <p className="pi-stack-key"><span data-k="ok">في موعدهم <b>{nf(g.onTime)}</b></span><span data-k="d1">+1 فصل <b>{nf(g.delayed1)}</b></span><span data-k="d2">+2 فأكثر <b>{nf(g.delayed2plus)}</b></span><span data-k="na">غير مقيَّمين <b>{nf(g.unassessed)}</b></span></p>
           {g.causes.length ? <ul className="pi-rows">{g.causes.slice(0, 4).map(cause => (
             <li key={cause.courseId} className="pi-row pi-row-small" data-level={cause.confidence.level}>
               <div className="pi-row-name"><b>{cause.name}</b><small>{cause.reason}</small></div>
@@ -244,7 +244,7 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
 
       <details className="sm-info pi-how">
         <summary><Info /> كيف تُحسب الثقة؟ <ChevronDown aria-hidden="true" /></summary>
-        <p>تجمع أربعة أشياء: عددَ الفصول السابقة (٤ فأكثر = كامل) · ثباتَ الأرقام بينها · اتفاقَ التاريخ مع رغبات الطلبة الحيّة · اكتمالَ المدخلات (جدولٌ ناقص أو ملفّاتٌ غير مقيَّمة تخفّضها). فصلٌ واحد لا يتجاوز «منخفضة» أبداً، وبلا فصولٍ سابقة تُكتب «لا يكفي التاريخ». لا يُفعَّل إجراءٌ بضغطةٍ إلا من «متوسطة» فأعلى. هذا تقديرٌ من التاريخ والرغبات، لا وعدٌ ولا حجزُ مقعد.</p>
+        <p>تجمع أربعة أشياء: عددَ الفصول السابقة (4 فأكثر = كامل) · ثباتَ الأرقام بينها · اتفاقَ التاريخ مع رغبات الطلبة الحيّة · اكتمالَ المدخلات (جدولٌ ناقص أو ملفّاتٌ غير مقيَّمة تخفّضها). فصلٌ واحد لا يتجاوز «منخفضة» أبداً، وبلا فصولٍ سابقة تُكتب «لا يكفي التاريخ». لا يُفعَّل إجراءٌ بضغطةٍ إلا من «متوسطة» فأعلى. هذا تقديرٌ من التاريخ والرغبات، لا وعدٌ ولا حجزُ مقعد.</p>
       </details>
     </section>
   );

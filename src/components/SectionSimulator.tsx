@@ -86,7 +86,7 @@ export function SectionSimulatorBody({ context, reload }: { context: LoadedConte
           {modeChips.map(mode => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={mode} type="button" aria-pressed={modes.has(mode)} className={modes.has(mode) ? "on" : ""} onClick={() => toggle(modes, mode, setModes)}>{MODE_LABEL[mode] || "غير مصنّف"}</button>)}
         </div>
         <div className="tm-chips" role="group" aria-label="الإسناد">
-          {(["all", "assigned", "vacant"] as Assign[]).map(value => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={value} type="button" aria-pressed={assign === value} className={assign === value ? "on" : ""} onClick={() => setAssign(value)}>{value === "all" ? "الكل" : value === "vacant" ? <><Ico n="vacant" />شاغرة</> : <><Ico n="assign" />مُسندة</>}</button>)}
+          {(["all", "assigned", "vacant"] as Assign[]).map(value => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={value} type="button" aria-pressed={assign === value} className={assign === value ? "on" : ""} onClick={() => setAssign(value)}>{value === "all" ? <><Ico n="sections" />الكل</> : value === "vacant" ? <><Ico n="vacant" />شاغرة</> : <><Ico n="assign" />مُسندة</>}</button>)}
         </div>
         <span className="tm-count">{shown.length}/{cards.length}</span>
       </div>

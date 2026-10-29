@@ -240,7 +240,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
           </details> : null}
 
           <details className="sm-provenance"><summary>مصدر الأرقام <small>آخر احتساب {new Date(r.ranAt).toLocaleString("ar-KW-u-nu-latn", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</small></summary>
-            <p>الرغبات الفعلية: {countOf(r.students, AR.profile)} من {countOf(r.population, AR.profile)} ملفاً مكتملاً. {data.auto?.enabled ? `تحديث تلقائي عند تغيّر البيانات، ومراجعة دورية كل ${countOf(data.auto.everyHours, AR.hour)}.` : "التحديث التلقائي متوقف."} {r.withoutRules ? `${countOf(r.withoutRules, AR.profile)} بلا قواعد صحيفة معتمدة.` : ""} {r.defaulted ? `${countOf(r.defaulted, AR.profile)} غير مشارك؛ يظهر كتوقع مستقل.` : ""} {r.scoped ? "مقررات قسمك." : ""} محاكاة تقديرية، لا تسجيل رسمي ولا مقاعد محجوزة.</p>
+            <p>الرغبات الفعلية من الملفات المكتملة: {countOf(r.students, AR.profile)} من {countOf(r.population, AR.profile)}. {data.auto?.enabled ? `تحديث تلقائي عند تغيّر البيانات، ومراجعة دورية كل ${countOf(data.auto.everyHours, AR.hour)}.` : "التحديث التلقائي متوقف."} {r.withoutRules ? `${countOf(r.withoutRules, AR.profile)} بلا قواعد صحيفة معتمدة.` : ""} {r.defaulted ? `${countOf(r.defaulted, AR.profile)} غير مشارك؛ يظهر كتوقع مستقل.` : ""} {r.scoped ? "مقررات قسمك." : ""} محاكاة تقديرية، لا تسجيل رسمي ولا مقاعد محجوزة.</p>
           </details>
 
           </> : null}

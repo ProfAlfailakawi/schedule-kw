@@ -49,11 +49,250 @@
 /* شريط «طلب ينتظر قرارك» العائم كان يغطّي بطاقة الاعتماد في النوافذ المتوسطة والجوال:
    يكفيه العنوان وزرّ «افتح»؛ السطر الشارح يختفي ليصغر حجمه. */
 @media (max-width:1100px){
-  .hall-barter-inbox{padding-block:7px;gap:var(--s2)}
-  .hall-barter-inbox-copy small{display:none}
-  .hall-barter-inbox-mark{width:30px;height:30px}
+  /* فقاعةُ أيقونةٍ نابضة بدل شريطٍ عريض: لا تغطّي شارات الشريط ولا صفوف القائمة.
+     النصّ مخفيٌّ بصرياً فقط، فيبقى مقروءاً لقارئ الشاشة. */
+  .hall-barter-inbox:not(.hall-barter-inbox-decision){inline-size:52px;block-size:52px;padding:0;gap:0;justify-content:center;border-radius:50%}
+  .hall-barter-inbox:not(.hall-barter-inbox-decision) .hall-barter-inbox-copy,
+  .hall-barter-inbox:not(.hall-barter-inbox-decision) .hall-barter-inbox-go{position:absolute!important;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .hall-barter-inbox:not(.hall-barter-inbox-decision) .hall-barter-inbox-mark{inline-size:40px;block-size:40px;border-radius:50%}
+  /* على خطّ الشريط العائم نفسه وفي الزاوية: كل العائمات في شريطٍ واحد أسفل الشاشة. */
+  .hall-barter-inbox:not(.hall-barter-inbox-decision){inset-block-end:calc(12px + env(safe-area-inset-bottom));inset-inline-start:16px}
+}
+@media screen and (max-width:768px){
+  /* الهاتف: بجوار شريط «موعد/بحث» فوق شريط التنقل، لا فوقه بطابقٍ كامل. */
+  .hall-barter-inbox:not(.hall-barter-inbox-decision){inline-size:46px;block-size:46px;inset-block-end:calc(66px + env(safe-area-inset-bottom));inset-inline-start:12px}
+  .hall-barter-inbox:not(.hall-barter-inbox-decision) .hall-barter-inbox-mark{inline-size:36px;block-size:36px}
 }
 
 /* شارة الصحيفة في كشف التسجيل كانت تنكسر لسطرين على الجوال فتتضخّم: سطر واحد، تُختصر إن ضاقت. */
 .student-case-plan{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .student-cases-table td .student-case-plan{display:inline-flex;font-size:11px;padding:2px 8px;border-radius:var(--r-full)}
+
+/* ملاءمة القاعات (شريط الاعتماد): على الجوال كانت شارة «استرشادي» تغطي العنوان؛ تنزل لسطرها. */
+.apb-room-fit-review>header>b{flex-wrap:wrap}
+@media (max-width:560px){
+  .apb-room-fit-review>header{grid-template-columns:38px minmax(0,1fr)}
+  .apb-room-fit-review>header>em{grid-column:1/-1;justify-self:start}
+}
+
+/* وارد الأساتذة: «القاعة بُدّلت إلى» كانت أيقونتها ملتصقة بالنص والرمز بلا فراغ. */
+/* قاعدةُ الجدول ‎.request-table td small{display:block}‎ كانت أقوى، فبقي النص ملتصقاً بالرمز. */
+.request-table td small.request-room,.request-room-switch{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px}
+.request-room-switch>svg{width:13px;height:13px;flex:none}
+.request-room-switch bdi{margin-inline-start:0}
+
+/* ── ورقة «إضافة استثناء»: زرّا الإلغاء والتطبيق كانا يُقصّان عند أسفل الورقة على الجوال.
+   صار شريطُ الإجراء ملتصقاً بأسفل الورقة دائماً، وأزرار النطاق بسطرٍ واحد متساوية. */
+.sd-sheet-card>.changes-extend-actions{
+  position:sticky;inset-block-end:0;z-index:2;
+  margin:2px -19px -19px;padding:12px 19px calc(12px + env(safe-area-inset-bottom));
+  background:var(--surface);border-block-start:1px solid var(--line);
+  box-shadow:0 -12px 20px -16px rgb(0 0 0 / .28);
+}
+@media (max-width:560px){
+  .sd-sheet-card>.changes-extend-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr)}
+  .sd-sheet-card>.changes-extend-actions>.btn{inline-size:100%;justify-content:center}
+  .sd-sheet-card .sd-seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);inline-size:100%;border-radius:14px}
+  .sd-sheet-card .sd-seg button{padding:7px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:11px;font-size:.8rem}
+}
+
+/* ── النصاب التدريسي: كانت الصفحة كلها تخرج عن إطار الجوال (أعمدة بعرضٍ أدنى ثابت).
+   الشبكة لا تتمدّد أوسع من الشاشة، وكل عضو بطاقة: الاسم ثم الدرجة ثم ثلاث خانات تحت عناوينها. */
+.teaching-load{grid-template-columns:minmax(0,1fr)}
+.teaching-load>*{min-inline-size:0}
+.tl-members select,.tl-members input{min-inline-size:0;inline-size:100%}
+@media (max-width:900px){
+  .tl-row{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .tl-name,.tl-load,.tl-row>select{grid-column:1/-1}
+  /* overflow:clip لا يُنشئ حاوية تمرير، فيلتصق صفّ العناوين أعلى الشاشة أثناء تمرير الأعضاء. */
+  .tl-members{overflow:clip}
+  .tl-row-head{display:grid;position:sticky;inset-block-start:calc(var(--topbar-h,64px) + env(safe-area-inset-top,0px));z-index:2;text-align:center;box-shadow:0 6px 12px -10px rgb(0 0 0 / .25)}
+  .tl-row-head>span:nth-child(1),.tl-row-head>span:nth-child(2),.tl-row-head>span:nth-child(6){display:none}
+  .tl-term{inline-size:100%}
+  .tl-term select{flex:1;min-inline-size:0}
+  .tl-search{max-inline-size:none}
+}
+
+/* ── أنواع القاعات: كانت شرائحَ متفاوتة العرض بأزرارٍ نصية؛ صارت بلاطاتٍ بأيقونة كل نوع،
+   والتعديل والحذف أيقونتان صغيرتان في زاوية البلاطة. */
+.location-type-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px}
+.location-type-row{
+  position:relative;display:grid;justify-items:center;align-content:center;gap:8px;
+  min-block-size:108px;padding:18px 10px 12px;border:1px solid var(--line);border-radius:16px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 5%,var(--surface)),var(--surface));
+  text-align:center;transition:border-color .16s var(--ease),box-shadow .16s var(--ease);
+}
+.location-type-row:hover{border-color:color-mix(in srgb,var(--accent) 35%,var(--line));box-shadow:0 8px 20px -14px color-mix(in srgb,var(--accent) 60%,transparent)}
+.location-type-row>.location-type-icon{inline-size:46px;block-size:46px;padding:11px;box-sizing:border-box;border-radius:15px;background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--accent);stroke-width:1.8}
+.location-type-row>strong{font-size:.9rem;line-height:1.35;overflow-wrap:anywhere}
+.location-type-tools{position:absolute;inset-block-start:6px;inset-inline-end:6px;display:flex;gap:4px}
+.location-type-tools .location-type-edit,.location-type-tools .location-type-delete{
+  display:grid;place-items:center;inline-size:28px;block-size:28px;padding:0;border-radius:9px;
+}
+.location-type-tools .location-type-edit{border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line))}
+.location-type-tools svg{inline-size:14px;block-size:14px}
+@media (hover:hover){
+  .location-type-tools{opacity:.45;transition:opacity .16s var(--ease)}
+  .location-type-row:hover .location-type-tools,.location-type-row:focus-within .location-type-tools{opacity:1}
+}
+/* وضع التحرير يأخذ عرض بلاطتين ويصفّ الحقل والزرّين. */
+.location-type-row:has(input){grid-column:span 2;justify-items:stretch;align-content:start;text-align:start}
+.location-type-row:has(input) input{inline-size:100%;min-inline-size:0}
+@media (max-width:600px){.location-type-list{grid-template-columns:repeat(2,minmax(0,1fr))}.location-type-row{max-width:none}}
+
+/* ── أوقات الدوام: شريطُ يوم (٦ص–١٠م) يرسم النطاق المختار، وشريطٌ مصغّر لكل قسم. */
+.day-band{display:flex;align-items:center;gap:12px;margin-block:4px 2px}
+.day-band-track{position:relative;flex:1;block-size:14px;border-radius:999px;
+  background:repeating-linear-gradient(to left,transparent 0 calc(12.5% - 1px),color-mix(in srgb,var(--ink) 9%,transparent) calc(12.5% - 1px) 12.5%),var(--surface-2);
+  box-shadow:inset 0 0 0 1px var(--line)}
+.day-band-fill{position:absolute;inset-block:0;border-radius:999px;
+  background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 70%,var(--brass)));
+  box-shadow:0 4px 12px -6px color-mix(in srgb,var(--accent) 70%,transparent);transition:inset-inline-start .25s var(--ease),inline-size .25s var(--ease)}
+.day-band-track>b{position:absolute;inset-block-start:calc(100% + 3px);transform:translateX(50%);font:600 10.5px/1 var(--font-mono,ui-monospace,monospace);color:var(--muted);font-variant-numeric:tabular-nums}
+.day-band:not(.is-compact){padding-block-end:14px}
+.day-band-total{flex:none;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));color:var(--accent-ink,var(--accent));font-size:.8rem;font-weight:700}
+.day-band.is-compact{grid-column:2/-1;margin:0}
+.day-band.is-compact .day-band-track{block-size:6px;box-shadow:none;background:var(--surface-2)}
+.day-band.is-compact .day-band-fill{box-shadow:none}
+.section-hours-row{row-gap:6px}
+@media (prefers-reduced-motion:reduce){.day-band-fill{transition:none}}
+
+/* ── «المزيد» في الجدول: الأدوات المفتوحة كانت أزراراً نصيةً متفاوتة تتكسّر على الجوال.
+   صارت بلاطاتِ أيقونات متساوية تبدأ بسطرٍ جديد تحت أزرار الأيقونات الثابتة. */
+.schedule-tool-actions:has(> .schedule-tools-toggle.is-close){display:flex;flex-wrap:wrap;align-items:stretch;justify-content:flex-start;gap:8px}
+.schedule-tool-actions:has(> .schedule-tools-toggle.is-close)::after{content:"";order:1;flex-basis:100%;block-size:0}
+.schedule-tools-toggle.is-close ~ .btn{
+  order:2;flex:0 0 128px;display:grid!important;justify-items:center;align-content:center;gap:7px;
+  min-block-size:86px;padding:12px 8px!important;
+  border:1px solid var(--line)!important;border-radius:16px!important;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 5%,var(--surface)),var(--surface))!important;
+  color:var(--ink)!important;font-size:.8rem;font-weight:700;line-height:1.3;text-align:center;white-space:normal;
+  transition:border-color .16s var(--ease),transform .16s var(--ease),box-shadow .16s var(--ease);
+}
+.schedule-tools-toggle.is-close ~ .btn>svg{
+  inline-size:38px!important;block-size:38px!important;padding:9px;box-sizing:border-box;margin:0!important;
+  border-radius:12px;background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--accent);
+}
+.schedule-tools-toggle.is-close ~ .btn:hover:not(:disabled){border-color:color-mix(in srgb,var(--accent) 42%,var(--line))!important;transform:translateY(-1px);box-shadow:0 10px 22px -16px color-mix(in srgb,var(--accent) 70%,transparent)}
+.schedule-tools-toggle.is-close ~ .btn[aria-pressed="true"]{border-color:var(--accent)!important;background:color-mix(in srgb,var(--accent) 9%,var(--surface))!important}
+.schedule-tools-toggle.is-close ~ .btn:disabled{opacity:.5}
+.schedule-tools-toggle.is-close ~ .schedule-control-barter{order:3;flex:1 1 100%}
+@media (max-width:640px){
+  .schedule-tools-toggle.is-close ~ .btn{flex:1 1 calc(33.333% - 6px);max-inline-size:calc(33.333% - 6px);min-block-size:80px;font-size:.76rem}
+}
+@media (prefers-reduced-motion:reduce){.schedule-tools-toggle.is-close ~ .btn{transition:none}}
+
+/* ── مركز القرار (اللوحة الحية): شريط المشاهد يُمرَّر أفقياً على الجوال، وكانت آخر أيقونة تُقصّ
+   بحدّ حاد. صار طرفه يتلاشى ليقول «هناك المزيد»، ويلتقط المشهد عند التمرير. */
+@media (max-width:760px){
+  .living-scene-nav{scroll-snap-type:x proximity;scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(to left,transparent 0,#000 34px);mask-image:linear-gradient(to left,transparent 0,#000 34px)}
+  .living-scene-nav::-webkit-scrollbar{display:none}
+  .living-scene-nav button{scroll-snap-align:start}
+}
+
+/* ── زرّ المرشد الذكي على الجوال والنوافذ المصغّرة: كان لسانُه ملتصقاً بحافة الشاشة فوق حوافّ
+   البطاقات في كل صفحة (يبدو خارج الإطار)، وفي النافذة المصغّرة حبّةً عريضة فوق المحتوى.
+   صار أيقونةً في الشريط العلوي بجوار القائمة: لا يغطّي شيئاً، والزر والتسمية والنقرة كما هي. */
+@media screen and (max-width:1119px){
+  html .smart-guide-fab,html .smart-guide-fab:not(.icon-only),html .smart-guide-fab.icon-only{
+    inset-block-start:calc((var(--topbar-h,64px) - 42px) / 2 + env(safe-area-inset-top,0px));inset-block-end:auto;
+    left:auto;right:62px;
+    inline-size:42px;min-inline-size:42px;block-size:42px;min-block-size:42px;padding:0;gap:0;
+    justify-content:center;border:0;border-radius:13px;
+    background:transparent;box-shadow:none;backdrop-filter:none;opacity:1;
+    z-index:51; /* فوق الشريط العلوي (50) وتحت خلفيات النوافذ، فلا يلمع فوق نافذةٍ مفتوحة */
+  }
+  html .smart-guide-fab .smart-guide-fab-copy{display:none}
+  html .smart-guide-fab .smart-guide-fab-mark{inline-size:32px;block-size:32px;border-radius:11px;box-shadow:0 6px 14px -8px color-mix(in srgb,var(--accent) 80%,transparent)}
+  html .smart-guide-fab .smart-guide-fab-mark svg{inline-size:16px;block-size:16px}
+  html .smart-guide-fab:hover,html .smart-guide-fab.active{transform:none;box-shadow:none;background:var(--surface-2)}
+  html .smart-guide-fab .smart-guide-fab-pulse{position:absolute!important;left:auto!important;right:3px!important;top:3px!important;bottom:auto!important;width:9px;height:9px}
+  html .smart-guide-fab .smart-guide-fab-new{position:absolute;inset-inline-start:auto!important;inset-inline-end:-4px!important;inset-block-start:-3px!important;
+    min-width:18px!important;height:18px!important;padding:0 5px!important;font-size:10px!important;border-width:2px}
+  /* سطرُ النطاق تحت اسم البرنامج يبقى في الوسط بعيداً عن الأيقونة. */
+  .mobile-brand-wrap .mobile-scope{max-width:calc(100vw - 240px)}
+}
+/* أزرار الأيقونات الثابتة (الأنماط، المسح، الإغلاق) في سطرٍ واحد، والإغلاق في الطرف الآخر. */
+.schedule-tool-actions:has(> .schedule-tools-toggle.is-close)>:not(.schedule-tools-toggle.is-close ~ *){inline-size:auto!important;flex:0 0 auto}
+.schedule-tool-actions>.schedule-tools-toggle.is-close{margin-inline-start:auto}
+
+/* ── استعارة القاعات: فقرةُ الشروط الطويلة صارت شرائحَ قواعد بأيقونات (لا محاضرة وهمية، لا يتغيّر مقرر…). */
+.hall-barter-rules{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.hall-barter-rules li{display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 9px;border-radius:999px;
+  background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));
+  color:var(--ink-2);font-size:12px;font-weight:650;line-height:1.3}
+.hall-barter-rules svg{inline-size:14px;block-size:14px;flex:none;color:var(--accent)}
+
+/* ── «متى نلتقي؟»: سطرٌ واحد للشرح، وملاحظة النطاق شريحةٌ بأيقونة الكرة الأرضية. */
+.meeting-slots-head p.meeting-slots-scope-note{display:inline-flex;align-items:center;gap:6px;margin-top:6px!important;padding:4px 10px;border-radius:999px;
+  background:color-mix(in srgb,var(--accent) 8%,var(--surface));color:var(--accent-ink,var(--accent))!important;font-weight:650}
+.meeting-slots-scope-note svg{inline-size:14px;block-size:14px;flex:none}
+
+/* ── خزنة النظام: فقرتا الاستيراد وشبكة الأمان صارتا خطواتٍ وشرائحَ بأيقونات. */
+.vault-steps{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;counter-reset:vs}
+.vault-steps li{counter-increment:vs;display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 8px;border-radius:999px;
+  background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2);font-size:12.5px;font-weight:650}
+.vault-steps li::before{content:counter(vs);display:grid;place-items:center;inline-size:18px;block-size:18px;border-radius:50%;
+  background:var(--accent);color:var(--accent-contrast);font:700 10.5px/1 var(--font-mono,ui-monospace,monospace)}
+.vault-steps li:not(:last-child)::after{content:"←";margin-inline-start:2px;color:var(--muted);font-weight:400}
+.vault-steps svg,.vault-facts svg{inline-size:14px;block-size:14px;flex:none;color:var(--accent)}
+.vault-facts{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.vault-facts li{display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;border-radius:999px;
+  background:color-mix(in srgb,var(--accent) 7%,var(--surface));color:var(--ink-2);font-size:12.5px;font-weight:650}
+
+/* ── أهداف لمس أوسع في النوافذ (على الجوال واللوحي فقط). */
+@media (pointer:coarse){
+  .location-type-tools .location-type-edit,.location-type-tools .location-type-delete{inline-size:36px;block-size:36px;border-radius:11px}
+  .meeting-slots-search input,input[aria-label="بحث في نوافذ الاستعارة"]{min-block-size:42px}
+  .btn.btn-ghost[aria-label="سحب المقترح"]{min-inline-size:42px;justify-content:center}
+  .apb-dr-close,.apb-gap-link{position:relative}
+  .apb-dr-close::after,.apb-gap-link::after{content:"";position:absolute;inset:-8px}
+}
+
+/* ── محرّر موعد التسليم: ثلاثة أزرار كانت تتوزّع على سطرين غير متساويين على الجوال.
+   صار الحفظ عريضاً في الأعلى، والإلغاء ورفع الموعد متجاورين تحته. */
+@media (max-width:560px){
+  .sd-editor-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+  .sd-editor-actions>.btn{inline-size:100%;justify-content:center}
+  .sd-editor-actions>.btn-primary,.sd-editor-actions>.btn:last-child{grid-column:1/-1;order:-1}
+}
+/* في النافذة العريضة كانت البلاطات تُحشر في عمودٍ ضيّق بجوار البحث؛ تأخذ الآن عرض الشريط كاملاً تحته. */
+.schedule-tools:has(.schedule-tools-toggle.is-close)>.schedule-tool-actions{grid-column:1/-1;justify-self:stretch;inline-size:100%}
+
+/* ── شريط أقسام «إدارة النظام»: عشرة أقسام لم تعد تتّسع، فكانت الأسماء تُقصّ في منتصف الكلمة
+   («أوقات دوام الأقسا»). في النوافذ المتوسطة صار الشريط أيقوناتٍ، والقسم المفتوح وحده يُظهر اسمه؛
+   الاسم يبقى لقارئ الشاشة وفي تلميح المرور. على الجوال يبقى شريطاً منزلقاً بأسمائه كاملة. */
+@media screen and (min-width:769px) and (max-width:1500px){
+  .console-rail:has(> .console-tab-plain:nth-child(8)){justify-content:space-between}
+  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain{flex:0 0 auto;min-width:0}
+  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain:not(.active){padding-inline:7px}
+  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain:not(.active) .console-tab-label{
+    position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain:not(.active) .console-tab-icon{inline-size:36px;block-size:36px;border-radius:12px}
+  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain.active{padding-inline:8px 14px}
+}
+
+/* ── الرسائل العابرة على الجوال والنوافذ المصغّرة تنزل تحت الشريط العلوي بدل أن تغطّي القائمة والبحث. */
+@media screen and (max-width:1119px){
+  .toast-layer{top:calc(var(--topbar-h,64px) + 8px + env(safe-area-inset-top,0px))}
+}
+
+/* ── نافذة «العرض العريض» على الهاتف: الخطوات الثلاث بلاطاتٌ متجاورة بأيقونةٍ في الوسط
+   بدل ثلاث بطاقاتٍ مكدّسة أيقونتها في زاوية واسمها في الزاوية الأخرى. */
+@media (max-width:640px){
+  .mobile-desktop-gate-steps{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .mobile-desktop-gate-steps span{justify-items:center;text-align:center;padding:10px 6px}
+  .mobile-desktop-gate-steps svg{inline-size:20px;block-size:20px}
+}
+
+/* قوائم «التخطيط» في شريط الاعتماد: تبقى ١٦px على الجوال (كي لا يكبّر iOS الصفحة) لكن بوزنٍ أخفّ. */
+@media (pointer:coarse){.apb-dr-cap select{font-weight:600}}
+
+/* ── قائمة المواعيد على الهاتف: حين تزاحمت شارتا «التالية» و«استوديو إنتاج» العنوانَ في سطرٍ
+   لا يلتفّ، انكمش الاسم حتى انكسرت الكلمة نفسها («تكنولوجي / ا التعليم»). صار السطر يلتفّ:
+   الاسم يحتفظ بكلماته كاملة، والشارات تنزل تحته. */
+@media (max-width:760px){
+  .schedule-agenda .agenda-title-row{flex-wrap:wrap}
+  .schedule-agenda .agenda-title-row>strong{flex:1 1 10em;min-width:min(10em,100%);overflow-wrap:break-word;word-break:normal}
+}

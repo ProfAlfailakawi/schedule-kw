@@ -2345,7 +2345,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             <span className="mobile-desktop-gate-icon"><Table2 aria-hidden="true" /></span>
             <div className="mobile-desktop-gate-copy">
               <strong>{mobileWideNotice === "week" ? "عرض الأسبوع" : mobileWideNotice === "room" ? "إشغال القاعات" : "القاعات × الأوقات"}</strong>
-              <p>هذا العرض يعتمد على مساحة أفقية كبيرة. على الهاتف ثبّتناه بدل أن نضغطه أو نجعلك تطارد أعمدة صغيرة.</p>
+              <p>عرضٌ عريض يُقرأ كاملاً على شاشة كبيرة.</p>
               <div className="mobile-desktop-gate-steps" aria-hidden="true">
                 <span><Search /><b>افتحه من الكمبيوتر</b></span>
                 <span><Table2 /><b>شاهد الأعمدة كاملة</b></span>
