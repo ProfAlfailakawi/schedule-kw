@@ -37,9 +37,10 @@ import {
   snapshotOf, STATUS_LABEL, daysOf, courseLayouts, type DecisionState, type GridItem,
 } from "../utils/studyProposal";
 import {
-  evaluateProposal, gridItem, keyOfNew, keyOfRow, loadWorld, rankVacancies, suggestAlternatives, type EngineDeps, type LoadedWorld,
+  evaluateProposal, gridItem, keyOfNew, keyOfRow, loadWorld, ofPerson, rankVacancies, suggestAlternatives, type EngineDeps, type LoadedWorld,
 } from "./studyProposalEngine";
 import { withoutProposalPlaces } from "../utils/proposalTeacherView";
+import { sheetTagOf } from "../utils/sheetTag";
 
 export interface StudyProposalRouteDeps extends EngineDeps {
   requirePermission: (formNameId: number) => RequestHandler;
@@ -296,16 +297,25 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     const scopes = baseScopes.filter(scope => canWriteScope(req, scope.collegeId, scope.sectionId));
     const courseRows: Array<Record<string, unknown>> = [];
     for (const scope of scopes) {
-      const [courses, operational] = await Promise.all([
+      const [courses, operational, plans, members] = await Promise.all([
         Repository.getCoursesBySection(scope.sectionId), Repository.getOperationalCourseIds(scope.sectionId),
+        Repository.getCurriculumPlans(scope.sectionId).catch(() => []), Repository.getCurriculumPlanCourses(scope.sectionId).catch(() => []),
       ]);
       const college = world.colleges.find(c => Number(c.AdCollegeId) === scope.collegeId);
+      /* وسمُ الصحيفة لكل مقرر — القاعدةُ نفسها في «كل المقررات» (sheetTag.ts): «active» الجديدة، «transition» السابقة. */
+      const live = new Map((plans as any[]).filter(plan => plan.status !== "archived").map(plan => [String(plan.id), String(plan.status)]));
+      const curriculum = new Map<number, Array<{ status: string }>>();
+      for (const row of members as any[]) {
+        const status = live.get(String(row.planId));
+        if (status) curriculum.set(Number(row.AdCourseId), [...(curriculum.get(Number(row.AdCourseId)) || []), { status }]);
+      }
       for (const course of courses as AdCourse[]) {
         if (!operational.has(Number(course.AdCourseId))) continue;
         courseRows.push({
           id: Number(course.AdCourseId), code: String(course.CourseCode || ""), name: String(course.CourseName || ""),
           hours: Number(course.CourseHours || course.CourseCredit || 0), collegeId: scope.collegeId,
           collegeName: scope.collegeName || college?.AdCollegeName || "", sectionId: scope.sectionId,
+          sheet: sheetTagOf({ curriculum: curriculum.get(Number(course.AdCourseId)) || [] }),
         });
       }
     }
@@ -327,7 +337,8 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
       const { startTime, endTime } = scheduleDayWindowMinutes(section);
       return [String(sectionId), { startTime, endTime }];
     })));
-    const instructorRows = world.termRows.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId));
+    /* جدولُه الكامل: كلُّ سجلٍّ له في سجلّ الأساتذة — بنين وبنات وكلُّ الكليات (ملاحظة المالك r2). */
+    const instructorRows = world.termRows.filter(row => ofPerson(world, row));
     const current = instructorRows.map(row => gridItem(row, world, deps, req, { state: "current", key: keyOfRow(Number(row.id)) }));
     const scopeCollege = world.colleges.find(c => Number(c.AdCollegeId) === Number(request.AdCollegeId));
     const scopeSection = world.sections.find(c => Number(c.AdSectionId) === Number(request.AdSectionId));
@@ -779,7 +790,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     };
     if (!full || !sent) return base;
     const ops = sent.ops;
-    const rowsOf = (rows: FSchedule[]) => rows.filter(r => Number(r.AdInstructorId) === proposal.AdInstructorId);
+    const rowsOf = (rows: FSchedule[]) => rows.filter(r => ofPerson(world, r));
     const before = rowsOf(world.termRows);
     const placeholderId = [...world.placeholders].sort((a, b) => a - b)[0] || null;
     const applied = applyProposalOps(world.termRows, ops, {

@@ -4609,7 +4609,7 @@
    "path": "/api/study-proposals",
    "name": "bound dispatch",
    "call": "dee8d7018ec9cfa6",
-   "site": "src/server/studyProposalRoutes.ts:256",
+   "site": "src/server/studyProposalRoutes.ts:257",
    "regexp": "/^\\/api\\/study-proposals\\/?$/i",
    "end": true
   },
@@ -4621,7 +4621,7 @@
    "path": "/api/study-proposals/course-history",
    "name": "bound dispatch",
    "call": "c8c997fec42379e3",
-   "site": "src/server/studyProposalRoutes.ts:272",
+   "site": "src/server/studyProposalRoutes.ts:273",
    "regexp": "/^\\/api\\/study-proposals\\/course-history\\/?$/i",
    "end": true
   },
@@ -4632,8 +4632,8 @@
    ],
    "path": "/api/study-proposals/context",
    "name": "bound dispatch",
-   "call": "a9240b4856cc7fcb",
-   "site": "src/server/studyProposalRoutes.ts:286",
+   "call": "5e48f756e3e120b1",
+   "site": "src/server/studyProposalRoutes.ts:287",
    "regexp": "/^\\/api\\/study-proposals\\/context\\/?$/i",
    "end": true
   },
@@ -4645,7 +4645,7 @@
    "path": "/api/study-proposals/evaluate",
    "name": "bound dispatch",
    "call": "17e78c31752246be",
-   "site": "src/server/studyProposalRoutes.ts:373",
+   "site": "src/server/studyProposalRoutes.ts:384",
    "regexp": "/^\\/api\\/study-proposals\\/evaluate\\/?$/i",
    "end": true
   },
@@ -4657,7 +4657,7 @@
    "path": "/api/study-proposals/alternatives",
    "name": "bound dispatch",
    "call": "feafc6f36305b843",
-   "site": "src/server/studyProposalRoutes.ts:390",
+   "site": "src/server/studyProposalRoutes.ts:401",
    "regexp": "/^\\/api\\/study-proposals\\/alternatives\\/?$/i",
    "end": true
   },
@@ -4669,7 +4669,7 @@
    "path": "/api/study-proposals/vacancies",
    "name": "bound dispatch",
    "call": "4cbbbb9780df6d8f",
-   "site": "src/server/studyProposalRoutes.ts:408",
+   "site": "src/server/studyProposalRoutes.ts:419",
    "regexp": "/^\\/api\\/study-proposals\\/vacancies\\/?$/i",
    "end": true
   },
@@ -4681,7 +4681,7 @@
    "path": "/api/study-proposals",
    "name": "bound dispatch",
    "call": "3766d377b44c09f0",
-   "site": "src/server/studyProposalRoutes.ts:427",
+   "site": "src/server/studyProposalRoutes.ts:438",
    "regexp": "/^\\/api\\/study-proposals\\/?$/i",
    "end": true
   },
@@ -4693,7 +4693,7 @@
    "path": "/api/study-proposals/:id",
    "name": "bound dispatch",
    "call": "f8c8f3464b061ca6",
-   "site": "src/server/studyProposalRoutes.ts:464",
+   "site": "src/server/studyProposalRoutes.ts:475",
    "regexp": "/^\\/api\\/study-proposals(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -4705,7 +4705,7 @@
    "path": "/api/study-proposals/:id/send",
    "name": "bound dispatch",
    "call": "6ae9fc801b74e1e5",
-   "site": "src/server/studyProposalRoutes.ts:503",
+   "site": "src/server/studyProposalRoutes.ts:514",
    "regexp": "/^\\/api\\/study-proposals(?:\\/([^/]+?))\\/send\\/?$/i",
    "end": true
   },
@@ -4717,7 +4717,7 @@
    "path": "/api/study-proposals/:id/withdraw",
    "name": "bound dispatch",
    "call": "8ef98d7b4e7cb8c7",
-   "site": "src/server/studyProposalRoutes.ts:555",
+   "site": "src/server/studyProposalRoutes.ts:566",
    "regexp": "/^\\/api\\/study-proposals(?:\\/([^/]+?))\\/withdraw\\/?$/i",
    "end": true
   },
@@ -4729,7 +4729,7 @@
    "path": "/api/study-proposals/:id/commit",
    "name": "bound dispatch",
    "call": "76868b9977b69e8b",
-   "site": "src/server/studyProposalRoutes.ts:578",
+   "site": "src/server/studyProposalRoutes.ts:589",
    "regexp": "/^\\/api\\/study-proposals(?:\\/([^/]+?))\\/commit\\/?$/i",
    "end": true
   },
@@ -4741,7 +4741,7 @@
    "path": "/api/public/request/:token/proposals",
    "name": "bound dispatch",
    "call": "36a2a37564fcb40f",
-   "site": "src/server/studyProposalRoutes.ts:841",
+   "site": "src/server/studyProposalRoutes.ts:852",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/proposals\\/?$/i",
    "end": true
   },
@@ -4753,7 +4753,7 @@
    "path": "/api/public/request/:token/proposals/:pid",
    "name": "bound dispatch",
    "call": "7dfb66e0b6a166ed",
-   "site": "src/server/studyProposalRoutes.ts:852",
+   "site": "src/server/studyProposalRoutes.ts:863",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/proposals(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -4765,7 +4765,7 @@
    "path": "/api/public/request/:token/proposals/:pid/respond",
    "name": "bound dispatch",
    "call": "353131b14ac5dc31",
-   "site": "src/server/studyProposalRoutes.ts:868",
+   "site": "src/server/studyProposalRoutes.ts:879",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/proposals(?:\\/([^/]+?))\\/respond\\/?$/i",
    "end": true
   },

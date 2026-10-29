@@ -43,6 +43,8 @@ const json = (body: unknown): RequestInit => ({
 
 export interface ContextCourse {
   id: number; code: string; name: string; hours: number; collegeId: number; collegeName: string; sectionId: number;
+  /** صحيفةُ المقرر في قسمه: «new» الجديدة، «old» السابقة، «shared» في الاثنتين (sheetTag.ts). */
+  sheet?: "new" | "old" | "shared" | "service" | null;
 }
 export interface FacultyEntry {
   snapshot: NonNullable<StudyProposalOp["source"]>;

@@ -21,6 +21,8 @@ import { formatScheduleTimeRange } from "../../utils/scheduleTime";
 import { timeRange } from "./proposalFormat";
 import { CourseHistoryNote, scopeOfDraft } from "./ProposalOpForm";
 import type { Workspace } from "./useProposalWorkspace";
+import ProposalCoursePicker, { useProposalCourseChoices } from "./ProposalCoursePicker";
+import { mergedUsedCodes } from "../../utils/proposalCourseChoices";
 
 export type QuickKind = "create" | "assign" | "edit";
 export interface QuickSeed { kind: QuickKind; x?: number; y?: number }
@@ -61,15 +63,17 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
   }, [seed.x, seed.y, kind]);
 
   useEffect(() => {
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopImmediatePropagation(); e.preventDefault(); onClose(); } };
+    /* Escape وقائمةُ المقرر مفتوحة يغلق القائمة وحدها (تتولّاه هي وتمنع افتراضيَّه)، لا البطاقة. */
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape" && !e.defaultPrevented && !ref.current?.querySelector(".ss-select.is-open")) { e.stopImmediatePropagation(); e.preventDefault(); onClose(); } };
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
   }, [onClose]);
 
   const scope = scopeOfDraft(ws);
   const dayWindow = ctx?.sectionWindows?.[String(scope.sectionId)];
-  const courses = useMemo(() => [...(ctx?.courses || [])].sort((a, b) => a.name.localeCompare(b.name, "ar")), [ctx]);
-  const suggestion = suggestSectionCode(draft.courseId, ctx?.usedCodes || {}, ws.ops, draft.editingOpId);
+  /* المقررُ مرّةً واحدة في موقعٍ واحد (r2): لا «108 · …» أربعَ مرّات. */
+  const picker = useProposalCourseChoices(ws);
+  const suggestion = suggestSectionCode(draft.courseId, mergedUsedCodes(picker.choices, ctx?.usedCodes || {}), ws.ops, draft.editingOpId);
   const clash = draft.start && draft.end && draft.days.length ? quickOverlap({ days: draft.days, start: draft.start, end: draft.end }, ws.afterItems.filter(i => i.rowId !== draft.rowId && i.opId !== draft.editingOpId)) : null;
   const toggleDay = (day: StudyProposalDayKey) => ws.patchDraft(cur => ({ days: cur.days.includes(day) ? cur.days.filter(d => d !== day) : [...cur.days, day] }));
   const editingRow = draft.rowId != null ? ws.currentItems.find(i => i.rowId === draft.rowId) : undefined;
@@ -127,12 +131,9 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
         <>
           {kind === "create" ? (
             <>
-              <label className="qc-field qc-wide"><span>المقرر</span>
-                <select autoFocus value={draft.courseId ?? ""} onChange={e => ws.patchDraft({ courseId: Number(e.target.value) || null })}>
-                  <option value="">اختر المقرر…</option>
-                  {courses.map(c => <option key={c.id} value={c.id}>{c.code ? `${c.code} · ` : ""}{c.name}</option>)}
-                </select>
-              </label>
+              <div className="qc-field qc-wide"><span>المقرر</span>
+                <ProposalCoursePicker ws={ws} {...picker} autoFocus compact />
+              </div>
               <label className="qc-field qc-narrow"><span>الشعبة</span>
                 <input value={draft.scode} inputMode="numeric" dir="ltr" placeholder={suggestion || "501"}
                   onChange={e => ws.patchDraft({ scode: toEnglishDigits(e.target.value).replace(/\D/g, "") })} />

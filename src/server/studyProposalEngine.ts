@@ -16,6 +16,7 @@ import type {
 } from "../types";
 import { isBlockingConflict, timeToMinutes, minutesToTime } from "../utils/scheduleIntelligence";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
+import { personRecordIds } from "../utils/instructorPickerChoices";
 import { reviewSchedule, effectiveCourseHours, maxWeeklyMinutesFor, sectionWeeklyHours } from "../utils/scheduleRegulations";
 import { learnCourseNature } from "../utils/courseNature";
 import { confirmedDepartmentRoomIds, eligibleHallsForSection, rowOccupiesRoom } from "../utils/locationRegistry";
@@ -60,6 +61,9 @@ export interface LoadedWorld {
   sections: Array<{ AdSectionId: number; AdCollegeId: number; AdSectionName: string }>;
   catalog: ProposalCatalog;
   placeholders: Set<number>;
+  /** سجلّاتُ الشخص نفسه في سجلّ الأساتذة (بنين وبنات، أو سجلّان باسمه): جدولُه الكامل يُقرأ منها كلّها.
+   *  يضمّ معرّفَ الأستاذ نفسه دائماً. */
+  personIds: Set<number>;
   instructor?: AdInstructor;
   term?: { AdTermId: number; AdTermName: string; AdTermClosed?: boolean };
 }
@@ -79,10 +83,14 @@ export async function loadWorld(termId: number, instructorId: number): Promise<L
     termRows, courses, instructors, colleges, sections,
     catalog: { courseById: courseById as any, instructorNameById },
     placeholders: placeholderInstructorIds(instructors as any),
+    personIds: personRecordIds(instructors as any, instructorId),
     instructor: instructors.find(row => Number(row.AdInstructorId) === instructorId),
     term: terms.find(row => Number(row.AdTermId) === termId),
   };
 }
+
+/** موعدٌ في جدول هذا الشخص — بأيّ سجلٍّ من سجلاته. */
+export const ofPerson = (world: Pick<LoadedWorld, "personIds">, row: { AdInstructorId?: unknown }) => world.personIds.has(Number(row.AdInstructorId));
 
 export const keyOfRow = (id: number) => `row:${id}`;
 export const keyOfNew = (opId: string) => `new:${opId}`;
@@ -113,6 +121,8 @@ export function gridItem(
     days, start: String(row.fstarttime || ""), end: String(row.fendtime || ""),
     place: place.text, placeKnown: place.known,
     collegeName: college?.AdCollegeName, sectionName: section?.AdSectionName,
+    /* موعدُه بسجلٍّ آخر في سجلّ الأساتذة: يُرى في جدوله الكامل ولا يُعدَّل من هذا الطلب. */
+    ...(world.personIds && world.personIds.size > 1 && world.instructor && Number(row.AdInstructorId) !== Number(world.instructor.AdInstructorId) && world.personIds.has(Number(row.AdInstructorId)) ? { twin: true } : {}),
     src: {
       courseId: Number(row.AdCourseId), collegeId: Number(row.AdCollegeId), sectionId: Number(row.AdSectionId), rev: Number(row.rev || 0),
       buildingId: row.buildingId, roomId: row.roomId, locationStatus: row.locationStatus,
@@ -201,7 +211,8 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
   const ops = input.ops.filter(op => !onlyOpIds || onlyOpIds.has(op.id));
   const placeholderId = [...world.placeholders].sort((a, b) => a - b)[0] || null;
 
-  const instructorRowsBefore = world.termRows.filter(row => Number(row.AdInstructorId) === input.instructorId);
+  /* جدولُ الشخص كلُّه: كلُّ سجلٍّ له في سجلّ الأساتذة (بنين وبنات، وكلُّ الكليات). */
+  const instructorRowsBefore = world.termRows.filter(row => ofPerson(world, row));
   const opIssues: OpIssue[] = validateOps(ops);
   const invalidOps = new Set(opIssues.map(issue => issue.opId).filter(Boolean));
   const validOps = ops.filter(op => !invalidOps.has(op.id));
@@ -338,7 +349,7 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
       const other = otherId ? world.termRows.find(r => Number(r.id) === otherId) || applied.rows.find(r => Number(r.id) === otherId) : undefined;
       const shared = other ? dayOverlap(row, other) : { day: PROPOSAL_DAY_KEYS.find(k => Boolean((row as any)[k])) };
       const keys = [gridKeyOf(op.id)];
-      if (other && Number(other.AdInstructorId) === input.instructorId) {
+      if (other && ofPerson(world, other)) {
         keys.push(Number(other.id) < 0 ? (() => { for (const [id, r] of applied.incoming) if (Number(r.id) === Number(other.id)) return keyOfNew(id); return ""; })() : keyOfRow(Number(other.id)));
       }
       const advice = REASON_BY_TYPE[String(conflict.type)] || { reason: "", fix: "" };
@@ -353,12 +364,35 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
     }
   }
 
+  /* ── الشخصُ نفسُه بسجلٍّ آخر ─────────────────────────────────────────────
+     بوابةُ الحفظ تقيس تعارضَ الأستاذ بمعرّفه. ومن له سجلّان (بنين وبنات) لا يحضر
+     محاضرتين معاً بأيّهما؛ والدمجُ هنا بالاسم، فيُقال للمراجعة ولا يمنع. */
+  if (world.personIds.size > 1) {
+    const twins = applied.rows.filter(row => ofPerson(world, row) && Number(row.AdInstructorId) !== input.instructorId);
+    for (const [opId, row] of applied.incoming) {
+      for (const other of twins) {
+        if (Number(other.id) === Number(row.id)) continue;
+        const shared = dayOverlap(row, other);
+        if (!shared.start) continue;
+        const college = world.colleges.find(c => Number(c.AdCollegeId) === Number(other.AdCollegeId))?.AdCollegeName || "";
+        const course = world.catalog.courseById.get(Number(other.AdCourseId))?.CourseName || other.AdCourseName || "محاضرة";
+        addFinding({
+          kind: "review", code: "person-twin", opId, title: "يتداخل مع موعده المسجّل بسجلٍّ آخر",
+          detail: `${course} (شعبة ${other.SCode})${college ? ` — ${college}` : ""}.`,
+          reason: "الأستاذ نفسه مسجّلٌ بسجلّين في سجلّ الأساتذة، ولا يحضر محاضرتين في وقتٍ واحد.",
+          fix: "غيّر اليوم أو الوقت.", gridKeys: [gridKeyOf(opId), keyOfRow(Number(other.id))].filter(Boolean),
+          day: shared.day, start: shared.start, end: shared.end,
+        });
+      }
+    }
+  }
+
   /* ── ملاحظات اللائحة: تُقال ولا تمنع ──────────────────────────────────── */
   const incomingIds = new Set([...applied.incoming.values()].map(row => Number(row.id)));
   if (incomingIds.size) {
     try {
       const touchedScopes = new Set([...applied.incoming.values()].map(row => `${row.AdCollegeId}:${row.AdSectionId}`));
-      const around = applied.rows.filter(row => touchedScopes.has(`${row.AdCollegeId}:${row.AdSectionId}`) || Number(row.AdInstructorId) === input.instructorId);
+      const around = applied.rows.filter(row => touchedScopes.has(`${row.AdCollegeId}:${row.AdSectionId}`) || ofPerson(world, row));
       const review = reviewSchedule({
         rows: around, courses: world.catalog.courseById as any,
         instructors: new Map(world.instructors.map(row => [Number(row.AdInstructorId), row])),
@@ -390,7 +424,7 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
   }
 
   /* ── الأثر على الجدول الناتج ───────────────────────────────────────────── */
-  const instructorRowsAfter = applied.rows.filter(row => Number(row.AdInstructorId) === input.instructorId);
+  const instructorRowsAfter = applied.rows.filter(row => ofPerson(world, row));
   const before = proposalMetrics(instructorRowsBefore, world.catalog.courseById);
   const after = proposalMetrics(instructorRowsAfter, world.catalog.courseById);
   const loadCap = Number((world.instructor as any)?.AdInstructorLoad || 0) || null;
@@ -584,7 +618,7 @@ export async function suggestAlternatives(
   for (const candidate of options) {
     if (suggestions.length >= 4 || evaluated >= MAX_FULL_CHECKS) break;
     const end = candidate.start + duration;
-    const busyInstructor = others.some(row => Number(row.AdInstructorId) === input.instructorId
+    const busyInstructor = others.some(row => ofPerson(w, row)
       && candidate.days.some(day => Boolean((row as any)[day]))
       && candidate.start < timeToMinutes(row.fendtime) && timeToMinutes(row.fstarttime) < end);
     if (busyInstructor) continue;
@@ -642,7 +676,7 @@ export async function rankVacancies(
   const maxChecks = Math.max(0, options.maxChecks ?? 24);
   const placeholderId = [...world.placeholders].sort((a, b) => a - b)[0] || null;
   const applied = applyProposalOps(world.termRows, input.ops, { instructorId: input.instructorId, termId: input.termId, placeholderId });
-  const mine = applied.rows.filter(row => Number(row.AdInstructorId) === input.instructorId);
+  const mine = applied.rows.filter(row => ofPerson(world, row));
   const used = new Set(input.ops.map(op => op.source?.id).filter((id): id is number => typeof id === "number"));
   const nameOf = (row: FSchedule) => String(world.catalog.courseById.get(Number(row.AdCourseId))?.CourseName || row.AdCourseName || "");
 

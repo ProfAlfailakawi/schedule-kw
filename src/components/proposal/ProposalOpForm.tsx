@@ -26,6 +26,8 @@ import { proposalApi, type FacultyEntry, type ContextCourse } from "./proposalAp
 import type { CourseHistory } from "../../utils/studyProposal";
 import { quickOverlap, suggestSectionCode, type FormDraft, type WorkMode } from "./proposalDraft";
 import type { Workspace } from "./useProposalWorkspace";
+import ProposalCoursePicker, { useProposalCourseChoices } from "./ProposalCoursePicker";
+import { mergedUsedCodes } from "../../utils/proposalCourseChoices";
 import { num, timeRange } from "./proposalFormat";
 
 const MODES: Array<{ mode: WorkMode; title: string; hint: string; Icon: React.ComponentType<any> }> = [
@@ -133,7 +135,8 @@ function EmptyNote({ Icon, title, text }: { Icon: React.ComponentType<any>; titl
 function RowPicker({ ws, label }: { ws: Workspace; label: string }) {
   const { draft, ops } = ws;
   const used = useMemo(() => new Set(ops.filter(op => op.id !== draft.editingOpId).flatMap(op => [op.source?.id, op.out?.snapshot.id]).filter((v): v is number => typeof v === "number")), [ops, draft.editingOpId]);
-  const rows = ws.currentItems.filter(item => !item.outside);
+  /* موعدُه بسجلٍّ آخر (twin) يُرى في جدوله الكامل ولا يُعدَّل من هذا الطلب. */
+  const rows = ws.currentItems.filter(item => !item.outside && !item.twin);
   if (!ws.currentItems.length) return <EmptyNote Icon={Clock3} title="ليس للأستاذ مواعيد حالياً" text="لا يوجد موعدٌ يُعدَّل أو يُستبدل. يمكنك إسناد شعبة أو إنشاء شعبة جديدة." />;
   if (!rows.length) return <EmptyNote Icon={Clock3} title="مواعيده خارج نطاق صلاحيتك" text="تظهر مواعيد الأستاذ في الأقسام الأخرى إشغالاً فقط، ولا يمكن تعديلها من هنا." />;
   return (
@@ -288,24 +291,15 @@ function ScheduleFields({ ws, locked }: { ws: Workspace; locked?: boolean }) {
 
 function CreateFields({ ws }: { ws: Workspace }) {
   const { ctx, draft, ops } = ws;
-  const courses = useMemo(() => [...(ctx?.courses || [])].sort((a, b) => a.name.localeCompare(b.name, "ar")), [ctx]);
-  const suggestion = suggestSectionCode(draft.courseId, ctx?.usedCodes || {}, ops, draft.editingOpId);
-  const course = courses.find(c => c.id === draft.courseId);
-  const multi = new Set(courses.map(c => c.collegeId)).size > 1;
-  if (!courses.length) return <EmptyNote Icon={FilePlus2} title="لا توجد مقررات متاحة" text="لا توجد مقررات قائمة ضمن الأقسام المسموحة لك." />;
+  /* المقررُ مرّةً واحدة في موقعٍ واحد، والموقعُ وسمٌ مستقل (r2). */
+  const picker = useProposalCourseChoices(ws);
+  const suggestion = suggestSectionCode(draft.courseId, mergedUsedCodes(picker.choices, ctx?.usedCodes || {}), ops, draft.editingOpId);
+  const course = ctx?.courses.find(c => c.id === draft.courseId);
+  if (!ctx?.courses.length) return <EmptyNote Icon={FilePlus2} title="لا توجد مقررات متاحة" text="لا توجد مقررات قائمة ضمن الأقسام المسموحة لك." />;
   return (
     <div className="sp-fields">
       <Field label="المقرر الدراسي" required>
-        <select value={draft.courseId ?? ""} onChange={e => ws.patchDraft({ courseId: Number(e.target.value) || null })}>
-          <option value="">اختر المقرر</option>
-          {courses.map(c => <option key={c.id} value={c.id}>{c.name}{multi ? ` — ${c.collegeName}` : ""}</option>)}
-        </select>
-      </Field>
-      <Field label="رمز المقرر الدراسي" required>
-        <select value={draft.courseId ?? ""} dir="ltr" onChange={e => ws.patchDraft({ courseId: Number(e.target.value) || null })}>
-          <option value="">اختر الرمز</option>
-          {[...courses].sort((a, b) => a.code.localeCompare(b.code)).map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
-        </select>
+        <ProposalCoursePicker ws={ws} {...picker} />
       </Field>
       <Field label="الشعبة" required hint={course ? (suggestion ? `رقم الشعبة المقترح ${suggestion} — غير محجوز حتى التثبيت، ويُعاد التحقق منه عندها.` : "") : "اختر المقرر لاقتراح رقم الشعبة."}>
         <div className="sp-scode">

@@ -9,7 +9,7 @@ import { CalendarPlus, Check, Copy, GraduationCap, IdCard, Link2, QrCode, Refres
 import MasariQrButton from "./MasariQrButton";
 import { reachAboutCard, unreachable, whatsappNumber } from "../utils/reachInstructor";
 import type { AdInstructor } from "../types";
-import { instructorPickerLabels } from "../utils/instructorPickerChoices";
+import { instructorPickerPeople } from "../utils/instructorPickerChoices";
 import { AR, countOf, oblique } from "../utils/arabicCount";
 import { deadlineEndsAt } from "../utils/approvalWorkflow";
 import { GhostButton, PrimaryButton, SecondaryButton } from "./ui";
@@ -142,7 +142,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     [exceptions, setExceptions] = useState<Array<{ instructorId: number; name: string; closesAt: string; grantedAt: string; reason: string; revokedAt: string; active: boolean }>>([]);
 
   const scoped = Boolean(collegeId && sectionId && termId);
-  const manageLabels = useMemo(() => instructorPickerLabels(manageFaculty), [manageFaculty]);
+  /* الشخصُ مرّةً واحدة باسمه، ومعه كلُّ سجلّاته: الاستثناءُ يقع عليها كلّها (r2). */
+  const manageChoices = useMemo(() => instructorPickerPeople(manageFaculty), [manageFaculty]);
 
   const loadPersonal = async () => {
     try {
@@ -235,8 +236,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     }
     setBusy(true); setError(null); setManageSuccess("");
     try {
-      const data = await issueRequests(`${manageDate}T${manageTime}`,
-        manageMode === "one" ? manageInstructorId : 0, manageReason.trim(), true, manageSendMode);
+      const personIds = manageMode === "one" ? (manageChoices.find(choice => choice.ids.includes(manageInstructorId))?.ids || [manageInstructorId]) : [0];
+      let data: any = null;
+      for (const id of personIds) data = await issueRequests(`${manageDate}T${manageTime}`, id, manageReason.trim(), true, manageSendMode);
       if (data?.emptyTerm) throw new Error("لا توجد مواعيد مسندة إلى أساتذة في هذا الفصل.");
       setManageSuccess(manageMode === "one" ? "فُتح التعديل لهذا الأستاذ فقط، من بطاقته الحالية." : "أُعيد فتح التعديل للجميع دون تبديل روابطهم.");
       setManageMode(null);
@@ -948,8 +950,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                           <label>الأستاذ
                             <select value={manageInstructorId} onChange={event => setManageInstructorId(Number(event.target.value))}>
                               <option value={0}>اختر الأستاذ</option>
-                              {/* اسمٌ متكرّر لسجلّين مختلفين: يُميَّز بآخر أرقام الجوال، لا يظهر مرّتين متطابقتين (r4). */}
-                              {manageFaculty.map(person => <option key={person.AdInstructorId} value={person.AdInstructorId}>{manageLabels.get(Number(person.AdInstructorId)) || person.AdInstructorName}</option>)}
+                              {/* الشخصُ مرّةً واحدة باسمه وحده — سجلّاه (إن كانا) يُفتحان معاً (r2). */}
+                              {manageChoices.map(choice => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
                             </select>
                           </label>
                           <label>سبب الاستثناء
