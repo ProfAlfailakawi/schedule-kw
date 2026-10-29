@@ -5,7 +5,7 @@ import LocationQuickSetup from "./LocationQuickSetup";
 import SectionScheduleHours from "./SectionScheduleHours";
 import TeachingLoadSettings from "./TeachingLoadSettings";
 import AccountInvitation from "./AccountInvitation";
-import { Activity, ArchiveRestore, Building2, Check, ChevronLeft, Clock3, CopyPlus, DatabaseBackup, DoorOpen, Download, Eraser, FileArchive, FileCheck2, GraduationCap, KeyRound, Landmark, RefreshCw, Save, ScrollText, Search, ShieldCheck, Trash2, Upload, UserCog, UsersRound, X } from "lucide-react";
+import { Activity, ArchiveRestore, Building2, Check, ChevronLeft, Clock3, CopyPlus, DatabaseBackup, DoorOpen, Download, Eraser, FileArchive, FileCheck2, GraduationCap, History, KeyRound, Landmark, Layers, LifeBuoy, RefreshCw, Save, ScanSearch, ScrollText, Search, ShieldCheck, Trash2, Upload, UserCog, UsersRound, X } from "lucide-react";
 import {
   AddButton,
   Badge,
@@ -1373,7 +1373,7 @@ export default function AdminUsers({
 
           <Surface className="system-vault-action vault-import">
             <span className="vault-action-icon"><Upload /></span>
-            <div><small>02</small><h3>استيراد كامل</h3><p>يفحص الملف والبصمة أولًا، ثم يصنع نقطة أمان كاملة ويستعيد كل مجموعة على مراحل محفوظة مع نسبة تقدم حقيقية.</p></div>
+            <div><small>02</small><h3>استيراد كامل</h3><ol className="vault-steps" aria-label="مراحل الاستيراد"><li><ScanSearch aria-hidden="true" />فحص الملف والبصمة</li><li><LifeBuoy aria-hidden="true" />نقطة أمان كاملة</li><li><Layers aria-hidden="true" />استعادة على مراحل بنسبة تقدّم</li></ol></div>
             <label className={`vault-file-picker ${importResumable ? "disabled" : ""}`}>
               <input type="file" disabled={importResumable} accept=".gz,.json,application/gzip,application/json,application/octet-stream" onChange={(event) => { setBackupFile(event.target.files?.[0] || null); setBackupPreview(null); setImportJob(null); setImportUploadPercent(0); setError(null); }} />
               <FileCheck2 /><span>{backupFile ? backupFile.name : importResumable ? "النسخة مرفوعة ومحفوظة — أكمل الاستيراد" : "اختر ملف النسخة"}</span>
@@ -1448,7 +1448,7 @@ export default function AdminUsers({
         </div>
 
         <Surface className="vault-safety-note">
-          <ShieldCheck /><div><strong>شبكة الأمان تلقائية</strong><p>قبل الاستيراد أو التصفير تُحفظ نسخة داخلية كاملة يمكن الرجوع إليها. يحتفظ النظام بآخر 8 نقاط أمان فقط. جلسات الدخول النشطة لا تدخل ملف التصدير لأنها مفاتيح وصول مؤقتة وليست بيانات أكاديمية دائمة.</p></div>
+          <ShieldCheck /><div><strong>شبكة الأمان تلقائية</strong><ul className="vault-facts" aria-label="شبكة الأمان"><li><LifeBuoy aria-hidden="true" />نسخة كاملة قبل كل استيراد أو تصفير</li><li><History aria-hidden="true" />آخر 8 نقاط أمان</li><li title="جلسات الدخول النشطة مفاتيح وصول مؤقتة وليست بيانات أكاديمية دائمة"><KeyRound aria-hidden="true" />جلسات الدخول خارج التصدير</li></ul></div>
         </Surface>
 
         {backupStatus?.restorePoints?.length ? (

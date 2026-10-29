@@ -2,15 +2,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import {
   ArrowLeftRight,
+  BookLock,
   Building2,
+  CalendarClock,
+  CalendarX,
   Check,
   ChevronDown,
   Clock3,
   RefreshCw,
   Printer,
+  ScanSearch,
   ScrollText,
   Search,
   ShieldCheck,
+  Split,
   X,
 } from "lucide-react";
 import { GhostButton, PrimaryButton, SecondaryButton, PrintPortal } from "./ui";
@@ -340,7 +345,13 @@ export default function HallBarterBoard({
         <div className="hall-barter-body">
           <div className="hall-barter-guard">
             <ShieldCheck aria-hidden="true" />
-            <div><strong>الاستعارة تحجز نافذة القاعة فقط، ولهذا الفصل وحده</strong><span>لا ينشئ النظام محاضرة وهمية ولا يغيّر مقررًا، ولا ينتقل الإذن إلى فصل قادم. والاستعارة تفصل البنين والبنات بالكامل، وبعد الموافقة يظل إنشاء الموعد الحقيقي عبر محرر الجدول المعتاد مع فحص التضارب نفسه.</span></div>
+            <div><strong>الاستعارة تحجز نافذة القاعة فقط، ولهذا الفصل وحده</strong><ul className="hall-barter-rules" aria-label="حدود الاستعارة">
+              <li><CalendarX aria-hidden="true" />لا محاضرة وهمية</li>
+              <li><BookLock aria-hidden="true" />لا يتغيّر مقرر</li>
+              <li><CalendarClock aria-hidden="true" />لهذا الفصل فقط</li>
+              <li><Split aria-hidden="true" />البنون والبنات منفصلان</li>
+              <li><ScanSearch aria-hidden="true" />الموعد عبر المحرر بفحص التضارب</li>
+            </ul></div>
             <GhostButton type="button" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? "spin" : ""} />تحديث</GhostButton>
           </div>
           {message ? <div className="hall-barter-message ok">{message}</div> : null}

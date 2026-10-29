@@ -137,6 +137,8 @@ header.top{flex-wrap:wrap}
 .jrn{display:inline-flex;align-items:center;gap:6px;padding:5px 13px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:12.5px;font-weight:700;color:var(--ink,inherit);text-decoration:none;transition:border-color .2s,transform .2s}
 .jrn:hover,.jrn:focus-visible{border-color:var(--brass);outline:none;transform:translateY(-1px)}
 .jrn .i{inline-size:15px;block-size:15px;color:var(--brass)}
+/* على الهاتف: «عن النظام» أيقونةٌ وحدها (التسمية باقية لقارئ الشاشة)، فتبقى شرائح الرأس في سطرٍ واحد. */
+@media (max-width:430px){.jrn{padding:6px 8px}.jrn>span{position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.jrn .i{inline-size:17px;block-size:17px}}
 
 /* ── بطاقات ── */
 .hero{display:grid;gap:12px;padding:22px 20px;border-radius:26px;color:#fff;background:linear-gradient(155deg,#1f6b5c 0%,#164f44 70%);box-shadow:0 18px 36px -22px rgba(22,79,68,.7);position:relative;overflow:hidden}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Check, DoorOpen, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, Clapperboard, DoorOpen, Dumbbell, FlaskConical, Library, Monitor, Music, Palette, Pencil, Plus, Presentation, Theater, Trash2, Wrench, type LucideIcon } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { Notice, PrimaryButton, SecondaryButton, Surface } from "./ui";
 
@@ -9,6 +9,21 @@ async function request(url: string, init?: RequestInit) {
   if (!response.ok) throw new Error(data.error || "تعذر إكمال العملية");
   return data;
 }
+
+/* أيقونةٌ لكل نوع: يُقرأ النوع بنظرة قبل اسمه. المطابقة بكلمات الاسم، والباب للبقية. */
+const TYPE_ICONS: Array<[RegExp, LucideIcon]> = [
+  [/استوديو|ستوديو|تصوير|تلفزيون|إنتاج|انتاج/, Clapperboard],
+  [/حاسوب|حاسب|كمبيوتر|حاسوبي/, Monitor],
+  [/مختبر|معمل/, FlaskConical],
+  [/مسرح|مدرج/, Theater],
+  [/رسم|فنون|فن |تصميم/, Palette],
+  [/ورشة|مشغل/, Wrench],
+  [/مكتبة/, Library],
+  [/رياض|ملعب|صالة/, Dumbbell],
+  [/موسيق|صوت/, Music],
+  [/تدريس|دراسي|محاضر/, Presentation],
+];
+const typeIcon = (name: string): LucideIcon => TYPE_ICONS.find(([pattern]) => pattern.test(name))?.[1] || DoorOpen;
 
 export default function LocationRoomTypeManager({ demoReadOnly = false, onTypesChange }: { demoReadOnly?: boolean; onTypesChange?: (types: string[]) => void }) {
   const [types, setTypes] = useState<string[]>([]), [newType, setNewType] = useState("");
@@ -35,9 +50,9 @@ export default function LocationRoomTypeManager({ demoReadOnly = false, onTypesC
     catch (e: any) { setError(e?.message || "تعذر حذف نوع القاعة"); } finally { setBusy(false); }
   };
   return <Surface className="location-type-manager">
-    <div className="location-type-manager-heading"><span><DoorOpen/></span><div><h2>أنواع القاعات</h2><p>أضف النوع مرة واحدة، ثم اختره عند إضافة القاعات أو ربط المقرر.</p></div></div>
+    <div className="location-type-manager-heading"><span><DoorOpen/></span><div><h2>أنواع القاعات</h2><p>يُختار عند إضافة قاعة أو ربط مقرر.</p></div></div>
     {error ? <Notice>{error}</Notice> : null}{notice ? <Notice>{notice}</Notice> : null}
-    <div className="location-type-list">{types.map(type=><div className="location-type-row" key={type}>{editing===type?<><input aria-label={`الاسم الجديد لنوع ${type}`} value={draft} maxLength={60} autoFocus onChange={event=>setDraft(event.target.value)}/><SecondaryButton type="button" data-guide-ignore="إدارة أنواع القاعات متاحة للمدير الرئيسي فقط" disabled={!draft.trim()||busy||demoReadOnly} onClick={()=>void rename(type)}><Check/>حفظ الاسم</SecondaryButton><button type="button" data-guide-ignore="إلغاء تحرير اسم نوع القاعة" className="location-type-cancel" onClick={()=>{setEditing(null);setDraft("");}}>إلغاء</button></>:<><strong>{type}</strong><button type="button" data-guide-ignore="تغيير اسم نوع القاعة" className="location-type-edit" disabled={busy||demoReadOnly} aria-label={`تغيير اسم ${type}`} onClick={()=>{setEditing(type);setDraft(type);}}><Pencil/>تغيير الاسم</button><button type="button" data-guide-ignore="حذف نوع قاعة غير مرتبط" className="location-type-delete" disabled={busy||demoReadOnly} aria-label={`حذف نوع ${type}`} title="حذف النوع" onClick={()=>void remove(type)}><Trash2/></button></>}</div>)}</div>
+    <div className="location-type-list">{types.map(type=><div className="location-type-row" key={type}>{editing===type?<><input aria-label={`الاسم الجديد لنوع ${type}`} value={draft} maxLength={60} autoFocus onChange={event=>setDraft(event.target.value)}/><SecondaryButton type="button" data-guide-ignore="إدارة أنواع القاعات متاحة للمدير الرئيسي فقط" disabled={!draft.trim()||busy||demoReadOnly} onClick={()=>void rename(type)}><Check/>حفظ الاسم</SecondaryButton><button type="button" data-guide-ignore="إلغاء تحرير اسم نوع القاعة" className="location-type-cancel" onClick={()=>{setEditing(null);setDraft("");}}>إلغاء</button></>:<>{React.createElement(typeIcon(type), { className: "location-type-icon", "aria-hidden": true })}<strong>{type}</strong><span className="location-type-tools"><button type="button" data-guide-ignore="تغيير اسم نوع القاعة" className="location-type-edit" disabled={busy||demoReadOnly} aria-label={`تغيير اسم ${type}`} title="تغيير الاسم" onClick={()=>{setEditing(type);setDraft(type);}}><Pencil/></button><button type="button" data-guide-ignore="حذف نوع قاعة غير مرتبط" className="location-type-delete" disabled={busy||demoReadOnly} aria-label={`حذف نوع ${type}`} title="حذف النوع" onClick={()=>void remove(type)}><Trash2/></button></span></>}</div>)}</div>
     <div className="location-type-add"><input aria-label="نوع قاعة جديد" placeholder="مثال: مختبر كيمياء" value={newType} maxLength={60} onChange={event=>setNewType(event.target.value)}/><PrimaryButton type="button" data-guide-ignore="إضافة نوع قاعة جديد للمدير الرئيسي" disabled={!newType.trim()||busy||demoReadOnly} onClick={()=>void add()}><Plus/>إضافة نوع</PrimaryButton></div>
     <small className="location-type-hint">تغيير الاسم يحدّث القاعات والمقررات التي تستخدمه.</small>
   </Surface>;

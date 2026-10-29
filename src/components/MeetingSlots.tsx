@@ -1,6 +1,6 @@
 import { byArabic } from "../utils/sorting";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarCheck2, Check, Search, Users, X } from "lucide-react";
+import { CalendarCheck2, Check, Globe2, Search, Users, X } from "lucide-react";
 import { PrimaryButton } from "./ui";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
@@ -140,8 +140,8 @@ export default function MeetingSlots({ instructors, scopeNarrowed = false, termI
           <div>
             <small>من جداول هذا الفصل نفسها</small>
             <h2>متى نلتقي؟</h2>
-            <p>اختر المشاركين، والجدول يجيب: أي نافذة أسبوعية يتفرغ فيها الجميع، أو أكثرهم.</p>
-            {scopeNarrowed ? <p className="meeting-slots-scope-note">الانشغال يُقرأ من جدول كل أستاذ في الكليات والأقسام كلها هذا الفصل، لا من النطاق المعروض وحده.</p> : null}
+            <p>اختر المشاركين لتظهر نوافذ فراغهم المشتركة.</p>
+            {scopeNarrowed ? <p className="meeting-slots-scope-note" title="الانشغال يُقرأ من جدول كل أستاذ في الكليات والأقسام كلها هذا الفصل، لا من النطاق المعروض وحده."><Globe2 aria-hidden="true" />الانشغال من كل الكليات والأقسام</p> : null}
           </div>
           <button type="button" className="drawer-close" data-guide-ignore="إغلاق نافذة منسق الاجتماعات فقط" onClick={onClose} aria-label="إغلاق منسق الاجتماعات" title="إغلاق"><X /></button>
         </header>

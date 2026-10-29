@@ -535,6 +535,7 @@ export function ConsoleRail({ value, options, onChange, label }: {
             ref={on ? active : undefined}
             className={`console-tab ${on ? "active" : ""} ${counted ? "" : "console-tab-plain"}`.trim()}
             aria-current={on ? "page" : undefined}
+            title={typeof option.label === "string" ? option.label : undefined}
             onClick={() => runVisualTransition(() => onChange(option.value))}
           >
             <span className="console-tab-icon" aria-hidden="true">{option.icon}</span>
