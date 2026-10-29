@@ -195,6 +195,7 @@ import {
   formatScheduleTimeRange,
   isValidClock,
   normalizeClock,
+  readScheduleTimeRange,
   SCHEDULE_DAY_END,
   SCHEDULE_DAY_END_TIME,
   SCHEDULE_DAY_START,
@@ -7470,6 +7471,16 @@ app.put("/api/visiting-roster", requirePermission(7), async (req: AuthenticatedR
   const ids: number[] = Array.isArray(req.body?.instructorIds) ? req.body.instructorIds.map(Number).filter(Boolean) : [];
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل." }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  /* عضويةُ الفصل تُختار من دليل القسم (أو ممّن في الفصل أصلاً)، لا من أرقامٍ
+     حرّة: رقمُ أيِّ موظفٍ في الجامعة كان يدخل الفصل، ثم «نسخ الفصل» يرفعه إلى
+     دليل القسم الدائم، فتُقرأ بياناته كاملةً ويُعدَّل سجلُّه. والإضافةُ برقمٍ
+     مدنيٍّ جديد لها بابُها (/api/visiting-roster/instructor). */
+  const [currentRoster, directory] = await Promise.all([
+    Repository.getVisitingRoster(collegeId, sectionId, termId),
+    Repository.getDepartmentDelegates(collegeId, sectionId),
+  ]);
+  const known = new Set<number>([...currentRoster, ...directory].map(Number));
+  if (ids.some(id => !known.has(Number(id)))) { res.status(400).json({ error: "أضف المنتدب إلى قائمة القسم أولاً (بالرقم المدني)، ثم حدّده لهذا الفصل." }); return; }
   // Term membership is deliberately independent of the permanent department
   // directory. Removing somebody from this term never deletes them from the
   // department's own delegate list.
@@ -14343,7 +14354,7 @@ app.get("/api/intelligence/compare-terms", requirePermission(7), async (req: Aut
 
 app.post("/api/intelligence/import-preview", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const {collegeId,sectionId,termId}=smartContextFrom(req); if(!collegeId||!sectionId||!termId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;} const raw=Array.isArray(req.body?.rows)?req.body.rows:[]; if(!raw.length){res.status(400).json({error:"الملف لا يحتوي صفوفاً قابلة للقراءة"});return;} if(raw.length>450){res.status(400).json({error:"الملف أكبر من الحد الآمن للاستيراد"});return;} const [courses,instructors,operationalImportIds]=await Promise.all([Repository.getCourses(),Repository.getInstructors(),Repository.getOperationalCourseIds(sectionId)]); const sectionCourses=courses.filter(c=>c.AdCollegeId===collegeId&&c.AdSectionId===sectionId&&operationalImportIds.has(Number(c.AdCourseId))); const byCode=new Map(sectionCourses.map(c=>[String(c.CourseCode).trim().toLowerCase(),c])); const byCivil=new Map(instructors.map(i=>[normalizeCivilId(i.AdInstructorCivil),i])); const byName=new Map(instructors.map(i=>[String(i.AdInstructorName).trim().toLowerCase(),i])); const issues:string[]=[]; const rows:any[]=[];
-  raw.forEach((item:any,index:number)=>{const code=String(item["رمز المقرر"]??item.CourseCode??item.courseCode??"").trim();const course=byCode.get(code.toLowerCase());const civil=normalizeCivilId(item["الرقم المدني"]??item.AdInstructorCivil??item.civil??"");const iname=String(item["أستاذ المقرر"]??item.AdInstructorName??item.instructor??"").trim();const instructor=byCivil.get(civil)||byName.get(iname.toLowerCase());const sectionCode=String(item["الشعبة"]??item.SCode??item.section??"").trim();const time=String(item["الوقت"]??item.time??"").trim();const parts=time.split(/\s*[-–—]\s*/);const start=normalizeClock(String(item.fstarttime??item.startTime??parts[1]??parts[0]??"").trim().slice(0,5)),end=normalizeClock(String(item.fendtime??item.endTime??parts[0]??parts[1]??"").trim().slice(0,5));const dayText=String(item["الأيام"]??item.days??"");const row:any={id:-(index+1),AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:course?.AdCourseId||0,AdCourseName:course?.CourseName||String(item["المقرر الدراسي"]??""),SCode:sectionCode,AdInstructorId:instructor?.AdInstructorId||0,fsunday:dayText.includes("الأحد")||Boolean(item.fsunday),fmonday:dayText.includes("الاثنين")||Boolean(item.fmonday),ftuesday:dayText.includes("الثلاثاء")||Boolean(item.ftuesday),fwednesday:dayText.includes("الأربعاء")||Boolean(item.fwednesday),fthursday:dayText.includes("الخميس")||Boolean(item.fthursday),fstarttime:start,fendtime:end,AdRoomCode:String(item["المبنى"]??item.AdRoomCode??"").trim(),AdRoomHall:String(item["القاعة"]??item.AdRoomHall??"").trim(),fdetail:""}; row.fdetail=legacyFDetail(row); if(!course)issues.push(`السطر ${index+1}: لم أجد رمز المقرر ${code||"(فارغ)"} في هذا القسم`);if(!instructor)issues.push(`السطر ${index+1}: لم أتعرف على أستاذ المقرر`);rows.push(row);}); const visitingReplaced=applyVisitingToFaculty(rows,await visitingToFacultyPlan(collegeId,sectionId,termId)); const validation=await validateSmartRows(rows,collegeId,sectionId,{resolveHistorical:true}); issues.push(...validation); const duplicateKeys=new Set<string>(),duplicates:string[]=[]; rows.forEach((r:any,i:number)=>{const key=`${r.AdCourseId}:${r.SCode}`;if(duplicateKeys.has(key))duplicates.push(`السطر ${i+1}: مقرر/شعبة مكرر`);duplicateKeys.add(key)});issues.push(...duplicates); res.json({rows,issues:[...new Set(issues)].slice(0,40),valid:issues.length===0,count:rows.length,preview:rows.slice(0,20),visitingReplaced});
+  raw.forEach((item:any,index:number)=>{const code=String(item["رمز المقرر"]??item.CourseCode??item.courseCode??"").trim();const course=byCode.get(code.toLowerCase());const civil=normalizeCivilId(item["الرقم المدني"]??item.AdInstructorCivil??item.civil??"");const iname=String(item["أستاذ المقرر"]??item.AdInstructorName??item.instructor??"").trim();const instructor=byCivil.get(civil)||byName.get(iname.toLowerCase());const sectionCode=String(item["الشعبة"]??item.SCode??item.section??"").trim();const time=String(item["الوقت"]??item.time??"").trim();const cellRange=readScheduleTimeRange(time);const start=normalizeClock(String(item.fstarttime??item.startTime??cellRange.start).trim().slice(0,5)),end=normalizeClock(String(item.fendtime??item.endTime??cellRange.end).trim().slice(0,5));const dayText=String(item["الأيام"]??item.days??"");const row:any={id:-(index+1),AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:course?.AdCourseId||0,AdCourseName:course?.CourseName||String(item["المقرر الدراسي"]??""),SCode:sectionCode,AdInstructorId:instructor?.AdInstructorId||0,fsunday:dayText.includes("الأحد")||Boolean(item.fsunday),fmonday:dayText.includes("الاثنين")||Boolean(item.fmonday),ftuesday:dayText.includes("الثلاثاء")||Boolean(item.ftuesday),fwednesday:dayText.includes("الأربعاء")||Boolean(item.fwednesday),fthursday:dayText.includes("الخميس")||Boolean(item.fthursday),fstarttime:start,fendtime:end,AdRoomCode:String(item["المبنى"]??item.AdRoomCode??"").trim(),AdRoomHall:String(item["القاعة"]??item.AdRoomHall??"").trim(),fdetail:""}; row.fdetail=legacyFDetail(row); if(!course)issues.push(`السطر ${index+1}: لم أجد رمز المقرر ${code||"(فارغ)"} في هذا القسم`);if(!instructor)issues.push(`السطر ${index+1}: لم أتعرف على أستاذ المقرر`);rows.push(row);}); const visitingReplaced=applyVisitingToFaculty(rows,await visitingToFacultyPlan(collegeId,sectionId,termId)); const validation=await validateSmartRows(rows,collegeId,sectionId,{resolveHistorical:true}); issues.push(...validation); const duplicateKeys=new Set<string>(),duplicates:string[]=[]; rows.forEach((r:any,i:number)=>{const key=`${r.AdCourseId}:${r.SCode}`;if(duplicateKeys.has(key))duplicates.push(`السطر ${i+1}: مقرر/شعبة مكرر`);duplicateKeys.add(key)});issues.push(...duplicates); res.json({rows,issues:[...new Set(issues)].slice(0,40),valid:issues.length===0,count:rows.length,preview:rows.slice(0,20),visitingReplaced});
 });
 
 /* ── قائمة النسخ لا تحمل صفوفها ──────────────────────────────────────────
@@ -17241,6 +17252,9 @@ app.get("/api/public/schedule/:token", async (req: Request, res: Response) => {
   if (resolved.link.kind === "survey") { res.status(404).json({ error: "هذا الرابط استبيان للطلبة" }); return; }
   /* رابطُ جدول الطلبة يقرأ المعتمدَ وحده من بابه (/api/public/students). */
   if (resolved.link.kind === "students") { res.status(404).json({ error: "هذا الرابط جدول الطلبة" }); return; }
+  /* ورابطُ الطلب لصاحبه وحده (/r): صفحةُ /s تحوّله إلى بابه ولا تفتح به جدولَ
+     القسم، فلا تفتحه واجهتُها كذلك. */
+  if (resolved.link.kind === "request") { res.status(404).json({ error: "هذا الرابط طلب جدول لأستاذ" }); return; }
   void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
   res.setHeader("Cache-Control", "no-store");
   res.json(await buildSharePayload(resolved.link));
@@ -17306,7 +17320,7 @@ async function sendCalendar(req: Request, res: Response, name: string, termId: n
 app.get("/api/public/ics/:token", async (req: Request, res: Response) => {
   const resolved = await resolveShareToken(String(req.params.token));
   if ("error" in resolved) { res.status(resolved.status).type("text/plain; charset=utf-8").send(resolved.error); return; }
-  if (resolved.link.kind === "staff" || resolved.link.kind === "survey" || resolved.link.kind === "students") { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
+  if (resolved.link.kind === "staff" || resolved.link.kind === "survey" || resolved.link.kind === "students" || resolved.link.kind === "request") { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
   const payload = await buildSharePayload(resolved.link);
   void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
   /* A lecture cancelled on one specific date disappears from that one date in
@@ -25804,7 +25818,7 @@ footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--line);color:v
     <a class="primary" id="icsLink" href="${icsUrl}">Apple · إضافة إلى التقويم</a>
     <a id="icsGoogle" href="${icsUrl}" target="_blank" rel="noopener">Google</a>
     <a id="icsOutlook" href="${icsUrl}" target="_blank" rel="noopener">Outlook</a>
-    <script nonce="${nonce}">${CALENDAR_LINKS_CLIENT_JS}(function(){var L=calLinks(location.origin+"${icsUrl}",${JSON.stringify(String(payload.section || "الجدول"))});
+    <script nonce="${nonce}">${CALENDAR_LINKS_CLIENT_JS}(function(){var L=calLinks(location.origin+"${icsUrl}",${JSON.stringify(String(payload.section || "الجدول")).replace(/</g, "\\u003c")});
       var a=document.getElementById("icsLink"),g=document.getElementById("icsGoogle"),o=document.getElementById("icsOutlook");
       if(a) a.href=L.apple; if(g) g.href=L.google; if(o) o.href=L.outlook;})();</script>
     <a href="javascript:window.print()">طباعة</a>

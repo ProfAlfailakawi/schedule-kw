@@ -13,6 +13,10 @@ test:room-occupancy
 test:room-door
 test:doctor-journey
 test:calendar-ics
+test:review-audit-1028
+test:demand-repair-simulation
+test:visiting-to-faculty
+test:pdf-term-rule
 test:owner-features-1028
 test:ta-phase-flow
 test:staff-global

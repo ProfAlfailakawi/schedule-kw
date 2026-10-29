@@ -569,6 +569,27 @@ interface StoredSession {
 const demoSessions = new Map<string, StoredSession>();
 
 /**
+ * ── صندوقٌ انتهى ولم يعد صاحبه يُكنس ────────────────────────────────────────
+ * كان الصندوقُ المنتهي يُحذف فقط حين يعود صاحبُه بالجلسة نفسها — والزائرُ الذي
+ * أغلق المتصفح لا يعود، فبقيت صناديقُهم (ربع ميغابايت لكلٍّ منها قبل التعبئة)
+ * في ذاكرة النسخة ما عاشت. فكلُّ صندوقٍ جديد يكنس المنتهيَ قبله، مرّةً في
+ * الدقيقة على الأكثر حتى لا يكلّف الدخولُ مروراً كاملاً كلَّ مرة.
+ */
+let lastDemoSweepAt = 0;
+function sweepExpiredDemoSandboxes(now = Date.now(), force = false): number {
+  if (!force && now - lastDemoSweepAt < 60_000) return 0;
+  lastDemoSweepAt = now;
+  let removed = 0;
+  for (const [sessionId, record] of demoSandboxes) {
+    if (record.expiresAt <= now) { demoSandboxes.delete(sessionId); removed += 1; }
+  }
+  for (const [sessionId, session] of demoSessions) {
+    if (session.expiresAt <= now) demoSessions.delete(sessionId);
+  }
+  return removed;
+}
+
+/**
  * ── المعرّفات تُحجز على دفعات، لا واحداً واحداً ──────────────────────────────
  *
  * Every create in the system reserved its id through a transaction on one
@@ -2579,14 +2600,19 @@ export const Repository = {
   outsideDemoSandbox: <T>(fn: () => T): T => demoSandboxContext.exit(fn),
   isDemoRequest: (): boolean => Boolean(demoSandboxContext.getStore()),
   createDemoSandbox: (sessionId: string, ttlMs: number): void => {
+    sweepExpiredDemoSandboxes();
     demoSandboxes.set(sessionId, { state: createDemoSandboxState() as DBState, expiresAt: Date.now() + ttlMs });
   },
   /** صندوقُ «مساري» التجريبي: حالةٌ فارغةٌ تُملأ بما يمرَّر، لا نسخةٌ من بيانات حقيقية ولا من صندوق الصفات. */
   createShowcaseSandbox: (sessionId: string, ttlMs: number, seed: Partial<DBState>): void => {
+    sweepExpiredDemoSandboxes();
     const empty = Object.fromEntries(Object.entries(baseDb).filter(([, value]) => Array.isArray(value)).map(([key]) => [key, []]));
     demoSandboxes.set(sessionId, { state: { ...empty, ...structuredClone(seed) } as DBState, expiresAt: Date.now() + ttlMs });
   },
   dropDemoSandbox: (sessionId: string): void => { demoSandboxes.delete(sessionId); },
+  /** عددُ الصناديق في الذاكرة الآن (للاختبار والمراقبة). */
+  demoSandboxCount: (): number => demoSandboxes.size,
+  sweepExpiredDemoSandboxes: (now = Date.now()): number => sweepExpiredDemoSandboxes(now, true),
   resetDemoSandbox: (sessionId: string, ttlMs: number): boolean => {
     if (!sessionId.startsWith("demo_")) return false;
     demoSandboxes.set(sessionId, { state: createDemoSandboxState() as DBState, expiresAt: Date.now() + ttlMs });
