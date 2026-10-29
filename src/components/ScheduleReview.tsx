@@ -818,7 +818,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                         <strong>{segment.label}</strong>
                         <small>{countOf(segment.touched, AR.appointment)}</small>
                       </span>
-                      <span className="review-score-fix-gain" title={`لو عولج هذا البند وحده تصير الدرجة ${segment.projected}`}>
+                      <span className="review-score-fix-gain" title={`لو عولج هذا البند وحده تصبح الدرجة ${segment.projected}`}>
                         <TrendingUp aria-hidden="true" />
                         <b>{score.toLocaleString("ar-KW-u-nu-latn")}</b><i aria-hidden="true">←</i><b>{segment.projected.toLocaleString("ar-KW-u-nu-latn")}</b>
                         {gain > 0 ? <em>+{gain.toLocaleString("ar-KW-u-nu-latn")}</em> : null}

@@ -374,7 +374,7 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
                   <div>
                     <b id="pr-confirm-title">تأكيد اعتماد الصحيفة</b>
                     <ul>
-                      <li>تصير الصحيفة معتمدة (إصدار {view.state.version + 1}) وتصل المحرّك وبابَ الطالب.</li>
+                      <li>تصبح الصحيفة معتمدة (إصدار {view.state.version + 1}) وتصل المحرّك وبابَ الطالب.</li>
                       <li>تختفي أيقونةُ «مراجعة الصحيفة» من القسم إن لم تبقَ صحيفةٌ أخرى قيد المراجعة.</li>
                       <li>وتعود الأيقونةُ إن عُدّلت الصحيفةُ لاحقاً (تعود قيد المراجعة).</li>
                     </ul>

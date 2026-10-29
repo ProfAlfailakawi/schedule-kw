@@ -154,7 +154,7 @@ function computeSchedulePulse(rows:FSchedule[], universe:FSchedule[], courses:Ad
   if(health.fairness<75)issues.push({type:"fairness",severity:"warning",title:"عدالة التوزيع تحتاج مراجعة",detail:`مؤشر العدالة ${health.fairness}/100؛ يوجد تفاوت ملحوظ في الأيام والفراغات والأوقات الثقيلة.`,score:74});
   if(health.resilience<70)issues.push({type:"fragility",severity:"warning",title:"الجدول جيد لكنه يحتاج مرونة أكبر",detail:`مؤشر المرونة ${health.resilience}/100. اختبر القاعات والأساتذة والأيام الأعلى تأثيرًا قبل الاعتماد.`,score:78});
   const unique=issues.filter((item,index,array)=>array.findIndex(other=>other.title===item.title)===index).sort((a,b)=>b.score-a.score).slice(0,3);
-  return {count:unique.length,items:unique,health:{score:health.score,descriptor:health.descriptor,quality:health.quality,resilience:health.resilience,fairness:health.fairness},message:unique.length?`اليوم عندك ${countOf(unique.length, AR.matter)} بحاجة إلى قرار`:`لا يوجد أمر حرج؛ الجدول في حالة مستقرة`};
+  return {count:unique.length,items:unique,health:{score:health.score,descriptor:health.descriptor,quality:health.quality,resilience:health.resilience,fairness:health.fairness},message:unique.length?`اليوم لديك ${countOf(unique.length, AR.matter)} بحاجة إلى قرار`:`لا يوجد أمر حرج؛ الجدول في حالة مستقرة`};
 }
 
 export function explainScheduleDecision(baseRows:FSchedule[], universe:FSchedule[], candidate:FSchedule, courses:AdCourse[], instructors:AdInstructor[], constraints:ScheduleConstraint[]=[]){

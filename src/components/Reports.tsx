@@ -1186,7 +1186,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
    */
   const runAsk = (text: string) => {
     const question = parseNaturalQuery(text);
-    if (question.intent === "unknown" && !question.name) { setAskNote("لم أفهم السؤال — جرّب: قاعات فاضية الثلاثاء 10"); return; }
+    if (question.intent === "unknown" && !question.name) { setAskNote("لم أفهم السؤال — جرّب: قاعات فارغة الثلاثاء 10"); return; }
 
     const next: Filters = { ...fresh(), collegeId: filters.collegeId, sectionId: filters.sectionId, termId: filters.termId };
     const said: string[] = [];
@@ -2215,7 +2215,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               event.preventDefault();
               runAsk(event.currentTarget.value);
             }}
-            placeholder="اسأل: قاعات فاضية الثلاثاء 10"
+            placeholder="اسأل: قاعات فارغة الثلاثاء 10"
             aria-label="اسأل بالعربية"
             aria-describedby={askNote ? "query-ask-note" : undefined}
             enterKeyHint="search"
@@ -2756,8 +2756,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                         data-count={cell.taken}
                         data-mine={cell.mine ? "1" : undefined}
                         className={roomPick?.room === room.name && roomPick?.point === cell.point ? "picked" : ""}
-                        title={`${room.name} · ${scheduleClockForDisplay(clock(cell.point))} · ${cell.taken ? `يوم ${cell.taken}` : "فاضية"}`}
-                        aria-label={`${room.name} الساعة ${scheduleClockForDisplay(clock(cell.point))}، ${cell.taken ? `يوم ${cell.taken}` : "فاضية"}`}
+                        title={`${room.name} · ${scheduleClockForDisplay(clock(cell.point))} · ${cell.taken ? `يوم ${cell.taken}` : "فارغة"}`}
+                        aria-label={`${room.name} الساعة ${scheduleClockForDisplay(clock(cell.point))}، ${cell.taken ? `يوم ${cell.taken}` : "فارغة"}`}
                         aria-pressed={roomPick?.room === room.name && roomPick?.point === cell.point}
                         onClick={() => setRoomPick(current =>
                           current?.room === room.name && current?.point === cell.point
@@ -2844,7 +2844,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                         </span>
                       </p>
                     );
-                    return <p className="occupancy-pick-empty">فاضية في هذا الوقت — لا يوجد أي حجز.</p>;
+                    return <p className="occupancy-pick-empty">فارغة في هذا الوقت — لا يوجد أي حجز.</p>;
                   })()}
                 </div>
                 </>

@@ -11,7 +11,7 @@ export const REASON_ORDER: readonly OutcomeReason[] = ["full", "prereq", "confli
 export const REASON_INFO: Record<OutcomeReason, { title: string; plain: string; action: string }> = {
   full: { title: "امتلأت الشعبة", plain: "لم يجدوا مقعداً", action: "افتح شعبة أو زد السعة" },
   prereq: { title: "ينقصهم متطلب سابق", plain: "لم يُسمح لهم بالتسجيل", action: "راجع المتطلب في صحيفة القسم" },
-  conflict: { title: "تعارض وقت", plain: "وقته يصطدم بمقرر آخر عندهم", action: "حرّك الموعد أو افتح شعبة بوقتٍ آخر" },
+  conflict: { title: "تعارض وقت", plain: "وقته يصطدم بمقرر آخر لديهم", action: "حرّك الموعد أو افتح شعبة بوقتٍ آخر" },
   other: { title: "سببٌ آخر", plain: "اختاروا «آخر» بلا تفاصيل", action: "اسأل المتعثّرين مباشرةً لمعرفة السبب" },
 };
 

@@ -1471,7 +1471,7 @@ export default function LivingScheduleLayer({
                       >
                         <Building2 />
                         <span>
-                          <b>هل عندي قاعة أفضل؟</b>
+                          <b>هل لديّ قاعة أفضل؟</b>
                           <small>
                             {selected.AdRoomCode}/{selected.AdRoomHall}
                           </small>

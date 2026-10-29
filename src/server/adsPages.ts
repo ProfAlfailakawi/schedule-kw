@@ -217,7 +217,7 @@ export function campaignReportPage(input: CampaignReportInput): string {
     const days = daysList(c.startDay, c.endDay < today ? c.endDay : today).slice(-14).reverse();
     const msg = input.redemptionResult === "ok" ? `<p class="note" style="color:var(--accent)">سُجِّل رقمكم. شكراً.</p>` : input.redemptionResult === "bad" ? `<p class="note" style="color:#b42318">تعذّر التسجيل: اختر يوماً ضمن الحملة (لا بعد اليوم) وأدخل عدداً صحيحاً.</p>` : "";
     const rows = (c.redemptions || []).slice(-10).reverse().map(r => `<tr><td>${esc(dateAr(r.day))}</td><td class="n">${fmt(r.count)}</td></tr>`).join("");
-    return `<h2 id="redemptions">استعمال كود الخصم عندكم</h2>
+    return `<h2 id="redemptions">استعمال كود الخصم لديكم</h2>
 <div class="card"><p style="margin:0 0 8px">النقرات التي نقيسها نحن <b>موثَّقة</b>. أما استعمال الكود فلا نراه نحن، فإن أخبرتمونا به رسمنا لكم التحويل، ويبقى هذا الرقم <b>«مُبلَّغاً منكم»</b> ولا نعتمده في أي تقريرٍ آخر ولا نعرضه لغيركم.</p>
 ${conv.total ? `<p style="margin:0 0 8px">عدد استعمالات الكود المُبلَّغة: <b>${fmt(conv.total)}</b>${conv.perClick != null ? ` (${pct(conv.perClick)} من نقراتكم الموثَّقة)` : ""}.${conv.note === "above-clicks" ? " ملاحظة: يفوق عدد النقرات؛ طبيعيٌّ إن شُورك الكود خارج الإعلان." : ""}</p>` : ""}
 ${rows ? `<table><thead><tr><th>اليوم</th><th>استعمالات الكود</th></tr></thead><tbody>${rows}</tbody></table>` : ""}
@@ -231,7 +231,7 @@ ${msg}
   /* الكوبون الفريد: التحويل **موثَّق** لأن المتجر هو من تحقق منه ومسحه، بخلاف الرقم المُبلَّغ أعلاه. */
   const verifiedCard = !c.uniqueCoupons || !input.unique || phase === "draft" ? "" : `
 <h2>كوبونات الطلبة الموثَّقة</h2>
-<div class="card"><p style="margin:0 0 8px">استعمل <b>${fmt(input.unique.verified)}</b> ${nounFor(input.unique.verified, AR.student)} كوبونه الفريد عندكم${totals.clicks > 0 ? ` (${pct((input.unique.verified / totals.clicks) * 100)} من نقراتكم الموثَّقة)` : ""}. كل كوبونٍ يُستعمل مرةً واحدة ولا يحمل اسم الطالب.</p>
+<div class="card"><p style="margin:0 0 8px">استعمل <b>${fmt(input.unique.verified)}</b> ${nounFor(input.unique.verified, AR.student)} كوبونه الفريد لديكم${totals.clicks > 0 ? ` (${pct((input.unique.verified / totals.clicks) * 100)} من نقراتكم الموثَّقة)` : ""}. كل كوبونٍ يُستعمل مرةً واحدة ولا يحمل اسم الطالب.</p>
 <p style="margin:0 0 8px">يمسح موظفكم رمز QR الذي يريه الطالب، أو يفتح هذا الرابط ويكتب الكوبون:</p>
 <p class="btnrow"><a class="btn" href="${esc(input.unique.verifyUrl)}">صفحة التحقق للمتجر</a></p>
 <p class="note"><bdi dir="ltr">${esc(input.unique.verifyUrl)}</bdi></p></div>`;
@@ -276,7 +276,7 @@ ${endingBanner}${verifiedCard}${convCard}${input.weekly && (input.weekly.hasLast
 <h2>الأداء اليومي</h2>
 <div class="card">${barChart(series.map(p => ({ day: p.day, a: p.impressions, b: p.clicks })), "الظهور", "النقرات")}</div>
 ${input.liveInSlot > 1 ? `<p class="note">يتناوب في هذا الموقع ${countOf(input.liveInSlot, AR.campaign)}، فحصتك المتوقعة من الظهور نحو ${pct(share * 100)}.</p>` : ""}
-${c.coupon ? `<h2>كود الخصم</h2><div class="card"><b style="font-size:22px;letter-spacing:.04em" dir="ltr">${esc(c.coupon)}</b><p class="note">يظهر تحت إعلانك؛ تابع استخدامه عندكم لمعرفة التحويل الفعلي.</p></div>` : ""}
+${c.coupon ? `<h2>كود الخصم</h2><div class="card"><b style="font-size:22px;letter-spacing:.04em" dir="ltr">${esc(c.coupon)}</b><p class="note">يظهر تحت إعلانك؛ تابع استخدامه لديكم لمعرفة التحويل الفعلي.</p></div>` : ""}
 ${breakdown.length > 1 ? `<h2>مقارنة الصورتين (A/B)</h2><div class="card"><table><thead><tr><th>الصورة</th><th>ظهور</th><th>نقرات</th><th>نسبة النقر</th></tr></thead><tbody>${breakdown.map(r => `<tr><td>${esc(labelOf(r.creativeId))}${best && best.creativeId === r.creativeId ? " ⭐" : ""}</td><td class="n">${fmt(r.impressions)}</td><td class="n">${fmt(r.clicks)}</td><td class="n">${pct(r.ctr)}</td></tr>`).join("")}</tbody></table>${best ? `<p class="note">الأعلى نقراً حتى الآن: «${esc(labelOf(best.creativeId))}».</p>` : ""}</div>` : ""}
 <h2>تصميم الإعلان</h2>
 <div class="pre">${creatives.map(cr => `<figure><img src="/_ads/img/${esc(cr.id)}" alt="${esc(cr.label)}" width="${cr.width}" height="${cr.height}" loading="lazy"><figcaption>${esc(cr.label)} · <bdi dir="ltr">${cr.width}×${cr.height}</bdi></figcaption></figure>`).join("")}</div>
@@ -622,7 +622,7 @@ export function measurementPage(nonce: string): string {
 <h2>ما الذي يُحفظ في متصفحك؟</h2>
 <div class="card">${li([
   "مفاتيح صغيرة في التخزين المحلي (تبدأ بـ <bdi dir=\"ltr\">adx:</bdi>) تُخبر متصفحك أنك زرتَ اليوم فلا تُعدّ مرتين، وتحدّ عدد مرات ظهور الإعلان نفسه لك في اليوم، وتعدّ وصول الحملة إليك مرةً واحدة طوال مدتها.",
-  "إن فتحتَ <b>كوبونك الخاص</b> من إعلان: مفتاحٌ عشوائيٌّ من ثمانية رموز يولّده متصفحك ويحفظه عندك، لا يحمل اسماً ولا هوية. يوقّعه الخادم فيصير كوبونك، ولا نخزّن شيئاً عنك؛ يُسجَّل فقط أن كوبوناً استُعمل حين يتحقق منه المتجر.",
+  "إن فتحتَ <b>كوبونك الخاص</b> من إعلان: مفتاحٌ عشوائيٌّ من ثمانية رموز يولّده متصفحك ويحفظه لديك، لا يحمل اسماً ولا هوية. يوقّعه الخادم فيصبح كوبونك، ولا نخزّن شيئاً عنك؛ يُسجَّل فقط أن كوبوناً استُعمل حين يتحقق منه المتجر.",
   "يمكنك مسحها في أي وقتٍ من إعدادات المتصفح؛ لا يتأثر عملك في البرنامج بذلك.",
   "إن منعتَ التخزين لن نعرف أنك زرتَ اليوم، فقد تُحتسب كل زيارة؛ لا شيء آخر يتغيّر.",
 ])}</div>

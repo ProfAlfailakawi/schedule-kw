@@ -768,7 +768,7 @@ app.get("/api/demo/teacher-card", requireAuth, async (req: AuthenticatedRequest,
     res.redirect(302, `/s/${encodeURIComponent(staff.id)}`); return;
   }
   res.status(demoSeedStatus.get(String(sessionId || "")) === "failed" ? 503 : 202).type("text/html; charset=utf-8").send(
-    `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="2"><title>كرت الأستاذ · SCHEDULE</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.7 system-ui,"Noto Sans Arabic",Tahoma,sans-serif;color:#2f3a36;background:#f6f4ee;text-align:center}</style></head><body><p>يُجهَّز كرت الأستاذ في العرض…<br><small>ينفتح تلقائياً بعد لحظات.</small></p></body></html>`);
+    `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="2"><title>بطاقة الأستاذ · SCHEDULE</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.7 system-ui,"Noto Sans Arabic",Tahoma,sans-serif;color:#2f3a36;background:#f6f4ee;text-align:center}</style></head><body><p>تُجهَّز بطاقة الأستاذ في العرض…<br><small>ينفتح تلقائياً بعد لحظات.</small></p></body></html>`);
 });
 
 app.get("/api/demo/seed-status", requireAuth, (req: AuthenticatedRequest, res: Response) => {

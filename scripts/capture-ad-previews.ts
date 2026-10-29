@@ -28,7 +28,7 @@ const manifest: { generatedAt: string; surfaces: Record<string, Surface> } = { g
 
 const specOf = (id: string) => AD_SLOTS.find(s => s.id === id)!;
 const INTRO: Record<string, string> = {
-  break: "عندك فراغٌ يوم الإثنين من 10:00 ص إلى 12:00 م. استراحتك برعاية:",
+  break: "لديك فراغٌ يوم الإثنين من 10:00 ص إلى 12:00 م. استراحتك برعاية:",
   nearby: "بين محاضرتيك يوم الأحد أنت في المبنى نفسه. استراحتك القريبة برعاية:",
   afterclass: "تنتهي محاضراتك يوم الثلاثاء عند 12:00 م. وقتك بعدها برعاية:",
   course: "مقرراتك هذا الفصل برعاية:",

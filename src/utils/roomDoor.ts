@@ -211,7 +211,7 @@ export function doorSentence(view: Pick<DoorView<DoorSlot & { code?: string; tit
   if (at >= 0) t = (Math.floor(at / 60) < 10 ? "0" : "") + Math.floor(at / 60) + ":" + (at % 60 < 10 ? "0" : "") + (at % 60);
   if (view.state === "busy") { l = view.today[st.current]; return "مشغولة · " + (l.code || l.title || "") + " — تنتهي " + t; }
   if (view.state === "soon") { l = view.today[st.next]; return "تبدأ بعد " + st.left + " د · " + (l.code || l.title || ""); }
-  return at >= 0 ? "فاضية — حتى " + t : "فاضية — بقية اليوم";
+  return at >= 0 ? "فارغة — حتى " + t : "فارغة — بقية اليوم";
 }
 
 /**

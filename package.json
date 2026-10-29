@@ -105,6 +105,7 @@
     "test:student-journey": "tsx tests/student-journey-audit.ts",
     "test:dean-notify": "tsx tests/dean-notify-audit.ts",
     "test:arabic-count": "tsx tests/arabic-count-audit.ts",
+    "test:standard-arabic-ui": "tsx tests/standard-arabic-ui-audit.ts",
     "test:rehearsal": "tsx tests/rehearsal-audit.ts",
     "test:deadlines-panel": "tsx tests/deadlines-panel-audit.ts",
     "test:single-department": "tsx tests/single-department-scope-audit.ts",

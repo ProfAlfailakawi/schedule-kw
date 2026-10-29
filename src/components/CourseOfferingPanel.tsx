@@ -44,7 +44,7 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId }: { 
       const courses = (data?.courses || []).map(course => ({ courseId: course.id, ...(draft[course.id] || { state: "offered" }) }));
       const response = await fetch("/api/course-offering", { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collegeId, sectionId, termId, display, courses }) });
       if (!response.ok) throw new Error((await response.json().catch(() => ({})))?.error || "تعذّر الحفظ");
-      setMsg("✅ حُفظ · يظهر في كرت الأستاذ فوراً"); await load();
+      setMsg("✅ حُفظ · يظهر في بطاقة الأستاذ فوراً"); await load();
     } catch (e: any) { setMsg(`⛔ ${e.message}`); } finally { setBusy(false); }
   };
   if (!data) return <div className="of-section" role="status">{msg || "…"}</div>;
@@ -57,7 +57,7 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId }: { 
         {STATES.map(state => <div className="of-kpi" key={state}><span className="of-ic" aria-hidden="true">{OFFERING_META[state].icon}</span><b>{counts[state]}</b><span>{OFFERING_META[state].label}</span></div>)}
       </div>
       <div className="of-row">
-        <span>في كرت الأستاذ:</span>
+        <span>في بطاقة الأستاذ:</span>
         <button data-guide-ignore="حالة طرح المقرر — اختيار بصري داخل اللوحة" type="button" className="of-chip" aria-pressed={display === "fade"} onClick={() => setDisplay("fade")}>🔒 باهت بقفل</button>
         <button data-guide-ignore="حالة طرح المقرر — اختيار بصري داخل اللوحة" type="button" className="of-chip" aria-pressed={display === "hide"} onClick={() => setDisplay("hide")}>🙈 مخفي</button>
         <input type="search" placeholder="بحث…" value={query} onChange={e => setQuery(e.target.value)} style={{ minHeight: 36, borderRadius: 10, border: "1px solid var(--line)", padding: "4px 10px", font: "inherit" }} />

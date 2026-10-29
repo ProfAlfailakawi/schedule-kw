@@ -518,7 +518,7 @@ async function main() {
     check(ics.text.split("\r\n").every(l => Buffer.byteLength(l) <= 75), "A6 اشتراك التقويم: الأسطر ≤٧٥ بايتاً");
     check(report.text.includes("calendar.ics") && report.text.includes("webcal://"), "A6 صفحة التقرير تعرض زر الاشتراك");
     /* A15: شارة الشراكة والتحويل المُبلَّغ (غير موثَّق) عبر مسارات الخادم */
-    check(report.text.includes("استعمال كود الخصم عندكم") && report.text.includes("مُبلَّغاً منكم") && report.text.includes("/partner-badge/") && !report.text.includes(`${repToken}/badge`) && report.text.includes("utm_source=schedule"), "A15 صفحة التقرير: نموذج التحويل والشارة ووسم utm");
+    check(report.text.includes("استعمال كود الخصم لديكم") && report.text.includes("مُبلَّغاً منكم") && report.text.includes("/partner-badge/") && !report.text.includes(`${repToken}/badge`) && report.text.includes("utm_source=schedule"), "A15 صفحة التقرير: نموذج التحويل والشارة ووسم utm");
     const badgePath = String(report.text.match(/\/partner-badge\/[0-9a-f]{32}\.svg/)?.[0]);
     const bd = await call("GET", badgePath);
     const bdText = await (await fetch(base + badgePath, { headers: { "User-Agent": UA } })).text();

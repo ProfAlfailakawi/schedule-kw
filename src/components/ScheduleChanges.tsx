@@ -382,7 +382,7 @@ function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExt
         ask={ask}
         onAskChange={value => { setAsk(value); if (!value.trim()) setParsed(EMPTY_INBOX_ASK); }}
         onAskSubmit={value => setParsed(parseInboxAsk(value))}
-        askPlaceholder={audience.department ? "اسأل: المتأخر أو اللي فيه ملاحظات" : "اسأل: الأقسام المتأخرة اللي عندها موانع"}
+        askPlaceholder={audience.department ? "اسأل: المتأخر أو ما فيه ملاحظات" : "اسأل: الأقسام المتأخرة التي لديها موانع"}
         askNote={askNote}
         onClear={clearAll}
         selects={trimScopeSelects(selects, scopes, powerAdmin)}

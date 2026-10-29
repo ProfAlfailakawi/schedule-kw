@@ -367,7 +367,7 @@ export function registerPushRoutes(app: Express, deps: PushRouteDeps): PushEngin
     if (!next || !previous || previous.endpoint !== oldEndpoint || !sameSecret(previous.keys.auth, oldAuth)) { res.status(404).json({ error: "لا اشتراك." }); return; }
     if (previous.ownerKind === "card" && !(await deps.resolveCard(String(previous.cardToken || "")))) {
       await Repository.deletePushSubscription(previous.id);
-      res.status(410).json({ error: "أُوقف هذا الكرت." });
+      res.status(410).json({ error: "أُوقفت هذه البطاقة." });
       return;
     }
     await saveRecord(next, previous, req);

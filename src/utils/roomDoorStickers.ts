@@ -48,7 +48,7 @@ export function roomDoorStickerSheet(input: { building: DoorStickerBuilding; roo
 <div class="room"><small>القاعة</small><b style="font-size:${codeSize(room.code)}mm"><bdi>${esc(room.code)}</bdi></b>${room.floor ? `<em>${esc(room.floor)}</em>` : ""}</div>
 <div class="qr">${safeSvg(room.qrSvg)}</div>
 <p class="scan">📱 امسح لتعرف القاعة الآن</p>
-<p class="hint">فاضية أم مشغولة · والتالية · والأسبوع</p>
+<p class="hint">فارغة أم مشغولة · والتالية · والأسبوع</p>
 <p class="url"><bdi>${esc(host(room.url))}</bdi></p>
 </article>`;
   const pages: string[] = [];
