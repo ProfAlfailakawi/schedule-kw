@@ -43,13 +43,21 @@ const waitFor = async (ok: () => boolean | Promise<boolean>, ms = 5000) => { con
 
 /* ══ ١) RFC 8291 الملحق A ═══════════════════════════════════════════════════ */
 {
-  const UA_PUBLIC = "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4";
-  const UA_PRIVATE = "q1dXpw3UpT5VOmu_cf_v6ih07Aems3njxI-JWgLcM94";
-  const AS_PUBLIC = "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8";
-  const AS_PRIVATE = "yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw";
-  const AUTH = "BTBZMqHH6r4Tts7J_aSIgg";
-  const SALT = "DGv6ra1nlYgDCS1FRnbzlw";
-  const EXPECTED = "DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN";
+  /* المتجهُ المنشور في RFC 8291 §5 والملحق A (مفاتيحُ مثالٍ عامّة، لا أسرار): بالست عشري، بترتيب
+     مفتاح المتصفّح العام (65) والخاص (32)، ومفتاح الخادم المؤقّت العام (65) والخاص (32)، وسرّ المصادقة (16)، والملح (16). */
+  const VECTOR = Buffer.from(
+    "042571b2becdfde360551aaf1ed0f4cd366c11cebe555f89bcb7b186a53339173168ece2ebe018597bd30479b86e3c8f8eced577ca59187e9246990db682008b0e"
+    + "ab5757a70dd4a53e553a6bbf71ffefea2874ec07a6b379e3c48f895a02dc33de"
+    + "04fe33f4ab0dea71914db55823f73b54948f41306d920732dbb9a59a53286482200e597a7b7bc260ba1c227998580992e93973002f3012a28ae8f06bbb78e5ec0f"
+    + "c9f58f89813e9f8e872e71f42aa64e1757c9254dcc62b72ddc010bb4043ea11c"
+    + "05305932a1c7eabe13b6cec9fda48882"
+    + "0c6bfaadad67958803092d454676f397", "hex");
+  const part = (from: number, length: number) => b64u(VECTOR.subarray(from, from + length));
+  const UA_PUBLIC = part(0, 65), UA_PRIVATE = part(65, 32), AS_PUBLIC = part(97, 65), AS_PRIVATE = part(162, 32), AUTH = part(194, 16), SALT = part(210, 16);
+  /* جسمُ الرسالة في RFC 8291 §5. */
+  const EXPECTED = b64u(Buffer.from(
+    "0c6bfaadad67958803092d454676f397000010004104fe33f4ab0dea71914db55823f73b54948f41306d920732dbb9a59a53286482200e597a7b7bc260ba1c2279985"
+    + "80992e93973002f3012a28ae8f06bbb78e5ec0ff297de5b429bba7153d3a4ae0caa091fd425f3b4b5414add8ab37a19c1bbb05cf5cb5b2a2e0562d558635641ec52812c6c8ff42e95ccb86be7cd", "hex"));
   const body = encryptPushPayload("When I grow up, I want to be a watermelon", { p256dh: UA_PUBLIC, auth: AUTH }, { salt: fromB64u(SALT), senderPrivateKey: fromB64u(AS_PRIVATE) });
   check(b64u(body) === EXPECTED, "RFC 8291 الملحق A: الجسمُ المشفّر يطابق المتجه بايتاً ببايت");
   check(body.subarray(0, 16).equals(fromB64u(SALT)) && body.readUInt32BE(16) === 4096 && body[20] === 65 && b64u(body.subarray(21, 86)) === AS_PUBLIC,
