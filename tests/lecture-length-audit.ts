@@ -47,7 +47,7 @@ const notice = serverSrc.slice(serverSrc.indexOf("async function mixedPatternNot
 assert.ok(/patternsForHours\(hours\)\.some/.test(notice) && /historicalOrigin\(/.test(notice), "والتنبيه لا يظهر لنمطٍ معتمد في المكتبة أو تاريخيٍّ للمقرّر");
 assert.ok(/patternNotice/.test(serverSrc.slice(serverSrc.indexOf('app.post("/api/schedules/check-conflicts"'), serverSrc.indexOf('app.post("/api/schedules/check-conflicts"') + 900)), "ويصل رسمُه شاشةَ الموعد مع فحص التعارض");
 assert.ok(/lectureNotice/.test(serverSrc.slice(serverSrc.indexOf('app.post("/api/schedules/check-conflicts"'), serverSrc.indexOf('app.post("/api/schedules/check-conflicts"') + 1000)), "الملاحظة اللائحية تصل للفحص الحي");
-assert.ok(/weeklyLectureMinutes\(other,hours\)/.test(lengthFn) && /weeklyLectureMinutes\(row,hours\)/.test(lengthFn), "حدّ العبء الأسبوعي يحسب أنماط الكتلة الواحدة وفق ساعات المقرر");
+assert.ok(/sectionWeeklyHours\(row,siblings,hours\)/.test(lengthFn) && /weeklyLectureMinutes\(other, hours\)/.test(fs.readFileSync("src/utils/scheduleRegulations.ts", "utf8")) && /weeklyLectureMinutes\(row, hours\)/.test(fs.readFileSync("src/utils/scheduleRegulations.ts", "utf8")), "حدّ العبء الأسبوعي يحسب أنماط الكتلة الواحدة وفق ساعات المقرر (المصدر الواحد sectionWeeklyHours)");
 const scheduleUi = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 assert.ok(scheduleUi.includes("schedule-lecture-advisory") && scheduleUi.includes('role="status"'), "ملاحظة المدة تظهر في الواجهة كتنبيه استرشادي غير مانع");
 assert.ok(scheduleUi.includes("ملاحظة فقط · لا تمنع الحفظ") && scheduleUi.includes("lectureAdvisoryFacts(lectureNotice)"), "الملاحظة تعرض المدة واللائحة والفاصل بمؤشرات مختصرة وتوضح أنها لا تمنع الحفظ");

@@ -7,13 +7,15 @@ import type { RegulationChoice, RegulationFit } from "../utils/appointmentRegula
  * النمط المطبَّق مضيء، والبدائل المعتمدة شرائح بضغطة، والخروج عن اللائحة ⚠️ لا يمنع.
  */
 export default function RegulationPatternChips({
-  choices, activeId, fit, onPick, compact = false,
+  choices, activeId, fit, onPick, compact = false, onApplyBest,
 }: {
   choices: RegulationChoice[];
   activeId?: string | null;
   fit: RegulationFit;
   onPick: (choice: RegulationChoice) => void;
   compact?: boolean;
+  /** تجاوزٌ متعمَّد: ضغطة واحدة تعيد الأيام والنهاية إلى النمط المعتمد. */
+  onApplyBest?: () => void;
 }) {
   if (!choices.length && fit !== "off") return null;
   return <div className={`regulation-chips${compact ? " is-compact" : ""}`} role="group" aria-label="أنماط اللائحة">
@@ -27,5 +29,7 @@ export default function RegulationPatternChips({
       </button>;
     })}
     {fit === "off" ? <span className="regulation-chips-off" role="status" title="الأيام أو المدة لا تطابق نمطاً معتمداً لساعات المقرر — تنبيه لا يمنع الحفظ"><AlertTriangle aria-hidden="true" />خارج اللائحة</span> : null}
+    {fit === "off" && onApplyBest ? <button type="button" className="regulation-chips-apply" onClick={onApplyBest}
+      data-guide-ignore="يعيد الأيام والنهاية إلى النمط المعتمد لساعات المقرر؛ لا يحفظ شيئاً"><Ruler aria-hidden="true" />طبّق النمط المعتمد</button> : null}
   </div>;
 }

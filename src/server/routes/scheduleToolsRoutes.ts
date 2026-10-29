@@ -8,6 +8,7 @@
  */
 import type { Express } from "express";
 import { roomSuitability } from "../../utils/roomSuitability";
+import { placeholderMatch } from "../../utils/placeholderMatch";
 import { eligibleSuggestionEditId, instructorRowsForSuggestion } from "../../utils/slotSuggestionScope";
 import { emptySuggestionReason, orderSuggestionCandidates, rankSuggestionCandidates, SUGGESTION_EMPTY_WORD, toClock, type SuggestionDayKey, type SuggestionEmptyReason, type SuggestionHall } from "../../utils/suggestionEngine";
 import { reservationRows, RequestReservationConflict, RequestHoldConflict } from "../../utils/instructorRequestReservations";
@@ -416,22 +417,29 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
     slots.push(slot);
   }
 
-  /* ── 🔄 قابلة للاستبدال: قاعةٌ تشغلها في هذا الوقت بالضبط شعبةٌ «هيئة تدريسية»
-     من القسم نفسه. إن كانت للمقرر نفسه فالأفضل إسناد الأستاذ إليها (⭐) بدل موعدٍ
-     جديد. توافق 100%: الأيام والوقت نفسهما، والقاعة مؤهلة للقسم، والأستاذ حرّ. */
+  /* ── 🔄 قابلة للاستبدال: خانةٌ أو قاعةٌ تحجزها شعبةٌ «هيئة تدريسية» من القسم نفسه
+     وتطابق ما يُبحث عنه لأستاذٍ حقيقي تطابقاً تاماً (placeholderMatch): نمط ساعات
+     المقرر، والأيام والوقت (أو المدة) التي ثبّتها البحث، والسعة، والمرفق، والأستاذ حرّ.
+     في «اقترح قاعة» وفي «اقترح وقتاً وقاعة» معاً. للمقرر نفسه: «خذ موعدها» (⭐). */
   const placeholderIds=placeholderInstructorIds(instructorsAll as any);
-  const teacherFree=roomOnly&&!instructorRows.some(row=>overlapsSelected(row,fixedStart,fixedEnd));
-  const replaceable=teacherFree?universe
+  const realTeacher=instructorId>0&&!placeholderIds.has(instructorId);
+  const teacherBusy=(days:readonly string[],from:number,to:number)=>instructorRows.some(row=>days.some(day=>Boolean((row as any)[day]))&&timeToMinutes(row.fstarttime)<to&&timeToMinutes(row.fendtime)>from);
+  const replaceable=realTeacher?universe
     .filter(row=>Number(row.id)!==editedRowId&&Number(row.AdCollegeId)===collegeId&&Number(row.AdSectionId)===sectionId&&Number(row.AdTermId)===termId)
     .filter(row=>placeholderIds.has(Number(row.AdInstructorId)))
-    .filter(row=>timeToMinutes(row.fstarttime)===fixedStart&&timeToMinutes(row.fendtime)===fixedEnd&&SCHEDULE_DAY_KEYS.every(day=>Boolean((row as any)[day])===dayKeys.includes(day as SuggestionDayKey)))
     .filter(row=>halls.some(hall=>rowOccupiesRoom(row,hall.roomId,hall.room,hall.hall)))
-    .map(row=>({
+    .map(row=>({row,match:placeholderMatch({
+      course:course as any,row:row as any,room:row.roomId?roomById.get(String(row.roomId)):null,teacherBusy,
+      wanted:roomOnly?{days:dayKeys as any,start:fixedStart,end:fixedEnd}:{days:dayKeys as any,minutes:duration},
+    })}))
+    .filter(({match})=>match.ok)
+    .map(({row,match})=>({
       rowId:Number(row.id),room:String(row.AdRoomCode||""),hall:String(row.AdRoomHall||""),buildingId:row.buildingId,roomId:row.roomId,
-      start:row.fstarttime,end:row.fendtime,courseId:Number(row.AdCourseId),scode:String(row.SCode||""),
+      start:row.fstarttime,end:row.fendtime,days:match.days,pattern:match.pattern,capacity:match.capacity,
+      courseId:Number(row.AdCourseId),scode:String(row.SCode||""),
       courseName:String(row.AdCourseName||""),sameCourse:Number(row.AdCourseId)===Number(body.AdCourseId||0),
     }))
-    .sort((a,b)=>Number(b.sameCourse)-Number(a.sameCourse))
+    .sort((a,b)=>Number(b.sameCourse)-Number(a.sameCourse)||timeToMinutes(a.start)-timeToMinutes(b.start))
     .slice(0,4):[];
 
   /* عدد الطلبة يُذكر فقط حين يوجد رادار تسجيلٍ حالي للفصل: مجموع مقاعد المقرر وعدد شعبه
@@ -501,6 +509,10 @@ app.post("/api/schedules/placeholder-action", requirePermission(7), async (req: 
   } else {
     const createBody = { ...appointment, ...placeRoom, AdCollegeId: placeholder.AdCollegeId, AdSectionId: placeholder.AdSectionId, AdTermId: termId };
     delete createBody.id; delete createBody.excludeId; delete createBody.rev;
+    /* الموعد يأخذ خانتها كما هي: أيامها ووقتها (قد تأتي من «اقترح وقتاً وقاعة» بوقتٍ غير وقت النموذج). */
+    for (const day of SCHEDULE_DAY_KEYS) createBody[day] = Boolean((placeholder as any)[day]);
+    createBody.fstarttime = placeholder.fstarttime; createBody.fendtime = placeholder.fendtime;
+    if (action === "replace" && !createBody.companionRoomId && placeholder.companionRoomId) createBody.companionRoomId = placeholder.companionRoomId;
     if (action === "swap") {
       const to = req.body?.swapTo || {};
       if (!to.buildingId || !to.roomId) { res.status(400).json({ error: "حدّد القاعة الحرّة التي تنتقل إليها الشعبة." }); return; }
