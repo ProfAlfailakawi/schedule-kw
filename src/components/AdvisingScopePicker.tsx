@@ -33,6 +33,17 @@ export function useAdvisingScopeCatalog() {
   return catalog;
 }
 
+/** ما يجب اختيارُه تلقائياً: خيارٌ وحيد يُعرض وسماً ثابتاً ولم يُختر بعد (0 = لا شيء). */
+export function advisingAutoPick({ colleges, sections, collegeId, sectionId, allLabel }: { colleges: ScopeOption[]; sections: ScopeOption[]; collegeId: number; sectionId: number; allLabel: boolean }) {
+  if (allLabel) return { college: 0, section: 0 };
+  const soleCollege = colleges.length === 1 ? colleges[0].value : 0;
+  const soleSection = sections.length === 1 ? sections[0].value : 0;
+  const college = soleCollege && collegeId !== soleCollege ? soleCollege : 0;
+  /* القسمُ بعد الكلية: لا يُختار قسمٌ لكليةٍ لم تُثبَّت بعد. */
+  const section = !college && soleSection && sectionId !== soleSection ? soleSection : 0;
+  return { college, section };
+}
+
 export default function AdvisingScopePicker({ colleges, sections, collegeId, sectionId, onCollege, onSection, allLabel, idPrefix = "advising" }: {
   colleges: ScopeOption[];
   sections: ScopeOption[];
@@ -46,6 +57,11 @@ export default function AdvisingScopePicker({ colleges, sections, collegeId, sec
 }) {
   const fixedCollege = colleges.length <= 1 && !allLabel;
   const fixedSection = sections.length <= 1 && !allLabel;
+  /* الوسمُ الثابت يُعرض قيمةً مختارة فعلاً، لا اسماً على خانةٍ فارغة: كليةٌ أو قسمٌ وحيد
+     يُرسَل اختيارُه (onCollege/onSection) — وإلا بقي القسم 0 لمن له الكلّ ولم يُقرأ الكشف. */
+  const auto = advisingAutoPick({ colleges, sections, collegeId, sectionId, allLabel: Boolean(allLabel) });
+  useEffect(() => { if (auto.college) onCollege(auto.college); }, [auto.college]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (auto.section) onSection(auto.section); }, [auto.section]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!colleges.length && !sections.length) return null;
   const collegeName = colleges.find(option => option.value === collegeId)?.label || colleges[0]?.label || "";
   const sectionName = sections.find(option => option.value === sectionId)?.label || sections[0]?.label || "";

@@ -146,6 +146,17 @@ console.log("٤ — الإرشاد: منتقي الكلية والقسم في ا
   const picker = read("src/components/AdvisingScopePicker.tsx");
   check(picker.includes("/api/colleges") && picker.includes("/api/sections"), "الخيارات من الخادم المصفّى بنطاق القارئ");
   check(picker.includes("is-fixed"), "خيارٌ واحد: وسمٌ ثابت لا منتقٍ");
+  {
+    /* مراجعة #310: مديرٌ يختار كليةً بقسمٍ واحد — pickCollege يصفّر القسم (singleDepartmentOf يردّ null لمن له الكلّ)،
+       والوسم الثابت كان يعرض اسم القسم بلا اختيار، فلا يُقرأ الكشف. الآن يُرسَل الاختيار. */
+    const { advisingAutoPick } = await import("../src/components/AdvisingScopePicker");
+    const two = [{ value: 2, label: "كلية" }, { value: 3, label: "أخرى" }], one = [{ value: 9, label: "القسم الوحيد" }];
+    check(advisingAutoPick({ colleges: two, sections: one, collegeId: 2, sectionId: 0, allLabel: false }).section === 9, "كليةٌ بقسمٍ واحد والقسم 0: الوسم الثابت يختار القسم فعلاً (9)");
+    check(advisingAutoPick({ colleges: [two[0]], sections: one, collegeId: 0, sectionId: 0, allLabel: false }).college === 2, "كليةٌ وحيدة غير مختارة: تُختار أولاً");
+    check(JSON.stringify(advisingAutoPick({ colleges: two, sections: one, collegeId: 2, sectionId: 9, allLabel: false })) === '{"college":0,"section":0}', "المختار لا يُعاد اختياره");
+    check(advisingAutoPick({ colleges: two, sections: one, collegeId: 0, sectionId: 0, allLabel: true }).section === 0, "الرادار («الكل») لا يختار شيئاً تلقائياً");
+    check(picker.includes("if (auto.section) onSection(auto.section)"), "والاختيار يُرسَل من المنتقي نفسه (onSection)");
+  }
   const registration = read("src/components/StudentRegistration.tsx");
   check(registration.includes("action={<AdvisingScopePicker") && !registration.includes('{ key: "college", label: "الكلية"'), "كشف التسجيل: الكلية والقسم في الرأس، والفصل في الشريط");
   const radar = read("src/components/RegistrationRehearsal.tsx");
