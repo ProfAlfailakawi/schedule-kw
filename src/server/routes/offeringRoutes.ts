@@ -170,7 +170,7 @@ app.get("/api/ta-phase", requirePermission(7), async (req: AuthenticatedRequest,
   await dispatchTaWaves(id, req.user || {}).catch(() => []);
   const family = await staffFamilyScopes(collegeId, sectionId);
   const [doc, instructors, courses, rowsByScope, staffLinks, requests] = await Promise.all([
-    Repository.getFeatureDoc<TaPhaseDoc>("taPhases", id), Repository.getInstructors(), Repository.getCourses(),
+    Repository.getFeatureDoc<TaPhaseDoc>("taPhases", id), Repository.getInstructors(termId), Repository.getCourses(),
     Promise.all(family.map(scope => Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId }))),
     staffFamilyShareLinks(collegeId, sectionId, termId),
     Promise.all(family.map(scope => Repository.getInstructorRequests(scope.collegeId, scope.sectionId, termId))),

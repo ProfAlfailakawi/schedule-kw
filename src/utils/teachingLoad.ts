@@ -201,27 +201,43 @@ export function instructorLoadPolicy(config: TeachingLoadConfig, instructorId: n
   return { min: limits.min, max: limits.max, overtime: limits.extra, ceiling: limits.allowed, rankName: limits.rank?.name || "", exception: limits.exception };
 }
 
-/** يضيف `LoadPolicy` إلى نسخٍ من الأعضاء (لا يمسّ الأصل ولا `AdInstructorLoad`). معطَّلةً: القائمةُ كما هي. */
+/**
+ * يضيف `LoadPolicy` إلى نسخٍ من الأعضاء (لا يمسّ الأصل ولا `AdInstructorLoad`)، محسوباً في سياق الفصل المعطى.
+ * ويُسقط نصاباً فعّالاً قديماً حُسب لفصلٍ آخر إن لم يبقَ له نصابٌ في هذا الفصل (استثناءٌ انتهى ولا درجة).
+ * معطَّلةً: القائمةُ كما هي.
+ */
 export function withLoadPolicies<T extends { AdInstructorId: number }>(people: readonly T[], config: TeachingLoadConfig, context: LoadTermContext = {}): T[] {
   if (!config.enabled) return people as T[];
   return people.map(person => {
     const policy = instructorLoadPolicy(config, Number(person.AdInstructorId), context);
-    return policy ? { ...person, LoadPolicy: policy } : person;
+    if (policy) return { ...person, LoadPolicy: policy };
+    if (!(person as any).LoadPolicy) return person;
+    const { LoadPolicy: _stale, ...rest } = person as any;
+    return rest as T;
   });
 }
 
 type LoadBearer = Pick<AdInstructor, "AdInstructorLoad" | "LoadPolicy"> | null | undefined;
-/** السقفُ الذي يُقاس عليه «تجاوز النصاب» في كل مكان: سقفُ الدرجة/الاستثناء إن ضُبط، وإلا النصابُ المسجّل. */
-export function loadCapOf(person: LoadBearer): number {
+/**
+ * السقفُ الذي يُقاس عليه «تجاوز النصاب» في كل مكان: سقفُ الدرجة/الاستثناء إن ضُبط، وإلا النصابُ المسجّل،
+ * وإلا null (لا قيد). والصفرُ الصريح (إعفاءٌ كامل: أعلى 0 وإضافيّ 0) قيدٌ حقيقي لا «لا قيد».
+ */
+export function loadLimitOf(person: LoadBearer): number | null {
   const policy = person?.LoadPolicy;
-  if (policy && Number(policy.ceiling) > 0) return Math.round(Number(policy.ceiling));
-  return Number(person?.AdInstructorLoad || 0) || 0;
+  if (policy && Number.isFinite(Number(policy.ceiling))) return Math.max(0, Math.round(Number(policy.ceiling)));
+  const own = Number(person?.AdInstructorLoad || 0);
+  return own > 0 ? own : null;
 }
-/** للحلقات: النصابُ (الأعلى) وإضافيّه منفصلَين، ليُرسم الإضافيُّ بلونٍ هادئ لا كتجاوز. */
-export function loadNisabOf(person: LoadBearer): { nisab: number; overtime: number; exception: boolean } {
+/** الرقمُ نفسه للعرض والحساب حيث «لا قيد» = 0 (قائمةٌ أو رقمٌ يُطبع). لا يُستعمل حيث يجب التمييز. */
+export function loadCapOf(person: LoadBearer): number {
+  return loadLimitOf(person) ?? 0;
+}
+/** للحلقات: النصابُ (الأعلى) وإضافيّه منفصلَين، ليُرسم الإضافيُّ بلونٍ هادئ لا كتجاوز. `limited`: للعضو قيدٌ ولو صفراً. */
+export function loadNisabOf(person: LoadBearer): { nisab: number; overtime: number; exception: boolean; limited: boolean } {
   const policy = person?.LoadPolicy;
-  if (policy && Number(policy.max) > 0) return { nisab: Math.round(Number(policy.max)), overtime: Math.max(0, Math.round(Number(policy.overtime || 0))), exception: Boolean(policy.exception) };
-  return { nisab: Number(person?.AdInstructorLoad || 0) || 0, overtime: 0, exception: false };
+  if (policy && Number.isFinite(Number(policy.max))) return { nisab: Math.max(0, Math.round(Number(policy.max))), overtime: Math.max(0, Math.round(Number(policy.overtime || 0))), exception: Boolean(policy.exception), limited: true };
+  const own = Number(person?.AdInstructorLoad || 0) || 0;
+  return { nisab: own, overtime: 0, exception: false, limited: own > 0 };
 }
 
 export type TeachingLoadState = "unset" | "under" | "within" | "overtime" | "over";

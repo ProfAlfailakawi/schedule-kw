@@ -167,7 +167,7 @@ export function LoadExceptionEditor({ name, ranks, value, terms, hours = 0, read
             <SecondaryButton type="button" disabled={readOnly || busy} data-guide-ignore="إزالة استثناء نصاب العضو فيعود إلى نصاب درجته؛ لا يغيّر جدولاً"
               onClick={() => onApply(clean({ rankId: draft.rankId }))}>إزالة الاستثناء</SecondaryButton>
           ) : null}
-          <GhostButton type="button" onClick={onClose}>تراجع</GhostButton>
+          <GhostButton type="button" data-guide-ignore="يغلق محرّر استثناء النصاب بلا تطبيق؛ لا يغيّر شيئاً" onClick={onClose}>تراجع</GhostButton>
         </div>
       </div>
     </CatalogFormDrawer>

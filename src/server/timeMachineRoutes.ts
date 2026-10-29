@@ -41,7 +41,8 @@ export interface TimeMachineDeps {
   hallsFor: (collegeId: number, sectionId: number, termId: number) => Promise<TmHall[]>;
   instructorsFor: (collegeId: number, sectionId: number, termId: number) => Promise<AdInstructor[]>;
   coursesFor: (sectionId: number) => Promise<AdCourse[]>;
-  loadLimits: (instructors: AdInstructor[]) => Promise<Record<string, number>>;
+  /** سقفُ كل عضوٍ في الفصل المُحاكى (`termId`): مفتاحٌ لمن له قيد — والصفرُ قيد. */
+  loadLimits: (instructors: AdInstructor[], termId: number) => Promise<Record<string, number>>;
   termFrozen: (termId: number) => Promise<string | null>;
   dryRunUpdate: (req: any, rowId: number, body: any, week: FSchedule[]) => Promise<InnerResult>;
   dryRunCreate: (req: any, body: any, week: FSchedule[]) => Promise<InnerResult>;
@@ -145,7 +146,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
       scope: { collegeId, sectionId, termId, sectionName: String(section?.AdSectionName || ""), termName: String((term as any)?.AdTermName || "") },
       rows, outside: maskOutside(outsideRaw, teacherIds), courses, instructors, halls,
       demand: demand && Object.keys(demand).length ? demand : null,
-      loadLimits: await deps.loadLimits(instructors),
+      loadLimits: await deps.loadLimits(instructors, termId),
       canWrite: await deps.canWrite(req),
       live: termRows,
     };

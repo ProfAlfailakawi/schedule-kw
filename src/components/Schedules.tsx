@@ -9669,6 +9669,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               teacherName={instructorById.get(Number(form.AdInstructorId))?.AdInstructorName || ""}
               nisab={loadNisabOf(instructorById.get(Number(form.AdInstructorId))).nisab}
               overtime={loadNisabOf(instructorById.get(Number(form.AdInstructorId))).overtime}
+              limited={loadNisabOf(instructorById.get(Number(form.AdInstructorId))).limited}
               visiting={formVisiting(form.AdInstructorId)}
               rows={rows}
               termId={Number(form.AdTermId || filterTerm || 0)}
@@ -12577,7 +12578,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           departmentIds={departmentInstructorIds}
           visitingIds={visitingIds}
           visitingRosterIds={pickerVisitingRosterIds}
-          miniWeek={{ rows, courses: courseById, window: miniWeekWindow, userId: Number(user?.SystemUserId || 0), nisabOf: (id: number) => loadNisabOf(instructorById.get(id)).nisab, overtimeOf: (id: number) => loadNisabOf(instructorById.get(id)).overtime, nameOf: (id: number) => instructorById.get(id)?.AdInstructorName || "", isPlaceholder: isFacultyPlaceholderId }}
+          miniWeek={{ rows, courses: courseById, window: miniWeekWindow, userId: Number(user?.SystemUserId || 0), nisabOf: (id: number) => loadNisabOf(instructorById.get(id)).nisab, overtimeOf: (id: number) => loadNisabOf(instructorById.get(id)).overtime, limitedOf: (id: number) => loadNisabOf(instructorById.get(id)).limited, nameOf: (id: number) => instructorById.get(id)?.AdInstructorName || "", isPlaceholder: isFacultyPlaceholderId }}
           saving={saving}
           error={quickError}
           onCancel={() => { setQuick(null); setQuickError(null); }}

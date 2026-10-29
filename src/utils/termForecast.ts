@@ -33,7 +33,7 @@ import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { AR, countOf } from "./arabicCount";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
 import { roomIdentityKey } from "./locationRegistry";
-import { loadCapOf } from "./teachingLoad";
+import { loadLimitOf } from "./teachingLoad";
 
 export type ForecastRiskKind = "shortage" | "overflow" | "overload" | "unroomed" | "capacity";
 export interface ForecastRisk { kind: ForecastRiskKind; tone: "danger" | "warning" | "info"; text: string }
@@ -111,8 +111,8 @@ export function computeTermForecast(input: ForecastInput): TermForecast {
   let overloaded = 0;
   let firstOverloaded = "";
   for (const instructor of input.instructors) {
-    const limit = loadCapOf(instructor);
-    if (limit <= 0) continue;
+    const limit = loadLimitOf(instructor);
+    if (limit === null) continue;
     const mine = byInstructor.get(Number(instructor.AdInstructorId));
     if (mine && weeklyLoadOf(mine, courseOf as Map<number, AdCourse>) > limit) {
       if (!overloaded) firstOverloaded = String(instructor.AdInstructorName || "");

@@ -468,7 +468,7 @@ function metricCard(o){var b=o.b,a=o.a,known=(b!=null&&a!=null),same=known&&Math
   if(o.warn)h+=o.warn}
  return h+'</div>'}
 function impactHtml(){var S=D.schedule;if(!S)return "";var b=S.before.metrics,a=S.after.metrics,cap=S.loadCap,u=function(n){return countOf(n,CRED)};
- var warn="";if(cap&&a.loadUnits!=null&&a.loadUnits>cap)warn='<div class="warn">'+ic("alert")+'يتجاوز النصاب التدريسي المسجّل ('+esc(cap)+') بمقدار '+esc(countOf(a.loadUnits-cap,CRED))+'</div>';
+ var warn="";if(cap!=null&&a.loadUnits!=null&&a.loadUnits>cap)warn='<div class="warn">'+ic("alert")+'يتجاوز النصاب التدريسي المسجّل ('+esc(cap)+') بمقدار '+esc(countOf(a.loadUnits-cap,CRED))+'</div>';
  var cards=[
  {icon:"book",label:"النصاب التدريسي",b:b.loadUnits,a:a.loadUnits,fmt:function(v){return esc(u(v))},delta:function(v){return esc(u(v))},sub:cap?"النصاب التدريسي المسجّل: "+esc(countOf(cap,AR.hour)):"",missing:"ساعات مقرراتك غير مسجّلة لدى القسم بعد.",warn:warn},
  {icon:"grid",label:"عدد الشعب",b:b.sections,a:a.sections,fmt:function(v){return esc(countOf(v,AR.section))},delta:function(v){return esc(countOf(v,AR.section))}},

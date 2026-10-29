@@ -10,7 +10,7 @@ import { reservationRows } from "../utils/instructorRequestReservations";
 import { approvedBarterReservation, borrowerOutsideApprovedWindow, hallBarterWindows, scheduleViolatesApprovedBarterWindow, scheduleOccupiesApprovedBarterWindow, approvedBarterWindowMatchesSchedule, type ApprovedHallWindow } from "../utils/hallBarterWindow";
 import { clockRangesOverlap } from "../utils/scheduleTime";
 import { findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
-import { TEACHING_LOAD_DOC_ID, loadCapOf, loadTermContext, normalizeTeachingLoadConfig, withLoadPolicies } from "../utils/teachingLoad";
+import { TEACHING_LOAD_DOC_ID, loadLimitOf, loadTermContext, normalizeTeachingLoadConfig, withLoadPolicies } from "../utils/teachingLoad";
 import { normalizeArabicText } from "../utils/arabicText";
 import fs from "fs";
 import { chooseStudentCaseSecret, STUDENT_CASE_SECRET_CONFLICT_MESSAGE, type StudentCaseSecretChoice } from "../server/studentCaseSecret";
@@ -359,14 +359,17 @@ const db = new Proxy({} as DBState, {
  * ── النصابُ الفعّال عند القراءة ─────────────────────────────────────────────
  *
  * كلُّ من يقرأ عضواً من هنا يجد عليه `LoadPolicy` إن فُعّلت «الدرجات العلمية» وضُبط له نصاب (استثناؤه
- * الساري في الفصل الجاري، وإلا درجتُه)، فيقيس كلُّ حسابٍ للنصاب (`loadCapOf`) على الرقم نفسه: الحلقات،
+ * الساري في الفصل المحسوب، وإلا درجتُه)، فيقيس كلُّ حسابٍ للنصاب (`loadLimitOf`) على الرقم نفسه: الحلقات،
  * والاعتماد، والتخطيط، وآلة الزمن. نسخٌ لا تمسّ المخزَّن ولا `AdInstructorLoad`، ولا تُكتب أبداً.
+ *
+ * الفصلُ مهمّ: استثناءٌ ينتهي بفصلٍ لا يسري على ما بعده، ويبقى لما قبله. فمن يحسب لفصلٍ بعينه (طلبُ أستاذ،
+ * مقترح، تخطيط، اعتماد) يمرّر `loadTermId`؛ وبلا فصلٍ يُحسب للفصل الجاري (القوائم العامة).
  */
-async function withManagedLoad<T extends AdInstructor>(people: T[]): Promise<T[]> {
+async function withManagedLoad<T extends AdInstructor>(people: T[], loadTermId = 0): Promise<T[]> {
   const config = await Repository.getTeachingLoadConfig();
   if (!config.enabled || !people.length) return people;
   const terms = await Repository.getTerms();
-  return withLoadPolicies(people, config, loadTermContext(terms as any, currentTermId(terms as any)));
+  return withLoadPolicies(people, config, loadTermContext(terms as any, Number(loadTermId) || currentTermId(terms as any)));
 }
 
 function scopedCachedReference<T>(key: string, loader: () => Promise<T>): Promise<T> {
@@ -3355,13 +3358,14 @@ export const Repository = {
   },
 
   // Instructors
-  getInstructors: async (): Promise<AdInstructor[]> => withManagedLoad(await scopedCachedReference(REFERENCE_KEYS.instructors, async () => {
+  /** `loadTermId`: الفصلُ الذي يُحسب فيه النصاب الفعّال (انتهاءُ الاستثناء)؛ بلا فصلٍ = الفصل الجاري. */
+  getInstructors: async (loadTermId = 0): Promise<AdInstructor[]> => withManagedLoad(await scopedCachedReference(REFERENCE_KEYS.instructors, async () => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const snap = await firestoreDb.collection("instructors").orderBy("AdInstructorId", "asc").get();
       return sortByName(snap.docs.map(doc => doc.data() as AdInstructor), person => person.AdInstructorName);
     }
     return sortByName(db.instructors, person => person.AdInstructorName);
-  })),
+  }), loadTermId),
 
   /**
    * Resolve only the people referenced by the open department/term.
@@ -3378,26 +3382,29 @@ export const Repository = {
         `${INSTRUCTOR_IDS_PREFIX}${sectionId}`,
         () => firestoreDepartmentInstructorIdsAllTime(sectionId),
       );
-      return withManagedLoad(await firestoreInstructorsByIds(allTimeIds));
+      return withManagedLoad(await firestoreInstructorsByIds(allTimeIds), Number(filters.termId || 0));
     }
     const rows = await Repository.getSchedulesByScope(filters);
     const ids = [...new Set(rows.map(row => Number(row.AdInstructorId)).filter(Boolean))];
     if (!ids.length) return [];
-    if (firestoreLive) return withManagedLoad(await firestoreInstructorsByIds(ids));
+    if (firestoreLive) return withManagedLoad(await firestoreInstructorsByIds(ids), Number(filters.termId || 0));
     const wanted = new Set(ids);
-    return withManagedLoad(sortByName(db.instructors.filter(person => wanted.has(Number(person.AdInstructorId))), person => person.AdInstructorName));
+    return withManagedLoad(sortByName(db.instructors.filter(person => wanted.has(Number(person.AdInstructorId))), person => person.AdInstructorName), Number(filters.termId || 0));
   },
 
   getInstructorsByScope: async (sectionId: number, termId = 0): Promise<AdInstructor[]> =>
     Repository.getInstructorsByScheduleScope({ sectionId, termId }),
 
-  getInstructorById: async (id: number): Promise<AdInstructor | undefined> => {
+  /** النصابُ الفعّال لقائمةٍ جُمعت من غير هنا (روستر المنتدبين…) في فصلٍ بعينه. */
+  withLoadForTerm: async <T extends AdInstructor>(people: T[], loadTermId: number): Promise<T[]> => withManagedLoad(people, loadTermId),
+
+  getInstructorById: async (id: number, loadTermId = 0): Promise<AdInstructor | undefined> => {
     let person: AdInstructor | undefined;
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const doc = await firestoreDb.collection("instructors").doc(`instructor_${id}`).get();
       person = doc.exists ? (doc.data() as AdInstructor) : undefined;
     } else person = db.instructors.find(i => i.AdInstructorId === id);
-    return person ? (await withManagedLoad([person]))[0] : undefined;
+    return person ? (await withManagedLoad([person], loadTermId))[0] : undefined;
   },
 
   getInstructorByCivil: async (civil: string): Promise<AdInstructor | undefined> => {
@@ -5418,7 +5425,7 @@ export const Repository = {
     normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
     validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>): Promise<{ request: InstructorRequest; rows: FSchedule[] }> => {
     const termId = Number(request.AdTermId);
-    const [loadPerson, loadCourses] = await Promise.all([Repository.getInstructorById(Number(request.AdInstructorId)), Repository.getCourses()]);
+    const [loadPerson, loadCourses] = await Promise.all([Repository.getInstructorById(Number(request.AdInstructorId), termId), Repository.getCourses()]);
     const courseMap = new Map(loadCourses.map(course => [Number(course.AdCourseId), course]));
     const adding = operations.some(op => request.items[op.itemIndex]?.action === "add");
     const count = operations.filter(op => op.kind === "create").length;
@@ -5456,7 +5463,8 @@ export const Repository = {
       const remaining = retainRequestReservations(entries, next);
       const loadWeek = [...finalWeek.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId)),
         ...reservationRows(remaining.filter(entry => entry.instructorId === Number(request.AdInstructorId)), termId)];
-      if (adding && loadCapOf(loadPerson) > 0 && weeklyLoadOf(loadWeek, courseMap) > loadCapOf(loadPerson))
+      const loadLimit = loadLimitOf(loadPerson);
+      if (adding && loadLimit !== null && weeklyLoadOf(loadWeek, courseMap) > loadLimit)
         throw new RequestReservationConflict("تغيّر نصاب الأستاذ أثناء الاعتماد. راجع الطلب والجدول.");
       return { request: next, rows: written, entries: remaining, finalWeek };
     };
@@ -5539,13 +5547,14 @@ export const Repository = {
     let next: InstructorRequest = { ...row, updatedAt: now, requestRevision: Number(row.requestRevision || 0) + 1 };
     const checkingLoad = proposals && next.items.some(item => item.action === "add" && item.decision?.state !== "fixed" && item.decision?.state !== "rejected");
     const [loadPerson, loadCourses] = checkingLoad
-      ? await Promise.all([Repository.getInstructorById(Number(next.AdInstructorId)), Repository.getCourses()]) : [undefined, []];
+      ? await Promise.all([Repository.getInstructorById(Number(next.AdInstructorId), termId), Repository.getCourses()]) : [undefined, []];
     const courseMap = new Map(loadCourses.map(course => [Number(course.AdCourseId), course]));
     const checkLoad = (week: FSchedule[], entries: RequestReservation[]) => {
-      if (!(loadCapOf(loadPerson) > 0)) return;
+      const loadLimit = loadLimitOf(loadPerson);
+      if (loadLimit === null) return;
       const projected = instructorWeekAfter(next, week);
       const others = reservationRows(entries.filter(entry => entry.requestId !== next.id && entry.instructorId === Number(next.AdInstructorId)), termId);
-      if (weeklyLoadOf([...projected, ...others], courseMap) > loadCapOf(loadPerson))
+      if (weeklyLoadOf([...projected, ...others], courseMap) > loadLimit)
         throw new RequestReservationConflict("تجاوز مجموع الطلبات والجدول نصابك المسجّل. راجع اختياراتك.");
     };
     const checkRevision = (current?: InstructorRequest) => {

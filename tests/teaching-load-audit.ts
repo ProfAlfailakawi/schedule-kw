@@ -5,10 +5,11 @@
 import fs from "node:fs";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
 import {
-  emptyTeachingLoadConfig, evaluateTeachingLoad, hoursLabel, instructorLoadPolicy, loadCapOf, loadNisabOf, loadTermContext, normalizeTeachingLoadConfig,
+  emptyTeachingLoadConfig, evaluateTeachingLoad, hoursLabel, instructorLoadPolicy, loadCapOf, loadLimitOf, loadNisabOf, loadTermContext, normalizeTeachingLoadConfig,
   parseWholeHours, teachingHoursByInstructor, teachingLoadLimits, teachingLoadProblem, withLoadPolicies,
 } from "../src/utils/teachingLoad";
 import { loadRing } from "../src/utils/taPhase";
+import { limitOf } from "../src/utils/timeMachine";
 import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
@@ -131,6 +132,52 @@ check(parseWholeHours("8.5").value === 9 && parseWholeHours("8.5").rounded && pa
   check(withLoadPolicies(people, { ...cfg3, enabled: false }) === people && instructorLoadPolicy({ ...cfg3, enabled: false }, 1) === null, "معطَّلةً: لا تزيين — كلُّ شيءٍ كما كان");
 }
 
+/* ── ٣ب) الصفرُ الصريح ليس «لا قيد» (مراجعة PR #309) ── */
+{
+  const cfgZ = normalizeTeachingLoadConfig({
+    enabled: true, ranks: [{ id: "p", name: "أستاذ", minHours: 9, maxHours: 12, overtimeHours: 3 }],
+    assignments: { "1": { rankId: "p", minHours: 0, maxHours: 0, extraHours: 0, reason: "sabbatical" } },
+  });
+  const [relieved, free] = withLoadPolicies([{ AdInstructorId: 1, AdInstructorLoad: 18 }, { AdInstructorId: 9 }] as any[], cfgZ);
+  check(relieved.LoadPolicy?.ceiling === 0 && relieved.LoadPolicy?.exception?.reason === "sabbatical", "الإعفاءُ الكامل (أعلى 0 وإضافيّ 0) نصابٌ فعّالٌ بسقف 0، وتبقى شارةُ «استثناء»");
+  check(loadLimitOf(relieved) === 0 && loadCapOf(relieved) === 0, "loadLimitOf: الصفرُ الصريح صفر — لا يعود إلى النصاب المسجّل (18)");
+  check(loadLimitOf(free) === null && loadLimitOf({ AdInstructorLoad: 12 } as any) === 12, "لا نصاب = null (لا قيد)، والنصابُ المسجّل يبقى إن لم يُضبط شيء");
+  const nz = loadNisabOf(relieved);
+  check(nz.nisab === 0 && nz.limited && nz.exception && !loadNisabOf(free).limited, "الحلقة تعرف أن للمُعفى قيداً صفراً");
+  check(evaluateTeachingLoad(cfgZ, 1, 3).state === "over" && evaluateTeachingLoad(cfgZ, 1, 3).excess === 3, "مُعفىً بثلاث ساعات ← تجاوزُ ثلاث");
+  check(loadRing(3, 0, 0, true)?.tone === "full" && loadRing(3, 0, 0, true)?.ratio === 1 && loadRing(3, 0) === null, "حلقة المدرّب: الصفرُ الصريح قيدٌ يمتلئ بأي ساعة، وغيابُ النصاب لا حلقة");
+  check(limitOf({ loadLimits: { "1": 0 } }, 1) === 0 && limitOf({ loadLimits: {} }, 1) === null, "آلة الزمن: مفتاحٌ بصفر = قيد، وغيابُ المفتاح = لا قيد");
+}
+
+/* ── ٣ج) الاستثناءُ يُحسب في فصل الحساب لا في الفصل الجاري ── */
+{
+  const cfgT = normalizeTeachingLoadConfig({
+    enabled: true, ranks: [{ id: "p", name: "أستاذ", minHours: 9, maxHours: 12, overtimeHours: 2 }],
+    assignments: { "1": { rankId: "p", maxHours: 6, extraHours: 0, reason: "admin", untilTermId: 10 }, "2": { maxHours: 4, reason: "task", untilTermId: 10 } },
+  });
+  const terms = [{ AdTermId: 9, AdTermName: "الفصل الثاني 2025/2026" }, { AdTermId: 10, AdTermName: "الفصل الأول 2026/2027" }, { AdTermId: 11, AdTermName: "الفصل الثاني 2026/2027" }];
+  const atCurrent = withLoadPolicies([{ AdInstructorId: 1 }, { AdInstructorId: 2 }] as any[], cfgT, loadTermContext(terms, 10));
+  check(loadLimitOf(atCurrent[0]) === 6 && loadLimitOf(atCurrent[1]) === 4, "في فصل الاستثناء: سقفُه الخاص");
+  const future = withLoadPolicies(atCurrent, cfgT, loadTermContext(terms, 11));
+  check(loadLimitOf(future[0]) === 14 && future[0].LoadPolicy?.exception === null, "فصلٌ بعده: يعود إلى درجته (12+2) ولو كان مزيَّناً للفصل الجاري");
+  check(future[1].LoadPolicy === undefined && loadLimitOf(future[1]) === null, "استثناءٌ انتهى بلا درجة: يُسقَط النصابُ القديم ولا يبقى عالقاً");
+  const history = withLoadPolicies([{ AdInstructorId: 1 }] as any[], cfgT, loadTermContext(terms, 9));
+  check(loadLimitOf(history[0]) === 6, "التاريخ يحفظ حدوده: فصلٌ قبل الانتهاء يبقى على الاستثناء");
+  const repo = fs.readFileSync("src/db/repository.ts", "utf8");
+  check(repo.includes("getInstructors: async (loadTermId = 0)") && repo.includes("getInstructorById: async (id: number, loadTermId = 0)") && repo.includes("Number(loadTermId) || currentTermId(terms as any)") && repo.includes('withManagedLoad(await firestoreInstructorsByIds(ids), Number(filters.termId || 0))'), "القراءةُ تأخذ فصلَ الحساب (وبلا فصلٍ: الجاري)");
+  check(repo.includes("Repository.getInstructorById(Number(request.AdInstructorId), termId)") && repo.includes("Repository.getInstructorById(Number(next.AdInstructorId), termId)"), "الاعتماد يحسب النصاب في فصل الطلب");
+  const sitesT: Array<[string, string]> = [
+    ["src/server/core/instructorRequests.ts", "Repository.getInstructors(Number(request.AdTermId))"],
+    ["src/server/routes/publicRequestRoutes.ts", "Repository.getInstructors(Number(request.AdTermId)), Repository.getTerms()"],
+    ["src/server/studyProposalEngine.ts", "Repository.getInstructors(termId) as Promise<AdInstructor[]>"],
+    ["src/server/routes/intelligenceRoutes.ts", "Repository.getInstructors(Number(selected.AdTermId))"],
+    ["src/server/routes/offeringRoutes.ts", "Repository.getInstructors(termId), Repository.getCourses()"],
+    ["src/server/routes/instructorsRoutes.ts", "Repository.withLoadForTerm("],
+  ];
+  for (const [file, text] of sitesT) check(fs.readFileSync(file, "utf8").includes(text), `${file}: النصابُ في فصل الحساب`);
+  check(!fs.readFileSync("src/server/routes/planningRoutes.ts", "utf8").includes("Repository.getInstructors()"), "التخطيط والتنبّؤ: النصابُ في الفصل المخطَّط له");
+}
+
 /* ── ٤) ترتيبُ الدرجات محفوظ ── */
 {
   const order = normalizeTeachingLoadConfig({ ranks: [{ id: "c", name: "مدرّس", minHours: 1, maxHours: 2 }, { id: "a", name: "أستاذ دكتور", minHours: 1, maxHours: 2 }, { id: "b", name: "أستاذ مساعد", minHours: 1, maxHours: 2 }] });
@@ -160,24 +207,29 @@ check(/Math\.round\(loadRaw\)/.test(server) && fs.readFileSync("src/db/repositor
 /* ── كلُّ موضعٍ يقيس النصاب يقرأ الاستثناء ثم الدرجة (loadCapOf) ── */
 {
   const repo = fs.readFileSync("src/db/repository.ts", "utf8");
-  check(/getInstructors: async \(\): Promise<AdInstructor\[\]> => withManagedLoad\(/.test(repo) && repo.includes("return person ? (await withManagedLoad([person]))[0]") && repo.split("withManagedLoad(").length >= 5, "القراءةُ تزيّن كلَّ عضوٍ بنصابه الفعّال (الكل، والنطاق، والواحد)");
-  check(repo.includes("loadCapOf(loadPerson) > 0 && weeklyLoadOf(loadWeek, courseMap) > loadCapOf(loadPerson)") && repo.includes("> loadCapOf(loadPerson))"), "الاعتماد: سقفُ طلب الأستاذ هو سقفُ درجته/استثنائه");
+  check(/getInstructors: async \(loadTermId = 0\): Promise<AdInstructor\[\]> => withManagedLoad\(/.test(repo) && repo.includes("return person ? (await withManagedLoad([person], loadTermId))[0]") && repo.split("withManagedLoad(").length >= 5, "القراءةُ تزيّن كلَّ عضوٍ بنصابه الفعّال (الكل، والنطاق، والواحد)");
+  check(repo.includes("adding && loadLimit !== null && weeklyLoadOf(loadWeek, courseMap) > loadLimit") && repo.includes("if (loadLimit === null) return;") && repo.includes("> loadLimit)"), "الاعتماد: سقفُ طلب الأستاذ هو سقفُ درجته/استثنائه، والصفرُ الصريح قيد");
   check(repo.includes("invalidateReference(REFERENCE_KEYS.teachingLoad)") && repo.includes("scopedCachedReference(REFERENCE_KEYS.teachingLoad"), "إعدادُ النصاب في الذاكرة القصيرة ويسقط مع كل حفظ");
   const sites: Array<[string, RegExp]> = [
-    ["src/server/core/instructorRequests.ts", /instructorLoad: loadCapOf\(/],
-    ["src/server/routes/publicRequestRoutes.ts", /const load = loadCapOf\(/],
-    ["src/server/routes/publicRequestRoutes.ts", /loadRing\(taHours, loadNisabOf\(person\)\.nisab, loadNisabOf\(person\)\.overtime\)/],
-    ["src/server/routes/intelligenceRoutes.ts", /quota:loadCapOf\(instructor\)/],
-    ["src/server/studyProposalEngine.ts", /const loadCap = loadCapOf\(world\.instructor\)/],
-    ["src/server/studyProposalRoutes.ts", /loadCap: loadCapOf\(world\.instructor\)/],
+    ["src/server/core/instructorRequests.ts", /instructorLoad: loadLimitOf\(/],
+    ["src/server/routes/publicRequestRoutes.ts", /const load = loadLimitOf\(/],
+    ["src/server/routes/publicRequestRoutes.ts", /load !== null && weeklyLoadOf\(mine/],
+    ["src/server/routes/publicRequestRoutes.ts", /loadRing\(taHours, loadNisabOf\(person\)\.nisab, loadNisabOf\(person\)\.overtime, loadNisabOf\(person\)\.limited\)/],
+    ["src/server/routes/intelligenceRoutes.ts", /quota:loadLimitOf\(instructor\)/],
+    ["src/server/studyProposalEngine.ts", /const loadCap = loadLimitOf\(world\.instructor\)/],
+    ["src/server/studyProposalEngine.ts", /loadCap !== null && after\.loadUnits/],
+    ["src/server/studyProposalRoutes.ts", /loadCap: loadLimitOf\(world\.instructor\)/],
     ["src/server/routes/offeringRoutes.ts", /load: loadCapOf\(row\)/],
     ["src/utils/sectionOpening.ts", /const limit = loadCapOf\(person\)/],
-    ["src/utils/termForecast.ts", /const limit = loadCapOf\(instructor\)/],
+    ["src/utils/termForecast.ts", /const limit = loadLimitOf\(instructor\);\n\s*if \(limit === null\) continue;/],
+    ["src/utils/instructorRequestVerdict.ts", /request\.action === "add" && declared !== null/],
+    ["src/utils/rowReasons.ts", /input\.quota !== null && input\.quota !== undefined && quota >= 0/],
     ["src/components/Schedules.tsx", /nisab=\{loadNisabOf\(/],
     ["src/components/Schedules.tsx", /overtimeOf: \(id: number\) => loadNisabOf\(/],
   ];
   for (const [file, pattern] of sites) check(pattern.test(fs.readFileSync(file, "utf8")), `${file}: يقيس على النصاب الفعّال`);
-  check(/withLoadPolicies\(instructors, config\)\.map\(person => \[String\(person\.AdInstructorId\), loadCapOf\(person\)\]/.test(server), "آلة الزمن: السقفُ نفسه (الأعلى + الإضافي)");
+  check(/loadLimits: async \(instructors, termId\) =>/.test(server) && /withLoadPolicies\(instructors, config, loadTermContext\(terms as any, termId\)\)/.test(server) && server.includes("entry[1] !== null"), "آلة الزمن: السقفُ نفسه في الفصل المُحاكى، والصفرُ الصريح يُرسَل");
+  check(fs.readFileSync("src/server/timeMachineRoutes.ts", "utf8").includes("loadLimits: await deps.loadLimits(instructors, termId)"), "آلة الزمن تمرّر فصلها إلى حساب السقف");
   const evaluators = ["src/server/core/instructorRequests.ts", "src/server/routes/publicRequestRoutes.ts", "src/server/routes/intelligenceRoutes.ts", "src/server/studyProposalEngine.ts", "src/server/studyProposalRoutes.ts", "src/server/routes/offeringRoutes.ts", "src/utils/sectionOpening.ts", "src/utils/termForecast.ts"];
   check(evaluators.every(file => !/AdInstructorLoad\b[^\n]*\|\|/.test(fs.readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").replace(/"[^"\n]*"/g, ""))), "لا قراءةَ خامٍ لـAdInstructorLoad في مواضع قياس النصاب");
 }

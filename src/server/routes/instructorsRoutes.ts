@@ -78,7 +78,9 @@ function maskCivilTail(civil: unknown): string {
 }
 
 async function instructorsForScope<T extends { AdInstructorId: number; AdInstructorCivil?: string; AdInstructorMobile?: string }>(req: AuthenticatedRequest, list: T[], exactCivil = ""): Promise<T[]> {
-  const readable = instructorsForReader(req, list).map(withoutFacultyPlaceholderCivil);
+  /* النصابُ الفعّال في الفصل المعروض (استثناءٌ انتهى قبله لا يسري). */
+  const loadTermId = Number((req.query as any)?.termId || 0);
+  const readable = (loadTermId ? await Repository.withLoadForTerm(instructorsForReader(req, list) as any[], loadTermId) as T[] : instructorsForReader(req, list)).map(withoutFacultyPlaceholderCivil);
   const circle = await instructorCircleFor(req);
   if (!circle) return readable;
   return readable.map(person => circle.has(Number(person.AdInstructorId)) || (exactCivil && String(person.AdInstructorCivil || "").trim() === exactCivil)
