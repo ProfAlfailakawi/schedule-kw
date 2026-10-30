@@ -7,7 +7,7 @@
 import { spawn, type ChildProcess } from "child_process";
 import { waitForDemoSeed } from "./helpers/demoSeed";
 
-const PORT = Number(process.env.TA_FLOW_PORT || 3500 + Math.floor(Math.random() * 300));
+const PORT = Number(process.env.TA_FLOW_PORT || 3500 + Math.floor(Math.random() * 100));
 const BASE = `http://127.0.0.1:${PORT}`;
 let passed = 0, failed = 0;
 const check = (ok: unknown, label: string, extra?: unknown) => {

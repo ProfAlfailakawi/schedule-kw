@@ -74,6 +74,7 @@ test:inbox-proposal-pickers-r2
 test:teacher-card-hours-patterns
 test:teacher-card-logic
 test:approved-patterns
+test:import-review-rows
 test:voice-input
 test:staff-device
 test:study-proposal-page

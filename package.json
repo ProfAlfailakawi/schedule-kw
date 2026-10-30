@@ -46,6 +46,7 @@
     "test:teacher-card-hours-patterns": "tsx tests/teacher-card-hours-patterns-audit.ts",
     "test:teacher-card-logic": "tsx tests/teacher-card-logic-audit.ts",
     "test:approved-patterns": "tsx tests/approved-patterns-audit.ts",
+    "test:import-review-rows": "tsx tests/import-review-rows-audit.ts",
     "test:lecture-length": "tsx tests/lecture-length-audit.ts",
     "test:appointment-entry-parity": "tsx tests/appointment-entry-parity-audit.ts",
     "test:appointment-forms": "tsx tests/appointment-forms-audit.ts",
