@@ -9,8 +9,10 @@
 import type { Express } from "express";
 import { academicAdviceForScope } from "../academicAdvisoryData";
 import { appendRequestThread, THREAD_TEXT_LIMIT, negotiationState } from "../../utils/instructorRequestThread";
-import { historicalLectureMinutes, buildHistoricalTimeModel } from "../../utils/advancedIntelligence";
 import { instructorWeekAfter } from "../../utils/instructorRequestWeek";
+import { lengthPatternsForHours, meetingSlots, ownMeetingOf, type OwnMeeting } from "../../utils/requestMeetingLength";
+import { scrubPlaceText } from "../../utils/teacherPlaceScrub";
+import { roomTokensOf } from "../pushMessages";
 import { RequestReservationConflict, REQUEST_RACE_LOST, withoutRoomNames, type RequestReservationProposal } from "../../utils/instructorRequestReservations";
 import { Request, Response } from "express";
 import { rateLimit } from "express-rate-limit";
@@ -24,7 +26,7 @@ import { chosenAlternativeIndex } from "../../utils/requestAlternatives";
 import { firstInstructorEditAt, movementAfterInstructorEdit } from "../../utils/instructorMovementWindow";
 import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind, unchangedScheduleFingerprint } from "../../utils/instructorRequestConfirmation";
 import { verificationCode } from "../../utils/approvalWorkflow";
-import { DAY_KEYS, DAY_NAMES, effectiveCourseHours, expectedMinutesForDay, patternsForHours } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, effectiveCourseHours, patternsForHours } from "../../utils/scheduleRegulations";
 import { planBadgesFor, serviceCourseKeys } from "../planBadgeShared";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { endForRequest, headlineReasonOf, rowFromRequest, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "../../utils/instructorRequestVerdict";
@@ -37,11 +39,10 @@ import { reachLocked, withReach } from "../../utils/courseReach";
 import { reachForScope, reachOf } from "../courseReachShared";
 import { allowedFor, countdown, loadRing, type TaPhaseDoc } from "../../utils/taPhase";
 import { loadLimitOf, loadNisabOf } from "../../utils/teachingLoad";
-import { habitualBlockMinutes } from "../../utils/courseNature";
 import { isValidClock, normalizeClock } from "../../utils/scheduleTime";
 import { roomKeyOf } from "../../utils/locationRegistry";
 import { instructorRequestProposalIdentity } from "../../utils/instructorRequestProposalIdentity";
-import { buildRequestContext, courseHabit, currentInstructorRequestGeneration, instructorRequestDepartmentScopes, instructorRequestItemIdentity, instructorRequestSectionCourses, judgeRequestItems, requestContextFor, requestItemScope, requestRulesForScope, requestWindowOpen, requireInstructorRequestRevision, resolveRequestLink, taPhaseId, verifyRequestSigner } from "../core/instructorRequests";
+import { buildRequestContext, currentInstructorRequestGeneration, instructorRequestDepartmentScopes, instructorRequestItemIdentity, instructorRequestSectionCourses, judgeRequestItems, requestContextFor, requestItemScope, requestRulesForScope, requestWindowOpen, requireInstructorRequestRevision, resolveRequestLink, taPhaseId, verifyRequestSigner } from "../core/instructorRequests";
 import { broadcastNotify } from "../core/liveChannel";
 import { dataContextCacheKey } from "../core/locations";
 import { arabicUiCollator, courseNameCollator } from "../core/ordering";
@@ -77,6 +78,14 @@ const rateLimitCardEvents = rateLimit({
 });
 
 function stripForInstructor(request: InstructorRequest) {
+  /* ── وما تكتبه اللجنة بيدها يمرّ بالتنقية (قاعدة المالك: لا قاعةَ ولا مبنى في مسار الطلب) ──
+     ملاحظةُ الرفض وردودُ الحوار وتفاصيلُ الخط الزمني وأسبابُ الحكم: رمزُ القاعة أو المبنى
+     يسقط والكلمةُ العامة تبقى. ورموزُ قاعات البنود كلِّها تُعرف، فملاحظةٌ على بندٍ قد تذكر قاعةَ آخر. */
+  const placeTokens = (request.items || []).flatMap(item => roomTokensOf(item));
+  const clean = <T extends string | undefined>(text: T): T => (text == null ? text : scrubPlaceText(text, placeTokens) as T);
+  const cleanDecision = (decision: any) => decision ? { ...decision, ...(decision.note ? { note: clean(decision.note) } : {}) } : decision;
+  const cleanThread = (thread: any[] | undefined) => thread?.map(message =>
+    message?.from === "department" && message.text ? { ...message, text: clean(message.text) } : message);
   return {
     ...request,
     scheduleGeneration: undefined,
@@ -93,7 +102,7 @@ function stripForInstructor(request: InstructorRequest) {
       if (!event.detail) return [event];
       const detail = withoutRoomNames(event.detail);
       return detail ? [{ ...event, detail }] : [];
-    }),
+    }).map(event => (event.detail ? { ...event, detail: clean(event.detail) } : event)),
     items: (request.items || []).map(item => {
       /* القاعةُ لا تصل الأستاذ (قرار المالك 2026-10-29: «مخفية اكيد متعمدة»): المرشّحاتُ وتفاصيلُها،
          و«الأنسب» (roomPick في ما حُفظ قبل القرار)، والمحجوزةُ، والمبدَّلة — كلُّها للقسم. يرى roomAvailable وحده. */
@@ -103,10 +112,14 @@ function stripForInstructor(request: InstructorRequest) {
         proposalId: instructorRequestProposalIdentity(itemId, slot) });
       return {
         ...rest,
-        ...(rest.decision ? { decision: { ...rest.decision,
+        ...(rest.decision ? { decision: { ...cleanDecision(rest.decision),
           ...(rest.decision.alternatives ? { alternatives: rest.decision.alternatives.map(identify) } : {}) } } : {}),
-        ...(rest.thread ? { thread: rest.thread.map(message => ({ ...message,
+        ...(rest.decisionHistory ? { decisionHistory: rest.decisionHistory.map(cleanDecision) } : {}),
+        ...(rest.thread ? { thread: cleanThread(rest.thread)!.map(message => ({ ...message,
           ...(message.slots ? { slots: message.slots.map(identify) } : {}) })) } : {}),
+        ...(rest.threadHistory ? { threadHistory: cleanThread(rest.threadHistory) } : {}),
+        ...((rest as any).reasons ? { reasons: ((rest as any).reasons as any[]).map(reason => ({ ...reason, text: clean(reason?.text) })) } : {}),
+        ...((rest as any).advice ? { advice: clean((rest as any).advice) } : {}),
         /* لا «كان» ولا «طلب» تحمل قاعة: الصفحةُ لا تعرضها، والقرارُ أن لا تصل. */
         before: rest.before ? { ...rest.before, room: undefined } : rest.before,
         after: rest.after ? { ...rest.after, room: undefined } : rest.after,
@@ -118,18 +131,36 @@ function stripForInstructor(request: InstructorRequest) {
     }),
   };
 }
-const habitBlockFor = async (courseId: number, termId: number) => habitualBlockMinutes(await courseHabit(courseId), termId);
-
-/** مدّةُ لقاءٍ ممتدٍّ من نصّ وقت البند «16:00 – 19:50» حين يكون يوماً واحداً. */
-function blockMinutesOfItem(item: InstructorRequestItem | undefined): number | undefined {
-  const before = item?.before;
-  const m = /(\d{1,2}:\d{2})\D+(\d{1,2}:\d{2})/.exec(String(before?.time || ""));
-  if (!m || String(before?.days || "").split("·").filter(part => part.trim()).length !== 1) return undefined;
-  const span = timeToMinutes(m[2]) - timeToMinutes(m[1]);
-  /* يومٌ واحد بطولٍ يخالف محاضرةَ ذلك اليوم (٧٥ دقيقةً يومَ خميس) يبقى طولُه إن نُقل، لا لما فوق ٨٠ وحده. */
-  const dayKey = DAY_KEYS[DAY_NAMES.indexOf(String(before?.days || "").trim())];
-  return span > 80 || (dayKey && span > 0 && span !== expectedMinutesForDay(dayKey)) ? span : undefined;
+/** نصٌّ من الحكم يصل الأستاذ (سطرُ الحكم، النصيحة): يمرّ بتنقية القاعات برموز بنود الطلب كلِّها. */
+function teacherSafeText(request: { items?: InstructorRequestItem[] }, text: string | undefined): string {
+  return scrubPlaceText(text || "", (request.items || []).flatMap(item => roomTokensOf(item)));
 }
+/** حكمُ بندٍ كما يصل صفحةَ الأستاذ: سطرُه ونصيحتُه بلا رمز قاعةٍ ولا مبنى. */
+function teacherSafeVerdict<T extends { headline?: string; advice?: string }>(request: { items?: InstructorRequestItem[] }, verdict: T): T {
+  return { ...verdict, headline: teacherSafeText(request, verdict.headline), advice: teacherSafeText(request, verdict.advice) };
+}
+
+/** الموعدُ القائم الذي يحمل البندُ لقطتَه: الإضافةُ لا موعدَ لها، وما سواها موعدُه «كان». */
+function ownMeetingOfItem(item: InstructorRequestItem | undefined): OwnMeeting | null {
+  return item && item.rowId != null ? ownMeetingOf(item.before) : null;
+}
+
+/** الوقتُ كما يُكتب على أيّ لوحة: «٠٩:٣٠» و«۰۹:۳۰» تصير «09:30» قبل أن تُفحص. */
+const asciiClock = (value: unknown) => String(value ?? "").trim()
+  .replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+  .replace(/[۰-۹]/g, digit => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)));
+
+/** مفتاحُ حجز التحرير لبند: موعدُه القائم، أو هويّتُه بعد الإرسال، أو الشعبةُ المختارة، أو مفتاحُ الصفحة لإضافةٍ جديدة. */
+function draftHoldKey(entry: any): string {
+  if (entry?.rowId != null && Number.isSafeInteger(Number(entry.rowId))) return `draft:row:${Number(entry.rowId)}`;
+  if (typeof entry?.itemId === "string" && /^[A-Za-z0-9-]{8,64}$/.test(entry.itemId)) return `draft:item:${entry.itemId}`;
+  if (entry?.offeringId != null && Number.isSafeInteger(Number(entry.offeringId))) return `draft:offering:${Number(entry.offeringId)}`;
+  const key = String(entry?.key || "");
+  return /^[A-Za-z0-9_-]{4,40}$/.test(key) ? `draft:new:${key}` : "";
+}
+
+/** خطأٌ في بندٍ بعينه: يصل الصفحةَ برقمه فتعلّم البندَ نفسَه لا كلَّ البنود. */
+const itemError = (message: string, itemIndex: number) => Object.assign(new Error(message), { itemIndex });
 
 /* قرارُ القسم يخصّ ما طُلب يومَ قُرِّر. أستاذٌ رُفض بندُه فغيّر وقتَه وأعاد
    الإرسال طلب شيئاً جديداً، فلا يبقى عليه «رُفض» عن طلبٍ لم يعد قائماً — ولا
@@ -160,21 +191,15 @@ function priorAddFor(previous: InstructorRequestItem[] | undefined, used: Set<nu
   return (previous || [])[index];
 }
 
-async function requestSlotsForCourse(request: InstructorRequest, courseId: number, days: RequestDayKey[], start: string, block?: number) {
-  const [history, terms, course] = await Promise.all([Repository.getScheduleHistoryForCourses([courseId]), Repository.getTerms(), Repository.getCourseById(courseId)]);
-  const model = buildHistoricalTimeModel(history, terms, 10, Number(request.AdTermId));
-  const flags = Object.fromEntries(DAY_KEYS.map(day => [day, days.includes(day)]));
-  const approved = patternsForHours(effectiveCourseHours(course)).find(pattern => days.length === 1
-    ? pattern.days.length === 1 : pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
-  return days.map(day => {
-    /* يومٌ واحد بلا طولٍ معروفٍ للصفّ: نمطُ اليوم الواحد في اللائحة (ثلاث ساعات = ١٧٠ د) هو الطول، لا طولُ
-       اليوم في تاريخ المقرّر — ذاك جاء من نمط الاثنين والأربعاء (٧٥–٨٠ د) فكان يقصّر «الأربعاء وحده» عن ساعاته
-       ويمنعه بـ«لا يغطّيها» وهو نمطٌ معتمد (ملاحظة المالك r4). عادةُ المقرّر بيومٍ واحد تصل هنا `block` فتبقى أولى. */
-    const length = days.length === 1 && block ? block
-      : days.length === 1 && approved ? approved.minutesPerDay[0]
-      : historicalLectureMinutes(model, { ...flags, AdCourseId: courseId }, day, approved?.minutesPerDay[days.length === 1 ? 0 : approved.days.indexOf(day)]);
-    return { day, start, end: minutesToTime(timeToMinutes(start) + length) };
-  });
+/**
+ * مواعيدُ البند لكل يوم — المحرّكُ الواحد (requestMeetingLength) الذي تحمله الصفحةُ نصّاً:
+ * الأيامُ نفسُها ← طولُ الموعد نفسه، واليومُ الواحد المنقول ← طولُه، وإلا نمطُ اللائحة لساعات
+ * المقرّر (ثلاث ساعات يوماً واحداً = ١٧٠ د، ملاحظة المالك r4)، وإلا طولُ اليوم في اللائحة.
+ * لا يُقرأ طولُ اليوم من ذاكرة القسم: كان يجعل «ح·ث·خ 08:00» بعد نقلها 75/75/50 (المالك 2026-10-30).
+ */
+async function requestSlotsForCourse(_request: InstructorRequest, courseId: number, days: RequestDayKey[], start: string, own?: OwnMeeting | null) {
+  const course = await Repository.getCourseById(courseId);
+  return meetingSlots(days, start, lengthPatternsForHours(effectiveCourseHours(course)), own);
 }
 
 async function instructorRequestItemsFromPayload(request: InstructorRequest, sent: any[]): Promise<InstructorRequestItem[]> {
@@ -193,13 +218,13 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
   const placeholders = sent.some(entry => entry?.offeringId) ? placeholderInstructorIds(await Repository.getInstructors()) : new Set<number>();
   const seenRows = new Set<number>();
   const seenOfferings = new Set<number>();
-  for (const entry of sent) {
+  for (const [entryIndex, entry] of sent.entries()) {
     const action = ["keep", "change", "delete", "add"].includes(String(entry?.action)) ? String(entry.action) : "keep";
     const rowId = entry?.rowId == null ? null : Number(entry.rowId);
     const stored = rowId == null ? undefined : before.get(String(rowId));
-    if (rowId != null && !stored) throw new Error("أحد المواعيد ليس ضمن جدولك.");
+    if (rowId != null && !stored) throw itemError("أحد المواعيد ليس ضمن جدولك.", entryIndex);
 
-    if (rowId != null && seenRows.has(rowId)) throw new Error("الموعد مكرر في الطلب.");
+    if (rowId != null && seenRows.has(rowId)) throw itemError("الموعد مكرر في الطلب.", entryIndex);
     if (rowId != null) seenRows.add(rowId);
     const priorById = entry?.itemId ? request.items.find(item => item.itemId === entry.itemId) : undefined;
     if (entry?.offeringId) {
@@ -207,11 +232,11 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
       if (prior?.decision?.state === "fixed" || (prior?.decision?.state === "rejected" && !entry.retryOffering)) { items.push(prior); continue; }
       const first = termRows.find(row => Number(row.id) === Number(entry.offeringId));
       const option = first && allowedCourseMap.get(`${first.AdCollegeId}:${first.AdSectionId}:${first.AdCourseId}`);
-      if (!first || !option) throw new Error("الشعبة المختارة خارج مقررات قسمك.");
+      if (!first || !option) throw itemError("الشعبة المختارة خارج مقررات قسمك.", entryIndex);
       /* «لم نصل بعد»: الشعبةُ الشاغرة لمقررٍ لم يصله الفرعُ لا تُختار (ما اختير قبلُ يبقى للقسم يقرّره). */
-      if (!prior && reachLocked(await reachOf(Number(first.AdCollegeId), Number(first.AdSectionId), Number(request.AdTermId), Number(first.AdCourseId)))) throw new Error("لم نصل بعد إلى مستوى هذا المقرر في هذا الفرع.");
+      if (!prior && reachLocked(await reachOf(Number(first.AdCollegeId), Number(first.AdSectionId), Number(request.AdTermId), Number(first.AdCourseId)))) throw itemError("لم نصل بعد إلى مستوى هذا المقرر في هذا الفرع.", entryIndex);
       const group = termRows.filter(row => Number(row.AdCourseId) === Number(first.AdCourseId) && Number(row.AdSectionId) === Number(first.AdSectionId) && String(row.SCode) === String(first.SCode));
-      if (!group.every(row => placeholders.has(Number(row.AdInstructorId)) && !seenOfferings.has(Number(row.id)))) throw new Error("لم تعد الشعبة متاحة للاختيار.");
+      if (!group.every(row => placeholders.has(Number(row.AdInstructorId)) && !seenOfferings.has(Number(row.id)))) throw itemError("لم تعد الشعبة متاحة للاختيار.", entryIndex);
       group.forEach(row => seenOfferings.add(Number(row.id)));
       const slots = group.flatMap(row => dayKeysOf(row).map(day => ({ day, start: row.fstarttime, end: row.fendtime })));
       items.push({ itemId: prior?.itemId || randomUUID(), rowId: null, action: "add", offeringRowIds: group.map(row => Number(row.id)),
@@ -229,7 +254,7 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
       ? allowedCourseMap.get(`${selectedCollegeId}:${selectedSectionId}:${courseId}`)
       : undefined;
     if (action === "add" && !allowedOption) {
-      throw new Error("المقرّر المضاف ليس من كتالوج قسمك في الكلية المختارة.");
+      throw itemError("المقرّر المضاف ليس من كتالوج قسمك في الكلية المختارة.", entryIndex);
     }
     const targetScheduleScope = action === "add" ? {
       AdCollegeId: selectedCollegeId,
@@ -240,18 +265,21 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
       ? [...new Set((entry.days as any[]).map(String))].filter((day): day is RequestDayKey =>
           ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].includes(day))
       : [];
-    const start = isValidClock(entry?.start) ? normalizeClock(entry.start) : "";
-    const blockMin = blockMinutesOfItem(stored) ?? (days.length === 1 && action !== "keep" && action !== "delete" ? await habitBlockFor(courseId, Number(request.AdTermId)) : undefined);
+    const typedStart = asciiClock(entry?.start);
+    /* وقتٌ مكتوبٌ لا يُقرأ («25:99» أو كلمةٌ) يُقال سببُه لبنده — لا «اختر يوماً» والأيامُ مختارة. */
+    if ((action === "change" || action === "add") && days.length && typedStart && !isValidClock(typedStart))
+      throw itemError("اكتب وقت البداية بصيغة الساعة والدقيقة، مثل 09:30.", entryIndex);
+    const start = isValidClock(typedStart) ? normalizeClock(typedStart) : "";
     const originalClocks = String(stored?.before?.time || "").match(/\d{1,2}:\d{2}/g) || [];
     const originalDays = String(stored?.before?.days || "").split("·").map(day => day.trim()).sort().join("|");
     const unchanged = action === "change" && originalClocks[0] === start && days.map(day => DAY_LETTERS[day]).sort().join("|") === originalDays;
     const slots = unchanged && originalClocks[1] ? days.map(day => ({ day, start, end: originalClocks[1] }))
-      : start && days.length ? await requestSlotsForCourse(request, courseId, days, start, blockMin) : [];
+      : start && days.length ? await requestSlotsForCourse(request, courseId, days, start, action === "change" ? ownMeetingOfItem(stored) : null) : [];
     const end = slots[0]?.end || "";
 
     const prior = action === "add" ? (priorById || priorAddFor(request.items, usedPriorAdds, courseId, selectedCollegeId, selectedSectionId, days, start)) : stored;
     if (prior?.decision?.state === "fixed") {
-      if (!decisionStillApplies(prior, action, days, start)) throw new Error("سبق تثبيت هذا البند. اطلب جولة تعديل جديدة من القسم.");
+      if (!decisionStillApplies(prior, action, days, start)) throw itemError("سبق تثبيت هذا البند. اطلب جولة تعديل جديدة من القسم.", entryIndex);
       items.push(prior); continue;
     }
     const normalizedAction = unchanged ? "keep" : action;
@@ -449,6 +477,20 @@ async function requestDayPatterns(courseIds: number[]): Promise<Record<number, s
     const id = Number(course.AdCourseId);
     if (!wanted.has(id)) continue;
     const patterns = patternsForHours(effectiveCourseHours(course)).filter(pattern => pattern.days.length > 1).map(pattern => [...pattern.days]);
+    if (patterns.length) out[id] = patterns;
+  }
+  return out;
+}
+
+/** أنماطُ اللائحة بدقائق كل يوم لكل مقرر — المصدرُ نفسُه الذي يحسب به الخادمُ المواعيد (requestMeetingLength). */
+async function requestLengthPatterns(courseIds: number[]): Promise<Record<number, ReturnType<typeof lengthPatternsForHours>>> {
+  const wanted = new Set(courseIds.filter(id => id > 0));
+  if (!wanted.size) return {};
+  const out: Record<number, ReturnType<typeof lengthPatternsForHours>> = {};
+  for (const course of await Repository.getCourses() as any[]) {
+    const id = Number(course.AdCourseId);
+    if (!wanted.has(id)) continue;
+    const patterns = lengthPatternsForHours(effectiveCourseHours(course));
     if (patterns.length) out[id] = patterns;
   }
   return out;
@@ -668,6 +710,9 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
     courses: mode === "edit" ? coursesWithOffering(courses as any[], offeringViews) : [],
     /* أنماطُ اللائحة لكل مقرر (B1/B2/B3): مصدرُها الواحد patternsForHours — يُكمَل بها اليومُ الأول ضغطةً واحدة. */
     dayPatterns: await requestDayPatterns([...(request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0)), ...(courses as any[]).map(option => Number(option.id))]),
+    /* أنماطُ اللائحة بدقائق كل يوم (والكتلةُ الواحدة): الصفحةُ تحسب بها النهايةَ بالمحرّك نفسِه الذي يحسب به الخادم
+       (REQUEST_LENGTH_SCRIPT)، فلا يقرأ الأستاذُ 16:50 ويُحفظ 17:15. */
+    lengthPatterns: await requestLengthPatterns([...(request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0)), ...(courses as any[]).map(option => Number(option.id))]),
   });
 });
 
@@ -736,7 +781,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   const before = new Map((resolved.request.items || []).map(item => [String(item.rowId), item]));
   let items: InstructorRequestItem[];
   try { items = await instructorRequestItemsFromPayload(resolved.request, sent); }
-  catch (error: any) { res.status(400).json({ error: error.message || "تعذّر قراءة الطلب." }); return; }
+  catch (error: any) { res.status(400).json({ error: error.message || "تعذّر قراءة الطلب.", ...(Number.isInteger(error?.itemIndex) ? { itemIndex: error.itemIndex } : {}) }); return; }
 
   const judged = await judgeRequestItems({ ...resolved.request, items });
 
@@ -877,7 +922,7 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
       res.status(409).json({ error: "تغيّر المقترح بعد فتح الصفحة. حدّث البيانات قبل الموافقة.", code: "request-proposal" }); return;
     }
     const days = (chosen.days?.length ? chosen.days : [chosen.day]) as RequestDayKey[];
-    const slots = await requestSlotsForCourse(resolved.request, Number((item.after || item.before)?.courseId), days, chosen.start, blockMinutesOfItem(item));
+    const slots = await requestSlotsForCourse(resolved.request, Number((item.after || item.before)?.courseId), days, chosen.start, ownMeetingOfItem(item));
     const end = slots[0]?.end || chosen.end;
     next = {
       ...item,
@@ -893,7 +938,8 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
     };
     kind = "proposal-accepted";
   } else {
-    const start = /^\d{1,2}:\d{2}$/.test(String(req.body?.start || "")) ? String(req.body.start) : "";
+    const typedStart = asciiClock(req.body?.start);
+    const start = isValidClock(typedStart) ? normalizeClock(typedStart) : "";
     /* الأيامُ تُقترح كما تُقترح البداية، بشرط أن يبقى عددُها: المقرّرُ له ساعاتٌ في الأسبوع، وتوزيعُها على عددٍ آخر من الأيام
        قرارٌ للقسم لا للأستاذ. فمن غيّر العددَ يُقال له، ولا يُقبل بصمت. */
     const baseDays = (item.slots || []).map(slot => slot.day);
@@ -905,8 +951,23 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
       return;
     }
     const days = (sentDays.length ? sentDays : baseDays) as typeof baseDays;
-    const proposal = start && days.length && item.action !== "delete"
-      ? [{ day: days[0], days, start, end: endForRequest(days as RequestDayKey[], start, blockMinutesOfItem(item)) }] : [];
+    /* اقتراحُ الأستاذ المضادّ يمرّ بقاعدة الأيام نفسها: لا يُخلط بين أيام الخمسين والثمانين إلا بنمطٍ معتمد لساعات
+       المقرّر — كان «وقت آخر» يعرض «الاثنين · الأربعاء · الخميس» لكل بندٍ من ثلاثة أيام ويحفظه بلا فحص (محاكاة 2026-10-30). */
+    const proposalCourse = Number((item.after || item.before)?.courseId || 0);
+    const sameAsBase = days.length === baseDays.length && days.every(day => baseDays.includes(day));
+    if (start && days.length && !sameAsBase && item.action !== "delete") {
+      const hours = effectiveCourseHours(await Repository.getCourseById(proposalCourse));
+      const long = (day: string) => day === "fmonday" || day === "fwednesday";
+      const approvedDays = patternsForHours(hours).some(pattern => pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
+      if (days.some(long) && days.some(day => !long(day)) && !approvedDays) {
+        res.status(400).json({ error: "لا يُخلط بين أيام الـ50 والـ80 دقيقة إلا بنمطٍ معتمد في مكتبة الأنماط." });
+        return;
+      }
+    }
+    const proposalSlots = start && days.length && item.action !== "delete"
+      ? await requestSlotsForCourse(resolved.request, proposalCourse, days as RequestDayKey[], start, ownMeetingOfItem(item)) : [];
+    const proposalEnd = proposalSlots.reduce((latest, slot) => (slot.end > latest ? slot.end : latest), "");
+    const proposal = proposalSlots.length ? [{ day: days[0], days, start, end: proposalEnd }] : [];
     if (!text && !proposal.length) { res.status(400).json({ error: "اكتب ردّك أو اقترح وقتاً." }); return; }
     next = {
       ...item,
@@ -964,7 +1025,7 @@ app.post("/api/public/request/:token/reply-batch", rateLimitPublicRequest, async
     const chosen = offered.find(slot => instructorRequestProposalIdentity(itemId, slot) === proposalId);
     if (!chosen) { res.status(409).json({ error: "تغيّر أحد المقترحات بعد فتح صفحة الموافقة. حدّث البيانات قبل التوقيع.", code: "request-proposal" }); return; }
     const days = (chosen.days?.length ? chosen.days : [chosen.day]) as RequestDayKey[];
-    const slots = await requestSlotsForCourse(resolved.request, Number((item.after || item.before)?.courseId), days, chosen.start, blockMinutesOfItem(item));
+    const slots = await requestSlotsForCourse(resolved.request, Number((item.after || item.before)?.courseId), days, chosen.start, ownMeetingOfItem(item));
     const end = slots[0]?.end || chosen.end;
     items[index] = {
       ...item,
@@ -1063,11 +1124,12 @@ app.post("/api/public/request/:token/check", async (req: Request, res: Response)
   if (!item) { res.status(400).json({ error: "تعذر فحص هذا البند." }); return; }
 
   res.setHeader("Cache-Control", "no-store");
-  /* القاعاتُ المرشّحة لا تُرسل: هذا المسار يخاطب صفحةَ الأستاذ. */
-  res.json({
+  /* القاعاتُ المرشّحة لا تُرسل: هذا المسار يخاطب صفحةَ الأستاذ — وسطرُ الحكم والنصيحة يمرّان بتنقية القاعات. */
+  res.json(teacherSafeVerdict(judged, {
     kind: item.verdict || "clear",
     headline: headlineReasonOf(item.reasons)?.text || (item.verdict === "conflict" ? "هذا الموعد غير متاح." : item.verdict === "exception" ? "يحتاج سبب استثناء." : "الوقت متاح"),
     computedEnd: item.slots?.[0]?.end || "",
+    slots: item.slots || [],
     roomAvailable: item.roomAvailable ?? null,
     nearestTimes: (item.nearestTimes || []).map(slot => ({ day: slot.day, days: slot.days, start: slot.start, end: slot.end })),
     shapes: item.shapes || [],
@@ -1081,7 +1143,7 @@ app.post("/api/public/request/:token/check", async (req: Request, res: Response)
       /* نسبةُ الصباح والمساء حالُ القسم كلِّه ولا يملك الأستاذ تغييرها: تبقى في شاشة القسم ولا تُعرض له. */
       .filter((note: any) => note.kind !== "balance" && note.courseIds.includes(Number(item.after?.courseId || item.before?.courseId || 0)))
       .map((note: any) => ({ kind: note.kind, article: note.article, ...(note.data ? { data: note.data } : {}) })),
-  });
+  }));
 });
 
 /** Professor card: only aggregate, course-relevant suggestions for scopes on this link. */
@@ -1126,13 +1188,13 @@ app.post("/api/public/request/:token/check-batch", async (req: Request, res: Res
   if (sent.length > 80) { res.status(400).json({ error: "تجاوزت المسودة الحد الأقصى للبنود." }); return; }
   try {
     const allowedCourses = sent.some(item => item?.action === "add") ? await instructorRequestCourseOptions(resolved.request) : [];
-    for (const item of sent) {
+    for (const [itemIndex, item] of sent.entries()) {
       const rowId = item?.rowId == null ? null : Number(item.rowId);
       if (item?.action !== "add" && rowId != null && !(resolved.request.items || []).some(row => Number(row.rowId) === rowId)) {
-        res.status(400).json({ error: "هذا الموعد ليس ضمن جدولك." }); return;
+        res.status(400).json({ error: "هذا الموعد ليس ضمن جدولك.", itemIndex }); return;
       }
       if (item?.action === "add" && !allowedCourses.some(option => option.id === Number(item.courseId) && option.collegeId === Number(item.collegeId) && option.sectionId === Number(item.sectionId))) {
-        res.status(400).json({ error: "المقرّر المضاف ليس من كتالوج قسمك في الكلية المختارة." }); return;
+        res.status(400).json({ error: "المقرّر المضاف ليس من كتالوج قسمك في الكلية المختارة.", itemIndex }); return;
       }
     }
     const draftItems = await instructorRequestItemsFromPayload(resolved.request, sent);
@@ -1143,7 +1205,7 @@ app.post("/api/public/request/:token/check-batch", async (req: Request, res: Res
       const itemNotes = ((judged as any).notes || []).filter((note: any) => note.kind !== "balance" && note.courseIds.includes(courseId))
         .map((note: any) => ({ kind: note.kind, article: note.article, ...(note.data ? { data: note.data } : {}) }));
       const mixed = (item.reasons || []).some((reason: any) => reason.blocking && /لا يُخلط/.test(String(reason.text || "")));
-      return {
+      return teacherSafeVerdict(judged, {
         itemIndex, kind: item.verdict || "clear",
         headline: headlineReasonOf(item.reasons)?.text || (item.verdict === "conflict" ? "هذا الموعد غير متاح." : item.verdict === "exception" ? "يحتاج سبب استثناء." : "الوقت متاح"),
         slots: item.slots || [], computedEnd: item.slots?.[0]?.end || "", roomAvailable: item.roomAvailable ?? null,
@@ -1151,12 +1213,13 @@ app.post("/api/public/request/:token/check-batch", async (req: Request, res: Res
         shapes: item.shapes || [], advice: item.advice || "", block: item.block || 0,
         ...(mixed ? { patternNotice: await mixedPatternNotice(courseId, (item.slots || []).map(slot => slot.day as RequestDayKey), Number(resolved.request.AdTermId), undefined, true).catch(() => null) } : {}),
         notes: itemNotes,
-      };
+      });
     }));
     res.setHeader("Cache-Control", "no-store");
     res.json({ items: results.filter(Boolean), availableOfferings: await availableInstructorOfferings({ ...resolved.request, items: draftItems }) });
   } catch (error: any) {
-    res.status(400).json({ error: error?.message || "تعذر فحص المسودة." });
+    /* سببُ الخادم يصل الصفحةَ كما هو، ومعه رقمُ البند حين يُعرف — لا «تعذّر فحص الموعد» على كل البنود. */
+    res.status(400).json({ error: error?.message || "تعذر فحص المسودة.", ...(Number.isInteger(error?.itemIndex) ? { itemIndex: error.itemIndex } : {}) });
   }
 });
 app.get("/api/public/request/:token/previous", async (req: Request, res: Response) => {
@@ -1265,11 +1328,13 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
   let problemIsShape = false;
   let shapes: any[] = [];
   for (const start of starts) {
-    const end = endForRequest(days, start, block && block > 0 ? block : undefined);
+    /* مواعيدُ كل يوم كما بناها المحرّك للبند (طولُ كل يومٍ محفوظ)، مُزاحةً إلى هذه البداية. */
+    const shifted = target.slots!.map(slot => ({ day: slot.day, start, end: minutesToTime(timeToMinutes(start) + timeToMinutes(slot.end) - timeToMinutes(slot.start)) }));
+    const end = shifted.reduce((latest, slot) => (slot.end > latest ? slot.end : latest), "");
     const variant = base.map((item, k) => k !== index ? item : {
       ...item,
       after: { ...(item.after as any), time: `${start} – ${end}` },
-      slots: target.slots!.map(slot => ({ day: slot.day, start, end: minutesToTime(timeToMinutes(start) + timeToMinutes(slot.end) - timeToMinutes(slot.start)) })),
+      slots: shifted,
     });
     const judged = await judgeRequestItems({ ...resolved.request, items: variant }, { context, rulesCache });
     const verdict = judged.items[index]?.verdict;
@@ -1292,7 +1357,12 @@ app.post("/api/public/request/:token/hold", rateLimitCheckTimes, async (req: Req
   res.setHeader("Cache-Control", "no-store");
   /* E1: رابطُ «للعرض فقط» لا يكتب، فلا يحجز وقتاً يسبق به زملاءه. */
   if (!modeAllowsWrite(linkMode(resolved.request)) || !requestWindowOpen(resolved.request) || isUnchangedConfirmed(resolved.request)) { res.json({ held: false }); return; }
-  if (req.body?.release === true) { await Repository.holdInstructorRequestSlot(resolved.request, null, 0); res.json({ held: false }); return; }
+  /* إلغاءُ الإضافة أو التعديل يُفرج حجزَ ذلك البند وحده (بهويّته)؛ وبلا بندٍ تُفرج حجوزُ الطلب المؤقّتة كلُّها كما كانت. */
+  if (req.body?.release === true) {
+    const key = req.body?.item ? draftHoldKey(req.body.item) : "";
+    await Repository.holdInstructorRequestSlot(resolved.request, null, 0, key || undefined);
+    res.json({ held: false }); return;
+  }
   const sent = Array.isArray(req.body?.items) ? (req.body.items as any[]) : null;
   const index = Number(req.body?.itemIndex);
   if (!sent || sent.length > 200 || !Number.isInteger(index) || !sent[index]) { res.status(400).json({ error: "تعذّر حجز هذا الموعد." }); return; }
@@ -1304,8 +1374,11 @@ app.post("/api/public/request/:token/hold", rateLimitCheckTimes, async (req: Req
   if (!target || (target.action !== "add" && target.action !== "change") || !target.slots?.length || target.verdict === "conflict") { res.json({ held: false }); return; }
   const [proposal] = await requestReservationProposals({ ...judged, items: [target] });
   if (!proposal) { res.json({ held: false }); return; }
+  /* مفتاحُ الحجز هويّةُ البند لا رقمُه: إلغاءُ إضافةٍ قبله كان يُزيح الأرقام فيُنسب حجزٌ قديم إلى بندٍ آخر. */
+  const holdKey = draftHoldKey(sent[index]);
+  if (!holdKey) { res.json({ held: false }); return; }
   try {
-    const result = await Repository.holdInstructorRequestSlot(resolved.request, { ...proposal, itemId: `draft:${index}` }, REQUEST_HOLD_TTL_MS);
+    const result = await Repository.holdInstructorRequestSlot(resolved.request, { ...proposal, itemId: holdKey }, REQUEST_HOLD_TTL_MS);
     /* الحجزُ يأخذ أنسبَ الخالي، والجوابُ لا يسمّيه (قرار المالك 2026-10-29: لا يصل الأستاذَ اسمٌ ولا رمز). */
     res.json({ held: true, heldUntil: result?.heldUntil });
   } catch (error: any) {
@@ -1313,7 +1386,9 @@ app.post("/api/public/request/:token/hold", rateLimitCheckTimes, async (req: Req
     /* خسر السباق: الحكمُ يُعاد على الدفتر الجديد، فيرى ما أخذه الزميل، ويقترح أقربَ بديلين. */
     const again = await judgeRequestItems({ ...resolved.request, items: judged.items.map((item, at) => at === index ? { ...item, verdict: undefined } : item) }, { forDepartment: true });
     const alternatives = (again.items[index]?.nearestTimes || []).slice(0, 2);
-    res.status(409).json({ error: error.message === REQUEST_RACE_LOST ? REQUEST_RACE_LOST : error.message, code: "race-lost", alternatives });
+    /* «سبقك زميل» لما أخذه زميلٌ فعلاً؛ وما سواه (موعدٌ آخر للأستاذ نفسه) يُقال بسببه لا باسم زميل. */
+    const raceLost = error.message === REQUEST_RACE_LOST;
+    res.status(409).json({ error: teacherSafeText(judged, error.message), ...(raceLost ? { code: "race-lost" } : { code: "hold-refused" }), alternatives });
   }
 });
 
@@ -1341,9 +1416,12 @@ app.get("/api/public/request/:token/movement", async (req: Request, res: Respons
     withRooms: false,
     historyScopes: movementHistoryScopes(ownRequests, { collegeId: Number(request.AdCollegeId), sectionId: Number(request.AdSectionId) }),
   });
+  /* اسمُ النسخة يكتبه القسم أحياناً بيده («نقل إلى 901A01/L01»): يمرّ بتنقية القاعات كبقيّة ما يصل الأستاذ. */
+  const placeTokens = [request, ...ownRequests].flatMap(row => (row.items || []).flatMap(item => roomTokensOf(item)));
   const entries = movementAfterInstructorEdit(history, ownRequests)
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
-    .slice(0, 100);
+    .slice(0, 100)
+    .map(entry => ({ ...entry, text: scrubPlaceText(entry.text, placeTokens), label: scrubPlaceText(entry.label, placeTokens) }));
   res.setHeader("Cache-Control", "no-store");
   res.json({ movementHistory: entries, movementSince: firstSentAt === null ? null : new Date(firstSentAt).toISOString() });
 });
@@ -1436,7 +1514,7 @@ app.post("/api/public/request/:token/stick", rateLimitCheckTimes, async (req: Re
         judged.push({ ...candidate, end: result?.slots?.[0]?.end || candidate.end, tone,
           sameRoom: !!anchor.roomKey && rooms.includes(anchor.roomKey),
           sameBuilding: !!anchor.building && rooms.some(key => keyBuilding(key) === anchor.building),
-          ...(tone === "bad" ? { reason: headlineReasonOf(result?.reasons)?.text || "غير متاح" } : {}) });
+          ...(tone === "bad" ? { reason: teacherSafeText({ items: variant }, headlineReasonOf(result?.reasons)?.text || "غير متاح") } : {}) });
         if (tone === "ok") break; // الأقرب المتاح يكفي؛ لا يُفحص ما بعده
       }
     }

@@ -378,12 +378,18 @@ check(judgeRequest(ask({ action: "delete" }), context({
     { rowId: 31, action: "change", AdCourseId: 100, days, start },
     context({ courses: four, allRows: [block], instructorRowsAfter: [block] }));
   check(move(["fsunday"], "08:00").computedEnd === "11:50", "لقاءٌ ممتدّ يبقى طولُه عند نقله إلى يومٍ آخر (٨:٠٠ → ١١:٥٠)");
-  check(move(["fsunday"], "17:00").computedEnd === "20:00" && !move(["fsunday"], "17:00").sendable, "وما يتجاوز نهاية اليوم يُمنع");
+  /* النهايةُ الحقيقية لا تُقصّ عند الثامنة مساءً (قرار المالك 2026-10-30): «17:00 – 20:00» كانت تُخفي 20:50 الممنوعة. */
+  check(move(["fsunday"], "17:00").computedEnd === "20:50" && !move(["fsunday"], "17:00").sendable, "وما يتجاوز نهاية اليوم يُمنع، ونهايتُه الحقيقية تُقال (20:50)");
   check(endForRequest(["fsunday"], "08:00") === "08:50", "اليومُ العاديّ بلا لقاءٍ ممتدّ يبقى على اللائحة");
   const three = row({ id: 32, AdCourseId: 100, fsunday: true, ftuesday: true, fthursday: true });
   const dropped = judgeRequest({ rowId: 32, action: "change", AdCourseId: 100, days: ["fsunday"], start: "08:00" },
     context({ courses: new Map([[100, course(100, 3)]]), allRows: [three], instructorRowsAfter: [three] }));
-  check(!dropped.sendable && dropped.reasons.some(r => r.source === "shape" && /ساعات/.test(r.text)), "ثلاثُ ساعاتٍ في يومٍ واحدٍ بخمسين دقيقة: لا تغطّي ساعاتِ المقرّر");
+  /* المحرّكُ الواحد (قرار المالك 2026-10-30): يومٌ واحد لمقرّرٍ بثلاث ساعات يأخذ كتلةَ اللائحة ١٧٠ د كما يحسبها الخادم
+     (ملاحظة المالك r4) — لا خمسين دقيقةً تمنعه. وما لا يغطّي فعلاً (يومان قصيران) يبقى ممنوعاً. */
+  check(dropped.sendable && dropped.computedEnd === "10:50", "ثلاثُ ساعاتٍ في يومٍ واحد: كتلةُ اللائحة ١٧٠ د تغطّيها (08:00 ← 10:50)", dropped);
+  const twoShort = judgeRequest({ rowId: 32, action: "change", AdCourseId: 100, days: ["fsunday", "ftuesday"], start: "08:00" },
+    context({ courses: new Map([[100, course(100, 3)]]), allRows: [three], instructorRowsAfter: [three] }));
+  check(!twoShort.sendable && twoShort.reasons.some(r => r.source === "shape" && /ساعات/.test(r.text)), "ويومان بخمسين دقيقة لا يغطّيان ثلاث ساعات: يُمنع", twoShort.reasons);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

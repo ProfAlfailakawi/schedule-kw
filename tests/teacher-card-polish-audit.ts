@@ -44,8 +44,12 @@ const ask = (over: Partial<RequestedRow> = {}): RequestedRow => ({
 });
 
 /* ── ١. الفاحص لا يعاقب على ما يقترحه ───────────────────────────────────── */
-const short = judgeRequest(ask({ days: ["fwednesday"] }), context(4));
-check(!short.sendable, "يوم واحد لمقرّر أربع ساعات يُمنع");
+/* قرار المالك 2026-10-30 — محرّكٌ واحد للطول: يومٌ واحد لمقرّر أربع ساعات يأخذ كتلةَ اللائحة (٢٣٠ د) كما في الخادم
+   والمحرّر، فيمرّ؛ وكان الحكمُ وحده يحسبه خمسين دقيقة فيمنعه والخادمُ يمرّره. والمنعُ يُفحص على ما لا يغطّي فعلاً. */
+const oneDay4h = judgeRequest(ask({ days: ["fwednesday"] }), context(4));
+check(oneDay4h.sendable && oneDay4h.computedEnd === "11:50" && oneDay4h.blockMinutes === 230, "يوم واحد لمقرّر أربع ساعات: كتلةُ اللائحة ٢٣٠ د تمرّ (ينتهي 11:50)", oneDay4h);
+const short = judgeRequest(ask({ days: ["fsunday", "ftuesday", "fthursday"] }), context(4));
+check(!short.sendable, "ثلاثة أيامٍ بخمسين دقيقة لمقرّر أربع ساعات (١٥٠ د) لا تغطّيه فتُمنع");
 check(Array.isArray(short.shapes) && short.shapes.length > 0, "والمنعُ يحمل التوزيعات المعتمدة أزراراً لا نصاً فقط");
 const mixed = judgeRequest(ask({ days: ["fmonday", "fwednesday", "fthursday"], start: "09:00" }), context(4));
 check(mixed.reasons.some(reason => reason.blocking && /لا يُخلط/.test(reason.text)), "٨٠+٨٠+٥٠ بلا تاريخٍ موثوق لا يُعامل كنمط تشغيلي معتمد", mixed);
@@ -76,16 +80,16 @@ const sundayRow = row({ id: 1, AdTermId: 20, fmonday: false, fwednesday: false, 
 const withHistory = (nature: any, hours = 4) => ({ ...context(hours), allRows: [sundayRow], instructorRowsAfter: [sundayRow], nature, termId: 20 });
 const habitual = withHistory(natureOf(100, [16, 17, 18]));
 const moved = judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), habitual);
-check(moved.sendable && moved.computedEnd === "12:00" && moved.blockMinutes === 240, "شعبةٌ تاريخُها يومٌ واحد بأربع ساعات: نقلُها يومَ الخميس يُبقي طولَها (ينتهي 12:00) ويمرّ");
+check(moved.sendable && moved.computedEnd === "11:50" && moved.blockMinutes === 230, "قرار المالك 2026-10-30: نقلُ الشعبة إلى يومٍ واحد يأخذ كتلةَ اللائحة (٢٣٠ د) لا طولَ ذاكرة القسم (٢٤٠ د)", moved);
 const unaware = judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), { ...habitual, nature: null });
-check(!unaware.sendable, "ومن غير التاريخ كان يُمنع: ما تغطّيه خمسون دقيقةً لا يكفي أربع ساعات");
+check(unaware.sendable === moved.sendable && unaware.computedEnd === moved.computedEnd, "والحكمُ نفسُه بذاكرةٍ وبلا ذاكرة: الذاكرةُ اقتراحٌ لا طول", unaware);
 const addedWithHistory = judgeRequest({ rowId: null, action: "add", AdCourseId: 100, days: ["fmonday"], start: "13:00" }, habitual);
-check(addedWithHistory.sendable && addedWithHistory.computedEnd === "17:00", "وإضافةُ شعبةٍ جديدة لمثل هذا المقرّر بيومٍ واحد تأخذ طولَه المعتاد (13:00 ← 17:00)");
+check(addedWithHistory.sendable && addedWithHistory.computedEnd === "16:50", "وإضافةُ شعبةٍ جديدة بيومٍ واحد تأخذ كتلةَ اللائحة (13:00 ← 16:50) لا طولَ الذاكرة", addedWithHistory);
 const threeDayRow = row({ id: 1, AdTermId: 20, fmonday: true, fwednesday: true, fthursday: true, fstarttime: "08:00", fendtime: "09:20" });
 const twoDays = judgeRequest(ask({ days: ["fmonday", "ftuesday"] }), { ...habitual, allRows: [threeDayRow], instructorRowsAfter: [threeDayRow] });
-check(!twoDays.sendable && twoDays.shapes?.[0]?.days.length === 1 && /كما دُرّس سابقاً/.test(twoDays.shapes?.[0]?.label || ""), "والتوزيع غير المعتمد على يومين يُمنع وأوّلُ الخيارات «يوم واحد كما دُرّس سابقاً»");
+check(!twoDays.sendable && twoDays.shapes?.[0]?.days.join() === "fwednesday" && /الأربعاء 230د/.test(twoDays.shapes?.[0]?.label || ""), "والتوزيع غير المعتمد على يومين يُمنع، وأوّلُ الخيارات يومُ المقرّر المعتاد بالدقائق التي ستُحسب (٢٣٠ د)", twoDays.shapes);
 const oneTerm = judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), withHistory(natureOf(100, [18])));
-check(!oneTerm.sendable && oneTerm.blockMinutes === undefined, "وتاريخٌ من فصلٍ واحد لا يُعتدّ به: لا يَعِد بما لا يعرف");
+check(oneTerm.computedEnd === moved.computedEnd && oneTerm.blockMinutes === moved.blockMinutes, "وطولُ التاريخ لا يُعتدّ به في الحساب أصلاً — فصلٌ واحدٌ أو ثلاثة سواء", oneTerm);
 check(habitualBlockMinutes(natureOf(100, [16, 17, 18]).get(100), 17) === undefined, "ولا يُحتسب إلا ما سبق الفصلَ الحالي");
 const hour = withHistory(natureOf(100, [16, 17, 18], { fwednesday: false, fmonday: true, fstarttime: "09:00", fendtime: "09:50" }), 1);
 const hourMoved = judgeRequest(ask({ days: ["fmonday"], start: "10:00" }), hour);
@@ -93,20 +97,24 @@ check(hourMoved.sendable && hourMoved.computedEnd === "10:50", "ومقرّرٌ �
 /* ── الأنماطُ المقترحة تُبنى من نمط المقرّر نفسه أولاً — والمنعُ كما هو ───────────── */
 const noRows = (ctx: any) => ({ ...ctx, allRows: [] as any[], instructorRowsAfter: [] as any[] });
 const monWedNature = natureOf(100, [16, 17, 18], { fmonday: true, fwednesday: true, fstarttime: "09:00", fendtime: "10:20" });
-const blockedOneDay = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
-check(!blockedOneDay.sendable && blockedOneDay.reasons.some(reason => reason.source === "shape" && reason.blocking), "ثلاثُ ساعاتٍ في يومٍ واحد يبقى ممنوعاً كما كان (المنعُ لم يتغيّر)");
+const wednesdayBlock = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
+check(wednesdayBlock.sendable && wednesdayBlock.computedEnd === "11:50", "ثلاث ساعات في يومٍ واحد: كتلةُ اللائحة ١٧٠ د تغطّيها (ملاحظة المالك r4) — في الحكم كما في الخادم", wednesdayBlock);
+const blockedOneDay = judgeRequest(ask({ days: ["fsunday", "ftuesday"], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
+check(!blockedOneDay.sendable && blockedOneDay.reasons.some(reason => reason.source === "shape" && reason.blocking), "الأحد والثلاثاء بخمسين دقيقة لا تغطّي ثلاث ساعات: ممنوعٌ كما كان");
 check(blockedOneDay.shapes?.[0]?.days.join() === "fmonday,fwednesday" && /^المعتاد/.test(blockedOneDay.shapes?.[0]?.label || ""), "وأولُ ما يُقترح نمطُ المقرّر المعتاد (اثنين+أربعاء) لا نمطُ اللائحة الأول (أحد+ثلاثاء+خميس)");
 check(/المعتاد تاريخياً: الاثنين 80د/.test(blockedOneDay.reasons.find(reason => reason.source === "shape")?.text || ""), "ونصُّ «جرّب» يذكر المعتاد التاريخي بوضوح");
 const appliedUsual = judgeRequest(ask({ days: blockedOneDay.shapes?.[0]?.days as any || [], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
 check(appliedUsual.sendable && !appliedUsual.reasons.some(reason => reason.source === "shape"), "وتطبيقُ المقترح يمرّ من الفاحص نفسه بلا منع");
-const noHistoryAsk = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows({ ...context(3), nature: null }));
+const noHistoryAsk = judgeRequest(ask({ days: ["fsunday", "ftuesday"], start: "09:00" }), noRows({ ...context(3), nature: null }));
 check(!noHistoryAsk.sendable && noHistoryAsk.shapes?.[0]?.days.join() === "fsunday,ftuesday,fthursday" && !/المعتاد/.test(noHistoryAsk.shapes?.[0]?.label || ""), "ومقرّرٌ بلا تاريخ: أنماطُ اللائحة كما كانت");
 /* مقررٌ درج عليه تاريخياً توزيع اثنين+خميس: يعرضه النظام كتاريخٍ موثوق لا كنمط لائحة، ويمرّ من الفحص نفسه. */
 const monThuNature = natureOf(100, [16, 17, 18], { fmonday: true, fwednesday: false, fthursday: true, fstarttime: "09:00", fendtime: "10:20" });
-const mixedHistory = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
-check(!mixedHistory.sendable && mixedHistory.shapes?.[0]?.days.join() === "fmonday,fthursday" && mixedHistory.shapes[0].label.startsWith("المعتاد تاريخياً:"), "والتاريخُ الموثوق يظهر بوصفه تاريخياً لا نمطاً معتمداً");
-const mixedApplied = judgeRequest(ask({ days: mixedHistory.shapes?.[0]?.days as any || [], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
-check(mixedApplied.sendable && !mixedApplied.needsExcuse, "والتوزيع التاريخي يمرّ من الحكم نفسه بلا تناقض");
+/* قرار المالك 2026-10-30 — سقفُ الساعات عاد للجميع: اثنين+خميس لمقرّر ساعتين بأطوال اللائحة (٨٠+٥٠ = ١٣٠ د) يتجاوز ساعاته
+   (الحدّ ١١٠ د)، فلا يُقترح ولا يمرّ ولو درج عليه المقرّر — كانت «طبيعته» في الذاكرة تُعفيه. */
+const mixedHistory = judgeRequest(ask({ days: ["fsunday", "ftuesday", "fthursday"], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
+check(!mixedHistory.sendable && !(mixedHistory.shapes || []).some(shape => shape.days.join() === "fmonday,fthursday"), "والتاريخُ الذي يتجاوز الساعاتَ بأطوال اللائحة لا يُقترح", mixedHistory);
+const mixedApplied = judgeRequest(ask({ days: ["fmonday", "fthursday"], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
+check(!mixedApplied.sendable && mixedApplied.reasons.some(reason => reason.code === "hours" && /يتجاوز/.test(reason.text)), "ولا يمرّ إن طُلب: «يتجاوز ساعاته» لا إعفاءَ بالذاكرة", mixedApplied.reasons);
 /* مختبرٌ أربع ساعات يوماً واحداً: طلبُ اثنين+أربعاء عند ١٧:٠٠ — اليوم الواحد لا يتّسع (ينتهي بعد ٢٠:٠٠) فتبقى معه أنماطُ اللائحة القابلة للتطبيق. */
 const lateLab = judgeRequest(ask({ days: ["fmonday", "ftuesday"], start: "17:00" }), labContext);
 check(!lateLab.sendable && lateLab.shapes?.[0]?.days.join() === "fwednesday" && (lateLab.shapes?.length || 0) > 1, "ومختبرٌ طلب بداية مسائية لا يتّسع لها يومُه الواحد: يبقى يومُه أولاً ومعه بدائل");
@@ -120,7 +128,7 @@ check(/suggestNature: priorHabits/.test(readServerSource()) && /ranks\[Number\(r
 const multi = withHistory(new Map([[100, learnCourseNature(100, [16, 17, 18].flatMap((term, k) => [
   row({ id: 800 + k * 2, AdTermId: term, fmonday: true, fwednesday: true, fthursday: false, fsunday: false, fstarttime: "09:00", fendtime: "10:20" }),
 ])) ! ]]));
-check(judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), multi).blockMinutes === undefined, "ومقرّرٌ اعتاد لقاءين لا يأخذ طولَ يومٍ واحد");
+check(judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), multi).blockMinutes === 230, "ومقرّرٌ اعتاد لقاءين يأخذ يوماً واحداً بكتلة اللائحة (٢٣٠ د)، لا طولَ لقاءٍ من ذاكرته");
 
 const stillMixed = judgeRequest(ask({ days: ["fsunday", "fmonday"] }), context(1));
 check(stillMixed.reasons.some(reason => reason.blocking && /لا يُخلط/.test(reason.text)) && !stillMixed.sendable, "والخلطُ الذي ليس نمطاً معتمداً لمقرّره يُمنع صراحةً");

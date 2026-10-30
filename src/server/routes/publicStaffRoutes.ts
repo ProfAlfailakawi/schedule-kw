@@ -15,7 +15,7 @@ import type { ScheduleShareLink, InstructorRequest } from "../../types";
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { enrichCompanionRoomTypes } from "../../utils/companionRoomDisplay";
 import { clearStaffDeviceCookie, createStaffDeviceSecretResolver, signStaffDevice, staffDeviceCookie, staffDeviceExpiry, verifyStaffDevice, STAFF_DEVICE_COOKIE } from "../staffDeviceKey";
-import { individualExceptionOpen } from "../../utils/instructorRequestWindows";
+import { cardRequestsCloseAt } from "../../utils/instructorRequestWindows";
 import { negotiationState } from "../../utils/instructorRequestThread";
 import { instructorScheduleFingerprint } from "../../utils/scheduleFingerprint";
 import { isFacultyPlaceholder } from "../../utils/placeholderInstructor";
@@ -288,8 +288,8 @@ async function buildStaffCard(link: ScheduleShareLink, identity: StaffIdentity, 
     /* «سابق» لفصلٍ انقضى وحده؛ القادمُ قادمٌ، ويُضاف تقويمُه من الآن. */
     termPhase: termPhase(terms.find(row => row.AdTermId === displayTermId) as any, currentTermId(terms as any)),
     expiresAt: link.expiresAt,
-    /* الاستثناء الشخصي يغيّر موعد الكتابة الظاهر لهذا الأستاذ فقط. */
-    requestsCloseAt: eligibleRequests.find(entry => entry.windowOpen && individualExceptionOpen(entry.request.individualException))?.request.individualException?.closesAt || link.requestsCloseAt || "",
+    /* موعدٌ واحد في البطاقة وصفحة الطلب: نافذةُ طلبه هو (والاستثناءُ الشخصيُّ يغيّرها له وحده)، لا تاريخُ الرابط. */
+    requestsCloseAt: cardRequestsCloseAt(eligibleRequests, link.requestsCloseAt || ""),
     // The subscription key. Handed out only here — after the card has already
     // established who is holding it — so the civil ID never reaches a URL.
     calendarKey: await calendarKey(link.id, person.AdInstructorId),

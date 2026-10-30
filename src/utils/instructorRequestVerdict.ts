@@ -45,6 +45,7 @@ import { rowsForRequestSlots } from "./instructorRequestWeek";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START, isValidClock } from "./scheduleTime";
 import { roomIdentityKey } from "./locationRegistry";
 import { habitualBlockMinutes, historicalOrigin, type CourseNature } from "./courseNature";
+import { lengthPatternsForHours, meetingMinutes, meetingSlots, type OwnMeeting } from "./requestMeetingLength";
 
 /** ما يطلبه الأستاذ في صفٍّ واحد. */
 export type RequestAction = "keep" | "change" | "delete" | "add";
@@ -413,17 +414,23 @@ export function headlineReasonOf(list: ReadonlyArray<RequestReason> | undefined)
 
 export function judgeRequest(inbound: RequestedRow, context: VerdictContext): RequestVerdict {
   const reasons: RequestReason[] = [];
-  /* اللقاءُ الممتدّ يُعرف من صفّه القائم في الجدول، فلا يُصدَّق ما تقوله الصفحة عنه. */
-  /* طولُ اللقاء الممتدّ: من الصفّ نفسه إن كان ممتدّاً، وإلا مما درج عليه المقرّر في فصولٍ سابقة (شعبٌ بيومٍ واحد). */
+  /* ── طولُ اللقاء: المحرّكُ الواحد (requestMeetingLength) الذي يحسب به الخادمُ والصفحة ──
+     الموعدُ القائم بأيامه نفسها، أو يومُه الواحد يُنقل إلى يومٍ واحد، يحمل طولَه؛ وإلا نمطُ اللائحة لساعات
+     المقرّر (والكتلةُ الواحدة على أيّ يوم)؛ وإلا طولُ اليوم في اللائحة. لا يُصدَّق ما تقوله الصفحةُ عن الطول،
+     ولا تُكتب عادةُ القسم طولاً: هي اقتراحٌ يُعرض («المعتاد تاريخياً»)، لا قاعدة (المالك 2026-10-30). */
   const ownRow = inbound.rowId == null ? undefined : context.allRows.find(row => Number(row.id) === Number(inbound.rowId));
-  const ownBlock = blockMinutesOfRow(ownRow) ?? (inbound.days.length === 1 && inbound.action === "change" ? singleDayMinutesOfRow(ownRow) : undefined);
-  const habitBlock = inbound.days.length === 1 && inbound.action !== "delete" && inbound.action !== "keep"
-    ? habitualBlockMinutes(context.nature?.get(Number(inbound.AdCourseId)), context.termId) : undefined;
+  const ownDays = ownRow ? DAY_KEYS.filter(day => Boolean((ownRow as any)[day])) : [];
+  const ownLength = ownRow ? toMinutes(ownRow.fendtime) - toMinutes(ownRow.fstarttime) : 0;
+  const own: OwnMeeting | null = ownRow && inbound.action === "change" && ownDays.length && ownLength > 0 ? { days: ownDays, minutes: ownLength } : null;
   const hours = effectiveCourseHours(context.courses.get(inbound.AdCourseId));
-  const approved = patternsForHours(hours).find(pattern => pattern.days.length === inbound.days.length && pattern.days.every(day => inbound.days.includes(day)));
-  const implicit = !inbound.slots?.length && inbound.days.length > 1 && approved?.minutesPerDay.some((length, at) => length !== expectedMinutesForDay(approved.days[at]))
-    ? inbound.days.map(day => ({ day, start: inbound.start, end: minutesToTime(toMinutes(inbound.start) + approved!.minutesPerDay[approved!.days.indexOf(day)]) })) : undefined;
-  const request: RequestedRow = { ...inbound, slots: inbound.slots || implicit, blockMinutes: ownBlock ?? habitBlock };
+  const lengthPatterns = lengthPatternsForHours(hours);
+  const engineSlots = !inbound.slots?.length && inbound.days.length && isValidClock(inbound.start) && (inbound.action === "change" || inbound.action === "add")
+    ? meetingSlots(inbound.days, inbound.start, lengthPatterns, own) : undefined;
+  const providedSlots = inbound.slots?.length ? inbound.slots : engineSlots;
+  const singleDayLength = inbound.days.length === 1
+    ? (providedSlots?.length ? toMinutes(providedSlots[0].end) - toMinutes(providedSlots[0].start) : meetingMinutes(inbound.days, lengthPatterns, own)[0])
+    : undefined;
+  const request: RequestedRow = { ...inbound, slots: providedSlots, blockMinutes: singleDayLength };
   const dayStart = context.dayStart ?? SCHEDULE_DAY_START, dayEnd = context.dayEnd ?? SCHEDULE_DAY_END;
   const slots = request.slots?.length ? request.slots : request.days.map(day =>
     ({ day, start: request.start, end: endForRequest([day], request.start, request.days.length === 1 ? request.blockMinutes : undefined, dayEnd) }));
@@ -505,10 +512,13 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       const approvedFor = (days: DayKey[]) => patternsForHours(heldHours).some(pattern => pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
       const mixedWithoutApproval = (days: DayKey[]) => days.some(day => expectedMinutesForDay(day) === 50) && days.some(day => expectedMinutesForDay(day) !== 50) && !approvedFor(days);
       const usual = historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId);
+      /* الاقتراحُ يُطبَّق بالمحرّك نفسه: دقائقُ الزرّ هي ما سيُحسب حين يُضغط، ولا يُقترح ما يتجاوز الساعات. */
+      const shapeMinutes = (days: DayKey[]) => meetingMinutes(days, lengthPatternsForHours(heldHours));
       const usualShapes = (usual?.patterns || [])
-        .filter(days => days.length > 1 && days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= wanted
+        .filter(days => days.length > 1 && shapeMinutes(days).reduce((sum, value) => sum + value, 0) >= wanted
+          && shapeMinutes(days).reduce((sum, value) => sum + value, 0) <= maxWeeklyMinutesFor(heldHours)
           && (!mixedWithoutApproval(days) || (usual?.weeklyMinutes || 0) >= wanted))
-        .map(days => ({ days, label: `المعتاد تاريخياً: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
+        .map(days => ({ days, label: `المعتاد تاريخياً: ${days.map((day, at) => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${shapeMinutes(days)[at]}د`).join(" · ")}` }));
       const offered = usualShapes.length ? usualShapes : patternsForHours(heldHours)
         .filter(pattern => pattern.days.length > 1 && pattern.weeklyMinutes >= wanted)
         .map(pattern => ({ days: [...pattern.days] as DayKey[], label: pattern.label }));
@@ -552,6 +562,17 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   /* ساعاتُ المقرّر تُؤخذ من المقرّر نفسه: أيامٌ لا تكفي لإتمامها ليست طلباً صالحاً. */
   const hoursCourse = context.courses.get(request.AdCourseId);
   const courseHours = effectiveCourseHours(hoursCourse);
+  /* أيامٌ تخلط الخمسين بالثمانين بلا نمطٍ معتمدٍ أو تاريخيّ: سببُها «لا يُخلط» يُقال أدناه، فلا يسبقه سقفُ الساعات
+     بـ«يتجاوز» عن أيامٍ لا تُجمع أصلاً. */
+  const mixedUnapproved = (() => {
+    const shortDays = request.days.filter(day => expectedMinutesForDay(day) === 50).length;
+    if (!shortDays || shortDays === request.days.length) return false;
+    const approvedDays = courseHours > 0 && patternsForHours(courseHours).some(pattern =>
+      pattern.days.length === request.days.length && pattern.days.every(day => request.days.includes(day)));
+    const historicDays = Boolean(historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId)?.patterns
+      .some(pattern => pattern.length === request.days.length && pattern.every(day => request.days.includes(day))));
+    return !approvedDays && !historicDays;
+  })();
   if (courseHours > 0 && (request.action === "change" || request.action === "add")) {
     /* الإضافةُ تُحسب مع ما للمقرّر نفسه عند الأستاذ نفسه من صفوف، فإتمامُ مقرّرٍ بصفّين لا يُمنع. */
     const alreadyHeld = request.action === "add"
@@ -563,37 +584,49 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     const projected = afterRows.filter(row => Number(row.AdCourseId) === Number(request.AdCourseId) && String(row.SCode || "") === String(targetSection));
     const weekly = request.slots?.length
       ? projected.reduce((sum, row) => sum + weeklyLectureMinutes(row, courseHours), 0) : legacyWeekly;
-    const knownNature = context.nature?.get(request.AdCourseId);
-    if (request.slots?.length && !(knownNature && knownNature.confidence !== "low" && knownNature.meetingMinutes)
-      && weekly > maxWeeklyMinutesFor(courseHours)) {
-      reasons.push({ source: "shape", code: "hours", blocking: true, text: "مجموع مواعيد المقرر يتجاوز ساعاته الأسبوعية المعتمدة. راجع توزيع المواعيد." });
-      return verdictOf();
-    }
     /* لا يُطلب ما يقلّ عن ساعات المقرّر، ولا عمّا كان عليه الصفّ نفسُه: صفوفٌ قائمةٌ
        بنمطٍ غير مثالي لا تُمنع من النقل ما دام مجموعُها لم ينقص. */
     const original = request.rowId == null ? undefined : context.allRows.find(row => Number(row.id) === Number(request.rowId));
     const originalWeekly = original ? DAY_KEYS.filter(day => (original as any)[day]).length * (toMinutes(original.fendtime) - toMinutes(original.fstarttime)) : Infinity;
-    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly, habitBlock && request.days.length === 1 ? habitBlock : Infinity)) {
+    /* ── سقفُ ساعات المقرّر عاد ─────────────────────────────────────────────
+       كان يُعفى منه كلُّ مقرّرٍ له «طبيعةٌ» في ذاكرة القسم، فمرّ 75/75/50 = 200 د لمقرّرٍ بثلاث ساعات (الحدّ 165)
+       «متاحاً» وكُتب صفّين. السقفُ واحدٌ للجميع؛ والشعبةُ القائمة التي تتجاوزه أصلاً لا تُمنع من النقل ما لم تزد. */
+    const sectionBefore = original
+      ? context.allRows.filter(row => Number(row.AdCourseId) === Number(original.AdCourseId) && String(row.SCode || "") === String(original.SCode || "")
+          && Number(row.AdInstructorId) === Number(original.AdInstructorId) && Number(row.AdSectionId) === Number(original.AdSectionId))
+          .reduce((sum, row) => sum + weeklyLectureMinutes(row, courseHours), 0)
+      : 0;
+    if (request.slots?.length && !mixedUnapproved && weekly > maxWeeklyMinutesFor(courseHours) && weekly > sectionBefore) {
+      reasons.push({ source: "shape", code: "hours", blocking: true, text: "مجموع مواعيد المقرر يتجاوز ساعاته الأسبوعية المعتمدة. راجع توزيع المواعيد." });
+      return verdictOf();
+    }
+    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly)) {
       /* الأنماطُ المقترحة (أزرارٌ ونصّ «جرّب») تُبنى من نمط المقرّر نفسه في فصولٍ سابقة أولاً، ولا يُرجع إلى أنماط اللائحة إلا حين
          لا نمطَ له أو لا يقبله الفاحصُ. هذا في الاقتراح وحده: شرطُ المنع أعلاه والعتبةُ أدناه كما هما، وكلُّ زرٍّ يمرّ منهما. */
       const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
       const habitNature = context.nature?.get(Number(request.AdCourseId));
       const habitLength = habitualBlockMinutes(habitNature, context.termId);
       const habitDay = habitLength ? (habitNature?.dayPatterns.find(pattern => pattern.days.length === 1)?.days[0] || request.days[0]) : undefined;
-      const blockDay = request.blockMinutes && original ? DAY_KEYS.find(day => (original as any)[day]) : habitDay;
-      const blockLength = request.blockMinutes || habitLength;
+      /* «يوم واحد» يُقترح بالدقائق التي سيحسبها المحرّكُ حين يُضغط: لقاءُ الموعد نفسِه إن كان يوماً واحداً،
+         وإلا كتلةُ اللائحة — وعادةُ المقرّر تُسمّى «كما دُرّس سابقاً» حين تطابقها وحدها. */
+      const ownSingleDay = own && own.days.length === 1 ? own.days[0] : undefined;
+      const blockDay = ownSingleDay || habitDay;
+      const blockLength = blockDay ? meetingMinutes([blockDay], lengthPatterns, own)[0] : 0;
       const keepOneDay = blockDay && blockLength
-        ? [{ days: [blockDay] as DayKey[], label: `${request.blockMinutes && original ? "يوم واحد كما هو الآن" : "يوم واحد كما دُرّس سابقاً"}: ${DAY_NAMES[DAY_KEYS.indexOf(blockDay)]} ${blockLength}د` }]
+        ? [{ days: [blockDay] as DayKey[], label: `${ownSingleDay ? "يوم واحد كما هو الآن" : blockLength === habitLength ? "يوم واحد كما دُرّس سابقاً" : "يوم واحد"}: ${DAY_NAMES[DAY_KEYS.indexOf(blockDay)]} ${blockLength}د` }]
         : [];
       /* ما يُقترح يمرّ من الفاحص نفسه بلا استثناء: نمطٌ يجمع أيام الخمسين والثمانين خارج الأنماط المعتمدة لساعات المقرّر
          يطلب سبباً إن طُبّق، فلا يُقترح. */
       const approvedFor = (days: DayKey[]) => patternsForHours(courseHours).some(pattern => pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
       const mixedWithoutApproval = (days: DayKey[]) => days.some(day => expectedMinutesForDay(day) === 50) && days.some(day => expectedMinutesForDay(day) !== 50) && !approvedFor(days);
       const usual = historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId);
+      /* دقائقُ الزرّ هي ما سيحسبه المحرّكُ حين يُضغط؛ فلا يُقترح نمطٌ لا يغطّي الساعات أو يتجاوزها بعد تطبيقه. */
+      const shapeMinutes = (days: DayKey[]) => meetingMinutes(days, lengthPatterns);
+      const shapeTotal = (days: DayKey[]) => shapeMinutes(days).reduce((sum, value) => sum + value, 0);
       const usualShapes = keepOneDay.length || !usual ? [] : usual.patterns
-        .filter(days => days.length > 1 && days.reduce((sum, day) => sum + requestMinutes([day]), 0) >= threshold
+        .filter(days => days.length > 1 && shapeTotal(days) >= threshold && shapeTotal(days) <= maxWeeklyMinutesFor(courseHours)
           && (!mixedWithoutApproval(days) || usual.weeklyMinutes >= threshold))
-        .map(days => ({ days, label: `المعتاد تاريخياً: ${days.map(day => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${requestMinutes([day])}د`).join(" · ")}` }));
+        .map(days => ({ days, label: `المعتاد تاريخياً: ${days.map((day, at) => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${shapeMinutes(days)[at]}د`).join(" · ")}` }));
       const regulationShapes = patternsForHours(courseHours)
         .filter(pattern => pattern.days.length > 1 && pattern.weeklyMinutes >= threshold)
         .map(pattern => ({ days: [...pattern.days] as DayKey[], label: pattern.label }));

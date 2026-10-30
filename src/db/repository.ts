@@ -5520,14 +5520,15 @@ export const Repository = {
 
   /**
    * حجزُ التحرير المؤقّت (C3): أوّلُ من يختار الوقتَ يأخذه داخل معاملة الدفتر نفسها،
-   * ويسقط وحده بعد `ttlMs` إن لم يُرسَل. `proposal = null` يُسقط حجوزَ الطلب المؤقّتة.
+   * ويسقط وحده بعد `ttlMs` إن لم يُرسَل. `proposal = null` يُسقط حجوزَ الطلب المؤقّتة،
+   * أو حجزَ بندٍ واحد حين يُعطى مفتاحُه (`releaseItemId`: إلغاءُ إضافةٍ أو تعديل).
    */
-  holdInstructorRequestSlot: async (request: InstructorRequest, proposal: RequestReservationProposal | null, ttlMs: number): Promise<{ heldUntil: string } | null> => {
+  holdInstructorRequestSlot: async (request: InstructorRequest, proposal: RequestReservationProposal | null, ttlMs: number, releaseItemId?: string): Promise<{ heldUntil: string } | null> => {
     const termId = Number(request.AdTermId);
     const heldUntil = new Date(Date.now() + ttlMs).toISOString();
     const apply = (entries: RequestReservation[], rows: FSchedule[]) => proposal
       ? holdRequestReservation(entries, request, proposal, rows, heldUntil)
-      : releaseRequestHolds(entries, request.id);
+      : releaseRequestHolds(entries, request.id, releaseItemId);
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
       await firestoreDb.runTransaction(async tx => {
