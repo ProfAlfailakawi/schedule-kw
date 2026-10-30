@@ -813,10 +813,11 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         setFilters(prev => {
           /* الإشعار كتب هدفه في النطاق المشترك (takeNotifyFocus)، فيُقرأ منه. */
           const stored = focus ? readSharedScope(scopeOwner) : { collegeId: prev.collegeId, sectionId: prev.sectionId, termId: prev.termId };
-          /* فصلٌ محفوظٌ زال → الأحدث؛ ولا فصلَ محفوظاً → العميدان يفتحان على
+          /* فصلٌ محفوظٌ زال → الجاري تشغيلياً (لا أحدثُ فصلٍ قد يكون قيد الإعداد
+             وفارغاً، كما في لوحة البداية)؛ ولا فصلَ محفوظاً → العميدان يفتحان على
              الفصل الجاري مباشرة: لا يُسألان عن فصلٍ قبل أن يريا شيئاً. */
           const fallbackTermId = stored.termId
-            ? Number(sortedTerms[0]?.AdTermId || 0)
+            ? Number(currentTermId(sortedTerms as any) || sortedTerms[0]?.AdTermId || 0)
             : (roleId === "dean" || roleId === "viceDean") ? currentTermId(sortedTerms as any) : 0;
           const scoped = resolveSharedScope(stored, { scopes, isAdmin: isPowerAdmin, colleges: data[0], sections: data[1], terms: sortedTerms, fallbackTermId });
           return { ...prev, ...scoped };

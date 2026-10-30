@@ -19,6 +19,7 @@ import type { AuthenticatedRequest } from "./auth";
 import { hallBarterAllowsRoomUse } from "./hallBarter";
 import { canonicalizeHistoricalLocationForRuntime, readLocationRegistry } from "./locations";
 import { sortTermsNewestServer } from "./ordering";
+import { resolveHomeTerm } from "./scheduleReads";
 import { sectionScheduleWindow } from "./scheduleRules";
 import { companionBookingFor } from "./scheduleWrites";
 import { isScopeAllowed, legacyFDetail } from "./scope";
@@ -374,10 +375,14 @@ export function smartContextFrom(req: AuthenticatedRequest) {
  * صار القرار في `resolveSmartScope` (src/server/readScope.ts) بحَكَمٍ واحد هو
  * `isScopeAllowed`، ومعه `allowed` يلتزم به كلُّ من يستدعي هذه الدالّة.
  */
-export async function resolveSmartContext(req: AuthenticatedRequest, options: { allowCollegeWide?: boolean } = {}) {
+export async function resolveSmartContext(req: AuthenticatedRequest, options: { allowCollegeWide?: boolean; homeTerm?: boolean } = {}) {
   const requested = smartContextFrom(req);
   const [terms, sections] = await Promise.all([Repository.getTerms(), Repository.getSections()]);
-  const termId = requested.termId || Number(sortTermsNewestServer(terms)[0]?.AdTermId || 0);
+  /* `homeTerm`: قراءاتُ لوحة البداية تحلّل فصلَ اللوحة نفسه (resolveHomeTerm)، لا
+     أحدثَ فصلٍ في القائمة — وإلا قيل «الجدول سليم» عن فصلٍ لم يُبنَ بعد بجانب فصلٍ يُدرَّس. */
+  const termId = options.homeTerm
+    ? (await resolveHomeTerm(req, terms, requested.termId)).termId
+    : requested.termId || Number(sortTermsNewestServer(terms)[0]?.AdTermId || 0);
   let busiest: Map<number, number> | undefined;
   if (!requested.sectionId) {
     const schedules = await Repository.getSchedulesByScope({ termId });

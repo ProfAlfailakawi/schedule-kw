@@ -96,6 +96,7 @@
     "test:demo-radar": "tsx tests/demo-radar-audit.ts",
     "test:demo-firestore-isolation": "tsx tests/demo-firestore-isolation-audit.ts",
     "test:term-forecast": "tsx tests/term-forecast-audit.ts",
+    "test:dashboard-home-term": "tsx tests/dashboard-home-term-audit.ts",
     "test:section-gap": "tsx tests/section-gap-audit.ts && tsx tests/visiting-need-audit.ts",
     "test:searchable-select": "tsx tests/searchable-select-audit.ts",
     "test:section-gap-live": "tsx tests/section-gap-live-audit.ts",

@@ -436,7 +436,7 @@
    ],
    "path": "/api/dashboard",
    "name": "bound dispatch",
-   "call": "b2abe0c9de2d85dd",
+   "call": "b32cbc12edaad1ad",
    "site": "src/server/routes/dashboardRoutes.ts:50",
    "regexp": "/^\\/api\\/dashboard\\/?$/i",
    "end": true
@@ -1640,7 +1640,7 @@
    ],
    "path": "/api/intelligence/living",
    "name": "bound dispatch",
-   "call": "13cd4673be920cc2",
+   "call": "27ec51b90b23a73d",
    "site": "src/server/routes/intelligenceInsightRoutes.ts:250",
    "regexp": "/^\\/api\\/intelligence\\/living\\/?$/i",
    "end": true
@@ -2421,7 +2421,7 @@
    ],
    "path": "/api/intelligence/overview",
    "name": "bound dispatch",
-   "call": "747dc1058b2f5da5",
+   "call": "a8f62d719b34778d",
    "site": "src/server/routes/intelligenceRoutes.ts:264",
    "regexp": "/^\\/api\\/intelligence\\/overview\\/?$/i",
    "end": true

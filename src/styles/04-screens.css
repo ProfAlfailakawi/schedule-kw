@@ -187,6 +187,19 @@
   color:var(--muted);font-size:var(--t-sm);white-space:nowrap;
 }
 .deck-chip svg{width:14px;height:14px;color:var(--muted-2)}
+/* شارةُ الفصل: الفصلُ القادم قيد الإعداد يُفتح منها، أو يُعاد منها إلى الافتراض. */
+.deck-chip.deck-term-switch{
+  border:0;cursor:pointer;font:inherit;font-size:var(--t-sm);
+  background:color-mix(in srgb,var(--accent) 9%,var(--surface-2));
+  color:color-mix(in srgb,var(--accent) 78%,var(--ink));
+  transition:background-color .18s ease,color .18s ease;
+}
+.deck-chip.deck-term-switch b{font-weight:600;color:var(--accent)}
+.deck-chip.deck-term-switch:hover{background:color-mix(in srgb,var(--accent) 16%,var(--surface-2))}
+.deck-chip.deck-term-switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.deck-chip.deck-term-switch svg{color:var(--accent);transition:transform .18s ease}
+.deck-chip.deck-term-switch:hover svg{transform:translateX(-2px)}
+@media (prefers-reduced-motion:reduce){.deck-chip.deck-term-switch,.deck-chip.deck-term-switch svg{transition:none}}
 .deck-live{width:22px;height:22px;flex:none;display:grid;place-items:center}
 /* النقطةُ الخضراء تقول «البيانات محدّثة» وتُعرض دائماً بلا شرط، فنبضُها الدائم
    لا يُخبر بشيء — زينةٌ تتحرّك في طرف العين طوال الجلسة. فتبقى النقطةُ وهالتُها

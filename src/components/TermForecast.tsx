@@ -19,10 +19,13 @@ const Line: React.FC<{ risk: ForecastRisk }> = ({ risk }) => {
   return <li className={`forecast-risk tone-${risk.tone}`}><i aria-hidden="true"><Icon /></i><span>{risk.text}</span></li>;
 };
 
-export default function TermForecast({ scopes, isAdmin, onImport }: { scopes: any[]; isAdmin: boolean; onImport?: () => void }) {
-  const resolve = () => resolveSharedScope(readSharedScope(), { scopes, isAdmin });
+export default function TermForecast({ scopes, isAdmin, fallbackTermId = 0, onImport }: { scopes: any[]; isAdmin: boolean; fallbackTermId?: number; onImport?: () => void }) {
+  /* بلا فصلٍ مختار: فصلُ لوحة البداية نفسه (الجاري، لا أحدث فصلٍ في القائمة)، فلا
+     يقول الإنذارُ «لا مخاطر» عن فصلٍ لم يُبنَ بعد بجانب فصلٍ يُدرَّس. */
+  const resolve = () => resolveSharedScope(readSharedScope(), { scopes, isAdmin, fallbackTermId });
   const [scope, setScope] = useState(resolve);
-  useSharedScope(incoming => setScope(resolveSharedScope(incoming, { scopes, isAdmin })));
+  useSharedScope(incoming => setScope(resolveSharedScope(incoming, { scopes, isAdmin, fallbackTermId })));
+  useEffect(() => { setScope(resolve()); }, [fallbackTermId]);
   const [forecast, setForecast] = useState<(Forecast & { scopeKey: string }) | null>(null);
   const [open, setOpen] = useState(false);
   const guard = useRef(createScopeGuard()).current;

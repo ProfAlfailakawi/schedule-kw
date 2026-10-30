@@ -7,9 +7,12 @@ import{Counted,useMotionScope}from"./dna";
 import TermForecast from"./TermForecast";
 import{SCHEDULE_DAY_END,SCHEDULE_DAY_SPAN,SCHEDULE_DAY_START, formatCompactDurationArabic, scheduleClockForDisplay }from"../utils/scheduleTime";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
+import { readSharedScope, useSharedScope } from "../utils/sharedScope";
 
 interface DashboardProps{user:any;scopes:any[];canManageSchedule?:boolean;onNavigate?:(view:string)=>void;searchView?:string;reportView?:string}
-interface DashboardData{history?:Array<{termId:number;termName:string;schedules:number;rooms:number;instructors:number}>;previous?:{termId:number;termName:string;schedules:number;rooms:number;instructors:number}|null;metrics:{courses:number;schedules:number;terms:number;instructors:number};latestTermName:string;dayName:string;weekend?:boolean;dashboardTotal:number;today:Array<{id:number;instructorName:string;courseCode:string;courseName:string;startTime:string;endTime:string;roomCode:string;roomHall:string}>;workspace?:{mode:"admin"|"personal"|"scope";activeSchedules:number;uniqueRooms:number;uniqueInstructors:number;roomOccupancyPeak:number;peakOccupiedRooms:number;weekdayLoad:Array<{key:string;label:string;count:number}>;busiestHours:Array<{hour:string;count:number}>;busiestRooms:Array<{room:string;count:number}>;scopeCount:number;linkedInstructorName:string;personalToday:any[]}}
+interface DashboardData{history?:Array<{termId:number;termName:string;schedules:number;rooms:number;instructors:number}>;previous?:{termId:number;termName:string;schedules:number;rooms:number;instructors:number}|null;metrics:{courses:number;schedules:number;terms:number;instructors:number};latestTermId?:number;latestTermName:string;home?:HomeTerm;dayName:string;weekend?:boolean;dashboardTotal:number;today:Array<{id:number;instructorName:string;courseCode:string;courseName:string;startTime:string;endTime:string;roomCode:string;roomHall:string}>;workspace?:{mode:"admin"|"personal"|"scope";activeSchedules:number;uniqueRooms:number;uniqueInstructors:number;roomOccupancyPeak:number;peakOccupiedRooms:number;weekdayLoad:Array<{key:string;label:string;count:number}>;busiestHours:Array<{hour:string;count:number}>;busiestRooms:Array<{room:string;count:number}>;scopeCount:number;linkedInstructorName:string;personalToday:any[]}}
+/** أيُّ فصلٍ تعرضه اللوحة ولماذا (src/utils/homeTerm.ts). */
+interface HomeTerm{termId:number;defaultTermId:number;defaultTermName:string;currentTermId:number;explicit:boolean;fallback:boolean;empty:boolean;awaitingApproval:boolean;upcoming:{termId:number;termName:string}|null}
 interface DecisionItem{severity?:string;level?:string;title?:string;label?:string;detail?:string;description?:string;message?:string}
 
 /** Minutes past midnight, as a clock a person reads. */
@@ -113,18 +116,31 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
   * failed — so a failed read still collapses to the old, honest empty state.
   */
  const[insightsPending,setInsightsPending]=useState(canManageSchedule);
+ /**
+  * ── الفصلُ الذي تعرضه اللوحة ─────────────────────────────────────────────────
+  * ما اختاره القارئ بيده في أيّ شاشة (النطاق المشترك) يُحترم ويبقى؛ وبلا اختيارٍ
+  * يقرّر الخادم: الجاري تشغيلياً، وإلا أحدثُ فصلٍ للقارئ فيه ما يُرى. والقراءتان
+  * الثقيلتان تحملان `home=1` فتحلّلان الفصلَ نفسه — وتنطلق الثلاث معاً كما كانت.
+  */
+ const[termRequest,setTermRequest]=useState(()=>readSharedScope().termId||0);
+ const termScope=useSharedScope(scope=>setTermRequest(scope.termId||0));
+ const openTerm=(termId:number)=>{if(!termId)return;termScope.pick({termId});setTermRequest(termId);};
  useEffect(()=>{let alive=true;
+  /* فصلٌ آخر: لا يبقى من قراءات الفصل السابق شيء — لا اسمُه ولا تعارضاته ولا
+     جاهزيته — فلا يُنسب رقمٌ إلى غير فصله أيّاً كان الجوابُ الذي يصل أولاً. */
+  setData(null);setOverview(null);setLiving(null);setError(null);
+  const termQuery=termRequest?`termId=${termRequest}`:"",homeQuery=termQuery?`home=1&${termQuery}`:"home=1";
   const optional=async(url:string)=>{
    try{const response=await fetch(url);if(!response.ok)return null;return await response.json();}
    catch{return null;}
   };
   const enrichment=canManageSchedule
-   ?Promise.all([optional("/api/intelligence/overview"),optional("/api/intelligence/living")])
+   ?Promise.all([optional(`/api/intelligence/overview?${homeQuery}`),optional(`/api/intelligence/living?${homeQuery}`)])
    :null;
   setInsightsPending(Boolean(enrichment));
   (async()=>{
    try{
-    const main=await fetch("/api/dashboard");
+    const main=await fetch(`/api/dashboard${termQuery?`?${termQuery}`:""}`);
     const d=await main.json();
     if(!main.ok)throw new Error(d.error||"تعذر تحميل اللوحة");
     if(!alive)return;
@@ -135,16 +151,18 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
    if(!enrichment)return;
    const [pd,ld]=await enrichment;
    if(!alive)return;
-   if(pd)setOverview(pd);
-   if(ld)setLiving(ld);
+   setOverview(pd);
+   setLiving(ld);
    setInsightsPending(false);
   })();
-  return()=>{alive=false;};},[canManageSchedule]);
+  return()=>{alive=false;};},[canManageSchedule,termRequest]);
 
  const power=Boolean(user?.IsAdminUser||user?.SystemUserId===1),ws=data?.workspace;
  const maxDay=useMemo(()=>Math.max(1,...(ws?.weekdayLoad||[]).map(x=>x.count)),[ws]);
  const maxHour=useMemo(()=>Math.max(1,...(ws?.busiestHours||[]).map(x=>x.count)),[ws]);
- const decisionSource:DecisionItem[]=living?.pulse
+ const home=data?.home,termEmpty=Boolean(home?.empty);
+ /* فصلٌ لا صفَّ فيه يُرى لا يُقال عنه «الجدول سليم»، ولا تُرسم له أرقامُ يومٍ وأسبوعٍ من صفر. */
+ const decisionSource:DecisionItem[]=termEmpty?[]:living?.pulse
   ?(Array.isArray(living.pulse.items)?living.pulse.items:[])
   :(Array.isArray(overview?.alerts)?overview.alerts.filter((item:DecisionItem)=>decisionTitle(item)!=="الوضع مستقر"):[]);
  const attentionItems=decisionSource.filter(item=>Boolean(decisionTitle(item)));
@@ -219,6 +237,13 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
    </div>
    <time className="deck-chip" dateTime={dateValue}><CalendarDays aria-hidden="true"/>{dateLabel}</time>
    {data?.latestTermName?<span className="deck-chip"><GraduationCap aria-hidden="true"/>{data.latestTermName}</span>:null}
+   {/* شارةٌ واحدة: من فتح فصلاً غير الافتراضي يُعطى طريقَ العودة أولاً، وإلا
+       يُعرض عليه الفصلُ القادم قيد الإعداد. */}
+   {home&&home.defaultTermId&&home.termId!==home.defaultTermId
+    ?<button type="button" className="deck-chip deck-term-switch" data-guide-ignore="شارةُ فصلٍ في رأس الرئيسية تبدّل الفصلَ المعروض فقط ولا تمسّ البيانات" title={home.defaultTermName} aria-label={`العودة إلى ${home.defaultTermName}`} onClick={()=>openTerm(home.defaultTermId)}><span>العودة إلى</span><b>{home.defaultTermName}</b><ArrowLeft aria-hidden="true"/></button>
+    :home?.upcoming&&home.upcoming.termId!==home.termId
+     ?<button type="button" className="deck-chip deck-term-switch" data-guide-ignore="شارةُ فصلٍ في رأس الرئيسية تبدّل الفصلَ المعروض فقط ولا تمسّ البيانات" title={home.upcoming.termName} aria-label={`الفصل القادم قيد الإعداد: ${home.upcoming.termName} — افتحه`} onClick={()=>openTerm(home.upcoming!.termId)}><span>الفصل القادم قيد الإعداد</span><b>افتحه</b><ArrowLeft aria-hidden="true"/></button>
+     :null}
    <span className="deck-live" role="status" aria-label="البيانات محدّثة"><i aria-hidden="true"/></span>
    {/* The install invitation lives here now — full the first time, a single
        icon every time after. */}
@@ -228,7 +253,13 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
   {error?<Notice>{error}</Notice>:null}
 
   {!data?<div className="dashboard-canvas-skeleton" role="status" aria-live="polite"><span className="sr-only">جاري تحميل لوحة القيادة</span><i/><i/><i/></div>:<>
-   <section className={`deck-decision level-${decisionLevel}`} aria-labelledby="dashboard-primary-decision">
+   {termEmpty?<section className="deck-decision level-info deck-term-empty" aria-labelledby="dashboard-primary-decision">
+    <span className="deck-decision-mark"><CalendarDays aria-hidden="true"/></span>
+    <div>
+     <strong id="dashboard-primary-decision">{home?.awaitingApproval?"لم يُعتمد جدولُ هذا الفصل بعد":"لا مواعيد في هذا الفصل بعد"}</strong>
+     <small>{home?.awaitingApproval?"تظهر هنا جداولُ الأقسام حين يعتمدها التسجيل.":`${data.latestTermName||"هذا الفصل"} — لا شيء يُعرض بعد.`}</small>
+    </div>
+   </section>:<section className={`deck-decision level-${decisionLevel}`} aria-labelledby="dashboard-primary-decision">
     <span className="deck-decision-mark">{primaryDecision?<ShieldAlert aria-hidden="true"/>:<CheckCircle2 aria-hidden="true"/>}</span>
     <div>
      <strong id="dashboard-primary-decision">{decisionTitle(primaryDecision)||"الجدول سليم"}</strong>
@@ -236,9 +267,9 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
     </div>
     {decisions.length>1?<span className="deck-decision-count" aria-label={`${countOf(decisions.length, AR.matter)} تستحق الانتباه`}>{num(decisions.length)}</span>:null}
     {primaryDecision&&canManageSchedule?<button type="button" aria-label={`معالجة: ${decisionTitle(primaryDecision)}`} onClick={()=>onNavigate?.("schedules")}><ArrowLeft aria-hidden="true"/></button>:null}
-   </section>
+   </section>}
 
-   {signals.length>1?<section className="deck-signals" aria-label="مؤشرات الجاهزية">
+   {!termEmpty&&signals.length>1?<section className="deck-signals" aria-label="مؤشرات الجاهزية">
     {signals.map(item=><article key={item.key} className={[item.tone?`signal-${item.tone}`:"",item.awaiting?"is-awaiting":"",!item.awaiting&&awaitedSignals.current.has(item.key)?"signal-arrived":""].filter(Boolean).join(" ")||undefined} aria-busy={item.awaiting||undefined}>
      {item.ring!=null?<div className="signal-ring-row"><MiniRing value={item.ring} size={60} label={item.label}>{item.value}</MiniRing></div>:<b>{item.count!=null?<Counted value={item.count} observe playKey={`dashboard:signal:${item.key}`} format={num}/>:item.value}</b>}
      <span>{item.label}</span>
@@ -262,7 +293,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
     </div>:null}
    </section>:null}
 
-   <section className={`deck-today${today.length?"":" is-empty"}`} aria-labelledby="dashboard-today-title">
+   {termEmpty?null:<section className={`deck-today${today.length?"":" is-empty"}`} aria-labelledby="dashboard-today-title">
     <h2 className="sr-only" id="dashboard-today-title">مسار محاضرات اليوم</h2>
     <div className="deck-today-lead">
      <b aria-label={`${countOf(today.length, AR.lecture)} اليوم`}>{num(today.length)}</b>
@@ -324,11 +355,13 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
      {canManageSchedule?<PrimaryButton onClick={()=>onNavigate?.("schedules")}><CalendarDays aria-hidden="true"/>الجدول</PrimaryButton>:null}
      {reportView||searchView?<button type="button" className="editorial-text-action" onClick={()=>onNavigate?.((reportView||searchView) as string)}>التقارير<ArrowLeft aria-hidden="true"/></button>:null}
     </div>
-   </section>
+   </section>}
 
-   {canManageSchedule?<TermForecast scopes={scopes} isAdmin={power} onImport={()=>onNavigate?.("schedules")}/>:null}
+   {/* الإنذار المبكر مستقلٌّ عن فراغ الجدول: فصلُ تخطيطٍ استُورد طلبُه ولم تُبنَ شعبُه
+       هو بالضبط حيث يقول «ينقص كذا شعبة». */}
+   {canManageSchedule?<TermForecast scopes={scopes} isAdmin={power} fallbackTermId={home?.termId||data.latestTermId||0} onImport={()=>onNavigate?.("schedules")}/>:null}
 
-   {healthLines.length?<section className={`deck-chart dashboard-health-ribbon${healthAwaiting?" is-awaiting":""}`} aria-labelledby="dashboard-health-title" aria-busy={healthAwaiting||undefined}>
+   {!termEmpty&&healthLines.length?<section className={`deck-chart dashboard-health-ribbon${healthAwaiting?" is-awaiting":""}`} aria-labelledby="dashboard-health-title" aria-busy={healthAwaiting||undefined}>
     <header><CheckCircle2 aria-hidden="true"/><span id="dashboard-health-title">صحة الجدول</span></header>
     <div className="bar-rows dashboard-health-lines">
      {healthLines.map(item=><div key={item.label} className="dashboard-health-factor" data-tone={item.value==null?undefined:item.value<30?(item.label==="إشغال"?"calm":"bad"):item.value>=85?"good":"mid"} style={{["--v" as any]:item.value??0}} data-high={(item.value??0)>=80||undefined}>
@@ -367,7 +400,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
      of cards it described and wrapped it onto a second line; the two ends of
      the range say the same thing and fit.
    */}
-   {data.history&&data.history.length>1?<p className="deck-compare-note">
+   {termEmpty?null:data.history&&data.history.length>1?<p className="deck-compare-note">
      <span>الخط يغطي</span>
      <b>{data.history[0]?.termName}</b>
      <i aria-hidden="true"><ArrowLeft /></i>
@@ -375,7 +408,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
      <em>{countOf(data.history.length, AR.term)}</em>
    </p>:data.previous?.termName?<p className="deck-compare-note"><span>المقارنة مع</span><b>{data.previous.termName}</b></p>:null}
 
-   {ws?<section className="deck-charts dashboard-workload-preview" aria-label="قراءة حمل الجدول">
+   {ws&&!termEmpty?<section className="deck-charts dashboard-workload-preview" aria-label="قراءة حمل الجدول">
     <article className="deck-chart dashboard-week-preview" aria-labelledby="dashboard-week-title">
      <header><CalendarClock aria-hidden="true"/><span id="dashboard-week-title">حمل الأسبوع</span></header>
      <div className="bar-columns" role="list" aria-label="عدد المواعيد في كل يوم">
@@ -410,7 +443,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
     </article></>:null}
    </section>:null}
 
-   {power&&ws?<section className={`dashboard-insights ${detailsOpen?"open":""}`}>
+   {power&&ws&&!termEmpty?<section className={`dashboard-insights ${detailsOpen?"open":""}`}>
     <button className="dashboard-insights-toggle" type="button" onClick={()=>setDetailsOpen(v=>!v)} aria-expanded={detailsOpen}>
      <span><Sparkles aria-hidden="true"/><strong>تفاصيل</strong></span>
      <ChevronDown aria-hidden="true"/>

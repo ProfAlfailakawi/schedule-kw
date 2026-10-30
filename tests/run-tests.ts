@@ -1761,9 +1761,10 @@ async function runTests() {
     const dashboard = fs.readFileSync(path.join(process.cwd(), "src/components/Dashboard.tsx"), "utf8");
     const effect = dashboard.slice(dashboard.indexOf("const[insightsPending,setInsightsPending]"), dashboard.indexOf("const power="));
     assert(effect.length > 400, "كتلة تحميل اللوحة عُثر عليها");
-    assert(!/await fetch\("\/api\/dashboard"\)[\s\S]{0,400}?optional\("\/api\/intelligence/.test(effect),
+    /* الثلاث تحمل فصلَ اللوحة (?termId=… و home=1) ولا تنتظر إحداها الأخرى. */
+    assert(!/await fetch\(`?["']?\/api\/dashboard[\s\S]{0,400}?optional\(`\/api\/intelligence/.test(effect),
       "القراءات الثقيلة لم تعد تنتظر جواب اللوحة قبل أن تُرسل");
-    assert(/const enrichment=canManageSchedule[\s\S]{0,160}Promise\.all\(\[optional\("\/api\/intelligence\/overview"\),optional\("\/api\/intelligence\/living"\)\]\)/.test(effect),
+    assert(/const enrichment=canManageSchedule[\s\S]{0,160}Promise\.all\(\[optional\(`\/api\/intelligence\/overview\?\$\{homeQuery\}`\),optional\(`\/api\/intelligence\/living\?\$\{homeQuery\}`\)\]\)/.test(effect),
       "الثلاثة تنطلق معاً");
     assert(/setInsightsPending\(false\)/.test(effect),
       "والانتظار ينتهي عند استقرار القراءتين — نجحتا أو أخفقتا");
