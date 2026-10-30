@@ -25,7 +25,7 @@ import {
   looksAutomated, nextFreeDay, phaseOf, placementProblems, readImageInfo, rotationOrder, slotById, totalsOf, dailySeries,
   trialProblems, weeklyCompare, slotBenchmarkCtr, TRIAL_DAYS, normCompany, activeSlots, cleanTargetCodes, NEAR_GRADUATION_UNITS,
 } from "../utils/adsEngine";
-import { STUDENT_PULSES, buildAudienceStats, pickDashboardTerm } from "../utils/audienceStats";
+import { STUDENT_PULSES, buildAudienceStats, headlineTotals, pickDashboardTerm } from "../utils/audienceStats";
 import { reportCalendar } from "../utils/adCalendar";
 import { LEAD_ERRORS, cleanLead } from "../utils/adLeads";
 import { abVerdict, conversionOf } from "../utils/adInsights";
@@ -370,6 +370,36 @@ async function heavyInputs(): Promise<Heavy> {
   await Promise.all(terms.map(async term => { needsByTerm.set(Number(term.AdTermId), await Repository.getStudentNeedsForTerm(Number(term.AdTermId))); }));
   heavy = { at: Date.now(), terms, courses, profiles, needsByTerm, requests: new Map() };
   return heavy;
+}
+
+const HEADLINE_TTL_MS = 10 * 60_000;
+let headlineMemo: { at: number; body: ReturnType<typeof headlineBody> } | null = null;
+let headlinePending: Promise<ReturnType<typeof headlineBody>> | null = null;
+
+function headlineBody(head: ReturnType<typeof headlineTotals>) {
+  return {
+    since: AUDIENCE_BASELINE.since,
+    asOf: AUDIENCE_BASELINE.asOf,
+    students: head.students,
+    visits: head.visits,
+    /* رقم الإدارة الثابت، لا عدد سجلّ الأساتذة: هكذا تعرضه لوحة الجمهور. */
+    instructors: AUDIENCE_BASELINE.instructors,
+    instructorOpens: head.instructorOpens,
+    computedAt: new Date().toISOString(),
+  };
+}
+
+async function audienceHeadline() {
+  if (headlineMemo && Date.now() - headlineMemo.at < HEADLINE_TTL_MS) return headlineMemo.body;
+  if (!headlinePending) {
+    headlinePending = (async () => {
+      const { input } = await audienceInputs(0);
+      const body = headlineBody(headlineTotals(buildAudienceStats(input)));
+      headlineMemo = { at: Date.now(), body };
+      return body;
+    })().finally(() => { headlinePending = null; });
+  }
+  return headlinePending;
 }
 
 async function audienceInputs(requestedTermId: number) {
@@ -741,6 +771,17 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     await flushAdsCounters();
     const { input, termChoices } = await audienceInputs(Number(req.query.termId || 0));
     res.json({ ...buildAudienceStats(input), termChoices });
+  });
+
+  /* الأرقام الكبرى وحدها للعرض التقديمي العام (public/schedule-presentation.html): الرصيد الذي أقرّته الإدارة وما قيس بعده،
+     مجمّعةً بلا هوية كما في ملف الشراكة. تُحسب مرةً كل عشر دقائق مهما كثر الطلب، والطلبات المتزامنة تنتظر الحساب نفسه. */
+  app.get("/api/public/audience-headline", async (_req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "public, max-age=300");
+      res.json(await audienceHeadline());
+    } catch {
+      fail(res, 503, "تعذّر حساب الأرقام الآن.");
+    }
   });
 
   app.get("/api/admin/ads", ...admin, async (_req: Request, res: Response) => {
