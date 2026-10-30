@@ -37,6 +37,7 @@ import { readLocationRegistry } from "../core/locations";
 import { isScopeAllowed } from "../core/scope";
 import { placeholderInstructorIds } from "../core/smartImport";
 import { staffFamilyScopes, staffFamilyShareLinks } from "../core/staffCard";
+import { noteTrail } from "../activityTrail";
 
 /* ── F1–F3: مرحلة التدريب ──────────────────────────────────────────────────── */
 async function sendTaWave(doc: TaPhaseDoc, wave: TaWave, by: { SystemUserId?: number; UserName?: string }) {
@@ -369,6 +370,7 @@ app.post("/api/advisor-seats/add", requireAnyPermission([7, 14]), async (req: Au
   const alternatives = result.ok ? [] : alternativeSections(sections.map(row => ({ key: row.key, section: row.section, time: row.time, ledger: row.ledger })), target.courseId, target.key, config)
     .slice(0, 3).map(row => ({ key: row.key, section: row.section, time: row.time, remaining: row.state.remaining }));
   if (out.ok) res.locals.auditChanges = `مرشد: +${countOf(result.added, AR.seat)} · ${target.courseName} (${target.section})`;
+  if (out.ok) noteTrail(res, { target: `مقاعد المرشد · ${target.courseName} (${target.section})`, after: `+${countOf(result.added, AR.seat)}`, scope: { collegeId, sectionId, termId } });
   res.status(out.ok ? 200 : 409).json({ ...result, alternatives, ...(out.ok ? { state: seatState(out.next as SeatLedger, config), rev: (out.next as SeatLedger).adds.length } : {}) });
 });
 
@@ -381,6 +383,7 @@ app.post("/api/advisor-seats/exception", requireAnyPermission([7, 14]), async (r
   const at = new Date().toISOString();
   const row = { id: `${id}:${Date.now()}`, scope: id, key, count, note, at, by: String(req.user?.Name || req.user?.UserName || "مرشد"), status: "pending" };
   await Repository.saveFeatureDoc("advisorSeatRequests", row.id, row);
+  noteTrail(res, { target: "مقاعد المرشد · طلب استثناء", after: countOf(count, AR.seat), ...(note ? { detail: note } : {}), scope: { collegeId, sectionId, termId } });
   broadcastNotify(Repository.currentDemoSessionId());
   bumpTeamWork(Repository.currentDemoSessionId(), collegeId, termId);
   res.json({ ok: true, request: row, hint: "طلبك عند المسؤول · قد يقترح فتح شعبة جديدة" });

@@ -20,6 +20,7 @@ import { curriculumLabelsFor } from "../core/planning";
 import { applyProposalCore, deleteScheduleHandler, type ProposalOutcome, runScheduleHandler } from "../core/scheduleWrites";
 import { isScopeAllowed } from "../core/scope";
 import { studentIdentityFor } from "../core/studentIdentity";
+import { noteTrail } from "../activityTrail";
 import { bumpTeamWork } from "../teamPresence";
 import { caseStampOf, expectedStamp, STALE_WRITE_CODE, STALE_WRITE_MESSAGE } from "../../utils/staleWrite";
 
@@ -87,6 +88,7 @@ const owningSectionsInScopeFor = async (req: AuthenticatedRequest, need: any, al
       && isScopeAllowed(req, Number(need.AdCollegeId), candidate));
 
 const STUDENT_COURSE_STATES = new Set(["awaiting-registration", "committee-rejected", "registered", "rejected"]);
+const TRAIL_COURSE_STATE: Record<string, string> = { "awaiting-registration": "وافقت اللجنة", "committee-rejected": "لم توافق اللجنة", registered: "سُجّل", rejected: "رُدّ" };
 const STUDENT_REJECT_REASONS = new Set(["no-seat", "prerequisite", "level", "conflict", "closed", "other"]);
 const STUDENT_COMMITTEE_REASONS = new Set(["not-eligible", "not-in-plan", "prerequisite", "duplicate", "other"]);
 
@@ -345,6 +347,16 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
 
   const state = String(req.body?.state || "");
   if (!STUDENT_COURSE_STATES.has(state)) { res.status(400).json({ error: "حالةٌ غير معروفة." }); return; }
+  {
+    /* «👣 الأثر»: المقرّرُ وما صار إليه، بلا اسم الطالب. */
+    const course = allCourses.find(row => Number(row.AdCourseId) === courseId);
+    noteTrail(res, {
+      kind: state === "awaiting-registration" || state === "committee-rejected" ? "approve" : "register",
+      target: `كشف التسجيل · ${course?.CourseName || course?.CourseCode || "مقرر"}`,
+      after: TRAIL_COURSE_STATE[state] || state,
+      scope: { collegeId: Number(need.AdCollegeId), sectionId: courseOwnerSection || owningSectionsInScope[0], termId: Number(need.AdTermId || 0) },
+    });
+  }
 
   /* ── كلُّ جهةٍ تكتب ما يخصّها وحده ────────────────────────────────────────
      اللجنةُ توافق أو لا توافق، ولا تكتب «سُجّل» ولا «رُدّ» باسم التسجيل.
@@ -527,6 +539,12 @@ app.post("/api/student-registration/:id/case-state", requireAuth, async (req: Au
     byRole: roleLabel(req.user?.Role) || undefined,
     at: new Date().toISOString(),
   };
+  noteTrail(res, {
+    kind: side === "committee" ? "approve" : "register",
+    target: "كشف التسجيل · حالة طالب",
+    after: decision === "approved" ? "موافقة" : decision === "rejected" ? "ردّ" : "بانتظار القرار",
+    scope: { collegeId: Number(need.AdCollegeId), sectionId: owningSectionsInScope[0], termId: Number(need.AdTermId || 0) },
+  });
   let saved: any;
   const seenStamp = expectedStamp(req.body?.expectedStamp);
   try {

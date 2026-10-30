@@ -22,6 +22,7 @@ import { type AuthenticatedRequest, isPowerUser, requireAnyPermission } from "./
 import { isScopeAllowed } from "./core/scope";
 import { refuseIfTermFrozen } from "./core/approvals";
 import { broadcastNotify } from "./core/liveChannel";
+import { noteTrail } from "./activityTrail";
 import { bumpTeamWork } from "./teamPresence";
 import { expectedRev, staleWriteBody } from "../utils/staleWrite";
 import { sealStudentIdentity, studentIdentityFor, surveyFingerprint } from "./core/studentIdentity";
@@ -347,6 +348,7 @@ app.post("/api/section-requests", requireRegistrationSheet, async (req: Authenti
   await Repository.saveFeatureDoc(COLLECTION, request.id, request);
   res.locals.auditEntity = "طلب شعبة";
   res.locals.auditChanges = `طلب شعبة: ${request.courseName} · ${countOf(count, AR.student)} · ${PERIOD_LABEL[request.period]}`;
+  noteTrail(res, { target: `طلب شعبة · ${request.courseName || ""}`, after: `${countOf(count, AR.student)} · ${PERIOD_LABEL[request.period]}`, scope: { collegeId: request.collegeId, sectionId: request.fromSectionId || request.sectionId, termId: request.termId } });
   broadcastNotify(Repository.currentDemoSessionId());
   bumpTeamWork(Repository.currentDemoSessionId(), request.collegeId, request.termId);
   await pushTo(["committee"], request, sectionRequestMessage("sent", { id: request.id, courseName: request.courseName || "", count, period: PERIOD_LABEL[request.period] }));
@@ -372,6 +374,7 @@ async function finish(req: AuthenticatedRequest, res: Response, id: string, step
   if (!out.ok) { const why = out.result || { status: 409, error: "تعذّر التنفيذ." }; fail(res, why.status, why.error, why.code); return null; }
   res.locals.auditEntity = "طلب شعبة";
   res.locals.auditChanges = audit;
+  noteTrail(res, { target: `طلب شعبة · ${out.next.courseName || ""}`, scope: { collegeId: out.next.collegeId, sectionId: out.next.sectionId, termId: out.next.termId } });
   broadcastNotify(Repository.currentDemoSessionId());
   bumpTeamWork(Repository.currentDemoSessionId(), out.next.collegeId, out.next.termId);
   return out.next;

@@ -38,6 +38,7 @@ const LARGE: Record<string, string> = {
   instructorRequests: "a few hundred requests a term",
   scheduleDrafts: "drafts that carry their rows",
   scheduleComments: "a term's notes",
+  activityTrail: "one line per change, every team, every term — grows without end",
 };
 
 /* Unindexed on purpose. Each entry says why; an entry whose query has left
