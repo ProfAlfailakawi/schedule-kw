@@ -23,6 +23,7 @@ import { effectiveCourseHours } from "../../utils/scheduleRegulations";
 import { canExtendDeadline, canManageDeadline, canReviewSubmissions, canAnnotateCells, isAcademicRole, isAdvisorRole, isViewerOnlyRole, roleDefinition, roleLabel, signatureStage, watchesInbox } from "../../utils/academicRoles";
 import { seedDemoRadar, seedDemoMasariDemand } from "../demoRadarSeed";
 import { seedDemoOtherDepartmentStories } from "../demoPreviousTermSeed";
+import { seedDemoSectionRequests } from "../demoSectionRequestsSeed";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { LEGACY_SHARED_PASSWORD, newPasswordProblem } from "../accountPassword";
 import { endForRequest, requestFullySettled, weeklyLoadOf, type RequestDayKey } from "../../utils/instructorRequestVerdict";
@@ -186,6 +187,8 @@ function scheduleDemoExtras(sessionId: string): void {
     await run("other departments", () => seedDemoOtherDepartmentStories({ sealIdentity: sealStudentIdentity, fingerprintOf: surveyFingerprint, requestItemFromRow, dayLetters: DAY_LETTERS, judge: request => judgeRequestItems(request) }, DEMO_STORY_SCOPE.termId));
     await run("radar", () => seedDemoRadar({ sealIdentity: sealStudentIdentity, today: kuwaitDateISO() }));
     await run("Masari demand", seedDemoMasariDemand);
+    /* طلباتُ الشعب بعد رغبات «مساري»: الطلبُ المرسَل للتوّ يحمل الطلبةَ الذين طلبوا المقرر. */
+    await run("section requests", () => seedDemoSectionRequests({ sealIdentity: sealStudentIdentity }));
     if (failures.length) throw new Error(`Demo seed incomplete: ${failures.join(", ")}`);
   }));
   const tracked = job.then(() => {

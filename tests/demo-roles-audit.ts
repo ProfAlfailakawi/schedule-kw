@@ -87,7 +87,9 @@ for (const account of DEMO_ROLE_ACCOUNTS) {
 
 /* ── ٣) دورةٌ عاشت، لا صندوقٌ فارغ ──────────────────────────────────────── */
 
-check(state.scheduleApprovals.length === 3 && state.scheduleApprovals.every(a => a.AdTermId === 1), "بُذرت دوراتُ اعتمادٍ للأقسام الثلاثة في الفصل الجاري");
+const currentApprovals = state.scheduleApprovals.filter(a => a.AdTermId === 1);
+check(currentApprovals.length === 3 && new Set(currentApprovals.map(a => a.AdSectionId)).size === 3, "بُذرت دوراتُ اعتمادٍ للأقسام الثلاثة في الفصل الجاري");
+check(state.scheduleApprovals.every(a => a.AdTermId === 1 || (a.AdTermId === 2 && a.status === "accepted")), "وما سواها في الفصل القادم اعتمادٌ مبكرٌ واحد (التربية الفنية)، لا دورةٌ رابعة مفتوحة");
 check(["returned", "accepted", "submitted"].every(status => state.scheduleApprovals.some(a => a.status === status)), "ثلاثُ قصص: مُرجَع (تكنولوجيا التعليم)، ومعتمد (التربية الفنية)، وعند التسجيل (التصميم التعليمي)");
 const submitted = state.scheduleApprovals.find(a => a.status === "returned"); // جولاتٌ عدّة: أُرسل وقُبل ثم أُرجع
 const returned = state.scheduleApprovals.find(a => a.status === "returned");
@@ -143,6 +145,33 @@ check(server.includes("fullSchedule"), "تقرير التغييرات يحمل �
 const verdict = roleWriteDecision({ method: "POST", path: "/demo/role", authenticated: true, powerUser: false, role: "dean" });
 check(verdict.allowed, "الحارس يمرّر /demo/role ولو كانت الصفة الحالية للاطّلاع");
 check(!isApprovalWritePath("/demo/role"), "و/demo/role ليس مسار اعتماد");
+
+/* ── ٦) كلُّ صفةٍ تحكي قصةً كاملة — بخفّة (ملاحظة المالك 3؛ والحيُّ في demo-every-role-audit) ─── */
+
+/* لوحةُ البداية تقرأ أحدثَ فصل (الثاني): لكل حسابٍ مربوطٍ بأستاذ موعدان فيه على الأقل، فلا تُفتح لوحتُه الشخصية على صفر. */
+const upcoming = state.schedules.filter(row => Number(row.AdTermId) === 2);
+for (const user of state.users.filter(u => Number((u as any).AdInstructorId) > 0)) {
+  const mine = upcoming.filter(row => Number(row.AdInstructorId) === Number((user as any).AdInstructorId));
+  check(mine.length >= 2, `«${user.Name}»: موعدان له على الأقل في الفصل القادم — لوحتُه الشخصية لا تُفتح على صفر (${mine.length})`);
+}
+/* لوحةُ القرار عند العميدين: لكل قسمٍ تخطيطُه بمقرراته هو وحدها. */
+for (const sectionId of [1, 2, 3]) {
+  const plan = (state.registrationStats || []).find((row: any) => row.termId === 1 && row.sectionId === sectionId);
+  const ids = Object.keys(plan?.accepted || {}).map(Number);
+  check(ids.length > 0 && ids.every(id => state.courses.find(c => c.AdCourseId === id)?.AdSectionId === sectionId),
+    `القسم ${sectionId}: تخطيطٌ لمقرراته هو وحدها — فتُقرأ لوحةُ القرار بدرجاتها (${ids.length})`);
+}
+/* رصيدُ مقاعد المرشد: سعةٌ ورصيدٌ وإضافاتٌ من المرشدَين وطلبُ استثناء — لا ثمانيَ وثلاثين شعبةً بسعة «0». */
+const docs: any = (state as any).featureDocs || {};
+const seatConfig = docs.advisorSeatLedgers?.["config:1:1:1"];
+const seatLedgers = Object.values(docs.advisorSeatLedgers || {}).filter((row: any) => Array.isArray(row.adds));
+check(Number(seatConfig?.capacityDefault) > 0 && Number(seatConfig?.global) > 0, "رصيدُ مقاعد المرشد بسعةٍ أساسية ورصيدٍ عام");
+check(seatLedgers.length >= 3 && [19, 21].every(id => seatLedgers.some((row: any) => row.adds.some((add: any) => add.advisorId === id))),
+  "ومقاعدُ أضافها المرشدان كلاهما (مرشد القسم والإرشاد العام)");
+check(Object.values(docs.advisorSeatRequests || {}).some((row: any) => row.status === "pending"), "وطلبُ استثناءٍ ينتظر المسؤول على شعبةٍ ممتلئة");
+/* خفيفٌ: الصندوقُ كلُّه بلا البذر الخلفي تحت 300 كيلوبايت (كان 264 قبل هذه القصص، فالزيادة أقلُّ من 14%). */
+const stateBytes = JSON.stringify(state).length;
+check(stateBytes < 300_000, `الصندوقُ التجريبي خفيف: ${Math.round(stateBytes / 1024)} كيلوبايت (< 300)`);
 
 console.log(`\n${passed} نجحت · ${failed} أخفقت`);
 if (failed > 0) process.exit(1);
