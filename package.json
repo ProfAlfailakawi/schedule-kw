@@ -14,6 +14,8 @@
     "test:visiting-badge-g4": "tsx tests/visiting-badge-group4-audit.ts",
     "test:visiting-badge-changes": "tsx tests/visiting-badge-changes-audit.ts",
     "test:consistent-badges": "tsx tests/consistent-badges-audit.tsx",
+    "test:course-tags-coverage": "tsx tests/course-tags-coverage-audit.ts",
+    "test:sheet-membership": "tsx tests/sheet-membership-audit.ts",
     "test:visiting-lookup": "tsx tests/visiting-lookup-audit.ts",
     "test:ta-conversion": "tsx tests/ta-conversion-audit.ts",
     "test:calendar-ics": "tsx tests/calendar-ics-audit.ts",

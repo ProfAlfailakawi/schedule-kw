@@ -140,7 +140,7 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
               </label>
             </>
           ) : (
-            <p className="sp-quick-course"><b>{editingRow?.courseName || "الموعد"}</b>{editingRow?.SCode ? <small> · شعبة {editingRow.SCode}</small> : null}</p>
+            <p className="sp-quick-course"><b>{editingRow?.courseName || "الموعد"}<CourseTags courseId={editingRow?.src?.courseId} /></b>{editingRow?.SCode ? <small> · شعبة {editingRow.SCode}</small> : null}</p>
           )}
           <CourseHistoryNote ws={ws} scope={scope} compact />
           <TimeWheels start={draft.start || dayWindow?.startTime || "08:00"} end={draft.end || "08:50"} minTime={dayWindow?.startTime} maxTime={dayWindow?.endTime} preferredDuration={draft.block || undefined}

@@ -12,3 +12,9 @@
 /* داخل زرّ القائمة المختار: سطرٌ واحد، والوسمُ لا يكسره. */
 .ss-trigger .ctags,.ss-static .ctags{flex-wrap:nowrap;overflow:hidden}
 @media print{.ctags>.ctag[data-print="0"]{display:none!important}}
+/* «في الصحيفتين» (لوحة حالة الطرح): ملاحظةٌ هادئة بحجم الوسم بجانبه — المقررُ يظهر في التبويبين، بلا «صحيفة 2026». */
+.of-both{display:inline-flex;align-items:center;margin-inline-start:4px;padding:1px 7px;border:1px dashed color-mix(in srgb,var(--accent) 40%,transparent);border-radius:999px;color:color-mix(in srgb,var(--accent) 75%,var(--muted));font-size:max(10px,.66rem);font-weight:500;line-height:1.45;white-space:nowrap;vertical-align:middle}
+@media print{.of-both{display:none!important}}
+/* سطرُ الرمز تحت الاسم (بطاقات التخطيط ونتيجة الخطة): الرمزُ ثم الوسومُ بجانبه، تلتفّ تحته على الهاتف. */
+.apb-gap-name>small:has(>.ctags),.gap-result-name>small:has(>.ctags){display:flex;flex-wrap:wrap;align-items:center;row-gap:3px}
+.apb-gap-name>small>.ctags,.gap-result-name>small>.ctags{font-size:.86rem}

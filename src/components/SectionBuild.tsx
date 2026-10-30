@@ -3,6 +3,7 @@ import { CalendarCheck, CircleAlert, CheckCircle2, ClipboardPenLine, DoorClosed,
 import { AR, countOf } from "../utils/arabicCount";
 import { Notice, PrimaryButton, SecondaryButton } from "./ui";
 import VisitingBadge from "./VisitingBadge";
+import CourseTags from "./CourseTags";
 import { ImpactCard, postWhatIf, type ChangeImpact } from "./ApplyProposal";
 
 /**
@@ -138,7 +139,7 @@ export default function SectionBuild({ collegeId, sectionId, termId, targets, on
           <ul className="sb-rows">
             {built.rows.filter(row => row.state !== "unset").map(row => (
               <li key={row.courseId} className={`sb-row s-${row.state}`}>
-                <div className="sb-name"><b>{row.name}</b><small dir="ltr">{row.code}</small></div>
+                <div className="sb-name"><b>{row.name}<CourseTags courseId={row.courseId} /></b><small dir="ltr">{row.code}</small></div>
                 <div className="sb-gap" aria-label={row.state === "over" ? `مطلوب ${row.target}، موجود ${row.existing}، زائد ${row.existing - (row.target ?? 0)}` : `مطلوب ${row.target}، موجود ${row.existing}، باقٍ ${row.remaining}`}>
                   <span><b>{row.target}</b><small>مطلوبة</small></span>
                   <span><b>{row.existing}</b><small>في الجدول</small></span>

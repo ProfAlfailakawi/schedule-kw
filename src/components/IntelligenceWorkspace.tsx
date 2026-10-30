@@ -2711,7 +2711,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       </div> : null}
       {guideSimulationMeta ? (
         <section className="guide-simulation-brief no-print">
-          <header><ShieldCheck aria-hidden="true" /><div><small>محاكاة حقيقية · لا حفظ</small><strong>{guideSimulationMeta.before.AdCourseName || "المقرر المحدد"}</strong></div></header>
+          <header><ShieldCheck aria-hidden="true" /><div><small>محاكاة حقيقية · لا حفظ</small><strong>{guideSimulationMeta.before.AdCourseName || "المقرر المحدد"}<CourseTags courseId={guideSimulationMeta.before.AdCourseId} /></strong></div></header>
           <div className="guide-simulation-flow">
             <span><small>قبل</small><b>{Object.keys(dayLabels).filter(key => (guideSimulationMeta.before as any)[key]).map(key => (dayLabels as any)[key]).join(" · ") || "—"}</b><em>{formatScheduleTimeRange(guideSimulationMeta.before.fstarttime, guideSimulationMeta.before.fendtime)}</em></span>
             <ChevronLeft aria-hidden="true" />
@@ -3545,7 +3545,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                     {demand.prediction.courses.slice(0, 8).map((course: any) => (
                       <article key={`${course.readingScope?.collegeId || collegeId}:${course.courseId}`}>
                         <span className="demand-course-label" title={course.because}>
-                          <b>{course.name}</b>{scopeLabel(course) ? <small>{scopeLabel(course)}</small> : null}
+                          <b>{course.name}<CourseTags courseId={course.courseId} /></b>{scopeLabel(course) ? <small>{scopeLabel(course)}</small> : null}
                           <small dir="ltr">{course.code || course.courseId}</small>
                         </span>
                         <i><b style={{ width: `${Math.min(100, Math.max(6, Math.round((course.expected / Math.max(1, course.predictionFrom ?? demand.prediction.from)) * 100)))}%` }} /></i>
@@ -3628,7 +3628,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                     <article key={`${item.readingScope?.collegeId || collegeId}:${item.courseId}`} className="opening-card">
                       <header>
                         <div>
-                          <b>{item.courseName}</b>{scopeLabel(item) ? <small>{scopeLabel(item)}</small> : null}
+                          <b>{item.courseName}<CourseTags courseId={item.courseId} /></b>{scopeLabel(item) ? <small>{scopeLabel(item)}</small> : null}
                           <span>{item.courseCode}{item.predicted ? " · توقُّع" : ""}</span>
                         </div>
                         <strong className="opening-need">
@@ -3720,7 +3720,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                   {demand.repairs.map((fix: any) => (
                     <article key={`${fix.rowId}-${fix.to.day}-${fix.to.start}`} className="demand-repair">
                       <header>
-                        <b>{fix.swapWith ? "تبديل موعدي شعبتين" : fix.courseName}</b>
+                        <b>{fix.swapWith ? "تبديل موعدي شعبتين" : <>{fix.courseName}<CourseTags courseId={fix.courseId} /></>}</b>
                         <span>شعبة {fix.sectionCode}{fix.room ? ` · ${fix.room}` : ""}</span>
                       </header>
                       <div className="demand-move" dir="rtl">
@@ -3799,7 +3799,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                       <li key={`${course.readingScope?.collegeId || collegeId}:${course.courseId}`}>
                         <b className="demand-rank" aria-hidden="true">{index + 1}</b>
                         <span className="demand-course-label">
-                          <b>{course.name}</b>{scopeLabel(course) ? <small>{scopeLabel(course)}</small> : null}
+                          <b>{course.name}<CourseTags courseId={course.courseId} /></b>{scopeLabel(course) ? <small>{scopeLabel(course)}</small> : null}
                           <small dir="ltr">{course.code || course.courseId}</small>
                         </span>
                         <i role="img" aria-label={`${course.share}%`}><b style={{ width: `${Math.max(4, course.share)}%` }} /></i>
@@ -5212,7 +5212,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                           <article key={`${group.key}-${row.collegeId}-${row.sectionId}-${row.id}`}>
                             <header>
                               <span className="code-chip">{row.code || "—"}</span>
-                              <strong>{row.name}</strong>
+                              <strong>{row.name}<CourseTags courseId={row.courseId} /></strong>
                               {row.section ? <small>{row.section}</small> : null}
                               {readingMode === "department" ? <small className="reading-college-label">{row.collegeName}</small> : null}
                             </header>

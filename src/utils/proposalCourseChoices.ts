@@ -22,6 +22,7 @@ import { foldInstructorText } from "./instructorIdentity";
 import { toEnglishDigits } from "./digits";
 import { campusChips } from "./campusChip";
 import type { CourseReach } from "./courseReach";
+import { byCourseNumber } from "./sheetMembership";
 
 export interface ProposalCourseLike {
   id: number; code: string; name: string; hours?: number;
@@ -113,7 +114,7 @@ export function proposalCourseChoices(
       reach: lead.reach || null,
     });
   }
-  return out.sort((a, b) => a.code.localeCompare(b.code, "en", { numeric: true }) || a.name.localeCompare(b.name, "ar"));
+  return out.sort(byCourseNumber(choice => choice.code, choice => choice.name));
 }
 
 /** أرقامُ الشعب المستعملة للمقرر الممثِّل = شعبُ سجلّاته كلّها (فلا يُقترح رقمٌ مأخوذٌ في سجلٍّ أخيه). */

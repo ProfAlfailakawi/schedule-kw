@@ -487,7 +487,7 @@ app.get("/api/intelligence/compare-terms", requirePermission(7), async (req: Aut
   // Rows are shaped for reading, not for editing: code, section, and the
   // properties that differ. Nothing here is writable from this screen.
   const shapeRow=(row:any,termSide:number=toTermId)=>({
-    id:row.id,
+    id:row.id, courseId:row.AdCourseId,
     collegeId: row.AdCollegeId, sectionId: row.AdSectionId,
     collegeName: colleges.find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId))?.AdCollegeName || "",
     code:courseById.get(row.AdCourseId)?.CourseCode||"",

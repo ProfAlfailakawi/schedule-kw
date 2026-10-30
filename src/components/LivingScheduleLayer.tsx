@@ -954,7 +954,7 @@ export default function LivingScheduleLayer({
                       <div className="why-current">
                         <span>الوضع الحالي</span>
                         <strong>
-                          {selected.AdCourseName} · شعبة {selected.SCode}
+                          {selected.AdCourseName}<CourseTags courseId={selected.AdCourseId} /> · شعبة {selected.SCode}
                         </strong>
                         <small>
                           {dayLabel(selected)} · {formatScheduleTimeRange(selected.fstarttime, selected.fendtime)} · {selected.AdRoomCode}/

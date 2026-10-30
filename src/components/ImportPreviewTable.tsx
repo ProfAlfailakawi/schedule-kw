@@ -15,6 +15,7 @@ import { displayInstructorText, instructorIdentityTokens } from "../utils/instru
 import { authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { AR, countOf } from "../utils/arabicCount";
+import CourseTags from "./CourseTags";
 
 /**
  * Editable authority-PDF preview.
@@ -429,7 +430,7 @@ export default function ImportPreviewTable({
     <div className="import-preview-table-wrap">
       {undoAvailable ? (
         <div className="import-undo-bar" role="status">
-          <span>حُذف صف <b>{courseById.get(Number(removed!.row.AdCourseId))?.CourseName || removed!.row.AdCourseName || "المقرر"}</b> · شعبة {String(removed!.row.SCode || "—")}</span>
+          <span>حُذف صف <b>{courseById.get(Number(removed!.row.AdCourseId))?.CourseName || removed!.row.AdCourseName || "المقرر"}<CourseTags courseId={removed!.row.AdCourseId} /></b> · شعبة {String(removed!.row.SCode || "—")}</span>
           <button type="button" data-guide-ignore="يعيد الصف المحذوف إلى المعاينة في موضعه؛ لا يحفظ ولا ينشر" onClick={undoRemove}><RotateCcw aria-hidden="true" />تراجع</button>
         </div>
       ) : null}
@@ -473,7 +474,7 @@ export default function ImportPreviewTable({
                           onChange={value => { const picked = courseById.get(Number(value)); if (picked) patchManual(index, "course", { AdCourseId: Number(picked.AdCourseId), AdCourseName: String(picked.CourseName || "") }); }}
                           options={departmentCourseOptions.map(item => ({ value: item.AdCourseId, label: item.CourseName, badge: courseOptionBadge([Number(item.AdCourseId)], planBadges), hint: item.CourseCode, keywords: String(item.CourseCode || "") }))}
                           placeholder="اختر المقرر…" searchPlaceholder="اكتب اسم المقرر أو رمزه" />
-                      ) : course?.CourseName ? <strong>{course.CourseName}</strong> : <span className="import-unlinked-head"><small>رقم المقرر غير واضح</small><em className="import-unlinked-why">اضغط التعديل واختر المقرر</em></span>}{row.courseSiteLabel ? <span className="import-course-site-note" title={String(row.courseSiteMessage || "")}><MapPin />{String(row.courseSiteLabel)}</span> : null}{row.scopeMismatchType === "CROSS_BRANCH" ? <span className="import-course-scope-note" title={String(row.scopeMismatchMessage || "")}><AlertTriangle />{String(row.scopeMismatchLabel || "تابع لفرع آخر")}</span> : null}</span>
+                      ) : course?.CourseName ? <strong>{course.CourseName}<CourseTags courseId={course.AdCourseId} /></strong> : <span className="import-unlinked-head"><small>رقم المقرر غير واضح</small><em className="import-unlinked-why">اضغط التعديل واختر المقرر</em></span>}{row.courseSiteLabel ? <span className="import-course-site-note" title={String(row.courseSiteMessage || "")}><MapPin />{String(row.courseSiteLabel)}</span> : null}{row.scopeMismatchType === "CROSS_BRANCH" ? <span className="import-course-scope-note" title={String(row.scopeMismatchMessage || "")}><AlertTriangle />{String(row.scopeMismatchLabel || "تابع لفرع آخر")}</span> : null}</span>
                       {course?.CourseCode ? <small dir="ltr">{course.CourseCode}</small> : null}
                     </div>
                   </td>

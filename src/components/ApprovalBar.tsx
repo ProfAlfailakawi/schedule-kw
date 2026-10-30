@@ -38,6 +38,7 @@ import { journeyAlreadyPlayed, markPlayed, reducedMotion } from "./dna/useJourne
 import { deadlineDateLong, departmentDeadlineLine, lastExtensionRejection } from "../utils/submissionDeadlines";
 import type { ScheduleApproval, ScheduleApprovalStatus } from "../types";
 import { BuildingPicker, RoomPicker } from "./LocationPicker";
+import CourseTags from "./CourseTags";
 import {
   buildCourseUpdateBody, buildRoomLinkBody, courseFixFieldsOf, isPermissionDenial, readinessFixMode, validateCourseFix,
   type CourseFixKey,
@@ -921,7 +922,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
           {pendingAdditions > 0 ? (
             <ul className="apb-additions" aria-label="الشعب المضافة بعد الاعتماد">
               {approval.pendingAdditions.map(item => (
-                <li key={String(item.scheduleId)}><ListPlus aria-hidden="true" />{item.courseName || "مقرر"} · شعبة {item.sectionCode || "—"}</li>
+                <li key={String(item.scheduleId)}><ListPlus aria-hidden="true" />{item.courseName || "مقرر"}<CourseTags courseId={item.courseId} /> · شعبة {item.sectionCode || "—"}</li>
               ))}
               {overflow ? <li>و{countOf(overflow, AR.section)} أخرى</li> : null}
             </ul>

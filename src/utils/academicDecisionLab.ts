@@ -30,7 +30,7 @@ export interface AcademicGraduationWatch {
   courseId: number; courseName: string; demand: number; downstream: number; offered: boolean; nearGraduation: number;
 }
 export interface AcademicDecisionChain {
-  steps: Array<{ id: string; courseName: string; section: string; before: string; after: string }>;
+  steps: Array<{ id: string; courseId?: number; courseName: string; section: string; before: string; after: string }>;
   beforeFeasible: number; afterFeasible: number; gain: number; assessed: number;
 }
 /**
@@ -262,7 +262,7 @@ function combineScenarios(people:Person[],rows:FSchedule[],scenarios:AcademicDec
     const after=people.filter(p=>feasibleAcademicBundle(p,state)).length;
     const gain=after-baseline;
     if(gain>=3 && gain>Math.max(first.gain,second.gain))
-      return {steps:chosen.map(s=>({id:s.id,courseName:s.courseName,section:s.section,before:s.before,after:s.after})),
+      return {steps:chosen.map(s=>({id:s.id,courseId:s.courseId,courseName:s.courseName,section:s.section,before:s.before,after:s.after})),
         beforeFeasible:baseline,afterFeasible:after,gain,assessed:people.length};
   }
   return;
