@@ -10,7 +10,7 @@
 .ac-sheets button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-xs)}
 .ac-sheets button.on em{background:var(--accent);color:var(--accent-contrast)}
 
-.ac-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.ac-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}
 .ac-course{display:grid;gap:10px;padding:14px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-xs);min-width:0;border-inline-start:4px solid var(--line)}
 .ac-course.is-ok{border-inline-start-color:var(--success)}
 .ac-course.is-short{border-inline-start-color:var(--danger)}
@@ -99,7 +99,7 @@
 .dry-stack .is-change{background:var(--warning)}
 .dry-stack .is-add{background:var(--success)}
 .dry-stack .is-remove{background:var(--danger)}
-.dry-lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.dry-lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:10px}
 .dry-lists details{border:1px solid var(--line);border-radius:var(--r-md);padding:8px 10px;background:var(--surface)}
 .dry-lists summary{cursor:pointer;font-weight:700;font-size:var(--t-sm);display:flex;align-items:center;gap:6px}
 .dry-lists summary svg{width:16px;height:16px}

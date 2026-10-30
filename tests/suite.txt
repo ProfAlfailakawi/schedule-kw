@@ -22,7 +22,9 @@ test:pdf-term-rule
 test:owner-features-1028
 test:course-reach
 test:prepublish-reach
+test:mobile-overflow-css
 test:ta-phase-flow
+test:publish-pick-teachers
 test:staff-global
 test:instructor-status
 test:request-cross-college
@@ -48,6 +50,7 @@ test:updating-page
 test:id-types
 test:inbox-live
 test:inbox-studio
+test:inbox-campus
 test:public-syntax
 test:linked
 test:inbox-ask

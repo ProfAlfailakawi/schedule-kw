@@ -4655,9 +4655,21 @@
    ],
    "path": "/api/instructor-requests/issue",
    "name": "bound dispatch",
-   "call": "e6a6dd2fe848f9c2",
+   "call": "82786fc3795960d8",
    "site": "src/server/routes/instructorRequestsRoutes.ts:112",
    "regexp": "/^\\/api\\/instructor-requests\\/issue\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/instructor-requests/recipients",
+   "name": "bound dispatch",
+   "call": "f4dee7d5f8c0821c",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:344",
+   "regexp": "/^\\/api\\/instructor-requests\\/recipients\\/?$/i",
    "end": true
   },
   {

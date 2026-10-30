@@ -80,7 +80,7 @@ button.occupancy-heat-cell:hover{transform:scale(1.07);z-index:2;position:relati
 .occupancy-heat-note{margin:0;color:var(--muted);font-size:var(--t-xs);line-height:1.6}
 
 /* ── كليات العائلة: شبكةٌ أصغر لكل موقع ─────────────────────────────────── */
-.occupancy-heat-sites{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:var(--s3)}
+.occupancy-heat-sites{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:var(--s3)}
 .occupancy-heat-card.is-site{padding:12px 12px 14px;background:var(--surface)}
 .occupancy-heat.is-compact{border-spacing:3px}
 .occupancy-heat.is-compact .occupancy-heat-day-col{width:62px}
