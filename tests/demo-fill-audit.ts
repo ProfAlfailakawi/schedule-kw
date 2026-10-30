@@ -2,7 +2,7 @@
  * الديمو مكتملُ البيانات: ثلاثةُ أقسام بجداولها وقصصِ اعتمادها، وتاريخٌ يغطّي صحيفةَ القسم، ونصابُ أعضاءٍ يجد معه اقتراحُ الشعب أستاذاً،
  * ولا مقرّرٌ في صحيفة القسم بلا فصلٍ سابقٍ طُرح فيه — فلا تُفتح شاشةٌ على «لا يوجد».
  */
-import { createDemoSandboxState, DEMO_HISTORY_TERMS, DEMO_OTHER_DEPARTMENTS, DEMO_VISITING_INSTRUCTOR_IDS } from "../src/db/demoSandbox";
+import { createDemoSandboxState, DEMO_HISTORY_TERMS, DEMO_OTHER_DEPARTMENTS, DEMO_SUMMER_TERM, DEMO_VISITING_INSTRUCTOR_IDS } from "../src/db/demoSandbox";
 import { planGaps, planSurpluses } from "../src/utils/sectionGap";
 import { readServerSource } from "./helpers/serverSource.mjs";
 
@@ -58,7 +58,8 @@ for (const sectionId of [2, 3]) {
 
 /* ── التاريخ يغطّي الصحيفة ── */
 const own = demo.courses.filter((c: any) => c.AdSectionId === 1);
-const taught = new Set(demo.schedules.filter((r: any) => DEMO_HISTORY_TERMS.some(t => t.id === r.AdTermId)).map((r: any) => r.AdCourseId));
+/* والصيفيُّ فصلٌ سابق: فيه وحده طُرح 314 (قصة «لم نصل بعد»). */
+const taught = new Set(demo.schedules.filter((r: any) => [...DEMO_HISTORY_TERMS, DEMO_SUMMER_TERM].some(t => t.id === r.AdTermId)).map((r: any) => r.AdCourseId));
 const never = own.filter((c: any) => !taught.has(c.AdCourseId) && !rowsOf(1, 1).some((r: any) => r.AdCourseId === c.AdCourseId));
 check(never.length === 0, `كلُّ مقرّرٍ في صحيفة القسم له فصلٌ سابقٌ طُرح فيه أو يُطرح الآن (${never.length} بلا تاريخ)`);
 check(DEMO_HISTORY_TERMS.length >= 6 && DEMO_HISTORY_TERMS.filter(t => /الأول/.test(t.name)).length >= 3, "ثلاثةُ فصولٍ خريفيةٍ على الأقل: ثقةُ التنبّؤ تحتاج ثلاثةً من الموسم نفسه");

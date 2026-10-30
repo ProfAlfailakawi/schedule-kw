@@ -987,7 +987,9 @@ export async function seedDemoStudyProposals(scope: { collegeId: number; section
   }
   if (rooms.length < 2 || requests.length < 2) return;
   const courseOf = (code: string) => (courses as AdCourse[]).find(row => String(row.CourseCode) === code && Number(row.AdSectionId) === sectionId);
-  const ai = courseOf("0109401"), security = courseOf("0109454");
+  /* مقرراتٌ من الصحيفة القديمة: الأولُ 2026/2027 أولُ فصلٍ للجديدة، فلا يُعرض على الأستاذ شاغرٌ «لم نصل بعد» إلى مستواه
+     (كانت 401 و454 من الجديدة فتظهران قفلين في المراجعة). */
+  const ai = courseOf("0109444"), security = courseOf("0109464");
   if (!ai || !security) return;
 
   let placeholder = (instructors as any[]).find(row => String(row.AdInstructorName || "").startsWith("هيئة"));
@@ -1017,7 +1019,7 @@ export async function seedDemoStudyProposals(scope: { collegeId: number; section
     return { id, kind: "assign", source: snapshot, target: specOf(courseOf(row === aiRow ? "0109401" : "0109454")!, snapshot.SCode, snapshot.days, snapshot.fstarttime, snapshot.fendtime, rooms[row === aiRow ? 0 : 1]) };
   };
   void sources;
-  const dataStructures = courseOf("0109226");
+  const dataStructures = courseOf("0109434");
   const [first, second] = [...requests].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const message = PROPOSAL_DEFAULT_MESSAGE;
   const now = new Date().toISOString();

@@ -130,6 +130,26 @@ try {
       check(Boolean(rows.find(row => row.stage === "declined")?.closedNote), `R4 «${role}»: والاعتذارُ بسببه`);
     }
 
+    /* ── R4 «لم نصل بعد إلى هذا المستوى»: قصةٌ واضحة لا خمسة عشر قفلاً ── */
+    if (role === "committeeChair") {
+      const listOf = (body: any): any[] => Array.isArray(body) ? body : body?.rows || body?.courses || [];
+      const codeOf = new Map(listOf(await get("/api/courses")).map((c: any) => [Number(c.AdCourseId), String(c.CourseCode)]));
+      const idOf = (code: string) => [...codeOf].find(([, value]) => value === code)?.[0] || 0;
+      const first = await get(`/api/course-reach?${q(1)}`), second = await get(`/api/course-reach?${q(1, 2)}`);
+      const firstRows: any[] = listOf(await get(`/api/schedules?${q(1)}`));
+      const lockedWithSections = [...new Set(firstRows.map(row => Number(row.AdCourseId)))].filter(id => first?.courses?.[id]?.state === "locked");
+      check(lockedWithSections.length >= 3 && lockedWithSections.length <= 6, `R4 «لم نصل بعد»: ملاحظةُ المراجعة في الأول قصيرة (${lockedWithSections.length} مقررات مقفلة لها شعب)`, lockedWithSections.map(id => codeOf.get(id)));
+      check(first?.courses?.[idOf("0109343")]?.overridden === true, "R4 «افتحه للطرح»: فتح القسمُ 343 في الأول");
+      const target = second?.courses?.[idOf("0109453")];
+      check(target?.state === "locked" && target?.why === "prereq-missing" && /المتطلب 346 لم يُطرح/.test(target?.reason || "")
+        && (target?.chain || []).map((n: any) => `${n.code}:${n.state}`).join(">") === "323:ok>346:missing>453:target",
+        "R4 السلسلة في الثاني: 323 طُرح ← 346 لم يُطرح ← 453 «المتطلب 346 لم يُطرح»", target?.chain);
+      check(second?.courses?.[idOf("0109346")]?.state === "reached", "R4 و346 وصلناه في الثاني (متطلبه 323 طُرح في الأول)");
+      check(second?.courses?.[idOf("0109410")]?.why === "coreq-locked", "R4 التوأم: 410 مقفلٌ لأن توأمه 459 لم يُفتح", second?.courses?.[idOf("0109410")]?.reason);
+      check(first?.courses?.[idOf("0109324")]?.state === "reached" && first?.courses?.[idOf("0109324")]?.why === "prereqs-met",
+        "R4 الصيفي فتح مقرراً: 324 وصلناه في الأول لأن متطلبه 314 طُرح في «الصيفي 2025/2026» وحده");
+    }
+
     /* ── R4 رصيد مقاعد المرشد: لمن يملك الكشف ── */
     if (perms.includes(7) || perms.includes(14)) {
       const seats = await call(`/api/advisor-seats?${q(1)}`);

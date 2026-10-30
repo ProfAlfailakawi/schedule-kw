@@ -25,6 +25,7 @@ import { runRegistrationSimulation } from "./simulationData";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
 import { buildReferenceRules } from "../utils/referenceApply";
 import { referenceCodeKey } from "../utils/curriculumReference";
+import { DEMO_REACH_COREQ } from "../db/demoSandbox";
 
 /** أسماءٌ محايدة حتميّة (لا أسماء عائلات ولا أسماء واقعية): الوضع التجريبي حسّاس. */
 export const demoStudentName = (index: number): string => `${index % 2 === 0 ? "طالب تجريبي" : "طالبة تجريبية"} ${index + 1}`;
@@ -133,6 +134,11 @@ export async function seedDemoRadar(opts: { sealIdentity: (value: string) => Pro
   const approve = async (planId: string, reference: typeof newRef, codes: Set<string>, who: string) => {
     const members = new Map([...idByCode].filter(([code]) => codes.has(code)));
     const built = buildReferenceRules(reference, members, idByCode, new Set());
+    /* «لم نصل بعد»: توأمٌ واحد في الصحيفة الجديدة (DEMO_REACH_COREQ) يُفتحان معاً — فيُرى القفلُ بسبب التوأم. */
+    if (reference === newRef) {
+      const [a, b] = DEMO_REACH_COREQ.map(code => idByCode.get(referenceCodeKey(code)) || 0);
+      if (a && b) built.rules = built.rules.map(rule => Number(rule.courseId) === a ? { ...rule, coreq: [...new Set([...(rule.coreq || []), b])] } : rule);
+    }
     const now = new Date().toISOString();
     await Repository.updateRuleDraft(planId, () => ({
       id: planId, planId, AdCollegeId: collegeId, AdSectionId: sectionId, rules: built.rules, groups: built.groups, version: 0, status: "review", basedOnVersion: 0,
