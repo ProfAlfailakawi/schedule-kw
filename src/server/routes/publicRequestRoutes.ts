@@ -26,7 +26,7 @@ import { chosenAlternativeIndex } from "../../utils/requestAlternatives";
 import { firstInstructorEditAt, movementAfterInstructorEdit } from "../../utils/instructorMovementWindow";
 import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind, unchangedScheduleFingerprint } from "../../utils/instructorRequestConfirmation";
 import { verificationCode } from "../../utils/approvalWorkflow";
-import { DAY_KEYS, DAY_NAMES, effectiveCourseHours, expectedMinutesForDay, patternsForHours } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysApprovedForHours, effectiveCourseHours, expectedMinutesForDay, patternsForHours, startLadderNote, type DayKey } from "../../utils/scheduleRegulations";
 import { courseTagFactsFor, serviceCourseKeys } from "../planBadgeShared";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { endForRequest, headlineReasonOf, rowFromRequest, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "../../utils/instructorRequestVerdict";
@@ -966,7 +966,15 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
         res.status(400).json({ error: "لا يُخلط بين أيام الـ50 والـ80 دقيقة إلا بنمطٍ معتمد في مكتبة الأنماط." });
         return;
       }
+      /* وما ليس نمطاً معتمداً لساعات المقرّر لا يُقترح، ولا يُعفيه التاريخ (المالك 2026-10-30). */
+      if (daysApprovedForHours(hours, days as DayKey[]) === false) {
+        res.status(400).json({ error: `الأيام المختارة ليست نمطاً معتمداً لهذا المقرّر في مكتبة الأنماط — المعتمد: ${patternsForHours(hours).map(pattern => pattern.label).join(" أو ")}.` });
+        return;
+      }
     }
+    /* والبدايةُ من سُلّم اللائحة: اقتراحُ الأستاذ اختيارُه هو، فيمرّ بما يمرّ به كرتُه (المالك 2026-10-30). */
+    const counterLadder = start && days.length && item.action !== "delete" ? startLadderNote(days as DayKey[], start) : "";
+    if (counterLadder) { res.status(400).json({ error: `وقت البداية غير معتمد في اللائحة: ${counterLadder}` }); return; }
     const proposalSlots = start && days.length && item.action !== "delete"
       ? await requestSlotsForCourse(resolved.request, proposalCourse, days as RequestDayKey[], start, ownMeetingOfItem(item)) : [];
     const proposalEnd = proposalSlots.reduce((latest, slot) => (slot.end > latest ? slot.end : latest), "");
@@ -1343,7 +1351,7 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
     const verdict = judged.items[index]?.verdict;
     times[start] = verdict === "conflict" ? "bad" : verdict === "exception" ? "warn" : "ok";
     const reasons = (judged.items[index]?.reasons || []) as any[];
-    if (reasons.some((reason: any) => reason.code === "hours" || (reason.blocking && reason.source === "shape" && /لا يُخلط/.test(String(reason.text || ""))))) {
+    if (reasons.some((reason: any) => reason.code === "hours" || reason.code === "pattern" || (reason.blocking && reason.source === "shape" && /لا يُخلط/.test(String(reason.text || ""))))) {
       problemIsShape = true;
       if (!shapes.length) shapes = (judged.items[index]?.shapes || []) as any[];
     }

@@ -1590,8 +1590,8 @@
    ],
    "path": "/api/schedules/check-conflicts",
    "name": "bound dispatch",
-   "call": "3816098d03f30439",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:126",
+   "call": "6cdb7f9d4161c900",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:139",
    "regexp": "/^\\/api\\/schedules\\/check-conflicts\\/?$/i",
    "end": true
   },
@@ -1603,7 +1603,7 @@
    "path": "/api/schedules/review-readiness",
    "name": "bound dispatch",
    "call": "ead13d23f74cdcc1",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:155",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:170",
    "regexp": "/^\\/api\\/schedules\\/review-readiness\\/?$/i",
    "end": true
   },
@@ -1615,7 +1615,7 @@
    "path": "/api/schedules/outside-clashes",
    "name": "bound dispatch",
    "call": "660366a03abedb9a",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:301",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:316",
    "regexp": "/^\\/api\\/schedules\\/outside-clashes\\/?$/i",
    "end": true
   },
@@ -1627,7 +1627,7 @@
    "path": "/api/schedules/move-batch",
    "name": "bound dispatch",
    "call": "aaa18e1c8f1d591a",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:352",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:367",
    "regexp": "/^\\/api\\/schedules\\/move-batch\\/?$/i",
    "end": true
   },
@@ -4715,7 +4715,7 @@
    ],
    "path": "/api/instructor-requests/:id/apply",
    "name": "bound dispatch",
-   "call": "e213f5943fb157e2",
+   "call": "21aa13a456850b36",
    "site": "src/server/routes/instructorRequestsRoutes.ts:652",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/apply\\/?$/i",
    "end": true
@@ -4728,7 +4728,7 @@
    "path": "/api/instructor-requests/:id/reply",
    "name": "bound dispatch",
    "call": "052daaf01a8ee463",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:943",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:946",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/reply\\/?$/i",
    "end": true
   },
@@ -4763,7 +4763,7 @@
    ],
    "path": "/api/public/request/:token/reply",
    "name": "bound dispatch",
-   "call": "2b5c3470231ceadd",
+   "call": "b3aca761906131f4",
    "site": "src/server/routes/publicRequestRoutes.ts:893",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/reply\\/?$/i",
    "end": true
@@ -4776,7 +4776,7 @@
    "path": "/api/public/request/:token/reply-batch",
    "name": "bound dispatch",
    "call": "84bd1e979cee5e8b",
-   "site": "src/server/routes/publicRequestRoutes.ts:1004",
+   "site": "src/server/routes/publicRequestRoutes.ts:1012",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/reply-batch\\/?$/i",
    "end": true
   },
@@ -4788,7 +4788,7 @@
    "path": "/api/public/request/:token/check",
    "name": "bound dispatch",
    "call": "03afb1cf6c584b04",
-   "site": "src/server/routes/publicRequestRoutes.ts:1067",
+   "site": "src/server/routes/publicRequestRoutes.ts:1075",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/check\\/?$/i",
    "end": true
   },
@@ -4800,7 +4800,7 @@
    "path": "/api/public/request/:token/academic-advice",
    "name": "bound dispatch",
    "call": "93035cda4dea4007",
-   "site": "src/server/routes/publicRequestRoutes.ts:1153",
+   "site": "src/server/routes/publicRequestRoutes.ts:1161",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/academic-advice\\/?$/i",
    "end": true
   },
@@ -4812,7 +4812,7 @@
    "path": "/api/public/request/:token/check-batch",
    "name": "bound dispatch",
    "call": "2eadedeaa7474e41",
-   "site": "src/server/routes/publicRequestRoutes.ts:1187",
+   "site": "src/server/routes/publicRequestRoutes.ts:1195",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/check-batch\\/?$/i",
    "end": true
   },
@@ -4824,7 +4824,7 @@
    "path": "/api/public/request/:token/previous",
    "name": "bound dispatch",
    "call": "852125bcca57e7b8",
-   "site": "src/server/routes/publicRequestRoutes.ts:1228",
+   "site": "src/server/routes/publicRequestRoutes.ts:1236",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/previous\\/?$/i",
    "end": true
   },
@@ -4836,7 +4836,7 @@
    "path": "/api/public/request/:token/events",
    "name": "bound dispatch",
    "call": "9cef8e239666cbc0",
-   "site": "src/server/routes/publicRequestRoutes.ts:1270",
+   "site": "src/server/routes/publicRequestRoutes.ts:1278",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/events\\/?$/i",
    "end": true
   },
@@ -4847,8 +4847,8 @@
    ],
    "path": "/api/public/request/:token/check-times",
    "name": "bound dispatch",
-   "call": "c79085649d6f2668",
-   "site": "src/server/routes/publicRequestRoutes.ts:1299",
+   "call": "fba4b8ac4aad6cdf",
+   "site": "src/server/routes/publicRequestRoutes.ts:1307",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/check-times\\/?$/i",
    "end": true
   },
@@ -4860,7 +4860,7 @@
    "path": "/api/public/request/:token/hold",
    "name": "bound dispatch",
    "call": "382251767765d5c3",
-   "site": "src/server/routes/publicRequestRoutes.ts:1357",
+   "site": "src/server/routes/publicRequestRoutes.ts:1365",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/hold\\/?$/i",
    "end": true
   },
@@ -4872,7 +4872,7 @@
    "path": "/api/public/request/:token/movement",
    "name": "bound dispatch",
    "call": "7e091a1537d0cf62",
-   "site": "src/server/routes/publicRequestRoutes.ts:1407",
+   "site": "src/server/routes/publicRequestRoutes.ts:1415",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/movement\\/?$/i",
    "end": true
   },
@@ -4884,7 +4884,7 @@
    "path": "/r/:token",
    "name": "bound dispatch",
    "call": "3a4024e76c799e35",
-   "site": "src/server/routes/publicRequestRoutes.ts:1436",
+   "site": "src/server/routes/publicRequestRoutes.ts:1444",
    "regexp": "/^\\/r(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -4896,7 +4896,7 @@
    "path": "/api/public/request/:token/interest",
    "name": "bound dispatch",
    "call": "b43183c896667a1f",
-   "site": "src/server/routes/publicRequestRoutes.ts:1447",
+   "site": "src/server/routes/publicRequestRoutes.ts:1455",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/interest\\/?$/i",
    "end": true
   },
@@ -4908,7 +4908,7 @@
    "path": "/api/public/request/:token/stick",
    "name": "bound dispatch",
    "call": "23693bb68679d0e1",
-   "site": "src/server/routes/publicRequestRoutes.ts:1468",
+   "site": "src/server/routes/publicRequestRoutes.ts:1476",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/stick\\/?$/i",
    "end": true
   },
@@ -4920,7 +4920,7 @@
    "path": "/r/:token/proposal/:pid",
    "name": "bound dispatch",
    "call": "77980743a8326a70",
-   "site": "src/server/routes/publicRequestRoutes.ts:1533",
+   "site": "src/server/routes/publicRequestRoutes.ts:1541",
    "regexp": "/^\\/r(?:\\/([^/]+?))\\/proposal(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -6267,7 +6267,7 @@
    "path": "/api/time-machine/scopes",
    "name": "bound dispatch",
    "call": "9f83d6747868558c",
-   "site": "src/server/timeMachineRoutes.ts:184",
+   "site": "src/server/timeMachineRoutes.ts:185",
    "regexp": "/^\\/api\\/time-machine\\/scopes\\/?$/i",
    "end": true
   },
@@ -6279,7 +6279,7 @@
    "path": "/api/time-machine/context",
    "name": "bound dispatch",
    "call": "5f4bbf5baf9c7e56",
-   "site": "src/server/timeMachineRoutes.ts:198",
+   "site": "src/server/timeMachineRoutes.ts:199",
    "regexp": "/^\\/api\\/time-machine\\/context\\/?$/i",
    "end": true
   },
@@ -6291,7 +6291,7 @@
    "path": "/api/time-machine/students",
    "name": "bound dispatch",
    "call": "da873933421ee6bb",
-   "site": "src/server/timeMachineRoutes.ts:211",
+   "site": "src/server/timeMachineRoutes.ts:212",
    "regexp": "/^\\/api\\/time-machine\\/students\\/?$/i",
    "end": true
   },
@@ -6303,7 +6303,7 @@
    "path": "/api/time-machine/scenarios",
    "name": "bound dispatch",
    "call": "de425ae21c12a711",
-   "site": "src/server/timeMachineRoutes.ts:240",
+   "site": "src/server/timeMachineRoutes.ts:241",
    "regexp": "/^\\/api\\/time-machine\\/scenarios\\/?$/i",
    "end": true
   },
@@ -6315,7 +6315,7 @@
    "path": "/api/time-machine/scenarios",
    "name": "bound dispatch",
    "call": "dae6f73da0a376e3",
-   "site": "src/server/timeMachineRoutes.ts:258",
+   "site": "src/server/timeMachineRoutes.ts:259",
    "regexp": "/^\\/api\\/time-machine\\/scenarios\\/?$/i",
    "end": true
   },
@@ -6327,7 +6327,7 @@
    "path": "/api/time-machine/scenarios/:id/copy",
    "name": "bound dispatch",
    "call": "36e7f4ac6fe2914b",
-   "site": "src/server/timeMachineRoutes.ts:295",
+   "site": "src/server/timeMachineRoutes.ts:296",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/copy\\/?$/i",
    "end": true
   },
@@ -6339,7 +6339,7 @@
    "path": "/api/time-machine/scenarios/:id/share",
    "name": "bound dispatch",
    "call": "339911a37c9494c5",
-   "site": "src/server/timeMachineRoutes.ts:310",
+   "site": "src/server/timeMachineRoutes.ts:311",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/share\\/?$/i",
    "end": true
   },
@@ -6351,7 +6351,7 @@
    "path": "/api/time-machine/scenarios/:id",
    "name": "bound dispatch",
    "call": "49066282a4f9d0c4",
-   "site": "src/server/timeMachineRoutes.ts:318",
+   "site": "src/server/timeMachineRoutes.ts:319",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -6363,7 +6363,7 @@
    "path": "/api/time-machine/scenarios/:id/apply",
    "name": "bound dispatch",
    "call": "5d60e288cec5a626",
-   "site": "src/server/timeMachineRoutes.ts:436",
+   "site": "src/server/timeMachineRoutes.ts:437",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/apply\\/?$/i",
    "end": true
   },
@@ -6375,7 +6375,7 @@
    "path": "/api/time-machine/scenarios/:id/restore",
    "name": "bound dispatch",
    "call": "36d27a5fbcd3afd5",
-   "site": "src/server/timeMachineRoutes.ts:444",
+   "site": "src/server/timeMachineRoutes.ts:445",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/restore\\/?$/i",
    "end": true
   },

@@ -681,8 +681,9 @@ async function runTests() {
 
     /* This used to assert that an undeclared rule finds nothing, because the
        engine carried one learned number and defaulted it to zero. The college's
-       rule is not zero and never was: ten minutes on Sun/Tue/Thu, fifteen on
-       Mon/Wed. Two lectures touching end-to-start on a Sunday break it. */
+       rule is not zero and never was: ten minutes on every day (Mon/Wed run
+       8:00–9:20 then 9:30, owner 2026-10-30). Two lectures touching end-to-start
+       on a Sunday break it. */
     const institutional = findConflicts(back2back, back2back);
     assert(institutional.length === 1 && institutional[0].type === "doorway",
       "بلا قاعدة معلنة، التلامس المباشر يوم الأحد يخالف الفاصل المقرَّر");
@@ -690,14 +691,17 @@ async function runTests() {
     assert(tight.length === 1 && tight[0].type === "doorway", "a declared doorway catches the turnaround");
     assert(tight[0].severity === "low", "and it is never as loud as a double booking");
     assert(tight[0].detail.includes("10"), "the finding states the gap it needs");
-    /* A gap that satisfies Sunday but not Monday — the case one number could
-       never express, and the reason the requirement now comes from the day. */
+    /* The requirement still comes from the day, and Monday's is the owner's ladder:
+       8:00–9:20 then 9:30 in the same hall is the timetable itself, not a finding. */
     const monday = (id: number, from: string, to: string): any => ({
       ...at(id, from, to), fsunday: false, fmonday: true,
     });
     const tenOnMonday = [monday(1, "08:00", "09:20"), monday(2, "09:30", "10:50")];
-    assert(findConflicts(tenOnMonday, tenOnMonday).length === 1,
-      "عشر دقائق تكفي الأحد ولا تكفي الاثنين — والقاعدة تُقرأ من اليوم");
+    assert(findConflicts(tenOnMonday, tenOnMonday).length === 0,
+      "الاثنين 8:00–9:20 ثم 9:30 في القاعة نفسها: سُلّمُ اللائحة نفسه، لا ملاحظة");
+    const fiveOnMonday = [monday(1, "08:00", "09:20"), monday(2, "09:25", "10:45")];
+    assert(findConflicts(fiveOnMonday, fiveOnMonday).length === 1,
+      "وخمسُ دقائق يوم الاثنين لا تكفي — والقاعدة تُقرأ من اليوم");
 
     // Different halls empty through different doors.
     const elsewhere = [at(1, "08:00", "09:00"), at(2, "09:00", "10:00", "14", "201")];
@@ -816,9 +820,11 @@ async function runTests() {
     /* THE CASE THIS EXISTS FOR: someone types 08:55 on a Monday where every
        Monday for ten years has begun at 08:00 or 09:40. Invisible to every
        other check in the program — no clash, no rule, nothing. */
+    /* The regulation ladder speaks first now (owner, 2026-10-30: Mon/Wed 8:00–9:20 then 9:30): the slip is
+       named with the ladder start it missed, which is also the habit here. */
     const slip = offRhythm({ fmonday: true, fstarttime: "09:25", fendtime: "10:45" } as any, reading);
-    assert(slip.includes("09:30") && slip.includes("09:25"),
-      `a five-minute slip is named with the habit it missed (got "${slip}")`);
+    assert(slip.includes("9:30") && slip.includes("09:25"),
+      `a five-minute slip is named with the ladder start it missed (got "${slip}")`);
     assert(slip.includes("الاثنين"), "and the day it belongs to");
 
     // A deliberately different hour is a decision, not a slip, and is silent.
@@ -1495,11 +1501,15 @@ async function runTests() {
       at({ fsunday: true, AdCourseId: 200, AdInstructorId: 9, fstarttime: "09:55", fendtime: "10:45" }));
     assert(Boolean(sunTight), "خمس دقائق يوم الأحد لا تكفي");
 
-    // The case the single number could never express.
+    // Monday's ladder (8:00–9:20 then 9:30, owner 2026-10-30): ten minutes suffice there too.
+    const monTen = gapFinding(
+      at({ fmonday: true, fstarttime: "08:00", fendtime: "09:20" }),
+      at({ fmonday: true, AdCourseId: 200, AdInstructorId: 9, fstarttime: "09:30", fendtime: "10:50" }));
+    assert(!monTen, "عشر دقائق يوم الاثنين تكفي — 8:00–9:20 ثم 9:30");
     const monTight = gapFinding(
       at({ fmonday: true, fstarttime: "09:00", fendtime: "10:20" }),
-      at({ fmonday: true, AdCourseId: 200, AdInstructorId: 9, fstarttime: "10:30", fendtime: "11:50" }));
-    assert(Boolean(monTight), "عشر دقائق يوم الاثنين لا تكفي — المطلوب ربع ساعة");
+      at({ fmonday: true, AdCourseId: 200, AdInstructorId: 9, fstarttime: "10:25", fendtime: "11:45" }));
+    assert(Boolean(monTight), "خمس دقائق يوم الاثنين لا تكفي");
     const monOk = gapFinding(
       at({ fmonday: true, fstarttime: "09:00", fendtime: "10:20" }),
       at({ fmonday: true, AdCourseId: 200, AdInstructorId: 9, fstarttime: "10:35", fendtime: "11:55" }));

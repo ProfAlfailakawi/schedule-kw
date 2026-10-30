@@ -2,17 +2,19 @@
  * ── «🧲 لاصق بمحاضرتي» (C6) ──────────────────────────────────────────────────
  *
  * لكل محاضرةٍ قائمة للأستاذ زرّان: ⬅️ قبلها و➡️ بعدها. الوقت لا يُكتب باليد:
- *   بعدها  = نهايتُها + فاصلُ اللائحة لتلك الأيام (١٠ د للأحد/الثلاثاء/الخميس، ١٥ د للاثنين/الأربعاء)
- *   قبلها  = بدايتُها − الفاصل − مدّةُ المقرر على تلك الأيام
+ *   بعدها  = نهايتُها + فاصلُ اللائحة لتلك الأيام (١٠ د)، على أوّل بدايةٍ من سُلّم اللائحة لا تسبقه
+ *   قبلها  = بدايتُها − الفاصل − مدّةُ المقرر على تلك الأيام، على آخر بدايةٍ من السُّلّم لا تتجاوزه
+ * والسُّلّمُ (المالك 2026-10-30): الأحد والثلاثاء والخميس على رأس الساعة، والاثنين والأربعاء 8:00 ثم 9:30…
  * ثم يُفحص كلُّ مرشّحٍ بمحرّك الحكم الواحد (judgeRequestItems ← judgeRequest) — هذه
  * الوحدة لا تفحص شيئاً بنفسها؛ تولّد المرشّحين وترتّب نتائج المحرّك فقط.
  *
- * إن كان الملاصقُ مأخوذاً يُجرَّب الأقرب «+٣٠د» ثم «+٦٠د» (للأمام بعدها، وللخلف قبلها).
+ * إن كان الملاصقُ مأخوذاً تُجرَّب البدايةُ التالية على السُّلّم («+٦٠د» للأيام القصيرة، و«+٩٠د» للاثنين والأربعاء) —
+ * لا «+٣٠د» خارجه؛ والخليطُ بلا سُلّمٍ واحد يبقى على «+٣٠د» ثم «+٦٠د».
  * والترتيب: متاحٌ أولاً، ثم نفسُ القاعة، ثم نفسُ المبنى، ثم الملاصقُ قبل المُزاح، ثم بعدها قبل قبلها.
  * والترتيبُ بالقاعة يبقى في الخادم: ما يصل الأستاذ يمرّ بـ stickForTeacher فلا يحمل قاعةً ولا مبنى.
  */
 import type { DayKey } from "./scheduleRegulations";
-import { requiredGapForDays } from "./scheduleRegulations";
+import { ladderStepForDays, requiredGapForDays } from "./scheduleRegulations";
 
 export type StickSide = "before" | "after";
 export interface StickAnchor {
@@ -52,7 +54,7 @@ export const toClock = (minutes: number) => `${String(Math.floor(minutes / 60)).
 export const STICK_DAY = { start: 8 * 60, end: 20 * 60 };
 
 /**
- * المرشّحون لمحاضرةٍ واحدة وجهةٍ واحدة، بالترتيب (الملاصق، +٣٠، +٦٠).
+ * المرشّحون لمحاضرةٍ واحدة وجهةٍ واحدة، بالترتيب (الملاصق، ثم الخطوةُ التالية على سُلّم اللائحة).
  * `durationFor(days)` مدّةُ المقرر على هذه الأيام (من اللائحة/endForRequest)، لا رقمٌ مخترع.
  */
 export function stickCandidates(anchor: StickAnchor, side: StickSide, durationFor: (days: DayKey[]) => number): StickCandidate[] {
@@ -60,11 +62,16 @@ export function stickCandidates(anchor: StickAnchor, side: StickSide, durationFo
   const gap = requiredGapForDays(anchor.days);
   const duration = durationFor(anchor.days);
   if (!(duration > 0)) return [];
+  /* على سُلّم اللائحة: «ملاصق» أوّلُ بدايةٍ على السُّلّم بعد الفاصل (أو آخرُها قبل المحاضرة)، ثم الخطوةُ التالية عليه. */
+  const step = ladderStepForDays(anchor.days);
+  const raw = side === "after" ? toMin(anchor.end) + gap : toMin(anchor.start) - gap - duration;
+  const snapped = !step ? raw : side === "after"
+    ? STICK_DAY.start + Math.ceil((raw - STICK_DAY.start) / step) * step
+    : STICK_DAY.start + Math.floor((raw - STICK_DAY.start) / step) * step;
+  const shifts = step ? [0, step] : [...STICK_SHIFTS];
   const out: StickCandidate[] = [];
-  for (const shift of STICK_SHIFTS) {
-    const start = side === "after"
-      ? toMin(anchor.end) + gap + shift
-      : toMin(anchor.start) - gap - duration - shift;
+  for (const shift of shifts) {
+    const start = side === "after" ? snapped + shift : snapped - shift;
     const end = start + duration;
     if (start < STICK_DAY.start || end > STICK_DAY.end) continue;
     out.push({ anchorRowId: anchor.rowId, side, days: [...anchor.days], start: toClock(start), end: toClock(end), shift });

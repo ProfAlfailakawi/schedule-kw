@@ -25,7 +25,7 @@ import {
   minutesToTime, timeToMinutes, type ConflictInsight, type DayKey,
 } from "./scheduleIntelligence";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
-import { reviewSchedule } from "./scheduleRegulations";
+import { patternsForHours, reviewSchedule } from "./scheduleRegulations";
 import { findRepairChain, planDisruption, type RepairMove } from "./repairChain";
 import { parseNaturalQuery, toEnglishDigits } from "./naturalQuery";
 import { roomIdentityKey } from "./locationRegistry";
@@ -601,8 +601,31 @@ export function suggestPlacements(board: FSchedule[], courseId: number, context:
   const placeholders = placeholderIdsOf(context);
   const siblings = board.filter(row => inScope(row) && Number(row.AdCourseId) === courseId);
   const pattern = siblings[0];
-  const days: DayKey[][] = pattern ? uniquePatterns(siblings) : TM_DAYS.map(day => [day]);
-  const duration = pattern ? durationOf(pattern) : Math.max(50, Math.round(Number(course?.CourseHours || course?.CourseCredit || 2) * 50));
+  /* أشكالُ الشعبة الجديدة من مكتبة الأنماط لساعات المقرّر (المالك 2026-10-30): أيامُ الشعب القائمة تُقدَّم إن كانت نمطاً
+     معتمداً، ولا يُنسخ نمطٌ خارج المكتبة، والطولُ طولُ النمط. مقرّرٌ بلا ساعاتٍ في المكتبة يبقى على أيام شعبه وطولها. */
+  const libraryHours = Math.round(Number(course?.CourseHours || course?.CourseCredit || 0));
+  const library = libraryHours ? patternsForHours(libraryHours).filter(entry => entry.minutesPerDay.every(value => value === entry.minutesPerDay[0])) : [];
+  const fallbackMinutes = pattern ? durationOf(pattern) : Math.max(50, Math.round(Number(course?.CourseHours || course?.CourseCredit || 2) * 50));
+  const shapes: Array<{ days: DayKey[]; minutes: number }> = (library.length
+    ? [
+        ...(pattern ? uniquePatterns(siblings) : []).flatMap(set => {
+          const match = library.find(entry => entry.days.length > 1 && entry.days.length === set.length && entry.days.every(day => set.includes(day)));
+          return match ? [{ days: set, minutes: match.minutesPerDay[0] }] : [];
+        }),
+        ...library.flatMap(entry => entry.days.length === 1
+          ? TM_DAYS.map(day => ({ days: [day], minutes: entry.minutesPerDay[0] }))
+          : [{ days: [...entry.days], minutes: entry.minutesPerDay[0] }]),
+      ]
+    : (pattern ? uniquePatterns(siblings) : TM_DAYS.map(day => [day])).map(set => ({ days: set, minutes: fallbackMinutes })))
+    .filter((shape, at, all) => all.findIndex(other => other.days.join() === shape.days.join() && other.minutes === shape.minutes) === at);
+  /* البداياتُ على سُلّم اللائحة: القصيرةُ كل ساعةٍ من الثامنة، والطويلةُ 8:00 ثم 9:30… (والخليطُ كل نصف ساعة). */
+  const startsFor = (set: DayKey[], duration: number) => {
+    const long = set.filter(day => day === "fmonday" || day === "fwednesday").length;
+    const step = !long ? 60 : long === set.length ? 90 : 30;
+    const out: number[] = [];
+    for (let start = 8 * 60; start + duration <= SCHEDULE_DAY_END; start += step) if (start >= SCHEDULE_DAY_START) out.push(start);
+    return out;
+  };
   const index = new BusyIndex(board, placeholders);
   const courseTeachers = [...new Set(siblings.map(row => Number(row.AdInstructorId)).filter(id => id > 0 && !placeholders.has(id)))];
   const people = context.instructors.filter(person => !placeholders.has(Number(person.AdInstructorId)) && person.AdInstructorStatus !== "retired" && person.AdInstructorStatus !== "sabbatical");
@@ -624,8 +647,8 @@ export function suggestPlacements(board: FSchedule[], courseId: number, context:
   const unmet = demand ? Math.max(0, Number(demand.wanted || 0) - Number(demand.seated || 0)) : null;
   const out: TmPlacement[] = [];
   for (const teacher of candidatesTeachers) {
-    for (const set of days) {
-      for (let start = SCHEDULE_DAY_START; start + duration <= SCHEDULE_DAY_END; start += 30) {
+    for (const { days: set, minutes: duration } of shapes) {
+      for (const start of startsFor(set, duration)) {
         if (!index.teacherFree(teacher, set, start, start + duration)) continue;
         const hall = halls.find(item => index.roomFree(hallKey(item), set, start, start + duration));
         if (!hall) continue;

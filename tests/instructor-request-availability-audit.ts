@@ -92,25 +92,29 @@ const historicalFourHourNature = { courseId: 2, terms: 4, observations: 4, meeti
   confidence: "high", summary: "historical", suggestion: null } as any;
 
 // Same precise data goes into the official physical engine and the public verdict.
-const mixed = add("mixed", "fmonday", 2, "08:00", "09:20");
-mixed.slots!.push({ day: "fwednesday", start: "08:00", end: "09:20" }, { day: "fthursday", start: "08:00", end: "08:50" });
-const other = row({ id: 99, AdCourseId: 1, fsunday: false, fthursday: true, fstarttime: "09:00", fendtime: "09:50" });
+// قاعدة المالك 2026-10-30: النمطُ من مكتبة الأنماط وحده؛ فالأطوالُ المختلفة بين اليومين تُختبر بنمطٍ معتمد بها —
+// خمس ساعات: الاثنين ١٧٠ والأربعاء ١١٠ — ولقاءٌ آخر للأستاذ الأربعاء ١٠:٠٠ لا يتقاطع مع لقاءٍ ينتهي ٠٩:٥٠.
+// (والنمطُ «الاثنين·الأربعاء·الخميس» الذي درج عليه المقرّر تاريخياً صار يُمنع: التاريخُ لا يخالف اللائحة.)
+void historicalFourHourNature;
+const mixed = add("mixed", "fmonday", 2, "08:00", "10:50");
+mixed.slots!.push({ day: "fwednesday", start: "08:00", end: "09:50" });
+const other = row({ id: 99, AdCourseId: 1, fsunday: false, fmonday: false, ftuesday: false, fwednesday: true, fthursday: false, fstarttime: "10:00", fendtime: "10:50" });
 const after = instructorWeekAfter(request([mixed]), [other]);
 const historicalPracticalCourses = new Map(courses).set(2, { AdCourseId: 2, CourseHours: 4, CourseTeachingMode: "practical" } as any);
+const fiveHourCourses = new Map(courses).set(2, { AdCourseId: 2, CourseHours: 5, CourseTeachingMode: "practical" } as any);
 const verdict = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 2,
   days: mixed.slots!.map(slot => slot.day), start: "08:00", slots: mixed.slots },
-  { ...context([other], after), courses: historicalPracticalCourses, nature: new Map([[2, historicalFourHourNature]]) as any });
+  { ...context([other], after), courses: fiveHourCourses });
 assert.equal(findConflicts(after.filter(item => item.id !== 99), [other]).filter(isBlockingConflict).length, 0);
-assert.equal(verdict.sendable, true, "historical per-day lengths remain valid and must not invent a Thursday overlap");
+assert.equal(verdict.sendable, true, "approved per-day lengths remain valid and must not invent a Wednesday overlap");
 
-const alternativeItem = { ...mixed, slots: mixed.slots!.map(slot => ({ ...slot, start: "10:00", end: slot.day === "fthursday" ? "10:50" : "11:20" })) };
+const alternativeItem = { ...mixed, slots: mixed.slots!.map(slot => ({ ...slot, start: "10:00", end: slot.day === "fwednesday" ? "11:50" : "12:50" })) };
 const alternativeWeek = instructorWeekAfter(request([alternativeItem]), [other]);
 const preciseAlternatives = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 2,
   days: alternativeItem.slots.map(slot => slot.day), start: "10:00", slots: alternativeItem.slots },
-  { ...context([other], alternativeWeek), courses: historicalPracticalCourses, offerAlternatives: true,
-    nature: new Map([[2, historicalFourHourNature]]) as any });
+  { ...context([other], alternativeWeek), courses: fiveHourCourses, offerAlternatives: true });
 assert.ok(preciseAlternatives.nearestTimes.some(slot => slot.start === "08:00"),
-  "a short Thursday ending 08:50 must remain a valid alternative before the 09:00 meeting");
+  "a short Wednesday ending 09:50 must remain a valid alternative before the 10:00 meeting");
 const facilityAlternatives = judgeRequest({ rowId: null, tempId: -1, action: "add", AdCourseId: 1,
   days: ["fsunday"], start: "08:00" }, { ...context([], [row({ id: -1 })]),
   roomSlotsEligible: (_key, slots) => slots.every(slot => slot.start >= "09:00") });
@@ -163,8 +167,11 @@ assert.ok(!currentFourHourShapes.some(shape => shape.days.join(",") === extended
   "the retired 80+80+50 split is not offered automatically without matching course history");
 const historicallyKnownSplit = judgeRequest(extendedRequest, { ...context([], extendedWeek), courses: historicalPracticalCourses,
   nature: new Map([[2, historicalFourHourNature]]) as any });
-assert.equal(historicallyKnownSplit.sendable, true,
-  `a course historically taught as 80+80+50 remains compatible with its recorded past without making it a current standard: ${JSON.stringify(historicallyKnownSplit)}`);
+/* قاعدة المالك 2026-10-30: النمطُ من مكتبة الأنماط وحده — تاريخُ المقرّر بـ80+80+50 لا يُعفيه؛ التاريخُ اقتراحٌ لا يخالف اللائحة. */
+assert.equal(historicallyKnownSplit.sendable, false,
+  `history no longer exempts the retired 80+80+50 split from the pattern library: ${JSON.stringify(historicallyKnownSplit)}`);
+assert.ok(historicallyKnownSplit.reasons.some(reason => reason.blocking && reason.code === "pattern"),
+  "and it is refused as an unapproved pattern, not as an overlap");
 
 // Legacy text-only room rows must collide with centrally identified rooms.
 const proposalWithRoom = (itemId: string, instructorId: number, rooms: Array<{ roomId?: string; room: string; hall: string }>) => ({

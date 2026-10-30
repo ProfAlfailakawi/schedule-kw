@@ -240,7 +240,7 @@ const boardToken = secret.buildingDoorToken(key, building.id);
     const page = await call(`/d/${f01Token}`);
     const csp = page.headers.get("content-security-policy") || "";
     const nonce = /'nonce-([^']+)'/.exec(csp)?.[1] || "";
-    const scripts = page.text.match(/<script\b[^>]*>/g) || [];
+    const scripts: string[] = page.text.match(/<script\b[^>]*>/g) || [];
     check(page.status === 200 && /<html lang="ar" dir="rtl">/.test(page.text), "R4 صفحةُ القاعة تُفتح بالرمز: عربيةٌ من اليمين");
     check(Boolean(nonce) && scripts.length > 0 && scripts.every(tag => tag.includes(`nonce="${nonce}"`)), "R4 كلُّ سكربتٍ يحمل رقمَ الصفحة الخاص (CSP nonce)", { nonce, scripts });
     check(/noindex/.test(page.headers.get("x-robots-tag") || "") && /noindex/.test(page.text) && page.headers.get("cache-control") === "no-store", "R4 لا فهرسة ولا تخزين (X-Robots-Tag وmeta)");

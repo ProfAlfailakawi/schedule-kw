@@ -24,6 +24,7 @@ import { learnRhythm } from "../../utils/departmentRhythm";
 import { readStudentDemand, cohortPairs } from "../../utils/studentDemand";
 import { dayKeysOf } from "../../utils/instructorRequestItems";
 import { judgeRequest, type RequestDayKey } from "../../utils/instructorRequestVerdict";
+import { chosenAlternativeIndex } from "../../utils/requestAlternatives";
 import { learnCourseNature, type CourseNature } from "../../utils/courseNature";
 import { scheduleDayWindowMinutes } from "../../utils/scheduleTime";
 import { eligibleHallsForSection, roomKeyOf, rowOccupiesRoom } from "../../utils/locationRegistry";
@@ -431,6 +432,12 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       facility: Boolean(companionType),
     });
     const rankedByKey = new Map(rankedRooms.map(room => [room.key, room]));
+    /* سُلّمُ البدايات يمنع في كرت الأستاذ ما يختاره بنفسه (المالك 2026-10-30)، لا ما عرضه القسمُ عليه فقبله: بديلُ رفضٍ،
+       أو مقترحٌ في المحادثة، أو ما وافق عليه. وشاشاتُ القسم تراه تنبيهاً. */
+    const departmentOffers = [item.chosenAlternative, ...(item.decision?.alternatives || []),
+      ...(item.decisionHistory || []).flatMap(decision => decision?.alternatives || []),
+      ...(item.thread || []).filter(message => message.from === "department").flatMap(message => message.slots || [])].filter(Boolean) as any[];
+    const offeredByDepartment = chosenAlternativeIndex(departmentOffers, days, slot?.start || "") >= 0;
     const verdict = judgeRequest({
       rowId: item.offeringRowIds?.[0] ?? item.rowId,
       tempId: tempIdFor(index),
@@ -460,6 +467,7 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       instructorLoad: loadLimitOf(context.instructors.get(Number(request.AdInstructorId))),
       /* ورقةُ رفض القسم تعرض بدائلَ لكل بند، ولو كان متاحاً (مراجعة البروفة). */
       offerAlternatives: Boolean(options.forDepartment),
+      ladderBlocks: !options.forDepartment && !offeredByDepartment,
       nature: habits,
       suggestNature: priorHabits,
       termId: Number(request.AdTermId),
@@ -525,7 +533,8 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
         ? "يحتاج القسم التحقق من القاعة قبل الاعتماد؛ بيانات القاعات المتاحة غير مكتملة."
         : (() => { const hall = rules.hallByKey.get(verdict.roomCandidates[0]); const room = rules.registry.rooms.find(room => room.id === hall?.roomId);
           const fit = roomSuitability(selectedCourse, room);
-          return fit.reasons.some(reason => /مختلف|أقل/.test(reason)) ? "يمكن تقديم الطلب؛ ملاءمة نوع القاعة أو سعتها تحتاج مراجعة القسم." : undefined; })()),
+          /* «يمكن تقديم الطلب» لا تُقال تحت حكمٍ يمنعه (كانت تظهر تحت «وقت البداية غير معتمد»). */
+          return verdict.kind !== "conflict" && fit.reasons.some(reason => /مختلف|أقل/.test(reason)) ? "يمكن تقديم الطلب؛ ملاءمة نوع القاعة أو سعتها تحتاج مراجعة القسم." : undefined; })()),
       block: verdict.blockMinutes || (item.slots?.length === 1 ? timeToMinutes(item.slots[0].end) - timeToMinutes(item.slots[0].start) : undefined),
     } as InstructorRequestItem;
   });

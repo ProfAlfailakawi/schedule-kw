@@ -12,6 +12,7 @@ import type { FSchedule } from "../../types";
 import { DAY_LABELS } from "../../utils/naturalQuery";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { offRhythm } from "../../utils/departmentRhythm";
+import { startLadderNote } from "../../utils/scheduleRegulations";
 import { dayKeysOf } from "../../utils/instructorRequestItems";
 import { withVisitingSuffix } from "../../utils/visitingText";
 import { campusOf, interCampusMinutes } from "../../utils/campusTravel";
@@ -246,8 +247,14 @@ export async function scheduleConflicts(req:AuthenticatedRequest,row:any,exclude
      08:55 where every other lecture on that day has begun at 08:50 for ten
      years is almost always a slip of the finger, and occasionally a decision.
      So it is said once, softly, and never refuses a save. */
-  const habit = style.reading ? offRhythm(candidate, style.reading) : "";
-  const rhythmNote = habit
+  /* سُلّمُ البدايات من اللائحة أولاً (المالك 2026-10-30): تنبيهٌ لا يمنع، ولا يحتاج تاريخاً للقسم.
+     وعادةُ القسم بعده للمدة وحدها، ولا تخالف اللائحة (offRhythm). */
+  const ladder = startLadderNote(SCHEDULE_DAY_KEYS.filter(day => Boolean(candidate[day])) as any, String(candidate.fstarttime || ""));
+  const habit = ladder ? "" : style.reading ? offRhythm(candidate, style.reading) : "";
+  const rhythmNote = ladder
+    ? [{ type: "rhythm", severity: "low", soft: true, rowId: 0, otherId: 0,
+         message: "خارج سُلّم البدايات في اللائحة", detail: ladder }]
+    : habit
     ? [{ type: "rhythm", severity: "low", soft: true, rowId: 0, otherId: 0,
          message: "خارج إيقاع القسم المعتاد", detail: habit }]
     : [];

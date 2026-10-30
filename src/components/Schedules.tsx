@@ -189,7 +189,7 @@ import { useTrainees } from "../utils/trainees";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
 import { onLiveSignal, onLiveState, setLiveScope, type LiveState } from "../utils/livePulse";
-import { adviseDayPattern, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding, reviewSchedule, type DayKey as RegDayKey } from "../utils/scheduleRegulations";
+import { adviseDayPattern, daysApprovedForHours, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding, reviewSchedule, type DayKey as RegDayKey } from "../utils/scheduleRegulations";
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { rowClashReasons } from "../utils/scheduleBlockers";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
@@ -9799,7 +9799,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       {slotBusy ? "أبحث…" : "اقترح لي وقتاً وقاعة"}
                     </button>
                     {courseNature && courseNature.confidence !== "low" ? (
-                      courseNature.suggestion ? (
+                      /* «املأ كالمعتاد» لا يعبّئ نمطاً خارج مكتبة الأنماط: التاريخُ اقتراحٌ لا يخالف اللائحة (المالك 2026-10-30). */
+                      courseNature.suggestion && daysApprovedForHours(regulationHours(formCourse), courseNature.suggestion.days as RegDayKey[]) !== false ? (
                         <button
                           type="button"
                           className={`appt-helper appt-usual${studioUsualTaken ? " is-taken" : ""}`}
@@ -9811,14 +9812,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           studioMark("usual");
                           const seed = courseNature.suggestion!;
                           setScheduleTouched(true);
-                          /* العادة المرصودة اختيارٌ متعمَّد: لا يُعاد كتابتها بالنمط (والخادم يعفي المقرر المعتاد). */
+                          /* أيامُ العادة نمطٌ معتمد (وإلا لم يظهر الزر)، وطولُها من مكتبة الأنماط: عادةٌ بطولٍ آخر
+                             تُعبَّأ بطول اللائحة، ولا تصير تجاوزاً متعمَّداً (المالك 2026-10-30). */
                           daysSeeded.current = false;
-                          setTimingOverride(regulationFit(formCourse, seed.days as RegDayKey[], seed.start, seed.end) === "off");
+                          const seedEnd = regulationFit(formCourse, seed.days as RegDayKey[], seed.start, seed.end) === "off"
+                            ? (regulationEnd(formCourse, seed.days as RegDayKey[], seed.start) || seed.end) : seed.end;
+                          setTimingOverride(regulationFit(formCourse, seed.days as RegDayKey[], seed.start, seedEnd) === "off");
                           setForm(previous => {
                             const next: any = { ...previous };
                             days.forEach(day => { next[day.key] = seed.days.includes(day.key as any); });
                             next.fstarttime = seed.start;
-                            next.fendtime = seed.end;
+                            next.fendtime = seedEnd;
                             if (seed.building) next.AdRoomCode = seed.building;
                             if (seed.hall) next.AdRoomHall = seed.hall;
                             if (seed.instructorId && !next.AdInstructorId) next.AdInstructorId = seed.instructorId;

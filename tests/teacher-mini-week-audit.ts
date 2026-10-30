@@ -40,7 +40,7 @@ check(sunday.length > 0 && sunday.every(target => target.end - target.start === 
 check(sunday[0]?.start === 9 * 60 && sunday.every(target => target.start % 30 === 0), "N7 أول خانة بعد 08:50 + فاصل 10 = 09:00، على شبكة نصف الساعة", sunday.map(target => toClock(target.start)));
 check(sunday.every((target, index) => index === 0 || target.start >= sunday[index - 1].end + 10), "N8 الخانات لا تتداخل ولا تتلاصق دون الفاصل", sunday.map(target => toClock(target.start)));
 const monday = targets.filter(target => target.day === "fmonday");
-check(monday.length > 0 && monday.every(target => target.end - target.start === 80 && !(target.start < 10 * 60 + 50 + 15 && target.end + 15 > 9 * 60 + 30)), "N9 الاثنين: 80د، وتحترم محاضرة الكلية الأخرى وفاصل 15د", monday.map(target => toClock(target.start)));
+check(monday.length > 0 && monday.every(target => target.end - target.start === 80 && !(target.start < 10 * 60 + 50 + 10 && target.end + 10 > 9 * 60 + 30)), "N9 الاثنين: 80د، وتحترم محاضرة الكلية الأخرى وفاصل 10د (سُلّمُ 8:00–9:20 ثم 9:30)", monday.map(target => toClock(target.start)));
 const avoid = freeTargets(theory3, lectures, span, { avoid: { days: ["fsunday", "ftuesday", "fthursday"], start: 9 * 60, end: 9 * 60 + 50 } });
 check(!avoid.some(target => target.day === "fsunday" && target.start === 9 * 60), "N10 لا خانة تحت الشبح (الموعد الجاري)");
 const fixed = freeTargets(theory3, lectures, span, { fixedDays: ["fmonday", "fwednesday"] });
@@ -53,12 +53,12 @@ check(after?.start === 9 * 60 && toClock(after.start) === "09:00" && after.days.
 check(adjacentPlacement(first, "before", theory3, lectures, day) === null, "N14 «قبلها» خارج يوم الدراسة → لا زرّ");
 const mondayLecture = lectures.find(item => item.day === "fmonday")!;
 const mondayAfter = adjacentPlacement(mondayLecture, "after", theory3, lectures, day);
-check(mondayAfter?.start === 10 * 60 + 50 + 15 && mondayAfter.end - mondayAfter.start === 80, "N15 «بعدها» يوم الاثنين: فاصل 15 ونمط 80د", mondayAfter);
+check(mondayAfter?.start === 10 * 60 + 50 + 10 && mondayAfter.end - mondayAfter.start === 80, "N15 «بعدها» يوم الاثنين: 10:50 + فاصل 10 = 11:00 على السُّلّم، ونمط 80د", mondayAfter);
 const packed = teacherLectures([row(1, ["fsunday", "ftuesday", "fthursday"], "08:00", "08:50"), row(5, ["fsunday", "ftuesday", "fthursday"], "09:00", "09:50")], 7, 1, 0, 1);
 const shifted = adjacentPlacement(packed[0], "after", theory3, packed, day);
-check(shifted?.start === 10 * 60 && shifted.end === 10 * 60 + 50, "N16 الملاصق يزاحم محاضرةً تالية → الأقرب المتاح (+30 ثم +60) كما في كرت الأستاذ", shifted);
+check(shifted?.start === 10 * 60 && shifted.end === 10 * 60 + 50, "N16 الملاصق يزاحم محاضرةً تالية → البدايةُ التالية على السُّلّم (+60) كما في كرت الأستاذ", shifted);
 const boxed = teacherLectures([row(1, ["fsunday", "ftuesday", "fthursday"], "08:00", "08:50"), row(5, ["fsunday", "ftuesday", "fthursday"], "09:00", "10:50")], 7, 1, 0, 1);
-check(adjacentPlacement(boxed[0], "after", theory3, boxed, day) === null, "N16b لا متاح حتى +60 → لا زرّ");
+check(adjacentPlacement(boxed[0], "after", theory3, boxed, day) === null, "N16b لا متاح حتى البداية التالية على السُّلّم → لا زرّ");
 check(/import \{ stickCandidates \} from "\.\/lectureStick"/.test(fs.readFileSync("src/utils/teacherMiniWeek.ts", "utf8")), "N16c «قبلها/بعدها» بمعادلة «لاصق بمحاضرتي» الواحدة (lectureStick)");
 
 /* «قاعته نفسها أولاً ثم مبناه». */

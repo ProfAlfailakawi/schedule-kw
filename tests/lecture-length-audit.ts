@@ -44,7 +44,8 @@ const createRoute = serverSrc.slice(serverSrc.indexOf("const createScheduleHandl
 const updateRoute = serverSrc.slice(serverSrc.indexOf("const updateScheduleHandler ="), serverSrc.indexOf('app.put("/api/schedules/:id",'));
 assert.ok(createRoute.includes("scheduleLengthIssue") && updateRoute.includes("scheduleLengthIssue") && !createRoute.includes("lectureLengthProblem") && !updateRoute.includes("lectureLengthProblem"), "الإضافة والتعديل لا يحولان ملاحظة المدة إلى رفض");
 const notice = serverSrc.slice(serverSrc.indexOf("async function mixedPatternNotice("), serverSrc.indexOf("async function scheduleLengthIssue("));
-assert.ok(/patternsForHours\(hours\)\.some/.test(notice) && /historicalOrigin\(/.test(notice), "والتنبيه لا يظهر لنمطٍ معتمد في المكتبة أو تاريخيٍّ للمقرّر");
+/* قاعدة المالك 2026-10-30: التاريخُ اقتراحٌ لا يخالف اللائحة — لا يُعفي نمطاً خارج المكتبة. */
+assert.ok(/patternsForHours\(hours\)\.some/.test(notice) && !/historicalOrigin\(/.test(notice), "والتنبيه لا يظهر لنمطٍ معتمد في المكتبة، ولا يُعفي التاريخُ نمطاً خارجها");
 assert.ok(/patternNotice/.test(serverSrc.slice(serverSrc.indexOf('app.post("/api/schedules/check-conflicts"'), serverSrc.indexOf('app.post("/api/schedules/check-conflicts"') + 900)), "ويصل رسمُه شاشةَ الموعد مع فحص التعارض");
 assert.ok(/lectureNotice/.test(serverSrc.slice(serverSrc.indexOf('app.post("/api/schedules/check-conflicts"'), serverSrc.indexOf('app.post("/api/schedules/check-conflicts"') + 1000)), "الملاحظة اللائحية تصل للفحص الحي");
 assert.ok(/sectionWeeklyHours\(row,siblings,hours\)/.test(lengthFn) && /weeklyLectureMinutes\(other, hours\)/.test(fs.readFileSync("src/utils/scheduleRegulations.ts", "utf8")) && /weeklyLectureMinutes\(row, hours\)/.test(fs.readFileSync("src/utils/scheduleRegulations.ts", "utf8")), "حدّ العبء الأسبوعي يحسب أنماط الكتلة الواحدة وفق ساعات المقرر (المصدر الواحد sectionWeeklyHours)");

@@ -119,7 +119,10 @@ const theory3 = { CourseHours: 3, CourseTeachingMode: "theoretical" };
   const options = lectureStickOptions(lectures, rows, theory3, { start: 8 * 60, end: 20 * 60 });
   const after = options.find(item => item.lecture.id === 1 && item.side === "after");
   const before = options.find(item => item.lecture.id === 1 && item.side === "before");
-  check(options.length === 3 && options.filter(item => item.lecture.id === 1).length === 2 && !options.some(item => item.key === "2:before"), "S1 محاضرةٌ واحدة (لا يوماً يوماً): «قبلها» و«بعدها» — ولا خيار قبل الثامنة", options.map(item => item.key));
+  /* الاثنين 9:30 «قبلها» 8:00–9:20: سُلّمُ المالك نفسه (2026-10-30) بفاصل 10 دقائق، لا 7:55 قبل الثامنة كما كان بفاصل 15. */
+  const mondayBefore = options.find(item => item.key === "2:before");
+  check(options.length === 4 && options.filter(item => item.lecture.id === 1).length === 2 && mondayBefore && toClock(mondayBefore.spot.start) === "08:00" && toClock(mondayBefore.spot.end) === "09:20",
+    "S1 محاضرةٌ واحدة (لا يوماً يوماً): «قبلها» و«بعدها» — وقبل الاثنين 9:30 خانةُ 8:00–9:20 على السُّلّم", options.map(item => item.key));
   check(after && toClock(after.spot.start) === "11:00" && after.spot.days.join("+") === "fsunday+ftuesday+fthursday", "S2 «بعدها» = النهاية + فاصل 10د، في أيامها نفسها", after?.spot);
   check(before && toClock(before.spot.start) === "09:00" && toClock(before.spot.end) === "09:50", "S3 «قبلها» = البداية − الفاصل − مدة النمط", before?.spot);
   check(after?.room?.roomId === "r1", "S4 تلميح القاعة للإدارة: قاعة المحاضرة إن خلت");

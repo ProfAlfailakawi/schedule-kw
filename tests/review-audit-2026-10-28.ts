@@ -91,7 +91,7 @@ try {
     const renamed = await call(`/api/sections/${section.AdSectionId}`, { method: "PUT", body: JSON.stringify({ AdCollegeId: section.AdCollegeId, AdSectionCode: section.AdSectionCode, AdSectionName: hostile }) });
     check(renamed.status === 200, "R2 إعادةُ تسمية القسم (للفحص)", { status: renamed.status, body: renamed.text.slice(0, 200) });
     const page = await (await fetch(`${BASE}/s/${encodeURIComponent(deptId)}`)).text();
-    const scripts = page.match(/<script\b[^>]*>[\s\S]*?<\/script>/g) || [];
+    const scripts: string[] = page.match(/<script\b[^>]*>[\s\S]*?<\/script>/g) || [];
     const calendarScript = scripts.find(chunk => chunk.includes("calLinks(")) || "";
     check(calendarScript.includes("\\u003c/script>") && !page.includes('</script><b id="r2">'), "R2 اسمُ القسم لا يغلق وسمَ السكربت في صفحة /s", { found: calendarScript.slice(-200) });
     await call(`/api/sections/${section.AdSectionId}`, { method: "PUT", body: JSON.stringify({ AdCollegeId: section.AdCollegeId, AdSectionCode: section.AdSectionCode, AdSectionName: section.AdSectionName }) });

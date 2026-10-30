@@ -44,8 +44,9 @@ export interface TimeMachineDeps {
   /** سقفُ كل عضوٍ في الفصل المُحاكى (`termId`): مفتاحٌ لمن له قيد — والصفرُ قيد. */
   loadLimits: (instructors: AdInstructor[], termId: number) => Promise<Record<string, number>>;
   termFrozen: (termId: number) => Promise<string | null>;
-  dryRunUpdate: (req: any, rowId: number, body: any, week: FSchedule[]) => Promise<InnerResult>;
-  dryRunCreate: (req: any, body: any, week: FSchedule[]) => Promise<InnerResult>;
+  /** exactRestore: استعادةٌ تعيد ما كان بالضبط — لا تُمنع بقاعدة النمط. */
+  dryRunUpdate: (req: any, rowId: number, body: any, week: FSchedule[], exactRestore?: boolean) => Promise<InnerResult>;
+  dryRunCreate: (req: any, body: any, week: FSchedule[], exactRestore?: boolean) => Promise<InnerResult>;
   lockRefusal: (req: any, collegeId: number, sectionId: number, termId: number) => Promise<string | null>;
   captureVersion: (req: any, collegeId: number, sectionId: number, termId: number, label: string) => Promise<any>;
   recordVersionAfter: (version: any, after: (before: any[]) => any[]) => Promise<void>;
@@ -385,8 +386,8 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
           continue;
         }
         const dry = op.kind === "update"
-          ? await deps.dryRunUpdate(req, op.rowId, op.body, finalWeek)
-          : await deps.dryRunCreate(req, op.body, finalWeek.filter(row => Number(row.id) !== op.tempId));
+          ? await deps.dryRunUpdate(req, op.rowId, op.body, finalWeek, kind === "restore")
+          : await deps.dryRunCreate(req, op.body, finalWeek.filter(row => Number(row.id) !== op.tempId), kind === "restore");
         if (dry.status >= 400) {
           res.status(dry.status).json({ ...(dry.body && typeof dry.body === "object" ? dry.body : { error: "تعذّر الاعتماد." }), step: i, applied: [], reverted: true });
           return;
