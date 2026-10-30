@@ -23,6 +23,7 @@ test:owner-features-1028
 test:course-reach
 test:prepublish-reach
 test:ta-phase-flow
+test:publish-pick-teachers
 test:staff-global
 test:instructor-status
 test:request-cross-college

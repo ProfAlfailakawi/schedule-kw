@@ -3,6 +3,7 @@ import PersonChips from "./PersonChips";
 import { useTrainees } from "../utils/trainees";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import TAPhasePanel from "./TAPhasePanel";
+import PublishRecipientPicker, { AudiencePicker, type Audience, type PickedPerson } from "./PublishRecipientPicker";
 import CourseOfferingPanel from "./CourseOfferingPanel";
 import PrepublishReachSheet from "./PrepublishReachSheet";
 import { gateGenerations, gatePublish, offeringScopeKey, readOffering, rememberReach, type OfferingSnapshot, type PrepublishRow } from "../utils/prepublishReach";
@@ -147,6 +148,10 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     /* E1: صفةُ الإرسال — للجماعي (sendMode) وللفردي/إعادة الفتح (manageSendMode). */
     [sendMode, setSendMode] = useState<LinkMode>("edit"),
     [manageSendMode, setManageSendMode] = useState<LinkMode>("edit"),
+    /* «لمن؟»: الكل (كما كان) أو أساتذة محددون — ومن وصله الإرسالُ المحدد، لكلٍّ رابطُه الشخصي. */
+    [audience, setAudience] = useState<Audience>("all"),
+    [pickedPeople, setPickedPeople] = useState<PickedPerson[]>([]),
+    [delivered, setDelivered] = useState<Array<PickedPerson & { personalId: string }> | null>(null),
     /* قبل الإرسال (✏️ و🎓): ورقةُ «لم نصل بعد» إن كان في النطاق مقررٌ مقفل، ولوحةُ حالة الطرح عند «راجع المقررات». */
     [reachGate, setReachGate] = useState<{ rows: PrepublishRow[]; proceed: () => unknown; scope: string } | null>(null),
     [reachChecking, setReachChecking] = useState(false),
@@ -201,7 +206,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
    * «أُصدر ١٢ رابطاً» كانت تبقى بعد إغلاق اللوحة وفتحِها على نطاقٍ آخر، أو
    * بعد إنشاء رابط قراءةٍ عادي — فتُقرأ خبراً عن الفعل الجاري وهي خبرٌ عن
    * فعلٍ مضى، ويظنّ المنسّقُ أنه أرسل لهذا القسم وقد أرسل لغيره. */
-  useEffect(() => { setIssued(null); setReplaced(0); setShowPast(false); setManageMode(null); setManageSuccess(""); }, [open, collegeId, sectionId, termId, kind]);
+  useEffect(() => { setIssued(null); setReplaced(0); setShowPast(false); setDelivered(null); setManageMode(null); setManageSuccess(""); }, [open, collegeId, sectionId, termId, kind]);
 
   /**
    * إصدارُ روابط الرغبات.
@@ -210,12 +215,13 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
    * بـ`/api/share` ولا يظهر في قائمة الروابط: يُصدَر ويُتابَع في «وارد
    * الأساتذة»، ويُرسل لكلِّ أستاذٍ رابطُه من هناك.
    */
-  const issueRequests = async (deadline = `${closesAt}T${closeTime}`, instructorId = 0, reason = "", reopen = false, mode: LinkMode = sendMode) => {
+  /* `instructorIds`: «أساتذة محددون» — يُرسل الحقلُ ولو فارغاً، فيرفضه الخادم ولا يصير «للجميع». */
+  const issueRequests = async (deadline = `${closesAt}T${closeTime}`, instructorId = 0, reason = "", reopen = false, mode: LinkMode = sendMode, instructorIds?: number[]) => {
     const response = await fetch("/api/instructor-requests/issue", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ collegeId, sectionId, termId, closesAt: mode === "view" ? viewDeadline() : deadline, source: "draft", mode,
-        ...(instructorId ? { instructorId, reason } : {}), ...(reopen ? { reopen: true } : {}) }),
+        ...(instructorId ? { instructorId, reason } : {}), ...(reopen ? { reopen: true } : {}), ...(instructorIds ? { instructorIds } : {}) }),
     });
     const data = await readReply(response, "تعذر فتح طلبات التعديل");
     if (data?.emptyTerm) {
@@ -315,6 +321,53 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       setBusy(false);
     }
   };
+
+  /**
+   * ── «لمن؟ ← أساتذة محددون» ──────────────────────────────────────────────
+   * يُرسل للمختارين وحدهم بالموعد نفسه، بلا سبب (السببُ للاستثناء بعد النشر). بطاقةُ القسم
+   * القائمة تبقى كما هي — لا تُستبدل ولا يتغيّر موعدُها العام — وإن لم تكن بطاقةٌ حيّةٌ أُنشئت
+   * بلا موعدٍ عام: الموعدُ في طلب كل مختارٍ وحده. ثم يُسكّ لكلٍّ رابطُه الشخصي للتسليم.
+   */
+  const sendPicked = async () => {
+    const ids = pickedPeople.flatMap(person => person.ids);
+    if (!ids.length) { setError("اختر أستاذاً واحداً على الأقل."); return; }
+    if (sendMode === "edit" && !closesAt) { setError("اكتب آخر موعدٍ لاستقبال طلبات التعديل."); return; }
+    const people = pickedPeople;
+    setBusy(true);
+    setError(null);
+    try {
+      let publication: ShareLink | undefined = staffPublication;
+      if (!publication) {
+        const response = await fetch("/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collegeId, sectionId, termId, days: linkDays, showInstructors, kind: "staff" }),
+        });
+        const created: ShareLink = await readReply(response, "تعذر إنشاء بطاقة الأستاذ");
+        publication = created;
+        setLinks(current => [created, ...current]);
+      }
+      setCreatedId(null);
+      setReplaced(0);
+      setIssued(null);
+      setDelivered(null);
+      await issueRequests(`${closesAt}T${closeTime}`, 0, "", false, sendMode, ids);
+      const response = await fetch(`/api/share/${encodeURIComponent(publication.id)}/personal`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instructorIds: ids }),
+      });
+      const minted = await readReply(response, "تعذر تجهيز الروابط الشخصية");
+      const personal = new Map<number, string>((minted?.links || []).map((row: { instructorId: number; id: string }) => [Number(row.instructorId), row.id]));
+      setDelivered(people.map(person => ({ ...person, personalId: person.ids.map(id => personal.get(id) || "").find(Boolean) || "" })));
+      setStep("links");
+      void loadPersonal();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const picking = kind === "staff" && sendMode !== "ta" && audience === "picked";
 
   /**
    * ── قبل الإرسال: «لم نصل بعد» ──────────────────────────────────────────
@@ -449,8 +502,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     } catch { setError("تعذّر توليد رمز QR."); }
   };
 
-  const copy = async (id: string) => {
-    const url = publicUrl(id);
+  const copy = async (id: string, url = publicUrl(id)) => {
     try {
       await navigator.clipboard.writeText(url);
     } catch {
@@ -677,6 +729,10 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 {kind === "department" ? <p>رابط قراءة عام للجدول ضمن الصلاحية المحددة.</p> : null}
               </header>
               {kind === "staff" ? <SendModePicker value={sendMode} onChange={setSendMode} /> : null}
+              {/* «لمن؟» للعرض والتعديل؛ ومرحلةُ التدريب تختار مدرّبيها في لوحتها. */}
+              {kind === "staff" && sendMode !== "ta" ? <AudiencePicker value={audience} onChange={setAudience} /> : null}
+              {picking ? <PublishRecipientPicker collegeId={collegeId} sectionId={sectionId} termId={termId} onChange={setPickedPeople}
+                visitingOf={id => isVisiting(id, collegeId, sectionId)} traineeOf={id => trainees.has(Number(id))} /> : null}
               {kind === "staff" && sendMode === "ta" ? <TAPhasePanel collegeId={collegeId} sectionId={sectionId} termId={termId} checking={reachChecking} confirmSend={proceed => void guardSend(proceed)} /> : null}
               {kind === "staff" && (sendMode === "edit" || (sendMode === "ta" && offeringOpen)) ? (
                 <details id="publish-offering" className="of-section" open={offeringOpen} onToggle={event => setOfferingOpen(event.currentTarget.open)}><summary>🟢🔒🌱🎯 حالة طرح المقررات في بطاقة الأستاذ</summary>
@@ -730,12 +786,14 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 <PrimaryButton
                   type="button"
                   data-guide-target="schedule.publish"
-                  onClick={() => void guardSend(create)}
+                  onClick={() => void guardSend(picking ? sendPicked : create)}
                   hidden={kind === "staff" && sendMode === "ta"}
-                  disabled={busy || reachChecking || (withRequests && sendMode === "edit" && !closesAt)}
+                  disabled={busy || reachChecking || (withRequests && sendMode === "edit" && !closesAt) || (picking && !pickedPeople.length)}
                 >
-                  <Link2 />
-                  {busy ? "ينشئ الرابط…" : reachChecking ? "يفحص المقررات…" : "إنشاء الرابط"}
+                  {picking ? <Send /> : <Link2 />}
+                  {busy ? (picking ? "يرسل…" : "ينشئ الرابط…") : reachChecking ? "يفحص المقررات…"
+                    : picking ? (pickedPeople.length ? `إرسال لـ${countOf(pickedPeople.length, oblique(AR.instructor))}` : "اختر الأساتذة أولاً")
+                    : "إنشاء الرابط"}
                 </PrimaryButton>
               </div>
             </section>
@@ -781,6 +839,42 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                   ].filter(Boolean).join(" · ")}
                   {issued.mode === "view" ? " — يرون جدولهم من بطاقتهم، بلا طلبات." : issued.created || issued.renewed ? " — يطلبون من بطاقتهم، وتتابعها في «وارد الأساتذة»." : " — تتابعها في «وارد الأساتذة»."}
                 </p>
+              ) : null}
+              {/* من وصله الإرسالُ المحدد: لكلٍّ رابطُه الشخصي، يُنسخ أو يُفتح به واتساب. لا يُرسل البرنامجُ شيئاً بنفسه. */}
+              {delivered?.length ? (
+                <div className="share-deliver publish-delivered">
+                  <p className="share-deliver-lead">أُرسلت إلى {countOf(delivered.length, AR.instructor)} فقط — والبقية لم يُمسّ شيءٌ لهم. سلّم كلاً رابطَه الشخصي:</p>
+                  <ul className="share-deliver-list">
+                    {delivered.map(person => {
+                      const url = person.personalId ? personalUrl(person.personalId) : "";
+                      const message = url ? reachAboutCard({ AdInstructorName: person.name, AdInstructorMobile: person.mobile }, url) : null;
+                      const done = person.ids.some(id => sent.has(id));
+                      return (
+                        <li key={person.key} className={done ? "sent" : ""}>
+                          <span className="share-deliver-name">{person.name}<PersonChips visiting={person.ids.some(id => isVisiting(id, collegeId, sectionId))} trainee={person.ids.some(id => trainees.has(Number(id)))} /></span>
+                          {url ? (
+                            <span className="publish-delivered-actions">
+                              <button type="button" className="ta-mini" title={copied === person.personalId ? "تم النسخ" : "نسخ رابطه الشخصي"}
+                                aria-label={`${copied === person.personalId ? "تم نسخ" : "نسخ"} الرابط الشخصي لـ${person.name}`}
+                                data-guide-ignore="نسخ الرابط الشخصي لأستاذ مختار — لا يرسل شيئاً"
+                                onClick={() => void copy(person.personalId, url)}>
+                                {copied === person.personalId ? <Check /> : <Copy />}
+                              </button>
+                              {message?.href ? (
+                                <a href={message.href} target="_blank" rel="noopener noreferrer"
+                                  data-guide-ignore="فتح محادثة واتساب برابط الأستاذ الشخصي — الإرسال بيد المنسّق"
+                                  onClick={() => { setSent(current => new Set([...current, ...person.ids])); markSent(person.personalId); }}>
+                                  {done ? <Check /> : <Send />}
+                                  {done ? "فُتحت" : "افتح المحادثة"}
+                                </a>
+                              ) : <small className="share-deliver-wait">لا رقم جوّال صالح</small>}
+                            </span>
+                          ) : <small className="share-deliver-wait">لا رابط شخصي له في هذه البطاقة</small>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               ) : null}
               <div className="share-list" role="list" aria-live="polite">
                 {loadingLinks ? (
