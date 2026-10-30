@@ -5,13 +5,16 @@
  *  Q2  بلا خادم: الاعتمادُ الجزئي، والتسجيلُ لمن اعتُمد وحده، ولا يُنزع اعتمادُ من سُجّل، وطلبٌ بعددٍ بلا قائمة.
  *  Q3  بلا خادم: من يفعل ماذا (الإرشاد، اللجنة، التسجيل، العرض الصرف، مرشدُ قسمٍ آخر).
  *  Q4  بلا خادم: «الصق القائمة» (أرقامٌ عربية، فواصل، تكرار)، والفترة، وحارسُ الأدوار، ونصُّ التنبيهات.
+ *  Q6  بلا خادم: توزيعُ السعة على الشعب كلها لا بترتيب الضغط وسعةُ المسؤول لا تُمسّ، وتصحيحُ التسجيل بعد اكتماله،
+ *      ومحرّرُ الورشة المُلغى لا يُبقي «طلب الشعبة» معلّقاً.
  *  Q5  خادمٌ في العملية (صندوق العرض): الرحلةُ كاملة بالأدوار الحقيقية، والنطاق، والهوية، والجرس، وتنبيهات الجوال.
  */
 import express from "express";
+import fs from "node:fs";
 import { createECDH, randomBytes } from "node:crypto";
 import { Repository } from "../src/db/repository";
 import {
-  approveStudents, countsOf, declineRequest, linkSections, markRegistered, matchesPeriod, parsePastedStudents, periodOfStart, powersFor,
+  approveStudents, countsOf, declineRequest, linkSections, markRegistered, matchesPeriod, parsePastedStudents, periodOfStart, planCapacities, powersFor, registrationChanges,
   stageOf, timelineOf, unlinkSection, withdrawRequest, type SectionRequest, type SectionRequestActorFacts,
 } from "../src/utils/sectionRequests";
 import { readOnlyRefusal, roleWriteDecision } from "../src/server/roleGuard";
@@ -90,7 +93,7 @@ const next = (out: any) => { if ("refuse" in out) throw new Error(out.refuse.err
 /* ── Q3 ── */
 {
   const facts = (over: Partial<SectionRequestActorFacts>): SectionRequestActorFacts => ({
-    role: "standard", power: false, viewerOnly: false, advisor: false, registrar: false, schedules: false, courseScope: false, fromScope: false, ...over,
+    role: "standard", power: false, viewerOnly: false, advisor: false, registrar: false, schedules: false, sheet: true, courseScope: false, fromScope: false, ...over,
   });
   const advisor = powersFor(facts({ role: "advisor", advisor: true, fromScope: true }));
   check(advisor.read && advisor.advising && !advisor.committee && !advisor.registration, "Q3 مرشدُ القسم المرسِل: يرسل ويقرأ، ولا يفتح ولا يعتمد ولا يسجّل", advisor);
@@ -108,6 +111,9 @@ const next = (out: any) => { if ("refuse" in out) throw new Error(out.refuse.err
   const head = powersFor(facts({ role: "departmentHead", courseScope: true }));
   check(head.read && !head.committee, "Q3 رئيسُ القسم يقرأ ولا يفتح شعبة (لا يملك الورشة)");
   check(Object.values(powersFor(facts({ power: true }))).every(Boolean), "Q3 مدير النظام كلُّ الأطراف");
+  const noSheet = powersFor(facts({ role: "standard", sheet: false, courseScope: true, fromScope: true }));
+  check(!Object.values(noSheet).some(Boolean), "Q3 حسابٌ في نطاق القسم بلا بابِ كشف التسجيل (٧ أو ١٤) لا يقرأ شيئاً", noSheet);
+  check(!powersFor(facts({ role: "advisor", advisor: true, fromScope: true, sheet: false })).advising, "Q3 ولا يرسل بلا ذلك الباب");
 }
 
 /* ── Q4 ── */
@@ -135,6 +141,41 @@ const next = (out: any) => { if ("refuse" in out) throw new Error(out.refuse.err
   check(sectionRequestMessage("approved-registration", { id: "x", courseName: "مقدمة", approved: 3 }).title === "🎓 للتسجيل: 3 طلاب في «مقدمة»", "Q4 تنبيهُ التسجيل بالعدد");
 }
 
+/* ── Q6 بلا خادم: توزيعُ السعة لا يتعلّق بترتيب الضغط، وسعةُ المسؤول لا تُمسّ ── */
+{
+  const key = (code: string) => `1:10:${code}`;
+  const link = (code: string, extra: Record<string, unknown> = {}) => ({ scheduleId: Number(code), sectionCode: code, linkedAt: AT, by: "لجنة", ...extra });
+  const config: Record<string, number> = {};
+  const apply = (writes: Record<string, number | null>) => { for (const [k, v] of Object.entries(writes)) { if (v === null) delete config[k]; else config[k] = v; } };
+  let plan = planCapacities([link("501")], 100, config, key); apply(plan.writes);
+  check(config[key("501")] === 100 && plan.sections[0].appliedCapacity === 100, "Q6 شعبةٌ واحدة تأخذ العدد كلَّه", config);
+  plan = planCapacities([...plan.sections, link("502")], 100, config, key); apply(plan.writes);
+  check(config[key("501")] === 50 && config[key("502")] === 50, "Q6 ربطُ الثانية بعدها يوزّع 50/50 لا 100 ثم 50", config);
+  let sections = plan.sections;
+  config[key("501")] = 70; /* المسؤول كتب سعةً بيده */
+  plan = planCapacities([...sections, link("503")], 100, config, key); apply(plan.writes);
+  check(config[key("501")] === 70 && config[key("502")] === 34 && config[key("503")] === 34 && plan.sections[0].appliedCapacity === undefined,
+    "Q6 سعةُ المسؤول تبقى، وما كتبه الطلب يُعاد توزيعه (34/34)", config);
+  sections = plan.sections;
+  const gone = sections.filter(row => row.sectionCode === "503");
+  plan = planCapacities(sections.filter(row => row.sectionCode !== "503"), 100, config, key, gone); apply(plan.writes);
+  check(config[key("502")] === 50 && !(key("503") in config) && config[key("501")] === 70, "Q6 فكُّ شعبةٍ يمحو ما كتبه الطلبُ لها ويعيد التوزيع", config);
+  const big = planCapacities([link("601")], 1000, {}, key);
+  check(big.writes[key("601")] === 200 && big.sections[0].appliedCapacity === 200 && big.sections[0].capacity === 1000, "Q6 ما يُكتب في الرصيد بحدّه (200) ويُذكر كما كُتب، فلا يُحسب غداً سعةَ مسؤول");
+
+  const undo = registrationChanges(["s1", "s2"], []);
+  check(undo.add.length === 0 && undo.drop.join() === "s1,s2", "Q6 التسجيل: اختيارٌ فارغ بعد «سُجّلوا كلهم» ينزع التسجيل عنهم (التصحيح)", undo);
+  const swap = registrationChanges(["s1"], ["s2"]);
+  check(swap.add.join() === "s2" && swap.drop.join() === "s1", "Q6 وتبديلُ طالبٍ بآخر كتابتان");
+
+  const schedules = fs.readFileSync("src/components/Schedules.tsx", "utf8");
+  const transients = schedules.slice(schedules.indexOf("const clearEditorTransients"), schedules.indexOf("const openCreate = (seed?: CreateSeed)"));
+  check(/pendingSectionRequest\.current = null/.test(transients), "Q6 الورشة: إغلاقُ المحرّر أو فتحُ غيره يمحو «طلب الشعبة» المعلّق (لا يُربط به موعدٌ لاحق)");
+  const seedAt = schedules.indexOf("takeSectionRequestHandoff();");
+  const seedBlock = schedules.slice(seedAt, seedAt + 600);
+  check(seedBlock.indexOf("openCreate(") > -1 && seedBlock.indexOf("openCreate(") < seedBlock.indexOf("pendingSectionRequest.current = seed"), "Q6 والبذرةُ تُحفظ بعد فتح محرّرها لا قبله");
+}
+
 /* ── Q5: خادمٌ في العملية ── */
 const SANDBOX = `demo_section_requests_${Date.now()}`;
 Repository.createDemoSandbox(SANDBOX, 10 * 60_000);
@@ -148,6 +189,8 @@ app.use(async (req: any, res, next) => {
     req.user = await Repository.getUserById(id);
     req.scopes = await Repository.getUserAssigns(id);
     req.permissions = (await Repository.getSecurityByUser(id)).map((item: any) => Number(item.FormNameId));
+    /* حسابٌ في النطاق بأذوناتٍ أخرى: يُختبر به أن النطاق وحده لا يفتح الطلبات. */
+    if (req.headers["x-test-perms"] !== undefined) req.permissions = String(req.headers["x-test-perms"]).split(",").filter(Boolean).map(Number);
   }
   /* حارسُ الأدوار كما في server.ts: يُسأل قبل كل مسار. */
   if (req.path.startsWith("/api/")) {
@@ -167,8 +210,8 @@ app.get("/test/notices", requireAuth, async (req: any, res) => { res.json(await 
 const server = app.listen(0, "127.0.0.1");
 await new Promise(resolve => server.once("listening", resolve));
 const BASE = `http://127.0.0.1:${(server.address() as any).port}`;
-const call = async (user: number, method: string, url: string, body?: unknown) => {
-  const response = await fetch(BASE + url, { method, headers: { "Content-Type": "application/json", "x-test-user": String(user) }, body: body === undefined ? undefined : JSON.stringify(body) });
+const call = async (user: number, method: string, url: string, body?: unknown, perms?: string) => {
+  const response = await fetch(BASE + url, { method, headers: { "Content-Type": "application/json", "x-test-user": String(user), ...(perms !== undefined ? { "x-test-perms": perms } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
   return { status: response.status, body: await response.json().catch(() => null) as any };
 };
 const inSandbox = <T>(fn: () => Promise<T>) => Repository.withDemoSandbox(SANDBOX, fn);
@@ -177,7 +220,7 @@ const device = (name: string) => {
   return { endpoint: `https://fcm.googleapis.com/fcm/send/${name}`, keys: { p256dh: ecdh.getPublicKey().toString("base64url"), auth: randomBytes(16).toString("base64url") } };
 };
 
-const ADVISOR = 19, COMMITTEE = 16, REGISTRAR = 22, DEAN = 10, HEAD = 15;
+const ADVISOR = 19, COMMITTEE = 16, REGISTRAR = 22, DEAN = 10, HEAD = 15, STANDARD = 17;
 try {
   const TERM = 1;
   const rows = await inSandbox(() => Repository.getSchedulesByScope({ collegeId: 1, sectionId: 1, termId: TERM })) as any[];
@@ -231,6 +274,10 @@ try {
   const deanCard = asDean.body?.rows?.find((row: any) => row.id === id);
   check(Boolean(deanCard) && deanCard.students.every((s: any) => /^طالب \d+$/.test(s.name) && !s.civilTail) && !Object.values(deanCard.powers).some(Boolean) && !deanCard.available.length,
     "Q5 العميد يرى الخطَّ الزمني والعدد بلا أسماء ولا أزرار", deanCard?.students);
+  const bare = await call(STANDARD, "GET", `/api/section-requests?termId=${TERM}`, undefined, "9");
+  check(bare.status === 403 && !JSON.stringify(bare.body).includes("ريم الاختبار") && !JSON.stringify(bare.body).includes("0011"), "Q5 حسابٌ في نطاق القسم بلا ٧ ولا ١٤: 403 بلا أسماء ولا أرقام", bare);
+  check((await call(STANDARD, "GET", `/api/section-requests/candidates?collegeId=1&sectionId=1&termId=${TERM}&courseId=${courseId}`, undefined, "9")).status === 403
+    && ((await call(STANDARD, "GET", `/test/notices?termId=${TERM}`, undefined, "9")).body as any[]).length === 0, "Q5 ولا طلبةَ «مساري» ولا جرسَ له منها");
   const asHead = await call(HEAD, "GET", `/api/section-requests?termId=${TERM}`);
   check(asHead.body?.rows?.some((row: any) => row.id === id && !row.powers.committee), "Q5 رئيسُ القسم يقرأ ولا يفتح شعبة");
 
@@ -265,6 +312,11 @@ try {
   const final = (await call(ADVISOR, "GET", `/api/section-requests?termId=${TERM}`)).body.rows.find((row: any) => row.id === id);
   check(final.stage === "registered" && final.timeline.every((step: any) => step.done) && final.timeline[3].detail === "الكل (2)", "Q5 الخطُّ الزمني للجميع: أُرسل ← فُتحت ← اعتُمد 2 من 3 ← سُجّل الكل", final.timeline);
   check((await call(ADVISOR, "POST", `/api/section-requests/${encodeURIComponent(id)}/withdraw`, {})).status === 409, "Q5 لا سحبَ بعد الاعتماد");
+  const fixedBack = await call(REGISTRAR, "POST", `/api/section-requests/${encodeURIComponent(id)}/register`, { studentIds: ids.slice(0, 2), registered: false });
+  const afterFix = (await call(REGISTRAR, "GET", `/api/section-requests?termId=${TERM}`)).body.rows.find((row: any) => row.id === id);
+  check(fixedBack.status === 200 && afterFix.stage === "approved" && afterFix.counts.registered === 0, "Q5 بعد «سُجّلوا كلهم» يبقى التصحيح: نزعُ التسجيل يعيده «تم الاعتماد»", afterFix?.counts);
+  const linkedNow: any = await inSandbox(() => Repository.getFeatureDoc("sectionRequests", id));
+  check(linkedNow.sections[0].appliedCapacity === 100, "Q5 الطلبُ يحفظ ما كتبه في الرصيد ليُعاد توزيعه لا سعةَ المسؤول");
 
   /* طلبٌ ثانٍ تعتذر عنه اللجنة. */
   const second = await call(ADVISOR, "POST", "/api/section-requests", { collegeId: 1, fromSectionId: 1, termId: TERM, courseId, period: "morning", count: 12 });

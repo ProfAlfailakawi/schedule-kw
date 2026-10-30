@@ -3029,6 +3029,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setRoomOwner(null);
     setTimeCounterOpen(false); setStartTimeLimitNotice(""); setEndTimeLimitNotice("");
     lastCheckFormKey.current = "";
+    /* «طلب شعبة» يخصّ المحرّرَ الذي فُتح له وحده: إغلاقُه أو فتحُ غيره يمحوه، فلا يُربط بالطلب موعدٌ لا يخصّه. */
+    pendingSectionRequest.current = null;
   };
   const openCreate = (seed?: CreateSeed) => {
       if (showMobileReadOnlyGate()) return;
@@ -3147,6 +3149,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       clearEditorTransients();
       /* طلبُ أستاذٍ فُتح ثم أُغلق دون حفظ لا يلحق بالموعد التالي. */
       pendingHandoff.current = null;
+      /* وكذلك «طلب شعبة» أُغلق محرّرُه دون حفظ: لا يُربط به موعدٌ يُضاف بعده لسببٍ آخر. */
+      pendingSectionRequest.current = null;
       setForm(blank());
       setCourseName("");
     };
@@ -4744,8 +4748,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (mode !== "schedule" || !courses.length) return;
     const seed = takeSectionRequestHandoff();
     if (!seed) return;
-    pendingSectionRequest.current = seed;
     openCreate({ courseId: seed.courseId, collegeId: seed.collegeId, sectionId: seed.sectionId, termId: seed.termId });
+    /* بعد openCreate: فتحُ المحرّر يمحو البذرةَ السابقة (clearEditorTransients)، وهذه بذرتُه هو. */
+    pendingSectionRequest.current = seed;
     setMessage(sectionRequestNotice(seed));
   }, [mode, courses.length]);
   const checkCache = useRef(new Map<string, { at: number; data: any }>());

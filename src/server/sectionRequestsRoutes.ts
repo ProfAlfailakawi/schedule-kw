@@ -18,7 +18,7 @@
 import type { Express, Response } from "express";
 import { randomBytes } from "crypto";
 import { Repository } from "../db/repository";
-import { type AuthenticatedRequest, isPowerUser, requireAuth } from "./core/auth";
+import { type AuthenticatedRequest, isPowerUser, requireAnyPermission } from "./core/auth";
 import { isScopeAllowed } from "./core/scope";
 import { refuseIfTermFrozen } from "./core/approvals";
 import { broadcastNotify } from "./core/liveChannel";
@@ -33,10 +33,10 @@ import { SCHEDULE_DAYS } from "../utils/scheduleIntelligence";
 import { AR, countOf, oblique } from "../utils/arabicCount";
 import type { CenterNotification } from "../utils/notificationCenter";
 import {
-  approveStudents, capacityShare, countsOf, declineRequest, linkSections, markRegistered, matchesPeriod, parsePastedStudents,
-  PERIOD_LABEL, powersFor, SECTION_REQUEST_MAX_COUNT, SECTION_REQUEST_MAX_STUDENTS, SECTION_REQUEST_NOTE_MAX, SECTION_REQUEST_PERIODS,
+  approveStudents, capacityShare, countsOf, planCapacities, declineRequest, linkSections, markRegistered, matchesPeriod, parsePastedStudents,
+  PERIOD_LABEL, powersFor, SECTION_REQUEST_SHEET_PERMISSIONS, SECTION_REQUEST_MAX_COUNT, SECTION_REQUEST_MAX_STUDENTS, SECTION_REQUEST_NOTE_MAX, SECTION_REQUEST_PERIODS,
   stageOf, timelineOf, unlinkSection, withdrawRequest,
-  type SectionRequest, type SectionRequestActorFacts, type SectionRequestPeriod, type SectionRequestPowers, type SectionRequestStudent, type Transition,
+  type SectionRequest, type SectionRequestActorFacts, type SectionRequestPeriod, type SectionRequestPowers, type SectionRequestStudent, type SectionRequestLink, type Transition,
 } from "../utils/sectionRequests";
 
 const COLLECTION = "sectionRequests" as const;
@@ -63,6 +63,7 @@ export function actorFacts(req: { user?: any; scopes?: any[]; permissions?: numb
     advisor: !plainAdmin && isAdvisorRole(role),
     registrar: !plainAdmin && isRegistrarRole(role),
     schedules: granted.includes(7) && !isReadOnlyRole(role),
+    sheet: SECTION_REQUEST_SHEET_PERMISSIONS.some(id => granted.includes(id)),
     courseScope: isScopeAllowed(req as AuthenticatedRequest, Number(request.collegeId), Number(request.sectionId)),
     fromScope: isScopeAllowed(req as AuthenticatedRequest, Number(request.collegeId), Number(request.fromSectionId)),
   };
@@ -219,13 +220,19 @@ function pushTo(parties: PushParty[], request: SectionRequest, message: ReturnTy
 
 /* ── المسارات ─────────────────────────────────────────────────────────────── */
 
+/**
+ * بابُ كشف التسجيل نفسُه (`/api/student-registration`): الورشة (٧) أو تقرير القسم (١٤). حسابٌ في نطاق القسم
+ * بلا أحدهما لا يقرأ الطلبات ولا هويات الطلبة فيها. و`powersFor` يقول الشيءَ نفسه للجرس وتنبيهات الجوال.
+ */
+const requireRegistrationSheet = requireAnyPermission(SECTION_REQUEST_SHEET_PERMISSIONS);
+
 const isPeriod = (value: unknown): value is SectionRequestPeriod => SECTION_REQUEST_PERIODS.includes(value as SectionRequestPeriod);
 const fail = (res: Response, status: number, error: string) => { res.status(status).json({ error }); };
 
 export function registerSectionRequestsRoutes(app: Express): void {
 
 /** الطلباتُ في نطاق القارئ لفصلٍ واحد، كلٌّ بصلاحياته عليه. */
-app.get("/api/section-requests", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+app.get("/api/section-requests", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const termId = Number(req.query.termId || 0);
   if (!termId) { fail(res, 400, "حدّد الفصل."); return; }
   const granted = await grantedPermissions(req);
@@ -241,7 +248,7 @@ app.get("/api/section-requests", requireAuth, async (req: AuthenticatedRequest, 
 });
 
 /** ما يحتاجه الإرشادُ ليكتب الطلب: مقرراتُ الحرم، ولكلٍّ كم طالباً طلبه من «مساري». */
-app.get("/api/section-requests/compose", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+app.get("/api/section-requests/compose", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId) { fail(res, 400, "اختر الكلية والقسم والفصل."); return; }
   const facts = actorFacts(req, await grantedPermissions(req), { collegeId, sectionId: 0, fromSectionId: sectionId });
@@ -265,7 +272,7 @@ app.get("/api/section-requests/compose", requireAuth, async (req: AuthenticatedR
 });
 
 /** طلبةُ «مساري» الذين طلبوا هذا المقرر (باب الطالب D5)، بالهوية التي يراها القارئ في كشف التسجيل. */
-app.get("/api/section-requests/candidates", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+app.get("/api/section-requests/candidates", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0), courseId = Number(req.query.courseId || 0);
   if (!collegeId || !sectionId || !termId || !courseId) { fail(res, 400, "اختر المقرر."); return; }
   const facts = actorFacts(req, await grantedPermissions(req), { collegeId, sectionId: 0, fromSectionId: sectionId });
@@ -280,7 +287,7 @@ app.get("/api/section-requests/candidates", requireAuth, async (req: Authenticat
 });
 
 /** الإرشادُ يرسل الطلب. */
-app.post("/api/section-requests", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/section-requests", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const body = req.body || {};
   const collegeId = Number(body.collegeId || 0), fromSectionId = Number(body.fromSectionId || 0), termId = Number(body.termId || 0), courseId = Number(body.courseId || 0);
   if (!collegeId || !fromSectionId || !termId || !courseId) { fail(res, 400, "المقرر والحرم والفصل مطلوبة."); return; }
@@ -363,10 +370,35 @@ async function finish(req: AuthenticatedRequest, res: Response, id: string, step
 }
 
 /**
- * ربطُ شعبةٍ أو أكثر بالطلب (لجنة الجدول). الشعبةُ صفٌّ في جدول الحرم والفصل لهذا المقرر نفسه؛
- * ويُكتب لها في رصيد مقاعد المرشد سعةٌ من عدد الطلب إن لم تكن لها سعةٌ مكتوبة.
+ * يوزّع عدد الطلب على شعبه المربوطة كلها ويكتبه في رصيد مقاعد المرشد سعةً أساسية (planCapacities):
+ * ما كتبه الطلبُ يُعاد توزيعه، وما كتبه المسؤول لا يُمسّ. يُستدعى بعد كل ربطٍ وفكّ.
  */
-app.post("/api/section-requests/:id/link", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+async function rebalanceCapacities(request: SectionRequest, removed: SectionRequestLink[] = []): Promise<SectionRequest> {
+  const scope = `${request.collegeId}:${request.sectionId}:${request.termId}`;
+  const keyOf = (code: string) => sectionKey(request.termId, request.courseId, code);
+  let planned: SectionRequestLink[] = request.sections || [];
+  await Repository.updateFeatureDoc<SeatQuotaConfig, null>("advisorSeatLedgers", `config:${scope}`, current => {
+    const config = normalizeQuotaConfig(current || {}, scope);
+    const plan = planCapacities(request.sections || [], request.count, config.capacityBySection || {}, keyOf, removed);
+    planned = plan.sections;
+    if (!Object.keys(plan.writes).length) return { refuse: null };
+    const bySection: Record<string, number> = { ...(config.capacityBySection || {}) };
+    for (const [key, value] of Object.entries(plan.writes)) { if (value === null) delete bySection[key]; else bySection[key] = value; }
+    return { next: { ...config, capacityBySection: bySection }, result: null };
+  });
+  /* وتُحفظ في الطلب: نصيبُ كل شعبة، وما كتبه الطلب منها (ليُعرف غداً أهو سعتُه أم سعةُ المسؤول). */
+  const byCode = new Map(planned.map(row => [String(row.sectionCode), row]));
+  const saved = await Repository.updateFeatureDoc<SectionRequest, null>(COLLECTION, request.id, current => current
+    ? { next: { ...current, sections: (current.sections || []).map(row => byCode.get(String(row.sectionCode)) || row) }, result: null }
+    : { refuse: null });
+  return saved.ok ? saved.next : request;
+}
+
+/**
+ * ربطُ شعبةٍ أو أكثر بالطلب (لجنة الجدول). الشعبةُ صفٌّ في جدول الحرم والفصل لهذا المقرر نفسه؛
+ * ثم يُوزَّع العددُ على الشعب المربوطة كلها سعةً أساسية في رصيد مقاعد المرشد.
+ */
+app.post("/api/section-requests/:id/link", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const request = await guarded(req, res, "committee");
   if (!request) return;
   const ids = new Set((Array.isArray(req.body?.scheduleIds) ? req.body.scheduleIds : [req.body?.scheduleId]).map(Number).filter((n: number) => n > 0));
@@ -374,35 +406,26 @@ app.post("/api/section-requests/:id/link", requireAuth, async (req: Authenticate
   const rows = (await Repository.getSchedulesByScope({ collegeId: request.collegeId, sectionId: request.sectionId, termId: request.termId }) as any[])
     .filter(row => ids.has(Number(row.id)) && Number(row.AdCourseId) === Number(request.courseId));
   if (!rows.length) { fail(res, 400, "الشعبة ليست لهذا المقرر في جدول هذا الحرم والفصل."); return; }
-  const linkedCount = (request.sections || []).length + new Set(rows.map(row => String(row.SCode))).size;
-  const share = capacityShare(request.count, linkedCount);
-  const links = [...new Map(rows.map(row => [String(row.SCode), { scheduleId: Number(row.id), sectionCode: String(row.SCode), capacity: share }])).values()];
+  const links = [...new Map(rows.map(row => [String(row.SCode), { scheduleId: Number(row.id), sectionCode: String(row.SCode) }])).values()];
   const next = await finish(req, res, request.id, current => linkSections(current, links, byLine(req), new Date().toISOString()),
     `طلب شعبة «${request.courseName}»: رُبطت الشعبة ${links.map(link => link.sectionCode).join("، ")}`);
   if (!next) return;
-  /* السعةُ من العدد: تُكتب في رصيد مقاعد المرشد سعةً أساسية للشعبة، ولا تمحو سعةً كتبها المسؤول. */
-  await Repository.updateFeatureDoc<SeatQuotaConfig, null>("advisorSeatLedgers", `config:${request.collegeId}:${request.sectionId}:${request.termId}`, current => {
-    const config = normalizeQuotaConfig(current || {}, `${request.collegeId}:${request.sectionId}:${request.termId}`);
-    const bySection = { ...(config.capacityBySection || {}) };
-    let changed = false;
-    for (const link of links) {
-      const key = sectionKey(request.termId, request.courseId, link.sectionCode);
-      if (!(Number(bySection[key]) > 0)) { bySection[key] = link.capacity; changed = true; }
-    }
-    return changed ? { next: { ...config, capacityBySection: bySection }, result: null } : { refuse: null };
-  }).catch(error => console.warn("[section-requests] capacity:", error instanceof Error ? error.message : error));
-  res.json({ ok: true, sections: next.sections, capacity: share });
+  const balanced = await rebalanceCapacities(next).catch(error => { console.warn("[section-requests] capacity:", error instanceof Error ? error.message : error); return next; });
+  res.json({ ok: true, sections: balanced.sections, capacity: capacityShare(balanced.count, (balanced.sections || []).length) });
 });
 
-app.post("/api/section-requests/:id/unlink", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/section-requests/:id/unlink", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const request = await guarded(req, res, "committee");
   if (!request) return;
   const code = clean(req.body?.sectionCode, 12);
+  const gone = (request.sections || []).filter(row => String(row.sectionCode) === code);
   const next = await finish(req, res, request.id, current => unlinkSection(current, code, byLine(req), new Date().toISOString()), `طلب شعبة «${request.courseName}»: فُكّت الشعبة ${code}`);
-  if (next) res.json({ ok: true, sections: next.sections });
+  if (!next) return;
+  const balanced = await rebalanceCapacities(next, gone).catch(error => { console.warn("[section-requests] capacity:", error instanceof Error ? error.message : error); return next; });
+  res.json({ ok: true, sections: balanced.sections });
 });
 
-app.post("/api/section-requests/:id/decline", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/section-requests/:id/decline", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const request = await guarded(req, res, "committee");
   if (!request) return;
   const next = await finish(req, res, request.id, current => declineRequest(current, String(req.body?.note || ""), byLine(req), new Date().toISOString()), `طلب شعبة «${request.courseName}»: اعتذرت اللجنة`);
@@ -411,7 +434,7 @@ app.post("/api/section-requests/:id/decline", requireAuth, async (req: Authentic
   res.json({ ok: true });
 });
 
-app.post("/api/section-requests/:id/withdraw", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/section-requests/:id/withdraw", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const request = await guarded(req, res, "advising");
   if (!request) return;
   const next = await finish(req, res, request.id, current => withdrawRequest(current, byLine(req), new Date().toISOString()), `طلب شعبة «${request.courseName}»: سُحب`);
@@ -419,7 +442,7 @@ app.post("/api/section-requests/:id/withdraw", requireAuth, async (req: Authenti
 });
 
 /** الاعتماد (اللجنة أو التسجيل): من في القائمة معتمَد، ومن سواه «لم يُعتمد». */
-app.post("/api/section-requests/:id/approve", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/section-requests/:id/approve", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const request = await readRequest(String(req.params.id || ""));
   if (!request) { fail(res, 404, "لا يوجد طلبٌ بهذا المعرّف."); return; }
   const powers = await powersOf(req, request);
@@ -438,7 +461,7 @@ app.post("/api/section-requests/:id/approve", requireAuth, async (req: Authentic
 });
 
 /** التسجيل يعلّم من سُجّل (أو يتراجع عن تعليمٍ خاطئ). */
-app.post("/api/section-requests/:id/register", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/section-requests/:id/register", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const request = await guarded(req, res, "registration");
   if (!request) return;
   const all = req.body?.all === true;

@@ -15,7 +15,7 @@ import { AR, countOf, nounFor } from "../../utils/arabicCount";
 import { onLiveSignal } from "../../utils/livePulse";
 import { putSectionRequestHandoff } from "../../utils/sectionRequestHandoff";
 import {
-  PERIOD_ICON, PERIOD_LABEL, SECTION_REQUEST_PERIODS, STAGE_LABEL, parsePastedStudents,
+  PERIOD_ICON, PERIOD_LABEL, SECTION_REQUEST_PERIODS, STAGE_LABEL, parsePastedStudents, registrationChanges,
   type SectionRequestCounts, type SectionRequestPeriod, type SectionRequestStage, type TimelineStep,
 } from "../../utils/sectionRequests";
 import "./section-requests.css";
@@ -69,8 +69,10 @@ function Timeline({ steps, stage }: { steps: TimelineStep[]; stage: SectionReque
 }
 
 /* ── اختيارُ طلبة: للاعتماد وللتسجيل ─────────────────────────────────────── */
-function StudentPicker({ students, initial, verb, allLabel, busy, onSubmit, onCancel }: {
+function StudentPicker({ students, initial, verb, allLabel, busy, onSubmit, onCancel, allowEmpty = false }: {
   students: StudentRow[]; initial: string[]; verb: string; allLabel: string; busy: boolean;
+  /** التسجيل: اختيارٌ فارغ يعني «لم يُسجَّل أحد» — تصحيحُ «سُجّلوا كلهم» الخاطئ. */
+  allowEmpty?: boolean;
   onSubmit: (ids: string[], all: boolean) => void; onCancel: () => void;
 }) {
   const [picked, setPicked] = useState<Set<string>>(() => new Set(initial));
@@ -96,7 +98,7 @@ function StudentPicker({ students, initial, verb, allLabel, busy, onSubmit, onCa
         ))}
       </ul>
       <div className="srq-pick-actions">
-        <PrimaryButton type="button" disabled={busy || !picked.size} onClick={() => onSubmit([...picked], false)} data-guide-ignore="يكتب قرار الطرف في الطلبة المحددين من طلب الشعبة">
+        <PrimaryButton type="button" disabled={busy || (!allowEmpty && !picked.size)} onClick={() => onSubmit([...picked], false)} data-guide-ignore="يكتب قرار الطرف في الطلبة المحددين من طلب الشعبة">
           <Check aria-hidden="true" /> {verb} ({fmt(picked.size)})
         </PrimaryButton>
         <SecondaryButton type="button" disabled={busy} onClick={() => onSubmit(students.map(row => row.id), true)} data-guide-ignore="اختصارٌ يكتب القرار في كل طلبة طلب الشعبة دفعة واحدة">
@@ -136,6 +138,9 @@ function RequestCard({ row, onChanged, onNavigate }: { key?: React.Key; row: Req
     primary = <PrimaryButton type="button" onClick={openInWorkspace} data-guide-ignore="يفتح محرّر الموعد في الورشة مملوءاً بمقرر الطلب وحرمه وفصله؛ لا يكتب قبل الحفظ هناك"><CalendarPlus aria-hidden="true" /> افتح الشعبة</PrimaryButton>;
   } else if (decides && stage === "opened" && mode !== "approve") {
     primary = <PrimaryButton type="button" disabled={busy} onClick={() => row.students.length ? setMode("approve") : void act("approve", { all: true })} data-guide-ignore="يفتح قائمة طلبة الطلب لاعتمادهم كلهم أو بعضهم"><UserCheck aria-hidden="true" /> اعتمد الطلبة</PrimaryButton>;
+  } else if (powers.registration && stage === "registered" && approvedRows.length && mode !== "register") {
+    /* اكتمل التسجيل: يبقى بابُ التصحيح مفتوحاً لمن علّم «سُجّلوا كلهم» خطأً. */
+    primary = <SecondaryButton type="button" disabled={busy} onClick={() => setMode("register")} data-guide-ignore="يفتح قائمة المعتمدين ليصحّح التسجيلُ من علّمه مسجَّلاً"><GraduationCap aria-hidden="true" /> عدّل التسجيل</SecondaryButton>;
   } else if (powers.registration && (stage === "approved" || stage === "registering") && approvedRows.length && mode !== "register") {
     primary = <PrimaryButton type="button" disabled={busy} onClick={() => setMode("register")} data-guide-ignore="يفتح قائمة المعتمدين ليعلّم التسجيلُ من سُجّل منهم"><GraduationCap aria-hidden="true" /> سجّل الطلبة</PrimaryButton>;
   }
@@ -198,11 +203,10 @@ function RequestCard({ row, onChanged, onNavigate }: { key?: React.Key; row: Req
           onSubmit={(ids, all) => void act("approve", all ? { all: true } : { studentIds: ids })} onCancel={() => setMode("")} />
       ) : null}
       {mode === "register" ? (
-        <StudentPicker students={approvedRows} initial={approvedRows.filter(s => s.registered).map(s => s.id)} verb="سُجّل المحدَّدون" allLabel="سُجّلوا كلهم" busy={busy}
+        <StudentPicker students={approvedRows} initial={approvedRows.filter(s => s.registered).map(s => s.id)} verb="سُجّل المحدَّدون" allLabel="سُجّلوا كلهم" busy={busy} allowEmpty
           onSubmit={(ids, all) => {
             if (all) { void act("register", { all: true }); return; }
-            const before = new Set(approvedRows.filter(s => s.registered).map(s => s.id));
-            const add = ids.filter(id => !before.has(id)), drop = [...before].filter(id => !ids.includes(id));
+            const { add, drop } = registrationChanges(approvedRows.filter(s => s.registered).map(s => s.id), ids);
             void (async () => {
               if (add.length) await act("register", { studentIds: add, registered: true });
               if (drop.length) await act("register", { studentIds: drop, registered: false });

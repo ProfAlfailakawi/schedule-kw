@@ -46,8 +46,10 @@ export interface SectionRequestStudent {
 export interface SectionRequestLink {
   scheduleId: number;
   sectionCode: string;
-  /** السعةُ التي كُتبت لها من عدد الطلب (رصيد مقاعد المرشد: السعة الأساسية للشعبة). */
+  /** نصيبُها من عدد الطلب: العددُ مقسوماً على الشعب المربوطة كلها. */
   capacity?: number;
+  /** ما كتبه الطلبُ نفسُه في رصيد مقاعد المرشد سعةً أساسية؛ غيابُه = سعةٌ كتبها المسؤول فلا تُمسّ. */
+  appliedCapacity?: number;
   linkedAt: string;
   by: string;
 }
@@ -174,6 +176,8 @@ export interface SectionRequestActorFacts {
   registrar: boolean;
   /** يملك شاشة الجدول (٧) ولا يقيّده دورُ اطّلاع. */
   schedules: boolean;
+  /** يملك باب كشف التسجيل نفسه: الورشة (٧) أو تقرير القسم (١٤). بدونه لا يقرأ شيئاً ولو كان القسمُ في نطاقه. */
+  sheet: boolean;
   /** نطاقُه يشمل قسمَ المقرر في هذا الحرم. */
   courseScope: boolean;
   /** نطاقُه يشمل قسمَ الإرشاد الذي أرسل. */
@@ -190,8 +194,13 @@ export interface SectionRequestPowers {
   registration: boolean;
 }
 
+/** أذوناتُ باب كشف التسجيل (`/api/student-registration`): الورشة أو تقرير القسم. */
+export const SECTION_REQUEST_SHEET_PERMISSIONS = [7, 14];
+
 export function powersFor(facts: SectionRequestActorFacts): SectionRequestPowers {
   if (facts.power) return { read: true, advising: true, committee: true, registration: true };
+  /* النطاقُ وحده لا يكفي: الأسماءُ في الطلب هي أسماءُ كشف التسجيل، فتُقرأ ببابه. */
+  if (!facts.sheet) return { read: false, advising: false, committee: false, registration: false };
   const advising = facts.advisor && facts.fromScope;
   const committee = !facts.viewerOnly && facts.schedules && facts.courseScope && !facts.advisor && !facts.registrar;
   const registration = !facts.viewerOnly && facts.registrar && facts.courseScope;
@@ -310,6 +319,40 @@ export function parsePastedStudents(text: string): Array<{ name: string; civil: 
   return out;
 }
 
+/**
+ * توزيعُ عدد الطلب على شعبه المربوطة كلها، كلما رُبطت شعبةٌ أو فُكّت — فلا يتعلّق الناتجُ بترتيب الضغط
+ * (١٠٠ ثم ٥٠ بدل ٥٠/٥٠). ويُفرَّق بين ما كتبه الطلبُ في رصيد مقاعد المرشد (يُعاد توزيعه) وما كتبه المسؤول
+ * (يبقى كما هو): سعةٌ مكتوبةٌ تساوي ما كتبه الطلبُ آخرَ مرة هي سعتُه، وما سواها قرارُ المسؤول.
+ *
+ * `current`: السعاتُ الأساسية المكتوبة الآن بمفتاح الشعبة. `removed`: شعبٌ فُكّت للتوّ.
+ * الناتج: الشعبُ بنصيبها وما كُتب منها، و`writes` (رقمٌ يُكتب، أو null يُمحى ما كتبه الطلب).
+ */
+export function planCapacities(
+  sections: SectionRequestLink[], count: number, current: Record<string, number>, keyOf: (sectionCode: string) => string,
+  removed: SectionRequestLink[] = [], max = 200,
+): { sections: SectionRequestLink[]; writes: Record<string, number | null> } {
+  const writes: Record<string, number | null> = {};
+  for (const gone of removed) {
+    const key = keyOf(gone.sectionCode);
+    if (gone.appliedCapacity !== undefined && Number(current[key]) === gone.appliedCapacity) writes[key] = null;
+  }
+  const share = capacityShare(count, sections.length);
+  const next = sections.map(section => {
+    const key = keyOf(section.sectionCode);
+    const existing = Number(current[key]) || 0;
+    const ours = section.appliedCapacity !== undefined && existing === section.appliedCapacity;
+    if (!existing || ours) {
+      /* الرصيدُ يقبل حتى ٢٠٠ للشعبة (normalizeQuotaConfig)؛ ما يُكتب هو ما يُقرأ غداً. */
+      const written = Math.min(share, max);
+      writes[key] = written;
+      return { ...section, capacity: share, appliedCapacity: written };
+    }
+    const { appliedCapacity: _drop, ...rest } = section;
+    return { ...rest, capacity: share };
+  });
+  return { sections: next, writes };
+}
+
 /** فترةُ موعدٍ من بدايته: قبل الثانية ظهراً صباحية، وما بعدها مسائية. */
 export function periodOfStart(start: string): Exclude<SectionRequestPeriod, "any"> {
   const [h, m] = String(start || "0:0").split(":").map(Number);
@@ -325,4 +368,13 @@ export function matchesPeriod(period: SectionRequestPeriod, start: string): bool
 export function capacityShare(count: number, sections: number): number {
   const n = Math.max(1, Math.trunc(sections) || 1);
   return Math.max(1, Math.ceil(Math.max(0, Number(count) || 0) / n));
+}
+
+/**
+ * ما يكتبه التسجيلُ من قائمة الاختيار: من صار مسجَّلاً، ومن نُزع تسجيلُه. اختيارٌ فارغ بعد «سُجّلوا كلهم»
+ * خطأً ينزع التسجيل عن الجميع — هو التصحيح، لا اختيارٌ ناقص.
+ */
+export function registrationChanges(registeredIds: string[], pickedIds: string[]): { add: string[]; drop: string[] } {
+  const before = new Set(registeredIds.map(String)), picked = new Set(pickedIds.map(String));
+  return { add: [...picked].filter(id => !before.has(id)), drop: [...before].filter(id => !picked.has(id)) };
 }
