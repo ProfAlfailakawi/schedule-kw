@@ -673,6 +673,62 @@ html,body{margin:0}
 <symbol id="i-sign" viewBox="0 0 24 24"><path d="M3 20.5h18"/><path d="M14.5 4l4 4L9 17.5H5v-4z"/></symbol>
 </defs></svg>
 
+<!-- العرض يتطوّر مع النظام: كل شاشةٍ في App.tsx (View) وكل مجلّد ميزةٍ في docs/ له هنا شريحتُه (بعنوانها الصغير)
+     أو سببٌ مكتوب لغيابه. tests/presentation-coverage-audit.ts يفشل إن ظهرت شاشةٌ أو ميزةٌ بلا مكان هنا،
+     أو إن خالف رقمٌ في العرض ما في الكود. -->
+<script type="application/json" id="deck-coverage">
+{
+ "views": {
+  "dashboard": "مركز القرار",
+  "terms": "المقياس الحقيقي",
+  "colleges": "المقياس الحقيقي",
+  "sections": "المقياس الحقيقي",
+  "instructors": "المقياس الحقيقي",
+  "courses": "المقياس الحقيقي",
+  "schedules": "السحب والإفلات",
+  "departmentSchedule": "السحب والإفلات",
+  "scheduleCopy": "المباني والاستيراد",
+  "intelligence": "التخطيط والقرار",
+  "scheduleChanges": "الوثيقة الرسمية",
+  "instructorRequests": "القسم مع أساتذته",
+  "studentRegistration": "الإرشاد والتسجيل",
+  "planReview": "الصحائف والطرح",
+  "simulation": "الإرشاد والتسجيل",
+  "timeMachine": "الوظيفة الثالثة · المحرّك يقترح",
+  "audience": "الجمهور منذ 2016",
+  "ads": "skip: الإعلانات للمدير الرئيسي وحده، وليست مما يُعرض على العمداء",
+  "about": "skip: صفحة تعريف بالبرنامج"
+ },
+ "docs": {
+  "activity-trail": "الأثر",
+  "advising-section-requests": "طلب شعبة",
+  "appointment-forms": "السحب والإفلات",
+  "appointments-r2": "السحب والإفلات",
+  "appointments-r3": "السحب والإفلات",
+  "colleagues-advising-registration": "الأثر",
+  "consistent-badges": "skip: توحيد الشارات، تحسين شكلي",
+  "course-reach": "الصحائف والطرح",
+  "dashboard-term": "مركز القرار",
+  "import-courses-r3": "المباني والاستيراد",
+  "inbox-proposal-r2": "القسم مع أساتذته",
+  "intelligence-planning-tm": "التخطيط والقرار",
+  "occupancy-panel": "التقارير",
+  "owner-1028": "skip: جولة ملاحظات المالك: مساري والتدريب والطرح، وكلها في شرائحها",
+  "owner-1029-reports": "التقارير",
+  "prepublish-reach": "الصحائف والطرح",
+  "push": "في الجيب",
+  "ranks-load": "القسم مع أساتذته",
+  "room-door": "باب القاعة",
+  "seat-cards": "الفرق",
+  "sections-r2": "التخطيط والقرار",
+  "study-proposal": "القسم مع أساتذته",
+  "teacher-card": "كرت الأستاذ",
+  "teams-first-login": "الفرق",
+  "time-machine": "الوظيفة الثالثة · المحرّك يقترح",
+  "updating-page": "skip: صفحة «نُحدّث البرنامج» أثناء النشر، تشغيلية"
+ }
+}
+</script>
 <div class="progress" id="progress"></div>
 <div class="act" id="act" aria-live="polite"></div>
 <div class="chrome">
@@ -1618,7 +1674,7 @@ html,body{margin:0}
   <div class="slide__in">
     <div class="head"><p class="eyebrow">ما لا يظهر على الشاشة</p><h2>الجمال سهل. الثقة أخذت عشر سنوات.</h2></div>
     <div class="tiles t3">
-      <div class="tile"><span class="tile__ic"><svg class="ic"><use href="#i-check"/></svg></span><h3>223 مجموعة اختبار</h3><p>تمرّ قبل كل نشر</p></div>
+      <div class="tile"><span class="tile__ic"><svg class="ic"><use href="#i-check"/></svg></span><h3>أكثر من 220 مجموعة اختبار</h3><p>تمرّ قبل كل نشر</p></div>
       <div class="tile"><span class="tile__ic brass"><svg class="ic"><use href="#i-undo"/></svg></span><h3>نقطة أمان</h3><p>قبل كل نشر</p></div>
       <div class="tile"><span class="tile__ic"><svg class="ic"><use href="#i-lock"/></svg></span><h3>صلاحيات في الخادم</h3><p>لا في المتصفح</p></div>
       <div class="tile"><span class="tile__ic"><svg class="ic"><use href="#i-steps"/></svg></span><h3>أثر لا يُمحى</h3><p>ولا لمدير النظام</p></div>
@@ -1628,7 +1684,7 @@ html,body{margin:0}
   </div>
   <div class="notes">
     <span class="notes__k">ملاحظة العرض</span>
-    <p>كل تعديل على البرنامج يمرّ على 223 مجموعة اختبار آلية، ولا يُنشر إلا إذا نجحت كلها. ونقطة الأمان تلتقط الجدول كما هو قبل كل استبدال، والاسترجاع يعيد النسخة كما حُفظت. قل: «الشاشات التي رأيتموها هي الجزء الظاهر فقط.»</p>
+    <p>كل تعديل على البرنامج يمرّ على أكثر من مئتين وعشرين مجموعة اختبار آلية، ولا يُنشر إلا إذا نجحت كلها. ونقطة الأمان تلتقط الجدول كما هو قبل كل استبدال، والاسترجاع يعيد النسخة كما حُفظت. قل: «الشاشات التي رأيتموها هي الجزء الظاهر فقط.»</p>
   </div>
 </section>
 <section class="slide">

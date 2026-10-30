@@ -224,3 +224,4 @@ test:lecture-stick-own
 test:section-requests
 test:import-courses-r3
 test:report-print-menus
+test:presentation-coverage
