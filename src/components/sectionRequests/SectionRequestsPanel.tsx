@@ -23,6 +23,7 @@ import {
   type SectionRequestCounts, type SectionRequestPeriod, type SectionRequestStage, type TimelineStep,
 } from "../../utils/sectionRequests";
 import "./section-requests.css";
+import CourseTags from "../CourseTags";
 
 interface StudentRow { id: string; source: "masari" | "paste"; name: string; civilTail: string; approved?: boolean; registered: boolean }
 interface RequestRow {
@@ -178,7 +179,7 @@ function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
     <article className="srq-card" data-stage={stage}>
       <header className="srq-card-head">
         <div className="srq-course">
-          <b>{row.courseName}</b>
+          <b>{row.courseName}<CourseTags courseId={row.courseId} /></b>
           <small>{[row.courseCode, row.sectionName].filter(Boolean).join(" · ")}</small>
         </div>
         <div className="srq-count" title="عدد الطلبة المحتاجين">

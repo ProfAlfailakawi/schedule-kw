@@ -15,9 +15,15 @@ export type SheetTag = "new" | "old" | "shared" | "service" | null;
 export interface SheetTaggedCourse {
   curriculum?: Array<{ status?: string; name?: string }> | null;
   serviceFor?: string[] | null;
+  /**
+   * جهةُ المقرر من عضوية الصحيفة الواحدة (src/utils/sheetMembership.ts) — المصدرُ نفسه الذي يكتب وسم «صحيفة 2026».
+   * حين يرسلها الخادم (قسمٌ له الصحيفتان) فهي الحكم: null = لا في الجديدة ولا في القديمة.
+   */
+  sheetSide?: "new" | "old" | "shared" | null;
 }
 
 export function sheetTagOf(course: SheetTaggedCourse | null | undefined): SheetTag {
+  if (course && course.sheetSide !== undefined) return course.sheetSide || (Array.isArray(course.serviceFor) && course.serviceFor.length ? "service" : null);
   const plans = Array.isArray(course?.curriculum) ? course!.curriculum! : [];
   if (!plans.length) return Array.isArray(course?.serviceFor) && course!.serviceFor!.length ? "service" : null;
   const isNew = plans.some(plan => plan?.status === "active");

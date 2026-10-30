@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import { LockOpen, Send, ListChecks } from "lucide-react";
 import { markOpened, prepublishGroups, prepublishHeadline, type OfferingSnapshot, type PrepublishRow, type PrepublishSheet } from "../utils/prepublishReach";
 import { PrimaryButton, SecondaryButton } from "./ui";
+import CourseTags from "./CourseTags";
 
 const SHEET_LABEL: Record<PrepublishSheet, { icon: string; label: string }> = {
   new: { icon: "🆕", label: "الصحيفة الجديدة" },
@@ -48,7 +49,7 @@ export function PrepublishReachBody({ rows, busy = 0, failed = 0, onOpen, onSend
           {group.rows.map(row => <li key={row.courseId} data-course={row.courseId} data-opened={row.opened ? "1" : undefined}>
             <span className="ppr-lock" aria-hidden="true">{row.opened ? "🔓" : "🔒"}</span>
             <div className="ppr-text">
-              <b><bdi className="ppr-code">{row.code}</bdi> {row.name}</b>
+              <b><bdi className="ppr-code">{row.code}</bdi> {row.name}<CourseTags courseId={row.courseId} /></b>
               <small>{row.opened ? "فُتح للطرح · يظهر في البطاقة" : failed === row.courseId ? "⛔ تعذّر الحفظ — أعد المحاولة" : row.reason}</small>
             </div>
             {row.opened

@@ -31,6 +31,7 @@ import { sectionLabels } from "../utils/sectionLabel";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import CourseTags from "./CourseTags";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
+import { byCourseNumber } from "../utils/sheetMembership";
 
 type Rule = { degreeUnits: number; fieldTrainingRequired: number; graduateRegularPassed: number; graduateSummerPassed: number };
 type Overview = {
@@ -462,7 +463,7 @@ export default function CurriculumPlans({
           value={toCourseId || ""}
           onChange={picked => setToCourseId(Number(picked) || 0)}
           ariaLabel="مقابله في الصحيفة الجديدة"
-          options={activeCourses.map(course => ({ value: course.AdCourseId, label: course.CourseName, badge: courseOptionBadge([Number(course.AdCourseId)], planBadges), hint: course.CourseCode, keywords: String(course.CourseCode || "") }))}
+          options={[...activeCourses].sort(byCourseNumber(course => course.CourseCode, course => course.CourseName)).map(course => ({ value: course.AdCourseId, label: course.CourseName, badge: courseOptionBadge([Number(course.AdCourseId)], planBadges), hint: course.CourseCode, keywords: String(course.CourseCode || "") }))}
           placeholder="مقابله في الجديدة…"
           searchPlaceholder="اكتب اسم المقرر أو رمزه"
         />
@@ -474,7 +475,7 @@ export default function CurriculumPlans({
           return (
             <article key={row.id} className="plan-map-row">
               <span className="course-code">{from?.CourseCode || "—"}</span>
-              <div><strong>{from?.CourseName || "مقرر قديم"}</strong><small>{to ? `← ${to.CourseCode} ${to.CourseName}` : "أُلغي في الصحيفة الجديدة"}</small></div>
+              <div><strong>{from?.CourseName || "مقرر قديم"}{from ? <CourseTags courseId={from.AdCourseId} /> : null}</strong><small>{to ? `← ${to.CourseCode} ${to.CourseName}` : "أُلغي في الصحيفة الجديدة"}</small></div>
               <button type="button" data-guide-ignore="حذف ربط مقرر قديم بمقابله فقط" onClick={() => deleteTransition(row.id)} aria-label="حذف الربط"><Trash2 /></button>
             </article>
           );

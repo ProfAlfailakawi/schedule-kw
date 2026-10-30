@@ -1070,7 +1070,7 @@
    ],
    "path": "/api/courses",
    "name": "bound dispatch",
-   "call": "7d75623fb8c64c63",
+   "call": "0fd08cd1041cbe65",
    "site": "src/server/routes/coursesRoutes.ts:191",
    "regexp": "/^\\/api\\/courses\\/?$/i",
    "end": true
@@ -1422,7 +1422,7 @@
    ],
    "path": "/api/schedules/copy-preview",
    "name": "bound dispatch",
-   "call": "9c1533f34b15376a",
+   "call": "1c9862fe8804d79c",
    "site": "src/server/routes/schedulesRoutes.ts:439",
    "regexp": "/^\\/api\\/schedules\\/copy-preview\\/?$/i",
    "end": true
@@ -2839,7 +2839,7 @@
    ],
    "path": "/api/intelligence/compare-terms",
    "name": "bound dispatch",
-   "call": "0b0dd87c7d3a78c1",
+   "call": "781fc4cfa434065b",
    "site": "src/server/routes/draftsRoutes.ts:473",
    "regexp": "/^\\/api\\/intelligence\\/compare-terms\\/?$/i",
    "end": true
@@ -4955,7 +4955,7 @@
    ],
    "path": "/api/study-proposals/context",
    "name": "bound dispatch",
-   "call": "1e2a429435af0566",
+   "call": "87379c1277bc444f",
    "site": "src/server/studyProposalRoutes.ts:290",
    "regexp": "/^\\/api\\/study-proposals\\/context\\/?$/i",
    "end": true
@@ -5099,7 +5099,7 @@
    ],
    "path": "/api/course-offering",
    "name": "bound dispatch",
-   "call": "ebec73fd67a0b14f",
+   "call": "2f3b9074e139cded",
    "site": "src/server/routes/offeringRoutes.ts:123",
    "regexp": "/^\\/api\\/course-offering\\/?$/i",
    "end": true
@@ -5282,7 +5282,7 @@
    ],
    "path": "/api/plan-badges",
    "name": "bound dispatch",
-   "call": "8a2e2da8a6a5975c",
+   "call": "a4bf0780f7d18f30",
    "site": "src/server/planReviewRoutes.ts:419",
    "regexp": "/^\\/api\\/plan-badges\\/?$/i",
    "end": true

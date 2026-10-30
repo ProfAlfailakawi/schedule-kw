@@ -442,7 +442,7 @@ function VisitingHistoryTermCard({ term, courseById, courseNumberOf }: {
             return (
               <span key={`${term.termId}-${item.scheduleId || itemIndex}`}>
                 <b>شعبة {item.sectionCode || "—"}</b>
-                <small>{courseCode ? `${courseCode} · ` : ""}{courseName}</small>
+                <small>{courseCode ? `${courseCode} · ` : ""}{courseName}<CourseTags courseId={item.courseId} /></small>
               </span>
             );
           })}
@@ -3341,7 +3341,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 return <li key={group.courseId} className={open ? "is-open" : undefined}>
                   <button type="button" data-guide-ignore="إظهار شعب المقرر التي نوع قاعتها غير مناسب؛ للعرض فقط" className="course-room-head" aria-expanded={open} aria-controls={`course-room-${group.courseId}`}
                     onClick={() => setExpandedCourseRoomIds(previous => { const next = new Set(previous); if (next.has(group.courseId)) next.delete(group.courseId); else next.add(group.courseId); return next; })}>
-                    <span className="course-room-name"><strong>{group.name}</strong><bdi dir="ltr">{group.code}</bdi></span>
+                    <span className="course-room-name"><strong>{group.name}<CourseTags courseId={group.courseId} /></strong><bdi dir="ltr">{group.code}</bdi></span>
                     <span className="course-room-count">{num(group.items.length)}</span>
                     <ChevronDown aria-hidden="true" className="course-room-chevron" />
                   </button>
@@ -3366,7 +3366,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               <header><div><Landmark aria-hidden="true" /><h3>{countOf(courseLoads.length, AR.instructor)}</h3></div></header>
               <div className="course-load-list">{courseLoads.map(person => (
                 <article key={person.instructorId} className={`course-load-row${expandedCourseLoadIds.has(person.instructorId) ? " is-expanded" : ""}`}>
-                  <div className="course-load-person"><span className="course-load-avatar"><UserRound aria-hidden="true" /></span><div className="course-load-person-content"><button type="button" data-guide-ignore="إظهار توزيع مواد الأستاذ حسب الحرم" className="course-load-person-toggle report-instructor-with-badge" aria-expanded={expandedCourseLoadIds.has(person.instructorId)} aria-controls={`course-load-details-${person.instructorId}`} onClick={() => setExpandedCourseLoadIds(previous => { const next = new Set(previous); if (next.has(person.instructorId)) next.delete(person.instructorId); else next.add(person.instructorId); return next; })}>{person.instructorName}{personChips(person.instructorId)}<ChevronDown aria-hidden="true" className="course-load-person-chevron" /></button>{expandedCourseLoadIds.has(person.instructorId) ? <div id={`course-load-details-${person.instructorId}`} className="course-load-detail-list" role="list">{person.courseLocations.flatMap(course => course.sites.map(site => <div key={`${course.courseName}-${site.collegeId}`} className="course-load-detail-item" role="listitem"><span className="course-load-detail-course"><BookOpen aria-hidden="true" />{course.courseName}</span><span className="course-load-detail-sections"><ClipboardList aria-hidden="true" /><b>{num(site.sectionCount)}</b><small>{nounFor(site.sectionCount, AR.section)}</small></span><span className="course-load-detail-site"><Building2 aria-hidden="true" />{site.siteName}</span></div>))}</div> : null}</div></div>
+                  <div className="course-load-person"><span className="course-load-avatar"><UserRound aria-hidden="true" /></span><div className="course-load-person-content"><button type="button" data-guide-ignore="إظهار توزيع مواد الأستاذ حسب الحرم" className="course-load-person-toggle report-instructor-with-badge" aria-expanded={expandedCourseLoadIds.has(person.instructorId)} aria-controls={`course-load-details-${person.instructorId}`} onClick={() => setExpandedCourseLoadIds(previous => { const next = new Set(previous); if (next.has(person.instructorId)) next.delete(person.instructorId); else next.add(person.instructorId); return next; })}>{person.instructorName}{personChips(person.instructorId)}<ChevronDown aria-hidden="true" className="course-load-person-chevron" /></button>{expandedCourseLoadIds.has(person.instructorId) ? <div id={`course-load-details-${person.instructorId}`} className="course-load-detail-list" role="list">{person.courseLocations.flatMap(course => course.sites.map(site => <div key={`${course.courseName}-${site.collegeId}`} className="course-load-detail-item" role="listitem"><span className="course-load-detail-course"><BookOpen aria-hidden="true" />{course.courseName}<CourseTags courseIds={course.courseIds} /></span><span className="course-load-detail-sections"><ClipboardList aria-hidden="true" /><b>{num(site.sectionCount)}</b><small>{nounFor(site.sectionCount, AR.section)}</small></span><span className="course-load-detail-site"><Building2 aria-hidden="true" />{site.siteName}</span></div>))}</div> : null}</div></div>
                   {!expandedCourseLoadIds.has(person.instructorId) ? <><div className="course-load-sites">{person.sites.map(site => <span key={site.collegeId} title={`${site.courses.join(" · ")} · ${countOf(site.sectionCount, AR.section)}`}><Building2 aria-hidden="true" />{site.siteName}<b>{num(site.courseCount)}</b></span>)}</div><div className="course-load-meter" aria-label={countOf(person.courseCount, AR.course)}><i style={{ width: share(person.courseCount, courseLoadMax) }} /></div><div className="course-load-facts"><b>{countOf(person.courseCount, AR.course)}</b><small>{countOf(person.sectionCount, AR.section)}</small></div></> : null}
                 </article>
             ))}</div>
@@ -3430,7 +3430,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                     {group.rows.map(row => (
                       <div key={row.id}>
                         <span className="code-chip">{courseNumberOf(row) || "—"}</span>
-                        <span>{row.AdCourseName}</span>
+                        <span>{row.AdCourseName}<CourseTags courseId={row.AdCourseId} /></span>
                         <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                         <small>{dayText(row)} <CompanionFacilityBadge row={row} compact /></small>
                       </div>
@@ -3488,7 +3488,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                               aria-expanded={selectedResultId === row.id}
                               aria-controls="query-result-detail-panel"
                             >
-                              <strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName || "—"}</strong>
+                              <strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName || "—"}<CourseTags courseId={row.AdCourseId} /></strong>
                               <div>
                                 <span className="code-chip">{courseNumberOf(row, course) || "—"}</span>
                                 <span>شعبة {row.SCode || "—"}</span>

@@ -81,7 +81,8 @@ import ColleagueHoldNotice, { ColleaguePresenceChip } from "./ColleagueHoldNotic
 import { holdDraftFromForm, useScheduleHolds } from "../utils/scheduleHolds";
 import { createEntryMeter, sendEntryMeasure, type EntryMeter, type HelperName } from "../utils/appointmentMeasure";
 import { useCourseReach } from "./CourseReach";
-import { reachLocked, reachNote } from "../utils/courseReach";
+import { reachLocked, reachNote, shortCourseCode } from "../utils/courseReach";
+import { byCourseNumber } from "../utils/sheetMembership";
 import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, useWiderWeek, type MiniPick } from "./TeacherMiniWeek";
 import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
@@ -552,12 +553,14 @@ function GhostInstructorName({ row, name, fallbackCollegeId, fallbackSectionId }
   return <>{name}{visiting ? <VisitingBadge compact /> : null}</>;
 }
 
-function WeekPeek({ anchor, title, who, code, section, days: dayText, from, to, room, hue, rowId }: {
+function WeekPeek({ anchor, title, who, code, section, days: dayText, from, to, room, hue, rowId, courseId }: {
   anchor: { x: number; y: number };
   title: string; who: string; code: string; section: string;
   days: string; from: string; to: string; room: string; hue?: number;
   /** «👣 آخر تعديل»: تُقرأ بعد توقّفٍ قصير، فتنمو البطاقةُ سطراً ويُعاد قياسُها. */
   rowId?: number;
+  /** وسومُ المقرر في البطاقة العائمة: خليةُ الأسبوع أضيقُ من أن تحملها. */
+  courseId?: number;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [box, setBox] = useState<{ left: number; top: number } | null>(null);
@@ -586,7 +589,7 @@ function WeekPeek({ anchor, title, who, code, section, days: dayText, from, to, 
         ...(hue != null ? { ["--hue" as any]: hue } : null),
       }}
     >
-      <strong>{title}</strong>
+      <strong>{title}<CourseTags courseId={courseId} /></strong>
       <em>{who}</em>
       <dl>
         <dt>الشعبة</dt><dd dir="ltr">{section} · {code}</dd>
@@ -638,7 +641,7 @@ const WeekPeekLayer = React.forwardRef<
     },
   }), []);
   if (!peek) return null;
-  return <WeekPeek anchor={{ x: peek.x, y: peek.y }} {...describe(peek.row)} rowId={Number(peek.row.id) || undefined} />;
+  return <WeekPeek anchor={{ x: peek.x, y: peek.y }} {...describe(peek.row)} rowId={Number(peek.row.id) || undefined} courseId={Number(peek.row.AdCourseId) || undefined} />;
 });
 
 /**
@@ -2598,8 +2601,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         && (!endedPrevious || endedPrevious.sectionId !== Number(form.AdSectionId) || formTermIsPast || endedPrevious.ids.has(Number(c.AdCourseId)) || Number(c.AdCourseId) === Number(form.AdCourseId))), (c: AdCourse) => c.CourseName),
       [courses, form.AdSectionId, form.AdCourseId, endedPrevious, formTermIsPast],
     ),
+    /* برقم المقرر تصاعدياً (src/utils/sheetMembership.ts) — الترتيبُ نفسه في كل قائمة مقررات. */
     courseNames = useMemo(
-      () => Array.from(new Set<string>(formCourses.map((c) => c.CourseName))),
+      () => Array.from(new Set<string>([...formCourses].sort(byCourseNumber((c: AdCourse) => c.CourseCode, (c: AdCourse) => c.CourseName)).map((c) => c.CourseName))),
       [formCourses],
     ),
     courseCodes = useMemo(
@@ -9230,7 +9234,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         <article key={x.id}>
                           <span className="code-chip">{x.courseCode}</span>
                           <div>
-                            <strong>{x.courseName}</strong>
+                            <strong>{x.courseName}<CourseTags courseId={x.courseId} /></strong>
                             {/* Note 28: the instructor name is noise in a copy preview
                                 — the copy is by course/section, not by teacher. */}
                             <small>شعبة {x.sectionCode}</small>
@@ -9527,7 +9531,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       setCourseName(String(name));
                       setForm((p) => ({ ...p, AdCourseId: 0, companionRoomId:"", companionRoomLabel:"" }));
                     }}
-                    options={courseNames.map((name) => { const ids = formCourses.filter((c) => c.CourseName === name).map((c) => Number(c.AdCourseId)); return { value: name, label: name, badge: courseOptionBadge(ids, planBadges, { reachLocked: ids.some(id => reachLocked(formReach.data?.courses?.[id])) }) }; })}
+                    options={courseNames.map((name) => { const ids = formCourses.filter((c) => c.CourseName === name).map((c) => Number(c.AdCourseId)); return { value: name, label: name, badge: courseOptionBadge(ids, planBadges, { reachLocked: ids.some(id => reachLocked(formReach.data?.courses?.[id])) }), hint: shortCourseCode(formCourses.find((c) => c.CourseName === name)?.CourseCode) || undefined, keywords: formCourses.filter((c) => c.CourseName === name).map((c) => String(c.CourseCode || "")).join(" ") }; })}
                     searchPlaceholder="اكتب اسم المقرر"
                     required
                   />
@@ -9586,7 +9590,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 ) : (
                 <div className="appt-sumrow" aria-label="المقرر" data-appt-step="course">
                   <span className="appt-num is-done"><Check aria-hidden="true" /></span>
-                  <span className="appt-kv"><span className="k">المقرر</span><span className="v">{courseName}</span></span>
+                  <span className="appt-kv"><span className="k">المقرر</span><span className="v">{courseName}<CourseTags courseId={form.AdCourseId} reach={formReachVerdict} /></span></span>
                   {formCourse?.CourseCode ? <span className="appt-tag is-muted" dir="ltr">{String(formCourse.CourseCode)}</span> : null}
                   {courseSpellingTwins.length ? <span className="appt-tag is-warn" title={`إملاء آخر: «${courseSpellingTwins[0]}» — الدمج من «فحص المقررات المكررة» في مراجعة الصحيفة`}><AlertTriangle aria-hidden="true" />إملاء آخر</span> : null}
                   <span className="appt-sumrow-end">
@@ -13179,7 +13183,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 <li key={move.id}>
                   <span className="repair-index">{index + 1}</span>
                   <div>
-                    <strong>{move.before.AdCourseName || courseById.get(move.before.AdCourseId)?.CourseName || `موعد ${move.id}`}</strong>
+                    <strong>{move.before.AdCourseName || courseById.get(move.before.AdCourseId)?.CourseName || `موعد ${move.id}`}<CourseTags courseId={move.before.AdCourseId} /></strong>
                     <em>{move.because}</em>
                     <span className="repair-line">
                       <bdi>{arabicDays(move.before) || "بلا يوم"} · {formatScheduleTimeRange(move.before.fstarttime, move.before.fendtime)}</bdi>

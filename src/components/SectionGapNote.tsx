@@ -13,6 +13,7 @@ import { planGaps, planSurpluses, planTargets, studentGaps, type GapCourse, type
 import { sortByName } from "../utils/sorting";
 import { VISITOR_MAX_SECTIONS, visitingNeed, type CourseStaffing } from "../utils/visitingNeed";
 import PlanTriageView, { type PlanTriage } from "./PlanTriageView";
+import CourseTags from "./CourseTags";
 import type { PlanDecision } from "../utils/planTriage";
 
 interface GapPayload {
@@ -178,7 +179,7 @@ export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0,
     const open = openId === item.id && Boolean(row);
     const body = (
       <>
-        <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}</small></span>
+        <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}<CourseTags courseId={item.id} /></small></span>
         {kind === "students"
           ? <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
           : item.surplus && item.closureCapacityWarning ? <span className="apb-gap-why" title="العدد المقترح قد لا يستوعب كل احتياج الطلبة؛ لا تُغلق شعباً قبل التحقق من المسجلين والسعة"><AlertTriangle aria-hidden="true" />الاحتياج أعلى من السعة</span>
