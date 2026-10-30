@@ -92,7 +92,8 @@ for (const [name, ok] of [
   ["الحوارات (إرسال · تثبيت · إغلاق · انتقال · سحب)", ["SendDialog ws", "CommitDialog ws", 'dialog === "close"', 'dialog === "switch"', 'dialog === "withdraw"'].every(token => workspace.includes(token))],
   ["الرجوع والإغلاق", /className="sp-back"/.test(header) && /className="sp-close"/.test(header)],
   ["طلبات الشخص نفسه", /className="sp-person-requests"/.test(header) && /entry\.campus/.test(header)],
-  ["شارة المنتدب", /\{visiting \? <VisitingBadge compact \/> : null\}/.test(header)],
+  /* الشارات الموحّدة (#326): «منتدب» و«🎓 تدريب» معاً في PersonChips. */
+  ["شارة المنتدب", /<PersonChips visiting=\{visiting\}/.test(header)],
   ["حالة المسودة والنسخة", /className="sp-status" data-status=\{status\}/.test(header) && /النسخة \{num\(proposal\.version\)\}/.test(header)],
   ["حالة الحفظ في الشريط", /className="sp-bar-status"/.test(workspace)],
   ["ردود الأستاذ وسجلّ المقترح", /<ProposalResponses ws=\{ws\} \/>/.test(workspace)],
