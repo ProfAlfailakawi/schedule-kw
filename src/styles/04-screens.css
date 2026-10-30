@@ -2651,15 +2651,18 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 @media print{.travel-edge{animation:none!important;stroke-dasharray:none!important;stroke-dashoffset:0!important}.travel-heat-cell{animation:none!important}}
 
 /* ── «تغيّر الجدول بعد هذه النسخة»: عدّادٌ كبير، مقررٌ في سطر، أرقام الشعب رقائق ── */
-.so-body{display:grid;gap:10px}
+.so-body{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-inline-size:0}
 .so-count{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--r-md);background:var(--danger-soft);color:var(--danger)}
 .so-count b{font-size:38px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
 .so-count span{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:14px}
 .so-count svg{inline-size:18px;block-size:18px}
-.so-courses{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.so-course{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2)}
-.so-course strong{min-inline-size:0;font-size:13px;font-weight:700;overflow-wrap:anywhere}
-.so-chips{display:inline-flex;flex-wrap:wrap;gap:4px;flex:none}
+.so-courses{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+/* اسمُ المقرر في سطره يلتفّ كالكلام، والشعبُ تحته تلتفّ في سطورها: كانت الشعبُ
+   «flex:none» بجانب الاسم فتأخذ العرض كلّه، ويُعصر الاسمُ حرفاً في كل سطر. */
+.so-course{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);min-inline-size:0}
+.so-course strong{min-inline-size:0;font-size:13px;font-weight:700;line-height:1.5;overflow-wrap:break-word;word-break:normal}
+.so-chips{display:flex;flex-wrap:wrap;gap:4px;min-inline-size:0;max-inline-size:100%}
+.so-cut{margin:0;color:var(--muted);font-size:12px}
 .so-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:var(--r-full);background:var(--warning-soft);color:var(--warning);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
 .so-chip[data-kind="added"]{background:var(--success-soft);color:var(--success)}
 .so-chip[data-kind="removed"]{background:var(--danger-soft);color:var(--danger)}

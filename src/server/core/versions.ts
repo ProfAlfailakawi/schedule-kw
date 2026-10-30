@@ -27,7 +27,9 @@ import type { AuthenticatedRequest } from "./auth";
  */
 export async function captureScopeVersion(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number, label: string, source: "manual"|"draft"|"publish"|"undo"|"copy"|"import" = "manual", options: { unchanged?: boolean } = {}) {
   if (!req.user) return undefined;
-  const rows = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
+  /* النسخةُ شاهدٌ على الجدول كما هو الآن، فتُقرأ من المخزَّن لا من ذاكرة القراءة:
+     لقطةٌ من الذاكرة كانت تحفظ الحالةَ التي قبل آخر نشرٍ أو تراجع، باسمٍ يقول غير ذلك. */
+  const rows = await Repository.getSchedulesByScope({ collegeId, sectionId, termId }, { fresh: true });
   const version = await Repository.createScheduleVersion({
     SystemUserId: Number(req.user.SystemUserId), userName: String(req.user.Name || req.user.SystemUserLogin || ""),
     AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId, label, source, rows
@@ -62,18 +64,23 @@ export function confirmTokens(req: AuthenticatedRequest): Set<string> {
  */
 export async function scopeOverwriteRefusal(
   req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number, base: ScopeBase,
-): Promise<{ error: string; code: string; changes: string[] } | null> {
+): Promise<{ error: string; code: string; changes: string[]; total: number } | null> {
   if (!base?.baseSignatures || !base.baseFingerprint) return null;
   if (confirmTokens(req).has("overwrite-newer")) return null;
-  const live = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
+  /* «N تغييراً ستُمحى» عددٌ يقرّر به الإنسان أن يمحو: يُحسب على الجدول الحيّ الآن. */
+  const live = await Repository.getSchedulesByScope({ collegeId, sectionId, termId }, { fresh: true });
   if (fingerprintOfSignatures(scopeSignatures(live)) === base.baseFingerprint) return null;
   const courses = await Repository.getCoursesBySection(sectionId).catch(() => [] as any[]);
   const nameOf = new Map((courses as any[]).map(course => [Number(course.AdCourseId), String(course.CourseName || "")]));
   const changes = describeScopeChanges(base.baseSignatures, live, id => nameOf.get(id) || "");
+  /* Only new ids for the very same appointments: nothing would be erased. */
+  if (!changes.length) return null;
   return {
     error: `تغيّر الجدول بعد أن أُخذت هذه النسخة: ${countOf(changes.length, AR.change)} ستُمحى إن تابعت. لم يُكتب شيء.`,
     code: "scope-changed-since-base",
     changes: changes.slice(0, 40),
+    /* القائمة تُقصّ عند أربعين سطراً؛ العددُ الكامل يُرسل وحده كي لا يقول الحوار «40» عن مئة. */
+    total: changes.length,
   };
 }
 
@@ -85,7 +92,7 @@ export async function replacementAction(
   collegeId: number, sectionId: number, termId: number, nextRows: any[], kind?: "import" | "copy-term",
 ): Promise<WholesaleAction> {
   if (kind) return { kind };
-  const live = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
+  const live = await Repository.getSchedulesByScope({ collegeId, sectionId, termId }, { fresh: true });
   const loss = replacementLoss(live, nextRows);
   return { kind: "bulk-delete", deleting: loss.deleting, total: loss.total };
 }

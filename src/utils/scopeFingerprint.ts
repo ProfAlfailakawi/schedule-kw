@@ -84,13 +84,31 @@ export function describeScopeChanges(
     try { const [courseId, section] = JSON.parse(signature); return label(Number(courseId), String(section)); }
     catch { return "موعد"; }
   };
+  /* ── موعدٌ أُعيد ترقيمه ليس تغييراً ──────────────────────────────────────
+     A publish, a restore or an undo writes rows the scope did not hold under
+     new ids. The same appointment (same course, section, teacher, days, time
+     and hall) under a new number used to be listed twice — «أُضيف» and «حُذف» —
+     so restoring right after an undo warned «6 تغييرات ستُمحى» about a
+     timetable that had not moved at all. Such pairs cancel out here. */
+  const renumbered = new Map<string, number>();
+  for (const id of Object.keys(base)) if (!(id in live)) renumbered.set(base[id], (renumbered.get(base[id]) || 0) + 1);
+  const paired = new Map<string, number>();
   const lines: string[] = [];
   for (const id of Object.keys(live)) {
     const row = byId.get(id);
-    if (!(id in base)) lines.push(`أُضيف بعدها: ${label(Number(row?.AdCourseId), String(row?.SCode ?? ""), row?.AdCourseName)}`);
+    if (!(id in base)) {
+      const left = renumbered.get(live[id]) || 0;
+      if (left > 0) { renumbered.set(live[id], left - 1); paired.set(live[id], (paired.get(live[id]) || 0) + 1); continue; }
+      lines.push(`أُضيف بعدها: ${label(Number(row?.AdCourseId), String(row?.SCode ?? ""), row?.AdCourseName)}`);
+    }
     else if (base[id] !== live[id]) lines.push(`عُدّل بعدها: ${label(Number(row?.AdCourseId), String(row?.SCode ?? ""), row?.AdCourseName)}`);
   }
-  for (const id of Object.keys(base)) if (!(id in live)) lines.push(`حُذف بعدها: ${fromSignature(base[id])}`);
+  for (const id of Object.keys(base)) {
+    if (id in live) continue;
+    const matched = paired.get(base[id]) || 0;
+    if (matched > 0) { paired.set(base[id], matched - 1); continue; }
+    lines.push(`حُذف بعدها: ${fromSignature(base[id])}`);
+  }
   return lines;
 }
 

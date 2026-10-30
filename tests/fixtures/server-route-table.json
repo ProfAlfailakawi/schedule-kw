@@ -1818,7 +1818,7 @@
    ],
    "path": "/api/intelligence/safety-net",
    "name": "bound dispatch",
-   "call": "8c9c2c3dd35a5517",
+   "call": "a558c109495b16a4",
    "site": "src/server/routes/intelligenceInsightRoutes.ts:643",
    "regexp": "/^\\/api\\/intelligence\\/safety-net\\/?$/i",
    "end": true
@@ -1830,7 +1830,7 @@
    ],
    "path": "/api/intelligence/safety-net/:id/undo",
    "name": "bound dispatch",
-   "call": "0c2360e416f3391c",
+   "call": "f50714c2fdc74165",
    "site": "src/server/routes/intelligenceInsightRoutes.ts:647",
    "regexp": "/^\\/api\\/intelligence\\/safety-net(?:\\/([^/]+?))\\/undo\\/?$/i",
    "end": true
@@ -2827,7 +2827,7 @@
    ],
    "path": "/api/intelligence/versions/:id/restore",
    "name": "bound dispatch",
-   "call": "7a170d8ddd1fb030",
+   "call": "1b85abf4fa34a23b",
    "site": "src/server/routes/draftsRoutes.ts:469",
    "regexp": "/^\\/api\\/intelligence\\/versions(?:\\/([^/]+?))\\/restore\\/?$/i",
    "end": true

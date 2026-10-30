@@ -32,6 +32,14 @@ import {
   WandSparkles,
   X,
   Zap,
+  FileUp,
+  Send,
+  Undo2,
+  CalendarPlus,
+  CalendarX,
+  Pencil,
+  Stamp,
+  Copy,
 } from "lucide-react";
 import { Badge, GhostButton, Notice, PrimaryButton, SecondaryButton, visualConfirm } from "./ui";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
@@ -58,6 +66,13 @@ import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import MiniRing from "./MiniRing";
+import { safetyPointKind, safetyPointTitle, type SafetyPointKind } from "../utils/safetyNet";
+
+/* ── أيقونةُ نقطة الأمان: ما الذي أُخذت قبله ── */
+const SAFETY_POINT_ICONS: Record<SafetyPointKind, React.ComponentType<any>> = {
+  import: FileUp, publish: Send, undo: Undo2, restore: History, add: CalendarPlus,
+  edit: Pencil, delete: CalendarX, approval: Stamp, copy: Copy, other: ShieldCheck,
+};
 
 type Scene =
   | "pulse"
@@ -1328,26 +1343,40 @@ export default function LivingScheduleLayer({
                   </div>
                   <div className="safety-list">
                     {safety.length ? (
-                      safety.map((item) => (
-                        <article key={item.id}>
-                          <span className="safety-node">
-                            <RotateCcw />
-                          </span>
-                          <div>
-                            <strong>{item.label}</strong>
-                            <small>
-                              {new Date(item.createdAt).toLocaleString("ar-KW-u-nu-latn")}{" "}
-                              · {item.userName} · {countOf(item.rowCount, AR.appointment)}
-                            </small>
-                          </div>
-                          <GhostButton
-                            disabled={busy}
-                            onClick={() => undoDecision(item)}
-                          >
-                            استرجع هذا القرار
-                          </GhostButton>
-                        </article>
-                      ))
+                      safety.map((item) => {
+                        /* الخادمُ الأحدث يرسل النوع والعنوان والأثر؛ وإلا يُستنتج النوعُ هنا من الاسم نفسه. */
+                        const kind = item.kind ? { kind: item.kind as SafetyPointKind, kindLabel: String(item.kindLabel || "") } : safetyPointKind(item.label, item.source);
+                        const Icon = SAFETY_POINT_ICONS[kind.kind] || ShieldCheck;
+                        return (
+                          <article key={item.id} data-kind={kind.kind}>
+                            <span className="safety-node" aria-hidden="true">
+                              <Icon />
+                            </span>
+                            <div className="safety-point">
+                              <span className="safety-kind">{kind.kindLabel}</span>
+                              <strong title={item.label}>{item.title || safetyPointTitle(item.label)}</strong>
+                              <small>
+                                <time dateTime={item.createdAt}>
+                                  {new Date(item.createdAt).toLocaleString("ar-KW-u-nu-latn", { dateStyle: "medium", timeStyle: "short" })}
+                                </time>
+                                {item.userName ? <> · {item.userName}</> : null} · {countOf(item.rowCount, AR.appointment)}
+                              </small>
+                              {item.impactSummary ? (
+                                <p className="safety-impact" data-same={item.impact?.same ? "true" : undefined}>
+                                  {item.impact?.same ? item.impactSummary : <>الاسترجاع {item.impactSummary}</>}
+                                </p>
+                              ) : null}
+                            </div>
+                            <GhostButton
+                              data-guide-ignore="استرجاع نقطةٍ من قائمة شبكة الأمان؛ يسأل قبل محو ما تغيّر بعدها"
+                              disabled={busy || Boolean(item.impact?.same)}
+                              onClick={() => undoDecision(item)}
+                            >
+                              استرجع هذا القرار
+                            </GhostButton>
+                          </article>
+                        );
+                      })
                     ) : (
                       <div className="living-empty">لا توجد نقاط أمان بعد.</div>
                     )}
